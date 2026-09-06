@@ -4,13 +4,13 @@
 
 Current stable milestone: **Milestone 13**
 
-Next milestone: **Milestone 14**
+Current development target: **Milestone 14**
 
 Milestone 14 has not started yet.
 
 ## Milestone 13
 
-Milestone 13 established the first functional gameplay/event foundation for MMModern.
+Milestone 13 established the first functional Xeen event execution foundation.
 
 Current implemented capabilities include:
 
@@ -25,7 +25,7 @@ Current implemented capabilities include:
 - Xeen event script execution
 - Automatic map events
 - Event conditions
-- Event calls
+- Event calls and returns
 - Teleport events
 - Game flags
 - Automated tests
@@ -37,6 +37,84 @@ At the completion of Milestone 13:
 - Manual validation: **passing**
 - First public Git repository created
 - Milestone 13 is the initial public MMModern codebase
+
+## Milestone 14 - Manual world interaction and text events
+
+The main goal of Milestone 14 is to allow the player to manually
+interact with the Xeen world.
+
+The intended gameplay flow is:
+
+Player faces an object or direction
+-> presses Space
+-> MMModern resolves the event using the current position and direction
+-> the appropriate event script executes
+-> text or other basic interaction feedback is displayed
+
+Unlike automatic events, manual interaction should not require the
+automatic-event bit (`0x10`).
+
+### Planned investigation / stages
+
+#### 14A - Xeen event text resources
+
+Investigate and implement loading of the Xeen `aazeXXXX.txt` resources.
+
+Provide a reliable mapping between event text indices and the original
+game strings.
+
+#### 14B - Manual interaction input
+
+Add manual interaction, initially through the Space key.
+
+Resolve event execution using:
+
+- current map
+- current player position
+- current facing direction
+
+Manual interaction must use the appropriate Xeen event rules rather than
+requiring the automatic-event flag.
+
+#### 14C - Text/display event opcodes
+
+Investigate and implement the initial text-oriented Xeen event opcodes,
+including relevant examples such as:
+
+- `0x01 Display0x01`
+- `0x02 DoorTextSml`
+- `0x03 DoorTextLrg`
+- `0x04 SignText`
+- `0x29 DisplayBottom`
+- `0x31 DisplayBottomTwoLines`
+- `0x35 DisplayMain`
+
+Exact scope should be determined from the original Xeen behavior and
+the existing ScummVM implementation before coding.
+
+The `NPC` opcode may require a later or separate stage if it introduces
+dialogue, portraits, confirmation, branching, or other larger systems.
+
+#### 14D - Gameplay UI integration and validation
+
+Integrate text/message presentation into the current standalone runtime.
+
+Validate manual interaction against real World of Xeen locations,
+including signs, doors, and other simple directional interactions.
+
+## Out of scope for Milestone 14
+
+Unless required by investigation, Milestone 14 is not intended to
+implement complete:
+
+- NPC interaction
+- shops
+- inventory
+- combat
+- Swimming / Walk on Water capabilities
+
+Swimming / Walk on Water remains navigation/capability work and should
+not redefine the primary goal of Milestone 14.
 
 ## Architecture notes
 
@@ -70,4 +148,4 @@ Update this file whenever:
 - architecture or major dependencies change.
 
 This document should describe the current repository state rather than
-future plans or assumptions.
+outdated plans or assumptions.
