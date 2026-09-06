@@ -19,8 +19,9 @@ Before implementing a task:
 1. Inspect the existing implementation.
 2. Identify the relevant tests.
 3. Preserve the existing architecture unless there is a concrete reason to change it.
-4. Keep changes focused on the requested task.
-5. Do not modify or include original commercial Might and Magic game data.
+4. Reuse existing project abstractions and infrastructure before introducing new parallel systems or architectural layers.
+5. Keep changes focused on the requested task.
+6. Do not modify or include original commercial Might and Magic game data.
 
 After implementing a task:
 
@@ -67,6 +68,13 @@ When modifying an existing subsystem:
 
 ## Milestones
 
+When a milestone or sub-stage has a dedicated plan/specification in `docs/`,
+treat that document as the specification for its intended scope.
+
+If the milestone plan, current code, tests, and project-status documentation
+appear to conflict, identify the conflict before expanding scope or making
+architectural assumptions.
+
 When completing a milestone:
 
 1. Ensure the project builds.
@@ -92,6 +100,7 @@ Before starting any significant implementation task:
 - Do not rescan ScummVM or original game resources when existing project
   documentation already records the required behavior.
 - For milestone work, implement only the currently requested sub-stage.
+- Do not begin the next milestone or sub-stage unless explicitly requested.
 - Do not investigate future sub-stages unless required to avoid an
   architectural mistake in the current one.
 - Prefer the smallest sufficient test set during iteration; run the full
