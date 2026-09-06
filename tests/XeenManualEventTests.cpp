@@ -66,10 +66,15 @@ public:
 		system([this](std::uint16_t id) {
 			++scriptLoads[id];
 			return scripts.at(id);
+		}, [this](std::uint16_t id) {
+			const auto found = texts.find(id);
+			return found == texts.end() ? XeenEventTextFile{id,
+				XeenEventTextLoader::resourceNameForMap(id), false, {}} : found->second;
 		}) {}
 
 	std::map<std::uint16_t, XeenMap> maps;
 	std::map<std::uint16_t, XeenEventScript> scripts;
+	std::map<std::uint16_t, XeenEventTextFile> texts;
 	std::map<std::uint16_t, int> mapLoads;
 	std::map<std::uint16_t, int> scriptLoads;
 	XeenWorld world;
@@ -152,19 +157,27 @@ void testDirectionOrderAndNoEvent() {
 void testErrorsRollbackAndDiagnostics() {
 	Fixture fixture;
 	fixture.maps.emplace(1, map(1));
+	fixture.texts.emplace(1, XeenEventTextFile{1, "aaze0001.txt", true,
+		{"zero", "one", "two", "shown"}});
 	fixture.scripts.emplace(1, script(1, {
 		record(4, 5, 0, 0x0c, setFlag(9), kXeenEventDirectionAll, 40),
-		record(4, 5, 1, 0x04, {3}, kXeenEventDirectionAll, 55)
+		record(4, 5, 1, 0x04, {3}, kXeenEventDirectionAll, 55),
+		record(4, 5, 2, 0x06, {}, kXeenEventDirectionAll, 65)
 	}));
 	XeenCamera camera{1, 4, 5, XeenDirection::South};
 	XeenGameFlags flags;
 	const auto result = fixture.system.runManualEvent(
 		fixture.world, {}, camera, flags);
-	const auto *error = std::get_if<XeenEventExecutionError>(&result);
+	const auto *pending = std::get_if<XeenEventExecutionSuspended>(&result);
+	check(pending && pending->request.text == "shown" && !flags.isSet(9),
+		"manual text request suspends without committing flags");
+	const auto resumed = fixture.system.resumeManualEvent(pending->state,
+		XeenPresentationResponse::Presented, fixture.world, {}, camera, flags);
+	const auto *error = std::get_if<XeenEventExecutionError>(&resumed);
 	check(error && error->kind == XeenEventExecutionErrorKind::UnsupportedOpcode,
-		"unsupported text opcode remains an execution error");
-	check(error->source && error->source->fileOffset == 55 &&
-		error->source->opcode == 0x04,
+		"unsupported opcode after presentation remains an execution error");
+	check(error->source && error->source->fileOffset == 65 &&
+		error->source->opcode == 0x06,
 		"manual error preserves source diagnostics");
 	check(!flags.isSet(9) && camera.mapId == 1 && camera.x == 4 && camera.y == 5,
 		"manual execution failure rolls back camera and flags");

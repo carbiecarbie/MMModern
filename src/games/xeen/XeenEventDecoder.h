@@ -31,6 +31,24 @@ struct XeenEventNone {};
 struct XeenEventExit {};
 struct XeenEventReturn {};
 
+enum class XeenEventDisplayKind {
+	Centered,
+	DoorLabelReduced,
+	DoorLabelNormal,
+	SignLabel,
+	BottomWindow,
+	BottomWindowTwoLines,
+	MainWindow
+};
+
+struct XeenEventDisplay {
+	XeenEventDisplayKind kind = XeenEventDisplayKind::Centered;
+	std::uint8_t textIndex = 0;
+	// Only DisplayBottomTwoLines has a leading layout byte. It is retained
+	// independently and is never interpreted as another text index.
+	std::optional<std::uint8_t> layoutValue;
+};
+
 struct XeenEventTeleportAndExit {
 	std::uint8_t mapId = 0;
 	int x = 0;
@@ -77,6 +95,7 @@ using XeenDecodedEventOperation = std::variant<
 	XeenEventNone,
 	XeenEventExit,
 	XeenEventReturn,
+	XeenEventDisplay,
 	XeenEventTeleportAndExit,
 	XeenEventTeleportAndContinue,
 	XeenEventCallEvent,

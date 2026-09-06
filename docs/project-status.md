@@ -4,11 +4,11 @@
 
 Current stable milestone: **Milestone 13**
 
-Current development target: **Milestone 14C**
+Current development target: **Milestone 14D**
 
-Milestone 14 is in progress. Stages 14A and 14B are complete.
+Milestone 14 is in progress. Stages 14A, 14B, and 14C are complete.
 
-Current automated test suite: **30/30 passing**
+Current automated test suite: **31/31 passing**
 
 ## Milestone 13
 
@@ -115,9 +115,11 @@ Validation completed for 14B:
 - headless runtime validation confirms that the unsupported text opcode is
   reported and the application continues accepting interaction and navigation.
 
-Text opcode support and graphical presentation remain stages 14C and 14D.
+Text opcode semantics are implemented by 14C; graphical presentation remains 14D.
 
 #### 14C - Text/display event opcodes
+
+**Status: complete.**
 
 Investigate and implement the initial text-oriented Xeen event opcodes,
 including relevant examples such as:
@@ -130,10 +132,44 @@ including relevant examples such as:
 - `0x31 DisplayBottomTwoLines`
 - `0x35 DisplayMain`
 
-Exact scope should be determined from the original Xeen behavior and
-the existing ScummVM implementation before coding.
+Implemented behavior includes:
 
-The `NPC` opcode may require a later or separate stage if it introduces
+- strict decoding for all seven planned display opcodes, including the
+  two-byte `DisplayBottomTwoLines` layout;
+- distinct centered-message, reduced/normal scene-label, sign-label,
+  bottom-window, two-line bottom-window, and main-window semantics;
+- zero-based event-text resolution against the currently executing map while
+  preserving raw string bytes and valid empty strings;
+- distinct missing-resource and invalid-index diagnostics;
+- resumable execution state retaining the logical address, current script,
+  working camera and flags, call stack, instruction count, transfer state, and
+  pending presentation request;
+- response validation for presentation completion, acknowledgment, and Yes/No;
+- `DisplayBottomTwoLines` acknowledgment followed by immediate event
+  termination without executing the next script line;
+- restricted condition Action 44 support: value 0 requests Yes/No with original
+  comparison values Yes=`0` and No=`2`; value 1 requests acknowledgment and
+  compares as `1`;
+- transactional camera and flag commit/rollback across any number of
+  presentation suspensions.
+
+Validation completed for 14C:
+
+- full automated test suite: **31/31 passing**;
+- focused synthetic coverage for all seven opcodes, malformed operands, text
+  errors and empty text, semantic presentation kinds, repeated suspension,
+  instruction limits, calls/returns, cross-map text, rollback, and Action 44;
+- all existing interpreter, event-system, manual-event, navigation, and SDL
+  input regressions remain passing;
+- real Castle Basenji map 1 `(8,8)`, facing West, resolves text index 19 from
+  `Display0x01` at offset 461, then requests the Action 44 Yes/No response;
+- the real-data No path completes without teleport, while Yes follows the
+  existing supported teleport implementation.
+
+14C remains headless at the presentation boundary. It does not parse fonts,
+interpret text formatting bytes, paginate by pixel metrics, or render windows.
+
+The `NPC` opcode requires a later or separate stage if it introduces
 dialogue, portraits, confirmation, branching, or other larger systems.
 
 #### 14D - Gameplay UI integration and validation

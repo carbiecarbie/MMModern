@@ -10,15 +10,8 @@
 namespace mmodern {
 namespace {
 
-enum class MissingInstructionPolicy {
-	NaturalCompletion,
-	ExplicitJump,
-	ExplicitCall
-};
-
-struct CallFrame {
-	XeenEventExecutionAddress returnAddress;
-};
+using MissingInstructionPolicy = XeenEventMissingInstructionPolicy;
+using CallFrame = XeenEventCallFrame;
 
 bool validDirection(XeenDirection direction) {
 	switch (direction) {
@@ -70,52 +63,158 @@ bool compare(std::uint32_t actual, std::uint32_t expected,
 	return false;
 }
 
+bool responseMatches(XeenPresentationResponseRequirement requirement,
+		XeenPresentationResponse response) {
+	switch (requirement) {
+	case XeenPresentationResponseRequirement::Presented:
+		return response == XeenPresentationResponse::Presented;
+	case XeenPresentationResponseRequirement::Acknowledgment:
+		return response == XeenPresentationResponse::Acknowledged;
+	case XeenPresentationResponseRequirement::YesNo:
+		return response == XeenPresentationResponse::Yes ||
+			response == XeenPresentationResponse::No;
+	}
+	return false;
+}
+
+XeenPresentationKind presentationKind(XeenEventDisplayKind kind) {
+	switch (kind) {
+	case XeenEventDisplayKind::Centered:
+		return XeenPresentationKind::CenteredMessage;
+	case XeenEventDisplayKind::DoorLabelReduced:
+		return XeenPresentationKind::SceneLabelReduced;
+	case XeenEventDisplayKind::DoorLabelNormal:
+		return XeenPresentationKind::SceneLabelNormal;
+	case XeenEventDisplayKind::SignLabel:
+		return XeenPresentationKind::SceneLabelSign;
+	case XeenEventDisplayKind::BottomWindow:
+		return XeenPresentationKind::BottomWindowMessage;
+	case XeenEventDisplayKind::BottomWindowTwoLines:
+		return XeenPresentationKind::BottomWindowTwoLines;
+	case XeenEventDisplayKind::MainWindow:
+		return XeenPresentationKind::MainWindowMessage;
+	}
+	return XeenPresentationKind::CenteredMessage;
+}
+
 } // namespace
 
 XeenEventExecutionResult XeenEventInterpreter::execute(
 		const XeenCamera &initialCamera, const XeenPartyState &partyState,
 		const XeenGameFlags &gameFlags, XeenWorld &world,
 		const ScriptProvider &scriptProvider) const {
-	XeenEventExecutionAddress logical{initialCamera.mapId, initialCamera.x,
-		initialCamera.y, 0};
+	const XeenEventExecutionStepResult result = begin(initialCamera, partyState,
+		gameFlags, world, scriptProvider, {});
+	if (const auto *completedResult = std::get_if<XeenEventExecutionCompleted>(&result))
+		return *completedResult;
+	if (const auto *executionError = std::get_if<XeenEventExecutionError>(&result))
+		return *executionError;
+	const auto &suspended = std::get<XeenEventExecutionSuspended>(result);
+	return error(XeenEventExecutionErrorKind::PresentationRequired,
+		"event execution requires a presentation response",
+		suspended.state.instructionCount, suspended.state.logicalAddress,
+		suspended.request.source);
+}
+
+XeenEventExecutionStepResult XeenEventInterpreter::begin(
+		const XeenCamera &initialCamera, const XeenPartyState &partyState,
+		const XeenGameFlags &gameFlags, XeenWorld &world,
+		const ScriptProvider &scriptProvider, const TextProvider &textProvider) const {
+	XeenEventExecutionState state;
+	state.logicalAddress = {initialCamera.mapId, initialCamera.x, initialCamera.y, 0};
+	state.lookupDirection = initialCamera.direction;
+	state.workingCamera = initialCamera;
+	state.workingGameFlags = gameFlags;
 	if (!scriptProvider) {
 		return error(XeenEventExecutionErrorKind::ScriptLoadFailed,
-			"script provider is absent", 0, logical);
+			"script provider is absent", 0, state.logicalAddress);
 	}
 	if (!initialCamera.mapId || initialCamera.x < 0 || initialCamera.x > 15 ||
 			initialCamera.y < 0 || initialCamera.y > 15 ||
 			!validDirection(initialCamera.direction)) {
 		return error(XeenEventExecutionErrorKind::InvalidInitialCamera,
-			"initial camera is outside the supported Xeen map domain", 0, logical);
+			"initial camera is outside the supported Xeen map domain", 0,
+			state.logicalAddress);
 	}
 
 	try {
 		static_cast<void>(world.map(initialCamera.mapId));
 	} catch (const std::exception &exception) {
 		return error(XeenEventExecutionErrorKind::MapLoadFailed,
-			std::string("failed to load initial map: ") + exception.what(), 0, logical);
+			std::string("failed to load initial map: ") + exception.what(), 0,
+			state.logicalAddress);
 	}
 
-	std::optional<XeenEventScript> script;
 	try {
-		script.emplace(scriptProvider(initialCamera.mapId));
+		state.currentScript.emplace(scriptProvider(initialCamera.mapId));
 	} catch (const std::exception &exception) {
 		return error(XeenEventExecutionErrorKind::ScriptLoadFailed,
 			std::string("failed to load initial event script: ") + exception.what(),
-			0, logical);
+			0, state.logicalAddress);
 	}
-	if (script->file().mapId != initialCamera.mapId) {
+	if (state.currentScript->file().mapId != initialCamera.mapId) {
 		return error(XeenEventExecutionErrorKind::ScriptMapMismatch,
-			"event script map ID differs from the requested map", 0, logical);
+			"event script map ID differs from the requested map", 0,
+			state.logicalAddress);
 	}
+	return run(std::move(state), std::nullopt, partyState, world,
+		scriptProvider, textProvider);
+}
 
-	XeenCamera workingCamera = initialCamera;
-	XeenGameFlags workingGameFlags = gameFlags;
-	std::vector<CallFrame> callStack;
-	std::size_t instructionCount = 0;
-	MissingInstructionPolicy missingPolicy =
-		MissingInstructionPolicy::NaturalCompletion;
-	std::optional<XeenEventSourceLocation> pendingTransferSource;
+XeenEventExecutionStepResult XeenEventInterpreter::resume(
+		XeenEventExecutionState state, XeenPresentationResponse response,
+		const XeenPartyState &partyState, XeenWorld &world,
+		const ScriptProvider &scriptProvider, const TextProvider &textProvider) const {
+	return run(std::move(state), response, partyState, world,
+		scriptProvider, textProvider);
+}
+
+XeenEventExecutionStepResult XeenEventInterpreter::run(
+		XeenEventExecutionState state,
+		std::optional<XeenPresentationResponse> response,
+		const XeenPartyState &partyState, XeenWorld &world,
+		const ScriptProvider &scriptProvider, const TextProvider &textProvider) const {
+	auto &logical = state.logicalAddress;
+	auto &workingCamera = state.workingCamera;
+	auto &workingGameFlags = state.workingGameFlags;
+	auto &script = state.currentScript;
+	auto &callStack = state.callStack;
+	auto &instructionCount = state.instructionCount;
+	auto &missingPolicy = state.missingInstructionPolicy;
+	auto &pendingTransferSource = state.pendingTransferSource;
+
+	if (state.pendingPresentation) {
+		const XeenEventPendingPresentation pending = *state.pendingPresentation;
+		if (!response || !responseMatches(pending.request.response, *response)) {
+			return error(XeenEventExecutionErrorKind::InvalidPresentationResponse,
+				"response does not match the pending presentation request",
+				instructionCount, logical, pending.request.source);
+		}
+		state.pendingPresentation.reset();
+		if (pending.continuation == XeenEventPendingContinuation::Terminate)
+			return completed(workingCamera, workingGameFlags, instructionCount);
+		if (pending.continuation == XeenEventPendingContinuation::ConditionalAction44) {
+			const std::uint32_t actual = pending.request.response ==
+				XeenPresentationResponseRequirement::Acknowledgment ? 1 :
+				(*response == XeenPresentationResponse::Yes ? 0 : 2);
+			const auto &conditional = *pending.conditional;
+			if (compare(actual, conditional.value, conditional.comparison)) {
+				logical.line = conditional.targetLine;
+				missingPolicy = MissingInstructionPolicy::ExplicitJump;
+				pendingTransferSource = pending.request.source;
+			} else {
+				if (logical.line == 255)
+					return error(XeenEventExecutionErrorKind::LineOverflow,
+						"conditional fallthrough line overflow", instructionCount,
+						logical, pending.request.source);
+				++logical.line;
+				missingPolicy = MissingInstructionPolicy::NaturalCompletion;
+			}
+		}
+	} else if (response) {
+		return error(XeenEventExecutionErrorKind::InvalidPresentationResponse,
+			"execution has no pending presentation request", instructionCount, logical);
+	}
 
 	for (;;) {
 		if (logical.x < 0 || logical.x > 255 || logical.y < 0 || logical.y > 255 ||
@@ -129,7 +228,7 @@ XeenEventExecutionResult XeenEventInterpreter::execute(
 
 		const XeenEventRecord *record = script->findInstruction(
 			static_cast<std::uint8_t>(logical.x),
-			static_cast<std::uint8_t>(logical.y), initialCamera.direction,
+			static_cast<std::uint8_t>(logical.y), state.lookupDirection,
 			static_cast<std::uint8_t>(logical.line));
 		if (!record) {
 			if (missingPolicy == MissingInstructionPolicy::NaturalCompletion)
@@ -161,6 +260,61 @@ XeenEventExecutionResult XeenEventInterpreter::execute(
 
 		if (std::holds_alternative<XeenEventExit>(decoded.operation))
 			return completed(workingCamera, workingGameFlags, instructionCount);
+
+		if (const auto *display = std::get_if<XeenEventDisplay>(&decoded.operation)) {
+			if (!textProvider) {
+				return error(XeenEventExecutionErrorKind::MissingTextResource,
+					"event text provider is absent", instructionCount, logical,
+					decoded.source);
+			}
+			XeenEventTextFile textFile;
+			try {
+				textFile = textProvider(logical.mapId);
+			} catch (const std::exception &exception) {
+				return error(XeenEventExecutionErrorKind::MissingTextResource,
+					std::string("failed to load event text resource: ") + exception.what(),
+					instructionCount, logical, decoded.source);
+			}
+			if (!textFile.resourcePresent) {
+				return error(XeenEventExecutionErrorKind::MissingTextResource,
+					"event text resource is missing", instructionCount, logical,
+					decoded.source);
+			}
+			const std::string *text = textFile.stringAt(display->textIndex);
+			if (!text) {
+				return error(XeenEventExecutionErrorKind::InvalidTextIndex,
+					"event text index is outside the map text table", instructionCount,
+					logical, decoded.source);
+			}
+
+			XeenPresentationRequest request;
+			request.kind = presentationKind(display->kind);
+			request.response = display->kind ==
+				XeenEventDisplayKind::BottomWindowTwoLines ?
+				XeenPresentationResponseRequirement::Acknowledgment :
+				XeenPresentationResponseRequirement::Presented;
+			request.mapId = logical.mapId;
+			request.textIndex = display->textIndex;
+			request.text = *text;
+			request.layoutValue = display->layoutValue;
+			request.source = decoded.source;
+
+			XeenEventPendingPresentation pending;
+			pending.request = request;
+			if (display->kind == XeenEventDisplayKind::BottomWindowTwoLines) {
+				pending.continuation = XeenEventPendingContinuation::Terminate;
+			} else {
+				if (logical.line == 255) {
+					return error(XeenEventExecutionErrorKind::LineOverflow,
+						"display sequential event line overflow", instructionCount,
+						logical, decoded.source);
+				}
+				++logical.line;
+				missingPolicy = MissingInstructionPolicy::NaturalCompletion;
+			}
+			state.pendingPresentation = pending;
+			return XeenEventExecutionSuspended{state, request};
+		}
 
 		if (std::holds_alternative<XeenEventNone>(decoded.operation)) {
 			if (logical.line == 255) {
@@ -210,6 +364,27 @@ XeenEventExecutionResult XeenEventInterpreter::execute(
 
 		if (const auto *conditional =
 				std::get_if<XeenEventConditional>(&decoded.operation)) {
+			if (conditional->action == 44) {
+				if (conditional->value > 1) {
+					return error(XeenEventExecutionErrorKind::UnsupportedConditionAction,
+						"condition action 44 supports only values 0 and 1",
+						instructionCount, logical, decoded.source);
+				}
+				XeenPresentationRequest request;
+				request.kind = XeenPresentationKind::Confirmation;
+				request.response = conditional->value == 0 ?
+					XeenPresentationResponseRequirement::YesNo :
+					XeenPresentationResponseRequirement::Acknowledgment;
+				request.mapId = logical.mapId;
+				request.source = decoded.source;
+				XeenEventPendingPresentation pending;
+				pending.request = request;
+				pending.continuation =
+					XeenEventPendingContinuation::ConditionalAction44;
+				pending.conditional = *conditional;
+				state.pendingPresentation = pending;
+				return XeenEventExecutionSuspended{state, request};
+			}
 			std::uint32_t actual = 0;
 			if (conditional->action == 9) {
 				if (!partyState.party.size()) {

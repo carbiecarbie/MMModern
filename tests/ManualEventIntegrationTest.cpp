@@ -1,6 +1,7 @@
 #include "formats/xeen/XeenAssetSource.h"
 #include "games/xeen/XeenEventLoader.h"
 #include "games/xeen/XeenEventSystem.h"
+#include "games/xeen/XeenEventTextLoader.h"
 #include "games/xeen/XeenEventTrigger.h"
 #include "games/xeen/XeenGameFlagsLoader.h"
 #include "games/xeen/XeenInstallationDetector.h"
@@ -49,24 +50,68 @@ int main(int argc, char *argv[]) {
 				return std::nullopt;
 			return assets.readInitialResource(resourceName);
 		});
+		const XeenEventTextLoader textLoader([&](const std::string &resourceName)
+				-> std::optional<std::vector<std::uint8_t>> {
+			if (!assets.hasArchiveResource(resourceName))
+				return std::nullopt;
+			return assets.readArchiveResource(resourceName);
+		});
 		XeenEventSystem events([&](std::uint16_t mapId) {
 			return XeenEventScript(eventLoader.load(mapId));
+		}, [&](std::uint16_t mapId) {
+			return textLoader.load(mapId);
 		});
 
 		XeenCamera camera{1, 8, 8, XeenDirection::West};
 		check(!hasAutomaticTrigger(world.map(1).geometry, camera.x, camera.y),
 			"Castle Basenji interaction unexpectedly has automatic gate");
 		const auto result = events.runManualEvent(world, party, camera, flags);
-		const auto *error = std::get_if<XeenEventExecutionError>(&result);
-		check(error && error->kind == XeenEventExecutionErrorKind::UnsupportedOpcode,
-			"expected 14B to reach the unsupported Display0x01 opcode");
-		check(error->source && error->source->fileOffset == 461 &&
-			error->source->opcode == 0x01,
-			"unexpected Castle Basenji source instruction");
+		const auto *display = std::get_if<XeenEventExecutionSuspended>(&result);
+		check(display && display->request.kind == XeenPresentationKind::CenteredMessage &&
+			display->request.response == XeenPresentationResponseRequirement::Presented,
+			"expected Castle Basenji centered display request");
+		check(display->request.source.fileOffset == 461 &&
+			display->request.source.opcode == 0x01 && display->request.mapId == 1 &&
+			display->request.textIndex == 19 && !display->request.text.empty(),
+			"unexpected Castle Basenji text request");
 		check(camera.mapId == 1 && camera.x == 8 && camera.y == 8 &&
 			camera.direction == XeenDirection::West && flags.values() == beforeFlags,
-			"unsupported manual event changed state");
-		std::cout << "Real map 1 (8,8) West manual dispatch reaches Display0x01 safely\n";
+			"pending display changed committed state");
+
+		const auto confirmationResult = events.resumeManualEvent(display->state,
+			XeenPresentationResponse::Presented, world, party, camera, flags);
+		const auto *confirmation =
+			std::get_if<XeenEventExecutionSuspended>(&confirmationResult);
+		check(confirmation && confirmation->request.kind ==
+			XeenPresentationKind::Confirmation && confirmation->request.response ==
+			XeenPresentationResponseRequirement::YesNo,
+			"Castle Basenji Action 44 did not request Yes/No");
+		const auto noResult = events.resumeManualEvent(confirmation->state,
+			XeenPresentationResponse::No, world, party, camera, flags);
+		check(std::holds_alternative<XeenManualEventCompleted>(noResult) &&
+			camera.mapId == 1 && camera.x == 8 && camera.y == 8 &&
+			flags.values() == beforeFlags,
+			"Castle Basenji No response should complete without teleport");
+
+		XeenCamera yesCamera{1, 8, 8, XeenDirection::West};
+		XeenGameFlags yesFlags = XeenGameFlagsLoader().loadInitialCloudsFlags(assets);
+		const auto yesDisplayResult = events.runManualEvent(
+			world, party, yesCamera, yesFlags);
+		const auto *yesDisplay =
+			std::get_if<XeenEventExecutionSuspended>(&yesDisplayResult);
+		check(yesDisplay != nullptr, "Castle Basenji Yes path display missing");
+		const auto yesConfirmationResult = events.resumeManualEvent(yesDisplay->state,
+			XeenPresentationResponse::Presented, world, party, yesCamera, yesFlags);
+		const auto *yesConfirmation =
+			std::get_if<XeenEventExecutionSuspended>(&yesConfirmationResult);
+		check(yesConfirmation != nullptr, "Castle Basenji Yes path confirmation missing");
+		const auto yesResult = events.resumeManualEvent(yesConfirmation->state,
+			XeenPresentationResponse::Yes, world, party, yesCamera, yesFlags);
+		check(std::holds_alternative<XeenManualEventCompleted>(yesResult) &&
+			(yesCamera.mapId != 1 || yesCamera.x != 8 || yesCamera.y != 8),
+			"Castle Basenji Yes response did not follow the teleport path");
+
+		std::cout << "Castle Basenji text 19, Action 44 No, and Yes teleport semantics OK\n";
 		return 0;
 	} catch (const std::exception &error) {
 		std::cerr << error.what() << '\n';

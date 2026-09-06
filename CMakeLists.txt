@@ -134,6 +134,12 @@ if(BUILD_TESTING)
 	target_link_libraries(mmodern_event_interpreter_tests PRIVATE
 		mmodern_xeen mmodern_scummvm_xeen)
 	add_test(NAME xeen_event_interpreter COMMAND mmodern_event_interpreter_tests)
+	add_executable(mmodern_event_presentation_tests
+		tests/XeenEventPresentationTests.cpp
+	)
+	target_link_libraries(mmodern_event_presentation_tests PRIVATE
+		mmodern_xeen mmodern_scummvm_xeen)
+	add_test(NAME xeen_event_presentation COMMAND mmodern_event_presentation_tests)
 	add_executable(mmodern_event_system_tests
 		tests/XeenEventSystemTests.cpp
 	)

@@ -9,6 +9,7 @@
 #include "games/xeen/XeenEventLoader.h"
 #include "games/xeen/XeenEventScript.h"
 #include "games/xeen/XeenEventSystem.h"
+#include "games/xeen/XeenEventTextLoader.h"
 #include "games/xeen/XeenEventTrigger.h"
 #include "games/xeen/XeenGameFlagsLoader.h"
 #include "games/xeen/XeenMapLoader.h"
@@ -83,6 +84,10 @@ const char *eventErrorName(XeenEventExecutionErrorKind kind) {
 	case XeenEventExecutionErrorKind::MapLoadFailed: return "MapLoadFailed";
 	case XeenEventExecutionErrorKind::UnsupportedExecutionContext: return "UnsupportedExecutionContext";
 	case XeenEventExecutionErrorKind::InstructionLimitExceeded: return "InstructionLimitExceeded";
+	case XeenEventExecutionErrorKind::MissingTextResource: return "MissingTextResource";
+	case XeenEventExecutionErrorKind::InvalidTextIndex: return "InvalidTextIndex";
+	case XeenEventExecutionErrorKind::InvalidPresentationResponse: return "InvalidPresentationResponse";
+	case XeenEventExecutionErrorKind::PresentationRequired: return "PresentationRequired";
 	}
 	return "UnknownEventError";
 }
@@ -127,6 +132,14 @@ void printManualEventResult(const XeenManualEventResult &result) {
 			std::get_if<XeenManualSpecialInteractionUnsupported>(&result)) {
 		std::cout << "Interacao especial ainda nao suportada (parede "
 			<< static_cast<unsigned>(special->wallValue) << ").\n";
+	} else if (const auto *pending =
+			std::get_if<XeenEventExecutionSuspended>(&result)) {
+		std::cout << "Interacao: apresentacao semantica pendente (texto ";
+		if (pending->request.textIndex)
+			std::cout << static_cast<unsigned>(*pending->request.textIndex);
+		else
+			std::cout << "sem indice";
+		std::cout << ").\n";
 	} else if (const auto *error = std::get_if<XeenEventExecutionError>(&result)) {
 		std::cout << "Interacao: " << formatEventError(*error) << '\n';
 	}
@@ -366,8 +379,16 @@ int Application::renderMap(const std::filesystem::path &gameDirectory,
 				return std::nullopt;
 			return assets.readInitialResource(resourceName);
 		});
+		const XeenEventTextLoader eventTextLoader([&](const std::string &resourceName)
+				-> std::optional<std::vector<std::uint8_t>> {
+			if (!assets.hasArchiveResource(resourceName))
+				return std::nullopt;
+			return assets.readArchiveResource(resourceName);
+		});
 		XeenEventSystem eventSystem([&](std::uint16_t requestedMapId) {
 			return XeenEventScript(eventLoader.load(requestedMapId));
+		}, [&](std::uint16_t requestedMapId) {
+			return eventTextLoader.load(requestedMapId);
 		});
 		XeenNavigationFlow navigationFlow(eventSystem);
 		XeenCamera camera{mapId, x, y, direction};

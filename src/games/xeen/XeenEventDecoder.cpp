@@ -112,6 +112,22 @@ XeenEventDecodeResult decodeEmpty(const XeenEventRecord &record,
 	return instruction(record, context, std::move(operation));
 }
 
+XeenEventDecodeResult decodeDisplay(const XeenEventRecord &record,
+		const XeenEventDecodeContext &context, XeenEventDisplayKind kind) {
+	const std::size_t expected = kind == XeenEventDisplayKind::BottomWindowTwoLines ? 2 : 1;
+	if (record.parameters.size() != expected)
+		return wrongSize(record, context, expected);
+	XeenEventDisplay display;
+	display.kind = kind;
+	if (expected == 2) {
+		display.layoutValue = record.parameters[0];
+		display.textIndex = record.parameters[1];
+	} else {
+		display.textIndex = record.parameters[0];
+	}
+	return instruction(record, context, display);
+}
+
 XeenEventDecodeResult decodeTeleport(const XeenEventRecord &record,
 		const XeenEventDecodeContext &context, bool exits) {
 	if (record.parameters.empty())
@@ -226,6 +242,14 @@ XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 	switch (record.opcode) {
 	case 0x00:
 		return decodeEmpty(record, context, XeenEventNone{});
+	case 0x01:
+		return decodeDisplay(record, context, XeenEventDisplayKind::Centered);
+	case 0x02:
+		return decodeDisplay(record, context, XeenEventDisplayKind::DoorLabelReduced);
+	case 0x03:
+		return decodeDisplay(record, context, XeenEventDisplayKind::DoorLabelNormal);
+	case 0x04:
+		return decodeDisplay(record, context, XeenEventDisplayKind::SignLabel);
 	case 0x07:
 		return decodeTeleport(record, context, true);
 	case 0x08:
@@ -244,6 +268,12 @@ XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 		return decodeEmpty(record, context, XeenEventReturn{});
 	case 0x1f:
 		return decodeTeleport(record, context, false);
+	case 0x29:
+		return decodeDisplay(record, context, XeenEventDisplayKind::BottomWindow);
+	case 0x31:
+		return decodeDisplay(record, context, XeenEventDisplayKind::BottomWindowTwoLines);
+	case 0x35:
+		return decodeDisplay(record, context, XeenEventDisplayKind::MainWindow);
 	default: {
 		std::ostringstream message;
 		message << "opcode " << static_cast<unsigned int>(record.opcode)
