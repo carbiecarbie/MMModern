@@ -160,6 +160,16 @@ ScummVmXeenBridge::ScummVmXeenBridge(const GameInstallation &installation,
 
 ScummVmXeenBridge::~ScummVmXeenBridge() = default;
 
+bool ScummVmXeenBridge::hasArchiveResource(const std::string &resourceName) {
+	return _impl->archive.hasFile(
+		Common::Path(resourceName.c_str(), Common::Path::kNoSeparator));
+}
+
+std::vector<std::uint8_t> ScummVmXeenBridge::readArchiveResource(const std::string &resourceName) {
+	auto stream = openResource(_impl->archive, resourceName);
+	return readBytes(*stream, resourceName);
+}
+
 bool ScummVmXeenBridge::hasInitialResource(const std::string &resourceName) {
 	return _impl->initial().hasFile(
 		Common::Path(resourceName.c_str(), Common::Path::kNoSeparator));

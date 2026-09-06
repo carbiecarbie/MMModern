@@ -25,6 +25,14 @@ XeenAssetSource::XeenAssetSource(const GameInstallation &installation,
 
 XeenAssetSource::~XeenAssetSource() = default;
 
+bool XeenAssetSource::hasArchiveResource(const std::string &resourceName) {
+	return _impl->bridge.hasArchiveResource(resourceName);
+}
+
+std::vector<std::uint8_t> XeenAssetSource::readArchiveResource(const std::string &resourceName) {
+	return _impl->bridge.readArchiveResource(resourceName);
+}
+
 bool XeenAssetSource::hasInitialResource(const std::string &resourceName) {
 	return _impl->bridge.hasInitialResource(resourceName);
 }

@@ -24,6 +24,7 @@ add_library(mmodern_xeen STATIC
 	src/formats/xeen/XeenAssetSource.cpp
 	src/formats/xeen/XeenCharacterFormat.cpp
 	src/formats/xeen/XeenEventFormat.cpp
+	src/formats/xeen/XeenEventTextFormat.cpp
 	src/formats/xeen/XeenGameFlagsFormat.cpp
 	src/formats/xeen/XeenMapFormat.cpp
 	src/games/xeen/XeenCharacter.cpp
@@ -32,6 +33,7 @@ add_library(mmodern_xeen STATIC
 	src/games/xeen/XeenEventDiagnostics.cpp
 	src/games/xeen/XeenEventInterpreter.cpp
 	src/games/xeen/XeenEventLoader.cpp
+	src/games/xeen/XeenEventTextLoader.cpp
 	src/games/xeen/XeenEventScript.cpp
 	src/games/xeen/XeenEventSystem.cpp
 	src/games/xeen/XeenEventTrigger.cpp
@@ -105,6 +107,13 @@ if(BUILD_TESTING)
 	)
 	target_link_libraries(mmodern_event_loader_tests PRIVATE mmodern_core)
 	add_test(NAME xeen_event_loader COMMAND mmodern_event_loader_tests)
+	add_executable(mmodern_event_text_tests
+		tests/XeenEventTextTests.cpp
+		src/formats/xeen/XeenEventTextFormat.cpp
+		src/games/xeen/XeenEventTextLoader.cpp
+	)
+	target_link_libraries(mmodern_event_text_tests PRIVATE mmodern_core)
+	add_test(NAME xeen_event_text COMMAND mmodern_event_text_tests)
 	add_executable(mmodern_event_script_tests
 		tests/XeenEventScriptTests.cpp
 		src/games/xeen/XeenEventDiagnostics.cpp
@@ -254,6 +263,13 @@ if(BUILD_TESTING)
 		mmodern_xeen mmodern_scummvm_xeen)
 	if(MINGW)
 		target_link_options(mmodern_event_script_smoke PRIVATE -Wl,--gc-sections)
+	endif()
+	add_executable(mmodern_event_text_smoke EXCLUDE_FROM_ALL
+		tests/EventTextIntegrationTest.cpp)
+	target_link_libraries(mmodern_event_text_smoke PRIVATE
+		mmodern_xeen mmodern_scummvm_xeen)
+	if(MINGW)
+		target_link_options(mmodern_event_text_smoke PRIVATE -Wl,--gc-sections)
 	endif()
 	add_executable(mmodern_game_flags_smoke EXCLUDE_FROM_ALL
 		tests/GameFlagsIntegrationTest.cpp)

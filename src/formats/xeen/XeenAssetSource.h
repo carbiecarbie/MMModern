@@ -28,6 +28,8 @@ public:
 	void drawSprite(const std::string &resourceName, std::size_t frame, int x, int y,
 		const XeenSpriteDrawOptions &options);
 	IndexedFrame snapshot() const;
+	bool hasArchiveResource(const std::string &resourceName);
+	std::vector<std::uint8_t> readArchiveResource(const std::string &resourceName);
 	bool hasInitialResource(const std::string &resourceName);
 	std::vector<std::uint8_t> readInitialResource(const std::string &resourceName);
 
