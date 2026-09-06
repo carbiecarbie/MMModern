@@ -2,13 +2,13 @@
 
 ## Current development state
 
-Current stable milestone: **Milestone 13**
+Current stable milestone: **Milestone 14**
 
-Current development target: **Milestone 14D**
+Current development target: **TBD / pending roadmap approval**
 
-Milestone 14 is in progress. Stages 14A, 14B, and 14C are complete.
+Milestone 14 is complete. Stages 14A, 14B, 14C, and 14D are complete.
 
-Current automated test suite: **31/31 passing**
+Current automated test suite: **32/32 passing**
 
 ## Milestone 13
 
@@ -174,10 +174,51 @@ dialogue, portraits, confirmation, branching, or other larger systems.
 
 #### 14D - Gameplay UI integration and validation
 
-Integrate text/message presentation into the current standalone runtime.
+**Status: complete.**
 
-Validate manual interaction against real World of Xeen locations,
-including signs, doors, and other simple directional interactions.
+Implemented behavior includes:
+
+- independent decoding of the original English `fnt` resource, including its
+  normal and reduced 8x8 glyph banks and per-glyph advance tables;
+- indexed-color glyph rasterization with clipping, metric wrapping, centered
+  alignment, supported formatting controls, explicit diagnostics for
+  unsupported controls, and page splitting for the supported windows;
+- distinct scene-label placement for reduced door text, normal door text, and
+  signs, plus the original main, bottom, two-line bottom, and centered-message
+  window regions;
+- presentation composition directly into the existing 320x200 `IndexedFrame`;
+- a runtime presentation controller that uses the 14C response protocol and
+  keeps SDL and drawing concerns out of the event interpreter;
+- presentation handling in the existing SDL loop without nested event loops;
+- blocked gameplay input while an acknowledgment or choice is pending, with
+  navigation restored afterward;
+- Space or Enter for acknowledgment and Y/N for the standalone Yes/No mapping;
+- removal of scene labels on the next gameplay action and recomposition after
+  event-driven camera changes.
+
+Validation completed for 14D:
+
+- full automated test suite: **32/32 passing**;
+- synthetic coverage for deterministic font parsing, normal/reduced glyphs,
+  glyph metrics, clipping, formatting diagnostics, metric wrapping, semantic
+  composition, pagination, response mapping, and gameplay blocking/resumption;
+- SDL input coverage confirms repeat suppression and the Space, Enter, Y, and
+  N mappings while Escape retains application-exit behavior;
+- the real map 1 `(1,14)` West SignText renders the two-line `Air` / `Corner`
+  label over the scene;
+- the real map 31 `(5,1)` West DoorTextSml renders `Snake Oil` with the reduced
+  font over the doorway;
+- Castle Basenji at map 1 `(8,8)` West visibly renders text index 19 and its
+  Yes/No choice; No completes without teleport and Yes recomposes at the
+  existing teleport destination;
+- headless SDL runtime checks exercise blocked navigation, both Yes and No
+  response paths, resumed navigation, and clean Escape shutdown;
+- captured indexed frames for all selected real cases were inspected at native
+  320x200 resolution, including the distinct reduced font and the post-teleport
+  frame.
+
+Milestone 14 is now complete. No subsequent milestone has been approved in the
+repository, so the next development target remains TBD.
 
 ## Out of scope for Milestone 14
 

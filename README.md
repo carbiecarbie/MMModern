@@ -8,7 +8,7 @@ The project is currently in early development.
 
 ## Current status
 
-Milestone 14 is in progress. Stages 14A, 14B, and 14C are complete.
+Milestone 14 is complete. The next development target is pending roadmap approval.
 
 MMModern currently includes:
 
@@ -25,7 +25,10 @@ MMModern currently includes:
 - Game flags
 - Loading of Xeen event text resources
 - Manual event dispatch from the current position and facing using Space
-- Headless, resumable event-text presentation and confirmation semantics
+- Resumable event-text presentation and confirmation semantics
+- Original Xeen normal and reduced font rendering in the indexed framebuffer
+- In-game sign, door-label, main, bottom, and centered event-text presentation
+- Runtime acknowledgment and Yes/No interaction without a nested input loop
 - Automated test suite
 - Manual rendering and gameplay validation
 

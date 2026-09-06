@@ -8,8 +8,12 @@
 namespace mmodern {
 
 struct InteractionAction {};
+struct AcknowledgeAction {};
+struct YesAction {};
+struct NoAction {};
 
-using PlayerAction = std::variant<NavigationAction, InteractionAction>;
+using PlayerAction = std::variant<NavigationAction, InteractionAction,
+	AcknowledgeAction, YesAction, NoAction>;
 
 } // namespace mmodern
 

@@ -25,6 +25,7 @@ add_library(mmodern_xeen STATIC
 	src/formats/xeen/XeenCharacterFormat.cpp
 	src/formats/xeen/XeenEventFormat.cpp
 	src/formats/xeen/XeenEventTextFormat.cpp
+	src/formats/xeen/XeenFontFormat.cpp
 	src/formats/xeen/XeenGameFlagsFormat.cpp
 	src/formats/xeen/XeenMapFormat.cpp
 	src/games/xeen/XeenCharacter.cpp
@@ -32,11 +33,13 @@ add_library(mmodern_xeen STATIC
 	src/games/xeen/XeenEventDecoder.cpp
 	src/games/xeen/XeenEventDiagnostics.cpp
 	src/games/xeen/XeenEventInterpreter.cpp
+	src/games/xeen/XeenEventPresenter.cpp
 	src/games/xeen/XeenEventLoader.cpp
 	src/games/xeen/XeenEventTextLoader.cpp
 	src/games/xeen/XeenEventScript.cpp
 	src/games/xeen/XeenEventSystem.cpp
 	src/games/xeen/XeenEventTrigger.cpp
+	src/games/xeen/XeenTextRenderer.cpp
 	src/games/xeen/XeenGameFlags.cpp
 	src/games/xeen/XeenGameFlagsLoader.cpp
 	src/games/xeen/XeenPartyVisualState.cpp
@@ -140,6 +143,12 @@ if(BUILD_TESTING)
 	target_link_libraries(mmodern_event_presentation_tests PRIVATE
 		mmodern_xeen mmodern_scummvm_xeen)
 	add_test(NAME xeen_event_presentation COMMAND mmodern_event_presentation_tests)
+	add_executable(mmodern_event_ui_tests
+		tests/XeenEventUiTests.cpp
+	)
+	target_link_libraries(mmodern_event_ui_tests PRIVATE
+		mmodern_xeen mmodern_scummvm_xeen)
+	add_test(NAME xeen_event_ui COMMAND mmodern_event_ui_tests)
 	add_executable(mmodern_event_system_tests
 		tests/XeenEventSystemTests.cpp
 	)

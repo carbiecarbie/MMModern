@@ -1,5 +1,9 @@
 #include "formats/xeen/XeenAssetSource.h"
+#include "formats/xeen/XeenFontFormat.h"
+#include "games/xeen/CloudsMapComposer.h"
+#include "games/xeen/XeenCharacterRules.h"
 #include "games/xeen/XeenEventLoader.h"
+#include "games/xeen/XeenEventPresenter.h"
 #include "games/xeen/XeenEventSystem.h"
 #include "games/xeen/XeenEventTextLoader.h"
 #include "games/xeen/XeenEventTrigger.h"
@@ -9,6 +13,8 @@
 #include "games/xeen/XeenPartyLoader.h"
 #include "games/xeen/XeenWorld.h"
 
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <optional>
 #include <stdexcept>
@@ -25,18 +31,31 @@ void check(bool value, const char *message) {
 		throw std::runtime_error(message);
 }
 
+void savePpm(const IndexedFrame &frame, const std::filesystem::path &path) {
+	std::ofstream output(path, std::ios::binary);
+	if (!output)
+		throw std::runtime_error("could not create visual-validation image");
+	output << "P6\n" << frame.width << ' ' << frame.height << "\n255\n";
+	for (std::uint8_t index : frame.pixels) {
+		const std::size_t offset = static_cast<std::size_t>(index) * 3;
+		output.put(static_cast<char>(frame.palette[offset]));
+		output.put(static_cast<char>(frame.palette[offset + 1]));
+		output.put(static_cast<char>(frame.palette[offset + 2]));
+	}
+}
+
 } // namespace
 
 int main(int argc, char *argv[]) {
-	if (argc != 2) {
-		std::cerr << "Usage: mmodern_manual_event_smoke <game directory>\n";
+	if (argc != 2 && argc != 3) {
+		std::cerr << "Usage: mmodern_manual_event_smoke <game directory> [image directory]\n";
 		return 1;
 	}
 	try {
 		const auto installation = XeenInstallationDetector().detect(argv[1]);
 		check(installation && installation->hasXeen(),
 			"Clouds installation unavailable");
-		XeenAssetSource assets(*installation);
+		XeenAssetSource assets(*installation, 320, 200);
 		const XeenPartyState party = XeenPartyLoader().loadInitialCloudsParty(assets);
 		XeenGameFlags flags = XeenGameFlagsLoader().loadInitialCloudsFlags(assets);
 		const auto beforeFlags = flags.values();
@@ -61,6 +80,40 @@ int main(int argc, char *argv[]) {
 		}, [&](std::uint16_t mapId) {
 			return textLoader.load(mapId);
 		});
+		check(assets.hasArchiveResource("fnt"), "original Xeen fnt resource unavailable");
+		const XeenFontFormat font(assets.readArchiveResource("fnt"));
+		XeenEventPresenter presenter(font);
+		const CloudsMapComposer mapComposer;
+		const XeenCharacterRulesContext rulesContext{kCloudsInitialYear};
+		const std::optional<std::filesystem::path> imageDirectory = argc == 3 ?
+			std::optional<std::filesystem::path>(argv[2]) : std::nullopt;
+		if (imageDirectory)
+			std::filesystem::create_directories(*imageDirectory);
+
+		auto validateLabel = [&](XeenCamera labelCamera, XeenPresentationKind kind,
+				const char *expectedText, const char *imageName) {
+			XeenGameFlags labelFlags = XeenGameFlagsLoader().loadInitialCloudsFlags(assets);
+			const auto labelResult = events.runManualEvent(world, party, labelCamera, labelFlags);
+			const auto *label = std::get_if<XeenEventExecutionSuspended>(&labelResult);
+			check(label && label->request.kind == kind &&
+				label->request.response == XeenPresentationResponseRequirement::Presented,
+				"expected real scene-label presentation");
+			if (expectedText)
+				check(label->request.text == expectedText, "unexpected real scene-label text");
+			const IndexedFrame visualBase = mapComposer.compose(assets, world, party,
+				labelCamera, rulesContext);
+			const auto visual = presenter.present(visualBase, label->request);
+			check(visual.response == XeenPresentationResponse::Presented &&
+				visual.frame.pixels != visualBase.pixels && presenter.diagnostics().empty(),
+				"real scene label did not render cleanly with original font");
+			if (imageDirectory)
+				savePpm(visual.frame, *imageDirectory / imageName);
+			std::cout << "Rendered label: " << label->request.text << '\n';
+		};
+		validateLabel({1, 1, 14, XeenDirection::West},
+			XeenPresentationKind::SceneLabelSign, nullptr, "sign.ppm");
+		validateLabel({31, 5, 1, XeenDirection::West},
+			XeenPresentationKind::SceneLabelReduced, "Snake Oil", "door-small.ppm");
 
 		XeenCamera camera{1, 8, 8, XeenDirection::West};
 		check(!hasAutomaticTrigger(world.map(1).geometry, camera.x, camera.y),
@@ -77,6 +130,12 @@ int main(int argc, char *argv[]) {
 		check(camera.mapId == 1 && camera.x == 8 && camera.y == 8 &&
 			camera.direction == XeenDirection::West && flags.values() == beforeFlags,
 			"pending display changed committed state");
+		const IndexedFrame castleBase = mapComposer.compose(assets, world, party,
+			camera, rulesContext);
+		const auto castleVisual = presenter.present(castleBase, display->request);
+		check(castleVisual.response == XeenPresentationResponse::Presented &&
+			castleVisual.frame.pixels != castleBase.pixels && presenter.diagnostics().empty(),
+			"Castle Basenji text did not render cleanly with original font");
 
 		const auto confirmationResult = events.resumeManualEvent(display->state,
 			XeenPresentationResponse::Presented, world, party, camera, flags);
@@ -86,6 +145,13 @@ int main(int argc, char *argv[]) {
 			XeenPresentationKind::Confirmation && confirmation->request.response ==
 			XeenPresentationResponseRequirement::YesNo,
 			"Castle Basenji Action 44 did not request Yes/No");
+		const auto confirmationVisual = presenter.present(castleVisual.frame,
+			confirmation->request);
+		if (imageDirectory) {
+			savePpm(confirmationVisual.frame, *imageDirectory / "castle-question.ppm");
+			const auto noVisual = presenter.handle(NoAction{});
+			savePpm(noVisual.frame, *imageDirectory / "castle-no.ppm");
+		}
 		const auto noResult = events.resumeManualEvent(confirmation->state,
 			XeenPresentationResponse::No, world, party, camera, flags);
 		check(std::holds_alternative<XeenManualEventCompleted>(noResult) &&
@@ -110,6 +176,11 @@ int main(int argc, char *argv[]) {
 		check(std::holds_alternative<XeenManualEventCompleted>(yesResult) &&
 			(yesCamera.mapId != 1 || yesCamera.x != 8 || yesCamera.y != 8),
 			"Castle Basenji Yes response did not follow the teleport path");
+		if (imageDirectory) {
+			const IndexedFrame teleported = mapComposer.compose(assets, world, party,
+				yesCamera, rulesContext);
+			savePpm(teleported, *imageDirectory / "castle-yes.ppm");
+		}
 
 		std::cout << "Castle Basenji text 19, Action 44 No, and Yes teleport semantics OK\n";
 		return 0;

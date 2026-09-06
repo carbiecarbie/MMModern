@@ -33,10 +33,11 @@ int main(int argc, char *argv[]) {
 		(argc == 4 ? argv[3] : "");
 	if ((argc != 3 && argc != 4) ||
 			(mode != "ui" && mode != "map" && mode != "indoor" &&
-				mode != "event" && mode != "manual") ||
+				mode != "event" && mode != "manual" && mode != "manual-no" &&
+				mode != "manual-yes") ||
 			(closeMode != "escape" && closeMode != "quit")) {
 		std::cerr << "Usage: mmodern_graphics_smoke <game directory> "
-			"[ui|map|indoor|event|manual] <escape|quit>\n";
+			"[ui|map|indoor|event|manual|manual-no|manual-yes] <escape|quit>\n";
 		return 1;
 	}
 	std::atomic<bool> finished{false};
@@ -195,7 +196,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 	std::thread closer([&] {
-		if (escape && mode == "manual") {
+		if (escape && (mode == "manual" || mode == "manual-no" || mode == "manual-yes")) {
 			struct KeyEvent {
 				std::uint32_t type;
 				SDL_Keycode key;
@@ -204,8 +205,9 @@ int main(int argc, char *argv[]) {
 			const std::array<KeyEvent, 6> events{{
 				{SDL_KEYDOWN, SDLK_SPACE, 0},
 				{SDL_KEYDOWN, SDLK_SPACE, 1},
-				{SDL_KEYUP, SDLK_SPACE, 0},
-				{SDL_KEYDOWN, SDLK_SPACE, 0},
+				{SDL_KEYDOWN, SDLK_w, 0},
+				{SDL_KEYDOWN, mode == "manual-yes" ? SDLK_y :
+					mode == "manual-no" ? SDLK_n : SDLK_SPACE, 0},
 				{SDL_KEYDOWN, SDLK_w, 0},
 				{SDL_KEYDOWN, SDLK_ESCAPE, 0}
 			}};
@@ -257,14 +259,16 @@ int main(int argc, char *argv[]) {
 	const int result = mode == "map" ? mmodern::Application().renderMap(argv[1]) :
 		mode == "indoor" ? mmodern::Application().renderMap(argv[1], 33, 4, 8,
 			mmodern::XeenDirection::North) :
-		mode == "manual" ? mmodern::Application().renderMap(argv[1], 1, 8, 8,
+		(mode == "manual" || mode == "manual-no" || mode == "manual-yes") ?
+		mmodern::Application().renderMap(argv[1], 1, 8, 8,
 			mmodern::XeenDirection::West) :
 		mode == "event" ? mmodern::Application().renderMap(argv[1], 31, 2, 9,
 			mmodern::XeenDirection::North) : mmodern::Application().run(argv[1]);
 	finished = true;
 	closer.join();
 	const int expectedEvents = escape && mode == "map" ? 5 :
-		escape && mode == "indoor" ? 8 : escape && mode == "manual" ? 6 : 1;
+		escape && mode == "indoor" ? 8 :
+		escape && (mode == "manual" || mode == "manual-no" || mode == "manual-yes") ? 6 : 1;
 	if (result != 0 || sent != expectedEvents) {
 		std::cerr << "Graphics smoke test failed\n";
 		return 1;

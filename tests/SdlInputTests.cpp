@@ -35,6 +35,9 @@ int main() {
 	std::atomic<bool> finished{false};
 	std::atomic<int> interactions{0};
 	std::atomic<int> navigation{0};
+	std::atomic<int> acknowledgments{0};
+	std::atomic<int> yes{0};
+	std::atomic<int> no{0};
 	std::exception_ptr senderError;
 	std::thread sender([&] {
 		try {
@@ -43,6 +46,10 @@ int main() {
 			pushKey(finished, SDLK_SPACE, 0, SDL_KEYUP);
 			pushKey(finished, SDLK_SPACE, 0);
 			pushKey(finished, SDLK_w, 0);
+			pushKey(finished, SDLK_RETURN, 0);
+			pushKey(finished, SDLK_y, 1);
+			pushKey(finished, SDLK_y, 0);
+			pushKey(finished, SDLK_n, 0);
 			pushKey(finished, SDLK_ESCAPE, 0);
 		} catch (...) {
 			senderError = std::current_exception();
@@ -57,17 +64,26 @@ int main() {
 		[&](const PlayerAction &action) -> std::optional<IndexedFrame> {
 			if (std::holds_alternative<InteractionAction>(action))
 				++interactions;
-			else
+			else if (std::holds_alternative<NavigationAction>(action))
 				++navigation;
+			else if (std::holds_alternative<AcknowledgeAction>(action))
+				++acknowledgments;
+			else if (std::holds_alternative<YesAction>(action))
+				++yes;
+			else if (std::holds_alternative<NoAction>(action))
+				++no;
 			return std::nullopt;
 		});
 	finished = true;
 	sender.join();
 	if (senderError)
 		std::rethrow_exception(senderError);
-	if (!result || interactions != 2 || navigation != 1) {
+	if (!result || interactions != 2 || navigation != 1 || acknowledgments != 1 ||
+			yes != 1 || no != 1) {
 		std::cerr << "Space dispatch/repeat filtering failed: interactions="
-			<< interactions << " navigation=" << navigation << '\n';
+			<< interactions << " navigation=" << navigation
+			<< " acknowledgments=" << acknowledgments << " yes=" << yes
+			<< " no=" << no << '\n';
 		return 1;
 	}
 	std::cout << "SDL Space dispatch and key-repeat filtering OK\n";

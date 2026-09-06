@@ -50,6 +50,13 @@ std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key) {
 		return NavigationAction::MoveBackward;
 	case SDLK_SPACE:
 		return InteractionAction{};
+	case SDLK_RETURN:
+	case SDLK_KP_ENTER:
+		return AcknowledgeAction{};
+	case SDLK_y:
+		return YesAction{};
+	case SDLK_n:
+		return NoAction{};
 	default:
 		return std::nullopt;
 	}
