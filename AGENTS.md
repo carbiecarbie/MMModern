@@ -85,3 +85,14 @@ Before starting any significant implementation task:
 - Treat it as the current record of milestone progress and implemented capabilities.
 - Update `docs/project-status.md` when a milestone starts, materially changes, or is completed.
 - Do not mark a milestone complete until its required build, automated tests, and manual validation have passed.
+
+## Agent efficiency
+
+- Prefer targeted inspection over broad repository exploration.
+- Do not rescan ScummVM or original game resources when existing project
+  documentation already records the required behavior.
+- For milestone work, implement only the currently requested sub-stage.
+- Do not investigate future sub-stages unless required to avoid an
+  architectural mistake in the current one.
+- Prefer the smallest sufficient test set during iteration; run the full
+  suite at completion.
