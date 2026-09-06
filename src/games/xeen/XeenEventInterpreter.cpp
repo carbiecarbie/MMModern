@@ -1,0 +1,355 @@
+#include "games/xeen/XeenEventInterpreter.h"
+
+#include "games/xeen/XeenWorld.h"
+
+#include <limits>
+#include <stdexcept>
+#include <utility>
+#include <vector>
+
+namespace mmodern {
+namespace {
+
+enum class MissingInstructionPolicy {
+	NaturalCompletion,
+	ExplicitJump,
+	ExplicitCall
+};
+
+struct CallFrame {
+	XeenEventExecutionAddress returnAddress;
+};
+
+bool validDirection(XeenDirection direction) {
+	switch (direction) {
+	case XeenDirection::North:
+	case XeenDirection::East:
+	case XeenDirection::South:
+	case XeenDirection::West:
+		return true;
+	}
+	return false;
+}
+
+XeenEventExecutionError error(XeenEventExecutionErrorKind kind,
+		std::string message, std::size_t instructionCount,
+		const XeenEventExecutionAddress &logicalAddress,
+		std::optional<XeenEventSourceLocation> source = std::nullopt,
+		std::optional<XeenEventExecutionAddress> requestedTarget = std::nullopt) {
+	return {kind, std::move(message), instructionCount, logicalAddress,
+		std::move(source), std::move(requestedTarget)};
+}
+
+XeenEventExecutionCompleted completed(const XeenCamera &camera,
+		const XeenGameFlags &gameFlags, std::size_t instructionCount) {
+	return {camera, gameFlags, instructionCount};
+}
+
+XeenEventExecutionErrorKind executionKind(XeenEventDecodeErrorKind kind) {
+	switch (kind) {
+	case XeenEventDecodeErrorKind::MalformedInstruction:
+		return XeenEventExecutionErrorKind::MalformedInstruction;
+	case XeenEventDecodeErrorKind::UnsupportedOpcode:
+		return XeenEventExecutionErrorKind::UnsupportedOpcode;
+	case XeenEventDecodeErrorKind::UnsupportedOperand:
+		return XeenEventExecutionErrorKind::UnsupportedOperand;
+	}
+	return XeenEventExecutionErrorKind::MalformedInstruction;
+}
+
+bool compare(std::uint32_t actual, std::uint32_t expected,
+		XeenEventComparison comparison) {
+	switch (comparison) {
+	case XeenEventComparison::GreaterOrEqual:
+		return actual >= expected;
+	case XeenEventComparison::Equal:
+		return actual == expected;
+	case XeenEventComparison::LessOrEqual:
+		return actual <= expected;
+	}
+	return false;
+}
+
+} // namespace
+
+XeenEventExecutionResult XeenEventInterpreter::execute(
+		const XeenCamera &initialCamera, const XeenPartyState &partyState,
+		const XeenGameFlags &gameFlags, XeenWorld &world,
+		const ScriptProvider &scriptProvider) const {
+	XeenEventExecutionAddress logical{initialCamera.mapId, initialCamera.x,
+		initialCamera.y, 0};
+	if (!scriptProvider) {
+		return error(XeenEventExecutionErrorKind::ScriptLoadFailed,
+			"script provider is absent", 0, logical);
+	}
+	if (!initialCamera.mapId || initialCamera.x < 0 || initialCamera.x > 15 ||
+			initialCamera.y < 0 || initialCamera.y > 15 ||
+			!validDirection(initialCamera.direction)) {
+		return error(XeenEventExecutionErrorKind::InvalidInitialCamera,
+			"initial camera is outside the supported Xeen map domain", 0, logical);
+	}
+
+	try {
+		static_cast<void>(world.map(initialCamera.mapId));
+	} catch (const std::exception &exception) {
+		return error(XeenEventExecutionErrorKind::MapLoadFailed,
+			std::string("failed to load initial map: ") + exception.what(), 0, logical);
+	}
+
+	std::optional<XeenEventScript> script;
+	try {
+		script.emplace(scriptProvider(initialCamera.mapId));
+	} catch (const std::exception &exception) {
+		return error(XeenEventExecutionErrorKind::ScriptLoadFailed,
+			std::string("failed to load initial event script: ") + exception.what(),
+			0, logical);
+	}
+	if (script->file().mapId != initialCamera.mapId) {
+		return error(XeenEventExecutionErrorKind::ScriptMapMismatch,
+			"event script map ID differs from the requested map", 0, logical);
+	}
+
+	XeenCamera workingCamera = initialCamera;
+	XeenGameFlags workingGameFlags = gameFlags;
+	std::vector<CallFrame> callStack;
+	std::size_t instructionCount = 0;
+	MissingInstructionPolicy missingPolicy =
+		MissingInstructionPolicy::NaturalCompletion;
+	std::optional<XeenEventSourceLocation> pendingTransferSource;
+
+	for (;;) {
+		if (logical.x < 0 || logical.x > 255 || logical.y < 0 || logical.y > 255 ||
+				logical.line < 0 || logical.line > 255) {
+			const auto kind = missingPolicy == MissingInstructionPolicy::ExplicitCall ?
+				XeenEventExecutionErrorKind::InvalidCallTarget :
+				XeenEventExecutionErrorKind::InvalidJumpTarget;
+			return error(kind, "logical event address is outside the lookup domain",
+				instructionCount, logical, pendingTransferSource, logical);
+		}
+
+		const XeenEventRecord *record = script->findInstruction(
+			static_cast<std::uint8_t>(logical.x),
+			static_cast<std::uint8_t>(logical.y), initialCamera.direction,
+			static_cast<std::uint8_t>(logical.line));
+		if (!record) {
+			if (missingPolicy == MissingInstructionPolicy::NaturalCompletion)
+				return completed(workingCamera, workingGameFlags, instructionCount);
+			const auto kind = missingPolicy == MissingInstructionPolicy::ExplicitCall ?
+				XeenEventExecutionErrorKind::InvalidCallTarget :
+				XeenEventExecutionErrorKind::InvalidJumpTarget;
+			return error(kind,
+				missingPolicy == MissingInstructionPolicy::ExplicitCall ?
+					"explicit CallEvent target does not exist" :
+					"explicit conditional jump target does not exist",
+				instructionCount, logical, pendingTransferSource, logical);
+		}
+		pendingTransferSource.reset();
+
+		const XeenEventDecodeResult decodedResult = XeenEventDecoder::decode(*record,
+			{logical.mapId, script->file().resourceName});
+		if (const auto *decodeError = std::get_if<XeenEventDecodeError>(&decodedResult)) {
+			return error(executionKind(decodeError->kind), decodeError->message,
+				instructionCount, logical, decodeError->source);
+		}
+		const auto &decoded = std::get<XeenDecodedEventInstruction>(decodedResult);
+		if (instructionCount >= kMaximumInstructions) {
+			return error(XeenEventExecutionErrorKind::InstructionLimitExceeded,
+				"event execution exceeded 1024 dispatched instructions",
+				instructionCount, logical, decoded.source);
+		}
+		++instructionCount;
+
+		if (std::holds_alternative<XeenEventExit>(decoded.operation))
+			return completed(workingCamera, workingGameFlags, instructionCount);
+
+		if (std::holds_alternative<XeenEventNone>(decoded.operation)) {
+			if (logical.line == 255) {
+				return error(XeenEventExecutionErrorKind::LineOverflow,
+					"sequential event line overflow", instructionCount, logical,
+					decoded.source);
+			}
+			++logical.line;
+			missingPolicy = MissingInstructionPolicy::NaturalCompletion;
+			continue;
+		}
+
+		if (const auto *takeOrGive =
+				std::get_if<XeenEventTakeOrGive>(&decoded.operation)) {
+			const auto neutral = [](const XeenEventTakeOrGivePair &pair) {
+				return pair.mode == 0 && pair.value == 0;
+			};
+			const bool setFlag = neutral(takeOrGive->first) &&
+				takeOrGive->second.mode == 20 && neutral(takeOrGive->third);
+			const bool clearFlag = takeOrGive->first.mode == 20 &&
+				neutral(takeOrGive->second) && neutral(takeOrGive->third);
+			if (!setFlag && !clearFlag) {
+				return error(XeenEventExecutionErrorKind::UnsupportedOperationMode,
+					"TakeOrGive mode combination is outside the interpreter subset",
+					instructionCount, logical, decoded.source);
+			}
+			const std::uint32_t flag = setFlag ? takeOrGive->second.value :
+				takeOrGive->first.value;
+			if (flag >= XeenGameFlags::kCount) {
+				return error(XeenEventExecutionErrorKind::InvalidFlagIndex,
+					"TakeOrGive game flag index exceeds 255", instructionCount,
+					logical, decoded.source);
+			}
+			if (setFlag)
+				workingGameFlags.set(static_cast<int>(flag));
+			else
+				workingGameFlags.clear(static_cast<int>(flag));
+			if (logical.line == 255) {
+				return error(XeenEventExecutionErrorKind::LineOverflow,
+					"TakeOrGive sequential event line overflow", instructionCount,
+					logical, decoded.source);
+			}
+			++logical.line;
+			missingPolicy = MissingInstructionPolicy::NaturalCompletion;
+			continue;
+		}
+
+		if (const auto *conditional =
+				std::get_if<XeenEventConditional>(&decoded.operation)) {
+			std::uint32_t actual = 0;
+			if (conditional->action == 9) {
+				if (!partyState.party.size()) {
+					return error(XeenEventExecutionErrorKind::EmptyParty,
+						"condition action 9 requires an active party member",
+						instructionCount, logical, decoded.source);
+				}
+				actual = static_cast<std::uint32_t>(
+					partyState.party.member(partyState.roster, 0).currentSp);
+			} else if (conditional->action == 20) {
+				if (conditional->value > 255) {
+					return error(XeenEventExecutionErrorKind::InvalidFlagIndex,
+						"condition action 20 flag index exceeds 255",
+						instructionCount, logical, decoded.source);
+				}
+				actual = workingGameFlags.isSet(static_cast<int>(conditional->value)) ?
+					conditional->value : std::numeric_limits<std::uint32_t>::max();
+			} else {
+				return error(XeenEventExecutionErrorKind::UnsupportedConditionAction,
+					"condition action is outside the interpreter subset",
+					instructionCount, logical, decoded.source);
+			}
+
+			if (compare(actual, conditional->value, conditional->comparison)) {
+				logical.line = conditional->targetLine;
+				missingPolicy = MissingInstructionPolicy::ExplicitJump;
+				pendingTransferSource = decoded.source;
+			} else {
+				if (logical.line == 255) {
+					return error(XeenEventExecutionErrorKind::LineOverflow,
+						"conditional fallthrough line overflow", instructionCount,
+						logical, decoded.source);
+				}
+				++logical.line;
+				missingPolicy = MissingInstructionPolicy::NaturalCompletion;
+			}
+			continue;
+		}
+
+		if (const auto *call = std::get_if<XeenEventCallEvent>(&decoded.operation)) {
+			XeenEventExecutionAddress target{logical.mapId, call->x, call->y,
+				call->line};
+			if (call->x < 0 || call->y < 0) {
+				return error(XeenEventExecutionErrorKind::InvalidCallTarget,
+					"negative CallEvent target has no raw lookup mapping",
+					instructionCount, logical, decoded.source, target);
+			}
+			if (callStack.size() >= kMaximumCallDepth) {
+				return error(XeenEventExecutionErrorKind::CallStackOverflow,
+					"event call stack exceeded 64 pending calls", instructionCount,
+					logical, decoded.source, target);
+			}
+			if (logical.line == 255) {
+				return error(XeenEventExecutionErrorKind::LineOverflow,
+					"CallEvent return line overflow", instructionCount, logical,
+					decoded.source, target);
+			}
+			callStack.push_back({{logical.mapId, logical.x, logical.y,
+				logical.line + 1}});
+			logical = target;
+			missingPolicy = MissingInstructionPolicy::ExplicitCall;
+			pendingTransferSource = decoded.source;
+			continue;
+		}
+
+		if (std::holds_alternative<XeenEventReturn>(decoded.operation)) {
+			if (callStack.empty()) {
+				return error(XeenEventExecutionErrorKind::InvalidReturn,
+					"Return requires a pending CallEvent", instructionCount,
+					logical, decoded.source);
+			}
+			logical = callStack.back().returnAddress;
+			callStack.pop_back();
+			missingPolicy = MissingInstructionPolicy::NaturalCompletion;
+			pendingTransferSource.reset();
+			continue;
+		}
+
+		const auto executeTeleport = [&](std::uint8_t mapId, int x, int y,
+				bool continueExecution) -> std::optional<XeenEventExecutionError> {
+			XeenEventExecutionAddress target{mapId, x, y, 0};
+			if (continueExecution && !callStack.empty()) {
+				return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
+					"TeleportAndContinue with an active call stack is unsupported",
+					instructionCount, logical, decoded.source, target);
+			}
+			if (x < 0 || x > 15 || y < 0 || y > 15) {
+				return error(XeenEventExecutionErrorKind::UnsupportedTeleportDestination,
+					"teleport destination is outside local coordinates 0..15",
+					instructionCount, logical, decoded.source, target);
+			}
+			try {
+				static_cast<void>(world.map(mapId));
+			} catch (const std::exception &exception) {
+				return error(XeenEventExecutionErrorKind::MapLoadFailed,
+					std::string("failed to load teleport destination: ") + exception.what(),
+					instructionCount, logical, decoded.source, target);
+			}
+			workingCamera.mapId = mapId;
+			workingCamera.x = x;
+			workingCamera.y = y;
+			return std::nullopt;
+		};
+
+		if (const auto *teleport =
+				std::get_if<XeenEventTeleportAndExit>(&decoded.operation)) {
+			if (const auto teleportError = executeTeleport(teleport->mapId,
+					teleport->x, teleport->y, false))
+				return *teleportError;
+			return completed(workingCamera, workingGameFlags, instructionCount);
+		}
+
+		if (const auto *teleport =
+				std::get_if<XeenEventTeleportAndContinue>(&decoded.operation)) {
+			if (const auto teleportError = executeTeleport(teleport->mapId,
+					teleport->x, teleport->y, true))
+				return *teleportError;
+			logical = {teleport->mapId, teleport->x, teleport->y, 0};
+			try {
+				script.emplace(scriptProvider(teleport->mapId));
+			} catch (const std::exception &exception) {
+				return error(XeenEventExecutionErrorKind::ScriptLoadFailed,
+					std::string("failed to load destination event script: ") +
+						exception.what(), instructionCount, logical, decoded.source,
+					logical);
+			}
+			if (script->file().mapId != teleport->mapId) {
+				return error(XeenEventExecutionErrorKind::ScriptMapMismatch,
+					"destination event script map ID differs from requested map",
+					instructionCount, logical, decoded.source, logical);
+			}
+			missingPolicy = MissingInstructionPolicy::NaturalCompletion;
+			pendingTransferSource.reset();
+			continue;
+		}
+
+		return error(XeenEventExecutionErrorKind::UnsupportedOpcode,
+			"decoded operation is outside the interpreter subset",
+			instructionCount, logical, decoded.source);
+	}
+}
+
+} // namespace mmodern

@@ -1,0 +1,31 @@
+#ifndef MMODERN_GAMES_XEEN_XEEN_CHARACTER_RULES_H
+#define MMODERN_GAMES_XEEN_XEEN_CHARACTER_RULES_H
+
+#include "games/xeen/XeenCharacter.h"
+
+#include <cstdint>
+
+namespace mmodern {
+
+struct XeenCharacterRulesContext {
+	std::uint32_t currentYear = 0;
+};
+
+class XeenCharacterRules {
+public:
+	static int effectiveEndurance(const XeenCharacter &character,
+		const XeenCharacterRulesContext &context);
+	static int effectiveIntellect(const XeenCharacter &character,
+		const XeenCharacterRulesContext &context);
+	static int effectivePersonality(const XeenCharacter &character,
+		const XeenCharacterRulesContext &context);
+
+	static int maxHp(const XeenCharacter &character,
+		const XeenCharacterRulesContext &context);
+	static int maxSp(const XeenCharacter &character,
+		const XeenCharacterRulesContext &context);
+};
+
+} // namespace mmodern
+
+#endif

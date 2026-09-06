@@ -1,0 +1,56 @@
+#include "games/xeen/CloudsMapComposer.h"
+
+#include "formats/xeen/XeenAssetSource.h"
+#include "games/xeen/CloudsUiComposer.h"
+#include "games/xeen/XeenIndoorScene.h"
+#include "games/xeen/XeenWorld.h"
+
+namespace mmodern {
+
+IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
+		XeenWorld &world, const XeenPartyState &partyState,
+		const XeenCamera &camera,
+		const XeenCharacterRulesContext &context) const {
+	const CloudsUiComposer interfaceComposer;
+	interfaceComposer.loadBackground(assets);
+
+	const XeenMap &map = world.map(camera.mapId);
+	if (map.geometry.isOutdoors()) {
+		const auto commands = XeenOutdoorScene().build(world, camera);
+		for (const XeenOutdoorDrawCommand &command : commands) {
+			assets.drawSprite(command.resourceName, command.frame,
+				command.x, command.y, command.options);
+		}
+	} else {
+		// Indoor darkness is deliberately ignored in Milestone 12D: the scene is
+		// rendered illuminated so its geometry can be validated without gameplay.
+		const auto commands = XeenIndoorScene().build(world, camera);
+		for (const XeenIndoorDrawCommand &command : commands) {
+			assets.drawSprite(command.resourceName, command.frame,
+				command.x, command.y, command.options);
+		}
+	}
+
+	// Interface::assembleBorder() redraws this frame after drawScene(). Parts of
+	// the corner gems intentionally overlap the generic scene clipping rectangle.
+	assets.drawSprite("global.icn", 0, 8, 8);
+	// Resting-state border overlays from Interface::assembleBorder(). These fill
+	// the intentionally transparent openings left by global.icn around the scene.
+	assets.drawSprite("border.icn", 16,   0, 82); // Levitation indicator, inactive.
+	assets.drawSprite("border.icn", 28, 194, 91); // Secret-door indicator, inactive.
+	assets.drawSprite("border.icn", 40, 107,  9); // Danger-sense indicator, inactive.
+	assets.drawSprite("border.icn",  0,   0, 32); // Left clairvoyance statue, inactive.
+	assets.drawSprite("border.icn",  8, 215, 32); // Right clairvoyance statue, inactive.
+	// Default (no active resistance) corner indicators from assembleBorder().
+	assets.drawSprite("fecp.brd", 0,   2,   2); // Fire.
+	assets.drawSprite("fecp.brd", 2, 219,   2); // Electricity.
+	assets.drawSprite("fecp.brd", 4,   2, 134); // Cold.
+	assets.drawSprite("fecp.brd", 6, 219, 134); // Poison.
+	assets.drawSprite("bless.icn", 16, 33, 137); // Blessed indicator, inactive.
+
+	// The compass/main button at y=137 overlaps the scene border in the original UI.
+	interfaceComposer.drawInterface(assets, partyState, context);
+	return assets.snapshot();
+}
+
+} // namespace mmodern
