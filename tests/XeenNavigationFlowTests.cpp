@@ -322,6 +322,28 @@ void testTeleportBoundariesAndPersistentFlags() {
 		"same EventSystem cache persists across actions");
 }
 
+void testManualInteractionDoesNotRunAutomaticDispatch() {
+	Fixture fixture;
+	auto map1 = freeMap(1);
+	addTrigger(map1, 4, 5);
+	fixture.maps.emplace(1, map1);
+	fixture.scripts.emplace(1, script(1, {
+		record(4, 5, 0, 0x0c, setFlag(26)),
+		record(4, 5, 1, 0x12)
+	}));
+	XeenCamera camera{1, 4, 5, XeenDirection::South};
+	XeenGameFlags flags;
+	const auto result = fixture.flow.processInteraction(
+		fixture.world, {}, camera, flags);
+	const auto *value = std::get_if<XeenManualEventCompleted>(&result);
+	check(value && value->instructionCount == 2 && flags.isSet(26),
+		"interaction routes through manual dispatch");
+	check(fixture.scriptLoads[1] == 1,
+		"interaction executes once even when the cell has 0x10");
+	checkCamera(camera, 1, 4, 5, XeenDirection::South,
+		"interaction does not move or rotate the camera");
+}
+
 } // namespace
 
 int main() {
@@ -330,6 +352,7 @@ int main() {
 		testBlockedAndRotatedActions();
 		testMapTransitionAndErrorBoundary();
 		testTeleportBoundariesAndPersistentFlags();
+		testManualInteractionDoesNotRunAutomaticDispatch();
 		std::cout << "Navigation action, automatic event and final state flow OK\n";
 		return 0;
 	} catch (const std::exception &error) {

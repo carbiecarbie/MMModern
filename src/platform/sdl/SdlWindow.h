@@ -2,7 +2,7 @@
 #define MMODERN_PLATFORM_SDL_WINDOW_H
 
 #include "core/IndexedFrame.h"
-#include "core/NavigationAction.h"
+#include "core/PlayerAction.h"
 
 #include <functional>
 #include <optional>
@@ -12,7 +12,7 @@ namespace mmodern {
 
 class SdlWindow {
 public:
-	using FrameUpdateHandler = std::function<std::optional<IndexedFrame>(NavigationAction)>;
+	using FrameUpdateHandler = std::function<std::optional<IndexedFrame>(const PlayerAction &)>;
 
 	bool show(const IndexedFrame &frame, const std::string &title) const;
 	bool showInteractive(const IndexedFrame &frame, const std::string &title,

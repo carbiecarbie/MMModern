@@ -140,6 +140,12 @@ if(BUILD_TESTING)
 	target_link_libraries(mmodern_event_system_tests PRIVATE
 		mmodern_xeen mmodern_scummvm_xeen)
 	add_test(NAME xeen_event_system COMMAND mmodern_event_system_tests)
+	add_executable(mmodern_manual_event_tests
+		tests/XeenManualEventTests.cpp
+	)
+	target_link_libraries(mmodern_manual_event_tests PRIVATE
+		mmodern_xeen mmodern_scummvm_xeen)
+	add_test(NAME xeen_manual_event COMMAND mmodern_manual_event_tests)
 	add_executable(mmodern_navigation_flow_tests
 		tests/XeenNavigationFlowTests.cpp
 		src/app/XeenNavigationFlow.cpp
@@ -147,6 +153,12 @@ if(BUILD_TESTING)
 	target_link_libraries(mmodern_navigation_flow_tests PRIVATE
 		mmodern_xeen mmodern_scummvm_xeen)
 	add_test(NAME xeen_navigation_flow COMMAND mmodern_navigation_flow_tests)
+	add_executable(mmodern_sdl_input_tests tests/SdlInputTests.cpp)
+	target_link_libraries(mmodern_sdl_input_tests PRIVATE
+		mmodern_platform_sdl SDL2::SDL2)
+	add_test(NAME sdl_input COMMAND mmodern_sdl_input_tests)
+	set_tests_properties(sdl_input PROPERTIES ENVIRONMENT
+		"SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software")
 	add_executable(mmodern_game_flags_tests
 		tests/XeenGameFlagsTests.cpp
 		src/formats/xeen/XeenGameFlagsFormat.cpp
@@ -291,6 +303,13 @@ if(BUILD_TESTING)
 		mmodern_xeen mmodern_scummvm_xeen)
 	if(MINGW)
 		target_link_options(mmodern_event_system_smoke PRIVATE -Wl,--gc-sections)
+	endif()
+	add_executable(mmodern_manual_event_smoke EXCLUDE_FROM_ALL
+		tests/ManualEventIntegrationTest.cpp)
+	target_link_libraries(mmodern_manual_event_smoke PRIVATE
+		mmodern_xeen mmodern_scummvm_xeen)
+	if(MINGW)
+		target_link_options(mmodern_manual_event_smoke PRIVATE -Wl,--gc-sections)
 	endif()
 	add_executable(mmodern_navigation_flow_smoke EXCLUDE_FROM_ALL
 		tests/NavigationFlowIntegrationTest.cpp

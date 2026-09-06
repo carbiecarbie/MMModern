@@ -33,10 +33,10 @@ int main(int argc, char *argv[]) {
 		(argc == 4 ? argv[3] : "");
 	if ((argc != 3 && argc != 4) ||
 			(mode != "ui" && mode != "map" && mode != "indoor" &&
-				mode != "event") ||
+				mode != "event" && mode != "manual") ||
 			(closeMode != "escape" && closeMode != "quit")) {
 		std::cerr << "Usage: mmodern_graphics_smoke <game directory> "
-			"[ui|map|indoor|event] <escape|quit>\n";
+			"[ui|map|indoor|event|manual] <escape|quit>\n";
 		return 1;
 	}
 	std::atomic<bool> finished{false};
@@ -195,6 +195,36 @@ int main(int argc, char *argv[]) {
 		}
 	}
 	std::thread closer([&] {
+		if (escape && mode == "manual") {
+			struct KeyEvent {
+				std::uint32_t type;
+				SDL_Keycode key;
+				std::uint8_t repeat;
+			};
+			const std::array<KeyEvent, 6> events{{
+				{SDL_KEYDOWN, SDLK_SPACE, 0},
+				{SDL_KEYDOWN, SDLK_SPACE, 1},
+				{SDL_KEYUP, SDLK_SPACE, 0},
+				{SDL_KEYDOWN, SDLK_SPACE, 0},
+				{SDL_KEYDOWN, SDLK_w, 0},
+				{SDL_KEYDOWN, SDLK_ESCAPE, 0}
+			}};
+			for (const auto &key : events) {
+				for (int attempt = 0; attempt < 10 && !finished; ++attempt) {
+					std::this_thread::sleep_for(std::chrono::milliseconds(200));
+					SDL_Event event{};
+					event.type = key.type;
+					event.key.state = key.type == SDL_KEYUP ? SDL_RELEASED : SDL_PRESSED;
+					event.key.repeat = key.repeat;
+					event.key.keysym.sym = key.key;
+					if (SDL_PushEvent(&event) == 1) {
+						++sent;
+						break;
+					}
+				}
+			}
+			return;
+		}
 		const std::vector<SDL_Keycode> keys = mode == "map" ?
 			std::vector<SDL_Keycode>{SDLK_w, SDLK_s, SDLK_LEFT, SDLK_RIGHT, SDLK_ESCAPE} :
 			mode == "indoor" ?
@@ -227,12 +257,14 @@ int main(int argc, char *argv[]) {
 	const int result = mode == "map" ? mmodern::Application().renderMap(argv[1]) :
 		mode == "indoor" ? mmodern::Application().renderMap(argv[1], 33, 4, 8,
 			mmodern::XeenDirection::North) :
+		mode == "manual" ? mmodern::Application().renderMap(argv[1], 1, 8, 8,
+			mmodern::XeenDirection::West) :
 		mode == "event" ? mmodern::Application().renderMap(argv[1], 31, 2, 9,
 			mmodern::XeenDirection::North) : mmodern::Application().run(argv[1]);
 	finished = true;
 	closer.join();
 	const int expectedEvents = escape && mode == "map" ? 5 :
-		escape && mode == "indoor" ? 8 : 1;
+		escape && mode == "indoor" ? 8 : escape && mode == "manual" ? 6 : 1;
 	if (result != 0 || sent != expectedEvents) {
 		std::cerr << "Graphics smoke test failed\n";
 		return 1;

@@ -116,6 +116,22 @@ void requireAutomaticEventSuccess(const XeenAutomaticEventResult &result) {
 		throw std::runtime_error("evento automatico: " + formatEventError(*error));
 }
 
+void printManualEventResult(const XeenManualEventResult &result) {
+	if (std::holds_alternative<XeenManualEventNoEvent>(result)) {
+		std::cout << "Interacao: nenhum evento nesta posicao e direcao.\n";
+	} else if (const auto *completed =
+			std::get_if<XeenManualEventCompleted>(&result)) {
+		std::cout << "Interacao: evento concluido ("
+			<< completed->instructionCount << " instrucoes).\n";
+	} else if (const auto *special =
+			std::get_if<XeenManualSpecialInteractionUnsupported>(&result)) {
+		std::cout << "Interacao especial ainda nao suportada (parede "
+			<< static_cast<unsigned>(special->wallValue) << ").\n";
+	} else if (const auto *error = std::get_if<XeenEventExecutionError>(&result)) {
+		std::cout << "Interacao: " << formatEventError(*error) << '\n';
+	}
+}
+
 void printPartyDiagnostics(const XeenPartyState &state) {
 	for (const std::string &diagnostic : state.diagnostics)
 		std::cerr << "Aviso: " << diagnostic << '\n';
@@ -369,19 +385,24 @@ int Application::renderMap(const std::filesystem::path &gameDirectory,
 		if (initialMapIsIndoor && initialMapIsDark)
 			std::cout << "Aviso: interior escuro renderizado iluminado para diagnostico.\n";
 		std::cout << "Controles: W/seta cima avanca, S/seta baixo recua, "
-			"A/seta esquerda e D/seta direita giram.\n";
+			"A/seta esquerda e D/seta direita giram, Space interage.\n";
 		SdlWindow window;
 		return window.showInteractive(frame, "MMModern - Mapa " + std::to_string(camera.mapId),
-			[&](NavigationAction action) -> std::optional<IndexedFrame> {
-				const XeenNavigationFlowResult result =
-					navigationFlow.processNavigationAction(world, partyState, camera,
-						gameFlags, action);
-				if (const char *reason = blockedReason(result.movementResult)) {
-					std::cout << "Movimento bloqueado: " << reason << ". Camera: mapa "
-						<< camera.mapId << " X=" << camera.x << " Y=" << camera.y
-						<< " " << directionName(camera.direction) << ".\n";
+			[&](const PlayerAction &action) -> std::optional<IndexedFrame> {
+				if (const auto *navigation = std::get_if<NavigationAction>(&action)) {
+					const XeenNavigationFlowResult result =
+						navigationFlow.processNavigationAction(world, partyState, camera,
+							gameFlags, *navigation);
+					if (const char *reason = blockedReason(result.movementResult)) {
+						std::cout << "Movimento bloqueado: " << reason << ". Camera: mapa "
+							<< camera.mapId << " X=" << camera.x << " Y=" << camera.y
+							<< " " << directionName(camera.direction) << ".\n";
+					}
+					requireAutomaticEventSuccess(result.automaticEvent);
+				} else {
+					printManualEventResult(navigationFlow.processInteraction(world,
+						partyState, camera, gameFlags));
 				}
-				requireAutomaticEventSuccess(result.automaticEvent);
 				std::cout << "Camera: mapa " << camera.mapId << " X=" << camera.x
 					<< " Y=" << camera.y << " " << directionName(camera.direction) << ".\n";
 				return composer.compose(assets, world, partyState, camera, rulesContext);

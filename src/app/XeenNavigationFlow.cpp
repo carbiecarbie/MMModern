@@ -22,4 +22,10 @@ XeenNavigationFlowResult XeenNavigationFlow::processNavigationAction(
 		_eventSystem.runAutomaticEvent(world, partyState, camera, gameFlags)};
 }
 
+XeenManualEventResult XeenNavigationFlow::processInteraction(
+		XeenWorld &world, const XeenPartyState &partyState, XeenCamera &camera,
+		XeenGameFlags &gameFlags) {
+	return _eventSystem.runManualEvent(world, partyState, camera, gameFlags);
+}
+
 } // namespace mmodern

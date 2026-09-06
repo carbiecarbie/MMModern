@@ -7,6 +7,7 @@
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <optional>
 
 namespace mmodern {
 namespace {
@@ -89,6 +90,58 @@ XeenAutomaticEventResult XeenEventSystem::runAutomaticEvent(
 
 	const auto &completed = std::get<XeenEventExecutionCompleted>(execution);
 	XeenAutomaticEventCompleted result;
+	result.instructionCount = completed.instructionCount;
+	result.cameraChanged = !sameCamera(beforeCamera, completed.finalCamera);
+	result.flagsChanged = beforeFlags.values() != completed.finalGameFlags.values();
+	camera = completed.finalCamera;
+	gameFlags = completed.finalGameFlags;
+	return result;
+}
+
+XeenManualEventResult XeenEventSystem::runManualEvent(
+		XeenWorld &world, const XeenPartyState &partyState, XeenCamera &camera,
+		XeenGameFlags &gameFlags) {
+	if (!camera.mapId || camera.x < 0 || camera.x > 15 || camera.y < 0 ||
+			camera.y > 15 || !validDirection(camera.direction)) {
+		return systemError(XeenEventExecutionErrorKind::InvalidInitialCamera,
+			"manual event camera is outside the supported Xeen map domain", camera);
+	}
+
+	const XeenMap *map = nullptr;
+	try {
+		map = &world.map(camera.mapId);
+	} catch (const std::exception &exception) {
+		return systemError(XeenEventExecutionErrorKind::MapLoadFailed,
+			std::string("failed to load manual-event map: ") + exception.what(), camera);
+	}
+	if (const auto wall = unsupportedManualSpecialInteraction(map->geometry,
+			camera.x, camera.y, camera.direction))
+		return XeenManualSpecialInteractionUnsupported{*wall};
+
+	std::optional<XeenEventScript> script;
+	try {
+		script.emplace(scriptForMap(camera.mapId));
+	} catch (const std::exception &exception) {
+		return systemError(XeenEventExecutionErrorKind::ScriptLoadFailed,
+			std::string("failed to load manual event script: ") + exception.what(), camera);
+	}
+	if (!script->findInstruction(static_cast<std::uint8_t>(camera.x),
+			static_cast<std::uint8_t>(camera.y), camera.direction, 0))
+		return XeenManualEventNoEvent{};
+
+	const XeenCamera beforeCamera = camera;
+	const XeenGameFlags beforeFlags = gameFlags;
+	const auto provider = [this](std::uint16_t mapId) {
+		return scriptForMap(mapId);
+	};
+	const XeenEventExecutionResult execution = _interpreter.execute(camera,
+		partyState, gameFlags, world, provider);
+	if (const auto *executionError =
+			std::get_if<XeenEventExecutionError>(&execution))
+		return *executionError;
+
+	const auto &completed = std::get<XeenEventExecutionCompleted>(execution);
+	XeenManualEventCompleted result;
 	result.instructionCount = completed.instructionCount;
 	result.cameraChanged = !sameCamera(beforeCamera, completed.finalCamera);
 	result.flagsChanged = beforeFlags.values() != completed.finalGameFlags.values();

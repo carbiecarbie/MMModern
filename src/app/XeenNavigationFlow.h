@@ -26,6 +26,10 @@ public:
 		const XeenPartyState &partyState, XeenCamera &camera,
 		XeenGameFlags &gameFlags, NavigationAction action);
 
+	XeenManualEventResult processInteraction(XeenWorld &world,
+		const XeenPartyState &partyState, XeenCamera &camera,
+		XeenGameFlags &gameFlags);
+
 private:
 	XeenEventSystem &_eventSystem;
 	XeenMovement _movement;

@@ -20,9 +20,27 @@ struct XeenAutomaticEventCompleted {
 	bool flagsChanged = false;
 };
 
+struct XeenManualEventNoEvent {};
+
+struct XeenManualEventCompleted {
+	std::size_t instructionCount = 0;
+	bool cameraChanged = false;
+	bool flagsChanged = false;
+};
+
+struct XeenManualSpecialInteractionUnsupported {
+	std::uint8_t wallValue = 0;
+};
+
 using XeenAutomaticEventResult = std::variant<
 	XeenAutomaticEventNoTrigger,
 	XeenAutomaticEventCompleted,
+	XeenEventExecutionError>;
+
+using XeenManualEventResult = std::variant<
+	XeenManualEventNoEvent,
+	XeenManualEventCompleted,
+	XeenManualSpecialInteractionUnsupported,
 	XeenEventExecutionError>;
 
 class XeenEventSystem {
@@ -35,6 +53,10 @@ public:
 	// The supplied state is already current. A failure rolls back only changes
 	// attempted by this event; it does not undo earlier movement or rotation.
 	XeenAutomaticEventResult runAutomaticEvent(XeenWorld &world,
+		const XeenPartyState &partyState, XeenCamera &camera,
+		XeenGameFlags &gameFlags);
+
+	XeenManualEventResult runManualEvent(XeenWorld &world,
 		const XeenPartyState &partyState, XeenCamera &camera,
 		XeenGameFlags &gameFlags);
 

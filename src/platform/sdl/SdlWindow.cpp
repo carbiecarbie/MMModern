@@ -34,7 +34,7 @@ bool uploadFrame(SDL_Texture *texture, const IndexedFrame &frame,
 	return true;
 }
 
-std::optional<NavigationAction> navigationAction(const SDL_KeyboardEvent &key) {
+std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key) {
 	switch (key.keysym.sym) {
 	case SDLK_a:
 	case SDLK_LEFT:
@@ -48,6 +48,8 @@ std::optional<NavigationAction> navigationAction(const SDL_KeyboardEvent &key) {
 	case SDLK_s:
 	case SDLK_DOWN:
 		return NavigationAction::MoveBackward;
+	case SDLK_SPACE:
+		return InteractionAction{};
 	default:
 		return std::nullopt;
 	}
@@ -125,7 +127,7 @@ bool showLoop(const IndexedFrame &initialFrame, const std::string &title,
 					if (event.key.keysym.sym == SDLK_ESCAPE) {
 						running = false;
 					} else if (event.key.repeat == 0 && handler) {
-						const auto action = navigationAction(event.key);
+						const auto action = playerAction(event.key);
 						if (action) {
 							try {
 								const auto nextFrame = handler(*action);
