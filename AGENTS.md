@@ -76,3 +76,12 @@ When completing a milestone:
 5. Update the README if publicly visible capabilities changed.
 6. Prepare a concise commit message.
 7. Wait for explicit approval before creating a milestone tag or pushing changes.
+
+## Current project status
+
+Before starting any significant implementation task:
+
+- Read `docs/project-status.md`.
+- Treat it as the current record of milestone progress and implemented capabilities.
+- Update `docs/project-status.md` when a milestone starts, materially changes, or is completed.
+- Do not mark a milestone complete until its required build, automated tests, and manual validation have passed.
