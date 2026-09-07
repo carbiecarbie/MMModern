@@ -21,9 +21,13 @@ class XeenEventPresenter {
 public:
 	explicit XeenEventPresenter(const XeenFontFormat &font);
 
+	// Consecutive presents layer over frame(); clear before starting a new scene.
 	XeenPresentationUpdate present(const IndexedFrame &base,
 		const XeenPresentationRequest &request);
 	XeenPresentationUpdate handle(const PlayerAction &action);
+	// Rebuild displayed layers and all pending pages without producing a response.
+	IndexedFrame rebase(const IndexedFrame &base);
+	void clear();
 
 	bool blocksGameplay() const { return _active; }
 	const IndexedFrame &frame() const { return _frame; }
@@ -42,6 +46,11 @@ private:
 	IndexedFrame _underlay;
 	std::vector<std::string> _diagnostics;
 	bool _active = false;
+	struct Layer {
+		XeenPresentationRequest request;
+		std::size_t page;
+	};
+	std::vector<Layer> _layers;
 };
 
 } // namespace mmodern

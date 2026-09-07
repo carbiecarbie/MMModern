@@ -27,6 +27,10 @@ XeenAssetSource::XeenAssetSource(const GameInstallation &installation,
 
 XeenAssetSource::~XeenAssetSource() = default;
 
+void XeenAssetSource::discardSpriteCache() { _impl->bridge.discardSpriteCache(); }
+std::size_t XeenAssetSource::cachedSpriteCount() const { return _impl->bridge.cachedSpriteCount(); }
+std::size_t XeenAssetSource::spriteLoadCount() const { return _impl->bridge.spriteLoadCount(); }
+
 std::optional<std::vector<std::uint8_t>> XeenAssetSource::readCloudsVisualMetadataFromDarkArchive() {
 	return _impl->bridge.readCloudsVisualMetadataFromDarkArchive();
 }

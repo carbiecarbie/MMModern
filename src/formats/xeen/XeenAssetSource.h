@@ -31,6 +31,10 @@ public:
 	void drawSprite(const std::string &resourceName, std::size_t frame, int x, int y,
 		const XeenSpriteDrawOptions &options);
 	IndexedFrame snapshot() const;
+	void discardSpriteCache();
+	std::size_t cachedSpriteCount() const;
+	// Successful resource reads + SpriteResource constructions, not draw calls.
+	std::size_t spriteLoadCount() const;
 	// Explicit physical origin; nullopt means archive/member absent, not empty.
 	std::optional<std::vector<std::uint8_t>> readCloudsVisualMetadataFromDarkArchive();
 	void drawObjectVisual(const XeenObjectVisual &visual, int x, int y,

@@ -1,12 +1,11 @@
 # Milestone 16 - Static outdoor map objects and visual Remove
 
-**Status: 16A and 16B complete; 16C not implemented. Milestone 16 remains incomplete.**
+**Status: 16A, 16B, and 16C complete. Milestone 16 is the stable milestone.**
 
-**Next implementation target: 16C - Visual Remove and runtime lifecycle.**
+**No subsequent milestone is approved.**
 
-Milestone 15 remains the completed stable milestone. This document defines the
-approved scope and implementation order for Milestone 16 and records the
-completed 16A/16B implementation and validation below.
+This document defines the approved scope and implementation order for
+Milestone 16 and records its completed implementation and validation below.
 
 ## Recommendation and objective
 
@@ -503,8 +502,8 @@ Validation performed:
 No checkpoint discrepancy was found. All 16A completion criteria are satisfied.
 That stage validated isolated appearance only: no outdoor scene integration,
 terrain occlusion, map visibility, or visual Remove was implemented during 16A.
-16B subsequently added outdoor composition as recorded below; 16C and
-Milestone 16 completion remain pending.
+16B subsequently added outdoor composition and 16C completed runtime integration,
+as recorded below. Neither was part of the 16A implementation.
 
 ## 16B - Static objects in the outdoor scene
 
@@ -724,11 +723,12 @@ All 16B completion criteria are satisfied, including the explicit real-data
 occlusion finding above. No immediate runtime visual Remove, mutation-triggered
 recomposition, presentation/event invalidation, or other 16C work was added.
 Supported objects disappear only when the scene is explicitly reconstructed
-after effective disabling. 16C is the next implementation target.
+after effective disabling at the 16B boundary. The subsequent 16C implementation
+is recorded below.
 
 ## 16C - Visual Remove and runtime lifecycle
 
-**Status: approved; next implementation target, not started.**
+**Status: complete, validated 2026-09-07.**
 
 ### Objective
 
@@ -833,6 +833,125 @@ The largest integration risk is an old base frame retained by the presentation
 controller or completion path. A test that manually calls the composer after
 `Remove` does not prove the runtime invalidation path and is insufficient by
 itself.
+
+### 16C implementation and validation record
+
+`Application::renderMap` now uses `XeenEventFlow` for initial automatic events,
+navigation, manual interaction, presentation input, and immediate/resumed
+continuations. The small coordinator references the existing world, event
+system, party, camera and flags; it owns only presentation state. Tests call
+this same implementation. `acceptManual`/`acceptAutomatic` are the shared
+result-processing boundary, including the original interpreter initial-line
+checkpoint in the real Remove smoke. Normal gameplay still starts at line 0.
+
+The recomposition detector compares the committed camera and the size of
+`world.sessionState().disabledObjectCount()` with the last composed values.
+The disabled set only grows within the existing M15 session, so this is an
+exact constant-time detector for supported visual mutations, without a second
+visibility authority, revision counter, world scan, or per-tick composition.
+Every interpreter result is refreshed before presentation or diagnostic
+delivery, including suspension and failure. Pending input also checks the
+effective state before using a stored page. Explicit `refresh(true)` rebuilds
+visual resources after cache discard while retaining the current presentation.
+
+`XeenEventPresenter` retains the semantic layers still drawn over the scene,
+with the selected page of each. `rebase` renders them over a new effective
+scene, rebuilding the underlay, current frame, and pending pages. It does not
+respond, restart execution, change the page, or release gameplay blocking.
+Acknowledged choices remove only their confirmation layer. Completed labels
+and messages remain visible until the next gameplay action, as in M14. This
+is presentation composition state, not a world-mutation history.
+
+The rendering camera during suspension is always the caller's committed
+camera. `workingCamera` and `logicalAddress` never drive a visual preview or
+commit merely to redraw. On failure the event system still rolls back camera
+and flags while immediate world mutations persist. The refreshed frame combines
+that committed camera with the effective world. Manual errors retain their
+diagnostics and keep the application usable. Automatic errors still propagate
+the existing exception: the flow has refreshed its frame before reporting the
+error, but Application/SDL terminate rather than treating the error as success
+or promising to present an additional frame after a fatal exception.
+
+The only resource lifecycle addition is `discardSpriteCache` in the existing
+asset source/bridge. It destroys cached bytes and `SpriteResource` instances
+without destroying the asset provider, archive owner, or session. Cached-entry
+and successful-load counters distinguish reuse from actual resource reads and
+sprite construction. No metadata cache was introduced. Existing map/object,
+script and text discard hooks are reused unchanged.
+
+Validation on 2026-09-07:
+
+- Baseline from the existing `build/16b` binaries: **39/39 passed**.
+  Fresh Debug `build/16c` uses MSYS Makefiles, UCRT64 GCC 16.2.0, confirmed
+  `SCUMMVM_SOURCE_DIR=D:/Projetos/MModern/scummvm-known-good-candidate` and
+  `SCUMMVM_BUILD_DIR=D:/Projetos/MModern/build-scummvm-6814ee9b-ucrt64`.
+  Source HEAD is `6814ee9ba54582f5b5adcffab49efbbd8f589edd`; status is empty
+  with command-local `core.autocrlf=false`. No dependency/global Git changes.
+- New `xeen_visual_remove` exercises production composition and event flow:
+  manual/automatic begin, trigger gating, immediate/resumed continuations,
+  multi-page text, Yes/No and acknowledgment, input blocking/resumption,
+  suspended cache discard, mutations during a pending presentation, errors
+  after Remove, uncommitted cross-map camera/flag rollback, and automatic
+  exception propagation. No-event and no-mutation label cases preserve pixels
+  and text; repeated refresh without a change performs no composition.
+- Synthetic commands include two visible identities sharing `111.0bj`.
+  Remove changes the visible sprite pixel count from 1,568 to 368: the selected
+  1,200-pixel object disappears while the second remains. Full effective-frame
+  comparison, unchanged camera, map/side isolation, actual provider reloads,
+  retained None events, and a fresh world/event/presenter graph are asserted.
+  These runtime/presentation checks would fail with 16B's retained pre-mutation
+  frame; manually invoking the reference composer is not the update operation.
+- Focused regressions: **14/14 passed**. Complete new-build CTest: **40/40
+  passed**, including all M14/M15, sprite, outdoor, indoor, navigation and
+  collision regressions. All explicit smoke executables were rebuilt.
+- The extended original `mmodern_remove_smoke` passes on external World of
+  Xeen data at map 23 `(8,2)` North. Production selection resolves object 13 /
+  `111.0bj`. EVT has 170 records; physical cell indices 125-135 are unchanged;
+  Remove is index 132, line 7, offset 1113, zero operands. Dispatch is exactly
+  **Remove + 11 None**. The runtime returns the absent plant immediately with
+  **541 changed scene pixels**, full equality with effective composition, and
+  unchanged interface pixels. The draw list loses only the plant command.
+  Normal line-0 interaction then runs 11 None; MOB/EVT bytes, TakeOrGive and
+  unrelated base/session state remain intact.
+- The same owner survives leave/return, independent map/object and script
+  rebuilds, text reload, sprite reconstruction, combined discard, and a real
+  Castle Basenji suspension crossing all four discard hooks. Plant pixels stay
+  absent. Provider totals are maps=8, objects=8, scripts=6, texts=4. Sprite
+  construction totals are 89; after emptying the cache an isolated draw of
+  surviving object 11 creates exactly one sprite, and its repeated draw creates
+  none. Returning to Phirna still yields the absent frame. A new world/event/
+  presentation graph restores selection, original effective opcodes and the
+  initial framebuffer exactly.
+- All twelve real-data smokes passed: party, indoor map, event script, event
+  text, flags, interpreter, event system, manual event, navigation flow, Remove
+  lifecycle, isolated object visuals and outdoor objects.
+- SDL dummy/software passes the original seven modes (`ui`, `map`, `indoor`,
+  `event`, `manual`, `manual-no`, `manual-yes`) with Escape, plus UI with SDL
+  quit. The Remove smoke's SDL-only integration entry additionally delivers
+  the same original line-7 checkpoint through the shared runtime result flow
+  to `SdlWindow`, without movement. This test entry is not an Application key
+  binding, quest shortcut or public gameplay cheat.
+- Native 320x200 frames generated and visually inspected: Phirna before,
+  immediately after, return, resource reconstruction and new session; an
+  illustrative text overlay over the modified real scene; real controls Air /
+  Corner and object 117; synthetic simultaneous objects, removal, presentation,
+  mutation/error and camera rollback. M14 Air / Corner, Snake Oil, Castle
+  question/No/Yes destination; Phirna depth 1/2/3 mirrored; resource 117 E/S/W;
+  isolated Phirna N/E, sign West and resource 117 East were also inspected.
+  The illustrative overlay is supplementary; interpreter/presentation mutation
+  acceptance is asserted by the synthetic shared-flow tests.
+
+Logs and all generated commercial-data images are ignored local outputs under
+`build/16c`, including `real-remove`, `sdl-remove`, `visual`, `manual`, `outdoor`
+and `isolated`. SDL validation uses its dummy/software backend, complemented
+by native-frame inspection; it is not a physical-display hardware validation.
+
+All approved 16C and Milestone 16 criteria are satisfied. The supported result
+is static outdoor objects, immediate visual Remove, same-session persistence,
+and the original Phirna Remove checkpoint. Space still reaches unimplemented
+TakeOrGive on the normal quest path; complete harvesting and quest-item grants
+are not implemented. No future stage is approved, and no commit, push, branch
+or milestone tag was created during this work.
 
 ## Milestone-wide testing and validation
 
@@ -953,9 +1072,9 @@ Questions that may be resolved during implementation without changing scope:
 - final deterministic pixel assertions and hashes after the renderer exists;
 - exact diagnostic wording for unavailable metadata and unsupported animation.
 
-16A resolved its metadata/safety questions, and 16B implemented static outdoor
-composition within these constraints. Their evidence is recorded above. Runtime
-mutation-driven recomposition remains separately authorized 16C work.
+16A resolved its metadata/safety questions, 16B implemented static outdoor
+composition, and 16C completed runtime mutation-driven recomposition within
+these constraints. Their implementation and validation evidence is above.
 
 ## Definition of Milestone 16 complete
 
@@ -980,7 +1099,5 @@ must all pass. Complete Phirna harvesting must not be claimed.
 
 ## Next implementation task
 
-**16A - Visual resolution and resource safety** and **16B - Static objects in
-the outdoor scene** are complete. The next separately authorized implementation
-target is **16C - Visual Remove and runtime lifecycle**, using the approved
-scope above. No 16C work was performed as part of 16B.
+All three approved stages are complete. Milestone 16 is the stable milestone.
+No subsequent milestone or implementation target is approved by this document.

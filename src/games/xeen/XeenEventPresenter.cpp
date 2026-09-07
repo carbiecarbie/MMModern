@@ -117,6 +117,7 @@ XeenPresentationUpdate XeenEventPresenter::present(const IndexedFrame &base,
 	if (!base.isValid())
 		throw std::invalid_argument("frame base invalido para apresentacao Xeen");
 	_request = request;
+	_layers.push_back({request, 0});
 	_underlay = base;
 	_page = 0;
 	_diagnostics.clear();
@@ -153,6 +154,7 @@ XeenPresentationUpdate XeenEventPresenter::handle(const PlayerAction &action) {
 			return update;
 		if (_page + 1 < _pages.size()) {
 			_frame = _pages[++_page];
+			_layers.back().page = _page;
 			update.frame = _frame;
 		}
 		if (_page + 1 == _pages.size()) {
@@ -164,19 +166,48 @@ XeenPresentationUpdate XeenEventPresenter::handle(const PlayerAction &action) {
 		if (isAcknowledge(action)) {
 			_active = false;
 			update.response = XeenPresentationResponse::Acknowledged;
-			if (_request.kind == XeenPresentationKind::Confirmation)
+			if (_request.kind == XeenPresentationKind::Confirmation) {
 				update.frame = _frame = _underlay;
+				_layers.pop_back();
+			}
 		}
 	} else if (std::holds_alternative<YesAction>(action)) {
 		_active = false;
 		update.response = XeenPresentationResponse::Yes;
 		update.frame = _frame = _underlay;
+		_layers.pop_back();
 	} else if (std::holds_alternative<NoAction>(action)) {
 		_active = false;
 		update.response = XeenPresentationResponse::No;
 		update.frame = _frame = _underlay;
+		_layers.pop_back();
 	}
 	return update;
+}
+
+void XeenEventPresenter::clear() {
+	_layers.clear();
+	_pages.clear();
+	_active = false;
+	_page = 0;
+	_diagnostics.clear();
+}
+
+IndexedFrame XeenEventPresenter::rebase(const IndexedFrame &base) {
+	if (!base.isValid())
+		throw std::invalid_argument("invalid Xeen presentation base");
+	IndexedFrame current = base;
+	for (const auto &layer : _layers) {
+		_underlay = current;
+		if (layer.request.kind == XeenPresentationKind::Confirmation)
+			_pages = {drawConfirmation(current)};
+		else
+			_pages = _renderer.render(current, layer.request.text,
+				optionsFor(layer.request)).pages;
+		current = _pages.at(layer.page);
+	}
+	_frame = current;
+	return _frame;
 }
 
 } // namespace mmodern

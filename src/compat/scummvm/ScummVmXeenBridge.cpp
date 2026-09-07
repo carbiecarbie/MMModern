@@ -108,6 +108,7 @@ struct ScummVmXeenBridge::Impl {
 		std::unique_ptr<StreamSpriteResource> decoded;
 	};
 	std::unordered_map<std::string, CachedSprite> sprites;
+	std::size_t spriteLoads = 0;
 	std::unique_ptr<InitialCloudsArchive> initialArchive;
 
 	explicit Impl(const GameInstallation &installation) :
@@ -160,6 +161,7 @@ struct ScummVmXeenBridge::Impl {
 
 		StreamSpriteResource &result = *resource;
 		sprites.emplace(resourceName, CachedSprite{std::move(bytes), std::move(resource)});
+		++spriteLoads;
 		return result;
 	}
 };
@@ -173,6 +175,10 @@ ScummVmXeenBridge::ScummVmXeenBridge(const GameInstallation &installation,
 }
 
 ScummVmXeenBridge::~ScummVmXeenBridge() = default;
+
+void ScummVmXeenBridge::discardSpriteCache() { _impl->sprites.clear(); }
+std::size_t ScummVmXeenBridge::cachedSpriteCount() const { return _impl->sprites.size(); }
+std::size_t ScummVmXeenBridge::spriteLoadCount() const { return _impl->spriteLoads; }
 
 std::optional<std::vector<std::uint8_t>> ScummVmXeenBridge::readCloudsVisualMetadataFromDarkArchive() {
 	if (!_impl->darkAvailable) return std::nullopt;

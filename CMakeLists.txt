@@ -66,6 +66,7 @@ target_link_libraries(mmodern_platform_sdl PUBLIC mmodern_core PRIVATE SDL2::SDL
 
 add_library(mmodern_app STATIC
 	src/app/Application.cpp
+	src/app/XeenEventFlow.cpp
 	src/app/XeenNavigationFlow.cpp
 )
 target_link_libraries(mmodern_app PUBLIC mmodern_core PRIVATE
@@ -89,6 +90,9 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+	add_executable(mmodern_visual_remove_tests tests/XeenVisualRemoveTests.cpp)
+	target_link_libraries(mmodern_visual_remove_tests PRIVATE mmodern_app mmodern_xeen)
+	add_test(NAME xeen_visual_remove COMMAND mmodern_visual_remove_tests)
 	add_executable(mmodern_outdoor_object_smoke EXCLUDE_FROM_ALL tests/OutdoorObjectIntegrationTest.cpp)
 	target_link_libraries(mmodern_outdoor_object_smoke PRIVATE mmodern_xeen)
 	target_include_directories(mmodern_outdoor_object_smoke PRIVATE
@@ -118,7 +122,7 @@ if(BUILD_TESTING)
 	target_link_libraries(mmodern_session_persistence_tests PRIVATE mmodern_xeen)
 	add_test(NAME xeen_session_persistence COMMAND mmodern_session_persistence_tests)
 	add_executable(mmodern_remove_smoke EXCLUDE_FROM_ALL tests/RemoveIntegrationTest.cpp)
-	target_link_libraries(mmodern_remove_smoke PRIVATE mmodern_xeen mmodern_scummvm_xeen)
+	target_link_libraries(mmodern_remove_smoke PRIVATE mmodern_app mmodern_xeen mmodern_scummvm_xeen mmodern_platform_sdl SDL2::SDL2)
 	add_executable(mmodern_session_identity_tests tests/XeenSessionIdentityTests.cpp)
 	target_link_libraries(mmodern_session_identity_tests PRIVATE mmodern_xeen)
 	add_test(NAME xeen_session_identity COMMAND mmodern_session_identity_tests)

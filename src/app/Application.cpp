@@ -1,5 +1,5 @@
 #include "app/Application.h"
-#include "app/XeenNavigationFlow.h"
+#include "app/XeenEventFlow.h"
 
 #include "formats/xeen/XeenAssetSource.h"
 #include "formats/xeen/XeenFontFormat.h"
@@ -396,78 +396,29 @@ int Application::renderMap(const std::filesystem::path &gameDirectory,
 		}, [&](XeenMapIdentity requestedMapId) {
 			return eventTextLoader.load(requestedMapId);
 		});
-		XeenNavigationFlow navigationFlow(eventSystem);
 		XeenCamera camera{mapId, x, y, direction};
-		const auto initialEvent = navigationFlow.processInitialEvent(
-			world, partyState, camera, gameFlags);
-		requireAutomaticEventSuccess(initialEvent);
-		const XeenMap &firstRenderedMap = world.map(camera.mapId);
-		const bool initialMapIsIndoor = !firstRenderedMap.geometry.isOutdoors();
-		const bool initialMapIsDark = (firstRenderedMap.geometry.flags2 & 0x4000) != 0;
 		const CloudsMapComposer composer;
-		IndexedFrame frame = composer.compose(assets, world, partyState, camera,
-			rulesContext);
 		if (!assets.hasArchiveResource("fnt"))
 			throw std::runtime_error("recurso de fonte Xeen 'fnt' ausente");
 		const XeenFontFormat font(assets.readArchiveResource("fnt"));
-		XeenEventPresenter presenter(font);
-		struct PendingEvent {
-			XeenEventExecutionState state;
-			bool automatic = false;
+		XeenEventFlow flow(world, eventSystem, partyState, camera, gameFlags, font, [&]() {
+			return composer.compose(assets, world, partyState, camera, rulesContext);
+		});
+		flow.reportManual = printManualEventResult;
+		flow.reportAutomatic = requireAutomaticEventSuccess;
+		flow.reportText = [](const std::string &message) {
+			std::cerr << "Aviso de texto: " << message << '\n';
 		};
-		std::optional<PendingEvent> pendingEvent;
-		auto reportPresenterDiagnostics = [&]() {
-			for (const std::string &diagnostic : presenter.diagnostics())
-				std::cerr << "Aviso de texto: " << diagnostic << '\n';
+		flow.reportMovement = [&](XeenMovementResult result) {
+			if (const char *reason = blockedReason(result))
+				std::cout << "Movimento bloqueado: " << reason << ". Camera: mapa "
+					<< camera.mapId << " X=" << camera.x << " Y=" << camera.y
+					<< " " << directionName(camera.direction) << ".\n";
 		};
-		std::function<IndexedFrame(XeenManualEventResult, IndexedFrame)> driveManual;
-		std::function<IndexedFrame(XeenAutomaticEventResult, IndexedFrame)> driveAutomatic;
-		driveManual = [&](XeenManualEventResult result, IndexedFrame current) {
-			for (;;) {
-				printManualEventResult(result);
-				const auto *suspended = std::get_if<XeenEventExecutionSuspended>(&result);
-				if (!suspended) {
-					pendingEvent.reset();
-					if (const auto *completed = std::get_if<XeenManualEventCompleted>(&result)) {
-						if (completed->cameraChanged)
-							return composer.compose(assets, world, partyState, camera, rulesContext);
-					}
-					return current;
-				}
-				pendingEvent = PendingEvent{suspended->state, false};
-				XeenPresentationUpdate update = presenter.present(current, suspended->request);
-				reportPresenterDiagnostics();
-				current = std::move(update.frame);
-				if (!update.response)
-					return current;
-				result = eventSystem.resumeManualEvent(pendingEvent->state, *update.response,
-					world, partyState, camera, gameFlags);
-			}
-		};
-		driveAutomatic = [&](XeenAutomaticEventResult result, IndexedFrame current) {
-			for (;;) {
-				if (const auto *error = std::get_if<XeenEventExecutionError>(&result))
-					throw std::runtime_error("evento automatico: " + formatEventError(*error));
-				const auto *suspended = std::get_if<XeenEventExecutionSuspended>(&result);
-				if (!suspended) {
-					pendingEvent.reset();
-					if (const auto *completed = std::get_if<XeenAutomaticEventCompleted>(&result)) {
-						if (completed->cameraChanged)
-							return composer.compose(assets, world, partyState, camera, rulesContext);
-					}
-					return current;
-				}
-				pendingEvent = PendingEvent{suspended->state, true};
-				XeenPresentationUpdate update = presenter.present(current, suspended->request);
-				reportPresenterDiagnostics();
-				current = std::move(update.frame);
-				if (!update.response)
-					return current;
-				result = eventSystem.resumeAutomaticEvent(pendingEvent->state, *update.response,
-					world, partyState, camera, gameFlags);
-			}
-		};
-		frame = driveAutomatic(initialEvent, std::move(frame));
+		const IndexedFrame frame = flow.initial();
+		const XeenMap &firstRenderedMap = world.map(camera.mapId);
+		const bool initialMapIsIndoor = !firstRenderedMap.geometry.isOutdoors();
+		const bool initialMapIsDark = (firstRenderedMap.geometry.flags2 & 0x4000) != 0;
 		std::cout << "Mapa " << camera.mapId << " renderizado: camera X=" << camera.x
 			<< " Y=" << camera.y << ", direcao " << directionName(camera.direction) << ".\n";
 		if (initialMapIsIndoor && initialMapIsDark)
@@ -478,39 +429,7 @@ int Application::renderMap(const std::filesystem::path &gameDirectory,
 		SdlWindow window;
 		return window.showInteractive(frame, "MMModern - Mapa " + std::to_string(camera.mapId.number),
 			[&](const PlayerAction &action) -> std::optional<IndexedFrame> {
-				if (pendingEvent) {
-					XeenPresentationUpdate update = presenter.handle(action);
-					if (!update.response)
-						return update.frame;
-					if (pendingEvent->automatic) {
-						return driveAutomatic(eventSystem.resumeAutomaticEvent(pendingEvent->state,
-							*update.response, world, partyState, camera, gameFlags),
-							std::move(update.frame));
-					}
-					return driveManual(eventSystem.resumeManualEvent(pendingEvent->state,
-						*update.response, world, partyState, camera, gameFlags),
-						std::move(update.frame));
-				}
-				if (const auto *navigation = std::get_if<NavigationAction>(&action)) {
-					const XeenNavigationFlowResult result =
-						navigationFlow.processNavigationAction(world, partyState, camera,
-							gameFlags, *navigation);
-					if (const char *reason = blockedReason(result.movementResult)) {
-						std::cout << "Movimento bloqueado: " << reason << ". Camera: mapa "
-							<< camera.mapId << " X=" << camera.x << " Y=" << camera.y
-							<< " " << directionName(camera.direction) << ".\n";
-					}
-					IndexedFrame current = composer.compose(assets, world, partyState, camera,
-						rulesContext);
-					return driveAutomatic(result.automaticEvent, std::move(current));
-				} else if (std::holds_alternative<InteractionAction>(action)) {
-					IndexedFrame current = composer.compose(assets, world, partyState, camera,
-						rulesContext);
-					return driveManual(navigationFlow.processInteraction(world,
-						partyState, camera, gameFlags), std::move(current));
-				} else {
-					return composer.compose(assets, world, partyState, camera, rulesContext);
-				}
+				return flow.handle(action);
 			}) ? 0 : 4;
 	} catch (const std::exception &error) {
 		std::cerr << "Falha ao renderizar mapa: " << error.what() << '\n';
