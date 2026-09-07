@@ -1,12 +1,12 @@
 # Milestone 16 - Static outdoor map objects and visual Remove
 
-**Status: approved; implementation has not started.**
+**Status: 16A complete; 16B and 16C not implemented. Milestone 16 remains incomplete.**
 
-**Next implementation target: 16A - Visual resolution and resource safety.**
+**Next implementation target: 16B - Static objects in the outdoor scene.**
 
-Milestone 15 remains the completed stable milestone. This document approves the
-scope and implementation order for Milestone 16; it does not record any M16 code
-as implemented.
+Milestone 15 remains the completed stable milestone. This document defines the
+approved scope and implementation order for Milestone 16 and records the
+completed 16A implementation and validation below.
 
 ## Recommendation and objective
 
@@ -313,7 +313,7 @@ alter the M15 interaction selection result.
 
 ## 16A - Visual resolution and resource safety
 
-**Status: approved; not started.**
+**Status: complete, validated 2026-09-07.**
 
 ### Objective
 
@@ -393,9 +393,121 @@ untrusted-file parser should. The stage must establish safe bounds for its
 inputs without reimplementing the codec. Installation variants may not expose
 the validated metadata source.
 
+### 16A implementation and validation record
+
+Implemented boundaries:
+
+- `XeenCloudsVisualMetadata` stores exactly 121 immutable entries. Each entry
+  contains three arrays of four `uint8_t` values: initial frames, raw flip
+  flags, and frame limits. Parsing requires exactly 1,452 bytes; empty,
+  truncated, and trailing input receive distinct exceptions. `at(resourceId)`
+  validates the index. Nonzero flip values become true only when resolving.
+- `XeenAssetSource::readCloudsVisualMetadataFromDarkArchive()` delegates to a
+  lazy, explicitly named `CCArchive("dark.cc")` in the existing bridge.
+  `nullopt` means the optional archive or member is absent; an empty resource
+  remains an empty vector and malformed metadata is a parser error. Normal
+  `hasArchiveResource`/`readArchiveResource` retain their XEEN.CC origin.
+  Neither `GameInstallation`, `ScummVmRuntime`, nor gameplay identity needed
+  changes. No archive fallback, executable extraction, or Darkside gameplay
+  path was added.
+- `XeenObjectVisualResolver::load` reports absent metadata through a subsequent
+  `MetadataUnavailable` resolution, with `DARK.CC/clouds.dat` in the diagnostic.
+  This is opt-in and never runs during application construction. Existing
+  Clouds drawing and resource reads remain usable without DARK.CC. Invalid
+  present metadata throws a diagnostic exception rather than fabricating data.
+- `resolve(objectFile, originalRecordIndex, cameraDirection)` returns a value
+  containing the stable identity, sprite name, frame, flip, status, and
+  diagnostic. It validates map/record/resource/direction inputs and rejects
+  Darkside visuals. It never checks session visibility or changes selection.
+  Metadata uses the resolved resource ID, not the MOB's object-table slot.
+- `xeenObjectSpriteName` accepts byte IDs 0..254; negative IDs, FF (the MOB
+  absent-resource sentinel), and larger integers are rejected. IDs 0..99 use
+  three decimal digits plus `.obj`; 100..254 use `.0bj` (digit zero).
+- Relative direction is `(camera + 4 - objectDirection) % 4`, exactly the
+  pinned four-by-four table. A selected entry is static precisely when
+  `initialFrame + 1 >= frameLimit`, computed without byte overflow. Otherwise
+  the result is `UnsupportedAnimation` and drawing is rejected. This follows
+  the reference's increment-then-reset behavior, including zero limits and
+  directional sprites with several frames; no animation clock exists.
+- `validateXeenObjectSprite` checks the count/header, complete frame directory,
+  requested frame, mandatory first-cell and optional second-cell offsets and
+  headers, and the selected frame's compressed rows. It verifies row lengths,
+  row skips, initial horizontal skips, all opcode operand sizes and expanded
+  line-pointer advances, and stream-copy source bounds. It never computes
+  colors, pattern pixels, decoded scanlines, or rasterization. Unselected
+  frames' row streams are checked when those frames are requested.
+- The safety boundary is deliberately the normal M16 drawer: width <=320,
+  `xOffset + width <=32447`, `yOffset + height <=32567`, 320x200 framebuffer,
+  anchor X within -320..320 and Y within -200..200, scale indices 0..15, and no
+  enlargement. These bounds protect the upstream work line and signed
+  coordinates. Enlargement is rejected because its second pixel/row writes
+  lack edge checks. Historical effect drawers and universal archive/codec
+  hardening remain outside this boundary.
+- `XeenAssetSource::drawObjectVisual` forwards resolved flip and frame through
+  the existing options and bridge after supported-status/side validation.
+  Sprite cache entries retain source bytes beside the existing decoder; the
+  exact cached bytes are preflighted before loading/drawing an M16 frame.
+  The original `SpriteResource` stream decoder, ordered two-cell drawing,
+  palette, transparency, scale, and clipping remain authoritative. No separate
+  metadata cache or mutable animation/visibility cache was added.
+
+Real-data results from the external World of Xeen installation:
+
+| Checkpoint | Metadata initial / flip / limit | Camera N/E/S/W results |
+|---|---|---|
+| Map 23 object 13, Phirna, resource 111 | `0,0,0,0` / `0,1,0,1` / `0,0,0,0` | frame `0,0,0,0`, flip `false,true,false,true` |
+| Map 1 object 4, Air / Corner, resource 54 | `0,1,2,1` / `0,0,0,1` / `0,1,2,1` | frame `1,2,1,0`, flip `false,false,true,false` |
+| Map 23 object 11, resource 117 | `0,3,2,1` / `0,0,0,0` / `0,3,2,1` | frame `1,0,3,2`, no flip |
+
+All three are supported static and passed production preflight/drawing in all
+four directions. Phirna is 748 bytes, one frame, one cell with header
+`[x=0,width=250,y=115,height=26]`; resource 54 is 7,385 bytes with three frames
+and two cells; resource 117 is 23,224 bytes with four frames and two cells.
+The smoke uses production MOB loading and the explicit metadata access path.
+Test-only instrumentation of the same ScummVM rasterizer suppresses each
+in-memory directory cell separately to prove both contribute to composite
+output; original resource bytes and production APIs are not modified for this.
+Repeat cached draws match the indexed snapshots deterministically.
+
+Validation performed:
+
+- Fresh Debug build `build/16a`, MSYS Makefiles, MSYS2 UCRT64 GCC 16.2.0.
+  `SCUMMVM_SOURCE_DIR=D:/Projetos/MModern/scummvm-known-good-candidate` and
+  `SCUMMVM_BUILD_DIR=D:/Projetos/MModern/build-scummvm-6814ee9b-ucrt64` were
+  confirmed in CMakeCache. Source HEAD is
+  `6814ee9ba54582f5b5adcffab49efbbd8f589edd`; status is empty with
+  `core.autocrlf=false`. The dependency was not changed.
+- Pre-implementation baseline: **35/35 passed**. Added `xeen_object_visual`
+  and `xeen_object_sprite`: **2/2 passed**. Focused object/resource/M14/M15
+  regression set: **10/10 passed**. Final complete CTest: **37/37 passed**.
+- Synthetic coverage includes exact metadata and all field/index bounds,
+  filename boundaries, all 16 direction pairs, flip selection, static versus
+  temporal limits (including byte-boundary cases), malformed sprite structures
+  and commands, every compressed opcode family, two-cell order, transparent
+  skips preserving the underlay, opaque color zero, flip, scale, scene and
+  bottom clipping, unsupported draw rejection, and absent/empty/distinct
+  archive metadata sources.
+- `mmodern_object_visual_smoke` passed all twelve real resolutions/draws and
+  generated twelve native 320x200 BMPs under `build/16a/isolated-objects`.
+  Visually inspected: Phirna North/East (normal/mirrored); Air / Corner West
+  and North (front/side composite); resource 117 North/East/South/West
+  (left profile/front/right profile/back). All use `mm4.pal` and isolated
+  anchor `(0,0)`, without terrain or scene commands.
+- All ten existing real-data smokes passed: party, indoor map, event script,
+  event text, game flags, interpreter, event system, manual event, navigation
+  flow, and Remove lifecycle. SDL dummy/software passed UI, map, indoor,
+  event, manual, manual-no, and manual-yes with Escape, plus UI with SDL quit.
+- Logs and original-data visual outputs remain under ignored `build/16a`.
+  No commercial bytes or images were added to repository fixtures.
+
+No checkpoint discrepancy was found. All 16A completion criteria are satisfied.
+This validates isolated appearance only: no outdoor scene integration, terrain
+occlusion, map visibility, or visual Remove was implemented. 16B is the next
+implementation target; 16C and Milestone 16 completion remain pending.
+
 ## 16B - Static objects in the outdoor scene
 
-**Status: approved; blocked on completion of 16A.**
+**Status: approved; next implementation target, not started.**
 
 ### Objective
 
@@ -701,7 +813,9 @@ Questions that may be resolved during implementation without changing scope:
 - final deterministic pixel assertions and hashes after the renderer exists;
 - exact diagnostic wording for unavailable metadata and unsupported animation.
 
-No currently known question blocks starting 16A under these constraints.
+16A resolved its metadata and safety questions within these constraints; its
+implementation evidence is recorded above. The remaining scene/runtime
+decisions belong to separately authorized 16B/16C work.
 
 ## Definition of Milestone 16 complete
 
@@ -724,11 +838,9 @@ The build, complete suite, focused M16 tests, real-data smokes, SDL/runtime
 checks, visual inspection, M14 regressions, M15 regressions, and documentation
 must all pass. Complete Phirna harvesting must not be claimed.
 
-## First implementation task
+## Next implementation task
 
-The first task after explicit implementation begins is **16A - Visual resolution
-and resource safety**: read the validated Clouds metadata, resolve Phirna's
-resource name/frame/flip for all four directions, and establish synthetic tests
-for the 12-byte metadata and filename rules. Complete all 16A safety and isolated
-real-resource requirements before starting outdoor scene integration.
-
+**16A - Visual resolution and resource safety** is complete. The next separately
+authorized implementation target is **16B - Static objects in the outdoor
+scene**, using the approved scope above. No 16B or 16C work was performed as part
+of 16A.

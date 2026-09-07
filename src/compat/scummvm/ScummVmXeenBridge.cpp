@@ -3,6 +3,7 @@
 #include "compat/scummvm/ScummVmXeenBridge.h"
 
 #include "compat/scummvm/ScummVmRuntime.h"
+#include "formats/xeen/XeenObjectSpriteSafety.h"
 
 #include "common/path.h"
 #include "common/memstream.h"
@@ -98,14 +99,21 @@ std::unique_ptr<Common::SeekableReadStream> openResource(
 struct ScummVmXeenBridge::Impl {
 	ScummVmRuntime runtime;
 	CCArchive archive;
+	bool darkAvailable = false;
+	std::unique_ptr<CCArchive> darkMetadataArchive;
 	XSurface surface;
 	std::array<std::uint8_t, IndexedFrame::kPaletteSize> palette{};
-	std::unordered_map<std::string, std::unique_ptr<StreamSpriteResource>> sprites;
+	struct CachedSprite {
+		std::vector<std::uint8_t> bytes;
+		std::unique_ptr<StreamSpriteResource> decoded;
+	};
+	std::unordered_map<std::string, CachedSprite> sprites;
 	std::unique_ptr<InitialCloudsArchive> initialArchive;
 
 	explicit Impl(const GameInstallation &installation) :
 		runtime(installation),
 		archive(Common::Path("xeen.cc", Common::Path::kNoSeparator), true) {
+		darkAvailable = installation.hasDarkside();
 	}
 
 	Impl(const GameInstallation &installation, int width, int height) : Impl(installation) {
@@ -133,19 +141,25 @@ struct ScummVmXeenBridge::Impl {
 		return *initialArchive;
 	}
 
-	StreamSpriteResource &sprite(const std::string &resourceName) {
+	StreamSpriteResource &sprite(const std::string &resourceName,
+			std::optional<std::size_t> checkedFrame = std::nullopt) {
 		const auto existing = sprites.find(resourceName);
-		if (existing != sprites.end())
-			return *existing->second;
+		if (existing != sprites.end()) {
+			if (checkedFrame) validateXeenObjectSprite(existing->second.bytes, *checkedFrame);
+			return *existing->second.decoded;
+		}
 
 		std::unique_ptr<Common::SeekableReadStream> stream = openResource(archive, resourceName);
+		auto bytes = readBytes(*stream, resourceName);
+		if (checkedFrame) validateXeenObjectSprite(bytes, *checkedFrame);
+		Common::MemoryReadStream input(bytes.data(), static_cast<uint32>(bytes.size()));
 		std::unique_ptr<StreamSpriteResource> resource(new StreamSpriteResource());
 		const Common::Path path(resourceName.c_str(), Common::Path::kNoSeparator);
-		if (!resource->loadFromStream(path, *stream))
+		if (!resource->loadFromStream(path, input))
 			throw std::runtime_error("nao foi possivel decodificar: " + resourceName);
 
 		StreamSpriteResource &result = *resource;
-		sprites.emplace(resourceName, std::move(resource));
+		sprites.emplace(resourceName, CachedSprite{std::move(bytes), std::move(resource)});
 		return result;
 	}
 };
@@ -159,6 +173,32 @@ ScummVmXeenBridge::ScummVmXeenBridge(const GameInstallation &installation,
 }
 
 ScummVmXeenBridge::~ScummVmXeenBridge() = default;
+
+std::optional<std::vector<std::uint8_t>> ScummVmXeenBridge::readCloudsVisualMetadataFromDarkArchive() {
+	if (!_impl->darkAvailable) return std::nullopt;
+	if (!_impl->darkMetadataArchive)
+		_impl->darkMetadataArchive.reset(new CCArchive(Common::Path("dark.cc", Common::Path::kNoSeparator), true));
+	const Common::Path path("clouds.dat", Common::Path::kNoSeparator);
+	std::unique_ptr<Common::SeekableReadStream> stream(_impl->darkMetadataArchive->createReadStreamForMember(path));
+	if (!stream) return std::nullopt;
+	return readBytes(*stream, "DARK.CC/clouds.dat");
+}
+
+void ScummVmXeenBridge::drawObjectSprite(const std::string &resourceName,
+		std::size_t frame, int x, int y, const XeenSpriteDrawOptions &options) {
+	// M16 uses the native framebuffer and normal drawer. In particular, the
+	// upstream enlarge path writes a second pixel/row without edge checks.
+	if (_impl->surface.w != 320 || _impl->surface.h != 200 || options.enlarge ||
+		x < -320 || x > 320 || y < -200 || y > 200 ||
+		options.scaleIndex < 0 || options.scaleIndex > 15)
+		throw std::runtime_error("M16 sprite: unsupported framebuffer, anchor, or scale/enlargement");
+	try {
+		_impl->sprite(resourceName, frame);
+	} catch (const std::runtime_error &error) {
+		throw std::runtime_error(resourceName + ": " + error.what());
+	}
+	drawSprite(resourceName, frame, x, y, options);
+}
 
 bool ScummVmXeenBridge::hasArchiveResource(const std::string &resourceName) {
 	return _impl->archive.hasFile(

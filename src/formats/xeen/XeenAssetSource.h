@@ -8,10 +8,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
 namespace mmodern {
+
+struct XeenObjectVisual;
 
 class XeenAssetSource {
 public:
@@ -28,6 +31,10 @@ public:
 	void drawSprite(const std::string &resourceName, std::size_t frame, int x, int y,
 		const XeenSpriteDrawOptions &options);
 	IndexedFrame snapshot() const;
+	// Explicit physical origin; nullopt means archive/member absent, not empty.
+	std::optional<std::vector<std::uint8_t>> readCloudsVisualMetadataFromDarkArchive();
+	void drawObjectVisual(const XeenObjectVisual &visual, int x, int y,
+		const XeenSpriteDrawOptions &options = {});
 	bool hasArchiveResource(const std::string &resourceName);
 	std::vector<std::uint8_t> readArchiveResource(const std::string &resourceName);
 	bool hasInitialResource(const std::string &resourceName);

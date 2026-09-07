@@ -1,10 +1,10 @@
-﻿# MMModern - Project Status
+# MMModern - Project Status
 
 ## Current development state
 
 Current stable milestone: **Milestone 15**
 
-Current development target: **Milestone 16A - Visual resolution and resource safety**
+Current development target: **Milestone 16B - Static objects in the outdoor scene**
 
 Milestone 14 is complete. Stages 14A, 14B, 14C, and 14D are complete.
 
@@ -12,12 +12,12 @@ Milestone 15 is complete. Stages 15A, 15B, and 15C are complete.
 The approved specification is
 [Milestone 15 plan](milestone-15-plan.md).
 
-Milestone 16 is approved but has not started. Stages 16A, 16B, and 16C are not
+Milestone 16A is complete. Stages 16B and 16C are not
 implemented. The approved specification is
 [Milestone 16 plan](milestone-16-plan.md). The next implementation target is
-**16A - Visual resolution and resource safety**.
+**16B - Static objects in the outdoor scene**.
 
-Current automated test suite: **35/35 passing**
+Current automated test suite: **37/37 passing**
 
 ## Milestone 13
 
@@ -226,7 +226,7 @@ Validation completed for 14D:
   320x200 resolution, including the distinct reduced font and the post-teleport
   frame.
 
-Milestones 14 and 15 are complete. Milestone 16 is approved but has not started.
+Milestones 14 and 15 are complete. Milestone 16A is complete; 16B is next.
 
 ## Out of scope for Milestone 14
 
@@ -399,14 +399,14 @@ quest-item grants, visible plant removal, disk save/load, or Darkside gameplay.
 
 ## Milestone 16 - Static outdoor map objects and visual Remove
 
-**Status: approved; 16A, 16B, and 16C not started.**
+**Status: 16A complete; 16B and 16C not started. Milestone 16 is incomplete.**
 
 The [dedicated plan](milestone-16-plan.md) is the approved specification.
 Milestone 16 is limited to static appearance-base objects in supported outdoor
 Clouds scenes. Its stages are:
 
-- **16A - Visual resolution and resource safety:** next implementation target;
-- **16B - Static objects in the outdoor scene:** not started;
+- **16A - Visual resolution and resource safety:** complete;
+- **16B - Static objects in the outdoor scene:** next implementation target;
 - **16C - Visual Remove and runtime lifecycle:** not started.
 
 The validated real-data target is the installed World of Xeen layout: Clouds
@@ -414,10 +414,55 @@ object sprites are read from `XEEN.CC`, while Clouds visual metadata is read
 from `DARK.CC/clouds.dat`. This physical resource origin does not change Clouds
 gameplay identity and does not implement Darkside gameplay.
 
-M16 has no implementation evidence yet. The current automated baseline remains
-the 35/35 suite completed with M15. Animated cycles, indoor objects, monsters,
-wall items, quest-item granting, complete Phirna harvesting, save/load, and
-Darkside gameplay remain outside the approved scope.
+### 16A implementation and validation
+
+Completed on 2026-09-07. The [16A implementation record](milestone-16-plan.md#16a-implementation-and-validation-record)
+contains the exact contracts, safety bounds, checkpoint values, and evidence.
+
+- `XeenCloudsVisualMetadata` parses exactly 1,452 bytes into 121 immutable
+  entries, each with four initial-frame bytes, four raw flip bytes, and four
+  limit bytes. Empty, truncated, trailing, and out-of-range data are diagnostic
+  failures.
+- `XeenAssetSource::readCloudsVisualMetadataFromDarkArchive` explicitly and
+  lazily reads `DARK.CC/clouds.dat`; ordinary resource reads remain in XEEN.CC.
+  Missing archive/member returns an unavailable result; empty or malformed
+  present metadata is an error. Existing application construction and Clouds
+  capabilities do not require this optional metadata.
+- `XeenObjectVisualResolver` returns stable original object identity, resource
+  name, frame, flip, status, and diagnostic, without visibility or scene state.
+  Names use `.obj` for IDs 0..99 and `.0bj` for 100..254; FF/invalid IDs are
+  rejected. Relative direction follows `(camera + 4 - object) % 4`. The exact
+  static rule is `initialFrame + 1 >= frameLimit`; temporal advancement returns
+  `UnsupportedAnimation` and cannot be drawn as a frozen substitute.
+- Targeted M16 preflight checks frame directories, selected cells and headers,
+  dimensions/offsets, compressed row sizes, skips, operands, line advances,
+  and stream-copy bounds before the existing decoder/drawer consumes them.
+  It does not decode pixels. The checked path uses native 320x200, bounded
+  anchors, scale 0..15, and rejects enlargement; it is not a universal codec
+  validator. Cached source bytes and the existing SpriteResource cache are
+  reused, without session-state or metadata caches.
+- All three real checkpoints passed in four camera directions: Phirna uses
+  frame 0 with alternating flip; Air / Corner uses frames 1/2/1/0 (South
+  mirrored); resource 117 uses frames 1/0/3/2 with no flip. Both cells were
+  proven to contribute to composite resources through test-only instrumentation
+  of the reused rasterizer, without changing original bytes.
+- Twelve native isolated BMPs were generated under ignored
+  `build/16a/isolated-objects`. Phirna North/East, Air / Corner West/North, and
+  all four resource-117 views were visually inspected with the Clouds palette.
+- Fresh Debug build in `build/16a`, MSYS Makefiles, UCRT64 GCC 16.2.0, using
+  `../scummvm-known-good-candidate` at clean pinned revision
+  `6814ee9ba54582f5b5adcffab49efbbd8f589edd` (`core.autocrlf=false`) and
+  artifacts from `../build-scummvm-6814ee9b-ucrt64`.
+- Baseline **35/35**, new focused tests **2/2**, focused regression set
+  **10/10**, and final full CTest **37/37** passed. All ten existing real-data
+  smokes passed, including M14 manual events and M15 Remove lifecycle. All
+  seven SDL modes passed with Escape, plus UI with SDL quit, using dummy/software.
+
+All 16A completion criteria are satisfied, with no checkpoint discrepancies.
+Objects are not yet drawn in outdoor gameplay, and Remove has no visual
+disappearance. No 16B or 16C integration was performed. Animated cycles, indoor
+objects, monsters, wall items, quest-item granting, complete Phirna harvesting,
+save/load, and Darkside gameplay remain outside the approved scope.
 
 ## Architecture notes
 

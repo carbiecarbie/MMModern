@@ -67,6 +67,7 @@ function(add_mmodern_scummvm_xeen_bridge target_name)
 	add_library(${target_name} STATIC
 		"${CMAKE_CURRENT_SOURCE_DIR}/src/compat/scummvm/ScummVmRuntime.cpp"
 		"${CMAKE_CURRENT_SOURCE_DIR}/src/compat/scummvm/ScummVmXeenBridge.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/formats/xeen/XeenObjectSpriteSafety.cpp"
 		"${SCUMMVM_SOURCE_DIR}/engines/mm/shared/xeen/cc_archive.cpp"
 		"${sprite_stream_object}"
 	)

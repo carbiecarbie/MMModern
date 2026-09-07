@@ -22,6 +22,8 @@ add_mmodern_scummvm_xeen_bridge(mmodern_scummvm_xeen)
 
 add_library(mmodern_xeen STATIC
 	src/formats/xeen/XeenAssetSource.cpp
+	src/formats/xeen/XeenCloudsVisualMetadata.cpp
+	src/games/xeen/XeenObjectVisual.cpp
 	src/formats/xeen/XeenCharacterFormat.cpp
 	src/formats/xeen/XeenEventFormat.cpp
 	src/formats/xeen/XeenEventTextFormat.cpp
@@ -87,6 +89,17 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+	add_executable(mmodern_object_visual_tests tests/XeenObjectVisualTests.cpp)
+	target_link_libraries(mmodern_object_visual_tests PRIVATE mmodern_xeen)
+	add_test(NAME xeen_object_visual COMMAND mmodern_object_visual_tests)
+	add_executable(mmodern_object_sprite_tests tests/XeenObjectSpriteTests.cpp)
+	target_link_libraries(mmodern_object_sprite_tests PRIVATE mmodern_xeen)
+	add_test(NAME xeen_object_sprite COMMAND mmodern_object_sprite_tests)
+	add_executable(mmodern_object_visual_smoke EXCLUDE_FROM_ALL tests/ObjectVisualIntegrationTest.cpp)
+	target_link_libraries(mmodern_object_visual_smoke PRIVATE mmodern_xeen mmodern_scummvm_xeen)
+	target_include_directories(mmodern_object_visual_smoke PRIVATE
+		"${SCUMMVM_BUILD_DIR}" "${SCUMMVM_SOURCE_DIR}" "${SCUMMVM_SOURCE_DIR}/engines")
+	target_compile_definitions(mmodern_object_visual_smoke PRIVATE WIN32 UNICODE _UNICODE)
 	add_executable(mmodern_remove_tests tests/XeenRemoveTests.cpp)
 	target_link_libraries(mmodern_remove_tests PRIVATE mmodern_xeen)
 	add_test(NAME xeen_remove COMMAND mmodern_remove_tests)

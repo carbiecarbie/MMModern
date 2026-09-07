@@ -1,6 +1,8 @@
 #include "formats/xeen/XeenAssetSource.h"
 
 #include "compat/scummvm/ScummVmXeenBridge.h"
+#include "games/xeen/XeenObjectVisual.h"
+#include <stdexcept>
 
 namespace mmodern {
 
@@ -24,6 +26,20 @@ XeenAssetSource::XeenAssetSource(const GameInstallation &installation,
 }
 
 XeenAssetSource::~XeenAssetSource() = default;
+
+std::optional<std::vector<std::uint8_t>> XeenAssetSource::readCloudsVisualMetadataFromDarkArchive() {
+	return _impl->bridge.readCloudsVisualMetadataFromDarkArchive();
+}
+
+void XeenAssetSource::drawObjectVisual(const XeenObjectVisual &visual, int x, int y,
+		const XeenSpriteDrawOptions &options) {
+	if (visual.status != XeenObjectVisualStatus::SupportedStatic ||
+		!visual.identity.mapId || visual.identity.mapId.side != XeenSide::Clouds)
+		throw std::runtime_error("cannot draw unsupported object visual: " + visual.diagnostic);
+	auto resolvedOptions = options;
+	resolvedOptions.horizontalFlip = visual.horizontalFlip;
+	_impl->bridge.drawObjectSprite(visual.spriteName, visual.frame, x, y, resolvedOptions);
+}
 
 bool XeenAssetSource::hasArchiveResource(const std::string &resourceName) {
 	return _impl->bridge.hasArchiveResource(resourceName);

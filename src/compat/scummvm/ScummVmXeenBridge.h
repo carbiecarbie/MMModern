@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -28,6 +29,9 @@ public:
 	void drawSprite(const std::string &resourceName, std::size_t frame, int x, int y,
 		const XeenSpriteDrawOptions &options);
 	IndexedFrame snapshot() const;
+	std::optional<std::vector<std::uint8_t>> readCloudsVisualMetadataFromDarkArchive();
+	void drawObjectSprite(const std::string &resourceName, std::size_t frame,
+		int x, int y, const XeenSpriteDrawOptions &options);
 	bool hasArchiveResource(const std::string &resourceName);
 	std::vector<std::uint8_t> readArchiveResource(const std::string &resourceName);
 	bool hasInitialResource(const std::string &resourceName);
