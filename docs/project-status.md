@@ -4,7 +4,8 @@
 
 Current stable milestone: **Milestone 17**
 
-Current development target: **none approved; Milestone 17 complete**
+Next implementation target: **Milestone 18A - approved/planned, not implemented**.
+Implementation has not started; this approval records the specification only.
 
 Milestone 14 is complete. Stages 14A, 14B, 14C, and 14D are complete.
 
@@ -17,9 +18,11 @@ validation record are in the [Milestone 16 plan](milestone-16-plan.md).
 The [Milestone 17 plan](milestone-17-plan.md) is complete: 17A and 17B are
 complete, and independent final review returned **APPROVE MILESTONE 17**.
 All required acceptance cases A01-A13 passed. Milestone 17 is the latest stable
-milestone. No Milestone 18 is approved or started.
+milestone. [Milestone 18](milestone-18-plan.md) is approved/planned; 18A and 18B
+are not implemented or complete. The next implementation target is 18A.
 
-Current automated test suite: **42/42 passing**
+Last recorded complete automated baseline: **42/42 passed during M17**.
+This is historical validation evidence; no build or CTest was run for M18 planning.
 
 ## Milestone 13
 
@@ -663,10 +666,30 @@ complete, all A01-A13 acceptance cases passed, and the full CTest result remains
 validation remains dummy/software, not physical-display hardware validation.
 
 Final stabilization changes documentation/status only and preserves the detailed
-validation records. The approved implementation and final documentation remain
-in the working tree for the user's commit. No commit, push, tag, branch change
-or history rewrite was performed during stabilization. No Milestone 18 is
-approved or started.
+validation records. No commit, push, tag, branch change or history rewrite was
+performed during stabilization itself. The completed Milestone 17 was
+subsequently committed on main at
+`b59f39e975173444e3324787209d4ad20b5a0b70`. M18 had not been approved or started
+at the time of that stabilization; its later planning approval is recorded below.
+
+## Milestone 18 - WhoWill and Bone Whistle collection
+
+**Status: approved/planned; implementation not started.**
+
+The approved specification is the [Milestone 18 plan](milestone-18-plan.md).
+Milestone 17 remains the latest stable milestone.
+
+- **18A: next implementation target; approved/planned, not implemented or complete.**
+  Integrate WhoWill decoding, ephemeral script-selected character context,
+  eligibility, typed presentation responses, F1-F6/Escape input and Action 9.
+- **18B: planned, not implemented or complete.** Validate the original Bone
+  Whistle chain on Clouds map 20 at (5,14), facing North, including cancellation,
+  one-item grant, Remove persistence, repeat interaction and M17 regressions.
+- The scope excludes quest completion, normal route/combat certification,
+  inventory/quest-item consumption and other opcode expansion.
+- A01-A36 are required acceptance cases, not passed results. The 42/42 M17
+  baseline remains historical evidence; this documentation update ran no build,
+  CTest or M18 acceptance tests. Approval of the plan does not start implementation.
 
 ## Architecture notes
 

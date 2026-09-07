@@ -912,5 +912,7 @@ on `main` at `b59f39e975173444e3324787209d4ad20b5a0b70`.
 
 ## Next implementation task
 
-None authorized. Milestone 18 is not approved or started; do not start another
-milestone automatically.
+The subsequently approved [Milestone 18 plan](milestone-18-plan.md) names 18A
+as the next implementation target. M18 is approved/planned, not implemented;
+this documentation approval does not authorize starting implementation now.
+Milestone 17 remains the latest stable milestone.
