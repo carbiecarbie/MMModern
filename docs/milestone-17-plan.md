@@ -906,8 +906,9 @@ and validation evidence above is preserved. No source, test or CMake changes or
 additional validation runs were required for this stabilization.
 No consumption, generic TakeOrGive/inventory, Myra completion, save/load or M18
 work was added. No commit, push, tag, branch creation/switch or history rewrite
-was performed during stabilization. The approved implementation and final
-documentation remain in the working tree for the user's commit.
+was performed during stabilization itself. The completed Milestone 17, including
+the approved implementation and final documentation, was subsequently committed
+on `main` at `b59f39e975173444e3324787209d4ad20b5a0b70`.
 
 ## Next implementation task
 
