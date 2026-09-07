@@ -2,18 +2,17 @@
 
 ## Current development state
 
-Current stable milestone: **Milestone 14**
+Current stable milestone: **Milestone 15**
 
-Current development target: **Milestone 15C - next stage, not started**
+Current development target: **No subsequent milestone is approved**
 
 Milestone 14 is complete. Stages 14A, 14B, 14C, and 14D are complete.
 
-Milestone 15 is approved and in progress. 15A and 15B are complete.
-15C has not started and requires explicit implementation authorization.
+Milestone 15 is complete. Stages 15A, 15B, and 15C are complete.
 The approved specification is
 [Milestone 15 plan](milestone-15-plan.md).
 
-Current automated test suite: **34/34 passing**
+Current automated test suite: **35/35 passing**
 
 ## Milestone 13
 
@@ -222,8 +221,7 @@ Validation completed for 14D:
   320x200 resolution, including the distinct reduced font and the post-teleport
   frame.
 
-Milestone 14 is complete. Milestone 15 is the approved next milestone;
-15A and 15B are complete; 15C awaits implementation authorization.
+Milestones 14 and 15 are complete. No subsequent milestone is approved.
 
 ## Out of scope for Milestone 14
 
@@ -241,7 +239,7 @@ not redefine the primary goal of Milestone 14.
 
 ## Milestone 15 - Mutable session-world state and Remove
 
-**Status: in progress; 15A and 15B complete, 15C not started.**
+**Status: complete; 15A, 15B, and 15C complete.**
 
 The [dedicated plan](milestone-15-plan.md) is the specification for this milestone.
 It defines the minimum session-owned world mutations needed by the original
@@ -251,8 +249,7 @@ Approved stages:
 
 - **15A - Session ownership and side-aware map identity:** complete.
 - **15B - Stable object/event identities and Remove execution:** complete.
-- **15C - Same-session persistence and integration validation:** planned;
-  not implemented or complete.
+- **15C - Same-session persistence and integration validation:** complete.
 
 The real-data checkpoint passed on Clouds map 23 at `(8,2)`, starting at the
 original `Remove` boundary. Production `.mob` loading and selection confirmed
@@ -346,12 +343,55 @@ Validation performed:
   frames were visually inspected at 320x200.
 - Logs and generated frames remain ignored local outputs under `build/15b`.
 
-No material specification or real-data discrepancy was found. No quest-item
-claim/grant, full Phirna harvesting, visible plant removal, disk persistence,
-or Darkside gameplay is implemented. **M15 remains incomplete; 15C has not
-started.** Its next target is comprehensive same-session persistence and
-integration validation: leave/return, repeated separate/combined cache rebuilds,
-fresh-session restoration, and the full M14 runtime regression sequence.
+### 15C integration and validation
+
+15C completed on 2026-09-07. No production defect or missing lifecycle hook was
+found: the stage added focused lifecycle coverage and extended the real-data
+checkpoint without changing the session architecture.
+
+- A new `xeen_session_persistence` test proves same-owner leave/return,
+  independent and combined map/object/script/text cache reconstruction,
+  presentation suspension with logical/physical state, selected identity and
+  call stack preserved, two-way Clouds/Darkside synthetic identity isolation,
+  and original effective state in a genuinely new `XeenWorld` owner.
+- Provider counters distinguish cache reuse from reconstruction. The synthetic
+  test verifies each cache is empty after discard and that its provider is
+  called again before accepting the persistence result.
+- The production map 23 checkpoint now performs normal line-0 interaction after
+  Remove, loads another real Clouds map and returns, rebuilds each cache
+  separately and together, exercises real Castle Basenji text-cache reload, and
+  creates a fresh production-equivalent world/event graph. The final observed
+  provider totals were maps=6, objects=5, scripts=5, and texts=3.
+- In the original session, object 13 remains unselectable and exactly event
+  identities 125-135 remain effective None throughout every lifecycle. In the
+  new session, production selection returns object 13 again and all 11 original
+  opcodes, including Remove at record 132, are effective again. Commercial MOB
+  and EVT bytes remain unchanged.
+
+15C validation used a fresh Debug build in `build/15c`, MSYS Makefiles and
+MSYS2 UCRT64 GCC 16.2.0. The configured ScummVM source and artifacts were
+`../scummvm-known-good-candidate` and
+`../build-scummvm-6814ee9b-ucrt64`; the source SHA was confirmed as
+`6814ee9ba54582f5b5adcffab49efbbd8f589edd` with no content differences. The
+default Windows Git configuration reports line-ending normalization noise for
+that external checkout; status is empty with `core.autocrlf=false`, and no
+dependency file was modified by this work.
+
+Validation results:
+
+- focused lifecycle and affected subsystem tests: **10/10 passed**;
+- final complete CTest suite: **35/35 passed**;
+- all ten real-data smokes passed: Remove lifecycle, party, indoor map, event
+  script, event text, flags, interpreter, event system, manual event, and
+  navigation flow;
+- SDL dummy/software runtime passed for `ui`, `map`, `indoor`, `event`,
+  `manual`, `manual-no`, and `manual-yes` with Escape, plus `ui` with SDL quit;
+- Air / Corner, Snake Oil, Castle Basenji question and No state, and the Yes
+  teleport destination were regenerated and visually inspected at 320x200.
+
+Milestone 15 is complete. This does not implement complete Phirna harvesting,
+quest-item grants, visible plant removal, disk save/load, or Darkside gameplay.
+No later milestone scope has been approved.
 
 ## Architecture notes
 

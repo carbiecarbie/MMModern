@@ -8,11 +8,12 @@ The project is currently in early development.
 
 ## Current status
 
-Milestone 14 is complete. [Milestone 15](docs/milestone-15-plan.md) is approved;
-15A and 15B are complete; 15C is the next stage and has not started.
+Milestones 14 and [15](docs/milestone-15-plan.md) are complete.
 The Remove mutation checkpoint on Clouds map 23 works with session-owned
-object/event disabling. Complete Phirna harvesting, quest-item granting, and
-visible plant removal are not implemented.
+object/event disabling that survives map changes and disposable-cache rebuilds;
+a new session restores the original resource state. Complete Phirna harvesting,
+quest-item granting, visible plant removal, disk save/load, and Darkside gameplay
+are not implemented.
 
 MMModern currently includes:
 

@@ -1,13 +1,13 @@
 # Milestone 15 - Mutable session-world state and Remove
 
-**Status: approved and in progress; 15A and 15B complete, 15C not started.**
+**Status: complete; 15A, 15B, and 15C complete.**
 
-**Next implementation target: 15C, pending explicit implementation authorization.**
+**Next milestone: not defined or approved by this plan.**
 
 Milestone 14 remains the completed stable milestone. 15A and 15B have passed
-their required implementation validation. 15C has not started; M15 remains
-incomplete. This document preserves the reviewed specification and records
-stage implementation evidence separately below.
+their required implementation validation. 15C has also passed its lifecycle
+validation, completing M15. This document preserves the reviewed specification
+and records stage implementation evidence separately below.
 
 ## Objective
 
@@ -492,7 +492,45 @@ Phirna harvesting.
 
 ## 15C - Same-session persistence and integrated validation
 
-**Status: planned; not started. Depends on 15B.**
+**Status: complete; validated on 2026-09-07.**
+
+### Implemented evidence
+
+15C required no production architecture change. The new synthetic lifecycle
+test and expanded production checkpoint use the existing owner and discard APIs.
+They prove actual provider reloads rather than repeated reads from retained
+caches.
+
+- One `XeenWorld` owner retains map 23 object/event mutations while loading a
+  different Clouds map and returning.
+- Separate map/object, script, and text discards empty their caches and increment
+  focused provider counters on reload. Combined discard rebuilds all four kinds
+  of base data while retaining the same session owner and mutation sets.
+- A presentation suspended inside a logical call survives map/object/script/text
+  cache discard. Its copied script, logical address, physical camera, selected
+  identity, call stack, flags and mutation visibility remain valid on resume;
+  subsequent interaction reloads discarded script/text resources.
+- Another Clouds map stays unchanged. Colliding numeric object/event identities
+  on synthetic Darkside can be mutated independently in both directions and
+  remain isolated after cache reconstruction.
+- A genuinely new world/event graph owns empty mutation sets and no pending
+  execution. Production selection and all original map 23 opcodes are restored
+  from immutable resources.
+- The extended real checkpoint performs normal line-0 interaction after Remove,
+  leave/return, separate and combined cache reconstruction, real text reload,
+  and new-session restoration. Provider totals are maps=6, objects=5, scripts=5,
+  texts=3. Object 13 remains disabled only in the original session; exactly the
+  11 intended events remain effective None there.
+
+Validation used `build/15c`, Debug, MSYS Makefiles and UCRT64 GCC 16.2.0 with
+the pinned source SHA `6814ee9ba54582f5b5adcffab49efbbd8f589edd` and existing
+UCRT64 dependency artifacts. Focused tests passed 10/10; complete CTest passed
+35/35. All ten production-data smokes passed. All eight documented SDL
+dummy/software scenarios passed. The five M14 frames for Air / Corner, Snake
+Oil, Castle question, No, and Yes destination were regenerated and visually
+inspected at 320x200. No production defect or real-data discrepancy was found.
+
+The sections below retain the approved 15C acceptance requirements.
 
 ### Objective and acceptance sequence
 
@@ -603,17 +641,17 @@ A small shared map-identity header and a dedicated Remove integration test may
 be justified. New generic systems or a session layer above all subsystems are
 not required by the reviewed architecture.
 
-## Remaining verification and next action
+## Completion and next action
 
-15A and 15B are complete. The production map 23 checkpoint confirmed object 13,
-resource 111, all specified EVT metadata, and logical line 0 restart without a
-specification discrepancy. Animated-object and other scene-specific selection
-remain outside the approved coverage.
+Milestone 15 is complete. The production map 23 lifecycle confirmed object 13,
+resource 111, all specified EVT metadata, logical line 0 restart, same-session
+persistence across every approved cache lifecycle, and new-session restoration
+without a specification discrepancy. The complete M14 regression sequence also
+passed. Animated-object and other scene-specific selection remain outside the
+approved coverage.
 
-The next stage is **15C - Same-session persistence and integrated validation**,
-pending explicit authorization. Its comprehensive leave/return, repeated cache
-reconstruction, new-session restoration, and complete M14 regression sequence
-remain unexecuted. Do not mark the full milestone complete on 15B evidence alone.
+No Milestone 16 scope is defined or approved here. A later planning task must
+establish the next milestone before implementation begins.
 
 Follow [AGENTS.md](../AGENTS.md) for implementation validation and documentation
 updates. Do not start subsequent stages without explicit authorization. Do not
