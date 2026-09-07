@@ -71,6 +71,7 @@ std::vector<std::uint8_t> clearFlag(std::uint8_t flag) {
 
 class Fixture {
 public:
+	XeenPartyState party;
 	Fixture() :
 		world([this](mmodern::XeenMapIdentity mapId) {
 			++mapLoads[mapId];
@@ -123,7 +124,7 @@ void testValidationAndNoTrigger() {
 	Fixture invalid;
 	XeenCamera bad{0, -1, 16, static_cast<XeenDirection>(9)};
 	XeenGameFlags flags;
-	failure(invalid.system.runAutomaticEvent(invalid.world, {}, bad, flags),
+	failure(invalid.system.runAutomaticEvent(invalid.world, invalid.party, bad, flags),
 		XeenEventExecutionErrorKind::InvalidInitialCamera);
 	check(invalid.mapLoads.empty() && invalid.scriptLoads.empty(),
 		"invalid camera performs no loads");
@@ -131,14 +132,14 @@ void testValidationAndNoTrigger() {
 	Fixture mapFailure;
 	mapFailure.failingMaps[1] = true;
 	XeenCamera camera{1, 1, 1, XeenDirection::North};
-	failure(mapFailure.system.runAutomaticEvent(mapFailure.world, {}, camera, flags),
+	failure(mapFailure.system.runAutomaticEvent(mapFailure.world, mapFailure.party, camera, flags),
 		XeenEventExecutionErrorKind::MapLoadFailed);
 	check(mapFailure.scriptLoads.empty(), "map failure does not load script");
 
 	Fixture noTrigger;
 	noTrigger.maps.emplace(1, map(1));
 	const auto result = noTrigger.system.runAutomaticEvent(
-		noTrigger.world, {}, camera, flags);
+		noTrigger.world, noTrigger.party, camera, flags);
 	check(std::holds_alternative<XeenAutomaticEventNoTrigger>(result),
 		"cell without flag returns NoTrigger");
 	check(noTrigger.scriptLoads.empty() && noTrigger.system.cachedScriptCount() == 0,
@@ -153,7 +154,7 @@ void testTriggerKindsDirectionsAndEmptyScripts() {
 		XeenCamera camera{1, 1, 1, XeenDirection::North};
 		XeenGameFlags flags;
 		const auto result = completed(fixture.system.runAutomaticEvent(
-			fixture.world, {}, camera, flags));
+			fixture.world, fixture.party, camera, flags));
 		check(result.instructionCount == 1, "interior/outdoor trigger executes");
 	}
 
@@ -172,7 +173,7 @@ void testTriggerKindsDirectionsAndEmptyScripts() {
 		XeenCamera camera{1, 1, 1, directions[index]};
 		XeenGameFlags flags;
 		const auto result = completed(fixture.system.runAutomaticEvent(
-			fixture.world, {}, camera, flags));
+			fixture.world, fixture.party, camera, flags));
 		check(result.instructionCount == 1 && result.cameraChanged,
 			"direction-specific trigger executes");
 		checkCamera(camera, static_cast<std::uint16_t>(index + 2), 2, 2,
@@ -191,7 +192,7 @@ void testTriggerKindsDirectionsAndEmptyScripts() {
 		XeenCamera camera{1, 1, 1, XeenDirection::West};
 		XeenGameFlags flags;
 		const auto result = completed(fixture.system.runAutomaticEvent(
-			fixture.world, {}, camera, flags));
+			fixture.world, fixture.party, camera, flags));
 		check(result.instructionCount == 0 && !result.cameraChanged &&
 			!result.flagsChanged, "trigger without matching instruction is success");
 	}
@@ -207,7 +208,7 @@ void testCommitAndRollback() {
 	XeenCamera camera{1, 1, 1, XeenDirection::East};
 	XeenGameFlags flags;
 	const auto committed = completed(commit.system.runAutomaticEvent(
-		commit.world, {}, camera, flags));
+		commit.world, commit.party, camera, flags));
 	check(committed.instructionCount == 2 && committed.cameraChanged &&
 		committed.flagsChanged && flags.isSet(25),
 		"camera and SET commit together");
@@ -221,7 +222,7 @@ void testCommitAndRollback() {
 	XeenGameFlags clearFlags;
 	clearFlags.set(25);
 	const auto cleared = completed(clear.system.runAutomaticEvent(
-		clear.world, {}, clearCamera, clearFlags));
+		clear.world, clear.party, clearCamera, clearFlags));
 	check(cleared.flagsChanged && !clearFlags.isSet(25) &&
 		!cleared.cameraChanged, "CLEAR committed");
 
@@ -234,7 +235,7 @@ void testCommitAndRollback() {
 	XeenCamera netCamera{1, 1, 1, XeenDirection::North};
 	XeenGameFlags netFlags;
 	const auto net = completed(netZero.system.runAutomaticEvent(
-		netZero.world, {}, netCamera, netFlags));
+		netZero.world, netZero.party, netCamera, netFlags));
 	check(!net.flagsChanged && !netFlags.isSet(25),
 		"Changed reports final difference, not intermediate mutation");
 
@@ -247,7 +248,7 @@ void testCommitAndRollback() {
 	XeenCamera rollbackCamera{1, 1, 1, XeenDirection::South};
 	XeenGameFlags rollbackFlags;
 	const auto rollbackError = failure(rollback.system.runAutomaticEvent(
-		rollback.world, {}, rollbackCamera, rollbackFlags),
+		rollback.world, rollback.party, rollbackCamera, rollbackFlags),
 		XeenEventExecutionErrorKind::UnsupportedOpcode);
 	check(rollbackError.source && rollbackError.source->fileOffset == 987 &&
 		!rollbackFlags.isSet(25), "rollback preserves diagnostic and flags");
@@ -264,13 +265,13 @@ void testCommitAndRollback() {
 	XeenCamera historyCamera{1, 1, 1, XeenDirection::North};
 	XeenGameFlags historyFlags;
 	completed(history.system.runAutomaticEvent(
-		history.world, {}, historyCamera, historyFlags));
+		history.world, history.party, historyCamera, historyFlags));
 	check(historyFlags.isSet(7), "first event committed before later failure");
 	// This position represents movement completed before the second event call.
 	historyCamera.x = 2;
 	historyCamera.y = 2;
 	failure(history.system.runAutomaticEvent(
-		history.world, {}, historyCamera, historyFlags),
+		history.world, history.party, historyCamera, historyFlags),
 		XeenEventExecutionErrorKind::UnsupportedOpcode);
 	checkCamera(historyCamera, 1, 2, 2, XeenDirection::North,
 		"event rollback does not undo earlier movement");
@@ -287,7 +288,7 @@ void testCommitAndRollback() {
 	}));
 	XeenCamera teleportCamera{1, 1, 1, XeenDirection::West};
 	XeenGameFlags teleportFlags;
-	failure(workingTeleport.system.runAutomaticEvent(workingTeleport.world, {},
+	failure(workingTeleport.system.runAutomaticEvent(workingTeleport.world, workingTeleport.party,
 		teleportCamera, teleportFlags), XeenEventExecutionErrorKind::UnsupportedOpcode);
 	checkCamera(teleportCamera, 1, 1, 1, XeenDirection::West,
 		"working teleport is not committed after error");
@@ -302,9 +303,9 @@ void testCacheAndRetry() {
 	XeenGameFlags flags;
 	for (int iteration = 0; iteration < 2; ++iteration) {
 		XeenCamera one{1, 1, 1, XeenDirection::North};
-		completed(fixture.system.runAutomaticEvent(fixture.world, {}, one, flags));
+		completed(fixture.system.runAutomaticEvent(fixture.world, fixture.party, one, flags));
 		XeenCamera two{2, 1, 1, XeenDirection::North};
-		completed(fixture.system.runAutomaticEvent(fixture.world, {}, two, flags));
+		completed(fixture.system.runAutomaticEvent(fixture.world, fixture.party, two, flags));
 	}
 	check(fixture.scriptLoads[1] == 1 && fixture.scriptLoads[2] == 1 &&
 		fixture.system.cachedScriptCount() == 2,
@@ -314,7 +315,7 @@ void testCacheAndRetry() {
 	absent.maps.emplace(1, map(1, true, {{1, 1}}));
 	for (int iteration = 0; iteration < 2; ++iteration) {
 		XeenCamera camera{1, 1, 1, XeenDirection::North};
-		completed(absent.system.runAutomaticEvent(absent.world, {}, camera, flags));
+		completed(absent.system.runAutomaticEvent(absent.world, absent.party, camera, flags));
 	}
 	check(absent.scriptLoads[1] == 1 && absent.system.cachedScriptCount() == 1,
 		"absent event resource is cached");
@@ -324,9 +325,9 @@ void testCacheAndRetry() {
 	retry.scripts.emplace(1, script(1, {record(1, 1, 0, 0x12)}));
 	retry.failuresRemaining[1] = 1;
 	XeenCamera camera{1, 1, 1, XeenDirection::North};
-	failure(retry.system.runAutomaticEvent(retry.world, {}, camera, flags),
+	failure(retry.system.runAutomaticEvent(retry.world, retry.party, camera, flags),
 		XeenEventExecutionErrorKind::ScriptLoadFailed);
-	completed(retry.system.runAutomaticEvent(retry.world, {}, camera, flags));
+	completed(retry.system.runAutomaticEvent(retry.world, retry.party, camera, flags));
 	check(retry.scriptLoads[1] == 2 && retry.system.cachedScriptCount() == 1,
 		"failed load is not cached and can be retried");
 }
@@ -339,12 +340,12 @@ void testTeleportTriggerBoundary() {
 	exit.scripts.emplace(2, script(2, {record(2, 2, 0, 0x07, {3, 3, 3})}));
 	XeenCamera camera{1, 1, 1, XeenDirection::North};
 	XeenGameFlags flags;
-	completed(exit.system.runAutomaticEvent(exit.world, {}, camera, flags));
+	completed(exit.system.runAutomaticEvent(exit.world, exit.party, camera, flags));
 	checkCamera(camera, 2, 2, 2, XeenDirection::North,
 		"TeleportAndExit stops at first destination");
 	check(exit.scriptLoads[1] == 1 && exit.scriptLoads[2] == 0,
 		"TeleportAndExit does not load destination trigger script");
-	completed(exit.system.runAutomaticEvent(exit.world, {}, camera, flags));
+	completed(exit.system.runAutomaticEvent(exit.world, exit.party, camera, flags));
 	checkCamera(camera, 3, 3, 3, XeenDirection::North,
 		"separate call executes destination trigger");
 
@@ -359,7 +360,7 @@ void testTeleportTriggerBoundary() {
 	}));
 	XeenCamera continued{1, 1, 1, XeenDirection::East};
 	completed(continuation.system.runAutomaticEvent(
-		continuation.world, {}, continued, flags));
+		continuation.world, continuation.party, continued, flags));
 	checkCamera(continued, 2, 3, 4, XeenDirection::East,
 		"TeleportAndContinue executes destination without physical trigger");
 	check(continuation.scriptLoads[1] == 1 && continuation.scriptLoads[2] == 1 &&

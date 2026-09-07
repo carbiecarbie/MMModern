@@ -21,6 +21,7 @@ XeenObjectFile objects(XeenMapIdentity id) {
 	return file;
 }
 struct Fixture {
+	XeenPartyState party;
 	std::map<XeenMapIdentity, XeenEventScript> scripts;
 	int objectLoads = 0;
 	XeenWorld world{[](XeenMapIdentity id) { return map(id); },
@@ -33,12 +34,12 @@ struct Fixture {
 		return [](XeenMapIdentity id) { return XeenEventTextFile{id, "test.txt", true, {"text"}}; };
 	}
 	XeenEventExecutionStepResult begin(std::uint8_t line = 0, XeenMapIdentity id = 23) {
-		return interpreter.begin({id,8,2,XeenDirection::North}, {}, {}, world,
+		return interpreter.begin({id,8,2,XeenDirection::North}, party, {}, world,
 			provider(), textProvider(), line);
 	}
 	XeenEventExecutionStepResult resume(XeenEventExecutionState state) {
 		return interpreter.resume(std::move(state), XeenPresentationResponse::Presented,
-			{}, world, provider(), textProvider());
+			party, world, provider(), textProvider());
 	}
 };
 
@@ -112,7 +113,7 @@ void basicRemoveAndEffectiveRecords() {
 	// Missing objects are a valid no-selection context, not an execution error.
 	XeenWorld noObjects([](XeenMapIdentity id) { return map(id); });
 	check(std::holds_alternative<XeenEventExecutionCompleted>(f.interpreter.begin(
-		{23,8,2,XeenDirection::North}, {}, {}, noObjects, f.provider(), {}, 2)) &&
+		{23,8,2,XeenDirection::North}, f.party, {}, noObjects, f.provider(), {}, 2)) &&
 		noObjects.sessionState().disabledObjectCount() == 0 &&
 		noObjects.sessionState().disabledEventCount() == 5, "Remove without selection failed");
 }
@@ -191,7 +192,7 @@ void worldEffectsSurviveTransactionFailure() {
 		record(7,8,2,0x0e),record(7,8,3,0x1a,{1})}));
 	XeenEventSystem events(f.provider());
 	XeenCamera camera{23,8,2,XeenDirection::North}; XeenGameFlags flags;
-	const auto result=events.runManualEvent(f.world,{},camera,flags);
+	const auto result=events.runManualEvent(f.world, f.party,camera,flags);
 	check(std::get<XeenEventExecutionError>(result).kind==XeenEventExecutionErrorKind::MalformedInstruction &&
 		camera.mapId==23 && !flags.isSet(5), "camera/flags failed rollback");
 	check(f.world.isObjectDisabled({24,3}) && f.world.isEventDisabled({24,0}) &&

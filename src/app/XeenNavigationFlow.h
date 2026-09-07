@@ -19,15 +19,15 @@ public:
 	explicit XeenNavigationFlow(XeenEventSystem &eventSystem);
 
 	XeenAutomaticEventResult processInitialEvent(XeenWorld &world,
-		const XeenPartyState &partyState, XeenCamera &camera,
+		XeenPartyState &partyState, XeenCamera &camera,
 		XeenGameFlags &gameFlags);
 
 	XeenNavigationFlowResult processNavigationAction(XeenWorld &world,
-		const XeenPartyState &partyState, XeenCamera &camera,
+		XeenPartyState &partyState, XeenCamera &camera,
 		XeenGameFlags &gameFlags, NavigationAction action);
 
 	XeenManualEventResult processInteraction(XeenWorld &world,
-		const XeenPartyState &partyState, XeenCamera &camera,
+		XeenPartyState &partyState, XeenCamera &camera,
 		XeenGameFlags &gameFlags);
 
 private:

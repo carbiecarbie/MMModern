@@ -49,6 +49,8 @@ public:
 	explicit XeenCloudsQuestItems(Counts counts) : _counts(counts) {}
 	static std::optional<std::size_t> indexForItemId(std::int64_t itemId);
 	std::uint32_t at(std::size_t index) const { return _counts.at(index); }
+	// Bounded access; returns false on overflow without changing the counter.
+	bool increment(std::size_t index);
 	const Counts &counts() const { return _counts; }
 
 private:

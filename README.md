@@ -17,15 +17,21 @@ The original Phirna Remove checkpoint on Clouds map 23 now updates the runtime
 frame immediately without movement, preserving text presentations and other
 objects. Removal persists across map changes and cache reconstruction in the
 same session; a genuinely new session restores visibility.
-Complete Phirna harvesting, TakeOrGive quest-item granting, disk save/load and
-Darkside gameplay are not implemented. Pressing Space does not bypass the
-unimplemented quest-item instruction.
 
-[Milestone 17A](docs/milestone-17-plan.md) is complete: the party loads 35
-Clouds quest-item counters, events can query possession, and the original
-already-owned Phirna refusal completes after acknowledgment. The normal Yes
-path without a root reaches the intentionally unsupported line-6 grant, with
-zero roots and the plant still present. Milestone 17B has not started.
+[Milestone 17](docs/milestone-17-plan.md) is complete and is the latest stable
+milestone. Stages 17A and 17B passed final independent review with verdict
+**APPROVE MILESTONE 17**. All acceptance cases A01-A13 passed, and full CTest
+passed **42/42**. Recorded SDL validation used dummy video/software rendering
+and native-frame inspection, not physical-display hardware validation.
+No Milestone 18 is approved or started. The party loads
+35 Clouds quest-item counters. Events can query possession and execute the
+bounded quest-item grant: normal Phirna Space -> Yes -> acknowledgment grants
+exactly one root and removes the plant immediately, preserving the success
+text. No and already-owned refusal grant nothing and leave the plant present.
+Ownership and removal survive same-session cache reconstruction; a new session
+restores the initial state. Re-interacting with the removed plant cannot grant
+again. Quest-item consumption, general inventory/TakeOrGive, Myra's exchange,
+disk save/load and Darkside gameplay remain unimplemented.
 
 MMModern currently includes:
 

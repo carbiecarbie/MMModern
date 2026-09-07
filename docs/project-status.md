@@ -2,9 +2,9 @@
 
 ## Current development state
 
-Current stable milestone: **Milestone 16**
+Current stable milestone: **Milestone 17**
 
-Current development target: **none active; Milestone 17A complete**
+Current development target: **none approved; Milestone 17 complete**
 
 Milestone 14 is complete. Stages 14A, 14B, 14C, and 14D are complete.
 
@@ -14,10 +14,12 @@ The approved specification is
 
 Milestones 16A, 16B and 16C are complete. The approved specification and
 validation record are in the [Milestone 16 plan](milestone-16-plan.md).
-The [Milestone 17 plan](milestone-17-plan.md) is approved. Only 17A has been
-requested for implementation; 17B is unimplemented and has not started.
+The [Milestone 17 plan](milestone-17-plan.md) is complete: 17A and 17B are
+complete, and independent final review returned **APPROVE MILESTONE 17**.
+All required acceptance cases A01-A13 passed. Milestone 17 is the latest stable
+milestone. No Milestone 18 is approved or started.
 
-Current automated test suite: **41/41 passing**
+Current automated test suite: **42/42 passing**
 
 ## Milestone 13
 
@@ -524,7 +526,7 @@ was performed as part of 16B; that work is recorded below.
 
 ### 16C implementation and validation
 
-Completed on 2026-09-07. Milestone 16 is now the stable milestone.
+Completed on 2026-09-07. Milestone 16 became the stable milestone at that point.
 
 - `Application::renderMap` uses the new small `XeenEventFlow` coordinator for
   initial automatic events, navigation, interaction, presentation input and
@@ -596,7 +598,9 @@ No commit, push, tag or branch was created; no next milestone was started.
 
 ## Milestone 17A - Quest-item state, possession and refusal completion
 
-**Status: complete on 2026-09-07. Milestone 17 is not complete; 17B is not started.**
+**Status: complete on 2026-09-07.**
+
+The following records the 17A-only implementation boundary, before 17B.
 
 - Party-owned state holds exactly 35 unsigned 32-bit Clouds counters with checked
   script-ID mapping 82..116 and bounded queries. Initial loading requires bytes
@@ -618,7 +622,51 @@ No commit, push, tag or branch was created; no next milestone was started.
 
 See the [17A implementation and validation record](milestone-17-plan.md#17a-implementation-and-validation-record)
 for the exact checks and local artifacts. Original assets remained external and
-read-only. Changes are left uncommitted for review; no push, tag or branch operation.
+read-only. At the 17A handoff, changes were left uncommitted for review; no push,
+tag or branch operation was performed.
+
+## Milestone 17B - Quest-item grant and complete normal Phirna harvesting
+
+**Status: complete on 2026-09-07; independent final review approved.**
+
+- The caller-owned party supports checked one-at-a-time increments of the 35
+  Clouds counters, including values above 255. Overflow leaves state unchanged.
+- Ordinary TakeOrGive supports only neutral first/third pairs and give mode 21
+  with ID 82..116, alongside the previous mode-20 flag operations. Invalid IDs,
+  context, empty party, overflow and impossible continuation fail before grant.
+- Mutable party access is confined to execution paths. Successful grants persist
+  immediately through later errors; camera/game flags keep their previous commit
+  policy. Suspensions retain continuations, not copies of authoritative counters.
+- Original Phirna line-0 Yes completes in 18 instructions: one root, original
+  Remove, then eleven effective None records. The returned shared-flow frame
+  already shows removal and retained success text. Later interaction runs eleven
+  None records and cannot grant again. No/refusal remain 3/5 instructions.
+- Same-session cache reconstruction preserves ownership/removal; a new
+  party/world/events/presenter graph restores zero roots and the visible plant.
+- Fresh pinned-dependency Debug build and all smoke targets passed. Final focused
+  CTest passed 4/4 and complete CTest passed 42/42. All A01-A13 acceptance cases,
+  original-data and SDL checkpoints passed. Native 320x200 frames were inspected;
+  SDL used dummy/software rendering, not physical-display hardware validation.
+
+The [17B validation record](milestone-17-plan.md#17b-implementation-and-validation-record)
+contains the acceptance mapping and local evidence. The 17A line-6 unsupported
+boundary above is historical and is now replaced by the bounded grant.
+No consumption, generic inventory/TakeOrGive, Myra completion, save/load or
+future milestone work was added. Original commercial resources were not modified.
+
+### Milestone 17 final stabilization
+
+Independent final review returned **APPROVE MILESTONE 17**. No implementation,
+test, architecture, scope or validation issues were found. Both stages are
+complete, all A01-A13 acceptance cases passed, and the full CTest result remains
+**42/42**. Milestone 17 is now the latest stable milestone. The recorded SDL
+validation remains dummy/software, not physical-display hardware validation.
+
+Final stabilization changes documentation/status only and preserves the detailed
+validation records. The approved implementation and final documentation remain
+in the working tree for the user's commit. No commit, push, tag, branch change
+or history rewrite was performed during stabilization. No Milestone 18 is
+approved or started.
 
 ## Architecture notes
 

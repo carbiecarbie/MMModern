@@ -59,6 +59,7 @@ std::vector<std::uint8_t> setFlag(std::uint8_t flag) {
 
 class Fixture {
 public:
+	XeenPartyState party;
 	Fixture() :
 		world([this](mmodern::XeenMapIdentity id) {
 			++mapLoads[id];
@@ -101,10 +102,10 @@ void testManualGateAndCurrentCell() {
 	XeenGameFlags flags;
 
 	check(std::holds_alternative<XeenAutomaticEventNoTrigger>(
-		fixture.system.runAutomaticEvent(fixture.world, {}, camera, flags)),
+		fixture.system.runAutomaticEvent(fixture.world, fixture.party, camera, flags)),
 		"automatic event must remain gated by 0x10");
 	const auto result = completed(fixture.system.runManualEvent(
-		fixture.world, {}, camera, flags));
+		fixture.world, fixture.party, camera, flags));
 	check(result.instructionCount == 2 && result.flagsChanged && flags.isSet(7),
 		"manual event without 0x10 executes and commits");
 	check(!flags.isSet(8) && camera.x == 4 && camera.y == 5,
@@ -121,7 +122,7 @@ void testManualGateAndCurrentCell() {
 	}));
 	XeenGameFlags flagged;
 	completed(flaggedFixture.system.runManualEvent(
-		flaggedFixture.world, {}, camera, flagged));
+		flaggedFixture.world, flaggedFixture.party, camera, flagged));
 	check(flagged.isSet(7), "0x10 does not block manual dispatch");
 }
 
@@ -138,18 +139,18 @@ void testDirectionOrderAndNoEvent() {
 	fixture.maps.emplace(3, map(3));
 	XeenCamera camera{1, 2, 3, XeenDirection::North};
 	XeenGameFlags flags;
-	completed(fixture.system.runManualEvent(fixture.world, {}, camera, flags));
+	completed(fixture.system.runManualEvent(fixture.world, fixture.party, camera, flags));
 	check(camera.mapId == 2 && camera.x == 6 && camera.y == 6,
 		"first matching all-directions record wins over later exact direction");
 
 	XeenCamera wrongDirection{1, 2, 3, XeenDirection::East};
 	completed(fixture.system.runManualEvent(
-		fixture.world, {}, wrongDirection, flags));
+		fixture.world, fixture.party, wrongDirection, flags));
 	check(wrongDirection.mapId == 2, "all-directions record matches another facing");
 
 	XeenCamera noLineZero{1, 9, 9, XeenDirection::North};
 	const auto none = fixture.system.runManualEvent(
-		fixture.world, {}, noLineZero, flags);
+		fixture.world, fixture.party, noLineZero, flags);
 	check(std::holds_alternative<XeenManualEventNoEvent>(none) &&
 		noLineZero.mapId == 1 && noLineZero.x == 9 && noLineZero.y == 9,
 		"later lines without line zero return explicit no-event");
@@ -168,12 +169,12 @@ void testErrorsRollbackAndDiagnostics() {
 	XeenCamera camera{1, 4, 5, XeenDirection::South};
 	XeenGameFlags flags;
 	const auto result = fixture.system.runManualEvent(
-		fixture.world, {}, camera, flags);
+		fixture.world, fixture.party, camera, flags);
 	const auto *pending = std::get_if<XeenEventExecutionSuspended>(&result);
 	check(pending && pending->request.text == "shown" && !flags.isSet(9),
 		"manual text request suspends without committing flags");
 	const auto resumed = fixture.system.resumeManualEvent(pending->state,
-		XeenPresentationResponse::Presented, fixture.world, {}, camera, flags);
+		XeenPresentationResponse::Presented, fixture.world, fixture.party, camera, flags);
 	const auto *error = std::get_if<XeenEventExecutionError>(&resumed);
 	check(error && error->kind == XeenEventExecutionErrorKind::UnsupportedOpcode,
 		"unsupported opcode after presentation remains an execution error");
@@ -216,7 +217,7 @@ void testUnsupportedSpecialInteractionPrecedence() {
 	XeenCamera camera{1, 4, 5, XeenDirection::West};
 	XeenGameFlags flags;
 	const auto special = fixture.system.runManualEvent(
-		fixture.world, {}, camera, flags);
+		fixture.world, fixture.party, camera, flags);
 	const auto *unsupported =
 		std::get_if<XeenManualSpecialInteractionUnsupported>(&special);
 	check(unsupported && unsupported->wallValue == 1,
@@ -234,7 +235,7 @@ void testUnsupportedSpecialInteractionPrecedence() {
 		static_cast<std::size_t>(XeenDirection::West)] = 13;
 	XeenGameFlags lockedFlags;
 	const auto locked = completed(lockedFixture.system.runManualEvent(
-		lockedFixture.world, {}, camera, lockedFlags));
+		lockedFixture.world, lockedFixture.party, camera, lockedFlags));
 	check(locked.instructionCount == 2 && lockedFlags.isSet(10),
 		"locked wall 13 falls through to ordinary event lookup");
 
@@ -246,7 +247,7 @@ void testUnsupportedSpecialInteractionPrecedence() {
 		static_cast<std::size_t>(XeenDirection::West)] = 13;
 	unlockedCell.rawAttributes |= kXeenGrateUnlockedFlag;
 	check(std::holds_alternative<XeenManualSpecialInteractionUnsupported>(
-		unlockedFixture.system.runManualEvent(unlockedFixture.world, {}, camera,
+		unlockedFixture.system.runManualEvent(unlockedFixture.world, unlockedFixture.party, camera,
 			lockedFlags)),
 		"unlocked wall 13 is a recognized special interaction");
 }

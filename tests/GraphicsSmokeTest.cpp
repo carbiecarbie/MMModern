@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
 		mmodern::XeenWorld world([&](mmodern::XeenMapIdentity mapId) {
 			return mapLoader.loadGeometryMap(assets, mapId);
 		});
-		const auto partyState = mmodern::XeenPartyLoader().loadInitialCloudsParty(assets);
+		auto partyState = mmodern::XeenPartyLoader().loadInitialCloudsParty(assets);
 		const mmodern::XeenCharacterRulesContext rulesContext{
 			mmodern::kCloudsInitialYear};
 		const mmodern::CloudsMapComposer composer;

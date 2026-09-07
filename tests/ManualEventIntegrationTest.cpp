@@ -56,7 +56,7 @@ int main(int argc, char *argv[]) {
 		check(installation && installation->hasXeen(),
 			"Clouds installation unavailable");
 		XeenAssetSource assets(*installation, 320, 200);
-		const XeenPartyState party = XeenPartyLoader().loadInitialCloudsParty(assets);
+		XeenPartyState party = XeenPartyLoader().loadInitialCloudsParty(assets);
 		XeenGameFlags flags = XeenGameFlagsLoader().loadInitialCloudsFlags(assets);
 		const auto beforeFlags = flags.values();
 		const XeenMapLoader mapLoader;

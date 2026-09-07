@@ -80,7 +80,7 @@ int main(int argc, char **argv) {
 			"Remove boundary or preceding TakeOrGive mismatch");
 		const auto beforeMob=assets.readInitialResource("maze0023.mob");
 		const auto beforeEvt=assets.readInitialResource("maze0023.evt");
-		const auto party=XeenPartyLoader().loadInitialCloudsParty(assets);
+		auto party=XeenPartyLoader().loadInitialCloudsParty(assets);
 		auto flags=XeenGameFlagsLoader().loadInitialCloudsFlags(assets);
 		const auto beforeFlags=flags.values();
 		int scriptLoads = 0, textLoads = 0;

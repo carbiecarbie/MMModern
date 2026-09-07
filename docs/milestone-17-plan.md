@@ -1,13 +1,14 @@
 # Milestone 17 - Party quest items and normal Phirna harvesting
 
-**Status: 17A complete; 17B not implemented or started. Milestone 17 is not complete.**
+**Status: 17A complete; 17B complete; independent final review approved.
+Milestone 17 is the latest stable milestone.**
 
-**The plan is approved and the separately requested 17A implementation is complete.
-17B implementation requires a separate request.**
+**Final review verdict: APPROVE MILESTONE 17.
+All acceptance cases A01-A13 passed; full CTest: 42/42 passed.**
 
-Milestone 16 remains the stable implemented milestone. This document specifies
-the bounded increment in progress toward full harvesting. Only the 17A subset
-is implemented. The dependency order is **17A -> 17B**.
+This document specifies the completed bounded quest-item/Phirna slice.
+The plan and separate 17A/17B implementation requests were approved. The dependency order was
+**17A -> 17B**. Earlier baseline and 17A validation sections remain historical.
 
 ## Goal
 
@@ -464,7 +465,7 @@ completion, Remove redesign, and all milestone-wide non-goals below.
 
 ## Milestone 17B - Quest-item grant and complete Phirna harvesting
 
-**Status: not implemented; depends on completed 17A.**
+**Status: complete on 2026-09-07; independent final review approved.**
 
 ### Objective and responsibilities
 
@@ -671,8 +672,9 @@ subsequent user instructions and the repository Git workflow.
 
 Completed on 2026-09-07 under the separate 17A-only implementation request.
 The planning baseline above remains historical. No contradiction requiring a
-scope or architecture change was found. M16 remains the last fully stable
-milestone; 17B and complete harvesting remain unimplemented.
+scope or architecture change was found. At the 17A completion boundary, M16
+was the last fully stable milestone; 17B and complete harvesting were still
+unimplemented. The following preserves that stage's implementation record.
 
 ### Implemented boundaries
 
@@ -766,8 +768,148 @@ Logs and generated frames remain ignored/local in `build/17a`: `build.log`,
 `outdoor`. No commercial assets were copied into tracked files or modified.
 No commit, push, tag, branch creation/switch or history rewrite was performed.
 
+## 17B implementation and validation record
+
+Implemented on 2026-09-07 from the clean, committed 17A baseline under the
+separate 17B request. All implementation/validation criteria passed, and
+independent final review subsequently approved Milestone 17 as stable. No
+concrete conflict with the approved plan or pinned reference behavior required
+redesign.
+
+### Implementation and ownership
+
+- `XeenCloudsQuestItems::increment` uses bounded array access and returns false
+  at `UINT32_MAX`, with no write. Values above 255 and max-minus-one to max work.
+- `XeenEventInterpreter` accepts only `(0,0), (21,82..116), (0,0)` for the new
+  grant. The existing decoder already supplies an omitted neutral third pair.
+  Semantic validation checks ID, Clouds logical/physical context, active party
+  and sequential continuation before incrementing. The existing dispatch limit
+  precedes execution. Overflow reports `QuestItemOverflow`; Application names
+  that diagnostic. Existing mode-20 set/clear behavior is unchanged.
+- Interpreter, event-system, navigation-flow and shared `XeenEventFlow` execution
+  interfaces now reference the caller's mutable party. Only Application's
+  interactive party becomes mutable; composers, rules and diagnostics remain
+  const observers. Earlier test/smoke callers now supply named mutable parties.
+- Grants are immediate party effects. Later unsupported instructions, invalid
+  grants and failing Remove do not undo them. Successful Remove also survives a
+  later fault. Camera/flag rollback remains independent. No party snapshot,
+  journal, deferred grant, replay layer or new session owner was introduced.
+- Existing presentation continuations advance past grants, including pagination,
+  acknowledgments, Yes/No, calls/returns and cache discard. 17A action 21 and its
+  narrow terminal acknowledgment rule remain unchanged. Decoder, world/Remove,
+  rendering and visual invalidation algorithms were not changed.
+
+### Synthetic evidence
+
+New `tests/XeenQuestGrantTests.cpp`, registered as `xeen_quest_grants`, covers:
+
+- exact original payload and explicit/omitted third pair; malformed partial pairs
+  and trailing data; unsupported nonneutral first/third pairs, take requests,
+  modes and IDs, all without invalid mutation;
+- boundary IDs, repeated grants, unrelated counters, one/six-member parties,
+  independent party instances, bounded increment, 255 to 256, max-minus-one to
+  max, and unchanged overflow;
+- logical/physical side rejection, empty party, line 255, pre-dispatch budget,
+  unsupported IDs and persistence of an earlier grant after a later invalid one;
+- sequential/called/returned action-21 visibility; shared manual and automatic
+  multi-page presentation, repeated blocked input, acknowledgment, Yes/No,
+  resumed possession tests and cache reconstruction without replay;
+- grant then error, grant then invalid retained selection at resumed Remove,
+  and grant then successful Remove then error. These include an earlier working
+  teleport/flag change and independent party/world persistence and camera/flag
+  rollback assertions. Automatic reporting exceptions still propagate.
+
+The 17A test's former unsupported-grant assertion now requires a successful
+one-item grant; its other domain, parser, comparison and acknowledgment tests
+remain intact. Earlier caller/fixture changes preserve their assertions.
+
+### Fresh build and regressions
+
+Fresh Debug configuration in previously absent `build/17b` used MSYS Makefiles,
+UCRT64 GCC 16.2.0, source `../scummvm-known-good-candidate` and artifacts
+`../build-scummvm-6814ee9b-ucrt64`. Source HEAD was verified as
+`6814ee9ba54582f5b5adcffab49efbbd8f589edd`; status was empty using command-local
+safe-directory and `core.autocrlf=false`, before and after validation.
+
+- Default fresh build: passed. All 14 excluded integration/smoke targets built.
+- Final focused CTest: **4/4 passed** (quest grants, quest items, interpreter,
+  session identity). Other affected suites also passed in the complete run.
+- Complete CTest: **42/42 passed**, retaining M14-M16 and 17A regressions.
+- All 12 previous original-data smokes passed: party, indoor map, event script,
+  text, flags, interpreter, event system, navigation, manual events, focused
+  line-7 Remove, isolated object visuals and outdoor objects.
+
+### Original Phirna and acceptance mapping
+
+Extended `tests/PhirnaIntegrationTest.cpp` uses unchanged original records and
+production providers through the same `XeenEventFlow` as Application. It begins
+with ordinary interaction at line 0. Original resources stay external at
+`F:/Games/gog/Might and Magic 4-5`. Controlled owned-state initialization changes
+only an in-memory party-resource copy.
+
+| Acceptance | Result and evidence |
+|---|---|
+| A01 | Passed: original prefix loads root count zero. |
+| A02 | Passed: original object 13/resource 111 is selected and has a production draw command. |
+| A03 | Passed: No completes in 3 instructions, count zero, plant present, state unchanged. |
+| A04 | Passed: original source/text sequence 0,1,4,5 and texts 30,31; count zero throughout pending acknowledgment. |
+| A05 | Passed: acknowledgment grants exactly one root; quantity/member/overflow boundaries also covered synthetically. |
+| A06 | Passed: original grant/Remove path completes in 18 instructions; returned runtime frame equals effective composition with the retained original success presentation, before movement. Plant draw command is absent. |
+| A07 | Passed: repeated ordinary interaction dispatches eleven effective None records, count stays one, no text replay. |
+| A08 | Passed: leave/return, separate map/object, script, text, sprite and combined cache discard preserve state. Provider counts prove reloads. |
+| A09 | Passed: genuinely new party/world/events/presenter graph loads zero root, visible/selectable plant, base opcodes and no pending presentation; new question/No works. |
+| A10 | Passed: owned fixture follows 0,1,3,9,10 in 5 instructions, retains count one and visible plant. |
+| A11 | Passed: all other counters, all modeled roster/member/HP/SP/equipment fields, flags, camera, geometry and unrelated objects/events compared unchanged. |
+| A12 | Passed: synthetic immediate-mutation/error matrix above, with independent rollback checks. |
+| A13 | Passed: synthetic shared-flow multi-page/ack/YesNo/cache tests plus original pending input and SDL repeat-key suppression. |
+
+Map and object caches retain the existing joint `discardMapCache` API; no new
+invalidation interface was added. Text reconstruction after removal uses the
+original Castle question through the same session graph, because removed plant
+events correctly no longer load text. Each decision run records provider loads:
+maps 10, objects 7, scripts 6; texts 6/4/6 for No/Yes/owned respectively.
+Original party/roster/EVT/MOB bytes are compared unchanged after each case.
+
+### SDL and native-frame inspection
+
+All three original decisions passed in the existing SDL loop, including blocked
+pending navigation, repeat Space suppression, Enter acknowledgment, recovered
+navigation, Escape (No/Yes) and SDL quit (owned). Successful Yes leaves exactly
+one root and removes the plant immediately while retaining the digging message.
+
+SDL graphics modes `ui`, `map`, `indoor`, `event`, `manual`, `manual-no` and
+`manual-yes` passed Escape shutdown; UI quit and the independent M15/M16 focused
+Remove SDL lifecycle checkpoint passed. SDL used dummy video and software
+rendering. Native 320x200 question/success/refusal, immediate removal, recovery,
+rebuilt/fresh-session frames and Air / Corner, Snake Oil, Castle No/Yes and
+focused Remove frames were manually inspected. This is scripted runtime and
+native-frame evidence, not physical-display hardware validation.
+
+Logs/frames are ignored and local under `build/17b`: `configure.log`, `build.log`,
+`focused-build.log`, `focused-tests.log`, `ctest.log`, `smokes-build.log`,
+`phirna-build.log`, `phirna.log`, `phirna-sdl.log`, old-smoke and `sdl-*.log`
+files; image directories `phirna`, `phirna-sdl`, `manual_event`, `remove`,
+`sdl-remove`, `object_visual`, `outdoor_object`. Commercial files were read-only
+and no extracted assets were placed in tracked files.
+
+### Final review and stabilization
+
+Independent final review returned **APPROVE MILESTONE 17**. No implementation,
+test, architecture, scope or validation issues were found. Stages 17A and 17B
+are complete, all required acceptance cases A01-A13 passed, and the full CTest
+result is **42/42 passed**. Milestone 17 is now the latest stable milestone.
+Recorded SDL validation used dummy video/software rendering and native-frame
+inspection, not physical-display hardware validation.
+
+Final stabilization updates documentation/status only; the detailed implementation
+and validation evidence above is preserved. No source, test or CMake changes or
+additional validation runs were required for this stabilization.
+No consumption, generic TakeOrGive/inventory, Myra completion, save/load or M18
+work was added. No commit, push, tag, branch creation/switch or history rewrite
+was performed during stabilization. The approved implementation and final
+documentation remain in the working tree for the user's commit.
+
 ## Next implementation task
 
-17A is complete. Wait for a separate 17B request before implementing the grant
-or continuing normal Phirna harvesting. The current Yes/no-root boundary remains
-the explicit unsupported line-6 grant.
+None authorized. Milestone 18 is not approved or started; do not start another
+milestone automatically.

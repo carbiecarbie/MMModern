@@ -10,7 +10,7 @@ bool sameCamera(const XeenCamera &a, const XeenCamera &b) {
 }
 
 XeenEventFlow::XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
-		const XeenPartyState &party, XeenCamera &camera, XeenGameFlags &flags,
+		XeenPartyState &party, XeenCamera &camera, XeenGameFlags &flags,
 		const XeenFontFormat &font, Compose compose) :
 	_world(world), _events(events), _party(party), _camera(camera), _flags(flags),
 	_navigation(events), _presenter(font), _compose(std::move(compose)) {

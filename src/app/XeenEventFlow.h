@@ -9,11 +9,12 @@ namespace mmodern {
 
 // Presentation/composition boundary shared by Application and integration tests.
 // All gameplay state remains owned by the caller's existing session graph.
+// The caller's mutable party must outlive this flow and pending presentations.
 class XeenEventFlow {
 public:
 	using Compose = std::function<IndexedFrame()>;
 	XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
-		const XeenPartyState &party, XeenCamera &camera, XeenGameFlags &flags,
+		XeenPartyState &party, XeenCamera &camera, XeenGameFlags &flags,
 		const XeenFontFormat &font, Compose compose);
 	IndexedFrame initial();
 	IndexedFrame handle(const PlayerAction &action);
@@ -31,7 +32,7 @@ private:
 	struct Pending { XeenEventExecutionState state; bool automatic; };
 	XeenWorld &_world;
 	XeenEventSystem &_events;
-	const XeenPartyState &_party;
+	XeenPartyState &_party;
 	XeenCamera &_camera;
 	XeenGameFlags &_flags;
 	XeenNavigationFlow _navigation;

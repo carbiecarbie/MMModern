@@ -1,8 +1,17 @@
 #include "games/xeen/XeenParty.h"
 
 #include <stdexcept>
+#include <limits>
 
 namespace mmodern {
+
+bool XeenCloudsQuestItems::increment(std::size_t index) {
+	auto &count = _counts.at(index);
+	if (count == std::numeric_limits<std::uint32_t>::max())
+		return false;
+	++count;
+	return true;
+}
 
 std::optional<std::size_t> XeenCloudsQuestItems::indexForItemId(std::int64_t itemId) {
 	if (itemId < kFirstItemId || itemId >= kFirstItemId + static_cast<std::int64_t>(kCount))

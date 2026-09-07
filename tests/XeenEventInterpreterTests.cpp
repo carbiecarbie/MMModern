@@ -96,7 +96,7 @@ public:
 	}
 
 	XeenEventExecutionResult execute(const XeenCamera &camera,
-			const XeenPartyState &party, const XeenGameFlags &flags) {
+			XeenPartyState &party, const XeenGameFlags &flags) {
 		return interpreter.execute(camera, party, flags, world, provider());
 	}
 
@@ -138,7 +138,7 @@ std::vector<std::uint8_t> clearFlag(std::uint8_t flag) {
 
 void testNaturalFlowAndFirstMatch() {
 	const XeenCamera camera{1, 1, 1, XeenDirection::East};
-	const auto party = partyWithSp(2);
+	auto party = partyWithSp(2);
 	XeenGameFlags flags;
 	flags.set(100);
 
@@ -186,7 +186,7 @@ void testNaturalFlowAndFirstMatch() {
 
 void testConditions() {
 	const XeenCamera camera{1, 1, 1, XeenDirection::North};
-	const auto party = partyWithSp(2, 18);
+	auto party = partyWithSp(2, 18);
 	XeenGameFlags clearFlags;
 
 	Fixture spTrue;
@@ -206,16 +206,18 @@ void testConditions() {
 	check(success(spFalse.execute(camera, party, clearFlags)).instructionCount == 2,
 		"SP LessOrEqual false falls through");
 
+	auto negativeParty = partyWithSp(-1);
 	Fixture negativeSp;
 	negativeSp.scripts.emplace(1, script(1, {
 		record(1, 1, 0, 0x08, {9, 255, 1}), record(1, 1, 1, 0x12)
 	}));
-	check(success(negativeSp.execute(camera, partyWithSp(-1), clearFlags))
+	check(success(negativeSp.execute(camera, negativeParty, clearFlags))
 		.instructionCount == 2, "negative SP converts to uint32");
 
+	auto noMembers = emptyParty();
 	Fixture empty;
 	empty.scripts.emplace(1, script(1, {record(1, 1, 0, 0x09, {9, 0, 1})}));
-	failure(empty.execute(camera, emptyParty(), clearFlags),
+	failure(empty.execute(camera, noMembers, clearFlags),
 		XeenEventExecutionErrorKind::EmptyParty);
 
 	for (const auto comparison : {std::uint8_t{0x08}, std::uint8_t{0x09},
@@ -275,7 +277,7 @@ void testConditions() {
 
 void testCallsReturnsAndStack() {
 	const XeenCamera camera{1, 1, 1, XeenDirection::South};
-	const auto party = partyWithSp(2);
+	auto party = partyWithSp(2);
 	const XeenGameFlags flags;
 
 	Fixture calls;
@@ -344,7 +346,7 @@ void testCallsReturnsAndStack() {
 
 void testTeleportsAndTransactionalResult() {
 	const XeenCamera camera{1, 1, 1, XeenDirection::West};
-	const auto party = partyWithSp(2);
+	auto party = partyWithSp(2);
 	const XeenGameFlags flags;
 
 	Fixture exit;
@@ -420,7 +422,7 @@ void testTeleportsAndTransactionalResult() {
 
 void testTakeOrGiveFlagOperations() {
 	const XeenCamera camera{1, 1, 1, XeenDirection::North};
-	const auto party = partyWithSp(2);
+	auto party = partyWithSp(2);
 
 	Fixture set;
 	set.scripts.emplace(1, script(1, {record(1, 1, 0, 0x0c, setFlag(25))}));
@@ -501,7 +503,7 @@ void testTakeOrGiveFlagOperations() {
 
 void testTakeOrGiveVisibilityAcrossFlow() {
 	const XeenCamera camera{1, 1, 1, XeenDirection::East};
-	const auto party = partyWithSp(2);
+	auto party = partyWithSp(2);
 
 	Fixture setBranch;
 	setBranch.scripts.emplace(1, script(1, {
@@ -562,7 +564,7 @@ void testTakeOrGiveVisibilityAcrossFlow() {
 
 void testTakeOrGiveRollback() {
 	const XeenCamera camera{1, 1, 1, XeenDirection::South};
-	const auto party = partyWithSp(2);
+	auto party = partyWithSp(2);
 	XeenGameFlags clearInput;
 
 	Fixture unsupportedOpcode;
@@ -609,7 +611,7 @@ void testTakeOrGiveRollback() {
 
 void testLimitsLoadingAndInputPreservation() {
 	const XeenCamera camera{1, 1, 1, XeenDirection::North};
-	const auto party = partyWithSp(2);
+	auto party = partyWithSp(2);
 	XeenGameFlags flags;
 	flags.set(25);
 	const auto originalFlags = flags.values();
@@ -678,12 +680,13 @@ void testLimitsLoadingAndInputPreservation() {
 }
 
 XeenEventExecutionError makeOwnedDiagnostic() {
+	auto party = partyWithSp(2);
 	Fixture fixture;
 	fixture.scripts.emplace(1, script(1, {
 		record(1, 1, 0, 0x06, {}, kXeenEventDirectionAll, 987)
 	}));
 	return failure(fixture.execute({1, 1, 1, XeenDirection::North},
-		partyWithSp(2), XeenGameFlags{}),
+		party, XeenGameFlags{}),
 		XeenEventExecutionErrorKind::UnsupportedOpcode);
 }
 

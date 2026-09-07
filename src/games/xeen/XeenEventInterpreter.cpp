@@ -100,7 +100,7 @@ XeenPresentationKind presentationKind(XeenEventDisplayKind kind) {
 } // namespace
 
 XeenEventExecutionResult XeenEventInterpreter::execute(
-		const XeenCamera &initialCamera, const XeenPartyState &partyState,
+		const XeenCamera &initialCamera, XeenPartyState &partyState,
 		const XeenGameFlags &gameFlags, XeenWorld &world,
 		const ScriptProvider &scriptProvider) const {
 	const XeenEventExecutionStepResult result = begin(initialCamera, partyState,
@@ -117,7 +117,7 @@ XeenEventExecutionResult XeenEventInterpreter::execute(
 }
 
 XeenEventExecutionStepResult XeenEventInterpreter::begin(
-		const XeenCamera &initialCamera, const XeenPartyState &partyState,
+		const XeenCamera &initialCamera, XeenPartyState &partyState,
 		const XeenGameFlags &gameFlags, XeenWorld &world,
 		const ScriptProvider &scriptProvider, const TextProvider &textProvider,
 		std::uint8_t initialLine) const {
@@ -171,7 +171,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::begin(
 
 XeenEventExecutionStepResult XeenEventInterpreter::resume(
 		XeenEventExecutionState state, XeenPresentationResponse response,
-		const XeenPartyState &partyState, XeenWorld &world,
+		XeenPartyState &partyState, XeenWorld &world,
 		const ScriptProvider &scriptProvider, const TextProvider &textProvider) const {
 	return run(std::move(state), response, partyState, world,
 		scriptProvider, textProvider);
@@ -180,7 +180,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::resume(
 XeenEventExecutionStepResult XeenEventInterpreter::run(
 		XeenEventExecutionState state,
 		std::optional<XeenPresentationResponse> response,
-		const XeenPartyState &partyState, XeenWorld &world,
+		XeenPartyState &partyState, XeenWorld &world,
 		const ScriptProvider &scriptProvider, const TextProvider &textProvider) const {
 	auto &logical = state.logicalAddress;
 	auto &workingCamera = state.workingCamera;
@@ -373,6 +373,32 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 				takeOrGive->second.mode == 20 && neutral(takeOrGive->third);
 			const bool clearFlag = takeOrGive->first.mode == 20 &&
 				neutral(takeOrGive->second) && neutral(takeOrGive->third);
+			const bool grantQuestItem = neutral(takeOrGive->first) &&
+				takeOrGive->second.mode == 21 && neutral(takeOrGive->third);
+			if (grantQuestItem) {
+				const auto itemId = takeOrGive->second.value;
+				const std::string detail = "TakeOrGive quest item " + std::to_string(itemId);
+				const auto index = XeenCloudsQuestItems::indexForItemId(itemId);
+				if (!index)
+					return error(XeenEventExecutionErrorKind::UnsupportedOperationMode,
+						detail + " is outside Clouds IDs 82..116", instructionCount, logical, decoded.source);
+				if (logical.mapId.side != XeenSide::Clouds || workingCamera.mapId.side != XeenSide::Clouds)
+					return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
+						detail + " requires Clouds logical and physical context", instructionCount, logical, decoded.source);
+				if (!partyState.party.size())
+					return error(XeenEventExecutionErrorKind::EmptyParty,
+						detail + " requires an active party member", instructionCount, logical, decoded.source);
+				if (logical.line == 255)
+					return error(XeenEventExecutionErrorKind::LineOverflow,
+						"quest-item grant sequential line overflow", instructionCount, logical, decoded.source);
+				// Party effects are immediate, independent of camera/flag commit.
+				if (!partyState.questItems.increment(*index))
+					return error(XeenEventExecutionErrorKind::QuestItemOverflow,
+						detail + " counter would overflow", instructionCount, logical, decoded.source);
+				++logical.line;
+				missingPolicy = MissingInstructionPolicy::NaturalCompletion;
+				continue;
+			}
 			if (!setFlag && !clearFlag) {
 				return error(XeenEventExecutionErrorKind::UnsupportedOperationMode,
 					"TakeOrGive mode combination is outside the interpreter subset",

@@ -9,13 +9,13 @@ XeenNavigationFlow::XeenNavigationFlow(XeenEventSystem &eventSystem) :
 }
 
 XeenAutomaticEventResult XeenNavigationFlow::processInitialEvent(
-		XeenWorld &world, const XeenPartyState &partyState, XeenCamera &camera,
+		XeenWorld &world, XeenPartyState &partyState, XeenCamera &camera,
 		XeenGameFlags &gameFlags) {
 	return _eventSystem.runAutomaticEvent(world, partyState, camera, gameFlags);
 }
 
 XeenNavigationFlowResult XeenNavigationFlow::processNavigationAction(
-		XeenWorld &world, const XeenPartyState &partyState, XeenCamera &camera,
+		XeenWorld &world, XeenPartyState &partyState, XeenCamera &camera,
 		XeenGameFlags &gameFlags, NavigationAction action) {
 	const XeenMovementResult movementResult = _movement.apply(world, camera, action);
 	return {movementResult,
@@ -23,7 +23,7 @@ XeenNavigationFlowResult XeenNavigationFlow::processNavigationAction(
 }
 
 XeenManualEventResult XeenNavigationFlow::processInteraction(
-		XeenWorld &world, const XeenPartyState &partyState, XeenCamera &camera,
+		XeenWorld &world, XeenPartyState &partyState, XeenCamera &camera,
 		XeenGameFlags &gameFlags) {
 	return _eventSystem.runManualEvent(world, partyState, camera, gameFlags);
 }

@@ -77,6 +77,7 @@ const char *eventErrorName(XeenEventExecutionErrorKind kind) {
 	case XeenEventExecutionErrorKind::LineOverflow: return "LineOverflow";
 	case XeenEventExecutionErrorKind::UnsupportedConditionAction: return "UnsupportedConditionAction";
 	case XeenEventExecutionErrorKind::UnsupportedOperationMode: return "UnsupportedOperationMode";
+	case XeenEventExecutionErrorKind::QuestItemOverflow: return "QuestItemOverflow";
 	case XeenEventExecutionErrorKind::EmptyParty: return "EmptyParty";
 	case XeenEventExecutionErrorKind::InvalidFlagIndex: return "InvalidFlagIndex";
 	case XeenEventExecutionErrorKind::InvalidJumpTarget: return "InvalidJumpTarget";
@@ -371,7 +372,7 @@ int Application::renderMap(const std::filesystem::path &gameDirectory,
 	try {
 		XeenAssetSource assets(*installation, CloudsUiComposer::kWidth,
 			CloudsUiComposer::kHeight);
-		const XeenPartyState partyState = XeenPartyLoader().loadInitialCloudsParty(assets);
+		XeenPartyState partyState = XeenPartyLoader().loadInitialCloudsParty(assets);
 		printPartyDiagnostics(partyState);
 		XeenGameFlags gameFlags = XeenGameFlagsLoader().loadInitialCloudsFlags(assets);
 		const XeenCharacterRulesContext rulesContext{kCloudsInitialYear};

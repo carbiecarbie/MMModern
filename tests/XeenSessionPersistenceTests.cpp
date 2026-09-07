@@ -33,6 +33,7 @@ std::vector<XeenEventRecord> presentationRecords() {
 }
 
 struct Lifecycle {
+	XeenPartyState party;
 	std::map<XeenMapIdentity, int> mapLoads, objectLoads, scriptLoads, textLoads;
 	XeenWorld world;
 	XeenEventSystem events;
@@ -89,7 +90,7 @@ void sessionLifecycle() {
 	// Normal interaction begins at line zero and traverses the two effective None records.
 	XeenCamera camera = plant;
 	XeenGameFlags flags;
-	const auto repeated = session.events.runManualEvent(session.world, {}, camera, flags);
+	const auto repeated = session.events.runManualEvent(session.world, session.party, camera, flags);
 	check(std::get<XeenManualEventCompleted>(repeated).instructionCount == 2,
 		"normal interaction replayed the removed branch");
 	check(session.scriptLoads[clouds23] == 1, "initial script cache load missing");
@@ -111,7 +112,7 @@ void sessionLifecycle() {
 	// Independent script reconstruction reloads immutable opcodes but effective state remains None.
 	session.events.discardScriptCache();
 	check(session.events.cachedScriptCount() == 0, "script cache was not discarded");
-	const auto scriptReload = session.events.runManualEvent(session.world, {}, camera, flags);
+	const auto scriptReload = session.events.runManualEvent(session.world, session.party, camera, flags);
 	check(std::get<XeenManualEventCompleted>(scriptReload).instructionCount == 2 &&
 		session.scriptLoads[clouds23] == 2,
 		"reloaded script did not observe session-effective events");
@@ -122,7 +123,7 @@ void sessionLifecycle() {
 	// Prime an unrelated text entry so its later load proves text-cache reconstruction.
 	XeenCamera textCamera{clouds25, 9, 9, XeenDirection::North};
 	check(std::holds_alternative<XeenEventExecutionSuspended>(
-		session.events.runManualEvent(session.world, {}, textCamera, flags)),
+		session.events.runManualEvent(session.world, session.party, textCamera, flags)),
 		"text-cache priming presentation missing");
 	const int oldScript25 = session.scriptLoads[clouds25];
 	const int oldText25 = session.textLoads[clouds25];
@@ -131,7 +132,7 @@ void sessionLifecycle() {
 	// resume. Return reaches a newly effective None through the owned script copy.
 	XeenCamera presentationCamera{clouds24, 9, 9, XeenDirection::North};
 	auto pending = std::get<XeenEventExecutionSuspended>(
-		session.events.runManualEvent(session.world, {}, presentationCamera, flags));
+		session.events.runManualEvent(session.world, session.party, presentationCamera, flags));
 	check(pending.state.logicalAddress.x == 7 && pending.state.workingCamera.x == 9 &&
 		pending.state.callStack.size() == 1 &&
 		pending.state.selectedObject == XeenObjectIdentity{clouds24, 1},
@@ -158,7 +159,7 @@ void sessionLifecycle() {
 		session.objectLoads[clouds24] == oldObject24 + 1,
 		"suspended map/object reconstruction did not occur");
 	const auto resumed = session.events.resumeManualEvent(pending.state,
-		XeenPresentationResponse::Presented, session.world, {}, presentationCamera, flags);
+		XeenPresentationResponse::Presented, session.world, session.party, presentationCamera, flags);
 	check(std::holds_alternative<XeenManualEventCompleted>(resumed) &&
 		presentationCamera.mapId == clouds24 && presentationCamera.x == 9 &&
 		session.scriptLoads[clouds24] == oldScript24 &&
@@ -172,7 +173,7 @@ void sessionLifecycle() {
 	// The next map-24 interaction reloads its script and traverses effective None.
 	presentationCamera = {clouds24, 9, 9, XeenDirection::North};
 	const auto rebuiltInteraction = session.events.runManualEvent(
-		session.world, {}, presentationCamera, flags);
+		session.world, session.party, presentationCamera, flags);
 	check(session.scriptLoads[clouds24] == oldScript24 + 1 &&
 		session.textLoads[clouds24] == oldText24 &&
 		std::holds_alternative<XeenManualEventCompleted>(rebuiltInteraction),
@@ -180,7 +181,7 @@ void sessionLifecycle() {
 	// Re-entering the previously cached unrelated presentation reloads its text.
 	textCamera = {clouds25, 9, 9, XeenDirection::North};
 	pending = std::get<XeenEventExecutionSuspended>(
-		session.events.runManualEvent(session.world, {}, textCamera, flags));
+		session.events.runManualEvent(session.world, session.party, textCamera, flags));
 	check(session.scriptLoads[clouds25] == oldScript25 + 1 &&
 		session.textLoads[clouds25] == oldText25 + 1 &&
 		pending.request.text == "persisted presentation",

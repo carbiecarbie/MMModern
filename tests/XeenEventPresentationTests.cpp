@@ -62,6 +62,7 @@ XeenEventTextFile text(mmodern::XeenMapIdentity mapId, std::vector<std::string> 
 
 class Fixture {
 public:
+	XeenPartyState party;
 	Fixture() : world([this](mmodern::XeenMapIdentity id) { return maps.at(id); }) {}
 
 	XeenEventInterpreter::ScriptProvider scriptsProvider() {
@@ -76,13 +77,13 @@ public:
 	}
 
 	XeenEventExecutionStepResult begin(XeenGameFlags flags = {}) {
-		return interpreter.begin({1, 1, 1, XeenDirection::North}, {}, flags,
+		return interpreter.begin({1, 1, 1, XeenDirection::North}, party, flags,
 			world, scriptsProvider(), textsProvider());
 	}
 
 	XeenEventExecutionStepResult resume(const XeenEventExecutionSuspended &pending,
 			XeenPresentationResponse response) {
-		return interpreter.resume(pending.state, response, {}, world,
+		return interpreter.resume(pending.state, response, party, world,
 			scriptsProvider(), textsProvider());
 	}
 
@@ -272,11 +273,12 @@ void testLimitsCallsAndRollback() {
 		[](mmodern::XeenMapIdentity id) { return text(id, {"shown"}); });
 	XeenCamera camera{1, 1, 1, XeenDirection::North};
 	XeenGameFlags flags;
-	const XeenManualEventResult started = system.runManualEvent(world, {}, camera, flags);
+	XeenPartyState party;
+	const XeenManualEventResult started = system.runManualEvent(world, party, camera, flags);
 	const auto *pending = std::get_if<XeenEventExecutionSuspended>(&started);
 	check(pending && !flags.isSet(9), "working flag is not committed while pending");
 	const auto resumed = system.resumeManualEvent(pending->state,
-		XeenPresentationResponse::Presented, world, {}, camera, flags);
+		XeenPresentationResponse::Presented, world, party, camera, flags);
 	check(std::holds_alternative<XeenEventExecutionError>(resumed) &&
 		!flags.isSet(9), "failure after presentation rolls back working flags");
 }

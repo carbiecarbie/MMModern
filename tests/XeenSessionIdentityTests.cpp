@@ -86,6 +86,7 @@ void worldLifetimeAndNavigation() {
 }
 
 void eventCachesCallsAndResume() {
+	XeenPartyState party;
 	std::map<XeenMapIdentity, int> scripts, texts, maps;
 	XeenWorld world([&](XeenMapIdentity id) { ++maps[id]; return map(id); });
 	XeenEventSystem events([&](XeenMapIdentity id) {
@@ -104,7 +105,7 @@ void eventCachesCallsAndResume() {
 		const XeenMapIdentity id{side, 1};
 		XeenCamera camera{id, 1, 1, XeenDirection::North};
 		XeenGameFlags flags;
-		auto start = events.runManualEvent(world, {}, camera, flags);
+		auto start = events.runManualEvent(world, party, camera, flags);
 		auto pending = std::get<XeenEventExecutionSuspended>(start);
 		check(pending.state.logicalAddress.mapId == id && pending.state.logicalAddress.x == 7 &&
 			pending.state.workingCamera.x == 1 && pending.state.callStack.size() == 1 &&
@@ -117,14 +118,14 @@ void eventCachesCallsAndResume() {
 		events.discardScriptCache();
 		events.discardTextCache();
 		auto resumed = events.resumeManualEvent(pending.state, XeenPresentationResponse::Presented,
-			world, {}, camera, flags);
+			world, party, camera, flags);
 		pending = std::get<XeenEventExecutionSuspended>(resumed);
 		check(pending.state.logicalAddress.mapId == XeenMapIdentity{side, 2} &&
 			pending.state.workingCamera.mapId == XeenMapIdentity{side, 2} &&
 			pending.state.callStack.empty() && camera.mapId == id,
 			"return/teleport or deferred commit lost side");
 		auto done = events.resumeManualEvent(pending.state, XeenPresentationResponse::Presented,
-			world, {}, camera, flags);
+			world, party, camera, flags);
 		check(std::holds_alternative<XeenManualEventCompleted>(done) &&
 			camera.mapId == XeenMapIdentity{side, 2}, "teleport commit failed");
 	}
@@ -135,7 +136,7 @@ void eventCachesCallsAndResume() {
 			XeenCamera camera{{side, 2}, 2, 2, XeenDirection::North};
 			XeenGameFlags flags;
 			check(std::holds_alternative<XeenEventExecutionSuspended>(
-				events.runManualEvent(world, {}, camera, flags)), "cache interaction failed");
+				events.runManualEvent(world, party, camera, flags)), "cache interaction failed");
 			check(scripts[{side, 2}] == 2 && texts[{side, 2}] == 2,
 				"script/text cache failed to distinguish or reuse side keys");
 		}
@@ -145,12 +146,13 @@ void eventCachesCallsAndResume() {
 	events.discardScriptCache(); events.discardTextCache();
 	XeenCamera camera{{XeenSide::Darkside, 2}, 2, 2, XeenDirection::North};
 	XeenGameFlags flags;
-	events.runManualEvent(world, {}, camera, flags);
+	events.runManualEvent(world, party, camera, flags);
 	check(scripts[camera.mapId] == 3 && texts[camera.mapId] == 3,
 		"script/text discard failed to reload");
 }
 
 void rejectionAndRollback() {
+	XeenPartyState party;
 	const XeenMapIdentity dark{XeenSide::Darkside, 1};
 	XeenWorld world([](XeenMapIdentity id) { return map(id); });
 	XeenCamera camera{dark, 1, 1, XeenDirection::North};
@@ -159,19 +161,19 @@ void rejectionAndRollback() {
 		return script(id.number, {record(1, 1, 0, 0x12)});
 	});
 	check(std::holds_alternative<XeenEventExecutionError>(
-		wrong.runManualEvent(world, {}, camera, flags)) && wrong.cachedScriptCount() == 0,
+		wrong.runManualEvent(world, party, camera, flags)) && wrong.cachedScriptCount() == 0,
 		"wrong-side script accepted/cached");
 	XeenEventSystem rollback([](XeenMapIdentity id) {
 		if (id.number == 1) return script(id, {record(1, 1, 0, 0x0c, {0,0,20,5}),
 			record(1, 1, 1, 0x1f, {2,2,2})});
 		return script(id, {record(2, 2, 0, 0x01, {0}), record(2, 2, 1, 0xff)});
 	}, [](XeenMapIdentity id) { return XeenEventTextFile{id, "test", true, {"pending"}}; });
-	auto pending = std::get<XeenEventExecutionSuspended>(rollback.runManualEvent(world, {}, camera, flags));
+	auto pending = std::get<XeenEventExecutionSuspended>(rollback.runManualEvent(world, party, camera, flags));
 	check(!flags.isSet(5) && camera.mapId == dark && pending.state.workingGameFlags.isSet(5),
 		"pending transaction leaked");
 	rollback.discardScriptCache(); rollback.discardTextCache(); world.discardMapCache();
 	auto result = rollback.resumeManualEvent(pending.state, XeenPresentationResponse::Presented,
-		world, {}, camera, flags);
+		world, party, camera, flags);
 	const auto &error = std::get<XeenEventExecutionError>(result);
 	check(camera.mapId == dark && !flags.isSet(5) &&
 		error.logicalAddress.mapId == XeenMapIdentity{XeenSide::Darkside, 2} &&
@@ -180,26 +182,26 @@ void rejectionAndRollback() {
 		return script(id, {record(1, 1, 0, 0x01, {0})});
 	}, [](XeenMapIdentity id) { return XeenEventTextFile{id.number, "wrong", true, {"wrong side"}}; });
 	check(std::holds_alternative<XeenEventExecutionError>(
-		wrongText.runManualEvent(world, {}, camera, flags)) && wrongText.cachedTextCount() == 0,
+		wrongText.runManualEvent(world, party, camera, flags)) && wrongText.cachedTextCount() == 0,
 		"wrong-side text accepted/cached");
 	XeenEventInterpreter interpreter;
-	const auto direct = interpreter.begin(camera, {}, flags, world,
+	const auto direct = interpreter.begin(camera, party, flags, world,
 		[](XeenMapIdentity id) { return script(id.number, {}); }, {});
 	check(std::get<XeenEventExecutionError>(direct).kind == XeenEventExecutionErrorKind::ScriptMapMismatch,
 		"direct interpreter accepted wrong-side script");
-	const auto badText = interpreter.begin(camera, {}, flags, world,
+	const auto badText = interpreter.begin(camera, party, flags, world,
 		[](XeenMapIdentity id) { return script(id, {record(1, 1, 0, 0x01, {0})}); },
 		[](XeenMapIdentity id) { return XeenEventTextFile{id.number, "wrong", true, {"wrong"}}; });
 	check(std::get<XeenEventExecutionError>(badText).kind == XeenEventExecutionErrorKind::TextMapMismatch,
 		"direct interpreter accepted wrong-side text");
-	const auto badTarget = interpreter.execute(camera, {}, flags, world,
+	const auto badTarget = interpreter.execute(camera, party, flags, world,
 		[](XeenMapIdentity id) { return script(id, {record(1, 1, 0, 0x07, {2, 255, 1})}); });
 	check(std::get<XeenEventExecutionError>(badTarget).requestedTarget->mapId ==
 		XeenMapIdentity{XeenSide::Darkside, 2}, "requested target lost side");
 	XeenEventSystem commit([](XeenMapIdentity id) {
 		return script(id, {record(1, 1, 0, 0x0c, {0,0,20,5}), record(1, 1, 1, 0x07, {2,2,2})});
 	});
-	check(std::holds_alternative<XeenManualEventCompleted>(commit.runManualEvent(world, {}, camera, flags)) &&
+	check(std::holds_alternative<XeenManualEventCompleted>(commit.runManualEvent(world, party, camera, flags)) &&
 		camera.mapId == XeenMapIdentity{XeenSide::Darkside, 2} && flags.isSet(5),
 		"TeleportAndExit/flag commit lost side");
 	int reads = 0;

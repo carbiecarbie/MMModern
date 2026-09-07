@@ -77,7 +77,7 @@ XeenEventScript XeenEventSystem::scriptForMap(XeenMapIdentity mapId) {
 }
 
 XeenAutomaticEventResult XeenEventSystem::runAutomaticEvent(
-		XeenWorld &world, const XeenPartyState &partyState, XeenCamera &camera,
+		XeenWorld &world, XeenPartyState &partyState, XeenCamera &camera,
 		XeenGameFlags &gameFlags) {
 	if (!camera.mapId || camera.x < 0 || camera.x > 15 || camera.y < 0 ||
 			camera.y > 15 || !validDirection(camera.direction)) {
@@ -125,7 +125,7 @@ XeenAutomaticEventResult XeenEventSystem::runAutomaticEvent(
 }
 
 XeenManualEventResult XeenEventSystem::runManualEvent(
-		XeenWorld &world, const XeenPartyState &partyState, XeenCamera &camera,
+		XeenWorld &world, XeenPartyState &partyState, XeenCamera &camera,
 		XeenGameFlags &gameFlags) {
 	if (!camera.mapId || camera.x < 0 || camera.x > 15 || camera.y < 0 ||
 			camera.y > 15 || !validDirection(camera.direction)) {
@@ -184,7 +184,7 @@ XeenManualEventResult XeenEventSystem::runManualEvent(
 
 XeenAutomaticEventResult XeenEventSystem::resumeAutomaticEvent(
 		XeenEventExecutionState state, XeenPresentationResponse response,
-		XeenWorld &world, const XeenPartyState &partyState, XeenCamera &camera,
+		XeenWorld &world, XeenPartyState &partyState, XeenCamera &camera,
 		XeenGameFlags &gameFlags) {
 	const XeenCamera beforeCamera = camera;
 	const XeenGameFlags beforeFlags = gameFlags;
@@ -207,7 +207,7 @@ XeenAutomaticEventResult XeenEventSystem::resumeAutomaticEvent(
 
 XeenManualEventResult XeenEventSystem::resumeManualEvent(
 		XeenEventExecutionState state, XeenPresentationResponse response,
-		XeenWorld &world, const XeenPartyState &partyState, XeenCamera &camera,
+		XeenWorld &world, XeenPartyState &partyState, XeenCamera &camera,
 		XeenGameFlags &gameFlags) {
 	const XeenCamera beforeCamera = camera;
 	const XeenGameFlags beforeFlags = gameFlags;

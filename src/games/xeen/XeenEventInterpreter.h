@@ -121,6 +121,7 @@ enum class XeenEventExecutionErrorKind {
 	LineOverflow,
 	UnsupportedConditionAction,
 	UnsupportedOperationMode,
+	QuestItemOverflow,
 	EmptyParty,
 	InvalidFlagIndex,
 	InvalidJumpTarget,
@@ -168,24 +169,24 @@ public:
 	using TextProvider = std::function<XeenEventTextFile(XeenMapIdentity mapId)>;
 
 	XeenEventExecutionResult execute(const XeenCamera &initialCamera,
-		const XeenPartyState &partyState, const XeenGameFlags &gameFlags,
+		XeenPartyState &partyState, const XeenGameFlags &gameFlags,
 		XeenWorld &world, const ScriptProvider &scriptProvider) const;
 
 	// Integration checkpoints may specify a line; all gameplay callers use zero.
 	XeenEventExecutionStepResult begin(const XeenCamera &initialCamera,
-		const XeenPartyState &partyState, const XeenGameFlags &gameFlags,
+		XeenPartyState &partyState, const XeenGameFlags &gameFlags,
 		XeenWorld &world, const ScriptProvider &scriptProvider,
 		const TextProvider &textProvider, std::uint8_t initialLine = 0) const;
 
 	XeenEventExecutionStepResult resume(XeenEventExecutionState state,
-		XeenPresentationResponse response, const XeenPartyState &partyState,
+		XeenPresentationResponse response, XeenPartyState &partyState,
 		XeenWorld &world, const ScriptProvider &scriptProvider,
 		const TextProvider &textProvider) const;
 
 private:
 	XeenEventExecutionStepResult run(XeenEventExecutionState state,
 		std::optional<XeenPresentationResponse> response,
-		const XeenPartyState &partyState, XeenWorld &world,
+		XeenPartyState &partyState, XeenWorld &world,
 		const ScriptProvider &scriptProvider, const TextProvider &textProvider) const;
 };
 

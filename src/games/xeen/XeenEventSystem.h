@@ -55,23 +55,23 @@ public:
 		TextProvider textProvider = {});
 
 	// The supplied state is already current. A failure rolls back this event's
-	// camera/flag changes, not earlier movement/rotation or session-world mutations.
+	// camera/flag changes, not earlier movement/rotation, world mutations or grants.
 	XeenAutomaticEventResult runAutomaticEvent(XeenWorld &world,
-		const XeenPartyState &partyState, XeenCamera &camera,
+		XeenPartyState &partyState, XeenCamera &camera,
 		XeenGameFlags &gameFlags);
 
 	XeenManualEventResult runManualEvent(XeenWorld &world,
-		const XeenPartyState &partyState, XeenCamera &camera,
+		XeenPartyState &partyState, XeenCamera &camera,
 		XeenGameFlags &gameFlags);
 
 	XeenAutomaticEventResult resumeAutomaticEvent(XeenEventExecutionState state,
 		XeenPresentationResponse response, XeenWorld &world,
-		const XeenPartyState &partyState, XeenCamera &camera,
+		XeenPartyState &partyState, XeenCamera &camera,
 		XeenGameFlags &gameFlags);
 
 	XeenManualEventResult resumeManualEvent(XeenEventExecutionState state,
 		XeenPresentationResponse response, XeenWorld &world,
-		const XeenPartyState &partyState, XeenCamera &camera,
+		XeenPartyState &partyState, XeenCamera &camera,
 		XeenGameFlags &gameFlags);
 
 	std::size_t cachedScriptCount() const { return _scripts.size(); }
