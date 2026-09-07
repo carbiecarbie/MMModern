@@ -30,14 +30,20 @@ XeenEventScript::XeenEventScript(XeenEventFile eventFile) :
 
 const XeenEventRecord *XeenEventScript::findInstruction(std::uint8_t x,
 		std::uint8_t y, XeenDirection direction, std::uint8_t line) const {
+	const auto index = findInstructionIndex(x, y, direction, line);
+	return index ? &_eventFile.records[*index] : nullptr;
+}
+
+std::optional<std::size_t> XeenEventScript::findInstructionIndex(std::uint8_t x,
+		std::uint8_t y, XeenDirection direction, std::uint8_t line) const {
 	const std::uint8_t directionByte = physicalDirectionByte(direction);
-	for (const XeenEventRecord &record : _eventFile.records) {
+	for (std::size_t i = 0; i < _eventFile.records.size(); ++i) {
+		const auto &record = _eventFile.records[i];
 		if (record.x == x && record.y == y && record.line == line &&
-				(record.direction == directionByte ||
-				 record.direction == kXeenEventDirectionAll))
-			return &record;
+				(record.direction == directionByte || record.direction == kXeenEventDirectionAll))
+			return i;
 	}
-	return nullptr;
+	return std::nullopt;
 }
 
 std::vector<XeenEventDuplicateKey> XeenEventScript::duplicateKeys() const {

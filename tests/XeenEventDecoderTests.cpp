@@ -59,7 +59,11 @@ void testEmptyOperationsAndStrictSizes() {
 		success(XeenEventDecoder::decode(record(0x12))).operation), "Exit");
 	check(std::holds_alternative<XeenEventReturn>(
 		success(XeenEventDecoder::decode(record(0x1a))).operation), "Return");
-	for (const std::uint8_t opcode : {0x00, 0x12, 0x1a}) {
+	check(std::holds_alternative<XeenEventNone>(
+		success(XeenEventDecoder::decode(record(0x00, {1, 2, 3}))).operation), "None retains operands");
+	check(std::holds_alternative<XeenEventRemove>(
+		success(XeenEventDecoder::decode(record(0x0e))).operation), "Remove");
+	for (const std::uint8_t opcode : {0x0e, 0x12, 0x1a}) {
 		const auto &error = failure(XeenEventDecoder::decode(record(opcode, {1})),
 			XeenEventDecodeErrorKind::MalformedInstruction);
 		check(error.expectedParameterSize == 0 && error.actualParameterSize == 1,

@@ -6,6 +6,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <variant>
 #include <vector>
 
@@ -54,6 +55,14 @@ struct XeenMapEntities {
 	// Raw tables retain FF slots. Only monster/wall item lookup compacts those slots.
 	std::array<std::uint8_t, 16> objectTable{}, monsterTable{}, wallItemTable{};
 	std::vector<XeenMapEntity> objects, monsters, wallItems;
+};
+
+// Immutable per-map MOB payload; separate from geometry and session mutations.
+struct XeenObjectFile {
+	XeenMapIdentity mapId;
+	std::string resourceName;
+	bool resourcePresent = false;
+	XeenMapEntities entities;
 };
 
 struct XeenEventInstruction {

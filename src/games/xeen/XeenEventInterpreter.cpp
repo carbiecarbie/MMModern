@@ -119,9 +119,10 @@ XeenEventExecutionResult XeenEventInterpreter::execute(
 XeenEventExecutionStepResult XeenEventInterpreter::begin(
 		const XeenCamera &initialCamera, const XeenPartyState &partyState,
 		const XeenGameFlags &gameFlags, XeenWorld &world,
-		const ScriptProvider &scriptProvider, const TextProvider &textProvider) const {
+		const ScriptProvider &scriptProvider, const TextProvider &textProvider,
+		std::uint8_t initialLine) const {
 	XeenEventExecutionState state;
-	state.logicalAddress = {initialCamera.mapId, initialCamera.x, initialCamera.y, 0};
+	state.logicalAddress = {initialCamera.mapId, initialCamera.x, initialCamera.y, initialLine};
 	state.lookupDirection = initialCamera.direction;
 	state.workingCamera = initialCamera;
 	state.workingGameFlags = gameFlags;
@@ -156,6 +157,13 @@ XeenEventExecutionStepResult XeenEventInterpreter::begin(
 		return error(XeenEventExecutionErrorKind::ScriptMapMismatch,
 			"event script map ID differs from the requested map", 0,
 			state.logicalAddress);
+	}
+	try {
+		state.selectedObject = world.selectObject(initialCamera);
+	} catch (const std::exception &exception) {
+		return error(XeenEventExecutionErrorKind::ObjectLoadFailed,
+			std::string("failed to resolve interaction object: ") + exception.what(),
+			0, state.logicalAddress);
 	}
 	return run(std::move(state), std::nullopt, partyState, world,
 		scriptProvider, textProvider);
@@ -226,11 +234,11 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 				instructionCount, logical, pendingTransferSource, logical);
 		}
 
-		const XeenEventRecord *record = script->findInstruction(
+		const auto recordIndex = script->findInstructionIndex(
 			static_cast<std::uint8_t>(logical.x),
 			static_cast<std::uint8_t>(logical.y), state.lookupDirection,
 			static_cast<std::uint8_t>(logical.line));
-		if (!record) {
+		if (!recordIndex) {
 			if (missingPolicy == MissingInstructionPolicy::NaturalCompletion)
 				return completed(workingCamera, workingGameFlags, instructionCount);
 			const auto kind = missingPolicy == MissingInstructionPolicy::ExplicitCall ?
@@ -244,8 +252,10 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 		}
 		pendingTransferSource.reset();
 
-		const XeenEventDecodeResult decodedResult = XeenEventDecoder::decode(*record,
-			{logical.mapId, script->file().resourceName});
+		const XeenEventRecord effective = world.effectiveEvent(
+			{logical.mapId, *recordIndex}, script->records()[*recordIndex]);
+		const XeenEventDecodeResult decodedResult = XeenEventDecoder::decode(effective,
+			{logical.mapId, script->file().resourceName, *recordIndex});
 		if (const auto *decodeError = std::get_if<XeenEventDecodeError>(&decodedResult)) {
 			return error(executionKind(decodeError->kind), decodeError->message,
 				instructionCount, logical, decodeError->source);
@@ -319,6 +329,20 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 			}
 			state.pendingPresentation = pending;
 			return XeenEventExecutionSuspended{state, request};
+		}
+
+		if (std::holds_alternative<XeenEventRemove>(decoded.operation)) {
+			try {
+				// Calls change logical X/Y, never the physical mutation cell.
+				// Current supported transfers keep the script on the physical map.
+				world.applyRemove(workingCamera, state.selectedObject, script->file());
+			} catch (const std::exception &exception) {
+				return error(XeenEventExecutionErrorKind::InvalidRemoveContext,
+					exception.what(), instructionCount, logical, decoded.source);
+			}
+			logical.line = 0;
+			missingPolicy = MissingInstructionPolicy::NaturalCompletion;
+			continue;
 		}
 
 		if (std::holds_alternative<XeenEventNone>(decoded.operation)) {
@@ -488,9 +512,17 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 					std::string("failed to load teleport destination: ") + exception.what(),
 					instructionCount, logical, decoded.source, target);
 			}
+			state.selectedObject.reset();
 			workingCamera.mapId = target.mapId;
 			workingCamera.x = x;
 			workingCamera.y = y;
+			if (continueExecution) {
+				try { state.selectedObject = world.selectObject(workingCamera); }
+				catch (const std::exception &exception) {
+					return error(XeenEventExecutionErrorKind::ObjectLoadFailed,
+						exception.what(), instructionCount, logical, decoded.source, target);
+				}
+			}
 			return std::nullopt;
 		};
 

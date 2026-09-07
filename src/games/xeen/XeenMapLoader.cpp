@@ -8,6 +8,34 @@
 
 namespace mmodern {
 
+XeenObjectFile XeenMapLoader::loadObjects(XeenAssetSource &assets,
+		XeenMapIdentity mapId) const {
+	return loadObjects([&assets](const std::string &name)
+			-> std::optional<std::vector<std::uint8_t>> {
+		if (!assets.hasInitialResource(name)) return std::nullopt;
+		return assets.readInitialResource(name);
+	}, mapId);
+}
+
+XeenObjectFile XeenMapLoader::loadObjects(const ResourceReader &reader,
+		XeenMapIdentity mapId) const {
+	requireCloudsMap(mapId);
+	if (!mapId || mapId.number > 9999 || !reader)
+		throw std::invalid_argument("invalid Clouds object loader context");
+	char name[13];
+	std::snprintf(name, sizeof(name), "maze%04u.mob", static_cast<unsigned>(mapId.number));
+	XeenObjectFile file{mapId, name, false, {}};
+	const auto bytes = reader(file.resourceName);
+	if (!bytes) return file;
+	file.resourcePresent = true;
+	try {
+		file.entities = XeenMapFormat::parseMob(*bytes);
+	} catch (const std::exception &error) {
+		throw std::runtime_error(file.resourceName + ": " + error.what());
+	}
+	return file;
+}
+
 XeenMap XeenMapLoader::loadGeometryMap(XeenAssetSource &assets,
 		XeenMapIdentity mapId) const {
 	requireCloudsMap(mapId);

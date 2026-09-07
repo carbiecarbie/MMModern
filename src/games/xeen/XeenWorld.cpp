@@ -5,9 +5,88 @@
 
 namespace mmodern {
 
-XeenWorld::XeenWorld(MapLoader loader) : _loader(std::move(loader)) {
+XeenWorld::XeenWorld(MapLoader loader, ObjectLoader objectLoader) :
+	_loader(std::move(loader)), _objectLoader(std::move(objectLoader)) {
 	if (!_loader)
 		throw std::invalid_argument("XeenWorld requer um carregador de mapas");
+}
+
+const XeenObjectFile &XeenWorld::objectFile(XeenMapIdentity mapId) {
+	if (!mapId) throw std::invalid_argument("invalid object map identity");
+	const auto found = _objects.find(mapId);
+	if (found != _objects.end()) return found->second;
+	// Geometry-only clients may omit the provider; this represents no MOB source.
+	XeenObjectFile loaded = _objectLoader ? _objectLoader(mapId) :
+		XeenObjectFile{mapId, {}, false, {}};
+	if (loaded.mapId != mapId)
+		throw std::runtime_error("object file identity differs from requested map");
+	return _objects.emplace(mapId, std::move(loaded)).first->second;
+}
+
+void XeenWorld::validateObject(XeenObjectIdentity id) {
+	const auto &file = objectFile(id.mapId);
+	if (!file.resourcePresent || id.recordIndex >= file.entities.objects.size())
+		throw std::invalid_argument("selected original object index does not exist");
+}
+
+bool XeenWorld::isObjectDisabled(XeenObjectIdentity id) {
+	validateObject(id);
+	return objectFile(id.mapId).entities.objects[id.recordIndex].isDisabled() ||
+		_sessionState.isObjectDisabled(id);
+}
+
+std::optional<XeenObjectIdentity> XeenWorld::selectObject(const XeenCamera &camera) {
+	if (!camera.mapId || camera.x < 0 || camera.x > 15 || camera.y < 0 || camera.y > 15)
+		throw std::invalid_argument("invalid physical object-selection cell");
+	const auto &file = objectFile(camera.mapId);
+	if (!file.resourcePresent) return std::nullopt;
+	for (std::size_t i = 0; i < file.entities.objects.size(); ++i) {
+		const auto &object = file.entities.objects[i];
+		XeenObjectIdentity id{camera.mapId, i};
+		if (object.x == camera.x && object.y == camera.y && object.isActive() &&
+				!_sessionState.isObjectDisabled(id)) return id;
+	}
+	return std::nullopt;
+}
+
+XeenEventRecord XeenWorld::effectiveEvent(XeenEventIdentity id, const XeenEventRecord &base) const {
+	XeenEventRecord result = base;
+	if (isEventDisabled(id)) result.opcode = 0;
+	return result;
+}
+
+void XeenWorld::disableObject(XeenObjectIdentity id) {
+	validateObject(id);
+	_sessionState._objects.insert(id);
+}
+
+void XeenWorld::validateEventCell(const XeenCamera &physical, const XeenEventFile &events) {
+	if (!physical.mapId || physical.x < 0 || physical.x > 15 || physical.y < 0 || physical.y > 15 ||
+			events.mapId != physical.mapId)
+		throw std::invalid_argument("event mutation requires the physical map/cell");
+	static_cast<void>(map(physical.mapId));
+}
+
+void XeenWorld::disableEventsAtCell(const XeenCamera &physical, const XeenEventFile &events) {
+	validateEventCell(physical, events);
+	for (std::size_t i = 0; i < events.records.size(); ++i) {
+		const auto &record = events.records[i];
+		if (record.x == physical.x && record.y == physical.y)
+			_sessionState._events.insert({physical.mapId, i});
+	}
+}
+
+void XeenWorld::applyRemove(const XeenCamera &physical,
+		std::optional<XeenObjectIdentity> selected, const XeenEventFile &events) {
+	// Resolve every predictable failure before changing this operation's state.
+	validateEventCell(physical, events);
+	if (selected) {
+		if (selected->mapId != physical.mapId)
+			throw std::invalid_argument("selected object belongs to another physical map/side");
+		validateObject(*selected);
+	}
+	if (selected) disableObject(*selected);
+	disableEventsAtCell(physical, events);
 }
 
 const XeenMap &XeenWorld::map(XeenMapIdentity mapId) {

@@ -55,7 +55,7 @@ private:
 XeenEventSourceLocation makeSource(const XeenEventRecord &record,
 		const XeenEventDecodeContext &context) {
 	return {context.mapId, context.resourceName, record.fileOffset, record.x,
-		record.y, record.direction, record.line, record.opcode};
+		record.y, record.direction, record.line, record.opcode, context.recordIndex};
 }
 
 XeenEventDecodeError makeError(const XeenEventRecord &record,
@@ -241,7 +241,10 @@ XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 		XeenEventDecodeContext context) {
 	switch (record.opcode) {
 	case 0x00:
-		return decodeEmpty(record, context, XeenEventNone{});
+		// None retains old operands when an event is disabled by Remove.
+		return instruction(record, context, XeenEventNone{});
+	case 0x0e:
+		return decodeEmpty(record, context, XeenEventRemove{});
 	case 0x01:
 		return decodeDisplay(record, context, XeenEventDisplayKind::Centered);
 	case 0x02:

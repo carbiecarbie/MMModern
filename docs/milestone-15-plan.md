@@ -1,13 +1,13 @@
 # Milestone 15 - Mutable session-world state and Remove
 
-**Status: approved; 15A complete, 15B and 15C not started.**
+**Status: approved and in progress; 15A and 15B complete, 15C not started.**
 
-**Next implementation target: 15B, pending explicit implementation authorization.**
+**Next implementation target: 15C, pending explicit implementation authorization.**
 
-Milestone 14 remains the completed stable milestone. 15A has passed its required
-implementation validation; 15B and 15C have not started. This document formalizes
-the reviewed proposal;
-approval of the plan does not constitute implementation or validation.
+Milestone 14 remains the completed stable milestone. 15A and 15B have passed
+their required implementation validation. 15C has not started; M15 remains
+incomplete. This document preserves the reviewed specification and records
+stage implementation evidence separately below.
 
 ## Objective
 
@@ -173,7 +173,8 @@ During proposal review, the existing MMModern event inspector confirmed:
 - TakeOrGive immediately before the checkpoint at line 6.
 
 **Original object record 13 / resource 111 is a supplied prior-investigation
-finding. Confirmation against the map's .mob data is required during 15B.**
+finding. Confirmation against the map's .mob data was required during 15B.**
+The production checkpoint has now confirmed it; see 15B evidence below.
 The proposal review did not re-inspect that .mob file, and this documentation
 task does not claim to have verified it.
 
@@ -213,10 +214,10 @@ runtime identity paths. Numeric Clouds entry points remain supported, but the
 identity has no implicit conversion back to a number, preventing providers from
 silently losing side context. Original binary fields remain numeric.
 
-`XeenWorld` is non-copyable and owns an empty `XeenSessionWorldState` member
-separate from its maps. `discardMapCache`, `discardScriptCache`, and
+`XeenWorld` became non-copyable in 15A and gained an initially empty
+`XeenSessionWorldState` member separate from its maps; 15B now populates it. `discardMapCache`, `discardScriptCache`, and
 `discardTextCache` invalidate only disposable data. Suspended scripts remain
-owned base values. No future mutation fields or operations were implemented.
+owned base values. No mutation fields or operations were implemented in 15A.
 
 Validation: Debug build, 16/16 focused tests, 33/33 final CTest, all nine existing
 real-data smokes, all eight documented SDL runtime scenarios, and visual review
@@ -294,7 +295,73 @@ dependency notes only if the documented procedure genuinely changes.
 
 ## 15B - Stable objects/events and Remove execution
 
-**Status: planned; not started. Depends on 15A.**
+**Status: complete; implemented and validated on 2026-09-07.**
+
+### Implemented contract and evidence
+
+- `XeenObjectIdentity` and `XeenEventIdentity` use full `XeenMapIdentity` plus
+  original zero-based record index. `XeenSessionWorldState` contains only
+  disabled-object/event sets, owned by `XeenWorld` independently of caches.
+- World APIs provide effective queries, `selectObject`, `disableObject`,
+  `disableEventsAtCell`, and validated `applyRemove`. `effectiveEvent` changes
+  only a returned copy's opcode; immutable base records remain recoverable.
+- Separate lazy object-file caching uses `XeenMapLoader::loadObjects`, existing
+  initial-resource access, and `parseMob`. Missing, valid empty, and malformed
+  MOB are distinct. Geometry composition does not eagerly load neighboring
+  objects; `discardMapCache` discards base object files without session effects.
+  Real resource loading rejects Darkside.
+- Static selection uses the first eligible original record at the physical
+  cell. Suspension/calls retain its value; transfer invalidates it and resolves
+  effective destination state when execution continues. No renderer is involved.
+- `findInstructionIndex` preserves original first-match lookup. Every dispatch
+  consults effective state, including pre-mutation `currentScript` copies.
+  None ignores retained operands; Remove requires zero operands. Other decoder
+  and binary-parser validations remain strict.
+- Remove validates physical map/cell and optional original object identity
+  before mutation, disables the optional object and all physical-cell events,
+  then **sets logical line to 0**, retaining logical X/Y and the call stack.
+  No selection and already-disabled valid selection succeed; invalid index or
+  side/map errors do not apply new mutations. World effects survive subsequent
+  camera/flag rollback; effective None consumes the existing instruction budget.
+- `begin` has an optional initial line for the integration checkpoint. Runtime
+  callers still start at 0; no gameplay option bypasses the preceding quest grant.
+
+Validation: full Debug build using the clean pinned ScummVM checkout
+`6814ee9ba54582f5b5adcffab49efbbd8f589edd`; MSYS2 UCRT64 GCC 16.2.0 and MSYS
+Makefiles in `build/15b`, source `../scummvm-known-good-candidate`, dependency
+artifacts `../build-scummvm-6814ee9b-ucrt64`. Focused tests passed 7/7 and final
+CTest passed **34/34**, including new `xeen_remove` coverage. Synthetic tests
+exercise the required edge cases, copied scripts, a focused cache rebuild,
+suspension/calls/transfers, the 1024-instruction boundary, and world mutations
+surviving a later failure while camera/flags roll back.
+
+`mmodern_remove_smoke` passed with production loading, selection, and execution:
+MOB has **20 objects**, including active original object **13**, resource **111**
+at **(8,2)**. Production selection returns 13 without an injected identity.
+All 170 EVT records and the 11 cell records match the approved indices,
+offsets, lines, and directions below. Starting at record 132 / line 7 /
+offset 1113 dispatched **12 instructions: Remove + 11 effective None**, proving
+restart at line 0. Only object 13 and the 11 cell event identities were disabled;
+base entities/tables/events, geometry, flags, camera, and unrelated effective
+state remained unchanged. Line 6 TakeOrGive remained intact and unexecuted.
+
+Affected real-data event-script, event-text, interpreter, event-system,
+manual-event, and navigation-flow smokes passed. SDL dummy/software modes
+`event`, `manual`, `manual-no`, and `manual-yes` passed with Escape, including
+presentation blocking/resumption. Air / Corner, Snake Oil, Castle question,
+No, and Yes destination frames were inspected at 320x200. Logs/frames are
+ignored outputs under `build/15b`. No material discrepancy was found.
+
+To reproduce the real checkpoint after configuring the documented build:
+
+```sh
+cmake --build build/15b --parallel 4 --target mmodern_remove_smoke
+build/15b/mmodern_remove_smoke.exe "<installed-game-directory>"
+```
+
+This is 15B validation only. The complete 15C persistence/new-session matrix
+and full M14 runtime sequence have not been undertaken. The following sections
+retain the approved 15B requirements.
 
 ### Objective and object loading
 
@@ -516,7 +583,7 @@ commercial-data investigation during documentation approval.
 | Return to logical line 0 | Reviewed combined cmdRemove/cmdExit/dispatcher flow. |
 | None ignores retained operands | Pinned reference, cmdDoNothing. |
 | Event indices 125-135 and stated offsets | Commercial data inspected with the existing inspector during proposal review. |
-| Object 13 / resource 111 | Supplied earlier investigation; .mob confirmation required in 15B. |
+| Object 13 / resource 111 | Supplied earlier investigation; confirmed by production .mob loading and selection in 15B. |
 | Static selection at current cell | Derivation from reviewed reference selection routines and positioning tables. |
 | Invalid-identity error | Approved MMModern integration policy. |
 | workingCamera as execution's physical position | Adaptation to current transactional architecture. |
@@ -538,16 +605,15 @@ not required by the reviewed architecture.
 
 ## Remaining verification and next action
 
-There is no unresolved owner question blocking 15A. Confirm .mob object 13,
-resource 111, and production selection before completing 15B's checkpoint. Any
-discrepancy must be resolved before claiming Phirna validation. Animated-object
-and other scene-specific selection remains outside the approved coverage.
+15A and 15B are complete. The production map 23 checkpoint confirmed object 13,
+resource 111, all specified EVT metadata, and logical line 0 restart without a
+specification discrepancy. Animated-object and other scene-specific selection
+remain outside the approved coverage.
 
-The milestone is sufficiently specified for staged implementation. The initial
-15A increment introduced side + map identity in XeenWorld and current location,
-then propagated it through consumers and tests. 15A is now complete; 15B is the
-next stage, pending explicit implementation authorization. Remove and new
-object loading remain unimplemented.
+The next stage is **15C - Same-session persistence and integrated validation**,
+pending explicit authorization. Its comprehensive leave/return, repeated cache
+reconstruction, new-session restoration, and complete M14 regression sequence
+remain unexecuted. Do not mark the full milestone complete on 15B evidence alone.
 
 Follow [AGENTS.md](../AGENTS.md) for implementation validation and documentation
 updates. Do not start subsequent stages without explicit authorization. Do not

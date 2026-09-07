@@ -16,6 +16,7 @@ namespace mmodern {
 struct XeenEventDecodeContext {
 	std::optional<XeenMapIdentity> mapId;
 	std::optional<std::string> resourceName;
+	std::optional<std::size_t> recordIndex;
 };
 
 struct XeenEventSourceLocation {
@@ -27,9 +28,11 @@ struct XeenEventSourceLocation {
 	std::uint8_t direction = 0;
 	std::uint8_t line = 0;
 	std::uint8_t opcode = 0;
+	std::optional<std::size_t> recordIndex;
 };
 
 struct XeenEventNone {};
+struct XeenEventRemove {};
 struct XeenEventExit {};
 struct XeenEventReturn {};
 
@@ -95,6 +98,7 @@ struct XeenEventTakeOrGive {
 
 using XeenDecodedEventOperation = std::variant<
 	XeenEventNone,
+	XeenEventRemove,
 	XeenEventExit,
 	XeenEventReturn,
 	XeenEventDisplay,

@@ -54,8 +54,8 @@ public:
 	explicit XeenEventSystem(ScriptProvider scriptProvider,
 		TextProvider textProvider = {});
 
-	// The supplied state is already current. A failure rolls back only changes
-	// attempted by this event; it does not undo earlier movement or rotation.
+	// The supplied state is already current. A failure rolls back this event's
+	// camera/flag changes, not earlier movement/rotation or session-world mutations.
 	XeenAutomaticEventResult runAutomaticEvent(XeenWorld &world,
 		const XeenPartyState &partyState, XeenCamera &camera,
 		XeenGameFlags &gameFlags);

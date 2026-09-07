@@ -4,16 +4,16 @@
 
 Current stable milestone: **Milestone 14**
 
-Current development target: **Milestone 15B - pending implementation authorization**
+Current development target: **Milestone 15C - next stage, not started**
 
 Milestone 14 is complete. Stages 14A, 14B, 14C, and 14D are complete.
 
-Milestone 15 is approved and in progress. 15A is complete.
-15B and 15C have not started; no 15B implementation is authorized by completing
-15A. The approved specification is
+Milestone 15 is approved and in progress. 15A and 15B are complete.
+15C has not started and requires explicit implementation authorization.
+The approved specification is
 [Milestone 15 plan](milestone-15-plan.md).
 
-Current automated test suite: **33/33 passing**
+Current automated test suite: **34/34 passing**
 
 ## Milestone 13
 
@@ -223,7 +223,7 @@ Validation completed for 14D:
   frame.
 
 Milestone 14 is complete. Milestone 15 is the approved next milestone;
-15A is complete; 15B awaits implementation authorization.
+15A and 15B are complete; 15C awaits implementation authorization.
 
 ## Out of scope for Milestone 14
 
@@ -241,7 +241,7 @@ not redefine the primary goal of Milestone 14.
 
 ## Milestone 15 - Mutable session-world state and Remove
 
-**Status: in progress; 15A complete, 15B and 15C not started.**
+**Status: in progress; 15A and 15B complete, 15C not started.**
 
 The [dedicated plan](milestone-15-plan.md) is the specification for this milestone.
 It defines the minimum session-owned world mutations needed by the original
@@ -250,14 +250,13 @@ It defines the minimum session-owned world mutations needed by the original
 Approved stages:
 
 - **15A - Session ownership and side-aware map identity:** complete.
-- **15B - Stable object/event identities and Remove execution:** planned;
-  not implemented or complete.
+- **15B - Stable object/event identities and Remove execution:** complete.
 - **15C - Same-session persistence and integration validation:** planned;
   not implemented or complete.
 
-The planned real-data checkpoint is Clouds map 23 at `(8,2)`, starting at the
-original `Remove` boundary. Confirmation of `.mob` object record 13 / resource
-111 is required during 15B. This does not include quest-item grants, visible
+The real-data checkpoint passed on Clouds map 23 at `(8,2)`, starting at the
+original `Remove` boundary. Production `.mob` loading and selection confirmed
+original object record 13 / resource 111 during 15B. This does not include quest-item grants, visible
 entity rendering, disk save/load, or Darkside gameplay.
 
 Implemented and validated in 15A:
@@ -266,8 +265,8 @@ Implemented and validated in 15A:
   queries, scene command provenance, event/text providers and caches, logical
   addresses, call stacks, presentation requests, and diagnostics;
 - numeric resource neighbor/teleport operands are resolved in the current side;
-- `XeenWorld` owns a separate, deliberately empty session-state boundary and
-  cannot be copied; no artificial mutation has been added;
+- `XeenWorld` owns a separate session-state boundary, deliberately empty at completion of
+  15A, and cannot be copied; 15B now populates it with real mutation identities;
 - explicit map, script, and text cache discard forces subsequent loading while
   preserving session ownership and suspended execution values;
 - map/script/text identity mismatches are rejected, and real Clouds resource
@@ -292,9 +291,67 @@ Implemented and validated in 15A:
   No, and Yes destination were visually inspected;
 - validation logs and frames are local ignored outputs under `build/15a`.
 
-No Remove decoding/execution, effective mutable events, object selection or
-new object-loading path, quest-item grant, disk persistence, or Darkside gameplay
-was implemented. The full M15 remains incomplete.
+### 15B implementation and validation
+
+15B completed on 2026-09-07:
+
+- Separate object/event identity types use full side + map + original record
+  index. `XeenWorld` owns disabled-identity sets in `XeenSessionWorldState`,
+  independently of disposable geometry/object/script caches.
+- `XeenMapLoader::loadObjects` lazily reads `mazeXXXX.mob` through the existing
+  initial-resource adapter and `parseMob`. Missing, valid empty, and malformed
+  resources remain distinct; real adapters reject Darkside. Original tables,
+  record order, disabled records, and all entity metadata remain intact.
+- Production selection chooses the first active, resource-valid, session-enabled
+  object at the current physical cell in original order. It is independent of
+  rendering. Selection is a value across calls and presentation suspension;
+  teleport clears it and continuing execution resolves the destination.
+- `Remove` (`0x0E`) accepts zero operands. It validates context before disabling
+  the selected object, if any, and every event at the physical `workingCamera`
+  cell, regardless of direction or line. Invalid map/side/index is an error;
+  absent or already-disabled valid selection is accepted.
+- **Remove restarts at line 0 of the current logical address**, preserving
+  logical X/Y and the call stack. Each dispatch consults session-effective
+  state even through a previously copied script. Disabled records retain first
+  match/order and all base metadata; only effective opcode becomes `None`.
+  Only None ignores retained operands; unrelated decoder checks stay strict.
+- World effects apply immediately and survive later camera/flag rollback.
+  Focused reconstruction tests preserve selected identities and mutations;
+  the comprehensive persistence/new-session matrix remains 15C.
+
+Validation performed:
+
+- Full Debug build in `build/15b`, MSYS Makefiles, MSYS2 UCRT64 GCC 16.2.0;
+  clean ScummVM source at `6814ee9ba54582f5b5adcffab49efbbd8f589edd`, using
+  `../scummvm-known-good-candidate` and `../build-scummvm-6814ee9b-ucrt64`.
+- Focused decoder/world/interpreter/presentation/manual/session/Remove tests:
+  7/7 passed. Final full CTest: **34/34 passed**. New `xeen_remove` tests cover
+  identity isolation, loading, selection, invalid context, metadata retention,
+  copied scripts, suspension, calls/transfers, instruction limits, and rollback
+  policy. Decoder tests cover zero-operand Remove and retained None operands.
+- `mmodern_remove_smoke` passed against the installed commercial data:
+  map 23 MOB contains 20 objects; original index 13 is active, resource 111,
+  at `(8,2)`, and is selected by the production resolver without injection.
+  EVT contains 170 records; cell indices 125-135 retain the approved offsets,
+  All direction, and lines 0-10. Remove is record 132 / line 7 / offset 1113
+  with no operands. Execution dispatched **12 instructions: Remove followed
+  by 11 effective None instructions from logical line 0**. Only one object
+  identity and 11 event identities were disabled; base/unrelated state stayed
+  unchanged. The preceding TakeOrGive was neither executed nor modified.
+- Real-data event-script, event-text, interpreter, event-system, manual-event,
+  and navigation-flow smoke tests passed.
+- SDL dummy/software `event`, `manual`, `manual-no`, and `manual-yes` scenarios
+  passed, including presentation input blocking/resumption and Escape shutdown.
+  Generated Air / Corner, Snake Oil, Castle question, No, and Yes destination
+  frames were visually inspected at 320x200.
+- Logs and generated frames remain ignored local outputs under `build/15b`.
+
+No material specification or real-data discrepancy was found. No quest-item
+claim/grant, full Phirna harvesting, visible plant removal, disk persistence,
+or Darkside gameplay is implemented. **M15 remains incomplete; 15C has not
+started.** Its next target is comprehensive same-session persistence and
+integration validation: leave/return, repeated separate/combined cache rebuilds,
+fresh-session restoration, and the full M14 runtime regression sequence.
 
 ## Architecture notes
 

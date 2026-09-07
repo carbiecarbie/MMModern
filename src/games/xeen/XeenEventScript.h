@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <vector>
+#include <optional>
 
 namespace mmodern {
 
@@ -31,6 +32,8 @@ public:
 	// The returned pointer belongs to this script and becomes invalid when the
 	// script is destroyed, assigned, or moved.
 	const XeenEventRecord *findInstruction(std::uint8_t x, std::uint8_t y,
+		XeenDirection direction, std::uint8_t line) const;
+	std::optional<std::size_t> findInstructionIndex(std::uint8_t x, std::uint8_t y,
 		XeenDirection direction, std::uint8_t line) const;
 	std::vector<XeenEventDuplicateKey> duplicateKeys() const;
 

@@ -2,6 +2,9 @@
 #define MMODERN_GAMES_XEEN_WORLD_H
 
 #include "games/xeen/XeenMap.h"
+#include "games/xeen/XeenRecordIdentity.h"
+#include "games/xeen/XeenEventFile.h"
+#include <set>
 
 #include <cstddef>
 #include <cstdint>
@@ -19,19 +22,40 @@ struct XeenCellSample {
 	const XeenMapCell *cell = nullptr;
 };
 
-// Empty in 15A; actual session mutations are introduced by 15B.
-struct XeenSessionWorldState {};
+// Session-owned overlays only. Original object/event records remain untouched.
+class XeenSessionWorldState {
+public:
+	bool isObjectDisabled(XeenObjectIdentity id) const { return _objects.count(id) != 0; }
+	bool isEventDisabled(XeenEventIdentity id) const { return _events.count(id) != 0; }
+	std::size_t disabledObjectCount() const { return _objects.size(); }
+	std::size_t disabledEventCount() const { return _events.size(); }
+private:
+	friend class XeenWorld;
+	std::set<XeenObjectIdentity> _objects;
+	std::set<XeenEventIdentity> _events;
+};
 
 class XeenWorld {
 public:
 	using MapLoader = std::function<XeenMap(XeenMapIdentity)>;
 
-	explicit XeenWorld(MapLoader loader);
+	using ObjectLoader = std::function<XeenObjectFile(XeenMapIdentity)>;
+	explicit XeenWorld(MapLoader loader, ObjectLoader objectLoader = {});
+	const XeenObjectFile &objectFile(XeenMapIdentity mapId);
+	bool isObjectDisabled(XeenObjectIdentity id);
+	bool isEventDisabled(XeenEventIdentity id) const { return _sessionState.isEventDisabled(id); }
+	std::optional<XeenObjectIdentity> selectObject(const XeenCamera &camera);
+	XeenEventRecord effectiveEvent(XeenEventIdentity id, const XeenEventRecord &base) const;
+	void disableObject(XeenObjectIdentity id);
+	void disableEventsAtCell(const XeenCamera &physical, const XeenEventFile &events);
+	void applyRemove(const XeenCamera &physical, std::optional<XeenObjectIdentity> selected,
+		const XeenEventFile &events);
+	std::size_t cachedObjectFileCount() const { return _objects.size(); }
 	XeenWorld(const XeenWorld &) = delete;
 	XeenWorld &operator=(const XeenWorld &) = delete;
 	const XeenSessionWorldState &sessionState() const { return _sessionState; }
-	// Invalidates map/cell references, not the session state.
-	void discardMapCache() { _maps.clear(); }
+	// Invalidates map/cell/object-file references, not the session state.
+	void discardMapCache() { _maps.clear(); _objects.clear(); }
 
 	const XeenMap &map(XeenMapIdentity mapId);
 	std::optional<XeenCellSample> sampleCell(XeenMapIdentity mapId, int x, int y);
@@ -40,6 +64,10 @@ public:
 private:
 	XeenSessionWorldState _sessionState;
 	MapLoader _loader;
+	ObjectLoader _objectLoader;
+	std::map<XeenMapIdentity, XeenObjectFile> _objects;
+	void validateObject(XeenObjectIdentity id);
+	void validateEventCell(const XeenCamera &physical, const XeenEventFile &events);
 	std::map<XeenMapIdentity, XeenMap> _maps;
 };
 

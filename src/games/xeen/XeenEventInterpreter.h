@@ -7,6 +7,7 @@
 #include "games/xeen/XeenGameFlags.h"
 #include "games/xeen/XeenNavigation.h"
 #include "games/xeen/XeenParty.h"
+#include "games/xeen/XeenRecordIdentity.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -94,6 +95,7 @@ struct XeenEventExecutionState {
 	XeenEventExecutionAddress logicalAddress;
 	XeenDirection lookupDirection = XeenDirection::North;
 	XeenCamera workingCamera;
+	std::optional<XeenObjectIdentity> selectedObject;
 	XeenGameFlags workingGameFlags;
 	std::optional<XeenEventScript> currentScript;
 	std::vector<XeenEventCallFrame> callStack;
@@ -127,6 +129,8 @@ enum class XeenEventExecutionErrorKind {
 	CallStackOverflow,
 	UnsupportedTeleportDestination,
 	MapLoadFailed,
+	ObjectLoadFailed,
+	InvalidRemoveContext,
 	UnsupportedExecutionContext,
 	InstructionLimitExceeded,
 	MissingTextResource,
@@ -167,10 +171,11 @@ public:
 		const XeenPartyState &partyState, const XeenGameFlags &gameFlags,
 		XeenWorld &world, const ScriptProvider &scriptProvider) const;
 
+	// Integration checkpoints may specify a line; all gameplay callers use zero.
 	XeenEventExecutionStepResult begin(const XeenCamera &initialCamera,
 		const XeenPartyState &partyState, const XeenGameFlags &gameFlags,
 		XeenWorld &world, const ScriptProvider &scriptProvider,
-		const TextProvider &textProvider) const;
+		const TextProvider &textProvider, std::uint8_t initialLine = 0) const;
 
 	XeenEventExecutionStepResult resume(XeenEventExecutionState state,
 		XeenPresentationResponse response, const XeenPartyState &partyState,

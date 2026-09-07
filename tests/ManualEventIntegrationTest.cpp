@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
 		const XeenMapLoader mapLoader;
 		XeenWorld world([&](mmodern::XeenMapIdentity mapId) {
 			return mapLoader.loadGeometryMap(assets, mapId);
-		});
+		}, [&](XeenMapIdentity id) { return mapLoader.loadObjects(assets, id); });
 		const XeenEventLoader eventLoader([&](const std::string &resourceName)
 				-> std::optional<std::vector<std::uint8_t>> {
 			if (!assets.hasInitialResource(resourceName))

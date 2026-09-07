@@ -84,6 +84,8 @@ const char *eventErrorName(XeenEventExecutionErrorKind kind) {
 	case XeenEventExecutionErrorKind::InvalidReturn: return "InvalidReturn";
 	case XeenEventExecutionErrorKind::CallStackOverflow: return "CallStackOverflow";
 	case XeenEventExecutionErrorKind::UnsupportedTeleportDestination: return "UnsupportedTeleportDestination";
+	case XeenEventExecutionErrorKind::ObjectLoadFailed: return "ObjectLoadFailed";
+	case XeenEventExecutionErrorKind::InvalidRemoveContext: return "InvalidRemoveContext";
 	case XeenEventExecutionErrorKind::MapLoadFailed: return "MapLoadFailed";
 	case XeenEventExecutionErrorKind::UnsupportedExecutionContext: return "UnsupportedExecutionContext";
 	case XeenEventExecutionErrorKind::InstructionLimitExceeded: return "InstructionLimitExceeded";
@@ -376,7 +378,7 @@ int Application::renderMap(const std::filesystem::path &gameDirectory,
 		const XeenMapLoader mapLoader;
 		XeenWorld world([&](XeenMapIdentity requestedMapId) {
 			return mapLoader.loadGeometryMap(assets, requestedMapId);
-		});
+		}, [&](XeenMapIdentity id) { return mapLoader.loadObjects(assets, id); });
 		const XeenEventLoader eventLoader([&](const std::string &resourceName)
 				-> std::optional<std::vector<std::uint8_t>> {
 			if (!assets.hasInitialResource(resourceName))
