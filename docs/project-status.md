@@ -4,13 +4,18 @@
 
 Current stable milestone: **Milestone 15**
 
-Current development target: **No subsequent milestone is approved**
+Current development target: **Milestone 16A - Visual resolution and resource safety**
 
 Milestone 14 is complete. Stages 14A, 14B, 14C, and 14D are complete.
 
 Milestone 15 is complete. Stages 15A, 15B, and 15C are complete.
 The approved specification is
 [Milestone 15 plan](milestone-15-plan.md).
+
+Milestone 16 is approved but has not started. Stages 16A, 16B, and 16C are not
+implemented. The approved specification is
+[Milestone 16 plan](milestone-16-plan.md). The next implementation target is
+**16A - Visual resolution and resource safety**.
 
 Current automated test suite: **35/35 passing**
 
@@ -221,7 +226,7 @@ Validation completed for 14D:
   320x200 resolution, including the distinct reduced font and the post-teleport
   frame.
 
-Milestones 14 and 15 are complete. No subsequent milestone is approved.
+Milestones 14 and 15 are complete. Milestone 16 is approved but has not started.
 
 ## Out of scope for Milestone 14
 
@@ -391,7 +396,28 @@ Validation results:
 
 Milestone 15 is complete. This does not implement complete Phirna harvesting,
 quest-item grants, visible plant removal, disk save/load, or Darkside gameplay.
-No later milestone scope has been approved.
+
+## Milestone 16 - Static outdoor map objects and visual Remove
+
+**Status: approved; 16A, 16B, and 16C not started.**
+
+The [dedicated plan](milestone-16-plan.md) is the approved specification.
+Milestone 16 is limited to static appearance-base objects in supported outdoor
+Clouds scenes. Its stages are:
+
+- **16A - Visual resolution and resource safety:** next implementation target;
+- **16B - Static objects in the outdoor scene:** not started;
+- **16C - Visual Remove and runtime lifecycle:** not started.
+
+The validated real-data target is the installed World of Xeen layout: Clouds
+object sprites are read from `XEEN.CC`, while Clouds visual metadata is read
+from `DARK.CC/clouds.dat`. This physical resource origin does not change Clouds
+gameplay identity and does not implement Darkside gameplay.
+
+M16 has no implementation evidence yet. The current automated baseline remains
+the 35/35 suite completed with M15. Animated cycles, indoor objects, monsters,
+wall items, quest-item granting, complete Phirna harvesting, save/load, and
+Darkside gameplay remain outside the approved scope.
 
 ## Architecture notes
 

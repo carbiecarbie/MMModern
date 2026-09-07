@@ -4,7 +4,7 @@
 
 **Next milestone: not defined or approved by this plan.**
 
-Milestone 14 remains the completed stable milestone. 15A and 15B have passed
+Milestone 15 is the completed stable milestone. 15A and 15B have passed
 their required implementation validation. 15C has also passed its lifecycle
 validation, completing M15. This document preserves the reviewed specification
 and records stage implementation evidence separately below.

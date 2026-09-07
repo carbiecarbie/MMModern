@@ -9,6 +9,8 @@ The project is currently in early development.
 ## Current status
 
 Milestones 14 and [15](docs/milestone-15-plan.md) are complete.
+Milestone [16](docs/milestone-16-plan.md) is approved but has not started; the
+next implementation target is **16A - Visual resolution and resource safety**.
 The Remove mutation checkpoint on Clouds map 23 works with session-owned
 object/event disabling that survives map changes and disposable-cache rebuilds;
 a new session restores the original resource state. Complete Phirna harvesting,
