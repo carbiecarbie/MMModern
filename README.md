@@ -9,20 +9,23 @@ The project is currently in early development.
 ## Current status
 
 Milestones 14 and [15](docs/milestone-15-plan.md) are complete.
-Milestone [16A](docs/milestone-16-plan.md#16a---visual-resolution-and-resource-safety)
-is complete: static Clouds object visuals can be resolved and drawn in isolation
-with resource validation. Objects are not yet integrated into outdoor gameplay.
-The next implementation target is **16B - Static objects in the outdoor scene**.
+Milestones [16A and 16B](docs/milestone-16-plan.md) are complete: supported static
+Clouds objects are visible in composed outdoor scenes with direction, scale,
+clipping, terrain ordering, and resource validation. This requires the validated
+World of Xeen metadata source in `DARK.CC/clouds.dat`.
+The next implementation target is **16C - Visual Remove and runtime lifecycle**.
 The Remove mutation checkpoint on Clouds map 23 works with session-owned
 object/event disabling that survives map changes and disposable-cache rebuilds;
 a new session restores the original resource state. Complete Phirna harvesting,
-quest-item granting, visible plant removal, disk save/load, and Darkside gameplay
-are not implemented.
+quest-item granting, immediate visual removal after Remove, disk save/load, and
+Darkside gameplay are not implemented. Disabled objects are omitted on the next
+explicit scene reconstruction; mutation does not yet trigger that reconstruction.
 
 MMModern currently includes:
 
 - Loading of original Xeen game resources
 - Outdoor map rendering
+- Supported static outdoor Clouds objects interleaved with terrain
 - Indoor map rendering
 - Player navigation and collision
 - Party data loading

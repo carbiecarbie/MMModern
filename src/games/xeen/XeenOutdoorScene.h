@@ -3,33 +3,64 @@
 
 #include "formats/xeen/XeenSpriteDrawOptions.h"
 #include "games/xeen/XeenNavigation.h"
+#include "games/xeen/XeenObjectVisual.h"
 
 #include <cstddef>
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace mmodern {
 
 class XeenWorld;
 
-struct XeenOutdoorDrawCommand {
-	int originalOrder = 0;
+struct XeenOutdoorTerrainDraw {
 	std::string resourceName;
 	std::size_t frame = 0;
+	XeenSpriteDrawOptions options;
+};
+
+struct XeenOutdoorObjectDraw {
+	XeenObjectVisual visual;
+	int scaleIndex = 0;
+	bool bottomClipped = false;
+};
+
+struct XeenOutdoorDrawCommand {
+	int originalOrder = 0;
 	int x = 0;
 	int y = 0;
 	XeenMapIdentity sourceMapId = 0;
 	int sourceX = -1;
 	int sourceY = -1;
-	XeenSpriteDrawOptions options;
+	int sampleIndex = -1;
+	std::variant<XeenOutdoorTerrainDraw, XeenOutdoorObjectDraw> content;
+	XeenOutdoorTerrainDraw &terrain() { return std::get<XeenOutdoorTerrainDraw>(content); }
+	const XeenOutdoorTerrainDraw &terrain() const { return std::get<XeenOutdoorTerrainDraw>(content); }
+	const XeenOutdoorObjectDraw *object() const { return std::get_if<XeenOutdoorObjectDraw>(&content); }
+	XeenSpriteDrawOptions drawOptions() const {
+		if (const auto *o = object()) {
+			XeenSpriteDrawOptions result;
+			result.scaleIndex = o->scaleIndex;
+			result.horizontalFlip = o->visual.horizontalFlip;
+			result.sceneClipped = true;
+			result.bottomClipped = o->bottomClipped;
+			return result;
+		}
+		return terrain().options;
+	}
 };
 
 class XeenOutdoorScene {
 public:
 	static constexpr XeenCamera kAreaA1Camera{1, 9, 6, XeenDirection::South};
 
+	// A null resolver preserves terrain-only clients. Production composition
+	// supplies 16A's resolver. Diagnostics retain skipped first-record results.
 	std::vector<XeenOutdoorDrawCommand> build(XeenWorld &world,
-		const XeenCamera &camera = kAreaA1Camera) const;
+		const XeenCamera &camera = kAreaA1Camera,
+		const XeenObjectVisualResolver *resolver = nullptr,
+		std::vector<XeenObjectVisual> *diagnostics = nullptr) const;
 };
 
 } // namespace mmodern

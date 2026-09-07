@@ -7,20 +7,31 @@
 
 namespace mmodern {
 
+void CloudsMapComposer::drawOutdoorCommands(XeenAssetSource &assets,
+		const std::vector<XeenOutdoorDrawCommand> &commands) const {
+	for (const auto &command : commands) {
+		if (const auto *object = command.object())
+			assets.drawObjectVisual(object->visual, command.x, command.y, command.drawOptions());
+		else
+			assets.drawSprite(command.terrain().resourceName, command.terrain().frame,
+				command.x, command.y, command.drawOptions());
+	}
+}
+
 IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 		XeenWorld &world, const XeenPartyState &partyState,
 		const XeenCamera &camera,
-		const XeenCharacterRulesContext &context) const {
+		const XeenCharacterRulesContext &context,
+		std::vector<XeenObjectVisual> *objectDiagnostics) const {
+	if (objectDiagnostics) objectDiagnostics->clear();
 	const CloudsUiComposer interfaceComposer;
 	interfaceComposer.loadBackground(assets);
 
 	const XeenMap &map = world.map(camera.mapId);
 	if (map.geometry.isOutdoors()) {
-		const auto commands = XeenOutdoorScene().build(world, camera);
-		for (const XeenOutdoorDrawCommand &command : commands) {
-			assets.drawSprite(command.resourceName, command.frame,
-				command.x, command.y, command.options);
-		}
+		const auto resolver = XeenObjectVisualResolver::load(assets);
+		const auto commands = XeenOutdoorScene().build(world, camera, &resolver, objectDiagnostics);
+		drawOutdoorCommands(assets, commands);
 	} else {
 		// Indoor darkness is deliberately ignored in Milestone 12D: the scene is
 		// rendered illuminated so its geometry can be validated without gameplay.

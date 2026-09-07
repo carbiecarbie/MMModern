@@ -1,12 +1,12 @@
 # Milestone 16 - Static outdoor map objects and visual Remove
 
-**Status: 16A complete; 16B and 16C not implemented. Milestone 16 remains incomplete.**
+**Status: 16A and 16B complete; 16C not implemented. Milestone 16 remains incomplete.**
 
-**Next implementation target: 16B - Static objects in the outdoor scene.**
+**Next implementation target: 16C - Visual Remove and runtime lifecycle.**
 
 Milestone 15 remains the completed stable milestone. This document defines the
 approved scope and implementation order for Milestone 16 and records the
-completed 16A implementation and validation below.
+completed 16A/16B implementation and validation below.
 
 ## Recommendation and objective
 
@@ -501,13 +501,14 @@ Validation performed:
   No commercial bytes or images were added to repository fixtures.
 
 No checkpoint discrepancy was found. All 16A completion criteria are satisfied.
-This validates isolated appearance only: no outdoor scene integration, terrain
-occlusion, map visibility, or visual Remove was implemented. 16B is the next
-implementation target; 16C and Milestone 16 completion remain pending.
+That stage validated isolated appearance only: no outdoor scene integration,
+terrain occlusion, map visibility, or visual Remove was implemented during 16A.
+16B subsequently added outdoor composition as recorded below; 16C and
+Milestone 16 completion remain pending.
 
 ## 16B - Static objects in the outdoor scene
 
-**Status: approved; next implementation target, not started.**
+**Status: complete, validated 2026-09-07.**
 
 ### Objective
 
@@ -586,9 +587,148 @@ The principal fidelity risk is placing objects as a final layer instead of
 interleaving them with terrain. Large transparent sprite bounds and internal
 offsets can also make apparently reasonable anchor adjustments incorrect.
 
+### 16B implementation and validation record
+
+`XeenOutdoorDrawCommand::content` is a value variant of
+`XeenOutdoorTerrainDraw` and `XeenOutdoorObjectDraw`. The terrain alternative
+retains the existing name/frame/options. The object alternative stores the
+single authoritative `XeenObjectVisual`, scale, and bottom-clip flag; it has no
+second resource/frame/flip copy. Shared command values retain original order,
+anchor, sample index, source map, and raw source coordinates. `drawOptions()`
+derives scene clipping, resolved flip, no enlargement, and the per-position
+scale/bottom clip for objects.
+
+The composer loads the 16A resolver on each outdoor composition and passes it
+to the existing scene builder. No archive access was added to the builder.
+Terrain-only clients can omit the resolver. `drawOutdoorCommands` executes one
+ordered stream, dispatching terrain through `drawSprite` and objects through
+`drawObjectVisual`, retaining all 16A checks. The existing border and interface
+pass follows that stream. Indoor composition is unchanged.
+
+`kObjectPlacements` in `XeenOutdoorSceneTables.h` implements exactly the twelve
+normal placements in the approved table above. The resource-113 row was
+transcribed from pinned `OUTDOOR_OBJECT_X` and `MAP_OBJECT_Y`, confirmed against
+`setOutdoorsObjects`. Its values in the same depth/lateral order are:
+
+| Sample | Order | Scale | Normal X,Y | Resource 113 X,Y |
+|---:|---:|---:|---|---|
+| 2 | 111 | 0 | -5,2 | -35,-65 |
+| 5 | 88 | 7 | -112,25 | -142,-6 |
+| 7 | 87 | 7 | -7,25 | -35,-6 |
+| 9 | 89 | 7 | 98,25 | 68,-6 |
+| 12 | 67 | 12 | -77,50 | -95,36 |
+| 14 | 66 | 12 | -8,50 | -35,36 |
+| 16 | 68 | 12 | 61,50 | 19,36 |
+| 23 | 40 | 14 | -74,58 | -98,54 |
+| 25 | 38 | 14 | -43,58 | -62,54 |
+| 27 | 37 | 14 | -9,58 | -35,54 |
+| 29 | 39 | 14 | 25,58 | -24,54 |
+| 31 | 41 | 14 | 56,58 | 16,54 |
+
+Every position is scene-clipped; only sample 2 is bottom-clipped. The existing
+`sampleOffset` function rotates both terrain and object samples. Objects compare
+the resulting raw coordinate against `world.objectFile(camera.mapId)` only,
+including signed/out-of-grid coordinates. They never use neighbor normalization
+or load a neighbor's MOB. Terrain sampling continues across boundaries.
+
+For each slot, original record order determines the first applicable record:
+matching coordinates, active base state, resource ID 0..254, and not disabled
+according to `XeenWorld::isObjectDisabled` with side/map/original index. Rendering
+does not call `selectObject`. Unsupported animation, invalid metadata index or
+direction, and unavailable metadata stop that slot's search without promoting
+another overlapping record. Optional diagnostic output from `build`/`compose`
+retains skipped 16A values and identities. Missing metadata permits terrain/UI
+composition. Present malformed metadata and missing/malformed sprite resources
+retain the 16A exception policy. No alternate metadata, visibility cache, or
+animation support was added.
+
+Object commands are appended before the existing stable sort by `originalOrder`.
+Synthetic production-rasterizer assertions prove both directions of overlap:
+the fixture object overwrites 120 earlier-terrain pixels, later terrain covers
+4,256 object pixels, and 2,016 object pixels survive. This verifies interleaving
+rather than a final object overlay. Explicitly disabling full identities removes
+commands and pixels on the next composition. Cache reload counters demonstrate
+that reconstructing map/MOB data does not reset effective disabled state.
+
+Real checkpoint results (all use production map/MOB loading and 16A resolution):
+
+| View | Frame / flip | Order / anchor / scale | Final pixel contribution |
+|---|---|---|---:|
+| Phirna current `(8,2)` North | 0 / false | 111 / -5,2 / 0 | 541 |
+| Phirna depth 1 `(8,3)` South | 0 / false | 87 / -7,25 / 7 | 0, hidden by later composition |
+| Phirna depth 2 `(8,4)` South | 0 / false | 66 / -8,50 / 12 | 0, hidden by terrain |
+| Phirna depth 3 `(5,2)` East | 0 / true | 37 / -9,58 / 14 | 2, partially terrain-occluded |
+| Air / Corner `(1,14)` West | 0 / false | 111 / -5,2 / 0 | 3,149 |
+| Resource 117 `(12,2)` North | 1 / false | 111 / -5,2 / 0 | 4,621 |
+| Resource 117 `(12,2)` East | 0 / false | 111 / -5,2 / 0 | 6,522 |
+| Resource 117 `(12,2)` South | 3 / false | 111 / -5,2 / 0 | 4,702 |
+| Resource 117 `(12,2)` West | 2 / false | 111 / -5,2 / 0 | 6,489 |
+
+Pixel contribution is the difference between the full composition and a second
+explicit composition after disabling that object. Original data is not changed.
+All nine views retain the exact expected commands; every object contributes
+pixels before later occlusion. Test-only instrumentation of the original
+SpriteResource directory confirms that both Air / Corner cells contribute over
+the actual scene underlay with the production clipping/anchor. Both cells use
+the original decoder; no resource bytes are changed.
+
+**Phirna occlusion finding:** the initial smoke assumed every requested view
+would change the final framebuffer. Targeted tracing disproved that assumption.
+Depth 1 changes 233 pixels at its draw step; later `ltree.wal` at orders 105
+(cell 8,2), 108/109/110 (cell 8,3) overwrites 230 of those, and final composition
+has no remaining contribution. Depth 2 changes 44 pixels, all overwritten by
+later terrain at orders 86 (cell 8,2) and 105 (cell 8,3). Depth 3 changes ten
+pixels, eight overwritten by later terrain, leaving two. This was reported and
+investigated against the pinned placement/order contract. The anchors, scale,
+terrain, and order were preserved; the smoke now accepts justified occlusion
+instead of requiring an incorrect object overlay. No approved placement value
+or gameplay rule was changed.
+
+Validation completed:
+
+- Fresh `build/16b` Debug build, MSYS Makefiles, MSYS2 UCRT64 GCC 16.2.0.
+  CMake confirms source `D:/Projetos/MModern/scummvm-known-good-candidate` and
+  artifacts `D:/Projetos/MModern/build-scummvm-6814ee9b-ucrt64`; source HEAD is
+  `6814ee9ba54582f5b5adcffab49efbbd8f589edd`, unchanged and clean with
+  `core.autocrlf=false`.
+- Pre-16B baseline **37/37 passed**. Added `xeen_outdoor_objects` and
+  `xeen_outdoor_composer`, covering all twelve slots in four directions for
+  both placement rows, raw coordinates, identity isolation, precedence,
+  unsupported/unavailable/invalid visuals, boundary loader counters, explicit
+  disabled reconstruction, cache reload, and ordered pixels. Existing terrain
+  tests and graphics smoke were adapted only to the command variant.
+- Focused outdoor/16A/indoor/navigation/M14/M15 tests **13/13 passed**; final
+  full CTest **39/39 passed**.
+- New `mmodern_outdoor_object_smoke` passed all nine real scene views, effective
+  disabled reconstruction and reload, border preservation, and actual-scene
+  two-cell drawing. Existing `mmodern_object_visual_smoke` passed all twelve
+  isolated 16A resolutions/draws.
+- All ten existing real-data smokes passed: party, indoor map, event script,
+  event text, game flags, interpreter, event system, manual event, navigation
+  flow, and Remove lifecycle. M15 selection, Remove, and persistence semantics
+  are unchanged.
+- SDL dummy/software passed UI, map, indoor, event, manual, manual-no, and
+  manual-yes with Escape, plus UI with SDL quit. No Application or event control
+  flow was modified.
+- Inspected native 320x200 images: Phirna current/depth1/depth2/depth3 mirrored;
+  Air / Corner base and original M14 SignText; resource 117 North/East/South/West;
+  Snake Oil; Castle Basenji question, No, and Yes destination. Phirna depth 3
+  provides the partial terrain-occlusion check. Scene transparency, direction,
+  scale, clipping, border, and presentation layering were checked alongside
+  command/pixel tests. All outputs remain ignored under `build/16b`.
+- Regenerated the prior 16A executable's M14 baseline in an ignored directory:
+  Snake Oil and the indoor Castle Basenji Yes destination are byte-for-byte
+  identical to 16B output. Indoor scene/composer code was not changed.
+
+All 16B completion criteria are satisfied, including the explicit real-data
+occlusion finding above. No immediate runtime visual Remove, mutation-triggered
+recomposition, presentation/event invalidation, or other 16C work was added.
+Supported objects disappear only when the scene is explicitly reconstructed
+after effective disabling. 16C is the next implementation target.
+
 ## 16C - Visual Remove and runtime lifecycle
 
-**Status: approved; blocked on completion of 16B.**
+**Status: approved; next implementation target, not started.**
 
 ### Objective
 
@@ -813,9 +953,9 @@ Questions that may be resolved during implementation without changing scope:
 - final deterministic pixel assertions and hashes after the renderer exists;
 - exact diagnostic wording for unavailable metadata and unsupported animation.
 
-16A resolved its metadata and safety questions within these constraints; its
-implementation evidence is recorded above. The remaining scene/runtime
-decisions belong to separately authorized 16B/16C work.
+16A resolved its metadata/safety questions, and 16B implemented static outdoor
+composition within these constraints. Their evidence is recorded above. Runtime
+mutation-driven recomposition remains separately authorized 16C work.
 
 ## Definition of Milestone 16 complete
 
@@ -840,7 +980,7 @@ must all pass. Complete Phirna harvesting must not be claimed.
 
 ## Next implementation task
 
-**16A - Visual resolution and resource safety** is complete. The next separately
-authorized implementation target is **16B - Static objects in the outdoor
-scene**, using the approved scope above. No 16B or 16C work was performed as part
-of 16A.
+**16A - Visual resolution and resource safety** and **16B - Static objects in
+the outdoor scene** are complete. The next separately authorized implementation
+target is **16C - Visual Remove and runtime lifecycle**, using the approved
+scope above. No 16C work was performed as part of 16B.

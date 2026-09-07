@@ -4,7 +4,7 @@
 
 Current stable milestone: **Milestone 15**
 
-Current development target: **Milestone 16B - Static objects in the outdoor scene**
+Current development target: **Milestone 16C - Visual Remove and runtime lifecycle**
 
 Milestone 14 is complete. Stages 14A, 14B, 14C, and 14D are complete.
 
@@ -12,12 +12,12 @@ Milestone 15 is complete. Stages 15A, 15B, and 15C are complete.
 The approved specification is
 [Milestone 15 plan](milestone-15-plan.md).
 
-Milestone 16A is complete. Stages 16B and 16C are not
+Milestones 16A and 16B are complete. Stage 16C is not
 implemented. The approved specification is
 [Milestone 16 plan](milestone-16-plan.md). The next implementation target is
-**16B - Static objects in the outdoor scene**.
+**16C - Visual Remove and runtime lifecycle**.
 
-Current automated test suite: **37/37 passing**
+Current automated test suite: **39/39 passing**
 
 ## Milestone 13
 
@@ -226,7 +226,7 @@ Validation completed for 14D:
   320x200 resolution, including the distinct reduced font and the post-teleport
   frame.
 
-Milestones 14 and 15 are complete. Milestone 16A is complete; 16B is next.
+Milestones 14 and 15 are complete. Milestones 16A and 16B are complete; 16C is next.
 
 ## Out of scope for Milestone 14
 
@@ -399,15 +399,15 @@ quest-item grants, visible plant removal, disk save/load, or Darkside gameplay.
 
 ## Milestone 16 - Static outdoor map objects and visual Remove
 
-**Status: 16A complete; 16B and 16C not started. Milestone 16 is incomplete.**
+**Status: 16A and 16B complete; 16C not started. Milestone 16 is incomplete.**
 
 The [dedicated plan](milestone-16-plan.md) is the approved specification.
 Milestone 16 is limited to static appearance-base objects in supported outdoor
 Clouds scenes. Its stages are:
 
 - **16A - Visual resolution and resource safety:** complete;
-- **16B - Static objects in the outdoor scene:** next implementation target;
-- **16C - Visual Remove and runtime lifecycle:** not started.
+- **16B - Static objects in the outdoor scene:** complete;
+- **16C - Visual Remove and runtime lifecycle:** next implementation target.
 
 The validated real-data target is the installed World of Xeen layout: Clouds
 object sprites are read from `XEEN.CC`, while Clouds visual metadata is read
@@ -458,11 +458,69 @@ contains the exact contracts, safety bounds, checkpoint values, and evidence.
   smokes passed, including M14 manual events and M15 Remove lifecycle. All
   seven SDL modes passed with Escape, plus UI with SDL quit, using dummy/software.
 
-All 16A completion criteria are satisfied, with no checkpoint discrepancies.
-Objects are not yet drawn in outdoor gameplay, and Remove has no visual
-disappearance. No 16B or 16C integration was performed. Animated cycles, indoor
-objects, monsters, wall items, quest-item granting, complete Phirna harvesting,
-save/load, and Darkside gameplay remain outside the approved scope.
+All 16A completion criteria were satisfied. That stage only validated isolated
+sprites; outdoor integration was subsequently implemented by 16B below.
+
+### 16B implementation and validation
+
+Completed on 2026-09-07. Supported static Clouds objects now participate in
+outdoor gameplay scene composition. Immediate runtime visual Remove remains
+unimplemented; 16C is the next separately authorized stage.
+
+- `XeenOutdoorDrawCommand` contains a terrain/object variant. The object payload
+  retains the authoritative 16A visual value, scale, and lower-clip flag. Common
+  fields retain order, anchor, sample index, and raw source map/coordinates.
+  Object resource/frame/flip values are not duplicated into terrain fields.
+- `CloudsMapComposer` obtains the 16A resolver only for outdoor maps and supplies
+  it to `XeenOutdoorScene`. The builder uses the existing sample rotation and
+  the twelve approved placements, including the pinned resource-113 alternate
+  X/Y row. Objects enter the existing collection before its stable order sort.
+  One drawing loop dispatches terrain to `drawSprite` and objects to the
+  checked `drawObjectVisual` path, then the original border/UI pass runs.
+- Only the current map's MOB is loaded. Signed raw coordinates are compared
+  directly; terrain can still cross into neighbors. The first applicable
+  original record owns each slot. Base/session-disabled and invalid-resource
+  records are ineligible. Unsupported animation or invalid/unavailable visuals
+  do not promote overlapping later records. Optional diagnostic output retains
+  skipped 16A results; present corrupt metadata or sprites retain exceptions.
+- `XeenWorld::isObjectDisabled` is consulted with full stable identity on each
+  reconstruction. Explicit recomposition removes a disabled object's command
+  and pixels, including after proven map/MOB cache reload. No visibility cache,
+  selection change, event change, or Application invalidation was added.
+- Real Phirna current-cell composition contributes 541 pixels. Approved depth-1
+  and depth-2 commands draw correctly but intervening `ltree.wal` commands hide
+  the plant in the final image. The mirrored depth-3 view is partially occluded
+  and contributes two final pixels. This was investigated and reported, not
+  corrected by moving the approved anchors or changing the draw order.
+- Air / Corner renders its two cells over the scene and its original SignText
+  remains layered above it. Resource 117 renders frames 1/0/3/2 for N/E/S/W,
+  without flip. Border preservation and explicit disabled reconstruction passed
+  for all nine real checkpoint views.
+- Native 320x200 images inspected: Phirna current/depth1/depth2/depth3 mirrored;
+  Air / Corner base and SignText; resource 117 N/E/S/W; Snake Oil; Castle Basenji
+  question/No/Yes destination. Depth-3 Phirna is the real partial terrain-occlusion
+  checkpoint. Images/logs remain ignored under `build/16b`.
+- Fresh Debug build `build/16b`, MSYS Makefiles, UCRT64 GCC 16.2.0; configured
+  against `../scummvm-known-good-candidate` at unchanged pinned SHA
+  `6814ee9ba54582f5b5adcffab49efbbd8f589edd` and
+  `../build-scummvm-6814ee9b-ucrt64`. Dependency status is empty with
+  `core.autocrlf=false`.
+- Baseline **37/37**, focused regressions **13/13**, final CTest **39/39** passed.
+  New `xeen_outdoor_objects` and `xeen_outdoor_composer` cover the full rotation
+  and placement matrix, resource 113, identity/precedence/state, current-map-only
+  loading, missing/corrupt metadata, cache reconstruction, and direct overlapping
+  pixel assertions in the production composer.
+- The new outdoor smoke, existing 16A isolated smoke, all ten existing real-data
+  smokes, and all eight SDL dummy/software scenarios passed. M14 presentations,
+  M15 Remove/persistence, and navigation/collision regressions passed. Snake Oil
+  and Castle Basenji's indoor Yes destination match freshly regenerated 16A
+  baseline images byte-for-byte; indoor composition code remains unchanged.
+
+All 16B completion criteria are satisfied, with the real Phirna occlusion finding
+recorded explicitly. Animated objects, indoor objects, monsters, wall items,
+quest-item granting, complete Phirna harvesting, save/load, and Darkside gameplay
+remain unsupported. No 16C implementation or automatic post-Remove recomposition
+was performed.
 
 ## Architecture notes
 

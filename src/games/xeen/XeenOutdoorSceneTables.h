@@ -68,6 +68,24 @@ struct TerrainPlacement {
 	Placement placement;
 };
 
+struct ObjectPlacement {
+	int sample, order, scale;
+	std::array<int, 2> x, y; // Normal / Clouds resource 113.
+};
+
+// Pinned ScummVM 6814ee9b: setOutdoorsObjects / OUTDOOR_OBJECT_X /
+// MAP_OBJECT_Y. Ordered by depth and lateral position, not table column.
+inline constexpr std::array<ObjectPlacement, 12> kObjectPlacements = {{
+	{2,111,0,{-5,-35},{2,-65}},
+	{5,88,7,{-112,-142},{25,-6}}, {7,87,7,{-7,-35},{25,-6}},
+	{9,89,7,{98,68},{25,-6}},
+	{12,67,12,{-77,-95},{50,36}}, {14,66,12,{-8,-35},{50,36}},
+	{16,68,12,{61,19},{50,36}},
+	{23,40,14,{-74,-98},{58,54}}, {25,38,14,{-43,-62},{58,54}},
+	{27,37,14,{-9,-35},{58,54}}, {29,39,14,{25,-24},{58,54}},
+	{31,41,14,{56,16},{58,54}}
+}};
+
 inline constexpr std::array<TerrainPlacement, 25> kTerrainPlacements = {{
 	{44,{28,1,-64,61,14,false,false,false}}, {36,{29,1,-40,61,14,false,false,false}},
 	{37,{30,1,-16,61,14,false,false,false}}, {38,{31,1,8,61,14,false,false,false}},

@@ -89,6 +89,17 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+	add_executable(mmodern_outdoor_object_smoke EXCLUDE_FROM_ALL tests/OutdoorObjectIntegrationTest.cpp)
+	target_link_libraries(mmodern_outdoor_object_smoke PRIVATE mmodern_xeen)
+	target_include_directories(mmodern_outdoor_object_smoke PRIVATE
+		"${SCUMMVM_BUILD_DIR}" "${SCUMMVM_SOURCE_DIR}" "${SCUMMVM_SOURCE_DIR}/engines")
+	target_compile_definitions(mmodern_outdoor_object_smoke PRIVATE WIN32 UNICODE _UNICODE)
+	add_executable(mmodern_outdoor_composer_tests tests/XeenOutdoorComposerTests.cpp)
+	target_link_libraries(mmodern_outdoor_composer_tests PRIVATE mmodern_xeen)
+	add_test(NAME xeen_outdoor_composer COMMAND mmodern_outdoor_composer_tests)
+	add_executable(mmodern_outdoor_object_tests tests/XeenOutdoorObjectTests.cpp)
+	target_link_libraries(mmodern_outdoor_object_tests PRIVATE mmodern_xeen)
+	add_test(NAME xeen_outdoor_objects COMMAND mmodern_outdoor_object_tests)
 	add_executable(mmodern_object_visual_tests tests/XeenObjectVisualTests.cpp)
 	target_link_libraries(mmodern_object_visual_tests PRIVATE mmodern_xeen)
 	add_test(NAME xeen_object_visual COMMAND mmodern_object_visual_tests)
@@ -243,10 +254,8 @@ if(BUILD_TESTING)
 	)
 	add_executable(mmodern_outdoor_scene_tests
 		tests/XeenOutdoorSceneTests.cpp
-		src/games/xeen/XeenOutdoorScene.cpp
-		src/games/xeen/XeenWorld.cpp
 	)
-	target_link_libraries(mmodern_outdoor_scene_tests PRIVATE mmodern_core)
+	target_link_libraries(mmodern_outdoor_scene_tests PRIVATE mmodern_xeen)
 	add_test(NAME xeen_outdoor_scene COMMAND mmodern_outdoor_scene_tests)
 	add_executable(mmodern_movement_tests
 		tests/XeenMovementTests.cpp

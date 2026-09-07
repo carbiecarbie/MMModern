@@ -70,33 +70,33 @@ void testAreaA1CameraCommands() {
 		return a.originalOrder < b.originalOrder;
 	}), "ordem original de desenho nao preservada");
 	require(std::count_if(commands.begin(), commands.end(), [](const auto &command) {
-		return command.resourceName == "desert.srf";
+		return command.terrain().resourceName == "desert.srf";
 	}) == 25, "a camera deve produzir 25 partes de deserto");
 	require(std::count_if(commands.begin(), commands.end(), [](const auto &command) {
-		return command.resourceName == "mount.wal";
+		return command.terrain().resourceName == "mount.wal";
 	}) == 4, "a camera deve produzir quatro montanhas");
 	require(std::all_of(commands.begin(), commands.end(), [](const auto &command) {
-		return command.options.sceneClipped;
+		return command.drawOptions().sceneClipped;
 	}), "todo comando da cena deve usar o recorte original");
 
 	const auto &farMountain = byOrder(commands, 64);
-	require(farMountain.resourceName == "mount.wal" && farMountain.frame == 1 &&
+	require(farMountain.terrain().resourceName == "mount.wal" && farMountain.terrain().frame == 1 &&
 		farMountain.x == 86 && farMountain.y == 54 && farMountain.sourceX == 8 &&
-		farMountain.sourceY == 3 && farMountain.options.scaleIndex == 11 &&
-		farMountain.options.horizontalFlip, "montanha distante divergente");
+		farMountain.sourceY == 3 && farMountain.drawOptions().scaleIndex == 11 &&
+		farMountain.drawOptions().horizontalFlip, "montanha distante divergente");
 	const auto &middleMountain = byOrder(commands, 85);
-	require(middleMountain.frame == 2 && middleMountain.x == 146 &&
+	require(middleMountain.terrain().frame == 2 && middleMountain.x == 146 &&
 		middleMountain.y == 40 && middleMountain.sourceX == 8 &&
-		middleMountain.sourceY == 4 && middleMountain.options.horizontalFlip,
+		middleMountain.sourceY == 4 && middleMountain.drawOptions().horizontalFlip,
 		"montanha intermediaria divergente");
 	const auto &nearRight = byOrder(commands, 104);
-	require(nearRight.frame == 0 && nearRight.x == 169 && nearRight.y == 24 &&
+	require(nearRight.terrain().frame == 0 && nearRight.x == 169 && nearRight.y == 24 &&
 		nearRight.sourceX == 8 && nearRight.sourceY == 5 &&
-		nearRight.options.horizontalFlip, "montanha proxima direita divergente");
+		nearRight.drawOptions().horizontalFlip, "montanha proxima direita divergente");
 	const auto &nearCenter = byOrder(commands, 105);
-	require(nearCenter.frame == 1 && nearCenter.x == 32 && nearCenter.y == 24 &&
+	require(nearCenter.terrain().frame == 1 && nearCenter.x == 32 && nearCenter.y == 24 &&
 		nearCenter.sourceX == 9 && nearCenter.sourceY == 5 &&
-		!nearCenter.options.horizontalFlip, "montanha proxima central divergente");
+		!nearCenter.drawOptions().horizontalFlip, "montanha proxima central divergente");
 }
 
 void testFourDirections() {
@@ -126,7 +126,7 @@ void testFourDirections() {
 	}
 }
 
-void testVisibleEntitiesAreIgnored() {
+void testGeometryOnlyClientDoesNotLoadObjects() {
 	auto map = makeFlatFixture();
 	map.entities.objects.push_back({9, 5, 0, 0, 1});
 	map.entities.monsters.push_back({9, 5, 0, 0, 1});
@@ -146,7 +146,7 @@ void testViewAtMapEdge() {
 			 command.sourceY >= 0 && command.sourceY < 16);
 	}), "cena da borda gerou coordenada de origem invalida");
 	require(std::any_of(commands.begin(), commands.end(), [](const auto &command) {
-		return command.resourceName == "space.srf" && command.sourceMapId == 0;
+		return command.terrain().resourceName == "space.srf" && command.sourceMapId == 0;
 	}), "lado sem vizinho nao foi representado como SPACE");
 }
 
@@ -186,7 +186,7 @@ int main() {
 	try {
 		testAreaA1CameraCommands();
 		testFourDirections();
-		testVisibleEntitiesAreIgnored();
+		testGeometryOnlyClientDoesNotLoadObjects();
 		testViewAtMapEdge();
 		testNeighborAndDiagonalSources();
 		std::cout << "Xeen outdoor scene tests passed\n";

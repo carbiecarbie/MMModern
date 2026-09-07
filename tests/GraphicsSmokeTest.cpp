@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
 		const auto &map = world.map(1);
 		const auto commands = mmodern::XeenOutdoorScene().build(world);
 		const auto mountains = std::count_if(commands.begin(), commands.end(), [](const auto &command) {
-			return command.resourceName == "mount.wal";
+			return command.terrain().resourceName == "mount.wal";
 		});
 		if (commands.size() != 32 || mountains != 4) {
 			std::cerr << "Unexpected real Area A1 draw list: " << commands.size()

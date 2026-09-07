@@ -13,10 +13,16 @@ struct XeenPartyState;
 
 class CloudsMapComposer {
 public:
+	// Optional output for skipped visuals. Present corrupt metadata/sprite data
+	// still raises the 16A diagnostic exception; missing metadata permits terrain.
 	IndexedFrame compose(XeenAssetSource &assets, XeenWorld &world,
 		const XeenPartyState &partyState,
 		const XeenCamera &camera,
-		const XeenCharacterRulesContext &context) const;
+		const XeenCharacterRulesContext &context,
+		std::vector<XeenObjectVisual> *objectDiagnostics = nullptr) const;
+	// Execute the single, already ordered outdoor command stream.
+	void drawOutdoorCommands(XeenAssetSource &assets,
+		const std::vector<XeenOutdoorDrawCommand> &commands) const;
 };
 
 } // namespace mmodern
