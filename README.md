@@ -19,7 +19,13 @@ objects. Removal persists across map changes and cache reconstruction in the
 same session; a genuinely new session restores visibility.
 Complete Phirna harvesting, TakeOrGive quest-item granting, disk save/load and
 Darkside gameplay are not implemented. Pressing Space does not bypass the
-unimplemented quest-item instruction. No subsequent milestone is approved.
+unimplemented quest-item instruction.
+
+[Milestone 17A](docs/milestone-17-plan.md) is complete: the party loads 35
+Clouds quest-item counters, events can query possession, and the original
+already-owned Phirna refusal completes after acknowledgment. The normal Yes
+path without a root reaches the intentionally unsupported line-6 grant, with
+zero roots and the plant still present. Milestone 17B has not started.
 
 MMModern currently includes:
 

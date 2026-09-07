@@ -4,6 +4,12 @@
 
 namespace mmodern {
 
+std::optional<std::size_t> XeenCloudsQuestItems::indexForItemId(std::int64_t itemId) {
+	if (itemId < kFirstItemId || itemId >= kFirstItemId + static_cast<std::int64_t>(kCount))
+		return std::nullopt;
+	return static_cast<std::size_t>(itemId - kFirstItemId);
+}
+
 const XeenCharacter &XeenRoster::at(std::size_t rosterId) const {
 	if (rosterId >= _characters.size())
 		throw std::out_of_range("ID fora do roster de Xeen");

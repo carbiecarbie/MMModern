@@ -6,6 +6,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -37,9 +38,27 @@ private:
 	std::vector<std::uint8_t> _activeRosterIds;
 };
 
+// Party-owned Clouds quest counters, independent of character inventories.
+class XeenCloudsQuestItems {
+public:
+	static constexpr std::size_t kCount = 35;
+	static constexpr std::int64_t kFirstItemId = 82;
+	using Counts = std::array<std::uint32_t, kCount>;
+
+	XeenCloudsQuestItems() = default;
+	explicit XeenCloudsQuestItems(Counts counts) : _counts(counts) {}
+	static std::optional<std::size_t> indexForItemId(std::int64_t itemId);
+	std::uint32_t at(std::size_t index) const { return _counts.at(index); }
+	const Counts &counts() const { return _counts; }
+
+private:
+	Counts _counts{};
+};
+
 struct XeenPartyState {
 	XeenRoster roster;
 	XeenParty party;
+	XeenCloudsQuestItems questItems;
 	std::uint8_t firstSerializedCount = 0;
 	std::uint8_t effectiveSerializedCount = 0;
 	std::vector<std::string> diagnostics;

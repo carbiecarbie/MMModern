@@ -2,6 +2,7 @@
 
 #include "formats/xeen/XeenAssetSource.h"
 #include "formats/xeen/XeenCharacterFormat.h"
+#include "formats/xeen/XeenQuestItemFormat.h"
 
 #include <array>
 #include <stdexcept>
@@ -21,6 +22,7 @@ XeenPartyState XeenPartyLoader::loadFromResources(
 	XeenPartyState state;
 	state.roster = XeenCharacterFormat::parseRoster(rosterBytes);
 	const auto header = XeenCharacterFormat::parsePartyHeader(partyBytes);
+	state.questItems = XeenQuestItemFormat::parseClouds(partyBytes);
 	state.firstSerializedCount = header.firstCount;
 	state.effectiveSerializedCount = header.effectiveCount;
 

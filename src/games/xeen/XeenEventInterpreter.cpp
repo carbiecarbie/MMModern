@@ -207,8 +207,16 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 				(*response == XeenPresentationResponse::Yes ? 0 : 2);
 			const auto &conditional = *pending.conditional;
 			if (compare(actual, conditional.value, conditional.comparison)) {
+				// Only an acknowledged Action 44 to its numeric next line may
+				// complete when lookup finds no successor. Present records still
+				// pass through normal decoding, dispatch and instruction limits.
+				const bool adjacentAcknowledgment = conditional.action == 44 &&
+					conditional.value == 1 && pending.request.response ==
+						XeenPresentationResponseRequirement::Acknowledgment &&
+					logical.line < 255 && conditional.targetLine == logical.line + 1;
 				logical.line = conditional.targetLine;
-				missingPolicy = MissingInstructionPolicy::ExplicitJump;
+				missingPolicy = adjacentAcknowledgment ? MissingInstructionPolicy::NaturalCompletion :
+					MissingInstructionPolicy::ExplicitJump;
 				pendingTransferSource = pending.request.source;
 			} else {
 				if (logical.line == 255)
@@ -431,6 +439,20 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 				}
 				actual = workingGameFlags.isSet(static_cast<int>(conditional->value)) ?
 					conditional->value : std::numeric_limits<std::uint32_t>::max();
+			} else if (conditional->action == 21) {
+				const std::string detail = "condition action 21 item " + std::to_string(conditional->value);
+				if (logical.mapId.side != XeenSide::Clouds || workingCamera.mapId.side != XeenSide::Clouds)
+					return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
+						detail + " requires Clouds logical and physical context", instructionCount, logical, decoded.source);
+				const auto index = XeenCloudsQuestItems::indexForItemId(conditional->value);
+				if (!index)
+					return error(XeenEventExecutionErrorKind::UnsupportedConditionAction,
+						detail + " is outside Clouds quest-item IDs 82..116", instructionCount, logical, decoded.source);
+				if (!partyState.party.size())
+					return error(XeenEventExecutionErrorKind::EmptyParty,
+						detail + " requires an active party member", instructionCount, logical, decoded.source);
+				actual = partyState.questItems.at(*index) != 0 ? conditional->value :
+					std::numeric_limits<std::uint32_t>::max();
 			} else {
 				return error(XeenEventExecutionErrorKind::UnsupportedConditionAction,
 					"condition action is outside the interpreter subset",

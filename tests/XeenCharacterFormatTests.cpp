@@ -1,4 +1,5 @@
 #include "formats/xeen/XeenCharacterFormat.h"
+#include "formats/xeen/XeenQuestItemFormat.h"
 #include "games/xeen/CloudsUiComposer.h"
 #include "games/xeen/XeenCharacterRules.h"
 #include "games/xeen/XeenPartyVisualState.h"
@@ -61,6 +62,7 @@ void checkItemBlock(const std::array<XeenItemModifierSource,
 Bytes partyFixture(std::uint8_t firstCount, std::uint8_t effectiveCount,
 		std::initializer_list<std::uint8_t> ids) {
 	Bytes bytes(10, 0xff);
+	bytes.resize(XeenQuestItemFormat::kRequiredSize, 0);
 	bytes[0] = firstCount;
 	bytes[1] = effectiveCount;
 	std::copy(ids.begin(), ids.end(), bytes.begin() + 2);

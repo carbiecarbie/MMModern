@@ -1,13 +1,13 @@
 # Milestone 17 - Party quest items and normal Phirna harvesting
 
-**Status: planning specification; 17A and 17B are not implemented.**
+**Status: 17A complete; 17B not implemented or started. Milestone 17 is not complete.**
 
-**The milestone direction and architectural decisions are approved for planning.
-Implementation requires a separate request for the relevant stage.**
+**The plan is approved and the separately requested 17A implementation is complete.
+17B implementation requires a separate request.**
 
 Milestone 16 remains the stable implemented milestone. This document specifies
-the next bounded increment; creating it does not start implementation or claim
-new gameplay capabilities. The dependency order is **17A -> 17B**.
+the bounded increment in progress toward full harvesting. Only the 17A subset
+is implemented. The dependency order is **17A -> 17B**.
 
 ## Goal
 
@@ -389,7 +389,7 @@ automatic-error propagation. Do not broaden the recomposition architecture.
 
 ## Milestone 17A - Quest-item state, possession condition and refusal completion
 
-**Status: not implemented.**
+**Status: complete on 2026-09-07; validated below.**
 
 ### Objective and responsibilities
 
@@ -667,8 +667,107 @@ Myra and generic inventory remain unsupported. No milestone tag, commit, push
 or branch operation is authorized by this planning document; follow explicit
 subsequent user instructions and the repository Git workflow.
 
+## 17A implementation and validation record
+
+Completed on 2026-09-07 under the separate 17A-only implementation request.
+The planning baseline above remains historical. No contradiction requiring a
+scope or architecture change was found. M16 remains the last fully stable
+milestone; 17B and complete harvesting remain unimplemented.
+
+### Implemented boundaries
+
+- `XeenCloudsQuestItems` in `XeenParty.h/.cpp` owns exactly 35 `uint32_t`
+  counters, checked ID mapping and bounded read access. `XeenPartyState` owns
+  this value. There is no runtime grant API or mutable runtime propagation.
+- `XeenQuestItemFormat.h/.cpp` parses only bytes 747..781, requiring at least
+  782 bytes. `XeenPartyLoader` uses it alongside the unchanged roster/member
+  path. Existing full-loader fixtures gained the required prefix; their
+  existing assertions and the small header parser remain intact.
+- `XeenEventInterpreter` action 21 uses requested ID versus `UINT32_MAX`, not
+  the count or a boolean, with existing comparisons and explicit unsupported-ID,
+  logical/physical side and empty-party diagnostics.
+- Resumed successful Action-44 value-1 acknowledgment to the immediate numeric
+  successor enables natural completion only if normal lookup finds it absent.
+  Line wraparound is excluded. Present records still decode and dispatch,
+  including effective None, malformed/unsupported instructions and budget
+  errors. Other transfers retain explicit missing-target errors. An absent
+  terminal successor inside a call completes execution, without an implicit Return.
+- Decoder, event-flow/presenter, world/Remove and transaction architecture are
+  unchanged. TakeOrGive mode 21 remains explicitly unsupported.
+
+### Tests and build
+
+`XeenQuestItemTests.cpp` adds the `xeen_quest_items` CTest target: all 35 mappings,
+zero/independent/wide counters, invalid signed/wide IDs and bounded access;
+exact/nonzero/truncated/trailing prefix cases and roster preservation; the
+three comparisons for absent, one and multiple items; invalid IDs/context,
+empty party, calls/map transitions; acknowledgment transfer, line/direction,
+logical/physical, call-stack, response, effective-None, malformed/unsupported,
+budget and suspension/cache boundaries. Camera/game-flag behavior retains the
+existing suite, with an added suspended flag-commit/cache-reload assertion.
+
+Fresh configuration and default Debug build in previously absent `build/17a`
+passed using MSYS Makefiles, UCRT64 GCC 16.2.0 and the documented dependency:
+`SCUMMVM_SOURCE_DIR=D:/Projetos/MModern/scummvm-known-good-candidate`,
+`SCUMMVM_BUILD_DIR=D:/Projetos/MModern/build-scummvm-6814ee9b-ucrt64`.
+The source HEAD was verified as
+`6814ee9ba54582f5b5adcffab49efbbd8f589edd`, with clean source status using the
+documented command-local line-ending setting. All 14 excluded smoke targets
+also built successfully.
+
+- Focused CTest: **3/3 passed** (`xeen_quest_items`, `xeen_character_formats`,
+  `xeen_event_interpreter`).
+- Complete CTest: **41/41 passed**, including M14-M16 lifecycle, presentation,
+  rendering and Remove regressions.
+
+### Original data and SDL acceptance
+
+`PhirnaIntegrationTest.cpp` adds excluded target `mmodern_phirna_smoke`. Both
+headless and SDL runs passed using the external installation at
+`F:/Games/gog/Might and Magic 4-5`. Each case starts at map 23 `(8,2)` North
+through ordinary line-0 interaction in shared production `XeenEventFlow`.
+Original records, offsets, object selection, presentation sequence, all quest
+counters and unchanged world/flags are asserted. The owned fixture changes
+only an in-memory party-resource copy before normal loading.
+
+| Decision | Result | Instructions | Root count | Plant |
+|---|---|---:|---:|---|
+| No | Completed, original lines 0,1,2 | 3 | 0 | Present |
+| Yes without root | Expected `UnsupportedOperationMode`, line 6, offset 1103 | 6 | 0 | Present |
+| Already owned | Refusal lines 0,1,3,9,10, acknowledgment completes | 5 | 1 | Present |
+
+The Yes diagnostic is an asserted passing stage boundary: original grant and
+Remove are not bypassed. Question, successful digging and refusal text are
+presented through existing suspension/resumption. Pending navigation is blocked,
+repeat Space is suppressed, acknowledgment works and navigation recovers after
+completion/error. Pending cache discard preserves frames; leave/return and
+combined map/object/script/text/sprite rebuild reload providers and preserve
+the plant and counters. A newly loaded party still has zero roots. Original
+party, roster, EVT and MOB bytes compare unchanged after each run.
+
+All 12 previous original-data smokes passed: party, indoor map, event script,
+event text, flags, interpreter, event system, manual event, navigation flow,
+Remove, object visual and outdoor object. SDL graphics modes `ui`, `map`,
+`indoor`, `event`, `manual`, `manual-no`, `manual-yes` passed Escape shutdown;
+UI quit, the existing visual Remove SDL checkpoint, and all three new Phirna
+SDL decisions passed (Escape for No/Yes, SDL quit for owned).
+
+SDL used `SDL_VIDEODRIVER=dummy` and `SDL_RENDER_DRIVER=software`. Native
+320x200 frames were visually inspected for question/choices, successful digging,
+refusal, retained plant and recovered navigation; Air / Corner, Snake Oil and
+Castle Basenji question/No/Yes; and the existing visual Remove before/after.
+Text and overlays remained legible and correctly placed. This is scripted SDL
+runtime plus manual native-frame inspection, **not physical-display validation**.
+
+Logs and generated frames remain ignored/local in `build/17a`: `build.log`,
+`focused-build.log`, `smokes-build.log`, `ctest.log`, `phirna.log`,
+`phirna-sdl.log`, prior-smoke and `sdl-*.log` files, and frame directories
+`phirna`, `phirna-sdl`, `manual`, `sdl-remove`, `real-remove`, `isolated`,
+`outdoor`. No commercial assets were copied into tracked files or modified.
+No commit, push, tag, branch creation/switch or history rewrite was performed.
+
 ## Next implementation task
 
-When implementation is separately requested, implement **17A only**. Do not
-implement the grant or begin 17B while completing 17A. After 17A's specified
-validation, report its expected line-6 boundary and wait for the next stage request.
+17A is complete. Wait for a separate 17B request before implementing the grant
+or continuing normal Phirna harvesting. The current Yes/no-root boundary remains
+the explicit unsupported line-6 grant.

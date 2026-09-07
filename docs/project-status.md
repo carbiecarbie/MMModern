@@ -4,7 +4,7 @@
 
 Current stable milestone: **Milestone 16**
 
-Current development target: **none approved**
+Current development target: **none active; Milestone 17A complete**
 
 Milestone 14 is complete. Stages 14A, 14B, 14C, and 14D are complete.
 
@@ -14,9 +14,10 @@ The approved specification is
 
 Milestones 16A, 16B and 16C are complete. The approved specification and
 validation record are in the [Milestone 16 plan](milestone-16-plan.md).
-No subsequent milestone is approved.
+The [Milestone 17 plan](milestone-17-plan.md) is approved. Only 17A has been
+requested for implementation; 17B is unimplemented and has not started.
 
-Current automated test suite: **40/40 passing**
+Current automated test suite: **41/41 passing**
 
 ## Milestone 13
 
@@ -592,6 +593,32 @@ All approved Milestone 16 criteria are satisfied. Complete Phirna harvesting,
 TakeOrGive quest-item grants, animation, indoor objects, save/load and Darkside
 gameplay remain excluded. Space does not bypass the unimplemented quest path.
 No commit, push, tag or branch was created; no next milestone was started.
+
+## Milestone 17A - Quest-item state, possession and refusal completion
+
+**Status: complete on 2026-09-07. Milestone 17 is not complete; 17B is not started.**
+
+- Party-owned state holds exactly 35 unsigned 32-bit Clouds counters with checked
+  script-ID mapping 82..116 and bounded queries. Initial loading requires bytes
+  747..781 of `maze.pty`; truncated required prefixes fail explicitly.
+- Condition action 21 compares the requested item ID when possessed, or
+  `UINT32_MAX` when absent, using the existing comparisons. Unsupported IDs,
+  non-Clouds logical/physical contexts and empty parties remain errors.
+- A resumed Action-44 value-1 acknowledgment may complete at an absent immediate
+  numeric successor, without wraparound. Present instructions and all other
+  explicit transfers retain normal validation and instruction limits.
+- Original line-0 Phirna No completes in 3 instructions; Yes without a root
+  reaches the expected unsupported line-6 grant in 6; already-owned refusal
+  completes in 5. Counts remain 0/0/1 and the plant remains present in all cases.
+  No grants, normal-flow Remove, mutable party propagation or 17B behavior added.
+- Fresh Debug build against pinned ScummVM `6814ee9b` passed. Focused tests
+  passed 3/3 and full CTest passed 41/41. Original-data checkpoints, previous
+  M14-M16 smokes, SDL input/lifecycle checks and native-frame visual inspection
+  passed. SDL used dummy video/software rendering, not physical-display hardware.
+
+See the [17A implementation and validation record](milestone-17-plan.md#17a-implementation-and-validation-record)
+for the exact checks and local artifacts. Original assets remained external and
+read-only. Changes are left uncommitted for review; no push, tag or branch operation.
 
 ## Architecture notes
 

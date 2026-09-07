@@ -1,4 +1,5 @@
 #include "games/xeen/XeenEventInterpreter.h"
+#include "formats/xeen/XeenQuestItemFormat.h"
 
 #include "games/xeen/XeenPartyLoader.h"
 #include "games/xeen/XeenWorld.h"
@@ -64,6 +65,7 @@ XeenPartyState partyWithSp(std::int16_t sp, std::uint8_t rosterId = 0) {
 	roster[recordOffset + 344] = static_cast<std::uint8_t>(serialized & 0xff);
 	roster[recordOffset + 345] = static_cast<std::uint8_t>(serialized >> 8);
 	std::vector<std::uint8_t> partyBytes(10, 0xff);
+	partyBytes.resize(XeenQuestItemFormat::kRequiredSize, 0);
 	partyBytes[0] = 1;
 	partyBytes[1] = 1;
 	partyBytes[2] = rosterId;

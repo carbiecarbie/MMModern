@@ -25,6 +25,7 @@ add_library(mmodern_xeen STATIC
 	src/formats/xeen/XeenCloudsVisualMetadata.cpp
 	src/games/xeen/XeenObjectVisual.cpp
 	src/formats/xeen/XeenCharacterFormat.cpp
+	src/formats/xeen/XeenQuestItemFormat.cpp
 	src/formats/xeen/XeenEventFormat.cpp
 	src/formats/xeen/XeenEventTextFormat.cpp
 	src/formats/xeen/XeenFontFormat.cpp
@@ -90,6 +91,11 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+	add_executable(mmodern_quest_item_tests tests/XeenQuestItemTests.cpp)
+	target_link_libraries(mmodern_quest_item_tests PRIVATE mmodern_xeen)
+	add_test(NAME xeen_quest_items COMMAND mmodern_quest_item_tests)
+	add_executable(mmodern_phirna_smoke EXCLUDE_FROM_ALL tests/PhirnaIntegrationTest.cpp)
+	target_link_libraries(mmodern_phirna_smoke PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2)
 	add_executable(mmodern_visual_remove_tests tests/XeenVisualRemoveTests.cpp)
 	target_link_libraries(mmodern_visual_remove_tests PRIVATE mmodern_app mmodern_xeen)
 	add_test(NAME xeen_visual_remove COMMAND mmodern_visual_remove_tests)
