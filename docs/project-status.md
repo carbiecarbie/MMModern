@@ -4,9 +4,13 @@
 
 Current stable milestone: **Milestone 14**
 
-Current development target: **TBD / pending roadmap approval**
+Current development target: **Milestone 15A - session ownership and side-aware map identity**
 
 Milestone 14 is complete. Stages 14A, 14B, 14C, and 14D are complete.
+
+Milestone 15 is approved. Implementation has not started: 15A, 15B, and 15C
+are not implemented or complete. The approved specification is
+[Milestone 15 plan](milestone-15-plan.md).
 
 Current automated test suite: **32/32 passing**
 
@@ -217,8 +221,8 @@ Validation completed for 14D:
   320x200 resolution, including the distinct reduced font and the post-teleport
   frame.
 
-Milestone 14 is now complete. No subsequent milestone has been approved in the
-repository, so the next development target remains TBD.
+Milestone 14 is complete. Milestone 15 is the approved next milestone;
+15A is the next implementation target.
 
 ## Out of scope for Milestone 14
 
@@ -233,6 +237,32 @@ implement complete:
 
 Swimming / Walk on Water remains navigation/capability work and should
 not redefine the primary goal of Milestone 14.
+
+## Milestone 15 - Mutable session-world state and Remove
+
+**Status: approved; implementation not started.**
+
+The [dedicated plan](milestone-15-plan.md) is the specification for this milestone.
+It defines the minimum session-owned world mutations needed by the original
+`Remove` operation, independently of disposable map and script caches.
+
+Approved stages:
+
+- **15A - Session ownership and side-aware map identity:** next implementation
+  target; not implemented or complete.
+- **15B - Stable object/event identities and Remove execution:** planned;
+  not implemented or complete.
+- **15C - Same-session persistence and integration validation:** planned;
+  not implemented or complete.
+
+The planned real-data checkpoint is Clouds map 23 at `(8,2)`, starting at the
+original `Remove` boundary. Confirmation of `.mob` object record 13 / resource
+111 is required during 15B. This does not include quest-item grants, visible
+entity rendering, disk save/load, or Darkside gameplay.
+
+No Milestone 15 functionality is currently claimed as implemented. The recorded
+32/32 test result remains the existing baseline; approving this documentation
+did not run a new build or test suite.
 
 ## Architecture notes
 

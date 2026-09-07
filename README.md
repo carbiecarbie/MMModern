@@ -8,7 +8,8 @@ The project is currently in early development.
 
 ## Current status
 
-Milestone 14 is complete. The next development target is pending roadmap approval.
+Milestone 14 is complete. [Milestone 15](docs/milestone-15-plan.md) is approved;
+15A is the next implementation target and has not yet been implemented.
 
 MMModern currently includes:
 
