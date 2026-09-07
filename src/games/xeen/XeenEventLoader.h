@@ -18,8 +18,8 @@ public:
 
 	explicit XeenEventLoader(ResourceReader resourceReader);
 
-	static std::string resourceNameForMap(std::uint16_t mapId);
-	XeenEventFile load(std::uint16_t mapId) const;
+	static std::string resourceNameForMap(XeenMapIdentity mapId);
+	XeenEventFile load(XeenMapIdentity mapId) const;
 
 private:
 	ResourceReader _resourceReader;

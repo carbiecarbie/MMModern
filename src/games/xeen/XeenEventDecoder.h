@@ -3,6 +3,8 @@
 
 #include "formats/xeen/XeenEventFormat.h"
 
+#include "games/xeen/XeenMapIdentity.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -12,12 +14,12 @@
 namespace mmodern {
 
 struct XeenEventDecodeContext {
-	std::optional<std::uint16_t> mapId;
+	std::optional<XeenMapIdentity> mapId;
 	std::optional<std::string> resourceName;
 };
 
 struct XeenEventSourceLocation {
-	std::optional<std::uint16_t> mapId;
+	std::optional<XeenMapIdentity> mapId;
 	std::optional<std::string> resourceName;
 	std::size_t fileOffset = 0;
 	std::uint8_t x = 0;

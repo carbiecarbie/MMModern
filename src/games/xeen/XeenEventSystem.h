@@ -75,15 +75,19 @@ public:
 		XeenGameFlags &gameFlags);
 
 	std::size_t cachedScriptCount() const { return _scripts.size(); }
+	std::size_t cachedTextCount() const { return _texts.size(); }
+	// Suspended execution owns values, not pointers into these caches.
+	void discardScriptCache() { _scripts.clear(); }
+	void discardTextCache() { _texts.clear(); }
 
 private:
-	XeenEventScript scriptForMap(std::uint16_t mapId);
-	XeenEventTextFile textForMap(std::uint16_t mapId);
+	XeenEventScript scriptForMap(XeenMapIdentity mapId);
+	XeenEventTextFile textForMap(XeenMapIdentity mapId);
 
 	ScriptProvider _scriptProvider;
 	TextProvider _textProvider;
-	std::map<std::uint16_t, XeenEventScript> _scripts;
-	std::map<std::uint16_t, XeenEventTextFile> _texts;
+	std::map<XeenMapIdentity, XeenEventScript> _scripts;
+	std::map<XeenMapIdentity, XeenEventTextFile> _texts;
 	XeenEventInterpreter _interpreter;
 };
 

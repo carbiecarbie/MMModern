@@ -12,18 +12,20 @@ void require(bool condition, const char *message) {
 		throw std::runtime_error(message);
 }
 
-mmodern::XeenMap mapFixture(std::uint16_t id) {
+mmodern::XeenMap mapFixture(mmodern::XeenMapIdentity id) {
 	mmodern::XeenMap map;
-	map.geometry.id = id;
+	map.geometry.id = id.number;
+	map.side = id.side;
 	map.geometry.flags2 = 0x8000;
 	for (auto &cell : map.geometry.cells)
 		cell.geometry = mmodern::XeenOutdoorLayers{};
 	return map;
 }
 
-mmodern::XeenMap indoorMapFixture(std::uint16_t id) {
+mmodern::XeenMap indoorMapFixture(mmodern::XeenMapIdentity id) {
 	mmodern::XeenMap map;
-	map.geometry.id = id;
+	map.geometry.id = id.number;
+	map.side = id.side;
 	map.geometry.flags2 = 0;
 	map.geometry.neighbors = {115, 2, 3, 4};
 	for (auto &cell : map.geometry.cells)
@@ -35,7 +37,7 @@ mmodern::XeenMap indoorMapFixture(std::uint16_t id) {
 }
 
 void requireSample(const std::optional<mmodern::XeenCellSample> &sample,
-		std::uint16_t mapId, int x, int y, const char *message) {
+		mmodern::XeenMapIdentity mapId, int x, int y, const char *message) {
 	require(sample && sample->mapId == mapId && sample->x == x && sample->y == y &&
 		sample->geometry && sample->cell, message);
 }
@@ -49,11 +51,11 @@ void testCardinalAndDiagonalResolution() {
 	map5.geometry.neighbors = {0, 0, 6, 1};
 	map2.geometry.neighbors = {1, 6, 0, 0};
 	map6.geometry.neighbors = {5, 0, 0, 2};
-	std::map<std::uint16_t, mmodern::XeenMap> maps = {
+	std::map<mmodern::XeenMapIdentity, mmodern::XeenMap> maps = {
 		{1, map1}, {2, map2}, {5, map5}, {6, map6}
 	};
-	std::map<std::uint16_t, int> loads;
-	mmodern::XeenWorld world([&](std::uint16_t id) {
+	std::map<mmodern::XeenMapIdentity, int> loads;
+	mmodern::XeenWorld world([&](mmodern::XeenMapIdentity id) {
 		++loads[id];
 		return maps.at(id);
 	});
@@ -77,11 +79,11 @@ void testCardinalAndDiagonalResolution() {
 
 void testInvalidDistanceAndIdentityValidation() {
 	auto map1 = mapFixture(1);
-	mmodern::XeenWorld world([&](std::uint16_t) { return map1; });
+	mmodern::XeenWorld world([&](mmodern::XeenMapIdentity) { return map1; });
 	require(!world.sampleCell(1, 32, 0), "consulta alem da grade 3x3 deveria falhar");
 	require(!world.sampleCell(1, 0, -17), "consulta alem da grade 3x3 deveria falhar");
 
-	mmodern::XeenWorld wrong([](std::uint16_t) { return mapFixture(9); });
+	mmodern::XeenWorld wrong([](mmodern::XeenMapIdentity) { return mapFixture(9); });
 	bool rejected = false;
 	try {
 		wrong.map(1);
@@ -92,8 +94,8 @@ void testInvalidDistanceAndIdentityValidation() {
 }
 
 void testIndoorCacheAndLocalSampling() {
-	std::map<std::uint16_t, int> loads;
-	mmodern::XeenWorld world([&](std::uint16_t id) {
+	std::map<mmodern::XeenMapIdentity, int> loads;
+	mmodern::XeenWorld world([&](mmodern::XeenMapIdentity id) {
 		++loads[id];
 		if (id == 33)
 			return indoorMapFixture(id);

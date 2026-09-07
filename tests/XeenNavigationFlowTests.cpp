@@ -38,19 +38,20 @@ XeenEventRecord record(std::uint8_t x, std::uint8_t y, std::uint8_t line,
 	return result;
 }
 
-XeenEventScript script(std::uint16_t mapId,
+XeenEventScript script(mmodern::XeenMapIdentity mapId,
 		std::vector<XeenEventRecord> records = {}) {
 	XeenEventFile file;
 	file.mapId = mapId;
-	file.resourceName = "maze" + std::to_string(mapId) + ".evt";
+	file.resourceName = "maze" + std::to_string(mapId.number) + ".evt";
 	file.resourcePresent = true;
 	file.records = std::move(records);
 	return XeenEventScript(std::move(file));
 }
 
-XeenMap freeMap(std::uint16_t id) {
+XeenMap freeMap(mmodern::XeenMapIdentity id) {
 	XeenMap result;
-	result.geometry.id = id;
+	result.geometry.id = id.number;
+	result.side = id.side;
 	result.geometry.flags2 = 0x8000;
 	result.geometry.surfaceTypes[6] = 6;
 	for (auto &cell : result.geometry.cells) {
@@ -79,22 +80,22 @@ std::vector<std::uint8_t> setFlag(std::uint8_t flag) {
 class Fixture {
 public:
 	Fixture() :
-		world([this](std::uint16_t id) {
+		world([this](mmodern::XeenMapIdentity id) {
 			const auto found = maps.find(id);
 			if (found == maps.end())
 				throw std::runtime_error("synthetic map missing");
 			return found->second;
 		}),
-		events([this](std::uint16_t id) {
+		events([this](mmodern::XeenMapIdentity id) {
 			++scriptLoads[id];
 			const auto found = scripts.find(id);
 			return found == scripts.end() ? script(id) : found->second;
 		}),
 		flow(events) {}
 
-	std::map<std::uint16_t, XeenMap> maps;
-	std::map<std::uint16_t, XeenEventScript> scripts;
-	std::map<std::uint16_t, int> scriptLoads;
+	std::map<mmodern::XeenMapIdentity, XeenMap> maps;
+	std::map<mmodern::XeenMapIdentity, XeenEventScript> scripts;
+	std::map<mmodern::XeenMapIdentity, int> scriptLoads;
 	XeenWorld world;
 	XeenEventSystem events;
 	XeenNavigationFlow flow;
@@ -113,7 +114,7 @@ XeenEventExecutionError failure(const XeenAutomaticEventResult &result,
 	return *value;
 }
 
-void checkCamera(const XeenCamera &camera, std::uint16_t mapId, int x, int y,
+void checkCamera(const XeenCamera &camera, mmodern::XeenMapIdentity mapId, int x, int y,
 		XeenDirection direction, const char *message) {
 	check(camera.mapId == mapId && camera.x == x && camera.y == y &&
 		camera.direction == direction, message);

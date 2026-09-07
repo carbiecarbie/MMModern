@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
 		}
 		mmodern::XeenAssetSource assets(*installation);
 		const mmodern::XeenMapLoader mapLoader;
-		mmodern::XeenWorld world([&](std::uint16_t mapId) {
+		mmodern::XeenWorld world([&](mmodern::XeenMapIdentity mapId) {
 			return mapLoader.loadOutdoorMap(assets, mapId);
 		});
 		const auto &map = world.map(1);
@@ -148,7 +148,7 @@ int main(int argc, char *argv[]) {
 		mmodern::XeenAssetSource assets(*installation,
 			mmodern::CloudsUiComposer::kWidth, mmodern::CloudsUiComposer::kHeight);
 		const mmodern::XeenMapLoader mapLoader;
-		mmodern::XeenWorld world([&](std::uint16_t mapId) {
+		mmodern::XeenWorld world([&](mmodern::XeenMapIdentity mapId) {
 			return mapLoader.loadGeometryMap(assets, mapId);
 		});
 		const auto partyState = mmodern::XeenPartyLoader().loadInitialCloudsParty(assets);

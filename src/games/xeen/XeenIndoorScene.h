@@ -17,7 +17,7 @@ class XeenWorld;
 
 struct XeenIndoorWallSample {
 	std::size_t queryIndex = 0;
-	std::uint16_t sourceMapId = 0;
+	XeenMapIdentity sourceMapId = 0;
 	int sourceX = 0;
 	int sourceY = 0;
 	XeenDirection sourceFace = XeenDirection::North;
@@ -30,7 +30,7 @@ struct XeenIndoorDrawCommand {
 	std::size_t frame = 0;
 	int x = 0;
 	int y = 0;
-	std::uint16_t sourceMapId = 0;
+	XeenMapIdentity sourceMapId = 0;
 	int sourceX = -1;
 	int sourceY = -1;
 	XeenDirection sourceFace = XeenDirection::North;

@@ -45,6 +45,11 @@ int main(int argc, char *argv[]) {
 		require(bytes.size() == 892, "unexpected real maze0033.dat size");
 
 		const mmodern::XeenMapLoader loader;
+		bool darksideRejected = false;
+		try {
+			(void)loader.loadGeometryMap(assets, {mmodern::XeenSide::Darkside, 33});
+		} catch (const std::invalid_argument &) { darksideRejected = true; }
+		require(darksideRejected, "Clouds map adapter accepted Darkside identity");
 		const auto geometryMap = loader.loadGeometryMap(assets, 33);
 		const auto &geometry = geometryMap.geometry;
 		require(geometry.id == 33 && !geometry.isOutdoors(), "map 33 identity/type mismatch");
@@ -63,7 +68,7 @@ int main(int argc, char *argv[]) {
 		}
 		require(outdoorRejected, "loadOutdoorMap accepted real interior map 33");
 
-		mmodern::XeenWorld world([&](std::uint16_t id) {
+		mmodern::XeenWorld world([&](mmodern::XeenMapIdentity id) {
 			return loader.loadGeometryMap(assets, id);
 		});
 		require(world.sampleCell(33, 4, 8).has_value(), "real interior local sample failed");

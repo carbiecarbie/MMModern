@@ -17,9 +17,10 @@ void require(bool condition, const char *message) {
 		throw std::runtime_error(message);
 }
 
-mmodern::XeenMap indoorFixture(std::uint16_t id = 33) {
+mmodern::XeenMap indoorFixture(mmodern::XeenMapIdentity id = 33) {
 	mmodern::XeenMap map;
-	map.geometry.id = id;
+	map.geometry.id = id.number;
+	map.side = id.side;
 	map.geometry.neighbors = {115, 116, 117, 118};
 	for (auto &cell : map.geometry.cells)
 		cell.geometry = mmodern::XeenIndoorWalls{{1, 2, 3, 4}};
@@ -36,7 +37,7 @@ mmodern::XeenMap emptyIndoorFixture(std::uint8_t wallKind = 1) {
 }
 
 mmodern::XeenWorld worldWith(mmodern::XeenMap map) {
-	return mmodern::XeenWorld([map = std::move(map)](std::uint16_t id) {
+	return mmodern::XeenWorld([map = std::move(map)](mmodern::XeenMapIdentity id) {
 		if (id != map.geometry.id)
 			throw std::runtime_error("unexpected map load");
 		return map;
@@ -66,7 +67,7 @@ const mmodern::XeenIndoorDrawCommand *byOrder(
 
 void checkDirection(mmodern::XeenDirection direction) {
 	int loads = 0;
-	mmodern::XeenWorld world([&](std::uint16_t id) {
+	mmodern::XeenWorld world([&](mmodern::XeenMapIdentity id) {
 		++loads;
 		if (id != 33)
 			throw std::runtime_error("consulta interior tentou carregar vizinho");
@@ -94,7 +95,7 @@ void testFourDirectionsAndRotatedOffsets() {
 			mmodern::XeenDirection::West})
 		checkDirection(direction);
 
-	mmodern::XeenWorld world([](std::uint16_t) { return indoorFixture(); });
+	mmodern::XeenWorld world([](mmodern::XeenMapIdentity) { return indoorFixture(); });
 	const auto north = mmodern::XeenIndoorScene().sampleWalls(world,
 		{33, 8, 8, mmodern::XeenDirection::North});
 	const auto east = mmodern::XeenIndoorScene().sampleWalls(world,
@@ -132,8 +133,8 @@ void testBordersDoNotReadOrLoadNeighbors() {
 		{33, 0, 8, mmodern::XeenDirection::West}
 	}};
 	for (const auto &camera : cameras) {
-		std::map<std::uint16_t, int> loads;
-		mmodern::XeenWorld world([&](std::uint16_t id) {
+		std::map<mmodern::XeenMapIdentity, int> loads;
+		mmodern::XeenWorld world([&](mmodern::XeenMapIdentity id) {
 			++loads[id];
 			if (id != 33)
 				throw std::runtime_error("borda interior carregou mapa vizinho");
@@ -161,7 +162,7 @@ void testRejectsOutdoorAndInvalidCamera() {
 	outdoor.geometry.flags2 = 0x8000;
 	for (auto &cell : outdoor.geometry.cells)
 		cell.geometry = mmodern::XeenOutdoorLayers{};
-	mmodern::XeenWorld outdoorWorld([&](std::uint16_t) { return outdoor; });
+	mmodern::XeenWorld outdoorWorld([&](mmodern::XeenMapIdentity) { return outdoor; });
 	bool rejected = false;
 	try {
 		(void)mmodern::XeenIndoorScene().sampleWalls(outdoorWorld,
@@ -171,7 +172,7 @@ void testRejectsOutdoorAndInvalidCamera() {
 	}
 	require(rejected, "cena interior aceitou mapa exterior");
 
-	mmodern::XeenWorld indoorWorld([](std::uint16_t) { return indoorFixture(); });
+	mmodern::XeenWorld indoorWorld([](mmodern::XeenMapIdentity) { return indoorFixture(); });
 	rejected = false;
 	try {
 		(void)mmodern::XeenIndoorScene().sampleWalls(indoorWorld,
@@ -306,7 +307,7 @@ void testOcclusionDirectionsAndBorders() {
 	}};
 	for (const auto &camera : edges) {
 		int loads = 0;
-		mmodern::XeenWorld world([&](std::uint16_t id) {
+		mmodern::XeenWorld world([&](mmodern::XeenMapIdentity id) {
 			++loads;
 			if (id != 33)
 				throw std::runtime_error("indoor build loaded neighbor");

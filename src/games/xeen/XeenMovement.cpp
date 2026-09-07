@@ -129,7 +129,7 @@ XeenMovementResult applyIndoor(XeenWorld &world, XeenCamera &camera,
 XeenMovementResult XeenMovement::apply(XeenWorld &world, XeenCamera &camera,
 		NavigationAction action) const {
 	const XeenMap &currentMap = world.map(camera.mapId);
-	if (camera.mapId != currentMap.geometry.id)
+	if (camera.mapId != currentMap.identity())
 		throw std::runtime_error("camera e mapa possuem IDs diferentes");
 	if (camera.x < 0 || camera.x >= 16 || camera.y < 0 || camera.y >= 16)
 		throw std::runtime_error("camera invalida antes do movimento");

@@ -87,6 +87,7 @@ const char *eventErrorName(XeenEventExecutionErrorKind kind) {
 	case XeenEventExecutionErrorKind::MapLoadFailed: return "MapLoadFailed";
 	case XeenEventExecutionErrorKind::UnsupportedExecutionContext: return "UnsupportedExecutionContext";
 	case XeenEventExecutionErrorKind::InstructionLimitExceeded: return "InstructionLimitExceeded";
+	case XeenEventExecutionErrorKind::TextMapMismatch: return "TextMapMismatch";
 	case XeenEventExecutionErrorKind::MissingTextResource: return "MissingTextResource";
 	case XeenEventExecutionErrorKind::InvalidTextIndex: return "InvalidTextIndex";
 	case XeenEventExecutionErrorKind::InvalidPresentationResponse: return "InvalidPresentationResponse";
@@ -373,7 +374,7 @@ int Application::renderMap(const std::filesystem::path &gameDirectory,
 		XeenGameFlags gameFlags = XeenGameFlagsLoader().loadInitialCloudsFlags(assets);
 		const XeenCharacterRulesContext rulesContext{kCloudsInitialYear};
 		const XeenMapLoader mapLoader;
-		XeenWorld world([&](std::uint16_t requestedMapId) {
+		XeenWorld world([&](XeenMapIdentity requestedMapId) {
 			return mapLoader.loadGeometryMap(assets, requestedMapId);
 		});
 		const XeenEventLoader eventLoader([&](const std::string &resourceName)
@@ -388,9 +389,9 @@ int Application::renderMap(const std::filesystem::path &gameDirectory,
 				return std::nullopt;
 			return assets.readArchiveResource(resourceName);
 		});
-		XeenEventSystem eventSystem([&](std::uint16_t requestedMapId) {
+		XeenEventSystem eventSystem([&](XeenMapIdentity requestedMapId) {
 			return XeenEventScript(eventLoader.load(requestedMapId));
-		}, [&](std::uint16_t requestedMapId) {
+		}, [&](XeenMapIdentity requestedMapId) {
 			return eventTextLoader.load(requestedMapId);
 		});
 		XeenNavigationFlow navigationFlow(eventSystem);
@@ -473,7 +474,7 @@ int Application::renderMap(const std::filesystem::path &gameDirectory,
 			"A/seta esquerda e D/seta direita giram, Space interage/confirma, "
 			"Enter confirma, Y/N responde Sim/Nao.\n";
 		SdlWindow window;
-		return window.showInteractive(frame, "MMModern - Mapa " + std::to_string(camera.mapId),
+		return window.showInteractive(frame, "MMModern - Mapa " + std::to_string(camera.mapId.number),
 			[&](const PlayerAction &action) -> std::optional<IndexedFrame> {
 				if (pendingEvent) {
 					XeenPresentationUpdate update = presenter.handle(action);

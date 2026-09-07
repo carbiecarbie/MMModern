@@ -35,7 +35,7 @@ XeenAutomaticEventCompleted completed(const XeenAutomaticEventResult &result,
 	return *value;
 }
 
-void checkCamera(const XeenCamera &camera, std::uint16_t mapId, int x, int y,
+void checkCamera(const XeenCamera &camera, mmodern::XeenMapIdentity mapId, int x, int y,
 		XeenDirection direction, const char *message) {
 	check(camera.mapId == mapId && camera.x == x && camera.y == y &&
 		camera.direction == direction, message);
@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
 			"expected initial Clouds flag 25 to be clear");
 
 		const XeenMapLoader mapLoader;
-		XeenWorld world([&](std::uint16_t mapId) {
+		XeenWorld world([&](mmodern::XeenMapIdentity mapId) {
 			return mapLoader.loadGeometryMap(assets, mapId);
 		});
 		const XeenEventLoader eventLoader([&](const std::string &resourceName)
@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
 				return std::nullopt;
 			return assets.readInitialResource(resourceName);
 		});
-		XeenEventSystem events([&](std::uint16_t mapId) {
+		XeenEventSystem events([&](mmodern::XeenMapIdentity mapId) {
 			return XeenEventScript(eventLoader.load(mapId));
 		});
 		XeenNavigationFlow flow(events);

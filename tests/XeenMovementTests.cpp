@@ -19,9 +19,10 @@ bool sameCamera(const mmodern::XeenCamera &a, const mmodern::XeenCamera &b) {
 	return a.mapId == b.mapId && a.x == b.x && a.y == b.y && a.direction == b.direction;
 }
 
-mmodern::XeenMap freeMap(std::uint16_t id = 1) {
+mmodern::XeenMap freeMap(mmodern::XeenMapIdentity id = 1) {
 	mmodern::XeenMap map;
-	map.geometry.id = id;
+	map.geometry.id = id.number;
+	map.side = id.side;
 	map.geometry.flags2 = 0x8000;
 	map.geometry.surfaceTypes[6] = 6;
 	for (auto &cell : map.geometry.cells) {
@@ -32,8 +33,8 @@ mmodern::XeenMap freeMap(std::uint16_t id = 1) {
 	return map;
 }
 
-mmodern::XeenWorld worldWith(std::map<std::uint16_t, mmodern::XeenMap> maps) {
-	return mmodern::XeenWorld([maps = std::move(maps)](std::uint16_t id) {
+mmodern::XeenWorld worldWith(std::map<mmodern::XeenMapIdentity, mmodern::XeenMap> maps) {
+	return mmodern::XeenWorld([maps = std::move(maps)](mmodern::XeenMapIdentity id) {
 		const auto found = maps.find(id);
 		if (found == maps.end())
 			throw std::runtime_error("fixture de mapa ausente");
@@ -399,7 +400,7 @@ void testIndoorSurfaceBoundariesAndAtomicity() {
 	};
 	for (const auto &boundary : boundaries) {
 		int loads = 0;
-		mmodern::XeenWorld world([&](std::uint16_t id) {
+		mmodern::XeenWorld world([&](mmodern::XeenMapIdentity id) {
 			++loads;
 			if (id != 33)
 				throw std::runtime_error("movimento interior tentou carregar vizinho");

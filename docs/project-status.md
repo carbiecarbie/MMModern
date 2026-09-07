@@ -4,15 +4,16 @@
 
 Current stable milestone: **Milestone 14**
 
-Current development target: **Milestone 15A - session ownership and side-aware map identity**
+Current development target: **Milestone 15B - pending implementation authorization**
 
 Milestone 14 is complete. Stages 14A, 14B, 14C, and 14D are complete.
 
-Milestone 15 is approved. Implementation has not started: 15A, 15B, and 15C
-are not implemented or complete. The approved specification is
+Milestone 15 is approved and in progress. 15A is complete.
+15B and 15C have not started; no 15B implementation is authorized by completing
+15A. The approved specification is
 [Milestone 15 plan](milestone-15-plan.md).
 
-Current automated test suite: **32/32 passing**
+Current automated test suite: **33/33 passing**
 
 ## Milestone 13
 
@@ -222,7 +223,7 @@ Validation completed for 14D:
   frame.
 
 Milestone 14 is complete. Milestone 15 is the approved next milestone;
-15A is the next implementation target.
+15A is complete; 15B awaits implementation authorization.
 
 ## Out of scope for Milestone 14
 
@@ -240,7 +241,7 @@ not redefine the primary goal of Milestone 14.
 
 ## Milestone 15 - Mutable session-world state and Remove
 
-**Status: approved; implementation not started.**
+**Status: in progress; 15A complete, 15B and 15C not started.**
 
 The [dedicated plan](milestone-15-plan.md) is the specification for this milestone.
 It defines the minimum session-owned world mutations needed by the original
@@ -248,8 +249,7 @@ It defines the minimum session-owned world mutations needed by the original
 
 Approved stages:
 
-- **15A - Session ownership and side-aware map identity:** next implementation
-  target; not implemented or complete.
+- **15A - Session ownership and side-aware map identity:** complete.
 - **15B - Stable object/event identities and Remove execution:** planned;
   not implemented or complete.
 - **15C - Same-session persistence and integration validation:** planned;
@@ -260,9 +260,41 @@ original `Remove` boundary. Confirmation of `.mob` object record 13 / resource
 111 is required during 15B. This does not include quest-item grants, visible
 entity rendering, disk save/load, or Darkside gameplay.
 
-No Milestone 15 functionality is currently claimed as implemented. The recorded
-32/32 test result remains the existing baseline; approving this documentation
-did not run a new build or test suite.
+Implemented and validated in 15A:
+
+- `XeenMapIdentity` carries side + numeric map ID through camera, world/cell
+  queries, scene command provenance, event/text providers and caches, logical
+  addresses, call stacks, presentation requests, and diagnostics;
+- numeric resource neighbor/teleport operands are resolved in the current side;
+- `XeenWorld` owns a separate, deliberately empty session-state boundary and
+  cannot be copied; no artificial mutation has been added;
+- explicit map, script, and text cache discard forces subsequent loading while
+  preserving session ownership and suspended execution values;
+- map/script/text identity mismatches are rejected, and real Clouds resource
+  adapters reject Darkside requests; both sides are exercised only synthetically;
+- existing physical/logical location separation and camera/flag transactions
+  are preserved.
+
+15A validation completed on 2026-09-07:
+
+- Debug build in `build/15a`, MSYS Makefiles, MSYS2 UCRT64 GCC 16.2.0;
+- source dependency `../scummvm-known-good-candidate`, verified clean at
+  `6814ee9ba54582f5b5adcffab49efbbd8f589edd`;
+- dependency artifacts from `../build-scummvm-6814ee9b-ucrt64`;
+- focused world/navigation/event/presentation suite: 16/16 passed;
+- final full CTest suite: 33/33 passed, including the new session identity test;
+- all nine existing real-data smoke executables passed: party, indoor map,
+  event script, event text, game flags, interpreter, event system, manual event,
+  and navigation flow;
+- SDL dummy/software runtime passed for ui, map, indoor, event, manual,
+  manual-no, and manual-yes with Escape, plus ui with SDL quit;
+- generated 320x200 frames for Air / Corner, Snake Oil, Castle Basenji question,
+  No, and Yes destination were visually inspected;
+- validation logs and frames are local ignored outputs under `build/15a`.
+
+No Remove decoding/execution, effective mutable events, object selection or
+new object-loading path, quest-item grant, disk persistence, or Darkside gameplay
+was implemented. The full M15 remains incomplete.
 
 ## Architecture notes
 

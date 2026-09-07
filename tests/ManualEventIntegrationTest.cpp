@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
 		XeenGameFlags flags = XeenGameFlagsLoader().loadInitialCloudsFlags(assets);
 		const auto beforeFlags = flags.values();
 		const XeenMapLoader mapLoader;
-		XeenWorld world([&](std::uint16_t mapId) {
+		XeenWorld world([&](mmodern::XeenMapIdentity mapId) {
 			return mapLoader.loadGeometryMap(assets, mapId);
 		});
 		const XeenEventLoader eventLoader([&](const std::string &resourceName)
@@ -75,9 +75,9 @@ int main(int argc, char *argv[]) {
 				return std::nullopt;
 			return assets.readArchiveResource(resourceName);
 		});
-		XeenEventSystem events([&](std::uint16_t mapId) {
+		XeenEventSystem events([&](mmodern::XeenMapIdentity mapId) {
 			return XeenEventScript(eventLoader.load(mapId));
-		}, [&](std::uint16_t mapId) {
+		}, [&](mmodern::XeenMapIdentity mapId) {
 			return textLoader.load(mapId);
 		});
 		check(assets.hasArchiveResource("fnt"), "original Xeen fnt resource unavailable");

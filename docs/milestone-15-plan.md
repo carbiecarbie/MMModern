@@ -1,11 +1,12 @@
 # Milestone 15 - Mutable session-world state and Remove
 
-**Status: approved; implementation not started.**
+**Status: approved; 15A complete, 15B and 15C not started.**
 
-**Next implementation target: 15A - session ownership and side-aware map identity.**
+**Next implementation target: 15B, pending explicit implementation authorization.**
 
-Milestone 14 remains the completed stable milestone. None of 15A, 15B, or 15C
-is implemented or complete. This document formalizes the reviewed proposal;
+Milestone 14 remains the completed stable milestone. 15A has passed its required
+implementation validation; 15B and 15C have not started. This document formalizes
+the reviewed proposal;
 approval of the plan does not constitute implementation or validation.
 
 ## Objective
@@ -205,7 +206,25 @@ independently mutable `XeenMap::instructions` alongside the event script store.
 
 ## 15A - Session ownership and side-aware map identity
 
-**Status: next implementation target; not started.**
+**Status: complete; validated on 2026-09-07.**
+
+Implemented using `XeenMapIdentity` (side + number) throughout the existing
+runtime identity paths. Numeric Clouds entry points remain supported, but the
+identity has no implicit conversion back to a number, preventing providers from
+silently losing side context. Original binary fields remain numeric.
+
+`XeenWorld` is non-copyable and owns an empty `XeenSessionWorldState` member
+separate from its maps. `discardMapCache`, `discardScriptCache`, and
+`discardTextCache` invalidate only disposable data. Suspended scripts remain
+owned base values. No future mutation fields or operations were implemented.
+
+Validation: Debug build, 16/16 focused tests, 33/33 final CTest, all nine existing
+real-data smokes, all eight documented SDL runtime scenarios, and visual review
+of the five 320x200 M14 presentation frames passed. The build used the clean
+pinned ScummVM source at `6814ee9ba54582f5b5adcffab49efbbd8f589edd` and its
+existing UCRT64 artifacts. See [project-status.md](project-status.md) for exact
+local configuration and results. The remaining subsections retain the approved
+15A requirements; completing 15A does not authorize 15B.
 
 ### Objective and placement
 
@@ -524,10 +543,11 @@ resource 111, and production selection before completing 15B's checkpoint. Any
 discrepancy must be resolved before claiming Phirna validation. Animated-object
 and other scene-specific selection remains outside the approved coverage.
 
-The milestone is sufficiently specified for staged implementation. The first
-15A increment is to introduce side + map identity, apply it to XeenWorld cache
-and queries, propagate side to current location, and adapt world/navigation
-tests. It must not load objects or implement Remove.
+The milestone is sufficiently specified for staged implementation. The initial
+15A increment introduced side + map identity in XeenWorld and current location,
+then propagated it through consumers and tests. 15A is now complete; 15B is the
+next stage, pending explicit implementation authorization. Remove and new
+object loading remain unimplemented.
 
 Follow [AGENTS.md](../AGENTS.md) for implementation validation and documentation
 updates. Do not start subsequent stages without explicit authorization. Do not

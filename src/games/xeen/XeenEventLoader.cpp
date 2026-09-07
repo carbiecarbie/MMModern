@@ -16,13 +16,14 @@ XeenEventLoader::XeenEventLoader(ResourceReader resourceReader) :
 		throw std::invalid_argument("leitor de recursos EVT ausente");
 }
 
-std::string XeenEventLoader::resourceNameForMap(std::uint16_t mapId) {
+std::string XeenEventLoader::resourceNameForMap(XeenMapIdentity mapId) {
+	requireCloudsMap(mapId);
 	std::ostringstream name;
-	name << "maze" << std::setfill('0') << std::setw(4) << mapId << ".evt";
+	name << "maze" << std::setfill('0') << std::setw(4) << mapId.number << ".evt";
 	return name.str();
 }
 
-XeenEventFile XeenEventLoader::load(std::uint16_t mapId) const {
+XeenEventFile XeenEventLoader::load(XeenMapIdentity mapId) const {
 	XeenEventFile result;
 	result.mapId = mapId;
 	result.resourceName = resourceNameForMap(mapId);

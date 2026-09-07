@@ -21,7 +21,7 @@ namespace mmodern {
 class XeenWorld;
 
 struct XeenEventExecutionAddress {
-	std::uint16_t mapId = 0;
+	XeenMapIdentity mapId = 0;
 	int x = 0;
 	int y = 0;
 	int line = 0;
@@ -61,7 +61,7 @@ struct XeenPresentationRequest {
 	XeenPresentationKind kind = XeenPresentationKind::CenteredMessage;
 	XeenPresentationResponseRequirement response =
 		XeenPresentationResponseRequirement::Presented;
-	std::uint16_t mapId = 0;
+	XeenMapIdentity mapId = 0;
 	std::optional<std::uint8_t> textIndex;
 	std::string text;
 	std::optional<std::uint8_t> layoutValue;
@@ -130,6 +130,7 @@ enum class XeenEventExecutionErrorKind {
 	UnsupportedExecutionContext,
 	InstructionLimitExceeded,
 	MissingTextResource,
+	TextMapMismatch,
 	InvalidTextIndex,
 	InvalidPresentationResponse,
 	PresentationRequired
@@ -159,8 +160,8 @@ public:
 	static constexpr std::size_t kMaximumInstructions = 1024;
 	static constexpr std::size_t kMaximumCallDepth = 64;
 
-	using ScriptProvider = std::function<XeenEventScript(std::uint16_t mapId)>;
-	using TextProvider = std::function<XeenEventTextFile(std::uint16_t mapId)>;
+	using ScriptProvider = std::function<XeenEventScript(XeenMapIdentity mapId)>;
+	using TextProvider = std::function<XeenEventTextFile(XeenMapIdentity mapId)>;
 
 	XeenEventExecutionResult execute(const XeenCamera &initialCamera,
 		const XeenPartyState &partyState, const XeenGameFlags &gameFlags,

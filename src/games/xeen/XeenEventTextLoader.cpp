@@ -21,14 +21,15 @@ XeenEventTextLoader::XeenEventTextLoader(ResourceReader resourceReader) :
 		throw std::invalid_argument("leitor de recursos de texto ausente");
 }
 
-std::string XeenEventTextLoader::resourceNameForMap(std::uint16_t mapId) {
+std::string XeenEventTextLoader::resourceNameForMap(XeenMapIdentity mapId) {
+	requireCloudsMap(mapId);
 	std::ostringstream name;
-	name << "aaze" << (mapId >= 100 ? 'x' : '0')
-		<< std::setfill('0') << std::setw(3) << mapId << ".txt";
+	name << "aaze" << (mapId.number >= 100 ? 'x' : '0')
+		<< std::setfill('0') << std::setw(3) << mapId.number << ".txt";
 	return name.str();
 }
 
-XeenEventTextFile XeenEventTextLoader::load(std::uint16_t mapId) const {
+XeenEventTextFile XeenEventTextLoader::load(XeenMapIdentity mapId) const {
 	XeenEventTextFile result;
 	result.mapId = mapId;
 	result.resourceName = resourceNameForMap(mapId);

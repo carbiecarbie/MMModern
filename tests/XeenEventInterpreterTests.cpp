@@ -37,19 +37,20 @@ XeenEventRecord record(std::uint8_t x, std::uint8_t y, std::uint8_t line,
 	return result;
 }
 
-XeenEventScript script(std::uint16_t mapId,
+XeenEventScript script(mmodern::XeenMapIdentity mapId,
 		std::vector<XeenEventRecord> records = {}, bool present = true) {
 	XeenEventFile file;
 	file.mapId = mapId;
-	file.resourceName = "maze" + std::to_string(mapId) + ".evt";
+	file.resourceName = "maze" + std::to_string(mapId.number) + ".evt";
 	file.resourcePresent = present;
 	file.records = std::move(records);
 	return XeenEventScript(std::move(file));
 }
 
-XeenMap map(std::uint16_t mapId, bool outdoors = true) {
+XeenMap map(mmodern::XeenMapIdentity mapId, bool outdoors = true) {
 	XeenMap result;
-	result.geometry.id = mapId;
+	result.geometry.id = mapId.number;
+	result.side = mapId.side;
 	result.geometry.flags2 = outdoors ? 0x8000 : 0;
 	return result;
 }
@@ -75,7 +76,7 @@ XeenPartyState emptyParty() {
 
 class Fixture {
 public:
-	Fixture() : world([this](std::uint16_t mapId) {
+	Fixture() : world([this](mmodern::XeenMapIdentity mapId) {
 		if (failingMaps.count(mapId))
 			throw std::runtime_error("synthetic map load failure");
 		++mapLoads[mapId];
@@ -83,7 +84,7 @@ public:
 	}) {}
 
 	XeenEventInterpreter::ScriptProvider provider() {
-		return [this](std::uint16_t mapId) {
+		return [this](mmodern::XeenMapIdentity mapId) {
 			++scriptLoads[mapId];
 			if (throwingScripts.count(mapId))
 				throw std::runtime_error("synthetic script load failure");
@@ -97,11 +98,11 @@ public:
 		return interpreter.execute(camera, party, flags, world, provider());
 	}
 
-	std::map<std::uint16_t, XeenEventScript> scripts;
-	std::map<std::uint16_t, int> scriptLoads;
-	std::map<std::uint16_t, int> mapLoads;
-	std::map<std::uint16_t, bool> failingMaps;
-	std::map<std::uint16_t, bool> throwingScripts;
+	std::map<mmodern::XeenMapIdentity, XeenEventScript> scripts;
+	std::map<mmodern::XeenMapIdentity, int> scriptLoads;
+	std::map<mmodern::XeenMapIdentity, int> mapLoads;
+	std::map<mmodern::XeenMapIdentity, bool> failingMaps;
+	std::map<mmodern::XeenMapIdentity, bool> throwingScripts;
 	XeenWorld world;
 	XeenEventInterpreter interpreter;
 };
@@ -119,7 +120,7 @@ XeenEventExecutionError failure(const XeenEventExecutionResult &result,
 	return *value;
 }
 
-void checkCamera(const XeenCamera &camera, std::uint16_t mapId, int x, int y,
+void checkCamera(const XeenCamera &camera, mmodern::XeenMapIdentity mapId, int x, int y,
 		XeenDirection direction, const char *message) {
 	check(camera.mapId == mapId && camera.x == x && camera.y == y &&
 		camera.direction == direction, message);
@@ -649,23 +650,23 @@ void testLimitsLoadingAndInputPreservation() {
 
 	// A stateful provider makes the 1024th dispatched instruction Exit, proving
 	// that exactly the limit can still complete successfully.
-	XeenWorld world([](std::uint16_t id) { return map(id); });
+	XeenWorld world([](mmodern::XeenMapIdentity id) { return map(id); });
 	std::size_t loads = 0;
-	const auto provider = [&loads](std::uint16_t id) {
+	const auto provider = [&loads](mmodern::XeenMapIdentity id) {
 		++loads;
 		if (loads == XeenEventInterpreter::kMaximumInstructions)
 			return script(id, {record(1, 1, 0, 0x12)});
 		return script(id, {record(1, 1, 0, 0x1f,
-			{static_cast<std::uint8_t>(id), 1, 1})});
+			{static_cast<std::uint8_t>(id.number), 1, 1})});
 	};
 	const auto exact = success(XeenEventInterpreter().execute(camera, party,
 		flags, world, provider));
 	check(exact.instructionCount == 1024, "execution may complete on instruction 1024");
 
-	XeenWorld loopWorld([](std::uint16_t id) { return map(id); });
-	const auto endlessProvider = [](std::uint16_t id) {
+	XeenWorld loopWorld([](mmodern::XeenMapIdentity id) { return map(id); });
+	const auto endlessProvider = [](mmodern::XeenMapIdentity id) {
 		return script(id, {record(1, 1, 0, 0x1f,
-			{static_cast<std::uint8_t>(id), 1, 1})});
+			{static_cast<std::uint8_t>(id.number), 1, 1})});
 	};
 	const auto continuationLimit = failure(XeenEventInterpreter().execute(
 		camera, party, flags, loopWorld, endlessProvider),

@@ -49,7 +49,7 @@ XeenEventSystem::XeenEventSystem(ScriptProvider scriptProvider,
 		throw std::invalid_argument("XeenEventSystem requires a script provider");
 }
 
-XeenEventTextFile XeenEventSystem::textForMap(std::uint16_t mapId) {
+XeenEventTextFile XeenEventSystem::textForMap(XeenMapIdentity mapId) {
 	const auto cached = _texts.find(mapId);
 	if (cached != _texts.end())
 		return cached->second;
@@ -58,17 +58,21 @@ XeenEventTextFile XeenEventSystem::textForMap(std::uint16_t mapId) {
 		loaded = _textProvider(mapId);
 	} else {
 		loaded.mapId = mapId;
-		loaded.resourceName = XeenEventTextLoader::resourceNameForMap(mapId);
+		// An absent provider is not a Clouds resource adapter.
 	}
+	if (loaded.mapId != mapId)
+		throw std::runtime_error("event text identity differs from requested map");
 	return _texts.emplace(mapId, std::move(loaded)).first->second;
 }
 
-XeenEventScript XeenEventSystem::scriptForMap(std::uint16_t mapId) {
+XeenEventScript XeenEventSystem::scriptForMap(XeenMapIdentity mapId) {
 	const auto cached = _scripts.find(mapId);
 	if (cached != _scripts.end())
 		return cached->second;
 
 	XeenEventScript loaded = _scriptProvider(mapId);
+	if (loaded.file().mapId != mapId)
+		throw std::runtime_error("event script identity differs from requested map");
 	return _scripts.emplace(mapId, std::move(loaded)).first->second;
 }
 
@@ -95,10 +99,10 @@ XeenAutomaticEventResult XeenEventSystem::runAutomaticEvent(
 
 	const XeenCamera beforeCamera = camera;
 	const XeenGameFlags beforeFlags = gameFlags;
-	const auto provider = [this](std::uint16_t mapId) {
+	const auto provider = [this](XeenMapIdentity mapId) {
 		return scriptForMap(mapId);
 	};
-	const auto textProvider = [this](std::uint16_t mapId) {
+	const auto textProvider = [this](XeenMapIdentity mapId) {
 		return textForMap(mapId);
 	};
 	const XeenEventExecutionStepResult execution = _interpreter.begin(camera,
@@ -153,10 +157,10 @@ XeenManualEventResult XeenEventSystem::runManualEvent(
 
 	const XeenCamera beforeCamera = camera;
 	const XeenGameFlags beforeFlags = gameFlags;
-	const auto provider = [this](std::uint16_t mapId) {
+	const auto provider = [this](XeenMapIdentity mapId) {
 		return scriptForMap(mapId);
 	};
-	const auto textProvider = [this](std::uint16_t mapId) {
+	const auto textProvider = [this](XeenMapIdentity mapId) {
 		return textForMap(mapId);
 	};
 	const XeenEventExecutionStepResult execution = _interpreter.begin(camera,
@@ -184,8 +188,8 @@ XeenAutomaticEventResult XeenEventSystem::resumeAutomaticEvent(
 		XeenGameFlags &gameFlags) {
 	const XeenCamera beforeCamera = camera;
 	const XeenGameFlags beforeFlags = gameFlags;
-	const auto provider = [this](std::uint16_t mapId) { return scriptForMap(mapId); };
-	const auto textProvider = [this](std::uint16_t mapId) { return textForMap(mapId); };
+	const auto provider = [this](XeenMapIdentity mapId) { return scriptForMap(mapId); };
+	const auto textProvider = [this](XeenMapIdentity mapId) { return textForMap(mapId); };
 	const XeenEventExecutionStepResult execution = _interpreter.resume(
 		std::move(state), response, partyState, world, provider, textProvider);
 	if (const auto *value = std::get_if<XeenEventExecutionError>(&execution))
@@ -207,8 +211,8 @@ XeenManualEventResult XeenEventSystem::resumeManualEvent(
 		XeenGameFlags &gameFlags) {
 	const XeenCamera beforeCamera = camera;
 	const XeenGameFlags beforeFlags = gameFlags;
-	const auto provider = [this](std::uint16_t mapId) { return scriptForMap(mapId); };
-	const auto textProvider = [this](std::uint16_t mapId) { return textForMap(mapId); };
+	const auto provider = [this](XeenMapIdentity mapId) { return scriptForMap(mapId); };
+	const auto textProvider = [this](XeenMapIdentity mapId) { return textForMap(mapId); };
 	const XeenEventExecutionStepResult execution = _interpreter.resume(
 		std::move(state), response, partyState, world, provider, textProvider);
 	if (const auto *value = std::get_if<XeenEventExecutionError>(&execution))

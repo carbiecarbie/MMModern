@@ -116,7 +116,7 @@ XeenIndoorScene::sampleWalls(XeenWorld &world, const XeenCamera &camera) const {
 	const XeenMap &map = world.map(camera.mapId);
 	if (map.geometry.isOutdoors())
 		throw std::runtime_error("XeenIndoorScene requer um mapa interior");
-	if (map.geometry.id != camera.mapId)
+	if (map.identity() != camera.mapId)
 		throw std::runtime_error("camera e mapa possuem IDs diferentes");
 	if (camera.x < 0 || camera.x >= 16 || camera.y < 0 || camera.y >= 16)
 		throw std::runtime_error("camera fora dos limites do mapa interior");

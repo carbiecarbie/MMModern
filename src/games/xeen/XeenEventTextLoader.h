@@ -1,6 +1,8 @@
 #ifndef MMODERN_GAMES_XEEN_XEEN_EVENT_TEXT_LOADER_H
 #define MMODERN_GAMES_XEEN_XEEN_EVENT_TEXT_LOADER_H
 
+#include "games/xeen/XeenMapIdentity.h"
+
 #include <cstdint>
 #include <functional>
 #include <optional>
@@ -10,7 +12,7 @@
 namespace mmodern {
 
 struct XeenEventTextFile {
-	std::uint16_t mapId = 0;
+	XeenMapIdentity mapId = 0;
 	std::string resourceName;
 	bool resourcePresent = false;
 	std::vector<std::string> strings;
@@ -25,8 +27,8 @@ public:
 
 	explicit XeenEventTextLoader(ResourceReader resourceReader);
 
-	static std::string resourceNameForMap(std::uint16_t mapId);
-	XeenEventTextFile load(std::uint16_t mapId) const;
+	static std::string resourceNameForMap(XeenMapIdentity mapId);
+	XeenEventTextFile load(XeenMapIdentity mapId) const;
 
 private:
 	ResourceReader _resourceReader;

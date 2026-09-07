@@ -62,9 +62,11 @@ struct XeenEventInstruction {
 };
 
 struct XeenMap {
+	XeenSide side = XeenSide::Clouds; // Loading context, not serialized geometry.
 	XeenMapGeometry geometry;
 	XeenMapEntities entities;
 	std::vector<XeenEventInstruction> instructions;
+	XeenMapIdentity identity() const { return {side, geometry.id}; }
 };
 
 inline std::uint8_t wallAt(const XeenMapCell &cell, XeenDirection direction) {

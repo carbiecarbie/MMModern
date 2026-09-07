@@ -35,19 +35,20 @@ XeenEventRecord record(std::uint8_t x, std::uint8_t y, std::uint8_t line,
 	return result;
 }
 
-XeenEventScript script(std::uint16_t mapId,
+XeenEventScript script(mmodern::XeenMapIdentity mapId,
 		std::vector<XeenEventRecord> records = {}) {
 	XeenEventFile file;
 	file.mapId = mapId;
-	file.resourceName = "maze" + std::to_string(mapId) + ".evt";
+	file.resourceName = "maze" + std::to_string(mapId.number) + ".evt";
 	file.resourcePresent = true;
 	file.records = std::move(records);
 	return XeenEventScript(std::move(file));
 }
 
-XeenMap map(std::uint16_t id, bool outdoors = true) {
+XeenMap map(mmodern::XeenMapIdentity id, bool outdoors = true) {
 	XeenMap result;
-	result.geometry.id = id;
+	result.geometry.id = id.number;
+	result.side = id.side;
 	result.geometry.flags2 = outdoors ? 0x8000 : 0;
 	return result;
 }
@@ -59,24 +60,24 @@ std::vector<std::uint8_t> setFlag(std::uint8_t flag) {
 class Fixture {
 public:
 	Fixture() :
-		world([this](std::uint16_t id) {
+		world([this](mmodern::XeenMapIdentity id) {
 			++mapLoads[id];
 			return maps.at(id);
 		}),
-		system([this](std::uint16_t id) {
+		system([this](mmodern::XeenMapIdentity id) {
 			++scriptLoads[id];
 			return scripts.at(id);
-		}, [this](std::uint16_t id) {
+		}, [this](mmodern::XeenMapIdentity id) {
 			const auto found = texts.find(id);
 			return found == texts.end() ? XeenEventTextFile{id,
 				XeenEventTextLoader::resourceNameForMap(id), false, {}} : found->second;
 		}) {}
 
-	std::map<std::uint16_t, XeenMap> maps;
-	std::map<std::uint16_t, XeenEventScript> scripts;
-	std::map<std::uint16_t, XeenEventTextFile> texts;
-	std::map<std::uint16_t, int> mapLoads;
-	std::map<std::uint16_t, int> scriptLoads;
+	std::map<mmodern::XeenMapIdentity, XeenMap> maps;
+	std::map<mmodern::XeenMapIdentity, XeenEventScript> scripts;
+	std::map<mmodern::XeenMapIdentity, XeenEventTextFile> texts;
+	std::map<mmodern::XeenMapIdentity, int> mapLoads;
+	std::map<mmodern::XeenMapIdentity, int> scriptLoads;
 	XeenWorld world;
 	XeenEventSystem system;
 };

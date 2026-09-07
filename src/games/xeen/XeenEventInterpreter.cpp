@@ -275,6 +275,11 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 					std::string("failed to load event text resource: ") + exception.what(),
 					instructionCount, logical, decoded.source);
 			}
+			if (textFile.mapId != logical.mapId) {
+				return error(XeenEventExecutionErrorKind::TextMapMismatch,
+					"event text identity differs from requested map", instructionCount,
+					logical, decoded.source);
+			}
 			if (!textFile.resourcePresent) {
 				return error(XeenEventExecutionErrorKind::MissingTextResource,
 					"event text resource is missing", instructionCount, logical,
@@ -465,7 +470,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 
 		const auto executeTeleport = [&](std::uint8_t mapId, int x, int y,
 				bool continueExecution) -> std::optional<XeenEventExecutionError> {
-			XeenEventExecutionAddress target{mapId, x, y, 0};
+			XeenEventExecutionAddress target{{workingCamera.mapId.side, mapId}, x, y, 0};
 			if (continueExecution && !callStack.empty()) {
 				return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
 					"TeleportAndContinue with an active call stack is unsupported",
@@ -477,13 +482,13 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 					instructionCount, logical, decoded.source, target);
 			}
 			try {
-				static_cast<void>(world.map(mapId));
+				static_cast<void>(world.map(target.mapId));
 			} catch (const std::exception &exception) {
 				return error(XeenEventExecutionErrorKind::MapLoadFailed,
 					std::string("failed to load teleport destination: ") + exception.what(),
 					instructionCount, logical, decoded.source, target);
 			}
-			workingCamera.mapId = mapId;
+			workingCamera.mapId = target.mapId;
 			workingCamera.x = x;
 			workingCamera.y = y;
 			return std::nullopt;
@@ -502,16 +507,16 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 			if (const auto teleportError = executeTeleport(teleport->mapId,
 					teleport->x, teleport->y, true))
 				return *teleportError;
-			logical = {teleport->mapId, teleport->x, teleport->y, 0};
+			logical = {workingCamera.mapId, teleport->x, teleport->y, 0};
 			try {
-				script.emplace(scriptProvider(teleport->mapId));
+				script.emplace(scriptProvider(logical.mapId));
 			} catch (const std::exception &exception) {
 				return error(XeenEventExecutionErrorKind::ScriptLoadFailed,
 					std::string("failed to load destination event script: ") +
 						exception.what(), instructionCount, logical, decoded.source,
 					logical);
 			}
-			if (script->file().mapId != teleport->mapId) {
+			if (script->file().mapId != logical.mapId) {
 				return error(XeenEventExecutionErrorKind::ScriptMapMismatch,
 					"destination event script map ID differs from requested map",
 					instructionCount, logical, decoded.source, logical);

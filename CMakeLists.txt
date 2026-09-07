@@ -87,6 +87,9 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+	add_executable(mmodern_session_identity_tests tests/XeenSessionIdentityTests.cpp)
+	target_link_libraries(mmodern_session_identity_tests PRIVATE mmodern_xeen)
+	add_test(NAME xeen_session_identity COMMAND mmodern_session_identity_tests)
 	# Parser tests link only standard C++; no ScummVM, SDL, or game installation.
 	add_executable(mmodern_map_format_tests
 		tests/XeenMapFormatTests.cpp

@@ -18,7 +18,7 @@ struct XeenOutdoorDrawCommand {
 	std::size_t frame = 0;
 	int x = 0;
 	int y = 0;
-	std::uint16_t sourceMapId = 0;
+	XeenMapIdentity sourceMapId = 0;
 	int sourceX = -1;
 	int sourceY = -1;
 	XeenSpriteDrawOptions options;

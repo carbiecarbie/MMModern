@@ -37,23 +37,24 @@ XeenEventRecord record(std::uint8_t x, std::uint8_t y, std::uint8_t line,
 	return result;
 }
 
-XeenEventScript script(std::uint16_t mapId, std::vector<XeenEventRecord> records) {
+XeenEventScript script(mmodern::XeenMapIdentity mapId, std::vector<XeenEventRecord> records) {
 	XeenEventFile file;
 	file.mapId = mapId;
-	file.resourceName = "maze" + std::to_string(mapId) + ".evt";
+	file.resourceName = "maze" + std::to_string(mapId.number) + ".evt";
 	file.resourcePresent = true;
 	file.records = std::move(records);
 	return XeenEventScript(std::move(file));
 }
 
-XeenMap map(std::uint16_t id) {
+XeenMap map(mmodern::XeenMapIdentity id) {
 	XeenMap result;
-	result.geometry.id = id;
+	result.geometry.id = id.number;
+	result.side = id.side;
 	result.geometry.flags2 = 0x8000;
 	return result;
 }
 
-XeenEventTextFile text(std::uint16_t mapId, std::vector<std::string> strings,
+XeenEventTextFile text(mmodern::XeenMapIdentity mapId, std::vector<std::string> strings,
 		bool present = true) {
 	return {mapId, XeenEventTextLoader::resourceNameForMap(mapId), present,
 		std::move(strings)};
@@ -61,14 +62,14 @@ XeenEventTextFile text(std::uint16_t mapId, std::vector<std::string> strings,
 
 class Fixture {
 public:
-	Fixture() : world([this](std::uint16_t id) { return maps.at(id); }) {}
+	Fixture() : world([this](mmodern::XeenMapIdentity id) { return maps.at(id); }) {}
 
 	XeenEventInterpreter::ScriptProvider scriptsProvider() {
-		return [this](std::uint16_t id) { return scripts.at(id); };
+		return [this](mmodern::XeenMapIdentity id) { return scripts.at(id); };
 	}
 
 	XeenEventInterpreter::TextProvider textsProvider() {
-		return [this](std::uint16_t id) {
+		return [this](mmodern::XeenMapIdentity id) {
 			const auto found = texts.find(id);
 			return found == texts.end() ? text(id, {}, false) : found->second;
 		};
@@ -85,9 +86,9 @@ public:
 			scriptsProvider(), textsProvider());
 	}
 
-	std::map<std::uint16_t, XeenMap> maps;
-	std::map<std::uint16_t, XeenEventScript> scripts;
-	std::map<std::uint16_t, XeenEventTextFile> texts;
+	std::map<mmodern::XeenMapIdentity, XeenMap> maps;
+	std::map<mmodern::XeenMapIdentity, XeenEventScript> scripts;
+	std::map<mmodern::XeenMapIdentity, XeenEventTextFile> texts;
 	XeenWorld world;
 	XeenEventInterpreter interpreter;
 };
@@ -261,14 +262,14 @@ void testLimitsCallsAndRollback() {
 		XeenPresentationResponse::Presented)).instructionCount == 4,
 		"CallEvent and Return survive suspension");
 
-	std::map<std::uint16_t, XeenMap> maps{{1, map(1)}};
-	std::map<std::uint16_t, XeenEventScript> scripts{{1, script(1, {
+	std::map<mmodern::XeenMapIdentity, XeenMap> maps{{1, map(1)}};
+	std::map<mmodern::XeenMapIdentity, XeenEventScript> scripts{{1, script(1, {
 		record(1, 1, 0, 0x0c, {0, 0, 20, 9}),
 		record(1, 1, 1, 0x01, {0}), record(1, 1, 2, 0x06)
 	})}};
-	XeenWorld world([&](std::uint16_t id) { return maps.at(id); });
-	XeenEventSystem system([&](std::uint16_t id) { return scripts.at(id); },
-		[](std::uint16_t id) { return text(id, {"shown"}); });
+	XeenWorld world([&](mmodern::XeenMapIdentity id) { return maps.at(id); });
+	XeenEventSystem system([&](mmodern::XeenMapIdentity id) { return scripts.at(id); },
+		[](mmodern::XeenMapIdentity id) { return text(id, {"shown"}); });
 	XeenCamera camera{1, 1, 1, XeenDirection::North};
 	XeenGameFlags flags;
 	const XeenManualEventResult started = system.runManualEvent(world, {}, camera, flags);

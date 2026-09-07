@@ -37,20 +37,21 @@ XeenEventRecord record(std::uint8_t x, std::uint8_t y, std::uint8_t line,
 	return result;
 }
 
-XeenEventScript script(std::uint16_t mapId,
+XeenEventScript script(mmodern::XeenMapIdentity mapId,
 		std::vector<XeenEventRecord> records = {}, bool present = true) {
 	XeenEventFile file;
 	file.mapId = mapId;
-	file.resourceName = "maze" + std::to_string(mapId) + ".evt";
+	file.resourceName = "maze" + std::to_string(mapId.number) + ".evt";
 	file.resourcePresent = present;
 	file.records = std::move(records);
 	return XeenEventScript(std::move(file));
 }
 
-XeenMap map(std::uint16_t mapId, bool outdoors = true,
+XeenMap map(mmodern::XeenMapIdentity mapId, bool outdoors = true,
 		std::vector<std::pair<int, int>> triggers = {}) {
 	XeenMap result;
-	result.geometry.id = mapId;
+	result.geometry.id = mapId.number;
+	result.side = mapId.side;
 	result.geometry.flags2 = outdoors ? 0x8000 : 0;
 	for (const auto &trigger : triggers) {
 		const auto index = static_cast<std::size_t>(trigger.second) *
@@ -71,14 +72,14 @@ std::vector<std::uint8_t> clearFlag(std::uint8_t flag) {
 class Fixture {
 public:
 	Fixture() :
-		world([this](std::uint16_t mapId) {
+		world([this](mmodern::XeenMapIdentity mapId) {
 			++mapLoads[mapId];
 			if (failingMaps.count(mapId))
 				throw std::runtime_error("synthetic map load failure");
 			const auto found = maps.find(mapId);
 			return found == maps.end() ? map(mapId) : found->second;
 		}),
-		system([this](std::uint16_t mapId) {
+		system([this](mmodern::XeenMapIdentity mapId) {
 			++scriptLoads[mapId];
 			auto failure = failuresRemaining.find(mapId);
 			if (failure != failuresRemaining.end() && failure->second > 0) {
@@ -89,12 +90,12 @@ public:
 			return found == scripts.end() ? script(mapId, {}, false) : found->second;
 		}) {}
 
-	std::map<std::uint16_t, XeenMap> maps;
-	std::map<std::uint16_t, XeenEventScript> scripts;
-	std::map<std::uint16_t, int> mapLoads;
-	std::map<std::uint16_t, int> scriptLoads;
-	std::map<std::uint16_t, int> failuresRemaining;
-	std::map<std::uint16_t, bool> failingMaps;
+	std::map<mmodern::XeenMapIdentity, XeenMap> maps;
+	std::map<mmodern::XeenMapIdentity, XeenEventScript> scripts;
+	std::map<mmodern::XeenMapIdentity, int> mapLoads;
+	std::map<mmodern::XeenMapIdentity, int> scriptLoads;
+	std::map<mmodern::XeenMapIdentity, int> failuresRemaining;
+	std::map<mmodern::XeenMapIdentity, bool> failingMaps;
 	XeenWorld world;
 	XeenEventSystem system;
 };
@@ -112,7 +113,7 @@ XeenEventExecutionError failure(const XeenAutomaticEventResult &result,
 	return *value;
 }
 
-void checkCamera(const XeenCamera &camera, std::uint16_t mapId, int x, int y,
+void checkCamera(const XeenCamera &camera, mmodern::XeenMapIdentity mapId, int x, int y,
 		XeenDirection direction, const char *message) {
 	check(camera.mapId == mapId && camera.x == x && camera.y == y &&
 		camera.direction == direction, message);

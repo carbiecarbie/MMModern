@@ -44,9 +44,10 @@ mmodern::XeenMap makeAreaA1ViewFixture() {
 	return map;
 }
 
-mmodern::XeenMap makeFlatFixture(std::uint16_t id = 1) {
+mmodern::XeenMap makeFlatFixture(mmodern::XeenMapIdentity id = 1) {
 	auto map = makeAreaA1ViewFixture();
-	map.geometry.id = id;
+	map.geometry.id = id.number;
+	map.side = id.side;
 	for (auto &cell : map.geometry.cells) {
 		auto outdoor = std::get<mmodern::XeenOutdoorLayers>(cell.geometry);
 		outdoor.middle = 0;
@@ -55,8 +56,8 @@ mmodern::XeenMap makeFlatFixture(std::uint16_t id = 1) {
 	return map;
 }
 
-mmodern::XeenWorld worldWith(std::map<std::uint16_t, mmodern::XeenMap> maps) {
-	return mmodern::XeenWorld([maps = std::move(maps)](std::uint16_t id) {
+mmodern::XeenWorld worldWith(std::map<mmodern::XeenMapIdentity, mmodern::XeenMap> maps) {
+	return mmodern::XeenWorld([maps = std::move(maps)](mmodern::XeenMapIdentity id) {
 		return maps.at(id);
 	});
 }

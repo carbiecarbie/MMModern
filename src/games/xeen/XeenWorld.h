@@ -12,26 +12,35 @@
 namespace mmodern {
 
 struct XeenCellSample {
-	std::uint16_t mapId = 0;
+	XeenMapIdentity mapId = 0;
 	int x = 0;
 	int y = 0;
 	const XeenMapGeometry *geometry = nullptr;
 	const XeenMapCell *cell = nullptr;
 };
 
+// Empty in 15A; actual session mutations are introduced by 15B.
+struct XeenSessionWorldState {};
+
 class XeenWorld {
 public:
-	using MapLoader = std::function<XeenMap(std::uint16_t)>;
+	using MapLoader = std::function<XeenMap(XeenMapIdentity)>;
 
 	explicit XeenWorld(MapLoader loader);
+	XeenWorld(const XeenWorld &) = delete;
+	XeenWorld &operator=(const XeenWorld &) = delete;
+	const XeenSessionWorldState &sessionState() const { return _sessionState; }
+	// Invalidates map/cell references, not the session state.
+	void discardMapCache() { _maps.clear(); }
 
-	const XeenMap &map(std::uint16_t mapId);
-	std::optional<XeenCellSample> sampleCell(std::uint16_t mapId, int x, int y);
+	const XeenMap &map(XeenMapIdentity mapId);
+	std::optional<XeenCellSample> sampleCell(XeenMapIdentity mapId, int x, int y);
 	std::size_t cachedMapCount() const { return _maps.size(); }
 
 private:
+	XeenSessionWorldState _sessionState;
 	MapLoader _loader;
-	std::map<std::uint16_t, XeenMap> _maps;
+	std::map<XeenMapIdentity, XeenMap> _maps;
 };
 
 } // namespace mmodern
