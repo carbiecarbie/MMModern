@@ -1,9 +1,10 @@
 # Milestone 18 - WhoWill and Bone Whistle collection
 
-**Status: 18A implemented, validated and independently approved; 18B pending and not started. M18 is incomplete and not stable.**
+**Status: 18A complete and independently approved; 18B complete on 2026-09-08.
+Milestone 18 is the latest stable milestone within the approved local scope.**
 
-**18A is complete. 18B is planned, not implemented or complete. Milestone 17 remains the latest
-stable milestone.**
+Section 16 records 18B acceptance and stabilization. No independent review of 18B
+is claimed. Earlier planning and 18A audit records below are historical.
 
 This document preserves the approved post-M17 investigation and specification.
 Section 15 records the separately authorized 18A implementation and its evidence.
@@ -378,7 +379,7 @@ conditions, SetChar/SetVar, TakeOrGive modes, damage and treasure distribution.
 
 ### 18B - Original-data acceptance and stabilization
 
-**Status: planned; not implemented/complete.**
+**Status: complete; acceptance and stabilization recorded in section 16.**
 
 - Objective: establish original collection, cancellation, repeat and fresh-session
   behavior while preserving M17.
@@ -397,8 +398,8 @@ conditions, SetChar/SetVar, TakeOrGive modes, damage and treasure distribution.
 
 ## 9. Acceptance matrix
 
-All rows remain requirements. Section 15 records the completed 18A subset;
-full M18 acceptance remains pending. Synthetic cases cover verified semantics or
+All rows retain the approved requirements. Section 15 records the 18A subset;
+section 16 closes A01-A36 with new execution evidence. Synthetic cases cover verified semantics or
 the explicit defensive MMModern decisions above, not invented original scripts.
 
 | ID | Case | Required result |
@@ -761,3 +762,163 @@ implemented, validated and approved after independent review. Milestone 18 remai
 incomplete and not stable; 18B remains pending and not started. Full original
 collection, repetition, reconstruction and fresh-session certification remain
 exclusively within 18B.
+
+
+## 16. 18B original-data acceptance and stabilization
+
+**Complete on 2026-09-08. M18 is the latest stable milestone within sections 1
+and 11's approved scope.** The user separately authorized 18B. No production
+change, dependency change, later milestone work or independent 18B review occurred.
+The 18A implementation, remediation and independent approval in section 15 are
+preserved; their pending-18B statements describe that earlier boundary.
+
+### Baseline and implementation
+
+- Initial branch `main`, HEAD `32c850283bfa3f9cb77ee3735594aeb01d70e127`;
+  `git status --short --branch` was `## main...origin/main`, with no existing edits.
+  This is the committed, approved 18A baseline specified by the request.
+- Reused `build/18a`: Debug, MSYS Makefiles, compiler
+  `C:/msys64/ucrt64/bin/c++.exe`, make `C:/msys64/usr/bin/make.exe`.
+  CMakeCache confirms source `D:/Projetos/MModern/scummvm-known-good-candidate`
+  and artifacts `D:/Projetos/MModern/build-scummvm-6814ee9b-ucrt64`.
+  Dependency HEAD remains `6814ee9ba54582f5b5adcffab49efbbd8f589edd`; status
+  was empty using command-local safe.directory and core.autocrlf=false.
+- Extended `tests/WhoWillIntegrationTest.cpp` in the existing excluded smoke
+  target; CMake and all production code are unchanged. It enters line 0 through
+  production loaders, ordinary interaction and EventFlow. No direct grant,
+  Remove, event skipping or Bone Whistle production exception is used.
+- Moved Phirna's existing modeled-party snapshot function unchanged into
+  `tests/XeenPartySnapshotTestSupport.h`, reused by both smokes. Phirna's assertions
+  and scenarios are unchanged. No commercial fixture entered synthetic tests.
+- `input` routes every Bone Whistle gameplay action through SdlWindow in SDL mode,
+  including selection, acknowledgment, cancellation, retry, post-cache interaction,
+  new-session interaction and the Castle text-cache control. The direct mode calls
+  the same Flow action path. Each SDL batch checks exact action order/member index,
+  injects key repeats, waits at most five seconds per action and exits automatically.
+  SDL_QUIT is exercised while acknowledgment is pending; fresh Escape closes other
+  batches. Diagnostic positioning and cache discard remain harness controls.
+
+### Original outcomes and assertions
+
+Both direct and SDL runs observed the same results:
+
+- Initial quest item 100 count `q0=0`. Every initial counter is compared with the
+  original party resource prefix. Selected world identity is `{Clouds,20,1}`;
+  its initial outdoor draw command is required. A non-first eligible member is
+  deliberately chosen: active index 5, roster ID 6.
+- The original five cell records are indices **1-5** of 16 map-20 records.
+  Their lines 0-4, opcodes and operands are asserted against the documented chain:
+  WhoWill `(0,3)`, DisplayBottom text 0, Action-44 acknowledgment `(44,1,3)`,
+  TakeOrGive `(0,0,21,100)`, Remove. WhoWill source offset is 7, title is Bones,
+  verb is search. Suspension lines are exactly **0,1,2**. At line 0 the temporary
+  active index is 0; at display/ack it is the selected index 5. The selected world
+  identity remains independent and unchanged throughout these suspensions.
+- Before acknowledgment, counts, flags, geometry, all modeled party/member state,
+  objects and effective event records are unchanged. Navigation is blocked. A new
+  F6 press after selection preserves the acknowledgment generation and grants nothing;
+  injected repeats of the selecting key are suppressed by SDL.
+- Enter completes in **10 instructions**, item 100 becomes **1**, exactly object
+  record 1 is disabled and exactly event records 1-5 have effective opcode None.
+  Record parameters and metadata, unrelated events, all other objects/items,
+  modeled characters and flags remain unchanged. The camera remains `(20,5,14,N)`.
+- The frame returned by acknowledgment equals production composition of the
+  effective scene plus an independently presented retained original success message.
+  The bones' draw command is absent and the original object contributed pixels.
+  Text remains visible without motion; the transient acknowledgment controls disappear.
+- Repeat interaction completes by executing **five effective None records**, with no
+  new presentation and count still 1. Records are neither deleted nor forced to NoEvent.
+- Individual map/object, script, text and sprite cache discards, then a combined
+  discard, preserve the same session owners and removal. Provider-count increases
+  prove actual reloads; spriteLoadCount increases prove sprite reconstruction.
+  Since removed events do not load text, the same graph opens the original Castle
+  question and answers No to demonstrate text reload. Controlled leave/return is
+  tested before and after reconstruction; re-interaction still executes five None.
+  Final successful-session provider totals: **maps=9, objects=6, scripts=5, texts=3**.
+- After that collected session, newly constructed party/world/EventSystem/Flow
+  (and therefore presenter) owners restore the original count 0, bones, all events
+  and initial pixels, with no pending presentation/generation/cancellation capability.
+  This fresh graph also supplies the independent cancellation scenario: Escape
+  completes in **one instruction**, count stays 0, no later display/grant/Remove,
+  and the frame equals the initial scene. Navigation recovers, then a new interaction
+  reopens line-0 WhoWill with temporary index 0 and can be canceled again.
+  Its provider totals are **maps=2, objects=1, scripts=1, texts=1**.
+- Original party/roster/map-20 EVT/MOB bytes are compared unchanged after the cases.
+  No data was written to the commercial installation.
+
+### A01-A36 closure
+
+The existing test groups below were rerun, not recreated. All rows passed.
+Section 15 retains the detailed 18A mappings and audit history.
+
+| Cases | Concrete evidence in this execution |
+|---|---|
+| A01-A07 | Existing `decoderAndCardinality`; `integratedTextErrors` retains exact integrated map-mismatch/missing/index errors and no later effects. |
+| A08-A13 | Existing `eligibilityAndProtocol`, `sdlFlow`, character rules and presentation layout: sizes/indices, worst conditions, refusal/retry, out-of-range keys and all-ineligible cancel. |
+| A14-A15 | Existing `priorEffects` and `productionFlow`; new original cancellation asserts one instruction, only line 0, unchanged state and base frame. |
+| A16-A21 | Existing `contextLifetime` and `productionFlow`: selected SP, displays/pages, calls/returns, independent dispatch and teleport resets. Original suspensions additionally assert index 0 -> 5. **The Bone Whistle chain does not exercise Action 9.** |
+| A22-A25 | Existing `eligibilityAndProtocol`, `productionFlow`, `priorEffects`, `directResponses`: invalid/live-changed/stale responses, single consumption, rebase and immediate-effect policy. |
+| A26 | Extended original `checkpoint`: full original operands and suspension sequence, ten-instruction completion, q0+1, `unchanged`, `atStart`, `visible` and effective-scene/retained-text oracle. |
+| A27 | Fresh original checkpoint: cancellation, unchanged counters/objects/events, navigation recovery and reopened WhoWill. |
+| A28 | `repeat` and five independent/combined cache scenarios: five None, no added presentation/count, provider and sprite reload increases, leave/return. |
+| A29 | New owners constructed after successful collection: original resource counts and initial-frame equality, original events/object, no pending state and line-0 activeCharacterIndex=0. |
+| A30-A32 | Existing `sdlFlow`/`sdl_input`; new original `input` uses real SdlWindow mapping and repeat suppression throughout, blocks/recover navigation, F6 preserves following ack, contextual/fresh Escape and SDL_QUIT. |
+| A33 | Phirna direct + SDL: No=0/present/3 instructions; harvest=1/removed/18; owned=1/present/5. Existing reconstruction/new-session assertions pass. Its later reconstruction controls remain direct Flow calls, as before; the new Bone Whistle SDL reinteractions all use SdlWindow. |
+| A34 | Existing `xeen_quest_items`, `xeen_quest_grants`: ranges, overflow, prevalidation and immediate grants. Original counter-array equality proves one item, no per-member multiplication. |
+| A35 | Existing `xeen_remove`, `xeen_visual_remove`, `xeen_session_identity`, `xeen_session_persistence`; new exact original identity/event overlay/cache assertions. |
+| A36 | Existing interpreter, presentation, UI, system, manual-event and navigation tests: pagination, ack, Yes/No, Call/Return, teleport, camera/flags and limits. Full CTest also passes. |
+
+The three 18A audit regressions `integratedTextErrors`, `directResponses` and
+`passiveSelectionInputs` run unmodified in `xeen_who_will`. No assertion was
+weakened, disabled or replaced by an original-data special case.
+
+### Commands, logs and results
+
+From the repository root, with `C:/msys64/ucrt64/bin` and `C:/msys64/usr/bin`
+prepended to PATH:
+
+```powershell
+cmake --build build/18a --parallel 4
+ctest --test-dir build/18a --output-on-failure
+ctest --test-dir build/18a -R 'who_will|event|navigation|quest|remove|identity|persistence|sdl_input' --output-on-failure
+cmake --build build/18a --parallel 4 --target mmodern_who_will_smoke mmodern_phirna_smoke
+build/18a/mmodern_who_will_smoke.exe 'F:\Games\gog\Might and Magic 4-5' build/18b/who-direct
+build/18a/mmodern_phirna_smoke.exe 'F:\Games\gog\Might and Magic 4-5' build/18b/phirna-direct
+$env:SDL_VIDEODRIVER='dummy'
+$env:SDL_RENDER_DRIVER='software'
+build/18a/mmodern_who_will_smoke.exe 'F:\Games\gog\Might and Magic 4-5' build/18b/who-sdl sdl
+build/18a/mmodern_phirna_smoke.exe 'F:\Games\gog\Might and Magic 4-5' build/18b/phirna-sdl sdl
+```
+
+Default build and both smoke targets passed. Full CTest **44/44 passed**; focused
+regex **31/31 passed**. All four smoke executions exited **0**. These are new
+18B executions, not the historical 18A counts. An initial harness compile error
+used `Acknowledge` instead of the existing enum `Acknowledgment`; corrected in
+the test only before successful validation. No production defect was found.
+
+Ignored evidence is isolated under `build/18b`: `build-final.log`,
+`smoke-build.log`, `ctest-full.log`, `ctest-regressions.log`, `who-direct.log`,
+`who-sdl.log`, `phirna-direct.log`, `phirna-sdl.log` and four matching frame folders.
+
+### Visual inspection and final boundary
+
+New native 320x200 frames inspected in `build/18b/inspection.png` (an unscaled
+montage of framebuffer captures): WhoWill `before`, `choice`, `next-display`,
+`result`, `cancel-result`, `rebuilt`, `fresh`, `fresh-choice`; Phirna `yes-result`,
+`no-result`, `owned-result`, `yes-rebuilt`. Initial/fresh/canceled bones are visible;
+the correct bones disappear on collection, with the original success text retained;
+rebuilt scenery remains without bones. Choice and original acknowledgment text
+are readable, with the existing layout. State/identity assertions accompany these
+images. All eight Bone Whistle direct/SDL checkpoint image pairs are byte-identical.
+
+This is **SDL dummy/software plus framebuffer inspection**. No physical-window
+validation was performed. The existing 32-verb/refusal diagnostic outputs are
+preserved and regenerated, but no new visual inspection of all 32 verbs is claimed.
+No normal route, combat, Orothin quest completion, inventory/consumption, save/load,
+Darkside gameplay or any other section-11 exclusion is certified.
+
+All approved 18B completion criteria have passed; no known in-scope pending issue
+remains. README and project status now identify M18 as stable within this local
+scope. Changes remain ready for review: no git add, commit, push, tag, branch
+creation/switch, history rewrite or discard. `git diff --check` passes. The new
+untracked file is `tests/XeenPartySnapshotTestSupport.h`; build/log/image artifacts
+are ignored. Suggested commit: `test: complete M18B Bone Whistle acceptance and stabilization`.

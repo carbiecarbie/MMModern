@@ -1,4 +1,5 @@
 #include "XeenVisualRemoveTestSupport.h"
+#include "XeenPartySnapshotTestSupport.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "formats/xeen/XeenQuestItemFormat.h"
 #include "games/xeen/CloudsMapComposer.h"
@@ -26,24 +27,6 @@ bool sameCamera(const XeenCamera &a, const XeenCamera &b) {
 	return a.mapId==b.mapId && a.x==b.x && a.y==b.y && a.direction==b.direction;
 }
 
-// Compare all currently modeled character/member state, excluding quest counters.
-std::string partySnapshot(const XeenPartyState &p) {
-	std::ostringstream out;
-	for(auto id:p.party.activeRosterIds())out<<+id<<',';
-	out<<+p.firstSerializedCount<<','<<+p.effectiveSerializedCount;
-	for(const auto &d:p.diagnostics)out<<d<<'\n';
-	for(const auto &c:p.roster.characters()){
-		out<<+c.rosterId<<c.name<<int(c.sex)<<int(c.race)<<int(c.characterClass);
-		for(auto a:{c.intellect,c.personality,c.endurance})out<<a.permanent<<','<<a.temporary<<',';
-		out<<c.permanentLevel<<','<<c.temporaryLevel<<','<<c.temporaryAge<<','<<c.birthYear<<','
-			<<c.currentHp<<','<<c.currentSp<<','<<c.hasSpells<<c.maxStatSkills.astrologer
-			<<c.maxStatSkills.bodybuilder<<c.maxStatSkills.prayerMaster<<c.maxStatSkills.prestidigitation;
-		for(auto v:c.conditions)out<<+v<<',';
-		for(const auto *items:{&c.weapons,&c.armor,&c.accessories})
-			for(auto item:*items)out<<+item.material<<','<<+item.state<<','<<+item.frame<<',';
-	}
-	return out.str();
-}
 
 void runCase(XeenAssetSource &assets, const std::filesystem::path &output,
 		const std::string &name, bool sdl) {

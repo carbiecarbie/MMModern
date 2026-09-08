@@ -2,37 +2,30 @@
 
 ## Current development state
 
-Current stable milestone: **Milestone 17**
+Current stable milestone: **Milestone 18**
 
-**Milestone 18A is implemented, validated and independently approved.** Milestone 18 is incomplete and
-not stable; 18B remains pending and was not started by the 18A implementation.
+**18A is complete and independently approved; 18B is complete on 2026-09-08.**
+The approved [Milestone 18 plan](milestone-18-plan.md#16-18b-original-data-acceptance-and-stabilization)
+records A01-A36 acceptance and stabilization. No independent review of 18B is claimed.
+Milestones 14-17 remain complete; their detailed records below are historical.
 
-Milestone 14 is complete. Stages 14A, 14B, 14C, and 14D are complete.
+Latest validation: **44/44 full CTest**, **31/31 focused regressions**, successful
+build and Bone Whistle/Phirna smokes directly and through SDL dummy/software.
+New native frames were inspected; no physical-window test was performed.
 
-Milestone 15 is complete. Stages 15A, 15B, and 15C are complete.
-The approved specification is
-[Milestone 15 plan](milestone-15-plan.md).
+Original Bone Whistle interaction on Clouds map 20 `(5,14)` North now has full
+local acceptance: WhoWill -> original display -> acknowledgment -> one item 100
+-> Remove of object record 1. Count 0 becomes 1 in ten instructions, event records
+1-5 become effective None, and the returned frame shows removal with success text.
+Repeat runs five None and grants nothing. Actual cache reload, controlled leave/
+return, fresh-session restoration, cancellation and retry passed. Fresh Escape,
+SDL_QUIT, input repeats, navigation blocking/recovery and existing 18A audit
+regressions remain covered. Phirna No/harvest/owned outcomes remain unchanged.
 
-Milestones 16A, 16B and 16C are complete. The approved specification and
-validation record are in the [Milestone 16 plan](milestone-16-plan.md).
-The [Milestone 17 plan](milestone-17-plan.md) is complete: 17A and 17B are
-complete, and independent final review returned **APPROVE MILESTONE 17**.
-All required acceptance cases A01-A13 passed. Milestone 17 is the latest stable
-milestone. [Milestone 18](milestone-18-plan.md) has completed 18A; 18B original
-acceptance and stabilization remain pending and require separate authorization.
-
-Latest implementation validation: **44/44 CTest passed for 18A**, plus a separate
-**31/31** relevant-regression run. The **42/42 M17** result remains historical.
-The first independent audit returned **CHANGES REQUIRED** for three confirmed
-findings. All three were corrected and revalidated by the second independent
-review, which returned **APPROVE 18A**. It reproduced the full build, **44/44 CTest**,
-**31/31 focused regressions**, and WhoWill and Phirna smokes both directly and
-through SDL. The previous independent probes no longer reproduced the defects;
-no new regression or expansion into 18B was found. SDL validation used
-**dummy/software**; no physical-window validation was performed. This documentary
-closure records the review results without claiming another test run.
-See the [18A evidence record](milestone-18-plan.md#15-18a-implementation-and-validation)
-for commands, environment, acceptance mapping and original-data checkpoints.
+18B changes tests and documentation only; no production or dependency change was
+needed. It does not certify normal travel to this checkpoint, combat, Orothin's
+quest completion, inventory/consumption, save/load or Darkside gameplay. No known
+pending issue remains within the approved scope. No later milestone was started.
 
 ## Milestone 18A - WhoWill and temporary character context
 
@@ -57,8 +50,8 @@ No physical-window validation was performed. Existing Phirna smoke passed unchan
 in direct and SDL modes. Commercial resources were read only; outputs are ignored
 under `build/18a`.
 
-18B collection, repeat, reconstruction/new-session certification was not performed.
-Milestone 17 remains the last stable milestone; Milestone 18 is not complete.
+At the historical 18A boundary, full collection/repeat/session certification was
+not performed. 18B has now supplied that evidence; see the current status above.
 
 ## Milestone 13
 
@@ -710,22 +703,22 @@ at the time of that stabilization; its later planning approval is recorded below
 
 ## Milestone 18 - WhoWill and Bone Whistle collection
 
-**Status: 18A complete and independently approved; 18B pending and not started; M18 incomplete and not stable.**
+**Status: complete; M18 is the latest stable milestone within its approved scope.**
 
-The approved specification is the [Milestone 18 plan](milestone-18-plan.md).
-Milestone 17 remains the latest stable milestone.
-
-- **18A: implemented, validated and independently approved (APPROVE 18A).** WhoWill decoding, ephemeral script-selected
-  character context, eligibility, typed responses, F1-F6/Escape and Action 9
-  work through the production flow. See the implementation record above.
-- **18B: planned, not implemented or complete.** Validate the original Bone
-  Whistle chain on Clouds map 20 at (5,14), facing North, including cancellation,
-  one-item grant, Remove persistence, repeat interaction and M17 regressions.
-- The scope excludes quest completion, normal route/combat certification,
-  inventory/quest-item consumption and other opcode expansion.
-- A01-A25 and A30-A32 passed for 18A, with its restricted original checkpoint.
-  Full A01-A36/M18 certification remains pending. The 42/42 M17 baseline remains
-  historical; this implementation passed 44/44 full CTest and 31/31 regressions.
+- **18A:** implemented, validated and independently approved (APPROVE 18A).
+  The implementation and audit history above remain unchanged.
+- **18B:** original-data acceptance and stabilization completed on 2026-09-08.
+  A01-A25/A30-A32 use the existing tests, rerun successfully; A26-A29 and
+  A33-A36 are closed by the extended original smoke and regression runs.
+- Extended `WhoWillIntegrationTest.cpp` verifies exact original instructions,
+  party/world snapshots, immediate scene/text results, effective event overlays,
+  real cache reconstruction and fresh owners. The existing Phirna snapshot helper
+  is now shared by the two tests. No production or CMake change was required.
+- New full CTest **44/44**, focused regressions **31/31**, both smoke targets and
+  all four direct/SDL executions passed. Native framebuffer inspection passed;
+  SDL used dummy/software, with no physical-window validation.
+- See the [18B record](milestone-18-plan.md#16-18b-original-data-acceptance-and-stabilization)
+  for exact commands, assertions, provider counts, images and limitations.
 
 ## Architecture notes
 

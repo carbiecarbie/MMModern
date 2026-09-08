@@ -8,11 +8,11 @@ The project is currently in early development.
 
 ## Current status
 
-[Milestone 17](docs/milestone-17-plan.md) is complete and is the latest stable
-milestone, including the completed Milestones 14-16. The recorded M17 validation
-passed A01-A13 and full CTest **42/42**; these are historical results, not a new
-test run. SDL validation used dummy/software rendering and native-frame
-inspection, not physical-display hardware validation.
+[Milestone 18](docs/milestone-18-plan.md) is complete and is the latest stable
+milestone, preserving Milestones 14-17. New validation passed A01-A36,
+full CTest **44/44**, focused regressions **31/31**, and Bone Whistle/Phirna smokes
+in direct and SDL modes. SDL validation used dummy/software rendering and native
+framebuffer inspection; no physical-window validation was performed.
 
 Supported static Clouds objects render with direction, scale, clipping and
 terrain ordering, using validated World of Xeen metadata in `DARK.CC/clouds.dat`.
@@ -24,11 +24,15 @@ refusal grant nothing and leave the plant present. Ownership and removal persist
 through same-session map/cache changes; repeat interaction cannot grant again,
 and a new session restores the initial state.
 
-[Milestone 18A](docs/milestone-18-plan.md#15-18a-implementation-and-validation) is
-implemented and validated: WhoWill selects a temporary active character through
-the gameplay UI, and Action 9 reads that character's current SP. The current
-validation passed **44/44 CTest tests**. M18 remains incomplete and not stable;
-18B original collection/repetition/session certification is pending.
+WhoWill selects a temporary active character through the gameplay UI, and Action 9
+reads that character's current SP. The original local Bone Whistle interaction on
+Clouds map 20 `(5,14)` North (Space -> F1-F6 -> acknowledgment) grants exactly one
+item 100 and removes the bones immediately while retaining the success text.
+Cancellation leaves the item/object/events unchanged and permits retry. Repeat
+interaction cannot grant again; removal survives cache reconstruction and a new
+session restores the initial resources. This validates the local interaction,
+not normal travel to the checkpoint, combat or Orothin's quest completion.
+
 Quest-item consumption, general inventory/TakeOrGive, Myra's exchange, disk
 save/load and Darkside gameplay also remain unimplemented.
 
