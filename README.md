@@ -8,18 +8,20 @@ The project is currently in early development.
 
 ## Current status
 
-[Milestone 18](docs/milestone-18-plan.md) is complete and is the latest stable
-milestone, preserving Milestones 14-17. New validation passed A01-A36,
-full CTest **44/44**, focused regressions **31/31**, and Bone Whistle/Phirna smokes
-in direct and SDL modes. SDL validation used dummy/software rendering and native
-framebuffer inspection; no physical-window validation was performed.
+[Milestone 19](docs/milestone-19-plan.md#18-19b-implementation-and-validation-evidence)
+is complete and is the latest stable milestone. Validation passed **47/47 CTest**,
+**23/23 focused tests**, the full Myra matrix and Phirna/Bone Whistle controls
+directly and through SDL dummy/software rendering. Native framebuffer and
+portrait evidence was inspected; no physical-window validation was performed.
 
-[Milestone 19A](docs/milestone-19-plan.md#17-19a-implementation-and-validation-evidence)
-is complete, with **46/46 CTest** passing. Clouds NPC mode-1 dialogue now presents
-original animated portraits, positioned titles and paginated text through the
-resumable event UI. The local Myra request displays correctly, then stops at the
-unsupported quest-state operation; her return dialogue stops before Root
-consumption. M19B quest flags remain pending, and Milestone 19 is not complete.
+Clouds NPC mode-1 dialogue presents original animated portraits, positioned titles
+and paginated text through the resumable event UI. Myra's original local request
+at map 23 `(9,11)` West now records Clouds quest flag 2 after final acknowledgment,
+including Escape. Revisits repeat her request; return dialogue with a Root still
+stops before unsupported consumption. The party loads 30 Clouds quest flags from
+original data and retains request state across same-session owner/cache changes.
+A fresh session loads its own original state. This acceptance does not certify
+ordinary travel to Myra or her completed exchange.
 
 Supported static Clouds objects render with direction, scale, clipping and
 terrain ordering, using validated World of Xeen metadata in `DARK.CC/clouds.dat`.
@@ -58,6 +60,7 @@ MMModern currently includes:
 - Conditions and event calls
 - Teleport events
 - Game flags
+- Clouds quest-request flags: original loading and bounded in-memory set
 - Loading of Xeen event text resources
 - Manual event dispatch from the current position and facing using Space
 - Resumable event-text presentation and confirmation semantics

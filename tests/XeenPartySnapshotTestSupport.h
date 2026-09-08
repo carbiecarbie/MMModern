@@ -2,9 +2,10 @@
 #define MMODERN_TESTS_PARTY_SNAPSHOT_SUPPORT_H
 #include "games/xeen/XeenPartyLoader.h"
 #include <sstream>
+#include <stdexcept>
 namespace remove_test {
 using namespace mmodern;
-// Compare all currently modeled character/member state, excluding quest counters.
+// Character/member snapshot. Compare BOTH quest collections explicitly below.
 inline std::string partySnapshot(const XeenPartyState &p) {
 	std::ostringstream out;
 	for(auto id:p.party.activeRosterIds())out<<+id<<',';
@@ -21,6 +22,12 @@ inline std::string partySnapshot(const XeenPartyState &p) {
 			for(auto item:*items)out<<+item.material<<','<<+item.state<<','<<+item.frame<<',';
 	}
 	return out.str();
+}
+
+inline void checkPartyQuestState(const XeenPartyState &party,
+		const XeenCloudsQuestItems::Counts &items, const XeenCloudsQuestFlags::Values &flags) {
+	if (party.questItems.counts() != items || party.questFlags.values() != flags)
+		throw std::runtime_error("unexpected quest counter or quest flag mutation");
 }
 
 }

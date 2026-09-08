@@ -5,6 +5,24 @@
 
 namespace mmodern {
 
+bool XeenCloudsQuestFlags::validIndex(std::int64_t index) {
+	return index >= 0 && index < static_cast<std::int64_t>(kCount);
+}
+
+std::size_t XeenCloudsQuestFlags::checkedIndex(std::int64_t index) {
+	if (!validIndex(index))
+		throw std::out_of_range("Clouds quest flag index outside 0..29");
+	return static_cast<std::size_t>(index);
+}
+
+bool XeenCloudsQuestFlags::isSet(std::int64_t index) const {
+	return _values[checkedIndex(index)];
+}
+
+void XeenCloudsQuestFlags::set(std::int64_t index) {
+	_values[checkedIndex(index)] = true;
+}
+
 bool XeenCloudsQuestItems::increment(std::size_t index) {
 	auto &count = _counts.at(index);
 	if (count == std::numeric_limits<std::uint32_t>::max())

@@ -74,6 +74,7 @@ IndexedFrame checkpoint(XeenAssetSource &assets, const std::filesystem::path &ou
 	bool cancel, bool sdl, const IndexedFrame *previousBase=nullptr) {
 	auto party=XeenPartyLoader().loadInitialCloudsParty(assets);
 	const auto counts=party.questItems.counts();const auto members=partySnapshot(party);
+	const auto questFlagsBefore=party.questFlags.values();
 	for(std::size_t i=0;i<counts.size();++i)
 		check(counts[i]==assets.readInitialResource("maze.pty").at(747+i),"fresh quest counters differ from resources");
 	const auto q0=counts.at(18); // Clouds script item 100: 100 - 82.
@@ -149,7 +150,8 @@ IndexedFrame checkpoint(XeenAssetSource &assets, const std::filesystem::path &ou
 	};
 	auto unchanged=[&] {
 		auto expected=counts;if(harvested)++expected[18];
-		check(party.questItems.counts()==expected && partySnapshot(party)==members && flags.values()==flagsBefore,"unexpected party/flag mutation");
+		checkPartyQuestState(party,expected,questFlagsBefore);
+		check(partySnapshot(party)==members && flags.values()==flagsBefore,"unexpected party/flag mutation");
 		check(world.sessionState().disabledObjectCount()==(harvested?1:0) &&
 			world.sessionState().disabledEventCount()==(harvested?cellRecords.size():0),"unexpected Remove scope");
 		for(std::size_t i=0;i<objects.entities.objects.size();++i)

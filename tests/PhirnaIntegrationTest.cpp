@@ -46,6 +46,7 @@ void runCase(XeenAssetSource &assets, const std::filesystem::path &output,
 	auto party=XeenPartyLoader().loadFromResources(originalRoster,partyBytes);
 	const auto partyBefore=party.questItems.counts();
 	const auto membersBefore=partySnapshot(party);
+	const auto questFlagsBefore=party.questFlags.values();
 	bool harvested=false;
 	const XeenMapLoader mapLoader;
 	int mapLoads=0, objectLoads=0, scriptLoads=0, textLoads=0;
@@ -97,7 +98,8 @@ void runCase(XeenAssetSource &assets, const std::filesystem::path &output,
 	};
 	auto unchanged=[&]{
 		auto expected=partyBefore;if(harvested)expected[17]=1;
-		check(party.questItems.counts()==expected && partySnapshot(party)==membersBefore &&
+		checkPartyQuestState(party,expected,questFlagsBefore);
+		check(partySnapshot(party)==membersBefore &&
 			flags.values()==flagsBefore,"unrelated party/flags changed or root count wrong");
 		check(world.sessionState().disabledObjectCount()==(harvested?1:0) &&
 			world.sessionState().disabledEventCount()==(harvested?11:0),"unexpected Remove scope");

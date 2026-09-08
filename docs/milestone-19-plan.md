@@ -1,11 +1,11 @@
 # Milestone 19 - NPC dialogue and Myra's quest request
 
-**Status: approved specification; 19A complete on 2026-09-08; 19B pending.**
+**Status: approved specification; 19A, 19B and Milestone 19 complete on 2026-09-08.**
 
 The specification and historical planning evidence below are retained. Section
-17 records the separately authorized 19A implementation and acceptance evidence.
-Only its stage-specific criteria have passed; M19 is not stable or complete.
-Roadmap approval and 19A completion do not authorize beginning 19B or a successor.
+17 records historical 19A evidence; section 18 records the separately authorized
+19B implementation and complete acceptance. Historical stage restrictions below
+describe their original scope. No successor implementation is authorized here.
 
 Throughout this document, **Verified** identifies inspected repository/reference
 code or original resource evidence. **Decision** identifies the proposed
@@ -991,3 +991,144 @@ Clouds quest-flag storage/loading and bounded mode-104 set, completing the no-ro
 request through line 6 while preserving line 8 consumption as unsupported.
 The flag implementation, its tests and its full acceptance matrix remain pending.
 No commit, push, tag, branch change or history rewrite was performed.
+
+## 18. 19B implementation and validation evidence
+
+**19B and M19 complete, 2026-09-08.** This section records the separately
+authorized quest-request stage; section 17 remains historical 19A evidence.
+Actual starting checkout: clean `main`, HEAD
+`fdc3ef91b28578d013f9c3a232ba65e23d800240`. The user supplied an independent
+APPROVE review of committed/pushed 19A. No independent 19B review is claimed.
+The approved roadmap and pinned ScummVM dependency were unchanged. No broader
+reference investigation or presentation redesign was necessary.
+
+### Implemented ownership, loading and execution
+
+`XeenCloudsQuestFlags` is a dedicated value type in `XeenPartyState`, containing
+30 independently copied booleans. Signed indices are checked before narrowing
+or indexing; queries and set reject values outside 0..29. Synthetic defaults
+are false. No quest clear operation or script condition Action 104 was added.
+
+`XeenQuestFlagFormat` requires the entire eight-byte field at offset 739
+(747 bytes through its end), extracts Clouds bits 0..29 LSB-first, and ignores
+nonzero adjacent Darkside/padding bits. `XeenPartyLoader` invokes it for real
+initial resources. Full-party loading still requires the existing 782-byte
+prefix, with existing character/header diagnostics; the separate ten-byte
+header parser retains its contract. No disk persistence was implemented.
+
+TakeOrGive adds only neutral first pair, second pair `(104,index)`, neutral
+third pair (explicit or omitted). Complete combination validation precedes
+the bounded branch. Invalid indices use `InvalidFlagIndex`; logical/physical
+non-Clouds context uses `UnsupportedExecutionContext`; empty party uses
+`EmptyParty`; sequential overflow uses `LineOverflow`. Existing instruction
+budget checks remain before execution. Other combinations retain
+`UnsupportedOperationMode`, and malformed payloads retain decoder diagnostics.
+
+Successful set writes true once to the live party, independent of party size
+or selected character. It is idempotent and immediate: subsequent suspension,
+error, Remove, abandonment or WhoWill cancellation does not roll it back.
+Continuations do not restore an old party snapshot. Camera/game flags retain
+their existing completion/error/cancellation policies; item grants are unchanged.
+Cache reconstruction and replacement event/flow owners retain flags through the
+same party reference. Fresh sessions load fresh original state and have no
+pending generation or portrait timing; suspended flows are never rebound to a
+replacement party. There were **no 19A production-code changes**.
+
+### Acceptance coverage
+
+| IDs | New evidence and preserved controls |
+| --- | --- |
+| M19-A01-A15 | Existing NPC/WhoWill/decoder/flow tests pass unchanged, including timing, pagination, resource failure, response generations and SDL idle updates; native evidence preserved below. |
+| M19-A16 | All 30 defaults, checked negative/large/out-of-domain values, independent copies and idempotent values. |
+| M19-A17 | Each of 64 serialized bits independently tested, including 29/30 isolation, nonzero unrelated bytes, all truncated field lengths, original loading, full-party/header contracts and diagnostics. |
+| M19-A18 | Every supported index with one/six members, explicit/omitted third pair and repeated sets; exact full-state assertions. |
+| M19-A19 | Invalid indices/combinations/context/empty party, malformed operands, line overflow and exhausted budget reject without a write; clear and condition Action 104 remain unsupported. |
+| M19-A20 | Live effects survive calls, later NPC suspension, wrong response, abandonment, later error, invalid Remove, successful Remove then error, and WhoWill cancellation. Camera/game-flag policy and active-character context remain covered. |
+| M19-A21 | Root counts 1/3 crossed with flag 2 false/true and Space/Enter/Escape: strict line 8/offset 255 `UnsupportedOperationMode`, three instructions, no changes. |
+| M19-A22-A24 | Original no-root request and revisit complete in five instructions with only the permitted flag-2 delta. Intermediate pages explicitly assert no flag changes; final Escape acknowledges. Initial draw failure, abandonment and SDL_QUIT before acknowledgment do not write. |
+| M19-A25 | Pending/completed cache reload with preserved frame/generation/timing, controlled leave/return, fresh EventSystem/EventFlow with the same party and genuinely fresh original loading. |
+| M19-A26 | Phirna and Bone Whistle direct/SDL smokes retain their exact counters, world/event effects and quest flags. Shared snapshot support now explicitly compares all quest counters and flags alongside modeled characters/membership. |
+| M19-A27-A28 | Build, focused/full tests, production-loading matrix, SDL, native visual/temporal checks and documentation/diff inspection below. |
+
+Synthetic coverage lives in new `XeenQuestFlagTests.cpp`. The existing
+`MyraIntegrationTest.cpp`/`mmodern_myra_smoke` was extended rather than replaced.
+Controlled state is confined to fixtures. The no-root obsolete mode-104 error
+assertion was replaced with strict successful completion; consumption diagnostics
+remain strict. Tests compare every quest flag/counter, modeled characters and
+membership, camera/game flags, effective objects/events and relevant geometry.
+Successful requests allow exactly flag 2 becoming true, with no other delta.
+
+### Original checkpoint matrix
+
+All cases begin at ordinary line 0, Clouds map 23 `(9,11)` West, and use
+production loading, EventSystem, EventFlow and the existing NPC presentation.
+
+| Initial state | Final acknowledgment | Result |
+| --- | --- | --- |
+| Root 0, Q2 false | Space, Enter, Escape | `0 -> 1 -> 4 -> 5 -> 6`, five instructions; Q2 becomes true only after final page. |
+| Root 0, Q2 true | Space, Enter, Escape | Same request/path/count; Q2 stays true. Dialogue is not suppressed. |
+| Root 1 or 3, Q2 false or true | Space, Enter, Escape | `0 -> 7 -> 8`, three instructions; unsupported consumption at offset 255, all state unchanged. |
+
+The **18 cases plus revisits pass in each mode**, direct and SDL dummy/software.
+Each case also covers pre-acknowledgment failure/abandonment, actual provider/cache
+reloads, pending and completed reconstruction, subsequent dispatch, replacement
+event/flow owners and fresh original loading. Initial flag values are checked
+against the actual packed resource bits. Original resource bytes remain unchanged.
+Y/N, F-keys, navigation, repeated input and queued input following SDL_QUIT retain
+19A's behavior. Escape advances an intermediate page and acknowledges the final
+NPC page; it does not become WhoWill refusal.
+
+### Validation commands and results
+
+Reused the existing Debug configuration in `build/19a`, with the pinned ScummVM
+source at `D:/Projetos/MModern/scummvm-known-good-candidate` and libraries in
+`D:/Projetos/MModern/build-scummvm-6814ee9b-ucrt64`, revision
+`6814ee9ba54582f5b5adcffab49efbbd8f589edd`. Captures for this stage are separately
+stored under ignored `build/19b`. Commands use MSYS2 UCRT64 binaries on PATH.
+
+- `cmake --build build/19a --parallel 4`: passed. Explicit Myra, Phirna,
+  WhoWill, manual-event and graphics smoke targets also built successfully.
+- Focused CTest expression
+  `xeen_(npc|who_will|event_|manual_event|navigation_flow|quest_|remove|session_|visual_remove|character_formats)`:
+  **23/23 passed** (2.98 s).
+- `ctest --test-dir build/19a --output-on-failure`: **47/47 passed** (final run 4.01 s).
+  All 46 existing tests remain passing; the new quest-flag test is data-free.
+- `mmodern_myra_smoke <game-directory> build/19b/myra-direct`: full matrix passed.
+- `mmodern_myra_smoke <game-directory> build/19b/myra-sdl sdl`: full matrix passed.
+  SDL used `SDL_VIDEODRIVER=dummy`, `SDL_RENDER_DRIVER=software`.
+- Phirna direct/SDL: No = three instructions/no grant; Yes = 18/one Root and
+  plant removal; owned = five/no extra grant. Revisit/cache/fresh-session checks
+  pass with all quest flags preserved.
+- Bone Whistle direct/SDL: ten instructions, one item 100 and object 1/event
+  records 1-5 removal; cancellation/retry, retained text, revisit and fresh-session
+  checks pass with all quest flags preserved.
+- Manual original smoke: Air/Corner, reduced Snake Oil and Castle question,
+  No/Yes transfer passed. Application SDL `manual-no` and `manual-yes` modes
+  with Escape shutdown passed.
+
+### Native visual/temporal evidence and closure
+
+Inspected native 320x200 request pages, return page, portrait states, resting,
+reconstructed and dismissed frames under `build/19b/myra-direct`, and the SDL
+idle portrait capture. Title positioning, complete body pagination, multi-cell
+portrait/frame composition and retained scene/HUD remain correct. A binary
+comparison found **35 direct captures identical to accepted 19A captures**:
+both dialogues' four frames, deterministic 0..1050-ms sequence, rest, pending
+reconstruction, dismissal and request pagination. Automated pixel-region and
+state assertions continue to verify that temporal changes affect only the
+portrait and do not execute script instructions or mutate gameplay state.
+
+Request still has two pages with counters 72/30; return has one with counter 22.
+Injected timing still reaches rest at 21,750 ms (request first page) and
+6,750 ms (return); rebase preserves timing and the restored resting frame does
+not change. SDL's no-input callback produces a changed portrait before dismissal.
+Commercial game data remains external/read-only at
+`F:/Games/gog/Might and Magic 4-5`; generated captures are not source fixtures.
+
+The complete diff was inspected and `git diff --check` passed. No plan deviation,
+unresolved implementation issue or additional architectural layer was required.
+No physical-window validation, ordinary-travel certification, completed exchange,
+reward, disk persistence or Darkside acceptance is claimed. No independent 19B
+review is claimed. Quest clear/Action 104, Root consumption and all later work
+remain unimplemented. **Stop after 19B; M20 has not started.** No commit, push,
+tag, branch change or history rewrite was performed.

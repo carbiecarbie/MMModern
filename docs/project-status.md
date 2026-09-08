@@ -2,7 +2,40 @@
 
 ## Current development state
 
-Current stable milestone: **Milestone 18**
+Current stable milestone: **Milestone 19**
+
+**M19B and Milestone 19 are complete on 2026-09-08.** The separately authorized
+stage adds authoritative in-memory Clouds quest-request state and completes
+the original Myra request. The user supplied an independent APPROVE review of
+committed/pushed 19A; no independent 19B review is claimed.
+
+Latest validation: successful Debug build and required smoke targets,
+**23/23 focused tests**, **47/47 full CTest**, and the full **18-case Myra matrix
+plus revisits in each of direct and SDL dummy/software modes**. Phirna and Bone
+Whistle direct/SDL regressions and manual text/Application controls pass.
+Native 320x200 dialogue/portrait captures were inspected; 35 direct captures
+match the accepted 19A evidence byte for byte. No physical window was tested.
+Detailed acceptance evidence is in the
+[Milestone 19 plan](milestone-19-plan.md#18-19b-implementation-and-validation-evidence).
+
+The party owns 30 checked Clouds quest flags, loaded LSB-first from the complete
+eight-byte field at offset 739 in original party data. Bounded mode-104 set is
+immediate and idempotent; it survives later errors, abandonment and reconstruction
+with the same party owner. A fresh session loads its own original state.
+Game flags, quest-item counters and their existing policies remain separate.
+
+Myra at Clouds map 23 `(9,11)` West without a Root now executes
+`0 -> 1 -> 4 -> 5 -> 6` in five instructions. Only quest flag 2 becomes true,
+after final acknowledgment. Already-requested visits repeat the same dialogue;
+final Escape also records the request. Intermediate paging, pre-acknowledgment
+failure and abandonment do not write it. Root counts 1 and 3, with flag 2 false
+or true, still stop at unsupported consumption at line 8/offset 255 in three
+instructions, preserving every flag, item counter and unrelated state.
+NPC rendering/timing code was unchanged. Quest clear/check Action 104, exchange,
+rewards, disk persistence, ordinary travel and later milestones remain outside
+this acceptance. M20 has not started.
+
+## Milestone 19A - Historical implementation evidence
 
 **Milestone 19A is complete on 2026-09-08; M19B is pending.** Milestone 19 is
 not stable or complete. The separately authorized stage follows the approved

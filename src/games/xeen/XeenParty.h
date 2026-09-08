@@ -57,10 +57,27 @@ private:
 	Counts _counts{};
 };
 
+// Clouds request state, separate from transactional game flags and item counts.
+class XeenCloudsQuestFlags {
+public:
+	static constexpr std::size_t kCount = 30;
+	using Values = std::array<bool, kCount>;
+	XeenCloudsQuestFlags() = default;
+	explicit XeenCloudsQuestFlags(Values values) : _values(values) {}
+	static bool validIndex(std::int64_t index);
+	bool isSet(std::int64_t index) const;
+	void set(std::int64_t index);
+	const Values &values() const { return _values; }
+private:
+	static std::size_t checkedIndex(std::int64_t index);
+	Values _values{};
+};
+
 struct XeenPartyState {
 	XeenRoster roster;
 	XeenParty party;
 	XeenCloudsQuestItems questItems;
+	XeenCloudsQuestFlags questFlags;
 	std::uint8_t firstSerializedCount = 0;
 	std::uint8_t effectiveSerializedCount = 0;
 	std::vector<std::string> diagnostics;

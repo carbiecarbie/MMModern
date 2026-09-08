@@ -26,6 +26,7 @@ add_library(mmodern_xeen STATIC
 	src/games/xeen/XeenObjectVisual.cpp
 	src/formats/xeen/XeenCharacterFormat.cpp
 	src/formats/xeen/XeenQuestItemFormat.cpp
+	src/formats/xeen/XeenQuestFlagFormat.cpp
 	src/formats/xeen/XeenEventFormat.cpp
 	src/formats/xeen/XeenEventTextFormat.cpp
 	src/formats/xeen/XeenFontFormat.cpp
@@ -91,6 +92,9 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+	add_executable(mmodern_quest_flag_tests tests/XeenQuestFlagTests.cpp)
+	target_link_libraries(mmodern_quest_flag_tests PRIVATE mmodern_app mmodern_xeen)
+	add_test(NAME xeen_quest_flags COMMAND mmodern_quest_flag_tests)
 	add_executable(mmodern_npc_tests tests/XeenNpcTests.cpp)
 	target_link_libraries(mmodern_npc_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2)
 	add_test(NAME xeen_npc COMMAND mmodern_npc_tests)

@@ -452,6 +452,28 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 				neutral(takeOrGive->second) && neutral(takeOrGive->third);
 			const bool grantQuestItem = neutral(takeOrGive->first) &&
 				takeOrGive->second.mode == 21 && neutral(takeOrGive->third);
+			const bool setQuestFlag = neutral(takeOrGive->first) &&
+				takeOrGive->second.mode == 104 && neutral(takeOrGive->third);
+			if (setQuestFlag) {
+				const auto index = takeOrGive->second.value;
+				if (!XeenCloudsQuestFlags::validIndex(index))
+					return error(XeenEventExecutionErrorKind::InvalidFlagIndex,
+						"TakeOrGive Clouds quest flag index outside 0..29", instructionCount, logical, decoded.source);
+				if (logical.mapId.side != XeenSide::Clouds || workingCamera.mapId.side != XeenSide::Clouds)
+					return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
+						"quest-flag set requires Clouds logical and physical context", instructionCount, logical, decoded.source);
+				if (!partyState.party.size())
+					return error(XeenEventExecutionErrorKind::EmptyParty,
+						"quest-flag set requires an active party member", instructionCount, logical, decoded.source);
+				if (logical.line == 255)
+					return error(XeenEventExecutionErrorKind::LineOverflow,
+						"quest-flag set sequential line overflow", instructionCount, logical, decoded.source);
+				// Authoritative party effect: immediate, idempotent, once per party.
+				partyState.questFlags.set(index);
+				++logical.line;
+				missingPolicy = MissingInstructionPolicy::NaturalCompletion;
+				continue;
+			}
 			if (grantQuestItem) {
 				const auto itemId = takeOrGive->second.value;
 				const std::string detail = "TakeOrGive quest item " + std::to_string(itemId);
