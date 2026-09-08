@@ -1,7 +1,11 @@
 # Milestone 21 - Myra's return exchange and bounded item rewards
 
-**Status: draft awaiting approval, 2026-09-08. Planning only; no implementation
-or stage is authorized by this document.**
+**Status: limited 21A implementation authorization, 2026-09-08.** The user has
+approved only the character storage, initial loading, category tail-capacity and
+explicit compaction, save v2, narrow v1 restoration and existing-target
+compatibility decisions in sections 4 and 7 and the section-10 21A definition.
+This authorization is separate from implementation review/acceptance. All other
+M21 decisions remain draft; 21B, 21C and 21D are not authorized or started.
 
 Recommendation: retain one milestone with four small, separately authorized
 stages. The necessary prerequisite is bounded character item storage plus its
@@ -12,7 +16,8 @@ roadmap is unchanged; implementation must not start automatically after review.
 
 In this document **Verified** means inspected current code, pinned reference or
 the focused original-data checks recorded below. **Decision** means a recommended
-MMModern contract awaiting approval. Future acceptance is not a claim of tests
+MMModern contract awaiting approval except for the limited 21A authorization
+above. Future acceptance is not a claim of tests
 already passing. Paths are relative to this repository unless identified as
 reference paths.
 
@@ -300,8 +305,17 @@ ID==0 means empty; other bytes still round-trip even in an empty record. All
 byte values are valid opaque storage; unknown values must not index name/effect
 tables. Item execution support is narrower than storage support.
 
-Provide narrow reusable operations for category tail-capacity, party global
-tail-capacity, bounded misc insertion/compaction and delivery result reporting.
+**21A helper allocation:** only a read-only category tail-capacity query and
+explicit stable category compaction. Slot 8's ID determines capacity regardless
+of earlier holes. Compaction preserves occupied fields/order and clears the
+remaining empty records, including their metadata, only when explicitly called.
+The fixed nine-slot category type checks the boundary; neither helper accepts
+unchecked category, roster or slot indices. Loading and persistence never call
+compaction.
+
+**Deferred to 21B, without authorization:** party-global tail-capacity scans,
+insertion, recipient selection/eligibility, preferred WhoWill recipients,
+pending treasure, delivery results and their lifecycle.
 Use checked roster/category/slot access, `canAct()`, active-party order and
 current authoritative records at insertion time. On a full target return a
 defined no-insertion result with no changes. Insertion clears empty misc metadata
@@ -613,8 +627,9 @@ pre-granted fixture. Do not claim normal travel between the checkpoints.
 
 ## 10. Stages, activation dependencies and commands
 
-Each stage requires explicit authorization after plan approval. Stage completion
-does not authorize the next stage. No implementation has begun.
+Each stage requires explicit authorization. Stage completion does not authorize
+the next stage. Only 21A has limited authorization; its implementation evidence
+is recorded separately below.
 
 ### 21A - Authoritative item records and persistence
 
@@ -627,6 +642,10 @@ need only compatibility tests, not a rewrite.
 In scope: four typed arrays, narrow capacity/compaction helpers, exact initial
 loading, v2 codec and v1 resolution/replacement policy. Out of scope: event
 consumption/clear activation, GiveEnchanted execution, receipt and item use.
+The helper allocation above excludes all insertion and party-level delivery
+operations from 21A. Structural validation must accept unresolved v1 snapshots
+for decode/read/restore and old-target replacement; v2 encoding alone rejects
+unresolved input. The transient discriminator is not a wire or gameplay field.
 Observable acceptance: original items preserved, old modeled stats unchanged,
 independent v1 resolves correctly, explicit-empty v2 remains empty and new fields
 survive production restoration. Build plus focused model/save tests; original
@@ -761,7 +780,8 @@ prerequisite; do not silently add it to these stages. None is demonstrated as
 necessary for the present objective. The exact future physical harness command
 is an implementation deliverable, not an unresolved reward semantic.
 
-Planning changed only this new draft and the minimal project-status pointer.
+Historical planning closure (before the separate 21A authorization below):
+planning changed only this new draft and the minimal project-status pointer.
 Read-only baseline/source/test inspection, the original event diagnostic and
 focused in-memory inventory/provenance checks were performed. The optional party
 smoke executable was absent; no build/CTest, exchange execution, saved-result
@@ -769,3 +789,155 @@ acceptance, native image inspection or physical-window check was performed here.
 Final document review and whitespace/scope checks are recorded in the task report.
 No implementation, test/helper/config change, commercial-data write, commit,
 push, tag, branch switch or later milestone work is part of this task.
+
+## 12. 21A implementation and validation evidence
+
+**2026-09-08: 21A implemented and locally validated; independent implementation
+review pending.** This is limited implementation authorization and evidence,
+not approval of all M21 decisions or full milestone acceptance. 21B/21C/21D
+remain unauthorized and unstarted. M20 remains the stable accepted milestone.
+
+### Baseline and implementation
+
+- Initial branch `main`, HEAD `b5b1e5b80213ec5cdc60431e00e58e2f9f50c00a`, clean
+  working tree. Recent history matched `b5b1e5b`, `3625380`, `a449bb7`; no material
+  baseline discrepancy. No branch, commit, push, tag, history or dependency change.
+- The ScummVM source path below was checked at
+  `6814ee9ba54582f5b5adcffab49efbbd8f589edd` with clean status. The existing UCRT64
+  GCC 16.2.0 / CMake 4.4.2 / MSYS Makefiles configuration was reused unchanged.
+- `XeenItem` replaces the modifier-only record with four uint8 fields in
+  material/ID/state/frame order. `XeenCharacter` owns weapons, armor, accessories
+  and miscellaneous categories of nine records. The original loader reads
+  offsets 166/202/238/274 without changing the 354-byte CHR source format.
+  All roster slots retain their values; repeated membership refers to the same
+  owner. Existing equipment rules only received the type adaptation.
+- `xeenItemHasTailCapacity` reads only the final ID. `xeenCompactItems` is an
+  explicitly invoked stable operation on one fixed-size category; it clears
+  leftover empty records. Neither helper is called during loading or persistence.
+  There is no insertion, party scan, recipient, pending reward or delivery API.
+- The codec writes v2 only and explicitly parses v1 or v2. Item blocks are
+  81/144 bytes; fixed character sizes excluding name contents are 149/212;
+  minimal golden fixtures are 4,957/6,847 bytes. The 20-byte envelope, all other
+  fields/order/limits, CRC32, exact EOF and structural validations are retained.
+- Snapshot-level `XeenSaveItemState` distinguishes complete records from v1
+  missing fields. It is neither a wire field nor live state. Shared `validate`
+  accepts unresolved v1; only v2 encoding rejects it. Capture and v2 decode
+  produce complete snapshots without resource loading in the codec.
+- Restoration verifies signatures, loads the initial candidate, overlays saved
+  values and supplies only missing v1 equipment IDs/miscellaneous by roster slot
+  before whole-character replacement. All resource/rule/composition checks still
+  precede publication. Complete v2 empties receive no merge. Failed late legacy
+  preflight preserves live items, membership, camera, flags, world and cache.
+- The file layer and Application production code required no changes. Existing
+  encode-before-I/O, target validation, temporary ownership, flush/close,
+  replacement, alias protection and cleanup remain in force. Valid v1 targets
+  need only structural validation for replacement. Startup/read leaves their
+  exact disk bytes unchanged; only an explicit eligible save upgrades to v2.
+
+### Evidence at owning layers
+
+- Character tests compare all four bytes/categories/slots at original offsets,
+  exercise inactive owners, IDs/metadata at zero and 255 and the whole byte range,
+  aliases, tail fullness despite earlier holes, and stable compaction with
+  distinctive occupied records and empty metadata. Other categories/characters
+  remain exact. Existing rule outputs and visual-state tests still pass, with
+  explicit evidence that IDs/miscellaneous introduce no modifier effects.
+- Typed character comparisons and textual party snapshots include IDs and misc;
+  snapshot comparison also checks transient presence. Existing unusual values,
+  inactive invalid class/race values and historical assertions are preserved.
+- The original independent `golden()` v1 fixture is unchanged. A separately
+  constructed 5,050-byte nonzero v1 fixture adds names, reordered/duplicate
+  membership, distinctive triples and HP/SP, plus quest/game flags, using an
+  independent bitwise checksum repair. Tests decode these actual bytes before
+  restoration or file replacement. A separate asymmetric v2 oracle covers all
+  roster positions, four categories, holes, ID-zero metadata, nonempty names and
+  distinctive fields after the item block. Tests cover truncation with repaired
+  envelopes, inserted/removed bytes, legal item-byte changes and legacy encoding
+  refusal, alongside the existing envelope/domain matrices. Unsupported-version
+  fixtures now use version 3; a v1 payload labeled v2 separately fails schema
+  validation.
+- `xeen_save_state` checks v1 modifier preservation against different nonzero
+  resource defaults, matching inactive roster slots, duplicate membership,
+  recapture as complete v2, late failure without publication and explicit-empty
+  v2 restoration against populated defaults.
+- `xeen_save_file` writes independent v1 bytes directly to disk, checks read
+  immutability, successful v2 replacement, exact old-byte preservation under the
+  existing open/write/short-write/flush/close/replace fault seams, unsupported or
+  invalid target protection and rejection of unresolved new input before I/O.
+  Existing cleanup, actual Windows locks and path/alias regressions still run.
+- The mandatory `xeen_save_flow` Application legacy-upgrade case uses the existing
+  `observeGameplay` and `show` seams. It observes resolved owners before input,
+  compares all saved categories and aliases, checks byte-identical startup,
+  invokes the production `SaveGameAction` handler used by F9, checks the v2 file,
+  and resumes it through Application with different initial items to prove saved
+  authority. No public production test API or new acceptance framework was added.
+- CMake source lists and excluded consumers were inspected. No target changes
+  were required; the storage tests live in existing owning test targets.
+
+### Commands and actual results
+
+Run from `D:/Projetos/MModern/mmodern` in PowerShell:
+
+```powershell
+$env:PATH = 'C:\msys64\ucrt64\bin;C:\msys64\usr\bin;' + $env:PATH
+cmake -S . -B build/21a -G 'MSYS Makefiles' `
+  -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON `
+  -DSCUMMVM_SOURCE_DIR=D:/Projetos/MModern/scummvm-known-good-candidate `
+  -DSCUMMVM_BUILD_DIR=D:/Projetos/MModern/build-scummvm-6814ee9b-ucrt64
+cmake --build build/21a --parallel 4
+ctest --test-dir build/21a --output-on-failure `
+  -R 'xeen_(character_|party_visual_state|save_)'
+cmake --build build/21a --parallel 4 --target `
+  mmodern_party_smoke mmodern_myra_smoke mmodern_save_resume_smoke `
+  mmodern_phirna_smoke mmodern_who_will_smoke mmodern_graphics_smoke `
+  mmodern_outdoor_object_smoke mmodern_object_visual_smoke mmodern_remove_smoke `
+  mmodern_indoor_map_smoke mmodern_event_script_smoke mmodern_event_text_smoke `
+  mmodern_game_flags_smoke mmodern_event_interpreter_smoke `
+  mmodern_event_system_smoke mmodern_manual_event_smoke mmodern_navigation_flow_smoke
+& ./build/21a/mmodern_party_smoke.exe 'F:/Games/gog/Might and Magic 4-5'
+& ./build/21a/mmodern_myra_smoke.exe 'F:/Games/gog/Might and Magic 4-5' build/21a/myra-regression
+& ./build/21a/mmodern_save_resume_smoke.exe 'F:/Games/gog/Might and Magic 4-5' build/21a/save-resume-regression
+ctest --test-dir build/21a --output-on-failure
+git diff --check
+```
+
+Results:
+
+- Fresh Debug configure and build passed; final focused selection **9/9 passed**:
+  six save tests (including Application/SDL/CLI), character formats, character
+  rules and party visual state. The first focused run was 8/9 because the CLI
+  test binary preceded its unsupported-version fixture correction; the corrected
+  rebuild and focused rerun passed. Logs: `build/21a/build.log`, `focused.log`.
+- **All 17 excluded targets explicitly built**, including Myra, save/resume,
+  Phirna and WhoWill shared-comparison consumers. Log: `excluded-build.log`.
+- Original-party smoke passed: all **1,080** slots compared to actual original
+  CHR bytes across all 30 characters; **35 occupied**, **zero miscellaneous**.
+  Current/max HP/SP and portrait order remain unchanged. Nonzero miscellaneous
+  and inactive-population evidence is synthetic, not manufactured original data.
+  Log: `party-smoke.log`.
+- Existing Myra direct matrix passed: **18 cases plus revisits**, preserving
+  Root-owned line 8 / offset 255 / three-instruction unsupported consumption.
+  Log: `myra-smoke.log`; frames are regression outputs, not a claimed native
+  visual review or physical-window test.
+- Existing original cross-process regression passed for Phirna, Whistle, Myra
+  and cumulative producer/consumer/fresh processes plus actual CLI resumes.
+  Log: `save-resume-smoke.log`; detailed process evidence:
+  `build/21a/save-resume-regression/run-34056-276710843/processes.log`.
+  This reruns the M20 frontier; it is not M21D reward acceptance.
+- Current full suite **53/53 passed** (`build/21a/ctest.log`); no failing tests
+  remain. Diff review and `git diff --check` passed.
+
+### Remaining boundaries and handoff
+
+GiveEnchanted `0x2c`, take-only quest-item mode 21 and quest-flag clear mode 104
+remain unsupported. No Root consumption, Q2 clearing, rewards, receipt, I-key
+inspection, pending-reward persistence, equipment use or later milestone work
+was activated. Event/presentation code is unchanged. Original resources were
+read-only; no commercial payload was added to the repository. No dependency,
+branch, commit, push or tag operation was performed.
+
+There is no physical-window acceptance gate for 21A, and none is claimed.
+Independent implementation review is still outstanding. This evidence does not
+approve the remaining draft M21 decisions or authorize starting 21B.
+Suggested commit message for a later authorized commit:
+`Implement Milestone 21A item records and save v2 compatibility`.

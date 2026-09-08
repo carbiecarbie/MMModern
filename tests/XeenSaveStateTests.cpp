@@ -202,6 +202,56 @@ void fullRestoration() {
 	}
 }
 
+void legacyAndExplicitItems() {
+	Fixture f;
+	const auto legacy = XeenSaveFormat::decode(nonzeroLegacy());
+	f.signature = legacy.resources;
+	// Populate the actual initial resource bytes, including inactive roster 29.
+	XeenRoster initial;
+	distinctiveInitialItems(initial);
+	for (unsigned i = 0; i < 30; ++i) {
+		const auto &c = initial.at(i);
+		const XeenItemCategory *categories[]{&c.weapons, &c.armor, &c.accessories, &c.miscellaneous};
+		for (unsigned category = 0; category < 4; ++category)
+			for (unsigned slot = 0; slot < 9; ++slot) {
+				const auto offset = i * 354 + 166 + category * 36 + slot * 4;
+				const auto item = (*categories[category])[slot];
+				f.initialRoster[offset] = item.material; f.initialRoster[offset + 1] = item.id;
+				f.initialRoster[offset + 2] = item.state; f.initialRoster[offset + 3] = item.frame;
+			}
+	}
+	f.party = f.loadInitial();
+	f.world.disableObject({1, 1}); f.flags.set(255); f.party.questFlags.set(7);
+	const auto before = f.capture();
+	const auto metadata = remove_test::partySnapshot(f.party);
+	const auto *map = &f.world.map(1);
+	const auto expected = expectedLegacy(legacy, f.party.roster);
+	rejects([&] { XeenSaveState::restoreBeforeGameplay(legacy, f.resources(), f.party, f.camera, f.flags, f.world,
+		[&](XeenWorld &, const XeenPartyState &candidate, const XeenCamera &, const XeenGameFlags &) {
+			for (unsigned i = 0; i < 30; ++i)
+				remove_test::checkSameCharacter(candidate.roster.at(i), expected.characters[i]);
+			throw std::runtime_error("late legacy preflight failure");
+		}); }, "late legacy");
+	sameSnapshot(before, f.capture());
+	check(metadata == remove_test::partySnapshot(f.party) && &f.world.map(1) == map,
+		"failed legacy preflight published owners or cache");
+	f.restore(legacy);
+	sameSnapshot(expected, f.capture());
+	check(&f.party.party.member(f.party.roster, 0) == &f.party.party.member(f.party.roster, 2),
+		"legacy duplicate membership copied inventory");
+	sameSnapshot(legacy, XeenSaveFormat::decode(nonzeroLegacy())); // Caller input remained unresolved and unchanged.
+	const auto upgraded = XeenSaveFormat::decode(XeenSaveFormat::encode(f.capture()));
+	check(upgraded.itemState == XeenSaveItemState::Complete, "recapture retained legacy state");
+	f.restore(upgraded); sameSnapshot(expected, f.capture());
+	// Complete v2 empty records are authoritative against nonzero initial defaults.
+	auto empty = upgraded;
+	for (auto &c : empty.characters) {
+		c.weapons = {}; c.armor = {}; c.accessories = {}; c.miscellaneous = {};
+	}
+	f.restore(XeenSaveFormat::decode(XeenSaveFormat::encode(empty)));
+	sameSnapshot(empty, f.capture());
+}
+
 template<class Mutation>
 void rejectWithoutPublication(Mutation mutation) {
 	Fixture f;
@@ -317,7 +367,7 @@ void characterPreflight() {
 		value.intellect.permanent = value.personality.permanent = value.endurance.permanent = 70000;
 		value.maxStatSkills = {true, true, true, true}; value.hasSpells = true;
 		for (unsigned material = 0; material < 256; ++material) {
-			value.weapons[0] = {static_cast<std::uint8_t>(material), 0, 1};
+			value.weapons[0] = {static_cast<std::uint8_t>(material), 0, 0, 1};
 			XeenCharacterRules::validateForUse(value, {610});
 			check(XeenCharacterRules::maxHp(value, {610}) >= 0 &&
 				XeenCharacterRules::maxSp(value, {610}) >= 0, "safe preflight changed defined rules");
@@ -447,7 +497,7 @@ void initialDispatchAndReconstruction() {
 
 int main() {
 	try {
-		fullRestoration(); invalidResourceAndState(); characterPreflight(); mutationPolicies(); initialDispatchAndReconstruction();
+		fullRestoration(); legacyAndExplicitItems(); invalidResourceAndState(); characterPreflight(); mutationPolicies(); initialDispatchAndReconstruction();
 		std::cout << "M20A save state: atomic preparation, resource identities, rules and owner/flow lifetimes passed\n";
 		return 0;
 	} catch (const std::exception &error) {

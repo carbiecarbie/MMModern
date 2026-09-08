@@ -42,8 +42,18 @@ void wireContract() {
 	s.resources.clouds = {0x0807060504030201ULL, 0x0c0b0a09U};
 	s.camera = {1, 0, 15, XeenDirection::West};
 	const auto expected = golden();
-	check(XeenSaveFormat::encode(s) == expected, "encoder differs from independent v1 bytes");
+	s.itemState = XeenSaveItemState::LegacyV1MissingFields;
 	sameSnapshot(s, XeenSaveFormat::decode(expected));
+	XeenSaveFormat::validate(s);
+	rejects([&] { XeenSaveFormat::encode(s); }, "unresolved legacy");
+	s.itemState = XeenSaveItemState::Complete;
+	Bytes v2(6847, 0);
+	std::copy_n(expected.begin(), 53, v2.begin());
+	v2[8] = 2;
+	for (unsigned i = 0; i < 30; ++i) v2[53 + 212 * i] = i;
+	fixIndependentEnvelope(v2);
+	check(XeenSaveFormat::encode(s) == v2, "encoder differs from independent minimal v2");
+	sameSnapshot(s, XeenSaveFormat::decode(v2));
 	auto named = s;
 	named.characters[0].name = "X";
 	named.characters[0].intellect = {-1, std::numeric_limits<int>::min()};
@@ -54,8 +64,71 @@ void wireContract() {
 	const auto bytes = XeenSaveFormat::encode(named);
 	check(bytes[54] == 1 && bytes[55] == 'X' && bytes[59] == 255 && bytes[62] == 255 &&
 		bytes[63] == 0 && bytes[66] == 128, "name/signed attribute byte layout");
-	check(bytes[181] == 0 && bytes[182] == 128 && bytes[183] == 255 && bytes[184] == 127 &&
-		bytes[200] == 255 && bytes[201] == 255 && bytes[202] == 255, "HP/SP/condition/year byte layout");
+	check(bytes[244] == 0 && bytes[245] == 128 && bytes[246] == 255 && bytes[247] == 127 &&
+		bytes[263] == 255 && bytes[264] == 255 && bytes[265] == 255, "v2 HP/SP/condition/year byte layout");
+}
+
+void asymmetricV2() {
+	// Independent offsets: three members, 14 name bytes, 212 fixed bytes/character.
+	Bytes bytes(6847 + 3 + 14, 0);
+	const Bytes prefix{'M','M','M','S','A','V','E',0,2,0,0,0};
+	std::copy(prefix.begin(), prefix.end(), bytes.begin());
+	bytes[20] = 99; bytes[28] = 88; bytes[46] = 1;
+	bytes[51] = 3; bytes[52] = 18; bytes[53] = 0; bytes[54] = 18; bytes[55] = 30;
+	XeenSaveSnapshot expected;
+	expected.resources.clouds = {99, 88}; expected.camera = {1, 0, 0, XeenDirection::North};
+	expected.activeRosterIds = {18, 0, 18};
+	std::size_t base = 56;
+	for (unsigned i = 0; i < 30; ++i) {
+		auto &c = expected.characters[i];
+		c.name = i == 0 ? "A" : i == 18 ? "Owner" : i == 29 ? "Inactive" : "";
+		bytes[base] = i; bytes[base + 1] = c.name.size();
+		std::copy(c.name.begin(), c.name.end(), bytes.begin() + base + 2);
+		const auto itemsStart = base + 46 + c.name.size();
+		unsigned category = 0;
+		for (auto *items : {&c.weapons, &c.armor, &c.accessories, &c.miscellaneous}) {
+			for (unsigned slot = 0; slot < 9; ++slot) {
+				const auto offset = itemsStart + category * 36 + slot * 4;
+				const auto material = static_cast<std::uint8_t>(255 - i - category * 19 - slot);
+				const auto id = static_cast<std::uint8_t>(slot % 3 == 1 ? 0 : 1 + i * 7 + category * 11 + slot);
+				const auto state = static_cast<std::uint8_t>(i * 13 + category * 23 + slot);
+				const auto frame = static_cast<std::uint8_t>(255 - i * 3 - category * 9 - slot);
+				bytes[offset] = material; bytes[offset + 1] = id;
+				bytes[offset + 2] = state; bytes[offset + 3] = frame;
+				(*items)[slot] = {material, id, state, frame};
+			}
+			++category;
+		}
+		const auto after = itemsStart + 144;
+		c.currentHp = -static_cast<std::int16_t>(300 + i); c.currentSp = 400 + i;
+		bytes[after] = static_cast<std::uint8_t>(c.currentHp); bytes[after + 1] = 254;
+		bytes[after + 2] = static_cast<std::uint8_t>(c.currentSp); bytes[after + 3] = 1;
+		c.conditions[15] = 200 + i; bytes[after + 19] = c.conditions[15];
+		c.birthYear = 592 + i; bytes[after + 20] = c.birthYear & 255; bytes[after + 21] = 2;
+		base += 212 + c.name.size();
+	}
+	expected.questItems[34] = 0x12345678; put32(bytes, base + 34 * 4, 0x12345678);
+	expected.questFlags[29] = true; bytes[base + 169] = 1;
+	expected.gameFlags[255] = true; bytes[base + 425] = 1;
+	fixIndependentEnvelope(bytes);
+	check(XeenSaveFormat::encode(expected) == bytes, "asymmetric independent v2 byte order");
+	sameSnapshot(expected, XeenSaveFormat::decode(bytes));
+	check(bytes == XeenSaveFormat::encode(XeenSaveFormat::decode(bytes)), "v2 deterministic oracle");
+	// Each legal item byte can change without becoming structural corruption.
+	for (unsigned field = 0; field < 144; ++field) {
+		auto changed = bytes; changed[103 + field] ^= 255; fixIndependentEnvelope(changed);
+		check(XeenSaveFormat::encode(XeenSaveFormat::decode(changed)) == changed, "legal item byte rejected or normalized");
+	}
+	for (std::size_t size = 20; size < bytes.size(); ++size) {
+		Bytes truncated(bytes.begin(), bytes.begin() + size); fixIndependentEnvelope(truncated);
+		rejects([&] { XeenSaveFormat::decode(truncated); });
+	}
+	for (const auto offset : {103U, 138U, 175U, 246U, 56U + 212U * 29U + 6U + 46U + 8U}) {
+		auto removed = bytes; removed.erase(removed.begin() + offset); fixIndependentEnvelope(removed);
+		rejects([&] { XeenSaveFormat::decode(removed); });
+		auto inserted = bytes; inserted.insert(inserted.begin() + offset, 255); fixIndependentEnvelope(inserted);
+		rejects([&] { XeenSaveFormat::decode(inserted); });
+	}
 }
 
 void completeRoundTrips() {
@@ -106,10 +179,10 @@ void numericDomains() {
 				std::numeric_limits<int>::max()}) {
 			*field = value; roundTrip(s);
 		}
-	for (auto *items : {&c.weapons, &c.armor, &c.accessories})
+	for (auto *items : {&c.weapons, &c.armor, &c.accessories, &c.miscellaneous})
 		for (auto &item : *items) {
-			item = {0, 255, 0}; roundTrip(s);
-			item = {255, 0, 255}; roundTrip(s);
+			item = {0, 0, 255, 0}; roundTrip(s);
+			item = {255, 255, 0, 255}; roundTrip(s);
 		}
 	c.birthYear = 0; roundTrip(s);
 	c.birthYear = 65535; roundTrip(s);
@@ -128,7 +201,8 @@ void malformedBytes() {
 	}
 	auto bad = good;
 	bad[0] ^= 1; rejects([&] { XeenSaveFormat::decode(bad); }, "unrecognized format");
-	bad = good; bad[8] = 2; rejects([&] { XeenSaveFormat::decode(bad); }, "unsupported version");
+	bad = good; bad[8] = 3; rejects([&] { XeenSaveFormat::decode(bad); }, "unsupported version");
+	bad = good; bad[8] = 2; rejects([&] { XeenSaveFormat::decode(bad); }); // v1 payload is not v2.
 	bad = good; bad[8] = 0; rejects([&] { XeenSaveFormat::decode(bad); }, "unsupported version");
 	bad = good; bad[10] = 1; rejects([&] { XeenSaveFormat::decode(bad); }, "unsupported game side");
 	bad = good; bad[11] = 1; rejects([&] { XeenSaveFormat::decode(bad); }, "reserved");
@@ -242,7 +316,7 @@ void fingerprints() {
 
 int main() {
 	try {
-		wireContract(); completeRoundTrips(); numericDomains(); malformedBytes(); invalidValuesAndLimits(); fingerprints();
+		wireContract(); asymmetricV2(); completeRoundTrips(); numericDomains(); malformedBytes(); invalidValuesAndLimits(); fingerprints();
 		std::cout << "M20A save format: wire contract, all modeled values, domains, malformed input and fingerprints passed\n";
 		return 0;
 	} catch (const std::exception &error) {

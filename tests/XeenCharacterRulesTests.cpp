@@ -34,7 +34,7 @@ XeenCharacter basicCharacter() {
 	return character;
 }
 
-void equip(XeenItemModifierSource &item, std::uint8_t material,
+void equip(XeenItem &item, std::uint8_t material,
 		std::uint8_t state = 0, std::uint8_t frame = 1) {
 	item.material = material;
 	item.state = state;
@@ -264,6 +264,18 @@ void testEquipmentAttributeRules() {
 	equip(character.accessories[0], 71);
 	checkEqual(XeenCharacterRules::effectiveIntellect(character, kContext), 21,
 		"weapon, armor and accessory bonuses must accumulate");
+	// ID zero never gated the existing modifier rules. Misc records add no effects.
+	const auto hp = XeenCharacterRules::maxHp(character, kContext);
+	const auto sp = XeenCharacterRules::maxSp(character, kContext);
+	character.weapons[0].id = 255; character.armor[0].id = 37; character.accessories[0].id = 1;
+	character.miscellaneous.fill({69, 255, 0, 1});
+	checkEqual(XeenCharacterRules::effectiveIntellect(character, kContext), 21, "IDs or misc added intellect effects");
+	checkEqual(XeenCharacterRules::maxHp(character, kContext), hp, "IDs or misc added HP effects");
+	checkEqual(XeenCharacterRules::maxSp(character, kContext), sp, "IDs or misc added SP effects");
+	character.miscellaneous.fill({110, 37, 0, 1});
+	checkEqual(XeenCharacterRules::maxSp(character, kContext), sp, "misc added direct SP effects");
+	character.miscellaneous.fill({105, 37, 0, 1});
+	checkEqual(XeenCharacterRules::maxHp(character, kContext), hp, "misc added direct HP effects");
 
 	character = basicCharacter();
 	character.endurance.permanent = 50;

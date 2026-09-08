@@ -4,6 +4,7 @@
 #include "games/xeen/XeenCharacterRules.h"
 #include "games/xeen/XeenPartyVisualState.h"
 #include "games/xeen/XeenPartyLoader.h"
+#include "XeenPartySnapshotTestSupport.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -42,18 +43,19 @@ void setItemBlock(Bytes &bytes, std::size_t blockOffset, std::uint8_t firstMater
 	for (std::size_t i = 0; i < XeenCharacter::kEquipmentSlotsPerCategory; ++i) {
 		const std::size_t item = blockOffset + i * 4;
 		bytes[item] = static_cast<std::uint8_t>(firstMaterial + i);
-		bytes[item + 1] = static_cast<std::uint8_t>(0xa0 + i); // Item ID is skipped.
+		bytes[item + 1] = static_cast<std::uint8_t>(0xa0 + i);
 		bytes[item + 2] = static_cast<std::uint8_t>(0x10 + i);
 		bytes[item + 3] = static_cast<std::uint8_t>(1 + i);
 	}
 }
 
-void checkItemBlock(const std::array<XeenItemModifierSource,
+void checkItemBlock(const std::array<XeenItem,
 		XeenCharacter::kEquipmentSlotsPerCategory> &items, std::uint8_t firstMaterial,
 		const char *message) {
 	check(items.size() == 9, message);
 	for (std::size_t i = 0; i < items.size(); ++i) {
 		check(items[i].material == static_cast<std::uint8_t>(firstMaterial + i) &&
+			items[i].id == static_cast<std::uint8_t>(0xa0 + i) &&
 			items[i].state == static_cast<std::uint8_t>(0x10 + i) &&
 			items[i].frame == static_cast<std::uint8_t>(1 + i), message);
 	}
@@ -100,6 +102,7 @@ void testCharacterOffsetsAndBounds() {
 	setItemBlock(bytes, base + 166, 60);
 	setItemBlock(bytes, base + 202, 80);
 	setItemBlock(bytes, base + 238, 100);
+	setItemBlock(bytes, base + 274, 140);
 	bytes[base + 323 + 3] = 2;
 	bytes[base + 323 + 15] = 1;
 	bytes[base + 342] = 0xfe;
@@ -132,6 +135,7 @@ void testCharacterOffsetsAndBounds() {
 	checkItemBlock(character.weapons, 60, "nine weapon modifier sources");
 	checkItemBlock(character.armor, 80, "nine armor modifier sources");
 	checkItemBlock(character.accessories, 100, "nine accessory modifier sources");
+	checkItemBlock(character.miscellaneous, 140, "nine miscellaneous records");
 	check(character.currentHp == -2 && character.currentSp == -32768,
 		"signed little-endian HP/SP");
 	check(character.birthYear == 592, "little-endian birth year");
@@ -172,6 +176,63 @@ void testPartyHeaderAndReferences() {
 	rejects([&] { loader.loadFromResources(roster, invalid); });
 	rejects([&] { loader.loadFromResources(roster, partyFixture(7, 7, {0, 1, 2, 3, 4, 5, 6})); });
 	rejects([&] { XeenCharacterFormat::parsePartyHeader(Bytes(9, 0)); });
+}
+
+void testItemStorage() {
+	check(XeenCharacter::kSerializedSize == 354 && rosterFixture().size() == 10620,
+		"original CHR size changed with the save schema");
+	Bytes bytes = rosterFixture();
+	const unsigned offsets[]{166, 202, 238, 274};
+	for (unsigned i = 0; i < 30; ++i)
+		for (unsigned category = 0; category < 4; ++category)
+			for (unsigned slot = 0; slot < 9; ++slot)
+				for (unsigned field = 0; field < 4; ++field)
+					bytes[i * 354 + offsets[category] + slot * 4 + field] =
+						static_cast<std::uint8_t>(i * 37 + category * 19 + slot * 11 + field * 67);
+	// Empty metadata, unknown IDs and extreme values are all preserved on load.
+	bytes[29 * 354 + 274] = 255; bytes[29 * 354 + 275] = 0;
+	bytes[29 * 354 + 276] = 255; bytes[29 * 354 + 277] = 255;
+	auto party = XeenPartyLoader().loadFromResources(bytes, partyFixture(3, 3, {18, 0, 18}));
+	for (unsigned i = 0; i < 30; ++i) {
+		const auto &c = party.roster.at(i);
+		const XeenItemCategory *categories[]{&c.weapons, &c.armor, &c.accessories, &c.miscellaneous};
+		for (unsigned category = 0; category < 4; ++category)
+			for (unsigned slot = 0; slot < 9; ++slot) {
+				const auto &item = categories[category]->at(slot);
+				const auto offset = i * 354 + offsets[category] + slot * 4;
+				check(item.material == bytes[offset] && item.id == bytes[offset + 1] &&
+					item.state == bytes[offset + 2] && item.frame == bytes[offset + 3],
+					"all-roster item bytes differ from original offsets");
+			}
+	}
+	for (unsigned value = 0; value < 256; ++value) {
+		std::fill_n(bytes.begin() + 29 * 354 + 274, 4, value);
+		const auto c = XeenCharacterFormat::parseRoster(bytes).at(29);
+		check(c.miscellaneous[0].material == value && c.miscellaneous[0].id == value &&
+			c.miscellaneous[0].state == value && c.miscellaneous[0].frame == value, "item byte domain narrowed");
+	}
+	for (unsigned category = 0; category < 4; ++category) {
+		auto &owner = party.roster.at(18);
+		XeenItemCategory *categories[]{&owner.weapons, &owner.armor, &owner.accessories, &owner.miscellaneous};
+		auto &items = *categories[category];
+		items.fill({255, 0, 128, 99});
+		check(xeenItemHasTailCapacity(items), "empty tail metadata is capacity");
+		items[1] = {200, 250, 255, 37}; items[5] = {1, 3, 128, 255}; items[8] = {99, 1, 0, 2};
+		const auto before = party;
+		check(!xeenItemHasTailCapacity(items), "earlier holes must not override a full tail");
+		check(remove_test::partySnapshot(party) == remove_test::partySnapshot(before), "capacity query mutated storage");
+		xeenCompactItems(items);
+		auto expected = before;
+		auto &expectedOwner = expected.roster.at(18);
+		XeenItemCategory *expectedCategories[]{&expectedOwner.weapons, &expectedOwner.armor, &expectedOwner.accessories, &expectedOwner.miscellaneous};
+		*expectedCategories[category] = {{{200, 250, 255, 37}, {1, 3, 128, 255}, {99, 1, 0, 2}}};
+		check(remove_test::partySnapshot(party) == remove_test::partySnapshot(expected), "compaction changed order, fields or bystanders");
+		check(xeenItemHasTailCapacity(items), "compacted tail has no capacity");
+		check(&party.party.member(party.roster, 0) == &owner &&
+			&party.party.member(party.roster, 2) == &owner, "aliases copied item ownership");
+		xeenCompactItems(items);
+		check(remove_test::partySnapshot(party) == remove_test::partySnapshot(expected), "compaction is not idempotent");
+	}
 }
 
 void testPortraitLayoutAndConditions() {
@@ -284,6 +345,7 @@ int main() {
 	try {
 		testCharacterOffsetsAndBounds();
 		testPartyHeaderAndReferences();
+		testItemStorage();
 		testPortraitLayoutAndConditions();
 		testHpLayout();
 		std::cout << "CHR/PTY: offsets, validation, roster references and portrait layout OK\n";

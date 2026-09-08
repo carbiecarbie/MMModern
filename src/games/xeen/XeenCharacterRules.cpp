@@ -140,9 +140,9 @@ int conditionModifier(const XeenCharacter &character, DerivedAttribute attribute
 }
 
 template<std::size_t N>
-int itemBonusFrom(const std::array<XeenItemModifierSource, N> &items, int category) {
+int itemBonusFrom(const std::array<XeenItem, N> &items, int category) {
 	int result = 0;
-	for (const XeenItemModifierSource &item : items) {
+	for (const XeenItem &item : items) {
 		if (item.frame == 0 || (item.state & kCursedOrBrokenMask) != 0 ||
 				item.material < 59 || item.material > 130 || category == 3)
 			continue;

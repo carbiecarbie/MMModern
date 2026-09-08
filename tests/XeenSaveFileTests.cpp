@@ -179,6 +179,28 @@ void extendedIdentityTests(const fs::path &directory) {
  check(GetProcessHandleCount(GetCurrentProcess(),&handlesAfter)!=0 && handlesAfter==handlesBefore,"directory handles leaked");
  std::cout<<"Distinct protected/protected. junction identity, creation, replacement and failure cleanup passed\n";
 }
+void legacyReplacement(const fs::path &path) {
+ const auto oldBytes=nonzeroLegacy();put(path,oldBytes);
+ const auto legacy=XeenSaveFile::read(path);
+ check(legacy.itemState==XeenSaveItemState::LegacyV1MissingFields&&raw(path)==oldBytes,"v1 read mutated disk or lost presence");
+ XeenSaveFormat::validate(legacy);
+ unsigned io=0;
+ rejects([&]{XeenSaveFile::write(path,legacy,[&](auto){++io;return false;});},"unresolved legacy");
+ check(io==0&&raw(path)==oldBytes,"unresolved new input reached write I/O");
+ using Op=XeenSaveFile::Operation;
+ for(auto failure:{Op::Open,Op::Write,Op::ShortWrite,Op::Flush,Op::Close,Op::Replace}){
+  rejects([&]{XeenSaveFile::write(path,sample(),[&](auto op){return op==failure;});});
+  check(raw(path)==oldBytes,"failed v1 replacement changed old bytes");sameSnapshot(legacy,XeenSaveFile::read(path));
+ }
+ XeenSaveFile::write(path,sample());
+ check(raw(path)[8]==2,"valid v1 target was not replaced with v2");sameSnapshot(sample(),XeenSaveFile::read(path));
+ for(bool unsupported:{false,true}){
+  auto bad=oldBytes;if(unsupported)bad[8]=3;else bad[16]^=1;put(path,bad);
+  rejects([&]{XeenSaveFile::write(path,sample());});check(raw(path)==bad,"invalid legacy target overwritten");
+ }
+ put(path,oldBytes);
+ std::cout<<"Independent v1 read, encoding rejection, safe v2 replacement and fault preservation passed\n";
+}
 int main(int argc,char **argv) {
  try {
   const auto directory=fs::current_path()/"save-file-tests";
@@ -190,6 +212,7 @@ int main(int argc,char **argv) {
   check(XeenSaveFile::resolve(fs::path("save-file-tests")/fs::path(L"space \u00e7 \u6e38.mmsave"),directory/"commercial")==path,"relative save path resolution");
   rejects([&]{XeenSaveFile::resolve(directory/"CON.mmsave",directory/"commercial");},"device");
   fs::remove(path);
+  legacyReplacement(path);
   auto old=sample(), next=old; next.questItems[17]=34;
   XeenSaveFile::write(path,old); sameSnapshot(XeenSaveFile::read(path),old);
   XeenSaveFile::write(path,next); sameSnapshot(XeenSaveFile::read(path),next);
@@ -214,7 +237,7 @@ int main(int argc,char **argv) {
   check(locked!=INVALID_HANDLE_VALUE,"could not exclusively lock target");
   rejects([&]{XeenSaveFile::read(path);}); CloseHandle(locked);
   for(auto bad:std::vector<Bytes>{{1,2,3},Bytes(XeenSaveFormat::kMaximumSize+1),prior}) {
-   if(bad==prior) bad[8]=2;
+   if(bad==prior) bad[8]=3;
    put(path,bad); rejects([&]{XeenSaveFile::write(path,old);});check(raw(path)==bad,"unknown file overwritten");
   }
   put(path,prior);

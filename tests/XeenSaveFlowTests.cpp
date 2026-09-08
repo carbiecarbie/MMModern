@@ -5,6 +5,44 @@ using namespace gameplay_test;
 using save_test::rejects;
 namespace fs=std::filesystem;
 const XeenCamera start{1,1,1,XeenDirection::North};
+Bytes diskBytes(const fs::path &path) {
+ std::ifstream in(path,std::ios::binary);check(bool(in),"cannot read Application fixture");
+ return Bytes(std::istreambuf_iterator<char>(in),{});
+}
+void legacyUpgrade(const fs::path &path) {
+ const auto original=save_test::nonzeroLegacy();
+ {std::ofstream out(path,std::ios::binary|std::ios::trunc);
+  out.write(reinterpret_cast<const char*>(original.data()),original.size());out.close();check(bool(out),"cannot write independent v1 fixture");}
+ Fixture f;save_test::distinctiveInitialItems(f.initial.roster);
+ const auto legacy=XeenSaveFormat::decode(original);
+ const auto expected=save_test::expectedLegacy(legacy,f.initial.roster);
+ auto services=f.services();bool observed=false;
+ services.observeGameplay=[&](XeenWorld &world,XeenEventSystem &,const XeenPartyState &party,XeenCamera &camera,const XeenGameFlags &flags){
+  sameSnapshot(expected,XeenSaveState::capture(f.signature,party,camera,flags,world));
+  check(&party.party.member(party.roster,0)==&party.roster.at(18)&&
+   &party.party.member(party.roster,2)==&party.roster.at(18),"Application legacy membership aliases");
+  check(diskBytes(path)==original,"Application startup migrated v1 on disk");observed=true;
+ };
+ services.show=[&](const auto&,const auto &handle,const auto&,const auto&,const auto &status){
+  check(observed,"legacy owners not observed before gameplay input");
+  check(diskBytes(path)==original,"read/startup changed v1 bytes");
+  handle(SaveGameAction{}); // The production action handler used by F9.
+  check(status().find("Saved")!=std::string::npos,"Application legacy upgrade save failed");
+  const auto bytes=diskBytes(path);check(bytes[8]==2&&bytes[9]==0,"F9 did not write v2");
+  sameSnapshot(expected,XeenSaveFile::read(path));return true;
+ };
+ check(Application().playGameplay(services,start,path,true)==0&&observed,"production legacy resume failed");
+ // Different initial items prove that v2 restoration uses its saved complete records.
+ Fixture next;save_test::distinctiveInitialItems(next.initial.roster);
+ for(unsigned i=0;i<30;++i){auto &c=next.initial.roster.at(i);c.weapons={};c.armor={};c.accessories={};c.miscellaneous={};}
+ auto resumed=next.services();bool restored=false;
+ resumed.observeGameplay=[&](XeenWorld &world,XeenEventSystem &,const XeenPartyState &party,XeenCamera &camera,const XeenGameFlags &flags){
+  sameSnapshot(expected,XeenSaveState::capture(next.signature,party,camera,flags,world));restored=true;
+ };
+ resumed.show=[&](const auto&,const auto&,const auto&,const auto&,const auto&){check(restored,"v2 owners not observed");return true;};
+ check(Application().playGameplay(resumed,start,path,true)==0&&restored,"production upgraded v2 restore failed");
+ std::cout<<"Application independent v1 resume, unchanged startup bytes, F9 v2 upgrade and authoritative v2 resume passed\n";
+}
 void startup(const fs::path &path){
  for(bool resume:{false,true}){
   Fixture f;f.automatic=true;f.scripts[1]={record(1,1,0,12,{0,0,21,99}),record(1,1,1,12,{0,0,20,7}),record(1,1,2,0x1f,{2,1,1})};
@@ -73,7 +111,7 @@ void failures(const fs::path &path){
   XeenSaveFile::write(path,s);
   if(mode==0)fs::remove(path);
   if(mode==3){std::ofstream out(path,std::ios::binary|std::ios::trunc);out<<"not a save";}
-  if(mode==4){auto bytes=XeenSaveFormat::encode(s);bytes[8]=2;std::ofstream out(path,std::ios::binary|std::ios::trunc);out.write(reinterpret_cast<const char*>(bytes.data()),bytes.size());}
+  if(mode==4){auto bytes=XeenSaveFormat::encode(s);bytes[8]=3;std::ofstream out(path,std::ios::binary|std::ios::trunc);out.write(reinterpret_cast<const char*>(bytes.data()),bytes.size());}
   if(mode==5)f.failCompose=true;if(mode==6)f.invalidFrame=true;
   auto services=f.services();bool shown=false;services.show=[&](const auto&,const auto&,const auto&,const auto&,const auto&){shown=true;return true;};
   check(Application().playGameplay(services,start,path,true)==3&&!shown,"failed resume exposed gameplay or fell back");
@@ -136,4 +174,4 @@ void dispatchBoundaries(const fs::path &path){
  };
  check(Application().playGameplay(fatalServices,start,path,false)==4,"fatal shutdown result");
 }
-int main(){try{const auto dir=fs::current_path()/"save-flow-tests";fs::create_directories(dir);const auto path=dir/"session.mmsave";fs::remove(path);startup(path);pending(path);failures(path);mutation(path);dispatchBoundaries(path);std::cout<<"Production Application startup, save eligibility, failures and mutation policies passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(){try{const auto dir=fs::current_path()/"save-flow-tests";fs::create_directories(dir);const auto path=dir/"session.mmsave";fs::remove(path);legacyUpgrade(path);startup(path);pending(path);failures(path);mutation(path);dispatchBoundaries(path);std::cout<<"Production Application startup, save eligibility, failures and mutation policies passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

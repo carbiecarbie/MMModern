@@ -55,6 +55,25 @@ int main(int argc, char *argv[]) {
 		check(rosterBytes.size() == 10620, "unexpected real maze.chr size");
 		check(partyBytes.size() == 812, "unexpected real maze.pty size");
 		const XeenPartyState state = XeenPartyLoader().loadFromResources(rosterBytes, partyBytes);
+		unsigned occupied = 0, miscellaneousOccupied = 0;
+		const unsigned offsets[]{166, 202, 238, 274};
+		for (unsigned i = 0; i < 30; ++i) {
+			const auto &c = state.roster.at(i);
+			const XeenItemCategory *categories[]{&c.weapons, &c.armor, &c.accessories, &c.miscellaneous};
+			for (unsigned category = 0; category < 4; ++category)
+				for (unsigned slot = 0; slot < 9; ++slot) {
+					const auto offset = i * 354 + offsets[category] + slot * 4;
+					const auto &item = categories[category]->at(slot);
+					check(item.material == rosterBytes.at(offset) && item.id == rosterBytes.at(offset + 1) &&
+						item.state == rosterBytes.at(offset + 2) && item.frame == rosterBytes.at(offset + 3),
+						"loaded original items differ from actual CHR resource bytes");
+					occupied += item.id != 0;
+					miscellaneousOccupied += category == 3 && item.id != 0;
+				}
+		}
+		check(occupied == 35 && miscellaneousOccupied == 0, "supplied installation item population differs from recorded evidence");
+		std::cout << "All 1080 original item slots match CHR bytes: " << occupied
+			<< " occupied, " << miscellaneousOccupied << " miscellaneous (nonzero misc tested synthetically)\n";
 		check(state.party.size() == kExpected.size(), "unexpected real active party size");
 		const XeenCharacterRulesContext rulesContext{kCloudsInitialYear};
 		check(rulesContext.currentYear == 610, "unexpected Clouds initial year");

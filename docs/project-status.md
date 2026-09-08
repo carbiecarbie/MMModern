@@ -9,8 +9,10 @@ of supported Clouds progress across separate processes.
 
 M21, Myra's return exchange and bounded item rewards, is the default next
 planning entry in the [approved roadmap](roadmap.md). A
-[draft M21 plan](milestone-21-plan.md) now exists, awaiting approval;
-implementation has not begun. Roadmap approval and M20 completion do not
+[M21 plan](milestone-21-plan.md) has limited authorization for **21A only**.
+The 21A implementation is complete and validated locally, pending independent
+implementation review. The remaining decisions and stages are still draft and
+unauthorized. Roadmap approval and M20 completion do not
 authorize implementation; M21-M23 retain their recorded confidence and review
 cadence.
 
@@ -42,7 +44,9 @@ cadence.
   character rule inputs, HP/SP and conditions; 35 Clouds quest-item counters
   (IDs 82..116), possession comparisons and bounded one-item grants; 30 Clouds
   quest flags with bounded immediate mode-104 set; 256 separate game flags.
-  Existing equipment modifier fields do not constitute general inventory.
+  All 30 roster characters own four nine-slot item arrays with exact original
+  material/ID/state/frame bytes. This is storage only; existing equipment rules
+  retain their previous modifier behavior and miscellaneous items add no effects.
 - **World changes and persistence:** session-owned object/event removals survive
   map/cache reconstruction and immediately refresh the scene while retaining
   valid presentation layers. Versioned save/resume preserves supported durable
@@ -87,8 +91,10 @@ cadence.
   references and the first frame. It neither replays scripts nor infers effects.
   Derived rules/visuals are recomputed, while saved modeled values are preserved.
 - New persistent state categories must deliberately extend save/load, with a
-  version and validation policy. Current character modifier arrays must not be
-  silently treated as storage for future inventory or rewards.
+  version and validation policy. The 21A complete item arrays extend the existing
+  roster owners; membership aliases never copy inventories. Only explicit stable
+  category compaction clears empty-slot metadata. Loading and persistence retain
+  holes, unknown byte values and ID-zero metadata exactly.
 
 ## Supported original-data checkpoints
 
@@ -110,19 +116,31 @@ setup. Myra's repeated dialogue alone does not prove quest flag 2 persistence.
 
 ## Save and resume
 
-The current format is **MMModern Clouds binary v1**, using `.mmsave`, bounded
+The current writer uses **MMModern Clouds binary v2** and reads **v1 and v2**,
+using `.mmsave`, bounded
 little-endian encoding and CRC32 corruption checks. Compatibility requires the
 same `xeen.cc` contents and `dark.cc` presence/contents, checked by length/CRC32,
 independently of installation path. This is not cryptographic authentication.
-Exact layout, validation and acceptance evidence live in the
-[Milestone 20 plan](milestone-20-plan.md).
+The unchanged envelope/payload contracts live in the
+[Milestone 20 plan](milestone-20-plan.md); the exact item-block extension and
+legacy policy are in the [Milestone 21 plan](milestone-21-plan.md#7-durability-exact-v2-wire-and-v1-policy).
 
 Durable categories are the committed side/map/position/facing; ordered active
 membership; all modeled fields of all 30 roster characters, including inactive
-members, names, rule inputs, modifier arrays, current HP/SP and conditions;
+members, names, rule inputs, four complete item arrays, current HP/SP and conditions;
 all 35 uint32 quest-item counters, 30 quest flags and 256 game flags; and complete,
 independent disabled-object/event identity sets across every affected map.
 Current values are not normalized to original defaults or recomputed maxima.
+
+Each v2 character contains 144 item bytes in weapons/armor/accessories/miscellaneous,
+slot, material/ID/state/frame order. The source CHR format remains 354 bytes per
+character and 10,620 bytes per roster. V1 stores only equipment modifier triples;
+its transient snapshot presence marker permits structural decoding/read/restore
+but prevents direct v2 encoding. Before publication, restoration supplies only
+missing equipment IDs and miscellaneous arrays from the matching initial roster
+slots, preserving every saved value. V2 arrays, including explicit empties, are
+authoritative. Read/startup never rewrites a v1 file; an explicit eligible F9 save
+writes v2 through the existing protected replacement protocol.
 
 ```text
 mmodern --render-map <game-directory> [<map> <x> <y> <north|east|south|west>] [--save-file <path.mmsave>]
@@ -159,6 +177,19 @@ or arbitrary-crash guarantees.
 
 ## Current validation baseline
 
+The **2026-09-08 21A candidate** passed a fresh pinned-dependency Debug configure
+and build in `build/21a`, **9/9 focused character/party/save tests**, and a current
+**53/53 full CTest** run. The Application suite includes independent v1 disk
+input, resolved owners observed before input, unchanged startup bytes, production
+F9-handler upgrade, and authoritative v2 resume. All 17 `EXCLUDE_FROM_ALL` targets
+were explicitly built. Original-party smoke compared all 1,080 slots directly
+with resource bytes: 35 occupied, zero miscellaneous; nonzero miscellaneous and
+inactive-character scenarios are synthetic. Existing Myra direct and original
+cross-process save/resume regressions passed with pre-consumption assertions
+unchanged. Commands, logs, scope and review status are recorded in
+[21A evidence](milestone-21-plan.md#12-21a-implementation-and-validation-evidence).
+No physical-window gate applies to 21A; this is not full M21 acceptance.
+
 The latest accepted complete baseline is the **2026-09-08 M20 closure**:
 
 - Implementation validation: successful Debug build with the pinned dependency,
@@ -178,13 +209,14 @@ The latest accepted complete baseline is the **2026-09-08 M20 closure**:
   Myra Q2 persistence is proven by automated live-state assertions. See the
   [manual evidence](milestone-20-plan.md#15-user-supplied-physical-window-validation-and-final-review-handoff).
 
-These are recorded acceptance results; documentation maintenance does not rerun
-or upgrade their evidence. Ordinary CTest remains independent of commercial data.
+These M20 acceptance results remain historical evidence, separate from the 21A
+runs above. Ordinary CTest remains independent of commercial data.
 
 ## Known unsupported boundaries
 
-- Myra return consumption, quest clearing and rewards; bounded character-held
-  inventory/reward work is the next roadmap direction, not implemented behavior.
+- Myra return consumption, quest clearing and rewards; only the 21A character
+  storage/persistence foundation is implemented. Insertion, recipient selection,
+  pending rewards, receipts and inventory inspection remain unimplemented.
   General inventory, equipment use, shops and generic TakeOrGive remain outside
   the supported subset. Quest-flag clear/check Action 104 is unsupported.
 - Combat, monsters and certification of normal routes or a playable region;

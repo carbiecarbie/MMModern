@@ -9,7 +9,7 @@ namespace mmodern {
 
 class XeenSaveFormat {
 public:
-	static constexpr std::uint16_t kVersion = 1;
+	static constexpr std::uint16_t kVersion = 2;
 	static constexpr std::size_t kHeaderSize = 20;
 	static constexpr std::size_t kMaximumSize = 4 * 1024 * 1024;
 	static constexpr std::size_t kMaximumObjects = 65536;
@@ -18,7 +18,7 @@ public:
 	// Throws before returning a value on malformed input. No live state access.
 	static XeenSaveSnapshot decode(const std::vector<std::uint8_t> &bytes);
 	static std::vector<std::uint8_t> encode(const XeenSaveSnapshot &snapshot);
-	// Structural/value-domain checks shared by encoding and state preparation.
+	// Structural checks accept unresolved v1 input; only encoding requires complete items.
 	// Resource identity, active-character safety and composition are separate.
 	static void validate(const XeenSaveSnapshot &snapshot);
 

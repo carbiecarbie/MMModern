@@ -30,7 +30,11 @@ struct XeenSaveResourceSignature {
 
 // Temporary transfer values only. Gameplay keeps its existing live owners.
 // Loading metadata, caches and all interpreter/presentation state are absent.
+enum class XeenSaveItemState { Complete, LegacyV1MissingFields };
+
 struct XeenSaveSnapshot {
+	// Transient presence only; never stored on the wire or in live gameplay.
+	XeenSaveItemState itemState = XeenSaveItemState::Complete;
 	XeenSaveResourceSignature resources;
 	XeenCamera camera;
 	std::vector<std::uint8_t> activeRosterIds;

@@ -24,14 +24,13 @@ inline void checkSameCharacter(const XeenCharacter &a, const XeenCharacter &b) {
 	for (std::size_t i = 0; i < 3; ++i)
 		if (av[i].permanent != bv[i].permanent || av[i].temporary != bv[i].temporary)
 			throw std::runtime_error("modeled character attributes differ");
-	using Modifiers = std::array<XeenItemModifierSource, XeenCharacter::kEquipmentSlotsPerCategory>;
-	const Modifiers *ai[]{&a.weapons, &a.armor, &a.accessories};
-	const Modifiers *bi[]{&b.weapons, &b.armor, &b.accessories};
-	for (std::size_t category = 0; category < 3; ++category)
+	const XeenItemCategory *ai[]{&a.weapons, &a.armor, &a.accessories, &a.miscellaneous};
+	const XeenItemCategory *bi[]{&b.weapons, &b.armor, &b.accessories, &b.miscellaneous};
+	for (std::size_t category = 0; category < 4; ++category)
 		for (std::size_t i = 0; i < ai[category]->size(); ++i) {
 			const auto x = (*ai[category])[i], y = (*bi[category])[i];
-			if (x.material != y.material || x.state != y.state || x.frame != y.frame)
-				throw std::runtime_error("modeled character modifiers differ");
+			if (x.material != y.material || x.id != y.id || x.state != y.state || x.frame != y.frame)
+				throw std::runtime_error("stored character items differ");
 		}
 }
 
@@ -48,8 +47,8 @@ inline std::string partySnapshot(const XeenPartyState &p) {
 			<<c.currentHp<<','<<c.currentSp<<','<<c.hasSpells<<c.maxStatSkills.astrologer
 			<<c.maxStatSkills.bodybuilder<<c.maxStatSkills.prayerMaster<<c.maxStatSkills.prestidigitation;
 		for(auto v:c.conditions)out<<+v<<',';
-		for(const auto *items:{&c.weapons,&c.armor,&c.accessories})
-			for(auto item:*items)out<<+item.material<<','<<+item.state<<','<<+item.frame<<',';
+		for(const auto *items:{&c.weapons,&c.armor,&c.accessories,&c.miscellaneous})
+			for(auto item:*items)out<<+item.material<<','<<+item.id<<','<<+item.state<<','<<+item.frame<<',';
 	}
 	return out.str();
 }

@@ -68,13 +68,20 @@ struct XeenMaxStatSkills {
 	bool prestidigitation = false;
 };
 
-// Minimal serialized item data needed by the future HP/SP rules. This is not
-// an inventory model; item identity and miscellaneous items are deliberately absent.
-struct XeenItemModifierSource {
+// Stored original item bytes. ID zero is empty, but other bytes remain state.
+struct XeenItem {
 	std::uint8_t material = 0;
+	std::uint8_t id = 0;
 	std::uint8_t state = 0;
 	std::uint8_t frame = 0;
 };
+
+// Fixed category size checks the helper boundary without accepting arbitrary spans.
+using XeenItemCategory = std::array<XeenItem, 9>;
+// Only the final slot determines capacity; earlier holes do not make room.
+bool xeenItemHasTailCapacity(const XeenItemCategory &items);
+// Explicit stable compaction clears empty-slot metadata. Never implicit in I/O.
+void xeenCompactItems(XeenItemCategory &items);
 
 struct XeenCharacter {
 	static constexpr std::size_t kSerializedSize = 354;
@@ -95,9 +102,10 @@ struct XeenCharacter {
 	int temporaryAge = 0;
 	XeenMaxStatSkills maxStatSkills;
 	bool hasSpells = false;
-	std::array<XeenItemModifierSource, kEquipmentSlotsPerCategory> weapons{};
-	std::array<XeenItemModifierSource, kEquipmentSlotsPerCategory> armor{};
-	std::array<XeenItemModifierSource, kEquipmentSlotsPerCategory> accessories{};
+	XeenItemCategory weapons{};
+	XeenItemCategory armor{};
+	XeenItemCategory accessories{};
+	XeenItemCategory miscellaneous{};
 	std::int16_t currentHp = 0;
 	std::int16_t currentSp = 0;
 	std::array<std::uint8_t, kConditionCount> conditions{};

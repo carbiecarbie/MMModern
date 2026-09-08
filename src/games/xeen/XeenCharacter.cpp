@@ -5,6 +5,18 @@
 
 namespace mmodern {
 
+bool xeenItemHasTailCapacity(const XeenItemCategory &items) {
+	return items.back().id == 0;
+}
+
+void xeenCompactItems(XeenItemCategory &items) {
+	std::size_t occupied = 0;
+	for (std::size_t i = 0; i < items.size(); ++i)
+		if (items[i].id != 0)
+			items[occupied++] = items[i];
+	std::fill(items.begin() + occupied, items.end(), XeenItem{});
+}
+
 unsigned XeenCharacter::currentLevel() const {
 	return static_cast<unsigned>(std::max(permanentLevel + temporaryLevel, 0));
 }

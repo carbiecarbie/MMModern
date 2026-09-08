@@ -29,8 +29,10 @@ constexpr std::size_t kHasSpellsOffset = 163;
 constexpr std::size_t kWeaponsOffset = 166;
 constexpr std::size_t kArmorOffset = 202;
 constexpr std::size_t kAccessoriesOffset = 238;
+constexpr std::size_t kMiscellaneousOffset = 274;
 constexpr std::size_t kSerializedItemSize = 4;
 constexpr std::size_t kItemMaterialOffset = 0;
+constexpr std::size_t kItemIdOffset = 1;
 constexpr std::size_t kItemStateOffset = 2;
 constexpr std::size_t kItemFrameOffset = 3;
 constexpr std::size_t kConditionsOffset = 323;
@@ -50,11 +52,12 @@ std::uint16_t readUint16LE(const std::uint8_t *data) {
 }
 
 template<std::size_t N>
-void readItemModifierSources(const std::uint8_t *record, std::size_t blockOffset,
-		std::array<XeenItemModifierSource, N> &items) {
+void readItems(const std::uint8_t *record, std::size_t blockOffset,
+		std::array<XeenItem, N> &items) {
 	for (std::size_t i = 0; i < items.size(); ++i) {
 		const std::uint8_t *item = record + blockOffset + i * kSerializedItemSize;
 		items[i].material = item[kItemMaterialOffset];
+		items[i].id = item[kItemIdOffset];
 		items[i].state = item[kItemStateOffset];
 		items[i].frame = item[kItemFrameOffset];
 	}
@@ -103,9 +106,10 @@ XeenRoster XeenCharacterFormat::parseRoster(const std::vector<std::uint8_t> &byt
 		character.maxStatSkills.prayerMaster = record[kPrayerMasterOffset] != 0;
 		character.maxStatSkills.prestidigitation = record[kPrestidigitationOffset] != 0;
 		character.hasSpells = record[kHasSpellsOffset] != 0;
-		readItemModifierSources(record, kWeaponsOffset, character.weapons);
-		readItemModifierSources(record, kArmorOffset, character.armor);
-		readItemModifierSources(record, kAccessoriesOffset, character.accessories);
+		readItems(record, kWeaponsOffset, character.weapons);
+		readItems(record, kArmorOffset, character.armor);
+		readItems(record, kAccessoriesOffset, character.accessories);
+		readItems(record, kMiscellaneousOffset, character.miscellaneous);
 		std::copy_n(record + kConditionsOffset, character.conditions.size(),
 			character.conditions.begin());
 		character.currentHp = readSint16LE(record + kCurrentHpOffset);

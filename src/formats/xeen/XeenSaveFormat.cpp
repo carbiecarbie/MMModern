@@ -12,7 +12,7 @@ namespace mmodern {
 namespace {
 
 constexpr std::array<std::uint8_t, 8> kMagic{'M', 'M', 'M', 'S', 'A', 'V', 'E', 0};
-static_assert(std::numeric_limits<int>::digits == 31, "save v1 requires 32-bit character integers");
+static_assert(std::numeric_limits<int>::digits == 31, "save requires 32-bit character integers");
 static_assert(XeenSaveFormat::kMaximumSize <= std::numeric_limits<uInt>::max(),
 	"save CRC input must fit zlib's length type");
 
@@ -111,16 +111,16 @@ void writeCharacter(Writer &out, const XeenCharacter &c) {
 	out.u8(c.maxStatSkills.astrologer); out.u8(c.maxStatSkills.bodybuilder);
 	out.u8(c.maxStatSkills.prayerMaster); out.u8(c.maxStatSkills.prestidigitation);
 	out.u8(c.hasSpells);
-	for (const auto *items : {&c.weapons, &c.armor, &c.accessories})
+	for (const auto *items : {&c.weapons, &c.armor, &c.accessories, &c.miscellaneous})
 		for (const auto item : *items) {
-			out.u8(item.material); out.u8(item.state); out.u8(item.frame);
+			out.u8(item.material); out.u8(item.id); out.u8(item.state); out.u8(item.frame);
 		}
 	out.i16(c.currentHp); out.i16(c.currentSp);
 	for (const auto value : c.conditions) out.u8(value);
 	out.u16(c.birthYear);
 }
 
-XeenCharacter readCharacter(Reader &in) {
+XeenCharacter readCharacter(Reader &in, std::uint16_t version) {
 	XeenCharacter c;
 	c.rosterId = in.u8();
 	const auto length = in.u8();
@@ -139,7 +139,14 @@ XeenCharacter readCharacter(Reader &in) {
 	c.hasSpells = in.boolean();
 	for (auto *items : {&c.weapons, &c.armor, &c.accessories})
 		for (auto &item : *items) {
-			item.material = in.u8(); item.state = in.u8(); item.frame = in.u8();
+			item.material = in.u8();
+			if (version == 2) item.id = in.u8();
+			item.state = in.u8(); item.frame = in.u8();
+		}
+	if (version == 2)
+		for (auto &item : c.miscellaneous) {
+			item.material = in.u8(); item.id = in.u8();
+			item.state = in.u8(); item.frame = in.u8();
 		}
 	c.currentHp = in.i16(); c.currentSp = in.i16();
 	for (auto &value : c.conditions) value = in.u8();
@@ -190,6 +197,7 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 
 std::vector<std::uint8_t> XeenSaveFormat::encode(const XeenSaveSnapshot &s) {
 	validate(s);
+	require(s.itemState == XeenSaveItemState::Complete, "unresolved legacy item state cannot be encoded as v2");
 	Writer out;
 	out.bytes.resize(kHeaderSize);
 	out.fingerprint(s.resources.clouds);
@@ -220,7 +228,8 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	require(bytes.size() <= kMaximumSize, "save is oversized");
 	Reader in{bytes};
 	for (const auto byte : kMagic) require(in.u8() == byte, "unrecognized format");
-	require(in.u16() == kVersion, "unsupported version");
+	const auto version = in.u16();
+	require(version == 1 || version == 2, "unsupported version");
 	require(in.u8() == 0, "unsupported game side");
 	require(in.u8() == 0, "nonzero reserved byte");
 	const auto length = in.u32();
@@ -228,6 +237,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	require(length == in.remaining(), "payload length does not match file length");
 	require(crc == checksum(bytes.data() + kHeaderSize, length), "payload checksum mismatch");
 	XeenSaveSnapshot s;
+	s.itemState = version == 1 ? XeenSaveItemState::LegacyV1MissingFields : XeenSaveItemState::Complete;
 	s.resources.clouds = in.fingerprint();
 	const bool hasDarkside = in.boolean();
 	const auto darkside = in.fingerprint();
@@ -240,7 +250,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	require(members <= XeenParty::kMaximumVisibleMembers, "too many active members");
 	for (unsigned i = 0; i < members; ++i) s.activeRosterIds.push_back(in.u8());
 	require(in.u8() == s.characters.size(), "incorrect roster count");
-	for (auto &c : s.characters) c = readCharacter(in);
+	for (auto &c : s.characters) c = readCharacter(in, version);
 	for (auto &count : s.questItems) count = in.u32();
 	for (auto &value : s.questFlags) value = in.boolean();
 	for (auto &value : s.gameFlags) value = in.boolean();

@@ -16,6 +16,14 @@ direct/SDL dummy/software acceptance and all restart checkpoints passing,
 and inspected native resumed/fresh frame evidence. Gabriel's passing physical-window
 results remain separately attributed user-supplied manual evidence.
 
+[Milestone 21A](docs/milestone-21-plan.md#12-21a-implementation-and-validation-evidence)
+adds authoritative character item storage and persistence. Its implementation
+is locally validated and pending independent review. All 30 roster characters
+retain four nine-slot arrays of material/ID/state/frame records, including inactive
+owners and empty-slot metadata. Debug build, 53/53 CTest and the original-party
+smoke passed. This does not activate item rewards, inventory UI or Myra's exchange;
+21B, 21C and 21D have not started.
+
 Clouds NPC mode-1 dialogue presents original animated portraits, positioned titles
 and paginated text through the resumable event UI. Myra's original local request
 at map 23 `(9,11)` West now records Clouds quest flag 2 after final acknowledgment,
@@ -67,8 +75,13 @@ paths are supported. The console and existing window title report the result.
 Resume uses its load path for future F9 saves, restores the saved camera/state
 and skips initial automatic dispatch. New sessions retain normal initialization.
 An invalid/incompatible save fails startup without starting a fresh session.
-There is no autosave, save-on-exit or in-session load. Version 1 requires matching
-xeen.cc/dark.cc contents; it is not compatible with original Xeen/ScummVM saves.
+There is no autosave, save-on-exit or in-session load. Saves now write version 2
+and read versions 1 and 2, requiring matching xeen.cc/dark.cc contents. V1 resume
+preserves saved modifiers and supplies only its missing equipment IDs and
+miscellaneous records from the corresponding initial roster slots. V2 item
+records are authoritative, including explicit empties. Reading a v1 file leaves
+it unchanged; the next eligible F9 save safely replaces it with v2. Neither
+version is compatible with original Xeen/ScummVM saves.
 
 MMModern currently includes:
 

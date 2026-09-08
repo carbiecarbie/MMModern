@@ -38,13 +38,23 @@ void XeenSaveState::restoreBeforeGameplay(const XeenSaveSnapshot &snapshot,
 	if (!resources.loadInitialParty || !preflight)
 		throw std::invalid_argument("save preparation requires initial party and presentation providers");
 
-	// Original loading provides metadata only. Every modeled gameplay value is
-	// then replaced by its saved value; no scripts or default grants are replayed.
+	// Initial records supply metadata and only the fields absent from v1.
+	// Resolve locally by roster slot before replacing the complete character.
 	XeenPartyState candidateParty = resources.loadInitialParty();
 	for (std::size_t i = 0; i < snapshot.characters.size(); ++i) {
 		if (candidateParty.roster.at(i).rosterId != i)
 			throw std::runtime_error("initial roster source has an inconsistent slot identity");
-		candidateParty.roster.at(i) = snapshot.characters[i];
+		auto saved = snapshot.characters[i];
+		if (snapshot.itemState == XeenSaveItemState::LegacyV1MissingFields) {
+			const auto &initial = candidateParty.roster.at(i);
+			for (std::size_t slot = 0; slot < XeenCharacter::kEquipmentSlotsPerCategory; ++slot) {
+				saved.weapons[slot].id = initial.weapons[slot].id;
+				saved.armor[slot].id = initial.armor[slot].id;
+				saved.accessories[slot].id = initial.accessories[slot].id;
+			}
+			saved.miscellaneous = initial.miscellaneous;
+		}
+		candidateParty.roster.at(i) = std::move(saved);
 	}
 	candidateParty.party = XeenParty::fromRosterIds(snapshot.activeRosterIds);
 	candidateParty.questItems = XeenCloudsQuestItems(snapshot.questItems);
