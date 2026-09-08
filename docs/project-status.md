@@ -8,8 +8,9 @@ blocker within scope. The accepted baseline includes local Windows save/resume
 of supported Clouds progress across separate processes.
 
 M21, Myra's return exchange and bounded item rewards, is the default next
-planning entry in the [approved roadmap](roadmap.md). Its detailed plan and
-implementation have not begun. Roadmap approval and M20 completion do not
+planning entry in the [approved roadmap](roadmap.md). A
+[draft M21 plan](milestone-21-plan.md) now exists, awaiting approval;
+implementation has not begun. Roadmap approval and M20 completion do not
 authorize implementation; M21-M23 retain their recorded confidence and review
 cadence.
 
