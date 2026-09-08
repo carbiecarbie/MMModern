@@ -39,6 +39,8 @@ struct XeenTextRenderOptions {
 struct XeenTextRenderResult {
 	std::vector<IndexedFrame> pages;
 	std::vector<std::string> diagnostics;
+	// Exclusive raw source end for each page, including intervening whitespace.
+	std::vector<std::size_t> pageSourceEnds;
 };
 
 class XeenTextRenderer {

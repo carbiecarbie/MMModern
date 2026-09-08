@@ -35,6 +35,9 @@ struct XeenEventNone {};
 struct XeenEventRemove {};
 struct XeenEventExit {};
 struct XeenEventReturn {};
+struct XeenEventNpc {
+	std::uint8_t titleTextIndex, bodyTextIndex, portraitId, confirmationMode, targetLine;
+};
 struct XeenEventWhoWill {
 	std::uint8_t verbIndex = 0;
 	std::uint8_t textIndex = 0;
@@ -105,6 +108,7 @@ using XeenDecodedEventOperation = std::variant<
 	XeenEventRemove,
 	XeenEventExit,
 	XeenEventReturn,
+	XeenEventNpc,
 	XeenEventWhoWill,
 	XeenEventDisplay,
 	XeenEventTeleportAndExit,

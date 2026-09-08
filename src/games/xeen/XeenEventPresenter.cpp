@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <stdexcept>
 #include <variant>
+#include <chrono>
+#include <limits>
 
 namespace mmodern {
 namespace {
@@ -21,14 +23,22 @@ void fill(IndexedFrame &frame, int left, int top, int right, int bottom,
 
 } // namespace
 
-XeenEventPresenter::XeenEventPresenter(const XeenFontFormat &font) :
-		_renderer(font) {
+XeenEventPresenter::XeenEventPresenter(const XeenFontFormat &font, NpcDraw npcDraw,
+		Clock clock, RandomFrame randomFrame) :
+		_npcDraw(std::move(npcDraw)), _clock(std::move(clock)),
+		_randomFrame(std::move(randomFrame)), _renderer(font) {
+	if (!_clock) _clock = [] {
+		return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+			std::chrono::steady_clock::now().time_since_epoch()).count());
+	};
 }
 
 XeenTextRenderOptions XeenEventPresenter::optionsFor(
 		const XeenPresentationRequest &request) const {
 	XeenTextRenderOptions options;
 	switch (request.kind) {
+	case XeenPresentationKind::NpcAcknowledgment:
+		break; // Its heading/body have independent bounded layout below.
 	case XeenPresentationKind::CharacterSelection:
 		options.bounds = {225, 74, 320, 154};
 		options.x = 233;
@@ -171,7 +181,11 @@ XeenPresentationUpdate XeenEventPresenter::present(const IndexedFrame &base,
 	_underlay = base;
 	_page = 0;
 	_diagnostics.clear();
-	if (request.kind == XeenPresentationKind::CharacterSelection) {
+	if (request.kind == XeenPresentationKind::NpcAcknowledgment) {
+		_npcTiming = {};
+		layoutNpc(base, request);
+		startNpcPage();
+	} else if (request.kind == XeenPresentationKind::CharacterSelection) {
 		const auto rendered = drawSelection(base, request);
 		_pages = rendered.pages;
 		_diagnostics = rendered.diagnostics;
@@ -183,7 +197,7 @@ XeenPresentationUpdate XeenEventPresenter::present(const IndexedFrame &base,
 		_pages = rendered.pages;
 		_diagnostics = rendered.diagnostics;
 	}
-	_frame = _pages.front();
+	_frame = request.kind == XeenPresentationKind::NpcAcknowledgment ? drawNpcPage() : _pages.front();
 	const bool waitsBetweenPages = _pages.size() > 1 &&
 		request.response == XeenPresentationResponseRequirement::Presented;
 	_active = waitsBetweenPages ||
@@ -203,6 +217,21 @@ XeenPresentationUpdate XeenEventPresenter::handle(const PlayerAction &action) {
 	XeenPresentationUpdate update{_frame, std::nullopt, _active};
 	if (!_active)
 		return update;
+	if (_request.kind == XeenPresentationKind::NpcAcknowledgment) {
+		if (!isAcknowledge(action) && !std::holds_alternative<CancelInteractionAction>(action))
+			return update;
+		if (_page + 1 < _pages.size()) {
+			++_page;
+			_layers.back().page = _page;
+			startNpcPage();
+			_frame = drawNpcPage();
+			update.frame = _frame;
+		} else {
+			update.response = XeenPresentationResponse::Acknowledged;
+			update.frame = finishPresentation();
+		}
+		return update;
+	}
 	if (_request.response == XeenPresentationResponseRequirement::CharacterSelection) {
 		if (std::holds_alternative<CancelInteractionAction>(action))
 			update.response = CharacterSelectionCancelled{};
@@ -242,7 +271,8 @@ XeenPresentationUpdate XeenEventPresenter::handle(const PlayerAction &action) {
 IndexedFrame XeenEventPresenter::finishPresentation() {
 	if (!_active) return _frame; // handle() and respond() may finish the same request.
 	_active = false;
-	if (_request.kind == XeenPresentationKind::CharacterSelection ||
+	if (_request.kind == XeenPresentationKind::NpcAcknowledgment ||
+			_request.kind == XeenPresentationKind::CharacterSelection ||
 			_request.kind == XeenPresentationKind::Confirmation ||
 			_request.response == XeenPresentationResponseRequirement::YesNo) {
 		_layers.pop_back();
@@ -252,6 +282,8 @@ IndexedFrame XeenEventPresenter::finishPresentation() {
 }
 
 IndexedFrame XeenEventPresenter::dismissSelection() {
+	if (!_layers.empty() && _layers.back().request.kind == XeenPresentationKind::NpcAcknowledgment)
+		return discardNpc();
 	if (!_layers.empty() && _layers.back().request.kind == XeenPresentationKind::CharacterSelection) {
 		return finishPresentation();
 	}
@@ -272,7 +304,11 @@ IndexedFrame XeenEventPresenter::rebase(const IndexedFrame &base) {
 	IndexedFrame current = base;
 	for (const auto &layer : _layers) {
 		_underlay = current;
-		if (layer.request.kind == XeenPresentationKind::CharacterSelection)
+		if (layer.request.kind == XeenPresentationKind::NpcAcknowledgment) {
+			layoutNpc(current, layer.request);
+			current = drawNpcPage();
+			continue;
+		} else if (layer.request.kind == XeenPresentationKind::CharacterSelection)
 			_pages = drawSelection(current, layer.request).pages;
 		else if (layer.request.kind == XeenPresentationKind::Confirmation)
 			_pages = {drawConfirmation(current)};
@@ -282,6 +318,119 @@ IndexedFrame XeenEventPresenter::rebase(const IndexedFrame &base) {
 		current = _pages.at(layer.page);
 	}
 	_frame = current;
+	return _frame;
+}
+
+void XeenEventPresenter::layoutNpc(const IndexedFrame &base,
+		const XeenPresentationRequest &request) {
+	if (!request.npc || request.npc->confirmationMode != 1 || !_npcDraw)
+		throw std::invalid_argument("NPC presentation requires mode 1 metadata and an asset provider");
+	XeenTextRenderOptions panel;
+	panel.bounds = {16, 16, 216, 132};
+	panel.windowBounds = {8, 8, 224, 140};
+	panel.x = panel.y = 16;
+	panel.drawWindow = true;
+	IndexedFrame heading = _renderer.render(base, "", panel).pages.front();
+	int y = 30;
+	std::size_t begin = 0;
+	std::string styledLine;
+	_diagnostics.clear();
+	while (begin <= request.title.size()) {
+		const auto newline = request.title.find('\n', begin);
+		const auto end = newline == std::string::npos ? request.title.size() : newline;
+		std::string text;
+		int anchor = 141;
+		for (auto i = begin; i < end;) {
+			if (request.title[i] != '\t') { text += request.title[i++]; continue; }
+			++i;
+			int offset = 0;
+			bool valid = end - i >= 3;
+			for (int digit = 0; digit < 3 && i < end; ++digit, ++i) {
+				if (request.title[i] < '0' || request.title[i] > '9') valid = false;
+				else offset = offset * 10 + request.title[i] - '0';
+			}
+			if (!valid) _diagnostics.push_back("invalid NPC title horizontal-position control");
+			else anchor = std::min(216, 16 + offset);
+		}
+		XeenTextRenderOptions title;
+		title.bounds = {64, 16, 216, 62};
+		title.x = 64; title.y = y;
+		title.alignment = XeenTextAlignment::Center;
+		title.alignmentAnchor = anchor;
+		if (y < 62) {
+			// The existing clear-text control drops prior glyphs while preserving
+			// font/color/alignment state. Reuse it instead of parsing styles twice.
+			if (begin) styledLine += '\r';
+			styledLine += text;
+			const int width = _renderer.textWidth(styledLine, XeenFontSize::Normal);
+			if (y + 10 > 62 || anchor - width / 2 < 64 || anchor + (width + 1) / 2 > 216)
+				_diagnostics.push_back("NPC title exceeds heading bounds");
+			auto rendered = _renderer.render(heading, styledLine, title);
+			heading = std::move(rendered.pages.front());
+			_diagnostics.insert(_diagnostics.end(), rendered.diagnostics.begin(), rendered.diagnostics.end());
+		} else _diagnostics.push_back("NPC title exceeds heading bounds");
+		if (newline == std::string::npos) break;
+		begin = end + 1;
+		// Bounded even for a resource containing thousands of empty title lines.
+		y = std::min(62, y + 10);
+	}
+	XeenTextRenderOptions body;
+	body.bounds = {16, 70, 216, 132};
+	body.x = 16; body.y = 70;
+	body.alignment = XeenTextAlignment::Center;
+	body.paginate = true;
+	auto rendered = _renderer.render(heading, request.text, body);
+	_pages = std::move(rendered.pages);
+	_npcPageSourceEnds = std::move(rendered.pageSourceEnds);
+	_diagnostics.insert(_diagnostics.end(), rendered.diagnostics.begin(), rendered.diagnostics.end());
+}
+
+IndexedFrame XeenEventPresenter::drawNpcPage() const {
+	auto frame = _pages.at(_page);
+	_npcDraw(frame, _request.npc->portraitId, _npcTiming.displayedFrame);
+	return frame;
+}
+
+void XeenEventPresenter::startNpcPage() {
+	const auto begin = _page ? _npcPageSourceEnds.at(_page - 1) : 0;
+	const auto end = _npcPageSourceEnds.at(_page);
+	const auto spaces = static_cast<std::uint64_t>(std::count(_request.title.begin(), _request.title.end(), ' ')) +
+		static_cast<std::uint64_t>(std::count(_request.text.begin() + begin, _request.text.begin() + end, ' '));
+	if (spaces > std::numeric_limits<std::uint64_t>::max() / 2)
+		throw std::overflow_error("NPC speech duration overflow");
+	_npcTiming.remaining = spaces * 2;
+	_npcTiming.deadline = _clock() + 150;
+}
+
+std::optional<IndexedFrame> XeenEventPresenter::updateNpc() {
+	if (!_active || _request.kind != XeenPresentationKind::NpcAcknowledgment ||
+			(!_npcTiming.remaining && !_npcTiming.nextFrame && !_npcTiming.displayedFrame))
+		return std::nullopt;
+	const auto now = _clock();
+	if (now < _npcTiming.deadline) return std::nullopt;
+	_npcTiming.deadline = now + 150; // No catch-up loop after a stalled host.
+	_npcTiming.displayedFrame = _npcTiming.nextFrame;
+	auto frame = drawNpcPage();
+	_npcTiming.phase ^= 1;
+	unsigned next = _randomFrame ? _randomFrame() : std::uniform_int_distribution<unsigned>(0, 3)(_random);
+	if (next >= 4) throw std::invalid_argument("NPC random frame outside 0..3");
+	if (!_npcTiming.phase || !_npcTiming.remaining) {
+		if (_npcTiming.remaining) --_npcTiming.remaining;
+		if (!_npcTiming.remaining) next = 0;
+	}
+	_npcTiming.nextFrame = next;
+	if (frame.pixels == _frame.pixels) return std::nullopt;
+	_frame = std::move(frame);
+	return _frame;
+}
+
+IndexedFrame XeenEventPresenter::discardNpc() {
+	if (!_layers.empty() && _layers.back().request.kind == XeenPresentationKind::NpcAcknowledgment) {
+		_layers.pop_back();
+		_active = false;
+		_frame = _underlay;
+		_npcTiming = {};
+	}
 	return _frame;
 }
 

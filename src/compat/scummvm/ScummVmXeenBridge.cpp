@@ -298,4 +298,27 @@ IndexedFrame ScummVmXeenBridge::snapshot() const {
 	return frame;
 }
 
+void ScummVmXeenBridge::drawNpc(IndexedFrame &frame, std::uint8_t portraitId,
+		std::size_t portraitFrame) {
+	if (!frame.isValid() || frame.width != 320 || frame.height != 200 || portraitFrame >= 4)
+		throw std::invalid_argument("invalid NPC draw context");
+	const std::string face = "face" + (portraitId < 10 ? std::string("0") : std::string()) +
+		std::to_string(portraitId) + ".fac";
+	// Validate every usable frame before any pixels are applied. Shared cells and
+	// optional second cells remain decoded/drawn by the pinned SpriteResource.
+	for (std::size_t i = 0; i < 4; ++i) _impl->sprite(face, i);
+	auto &border = _impl->sprite("frame.fac", 0);
+	auto &portrait = _impl->sprite(face, portraitFrame);
+	XSurface surface;
+	surface.create(320, 200);
+	for (int y = 0; y < 200; ++y)
+		std::copy_n(frame.pixels.data() + y * 320, 320,
+			static_cast<std::uint8_t *>(surface.getBasePtr(0, y)));
+	border.draw(surface, 0, Common::Point(16, 16));
+	portrait.draw(surface, static_cast<int>(portraitFrame), Common::Point(23, 22));
+	for (int y = 0; y < 200; ++y)
+		std::copy_n(static_cast<const std::uint8_t *>(surface.getBasePtr(0, y)), 320,
+			frame.pixels.data() + y * 320);
+}
+
 } // namespace mmodern

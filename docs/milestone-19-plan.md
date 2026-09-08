@@ -1,11 +1,11 @@
 # Milestone 19 - NPC dialogue and Myra's quest request
 
-**Status: draft for review, 2026-09-08. Implementation has not started.**
+**Status: approved specification; 19A complete on 2026-09-08; 19B pending.**
 
-This is an implementation specification, not a completion record. Acceptance
-IDs below are requirements; none is claimed as passed M19 acceptance. Approval
-of the rolling roadmap selected this slice, but does not authorize implementing
-this draft or beginning its successor.
+The specification and historical planning evidence below are retained. Section
+17 records the separately authorized 19A implementation and acceptance evidence.
+Only its stage-specific criteria have passed; M19 is not stable or complete.
+Roadmap approval and 19A completion do not authorize beginning 19B or a successor.
 
 Throughout this document, **Verified** identifies inspected repository/reference
 code or original resource evidence. **Decision** identifies the proposed
@@ -781,9 +781,10 @@ are implementation/validation tasks, not grounds for changing the roadmap:
 - Presentation errors and new owners must invalidate pending work without erasing
   prior immediate effects or applying an unacknowledged quest set.
 
-No production NPC frame, new Myra execution acceptance, build or CTest run is
-claimed by this planning task. Planning validation is final-diff review and
-`git diff --check` only. Project status, roadmap and README remain unchanged.
+The original planning task claimed no production NPC frame, new Myra acceptance,
+build or CTest run. Its validation was final-diff review and `git diff --check`
+only, leaving project status, roadmap and README unchanged. Subsequent 19A
+evidence is recorded separately in section 17.
 
 ## 16. Exact recommended first implementation prompt
 
@@ -806,5 +807,187 @@ claimed by this planning task. Planning validation is final-diff review and
 > implement rewards/save-load/world animation, or expand NPC modes/services.**
 > Do not commit, push, tag or change branches without a separate instruction.
 
-This draft ends at planning. Review and an explicit implementation request are
-required before that first stage starts.
+The first-stage prompt above has now been separately authorized and implemented.
+It remains the historical scope boundary, not an instruction to restart 19A.
+
+## 17. 19A implementation and validation evidence
+
+Completed 2026-09-08, after the user's explicit **19A only** instruction. Starting
+repository baseline was clean `main` at
+`d93752978f94281f089a0b6e8fa2fbf2a2aff0d7`. The branch and HEAD are unchanged.
+M18 remains the latest stable milestone. The approved roadmap and dependency
+configuration are unchanged; 19B was not started.
+
+### Implementation actually delivered
+
+- `XeenEventNpc` holds exactly the five decoded bytes. The interpreter accepts
+  only Clouds mode 1, resolves the current logical record's title and body by
+  value, retains the unused target and suspends with the existing Advance /
+  Acknowledged continuation. No EventSystem parallel execution path was added.
+- `NpcAcknowledgment` is a transient presenter layer. NPC-only title layout
+  handles newline and relative `TAB nnn` positioning in the bounded heading.
+  The existing renderer handles font/color/alignment controls, including their
+  state across title lines; its existing clear-text control discards prior
+  heading glyphs without resetting styles. Body wrapping exposes raw source
+  ends for per-page speech counters. Every page repeats the title and portrait,
+  and the last page still needs its own response.
+- Application injects `XeenAssetSource::drawNpc`. The bridge derives `faceNN.fac`
+  from the operand, preflights all four frames plus `frame.fac` frame 0, and uses
+  the pinned multi-cell sprite renderer on an isolated supplied-frame surface.
+  Existing archive/sprite caches own resources; the scene surface is unaffected.
+- Presenter-owned displayed/next frame, phase, wide counter and deadline provide
+  one due step per callback at nominal 150 ms. Production time is monotonic;
+  tests inject time/random choices. Rest performs no additional portrait draw.
+  Rebase does not advance/reseed/reset timing. No world clock, script instruction,
+  gameplay tick or M22 infrastructure was needed.
+- `XeenEventFlow::handlesEscape` is separate from WhoWill selection detection.
+  Space/Enter/Escape page or acknowledge NPCs, while Y/N, F-keys and navigation
+  cannot resume them. The existing generation owner consumes one response before
+  resume. Direct final acknowledgment and keyboard finalization share cleanup.
+- A narrow optional SDL idle callback advances presentation without keyboard
+  events. Quit stops processing before subsequent input/idle work; Application
+  explicitly abandons remaining presentation state after the loop. Destruction,
+  replacement and abandonment never acknowledge an NPC.
+- `PresentationFailed` reports NPC source and instruction context, consumes the
+  failed pending generation and removes only the transient NPC layer. Initial
+  draw, page, animation and rebase failures do not execute the next instruction.
+  Prior immediate party/world effects remain; transactional working camera/game
+  flags keep the established completion/error policy. Base scene composition
+  failures retain the existing outer fatal-error boundary.
+
+No production branch identifies Myra, map 23, portrait 17, her strings or event
+offsets. Fixed window anchors are the specified general NPC layout, not a Myra
+exception. No quest-flag field/parser/load/write, Action 104, clear, TakeOrGive
+expansion, Root consumption, reward, persistence or additional NPC mode exists.
+
+### Acceptance coverage
+
+`tests/XeenNpcTests.cpp` supplies only synthetic scripts, strings, fonts and FAC
+archives. CTest adds `xeen_npc` and `xeen_npc_sdl`; the latter uses SDL dummy /
+software. Existing tests were retained. `tests/MyraIntegrationTest.cpp` adds
+`mmodern_myra_smoke`, excluded from the default build and from data-free CTest.
+It takes an external game directory and an ignored output directory, optionally
+`sdl`. It uses original production party/map/EVT/text/font/FAC loading and the
+same EventSystem/EventFlow/presenter used by gameplay.
+
+| Acceptance IDs | 19A evidence |
+|---|---|
+| A01-A04 | Exact five-byte fields/provenance; truncations/trailing bytes; rejected modes 0/2/3/255 and Darkside; title/body errors, absent/mismatched text, empty valid strings; absent target ignored; natural completion, overflow and budget checks |
+| A05-A07 | Synthetic cached FAC two-cell frames; missing portrait/border, corrupt border/directory/late frame and insufficient frames fail before pixels change; isolated scene surface; title anchors/control diagnostics/style carry/clipping; multi-page glyph-count and raw-span coverage; original native placement/page inspection |
+| A08-A09 | Injected draw/select/decrement order, 149/150-ms boundary, bounded stall, rest and optional-cell cleanup; page phase/frame preservation; real SDL idle callback without keys; original deterministic four-frame sequences and changed pixels confined to the portrait |
+| A10-A11 | Space/Enter/Escape intermediate/final behavior, Y/N/F-key/navigation rejection, following NPC protected; direct/wrong/stale/repeated/replaced responses and identical transient cleanup |
+| A12-A15 | WhoWill-selected member through Call/Return; logical transfer vs committed camera; selected-object continuation; working game flags vs prior grants; automatic/manual routing, draw/page/tick/rebase failure, same-owner retry, retained sign, generation/rebase, SDL repeat/quit and flow destruction |
+| A21 (19A portion) | Counts 1 and 3 reach original NPC line 7 then exact unsupported consumption line 8/255, three instructions, unchanged state; no quest-flag-value matrix claimed |
+| A24-A25 (19A portions) | Original pending state, final Escape, repeat dispatch, abandonment, actual cache reload and fresh EventSystem/Flow; controlled leave/return and new original party/world/event/flow graphs without inherited timing/continuation. Quest-flag retention/loading belongs to 19B |
+| A26-A28 (19A portions) | Original Phirna/Bone Whistle direct+SDL controls; affected text/transfer controls; all 44 prior CTest cases remain passing; build/full suite and native temporal evidence below |
+
+A16-A20 and A22-A23 remain pending. No claim is made that A21/A25's future quest
+flags are modeled, loaded, mutated or validated. Existing party snapshots and
+all 35 counters, 256 game flags, camera, geometry, objects and effective event
+records are compared; original `maze.pty`, `maze.chr`, `maze0023.evt` and
+`maze0023.mob` bytes are also compared in memory before/after the smoke.
+
+### Actual original-data frontiers
+
+All rows start by ordinary line-0 interaction at Clouds map 23 `(9,11)` West.
+Root counts are controlled only through the test's in-memory party initialization.
+
+| Case | Verified 19A result |
+|---|---|
+| No Root, initial request | `0 -> 1 -> 4`, two-page original NPC request; final Enter or Escape reaches line 5/offset 228, `UnsupportedOperationMode`, four instructions |
+| No Root, repeat after that diagnostic | Same request/frontier again, new generation and frame 0/phase 0; no quest state invented or prior presentation inherited |
+| Root count 1 or 3 | `0 -> 7`, one-page original return; final acknowledgment reaches line 8/offset 255, `UnsupportedOperationMode`, three instructions; original Root count retained |
+| Pending request/return abandoned | No following instruction or terminal response; transient layer removed; independent dispatch works |
+| Same-party new EventSystem/Flow, leave/return | Fresh presentation only, no inherited continuation/animation; all authoritative state unchanged |
+| New party/world/events/flow graph | Original initial Root count zero reloads before any controlled setup; no session state leaks |
+
+These expected unsupported results pass acceptance. They do not bypass an
+instruction or treat a failed smoke as success. No Root, character/member,
+game-flag, camera, object or event mutation occurs on either branch. Quest flags
+are entirely absent from the 19A model; no bytes are written back to original data.
+Direct provider totals per controlled case are maps=3, objects=3, scripts=3,
+texts=3. Pending map/object/sprite reconstruction really reloads; the owned
+continuation strings remain intact. Discarded script/text caches reload on the
+next independent dispatch, then new event owners reload them again. SDL totals
+are maps=2, objects=2, scripts=1, texts=1, consistent with rebasing owned pending
+metadata without rereading its strings.
+
+### Build and execution record
+
+Debug build: `build/19a`, MSYS2 UCRT64, dependency source
+`D:/Projetos/MModern/scummvm-known-good-candidate`, dependency build
+`D:/Projetos/MModern/build-scummvm-6814ee9b-ucrt64`. The pinned source remains
+clean at `6814ee9ba54582f5b5adcffab49efbbd8f589edd`. No dependency update/patch.
+
+- `cmake --build build/19a --parallel 4`: passed.
+- Focused CTest regex
+  `xeen_(npc|who_will|event_|manual_event|navigation_flow|quest_|remove|session_|visual_remove)`:
+  **21/21 passed**, final run 3.26 s.
+- `ctest --test-dir build/19a --output-on-failure`: **46/46 passed**, final run
+  4.72 s, including the existing `sdl_input` and all M18 audit regressions.
+- Explicit builds of `mmodern_myra_smoke`, `mmodern_phirna_smoke`,
+  `mmodern_who_will_smoke`, `mmodern_manual_event_smoke` and
+  `mmodern_graphics_smoke`: passed.
+- `mmodern_myra_smoke <game-directory> build/19a/myra-direct` and the same
+  command with `build/19a/myra-sdl sdl`: passed all three counts (0/1/3).
+- Phirna direct/SDL: No = 3 instructions/no grant/plant present; Yes = 18
+  instructions/one Root/plant removed; owned = 5 instructions/no new grant/plant
+  present. Repeat, reconstruction and fresh-session checks passed.
+- Bone Whistle direct/SDL: ten-instruction harvest, item 100 increment and
+  object 1/effective event records 1-5 removed; retained success text, repeat,
+  cancellation/retry and fresh-session checks passed.
+- Manual original smoke: Air/Corner, reduced Snake Oil and Castle question,
+  No and Yes transfer passed. Application SDL graphics smoke modes `manual`,
+  `manual-no`, `manual-yes` and `event`, with Escape shutdown, passed.
+
+External original game directory: `F:/Games/gog/Might and Magic 4-5`, read-only
+throughout. SDL runs use `SDL_VIDEODRIVER=dummy` and
+`SDL_RENDER_DRIVER=software`. Captures remain under ignored `build/19a`, not
+source fixtures or committed commercial assets.
+
+### Native visual and temporal acceptance
+
+Manually inspected native **320x200** captures in `build/19a/myra-direct` and
+`build/19a/myra-sdl`: both request pages, return, all four portrait states for
+request/return, deterministic time sequence, rest, pending reconstruction and
+dismissed scene. The title is complete, its control digits are not visible,
+the frame/face do not overlap it, the body stays within its region, the second
+page preserves the remainder, and dismissal restores the scene/HUD cleanly.
+Optional facial cells leave no stale pixels. Automated temporal checks assert
+that changed pixels stay within the portrait region while state/generation stay
+unchanged; pixel equality separately verifies rebase and final scene restoration.
+
+Measured layout: request **2 pages**, initial speech counter **72**, second-page
+counter **30**; return **1 page**, counter **22**. With injected random sequence
+0,1,2,3, initial frame 0 and 150-ms steps, the first request page reaches displayed
+rest at **21,750 ms** and return at **6,750 ms**. These are accelerated injected
+times, not required user wait times; acknowledgment remains immediately available.
+Captured sequence includes 0,150,300,450,600,750,900,1050 ms and rest. Real SDL
+captures also show a changed portrait after approximately 0.46-0.48 s without
+keyboard input (draw-before-select plus the injected initial random choice 0).
+
+Air/Corner, Snake Oil and Castle question/No/Yes captures in
+`build/19a/manual-controls` were inspected as regression controls. Native PPM
+captures were losslessly converted to BMP for inspection. No physical-window,
+normal-travel, combat, Root exchange, reward, disk persistence or Darkside
+acceptance is claimed.
+
+### Stage closure and remaining boundary
+
+No scope or architecture deviation from the approved 19A plan was needed. The
+local SDL idle callback was sufficient; no broader scheduling architecture was
+introduced. No unresolved 19A defect is known. The complete diff was reviewed and
+`git diff --check` passed. Historical milestone evidence is retained.
+
+Changed files: `CMakeLists.txt`; `README.md`; this plan and `project-status.md`;
+`Application.cpp`; `XeenEventFlow.{h,cpp}`; `ScummVmXeenBridge.{h,cpp}`;
+`XeenAssetSource.{h,cpp}`; `XeenEventDecoder.{h,cpp}`;
+`XeenEventInterpreter.{h,cpp}`; `XeenEventPresenter.{h,cpp}`;
+`XeenTextRenderer.{h,cpp}`; `SdlWindow.{h,cpp}`; new `XeenNpcTests.cpp` and
+`MyraIntegrationTest.cpp`. No party/quest-state production file was changed.
+
+**Stop at 19A.** The next separately authorized scope is 19B's authoritative
+Clouds quest-flag storage/loading and bounded mode-104 set, completing the no-root
+request through line 6 while preserving line 8 consumption as unsupported.
+The flag implementation, its tests and its full acceptance matrix remain pending.
+No commit, push, tag, branch change or history rewrite was performed.

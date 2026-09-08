@@ -14,6 +14,13 @@ full CTest **44/44**, focused regressions **31/31**, and Bone Whistle/Phirna smo
 in direct and SDL modes. SDL validation used dummy/software rendering and native
 framebuffer inspection; no physical-window validation was performed.
 
+[Milestone 19A](docs/milestone-19-plan.md#17-19a-implementation-and-validation-evidence)
+is complete, with **46/46 CTest** passing. Clouds NPC mode-1 dialogue now presents
+original animated portraits, positioned titles and paginated text through the
+resumable event UI. The local Myra request displays correctly, then stops at the
+unsupported quest-state operation; her return dialogue stops before Root
+consumption. M19B quest flags remain pending, and Milestone 19 is not complete.
+
 Supported static Clouds objects render with direction, scale, clipping and
 terrain ordering, using validated World of Xeen metadata in `DARK.CC/clouds.dat`.
 The party loads 35 Clouds quest-item counters; events support possession checks
@@ -58,6 +65,7 @@ MMModern currently includes:
 - In-game sign, door-label, main, bottom, and centered event-text presentation
 - Runtime acknowledgment and Yes/No interaction without a nested input loop
 - WhoWill character selection, eligibility feedback and explicit cancellation
+- Clouds NPC mode-1 acknowledgment, original FAC portraits and bounded idle animation
 - Automated test suite
 - Manual rendering and gameplay validation
 
@@ -67,8 +75,10 @@ MMModern currently includes:
 - Space interacts or acknowledges; Enter acknowledges; Y/N answers Yes/No.
 - During WhoWill, F1-F6 selects the corresponding active party member. An
   incapacitated member produces feedback and allows another attempt.
-- Escape cancels WhoWill, terminating the current event. Outside WhoWill,
-  Escape exits the application. Selection and cancellation repeats are ignored.
+- During NPC mode-1 dialogue, Space/Enter/Escape advances a page or acknowledges
+  the final page. Y/N and F1-F6 do not acknowledge it.
+- Escape cancels WhoWill, terminating the current event. Outside WhoWill/NPC
+  dialogue, Escape exits the application. Repeated keydown events are ignored.
 - Navigation and ordinary interaction are blocked while a response is pending.
 
 ## Requirements

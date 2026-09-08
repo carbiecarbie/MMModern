@@ -13,11 +13,13 @@ namespace mmodern {
 class SdlWindow {
 public:
 	using FrameUpdateHandler = std::function<std::optional<IndexedFrame>(const PlayerAction &)>;
+	using IdleFrameHandler = std::function<std::optional<IndexedFrame>()>;
 
 	bool show(const IndexedFrame &frame, const std::string &title) const;
 	bool showInteractive(const IndexedFrame &frame, const std::string &title,
 		const FrameUpdateHandler &handler,
-		const std::function<bool()> &canCancelInteraction = {}) const;
+		const std::function<bool()> &handlesEscape = {},
+		const IdleFrameHandler &idle = {}) const;
 };
 
 } // namespace mmodern

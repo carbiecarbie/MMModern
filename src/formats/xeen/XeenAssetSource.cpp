@@ -83,4 +83,9 @@ IndexedFrame XeenAssetSource::snapshot() const {
 	return _impl->bridge.snapshot();
 }
 
+void XeenAssetSource::drawNpc(IndexedFrame &frame, std::uint8_t portraitId,
+		std::size_t portraitFrame) {
+	_impl->bridge.drawNpc(frame, portraitId, portraitFrame);
+}
+
 } // namespace mmodern

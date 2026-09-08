@@ -327,9 +327,19 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 				return error(XeenEventExecutionErrorKind::UnsupportedOperand,
 					"WhoWill verb index exceeds 31", instructionCount, logical, decoded.source);
 		}
+		const auto *npc = std::get_if<XeenEventNpc>(&decoded.operation);
+		if (npc) {
+			if (npc->confirmationMode != 1)
+				return error(XeenEventExecutionErrorKind::UnsupportedOperand,
+					"NPC confirmation mode " + std::to_string(npc->confirmationMode) + " is unsupported",
+					instructionCount, logical, decoded.source);
+			if (logical.mapId.side != XeenSide::Clouds || workingCamera.mapId.side != XeenSide::Clouds)
+				return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
+					"NPC requires Clouds logical and physical context", instructionCount, logical, decoded.source);
+		}
 		const auto *display = std::get_if<XeenEventDisplay>(&decoded.operation);
-		if (display || who) {
-			const auto textIndex = who ? who->textIndex : display->textIndex;
+		if (display || who || npc) {
+			const auto textIndex = npc ? npc->bodyTextIndex : who ? who->textIndex : display->textIndex;
 			if (!textProvider) {
 				return error(XeenEventExecutionErrorKind::MissingTextResource,
 					"event text provider is absent", instructionCount, logical,
@@ -361,14 +371,22 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 			}
 
 			XeenPresentationRequest request;
-			request.kind = who ? XeenPresentationKind::CharacterSelection : presentationKind(display->kind);
-			request.response = who ? XeenPresentationResponseRequirement::CharacterSelection : display->kind ==
+			request.kind = npc ? XeenPresentationKind::NpcAcknowledgment : who ? XeenPresentationKind::CharacterSelection : presentationKind(display->kind);
+			request.response = npc ? XeenPresentationResponseRequirement::Acknowledgment : who ? XeenPresentationResponseRequirement::CharacterSelection : display->kind ==
 				XeenEventDisplayKind::BottomWindowTwoLines ?
 				XeenPresentationResponseRequirement::Acknowledgment :
 				XeenPresentationResponseRequirement::Presented;
 			request.mapId = logical.mapId;
 			request.textIndex = textIndex;
 			request.text = *text;
+			if (npc) {
+				const auto *title = textFile.stringAt(npc->titleTextIndex);
+				if (!title)
+					return error(XeenEventExecutionErrorKind::InvalidTextIndex,
+						"NPC title index is outside the map text table", instructionCount, logical, decoded.source);
+				request.npc = *npc;
+				request.title = *title;
+			}
 			if (display) request.layoutValue = display->layoutValue;
 			if (who) {
 				request.verbIndex = who->verbIndex;

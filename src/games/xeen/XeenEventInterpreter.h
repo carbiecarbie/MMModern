@@ -43,6 +43,7 @@ enum class XeenPresentationKind {
 	BottomWindowTwoLines,
 	MainWindowMessage,
 	Confirmation,
+	NpcAcknowledgment,
 	CharacterSelection
 };
 
@@ -93,6 +94,8 @@ struct XeenPresentationRequest {
 	std::vector<XeenCharacterSelectionMember> members;
 	std::optional<std::uint8_t> verbIndex;
 	std::string refusal;
+	std::optional<XeenEventNpc> npc;
+	std::string title;
 };
 
 enum class XeenEventMissingInstructionPolicy {
@@ -167,7 +170,8 @@ enum class XeenEventExecutionErrorKind {
 	TextMapMismatch,
 	InvalidTextIndex,
 	InvalidPresentationResponse,
-	PresentationRequired
+	PresentationRequired,
+	PresentationFailed
 };
 
 struct XeenEventExecutionError {

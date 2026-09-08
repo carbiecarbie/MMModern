@@ -12,6 +12,7 @@ struct GlyphAtom {
 	std::uint8_t character = 0;
 	XeenFontSize size = XeenFontSize::Normal;
 	std::uint8_t colorIndex = 0;
+	std::size_t sourceOffset = 0;
 };
 
 struct TextLine {
@@ -96,7 +97,7 @@ std::vector<GlyphAtom> parseText(const std::string &text,
 		const unsigned char raw = static_cast<unsigned char>(text[i++]);
 		const unsigned char c = raw & 0x7f;
 		if (c >= ' ') {
-			glyphs.push_back({c, size, color});
+			glyphs.push_back({c, size, color, i - 1});
 			continue;
 		}
 		switch (c) {
@@ -115,7 +116,7 @@ std::vector<GlyphAtom> parseText(const std::string &text,
 			alignments.back() = alignment;
 			break;
 		case 5: break;
-		case 6: glyphs.push_back({' ', size, color}); break;
+		case 6: glyphs.push_back({' ', size, color, i - 1}); break;
 		case 7: {
 			int ignored = 0;
 			if (!parseDigits(text, i, 3, ignored))
@@ -312,9 +313,18 @@ XeenTextRenderResult XeenTextRenderer::render(const IndexedFrame &base,
 			y += line.height ? line.height : 10;
 		}
 		result.pages.push_back(std::move(frame));
+		std::size_t sourceEnd = text.size();
+		for (std::size_t next = end; next < lines.size(); ++next) {
+			if (!lines[next].glyphs.empty()) {
+				sourceEnd = lines[next].glyphs.front().sourceOffset;
+				break;
+			}
+		}
+		result.pageSourceEnds.push_back(sourceEnd);
 	}
 	if (result.pages.empty()) {
 		result.pages.push_back(base);
+		result.pageSourceEnds.push_back(text.size());
 		if (options.drawWindow) {
 			const XeenTextRect window = options.windowBounds.right > options.windowBounds.left ?
 				options.windowBounds : options.bounds;

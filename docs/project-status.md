@@ -4,12 +4,44 @@
 
 Current stable milestone: **Milestone 18**
 
+**Milestone 19A is complete on 2026-09-08; M19B is pending.** Milestone 19 is
+not stable or complete. The separately authorized stage follows the approved
+[Milestone 19 plan](milestone-19-plan.md#17-19a-implementation-and-validation-evidence).
+No independent review of 19A is claimed.
+
+Latest validation: successful Debug build, **21/21 focused tests**, **46/46 full
+CTest**, direct and SDL dummy/software original Myra, Phirna and Bone Whistle
+smokes. Native 320x200 request/return, four portrait frames, timed sequence,
+rest/rebase/dismissal and affected text controls were inspected. No physical
+window was tested.
+
+Clouds NPC mode 1 now uses strict five-byte decoding, current-record title/body
+lookup, sequential acknowledgment continuation, positioned titles and complete
+body pagination. Original FAC portraits/frame use the existing asset cache and
+multi-cell renderer. Bounded four-frame speech/rest timing advances through an
+optional SDL idle callback. Space/Enter/Escape advances pages or acknowledges the
+final page; Escape remains cancellation for WhoWill. Generation consumption,
+cache rebasing, retained layers and explicit presentation-failure cleanup are
+covered without a general animation scheduler.
+
+At original Clouds map 23 `(9,11)` West, no Root executes `0 -> 1 -> 4`, shows
+the two-page request and stops after acknowledgment at unsupported mode 104,
+line 5/offset 228, four instructions. Root counts 1 and 3 execute `0 -> 7`,
+show the one-page return and stop at unsupported consumption, line 8/offset 255,
+three instructions. All modeled party, item-counter, camera, game-flag and world
+state stays unchanged. Repeat, abandonment, real cache reload, new event/flow
+owners and fresh original loading pass. Quest flags are not modeled or loaded;
+19B's quest-flag storage/loading/set remains entirely pending. No consumption,
+reward, save/load, world-animation or additional NPC mode/service was added.
+
+## Milestone 18B - Historical stabilization evidence
+
 **18A is complete and independently approved; 18B is complete on 2026-09-08.**
 The approved [Milestone 18 plan](milestone-18-plan.md#16-18b-original-data-acceptance-and-stabilization)
 records A01-A36 acceptance and stabilization. No independent review of 18B is claimed.
 Milestones 14-17 remain complete; their detailed records below are historical.
 
-Latest validation: **44/44 full CTest**, **31/31 focused regressions**, successful
+M18B validation: **44/44 full CTest**, **31/31 focused regressions**, successful
 build and Bone Whistle/Phirna smokes directly and through SDL dummy/software.
 New native frames were inspected; no physical-window test was performed.
 
@@ -25,7 +57,8 @@ regressions remain covered. Phirna No/harvest/owned outcomes remain unchanged.
 18B changes tests and documentation only; no production or dependency change was
 needed. It does not certify normal travel to this checkpoint, combat, Orothin's
 quest completion, inventory/consumption, save/load or Darkside gameplay. No known
-pending issue remains within the approved scope. No later milestone was started.
+pending issue remained within its approved scope. No later milestone was started
+as part of M18B.
 
 ## Milestone 18A - WhoWill and temporary character context
 

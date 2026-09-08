@@ -73,7 +73,8 @@ std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key) {
 
 bool showLoop(const IndexedFrame &initialFrame, const std::string &title,
 		const SdlWindow::FrameUpdateHandler &handler,
-		const std::function<bool()> &canCancelInteraction = {}) {
+		const std::function<bool()> &canCancelInteraction = {},
+		const SdlWindow::IdleFrameHandler &idle = {}) {
 	if (!initialFrame.isValid()) {
 		std::cerr << "Framebuffer indexado invalido.\n";
 		return false;
@@ -163,7 +164,22 @@ bool showLoop(const IndexedFrame &initialFrame, const std::string &title,
 						}
 					}
 				}
-			} while (SDL_PollEvent(&event));
+			} while (running && SDL_PollEvent(&event));
+		}
+		if (!running) break;
+		if (idle) {
+			try {
+				const auto nextFrame = idle();
+				if (nextFrame && !uploadFrame(texture, *nextFrame,
+						initialFrame.width, initialFrame.height, pixels)) {
+					success = false;
+					break;
+				}
+			} catch (const std::exception &error) {
+				std::cerr << "Falha ao atualizar apresentacao: " << error.what() << '\n';
+				success = false;
+				break;
+			}
 		}
 
 		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -190,8 +206,9 @@ bool SdlWindow::show(const IndexedFrame &frame, const std::string &title) const 
 }
 
 bool SdlWindow::showInteractive(const IndexedFrame &frame, const std::string &title,
-		const FrameUpdateHandler &handler, const std::function<bool()> &canCancelInteraction) const {
-	return showLoop(frame, title, handler, canCancelInteraction);
+		const FrameUpdateHandler &handler, const std::function<bool()> &handlesEscape,
+		const IdleFrameHandler &idle) const {
+	return showLoop(frame, title, handler, handlesEscape, idle);
 }
 
 } // namespace mmodern

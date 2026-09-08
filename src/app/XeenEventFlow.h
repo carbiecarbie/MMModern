@@ -15,7 +15,9 @@ public:
 	using Compose = std::function<IndexedFrame()>;
 	XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
 		XeenPartyState &party, XeenCamera &camera, XeenGameFlags &flags,
-		const XeenFontFormat &font, Compose compose);
+		const XeenFontFormat &font, Compose compose,
+		XeenEventPresenter::NpcDraw npcDraw = {}, XeenEventPresenter::Clock clock = {},
+		XeenEventPresenter::RandomFrame randomFrame = {});
 	IndexedFrame initial();
 	IndexedFrame handle(const PlayerAction &action);
 	IndexedFrame refresh(bool reconstruct = false);
@@ -24,6 +26,10 @@ public:
 	const IndexedFrame &frame() const { return _frame; }
 	bool blocksGameplay() const { return _pending.has_value(); }
 	bool canCancelInteraction() const;
+	bool handlesEscape() const;
+	std::optional<IndexedFrame> updatePresentation();
+	void abandonPresentation();
+	const XeenEventPresenter &presenter() const { return _presenter; }
 	std::optional<std::uint64_t> presentationGeneration() const;
 	// Returns false for an obsolete/already consumed presentation. No resume occurs.
 	bool respond(std::uint64_t generation, XeenPresentationResponse response);
@@ -33,6 +39,8 @@ public:
 	std::function<void(XeenMovementResult)> reportMovement;
 private:
 	template<class Result> IndexedFrame drive(Result result, bool automatic);
+	IndexedFrame presentationFailed(const std::exception &exception);
+	bool pendingNpc() const;
 	struct Pending { XeenEventExecutionState state; bool automatic; std::uint64_t generation; };
 	std::uint64_t _generation = 0;
 	XeenWorld &_world;

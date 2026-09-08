@@ -95,6 +95,7 @@ const char *eventErrorName(XeenEventExecutionErrorKind kind) {
 	case XeenEventExecutionErrorKind::InvalidTextIndex: return "InvalidTextIndex";
 	case XeenEventExecutionErrorKind::InvalidPresentationResponse: return "InvalidPresentationResponse";
 	case XeenEventExecutionErrorKind::PresentationRequired: return "PresentationRequired";
+	case XeenEventExecutionErrorKind::PresentationFailed: return "PresentationFailed";
 	}
 	return "UnknownEventError";
 }
@@ -404,6 +405,8 @@ int Application::renderMap(const std::filesystem::path &gameDirectory,
 		const XeenFontFormat font(assets.readArchiveResource("fnt"));
 		XeenEventFlow flow(world, eventSystem, partyState, camera, gameFlags, font, [&]() {
 			return composer.compose(assets, world, partyState, camera, rulesContext);
+		}, [&](IndexedFrame &target, std::uint8_t portrait, std::size_t frameIndex) {
+			assets.drawNpc(target, portrait, frameIndex);
 		});
 		flow.reportManual = printManualEventResult;
 		flow.reportAutomatic = requireAutomaticEventSuccess;
@@ -427,12 +430,14 @@ int Application::renderMap(const std::filesystem::path &gameDirectory,
 		std::cout << "Controles: W/seta cima avanca, S/seta baixo recua, "
 			"A/seta esquerda e D/seta direita giram, Space interage/confirma, "
 			"Enter confirma, Y/N responde Sim/Nao, F1-F6 escolhe personagem, "
-			"Escape cancela WhoWill ou sai.\n";
+			"Escape confirma NPC, cancela WhoWill ou sai.\n";
 		SdlWindow window;
-		return window.showInteractive(frame, "MMModern - Mapa " + std::to_string(camera.mapId.number),
+		const bool ok = window.showInteractive(frame, "MMModern - Mapa " + std::to_string(camera.mapId.number),
 			[&](const PlayerAction &action) -> std::optional<IndexedFrame> {
 				return flow.handle(action);
-			}, [&] { return flow.canCancelInteraction(); }) ? 0 : 4;
+			}, [&] { return flow.handlesEscape(); }, [&] { return flow.updatePresentation(); });
+		flow.abandonPresentation();
+		return ok ? 0 : 4;
 	} catch (const std::exception &error) {
 		std::cerr << "Falha ao renderizar mapa: " << error.what() << '\n';
 		return 3;

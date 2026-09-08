@@ -11,9 +11,11 @@ bool sameCamera(const XeenCamera &a, const XeenCamera &b) {
 
 XeenEventFlow::XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
 		XeenPartyState &party, XeenCamera &camera, XeenGameFlags &flags,
-		const XeenFontFormat &font, Compose compose) :
+		const XeenFontFormat &font, Compose compose, XeenEventPresenter::NpcDraw npcDraw,
+		XeenEventPresenter::Clock clock, XeenEventPresenter::RandomFrame randomFrame) :
 	_world(world), _events(events), _party(party), _camera(camera), _flags(flags),
-	_navigation(events), _presenter(font), _compose(std::move(compose)) {
+	_navigation(events), _presenter(font, std::move(npcDraw), std::move(clock), std::move(randomFrame)),
+	_compose(std::move(compose)) {
 	refresh(true);
 }
 
@@ -26,7 +28,12 @@ IndexedFrame XeenEventFlow::refresh(bool reconstruct) {
 		// Always use the committed camera, never logicalAddress/workingCamera.
 		const auto base = _compose();
 		if (cameraChanged && !_pending) _presenter.clear();
-		_frame = _presenter.rebase(base);
+		try { _frame = _presenter.rebase(base); }
+		catch (const std::exception &e) {
+			if (!pendingNpc()) throw;
+			presentationFailed(e);
+			_frame = _presenter.rebase(base);
+		}
 		_renderedCamera = _camera;
 		_disabledObjects = count;
 	}
@@ -47,7 +54,12 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 		if (!suspended) return _frame;
 		_frame = _presenter.dismissSelection();
 		_pending = Pending{suspended->state, automatic, ++_generation};
-		auto update = _presenter.present(_frame, suspended->request);
+		XeenPresentationUpdate update;
+		try { update = _presenter.present(_frame, suspended->request); }
+		catch (const std::exception &e) {
+			if (!pendingNpc()) throw;
+			return presentationFailed(e);
+		}
 		_frame = std::move(update.frame);
 		if (reportText) for (const auto &message : _presenter.diagnostics()) reportText(message);
 		if (!update.response) return _frame;
@@ -80,6 +92,35 @@ bool XeenEventFlow::canCancelInteraction() const {
 		_pending->state.pendingPresentation->request.response ==
 			XeenPresentationResponseRequirement::CharacterSelection;
 }
+bool XeenEventFlow::pendingNpc() const {
+	return _pending && _pending->state.pendingPresentation &&
+		_pending->state.pendingPresentation->request.kind == XeenPresentationKind::NpcAcknowledgment;
+}
+bool XeenEventFlow::handlesEscape() const { return canCancelInteraction() || pendingNpc(); }
+void XeenEventFlow::abandonPresentation() {
+	_pending.reset();
+	_frame = _presenter.dismissSelection();
+}
+IndexedFrame XeenEventFlow::presentationFailed(const std::exception &exception) {
+	const auto pending = std::move(*_pending);
+	_pending.reset();
+	_frame = _presenter.discardNpc();
+	const auto &request = pending.state.pendingPresentation->request;
+	XeenEventExecutionError error{XeenEventExecutionErrorKind::PresentationFailed,
+		std::string("NPC presentation: ") + exception.what(), pending.state.instructionCount,
+		pending.state.logicalAddress, request.source, std::nullopt};
+	if (pending.automatic) { if (reportAutomatic) reportAutomatic(error); }
+	else if (reportManual) reportManual(error);
+	return _frame;
+}
+std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
+	if (!pendingNpc()) return std::nullopt;
+	try {
+		auto changed = _presenter.updateNpc();
+		if (changed) _frame = *changed;
+		return changed;
+	} catch (const std::exception &e) { return presentationFailed(e); }
+}
 std::optional<std::uint64_t> XeenEventFlow::presentationGeneration() const {
 	return _pending ? std::optional<std::uint64_t>{_pending->generation} : std::nullopt;
 }
@@ -99,10 +140,17 @@ bool XeenEventFlow::respond(std::uint64_t generation, XeenPresentationResponse r
 IndexedFrame XeenEventFlow::handle(const PlayerAction &action) {
 	if (std::holds_alternative<SelectMemberAction>(action) && !canCancelInteraction())
 		return _frame;
+	const bool hadPending = _pending.has_value();
 	refresh();
+	if (hadPending && !_pending) return _frame; // Rebase failure must not dispatch this input.
 	if (_pending) {
 		const auto generation = _pending->generation;
-		auto update = _presenter.handle(action);
+		XeenPresentationUpdate update;
+		try { update = _presenter.handle(action); }
+		catch (const std::exception &e) {
+			if (!pendingNpc()) throw;
+			return presentationFailed(e);
+		}
 		_frame = std::move(update.frame);
 		if (!update.response) return _frame;
 		respond(generation, *update.response);

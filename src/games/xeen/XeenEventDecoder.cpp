@@ -240,6 +240,10 @@ XeenEventDecodeResult decodeTakeOrGive(const XeenEventRecord &record,
 XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 		XeenEventDecodeContext context) {
 	switch (record.opcode) {
+	case 0x05:
+		if (record.parameters.size() != 5) return wrongSize(record, context, 5);
+		return instruction(record, context, XeenEventNpc{record.parameters[0],
+			record.parameters[1], record.parameters[2], record.parameters[3], record.parameters[4]});
 	case 0x20:
 		if (record.parameters.size() != 2)
 			return wrongSize(record, context, 2);
