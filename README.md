@@ -9,8 +9,8 @@ The project is currently in early development.
 ## Current status
 
 [Milestone 20](docs/milestone-20-plan.md#16-final-independent-approval-and-milestone-20-closure)
-is complete and independently approved, and is the current stable milestone
-recorded in the reviewed candidate pending commit. M20-A01 through M20-A16
+is complete, independently approved and committed, and is the current stable
+milestone. M20-A01 through M20-A16
 are closed. The final reviewer reported **53/53 full CTest**, original-data
 direct/SDL dummy/software acceptance and all restart checkpoints passing,
 and inspected native resumed/fresh frame evidence. Gabriel's passing physical-window

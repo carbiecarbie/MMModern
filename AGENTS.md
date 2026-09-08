@@ -70,6 +70,10 @@ When modifying an existing subsystem:
 Use the planning documents according to their authority:
 
 - `docs/project-status.md` records current implemented state and validation.
+- `docs/project-history.md` is a concise historical summary, not a current-state
+  authority or required reading for ordinary implementation tasks. Consult it
+  only when historical context/evolution is relevant. Detailed historical
+  implementation and validation evidence remains in dedicated milestone plans.
 - `docs/roadmap.md` records approved future direction once reviewed and approved;
   entries marked proposed are recommendations, not implementation authorization.
 - A dedicated `docs/milestone-N-plan.md` defines the detailed scope of an active
