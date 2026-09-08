@@ -38,6 +38,9 @@ int main() {
 	std::atomic<int> acknowledgments{0};
 	std::atomic<int> yes{0};
 	std::atomic<int> no{0};
+	std::atomic<int> selections{0};
+	std::atomic<int> cancellations{0};
+	std::atomic<bool> canCancel{true};
 	std::exception_ptr senderError;
 	std::thread sender([&] {
 		try {
@@ -50,6 +53,14 @@ int main() {
 			pushKey(finished, SDLK_y, 1);
 			pushKey(finished, SDLK_y, 0);
 			pushKey(finished, SDLK_n, 0);
+			for (int i=0; i<6; ++i) {
+				pushKey(finished, SDLK_F1+i, 0);
+				pushKey(finished, SDLK_F1+i, 1);
+			}
+			pushKey(finished, SDLK_ESCAPE, 0);
+			pushKey(finished, SDLK_ESCAPE, 1);
+			pushKey(finished, SDLK_RIGHT, 0); // proves held Escape did not exit
+			pushKey(finished, SDLK_ESCAPE, 0, SDL_KEYUP);
 			pushKey(finished, SDLK_ESCAPE, 0);
 		} catch (...) {
 			senderError = std::current_exception();
@@ -72,14 +83,22 @@ int main() {
 				++yes;
 			else if (std::holds_alternative<NoAction>(action))
 				++no;
+			else if (const auto *selection=std::get_if<SelectMemberAction>(&action)) {
+				if (selection->partyIndex!=static_cast<std::size_t>(selections.load()))
+					throw std::runtime_error("F1-F6 active index mapping");
+				++selections;
+			} else if (std::holds_alternative<CancelInteractionAction>(action)) {
+				++cancellations;
+				canCancel=false;
+			}
 			return std::nullopt;
-		});
+		}, [&] { return canCancel.load(); });
 	finished = true;
 	sender.join();
 	if (senderError)
 		std::rethrow_exception(senderError);
-	if (!result || interactions != 2 || navigation != 1 || acknowledgments != 1 ||
-			yes != 1 || no != 1) {
+	if (!result || interactions != 2 || navigation != 2 || acknowledgments != 1 ||
+			yes != 1 || no != 1 || selections != 6 || cancellations != 1) {
 		std::cerr << "Space dispatch/repeat filtering failed: interactions="
 			<< interactions << " navigation=" << navigation
 			<< " acknowledgments=" << acknowledgments << " yes=" << yes

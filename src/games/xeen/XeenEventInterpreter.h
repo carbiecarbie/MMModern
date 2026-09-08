@@ -42,20 +42,43 @@ enum class XeenPresentationKind {
 	BottomWindowMessage,
 	BottomWindowTwoLines,
 	MainWindowMessage,
-	Confirmation
+	Confirmation,
+	CharacterSelection
 };
 
 enum class XeenPresentationResponseRequirement {
 	Presented,
 	Acknowledgment,
-	YesNo
+	YesNo,
+	CharacterSelection
 };
 
-enum class XeenPresentationResponse {
-	Presented,
-	Acknowledged,
-	Yes,
-	No
+struct SelectedCharacter { std::size_t partyIndex; };
+struct CharacterSelectionCancelled {};
+
+struct XeenPresentationResponse {
+	enum Signal {
+		Presented,
+		Acknowledged,
+		Yes,
+		No
+	};
+	std::variant<Signal, SelectedCharacter, CharacterSelectionCancelled> value;
+	XeenPresentationResponse(Signal signal) : value(signal) {}
+	XeenPresentationResponse(SelectedCharacter selection) : value(selection) {}
+	XeenPresentationResponse(CharacterSelectionCancelled cancel) : value(cancel) {}
+	bool operator==(Signal signal) const {
+		const auto *actual = std::get_if<Signal>(&value);
+		return actual && *actual == signal;
+	}
+	bool operator!=(Signal signal) const { return !(*this == signal); }
+};
+
+struct XeenCharacterSelectionMember {
+	std::size_t partyIndex;
+	std::uint8_t rosterId;
+	std::string name;
+	bool eligible;
 };
 
 struct XeenPresentationRequest {
@@ -67,6 +90,9 @@ struct XeenPresentationRequest {
 	std::string text;
 	std::optional<std::uint8_t> layoutValue;
 	XeenEventSourceLocation source;
+	std::vector<XeenCharacterSelectionMember> members;
+	std::optional<std::uint8_t> verbIndex;
+	std::string refusal;
 };
 
 enum class XeenEventMissingInstructionPolicy {
@@ -78,7 +104,8 @@ enum class XeenEventMissingInstructionPolicy {
 enum class XeenEventPendingContinuation {
 	Advance,
 	Terminate,
-	ConditionalAction44
+	ConditionalAction44,
+	WhoWill
 };
 
 struct XeenEventPendingPresentation {
@@ -96,6 +123,8 @@ struct XeenEventExecutionState {
 	XeenDirection lookupDirection = XeenDirection::North;
 	XeenCamera workingCamera;
 	std::optional<XeenObjectIdentity> selectedObject;
+	// Temporary active-party index; independent of roster IDs and call frames.
+	std::optional<std::size_t> activeCharacterIndex;
 	XeenGameFlags workingGameFlags;
 	std::optional<XeenEventScript> currentScript;
 	std::vector<XeenEventCallFrame> callStack;

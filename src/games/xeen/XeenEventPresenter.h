@@ -27,6 +27,9 @@ public:
 	XeenPresentationUpdate handle(const PlayerAction &action);
 	// Rebuild displayed layers and all pending pages without producing a response.
 	IndexedFrame rebase(const IndexedFrame &base);
+	IndexedFrame dismissSelection();
+	// Finish the consumed request, retaining passive text and removing transient UI.
+	IndexedFrame finishPresentation();
 	void clear();
 
 	bool blocksGameplay() const { return _active; }
@@ -36,6 +39,8 @@ public:
 private:
 	XeenTextRenderOptions optionsFor(const XeenPresentationRequest &request) const;
 	IndexedFrame drawConfirmation(const IndexedFrame &base) const;
+	XeenTextRenderResult drawSelection(const IndexedFrame &base,
+		const XeenPresentationRequest &request) const;
 	bool isAcknowledge(const PlayerAction &action) const;
 
 	XeenTextRenderer _renderer;

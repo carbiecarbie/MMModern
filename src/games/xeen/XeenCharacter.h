@@ -105,6 +105,7 @@ struct XeenCharacter {
 
 	unsigned currentLevel() const;
 	XeenCondition worstCondition() const;
+	bool canAct() const;
 	std::optional<std::string> portraitResourceName() const;
 };
 

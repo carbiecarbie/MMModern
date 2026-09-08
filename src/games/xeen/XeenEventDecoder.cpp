@@ -240,6 +240,11 @@ XeenEventDecodeResult decodeTakeOrGive(const XeenEventRecord &record,
 XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 		XeenEventDecodeContext context) {
 	switch (record.opcode) {
+	case 0x20:
+		if (record.parameters.size() != 2)
+			return wrongSize(record, context, 2);
+		return instruction(record, context,
+			XeenEventWhoWill{record.parameters[0], record.parameters[1]});
 	case 0x00:
 		// None retains old operands when an event is disabled by Remove.
 		return instruction(record, context, XeenEventNone{});

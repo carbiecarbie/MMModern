@@ -29,6 +29,13 @@ XeenTextRenderOptions XeenEventPresenter::optionsFor(
 		const XeenPresentationRequest &request) const {
 	XeenTextRenderOptions options;
 	switch (request.kind) {
+	case XeenPresentationKind::CharacterSelection:
+		options.bounds = {225, 74, 320, 154};
+		options.x = 233;
+		options.y = 82;
+		options.alignment = XeenTextAlignment::Center;
+		options.drawWindow = true;
+		break;
 	case XeenPresentationKind::CenteredMessage:
 		options.bounds = {225, 140, 320, 199};
 		options.x = 233;
@@ -112,6 +119,49 @@ IndexedFrame XeenEventPresenter::drawConfirmation(const IndexedFrame &base) cons
 	return result;
 }
 
+XeenTextRenderResult XeenEventPresenter::drawSelection(const IndexedFrame &base,
+		const XeenPresentationRequest &request) const {
+	static constexpr const char *verbs[] = {
+		"search", "open", "drink", "mine", "touch", "read", "learn", "take",
+		"bang", "steal", "bribe", "pay", "sit", "try", "turn", "bathe",
+		"destroy", "pull", "descend", "toss a coin", "pray", "join", "act", "play",
+		"push", "rub", "pick", "eat", "sign", "close", "look", "try"
+	};
+	const auto verb = request.verbIndex.value_or(0);
+	if (verb >= 32 || request.members.empty() || request.members.size() > 6)
+		throw std::invalid_argument("invalid WhoWill presentation metadata");
+	// Bound the title independently so a long map string cannot displace the
+	// question or the selection keys. Reuse the existing metric wrapping/clipping.
+	auto options = optionsFor(request);
+	options.bounds.bottom = 100;
+	auto rendered = _renderer.render(base, request.text, options);
+	auto append = [&](const std::string &text, int top, int bottom) {
+		options.drawWindow = false;
+		options.bounds.top = options.y = top;
+		options.bounds.bottom = bottom;
+		auto part = _renderer.render(rendered.pages.front(), text, options);
+		rendered.pages = std::move(part.pages);
+		rendered.diagnostics.insert(rendered.diagnostics.end(),
+			part.diagnostics.begin(), part.diagnostics.end());
+	};
+	append(std::string("Who will\n") + verbs[verb] + "?", 104, 134);
+	append("F1 - F" + std::to_string(request.members.size()), 138, 146);
+	if (!request.refusal.empty()) {
+		XeenTextRenderOptions feedback;
+		feedback.bounds = {8, 112, 216, 140};
+		feedback.windowBounds = {0, 104, 224, 148};
+		feedback.x = 8;
+		feedback.y = 112;
+		feedback.drawWindow = true;
+		feedback.alignment = XeenTextAlignment::Center;
+		auto refusal = _renderer.render(rendered.pages.front(), request.refusal, feedback);
+		rendered.pages = std::move(refusal.pages);
+		rendered.diagnostics.insert(rendered.diagnostics.end(),
+			refusal.diagnostics.begin(), refusal.diagnostics.end());
+	}
+	return rendered;
+}
+
 XeenPresentationUpdate XeenEventPresenter::present(const IndexedFrame &base,
 		const XeenPresentationRequest &request) {
 	if (!base.isValid())
@@ -121,7 +171,11 @@ XeenPresentationUpdate XeenEventPresenter::present(const IndexedFrame &base,
 	_underlay = base;
 	_page = 0;
 	_diagnostics.clear();
-	if (request.kind == XeenPresentationKind::Confirmation) {
+	if (request.kind == XeenPresentationKind::CharacterSelection) {
+		const auto rendered = drawSelection(base, request);
+		_pages = rendered.pages;
+		_diagnostics = rendered.diagnostics;
+	} else if (request.kind == XeenPresentationKind::Confirmation) {
 		_pages = {drawConfirmation(base)};
 	} else {
 		const XeenTextRenderResult rendered = _renderer.render(base, request.text,
@@ -149,6 +203,17 @@ XeenPresentationUpdate XeenEventPresenter::handle(const PlayerAction &action) {
 	XeenPresentationUpdate update{_frame, std::nullopt, _active};
 	if (!_active)
 		return update;
+	if (_request.response == XeenPresentationResponseRequirement::CharacterSelection) {
+		if (std::holds_alternative<CancelInteractionAction>(action))
+			update.response = CharacterSelectionCancelled{};
+		else if (const auto *selection = std::get_if<SelectMemberAction>(&action)) {
+			if (selection->partyIndex < _request.members.size())
+				update.response = SelectedCharacter{selection->partyIndex};
+		}
+		// The interpreter revalidates eligibility against the live party.
+		if (update.response) update.frame = finishPresentation();
+		return update;
+	}
 	if (_request.response == XeenPresentationResponseRequirement::Presented) {
 		if (!isAcknowledge(action))
 			return update;
@@ -158,31 +223,39 @@ XeenPresentationUpdate XeenEventPresenter::handle(const PlayerAction &action) {
 			update.frame = _frame;
 		}
 		if (_page + 1 == _pages.size()) {
-			_active = false;
 			update.response = XeenPresentationResponse::Presented;
 		}
 	} else if (_request.response ==
 			XeenPresentationResponseRequirement::Acknowledgment) {
 		if (isAcknowledge(action)) {
-			_active = false;
 			update.response = XeenPresentationResponse::Acknowledged;
-			if (_request.kind == XeenPresentationKind::Confirmation) {
-				update.frame = _frame = _underlay;
-				_layers.pop_back();
-			}
 		}
 	} else if (std::holds_alternative<YesAction>(action)) {
-		_active = false;
 		update.response = XeenPresentationResponse::Yes;
-		update.frame = _frame = _underlay;
-		_layers.pop_back();
 	} else if (std::holds_alternative<NoAction>(action)) {
-		_active = false;
 		update.response = XeenPresentationResponse::No;
-		update.frame = _frame = _underlay;
-		_layers.pop_back();
 	}
+	if (update.response) update.frame = finishPresentation();
 	return update;
+}
+
+IndexedFrame XeenEventPresenter::finishPresentation() {
+	if (!_active) return _frame; // handle() and respond() may finish the same request.
+	_active = false;
+	if (_request.kind == XeenPresentationKind::CharacterSelection ||
+			_request.kind == XeenPresentationKind::Confirmation ||
+			_request.response == XeenPresentationResponseRequirement::YesNo) {
+		_layers.pop_back();
+		_frame = _underlay;
+	}
+	return _frame;
+}
+
+IndexedFrame XeenEventPresenter::dismissSelection() {
+	if (!_layers.empty() && _layers.back().request.kind == XeenPresentationKind::CharacterSelection) {
+		return finishPresentation();
+	}
+	return _frame;
 }
 
 void XeenEventPresenter::clear() {
@@ -199,7 +272,9 @@ IndexedFrame XeenEventPresenter::rebase(const IndexedFrame &base) {
 	IndexedFrame current = base;
 	for (const auto &layer : _layers) {
 		_underlay = current;
-		if (layer.request.kind == XeenPresentationKind::Confirmation)
+		if (layer.request.kind == XeenPresentationKind::CharacterSelection)
+			_pages = drawSelection(current, layer.request).pages;
+		else if (layer.request.kind == XeenPresentationKind::Confirmation)
 			_pages = {drawConfirmation(current)};
 		else
 			_pages = _renderer.render(current, layer.request.text,

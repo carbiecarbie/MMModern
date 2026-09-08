@@ -66,6 +66,9 @@ bool compare(std::uint32_t actual, std::uint32_t expected,
 bool responseMatches(XeenPresentationResponseRequirement requirement,
 		XeenPresentationResponse response) {
 	switch (requirement) {
+	case XeenPresentationResponseRequirement::CharacterSelection:
+		return std::holds_alternative<SelectedCharacter>(response.value) ||
+			std::holds_alternative<CharacterSelectionCancelled>(response.value);
 	case XeenPresentationResponseRequirement::Presented:
 		return response == XeenPresentationResponse::Presented;
 	case XeenPresentationResponseRequirement::Acknowledgment:
@@ -126,6 +129,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::begin(
 	state.lookupDirection = initialCamera.direction;
 	state.workingCamera = initialCamera;
 	state.workingGameFlags = gameFlags;
+	if (partyState.party.size()) state.activeCharacterIndex = 0;
 	if (!scriptProvider) {
 		return error(XeenEventExecutionErrorKind::ScriptLoadFailed,
 			"script provider is absent", 0, state.logicalAddress);
@@ -197,6 +201,32 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 			return error(XeenEventExecutionErrorKind::InvalidPresentationResponse,
 				"response does not match the pending presentation request",
 				instructionCount, logical, pending.request.source);
+		}
+		if (pending.continuation == XeenEventPendingContinuation::WhoWill) {
+			if (std::holds_alternative<CharacterSelectionCancelled>(response->value))
+				return completed(workingCamera, workingGameFlags, instructionCount);
+			const auto index = std::get<SelectedCharacter>(response->value).partyIndex;
+			const auto &members = pending.request.members;
+			bool identityMatches = members.size() == partyState.party.size();
+			for (std::size_t i = 0; identityMatches && i < members.size(); ++i)
+				identityMatches = members[i].partyIndex == i &&
+					members[i].rosterId == partyState.party.activeRosterIds()[i];
+			if (!identityMatches || index >= members.size())
+				return error(XeenEventExecutionErrorKind::InvalidPresentationResponse,
+					"WhoWill party identity or selected index changed", instructionCount,
+					logical, pending.request.source);
+			const auto &character = partyState.party.member(partyState.roster, index);
+			if (!character.canAct()) {
+				auto &request = state.pendingPresentation->request;
+				request.refusal = character.name + " is in no condition to act.";
+				for (auto &member : request.members) {
+					const auto &live = partyState.party.member(partyState.roster, member.partyIndex);
+					member.name = live.name;
+					member.eligible = live.canAct();
+				}
+				return XeenEventExecutionSuspended{state, request};
+			}
+			state.activeCharacterIndex = index;
 		}
 		state.pendingPresentation.reset();
 		if (pending.continuation == XeenEventPendingContinuation::Terminate)
@@ -279,7 +309,27 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 		if (std::holds_alternative<XeenEventExit>(decoded.operation))
 			return completed(workingCamera, workingGameFlags, instructionCount);
 
-		if (const auto *display = std::get_if<XeenEventDisplay>(&decoded.operation)) {
+		const auto *who = std::get_if<XeenEventWhoWill>(&decoded.operation);
+		if (who) {
+			if (!partyState.party.size())
+				return error(XeenEventExecutionErrorKind::EmptyParty,
+					"WhoWill requires an active party member", instructionCount, logical, decoded.source);
+			if (logical.line == 255)
+				return error(XeenEventExecutionErrorKind::LineOverflow,
+					"WhoWill sequential line overflow", instructionCount, logical, decoded.source);
+			if (partyState.party.size() == 1) {
+				state.activeCharacterIndex = 0;
+				++logical.line;
+				missingPolicy = MissingInstructionPolicy::NaturalCompletion;
+				continue;
+			}
+			if (who->verbIndex >= 32)
+				return error(XeenEventExecutionErrorKind::UnsupportedOperand,
+					"WhoWill verb index exceeds 31", instructionCount, logical, decoded.source);
+		}
+		const auto *display = std::get_if<XeenEventDisplay>(&decoded.operation);
+		if (display || who) {
+			const auto textIndex = who ? who->textIndex : display->textIndex;
 			if (!textProvider) {
 				return error(XeenEventExecutionErrorKind::MissingTextResource,
 					"event text provider is absent", instructionCount, logical,
@@ -303,7 +353,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 					"event text resource is missing", instructionCount, logical,
 					decoded.source);
 			}
-			const std::string *text = textFile.stringAt(display->textIndex);
+			const std::string *text = textFile.stringAt(textIndex);
 			if (!text) {
 				return error(XeenEventExecutionErrorKind::InvalidTextIndex,
 					"event text index is outside the map text table", instructionCount,
@@ -311,20 +361,29 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 			}
 
 			XeenPresentationRequest request;
-			request.kind = presentationKind(display->kind);
-			request.response = display->kind ==
+			request.kind = who ? XeenPresentationKind::CharacterSelection : presentationKind(display->kind);
+			request.response = who ? XeenPresentationResponseRequirement::CharacterSelection : display->kind ==
 				XeenEventDisplayKind::BottomWindowTwoLines ?
 				XeenPresentationResponseRequirement::Acknowledgment :
 				XeenPresentationResponseRequirement::Presented;
 			request.mapId = logical.mapId;
-			request.textIndex = display->textIndex;
+			request.textIndex = textIndex;
 			request.text = *text;
-			request.layoutValue = display->layoutValue;
+			if (display) request.layoutValue = display->layoutValue;
+			if (who) {
+				request.verbIndex = who->verbIndex;
+				for (std::size_t i = 0; i < partyState.party.size(); ++i) {
+					const auto &member = partyState.party.member(partyState.roster, i);
+					request.members.push_back({i, partyState.party.activeRosterIds()[i],
+						member.name, member.canAct()});
+				}
+			}
 			request.source = decoded.source;
 
 			XeenEventPendingPresentation pending;
 			pending.request = request;
-			if (display->kind == XeenEventDisplayKind::BottomWindowTwoLines) {
+			if (who) pending.continuation = XeenEventPendingContinuation::WhoWill;
+			if (display && display->kind == XeenEventDisplayKind::BottomWindowTwoLines) {
 				pending.continuation = XeenEventPendingContinuation::Terminate;
 			} else {
 				if (logical.line == 255) {
@@ -455,8 +514,11 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 						"condition action 9 requires an active party member",
 						instructionCount, logical, decoded.source);
 				}
+				if (!state.activeCharacterIndex || *state.activeCharacterIndex >= partyState.party.size())
+					return error(XeenEventExecutionErrorKind::InvalidPresentationResponse,
+						"active character context is outside the party", instructionCount, logical, decoded.source);
 				actual = static_cast<std::uint32_t>(
-					partyState.party.member(partyState.roster, 0).currentSp);
+					partyState.party.member(partyState.roster, *state.activeCharacterIndex).currentSp);
 			} else if (conditional->action == 20) {
 				if (conditional->value > 255) {
 					return error(XeenEventExecutionErrorKind::InvalidFlagIndex,
@@ -587,6 +649,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 			if (const auto teleportError = executeTeleport(teleport->mapId,
 					teleport->x, teleport->y, true))
 				return *teleportError;
+			state.activeCharacterIndex = partyState.party.size() ? std::optional<std::size_t>{0} : std::nullopt;
 			logical = {workingCamera.mapId, teleport->x, teleport->y, 0};
 			try {
 				script.emplace(scriptProvider(logical.mapId));

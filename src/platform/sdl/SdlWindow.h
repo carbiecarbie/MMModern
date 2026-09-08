@@ -16,7 +16,8 @@ public:
 
 	bool show(const IndexedFrame &frame, const std::string &title) const;
 	bool showInteractive(const IndexedFrame &frame, const std::string &title,
-		const FrameUpdateHandler &handler) const;
+		const FrameUpdateHandler &handler,
+		const std::function<bool()> &canCancelInteraction = {}) const;
 };
 
 } // namespace mmodern

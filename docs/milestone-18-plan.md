@@ -1,12 +1,13 @@
 # Milestone 18 - WhoWill and Bone Whistle collection
 
-**Status: approved/planned. Implementation has not started.**
+**Status: 18A implemented, validated and independently approved; 18B pending and not started. M18 is incomplete and not stable.**
 
-**18A is the next implementation target, not implemented or complete.
-18B is planned, not implemented or complete. Milestone 17 remains the latest
+**18A is complete. 18B is planned, not implemented or complete. Milestone 17 remains the latest
 stable milestone.**
 
-This document records the approved post-M17 investigation and specification.
+This document preserves the approved post-M17 investigation and specification.
+Section 15 records the separately authorized 18A implementation and its evidence.
+The following approval description refers to the original planning task:
 Approval covers the plan; it does not authorize implementation during this
 documentation task. Acceptance cases below are requirements, not passed results.
 No build, CTest or M18 acceptance run was performed to create this document.
@@ -357,7 +358,7 @@ conditions, SetChar/SetVar, TakeOrGive modes, damage and treasure distribution.
 
 ### 18A - Integrated WhoWill and character context
 
-**Status: approved/planned; next implementation target; not implemented/complete.**
+**Status: complete; implementation and validation recorded in section 15.**
 
 - Objective: deliver selection from decoder through SDL, with semantic use by Action 9.
 - Added behavior: operand/cardinality validation, eligibility, context lifetime,
@@ -396,7 +397,8 @@ conditions, SetChar/SetVar, TakeOrGive modes, damage and treasure distribution.
 
 ## 9. Acceptance matrix
 
-All rows are required and pending. Synthetic cases cover verified semantics or
+All rows remain requirements. Section 15 records the completed 18A subset;
+full M18 acceptance remains pending. Synthetic cases cover verified semantics or
 the explicit defensive MMModern decisions above, not invented original scripts.
 
 | ID | Case | Required result |
@@ -576,5 +578,186 @@ complete in advance or replace historical M17 evidence with an unexecuted claim.
 6. Validate reconstruction, fresh sessions, SDL and Phirna regressions.
 7. Build and run complete CTest for milestone completion; record actual evidence.
 
-The current task only records this specification. No implementation, build,
+The original planning task only recorded this specification. No implementation, build,
 test execution, commit, push, tag or branch change accompanies this approval.
+
+## 15. 18A implementation and validation
+
+**18A complete on 2026-09-07. M17 remains latest stable; M18 is incomplete/not
+stable; 18B is pending and was not started.** This implementation was explicitly
+authorized separately from the planning task. The specification above is retained.
+
+### Environment and changes
+
+- Initial branch `main`, HEAD `0164f13f7c0707bbd983398af8d924e53d77b197`, clean
+  `git status --short --branch` (`## main...origin/main`). No preexisting edits.
+- Windows, MSYS2 UCRT64 GCC 16.2.0, CMake/MSYS Makefiles, Debug `build/18a`.
+  Commands used `C:/msys64/ucrt64/bin` and `C:/msys64/usr/bin` at the front of PATH.
+- Source `D:/Projetos/MModern/scummvm-known-good-candidate`, verified at
+  `6814ee9ba54582f5b5adcffab49efbbd8f589edd` with empty status, using
+  `git -c safe.directory=D:/Projetos/MModern/scummvm-known-good-candidate`
+  and `-c core.autocrlf=false` for the dependency status check.
+  Artifacts: `D:/Projetos/MModern/build-scummvm-6814ee9b-ucrt64`. No ScummVM edits
+  or additional reference/data investigation was needed.
+- Two-byte WhoWill operation; pure `XeenCharacter::canAct()` based on worstCondition;
+  optional execution-owned active index; existing Action 9 consumer updated.
+  Existing text resolution/error handling is shared with displays. Party loaders,
+  serialization, quest storage, Remove and EventSystem transaction code are unchanged.
+- Typed selection/cancellation payloads extend the existing response type, so
+  EventSystem transports them through its existing signatures. Requests own member
+  indices, roster identities, names and eligibility. The interpreter validates the
+  entire active identity ordering plus selected range and current eligibility.
+- EventFlow consumes pending state before resume and associates every new presentation
+  with a generation; old/repeated generations return false without resuming. Rebase
+  preserves pending state/generation, including changes to the composition camera.
+  This is not global replay detection for independently copied historical states.
+- Presenter uses the existing font and party portraits. The right-hand WhoWill
+  panel contains title/question/F1-Fn; refusal is an attached feedback region in the
+  same transient presentation layer. It retains the choice, is removed/rebased with
+  that layer, and never enters a nested modal loop. This implements the approved
+  presentation adaptation, with no semantic scope deviation.
+- SDL maps F1-F6 to 0-5 and uses the flow's explicit cancellation capability.
+  Repeated selection/Escape events are ignored; fresh Escape outside WhoWill and
+  SDL_QUIT keep exit behavior. Application wires the capability into the existing loop.
+
+### Acceptance evidence
+
+`tests/XeenWhoWillTests.cpp` registers `xeen_who_will` and `xeen_who_will_sdl`.
+Synthetic fixtures use existing production party loading and Remove test support;
+they contain no commercial game data.
+`presentationLayout` additionally tests all 32 verbs with normal and oversized
+titles, fixed question/key regions, visible F-key labels and panel clipping.
+
+| Requirements | Tests/evidence |
+|---|---|
+| A01-A07 | `decoderAndCardinality`: exact operands/source/error sizes, malformed instructions before grants, specific text errors/empty string, local EmptyParty and one-member early return even incapacitated with unused invalid operands. |
+| A08-A13 | `eligibilityAndProtocol`: every size 2-6 and every valid index with differing SP/nonsequential roster IDs; each blocking condition refuses/retries; all conditions, Asleep+Confused, all-ineligible cancellation and live recovery. `sdlFlow` checks F6 above a two-member party. |
+| A14-A15, A25 | `priorEffects`: cancel/error inside calls following teleport, working flag, immediate grant and optional Remove; cancellation completes the whole execution and commits camera/flag state, errors do not; earlier immediate effects persist. `productionFlow` also checks cancellation before later grants. |
+| A16-A21 | `contextLifetime`: choices before/after display, before calls and changed in callee, Return, fresh dispatch, destination reset with cumulative instruction count, all three Action 9 comparisons and negative-SP conversion. `productionFlow` adds multipage/ack continuations and exactly one party grant. |
+| A22-A24 | `eligibilityAndProtocol`, `productionFlow`: wrong response kinds/range, live party reorder/resize/empty, ineligible retries, obsolete/repeated/replaced/completed responses at the actual production owner, cache discard and rebase without response. |
+| A30-A32 | `sdlFlow` through SdlWindow/EventFlow: blocked navigation and unrelated inputs, refusal/retry, selected SP, F-key not acknowledging next request, cancellation/repeats, navigation recovery, fresh Escape and SDL_QUIT. Expanded `tests/SdlInputTests.cpp` checks every F1-F6 mapping and repeated Escape followed by navigation. |
+| Original 18A checkpoint | `tests/WhoWillIntegrationTest.cpp`, separate `mmodern_who_will_smoke` target: production map 20 `(5,14)` North, line 0/source offset 7, original WhoWill prompt/text 3, valid choice reaching original text 0 and acknowledgment; independent cancel with unchanged quest counts/object/events/camera/flags and no later presentation. |
+| M17 regressions | Existing Phirna smoke unchanged: No = count 0/plant present/3 instructions; harvest = count 1/plant removed/18 instructions; already-owned = count 1/plant present/5 instructions, direct and SDL. Existing full quest/Remove/persistence tests retained. |
+
+### Commands and results
+
+From the repository root, with the PATH above:
+
+```powershell
+cmake -S . -B build/18a -G 'MSYS Makefiles' -DCMAKE_BUILD_TYPE=Debug -DSCUMMVM_SOURCE_DIR=D:/Projetos/MModern/scummvm-known-good-candidate -DSCUMMVM_BUILD_DIR=D:/Projetos/MModern/build-scummvm-6814ee9b-ucrt64
+cmake --build build/18a --parallel 4
+ctest --test-dir build/18a --output-on-failure
+ctest --test-dir build/18a -R 'who_will|event|navigation|quest|remove|identity|persistence|sdl_input' --output-on-failure
+cmake --build build/18a --parallel 4 --target mmodern_who_will_smoke mmodern_phirna_smoke
+build/18a/mmodern_who_will_smoke.exe 'F:\Games\gog\Might and Magic 4-5' build/18a/who-direct
+build/18a/mmodern_phirna_smoke.exe 'F:\Games\gog\Might and Magic 4-5' build/18a/phirna-direct
+$env:SDL_VIDEODRIVER='dummy'
+$env:SDL_RENDER_DRIVER='software'
+build/18a/mmodern_who_will_smoke.exe 'F:\Games\gog\Might and Magic 4-5' build/18a/who-sdl sdl
+build/18a/mmodern_phirna_smoke.exe 'F:\Games\gog\Might and Magic 4-5' build/18a/phirna-sdl sdl
+git diff --check
+git diff --stat
+git status --short --branch
+```
+
+Results: configure/build passed; full CTest **44/44 passed**; separate pertinent
+regression selection **31/31 passed**. Both original smoke executables passed in
+both modes. Earlier focused runs passed 5/5 event/UI/grant/Remove tests and then
+3/3 WhoWill/SDL tests. During iteration, new harness compile errors were corrected;
+an SDL harness timeout was traced to its automatic-event test cell reopening
+WhoWill on navigation, and that manual-interaction fixture was corrected. No
+production assertions were weakened or tests disabled. The final runs above pass.
+
+Logs are ignored outputs in `build/18a`: `build-final.log`, `ctest-full.log`,
+`ctest-regressions.log`, `smoke-build.log`, `who-direct.log`, `who-sdl.log`,
+`phirna-direct.log` and `phirna-sdl.log`. Git whitespace verification passed.
+No add, commit, branch change, push, tag or history operation was performed.
+
+### Visual validation and remaining boundary
+
+Native 320x200 original-font frames were inspected: choice with six existing
+portraits, following original display/acknowledgment, cancellation restoring the
+base scene, and refusal layout with the loaded member name. All 32 verb panels
+were inspected together, including `toss a coin`; prompt and F1-F6 remain readable
+without clipping. Images are local ignored BMPs under `build/18a/who-sdl`, with
+an inspection montage `verbs.png`. The refusal layout frame is a presentation-only
+diagnostic using a copied request; actual live refusal/retry is tested synthetically
+through interpreter and SDL. No commercial resources were changed or added to Git.
+
+This is SDL dummy/software plus native-frame inspection, **not physical-window
+or hardware-display validation**. The subsequent audit findings and remediation
+and second independent approval are recorded below.
+Full original collection/acknowledgment/grant/Remove, repeat, reconstruction and
+fresh-session certification remain 18B; the 18A smoke deliberately stops the valid
+path at its original acknowledgment. Subsequent supported instructions remain
+functional in production and are covered synthetically. M18 is not complete/stable.
+
+### Independent-audit remediation
+
+The subsequent independent audit returned **CHANGES REQUIRED**, superseding the
+earlier statement that no 18A issues remained. The three confirmed findings were
+remediated without reimplementing 18A or starting 18B. The second independent
+review subsequently returned **APPROVE 18A**, as recorded below.
+
+- Initial branch `main`, HEAD `0164f13f7c0707bbd983398af8d924e53d77b197`:
+  19 tracked modified files and the two untracked 18A tests. Existing edits were
+  preserved; no staging, commit, push, tag, branch switch or history rewrite.
+- A04: `textForMap` threw a generic exception for incompatible map identity,
+  which the interpreter translated into MissingTextResource. It now returns the
+  incompatible value without caching it, allowing the interpreter's existing
+  generic TextMapMismatch validation to run. Missing-resource behavior is unchanged.
+  `integratedTextErrors` tests manual EventSystem WhoWill and SignText, exact error,
+  source/instruction count, no later grant/Remove, and repeated uncached mismatch.
+- Direct responses: selection-only dismissal left confirmation UI retained after
+  completion. Presenter `finishPresentation` now shares the existing transient-UI
+  dismissal/passive-text retention rule between input handling and direct responses;
+  repeated finalization is harmless. `directResponses` covers Yes, No, confirmation
+  acknowledgment, retained two-line acknowledgment and CharacterSelection, exact
+  retained sign pixels, completion, stale generation and rebase over a changed base.
+- Passive F1-F6: Flow cleared the presenter before deciding the input did nothing.
+  Selection actions outside an active CharacterSelection now return before refresh
+  or presentation mutation. `passiveSelectionInputs` verifies all six indices after
+  SignText + Exit, unchanged framebuffer/composition count and retained rebase.
+  Existing WhoWill/SDL tests retain selection, out-of-range, repeats and quit coverage.
+- All three regression groups are part of `xeen_who_will`, also independently runnable
+  as `mmodern_who_will_tests.exe text-errors`, `direct-responses`, `passive-inputs`.
+  Each group failed before the production fixes (exit 1) and passed afterward (exit 0).
+- Reused the Debug `build/18a` configuration and pinned dependency paths above.
+  `cmake --build build/18a --parallel 4` passed; complete CTest **44/44** and the
+  same focused regex selection **31/31** passed, including presentation, EventFlow,
+  SDL input, WhoWill, Yes/No, acknowledgment, pagination and navigation.
+  Both smoke targets rebuilt and passed directly and with SDL dummy/software.
+  New smoke frames are under ignored `build/18a/remediation-who-direct`,
+  `remediation-who_will-sdl`, `remediation-phirna-direct`, `remediation-phirna-sdl`.
+  No physical-window validation or new visual-inspection claim is made here.
+- Remediation touched only EventSystem.cpp, EventFlow.cpp, EventPresenter.cpp/.h,
+  XeenWhoWillTests.cpp and these two status/plan documents. No changes to loaders,
+  serialized formats, quest-item storage, Remove, commercial data or SDL mapping.
+  No deviation from the requested minimal corrections. Git whitespace check passed.
+
+### Second independent review and 18A closure
+
+The second independent review returned **APPROVE 18A**. It confirmed all three
+findings corrected: integrated TextMapMismatch propagation, visual finalization
+through respond(), and inactive F1-F6 preserving passive messages. The previous
+independent probes were recompiled and rerun without source changes; none of the
+three defects reproduced, including the SDL passive-message probe. The reviewer
+inspected integratedTextErrors, directResponses and passiveSelectionInputs and
+ran each group independently, all with exit 0. No new regression or expansion
+into 18B was found.
+
+The review reproduced the full build, **44/44 CTest** (3.54 seconds), **31/31 focused
+regressions** (2.55 seconds), and both WhoWill and Phirna smokes directly and through
+SDL. It reused the Debug build and pinned dependency configuration recorded above.
+New smoke outputs are under ignored `build/18a/reaudit-who-direct`,
+`reaudit-who-sdl`, `reaudit-phirna-direct` and `reaudit-phirna-sdl`.
+SDL used **dummy/software**; the new following-display framebuffer was inspected,
+but **no physical-window validation was performed**. The review preserved all 22
+modified/untracked files byte-for-byte and passed git diff --check.
+
+This documentary closure records those review results; it does not claim a new
+test run. Milestone 17 remains the latest stable milestone. Milestone 18A is
+implemented, validated and approved after independent review. Milestone 18 remains
+incomplete and not stable; 18B remains pending and not started. Full original
+collection, repetition, reconstruction and fresh-session certification remain
+exclusively within 18B.

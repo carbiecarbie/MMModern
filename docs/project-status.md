@@ -4,8 +4,8 @@
 
 Current stable milestone: **Milestone 17**
 
-Next implementation target: **Milestone 18A - approved/planned, not implemented**.
-Implementation has not started; this approval records the specification only.
+**Milestone 18A is implemented, validated and independently approved.** Milestone 18 is incomplete and
+not stable; 18B remains pending and was not started by the 18A implementation.
 
 Milestone 14 is complete. Stages 14A, 14B, 14C, and 14D are complete.
 
@@ -18,11 +18,47 @@ validation record are in the [Milestone 16 plan](milestone-16-plan.md).
 The [Milestone 17 plan](milestone-17-plan.md) is complete: 17A and 17B are
 complete, and independent final review returned **APPROVE MILESTONE 17**.
 All required acceptance cases A01-A13 passed. Milestone 17 is the latest stable
-milestone. [Milestone 18](milestone-18-plan.md) is approved/planned; 18A and 18B
-are not implemented or complete. The next implementation target is 18A.
+milestone. [Milestone 18](milestone-18-plan.md) has completed 18A; 18B original
+acceptance and stabilization remain pending and require separate authorization.
 
-Last recorded complete automated baseline: **42/42 passed during M17**.
-This is historical validation evidence; no build or CTest was run for M18 planning.
+Latest implementation validation: **44/44 CTest passed for 18A**, plus a separate
+**31/31** relevant-regression run. The **42/42 M17** result remains historical.
+The first independent audit returned **CHANGES REQUIRED** for three confirmed
+findings. All three were corrected and revalidated by the second independent
+review, which returned **APPROVE 18A**. It reproduced the full build, **44/44 CTest**,
+**31/31 focused regressions**, and WhoWill and Phirna smokes both directly and
+through SDL. The previous independent probes no longer reproduced the defects;
+no new regression or expansion into 18B was found. SDL validation used
+**dummy/software**; no physical-window validation was performed. This documentary
+closure records the review results without claiming another test run.
+See the [18A evidence record](milestone-18-plan.md#15-18a-implementation-and-validation)
+for commands, environment, acceptance mapping and original-data checkpoints.
+
+## Milestone 18A - WhoWill and temporary character context
+
+Completed on 2026-09-07, in the existing decoder/interpreter/EventSystem/presenter/
+EventFlow/SDL/Application path. WhoWill strictly decodes two bytes, resolves
+map text, handles party cardinality and worst-condition eligibility, and owns
+value metadata through suspension. Selection is a temporary 0-based active-party
+index, retained through displays and Call/Return, reset at independent dispatch
+and TeleportAndContinue, and consumed by existing Action 9 SP comparisons.
+
+The production continuation owner consumes responses once, validates presentation
+generations and preserves them on rebase. Live party identity, range and eligibility
+are checked before acceptance. F1-F6 selects; contextual Escape cancels the entire
+event, retaining existing camera/flag completion and immediate grant/Remove policies.
+
+Original Clouds map 20 `(5,14)` North was exercised from line 0 through production
+loaders and flow, directly and with SDL dummy/software. Valid selection reached
+the original following display/acknowledgment; independent cancellation executed
+no later presentation, grant or Remove. Original-font choice, all 32 verbs, refusal
+layout, next display and cancellation frames were inspected at native resolution.
+No physical-window validation was performed. Existing Phirna smoke passed unchanged
+in direct and SDL modes. Commercial resources were read only; outputs are ignored
+under `build/18a`.
+
+18B collection, repeat, reconstruction/new-session certification was not performed.
+Milestone 17 remains the last stable milestone; Milestone 18 is not complete.
 
 ## Milestone 13
 
@@ -674,22 +710,22 @@ at the time of that stabilization; its later planning approval is recorded below
 
 ## Milestone 18 - WhoWill and Bone Whistle collection
 
-**Status: approved/planned; implementation not started.**
+**Status: 18A complete and independently approved; 18B pending and not started; M18 incomplete and not stable.**
 
 The approved specification is the [Milestone 18 plan](milestone-18-plan.md).
 Milestone 17 remains the latest stable milestone.
 
-- **18A: next implementation target; approved/planned, not implemented or complete.**
-  Integrate WhoWill decoding, ephemeral script-selected character context,
-  eligibility, typed presentation responses, F1-F6/Escape input and Action 9.
+- **18A: implemented, validated and independently approved (APPROVE 18A).** WhoWill decoding, ephemeral script-selected
+  character context, eligibility, typed responses, F1-F6/Escape and Action 9
+  work through the production flow. See the implementation record above.
 - **18B: planned, not implemented or complete.** Validate the original Bone
   Whistle chain on Clouds map 20 at (5,14), facing North, including cancellation,
   one-item grant, Remove persistence, repeat interaction and M17 regressions.
 - The scope excludes quest completion, normal route/combat certification,
   inventory/quest-item consumption and other opcode expansion.
-- A01-A36 are required acceptance cases, not passed results. The 42/42 M17
-  baseline remains historical evidence; this documentation update ran no build,
-  CTest or M18 acceptance tests. Approval of the plan does not start implementation.
+- A01-A25 and A30-A32 passed for 18A, with its restricted original checkpoint.
+  Full A01-A36/M18 certification remains pending. The 42/42 M17 baseline remains
+  historical; this implementation passed 44/44 full CTest and 31/31 regressions.
 
 ## Architecture notes
 

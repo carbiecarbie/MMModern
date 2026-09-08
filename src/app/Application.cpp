@@ -426,12 +426,13 @@ int Application::renderMap(const std::filesystem::path &gameDirectory,
 			std::cout << "Aviso: interior escuro renderizado iluminado para diagnostico.\n";
 		std::cout << "Controles: W/seta cima avanca, S/seta baixo recua, "
 			"A/seta esquerda e D/seta direita giram, Space interage/confirma, "
-			"Enter confirma, Y/N responde Sim/Nao.\n";
+			"Enter confirma, Y/N responde Sim/Nao, F1-F6 escolhe personagem, "
+			"Escape cancela WhoWill ou sai.\n";
 		SdlWindow window;
 		return window.showInteractive(frame, "MMModern - Mapa " + std::to_string(camera.mapId.number),
 			[&](const PlayerAction &action) -> std::optional<IndexedFrame> {
 				return flow.handle(action);
-			}) ? 0 : 4;
+			}, [&] { return flow.canCancelInteraction(); }) ? 0 : 4;
 	} catch (const std::exception &error) {
 		std::cerr << "Falha ao renderizar mapa: " << error.what() << '\n';
 		return 3;

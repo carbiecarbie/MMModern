@@ -61,7 +61,7 @@ XeenEventTextFile XeenEventSystem::textForMap(XeenMapIdentity mapId) {
 		// An absent provider is not a Clouds resource adapter.
 	}
 	if (loaded.mapId != mapId)
-		throw std::runtime_error("event text identity differs from requested map");
+		return loaded; // Let the interpreter report TextMapMismatch; never cache it.
 	return _texts.emplace(mapId, std::move(loaded)).first->second;
 }
 

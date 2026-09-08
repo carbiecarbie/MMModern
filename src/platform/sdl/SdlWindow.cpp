@@ -36,6 +36,15 @@ bool uploadFrame(SDL_Texture *texture, const IndexedFrame &frame,
 
 std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key) {
 	switch (key.keysym.sym) {
+	case SDLK_ESCAPE:
+		return CancelInteractionAction{};
+	case SDLK_F1:
+	case SDLK_F2:
+	case SDLK_F3:
+	case SDLK_F4:
+	case SDLK_F5:
+	case SDLK_F6:
+		return SelectMemberAction{static_cast<std::size_t>(key.keysym.sym - SDLK_F1)};
 	case SDLK_a:
 	case SDLK_LEFT:
 		return NavigationAction::TurnLeft;
@@ -63,7 +72,8 @@ std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key) {
 }
 
 bool showLoop(const IndexedFrame &initialFrame, const std::string &title,
-		const SdlWindow::FrameUpdateHandler &handler) {
+		const SdlWindow::FrameUpdateHandler &handler,
+		const std::function<bool()> &canCancelInteraction = {}) {
 	if (!initialFrame.isValid()) {
 		std::cerr << "Framebuffer indexado invalido.\n";
 		return false;
@@ -131,7 +141,9 @@ bool showLoop(const IndexedFrame &initialFrame, const std::string &title,
 				if (event.type == SDL_QUIT) {
 					running = false;
 				} else if (event.type == SDL_KEYDOWN) {
-					if (event.key.keysym.sym == SDLK_ESCAPE) {
+					if (event.key.repeat != 0) continue;
+					if (event.key.keysym.sym == SDLK_ESCAPE &&
+							!(handler && canCancelInteraction && canCancelInteraction())) {
 						running = false;
 					} else if (event.key.repeat == 0 && handler) {
 						const auto action = playerAction(event.key);
@@ -178,8 +190,8 @@ bool SdlWindow::show(const IndexedFrame &frame, const std::string &title) const 
 }
 
 bool SdlWindow::showInteractive(const IndexedFrame &frame, const std::string &title,
-		const FrameUpdateHandler &handler) const {
-	return showLoop(frame, title, handler);
+		const FrameUpdateHandler &handler, const std::function<bool()> &canCancelInteraction) const {
+	return showLoop(frame, title, handler, canCancelInteraction);
 }
 
 } // namespace mmodern

@@ -9,6 +9,20 @@ unsigned XeenCharacter::currentLevel() const {
 	return static_cast<unsigned>(std::max(permanentLevel + temporaryLevel, 0));
 }
 
+bool XeenCharacter::canAct() const {
+	switch (worstCondition()) {
+	case XeenCondition::Asleep:
+	case XeenCondition::Paralyzed:
+	case XeenCondition::Unconscious:
+	case XeenCondition::Dead:
+	case XeenCondition::Stoned:
+	case XeenCondition::Eradicated:
+		return false;
+	default:
+		return true;
+	}
+}
+
 XeenCondition XeenCharacter::worstCondition() const {
 	for (std::size_t i = conditions.size(); i > 0; --i) {
 		if (conditions[i - 1] != 0)

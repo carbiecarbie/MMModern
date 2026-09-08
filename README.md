@@ -24,8 +24,11 @@ refusal grant nothing and leave the plant present. Ownership and removal persist
 through same-session map/cache changes; repeat interaction cannot grant again,
 and a new session restores the initial state.
 
-[Milestone 18](docs/milestone-18-plan.md) is approved/planned, with 18A as the
-next implementation target; WhoWill and M18 functionality are not implemented.
+[Milestone 18A](docs/milestone-18-plan.md#15-18a-implementation-and-validation) is
+implemented and validated: WhoWill selects a temporary active character through
+the gameplay UI, and Action 9 reads that character's current SP. The current
+validation passed **44/44 CTest tests**. M18 remains incomplete and not stable;
+18B original collection/repetition/session certification is pending.
 Quest-item consumption, general inventory/TakeOrGive, Myra's exchange, disk
 save/load and Darkside gameplay also remain unimplemented.
 
@@ -50,8 +53,19 @@ MMModern currently includes:
 - Original Xeen normal and reduced font rendering in the indexed framebuffer
 - In-game sign, door-label, main, bottom, and centered event-text presentation
 - Runtime acknowledgment and Yes/No interaction without a nested input loop
+- WhoWill character selection, eligibility feedback and explicit cancellation
 - Automated test suite
 - Manual rendering and gameplay validation
+
+## Controls
+
+- W/Up and S/Down move; A/Left and D/Right turn.
+- Space interacts or acknowledges; Enter acknowledges; Y/N answers Yes/No.
+- During WhoWill, F1-F6 selects the corresponding active party member. An
+  incapacitated member produces feedback and allows another attempt.
+- Escape cancels WhoWill, terminating the current event. Outside WhoWill,
+  Escape exits the application. Selection and cancellation repeats are ignored.
+- Navigation and ordinary interaction are blocked while a response is pending.
 
 ## Requirements
 

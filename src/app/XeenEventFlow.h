@@ -23,13 +23,18 @@ public:
 	IndexedFrame acceptAutomatic(XeenAutomaticEventResult result);
 	const IndexedFrame &frame() const { return _frame; }
 	bool blocksGameplay() const { return _pending.has_value(); }
+	bool canCancelInteraction() const;
+	std::optional<std::uint64_t> presentationGeneration() const;
+	// Returns false for an obsolete/already consumed presentation. No resume occurs.
+	bool respond(std::uint64_t generation, XeenPresentationResponse response);
 	std::function<void(const XeenManualEventResult &)> reportManual;
 	std::function<void(const XeenAutomaticEventResult &)> reportAutomatic;
 	std::function<void(const std::string &)> reportText;
 	std::function<void(XeenMovementResult)> reportMovement;
 private:
 	template<class Result> IndexedFrame drive(Result result, bool automatic);
-	struct Pending { XeenEventExecutionState state; bool automatic; };
+	struct Pending { XeenEventExecutionState state; bool automatic; std::uint64_t generation; };
+	std::uint64_t _generation = 0;
 	XeenWorld &_world;
 	XeenEventSystem &_events;
 	XeenPartyState &_party;

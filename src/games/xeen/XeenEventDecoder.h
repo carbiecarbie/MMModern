@@ -35,6 +35,10 @@ struct XeenEventNone {};
 struct XeenEventRemove {};
 struct XeenEventExit {};
 struct XeenEventReturn {};
+struct XeenEventWhoWill {
+	std::uint8_t verbIndex = 0;
+	std::uint8_t textIndex = 0;
+};
 
 enum class XeenEventDisplayKind {
 	Centered,
@@ -101,6 +105,7 @@ using XeenDecodedEventOperation = std::variant<
 	XeenEventRemove,
 	XeenEventExit,
 	XeenEventReturn,
+	XeenEventWhoWill,
 	XeenEventDisplay,
 	XeenEventTeleportAndExit,
 	XeenEventTeleportAndContinue,
