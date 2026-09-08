@@ -205,7 +205,8 @@ default successor, check it against the new state and note concrete changes.
 Reassess the broader rolling horizon after approximately **three completed
 milestones (after M21)**, or earlier following a major architectural discovery.
 
-The next action is a separate planning task to create
-`docs/milestone-19-plan.md` for NPC dialogue and Myra's quest request. Detailed
-plan approval and an explicit implementation request follow. Roadmap approval
-itself starts no milestone.
+The [Milestone 20 plan](milestone-20-plan.md) for saving and resuming supported
+Clouds progress is approved. M19 is complete; only 20A implementation has been
+explicitly authorized. The next action is the 20A implementation/validation
+handoff for review. 20B/20C require separate implementation authorization;
+roadmap approval itself starts no milestone.

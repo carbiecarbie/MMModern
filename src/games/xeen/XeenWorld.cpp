@@ -11,6 +11,38 @@ XeenWorld::XeenWorld(MapLoader loader, ObjectLoader objectLoader) :
 		throw std::invalid_argument("XeenWorld requer um carregador de mapas");
 }
 
+void XeenWorld::restoreSessionState(const std::vector<XeenObjectIdentity> &objects,
+		const std::vector<XeenEventIdentity> &events, const EventLoader &eventLoader) {
+	XeenSessionWorldState prepared;
+	for (const auto id : objects) {
+		static_cast<void>(map(id.mapId));
+		validateObject(id);
+		if (!prepared._objects.insert(id).second)
+			throw std::invalid_argument("duplicate restored object identity");
+	}
+	std::map<XeenMapIdentity, XeenEventFile> files;
+	for (const auto id : events) {
+		static_cast<void>(map(id.mapId));
+		if (!eventLoader) throw std::invalid_argument("restoration requires an event loader");
+		auto found = files.find(id.mapId);
+		if (found == files.end()) found = files.emplace(id.mapId, eventLoader(id.mapId)).first;
+		const auto &file = found->second;
+		if (file.mapId != id.mapId || !file.resourcePresent || id.recordIndex >= file.records.size())
+			throw std::invalid_argument("restored original event identity does not exist");
+		if (!prepared._events.insert(id).second)
+			throw std::invalid_argument("duplicate restored event identity");
+	}
+	_sessionState._objects.swap(prepared._objects);
+	_sessionState._events.swap(prepared._events);
+}
+
+void XeenWorld::swapPreparedState(XeenWorld &candidate) noexcept {
+	_sessionState._objects.swap(candidate._sessionState._objects);
+	_sessionState._events.swap(candidate._sessionState._events);
+	_maps.swap(candidate._maps);
+	_objects.swap(candidate._objects);
+}
+
 const XeenObjectFile &XeenWorld::objectFile(XeenMapIdentity mapId) {
 	if (!mapId) throw std::invalid_argument("invalid object map identity");
 	const auto found = _objects.find(mapId);

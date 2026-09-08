@@ -13,6 +13,10 @@ struct XeenCharacterRulesContext {
 
 class XeenCharacterRules {
 public:
+	// Preflight untrusted active-character values using the same calculations,
+	// with checked intermediates. Does not normalize or mutate the character.
+	static void validateForUse(const XeenCharacter &character,
+		const XeenCharacterRulesContext &context);
 	static int effectiveEndurance(const XeenCharacter &character,
 		const XeenCharacterRulesContext &context);
 	static int effectiveIntellect(const XeenCharacter &character,

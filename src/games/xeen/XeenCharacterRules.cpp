@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <limits>
+#include <stdexcept>
 
 namespace mmodern {
 namespace {
@@ -72,20 +74,45 @@ std::uint8_t condition(const XeenCharacter &character, XeenCondition value) {
 	return character.conditions[static_cast<std::size_t>(value)];
 }
 
-int currentLevel(const XeenCharacter &character) {
-	return std::max(character.permanentLevel + character.temporaryLevel, 0);
+template<bool Checked> int add(int a, int b) {
+	if constexpr (Checked) {
+		const auto result = static_cast<std::int64_t>(a) + b;
+		if (result < std::numeric_limits<int>::min() || result > std::numeric_limits<int>::max())
+			throw std::invalid_argument("character rule addition exceeds the integer domain");
+		return static_cast<int>(result);
+	} else {
+		return a + b;
+	}
 }
 
+template<bool Checked> int multiply(int a, int b) {
+	if constexpr (Checked) {
+		const auto result = static_cast<std::int64_t>(a) * b;
+		if (result < std::numeric_limits<int>::min() || result > std::numeric_limits<int>::max())
+			throw std::invalid_argument("character rule product exceeds the integer domain");
+		return static_cast<int>(result);
+	} else {
+		return a * b;
+	}
+}
+
+template<bool Checked>
+int currentLevel(const XeenCharacter &character) {
+	return std::max(add<Checked>(character.permanentLevel, character.temporaryLevel), 0);
+}
+
+template<bool Checked>
 int effectiveAge(const XeenCharacter &character,
 		const XeenCharacterRulesContext &context) {
 	// The original subtracts unsigned years, caps the result, then adds temp age.
 	const std::uint32_t baseAge = std::min(context.currentYear - character.birthYear, 254u);
-	return static_cast<int>(baseAge) + character.temporaryAge;
+	return add<Checked>(static_cast<int>(baseAge), character.temporaryAge);
 }
 
+template<bool Checked>
 int ageAdjustment(const XeenCharacter &character,
 		const XeenCharacterRulesContext &context, bool mental) {
-	const int age = effectiveAge(character, context);
+	const int age = effectiveAge<Checked>(character, context);
 	std::size_t index = 0;
 	while (index + 1 < kAgeRanges.size() && kAgeRanges[index] <= age)
 		++index;
@@ -160,27 +187,30 @@ const XeenAttributeValue &attributeValue(const XeenCharacter &character,
 	return character.endurance;
 }
 
+template<bool Checked>
 int effectiveAttribute(const XeenCharacter &character,
 		const XeenCharacterRulesContext &context, DerivedAttribute attribute) {
 	const XeenAttributeValue &value = attributeValue(character, attribute);
 	const bool mental = attribute != DerivedAttribute::Endurance;
 	const int equipment = attribute == DerivedAttribute::Endurance ? 0 :
 		itemBonus(character, static_cast<int>(attribute));
-	return std::max(value.permanent + value.temporary +
-		ageAdjustment(character, context, mental) + equipment +
-		conditionModifier(character, attribute), 0);
+	int result = add<Checked>(value.permanent, value.temporary);
+	result = add<Checked>(result, ageAdjustment<Checked>(character, context, mental));
+	result = add<Checked>(result, equipment);
+	return std::max(add<Checked>(result, conditionModifier(character, attribute)), 0);
 }
 
+template<bool Checked>
 int spPass(const XeenCharacter &character, const XeenCharacterRulesContext &context,
 		DerivedAttribute attribute, bool hasRelevantSkill) {
-	const int effective = effectiveAttribute(character, context, attribute);
+	const int effective = effectiveAttribute<Checked>(character, context, attribute);
 	const std::size_t race = enumIndex(character.race);
 	const std::size_t racialColumn = attribute == DerivedAttribute::Intellect ? 0 : 1;
 	int base = statBonus(effective) + 3 + kRaceSpBonuses[race][racialColumn];
 	if (hasRelevantSkill)
 		base += 2;
 	base = std::max(base, 1);
-	int result = base * currentLevel(character);
+	int result = multiply<Checked>(base, currentLevel<Checked>(character));
 	if (character.characterClass != XeenCharacterClass::Sorcerer &&
 			character.characterClass != XeenCharacterClass::Cleric &&
 			character.characterClass != XeenCharacterClass::Druid)
@@ -188,35 +218,20 @@ int spPass(const XeenCharacter &character, const XeenCharacterRulesContext &cont
 	return result;
 }
 
-} // namespace
-
-int XeenCharacterRules::effectiveEndurance(const XeenCharacter &character,
-		const XeenCharacterRulesContext &context) {
-	return effectiveAttribute(character, context, DerivedAttribute::Endurance);
-}
-
-int XeenCharacterRules::effectiveIntellect(const XeenCharacter &character,
-		const XeenCharacterRulesContext &context) {
-	return effectiveAttribute(character, context, DerivedAttribute::Intellect);
-}
-
-int XeenCharacterRules::effectivePersonality(const XeenCharacter &character,
-		const XeenCharacterRulesContext &context) {
-	return effectiveAttribute(character, context, DerivedAttribute::Personality);
-}
-
-int XeenCharacterRules::maxHp(const XeenCharacter &character,
+template<bool Checked>
+int maximumHp(const XeenCharacter &character,
 		const XeenCharacterRulesContext &context) {
 	int hpPerLevel = kBaseHpByClass[enumIndex(character.characterClass)] +
-		statBonus(effectiveEndurance(character, context)) +
+		statBonus(effectiveAttribute<Checked>(character, context, DerivedAttribute::Endurance)) +
 		kRaceHpBonuses[enumIndex(character.race)] +
 		(character.maxStatSkills.bodybuilder ? 1 : 0);
 	hpPerLevel = std::max(hpPerLevel, 1);
-	return std::max(hpPerLevel * currentLevel(character) +
-		itemBonus(character, kHpBonusCategory), 0);
+	return std::max(add<Checked>(multiply<Checked>(hpPerLevel, currentLevel<Checked>(character)),
+		itemBonus(character, kHpBonusCategory)), 0);
 }
 
-int XeenCharacterRules::maxSp(const XeenCharacter &character,
+template<bool Checked>
+int maximumSp(const XeenCharacter &character,
 		const XeenCharacterRulesContext &context) {
 	if (!character.hasSpells)
 		return 0;
@@ -224,22 +239,62 @@ int XeenCharacterRules::maxSp(const XeenCharacter &character,
 	int result = 0;
 	if (character.characterClass == XeenCharacterClass::Sorcerer ||
 			character.characterClass == XeenCharacterClass::Archer) {
-		result = spPass(character, context, DerivedAttribute::Intellect,
+		result = spPass<Checked>(character, context, DerivedAttribute::Intellect,
 			character.maxStatSkills.prestidigitation);
 	} else if (character.characterClass == XeenCharacterClass::Druid ||
 			character.characterClass == XeenCharacterClass::Ranger) {
-		const int personality = spPass(character, context, DerivedAttribute::Personality,
+		const int personality = spPass<Checked>(character, context, DerivedAttribute::Personality,
 			character.maxStatSkills.astrologer);
-		const int intellect = spPass(character, context, DerivedAttribute::Intellect,
+		const int intellect = spPass<Checked>(character, context, DerivedAttribute::Intellect,
 			character.maxStatSkills.astrologer);
-		result = (personality + intellect) / 2;
+		result = add<Checked>(personality, intellect) / 2;
 	} else {
 		// This also preserves the original fallback for anomalous spell-capable records.
-		result = spPass(character, context, DerivedAttribute::Personality,
+		result = spPass<Checked>(character, context, DerivedAttribute::Personality,
 			character.maxStatSkills.prayerMaster);
 	}
 
-	return std::max(result + itemBonus(character, kSpBonusCategory), 0);
+	return std::max(add<Checked>(result, itemBonus(character, kSpBonusCategory)), 0);
+}
+
+} // namespace
+
+void XeenCharacterRules::validateForUse(const XeenCharacter &character,
+		const XeenCharacterRulesContext &context) {
+	if (enumIndex(character.race) >= kRaceHpBonuses.size() ||
+			enumIndex(character.characterClass) >= kBaseHpByClass.size())
+		throw std::invalid_argument("active character has an unsupported race or class");
+	static_cast<void>(currentLevel<true>(character));
+	for (const auto attribute : {DerivedAttribute::Intellect, DerivedAttribute::Personality,
+			DerivedAttribute::Endurance})
+		static_cast<void>(effectiveAttribute<true>(character, context, attribute));
+	static_cast<void>(maximumHp<true>(character, context));
+	static_cast<void>(maximumSp<true>(character, context));
+}
+
+int XeenCharacterRules::effectiveEndurance(const XeenCharacter &character,
+		const XeenCharacterRulesContext &context) {
+	return effectiveAttribute<false>(character, context, DerivedAttribute::Endurance);
+}
+
+int XeenCharacterRules::effectiveIntellect(const XeenCharacter &character,
+		const XeenCharacterRulesContext &context) {
+	return effectiveAttribute<false>(character, context, DerivedAttribute::Intellect);
+}
+
+int XeenCharacterRules::effectivePersonality(const XeenCharacter &character,
+		const XeenCharacterRulesContext &context) {
+	return effectiveAttribute<false>(character, context, DerivedAttribute::Personality);
+}
+
+int XeenCharacterRules::maxHp(const XeenCharacter &character,
+		const XeenCharacterRulesContext &context) {
+	return maximumHp<false>(character, context);
+}
+
+int XeenCharacterRules::maxSp(const XeenCharacter &character,
+		const XeenCharacterRulesContext &context) {
+	return maximumSp<false>(character, context);
 }
 
 } // namespace mmodern

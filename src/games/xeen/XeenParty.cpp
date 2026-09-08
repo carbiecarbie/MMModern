@@ -2,8 +2,20 @@
 
 #include <stdexcept>
 #include <limits>
+#include <utility>
 
 namespace mmodern {
+
+XeenParty XeenParty::fromRosterIds(std::vector<std::uint8_t> ids) {
+	if (ids.size() > kMaximumVisibleMembers)
+		throw std::invalid_argument("active party has more than six members");
+	for (const auto id : ids)
+		if (id >= XeenRoster::kCharacterCount)
+			throw std::invalid_argument("active party has an invalid roster identity");
+	XeenParty party;
+	party._activeRosterIds = std::move(ids);
+	return party;
+}
 
 bool XeenCloudsQuestFlags::validIndex(std::int64_t index) {
 	return index >= 0 && index < static_cast<std::int64_t>(kCount);

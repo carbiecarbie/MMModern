@@ -28,6 +28,8 @@ class XeenParty {
 public:
 	static constexpr std::size_t kSerializedMemberSlots = 8;
 	static constexpr std::size_t kMaximumVisibleMembers = 6;
+	// Restore exact active order, including the loader's supported duplicates.
+	static XeenParty fromRosterIds(std::vector<std::uint8_t> ids);
 
 	const std::vector<std::uint8_t> &activeRosterIds() const { return _activeRosterIds; }
 	std::size_t size() const { return _activeRosterIds.size(); }

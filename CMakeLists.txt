@@ -27,6 +27,8 @@ add_library(mmodern_xeen STATIC
 	src/formats/xeen/XeenCharacterFormat.cpp
 	src/formats/xeen/XeenQuestItemFormat.cpp
 	src/formats/xeen/XeenQuestFlagFormat.cpp
+	src/formats/xeen/XeenSaveFormat.cpp
+	src/games/xeen/XeenSaveState.cpp
 	src/formats/xeen/XeenEventFormat.cpp
 	src/formats/xeen/XeenEventTextFormat.cpp
 	src/formats/xeen/XeenFontFormat.cpp
@@ -59,7 +61,7 @@ add_library(mmodern_xeen STATIC
 	src/games/xeen/XeenWorld.cpp
 	src/games/xeen/XeenInstallationDetector.cpp
 )
-target_link_libraries(mmodern_xeen PUBLIC mmodern_core PRIVATE mmodern_scummvm_xeen)
+target_link_libraries(mmodern_xeen PUBLIC mmodern_core PRIVATE mmodern_scummvm_xeen ZLIB::ZLIB)
 
 add_library(mmodern_platform_sdl STATIC
 	src/platform/sdl/SdlWindow.cpp
@@ -92,6 +94,12 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+	add_executable(mmodern_save_format_tests tests/XeenSaveFormatTests.cpp)
+	target_link_libraries(mmodern_save_format_tests PRIVATE mmodern_xeen ZLIB::ZLIB)
+	add_test(NAME xeen_save_format COMMAND mmodern_save_format_tests)
+	add_executable(mmodern_save_state_tests tests/XeenSaveStateTests.cpp)
+	target_link_libraries(mmodern_save_state_tests PRIVATE mmodern_app mmodern_xeen ZLIB::ZLIB)
+	add_test(NAME xeen_save_state COMMAND mmodern_save_state_tests)
 	add_executable(mmodern_quest_flag_tests tests/XeenQuestFlagTests.cpp)
 	target_link_libraries(mmodern_quest_flag_tests PRIVATE mmodern_app mmodern_xeen)
 	add_test(NAME xeen_quest_flags COMMAND mmodern_quest_flag_tests)

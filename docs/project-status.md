@@ -4,12 +4,22 @@
 
 Current stable milestone: **Milestone 19**
 
+The [Milestone 20 save/resume plan](milestone-20-plan.md) is **approved**.
+**20A is implemented and validated on 2026-09-08, awaiting review**, limited to
+snapshot/format/state preparation and validation. Debug build, **19/19 focused
+tests** and **49/49 full CTest** pass. M20-A01-A05 are closed at this layer;
+A08-A10 have partial owner/flow evidence only. In particular, A09 still requires
+the production new-session/resume startup path in 20B. See the
+[20A evidence and handoff](milestone-20-plan.md#12-20a-implementation-and-validation-evidence).
+M19 remains the latest stable milestone. 20B/20C, file writing and production
+save/load integration have not started and are not authorized by this stage.
+
 **M19B and Milestone 19 are complete on 2026-09-08.** The separately authorized
 stage adds authoritative in-memory Clouds quest-request state and completes
 the original Myra request. The user supplied an independent APPROVE review of
 committed/pushed 19A; no independent 19B review is claimed.
 
-Latest validation: successful Debug build and required smoke targets,
+M19 completion validation: successful Debug build and required smoke targets,
 **23/23 focused tests**, **47/47 full CTest**, and the full **18-case Myra matrix
 plus revisits in each of direct and SDL dummy/software modes**. Phirna and Bone
 Whistle direct/SDL regressions and manual text/Application controls pass.
@@ -41,7 +51,7 @@ or true, still stop at unsupported consumption at line 8/offset 255 in three
 instructions, preserving every flag, item counter and unrelated state.
 NPC rendering/timing code was unchanged. Quest clear/check Action 104, exchange,
 rewards, disk persistence, ordinary travel and later milestones remain outside
-this acceptance. M20 has not started.
+this M19 acceptance. M20 had not started at that completion boundary.
 
 ## Milestone 19A - Historical implementation evidence
 
@@ -765,7 +775,8 @@ future milestone work was added. Original commercial resources were not modified
 Independent final review returned **APPROVE MILESTONE 17**. No implementation,
 test, architecture, scope or validation issues were found. Both stages are
 complete, all A01-A13 acceptance cases passed, and the full CTest result remains
-**42/42**. Milestone 17 is now the latest stable milestone. The recorded SDL
+**42/42**. Milestone 17 was the latest stable milestone at this historical
+stabilization boundary. The recorded SDL
 validation remains dummy/software, not physical-display hardware validation.
 
 Final stabilization changes documentation/status only and preserves the detailed
@@ -777,7 +788,8 @@ at the time of that stabilization; its later planning approval is recorded below
 
 ## Milestone 18 - WhoWill and Bone Whistle collection
 
-**Status: complete; M18 is the latest stable milestone within its approved scope.**
+**Status: complete; M18 was the latest stable milestone at this historical
+completion boundary, within its approved scope.**
 
 - **18A:** implemented, validated and independently approved (APPROVE 18A).
   The implementation and audit history above remain unchanged.

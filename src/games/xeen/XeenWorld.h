@@ -11,6 +11,7 @@
 #include <functional>
 #include <map>
 #include <optional>
+#include <vector>
 
 namespace mmodern {
 
@@ -29,6 +30,8 @@ public:
 	bool isEventDisabled(XeenEventIdentity id) const { return _events.count(id) != 0; }
 	std::size_t disabledObjectCount() const { return _objects.size(); }
 	std::size_t disabledEventCount() const { return _events.size(); }
+	const std::set<XeenObjectIdentity> &disabledObjects() const { return _objects; }
+	const std::set<XeenEventIdentity> &disabledEvents() const { return _events; }
 private:
 	friend class XeenWorld;
 	std::set<XeenObjectIdentity> _objects;
@@ -40,6 +43,7 @@ public:
 	using MapLoader = std::function<XeenMap(XeenMapIdentity)>;
 
 	using ObjectLoader = std::function<XeenObjectFile(XeenMapIdentity)>;
+	using EventLoader = std::function<XeenEventFile(XeenMapIdentity)>;
 	explicit XeenWorld(MapLoader loader, ObjectLoader objectLoader = {});
 	const XeenObjectFile &objectFile(XeenMapIdentity mapId);
 	bool isObjectDisabled(XeenObjectIdentity id);
@@ -54,6 +58,10 @@ public:
 	XeenWorld(const XeenWorld &) = delete;
 	XeenWorld &operator=(const XeenWorld &) = delete;
 	const XeenSessionWorldState &sessionState() const { return _sessionState; }
+	// For unpublished startup owners only. Validates every original identity
+	// before replacing either set; no script execution or cell expansion.
+	void restoreSessionState(const std::vector<XeenObjectIdentity> &objects,
+		const std::vector<XeenEventIdentity> &events, const EventLoader &eventLoader);
 	// Invalidates map/cell/object-file references, not the session state.
 	void discardMapCache() { _maps.clear(); _objects.clear(); }
 
@@ -62,6 +70,8 @@ public:
 	std::size_t cachedMapCount() const { return _maps.size(); }
 
 private:
+	friend class XeenSaveState;
+	void swapPreparedState(XeenWorld &candidate) noexcept;
 	XeenSessionWorldState _sessionState;
 	MapLoader _loader;
 	ObjectLoader _objectLoader;
