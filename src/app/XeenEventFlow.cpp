@@ -1,9 +1,18 @@
 #include "app/XeenEventFlow.h"
 #include <type_traits>
 #include <utility>
+#include <iostream>
 
 namespace mmodern {
 namespace {
+static_assert(std::is_nothrow_move_constructible<XeenEventExecutionState>::value,
+	"Flow must adopt execution ownership without allocation");
+struct DispatchScope {
+	bool &value;
+	bool previous;
+	explicit DispatchScope(bool &v) : value(v), previous(v) { value = true; }
+	~DispatchScope() { value = previous; }
+};
 bool sameCamera(const XeenCamera &a, const XeenCamera &b) {
 	return a.mapId == b.mapId && a.x == b.x && a.y == b.y && a.direction == b.direction;
 }
@@ -20,6 +29,7 @@ XeenEventFlow::XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
 }
 
 IndexedFrame XeenEventFlow::refresh(bool reconstruct) {
+	try {
 	const bool cameraChanged = !sameCamera(_camera, _renderedCamera);
 	// M15's disabled set only grows during a session. Its size is an exact,
 	// constant-time change detector for the only supported visual mutation.
@@ -28,38 +38,39 @@ IndexedFrame XeenEventFlow::refresh(bool reconstruct) {
 		// Always use the committed camera, never logicalAddress/workingCamera.
 		const auto base = _compose();
 		if (cameraChanged && !_pending) _presenter.clear();
-		try { _frame = _presenter.rebase(base); }
-		catch (const std::exception &e) {
-			if (!pendingNpc()) throw;
-			presentationFailed(e);
-			_frame = _presenter.rebase(base);
-		}
+		_frame = _presenter.rebase(base);
 		_renderedCamera = _camera;
 		_disabledObjects = count;
 	}
 	return _frame;
+	} catch (const std::exception &e) {
+		if (!_pending) throw;
+		return presentationFailed(e);
+	}
 }
 
-template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool automatic) {
+template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool automatic, bool reconstruct) {
 	for (;;) {
-		// Includes mutation preceding suspension/error, and immediate continuations.
-		refresh();
-		const auto *suspended = std::get_if<XeenEventExecutionSuspended>(&result);
-		if (!suspended) _pending.reset();
+		// Adopt ownership before composition, reporting or presentation can fail.
+		auto *suspended = std::get_if<XeenEventExecutionSuspended>(&result);
+		if (suspended) _pending.emplace(Pending{std::move(suspended->state), automatic, ++_generation});
+		try {
+		refresh(reconstruct);
+		reconstruct = false;
+		if (suspended && !_pending) return _frame;
+		// Reporting receives a value snapshot; Flow has already adopted ownership
+		// and can account for it if constructing this snapshot fails.
+		if (suspended) suspended->state = _pending->state;
 		if constexpr (std::is_same_v<Result, XeenManualEventResult>) {
 			if (reportManual) reportManual(result);
 		} else {
 			if (reportAutomatic) reportAutomatic(result);
 		}
 		if (!suspended) return _frame;
+		if (!_pending) return _frame; // A reporting callback may explicitly abandon.
 		_frame = _presenter.dismissSelection();
-		_pending = Pending{suspended->state, automatic, ++_generation};
 		XeenPresentationUpdate update;
-		try { update = _presenter.present(_frame, suspended->request); }
-		catch (const std::exception &e) {
-			if (!pendingNpc()) throw;
-			return presentationFailed(e);
-		}
+		update = _presenter.present(_frame, _pending->state.pendingPresentation->request);
 		_frame = std::move(update.frame);
 		if (reportText) for (const auto &message : _presenter.diagnostics()) reportText(message);
 		if (!update.response) return _frame;
@@ -71,21 +82,27 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 		else
 			result = _events.resumeAutomaticEvent(std::move(pending.state), *update.response,
 				_world, _party, _camera, _flags);
+		} catch (const std::exception &e) {
+			if (!_pending) throw;
+			return presentationFailed(e);
+		}
 	}
 }
 
 IndexedFrame XeenEventFlow::acceptManual(XeenManualEventResult result) {
-	_pending.reset();
-	_frame = _presenter.dismissSelection();
+	if (blocksGameplay()) throw std::logic_error("Cannot replace pending event; abandon before dispatching replacement");
+	DispatchScope dispatch(_dispatching);
 	return drive(std::move(result), false);
 }
 IndexedFrame XeenEventFlow::acceptAutomatic(XeenAutomaticEventResult result) {
-	_pending.reset();
-	_frame = _presenter.dismissSelection();
+	if (blocksGameplay()) throw std::logic_error("Cannot replace pending event; abandon before dispatching replacement");
+	DispatchScope dispatch(_dispatching);
 	return drive(std::move(result), true);
 }
 IndexedFrame XeenEventFlow::initial() {
-	return acceptAutomatic(_navigation.processInitialEvent(_world, _party, _camera, _flags));
+	if (blocksGameplay()) return _frame;
+	DispatchScope dispatch(_dispatching);
+	return drive(_navigation.processInitialEvent(_world, _party, _camera, _flags), true);
 }
 bool XeenEventFlow::canCancelInteraction() const {
 	return _pending && _pending->state.pendingPresentation &&
@@ -96,24 +113,56 @@ bool XeenEventFlow::pendingNpc() const {
 	return _pending && _pending->state.pendingPresentation &&
 		_pending->state.pendingPresentation->request.kind == XeenPresentationKind::NpcAcknowledgment;
 }
-bool XeenEventFlow::handlesEscape() const { return canCancelInteraction() || pendingNpc(); }
+bool XeenEventFlow::handlesEscape() const {
+	return canCancelInteraction() || pendingNpc() || (_pending && _pending->state.rewardPhase != XeenRewardPhase::Running);
+}
+XeenRewardReceipt XeenEventFlow::cleanup(XeenRewardDiscard reason) noexcept {
+	XeenRewardReceipt outcome;
+	if (_pending) {
+		xeenDiscardRewards(_pending->state.pendingRewards, _pending->state.rewardReceipt, reason);
+		outcome = _pending->state.rewardReceipt;
+		_pending.reset();
+	}
+	_presenter.discardTransient();
+	return outcome;
+}
+XeenEventFlow::~XeenEventFlow() {
+	const auto outcome = cleanup(XeenRewardDiscard::Abandoned);
+	if (outcome.discarded) {
+		try { std::cerr << "Rewards discarded on shutdown: " << outcome.discarded << '\n'; } catch (...) {}
+	}
+}
 void XeenEventFlow::abandonPresentation() {
-	_pending.reset();
-	_frame = _presenter.dismissSelection();
+	DispatchScope dispatch(_dispatching);
+	const auto outcome = cleanup(XeenRewardDiscard::Abandoned);
+	_frame = _presenter.frame();
+	if (outcome.discarded) {
+		const auto message = "Rewards discarded on abandonment: " + std::to_string(outcome.discarded);
+		std::cerr << message << '\n';
+		if (reportText) reportText(message);
+	}
 }
 IndexedFrame XeenEventFlow::presentationFailed(const std::exception &exception) {
-	const auto pending = std::move(*_pending);
-	_pending.reset();
-	_frame = _presenter.discardNpc();
-	const auto &request = pending.state.pendingPresentation->request;
+	const auto automatic = _pending->automatic;
+	const auto count = _pending->state.instructionCount;
+	const auto address = _pending->state.logicalAddress;
+	auto source = std::move(_pending->state.pendingPresentation->request.source);
+	const auto outcome = cleanup(XeenRewardDiscard::PresentationFailure);
+	_frame = _presenter.frame();
 	XeenEventExecutionError error{XeenEventExecutionErrorKind::PresentationFailed,
-		std::string("NPC presentation: ") + exception.what(), pending.state.instructionCount,
-		pending.state.logicalAddress, request.source, std::nullopt};
-	if (pending.automatic) { if (reportAutomatic) reportAutomatic(error); }
-	else if (reportManual) reportManual(error);
+		std::string("Event presentation: ") + exception.what(), count,
+		address, std::move(source), std::nullopt, outcome};
+	if (automatic) {
+		if (reportAutomatic) reportAutomatic(error);
+	} else {
+		try { if (reportManual) reportManual(error); }
+		catch (...) { std::cerr << "Manual presentation reporting failed after cleanup\n"; }
+	}
 	return _frame;
 }
 std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
+	if (_dispatching) return std::nullopt;
+	DispatchScope dispatch(_dispatching);
 	if (!pendingNpc()) return std::nullopt;
 	try {
 		auto changed = _presenter.updateNpc();
@@ -125,19 +174,30 @@ std::optional<std::uint64_t> XeenEventFlow::presentationGeneration() const {
 	return _pending ? std::optional<std::uint64_t>{_pending->generation} : std::nullopt;
 }
 bool XeenEventFlow::respond(std::uint64_t generation, XeenPresentationResponse response) {
+	if (_dispatching) return false;
+	DispatchScope dispatch(_dispatching);
+	return resumePending(generation, response);
+}
+bool XeenEventFlow::resumePending(std::uint64_t generation, XeenPresentationResponse response) {
 	if (!_pending || _pending->generation != generation) return false;
+	if (!_pending->state.pendingPresentation ||
+		!xeenResponseMatches(_pending->state.pendingPresentation->request.response, response)) return false;
+	try { _frame = _presenter.finishPresentation(); }
+	catch (const std::exception &e) { presentationFailed(e); return true; }
 	auto pending = std::move(*_pending);
 	_pending.reset();
-	_frame = _presenter.finishPresentation();
 	if (pending.automatic)
-		acceptAutomatic(_events.resumeAutomaticEvent(std::move(pending.state), response,
-			_world, _party, _camera, _flags));
+		drive(_events.resumeAutomaticEvent(std::move(pending.state), response,
+			_world, _party, _camera, _flags), true);
 	else
-		acceptManual(_events.resumeManualEvent(std::move(pending.state), response,
-			_world, _party, _camera, _flags));
+		drive(_events.resumeManualEvent(std::move(pending.state), response,
+			_world, _party, _camera, _flags), false);
 	return true;
 }
 IndexedFrame XeenEventFlow::handle(const PlayerAction &action) {
+	if (std::holds_alternative<InspectInventoryAction>(action) || std::holds_alternative<SaveGameAction>(action)) return _frame;
+	if (_dispatching) return _frame;
+	DispatchScope dispatch(_dispatching);
 	if (std::holds_alternative<SelectMemberAction>(action) && !canCancelInteraction())
 		return _frame;
 	const bool hadPending = _pending.has_value();
@@ -146,27 +206,29 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &action) {
 	if (_pending) {
 		const auto generation = _pending->generation;
 		XeenPresentationUpdate update;
-		try { update = _presenter.handle(action); }
+		try { update = _presenter.handle(action, false); }
 		catch (const std::exception &e) {
-			if (!pendingNpc()) throw;
 			return presentationFailed(e);
 		}
 		_frame = std::move(update.frame);
 		if (!update.response) return _frame;
-		respond(generation, *update.response);
+		resumePending(generation, *update.response);
 		return _frame;
 	}
 	_presenter.clear(); // M14 labels last until the next gameplay action.
 	if (const auto *navigation = std::get_if<NavigationAction>(&action)) {
-		const auto result = _navigation.processNavigationAction(_world, _party, _camera,
+		auto result = _navigation.processNavigationAction(_world, _party, _camera,
 			_flags, *navigation);
-		if (reportMovement) reportMovement(result.movementResult);
-		refresh(true);
-		return acceptAutomatic(result.automaticEvent);
+		// Recompose cleared labels even after blocked movement, but only after
+		// drive adopts any suspension before refresh/report callbacks.
+		auto frame = drive(std::move(result.automaticEvent), true, true);
+		try { if (reportMovement) reportMovement(result.movementResult); }
+		catch (const std::exception &e) { if (_pending) return presentationFailed(e); throw; }
+		return frame;
 	}
 	refresh(true);
 	if (std::holds_alternative<InteractionAction>(action))
-		return acceptManual(_navigation.processInteraction(_world, _party, _camera, _flags));
+		return drive(_navigation.processInteraction(_world, _party, _camera, _flags), false);
 	return _frame;
 }
 }

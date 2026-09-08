@@ -102,6 +102,11 @@ XeenPresentationKind presentationKind(XeenEventDisplayKind kind) {
 
 } // namespace
 
+bool xeenResponseMatches(XeenPresentationResponseRequirement requirement,
+		XeenPresentationResponse response) {
+	return responseMatches(requirement, response);
+}
+
 XeenEventExecutionResult XeenEventInterpreter::execute(
 		const XeenCamera &initialCamera, XeenPartyState &partyState,
 		const XeenGameFlags &gameFlags, XeenWorld &world,
@@ -186,6 +191,27 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 		std::optional<XeenPresentationResponse> response,
 		XeenPartyState &partyState, XeenWorld &world,
 		const ScriptProvider &scriptProvider, const TextProvider &textProvider) const {
+	try {
+		auto result = runInstructions(state, response, partyState, world, scriptProvider, textProvider);
+		if (auto *failure = std::get_if<XeenEventExecutionError>(&result)) {
+			xeenDiscardRewards(state.pendingRewards, state.rewardReceipt, XeenRewardDiscard::ExecutionError);
+			failure->rewards = state.rewardReceipt;
+		}
+		return result;
+	} catch (const std::exception &e) {
+		xeenDiscardRewards(state.pendingRewards, state.rewardReceipt, XeenRewardDiscard::PresentationFailure);
+		auto failure = error(XeenEventExecutionErrorKind::PresentationFailed, e.what(),
+			state.instructionCount, state.logicalAddress);
+		failure.rewards = state.rewardReceipt;
+		return failure;
+	}
+}
+
+XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
+		XeenEventExecutionState &state,
+		std::optional<XeenPresentationResponse> response,
+		XeenPartyState &partyState, XeenWorld &world,
+		const ScriptProvider &scriptProvider, const TextProvider &textProvider) const {
 	auto &logical = state.logicalAddress;
 	auto &workingCamera = state.workingCamera;
 	auto &workingGameFlags = state.workingGameFlags;
@@ -195,6 +221,33 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 	auto &missingPolicy = state.missingInstructionPolicy;
 	auto &pendingTransferSource = state.pendingTransferSource;
 
+	const auto finalize = [&]() -> XeenEventExecutionStepResult {
+		state.pendingPresentation.reset();
+		if (!state.pendingRewards.hasWork() && state.rewardPhase == XeenRewardPhase::Running)
+			return completed(workingCamera, workingGameFlags, instructionCount);
+		XeenPresentationRequest request;
+		request.response = XeenPresentationResponseRequirement::Acknowledgment;
+		request.mapId = workingCamera.mapId;
+		if (state.rewardPhase == XeenRewardPhase::Running && xeenPacksGloballyFull(partyState)) {
+			state.rewardPhase = XeenRewardPhase::Warning;
+			request.kind = XeenPresentationKind::RewardWarning;
+			request.text = "Reward capacity warning\nAll four category tails are full across active members.\n"
+				"Pending rewards have not been delivered. Items without an eligible miscellaneous recipient "
+				"will be lost. Existing items and earlier mutations remain.\nSpace / Enter / Escape: continue";
+		} else if (state.rewardPhase == XeenRewardPhase::Receipt) {
+			state.rewardPhase = XeenRewardPhase::Completed;
+			return completed(workingCamera, workingGameFlags, instructionCount);
+		} else {
+			state.rewardReceipt = xeenDeliverRewards(state.pendingRewards, partyState, state.preferredRewardRecipient);
+			state.rewardPhase = XeenRewardPhase::Receipt;
+			// Clear production and establish the typed receipt before formatting.
+			request.kind = XeenPresentationKind::RewardReceipt;
+			request.text = xeenRewardReceiptText(state.rewardReceipt, partyState.roster);
+		}
+		state.pendingPresentation = XeenEventPendingPresentation{request, XeenEventPendingContinuation::RewardFinalization, {}};
+		return XeenEventExecutionSuspended{state, std::move(request)};
+	};
+
 	if (state.pendingPresentation) {
 		const XeenEventPendingPresentation pending = *state.pendingPresentation;
 		if (!response || !responseMatches(pending.request.response, *response)) {
@@ -202,9 +255,10 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 				"response does not match the pending presentation request",
 				instructionCount, logical, pending.request.source);
 		}
+		if (pending.continuation == XeenEventPendingContinuation::RewardFinalization) return finalize();
 		if (pending.continuation == XeenEventPendingContinuation::WhoWill) {
 			if (std::holds_alternative<CharacterSelectionCancelled>(response->value))
-				return completed(workingCamera, workingGameFlags, instructionCount);
+				return finalize();
 			const auto index = std::get<SelectedCharacter>(response->value).partyIndex;
 			const auto &members = pending.request.members;
 			bool identityMatches = members.size() == partyState.party.size();
@@ -227,10 +281,11 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 				return XeenEventExecutionSuspended{state, request};
 			}
 			state.activeCharacterIndex = index;
+			if (partyState.party.size() > 1) state.preferredRewardRecipient = index;
 		}
 		state.pendingPresentation.reset();
 		if (pending.continuation == XeenEventPendingContinuation::Terminate)
-			return completed(workingCamera, workingGameFlags, instructionCount);
+			return finalize();
 		if (pending.continuation == XeenEventPendingContinuation::ConditionalAction44) {
 			const std::uint32_t actual = pending.request.response ==
 				XeenPresentationResponseRequirement::Acknowledgment ? 1 :
@@ -278,7 +333,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 			static_cast<std::uint8_t>(logical.line));
 		if (!recordIndex) {
 			if (missingPolicy == MissingInstructionPolicy::NaturalCompletion)
-				return completed(workingCamera, workingGameFlags, instructionCount);
+				return finalize();
 			const auto kind = missingPolicy == MissingInstructionPolicy::ExplicitCall ?
 				XeenEventExecutionErrorKind::InvalidCallTarget :
 				XeenEventExecutionErrorKind::InvalidJumpTarget;
@@ -307,7 +362,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 		++instructionCount;
 
 		if (std::holds_alternative<XeenEventExit>(decoded.operation))
-			return completed(workingCamera, workingGameFlags, instructionCount);
+			return finalize();
 
 		const auto *who = std::get_if<XeenEventWhoWill>(&decoded.operation);
 		if (who) {
@@ -681,7 +736,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::run(
 			if (const auto teleportError = executeTeleport(teleport->mapId,
 					teleport->x, teleport->y, false))
 				return *teleportError;
-			return completed(workingCamera, workingGameFlags, instructionCount);
+			return finalize();
 		}
 
 		if (const auto *teleport =

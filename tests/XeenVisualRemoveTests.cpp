@@ -156,6 +156,21 @@ void errorsAndSuspendedMutation(XeenAssetSource &assets,const std::filesystem::p
 	label.flow.handle(InteractionAction{});
 	check(label.compositions==labelCompositions+1 && label.completed==1 &&
 		label.flow.frame().pixels!=labelBase.pixels && !label.flow.blocksGameplay(),"no-mutation completion erased label or recomposed unnecessarily");
+	// A completed label expires on the next gameplay action, even when the
+	// fixture's surface blocks movement and no camera/world change requests redraw.
+	const auto beforeBlockedCamera=label.camera;
+	const auto beforeBlockedObjects=label.world.sessionState().disabledObjectCount();
+	const int beforeBlockedCompositions=label.compositions;
+	bool blocked=false;
+	label.flow.reportMovement=[&](XeenMovementResult result){blocked=result==XeenMovementResult::BlockedBySurface;};
+	const auto afterBlocked=label.flow.handle(NavigationAction::MoveForward);
+	check(blocked && label.camera.mapId==beforeBlockedCamera.mapId &&
+		label.camera.x==beforeBlockedCamera.x && label.camera.y==beforeBlockedCamera.y &&
+		label.camera.direction==beforeBlockedCamera.direction &&
+		label.world.sessionState().disabledObjectCount()==beforeBlockedObjects,"blocked label fixture changed camera/world");
+	check(afterBlocked.pixels==labelBase.pixels && label.flow.frame().pixels==labelBase.pixels,
+		"blocked movement left retained label visible");
+	check(label.compositions==beforeBlockedCompositions+1,"blocked movement did not recompose clean base");
 	Fixture suspended(assets);suspended.transfer=true;suspended.text=std::string(800,'A');
 	suspended.records={record(8,2,0,0x19,{7,8,0}),record(8,2,1,0x12),
 		record(7,8,0,0x09,{20,5,4}),record(7,8,1,0x01,{0}),

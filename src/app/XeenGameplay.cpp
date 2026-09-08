@@ -26,6 +26,8 @@ int Application::playGameplay(const XeenGameplayServices &services, XeenCamera c
   XeenEventFlow flow(world, events, party, camera, flags, services.font,
    [&] { return services.compose(world, party, camera); }, services.npcDraw);
   if (services.configureFlow) services.configureFlow(flow, camera);
+  if (!flow.frame().isValid()) throw std::runtime_error("Invalid first gameplay frame");
+  std::cout << "Setup " << xeenInventoryInspection(party);
   // This is the only production new-session/resume initialization choice.
   const auto first = resume ? flow.frame() : flow.initial();
   if (!first.isValid()) throw std::runtime_error("Invalid first gameplay frame");
@@ -36,6 +38,7 @@ int Application::playGameplay(const XeenGameplayServices &services, XeenCamera c
   if (!geometry.isOutdoors() && (geometry.flags2 & 0x4000))
    std::cout << "Warning: dark indoor map is rendered illuminated for diagnostics.\n";
   std::string status = "MMModern - Map " + std::to_string(camera.mapId.number);
+  status += " - " + xeenInventorySummary(party);
   if (target) {
    status += " - F9 saves and replaces " + target->u8string();
    std::cout << "F9 saves and replaces " << target->u8string() << '\n';
@@ -44,6 +47,12 @@ int Application::playGameplay(const XeenGameplayServices &services, XeenCamera c
   bool dispatching = false;
   bool active = true;
   const auto handler = [&](const PlayerAction &action) -> std::optional<IndexedFrame> {
+   if (std::holds_alternative<InspectInventoryAction>(action)) {
+    if (!active || dispatching || flow.blocksGameplay()) return std::nullopt;
+    std::cout << xeenInventoryInspection(party);
+    status = "MMModern - " + xeenInventorySummary(party);
+    return std::nullopt;
+   }
    if (std::holds_alternative<SaveGameAction>(action)) {
     std::string message;
     bool success = false;

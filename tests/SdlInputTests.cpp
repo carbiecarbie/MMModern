@@ -40,11 +40,14 @@ int main() {
 	std::atomic<int> no{0};
 	std::atomic<int> selections{0};
 	std::atomic<int> cancellations{0};
+	std::atomic<int> inspections{0};
 	std::atomic<bool> canCancel{true};
 	std::exception_ptr senderError;
 	std::thread sender([&] {
 		try {
 			pushKey(finished, SDLK_SPACE, 0);
+			pushKey(finished, SDLK_i, 0);
+			pushKey(finished, SDLK_i, 1);
 			pushKey(finished, SDLK_SPACE, 1);
 			pushKey(finished, SDLK_SPACE, 0, SDL_KEYUP);
 			pushKey(finished, SDLK_SPACE, 0);
@@ -83,6 +86,8 @@ int main() {
 				++yes;
 			else if (std::holds_alternative<NoAction>(action))
 				++no;
+			else if (std::holds_alternative<InspectInventoryAction>(action))
+				++inspections;
 			else if (const auto *selection=std::get_if<SelectMemberAction>(&action)) {
 				if (selection->partyIndex!=static_cast<std::size_t>(selections.load()))
 					throw std::runtime_error("F1-F6 active index mapping");
@@ -98,7 +103,7 @@ int main() {
 	if (senderError)
 		std::rethrow_exception(senderError);
 	if (!result || interactions != 2 || navigation != 2 || acknowledgments != 1 ||
-			yes != 1 || no != 1 || selections != 6 || cancellations != 1) {
+			yes != 1 || no != 1 || selections != 6 || cancellations != 1 || inspections != 1) {
 		std::cerr << "Space dispatch/repeat filtering failed: interactions="
 			<< interactions << " navigation=" << navigation
 			<< " acknowledgments=" << acknowledgments << " yes=" << yes

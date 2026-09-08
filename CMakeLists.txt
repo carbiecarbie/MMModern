@@ -39,6 +39,7 @@ add_library(mmodern_xeen STATIC
 	src/games/xeen/XeenEventDecoder.cpp
 	src/games/xeen/XeenEventDiagnostics.cpp
 	src/games/xeen/XeenEventInterpreter.cpp
+	src/games/xeen/XeenItemRewards.cpp
 	src/games/xeen/XeenEventPresenter.cpp
 	src/games/xeen/XeenEventLoader.cpp
 	src/games/xeen/XeenEventTextLoader.cpp
@@ -97,6 +98,22 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+	foreach(suite item_reward reward_execution reward_flow reward_gameplay)
+		if(suite STREQUAL "item_reward")
+			set(test_source ItemReward)
+		elseif(suite STREQUAL "reward_execution")
+			set(test_source RewardExecution)
+		elseif(suite STREQUAL "reward_flow")
+			set(test_source RewardFlow)
+		else()
+			set(test_source RewardGameplay)
+		endif()
+		add_executable(mmodern_${suite}_tests tests/Xeen${test_source}Tests.cpp)
+		target_link_libraries(mmodern_${suite}_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2 ZLIB::ZLIB)
+		add_test(NAME xeen_${suite} COMMAND mmodern_${suite}_tests)
+	endforeach()
+	add_test(NAME xeen_reward_sdl COMMAND mmodern_reward_gameplay_tests sdl)
+	set_tests_properties(xeen_reward_sdl PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software" TIMEOUT 20)
 	add_executable(mmodern_save_resume_smoke EXCLUDE_FROM_ALL tests/SaveResumeIntegrationTest.cpp)
 	target_link_libraries(mmodern_save_resume_smoke PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2 ZLIB::ZLIB)
 	add_dependencies(mmodern_save_resume_smoke mmodern)

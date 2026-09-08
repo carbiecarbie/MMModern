@@ -105,14 +105,14 @@ XeenAutomaticEventResult XeenEventSystem::runAutomaticEvent(
 	const auto textProvider = [this](XeenMapIdentity mapId) {
 		return textForMap(mapId);
 	};
-	const XeenEventExecutionStepResult execution = _interpreter.begin(camera,
+	XeenEventExecutionStepResult execution = _interpreter.begin(camera,
 		partyState, gameFlags, world, provider, textProvider);
 	if (const auto *executionError =
 			std::get_if<XeenEventExecutionError>(&execution))
 		return *executionError;
-	if (const auto *suspended =
+	if (auto *suspended =
 			std::get_if<XeenEventExecutionSuspended>(&execution))
-		return *suspended;
+		return std::move(*suspended);
 
 	const auto &completed = std::get<XeenEventExecutionCompleted>(execution);
 	XeenAutomaticEventCompleted result;
@@ -163,14 +163,14 @@ XeenManualEventResult XeenEventSystem::runManualEvent(
 	const auto textProvider = [this](XeenMapIdentity mapId) {
 		return textForMap(mapId);
 	};
-	const XeenEventExecutionStepResult execution = _interpreter.begin(camera,
+	XeenEventExecutionStepResult execution = _interpreter.begin(camera,
 		partyState, gameFlags, world, provider, textProvider);
 	if (const auto *executionError =
 			std::get_if<XeenEventExecutionError>(&execution))
 		return *executionError;
-	if (const auto *suspended =
+	if (auto *suspended =
 			std::get_if<XeenEventExecutionSuspended>(&execution))
-		return *suspended;
+		return std::move(*suspended);
 
 	const auto &completed = std::get<XeenEventExecutionCompleted>(execution);
 	XeenManualEventCompleted result;
@@ -190,12 +190,12 @@ XeenAutomaticEventResult XeenEventSystem::resumeAutomaticEvent(
 	const XeenGameFlags beforeFlags = gameFlags;
 	const auto provider = [this](XeenMapIdentity mapId) { return scriptForMap(mapId); };
 	const auto textProvider = [this](XeenMapIdentity mapId) { return textForMap(mapId); };
-	const XeenEventExecutionStepResult execution = _interpreter.resume(
+	XeenEventExecutionStepResult execution = _interpreter.resume(
 		std::move(state), response, partyState, world, provider, textProvider);
 	if (const auto *value = std::get_if<XeenEventExecutionError>(&execution))
 		return *value;
-	if (const auto *value = std::get_if<XeenEventExecutionSuspended>(&execution))
-		return *value;
+	if (auto *value = std::get_if<XeenEventExecutionSuspended>(&execution))
+		return std::move(*value);
 	const auto &value = std::get<XeenEventExecutionCompleted>(execution);
 	XeenAutomaticEventCompleted result{value.instructionCount,
 		!sameCamera(beforeCamera, value.finalCamera),
@@ -213,12 +213,12 @@ XeenManualEventResult XeenEventSystem::resumeManualEvent(
 	const XeenGameFlags beforeFlags = gameFlags;
 	const auto provider = [this](XeenMapIdentity mapId) { return scriptForMap(mapId); };
 	const auto textProvider = [this](XeenMapIdentity mapId) { return textForMap(mapId); };
-	const XeenEventExecutionStepResult execution = _interpreter.resume(
+	XeenEventExecutionStepResult execution = _interpreter.resume(
 		std::move(state), response, partyState, world, provider, textProvider);
 	if (const auto *value = std::get_if<XeenEventExecutionError>(&execution))
 		return *value;
-	if (const auto *value = std::get_if<XeenEventExecutionSuspended>(&execution))
-		return *value;
+	if (auto *value = std::get_if<XeenEventExecutionSuspended>(&execution))
+		return std::move(*value);
 	const auto &value = std::get<XeenEventExecutionCompleted>(execution);
 	XeenManualEventCompleted result{value.instructionCount,
 		!sameCamera(beforeCamera, value.finalCamera),

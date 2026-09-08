@@ -335,7 +335,7 @@ void productionFlow() {
 		if(mode==0)flow.handle(CancelInteractionAction{});
 		if(mode==1)flow.respond(old,SelectedCharacter{99});
 		if(mode==2){f.members=party(6,true);flow.handle(SelectMemberAction{0});}
-		if(mode==3){flow.acceptManual(f.events.runManualEvent(f.world,f.members,f.camera,f.flags));
+		if(mode==3){flow.abandonPresentation();flow.acceptManual(f.events.runManualEvent(f.world,f.members,f.camera,f.flags));
 			check(!flow.respond(old,SelectedCharacter{0}),"replaced generation accepted");flow.handle(CancelInteractionAction{});}
 		check(!flow.blocksGameplay() && flow.frame().pixels==f.base.pixels &&
 			failed==(mode==1 || mode==2) && f.members.questItems.at(18)==0 && !flow.respond(old,SelectedCharacter{0}),"cancel/error/replacement policy");
@@ -381,8 +381,11 @@ void priorEffects() {
 		bool failed=false;flow.reportManual=[&](const auto &r){failed=std::holds_alternative<XeenEventExecutionError>(r);};
 		flow.handle(InteractionAction{});
 		check(f.camera.mapId==1 && !f.flags.isSet(7) && f.members.questItems.at(18)==1,"suspension committed transaction/lost grant");
-		flow.respond(*flow.presentationGeneration(),cancel?XeenPresentationResponse{CharacterSelectionCancelled{}}:
-			XeenPresentationResponse{XeenPresentationResponse::Yes});
+		const auto generation=*flow.presentationGeneration();
+		if(!cancel)check(!flow.respond(generation,XeenPresentationResponse::Yes)&&flow.presentationGeneration()==generation,
+			"wrong-kind WhoWill response changed generation");
+		flow.respond(generation,cancel?XeenPresentationResponse{CharacterSelectionCancelled{}}:
+			XeenPresentationResponse{SelectedCharacter{99}});
 		check(!flow.blocksGameplay() && failed!=cancel && f.camera.mapId==(cancel?2:1) &&
 			f.flags.isSet(7)==cancel && f.members.questItems.at(18)==1,"cancel/error transaction policy");
 		check(f.world.isObjectDisabled({2,0})==remove && f.world.sessionState().disabledEventCount()==(remove?2:0),"prior Remove rolled back");

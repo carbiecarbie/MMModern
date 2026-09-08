@@ -7,6 +7,7 @@
 #include "games/xeen/XeenGameFlags.h"
 #include "games/xeen/XeenNavigation.h"
 #include "games/xeen/XeenParty.h"
+#include "games/xeen/XeenItemRewards.h"
 #include "games/xeen/XeenRecordIdentity.h"
 
 #include <cstddef>
@@ -44,7 +45,9 @@ enum class XeenPresentationKind {
 	MainWindowMessage,
 	Confirmation,
 	NpcAcknowledgment,
-	CharacterSelection
+	CharacterSelection,
+	RewardWarning,
+	RewardReceipt
 };
 
 enum class XeenPresentationResponseRequirement {
@@ -74,6 +77,9 @@ struct XeenPresentationResponse {
 	}
 	bool operator!=(Signal signal) const { return !(*this == signal); }
 };
+
+bool xeenResponseMatches(XeenPresentationResponseRequirement requirement,
+	XeenPresentationResponse response);
 
 struct XeenCharacterSelectionMember {
 	std::size_t partyIndex;
@@ -108,7 +114,8 @@ enum class XeenEventPendingContinuation {
 	Advance,
 	Terminate,
 	ConditionalAction44,
-	WhoWill
+	WhoWill,
+	RewardFinalization
 };
 
 struct XeenEventPendingPresentation {
@@ -121,7 +128,13 @@ struct XeenEventCallFrame {
 	XeenEventExecutionAddress returnAddress;
 };
 
+enum class XeenRewardPhase { Running, Warning, Receipt, Completed };
+
 struct XeenEventExecutionState {
+	XeenPendingRewards pendingRewards;
+	std::optional<std::size_t> preferredRewardRecipient;
+	XeenRewardPhase rewardPhase = XeenRewardPhase::Running;
+	XeenRewardReceipt rewardReceipt;
 	XeenEventExecutionAddress logicalAddress;
 	XeenDirection lookupDirection = XeenDirection::North;
 	XeenCamera workingCamera;
@@ -182,6 +195,7 @@ struct XeenEventExecutionError {
 	XeenEventExecutionAddress logicalAddress;
 	std::optional<XeenEventSourceLocation> source;
 	std::optional<XeenEventExecutionAddress> requestedTarget;
+	XeenRewardReceipt rewards;
 };
 
 using XeenEventExecutionResult = std::variant<
@@ -217,6 +231,10 @@ public:
 		const TextProvider &textProvider) const;
 
 private:
+	XeenEventExecutionStepResult runInstructions(XeenEventExecutionState &state,
+		std::optional<XeenPresentationResponse> response,
+		XeenPartyState &partyState, XeenWorld &world,
+		const ScriptProvider &scriptProvider, const TextProvider &textProvider) const;
 	XeenEventExecutionStepResult run(XeenEventExecutionState state,
 		std::optional<XeenPresentationResponse> response,
 		XeenPartyState &partyState, XeenWorld &world,

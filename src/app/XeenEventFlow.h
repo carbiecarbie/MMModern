@@ -18,13 +18,16 @@ public:
 		const XeenFontFormat &font, Compose compose,
 		XeenEventPresenter::NpcDraw npcDraw = {}, XeenEventPresenter::Clock clock = {},
 		XeenEventPresenter::RandomFrame randomFrame = {});
+	~XeenEventFlow();
+	XeenEventFlow(const XeenEventFlow &) = delete;
+	XeenEventFlow &operator=(const XeenEventFlow &) = delete;
 	IndexedFrame initial();
 	IndexedFrame handle(const PlayerAction &action);
 	IndexedFrame refresh(bool reconstruct = false);
 	IndexedFrame acceptManual(XeenManualEventResult result);
 	IndexedFrame acceptAutomatic(XeenAutomaticEventResult result);
 	const IndexedFrame &frame() const { return _frame; }
-	bool blocksGameplay() const { return _pending.has_value(); }
+	bool blocksGameplay() const { return _pending.has_value() || _dispatching; }
 	bool canCancelInteraction() const;
 	bool handlesEscape() const;
 	std::optional<IndexedFrame> updatePresentation();
@@ -38,7 +41,12 @@ public:
 	std::function<void(const std::string &)> reportText;
 	std::function<void(XeenMovementResult)> reportMovement;
 private:
-	template<class Result> IndexedFrame drive(Result result, bool automatic);
+	friend struct XeenRewardTestAccess;
+	// Synchronous dispatch also covers callbacks before a suspension is installed.
+	bool _dispatching = false;
+	XeenRewardReceipt cleanup(XeenRewardDiscard reason) noexcept;
+	bool resumePending(std::uint64_t generation, XeenPresentationResponse response);
+	template<class Result> IndexedFrame drive(Result result, bool automatic, bool reconstruct = false);
 	IndexedFrame presentationFailed(const std::exception &exception);
 	bool pendingNpc() const;
 	struct Pending { XeenEventExecutionState state; bool automatic; std::uint64_t generation; };

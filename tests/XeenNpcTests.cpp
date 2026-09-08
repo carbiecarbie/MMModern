@@ -221,14 +221,17 @@ void failuresAndOwners() {
 			"missing NPC asset callback accepted");}
 	{auto flow=f.flow();flow.handle(InteractionAction{});}check(f.members.questItems.at(17)==0,"destruction resumed event");
 	{auto flow=f.flow();flow.handle(InteractionAction{});auto old=*flow.presentationGeneration();
+		flow.abandonPresentation();
 		flow.acceptManual(f.events.runManualEvent(f.world,f.members,f.camera,f.flags));
 		check(flow.blocksGameplay() && !flow.respond(old,XeenPresentationResponse::Acknowledged) && f.members.questItems.at(17)==0,
 			"replaced NPC accepted stale response");flow.abandonPresentation();}
 	for(auto response:{XeenPresentationResponse(XeenPresentationResponse::Yes),XeenPresentationResponse(CharacterSelectionCancelled{})}) {
 		auto flow=f.flow();std::optional<Kind> errorKind;
 		flow.reportManual=[&](const auto&r){if(auto e=std::get_if<XeenEventExecutionError>(&r))errorKind=e->kind;};
-		flow.handle(InteractionAction{});flow.respond(*flow.presentationGeneration(),response);
-		check(errorKind==Kind::InvalidPresentationResponse && flow.frame().pixels==f.base.pixels,"wrong response cleanup");
+		flow.handle(InteractionAction{});const auto generation=flow.presentationGeneration();
+		const auto pixels=flow.frame().pixels;
+		check(!flow.respond(*generation,response) && !errorKind && flow.presentationGeneration()==generation &&
+			flow.frame().pixels==pixels,"wrong response consumed pending NPC");
 	}
 	// Retained sign survives the transient NPC, including direct finalization/rebase.
 	f.set({record(1,1,0,4,{1}),npc(1),record(1,1,2,0x12)});auto flow=f.flow();flow.handle(InteractionAction{});

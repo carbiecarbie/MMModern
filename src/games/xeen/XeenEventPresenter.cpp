@@ -37,6 +37,14 @@ XeenTextRenderOptions XeenEventPresenter::optionsFor(
 		const XeenPresentationRequest &request) const {
 	XeenTextRenderOptions options;
 	switch (request.kind) {
+	case XeenPresentationKind::RewardWarning:
+	case XeenPresentationKind::RewardReceipt:
+		options.bounds = {8, 8, 312, 152};
+		options.x = 16;
+		options.y = 16;
+		options.drawWindow = true;
+		options.paginate = true;
+		break;
 	case XeenPresentationKind::NpcAcknowledgment:
 		break; // Its heading/body have independent bounded layout below.
 	case XeenPresentationKind::CharacterSelection:
@@ -176,9 +184,9 @@ XeenPresentationUpdate XeenEventPresenter::present(const IndexedFrame &base,
 		const XeenPresentationRequest &request) {
 	if (!base.isValid())
 		throw std::invalid_argument("frame base invalido para apresentacao Xeen");
+	_underlay = base;
 	_request = request;
 	_layers.push_back({request, 0});
-	_underlay = base;
 	_page = 0;
 	_diagnostics.clear();
 	if (request.kind == XeenPresentationKind::NpcAcknowledgment) {
@@ -213,10 +221,21 @@ bool XeenEventPresenter::isAcknowledge(const PlayerAction &action) const {
 		std::holds_alternative<AcknowledgeAction>(action);
 }
 
-XeenPresentationUpdate XeenEventPresenter::handle(const PlayerAction &action) {
+XeenPresentationUpdate XeenEventPresenter::handle(const PlayerAction &action, bool finishResponse) {
 	XeenPresentationUpdate update{_frame, std::nullopt, _active};
 	if (!_active)
 		return update;
+	if (_request.kind == XeenPresentationKind::RewardWarning ||
+			_request.kind == XeenPresentationKind::RewardReceipt) {
+		if (!isAcknowledge(action) && !std::holds_alternative<CancelInteractionAction>(action)) return update;
+		if (_page + 1 < _pages.size()) {
+			_frame = _pages[++_page];
+			_layers.back().page = _page;
+			update.frame = _frame;
+		} else update.response = XeenPresentationResponse::Acknowledged;
+		// Flow validates the generation/kind before removing this layer.
+		return update;
+	}
 	if (_request.kind == XeenPresentationKind::NpcAcknowledgment) {
 		if (!isAcknowledge(action) && !std::holds_alternative<CancelInteractionAction>(action))
 			return update;
@@ -228,7 +247,7 @@ XeenPresentationUpdate XeenEventPresenter::handle(const PlayerAction &action) {
 			update.frame = _frame;
 		} else {
 			update.response = XeenPresentationResponse::Acknowledged;
-			update.frame = finishPresentation();
+			if (finishResponse) update.frame = finishPresentation();
 		}
 		return update;
 	}
@@ -240,7 +259,7 @@ XeenPresentationUpdate XeenEventPresenter::handle(const PlayerAction &action) {
 				update.response = SelectedCharacter{selection->partyIndex};
 		}
 		// The interpreter revalidates eligibility against the live party.
-		if (update.response) update.frame = finishPresentation();
+		if (update.response && finishResponse) update.frame = finishPresentation();
 		return update;
 	}
 	if (_request.response == XeenPresentationResponseRequirement::Presented) {
@@ -264,7 +283,7 @@ XeenPresentationUpdate XeenEventPresenter::handle(const PlayerAction &action) {
 	} else if (std::holds_alternative<NoAction>(action)) {
 		update.response = XeenPresentationResponse::No;
 	}
-	if (update.response) update.frame = finishPresentation();
+	if (update.response && finishResponse) update.frame = finishPresentation();
 	return update;
 }
 
@@ -272,6 +291,8 @@ IndexedFrame XeenEventPresenter::finishPresentation() {
 	if (!_active) return _frame; // handle() and respond() may finish the same request.
 	_active = false;
 	if (_request.kind == XeenPresentationKind::NpcAcknowledgment ||
+			_request.kind == XeenPresentationKind::RewardWarning ||
+			_request.kind == XeenPresentationKind::RewardReceipt ||
 			_request.kind == XeenPresentationKind::CharacterSelection ||
 			_request.kind == XeenPresentationKind::Confirmation ||
 			_request.response == XeenPresentationResponseRequirement::YesNo) {
@@ -432,6 +453,21 @@ IndexedFrame XeenEventPresenter::discardNpc() {
 		_npcTiming = {};
 	}
 	return _frame;
+}
+
+void XeenEventPresenter::discardTransient() noexcept {
+	if (_layers.empty()) return;
+	const auto &request = _layers.back().request;
+	if (request.kind == XeenPresentationKind::RewardWarning || request.kind == XeenPresentationKind::RewardReceipt ||
+		request.kind == XeenPresentationKind::NpcAcknowledgment || request.kind == XeenPresentationKind::CharacterSelection ||
+		request.kind == XeenPresentationKind::Confirmation || request.response == XeenPresentationResponseRequirement::YesNo) {
+		_layers.pop_back();
+		_frame = std::move(_underlay);
+	}
+	_active = false;
+	_pages.clear();
+	_page = 0;
+	_npcTiming = {};
 }
 
 } // namespace mmodern

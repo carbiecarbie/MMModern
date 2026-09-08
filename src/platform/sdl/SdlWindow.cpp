@@ -37,6 +37,7 @@ bool uploadFrame(SDL_Texture *texture, const IndexedFrame &frame,
 std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key) {
 	switch (key.keysym.sym) {
 	case SDLK_F9: return SaveGameAction{};
+	case SDLK_i: return InspectInventoryAction{};
 	case SDLK_ESCAPE:
 		return CancelInteractionAction{};
 	case SDLK_F1:

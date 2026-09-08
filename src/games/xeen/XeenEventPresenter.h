@@ -29,7 +29,7 @@ public:
 	// Consecutive presents layer over frame(); clear before starting a new scene.
 	XeenPresentationUpdate present(const IndexedFrame &base,
 		const XeenPresentationRequest &request);
-	XeenPresentationUpdate handle(const PlayerAction &action);
+	XeenPresentationUpdate handle(const PlayerAction &action, bool finishResponse = true);
 	// Rebuild displayed layers and all pending pages without producing a response.
 	IndexedFrame rebase(const IndexedFrame &base);
 	IndexedFrame dismissSelection();
@@ -37,6 +37,8 @@ public:
 	IndexedFrame finishPresentation();
 	// Removes incomplete/transient NPC even if composition failed before activation.
 	IndexedFrame discardNpc();
+	// Removes transient UI even when present/layout failed before activation.
+	void discardTransient() noexcept;
 	std::optional<IndexedFrame> updateNpc();
 	void clear();
 

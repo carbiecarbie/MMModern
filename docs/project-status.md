@@ -9,10 +9,13 @@ of supported Clouds progress across separate processes.
 
 M21, Myra's return exchange and bounded item rewards, is the default next
 planning entry in the [approved roadmap](roadmap.md). A
-[M21 plan](milestone-21-plan.md) has limited authorization for **21A only**.
-The 21A implementation is complete and validated locally, pending independent
-implementation review. The remaining decisions and stages are still draft and
-unauthorized. Roadmap approval and M20 completion do not
+[M21 plan](milestone-21-plan.md) records independent acceptance of committed
+**21A** and explicit authorization of **21B only**. Bounded delivery, receipt and
+live inspection are implemented, corrected after the first independent review,
+and independently re-reviewed with verdict **APPROVE 21B FOR COMMIT**. The 21B
+working tree remains uncommitted. **21C and 21D remain unstarted and unauthorized;
+M21 is not complete.** Other draft decisions
+are not implicitly approved. Roadmap approval and M20 completion do not
 authorize implementation; M21-M23 retain their recorded confidence and review
 cadence.
 
@@ -45,8 +48,14 @@ cadence.
   (IDs 82..116), possession comparisons and bounded one-item grants; 30 Clouds
   quest flags with bounded immediate mode-104 set; 256 separate game flags.
   All 30 roster characters own four nine-slot item arrays with exact original
-  material/ID/state/frame bytes. This is storage only; existing equipment rules
+  material/ID/state/frame bytes. Existing equipment rules
   retain their previous modifier behavior and miscellaneous items add no effects.
+- **Bounded rewards and inspection:** transient execution-owned production holds
+  at most ten miscellaneous records. Successful termination warns if all active
+  category tails are full, delivers synchronously to eligible live roster owners,
+  then awaits a paginated numeric receipt. Production reward opcodes remain
+  unsupported. Idle I prints actual live inventories, aliases, inactive owners,
+  Root and Q2; setup emits the same observation before initial automatic dispatch.
 - **World changes and persistence:** session-owned object/event removals survive
   map/cache reconstruction and immediately refresh the scene while retaining
   valid presentation layers. Versioned save/resume preserves supported durable
@@ -86,6 +95,12 @@ cadence.
   pending responses, dialogue pages, portrait timing and retained layers are
   transient. The interpreter remains separate from SDL/drawing; no nested input
   loop or general animation scheduler is introduced by presentation.
+- Flow is a noncopyable continuation owner. Execution values hold the ten-entry
+  reward queue, independent preferred active index, finalization phase and typed
+  receipt. Delivery mutates roster items immediately; only final receipt ACK
+  completes execution and publishes working camera/game flags. Errors/abandonment
+  discard undelivered records with accounting and preserve prior mutations.
+  Warning/receipt pages and response generations are transient and never saved.
 - `XeenSaveSnapshot` transfers values temporarily; it is not a parallel live
   owner. Restore validates unpublished candidates before constructing gameplay
   references and the first frame. It neither replays scripts nor infers effects.
@@ -177,18 +192,27 @@ or arbitrary-crash guarantees.
 
 ## Current validation baseline
 
-The **2026-09-08 21A candidate** passed a fresh pinned-dependency Debug configure
-and build in `build/21a`, **9/9 focused character/party/save tests**, and a current
-**53/53 full CTest** run. The Application suite includes independent v1 disk
-input, resolved owners observed before input, unchanged startup bytes, production
-F9-handler upgrade, and authoritative v2 resume. All 17 `EXCLUDE_FROM_ALL` targets
-were explicitly built. Original-party smoke compared all 1,080 slots directly
-with resource bytes: 35 occupied, zero miscellaneous; nonzero miscellaneous and
-inactive-character scenarios are synthetic. Existing Myra direct and original
-cross-process save/resume regressions passed with pre-consumption assertions
-unchanged. Commands, logs, scope and review status are recorded in
-[21A evidence](milestone-21-plan.md#12-21a-implementation-and-validation-evidence).
-No physical-window gate applies to 21A; this is not full M21 acceptance.
+The **2026-09-08 21B implementation** passed a fresh pinned-dependency Debug
+configure/build in `build/21b`, **31/31 focused tests**, **58/58 full CTest**,
+and all **17 excluded smoke target builds**. Myra's original direct and SDL
+matrices passed with the unchanged line-8/offset-255/three-instruction consumption
+frontier. Phirna and WhoWill direct/SDL controls and the existing original
+cross-process save/resume/CLI regression passed. Three maximum-size receipt
+pages and two synthetic warning pages were visually inspected at 320x200.
+Application/SDL tests cover pending/reentrant F9 refusal, final-ACK save, restored
+insertions, read-only I/setup inspection and manual/fatal cleanup boundaries.
+Commands, logs and limitations are in
+[21B evidence](milestone-21-plan.md#13-21b-authorization-implementation-and-validation-evidence).
+21A was independently accepted after its implementation commit; its original
+loading/v1/v2 evidence remains in section 12. The former "independent 21B review
+is pending" status is superseded by the [final independent approval for commit](milestone-21-plan.md#15-final-independent-21b-approval-for-commit).
+The reviewer confirmed the P2 correction, no remaining findings, valid 21B
+architecture/exactly-once lifecycle, Debug build, 13/13 focused tests, 58/58 CTest,
+17 excluded builds, Myra/Phirna/WhoWill and save/resume direct/SDL controls, and
+`git diff --check`. These are user-supplied independent review results, not new
+runs in the final documentation step. Earlier pending-review and correction
+evidence remains preserved in the milestone plan.
+This is not full M21 or original completed-exchange acceptance.
 
 The latest accepted complete baseline is the **2026-09-08 M20 closure**:
 
@@ -209,14 +233,14 @@ The latest accepted complete baseline is the **2026-09-08 M20 closure**:
   Myra Q2 persistence is proven by automated live-state assertions. See the
   [manual evidence](milestone-20-plan.md#15-user-supplied-physical-window-validation-and-final-review-handoff).
 
-These M20 acceptance results remain historical evidence, separate from the 21A
+These M20 acceptance results remain historical evidence, separate from the 21B
 runs above. Ordinary CTest remains independent of commercial data.
 
 ## Known unsupported boundaries
 
-- Myra return consumption, quest clearing and rewards; only the 21A character
-  storage/persistence foundation is implemented. Insertion, recipient selection,
-  pending rewards, receipts and inventory inspection remain unimplemented.
+- Myra return consumption, quest clearing and reward production remain unsupported.
+  21B supplies reusable insertion, recipient selection, pending delivery, receipts
+  and live inventory inspection; synthetic tests seed typed execution records.
   General inventory, equipment use, shops and generic TakeOrGive remain outside
   the supported subset. Quest-flag clear/check Action 104 is unsupported.
 - Combat, monsters and certification of normal routes or a playable region;

@@ -18,11 +18,20 @@ results remain separately attributed user-supplied manual evidence.
 
 [Milestone 21A](docs/milestone-21-plan.md#12-21a-implementation-and-validation-evidence)
 adds authoritative character item storage and persistence. Its implementation
-is locally validated and pending independent review. All 30 roster characters
+was independently reviewed and accepted after its implementation commit. All 30 roster characters
 retain four nine-slot arrays of material/ID/state/frame records, including inactive
 owners and empty-slot metadata. Debug build, 53/53 CTest and the original-party
-smoke passed. This does not activate item rewards, inventory UI or Myra's exchange;
-21B, 21C and 21D have not started.
+smoke passed. The separately authorized 21B adds bounded delivery and paginated
+receipt infrastructure plus read-only live inventory inspection with I and at
+setup. Debug build, 58/58 CTest and original direct/SDL boundary regressions passed;
+the corrected 21B implementation has been independently re-reviewed and
+**approved for commit**, with no remaining findings. It remains uncommitted.
+The earlier "independent 21B review is pending" status is historical, superseded
+by the [final approval](docs/milestone-21-plan.md#15-final-independent-21b-approval-for-commit);
+the P2 retained-label correction and earlier review evidence remain in the plan.
+Production reward creation and Myra's exchange remain unsupported; 21C and 21D
+remain unstarted and unauthorized. M21 is not complete. No inventory UI or item
+effects are enabled.
 
 Clouds NPC mode-1 dialogue presents original animated portraits, positioned titles
 and paginated text through the resumable event UI. Myra's original local request
@@ -118,8 +127,12 @@ MMModern currently includes:
   incapacitated member produces feedback and allows another attempt.
 - During NPC mode-1 dialogue, Space/Enter/Escape advances a page or acknowledges
   the final page. Y/N and F1-F6 do not acknowledge it.
+- Reward warnings/receipts use Space/Enter/Escape to advance pages and acknowledge
+  the final page. Movement and selection do not dismiss them.
+- I prints a read-only inventory diagnostic at idle, including inactive owners,
+  aliases, raw records, Root and Q2. The same snapshot is printed at setup.
 - Escape cancels WhoWill, terminating the current event. Outside WhoWill/NPC
-  dialogue, Escape exits the application. Repeated keydown events are ignored.
+  dialogue and reward presentations, Escape exits. Repeated keydown events are ignored.
 - Navigation and ordinary interaction are blocked while a response is pending.
 
 ## Requirements

@@ -109,6 +109,11 @@ std::string formatEventError(const XeenEventExecutionError &error) {
 		<< " [logical map=" << error.logicalAddress.mapId
 		<< " x=" << error.logicalAddress.x << " y=" << error.logicalAddress.y
 		<< " line=" << error.logicalAddress.line << ']';
+	if (error.rewards.discarded || error.rewards.count || error.rewards.overflow || error.rewards.invalid)
+		output << " [rewards discarded=" << error.rewards.discarded
+			<< " reason=" << static_cast<unsigned>(error.rewards.discardReason)
+			<< " delivered=" << error.rewards.delivered << " lost=" << error.rewards.lost
+			<< " overflow=" << error.rewards.overflow << " invalid=" << error.rewards.invalid << ']';
 	if (error.source) {
 		output << " [source";
 		if (error.source->resourceName)

@@ -143,6 +143,7 @@ void errorsAndRemove() {
 			if(auto e=std::get_if<XeenEventExecutionError>(&r))failed=e->kind;};flow.reportManual=report;flow.reportAutomatic=report;
 		automatic?flow.initial():flow.handle(InteractionAction{});
 		if(mode==1){check(suspended.has_value(),"missing pre-Remove suspension");suspended->selectedObject=XeenObjectIdentity{2,999};
+			flow.abandonPresentation(); // Explicit replacement for this copied fault fixture only.
 			if(automatic)flow.acceptAutomatic(f.events.resumeAutomaticEvent(*suspended,XeenPresentationResponse::Acknowledged,f.world,f.members,f.camera,f.flags));
 			else flow.acceptManual(f.events.resumeManualEvent(*suspended,XeenPresentationResponse::Acknowledged,f.world,f.members,f.camera,f.flags));}
 		check(failed && *failed==(mode==1?Kind::InvalidRemoveContext:Kind::UnsupportedOpcode),"later failure diagnostic");

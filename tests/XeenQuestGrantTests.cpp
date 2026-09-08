@@ -132,6 +132,7 @@ void immediateErrors() {
 			if(mode==1){
 				check(suspended.has_value(),"grant did not suspend before Remove");
 				suspended->selectedObject=XeenObjectIdentity{2,999};
+				flow.abandonPresentation(); // Explicit replacement for this copied fault fixture only.
 				if(automatic)flow.acceptAutomatic(f.events.resumeAutomaticEvent(*suspended,
 					XeenPresentationResponse::Acknowledged,f.world,f.members,f.camera,f.flags));
 				else flow.acceptManual(f.events.resumeManualEvent(*suspended,
