@@ -42,8 +42,29 @@ interaction cannot grant again; removal survives cache reconstruction and a new
 session restores the initial resources. This validates the local interaction,
 not normal travel to the checkpoint, combat or Orothin's quest completion.
 
-Quest-item consumption, general inventory/TakeOrGive, Myra's exchange, disk
-save/load and Darkside gameplay also remain unimplemented.
+Quest-item consumption, general inventory/TakeOrGive, Myra's exchange and
+Darkside gameplay remain unimplemented.
+
+Milestone 20B adds local Windows saving and startup resume, awaiting review.
+M19 remains stable; M20's original checkpoint certification and physical-window
+acceptance are still pending in 20C. Use an existing output directory outside
+the commercial installation:
+
+```text
+mmodern --render-map <game-directory> [<map> <x> <y> <north|east|south|west>] [--save-file <path.mmsave>]
+mmodern --load-game <game-directory> <path.mmsave>
+```
+
+F9 saves an idle session to the configured path, replacing an existing valid
+MMModern save. Pending interactions refuse the request without advancing it;
+press F9 again after completing the interaction. Without `--save-file`, F9 writes
+nothing. Relative paths resolve against the working directory; spaces and Unicode
+paths are supported. The console and existing window title report the result.
+Resume uses its load path for future F9 saves, restores the saved camera/state
+and skips initial automatic dispatch. New sessions retain normal initialization.
+An invalid/incompatible save fails startup without starting a fresh session.
+There is no autosave, save-on-exit or in-session load. Version 1 requires matching
+xeen.cc/dark.cc contents; it is not compatible with original Xeen/ScummVM saves.
 
 MMModern currently includes:
 

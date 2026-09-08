@@ -5,14 +5,26 @@
 Current stable milestone: **Milestone 19**
 
 The [Milestone 20 save/resume plan](milestone-20-plan.md) is **approved**.
-**20A is implemented and validated on 2026-09-08, awaiting review**, limited to
-snapshot/format/state preparation and validation. Debug build, **19/19 focused
-tests** and **49/49 full CTest** pass. M20-A01-A05 are closed at this layer;
-A08-A10 have partial owner/flow evidence only. In particular, A09 still requires
-the production new-session/resume startup path in 20B. See the
-[20A evidence and handoff](milestone-20-plan.md#12-20a-implementation-and-validation-evidence).
-M19 remains the latest stable milestone. 20B/20C, file writing and production
-save/load integration have not started and are not authorized by this stage.
+**20A is independently approved** following commit `4d65e34` and the explicit
+APPROVE MILESTONE 20A review. Its [historical evidence](milestone-20-plan.md#12-20a-implementation-and-validation-evidence)
+remains intact: A01-A05 closed, A08-A10 partial at that boundary.
+
+**20B is implemented and validated, awaiting independent re-review.** Both
+independent stabilization reviews requested changes: first for directory aliases,
+then for loss of the checked identity when stripping the extended-path prefix.
+The corrected file boundary retains native extended paths through all save I/O.
+The distinct `protected` / literal `protected.` junction regression, previous
+alias cases and the 6/6, 33/33 and 53/53 selections pass. A06 implementation
+evidence is ready for independent reconsideration; 20B is not approved.
+Local Windows file
+replacement, F9 idle saving and `--load-game` startup resume are implemented.
+Debug build, **6/6 save tests**, **33/33 stage-focused tests** and **53/53 full
+CTest** pass. The production new-session/resume choice closes A09; A06/A07/A11
+and the production responsibilities of A08/A10 are demonstrated. Native/original
+checkpoint and physical-window evidence remains for 20C. Bounded original-data
+SDL dummy/software idle save/resume and four existing Application controls pass.
+See [20B evidence](milestone-20-plan.md#13-20b-implementation-and-validation-evidence).
+M19 remains the latest stable milestone; M20 is not complete and 20C has not started.
 
 **M19B and Milestone 19 are complete on 2026-09-08.** The separately authorized
 stage adds authoritative in-memory Clouds quest-request state and completes

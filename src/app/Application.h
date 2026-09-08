@@ -9,6 +9,7 @@
 
 namespace mmodern {
 
+struct XeenGameplayServices;
 class Application {
 public:
 	int run(const std::filesystem::path &gameDirectory) const;
@@ -23,7 +24,16 @@ public:
 		bool allOnly = false) const;
 	int renderMap(const std::filesystem::path &gameDirectory,
 		std::uint16_t mapId = 1, int x = 9, int y = 6,
-		XeenDirection direction = XeenDirection::South) const;
+		XeenDirection direction = XeenDirection::South,
+		std::optional<std::filesystem::path> savePath = std::nullopt) const;
+	int loadGame(const std::filesystem::path &gameDirectory, const std::filesystem::path &savePath) const;
+	// Shared production construction; providers outlive this call. Target has
+	// already been resolved/checked against the installation by gameplay().
+	int playGameplay(const XeenGameplayServices &, XeenCamera,
+		const std::optional<std::filesystem::path> &target, bool resume) const;
+private:
+	int gameplay(const std::filesystem::path &, XeenCamera,
+		const std::optional<std::filesystem::path> &, bool resume) const;
 };
 
 } // namespace mmodern

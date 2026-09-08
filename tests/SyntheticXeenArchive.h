@@ -13,6 +13,8 @@ using Bytes = std::vector<std::uint8_t>;
 inline void word(Bytes &b, unsigned n) { b.push_back(n & 255); b.push_back((n >> 8) & 255); }
 inline void setWord(Bytes &b, std::size_t at, unsigned n) { b.at(at)=n&255; b.at(at+1)=(n>>8)&255; }
 inline unsigned nameId(std::string name) {
+	if (name.size() == 4 && name.find_first_not_of("0123456789abcdefABCDEF") == std::string::npos)
+		return static_cast<unsigned>(std::stoul(name, nullptr, 16));
 	for(auto &c:name) if(c>='a' && c<='z') c-=32;
 	unsigned id=static_cast<unsigned char>(name.at(0));
 	for(std::size_t i=1;i<name.size();++i)

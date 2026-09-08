@@ -4,6 +4,12 @@
 #include <iostream>
 #include <limits>
 #include <string>
+#include <vector>
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <shellapi.h>
 
 namespace {
 
@@ -64,6 +70,22 @@ bool parseDirection(const std::string &text, mmodern::XeenDirection &direction) 
 } // namespace
 
 int main(int argc, char *argv[]) {
+	// The CRT narrow argv loses non-ASCII Windows paths. Decode the native
+	// command line once, and use UTF-8 explicitly at filesystem boundaries.
+	int wideCount = 0;
+	wchar_t **wide = CommandLineToArgvW(GetCommandLineW(), &wideCount);
+	if (!wide) return 1;
+	std::vector<std::string> arguments;
+	for (int i = 0; i < wideCount; ++i) {
+		const int size = WideCharToMultiByte(CP_UTF8, 0, wide[i], -1, nullptr, 0, nullptr, nullptr);
+		std::string text(size, '\0');
+		WideCharToMultiByte(CP_UTF8, 0, wide[i], -1, text.data(), size, nullptr, nullptr);
+		text.pop_back(); arguments.push_back(std::move(text));
+	}
+	LocalFree(wide);
+	std::vector<char *> pointers;
+	for (auto &argument : arguments) pointers.push_back(argument.data());
+	argc = wideCount; argv = pointers.data();
 	if (argc == 3 && std::string(argv[1]) == "--inspect-map")
 		return mmodern::Application().inspectMap(argv[2]);
 	if (argc == 4 && std::string(argv[1]) == "--inspect-map") {
@@ -114,27 +136,31 @@ int main(int argc, char *argv[]) {
 		return mmodern::Application().inspectEvents(argv[2], mapId, x, y,
 			direction, allOnly);
 	}
-	if (argc == 3 && std::string(argv[1]) == "--render-map")
-		return mmodern::Application().renderMap(argv[2]);
-	if (argc == 7 && std::string(argv[1]) == "--render-map") {
-		std::uint16_t mapId = 0;
-		int x = 0;
-		int y = 0;
-		mmodern::XeenDirection direction = mmodern::XeenDirection::North;
-		if (!parseMapId(argv[3], mapId)) {
-			std::cerr << "ID de mapa invalido: " << argv[3] << '\n';
-			return 1;
-		}
-		if (!parseCoordinate(argv[4], x) || !parseCoordinate(argv[5], y)) {
-			std::cerr << "Coordenadas invalidas: X e Y devem estar entre 0 e 15.\n";
-			return 1;
-		}
-		if (!parseDirection(argv[6], direction)) {
-			std::cerr << "Direcao invalida: use north, east, south ou west.\n";
-			return 1;
-		}
-		return mmodern::Application().renderMap(argv[2], mapId, x, y, direction);
-	}
+    if (argc >= 2 && std::string(argv[1]) == "--load-game") {
+        if (argc != 4 || std::string(argv[2]).rfind("--", 0) == 0 || std::string(argv[3]).rfind("--", 0) == 0) {
+            std::cerr << "Usage: --load-game <game-directory> <save-path>\n"; return 1;
+        }
+        return mmodern::Application().loadGame(std::filesystem::u8path(argv[2]), std::filesystem::u8path(argv[3]));
+    }
+    if (argc >= 2 && std::string(argv[1]) == "--render-map") {
+        int positional = argc;
+        std::optional<std::filesystem::path> save;
+        if (argc >= 5 && std::string(argv[argc - 2]) == "--save-file") {
+            if (std::string(argv[argc - 1]).empty() || std::string(argv[argc - 1]).rfind("--", 0) == 0) {
+                std::cerr << "--save-file requires a path\n"; return 1;
+            }
+            save = std::filesystem::u8path(argv[argc - 1]); positional -= 2;
+        }
+        std::uint16_t mapId = 1; int x = 9, y = 6;
+        auto direction = mmodern::XeenDirection::South;
+        if ((positional != 3 && positional != 7) || std::string(argv[2]).rfind("--", 0) == 0 ||
+            (positional == 7 && (!parseMapId(argv[3], mapId) || !parseCoordinate(argv[4], x) ||
+                !parseCoordinate(argv[5], y) || !parseDirection(argv[6], direction)))) {
+            std::cerr << "Usage: --render-map <game-directory> [<map> <x> <y> <north|east|south|west>] [--save-file <path>]\n";
+            return 1;
+        }
+        return mmodern::Application().renderMap(std::filesystem::u8path(argv[2]), mapId, x, y, direction, save);
+    }
 	if (argc != 2 || std::string(argv[1]).rfind("--", 0) == 0) {
 		std::cerr << "Uso: " << argv[0] << " <diretorio da instalacao de Xeen>\n";
 		std::cerr << "     " << argv[0] << " --inspect-map <diretorio da instalacao de Xeen>\n";
@@ -143,7 +169,8 @@ int main(int argc, char *argv[]) {
 		std::cerr << "     " << argv[0] << " --inspect-events <diretorio da instalacao de Xeen> <map-id>\n";
 		std::cerr << "     " << argv[0] << " --inspect-events <diretorio> <map-id> <x> <y> [north|east|south|west|all]\n";
 		std::cerr << "     " << argv[0] << " --render-map <diretorio da instalacao de Xeen>\n";
-		std::cerr << "     " << argv[0] << " --render-map <diretorio> <map-id> <x> <y> <north|east|south|west>\n";
+		std::cerr << "     " << argv[0] << " --render-map <game-directory> [<map-id> <x> <y> <north|east|south|west>] [--save-file <path>]\n";
+		std::cerr << "     " << argv[0] << " --load-game <game-directory> <save-path>\n";
 		return 1;
 	}
 

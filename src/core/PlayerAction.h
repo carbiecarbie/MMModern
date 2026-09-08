@@ -8,6 +8,7 @@
 
 namespace mmodern {
 
+struct SaveGameAction {};
 struct InteractionAction {};
 struct AcknowledgeAction {};
 struct YesAction {};
@@ -16,7 +17,7 @@ struct SelectMemberAction { std::size_t partyIndex; };
 struct CancelInteractionAction {};
 
 using PlayerAction = std::variant<NavigationAction, InteractionAction,
-	AcknowledgeAction, YesAction, NoAction, SelectMemberAction, CancelInteractionAction>;
+	AcknowledgeAction, YesAction, NoAction, SelectMemberAction, CancelInteractionAction, SaveGameAction>;
 
 } // namespace mmodern
 

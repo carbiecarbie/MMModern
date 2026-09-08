@@ -69,6 +69,8 @@ add_library(mmodern_platform_sdl STATIC
 target_link_libraries(mmodern_platform_sdl PUBLIC mmodern_core PRIVATE SDL2::SDL2)
 
 add_library(mmodern_app STATIC
+	src/platform/XeenSaveFile.cpp
+	src/app/XeenGameplay.cpp
 	src/app/Application.cpp
 	src/app/XeenEventFlow.cpp
 	src/app/XeenNavigationFlow.cpp
@@ -80,6 +82,7 @@ target_link_libraries(mmodern_app PUBLIC mmodern_core PRIVATE
 
 add_executable(mmodern src/main.cpp)
 target_link_libraries(mmodern PRIVATE
+	shell32
 	mmodern_app
 	mmodern_xeen
 	mmodern_scummvm_xeen
@@ -94,6 +97,20 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+	add_executable(mmodern_save_cli_tests tests/XeenSaveCliTests.cpp)
+	target_link_libraries(mmodern_save_cli_tests PRIVATE mmodern_app mmodern_xeen ZLIB::ZLIB)
+	add_test(NAME xeen_save_cli COMMAND mmodern_save_cli_tests $<TARGET_FILE:mmodern>)
+	set_tests_properties(xeen_save_cli PROPERTIES TIMEOUT 60)
+	add_executable(mmodern_save_sdl_tests tests/XeenSaveSdlTests.cpp)
+	target_link_libraries(mmodern_save_sdl_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2 ZLIB::ZLIB)
+	add_test(NAME xeen_save_sdl COMMAND mmodern_save_sdl_tests)
+	set_tests_properties(xeen_save_sdl PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software" TIMEOUT 20)
+	add_executable(mmodern_save_file_tests tests/XeenSaveFileTests.cpp)
+	target_link_libraries(mmodern_save_file_tests PRIVATE mmodern_app mmodern_xeen ZLIB::ZLIB)
+	add_test(NAME xeen_save_file COMMAND mmodern_save_file_tests)
+	add_executable(mmodern_save_flow_tests tests/XeenSaveFlowTests.cpp)
+	target_link_libraries(mmodern_save_flow_tests PRIVATE mmodern_app mmodern_xeen ZLIB::ZLIB)
+	add_test(NAME xeen_save_flow COMMAND mmodern_save_flow_tests)
 	add_executable(mmodern_save_format_tests tests/XeenSaveFormatTests.cpp)
 	target_link_libraries(mmodern_save_format_tests PRIVATE mmodern_xeen ZLIB::ZLIB)
 	add_test(NAME xeen_save_format COMMAND mmodern_save_format_tests)

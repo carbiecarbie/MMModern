@@ -1,11 +1,11 @@
 # Milestone 20 - Save and resume supported Clouds progress
 
-**Status: approved specification; 20A implemented and validated, awaiting review.**
+**Status: approved specification; 20A independently approved; 20B implemented and validated, awaiting review.**
 
 Prepared and approved on 2026-09-08. M19 remains the latest stable milestone.
-The user explicitly authorized 20A only after approving this plan. 20B and 20C
-remain unstarted and require separate authorization. Planning evidence below
-retains its historical meaning; implementation evidence will be recorded separately.
+Following commit `4d65e34`, independent review returned **APPROVE MILESTONE 20A**.
+The user then explicitly authorized 20B only. 20C remains unstarted. Historical
+20A evidence below is preserved; 20B evidence is recorded separately.
 
 ## 1. Goal, baseline and authority
 
@@ -797,3 +797,343 @@ there is no new public production interface. The historical M17/M18 stable-statu
 statements now explicitly name their historical boundaries; M19 evidence is
 preserved. Stop here for 20A review; 20B/20C require separate authorization.
 No commit, push, tag, dependency update or branch change was performed.
+
+## 13. 20B implementation and validation evidence
+
+**2026-09-08: implemented and validated, awaiting review.** Independent review
+returned **APPROVE MILESTONE 20A** after its commit. The user then authorized
+20B only. Section 12 remains the historical 20A implementation record; its
+then-pending production evidence is supplemented here, not rewritten.
+M19 remains the stable milestone; M20 is incomplete and 20C has not started.
+
+### Verified baseline and scope
+
+- Branch `main`; HEAD and local `origin/main` both
+  `4d65e34564452647e15a7d7b9c9144cc449a6a1b` (`Implement Milestone 20A save state foundation`).
+- Initial working tree was clean. No reset, clean, pull, branch operation,
+  commit, push, tag or history rewrite was performed.
+- Pinned ScummVM source was read-only verified at
+  `6814ee9ba54582f5b5adcffab49efbbd8f589edd`, with empty status. Configuration
+  remains the existing `build/20a` Debug/MSYS Makefiles/UCRT64 environment and
+  dependency paths recorded in section 12. No dependency changed.
+- Original installation `F:/Games/gog/Might and Magic 4-5` was used read-only
+  for bounded production smoke checks. All generated files are under ignored
+  build directories, outside the commercial installation and tracked sources.
+
+### Production integration
+
+`Application::renderMap` and `loadGame` bind ordinary archive/map/object/event,
+party/flag, font/composer and SDL providers, then call the same
+`Application::playGameplay` implementation in `XeenGameplay.cpp`.
+`XeenGameplayServices` holds only borrowed providers; it owns no session or save
+state. This small extraction lets synthetic tests execute Application's actual
+startup decision and input handler, without creating another session controller.
+
+The old render-map forms retain their camera defaults and initial automatic
+event. Optional trailing `--save-file <path>` configures F9. `--load-game <game>
+<path>` uses the saved camera and uses that path for subsequent saves. Native
+Windows command-line decoding preserves Unicode before converting paths with
+`u8path`; invalid new syntax returns 1. Missing installation retains return 2;
+load/preparation failures return 3 without a new-session fallback. SDL failure
+retains return 4. No save/load menu, autosave or save-on-exit was introduced.
+
+For resume, file decoding is inert. Production signatures and the existing 20A
+preparer validate candidates, including an actual `CloudsMapComposer::compose`
+preflight with the installed assets. The resulting owners are final before
+EventSystem/flow callbacks reference them. Application explicitly chooses
+`flow.frame()` for resume and `flow.initial()` for a new session. The SDL window
+is created only after startup composition succeeds; normal later navigation
+retains automatic dispatch. The 20A snapshot, codec and owner APIs are unchanged.
+
+F9 maps to `SaveGameAction` through existing SDL repeat filtering. Application
+intercepts it before `flow.handle`, preserving retained labels and refusing
+pending display/pages, acknowledgment, Yes/No, NPC and WhoWill (including invalid
+selection retry) without preparation or writes. It also rejects reentrant event
+callbacks and requests after a fatal dispatch. Refusals are not queued. After a
+real completion/cancellation, a fresh F9 captures current authoritative values,
+validates them on disposable candidates, and writes them. Success/failure and
+absolute path are reported on stdout/stderr and through the existing SDL window
+title; the status lasts until the next attempt. Quit stops input consumption and
+never saves implicitly.
+
+### Windows file and signature boundary
+
+`XeenSaveFile` isolates native file operations from gameplay/interpreter code.
+Resolution uses the process working directory once, requires an existing parent
+and `.mmsave`, resolves the parent, and rejects the detected commercial root,
+directories/reparse leaves, alternate streams, common device names and detectable
+network targets. It creates no directories. Windows wide APIs support spaces and
+Unicode names. These are bounded local-path checks, not a generic filesystem
+security or concurrent-writer subsystem.
+
+Write encodes completely before destination I/O and decodes any existing target
+as a supported v1 save before replacing it. It creates a unique sibling using
+`CreateFileW(CREATE_NEW)`, writes checked chunks, rejects short writes, checks
+`FlushFileBuffers` and close, then publishes with
+`MoveFileExW(MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)`. It never
+truncates/deletes the old target to make publication succeed. Failure cleans up
+only this attempt's temporary; cleanup failure includes that path in the error.
+Reads use the requested file only, check size before allocation and invoke the
+approved bounded decoder. Abandoned temporaries are never substituted.
+
+The fault seam is a small enum/callback around these operations, not an abstract
+filesystem. Tests perform real local writes and inject open/write/short-write/
+flush/close/replace/cleanup failures; the close-failure injection occurs after
+closing the real test handle so the seam does not leak handles. Actual Windows
+sharing locks also exercise unreadable files and failed replacement. Every failed
+replacement preserves the old bytes, which are decoded again. This proves the
+specified handled-failure contract, not arbitrary kill/hardware/power-loss
+safety. Concurrent external writers and network filesystems remain unsupported.
+
+Archive signatures use read-only binary filesystem streams and 20A's 64 KiB
+streaming CRC32 helper. They contain the detected xeen.cc size/CRC and dark.cc
+presence/size/CRC, never paths, timestamps or archive payloads. They are computed
+once at startup when save/resume is configured. Measured original-data runs:
+127 ms on the first save smoke, 11 ms on its resume, then 12 ms each for a repeat
+save/resume pair. No manifest or signature cache was justified. Resource changes
+while running remain outside the contract.
+
+### Acceptance matrix after 20B
+
+| Criteria | Status and evidence |
+| --- | --- |
+| M20-A01-A05 | **Remain closed from approved 20A.** Both original format/state tests pass unchanged. No wire/owner redesign. |
+| M20-A06 | **Implementation evidence ready for independent reconsideration after the second correction.** Both reviews left A06 partial: first for alias containment, then for changing the checked directory identity by removing the extended prefix. `xeen_save_file` now proves exact literal-directory identity through destination/temp creation, replacement and failure cleanup, alongside all previous alias and safe-replacement regressions. Independent closure/20B approval is not claimed. |
+| M20-A07 | **Closed.** `xeen_save_flow` uses the Application input boundary for all seven pending fixtures (paginated display, acknowledgment, Yes/No, NPC, WhoWill, invalid retry, main display), compares frame/page/generation/timing, proves no queued write and fresh-F9 success. `xeen_save_sdl` proves F9 repeat suppression, pending refusal, native title updates, contextual cancellation, and quit-before-save ordering. No-target and reentrant/fatal boundaries are covered. |
+| M20-A08 | **Production save/resume responsibilities closed.** Application saves and resumes synthetic states after immediate quest-item/quest-flag/Remove effects followed by error, acknowledgment abandonment and WhoWill cancellation, preserving camera/game-flag policies. A fatal automatic failure preserves prior movement but production shuts down and refuses subsequent saving; no new recoverable-auto-error policy was invented. Original checkpoint certification remains A12-A15 in 20C. |
+| M20-A09 | **Closed at the production startup layer.** Application's common startup path is exercised with an automatic grant/flag/teleport at the saved cell: new session dispatches exactly once, resume dispatches zero initial events, and later rotation dispatches normally. This is beyond the 20A flow-constructor-only test. |
+| M20-A10 | **20B production portions closed; milestone visual evidence remains partial.** Restored first composition/first shown frame, absence of default frames, fresh presentation, equal-count/different-identity startup graphs and genuine map/object reloads pass through Application. Real composer preflight and idle SDL resume pass. Full native/sprite-cache/original-checkpoint/physical observations remain 20C. |
+| M20-A11 | **Closed.** `xeen_save_cli` launches the real executable using synthetic original-format archives: invalid/conflicting syntax, old/new render forms reaching Application, Unicode load path, missing/locked/malformed/version/incompatible/semantic/first-composition failures, exact failure exit and no resume/fresh fallback. Application tests additionally inject throwing/invalid-frame preflight and show that save failure leaves gameplay usable. |
+| M20-A12-A15 | **Pending 20C.** No Phirna/Bone Whistle/Myra disk checkpoint or cumulative multi-map certification was performed. |
+| M20-A16 | **Partial milestone evidence.** Build/full CTest and bounded original SDL controls pass; the full original matrix, native frame inspection and physical-window milestone procedure remain pending. |
+
+Synthetic scenes/archives are fixtures, not copied original resources. CLI child
+processes validate CLI failures; synthetic Application reconstruction uses fresh
+graphs in the same test process. The original idle save/resume smoke uses two
+separate invocations but certifies no quest checkpoint or ordinary travel.
+
+### Commands and results actually obtained
+
+PowerShell commands used (the build directory retains the approved configuration):
+
+```powershell
+$env:PATH = 'C:\msys64\ucrt64\bin;C:\msys64\usr\bin;' + $env:PATH
+cmake -S . -B build/20a
+cmake --build build/20a --parallel 4
+cmake --build build/20a --parallel 4 --target mmodern_save_file_tests mmodern_save_flow_tests mmodern_save_sdl_tests mmodern_save_cli_tests
+ctest --test-dir build/20a --output-on-failure -R 'xeen_save_'
+ctest --test-dir build/20a --output-on-failure -R 'xeen_(save_|quest_|game_flags|session_|remove|visual_remove|event_|manual_event|navigation_flow|who_will|npc|character_|party_visual_state)|sdl_input'
+ctest --test-dir build/20a --output-on-failure
+cmake --build build/20a --parallel 4 --target mmodern_graphics_smoke
+$env:SDL_VIDEODRIVER = 'dummy'
+$env:SDL_RENDER_DRIVER = 'software'
+& ./build/20a/mmodern_graphics_smoke.exe 'F:\Games\gog\Might and Magic 4-5' save-idle escape build/20b/idle.mmsave
+& ./build/20a/mmodern_graphics_smoke.exe 'F:\Games\gog\Might and Magic 4-5' resume-idle escape build/20b/idle.mmsave
+```
+
+The existing GraphicsSmoke modes `map`, `event`, `manual-no` and `manual-yes`
+were also run with the same game path, dummy/software environment and `escape`.
+All six modes passed. `build/20b` was explicitly created by the validation command;
+the application/file implementation does not create directories.
+
+Configure/complete Debug build and smoke target build passed. Save selection:
+**6/6**; specified stage-focused selection: **33/33**; full CTest: **53/53**.
+New tests were also run separately during iteration. Final whitespace/diff
+checks include `git diff --check` and a separate no-index whitespace check for
+every new untracked file. No original native-frame inspection or physical-window
+validation was performed in 20B; historical M19/20A results are not new runs.
+
+During iteration, the Yes/No fixture initially used a main-display opcode and the
+Remove fixture initially removed its own following error instruction. Both were
+corrected to established event contracts, without production opcode changes.
+The CLI fixture initially lacked the nested initial-state archive; the shared
+synthetic archive name helper gained the pinned reader's four-hex-digit identity
+rule and the test now supplies the original nested-container structure. These
+were test-fixture corrections; the final suite has no failures.
+
+### Changes, deviations and stopping point
+
+Production changes are confined to Application startup/input composition,
+SaveGameAction, the SDL title/input hook, native CLI argument handling and the
+small save-file boundary. CMake registers four tests and links the native
+command-line helper. One existing unsupported-portrait diagnostic in
+`CloudsUiLayout.cpp` was changed to English because it is now surfaced by resume;
+no portrait policy changed. README documents the newly usable interface.
+The roadmap is unchanged: no replanning trigger was found.
+
+There is no 20A format/state correction or architectural deviation. Providers
+must outlive the synchronous gameplay call; snapshots remain temporary values.
+The existing initial automatic failure remains fatal, and in-session load is
+still excluded. File durability is limited to the documented handled-failure
+contract. No inventory, quest consumption/reward, save slots, autosave, physical
+validation or 20C checkpoint certification was started. Stop for 20B review;
+20C requires separate authorization. No commit, push or tag was performed.
+
+### Independent review correction: Windows directory aliases
+
+This subsection records the first correction and its validation boundary. The
+second review and identity-preserving correction below supersede its path
+representation and A06 readiness assessment; neither review approved 20B.
+
+The first independent 20B review returned **REQUEST CHANGES**. Its only blocking
+finding was an installation-containment bypass: under the configured UCRT64
+toolchain, `std::filesystem::canonical` could retain a trailing-dot directory
+alias or a junction path. Comparing those strings with the installation string
+did not reliably compare the directories Windows would actually access. A06
+was therefore partial at that review boundary; the earlier test results above
+did not demonstrate alias protection.
+
+The correction is confined to `XeenSaveFile.cpp`, `XeenSaveFileTests.cpp` and
+these two current-status/evidence documents. `resolve` now opens the existing
+installation and destination-parent directories with `CreateFileW`,
+`OPEN_EXISTING` and `FILE_FLAG_BACKUP_SEMANTICS`, without
+`FILE_FLAG_OPEN_REPARSE_POINT`. `GetFileInformationByHandle` verifies directory
+attributes. `GetFinalPathNameByHandleW(FILE_NAME_NORMALIZED | VOLUME_NAME_DOS)`
+returns the resolved directory paths, following junctions and normalizing
+aliases through Windows. The implementation retains local DOS paths, strips
+only the verified local DOS extended-path prefix, and compares equal/descendant
+paths with case-insensitive `CompareStringOrdinal` and a separator boundary.
+The returned save path uses that resolved parent, not the input alias.
+Directory resolution creates neither a destination nor a temporary file.
+These APIs use [normalized final paths](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getfinalpathnamebyhandlew)
+and [ordinal Windows case comparison](https://learn.microsoft.com/en-us/windows/win32/api/stringapiset/nf-stringapiset-comparestringordinal).
+
+The real Windows regression creates a synthetic protected directory and a
+mount-point junction using `DeviceIoControl(FSCTL_SET_REPARSE_POINT)` entirely
+under ignored `build/20a/save-file-tests`. Junction creation failure fails the
+test with its Windows error; it is not skipped or simulated. Six save paths
+are refused: direct, direct child, trailing-dot, trailing-dot child, external
+junction and junction child. Each checks that `resolve` refuses before the
+write call and that the protected tree contains no destination or temporary
+files. Additional cases resolve aliases in the installation argument itself.
+External targets with a similar directory-name prefix, spaces and Unicode each
+pass new-save and valid-save replacement/decode. An allowed trailing-dot parent
+returns the same resolved path as its ordinary spelling and saves successfully.
+The real junction is removed with `RemoveDirectoryW`, with checked success.
+
+Correction validation used the unchanged configured build and dependency:
+
+```powershell
+$env:PATH = 'C:\msys64\ucrt64\bin;C:\msys64\usr\bin;' + $env:PATH
+cmake --build build/20a --parallel 4 --target mmodern_save_file_tests
+ctest --test-dir build/20a --output-on-failure -V -R '^xeen_save_file$'
+cmake --build build/20a --parallel 4
+ctest --test-dir build/20a --output-on-failure -R 'xeen_save_'
+ctest --test-dir build/20a --output-on-failure -R 'xeen_(save_|quest_|game_flags|session_|remove|visual_remove|event_|manual_event|navigation_flow|who_will|npc|character_|party_visual_state)|sdl_input'
+ctest --test-dir build/20a --output-on-failure
+cmake --build build/20a --parallel 4 --target mmodern_graphics_smoke
+git diff --check
+git diff --no-index --check -- /dev/null src/platform/XeenSaveFile.cpp
+git diff --no-index --check -- /dev/null tests/XeenSaveFileTests.cpp
+```
+
+Results: focused file test **1/1**, save selection **6/6**, stage-focused
+selection **33/33**, full CTest **53/53**; both requested builds and the graphics
+smoke target build passed. Whitespace checks passed and the correction diff
+was inspected against copies of the preexisting uncommitted 20B files. The
+commercial installation was not used for writes or original-data validation
+in this correction. No graphics smoke execution, 20C checkpoint matrix or
+physical-window procedure was run anew.
+
+A06 now has passing evidence for the corrected local Windows contract and
+returns for independent closure/re-review; this is not independent approval
+of 20B. All other acceptance statuses remain as recorded above. The safe-write
+algorithm and its limits are unchanged: concurrent external changes, network
+filesystems and absolute crash/power-loss durability remain outside the
+contract. HEAD and `origin/main` remain `4d65e34564452647e15a7d7b9c9144cc449a6a1b`
+on `main`; all preexisting 20B changes remain uncommitted. No 20C work began.
+
+### Second review correction: retain the checked extended-path identity
+
+The second independent review returned **REQUEST CHANGES**. It confirmed the
+ordinary trailing-dot/junction correction and its six refusal cases, but found
+that removing `\\?\` from the final directory path re-enabled ordinary Win32
+normalization. With distinct synthetic `protected` and literal `protected.`
+directories, a junction could resolve to the latter while the subsequently
+written ordinary path accessed the former. A06 remained partial solely for this
+identity defect. The newly added isolated regression failed against the first
+correction with `resolved path changed checked directory identity`, before any
+save write in that reproduction.
+
+`XeenSaveFile` now retains the local extended DOS path returned by
+`GetFinalPathNameByHandleW`. Containment still uses ordinal case-insensitive
+comparison with component boundaries. Drive-root handling retains the root
+separator. Parent resolution never strips trailing dots/spaces or converts the
+verified path to ordinary DOS form. Other final-path namespaces remain refused.
+Local extended paths copied from feedback or returned by `resolve` can be
+resolved again without lexical normalization; non-native separators and relative
+`.`/`..` components in such input are refused rather than rewritten.
+
+The existing native target-attribute check now also returns whether the target
+exists, replacing the `std::filesystem::exists` call before existing-save
+validation. The redundant `std::filesystem::is_directory` precheck is removed;
+the directory handle's attributes remain authoritative. This avoids routing
+save existence/parent checks through the CRT filesystem layer. All actual save
+I/O now consumes the preserved path: `GetFileAttributesW`, `CreateFileW` for
+existing saves and sibling temporaries, `MoveFileExW` for publication, and
+`DeleteFileW` for cleanup. The temporary suffix is appended to the verified
+destination path without changing its parent. `Application` stores and passes
+that same `filesystem::path`; UTF-8 conversion is used only for logging/title
+text and does not feed back into I/O. No Application/flow code changed.
+The [Win32 namespace rules](https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file)
+explain why removing the prefix changes semantics;
+[`MoveFileExW`](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-movefileexw)
+supports the extended-path representation used by both operands.
+
+The exact Windows reproduction creates both distinct directories and a real
+mount-point junction under ignored `build/20a/save-file-tests`. Native handle
+volume/file IDs prove that the junction and returned parent refer to literal
+`protected.`, distinct from `protected`. The production `resolve -> write`
+sequence creates and replaces the save only in the literal directory. Native
+enumeration during injected write/replacement failures observes the temporary
+in that same directory; successful cleanup leaves no temporary. A preexisting
+protected save remains byte-identical, with no unexpected file in the normal
+sibling. The literal destination is decoded after success/failure, and a
+malformed existing literal save is refused without modification. Both ordinary
+and extended drive-root containment, case-insensitive containment, unchanged
+leaf spelling and 32 repeated accepted/refused resolutions without a process
+handle-count increase also pass. The junction is removed with checked success.
+
+During test development, UCRT64 `std::filesystem::directory_iterator` enumerated
+the normalized sibling for the literal extended directory. The identity fixture
+therefore uses `FindFirstFileW`/`FindNextFileW`/`FindClose` for enumeration and
+native APIs for raw bytes/existence, avoiding an ambiguous test oracle. The
+existing relative-input check now supplies an actual relative input directly,
+instead of deriving it from an extended output with `filesystem::relative`.
+All first-correction alias tests and existing fault/locked-file tests remain.
+
+Commands actually run using the unchanged configured build/dependency:
+
+```powershell
+$env:PATH = 'C:\msys64\ucrt64\bin;C:\msys64\usr\bin;' + $env:PATH
+cmake --build build/20a --parallel 4 --target mmodern_save_file_tests
+Push-Location build/20a
+./mmodern_save_file_tests.exe --identity-only
+Pop-Location
+cmake --build build/20a --parallel 4
+ctest --test-dir build/20a --output-on-failure -V -R '^xeen_save_file$'
+ctest --test-dir build/20a --output-on-failure -R 'xeen_save_'
+ctest --test-dir build/20a --output-on-failure -R 'xeen_(save_|quest_|game_flags|session_|remove|visual_remove|event_|manual_event|navigation_flow|who_will|npc|character_|party_visual_state)|sdl_input'
+ctest --test-dir build/20a --output-on-failure
+cmake --build build/20a --parallel 4 --target mmodern_graphics_smoke
+git diff --check
+git diff --no-index --check -- /dev/null src/platform/XeenSaveFile.cpp
+git diff --no-index --check -- /dev/null tests/XeenSaveFileTests.cpp
+```
+
+The isolated identity regression passed, followed by file CTest **1/1**, save
+selection **6/6**, stage selection **33/33**, and full CTest **53/53**. All builds
+passed. Whitespace checks passed; correction diffs were inspected against the
+preexisting uncommitted files. These are new stabilization results, separate
+from both earlier validation records. No original-data smoke execution,
+commercial-installation writes, physical-window validation or 20C certification
+was performed. Only `XeenSaveFile.cpp`, `XeenSaveFileTests.cpp`, this document
+and `project-status.md` changed in this correction. Format, owners, F9/CLI
+syntax, startup/presentation behavior and safe-replacement ordering are unchanged.
+
+A06 implementation evidence is ready for independent reconsideration, not
+independent approval. Other criteria keep their recorded status: A01-A05,
+A07-A09 and A11 closed; A10 production satisfied/overall partial; A12-A15 pending
+20C; A16 partial. M19 stays stable and 20C unstarted. Concurrent filesystem
+changes, network filesystems and absolute crash/power-loss guarantees remain
+outside the existing contract. No commit, push, tag or branch operation occurred.

@@ -1,4 +1,5 @@
 #include "app/Application.h"
+#include "platform/XeenSaveFile.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "games/xeen/CloudsMapComposer.h"
 #include "games/xeen/CloudsUiComposer.h"
@@ -28,16 +29,17 @@
 // SDL_PushEvent is thread-safe; all initialization/rendering stays on main.
 int main(int argc, char *argv[]) {
 	const bool oldForm = argc == 3;
-	const std::string mode = oldForm ? "ui" : (argc == 4 ? argv[2] : "");
+	const std::string mode = oldForm ? "ui" : (argc >= 4 ? argv[2] : "");
 	const std::string closeMode = oldForm ? (argc == 3 ? argv[2] : "") :
-		(argc == 4 ? argv[3] : "");
-	if ((argc != 3 && argc != 4) ||
+		(argc >= 4 ? argv[3] : "");
+	const bool saveMode = mode == "save-idle" || mode == "resume-idle";
+	if ((saveMode ? argc != 5 : (argc != 3 && argc != 4)) ||
 			(mode != "ui" && mode != "map" && mode != "indoor" &&
 				mode != "event" && mode != "manual" && mode != "manual-no" &&
-				mode != "manual-yes") ||
+				mode != "manual-yes" && !saveMode) ||
 			(closeMode != "escape" && closeMode != "quit")) {
 		std::cerr << "Usage: mmodern_graphics_smoke <game directory> "
-			"[ui|map|indoor|event|manual|manual-no|manual-yes] <escape|quit>\n";
+			"[ui|map|indoor|event|manual|manual-no|manual-yes|save-idle|resume-idle] <escape|quit> [save-path]\n";
 		return 1;
 	}
 	std::atomic<bool> finished{false};
@@ -227,7 +229,7 @@ int main(int argc, char *argv[]) {
 			}
 			return;
 		}
-		const std::vector<SDL_Keycode> keys = mode == "map" ?
+		const std::vector<SDL_Keycode> keys = mode == "save-idle" ? std::vector<SDL_Keycode>{SDLK_F9, SDLK_ESCAPE} : mode == "map" ?
 			std::vector<SDL_Keycode>{SDLK_w, SDLK_s, SDLK_LEFT, SDLK_RIGHT, SDLK_ESCAPE} :
 			mode == "indoor" ?
 			std::vector<SDL_Keycode>{SDLK_LEFT, SDLK_RIGHT, SDLK_w, SDLK_s,
@@ -256,7 +258,10 @@ int main(int argc, char *argv[]) {
 			}
 		}
 	});
-	const int result = mode == "map" ? mmodern::Application().renderMap(argv[1]) :
+	const int result = mode == "save-idle" ? mmodern::Application().renderMap(argv[1], 1, 9, 6,
+		mmodern::XeenDirection::South, std::filesystem::u8path(argv[4])) :
+		mode == "resume-idle" ? mmodern::Application().loadGame(argv[1], std::filesystem::u8path(argv[4])) :
+		mode == "map" ? mmodern::Application().renderMap(argv[1]) :
 		mode == "indoor" ? mmodern::Application().renderMap(argv[1], 33, 4, 8,
 			mmodern::XeenDirection::North) :
 		(mode == "manual" || mode == "manual-no" || mode == "manual-yes") ?
@@ -266,12 +271,19 @@ int main(int argc, char *argv[]) {
 			mmodern::XeenDirection::North) : mmodern::Application().run(argv[1]);
 	finished = true;
 	closer.join();
-	const int expectedEvents = escape && mode == "map" ? 5 :
+	const int expectedEvents = escape && mode == "save-idle" ? 2 : escape && mode == "map" ? 5 :
 		escape && mode == "indoor" ? 8 :
 		escape && (mode == "manual" || mode == "manual-no" || mode == "manual-yes") ? 6 : 1;
 	if (result != 0 || sent != expectedEvents) {
 		std::cerr << "Graphics smoke test failed\n";
 		return 1;
+	}
+	if (saveMode && escape) {
+		const auto saved = mmodern::XeenSaveFile::read(std::filesystem::absolute(std::filesystem::u8path(argv[4])));
+		if (saved.camera.mapId != mmodern::XeenMapIdentity(1) || saved.camera.x != 9 || saved.camera.y != 6 ||
+			saved.camera.direction != mmodern::XeenDirection::South) {
+			std::cerr << "Idle save camera mismatch\n"; return 1;
+		}
 	}
 	std::cout << "SDL " << mode << " composition/presentation and " << closeMode
 		<< " shutdown OK\n";

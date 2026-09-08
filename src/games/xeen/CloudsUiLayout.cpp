@@ -36,8 +36,8 @@ std::vector<CloudsUiComposer::PortraitPlacement> CloudsUiComposer::buildPortrait
 		const XeenCharacter &character = partyState.party.member(partyState.roster, i);
 		const auto portrait = character.portraitResourceName();
 		if (!portrait) {
-			throw std::runtime_error("membro ativo do roster " +
-				std::to_string(character.rosterId) + " nao possui retrato suportado");
+			throw std::runtime_error("Active roster member " +
+				std::to_string(character.rosterId) + " has no supported portrait");
 		}
 		const std::size_t visualFrame = kConditionFrames[
 			static_cast<std::size_t>(character.worstCondition())];

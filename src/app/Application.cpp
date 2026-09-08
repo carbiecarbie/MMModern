@@ -1,4 +1,7 @@
 #include "app/Application.h"
+#include "app/XeenGameplayServices.h"
+#include "platform/XeenSaveFile.h"
+#include <chrono>
 #include "app/XeenEventFlow.h"
 
 #include "formats/xeen/XeenAssetSource.h"
@@ -359,89 +362,81 @@ int Application::inspectEvents(const std::filesystem::path &gameDirectory,
 }
 
 int Application::renderMap(const std::filesystem::path &gameDirectory,
-		std::uint16_t mapId, int x, int y, XeenDirection direction) const {
-	const auto installation = XeenInstallationDetector().detect(gameDirectory);
-	if (!installation) {
-		std::cerr << "Nenhuma instalacao de Xeen encontrada em: " << gameDirectory.string() << '\n';
-		return 2;
-	}
-	if (!installation->hasXeen()) {
-		std::cerr << "A renderizacao da Area A1 requer xeen.cc (Clouds).\n";
-		return 3;
-	}
-
-	try {
-		XeenAssetSource assets(*installation, CloudsUiComposer::kWidth,
-			CloudsUiComposer::kHeight);
-		XeenPartyState partyState = XeenPartyLoader().loadInitialCloudsParty(assets);
-		printPartyDiagnostics(partyState);
-		XeenGameFlags gameFlags = XeenGameFlagsLoader().loadInitialCloudsFlags(assets);
-		const XeenCharacterRulesContext rulesContext{kCloudsInitialYear};
-		const XeenMapLoader mapLoader;
-		XeenWorld world([&](XeenMapIdentity requestedMapId) {
-			return mapLoader.loadGeometryMap(assets, requestedMapId);
-		}, [&](XeenMapIdentity id) { return mapLoader.loadObjects(assets, id); });
-		const XeenEventLoader eventLoader([&](const std::string &resourceName)
-				-> std::optional<std::vector<std::uint8_t>> {
-			if (!assets.hasInitialResource(resourceName))
-				return std::nullopt;
-			return assets.readInitialResource(resourceName);
-		});
-		const XeenEventTextLoader eventTextLoader([&](const std::string &resourceName)
-				-> std::optional<std::vector<std::uint8_t>> {
-			if (!assets.hasArchiveResource(resourceName))
-				return std::nullopt;
-			return assets.readArchiveResource(resourceName);
-		});
-		XeenEventSystem eventSystem([&](XeenMapIdentity requestedMapId) {
-			return XeenEventScript(eventLoader.load(requestedMapId));
-		}, [&](XeenMapIdentity requestedMapId) {
-			return eventTextLoader.load(requestedMapId);
-		});
-		XeenCamera camera{mapId, x, y, direction};
-		const CloudsMapComposer composer;
-		if (!assets.hasArchiveResource("fnt"))
-			throw std::runtime_error("recurso de fonte Xeen 'fnt' ausente");
-		const XeenFontFormat font(assets.readArchiveResource("fnt"));
-		XeenEventFlow flow(world, eventSystem, partyState, camera, gameFlags, font, [&]() {
-			return composer.compose(assets, world, partyState, camera, rulesContext);
-		}, [&](IndexedFrame &target, std::uint8_t portrait, std::size_t frameIndex) {
-			assets.drawNpc(target, portrait, frameIndex);
-		});
-		flow.reportManual = printManualEventResult;
-		flow.reportAutomatic = requireAutomaticEventSuccess;
-		flow.reportText = [](const std::string &message) {
-			std::cerr << "Aviso de texto: " << message << '\n';
-		};
-		flow.reportMovement = [&](XeenMovementResult result) {
-			if (const char *reason = blockedReason(result))
-				std::cout << "Movimento bloqueado: " << reason << ". Camera: mapa "
-					<< camera.mapId << " X=" << camera.x << " Y=" << camera.y
-					<< " " << directionName(camera.direction) << ".\n";
-		};
-		const IndexedFrame frame = flow.initial();
-		const XeenMap &firstRenderedMap = world.map(camera.mapId);
-		const bool initialMapIsIndoor = !firstRenderedMap.geometry.isOutdoors();
-		const bool initialMapIsDark = (firstRenderedMap.geometry.flags2 & 0x4000) != 0;
-		std::cout << "Mapa " << camera.mapId << " renderizado: camera X=" << camera.x
-			<< " Y=" << camera.y << ", direcao " << directionName(camera.direction) << ".\n";
-		if (initialMapIsIndoor && initialMapIsDark)
-			std::cout << "Aviso: interior escuro renderizado iluminado para diagnostico.\n";
-		std::cout << "Controles: W/seta cima avanca, S/seta baixo recua, "
-			"A/seta esquerda e D/seta direita giram, Space interage/confirma, "
-			"Enter confirma, Y/N responde Sim/Nao, F1-F6 escolhe personagem, "
-			"Escape confirma NPC, cancela WhoWill ou sai.\n";
-		SdlWindow window;
-		const bool ok = window.showInteractive(frame, "MMModern - Mapa " + std::to_string(camera.mapId.number),
-			[&](const PlayerAction &action) -> std::optional<IndexedFrame> {
-				return flow.handle(action);
-			}, [&] { return flow.handlesEscape(); }, [&] { return flow.updatePresentation(); });
-		flow.abandonPresentation();
-		return ok ? 0 : 4;
-	} catch (const std::exception &error) {
-		std::cerr << "Falha ao renderizar mapa: " << error.what() << '\n';
-		return 3;
-	}
+        std::uint16_t mapId, int x, int y, XeenDirection direction,
+        std::optional<std::filesystem::path> savePath) const {
+    return gameplay(gameDirectory, {mapId, x, y, direction}, savePath, false);
+}
+int Application::loadGame(const std::filesystem::path &gameDirectory,
+        const std::filesystem::path &savePath) const {
+    return gameplay(gameDirectory, {}, savePath, true);
+}
+int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera camera,
+        const std::optional<std::filesystem::path> &savePath, bool resume) const {
+    try {
+        const auto installation = XeenInstallationDetector().detect(gameDirectory);
+        if (!installation) {
+            std::cerr << "No Xeen installation found: " << gameDirectory.u8string() << '\n';
+            return 2;
+        }
+        if (!installation->hasXeen())
+            throw std::runtime_error("Clouds gameplay requires an installation containing xeen.cc");
+        std::optional<std::filesystem::path> target;
+        if (savePath) target = XeenSaveFile::resolve(*savePath, installation->root);
+        XeenSaveResourceSignature signature;
+        if (target) {
+            const auto begin = std::chrono::steady_clock::now();
+            signature = XeenSaveFile::fingerprint(*installation);
+            std::cout << "Archive fingerprints: "
+                << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - begin).count()
+                << " ms\n";
+        }
+        XeenAssetSource assets(*installation, CloudsUiComposer::kWidth, CloudsUiComposer::kHeight);
+        const XeenMapLoader maps;
+        const XeenEventLoader events([&](const std::string &name) -> std::optional<std::vector<std::uint8_t>> {
+            if (!assets.hasInitialResource(name)) return std::nullopt;
+            return assets.readInitialResource(name);
+        });
+        const XeenEventTextLoader texts([&](const std::string &name) -> std::optional<std::vector<std::uint8_t>> {
+            if (!assets.hasArchiveResource(name)) return std::nullopt;
+            return assets.readArchiveResource(name);
+        });
+        if (!assets.hasArchiveResource("fnt")) throw std::runtime_error("Missing Xeen font resource 'fnt'");
+        const XeenFontFormat font(assets.readArchiveResource("fnt"));
+        const CloudsMapComposer composer;
+        XeenGameplayServices services{
+            {signature, [&] { return XeenPartyLoader().loadInitialCloudsParty(assets); },
+                [&](XeenMapIdentity id) { return events.load(id); }},
+            [&] { return XeenGameFlagsLoader().loadInitialCloudsFlags(assets); },
+            [&](XeenMapIdentity id) { return maps.loadGeometryMap(assets, id); },
+            [&](XeenMapIdentity id) { return maps.loadObjects(assets, id); },
+            [&](XeenMapIdentity id) { return texts.load(id); }, font,
+            [&](XeenWorld &world, const XeenPartyState &party, const XeenCamera &position) {
+                return composer.compose(assets, world, party, position, {kCloudsInitialYear});
+            },
+            [&](IndexedFrame &frame, std::uint8_t portrait, std::size_t index) { assets.drawNpc(frame, portrait, index); },
+            [&](XeenEventFlow &flow, const XeenCamera &position) {
+                flow.reportManual = printManualEventResult;
+                flow.reportAutomatic = requireAutomaticEventSuccess;
+                flow.reportText = [](const std::string &message) { std::cerr << "Text warning: " << message << '\n'; };
+                flow.reportMovement = [&position](XeenMovementResult result) {
+                    if (const char *reason = blockedReason(result))
+                        std::cout << "Movement blocked: " << reason << ". Camera: map " << position.mapId
+                            << " X=" << position.x << " Y=" << position.y << ' ' << directionName(position.direction) << '\n';
+                };
+            },
+            [&](const IndexedFrame &first, const auto &handler, const auto &escape, const auto &idle, const auto &status) {
+                std::cout << "Controls: W/S move, A/D turn, Space interacts, Enter acknowledges, "
+                    "Y/N answers, F1-F6 selects, F9 saves, Escape acknowledges NPC/cancels WhoWill/exits.\n";
+                return SdlWindow().showInteractive(first, status(), handler, escape, idle, status);
+            }
+        };
+        return playGameplay(services, camera, target, resume);
+    } catch (const std::exception &error) {
+        std::cerr << "Gameplay startup failed";
+        if (savePath) std::cerr << " [" << std::filesystem::absolute(*savePath).u8string() << ']';
+        std::cerr << ": " << error.what() << '\n';
+        return 3;
+    }
 }
 
 } // namespace mmodern

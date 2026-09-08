@@ -19,7 +19,8 @@ public:
 	bool showInteractive(const IndexedFrame &frame, const std::string &title,
 		const FrameUpdateHandler &handler,
 		const std::function<bool()> &handlesEscape = {},
-		const IdleFrameHandler &idle = {}) const;
+		const IdleFrameHandler &idle = {},
+		const std::function<std::string()> &status = {}) const;
 };
 
 } // namespace mmodern

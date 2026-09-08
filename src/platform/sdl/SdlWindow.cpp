@@ -36,6 +36,7 @@ bool uploadFrame(SDL_Texture *texture, const IndexedFrame &frame,
 
 std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key) {
 	switch (key.keysym.sym) {
+	case SDLK_F9: return SaveGameAction{};
 	case SDLK_ESCAPE:
 		return CancelInteractionAction{};
 	case SDLK_F1:
@@ -74,7 +75,8 @@ std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key) {
 bool showLoop(const IndexedFrame &initialFrame, const std::string &title,
 		const SdlWindow::FrameUpdateHandler &handler,
 		const std::function<bool()> &canCancelInteraction = {},
-		const SdlWindow::IdleFrameHandler &idle = {}) {
+		const SdlWindow::IdleFrameHandler &idle = {},
+		const std::function<std::string()> &status = {}) {
 	if (!initialFrame.isValid()) {
 		std::cerr << "Framebuffer indexado invalido.\n";
 		return false;
@@ -182,6 +184,7 @@ bool showLoop(const IndexedFrame &initialFrame, const std::string &title,
 			}
 		}
 
+		if (status) SDL_SetWindowTitle(window, status().c_str());
 		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 		SDL_RenderClear(renderer);
 		if (SDL_RenderCopy(renderer, texture, nullptr, nullptr) != 0) {
@@ -207,8 +210,8 @@ bool SdlWindow::show(const IndexedFrame &frame, const std::string &title) const 
 
 bool SdlWindow::showInteractive(const IndexedFrame &frame, const std::string &title,
 		const FrameUpdateHandler &handler, const std::function<bool()> &handlesEscape,
-		const IdleFrameHandler &idle) const {
-	return showLoop(frame, title, handler, handlesEscape, idle);
+		const IdleFrameHandler &idle, const std::function<std::string()> &status) const {
+	return showLoop(frame, title, handler, handlesEscape, idle, status);
 }
 
 } // namespace mmodern
