@@ -25,28 +25,33 @@ smoke passed. The separately authorized 21B adds bounded delivery and paginated
 receipt infrastructure plus read-only live inventory inspection with I and at
 setup. Debug build, 58/58 CTest and original direct/SDL boundary regressions passed;
 the corrected 21B implementation has been independently re-reviewed and
-**approved for commit**, with no remaining findings. It remains uncommitted.
+**approved for commit**, with no remaining findings, and committed as `be98bb6`.
 The earlier "independent 21B review is pending" status is historical, superseded
 by the [final approval](docs/milestone-21-plan.md#15-final-independent-21b-approval-for-commit);
 the P2 retained-label correction and earlier review evidence remain in the plan.
-Production reward creation and Myra's exchange remain unsupported; 21C and 21D
-remain unstarted and unauthorized. M21 is not complete. No inventory UI or item
-effects are enabled.
+The explicitly authorized [21C implementation](docs/milestone-21-plan.md#16-21c-implementation-and-validation)
+activates checked quest-item consumption, quest-flag clearing and deterministic
+miscellaneous rewards through that lifecycle. Independent 21C review is pending.
+21D remains unstarted and unauthorized; M21 is incomplete. No inventory UI or
+item effects are enabled.
 
 Clouds NPC mode-1 dialogue presents original animated portraits, positioned titles
 and paginated text through the resumable event UI. Myra's original local request
 at map 23 `(9,11)` West now records Clouds quest flag 2 after final acknowledgment,
-including Escape. Revisits repeat her request; return dialogue with a Root still
-stops before unsupported consumption. The party loads 30 Clouds quest flags from
-original data and retains request state across same-session owner/cache changes.
-A fresh session loads its own original state. This acceptance does not certify
-ordinary travel to Myra or her completed exchange.
+including Escape. With a Root, final NPC acknowledgment consumes one Root,
+clears Q2 and produces five records `{10,37,1,0}`; receipt completion ends the
+nine-instruction exchange. Further Roots permit fresh returns, and an exhausted
+supply returns to the request. Capacity or eligibility loss does not refund Roots.
+Original direct/SDL tests cover the full Root/Q2/key matrix and loss fixtures.
+The party loads 30 Clouds quest flags from original data; party state survives
+same-session owner/cache changes. A fresh session loads its own original state.
+Ordinary travel and completed-exchange restart certification remain outside 21C.
 
 Supported static Clouds objects render with direction, scale, clipping and
 terrain ordering, using validated World of Xeen metadata in `DARK.CC/clouds.dat`.
 The party loads 35 Clouds quest-item counters; events support possession checks
-and bounded TakeOrGive quest-item grants. The original Phirna interaction on
-map 23 (Space -> Yes -> acknowledgment) grants exactly one root and removes the
+and bounded TakeOrGive quest-item grants and consumption. The original Phirna
+interaction on map 23 (Space -> Yes -> acknowledgment) grants exactly one root and removes the
 plant immediately while preserving the success text. No and already-owned
 refusal grant nothing and leave the plant present. Ownership and removal persist
 through same-session map/cache changes; repeat interaction cannot grant again,
@@ -61,8 +66,8 @@ interaction cannot grant again; removal survives cache reconstruction and a new
 session restores the initial resources. This validates the local interaction,
 not normal travel to the checkpoint, combat or Orothin's quest completion.
 
-Quest-item consumption, general inventory/TakeOrGive, Myra's exchange and
-Darkside gameplay remain unimplemented.
+General inventory/TakeOrGive, item effects, conditional quest-flag Action 104
+and Darkside gameplay remain unimplemented.
 
 Milestones 20A, 20B and 20C are independently approved. Local Windows saving and
 startup resume preserve supported Phirna, Bone Whistle, Myra request and cumulative

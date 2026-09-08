@@ -496,6 +496,26 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			continue;
 		}
 
+		if (const auto *enchanted = std::get_if<XeenEventGiveEnchanted>(&decoded.operation)) {
+			if (logical.mapId.side != XeenSide::Clouds || workingCamera.mapId.side != XeenSide::Clouds)
+				return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
+					"GiveEnchanted requires Clouds logical and physical context", instructionCount, logical, decoded.source);
+			if (!partyState.party.size())
+				return error(XeenEventExecutionErrorKind::EmptyParty,
+					"GiveEnchanted requires an active party member", instructionCount, logical, decoded.source);
+			if (logical.line == 255)
+				return error(XeenEventExecutionErrorKind::LineOverflow,
+					"GiveEnchanted sequential line overflow", instructionCount, logical, decoded.source);
+			XeenItem item{};
+			item.material = enchanted->itemCode - 60;
+			item.id = enchanted->specialId;
+			item.state = 1;
+			state.pendingRewards.enqueue(item);
+			++logical.line;
+			missingPolicy = MissingInstructionPolicy::NaturalCompletion;
+			continue;
+		}
+
 		if (const auto *takeOrGive =
 				std::get_if<XeenEventTakeOrGive>(&decoded.operation)) {
 			const auto neutral = [](const XeenEventTakeOrGivePair &pair) {
@@ -509,28 +529,33 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				takeOrGive->second.mode == 21 && neutral(takeOrGive->third);
 			const bool setQuestFlag = neutral(takeOrGive->first) &&
 				takeOrGive->second.mode == 104 && neutral(takeOrGive->third);
-			if (setQuestFlag) {
-				const auto index = takeOrGive->second.value;
+			const bool takeQuestItem = takeOrGive->first.mode == 21 &&
+				neutral(takeOrGive->second) && neutral(takeOrGive->third);
+			const bool clearQuestFlag = takeOrGive->first.mode == 104 &&
+				neutral(takeOrGive->second) && neutral(takeOrGive->third);
+			if (setQuestFlag || clearQuestFlag) {
+				const auto index = setQuestFlag ? takeOrGive->second.value : takeOrGive->first.value;
 				if (!XeenCloudsQuestFlags::validIndex(index))
 					return error(XeenEventExecutionErrorKind::InvalidFlagIndex,
 						"TakeOrGive Clouds quest flag index outside 0..29", instructionCount, logical, decoded.source);
 				if (logical.mapId.side != XeenSide::Clouds || workingCamera.mapId.side != XeenSide::Clouds)
 					return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
-						"quest-flag set requires Clouds logical and physical context", instructionCount, logical, decoded.source);
+						"quest-flag mutation requires Clouds logical and physical context", instructionCount, logical, decoded.source);
 				if (!partyState.party.size())
 					return error(XeenEventExecutionErrorKind::EmptyParty,
-						"quest-flag set requires an active party member", instructionCount, logical, decoded.source);
+						"quest-flag mutation requires an active party member", instructionCount, logical, decoded.source);
 				if (logical.line == 255)
 					return error(XeenEventExecutionErrorKind::LineOverflow,
-						"quest-flag set sequential line overflow", instructionCount, logical, decoded.source);
+						"quest-flag mutation sequential line overflow", instructionCount, logical, decoded.source);
 				// Authoritative party effect: immediate, idempotent, once per party.
-				partyState.questFlags.set(index);
+				if (setQuestFlag) partyState.questFlags.set(index);
+				else partyState.questFlags.clear(index);
 				++logical.line;
 				missingPolicy = MissingInstructionPolicy::NaturalCompletion;
 				continue;
 			}
-			if (grantQuestItem) {
-				const auto itemId = takeOrGive->second.value;
+			if (grantQuestItem || takeQuestItem) {
+				const auto itemId = grantQuestItem ? takeOrGive->second.value : takeOrGive->first.value;
 				const std::string detail = "TakeOrGive quest item " + std::to_string(itemId);
 				const auto index = XeenCloudsQuestItems::indexForItemId(itemId);
 				if (!index)
@@ -544,11 +569,14 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 						detail + " requires an active party member", instructionCount, logical, decoded.source);
 				if (logical.line == 255)
 					return error(XeenEventExecutionErrorKind::LineOverflow,
-						"quest-item grant sequential line overflow", instructionCount, logical, decoded.source);
+						"quest-item mutation sequential line overflow", instructionCount, logical, decoded.source);
 				// Party effects are immediate, independent of camera/flag commit.
-				if (!partyState.questItems.increment(*index))
+				if (grantQuestItem && !partyState.questItems.increment(*index))
 					return error(XeenEventExecutionErrorKind::QuestItemOverflow,
 						detail + " counter would overflow", instructionCount, logical, decoded.source);
+				if (takeQuestItem && !partyState.questItems.decrement(*index))
+					return error(XeenEventExecutionErrorKind::QuestItemUnderflow,
+						detail + " counter is zero", instructionCount, logical, decoded.source);
 				++logical.line;
 				missingPolicy = MissingInstructionPolicy::NaturalCompletion;
 				continue;

@@ -35,6 +35,18 @@ void XeenCloudsQuestFlags::set(std::int64_t index) {
 	_values[checkedIndex(index)] = true;
 }
 
+void XeenCloudsQuestFlags::clear(std::int64_t index) {
+	_values[checkedIndex(index)] = false;
+}
+
+bool XeenCloudsQuestItems::decrement(std::size_t index) {
+	auto &count = _counts.at(index);
+	if (!count)
+		return false;
+	--count;
+	return true;
+}
+
 bool XeenCloudsQuestItems::increment(std::size_t index) {
 	auto &count = _counts.at(index);
 	if (count == std::numeric_limits<std::uint32_t>::max())

@@ -88,7 +88,7 @@ void validation() {
 		check(partySnapshot(f.members)==chars && f.flags.isSet(2) && std::get<XeenEventExecutionCompleted>(result).instructionCount==2,
 			"set applied per member or changed unrelated state");
 	}
-	for(const Bytes bytes:std::vector<Bytes>{{0,1,104,2},{20,7,104,2},{104,2,0,0},{21,99,0,0},
+	for(const Bytes bytes:std::vector<Bytes>{{0,1,104,2},{20,7,104,2},{104,2,0,1},{21,81,0,0},
 		{104,2,104,2},{0,0,104,2,0,1},{0,0,104,2,20,7},{0,0,104,2,104,3},{0,0,20,2,104,3}})for(bool initiallySet:{false,true}){
 		Fixture f;if(initiallySet)f.members.questFlags.set(2);const auto before=f.members.questFlags.values();f.scriptAt({record(1,1,0,0x0c,bytes)});
 		error(f.begin(),Kind::UnsupportedOperationMode);checkPartyQuestState(f.members,{},before);check(!f.flags.isSet(7),"mixed operation partially applied");}
@@ -105,6 +105,43 @@ void validation() {
 		if(fault==4){s.logicalAddress.line=254;s.pendingPresentation->conditional->targetLine=255;s.currentScript=script(1,{set(255)});kind=Kind::LineOverflow;}
 		error(f.resume(s),kind);checkPartyQuestState(f.members,{},{});}
 	Fixture condition;condition.scriptAt({record(1,1,0,9,{104,2,1})});error(condition.begin(),Kind::UnsupportedConditionAction);
+}
+
+void clearing() {
+	for(int index : {0,2,29}) for(bool initiallySet : {false,true}) for(int pairs : {1,2,3}) {
+		Fixture f;f.members.party=XeenParty::fromRosterIds({0,0});
+		f.members.roster.at(0).conditions[static_cast<std::size_t>(XeenCondition::Dead)]=1;
+		if(initiallySet)f.members.questFlags.set(index);
+		const auto chars=partySnapshot(f.members);
+		Bytes bytes{104,static_cast<std::uint8_t>(index)};bytes.resize(pairs*2,0);
+		f.scriptAt({record(1,1,0,12,bytes),record(1,1,1,12,bytes)});
+		complete(f.begin());checkPartyQuestState(f.members,{},{});
+		check(partySnapshot(f.members)==chars,"clear changed character/alias");
+	}
+	for(int index : {30,31,255}) { Fixture f;f.members.questFlags.set(2);
+		f.scriptAt({record(1,1,0,12,{104,static_cast<std::uint8_t>(index)})});
+		error(f.begin(),Kind::InvalidFlagIndex);check(f.members.questFlags.isSet(2),"invalid clear mutated");
+	}
+	for(const Bytes bytes : std::vector<Bytes>{{104},{104,2,0},{104,2,0,0,0}}) {
+		Fixture f;f.members.questFlags.set(2);f.scriptAt({record(1,1,0,12,bytes)});
+		error(f.begin(),Kind::MalformedInstruction);check(f.members.questFlags.isSet(2),"partial clear mutated");
+	}
+	for(int fault=0;fault<5;++fault) {
+		Fixture f;f.members.questFlags.set(2);f.scriptAt({record(1,1,0,9,{44,1,1}),record(1,1,1,12,{104,2})});
+		auto s=std::get<XeenEventExecutionSuspended>(f.begin()).state;auto kind=Kind::UnsupportedExecutionContext;
+		if(fault==0)s.logicalAddress.mapId.side=XeenSide::Darkside;
+		if(fault==1)s.workingCamera.mapId.side=XeenSide::Darkside;
+		if(fault==2){f.members.party=XeenParty::fromRosterIds({});kind=Kind::EmptyParty;}
+		if(fault==3){s.instructionCount=1024;kind=Kind::InstructionLimitExceeded;}
+		if(fault==4){s.logicalAddress.line=254;s.pendingPresentation->conditional->targetLine=255;s.currentScript=script(1,{record(1,1,255,12,{104,2})});kind=Kind::LineOverflow;}
+		error(f.resume(s),kind);check(f.members.questFlags.isSet(2),"clear guard mutated");
+	}
+	Fixture f;f.members.questFlags.set(2);
+	f.scriptAt({record(1,1,0,12,{104,2}),record(1,1,1,9,{44,1,2}),record(1,1,2,0xff)});
+	auto s=std::get<XeenEventExecutionSuspended>(f.begin()).state;
+	check(!f.members.questFlags.isSet(2),"clear not immediate");
+	error(f.resume(s),Kind::UnsupportedOpcode);check(!f.members.questFlags.isSet(2),"later failure restored cleared flag");
+	for(std::int64_t index : {-1,30,255}) rejects([&]{f.members.questFlags.clear(index);});
 }
 
 void lifetimeAndCancellation() {
@@ -155,6 +192,6 @@ void errorsAndRemove() {
 	check(target.members.questFlags.isSet(2),"bad target rolled back prior set");
 }
 }
-int main(){try{valuesAndLoading();validation();lifetimeAndCancellation();errorsAndRemove();
+int main(){try{valuesAndLoading();validation();clearing();lifetimeAndCancellation();errorsAndRemove();
 	std::cout<<"M19B quest flags: loading, bounded set and authoritative lifetime passed\n";return 0;
 }catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}}

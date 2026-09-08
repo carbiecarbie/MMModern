@@ -36,11 +36,13 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
  check(installation && installation->hasXeen(), "original installation unavailable");
  XeenAssetSource assets(*installation, 320, 200);
  const auto defaults = XeenPartyLoader().loadInitialCloudsParty(assets);
+ auto expectedCharacters = defaults.roster.characters();
  const auto defaultFlags = XeenGameFlagsLoader().loadInitialCloudsFlags(assets);
  check(defaults.questItems.at(17) == 0 && defaults.questItems.at(18) == 0 && !defaults.questFlags.isSet(2), "unexpected original checkpoint prerequisites");
  const auto path = XeenSaveFile::resolve(dir/(name + ".mmsave"), installation->root);
  if (produce) check(!fs::exists(dir/(name + ".mmsave")), "stale producer save refused");
  bool root = resume && (name == "phirna" || name == "cumulative");
+ bool phirnaRemoved = root;
  bool bone = resume && (name == "whistle" || name == "cumulative");
  bool request = resume && (name == "myra" || name == "cumulative");
  XeenCamera expectedCamera = produce && name == "cumulative" ? cp::myra : position(name);
@@ -65,14 +67,14 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
  std::optional<XeenEventExecutionSuspended> pending;
  auto partyCheck = [&](const XeenPartyState &p) {
   check(p.party.activeRosterIds() == defaults.party.activeRosterIds(), "active membership/order changed");
-  for (std::size_t i = 0; i < 30; ++i) remove_test::checkSameCharacter(p.roster.characters()[i], defaults.roster.characters()[i]);
+  for (std::size_t i = 0; i < 30; ++i) remove_test::checkSameCharacter(p.roster.characters()[i], expectedCharacters[i]);
   auto counts = defaults.questItems.counts(); counts[17] += root; counts[18] += bone;
-  auto quests = defaults.questFlags.values(); if (request) quests[2] = true;
+  auto quests = defaults.questFlags.values(); quests[2] = request;
   remove_test::checkPartyQuestState(p, counts, quests);
  };
  auto worldCheck = [&](XeenWorld &w) {
   std::set<XeenObjectIdentity> objects; std::set<XeenEventIdentity> records;
-  if (root) { objects.insert({23,13}); for (int i = 125; i <= 135; ++i) records.insert({23,static_cast<std::size_t>(i)}); }
+  if (phirnaRemoved) { objects.insert({23,13}); for (int i = 125; i <= 135; ++i) records.insert({23,static_cast<std::size_t>(i)}); }
   if (bone) { objects.insert({20,1}); for (int i = 1; i <= 5; ++i) records.insert({20,static_cast<std::size_t>(i)}); }
   check(w.sessionState().disabledObjects() == objects && w.sessionState().disabledEvents() == records, "exact independent multi-map removal identities differ");
   for (const auto &entry : std::vector<std::pair<XeenMapIdentity, const XeenEventFile *>>{{23,&base23},{20,&base20}}) {
@@ -158,6 +160,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
   };
   auto interact = [&](XeenCamera c, bool acquire) {
    move(c); terminal.reset(); pending.reset(); presentations = 0;
+   const bool returning = cp::sameCamera(c, cp::myra) && root;
    auto inputs = cp::collection(c);
    std::size_t selected = 0;
    if (cp::sameCamera(c, cp::whistle) && acquire) {
@@ -181,20 +184,40 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
     drive({{SDLK_F9, SaveGameAction{}}});
     check(status().find("Cannot save while an interaction is pending") != std::string::npos && flow->frame().pixels == pixels && flow->presentationGeneration() == generation && flow->presenter().pageIndex() == page, "pending F9 advanced original interaction");
     if (produce) check(!fs::exists(dir/(name + ".mmsave")), "pending F9 wrote save");
-    if (cp::sameCamera(c, cp::myra) && root) inputs.pop_back();
+    if (cp::sameCamera(c, cp::myra)) stateCheck(); // Still restored/pre-exchange at the NPC.
     if (cp::sameCamera(c, cp::whistle) && acquire) {
      drive({inputs[1]});
      check(pending && pending->state.activeCharacterIndex == selected && pending->request.source.line == 2 && flow->blocksGameplay() && !flow->canCancelInteraction(), "WhoWill selected context/display/acknowledgment");
      drive({inputs[2]});
      std::cout << "ASSERT original WhoWill selected non-first party index " << selected << "; completion leaves no suspended selection\n";
+    } else if (cp::sameCamera(c, cp::myra)) {
+     unsigned acks=0;bool expectedExchange=false;
+     while(flow->blocksGameplay()) {
+      check(++acks<100 && pending,"bounded Myra phases");
+      const auto kind=pending->request.kind;
+      check(kind==XeenPresentationKind::NpcAcknowledgment || kind==XeenPresentationKind::RewardReceipt ||
+       kind==XeenPresentationKind::RewardWarning,"unexpected Myra phase");
+      drive({{SDLK_RETURN,AcknowledgeAction{}}});
+      if(returning && !expectedExchange && pending->request.kind==XeenPresentationKind::RewardReceipt) {
+       check(pending->state.instructionCount==9 && pending->state.rewardReceipt.delivered==5 &&
+        pending->state.rewardReceipt.lost==0 && pending->state.rewardReceipt.overflow==0,"restored Root exchange receipt");
+       root=false;request=false;expectedExchange=true;
+       // This restored pre-exchange fixture has empty misc packs and an eligible first owner.
+       const auto owner=defaults.party.activeRosterIds().front();
+       check(defaults.roster.at(owner).canAct(),"restored fixture eligibility");
+       for(const auto &item:defaults.roster.at(owner).miscellaneous)check(item.id==0,"restored fixture capacity");
+       for(unsigned i=0;i<5;++i)expectedCharacters[owner].miscellaneous[i]={10,37,1,0};
+      }
+      if(!returning && !flow->blocksGameplay())request=true;
+      stateCheck();
+     }
     } else drive(std::vector<cp::Input>(inputs.begin()+1, inputs.end()));
    }
-   if (cp::sameCamera(c, cp::phirna)) { completed(acquire ? 18 : 11); if (acquire) root = true; else check(presentations == 0, "removed plant replayed dialogue"); }
+   if (cp::sameCamera(c, cp::phirna)) { completed(acquire ? 18 : 11); if (acquire) { root = true; phirnaRemoved = true; } else check(presentations == 0, "removed plant replayed dialogue"); }
    else if (cp::sameCamera(c, cp::whistle)) { completed(acquire ? 10 : 5); if (acquire) bone = true; else check(presentations == 0, "removed bones replayed dialogue"); }
-   else if (root) {
-    const auto *error = terminal ? std::get_if<XeenEventExecutionError>(&*terminal) : nullptr;
-    check(error && error->kind == XeenEventExecutionErrorKind::UnsupportedOperationMode && error->instructionCount == 3 && error->source && error->source->line == 8 && error->source->fileOffset == 255 && !flow->blocksGameplay(), "genuinely acquired Root consumption boundary");
-    std::cout << "ASSERT acquired Root: UnsupportedOperationMode line 8 offset 255 instructions 3; no mutation\n";
+   else if (returning) {
+    completed(9);check(!root && !request,"restored Root was not consumed/Q2 cleared");
+    std::cout << "ASSERT restored pre-exchange Root consumed in-process; five deterministic items; no post-exchange save\n";
    } else { completed(5); request = true; }
    stateCheck();
   };

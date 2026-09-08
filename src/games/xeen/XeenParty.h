@@ -53,6 +53,8 @@ public:
 	std::uint32_t at(std::size_t index) const { return _counts.at(index); }
 	// Bounded access; returns false on overflow without changing the counter.
 	bool increment(std::size_t index);
+	// Bounded access; returns false at zero without changing the counter.
+	bool decrement(std::size_t index);
 	const Counts &counts() const { return _counts; }
 
 private:
@@ -69,6 +71,7 @@ public:
 	static bool validIndex(std::int64_t index);
 	bool isSet(std::int64_t index) const;
 	void set(std::int64_t index);
+	void clear(std::int64_t index);
 	const Values &values() const { return _values; }
 private:
 	static std::size_t checkedIndex(std::int64_t index);

@@ -1,10 +1,11 @@
 # Milestone 21 - Myra's return exchange and bounded item rewards
 
-**Status: 21A implemented, independently approved and committed; 21B independently
-re-reviewed and APPROVED FOR COMMIT, 2026-09-08.** Section 15 records the final
-approval of the corrected, still-uncommitted 21B implementation. This does not
-approve every draft M21 decision. 21C and 21D remain unauthorized and unstarted;
-M21 as a whole is not complete.
+**Status: 21A and 21B independently approved and committed; 21C explicitly
+authorized, implemented and validated, independent review pending (2026-09-08).**
+Section 16 records this candidate and its verified committed 21B prerequisite.
+21D remains unauthorized and unstarted; M21 is incomplete; M20 remains the last
+completed stable milestone. Earlier sections preserve historical stage evidence
+and do not imply authorization for later stages.
 
 The previous current-status statement, "21B implemented, independent review
 pending", is historical and superseded by section 15. Sections 13 and 14 retain
@@ -25,7 +26,7 @@ roadmap is unchanged; implementation must not start automatically after review.
 In this document **Verified** means inspected current code, pinned reference or
 the focused original-data checks recorded below. **Decision** means a recommended
 MMModern contract awaiting approval except for the separately authorized 21A and
-bounded 21B policies above. Future acceptance is not a claim of tests
+bounded 21B policies and the explicitly authorized 21C scope in section 16. Future acceptance is not a claim of tests
 already passing. Paths are relative to this repository unless identified as
 reference paths.
 
@@ -638,12 +639,13 @@ pre-granted fixture. Do not claim normal travel between the checkpoints.
 Each stage requires explicit authorization. Stage completion does not authorize
 the next stage. Authorization originally covered only 21A, which was implemented,
 independently reviewed, accepted and committed. 21B was subsequently explicitly
-authorized and is implemented locally, uncommitted. Independent 21B review
+authorized, independently accepted and committed as `be98bb6`. Independent 21B review
 accepted the reward architecture but found the P2 retained-label correction
 recorded below. Final approval was then pending; that historical status is now
 superseded by section 15's **APPROVE 21B FOR COMMIT** verdict after independent
-re-review of the correction. 21C and 21D remain unstarted and
-unauthorized, and M21 is not complete. Historical implementation evidence is
+re-review of the correction. The user's subsequent assignment explicitly authorizes
+21C only; section 16 records its implementation. 21D is unstarted and unauthorized,
+and M21 is incomplete. Historical implementation evidence is
 preserved separately below.
 
 ### 21A - Authoritative item records and persistence
@@ -1221,6 +1223,9 @@ remain unstarted; M21 is not complete. **Final independent re-review is pending.
 
 ## 15. Final independent 21B approval for commit
 
+Historical approval record: the later 21B commit and 21C authorization/implementation
+in section 16 supersede the uncommitted and unsupported-frontier wording below.
+
 **2026-09-08 — user-supplied final independent review verdict:
 APPROVE 21B FOR COMMIT.** The reviewer confirmed the retained-label P2 correction
 is correct, no new findings remain, and the 21B architecture and exactly-once
@@ -1247,3 +1252,186 @@ modes 21/104 and opcode `0x2C` remain unsupported. Myra still stops before Root
 consumption at **line 8, offset 255, after three instructions**. This approval
 does not claim 21C behavior, completed Myra exchange acceptance or physical-window
 validation, and does not authorize starting a later stage.
+
+## 16. 21C implementation and validation
+
+**2026-09-08: explicitly authorized 21C only; implemented and validated locally;
+independent review pending.** The user's assignment authorizes all three bounded
+operations together, including the original Myra and affected pre-exchange
+save/resume regression updates. It does not authorize 21D, completed-exchange
+restart certification, physical-window harness work or M21 closure. M20 remains
+the last completed stable milestone.
+
+### Verified prerequisite and scope
+
+Initial checkout: branch `main`, full HEAD
+`be98bb6dc8ab0c5ce6d02f3f3e29cf9e5563423c`, subject
+`Implement Milestone 21B reward delivery lifecycle`; parent
+`1dab6ee9836e25f65bd06fbfe240fe180f10f0d0` (21A). Recent history includes
+`b5b1e5b`, `3625380` and `a449bb7`. Initial status, staged diff and working
+diff were empty. The committed 21B finalizer, Flow ownership, retained-label /
+blocked-navigation correction and section-15 independent approval were present.
+Earlier statements that 21B was uncommitted describe that historical handoff.
+
+The accepted `build/21b/CMakeCache.txt` identifies the verified UCRT64 compiler
+`C:/msys64/ucrt64/bin/c++.exe`, Debug / MSYS Makefiles, ScummVM source
+`D:/Projetos/MModern/scummvm-known-good-candidate` and build
+`D:/Projetos/MModern/build-scummvm-6814ee9b-ucrt64`. The source HEAD is
+`6814ee9ba54582f5b5adcffab49efbbd8f589edd`, with clean status using command-local
+`safe.directory` and `core.autocrlf=false`. The external `config.mk` confirms
+`--backend=sdl --disable-all-engines --disable-detection-full` and
+`SDL_CONFIG=/ucrt64/bin/sdl2-config`. Fresh `build/21c` uses these explicit
+paths and links the existing artifacts. No dependency or commercial data changed.
+
+Focused pinned-source inspection reconfirmed `Scripts::cmdGiveEnchanted`
+(`engines/mm/xeen/scripts.cpp:1279`), `ItemState` in `item.h`, and
+`MISC_NAMES[22]` / `SPECIAL_NAMES[74]` in `resources.h`. The deterministic
+material-10/11 branch reads only code and special ID and sets one charge.
+The 2..4-byte envelope and restricted code/ID domain below are **MMModern policy**,
+not restrictions imposed by the original interpreter.
+
+### Implemented behavior and owning files
+
+- `XeenParty.h/.cpp`: checked uint32 decrement fails at zero without mutation;
+  checked quest-flag clear is immediate and idempotent. Invalid API indices use
+  the existing checked-access conventions.
+- `XeenEventInterpreter.h/.cpp`: take-only mode 21 supports IDs 82..116 through
+  `indexForItemId`, and take-only mode 104 clears indices 0..29. Other pairs
+  must have both mode and value zero, including default-neutral omitted pairs.
+  Shared grant/set guards validate ID/index, Clouds logical and physical sides,
+  nonempty membership and line below 255 before effects. Underflow reports
+  `QuestItemUnderflow`; `Application.cpp` adds only its diagnostic name.
+  Each effect occurs once per party, with no canAct/HP/SP/selection/capacity gate.
+- `XeenEventDecoder.h/.cpp`: typed opcode 0x2c owns item code, special ID and
+  the actual zero-to-two suffix bytes. Length errors precede operand-domain
+  validation; valid lengths require codes 70/71 and special IDs 1..73.
+  Unrelated decoder strictness and decode-to-execution accounting remain intact.
+  Execution creates a zero-initialized record, assigns material=code-60, ID and
+  state=1, and enqueues once after context/membership/line guards and the existing
+  dispatch-budget check. Suffix bytes never supply state/frame/quantity.
+- All three operations use sequential NaturalCompletion. Missing line 15 after
+  Myra line 14 reaches the unchanged 21B finalizer. The first ten productions
+  retain order; later valid records count as ignored overflow. A full queue does
+  not bypass decoding and does not refund consumption.
+- Generic item/queue domain, character parsing, save v1/v2, finalizer, recipient
+  selection, insertion/compaction, presenter, Flow, SDL and gameplay production
+  code are unchanged. Errors/abandonment discard undelivered records; earlier
+  quest effects and delivered items remain. Working camera/game flags publish
+  only after receipt acknowledgment. No new owner, RNG or transaction layer.
+
+The sole production edit outside Party/Decoder/Interpreter is the required
+underflow diagnostic mapping in Application. No architectural deviation or new
+test executable was needed. No milestone/history/roadmap rewrite was performed.
+
+### Tests and original-resource oracles
+
+Existing quest-grant/flag targets cover boundary indices, omitted/neutral pairs,
+malformed/mixed forms, wide counters, zero underflow, duplicate aliases, inactive
+conditions, Clouds sides, membership, line/budget guards and immediate effects
+across suspension followed by error. Decoder tests cover codes, special-ID
+boundaries, all lengths, owned suffix/source lifetime, purity and error metadata.
+
+Reward execution tests now include real opcode decoding/enqueueing, exact fields
+and order, eleven productions, overflow after consumption, malformed/unsupported
+operands with ten queued records, guard failures, Call/Return, later underflow/
+terminal failure and live capacity/eligibility loss. Flow/gameplay additions
+exercise actual consumption/production through stale/wrong-kind responses, cache
+rebase, abandonment, extra inputs, publication, reentrant/pending F9/I refusal
+and post-cleanup input. Established 21B seeded terminal/alias/capacity/cleanup,
+opaque item and save compatibility tests remain. Former unsupported fixtures
+use genuinely unsupported operands; dedicated new tests cover underflow.
+
+`MyraIntegrationTest.cpp` still verifies original records, offsets and resource
+text, and explicitly uses `findInstructionIndex(9,11,West,15)` to assert the absent
+sequential successor. The original 18-case matrix (Roots 0/1/3 x Q2 false/true x
+Space/Enter/Escape) passes in each mode, plus two focused Root=1 fixtures:
+all four category tails full and all active members Dead. NPC, warning and receipt
+phases have separate expectations. The original return dispatches nine
+instructions, consumes one Root, clears Q2 and produces five `{10,37,1,0}`
+records. Warning/receipt pages add no instructions. Owners remain unchanged during
+pending NPC dialogue; receipt paging cannot redeliver. Independent expected
+characters preserve every modeled field and every item byte across repeated
+returns, exhaustion, new requests, cache rebuilds and replacement Flow owners.
+Loss fixtures preserve their prepared items and never refund the Root. Existing
+original animation, ignored/repeated input, pre-ACK failure/abandonment, world,
+camera, flags and resource-byte checks remain.
+
+`SaveResumeIntegrationTest.cpp` keeps all producer files **pre-exchange** and
+retains distinct producer/consumer/fresh processes and CLI checks. Root count
+and Phirna removal are independent; expected character arrays and Q2 evolve
+independently after startup validation. The cumulative consumer's first return
+consumes the restored Root and adds five explicitly specified records; later
+requests set Q2 without additional items. No production delivery computes this
+oracle. All unrelated-state and cache comparisons remain. No completed exchange
+is saved for a new restart scenario: this is regression evidence, **not 21D**.
+
+### Commands and results
+
+Commands were run in PowerShell from `D:/Projetos/MModern/mmodern`, using the
+verified MSYS2 UCRT64 runtime. Each build/run was checked for nonzero exit.
+Output redirects below identify the actual ignored evidence files; iterative
+builds and the focused/full suites were repeated after the final test additions.
+
+```powershell
+$env:PATH='C:\msys64\ucrt64\bin;C:\msys64\usr\bin;'+$env:PATH
+git status --short
+git diff --stat
+git diff --cached --stat
+git branch --show-current
+git rev-parse HEAD
+git log -5 --oneline
+git -c safe.directory=D:/Projetos/MModern/scummvm-known-good-candidate -c core.autocrlf=false -C D:/Projetos/MModern/scummvm-known-good-candidate rev-parse HEAD
+git -c safe.directory=D:/Projetos/MModern/scummvm-known-good-candidate -c core.autocrlf=false -C D:/Projetos/MModern/scummvm-known-good-candidate status --short
+cmake -S . -B build/21c -G 'MSYS Makefiles' -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DSCUMMVM_SOURCE_DIR=D:/Projetos/MModern/scummvm-known-good-candidate -DSCUMMVM_BUILD_DIR=D:/Projetos/MModern/build-scummvm-6814ee9b-ucrt64 > build/21c/configure.log 2>&1
+cmake --build build/21c --parallel 4 > build/21c/build.log 2>&1
+cmake --build build/21c --parallel 4 --target mmodern_myra_smoke mmodern_phirna_smoke mmodern_who_will_smoke mmodern_save_resume_smoke > build/21c/build-smokes.log 2>&1
+ctest --test-dir build/21c --output-on-failure -R '^(xeen_(event_decoder|event_interpreter|event_system|quest_items|quest_grants|quest_flags|item_reward|reward_execution|reward_flow|reward_gameplay|reward_sdl|npc|npc_sdl|who_will|who_will_sdl|visual_remove|save_state|save_format|save_file|save_flow|save_cli|save_sdl)|sdl_input)$' > build/21c/focused.log 2>&1
+& build/21c/mmodern.exe --inspect-events 'F:/Games/gog/Might and Magic 4-5' 23 9 11 west > build/21c/myra-events.log 2>&1
+# Each of myra, phirna, who_will and save_resume:
+& "build/21c/mmodern_${suite}_smoke.exe" 'F:/Games/gog/Might and Magic 4-5' "build/21c/${suite}-direct" > "build/21c/${suite}-direct.log" 2>&1
+$env:SDL_VIDEODRIVER='dummy'; $env:SDL_RENDER_DRIVER='software'
+& "build/21c/mmodern_${suite}_smoke.exe" 'F:/Games/gog/Might and Magic 4-5' "build/21c/${suite}-sdl" sdl > "build/21c/${suite}-sdl.log" 2>&1
+ctest --test-dir build/21c --output-on-failure > build/21c/ctest-full.log 2>&1
+git diff --check
+git diff --stat
+git status --short
+```
+
+Results: Debug configure/build **passed**; all **four requested excluded smoke
+targets built**; focused **23/23 passed**; full **58/58 passed**. Myra **20 cases
+plus revisits per mode passed**; unchanged Phirna and WhoWill direct/SDL controls
+passed; original pre-exchange save/resume and CLI controls passed in both modes.
+These are new 21C runs, not copied historical totals. One intermediate smoke
+compile used a nonexistent test-side item `empty()` accessor; it was corrected
+to the actual ID-zero convention before the successful final builds.
+
+Separate-process evidence (four producer/consumer/fresh triples and four CLI
+launches per mode) is preserved at:
+
+- `build/21c/save_resume-direct/run-11416-290587000/processes.log`;
+- `build/21c/save_resume-sdl/run-35552-290616812/processes.log`.
+
+### Native images actually inspected and remaining boundary
+
+**14 native 320x200 BMPs were actually visually inspected**, seven per mode:
+
+| File prefix (under build/21c/myra-direct or myra-sdl) | Direct suffixes | SDL suffixes |
+| --- | --- | --- |
+| root-1-q0-enter-receipt- | 0.bmp, 1.bmp | 1.bmp, 2.bmp |
+| root-1-q1-full-enter-warning- | 0.bmp | 1.bmp |
+| root-1-q1-full-enter-receipt- | 0.bmp, 1.bmp | 2.bmp, 3.bmp |
+| root-1-q1-ineligible-enter-receipt- | 0.bmp, 1.bmp | 1.bmp, 2.bmp |
+
+All reward pages were readable with expected fields, owners or loss reasons,
+pagination and intact scene/HUD. SDL capture suffixes count the acknowledgment
+sequence across phases, whereas direct suffixes use each phase's page index.
+Other emitted dialogue/rest/rebuild and restart frames were not newly visually
+inspected; their automated frame/state comparisons are distinct evidence.
+No physical-window validation was performed or required for this 21C task.
+
+Final diff review and `git diff --check` passed. Only the seven production files,
+eight existing test files and these three documentation files changed; no staged
+changes, commit, push, tag, branch switch or history alteration. No known failing
+check remains. **21C independent review is pending; 21D is unstarted and
+unauthorized; Milestone 21 is incomplete.** No later implementation is authorized
+by this result.

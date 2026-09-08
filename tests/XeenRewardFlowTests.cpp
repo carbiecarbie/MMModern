@@ -32,6 +32,44 @@ void flows(){
 		check(!flow.respond(*receiptGen,XeenPresentationResponse::Acknowledged)&&snapshot==xeenInventoryInspection(e.f.initial),"duplicate ACK replay");
 	}
 }
+void producedFlow(){
+	for(int outcome=0;outcome<4;++outcome) {
+		Execution e;e.f.initial.questItems.increment(17);e.f.initial.questFlags.set(2);
+		if(outcome==1)full(e.f.initial,true);
+		e.f.scripts[1]={pause(),record(1,1,1,12,{21,99}),record(1,1,2,12,{104,2}),record(1,1,3,0x2c,{70,37,0,1}),
+			pause(4),record(1,1,5,12,{0,0,20,7})};
+		XeenEventSystem events(e.scripts,e.texts);auto b=base();
+		XeenEventFlow flow(e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&]{return b;});
+		flow.handle(InteractionAction{});
+		check(e.f.initial.questItems.at(17)==1 && e.f.initial.questFlags.isSet(2),"pre-ACK quest mutation");
+		const auto first=*flow.presentationGeneration();flow.handle(AcknowledgeAction{});
+		check(e.f.initial.questItems.at(17)==0 && !e.f.initial.questFlags.isSet(2) &&
+			XeenRewardTestAccess::state(flow).pendingRewards.size()==1,"actual Flow production");
+		if(outcome==2){flow.abandonPresentation();check(!e.f.initial.roster.at(0).miscellaneous[0].id,"abandon delivered queue");}
+		else {
+			if(outcome==3)for(auto id:e.f.initial.party.activeRosterIds())e.f.initial.roster.at(id).conditions[static_cast<std::size_t>(XeenCondition::Dead)]=1;
+			flow.handle(AcknowledgeAction{});
+			check(flow.blocksGameplay() && !e.flags.isSet(7),"termination publication gap");
+			unsigned acks=0;
+			while(flow.blocksGameplay()){
+				check(++acks<100,"real reward acknowledgment bound");
+				const auto gen=*flow.presentationGeneration(),page=flow.presenter().pageIndex();
+				const auto inventory=xeenInventoryInspection(e.f.initial);
+				check(!flow.respond(first,XeenPresentationResponse::Acknowledged) && !flow.respond(gen,XeenPresentationResponse::Yes),"stale/wrong kind replay");
+				flow.handle(SaveGameAction{});flow.handle(InspectInventoryAction{});flow.handle(NavigationAction::TurnRight);
+				events.discardScriptCache();events.discardTextCache();e.world.discardMapCache();
+				flow.refresh(true);
+				check(flow.presentationGeneration()==gen && flow.presenter().pageIndex()==page && xeenInventoryInspection(e.f.initial)==inventory,"blocked inputs/rebase replay");
+				flow.handle(CancelInteractionAction{});
+				if(!flow.blocksGameplay())check(!flow.respond(gen,XeenPresentationResponse::Acknowledged),"final generation replay");
+			}
+			check(e.flags.isSet(7) && (e.f.initial.roster.at(0).miscellaneous[0].id==37)==(outcome==0),"actual final delivery/loss");
+			const auto inventory=xeenInventoryInspection(e.f.initial);flow.handle(AcknowledgeAction{});
+			check(xeenInventoryInspection(e.f.initial)==inventory,"extra input redelivered");
+		}
+		check(e.f.initial.questItems.at(17)==0 && !e.f.initial.questFlags.isSet(2),"loss/abandon refunded Root");
+	}
+}
 void failures(){
 	// Composition/rebase before presentation; reporting before layout; layout
 	// failure after transient layer push; and abandonment on both sides of insertion.
@@ -89,7 +127,7 @@ void presentation(const XeenFontFormat &font,IndexedFrame b,const std::filesyste
 	}
 }
 int main(int argc,char **argv){try{
-	flows();failures();Fixture f;presentation(f.font,base(),{});
+	flows();producedFlow();failures();Fixture f;presentation(f.font,base(),{});
 	if(argc==3){const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"installation missing");XeenAssetSource assets(*installation,320,200);
 		assets.loadPalette("mm4.pal");auto b=assets.snapshot();b.pixels.assign(64000,90);std::filesystem::create_directories(argv[2]);
 		presentation(XeenFontFormat(assets.readArchiveResource("fnt")),b,argv[2]);}

@@ -47,6 +47,41 @@ void application(const fs::path &path,bool fullPacks){
 		check(status().find("Inventory:")!=std::string::npos&&next.eventReads==0,"resume inspection dispatch/status");return true;};
 	check(Application().playGameplay(resumed,start,path,true)==0,"production reward resume");
 }
+void actualProducerGuards(){
+	Fixture f;f.initial.questItems.increment(17);f.initial.questFlags.set(2);
+	f.scripts[1]={pause(),record(1,1,1,12,{21,99}),record(1,1,2,12,{104,2}),record(1,1,3,0x2c,{70,37,0,1})};
+	auto services=f.services();CaptureOutput output;
+	const XeenPartyState *live=nullptr;
+	services.observeGameplay=[&](XeenWorld&,XeenEventSystem&,const XeenPartyState&p,XeenCamera&,const XeenGameFlags&){live=&p;};
+	bool reentrant=false;
+	services.show=[&](const auto&,const auto &handle,const auto&,const auto&,const auto &status){
+		auto refused=[&]{
+			const auto reads=f.eventReads,compositions=f.compositions;
+			const auto gen=f.flow->presentationGeneration();const auto page=f.flow->presenter().pageIndex();
+			const auto before=output.text.str();handle(InspectInventoryAction{});
+			check(output.text.str()==before,"actual pending I inspected");
+			handle(SaveGameAction{});
+			check(f.eventReads==reads && f.compositions==compositions && f.flow->presentationGeneration()==gen &&
+				f.flow->presenter().pageIndex()==page,"actual refused F9 captured/advanced");
+		};
+		handle(InteractionAction{});refused();
+		check(live->questItems.at(17)==1 && live->questFlags.isSet(2),"actual pre-ACK state");
+		f.flow->reportManual=[&](const auto&r){
+			if(const auto*s=std::get_if<XeenEventExecutionSuspended>(&r)) {
+				check(s->request.kind==XeenPresentationKind::RewardReceipt && f.flow->blocksGameplay(),"actual report idle gap");
+				refused();check(status().find("idle gameplay boundary")!=std::string::npos,"actual reentrant save guard");reentrant=true;
+			}
+		};
+		handle(AcknowledgeAction{});refused();
+		check(live->questItems.at(17)==0 && !live->questFlags.isSet(2) && live->roster.at(0).miscellaneous[0].id==37,"actual production delivery");
+		unsigned acks=0;while(f.flow->blocksGameplay()){check(++acks<100,"actual receipt bound");handle(AcknowledgeAction{});}
+		const auto before=output.text.str().size();handle(InspectInventoryAction{});
+		check(output.text.str().substr(before).find("Root=0 Q2=0")!=std::string::npos,"actual post-cleanup I");
+		handle(SaveGameAction{});check(status().find("No save target configured")!=std::string::npos,"actual post-cleanup F9 guard");
+		return true;
+	};
+	check(Application().playGameplay(services,start,{},false)==0 && reentrant,"actual producer Application guards");
+}
 void setupOrder(){
 	Fixture f;f.automatic=true;f.scripts[1]={record(1,1,0,12,{0,0,21,99}),record(1,1,1,0x12)};
 	auto services=f.services();CaptureOutput out;
@@ -102,5 +137,5 @@ void sdl(const fs::path &path,bool fullPacks){
 	check(XeenSaveFile::read(path).characters[0].miscellaneous[0].id==(fullPacks?0:37),"SDL saved inventory");
 }
 int main(int argc,char**){try{const auto dir=fs::current_path()/"reward-gameplay-tests";fs::create_directories(dir);
-	if(argc>1){sdl(dir/"sdl.mmsave",false);sdl(dir/"sdl-full.mmsave",true);}else{application(dir/"delivery.mmsave",false);application(dir/"loss.mmsave",true);setupOrder();cleanupSaving(dir/"cleanup.mmsave");}
+	if(argc>1){sdl(dir/"sdl.mmsave",false);sdl(dir/"sdl-full.mmsave",true);}else{application(dir/"delivery.mmsave",false);application(dir/"loss.mmsave",true);actualProducerGuards();setupOrder();cleanupSaving(dir/"cleanup.mmsave");}
 	std::cout<<"Reward Application/save/resume/inspection checks passed\n";return 0;}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}}

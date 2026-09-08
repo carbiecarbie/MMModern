@@ -68,7 +68,7 @@ void operandsAndCounts() {
 		Fixture f;f.set({record(1,1,0,0x0c,bytes)});error(f.begin(),XeenEventExecutionErrorKind::MalformedInstruction);
 		check(f.members.questItems.at(17)==0,"malformed grant mutated");
 	}
-	for(const Bytes bytes:std::vector<Bytes>{{0,1,21,99},{20,7,21,99},{21,99},{21,99,21,99},
+	for(const Bytes bytes:std::vector<Bytes>{{0,1,21,99},{20,7,21,99},{21,81},{21,99,21,99},
 		{0,0,21,99,0,1},{0,0,21,99,20,7},{0,0,22,99},{0,0,21,81},{0,0,21,117},{0,0,21,255}}){
 		Fixture f;f.set({record(1,1,0,0x0c,bytes)});error(f.begin(),XeenEventExecutionErrorKind::UnsupportedOperationMode);
 		check(f.members.questItems.counts()==XeenCloudsQuestItems::Counts{} && !f.flags.isSet(7),"invalid combination mutated");
@@ -84,6 +84,57 @@ void operandsAndCounts() {
 	check(first.questItems.at(17)==1 && second.questItems.at(17)==0,"party instances share counters");
 	bool rejected=false;try{first.questItems.increment(35);}catch(const std::out_of_range &){rejected=true;}
 	check(rejected && first.questItems.at(17)==1,"unbounded increment");
+}
+
+void consumption() {
+	for (int id : {82,99,116}) for (unsigned count : {0u,1u,3u,300u}) for (int pairs : {1,2,3}) {
+		Fixture f; f.members.party=XeenParty::fromRosterIds({0,0});
+		f.members.roster.at(0).currentHp=0; f.members.roster.at(0).currentSp=-1;
+		f.members.roster.at(0).conditions[static_cast<std::size_t>(XeenCondition::Dead)]=1;
+		XeenCloudsQuestItems::Counts counts{}; counts[id-82]=count;
+		f.members.questItems=XeenCloudsQuestItems(counts);
+		Bytes bytes{21,static_cast<std::uint8_t>(id)}; bytes.resize(pairs*2,0);
+		f.set({record(1,1,0,12,bytes),record(1,1,1,12,{0,0,104,2})});
+		auto r=f.begin();
+		if (!count) {
+			error(r,XeenEventExecutionErrorKind::QuestItemUnderflow);
+			const auto &e=std::get<XeenEventExecutionError>(r);
+			check(e.instructionCount==1 && e.source && e.source->line==0 && !f.members.questFlags.isSet(2),"underflow ran following instruction");
+		} else { complete(r); --counts[id-82]; }
+		check(f.members.questItems.counts()==counts,"take quantity/width/alias/eligibility");
+	}
+	Fixture final; final.members.questItems.increment(17);
+	final.set({record(1,1,0,12,{21,99})}); complete(final.begin());
+	check(final.members.questItems.at(17)==0,"absent sequential successor failed");
+	for (const Bytes bytes : std::vector<Bytes>{{21,81},{21,117},{21,255},{21,99,0,1},{21,99,21,99},{21,99,0,0,0,1},{21,99,0,0,104,2}}) {
+		Fixture f;f.members.questItems.increment(17);f.set({record(1,1,0,12,bytes)});
+		error(f.begin(),XeenEventExecutionErrorKind::UnsupportedOperationMode);
+		check(f.members.questItems.at(17)==1,"unsupported take mutated");
+	}
+	for (const Bytes bytes : std::vector<Bytes>{{21},{21,99,0},{21,99,0,0,0}}) {
+		Fixture f;f.members.questItems.increment(17);f.set({record(1,1,0,12,bytes)});
+		error(f.begin(),XeenEventExecutionErrorKind::MalformedInstruction);
+		check(f.members.questItems.at(17)==1,"partial take mutated");
+	}
+	for(int fault=0;fault<5;++fault) {
+		Fixture f;f.members.questItems.increment(17);
+		f.set({record(1,1,0,9,{44,1,1}),record(1,1,1,12,{21,99})});
+		auto s=pending(f.begin());auto kind=XeenEventExecutionErrorKind::UnsupportedExecutionContext;
+		if(fault==0)s.logicalAddress.mapId.side=XeenSide::Darkside;
+		if(fault==1)s.workingCamera.mapId.side=XeenSide::Darkside;
+		if(fault==2){f.members.party=XeenParty::fromRosterIds({});kind=XeenEventExecutionErrorKind::EmptyParty;}
+		if(fault==3){s.instructionCount=1024;kind=XeenEventExecutionErrorKind::InstructionLimitExceeded;}
+		if(fault==4){s.logicalAddress.line=254;s.pendingPresentation->conditional->targetLine=255;s.currentScript=script(1,{record(1,1,255,12,{21,99})});kind=XeenEventExecutionErrorKind::LineOverflow;}
+		error(f.resume(s),kind);check(f.members.questItems.at(17)==1,"take guard mutated");
+	}
+	Fixture later;later.members.questItems.increment(17);
+	later.set({record(1,1,0,12,{21,99}),record(1,1,1,9,{44,1,2}),record(1,1,2,0xff)});
+	auto s=pending(later.begin());check(later.members.questItems.at(17)==0,"take not immediate at suspension");
+	error(later.resume(s),XeenEventExecutionErrorKind::UnsupportedOpcode);
+	check(later.members.questItems.at(17)==0,"later error refunded take");
+	XeenCloudsQuestItems counters;bool rejected=false;
+	try { counters.decrement(35); } catch(const std::out_of_range &) { rejected=true; }
+	check(rejected && !counters.decrement(0),"checked decrement");
 }
 
 void prevalidationAndVisibility() {
@@ -176,6 +227,6 @@ void presentationNoReplay() {
 	}
 }
 }
-int main(){try{operandsAndCounts();prevalidationAndVisibility();immediateErrors();presentationNoReplay();
+int main(){try{operandsAndCounts();consumption();prevalidationAndVisibility();immediateErrors();presentationNoReplay();
 	std::cout<<"M17B grants, validation, immediate effects and shared-flow no-replay passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

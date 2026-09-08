@@ -81,6 +81,7 @@ const char *eventErrorName(XeenEventExecutionErrorKind kind) {
 	case XeenEventExecutionErrorKind::UnsupportedConditionAction: return "UnsupportedConditionAction";
 	case XeenEventExecutionErrorKind::UnsupportedOperationMode: return "UnsupportedOperationMode";
 	case XeenEventExecutionErrorKind::QuestItemOverflow: return "QuestItemOverflow";
+	case XeenEventExecutionErrorKind::QuestItemUnderflow: return "QuestItemUnderflow";
 	case XeenEventExecutionErrorKind::EmptyParty: return "EmptyParty";
 	case XeenEventExecutionErrorKind::InvalidFlagIndex: return "InvalidFlagIndex";
 	case XeenEventExecutionErrorKind::InvalidJumpTarget: return "InvalidJumpTarget";

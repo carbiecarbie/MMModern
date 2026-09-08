@@ -10,6 +10,7 @@
 #include <optional>
 #include <string>
 #include <variant>
+#include <vector>
 
 namespace mmodern {
 
@@ -92,6 +93,13 @@ struct XeenEventConditional {
 	std::uint8_t targetLine = 0;
 };
 
+struct XeenEventGiveEnchanted {
+	std::uint8_t itemCode = 0;
+	std::uint8_t specialId = 0;
+	// Owned diagnostic bytes; no gameplay meaning in the bounded misc branch.
+	std::vector<std::uint8_t> suffix;
+};
+
 struct XeenEventTakeOrGivePair {
 	std::uint8_t mode = 0;
 	std::uint32_t value = 0;
@@ -115,7 +123,8 @@ using XeenDecodedEventOperation = std::variant<
 	XeenEventTeleportAndContinue,
 	XeenEventCallEvent,
 	XeenEventConditional,
-	XeenEventTakeOrGive>;
+	XeenEventTakeOrGive,
+	XeenEventGiveEnchanted>;
 
 struct XeenDecodedEventInstruction {
 	XeenEventSourceLocation source;
@@ -141,7 +150,8 @@ using XeenEventDecodeResult = std::variant<
 	XeenEventDecodeError>;
 
 // Strictly decodes the supported MMModern subset. Unlike the original runtime,
-// supported direct forms must consume exactly all bytes in record.parameters.
+// supported direct forms account for all bytes in record.parameters. The bounded
+// GiveEnchanted form owns up to two unused suffix bytes for diagnostics.
 class XeenEventDecoder {
 public:
 	static XeenEventDecodeResult decode(const XeenEventRecord &record,

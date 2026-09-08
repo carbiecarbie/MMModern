@@ -279,6 +279,36 @@ XeenEventDecodeResult decodeTemporaryRecord() {
 		{31, std::string("maze0031.evt")});
 }
 
+void testGiveEnchanted() {
+	for(std::uint8_t code : {70,71}) for(std::uint8_t id : {1,37,73}) for(int length : {2,3,4}) {
+		auto input=record(0x2c,{code,id});if(length>2)input.parameters.push_back(255);if(length>3)input.parameters.push_back(193);
+		const auto bytes=input.parameters;
+		const auto result=XeenEventDecoder::decode(input,{42,std::string("maze0042.evt"),19});
+		check(input.parameters==bytes,"GiveEnchanted decoder changed source");
+		input.parameters.clear(); // Result owns all consumed and unused bytes.
+		const auto &op=operation<XeenEventGiveEnchanted>(result);
+		check(op.itemCode==code && op.specialId==id && op.suffix==std::vector<std::uint8_t>(bytes.begin()+2,bytes.end()),"owned GiveEnchanted operands");
+		checkSource(success(result).source,true,0x2c);
+		check(success(result).source.recordIndex==19,"GiveEnchanted record identity");
+	}
+	const auto owned=[] { return XeenEventDecoder::decode(record(0x2c,{70,37,0,1})); }();
+	check(operation<XeenEventGiveEnchanted>(owned).suffix==std::vector<std::uint8_t>({0,1}),"destroyed GiveEnchanted source");
+	for(const auto &bytes : std::vector<std::vector<std::uint8_t>>{{},{70},{69},{70,37,0,1,2},{0,0,0,0,0}}) {
+		const auto r=XeenEventDecoder::decode(record(0x2c,bytes),{42,std::string("maze0042.evt"),19});
+		const auto &e=failure(r,XeenEventDecodeErrorKind::MalformedInstruction);
+		check(e.actualParameterSize==bytes.size() && e.expectedParameterSize==(bytes.size()<2?2U:4U),"length validation precedence");
+		checkSource(e.source,true,0x2c);
+	}
+	for(std::uint8_t code : {0,69,70,71,72,82,255}) for(std::uint8_t id : {0,1,73,74,255}) {
+		if((code==70 || code==71) && id>=1 && id<=73)continue;
+		for(int length : {2,3,4}) {
+			auto input=record(0x2c,{code,id});input.parameters.resize(length,255);
+			const auto r=XeenEventDecoder::decode(input);
+			checkSource(failure(r,XeenEventDecodeErrorKind::UnsupportedOperand).source,false,0x2c);
+		}
+	}
+}
+
 void testOwnedResultLifetime() {
 	const auto result = decodeTemporaryRecord();
 	const auto &decoded = operation<XeenEventCallEvent>(result);
@@ -302,6 +332,7 @@ int main() {
 		testTakeOrGive();
 		testErrorsMetadataAndPurity();
 		testOwnedResultLifetime();
+		testGiveEnchanted();
 		std::cout << "Typed EVT decoder and strict validation OK\n";
 		return 0;
 	} catch (const std::exception &error) {

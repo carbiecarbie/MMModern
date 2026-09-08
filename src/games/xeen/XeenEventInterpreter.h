@@ -167,6 +167,7 @@ enum class XeenEventExecutionErrorKind {
 	UnsupportedConditionAction,
 	UnsupportedOperationMode,
 	QuestItemOverflow,
+	QuestItemUnderflow,
 	EmptyParty,
 	InvalidFlagIndex,
 	InvalidJumpTarget,

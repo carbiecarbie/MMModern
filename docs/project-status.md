@@ -7,14 +7,14 @@ Its final independent approval closes M20-A01 through M20-A16 with no known
 blocker within scope. The accepted baseline includes local Windows save/resume
 of supported Clouds progress across separate processes.
 
-M21, Myra's return exchange and bounded item rewards, is the default next
-planning entry in the [approved roadmap](roadmap.md). A
+M21, Myra's return exchange and bounded item rewards, is the active milestone
+entry in the [approved roadmap](roadmap.md). A
 [M21 plan](milestone-21-plan.md) records independent acceptance of committed
-**21A** and explicit authorization of **21B only**. Bounded delivery, receipt and
-live inspection are implemented, corrected after the first independent review,
-and independently re-reviewed with verdict **APPROVE 21B FOR COMMIT**. The 21B
-working tree remains uncommitted. **21C and 21D remain unstarted and unauthorized;
-M21 is not complete.** Other draft decisions
+**21A** and the independently approved **21B**, committed as `be98bb6`.
+The user explicitly authorized **21C only** on 2026-09-08. Checked consumption,
+quest-flag clearing and deterministic GiveEnchanted production are implemented
+and validated through the existing reward lifecycle. **Independent 21C review
+is pending; 21D is unstarted and unauthorized; M21 is incomplete.** Other draft decisions
 are not implicitly approved. Roadmap approval and M20 completion do not
 authorize implementation; M21-M23 retain their recorded confidence and review
 cadence.
@@ -45,17 +45,18 @@ cadence.
   acknowledges its final page.
 - **Party and quest state:** original roster and active membership, modeled
   character rule inputs, HP/SP and conditions; 35 Clouds quest-item counters
-  (IDs 82..116), possession comparisons and bounded one-item grants; 30 Clouds
-  quest flags with bounded immediate mode-104 set; 256 separate game flags.
+  (IDs 82..116), possession comparisons and bounded one-item grants/consumption;
+  30 Clouds quest flags with bounded immediate mode-104 set/clear; 256 separate game flags.
   All 30 roster characters own four nine-slot item arrays with exact original
   material/ID/state/frame bytes. Existing equipment rules
   retain their previous modifier behavior and miscellaneous items add no effects.
 - **Bounded rewards and inspection:** transient execution-owned production holds
   at most ten miscellaneous records. Successful termination warns if all active
   category tails are full, delivers synchronously to eligible live roster owners,
-  then awaits a paginated numeric receipt. Production reward opcodes remain
-  unsupported. Idle I prints actual live inventories, aliases, inactive owners,
-  Root and Q2; setup emits the same observation before initial automatic dispatch.
+  then awaits a paginated numeric receipt. GiveEnchanted supports codes 70/71,
+  special IDs 1..73 and 2..4 operand bytes; unused suffixes remain diagnostic
+  values. Records have material 10/11, one charge and frame zero. Idle I prints actual live
+  inventories, aliases, inactive owners, Root and Q2; setup emits the same observation before initial automatic dispatch.
 - **World changes and persistence:** session-owned object/event removals survive
   map/cache reconstruction and immediately refresh the scene while retaining
   valid presentation layers. Versioned save/resume preserves supported durable
@@ -82,8 +83,8 @@ cadence.
 - Event camera/game-flag changes commit on completion; errors or abandonment
   discard their working values, preserving movement committed before dispatch.
   WhoWill cancellation completes like Exit and commits working camera/flags.
-  Successful party grants, quest-flag sets and world Remove are immediate and
-  survive later errors, abandonment or cancellation. Saving captures these
+  Successful party grants/consumption, quest-flag set/clear and world Remove are
+  immediate and survive later errors, abandonment or cancellation. Saving captures these
   surviving values without changing the mutation policy.
 - Quest flags, quest-item counters and game flags are independent categories.
   Neither possession nor a request flag implies any other flag or world removal.
@@ -121,7 +122,7 @@ them or a generally playable region.
 | Castle Basenji, map 1 `(8,8)` West | Original text and Yes/No; No stays, Yes teleports and recomposes the indoor destination. Also exercises suspended text/cache reconstruction. |
 | Phirna, map 23 `(8,2)` North | Yes plus acknowledgment grants one Root and removes the plant while retaining success text. No/already-owned refusal grants nothing and leaves it present. Repeat cannot collect again. |
 | Bone Whistle, map 20 `(5,14)` North | WhoWill plus acknowledgment grants one Whistle and removes the bones. Cancellation leaves collection state unchanged and permits retry; completed collection cannot repeat. |
-| Myra, map 23 `(9,11)` West | No-Root request uses original NPC dialogue and sets quest flag 2 after final acknowledgment, including final Escape. Requests repeat on revisit. Root-owned return dialogue stops before unsupported consumption, without rewards or other mutation. |
+| Myra, map 23 `(9,11)` West | No-Root request uses original NPC dialogue and sets quest flag 2 after final acknowledgment, including final Escape. Requests repeat on revisit. Root-owned return acknowledgment consumes one Root, clears Q2 and produces five `{10,37,1,0}` rewards; nine instructions complete after the receipt. Repeated returns exhaust Roots, then requests resume. |
 | Air / Corner and Snake Oil | Original sign and reduced door-label presentation; Air / Corner also exercises static object/text layering. |
 
 Phirna, Bone Whistle and Myra request state also pass separate-process resume,
@@ -192,6 +193,21 @@ or arbitrary-crash guarantees.
 
 ## Current validation baseline
 
+The **2026-09-08 21C implementation** passed a pinned-dependency Debug
+configure/build, **23/23 focused tests**, **58/58 full CTest** and the four required
+original-data smoke builds. Myra passes **18 matrix cases plus two loss fixtures
+and revisits per mode**, directly and with SDL dummy/software. Original Phirna,
+WhoWill and pre-exchange separate-process save/resume/CLI controls pass in both
+modes. Return receipts and warning/loss phases preserve complete expected party
+state, accounting and blocked input; original records and the missing sequential
+successor are asserted through the existing loader/lookup. Native-frame inspection
+and exact commands/log paths are recorded in [21C evidence](milestone-21-plan.md#16-21c-implementation-and-validation).
+This is an uncommitted candidate, awaiting independent review. M20 remains the
+last completed stable milestone; no 21D completed-exchange restart certification
+or physical-window validation is claimed.
+
+The following 21B and earlier results are historical prerequisite evidence.
+
 The **2026-09-08 21B implementation** passed a fresh pinned-dependency Debug
 configure/build in `build/21b`, **31/31 focused tests**, **58/58 full CTest**,
 and all **17 excluded smoke target builds**. Myra's original direct and SDL
@@ -238,11 +254,11 @@ runs above. Ordinary CTest remains independent of commercial data.
 
 ## Known unsupported boundaries
 
-- Myra return consumption, quest clearing and reward production remain unsupported.
-  21B supplies reusable insertion, recipient selection, pending delivery, receipts
-  and live inventory inspection; synthetic tests seed typed execution records.
-  General inventory, equipment use, shops and generic TakeOrGive remain outside
-  the supported subset. Quest-flag clear/check Action 104 is unsupported.
+- General inventory, equipment use, shops, random treasure and generic TakeOrGive
+  remain outside the supported subset. Quest-flag conditional Action 104 remains
+  unsupported. The bounded take-only mode 104 clear is supported.
+- Completed-exchange F9/separate-process/CLI certification belongs to unstarted,
+  unauthorized 21D. Existing pre-exchange restart regressions do not certify it.
 - Combat, monsters and certification of normal routes or a playable region;
   Swimming / Walk on Water and other unsupported movement capabilities.
 - Broader outdoor animation, scripted appearance changes, indoor objects and

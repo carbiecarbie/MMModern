@@ -240,6 +240,17 @@ XeenEventDecodeResult decodeTakeOrGive(const XeenEventRecord &record,
 XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 		XeenEventDecodeContext context) {
 	switch (record.opcode) {
+	case 0x2c: {
+		// MMModern's bounded envelope, not the original permissive iterator.
+		if (record.parameters.size() < 2) return wrongSize(record, context, 2);
+		if (record.parameters.size() > 4) return wrongSize(record, context, 4);
+		const auto code = record.parameters[0], id = record.parameters[1];
+		if ((code != 70 && code != 71) || id < 1 || id > 73)
+			return makeError(record, context, XeenEventDecodeErrorKind::UnsupportedOperand,
+				"GiveEnchanted supports item codes 70/71 and special IDs 1..73");
+		return instruction(record, context, XeenEventGiveEnchanted{code, id,
+			{record.parameters.begin() + 2, record.parameters.end()}});
+	}
 	case 0x05:
 		if (record.parameters.size() != 5) return wrongSize(record, context, 5);
 		return instruction(record, context, XeenEventNpc{record.parameters[0],
