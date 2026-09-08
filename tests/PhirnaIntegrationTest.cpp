@@ -1,3 +1,4 @@
+#include "XeenCheckpointTestSupport.h"
 #include "XeenVisualRemoveTestSupport.h"
 #include "XeenPartySnapshotTestSupport.h"
 #include "formats/xeen/XeenAssetSource.h"
@@ -60,7 +61,7 @@ void runCase(XeenAssetSource &assets, const std::filesystem::path &output,
 	});
 	XeenEventSystem events([&](XeenMapIdentity id){++scriptLoads;return XeenEventScript(loader.load(id));},
 		[&](XeenMapIdentity id){++textLoads;return textLoader.load(id);});
-	XeenCamera camera{23,8,2,XeenDirection::North}; const auto start=camera;
+	XeenCamera camera=checkpoint_test::phirna; const auto start=camera;
 	auto flags=XeenGameFlagsLoader().loadInitialCloudsFlags(assets);const auto flagsBefore=flags.values();
 	const auto geometry=geometrySnapshot(world.map(23).geometry);
 	const auto objects=world.objectFile(23);

@@ -29,6 +29,7 @@ int Application::playGameplay(const XeenGameplayServices &services, XeenCamera c
   // This is the only production new-session/resume initialization choice.
   const auto first = resume ? flow.frame() : flow.initial();
   if (!first.isValid()) throw std::runtime_error("Invalid first gameplay frame");
+  if (services.observeGameplay) services.observeGameplay(world, events, party, camera, flags);
   std::cout << "Map " << camera.mapId << ": camera X=" << camera.x << " Y=" << camera.y
       << " direction=" << static_cast<unsigned>(camera.direction) << '\n';
   const auto &geometry = world.map(camera.mapId).geometry;

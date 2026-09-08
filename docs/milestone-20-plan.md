@@ -1,10 +1,10 @@
 # Milestone 20 - Save and resume supported Clouds progress
 
-**Status: approved specification; 20A independently approved; 20B implemented and validated, awaiting review.**
+**Status: Milestone 20 complete; 20A, 20B and 20C independently approved. M20-A01 through M20-A16 closed. Current stable milestone in the reviewed candidate, pending commit.**
 
-Prepared and approved on 2026-09-08. M19 remains the latest stable milestone.
+Prepared and approved on 2026-09-08. Final M20 approval is recorded in section 16.
 Following commit `4d65e34`, independent review returned **APPROVE MILESTONE 20A**.
-The user then explicitly authorized 20B only. 20C remains unstarted. Historical
+The user subsequently approved 20B and explicitly authorized 20C. Historical
 20A evidence below is preserved; 20B evidence is recorded separately.
 
 ## 1. Goal, baseline and authority
@@ -1137,3 +1137,474 @@ A07-A09 and A11 closed; A10 production satisfied/overall partial; A12-A15 pendin
 20C; A16 partial. M19 stays stable and 20C unstarted. Concurrent filesystem
 changes, network filesystems and absolute crash/power-loss guarantees remain
 outside the existing contract. No commit, push, tag or branch operation occurred.
+
+### Final independent 20B approval supplied by the user
+
+After both REQUEST CHANGES records and their corrections above, the user
+supplied the final **APPROVE MILESTONE 20B** verdict before authorizing 20C.
+This approval supersedes their pending review status, without changing the
+historical rejected versions or claiming that either was approved as submitted.
+
+- A01-A09 and A11: closed.
+- A06: closed after both Windows path corrections and independent native probes.
+- A10: production portion satisfied; remaining evidence belongs to 20C.
+- A12-A15: pending 20C at that review boundary; A16: partial milestone evidence.
+- Final reviewer reruns: build, identity-only regression, save-file test,
+  **6/6 save tests**, **53/53 full CTest**, all successful. These are supplied
+  historical review results, not tests run during 20C. No final-review rerun of
+  the 33-test selection is claimed.
+
+M19 remains stable until M20's remaining acceptance and final validation pass.
+## 14. 20C cross-process acceptance and stabilization evidence
+
+**Initial implementation handoff, 2026-09-08: automated validation complete; physical-window validation was pending.**
+The user explicitly authorized only 20C implementation, automated/original-data
+and native-frame validation after supplying the final 20B approval above.
+At this initial handoff Gabriel had not yet supplied physical-window results.
+The subsequent supplied results are recorded in section 15. This is implementation
+evidence, not an independent approval. M19 remains stable; M20 is not complete.
+
+### Verified baseline and configuration
+
+- Branch `main`; full HEAD and local `origin/main` both
+  `3ca9582d362b9fe3253f12aff488fb62d898377a`.
+- Commit: `Implement Milestone 20B save and resume integration`.
+- Parent: approved 20A `4d65e34564452647e15a7d7b9c9144cc449a6a1b`.
+- Initial `git status --short`: empty. No preexisting changes to preserve.
+- Reused `build/20a`: Debug, MSYS Makefiles, compiler
+  `C:/msys64/ucrt64/bin/c++.exe`. Verified GCC 16.2.0 Rev3, CMake 4.4.2,
+  Make 4.4.1, SDL2 2.32.10 and zlib 1.3.2.
+- ScummVM source `D:/Projetos/MModern/scummvm-known-good-candidate` at
+  `6814ee9ba54582f5b5adcffab49efbbd8f589edd`, clean. The read-only Git check used
+  command-local `-c safe.directory=...` for the sandbox ownership mismatch;
+  no global configuration changed. External build
+  `D:/Projetos/MModern/build-scummvm-6814ee9b-ucrt64` has config.h and all four
+  required artifacts. Its recorded configuration is `--backend=sdl
+  --disable-all-engines --disable-detection-full`, `/ucrt64/bin/sdl2-config`.
+- Original installation `F:/Games/gog/Might and Magic 4-5` was read only.
+  All new original-data saves, captures and logs are ignored under `build/20c`.
+  Existing data-free CTest fixtures retain their configured `build/20a` working
+  directories. The standalone identity probe ran from `build/20c`.
+
+### Implementation and support boundaries
+
+`SaveResumeIntegrationTest.cpp` adds the opt-in
+`mmodern_save_resume_smoke <game> <output> [sdl]` coordinator and test-only
+`--child <game> <run-directory> <checkpoint> <producer|consumer|fresh> <direct|sdl>`
+modes. CMake builds it explicitly, without registering commercial-data CTest.
+Every consumer calls `Application::playGameplay(..., resume=true)` using the
+actual save file. No snapshot, injected effect or replay initializes its owners.
+Expected booleans and original defaults are assertion oracles only.
+
+The only production addition is an optional borrowed `observeGameplay` callback
+in `XeenGameplayServices`, invoked once after first-frame preparation by
+`XeenGameplay.cpp`. Existing composition/report callbacks cannot expose both the
+live flags and event cache for complete assertions and independent invalidation.
+The callback exposes read-only party/flags, world/events for cache invalidation,
+and the existing camera for disclosed test positioning. It is empty in the
+ordinary Application configuration, stores no state, never selects startup mode,
+and never handles/bypasses save eligibility. No file, format, owner, event,
+removal, archive compatibility or Windows path behavior was changed.
+
+`XeenCheckpointTestSupport.h` extracts checkpoint cameras and bounded normal
+input sequences from the existing original integration tests. Those tests use
+the shared cameras and retain their independent regressions. The new harness
+and GraphicsSmoke collection use shared inputs. `XeenChildProcessTestSupport.h`
+extracts the existing CLI Win32 launcher; `XeenSaveCliTests.cpp` now uses it with
+unique per-invocation logs. It remains test-only, with 30-second child deadlines,
+checked exit, normal handle closure and explicit timeout failure; it is not a
+production process/filesystem framework.
+
+`GraphicsSmokeTest.cpp` adds `save-phirna escape <save>` and
+`resume escape <save>` (the latter verifies this Phirna control). They exercise
+`Application::renderMap/loadGame`, SDL input, original collection, F9 refusal
+and success, and separate startup. `save-phirna` requires an absent destination;
+existing `save-idle/resume-idle` remain separate regression controls.
+
+### Actual restart and CLI process evidence
+
+Each coordinator run creates a new `run-<PID>-<tick>` directory; creation must
+succeed as new, child logs use CREATE_NEW, and producers reject existing saves.
+Producer exit is confirmed before consumer creation. Failure/timeout stops the
+sequence; success requires child assertion markers as well as zero exit.
+`processes.log` records every command, PID, save path, exit and child assertion.
+No accepted result comes from stale output or same-process reconstruction.
+
+Final run directories, relative to the repository:
+
+- Direct: `build/20c/restart-direct/run-36732-264330406`.
+- SDL: `build/20c/restart-sdl/run-29868-264336328`.
+
+| Mode | Checkpoint | Producer PID | Consumer PID | Fresh PID | Actual CLI PID |
+| --- | --- | --- | --- | --- | --- |
+| direct | Phirna | 38600 | 14048 | 40832 | 41380 |
+| direct | Bone Whistle | 23600 | 28396 | 7272 | 36492 |
+| direct | Myra | 30204 | 17824 | 34504 | 27188 |
+| direct | cumulative | 15112 | 27708 | 16152 | 37136 |
+| SDL | Phirna | 40900 | 29804 | 24372 | 36812 |
+| SDL | Bone Whistle | 40424 | 39780 | 2792 | 24108 |
+| SDL | Myra | 25460 | 41472 | 16836 | 37496 |
+| SDL | cumulative | 24664 | 35348 | 25224 | 35416 |
+
+All 32 child processes exited **0**, including 24 assertion-bearing Application
+children and eight actual `mmodern.exe --load-game` launches. For example:
+
+```powershell
+# Launched by the coordinator, in order, only after each successful exit:
+$game = 'F:/Games/gog/Might and Magic 4-5'
+$run = 'D:/Projetos/MModern/mmodern/build/20c/restart-direct/run-36732-264330406'
+& ./build/20a/mmodern_save_resume_smoke.exe --child $game $run phirna producer direct
+& ./build/20a/mmodern_save_resume_smoke.exe --child $game $run phirna consumer direct
+& ./build/20a/mmodern_save_resume_smoke.exe --child $game $run phirna fresh direct
+& ./build/20a/mmodern.exe --load-game $game "$run/phirna.mmsave"
+```
+
+These are recorded commands, not commands to rerun against that existing save.
+For a new acceptance run use the public coordinator interface below. Other
+checkpoint names are `whistle`, `myra`, `cumulative`; SDL children use `sdl`.
+The fresh role supplies no target and uses production New Game initialization.
+
+Actual CLI launches additionally verify saved camera output, `Resumed`, a
+process-owned gameplay window and normal shutdown. The test temporarily sets
+**only each CLI child** to `SDL_VIDEODRIVER=windows`, then posts WM_CLOSE to that
+PID's window after startup; the parent environment is restored. Thus those
+launches are executable CLI/Windows-SDL coverage, not dummy execution and not
+human physical-window observations. Live-state acceptance is provided by the
+separate Application children; a CLI message/zero exit alone is not its oracle.
+SDL acceptance children use dummy/software and route every gameplay input,
+including save, through the real SDL mapping and Application handler. Bounded
+input batches open their own SDL window while retaining the same Application
+owners; this does not claim one continuous physical-window interaction.
+
+### Exact checkpoint results and unrelated state
+
+| Criterion | Acquired before producer exit | Consumer result in both modes |
+| --- | --- | --- |
+| A12 Phirna | Original line-0 Yes/display/acknowledgment; **18 instructions**, item 99/index 17 from 0 to 1 | Count 1; exact object `{Clouds,23,13}` and records 125-135 disabled; None preserves original record metadata. Plant absent from selection and draw commands. Repeat **11 None**, zero presentations and no grant. Clean first frame excludes deliberately transient success text. |
+| A13 Bone Whistle | Original WhoWill, eligible **party index 5** (non-first), display/ack; **10 instructions**, item 100/index 18 from 0 to 1 | Count 1; exact object `{Clouds,20,1}` and records 1-5 disabled. Repeat **5 None**, no presentations/grant. First frame has no selection/dialog; subsequent independent original dispatch defaults to index 0. |
+| A14 Myra | No Root; original two-page request/final acknowledgment, **5 instructions**, only Q2 set | Q2 true; zero added counters/removals. Original request repeats through the same two pages and five-instruction completion. No NPC layer in the first scene. |
+| A15 cumulative | Original Myra request, then Phirna, then Bone Whistle with camera-only positioning; save map 20 `(5,14)` North | Both counters 1, Q2 true; exactly both objects and **16** event records. Both removed-cell revisits pass. Genuinely acquired Root reaches Myra line **8**, offset **255**, **3 instructions**, `UnsupportedOperationMode`, without consumption, quest clear, reward or other mutation. |
+
+Every checkpoint explicitly compares ordered active roster membership, every
+modeled field of all 30 characters (including inactive characters, all modifier
+arrays, HP/SP and conditions), all 35 item counters, all 30 quest flags, all 256
+game flags, saved/controlled camera and the complete independent object/event
+sets. Comparisons reuse `checkSameCharacter` and explicit quest comparisons;
+loader diagnostics/metadata are not substituted for durable state. Original
+geometry/entities and all unrelated effective event records on maps 20 and 23
+also remain unchanged. Fresh controls compare against loaded original defaults,
+not an assumption that every original field is zero. Their Root/Whistle/Q2
+happen to be 0/0/false; neither removal set has entries.
+
+After restoration, the first composition/preflight is checked before the first
+shown frame. First-frame checks require no pending generation, presenter pages,
+NPC timing or WhoWill layer, and zero initial automatic dispatch. Fresh children
+retain one normal initial dispatch. Existing data-free startup tests continue
+to prove initial automatic grant/flag/teleport and later navigation semantics,
+and equal-count/different-identity first-frame reconstruction in separate graphs.
+
+### Genuine cache reload and native-frame inspection
+
+Each consumer tests geometry/object, script, text and sprite cache eviction
+independently, then all together, with repeat interaction and complete state/
+selection/effective-event/frame assertions afterward. Geometry/object use the
+existing combined `discardMapCache`; no artificial independent cache was added.
+An original Castle Basenji question/No control preloads and reloads event text
+when the removed object cannot need text. Sprite counts measure actual asset
+construction after `discardSpriteCache`, not another cached draw.
+
+Both modes produced these same counters. Separate eviction advances map/object
+`4->7 / 3->5`; script advances Phirna/Whistle `3->4`, Myra `2->3`, cumulative
+`5->7`; text advances Phirna/Whistle `1->2`, Myra/cumulative `2->4`.
+
+| Consumer | Sprite-only reconstruction | All-caches map/object/script/text/sprite |
+| --- | --- | --- |
+| Phirna | 21 -> 40 | 8->12 / 6->9 / 5->7 / 2->3 / 40->61 |
+| Bone Whistle | 20 -> 38 | 8->12 / 6->9 / 5->7 / 2->3 / 38->58 |
+| Myra | 24 -> 47 | 8->12 / 6->9 / 4->6 / 4->6 / 47->71 |
+| cumulative | 26 -> 51 | 8->12 / 6->9 / 8->11 / 4->6 / 51->77 |
+
+**Actually visually inspected:** all eight names below in **each** final run
+directory above, 16 separate native 320x200 BMP images:
+
+- `phirna-consumer-first.bmp`, `phirna-fresh-first.bmp`;
+- `whistle-consumer-first.bmp`, `whistle-fresh-first.bmp`;
+- `myra-consumer-first.bmp`, `myra-fresh-first.bmp`;
+- `cumulative-consumer-first.bmp`, `cumulative-fresh-first.bmp`.
+
+Observed correct outdoor views/HUD, missing resumed plant/bones versus visible
+fresh objects, and clean Myra scenes without retained NPC/choice/dialog layers.
+All eight corresponding direct/SDL files also matched by SHA-256. Consumer and
+fresh frames differ for removal checkpoints; Myra's clean scenes match, as Q2
+has no visual suppression effect. Rebuilt frames have automated exact pixel/
+palette equality with their first frame. Other generated producer/rebuilt and
+legacy regression images were **not** newly visually inspected; their generation
+or pixel checks are not described as visual inspection. No human physical-window
+observation was obtained during this task.
+
+### Commands and regressions actually executed
+
+PowerShell from `D:/Projetos/MModern/mmodern`, with the existing dependencies:
+
+```powershell
+$env:PATH = 'C:\msys64\ucrt64\bin;C:\msys64\usr\bin;' + $env:PATH
+$B = 'D:/Projetos/MModern/mmodern/build/20a'
+$GAME = 'F:/Games/gog/Might and Magic 4-5'
+cmake -S . -B $B
+cmake --build $B --parallel 4
+cmake --build $B --parallel 4 --target mmodern_save_resume_smoke mmodern_phirna_smoke mmodern_who_will_smoke mmodern_myra_smoke mmodern_manual_event_smoke mmodern_navigation_flow_smoke mmodern_graphics_smoke
+Push-Location build/20c
+& "$B/mmodern_save_file_tests.exe" --identity-only
+Pop-Location
+ctest --test-dir $B --output-on-failure -R 'xeen_save_'
+ctest --test-dir $B --output-on-failure -R 'xeen_(save_|quest_|game_flags|session_|remove|visual_remove|event_|manual_event|navigation_flow|movement|world|who_will|npc|character_|party_visual_state|outdoor_|object_)|sdl_input'
+Remove-Item Env:SDL_VIDEODRIVER -ErrorAction SilentlyContinue
+Remove-Item Env:SDL_RENDER_DRIVER -ErrorAction SilentlyContinue
+& "$B/mmodern_save_resume_smoke.exe" $GAME build/20c/restart-direct
+$env:SDL_VIDEODRIVER = 'dummy'
+$env:SDL_RENDER_DRIVER = 'software'
+& "$B/mmodern_save_resume_smoke.exe" $GAME build/20c/restart-sdl sdl
+foreach ($mode in @('direct','sdl')) {
+    if ($mode -eq 'direct') {
+        Remove-Item Env:SDL_VIDEODRIVER -ErrorAction SilentlyContinue
+        Remove-Item Env:SDL_RENDER_DRIVER -ErrorAction SilentlyContinue
+    } else {
+        $env:SDL_VIDEODRIVER = 'dummy'
+        $env:SDL_RENDER_DRIVER = 'software'
+    }
+    foreach ($test in @('phirna','who_will','myra')) {
+        $args20c = @($GAME,"build/20c/$test-$mode")
+        if ($mode -eq 'sdl') { $args20c += 'sdl' }
+        & "$B/mmodern_${test}_smoke.exe" @args20c
+    }
+}
+& "$B/mmodern_manual_event_smoke.exe" $GAME build/20c/manual
+& "$B/mmodern_navigation_flow_smoke.exe" $GAME
+New-Item -ItemType Directory -Force build/20c/application
+& "$B/mmodern_graphics_smoke.exe" $GAME save-phirna escape build/20c/application/phirna.mmsave
+& "$B/mmodern_graphics_smoke.exe" $GAME resume escape build/20c/application/phirna.mmsave
+& "$B/mmodern_graphics_smoke.exe" $GAME save-idle escape build/20c/application/idle.mmsave
+& "$B/mmodern_graphics_smoke.exe" $GAME resume-idle escape build/20c/application/idle.mmsave
+foreach ($mode in @('map','event','manual-no','manual-yes')) {
+    & "$B/mmodern_graphics_smoke.exe" $GAME $mode escape
+}
+ctest --test-dir $B --output-on-failure
+git diff --check
+# Additionally, each newly added untracked source/header:
+git diff --no-index --check -- /dev/null tests/SaveResumeIntegrationTest.cpp
+git diff --no-index --check -- /dev/null tests/XeenCheckpointTestSupport.h
+git diff --no-index --check -- /dev/null tests/XeenChildProcessTestSupport.h
+```
+
+The commands were run with exit-code checks in the ignored
+`build/20c/validate.ps1`; `validation-commands.log` and per-command logs record
+actual results. Whitespace checks were run separately after documentation.
+A new graphics collection rerun needs an absent save path; do not silently
+reuse `application/phirna.mmsave`. Public coordinator reruns automatically use
+new directories. Both build commands passed. Identity-only passed; save CTest
+**6/6**, expanded focused CTest **40/40**, complete CTest **53/53**. No new
+commercial-data test was added to ordinary CTest.
+
+Executed original regressions: Phirna No/harvest/owned plus repeat/reconstruction/
+fresh controls in both modes; Bone Whistle full collection and separate fresh
+cancellation/retry in both modes; Myra **18 cases plus revisits in each mode**,
+including count-1/3 and Q2-false/true fixture cases and final Escape semantics.
+Those injected Root fixtures are still labeled fixture regressions, distinct
+from the genuinely acquired cumulative Root. Manual-event text/Castle Yes/No,
+map-31/42 navigation controls, and all eight listed Application graphics modes
+passed. `save-phirna` logged pending-F9 refusal, original **18-instruction**
+completion and `Saved`, followed by a separate successful `resume` process.
+Historical 20B test counts above were not substituted for these new runs.
+
+### Acceptance status and deviations
+
+| Criteria | Current status |
+| --- | --- |
+| A01-A09, A11 | Remain closed from supplied approvals; required regressions pass, including both path corrections, safe replacement, mutation policies and production startup distinction. |
+| A10 | **Closed by final independent review.** Production, automated original/native/cache and physical-window evidence satisfied; section 15 retains the supplied manual observations. |
+| A12-A15 | **Closed by final independent review.** Separate-process checkpoint acceptance passes in direct and SDL modes, with fresh/default and cumulative controls. |
+| A16 | **Closed by final independent review.** Build, CTest, original matrix, SDL, native-frame and physical-window evidence satisfied. Gabriel performed the physical tests; the reviewer treated that report separately as user-supplied manual evidence. |
+| Overall 20C/M20 | **Complete and independently approved; A01-A16 closed.** No actionable finding or known blocker remains within scope. M20 is recorded as the current stable milestone in the reviewed candidate, eligible to establish that status when committed. |
+
+No gameplay defect required a production correction. Test iteration corrected
+the CLI camera oracle to include its existing `(Clouds)` suffix and the fresh
+active-character oracle to index 0 (the established default), rather than an
+absent optional. No production selection policy was changed. The optional
+observer is the small testability gap described above. The existing save-file
+implementation, extended-path identity, binary v1 and compatibility policy are
+unchanged. All effects remain acquired by original line-0 interactions.
+
+Camera positioning is disclosed harness setup, not travel certification. Myra
+consumption/clearing/rewards remain unsupported. No other milestone, inventory,
+autosave, slots, in-session load, suspended-dialog save, dependency or UI polish
+was implemented. No commit, push, tag, branch operation, pull, reset, clean or
+history rewrite was performed.
+
+### Gabriel's physical-window procedure (historical handoff)
+
+These commands were prepared at the initial handoff, when the physical gate
+was pending. The later user-supplied passing observations are recorded in
+section 15; the commands are retained for reproducibility. Run in PowerShell:
+
+```powershell
+Set-Location 'D:\Projetos\MModern\mmodern'
+$env:PATH = 'C:\msys64\ucrt64\bin;C:\msys64\usr\bin;' + $env:PATH
+Remove-Item Env:SDL_VIDEODRIVER -ErrorAction SilentlyContinue
+Remove-Item Env:SDL_RENDER_DRIVER -ErrorAction SilentlyContinue
+$exe = 'D:\Projetos\MModern\mmodern\build\20a\mmodern.exe'
+$game = 'F:\Games\gog\Might and Magic 4-5'
+$manual = Join-Path (Get-Location) ('build\20c\manual-window-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
+New-Item -ItemType Directory -Path $manual
+```
+
+Launch each producer first; run its resume command only after it has fully
+exited and PowerShell returns. Keep the same `$manual` between launches.
+
+```powershell
+# Phirna producer
+& $exe --render-map $game 23 8 2 north --save-file "$manual\phirna.mmsave"
+```
+
+Space opens the question; F9 must refuse without advancing it. Y, then Enter
+completes collection. F9 must report Saved in console/title. Exit fully.
+
+```powershell
+# Separate Phirna consumer launch
+& $exe --load-game $game "$manual\phirna.mmsave"
+```
+
+Verify first position/party, absent plant, no new dialogue/grant on Space, and
+ordinary W/S, A/D and Escape controls. Record observed behavior.
+
+```powershell
+# Bone Whistle producer
+& $exe --render-map $game 20 5 14 north --save-file "$manual\whistle.mmsave"
+```
+
+Space opens WhoWill; F9 refuses without advancing. F1 selects a character; Enter
+acknowledges the original message. F9 reports Saved; exit fully.
+
+```powershell
+# Separate Bone Whistle consumer launch
+& $exe --load-game $game "$manual\whistle.mmsave"
+```
+
+Verify saved position/party, absent bones, no retained selection, no repeated
+collection on Space and ordinary controls. Record observations separately.
+
+```powershell
+# Myra producer, fresh without Root
+& $exe --render-map $game 23 9 11 west --save-file "$manual\myra.mmsave"
+```
+
+Space opens the request; F9 refuses without changing its page. Enter advances
+the two-page request and Enter acknowledges its final page. F9 reports Saved;
+exit fully. Final Escape remains an acknowledgment, as covered automatically.
+
+```powershell
+# Separate Myra consumer launch
+& $exe --load-game $game "$manual\myra.mmsave"
+```
+
+Verify saved position/party, clean first scene, then Space repeats the original
+request. **Repeated dialogue alone cannot prove Q2 persistence**: use the
+consumer's automated live-state assertions for that evidence. Record the visual
+behavior and controls only as observed.
+
+```powershell
+# Distinct fresh sessions, no load option; exit each before launching the next
+& $exe --render-map $game 23 8 2 north
+& $exe --render-map $game 20 5 14 north
+& $exe --render-map $game 23 9 11 west
+```
+
+Check plant/bones present again, fresh WhoWill/dialog presentation and original
+Myra request, without inherited UI. Report pass/fail per producer, save status,
+separate resume and fresh control, including any differing observations. A
+launched window, generated image or dummy pass is not this human validation.
+
+## 15. User-supplied physical-window validation and final review handoff
+
+**Manual handoff, 2026-09-08: required physical-window gate satisfied. Final independent review was pending at this historical boundary; section 16 records its subsequent approval.**
+
+The user reports that Gabriel performed the requested physical-window validation
+and **all requested cases passed**. This is user-supplied manual evidence, not
+an automated run, agent-observed execution or independent review. It supplements
+the separate automated, SDL dummy/software and native-frame evidence in section
+14; it does not relabel those runs as physical validation.
+
+| Case | Supplied physical-window observations |
+| --- | --- |
+| Phirna | F9 while pending refused without advancing. Original collection completed normally and saving succeeded. After full process exit and a separate `--load-game` launch, saved position/state was restored, the plant remained removed and reinteraction granted no additional Root. Ordinary controls after resume worked. |
+| Bone Whistle | F9 during WhoWill refused without selecting or advancing. Character selection and acknowledgment completed normally and saving succeeded. After full exit and separate resume, the object remained removed, no temporary character selection remained and reinteraction granted no additional Whistle. Ordinary controls worked. |
+| Myra | F9 during dialogue refused without changing or advancing the pending page. The request completed normally and saving succeeded. Full exit and separate resume produced a clean initial scene without retained dialogue/presentation. Reinteraction showed the expected original request behavior and ordinary controls worked. |
+| Fresh sessions | New sessions without `--load-game` restored original object/presentation state: Phirna and Bone Whistle objects were present again, with no save/resume state leaking into fresh sessions. |
+
+**Myra Q2 persistence remains established by the automated live-state assertions.**
+Dialogue appearance/repetition alone does not prove that flag. The supplied
+manual results do not claim a physical rerun of the cumulative state matrix,
+fixture permutations, cache counters or ordinary travel certification.
+
+The earlier PowerShell error on the fresh Myra launch was a missing call operator
+`&`, before the executable started. The corrected command worked; the subsequent
+explicit all-cases-passed report above supplies the actual manual gate result.
+No production or test correction was needed.
+
+For this documentation-only update, the existing successful validation logs
+were inspected: build, identity-only, 6/6 save tests, 40/40 focused tests,
+53/53 full CTest and the section-14 original-data/Application matrix. These
+remain the latest automated results; no build, test, native-frame inspection or
+physical-window execution was rerun by the agent in this update. Preexisting
+implementation/test changes were preserved.
+
+All required M20-A01-A16 acceptance evidence is now satisfied at the
+implementation/validation level, including the remaining A10/A16 physical gate.
+**No acceptance criterion remained unclosed on the recorded evidence.** At this
+manual handoff, final independent approval was a separate outstanding gate;
+the manual report was not that approval. M19 was still the independently
+accepted stable milestone. Section 16 records the later independent approval.
+No M21 work was authorized or begun.
+
+Only this plan, current project status and narrowly necessary README/roadmap
+status wording changed in this update. Documentation whitespace checks passed.
+No production/test changes, larger status cleanup, commit, push, tag or Git
+history/branch operation were performed. This historical handoff stopped for final independent review.
+
+## 16. Final independent approval and Milestone 20 closure
+
+**2026-09-08: APPROVE MILESTONE 20C / MILESTONE 20.**
+
+The user supplied the completed final independent review with no actionable
+findings and no known blocker remaining within the approved Milestone 20 scope.
+**Milestone 20C and Milestone 20 are complete and independently approved.
+M20-A01 through M20-A16 are all closed.**
+
+The independent reviewer reported these results, distinct from the earlier
+implementation runs and from this documentation-only update:
+
+- **53/53 full CTest passed** in the independent review.
+- Required original-data acceptance passed directly and through SDL dummy/software.
+- All required cross-process restart checkpoints passed.
+- Native resumed/fresh frame evidence was inspected.
+- Gabriel's physical-window validation was correctly treated as separately
+  user-supplied manual evidence. The reviewer did not claim to have personally
+  performed Gabriel's physical-window tests.
+
+Sections 12-15 retain the historical 20A/20B implementation, REQUEST CHANGES,
+corrections, approvals, 20C automated/native evidence and Gabriel's supplied
+manual results. Their earlier pending-stage statements describe those historical
+boundaries; this final approval supersedes them for current status. Q2 persistence
+remains proven by automated live-state assertions, not dialogue appearance alone.
+
+The reviewer confirmed that the reviewed 20C candidate may be committed and
+M20 may become the latest stable milestone. This final candidate therefore
+records **Milestone 20 as the current stable completed milestone**. Committing
+it will establish that status in Git history; this closure performs no commit.
+There are no remaining M20 acceptance criteria or independent-review blockers.
+The approved scope and exclusions remain unchanged; no Milestone 21 work began.
+
+This closure changes documentation only. No production code or tests changed;
+preexisting candidate changes were preserved. `git diff --check` passed. No build,
+tests, original-data execution, native-frame inspection or physical-window test
+was rerun by the agent for this update. No commit, push, tag, branch switch or
+creation, or history rewrite was performed.

@@ -8,11 +8,13 @@ The project is currently in early development.
 
 ## Current status
 
-[Milestone 19](docs/milestone-19-plan.md#18-19b-implementation-and-validation-evidence)
-is complete and is the latest stable milestone. Validation passed **47/47 CTest**,
-**23/23 focused tests**, the full Myra matrix and Phirna/Bone Whistle controls
-directly and through SDL dummy/software rendering. Native framebuffer and
-portrait evidence was inspected; no physical-window validation was performed.
+[Milestone 20](docs/milestone-20-plan.md#16-final-independent-approval-and-milestone-20-closure)
+is complete and independently approved, and is the current stable milestone
+recorded in the reviewed candidate pending commit. M20-A01 through M20-A16
+are closed. The final reviewer reported **53/53 full CTest**, original-data
+direct/SDL dummy/software acceptance and all restart checkpoints passing,
+and inspected native resumed/fresh frame evidence. Gabriel's passing physical-window
+results remain separately attributed user-supplied manual evidence.
 
 Clouds NPC mode-1 dialogue presents original animated portraits, positioned titles
 and paginated text through the resumable event UI. Myra's original local request
@@ -45,10 +47,12 @@ not normal travel to the checkpoint, combat or Orothin's quest completion.
 Quest-item consumption, general inventory/TakeOrGive, Myra's exchange and
 Darkside gameplay remain unimplemented.
 
-Milestone 20B adds local Windows saving and startup resume, awaiting review.
-M19 remains stable; M20's original checkpoint certification and physical-window
-acceptance are still pending in 20C. Use an existing output directory outside
-the commercial installation:
+Milestones 20A, 20B and 20C are independently approved. Local Windows saving and
+startup resume preserve supported Phirna, Bone Whistle, Myra request and cumulative
+progress across separate processes. Automated, original-data, SDL, native-frame
+and supplied physical-window evidence is recorded in the
+[Milestone 20 evidence](docs/milestone-20-plan.md#16-final-independent-approval-and-milestone-20-closure).
+Use an existing output directory outside the commercial installation:
 
 ```text
 mmodern --render-map <game-directory> [<map> <x> <y> <north|east|south|west>] [--save-file <path.mmsave>]

@@ -1,3 +1,4 @@
+#include "XeenChildProcessTestSupport.h"
 #include "XeenSaveGameplayTestSupport.h"
 #include "SyntheticXeenArchive.h"
 #ifndef NOMINMAX
@@ -8,22 +9,10 @@
 #include <iostream>
 using namespace gameplay_test;
 namespace fs=std::filesystem;
-struct Result{DWORD exit;std::string output;};
+using child_test::Result;
 Result launch(const fs::path &exe,const std::vector<std::wstring>&args,const fs::path &log){
- std::wstring command=L"\""+exe.wstring()+L"\"";
- for(const auto &arg:args){check(arg.find(L'"')==std::wstring::npos,"unexpected quote in test argument");command+=L" \""+arg+L"\"";}
- SECURITY_ATTRIBUTES security{sizeof(security),nullptr,TRUE};
- HANDLE out=CreateFileW(log.c_str(),GENERIC_WRITE,FILE_SHARE_READ,&security,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);
- check(out!=INVALID_HANDLE_VALUE,"CLI log open");
- STARTUPINFOW startup{};startup.cb=sizeof(startup);startup.dwFlags=STARTF_USESTDHANDLES;startup.hStdOutput=out;startup.hStdError=out;startup.hStdInput=GetStdHandle(STD_INPUT_HANDLE);
- PROCESS_INFORMATION process{};
- const bool ok=CreateProcessW(exe.c_str(),command.data(),nullptr,nullptr,TRUE,CREATE_NO_WINDOW,nullptr,nullptr,&startup,&process);
- CloseHandle(out);check(ok,"CLI process launch");
- const auto wait=WaitForSingleObject(process.hProcess,15000);
- if(wait!=WAIT_OBJECT_0){TerminateProcess(process.hProcess,99);WaitForSingleObject(process.hProcess,1000);}
- DWORD code=99;GetExitCodeProcess(process.hProcess,&code);CloseHandle(process.hThread);CloseHandle(process.hProcess);
- check(wait==WAIT_OBJECT_0,"CLI unexpectedly started gameplay or hung");
- std::ifstream input(log);return {code,std::string(std::istreambuf_iterator<char>(input),{})};
+ static unsigned sequence = 0;
+ return child_test::launch(exe,args,fs::path(log.wstring()+L"."+std::to_wstring(GetCurrentProcessId())+L"."+std::to_wstring(++sequence)));
 }
 int main(int argc,char **argv){try{
  check(argc==2,"CLI test executable argument");const fs::path exe=fs::absolute(argv[1]);

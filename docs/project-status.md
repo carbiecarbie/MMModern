@@ -2,29 +2,44 @@
 
 ## Current development state
 
-Current stable milestone: **Milestone 19**
+Current stable completed milestone: **Milestone 20** (reviewed candidate; not yet committed).
 
 The [Milestone 20 save/resume plan](milestone-20-plan.md) is **approved**.
 **20A is independently approved** following commit `4d65e34` and the explicit
 APPROVE MILESTONE 20A review. Its [historical evidence](milestone-20-plan.md#12-20a-implementation-and-validation-evidence)
 remains intact: A01-A05 closed, A08-A10 partial at that boundary.
 
-**20B is implemented and validated, awaiting independent re-review.** Both
-independent stabilization reviews requested changes: first for directory aliases,
-then for loss of the checked identity when stripping the extended-path prefix.
-The corrected file boundary retains native extended paths through all save I/O.
-The distinct `protected` / literal `protected.` junction regression, previous
-alias cases and the 6/6, 33/33 and 53/53 selections pass. A06 implementation
-evidence is ready for independent reconsideration; 20B is not approved.
-Local Windows file
-replacement, F9 idle saving and `--load-game` startup resume are implemented.
-Debug build, **6/6 save tests**, **33/33 stage-focused tests** and **53/53 full
-CTest** pass. The production new-session/resume choice closes A09; A06/A07/A11
-and the production responsibilities of A08/A10 are demonstrated. Native/original
-checkpoint and physical-window evidence remains for 20C. Bounded original-data
-SDL dummy/software idle save/resume and four existing Application controls pass.
-See [20B evidence](milestone-20-plan.md#13-20b-implementation-and-validation-evidence).
-M19 remains the latest stable milestone; M20 is not complete and 20C has not started.
+**20B is independently approved.** The user supplied the final
+**APPROVE MILESTONE 20B** verdict after both Windows path corrections and
+independent native probes. A01-A09 and A11 are closed; A10's production portion
+is satisfied. Both REQUEST CHANGES records and their corrections remain in the
+[20B evidence](milestone-20-plan.md#13-20b-implementation-and-validation-evidence).
+The final reviewer reported build, identity-only, file test, **6/6 save tests**
+and **53/53 full CTest** passing; these are supplied historical results, not
+20C runs. The final review did not report rerunning the 33-test selection.
+
+**20C and Milestone 20 are complete and independently approved.**
+The explicitly authorized stage passes the build, identity-only Windows probe,
+**6/6 save tests**, **40/40 focused tests**, and **53/53 full CTest**. All four
+original checkpoints pass separate producer/consumer/fresh processes directly
+and through SDL dummy/software; eight additional actual executable CLI resume
+launches pass. All 16 resumed/fresh native first frames were inspected.
+Original collection/Myra matrices and Application controls also pass; see the
+[20C evidence](milestone-20-plan.md#14-20c-cross-process-acceptance-and-stabilization-evidence).
+The user supplied Gabriel's passing physical-window results for Phirna, Bone
+Whistle, Myra and fresh-session controls. This is manual evidence, not an
+automated run or independent approval; Q2 remains proven by automated live-state
+assertions. See the [supplied manual evidence](milestone-20-plan.md#15-user-supplied-physical-window-validation-and-final-review-handoff).
+The user supplied the final independent **APPROVE MILESTONE 20C / MILESTONE 20**
+verdict: no actionable findings or known blocker within the approved scope;
+**M20-A01 through M20-A16 are closed**. The reviewer reported **53/53 full CTest**,
+required original-data direct/SDL acceptance and all restart checkpoints passing,
+and inspected native resumed/fresh frame evidence. Gabriel's physical tests
+remain separately attributed user-supplied manual evidence, not reviewer-executed
+tests. See the [final approval](milestone-20-plan.md#16-final-independent-approval-and-milestone-20-closure).
+This final candidate records M20 as the current stable completed milestone;
+committing the reviewed candidate will establish that status in Git history.
+No commit was performed. No tests were rerun for this documentation-only closure.
 
 **M19B and Milestone 19 are complete on 2026-09-08.** The separately authorized
 stage adds authoritative in-memory Clouds quest-request state and completes

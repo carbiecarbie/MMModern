@@ -205,8 +205,11 @@ default successor, check it against the new state and note concrete changes.
 Reassess the broader rolling horizon after approximately **three completed
 milestones (after M21)**, or earlier following a major architectural discovery.
 
-The [Milestone 20 plan](milestone-20-plan.md) for saving and resuming supported
-Clouds progress is approved. M19 is complete; only 20A implementation has been
-explicitly authorized. The next action is the 20A implementation/validation
-handoff for review. 20B/20C require separate implementation authorization;
-roadmap approval itself starts no milestone.
+The [Milestone 20 plan](milestone-20-plan.md) is complete, with final independent
+**APPROVE MILESTONE 20C / MILESTONE 20** and all A01-A16 criteria closed.
+The reviewed candidate records M20 as the current stable completed milestone,
+eligible to establish that status when committed. This documentation-only closure
+performs no commit or later-milestone work. Gabriel's physical-window results
+remain user-supplied manual evidence, separate from reviewer-executed validation.
+The approved sequence and review cadence remain unchanged; no later milestone
+is authorized by this closure or by roadmap approval.

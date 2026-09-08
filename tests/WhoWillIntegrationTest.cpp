@@ -1,3 +1,4 @@
+#include "XeenCheckpointTestSupport.h"
 #include "XeenVisualRemoveTestSupport.h"
 #include "XeenPartySnapshotTestSupport.h"
 #include <algorithm>
@@ -90,7 +91,7 @@ IndexedFrame checkpoint(XeenAssetSource &assets, const std::filesystem::path &ou
 	});
 	XeenEventSystem events([&](XeenMapIdentity id){++scriptLoads;return XeenEventScript(loader.load(id));},
 		[&](XeenMapIdentity id){++textLoads;return texts.load(id);});
-	XeenCamera camera{20,5,14,XeenDirection::North};const auto start=camera;
+	XeenCamera camera=checkpoint_test::whistle;const auto start=camera;
 	auto flags=XeenGameFlagsLoader().loadInitialCloudsFlags(assets);const auto flagsBefore=flags.values();
 	const XeenObjectIdentity bones{20,1};
 	check(world.selectObject(camera)==bones,"original WhoWill selected object");

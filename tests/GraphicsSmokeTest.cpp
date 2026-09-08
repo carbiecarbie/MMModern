@@ -1,4 +1,5 @@
 #include "app/Application.h"
+#include "XeenCheckpointTestSupport.h"
 #include "platform/XeenSaveFile.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "games/xeen/CloudsMapComposer.h"
@@ -32,17 +33,21 @@ int main(int argc, char *argv[]) {
 	const std::string mode = oldForm ? "ui" : (argc >= 4 ? argv[2] : "");
 	const std::string closeMode = oldForm ? (argc == 3 ? argv[2] : "") :
 		(argc >= 4 ? argv[3] : "");
-	const bool saveMode = mode == "save-idle" || mode == "resume-idle";
+	const bool checkpointMode = mode == "save-phirna" || mode == "resume";
+	const bool saveMode = mode == "save-idle" || mode == "resume-idle" || checkpointMode;
 	if ((saveMode ? argc != 5 : (argc != 3 && argc != 4)) ||
 			(mode != "ui" && mode != "map" && mode != "indoor" &&
 				mode != "event" && mode != "manual" && mode != "manual-no" &&
 				mode != "manual-yes" && !saveMode) ||
 			(closeMode != "escape" && closeMode != "quit")) {
 		std::cerr << "Usage: mmodern_graphics_smoke <game directory> "
-			"[ui|map|indoor|event|manual|manual-no|manual-yes|save-idle|resume-idle] <escape|quit> [save-path]\n";
+			"[ui|map|indoor|event|manual|manual-no|manual-yes|save-idle|resume-idle|save-phirna|resume] <escape|quit> [save-path]\n";
 		return 1;
 	}
 	std::atomic<bool> finished{false};
+	if (mode == "save-phirna" && std::filesystem::exists(std::filesystem::u8path(argv[4]))) {
+		std::cerr << "save-phirna requires an absent save target\n"; return 1;
+	}
 	std::atomic<int> sent{0};
 	const bool escape = closeMode == "escape";
 	if (mode == "map") {
@@ -198,6 +203,20 @@ int main(int argc, char *argv[]) {
 		}
 	}
 	std::thread closer([&] {
+		if (escape && mode == "save-phirna") {
+			auto inputs = checkpoint_test::collection(checkpoint_test::phirna);
+			inputs.insert(inputs.begin()+1, {SDLK_F9, mmodern::SaveGameAction{}});
+			inputs.push_back({SDLK_F9, mmodern::SaveGameAction{}});
+			inputs.push_back({SDLK_ESCAPE, mmodern::CancelInteractionAction{}});
+			for (const auto &input : inputs) {
+				for (int attempt=0; attempt<10 && !finished; ++attempt) {
+					std::this_thread::sleep_for(std::chrono::milliseconds(200));
+					SDL_Event e{}; e.type=SDL_KEYDOWN; e.key.keysym.sym=input.key;
+					if (SDL_PushEvent(&e)==1) { ++sent; break; }
+				}
+			}
+			return;
+		}
 		if (escape && (mode == "manual" || mode == "manual-no" || mode == "manual-yes")) {
 			struct KeyEvent {
 				std::uint32_t type;
@@ -258,7 +277,10 @@ int main(int argc, char *argv[]) {
 			}
 		}
 	});
-	const int result = mode == "save-idle" ? mmodern::Application().renderMap(argv[1], 1, 9, 6,
+	const int result = mode == "save-phirna" ? mmodern::Application().renderMap(argv[1], 23, 8, 2,
+		mmodern::XeenDirection::North, std::filesystem::u8path(argv[4])) :
+		mode == "resume" ? mmodern::Application().loadGame(argv[1], std::filesystem::u8path(argv[4])) :
+		mode == "save-idle" ? mmodern::Application().renderMap(argv[1], 1, 9, 6,
 		mmodern::XeenDirection::South, std::filesystem::u8path(argv[4])) :
 		mode == "resume-idle" ? mmodern::Application().loadGame(argv[1], std::filesystem::u8path(argv[4])) :
 		mode == "map" ? mmodern::Application().renderMap(argv[1]) :
@@ -271,7 +293,7 @@ int main(int argc, char *argv[]) {
 			mmodern::XeenDirection::North) : mmodern::Application().run(argv[1]);
 	finished = true;
 	closer.join();
-	const int expectedEvents = escape && mode == "save-idle" ? 2 : escape && mode == "map" ? 5 :
+	const int expectedEvents = escape && mode == "save-phirna" ? 6 : escape && mode == "save-idle" ? 2 : escape && mode == "map" ? 5 :
 		escape && mode == "indoor" ? 8 :
 		escape && (mode == "manual" || mode == "manual-no" || mode == "manual-yes") ? 6 : 1;
 	if (result != 0 || sent != expectedEvents) {
@@ -280,7 +302,15 @@ int main(int argc, char *argv[]) {
 	}
 	if (saveMode && escape) {
 		const auto saved = mmodern::XeenSaveFile::read(std::filesystem::absolute(std::filesystem::u8path(argv[4])));
-		if (saved.camera.mapId != mmodern::XeenMapIdentity(1) || saved.camera.x != 9 || saved.camera.y != 6 ||
+		if (checkpointMode) {
+			if (!checkpoint_test::sameCamera(saved.camera, checkpoint_test::phirna) || saved.questItems[17] != 1 ||
+				saved.disabledObjects != std::vector<mmodern::XeenObjectIdentity>{{23,13}} || saved.disabledEvents.size() != 11) {
+				std::cerr << "Original Phirna production save mismatch\n"; return 1;
+			}
+			for (std::size_t i=0; i<11; ++i) if (!(saved.disabledEvents[i] == mmodern::XeenEventIdentity{23,125+i})) {
+				std::cerr << "Original Phirna event identities mismatch\n"; return 1;
+			}
+		} else if (saved.camera.mapId != mmodern::XeenMapIdentity(1) || saved.camera.x != 9 || saved.camera.y != 6 ||
 			saved.camera.direction != mmodern::XeenDirection::South) {
 			std::cerr << "Idle save camera mismatch\n"; return 1;
 		}

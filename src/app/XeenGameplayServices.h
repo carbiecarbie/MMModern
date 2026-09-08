@@ -20,6 +20,12 @@ struct XeenGameplayServices {
  using Show = std::function<bool(const IndexedFrame &, const SdlWindow::FrameUpdateHandler &,
    const std::function<bool()> &, const SdlWindow::IdleFrameHandler &, const std::function<std::string()> &)>;
  Show show;
+ // Optional synchronous acceptance observer. References are borrowed only for
+ // playGameplay's lifetime. Party/flags are read-only; mutable world/events
+ // permit cache invalidation and camera permits disclosed checkpoint positioning.
+ // Never supplies startup state or handles a save request.
+ std::function<void(XeenWorld &, XeenEventSystem &, const XeenPartyState &,
+   XeenCamera &, const XeenGameFlags &)> observeGameplay;
 };
 }
 #endif
