@@ -47,10 +47,9 @@ After implementing a task:
 
 MMModern currently integrates and links against portions of ScummVM.
 
-The current local development setup expects:
-
-- `../scummvm-master`
-- `../build-xeen-probe-sdl`
+Consult `docs/dependencies.md` for the authoritative pinned known-good ScummVM
+revision and dependency configuration. Use that revision and configuration;
+source and build directory names are not fixed.
 
 Do not copy the full ScummVM source tree into the MMModern repository.
 
@@ -67,6 +66,21 @@ When modifying an existing subsystem:
 - run the full CTest suite before declaring a milestone complete.
 
 ## Milestones
+
+Use the planning documents according to their authority:
+
+- `docs/project-status.md` records current implemented state and validation.
+- `docs/roadmap.md` records approved future direction once reviewed and approved;
+  entries marked proposed are recommendations, not implementation authorization.
+- A dedicated `docs/milestone-N-plan.md` defines the detailed scope of an active
+  milestone. Create that plan only when the milestone is about to begin.
+- After completing a milestone, use the next roadmap entry as the default
+  successor for planning, rather than selecting a successor from scratch.
+- Entries beyond the immediate next milestone remain provisional. Revise them
+  when concrete evidence meets the roadmap's replanning triggers; normal
+  completion alone does not require rediscovering the roadmap.
+- Read the roadmap's approval status and review cadence. Neither roadmap
+  approval nor milestone completion authorizes starting the next implementation.
 
 When a milestone or sub-stage has a dedicated plan/specification in `docs/`,
 treat that document as the specification for its intended scope.
