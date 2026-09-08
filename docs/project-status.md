@@ -14,9 +14,17 @@ Latest validation: successful Debug build and required smoke targets,
 plus revisits in each of direct and SDL dummy/software modes**. Phirna and Bone
 Whistle direct/SDL regressions and manual text/Application controls pass.
 Native 320x200 dialogue/portrait captures were inspected; 35 direct captures
-match the accepted 19A evidence byte for byte. No physical window was tested.
+match the accepted 19A evidence byte for byte.
 Detailed acceptance evidence is in the
 [Milestone 19 plan](milestone-19-plan.md#18-19b-implementation-and-validation-evidence).
+
+Separately, on 2026-09-08, the user's post-completion manual validation with
+original game resources in a real Windows/SDL physical window passed for Myra,
+Phirna Root and the observed Bone Whistle collection flow. This supplements the
+prior automated, SDL dummy/software and native-frame evidence; it does not
+re-prove the full test matrix. Non-blocking parchment, Yes/No styling and Bone
+Whistle acknowledgment/Y-N communication notes are recorded in the
+[post-completion validation](milestone-19-plan.md#19-post-completion-physical-window-manual-validation).
 
 The party owns 30 checked Clouds quest flags, loaded LSB-first from the complete
 eight-byte field at offset 739 in original party data. Bounded mode-104 set is

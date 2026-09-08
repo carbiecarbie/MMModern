@@ -1132,3 +1132,68 @@ reward, disk persistence or Darkside acceptance is claimed. No independent 19B
 review is claimed. Quest clear/Action 104, Root consumption and all later work
 remain unimplemented. **Stop after 19B; M20 has not started.** No commit, push,
 tag, branch change or history rewrite was performed.
+
+## 19. Post-completion physical-window manual validation
+
+On **2026-09-08**, after M19 had been completed, independently reviewed,
+committed and pushed (as reported by the user), the user performed a short
+manual validation with original game resources in the real **Windows/SDL
+physical MMModern window**. The observations below supplement the historical
+automated, SDL dummy/software and native-frame acceptance evidence in sections
+17-18; they do not re-prove every synthetic/automated edge case or establish
+manual coverage of unobserved subcases.
+
+### Myra — Clouds map 23, `(9,11)`, West
+
+- The original NPC presentation opened correctly. Title, portrait and body
+  were readable and correctly separated; the request used two pages and
+  portrait animation was visibly running.
+- Gameplay movement was blocked while dialogue was pending. Escape on the
+  first page advanced the dialogue rather than exiting; Escape on the final
+  page acknowledged/completed the presentation. Normal control returned, and
+  interacting again repeated the request as expected.
+- No stuck presentation, serious graphical corruption or residual
+  portrait/window artifact was observed.
+
+In a side-by-side comparison with a screenshot of the original game, the
+portrait/title/body composition appeared close to the original. MMModern's
+NPC parchment/window boundary was cleaner/simpler: the original's irregular
+torn/rolled/worn parchment-edge decoration is not yet reproduced. This is
+future UI fidelity/polish, not an M19 correctness failure.
+
+### Phirna Root — Clouds map 23, `(8,2)`, North
+
+- Interaction and the Yes/No presentation opened normally. Choosing No
+  preserved the plant; repeating the interaction and choosing Yes followed
+  the collection path.
+- Acknowledgment completed normally, the plant disappeared immediately from
+  the rendered world after collection, and gameplay control returned normally.
+
+The current Yes/No presentation appeared visibly crude/simplified compared
+with a final original-style UI. Its behavior and input were correct during
+this session; the styling is non-blocking visual-fidelity debt.
+
+### Bone Whistle — Clouds map 20, `(5,14)`, North
+
+- The interaction reached the post-WhoWill Bone Whistle presentation.
+  Acknowledgment with Enter worked, the collection/Remove flow completed,
+  the world object disappeared, and normal control returned afterward.
+
+The post-WhoWill message is acknowledgment-only, not a Yes/No decision, yet
+the current UI visibly shows Y/N controls. Current code confirms this
+characterization: `XeenEventInterpreter.cpp` creates a `Confirmation` request
+for Action 44, with value 1 requiring `Acknowledgment` (value 0 requires
+`YesNo`), and resumes the acknowledgment comparison with value 1.
+`XeenEventPresenter.cpp` routes `Confirmation` to `drawConfirmation`, which
+draws Y/N regardless of response requirement; its input handler still honors
+the acknowledgment requirement. `SdlWindow.cpp` maps Enter to
+`AcknowledgeAction`. Enter correctly acknowledges and the underlying script
+semantics are correct; the visible suggestion of a choice that does not exist
+is presentation/communication debt. No additional Bone Whistle subcase is
+claimed as manually validated by this session.
+
+All three observed flows passed. These UI-fidelity observations are
+**non-blocking** and may be addressed by a future UI-fidelity/polish task;
+they do not reopen or silently expand M19. No code was changed as part of
+this validation or its documentation. The original automated acceptance
+evidence remains unchanged, and M20 has not started.

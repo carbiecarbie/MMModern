@@ -119,3 +119,23 @@ Before starting any significant implementation task:
   architectural mistake in the current one.
 - Prefer the smallest sufficient test set during iteration; run the full
   suite at completion.
+
+## Project language
+
+English is the canonical language for MMModern development.
+
+Use English for:
+
+- source-code identifiers and comments
+- diagnostics, errors, and command-line output
+- tests and test names
+- repository documentation
+- commit messages
+
+Original Might and Magic game content must remain resource-driven. Do not convert
+original game text into hard-coded engine strings just to satisfy this convention.
+Localization remains separate from development-language policy.
+
+Existing non-English development or diagnostic strings may be migrated
+opportunistically when the relevant code is being touched; do not expand
+unrelated tasks solely to translate existing strings.
