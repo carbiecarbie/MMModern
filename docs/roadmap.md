@@ -1,95 +1,258 @@
 # MMModern - Roadmap
 
-The current stable baseline is **completed Milestone 23**. See
-[project status](project-status.md) for present capabilities and
-[project history](project-history.md) for completed milestones.
-
-M23 completed the bounded static indoor-object and visible-interaction foundation;
-its delivered scope, contracts and acceptance are recorded in the
-[closed M23 plan](milestone-23-plan.md). No successor milestone is currently
-promoted. The next planning activity is a post-M23 horizon reassessment, and
-neither that review nor later roadmap direction authorizes implementation.
-
-## Roadmap principles
-
-Keep a rolling horizon with decreasing confidence; create a detailed milestone
-plan only when that milestone is about to begin. Do not fill the horizon with
-unsupported commitments.
-
-Favor original Clouds gameplay and useful visible interactions. Preserve existing
-state ownership, stable world identities, disposable caches, mutation policies
-and resumable presentation. Extend existing infrastructure without parallel
-systems or silently skipping unsupported original behavior.
-
-Local checkpoints do not certify normal travel or a playable region. Keep route,
-combat and other unsupported boundaries explicit. Dependency configuration is
-owned by [dependencies.md](dependencies.md), not by the roadmap.
+The stable anchor is **completed Milestone 23**, commit
+[`a6b0826b8cccfcaa17e655d1e2e557e817bf13d6`](https://github.com/carbiecarbie/MMModern/commit/a6b0826b8cccfcaa17e655d1e2e557e817bf13d6).
+[Project status](project-status.md) owns current capabilities;
+[project history](project-history.md) and the [closed M23 plan](milestone-23-plan.md)
+own completed work. Dependency provenance belongs to [dependencies.md](dependencies.md).
 
 ## Current planning state
 
-M23 established static ordinary indoor-object composition and certified one
-bounded original visible interaction. No next milestone has been selected or
-approved. The post-M23 horizon reassessment will compare maintainer priorities
-with the new stable architecture, original-data evidence, prerequisite boundaries
-and remaining unsupported capabilities before promoting a concrete milestone.
+This is a **post-M23 roadmap proposal for review**, not maintainer-approved scope.
+The provisional labels M24 and M25 recommend two capability increments; neither
+has been promoted into an approved milestone or authorized for implementation.
 
-Do not infer a successor number or implementation scope from this planning state.
-Roadmap review, future milestone promotion and implementation authorization are
-separate decisions.
+The preferred direction is to make existing party and item state useful to the
+player, then bound an original encounter and its connected exploration needs.
+[M21](milestone-21-plan.md) already established real item rewards and restart
+persistence; [M22](milestone-22-plan.md) and M23 established substantial scene
+presentation. Another storage framework or an automatic succession of visual
+increments would miss the present opportunity for player agency.
 
-## Dependencies and boundaries across future work
+Codex investigates and proposes; ChatGPT Pro reviews architecture/specification
+and prepares tasks; Astra provides independent audit/review; the maintainer
+approves direction and separately authorizes work. Create a detailed plan only
+when its milestone is about to begin.
 
-M23's static indoor-object composition does not establish indoor animation, wall
-items, scripted object sequences, connected-map rendering or a general world
-clock. Its [closed contract](milestone-23-plan.md) owns the bounded placement,
-occlusion, interaction and persistence boundary. M22's
-[runtime contract](milestone-22-plan.md#smallest-architecture-and-observable-runtime-policy)
-continues to own ordinary outdoor and NPC timing distinctions.
+## Recommended near horizon
 
-Each new persistent category must deliberately extend save/load with a version
-and validation policy. Transient visual phase needs an explicit reconstruction
-policy; it must not become a second gameplay owner. Restoration must continue to
-construct coherent owners and presentation without replaying prior effects.
+### Proposed M24 - Usable party/item inspection and character-to-character transfer
 
-This direction does not implicitly include combat, movement capabilities, full
-inventory/equipment use, Darkside or certification of a normally playable region.
-Promote a concrete prerequisite only when the selected checkpoint establishes it.
+**Outcome and boundary.** Show active characters' modeled condition and HP/SP,
+inspect weapons, armor, accessories and miscellaneous items with bounded,
+resource-driven names/descriptions, and transfer items in any of those four
+categories between eligible active roster owners. Provide character/category/item
+selection and original transfer restrictions with clear refusal feedback.
+Ownership transfer is distinct from player-triggered equip/unequip.
 
-## Completed horizon direction
+**Original anchor.** The accepted controlled Myra exchange at Clouds map 23,
+(9,11), west, yields five miscellaneous records `{10,37,1,0}` after the Phirna
+Root/Q2 sequence. The pinned reference identifies these as charged antidote
+potions. The new acceptance delta is to identify the resulting items, transfer
+one from roster owner 0 to owner 18, save and actually restart with the ownership
+and bytes preserved. This builds on the [M21 exchange contract](milestone-21-plan.md);
+it does not recertify the route or require new reward semantics.
+Myra is a primary acceptance anchor, not the definition of the transfer boundary.
+Detailed planning must select additional original/synthetic controls for
+equipment-category transfer and its equipped-state consequence, without adding
+player-triggered equip/unequip actions.
 
-The post-M21 review selected M22 before M23. M22 delivered bounded ordinary
-outdoor animation, and M23 subsequently delivered indoor static-object projection,
-wall occlusion and the Nightshadow checkpoint. Their closed plans preserve the
-durable rationale and contracts. Combat, route certification, inventory use and
-other broad capabilities remain separate concerns; M23 closure promotes none of
-them automatically.
+**Foundation and decisions.** Reuse [party ownership](../src/games/xeen/XeenParty.h),
+[character/item records](../src/games/xeen/XeenCharacter.h),
+[character rules](../src/games/xeen/XeenCharacterRules.cpp), the existing
+[application flow](../src/app/XeenEventFlow.cpp) and
+[save owner](../src/games/xeen/XeenSaveState.cpp). Selection is transient; roster
+identity, active aliases, tail-slot capacity and compaction must remain coherent.
+Item transfer has its own original restrictions; reward-recipient eligibility is
+not automatically its policy.
 
-## Replanning triggers
+The pinned reference's ordinary
+[item dialog](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/dialogs/dialogs_items.cpp)
+uses category-generic transfer when changing active character with an item
+selected: check cursed state and destination category capacity, move the item,
+reset the destination item's equipped frame, then sort/compact source and
+destination. M24 planning must bound those semantics, including active aliases
+and stable compaction. Preserve exact item bytes except for deliberate original
+transfer semantics; resetting the frame during transfer does not authorize an
+equip/unequip command.
 
-Revise direction when concrete evidence changes its premises:
+A bounded item-description adapter is real new work. The pinned reference's
+[resource loader](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/resources.cpp)
+uses engine data including English `CONSTANTS_7` and Clouds `mae.cld`; these are
+not an existing MMModern item-catalog interface. M21 deliberately avoided the
+generated Xeen engine-data catalog dependency and reported records numerically.
+M24 planning must determine a reproducible, GPL-compatible, resource-driven source
+for bounded names/descriptions while preserving the narrow selected-library
+dependency architecture; this roadmap does not choose that architecture.
+Settle provenance, loading/version checks, missing-data behavior, unknown-item
+fallbacks and an accessible presentation/input contract during specification.
 
-- Original data or the chosen interaction exposes a substantial missing prerequisite.
-- Normal travel exposes a movement, automatic-event or monster boundary that
-  prevents the intended loop; record the exact blocker and bounded prerequisite.
-- Save restoration exposes missing authoritative state or an ownership problem.
-- A visual checkpoint needs scripted animation, alternate appearances or wall
-  items outside the currently supported subsets.
-- Work collapses entries together or grows enough to require a split, or
-  maintainer priorities change the preferred direction.
+**State and acceptance.** Existing save v2 represents the expected durable changes;
+no new state category is presently identified. Confirm resource compatibility,
+opaque-byte preservation and the idle save boundary in the specification.
+Automated checks should distinguish transfer from copying across all four
+categories, cover capacity, cursed-item refusal, aliases, cancellation, stable
+source/destination compaction and the equipped-frame reset, and use an independent
+original-rule oracle. Original reward and equipment-category controls, a real
+process restart and maintainer-operated UI acceptance must establish the visible
+result and resulting ownership.
 
-Record evidence, affected dependencies and revised confidence here. The explicit
-post-M23 reassessment is the current review point; later ordinary milestone
-completion alone does not require rediscovering the whole roadmap.
+**Confidence and sequencing.** High confidence in state reuse; medium overall
+because the catalog and UI contract are new. Inspection plus one ownership action
+is a coherent first increment across the existing categories. Exclude equip/unequip
+actions, item use/activation, discard, shops, identification/repair, spells, quest
+journal, recruitment, combat, full character statistics and normal-route
+certification. Split only if catalog investigation reveals a substantial
+independent contract.
 
-## Review cadence
+### Proposed M25 - Bounded equipment management and existing-rule feedback
 
-When a next entry exists, use it as the default planning successor and check it
-against the then-stable baseline. The maintainer has chosen a broader post-M23
-horizon reassessment before promoting any successor. After that review, reassess
-the broader horizon approximately every three completed milestones or sooner
-after a listed trigger.
+**Outcome and boundary.** Add player-triggered equip and unequip/remove for weapons,
+armor and accessories with original class restrictions, category/slot/type and
+cross-category conflicts, bounded ring/medal count rules and cursed-item removal
+restrictions. Show equipped status and meaningful feedback through the attributes,
+max-HP and max-SP effects already modeled by `XeenCharacterRules`. This does not
+establish complete original equipment effects, weapon damage, armor-class or
+combat statistics. Generic character-to-character transfer belongs to M24.
 
-Use the verified post-push SHA and handoff gate in [AGENTS.md](../AGENTS.md) for
-external planning/review. Roadmap review, planning approval and explicit
-implementation authorization remain separate; this roadmap authorizes no new
-implementation.
+**Foundation and prerequisites.** M24 supplies the chosen UI/catalog and generic
+four-category transfer path. Item frame/state bytes, character classes, roster
+ownership and save storage already exist. The pinned reference's
+[item rules](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/item.cpp)
+and [item interaction](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/dialogs/dialogs_items.cpp)
+provide the equipment-legality oracle. Keep authoritative legality with
+character/item rules and presentation with the existing application owners.
+
+**Original anchor.** Initial active roster owner 11 has weapon records
+`{0,12,0,1}` and `{0,12,0,0}`: an equipped and an unequipped dagger. This supplies
+an original conflict/refusal and unequip/equip checkpoint without inventing loot.
+The complete category/class/curse acceptance selection remains provisional;
+synthetic fixtures must discriminate modeled modifier behavior when initial
+items do not provide the necessary contrast.
+
+**State and acceptance.** Equipment changes appear representable by existing v2
+item bytes. Preserve compaction and alias semantics, opaque fields and current
+HP/SP according to the established rules; do not silently heal or normalize
+loaded state. Settle any newly required derived rules before extending scope.
+Acceptance should combine an independent restriction oracle, successful actions
+and no-effect refusals, original loadout interaction, save/restart and physical
+UI validation. New durable statistics would require an explicit compatibility
+decision and horizon review.
+
+**Confidence and sequencing.** Medium confidence: the original state is concrete,
+but category restrictions and exceptional equipment need bounded verification.
+This follows generic item inspection/transfer because equipment adds a distinct
+legality contract. Exclude item activation, combat, spell systems, shops, random
+loot generation and full stat simulation. Unexpected special-item effects are a
+scope-growth trigger, not implicit authorization to implement them all.
+
+### Dependencies and the end of this horizon
+
+M24 -> M25 is the proposed hard dependency for shared player-facing inspection,
+selection and generic transfer; the equipment-rule investigation itself can
+proceed independently.
+Neither entry requires indoor animation, wall items, a world clock or combat.
+Existing item ownership and persistence are foundations, not new prerequisites.
+
+Two entries fit the present evidence: generic four-category ownership transfer
+and equipment legality have distinct, reviewable acceptance contracts. Together they make
+existing rewards and loadouts usable for management. They do not make potions
+usable, certify a quest route or establish a playable region.
+
+The numbered horizon ends here because a credible next encounter needs a bounded
+actor, statistics, turn, outcome and persistence contract that this investigation
+has not yet established. Do not fill that gap with an unverified combat milestone
+or indefinitely defer connected gameplay with more isolated presentation work.
+Equipment UI is a sequencing preference, not a correctness prerequisite for a
+fixed-loadout combat foundation.
+
+## Connected gameplay objective and present blockers
+
+The Myra -> Phirna -> Myra loop is the first existing original quest sequence to
+reassess. Current terrain movement connects the two coordinates within map 23,
+and the complete exchange and restart semantics already exist. However, the map
+contains 19 active original monster records, including records near the geometric
+path. MMModern does not simulate them. The pinned
+[combat movement](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/combat.cpp)
+requires more than checking whether a monster initially occupies a path cell.
+A terrain-only path is not normal-route acceptance.
+
+The original party resource starts at map 28, (18,4), west. Existing indoor
+movement is bounded to local coordinates 0..15; connected indoor maps and the
+Vertigo exit's unsupported event operations also prevent treating this as a
+working normal start. The application's diagnostic default is map 1, (9,6),
+south. These are different claims; see [startup](../src/main.cpp),
+[movement](../src/games/xeen/XeenMovement.cpp) and
+[world state](../src/games/xeen/XeenWorld.cpp).
+
+After the proposed horizon, prioritize an original encounter and navigation
+envelope. Promote a faithful safe route if verified; otherwise promote the
+specific actor/combat or connected-indoor prerequisite that the selected route
+actually needs. Keep diagnostic coordinates, controlled interaction sequences,
+normally traversable routes and generally playable regions distinct. Do not
+ignore monsters, hazards or unsupported script tails to claim integration.
+
+## Provisional direction beyond the horizon
+
+- **Encounters and combat.** Enable meaningful original threats and outcomes.
+  Usable loadouts and existing condition/item persistence help, but the current
+  model lacks substantial original offensive/defensive statistics, actor state,
+  turns and reward rules. Promote a foundation only after tracing a complete
+  original encounter, including movement/aggression, retaliation, death/escape,
+  rewards and save boundaries. A monster sprite or MOB record is insufficient.
+- **Recovery, item effects and services.** Make acquired resources consumable and
+  progression repeatable. Antidote activation is promising, but the reference's
+  [spell path](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/spells.cpp)
+  includes target selection, charge/cancellation ordering, HP/condition effects
+  and monster-turn consequences. Verify an original condition-producing path
+  before promoting it. Shops and other services additionally need their actual
+  currency, stock, eligibility and time contracts.
+- **Connected original Clouds exploration.** Grow from an accepted encounter to
+  a bounded quest/exploration loop with save/resume. Investigate connected indoor
+  coordinates, special doors, party-dependent terrain, mutation, darkness and
+  time only where the chosen route requires them. Generic event decoding does
+  not establish execution support; new authoritative state needs a deliberate
+  save-version policy. Expand toward towns/regions after complete loops pass.
+- **Presentation and audio.** Ordinary indoor animation can reuse established
+  visual timing, while wall items have a separate placement/facing contract.
+  Scripted animation and alternate appearances are different concerns. Promote
+  these or audio when original encounters or acceptance expose a concrete need;
+  keep cosmetic phase separate from gameplay time.
+- **World of Xeen and modernization.** Broader Clouds fidelity should establish
+  reusable behavior before Darkside and cross-side progression are promised.
+  Existing side-aware identities and archive access are necessary foundations,
+  not proof of Darkside gameplay. Promote that expansion after verified scripts,
+  state domains, resources and cross-side saves support representative loops.
+  Modern usability should expose faithful rules clearly. Portability and
+  localization remain separate future decisions, supported by resource-driven
+  text and dependency boundaries rather than an engine rewrite.
+
+The likely next integration objective is one complete original encounter with
+navigation and save/resume, followed conditionally by the Myra loop or a better
+substantiated route. Neither objective is guaranteed by M24-M25.
+
+## Alternatives, replanning and review cadence
+
+**Strongest alternative: combat first.** It addresses the largest obstacle to
+normal exploration sooner. It is not preferred yet because no sufficiently
+bounded original actor/rules/outcome contract has been established, whereas
+existing rewards and loadouts support immediate player agency. A verified small
+encounter or a maintainer priority for exploration can reverse this order;
+equipment UI must not be presented as a mandatory combat dependency.
+
+Indoor animation is independently plausible and relatively well grounded after
+M22/M23, but offers less new agency. Wall items and broad event mutation have
+less complete acceptance evidence. A map-23 bottle at (14,4) already completes
+its original WhoWill/reward/acknowledgment/removal path through the current event
+system; missing SDL/route/save certification there is an acceptance gap, not a
+reason to implement another reward subsystem.
+
+Replan when evidence changes the contracts:
+
+- The catalog proves substantially larger, or an existing abstraction already
+  supplies it; merge or split entries around coherent acceptance boundaries.
+- Transfer/equipment exposes missing authoritative state, special effects or a
+  save/restore incompatibility instead of a bounded change to existing records.
+- Encounter or route tracing establishes combat, world flags, time, doors,
+  connected maps or another missing owner as an actual prerequisite.
+- A faithful safe route becomes available without combat, or the preferred loop
+  fails because of a specific movement/event boundary.
+- Two entries share one coherent acceptance contract, an entry contains separable
+  contracts, or maintainer priorities change.
+
+Review M24 against the then-stable baseline during specification. Refresh the
+horizon at the end of these two proposed entries, or earlier on a trigger. Retain
+approximately three completed milestones as the ordinary broader review cadence;
+it is not a quota for horizon length. Use the verified SHA and handoff gate in
+[AGENTS.md](../AGENTS.md) for external review. Roadmap recommendation, direction
+approval, detailed planning and implementation authorization remain separate.
