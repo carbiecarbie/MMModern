@@ -113,6 +113,17 @@ Historical limitations in those plans describe their recorded boundaries.
   independent review and maintainer native physical acceptance passed. See the
   [Milestone 22 plan](milestone-22-plan.md).
 
+## M23 - Static indoor objects and first visible indoor interaction
+
+- Added bounded static ordinary indoor-object composition with original
+  directional appearances, twelve placements, scale masks, exact wall predicates
+  and ordered wall/object raster occlusion.
+- Reused existing object identity, checked visual, event/Flow/Presenter and
+  persistence owners; no new persistent state or save version was introduced.
+- Certified the original Nightshadow gravestone interaction with automated and
+  original-data validation, independent review and maintainer physical SDL
+  acceptance. See the [Milestone 23 plan](milestone-23-plan.md).
+
 ## Maintaining this history
 
 Add one short section with 2-4 lasting-result bullets per completed milestone

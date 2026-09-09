@@ -353,11 +353,12 @@ if(BUILD_TESTING)
 	add_test(NAME xeen_world COMMAND mmodern_world_tests)
 	add_executable(mmodern_indoor_scene_tests
 		tests/XeenIndoorSceneTests.cpp
-		src/games/xeen/XeenIndoorScene.cpp
-		src/games/xeen/XeenWorld.cpp
 	)
-	target_link_libraries(mmodern_indoor_scene_tests PRIVATE mmodern_core)
+	target_link_libraries(mmodern_indoor_scene_tests PRIVATE mmodern_xeen)
 	add_test(NAME xeen_indoor_scene COMMAND mmodern_indoor_scene_tests)
+	add_executable(mmodern_indoor_composer_tests tests/XeenIndoorComposerTests.cpp)
+	target_link_libraries(mmodern_indoor_composer_tests PRIVATE mmodern_app mmodern_xeen)
+	add_test(NAME xeen_indoor_composer COMMAND mmodern_indoor_composer_tests)
 	add_executable(mmodern_character_format_tests
 		tests/XeenCharacterFormatTests.cpp
 	)
@@ -397,6 +398,13 @@ if(BUILD_TESTING)
 		mmodern_xeen mmodern_scummvm_xeen)
 	if(MINGW)
 		target_link_options(mmodern_indoor_map_smoke PRIVATE -Wl,--gc-sections)
+	endif()
+	add_executable(mmodern_indoor_object_smoke EXCLUDE_FROM_ALL
+		tests/IndoorObjectIntegrationTest.cpp)
+	target_link_libraries(mmodern_indoor_object_smoke PRIVATE
+		mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2 ZLIB::ZLIB)
+	if(MINGW)
+		target_link_options(mmodern_indoor_object_smoke PRIVATE -Wl,--gc-sections)
 	endif()
 	add_executable(mmodern_event_script_smoke EXCLUDE_FROM_ALL
 		tests/EventScriptIntegrationTest.cpp)

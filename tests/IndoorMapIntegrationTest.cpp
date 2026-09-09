@@ -102,8 +102,8 @@ int main(int argc, char *argv[]) {
 		}};
 		if (commands.size() != expectedCommands.size()) {
 			for (const auto &command : commands)
-				std::cerr << command.originalOrder << ' ' << command.resourceName << ' '
-					<< command.frame << " (" << command.x << ',' << command.y << ") source ("
+				std::cerr << command.originalOrder << ' ' << command.geometry().resourceName << ' '
+					<< command.geometry().frame << " (" << command.x << ',' << command.y << ") source ("
 					<< command.sourceX << ',' << command.sourceY << ")\n";
 			throw std::runtime_error("real map 33 visible indoor command count mismatch");
 		}
@@ -111,13 +111,14 @@ int main(int argc, char *argv[]) {
 			const auto &actual = commands[i];
 			const auto &wanted = expectedCommands[i];
 			require(actual.originalOrder == wanted.order &&
-				actual.resourceName == wanted.resource && actual.frame == wanted.frame &&
+				actual.geometry().resourceName == wanted.resource &&
+				actual.geometry().frame == wanted.frame &&
 				actual.x == wanted.x && actual.y == wanted.y &&
-				actual.options.horizontalFlip == wanted.flipped &&
+				actual.drawOptions().horizontalFlip == wanted.flipped &&
 				actual.sourceMapId == 33 && actual.sourceX == wanted.sourceX &&
 				actual.sourceY == wanted.sourceY && actual.sourceFace == wanted.sourceFace &&
-				actual.options.scaleIndex == 0 && actual.options.sceneClipped &&
-				!actual.options.bottomClipped,
+				actual.drawOptions().scaleIndex == 0 && actual.drawOptions().sceneClipped &&
+				!actual.drawOptions().bottomClipped,
 				"real map 33 visible indoor command mismatch");
 		}
 

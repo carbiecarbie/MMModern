@@ -2,6 +2,7 @@
 #define MMODERN_GAMES_XEEN_CLOUDS_MAP_COMPOSER_H
 
 #include "core/IndexedFrame.h"
+#include "games/xeen/XeenIndoorScene.h"
 #include "games/xeen/XeenOutdoorScene.h"
 #include <cstdint>
 #include <optional>
@@ -27,6 +28,13 @@ public:
 	// Execute the single, already ordered outdoor command stream.
 	void drawOutdoorCommands(XeenAssetSource &assets,
 		const std::vector<XeenOutdoorDrawCommand> &commands) const;
+	// Execute the single, already ordered indoor geometry/object command stream.
+	void drawIndoorCommands(XeenAssetSource &assets,
+		const std::vector<XeenIndoorDrawCommand> &commands) const;
+	// Complete a scene replay through the same production border/UI layers.
+	void drawInterfaceLayers(XeenAssetSource &assets,
+		const XeenPartyState &partyState,
+		const XeenCharacterRulesContext &context) const;
 };
 
 } // namespace mmodern

@@ -19,36 +19,21 @@ void CloudsMapComposer::drawOutdoorCommands(XeenAssetSource &assets,
 	}
 }
 
-IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
-		XeenWorld &world, const XeenPartyState &partyState,
-		const XeenCamera &camera,
-		const XeenCharacterRulesContext &context,
-		std::vector<XeenObjectVisual> *objectDiagnostics,
-		std::optional<std::uint64_t> ordinaryPhase, bool *containsOrdinaryAnimation) const {
-	if (containsOrdinaryAnimation) *containsOrdinaryAnimation = false;
-	bool emittedAnimation = false;
-	if (objectDiagnostics) objectDiagnostics->clear();
-	const CloudsUiComposer interfaceComposer;
-	interfaceComposer.loadBackground(assets);
-
-	const XeenMap &map = world.map(camera.mapId);
-	if (map.geometry.isOutdoors()) {
-		const auto resolver = XeenObjectVisualResolver::load(assets);
-		const auto commands = XeenOutdoorScene().build(world, camera, &resolver, objectDiagnostics, ordinaryPhase);
-		emittedAnimation = std::any_of(commands.begin(), commands.end(), [](const auto &command) {
-			return command.object() && command.object()->visual.status == XeenObjectVisualStatus::SupportedAnimated;
-		});
-		drawOutdoorCommands(assets, commands);
-	} else {
-		// Indoor darkness is deliberately ignored in Milestone 12D: the scene is
-		// rendered illuminated so its geometry can be validated without gameplay.
-		const auto commands = XeenIndoorScene().build(world, camera);
-		for (const XeenIndoorDrawCommand &command : commands) {
-			assets.drawSprite(command.resourceName, command.frame,
-				command.x, command.y, command.options);
-		}
+void CloudsMapComposer::drawIndoorCommands(XeenAssetSource &assets,
+		const std::vector<XeenIndoorDrawCommand> &commands) const {
+	for (const auto &command : commands) {
+		if (const auto *object = command.object())
+			assets.drawObjectVisual(object->visual, command.x, command.y,
+				command.drawOptions());
+		else
+			assets.drawSprite(command.geometry().resourceName, command.geometry().frame,
+				command.x, command.y, command.drawOptions());
 	}
+}
 
+void CloudsMapComposer::drawInterfaceLayers(XeenAssetSource &assets,
+		const XeenPartyState &partyState,
+		const XeenCharacterRulesContext &context) const {
 	// Interface::assembleBorder() redraws this frame after drawScene(). Parts of
 	// the corner gems intentionally overlap the generic scene clipping rectangle.
 	assets.drawSprite("global.icn", 0, 8, 8);
@@ -67,7 +52,40 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 	assets.drawSprite("bless.icn", 16, 33, 137); // Blessed indicator, inactive.
 
 	// The compass/main button at y=137 overlaps the scene border in the original UI.
-	interfaceComposer.drawInterface(assets, partyState, context);
+	CloudsUiComposer().drawInterface(assets, partyState, context);
+}
+
+IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
+		XeenWorld &world, const XeenPartyState &partyState,
+		const XeenCamera &camera,
+		const XeenCharacterRulesContext &context,
+		std::vector<XeenObjectVisual> *objectDiagnostics,
+		std::optional<std::uint64_t> ordinaryPhase, bool *containsOrdinaryAnimation) const {
+	if (containsOrdinaryAnimation) *containsOrdinaryAnimation = false;
+	bool emittedAnimation = false;
+	if (objectDiagnostics) objectDiagnostics->clear();
+	CloudsUiComposer().loadBackground(assets);
+
+	const XeenMap &map = world.map(camera.mapId);
+	if (map.geometry.isOutdoors()) {
+		const auto resolver = XeenObjectVisualResolver::load(assets);
+		const auto commands = XeenOutdoorScene().build(world, camera, &resolver, objectDiagnostics, ordinaryPhase);
+		emittedAnimation = std::any_of(commands.begin(), commands.end(), [](const auto &command) {
+			return command.object() && command.object()->visual.status == XeenObjectVisualStatus::SupportedAnimated;
+		});
+		drawOutdoorCommands(assets, commands);
+	} else {
+		// Indoor darkness is deliberately ignored in Milestone 12D: the scene is
+		// rendered illuminated so its geometry can be validated without gameplay.
+		const auto resolver = XeenObjectVisualResolver::load(assets);
+		// Indoor ordinary appearances are deliberately resolved without the
+		// outdoor phase: animated visuals remain explicitly unsupported.
+		const auto commands = XeenIndoorScene().build(
+			world, camera, &resolver, objectDiagnostics);
+		drawIndoorCommands(assets, commands);
+	}
+
+	drawInterfaceLayers(assets, partyState, context);
 	auto result = assets.snapshot();
 	if (containsOrdinaryAnimation) *containsOrdinaryAnimation = emittedAnimation;
 	return result;

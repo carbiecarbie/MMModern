@@ -19,7 +19,7 @@ XeenDirection faceForShift(std::uint8_t shift) {
 	case 8:  return XeenDirection::East;
 	case 4:  return XeenDirection::South;
 	case 0:  return XeenDirection::West;
-	default: throw std::runtime_error("deslocamento de parede interior invalido");
+	default: throw std::runtime_error("invalid indoor wall shift");
 	}
 }
 
@@ -28,7 +28,7 @@ const char *terrainPrefix(std::uint8_t wallKind) {
 		"town", "cave", "towr", "cstl", "dung", "scfi"
 	};
 	if (wallKind >= kPrefixes.size())
-		throw std::runtime_error("wallKind interior invalido");
+		throw std::runtime_error("invalid indoor wall kind");
 	return kPrefixes[wallKind];
 }
 
@@ -44,7 +44,7 @@ MazeBits buildMazeBits(const std::array<XeenIndoorWallSample,
 			continue;
 		const auto value = static_cast<std::size_t>(*sample.wallValue);
 		if (value >= 16)
-			throw std::runtime_error("nibble de parede interior invalido");
+			throw std::runtime_error("invalid indoor wall nibble");
 		const int bit = xeen_indoor_scene_tables::kMazeBitIndex[sample.queryIndex][value];
 		if (bit >= 0)
 			bits.active[static_cast<std::size_t>(bit)] = true;
@@ -109,21 +109,47 @@ std::optional<int> frontFrame2(std::uint8_t value) {
 	}
 }
 
+bool objectBlocked(std::size_t query, const std::array<bool, 308> &w) {
+	switch (query) {
+	case 2: return false;
+	case 7: return w[27];
+	case 5: return (w[27] && w[25]) || (w[27] && w[28]) ||
+		(w[23] && w[25]) || (w[23] && w[28]);
+	case 9: return (w[27] && w[26]) || (w[27] && w[29]) ||
+		(w[24] && w[26]) || (w[24] && w[29]);
+	case 14: return w[22] || w[27];
+	case 12: return w[27] || (w[22] && w[23]) || (w[22] && w[20]) ||
+		(w[23] && w[17]) || (w[20] && w[17]);
+	case 16: return w[27] || (w[22] && w[24]) || (w[22] && w[21]) ||
+		(w[24] && w[19]) || (w[21] && w[19]);
+	case 27: return w[27] || w[22] || w[15];
+	case 25: return w[27] || w[22] || (w[15] && w[17]) ||
+		(w[15] && w[12]) || (w[12] && w[7]) || (w[17] && w[7]);
+	case 29: return w[27] || (w[15] && w[19]) || (w[15] && w[14]) ||
+		(w[14] && w[9]) || (w[19] && w[9]);
+	case 23: return w[27] || (w[22] && w[20]) || (w[22] && w[23]) ||
+		(w[20] && w[17]) || (w[23] && w[17]) || w[12] || w[8];
+	case 31: return w[27] || (w[22] && w[21]) || (w[22] && w[24]) ||
+		(w[21] && w[19]) || (w[24] && w[19]) || w[14] || w[10];
+	default: throw std::runtime_error("invalid indoor object query");
+	}
+}
+
 } // namespace
 
 std::array<XeenIndoorWallSample, XeenIndoorScene::kWallSampleCount>
 XeenIndoorScene::sampleWalls(XeenWorld &world, const XeenCamera &camera) const {
 	const XeenMap &map = world.map(camera.mapId);
 	if (map.geometry.isOutdoors())
-		throw std::runtime_error("XeenIndoorScene requer um mapa interior");
+		throw std::runtime_error("XeenIndoorScene requires an indoor map");
 	if (map.identity() != camera.mapId)
-		throw std::runtime_error("camera e mapa possuem IDs diferentes");
+		throw std::runtime_error("camera and map identities differ");
 	if (camera.x < 0 || camera.x >= 16 || camera.y < 0 || camera.y >= 16)
-		throw std::runtime_error("camera fora dos limites do mapa interior");
+		throw std::runtime_error("camera is outside the indoor map");
 
 	const auto directionIndex = static_cast<std::size_t>(camera.direction);
 	if (directionIndex >= xeen_indoor_scene_tables::kScreenPositioningX.size())
-		throw std::runtime_error("direcao de camera invalida");
+		throw std::runtime_error("invalid camera direction");
 
 	std::array<XeenIndoorWallSample, kWallSampleCount> result{};
 	for (std::size_t queryIndex = 0; queryIndex < result.size(); ++queryIndex) {
@@ -147,10 +173,13 @@ XeenIndoorScene::sampleWalls(XeenWorld &world, const XeenCamera &camera) const {
 }
 
 std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
-		XeenWorld &world, const XeenCamera &camera) const {
+		XeenWorld &world, const XeenCamera &camera,
+		const XeenObjectVisualResolver *resolver,
+		std::vector<XeenObjectVisual> *diagnostics) const {
+	if (diagnostics) diagnostics->clear();
 	const XeenMap &map = world.map(camera.mapId);
 	if (map.geometry.isOutdoors())
-		throw std::runtime_error("XeenIndoorScene requer um mapa interior");
+		throw std::runtime_error("XeenIndoorScene requires an indoor map");
 	const std::string terrain = terrainPrefix(map.geometry.wallKind);
 	const std::string sky = terrain + ".sky";
 	const std::string ground = terrain + ".gnd";
@@ -169,18 +198,18 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 			bool flip, std::optional<std::size_t> sampleIndex = std::nullopt) {
 		XeenIndoorDrawCommand command;
 		command.originalOrder = order;
-		command.resourceName = resource;
-		command.frame = static_cast<std::size_t>(frame);
+		command.geometry().resourceName = resource;
+		command.geometry().frame = static_cast<std::size_t>(frame);
 		command.x = x;
 		command.y = y;
 		command.sourceMapId = camera.mapId;
 		command.sourceX = camera.x;
 		command.sourceY = camera.y;
 		command.sourceFace = camera.direction;
-		command.options.scaleIndex = 0;
-		command.options.horizontalFlip = flip;
-		command.options.sceneClipped = true;
-		command.options.bottomClipped = false;
+		command.geometry().options.scaleIndex = 0;
+		command.geometry().options.horizontalFlip = flip;
+		command.geometry().options.sceneClipped = true;
+		command.geometry().options.bottomClipped = false;
 		if (sampleIndex) {
 			const auto &source = samples.at(*sampleIndex);
 			command.sourceMapId = source.sourceMapId;
@@ -343,7 +372,52 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 	addSide(true, 144, 8, 12, false, 1, 0, 24);
 	addSide(true, 146, 200, 12, true, 3, 1, 25);
 
-	std::sort(commands.begin(), commands.end(), [](const auto &left, const auto &right) {
+	if (resolver) {
+		const auto &file = world.objectFile(camera.mapId);
+		if (file.resourcePresent) {
+			const auto direction = static_cast<std::size_t>(camera.direction);
+			for (const auto &placement : xeen_indoor_scene_tables::kObjectPlacements) {
+				if (objectBlocked(placement.query, wo))
+					continue;
+				const int sourceX = camera.x +
+					xeen_indoor_scene_tables::kScreenPositioningX[direction][placement.query];
+				const int sourceY = camera.y +
+					xeen_indoor_scene_tables::kScreenPositioningY[direction][placement.query];
+				if (sourceX < 0 || sourceX >= 16 || sourceY < 0 || sourceY >= 16)
+					continue;
+				for (std::size_t recordIndex = 0;
+						recordIndex < file.entities.objects.size(); ++recordIndex) {
+					const auto &object = file.entities.objects[recordIndex];
+					if (object.x != sourceX || object.y != sourceY || !object.isActive() ||
+							object.resourceId >= 255 ||
+							world.isObjectDisabled({camera.mapId, recordIndex}))
+						continue;
+					auto visual = resolver->resolve(file, recordIndex, camera.direction);
+					if (visual.status == XeenObjectVisualStatus::SupportedStatic) {
+						const std::size_t anchorRow = object.resourceId == 113 ? 1 : 0;
+						XeenIndoorDrawCommand command;
+						command.originalOrder = placement.order;
+						command.x = placement.x[anchorRow];
+						command.y = placement.y[anchorRow];
+						command.sourceMapId = camera.mapId;
+						command.sourceX = sourceX;
+						command.sourceY = sourceY;
+						command.sourceFace = camera.direction;
+						command.queryIndex = static_cast<int>(placement.query);
+						command.content = XeenIndoorObjectDraw{
+							std::move(visual), placement.scale, placement.bottomClipped};
+						commands.push_back(std::move(command));
+					} else if (diagnostics) {
+						diagnostics->push_back(std::move(visual));
+					}
+					// The first eligible original record owns this position.
+					break;
+				}
+			}
+		}
+	}
+
+	std::stable_sort(commands.begin(), commands.end(), [](const auto &left, const auto &right) {
 		return left.originalOrder < right.originalOrder;
 	});
 	return commands;

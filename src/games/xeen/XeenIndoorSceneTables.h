@@ -8,6 +8,31 @@ namespace mmodern::xeen_indoor_scene_tables {
 
 constexpr std::size_t kQueryCount = 44;
 
+struct ObjectPlacement {
+	std::size_t query = 0;
+	int order = 0;
+	std::array<int, 2> x{};
+	std::array<int, 2> y{};
+	int scale = 0;
+	bool bottomClipped = false;
+};
+
+// The second anchor in each row is the resolved Clouds resource-113 exception.
+inline constexpr std::array<ObjectPlacement, 12> kObjectPlacements = {{
+	{ 2, 149, {{  -5, -35}}, {{  2, -65}},  0, true },
+	{ 7, 125, {{  -7, -35}}, {{ 25,  -6}},  7, false},
+	{ 5, 126, {{-112,-142}}, {{ 25,  -6}},  7, false},
+	{ 9, 127, {{  98,  68}}, {{ 25,  -6}},  7, false},
+	{14,  97, {{  -8, -35}}, {{ 50,  36}}, 12, false},
+	{12,  98, {{ -65, -95}}, {{ 50,  36}}, 12, false},
+	{16,  99, {{  49,  19}}, {{ 50,  36}}, 12, false},
+	{27,  55, {{  -9, -35}}, {{ 58,  54}}, 14, false},
+	{25,  56, {{ -34, -62}}, {{ 58,  54}}, 14, false},
+	{29,  57, {{  16, -14}}, {{ 58,  54}}, 14, false},
+	{23,  58, {{ -58, -98}}, {{ 58,  54}}, 14, false},
+	{31,  59, {{  40,  16}}, {{ 58,  54}}, 14, false}
+}};
+
 // Original data: devtools/create_mm/create_xeen/constants.cpp.
 // Only indices 0..43, consumed by InterfaceScene::setMazeBits(), are retained.
 inline constexpr std::array<std::array<std::int8_t, kQueryCount>, 4>

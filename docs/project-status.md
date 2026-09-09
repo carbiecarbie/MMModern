@@ -2,10 +2,10 @@
 
 ## Stable baseline
 
-**Milestone 22 is the latest stable completed milestone.** This file describes
+**Milestone 23 is the latest stable completed milestone.** This file describes
 the latest stable committed capabilities and architecture. Work in progress is
 intentionally excluded; milestone acceptance belongs in the
-[closed plan](milestone-22-plan.md#final-acceptance), and chronology in
+[closed plan](milestone-23-plan.md#final-acceptance), and chronology in
 [project history](project-history.md).
 
 ## Supported scope
@@ -25,9 +25,19 @@ renders in a native 320x200 indexed framebuffer.
 
 Outdoor terrain and indoor geometry support navigation, collision and bounded
 teleports. Supported static and ordinary animated outdoor Clouds objects share
-terrain ordering, direction, scale, clipping and occlusion. Sprites come from `XEEN.CC`; the
-validated World of Xeen layout supplies Clouds visual metadata through
-`DARK.CC/clouds.dat`. This does not establish Darkside gameplay.
+terrain ordering, direction, scale, clipping and occlusion. Static ordinary
+indoor objects use twelve bounded placements with original directional
+appearances, anchors and scale masks. Exact wall-predicate admission and one
+wall/object order stream provide indoor occlusion through the existing checked
+object sprite path; the [M23 contract](milestone-23-plan.md#projection-and-occlusion-contract)
+owns the exact tables and predicates. Geometry and objects remain one indoor
+composition, not separate rendering or state systems.
+
+Sprites come from `XEEN.CC`; the validated World of Xeen layout supplies Clouds
+visual metadata through `DARK.CC/clouds.dat`. This does not establish Darkside
+gameplay. Ordinary objects retain original record identities and consult
+session-disabled overlays before visual resolution. Indoor commands, placements,
+wall samples and raster results are derived, cache-reconstructible values.
 
 Ordinary outdoor objects animate while stationary through the existing
 Application/Flow/SDL idle path, with a 100 ms cadence independent of the NPC
@@ -48,6 +58,11 @@ this capability.
 - Clouds NPC mode 1 uses original FAC portraits, bounded speech/rest animation,
   positioned titles and paginated dialogue. Space/Enter/Escape advances or
   acknowledges the final page. Reward warning/receipt pages use the same keys.
+- At the bounded Nightshadow checkpoint, the original static gravestone at
+  Clouds map 29 `(4,6)` West is visible and presents its original bottom-window
+  clue through the existing manual-event, Flow and Presenter path. Acknowledgment
+  blocks gameplay as usual; the interaction is repeatable and creates no durable
+  mutation. M23 introduced no new event system or presentation mode.
 
 ### Party, items, quest state and rewards
 
@@ -137,7 +152,8 @@ and ID-zero metadata round-trip; only explicit category compaction clears empty
 metadata.
 
 **Transient or reconstructed:** resource payloads, loader metadata/diagnostics,
-derived rules/frames/caches, interpreter working state and call stacks, temporary
+derived rules/frames/caches, indoor placement/wall/command/raster values,
+interpreter working state and call stacks, temporary
 character/object selection, reward queue/preference/finalization, pending responses,
 generations, dialogue/receipt pages, ordinary outdoor phase/deadline, portrait
 timing and retained layers. Fresh sessions load original initial state;
@@ -146,6 +162,11 @@ owners and presentation from saved values plus compatible resources.
 Fresh and restored gameplay start ordinary animation at phase zero with a new
 100 ms deadline. F9 preflight uses independent phase zero; saving and inventory
 inspection do not advance or rearm live animation. The save format is unchanged.
+
+M23 introduced no persistent category and no save-version change. Existing
+disabled object/event identities are sufficient to reconstruct indoor visibility
+after save/restore into fresh owners. Visual placement, occlusion, commands and
+pixels are never serialized.
 
 **Format and compatibility:** the writer emits MMModern Clouds binary **v2**;
 the reader accepts **v1 and v2**. `.mmsave` uses bounded little-endian encoding,
@@ -195,10 +216,17 @@ or of a generally playable region.
 | Bone Whistle, map 20 `(5,14)` North | WhoWill/acknowledgment grants one Whistle and removes the bones. Cancellation leaves collection state unchanged and permits retry; completed collection cannot repeat. |
 | Myra, map 23 `(9,11)` West | No-Root request sets Q2 after final acknowledgment, including Escape. Root-owned return consumes one Root, clears Q2 and produces five `{10,37,1,0}` rewards subject to delivery capacity/eligibility; receipt acknowledgment completes nine instructions. Further Roots allow returns; exhaustion restores request behavior. |
 | Air / Corner and Snake Oil | Original sign and reduced door-label presentation; Air / Corner also exercises static object/text layering. |
+| Nightshadow, map 29 `(4,6)` West | Original RIP gravestone rendered as a static ordinary indoor object with its original bottom-window clue and acknowledgment. The interaction is repeatable and has no durable state effect. |
 
 Myra's ordinary tent-flag cycle runs without input and continues underneath
 dialogue, independently of the portrait. The [M22 checkpoint contract](milestone-22-plan.md#certified-original-data-checkpoint)
 owns its directional frame oracle and acceptance boundary.
+
+Nightshadow validation covers the selected gravestone at four centered distances,
+partial wall occlusion and a fully blocked control. The
+[M23 checkpoint contract](milestone-23-plan.md#selected-original-checkpoint) owns
+the exact bounded views and interaction boundary; it does not certify broader
+Nightshadow traversal or gameplay.
 
 Separate-process resume covers the collections, Myra request, cumulative multi-map
 progress and completed exchange, with cache reconstruction and fresh controls.
@@ -213,11 +241,14 @@ are owned by the [M21 restart contract](milestone-21-plan.md#21d-production-rest
 - General inventory/equipment use, item effects, shops, random treasure, generic
   TakeOrGive and NPC modes/services beyond Clouds mode 1.
 - Combat, monsters, normal-route/playable-region certification, Swimming /
-  Walk on Water and other unsupported movement capabilities.
-- Scripted object animation/appearance changes, terrain animation, indoor objects
-  (including their animation), and wall items. Outdoor placements remain bounded;
-  explicit ordinary phases do not imply support for scripted sequences.
-  Dark indoor maps are illuminated for diagnostics.
+  Walk on Water and other unsupported movement capabilities. General indoor
+  traversal, connected-map behavior and playable-region certification remain
+  outside the accepted checkpoints.
+- Scripted object animation/appearance changes, terrain animation, ordinary
+  indoor animation and wall items. Static ordinary indoor objects are supported
+  only within M23's bounded placements and wall predicates; this does not cover
+  doors, locks, grates, traps or scripted movement. Dark indoor maps are
+  illuminated for diagnostics; lighting gameplay remains unsupported.
 - A general game clock/animation system and full original UI fidelity; existing
   parchment/choice/acknowledgment styling limitations remain nonblocking.
 - Darkside gameplay; side-aware identity and Clouds metadata access do not imply it.
@@ -228,7 +259,7 @@ Ordinary CTest does not depend on commercial data.
 
 ## Next direction
 
-[M23 indoor objects and a first visible indoor interaction](roadmap.md#m23---indoor-objects-and-a-first-visible-indoor-interaction)
-is the next planning candidate, with its existing provisional scope and checkpoint
-selection requirements. The roadmap retains the post-M21 review cadence;
-M22 completion does not authorize M23 implementation.
+No next milestone is currently promoted. The next planning activity is the
+[post-M23 roadmap and horizon reassessment](roadmap.md#current-planning-state),
+which will evaluate the new stable architecture and capabilities before selecting
+a concrete successor. This planning state does not authorize implementation.
