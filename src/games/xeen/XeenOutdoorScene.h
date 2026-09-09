@@ -6,6 +6,8 @@
 #include "games/xeen/XeenObjectVisual.h"
 
 #include <cstddef>
+#include <cstdint>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -60,7 +62,8 @@ public:
 	std::vector<XeenOutdoorDrawCommand> build(XeenWorld &world,
 		const XeenCamera &camera = kAreaA1Camera,
 		const XeenObjectVisualResolver *resolver = nullptr,
-		std::vector<XeenObjectVisual> *diagnostics = nullptr) const;
+		std::vector<XeenObjectVisual> *diagnostics = nullptr,
+		std::optional<std::uint64_t> ordinaryPhase = std::nullopt) const;
 };
 
 } // namespace mmodern

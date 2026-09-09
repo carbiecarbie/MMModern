@@ -37,7 +37,8 @@ std::optional<std::vector<std::uint8_t>> XeenAssetSource::readCloudsVisualMetada
 
 void XeenAssetSource::drawObjectVisual(const XeenObjectVisual &visual, int x, int y,
 		const XeenSpriteDrawOptions &options) {
-	if (visual.status != XeenObjectVisualStatus::SupportedStatic ||
+	if ((visual.status != XeenObjectVisualStatus::SupportedStatic &&
+		visual.status != XeenObjectVisualStatus::SupportedAnimated) ||
 		!visual.identity.mapId || visual.identity.mapId.side != XeenSide::Clouds)
 		throw std::runtime_error("cannot draw unsupported object visual: " + visual.diagnostic);
 	auto resolvedOptions = options;

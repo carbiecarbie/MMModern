@@ -6,6 +6,7 @@
 #include <map>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace sprite_test {
@@ -48,6 +49,19 @@ inline Bytes sprite(const Bytes &first, const Bytes &second = {}) {
 inline Bytes cell(unsigned x,unsigned width,unsigned y,unsigned height,const Bytes &rows) {
 	Bytes b; word(b,x);word(b,width);word(b,y);word(b,height);
 	b.insert(b.end(),rows.begin(),rows.end());return b;
+}
+// Each frame owns distinct cell streams; suitable for motion and selected-stream safety tests.
+inline Bytes multiFrameSprite(const std::vector<std::pair<Bytes, Bytes>> &frames) {
+	Bytes b; word(b,frames.size());
+	std::size_t offset=2+frames.size()*4;
+	for(const auto &[first,second]:frames) {
+		word(b,offset);word(b,second.empty()?0:offset+first.size());
+		offset+=first.size()+second.size();
+	}
+	for(const auto &[first,second]:frames) {
+		b.insert(b.end(),first.begin(),first.end());b.insert(b.end(),second.begin(),second.end());
+	}
+	return b;
 }
 } // namespace sprite_test
 #endif

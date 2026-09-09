@@ -112,11 +112,47 @@ int main(int argc,char **argv) {
 				check(output.pixels!=CellProbe(bytes,v.frame,2).pixels(v.frame,v.horizontalFlip),"first cell did not contribute");
 			}
 			assets.drawObjectVisual(v,0,0);check(assets.snapshot().pixels==output.pixels,"cached draw is not deterministic");
+			for(std::uint64_t phase:{0,1,99}) {
+				const auto explicitVisual=resolver.resolve(objects,c.index,static_cast<XeenDirection>(camera),phase);
+				check(explicitVisual.status==v.status && explicitVisual.frame==v.frame && explicitVisual.horizontalFlip==v.horizontalFlip && explicitVisual.identity==v.identity,"real static phase invariance");
+				assets.loadRawFramebuffer("back.raw");assets.drawObjectVisual(v,0,0);const auto staticControl=assets.snapshot();
+				assets.loadRawFramebuffer("back.raw");assets.drawObjectVisual(explicitVisual,0,0);
+				check(assets.snapshot().pixels==staticControl.pixels,"real static pixels changed under phase");
+			}
 			saveBmp(output,std::filesystem::path(argv[2])/(std::string(c.name)+"-"+directions[camera]+".bmp"));
 			std::cout<<c.name<<' '<<directions[camera]<<" sprite="<<v.spriteName<<" frame="<<v.frame<<" flip="<<v.horizontalFlip<<" bytes="<<bytes.size()<<" frames="<<word(bytes,0)<<" cells="<<(second?2:1)<<" hash="<<hash(output)<<" headers:";
 			for(auto offset:{first,second}) if(offset) std::cout<<" ["<<word(bytes,offset)<<','<<word(bytes,offset+2)<<','<<word(bytes,offset+4)<<','<<word(bytes,offset+6)<<']';
 			std::cout<<'\n';
 		}
-		std::cout<<"All three real isolated-object checkpoints passed in four directions\n";return 0;
+		{
+			XeenAssetSource assets(*installation,320,200);
+			const auto objects=XeenMapLoader().loadObjects(assets,23);
+			const auto &myra=objects.entities.objects.at(1);
+			check(objects.resourceName=="maze0023.mob" && myra.x==9 && myra.y==11 && myra.direction==3 && myra.resourceId==9 && myra.tableIndex==1,"Myra original record mismatch");
+			const auto metadata=XeenCloudsVisualMetadata::parse(*assets.readCloudsVisualMetadataFromDarkArchive());
+			const auto &entry=metadata.at(9);
+			check(entry.initialFrames==std::array<std::uint8_t,4>{0,4,4,4} && entry.frameLimits==std::array<std::uint8_t,4>{3,7,7,7} && entry.flipFlags==std::array<std::uint8_t,4>{0,0,1,0},"Myra original metadata mismatch");
+			const auto bytes=assets.readArchiveResource("009.obj");check(word(bytes,0)==8,"Myra actual directory count");
+			const auto resolver=XeenObjectVisualResolver::load(assets);
+			for(unsigned camera=0;camera<4;++camera) {
+				const auto direction=static_cast<XeenDirection>(camera);
+				const auto omitted=resolver.resolve(objects,1,direction);
+				check(omitted.status==XeenObjectVisualStatus::UnsupportedAnimation && !omitted.diagnostic.empty(),"Myra omitted phase must remain unsupported");
+				std::vector<IndexedFrame> renders;
+				for(std::uint64_t phase:{0,1,2,3}) {
+					const auto v=resolver.resolve(objects,1,direction,phase);
+					check(v.identity==XeenObjectIdentity{23,1} && v.spriteName=="009.obj" && v.status==XeenObjectVisualStatus::SupportedAnimated && v.frame==(camera==3?0:4)+phase%3 && v.horizontalFlip==(camera==1),"Myra directional explicit frame");
+					assets.loadPalette("mm4.pal");assets.loadRawFramebuffer("back.raw");assets.drawObjectVisual(v,0,0);
+					renders.push_back(assets.snapshot());
+					saveBmp(renders.back(),std::filesystem::path(argv[2])/(std::string("myra-")+directions[camera]+"-phase-"+std::to_string(phase)+".bmp"));
+				}
+				check(renders[0].pixels==renders[3].pixels,"Myra isolated wrap");
+				check(renders[0].pixels!=renders[1].pixels || renders[1].pixels!=renders[2].pixels,"Myra isolated complete-cycle motion");
+				assets.loadRawFramebuffer("back.raw");assets.drawObjectVisual(resolver.resolve(objects,1,direction,1),0,0);
+				check(assets.snapshot().pixels==renders[1].pixels,"Myra repeated phase underlay");
+			}
+			std::cout<<"Myra {Clouds,23,1}, (9,11), West, 009.obj: eight directory frames; initial=[0,4,4,4], limit=[3,7,7,7], flip=[0,0,1,0]; West frames=0/1/2/0; four directional cycles passed\n";
+		}
+		std::cout<<"All three real static controls and explicit-phase Myra passed\n";return 0;
 	} catch(const std::exception &e) {std::cerr<<e.what()<<'\n';return 1;}
 }

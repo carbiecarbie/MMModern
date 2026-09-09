@@ -3,6 +3,8 @@
 
 #include "core/IndexedFrame.h"
 #include "games/xeen/XeenOutdoorScene.h"
+#include <cstdint>
+#include <optional>
 
 namespace mmodern {
 
@@ -19,7 +21,9 @@ public:
 		const XeenPartyState &partyState,
 		const XeenCamera &camera,
 		const XeenCharacterRulesContext &context,
-		std::vector<XeenObjectVisual> *objectDiagnostics = nullptr) const;
+		std::vector<XeenObjectVisual> *objectDiagnostics = nullptr,
+		std::optional<std::uint64_t> ordinaryPhase = std::nullopt,
+		bool *containsOrdinaryAnimation = nullptr) const;
 	// Execute the single, already ordered outdoor command stream.
 	void drawOutdoorCommands(XeenAssetSource &assets,
 		const std::vector<XeenOutdoorDrawCommand> &commands) const;

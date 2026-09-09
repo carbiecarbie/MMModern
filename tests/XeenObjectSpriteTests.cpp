@@ -53,6 +53,9 @@ int main() {
 		std::map<std::string,Bytes> files={{"one.obj",one},{"two.obj",two},{"solid.obj",solid},
 			{"commands.obj",commands},{"literal.obj",longLiteral},{"base.raw",Bytes(320*200,99)},{"clouds.dat",Bytes(12,7)}};
 		for(std::size_t i=0;i<malformed.size();++i) files["bad"+std::to_string(i)+".obj"]=malformed[i];
+		files["110.0bj"]=multiFrameSprite({{first,{}},{first,second}});
+		// Valid directory and headers; only frame 1's stream is malformed.
+		files["111.0bj"]=multiFrameSprite({{first,{}},{cell(0,8,0,1,{2,0,1}),{}}});
 		archive(directory/"xeen.cc",files);
 		GameInstallation installation;installation.xeenArchive=directory/"xeen.cc";
 		XeenObjectFile objects;objects.mapId=23;objects.resourcePresent=true;objects.entities.objects.resize(1);
@@ -99,6 +102,47 @@ int main() {
 			options={};options.scaleIndex=16;rejects([&]{draw("one.obj",0,0,options);});
 			visual.status=XeenObjectVisualStatus::UnsupportedAnimation;rejects([&]{draw("one.obj");});
 			visual=unavailable;rejects([&]{draw("one.obj");});
+		}
+		{
+			Bytes metadata(1452);
+			for(int id:{110,111,112}) for(int d=0;d<4;++d) metadata[id*12+8+d]=3;
+			metadata[110*12+5]=255;
+			const XeenObjectVisualResolver resolver(XeenCloudsVisualMetadata::parse(metadata));
+			XeenAssetSource assets(installation,320,200);
+			auto resolved=[&](int id,std::uint64_t phase,XeenDirection direction=XeenDirection::North) {
+				objects.entities.objects[0].resourceId=id;
+				const auto v=resolver.resolve(objects,0,direction,phase);
+				check(v.status==XeenObjectVisualStatus::SupportedAnimated,"animated draw must come from resolver");return v;
+			};
+			auto rejected=[&](const XeenObjectVisual &v) {
+				const auto before=assets.snapshot();const auto loads=assets.spriteLoadCount();
+				rejects([&]{assets.drawObjectVisual(v,0,0);});
+				check(assets.snapshot().pixels==before.pixels && assets.spriteLoadCount()==loads,"rejected draw mutated pixels/cache");
+			};
+			assets.loadRawFramebuffer("base.raw");
+			rejected(resolved(112,1));rejected(resolved(110,2));rejected(resolved(111,1));
+			check(assets.cachedSpriteCount()==0,"cold rejection populated cache");
+			assets.drawObjectVisual(resolved(111,0),0,0);
+			check(assets.cachedSpriteCount()==1,"valid first stream failed to warm cache");
+			rejected(resolved(111,1));
+			assets.drawObjectVisual(resolved(110,0),0,0);const auto loads=assets.spriteLoadCount();
+			assets.loadRawFramebuffer("base.raw");assets.drawObjectVisual(resolved(110,1),0,0);
+			const auto later=assets.snapshot();
+			check(later.pixels[1]==12 && later.pixels[2]==13 && later.pixels[3]==14,"later two-cell frame not selected");
+			assets.loadRawFramebuffer("base.raw");assets.drawObjectVisual(resolved(110,0),0,0);
+			check(assets.snapshot().pixels[1]==7 && assets.snapshot().pixels!=later.pixels && assets.spriteLoadCount()==loads,"cache retained selected frame");
+			rejected(resolved(110,2));
+			// Compare later-frame options against the existing single-frame two-cell control.
+			for(int scale:{0,8}) for(const auto anchor: {std::pair<int,int>{0,0},{10,138},{220,138},{10,10}}) {
+				XeenSpriteDrawOptions options;options.scaleIndex=scale;options.sceneClipped=true;options.bottomClipped=true;
+				assets.loadRawFramebuffer("base.raw");assets.drawObjectVisual(resolved(110,1,XeenDirection::East),anchor.first,anchor.second,options);
+				const auto actual=assets.snapshot();
+				XeenObjectVisual control;control.identity={23,0};control.status=XeenObjectVisualStatus::SupportedStatic;control.spriteName="two.obj";control.horizontalFlip=true;
+				assets.loadRawFramebuffer("base.raw");assets.drawObjectVisual(control,anchor.first,anchor.second,options);
+				check(actual.pixels==assets.snapshot().pixels,"later frame flip/scale/clipping differs");
+			}
+			objects.entities.objects[0].resourceId=111;
+			check(XeenObjectVisualResolver::load(assets).resolve(objects,0,XeenDirection::North,0).status==XeenObjectVisualStatus::MetadataUnavailable,"phase fabricated missing metadata");
 		}
 		installation.darkArchive=directory/"dark.cc";
 		archive(installation.darkArchive,{{"other.dat",{1}}});

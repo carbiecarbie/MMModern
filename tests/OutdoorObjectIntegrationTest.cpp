@@ -84,6 +84,12 @@ int main(int argc,char **argv){try{
 		const auto commands=XeenOutdoorScene().build(world,c.camera,&resolver,&diagnostics);
 		const auto id=XeenObjectIdentity{c.camera.mapId,c.record};const auto &cmd=find(commands,id);
 		const auto &visual=cmd.object()->visual;const auto options=cmd.drawOptions();
+		for(std::uint64_t phase:{0,1,99}) {
+			const auto phased=XeenOutdoorScene().build(world,c.camera,&resolver,nullptr,phase);
+			const auto &other=find(phased,id);const auto &v=other.object()->visual;
+			check(v.status==visual.status && v.frame==visual.frame && v.horizontalFlip==visual.horizontalFlip && v.spriteName==visual.spriteName &&
+				other.x==cmd.x && other.y==cmd.y && other.originalOrder==cmd.originalOrder && other.sampleIndex==cmd.sampleIndex && other.drawOptions().scaleIndex==options.scaleIndex,"real static command changed with phase");
+		}
 		check(cmd.sampleIndex==c.sample && cmd.originalOrder==c.order && cmd.x==c.x && cmd.y==c.y &&
 			options.scaleIndex==c.scale && options.sceneClipped && options.bottomClipped==(c.sample==2) && !options.enlarge &&
 			visual.frame==static_cast<std::size_t>(c.frame) && visual.horizontalFlip==c.flip,"real command differs from approved checkpoint");
@@ -129,5 +135,71 @@ int main(int argc,char **argv){try{
 	}
 	std::cout<<"Partially terrain-occluded checkpoint views="<<occludedCases<<'\n';
 	check(occludedCases>0 && visibleCases>=7,"missing visible/partially occluded real coverage");
+	{
+		const XeenCamera camera{23,9,11,XeenDirection::West};const XeenObjectIdentity id{23,1};
+		int maps=0,mobs=0;
+		XeenWorld world([&](auto map){++maps;return loader.loadGeometryMap(assets,map);},[&](auto map){++mobs;return loader.loadObjects(assets,map);});
+		const auto &file=world.objectFile(23);const auto &record=file.entities.objects.at(1);
+		check(file.resourceName=="maze0023.mob" && record.x==9 && record.y==11 && record.direction==3 && record.resourceId==9,"Myra world-loader record");
+		auto isMyra=[&](const auto &c){return c.object() && c.object()->visual.identity==id;};
+		auto hasAnimation=[](const auto &commands){return std::any_of(commands.begin(),commands.end(),[](const auto &c){return c.object() && c.object()->visual.status==XeenObjectVisualStatus::SupportedAnimated;});};
+		std::vector<XeenObjectVisual> diagnostics;
+		const auto omittedCommands=XeenOutdoorScene().build(world,camera,&resolver,&diagnostics);
+		check(std::none_of(omittedCommands.begin(),omittedCommands.end(),isMyra) && std::any_of(diagnostics.begin(),diagnostics.end(),[&](const auto &v){return v.identity==id && v.status==XeenObjectVisualStatus::UnsupportedAnimation;}),"Myra omitted command/diagnostic");
+		bool presence=true;
+		const auto omitted=composer.compose(assets,world,party,camera,context,nullptr,std::nullopt,&presence);
+		check(!presence,"omitted real presence");save(omitted,output/"myra-omitted.bmp");
+		std::vector<IndexedFrame> full,isolated;
+		std::vector<XeenOutdoorDrawCommand> fixed;
+		for(std::uint64_t phase:{0,1,2,3}) {
+			const auto commands=XeenOutdoorScene().build(world,camera,&resolver,nullptr,phase);
+			const auto &target=find(commands,id);
+			check(target.object()->visual.status==XeenObjectVisualStatus::SupportedAnimated && target.object()->visual.frame==phase%3 && !target.object()->visual.horizontalFlip && target.object()->visual.spriteName=="009.obj" && target.sampleIndex==2 && target.originalOrder==111 && target.x==-5 && target.y==2,"Myra real command/frame sequence");
+			presence=false;full.push_back(composer.compose(assets,world,party,camera,context,nullptr,phase,&presence));
+			check(presence==hasAnimation(commands) && presence,"real emitted presence mismatch");
+			save(full.back(),output/("myra-phase-"+std::to_string(phase)+".bmp"));
+			if(phase==0)fixed=commands;
+			// Hold surrounding commands at phase 0; substitute only the actual target command.
+			CloudsUiComposer().loadBackground(assets);
+			IndexedFrame before,after;
+			for(const auto &draw:fixed) {
+				if(isMyra(draw)) {before=assets.snapshot();composer.drawOutdoorCommands(assets,{target});after=assets.snapshot();}
+				else composer.drawOutdoorCommands(assets,{draw});
+			}
+			isolated.push_back(assets.snapshot());
+			std::size_t targetPixels=0;
+			for(std::size_t p=0;p<before.pixels.size();++p) if(before.pixels[p]!=after.pixels[p] && isolated.back().pixels[p]==after.pixels[p])++targetPixels;
+			check(targetPixels>0,"Myra trace contributes no surviving pixels");
+			std::cout<<"Myra phase="<<phase<<" logical frame="<<target.object()->visual.frame<<" surviving target pixels="<<targetPixels<<'\n';
+			save(isolated.back(),output/("myra-fixed-surroundings-"+std::to_string(phase)+".bmp"));
+		}
+		std::size_t cycleDifferences=0,visibleDifferences=0;
+		for(std::size_t phase=0;phase<3;++phase) {
+			std::size_t changed=0;
+			for(std::size_t p=0;p<isolated[phase].pixels.size();++p) if(isolated[phase].pixels[p]!=isolated[phase+1].pixels[p]) {
+				++changed;check(p%320>=8 && p%320<223 && p/320>=8 && p/320<140,"Myra motion escaped clipping");
+				if(full[phase].pixels[p]==isolated[phase].pixels[p] && full[phase+1].pixels[p]==isolated[phase+1].pixels[p])++visibleDifferences;
+			}
+			cycleDifferences+=changed;std::cout<<"Myra attributed transition "<<phase<<"->"<<phase+1<<" pixels="<<changed<<'\n';
+		}
+		check(cycleDifferences>0 && visibleDifferences>0 && isolated[0].pixels==isolated[3].pixels,"Myra attributable complete-cycle motion/wrap");
+		for(std::uint64_t phase:{1,0,2,1})check(composer.compose(assets,world,party,camera,context,nullptr,phase).pixels==full[phase].pixels,"real repeated/reordered global phase");
+		const auto oldMaps=maps,oldMobs=mobs;const auto oldLoads=assets.spriteLoadCount();
+		world.discardMapCache();assets.discardSpriteCache();
+		check(composer.compose(assets,world,party,camera,context,nullptr,1).pixels==full[1].pixels && maps>oldMaps && mobs>oldMobs && assets.spriteLoadCount()>oldLoads,"real same-phase cache reconstruction");
+		// Controlled session removal only; no claim about Myra's original quest script.
+		world.disableObject(id);
+		for(std::uint64_t phase:{0,1,2,7}) {
+			const auto commands=XeenOutdoorScene().build(world,camera,&resolver,nullptr,phase);
+			check(std::none_of(commands.begin(),commands.end(),isMyra),"controlled Myra removal retained command");
+			presence=true;const auto removed=composer.compose(assets,world,party,camera,context,nullptr,phase,&presence);
+			check(presence==hasAnimation(commands),"removed scene presence disagrees with other commands");
+			const auto priorMobs=mobs;world.discardMapCache();assets.discardSpriteCache();
+			check(composer.compose(assets,world,party,camera,context,nullptr,phase).pixels==removed.pixels && mobs>priorMobs,"controlled removal reload output");
+			const auto rebuilt=XeenOutdoorScene().build(world,camera,&resolver,nullptr,phase);
+			check(std::none_of(rebuilt.begin(),rebuilt.end(),isMyra),"controlled removal revived Myra");
+		}
+		std::cout<<"Myra full composition, attributed motion, deterministic cache rebuild and controlled session removal passed\n";
+	}
 	std::cout<<"Outdoor real checkpoints and explicit disabled reconstruction passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

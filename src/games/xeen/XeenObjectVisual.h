@@ -5,12 +5,13 @@
 #include "games/xeen/XeenMap.h"
 #include "games/xeen/XeenRecordIdentity.h"
 #include <optional>
+#include <cstdint>
 #include <utility>
 
 namespace mmodern {
 class XeenAssetSource;
 
-enum class XeenObjectVisualStatus { SupportedStatic, UnsupportedAnimation, MetadataUnavailable, Invalid, UnsupportedSide };
+enum class XeenObjectVisualStatus { SupportedStatic, UnsupportedAnimation, MetadataUnavailable, Invalid, UnsupportedSide, SupportedAnimated };
 
 struct XeenObjectVisual {
 	XeenObjectIdentity identity;
@@ -29,7 +30,8 @@ public:
 	explicit XeenObjectVisualResolver(XeenCloudsVisualMetadata metadata) : _metadata(std::move(metadata)) {}
 	static XeenObjectVisualResolver load(XeenAssetSource &assets);
 	XeenObjectVisual resolve(const XeenObjectFile &objects, std::size_t recordIndex,
-		XeenDirection cameraDirection) const;
+		XeenDirection cameraDirection,
+		std::optional<std::uint64_t> ordinaryPhase = std::nullopt) const;
 private:
 	XeenObjectVisualResolver() = default;
 	std::optional<XeenCloudsVisualMetadata> _metadata;

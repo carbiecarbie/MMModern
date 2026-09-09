@@ -55,7 +55,8 @@ XeenSpriteDrawOptions optionsFor(const Placement &placement) {
 
 std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::build(
 		XeenWorld &world, const XeenCamera &camera,
-		const XeenObjectVisualResolver *resolver, std::vector<XeenObjectVisual> *diagnostics) const {
+		const XeenObjectVisualResolver *resolver, std::vector<XeenObjectVisual> *diagnostics,
+		std::optional<std::uint64_t> ordinaryPhase) const {
 	if (diagnostics) diagnostics->clear();
 	const XeenMap &map = world.map(camera.mapId);
 	if (!map.geometry.isOutdoors())
@@ -139,8 +140,9 @@ std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::build(
 				const auto &object = file.entities.objects[i];
 				if (object.x != rawX || object.y != rawY || !object.isActive() ||
 						object.resourceId >= 255 || world.isObjectDisabled({camera.mapId, i})) continue;
-				auto visual = resolver->resolve(file, i, camera.direction);
-				if (visual.status == XeenObjectVisualStatus::SupportedStatic) {
+				auto visual = resolver->resolve(file, i, camera.direction, ordinaryPhase);
+				if (visual.status == XeenObjectVisualStatus::SupportedStatic ||
+						visual.status == XeenObjectVisualStatus::SupportedAnimated) {
 					const unsigned row = object.resourceId == 113 ? 1 : 0;
 					XeenOutdoorDrawCommand command;
 					command.originalOrder = placement.order;

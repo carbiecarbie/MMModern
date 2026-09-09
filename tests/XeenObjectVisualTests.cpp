@@ -1,5 +1,6 @@
 #include "games/xeen/XeenObjectVisual.h"
 #include <iostream>
+#include <limits>
 #include <stdexcept>
 
 using namespace mmodern;
@@ -62,6 +63,32 @@ int main() {
 			const auto v=r.resolve(file,11,XeenDirection::North);
 			check((v.status==XeenObjectVisualStatus::SupportedStatic)==(initial+1>=limit), "static classification");
 			if(initial+1<limit) check(!v.diagnostic.empty(), "animation diagnostic missing");
+			const auto originalBytes=bytes;
+			for(const std::uint64_t phase : {std::uint64_t{0},std::uint64_t{1},std::uint64_t{2},std::uint64_t{255},std::numeric_limits<std::uint64_t>::max(),std::uint64_t{0}}) {
+				const auto a=r.resolve(file,11,XeenDirection::North,phase);
+				const bool animated=limit>initial && limit-initial>1;
+				check(a.status==(animated?XeenObjectVisualStatus::SupportedAnimated:XeenObjectVisualStatus::SupportedStatic),"explicit phase classification");
+				check(a.frame==(animated?initial+phase%(limit-initial):initial),"explicit frame arithmetic");
+				check(a.identity==v.identity && a.spriteName==v.spriteName && a.horizontalFlip==v.horizontalFlip && a.diagnostic.empty(),"explicit phase changed identity/flip");
+			}
+			check(bytes==originalBytes && file.entities.objects[11].resourceId==117 && file.entities.objects[11].direction==0,"resolution mutated input");
+			check(r.resolve(file,11,XeenDirection::North).status==v.status,"explicit calls changed omitted mode");
+		}
+		// Mixed direction ranges: nonzero initial, exclusive limit and high bytes.
+		const unsigned starts[]={4,255,253,8}, limits[]={7,0,255,9};
+		for(unsigned d=0;d<4;++d) {bytes[117*12+d]=starts[d];bytes[117*12+8+d]=limits[d];bytes[117*12+4+d]=flips[d];}
+		const auto metadata=XeenCloudsVisualMetadata::parse(bytes);
+		const XeenObjectVisualResolver mixed(metadata);
+		for(unsigned object=0;object<4;++object) for(unsigned camera=0;camera<4;++camera) {
+			file.entities.objects[11].direction=object;
+			const auto d=relative[object][camera];
+			for(std::uint64_t phase:{0,1,2,3,4,0}) {
+				const auto v=mixed.resolve(file,11,static_cast<XeenDirection>(camera),phase);
+				const unsigned sequence[4][5]={{4,5,6,4,5},{255,255,255,255,255},{253,254,253,254,253},{8,8,8,8,8}};
+				check(v.frame==sequence[d][phase] && v.horizontalFlip==(flips[d]!=0),"mixed directional cycle");
+				check(v.status==((d==0 || d==2)?XeenObjectVisualStatus::SupportedAnimated:XeenObjectVisualStatus::SupportedStatic),"mixed directional status");
+				check(metadata.at(117).initialFrames[d]==starts[d] && metadata.at(117).frameLimits[d]==limits[d],"metadata mutated");
+			}
 		}
 		check(resolver.resolve(file,14,XeenDirection::North).status==XeenObjectVisualStatus::Invalid,"record bound");
 		file.entities.objects[11].direction=4;
@@ -72,6 +99,14 @@ int main() {
 		check(resolver.resolve(file,11,XeenDirection::North).status==XeenObjectVisualStatus::Invalid,"metadata index bound");
 		file.mapId={XeenSide::Darkside,23};
 		check(resolver.resolve(file,11,XeenDirection::North).status==XeenObjectVisualStatus::UnsupportedSide,"Darkside accepted");
+		check(resolver.resolve(file,11,XeenDirection::North,0).status==XeenObjectVisualStatus::UnsupportedSide,"explicit phase accepted Darkside");
+		file.mapId=23;
+		check(resolver.resolve(file,11,XeenDirection::North,0).status==XeenObjectVisualStatus::Invalid,"explicit phase accepted missing metadata index");
+		file.entities.objects[11].resourceId=117;file.entities.objects[11].direction=4;
+		check(resolver.resolve(file,11,XeenDirection::North,0).status==XeenObjectVisualStatus::Invalid,"explicit phase accepted bad direction");
+		file.entities.objects[11].direction=0;
+		check(resolver.resolve(file,11,static_cast<XeenDirection>(4),0).status==XeenObjectVisualStatus::Invalid,"explicit phase accepted bad camera");
+		check(resolver.resolve(file,14,XeenDirection::North,0).status==XeenObjectVisualStatus::Invalid,"explicit phase accepted bad record");
 		std::cout << "Object metadata, naming, direction and static classification passed\n";
 		return 0;
 	} catch (const std::exception &e) { std::cerr << e.what() << '\n'; return 1; }

@@ -1,8 +1,8 @@
 # Milestone 22 - Bounded ordinary outdoor object animation
 
-**Proposed specification. No M22 implementation is authorized.** Independent
-review of this plan and explicit authorization precede implementation of each
-stage. This document specifies intended behavior, not delivered capabilities.
+This specification separates pure explicit-phase rendering (22A) from live
+runtime advancement (22B). Independent review and explicit authorization gate
+each stage; the stable committed capabilities remain in [project status](project-status.md).
 
 ## Baseline and post-M21 horizon review
 
@@ -301,7 +301,8 @@ contract):
   phase. Omission keeps the existing static-only mode; supplying zero means an
   explicitly reconstructed ordinary scene, not absence of animation support.
 - Resolver exposes `SupportedAnimated` as well as `SupportedStatic`, plus the
-  selected frame, flip and cycle length. `UnsupportedAnimation` remains meaningful
+  selected frame and flip. Cycle length is a local derived value, not a public
+  visual field. `UnsupportedAnimation` remains meaningful
   for callers that have supplied no ordinary phase. Neither resolver nor builder
   advances anything. Repeated inputs produce identical outputs.
 - Preserve `CloudsMapComposer::compose`'s frame return and existing diagnostics;
@@ -319,7 +320,7 @@ contract):
   do not move it into the presenter before Flow retains it. Portrait state,
   randomness and 150 ms deadlines stay in the presenter.
 
-Preflight composes with an independent explicit zero phase and ignores the
+In 22B, preflight composes with an independent explicit zero phase and ignores the
 animation-presence result. It must not consume or reset the live Flow clock/phase.
 M22 changes no fields in `XeenWorld`, party, save snapshot or save codec, and does
 not increment a save version. Cache counters never determine animation resets.
@@ -389,8 +390,8 @@ the existing outdoor command pipeline, with no runtime advancement.
 **Production areas:** `XeenObjectVisual.{h,cpp}`, `XeenOutdoorScene.{h,cpp}`,
 `CloudsMapComposer.{h,cpp}`, and `formats/xeen/XeenAssetSource.cpp`'s supported
 status gate. Preserve `XeenCloudsVisualMetadata` layout and the bridge/sprite
-decoder; touch their code only for a demonstrated safety gap. CMake changes are
-limited to new tests/smokes. No Flow/SDL clock is enabled in this stage.
+decoder; touch their code only for a demonstrated safety gap. Extend existing
+tests/smokes without new CMake registrations. No Flow/SDL clock is enabled in this stage.
 
 **Contract and scope:** implement the formula, explicit optional phase,
 supported-animated classification and effective-command animation information.
@@ -399,6 +400,55 @@ stage does not ship animated objects as arbitrarily frozen substitutes. Preserve
 identity, first-record precedence, the 12 outdoor placements, terrain ordering,
 scale, clipping, flip, diagnostics and static behavior. No scripted state or
 animation timer is introduced.
+
+The exact by-value interfaces retain existing argument order/defaults:
+
+```cpp
+XeenObjectVisual resolve(const XeenObjectFile &objects, std::size_t recordIndex,
+    XeenDirection cameraDirection,
+    std::optional<std::uint64_t> ordinaryPhase = std::nullopt) const;
+std::vector<XeenOutdoorDrawCommand> build(XeenWorld &world,
+    const XeenCamera &camera = kAreaA1Camera,
+    const XeenObjectVisualResolver *resolver = nullptr,
+    std::vector<XeenObjectVisual> *diagnostics = nullptr,
+    std::optional<std::uint64_t> ordinaryPhase = std::nullopt) const;
+IndexedFrame compose(XeenAssetSource &assets, XeenWorld &world,
+    const XeenPartyState &partyState, const XeenCamera &camera,
+    const XeenCharacterRulesContext &context,
+    std::vector<XeenObjectVisual> *objectDiagnostics = nullptr,
+    std::optional<std::uint64_t> ordinaryPhase = std::nullopt,
+    bool *containsOrdinaryAnimation = nullptr) const;
+```
+
+Promote initial and limit to `std::uint64_t` before computing the ordinary cycle.
+A one-frame cycle always returns `SupportedStatic` at the initial frame. A longer
+cycle without phase retains `UnsupportedAnimation`, its initial frame and diagnostic;
+with phase, including zero, it returns `SupportedAnimated` at
+`initial + (phase % cycleLength)`. This status establishes metadata resolution,
+not sprite availability or safety. The existing checked draw gate accepts either
+supported status and checks the complete directory plus the selected frame's cell
+streams, including cache hits.
+Invalid metadata, side and identity cases remain unsupported.
+
+Phase passes unchanged from compose through build to resolve, with no retained
+state. Production gameplay and preflight still omit it in 22A. The asset draw
+signature and `drawOutdoorCommands` signature remain unchanged.
+
+Composition resets a supplied presence output to false at entry, derives a local
+value from actual emitted `SupportedAnimated` object commands, and publishes it
+only after the complete composition and snapshot succeed. Exceptions leave false.
+Omitted-phase, indoor, static-only and missing-metadata compositions report false;
+removed, offscreen and precedence-suppressed records do not count. Commands later
+covered by terrain still count. Clean background reconstruction precedes each draw.
+
+Original-data acceptance requires native full compositions for phases 0/1/2/3
+and an omitted-phase control. Attribute complete-cycle visible change to Myra
+through the production command trace; a test-only trace may hold other commands
+fixed and substitute Myra's actual resolved command. Require target-isolated wrap
+and repeated same-global-phase equality after cache reconstruction, not arbitrary
+adjacent-frame inequality or whole-scene wrap when other cycle lengths differ.
+The historical 334/334/0 pixel counts are observations, not mandatory goldens.
+Controlled session removal is independent of Myra's original quest script.
 
 **Tests and real data:** extend `XeenObjectVisualTests.cpp`,
 `XeenOutdoorObjectTests.cpp`, `XeenOutdoorComposerTests.cpp` and

@@ -20,7 +20,8 @@ XeenObjectVisualResolver XeenObjectVisualResolver::load(XeenAssetSource &assets)
 }
 
 XeenObjectVisual XeenObjectVisualResolver::resolve(const XeenObjectFile &objects,
-		std::size_t recordIndex, XeenDirection cameraDirection) const {
+		std::size_t recordIndex, XeenDirection cameraDirection,
+		std::optional<std::uint64_t> ordinaryPhase) const {
 	XeenObjectVisual result;
 	result.identity = {objects.mapId, recordIndex};
 	if (!objects.mapId || !objects.resourcePresent || recordIndex >= objects.entities.objects.size()) {
@@ -48,14 +49,22 @@ XeenObjectVisual XeenObjectVisualResolver::resolve(const XeenObjectFile &objects
 		const auto &entry = _metadata->at(static_cast<std::size_t>(object.resourceId));
 		// Pinned DIRECTION_ANIM_POSITIONS[object][camera]. Not the MOB table slot.
 		const auto relative = (camera + 4 - object.direction) % 4;
-		result.frame = entry.initialFrames[relative];
+		const std::uint64_t initial = entry.initialFrames[relative];
+		const std::uint64_t limit = entry.frameLimits[relative];
+		const auto cycleLength = (initial + 1 < limit) ? (limit - initial) : std::uint64_t{1};
+		result.frame = static_cast<std::size_t>(initial);
 		result.horizontalFlip = entry.flipFlags[relative] != 0;
 		// drawScene increments then resets when frame >= limit. The base frame
 		// remains unchanged precisely when initial + 1 >= limit (including 0).
-		if (result.frame + 1 < entry.frameLimits[relative]) {
+		if (cycleLength == 1) {
+			result.status = XeenObjectVisualStatus::SupportedStatic;
+		} else if (ordinaryPhase) {
+			result.frame = static_cast<std::size_t>(initial + (*ordinaryPhase % cycleLength));
+			result.status = XeenObjectVisualStatus::SupportedAnimated;
+		} else {
 			result.status = XeenObjectVisualStatus::UnsupportedAnimation;
 			result.diagnostic = "object visual requires unsupported temporal frame advancement";
-		} else result.status = XeenObjectVisualStatus::SupportedStatic;
+		}
 	} catch (const std::runtime_error &error) {
 		result.diagnostic = error.what();
 	}

@@ -4,6 +4,7 @@
 #include "games/xeen/CloudsUiComposer.h"
 #include "games/xeen/XeenIndoorScene.h"
 #include "games/xeen/XeenWorld.h"
+#include <algorithm>
 
 namespace mmodern {
 
@@ -22,7 +23,10 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 		XeenWorld &world, const XeenPartyState &partyState,
 		const XeenCamera &camera,
 		const XeenCharacterRulesContext &context,
-		std::vector<XeenObjectVisual> *objectDiagnostics) const {
+		std::vector<XeenObjectVisual> *objectDiagnostics,
+		std::optional<std::uint64_t> ordinaryPhase, bool *containsOrdinaryAnimation) const {
+	if (containsOrdinaryAnimation) *containsOrdinaryAnimation = false;
+	bool emittedAnimation = false;
 	if (objectDiagnostics) objectDiagnostics->clear();
 	const CloudsUiComposer interfaceComposer;
 	interfaceComposer.loadBackground(assets);
@@ -30,7 +34,10 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 	const XeenMap &map = world.map(camera.mapId);
 	if (map.geometry.isOutdoors()) {
 		const auto resolver = XeenObjectVisualResolver::load(assets);
-		const auto commands = XeenOutdoorScene().build(world, camera, &resolver, objectDiagnostics);
+		const auto commands = XeenOutdoorScene().build(world, camera, &resolver, objectDiagnostics, ordinaryPhase);
+		emittedAnimation = std::any_of(commands.begin(), commands.end(), [](const auto &command) {
+			return command.object() && command.object()->visual.status == XeenObjectVisualStatus::SupportedAnimated;
+		});
 		drawOutdoorCommands(assets, commands);
 	} else {
 		// Indoor darkness is deliberately ignored in Milestone 12D: the scene is
@@ -61,7 +68,9 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 
 	// The compass/main button at y=137 overlaps the scene border in the original UI.
 	interfaceComposer.drawInterface(assets, partyState, context);
-	return assets.snapshot();
+	auto result = assets.snapshot();
+	if (containsOrdinaryAnimation) *containsOrdinaryAnimation = emittedAnimation;
+	return result;
 }
 
 } // namespace mmodern
