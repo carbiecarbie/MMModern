@@ -4,184 +4,104 @@ MMModern is an open-source reimplementation of the engine used by
 Might and Magic IV: Clouds of Xeen and
 Might and Magic V: Darkside of Xeen / World of Xeen.
 
-The project is currently in early development.
+## Status
 
-## Current status
+**Milestone 21 is the latest stable completed milestone.**
 
-[Milestone 21](docs/milestone-21-plan.md#18-final-21d-acceptance-and-milestone-21-closure)
-is complete and is the current stable completed milestone. Gabriel passed the
-required 21D physical-window acceptance on his second attempt; Astra independently
-reported **APPROVE 21D FOR FINAL DOCUMENTATION/CLOSURE**, with no P0/P1/P2/P3
-findings, 23/23 focused tests and 58/58 unique full CTest registrations passing.
-The closure record keeps physical observations and independent validation distinct.
+The engine supports a bounded Clouds quest loop: request a quest, collect an
+item, return it for character-held rewards, and save/resume the resulting progress.
+Original maps, text, portraits and supported objects appear through a standalone
+SDL application.
 
-[Milestone 20](docs/milestone-20-plan.md#16-final-independent-approval-and-milestone-20-closure)
-is the preceding completed, independently approved and committed milestone.
-M20-A01 through M20-A16 are closed. The final reviewer reported **53/53 full CTest**, original-data
-direct/SDL dummy/software acceptance and all restart checkpoints passing,
-and inspected native resumed/fresh frame evidence. Gabriel's passing physical-window
-results remain separately attributed user-supplied manual evidence.
+MMModern remains incomplete and experimental. It is not yet a generally playable
+replacement for the original games: combat, general inventory use and Darkside
+gameplay remain unsupported, and travel between validated checkpoints is not certified.
 
-[Milestone 21A](docs/milestone-21-plan.md#12-21a-implementation-and-validation-evidence)
-adds authoritative character item storage and persistence. Its implementation
-was independently reviewed and accepted after its implementation commit. All 30 roster characters
-retain four nine-slot arrays of material/ID/state/frame records, including inactive
-owners and empty-slot metadata. Debug build, 53/53 CTest and the original-party
-smoke passed. The separately authorized 21B adds bounded delivery and paginated
-receipt infrastructure plus read-only live inventory inspection with I and at
-setup. Debug build, 58/58 CTest and original direct/SDL boundary regressions passed;
-the corrected 21B implementation has been independently re-reviewed and
-**approved for commit**, with no remaining findings, and committed as `be98bb6`.
-The earlier "independent 21B review is pending" status is historical, superseded
-by the [final approval](docs/milestone-21-plan.md#15-final-independent-21b-approval-for-commit);
-the P2 retained-label correction and earlier review evidence remain in the plan.
-The explicitly authorized [21C implementation](docs/milestone-21-plan.md#16-21c-implementation-and-validation)
-activates checked quest-item consumption, quest-flag clearing and deterministic
-miscellaneous rewards through that lifecycle and is committed as `f80ed51`.
-Gabriel supplied Astra's **APPROVE 21C FOR COMMIT** result with no findings.
-[21D acceptance infrastructure](docs/milestone-21-plan.md#17-21d-bounded-restart-and-physical-acceptance)
-adds completed-exchange F9/disk/separate-process/CLI checks and a continuous
-physical-keyboard producer in `mmodern_save_resume_smoke`. Its required human
-evidence and independent approval are recorded in the final closure. No inventory
-UI or item effects are enabled.
+See the [technical snapshot](docs/project-status.md),
+[completed milestones](docs/project-history.md) and [future direction](docs/roadmap.md).
 
-Clouds NPC mode-1 dialogue presents original animated portraits, positioned titles
-and paginated text through the resumable event UI. Myra's original local request
-at map 23 `(9,11)` West now records Clouds quest flag 2 after final acknowledgment,
-including Escape. With a Root, final NPC acknowledgment consumes one Root,
-clears Q2 and produces five records `{10,37,1,0}`; receipt completion ends the
-nine-instruction exchange. Further Roots permit fresh returns, and an exhausted
-supply returns to the request. Capacity or eligibility loss does not refund Roots.
-Original direct/SDL tests cover the full Root/Q2/key matrix and loss fixtures.
-The party loads 30 Clouds quest flags from original data; party state survives
-same-session owner/cache changes. A fresh session loads its own original state.
-Completed-exchange restart acceptance is established by 21D; ordinary travel
-between the local checkpoints remains uncertified.
+## Goals
 
-Supported static Clouds objects render with direction, scale, clipping and
-terrain ordering, using validated World of Xeen metadata in `DARK.CC/clouds.dat`.
-The party loads 35 Clouds quest-item counters; events support possession checks
-and bounded TakeOrGive quest-item grants and consumption. The original Phirna
-interaction on map 23 (Space -> Yes -> acknowledgment) grants exactly one root and removes the
-plant immediately while preserving the success text. No and already-owned
-refusal grant nothing and leave the plant present. Ownership and removal persist
-through same-session map/cache changes; repeat interaction cannot grant again,
-and a new session restores the initial state.
+- Reimplement the Xeen engine using legally obtained original resources.
+- Preserve original behavior while keeping unsupported boundaries explicit.
+- Build maintainable, testable gameplay and rendering with clear state ownership.
 
-WhoWill selects a temporary active character through the gameplay UI, and Action 9
-reads that character's current SP. The original local Bone Whistle interaction on
-Clouds map 20 `(5,14)` North (Space -> F1-F6 -> acknowledgment) grants exactly one
-item 100 and removes the bones immediately while retaining the success text.
-Cancellation leaves the item/object/events unchanged and permits retry. Repeat
-interaction cannot grant again; removal survives cache reconstruction and a new
-session restores the initial resources. This validates the local interaction,
-not normal travel to the checkpoint, combat or Orothin's quest completion.
+## Current capabilities
 
-General inventory/TakeOrGive, item effects, conditional quest-flag Action 104
-and Darkside gameplay remain unimplemented.
+- Original Clouds resource loading, outdoor/indoor rendering, navigation and collision.
+- Supported static outdoor objects and persistent removal after interactions.
+- Bounded event execution, teleports, original text, choices, character selection
+  and animated NPC dialogue portraits.
+- Party/character state, quest items and flags, and deterministic item rewards.
+- Local Windows save/resume and read-only live inventory diagnostics.
 
-Milestones 20A, 20B and 20C are independently approved. Local Windows saving and
-startup resume preserve supported Phirna, Bone Whistle, Myra request and cumulative
-progress across separate processes. Automated, original-data, SDL, native-frame
-and supplied physical-window evidence is recorded in the
-[Milestone 20 evidence](docs/milestone-20-plan.md#16-final-independent-approval-and-milestone-20-closure).
-Use an existing output directory outside the commercial installation:
+## Running and controls
+
+Build/dependency setup is documented in [dependencies.md](docs/dependencies.md).
+Run from a terminal to see diagnostics; quote paths containing spaces:
 
 ```text
 mmodern --render-map <game-directory> [<map> <x> <y> <north|east|south|west>] [--save-file <path.mmsave>]
 mmodern --load-game <game-directory> <path.mmsave>
 ```
 
-F9 saves an idle session to the configured path, replacing an existing valid
-MMModern save. Pending interactions refuse the request without advancing it;
-press F9 again after completing the interaction. Without `--save-file`, F9 writes
-nothing. Relative paths resolve against the working directory; spaces and Unicode
-paths are supported. The console and existing window title report the result.
-Resume uses its load path for future F9 saves, restores the saved camera/state
-and skips initial automatic dispatch. New sessions retain normal initialization.
-An invalid/incompatible save fails startup without starting a fresh session.
-There is no autosave, save-on-exit or in-session load. Saves now write version 2
-and read versions 1 and 2, requiring matching xeen.cc/dark.cc contents. V1 resume
-preserves saved modifiers and supplies only its missing equipment IDs and
-miscellaneous records from the corresponding initial roster slots. V2 item
-records are authoritative, including explicit empties. Reading a v1 file leaves
-it unchanged; the next eligible F9 save safely replaces it with v2. Neither
-version is compatible with original Xeen/ScummVM saves.
+Use an existing save directory outside the original game installation. Relative
+paths resolve against the working directory. Resume uses the loaded file as the
+subsequent save target; invalid/incompatible saves fail without starting a new game.
 
-MMModern currently includes:
+| Key | Action |
+| --- | --- |
+| W/Up, S/Down | Move forward/backward |
+| A/Left, D/Right | Turn left/right |
+| Space, Enter | Interact (Space) or advance/acknowledge text |
+| Y / N | Answer Yes/No |
+| F1-F6 | Select an eligible active member during WhoWill |
+| F9 | Save an idle session to its configured target |
+| I | Print live inventory, owners and quest diagnostics while idle |
+| Escape | Cancel WhoWill; advance/acknowledge NPC dialogue or reward pages; otherwise exit |
 
-- Loading of original Xeen game resources
-- Outdoor map rendering
-- Supported static outdoor Clouds objects interleaved with terrain
-- Immediate visual Remove with session persistence and presentation rebasing
-- Indoor map rendering
-- Player navigation and collision
-- Party data loading
-- HP and SP handling
-- Xeen event decoding and execution
-- Automatic map events
-- Conditions and event calls
-- Teleport events
-- Game flags
-- Clouds quest-request flags: original loading and bounded in-memory set
-- Loading of Xeen event text resources
-- Manual event dispatch from the current position and facing using Space
-- Resumable event-text presentation and confirmation semantics
-- Original Xeen normal and reduced font rendering in the indexed framebuffer
-- In-game sign, door-label, main, bottom, and centered event-text presentation
-- Runtime acknowledgment and Yes/No interaction without a nested input loop
-- WhoWill character selection, eligibility feedback and explicit cancellation
-- Clouds NPC mode-1 acknowledgment, original FAC portraits and bounded idle animation
-- Automated test suite
-- Manual rendering and gameplay validation
+Movement and ordinary interaction are blocked while a response is required;
+repeated keydown events are ignored. NPC dialogue and reward pages accept
+Space/Enter/Escape, including final acknowledgment with Escape.
 
-## Controls
+F9 refuses during an interaction without advancing it or scheduling a later save.
+Press F9 again after completion. Without a configured path, it writes nothing.
+Save results appear in the console and window title. Existing supported valid
+MMModern saves can be replaced; there is no autosave, save-on-exit or in-session load.
+Current saves write v2 and read v1/v2, require matching game archives, and are
+not compatible with original Xeen or ScummVM saves. See the
+[persistence model](docs/project-status.md#persistence-model) for details.
 
-- W/Up and S/Down move; A/Left and D/Right turn.
-- Space interacts or acknowledges; Enter acknowledges; Y/N answers Yes/No.
-- During WhoWill, F1-F6 selects the corresponding active party member. An
-  incapacitated member produces feedback and allows another attempt.
-- During NPC mode-1 dialogue, Space/Enter/Escape advances a page or acknowledges
-  the final page. Y/N and F1-F6 do not acknowledge it.
-- Reward warnings/receipts use Space/Enter/Escape to advance pages and acknowledge
-  the final page. Movement and selection do not dismiss them.
-- I prints a read-only inventory diagnostic at idle, including inactive owners,
-  aliases, raw records, Root and Q2. The same snapshot is printed at setup.
-- Escape cancels WhoWill, terminating the current event. Outside WhoWill/NPC
-  dialogue and reward presentations, Escape exits. Repeated keydown events are ignored.
-- Navigation and ordinary interaction are blocked while a response is pending.
+## Requirements and original game data
 
-## Requirements
+A legally obtained original installation is required; no commercial game data is
+included or modified. Current original-data validation uses World of Xeen resources
+for Clouds gameplay. Reading Clouds visual metadata from `DARK.CC` does not enable
+Darkside gameplay.
 
-MMModern does not include any original Might and Magic game data.
+The validated development setup is Windows x86-64 with MSYS2 UCRT64, CMake, SDL2,
+zlib and separate ScummVM source/build trees. MMModern reuses selected ScummVM
+Xeen and support components; it does not instantiate ScummVM's engine or use its
+SDL backend. The exact pin and configuration live in
+[dependencies.md](docs/dependencies.md).
 
-A legally obtained installation of the original games is required.
+## Documentation
 
-The current development build also requires a local ScummVM source tree
-and a compatible ScummVM build.
+- [Project status](docs/project-status.md): current stable technical capabilities,
+  ownership, persistence and boundaries.
+- [Project history](docs/project-history.md): concise completed milestones and plan links.
+- [Roadmap](docs/roadmap.md): future direction and planning review cadence.
+- [Milestone 21 plan](docs/milestone-21-plan.md): closed exchange specification,
+  architectural decisions and acceptance result.
+- [Dependencies](docs/dependencies.md): supported toolchain and ScummVM setup.
+- [Agent instructions](AGENTS.md): development, documentation and Git rules.
 
-## ScummVM
+## Disclaimer and license
 
-MMModern currently integrates portions of the ScummVM Xeen implementation
-and links against ScummVM components.
+MMModern is unofficial and is not affiliated with or endorsed by Ubisoft,
+New World Computing or the ScummVM project. Might and Magic names and assets
+belong to their respective copyright holders.
 
-ScummVM is copyright its respective contributors and is distributed under
-the GNU General Public License.
-
-MMModern is distributed under the GNU General Public License version 3
-or, at your option, any later version.
-
-## Project status
-
-MMModern is experimental software under active development.
-
-Compatibility, build instructions and architecture may change substantially
-while development continues.
-
-## Disclaimer
-
-MMModern is an unofficial project and is not affiliated with or endorsed by
-Ubisoft, New World Computing, or the ScummVM project.
-
-Might and Magic and related names and assets belong to their respective
-copyright holders.
+MMModern is distributed under the GNU General Public License version 3 or, at
+your option, any later version (GPL-3.0-or-later). Reused ScummVM code is copyright
+its respective contributors and licensed under GPLv3 or later.

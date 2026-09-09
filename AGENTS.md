@@ -1,4 +1,4 @@
-﻿# MMModern - Agent Instructions
+# MMModern - Agent Instructions
 
 MMModern is an open-source reimplementation of the engine used by
 Might and Magic IV: Clouds of Xeen and
@@ -7,139 +7,135 @@ Might and Magic V: Darkside of Xeen / World of Xeen.
 ## Source of truth
 
 - Repository: https://github.com/carbiecarbie/MMModern
-- The repository contents are the source of truth for the current state of the project.
-- Do not assume that previous conversations or prompts describe the current code accurately.
-- Inspect the current implementation before making changes.
-- Read relevant files in `docs/` before making architectural changes.
+- With local access, actual Git state and the working tree establish the
+  candidate; current code/tests establish implemented behavior. Inspect them
+  before changing concrete interfaces or relying on earlier prose.
+- Milestone plans specify intended scope. Historical planning prose does not
+  override later accepted implementation. Identify conflicts among plans,
+  code/tests and status before expanding scope or making architectural assumptions.
+- Read relevant `docs/` files before architectural changes. Do not assume prior
+  conversations describe the current checkout accurately.
+- Architecture/specification agents without local access must use a verified
+  commit SHA as their public baseline and prefer GitHub/raw/permalink retrieval
+  pinned to that SHA. Cached `/main/` pages do not override a verified commit.
+  If that commit cannot be retrieved, report the limitation; do not invent local state.
 
 ## Development workflow
 
 Before implementing a task:
 
-1. Inspect the existing implementation.
-2. Identify the relevant tests.
-3. Preserve the existing architecture unless there is a concrete reason to change it.
-4. Reuse existing project abstractions and infrastructure before introducing new parallel systems or architectural layers.
-5. Keep changes focused on the requested task.
-6. Do not modify or include original commercial Might and Magic game data.
+1. Read `docs/project-status.md` and the applicable milestone specification.
+2. Inspect the implementation and identify relevant tests.
+3. Preserve existing architecture unless there is a concrete reason to change it;
+   reuse project abstractions before introducing parallel systems or owners.
+4. Keep changes within the requested task or sub-stage.
+5. Never modify or include original commercial Might and Magic game data.
 
-After implementing a task:
+After implementation, build, run relevant tests and run the complete CTest suite
+when practical. Do not declare completion with failing tests. Update durable
+technical documentation as appropriate and summarize changes and validation.
+For documentation-only work, review the diff, links, factual consistency and
+`git diff --check`; do not build or run CTest solely for prose changes.
 
-1. Build the project.
-2. Run the relevant tests.
-3. Run the complete CTest suite when practical.
-4. Do not consider the task complete while tests are failing.
-5. Update documentation when behavior, architecture, dependencies, or project status changes.
-6. Summarize what changed and what was tested.
+When modifying a subsystem, add or update tests for changed behavior. Prefer the
+smallest sufficient set during iteration; full CTest is required at milestone closure.
 
-## Git workflow
+## Documentation responsibilities
 
-- `main` is the stable development branch.
-- Do not force-push.
-- Do not rewrite Git history.
-- Do not commit build directories.
-- Do not commit original Xeen game data.
-- Do not create or push milestone tags unless explicitly requested.
-- Do not push changes unless explicitly requested.
-- Prefer focused commits with clear commit messages.
+Persistent documents describe durable truths, with one natural home per topic:
 
-## ScummVM
+| Document | Responsibility |
+| --- | --- |
+| `README.md` | Concise public introduction, capabilities and runtime guidance |
+| `docs/project-status.md` | Technical snapshot of the latest stable committed state |
+| `docs/project-history.md` | Concise completed-milestone history; not current-state authority |
+| `docs/roadmap.md` | Future direction, dependencies, confidence and review cadence |
+| `docs/milestone-N-plan.md` | That milestone's specification, durable decisions and concise final record |
+| `AGENTS.md` | Source-of-truth, workflow, documentation and Git rules |
 
-MMModern currently integrates and links against portions of ScummVM.
+Link to the natural home instead of duplicating narratives. History is optional
+reading for ordinary implementation work; consult it when evolution matters.
+Do not create another workflow/status document or a current-work-in-progress file.
 
-Consult `docs/dependencies.md` for the authoritative pinned known-good ScummVM
-revision and dependency configuration. Use that revision and configuration;
-source and build directory names are not fixed.
+Keep transient workflow state in task reports, chat context and temporary build
+logs. README, status, roadmap and closed plans must not record a local candidate's
+commit/push readiness, outstanding review, or just-finished implementation as
+project state. These moments are not durable capabilities or acceptance results.
 
-Do not copy the full ScummVM source tree into the MMModern repository.
+`project-status.md` describes only the latest **stable committed** state. Leave
+it unchanged when a milestone starts, a local candidate exists, review is outstanding
+or a correction is in progress. Update it during final closure only after required
+acceptance/review establishes the durable state to be committed. It must remain
+usable as the stable baseline throughout subsequent local implementation work.
 
-MMModern is distributed under GPL-3.0-or-later.
+Use roles for durable attribution: maintainer, implementation agent,
+architecture/specification agent and independent reviewer. Distinguish
+maintainer-performed physical acceptance from independent review and automated
+or image-based evidence. Keep technically relevant tool names such as SDL,
+ScummVM and CMake. Apply this rule to documents being maintained and future work;
+do not mechanically rewrite unrelated historical files.
 
-## Tests
-
-Tests are an important part of the project.
-
-When modifying an existing subsystem:
-
-- run its relevant unit/integration tests;
-- add or update tests when behavior changes;
-- run the full CTest suite before declaring a milestone complete.
+Active plans may contain investigation. At closure, condense them to final scope,
+durable architectural decisions, original-data/behavior contracts,
+persistence/compatibility policy, acceptance boundary and concise final results.
+Keep a superseded decision only if a short explanation clarifies the final design.
+Remove operational diaries: process IDs, ephemeral build/log/image paths, repeated
+commands/test totals, review iterations, candidate states and duplicated matrices.
+Git history preserves removed text; a closed plan is not a transcript archive.
 
 ## Milestones
 
-Use the planning documents according to their authority:
+- Create a dedicated plan only when that milestone is about to begin.
+- Treat the applicable milestone/sub-stage specification as its intended scope.
+- Use the next roadmap entry as the default successor for planning. Entries
+  beyond the immediate next milestone remain provisional; revise them when
+  evidence meets replanning triggers, not merely because work completed.
+- Check roadmap approval and review cadence. Neither roadmap approval, completed
+  work nor a push authorizes the next milestone or sub-stage implementation.
+- Do not investigate future stages unless necessary to avoid an architectural
+  mistake in the authorized stage.
 
-- `docs/project-status.md` records current implemented state and validation.
-- `docs/project-history.md` is a concise historical summary, not a current-state
-  authority or required reading for ordinary implementation tasks. Consult it
-  only when historical context/evolution is relevant. Detailed historical
-  implementation and validation evidence remains in dedicated milestone plans.
-- `docs/roadmap.md` records approved future direction once reviewed and approved;
-  entries marked proposed are recommendations, not implementation authorization.
-- A dedicated `docs/milestone-N-plan.md` defines the detailed scope of an active
-  milestone. Create that plan only when the milestone is about to begin.
-- After completing a milestone, use the next roadmap entry as the default
-  successor for planning, rather than selecting a successor from scratch.
-- Entries beyond the immediate next milestone remain provisional. Revise them
-  when concrete evidence meets the roadmap's replanning triggers; normal
-  completion alone does not require rediscovering the roadmap.
-- Read the roadmap's approval status and review cadence. Neither roadmap
-  approval nor milestone completion authorizes starting the next implementation.
+At milestone closure:
 
-When a milestone or sub-stage has a dedicated plan/specification in `docs/`,
-treat that document as the specification for its intended scope.
+1. Ensure the build, full CTest suite and required manual validation pass.
+2. Obtain required acceptance/review before recording completion.
+3. Update the stable status, add concise history, condense the closed plan and
+   remove completed entries from future roadmap scope; link between them.
+4. Update README only for public capability/interface changes.
+5. Prepare a concise commit message; observe the Git authorization rules below.
 
-If the milestone plan, current code, tests, and project-status documentation
-appear to conflict, identify the conflict before expanding scope or making
-architectural assumptions.
+## Git workflow and post-push baseline
 
-When completing a milestone:
+- `main` is the stable development branch. Prefer focused commits with clear messages.
+- Never force-push or rewrite history. Do not commit build directories or original data.
+- Do not push or create/push milestone tags without explicit authorization.
+- After an authorized commit and push closes a work unit, record in the handoff:
+  branch, `git rev-parse HEAD`, `git rev-parse origin/main`,
+  `git ls-remote origin refs/heads/main` and `git status --short`.
+- Expected healthy handoff: branch `main`, HEAD == origin/main == direct remote
+  main, with a clean working tree and empty staged state. Direct remote Git is
+  the post-push authority; public HTML/raw/history views may refresh inconsistently.
+- Before continuing from that handoff, verify the gate and intended committed
+  closure. If dirty, divergent, on another branch, or unverifiable, stop and
+  report the exact discrepancy; do not repair/synchronize the baseline implicitly.
+- Use the exact resulting SHA for the next external planning/review task.
+  Keep planning approval and implementation authorization separate.
 
-1. Ensure the project builds.
-2. Ensure the complete test suite passes.
-3. Perform any required manual validation.
-4. Update project-status documentation.
-5. Update the README if publicly visible capabilities changed.
-6. Prepare a concise commit message.
-7. Wait for explicit approval before creating a milestone tag or pushing changes.
+## Dependencies and efficiency
 
-## Current project status
+Consult `docs/dependencies.md` for the authoritative pinned ScummVM revision and
+configuration; source/build directory names are not fixed. Use that configuration
+and never copy the full ScummVM source tree into this repository.
+MMModern links selected ScummVM portions and is GPL-3.0-or-later.
 
-Before starting any significant implementation task:
-
-- Read `docs/project-status.md`.
-- Treat it as the current record of milestone progress and implemented capabilities.
-- Update `docs/project-status.md` when a milestone starts, materially changes, or is completed.
-- Do not mark a milestone complete until its required build, automated tests, and manual validation have passed.
-
-## Agent efficiency
-
-- Prefer targeted inspection over broad repository exploration.
-- Do not rescan ScummVM or original game resources when existing project
-  documentation already records the required behavior.
-- For milestone work, implement only the currently requested sub-stage.
-- Do not begin the next milestone or sub-stage unless explicitly requested.
-- Do not investigate future sub-stages unless required to avoid an
-  architectural mistake in the current one.
-- Prefer the smallest sufficient test set during iteration; run the full
-  suite at completion.
+Prefer targeted inspection. Do not rescan ScummVM or original resources when
+existing documentation already establishes the required behavior.
 
 ## Project language
 
-English is the canonical language for MMModern development.
-
-Use English for:
-
-- source-code identifiers and comments
-- diagnostics, errors, and command-line output
-- tests and test names
-- repository documentation
-- commit messages
-
-Original Might and Magic game content must remain resource-driven. Do not convert
-original game text into hard-coded engine strings just to satisfy this convention.
-Localization remains separate from development-language policy.
-
-Existing non-English development or diagnostic strings may be migrated
-opportunistically when the relevant code is being touched; do not expand
-unrelated tasks solely to translate existing strings.
+English is canonical for identifiers, comments, diagnostics, command-line output,
+tests, documentation and commit messages. Original game content stays
+resource-driven; do not hard-code original text to satisfy this convention.
+Localization is separate from development-language policy. Translate existing
+non-English development strings opportunistically when touching relevant code,
+without expanding unrelated work.

@@ -91,9 +91,19 @@ Historical limitations in those plans describe their recorded boundaries.
   across process restarts, with fresh-session controls. See the
   [Milestone 20 plan](milestone-20-plan.md) for format and acceptance evidence.
 
+## M21 - Myra's return exchange and bounded item rewards
+
+- Added complete character-held item records and save v2 persistence, with narrow
+  legacy v1 restoration that preserves saved values.
+- Completed deterministic reward production/delivery/finalization and the original
+  local Myra request -> Phirna collection -> Myra return exchange.
+- Accepted completed-exchange production F9 saving and separate-process/CLI
+  restart, preserving exact rewards without replay and with reconstruction,
+  revisit and fresh-session controls. See the [Milestone 21 plan](milestone-21-plan.md).
+
 ## Maintaining this history
 
-Normally add one short section with 2-4 lasting-result bullets per completed
-milestone and link its plan. Keep stage chronology, acceptance matrices and
-validation artifacts in that plan; do not duplicate current-state authority here.
-Earlier M13/M14 status records remain available in repository history.
+Add one short section with 2-4 lasting-result bullets per completed milestone
+and link its plan for the specification, durable decisions and final acceptance.
+Keep current capabilities in project status and operational records in Git
+history or task reports. Earlier M13/M14 records remain in repository history.
