@@ -12,6 +12,7 @@ class XeenWorld;
 struct XeenNavigationFlowResult {
 	XeenMovementResult movementResult = XeenMovementResult::Moved;
 	XeenAutomaticEventResult automaticEvent;
+	XeenCamera cameraAfterMovement;
 };
 
 class XeenNavigationFlow {

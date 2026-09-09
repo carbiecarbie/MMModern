@@ -43,7 +43,7 @@ struct Fixture {
 		[&](XeenMapIdentity id){return scripts.at(id);},{},line);}
 	XeenEventExecutionStepResult resume(XeenEventExecutionState s){return interpreter.resume(std::move(s),XeenPresentationResponse::Acknowledged,
 		members,world,[&](XeenMapIdentity id){return scripts.at(id);},{});}
-	XeenEventFlow flow(){return XeenEventFlow(world,events,members,camera,flags,font,[&]{return base;},
+	XeenEventFlow flow(){return XeenEventFlow(world,events,members,camera,flags,font,[&](std::uint64_t){return XeenEventFlow::Composition{base, false};},
 		[](IndexedFrame&,std::uint8_t,std::size_t){},[]{return 0;},[]{return 0;});}
 };
 void error(const XeenEventExecutionStepResult&r,Kind kind){const auto*e=std::get_if<XeenEventExecutionError>(&r);
@@ -154,7 +154,7 @@ void lifetimeAndCancellation() {
 	flow.handle(AcknowledgeAction{});check(f.members.questFlags.isSet(29) && !flow.blocksGameplay(),"continuation restored old party state");
 	flow.handle(InteractionAction{});flow.handle(CancelInteractionAction{});check(f.members.questFlags.isSet(2),"later cancellation erased request");
 	XeenEventSystem replacement([&](XeenMapIdentity id){return f.scripts.at(id);});
-	XeenEventFlow newFlow(f.world,replacement,f.members,f.camera,f.flags,f.font,[&]{return f.base;});
+	XeenEventFlow newFlow(f.world,replacement,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
 	check(!newFlow.blocksGameplay() && f.members.questFlags.isSet(2) && f.members.questFlags.isSet(29),"new event owner reset party");
 	Fixture cancel;cancel.members=party(2);cancel.scriptAt({record(1,1,0,0x1f,{2,1,1})});
 	cancel.scriptAt({record(1,1,0,12,{0,0,20,7}),set(1),record(1,1,2,0x20,{0,0}),set(3,29)},2);

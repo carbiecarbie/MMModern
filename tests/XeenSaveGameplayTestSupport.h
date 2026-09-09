@@ -17,7 +17,8 @@ struct Fixture {
  XeenPartyState initial;
  XeenSaveResourceSignature signature{{99,88},{}};
  std::map<XeenMapIdentity,std::vector<XeenEventRecord>> scripts;
- bool automatic=false, failCompose=false, invalidFrame=false;
+ bool automatic=false, failCompose=false, invalidFrame=false, ordinary=false;
+ std::vector<std::uint64_t> phases;
  unsigned eventReads=0,mapReads=0,objectReads=0,compositions=0;
  XeenEventFlow *flow=nullptr;
  XeenWorld *world=nullptr;
@@ -36,16 +37,19 @@ struct Fixture {
   [&](XeenMapIdentity id){++mapReads;auto m=remove_test::map(id);m.geometry.cells[17].rawAttributes=automatic?0x10:0;m.geometry.surfaceTypes[0]=1;return m;},
   [&](XeenMapIdentity id){++objectReads;XeenObjectFile o{id,"test.mob",true,{}};o.entities.objects={{1,1,0,0,111},{2,1,0,0,112}};return o;},
   [&](XeenMapIdentity id){auto t=text;t.mapId=id;return t;},font,
-  [&](XeenWorld &w,const XeenPartyState &p,const XeenCamera &c){
+  [&](XeenWorld &w,const XeenPartyState &p,const XeenCamera &c,std::uint64_t phase){
+   phases.push_back(phase);
    if(failCompose)throw std::runtime_error("injected first-frame failure");
-   ++compositions;w.map(c.mapId);world=&w;
+   ++compositions;w.map(c.mapId);
    IndexedFrame f;f.width=320;f.height=200;f.pixels.resize(64000);
    f.pixels[0]=c.mapId.number;f.pixels[1]=c.x;f.pixels[2]=c.y;f.pixels[3]=static_cast<unsigned>(c.direction);
    f.pixels[4]=p.questItems.at(17);f.pixels[5]=p.questFlags.isSet(2);f.pixels[6]=p.roster.at(0).currentHp;
    f.pixels[10]=w.isObjectDisabled({c.mapId,0});f.pixels[11]=w.isObjectDisabled({c.mapId,1});
-   if(invalidFrame)f.width=0;frames.push_back(f);return f;
+   if(ordinary)f.pixels[20]=phase%251;
+   if(invalidFrame)f.width=0;frames.push_back(f);return XeenEventFlow::Composition{f,ordinary};
   },[](IndexedFrame &f,std::uint8_t,std::size_t){f.pixels[100]=77;},
-  [&](XeenEventFlow &f,const XeenCamera &){flow=&f;f.reportAutomatic=[](const auto &r){if(std::holds_alternative<XeenEventExecutionError>(r))throw std::runtime_error("automatic error");};},{}
+  [&](XeenEventFlow &f,const XeenCamera &){flow=&f;f.reportAutomatic=[](const auto &r){if(std::holds_alternative<XeenEventExecutionError>(r))throw std::runtime_error("automatic error");};},{},
+  [&](XeenWorld &w,XeenEventSystem &,const XeenPartyState &,XeenCamera &,const XeenGameFlags &){world=&w;}
  };}
  XeenSaveSnapshot saved(){auto s=save_test::sample();s.resources=signature;s.camera={1,1,1,XeenDirection::North};s.characters=initial.roster.characters();s.activeRosterIds={0,1};s.questItems.fill(0);s.questFlags.fill(false);s.gameFlags.fill(false);s.disabledObjects.clear();s.disabledEvents.clear();return s;}
 };

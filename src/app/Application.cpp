@@ -416,8 +416,11 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
             [&](XeenMapIdentity id) { return maps.loadGeometryMap(assets, id); },
             [&](XeenMapIdentity id) { return maps.loadObjects(assets, id); },
             [&](XeenMapIdentity id) { return texts.load(id); }, font,
-            [&](XeenWorld &world, const XeenPartyState &party, const XeenCamera &position) {
-                return composer.compose(assets, world, party, position, {kCloudsInitialYear});
+            [&](XeenWorld &world, const XeenPartyState &party, const XeenCamera &position, std::uint64_t phase) {
+                XeenEventFlow::Composition result;
+                result.frame = composer.compose(assets, world, party, position, {kCloudsInitialYear},
+                    nullptr, phase, &result.containsOrdinaryAnimation);
+                return result;
             },
             [&](IndexedFrame &frame, std::uint8_t portrait, std::size_t index) { assets.drawNpc(frame, portrait, index); },
             [&](XeenEventFlow &flow, const XeenCamera &position) {

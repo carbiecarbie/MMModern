@@ -11,7 +11,7 @@ int Application::playGameplay(const XeenGameplayServices &services, XeenCamera c
   XeenPartyState party;
   XeenGameFlags flags;
   const auto preflight = [&](XeenWorld &w, const XeenPartyState &p, const XeenCamera &c, const XeenGameFlags &) {
-   if (!services.compose(w, p, c).isValid()) throw std::runtime_error("Invalid first gameplay frame");
+   if (!services.compose(w, p, c, std::uint64_t{0}).frame.isValid()) throw std::runtime_error("Invalid first gameplay frame");
   };
   if (resume) {
    if (!target) throw std::runtime_error("Resume requires a save path");
@@ -24,7 +24,7 @@ int Application::playGameplay(const XeenGameplayServices &services, XeenCamera c
   for (const auto &diagnostic : party.diagnostics) std::cerr << "Party warning: " << diagnostic << '\n';
   XeenEventSystem events([&](XeenMapIdentity id) { return XeenEventScript(services.resources.loadEvents(id)); }, services.texts);
   XeenEventFlow flow(world, events, party, camera, flags, services.font,
-   [&] { return services.compose(world, party, camera); }, services.npcDraw);
+   [&](std::uint64_t phase) { return services.compose(world, party, camera, phase); }, services.npcDraw, services.clock);
   if (services.configureFlow) services.configureFlow(flow, camera);
   if (!flow.frame().isValid()) throw std::runtime_error("Invalid first gameplay frame");
   std::cout << "Setup " << xeenInventoryInspection(party);

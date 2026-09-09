@@ -14,7 +14,7 @@ struct XeenGameplayServices {
  XeenWorld::ObjectLoader objects;
  XeenEventSystem::TextProvider texts;
  const XeenFontFormat &font;
- std::function<IndexedFrame(XeenWorld &, const XeenPartyState &, const XeenCamera &)> compose;
+ std::function<XeenEventFlow::Composition(XeenWorld &, const XeenPartyState &, const XeenCamera &, std::uint64_t)> compose;
  XeenEventPresenter::NpcDraw npcDraw;
  std::function<void(XeenEventFlow &, const XeenCamera &)> configureFlow;
  using Show = std::function<bool(const IndexedFrame &, const SdlWindow::FrameUpdateHandler &,
@@ -26,6 +26,7 @@ struct XeenGameplayServices {
  // Never supplies startup state or handles a save request.
  std::function<void(XeenWorld &, XeenEventSystem &, const XeenPartyState &,
    XeenCamera &, const XeenGameFlags &)> observeGameplay;
+ XeenEventPresenter::Clock clock = {};
 };
 }
 #endif

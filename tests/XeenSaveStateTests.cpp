@@ -401,7 +401,7 @@ void mutationPolicies() {
 			[](XeenMapIdentity id) { return XeenEventTextFile{id, "synthetic.txt", true, {"Choose"}}; });
 		auto textFont = font();
 		XeenEventFlow flow(f.world, events, f.party, f.camera, f.flags, textFont,
-			[&] { return Fixture::compose(f.world, f.party, f.camera, f.flags); });
+			[&](std::uint64_t) { return XeenEventFlow::Composition{Fixture::compose(f.world, f.party, f.camera, f.flags), false}; });
 		bool failed = false;
 		flow.reportManual = [&](const auto &r) { failed = std::holds_alternative<XeenEventExecutionError>(r); };
 		flow.handle(InteractionAction{});
@@ -422,7 +422,7 @@ void mutationPolicies() {
 	XeenEventSystem events([&](XeenMapIdentity id) { return XeenEventScript(moved.loadEvents(id)); });
 	auto textFont = font();
 	XeenEventFlow flow(moved.world, events, moved.party, moved.camera, moved.flags, textFont,
-		[&] { return Fixture::compose(moved.world, moved.party, moved.camera, moved.flags); });
+		[&](std::uint64_t) { return XeenEventFlow::Composition{Fixture::compose(moved.world, moved.party, moved.camera, moved.flags), false}; });
 	bool failed = false;
 	flow.reportAutomatic = [&](const auto &r) { failed = std::holds_alternative<XeenEventExecutionError>(r); };
 	flow.handle(NavigationAction::MoveForward);
@@ -442,7 +442,7 @@ void initialDispatchAndReconstruction() {
 	XeenEventSystem events([&](XeenMapIdentity id) { ++scripts; return XeenEventScript(f.loadEvents(id)); });
 	auto textFont = font();
 	XeenEventFlow flow(f.world, events, f.party, f.camera, f.flags, textFont,
-		[&] { return Fixture::compose(f.world, f.party, f.camera, f.flags); });
+		[&](std::uint64_t) { return XeenEventFlow::Composition{Fixture::compose(f.world, f.party, f.camera, f.flags), false}; });
 	flow.reportAutomatic = [&](const auto &) { ++reports; };
 	check(scripts == 0 && reports == 0 && !flow.blocksGameplay() && !flow.presentationGeneration() &&
 		!flow.updatePresentation() && flow.frame().pixels[0] == 1 && flow.frame().pixels[4] == 3,
@@ -454,7 +454,7 @@ void initialDispatchAndReconstruction() {
 	Fixture fresh; fresh.copyResources(f);
 	XeenEventSystem freshEvents([&](XeenMapIdentity id) { return XeenEventScript(fresh.loadEvents(id)); });
 	XeenEventFlow newSession(fresh.world, freshEvents, fresh.party, fresh.camera, fresh.flags, textFont,
-		[&] { return Fixture::compose(fresh.world, fresh.party, fresh.camera, fresh.flags); });
+		[&](std::uint64_t) { return XeenEventFlow::Composition{Fixture::compose(fresh.world, fresh.party, fresh.camera, fresh.flags), false}; });
 	newSession.initial();
 	check(fresh.party.questItems.at(17) == 1 && fresh.flags.isSet(7) && fresh.camera.mapId == XeenMapIdentity(2),
 		"explicit new-session initial event did not dispatch");
@@ -476,7 +476,7 @@ void initialDispatchAndReconstruction() {
 	XeenEventSystem reloadedEvents([&](XeenMapIdentity id) { ++scriptReads; return XeenEventScript(reload.loadEvents(id)); },
 		[&](XeenMapIdentity id) { ++textReads; return XeenEventTextFile{id, "synthetic.txt", true, {"Message"}}; });
 	XeenEventFlow reloadedFlow(reload.world, reloadedEvents, reload.party, reload.camera, reload.flags, textFont,
-		[&] { return Fixture::compose(reload.world, reload.party, reload.camera, reload.flags); });
+		[&](std::uint64_t) { return XeenEventFlow::Composition{Fixture::compose(reload.world, reload.party, reload.camera, reload.flags), false}; });
 	const auto first = reloadedFlow.frame();
 	for (int pass = 0; pass < 2; ++pass) {
 		const auto mapCount = reload.mapLoads, objectCount = reload.objectLoads;

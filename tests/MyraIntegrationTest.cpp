@@ -3,6 +3,7 @@
 #include "XeenPartySnapshotTestSupport.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "games/xeen/CloudsMapComposer.h"
+#include "games/xeen/CloudsUiComposer.h"
 #include "games/xeen/XeenCharacterRules.h"
 #include "games/xeen/XeenEventLoader.h"
 #include "games/xeen/XeenGameFlagsLoader.h"
@@ -78,12 +79,13 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 	const auto geometry=geometrySnapshot(world.map(23).geometry);const auto objectFile=world.objectFile(23);
 	const XeenFontFormat font(assets.readArchiveResource("fnt"));const CloudsMapComposer composer;
 	const XeenCharacterRulesContext rules{kCloudsInitialYear};std::uint64_t time=0;unsigned random=0;
-	auto compose=[&]{return composer.compose(assets,world,party,camera,rules);};
+	std::uint64_t observedPhase=0;
+	auto compose=[&](std::uint64_t phase){observedPhase=phase;XeenEventFlow::Composition r;r.frame=composer.compose(assets,world,party,camera,rules,nullptr,phase,&r.containsOrdinaryAnimation);return r;};
+	auto cleanBase=[&]{return composer.compose(assets,world,party,camera,rules,nullptr,observedPhase);};
 	bool failDraw=false;
 	auto draw=[&](IndexedFrame &f,std::uint8_t portrait,std::size_t index){
 		if(failDraw)throw std::runtime_error("injected NPC asset failure");assets.drawNpc(f,portrait,index);};
-	XeenEventPresenter::Clock clock;
-	if(!sdl)clock=[&]{return time;};
+	XeenEventPresenter::Clock clock=[&]{return time;};
 	XeenEventFlow flow(world,events,party,camera,flags,font,compose,draw,clock,[&]{return random++%4;});
 	const auto base=flow.frame();const std::string name=(roots?"root-"+std::to_string(roots):"request")+
 		std::string(requested?"-q1":"-q0")+(lossFixture==1?"-full":lossFixture==2?"-ineligible":"")+(dismiss==SDLK_SPACE?"-space":dismiss==SDLK_RETURN?"-enter":"-escape");
@@ -91,6 +93,44 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 	auto save=[&](const IndexedFrame&f,const std::string&suffix){
 		if(capture && (!requested || lossFixture) && dismiss==SDLK_RETURN && roots<2)visual_remove_test::save(f,output/(name+"-"+suffix+".bmp"));};
 	save(base,"before");
+ // Before any gameplay input, observe a complete original stationary cycle.
+ if(roots==0 && !requested && dismiss==SDLK_RETURN) {
+  const auto resolver=XeenObjectVisualResolver::load(assets);
+  const auto metadata=assets.readCloudsVisualMetadataFromDarkArchive();check(bool(metadata),"original metadata absent");
+  for(unsigned d=0;d<4;++d){check(metadata->at(9*12+d)==(d?4:0) && metadata->at(9*12+8+d)==(d?7:3) && metadata->at(9*12+4+d)==(d==2?1:0),"original Myra cycle metadata");}
+  const auto &record=world.objectFile(23).entities.objects.at(1);
+  check(record.x==9 && record.y==11 && record.direction==3 && record.resourceId==9,"original Myra identity metadata");
+  std::vector<IndexedFrame> full,isolated;std::vector<XeenOutdoorDrawCommand> fixed;
+  auto isMyra=[](const auto &c){return c.object() && c.object()->visual.identity==XeenObjectIdentity{23,1};};
+  auto sample=[&]{
+   auto commands=XeenOutdoorScene().build(world,camera,&resolver,nullptr,observedPhase);
+   auto target=std::find_if(commands.begin(),commands.end(),isMyra);
+   check(target!=commands.end() && target->object()->visual.frame==observedPhase%3 && target->object()->visual.spriteName=="009.obj","live original frame selection");
+   check(observedPhase==full.size(),"stationary phase skipped/repeated");full.push_back(flow.frame());
+   visual_remove_test::save(full.back(),output/("stationary-phase-"+std::to_string(observedPhase)+".bmp"));
+   if(fixed.empty())fixed=commands;
+   CloudsUiComposer().loadBackground(assets);
+   for(const auto &command:fixed)composer.drawOutdoorCommands(assets,{isMyra(command)?*target:command});
+   isolated.push_back(assets.snapshot());
+   visual_remove_test::save(isolated.back(),output/("stationary-myra-isolated-"+std::to_string(observedPhase)+".bmp"));
+   std::cout<<"Stationary live Myra phase="<<observedPhase<<" target frame="<<target->object()->visual.frame<<" native=320x200\n";
+  };
+  sample();
+  if(sdl){
+   const auto started=SDL_GetTicks();bool done=false;
+   check(SdlWindow().showInteractive(flow.frame(),"Myra stationary ordinary cycle",{}, {},[&]()->std::optional<IndexedFrame>{
+    check(SDL_GetTicks()-started<5000,"stationary original SDL watchdog");time+=25;const auto previous=observedPhase;
+    auto changed=flow.updatePresentation();if(observedPhase!=previous)sample();
+    if(observedPhase==3 && !done){done=true;SDL_Event q{};q.type=SDL_QUIT;SDL_PushEvent(&q);}return changed;
+   }) && done,"original stationary SDL idle cycle");
+  }else for(int i=0;i<3;++i){time+=100;flow.updatePresentation();sample();}
+  std::size_t changes=0,visible=0;
+  for(unsigned i=0;i<3;++i)for(std::size_t p=0;p<64000;++p)if(isolated[i].pixels[p]!=isolated[i+1].pixels[p]){
+   ++changes;if(full[i].pixels[p]==isolated[i].pixels[p] && full[i+1].pixels[p]==isolated[i+1].pixels[p])++visible;
+  }
+  check(changes && visible && isolated[0].pixels==isolated[3].pixels,"Myra attributable complete-cycle pixel evidence");
+  std::cout<<"Stationary Myra attributed cycle changes="<<changes<<" visible="<<visible<<"; no gameplay input\n";
+ }
 	std::optional<XeenEventExecutionSuspended> pending;
 	std::optional<XeenEventExecutionError> terminal;
 	bool completed=false;
@@ -132,7 +172,7 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 		check(completed && !terminal && npcs==1 && receipts==(returning?1:0) && warnings==(returning && lossFixture==1?1:0) &&
 			party.questFlags.isSet(2)==!returning,"original Myra phase/completion result");
 		check(!flow.blocksGameplay() && !flow.presentationGeneration(),"terminal Myra remained pending");
-		check(flow.frame().pixels==base.pixels,"NPC layer survived final acknowledgment");unchanged();save(flow.frame(),"dismissed");};
+		check(flow.frame().pixels==cleanBase().pixels,"NPC layer survived final acknowledgment");unchanged();save(flow.frame(),"dismissed");};
 	auto rebuild=[&]{
 		const auto gen=flow.presentationGeneration();const auto timing=flow.presenter().npcTiming();const auto pixels=flow.frame().pixels;
 		const auto oldMaps=maps,oldObjects=objects;const auto oldSprites=assets.spriteLoadCount();
@@ -146,18 +186,18 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 	// Failure and abandonment must be checked BEFORE the first successful write.
 	failDraw=true;flow.handle(InteractionAction{});
 	check(terminal && terminal->kind==XeenEventExecutionErrorKind::PresentationFailed && terminal->source &&
-		terminal->source->line==(returning?7:4) && !completed && !flow.blocksGameplay() && flow.frame().pixels==base.pixels,
+		terminal->source->line==(returning?7:4) && !completed && !flow.blocksGameplay() && flow.frame().pixels==cleanBase().pixels,
 		"original NPC failure did not clean up");unchanged();failDraw=false;resetReport();
 	if(sdl){
 		int actions=0;bool queued=false;
-		const bool ok=SdlWindow().showInteractive(base,"Myra pending quit",[&](const PlayerAction&a)->std::optional<IndexedFrame>{
+		const bool ok=SdlWindow().showInteractive(flow.frame(),"Myra pending quit",[&](const PlayerAction&a)->std::optional<IndexedFrame>{
 			++actions;auto f=flow.handle(a);check(flow.blocksGameplay(),"quit fixture did not suspend");
 			SDL_Event q{};q.type=SDL_QUIT;SDL_PushEvent(&q);q={};q.type=SDL_KEYDOWN;q.key.keysym.sym=SDLK_RETURN;SDL_PushEvent(&q);return f;
 		},[&]{return flow.handlesEscape();},[&]()->std::optional<IndexedFrame>{
-			if(!queued){queued=true;SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=SDLK_SPACE;SDL_PushEvent(&e);}return flow.updatePresentation();});
+			if(!queued){queued=true;SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=SDLK_SPACE;SDL_PushEvent(&e);}time+=25;return flow.updatePresentation();});
 		check(ok && actions==1 && !completed && !terminal && flow.blocksGameplay(),"SDL_QUIT acknowledged original NPC");
 	}else flow.handle(InteractionAction{});
-	flow.abandonPresentation();check(!completed && !terminal && !flow.blocksGameplay() && flow.frame().pixels==base.pixels,"abandonment acknowledged");
+	flow.abandonPresentation();check(!completed && !terminal && !flow.blocksGameplay() && flow.frame().pixels==cleanBase().pixels,"abandonment acknowledged");
 	unchanged();resetReport();
 	const PlayerAction acknowledgment=dismiss==SDLK_SPACE?PlayerAction(InteractionAction{}):
 		dismiss==SDLK_RETURN?PlayerAction(AcknowledgeAction{}):PlayerAction(CancelInteractionAction{});
@@ -165,7 +205,8 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 		const bool intermediate=flow.blocksGameplay() && flow.presenter().pageIndex()+1<flow.presenter().pageCount();
 		const auto beforeFlags=party.questFlags.values();const auto beforeCounts=party.questItems.counts();
 		const auto beforeMembers=partySnapshot(party);const auto generation=flow.presentationGeneration();
-		const auto page=flow.presenter().pageIndex();auto frame=flow.handle(action);
+		const auto page=flow.presenter().pageIndex();const auto phase=observedPhase;auto frame=flow.handle(action);
+		if(generation)check(observedPhase==phase,"page response stepped ordinary animation");
 		if(intermediate && (std::holds_alternative<InteractionAction>(action) ||
 			std::holds_alternative<AcknowledgeAction>(action) || std::holds_alternative<CancelInteractionAction>(action)))
 			check(flow.blocksGameplay() && flow.presentationGeneration()==generation && flow.presenter().pageIndex()==page+1 &&
@@ -186,7 +227,7 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 		int stage=0;std::uint32_t started=0;bool changed=false;std::size_t page=0;
 		auto push=[](SDL_Keycode key,int repeat=0){SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=key;e.key.repeat=repeat;SDL_PushEvent(&e);};
 		auto quit=[] {SDL_Event q{};q.type=SDL_QUIT;SDL_PushEvent(&q);};
-		const bool ok=SdlWindow().showInteractive(base,"21C Myra acceptance",[&](const PlayerAction&a)->std::optional<IndexedFrame>{
+		const bool ok=SdlWindow().showInteractive(flow.frame(),"21C Myra acceptance",[&](const PlayerAction&a)->std::optional<IndexedFrame>{
 			auto f=handle(a);unchanged();
 			if(stage==1 && pending){freshPresentation();save(f,"page-0");stage=2;}
 			if(terminal || completed){frontier();stage=4;quit();push(SDLK_RETURN);}
@@ -194,8 +235,8 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 			if(!started)started=SDL_GetTicks();
 			if(SDL_GetTicks()-started>5000){quit();return {};}
 			if(stage==0){stage=1;push(SDLK_SPACE);push(SDLK_SPACE,1);}
-			auto f=flow.updatePresentation();unchanged();
-			if(stage==2 && f){changed=true;save(*f,"idle-"+std::to_string(SDL_GetTicks()-started)+"ms");rebuild();
+			time+=25;auto f=flow.updatePresentation();unchanged();
+			if(stage==2 && flow.presenter().npcTiming().phase!=0){changed=true;save(flow.frame(),"idle-"+std::to_string(SDL_GetTicks()-started)+"ms");rebuild();
 				push(SDLK_UP);push(SDLK_y);push(SDLK_n);push(SDLK_F1);stage=3;}
 			else if(stage==3){save(flow.frame(),std::string(pending->request.kind==XeenPresentationKind::RewardReceipt?"receipt-":pending->request.kind==XeenPresentationKind::RewardWarning?"warning-":"page-")+std::to_string(page++));push(dismiss);push(dismiss,1);}
 			return f;});
@@ -212,7 +253,9 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 			if(shown.insert(t.displayedFrame).second)save(flow.frame(),"portrait-"+std::to_string(t.displayedFrame));
 			if(tick<8)save(flow.frame(),"time-"+std::to_string(time)+"ms");
 			if(!t.remaining && !t.nextFrame && !t.displayedFrame)break;
-			const auto before=flow.frame().pixels;
+			auto oracle=flow.presenter();
+			const auto expectedBase=composer.compose(assets,world,party,camera,rules,nullptr,observedPhase+1);
+			const auto before=oracle.rebase(expectedBase).pixels;
 			time+=150;flow.updatePresentation();unchanged();check(flow.presentationGeneration()==gen,"tick consumed generation");
 			for(int y=0;y<200;++y)for(int x=0;x<320;++x)
 				if(before[y*320+x]!=flow.frame().pixels[y*320+x])
@@ -238,16 +281,18 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 	while(counts[17]){interact(false);rebuild();}
 	interact(false); // Exhausted Roots request again; accumulated items remain.
 	resetReport();flow.handle(InteractionAction{});flow.abandonPresentation();
-	check(!terminal && !completed && !flow.blocksGameplay() && flow.frame().pixels==base.pixels,"later abandonment acknowledged");unchanged();
+	check(!terminal && !completed && !flow.blocksGameplay() && flow.frame().pixels==cleanBase().pixels,"later abandonment acknowledged");unchanged();
 	// Actual new EventSystem/Flow owners, retaining authoritative party/world owners.
 	XeenEventSystem newEvents(scriptProvider,textProvider);
-	XeenEventFlow fresh(world,newEvents,party,camera,flags,font,compose,draw,[&]{return time;},[]{return 1;});
+	std::uint64_t freshPhase=0;
+	auto freshCompose=[&](std::uint64_t phase){freshPhase=phase;XeenEventFlow::Composition r;r.frame=composer.compose(assets,world,party,camera,rules,nullptr,phase,&r.containsOrdinaryAnimation);return r;};
+	XeenEventFlow fresh(world,newEvents,party,camera,flags,font,freshCompose,draw,[&]{return time;},[]{return 1;});
 	fresh.reportManual=report;fresh.reportText=flow.reportText;
 	check(!fresh.blocksGameplay() && !fresh.presentationGeneration() && !fresh.updatePresentation(),"new flow inherited pending work");
 	camera={1,1,14,XeenDirection::West};fresh.refresh();camera=start;fresh.refresh();
 	resetReport();fresh.handle(InteractionAction{});check(fresh.blocksGameplay() && fresh.presenter().npcTiming().displayedFrame==0,"new owner dispatch");
 	unsigned freshAcks=0;while(fresh.blocksGameplay()){check(++freshAcks<100,"new owner acknowledgment bound");fresh.handle(acknowledgment);}
-	check(completed && !terminal && fresh.frame().pixels==base.pixels && !fresh.presentationGeneration(),"new owner did not finish original path");frontier();unchanged();
+	check(completed && !terminal && fresh.frame().pixels==composer.compose(assets,world,party,camera,rules,nullptr,freshPhase).pixels && !fresh.presentationGeneration(),"new owner did not finish original path");frontier();unchanged();
 	std::cout<<name<<": "<<(roots?"nine-instruction returns exhausted Roots; five records per return":"five-instruction request; Q2=true")
 		<<"; revisit, abandon/failure, reconstruction/fresh owners; "<<(sdl?"SDL":"direct")<<" OK; maps="<<maps<<" objects="<<objects<<" scripts="<<scripts<<" texts="<<strings<<'\n';
 }

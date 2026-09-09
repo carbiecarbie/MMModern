@@ -18,8 +18,9 @@ XeenNavigationFlowResult XeenNavigationFlow::processNavigationAction(
 		XeenWorld &world, XeenPartyState &partyState, XeenCamera &camera,
 		XeenGameFlags &gameFlags, NavigationAction action) {
 	const XeenMovementResult movementResult = _movement.apply(world, camera, action);
+	const auto cameraAfterMovement = camera;
 	return {movementResult,
-		_eventSystem.runAutomaticEvent(world, partyState, camera, gameFlags)};
+		_eventSystem.runAutomaticEvent(world, partyState, camera, gameFlags), cameraAfterMovement};
 }
 
 XeenManualEventResult XeenNavigationFlow::processInteraction(

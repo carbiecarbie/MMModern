@@ -163,6 +163,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
   if (phirnaRemoved) { s.disabledObjects.push_back({23,13}); for (unsigned i=125;i<=135;++i) s.disabledEvents.push_back({23,i}); }
   return s;
  };
+ std::uint64_t observedPhase=0, ordinaryNow=0;
  const auto initialDisk = resume ? diskBytes(path) : std::vector<std::uint8_t>{};
  XeenGameplayServices services{
   {signature, [&] { return XeenPartyLoader().loadInitialCloudsParty(assets); }, [&](XeenMapIdentity id) { ++scriptLoads; return scripts.load(id); }},
@@ -170,10 +171,13 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
   [&](XeenMapIdentity id) { ++mapLoads; return maps.loadGeometryMap(assets, id); },
   [&](XeenMapIdentity id) { ++objectLoads; return maps.loadObjects(assets, id); },
   [&](XeenMapIdentity id) { ++textLoads; return texts.load(id); }, font,
-  [&](XeenWorld &w, const XeenPartyState &p, const XeenCamera &c) {
+  [&](XeenWorld &w, const XeenPartyState &p, const XeenCamera &c, std::uint64_t phase) {
    // Includes resume preflight and constructor composition, before show().
    if (!world) { partyCheck(p); worldCheck(w); check(cp::sameCamera(c, expectedCamera), "first composition used default camera"); }
-   ++compositions; return composer.compose(assets, w, p, c, {kCloudsInitialYear});
+   if(world==&w)observedPhase=phase;
+   ++compositions; XeenEventFlow::Composition result;
+   result.frame = composer.compose(assets, w, p, c, {kCloudsInitialYear}, nullptr, phase, &result.containsOrdinaryAnimation);
+   return result;
   },
   [&](IndexedFrame &f, std::uint8_t portrait, std::size_t index) { assets.drawNpc(f, portrait, index); },
   [&](XeenEventFlow &f, const XeenCamera &) {
@@ -196,11 +200,31 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
    cleanPresentation(*flow, true);
   }
  };
+ if(!manual)services.clock=[&]{return ordinaryNow;};
  services.show = [&](const IndexedFrame &first, const auto &handle, const auto &escape, const auto &idle, const auto &status) {
   check(compositions >= (resume ? 2 : 1) && automatic == (resume ? 0 : 1), "startup composition/dispatch count");
   stateCheck(); cleanPresentation(*flow, true);
-  equalFrame(first, composer.compose(assets, *world, *party, *camera, {kCloudsInitialYear}));
+  equalFrame(first, composer.compose(assets, *world, *party, *camera, {kCloudsInitialYear}, nullptr, observedPhase));
   visual_remove_test::save(first, dir/(name + "-" + role + "-first.bmp"));
+  auto cleanBase=[&]{return composer.compose(assets,*world,*party,*camera,{kCloudsInitialYear},nullptr,observedPhase);};
+  auto tick=[&]{if(!manual)ordinaryNow+=25;return idle();};
+  if(!manual && cp::sameCamera(*camera,cp::myra)) {
+   check(observedPhase==0,"original fresh/restored first phase");std::vector<IndexedFrame> cycle{first};
+   auto sample=[&]{
+    const auto commands=XeenOutdoorScene().build(*world,*camera,&resolver,nullptr,observedPhase);
+    const auto target=std::find_if(commands.begin(),commands.end(),[](const auto &c){return c.object()&&c.object()->visual.identity==XeenObjectIdentity{23,1};});
+    check(target!=commands.end()&&target->object()->visual.frame==observedPhase%3,"original startup selected-frame cycle");
+    cycle.push_back(flow->frame());
+   };
+   if(sdl){const auto began=SDL_GetTicks64();bool done=false;
+    check(SdlWindow().showInteractive(first,"Original startup animation",{}, {},[&]()->std::optional<IndexedFrame>{
+     check(SDL_GetTicks64()-began<5000,"original startup idle watchdog");const auto before=observedPhase;auto frame=tick();
+     if(observedPhase!=before)sample();if(observedPhase==3&&!done){done=true;SDL_Event q{};q.type=SDL_QUIT;SDL_PushEvent(&q);}return frame;
+    })&&done,"original startup SDL animation");
+   }else for(int i=0;i<3;++i){ordinaryNow+=100;idle();sample();}
+   check(cycle.size()==4 && std::any_of(cycle.begin()+1,cycle.end(),[&](const auto &frame){return frame.pixels!=cycle.front().pixels;}),"original fresh/restored animation pixels");
+   stateCheck();cleanPresentation(*flow);std::cout<<"ASSERT original "<<role<<" Myra startup phase 0, idle 1/2/3, selected 0/1/2/0; no initial replay\n";
+  }
   // Compare immediately around Application F9, before any later SDL idle tick
   // can legitimately animate an NPC. Actual before/after values are mutation
   // checks only; the independent durable oracle remains expectedSnapshot().
@@ -243,7 +267,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
      SDL_Event e{}; e.type = SDL_KEYDOWN; e.key.keysym.sym = inputs[index].key; check(SDL_PushEvent(&e) == 1, "SDL push");
      e.key.repeat = 1; check(SDL_PushEvent(&e) == 1, "SDL repeat push"); queued = true;
     } else if (index == inputs.size() && !quit) { SDL_Event e{}; e.type = SDL_QUIT; check(SDL_PushEvent(&e) == 1, "SDL quit push"); quit = true; }
-    return idle();
+    return tick();
    }, status);
    check(ok && index == inputs.size(), "SDL checkpoint batch failed");
   };
@@ -262,7 +286,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
    auto announce = [&](const char *message) { std::cout << "PHASE " << message << '\n' << std::flush; };
    announce("Myra request: press Space, then acknowledge both original pages with Space/Enter/Escape.");
    auto observedIdle = [&]() -> std::optional<IndexedFrame> {
-    auto frame = idle();
+    auto frame = tick();
     if (phase == Phase::Save) {
      cleanPresentation(*flow); stateCheck();
      check(!fs::exists(path), "refused save was deferred until idle");
@@ -447,7 +471,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
     if (name == "cumulative") { interact(cp::phirna, false); interact(cp::whistle, false); interact(cp::myra, false); }
     else interact(position(name), false);
     move(position(name)); drive({{SDLK_RETURN, AcknowledgeAction{}}}); // Clear deliberately transient passive text.
-    equalFrame(flow->frame(), first); stateCheck();
+    equalFrame(flow->frame(), cleanBase()); stateCheck();
    };
    if (!exchange) revisit();
    // Preload independent Castle text in this same event owner before eviction.
@@ -463,7 +487,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
     if (cache == 1 || cache == 4) events->discardScriptCache();
     if (cache == 2 || cache == 4) events->discardTextCache();
     if (cache == 3 || cache == 4) assets.discardSpriteCache();
-    flow->refresh(true); equalFrame(flow->frame(), first);
+    flow->refresh(true); equalFrame(flow->frame(), cleanBase());
     if (!exchange) revisit();
     if (cache == 2 || cache == 4) textControl();
     const auto after = std::array<std::uint64_t,5>{static_cast<unsigned>(mapLoads), static_cast<unsigned>(objectLoads), static_cast<unsigned>(scriptLoads), static_cast<unsigned>(textLoads), assets.spriteLoadCount()};
@@ -473,7 +497,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
     }
     std::cout << "ASSERT cache " << cache << " map/object/script/text/sprite";
     for (int i = 0; i < 5; ++i) std::cout << ' ' << before[i] << "->" << after[i]; std::cout << '\n';
-    equalFrame(flow->frame(), first); stateCheck();
+    equalFrame(flow->frame(), cleanBase()); stateCheck();
    }
    visual_remove_test::save(flow->frame(), dir/(name + "-rebuilt.bmp"));
    if (exchange) {

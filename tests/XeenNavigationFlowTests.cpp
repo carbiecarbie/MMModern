@@ -150,6 +150,8 @@ void testInitialAndBasicActions() {
 	check(forwardResult.movementResult == XeenMovementResult::Moved,
 		"forward movement processed");
 	completed(forwardResult.automaticEvent);
+	checkCamera(forwardResult.cameraAfterMovement, 1, 1, 2, XeenDirection::North,
+		"movement observation occurred after automatic teleport");
 	checkCamera(forwardCamera, 2, 2, 2, XeenDirection::North,
 		"forward destination event executes before output state");
 
@@ -238,6 +240,8 @@ void testMapTransitionAndErrorBoundary() {
 		camera, flags, NavigationAction::MoveForward);
 	check(result.movementResult == XeenMovementResult::Moved,
 		"neighbor transition movement succeeds");
+	checkCamera(result.cameraAfterMovement, 2, 4, 0, XeenDirection::North,
+		"crossing observation lost normalized movement camera");
 	checkCamera(camera, 3, 5, 5, XeenDirection::North,
 		"event is checked at normalized neighbor destination");
 

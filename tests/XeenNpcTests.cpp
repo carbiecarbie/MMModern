@@ -36,7 +36,9 @@ struct Fixture {
 	XeenFontFormat font{fontBytes()};
 	IndexedFrame base;
 	std::uint64_t time=0;unsigned random=2;int draws=0,loads=0,composes=0;
-	bool failDraw=false;
+	bool failDraw=false, ordinary=false;
+	unsigned randomReads=0;
+	std::vector<std::uint64_t> phases;
 	XeenEventTextFile text{1,"synthetic.txt",true,{"Title\n\t125Subtitle","one two three four"}};
 	std::map<XeenMapIdentity,XeenEventScript> scripts;
 	XeenWorld world{[](XeenMapIdentity id){return map(id);},[](XeenMapIdentity id){
@@ -51,8 +53,13 @@ struct Fixture {
 		f.pixels[23+23*320]=static_cast<std::uint8_t>(40+frame);
 		if(frame==2)f.pixels[24+23*320]=55;
 	};}
+	IndexedFrame ordinaryBase(std::uint64_t phase) const {
+		auto f=base;
+		if(ordinary)for(int y=80;y<100;++y)for(int x=80;x<100;++x)f.pixels[y*320+x]=20+phase%10;
+		return f;
+	}
 	XeenEventFlow flow(){return XeenEventFlow(world,events,members,camera,flags,font,
-		[&]{++composes;return base;},draw(),[&]{return time;},[&]{return random;});}
+		[&](std::uint64_t phase){++composes;phases.push_back(phase);return XeenEventFlow::Composition{ordinaryBase(phase), ordinary};},draw(),[&]{return time;},[&]{++randomReads;return random;});}
 	XeenEventExecutionStepResult begin(int line=0){return interpreter.begin(camera,members,flags,world,
 		[&](XeenMapIdentity id){return scripts.at(id);},[&](XeenMapIdentity){return text;},line);}
 	XeenEventExecutionStepResult resume(XeenEventExecutionState state,XeenPresentationResponse response=XeenPresentationResponse::Acknowledged){
@@ -197,6 +204,56 @@ void presentationAndTiming() {
 	std::size_t ink=0;for(const auto&p:pages.pages)ink+=std::count(p.pixels.begin(),p.pixels.end(),25);
 	check(ink==8*32,"pagination discarded or duplicated body glyphs");
 }
+void ordinaryCoexistence() {
+ for(bool ordinary:{false,true})for(bool npcActive:{false,true}) {
+  Fixture f;f.ordinary=ordinary;auto flow=f.flow();
+  if(npcActive)flow.handle(InteractionAction{});
+  const auto generation=flow.presentationGeneration();
+  unsigned ordinarySteps=npcActive?1:0;
+  for(std::uint64_t now:{99,100,149,150,200,300,9999}) {
+   const auto count=f.composes;const auto random=f.randomReads;
+   const auto timing=flow.presenter().npcTiming();
+   f.time=now;const bool due=now==100||now==200||now==300||now==9999;
+   const bool npcDue=npcActive&&(now==150||now==300||now==9999);
+   if(due)++ordinarySteps;
+   flow.updatePresentation();
+   check(f.composes==count+(ordinary&&due?1:0),"ordinary/NPC coalesced composition count");
+   check(f.randomReads==random+(npcDue?1:0),"ordinary redraw consumed NPC randomness");
+   check(flow.presentationGeneration()==generation && flow.blocksGameplay()==npcActive,"idle consumed pending generation");
+   if(!npcDue)check(flow.presenter().npcTiming().deadline==timing.deadline && flow.presenter().npcTiming().phase==timing.phase,"ordinary step rearmed NPC");
+   else check(flow.presenter().npcTiming().deadline==now+150,"NPC deadline not independent");
+   if(ordinary&&due)check(f.phases.back()==ordinarySteps,"ordinary phase count with NPC");
+   const auto after=f.composes;const auto randomAfter=f.randomReads;flow.updatePresentation();
+   check(f.composes==after && f.randomReads==randomAfter,"same-now coexistence double advance");
+  }
+  if(npcActive){flow.handle(AcknowledgeAction{});check(!flow.blocksGameplay() && flow.frame().pixels==f.ordinaryBase(ordinarySteps).pixels,"covered animation not revealed at current base");}
+ }
+ // Noninitial pages and retained labels survive animated rebases.
+ Fixture f;f.ordinary=true;f.text.strings[1]=std::string(800,'W')+" words for speech";
+ f.set({record(1,1,0,4,{0}),npc(1),record(1,1,2,0x12)});auto flow=f.flow();flow.handle(InteractionAction{});
+ flow.handle(AcknowledgeAction{});const auto gen=flow.presentationGeneration();const auto page=flow.presenter().pageIndex();
+ check(page==1,"animated noninitial NPC page fixture");
+ f.time=100;flow.updatePresentation();const auto pixels=flow.frame().pixels;const auto timing=flow.presenter().npcTiming();
+ f.world.discardMapCache();f.events.discardScriptCache();f.events.discardTextCache();flow.refresh(true);
+ check(flow.frame().pixels==pixels && flow.presenter().pageIndex()==page && flow.presentationGeneration()==gen &&
+  flow.presenter().npcTiming().deadline==timing.deadline,"animated noninitial reconstruction lost state");
+ while(flow.blocksGameplay())flow.handle(AcknowledgeAction{});
+ XeenEventPresenter oracle(f.font);XeenPresentationRequest label;label.kind=XeenPresentationKind::SceneLabelSign;label.text=f.text.strings[0];
+ const auto expected=oracle.present(f.ordinaryBase(2),label).frame;
+ check(flow.frame().pixels==expected.pixels,"idle erased retained label/current base");
+ f.time=200;flow.updatePresentation();XeenEventPresenter later(f.font);
+ check(flow.frame().pixels==later.present(f.ordinaryBase(3),label).frame.pixels,"idle erased completed retained label");
+ flow.handle(NavigationAction::MoveForward);check(flow.frame().pixels==f.ordinaryBase(4).pixels,"accepted blocked action retained label");
+ // Both consumers call the one stored mutable clock, rather than independent copies.
+ Fixture shared;std::vector<unsigned> calls;
+ XeenEventPresenter::Clock clock=[n=0U,&calls]() mutable {calls.push_back(++n);return n;};
+ XeenEventFlow sharing(shared.world,shared.events,shared.members,shared.camera,shared.flags,shared.font,
+  [&](std::uint64_t){return XeenEventFlow::Composition{shared.base,true};},shared.draw(),clock);
+ sharing.handle(InteractionAction{});sharing.updatePresentation();
+ check(calls.size()>=4,"shared clock consumers were not exercised");
+ for(unsigned i=0;i<calls.size();++i)check(calls[i]==i+1,"stateful clock copied between Flow and NPC");
+
+}
 void failuresAndOwners() {
 	for(int when=0;when<4;++when) {
 		Fixture f;f.set({record(1,1,0,0x0c,{0,0,21,99}),npc(1),record(1,1,2,0x0c,{0,0,21,100})});
@@ -215,7 +272,7 @@ void failuresAndOwners() {
 		flow.abandonPresentation();auto fresh=f.flow();check(!fresh.blocksGameplay() && f.members.questItems.at(17)==2,"fresh flow erased party owner");
 	}
 	Fixture f;f.set({npc(),record(1,1,1,0x0c,{0,0,21,99})});
-	{XeenEventFlow noAssets(f.world,f.events,f.members,f.camera,f.flags,f.font,[&]{return f.base;});
+	{XeenEventFlow noAssets(f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
 		bool failed=false;noAssets.reportManual=[&](const auto&r){if(auto e=std::get_if<XeenEventExecutionError>(&r))failed=e->kind==Kind::PresentationFailed;};
 		noAssets.handle(InteractionAction{});check(failed && !noAssets.blocksGameplay() && noAssets.frame().pixels==f.base.pixels,
 			"missing NPC asset callback accepted");}
@@ -272,7 +329,7 @@ void assets() {
 void sdl() {
 	Fixture f;f.text.strings[1]="one two three four";f.set({npc(),npc(1),record(1,1,2,0x0c,{0,0,21,99})});
 	// Production clock + SDL's actual idle callback; no keyboard event starts animation.
-	XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&]{return f.base;},f.draw(),{},[]{return 3;});
+	XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};},f.draw(),{},[]{return 3;});
 	flow.handle(InteractionAction{});bool changed=false;int actions=0,idles=0;std::uint32_t started=0;
 	auto push=[](SDL_Keycode key,int repeat=0){SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=key;e.key.repeat=repeat;SDL_PushEvent(&e);};
 	const bool ok=SdlWindow().showInteractive(flow.frame(),"NPC SDL synthetic",
@@ -290,7 +347,7 @@ void sdl() {
 int main(int argc,char **argv) {
 	try {
 		if(argc>1 && std::string(argv[1])=="sdl")sdl();
-		else {decoderAndExecution();contextAndEffects();presentationAndTiming();failuresAndOwners();assets();}
+		else {decoderAndExecution();contextAndEffects();presentationAndTiming();ordinaryCoexistence();failuresAndOwners();assets();}
 		std::cout<<"M19A NPC tests passed\n";return 0;
 	}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}
 }

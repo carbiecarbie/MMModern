@@ -17,7 +17,7 @@ Bytes fontBytes() {
 		for(int y=0;y<8;++y){b[c*16+y*2]=0x55;b[0x800+c*16+y*2]=0x55;}}
 	return b;
 }
-GameInstallation installation(const std::filesystem::path &dir) {
+GameInstallation installation(const std::filesystem::path &dir, bool animated=false) {
 	std::filesystem::create_directories(dir);
 	Bytes empty;word(empty,41);for(int i=0;i<41;++i){word(empty,166);word(empty,0);}
 	const auto c=cell(0,0,0,0,{});empty.insert(empty.end(),c.begin(),c.end());
@@ -27,11 +27,17 @@ GameInstallation installation(const std::filesystem::path &dir) {
 	for(int i=0;i<768;++i)files["mm4.pal"][i]=(i/3)%64;
 	Bytes rows;for(int y=0;y<30;++y){rows.push_back(43);rows.push_back(0);rows.push_back(31);rows.insert(rows.end(),32,7);rows.push_back(7);rows.insert(rows.end(),8,7);}
 	files["111.0bj"]=sprite(cell(60,40,70,30,rows));
-	archive(dir/"xeen.cc",files);archive(dir/"dark.cc",{{"clouds.dat",Bytes(1452)}});
+	Bytes metadata(1452);
+	if(animated){auto colored=[](std::uint8_t color){Bytes r;for(int y=0;y<30;++y){r.push_back(43);r.push_back(0);r.push_back(31);r.insert(r.end(),32,color);r.push_back(7);r.insert(r.end(),8,color);}return r;};auto second=colored(8),third=colored(9);
+		files["111.0bj"]=multiFrameSprite({{cell(60,40,70,30,rows),{}},{cell(60,40,70,30,second),{}},{cell(60,40,70,30,third),{}}});
+		for(int d=0;d<4;++d)metadata[111*12+8+d]=3;
+	}
+	archive(dir/"xeen.cc",files);archive(dir/"dark.cc",{{"clouds.dat",metadata}});
 	GameInstallation i;i.xeenArchive=dir/"xeen.cc";i.darkArchive=dir/"dark.cc";return i;
 }
 struct Fixture {
 	int maps=0,objects=0,scripts=0,texts=0,compositions=0,completed=0;
+	std::uint64_t now=0,phase=0;
 	bool automatic=false;
 	bool transfer=false;
 	std::vector<XeenEventRecord> records{record(8,2,0,0x0e)};
@@ -49,7 +55,7 @@ struct Fixture {
 	XeenPartyState party;
 	XeenFontFormat font{fontBytes()};
 	CloudsMapComposer composer;
-	XeenEventFlow flow{world,events,party,camera,flags,font,[this]{++compositions;return composer.compose(assets,world,party,camera,{});}};
+	XeenEventFlow flow{world,events,party,camera,flags,font,[this](std::uint64_t currentPhase){phase=currentPhase;++compositions;XeenEventFlow::Composition result;result.frame=composer.compose(assets,world,party,camera,{},nullptr,phase,&result.containsOrdinaryAnimation);return result;},{},[this]{return now;}};
 	explicit Fixture(XeenAssetSource &a):assets(a){flow.reportManual=[this](const auto &r){if(std::holds_alternative<XeenManualEventCompleted>(r))++completed;};}
 	void absent(const IndexedFrame &f) {
 		const auto reference=composer.compose(assets,world,party,camera,{});
@@ -58,6 +64,48 @@ struct Fixture {
 		check(std::count(f.pixels.begin(),f.pixels.end(),7)>0,"shared-sprite neighbor disappeared");
 	}
 };
+void animatedRemoval(XeenAssetSource &assets) {
+ Fixture f(assets);f.records.push_back(record(1,1,0,4,{0}));f.records.push_back(record(1,1,1,0x12));f.now=100;f.flow.updatePresentation();check(f.phase==1,"animated removal initial tick");
+ f.flow.acceptManual(f.events.runManualEvent(f.world,f.party,f.camera,f.flags));
+ check(f.phase==1 && f.world.isObjectDisabled({23,0}) && !f.world.isObjectDisabled({23,1}),"Remove stepped phase or lost identity");
+ auto verify=[&]{
+  const auto resolver=XeenObjectVisualResolver::load(assets);
+  const auto commands=XeenOutdoorScene().build(f.world,f.camera,&resolver,nullptr,f.phase);
+  bool sibling=false;
+  for(const auto &c:commands)if(c.object()){
+   check(!(c.object()->visual.identity==XeenObjectIdentity{23,0}),"animated Remove revived exact identity");
+   if(c.object()->visual.identity==XeenObjectIdentity{23,1})sibling=true;
+   check(c.object()->visual.frame==f.phase%3,"sibling animation reset by Remove");
+  }
+  check(sibling,"shared-resource sibling removed");
+  check(f.flow.frame().pixels==f.composer.compose(assets,f.world,f.party,f.camera,{},nullptr,f.phase).pixels,"removed animated current-base oracle");
+ };
+ verify();f.now=199;f.flow.updatePresentation();check(f.phase==1,"Remove rearmed/advanced timing");
+ f.now=200;f.flow.updatePresentation();check(f.phase==2,"Remove postponed due idle");verify();
+ auto textControl=[&]{const auto camera=f.camera;f.camera={23,1,1,XeenDirection::North};
+  f.flow.acceptManual(f.events.runManualEvent(f.world,f.party,f.camera,f.flags));
+  f.flow.handle(AcknowledgeAction{});f.camera=camera;f.flow.refresh();verify();check(f.phase==2,"text reconstruction stepped phase");};
+ textControl();
+ for(int cache=0;cache<5;++cache){
+  const auto maps=f.maps,objects=f.objects,scripts=f.scripts,texts=f.texts;const auto sprites=assets.spriteLoadCount();
+  if(cache==0||cache==4)f.world.discardMapCache();
+  if(cache==1||cache==4)f.events.discardScriptCache();
+  if(cache==2||cache==4)f.events.discardTextCache();
+  if(cache==3||cache==4)assets.discardSpriteCache();
+  f.flow.refresh(true);verify();check(f.phase==2,"cache discard reset phase");
+  if(cache==0||cache==4)check(f.maps>maps&&f.objects>objects,"animated map/object cache not reconstructed");
+  if(cache==3||cache==4)check(assets.spriteLoadCount()>sprites,"animated sprite cache not reconstructed");
+  if(cache==1||cache==2||cache==4)textControl();
+  if(cache==1||cache==4)check(f.scripts>scripts,"animated script cache not reconstructed");
+  if(cache==2||cache==4)check(f.texts>texts,"animated text cache not reconstructed");
+ }
+ Fixture pending(assets);pending.records={record(8,2,0,9,{44,0,1}),record(8,2,1,0x12)};
+ pending.flow.handle(InteractionAction{});const auto gen=pending.flow.presentationGeneration();
+ pending.world.disableObject({23,0});const auto n=pending.compositions;pending.now=100;pending.flow.updatePresentation();
+ check(pending.phase==2 && pending.compositions==n+1 && pending.flow.presentationGeneration()==gen,"pending Remove and due idle not coalesced");
+ pending.flow.handle(NoAction{});check(!pending.flow.blocksGameplay() && pending.phase==2,"response added animation step");
+ check(pending.flow.frame().pixels==pending.composer.compose(assets,pending.world,pending.party,pending.camera,{},nullptr,2).pixels,"pending Remove restored stale base");
+}
 void basic(XeenAssetSource &assets,const std::filesystem::path &out) {
 	for(bool automatic:{false,true}){
 		Fixture f(assets);f.automatic=automatic;f.world.discardMapCache();const auto before=f.flow.frame();
@@ -191,7 +239,8 @@ int main(int argc,char **argv){try{
 	const auto dir=std::filesystem::temp_directory_path()/("mmodern-16c-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
 	struct Cleanup{std::filesystem::path p;~Cleanup(){std::error_code e;std::filesystem::remove_all(p,e);}} cleanup{dir};
 	const std::filesystem::path output=argc>1?argv[1]:dir;std::filesystem::create_directories(output);
-	XeenAssetSource assets(installation(dir),320,200);
-	basic(assets,output);presentation(assets,output);errorsAndSuspendedMutation(assets,output);
+	{ XeenAssetSource assets(installation(dir),320,200);
+	basic(assets,output);presentation(assets,output);errorsAndSuspendedMutation(assets,output); }
+	XeenAssetSource animated(installation(dir/"animated",true),320,200);animatedRemoval(animated);
 	std::cout<<"Visual Remove runtime, pages, errors, isolation and lifecycle passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

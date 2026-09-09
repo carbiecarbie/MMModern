@@ -169,7 +169,7 @@ void immediateErrors() {
 			record(7,8,3,mode==0?0xff:mode==1?9:0x0e,mode==1?Bytes{44,1,4}:Bytes{}),
 			record(7,8,4,0x0e),record(7,8,5,0xff)},2);
 		XeenFontFormat font(fontBytes());IndexedFrame base;base.width=320;base.height=200;base.pixels.resize(64000);
-		XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,font,[&]{return base;});
+		XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,font,[&](std::uint64_t){return XeenEventFlow::Composition{base, false};});
 		std::optional<XeenEventExecutionState> suspended;
 		bool failed=false;auto report=[&](const auto &r){
 			if(const auto *pending=std::get_if<XeenEventExecutionSuspended>(&r))suspended=pending->state;
@@ -204,7 +204,7 @@ void presentationNoReplay() {
 			record(1,1,3,9,{44,0,6}),record(1,1,4,9,{21,99,8}),record(1,1,5,0xff),
 			record(1,1,6,9,{21,99,8}),record(1,1,7,0xff),record(1,1,8,0x12)});
 		XeenFontFormat font(fontBytes());IndexedFrame base;base.width=320;base.height=200;base.pixels.resize(64000);
-		XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,font,[&]{return base;});
+		XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,font,[&](std::uint64_t){return XeenEventFlow::Composition{base, false};});
 		int line=-1;bool completed=false;auto report=[&](const auto &r){
 			if(const auto *s=std::get_if<XeenEventExecutionSuspended>(&r))line=s->request.source.line;
 			else{check(!std::holds_alternative<XeenEventExecutionError>(r),"presentation continuation error");completed=true;}};

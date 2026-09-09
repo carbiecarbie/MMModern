@@ -174,4 +174,37 @@ void dispatchBoundaries(const fs::path &path){
  };
  check(Application().playGameplay(fatalServices,start,path,false)==4,"fatal shutdown result");
 }
-int main(){try{const auto dir=fs::current_path()/"save-flow-tests";fs::create_directories(dir);const auto path=dir/"session.mmsave";fs::remove(path);legacyUpgrade(path);startup(path);pending(path);failures(path);mutation(path);dispatchBoundaries(path);std::cout<<"Production Application startup, save eligibility, failures and mutation policies passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+void ordinarySaveBoundary(const fs::path &path){
+ fs::remove(path);Fixture f;f.ordinary=true;std::uint64_t now=0;unsigned clockCalls=0;
+ auto services=f.services();services.clock=[&]{++clockCalls;return now;};
+ const XeenPartyState *party=nullptr;const XeenGameFlags *flags=nullptr;XeenCamera *camera=nullptr;
+ auto observe=services.observeGameplay;
+ services.observeGameplay=[&](XeenWorld &w,XeenEventSystem &e,const XeenPartyState &p,XeenCamera &c,const XeenGameFlags &g){observe(w,e,p,c,g);party=&p;flags=&g;camera=&c;};
+ Bytes firstBytes;
+ services.show=[&](const auto&,const auto &handle,const auto&,const auto &idle,const auto &status){
+  check(f.phases==std::vector<std::uint64_t>{0},"fresh startup added preflight");
+  f.world->disableObject({1,0});f.flow->refresh();
+  auto capture=[&]{return XeenSaveFormat::encode(XeenSaveState::capture(f.signature,*party,*camera,*flags,*f.world));};
+  firstBytes=capture();now=100;idle();check(f.phases.back()==1 && capture()==firstBytes,"phase serialized into v2");
+  now=199;const auto calls=clockCalls;const auto liveFrame=f.flow->frame();
+  handle(InspectInventoryAction{});check(clockCalls==calls && f.phases.back()==1,"inventory changed phase/clock");
+  handle(SaveGameAction{});
+  check(status().find("Saved")!=std::string::npos && clockCalls==calls && f.phases.back()==0,"preflight did not use independent zero");
+  check(diskBytes(path)==firstBytes && f.flow->frame().pixels==liveFrame.pixels,"F9 mutated live frame or save bytes");
+  check(f.world->isObjectDisabled({1,0}),"preflight replaced live-world observer");
+  const auto n=f.phases.size();idle();check(f.phases.size()==n,"preflight moved deadline earlier");
+  now=200;idle();check(f.phases.back()==2 && capture()==firstBytes,"preflight secretly rearmed live deadline");
+  return true;
+ };
+ check(Application().playGameplay(services,start,path,false)==0,"ordinary save producer");
+ Fixture restored;restored.ordinary=true;restored.automatic=true;now=500;
+ auto resumed=restored.services();resumed.clock=[&]{return now;};
+ resumed.show=[&](const auto &first,const auto&,const auto&,const auto &idle,const auto&){
+  check(restored.phases==std::vector<std::uint64_t>({0,0}) && restored.eventReads==0,"restored phase/preflight or initial replay");
+  check(restored.world->isObjectDisabled({1,0}) && first.pixels[20]==0,"restored animation/removal");
+  now=599;const auto n=restored.phases.size();idle();check(restored.phases.size()==n,"restored early deadline");
+  now=600;idle();check(restored.phases.back()==1,"restored first due tick");return true;
+ };
+ check(Application().playGameplay(resumed,start,path,true)==0 && diskBytes(path)==firstBytes,"ordinary save restored startup");
+}
+int main(){try{const auto dir=fs::current_path()/"save-flow-tests";fs::create_directories(dir);const auto path=dir/"session.mmsave";fs::remove(path);legacyUpgrade(path);startup(path);pending(path);failures(path);mutation(path);dispatchBoundaries(path);ordinarySaveBoundary(dir/"animation.mmsave");std::cout<<"Production Application startup, save eligibility, failures and mutation policies passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

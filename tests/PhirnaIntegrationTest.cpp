@@ -78,7 +78,8 @@ void runCase(XeenAssetSource &assets, const std::filesystem::path &output,
 			r.opcode==opcodes[i] && r.parameters==operands[i],"real Phirna record mismatch");}
 	const XeenFontFormat font(assets.readArchiveResource("fnt"));
 	const CloudsMapComposer composer; const XeenCharacterRulesContext rules{kCloudsInitialYear};
-	XeenEventFlow flow(world,events,party,camera,flags,font,[&]{return composer.compose(assets,world,party,camera,rules);});
+	std::uint64_t observedPhase=0;
+	XeenEventFlow flow(world,events,party,camera,flags,font,[&](std::uint64_t phase){observedPhase=phase;XeenEventFlow::Composition result;result.frame=composer.compose(assets,world,party,camera,rules,nullptr,phase,&result.containsOrdinaryAnimation);return result;});
 	const auto base=flow.frame();
 	const auto resolver=XeenObjectVisualResolver::load(assets);
 	const auto draw=XeenOutdoorScene().build(world,camera,&resolver);
@@ -128,7 +129,7 @@ void runCase(XeenAssetSource &assets, const std::filesystem::path &output,
 		if(yes && !held && stepIndex==4){
 			check(harvested && sameCamera(camera,start),"harvest needed movement");
 			check(successRequest.has_value(),"missing success presentation");
-			const auto effective=composer.compose(assets,world,party,camera,rules);
+			const auto effective=composer.compose(assets,world,party,camera,rules,nullptr,observedPhase);
 			XeenEventPresenter oracle(font);
 			check(frame.pixels==oracle.present(effective,*successRequest).frame.pixels,
 				"returned harvest frame is not effective scene with retained success text");
@@ -211,7 +212,7 @@ void runCase(XeenAssetSource &assets, const std::filesystem::path &output,
 		if(cache==3 || cache==4)check(assets.spriteLoadCount()>oldSprites,"sprite cache not reloaded");
 		// Clear retained No/question text before comparing identical scene states.
 		flow.handle(NavigationAction::TurnRight);flow.handle(NavigationAction::TurnLeft);
-		check(flow.frame().pixels==composer.compose(assets,world,party,camera,rules).pixels,"cache restored stale scene");
+		check(flow.frame().pixels==composer.compose(assets,world,party,camera,rules,nullptr,observedPhase).pixels,"cache restored stale scene");
 		unchanged();
 	}
 	visual_remove_test::save(flow.frame(),output/(name+"-rebuilt.bmp"));
@@ -230,7 +231,7 @@ void runCase(XeenAssetSource &assets, const std::filesystem::path &output,
 		[&](XeenMapIdentity id){return textLoader.load(id);});
 	auto freshCamera=start;auto freshFlags=XeenGameFlagsLoader().loadInitialCloudsFlags(assets);
 	XeenEventFlow fresh(freshWorld,freshEvents,freshParty,freshCamera,freshFlags,font,
-		[&]{return composer.compose(assets,freshWorld,freshParty,freshCamera,rules);});
+		[&](std::uint64_t phase){XeenEventFlow::Composition result;result.frame=composer.compose(assets,freshWorld,freshParty,freshCamera,rules,nullptr,phase,&result.containsOrdinaryAnimation);return result;});
 	check(!fresh.blocksGameplay() && freshParty.questItems.at(17)==0 && freshWorld.selectObject(start)==XeenObjectIdentity{23,13} &&
 		fresh.frame().pixels==base.pixels,"new session retained grant/removal/presentation");
 	for(std::size_t i=125;i<=135;++i)check(sameRecord(script.records[i],freshWorld.effectiveEvent({23,i},script.records[i])),"fresh event not restored");

@@ -9,7 +9,7 @@ void flows(){
 	for(bool global:{false,true}){Execution e;if(global)full(e.f.initial,true);
 		auto s=e.seed({pause(),record(1,1,1,12,{0,0,20,7}),record(1,1,2,0x12)},10);
 		XeenEventSystem events(e.scripts,e.texts);auto b=base();
-		XeenEventFlow flow(e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&]{return b;});
+		XeenEventFlow flow(e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t){return XeenEventFlow::Composition{b, false};});
 		flow.acceptManual(XeenEventExecutionSuspended{s,s.pendingPresentation->request});
 		const auto ordinary=*flow.presentationGeneration();flow.handle(AcknowledgeAction{});
 		check(flow.blocksGameplay()&&!e.flags.isSet(7)&&flow.handlesEscape(),"reward save/escape/publication boundary");
@@ -39,7 +39,7 @@ void producedFlow(){
 		e.f.scripts[1]={pause(),record(1,1,1,12,{21,99}),record(1,1,2,12,{104,2}),record(1,1,3,0x2c,{70,37,0,1}),
 			pause(4),record(1,1,5,12,{0,0,20,7})};
 		XeenEventSystem events(e.scripts,e.texts);auto b=base();
-		XeenEventFlow flow(e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&]{return b;});
+		XeenEventFlow flow(e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t){return XeenEventFlow::Composition{b, false};});
 		flow.handle(InteractionAction{});
 		check(e.f.initial.questItems.at(17)==1 && e.f.initial.questFlags.isSet(2),"pre-ACK quest mutation");
 		const auto first=*flow.presentationGeneration();flow.handle(AcknowledgeAction{});
@@ -78,7 +78,7 @@ void failures(){
 		if(delivered)s=pending(e.resume(s));
 		if(fault==5&&!delivered){full(e.f.initial,true);s=pending(e.resume(s));}
 		XeenEventSystem events(e.scripts,e.texts);auto b=base();bool failCompose=false;
-		XeenEventFlow flow(e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&]{if(failCompose)throw std::runtime_error("compose fault");return b;});
+		XeenEventFlow flow(e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t){if(failCompose)throw std::runtime_error("compose fault");return XeenEventFlow::Composition{b, false};});
 		std::optional<XeenEventExecutionError> error;unsigned reports=0;
 		flow.reportManual=[&](const auto &r){if(const auto *v=std::get_if<XeenEventExecutionError>(&r))error=*v;else if(fault==1&&++reports==1)throw std::runtime_error("report fault");};
 		if(fault==0){e.camera.direction=XeenDirection::East;failCompose=true;}
@@ -94,11 +94,54 @@ void failures(){
 		check(flow.frame().pixels==b.pixels,"failed transient layer survived rebase");
 	}
 	Execution e;auto s=e.seed({pause(),record(1,1,1,0x12)});XeenEventSystem events(e.scripts,e.texts);auto b=base();
-	XeenEventFlow flow(e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&]{return b;});
+	XeenEventFlow flow(e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t){return XeenEventFlow::Composition{b, false};});
 	flow.acceptManual(XeenEventExecutionSuspended{s,s.pendingPresentation->request});const auto generation=flow.presentationGeneration();
 	bool rejected=false;try{flow.acceptManual(XeenManualEventNoEvent{});}catch(const std::logic_error&){rejected=true;}
 	check(rejected&&flow.presentationGeneration()==generation,"pending replacement accepted");flow.abandonPresentation();
 	flow.handle(InteractionAction{});check(flow.presentationGeneration()!=generation,"explicit abandonment did not permit fresh dispatch");
+}
+void animatedRewardLayers(){
+ for(bool warning:{false,true}){
+  Execution e;if(warning)full(e.f.initial,true);
+  auto state=e.seed({pause(),record(1,1,1,0x12)},3);state=pending(e.resume(state));
+  XeenEventSystem events(e.scripts,e.texts);auto b=base();std::uint64_t now=0,phase=0;
+  XeenEventFlow flow(e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t value){phase=value;auto current=b;current.pixels[100]=value;return XeenEventFlow::Composition{current,true};},{},[&]{return now;});
+  flow.acceptManual(XeenEventExecutionSuspended{state,state.pendingPresentation->request});
+  const auto gen=flow.presentationGeneration();const auto page=flow.presenter().pageIndex();const auto inventory=xeenInventoryInspection(e.f.initial);
+  auto expectedBase=b;expectedBase.pixels[100]=1;auto oracle=flow.presenter();const auto expected=oracle.rebase(expectedBase);
+  now=100;flow.updatePresentation();
+  check(phase==1 && flow.frame().pixels==expected.pixels && flow.presentationGeneration()==gen && flow.presenter().pageIndex()==page &&
+   xeenInventoryInspection(e.f.initial)==inventory,"animated warning/receipt rebase changed response or delivery");
+  check(XeenRewardTestAccess::state(flow).rewardPhase==(warning?XeenRewardPhase::Warning:XeenRewardPhase::Receipt),"animated reward phase changed");
+  flow.abandonPresentation();check(flow.frame().pixels==expectedBase.pixels,"reward dismissal revealed stale base");
+ }
+}
+void animationFailures(){
+ for(bool automatic:{false,true})for(bool delivered:{false,true}){
+  Execution e;auto state=e.seed({pause(),record(1,1,1,0x12)},3);
+  if(delivered)state=pending(e.resume(state));
+  XeenEventSystem events(e.scripts,e.texts);auto b=base();std::uint64_t now=0;bool fail=false;
+  std::vector<std::uint64_t> phases;unsigned reports=0;
+  XeenEventFlow flow(e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t phase){
+   phases.push_back(phase);if(fail)throw std::runtime_error("idle animation fault");return XeenEventFlow::Composition{b,true};},{},[&]{return now;});
+  auto suspension=XeenEventExecutionSuspended{state,state.pendingPresentation->request};
+  if(automatic)flow.acceptAutomatic(suspension);else flow.acceptManual(suspension);
+  const auto gen=flow.presentationGeneration();std::optional<XeenEventExecutionError> error;
+  auto report=[&](const auto&r){if(const auto *v=std::get_if<XeenEventExecutionError>(&r)){++reports;error=*v;flow.abandonPresentation();if(automatic)throw std::runtime_error("automatic animation report");}};
+  flow.reportManual=report;flow.reportAutomatic=report;
+  fail=true;now=100;bool threw=false;try{flow.updatePresentation();}catch(const std::runtime_error&){threw=true;}
+  check(threw==automatic && reports==1 && !flow.blocksGameplay() && !flow.presentationGeneration(),"idle failure routing/cleanup");
+  check(error && error->rewards.discarded==(delivered?0U:3U) && error->rewards.delivered==(delivered?3U:0U),"idle failure reward accounting");
+  check(e.f.initial.roster.at(0).miscellaneous[0].id==(delivered?37:0) && !flow.respond(*gen,XeenPresentationResponse::Acknowledged),"idle failure replay/rollback");
+  fail=false;flow.refresh(true);check(phases.back()==1,"idle failure rolled logical step back");
+ }
+ // An initial input refresh that cleans pending execution cannot dispatch that input anew.
+ Execution e;auto state=e.seed({pause(),record(1,1,1,0x12)},1);XeenEventSystem events(e.scripts,e.texts);auto b=base();bool fail=false;
+ unsigned compositions=0,reports=0;
+ XeenEventFlow flow(e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t){++compositions;if(fail)throw std::runtime_error("rebase failure");return XeenEventFlow::Composition{b,true};});
+ flow.acceptManual(XeenEventExecutionSuspended{state,state.pendingPresentation->request});
+ flow.reportManual=[&](const auto&){++reports;};e.camera.x=2;fail=true;const auto before=compositions;
+ flow.handle(InteractionAction{});check(reports==1 && compositions==before+1 && !flow.blocksGameplay(),"failure dispatched same input as new action");
 }
 void presentation(const XeenFontFormat &font,IndexedFrame b,const std::filesystem::path &output){
 	Fixture f;f.initial.roster.at(0).name="Owner Alpha";f.initial.roster.at(1).name="Owner Beta";
@@ -127,7 +170,7 @@ void presentation(const XeenFontFormat &font,IndexedFrame b,const std::filesyste
 	}
 }
 int main(int argc,char **argv){try{
-	flows();producedFlow();failures();Fixture f;presentation(f.font,base(),{});
+	flows();producedFlow();failures();animatedRewardLayers();animationFailures();Fixture f;presentation(f.font,base(),{});
 	if(argc==3){const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"installation missing");XeenAssetSource assets(*installation,320,200);
 		assets.loadPalette("mm4.pal");auto b=assets.snapshot();b.pixels.assign(64000,90);std::filesystem::create_directories(argv[2]);
 		presentation(XeenFontFormat(assets.readArchiveResource("fnt")),b,argv[2]);}

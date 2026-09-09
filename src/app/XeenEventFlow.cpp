@@ -2,6 +2,7 @@
 #include <type_traits>
 #include <utility>
 #include <iostream>
+#include <chrono>
 
 namespace mmodern {
 namespace {
@@ -23,40 +24,73 @@ XeenEventFlow::XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
 		const XeenFontFormat &font, Compose compose, XeenEventPresenter::NpcDraw npcDraw,
 		XeenEventPresenter::Clock clock, XeenEventPresenter::RandomFrame randomFrame) :
 	_world(world), _events(events), _party(party), _camera(camera), _flags(flags),
-	_navigation(events), _presenter(font, std::move(npcDraw), std::move(clock), std::move(randomFrame)),
+	_navigation(events), _clock(clock ? std::move(clock) : XeenEventPresenter::Clock{[] {
+		return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+			std::chrono::steady_clock::now().time_since_epoch()).count());
+	}}), _presenter(font, std::move(npcDraw), [this] { return _clock(); }, std::move(randomFrame)),
+	_ordinary{0, _clock() + 100, camera.mapId, camera.direction, false},
 	_compose(std::move(compose)) {
 	refresh(true);
 }
 
 IndexedFrame XeenEventFlow::refresh(bool reconstruct) {
+	refreshScene(reconstruct, OrdinaryCause::None);
+	return _frame;
+}
+
+bool XeenEventFlow::refreshScene(bool reconstruct, OrdinaryCause cause, bool committedTransition) {
 	try {
+	const bool reset = committedTransition || _ordinary.mapId != _camera.mapId ||
+		_ordinary.direction != _camera.direction;
+	bool stepped = false;
+	if (reset) {
+		// Recognize committed transitions independently of successful rendering.
+		_ordinary.mapId = _camera.mapId;
+		_ordinary.direction = _camera.direction;
+		_ordinary.phase = 0;
+		_ordinary.deadline = _clock() + 100;
+	} else if (cause != OrdinaryCause::None && _world.map(_camera.mapId).geometry.isOutdoors()) {
+		const auto now = _clock();
+		if (cause == OrdinaryCause::Action || now >= _ordinary.deadline) {
+			++_ordinary.phase;
+			_ordinary.deadline = now + 100;
+			stepped = true;
+		}
+	}
 	const bool cameraChanged = !sameCamera(_camera, _renderedCamera);
 	// M15's disabled set only grows during a session. Its size is an exact,
 	// constant-time change detector for the only supported visual mutation.
 	const auto count = _world.sessionState().disabledObjectCount();
-	if (reconstruct || !_frame.isValid() || cameraChanged || count != _disabledObjects) {
+	if (reconstruct || reset || !_frame.isValid() || cameraChanged || count != _disabledObjects ||
+			(stepped && _ordinary.containsOrdinaryAnimation)) {
 		// Always use the committed camera, never logicalAddress/workingCamera.
-		const auto base = _compose();
+		const auto composition = _compose(_ordinary.phase);
+		_ordinary.containsOrdinaryAnimation = composition.containsOrdinaryAnimation;
 		if (cameraChanged && !_pending) _presenter.clear();
-		_frame = _presenter.rebase(base);
+		_frame = _presenter.rebase(composition.frame);
 		_renderedCamera = _camera;
 		_disabledObjects = count;
+		return true;
 	}
-	return _frame;
+	return false;
 	} catch (const std::exception &e) {
 		if (!_pending) throw;
-		return presentationFailed(e);
+		presentationFailed(e);
+		return true;
 	}
 }
 
-template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool automatic, bool reconstruct) {
+template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool automatic, bool reconstruct,
+		OrdinaryCause cause, bool committedTransition) {
 	for (;;) {
 		// Adopt ownership before composition, reporting or presentation can fail.
 		auto *suspended = std::get_if<XeenEventExecutionSuspended>(&result);
 		if (suspended) _pending.emplace(Pending{std::move(suspended->state), automatic, ++_generation});
 		try {
-		refresh(reconstruct);
+		refreshScene(reconstruct, cause, committedTransition);
 		reconstruct = false;
+		cause = OrdinaryCause::None;
+		committedTransition = false;
 		if (suspended && !_pending) return _frame;
 		// Reporting receives a value snapshot; Flow has already adopted ownership
 		// and can account for it if constructing this snapshot fails.
@@ -163,12 +197,16 @@ IndexedFrame XeenEventFlow::presentationFailed(const std::exception &exception) 
 std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 	if (_dispatching) return std::nullopt;
 	DispatchScope dispatch(_dispatching);
-	if (!pendingNpc()) return std::nullopt;
+	const bool recomposed = refreshScene(false, OrdinaryCause::Idle);
+	if (!pendingNpc()) return recomposed ? std::optional<IndexedFrame>{_frame} : std::nullopt;
 	try {
 		auto changed = _presenter.updateNpc();
 		if (changed) _frame = *changed;
-		return changed;
-	} catch (const std::exception &e) { return presentationFailed(e); }
+		return (changed || recomposed) ? std::optional<IndexedFrame>{_frame} : std::nullopt;
+	} catch (const std::exception &e) {
+		if (!_pending) throw;
+		return presentationFailed(e);
+	}
 }
 std::optional<std::uint64_t> XeenEventFlow::presentationGeneration() const {
 	return _pending ? std::optional<std::uint64_t>{_pending->generation} : std::nullopt;
@@ -217,18 +255,21 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &action) {
 	}
 	_presenter.clear(); // M14 labels last until the next gameplay action.
 	if (const auto *navigation = std::get_if<NavigationAction>(&action)) {
+		const auto beforeMovement = _camera;
 		auto result = _navigation.processNavigationAction(_world, _party, _camera,
 			_flags, *navigation);
 		// Recompose cleared labels even after blocked movement, but only after
 		// drive adopts any suspension before refresh/report callbacks.
-		auto frame = drive(std::move(result.automaticEvent), true, true);
+		const bool transition = beforeMovement.mapId != result.cameraAfterMovement.mapId ||
+			beforeMovement.direction != result.cameraAfterMovement.direction;
+		auto frame = drive(std::move(result.automaticEvent), true, true, OrdinaryCause::Action, transition);
 		try { if (reportMovement) reportMovement(result.movementResult); }
 		catch (const std::exception &e) { if (_pending) return presentationFailed(e); throw; }
 		return frame;
 	}
-	refresh(true);
 	if (std::holds_alternative<InteractionAction>(action))
-		return drive(_navigation.processInteraction(_world, _party, _camera, _flags), false);
+		return drive(_navigation.processInteraction(_world, _party, _camera, _flags), false, true, OrdinaryCause::Action);
+	refresh(true);
 	return _frame;
 }
 }

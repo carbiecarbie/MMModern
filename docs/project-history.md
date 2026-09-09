@@ -101,6 +101,18 @@ Historical limitations in those plans describe their recorded boundaries.
   restart, preserving exact rewards without replay and with reconstruction,
   revisit and fresh-session controls. See the [Milestone 21 plan](milestone-21-plan.md).
 
+## M22 - Ordinary outdoor object animation
+
+- Added pure explicit-phase rendering of ordinary Clouds outdoor object cycles,
+  preserving directional metadata, placement, sprite safety and static controls.
+- Integrated live stationary animation through the existing Flow/Application/SDL
+  idle path, with transient 100 ms timing independent of NPC portraits and
+  semantic presentation.
+- Preserved Remove identity, cache reconstruction and save compatibility, with
+  fresh timing on restoration. Automated and original-data validation,
+  independent review and maintainer native physical acceptance passed. See the
+  [Milestone 22 plan](milestone-22-plan.md).
+
 ## Maintaining this history
 
 Add one short section with 2-4 lasting-result bullets per completed milestone

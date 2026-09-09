@@ -12,7 +12,11 @@ namespace mmodern {
 // The caller's mutable party must outlive this flow and pending presentations.
 class XeenEventFlow {
 public:
-	using Compose = std::function<IndexedFrame()>;
+	struct Composition {
+		IndexedFrame frame;
+		bool containsOrdinaryAnimation = false;
+	};
+	using Compose = std::function<Composition(std::uint64_t ordinaryPhase)>;
 	XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
 		XeenPartyState &party, XeenCamera &camera, XeenGameFlags &flags,
 		const XeenFontFormat &font, Compose compose,
@@ -46,7 +50,10 @@ private:
 	bool _dispatching = false;
 	XeenRewardReceipt cleanup(XeenRewardDiscard reason) noexcept;
 	bool resumePending(std::uint64_t generation, XeenPresentationResponse response);
-	template<class Result> IndexedFrame drive(Result result, bool automatic, bool reconstruct = false);
+	enum class OrdinaryCause { None, Action, Idle };
+	bool refreshScene(bool reconstruct, OrdinaryCause cause, bool committedTransition = false);
+	template<class Result> IndexedFrame drive(Result result, bool automatic, bool reconstruct = false,
+		OrdinaryCause cause = OrdinaryCause::None, bool committedTransition = false);
 	IndexedFrame presentationFailed(const std::exception &exception);
 	bool pendingNpc() const;
 	struct Pending { XeenEventExecutionState state; bool automatic; std::uint64_t generation; };
@@ -57,7 +64,16 @@ private:
 	XeenCamera &_camera;
 	XeenGameFlags &_flags;
 	XeenNavigationFlow _navigation;
+	XeenEventPresenter::Clock _clock;
 	XeenEventPresenter _presenter;
+	struct OrdinaryAnimationState {
+		std::uint64_t phase = 0;
+		std::uint64_t deadline = 0;
+		XeenMapIdentity mapId;
+		XeenDirection direction;
+		bool containsOrdinaryAnimation = false;
+	};
+	OrdinaryAnimationState _ordinary;
 	Compose _compose;
 	std::optional<Pending> _pending;
 	IndexedFrame _frame;

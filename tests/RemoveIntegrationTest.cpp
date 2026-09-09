@@ -92,7 +92,8 @@ int main(int argc, char **argv) {
 		const XeenFontFormat font(assets.readArchiveResource("fnt"));
 		const CloudsMapComposer composer;
 		const XeenCharacterRulesContext context{kCloudsInitialYear};
-		XeenEventFlow flow(world,events,party,camera,flags,font,[&]{return composer.compose(assets,world,party,camera,context);});
+		std::uint64_t observedPhase=0;
+		XeenEventFlow flow(world,events,party,camera,flags,font,[&](std::uint64_t phase){observedPhase=phase;XeenEventFlow::Composition result;result.frame=composer.compose(assets,world,party,camera,context,nullptr,phase,&result.containsOrdinaryAnimation);return result;});
 		const auto beforeFrame=flow.frame();
 		visual_remove_test::save(beforeFrame,output/"phirna-before.bmp");
 		const auto resolver=XeenObjectVisualResolver::load(assets);
@@ -117,7 +118,7 @@ int main(int argc, char **argv) {
 			});input.join();check(ok && dispatched,"SDL runtime checkpoint failed");
 		}else removeCheckpoint();
 		const auto afterFrame=flow.frame(); // Already refreshed by production result handling.
-		const auto reference=composer.compose(assets,world,party,camera,context);
+		const auto reference=composer.compose(assets,world,party,camera,context,nullptr,observedPhase);
 		check(afterFrame.pixels==reference.pixels,"runtime result differs from effective reference");
 		std::size_t changedPixels=0;
 		for(int y=0;y<200;++y)for(int x=0;x<320;++x)if(beforeFrame.pixels[y*320+x]!=afterFrame.pixels[y*320+x]){
@@ -295,7 +296,7 @@ int main(int argc, char **argv) {
 			check(freshWorld.effectiveEvent({mapId,i},original.records()[i]).opcode==
 				original.records()[i].opcode, "new session inherited an event mutation");
 		XeenCamera freshCamera=camera;XeenGameFlags freshFlags=flags;
-		XeenEventFlow freshFlow(freshWorld,freshEvents,party,freshCamera,freshFlags,font,[&]{return composer.compose(assets,freshWorld,party,freshCamera,context);});
+		XeenEventFlow freshFlow(freshWorld,freshEvents,party,freshCamera,freshFlags,font,[&](std::uint64_t phase){XeenEventFlow::Composition result;result.frame=composer.compose(assets,freshWorld,party,freshCamera,context,nullptr,phase,&result.containsOrdinaryAnimation);return result;});
 		check(freshFlow.frame().pixels==beforeFrame.pixels && !freshFlow.blocksGameplay(),"fresh graph did not restore initial pixels");
 		visual_remove_test::save(freshFlow.frame(),output/"phirna-new-session.bmp");
 		std::cout<<"Sprite constructions after actual cache reads="<<assets.spriteLoadCount()<<'\n';

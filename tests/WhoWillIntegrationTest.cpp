@@ -111,7 +111,8 @@ IndexedFrame checkpoint(XeenAssetSource &assets, const std::filesystem::path &ou
 	}
 	const XeenFontFormat font(assets.readArchiveResource("fnt"));
 	const CloudsMapComposer composer;const XeenCharacterRulesContext rules{kCloudsInitialYear};
-	XeenEventFlow flow(world,events,party,camera,flags,font,[&]{return composer.compose(assets,world,party,camera,rules);});
+	std::uint64_t observedPhase=0;
+	XeenEventFlow flow(world,events,party,camera,flags,font,[&](std::uint64_t phase){observedPhase=phase;XeenEventFlow::Composition result;result.frame=composer.compose(assets,world,party,camera,rules,nullptr,phase,&result.containsOrdinaryAnimation);return result;});
 	const auto base=flow.frame();const auto resolver=XeenObjectVisualResolver::load(assets);
 	auto visible=[&] {
 		const auto commands=XeenOutdoorScene().build(world,camera,&resolver);
@@ -214,7 +215,7 @@ IndexedFrame checkpoint(XeenAssetSource &assets, const std::filesystem::path &ou
 					std::get<XeenManualEventCompleted>(*terminal).instructionCount==10,"harvest not completed in original ten instructions");
 				harvested=true;unchanged();atStart();
 				check(!flow.blocksGameplay() && !flow.presentationGeneration() && success && !visible(),"harvest left pending UI or visible bones");
-				const auto effective=composer.compose(assets,world,party,camera,rules);XeenEventPresenter oracle(font);
+				const auto effective=composer.compose(assets,world,party,camera,rules,nullptr,observedPhase);XeenEventPresenter oracle(font);
 				check(frame.pixels==oracle.present(effective,*success).frame.pixels && frame.pixels!=effective.pixels,"immediate removal/retained success text mismatch");
 				check(base.pixels!=effective.pixels,"bones made no initial pixel contribution");
 				visual_remove_test::save(frame,output/"result.bmp");

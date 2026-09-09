@@ -2,10 +2,10 @@
 
 ## Stable baseline
 
-**Milestone 21 is the latest stable completed milestone.** This file describes
+**Milestone 22 is the latest stable completed milestone.** This file describes
 the latest stable committed capabilities and architecture. Work in progress is
 intentionally excluded; milestone acceptance belongs in the
-[closed plan](milestone-21-plan.md#final-acceptance), and chronology in
+[closed plan](milestone-22-plan.md#final-acceptance), and chronology in
 [project history](project-history.md).
 
 ## Supported scope
@@ -24,10 +24,16 @@ and valid empty entries, and distinguishes missing/malformed data. Gameplay
 renders in a native 320x200 indexed framebuffer.
 
 Outdoor terrain and indoor geometry support navigation, collision and bounded
-teleports. Supported static outdoor Clouds objects share terrain ordering,
-direction, scale, clipping and occlusion. Sprites come from `XEEN.CC`; the
+teleports. Supported static and ordinary animated outdoor Clouds objects share
+terrain ordering, direction, scale, clipping and occlusion. Sprites come from `XEEN.CC`; the
 validated World of Xeen layout supplies Clouds visual metadata through
 `DARK.CC/clouds.dat`. This does not establish Darkside gameplay.
+
+Ordinary outdoor objects animate while stationary through the existing
+Application/Flow/SDL idle path, with a 100 ms cadence independent of the NPC
+portrait's 150 ms timing. Dialogue and reward presentation retain their semantic
+state while the underlying scene animates. Indoor object animation is outside
+this capability.
 
 ### Events and interactions
 
@@ -105,6 +111,11 @@ restoration and compatibility.
   Remove refreshes the scene while retaining valid layers. Clearing a retained
   label on blocked navigation still forces recomposition. Manual execution errors
   are recoverable; automatic errors remain fatal.
+- Flow owns one transient shared ordinary outdoor phase and deadline; rendering
+  consumes an explicit phase. Rebased presentation preserves NPC timing and
+  reveals the current animated base on dismissal. Remove remains authoritative
+  by object identity through animation and cache reconstruction. No general
+  world clock or per-object/per-map timing store is introduced.
 - Geometry/object, script, text and sprite caches are disposable. Reconstruction
   consults authoritative state and read-only resources; cache lifetime never
   defines gameplay lifetime. The interpreter remains separate from SDL/drawing,
@@ -128,9 +139,13 @@ metadata.
 **Transient or reconstructed:** resource payloads, loader metadata/diagnostics,
 derived rules/frames/caches, interpreter working state and call stacks, temporary
 character/object selection, reward queue/preference/finalization, pending responses,
-generations, dialogue/receipt pages, portrait timing and retained layers. Fresh
-sessions load original initial state; resumed sessions reconstruct independent
+generations, dialogue/receipt pages, ordinary outdoor phase/deadline, portrait
+timing and retained layers. Fresh sessions load original initial state;
+resumed sessions reconstruct independent
 owners and presentation from saved values plus compatible resources.
+Fresh and restored gameplay start ordinary animation at phase zero with a new
+100 ms deadline. F9 preflight uses independent phase zero; saving and inventory
+inspection do not advance or rearm live animation. The save format is unchanged.
 
 **Format and compatibility:** the writer emits MMModern Clouds binary **v2**;
 the reader accepts **v1 and v2**. `.mmsave` uses bounded little-endian encoding,
@@ -181,6 +196,10 @@ or of a generally playable region.
 | Myra, map 23 `(9,11)` West | No-Root request sets Q2 after final acknowledgment, including Escape. Root-owned return consumes one Root, clears Q2 and produces five `{10,37,1,0}` rewards subject to delivery capacity/eligibility; receipt acknowledgment completes nine instructions. Further Roots allow returns; exhaustion restores request behavior. |
 | Air / Corner and Snake Oil | Original sign and reduced door-label presentation; Air / Corner also exercises static object/text layering. |
 
+Myra's ordinary tent-flag cycle runs without input and continues underneath
+dialogue, independently of the portrait. The [M22 checkpoint contract](milestone-22-plan.md#certified-original-data-checkpoint)
+owns its directional frame oracle and acceptance boundary.
+
 Separate-process resume covers the collections, Myra request, cumulative multi-map
 progress and completed exchange, with cache reconstruction and fresh controls.
 The exchange checkpoint saves five exact rewards with Root=0/Q2=false, restores
@@ -195,9 +214,10 @@ are owned by the [M21 restart contract](milestone-21-plan.md#21d-production-rest
   TakeOrGive and NPC modes/services beyond Clouds mode 1.
 - Combat, monsters, normal-route/playable-region certification, Swimming /
   Walk on Water and other unsupported movement capabilities.
-- Broader outdoor animation, scripted appearance changes, indoor objects and wall
-  items. Unsupported animated objects are not drawn as frozen substitutes;
-  static placements are bounded. Dark indoor maps are illuminated for diagnostics.
+- Scripted object animation/appearance changes, terrain animation, indoor objects
+  (including their animation), and wall items. Outdoor placements remain bounded;
+  explicit ordinary phases do not imply support for scripted sequences.
+  Dark indoor maps are illuminated for diagnostics.
 - A general game clock/animation system and full original UI fidelity; existing
   parchment/choice/acknowledgment styling limitations remain nonblocking.
 - Darkside gameplay; side-aware identity and Clouds metadata access do not imply it.
@@ -208,7 +228,7 @@ Ordinary CTest does not depend on commercial data.
 
 ## Next direction
 
-[M22 bounded outdoor object animation](roadmap.md#m22---bounded-outdoor-object-animation)
-is the next planning candidate. The roadmap retains M23 as a horizon entry and
-requires a post-M21 horizon review. Neither this snapshot nor roadmap direction
-authorizes M22 implementation.
+[M23 indoor objects and a first visible indoor interaction](roadmap.md#m23---indoor-objects-and-a-first-visible-indoor-interaction)
+is the next planning candidate, with its existing provisional scope and checkpoint
+selection requirements. The roadmap retains the post-M21 review cadence;
+M22 completion does not authorize M23 implementation.

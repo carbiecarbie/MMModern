@@ -6,12 +6,13 @@ Might and Magic V: Darkside of Xeen / World of Xeen.
 
 ## Status
 
-**Milestone 21 is the latest stable completed milestone.**
+**Milestone 22 is the latest stable completed milestone.**
 
 The engine supports a bounded Clouds quest loop: request a quest, collect an
 item, return it for character-held rewards, and save/resume the resulting progress.
 Original maps, text, portraits and supported objects appear through a standalone
-SDL application.
+SDL application, with ordinary outdoor objects animating while stationary and
+during dialogue.
 
 MMModern remains incomplete and experimental. It is not yet a generally playable
 replacement for the original games: combat, general inventory use and Darkside
@@ -29,7 +30,7 @@ See the [technical snapshot](docs/project-status.md),
 ## Current capabilities
 
 - Original Clouds resource loading, outdoor/indoor rendering, navigation and collision.
-- Supported static outdoor objects and persistent removal after interactions.
+- Supported static and ordinary animated outdoor objects, with persistent removal after interactions.
 - Bounded event execution, teleports, original text, choices, character selection
   and animated NPC dialogue portraits.
 - Party/character state, quest items and flags, and deterministic item rewards.
@@ -91,7 +92,7 @@ SDL backend. The exact pin and configuration live in
   ownership, persistence and boundaries.
 - [Project history](docs/project-history.md): concise completed milestones and plan links.
 - [Roadmap](docs/roadmap.md): future direction and planning review cadence.
-- [Milestone 21 plan](docs/milestone-21-plan.md): closed exchange specification,
+- [Milestone 22 plan](docs/milestone-22-plan.md): closed outdoor animation specification,
   architectural decisions and acceptance result.
 - [Dependencies](docs/dependencies.md): supported toolchain and ScummVM setup.
 - [Agent instructions](AGENTS.md): development, documentation and Git rules.

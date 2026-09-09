@@ -244,8 +244,8 @@ void directResponses() {
 				record(1,1,1,9,{44,static_cast<std::uint8_t>(mode==2?1:0),2}),
 			record(1,1,2,0x12)};
 		direct.set(records);input.set(records);
-		XeenEventFlow a(direct.world,direct.events,direct.members,direct.camera,direct.flags,direct.font,[&]{return direct.base;});
-		XeenEventFlow b(input.world,input.events,input.members,input.camera,input.flags,input.font,[&]{return input.base;});
+		XeenEventFlow a(direct.world,direct.events,direct.members,direct.camera,direct.flags,direct.font,[&](std::uint64_t){return XeenEventFlow::Composition{direct.base, false};});
+		XeenEventFlow b(input.world,input.events,input.members,input.camera,input.flags,input.font,[&](std::uint64_t){return XeenEventFlow::Composition{input.base, false};});
 		bool completed=false;
 		a.reportManual=[&](const auto &result) {
 			check(!std::holds_alternative<XeenEventExecutionError>(result),"direct response execution failed");
@@ -274,7 +274,7 @@ void directResponses() {
 void passiveSelectionInputs() {
 	Fixture f;f.set({record(1,1,0,0x04,{0}),record(1,1,1,0x12)});
 	int compositions=0;
-	XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&]{++compositions;return f.base;});
+	XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){++compositions;return XeenEventFlow::Composition{f.base, false};});
 	flow.handle(InteractionAction{});const auto frame=flow.frame();const auto count=compositions;
 	check(!flow.blocksGameplay() && frame.pixels!=f.base.pixels,"passive fixture missing label");
 	for(std::size_t index=0;index<6;++index) {
@@ -289,7 +289,7 @@ void productionFlow() {
 		Fixture f;f.text.strings[1]=std::string(1200,'A');
 		f.set({record(1,1,0,0x20,{0,0}),record(1,1,1,0x01,{1}),record(1,1,2,9,{44,1,3}),
 			record(1,1,3,9,{9,20,5}),record(1,1,4,0xff),record(1,1,5,0x0c,{0,0,21,100}),record(1,1,6,0x12)});
-		XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&]{return f.base;});
+		XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
 		int line=-1;bool done=false;
 		auto report=[&](const auto &r) {
 			check(!std::holds_alternative<XeenEventExecutionError>(r),"production flow failed");
@@ -329,7 +329,7 @@ void productionFlow() {
 	}
 	for(int mode=0;mode<4;++mode) {
 		Fixture f;f.set({record(1,1,0,0x20,{0,0}),record(1,1,1,0x0c,{0,0,21,100})});
-		XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&]{return f.base;});
+		XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
 		bool failed=false;flow.reportManual=[&](const auto &r){failed=std::holds_alternative<XeenEventExecutionError>(r);};
 		flow.handle(InteractionAction{});const auto old=*flow.presentationGeneration();
 		if(mode==0)flow.handle(CancelInteractionAction{});
@@ -377,7 +377,7 @@ void priorEffects() {
 			record(7,8,2,0x0c,{0,0,21,100}),record(7,8,3,remove?0x0e:0),
 			record(7,8,4,0),record(7,8,5,0x20,{0,0}),record(7,8,6,0x0c,{0,0,21,100})},2);
 		f.text.mapId=2;
-		XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&]{return f.base;});
+		XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
 		bool failed=false;flow.reportManual=[&](const auto &r){failed=std::holds_alternative<XeenEventExecutionError>(r);};
 		flow.handle(InteractionAction{});
 		check(f.camera.mapId==1 && !f.flags.isSet(7) && f.members.questItems.at(18)==1,"suspension committed transaction/lost grant");
@@ -398,7 +398,7 @@ void sdlFlow() {
 		Fixture f;f.automaticCell=false;f.members=party(2);f.members.roster.at(0).conditions[8]=1;
 		f.set({record(1,1,0,0x20,{0,0}),record(1,1,1,9,{44,1,2}),
 			record(1,1,2,9,{9,20,4}),record(1,1,3,0xff),record(1,1,4,0x0c,{0,0,21,100})});
-		XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&]{return f.base;});
+		XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
 		flow.reportManual=[](const auto &r) { check(!std::holds_alternative<XeenEventExecutionError>(r),"SDL flow execution error"); };
 		std::vector<SDL_Keycode> keys{SDLK_SPACE,SDLK_UP,SDLK_RETURN,SDLK_y,SDLK_n,SDLK_F6,SDLK_F1};
 		if (mode==0) keys.insert(keys.end(),{SDLK_F2,SDLK_RETURN,SDLK_RIGHT});
