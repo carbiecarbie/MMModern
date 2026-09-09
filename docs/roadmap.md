@@ -4,10 +4,11 @@ The current stable baseline is **completed Milestone 21**. See
 [project status](project-status.md) for present capabilities and
 [project history](project-history.md) for completed milestones.
 
-The future direction below retains the roadmap approved on 2026-09-08. M22 is
-the next planning candidate; M23 remains a horizon candidate. Roadmap approval
-is not implementation authorization. The scheduled broader review after M21
-remains due before promoting this direction into detailed next-milestone work.
+The post-M21 horizon review retained the direction approved on 2026-09-08:
+M22 is the recommended next milestone, specified in the
+[proposed M22 plan](milestone-22-plan.md); M23 remains a horizon candidate.
+The plan requires independent review and explicit implementation authorization.
+Neither roadmap direction nor detailed planning authorizes implementation.
 
 ## Roadmap principles
 
@@ -28,7 +29,7 @@ owned by [dependencies.md](dependencies.md), not by the roadmap.
 
 | Milestone | Direction | Confidence | Intended result |
 | --- | --- | --- | --- |
-| M22 | Bounded outdoor object animation | Directional; next planning candidate | Ordinary animated objects in explored Clouds scenes |
+| M22 | Bounded outdoor object animation | Evidence-backed next recommendation; proposed detailed plan | Ordinary animated objects in explored Clouds scenes |
 | M23 | Indoor objects and a first visible indoor interaction | Horizon candidate | Correctly occluded objects and a bounded original indoor encounter |
 
 ### M22 - Bounded outdoor object animation
@@ -39,10 +40,11 @@ owned by [dependencies.md](dependencies.md), not by the roadmap.
   drawing, terrain ordering and presentation rebasing, extended with bounded
   visual timing. Refresh must preserve interaction state and removed objects.
   This direction does not depend on the item model.
-- **Checkpoint selection:** immediate planning should verify an ordinary animated
-  object in the explored map-1/map-23 area. No exact animated record is certified
-  by this roadmap. Phirna, Air / Corner and resource 117 remain static controls;
-  the new checkpoint should demonstrate stationary motion and presentation layering.
+- **Checkpoint:** map 23 object 1 at Myra's `(9,11)` location, resource `009.obj`,
+  has a verified ordinary tent-flag cycle visible facing West. The
+  [M22 plan](milestone-22-plan.md#certified-original-data-checkpoint) owns exact
+  metadata, visibility evidence and acceptance. Phirna, Air / Corner and
+  resource 117 remain static controls.
 - **Non-goals:** monsters/combat, a general game clock, spell effects,
   quest-dependent appearance changes and scripted chest/door cycles.
 - **Intended handoff:** bounded scene animation with an explicit distinction
@@ -69,8 +71,11 @@ owned by [dependencies.md](dependencies.md), not by the roadmap.
 ## Dependencies and boundaries across future work
 
 The visual direction extends existing static composition through bounded outdoor
-animation and then indoor scene coverage. Existing bounded portrait timing may
-be reused where suitable; it does not establish a general world clock.
+animation and then indoor scene coverage. The existing idle path and injected
+clock shape can be reused, with separate ordinary-scene and portrait deadlines.
+The pinned reference's 20 Hz counter does not imply 20 Hz ordinary object redraws:
+the proposed M22 contract uses 100 ms, distinct from 150 ms portrait timing.
+Neither establishes a general world clock.
 
 Each new persistent category must deliberately extend save/load with a version
 and validation policy. Transient visual phase needs an explicit reconstruction
@@ -80,6 +85,24 @@ construct coherent owners and presentation without replaying prior effects.
 Neither visual entry implicitly includes combat, movement capabilities, full
 inventory/equipment use, Darkside or certification of a normally playable region.
 Promote a concrete prerequisite only when the selected checkpoint establishes it.
+
+## Post-M21 horizon review
+
+Review against verified baseline `ff8e0d80f6413e118967ac040688c0f04f89bceb`
+confirmed M22 as the smallest useful next capability. Ordinary animated records
+exist in both explored maps, and the existing Myra location exercises stationary
+motion plus supported NPC presentation. Metadata, sprite safety, outdoor ordering,
+effective removal, idle callbacks and semantic rebasing already provide the
+required foundations. No new persistent category or prerequisite refactoring
+milestone is needed.
+
+M23 retains its place in the horizon: indoor projection/occlusion and an original
+encounter still need certification. Static indoor objects do not require M22,
+but offer no evidenced dependency reason to move ahead of this bounded outdoor
+extension. Combat, route certification and inventory use remain separate concerns.
+The [M22 plan](milestone-22-plan.md#baseline-and-post-m21-horizon-review) owns the
+detailed architectural comparison and pinned-reference findings. No additional
+future milestones are promoted by this review.
 
 ## Replanning triggers
 
@@ -102,7 +125,9 @@ milestone completion alone does not require rediscovering the whole roadmap.
 At closure, use the next entry as the default planning successor and check it
 against the new stable baseline. Reassess the broader horizon after approximately
 three completed milestones, or sooner after a major architectural discovery.
-The post-M21 horizon review remains due before defining detailed M22 scope.
+The required post-M21 horizon review is recorded above. Reassess sooner if the
+listed triggers occur; completing M22 alone does not require speculative horizon
+expansion or authorize M23 implementation.
 
 Use the verified post-push SHA and handoff gate in [AGENTS.md](../AGENTS.md) for
 external planning/review. Planning approval and explicit authorization to implement
