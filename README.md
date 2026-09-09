@@ -8,10 +8,16 @@ The project is currently in early development.
 
 ## Current status
 
+[Milestone 21](docs/milestone-21-plan.md#18-final-21d-acceptance-and-milestone-21-closure)
+is complete and is the current stable completed milestone. Gabriel passed the
+required 21D physical-window acceptance on his second attempt; Astra independently
+reported **APPROVE 21D FOR FINAL DOCUMENTATION/CLOSURE**, with no P0/P1/P2/P3
+findings, 23/23 focused tests and 58/58 unique full CTest registrations passing.
+The closure record keeps physical observations and independent validation distinct.
+
 [Milestone 20](docs/milestone-20-plan.md#16-final-independent-approval-and-milestone-20-closure)
-is complete, independently approved and committed, and is the current stable
-milestone. M20-A01 through M20-A16
-are closed. The final reviewer reported **53/53 full CTest**, original-data
+is the preceding completed, independently approved and committed milestone.
+M20-A01 through M20-A16 are closed. The final reviewer reported **53/53 full CTest**, original-data
 direct/SDL dummy/software acceptance and all restart checkpoints passing,
 and inspected native resumed/fresh frame evidence. Gabriel's passing physical-window
 results remain separately attributed user-supplied manual evidence.
@@ -31,9 +37,13 @@ by the [final approval](docs/milestone-21-plan.md#15-final-independent-21b-appro
 the P2 retained-label correction and earlier review evidence remain in the plan.
 The explicitly authorized [21C implementation](docs/milestone-21-plan.md#16-21c-implementation-and-validation)
 activates checked quest-item consumption, quest-flag clearing and deterministic
-miscellaneous rewards through that lifecycle. Independent 21C review is pending.
-21D remains unstarted and unauthorized; M21 is incomplete. No inventory UI or
-item effects are enabled.
+miscellaneous rewards through that lifecycle and is committed as `f80ed51`.
+Gabriel supplied Astra's **APPROVE 21C FOR COMMIT** result with no findings.
+[21D acceptance infrastructure](docs/milestone-21-plan.md#17-21d-bounded-restart-and-physical-acceptance)
+adds completed-exchange F9/disk/separate-process/CLI checks and a continuous
+physical-keyboard producer in `mmodern_save_resume_smoke`. Its required human
+evidence and independent approval are recorded in the final closure. No inventory
+UI or item effects are enabled.
 
 Clouds NPC mode-1 dialogue presents original animated portraits, positioned titles
 and paginated text through the resumable event UI. Myra's original local request
@@ -45,7 +55,8 @@ supply returns to the request. Capacity or eligibility loss does not refund Root
 Original direct/SDL tests cover the full Root/Q2/key matrix and loss fixtures.
 The party loads 30 Clouds quest flags from original data; party state survives
 same-session owner/cache changes. A fresh session loads its own original state.
-Ordinary travel and completed-exchange restart certification remain outside 21C.
+Completed-exchange restart acceptance is established by 21D; ordinary travel
+between the local checkpoints remains uncertified.
 
 Supported static Clouds objects render with direction, scale, clipping and
 terrain ordering, using validated World of Xeen metadata in `DARK.CC/clouds.dat`.

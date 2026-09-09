@@ -2,22 +2,24 @@
 
 ## Current development state
 
-**Milestone 20 is the current stable completed milestone**, committed on `main`.
-Its final independent approval closes M20-A01 through M20-A16 with no known
-blocker within scope. The accepted baseline includes local Windows save/resume
-of supported Clouds progress across separate processes.
+**Milestone 21 is complete and is the current stable completed milestone.**
+Gabriel's successful second physical-window attempt and Astra's independent
+**APPROVE 21D FOR FINAL DOCUMENTATION/CLOSURE**, with no P0/P1/P2/P3 findings,
+satisfy the final 21D gates. The [closure record](milestone-21-plan.md#18-final-21d-acceptance-and-milestone-21-closure)
+distinguishes supplied physical observations from independent automated evidence.
 
-M21, Myra's return exchange and bounded item rewards, is the active milestone
-entry in the [approved roadmap](roadmap.md). A
-[M21 plan](milestone-21-plan.md) records independent acceptance of committed
+M21 completes Myra's bounded local return exchange and durable item rewards.
+The [M21 plan](milestone-21-plan.md) records independent acceptance of committed
 **21A** and the independently approved **21B**, committed as `be98bb6`.
-The user explicitly authorized **21C only** on 2026-09-08. Checked consumption,
+The accepted **21C** implementation is committed as `f80ed51`. Checked consumption,
 quest-flag clearing and deterministic GiveEnchanted production are implemented
-and validated through the existing reward lifecycle. **Independent 21C review
-is pending; 21D is unstarted and unauthorized; M21 is incomplete.** Other draft decisions
-are not implicitly approved. Roadmap approval and M20 completion do not
-authorize implementation; M21-M23 retain their recorded confidence and review
-cadence.
+and validated through the existing reward lifecycle. Gabriel supplied Astra's
+**APPROVE 21C FOR COMMIT** result with no findings; this is supplied review evidence.
+The explicitly authorized [21D acceptance infrastructure](milestone-21-plan.md#17-21d-bounded-restart-and-physical-acceptance)
+covers completed-exchange restart and a continuous physical-keyboard producer.
+M22 is the default successor in the [approved roadmap](roadmap.md). This closure
+does not authorize its implementation or approve other draft decisions; the
+roadmap's review cadence remains applicable.
 
 ## Current capability frontier
 
@@ -129,6 +131,9 @@ Phirna, Bone Whistle and Myra request state also pass separate-process resume,
 cache reconstruction and fresh-session controls. A cumulative checkpoint keeps
 both collections and Myra's request across maps; positioning is disclosed harness
 setup. Myra's repeated dialogue alone does not prove quest flag 2 persistence.
+The separate `myra-exchange` checkpoint completes request/Phirna/return through
+Application input, saves five exact rewards with Root=0/Q2=false, then checks
+independent restored owners, one combined cache rebuild and a new no-Root request.
 
 ## Save and resume
 
@@ -193,6 +198,34 @@ or arbitrary-crash guarantees.
 
 ## Current validation baseline
 
+Astra's supplied final independent audit reported **23/23 focused tests within
+58/58 unique full CTest registrations**, both five-checkpoint coordinators and
+all **30 Application children plus ten actual Windows SDL CLI children** passing
+with exit 0, using `build/21d-astra-audit-20260909`. It verified exact restored
+state, no replay/duplicate rewards, combined cache reloads, revisit and fresh
+controls; inspected native BMP evidence; and confirmed unchanged archives,
+clean pinned ScummVM and `git diff --check`.
+Gabriel separately passed the required physical producer and CLI-resume sequence
+on his second attempt; the first attempt is excluded from acceptance. He observed
+five persisted rewards and no duplication after Myra's new request. Astra decoded
+the retained manual save and reported complete byte equality across five manual,
+candidate and fresh-audit exchange files, each 6,974 bytes. These are supplied
+review/physical results, not new tests or physical observations by the agent
+performing this documentation-only closure. Details are in the
+[final acceptance record](milestone-21-plan.md#18-final-21d-acceptance-and-milestone-21-closure).
+
+The **2026-09-08 21D validation** passed a fresh pinned-dependency Debug build,
+**23/23 focused tests within 58/58 unique full CTest registrations**, six required
+smoke builds, original-party acceptance, direct/SDL Myra/Phirna/WhoWill controls,
+and four Graphics save/resume controls. Both five-checkpoint restart coordinators
+passed: 30 Application children plus ten actual Windows SDL CLI children, all
+exit 0. Completed-exchange disk/restored typed comparisons, no deferred F9,
+combined provider reloads, clean native frames and no-reward revisit passed.
+Commands, process IDs, native inspection and the physical handoff are recorded
+in [21D evidence](milestone-21-plan.md#17-21d-bounded-restart-and-physical-acceptance).
+Those implementation-agent runs remain separate from the subsequent physical
+acceptance and independent approval recorded above.
+
 The **2026-09-08 21C implementation** passed a pinned-dependency Debug
 configure/build, **23/23 focused tests**, **58/58 full CTest** and the four required
 original-data smoke builds. Myra passes **18 matrix cases plus two loss fixtures
@@ -202,9 +235,9 @@ modes. Return receipts and warning/loss phases preserve complete expected party
 state, accounting and blocked input; original records and the missing sequential
 successor are asserted through the existing loader/lookup. Native-frame inspection
 and exact commands/log paths are recorded in [21C evidence](milestone-21-plan.md#16-21c-implementation-and-validation).
-This is an uncommitted candidate, awaiting independent review. M20 remains the
-last completed stable milestone; no 21D completed-exchange restart certification
-or physical-window validation is claimed.
+That implementation was subsequently committed as `f80ed51`, with the supplied
+21C approval attributed above. Its pre-exchange restart controls remain separate
+from the new 21D completed-exchange evidence.
 
 The following 21B and earlier results are historical prerequisite evidence.
 
@@ -228,9 +261,9 @@ architecture/exactly-once lifecycle, Debug build, 13/13 focused tests, 58/58 CTe
 `git diff --check`. These are user-supplied independent review results, not new
 runs in the final documentation step. Earlier pending-review and correction
 evidence remains preserved in the milestone plan.
-This is not full M21 or original completed-exchange acceptance.
+That earlier 21B evidence alone did not establish completed-exchange acceptance.
 
-The latest accepted complete baseline is the **2026-09-08 M20 closure**:
+The preceding accepted complete baseline was the **2026-09-08 M20 closure**:
 
 - Implementation validation: successful Debug build with the pinned dependency,
   **53/53 full CTest**, plus Windows identity/save and focused regressions.
@@ -257,8 +290,6 @@ runs above. Ordinary CTest remains independent of commercial data.
 - General inventory, equipment use, shops, random treasure and generic TakeOrGive
   remain outside the supported subset. Quest-flag conditional Action 104 remains
   unsupported. The bounded take-only mode 104 clear is supported.
-- Completed-exchange F9/separate-process/CLI certification belongs to unstarted,
-  unauthorized 21D. Existing pre-exchange restart regressions do not certify it.
 - Combat, monsters and certification of normal routes or a playable region;
   Swimming / Walk on Water and other unsupported movement capabilities.
 - Broader outdoor animation, scripted appearance changes, indoor objects and

@@ -205,11 +205,12 @@ default successor, check it against the new state and note concrete changes.
 Reassess the broader rolling horizon after approximately **three completed
 milestones (after M21)**, or earlier following a major architectural discovery.
 
-The [Milestone 20 plan](milestone-20-plan.md) is complete, with final independent
-**APPROVE MILESTONE 20C / MILESTONE 20** and all A01-A16 criteria closed.
-M20 is committed and is the current stable completed milestone.
-M21 remains the default next planning entry; it has not begun.
-Gabriel's physical-window results
-remain user-supplied manual evidence, separate from reviewer-executed validation.
+The [Milestone 21 closure](milestone-21-plan.md#18-final-21d-acceptance-and-milestone-21-closure)
+records successful required physical acceptance and Astra's independent
+**APPROVE 21D FOR FINAL DOCUMENTATION/CLOSURE**. M21 is complete and is the
+current stable completed milestone. M22 is the default next planning entry;
+the broader horizon review after M21 remains due under the cadence above.
+Gabriel's physical-window results remain user-supplied manual evidence, separate
+from Astra's independent validation.
 The approved sequence and review cadence remain unchanged; no later milestone
 is authorized by this closure or by roadmap approval.

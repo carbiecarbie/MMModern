@@ -1,11 +1,15 @@
 # Milestone 21 - Myra's return exchange and bounded item rewards
 
-**Status: 21A and 21B independently approved and committed; 21C explicitly
-authorized, implemented and validated, independent review pending (2026-09-08).**
-Section 16 records this candidate and its verified committed 21B prerequisite.
-21D remains unauthorized and unstarted; M21 is incomplete; M20 remains the last
-completed stable milestone. Earlier sections preserve historical stage evidence
-and do not imply authorization for later stages.
+**Status: 21D accepted; Milestone 21 complete and the current stable completed
+milestone.** Section 18 records Gabriel's successful required physical acceptance
+and Astra's independent **APPROVE 21D FOR FINAL DOCUMENTATION/CLOSURE**, with
+no P0/P1/P2/P3 findings. 21A/21B/21C are committed. Gabriel supplied Astra's
+**APPROVE 21C FOR COMMIT**, with no P0/P1/P2/P3 findings, before `f80ed51`.
+Section 16 preserves 21C implementation-time evidence; section 17 records the
+bounded 21D work and supersedes earlier restart/physical harness proposals.
+The final human-evidence and independent-approval gates are satisfied. Earlier
+implementation-time and pre-review statements below are historical and are
+superseded by section 18's closure; they do not authorize later milestones.
 
 The previous current-status statement, "21B implemented, independent review
 pending", is historical and superseded by section 15. Sections 13 and 14 retain
@@ -571,6 +575,10 @@ initializers must explicitly supply the new ID field without shifting old values
 
 ## 9. Final original-resource and physical acceptance
 
+This is the earlier acceptance proposal. Section 17 records the subsequently
+authorized bounded implementation: one combined exchange cache pass, no second
+save/restart cycle, automated fresh control, and a focused physical checklist.
+
 Use `F:/Games/gog/Might and Magic 4-5` read-only. A checkpoint harness may move
 the camera through existing `observeGameplay`/test seams. It may not directly
 set the Root, Q2, reward queue, inventory or removals for the primary acceptance.
@@ -644,9 +652,9 @@ accepted the reward architecture but found the P2 retained-label correction
 recorded below. Final approval was then pending; that historical status is now
 superseded by section 15's **APPROVE 21B FOR COMMIT** verdict after independent
 re-review of the correction. The user's subsequent assignment explicitly authorizes
-21C only; section 16 records its implementation. 21D is unstarted and unauthorized,
-and M21 is incomplete. Historical implementation evidence is
-preserved separately below.
+21C only; section 16 records that stage's implementation-time boundary. The later
+explicit 21D assignment and implemented boundary are recorded in section 17.
+Historical implementation evidence is preserved separately below.
 
 ### 21A - Authoritative item records and persistence
 
@@ -761,10 +769,11 @@ ctest --test-dir "$B" --output-on-failure
 git diff --check
 ```
 
-21D must extend `mmodern_graphics_smoke` with a named `save-myra-exchange` mode
+**Superseded proposal (not implemented):** extend `mmodern_graphics_smoke` with a named `save-myra-exchange` mode
 that uses original script inputs and camera-only checkpoints, then run that
 mode with a new save path and the existing `resume` mode against its file.
-These are proposed mode requirements; `save-myra-exchange` does not exist yet.
+Section 17 instead uses `mmodern_save_resume_smoke --manual-myra-exchange`.
+Graphics `resume` is a Phirna/Root-owned control and cannot validate this exchange.
 Retain existing Application `save-phirna`, `save-idle`, `resume`, `resume-idle`
 controls. Run the real CLI `mmodern --load-game "$GAME" <exchange.mmsave>` in a
 separate process as well. Place outputs outside the installation under ignored
@@ -1435,3 +1444,371 @@ changes, commit, push, tag, branch switch or history alteration. No known failin
 check remains. **21C independent review is pending; 21D is unstarted and
 unauthorized; Milestone 21 is incomplete.** No later implementation is authorized
 by this result.
+
+## 17. 21D bounded restart and physical acceptance
+
+This section preserves the implementation agent's evidence and original physical
+handoff. Its then-outstanding closure gates are satisfied by section 18 below.
+
+### Authority, baseline and implementation boundary
+
+The 2026-09-08 assignment explicitly authorized this bounded 21D implementation.
+Preflight found clean `main`, HEAD and the **local tracking reference** `origin/main`
+at `f80ed5148e0c97765f71ea26c9ba2d4f67e78d19`, parent
+`be98bb6dc8ab0c5ce6d02f3f3e29cf9e5563423c`, preceded by `1dab6ee`, `b5b1e5b`,
+`3625380` and `a449bb7`. Staged and working diffs were empty. No synchronization,
+branch change or reversion was performed. Gabriel supplied Astra's **APPROVE 21C
+FOR COMMIT**, with no P0/P1/P2/P3 findings; this is not an audit performed by the
+21D implementation agent. Section 16's pending-review wording is historical.
+
+Only `tests/SaveResumeIntegrationTest.cpp` changes executable behavior. It extends
+the existing `mmodern_save_resume_smoke` with `myra-exchange` and
+`--manual-myra-exchange <game> <save-path.mmsave>`. There is no production correction,
+new executable, commercial-data CTest registration, serializer or persistence
+schema change. The four pre-exchange checkpoints retain their meaning, including
+cumulative's pre-exchange producer and its individual-plus-combined cache matrix.
+Graphics `save-phirna/resume` and `save-idle/resume-idle` remain unchanged. The old
+Graphics exchange proposal is superseded: its Root-owned resume oracle does not
+apply after consuming the Root.
+
+The harness borrows original providers and live read-only party/flags through
+`Application::playGameplay` / `observeGameplay`. Camera positioning is the only
+gameplay setup mutation. Its local phase checks are shared by direct input,
+actual SDL key mapping (including F9), and the physical input callback. The
+physical path uses one continuous `SdlWindow::showInteractive` loop, no key
+injection, automatic acknowledgment/save or automatic closer. Only a completed
+Myra request and completed Phirna input cause camera repositioning, after the
+Application callback has returned. Console phase messages are flushed and
+Application feedback/original dialogue remain visible.
+
+### Independent oracle and producer boundaries
+
+Each process independently loads defaults and rechecks ordered membership
+`[0,18,14,11,1,6]`, 35 occupied records, all miscellaneous empty-slot bytes zero,
+active eligibility and miscellaneous tail capacity. The live prerequisites are
+checked again before returning to Myra; mismatches fail without fixture repair.
+Expected characters start from original defaults. The sole item effect is five
+explicit `{material=10,id=37,state=1,frame=0}` records at roster 0 miscellaneous
+slots 0..4. Expectations never call delivery/insertion/compaction/finalization,
+capture mutated owners, or use a decoded actual save as expected state.
+
+The expected typed snapshot includes the original resource signature, Clouds
+map 23 `(9,11)` West, unchanged ordered membership/all modeled fields/all 30
+owners/four nine-slot categories/all four bytes including empty slots, Root
+index 17 = 0, Q2 = false, all unrelated counters/quest flags/game flags unchanged,
+disabled object `{Clouds,23,13}` and events `{Clouds,23,125..135}` only. Removal is
+independent of Root ownership. Existing typed comparators, effective-event checks,
+original geometry/entity comparisons and selection/draw checks enforce this.
+
+The new producer genuinely completes Myra request (**5 instructions**, Q2 set),
+Phirna Space/Yes/ack (**18 instructions**, one Root and removal), then Myra return
+(original line 7/offset 244 pending NPC). Root/Q2/items remain unchanged until
+final return acknowledgment. The typed receipt checks **9 instructions**, one
+receipt report, five exact delivered entries/owners, no loss/overflow/invalid/
+discard, and an already emptied transient queue after synchronous delivery.
+The ordinary fixture produces no capacity warning. Existing warning/loss and
+reentrant Application F9 regressions remain passing.
+
+F9 assertions surround the Application handler itself, comparing all live durable
+state, native pixels/palette, page/count, generation, report count, blocking and
+all portrait-timing fields. They require production refusal and no file while
+the NPC or any receipt page is pending. Later idle portrait animation is not
+treated as an F9 mutation. Reporting must remain blocked throughout continuation
+and finalization. Nonfinal receipt acknowledgments advance one page without
+changing the execution generation; only the final acknowledgment completes.
+Live `blocksGameplay`/generation/presenter checks establish that the owned
+continuation has ended; an old report copy is never used as live ownership.
+
+An idle/read-only observation after completion proves no refused save was
+deferred. A **new** Application F9 must give success feedback, preserve live state
+and create the intended file. Independent disk reading checks v2 and full typed
+equality with the oracle before producer success. The explicit snapshot/format
+contract omits transients; pending-save exclusion and clean fresh consumer owners
+verify that boundary without another serializer or binary name searches. V1/v2
+compatibility remains unchanged.
+
+### Process, reconstruction and native evidence
+
+All evidence below is under ignored output:
+`build/21d-b21a82ce43c94755b4e943a67cab817f` (called `$b` below).
+
+| Mode / run directory under `$b` | Exchange producer | Typed consumer | Fresh | Actual CLI |
+| --- | --- | --- | --- | --- |
+| `save_resume-direct/run-42112-294773828` | 27440 | 17652 | 36796 | 42824 |
+| `save_resume-sdl/run-9844-294785203` | 33692 | 37460 | 40228 | 36112 |
+
+Every listed process exited **0**. Each run's exact save is
+`<run-directory>/myra-exchange.mmsave`. `processes.log` contains complete commands,
+paths, PIDs, exit statuses and assertion markers; individual
+`myra-exchange-{producer,consumer,fresh,cli}.log` files retain detailed output.
+The coordinator waits for successful producer exit before starting the consumer.
+Across all five checkpoints and both modes, **30 Application children plus ten
+actual CLI children** passed. The separate initial producer/consumer iteration
+probes are retained under `exchange-probe` and are not counted in this matrix.
+
+Consumers use `Application::playGameplay(..., resume=true)`, no prepared party or
+replayed setup. Preflight/composition, observer and first-show assertions verify
+restored ownership/camera before gameplay, clean presentation/timing and **zero**
+initial automatic dispatch. Independent fresh children load defaults without the
+exchange file and retain **one** initial automatic dispatch. The additional
+`mmodern.exe --load-game` child loads the same file, checks exact camera and setup
+inventory/Root/Q2/slot diagnostics, exposes a process-owned Windows SDL window,
+and closes normally via the existing launcher. This is automated Windows SDL
+coverage, separate from the SDL dummy/software drivers and from human observation.
+Consumer, fresh control and CLI leave every producer file byte-for-byte unchanged.
+
+The new exchange consumer performs only **one combined eviction**, before its
+first Myra revisit: map, script, text and sprite caches, then `refresh(true)`.
+The original Castle question/No control warms and reuses script/text providers;
+camera-only positioning restores Myra and normal input clears passive text.
+The exact counter transitions in **both** modes are map `4->8`, object `3->6`,
+script `2->3`, text `1->2`, sprite `22->44`. State remains Root=0/Q2=false with
+five items and Phirna removed throughout this reconstruction. The fresh consumer
+process reconstructs the ownership graph; `refresh(true)` reconstructs caches
+and composition, not owners. First Myra revisit then selects the no-Root request,
+completes five instructions, sets Q2=true and adds no item or removal. There is
+no second save/restart cycle.
+
+Native pixel/palette assertions compare the clean first scene and rebuilt scene.
+The exchange resumed/fresh BMPs legitimately match at Myra despite different
+typed state. Existing checkpoint-specific relationships remain unchanged.
+The implementation agent **actually visually inspected** these four native BMPs
+using the local image viewer (all relative to `$b`):
+
+- `save_resume-direct/run-42112-294773828/myra-exchange-consumer-first.bmp`
+- `save_resume-sdl/run-9844-294785203/myra-exchange-consumer-first.bmp`
+- `save_resume-direct/run-42112-294773828/myra-exchange-rebuilt.bmp`
+- `save_resume-direct/run-42112-294773828/myra-exchange-receipt.bmp`
+
+The first/rebuilt images show a clean outdoor scene, six portraits and no NPC or
+receipt overlay. The inspected receipt is page one of the ordinary two-page
+receipt; automated page checks cover both. Other generated BMPs and byte/pixel
+comparisons are not additional visual inspections. None is a physical test.
+
+### Commands and automated results
+
+The dependency paths were confirmed from `build/21c/CMakeCache.txt`; source HEAD
+is clean at `6814ee9ba54582f5b5adcffab49efbbd8f589edd`. Git reads used a per-command
+`-c safe.directory=...` override for the sandbox account, without changing Git
+configuration. Existing `config.log` records `--backend=sdl --disable-all-engines
+--disable-detection-full`, `SDL_CONFIG=/ucrt64/bin/sdl2-config`; accepted external
+artifacts were reused without rebuilding/modifying the dependency.
+
+These are the executed command forms, with the actual fresh build path. External
+commands were logged and exit-checked; a failure stopped its command sequence.
+`validate.ps1` and `commands.log` under `$b` retain the exact validation invocation,
+per-command logs and SDL environment restoration. Repetition requires new output
+directories/save targets, especially the Graphics controls.
+
+```powershell
+Set-Location 'D:\Projetos\MModern\mmodern'
+$env:PATH = 'C:\msys64\ucrt64\bin;C:\msys64\usr\bin;' + $env:PATH
+$b = 'build/21d-b21a82ce43c94755b4e943a67cab817f'
+$game = 'F:/Games/gog/Might and Magic 4-5'
+cmake -S . -B $b -G 'MSYS Makefiles' -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DSCUMMVM_SOURCE_DIR=D:/Projetos/MModern/scummvm-known-good-candidate -DSCUMMVM_BUILD_DIR=D:/Projetos/MModern/build-scummvm-6814ee9b-ucrt64
+cmake --build $b --parallel 4
+cmake --build $b --parallel 4 --target mmodern_save_resume_smoke mmodern_myra_smoke mmodern_phirna_smoke mmodern_who_will_smoke mmodern_graphics_smoke mmodern_party_smoke
+ctest --test-dir $b -N
+ctest --test-dir $b --output-on-failure -R '^(xeen_(event_decoder|event_interpreter|event_system|quest_items|quest_grants|quest_flags|item_reward|reward_execution|reward_flow|reward_gameplay|reward_sdl|npc|npc_sdl|who_will|who_will_sdl|visual_remove|save_state|save_format|save_file|save_flow|save_cli|save_sdl)|sdl_input)$'
+& "$b/mmodern_party_smoke.exe" $game
+foreach ($suite in @('save_resume','myra','phirna','who_will')) {
+    & "$b/mmodern_${suite}_smoke.exe" $game "$b/$suite-direct"
+    if ($LASTEXITCODE -ne 0) { throw "$suite direct failed" }
+}
+$priorVideo = $env:SDL_VIDEODRIVER; $priorRender = $env:SDL_RENDER_DRIVER
+try {
+    $env:SDL_VIDEODRIVER = 'dummy'; $env:SDL_RENDER_DRIVER = 'software'
+    foreach ($suite in @('save_resume','myra','phirna','who_will')) {
+        & "$b/mmodern_${suite}_smoke.exe" $game "$b/$suite-sdl" sdl
+        if ($LASTEXITCODE -ne 0) { throw "$suite SDL failed" }
+    }
+    & "$b/mmodern_graphics_smoke.exe" $game save-idle escape "$b/graphics-controls/idle.mmsave"
+    & "$b/mmodern_graphics_smoke.exe" $game resume-idle escape "$b/graphics-controls/idle.mmsave"
+    & "$b/mmodern_graphics_smoke.exe" $game save-phirna escape "$b/graphics-controls/phirna.mmsave"
+    & "$b/mmodern_graphics_smoke.exe" $game resume escape "$b/graphics-controls/phirna.mmsave"
+    ctest --test-dir $b --output-on-failure
+} finally {
+    $env:SDL_VIDEODRIVER = $priorVideo; $env:SDL_RENDER_DRIVER = $priorRender
+}
+git diff --check
+git diff --stat
+git status --short
+```
+
+Results: fresh Debug configure/build and six required smoke builds **passed**;
+CTest list contains **58 unique registrations**, focused subset **23/23**, full
+suite **58/58** (not 81 unique tests). Original party passed all 1080 item-slot
+byte comparisons; Myra's 18 matrix cases plus two loss fixtures/revisits passed
+per mode; Phirna/WhoWill direct and SDL controls passed; all four Graphics
+save/resume controls passed. Logs: `configure.log`, `build.log`,
+`smoke-build-2.log`, `smoke-build-final.log`, `handoff-build.log`, `ctest-{list,focused,full}.log`,
+`party.log`, `{save_resume,myra,phirna,who_will}-{direct,sdl}.log`, and
+`graphics-{save-idle,resume-idle,save-phirna,resume-phirna}.log`.
+An initial smoke compile found a test-side use of unsupported item `operator==`;
+the local four-byte comparison corrected it before successful validation. No
+production defect or failed final test remains.
+
+Original archives were hashed before and after: XEEN.CC SHA-256
+`f8a00fa2c75799c131ed62057c7c3b61e8afbc292db7d6d53264e7a41ec46636`, DARK.CC
+`7cbaffab761e54c3f31a994ce25a6795f92dbc696181a5c74cc318bba688bf0e`, INTRO.CC
+`d531d54abccdf8b30bd5a43b9491fa4e9ab0dd0af9e5c85e787465b7a87516d7`.
+`archives-before.log` / `archives-after.log` and `dependency-before.log` /
+`dependency-after-native.log` retain preservation evidence. The final dependency
+comparison uses the same `C:/Program Files/Git/cmd/git.exe` as preflight. An
+intermediate PATH-selected MSYS Git check (`dependency-after.log`) reported CRLF
+differences because it lacked native Git's system `core.autocrlf=true`; the
+same-client final HEAD/status comparison is unchanged and clean. No configuration
+or source repair was performed. Final diff checks leave only
+the acceptance test, README and the two M21/current-status documents changed.
+No staging, commit, push, tag, dependency change or commercial-data change is part
+of this handoff.
+
+### Physical handoff and closure gate
+
+The implementation agent has not launched or claimed Gabriel's physical test.
+Use this exact PowerShell setup; it creates a unique ignored output directory and
+retains `$save` for the subsequent separate process. The harness rejects a stale
+target or missing parent and uses production path containment checks to exclude
+the commercial installation. No stale target is deleted.
+
+```powershell
+$build = 'D:\Projetos\MModern\mmodern\build\21d-b21a82ce43c94755b4e943a67cab817f'
+$env:PATH = 'C:\msys64\ucrt64\bin;C:\msys64\usr\bin;' + $env:PATH
+$game = 'F:\Games\gog\Might and Magic 4-5'
+$run = Join-Path $build ('manual-' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $run | Out-Null
+$save = Join-Path $run 'myra-exchange.mmsave'
+$env:SDL_VIDEODRIVER = 'windows'
+Remove-Item Env:SDL_RENDER_DRIVER -ErrorAction SilentlyContinue
+& "$build\mmodern_save_resume_smoke.exe" --manual-myra-exchange $game $save
+if ($LASTEXITCODE -ne 0) { throw 'Physical producer did not complete its checks' }
+```
+
+After the producer window and process have fully exited:
+
+```powershell
+& "$build\mmodern.exe" --load-game $game $save
+```
+
+1. Press Space at Myra; see and acknowledge both original request pages.
+2. At the positioned Phirna checkpoint, press Space, Y and acknowledge.
+3. At Myra again, Space opens the return; press F9 while it is pending and
+   observe refusal without dialogue advancement, then acknowledge.
+4. Observe the receipt, press F9 while it is pending, then finish both pages
+   without skipped or duplicate input.
+5. After presentation ends, press a new F9 and observe successful saving plus
+   the disk-oracle PASS. Exit the producer completely.
+6. Run the separate load command. Before Space, observe a clean first scene
+   without NPC/reward replay; use setup/I diagnostics to confirm five roster-0
+   miscellaneous rewards, Root=0 and Q2=false.
+7. Revisit Myra with Space and acknowledge the request; I must show the same
+   five rewards, Root=0 and Q2=true.
+
+The producer cannot report completed checks after early exit, a skipped pending
+NPC/receipt F9 observation or an unexpected save. Its flushed output prints the
+exact save path and ready-to-run CLI command. This does not certify normal travel,
+and no manual capacity/all-key matrix or third fresh process is required.
+
+At this implementation handoff, required next evidence was Gabriel's physical
+producer/consumer observation, followed by Astra's independent implementation/final audit. This implementation
+report is not either result, does not grant 21D final acceptance, and does not
+close Milestone 21. Do not commit this candidate or create a milestone tag/push
+without subsequent explicit authorization.
+
+## 18. Final 21D acceptance and Milestone 21 closure
+
+### Evidence provenance and independent approval
+
+The user supplied Astra's final independent verdict:
+
+**APPROVE 21D FOR FINAL DOCUMENTATION/CLOSURE**
+
+**No P0/P1/P2/P3 findings.**
+
+This documentation-only closure records that verdict and Gabriel's physical
+results; it is not another implementation audit or a new validation run by the
+closure agent. Astra independently verified `main` at
+`f80ed5148e0c97765f71ea26c9ba2d4f67e78d19`, exactly the four expected candidate
+files modified, and no production or CMake changes. It confirmed preservation
+of the accepted 21A/21B/21C architecture and the continuous physical-window
+harness. Astra's automated/native-file inspection is distinct from Gabriel's
+physical observation; no physical-window observation is attributed to Astra.
+
+The independent audit confirmed genuine original Myra request -> Phirna
+acquisition -> Myra return state creation; refusal of F9 during pending return
+and reward presentation; no deferred save; and production Application F9 writing
+the acceptance save. It verified the independent durable-state oracle, distinct
+producer/consumer/fresh/CLI processes, actual production `mmodern.exe --load-game`
+restart, exact restored post-exchange state, no exchange/reward replay or
+duplicate rewards, combined cache reconstruction/reloads, post-resume Myra
+revisit and fresh-process contamination control.
+
+### Astra's fresh validation
+
+Audit build: `D:/Projetos/MModern/mmodern/build/21d-astra-audit-20260909`.
+The supplied audit reports:
+
+- **23/23 focused tests** and **58/58 unique full CTest registrations** passing;
+  the focused tests are a subset, not 23 additional registrations.
+- Both five-checkpoint coordinators passed, including direct and SDL exchange
+  consumers: **30 Application children and ten actual Windows SDL CLI children**,
+  all exit **0**.
+- Combined provider reload counters: map **4->8**, object **3->6**, script
+  **2->3**, text **1->2**, sprite **22->44**.
+- Relevant native BMP evidence inspected by Astra; original archives unchanged;
+  pinned ScummVM dependency clean; `git diff --check` passed.
+
+These fresh independent results are separate from section 17's implementation
+agent runs. No full test suite was rerun merely to update closure prose.
+
+### Gabriel's physical-window acceptance
+
+There were **two attempts**. The first advanced before the required pending F9
+observation and failed with:
+
+```text
+return advanced without required pending F9/final acknowledgment
+manual producer incomplete: early exit or skipped required observation
+```
+
+**The first attempt is excluded from acceptance evidence.**
+
+The second attempt completed successfully. Gabriel physically observed the
+genuine Myra request, Phirna acquisition and return to Myra; F9 refusal during
+the pending Myra return and pending reward receipt; and successful F9 saving
+only after reward presentation completed. He fully exited the producer, then
+launched a separate production CLI load and observed a clean resumed game
+without automatic exchange/reward replay.
+
+Five expected rewards persisted. On revisiting Myra she requested the Root
+again; after acknowledging that request, exactly the same five rewards remained
+and no duplicate reward appeared. The visible records were **Owner 0,
+Miscellaneous slots 0..4: M=10 ID=37 S=1 F=0**, with **slot 5 empty**.
+This records the supplied successful physical sequence, not a claim that Gabriel
+manually inspected every durable field or certified travel between checkpoints.
+
+Astra independently decoded the retained successful manual save and reported
+complete byte equality with the candidate automated and fresh-audit exchange
+saves: **five compared files, each 6,974 bytes, all byte-identical**. This supports
+the durable-state result separately from Gabriel's visible observations. Astra
+also verified that the existing inventory diagnostic header includes Root and
+Q2; no diagnostic production-code correction is required.
+
+### Final acceptance conclusion
+
+Gabriel's successful second physical attempt and Astra's independent approval
+satisfy the final bounded 21D acceptance gates. **21D is accepted and Milestone
+21 is complete; M21 is now the current stable completed milestone.** Sections
+12-17 retain the earlier implementation, review and handoff evidence; their
+pre-closure status statements do not override this final conclusion.
+
+The accepted scope is the bounded original local exchange, item ownership,
+reward lifecycle, save/restart durability and specified controls. General
+inventory/equipment use, broader reward modes, combat, Darkside and normal-route
+certification remain outside scope. M22 is the roadmap's default successor, with
+its established review cadence; this closure does not authorize implementation.
+
+The closure step changes documentation only and preserves the approved
+`tests/SaveResumeIntegrationTest.cpp` candidate unchanged. Production, CMake,
+test registration, dependencies and commercial resources are untouched. No
+staging, commit, push or tag was performed in this documentation-only closure.
