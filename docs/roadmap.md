@@ -7,10 +7,12 @@ own completed work. Reference provenance belongs to [dependencies](dependencies.
 
 ## Current planning state
 
-The maintainer has prioritized progress toward meaningful, visible combat in
-Clouds. The proposed sequence below requires roadmap approval; detailed
-specification and implementation remain separately authorized. No next milestone
-is yet specified or implementation-authorized.
+The maintainer has approved the bounded Clouds combat direction, the Skeleton
+anchor and the M26 -> M27 -> M28 sequence below. M26 is next for detailed
+specification; its [investigation and plan](milestone-26-plan.md) does not itself
+authorize implementation. Roadmap approval does not approve the detailed
+specification or authorize implementation. Later milestone details remain subject
+to the [documented replanning rules](#replanning-and-review-cadence).
 
 Recommend an original outdoor Skeleton encounter, reached through an explicitly
 bounded diagnostic entry, followed by combat actions and then durable completion.
