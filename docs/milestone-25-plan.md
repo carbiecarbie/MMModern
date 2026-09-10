@@ -271,6 +271,16 @@ refusals, `UnsupportedItem`, `NotProficient`, `Conflict`, `RingLimit`, `MedalLim
 `Cursed` and `UnsafeRules`. A singleton self-conflict can be presented as
 already equipped, but remains a conflict after the reference's proficiency check.
 
+The 25A API represents fact availability with `std::optional`: `operation` is
+present only for a recognized operation, `owner` after identity validation,
+and `selection`/`beforeItem` after category and slot validation (including an
+empty record). `afterItem` and `modeled` are present only for `Success` or
+`NoChange`; `conflict` only for `Conflict`, and `matchingFrameCount` only for a
+capacity refusal. `XeenEquipmentPosition` records category/physical slot;
+`XeenEquipmentValues` records the five modeled integers, paired in
+`XeenEquipmentChange`. These fixed values have nonthrowing copy/move
+construction and assignment. This representation adds no presentation owner.
+
 Exact operation ordering:
 
 1. Flow requires active gameplay, Browse, no pending event/reentrant dispatch,

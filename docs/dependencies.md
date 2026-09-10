@@ -210,6 +210,27 @@ blob/path identity and corresponding source availability in distributions.
 Commercial `DARK.CC/mae.xen`, extracted `mae.cld`, original archives and
 original-data fixtures remain external and must not be bundled.
 
+## Bounded equipment restriction data
+
+`XeenEquipment.cpp` adapts 34 weapon and eight armor decimal masks from pinned
+ScummVM `6814ee9ba54582f5b5adcffab49efbbd8f589edd`,
+`devtools/create_mm/create_xeen/constants.cpp`,
+`LangConstants::ITEM_RESTRICTIONS` and `RESTRICTION_OFFSETS`. Private constexpr
+uint8 arrays use validated ID minus one; their entries correspond to upstream
+index `id` for Weapons 1..34 and `id+35` for Armor 1..8. No other masks,
+generated catalog changes or runtime reference-table dependency are introduced.
+The exact sequences and class/frame contracts belong in the
+[M25 specification](milestone-25-plan.md#exact-class-restrictions-and-source-adaptation).
+
+The predicates derive from `engines/mm/xeen/item.cpp`,
+`InventoryItems::passRestrictions/removeItem` and
+`WeaponItems/ArmorItems/AccessoryItems::equipItem` at that same revision.
+This adapted numeric data and logic remain ScummVM GPLv3-or-later-derived
+material, attributed to the ScummVM developers listed in upstream `COPYRIGHT`.
+Preserve that attribution and license, and supply the corresponding adapted
+source and pinned upstream source in distributions. Commercial resources are
+not part of these tables.
+
 ## MMModern configuration and validation
 
 Configure MMModern in its own new build directory with explicit dependency

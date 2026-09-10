@@ -3,6 +3,8 @@
 #include "games/xeen/XeenCharacterRules.h"
 #include "games/xeen/XeenInstallationDetector.h"
 #include "games/xeen/XeenPartyLoader.h"
+#include "games/xeen/XeenItemTransfer.h"
+#include "XeenEquipmentTestSupport.h"
 
 #include <array>
 #include <cstdint>
@@ -37,6 +39,97 @@ constexpr std::array<ExpectedCharacter, 6> kExpected = {{
 void check(bool value, const char *message) {
 	if (!value)
 		throw std::runtime_error(message);
+}
+
+void equipmentControls(XeenAssetSource &assets) {
+	using Category = XeenInventoryCategory;
+	using Operation = XeenEquipmentOperation;
+	using Status = XeenEquipmentStatus;
+	using equipment_test::sameParty;
+	using equipment_test::sameItem;
+	using equipment_test::items;
+	unsigned operations = 0;
+	const auto fresh = [&] {
+		auto p = XeenPartyLoader().loadInitialCloudsParty(assets);
+		check(p.party.activeRosterIds() == std::vector<std::uint8_t>({0,18,14,11,1,6}), "equipment original membership prerequisite");
+		return p;
+	};
+	const auto step = [&](XeenPartyState &p, XeenPartyState &expected, std::size_t active,
+			Category cat, unsigned slot, Operation op, Status status, unsigned frame) {
+		const auto owner = expected.party.activeRosterIds().at(active);
+		const auto beforeItem = items(expected.roster.at(owner),cat)[slot];
+		if(status == Status::Success) items(expected.roster.at(owner),cat)[slot].frame = static_cast<std::uint8_t>(frame);
+		const auto r = xeenSetEquipment(p,active,cat,slot,op);
+		++operations;
+		check(r.status == status && r.owner == owner && r.operation == op && r.selection &&
+			r.selection->category == cat && r.selection->physicalSlot == slot && r.beforeItem &&
+			sameItem(*r.beforeItem,beforeItem), "original equipment result/selection");
+		sameParty(p,expected);
+		if(status==Status::Success || status==Status::NoChange) {
+			check(r.modeled && r.afterItem && sameItem(*r.afterItem,items(expected.roster.at(owner),cat)[slot]), "original after facts");
+			const auto &before = r.modeled->before, &after = r.modeled->after;
+			check(before.intellect==after.intellect && before.personality==after.personality &&
+				before.endurance==after.endurance && before.maxHp==after.maxHp && before.maxSp==after.maxSp,
+				"unmodeled original equipment invented a modeled benefit");
+		}
+		return r;
+	};
+	{
+		auto p=fresh(); const auto &zippo=p.roster.at(11);
+		check(zippo.characterClass==XeenCharacterClass::Robber && sameItem(zippo.weapons[0],{0,12,0,1}) &&
+			sameItem(zippo.weapons[1],{0,12,0,0}),"original Zippo dagger prerequisites");
+		auto expected=p;
+		const auto r=step(p,expected,3,Category::Weapons,1,Operation::Equip,Status::Conflict,0);
+		check(r.conflict && r.conflict->category==Category::Weapons && r.conflict->physicalSlot==0,"original dagger blocker");
+		step(p,expected,3,Category::Weapons,0,Operation::Remove,Status::Success,0);
+		step(p,expected,3,Category::Weapons,1,Operation::Equip,Status::Success,1);
+	}
+	{
+		auto p=fresh(); check(sameItem(p.roster.at(0).armor[3],{38,10,0,9}),"original Arturius boots prerequisite");
+		auto expected=p;
+		step(p,expected,0,Category::Armor,3,Operation::Remove,Status::Success,0);
+		step(p,expected,0,Category::Armor,3,Operation::Equip,Status::Success,9);
+	}
+	{
+		auto p=fresh(); const auto &a=p.roster.at(11).accessories;
+		check(sameItem(a[1],{42,1,0,8}) && sameItem(a[0],{38,2,0,12}),"original Zippo ring/belt prerequisites");
+		unsigned count=0; for(const auto &item:a) if(item.frame==8) ++count;
+		check(count==1,"original Zippo raw ring count");
+		auto expected=p;
+		step(p,expected,3,Category::Accessories,1,Operation::Equip,Status::NoChange,8);
+		step(p,expected,3,Category::Accessories,1,Operation::Remove,Status::Success,0);
+		step(p,expected,3,Category::Accessories,1,Operation::Equip,Status::Success,8);
+	}
+	{
+		auto p=fresh(); const auto &badger=p.roster.at(14);
+		check(badger.characterClass==XeenCharacterClass::Ranger && sameItem(badger.weapons[0],{0,8,0,1}) &&
+			sameItem(badger.weapons[1],{0,30,0,4}),"original Badger bow/melee prerequisites");
+		auto expected=p;
+		step(p,expected,2,Category::Weapons,1,Operation::Remove,Status::Success,0);
+		step(p,expected,2,Category::Weapons,1,Operation::Equip,Status::Success,4);
+	}
+	for(bool direct:{false,true}) {
+		auto p=fresh(); check(sameItem(p.roster.at(1).accessories[1],{42,5,0,8}),"original Rebecca anomalous charm prerequisite");
+		auto expected=p;
+		if(!direct)step(p,expected,4,Category::Accessories,1,Operation::Remove,Status::Success,0);
+		step(p,expected,4,Category::Accessories,1,Operation::Equip,Status::Success,7);
+	}
+	{
+		auto p=fresh(); const auto &source=p.roster.at(11), &destination=p.roster.at(1);
+		check(source.characterClass==XeenCharacterClass::Robber && destination.characterClass==XeenCharacterClass::Cleric &&
+			sameItem(source.weapons[0],{0,12,0,1}) && sameItem(source.weapons[1],{0,12,0,0}) &&
+			sameItem(destination.weapons[0],{0,15,0,1}),"original transfer/proficiency prerequisites");
+		for(unsigned slot=2;slot<9;++slot)check(sameItem(source.weapons[slot],{}),"original dagger source tail");
+		for(unsigned slot=1;slot<9;++slot)check(sameItem(destination.weapons[slot],{}),"original cleric destination tail");
+		auto expected=p;
+		expected.roster.at(11).weapons[1]={}; expected.roster.at(1).weapons[1]={0,12,0,0};
+		const auto transfer=xeenTransferItem(p,3,4,Category::Weapons,1);
+		check(transfer.status==XeenTransferStatus::Success && transfer.sourceOwner==11 && transfer.destinationOwner==1 &&
+			transfer.destinationSlot==1,"original bounded M24 transfer");
+		sameParty(p,expected);
+		step(p,expected,4,Category::Weapons,1,Operation::Equip,Status::NotProficient,0);
+	}
+	std::cout << "Original equipment foundation: " << operations << " operations across 7 fresh controls; dagger, boots, ring, bow, charm and M24 proficiency contrast OK\n";
 }
 
 } // namespace
@@ -102,6 +195,7 @@ int main(int argc, char *argv[]) {
 				"real initial HP indicator order/frame/position differs from expected Clouds party");
 		}
 		std::cout << "Real Clouds party: current/max HP/SP and portrait order OK\n";
+		equipmentControls(assets);
 		return 0;
 	} catch (const std::exception &error) {
 		std::cerr << error.what() << '\n';

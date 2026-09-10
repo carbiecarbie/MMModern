@@ -45,6 +45,7 @@ add_library(mmodern_xeen STATIC
 	src/games/xeen/XeenItemRewards.cpp
 	src/games/xeen/XeenItemCatalog.cpp
 	src/games/xeen/XeenItemTransfer.cpp
+	src/games/xeen/XeenEquipment.cpp
 	src/games/xeen/XeenInventoryView.cpp
 	src/games/xeen/XeenEventPresenter.cpp
 	src/games/xeen/XeenEventLoader.cpp
@@ -406,6 +407,16 @@ if(BUILD_TESTING)
 	)
 	target_link_libraries(mmodern_character_rules_tests PRIVATE mmodern_core)
 	add_test(NAME xeen_character_rules COMMAND mmodern_character_rules_tests)
+	add_executable(mmodern_equipment_tests
+		tests/XeenEquipmentTests.cpp
+		src/games/xeen/XeenEquipment.cpp
+		src/games/xeen/XeenItemTransfer.cpp
+		src/games/xeen/XeenCharacter.cpp
+		src/games/xeen/XeenCharacterRules.cpp
+		src/games/xeen/XeenParty.cpp
+	)
+	target_link_libraries(mmodern_equipment_tests PRIVATE mmodern_core)
+	add_test(NAME xeen_equipment COMMAND mmodern_equipment_tests)
 	add_executable(mmodern_party_visual_state_tests
 		tests/XeenPartyVisualStateTests.cpp
 		src/games/xeen/XeenCharacter.cpp
