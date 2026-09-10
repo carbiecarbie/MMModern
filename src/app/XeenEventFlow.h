@@ -4,6 +4,7 @@
 #include "app/XeenNavigationFlow.h"
 #include "games/xeen/XeenEventPresenter.h"
 #include "games/xeen/XeenWorld.h"
+#include "games/xeen/XeenInventoryView.h"
 
 namespace mmodern {
 
@@ -21,7 +22,7 @@ public:
 		XeenPartyState &party, XeenCamera &camera, XeenGameFlags &flags,
 		const XeenFontFormat &font, Compose compose,
 		XeenEventPresenter::NpcDraw npcDraw = {}, XeenEventPresenter::Clock clock = {},
-		XeenEventPresenter::RandomFrame randomFrame = {});
+		XeenEventPresenter::RandomFrame randomFrame = {}, const XeenItemCatalog *catalog = nullptr);
 	~XeenEventFlow();
 	XeenEventFlow(const XeenEventFlow &) = delete;
 	XeenEventFlow &operator=(const XeenEventFlow &) = delete;
@@ -31,7 +32,14 @@ public:
 	IndexedFrame acceptManual(XeenManualEventResult result);
 	IndexedFrame acceptAutomatic(XeenAutomaticEventResult result);
 	const IndexedFrame &frame() const { return _frame; }
-	bool blocksGameplay() const { return _pending.has_value() || _dispatching; }
+	bool blocksGameplay() const { return _pending.has_value() || _dispatching || inventoryOpen() || _fatal; }
+	bool inventoryOpen() const { return _inventory.mode != XeenInventoryMode::Closed; }
+	const XeenInventorySelection &inventorySelection() const { return _inventory; }
+	const XeenTransferResult &transferResult() const { return _transferResult; }
+	std::optional<std::uint64_t> inventoryConfirmation() const;
+	// Explicit single-writer notification, including byte-identical owner replacement.
+	void invalidateInventory();
+	IndexedFrame refuseInventorySave();
 	bool canCancelInteraction() const;
 	bool handlesEscape() const;
 	std::optional<IndexedFrame> updatePresentation();
@@ -43,11 +51,36 @@ public:
 	std::function<void(const XeenManualEventResult &)> reportManual;
 	std::function<void(const XeenAutomaticEventResult &)> reportAutomatic;
 	std::function<void(const std::string &)> reportText;
+	std::function<void(const XeenTransferResult &)> reportInventory;
 	std::function<void(XeenMovementResult)> reportMovement;
 private:
 	friend struct XeenRewardTestAccess;
+	friend struct XeenInventoryTestAccess;
 	// Synchronous dispatch also covers callbacks before a suspension is installed.
 	bool _dispatching = false;
+	bool _fatal = false;
+	const XeenFontFormat &_inventoryFont;
+	const XeenItemCatalog &_catalog;
+	XeenInventorySelection _inventory;
+	IndexedFrame _inventoryUnderlay;
+	const char *_inventoryFeedback = "";
+	XeenTransferResult _transferResult;
+	std::uint64_t _inventoryEpoch = 0;
+	struct InventoryConfirmation {
+		std::uint64_t epoch;
+		XeenInventorySelection selection;
+		std::array<std::uint8_t, XeenParty::kMaximumVisibleMembers> membership{};
+		std::size_t size = 0;
+	};
+	std::optional<InventoryConfirmation> _inventoryConfirmation;
+	void advanceInventoryEpoch() noexcept;
+	bool validInventorySource(bool record) const;
+	void invalidateInventorySelection();
+	void closeInventory() noexcept;
+	void drawInventory();
+	void recoverInventory();
+	IndexedFrame handleInventory(const PlayerAction &);
+	void confirmInventory();
 	XeenRewardReceipt cleanup(XeenRewardDiscard reason) noexcept;
 	bool resumePending(std::uint64_t generation, XeenPresentationResponse response);
 	enum class OrdinaryCause { None, Action, Idle };

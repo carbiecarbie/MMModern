@@ -409,6 +409,8 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
         if (!assets.hasArchiveResource("fnt")) throw std::runtime_error("Missing Xeen font resource 'fnt'");
         const XeenFontFormat font(assets.readArchiveResource("fnt"));
         const CloudsMapComposer composer;
+        const auto catalog = loadXeenItemCatalog(assets);
+        if (!catalog.diagnostic.empty()) std::cerr << "Item catalog: " << catalog.diagnostic << '\n';
         XeenGameplayServices services{
             {signature, [&] { return XeenPartyLoader().loadInitialCloudsParty(assets); },
                 [&](XeenMapIdentity id) { return events.load(id); }},
@@ -435,10 +437,12 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
             },
             [&](const IndexedFrame &first, const auto &handler, const auto &escape, const auto &idle, const auto &status) {
                 std::cout << "Controls: W/S move, A/D turn, Space interacts, Enter acknowledges, "
-                    "Y/N answers, F1-F6 selects, F9 saves, Escape acknowledges NPC/cancels WhoWill/exits.\n";
+                    "Y/N answers, F1-F6 selects, I opens inventory, 1-9 selects a slot, T transfers, "
+                    "F9 saves with inventory closed, Escape closes/cancels or exits.\n";
                 return SdlWindow().showInteractive(first, status(), handler, escape, idle, status);
             }
         };
+        services.catalog = &catalog.catalog;
         return playGameplay(services, camera, target, resume);
     } catch (const std::exception &error) {
         std::cerr << "Gameplay startup failed";

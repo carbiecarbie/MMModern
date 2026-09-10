@@ -25,7 +25,8 @@ namespace {
 XeenCamera position(const std::string &name) {
  if (name == "phirna") return cp::phirna;
  if (name == "whistle" || name == "cumulative") return cp::whistle;
- check(name == "myra" || name == "myra-exchange", "unknown checkpoint"); return cp::myra;
+ check(name == "myra" || name == "myra-exchange" || name == "myra-transfer" ||
+  name == "dagger" || name == "boots" || name == "ring", "unknown checkpoint"); return cp::myra;
 }
 std::vector<std::uint8_t> diskBytes(const fs::path &path) {
  std::ifstream input(path, std::ios::binary); check(bool(input), "evidence file missing");
@@ -33,6 +34,21 @@ std::vector<std::uint8_t> diskBytes(const fs::path &path) {
 }
 bool sameItem(XeenItem a, XeenItem b) {
  return a.material == b.material && a.id == b.id && a.state == b.state && a.frame == b.frame;
+}
+void expectedTransfer(std::array<XeenCharacter,30> &characters,const std::string &name) {
+ if(name=="myra-transfer") {
+  characters[0].miscellaneous={{{10,37,1,0},{10,37,1,0},{10,37,1,0},{10,37,1,0},{},{},{},{},{}}};
+  characters[18].miscellaneous={{{10,37,1,0},{},{},{},{},{},{},{},{}}};
+ } else if(name=="dagger") {
+  characters[11].weapons={{{0,12,0,0},{},{},{},{},{},{},{},{}}};
+  characters[18].weapons={{{0,2,0,1},{0,12,0,0},{},{},{},{},{},{},{}}};
+ } else if(name=="boots") {
+  characters[0].armor={{{0,3,0,3},{0,8,0,2},{0,13,0,6},{},{},{},{},{},{}}};
+  characters[18].armor={{{0,2,0,3},{0,9,0,5},{0,13,0,6},{38,10,0,9},{38,10,0,0},{},{},{},{}}};
+ } else if(name=="ring") {
+  characters[11].accessories={{{38,2,0,12},{},{},{},{},{},{},{},{}}};
+  characters[18].accessories={{{38,2,0,12},{42,1,0,0},{},{},{},{},{},{},{}}};
+ }
 }
 void recipientPrerequisites(const XeenPartyState &p) {
  check(p.party.activeRosterIds() == std::vector<std::uint8_t>({0,18,14,11,1,6}), "original ordered membership prerequisite");
@@ -77,7 +93,9 @@ void equalFrame(const IndexedFrame &a, const IndexedFrame &b) {
 }
 int child(const fs::path &game, const fs::path &dir, const std::string &name, const std::string &role, bool sdl,
  const std::optional<fs::path> &manualTarget = {}) {
- const bool manual = manualTarget.has_value(), exchange = name == "myra-exchange";
+ const bool transfer = name == "myra-transfer";
+ const bool equipment = name == "dagger" || name == "boots" || name == "ring";
+ const bool manual = manualTarget.has_value(), exchange = name == "myra-exchange" || transfer;
  const bool resume = role == "consumer", produce = role == "producer";
  check(!manual || (produce && exchange), "manual role/checkpoint mismatch");
  check(resume || produce || role == "fresh", "unknown child role");
@@ -85,9 +103,9 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
  check(installation && installation->hasXeen(), "original installation unavailable");
  XeenAssetSource assets(*installation, 320, 200);
  const auto defaults = XeenPartyLoader().loadInitialCloudsParty(assets);
- if (exchange) originalItems(defaults);
+ if (exchange || equipment) originalItems(defaults);
  std::optional<XeenItemCatalog> itemCatalog;
- if (exchange) {
+ if (exchange || equipment) {
   const auto loadedCatalog = loadXeenItemCatalog(assets);
   check(loadedCatalog.catalog.materialAvailability() == XeenMaterialAvailability::Ready,
    "Myra catalog assertion requires structurally valid DARK.CC/mae.xen");
@@ -95,6 +113,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
  }
  auto expectedCharacters = defaults.roster.characters();
  if (exchange && resume) for (unsigned i = 0; i < 5; ++i) expectedCharacters[0].miscellaneous[i] = {10,37,1,0};
+ if ((transfer || equipment) && resume) expectedTransfer(expectedCharacters,name);
  const auto defaultFlags = XeenGameFlagsLoader().loadInitialCloudsFlags(assets);
  check(defaults.questItems.at(17) == 0 && defaults.questItems.at(18) == 0 && !defaults.questFlags.isSet(2), "unexpected original checkpoint prerequisites");
  const auto path = XeenSaveFile::resolve(manualTarget.value_or(dir/(name + ".mmsave")), installation->root);
@@ -208,6 +227,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
    cleanPresentation(*flow, true);
   }
  };
+ services.catalog = itemCatalog ? &*itemCatalog : nullptr;
  if(!manual)services.clock=[&]{return ordinaryNow;};
  services.show = [&](const IndexedFrame &first, const auto &handle, const auto &escape, const auto &idle, const auto &status) {
   check(compositions >= (resume ? 2 : 1) && automatic == (resume ? 0 : 1), "startup composition/dispatch count");
@@ -245,7 +265,12 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
    const auto blocked = flow->blocksGameplay();
    const auto result = handle(a);
    save_test::sameSnapshot(before, XeenSaveState::capture(signature, *party, *camera, *flags, *world));
-   equalFrame(frame, flow->frame());
+   if (!flow->inventoryOpen()) equalFrame(frame, flow->frame());
+   else {
+    for(int y=0;y<200;++y)for(int x=0;x<320;++x)
+     if(y<126 || y>=135 || x<10 || x>=310)
+      check(frame.pixels[y*320+x]==flow->frame().pixels[y*320+x],"F9 changed pixels outside feedback");
+   }
    const auto after = flow->presenter().npcTiming();
    check(flow->presentationGeneration() == generation && flow->presenter().pageIndex() == page &&
     flow->presenter().pageCount() == pages && presentations == reports && flow->blocksGameplay() == blocked &&
@@ -253,7 +278,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
     timing.phase == after.phase && timing.remaining == after.remaining && timing.deadline == after.deadline,
     "F9 changed page/continuation/generation/timing");
    if (blocked) {
-    check(status().find("Cannot save while an interaction is pending") != std::string::npos, "production refusal feedback absent");
+    check(status().find(flow->inventoryOpen() ? "Cannot save while inventory is open" : "Cannot save while an interaction is pending") != std::string::npos, "production refusal feedback absent");
     if (produce) check(!fs::exists(path), "refused F9 wrote a save");
     std::cout << "ASSERT immediate F9 refusal: state/page/generation/timing unchanged\n" << std::flush;
    }
@@ -286,10 +311,56 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
    check(done && done->instructionCount == count && !flow->blocksGameplay(), "original completed instruction count");
    std::cout << "ASSERT completed " << count << " instructions\n";
   };
+  const unsigned sourceIndex = name=="dagger" || name=="ring" ? 3 : 0;
+  const unsigned inventoryCategory = transfer ? 3 : name=="boots" ? 1 : name=="ring" ? 2 : 0;
+  const unsigned sourceSlot = name=="boots" ? 3 : name=="ring" ? 1 : 0;
+  const XeenItem anchor = transfer ? XeenItem{10,37,1,0} : name=="dagger" ? XeenItem{0,12,0,1} : name=="boots" ? XeenItem{38,10,0,9} : XeenItem{42,1,0,8};
+  auto browseAnchor=[&](unsigned member,unsigned slot) {
+   drive({{SDLK_i,InspectInventoryAction{}},{static_cast<SDL_Keycode>(SDLK_F1+member),SelectMemberAction{member}}});
+   for(unsigned i=0;i<inventoryCategory;++i)drive({{SDLK_RIGHT,NavigationAction::TurnRight}});
+   drive({{static_cast<SDL_Keycode>(SDLK_1+slot),SelectInventorySlotAction{slot}}});
+   check(flow->inventoryOpen(),"original inventory did not open");
+  };
+  auto inspectRestored=[&] {
+   browseAnchor(sourceIndex,0);
+   check(flow->inventorySelection().sourceOwner==defaults.party.activeRosterIds()[sourceIndex],"restored source owner");
+   visual_remove_test::save(flow->frame(),dir/(name+"-source-inventory.bmp"));
+   const unsigned destinationSlot=transfer?0:name=="boots"?4:1;
+   drive({{SDLK_F2,SelectMemberAction{1}},{static_cast<SDL_Keycode>(SDLK_1+destinationSlot),SelectInventorySlotAction{destinationSlot}}});
+   check(flow->inventorySelection().sourceOwner==18,"restored destination owner");
+   auto moved=anchor;moved.frame=0;
+   check(sameItem(flow->inventorySelection().record,moved) &&
+    !itemCatalog->describe(static_cast<XeenInventoryCategory>(inventoryCategory),flow->inventorySelection().record).equipped,"restored destination item/frame");
+   visual_remove_test::save(flow->frame(),dir/(name+"-destination-inventory.bmp"));
+   stateCheck();drive({{SDLK_ESCAPE,CancelInteractionAction{}}});
+  };
+  auto transferControls=[&] {
+   browseAnchor(sourceIndex,sourceSlot);
+   check(sameItem(flow->inventorySelection().record,anchor),"original anchor raw bytes");
+   const auto description=itemCatalog->describe(static_cast<XeenInventoryCategory>(inventoryCategory),anchor);
+   check(description.displayName==(transfer?"Potion of antidotes":name=="dagger"?"Dagger":name=="boots"?"Leather boots":"Silver ring") && description.equipped==equipment,"original anchor label/equipped");
+   visual_remove_test::save(flow->frame(),dir/(name+"-before-transfer.bmp"));
+   drive({{SDLK_t,TransferInventoryAction{}},{SDLK_F2,SelectMemberAction{1}},{SDLK_ESCAPE,CancelInteractionAction{}}});stateCheck();
+   drive({{SDLK_t,TransferInventoryAction{}},{static_cast<SDL_Keycode>(SDLK_F1+sourceIndex),SelectMemberAction{sourceIndex}},{SDLK_RETURN,AcknowledgeAction{}}});
+   check(flow->transferResult().status==XeenTransferStatus::SameOwner,"original self-owner refusal");stateCheck();
+   drive({{SDLK_t,TransferInventoryAction{}},{SDLK_F2,SelectMemberAction{1}},{SDLK_F9,SaveGameAction{}}});
+   visual_remove_test::save(flow->frame(),dir/(name+"-confirmation.bmp"));
+   drive({{SDLK_RETURN,AcknowledgeAction{}}});
+  };
+  if(equipment && produce) {
+   transferControls();expectedTransfer(expectedCharacters,name);stateCheck();
+   check(flow->transferResult().status==XeenTransferStatus::Success,"equipment transfer refused");
+   drive({{SDLK_RETURN,AcknowledgeAction{}}});stateCheck();flow->refresh(true);stateCheck();
+   drive({{SDLK_ESCAPE,CancelInteractionAction{}}});inspectRestored();
+   drive({{SDLK_F9,SaveGameAction{}}});save_test::sameSnapshot(expectedSnapshot(),XeenSaveFile::read(path));return true;
+  }
+  if((transfer || equipment) && resume) inspectRestored();
+  if(equipment) {stateCheck();save_test::sameSnapshot(expectedSnapshot(),XeenSaveState::capture(signature,*party,*camera,*flags,*world));return true;}
   if (produce && exchange) {
-   enum class Phase { Request, Phirna, Return, Receipt, Save, Done };
+   enum class Phase { Request, Phirna, Return, Receipt, Inventory, Save, Done };
    Phase phase = Phase::Request;
    bool npcF9 = false, receiptF9 = false, idleAfterReceipt = false;
+   bool transferDone=false, inventoryF9=false;
    unsigned receipts = 0;
    auto announce = [&](const char *message) { std::cout << "PHASE " << message << '\n' << std::flush; };
    announce("Myra request: press Space, then acknowledge both original pages with Space/Enter/Escape.");
@@ -325,6 +396,17 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
     }
     if (!blocked) { terminal.reset(); pending.reset(); }
     auto result = checkedHandle(a);
+    if(phase==Phase::Inventory) {
+     if(save && blocked)inventoryF9=true;
+     if(!transferDone && flow->transferResult().status==XeenTransferStatus::Success) {
+      const auto &r=flow->transferResult();check(r.sourceOwner==0&&r.destinationOwner==18&&sameItem(r.item,{10,37,1,0}),"wrong primary transfer");
+      expectedTransfer(expectedCharacters,name);transferDone=true;
+     }
+     if(transferDone && !flow->inventoryOpen()) {
+      check(inventoryF9,"missing inventory F9 refusal");phase=Phase::Save;
+      announce("Transfer complete and inventory closed. Press a NEW F9, then exit.");
+     }
+    }
     if (save && blocked) {
      if (phase == Phase::Return) npcF9 = true;
      if (phase == Phase::Receipt) receiptF9 = true;
@@ -368,8 +450,8 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
      } else {
       check(receiptF9 && ack && page + 1 == pages, "receipt skipped required F9 or final acknowledgment");
       completed(9); cleanPresentation(*flow); pending.reset();
-      phase = Phase::Save;
-      announce("Receipt complete. Press a NEW F9 to save; earlier refused saves must not run later.");
+      phase = transfer ? Phase::Inventory : Phase::Save;
+      announce(transfer ? "Receipt complete. I, Right three times, 1, T, F2, F9 (refused), Enter. Inspect four/one, Escape closes, NEW F9 saves." : "Receipt complete. Press a NEW F9 to save; earlier refused saves must not run later.");
      }
     }
     if (flow->blocksGameplay() && (phase == Phase::Request || phase == Phase::Return)) {
@@ -393,14 +475,25 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
    if (manual) {
     const bool ok = SdlWindow().showInteractive(first, status(), inputHandler, escape, observedIdle, status);
     check(ok && phase == Phase::Done && npcF9 && receiptF9, "manual producer incomplete: early exit or skipped required observation");
-    std::cout << "MANUAL producer assertions complete; Gabriel must separately observe the consumer. Save: " << path.u8string() << '\n' << std::flush;
+    std::cout << "MANUAL producer assertions complete; maintainer must separately observe the consumer. Save: " << path.u8string() << '\n' << std::flush;
    } else {
     for (unsigned step = 0; phase != Phase::Done; ++step) {
      check(step < 40, "bounded exchange phase driver exhausted");
-     if (phase == Phase::Save) { observedIdle(); drive({{SDLK_F9,SaveGameAction{}}}); }
+     if (phase == Phase::Inventory) {
+      transferControls();check(transferDone,"primary transfer missing");
+      drive({{SDLK_RETURN,AcknowledgeAction{}}});stateCheck();flow->refresh(true);stateCheck();
+      drive({{SDLK_ESCAPE,CancelInteractionAction{}}});
+     }
+     else if (phase == Phase::Save) { observedIdle(); drive({{SDLK_F9,SaveGameAction{}}}); }
      else if (!flow->blocksGameplay()) drive({{SDLK_SPACE,InteractionAction{}}});
-     else if ((phase == Phase::Return && !npcF9) || phase == Phase::Receipt) drive({{SDLK_F9,SaveGameAction{}}});
-     if (phase == Phase::Receipt || (flow->blocksGameplay() && phase != Phase::Save && phase != Phase::Done)) {
+     else if ((phase == Phase::Return && !npcF9) || phase == Phase::Receipt) {
+      const auto gen=flow->presentationGeneration();const auto page=flow->presenter().pageIndex();const auto frame=flow->frame();
+      drive({{SDLK_i,InspectInventoryAction{}},{SDLK_t,TransferInventoryAction{}}});
+      check(!flow->inventoryOpen()&&flow->presentationGeneration()==gen&&flow->presenter().pageIndex()==page,"return/receipt inventory-only input disturbed event");
+      if(!sdl)equalFrame(frame,flow->frame());
+      drive({{SDLK_F9,SaveGameAction{}}});
+     }
+     if (phase == Phase::Receipt || (flow->blocksGameplay() && phase != Phase::Inventory && phase != Phase::Save && phase != Phase::Done)) {
       if (phase == Phase::Return && !npcF9) continue;
       if (phase == Phase::Phirna && pending->request.response == XeenPresentationResponseRequirement::YesNo)
        drive({{SDLK_y,YesAction{}}});
@@ -550,14 +643,14 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
 }
 int main(int argc, char **argv) {
  try {
-  if (argc == 4 && std::string(argv[1]) == "--manual-myra-exchange") {
+  if (argc == 4 && (std::string(argv[1]) == "--manual-myra-exchange" || std::string(argv[1]) == "--manual-myra-transfer")) {
    const auto game = fs::absolute(fs::u8path(argv[2])), save = fs::absolute(fs::u8path(argv[3]));
    check(fs::is_directory(save.parent_path()) && !fs::exists(save), "manual target requires existing directory and absent file; nothing is deleted");
    std::cout << "Physical keyboard mode; camera-only checkpoint positioning, one continuous SDL loop.\n"
     << "Save: " << save.u8string() << "\nAfter this producer exits completely, run:\n& \""
     << (fs::absolute(fs::u8path(argv[0])).parent_path()/"mmodern.exe").u8string()
     << "\" --load-game \"" << game.u8string() << "\" \"" << save.u8string() << "\"\n" << std::flush;
-   return child(game, save.parent_path(), "myra-exchange", "producer", false, save);
+   return child(game, save.parent_path(), std::string(argv[1])=="--manual-myra-transfer"?"myra-transfer":"myra-exchange", "producer", false, save);
   }
   if (argc == 7 && std::string(argv[1]) == "--child") return child(fs::u8path(argv[2]), fs::u8path(argv[3]), argv[4], argv[5], std::string(argv[6]) == "sdl");
   check(argc == 3 || (argc == 4 && std::string(argv[3]) == "sdl"), "Usage: mmodern_save_resume_smoke <game> <output> [sdl]");
@@ -567,7 +660,7 @@ int main(int argc, char **argv) {
   check(fs::create_directory(dir), "acceptance run directory must be new");
   const auto exe = fs::absolute(fs::u8path(argv[0])); const std::wstring mode = argc == 4 ? L"sdl" : L"direct";
   std::ofstream evidence(dir/"processes.log"); check(bool(evidence), "process evidence log");
-  for (const std::string name : {"phirna", "whistle", "myra", "cumulative", "myra-exchange"}) {
+  for (const std::string name : {"phirna", "whistle", "myra", "cumulative", "myra-exchange", "myra-transfer", "dagger", "boots", "ring"}) {
    DWORD producer = 0;
    std::vector<std::uint8_t> savedBytes;
    for (const std::string role : {"producer", "consumer", "fresh"}) {
@@ -589,7 +682,7 @@ int main(int argc, char **argv) {
     return std::vector<char>(std::istreambuf_iterator<char>(input), {});
    };
    const bool same = bytes(dir/(name+"-consumer-first.bmp")) == bytes(dir/(name+"-fresh-first.bmp"));
-   check(same == (name == "myra" || name == "myra-exchange"), "fresh/resumed native frame relationship");
+   check(same == (name == "myra" || name == "myra-exchange" || name == "myra-transfer" || name=="dagger" || name=="boots" || name=="ring"), "fresh/resumed native frame relationship");
    evidence << "ASSERT first frames: " << name << (same ? " unchanged clean Myra scene" : " effective removal differs from fresh original") << '\n';
    const auto cli = exe.parent_path()/"mmodern.exe";
    evidence << "COMMAND \"" << cli.u8string() << "\" --load-game \"" << game.u8string() << "\" \"" << (dir/(name+".mmsave")).u8string() << "\"\n" << std::flush;
@@ -598,6 +691,7 @@ int main(int argc, char **argv) {
    const auto c = position(name);
    const std::string camera = "Map " + std::to_string(c.mapId.number) + " (Clouds): camera X=" + std::to_string(c.x) + " Y=" + std::to_string(c.y) + " direction=" + std::to_string(static_cast<unsigned>(c.direction));
    check(r.exit == 0 && r.output.find("Resumed ") != std::string::npos && r.output.find(camera) != std::string::npos, "actual CLI resume/camera/normal exit failed");
+   check(r.output.find("\nInventory:")!=std::string::npos,"actual CLI I did not reopen inventory through SDL");
    if (name == "myra-exchange") {
     check(r.output.find("Setup Inventory: 6 active references, 30 owners; Root=0 Q2=0") != std::string::npos &&
      r.output.find("Active order: [0->0] [1->18] [2->14] [3->11] [4->1] [5->6]") != std::string::npos,

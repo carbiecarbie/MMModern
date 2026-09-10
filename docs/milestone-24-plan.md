@@ -1,43 +1,38 @@
 # Milestone 24 - Usable party/item inspection and character-to-character transfer
 
-## Goal, authority and baseline
+## Completion and authority
 
-**24A accepted; 24B remains pending separate authorization and implementation.**
-M23 remains the latest fully completed milestone; M24 is not complete. This plan
-records the accepted bounded-catalog foundation and preserves the future 24B
-transfer, interface and persistence specification. The maintainer authorizes
-stages separately; acceptance of 24A does not authorize 24B or M25.
+**Milestone 24 complete. 24A accepted; 24B accepted.** Closure followed
+automated and original-data validation, independent technical review and
+maintainer physical SDL acceptance. The [final acceptance](#final-acceptance)
+records the evidence and its boundaries.
 
-The standalone application will display active characters' modeled condition and
-current/maximum HP/SP, list all nine slots in each of four inventory categories,
-identify supported records from resources, and move one selected item to another
-active roster owner. Success and refusal must be visible. Explicit disk save and
-a separate process restart must preserve exact resulting ownership.
+The standalone application displays active characters' modeled condition and
+signed current/maximum HP/SP, lists all nine slots in four inventory categories,
+identifies supported records from resources, and transfers one selected item to
+another active roster owner with visible success/refusal. Production disk saving
+and separate-process restart preserve the resulting ownership.
 
-M24 builds on the accepted M23 architecture at MMModern baseline
-`a320dd0478998373b328f8610c88c34ae125eff8`. Actual code/tests establish implemented
-behavior; [project status](project-status.md) owns stable capabilities and
+[Project status](project-status.md) owns current capabilities and architecture;
 [roadmap](roadmap.md) owns future direction. References below use pinned ScummVM
 `6814ee9ba54582f5b5adcffab49efbbd8f589edd`. The supported build configuration and
 reproduction procedure belong in [dependencies](dependencies.md).
 
-## Existing architecture and missing responsibilities
+## Architecture and ownership
 
-All MMModern paths in this table are relative to the verified repository root.
-They describe current interfaces; proposed responsibility names are not new API
-requirements.
+All MMModern paths in this table are relative to the repository root.
 
-| Concern | Existing owner and evidence | M24 delta |
+| Concern | Owner and evidence | M24 contract |
 | --- | --- | --- |
 | Items | `src/games/xeen/XeenCharacter.h/.cpp`: `XeenItem`, four `XeenItemCategory` arrays, `xeenItemHasTailCapacity`, `xeenCompactItems` | Reuse exact four-byte records and nine-slot arrays; the 24A catalog uses a distinct four-valued `XeenInventoryCategory` discriminator and adds no inventory owner or storage format |
 | Identity | `XeenParty.h/.cpp`: `XeenRoster::at`, `XeenParty::activeRosterIds`, `member`, `fromRosterIds`; `XeenPartyState` | Resolve active references to roster owners at action time; reject self-owner transfers including aliases |
 | Loading | `XeenPartyLoader::loadInitialCloudsParty/loadFromResources`; `src/formats/xeen/XeenCharacterFormat.cpp` | No change to CHR offsets 166/202/238/274, all 30 owners, or alias loading |
 | Rules | `XeenCharacterRules.cpp`: `validateForUse`, effective intellect/personality/endurance, `maxHp/maxSp`; `XeenCharacter::worstCondition` | Read current rules; recompute both affected owners after mutation, including empty-metadata removal effects |
-| Diagnostics | `XeenItemRewards.cpp`: `xeenInventoryInspection`, `xeenInventorySummary`; `Application::playGameplay` in `src/app/XeenGameplay.cpp` | Retain complete numeric diagnostics; add actual player presentation |
+| Diagnostics | `XeenItemRewards.cpp`: `xeenInventoryInspection`, `xeenInventorySummary`; `Application::playGameplay` in `src/app/XeenGameplay.cpp` | Complete numeric diagnostics coexist with player presentation |
 | Rewards | `XeenItemRewards.cpp`, `XeenEventInterpreter.cpp`, `XeenEventSystem.cpp`: queue, `xeenDeliverRewards`, insertion, receipt lifecycle | No producer/delivery framework changes; manual transfer has a different eligibility policy |
-| Input | `src/core/PlayerAction.h`, `src/platform/sdl/SdlWindow.cpp::playerAction/showLoop` | Add bounded inventory actions and Escape ownership; preserve one event loop and ignored key repeats |
-| Session and modal flow | `src/app/XeenGameplay.cpp`, `XeenGameplayServices.h`, `XeenEventFlow.h/.cpp`: `handle`, `blocksGameplay`, `refresh`, `updatePresentation`, `handlesEscape` | Flow owns transient inventory state alongside mutually exclusive event presentation; Application retains save ownership |
-| Drawing | `XeenEventPresenter`, `XeenTextRenderer`, `CloudsUiComposer`, `CloudsUiLayout.cpp`, `CloudsMapComposer` | Small inventory renderer using existing font/window/frame facilities; no fake script opcode or character-sheet subsystem |
+| Input | `src/core/PlayerAction.h`, `src/platform/sdl/SdlWindow.cpp::playerAction/showLoop` | Bounded inventory actions and Escape ownership share one event loop with ignored key repeats |
+| Session and modal flow | `src/app/XeenGameplay.cpp`, `XeenGameplayServices.h`, `XeenEventFlow.h/.cpp`, `XeenInventoryFlow.cpp`: `handle`, `blocksGameplay`, `refresh`, `updatePresentation`, `handlesEscape` | Flow owns transient inventory state alongside mutually exclusive event presentation; Application retains save ownership |
+| Drawing | `XeenInventoryView.h/.cpp`, `XeenEventPresenter`, `XeenTextRenderer`, `CloudsUiComposer`, `CloudsUiLayout.cpp`, `CloudsMapComposer` | Small inventory renderer using existing font/window/frame facilities; no fake script opcode or character-sheet subsystem |
 | Resources | `XeenAssetSource`, `src/compat/scummvm/ScummVmXeenBridge.cpp`: checked byte streams, lazy Dark archive metadata access | 24A adds the specifically named, read-only `DARK.CC/mae.xen` read and immutable catalog loader |
 | Saves | `XeenSaveState::capture/restoreBeforeGameplay`, `XeenSaveFormat`, `src/platform/XeenSaveFile.cpp` | Existing arrays suffice; no wire change, catalog fingerprint or serialized UI |
 
@@ -53,17 +48,16 @@ Miscellaneous arrays contribute no effects. Endurance receives no equipment
 bonus; intellect/personality and direct HP/SP bonuses already exist. Catalog
 support must never become an extra gate on these accepted rules.
 
-The remaining 24B responsibilities are one synchronous validated character-item
-move and transient modal selection/rendering wired into production Flow/Application.
-Put item legality beside character/party rules in `src/games/xeen`; parsing belongs under
-`src/formats/xeen`; resource access stays behind the compatibility boundary.
-Use a small view helper if necessary to keep Flow readable. Do not introduce a
-service registry, generic transaction engine or persistent selection identity.
+The synchronous validated move lives in `XeenItemTransfer.h/.cpp` beside
+character/party rules. `XeenInventoryFlow.cpp` owns transient modal routing and
+`XeenInventoryView.h/.cpp` supplies bounded drawing through the existing renderer.
+Parsing remains under `src/formats/xeen`; resource access stays behind the
+compatibility boundary. There is no service registry, generic transaction engine,
+second gameplay owner or persistent selection identity.
 
-Accepted 24A implements bounded read-only catalog composition: source generation,
-material parsing, immutable structured descriptions, the explicit asset read and
-test/smoke consumers. It does not modify `PlayerAction`, SDL, Flow, Application,
-live inventory mutation, save formats or production save/resume behavior.
+24A established source generation, material parsing, immutable structured
+descriptions and the explicit asset read. 24B added the player interaction and
+connected production lifecycle without changing the catalog or save format.
 
 ## Catalog source and delivery decision
 
@@ -96,7 +90,7 @@ Its catalog block is byte range [20680,22438), comprising three NUL-terminated
 strings followed by six tagged NUL-string arrays in the order above: bonus 7,
 weapon 41, armor 14, accessory 11, misc 22, special 74. Array tags are the four
 bytes `00 00 00 count` at this pin; the reference reads them as little-endian
-MKTAG values. These offsets corroborate the source getters; M24 will not implement
+MKTAG values. These offsets corroborate the source getters; M24 does not implement
 a parser for the entire unversioned constants stream.
 
 Read-only original-data evidence found `DARK.CC/mae.xen` exactly equal to pinned
@@ -113,8 +107,8 @@ make the extracted file redistributable.
 material-name resource.** A build-only PowerShell generator reads the exact
 pinned `CONSTANTS_7` Git blob and emits only the six arrays and three
 decoration/connective strings (169 array entries plus three strings) into an
-ignored generated C++ include. Compile that immutable data into MMModern. The
-generator does not compile or preprocess ScummVM headers and does not link or
+ignored generated C++ include compiled into MMModern. The generator does not
+compile or preprocess ScummVM headers and does not link or
 execute ScummVM code.
 
 The build-only generator uses explicit category/count metadata, emits a
@@ -160,10 +154,10 @@ ScummVM source tree.
 
 ### Naming and bounds
 
-24A exposes structured descriptions and raw fields. References to rows, selected
-details or player feedback below are requirements for their future 24B presentation.
+24A supplies structured descriptions and raw fields; 24B presents those accepted
+values in inventory rows, selected details and feedback.
 
-Follow the English list-description rules in pinned
+Catalog composition follows the English list-description rules in pinned
 [item.cpp](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/item.cpp),
 `WeaponItems/ArmorItems/AccessoryItems/MiscItems::getFullDescription`.
 This is list identification by readable name, not the game's paid identification
@@ -221,7 +215,7 @@ Concrete bounds:
   remains literal, including percent signs.
 - Composed descriptions are capped at 192 bytes with deterministic `...`
   truncation. Measured-width row elision, wrapped details and rectangle clipping
-  belong to the still-unauthorized 24B renderer rather than the 24A catalog.
+  belong to the inventory view rather than the catalog.
 
 The material stream has no version header. Its version contract is the declared
 131-entry schema in a fingerprinted original installation; do not invent a
@@ -243,8 +237,8 @@ and a load diagnostic. Descriptions retain known base names and numeric material
 fallbacks; an explicitly unavailable catalog returns `Item catalog unavailable`
 with raw fields. Availability is distinct from an unknown record and is not a
 save/gameplay compatibility field. No material table is partially published.
-Future 24B must present diagnostics without repeated loads on redraw, allow
-byte-based transfer independently of naming availability, and preserve these
+The inventory presents diagnostics without repeated loads on redraw, permits
+byte-based transfer independently of naming availability, and preserves these
 fallbacks through opening/reconstruction. Complete supported names remain required
 for original acceptance; fallback cannot pass Myra or material-equipped anchors.
 For a valid CC index, the existing Dark archive owner exposes the `mae.xen` entry
@@ -254,8 +248,6 @@ readable invalid material bytes become malformed. This does not suppress global
 ScummVM fatal errors or alter required `clouds.dat`/archive-index failure behavior.
 
 ## Transfer rules and publication
-
-The following transfer contract is future 24B scope, pending separate authorization.
 
 Pinned [dialogs_items.cpp](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/dialogs/dialogs_items.cpp)
 `ItemsDialog::execute`, F1-F6 branch around lines 398..447, is the ordinary
@@ -293,7 +285,7 @@ Successful mutation, independently defined:
 
 1. Copy the selected four-byte value locally; put it in destination slot 8,
    completely clear the selected source slot, then reset the destination frame
-   to zero. No callback/allocation/fallible lookup occurs between these writes.
+   to zero in temporary candidate characters.
 2. Explicitly stable-compact source category, then destination category with
    `xeenCompactItems`. The destination item follows all previously occupied
    destination records. Its final slot equals prior occupied destination count.
@@ -308,12 +300,15 @@ Successful mutation, independently defined:
    above-new-maximum saved values. No healing, clamping, condition change or
    implicit equip occurs. Save existing bytes and recompute derived values on load.
 
-Rule preflight may use short-lived candidate character/category values to call
+Rule preflight uses short-lived candidate character/category values to call
 `validateForUse` with year 610. Allocation/copy failure occurs before mutation.
 They are not live owners or a UI inventory copy. Publish only the two resulting
 arrays with nonthrowing fixed-size assignment; do not assign copied character
-names/conditions back. This implementation form must be equivalent to the exact
-ordered move/compaction above. No general rollback framework is warranted.
+names/conditions back. Resolve references and establish the fixed result before
+these two contiguous assignments; completion of the second is the publication
+point. No callback, formatting, allocation or throwing work may separate them.
+These assignments implement the exact ordered move/compaction above without a
+general rollback framework.
 
 Each move consumes its confirmation token before invoking the operation. After
 success clear source-item/destination selections and advance the transient
@@ -324,6 +319,22 @@ A changed membership, category contents or owner invalidates an armed selection.
 Flow owns all authorized live mutation routing; any explicit reconstruction or
 test-side owner replacement cancels an armed transfer before accepting more input.
 Revalidate the selected live record as an extra stale guard, not a unique ID.
+
+Flow uses one epoch and an armed value containing source/destination active
+indexes and roster identities, category/physical slot, one selected record and
+the exact ordered membership (at most six entries). Every new confirmation gets
+a distinct generation; exhaustion closes the interaction instead of wrapping.
+Consumption precedes transfer preflight. Destination replacement requires a new
+explicit Enter. An unused destination F-key disarms the old token and returns to
+ChooseDestination. An old Enter can never fall through into the next mode.
+
+This is a single-writer contract: event/reward mutation happens with inventory
+closed. Explicit out-of-band owner/array replacement, including byte-identical
+remove/reinsert or replacement, must call `XeenEventFlow::invalidateInventory()`
+before subsequent input. Raw equality cannot detect unnotified ABA mutation.
+`refresh(true)` invalidates before drawing and preserves only a still-valid
+Browse owner/category/physical selection. Ordinary timed rebasing preserves
+valid confirmation. Membership changes never reinterpret a selected owner.
 
 Cancellation/refusal/open/inspection never compact. Refusal consumes the armed
 confirmation, retains a still-valid source slot for browsing, clears destination,
@@ -340,40 +351,30 @@ because the last framebuffer predates publication.
 
 ## Concrete player interface and modal integration
 
-This interface is specified for 24B and is not implemented by 24A.
-
-This is a small keyboard interface, not the original character sheet. Use one
-opaque parchment-style panel inside the native 320x200 frame, approximately
-`(4,4)..(315,145)`, leaving portraits/HP indicators at y=150/182 visible. Use the
-existing reduced 8-pixel glyphs and drawWindow facility, with an 8-pixel row pitch.
-Final pixel offsets may fit measured glyph widths but must satisfy the fixed
-content and no-overlap tests below.
-
-```text
-F1 Arturius [owner 0]     HP 12/12  SP 2/2
-Condition: Good          Source: Arturius
-< Weapons | Armor | Accessories | Misc >
- 1 [E] Sabre             Selected item details
- 2 Empty                Bounded name (wrapped)
- ...                    Status / counter or charges
- 9 Empty                M / ID / S / F
-                        To: F2 Tyro [owner 18]
-Feedback: ...
-F1-F6 owner; arrows category/slot; 1-9 slot; T transfer
-Enter confirm; Esc back/close; close panel before F9
-```
-
-Use two columns: nine slots at x=10..149, details/destination at x=154..309.
-Rows at y=37,45,...,101; header/category occupy y=10..34; feedback/help y=111..139.
+This is a small keyboard interface, not the original character sheet. One opaque
+parchment-style panel occupies the native 320x200 frame at
+`(4,4)..(316,149)` with exclusive right/bottom bounds, leaving portraits/HP
+indicators at y=150/182 visible. It uses `XeenTextRenderer`'s `drawWindow` and
+`windowBounds` options. Reduced glyphs require a **nine-pixel row pitch**,
+including the ninth pixel used by descenders; do not change global font behavior.
+The layout has two columns: nine slots at x=10..149, details/destination at x=154..309.
+Rows start at y=44,53,...,116; identity/condition occupy y=8, complete HP/SP
+have separate full-width lines at y=17/26, and category/destination use y=35.
+Feedback/help occupy y=126/137. Width measurement reserves final glyph extent
+as well as advance width; required numbers must fit completely, rather than
+being silently clipped. Long list-row names are measured and elided. The selected
+name wraps within x=154..309, y=44..61: two nine-pixel lines, with deterministic
+final-line elision only if both lines cannot contain the description. The slot
+label shares the category line; status and subsequent fields retain their bounds.
 Show active F-key, resource-loaded name and roster identity; aliases must be
 visible as the same owner, not distinct backpacks. Row marks are `E` equipped,
 `C` cursed, `B` broken, plus selection highlight; detail labels disambiguate them.
 Elide long row names; detail shows wrapped name, statuses and charges/counter,
-with M/ID and S/F on separate lines if needed. Use state-specific short help.
+with M/ID and S/F on separate lines. Help is state-specific.
 Header displays the selected owner's worst modeled condition using the existing
 predicate. Do not imply it is the only nonzero condition or a transfer gate.
 Keep signed current HP/SP and complete derived maxima readable; prioritize numeric
-fields over elidable names, using the second header line for overflow. A full
+fields over elidable names with separate full-width HP and SP lines. A full
 condition matrix and full character statistics are not required.
 
 | State | Input | Transition and visible result |
@@ -388,7 +389,7 @@ condition matrix and full character statistics are not required.
 | Browse, no item/Empty/empty party | T | Stay Browse, `Select an occupied item` or `No active characters`. |
 | ChooseDestination | F1-F6 | Resolve/display destination, enter Confirm. Invalid F-key stays with feedback. |
 | ChooseDestination | Escape | Cancel to Browse retaining valid source slot. |
-| Confirm | F1-F6 | Replace destination; remain Confirm with explicit Enter prompt. |
+| Confirm | F1-F6 | Valid member replaces destination and requires explicit Enter. An unused F-key disarms the old destination and returns to ChooseDestination. |
 | Confirm | Enter | Consume token, validate/move once, show success/refusal and return Browse as specified above. |
 | Confirm | Escape or N | Cancel to Browse, no mutation, retain valid source slot. |
 | Browse | Escape or I | Close, clear inventory selections, restore current scene. |
@@ -401,11 +402,11 @@ Empty categories show nine Empty slots. Empty party opens an empty panel with
 close controls and no rule/portrait/member indexing. Invalid selections are
 cleared before read/draw. Duplicate names do not affect owner identity.
 
-I changes from diagnostic-only to open/close UI while retaining its idle diagnostic
+I opens/closes the UI while retaining its idle diagnostic
 print and `InspectInventoryAction` observability. Setup/resume retain all-owner
-raw diagnostics. Do not log all 1,080 slots on each redraw/navigation. Add semantic
-slot and transfer-initiation actions to `PlayerAction`; map T and 1-9 in SDL.
-Reuse `SelectMemberAction`, navigation and Enter/Escape by modal context. New
+raw diagnostics without logging all 1,080 slots on each redraw/navigation.
+`SelectInventorySlotAction` and `TransferInventoryAction` map 1-9 and T in SDL.
+`SelectMemberAction`, navigation and Enter/Escape are reused by modal context. New
 inventory-only actions outside inventory return without clearing retained event
 labels or stepping ordinary animation.
 
@@ -446,8 +447,8 @@ cache reset. Cache loss never resets ownership or reconstructs arrays from label
 
 ## Persistence and compatibility
 
-24A adds no persistence state or save-format change. The inventory save-boundary
-and transfer behavior below specify future 24B integration.
+M24 introduces no persistent category or save-format change. The catalog is
+read-only; transfers mutate existing authoritative roster arrays.
 
 All durable mutation fits existing arrays. Keep writer v2 and reader v1/v2,
 144-byte character item block, 4 MiB bound, CRC, archive fingerprints and v1
@@ -493,9 +494,11 @@ lines 10..14 (`46 25 00 01`), natural end at absent line 15. Nine instructions;
 five `{10,37,1,0}` misc records go to owner 0 slots 0..4. Receipt acknowledgment
 finishes. Original records 21..35, offsets 182..315, contain this Myra path.
 The genuine exchange is accepted M21 behavior. The 24A catalog assertion describes
-the delivered reward without changing that exchange. Transfer remains 24B scope.
+the delivered reward without changing that exchange. 24B adds transfer after
+completed delivery.
 
-Future 24B delta: I, Misc (three category-right inputs), slot 1, T, F2, Enter. Show
+The accepted 24B sequence is I, Misc (three category-right inputs), slot 1, T, F2,
+Enter. The display shows
 **Potion of antidotes**, charges 1, unbroken/uncursed, source Arturius owner 0,
 destination Tyro owner 18. Owner 0 misc slots 0..3 retain four identical records,
 4..8 are zero; owner 18 misc slot 0 contains one exact record, 1..8 are zero.
@@ -520,7 +523,7 @@ Catalog expectations derive from `EN` plus the checked material resource.
 | Material armor | Owner 0 (F1), armor slot 3 `{38,10,0,9}`, Leather boots | Source retains `{0,3,0,3}`, `{0,8,0,2}`, `{0,13,0,6}` at slots 0..2 then zero. Destination retains its four original armor records, appends `{38,10,0,0}` at slot 4; 5..8 zero | Existing destination equipped boots remain a distinct quantity; matching type does not prevent transfer. Cancel preserves frame 9. |
 | Material accessory | Owner 11 (F4), accessory slot 1 `{42,1,0,8}`, Silver ring | Source retains `{38,2,0,12}` at slot 0, rest zero. Destination retains leather belt `{38,2,0,12}` at slot 0, receives `{42,1,0,0}` at slot 1, rest zero | Visible silver prefix, equipped source/unequipped recipient; no class/ring-limit gate. Cancel/self-owner preserve arrays. |
 
-All three require exact disk/restart comparisons and restored inspection through
+All three passed exact disk/restart comparisons and restored inspection through
 the production interface. Automated connected coverage runs independently;
 maintainer acceptance covers all categories, with Myra separate restart as the
 primary continuous sequence. These original items do not change currently modeled
@@ -548,43 +551,81 @@ HP/SP maxima; frame reset is not modifier-effect evidence.
 - Cursed+full destination reports curse first; broken transfers preserving
   broken/counter bits. Tail ID zero with nonzero metadata permits insertion.
 
-## Stage structure and acceptance gates
+## Final acceptance
 
-M24 has **two stages requiring separate authorization**. The catalog's generation, commercial
-resource and failure contracts are accepted independently; transfer must be
-implemented and accepted together with its production lifecycle.
-
-| Stage | Objective, owners and dependencies | Tests / definition of done | Exclusions and successor |
-| --- | --- | --- | --- |
-| 24A - Bounded catalog foundation | Accepted: pinned-blob generation, immutable structured lookup, material parser and explicit asset read through existing owners, with test/smoke consumers. | Build, automated and original/reference validation passed; independent technical approval and maintainer acceptance recorded below. | No transfer/player inventory UI, new application CLI, commercial bundles or save changes. |
-| 24B - Usable inspection and transfer | Depends on accepted 24A. Validated operation, transient Flow state, renderer, SDL actions, Application guards and connected harness extensions. | Transfer invariants, combined UI/cache/save/fresh-process tests, original anchors, recovery, full build/CTest, original-data regressions, independent review and maintainer physical SDL acceptance all pass. | No equip/unequip, effects or M25 implementation. Production wiring, save policy and recovery are not deferred beyond this stage. |
-
-**24A accepted; 24B remains pending separate authorization and implementation.**
-M24 as a whole remains incomplete. Acceptance of one stage does not authorize its
-successor.
+M24 was delivered in two separately authorized stages. Both passed their required
+acceptance; the milestone is complete. 24A established the catalog independently,
+and 24B delivered inspection/transfer together with the production lifecycle.
 
 ### 24A final acceptance
 
-The bounded item catalog foundation received independent technical approval
-(`APPROVE 24A FOR MAINTAINER ACCEPTANCE`) and maintainer acceptance.
+Independent technical review and maintainer acceptance passed. Normal and
+`BUILD_TESTING=OFF` builds, catalog/asset/generation tests and original/reference
+validation passed. Reference checks matched all 169 embedded array entries and
+three scalars against pinned `CONSTANTS_7`, and runtime `mae.xen` against the
+certified material resource. A deployment smoke retained complete descriptions
+outside the checkout using only the executable, normal runtime libraries and
+external original archives. Original Dagger, Leather boots, Silver ring and the
+genuine delivered `{10,37,1,0}` Potion of antidotes retained exact bytes/status.
+Validation covered immutable bounded composition, optional-resource failures and
+atomic generated publication; the foundation introduced no item mutation or
+save-format change.
 
-- Normal configure/build and `BUILD_TESTING=OFF` configure/build passed; the full
-  CTest suite passed 64/64, including catalog lookup, optional archive reads and
-  generation/publication regressions.
-- Independent reference validation matched all 169 embedded array entries and
-  three scalars against pinned `CONSTANTS_7`. Runtime commercial `mae.xen` matched
-  the certified material reference; the catalog smoke also passed outside the
-  source checkout with only the executable and normal runtime libraries deployed.
-- Original Dagger, Leather boots and Silver ring descriptions retained exact item
-  bytes and equipped status. The genuine Myra exchange's delivered `{10,37,1,0}`
-  reward described as `Potion of antidotes`, charges 1, through the existing
-  save/resume integration harness.
-- Validation established immutable descriptions, bounded unknown/material
-  fallback, recoverable optional payload reads and atomic generated publication.
-  It introduced no inventory UI, transfer, item mutation or save-format change.
+### 24B technical acceptance
 
-These results accept the foundation only. Player-facing inspection, transfer,
-ownership after restart and maintainer physical UI acceptance remain 24B work.
+The full build and full CTest suite passed, including focused inventory,
+transfer, SDL, save and animation coverage. Original-data Myra, Phirna, catalog,
+indoor and save/restart smokes passed. Direct and SDL connected producer/disk/
+separate-process coverage established the genuine request -> Root collection ->
+Myra return -> five rewards -> transfer -> four/one -> production save -> restart
+sequence, plus the original Dagger, Leather boots and Silver ring controls.
+
+Independent technical review passed after correction of the selected-detail
+wrapping issue. The regression uses synthetic `{58,1,6,1}` and the independent
+literal `Obsidian long sword Beast Bopper`; list-row elision remains allowed,
+while the full selected description spans two lines. Tests establish bounds,
+nine visible slots, mandatory-field non-overlap and glyph clipping including
+descenders, plus deterministic final-line overflow handling.
+
+### Maintainer physical SDL acceptance
+
+The maintainer completed the genuine Myra request, Phirna Root collection and
+Myra return, receiving five Potion of antidotes records. Camera positioning
+between these checkpoints was disclosed; this is not normal-route certification.
+In the production inventory UI, cancellation preserved ownership before the first
+potion moved from Arturius / owner 0 to Tyro / owner 18. The visible result was
+four/one; repeated confirmation did not move another quantity. F9 refusal during
+interaction and open inventory was physically observed. After closing inventory,
+a new F9 saved; the producer terminated and a separate production
+`--load-game` process reopened inventory with four/one and the expected potion
+description and charges.
+
+Independent equipment controls also passed: owner 11's equipped Dagger,
+owner 0's equipped Leather boots and owner 11's equipped Silver ring each moved
+to owner 18 after same-owner refusal and cancellation checks. Each destination
+record displayed unequipped, and production save/separate restart preserved it.
+The [exact equipment outcomes](#original-equipment-controls) remain the byte oracle.
+
+At Nightshadow, inventory opened and dismissed without damaging the static
+gravestone or portraits. Space/Enter still displayed and acknowledged the ordinary
+gravestone clue; dismissal restored the intact scene.
+
+### Outdoor acceptance boundary
+
+The inventory panel is opaque over the world viewport. Physical acceptance does
+not claim visual observation of world animation hidden beneath it.
+
+- Automated tests establish that the existing 100 ms ordinary outdoor phase
+  continues and rebases beneath open inventory, without action-driven advancement,
+  deadline rearming or cancellation of a valid confirmation.
+- Independent technical review accepted that timing and reconstruction behavior.
+- The maintainer physically verified that confirmation remained stable while
+  waiting, and dismissal/cancellation revealed the current intact world, HUD and
+  portraits without corruption.
+
+These evidence types are complementary. Automated SDL runs and images do not
+substitute for maintainer physical acceptance, and this boundary does not require
+a transparent inventory panel.
 
 ## Discriminating automated verification
 
@@ -626,8 +667,8 @@ require the installation. Do not copy extracted resources into fixtures.
   names and unchanged successful `clouds.dat` access.
 - Description cap 192, sanitized long material names and typed distinction among
   unavailable catalog, unavailable material table and unknown individual fields.
-  Renderer width, nine-row layout, condition/HP and clipped feedback tests belong
-  to 24B.
+  24B additionally covers renderer width, nine-row layout, condition/HP/SP,
+  wrapped selected names and clipped feedback.
 - The delivery smoke launches from a fresh directory containing only the smoke
   executable and its normal runtime DLLs; generated/source/reference inputs are
   not deployed. Runtime material comes only from the selected installation,
@@ -637,39 +678,39 @@ require the installation. Do not copy extracted resources into fixtures.
 ### 24A connected regression boundary
 
 The existing save/resume smoke retains its established producers, serializers,
-oracles and process topology. Stage 24A adds only a narrow post-delivery assertion:
+oracles and process topology. Stage 24A added a narrow post-delivery assertion:
 after the genuine five-item Myra reward is already delivered, the actual
 `{10,37,1,0}` record must describe as `Potion of antidotes`, charges 1. It adds no
-transfer, UI action, persistence field or alternate save route. All transfer and
-fresh-process ownership work below remains 24B.
+transfer, UI action, persistence field or alternate save route. Stage 24B extends
+that harness with transfer and fresh-process ownership checks.
 
 ### Transfer tests
 
-Use test-authored pre/post arrays, never expected values obtained from the new
-helper or production compactor. Cover all categories, first/middle/tail source,
+Tests use authored pre/post arrays, not expectations obtained from the transfer
+helper or production compactor. They cover all categories, first/middle/tail source,
 full source, ordered destination holes, occupied tail with holes, empty-tail
 metadata, same reference, distinct aliases, shared destination aliases, invalid
 indexes/category/slot, empty party/source, inactive owner and all condition
-contrasts. Preserve inactive owners, unrelated categories and quest/world state.
+contrasts, with inactive owners, unrelated categories and quest/world state preserved.
 
-Verify occupied-record multiset conservation, accounting for exactly one frame
+Tests verify occupied-record multiset conservation, accounting for exactly one frame
 reset and empty-metadata clearing. Identical potions remain distinct quantities.
-Preserve occupied bystander bytes/order. Refusal/cancel compare full durable
+Occupied bystander bytes/order are preserved. Refusal/cancel compare full durable
 snapshots. Repeated confirmation/SDL keydown, stale membership/location/generation
-and reconstruction cancellation cannot move a second record. Test curse-first
+and reconstruction cancellation cannot move a second record. Coverage includes curse-first
 precedence, broken success, unknown nonzero frame reset and no class/condition gate.
 
 Derived tests use independent numeric expectations: direct HP/SP and mental
 attribute changes, ID-zero metadata compaction, no misc effect and exact current
-HP/SP. Test checked-result refusal on extreme saved inputs without partial writes
+HP/SP, and checked-result refusal on extreme saved inputs without partial writes
 or a new equipment-legality rule.
 
 ### Connected production lifecycle
 
-Extend existing `XeenGameplayServices`/Application seams and
+Connected coverage uses existing `XeenGameplayServices`/Application seams and
 `tests/SaveResumeIntegrationTest.cpp`. Observations borrow state; they do not
-supply another serializer or transfer route. At least one normal synthetic
-integration and the original exchange extension execute:
+supply another serializer or transfer route. Synthetic integration and the
+original exchange extension execute:
 
 ```text
 Application startup -> I -> owner/category/physical slot -> T -> destination
@@ -678,21 +719,21 @@ Application startup -> I -> owner/category/physical slot -> T -> destination
 -> I -> source and destination inspection
 ```
 
-Compare test-owned full expected snapshots, actual disk bytes/decoded values and
-fresh owners. Never create expectations by capturing mutated producers. Original
-acceptance first runs genuine request/collection/return. Disconnected helper tests
-are insufficient. Preserve producer file bytes through consumers/revisits.
+Tests compare independently authored full expected snapshots, actual disk
+bytes/decoded values and fresh owners; expectations are not captured from mutated
+producers. Original acceptance first runs genuine request/collection/return.
+Consumers/revisits preserve producer file bytes.
 
-Include actual pending NPC return, WhoWill, message and reward warning/receipt;
-I/slot/T/F9 cannot bypass them and final event input cannot transfer. Exercise
-Escape in every state through SDL, window close, unused F-keys, empty party/slot,
-aliases and repeated confirmation. Fail formatting/report/draw after success,
-then reopen/rebuild and prove exactly one moved quantity; failures before
-publication prove none moved. Block reentrant save/open/event callbacks during
-mutation/refresh. Recovery must not rely on the failed feedback callback.
+Coverage includes actual pending NPC return, WhoWill, message and reward
+warning/receipt: I/slot/T/F9 cannot bypass them and final event input cannot
+transfer. SDL cases exercise Escape, window close, unused F-keys, empty party/slot,
+aliases and repeated confirmation. Injected presentation failures after success
+followed by reopen/rebuild establish exactly one moved quantity; failures before
+publication establish none moved. Reentrant save/open/event callbacks are blocked
+during mutation/refresh. Recovery does not rely on the failed feedback callback.
 
-Inject the existing clock for stationary animation while open, input-neutral
-timing, rebuilt underlay and correct close frame. Cover retained labels, Myra's
+The injected clock verifies stationary animation while open, input-neutral
+timing, rebuilt underlay and correct close frame. Coverage includes retained labels, Myra's
 animated flag, pending portrait blocking, indoor static objects and changed HUD.
 Direct synthetic and SDL dummy/software tests are automated evidence, not physical
 acceptance.
@@ -702,83 +743,23 @@ Current regression seams: `XeenCharacterFormatTests`, `XeenCharacterRulesTests`,
 `XeenRewardFlowTests`, `XeenRewardGameplayTests`, `XeenWhoWillTests`, `XeenNpcTests`,
 `XeenEventUiTests`, `XeenNavigationFlowTests`, `SdlInputTests`, save format/state/
 file/Flow/SDL/CLI tests, `XeenOutdoorAnimationTests`, `XeenIndoorComposerTests` and
-`XeenVisualRemoveTests`. Use actual CMake registrations; retain M22 rebasing/timing
-and M23 indoor composition/occlusion regressions.
+`XeenVisualRemoveTests`, alongside `XeenInventoryGameplayTests` and
+`XeenItemTransferTests`. M22 rebasing/timing and M23 indoor composition/occlusion
+regressions remain intact.
 
-## Future commands and maintainer physical acceptance
+## Scope boundaries
 
-The physical inspection/transfer gate below belongs to 24B. The accepted 24A
-catalog validation commands are maintained in
-[dependencies](dependencies.md#build-generated-english-item-catalog).
+The fixed catalog source/schema and commercial-resource boundary, byte-preserving
+inspection, single-writer transfer/publication semantics and existing save
+compatibility remain durable constraints. A change to those contracts requires
+explicitly scoped future work. Cross-platform host generation and wider
+languages/games are separate decisions.
 
-Existing commands, with build paths discovered from configuration:
-
-```text
-cmake --build <build> --parallel 4
-ctest --test-dir <build> --output-on-failure
-cmake --build <build> --target mmodern_save_resume_smoke mmodern_myra_smoke mmodern_phirna_smoke
-mmodern_save_resume_smoke <game-directory> <new-output-directory> [sdl]
-mmodern_save_resume_smoke --manual-myra-exchange <game-directory> <new-save-path.mmsave>
-mmodern --render-map <game-directory> 23 9 11 west --save-file <save-path.mmsave>
-mmodern --load-game <game-directory> <save-path.mmsave>
-```
-
-Current manual exchange mode ends at five owner-0 rewards. **Proposed 24B addition:**
-extend that executable with a distinct `myra-transfer` checkpoint and
-`--manual-myra-transfer <game-directory> <new-save-path.mmsave>` mode, retaining
-M21's oracle unchanged. Its new independent oracle expects four/one; its physical
-loop waits for player inspection/transfer before F9. These additions do not exist
-at this baseline. Add equipment cases to the same harness where practical; no
-new acceptance service framework. Use an existing output parent outside the game
-installation and an absent save target; never delete/reuse unknown files.
-
-Physical gate, performed by the maintainer in one continuous real SDL producer
-loop without injected keys, automatic acknowledgment/F9 or automatic closer:
-
-1. Complete genuine camera-positioned Myra request/Phirna collection/return.
-   Observe inventory-open and F9 refusal during return/receipt. Finish receipt,
-   open I. Camera positioning is a disclosed checkpoint, not normal navigation.
-2. Observe Arturius, condition/HP/SP, all categories/nine slots. Select first
-   genuine Potion of antidotes; see charges 1.
-3. Arm owner-18 transfer, cancel, verify five remain. Retry/Enter; see success,
-   four source/one destination and correct names. Another Enter cannot transfer.
-   Observe inventory F9 refusal, then close.
-4. New F9 must save. Exit producer completely. Start separate production load,
-   reopen both owners and see four/one before Myra interaction. No implicit resave.
-5. Independent equipment cases show equipped Dagger, Leather boots and Silver
-   ring moving via the same UI, with destination unequipped. Check cancel/self
-   feedback and unrelated equipment. Observe indoor dismissal/outdoor animation.
-
-Automated assertions verify full disk/state equality and secondary restarts.
-The maintainer supplies physical observations; images, automated Windows SDL
-and reviewer inspection do not substitute. Skipping a phase or early exit cannot
-pass. No normal-route/playable-region certification follows.
-
-## Risks, exclusions and definition of done
-
-The accepted 24A contracts cover the fixed `CONSTANTS_7` block and object identity,
-bounded descriptions, suppression and raw-byte preservation. Remaining 24B review
-risks include self-owner adaptation, mutation before fallible presentation, stale
-selection after compaction and derived effects of empty metadata. The specification
-above bounds those risks; their implementation and acceptance remain future work.
-
-Replan before expanding scope if the pinned constants object or bounded catalog
-schema changes, required material text is absent/differently structured in a
-claimed supported installation, UI requires a new durable owner, save compatibility
-must change or all nine slots/details cannot be made usable. Cross-platform host
-generation and wider languages/games are separate decisions. Pixel-fit adjustments
-within the declared interface are not scope expansion.
-
-Exclude player equip/unequip, item use/consumption/spell effects, discard, paid
+Player equip/unequip, item use/consumption/spell effects, discard, paid
 identification, repair, shops/NPC trade, recruitment/reordering, quest journal,
 combat/full statistics, new equipment effects, indoor animation/wall items,
-normal-route certification, Darkside gameplay, localization and detailed M25
-planning. Resetting the moved frame is the only equipment-state action specified
-for future 24B transfer; 24A performs no mutation.
+normal-route certification, Darkside gameplay and localization remain outside M24.
+Resetting the moved frame is its only equipment-state action.
 
-M24 completes only after both stages pass, production interaction works in all
-categories, genuine Myra four/one ownership survives disk save/separate restart,
-required regressions/original-data checks pass, independent review has no unresolved
-blocking findings and the maintainer performs physical SDL acceptance. Then update
-durable closure documents under AGENTS rules. Stage 24A acceptance alone does not
-authorize 24B implementation or any Git publication operation.
+M25 planning and implementation are not authorized by M24 completion; future
+direction remains in the [roadmap](roadmap.md#current-planning-state).

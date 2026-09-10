@@ -4,6 +4,13 @@
 #include <iostream>
 #include <stdexcept>
 namespace mmodern {
+namespace {
+struct GameplayScope {
+ bool &busy;
+ explicit GameplayScope(bool &value) : busy(value) { busy = true; }
+ ~GameplayScope() { busy = false; }
+};
+}
 int Application::playGameplay(const XeenGameplayServices &services, XeenCamera camera,
   const std::optional<std::filesystem::path> &target, bool resume) const {
  try {
@@ -24,7 +31,7 @@ int Application::playGameplay(const XeenGameplayServices &services, XeenCamera c
   for (const auto &diagnostic : party.diagnostics) std::cerr << "Party warning: " << diagnostic << '\n';
   XeenEventSystem events([&](XeenMapIdentity id) { return XeenEventScript(services.resources.loadEvents(id)); }, services.texts);
   XeenEventFlow flow(world, events, party, camera, flags, services.font,
-   [&](std::uint64_t phase) { return services.compose(world, party, camera, phase); }, services.npcDraw, services.clock);
+   [&](std::uint64_t phase) { return services.compose(world, party, camera, phase); }, services.npcDraw, services.clock, {}, services.catalog);
   if (services.configureFlow) services.configureFlow(flow, camera);
   if (!flow.frame().isValid()) throw std::runtime_error("Invalid first gameplay frame");
   std::cout << "Setup " << xeenInventoryInspection(party);
@@ -47,16 +54,17 @@ int Application::playGameplay(const XeenGameplayServices &services, XeenCamera c
   bool dispatching = false;
   bool active = true;
   const auto handler = [&](const PlayerAction &action) -> std::optional<IndexedFrame> {
-   if (std::holds_alternative<InspectInventoryAction>(action)) {
-    if (!active || dispatching || flow.blocksGameplay()) return std::nullopt;
-    std::cout << xeenInventoryInspection(party);
-    status = "MMModern - " + xeenInventorySummary(party);
+   if (!active || dispatching) {
+    if (std::holds_alternative<SaveGameAction>(action))
+     status = "MMModern - Cannot save outside an idle gameplay boundary.";
     return std::nullopt;
    }
+   GameplayScope scope(dispatching);
+   try {
    if (std::holds_alternative<SaveGameAction>(action)) {
     std::string message;
     bool success = false;
-    if (!active || dispatching) message = "Cannot save outside an idle gameplay boundary.";
+    if (flow.inventoryOpen()) message = "Cannot save while inventory is open. Close it and press F9 again.";
     else if (flow.blocksGameplay()) message = "Cannot save while an interaction is pending.";
     else if (!target) message = "No save target configured. Use --save-file <path>.";
     else try {
@@ -71,17 +79,17 @@ int Application::playGameplay(const XeenGameplayServices &services, XeenCamera c
     if (target) message += " [" + target->u8string() + "]";
     status = "MMModern - " + message;
     (success ? std::cout : std::cerr) << message << '\n';
+    if (flow.inventoryOpen()) return flow.refuseInventorySave();
     return std::nullopt; // Never forward Save to the presenter or clear a label.
    }
-   if (!active || dispatching) return std::nullopt;
-   dispatching = true;
-   try { auto frame = flow.handle(action); dispatching = false; return frame; }
-   catch (...) { active = false; dispatching = false; throw; }
+   return flow.handle(action);
+   } catch (...) { active = false; throw; }
   };
   const auto idle = [&]() -> std::optional<IndexedFrame> {
-   dispatching = true;
-   try { auto frame = flow.updatePresentation(); dispatching = false; return frame; }
-   catch (...) { active = false; dispatching = false; throw; }
+   if (!active || dispatching) return std::nullopt;
+   GameplayScope scope(dispatching);
+   try { return flow.updatePresentation(); }
+   catch (...) { active = false; throw; }
   };
   const bool ok = services.show(first, handler, [&] { return flow.handlesEscape(); }, idle, [&] { return status; });
   active = false;

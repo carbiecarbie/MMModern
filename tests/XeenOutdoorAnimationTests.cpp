@@ -46,7 +46,7 @@ void deadlinesAndActions(){
  f.blocked=true;f.world.discardMapCache();f.flow.handle(NavigationAction::MoveForward);f.phase(7);
  check(f.camera.y==1,"blocked movement committed");f.flow.handle(InteractionAction{});f.phase(8);
  f.flow.handle(NavigationAction::TurnRight);f.phase(0);f.flow.handle(NavigationAction::TurnLeft);f.phase(0);
- f.flow.handle(SaveGameAction{});f.flow.handle(InspectInventoryAction{});f.phase(0);
+ f.flow.handle(SaveGameAction{});f.flow.handle(InspectInventoryAction{});f.phase(0);f.flow.handle(CancelInteractionAction{});
  f.at(9398);f.phase(0);f.at(9399);f.phase(1);
  f.flow.acceptManual(XeenManualEventNoEvent{});f.flow.acceptAutomatic(XeenAutomaticEventNoTrigger{});f.flow.initial();f.phase(1);
  f.camera.x=2;f.flow.refresh();f.phase(1); // Same-map relocation is a pure refresh.

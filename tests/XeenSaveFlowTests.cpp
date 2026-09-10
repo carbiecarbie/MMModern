@@ -89,6 +89,8 @@ void pending(const fs::path &path){
    const auto generation=f.flow->presentationGeneration();const auto page=f.flow->presenter().pageIndex();
    const auto pixels=f.flow->frame().pixels;const auto reads=f.eventReads,composes=f.compositions;
    const auto timing=f.flow->presenter().npcTiming();
+   handle(InspectInventoryAction{});handle(TransferInventoryAction{});handle(SelectInventorySlotAction{8});
+   check(!f.flow->inventoryOpen(),"pending event opened inventory");
    handle(SaveGameAction{});
    check(!fs::exists(path)&&f.flow->presentationGeneration()==generation&&f.flow->presenter().pageIndex()==page&&f.flow->frame().pixels==pixels&&f.eventReads==reads&&f.compositions==composes,"refused save mutated presentation or performed preparation");
    check(f.flow->presenter().npcTiming().deadline==timing.deadline,"save changed NPC timing");
@@ -188,6 +190,7 @@ void ordinarySaveBoundary(const fs::path &path){
   firstBytes=capture();now=100;idle();check(f.phases.back()==1 && capture()==firstBytes,"phase serialized into v2");
   now=199;const auto calls=clockCalls;const auto liveFrame=f.flow->frame();
   handle(InspectInventoryAction{});check(clockCalls==calls && f.phases.back()==1,"inventory changed phase/clock");
+  handle(CancelInteractionAction{}); // Close the player panel before a new eligible F9.
   handle(SaveGameAction{});
   check(status().find("Saved")!=std::string::npos && clockCalls==calls && f.phases.back()==0,"preflight did not use independent zero");
   check(diskBytes(path)==firstBytes && f.flow->frame().pixels==liveFrame.pixels,"F9 mutated live frame or save bytes");

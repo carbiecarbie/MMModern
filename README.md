@@ -6,10 +6,12 @@ Might and Magic V: Darkside of Xeen / World of Xeen.
 
 ## Status
 
-**Milestone 23 is the latest stable completed milestone.**
+**Milestone 24 is the latest stable completed milestone.**
 
 The engine supports a bounded Clouds quest loop: request a quest, collect an
 item, return it for character-held rewards, and save/resume the resulting progress.
+Active-party inventory inspection shows resource-driven item descriptions and
+supports transfer between active roster owners, preserving ownership on restart.
 Original maps, text, portraits and supported objects appear through a standalone
 SDL application, with ordinary outdoor objects animating while stationary and
 during dialogue. Static ordinary indoor objects use original directional
@@ -17,7 +19,7 @@ appearances, placement and wall occlusion; the bounded Nightshadow gravestone
 interaction displays its original clue through the existing event flow.
 
 MMModern remains incomplete and experimental. It is not yet a generally playable
-replacement for the original games: combat, general inventory use and Darkside
+replacement for the original games: combat, item use, player equip/unequip and Darkside
 gameplay remain unsupported, and travel between validated checkpoints is not certified.
 
 See the [technical snapshot](docs/project-status.md),
@@ -38,7 +40,9 @@ See the [technical snapshot](docs/project-status.md),
 - Bounded event execution, teleports, original text, choices, character selection
   and animated NPC dialogue portraits.
 - Party/character state, quest items and flags, and deterministic item rewards.
-- Local Windows save/resume and read-only live inventory diagnostics.
+- Active-character condition and current/max HP/SP, four-category inventory
+  inspection and character-to-character transfer, with nine slots per category.
+- Local Windows save/resume, including transferred ownership, and live diagnostics.
 
 ## Running and controls
 
@@ -56,21 +60,27 @@ subsequent save target; invalid/incompatible saves fail without starting a new g
 
 | Key | Action |
 | --- | --- |
-| W/Up, S/Down | Move forward/backward |
-| A/Left, D/Right | Turn left/right |
-| Space, Enter | Interact (Space) or advance/acknowledge text |
-| Y / N | Answer Yes/No |
-| F1-F6 | Select an eligible active member during WhoWill |
-| F9 | Save an idle session to its configured target |
-| I | Print live inventory, owners and quest diagnostics while idle |
-| Escape | Cancel WhoWill; advance/acknowledge NPC dialogue or reward pages; otherwise exit |
+| W/Up, S/Down | Move forward/backward; browse physical slots in inventory |
+| A/Left, D/Right | Turn left/right; browse categories in inventory |
+| Space, Enter | Interact (Space) or advance/acknowledge text; Enter confirms an armed transfer |
+| Y / N | Answer Yes/No; N cancels a transfer confirmation |
+| F1-F6 | Select inventory owner or transfer recipient; outside inventory, select an eligible member during WhoWill |
+| 1-9 | Select a physical inventory slot while browsing |
+| T | Begin transfer of the selected occupied slot |
+| F9 | Save an idle session; refused while inventory is open |
+| I | Open inventory while idle; close while browsing; also print live diagnostics on opening |
+| Escape | Back/cancel transfer or close inventory; cancel WhoWill; acknowledge NPC/reward pages; otherwise exit |
 
 Movement and ordinary interaction are blocked while a response is required;
 repeated keydown events are ignored. NPC dialogue and reward pages accept
 Space/Enter/Escape, including final acknowledgment with Escape.
+Inventory navigation applies while browsing; during transfer selection/confirmation,
+Escape returns to browsing before changing category or slot. Item use, player
+equip/unequip and general item effects are not provided by this panel.
 
-F9 refuses during an interaction without advancing it or scheduling a later save.
-Press F9 again after completion. Without a configured path, it writes nothing.
+F9 refuses during an interaction or while inventory is open, without advancing it
+or scheduling a later save. Close inventory or finish the interaction, then issue
+a new F9. Without a configured path, it writes nothing.
 Save results appear in the console and window title. Existing supported valid
 MMModern saves can be replaced; there is no autosave, save-on-exit or in-session load.
 Current saves write v2 and read v1/v2, require matching game archives, and are
@@ -96,8 +106,8 @@ SDL backend. The exact pin and configuration live in
   ownership, persistence and boundaries.
 - [Project history](docs/project-history.md): concise completed milestones and plan links.
 - [Roadmap](docs/roadmap.md): future direction and planning review cadence.
-- [Milestone 23 plan](docs/milestone-23-plan.md): closed static indoor-object
-  specification, architectural decisions and acceptance result.
+- [Milestone 24 plan](docs/milestone-24-plan.md): closed item catalog, inspection
+  and transfer contracts, architectural decisions and acceptance results.
 - [Dependencies](docs/dependencies.md): supported toolchain and ScummVM setup.
 - [Agent instructions](AGENTS.md): development, documentation and Git rules.
 

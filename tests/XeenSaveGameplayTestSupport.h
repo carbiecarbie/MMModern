@@ -14,6 +14,7 @@ using remove_test::record;
 inline Bytes fontBytes(){Bytes b(XeenFontFormat::kMinimumSize);for(int c=0;c<128;++c){b[0x1000+c]=6;b[0x1080+c]=3;for(int y=0;y<8;++y)b[c*16+y*2]=0x55;}return b;}
 struct Fixture {
  XeenFontFormat font{fontBytes()};
+ XeenItemCatalog catalog;
  XeenPartyState initial;
  XeenSaveResourceSignature signature{{99,88},{}};
  std::map<XeenMapIdentity,std::vector<XeenEventRecord>> scripts;
@@ -31,7 +32,7 @@ struct Fixture {
   initial.roster.at(0).currentHp=10; initial.roster.at(1).currentHp=10;
   scripts[1]={record(1,1,0,0x12)};scripts[2]={record(1,1,0,0x12)};
  }
- XeenGameplayServices services(){return {
+ XeenGameplayServices services(){auto result=XeenGameplayServices{
   {signature,[&]{return initial;},[&](XeenMapIdentity id){++eventReads;return XeenEventFile{id,"test.evt",true,scripts.at(id)};}},
   []{return XeenGameFlags{};},
   [&](XeenMapIdentity id){++mapReads;auto m=remove_test::map(id);m.geometry.cells[17].rawAttributes=automatic?0x10:0;m.geometry.surfaceTypes[0]=1;return m;},
@@ -50,7 +51,7 @@ struct Fixture {
   },[](IndexedFrame &f,std::uint8_t,std::size_t){f.pixels[100]=77;},
   [&](XeenEventFlow &f,const XeenCamera &){flow=&f;f.reportAutomatic=[](const auto &r){if(std::holds_alternative<XeenEventExecutionError>(r))throw std::runtime_error("automatic error");};},{},
   [&](XeenWorld &w,XeenEventSystem &,const XeenPartyState &,XeenCamera &,const XeenGameFlags &){world=&w;}
- };}
+ };result.catalog=&catalog;return result;}
  XeenSaveSnapshot saved(){auto s=save_test::sample();s.resources=signature;s.camera={1,1,1,XeenDirection::North};s.characters=initial.roster.characters();s.activeRosterIds={0,1};s.questItems.fill(0);s.questFlags.fill(false);s.gameFlags.fill(false);s.disabledObjects.clear();s.disabledEvents.clear();return s;}
 };
 }

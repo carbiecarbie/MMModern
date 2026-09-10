@@ -44,6 +44,8 @@ add_library(mmodern_xeen STATIC
 	src/games/xeen/XeenEventInterpreter.cpp
 	src/games/xeen/XeenItemRewards.cpp
 	src/games/xeen/XeenItemCatalog.cpp
+	src/games/xeen/XeenItemTransfer.cpp
+	src/games/xeen/XeenInventoryView.cpp
 	src/games/xeen/XeenEventPresenter.cpp
 	src/games/xeen/XeenEventLoader.cpp
 	src/games/xeen/XeenEventTextLoader.cpp
@@ -80,6 +82,7 @@ add_library(mmodern_app STATIC
 	src/app/XeenGameplay.cpp
 	src/app/Application.cpp
 	src/app/XeenEventFlow.cpp
+	src/app/XeenInventoryFlow.cpp
 	src/app/XeenNavigationFlow.cpp
 )
 target_link_libraries(mmodern_app PUBLIC mmodern_core PRIVATE
@@ -104,6 +107,14 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+	add_executable(mmodern_item_transfer_tests tests/XeenItemTransferTests.cpp)
+	target_link_libraries(mmodern_item_transfer_tests PRIVATE mmodern_app mmodern_xeen ZLIB::ZLIB)
+	add_test(NAME xeen_item_transfer COMMAND mmodern_item_transfer_tests)
+	add_executable(mmodern_inventory_gameplay_tests tests/XeenInventoryGameplayTests.cpp)
+	target_link_libraries(mmodern_inventory_gameplay_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2 ZLIB::ZLIB)
+	add_test(NAME xeen_inventory_gameplay COMMAND mmodern_inventory_gameplay_tests)
+	add_test(NAME xeen_inventory_sdl COMMAND mmodern_inventory_gameplay_tests sdl)
+	set_tests_properties(xeen_inventory_sdl PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software" TIMEOUT 20)
 	add_executable(mmodern_item_catalog_tests tests/XeenItemCatalogTests.cpp)
 	target_link_libraries(mmodern_item_catalog_tests PRIVATE mmodern_xeen)
 	add_test(NAME xeen_item_catalog COMMAND mmodern_item_catalog_tests)

@@ -21,7 +21,7 @@ void application(const fs::path &path,bool fullPacks){
 	services.show=[&](const auto&,const auto &handle,const auto &escape,const auto&,const auto &status){
 		check(output.text.str().find("Setup Inventory:")!=std::string::npos&&output.text.str().find("[2->1 alias]")!=std::string::npos&&
 			output.text.str().find("Owner 29  inactive")!=std::string::npos&&output.text.str().find("ID=254")!=std::string::npos,"setup owner/alias snapshot");
-		const auto reads=f.eventReads;handle(InspectInventoryAction{});++inspections;check(reads==f.eventReads,"I dispatched event");
+		const auto reads=f.eventReads;handle(InspectInventoryAction{});++inspections;check(reads==f.eventReads,"I dispatched event");handle(CancelInteractionAction{});
 		handle(InteractionAction{});XeenRewardTestAccess::seed(*f.flow,10);
 		const auto refused=[&]{const auto gen=f.flow->presentationGeneration();const auto phase=XeenRewardTestAccess::state(*f.flow).rewardPhase;
 			const auto n=f.eventReads,c=f.compositions;const auto out=output.text.str();handle(InspectInventoryAction{});
@@ -34,7 +34,7 @@ void application(const fs::path &path,bool fullPacks){
 		if(fullPacks){while(XeenRewardTestAccess::state(*f.flow).rewardPhase==XeenRewardPhase::Warning)handle(CancelInteractionAction{});refused();}
 		check(XeenRewardTestAccess::state(*f.flow).rewardReceipt.delivered==(fullPacks?0U:10U),"production receipt result");
 		while(f.flow->blocksGameplay())handle(CancelInteractionAction{});
-		check(!fs::exists(path),"deferred save occurred");handle(InspectInventoryAction{});++inspections;
+		check(!fs::exists(path),"deferred save occurred");handle(InspectInventoryAction{});++inspections;handle(CancelInteractionAction{});
 		handle(SaveGameAction{});check(status().find("Saved")!=std::string::npos,"post-ACK F9 failed");
 		auto saved=XeenSaveFile::read(path);check(saved.gameFlags[7]&&saved.characters[1].miscellaneous[0].id==(fullPacks?0:37)&&saved.characters[29].miscellaneous[3].id==254,"save lost durable inserted/inactive items");return true;};
 	check(Application().playGameplay(services,start,path,false)==0&&reentrant&&inspections==2,"Application reward flow");
@@ -77,7 +77,7 @@ void actualProducerGuards(){
 		unsigned acks=0;while(f.flow->blocksGameplay()){check(++acks<100,"actual receipt bound");handle(AcknowledgeAction{});}
 		const auto before=output.text.str().size();handle(InspectInventoryAction{});
 		check(output.text.str().substr(before).find("Root=0 Q2=0")!=std::string::npos,"actual post-cleanup I");
-		handle(SaveGameAction{});check(status().find("No save target configured")!=std::string::npos,"actual post-cleanup F9 guard");
+		handle(CancelInteractionAction{});handle(SaveGameAction{});check(status().find("No save target configured")!=std::string::npos,"actual post-cleanup F9 guard");
 		return true;
 	};
 	check(Application().playGameplay(services,start,{},false)==0 && reentrant,"actual producer Application guards");

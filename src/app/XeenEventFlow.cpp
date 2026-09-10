@@ -6,6 +6,10 @@
 
 namespace mmodern {
 namespace {
+const XeenItemCatalog &fallbackCatalog() {
+	static const auto catalog = XeenItemCatalog::unavailable();
+	return catalog;
+}
 static_assert(std::is_nothrow_move_constructible<XeenEventExecutionState>::value,
 	"Flow must adopt execution ownership without allocation");
 struct DispatchScope {
@@ -22,7 +26,8 @@ bool sameCamera(const XeenCamera &a, const XeenCamera &b) {
 XeenEventFlow::XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
 		XeenPartyState &party, XeenCamera &camera, XeenGameFlags &flags,
 		const XeenFontFormat &font, Compose compose, XeenEventPresenter::NpcDraw npcDraw,
-		XeenEventPresenter::Clock clock, XeenEventPresenter::RandomFrame randomFrame) :
+		XeenEventPresenter::Clock clock, XeenEventPresenter::RandomFrame randomFrame, const XeenItemCatalog *catalog) :
+	_inventoryFont(font), _catalog(catalog ? *catalog : fallbackCatalog()),
 	_world(world), _events(events), _party(party), _camera(camera), _flags(flags),
 	_navigation(events), _clock(clock ? std::move(clock) : XeenEventPresenter::Clock{[] {
 		return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -34,6 +39,9 @@ XeenEventFlow::XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
 }
 
 IndexedFrame XeenEventFlow::refresh(bool reconstruct) {
+	if (_dispatching || _fatal) return _frame;
+	DispatchScope dispatch(_dispatching);
+	if (reconstruct) invalidateInventorySelection();
 	refreshScene(reconstruct, OrdinaryCause::None);
 	return _frame;
 }
@@ -68,12 +76,16 @@ bool XeenEventFlow::refreshScene(bool reconstruct, OrdinaryCause cause, bool com
 		_ordinary.containsOrdinaryAnimation = composition.containsOrdinaryAnimation;
 		if (cameraChanged && !_pending) _presenter.clear();
 		_frame = _presenter.rebase(composition.frame);
+		_inventoryUnderlay = _frame;
 		_renderedCamera = _camera;
 		_disabledObjects = count;
+		if (inventoryOpen()) drawInventory();
 		return true;
 	}
 	return false;
 	} catch (const std::exception &e) {
+		if (_fatal) throw;
+		if (inventoryOpen()) { recoverInventory(); return true; }
 		if (!_pending) throw;
 		presentationFailed(e);
 		return true;
@@ -148,7 +160,7 @@ bool XeenEventFlow::pendingNpc() const {
 		_pending->state.pendingPresentation->request.kind == XeenPresentationKind::NpcAcknowledgment;
 }
 bool XeenEventFlow::handlesEscape() const {
-	return canCancelInteraction() || pendingNpc() || (_pending && _pending->state.rewardPhase != XeenRewardPhase::Running);
+	return inventoryOpen() || canCancelInteraction() || pendingNpc() || (_pending && _pending->state.rewardPhase != XeenRewardPhase::Running);
 }
 XeenRewardReceipt XeenEventFlow::cleanup(XeenRewardDiscard reason) noexcept {
 	XeenRewardReceipt outcome;
@@ -168,6 +180,7 @@ XeenEventFlow::~XeenEventFlow() {
 }
 void XeenEventFlow::abandonPresentation() {
 	DispatchScope dispatch(_dispatching);
+	closeInventory();
 	const auto outcome = cleanup(XeenRewardDiscard::Abandoned);
 	_frame = _presenter.frame();
 	if (outcome.discarded) {
@@ -195,7 +208,7 @@ IndexedFrame XeenEventFlow::presentationFailed(const std::exception &exception) 
 	return _frame;
 }
 std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
-	if (_dispatching) return std::nullopt;
+	if (_dispatching || _fatal) return std::nullopt;
 	DispatchScope dispatch(_dispatching);
 	const bool recomposed = refreshScene(false, OrdinaryCause::Idle);
 	if (!pendingNpc()) return recomposed ? std::optional<IndexedFrame>{_frame} : std::nullopt;
@@ -212,7 +225,7 @@ std::optional<std::uint64_t> XeenEventFlow::presentationGeneration() const {
 	return _pending ? std::optional<std::uint64_t>{_pending->generation} : std::nullopt;
 }
 bool XeenEventFlow::respond(std::uint64_t generation, XeenPresentationResponse response) {
-	if (_dispatching) return false;
+	if (_dispatching || inventoryOpen() || _fatal) return false;
 	DispatchScope dispatch(_dispatching);
 	return resumePending(generation, response);
 }
@@ -233,13 +246,17 @@ bool XeenEventFlow::resumePending(std::uint64_t generation, XeenPresentationResp
 	return true;
 }
 IndexedFrame XeenEventFlow::handle(const PlayerAction &action) {
-	if (std::holds_alternative<InspectInventoryAction>(action) || std::holds_alternative<SaveGameAction>(action)) return _frame;
-	if (_dispatching) return _frame;
+	if (std::holds_alternative<SaveGameAction>(action) || _dispatching || _fatal) return _frame;
 	DispatchScope dispatch(_dispatching);
+	const bool inventoryOnly = std::holds_alternative<InspectInventoryAction>(action) ||
+		std::holds_alternative<SelectInventorySlotAction>(action) || std::holds_alternative<TransferInventoryAction>(action);
+	if (_pending && inventoryOnly) return _frame;
+	if (inventoryOpen() || std::holds_alternative<InspectInventoryAction>(action)) return handleInventory(action);
+	if (inventoryOnly) return _frame;
 	if (std::holds_alternative<SelectMemberAction>(action) && !canCancelInteraction())
 		return _frame;
 	const bool hadPending = _pending.has_value();
-	refresh();
+	refreshScene(false, OrdinaryCause::None);
 	if (hadPending && !_pending) return _frame; // Rebase failure must not dispatch this input.
 	if (_pending) {
 		const auto generation = _pending->generation;
@@ -269,7 +286,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &action) {
 	}
 	if (std::holds_alternative<InteractionAction>(action))
 		return drive(_navigation.processInteraction(_world, _party, _camera, _flags), false, true, OrdinaryCause::Action);
-	refresh(true);
+	refreshScene(true, OrdinaryCause::None);
 	return _frame;
 }
 }

@@ -49,10 +49,22 @@ inline Result launch(const fs::path &exe, const std::vector<std::wstring> &args,
  CloseHandle(out); require(ok, "child process launch failed");
  std::cout << "PID " << process.dwProcessId << " command " << fs::path(command).u8string() << '\n' << std::flush;
  const auto began = GetTickCount64(); DWORD wait = WAIT_TIMEOUT; bool closed = false;
+ unsigned inputStage=0; ULONGLONG lastInput=0;
  while ((wait = WaitForSingleObject(process.hProcess, 50)) == WAIT_TIMEOUT && GetTickCount64() - began < 30000) {
   if (closeNativeWindow && !closed && GetTickCount64() - began > 1000) {
    Window target{process.dwProcessId}; EnumWindows(findWindow, reinterpret_cast<LPARAM>(&target));
-   if (target.handle) { closed = PostMessageW(target.handle, WM_CLOSE, 0, 0); }
+   if (target.handle && GetTickCount64()-lastInput>=150) {
+    // Normal executable input: open, inspect another owner, close, then quit.
+    // Exact live ownership is asserted by the independent instrumented consumer.
+    const WPARAM keys[]{'I',VK_F2,'1',VK_ESCAPE};
+    if(inputStage<4) {
+     const auto key=keys[inputStage++];
+     const LPARAM scan=static_cast<LPARAM>(MapVirtualKeyW(static_cast<UINT>(key),MAPVK_VK_TO_VSC))<<16;
+     require(PostMessageW(target.handle,WM_KEYDOWN,key,scan|1),"CLI inventory keydown");
+     require(PostMessageW(target.handle,WM_KEYUP,key,scan|1|(1ULL<<30)|(1ULL<<31)),"CLI inventory keyup");
+     lastInput=GetTickCount64();
+    } else closed = PostMessageW(target.handle, WM_CLOSE, 0, 0);
+   }
   }
  }
  if (wait != WAIT_OBJECT_0) { TerminateProcess(process.hProcess, 99); WaitForSingleObject(process.hProcess, 2000); }
@@ -61,6 +73,7 @@ inline Result launch(const fs::path &exe, const std::vector<std::wstring> &args,
  std::cout << "PID " << pid << " exit " << code << " wait " << wait << '\n' << std::flush;
  require(wait == WAIT_OBJECT_0 && gotCode, "child failed/timed out; acceptance stopped");
  require(!closeNativeWindow || closed, "CLI did not expose its gameplay window");
+ require(!closeNativeWindow || inputStage==4,"CLI inventory input sequence incomplete");
  std::ifstream input(log); require(bool(input), "child log read failed");
  return {code, std::string(std::istreambuf_iterator<char>(input), {}), pid};
 }

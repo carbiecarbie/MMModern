@@ -2,12 +2,9 @@
 
 ## Stable baseline
 
-**Milestone 23 remains the latest fully completed milestone. Milestone 24A is
-an accepted stable sub-stage: the bounded item catalog foundation.** M24 is
-incomplete; 24B requires separate authorization and implementation. This file
-describes stable capabilities and architecture. Acceptance belongs in the
-[M23 closed plan](milestone-23-plan.md#final-acceptance) and
-[M24A acceptance record](milestone-24-plan.md#24a-final-acceptance); completed
+**Milestone 24 is the latest completed milestone; both 24A and 24B are accepted.**
+This file describes stable capabilities and architecture. Acceptance belongs in
+the [M24 closed plan](milestone-24-plan.md#final-acceptance); completed
 milestone chronology belongs in [project history](project-history.md).
 
 ## Supported scope
@@ -50,8 +47,8 @@ wall samples and raster results are derived, cache-reconstructible values.
 
 Ordinary outdoor objects animate while stationary through the existing
 Application/Flow/SDL idle path, with a 100 ms cadence independent of the NPC
-portrait's 150 ms timing. Dialogue and reward presentation retain their semantic
-state while the underlying scene animates. Indoor object animation is outside
+portrait's 150 ms timing. Dialogue, reward and inventory presentation retain
+their semantic state while the underlying scene animates. Indoor object animation is outside
 this capability.
 
 ### Events and interactions
@@ -84,9 +81,19 @@ this capability.
 - A bounded read-only catalog describes supported weapons, armor, accessories
   and miscellaneous records without mutating stored bytes. It exposes raw fields,
   status and counters/charges, with explicit unknown-field and missing/malformed
-  material fallbacks. This is a reusable foundation; player-facing inventory UI,
-  character-to-character transfer and equip/unequip commands are not implemented.
+  material fallbacks. List rows may be elided; selected descriptions wrap in a
+  bounded two-line area, with final-line elision only for overflow.
   The [M24 catalog contract](milestone-24-plan.md#naming-and-bounds) defines its limits.
+- The active-party inventory panel shows modeled condition, signed current and
+  complete maximum HP/SP, all nine physical slots in each of Weapons, Armor,
+  Accessories and Miscellaneous, selected status/counter or charges, and raw
+  M/ID/S/F. Active indexes resolve to authoritative roster owners, including aliases.
+- Manual transfer covers all four categories. Same-owner aliases and cursed items
+  refuse; destination capacity uses the tail slot. Success resets the moved frame
+  and stable-compacts both touched arrays, preserving occupied order and all other
+  moved bytes. Current HP/SP remain exact. No class/equip-legality, canAct or
+  reward-recipient restriction applies. See the
+  [transfer contract](milestone-24-plan.md#transfer-rules-and-publication).
 - The party owns 35 uint32 Clouds quest-item counters (IDs 82..116), possession
   comparisons and bounded one-item grants/checked consumption; 30 separate quest
   flags support bounded immediate mode-104 set/clear. Game flags are a separate
@@ -99,9 +106,10 @@ this capability.
   live roster owners, and a paginated numeric receipt before completion.
   Eligibility, tail capacity, overflow and loss follow the
   [bounded reward contract](milestone-21-plan.md#21b-bounded-reward-lifecycle).
-- Idle I prints live inventories, aliases, inactive owners, raw fields, Root and
-  Q2. Setup emits the same observation before initial automatic dispatch; resume
-  emits restored values. Inspection does not mutate state or dispatch events.
+- Opening inventory with idle I also prints live inventories, aliases, inactive
+  owners, raw fields, Root and Q2. Setup emits the same observation before initial
+  automatic dispatch; resume emits restored values. Inspection does not mutate
+  state or dispatch events.
 
 ### Save and resume
 
@@ -141,6 +149,12 @@ restoration and compatibility.
   Remove refreshes the scene while retaining valid layers. Clearing a retained
   label on blocked navigation still forces recomposition. Manual execution errors
   are recoverable; automatic errors remain fatal.
+- Flow owns transient Browse / ChooseDestination / Confirm inventory state,
+  mutually exclusive with event presentation. Explicit confirmation is consumed
+  before transfer; generation, membership and selected-record checks prevent stale
+  replay. Reconstruction invalidates confirmation; ordinary timed rebasing retains
+  it. Publication precedes fallible feedback/drawing, so presentation failure cannot
+  undo or repeat a move. There is no second gameplay owner or nested SDL loop.
 - Flow owns one transient shared ordinary outdoor phase and deadline; rendering
   consumes an explicit phase. Rebased presentation preserves NPC timing and
   reveals the current animated base on dismissal. Remove remains authoritative
@@ -170,8 +184,9 @@ metadata.
 derived rules/frames/caches, indoor placement/wall/command/raster values,
 interpreter working state and call stacks, temporary
 character/object selection, reward queue/preference/finalization, pending responses,
-generations, dialogue/receipt pages, ordinary outdoor phase/deadline, portrait
-timing and retained layers. Fresh sessions load original initial state;
+generations, inventory selection/confirmation/feedback, dialogue/receipt pages,
+ordinary outdoor phase/deadline, portrait timing and retained layers.
+Fresh sessions load original initial state;
 resumed sessions reconstruct independent
 owners and presentation from saved values plus compatible resources.
 Fresh and restored gameplay start ordinary animation at phase zero with a new
@@ -183,10 +198,13 @@ disabled object/event identities are sufficient to reconstruct indoor visibility
 after save/restore into fresh owners. Visual placement, occlusion, commands and
 pixels are never serialized.
 
-M24A adds no persistent state or save-version change. Catalog strings and
+M24 adds no persistent category or save-version change. Catalog strings and
 availability are resource-derived; missing or malformed optional material names
 degrade descriptions without becoming save/gameplay compatibility state. Existing
-archive fingerprints remain unchanged.
+archive fingerprints remain unchanged. Transferred ownership is captured in the
+existing v2 roster item arrays. Inventory state is not serialized: restart begins
+with inventory closed, and reopening reads actual restored owners and slots
+without reconstructing items from labels or replaying transfers.
 
 **Format and compatibility:** the writer emits MMModern Clouds binary **v2**;
 the reader accepts **v1 and v2**. `.mmsave` uses bounded little-endian encoding,
@@ -205,9 +223,10 @@ direct encoding of unresolved v1 snapshots. Reading never rewrites the file;
 an explicit eligible F9 save writes v2 through protected replacement.
 
 **Save boundary:** startup must succeed, and no dispatch, execution, presentation,
-shutdown or fatal presentation failure may be active. Nonblocking retained labels
-are allowed but omitted. Pending F9 performs no capture, I/O, advancement or
-queued save; a new F9 after completion is required. No target means no write.
+open inventory, synchronous transfer, shutdown or fatal presentation failure may
+be active. Nonblocking retained labels are allowed but omitted. Pending F9 performs
+no capture, I/O, advancement or queued save; close inventory or complete the
+interaction and issue a new F9. No target means no write.
 
 An existing parent outside the commercial installation is required. Saving uses
 a sibling temporary file and preserves the old valid save on handled write or
@@ -256,10 +275,19 @@ no-Root request without duplicate rewards. Q2 persistence is checked as state;
 repeated dialogue alone cannot prove it. Exact acceptance boundaries and oracle
 are owned by the [M21 restart contract](milestone-21-plan.md#21d-production-restart-and-acceptance-boundary).
 
+M24 extends the genuine exchange checkpoint through a manual transfer and
+production save/separate-process restart with four potions on owner 0 and one on
+owner 18. Independent original Dagger, Leather boots and Silver ring controls
+establish equipment transfer and destination frame reset. Detailed outcomes and
+the automated/physical acceptance distinction belong in the
+[M24 acceptance record](milestone-24-plan.md#final-acceptance).
+
 ## Current boundaries
 
-- General inventory/equipment use, item effects, shops, random treasure, generic
-  TakeOrGive and NPC modes/services beyond Clouds mode 1.
+- Item use/consumption, player equip/unequip, discard, repair, paid identification,
+  shops/trading, item spells/effects, combat inventory/statistics and
+  recruitment/reordering. Random treasure, generic TakeOrGive and NPC
+  modes/services beyond Clouds mode 1 also remain unsupported.
 - Combat, monsters, normal-route/playable-region certification, Swimming /
   Walk on Water and other unsupported movement capabilities. General indoor
   traversal, connected-map behavior and playable-region certification remain
@@ -279,8 +307,6 @@ Ordinary CTest does not depend on commercial data.
 
 ## Next direction
 
-M24 was promoted and split into two stages. With 24A accepted, player-facing
-inspection and four-category transfer in 24B remain the next stage, pending
-separate authorization and implementation. Acceptance of 24A does not authorize
-24B. The [active M24 plan](milestone-24-plan.md) owns that specification;
-the [roadmap](roadmap.md#current-planning-state) owns the broader direction.
+M25 is the immediate provisional planning direction, building on completed M24.
+It is not implementation-authorized by M24 completion. The
+[roadmap](roadmap.md#current-planning-state) owns its existing bounded scope.

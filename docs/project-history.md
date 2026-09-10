@@ -124,6 +124,17 @@ Historical limitations in those plans describe their recorded boundaries.
   original-data validation, independent review and maintainer physical SDL
   acceptance. See the [Milestone 23 plan](milestone-23-plan.md).
 
+## M24 - Usable party/item inspection and character-to-character transfer
+
+- Accepted a bounded read-only item catalog with reproducible source-derived
+  English names and optional external commercial material names.
+- Added active-character condition/HP/SP and nine-slot, four-category inspection,
+  plus character-to-character transfer with explicit confirmation and feedback.
+- Reused authoritative roster owners, including aliases, and existing save arrays;
+  resulting ownership survives production saving and a separate process restart.
+- Completed automated/original-data validation, independent technical review and
+  maintainer physical SDL acceptance. See the [Milestone 24 plan](milestone-24-plan.md).
+
 ## Maintaining this history
 
 Add one short section with 2-4 lasting-result bullets per completed milestone
