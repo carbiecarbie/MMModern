@@ -27,6 +27,10 @@ about to begin.
 
 ### Proposed M25 - Bounded equipment management and existing-rule feedback
 
+The active [M25 specification](milestone-25-plan.md) owns the investigated rules,
+bounded adaptation decisions and proposed acceptance/stage contracts. It is a
+planning candidate for architecture review, not implementation authorization.
+
 **Outcome and boundary.** Add player-triggered equip and unequip/remove for weapons,
 armor and accessories with original class restrictions, category/slot/type and
 cross-category conflicts, bounded ring/medal count rules and cursed-item removal
