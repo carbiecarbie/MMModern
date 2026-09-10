@@ -2,9 +2,9 @@
 
 ## Stable baseline
 
-**Milestone 24 is the latest completed milestone; both 24A and 24B are accepted.**
+**Milestone 25 is the latest completed milestone; both 25A and 25B are accepted.**
 This file describes stable capabilities and architecture. Acceptance belongs in
-the [M24 closed plan](milestone-24-plan.md#final-acceptance); completed
+the [M25 closed plan](milestone-25-plan.md#final-acceptance); completed
 milestone chronology belongs in [project history](project-history.md).
 
 ## Supported scope
@@ -94,6 +94,16 @@ this capability.
   moved bytes. Current HP/SP remain exact. No class/equip-legality, canAct or
   reward-recipient restriction applies. See the
   [transfer contract](milestone-24-plan.md#transfer-rules-and-publication).
+- Players can contextually equip or remove supported Weapons, Armor and
+  Accessories from the same panel. E equips a selected raw-frame-zero item and
+  removes a selected raw-nonzero item. Supported equip IDs are Weapons 1..34,
+  Armor 1..13 and Accessories 1..10; occupied unknown equipment IDs remain
+  removable. Miscellaneous stays outside equipment actions.
+- Equipment preserves every physical slot and item byte except the selected frame;
+  it never compacts. Bounded Clouds class/proficiency restrictions, subtype and
+  two-handed/shield conflicts, ring/medal capacity, and cursed Remove refusal are
+  enforced. Successful actions recompute existing modeled INT/PER/max HP/max SP
+  presentation, while current HP/SP remain exact and are never healed or clamped.
 - The party owns 35 uint32 Clouds quest-item counters (IDs 82..116), possession
   comparisons and bounded one-item grants/checked consumption; 30 separate quest
   flags support bounded immediate mode-104 set/clear. Game flags are a separate
@@ -155,6 +165,14 @@ restoration and compatibility.
   replay. Reconstruction invalidates confirmation; ordinary timed rebasing retains
   it. Publication precedes fallible feedback/drawing, so presentation failure cannot
   undo or repeat a move. There is no second gameplay owner or nested SDL loop.
+- Each explicit occupied equipment selection arms a transient certificate over
+  the active membership, authoritative roster owner, category, physical slot and
+  exact item record. E consumes it before synchronous publication; stale or
+  replaced records clear the selection and cannot authorize another item. The
+  typed `XeenEquipmentResult` owns fixed result facts. `xeenSetEquipment` validates
+  against authoritative party state and publishes exactly the selected frame byte
+  only after all fallible preparation succeeds. Fallible reporting, drawing and
+  recovery occur after publication and cannot repeat or roll back the action.
 - Flow owns one transient shared ordinary outdoor phase and deadline; rendering
   consumes an explicit phase. Rebased presentation preserves NPC timing and
   reveals the current animated base on dismissal. Remove remains authoritative
@@ -185,7 +203,8 @@ derived rules/frames/caches, indoor placement/wall/command/raster values,
 interpreter working state and call stacks, temporary
 character/object selection, reward queue/preference/finalization, pending responses,
 generations, inventory selection/confirmation/feedback, dialogue/receipt pages,
-ordinary outdoor phase/deadline, portrait timing and retained layers.
+equipment certificates/results, ordinary outdoor phase/deadline, portrait timing
+and retained layers.
 Fresh sessions load original initial state;
 resumed sessions reconstruct independent
 owners and presentation from saved values plus compatible resources.
@@ -205,6 +224,13 @@ archive fingerprints remain unchanged. Transferred ownership is captured in the
 existing v2 roster item arrays. Inventory state is not serialized: restart begins
 with inventory closed, and reopening reads actual restored owners and slots
 without reconstructing items from labels or replaying transfers.
+
+M25 also adds no persistent category or save-version change. Existing v2 item
+frame bytes preserve equipped state. Resume rebuilds presentation and modeled
+derived values from those saved bytes with inventory closed; it does not rerun an
+Equip operation, infer or normalize a loadout, or restore a transient selection
+certificate. M24 transfer remains independent: it resets the moved frame and
+compacts touched categories, whereas equipment changes one frame in place.
 
 **Format and compatibility:** the writer emits MMModern Clouds binary **v2**;
 the reader accepts **v1 and v2**. `.mmsave` uses bounded little-endian encoding,
@@ -282,10 +308,19 @@ establish equipment transfer and destination frame reset. Detailed outcomes and
 the automated/physical acceptance distinction belong in the
 [M24 acceptance record](milestone-24-plan.md#final-acceptance).
 
+M25 adds original Dagger conflict/remove/equip behavior for Zippo, reversible
+Leather boots and Silver ring removal/equip behavior in their original physical
+slots, bounded proficiency and ring-capacity controls, and save/restart of the
+resulting frames. Distinct producer, consumer, fresh-session and actual CLI
+processes verify that resume preserves exact slots and performs no modal or action
+replay. The [M25 acceptance record](milestone-25-plan.md#final-acceptance) owns the
+complete automated, original-data, independent-review and physical boundary.
+
 ## Current boundaries
 
-- Item use/consumption, player equip/unequip, discard, repair, paid identification,
-  shops/trading, item spells/effects, combat inventory/statistics and
+- Item use/consumption, discard, repair, paid identification, shops/trading,
+  item spells/effects, complete equipment effects, damage/attack/armor-class/
+  resistance modeling, combat inventory/statistics and
   recruitment/reordering. Random treasure, generic TakeOrGive and NPC
   modes/services beyond Clouds mode 1 also remain unsupported.
 - Combat, monsters, normal-route/playable-region certification, Swimming /
@@ -307,6 +342,8 @@ Ordinary CTest does not depend on commercial data.
 
 ## Next direction
 
-M25 is the immediate provisional planning direction, building on completed M24.
-It is not implementation-authorized by M24 completion. The
-[roadmap](roadmap.md#current-planning-state) owns its existing bounded scope.
+M25's bounded equipment capability is now an available foundation. The
+[roadmap](roadmap.md#current-planning-state) retains provisional investigation of
+an original encounter/navigation envelope and its actual combat, recovery,
+connected-exploration and persistence prerequisites; no next milestone is yet
+specified or authorized.

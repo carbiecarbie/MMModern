@@ -6,12 +6,13 @@ Might and Magic V: Darkside of Xeen / World of Xeen.
 
 ## Status
 
-**Milestone 24 is the latest stable completed milestone.**
+**Milestone 25 is the latest completed milestone.**
 
 The engine supports a bounded Clouds quest loop: request a quest, collect an
 item, return it for character-held rewards, and save/resume the resulting progress.
 Active-party inventory inspection shows resource-driven item descriptions and
-supports transfer between active roster owners, preserving ownership on restart.
+supports transfer between active roster owners and contextual equip/remove for
+bounded Clouds weapons, armor and accessories, preserving frames on restart.
 Original maps, text, portraits and supported objects appear through a standalone
 SDL application, with ordinary outdoor objects animating while stationary and
 during dialogue. Static ordinary indoor objects use original directional
@@ -19,7 +20,7 @@ appearances, placement and wall occlusion; the bounded Nightshadow gravestone
 interaction displays its original clue through the existing event flow.
 
 MMModern remains incomplete and experimental. It is not yet a generally playable
-replacement for the original games: combat, item use, player equip/unequip and Darkside
+replacement for the original games: combat, item use, complete item effects and Darkside
 gameplay remain unsupported, and travel between validated checkpoints is not certified.
 
 See the [technical snapshot](docs/project-status.md),
@@ -42,6 +43,8 @@ See the [technical snapshot](docs/project-status.md),
 - Party/character state, quest items and flags, and deterministic item rewards.
 - Active-character condition and current/max HP/SP, four-category inventory
   inspection and character-to-character transfer, with nine slots per category.
+- Contextual equip/remove for bounded Clouds weapons, armor and accessories,
+  including class, conflict, capacity and curse feedback for modeled rules.
 - Local Windows save/resume, including transferred ownership, and live diagnostics.
 
 ## Running and controls
@@ -67,6 +70,7 @@ subsequent save target; invalid/incompatible saves fail without starting a new g
 | F1-F6 | Select inventory owner or transfer recipient; outside inventory, select an eligible member during WhoWill |
 | 1-9 | Select a physical inventory slot while browsing |
 | T | Begin transfer of the selected occupied slot |
+| E | Equip or remove the explicitly selected occupied weapon, armor or accessory |
 | F9 | Save an idle session; refused while inventory is open |
 | I | Open inventory while idle; close while browsing; also print live diagnostics on opening |
 | Escape | Back/cancel transfer or close inventory; cancel WhoWill; acknowledge NPC/reward pages; otherwise exit |
@@ -75,8 +79,9 @@ Movement and ordinary interaction are blocked while a response is required;
 repeated keydown events are ignored. NPC dialogue and reward pages accept
 Space/Enter/Escape, including final acknowledgment with Escape.
 Inventory navigation applies while browsing; during transfer selection/confirmation,
-Escape returns to browsing before changing category or slot. Item use, player
-equip/unequip and general item effects are not provided by this panel.
+Escape returns to browsing before changing category or slot. Each equipment
+attempt consumes its selection; select the slot again before another E action.
+Misc item use and general item effects are not provided by this panel.
 
 F9 refuses during an interaction or while inventory is open, without advancing it
 or scheduling a later save. Close inventory or finish the interaction, then issue
@@ -106,8 +111,10 @@ SDL backend. The exact pin and configuration live in
   ownership, persistence and boundaries.
 - [Project history](docs/project-history.md): concise completed milestones and plan links.
 - [Roadmap](docs/roadmap.md): future direction and planning review cadence.
+- [Milestone 25 plan](docs/milestone-25-plan.md): closed bounded equipment
+  contracts, architectural decisions and acceptance results.
 - [Milestone 24 plan](docs/milestone-24-plan.md): closed item catalog, inspection
-  and transfer contracts, architectural decisions and acceptance results.
+  and transfer contracts.
 - [Dependencies](docs/dependencies.md): supported toolchain and ScummVM setup.
 - [Agent instructions](AGENTS.md): development, documentation and Git rules.
 

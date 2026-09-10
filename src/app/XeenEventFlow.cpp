@@ -12,6 +12,8 @@ const XeenItemCatalog &fallbackCatalog() {
 }
 static_assert(std::is_nothrow_move_constructible<XeenEventExecutionState>::value,
 	"Flow must adopt execution ownership without allocation");
+static_assert(std::is_nothrow_copy_assignable<std::optional<XeenEquipmentResult>>::value,
+	"Flow must adopt a fixed equipment result without allocation");
 struct DispatchScope {
 	bool &value;
 	bool previous;
@@ -179,6 +181,7 @@ XeenEventFlow::~XeenEventFlow() {
 	}
 }
 void XeenEventFlow::abandonPresentation() {
+	if (_dispatching && !_pending) return;
 	DispatchScope dispatch(_dispatching);
 	closeInventory();
 	const auto outcome = cleanup(XeenRewardDiscard::Abandoned);
@@ -249,7 +252,8 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &action) {
 	if (std::holds_alternative<SaveGameAction>(action) || _dispatching || _fatal) return _frame;
 	DispatchScope dispatch(_dispatching);
 	const bool inventoryOnly = std::holds_alternative<InspectInventoryAction>(action) ||
-		std::holds_alternative<SelectInventorySlotAction>(action) || std::holds_alternative<TransferInventoryAction>(action);
+		std::holds_alternative<SelectInventorySlotAction>(action) || std::holds_alternative<TransferInventoryAction>(action) ||
+		std::holds_alternative<EquipmentInventoryAction>(action);
 	if (_pending && inventoryOnly) return _frame;
 	if (inventoryOpen() || std::holds_alternative<InspectInventoryAction>(action)) return handleInventory(action);
 	if (inventoryOnly) return _frame;

@@ -13,8 +13,48 @@ struct Scope {
 }
 void XeenEventFlow::advanceInventoryEpoch() noexcept {
 	_inventoryConfirmation.reset();
+	_equipmentSelection.reset();
 	if (_inventoryEpoch != std::numeric_limits<std::uint64_t>::max()) ++_inventoryEpoch;
 	else _inventory = {}; // Exhausted generations can never arm again.
+}
+void XeenEventFlow::armEquipmentSelection() {
+	const auto &ids = _party.party.activeRosterIds();
+	if (_inventory.mode != XeenInventoryMode::Browse || !_inventory.slot ||
+			ids.size() > XeenParty::kMaximumVisibleMembers || _inventory.source >= ids.size() ||
+			_inventory.sourceOwner != ids[_inventory.source] || ids[_inventory.source] >= XeenRoster::kCharacterCount ||
+			*_inventory.slot >= 9) return;
+	const auto owner = ids[_inventory.source];
+	const auto &character = _party.roster.at(owner);
+	if (character.rosterId != owner) return;
+	const auto *items = xeenInventoryItems(character, _inventory.category);
+	if (!items || !xeenSameItem((*items)[*_inventory.slot], _inventory.record)) return;
+	EquipmentSelection certificate;
+	certificate.epoch = _inventoryEpoch;
+	certificate.membershipSize = ids.size();
+	std::copy(ids.begin(), ids.end(), certificate.membership.begin());
+	certificate.sourceActiveIndex = _inventory.source;
+	certificate.resolvedOwner = owner;
+	certificate.category = _inventory.category;
+	certificate.physicalSlot = *_inventory.slot;
+	certificate.selectedRecord = _inventory.record;
+	_equipmentSelection = certificate;
+}
+bool XeenEventFlow::validEquipmentSelection(const EquipmentSelection &certificate) const {
+	const auto &ids = _party.party.activeRosterIds();
+	if (certificate.epoch != _inventoryEpoch || ids.size() != certificate.membershipSize ||
+			ids.size() > XeenParty::kMaximumVisibleMembers ||
+			!std::equal(ids.begin(), ids.end(), certificate.membership.begin()) ||
+			certificate.sourceActiveIndex >= ids.size() ||
+			ids[certificate.sourceActiveIndex] != certificate.resolvedOwner ||
+			_inventory.source != certificate.sourceActiveIndex ||
+			_inventory.sourceOwner != certificate.resolvedOwner ||
+			certificate.resolvedOwner >= XeenRoster::kCharacterCount ||
+			_inventory.category != certificate.category || _inventory.slot != certificate.physicalSlot ||
+			certificate.physicalSlot >= 9 || !xeenSameItem(_inventory.record, certificate.selectedRecord)) return false;
+	const auto &character = _party.roster.at(certificate.resolvedOwner);
+	if (character.rosterId != certificate.resolvedOwner) return false;
+	const auto *items = xeenInventoryItems(character, certificate.category);
+	return items && xeenSameItem((*items)[certificate.physicalSlot], certificate.selectedRecord);
 }
 std::optional<std::uint64_t> XeenEventFlow::inventoryConfirmation() const {
 	return _inventoryConfirmation ? std::optional<std::uint64_t>{_inventoryConfirmation->epoch} : std::nullopt;
@@ -30,6 +70,7 @@ bool XeenEventFlow::validInventorySource(bool record) const {
 }
 void XeenEventFlow::invalidateInventorySelection() {
 	advanceInventoryEpoch();
+	_equipmentResult.reset();
 	if (!inventoryOpen()) return;
 	_inventory.mode = XeenInventoryMode::Browse;
 	_inventory.destination.reset(); _inventory.destinationOwner.reset();
@@ -48,6 +89,7 @@ void XeenEventFlow::closeInventory() noexcept {
 	advanceInventoryEpoch();
 	_inventory = {};
 	_inventoryFeedback = "";
+	_equipmentResult.reset();
 }
 void XeenEventFlow::recoverInventory() {
 	closeInventory();
@@ -56,15 +98,49 @@ void XeenEventFlow::recoverInventory() {
 	catch (...) { _fatal = true; throw; }
 }
 void XeenEventFlow::drawInventory() {
-	try { _frame = drawXeenInventory(_inventoryUnderlay,_inventoryFont,_catalog,_party,_inventory,_inventoryFeedback); }
+	try { _frame = drawXeenInventory(_inventoryUnderlay,_inventoryFont,_catalog,_party,_inventory,_inventoryFeedback,
+		_equipmentResult ? &*_equipmentResult : nullptr); }
 	catch (...) { recoverInventory(); }
 }
 IndexedFrame XeenEventFlow::refuseInventorySave() {
 	if (_dispatching || _fatal || !inventoryOpen()) return _frame;
 	Scope scope(_dispatching);
+	_equipmentResult.reset();
 	_inventoryFeedback = "Close inventory before F9; then press F9 again";
 	drawInventory();
 	return _frame;
+}
+void XeenEventFlow::handleEquipment() {
+	const auto certificate = _equipmentSelection;
+	const bool currentCertificate = certificate && validEquipmentSelection(*certificate);
+	advanceInventoryEpoch(); // Every E is consumed before preparation or callbacks.
+	_equipmentResult.reset();
+	const auto &ids = _party.party.activeRosterIds();
+	if (ids.empty()) { _inventoryFeedback = "No active characters"; drawInventory(); return; }
+	if (_inventory.category == XeenInventoryCategory::Miscellaneous) {
+		_inventoryFeedback = "Misc equipment is unsupported"; drawInventory(); return;
+	}
+	// An empty record is ordinary only if that was what the explicit selection
+	// captured. An occupied certificate whose live/UI record changed to empty is stale.
+	if (!_inventory.slot || (certificate ? !certificate->selectedRecord.id : !_inventory.record.id)) {
+		_inventoryFeedback = "Select an occupied item"; drawInventory(); return;
+	}
+	if (!currentCertificate) {
+		_inventory.slot.reset(); _inventory.record = {};
+		_inventoryFeedback = "Selection changed; select again"; drawInventory(); return;
+	}
+	const auto operation = certificate->selectedRecord.frame == 0 ?
+		XeenEquipmentOperation::Equip : XeenEquipmentOperation::Remove;
+	const auto result = xeenSetEquipment(_party, certificate->sourceActiveIndex,
+		certificate->category, certificate->physicalSlot, operation);
+	_equipmentResult = result;
+	_inventory.slot.reset(); _inventory.record = {};
+	_inventoryFeedback = "";
+	const auto report = result; // Stable even if the callback invalidates Flow state.
+	if (reportEquipment) reportEquipment(report);
+	if (result.status == XeenEquipmentStatus::Success)
+		refreshScene(true, OrdinaryCause::None);
+	else drawInventory();
 }
 void XeenEventFlow::confirmInventory() {
 	if (!_inventoryConfirmation || _inventory.mode != XeenInventoryMode::Confirm) return;
@@ -103,12 +179,15 @@ IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
 	if (_inventoryEpoch >= std::numeric_limits<std::uint64_t>::max()-2) {
 		closeInventory(); _frame=_inventoryUnderlay; return _frame;
 	}
+	if (inventoryOpen() && !std::holds_alternative<EquipmentInventoryAction>(action))
+		_equipmentResult.reset();
 	if (!inventoryOpen()) {
 		if (_inventoryEpoch == std::numeric_limits<std::uint64_t>::max()) return _frame;
 		advanceInventoryEpoch();
 		_inventory.mode = Mode::Browse;
 		if (_party.party.size()) _inventory.sourceOwner = _party.party.activeRosterIds()[0];
 		_transferResult = {};
+		_equipmentResult.reset();
 		_inventoryFeedback = "";
 		_presenter.clear();
 		refreshScene(true,OrdinaryCause::None);
@@ -148,6 +227,9 @@ IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
 		confirmInventory();
 	} else if (_inventory.mode != Mode::Browse) {
 		_inventoryFeedback = "Escape to cancel";
+	} else if (std::holds_alternative<EquipmentInventoryAction>(action)) {
+		handleEquipment();
+		return _frame;
 	} else if (const auto *nav = std::get_if<NavigationAction>(&action)) {
 		advanceInventoryEpoch(); _inventoryFeedback = "";
 		if (*nav == NavigationAction::TurnLeft || *nav == NavigationAction::TurnRight) {
@@ -158,6 +240,7 @@ IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
 			const bool up = *nav == NavigationAction::MoveForward;
 			_inventory.slot = _inventory.slot ? (*_inventory.slot + (up ? 8 : 1))%9 : up ? 8 : 0;
 			_inventory.record = (*xeenInventoryItems(_party.roster.at(*_inventory.sourceOwner),_inventory.category))[*_inventory.slot];
+			armEquipmentSelection();
 		}
 	} else if (const auto *slot = std::get_if<SelectInventorySlotAction>(&action)) {
 		advanceInventoryEpoch();
@@ -165,6 +248,7 @@ IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
 			_inventory.slot = slot->slot;
 			_inventory.record = (*xeenInventoryItems(_party.roster.at(*_inventory.sourceOwner),_inventory.category))[slot->slot];
 			_inventoryFeedback = "";
+			armEquipmentSelection();
 		}
 	} else if (std::holds_alternative<TransferInventoryAction>(action)) {
 		advanceInventoryEpoch();

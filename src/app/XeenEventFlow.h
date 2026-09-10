@@ -5,6 +5,7 @@
 #include "games/xeen/XeenEventPresenter.h"
 #include "games/xeen/XeenWorld.h"
 #include "games/xeen/XeenInventoryView.h"
+#include "games/xeen/XeenEquipment.h"
 
 namespace mmodern {
 
@@ -36,6 +37,7 @@ public:
 	bool inventoryOpen() const { return _inventory.mode != XeenInventoryMode::Closed; }
 	const XeenInventorySelection &inventorySelection() const { return _inventory; }
 	const XeenTransferResult &transferResult() const { return _transferResult; }
+	const std::optional<XeenEquipmentResult> &equipmentResult() const { return _equipmentResult; }
 	std::optional<std::uint64_t> inventoryConfirmation() const;
 	// Explicit single-writer notification, including byte-identical owner replacement.
 	void invalidateInventory();
@@ -52,6 +54,7 @@ public:
 	std::function<void(const XeenAutomaticEventResult &)> reportAutomatic;
 	std::function<void(const std::string &)> reportText;
 	std::function<void(const XeenTransferResult &)> reportInventory;
+	std::function<void(const XeenEquipmentResult &)> reportEquipment;
 	std::function<void(XeenMovementResult)> reportMovement;
 private:
 	friend struct XeenRewardTestAccess;
@@ -65,7 +68,19 @@ private:
 	IndexedFrame _inventoryUnderlay;
 	const char *_inventoryFeedback = "";
 	XeenTransferResult _transferResult;
+	std::optional<XeenEquipmentResult> _equipmentResult;
 	std::uint64_t _inventoryEpoch = 0;
+	struct EquipmentSelection {
+		std::uint64_t epoch;
+		std::array<std::uint8_t, XeenParty::kMaximumVisibleMembers> membership{};
+		std::size_t membershipSize = 0;
+		std::size_t sourceActiveIndex = 0;
+		std::uint8_t resolvedOwner = 0;
+		XeenInventoryCategory category = XeenInventoryCategory::Weapons;
+		std::size_t physicalSlot = 0;
+		XeenItem selectedRecord{};
+	};
+	std::optional<EquipmentSelection> _equipmentSelection;
 	struct InventoryConfirmation {
 		std::uint64_t epoch;
 		XeenInventorySelection selection;
@@ -74,6 +89,9 @@ private:
 	};
 	std::optional<InventoryConfirmation> _inventoryConfirmation;
 	void advanceInventoryEpoch() noexcept;
+	void armEquipmentSelection();
+	bool validEquipmentSelection(const EquipmentSelection &) const;
+	void handleEquipment();
 	bool validInventorySource(bool record) const;
 	void invalidateInventorySelection();
 	void closeInventory() noexcept;

@@ -115,7 +115,7 @@ void automaticGuard() {
 	auto services=f.services();services.show=[&](const auto &,const auto &handle,const auto &,const auto &,const auto &){
 		const auto gen=f.flow->presentationGeneration();const auto pixels=f.flow->frame().pixels;const auto count=f.compositions;
 		check(gen.has_value(),"automatic fixture did not suspend");
-		for(auto a:std::vector<PlayerAction>{InspectInventoryAction{},TransferInventoryAction{},SelectInventorySlotAction{0}})handle(a);
+		for(auto a:std::vector<PlayerAction>{InspectInventoryAction{},TransferInventoryAction{},SelectInventorySlotAction{0},EquipmentInventoryAction{}})handle(a);
 		check(!f.flow->inventoryOpen()&&f.flow->presentationGeneration()==gen&&f.flow->frame().pixels==pixels&&f.compositions==count,"automatic inventory requests disturbed pending event");
 		handle(AcknowledgeAction{});check(!f.flow->inventoryOpen()&&!f.flow->blocksGameplay(),"final event ACK fell through");return true;
 	};Quiet quiet;check(Application().playGameplay(services,start,{},false)==0,"automatic modal guard");
@@ -123,6 +123,7 @@ void automaticGuard() {
 void sdl() {
 	Fixture f;seed(f);auto services=f.services();unsigned index=0;bool queued=false,quit=false;
 	const std::vector<checkpoint_test::Input> inputs={
+		{SDLK_e,EquipmentInventoryAction{}},
 		{SDLK_i,InspectInventoryAction{}},{SDLK_1,SelectInventorySlotAction{0}},
 		{SDLK_t,TransferInventoryAction{}},{SDLK_ESCAPE,CancelInteractionAction{}},
 		{SDLK_t,TransferInventoryAction{}},{SDLK_F2,SelectMemberAction{1}},

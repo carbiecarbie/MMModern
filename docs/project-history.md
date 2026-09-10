@@ -135,6 +135,19 @@ Historical limitations in those plans describe their recorded boundaries.
 - Completed automated/original-data validation, independent technical review and
   maintainer physical SDL acceptance. See the [Milestone 24 plan](milestone-24-plan.md).
 
+## M25 - Bounded equipment management and existing-rule feedback
+
+- Stage 25A added bounded source-derived equipment legality and a synchronous,
+  typed one-byte frame mutation/result foundation.
+- Stage 25B connected contextual E to the existing inventory, Flow and SDL path,
+  with explicit-reselection and stale-selection protection, truthful feedback for
+  modeled statistics, and existing save/restart behavior.
+- Equipment preserves physical slots and remains separate from M24 transfer and
+  its compaction semantics.
+- Automated and original-data validation, independent technical review and
+  maintainer physical acceptance completed. See the
+  [Milestone 25 plan](milestone-25-plan.md).
+
 ## Maintaining this history
 
 Add one short section with 2-4 lasting-result bullets per completed milestone

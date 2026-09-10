@@ -149,7 +149,7 @@ void presentationAndTiming() {
 	auto flow=f.flow();flow.handle(InteractionAction{});const auto generation=flow.presentationGeneration();
 	check(flow.presenter().pageCount()>1 && flow.handlesEscape() && !flow.canCancelInteraction(),"NPC paging/Escape kind");
 	auto before=flow.frame();const auto count=f.draws;
-	for(auto action:{PlayerAction(YesAction{}),PlayerAction(NoAction{}),PlayerAction(SelectMemberAction{0}),PlayerAction(NavigationAction::TurnLeft)})flow.handle(action);
+	for(auto action:{PlayerAction(YesAction{}),PlayerAction(NoAction{}),PlayerAction(SelectMemberAction{0}),PlayerAction(NavigationAction::TurnLeft),PlayerAction(EquipmentInventoryAction{})})flow.handle(action);
 	check(flow.frame().pixels==before.pixels && flow.presentationGeneration()==generation && f.draws==count && f.camera.direction==XeenDirection::North,"unrelated NPC input");
 	for(std::size_t i=1;i<flow.presenter().pageCount();++i) {
 		f.time+=300;flow.updatePresentation();const auto timing=flow.presenter().npcTiming();

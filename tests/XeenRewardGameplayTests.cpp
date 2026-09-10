@@ -24,7 +24,7 @@ void application(const fs::path &path,bool fullPacks){
 		const auto reads=f.eventReads;handle(InspectInventoryAction{});++inspections;check(reads==f.eventReads,"I dispatched event");handle(CancelInteractionAction{});
 		handle(InteractionAction{});XeenRewardTestAccess::seed(*f.flow,10);
 		const auto refused=[&]{const auto gen=f.flow->presentationGeneration();const auto phase=XeenRewardTestAccess::state(*f.flow).rewardPhase;
-			const auto n=f.eventReads,c=f.compositions;const auto out=output.text.str();handle(InspectInventoryAction{});
+			const auto n=f.eventReads,c=f.compositions;const auto out=output.text.str();handle(InspectInventoryAction{});handle(EquipmentInventoryAction{});
 			check(output.text.str()==out,"pending I produced snapshot");handle(SaveGameAction{});
 			check(!fs::exists(path)&&f.eventReads==n&&f.compositions==c&&f.flow->presentationGeneration()==gen&&XeenRewardTestAccess::state(*f.flow).rewardPhase==phase,"refused F9 captured/advanced/I/O");};
 		refused();
@@ -58,7 +58,7 @@ void actualProducerGuards(){
 		auto refused=[&]{
 			const auto reads=f.eventReads,compositions=f.compositions;
 			const auto gen=f.flow->presentationGeneration();const auto page=f.flow->presenter().pageIndex();
-			const auto before=output.text.str();handle(InspectInventoryAction{});
+			const auto before=output.text.str();handle(InspectInventoryAction{});handle(EquipmentInventoryAction{});
 			check(output.text.str()==before,"actual pending I inspected");
 			handle(SaveGameAction{});
 			check(f.eventReads==reads && f.compositions==compositions && f.flow->presentationGeneration()==gen &&

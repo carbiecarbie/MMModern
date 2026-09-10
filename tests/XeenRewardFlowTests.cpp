@@ -18,7 +18,7 @@ void flows(){
 			!flow.respond(gen,SelectedCharacter{0})&&flow.frame().pixels==frame&&flow.presentationGeneration()==gen,"wrong/stale response consumed state");
 		flow.initial();check(flow.presentationGeneration()==gen,"new initial dispatched while pending");
 		if(!global)flow.handle(InteractionAction{}); // Space advances one receipt page only.
-		for(auto a:std::vector<PlayerAction>{NavigationAction::TurnRight,SelectMemberAction{0},YesAction{},NoAction{},InspectInventoryAction{}}){
+		for(auto a:std::vector<PlayerAction>{NavigationAction::TurnRight,SelectMemberAction{0},YesAction{},NoAction{},InspectInventoryAction{},EquipmentInventoryAction{}}){
 			const auto page=flow.presenter().pageIndex();flow.handle(a);check(flow.presenter().pageIndex()==page,"unrelated input advanced receipt");}
 		if(global){
 			check(XeenRewardTestAccess::state(flow).rewardPhase==XeenRewardPhase::Warning&&XeenRewardTestAccess::state(flow).pendingRewards.size()==10,"warning inserted/lost early");
@@ -56,7 +56,7 @@ void producedFlow(){
 				const auto gen=*flow.presentationGeneration(),page=flow.presenter().pageIndex();
 				const auto inventory=xeenInventoryInspection(e.f.initial);
 				check(!flow.respond(first,XeenPresentationResponse::Acknowledged) && !flow.respond(gen,XeenPresentationResponse::Yes),"stale/wrong kind replay");
-				flow.handle(SaveGameAction{});flow.handle(InspectInventoryAction{});flow.handle(NavigationAction::TurnRight);
+				flow.handle(SaveGameAction{});flow.handle(InspectInventoryAction{});flow.handle(EquipmentInventoryAction{});flow.handle(NavigationAction::TurnRight);
 				events.discardScriptCache();events.discardTextCache();e.world.discardMapCache();
 				flow.refresh(true);
 				check(flow.presentationGeneration()==gen && flow.presenter().pageIndex()==page && xeenInventoryInspection(e.f.initial)==inventory,"blocked inputs/rebase replay");

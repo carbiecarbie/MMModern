@@ -89,7 +89,7 @@ void pending(const fs::path &path){
    const auto generation=f.flow->presentationGeneration();const auto page=f.flow->presenter().pageIndex();
    const auto pixels=f.flow->frame().pixels;const auto reads=f.eventReads,composes=f.compositions;
    const auto timing=f.flow->presenter().npcTiming();
-   handle(InspectInventoryAction{});handle(TransferInventoryAction{});handle(SelectInventorySlotAction{8});
+   handle(InspectInventoryAction{});handle(TransferInventoryAction{});handle(SelectInventorySlotAction{8});handle(EquipmentInventoryAction{});
    check(!f.flow->inventoryOpen(),"pending event opened inventory");
    handle(SaveGameAction{});
    check(!fs::exists(path)&&f.flow->presentationGeneration()==generation&&f.flow->presenter().pageIndex()==page&&f.flow->frame().pixels==pixels&&f.eventReads==reads&&f.compositions==composes,"refused save mutated presentation or performed preparation");

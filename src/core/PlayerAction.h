@@ -12,6 +12,7 @@ struct SaveGameAction {};
 struct InspectInventoryAction {};
 struct SelectInventorySlotAction { std::size_t slot; };
 struct TransferInventoryAction {};
+struct EquipmentInventoryAction {};
 struct InteractionAction {};
 struct AcknowledgeAction {};
 struct YesAction {};
@@ -21,7 +22,7 @@ struct CancelInteractionAction {};
 
 using PlayerAction = std::variant<NavigationAction, InteractionAction,
 	AcknowledgeAction, YesAction, NoAction, SelectMemberAction, CancelInteractionAction, SaveGameAction, InspectInventoryAction,
-	SelectInventorySlotAction, TransferInventoryAction>;
+	SelectInventorySlotAction, TransferInventoryAction, EquipmentInventoryAction>;
 
 } // namespace mmodern
 

@@ -19,6 +19,9 @@
 
 using namespace mmodern;
 using remove_test::check;
+using Category=XeenInventoryCategory;
+using Operation=XeenEquipmentOperation;
+using Status=XeenEquipmentStatus;
 namespace fs = std::filesystem;
 namespace cp = checkpoint_test;
 namespace {
@@ -26,7 +29,8 @@ XeenCamera position(const std::string &name) {
  if (name == "phirna") return cp::phirna;
  if (name == "whistle" || name == "cumulative") return cp::whistle;
  check(name == "myra" || name == "myra-exchange" || name == "myra-transfer" ||
-  name == "dagger" || name == "boots" || name == "ring", "unknown checkpoint"); return cp::myra;
+	 name == "dagger" || name == "boots" || name == "ring" || name == "equipment" ||
+	 name == "equipment-rings" || name == "equipment-badger" || name == "equipment-proficiency", "unknown checkpoint"); return cp::myra;
 }
 std::vector<std::uint8_t> diskBytes(const fs::path &path) {
  std::ifstream input(path, std::ios::binary); check(bool(input), "evidence file missing");
@@ -34,6 +38,54 @@ std::vector<std::uint8_t> diskBytes(const fs::path &path) {
 }
 bool sameItem(XeenItem a, XeenItem b) {
  return a.material == b.material && a.id == b.id && a.state == b.state && a.frame == b.frame;
+}
+struct ManualEquipmentTransition {
+ std::uint8_t owner;
+ Category category;
+ std::size_t slot;
+ Operation operation;
+ XeenItem before, after;
+};
+std::optional<ManualEquipmentTransition> manualEquipmentTransition(std::size_t stage) {
+ switch(stage) {
+ case 13: return ManualEquipmentTransition{0,Category::Armor,3,Operation::Remove,{38,10,0,9},{38,10,0,0}};
+ case 15: return ManualEquipmentTransition{0,Category::Armor,3,Operation::Equip,{38,10,0,0},{38,10,0,9}};
+ case 17: return ManualEquipmentTransition{0,Category::Armor,3,Operation::Remove,{38,10,0,9},{38,10,0,0}};
+ case 21: return ManualEquipmentTransition{11,Category::Accessories,1,Operation::Remove,{42,1,0,8},{42,1,0,0}};
+ case 23: return ManualEquipmentTransition{11,Category::Accessories,1,Operation::Equip,{42,1,0,0},{42,1,0,8}};
+ case 25: return ManualEquipmentTransition{11,Category::Accessories,1,Operation::Remove,{42,1,0,8},{42,1,0,0}};
+ default: return {};
+ }
+}
+void requireManualEquipmentTransition(unsigned reportsBefore, unsigned reportsAfter,
+ const std::optional<XeenEquipmentResult> &result, const XeenPartyState &party,
+ const ManualEquipmentTransition &expected) {
+ check(reportsAfter == reportsBefore + 1, "manual equipment phase did not publish one new result");
+ check(result && result->status == Status::Success && result->operation == expected.operation &&
+  result->owner == expected.owner && result->selection && result->selection->category == expected.category &&
+  result->selection->physicalSlot == expected.slot && result->beforeItem && result->afterItem &&
+  sameItem(*result->beforeItem,expected.before) && sameItem(*result->afterItem,expected.after),
+  "manual equipment phase result facts differ");
+ const auto *items=xeenInventoryItems(party.roster.at(expected.owner),expected.category);
+ check(items && sameItem((*items)[expected.slot],expected.after),"manual equipment phase live item differs");
+}
+XeenEquipmentResult transitionResult(const ManualEquipmentTransition &transition, Status status=Status::Success) {
+ XeenEquipmentResult result;result.status=status;result.operation=transition.operation;result.owner=transition.owner;
+ result.selection=XeenEquipmentPosition{transition.category,transition.slot};result.beforeItem=transition.before;
+ if(status==Status::Success)result.afterItem=transition.after;return result;
+}
+void manualEquipmentValidatorRegressions() {
+ const auto expected=*manualEquipmentTransition(15);XeenPartyState party;party.roster.at(0).rosterId=0;
+ party.roster.at(0).armor[3]={38,10,0,0};
+ const ManualEquipmentTransition prior{0,Category::Armor,3,Operation::Remove,{38,10,0,9},{38,10,0,0}};
+ const auto previous=std::optional<XeenEquipmentResult>{transitionResult(prior)};
+ const auto rejects=[&](auto test,const char *message){bool rejected=false;try{test();}catch(const std::runtime_error &){rejected=true;}check(rejected,message);};
+ rejects([&]{requireManualEquipmentTransition(1,1,previous,party,expected);},"skipped manual re-equip validator accepted final zero");
+ const auto refused=std::optional<XeenEquipmentResult>{transitionResult(expected,Status::NotProficient)};
+ rejects([&]{requireManualEquipmentTransition(1,2,refused,party,expected);},"refused manual middle E validator accepted final zero");
+ party.roster.at(0).armor[3]=expected.after;
+ const auto success=std::optional<XeenEquipmentResult>{transitionResult(expected)};
+ requireManualEquipmentTransition(1,2,success,party,expected);
 }
 void expectedTransfer(std::array<XeenCharacter,30> &characters,const std::string &name) {
  if(name=="myra-transfer") {
@@ -48,6 +100,16 @@ void expectedTransfer(std::array<XeenCharacter,30> &characters,const std::string
  } else if(name=="ring") {
   characters[11].accessories={{{38,2,0,12},{},{},{},{},{},{},{},{}}};
   characters[18].accessories={{{38,2,0,12},{42,1,0,0},{},{},{},{},{},{},{}}};
+ }
+}
+void expectedEquipment(std::array<XeenCharacter,30> &characters,const std::string &name) {
+ if(name=="equipment") {
+  characters[11].weapons[0].frame=0; characters[11].weapons[1].frame=1;
+  characters[0].armor[3].frame=0; characters[11].accessories[1].frame=0;
+ } else if(name=="equipment-rings") {
+  characters[1].accessories={{{38,2,0,12},{42,5,0,7},{42,1,0,8},{86,1,0,8},{},{},{},{},{}}};
+  characters[11].accessories={{{38,2,0,12},{},{},{},{},{},{},{},{}}};
+  characters[6].accessories={{{38,2,0,12},{},{},{},{},{},{},{},{}}};
  }
 }
 void recipientPrerequisites(const XeenPartyState &p) {
@@ -92,20 +154,22 @@ void equalFrame(const IndexedFrame &a, const IndexedFrame &b) {
   "native scene/palette mismatch");
 }
 int child(const fs::path &game, const fs::path &dir, const std::string &name, const std::string &role, bool sdl,
- const std::optional<fs::path> &manualTarget = {}) {
+ const std::optional<fs::path> &manualTarget = {}, bool manualInitializationOnly = false) {
  const bool transfer = name == "myra-transfer";
- const bool equipment = name == "dagger" || name == "boots" || name == "ring";
+ const bool transferCheckpoint = name == "dagger" || name == "boots" || name == "ring";
+ const bool equipmentCheckpoint = name == "equipment" || name == "equipment-rings";
+ const bool equipmentControl = name == "equipment-badger" || name == "equipment-proficiency";
  const bool manual = manualTarget.has_value(), exchange = name == "myra-exchange" || transfer;
  const bool resume = role == "consumer", produce = role == "producer";
- check(!manual || (produce && exchange), "manual role/checkpoint mismatch");
+ check(!manual || (produce && (exchange || name=="equipment")), "manual role/checkpoint mismatch");
  check(resume || produce || role == "fresh", "unknown child role");
  const auto installation = XeenInstallationDetector().detect(game);
  check(installation && installation->hasXeen(), "original installation unavailable");
  XeenAssetSource assets(*installation, 320, 200);
  const auto defaults = XeenPartyLoader().loadInitialCloudsParty(assets);
- if (exchange || equipment) originalItems(defaults);
+ if (exchange || transferCheckpoint || equipmentCheckpoint || equipmentControl) originalItems(defaults);
  std::optional<XeenItemCatalog> itemCatalog;
- if (exchange || equipment) {
+ if (exchange || transferCheckpoint || equipmentCheckpoint || equipmentControl) {
   const auto loadedCatalog = loadXeenItemCatalog(assets);
   check(loadedCatalog.catalog.materialAvailability() == XeenMaterialAvailability::Ready,
    "Myra catalog assertion requires structurally valid DARK.CC/mae.xen");
@@ -113,7 +177,8 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
  }
  auto expectedCharacters = defaults.roster.characters();
  if (exchange && resume) for (unsigned i = 0; i < 5; ++i) expectedCharacters[0].miscellaneous[i] = {10,37,1,0};
- if ((transfer || equipment) && resume) expectedTransfer(expectedCharacters,name);
+ if ((transfer || transferCheckpoint) && resume) expectedTransfer(expectedCharacters,name);
+ if (equipmentCheckpoint && resume) expectedEquipment(expectedCharacters,name);
  const auto defaultFlags = XeenGameFlagsLoader().loadInitialCloudsFlags(assets);
  check(defaults.questItems.at(17) == 0 && defaults.questItems.at(18) == 0 && !defaults.questFlags.isSet(2), "unexpected original checkpoint prerequisites");
  const auto path = XeenSaveFile::resolve(manualTarget.value_or(dir/(name + ".mmsave")), installation->root);
@@ -142,6 +207,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
  XeenCamera *camera = nullptr; const XeenGameFlags *flags = nullptr; XeenEventFlow *flow = nullptr;
  std::optional<XeenManualEventResult> terminal; int presentations = 0, receiptReports = 0;
  std::optional<XeenEventExecutionSuspended> pending;
+ std::optional<XeenEquipmentResult> lastEquipment; unsigned equipmentReports = 0;
  auto partyCheck = [&](const XeenPartyState &p) {
   check(p.party.activeRosterIds() == defaults.party.activeRosterIds(), "active membership/order changed");
   for (std::size_t i = 0; i < 30; ++i) remove_test::checkSameCharacter(p.roster.characters()[i], expectedCharacters[i]);
@@ -211,6 +277,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
    flow = &f;
    f.reportText = [](const std::string &s) { throw std::runtime_error(s); };
    f.reportAutomatic = [&](const XeenAutomaticEventResult &r) { ++automatic; check(std::holds_alternative<XeenAutomaticEventNoTrigger>(r), "unexpected automatic checkpoint replay"); };
+   f.reportEquipment = [&](const XeenEquipmentResult &r) { ++equipmentReports; lastEquipment = r; };
    f.reportManual = [&](const XeenManualEventResult &r) {
     check(f.blocksGameplay(), "reporting boundary exposed an idle/save-safe gap");
     if (const auto *s = std::get_if<XeenEventExecutionSuspended>(&r)) {
@@ -233,7 +300,8 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
   check(compositions >= (resume ? 2 : 1) && automatic == (resume ? 0 : 1), "startup composition/dispatch count");
   stateCheck(); cleanPresentation(*flow, true);
   equalFrame(first, composer.compose(assets, *world, *party, *camera, {kCloudsInitialYear}, nullptr, observedPhase));
-  visual_remove_test::save(first, dir/(name + "-" + role + "-first.bmp"));
+  if (!manual) visual_remove_test::save(first, dir/(name + "-" + role + "-first.bmp"));
+  if (manualInitializationOnly) return true;
   auto cleanBase=[&]{return composer.compose(assets,*world,*party,*camera,{kCloudsInitialYear},nullptr,observedPhase);};
   auto tick=[&]{if(!manual)ordinaryNow+=25;return idle();};
   if(!manual && cp::sameCamera(*camera,cp::myra)) {
@@ -324,38 +392,153 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
   auto inspectRestored=[&] {
    browseAnchor(sourceIndex,0);
    check(flow->inventorySelection().sourceOwner==defaults.party.activeRosterIds()[sourceIndex],"restored source owner");
-   visual_remove_test::save(flow->frame(),dir/(name+"-source-inventory.bmp"));
+   if (!manual) visual_remove_test::save(flow->frame(),dir/(name+"-source-inventory.bmp"));
    const unsigned destinationSlot=transfer?0:name=="boots"?4:1;
    drive({{SDLK_F2,SelectMemberAction{1}},{static_cast<SDL_Keycode>(SDLK_1+destinationSlot),SelectInventorySlotAction{destinationSlot}}});
    check(flow->inventorySelection().sourceOwner==18,"restored destination owner");
    auto moved=anchor;moved.frame=0;
    check(sameItem(flow->inventorySelection().record,moved) &&
     !itemCatalog->describe(static_cast<XeenInventoryCategory>(inventoryCategory),flow->inventorySelection().record).equipped,"restored destination item/frame");
-   visual_remove_test::save(flow->frame(),dir/(name+"-destination-inventory.bmp"));
+   if (!manual) visual_remove_test::save(flow->frame(),dir/(name+"-destination-inventory.bmp"));
    stateCheck();drive({{SDLK_ESCAPE,CancelInteractionAction{}}});
   };
   auto transferControls=[&] {
    browseAnchor(sourceIndex,sourceSlot);
    check(sameItem(flow->inventorySelection().record,anchor),"original anchor raw bytes");
    const auto description=itemCatalog->describe(static_cast<XeenInventoryCategory>(inventoryCategory),anchor);
-   check(description.displayName==(transfer?"Potion of antidotes":name=="dagger"?"Dagger":name=="boots"?"Leather boots":"Silver ring") && description.equipped==equipment,"original anchor label/equipped");
-   visual_remove_test::save(flow->frame(),dir/(name+"-before-transfer.bmp"));
+   check(description.displayName==(transfer?"Potion of antidotes":name=="dagger"?"Dagger":name=="boots"?"Leather boots":"Silver ring") && description.equipped==transferCheckpoint,"original anchor label/equipped");
+   if (!manual) visual_remove_test::save(flow->frame(),dir/(name+"-before-transfer.bmp"));
    drive({{SDLK_t,TransferInventoryAction{}},{SDLK_F2,SelectMemberAction{1}},{SDLK_ESCAPE,CancelInteractionAction{}}});stateCheck();
    drive({{SDLK_t,TransferInventoryAction{}},{static_cast<SDL_Keycode>(SDLK_F1+sourceIndex),SelectMemberAction{sourceIndex}},{SDLK_RETURN,AcknowledgeAction{}}});
    check(flow->transferResult().status==XeenTransferStatus::SameOwner,"original self-owner refusal");stateCheck();
    drive({{SDLK_t,TransferInventoryAction{}},{SDLK_F2,SelectMemberAction{1}},{SDLK_F9,SaveGameAction{}}});
-   visual_remove_test::save(flow->frame(),dir/(name+"-confirmation.bmp"));
+   if (!manual) visual_remove_test::save(flow->frame(),dir/(name+"-confirmation.bmp"));
    drive({{SDLK_RETURN,AcknowledgeAction{}}});
   };
-  if(equipment && produce) {
+  if(equipmentControl) {
+   check(role=="fresh","equipment control must use independent fresh process");
+   drive({{SDLK_i,InspectInventoryAction{}}});
+   if(name=="equipment-badger") {
+    drive({{SDLK_F3,SelectMemberAction{2}},{SDLK_2,SelectInventorySlotAction{1}},{SDLK_e,EquipmentInventoryAction{}}});
+    check(lastEquipment&&lastEquipment->status==Status::Success&&lastEquipment->operation==Operation::Remove&&
+     sameItem(party->roster.at(14).weapons[0],{0,8,0,1})&&sameItem(party->roster.at(14).weapons[1],{0,30,0,0}),"original Badger bow remove");
+    drive({{SDLK_2,SelectInventorySlotAction{1}},{SDLK_e,EquipmentInventoryAction{}}});
+    check(lastEquipment->status==Status::Success&&lastEquipment->operation==Operation::Equip&&
+     sameItem(party->roster.at(14).weapons[0],{0,8,0,1})&&sameItem(party->roster.at(14).weapons[1],{0,30,0,4}),"original Badger bow re-equip/coexistence");
+    stateCheck();
+   } else {
+    drive({{SDLK_F4,SelectMemberAction{3}},{SDLK_2,SelectInventorySlotAction{1}},{SDLK_t,TransferInventoryAction{}},
+     {SDLK_F5,SelectMemberAction{4}},{SDLK_RETURN,AcknowledgeAction{}}});
+    check(flow->transferResult().status==XeenTransferStatus::Success&&sameItem(party->roster.at(1).weapons[1],{0,12,0,0}),"original Rebecca Dagger transfer");
+    drive({{SDLK_F5,SelectMemberAction{4}},{SDLK_2,SelectInventorySlotAction{1}},{SDLK_e,EquipmentInventoryAction{}}});
+    check(lastEquipment&&lastEquipment->status==Status::NotProficient&&lastEquipment->operation==Operation::Equip&&
+     sameItem(party->roster.at(1).weapons[0],{0,15,0,1})&&sameItem(party->roster.at(1).weapons[1],{0,12,0,0}),"Rebecca proficiency precedence");
+    expectedCharacters[11].weapons={{{0,12,0,1},{},{},{},{},{},{},{},{}}};
+    expectedCharacters[1].weapons={{{0,15,0,1},{0,12,0,0},{},{},{},{},{},{},{}}};
+    stateCheck();
+   }
+   drive({{SDLK_ESCAPE,CancelInteractionAction{}}});
+   std::cout<<"ASSERT independent original "<<name<<" Application/Flow control PASS\n";return true;
+  }
+  if(equipmentCheckpoint) {
+   const auto select=[&](unsigned member,Category category,unsigned slot) {
+    if(!flow->inventoryOpen())drive({{SDLK_i,InspectInventoryAction{}}});
+    drive({{static_cast<SDL_Keycode>(SDLK_F1+member),SelectMemberAction{member}}});
+    while(flow->inventorySelection().category!=category)drive({{SDLK_RIGHT,NavigationAction::TurnRight}});
+    drive({{static_cast<SDL_Keycode>(SDLK_1+slot),SelectInventorySlotAction{slot}}});
+   };
+   const auto expect=[&](Status status,Operation operation,std::uint8_t owner,Category category,unsigned slot) {
+    check(lastEquipment&&lastEquipment->status==status&&lastEquipment->operation==operation&&
+     lastEquipment->owner==owner&&lastEquipment->selection&&lastEquipment->selection->category==category&&
+     lastEquipment->selection->physicalSlot==slot,"original equipment result facts differ");
+   };
+   const auto inspectEquipment=[&] {
+    if(name=="equipment") {
+     select(3,Category::Weapons,0);check(sameItem(flow->inventorySelection().record,{0,12,0,0}),"restored first Dagger");
+     drive({{SDLK_2,SelectInventorySlotAction{1}}});check(sameItem(flow->inventorySelection().record,{0,12,0,1}),"restored second Dagger");
+     select(0,Category::Armor,3);check(sameItem(flow->inventorySelection().record,{38,10,0,0}),"restored boots");
+     select(3,Category::Accessories,1);check(sameItem(flow->inventorySelection().record,{42,1,0,0}),"restored Silver ring");
+    } else {
+     select(4,Category::Accessories,0);
+     const XeenItem expected[]{{38,2,0,12},{42,5,0,7},{42,1,0,8},{86,1,0,8}};
+     for(unsigned i=0;i<4;++i){drive({{static_cast<SDL_Keycode>(SDLK_1+i),SelectInventorySlotAction{i}}});
+      check(sameItem(flow->inventorySelection().record,expected[i]),"restored Rebecca ring slot");}
+    }
+    flow->refresh(true);
+    check(flow->inventoryOpen()&&!flow->equipmentResult(),"reconstruction retained equipment result");
+    drive({{SDLK_ESCAPE,CancelInteractionAction{}}});stateCheck();
+   };
+   if(manual) {
+    check(name=="equipment","manual equipment checkpoint");
+    const std::vector<PlayerAction> sequence={InspectInventoryAction{},SelectMemberAction{3},SelectInventorySlotAction{1},EquipmentInventoryAction{},
+     SelectInventorySlotAction{0},EquipmentInventoryAction{},SelectInventorySlotAction{1},EquipmentInventoryAction{},EquipmentInventoryAction{},
+     SelectMemberAction{0},NavigationAction::TurnRight,SelectInventorySlotAction{3},EquipmentInventoryAction{},SelectInventorySlotAction{3},EquipmentInventoryAction{},SelectInventorySlotAction{3},EquipmentInventoryAction{},
+     SelectMemberAction{3},NavigationAction::TurnRight,SelectInventorySlotAction{1},EquipmentInventoryAction{},SelectInventorySlotAction{1},EquipmentInventoryAction{},SelectInventorySlotAction{1},EquipmentInventoryAction{},
+     SaveGameAction{},CancelInteractionAction{},SaveGameAction{}};
+    std::size_t stage=0;bool complete=false;
+    std::cout<<"Manual equipment sequence: I; F4; 2 E; 1 E; 2 E; E; F1 Right; 4 E 4 E 4 E; F4 Right; 2 E 2 E 2 E; F9; Escape; NEW F9; then close the window.\n"<<std::flush;
+    const auto manualHandler=[&](const PlayerAction &action)->std::optional<IndexedFrame>{
+     check(stage<sequence.size()&&action.index()==sequence[stage].index(),"manual equipment action out of sequence");
+     if(const auto *m=std::get_if<SelectMemberAction>(&action))check(m->partyIndex==std::get<SelectMemberAction>(sequence[stage]).partyIndex,"manual equipment member");
+     if(const auto *s=std::get_if<SelectInventorySlotAction>(&action))check(s->slot==std::get<SelectInventorySlotAction>(sequence[stage]).slot,"manual equipment slot");
+     const auto reportsBefore=equipmentReports;auto result=checkedHandle(action);++stage;
+     if(stage==4){expect(Status::Conflict,Operation::Equip,11,Category::Weapons,1);check(lastEquipment->conflict&&lastEquipment->conflict->physicalSlot==0,"manual Dagger blocker");}
+     if(stage==6){expect(Status::Success,Operation::Remove,11,Category::Weapons,0);check(party->roster.at(11).weapons[0].frame==0,"manual first Dagger remove");}
+     if(stage==8){expect(Status::Success,Operation::Equip,11,Category::Weapons,1);check(party->roster.at(11).weapons[1].frame==1,"manual second Dagger equip");}
+     if(stage==9)check(equipmentReports==3&&party->roster.at(11).weapons[1].frame==1,"manual duplicate E toggled");
+     if(const auto transition=manualEquipmentTransition(stage))
+      requireManualEquipmentTransition(reportsBefore,equipmentReports,lastEquipment,*party,*transition);
+     if(stage==26)check(!fs::exists(path)&&status().find("Cannot save while inventory is open")!=std::string::npos,"manual open F9");
+     if(stage==28){expectedEquipment(expectedCharacters,name);stateCheck();save_test::sameSnapshot(expectedSnapshot(),XeenSaveFile::read(path));complete=true;
+      std::cout<<"Manual producer observations complete. Close the window normally.\n"<<std::flush;}
+     return result;
+    };
+    const bool ok=SdlWindow().showInteractive(first,status(),manualHandler,escape,idle,status);
+    check(ok&&complete&&stage==sequence.size(),"manual equipment producer incomplete");return true;
+   }
+   if(produce) {
+    if(name=="equipment") {
+     select(3,Category::Weapons,1);drive({{SDLK_e,EquipmentInventoryAction{}}});expect(Status::Conflict,Operation::Equip,11,Category::Weapons,1);
+     check(lastEquipment->conflict&&lastEquipment->conflict->category==Category::Weapons&&lastEquipment->conflict->physicalSlot==0,"original Dagger conflict position");
+     select(3,Category::Weapons,0);drive({{SDLK_e,EquipmentInventoryAction{}}});expect(Status::Success,Operation::Remove,11,Category::Weapons,0);
+     select(3,Category::Weapons,1);drive({{SDLK_e,EquipmentInventoryAction{}}});expect(Status::Success,Operation::Equip,11,Category::Weapons,1);
+     const auto reports=equipmentReports;drive({{SDLK_e,EquipmentInventoryAction{}}});check(equipmentReports==reports,"duplicate original E replay");
+     select(0,Category::Armor,3);for(int i=0;i<3;++i){drive({{SDLK_e,EquipmentInventoryAction{}}});expect(Status::Success,i==1?Operation::Equip:Operation::Remove,0,Category::Armor,3);if(i<2)drive({{SDLK_4,SelectInventorySlotAction{3}}});}
+     select(3,Category::Accessories,1);for(int i=0;i<3;++i){drive({{SDLK_e,EquipmentInventoryAction{}}});expect(Status::Success,i==1?Operation::Equip:Operation::Remove,11,Category::Accessories,1);if(i<2)drive({{SDLK_2,SelectInventorySlotAction{1}}});}
+    } else {
+     select(3,Category::Accessories,1);drive({{SDLK_t,TransferInventoryAction{}},{SDLK_F5,SelectMemberAction{4}},{SDLK_RETURN,AcknowledgeAction{}}});
+     check(flow->transferResult().status==XeenTransferStatus::Success,"Silver ring transfer");
+     select(4,Category::Accessories,2);drive({{SDLK_e,EquipmentInventoryAction{}}});expect(Status::Success,Operation::Equip,1,Category::Accessories,2);
+     select(5,Category::Accessories,1);drive({{SDLK_t,TransferInventoryAction{}},{SDLK_F5,SelectMemberAction{4}},{SDLK_RETURN,AcknowledgeAction{}}});
+     check(flow->transferResult().status==XeenTransferStatus::Success,"material-86 ring transfer");
+     select(4,Category::Accessories,3);drive({{SDLK_e,EquipmentInventoryAction{}}});expect(Status::RingLimit,Operation::Equip,1,Category::Accessories,3);
+     check(lastEquipment->matchingFrameCount==2,"original raw ring count");
+     select(4,Category::Accessories,1);drive({{SDLK_e,EquipmentInventoryAction{}}});expect(Status::Success,Operation::Remove,1,Category::Accessories,1);
+     select(4,Category::Accessories,3);drive({{SDLK_e,EquipmentInventoryAction{}}});expect(Status::Success,Operation::Equip,1,Category::Accessories,3);
+     select(4,Category::Accessories,1);drive({{SDLK_e,EquipmentInventoryAction{}}});expect(Status::Success,Operation::Equip,1,Category::Accessories,1);
+    }
+    expectedEquipment(expectedCharacters,name);stateCheck();
+    drive({{SDLK_F9,SaveGameAction{}}});check(!fs::exists(path),"equipment open F9 wrote");
+    drive({{SDLK_ESCAPE,CancelInteractionAction{}},{SDLK_F9,SaveGameAction{}}});
+    save_test::sameSnapshot(expectedSnapshot(),XeenSaveFile::read(path));return true;
+   }
+   if(resume)inspectEquipment();
+   else {
+    check(sameItem(party->roster.at(11).weapons[0],{0,12,0,1})&&sameItem(party->roster.at(11).weapons[1],{0,12,0,0})&&
+     sameItem(party->roster.at(1).accessories[1],{42,5,0,8}),"fresh equipment defaults changed");
+    stateCheck();
+   }
+   save_test::sameSnapshot(expectedSnapshot(),XeenSaveState::capture(signature,*party,*camera,*flags,*world));return true;
+  }
+  if(transferCheckpoint && produce) {
    transferControls();expectedTransfer(expectedCharacters,name);stateCheck();
    check(flow->transferResult().status==XeenTransferStatus::Success,"equipment transfer refused");
    drive({{SDLK_RETURN,AcknowledgeAction{}}});stateCheck();flow->refresh(true);stateCheck();
    drive({{SDLK_ESCAPE,CancelInteractionAction{}}});inspectRestored();
    drive({{SDLK_F9,SaveGameAction{}}});save_test::sameSnapshot(expectedSnapshot(),XeenSaveFile::read(path));return true;
   }
-  if((transfer || equipment) && resume) inspectRestored();
-  if(equipment) {stateCheck();save_test::sameSnapshot(expectedSnapshot(),XeenSaveState::capture(signature,*party,*camera,*flags,*world));return true;}
+  if((transfer || transferCheckpoint) && resume) inspectRestored();
+  if(transferCheckpoint) {stateCheck();save_test::sameSnapshot(expectedSnapshot(),XeenSaveState::capture(signature,*party,*camera,*flags,*world));return true;}
   if (produce && exchange) {
    enum class Phase { Request, Phirna, Return, Receipt, Inventory, Save, Done };
    Phase phase = Phase::Request;
@@ -439,7 +622,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
       rewardDescription.counter == 1,
       "genuine Myra reward catalog description differs");
      phase = Phase::Receipt;
-     visual_remove_test::save(flow->frame(), dir/(name + "-receipt.bmp"));
+     if (!manual) visual_remove_test::save(flow->frame(), dir/(name + "-receipt.bmp"));
      announce("Reward receipt: five delivered, zero loss/overflow. Press F9 while pending, then acknowledge every page.");
     } else if (phase == Phase::Receipt) {
      check(receipts == 1 && receiptReports == 1, "receipt exactly-once report count");
@@ -488,7 +671,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
      else if (!flow->blocksGameplay()) drive({{SDLK_SPACE,InteractionAction{}}});
      else if ((phase == Phase::Return && !npcF9) || phase == Phase::Receipt) {
       const auto gen=flow->presentationGeneration();const auto page=flow->presenter().pageIndex();const auto frame=flow->frame();
-      drive({{SDLK_i,InspectInventoryAction{}},{SDLK_t,TransferInventoryAction{}}});
+      drive({{SDLK_i,InspectInventoryAction{}},{SDLK_t,TransferInventoryAction{}},{SDLK_e,EquipmentInventoryAction{}}});
       check(!flow->inventoryOpen()&&flow->presentationGeneration()==gen&&flow->presenter().pageIndex()==page,"return/receipt inventory-only input disturbed event");
       if(!sdl)equalFrame(frame,flow->frame());
       drive({{SDLK_F9,SaveGameAction{}}});
@@ -608,7 +791,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
     for (int i = 0; i < 5; ++i) std::cout << ' ' << before[i] << "->" << after[i]; std::cout << '\n';
     equalFrame(flow->frame(), cleanBase()); stateCheck();
    }
-   visual_remove_test::save(flow->frame(), dir/(name + "-rebuilt.bmp"));
+   if (!manual) visual_remove_test::save(flow->frame(), dir/(name + "-rebuilt.bmp"));
    if (exchange) {
     check(!root && !request && phirnaRemoved, "pre-revisit reconstructed exchange differs");
     save_test::sameSnapshot(expectedSnapshot(), XeenSaveFile::read(path));
@@ -636,6 +819,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
  };
  const auto result = Application().playGameplay(services, resume ? XeenCamera{} : expectedCamera, produce || resume ? std::optional<fs::path>(path) : std::nullopt, resume);
  check(result == 0, "Application acceptance failed");
+ if (manualInitializationOnly) {check(!fs::exists(path),"manual initialization wrote save target");return 0;}
  if (resume) check(diskBytes(path) == initialDisk, "consumer changed original save bytes");
  std::cout << "ACCEPT " << name << ' ' << role << ' ' << (manual ? "physical-keyboard" : sdl ? "sdl" : "direct") << " PID " << GetCurrentProcessId() << '\n';
  return 0;
@@ -643,14 +827,29 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
 }
 int main(int argc, char **argv) {
  try {
-  if (argc == 4 && (std::string(argv[1]) == "--manual-myra-exchange" || std::string(argv[1]) == "--manual-myra-transfer")) {
+  if(argc==4&&std::string(argv[1])=="--manual-equipment-regressions") {
+   const auto game=fs::absolute(fs::u8path(argv[2])),dir=fs::absolute(fs::u8path(argv[3]));
+   check(fs::create_directory(dir),"manual regression directory must be new");
+   const auto sentinelPath=dir/"equipment-producer-first.bmp",save=dir/"manual-equipment.mmsave";
+   const std::vector<std::uint8_t> sentinel{0x4d,0x32,0x35,0x42,0,0xff,0x18};
+   {std::ofstream output(sentinelPath,std::ios::binary);check(bool(output),"manual sentinel create");
+    output.write(reinterpret_cast<const char *>(sentinel.data()),static_cast<std::streamsize>(sentinel.size()));check(bool(output),"manual sentinel write");}
+   manualEquipmentValidatorRegressions();
+   check(child(game,dir,"equipment","producer",false,save,true)==0,"manual initialization regression failed");
+   check(diskBytes(sentinelPath)==sentinel&&!fs::exists(save),"manual initialization altered sentinel or save target");
+   std::cout<<"Manual equipment non-overwrite and phase-validator regressions PASS\n";return 0;
+  }
+  if (argc == 4 && (std::string(argv[1]) == "--manual-myra-exchange" || std::string(argv[1]) == "--manual-myra-transfer" ||
+    std::string(argv[1]) == "--manual-equipment")) {
    const auto game = fs::absolute(fs::u8path(argv[2])), save = fs::absolute(fs::u8path(argv[3]));
    check(fs::is_directory(save.parent_path()) && !fs::exists(save), "manual target requires existing directory and absent file; nothing is deleted");
    std::cout << "Physical keyboard mode; camera-only checkpoint positioning, one continuous SDL loop.\n"
     << "Save: " << save.u8string() << "\nAfter this producer exits completely, run:\n& \""
     << (fs::absolute(fs::u8path(argv[0])).parent_path()/"mmodern.exe").u8string()
     << "\" --load-game \"" << game.u8string() << "\" \"" << save.u8string() << "\"\n" << std::flush;
-   return child(game, save.parent_path(), std::string(argv[1])=="--manual-myra-transfer"?"myra-transfer":"myra-exchange", "producer", false, save);
+   const auto checkpoint=std::string(argv[1])=="--manual-myra-transfer"?"myra-transfer":
+    std::string(argv[1])=="--manual-equipment"?"equipment":"myra-exchange";
+   return child(game, save.parent_path(), checkpoint, "producer", false, save);
   }
   if (argc == 7 && std::string(argv[1]) == "--child") return child(fs::u8path(argv[2]), fs::u8path(argv[3]), argv[4], argv[5], std::string(argv[6]) == "sdl");
   check(argc == 3 || (argc == 4 && std::string(argv[3]) == "sdl"), "Usage: mmodern_save_resume_smoke <game> <output> [sdl]");
@@ -660,7 +859,12 @@ int main(int argc, char **argv) {
   check(fs::create_directory(dir), "acceptance run directory must be new");
   const auto exe = fs::absolute(fs::u8path(argv[0])); const std::wstring mode = argc == 4 ? L"sdl" : L"direct";
   std::ofstream evidence(dir/"processes.log"); check(bool(evidence), "process evidence log");
-  for (const std::string name : {"phirna", "whistle", "myra", "cumulative", "myra-exchange", "myra-transfer", "dagger", "boots", "ring"}) {
+  for(const std::string name:{"equipment-badger","equipment-proficiency"}) {
+   const auto log=dir/(name+".log");const std::vector<std::wstring> args{L"--child",game.wstring(),dir.wstring(),fs::path(name).wstring(),L"fresh",mode};
+   const auto r=child_test::launch(exe,args,log);evidence<<"CONTROL PID "<<r.pid<<" exit "<<r.exit<<'\n'<<r.output<<std::flush;
+   check(r.exit==0&&r.output.find("ACCEPT "+name+" fresh")!=std::string::npos,"independent original equipment control failed");
+  }
+  for (const std::string name : {"phirna", "whistle", "myra", "cumulative", "myra-exchange", "myra-transfer", "dagger", "boots", "ring", "equipment", "equipment-rings"}) {
    DWORD producer = 0;
    std::vector<std::uint8_t> savedBytes;
    for (const std::string role : {"producer", "consumer", "fresh"}) {
@@ -682,7 +886,7 @@ int main(int argc, char **argv) {
     return std::vector<char>(std::istreambuf_iterator<char>(input), {});
    };
    const bool same = bytes(dir/(name+"-consumer-first.bmp")) == bytes(dir/(name+"-fresh-first.bmp"));
-   check(same == (name == "myra" || name == "myra-exchange" || name == "myra-transfer" || name=="dagger" || name=="boots" || name=="ring"), "fresh/resumed native frame relationship");
+   check(same == (name == "myra" || name == "myra-exchange" || name == "myra-transfer" || name=="dagger" || name=="boots" || name=="ring" || name=="equipment" || name=="equipment-rings"), "fresh/resumed native frame relationship");
    evidence << "ASSERT first frames: " << name << (same ? " unchanged clean Myra scene" : " effective removal differs from fresh original") << '\n';
    const auto cli = exe.parent_path()/"mmodern.exe";
    evidence << "COMMAND \"" << cli.u8string() << "\" --load-game \"" << game.u8string() << "\" \"" << (dir/(name+".mmsave")).u8string() << "\"\n" << std::flush;
@@ -702,6 +906,34 @@ int main(int argc, char **argv) {
     for (unsigned i=0;i<5;++i) check(owner.find(" " + std::to_string(i) + ": M=10 ID=37 S=1 F=0") != std::string::npos,
      "CLI exact reward slot diagnostic absent");
     evidence << "ASSERT actual CLI setup: five roster-0 rewards, Root=0 Q2=0; Windows SDL normal close\n";
+   }
+   if(name=="equipment" || name=="equipment-rings") {
+    const auto inventory=r.output.find("\nInventory:");check(inventory!=std::string::npos,"equipment CLI inventory block");
+    const auto text=r.output.substr(inventory);
+    const auto ownerBlock=[&](unsigned owner){const auto begin=text.find("Owner "+std::to_string(owner)+" ");
+     const auto end=owner==29?text.size():text.find("Owner "+std::to_string(owner+1)+" ",begin);
+     check(begin!=std::string::npos&&end!=std::string::npos,"equipment CLI owner block");return text.substr(begin,end-begin);};
+    const auto categoryBlock=[&](const std::string &owner,const std::string &category,const std::string &next){
+     const auto begin=owner.find(category+" tail=");
+     const auto end=next.empty()?owner.size():owner.find(next+" tail=",begin);
+     check(begin!=std::string::npos&&end!=std::string::npos,"equipment CLI category block");return owner.substr(begin,end-begin);
+    };
+    if(name=="equipment") {
+     const auto zippo=ownerBlock(11),arturius=ownerBlock(0);
+     const auto zippoWeapons=categoryBlock(zippo,"Weapons","Armor"),zippoAccessories=categoryBlock(zippo,"Accessories","Miscellaneous");
+     const auto arturiusArmor=categoryBlock(arturius,"Armor","Accessories");
+     check(zippoWeapons.find(" 0: M=0 ID=12 S=0 F=0")!=std::string::npos&&zippoWeapons.find(" 1: M=0 ID=12 S=0 F=1")!=std::string::npos&&
+      arturiusArmor.find(" 3: M=38 ID=10 S=0 F=0")!=std::string::npos&&
+      zippoAccessories.find(" 0: M=38 ID=2 S=0 F=12")!=std::string::npos&&zippoAccessories.find(" 1: M=42 ID=1 S=0 F=0")!=std::string::npos,
+      "equipment CLI exact owner/category/slot frames absent");
+    } else {
+     const auto rebecca=ownerBlock(1);
+     const auto accessories=categoryBlock(rebecca,"Accessories","Miscellaneous");
+     check(accessories.find(" 0: M=38 ID=2 S=0 F=12")!=std::string::npos&&accessories.find(" 1: M=42 ID=5 S=0 F=7")!=std::string::npos&&
+      accessories.find(" 2: M=42 ID=1 S=0 F=8")!=std::string::npos&&accessories.find(" 3: M=86 ID=1 S=0 F=8")!=std::string::npos,
+      "equipment-rings CLI exact Rebecca slots absent");
+    }
+    evidence<<"ASSERT actual CLI equipment owner/category/physical-slot frames\n";
    }
    check(diskBytes(dir/(name+".mmsave")) == savedBytes, "CLI altered producer file");
    evidence << "ASSERT producer file unchanged after consumer/fresh/CLI\n";

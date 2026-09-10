@@ -300,7 +300,8 @@ void productionFlow() {
 		automatic?flow.initial():flow.handle(InteractionAction{});
 		const auto generation=*flow.presentationGeneration();const auto frame=flow.frame();
 		for(const PlayerAction action : {PlayerAction{SelectMemberAction{6}},PlayerAction{AcknowledgeAction{}},
-			PlayerAction{InteractionAction{}},PlayerAction{YesAction{}},PlayerAction{NoAction{}},PlayerAction{NavigationAction::TurnRight}})
+			PlayerAction{InteractionAction{}},PlayerAction{YesAction{}},PlayerAction{NoAction{}},PlayerAction{NavigationAction::TurnRight},
+			PlayerAction{EquipmentInventoryAction{}}})
 			flow.handle(action);
 		check(flow.presentationGeneration()==generation && flow.frame().pixels==frame.pixels &&
 			f.camera.direction==XeenDirection::North && flow.canCancelInteraction(),"ignored choice inputs");
