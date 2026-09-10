@@ -1,16 +1,18 @@
 # MMModern - Roadmap
 
-The stable anchor is **completed Milestone 23**, commit
-[`a6b0826b8cccfcaa17e655d1e2e557e817bf13d6`](https://github.com/carbiecarbie/MMModern/commit/a6b0826b8cccfcaa17e655d1e2e557e817bf13d6).
+**Milestone 23 remains the latest fully completed milestone; M24A is an accepted
+stable catalog foundation.** M24 remains incomplete.
 [Project status](project-status.md) owns current capabilities;
 [project history](project-history.md) and the [closed M23 plan](milestone-23-plan.md)
 own completed work. Dependency provenance belongs to [dependencies.md](dependencies.md).
 
 ## Current planning state
 
-This is a **post-M23 roadmap proposal for review**, not maintainer-approved scope.
-The provisional labels M24 and M25 recommend two capability increments; neither
-has been promoted into an approved milestone or authorized for implementation.
+M24 was promoted and split into independently reviewable stages in the
+[active M24 plan](milestone-24-plan.md). M24A's bounded catalog foundation is
+accepted. M24B player-facing inspection and four-category transfer remain the
+next stage, pending separate authorization and implementation. Acceptance of 24A
+does not automatically authorize 24B. M25 remains provisional.
 
 The preferred direction is to make existing party and item state useful to the
 player, then bound an original encounter and its connected exploration needs.
@@ -19,14 +21,15 @@ persistence; [M22](milestone-22-plan.md) and M23 established substantial scene
 presentation. Another storage framework or an automatic succession of visual
 increments would miss the present opportunity for player agency.
 
-Codex investigates and proposes; ChatGPT Pro reviews architecture/specification
-and prepares tasks; Astra provides independent audit/review; the maintainer
-approves direction and separately authorizes work. Create a detailed plan only
-when its milestone is about to begin.
+The implementation agent investigates and implements authorized work; the
+architecture/specification agent prepares contracts; the independent reviewer
+audits implementation and evidence; the maintainer approves direction and
+separately authorizes work. Create a detailed plan only when its milestone is
+about to begin.
 
 ## Recommended near horizon
 
-### Proposed M24 - Usable party/item inspection and character-to-character transfer
+### M24B next - Usable party/item inspection and character-to-character transfer
 
 **Outcome and boundary.** Show active characters' modeled condition and HP/SP,
 inspect weapons, armor, accessories and miscellaneous items with bounded,
@@ -43,9 +46,9 @@ one from roster owner 0 to owner 18, save and actually restart with the ownershi
 and bytes preserved. This builds on the [M21 exchange contract](milestone-21-plan.md);
 it does not recertify the route or require new reward semantics.
 Myra is a primary acceptance anchor, not the definition of the transfer boundary.
-Detailed planning must select additional original/synthetic controls for
-equipment-category transfer and its equipped-state consequence, without adding
-player-triggered equip/unequip actions.
+The [M24 original anchors](milestone-24-plan.md#original-equipment-controls)
+specify additional equipment-category transfer controls and the equipped-state
+consequence, without adding player-triggered equip/unequip actions.
 
 **Foundation and decisions.** Reuse [party ownership](../src/games/xeen/XeenParty.h),
 [character/item records](../src/games/xeen/XeenCharacter.h),
@@ -61,25 +64,25 @@ The pinned reference's ordinary
 uses category-generic transfer when changing active character with an item
 selected: check cursed state and destination category capacity, move the item,
 reset the destination item's equipped frame, then sort/compact source and
-destination. M24 planning must bound those semantics, including active aliases
-and stable compaction. Preserve exact item bytes except for deliberate original
-transfer semantics; resetting the frame during transfer does not authorize an
+destination. The [M24 transfer contract](milestone-24-plan.md#transfer-rules-and-publication)
+bounds those semantics, including active aliases and stable compaction. Preserve
+exact item bytes except for deliberate original transfer semantics; resetting
+the frame during transfer does not authorize an
 equip/unequip command.
 
-A bounded item-description adapter is real new work. The pinned reference's
-[resource loader](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/resources.cpp)
-uses engine data including English `CONSTANTS_7` and Clouds `mae.cld`; these are
-not an existing MMModern item-catalog interface. M21 deliberately avoided the
-generated Xeen engine-data catalog dependency and reported records numerically.
-M24 planning must determine a reproducible, GPL-compatible, resource-driven source
-for bounded names/descriptions while preserving the narrow selected-library
-dependency architecture; this roadmap does not choose that architecture.
-Settle provenance, loading/version checks, missing-data behavior, unknown-item
-fallbacks and an accessible presentation/input contract during specification.
+Accepted M24A supplies the reusable bounded read-only catalog. English names are
+embedded at build time from the exact pinned ScummVM `CONSTANTS_7` Git blob;
+optional commercial material names remain external in `DARK.CC/mae.xen`, read
+through existing archive owners. Catalog generation compiles no ScummVM headers
+and introduces no runtime `mm.dat` dependency. Provenance, schema, bounds and
+fallbacks are settled in the [catalog contract](milestone-24-plan.md#catalog-source-and-delivery-decision)
+and [dependencies](dependencies.md#build-generated-english-item-catalog).
+Player presentation and transfer remain future 24B work.
 
 **State and acceptance.** Existing save v2 represents the expected durable changes;
-no new state category is presently identified. Confirm resource compatibility,
-opaque-byte preservation and the idle save boundary in the specification.
+no new state category is presently identified. Implement and validate resource
+compatibility, opaque-byte preservation and the idle save boundary according to
+the [M24 persistence contract](milestone-24-plan.md#persistence-and-compatibility).
 Automated checks should distinguish transfer from copying across all four
 categories, cover capacity, cursed-item refusal, aliases, cancellation, stable
 source/destination compaction and the equipped-frame reset, and use an independent
@@ -88,12 +91,13 @@ process restart and maintainer-operated UI acceptance must establish the visible
 result and resulting ownership.
 
 **Confidence and sequencing.** High confidence in state reuse; medium overall
-because the catalog and UI contract are new. Inspection plus one ownership action
-is a coherent first increment across the existing categories. Exclude equip/unequip
+because UI and transfer integration remain unimplemented. Inspection plus one
+ownership action is a coherent first increment across the existing categories.
+Exclude equip/unequip
 actions, item use/activation, discard, shops, identification/repair, spells, quest
 journal, recruitment, combat, full character statistics and normal-route
-certification. Split only if catalog investigation reveals a substantial
-independent contract.
+certification. The independent catalog contract is already accepted as 24A;
+24B must deliver the player interaction and its connected acceptance together.
 
 ### Proposed M25 - Bounded equipment management and existing-rule feedback
 
@@ -239,8 +243,8 @@ reason to implement another reward subsystem.
 
 Replan when evidence changes the contracts:
 
-- The catalog proves substantially larger, or an existing abstraction already
-  supplies it; merge or split entries around coherent acceptance boundaries.
+- New catalog requirements exceed the accepted 24A schema or resource boundary;
+  review that change explicitly before expanding the foundation.
 - Transfer/equipment exposes missing authoritative state, special effects or a
   save/restore incompatibility instead of a bounded change to existing records.
 - Encounter or route tracing establishes combat, world flags, time, doors,
@@ -250,9 +254,9 @@ Replan when evidence changes the contracts:
 - Two entries share one coherent acceptance contract, an entry contains separable
   contracts, or maintainer priorities change.
 
-Review M24 against the then-stable baseline during specification. Refresh the
-horizon at the end of these two proposed entries, or earlier on a trigger. Retain
-approximately three completed milestones as the ordinary broader review cadence;
+Before authorizing 24B, verify its existing specification against the stable 24A
+foundation. Refresh the horizon after M24 and proposed M25, or earlier on a trigger.
+Retain approximately three completed milestones as the ordinary broader review cadence;
 it is not a quota for horizon length. Use the verified SHA and handoff gate in
 [AGENTS.md](../AGENTS.md) for external review. Roadmap recommendation, direction
 approval, detailed planning and implementation authorization remain separate.

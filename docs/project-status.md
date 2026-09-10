@@ -2,11 +2,13 @@
 
 ## Stable baseline
 
-**Milestone 23 is the latest stable completed milestone.** This file describes
-the latest stable committed capabilities and architecture. Work in progress is
-intentionally excluded; milestone acceptance belongs in the
-[closed plan](milestone-23-plan.md#final-acceptance), and chronology in
-[project history](project-history.md).
+**Milestone 23 remains the latest fully completed milestone. Milestone 24A is
+an accepted stable sub-stage: the bounded item catalog foundation.** M24 is
+incomplete; 24B requires separate authorization and implementation. This file
+describes stable capabilities and architecture. Acceptance belongs in the
+[M23 closed plan](milestone-23-plan.md#final-acceptance) and
+[M24A acceptance record](milestone-24-plan.md#24a-final-acceptance); completed
+milestone chronology belongs in [project history](project-history.md).
 
 ## Supported scope
 
@@ -17,6 +19,13 @@ ScummVM Xeen archive/sprite code and Common, Graphics and Image libraries, witho
 instantiating the ScummVM engine or using its SDL backend. The pinned revision,
 external source/build requirements and configuration are in
 [dependencies.md](dependencies.md).
+
+The read-only English item catalog is embedded reproducibly at build time from
+the exact pinned ScummVM `CONSTANTS_7` Git blob. Catalog generation compiles no
+ScummVM headers and adds no runtime `mm.dat` or source-tree dependency. Optional
+commercial material names come from `DARK.CC/mae.xen` through the existing
+`XeenAssetSource`/`ScummVmXeenBridge` archive ownership. See the
+[catalog dependency contract](dependencies.md#build-generated-english-item-catalog).
 
 Original Clouds archives supply party/game flags, maps, objects, events, text,
 fonts and sprites. Event text uses zero-based lookup, preserves original bytes
@@ -72,6 +81,12 @@ this capability.
 - Each character holds four nine-slot arrays of exact material/ID/state/frame
   bytes. Existing equipment modifier behavior is retained; miscellaneous records
   add no item effects. ID zero denotes an empty slot but its other bytes persist.
+- A bounded read-only catalog describes supported weapons, armor, accessories
+  and miscellaneous records without mutating stored bytes. It exposes raw fields,
+  status and counters/charges, with explicit unknown-field and missing/malformed
+  material fallbacks. This is a reusable foundation; player-facing inventory UI,
+  character-to-character transfer and equip/unequip commands are not implemented.
+  The [M24 catalog contract](milestone-24-plan.md#naming-and-bounds) defines its limits.
 - The party owns 35 uint32 Clouds quest-item counters (IDs 82..116), possession
   comparisons and bounded one-item grants/checked consumption; 30 separate quest
   flags support bounded immediate mode-104 set/clear. Game flags are a separate
@@ -168,6 +183,11 @@ disabled object/event identities are sufficient to reconstruct indoor visibility
 after save/restore into fresh owners. Visual placement, occlusion, commands and
 pixels are never serialized.
 
+M24A adds no persistent state or save-version change. Catalog strings and
+availability are resource-derived; missing or malformed optional material names
+degrade descriptions without becoming save/gameplay compatibility state. Existing
+archive fingerprints remain unchanged.
+
 **Format and compatibility:** the writer emits MMModern Clouds binary **v2**;
 the reader accepts **v1 and v2**. `.mmsave` uses bounded little-endian encoding,
 a 4 MiB limit and CRC32 corruption checks. Compatibility requires matching
@@ -259,7 +279,8 @@ Ordinary CTest does not depend on commercial data.
 
 ## Next direction
 
-No next milestone is currently promoted. The next planning activity is the
-[post-M23 roadmap and horizon reassessment](roadmap.md#current-planning-state),
-which will evaluate the new stable architecture and capabilities before selecting
-a concrete successor. This planning state does not authorize implementation.
+M24 was promoted and split into two stages. With 24A accepted, player-facing
+inspection and four-category transfer in 24B remain the next stage, pending
+separate authorization and implementation. Acceptance of 24A does not authorize
+24B. The [active M24 plan](milestone-24-plan.md) owns that specification;
+the [roadmap](roadmap.md#current-planning-state) owns the broader direction.

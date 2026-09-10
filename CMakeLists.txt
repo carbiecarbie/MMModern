@@ -19,10 +19,13 @@ target_include_directories(mmodern_core INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/s
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/ScummVmXeen.cmake")
 add_mmodern_scummvm_xeen_bridge(mmodern_scummvm_xeen)
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/MMModernItemCatalog.cmake")
+add_mmodern_item_catalog_generation()
 
 add_library(mmodern_xeen STATIC
 	src/formats/xeen/XeenAssetSource.cpp
 	src/formats/xeen/XeenCloudsVisualMetadata.cpp
+	src/formats/xeen/XeenMaterialNames.cpp
 	src/games/xeen/XeenObjectVisual.cpp
 	src/formats/xeen/XeenCharacterFormat.cpp
 	src/formats/xeen/XeenQuestItemFormat.cpp
@@ -40,6 +43,7 @@ add_library(mmodern_xeen STATIC
 	src/games/xeen/XeenEventDiagnostics.cpp
 	src/games/xeen/XeenEventInterpreter.cpp
 	src/games/xeen/XeenItemRewards.cpp
+	src/games/xeen/XeenItemCatalog.cpp
 	src/games/xeen/XeenEventPresenter.cpp
 	src/games/xeen/XeenEventLoader.cpp
 	src/games/xeen/XeenEventTextLoader.cpp
@@ -62,6 +66,8 @@ add_library(mmodern_xeen STATIC
 	src/games/xeen/XeenWorld.cpp
 	src/games/xeen/XeenInstallationDetector.cpp
 )
+target_include_directories(mmodern_xeen PRIVATE "${MMODERN_ITEM_CATALOG_GENERATED_DIR}")
+add_dependencies(mmodern_xeen mmodern_item_catalog_data)
 target_link_libraries(mmodern_xeen PUBLIC mmodern_core PRIVATE mmodern_scummvm_xeen ZLIB::ZLIB)
 
 add_library(mmodern_platform_sdl STATIC
@@ -98,6 +104,23 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+	add_executable(mmodern_item_catalog_tests tests/XeenItemCatalogTests.cpp)
+	target_link_libraries(mmodern_item_catalog_tests PRIVATE mmodern_xeen)
+	add_test(NAME xeen_item_catalog COMMAND mmodern_item_catalog_tests)
+	add_executable(mmodern_item_catalog_asset_tests tests/XeenItemCatalogAssetTests.cpp)
+	target_link_libraries(mmodern_item_catalog_asset_tests PRIVATE
+		mmodern_xeen mmodern_scummvm_xeen)
+	add_test(NAME xeen_item_catalog_assets COMMAND mmodern_item_catalog_asset_tests)
+	add_test(NAME xeen_item_catalog_generation
+		COMMAND "${MMODERN_ITEM_CATALOG_POWERSHELL}"
+			-NoProfile -NonInteractive -ExecutionPolicy Bypass
+			-File "${CMAKE_CURRENT_SOURCE_DIR}/tests/XeenItemCatalogGenerationTests.ps1"
+			-Generator "${MMODERN_ITEM_CATALOG_GENERATOR}"
+			-TestPowerShell "${MMODERN_ITEM_CATALOG_POWERSHELL}"
+			-Git "${GIT_EXECUTABLE}"
+			-TestRoot "${CMAKE_CURRENT_BINARY_DIR}/item-catalog-generation-tests"
+			-ProductionOutput "${MMODERN_ITEM_CATALOG_GENERATED_DIR}/XeenItemCatalogEnglish.inc"
+			-ProductionOutputSha256 "${MMODERN_ITEM_CATALOG_GENERATED_SHA256}")
 	add_executable(mmodern_outdoor_animation_tests tests/XeenOutdoorAnimationTests.cpp)
 	target_link_libraries(mmodern_outdoor_animation_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2 ZLIB::ZLIB)
 	add_test(NAME xeen_outdoor_animation COMMAND mmodern_outdoor_animation_tests)
@@ -391,6 +414,13 @@ if(BUILD_TESTING)
 	target_link_libraries(mmodern_party_smoke PRIVATE mmodern_xeen mmodern_scummvm_xeen)
 	if(MINGW)
 		target_link_options(mmodern_party_smoke PRIVATE -Wl,--gc-sections)
+	endif()
+	add_executable(mmodern_item_catalog_smoke EXCLUDE_FROM_ALL
+		tests/ItemCatalogIntegrationTest.cpp)
+	target_link_libraries(mmodern_item_catalog_smoke PRIVATE
+		mmodern_xeen mmodern_scummvm_xeen bcrypt)
+	if(MINGW)
+		target_link_options(mmodern_item_catalog_smoke PRIVATE -Wl,--gc-sections)
 	endif()
 	add_executable(mmodern_indoor_map_smoke EXCLUDE_FROM_ALL
 		tests/IndoorMapIntegrationTest.cpp)

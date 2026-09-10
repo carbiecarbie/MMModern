@@ -35,6 +35,10 @@ std::optional<std::vector<std::uint8_t>> XeenAssetSource::readCloudsVisualMetada
 	return _impl->bridge.readCloudsVisualMetadataFromDarkArchive();
 }
 
+std::optional<std::vector<std::uint8_t>> XeenAssetSource::readItemMaterialNamesFromDarkArchive() {
+	return _impl->bridge.readItemMaterialNamesFromDarkArchive();
+}
+
 void XeenAssetSource::drawObjectVisual(const XeenObjectVisual &visual, int x, int y,
 		const XeenSpriteDrawOptions &options) {
 	if ((visual.status != XeenObjectVisualStatus::SupportedStatic &&

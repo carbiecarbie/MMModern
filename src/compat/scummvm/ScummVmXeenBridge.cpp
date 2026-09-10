@@ -5,6 +5,7 @@
 #include "compat/scummvm/ScummVmRuntime.h"
 #include "formats/xeen/XeenObjectSpriteSafety.h"
 
+#include "common/file.h"
 #include "common/path.h"
 #include "common/memstream.h"
 #include "common/stream.h"
@@ -85,6 +86,47 @@ public:
 	}
 };
 
+// CCArchive's ordinary member reader terminates the process when an indexed
+// payload is short. Keep its index/archive ownership, but make the one optional
+// catalog member recoverable by checking the indexed extent before reading it.
+class DarkMetadataArchive final : public CCArchive {
+public:
+	DarkMetadataArchive() :
+		CCArchive(Common::Path("dark.cc", Common::Path::kNoSeparator), true) {
+	}
+
+	std::optional<std::vector<std::uint8_t>> readItemMaterialNamesChecked() const {
+		MM::Shared::Xeen::CCEntry entry;
+		const Common::Path member("mae.xen", Common::Path::kNoSeparator);
+		if (!getHeaderEntry(member, entry))
+			return std::nullopt;
+		if (entry._offset < 0 || entry._size > 8192)
+			throw std::runtime_error("invalid DARK.CC/mae.xen index bounds");
+
+		Common::File file;
+		const Common::Path archive("dark.cc", Common::Path::kNoSeparator);
+		if (!file.open(archive))
+			throw std::runtime_error("cannot reopen DARK.CC for optional mae.xen read");
+		const auto archiveSize = file.size();
+		const auto offset = static_cast<std::uint64_t>(entry._offset);
+		const auto size = static_cast<std::uint64_t>(entry._size);
+		if (archiveSize < 0 || offset > static_cast<std::uint64_t>(archiveSize) ||
+				size > static_cast<std::uint64_t>(archiveSize) - offset)
+			throw std::runtime_error("truncated DARK.CC/mae.xen payload");
+		if (!file.seek(entry._offset))
+			throw std::runtime_error("cannot seek to DARK.CC/mae.xen payload");
+
+		std::vector<std::uint8_t> bytes(entry._size);
+		if (!bytes.empty() &&
+				(file.read(bytes.data(), static_cast<uint32>(bytes.size())) != bytes.size() ||
+				 file.err()))
+			throw std::runtime_error("incomplete DARK.CC/mae.xen payload read");
+		for (auto &byte : bytes)
+			byte ^= 0x35;
+		return bytes;
+	}
+};
+
 std::unique_ptr<Common::SeekableReadStream> openResource(
 		CCArchive &archive, const std::string &resourceName) {
 	std::unique_ptr<Common::SeekableReadStream> stream(
@@ -100,7 +142,7 @@ struct ScummVmXeenBridge::Impl {
 	ScummVmRuntime runtime;
 	CCArchive archive;
 	bool darkAvailable = false;
-	std::unique_ptr<CCArchive> darkMetadataArchive;
+	std::unique_ptr<DarkMetadataArchive> darkMetadataArchive;
 	XSurface surface;
 	std::array<std::uint8_t, IndexedFrame::kPaletteSize> palette{};
 	struct CachedSprite {
@@ -183,11 +225,19 @@ std::size_t ScummVmXeenBridge::spriteLoadCount() const { return _impl->spriteLoa
 std::optional<std::vector<std::uint8_t>> ScummVmXeenBridge::readCloudsVisualMetadataFromDarkArchive() {
 	if (!_impl->darkAvailable) return std::nullopt;
 	if (!_impl->darkMetadataArchive)
-		_impl->darkMetadataArchive.reset(new CCArchive(Common::Path("dark.cc", Common::Path::kNoSeparator), true));
+		_impl->darkMetadataArchive.reset(new DarkMetadataArchive());
 	const Common::Path path("clouds.dat", Common::Path::kNoSeparator);
 	std::unique_ptr<Common::SeekableReadStream> stream(_impl->darkMetadataArchive->createReadStreamForMember(path));
 	if (!stream) return std::nullopt;
 	return readBytes(*stream, "DARK.CC/clouds.dat");
+}
+
+std::optional<std::vector<std::uint8_t>> ScummVmXeenBridge::readItemMaterialNamesFromDarkArchive() {
+	if (!_impl->darkAvailable)
+		return std::nullopt;
+	if (!_impl->darkMetadataArchive)
+		_impl->darkMetadataArchive.reset(new DarkMetadataArchive());
+	return _impl->darkMetadataArchive->readItemMaterialNamesChecked();
 }
 
 void ScummVmXeenBridge::drawObjectSprite(const std::string &resourceName,

@@ -12,6 +12,7 @@
 #include "games/xeen/XeenEventLoader.h"
 #include "games/xeen/XeenGameFlagsLoader.h"
 #include "games/xeen/XeenInstallationDetector.h"
+#include "games/xeen/XeenItemCatalog.h"
 #include "games/xeen/XeenMapLoader.h"
 #include <algorithm>
 #include <set>
@@ -85,6 +86,13 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
  XeenAssetSource assets(*installation, 320, 200);
  const auto defaults = XeenPartyLoader().loadInitialCloudsParty(assets);
  if (exchange) originalItems(defaults);
+ std::optional<XeenItemCatalog> itemCatalog;
+ if (exchange) {
+  const auto loadedCatalog = loadXeenItemCatalog(assets);
+  check(loadedCatalog.catalog.materialAvailability() == XeenMaterialAvailability::Ready,
+   "Myra catalog assertion requires structurally valid DARK.CC/mae.xen");
+  itemCatalog = loadedCatalog.catalog;
+ }
  auto expectedCharacters = defaults.roster.characters();
  if (exchange && resume) for (unsigned i = 0; i < 5; ++i) expectedCharacters[0].miscellaneous[i] = {10,37,1,0};
  const auto defaultFlags = XeenGameFlagsLoader().loadInitialCloudsFlags(assets);
@@ -340,6 +348,14 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
      exactReceipt(*pending); check(++receipts == 1 && receiptReports == 1 && !terminal, "duplicate delivery or premature completion");
      root = false; request = false;
      for (unsigned i=0;i<5;++i) expectedCharacters[0].miscellaneous[i] = {10,37,1,0};
+     const auto actualReward = party->roster.at(0).miscellaneous.at(0);
+     const auto rewardDescription = itemCatalog->describe(
+      XeenInventoryCategory::Miscellaneous, actualReward);
+     check(sameItem(actualReward, {10,37,1,0}) &&
+      rewardDescription.displayName == "Potion of antidotes" &&
+      rewardDescription.counterKind == XeenItemCounterKind::Charges &&
+      rewardDescription.counter == 1,
+      "genuine Myra reward catalog description differs");
      phase = Phase::Receipt;
      visual_remove_test::save(flow->frame(), dir/(name + "-receipt.bmp"));
      announce("Reward receipt: five delivered, zero loss/overflow. Press F9 while pending, then acknowledge every page.");

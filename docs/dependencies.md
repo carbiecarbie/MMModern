@@ -132,6 +132,84 @@ references remain; successful compilation alone is not sufficient.
 
 No file in the pinned ScummVM source checkout is modified by this process.
 
+## Build-generated English item catalog
+
+Milestone 24A derives the embedded English catalog directly from one immutable
+object in the pinned ScummVM repository:
+
+- path `devtools/create_mm/files/xeen/CONSTANTS_7`;
+- Git blob `455b2eb3900a60be910e4d045d103a73586e73b0`;
+- 35,065 bytes; SHA-256
+  `a3022d378e7570a56332f30128942afe02ae2bfdef70c307b2de997eb07a9e77`.
+
+ScummVM's `LangConstants::writeConstants` produces this tracked artifact from
+the language getters. At the pinned revision it writes `ITEM_BROKEN`,
+`ITEM_CURSED`, `ITEM_OF`, then the six required arrays with counts
+7/41/14/11/22/74. MMModern parses only that bounded block, byte range
+`[20680,22438)`, rather than the complete unversioned constants stream.
+
+`tools/GenerateXeenItemCatalog.ps1` requires exact checkout HEAD, exact tree
+entry mode/path/blob ID, size and independent SHA-256. It then reads the blob
+through `git cat-file`, never through the ScummVM worktree. Inherited `GIT_*`
+state, replacement objects and global/system Git configuration are removed from
+the plumbing process. Only the verified blob supplies catalog bytes; mutable
+worktree files and compiler inputs are outside the generation boundary.
+
+No ScummVM header is compiled and no compiler preprocessing participates in
+catalog generation.
+
+The generator validates the three nonempty scalar strings, exact array tags and
+counts, reserved/required entries, the fixed block end, a 63-byte token limit and
+the 16,384-byte aggregate output limit. It emits deterministic fixed-width octal
+escapes with schema 1, English language ID 7 and the exact revision marker.
+Publication uses a flushed sibling temporary file and atomic replacement;
+Windows PowerShell passes `NullString.Value` as the CLR-null backup path to
+`File.Replace`. Failed replacement preserves the previous destination and cleans
+the temporary file; unchanged output is not rewritten. The private include remains
+ignored, build-tree-only and unavailable as runtime or installed companion data.
+
+Generation runs during configuration and on every build, so a wrong repository
+revision or object identity fails immediately and stale generated output cannot
+bypass the gate. The build-only generator uses Windows' inbox PowerShell/.NET and
+Git and adds no application runtime dependency. Cross-compilation remains
+unsupported.
+
+The embedded source-derived names are distinct from commercial material text.
+At runtime MMModern reads only `mae.xen` through the selected installation's
+`DARK.CC`; it does not load ScummVM's `mm.dat`, the generated include, the ScummVM
+source tree, a working-directory catalog or an environment-selected companion.
+The parser accepts exactly 131 bounded NUL-terminated entries and publishes no
+partial table on missing, malformed or failed reads. Such failures retain bounded
+base-name/numeric fallback behavior and do not prevent startup.
+
+For this optional member only, the bridge uses the existing lazy Dark archive and
+its decoded index entry, checks the indexed `mae.xen` extent against the opened
+archive size, then performs a checked read and XOR decode. It therefore does not
+invoke ScummVM's fatal member short-read path for `mae.xen`. With a valid loaded
+CC index, a missing member is `Missing`, structurally invalid readable bytes are
+`Malformed`, and an invalid extent or short read is `ReadError`. This narrow
+recovery does not change `clouds.dat`, other required-resource behavior, or claim
+recovery from a corrupt archive index that fails during ordinary CC construction.
+
+The normal configure/build commands below reproduce the adapter. Its focused
+validation is:
+
+```sh
+cmake --build <mmodern-build> --parallel 4 --target \
+  mmodern_item_catalog_data mmodern_item_catalog_smoke
+ctest --test-dir <mmodern-build> --output-on-failure \
+  -R '^xeen_item_catalog($|_)'
+<mmodern-build>/mmodern_item_catalog_smoke.exe <game-directory>
+<mmodern-build>/mmodern_item_catalog_smoke.exe --verify-reference \
+  <game-directory> <scummvm-source>
+```
+
+The pinned blob and generated text remain ScummVM GPLv3-or-later-derived material.
+Preserve the upstream license notices, contributor attribution, exact revision,
+blob/path identity and corresponding source availability in distributions.
+Commercial `DARK.CC/mae.xen`, extracted `mae.cld`, original archives and
+original-data fixtures remain external and must not be bundled.
+
 ## MMModern configuration and validation
 
 Configure MMModern in its own new build directory with explicit dependency

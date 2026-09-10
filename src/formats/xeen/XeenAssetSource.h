@@ -39,6 +39,8 @@ public:
 	std::size_t spriteLoadCount() const;
 	// Explicit physical origin; nullopt means archive/member absent, not empty.
 	std::optional<std::vector<std::uint8_t>> readCloudsVisualMetadataFromDarkArchive();
+	// Optional commercial English material names from exactly DARK.CC/mae.xen.
+	std::optional<std::vector<std::uint8_t>> readItemMaterialNamesFromDarkArchive();
 	void drawObjectVisual(const XeenObjectVisual &visual, int x, int y,
 		const XeenSpriteDrawOptions &options = {});
 	bool hasArchiveResource(const std::string &resourceName);
