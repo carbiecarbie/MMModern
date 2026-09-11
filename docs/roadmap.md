@@ -1,27 +1,24 @@
 # MMModern - Roadmap
 
-**Milestone 26 is the latest completed milestone.**
+**Milestone 27 is the latest completed milestone.**
 [Project status](project-status.md) owns current capabilities;
-[project history](project-history.md) and the [closed M26 plan](milestone-26-plan.md)
+[project history](project-history.md) and the [closed M27 plan](milestone-27-plan.md)
 own completed work. Reference provenance belongs to [dependencies](dependencies.md).
 
 ## Current planning state
 
-The maintainer-approved bounded Clouds combat direction and Skeleton anchor now
-have an accepted M26 actor/approach and terminal engagement foundation.
-**M27 is the immediate next milestone**, for separate detailed planning of the
-existing bounded Attack/Block objective. The
-[M27 investigation/specification](milestone-27-plan.md) records the proposed
-detailed contracts for review, without implementation authorization.
-M28 remains the provisional persistence boundary. The
-[closed M26 plan](milestone-26-plan.md) owns the completed resource,
-actor, scheduling and presentation contracts. Roadmap approval and M26 acceptance
-do not authorize M27 implementation. Later details remain subject to the
+The bounded Clouds Skeleton anchor now has accepted actor approach and playable
+Attack/Block combat with original outcomes and MON/ATT appearance.
+**M28 — Durable bounded encounter completion and revisit is the immediate next
+milestone**, retaining provisional planning status. The
+[closed M27 plan](milestone-27-plan.md) owns the completed combat rules,
+authority, production coordination, appearance and persistence boundary.
+M27 acceptance does not authorize M28 planning or implementation. Later details remain subject to the
 [documented replanning rules](#replanning-and-review-cadence).
 
-Continue the bounded diagnostic encounter through combat actions and then durable
-completion. M25 equipment and M26 actor authority are available foundations;
-attack, defense, combat progression and encounter persistence remain future work.
+Continue the bounded diagnostic encounter through durable completion. M27's
+attack, defense, combat progression and actor authority are accepted foundations;
+encounter persistence and revisit remain future work.
 Normal-start navigation and inventory completion are not prerequisites for this arc.
 
 The implementation agent investigates and implements authorized work; the
@@ -75,65 +72,20 @@ first Attack/Block domain; neither means a harmless exit to the entry cell.
 Leaving the supported envelope must report a diagnostic boundary before advancing
 unsupported gameplay. It must not present an invisible wall as original geography.
 
-M26 accepted the exact entry, activation, delayed approach, source-faithful actor
-composition and same-cell pre-combat stopping boundary, including independent
-review and maintainer native SDL acceptance. The initial and one-forward views
-may leave the actor hidden by forest occlusion; identifiable engagement is the
-accepted visual boundary. Reference behavior derives from pinned source plus
-bounded extracted-harness evidence, not full ScummVM encounter/combat execution.
-M27 must specify its combat rules separately against that reference.
+M26 accepted the exact entry, activation, delayed approach and same-cell
+engagement boundary. M27 accepted the bounded Attack/Block rules, original
+MON/ATT composition, readable results and terminal outcomes. The initial and
+one-forward views may leave the actor hidden by source-faithful forest occlusion;
+neither milestone certifies wider map travel or a generally playable region.
 
 ## Preferred milestone sequence
 
-### M27 - Playable Attack/Block encounter with original outcomes
+### Completed foundation: M27 Attack/Block combat
 
-**Objective and observable result:** play a sequence of original melee Attack and
-Block actions against that Skeleton, with identifiable current actor/target,
-misses, damage, mandatory enemy turns, party injury and either victory or party
-defeat. This is the first playable exchange of combat actions. Victory removes
-the original actor and awards the applicable XP once within the session; there
-is no fabricated treasure reward.
-
-**Scope and order:** build on M26's actor and engagement owner. Add only the
-character inputs and calculations used by these paths: Might, Accuracy, Speed,
-temporary AC, relevant equipped-item effects, age/level/difficulty contributions,
-hit and damage rules, initiative, Block, eligible target selection and progression.
-Reuse roster-owned HP/SP, conditions, item bytes and existing maximum-HP rules.
-Honor the Skeleton's resistance and Cleric preference, negative HP, unconsciousness,
-death and required equipped-armor breakage. Do not substitute arbitrary formulas
-or drop a second damage application present in a reference critical-hit branch.
-Random decisions need deterministic test control, separate from visual randomness.
-
-The initial combat domain is the original unique six-member party, its original
-item records and supported M24/M25 rearrangements, initially Good, plus conditions
-and item breakage reachable through the supported fight. Effects of every admitted
-loadout must be handled, including the initially unequipped attribute ring if
-admitted after Equip. A bow can remain equipped without making Shoot supported.
-Opaque items, arbitrary legacy loadouts, alias parties, active spell buffs and
-other conditions require explicit combat admission decisions; preserve their
-existing storage/inspection behavior rather than silently normalizing them.
-Shops, repair, identification, consumables, spells, ranged attacks, combat-time
-inventory mutations, Run and combat rotation remain outside this slice.
-
-Original rounds/end transitions advance game time. Specify a bounded daytime
-window from the initial day 1/year 610/minute 480 state, with explicit refusal
-before unimplemented time effects; unlimited Block cannot silently freeze time.
-A terminal defeat must stop gameplay without invented healing. Repair, rest or
-resurrection are not prerequisites for demonstrating a single victory/defeat.
-
-**Acceptance:** independent literal rule/RNG oracles and original party/item
-comparisons; complete visible victory and loss evidence, forced retaliation,
-critical hit, Block, injury/breakage, XP eligibility/rounding and no duplicate
-outcome after failed drawing or repeated input. Tests must distinguish command
-rejection from turn consumption and cosmetic waits from gameplay advancement.
-Maintainer physical SDL acceptance observes a real exchange and readable outcomes.
-This is session gameplay: F9 remains unavailable for the encounter session even
-after victory until M28 can capture every new authoritative value.
-
-**Confidence:** medium for the Attack/Block objective; lower for exact workload
-until the bounded rule domain is specified. Split internal delivery only for
-independently testable contracts; do not declare a damage calculator or an enemy
-image to be this milestone's playable result.
+M27 delivered the bounded playable exchange, original outcomes and MON/ATT
+appearance described in the [closed plan](milestone-27-plan.md). Its encounter
+remains deliberately unsaveable; that accepted limitation is the starting point
+for M28, not unfinished M27 scope.
 
 ### M28 - Durable bounded encounter completion and revisit
 
@@ -184,7 +136,7 @@ unresolvable migration conflict require review before widening implementation.
 - Keep roster characters/items and party progression in the accepted party owner,
   and committed camera/game flags with their existing owner. Monster identity is
   side/map/original monster-record index, distinct from ordinary-object identity.
-  M26 supplies authoritative live monster HP/position/lifecycle in the world owner;
+  M26/M27 supply authoritative live monster HP/position/lifecycle in the world owner;
   preserve its separation from disabled-object/event sets and immutable MOB caches.
 - Input/modal coordination must prevent navigation, events, inventory/equipment,
   saving and combat from advancing incompatible work simultaneously. Reuse the
@@ -196,8 +148,8 @@ unresolvable migration conflict require review before widening implementation.
   admitted gameplay-time/context values are authoritative. Statistics, occupancy
   queries, scene commands and sprite frames are derived; reconstruction cannot
   award XP or advance a turn. M26 extracts reference render-coupled activation and
-  delayed movement into explicit domain publications and Flow pulses. Combat
-  must preserve that separation from composition.
+  delayed movement into explicit domain publications and Flow pulses; M27
+  preserves that separation for combat and MON/ATT cosmetics.
 - Existing inventory/catalog/equipment acceptance is reusable infrastructure;
   it is not acceptance of combat effects for every storable item. Conversely,
   missing combat integration does not justify rebuilding the accepted inventory,

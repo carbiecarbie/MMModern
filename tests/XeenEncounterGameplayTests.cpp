@@ -69,11 +69,12 @@ struct Harness {
 				XeenActorApproach::initialize(w,p,c,state,domain.statistics,domain.context,domain.evt);
 		};
 		s.validateEncounterSprite=[&](std::uint8_t image){++validated;if(assets)assets->validateNormalMonster(image);};
-		s.composeEncounter=[&](XeenWorld &w,const XeenPartyState &p,const XeenCamera &c,std::uint64_t ordinaryPhase,std::uint8_t actorFrame){
+		s.composeEncounter=[&](XeenWorld &w,const XeenPartyState &p,const XeenCamera &c,std::uint64_t ordinaryPhase,XeenMonsterAppearance actorFrame){
 			++composed;check(w.sessionState().encounterInitialized()&&p.encounterContext,"composition before initialization");
 			XeenEventFlow::Composition result;
 			if(assets) result.frame=CloudsMapComposer().compose(*assets,w,p,c,{610},nullptr,ordinaryPhase,&result.containsOrdinaryAnimation,actorFrame);
-			else {result.frame.width=320;result.frame.height=200;result.frame.pixels.resize(64000);result.frame.pixels[0]=actorFrame;}
+			else {check(actorFrame.kind==XeenMonsterSpriteKind::Normal && actorFrame.valid(),"M26 normal appearance");
+				result.frame.width=320;result.frame.height=200;result.frame.pixels.resize(64000);result.frame.pixels[0]=actorFrame.frame;}
 			return result;
 		};
 		s.observeSaveStage=[&](auto){++saveStages;};return s;
@@ -286,7 +287,7 @@ void sprites(const fs::path &out) {
 		for(unsigned frame=0;frame<8;++frame){a.drawNormalMonster(42,frame,0,0,options);check(a.snapshot().pixels[20*320+20]==frame+1,"normal frame pixels");}
 		a.discardSpriteCache();a.validateNormalMonster(42);check(a.spriteLoadCount()==2,"normal cache reconstruction");}
 	{XeenAssetSource a(i,320,200);
-		XeenOutdoorDrawCommand actor;actor.originalOrder=94;actor.content=XeenOutdoorActorDraw{{20,5},42,0,3,0,false};
+		XeenOutdoorDrawCommand actor;actor.originalOrder=94;actor.content=XeenOutdoorActorDraw{{20,5},42,0,XeenMonsterSpriteKind::Normal,3,0,false};
 		XeenOutdoorDrawCommand terrain;terrain.originalOrder=105;terrain.content=XeenOutdoorTerrainDraw{"terrain",0,{}};
 		XeenObjectVisual visual;visual.identity={20,0};visual.spriteName="object";visual.status=XeenObjectVisualStatus::SupportedStatic;
 		XeenOutdoorDrawCommand object;object.originalOrder=110;object.content=XeenOutdoorObjectDraw{visual,0,false};
@@ -310,6 +311,42 @@ void sprites(const fs::path &out) {
 	frames[7].first.pop_back();sprite_test::archive(i.xeenArchive,{{"042.mon",sprite_test::multiFrameSprite(frames)}});
 	{XeenAssetSource a(i,320,200);rejects([&]{a.validateNormalMonster(42);});}
 	{XeenAssetSource a(i,320,200);a.drawSprite("042.mon",0,0,0);rejects([&]{a.validateNormalMonster(42);});}
+	frames.resize(4);
+	const auto attack=sprite_test::multiFrameSprite(frames);
+	sprite_test::archive(i.xeenArchive,{{"042.att",attack},{"blank",Bytes(64000)},{"terrain",occluder}});
+	{XeenAssetSource a(i,320,200);a.validateAttackMonster(42);
+		check(a.spriteLoadCount()==1,"ATT admission cache");
+		rejects([&]{a.validateNormalMonster(42);});
+		XeenSpriteDrawOptions options;options.sceneClipped=true;
+		for(std::uint8_t f=0;f<4;++f){a.drawMonster(42,{XeenMonsterSpriteKind::Attack,f},0,0,options);
+			check(a.snapshot().pixels[20*320+20]==f+1,"four ATT frame pixels");}
+		rejects([&]{a.drawMonster(42,{XeenMonsterSpriteKind::Attack,4},0,0,options);});
+		options.horizontalFlip=true;rejects([&]{a.drawMonster(42,{XeenMonsterSpriteKind::Attack,0},0,0,options);});
+		options.horizontalFlip=false;
+		a.discardSpriteCache();a.validateAttackMonster(42);check(a.spriteLoadCount()==2,"ATT cache reconstruction");
+		CloudsMapComposer composer;
+		XeenOutdoorDrawCommand actor;actor.originalOrder=121;
+		actor.content=XeenOutdoorActorDraw{{20,5},42,0,XeenMonsterSpriteKind::Attack,0,0,true};
+		XeenOutdoorDrawCommand terrain;terrain.originalOrder=120;terrain.content=XeenOutdoorTerrainDraw{"terrain",0,{}};
+		a.loadRawFramebuffer("blank");composer.drawOutdoorCommands(a,{terrain,actor});
+		check(a.snapshot().pixels[20*320+20]==1,"ATT order121 after120");
+		a.loadRawFramebuffer("blank");composer.drawOutdoorCommands(a,{actor,terrain});
+		check(a.snapshot().pixels[20*320+20]==99,"later terrain still occludes ATT");
+		for(const auto &[x,y,visible]:std::vector<std::tuple<int,int,bool>>{{7,20,false},{8,20,true},{222,20,true},
+			{223,20,false},{20,7,false},{20,8,true},{20,139,true},{20,140,false}}){
+			a.loadRawFramebuffer("blank");actor.x=x-20;actor.y=y-20;composer.drawOutdoorCommands(a,{actor});
+			check((a.snapshot().pixels[y*320+x]==1)==visible,"ATT scene/bottom clip edge");
+		}
+	}
+	for(unsigned bad=0;bad<3;++bad){
+		auto broken=frames;
+		if(bad==0)broken.resize(3);
+		if(bad==1)broken.push_back(frames[0]);
+		if(bad==2)broken[3].first.pop_back();
+		sprite_test::archive(i.xeenArchive,{{"042.att",sprite_test::multiFrameSprite(broken)}});
+		{XeenAssetSource a(i,320,200);rejects([&]{a.validateAttackMonster(42);});check(a.cachedSpriteCount()==0,"bad ATT cached");}
+		{XeenAssetSource a(i,320,200);a.drawSprite("042.att",0,0,0);rejects([&]{a.validateAttackMonster(42);});}
+	}
 	fs::remove(i.xeenArchive);
 }
 }

@@ -27,7 +27,9 @@ struct Production : Fixture {
 		flow=std::make_unique<XeenEventFlow>(world,system,p,camera,flags,font,
 			[](std::uint64_t)->XeenEventFlow::Composition{throw std::runtime_error("ordinary composer reached");},
 			XeenEventPresenter::NpcDraw{},[&]{if(onClock){auto callback=onClock;callback();}return now;},
-			XeenEventPresenter::RandomFrame{},nullptr,&setup,[&](std::uint64_t ordinary,std::uint8_t frame){
+			XeenEventPresenter::RandomFrame{},nullptr,&setup,[&](std::uint64_t ordinary,XeenMonsterAppearance appearance){
+				check(appearance.kind==XeenMonsterSpriteKind::Normal && appearance.valid(),"M26 normal appearance");
+				const auto frame=appearance.frame;
 				++compositions;
 				ordinaryPhases.push_back(ordinary);
 				if(onCompose){auto callback=onCompose;callback();}
@@ -282,6 +284,16 @@ void projections() {
 		check(a&&a->image==42&&a->frame==7&&a->identity.recordIndex==5&&a->selectedSlot==slots[placement]&&
 			v.originalOrder==orders[placement]&&v.sampleIndex==queries[placement]&&v.x==xs[placement]&&v.y==(placement?34:2)&&
 			options.scaleIndex==(placement?8:0)&&options.bottomClipped==(placement==0)&&options.sceneClipped&&!options.horizontalFlip&&!options.enlarge,"literal monster placement");
+		for(std::uint8_t frame=0;frame<4;++frame) {
+			const XeenMonsterAppearance attack{XeenMonsterSpriteKind::Attack,frame};
+			if(placement) { rejects([&]{XeenOutdoorScene::actorCommands(actors,c,attack);}); continue; }
+			const auto draws=XeenOutdoorScene::actorCommands(actors,c,attack);
+			const auto &draw=draws.at(0);
+			check(draw.originalOrder==121&&draw.x==-5&&draw.y==2&&draw.actor()->kind==XeenMonsterSpriteKind::Attack&&
+				draw.actor()->frame==frame&&draw.drawOptions().scaleIndex==0&&draw.drawOptions().sceneClipped&&
+				draw.drawOptions().bottomClipped,"literal ATT placement");
+		}
+		rejects([&]{XeenOutdoorScene::actorCommands(actors,c,{XeenMonsterSpriteKind::Attack,4});});
 	}
 	actors[0].x=13;actors[0].y=2;rejects([&]{XeenOutdoorScene::actorCommands(actors,XeenActorApproach::kEntry,0);});
 }

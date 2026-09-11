@@ -56,7 +56,7 @@ XeenSpriteDrawOptions optionsFor(const Placement &placement) {
 std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::build(
 		XeenWorld &world, const XeenCamera &camera,
 		const XeenObjectVisualResolver *resolver, std::vector<XeenObjectVisual> *diagnostics,
-		std::optional<std::uint64_t> ordinaryPhase, std::optional<std::uint8_t> actorFrame) const {
+		std::optional<std::uint64_t> ordinaryPhase, std::optional<XeenMonsterAppearance> actorFrame) const {
 	// Retain values before terrain/resource providers can publish or discard caches.
 	const auto actors = actorFrame ? actorCommands(world.sessionState().actors(), camera, *actorFrame) :
 		std::vector<XeenOutdoorDrawCommand>{};
@@ -169,8 +169,8 @@ std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::build(
 }
 
 std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::actorCommands(
-		const std::vector<XeenActor> &actors, const XeenCamera &camera, std::uint8_t frame) {
-	if (frame >= 8) throw std::invalid_argument("Unsupported normal actor frame");
+		const std::vector<XeenActor> &actors, const XeenCamera &camera, XeenMonsterAppearance appearance) {
+	if (!appearance.valid()) throw std::invalid_argument("Unsupported actor appearance");
 	const auto view = XeenActorApproach::classify(actors, camera);
 	std::vector<XeenOutdoorDrawCommand> commands;
 	for (std::size_t i = 0; i < actors.size(); ++i) {
@@ -180,10 +180,13 @@ std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::actorCommands(
 			a.lifecycle != XeenActorLifecycle::Present || a.status != XeenActorStatus::Physical)
 			throw std::runtime_error("Unsupported visible encounter actor");
 		XeenOutdoorDrawCommand c;
-		XeenOutdoorActorDraw draw{a.id, a.statistics->image(), frame};
+		XeenOutdoorActorDraw draw{a.id, a.statistics->image(), appearance.frame, appearance.kind};
+		if (appearance.kind == XeenMonsterSpriteKind::Attack && *view.placements[i] != XeenActorPlacement::SameCell)
+			throw std::invalid_argument("Attack appearance requires same-cell placement");
 		switch (*view.placements[i]) {
 		case XeenActorPlacement::SameCell:
-			c.sampleIndex=2; draw.selectedSlot=0; c.originalOrder=118; c.x=-5; c.y=2;
+			c.sampleIndex=2; draw.selectedSlot=0;
+			c.originalOrder=appearance.kind == XeenMonsterSpriteKind::Attack ? 121 : 118; c.x=-5; c.y=2;
 			draw.scaleIndex=0; draw.bottomClipped=true; break;
 		case XeenActorPlacement::Forward:
 			c.sampleIndex=7; draw.selectedSlot=3; c.originalOrder=94; c.x=-7; c.y=34; draw.scaleIndex=8; break;

@@ -199,12 +199,12 @@ struct ScummVmXeenBridge::Impl {
 	}
 
 	StreamSpriteResource &sprite(const std::string &resourceName,
-			std::optional<std::size_t> checkedFrame = std::nullopt, bool normalMonster = false) {
+			std::optional<std::size_t> checkedFrame = std::nullopt, unsigned monsterFrames = 0) {
 		const auto validate = [&](const std::vector<std::uint8_t> &bytes) {
-			if (normalMonster) {
-				if (bytes.size() < 2 || bytes[0] != 8 || bytes[1] != 0)
-					throw std::runtime_error("Normal monster requires eight frames");
-				for (std::size_t i = 0; i < 8; ++i) validateXeenObjectSprite(bytes, i);
+			if (monsterFrames) {
+				if (bytes.size() < 2 || bytes[0] != monsterFrames || bytes[1] != 0)
+					throw std::runtime_error("Unexpected monster sprite frame count");
+				for (std::size_t i = 0; i < monsterFrames; ++i) validateXeenObjectSprite(bytes, i);
 			} else if (checkedFrame) validateXeenObjectSprite(bytes, *checkedFrame);
 		};
 		const auto existing = sprites.find(resourceName);
@@ -244,7 +244,10 @@ std::size_t ScummVmXeenBridge::cachedSpriteCount() const { return _impl->sprites
 std::size_t ScummVmXeenBridge::spriteLoadCount() const { return _impl->spriteLoads; }
 
 void ScummVmXeenBridge::validateNormalMonster(const std::string &resourceName) {
-	_impl->sprite(resourceName, std::nullopt, true);
+	_impl->sprite(resourceName, std::nullopt, 8);
+}
+void ScummVmXeenBridge::validateAttackMonster(const std::string &resourceName) {
+	_impl->sprite(resourceName, std::nullopt, 4);
 }
 
 std::optional<std::vector<std::uint8_t>> ScummVmXeenBridge::readCloudsVisualMetadataFromDarkArchive() {

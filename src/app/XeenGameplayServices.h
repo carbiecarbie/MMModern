@@ -30,8 +30,9 @@ struct XeenGameplayServices {
  const XeenItemCatalog *catalog = nullptr;
  decltype(XeenEncounterSetup::initialize) initializeEncounter;
  decltype(XeenEncounterSetup::validateNormalSprite) validateEncounterSprite;
+ decltype(XeenEncounterSetup::validateAttackSprite) validateCombatSprite;
  std::function<XeenEventFlow::Composition(XeenWorld &, const XeenPartyState &, const XeenCamera &,
-   std::uint64_t, std::uint8_t)> composeEncounter;
+   std::uint64_t, XeenMonsterAppearance)> composeEncounter;
  enum class SaveStage { Capture, Preflight, Write };
  std::function<void(SaveStage)> observeSaveStage;
  decltype(XeenEncounterSetup::prepareCombat) prepareCombat;

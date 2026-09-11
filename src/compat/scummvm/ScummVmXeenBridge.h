@@ -35,6 +35,7 @@ public:
 	// Successful resource reads + SpriteResource constructions, not draw calls.
 	std::size_t spriteLoadCount() const;
 	void validateNormalMonster(const std::string &resourceName);
+	void validateAttackMonster(const std::string &resourceName);
 	std::optional<std::vector<std::uint8_t>> readCloudsVisualMetadataFromDarkArchive();
 	std::optional<std::vector<std::uint8_t>> readItemMaterialNamesFromDarkArchive();
 	std::optional<std::vector<std::uint8_t>> readCloudsMonsterStatisticsFromDarkArchive();

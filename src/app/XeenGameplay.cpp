@@ -58,10 +58,11 @@ int Application::playGameplay(const XeenGameplayServices &services, XeenCamera c
   if (entry == XeenEncounterEntry::Diagnostic27) {
    if (!services.prepareCombat) throw std::invalid_argument("Missing combat preparation provider");
    setup->prepareCombat = services.prepareCombat;
+   setup->validateAttackSprite = services.validateCombatSprite;
   }
   XeenEventFlow flow(world, events, party, camera, flags, services.font,
    [&](std::uint64_t phase) { return services.compose(world, party, camera, phase); }, services.npcDraw, services.clock, {}, services.catalog,
-   setup ? &*setup : nullptr, [&](std::uint64_t ordinary, std::uint8_t actor) {
+   setup ? &*setup : nullptr, [&](std::uint64_t ordinary, XeenMonsterAppearance actor) {
     const auto observedCamera = camera;
     if (entry == XeenEncounterEntry::Diagnostic27)
      return services.composeEncounter(world, party, observedCamera, ordinary, actor);

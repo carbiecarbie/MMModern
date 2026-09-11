@@ -6,7 +6,7 @@ Might and Magic V: Darkside of Xeen / World of Xeen.
 
 ## Status
 
-**Milestone 26 is the latest completed milestone.**
+**Milestone 27 is the latest completed milestone.**
 
 The engine supports a bounded Clouds quest loop: request a quest, collect an
 item, return it for character-held rewards, and save/resume the resulting progress.
@@ -19,9 +19,11 @@ during dialogue. Static ordinary indoor objects use original directional
 appearances, placement and wall occlusion; the bounded Nightshadow gravestone
 interaction displays its original clue through the existing event flow.
 
-The Diagnostic26 entry presents an original outdoor Skeleton, supports
-its activation and approach, and stops at terminal same-cell engagement before
-combat. This encounter is unsaveable and does not enable normal-start gameplay.
+The Diagnostic26 entry presents an original outdoor Skeleton, supports its
+activation and approach, and stops at terminal same-cell engagement. Diagnostic27
+continues that bounded encounter through playable Attack/Block combat with
+original MON/ATT appearance, injury, armor breakage, victory/defeat and once-only
+XP. Both diagnostics are unsaveable and do not enable normal-start gameplay.
 
 MMModern remains incomplete and experimental. It is not yet a generally playable
 replacement for the original games: general combat, item use, complete item effects and Darkside
@@ -40,7 +42,8 @@ See the [technical snapshot](docs/project-status.md),
 
 - Original Clouds resource loading, outdoor/indoor rendering, navigation and collision.
 - Resource-derived outdoor monster state, normal sprite and delayed approach at
-  one bounded Skeleton checkpoint, with terminal pre-combat engagement.
+  one bounded Skeleton checkpoint, plus playable Attack/Block combat with original
+  attack sprites and outcomes in Diagnostic27.
 - Supported static and ordinary animated outdoor objects and static ordinary
   indoor objects, with persistent removal after interactions. Indoor ordinary
   animation remains unsupported.
@@ -86,8 +89,8 @@ displayed character; enemy and round work continues automatically. All phases,
 including victory and defeat, refuse saving and cannot return to exploration.
 The optional nonzero 32-bit seed reproduces diagnostic RNG. Save options, camera
 overrides and other entry modes cannot be combined with this entry.
-Normal actor sprites are used; original attack appearance and combined physical
-acceptance belong to [M27C](docs/milestone-27-plan.md#27c---original-combat-appearance-and-complete-acceptance).
+Combat uses the original normal and attack sprites with bounded source-derived
+sequences, while the live roster panel retains injuries and terminal XP results.
 
 | Key | Action |
 | --- | --- |
@@ -102,7 +105,7 @@ acceptance belong to [M27C](docs/milestone-27-plan.md#27c---original-combat-appe
 | . | Wait in the diagnostic encounter; no action elsewhere |
 | F9 | Save an eligible idle session; refused in encounter mode or while inventory is open |
 | I | Open inventory while idle; close while browsing; also print live diagnostics on opening |
-| Escape | Back/cancel transfer or close inventory; cancel WhoWill; acknowledge NPC/reward pages; otherwise exit |
+| Escape | Exit either diagnostic session; otherwise back/cancel transfer or close inventory, cancel WhoWill, acknowledge NPC/reward pages, or exit |
 
 Movement and ordinary interaction are blocked while a response is required;
 repeated keydown events are ignored. NPC dialogue and reward pages accept
@@ -140,6 +143,8 @@ SDL backend. The exact pin and configuration live in
   ownership, persistence and boundaries.
 - [Project history](docs/project-history.md): concise completed milestones and plan links.
 - [Roadmap](docs/roadmap.md): future direction and planning review cadence.
+- [Milestone 27 plan](docs/milestone-27-plan.md): closed bounded combat rules,
+  ownership, original appearance, persistence boundary and acceptance results.
 - [Milestone 26 plan](docs/milestone-26-plan.md): closed actor/approach, timing,
   engagement and unsaveable-session contracts, with acceptance results.
 - [Milestone 25 plan](docs/milestone-25-plan.md): closed bounded equipment

@@ -14,7 +14,7 @@ void CloudsMapComposer::drawOutdoorCommands(XeenAssetSource &assets,
 		if (const auto *object = command.object())
 			assets.drawObjectVisual(object->visual, command.x, command.y, command.drawOptions());
 		else if (const auto *actor = command.actor())
-			assets.drawNormalMonster(actor->image, actor->frame, command.x, command.y, command.drawOptions());
+			assets.drawMonster(actor->image, {actor->kind, actor->frame}, command.x, command.y, command.drawOptions());
 		else
 			assets.drawSprite(command.terrain().resourceName, command.terrain().frame,
 				command.x, command.y, command.drawOptions());
@@ -63,10 +63,16 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 		const XeenCharacterRulesContext &context,
 		std::vector<XeenObjectVisual> *objectDiagnostics,
 		std::optional<std::uint64_t> ordinaryPhase, bool *containsOrdinaryAnimation,
-		std::optional<std::uint8_t> actorFrame) const {
+		std::optional<XeenMonsterAppearance> actorFrame) const {
 	if (containsOrdinaryAnimation) *containsOrdinaryAnimation = false;
 	bool emittedAnimation = false;
 	if (objectDiagnostics) objectDiagnostics->clear();
+	// Revalidate the complete admitted appearance set through the same cache
+	// owner, including after a cache discard while a different frame is visible.
+	if (world.sessionState().encounterEntry() == XeenEncounterEntry::Diagnostic27) {
+		assets.validateNormalMonster(8);
+		assets.validateAttackMonster(8);
+	}
 	CloudsUiComposer().loadBackground(assets);
 
 	const XeenMap &map = world.map(camera.mapId);

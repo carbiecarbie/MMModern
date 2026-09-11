@@ -27,12 +27,14 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 	_world(w), _party(p), _camera(c), _clock(clock), _events(setup.events), _boundary(w,p,c) {
 	if (setup.prepareCombat) {
 		_combat = setup.prepareCombat(w,p,c,_boundary);
-		if (!_combat || !_combat->boundTo(w,p,c,_boundary) || !preparation() || !setup.validateNormalSprite)
+		if (!_combat || !_combat->boundTo(w,p,c,_boundary) || !preparation() || !setup.validateNormalSprite || !setup.validateAttackSprite)
 			throw std::invalid_argument("Missing combat preparation providers");
 		const auto entry = ticket();
 		try {
 			setup.validateNormalSprite(8);
 			if (!current(entry)) throw std::runtime_error("Stale combat sprite admission");
+			setup.validateAttackSprite(8);
+			if (!current(entry)) throw std::runtime_error("Stale combat attack sprite admission");
 		} catch (...) { fail(entry, XeenEncounterStop::Preparation); throw; }
 		return;
 	}
@@ -239,6 +241,10 @@ void XeenEncounterFlow::presented(const Ticket &entry) {
 	}
 	_lastTime=now;
 	scheduleCombat(now);
+	if (_appearanceAfterFrame) {
+		_cosmeticDeadline = now + 100;
+		_appearanceAfterFrame = false;
+	}
 	_scheduleAfterFrame=false;
 }
 bool XeenEncounterFlow::acceptCombatResult(const XeenCombatResult &result) {
@@ -260,11 +266,32 @@ bool XeenEncounterFlow::handoffCombat() {
 	}
 	return true;
 }
-void XeenEncounterFlow::observeCombat() noexcept {
+bool XeenEncounterFlow::observeCombat() noexcept {
 	const auto &r = _combat->result();
 	if (r.xpCount) _combatAward = r;
 	if (r.operation == XeenCombatOperation::PlayerAttack || r.operation == XeenCombatOperation::Block ||
 		r.operation == XeenCombatOperation::EnemyAttack) _combatObservation = r;
+	// Only a published attack starts an effect. Pending RNG prefixes, retained
+	// feedback, round work and redraws cannot restart it.
+	if (r.attackOutcome == XeenCombatAttackOutcome::Pending) return false;
+	if (r.operation == XeenCombatOperation::EnemyAttack) {
+		_frame = 8; _appearanceStep = 0; _appearanceAfterFrame = true; return true;
+	}
+	if (r.operation == XeenCombatOperation::PlayerAttack && r.damage > 0) {
+		_frame = _world.sessionState().actors()[5].hp > 0 ? 11 : 0;
+		_appearanceStep = 0; _appearanceAfterFrame = true; return true;
+	}
+	return false;
+}
+void XeenEncounterFlow::advanceAppearance() noexcept {
+	// Pinned animate3d: enemy 8,9,10,10,10,0; physical hit 11
+	// for five advances, then 0. One step per observed 100 ms, no backlog.
+	if (_frame == 11) {
+		if (++_appearanceStep == 5) _frame = 0;
+	} else if (_frame >= 8) {
+		constexpr std::uint8_t sequence[]{9,10,10,10,0};
+		_frame = sequence[_appearanceStep++];
+	} else _frame = (_frame + 1) % 8;
 }
 bool XeenEncounterFlow::handleCombat(const PlayerAction &input, std::optional<std::uint64_t> cycle) {
 	using P = XeenCombatPhase;
@@ -306,7 +333,7 @@ bool XeenEncounterFlow::handleCombat(const PlayerAction &input, std::optional<st
 		}
 	}
 	if (!handoffCombat()) return true;
-	observeCombat();
+	if (observeCombat()) _cosmeticDeadline = now + 100;
 	_inputCycle = cycle;
 	_lastTime = now;
 	if (begin) _cosmeticDeadline = now + 100;
@@ -325,6 +352,7 @@ bool XeenEncounterFlow::idleCombat(std::optional<std::uint64_t> cycle) {
 	}
 	const bool due = _deadline && now >= *_deadline && !(cycle && _inputCycle == cycle);
 	const bool cosmetic = now >= _cosmeticDeadline;
+	bool startedAppearance = false;
 	_lastTime = now;
 	if (due) {
 		const auto result = _combat->phase() == XeenCombatPhase::Approach ?
@@ -332,11 +360,12 @@ bool XeenEncounterFlow::idleCombat(std::optional<std::uint64_t> cycle) {
 		if (!acceptCombatResult(result)) return false;
 		if (!handoffCombat()) return false;
 		_inputCycle = cycle;
-		observeCombat();
+		startedAppearance = observeCombat();
+		if (startedAppearance) _cosmeticDeadline = now + 100;
 		scheduleCombat(now);
 	}
-	if (cosmetic && !terminal()) {
-		_frame = (_frame + 1) % 8;
+	if (cosmetic && !startedAppearance && !terminal()) {
+		advanceAppearance();
 		_cosmeticDeadline = now + 100;
 		++_generation;
 	}
@@ -346,11 +375,11 @@ std::string XeenEncounterFlow::combatNotice() const {
 	using P = XeenCombatPhase;
 	const auto phase = _combat->phase();
 	const auto &r = _combatObservation;
-	std::string text = "M27 | Unsaveable | Esc exits | T=" + std::to_string(_combat->result().minutes) + "\n";
+	std::string text = "T=" + std::to_string(_combat->result().minutes) + " | Unsaveable | Esc exits\n";
 	auto name = [&](unsigned owner) { return _party.roster.at(owner).name; };
 	if (phase == P::Preparation)
-		return text + "Preparation: actors have not begun.\nI inventory / equipment; Enter begins.\nNormal appearance; attack visuals pending 27C.";
-	if (phase == P::Approach) return text + "Approach: arrows move/turn, . Wait\nNormal appearance; attack visuals pending 27C.";
+		return text + "Preparation: actors have not begun.\nI inventory / equipment; Enter begins.";
+	if (phase == P::Approach) return text + "Approach: arrows move/turn, . Wait";
 	if (phase == P::Victory) text += "VICTORY\n";
 	else if (phase == P::Defeat) text += "DEFEAT - no healing or XP\n";
 	else if (phase == P::Failed) text += "FAILED - encounter cannot continue\n";
@@ -372,25 +401,36 @@ std::string XeenEncounterFlow::combatNotice() const {
 		else if (r.attackOutcome == XeenCombatAttackOutcome::Miss) text += " misses\n";
 		else text += " hits: " + std::to_string(r.damage) + " damage\n";
 	}
-	if (r.critical) text += "Critical hit\n";
+	if (r.critical) text += "Critical: ";
 	for (unsigned i=0;i<r.injuryCount;++i) {
 		const auto &d=r.injuries[i];
-		text += "Hit " + std::to_string(i+1) + ": -" + std::to_string(d.amount) + " HP " + std::to_string(d.afterHp) + "\n";
+		if (i) text += "; ";
+		text += "-" + std::to_string(d.amount) + " HP " + std::to_string(d.afterHp);
 	}
+	if (r.injuryCount || r.critical) text += "\n";
 	if (r.armorCount) text += "Broken armor: " + std::to_string(r.armorCount) + " slots\n";
 	text += "\n"; // Separate retained feedback from the live roster panel.
 	for (auto owner:kXeenCombatOwners) {
 		const auto &c=_party.roster.at(owner);
-		text += name(owner) + " HP " + std::to_string(c.currentHp);
-		for (unsigned i=0;i<c.conditions.size();++i) if(c.conditions[i])
-			text += " " + std::string(xeenConditionName(static_cast<XeenCondition>(i)));
+		text += name(owner) + " HP " + std::to_string(c.currentHp) + "\n";
+		bool condition = false;
+		for (unsigned i=0;i<c.conditions.size();++i) if(c.conditions[i]) {
+			if (condition) text += " + ";
+			// Both flags can survive a critical hit. Keep them visible on the
+			// bounded roster row rather than hiding the earlier unconscious flag.
+			if (static_cast<XeenCondition>(i) == XeenCondition::Unconscious &&
+				c.conditions[static_cast<unsigned>(XeenCondition::Dead)]) text += "Uncon.";
+			else text += xeenConditionName(static_cast<XeenCondition>(i));
+			condition = true;
+		}
+		if (!condition) text += "Good";
 		if (_combatAward.xpCount) {
 			std::uint32_t delta=0;
 			for (unsigned i=0;i<_combatAward.xpCount;++i) if (_combatAward.xp[i].owner==owner)
 				delta=_combatAward.xp[i].after-_combatAward.xp[i].before;
-			text += " XP +" + std::to_string(delta);
+			text += "\nXP +" + std::to_string(delta);
 		}
-		text += "\n";
+		text += _combatAward.xpCount ? "\n" : "\n\n";
 	}
 	if (!text.empty() && text.back() == '\n') text.pop_back();
 	return text;

@@ -7,6 +7,7 @@
 #include "games/xeen/XeenEventLoader.h"
 #include "games/xeen/XeenEventTextLoader.h"
 #include "games/xeen/CloudsMapComposer.h"
+#include "games/xeen/CloudsUiComposer.h"
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 #include <iostream>
@@ -14,6 +15,15 @@
 
 using namespace combat_test;
 namespace {
+std::optional<std::filesystem::path> evidence;
+void ppm(const std::string &name, const IndexedFrame &f) {
+ if(!evidence)return;
+ std::filesystem::create_directories(*evidence);
+ std::ofstream out(*evidence/(name+".ppm"),std::ios::binary);
+ out<<"P6\n"<<f.width<<' '<<f.height<<"\n255\n";
+ for(auto p:f.pixels)out.write(reinterpret_cast<const char*>(f.palette.data()+3*p),3);
+ check(bool(out),"image output");
+}
 struct Harness {
  XeenFontFormat font{gameplay_test::fontBytes()};
  std::unique_ptr<XeenAssetSource> assets;
@@ -27,6 +37,9 @@ struct Harness {
  std::uint64_t now=0,cycle=0;
  unsigned saves=0,compositions=0;
  std::uint64_t observedOrdinary=0;
+ XeenMonsterAppearance observedAppearance;
+ IndexedFrame base;
+ std::optional<XeenCombatRandom> random;
  bool badTerrain=false;
  explicit Harness(const std::optional<std::filesystem::path> &game={}) {
   if (!game) return;
@@ -59,18 +72,22 @@ struct Harness {
    const auto bytes=assets?assets->readInitialResource("maze.chr"):chr();
    const auto context=XeenGameplayContextFormat::parse(assets?assets->readInitialResource("maze.pty"):pty());
    const auto stats=assets?XeenMonsterFormat::parse(*assets->readCloudsMonsterStatisticsFromDarkArchive()):statistics();
-   auto value=std::make_unique<XeenCombat>(w,p,c,b,bytes,context,stats,assets?eventLoader->load(20):events(),XeenCombatRandom(seed));
+   auto value=std::make_unique<XeenCombat>(w,p,c,b,bytes,context,stats,assets?eventLoader->load(20):events(),random.value_or(XeenCombatRandom(seed)));
    combat=value.get();combatBoundary=&b;
    return value;
   };
   s.validateEncounterSprite=[&](std::uint8_t image){if(assets)assets->validateNormalMonster(image);};
-  s.composeEncounter=[&](XeenWorld &w,const XeenPartyState &p,const XeenCamera &c,std::uint64_t ordinary,std::uint8_t actor){
+  s.validateCombatSprite=[&](std::uint8_t image){if(assets)assets->validateAttackMonster(image);};
+  s.composeEncounter=[&](XeenWorld &w,const XeenPartyState &p,const XeenCamera &c,std::uint64_t ordinary,XeenMonsterAppearance actor){
    ++compositions;
    observedOrdinary=ordinary;
+   observedAppearance=actor;
+   check(actor.valid(),"bounded production appearance");
    check(p.roster.combatMarked(),"composition borrows marked roster");
    XeenEventFlow::Composition out;
    if(assets)out.frame=CloudsMapComposer().compose(*assets,w,p,c,{610},nullptr,ordinary,&out.containsOrdinaryAnimation,actor);
    else {out.frame.width=320;out.frame.height=200;out.frame.pixels.resize(64000);out.containsOrdinaryAnimation=true;}
+   base=out.frame;
    return out;
   };
   s.observeSaveStage=[&](auto){++saves;};
@@ -78,16 +95,155 @@ struct Harness {
  }
  const XeenCombat &fight() const {return *combat;}
  XeenCombat &fight() {return *combat;}
+ void visibleScene() {
+  if(flow->inventoryOpen())return;
+  const auto &f=flow->frame();
+  for(int y=8;y<135;++y)for(int x=8;x<223;++x)
+   check(f.pixels[y*320+x]==base.pixels[y*320+x],"combat panels obscure scene");
+ }
  void press(const SdlWindow::FrameUpdateHandler &handler,const PlayerAction &action) {
   handler.beginCycle(++cycle);
   check(handler.displayedInput().has_value(),"displayed ticket exists");
   handler.withDisplayedInput(action,*handler.displayedInput());
   check(handler.frameCurrent(),"current returned frame");
+  visibleScene();
  }
  void tick(const SdlWindow::FrameUpdateHandler &handler,const SdlWindow::IdleFrameHandler &idle) {
   now+=100;handler.beginCycle(++cycle);idle();check(handler.frameCurrent(),"current idle frame");
+  visibleScene();
  }
 };
+
+void appearance(const std::optional<std::filesystem::path> &game={}) {
+ Harness h(game);auto s=h.services();
+ const auto compose=s.composeEncounter;bool delayedFrame=false;
+ s.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto ordinary,auto actor){
+  auto result=compose(w,p,c,ordinary,actor);
+  if(actor.kind==XeenMonsterSpriteKind::Attack&&!delayedFrame){h.now+=250;delayedFrame=true;}
+  return result;
+ };
+ s.show=[&](const IndexedFrame &,const auto &handler,const auto &,const auto &idle,const auto &){
+  ppm("preparation",h.flow->frame());
+  h.press(handler,AcknowledgeAction{});ppm("approach",h.flow->frame());
+  h.press(handler,WaitAction{});
+  auto frame=[&](unsigned expected){
+   const auto value=h.observedAppearance;
+   check(value.frame==(expected<8?expected:expected-8) && value.kind==
+    (expected<8?XeenMonsterSpriteKind::Normal:XeenMonsterSpriteKind::Attack),"production MON/ATT sequence");
+   ppm("logical-"+std::to_string(expected),h.flow->frame());
+   if(h.assets){
+    const auto resolver=XeenObjectVisualResolver::load(*h.assets);
+    auto commands=XeenOutdoorScene().build(*h.world,XeenActorApproach::kEntry,&resolver,nullptr,h.observedOrdinary,value);
+    unsigned actors=0;
+    int previous=-1;
+    for(const auto &command:commands){
+     check(command.originalOrder>=previous,"shared scene order");previous=command.originalOrder;
+     if(command.actor()){
+      ++actors;check(command.originalOrder==(expected<8?118:121)&&command.x==-5&&command.y==2&&
+       command.actor()->frame==value.frame&&command.actor()->kind==value.kind,"production command appearance/order");
+     }
+    }
+    check(actors==1,"one original selected actor");
+    commands.erase(std::remove_if(commands.begin(),commands.end(),[](const auto &c){return c.actor()!=nullptr;}),commands.end());
+    CloudsUiComposer().loadBackground(*h.assets);
+    CloudsMapComposer composer;composer.drawOutdoorCommands(*h.assets,commands);composer.drawInterfaceLayers(*h.assets,*h.party,{610});
+    const auto omitted=h.assets->snapshot();unsigned visible=0;
+    for(int y=0;y<200;++y)for(int x=0;x<320;++x){
+     const auto index=y*320+x;
+     if(h.base.pixels[index]!=omitted.pixels[index]){
+      check(x>=8&&x<223&&y>=8&&y<140,"original actor raster escaped scene/bottom clip");
+      if(y<135&&h.flow->frame().pixels[index]!=omitted.pixels[index])++visible;
+     }
+    }
+    check(visible>500,"original actor unreadable after final panels");
+    std::cout<<"logical="<<expected<<" final visible actor pixels="<<visible<<'\n';
+   }
+  };
+  auto rebuild=[&]{
+   const auto pixels=h.flow->frame().pixels;
+   const auto deadline=h.flow->encounter()->cosmeticDeadline();
+   const auto service=h.flow->encounter()->deadline();
+   const auto revision=h.fight().result().revision, rng=h.fight().random().position();
+   const auto hp=h.world->sessionState().actors()[5].hp;
+   h.world->discardMapCache();if(h.assets)h.assets->discardSpriteCache();
+   h.flow->refresh(true);
+   check(h.flow->frame().pixels==pixels && h.flow->encounter()->cosmeticDeadline()==deadline &&
+    h.flow->encounter()->deadline()==service && h.fight().result().revision==revision &&
+    h.fight().random().position()==rng && h.world->sessionState().actors()[5].hp==hp,"cache changed appearance or gameplay");
+  };
+  for(unsigned i=0;i<8;++i){frame(i);rebuild();h.tick(handler,idle);}
+  for(unsigned i=0;i<6;++i)h.press(handler,BlockAction{});
+  h.tick(handler,idle);frame(8);rebuild();
+  check(h.flow->encounter()->cosmeticDeadline()==h.now+100,"attack cadence starts after fallible frame composition");
+  const unsigned enemy[]{9,10,10,10,0};
+  for(auto expected:enemy){h.tick(handler,idle);frame(expected);}
+  // Seed1: Arturius misses, then Tyro hits. Pending intent is not a hit.
+  h.press(handler,InteractionAction{});h.tick(handler,idle);
+  check(h.fight().result().attackOutcome==XeenCombatAttackOutcome::Miss,"seeded miss control");
+  check(h.observedAppearance.kind==XeenMonsterSpriteKind::Normal,"miss created hit effect");
+  h.press(handler,InteractionAction{});h.tick(handler,idle);frame(11);
+  check(h.world->sessionState().actors()[5].hp==12,"partial live HP control");
+  rebuild();
+  const auto revision=h.fight().result().revision,rng=h.fight().random().position();
+  // Same-time and backward observations do not advance or rearm.
+  const auto deadline=h.flow->encounter()->cosmeticDeadline();
+  idle();h.now-=1;idle();h.now+=1;frame(11);
+  check(h.flow->encounter()->cosmeticDeadline()==deadline,"obsolete cosmetic clock");
+  for(unsigned i=0;i<5;++i){h.tick(handler,idle);frame(i==4?0:11);}
+  check(h.fight().result().revision==revision && h.fight().random().position()==rng,"cosmetics ran gameplay");
+  h.now+=10000;h.tick(handler,idle);frame(1);
+  check(h.flow->encounter()->cosmeticDeadline()==h.now+100,"no cosmetic backlog");
+  return true;
+ };
+ check(Application().playGameplay(s,XeenActorApproach::kEntry,{},false,XeenEncounterEntry::Diagnostic27)==0,"production appearance");
+}
+
+void attackAdmission() {
+ for(unsigned failure=0;failure<3;++failure){
+  Harness h;auto s=h.services();bool shown=false,checked=false;
+  s.show=[&](const auto &,const auto &,const auto &,const auto &,const auto &){shown=true;return true;};
+  if(!failure)s.validateCombatSprite={};
+  else s.validateCombatSprite=[&](std::uint8_t image){
+   checked=true;check(image==8&&h.fight().phase()==Phase::Preparation,"typed attack admission before gameplay");
+   if(failure==1)throw std::runtime_error("invalid attack sprite");
+   h.fight().invalidate();
+  };
+  check(Application().playGameplay(s,XeenActorApproach::kEntry,{},false,XeenEncounterEntry::Diagnostic27)==3&&
+   !shown&&!h.saves&&(checked==(failure!=0)),"attack admission failure/stale startup boundary");
+ }
+}
+
+void criticalPresentation(const std::optional<std::filesystem::path> &game={}) {
+ Harness h(game);
+ std::vector<XeenCombatRandom::Draw> tape;
+ for(unsigned round=0;round<6;++round){
+  const unsigned targets[]{0,0,1,2,3,5};
+  if(round)tape.push_back({0,5,targets[round]});
+  tape.push_back({1,20,20});tape.push_back({1,6,6});tape.push_back({1,6,6});tape.push_back({1,4,4});
+  if(round!=1){tape.push_back({1,6,6});tape.push_back({1,6,6});}
+ }
+ h.random.emplace(tape);auto s=h.services();unsigned enemies=0;
+ s.show=[&](const IndexedFrame &,const auto &handler,const auto &,const auto &idle,const auto &){
+  h.press(handler,AcknowledgeAction{});h.press(handler,WaitAction{});
+  for(unsigned step=0;step<100&&!h.flow->encounter()->terminal();++step){
+   if(h.fight().phase()==Phase::PlayerReady)h.press(handler,BlockAction{});
+   else {
+    h.tick(handler,idle);const auto &r=h.fight().result();
+    if(r.operation==XeenCombatOperation::EnemyAttack){
+     ++enemies;check(r.critical&&r.injuryCount==(enemies==2?1U:2U),"ordered critical presentation observations");
+     check(h.observedAppearance.kind==XeenMonsterSpriteKind::Attack&&h.observedAppearance.frame==0,"critical ATT initial frame");
+     ppm("critical-round-"+std::to_string(enemies),h.flow->frame());
+     if(enemies==1)check(r.injuries[0].afterHp==-5&&r.injuries[1].afterHp==-17&&r.armorCount==2,"intermediate injury and armor facts");
+    }
+   }
+  }
+  check(enemies==6&&h.fight().phase()==Phase::Defeat&&h.party->encounterContext->minutes==495,"critical production defeat");
+  const auto &notice=h.flow->encounter()->notice();
+  check(notice.find("Uncon. + Dead")!=std::string::npos&&notice.find("Broken armor:")!=std::string::npos,"complete condition/breakage feedback");
+  return true;
+ };
+ check(Application().playGameplay(s,XeenActorApproach::kEntry,{},false,XeenEncounterEntry::Diagnostic27)==0,"critical presentation production route");
+}
 
 void preparation() {
  Harness h;auto s=h.services();
@@ -240,6 +396,7 @@ void automaticSupportStop() {
 }
 void outcome(bool loss,const std::optional<std::filesystem::path> &game={}) {
  Harness h(game);auto s=h.services(loss?19:1);unsigned commands=0;
+ bool criticalImage=false,zeroImage=false;
  s.show=[&](const IndexedFrame &,const auto &handler,const auto &,const auto &idle,const auto &){
   if(loss){
    h.press(handler,InspectInventoryAction{});h.press(handler,NavigationAction::TurnRight);
@@ -262,11 +419,24 @@ void outcome(bool loss,const std::optional<std::filesystem::path> &game={}) {
     h.press(handler,InteractionAction{});
     check(before==h.fight().result().generation,"pending input does not replace automatic work");
     h.tick(handler,idle);
+    const auto &r=h.fight().result();
+    if(r.critical&&!criticalImage){ppm(loss?"loss-critical":"victory-critical",h.flow->frame());criticalImage=true;}
+    if(r.attackOutcome==XeenCombatAttackOutcome::HitZeroDamage&&!zeroImage){ppm("zero-damage",h.flow->frame());zeroImage=true;}
     const auto after=h.fight().result().generation;idle();
     check(after==h.fight().result().generation,"same time/cycle cannot repeat automatic work");
    }
   }
   check(h.fight().phase()==(loss?Phase::Defeat:Phase::Victory),"real production terminal outcome");
+  ppm(loss?"defeat":"victory",h.flow->frame());
+  if(game){
+   check(commands==(loss?35U:15U),"seeded command count");
+   const int won[]{12,16,12,10,-4,5},lost[]{-7,-1,-1,-5,-3,-7};
+   for(unsigned i=0;i<6;++i)check(h.party->roster.at(kXeenCombatOwners[i]).currentHp==(loss?lost[i]:won[i]),"seeded final HP");
+  }
+  const auto pixels=h.flow->frame().pixels;
+  const auto rng=h.fight().random().position();
+  h.world->discardMapCache();if(h.assets)h.assets->discardSpriteCache();h.flow->refresh(true);
+  check(h.flow->frame().pixels==pixels && h.fight().random().position()==rng,"terminal cache reconstruction");
   if(game)check(h.party->encounterContext->minutes==(loss?500:493),"original seeded time");
   const auto terminal=h.fight().result().generation;
   for(const PlayerAction action:std::initializer_list<PlayerAction>{InteractionAction{},BlockAction{},AcknowledgeAction{},InspectInventoryAction{},WaitAction{},SaveGameAction{}})
@@ -485,7 +655,8 @@ void cli(const std::filesystem::path &exe) {
 int main(int argc,char **argv){try{
  if(argc==2&&std::string(argv[1])=="sdl")sdl();
  else if(argc==3&&std::string(argv[1])=="cli")cli(std::filesystem::path(argv[2]));
- else if(argc==2){outcome(false,std::filesystem::path(argv[1]));outcome(true,std::filesystem::path(argv[1]));}
- else {preparation();delayed();staleCoordination();automaticSupportStop();outcome(false);outcome(true);failures();publicationFailures();callbacks();}
+ else if(argc==2||argc==3){if(argc==3)evidence=std::filesystem::path(argv[2]);
+  appearance(std::filesystem::path(argv[1]));outcome(false,std::filesystem::path(argv[1]));outcome(true,std::filesystem::path(argv[1]));criticalPresentation(std::filesystem::path(argv[1]));}
+ else {attackAdmission();preparation();delayed();staleCoordination();automaticSupportStop();appearance();outcome(false);outcome(true);criticalPresentation();failures();publicationFailures();callbacks();}
  std::cout<<"Combat production tests passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

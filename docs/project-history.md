@@ -163,6 +163,21 @@ Historical limitations in those plans describe their recorded boundaries.
   native physical SDL acceptance completed. See the
   [Milestone 26 plan](milestone-26-plan.md).
 
+## M27 - Playable Attack/Block encounter with original outcomes
+
+- Added a bounded playable melee exchange against the admitted map-20 Skeleton,
+  with deterministic Attack/Block turns, mandatory retaliation, injury,
+  conditions, armor breakage and terminal victory or defeat.
+- Kept combat authority in the existing world/party/roster owners and production
+  Flow coordination, with retained tickets, deterministic gameplay RNG and
+  once-only actor removal/XP publication across presentation/cache rebuilds.
+- Added original MON/ATT combat appearance in the source-ordered outdoor scene
+  and readable live roster/outcome presentation; the entire diagnostic remains
+  unsaveable pending M28.
+- Automated and original-data validation, independent technical review and
+  maintainer physical SDL victory, loss and regression acceptance completed. See
+  the [Milestone 27 plan](milestone-27-plan.md).
+
 ## Maintaining this history
 
 Add one short section with 2-4 lasting-result bullets per completed milestone

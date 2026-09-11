@@ -34,6 +34,23 @@ std::string XeenAssetSource::normalMonsterResource(std::uint8_t image) {
 void XeenAssetSource::validateNormalMonster(std::uint8_t image) {
 	_impl->bridge.validateNormalMonster(normalMonsterResource(image));
 }
+std::string XeenAssetSource::attackMonsterResource(std::uint8_t image) {
+	auto resource = normalMonsterResource(image);
+	resource.replace(4, 3, "att");
+	return resource;
+}
+void XeenAssetSource::validateAttackMonster(std::uint8_t image) {
+	_impl->bridge.validateAttackMonster(attackMonsterResource(image));
+}
+void XeenAssetSource::drawMonster(std::uint8_t image, XeenMonsterAppearance appearance, int x, int y,
+		const XeenSpriteDrawOptions &options) {
+	if (!appearance.valid() || options.horizontalFlip || options.enlarge || !options.sceneClipped)
+		throw std::invalid_argument("Unsupported monster drawing");
+	const bool attack = appearance.kind == XeenMonsterSpriteKind::Attack;
+	if (attack) validateAttackMonster(image); else validateNormalMonster(image);
+	_impl->bridge.drawObjectSprite(attack ? attackMonsterResource(image) : normalMonsterResource(image),
+		appearance.frame, x, y, options);
+}
 void XeenAssetSource::drawNormalMonster(std::uint8_t image, std::size_t frame, int x, int y,
 		const XeenSpriteDrawOptions &options) {
 	if (frame >= 8 || options.horizontalFlip || options.enlarge || !options.sceneClipped)

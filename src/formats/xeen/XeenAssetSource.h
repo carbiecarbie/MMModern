@@ -4,6 +4,7 @@
 #include "core/GameInstallation.h"
 #include "core/IndexedFrame.h"
 #include "formats/xeen/XeenSpriteDrawOptions.h"
+#include "formats/xeen/XeenMonsterAppearance.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -39,6 +40,10 @@ public:
 	std::size_t spriteLoadCount() const;
 	static std::string normalMonsterResource(std::uint8_t image);
 	void validateNormalMonster(std::uint8_t image);
+	void validateAttackMonster(std::uint8_t image);
+	static std::string attackMonsterResource(std::uint8_t image);
+	void drawMonster(std::uint8_t image, XeenMonsterAppearance appearance, int x, int y,
+		const XeenSpriteDrawOptions &options);
 	void drawNormalMonster(std::uint8_t image, std::size_t frame, int x, int y,
 		const XeenSpriteDrawOptions &options);
 	// Explicit physical origin; nullopt means archive/member absent, not empty.

@@ -2,6 +2,7 @@
 #define MMODERN_APP_XEEN_ENCOUNTER_FLOW_H
 
 #include "core/PlayerAction.h"
+#include "formats/xeen/XeenMonsterAppearance.h"
 #include "games/xeen/XeenActorApproach.h"
 #include "games/xeen/XeenCombat.h"
 #include "games/xeen/XeenEventPresenter.h"
@@ -14,6 +15,7 @@ struct XeenEncounterSetup {
 	std::function<XeenEncounterResult(XeenWorld &, XeenPartyState &, XeenCamera &, XeenEncounterState &)> initialize;
 	std::function<void(std::uint8_t image)> validateNormalSprite;
 	std::function<std::unique_ptr<XeenCombat>(XeenWorld &, XeenPartyState &, XeenCamera &, XeenCombatBoundary &)> prepareCombat;
+	std::function<void(std::uint8_t image)> validateAttackSprite;
 };
 
 // Bounded coordinator. World/party/camera and the normalized clock remain borrowed.
@@ -44,6 +46,10 @@ public:
 	const XeenEncounterResult &actionResult() const noexcept { return _actionResult; }
 	unsigned actionPending() const noexcept { return _actionPending; }
 	std::uint8_t frame() const noexcept { return _frame; }
+	XeenMonsterAppearance appearance() const noexcept {
+		return _frame < 8 ? XeenMonsterAppearance{_frame} :
+			XeenMonsterAppearance{XeenMonsterSpriteKind::Attack, static_cast<std::uint8_t>(_frame - 8)};
+	}
 	std::optional<std::uint64_t> deadline() const noexcept { return _deadline; }
 	std::uint64_t cosmeticDeadline() const noexcept { return _cosmeticDeadline; }
 	std::string notice() const;
@@ -54,7 +60,8 @@ private:
 	void scheduleCombat(std::uint64_t);
 	bool handoffCombat();
 	std::string combatNotice() const;
-	void observeCombat() noexcept;
+	bool observeCombat() noexcept;
+	void advanceAppearance() noexcept;
 	XeenCombatResult _combatObservation, _combatAward;
 	bool _scheduleAfterFrame = false, _combatOperationStale = false;
 	bool adopt(const XeenEncounterResult &, std::uint64_t generation) noexcept;
@@ -73,6 +80,8 @@ private:
 	std::uint64_t _generation = 0, _lastTime = 0, _cosmeticDeadline = 0;
 	std::optional<std::uint64_t> _deadline, _inputCycle;
 	std::uint8_t _frame = 0;
+	std::uint8_t _appearanceStep = 0;
+	bool _appearanceAfterFrame = false;
 	bool _busy = false, _failure = false;
 	std::optional<std::pair<int, int>> _attempted;
 };

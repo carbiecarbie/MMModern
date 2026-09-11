@@ -478,8 +478,9 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
             return XeenActorApproach::initializeFromResources(assets, w, p, c, s);
         };
         services.validateEncounterSprite = [&](std::uint8_t image) { assets.validateNormalMonster(image); };
+        services.validateCombatSprite = [&](std::uint8_t image) { assets.validateAttackMonster(image); };
         services.composeEncounter = [&](XeenWorld &w, const XeenPartyState &p, const XeenCamera &c,
-                std::uint64_t ordinary, std::uint8_t actor) {
+                std::uint64_t ordinary, XeenMonsterAppearance actor) {
             XeenEventFlow::Composition result;
             result.frame = composer.compose(assets, w, p, c, {kCloudsInitialYear}, nullptr, ordinary,
                 &result.containsOrdinaryAnimation, actor);

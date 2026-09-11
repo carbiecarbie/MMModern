@@ -21,7 +21,7 @@ public:
 		bool containsOrdinaryAnimation = false;
 	};
 	using Compose = std::function<Composition(std::uint64_t ordinaryPhase)>;
-	using EncounterCompose = std::function<Composition(std::uint64_t ordinaryPhase, std::uint8_t actorFrame)>;
+	using EncounterCompose = std::function<Composition(std::uint64_t ordinaryPhase, XeenMonsterAppearance actorFrame)>;
 	XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
 		XeenPartyState &party, XeenCamera &camera, XeenGameFlags &flags,
 		const XeenFontFormat &font, Compose compose,

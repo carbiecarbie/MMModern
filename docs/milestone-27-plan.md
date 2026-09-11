@@ -1,48 +1,23 @@
 # Milestone 27 - Playable Attack/Block encounter with original outcomes
 
-**Milestone 27A and 27B are accepted; M27 remains open.** The
-[27A acceptance record](#27a-acceptance) covers the headless domain and the
-[27B acceptance record](#27b-acceptance) covers production preparation and
-combat coordination. M27C is the remaining stage and requires separate
-implementation authorization.
+**Milestone 27 is complete.** Stages 27A, 27B and 27C are accepted. This
+closed plan records the admitted domain, durable technical contracts,
+persistence boundary and final acceptance.
 
-## Objective, authority and evidence
+## Objective and reference authority
 
 Continue the accepted M26 encounter into a real melee Attack/Block fight: a named
 acting character and target, misses and damage, mandatory enemy turns, injury,
 incapacitation/death, and victory or party defeat. Victory removes the selected
 original monster and awards applicable XP exactly once within the session.
 
-The inspected MMModern baseline is `49c2adfe303c1f9e66d5da17cb6b06004eef021c`,
-branch `main`. HEAD, origin/main and direct remote main agreed, with an empty
-index and clean working tree before this investigation. Its committed M26 plan
-records independent review and maintainer physical acceptance. The
-[stable status](project-status.md), [closed M26 contract](milestone-26-plan.md),
-[M25 equipment contract](milestone-25-plan.md) and [roadmap](roadmap.md) remain
-the accepted foundation. This plan does not revise their completed capabilities.
-
-Reference: ScummVM `6814ee9ba54582f5b5adcffab49efbbd8f589edd`, verified exact HEAD
-and clean source checkout. Source and library locations were resolved from the
-configured `build/26a/CMakeCache.txt`, following [dependencies](dependencies.md).
-That configuration uses the pinned external source, UCRT64 compiler and separate
-library build; its saved ScummVM configuration is `--backend=sdl
---disable-all-engines --disable-detection-full`. The top-level legacy build cache
-points to a different source/build pair and is not evidence for this work.
-No existing MMModern or ScummVM executable was selected or run. Temporary probes
-were freshly compiled with the configured UCRT64 G++ from inspected source.
-Commercial archives were read only, with temporary outputs outside both source
-trees and the installation. No full ScummVM combat run is claimed.
-
-Evidence labels used below:
-
-| Label | Meaning and limits |
-| --- | --- |
-| R | Original-resource observation from checked CC member extraction; compact observations, not bundled fixtures |
-| S | Pinned-source derivation, including callers and branches; not an executed engine |
-| E | Executed unchanged pinned function bodies in the bounded C++ probe, with explicitly listed stand-ins |
-| M | Independently written arithmetic/RNG/outer-loop model; does not independently prove its own scheduling |
-| C | Current MMModern code or focused execution; not future combat acceptance |
-| F | Required future implementation tests, original-data checks or physical acceptance; not passed by this investigation |
+The accepted foundation is the stable project status, closed M26 actor/approach
+contract, M24 transfer and M25 equipment contracts, and pinned ScummVM revision
+`6814ee9ba54582f5b5adcffab49efbbd8f589edd` recorded in
+[dependencies](dependencies.md). The implementation and
+literal tests are authoritative for the admitted behavior below. Reference code
+and original-resource observations define the bounded compatibility target; no
+full ScummVM execution or commercial payload is part of this repository.
 
 ### Pinned source map
 
@@ -93,11 +68,11 @@ cursed weapons still contribute their base dice in the pinned melee scan; enemy
 natural 20 can execute two separately rolled damage applications. None authorizes
 ignoring a supported item bonus or making the Skeleton harmless.
 
-## Accepted integration seams and chosen entry
+## Accepted integration seams and entry
 
-The implementation currently supplies these reusable seams, not combat:
+M27 extends these existing seams without creating parallel owners:
 
-| Current seam | Use in M27 |
+| Existing seam | Accepted M27 use |
 | --- | --- |
 | `XeenActorApproach`, `XeenEncounterState`, `XeenWorld::sessionState` | Preserve one-time initialization, original identity, live HP/position and revision authorization; accepted approach remains intact |
 | `XeenPartyState::roster`, `XeenRoster::at`, `XeenCharacter` | Keep HP/SP/conditions/items in their current owners; add only missing encounter inputs to this roster |
@@ -236,7 +211,7 @@ ordinary storage merely because this encounter requires it.
 ### Field-to-owner contract
 
 Offsets are zero-based within one CHR (354 bytes), MON (60 bytes), or PTY record.
-`new roster inputs` below means a proposed optional supplemental payload **inside
+`new roster inputs` below means an optional supplemental payload **inside
 XeenRoster**, indexed by original owner, containing only fields not already
 represented. It contains no copied HP/SP, items, conditions, level or membership.
 This avoids both a second combat character and silently extending always-live
@@ -548,155 +523,28 @@ reused after validation. Do not use it for XP. Defeat follows
 <=Confused. With reachable states, a party of unconscious/dead members is
 defeated even if some are not dead. Do not wait for all six Dead flags.
 
-## Reproducible traces and evidence boundaries
+## Deterministic reference controls
 
-The C++ probe extracted function bodies by signature and balanced braces from
-the pinned source, without editing their bodies: character `worstCondition`,
-`isDisabledOrDead`, `subtractHitPoints`; combat `setupCombatParty`, `setSpeedTable`,
-`allHaveGone`, `charsCantAct`, `block`, both `doMonsterTurn` overloads,
-`giveExperience`; party `checkPartyDead`; interface `nextChar`.
+Literal synthetic tests cover the formulas and exact RNG request order without
+commercial resources. Original-data production controls use the admitted map,
+party, items and monster resources rather than replacing HP, XP or outcomes.
+The retained deterministic controls are:
 
-A second focused probe executed unchanged `getWeaponDamage`, `hitMonster`,
-`getMonsterDamage` and `Character::statBonus`, using the pinned literal tables,
-original Might/Accuracy values and simple level/stat/party/map stand-ins. It
-confirmed the Arturius7-damage, exploding20, bad-weapon base-dice, bare-attack and
-Seymour zero-after-resistance controls. The last resistance multiplication was
-driver arithmetic; neither `attack` nor `attack2` was executed by this probe.
+- Seed 1 with original equipment: Block the first round, then Attack with every
+  eligible displayed owner. The enemy misses in round one; later attacks and a
+  critical injury leave Rebecca at -4 HP and Unconscious. Victory completes at
+  minute 493 with the Skeleton removed and +82 XP for each owner.
+- Seed 19 after removing all Armor-category equipment in Preparation: Block every
+  eligible displayed turn. Thirty-five player actions and eleven enemy turns end
+  in Defeat at minute 500, with HP [-7, -1, -1, -5, -3, -7], no equipped armor to
+  break and no XP.
+- Separate literal controls cover exploding player rolls, zero-damage hits,
+  preferred/fallback enemy targets, two separately applied critical-hit injuries,
+  the -10/death armor-break rules, XP eligibility/rounding, the delayed approach
+  and the equipped/transferred Speed ring.
 
-Stand-ins supplied vectors/points, map metadata, original numeric character
-inputs, equivalent armor-sum/Speed AC, maximum HP and level getters, VM mode,
-inclusive scripted RNG, sound and draw no-ops. `doCharDamage` was a **bounded
-physical-path stand-in**, executing two dice requests, wake and the extracted
-`subtractHitPoints`; it was not the full pinned function. Special attacks,
-resistances, debugger, pause/windows and sound were bypassed as unreachable or
-cosmetic here. The armor stand-in encoded AC strengths in its item ID field,
-so its execution proves affected equipped slots and arithmetic, **not original
-armor ID bytes**; byte preservation remains an S contract and F test.
-
-The driver invoked extracted `nextChar` for participant scheduling; it did not
-replace that function with its own order. It mirrored the outer round branch of
-`doCombat` and used arithmetic minute addition. Full `doCombat`, party time,
-Attack/attack2, rendering and SDL were not executed. Those contracts are S plus
-the explicitly labeled M traces below. This evidence limit does not leave their
-formulas unspecified; future independent tests must execute the production path.
-
-Reproduce with a C++17 harness containing those functions and the stated stand-ins,
-the R table above, one actor with the R monster fields and fresh shared references.
-No probe binary, temporary path or commercial payload is needed to reconstruct
-these controls. All traces use record `(Clouds,20,5)`, live HP 20 initially, at
-the party cell after fresh Wait, day1/year610/minute490/ctr24=1 unless stated.
-SP, membership, flags, quests and all bystanders stay unchanged throughout.
-
-### Entry, a full round and victory (S/M)
-
-Original equipment, no ring equip. Initial order as above; no RNG or time at
-combat setup. In round 1 perform:
-
-| Acting owner | Action and ordered supplied RNG | Arithmetic and publication | Next |
-| --- | --- | --- | --- |
-| 0 | Attack: four `U[1,2]=1`, `U[1,20]=10` | Hit 17>=15; pre-resistance15 ->7; monster20->13 | 18 |
-| 18 | Block, no RNG | blocked[1]=true; no HP/time | 14 |
-| 14 | Attack: two `U[1,3]=1`, `U[1,20]=10` | Hit15>=15; `(6+2)/2=4`; monster13->9; bow ignored | 11 |
-| 11 | Attack: two `U[1,2]=1`, `U[1,20]=1` | Hit9<15; dice already consumed, monster9 | 1 |
-| 1 | Block | blocked[4]=true | 6 |
-| 6 | Block | blocked[5]=true | Required enemy turn |
-| Monster | Prefers owner1, no target RNG; `U[1,20]=15`, `U[1,4]=4` | v20<blocked threshold21; miss, no damage dice | Round reset |
-
-Every action leaves time490 until the separate round transition advances to491.
-Flags clear; owner0 acts. Attack with four `U[1,2]=2`, `U[1,20]=10` deals13 to
-remaining9: actor HP0, removed, XP+82 to every owner, no gold/gems/items. End
-transition advances491->492 and publishes Victory. No enemy retaliation follows.
-
-Block comparison: the same enemy roll15/4 against unblocked Rebecca has threshold
-16, so it hits; subsequent dice3/4 cause HP7->0, Unconscious=1, armor unchanged.
-After a new-round reset a previously blocked character uses the unblocked threshold
-until they Block again. Player exploding control: Arturius's four ones followed
-by hit rolls20,1 gives score28 and still damage7, with two hit RNG requests.
-
-### Critical hit, intermediate breakage and complete defeat (E/S)
-
-Original loadout, every eligible character Blocks. Round enemy RNG, with no
-player RNG, is listed below. `20;6,6;4;6,6` means d20=20, first 2d6=6/6,
-hit parameter U[1,4]=4, second 2d6=6/6. Target requests precede this sequence.
-
-| Round / start time | Target RNG / owner | Ordered enemy sequence | HP and condition after each application | End |
-| --- | --- | --- | --- | --- |
-| 1 /490 | Preference /1 | `20;6,6;4;6,6` | 7->-5 Unconscious; ->-17 Dead, Unconscious retained; both equipped armor slots break | time491, next0 |
-| 2 /491 | `U[0,5]=0` /0 | `20;6,6;4` | 12->0 Unconscious; AC13+15=28>25, so no second dice/application | time492, next18 |
-| 3 /492 | `U[0,5]=1` /18 | `20;6,6;4;6,6` | 16->4 Good; ->-8 Unconscious, no break | time493, next14 |
-| 4 /493 | `U[0,5]=2` /14 | `20;6,6;4;6,6` | 12->0 Unconscious; ->-12 Dead and equipped armor breaks | time494, next11 |
-| 5 /494 | `U[0,5]=3` /11 | `20;6,6;4;6,6` | 10->-2 Unconscious; ->-14 Dead and equipped armor breaks | time495, next6 |
-| 6 /495 | `U[0,5]=5` /6 | `20;6,6;4;6,6` | 5->-7 Dead and armor breaks; AC becomes1; ->-19 Dead | Defeat at495, no round charge |
-
-This was executed through pinned `nextChar` and enemy/HP functions with the
-stand-ins above. Actor HP remains20, XP remains0 in actual defeat semantics.
-The probe separately called `giveExperience` on that condition set as a predicate
-control: only owners0 and18 receive250 each. **That artificial call is not a
-defeat reward or part of the production trace.**
-
-Additional S injury control extends round1 above, with Rebecca already disabled:
-in round2 Tyro attacks and misses (weapon dice1,1, d20=1), all other eligible
-owners Block. Enemy target `U[0,5]=1`, d20=18, hit-parameter2, dice2,2 hits his
-unblocked threshold20 with score21, HP16->12; monster HP stays20, time becomes492.
-In round3 all eligible owners Block. Target `U[0,5]=1`, d20=20, first dice6,6,
-hit-parameter4 and second dice5,5 give HP12->0->-10; time becomes493.
-`maxHP16 + (-10)=6`, so he is Unconscious
-with broken equipped armor, not Dead. This distinguishes the -10 break threshold
-from death. Seymour's first critical application in the table independently
-shows armor breaking before the second hit's AC lookup. Future tests must inspect
-the two ordered damage subresults and original raw armor bytes, not just total HP.
-
-E XP control on a separate synthetic condition state: four Good, Rebecca
-Unconscious, Seymour Dead yields count5, `250/5*2=100` for each of the first five
-and zero for Seymour. S/E establishes that Unconscious participates in XP and
-Dead does not. With six eligible, `250/6=41`, then World/level<15 doubles to82;
-standalone Clouds would leave41. No automatic level/training call follows.
-
-### Proposed seeded production controls (M, E for loss scheduling)
-
-The seed algorithm is specified below, not a ScummVM seed-replay claim. Seed1,
-original equipment: Block for the six round-1 players, then Attack for every
-eligible displayed player. The independent model gives these literal observations:
-
-```text
-R1 enemy: d20=10, hit=2 -> miss; time491.
-R2 owner0 dice2,2,2,1 hit3 -> miss; owner18 dice1,3 hit13 -> 8 damage.
-   owner14 dice1,3 hit3 -> miss; owner11 dice1,2 hit14 -> 5 damage.
-   owner1 die5 hit5 -> miss; owner6 die1 hit18 -> 0 damage after resistance.
-   enemy owner1: d20=20, dice6,2, hit4, dice1,2 -> HP7->-1->-4,
-   Unconscious, no broken armor; time492; monster HP7.
-R3 owner0 dice2,1,2,1 hit4 -> miss; owner18 dice2,3 hit1 -> miss;
-   owner14 dice3,1 hit15 -> 7 damage -> lethal; XP82 each including owner1;
-   Victory time493; final HP [12,16,12,10,-4,5].
-```
-
-Seed19, remove **all Armor-category equipment** in preparation, leave weapons
-and accessories unchanged, then Block every eligible displayed turn. The model
-and extracted pinned scheduling/target/HP probe agreed: 35 Block actions,
-11 enemy turns, defeat at500, HP `[-7,-1,-1,-5,-3,-7]`; first five Unconscious,
-Seymour Dead. No armor is equipped to break and no XP is awarded. Enemy requests
-by round (target rolls first, `h`=U[1,4], `d`=two U[1,6]):
-
-```text
-1 pref1: r19 h1 d6,4
-2 U[0,5]=0: r20 d6,4 h4 d6,3
-3 U[0,5]=1: r15 h2 d4,4
-4 U[0,5]=1: r19 h2 d6,3
-5 U[0,5]=1 U[0,2]=0: r2 h4 (miss)
-6 U[0,5]=4 U[0,2]=0: r16 h2 d2,4
-7 U[0,5]=4 U[0,2]=1: r19 h2 d1,5
-8 U[0,5]=2: r17 h2 d1,6
-9 U[0,5]=3: r16 h1 d4,5
-10 U[0,5]=3 U[0,0]=0: r18 h4 d1,3
-11 U[0,5]=2 U[0,0]=0: r17 h4 d2,6
-```
-
-Per-round damaged owner HP is respectively `1:-3,0:-7,18:8,18:-1,unchanged,
-14:6,11:4,14:-1,11:-5,6:1,6:-7`. Rounds1..10 charge one minute afterward;
-round11 ends in defeat before the enemy is marked gone, so no round reset/time.
-These are reproducible reference/model expectations, **not yet production
-keystroke guarantees**. Stage 27C must match both through real Flow/services
-before giving the recipe to the maintainer as a verified production control.
+These controls are acceptance oracles for the bounded production path, not a
+claim that the optional xorshift32 seed reproduces the original engine's PRNG.
 
 ## Ownership, phases and publication
 
@@ -713,10 +561,10 @@ before giving the recipe to the maintainer as a verified production control.
 | Gameplay RNG state, pending random prefix/action candidate | Same coordinator, separate from cosmetic/NPC sources; not renderer state |
 | Result, presentation frame/step/deadline and input-generation ticket | Flow; results are owned fixed observations, not authority to replay effects |
 
-Add only a focused combat domain (`XeenCombat` is a proposed name) and extend the
-existing encounter coordinator. Proposed operations: `prepareSessionInputs`,
-`beginApproach`, `beginCombat`, `command(Attack|Block, turnTicket)`,
-`advanceAutomatic(workTicket)`, and `stopCurrent(ticket, reason)`. They borrow
+The focused `XeenCombat` domain extends the existing encounter coordinator.
+Its operations prepare the session, begin and run approach, perform the one-time
+combat handoff, accept `command(Attack|Block, ticket)`, service automatic work
+and fail only current authority. They borrow
 the existing owners and return fixed typed results: Accepted, Refused, Stale,
 Pending, Advanced, Victory, Defeat, SupportStopped or Failed, with old/new
 revision, acting/target identities, ordered damage facts, condition/item deltas,
@@ -726,12 +574,14 @@ API lets a caller publish against a different owner.
 
 | Operation | Required input/phase | Publication and supplied result |
 | --- | --- | --- |
-| `prepareSessionInputs` | Marked Diagnostic27, fresh roster, checked initial CHR/provider | Install six supplemental records once; return admitted input metadata or startup failure, never partial interactive state |
+| constructor | Marked Diagnostic27, fresh roster, checked initial CHR/providers | Install six supplemental records once or fail startup, never partial interactive state |
+| `equipment` / `transfer` | Current Preparation ticket and boundary lease | Reuse M25/M24 validation and publication while advancing combat preparation authority |
 | `beginApproach` | Current closed-preparation ticket, original item conservation and supported loadout | Close selections, invoke one-time M26 initialization; return approach result at480 with original live actors |
+| `approachAction` / `approachPulse` | Current retained Approach ticket | Reuse M26 action/pulse publication with the shared Diagnostic27 boundary generation |
 | `beginCombat` | Retained current Engaged approach ticket and record5 identity | Advance shared revision, consume handoff, install combat progress; return first participant and target |
 | `command` | PlayerReady ticket including owner/index/target, Attack or Block | Install one consumed intent, then publish prepared action and next-work kind; fixed ordered damage/XP facts, no externally applicable candidate |
-| `advanceAutomatic` | Exact pending kind/id, revision/generation and due service token | Finish only that random prefix, enemy, round or end transition; return next pending/ready/terminal state |
-| `stopCurrent` | Retained ticket and typed reason | Stop only still-current nonterminal work; preserve already published terminal outcome and all prior effects |
+| `service` | Exact pending kind/id, revision/generation and due service token | Finish only that random prefix, enemy, round or end transition; return next pending/ready/terminal state |
+| `fail` | Retained ticket and typed reason | Stop only still-current nonterminal work; preserve already published terminal outcome and all prior effects |
 
 Results use bounded value storage: at most two enemy damage subresults, six XP
 recipient entries and nine armor-slot changes for the targeted character. They
@@ -739,7 +589,7 @@ own IDs and scalar facts, not borrowed vectors or pointers. Failed/Refused/Stale
 results do not grant continuation authority; only the coordinator's newly adopted
 pending work can do so. Detailed text is formatted later from these values.
 
-`XeenActorLifecycle::Defeated` is the proposed additional explicit actor state.
+`XeenActorLifecycle::Defeated` is the explicit terminal actor state.
 On lethal hit retain original metadata/id, set live HP0 and live coordinates
 `(-128,-128)` (reference removal marker `0x80,0x80`), clear targeting/occupancy/
 composition participation, and latch accounting for that original identity.
@@ -792,7 +642,7 @@ every effect; no failed notice converts one terminal outcome into another.
 
 Keep gameplay RNG entirely separate from M26 cosmetic phase, M22 object animation,
 NPC random frames and draw frequency. The production adapter owns a nonzero u32
-state. Proposed reproducible generator: xorshift32, unsigned operations
+state. The reproducible generator is xorshift32, using unsigned operations
 `x ^= x<<13; x ^= x>>17; x ^= x<<5`, storing x after each draw. For inclusive
 `[lo,hi]`, let unsigned `span=hi-lo+1`, `threshold=(0u-span)%span`; discard raw
 outputs below threshold and return `lo + raw%span`. Validate positive bounded
@@ -922,7 +772,7 @@ with any encounter-only inputs, before and after callbacks/preflight. Ordinary
 initial-party providers may not supply those inputs. No operation can clear the
 marker by discarding Flow/presentation or restoring world overlays.
 
-The proposed supplemental payload belongs to `XeenRoster`, outside the existing
+The supplemental payload belongs to `XeenRoster`, outside the existing
 snapshot's `array<XeenCharacter,30>`, so ordinary snapshots/codecs retain their
 exact field set. Guard capture before constructing a partial snapshot. Do not
 add codec fields, schema/version, migration, placeholder XP or a partially
@@ -981,9 +831,9 @@ Physical acceptance decides readability, not whether the underlying damage runs.
 
 ### Original attack appearance
 
-R: `008.att` has four frames. C: all four passed the current
-`validateXeenObjectSprite` compiled directly from the baseline source, including
-their complete row streams. The resource's frame cells are:
+The original `008.att` has four frames. All four pass the production
+`validateXeenObjectSprite` path, including their complete row streams. The
+resource's frame cells are:
 
 | ATT frame | Cell offset and `(x,width,y,height)` |
 | --- | --- |
@@ -992,7 +842,8 @@ their complete row streams. The resource's frame cells are:
 | 2 | 18 `(0,250,21,129)`; 12853 `(0,250,21,120)` |
 | 3 | 17317 `(0,250,26,124)` |
 
-S: monster logical frames0..7 select MON; 8..11 select ATT frame-8. Enemy attack
+In the pinned reference, monster logical frames0..7 select MON and 8..11 select
+ATT frame-8. Enemy attack
 sets frame8/delay3. Each logical animation advance gives9,10,10,10,0. Player
 nonzero physical hit selects frame11/delay5; five subsequent advances return it
 to0. Lethal removal may end that effect immediately. Represent these as bounded
@@ -1013,330 +864,80 @@ Extend `XeenAssetSource`/`ScummVmXeenBridge` normal-monster safety/cache path wi
 an explicitly typed four-frame attack resource, using the same decoder/cache
 owner. Do not pass ATT through the existing eight-normal-frame check unchanged.
 Keep current interface layers after the shared terrain/object/actor stream.
-No general particle/audio system is needed. M27 may omit weapon POW overlays,
+No general particle/audio system is needed. M27 omits weapon POW overlays,
 portrait flash and voice/sound; original MON/ATT and accurate readable text/party
-injury feedback are required. Structural safety and source placement are obtained
-evidence; actual composited attack-frame readability/clipping remains F original-
-data and physical acceptance. Do not claim raster acceptance from the validator.
+injury feedback are retained. Structural validation alone does not establish
+raster readability; original-data composition evidence and the maintainer's
+physical acceptance establish that combined boundary.
 
-## Proposed implementation units
-
-Three units provide separate acceptance boundaries. 27A and 27B are accepted
-below; 27C remains the specification for separate authorization. Each must
-preserve ordinary/M26 regressions; no unit alone is M27 completion.
+## Implemented units and final result
 
 ### 27A - Authoritative bounded combat domain
 
-#### 27A acceptance
+27A established one noncopyable combat coordinator over the existing world,
+party, roster and camera owners. It added the admitted combat inputs, exact
+Attack/Block and enemy rules, retained deterministic RNG continuations,
+conditions and armor breakage, bounded time transitions, atomic actor removal/XP,
+terminal Victory/Defeat and direct persistence guards. Fixed results retain
+operation, actor, target, ordered injury and XP facts without becoming replay
+capabilities.
 
-**27A is accepted following independent review.** It delivers the authoritative
-headless bounded combat domain with existing world, party, roster and camera
-owners. Supplemental combat inputs and XP belong to irreversible marked roster
-state. The one-time M26 Engaged-to-combat handoff preserves the terminal latch
-and shared world revision authority.
+### 27B - Production preparation and coordination
 
-Accepted behavior includes Attack/Block, mandatory enemy work, injury and armor
-breakage, deterministic gameplay RNG, retained continuations, atomic removal/XP,
-VictoryAwaitingEnd followed by separate Victory, Defeat and bounded time
-transitions. Fixed inert results retain operation, actor, target and outcome
-facts for later production Flow. Direct persistence guards protect encounter
-authority in world, context and roster, including detached marked rosters;
-ordinary v1/v2 persistence and Diagnostic26 behavior remain unchanged.
+27B connected Diagnostic27 through the existing Application/Flow/SDL path. It
+added strict CLI entry, real M24/M25 inventory preparation, one-time Begin and
+engagement handoff, generation-bearing displayed input, mandatory idle-serviced
+enemy/round/end work, readable typed outcomes and irreversible F9 refusal.
+Existing ordinary and Diagnostic26 behavior remains separate and unchanged.
 
-The independent-review findings concerning stale Diagnostic27 authorization
-publishing an approach stop and missing attack-outcome/target observations were
-corrected and independently re-reviewed before approval. The configured build,
-complete CTest (77/77), focused regressions (13/13), original-data combat smoke,
-M26 domain and production/dummy-SDL regression smokes, and whitespace checks
-passed. Original-data controls reached Victory 492, Defeat 495, Victory 493,
-Defeat 500 and delayed/ring Victory 503. The last control enters combat at 500,
-completes two nonterminal rounds to 502, then completes the victory-end minute
-at 503.
+### 27C - Original combat appearance
 
-This acceptance is headless/domain-level. Physical M27 combat acceptance has
-not occurred and is not required for 27A. M27B's production Preparation,
-CLI/SDL coordination and presentation are covered by its separate acceptance;
-M27C retains original MON/ATT appearance and final physical acceptance of the
-combined implementation. **M27 remains open.**
+27C added an explicit disposable normal/attack appearance value, four-frame ATT
+resource validation beside the eight-frame MON path, and both resources in the
+shared sprite cache owner. The original same-cell attack command uses order 121,
+anchor (-5,2), scale 0 and existing scene/bottom clipping; normal appearance
+retains order 118. Flow starts only published enemy attacks or positive player
+hits, advances the bounded source-derived sequences at 100 ms without backlog,
+and never consumes gameplay RNG or changes combat authority.
 
-#### Domain integration and downstream consumer contract
+The combat layout keeps the central scene visible while showing retained outcome
+text and each owner's HP, simultaneous conditions, broken-armor count and terminal
+XP. Admission validates both MON and ATT before gameplay. Cache discard and
+presentation reconstruction revalidate resources and reproduce the current
+appearance while preserving actor HP, combat revision, RNG position, service and
+cosmetic deadlines, terminal state and once-only accounting.
 
-The headless boundary uses one noncopyable `XeenCombat`, borrowing the existing
-world, party and committed camera. The world privately binds Diagnostic27 to
-that coordinator and its retained approach state once. This discriminator is
-separate from the public production entry enum. Destruction does not clear the
-binding or roster marker. Public Diagnostic26 initialization/action/stop calls
-cannot acquire the reserved Diagnostic27 state.
+## Final acceptance
 
-Delegated approach publication, including failure stops, retains both M26
-authorization and the Diagnostic27 ticket's boundary generation. A stale
-Diagnostic27 callback cannot stop or retire M26 pending work. Current domain or
-provider failures retain the existing stop semantics; ordinary Diagnostic26
-requires no additional coordinator authority.
+Milestone 27 completed its combined acceptance boundary:
 
-Preparation uses coordinator tickets and calls the existing M24 transfer and
-M25 equipment operations. Its exact preimage certificate starts with the loaded
-CHR and adopts only their fixed array/frame publications. This establishes
-duplicate quantities, carrying, compaction and legacy-frame reachability without
-an item-identity heuristic or a second inventory. Preparation leaves world
-revision zero; successful Begin calls real M26 initialization, publishing one.
-The certificate is validation evidence and is never assigned back to live owners.
+- The implementation agent delivered the accepted 27A headless combat domain,
+  27B production preparation/coordination and 27C original MON/ATT appearance.
+- The configured build and complete CTest suite passed for the accepted implementation.
+  Synthetic tests cover literal rules, RNG ordering, publication and failure
+  boundaries without commercial data; original-data controls reached the expected
+  deterministic victory, defeat, delayed-approach, ring and combat-control results.
+- The independent reviewer approved the complete implementation, including the
+  authoritative ownership/ticket model, deterministic control boundary,
+  presentation/cache invariants and preservation of ordinary/Diagnostic26 behavior.
+- The maintainer personally completed physical SDL victory, loss and regression
+  acceptance, confirming a readable real exchange, original attack appearance,
+  injury/terminal feedback and the required controls. This physical acceptance is
+  the maintainer's result, not an automated or independent-review claim.
 
-`XeenCombatBoundary` is bound to the same owner addresses. Generation-bearing
-leases represent inventory, armed certificates, events, rewards and irreversible
-presentation failure. Preparation mutations allow an open inventory but require
-other authority to be absent. Begin/handoff/combat require the closed, quiescent
-boundary. M27B must bind these leases to actual Flow work, consume the displayed
-ticket, and preserve adopted fixed results before any reporting or composition.
-The headless API does not inspect an unrelated Flow or accept a caller's boolean
-assertion that it is safe. Explicit owner/array replacement, including identical
-bytes, calls `invalidate()` before subsequent work; equality does not detect ABA.
+The accepted result is a bounded playable encounter, not general Xeen combat or
+map-20 traversal. It adds no save fields or version. Diagnostic27 remains
+unsaveable through Preparation, approach, combat, terminal outcomes and failures.
+[M28](roadmap.md#m28---durable-bounded-encounter-completion-and-revisit) remains
+responsible for selecting a compatibility policy and persisting actor lifecycle,
+combat-derived roster/progression values and admitted context at a safe completed
+boundary. M28 planning and implementation require separate authorization.
 
-Supplemental inputs remain inside `XeenRoster`. Marked roster and enclosing-party
-copy/move construction, assignment and ADL/explicit `std::swap` refuse before
-changing either operand. Ordinary values retain their existing use. Save restore
-alone has private, prevalidated, nonthrowing ordinary publication; neither that
-publication nor world overlay publication exchanges encounter markers. Direct
-capture and both restore graphs check world, context and roster authority around
-resource/preflight callbacks. No ordinary codec fields or versions change.
+## Replanning triggers
 
-`command` consumes a player intent before random preparation; `service` handles
-one automatic publication or at most 64 draws. A value cursor and one bounded
-candidate retain rejection/explosion prefixes without advancing live RNG. Tickets
-bind coordinator, generation, shared revision, phase, pending kind and boundary
-generation. Fixed results and retained preparation receipts are observations,
-not publication or continuation capabilities. A separate current `fail` ticket
-cannot rewrite Victory/Defeat; stale failure cannot replace newer authority.
-
-Fixed combat results identify the operation, acting roster owner or monster,
-selected target, and typed attack outcome (miss, zero-damage hit or positive hit).
-Pending attacks are explicit, and Block/non-attack transitions have no attack
-outcome. Critical observations retain the selected target, critical flag and
-ordered injury subresults. These owned facts remain usable after later turns or
-owner destruction without replaying rules or inspecting gameplay RNG.
-
-M27B must host this same coordinator, retire approach deadlines on the typed
-Engaged-to-PlayerReady transition, and borrow const owners or scalar observations
-instead of copying a marked party through Diagnostic26's `observedParty` path.
-No public CLI, production clock, SDL action, preparation UI or appearance is
-part of this domain contract. M27C retains MON/ATT and physical acceptance.
-
-Deliver a headless, independently testable encounter from a retained M26 Engaged
-state through original Attack/Block turns to once-only removal/XP or defeat.
-This includes combat-input parsing/roster attachment, loadout/reachable-state
-admission, shared revision handoff, all rules, exact RNG cursor/continuation seam,
-turn/round/end time, failure/publication and direct save/restore guards. It is
-not a statistics-only stage and has no public production entry yet.
-
-Necessary reading: this full plan, M26 ownership/action publication, M25 equipment,
-M24 transfer, M20/M21 persistence and the pinned combat/character/interface/party
-symbols above. Likely touched modules: formats/character and monster accessors,
-`XeenRoster`/party, `XeenCharacterRules`, actor/world private authority,
-`XeenActorApproach` handoff integration, proposed `XeenCombat`, and
-`XeenSaveState`; focused synthetic tests and optional original-data smoke target.
-Do not alter ordinary codecs or implement rendering, M28 or other combat verbs.
-
-Supply fixed typed action/automatic results, tickets, read-only presentation
-observations and deterministic RNG control for later Flow. Keep HP/items in
-existing characters and RNG/turn progress in one coordinator. Tests must cover
-complete mixed victory and Block defeat, not only helpers; fixed literals and
-the extracted/source traces supply expected values. Original-data tests compare
-all active inputs/item kinds, ring/rearrangements and unchanged bystanders.
-Stop after domain and capture/restore boundary pass review; production SDL still
-stops at M26 and must not advertise playable M27.
-
-### 27B - Explicit production preparation and combat coordination
-
-#### Production integration decisions
-
-The shared typed entry marker reserves Diagnostic27 before resource providers run.
-The domain constructor may claim an uninitialized, unbound Diagnostic27 reservation
-once, as well as its existing fresh-owner entry; it must reject Diagnostic26,
-initialized actors, a prior coordinator binding and marked roster replacement.
-The entry marker and exclusive coordinator binding remain separate facts.
-
-`XeenEncounterFlow` hosts the accepted coordinator and its boundary. EventFlow
-binds the real inventory and armed-selection lifetimes to boundary leases,
-releasing consumed certificates before coordinator transfer/equipment operations.
-Event/reward dispatch stays excluded throughout this diagnostic. Explicit owner
-replacement notifications invalidate combat authority rather than rebuilding its
-preimage certificate. Composition borrows the marked party by const reference.
-
-Displayed input authority is distinct from cosmetic frame refresh. Production
-passes a retained displayed-input generation across the services/SDL boundary;
-unticketed Diagnostic27 actions cannot mutate gameplay. Each SDL batch retains
-its entry generation, and Space/B require release before another physical press.
-Automatic work retains coordinator tickets and a separate 100 ms deadline inside
-the existing encounter Flow. Fixed domain results remain the presentation source.
-
-#### 27B acceptance
-
-**27B is accepted following independent review.** It delivers production
-Diagnostic27 preparation and combat coordination through the existing
-Application/Flow/SDL owners: strict entry, real inventory/transfer/equipment
-preparation, one-time Begin, automatic engagement handoff, retained
-continuation authority, mandatory idle-serviced enemy and round work,
-mode-specific controls, typed in-frame outcomes and irreversible F9 refusal.
-Existing ordinary and Diagnostic26 behavior remains preserved, and combat state
-remains outside the save format.
-
-The stale continuation-authority defect found during independent review was
-corrected and independently re-reviewed. Final evidence: full configured build
-passed, CTest 80/80 passed, production original-data Victory and Defeat checks
-passed, and `git diff --check` passed.
-
-This acceptance covers production preparation and coordination only. MON/ATT
-combat appearance, attack sequences/layering and final combined maintainer
-physical acceptance remain for M27C. **M27 remains open.**
-
-Depends on accepted27A interfaces. Deliver proposed CLI and typed Diagnostic27,
-real preparation via existing inventory/transfer/equipment, single-use Begin,
-automatic engagement handoff, tickets across Application/services/Flow/SDL,
-mandatory idle-serviced enemy/round work, mode-specific controls, in-frame textual
-outcomes and irreversible F9 refusal. Use normal actor presentation initially;
-label attack appearance/physical acceptance unfinished until27C.
-
-Necessary reading adds `XeenGameplay`, `Application`, `XeenEventFlow`,
-`XeenInventoryFlow`, `XeenEncounterFlow`, `XeenGameplayServices`, `PlayerAction`,
-SDL event batch/handoff code and M22 timing. Extend those owners instead of
-introducing another app or loop. Supply appearance/result observations to27C.
-Exercise actual services/Flow with callbacks that inspect phase, result, ordinary
-phase, deadlines, owner tickets and buffers. Cover preparation cancellation,
-transfer/equip generations, direct routing bypasses, strict CLI, buffered input,
-every presentation-failure boundary and zero-save-side-effect assertions.
-Optional original-data headless runs must play real commands to both outcomes.
-Stop at reviewed production coordination; M27C remains required before milestone
-closure.
-
-### 27C - Original combat appearance and complete acceptance
-
-Depends on accepted27A/27B. Deliver MON/ATT selection, slot relocation/clipping,
-bounded cosmetic sequences and readable final combat UI through the existing
-scene/assets/cache path. Likely modules: `XeenOutdoorScene`, `CloudsMapComposer`,
-`XeenAssetSource`, `ScummVmXeenBridge`, encounter feedback and integration tests.
-No new combat formulas/owners or audio/effects framework. Verify any necessary
-interface adjustment against already accepted ticket/publication contracts.
-
-Add original-data image/composition and deterministic production traces, then
-independent review, full build/CTest and maintainer physical victory/loss/regression
-acceptance. Prove cache discard preserves partial HP and once-only completion.
-Only this combined boundary may establish M27 complete, followed by separately
-authorized closure documentation/Git actions. With 27A and 27B accepted, the
-remaining unit is **27C**, requiring separate explicit implementation
-authorization.
-
-## Requirement-to-evidence and acceptance plan
-
-Synthetic ordinary CTest must remain independent of commercial resources.
-Expected values must be literal arithmetic/bytes and checked RNG request tapes,
-not values generated by the production helper under test.
-
-| Contract | Obtained evidence | Required future verification |
-| --- | --- | --- |
-| Baseline, accepted seams and M26 terminal | C source/tests + committed docs | Unchanged ordinary/M26 suites and physical pre-combat mode |
-| CHR/MON inputs, item domain and profile | R offsets/tables, S layouts | Truncation/invalid enum/bounds; all originals and representative legal transfers/equips; reject changed/opaque domain without altering ordinary storage |
-| Ring/bow/bare/bad items | R item list, S literal scans | Ring on every eligible owner, tie changes/AC; bow-only/unarmed zero damage; broken armor; bad-weapon helper source quirk or explicit narrowed helper contract |
-| Participant order/skip/Block/retaliation | E nextChar/speed/enemy functions, S outer caller | Exact order/ties, initial selection, flags reset, lethality before enemy, no-input automatic continuation |
-| Player hit/damage and resistance | E weapon/hit/stat functions, S application formula and M traces | Literal dice-before-hit tape, exploding20, natural1, zero damage, rounding, original weapons/difficulty; no hidden RNG |
-| Enemy critical/injury/breakage | E bounded physical path + S full function | Separate subcalls, post-first-hit AC, negative/zero HP, simultaneous conditions, exact raw armor bytes, death versus unconscious break |
-| Victory/removal/XP/defeat | E eligibility/defeat, S attack2, M victory | Full real lethal path; partial/terminal cache rebuild; original identity and all bystanders; recipient denominator/multiplier; no training/loot |
-| Publication/reentrancy/RNG | C retained M26 model, proposed explicit contracts | Current versus stale failure at every callback; copied results and cursor prefixes; repeated/refused inputs; overflow; no reroll or duplicate award |
-| Time and boundary | S connected doCombat/changeTime; M/E driver distinctions | 490/500 entry, round+1/end+1, defeat0, ctr24 unchanged, 959 boundary after prior effects, zero condition RNG before960 |
-| Preparation/CLI/save isolation | C existing inventory/save/entry seams | Real M24/M25 workflow and generation invalidation; all forbidden combinations; F9 before capture/target/I/O in every phase; direct roster/context/world guards |
-| Original frame safety/placement | R ATT dimensions, C validator, S draw relocation | All normal/attack frames, order118/121, exact anchor/scale/clipping, same-cell readability and retained initial forest occlusion |
-| SDL input/results/continuations | C existing single-loop tests | Repeat/batch/generation tests; rapid presses; no arbitrary idle turns; no modal erasure of enemy work; readable injury/XP/terminal feedback |
-
-Extend the existing encounter test support deliberately: its synthetic characters
-do not contain original combat attributes/classes/items, and its monster records
-mostly set HP/image. They are not combat fixtures merely because M26 accepts
-them. Composition fakes must observe every consequential new appearance, phase,
-ordinary-phase, deadline and feedback input. Separate synthetic domain tests,
-Flow/service tests, optional original-data checks, headless SDL/images and physical
-acceptance. Existing targets include `xeen_encounter_flow`,
-`xeen_encounter_gameplay`, `xeen_encounter_save`, actor approach tests and
-`mmodern_encounter_domain_smoke`/`mmodern_encounter_smoke`. Accepted 27A coverage
-adds `xeen_combat`, `xeen_combat_authority`, `xeen_combat_persistence` and
-`mmodern_combat_smoke`; MON/ATT appearance and physical combat verification
-remain future work for 27C.
-
-Test failure injections before acceptance, during RNG prefixes, before each
-publication, after nonlethal damage, lethal accounting, end time and terminal
-notice, plus resource/clock/reporter/composer/frame-copy/recovery/SDL handoff
-reentrancy. Verify exact owner identity/revision and typed result, not merely
-frame existence. No stale callback can stop a newer session/action or overwrite
-terminal outcome. No failed redraw can heal, respawn or repeat XP. Ordinary
-M20-M25 save/item/event/animation behavior and unchanged Diagnostic26 must pass.
-
-### Future physical recipe
-
-Before execution, identify the authorized implementation SHA, compiler, selected
-CMake build directory, pinned ScummVM source and configured library build. Build
-that exact source and verify the optional original-data production tests match
-the seeded traces above. Do not select a binary by modification time. All paths
-and launch syntax below is proposed until27C exists:
-
-```text
-<verified-build>/mmodern.exe --encounter-27 --combat-seed 1 "<game-directory>"
-<verified-build>/mmodern.exe --encounter-27 --combat-seed 19 "<game-directory>"
-<verified-build>/mmodern.exe --encounter-26 "<game-directory>"
-```
-
-1. Seed1 victory: keep original equipment. Confirm Preparation/unsaveable notice,
-   F9 refusal and that idle has no actors moving. Enter at the closed preparation
-   screen; confirm accepted map20 entry. Period Wait engages at490. Block each
-   displayed first-round character using B; observe mandatory enemy miss and
-   round/time change. Then use Space on each fresh ready frame until Victory.
-   Observe original attack appearance, actor/target changes, damage, Rebecca's
-   injury and actual XP. Expected verified control is round3/time493, +82 each,
-   Rebecca HP-4 Unconscious. Do not substitute setting HP/XP or scripting Victory.
-2. Seed19 loss: in Preparation use I, F1-F6 and the Armor category. For each
-   occupied equipped armor slot, explicitly select it then E to remove; do not
-   transfer/discard or alter weapons/accessories. I from Browse closes inventory.
-   All original armor records remain carried with frame0. Enter from closed
-   Preparation, then period. B on each fresh ready frame produces the
-   verified35-action control; observe forced retaliation,
-   injury, skipped owners and Defeat at500, without XP or healing. No random wait
-   for a rare critical/breakage event is part of physical acceptance.
-3. Separately verify the preparation ring can be equipped/transferred through
-   M24/M25 operations with the Diagnostic27 cancellation adaptation and changes
-   the displayed combat order as specified. In separate preparation control
-   sessions, verify the [cancellation contract](#production-entry-and-preparation):
-   I from ChooseDestination and Confirm returns to Browse without closing, the
-   next I closes, and N still cancels Confirm. Check truthful I/N feedback,
-   invalidated transfer confirmation/selection certificates, no owner/item
-   mutation or queued Begin on cancellation, and Enter in Confirm confirming only
-   the transfer. Verify
-   Escape exits the entire session even with preparation inventory open.
-   Check delayed approach still engages at500 and no preparation action is
-   available after Begin. These are control sessions, not the seeded recipe.
-4. In both terminals, F9 refuses; Space/B/Enter/I/navigation cannot restart or
-   return to exploration. Escape/window close exits. Verify forbidden CLI
-   combinations refuse without touching save paths.
-5. Launch unchanged26: initial forest occlusion, period terminal engagement,
-   diagnostic envelope/terminal/F9 controls remain accepted. Check relevant
-   ordinary navigation, events, inventory/equipment and save/restart controls.
-
-Physical evidence establishes a real readable exchange and terminal behavior.
-Deterministic automated oracles establish rare critical/breakage, arithmetic,
-failure, stale input and once-only boundaries. Both are required, with independent
-technical review and full CTest at closure. A helper, static combat image or
-unopposed damage demonstration cannot close M27.
-
-## Review readiness and replanning triggers
-
-The [accepted 27A boundary](#27a-acceptance) establishes the headless domain and
-persistence protections, and the [accepted 27B boundary](#27b-acceptance)
-establishes production preparation and combat coordination. MON/ATT composition
-and physical acceptance must satisfy their separate M27C contract above;
-headless and coordination evidence do not establish those results.
-
-Reopen only for evidence: changed original resources/item domain, contradictory
-connected reference execution, extra actor admission, an item/condition/time
-branch outside this coverage, an unsafe handoff/publication/RNG/save boundary, or
-failure of original ordered composition to provide readable engagement. Report
-the smallest affected contract and required scope approval; do not silently
-change the anchor, freeze bystanders, omit an item effect or expand into M28.
-
-M27C implementation, milestone closure and Git publication each require
-separate authorization. Acceptance of 27A and 27B does not authorize those
-actions.
+Reopen this contract only for evidence of changed original resources/item domain,
+contradictory connected reference behavior, extra actor admission, an unsafe
+handoff/publication/RNG/save boundary, or a failure of original ordered composition
+to provide the accepted readable exchange. Report the smallest affected contract;
+do not silently widen the domain, repair unsupported items, or fold M28 work into
+M27.

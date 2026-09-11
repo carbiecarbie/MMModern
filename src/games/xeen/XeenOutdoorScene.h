@@ -2,6 +2,7 @@
 #define MMODERN_GAMES_XEEN_OUTDOOR_SCENE_H
 
 #include "formats/xeen/XeenSpriteDrawOptions.h"
+#include "formats/xeen/XeenMonsterAppearance.h"
 #include "games/xeen/XeenNavigation.h"
 #include "games/xeen/XeenObjectVisual.h"
 #include "games/xeen/XeenActorApproach.h"
@@ -32,6 +33,7 @@ struct XeenOutdoorObjectDraw {
 struct XeenOutdoorActorDraw {
 	XeenMonsterIdentity identity;
 	std::uint8_t image = 0, frame = 0;
+	XeenMonsterSpriteKind kind = XeenMonsterSpriteKind::Normal;
 	int selectedSlot = 0, scaleIndex = 0;
 	bool bottomClipped = false;
 };
@@ -80,10 +82,10 @@ public:
 		const XeenObjectVisualResolver *resolver = nullptr,
 		std::vector<XeenObjectVisual> *diagnostics = nullptr,
 		std::optional<std::uint64_t> ordinaryPhase = std::nullopt,
-		std::optional<std::uint8_t> actorFrame = std::nullopt) const;
+		std::optional<XeenMonsterAppearance> actorFrame = std::nullopt) const;
 	// Pure projection over owned observations; no activation or movement.
 	static std::vector<XeenOutdoorDrawCommand> actorCommands(const std::vector<XeenActor> &,
-		const XeenCamera &, std::uint8_t frame);
+		const XeenCamera &, XeenMonsterAppearance appearance);
 };
 
 } // namespace mmodern

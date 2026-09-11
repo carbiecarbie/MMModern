@@ -89,7 +89,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report) {
 				if (rebuildEncounterPresentation) rebuildEncounterPresentation();
 				if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter rebuild");
 			}
-			auto composed = _encounterCompose(_ordinary.phase, _encounter->frame());
+			auto composed = _encounterCompose(_ordinary.phase, _encounter->appearance());
 			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter frame");
 			if (!composed.frame.isValid()) throw std::runtime_error("Invalid encounter frame");
 			const auto notice = _encounter->notice();
@@ -99,13 +99,15 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report) {
 			options.paginate = true;
 			options.drawWindow = true; options.windowBounds = {8,8,223,51};
 			if (_encounter->combat()) {
-				options.bounds = {9,9,310,96}; options.windowBounds = {8,8,311,97};
+				options.bounds = {3,137,229,200}; options.windowBounds = {1,135,231,200};
+				options.x = 3; options.y = 137;
 			}
 			const auto split = _encounter->combat() ? notice.find("\n\n") : std::string::npos;
 			auto rendered = XeenTextRenderer(_inventoryFont).render(composed.frame, notice.substr(0,split), options);
 			if (rendered.pages.size() != 1) throw std::runtime_error("Encounter notice did not fit");
 			if (split != std::string::npos) {
-				options.bounds = {9,136,310,198}; options.windowBounds = {8,135,311,199}; options.y=136;
+				options.bounds = {235,3,318,198}; options.windowBounds = {233,1,320,200};
+				options.x=235; options.y=3;
 				rendered = XeenTextRenderer(_inventoryFont).render(rendered.pages.front(),notice.substr(split+2),options);
 				if (rendered.pages.size()!=1) throw std::runtime_error("Combat roster notice did not fit");
 			}
