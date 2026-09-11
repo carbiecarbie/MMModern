@@ -131,6 +131,23 @@ MMModern links selected ScummVM portions and is GPL-3.0-or-later.
 Prefer targeted inspection. Do not rescan ScummVM or original resources when
 existing documentation already establishes the required behavior.
 
+For implementation-task preparation:
+
+- The committed milestone/stage plan is the authoritative technical contract.
+- Execution prompts should reference detailed formulas, traces, matrices,
+  architectural decisions and acceptance requirements already recorded in this
+  file or the plan instead of reproducing them.
+- Prompts should primarily carry the verified baseline, authorized scope and
+  objective, task-specific clarifications, validation requirements, Git
+  restrictions and expected handoff.
+- Investigate inherited milestones, code/tests, ScummVM and original resources
+  selectively when the current contract already establishes needed behavior.
+- Record durable new implementation decisions in the active milestone plan; do
+  not create a second specification in the execution prompt.
+- Investigation and implementation may remain one task when narrow investigation
+  is necessary to execute an approved contract.
+- Brevity must not weaken safety, ownership, scope or validation.
+
 ## Project language
 
 English is canonical for identifiers, comments, diagnostics, command-line output,
