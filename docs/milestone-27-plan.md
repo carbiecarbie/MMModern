@@ -1,8 +1,8 @@
 # Milestone 27 - Playable Attack/Block encounter with original outcomes
 
-**Investigation/specification only. Implementation is not authorized. M27 is not
-complete.** This document proposes the contracts for architectural review; it is
-not an implementation prompt or an acceptance record.
+**Milestone 27A is accepted; M27 remains open.** The
+[27A acceptance record](#27a-acceptance) covers the headless domain only.
+M27B and M27C remain future work requiring separate implementation authorization.
 
 ## Objective, authority and evidence
 
@@ -1019,11 +1019,105 @@ data and physical acceptance. Do not claim raster acceptance from the validator.
 
 ## Proposed implementation units
 
-Three units provide separate, useful acceptance boundaries. They are specifications
-for later authorization, not permission to start any unit. Each must preserve
+Three units provide separate acceptance boundaries. 27A is accepted below;
+27B and 27C remain specifications for separate authorization. Each must preserve
 ordinary/M26 regressions; no unit alone is M27 completion.
 
 ### 27A - Authoritative bounded combat domain
+
+#### 27A acceptance
+
+**27A is accepted following independent review.** It delivers the authoritative
+headless bounded combat domain with existing world, party, roster and camera
+owners. Supplemental combat inputs and XP belong to irreversible marked roster
+state. The one-time M26 Engaged-to-combat handoff preserves the terminal latch
+and shared world revision authority.
+
+Accepted behavior includes Attack/Block, mandatory enemy work, injury and armor
+breakage, deterministic gameplay RNG, retained continuations, atomic removal/XP,
+VictoryAwaitingEnd followed by separate Victory, Defeat and bounded time
+transitions. Fixed inert results retain operation, actor, target and outcome
+facts for later production Flow. Direct persistence guards protect encounter
+authority in world, context and roster, including detached marked rosters;
+ordinary v1/v2 persistence and Diagnostic26 behavior remain unchanged.
+
+The independent-review findings concerning stale Diagnostic27 authorization
+publishing an approach stop and missing attack-outcome/target observations were
+corrected and independently re-reviewed before approval. The configured build,
+complete CTest (77/77), focused regressions (13/13), original-data combat smoke,
+M26 domain and production/dummy-SDL regression smokes, and whitespace checks
+passed. Original-data controls reached Victory 492, Defeat 495, Victory 493,
+Defeat 500 and delayed/ring Victory 503. The last control enters combat at 500,
+completes two nonterminal rounds to 502, then completes the victory-end minute
+at 503.
+
+This acceptance is headless/domain-level. Physical M27 combat acceptance has
+not occurred and is not required for 27A. M27B retains production Preparation,
+CLI/SDL coordination and presentation; M27C retains original MON/ATT appearance
+and final physical acceptance of the combined implementation. **M27 remains
+open.**
+
+#### Domain integration and downstream consumer contract
+
+The headless boundary uses one noncopyable `XeenCombat`, borrowing the existing
+world, party and committed camera. The world privately binds Diagnostic27 to
+that coordinator and its retained approach state once. This discriminator is
+separate from the public production entry enum. Destruction does not clear the
+binding or roster marker. Public Diagnostic26 initialization/action/stop calls
+cannot acquire the reserved Diagnostic27 state.
+
+Delegated approach publication, including failure stops, retains both M26
+authorization and the Diagnostic27 ticket's boundary generation. A stale
+Diagnostic27 callback cannot stop or retire M26 pending work. Current domain or
+provider failures retain the existing stop semantics; ordinary Diagnostic26
+requires no additional coordinator authority.
+
+Preparation uses coordinator tickets and calls the existing M24 transfer and
+M25 equipment operations. Its exact preimage certificate starts with the loaded
+CHR and adopts only their fixed array/frame publications. This establishes
+duplicate quantities, carrying, compaction and legacy-frame reachability without
+an item-identity heuristic or a second inventory. Preparation leaves world
+revision zero; successful Begin calls real M26 initialization, publishing one.
+The certificate is validation evidence and is never assigned back to live owners.
+
+`XeenCombatBoundary` is bound to the same owner addresses. Generation-bearing
+leases represent inventory, armed certificates, events, rewards and irreversible
+presentation failure. Preparation mutations allow an open inventory but require
+other authority to be absent. Begin/handoff/combat require the closed, quiescent
+boundary. M27B must bind these leases to actual Flow work, consume the displayed
+ticket, and preserve adopted fixed results before any reporting or composition.
+The headless API does not inspect an unrelated Flow or accept a caller's boolean
+assertion that it is safe. Explicit owner/array replacement, including identical
+bytes, calls `invalidate()` before subsequent work; equality does not detect ABA.
+
+Supplemental inputs remain inside `XeenRoster`. Marked roster and enclosing-party
+copy/move construction, assignment and ADL/explicit `std::swap` refuse before
+changing either operand. Ordinary values retain their existing use. Save restore
+alone has private, prevalidated, nonthrowing ordinary publication; neither that
+publication nor world overlay publication exchanges encounter markers. Direct
+capture and both restore graphs check world, context and roster authority around
+resource/preflight callbacks. No ordinary codec fields or versions change.
+
+`command` consumes a player intent before random preparation; `service` handles
+one automatic publication or at most 64 draws. A value cursor and one bounded
+candidate retain rejection/explosion prefixes without advancing live RNG. Tickets
+bind coordinator, generation, shared revision, phase, pending kind and boundary
+generation. Fixed results and retained preparation receipts are observations,
+not publication or continuation capabilities. A separate current `fail` ticket
+cannot rewrite Victory/Defeat; stale failure cannot replace newer authority.
+
+Fixed combat results identify the operation, acting roster owner or monster,
+selected target, and typed attack outcome (miss, zero-damage hit or positive hit).
+Pending attacks are explicit, and Block/non-attack transitions have no attack
+outcome. Critical observations retain the selected target, critical flag and
+ordered injury subresults. These owned facts remain usable after later turns or
+owner destruction without replaying rules or inspecting gameplay RNG.
+
+M27B must host this same coordinator, retire approach deadlines on the typed
+Engaged-to-PlayerReady transition, and borrow const owners or scalar observations
+instead of copying a marked party through Diagnostic26's `observedParty` path.
+No public CLI, production clock, SDL action, preparation UI or appearance is
+part of this domain contract. M27C retains MON/ATT and physical acceptance.
 
 Deliver a headless, independently testable encounter from a retained M26 Engaged
 state through original Attack/Block turns to once-only removal/XP or defeat.
@@ -1082,9 +1176,8 @@ Add original-data image/composition and deterministic production traces, then
 independent review, full build/CTest and maintainer physical victory/loss/regression
 acceptance. Prove cache discard preserves partial HP and once-only completion.
 Only this combined boundary may establish M27 complete, followed by separately
-authorized closure documentation/Git actions. The recommended first later
-implementation prompt is **27A**, only after architectural review and explicit
-authorization; no implementation prompt is supplied here.
+authorized closure documentation/Git actions. With 27A accepted, the next unit
+is **27B**, requiring separate explicit implementation authorization.
 
 ## Requirement-to-evidence and acceptance plan
 
@@ -1115,8 +1208,9 @@ ordinary-phase, deadline and feedback input. Separate synthetic domain tests,
 Flow/service tests, optional original-data checks, headless SDL/images and physical
 acceptance. Existing targets include `xeen_encounter_flow`,
 `xeen_encounter_gameplay`, `xeen_encounter_save`, actor approach tests and
-`mmodern_encounter_domain_smoke`/`mmodern_encounter_smoke`; new27 target names
-are proposed during implementation, not presently runnable commands.
+`mmodern_encounter_domain_smoke`/`mmodern_encounter_smoke`. Accepted 27A coverage
+adds `xeen_combat`, `xeen_combat_authority`, `xeen_combat_persistence` and
+`mmodern_combat_smoke`; production combat verification remains future work.
 
 Test failure injections before acceptance, during RNG prefixes, before each
 publication, after nonlethal damage, lethal accounting, end time and terminal
@@ -1183,13 +1277,10 @@ unopposed damage demonstration cannot close M27.
 
 ## Review readiness and replanning triggers
 
-**READY FOR ARCHITECTURAL REVIEW**, not approved for implementation. No unresolved
-foundational combat-rule or ownership blocker was identified. The next review
-must independently challenge the source quirks, handoff capability, optional
-roster storage/save guard and publication/time ordering against the fixed
-specification commit. Source-derived Attack/attack2/time and unrendered ATT
-composition are explicit evidence limits; their precise contracts and required
-targeted production tests are stated above, not deferred design decisions.
+The [accepted 27A boundary](#27a-acceptance) establishes the headless domain and
+persistence protections. Later production coordination, MON/ATT composition and
+physical acceptance must satisfy their separate contracts above; headless
+evidence does not establish those results.
 
 Reopen only for evidence: changed original resources/item domain, contradictory
 connected reference execution, extra actor admission, an item/condition/time
@@ -1198,7 +1289,5 @@ failure of original ordered composition to provide readable engagement. Report
 the smallest affected contract and required scope approval; do not silently
 change the anchor, freeze bystanders, omit an item effect or expand into M28.
 
-Next workflow: maintainer review, then an explicitly authorized specification
-commit/push; architecture/specification review against that resulting SHA,
-combined with preparation of the first implementation prompt only if approved.
-M27 implementation and each subsequent unit still require separate authorization.
+M27B and M27C implementation, milestone closure and Git publication each require
+separate authorization. Acceptance of 27A does not authorize those actions.

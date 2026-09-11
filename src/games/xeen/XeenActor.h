@@ -6,7 +6,7 @@
 #include <optional>
 
 namespace mmodern {
-enum class XeenActorLifecycle { Present, Disabled, Unresolved };
+enum class XeenActorLifecycle { Present, Disabled, Unresolved, Defeated };
 enum class XeenActorStatus { Physical, Unsupported };
 struct XeenActor {
 	XeenMonsterIdentity id;

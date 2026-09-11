@@ -40,6 +40,10 @@ public:
 private:
 	friend class XeenWorld;
 	friend class XeenActorApproach;
+	friend class XeenCombat;
+	const void *_combatOwner = nullptr;
+	const void *_combatApproachState = nullptr;
+	bool _diagnostic27 = false, _combatEntered = false, _combatAccounted = false;
 	bool _encounterMarked = false, _encounterInitialized = false, _encounterTerminal = false;
 	std::uint64_t _encounterRevision = 0;
 	std::vector<XeenActor> _actors;
@@ -86,8 +90,13 @@ public:
 
 private:
 	friend class XeenSaveState;
+	friend class XeenCombat;
 	friend class XeenActorApproach;
 	void swapPreparedState(XeenWorld &candidate) noexcept;
+	// Diagnostic27 checks retained authority after fallible resource providers.
+	std::function<void()> _combatCheck;
+	// Retained Diagnostic27 authorization, separate from domain validity.
+	std::function<bool()> _combatAuthorized;
 	XeenSessionWorldState _sessionState;
 	MapLoader _loader;
 	ObjectLoader _objectLoader;

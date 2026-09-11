@@ -33,4 +33,12 @@ std::vector<XeenMonsterRecord> XeenMonsterFormat::parse(const std::vector<std::u
 		std::copy_n(bytes.begin() + i * kRecordSize, kRecordSize, records[i].raw.begin());
 	return records;
 }
+void XeenMonsterRecord::validateCombat() const {
+	if (!supportsApproach() || baseHp()!=20 || experience()!=250 || armorClass()!=5 || speed()!=10 ||
+		attacks()!=1 || preferredClass()!=3 || strikes()!=2 || damageDie()!=6 || raw[29]!=0 ||
+		hitParameter()!=4 || raw[33]!=4 || physicalResistance()!=50 || gold()!=0 || raw[44]!=0 || raw[45]!=0 || image()!=8)
+		throw std::invalid_argument("monster resource is outside the Diagnostic27 combat profile");
+	for (unsigned i=34;i<=40;++i) if (raw[i]>100)
+		throw std::invalid_argument("monster resistance percentage out of bounds");
+}
 } // namespace mmodern

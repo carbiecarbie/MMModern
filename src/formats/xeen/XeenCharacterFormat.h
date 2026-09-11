@@ -18,6 +18,8 @@ public:
 	};
 
 	static XeenRoster parseRoster(const std::vector<std::uint8_t> &bytes);
+	// Parsing produces inert values, never installs encounter authority.
+	static XeenCombatInputs parseCombatInputs(const std::vector<std::uint8_t> &bytes, std::size_t owner);
 	static PartyHeader parsePartyHeader(const std::vector<std::uint8_t> &bytes);
 };
 

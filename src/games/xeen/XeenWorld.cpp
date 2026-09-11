@@ -17,22 +17,27 @@ void XeenWorld::restoreSessionState(const std::vector<XeenObjectIdentity> &objec
 	XeenSessionWorldState prepared;
 	for (const auto id : objects) {
 		static_cast<void>(map(id.mapId));
+		if (hasEncounterState()) throw std::logic_error("encounter appeared during overlay map loading");
 		validateObject(id);
+		if (hasEncounterState()) throw std::logic_error("encounter appeared during overlay resource loading");
 		if (!prepared._objects.insert(id).second)
 			throw std::invalid_argument("duplicate restored object identity");
 	}
 	std::map<XeenMapIdentity, XeenEventFile> files;
 	for (const auto id : events) {
 		static_cast<void>(map(id.mapId));
+		if (hasEncounterState()) throw std::logic_error("encounter appeared during overlay map loading");
 		if (!eventLoader) throw std::invalid_argument("restoration requires an event loader");
 		auto found = files.find(id.mapId);
 		if (found == files.end()) found = files.emplace(id.mapId, eventLoader(id.mapId)).first;
+		if (hasEncounterState()) throw std::logic_error("encounter appeared during overlay event loading");
 		const auto &file = found->second;
 		if (file.mapId != id.mapId || !file.resourcePresent || id.recordIndex >= file.records.size())
 			throw std::invalid_argument("restored original event identity does not exist");
 		if (!prepared._events.insert(id).second)
 			throw std::invalid_argument("duplicate restored event identity");
 	}
+	if (hasEncounterState()) throw std::logic_error("encounter appeared before overlay publication");
 	_sessionState._objects.swap(prepared._objects);
 	_sessionState._events.swap(prepared._events);
 }
@@ -52,6 +57,7 @@ const XeenObjectFile &XeenWorld::objectFile(XeenMapIdentity mapId) {
 	// Geometry-only clients may omit the provider; this represents no MOB source.
 	XeenObjectFile loaded = _objectLoader ? _objectLoader(mapId) :
 		XeenObjectFile{mapId, {}, false, {}};
+	if (_combatCheck) _combatCheck();
 	if (loaded.mapId != mapId)
 		throw std::runtime_error("object file identity differs from requested map");
 	return _objects.emplace(mapId, std::move(loaded)).first->second;
@@ -131,6 +137,7 @@ const XeenMap &XeenWorld::map(XeenMapIdentity mapId) {
 		return cached->second;
 
 	XeenMap loaded = _loader(mapId);
+	if (_combatCheck) _combatCheck();
 	if (loaded.identity() != mapId)
 		throw std::runtime_error("ID interno do mapa nao corresponde ao recurso solicitado");
 	return _maps.emplace(mapId, std::move(loaded)).first->second;

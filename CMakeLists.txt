@@ -26,6 +26,7 @@ add_library(mmodern_xeen STATIC
 	src/formats/xeen/XeenMonsterFormat.cpp
 	src/formats/xeen/XeenGameplayContextFormat.cpp
 	src/games/xeen/XeenActorApproach.cpp
+	src/games/xeen/XeenCombat.cpp
 	src/formats/xeen/XeenAssetSource.cpp
 	src/formats/xeen/XeenCloudsVisualMetadata.cpp
 	src/formats/xeen/XeenMaterialNames.cpp
@@ -112,8 +113,19 @@ endif()
 
 include(CTest)
 add_executable(mmodern_encounter_domain_smoke EXCLUDE_FROM_ALL tests/XeenEncounterSmoke.cpp)
+add_executable(mmodern_combat_smoke EXCLUDE_FROM_ALL tests/XeenCombatSmoke.cpp)
+target_link_libraries(mmodern_combat_smoke PRIVATE mmodern_xeen)
 target_link_libraries(mmodern_encounter_domain_smoke PRIVATE mmodern_xeen)
 if(BUILD_TESTING)
+	add_executable(mmodern_combat_tests tests/XeenCombatTests.cpp)
+	target_link_libraries(mmodern_combat_tests PRIVATE mmodern_xeen)
+	add_test(NAME xeen_combat COMMAND mmodern_combat_tests)
+	add_executable(mmodern_combat_authority_tests tests/XeenCombatAuthorityTests.cpp)
+	target_link_libraries(mmodern_combat_authority_tests PRIVATE mmodern_xeen)
+	add_test(NAME xeen_combat_authority COMMAND mmodern_combat_authority_tests)
+	add_executable(mmodern_combat_persistence_tests tests/XeenCombatPersistenceTests.cpp)
+	target_link_libraries(mmodern_combat_persistence_tests PRIVATE mmodern_xeen)
+	add_test(NAME xeen_combat_persistence COMMAND mmodern_combat_persistence_tests)
 	add_executable(mmodern_encounter_flow_tests tests/XeenEncounterFlowTests.cpp)
 	target_link_libraries(mmodern_encounter_flow_tests PRIVATE mmodern_app mmodern_xeen)
 	add_test(NAME xeen_encounter_flow COMMAND mmodern_encounter_flow_tests)

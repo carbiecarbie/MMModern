@@ -215,6 +215,7 @@ XeenEncounterResult XeenActorApproach::initialize(XeenWorld &world, XeenPartySta
 		const XeenGameplayContext &context, const XeenEventFile &events) {
 	auto &session = world._sessionState;
 	const auto uninitialized = [&] {
+		if (session._diagnostic27 && (!world._combatCheck || session._combatApproachState != &state)) return false;
 		return !session._encounterInitialized && !session._encounterTerminal && session._actors.empty() &&
 			session._encounterRevision == 0 && !party.encounterContext &&
 			!state._world && !state._party && !state._camera && state._revision == 0 && state._pending == 0 &&
@@ -237,6 +238,7 @@ XeenEncounterResult XeenActorApproach::initialize(XeenWorld &world, XeenPartySta
 	require(session._encounterMarked && uninitialized(),
 		"encounter initialization authority changed during preparation");
 	// Preparation ends here. Only nonthrowing stores/swaps until return.
+	if (world._combatCheck) world._combatCheck();
 	session._actors.swap(actors);
 	party.encounterContext = context;
 	session._encounterInitialized = true;
@@ -247,6 +249,7 @@ XeenEncounterResult XeenActorApproach::initialize(XeenWorld &world, XeenPartySta
 
 XeenEncounterResult XeenActorApproach::initializeFromResources(XeenAssetSource &assets, XeenWorld &world,
 		XeenPartyState &party, XeenCamera &camera, XeenEncounterState &state) {
+	require(!world._sessionState._diagnostic27 || bool(world._combatCheck), "Diagnostic27 initialization requires its coordinator");
 	world.markEncounterSession();
 	const auto bytes = assets.readCloudsMonsterStatisticsFromDarkArchive();
 	require(bool(bytes), "missing DARK.CC/xeen.mon");
@@ -272,6 +275,8 @@ XeenEncounterResult XeenActorApproach::stop(XeenWorld &world, XeenEncounterState
 	auto &s = world._sessionState;
 	XeenEncounterResult r;
 	r.revision = s._encounterRevision;
+	if (s._diagnostic27 && (!world._combatCheck || s._combatApproachState != &state)) { r.outcome = XeenEncounterOutcome::Refused; return r; }
+	if (s._diagnostic27 && (!world._combatAuthorized || !world._combatAuthorized())) { r.outcome = XeenEncounterOutcome::Stale; return r; }
 	if (state._world != &world || state._revision != s._encounterRevision) {
 		r.outcome = XeenEncounterOutcome::Stale; return r;
 	}
@@ -299,14 +304,17 @@ XeenEncounterResult XeenActorApproach::transition(XeenWorld &world, XeenPartySta
 	auto &session = world._sessionState;
 	XeenEncounterResult result;
 	result.revision = session._encounterRevision;
+	if (session._diagnostic27 && (!world._combatCheck || session._combatApproachState != &state)) return result;
 	if (state._world != &world || state._party != &party || state._camera != &camera ||
 		state._revision != session._encounterRevision) { result.outcome = XeenEncounterOutcome::Stale; return result; }
 	if (session._encounterTerminal) { result.outcome = XeenEncounterOutcome::Terminal; return result; }
 	if (!pulse && (action == XeenEncounterAction::Unsupported || static_cast<unsigned>(action) > 5)) return result;
 	if (state._revision == std::numeric_limits<std::uint64_t>::max()) return stop(world,state,XeenEncounterStop::Overflow);
 	const auto entry = state; // Keep authorization facts from before any provider callback.
+	const auto combatAuthorized = world._combatAuthorized;
 	const auto entryCurrent = [&] {
-		return !session._encounterTerminal && session._encounterRevision == entry._revision &&
+		return (!session._diagnostic27 || (combatAuthorized && combatAuthorized())) &&
+			!session._encounterTerminal && session._encounterRevision == entry._revision &&
 			state._revision == entry._revision && state._world == entry._world &&
 			state._party == entry._party && state._camera == entry._camera &&
 			state._pending == entry._pending && state._phase == entry._phase && state._reason == entry._reason;
@@ -372,6 +380,7 @@ XeenEncounterResult XeenActorApproach::transition(XeenWorld &world, XeenPartySta
 		result.revision = entry._revision + 1;
 		// All allocations, terrain/provider calls, validation and result construction are done.
 		// No externally applicable prepared result escapes this synchronous single-writer boundary.
+		if (world._combatCheck) world._combatCheck();
 		static_assert(std::is_nothrow_copy_assignable<XeenEncounterResult>::value);
 		if (!entryCurrent() || !session._encounterMarked || !session._encounterInitialized || !party.encounterContext)
 			return refusal();

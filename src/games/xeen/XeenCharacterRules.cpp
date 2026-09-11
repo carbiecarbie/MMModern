@@ -259,6 +259,36 @@ int maximumSp(const XeenCharacter &character,
 
 } // namespace
 
+int XeenCharacterRules::physicalBonus(int value) { return statBonus(value); }
+int XeenCharacterRules::effectivePhysical(const XeenCharacter &c, const XeenCombatInputs &input,
+		PhysicalAttribute attribute, const XeenCharacterRulesContext &context) {
+	for (unsigned i=0;i<c.conditions.size();++i)
+		if (i!=12 && i!=13 && c.conditions[i]) throw std::invalid_argument("unsupported physical combat condition");
+	const XeenAttributeValue *v = nullptr;
+	switch (attribute) {
+	case PhysicalAttribute::Might: v=&input.might; break;
+	case PhysicalAttribute::Speed: v=&input.speed; break;
+	case PhysicalAttribute::Accuracy: v=&input.accuracy; break;
+	default: throw std::invalid_argument("invalid physical attribute");
+	}
+	return std::max(add<true>(add<true>(add<true>(v->permanent,v->temporary),
+		ageAdjustment<true>(c,context,false)),itemBonus(c,static_cast<int>(attribute))),0);
+}
+int XeenCharacterRules::combatArmorClass(const XeenCharacter &c, const XeenCombatInputs &input,
+		const XeenCharacterRulesContext &context) {
+	// ScummVM developers, GPL-3.0-or-later, pin 6814ee9ba54582f5b5adcffab49efbbd8f589edd:
+	// Character::itemScan/getArmorClass, constants ARMOR_STRENGTHS. Admitted materials 0/38 only.
+	constexpr int strength[]{0,2,4,5,6,7,8,10,4,2,1,1,1,1};
+	int value = add<true>(physicalBonus(effectivePhysical(c,input,PhysicalAttribute::Speed,context)),input.temporaryAc);
+	value=add<true>(value,itemBonus(c,9));
+	for (const auto &item:c.armor) if (item.frame && !(item.state & 0xc0)) {
+		if (item.id>=14 || (item.material!=0 && item.material!=38))
+			throw std::invalid_argument("unsupported combat armor contribution");
+		value=add<true>(value,strength[item.id]);
+	}
+	return std::max(value,0);
+}
+
 void XeenCharacterRules::validateForUse(const XeenCharacter &character,
 		const XeenCharacterRulesContext &context) {
 	if (enumIndex(character.race) >= kRaceHpBonuses.size() ||

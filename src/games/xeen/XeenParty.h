@@ -3,6 +3,7 @@
 
 #include "games/xeen/XeenCharacter.h"
 #include "games/xeen/XeenGameplayContext.h"
+#include "games/xeen/XeenCombatInputs.h"
 
 #include <array>
 #include <cstddef>
@@ -16,12 +17,27 @@ namespace mmodern {
 class XeenRoster {
 public:
 	static constexpr std::size_t kCharacterCount = 30;
+	XeenRoster() = default;
+	XeenRoster(const XeenRoster &);
+	XeenRoster(XeenRoster &&);
+	XeenRoster &operator=(const XeenRoster &);
+	XeenRoster &operator=(XeenRoster &&);
+	void swap(XeenRoster &);
+	friend void swap(XeenRoster &a, XeenRoster &b) { a.swap(b); }
+	bool combatMarked() const noexcept { return _combatMarked; }
+	const std::optional<XeenCombatInputs> &combatInputs(std::size_t owner) const { return _combatInputs.at(owner); }
 
 	const XeenCharacter &at(std::size_t rosterId) const;
 	XeenCharacter &at(std::size_t rosterId);
 	const std::array<XeenCharacter, kCharacterCount> &characters() const { return _characters; }
 
 private:
+	friend class XeenCombat;
+	friend struct XeenPartyState;
+	static void requireOrdinary(const XeenRoster &);
+	void swapOrdinary(XeenRoster &) noexcept;
+	bool _combatMarked = false;
+	std::array<std::optional<XeenCombatInputs>, kCharacterCount> _combatInputs{};
 	std::array<XeenCharacter, kCharacterCount> _characters{};
 };
 
@@ -80,6 +96,13 @@ private:
 };
 
 struct XeenPartyState {
+	XeenPartyState() = default;
+	XeenPartyState(const XeenPartyState &);
+	XeenPartyState(XeenPartyState &&);
+	XeenPartyState &operator=(const XeenPartyState &);
+	XeenPartyState &operator=(XeenPartyState &&);
+	void swap(XeenPartyState &);
+	friend void swap(XeenPartyState &a, XeenPartyState &b) { a.swap(b); }
 	// Only explicit encounter preparation installs this; ordinary loading/restoration does not.
 	std::optional<XeenGameplayContext> encounterContext;
 	XeenRoster roster;
@@ -89,8 +112,17 @@ struct XeenPartyState {
 	std::uint8_t firstSerializedCount = 0;
 	std::uint8_t effectiveSerializedCount = 0;
 	std::vector<std::string> diagnostics;
+private:
+	friend class XeenSaveState;
+	void swapOrdinary(XeenPartyState &) noexcept;
 };
 
 } // namespace mmodern
+
+// Explicit std::swap must perform the same two-owner preflight as ADL swap.
+namespace std {
+template<> inline void swap(mmodern::XeenRoster &a, mmodern::XeenRoster &b) { a.swap(b); }
+template<> inline void swap(mmodern::XeenPartyState &a, mmodern::XeenPartyState &b) { a.swap(b); }
+}
 
 #endif

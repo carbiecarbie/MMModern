@@ -18,6 +18,14 @@ struct XeenMonsterRecord {
 	std::uint16_t gold() const;
 	std::uint8_t image() const { return raw[47]; }
 	bool supportsApproach() const;
+	void validateCombat() const;
+	unsigned armorClass() const { return raw[22]; }
+	unsigned speed() const { return raw[23]; }
+	unsigned attacks() const { return raw[24]; }
+	unsigned preferredClass() const { return raw[25]; }
+	unsigned damageDie() const { return raw[28]; }
+	unsigned hitParameter() const { return raw[31]; }
+	unsigned physicalResistance() const { return raw[40]; }
 };
 
 class XeenMonsterFormat {
