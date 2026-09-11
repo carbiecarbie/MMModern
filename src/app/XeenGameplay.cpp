@@ -33,10 +33,10 @@ struct EncounterHandoff {
 int Application::playGameplay(const XeenGameplayServices &services, XeenCamera camera,
   const std::optional<std::filesystem::path> &target, bool resume, XeenEncounterEntry entry) const {
  try {
-  const bool encounter = entry == XeenEncounterEntry::Diagnostic26;
+  const bool encounter = entry != XeenEncounterEntry::Ordinary;
   if (encounter && resume) throw std::invalid_argument("Encounter entry cannot resume");
   XeenWorld world(services.maps, services.objects);
-  if (encounter) world.markEncounterSession();
+  if (encounter) world.markEncounterSession(entry);
   XeenPartyState party;
   XeenGameFlags flags;
   const auto preflight = [&](XeenWorld &w, const XeenPartyState &p, const XeenCamera &c, const XeenGameFlags &) {
@@ -55,11 +55,17 @@ int Application::playGameplay(const XeenGameplayServices &services, XeenCamera c
   const auto encounterEvents = encounter ? services.resources.loadEvents(20) : XeenEventFile{};
   std::optional<XeenEncounterSetup> setup;
   if (encounter) setup.emplace(XeenEncounterSetup{encounterEvents, services.initializeEncounter, services.validateEncounterSprite});
+  if (entry == XeenEncounterEntry::Diagnostic27) {
+   if (!services.prepareCombat) throw std::invalid_argument("Missing combat preparation provider");
+   setup->prepareCombat = services.prepareCombat;
+  }
   XeenEventFlow flow(world, events, party, camera, flags, services.font,
    [&](std::uint64_t phase) { return services.compose(world, party, camera, phase); }, services.npcDraw, services.clock, {}, services.catalog,
    setup ? &*setup : nullptr, [&](std::uint64_t ordinary, std::uint8_t actor) {
-    const auto observedParty = party;
     const auto observedCamera = camera;
+    if (entry == XeenEncounterEntry::Diagnostic27)
+     return services.composeEncounter(world, party, observedCamera, ordinary, actor);
+    const auto observedParty = party;
     return services.composeEncounter(world, observedParty, observedCamera, ordinary, actor);
    });
   EncounterHandoff handoff(flow);
@@ -87,10 +93,10 @@ int Application::playGameplay(const XeenGameplayServices &services, XeenCamera c
   if (resume) std::cout << "Resumed " << target->u8string() << '\n';
   bool dispatching = false;
   bool active = true;
-  SdlWindow::FrameUpdateHandler handler = [&](const PlayerAction &action) -> std::optional<IndexedFrame> {
+  const auto dispatch = [&](const PlayerAction &action, std::optional<std::uint64_t> input) -> std::optional<IndexedFrame> {
    // Irreversible session policy precedes busy/modal/target checks and all save work.
-   if (std::holds_alternative<SaveGameAction>(action) && (world.hasEncounterState() || party.encounterContext)) {
-    try { status = "MMModern - Cannot save: M26 encounter session is unsaveable."; }
+   if (std::holds_alternative<SaveGameAction>(action) && (world.hasEncounterState() || party.encounterContext || party.roster.combatMarked())) {
+    try { status = "MMModern - Cannot save: encounter session is unsaveable."; }
     catch (...) { handoff.fail(); active = false; throw; }
     return std::nullopt;
    }
@@ -125,11 +131,19 @@ int Application::playGameplay(const XeenGameplayServices &services, XeenCamera c
     if (flow.inventoryOpen()) return flow.refuseInventorySave();
     return std::nullopt; // Never forward Save to the presenter or clear a label.
    }
-   auto next = flow.handle(action);
+   auto mapped = action;
+   if (entry == XeenEncounterEntry::Diagnostic27) {
+    if (std::holds_alternative<InteractionAction>(action)) mapped = AttackAction{};
+    if (std::holds_alternative<AcknowledgeAction>(action) && !flow.inventoryOpen()) mapped = BeginEncounterAction{};
+   }
+   auto next = flow.handle(mapped,input);
    handoff.retain();
    return next;
    } catch (...) { handoff.fail(); active = false; throw; }
   };
+  SdlWindow::FrameUpdateHandler handler = [&](const PlayerAction &action) { return dispatch(action,{}); };
+  handler.displayedInput = [&] { return flow.displayedInput(); };
+  handler.withDisplayedInput = [&](const PlayerAction &action,std::uint64_t input) { return dispatch(action,input); };
   handler.beginCycle = [&](std::uint64_t cycle) {
    if (!active) throw std::runtime_error("Gameplay session is closed");
    flow.beginCycle(cycle);

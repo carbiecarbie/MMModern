@@ -32,7 +32,8 @@ public:
 	XeenEventFlow(const XeenEventFlow &) = delete;
 	XeenEventFlow &operator=(const XeenEventFlow &) = delete;
 	IndexedFrame initial();
-	IndexedFrame handle(const PlayerAction &action);
+	IndexedFrame handle(const PlayerAction &action, std::optional<std::uint64_t> displayedInput = {});
+	std::optional<std::uint64_t> displayedInput() const noexcept { return _encounter && _encounter->combat() ? std::optional<std::uint64_t>{_inputGeneration} : std::nullopt; }
 	IndexedFrame refresh(bool reconstruct = false);
 	IndexedFrame acceptManual(XeenManualEventResult result);
 	IndexedFrame acceptAutomatic(XeenAutomaticEventResult result);
@@ -77,6 +78,11 @@ private:
 	EncounterCompose _encounterCompose;
 	std::optional<XeenEncounterFlow::Ticket> _encounterFrame;
 	std::optional<std::uint64_t> _cycle;
+	std::uint64_t _inputGeneration = 0;
+	std::optional<XeenCombat::Ticket> _displayedCombat;
+	std::uint64_t _inventoryLease = 0, _certificateLease = 0;
+	bool combatPreparation() const noexcept { return _encounter && _encounter->preparation(); }
+	void syncCombatInventory();
 	IndexedFrame renderEncounter(bool report = false);
 	IndexedFrame frameCopy();
 	const XeenFontFormat &_inventoryFont;

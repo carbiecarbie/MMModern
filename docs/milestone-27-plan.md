@@ -1,8 +1,10 @@
 # Milestone 27 - Playable Attack/Block encounter with original outcomes
 
-**Milestone 27A is accepted; M27 remains open.** The
-[27A acceptance record](#27a-acceptance) covers the headless domain only.
-M27B and M27C remain future work requiring separate implementation authorization.
+**Milestone 27A and 27B are accepted; M27 remains open.** The
+[27A acceptance record](#27a-acceptance) covers the headless domain and the
+[27B acceptance record](#27b-acceptance) covers production preparation and
+combat coordination. M27C is the remaining stage and requires separate
+implementation authorization.
 
 ## Objective, authority and evidence
 
@@ -110,7 +112,7 @@ world, inventory, event engine, ECS or general combat framework is unnecessary.
 
 ### Production entry and preparation
 
-Proposed syntax (not implemented):
+Production syntax:
 
 ```text
 mmodern --encounter-27 [--combat-seed <nonzero-u32>] <game-directory>
@@ -1019,9 +1021,9 @@ data and physical acceptance. Do not claim raster acceptance from the validator.
 
 ## Proposed implementation units
 
-Three units provide separate acceptance boundaries. 27A is accepted below;
-27B and 27C remain specifications for separate authorization. Each must preserve
-ordinary/M26 regressions; no unit alone is M27 completion.
+Three units provide separate acceptance boundaries. 27A and 27B are accepted
+below; 27C remains the specification for separate authorization. Each must
+preserve ordinary/M26 regressions; no unit alone is M27 completion.
 
 ### 27A - Authoritative bounded combat domain
 
@@ -1052,10 +1054,10 @@ completes two nonterminal rounds to 502, then completes the victory-end minute
 at 503.
 
 This acceptance is headless/domain-level. Physical M27 combat acceptance has
-not occurred and is not required for 27A. M27B retains production Preparation,
-CLI/SDL coordination and presentation; M27C retains original MON/ATT appearance
-and final physical acceptance of the combined implementation. **M27 remains
-open.**
+not occurred and is not required for 27A. M27B's production Preparation,
+CLI/SDL coordination and presentation are covered by its separate acceptance;
+M27C retains original MON/ATT appearance and final physical acceptance of the
+combined implementation. **M27 remains open.**
 
 #### Domain integration and downstream consumer contract
 
@@ -1145,6 +1147,48 @@ stops at M26 and must not advertise playable M27.
 
 ### 27B - Explicit production preparation and combat coordination
 
+#### Production integration decisions
+
+The shared typed entry marker reserves Diagnostic27 before resource providers run.
+The domain constructor may claim an uninitialized, unbound Diagnostic27 reservation
+once, as well as its existing fresh-owner entry; it must reject Diagnostic26,
+initialized actors, a prior coordinator binding and marked roster replacement.
+The entry marker and exclusive coordinator binding remain separate facts.
+
+`XeenEncounterFlow` hosts the accepted coordinator and its boundary. EventFlow
+binds the real inventory and armed-selection lifetimes to boundary leases,
+releasing consumed certificates before coordinator transfer/equipment operations.
+Event/reward dispatch stays excluded throughout this diagnostic. Explicit owner
+replacement notifications invalidate combat authority rather than rebuilding its
+preimage certificate. Composition borrows the marked party by const reference.
+
+Displayed input authority is distinct from cosmetic frame refresh. Production
+passes a retained displayed-input generation across the services/SDL boundary;
+unticketed Diagnostic27 actions cannot mutate gameplay. Each SDL batch retains
+its entry generation, and Space/B require release before another physical press.
+Automatic work retains coordinator tickets and a separate 100 ms deadline inside
+the existing encounter Flow. Fixed domain results remain the presentation source.
+
+#### 27B acceptance
+
+**27B is accepted following independent review.** It delivers production
+Diagnostic27 preparation and combat coordination through the existing
+Application/Flow/SDL owners: strict entry, real inventory/transfer/equipment
+preparation, one-time Begin, automatic engagement handoff, retained
+continuation authority, mandatory idle-serviced enemy and round work,
+mode-specific controls, typed in-frame outcomes and irreversible F9 refusal.
+Existing ordinary and Diagnostic26 behavior remains preserved, and combat state
+remains outside the save format.
+
+The stale continuation-authority defect found during independent review was
+corrected and independently re-reviewed. Final evidence: full configured build
+passed, CTest 80/80 passed, production original-data Victory and Defeat checks
+passed, and `git diff --check` passed.
+
+This acceptance covers production preparation and coordination only. MON/ATT
+combat appearance, attack sequences/layering and final combined maintainer
+physical acceptance remain for M27C. **M27 remains open.**
+
 Depends on accepted27A interfaces. Deliver proposed CLI and typed Diagnostic27,
 real preparation via existing inventory/transfer/equipment, single-use Begin,
 automatic engagement handoff, tickets across Application/services/Flow/SDL,
@@ -1161,7 +1205,8 @@ phase, deadlines, owner tickets and buffers. Cover preparation cancellation,
 transfer/equip generations, direct routing bypasses, strict CLI, buffered input,
 every presentation-failure boundary and zero-save-side-effect assertions.
 Optional original-data headless runs must play real commands to both outcomes.
-Stop at reviewed production coordination; do not close the milestone yet.
+Stop at reviewed production coordination; M27C remains required before milestone
+closure.
 
 ### 27C - Original combat appearance and complete acceptance
 
@@ -1176,8 +1221,9 @@ Add original-data image/composition and deterministic production traces, then
 independent review, full build/CTest and maintainer physical victory/loss/regression
 acceptance. Prove cache discard preserves partial HP and once-only completion.
 Only this combined boundary may establish M27 complete, followed by separately
-authorized closure documentation/Git actions. With 27A accepted, the next unit
-is **27B**, requiring separate explicit implementation authorization.
+authorized closure documentation/Git actions. With 27A and 27B accepted, the
+remaining unit is **27C**, requiring separate explicit implementation
+authorization.
 
 ## Requirement-to-evidence and acceptance plan
 
@@ -1210,7 +1256,8 @@ acceptance. Existing targets include `xeen_encounter_flow`,
 `xeen_encounter_gameplay`, `xeen_encounter_save`, actor approach tests and
 `mmodern_encounter_domain_smoke`/`mmodern_encounter_smoke`. Accepted 27A coverage
 adds `xeen_combat`, `xeen_combat_authority`, `xeen_combat_persistence` and
-`mmodern_combat_smoke`; production combat verification remains future work.
+`mmodern_combat_smoke`; MON/ATT appearance and physical combat verification
+remain future work for 27C.
 
 Test failure injections before acceptance, during RNG prefixes, before each
 publication, after nonlethal damage, lethal accounting, end time and terminal
@@ -1226,7 +1273,7 @@ Before execution, identify the authorized implementation SHA, compiler, selected
 CMake build directory, pinned ScummVM source and configured library build. Build
 that exact source and verify the optional original-data production tests match
 the seeded traces above. Do not select a binary by modification time. All paths
-and launch syntax below are proposed until27B/27C exist:
+and launch syntax below is proposed until27C exists:
 
 ```text
 <verified-build>/mmodern.exe --encounter-27 --combat-seed 1 "<game-directory>"
@@ -1278,9 +1325,10 @@ unopposed damage demonstration cannot close M27.
 ## Review readiness and replanning triggers
 
 The [accepted 27A boundary](#27a-acceptance) establishes the headless domain and
-persistence protections. Later production coordination, MON/ATT composition and
-physical acceptance must satisfy their separate contracts above; headless
-evidence does not establish those results.
+persistence protections, and the [accepted 27B boundary](#27b-acceptance)
+establishes production preparation and combat coordination. MON/ATT composition
+and physical acceptance must satisfy their separate M27C contract above;
+headless and coordination evidence do not establish those results.
 
 Reopen only for evidence: changed original resources/item domain, contradictory
 connected reference execution, extra actor admission, an item/condition/time
@@ -1289,5 +1337,6 @@ failure of original ordered composition to provide readable engagement. Report
 the smallest affected contract and required scope approval; do not silently
 change the anchor, freeze bystanders, omit an item effect or expand into M28.
 
-M27B and M27C implementation, milestone closure and Git publication each require
-separate authorization. Acceptance of 27A does not authorize those actions.
+M27C implementation, milestone closure and Git publication each require
+separate authorization. Acceptance of 27A and 27B does not authorize those
+actions.

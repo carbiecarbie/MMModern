@@ -99,6 +99,7 @@ public:
 	XeenCombat &operator=(const XeenCombat &)=delete;
 	Ticket ticket() const noexcept;
 	bool current(const Ticket &) const noexcept;
+	bool boundTo(const XeenWorld &, const XeenPartyState &, const XeenCamera &, const XeenCombatBoundary &) const noexcept;
 	const XeenCombatResult &result() const noexcept;
 	const std::optional<XeenEquipmentResult> &preparationEquipmentResult() const noexcept;
 	const std::optional<XeenTransferResult> &preparationTransferResult() const noexcept;

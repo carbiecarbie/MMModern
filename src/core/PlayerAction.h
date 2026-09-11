@@ -10,6 +10,9 @@ namespace mmodern {
 
 struct SaveGameAction {};
 struct WaitAction {};
+struct AttackAction {};
+struct BlockAction {};
+struct BeginEncounterAction {};
 struct InspectInventoryAction {};
 struct SelectInventorySlotAction { std::size_t slot; };
 struct TransferInventoryAction {};
@@ -23,7 +26,8 @@ struct CancelInteractionAction {};
 
 using PlayerAction = std::variant<NavigationAction, InteractionAction,
 	AcknowledgeAction, YesAction, NoAction, SelectMemberAction, CancelInteractionAction, SaveGameAction, InspectInventoryAction,
-	SelectInventorySlotAction, TransferInventoryAction, EquipmentInventoryAction, WaitAction>;
+	SelectInventorySlotAction, TransferInventoryAction, EquipmentInventoryAction, WaitAction,
+	AttackAction, BlockAction, BeginEncounterAction>;
 
 } // namespace mmodern
 

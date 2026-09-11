@@ -29,6 +29,7 @@ public:
 		std::optional<std::filesystem::path> savePath = std::nullopt) const;
 	int loadGame(const std::filesystem::path &gameDirectory, const std::filesystem::path &savePath) const;
 	int encounter26(const std::filesystem::path &gameDirectory) const;
+	int encounter27(const std::filesystem::path &gameDirectory, std::optional<std::uint32_t> seed = {}) const;
 	// Shared production construction; providers outlive this call. Target has
 	// already been resolved/checked against the installation by gameplay().
 	int playGameplay(const XeenGameplayServices &, XeenCamera,
@@ -37,7 +38,7 @@ public:
 private:
 	int gameplay(const std::filesystem::path &, XeenCamera,
 		const std::optional<std::filesystem::path> &, bool resume,
-		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary) const;
+		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary, std::optional<std::uint32_t> seed = {}) const;
 };
 
 } // namespace mmodern

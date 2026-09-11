@@ -215,7 +215,7 @@ XeenEncounterResult XeenActorApproach::initialize(XeenWorld &world, XeenPartySta
 		const XeenGameplayContext &context, const XeenEventFile &events) {
 	auto &session = world._sessionState;
 	const auto uninitialized = [&] {
-		if (session._diagnostic27 && (!world._combatCheck || session._combatApproachState != &state)) return false;
+		if (session._entry == XeenEncounterEntry::Diagnostic27 && (!world._combatCheck || session._combatApproachState != &state)) return false;
 		return !session._encounterInitialized && !session._encounterTerminal && session._actors.empty() &&
 			session._encounterRevision == 0 && !party.encounterContext &&
 			!state._world && !state._party && !state._camera && state._revision == 0 && state._pending == 0 &&
@@ -249,7 +249,7 @@ XeenEncounterResult XeenActorApproach::initialize(XeenWorld &world, XeenPartySta
 
 XeenEncounterResult XeenActorApproach::initializeFromResources(XeenAssetSource &assets, XeenWorld &world,
 		XeenPartyState &party, XeenCamera &camera, XeenEncounterState &state) {
-	require(!world._sessionState._diagnostic27 || bool(world._combatCheck), "Diagnostic27 initialization requires its coordinator");
+	require(world._sessionState._entry != XeenEncounterEntry::Diagnostic27 || bool(world._combatCheck), "Diagnostic27 initialization requires its coordinator");
 	world.markEncounterSession();
 	const auto bytes = assets.readCloudsMonsterStatisticsFromDarkArchive();
 	require(bool(bytes), "missing DARK.CC/xeen.mon");

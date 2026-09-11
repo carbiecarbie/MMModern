@@ -23,6 +23,8 @@ public:
 		std::function<bool()> frameCurrent;
 		std::function<void()> failed;
 		std::function<void()> closed;
+		std::function<std::optional<std::uint64_t>()> displayedInput;
+		std::function<std::optional<IndexedFrame>(const PlayerAction &,std::uint64_t)> withDisplayedInput;
 	};
 	using IdleFrameHandler = std::function<std::optional<IndexedFrame>()>;
 

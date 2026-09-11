@@ -19,12 +19,12 @@ during dialogue. Static ordinary indoor objects use original directional
 appearances, placement and wall occlusion; the bounded Nightshadow gravestone
 interaction displays its original clue through the existing event flow.
 
-A bounded diagnostic entry now presents an original outdoor Skeleton, supports
+The Diagnostic26 entry presents an original outdoor Skeleton, supports
 its activation and approach, and stops at terminal same-cell engagement before
 combat. This encounter is unsaveable and does not enable normal-start gameplay.
 
 MMModern remains incomplete and experimental. It is not yet a generally playable
-replacement for the original games: combat, item use, complete item effects and Darkside
+replacement for the original games: general combat, item use, complete item effects and Darkside
 gameplay remain unsupported, and travel between validated checkpoints is not certified.
 
 See the [technical snapshot](docs/project-status.md),
@@ -62,6 +62,7 @@ Run from a terminal to see diagnostics; quote paths containing spaces:
 mmodern --render-map <game-directory> [<map> <x> <y> <north|east|south|west>] [--save-file <path.mmsave>]
 mmodern --load-game <game-directory> <path.mmsave>
 mmodern --encounter-26 <game-directory>
+mmodern --encounter-27 [--combat-seed <nonzero-u32>] <game-directory>
 ```
 
 Use an existing save directory outside the original game installation. Relative
@@ -75,6 +76,18 @@ entire session is unsaveable: F9 is refused, as are ordinary events and inventor
 Engagement or a support stop terminates supported exploration before combat;
 Escape/window close exits. This mode accepts no save options or camera overrides.
 Ordinary `--render-map` behavior remains unchanged.
+
+`--encounter-27` adds the bounded Attack/Block diagnostic. Preparation starts
+without live actors: I opens inventory for normal transfer/equipment operations,
+and Enter begins only with inventory closed. In transfer selection/confirmation,
+I cancels to Browse; another I closes. N also cancels confirmation. Escape always
+exits the session. After approach engagement, Space attacks and B blocks for the
+displayed character; enemy and round work continues automatically. All phases,
+including victory and defeat, refuse saving and cannot return to exploration.
+The optional nonzero 32-bit seed reproduces diagnostic RNG. Save options, camera
+overrides and other entry modes cannot be combined with this entry.
+Normal actor sprites are used; original attack appearance and combined physical
+acceptance belong to [M27C](docs/milestone-27-plan.md#27c---original-combat-appearance-and-complete-acceptance).
 
 | Key | Action |
 | --- | --- |

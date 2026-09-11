@@ -5,6 +5,8 @@
 #include "games/xeen/XeenRecordIdentity.h"
 #include "games/xeen/XeenEventFile.h"
 #include "games/xeen/XeenActor.h"
+#include "games/xeen/XeenEncounterEntry.h"
+#include <stdexcept>
 #include <set>
 
 #include <cstddef>
@@ -34,6 +36,7 @@ public:
 	const std::set<XeenObjectIdentity> &disabledObjects() const { return _objects; }
 	const std::set<XeenEventIdentity> &disabledEvents() const { return _events; }
 	bool encounterMarked() const { return _encounterMarked; }
+	XeenEncounterEntry encounterEntry() const noexcept { return _entry; }
 	bool encounterInitialized() const { return _encounterInitialized; }
 	bool encounterTerminal() const { return _encounterTerminal; }
 	const std::vector<XeenActor> &actors() const { return _actors; }
@@ -44,6 +47,7 @@ private:
 	const void *_combatOwner = nullptr;
 	const void *_combatApproachState = nullptr;
 	bool _diagnostic27 = false, _combatEntered = false, _combatAccounted = false;
+	XeenEncounterEntry _entry = XeenEncounterEntry::Ordinary;
 	bool _encounterMarked = false, _encounterInitialized = false, _encounterTerminal = false;
 	std::uint64_t _encounterRevision = 0;
 	std::vector<XeenActor> _actors;
@@ -73,6 +77,14 @@ public:
 	const XeenSessionWorldState &sessionState() const { return _sessionState; }
 	// Irreversible safety marker, including failed preparation. No clear/reset API.
 	void markEncounterSession() noexcept { _sessionState._encounterMarked = true; }
+	void markEncounterSession(XeenEncounterEntry entry) {
+		if (entry == XeenEncounterEntry::Ordinary ||
+			(_sessionState._entry != XeenEncounterEntry::Ordinary && _sessionState._entry != entry) ||
+			(_sessionState._encounterMarked && _sessionState._entry == XeenEncounterEntry::Ordinary))
+			throw std::logic_error("Encounter entry cannot be replaced");
+		_sessionState._entry = entry;
+		_sessionState._encounterMarked = true;
+	}
 	bool hasEncounterState() const {
 		return _sessionState._encounterMarked || _sessionState._encounterInitialized ||
 			!_sessionState._actors.empty();

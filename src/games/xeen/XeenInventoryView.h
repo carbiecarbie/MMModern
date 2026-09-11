@@ -21,9 +21,9 @@ struct XeenInventorySelection {
 struct XeenInventoryLine { XeenTextRect bounds; std::string text; };
 std::vector<XeenInventoryLine> xeenInventoryLayout(const XeenFontFormat &,
 	const XeenItemCatalog &, const XeenPartyState &, const XeenInventorySelection &, const char *feedback,
-	const XeenEquipmentResult *equipmentResult = nullptr);
+	const XeenEquipmentResult *equipmentResult = nullptr, bool combatPreparation = false);
 IndexedFrame drawXeenInventory(const IndexedFrame &, const XeenFontFormat &,
 	const XeenItemCatalog &, const XeenPartyState &, const XeenInventorySelection &, const char *feedback,
-	const XeenEquipmentResult *equipmentResult = nullptr);
+	const XeenEquipmentResult *equipmentResult = nullptr, bool combatPreparation = false);
 }
 #endif

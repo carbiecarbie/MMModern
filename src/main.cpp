@@ -86,6 +86,25 @@ int main(int argc, char *argv[]) {
 	std::vector<char *> pointers;
 	for (auto &argument : arguments) pointers.push_back(argument.data());
 	argc = wideCount; argv = pointers.data();
+	for (int i=1;i<argc;++i) if (std::string(argv[i]) == "--encounter-27" || std::string(argv[i]) == "--combat-seed") {
+		std::optional<std::uint32_t> seed;
+		bool valid = argc >= 3 && std::string(argv[1]) == "--encounter-27";
+		int path = 2;
+		if (valid && argc == 5 && std::string(argv[2]) == "--combat-seed") {
+			const std::string text = argv[3];
+			std::uint64_t value = 0;
+			valid = !text.empty() && text.size() <= 10;
+			for (char ch:text) {
+				if (ch<'0' || ch>'9') { valid=false; break; }
+				value=value*10+static_cast<unsigned>(ch-'0');
+			}
+			valid = valid && value && value <= std::numeric_limits<std::uint32_t>::max();
+			seed=static_cast<std::uint32_t>(value); path=4;
+		} else valid = valid && argc == 3;
+		valid = valid && path<argc && std::string(argv[path]).size() && std::string(argv[path]).rfind("--",0)!=0;
+		if (!valid) { std::cerr << "Usage: --encounter-27 [--combat-seed <nonzero-u32>] <game-directory>\n"; return 1; }
+		return mmodern::Application().encounter27(std::filesystem::u8path(argv[path]),seed);
+	}
 	for (int i = 1; i < argc; ++i) if (std::string(argv[i]) == "--encounter-26") {
 		if (i != 1 || argc != 3 || std::string(argv[2]).empty() || std::string(argv[2]).rfind("--", 0) == 0) {
 			std::cerr << "Usage: --encounter-26 <game-directory>\n"; return 1;

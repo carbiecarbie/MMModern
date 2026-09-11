@@ -34,6 +34,7 @@ struct XeenGameplayServices {
    std::uint64_t, std::uint8_t)> composeEncounter;
  enum class SaveStage { Capture, Preflight, Write };
  std::function<void(SaveStage)> observeSaveStage;
+ decltype(XeenEncounterSetup::prepareCombat) prepareCombat;
 };
 }
 #endif

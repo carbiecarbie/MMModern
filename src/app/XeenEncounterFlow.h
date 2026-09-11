@@ -3,32 +3,43 @@
 
 #include "core/PlayerAction.h"
 #include "games/xeen/XeenActorApproach.h"
+#include "games/xeen/XeenCombat.h"
 #include "games/xeen/XeenEventPresenter.h"
 
 namespace mmodern {
-enum class XeenEncounterEntry { Ordinary, Diagnostic26 };
 
 // Borrowed providers used once, before EventFlow's first refresh.
 struct XeenEncounterSetup {
 	const XeenEventFile &events;
 	std::function<XeenEncounterResult(XeenWorld &, XeenPartyState &, XeenCamera &, XeenEncounterState &)> initialize;
 	std::function<void(std::uint8_t image)> validateNormalSprite;
+	std::function<std::unique_ptr<XeenCombat>(XeenWorld &, XeenPartyState &, XeenCamera &, XeenCombatBoundary &)> prepareCombat;
 };
 
 // Bounded coordinator. World/party/camera and the normalized clock remain borrowed.
 class XeenEncounterFlow {
 public:
-	struct Ticket { XeenEncounterState state; std::uint64_t generation; };
+	struct Ticket { XeenEncounterState state; std::uint64_t generation; std::optional<XeenCombat::Ticket> combat; };
 	XeenEncounterFlow(XeenWorld &, XeenPartyState &, XeenCamera &,
 		const XeenEventPresenter::Clock &, const XeenEncounterSetup &);
 	XeenEncounterFlow(const XeenEncounterFlow &) = delete;
 	XeenEncounterFlow &operator=(const XeenEncounterFlow &) = delete;
-	Ticket ticket() const noexcept { return {_state, _generation}; }
+	Ticket ticket() const noexcept { return {state(), _generation, _combat ? std::optional<XeenCombat::Ticket>{_combat->ticket()} : std::nullopt}; }
+	XeenCombat *combat() noexcept { return _combat.get(); }
+	const XeenCombat *combat() const noexcept { return _combat.get(); }
+	// Fixed observations for downstream presentation, never continuation authority.
+	const XeenCombatResult &combatObservation() const noexcept { return _combatObservation; }
+	const XeenCombatResult &combatAward() const noexcept { return _combatAward; }
+	XeenCombatBoundary &boundary() noexcept { return _boundary; }
+	bool preparation() const noexcept { return _combat && _combat->phase() == XeenCombatPhase::Preparation; }
+	bool terminal() const noexcept;
+	bool combatOperationStale() const noexcept { return _combatOperationStale; }
+	void presented(const Ticket &);
 	bool current(const Ticket &) const noexcept;
-	bool handle(const PlayerAction &, std::optional<std::uint64_t> cycle = {});
+	bool handle(const PlayerAction &, std::optional<std::uint64_t> cycle = {}, std::optional<XeenCombat::Ticket> displayed = {});
 	bool idle(std::optional<std::uint64_t> cycle = {});
 	bool fail(const Ticket &, XeenEncounterStop = XeenEncounterStop::Reporting) noexcept;
-	const XeenEncounterState &state() const noexcept { return _state; }
+	const XeenEncounterState &state() const noexcept { return _combat ? _combat->approachState() : _state; }
 	const XeenEncounterResult &result() const noexcept { return _result; }
 	const XeenEncounterResult &actionResult() const noexcept { return _actionResult; }
 	unsigned actionPending() const noexcept { return _actionPending; }
@@ -37,6 +48,15 @@ public:
 	std::uint64_t cosmeticDeadline() const noexcept { return _cosmeticDeadline; }
 	std::string notice() const;
 private:
+	bool handleCombat(const PlayerAction &, std::optional<std::uint64_t>);
+	bool idleCombat(std::optional<std::uint64_t>);
+	bool acceptCombatResult(const XeenCombatResult &);
+	void scheduleCombat(std::uint64_t);
+	bool handoffCombat();
+	std::string combatNotice() const;
+	void observeCombat() noexcept;
+	XeenCombatResult _combatObservation, _combatAward;
+	bool _scheduleAfterFrame = false, _combatOperationStale = false;
 	bool adopt(const XeenEncounterResult &, std::uint64_t generation) noexcept;
 	bool prepareTime(const Ticket &, std::uint64_t &now);
 	void schedule(std::uint64_t now) noexcept;
@@ -45,6 +65,8 @@ private:
 	XeenCamera &_camera;
 	const XeenEventPresenter::Clock &_clock;
 	const XeenEventFile &_events;
+	XeenCombatBoundary _boundary;
+	std::unique_ptr<XeenCombat> _combat;
 	XeenEncounterState _state;
 	XeenEncounterResult _result, _actionResult;
 	unsigned _actionPending = 0;

@@ -39,6 +39,7 @@ bool uploadFrame(SDL_Texture *texture, const IndexedFrame &frame,
 std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key) {
 	switch (key.keysym.sym) {
 	case SDLK_PERIOD: return WaitAction{};
+	case SDLK_b: return BlockAction{};
 	case SDLK_F9: return SaveGameAction{};
 	case SDLK_i: return InspectInventoryAction{};
 	case SDLK_t: return TransferInventoryAction{};
@@ -159,19 +160,37 @@ bool showLoop(const IndexedFrame &initialFrame, const std::string &title,
 	success = uploadFrame(texture, initialFrame, initialFrame.width,
 		initialFrame.height, pixels);
 	bool running = success;
+	if (running) {
+		SDL_SetRenderDrawColor(renderer,0,0,0,255);
+		SDL_RenderClear(renderer);
+		if (SDL_RenderCopy(renderer,texture,nullptr,nullptr) != 0) { success=false; return false; }
+		SDL_RenderPresent(renderer);
+	}
 	std::uint64_t cycle = 0;
+	bool spaceDown = false, blockDown = false;
+	std::uint32_t readyAt = SDL_GetTicks();
+	std::optional<std::uint64_t> displayedInput = handler.displayedInput ? handler.displayedInput() : std::nullopt;
 	while (running) {
 		try {
 			if (cycle == std::numeric_limits<std::uint64_t>::max()) throw std::overflow_error("SDL loop cycle overflow");
 			if (handler.beginCycle) handler.beginCycle(++cycle);
 		} catch (...) { success = false; break; }
 		SDL_Event event;
+		const auto batchInput = displayedInput;
 		if (SDL_WaitEventTimeout(&event, 16)) {
 			do {
 				if (event.type == SDL_QUIT) {
 					running = false;
+				} else if (event.type == SDL_KEYUP) {
+					if (event.key.keysym.sym == SDLK_SPACE) spaceDown = false;
+					if (event.key.keysym.sym == SDLK_b) blockDown = false;
 				} else if (event.type == SDL_KEYDOWN) {
 					if (event.key.repeat != 0) continue;
+					if (batchInput && (event.key.keysym.sym == SDLK_SPACE || event.key.keysym.sym == SDLK_b)) {
+						auto &down = event.key.keysym.sym == SDLK_SPACE ? spaceDown : blockDown;
+						const bool held = down; down = true;
+						if (held || static_cast<std::int32_t>(event.key.timestamp-readyAt) <= 0) continue;
+					}
 					if (event.key.keysym.sym == SDLK_ESCAPE &&
 							!(handler && canCancelInteraction && canCancelInteraction())) {
 						running = false;
@@ -179,7 +198,8 @@ bool showLoop(const IndexedFrame &initialFrame, const std::string &title,
 						const auto action = playerAction(event.key);
 						if (action) {
 							try {
-								const auto nextFrame = handler(*action);
+								const auto nextFrame = batchInput && handler.withDisplayedInput ?
+									handler.withDisplayedInput(*action,*batchInput) : handler(*action);
 								if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale gameplay frame handoff");
 								if (nextFrame && !uploadFrame(texture, *nextFrame,
 										initialFrame.width, initialFrame.height, pixels)) {
@@ -228,6 +248,9 @@ bool showLoop(const IndexedFrame &initialFrame, const std::string &title,
 			break;
 		}
 		SDL_RenderPresent(renderer);
+		const auto nextInput = handler.displayedInput ? handler.displayedInput() : std::nullopt;
+		if (nextInput != displayedInput) readyAt = SDL_GetTicks();
+		displayedInput = nextInput;
 	}
 
 	return success;

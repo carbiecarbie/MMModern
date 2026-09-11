@@ -248,7 +248,10 @@ XeenCombat::XeenCombat(XeenWorld &w,XeenPartyState &p,XeenCamera &c,XeenCombatBo
 		const std::vector<std::uint8_t> &chr,const XeenGameplayContext &ctx,const std::vector<XeenMonsterRecord> &stats,
 		const XeenEventFile &events,XeenCombatRandom rng):impl(std::make_unique<Impl>(this,w,p,c,b,ctx,stats,events,std::move(rng))) {
 	auto &d=*impl;auto &s=d.session();
-	require(!w.hasEncounterState()&&!p.encounterContext&&!p.roster.combatMarked(),"Diagnostic27 requires fresh owners");
+	const bool reserved = s._entry == XeenEncounterEntry::Diagnostic27 && !s._encounterInitialized &&
+		!s._encounterTerminal && s._actors.empty() && !s._combatOwner && !s._diagnostic27;
+	require((!w.hasEncounterState() || reserved)&&!p.encounterContext&&!p.roster.combatMarked(),"Diagnostic27 requires fresh owners");
+	s._entry=XeenEncounterEntry::Diagnostic27;
 	s._encounterMarked=true;s._diagnostic27=true;s._combatOwner=this;s._combatApproachState=&d.approach;p.roster._combatMarked=true;
 	require(b.world==&w&&b.party==&p&&b.camera==&c,"combat boundary owner mismatch");
 	require(b.quiet()&&same(c,XeenActorApproach::kEntry),"combat preparation boundary is not quiescent");
@@ -278,6 +281,9 @@ bool XeenCombat::current(const Ticket &t) const noexcept {
 		t.phase==d.phase&&t.work==d.work&&d.world._sessionState._combatOwner==this;
 }
 const XeenCombatResult &XeenCombat::result() const noexcept {return impl->last;}
+bool XeenCombat::boundTo(const XeenWorld &w,const XeenPartyState &p,const XeenCamera &c,const XeenCombatBoundary &b) const noexcept {
+	return &impl->world==&w && &impl->party==&p && &impl->camera==&c && &impl->boundary==&b;
+}
 const std::optional<XeenEquipmentResult> &XeenCombat::preparationEquipmentResult() const noexcept {return impl->equipmentResult;}
 const std::optional<XeenTransferResult> &XeenCombat::preparationTransferResult() const noexcept {return impl->transferResult;}
 const XeenEncounterState &XeenCombat::approachState() const noexcept {return impl->approach;}

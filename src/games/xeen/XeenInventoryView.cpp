@@ -61,7 +61,7 @@ std::vector<std::string> equipmentMessages(const XeenEquipmentResult &result) {
 std::vector<XeenInventoryLine> xeenInventoryLayout(const XeenFontFormat &font,
 		const XeenItemCatalog &catalog, const XeenPartyState &party,
 		const XeenInventorySelection &selection, const char *feedback,
-		const XeenEquipmentResult *equipmentResult) {
+		const XeenEquipmentResult *equipmentResult, bool combatPreparation) {
 	XeenTextRenderer renderer(font);
 	std::vector<XeenInventoryLine> lines;
 	const auto line = [&](int x, int right, int y, std::string text, bool elide = false) {
@@ -166,7 +166,9 @@ std::vector<XeenInventoryLine> xeenInventoryLayout(const XeenFontFormat &font,
 	}
 	if (equipmentResult) line(10,310,126,measured(10,310,equipmentMessages(*equipmentResult)));
 	else line(10,310,126,feedback ? feedback : "",true);
-	line(10,310,137,selection.mode == XeenInventoryMode::Browse ?
+	line(10,310,137,combatPreparation ?
+		(selection.mode == XeenInventoryMode::Browse ? "F1-6; arrows/1-9; T transfer; E equip; I close; Esc exits" :
+		selection.mode == XeenInventoryMode::Confirm ? "Enter confirms; I/N cancels; Esc exits" : "F1-F6 recipient; I cancels; Esc exits") : selection.mode == XeenInventoryMode::Browse ?
 		(selection.category == XeenInventoryCategory::Miscellaneous ? measured(10,310,{
 			"F1-6 owner; arrows/1-9; T move; Esc/I close", "F1-6; arrows/1-9; T move; Esc/I close"}) :
 			measured(10,310,{"F1-6 owner; arrows/1-9; T move; E equip/remove; Esc/I close",
@@ -177,13 +179,13 @@ std::vector<XeenInventoryLine> xeenInventoryLayout(const XeenFontFormat &font,
 IndexedFrame drawXeenInventory(const IndexedFrame &base, const XeenFontFormat &font,
 		const XeenItemCatalog &catalog, const XeenPartyState &party,
 		const XeenInventorySelection &selection, const char *feedback,
-		const XeenEquipmentResult *equipmentResult) {
+		const XeenEquipmentResult *equipmentResult, bool combatPreparation) {
 	XeenTextRenderer renderer(font);
 	XeenTextRenderOptions options;
 	options.bounds = options.windowBounds = {4,4,316,149};
 	options.x=4; options.y=4; options.drawWindow=true;
 	auto frame = renderer.render(base,"",options).pages.front();
-	for (const auto &line : xeenInventoryLayout(font,catalog,party,selection,feedback,equipmentResult)) {
+	for (const auto &line : xeenInventoryLayout(font,catalog,party,selection,feedback,equipmentResult,combatPreparation)) {
 		options.bounds=line.bounds; options.x=line.bounds.left; options.y=line.bounds.top;
 		options.drawWindow=false; options.size=XeenFontSize::Reduced;
 		frame=renderer.render(frame,line.text,options).pages.front();
