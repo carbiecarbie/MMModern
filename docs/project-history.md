@@ -148,6 +148,21 @@ Historical limitations in those plans describe their recorded boundaries.
   maintainer physical acceptance completed. See the
   [Milestone 25 plan](milestone-25-plan.md).
 
+## M26 - Visible original actor approach and engagement
+
+- M26A established resource-derived original monster identities, world-owned live
+  actor state and the deterministic activation/approach domain with separate
+  action/pulse publications and stale/reentrant authorization guards.
+- M26B integrated typed outdoor actor commands, independent gameplay/cosmetic
+  timing and period Wait through production Flow/SDL, ending at terminal
+  same-cell engagement before combat.
+- Accepted original forest occlusion preserves source-faithful composition;
+  approach/engagement presents an identifiable Skeleton. The diagnostic session
+  remains unsaveable, with no save-format change.
+- Automated/original-data validation, independent technical review and maintainer
+  native physical SDL acceptance completed. See the
+  [Milestone 26 plan](milestone-26-plan.md).
+
 ## Maintaining this history
 
 Add one short section with 2-4 lasting-result bullets per completed milestone

@@ -13,6 +13,8 @@ void CloudsMapComposer::drawOutdoorCommands(XeenAssetSource &assets,
 	for (const auto &command : commands) {
 		if (const auto *object = command.object())
 			assets.drawObjectVisual(object->visual, command.x, command.y, command.drawOptions());
+		else if (const auto *actor = command.actor())
+			assets.drawNormalMonster(actor->image, actor->frame, command.x, command.y, command.drawOptions());
 		else
 			assets.drawSprite(command.terrain().resourceName, command.terrain().frame,
 				command.x, command.y, command.drawOptions());
@@ -60,7 +62,8 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 		const XeenCamera &camera,
 		const XeenCharacterRulesContext &context,
 		std::vector<XeenObjectVisual> *objectDiagnostics,
-		std::optional<std::uint64_t> ordinaryPhase, bool *containsOrdinaryAnimation) const {
+		std::optional<std::uint64_t> ordinaryPhase, bool *containsOrdinaryAnimation,
+		std::optional<std::uint8_t> actorFrame) const {
 	if (containsOrdinaryAnimation) *containsOrdinaryAnimation = false;
 	bool emittedAnimation = false;
 	if (objectDiagnostics) objectDiagnostics->clear();
@@ -69,7 +72,7 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 	const XeenMap &map = world.map(camera.mapId);
 	if (map.geometry.isOutdoors()) {
 		const auto resolver = XeenObjectVisualResolver::load(assets);
-		const auto commands = XeenOutdoorScene().build(world, camera, &resolver, objectDiagnostics, ordinaryPhase);
+		const auto commands = XeenOutdoorScene().build(world, camera, &resolver, objectDiagnostics, ordinaryPhase, actorFrame);
 		emittedAnimation = std::any_of(commands.begin(), commands.end(), [](const auto &command) {
 			return command.object() && command.object()->visual.status == XeenObjectVisualStatus::SupportedAnimated;
 		});

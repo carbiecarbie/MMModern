@@ -199,16 +199,23 @@ struct ScummVmXeenBridge::Impl {
 	}
 
 	StreamSpriteResource &sprite(const std::string &resourceName,
-			std::optional<std::size_t> checkedFrame = std::nullopt) {
+			std::optional<std::size_t> checkedFrame = std::nullopt, bool normalMonster = false) {
+		const auto validate = [&](const std::vector<std::uint8_t> &bytes) {
+			if (normalMonster) {
+				if (bytes.size() < 2 || bytes[0] != 8 || bytes[1] != 0)
+					throw std::runtime_error("Normal monster requires eight frames");
+				for (std::size_t i = 0; i < 8; ++i) validateXeenObjectSprite(bytes, i);
+			} else if (checkedFrame) validateXeenObjectSprite(bytes, *checkedFrame);
+		};
 		const auto existing = sprites.find(resourceName);
 		if (existing != sprites.end()) {
-			if (checkedFrame) validateXeenObjectSprite(existing->second.bytes, *checkedFrame);
+			validate(existing->second.bytes);
 			return *existing->second.decoded;
 		}
 
 		std::unique_ptr<Common::SeekableReadStream> stream = openResource(archive, resourceName);
 		auto bytes = readBytes(*stream, resourceName);
-		if (checkedFrame) validateXeenObjectSprite(bytes, *checkedFrame);
+		validate(bytes);
 		Common::MemoryReadStream input(bytes.data(), static_cast<uint32>(bytes.size()));
 		std::unique_ptr<StreamSpriteResource> resource(new StreamSpriteResource());
 		const Common::Path path(resourceName.c_str(), Common::Path::kNoSeparator);
@@ -235,6 +242,10 @@ ScummVmXeenBridge::~ScummVmXeenBridge() = default;
 void ScummVmXeenBridge::discardSpriteCache() { _impl->sprites.clear(); }
 std::size_t ScummVmXeenBridge::cachedSpriteCount() const { return _impl->sprites.size(); }
 std::size_t ScummVmXeenBridge::spriteLoadCount() const { return _impl->spriteLoads; }
+
+void ScummVmXeenBridge::validateNormalMonster(const std::string &resourceName) {
+	_impl->sprite(resourceName, std::nullopt, true);
+}
 
 std::optional<std::vector<std::uint8_t>> ScummVmXeenBridge::readCloudsVisualMetadataFromDarkArchive() {
 	if (!_impl->darkAvailable) return std::nullopt;

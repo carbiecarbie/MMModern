@@ -376,9 +376,14 @@ int Application::loadGame(const std::filesystem::path &gameDirectory,
         const std::filesystem::path &savePath) const {
     return gameplay(gameDirectory, {}, savePath, true);
 }
+int Application::encounter26(const std::filesystem::path &gameDirectory) const {
+    return gameplay(gameDirectory, XeenActorApproach::kEntry, {}, false, XeenEncounterEntry::Diagnostic26);
+}
 int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera camera,
-        const std::optional<std::filesystem::path> &savePath, bool resume) const {
+        const std::optional<std::filesystem::path> &savePath, bool resume, XeenEncounterEntry entry) const {
     try {
+        if (entry == XeenEncounterEntry::Diagnostic26 && (resume || savePath))
+            throw std::invalid_argument("Encounter entry cannot load or configure a save");
         const auto installation = XeenInstallationDetector().detect(gameDirectory);
         if (!installation) {
             std::cerr << "No Xeen installation found: " << gameDirectory.u8string() << '\n';
@@ -386,6 +391,8 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
         }
         if (!installation->hasXeen())
             throw std::runtime_error("Clouds gameplay requires an installation containing xeen.cc");
+        if (entry == XeenEncounterEntry::Diagnostic26 && !installation->hasDarkside())
+            throw std::runtime_error("Encounter entry requires World of Xeen");
         std::optional<std::filesystem::path> target;
         if (savePath) target = XeenSaveFile::resolve(*savePath, installation->root);
         XeenSaveResourceSignature signature;
@@ -426,6 +433,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
             },
             [&](IndexedFrame &frame, std::uint8_t portrait, std::size_t index) { assets.drawNpc(frame, portrait, index); },
             [&](XeenEventFlow &flow, const XeenCamera &position) {
+                flow.rebuildEncounterPresentation = [&] { assets.discardSpriteCache(); };
                 flow.reportManual = printManualEventResult;
                 flow.reportAutomatic = requireAutomaticEventSuccess;
                 flow.reportText = [](const std::string &message) { std::cerr << "Text warning: " << message << '\n'; };
@@ -443,7 +451,18 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
             }
         };
         services.catalog = &catalog.catalog;
-        return playGameplay(services, camera, target, resume);
+        services.initializeEncounter = [&](XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s) {
+            return XeenActorApproach::initializeFromResources(assets, w, p, c, s);
+        };
+        services.validateEncounterSprite = [&](std::uint8_t image) { assets.validateNormalMonster(image); };
+        services.composeEncounter = [&](XeenWorld &w, const XeenPartyState &p, const XeenCamera &c,
+                std::uint64_t ordinary, std::uint8_t actor) {
+            XeenEventFlow::Composition result;
+            result.frame = composer.compose(assets, w, p, c, {kCloudsInitialYear}, nullptr, ordinary,
+                &result.containsOrdinaryAnimation, actor);
+            return result;
+        };
+        return playGameplay(services, camera, target, resume, entry);
     } catch (const std::exception &error) {
         std::cerr << "Gameplay startup failed";
         if (savePath) std::cerr << " [" << std::filesystem::absolute(*savePath).u8string() << ']';

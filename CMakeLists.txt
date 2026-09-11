@@ -84,6 +84,7 @@ target_link_libraries(mmodern_platform_sdl PUBLIC mmodern_core PRIVATE SDL2::SDL
 add_library(mmodern_app STATIC
 	src/platform/XeenSaveFile.cpp
 	src/app/XeenGameplay.cpp
+	src/app/XeenEncounterFlow.cpp
 	src/app/Application.cpp
 	src/app/XeenEventFlow.cpp
 	src/app/XeenInventoryFlow.cpp
@@ -113,6 +114,15 @@ include(CTest)
 add_executable(mmodern_encounter_domain_smoke EXCLUDE_FROM_ALL tests/XeenEncounterSmoke.cpp)
 target_link_libraries(mmodern_encounter_domain_smoke PRIVATE mmodern_xeen)
 if(BUILD_TESTING)
+	add_executable(mmodern_encounter_flow_tests tests/XeenEncounterFlowTests.cpp)
+	target_link_libraries(mmodern_encounter_flow_tests PRIVATE mmodern_app mmodern_xeen)
+	add_test(NAME xeen_encounter_flow COMMAND mmodern_encounter_flow_tests)
+	add_executable(mmodern_encounter_gameplay_tests tests/XeenEncounterGameplayTests.cpp)
+	target_link_libraries(mmodern_encounter_gameplay_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2)
+	add_test(NAME xeen_encounter_gameplay COMMAND mmodern_encounter_gameplay_tests)
+	set_tests_properties(xeen_encounter_gameplay PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software")
+	add_executable(mmodern_encounter_smoke EXCLUDE_FROM_ALL tests/XeenEncounterGameplayTests.cpp)
+	target_link_libraries(mmodern_encounter_smoke PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2)
 	add_executable(mmodern_monster_format_tests tests/XeenMonsterFormatTests.cpp)
 	target_link_libraries(mmodern_monster_format_tests PRIVATE mmodern_xeen)
 	add_test(NAME xeen_monster_format COMMAND mmodern_monster_format_tests)

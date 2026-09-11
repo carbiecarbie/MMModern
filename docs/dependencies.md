@@ -219,8 +219,8 @@ ScummVM `6814ee9ba54582f5b5adcffab49efbbd8f589edd`,
 uint8 arrays use validated ID minus one; their entries correspond to upstream
 index `id` for Weapons 1..34 and `id+35` for Armor 1..8. No other masks,
 generated catalog changes or runtime reference-table dependency are introduced.
-The exact sequences and class/frame contracts belong in the
-[M25 specification](milestone-25-plan.md#exact-class-restrictions-and-source-adaptation).
+The bounded equipment and frame contracts belong in the
+[M25 specification](milestone-25-plan.md#equipment-domains-and-frame-contract).
 
 The predicates derive from `engines/mm/xeen/item.cpp`,
 `InventoryItems::passRestrictions/removeItem` and
@@ -241,6 +241,10 @@ The 26A parser and approach adaptation use ScummVM
 `moveMonster`, movement grids), `combat.h` (107-record capacity), and
 `interface_scene.cpp` (`setOutdoorsMonsters`). The classifier reuses the existing
 position constants sourced from `devtools/create_mm/create_xeen/constants.cpp`.
+M26B's four bounded outdoor actor placements adapt selected-slot/order, anchor,
+scale and clipping values from `interface_scene.cpp` (`OutdoorDrawList` and
+`setOutdoorsMonsters`) at the same pin. `XeenOutdoorScene::actorCommands` emits
+them through the existing ordered scene stream and sprite drawer.
 This adapted logic remains GPL-3.0-or-later material attributed to the ScummVM
 developers in upstream `COPYRIGHT`; distributions must preserve corresponding
 source/provenance. It adds no engine linkage or copied commercial resource.
@@ -252,7 +256,7 @@ availability semantics remain unchanged. The 60-byte parser enforces the CC
 65535-byte member bound separately. Missing data, malformed bytes and I/O failures
 remain distinct. The existing archive-index-construction limitation documented
 above still applies. Actor admission/context/persistence contracts belong in
-[M26](milestone-26-plan.md#26a-concrete-interfaces-and-publication-contract).
+[M26](milestone-26-plan.md#final-ownership-and-lifecycle).
 
 ## MMModern configuration and validation
 

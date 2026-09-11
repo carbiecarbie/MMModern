@@ -86,6 +86,12 @@ int main(int argc, char *argv[]) {
 	std::vector<char *> pointers;
 	for (auto &argument : arguments) pointers.push_back(argument.data());
 	argc = wideCount; argv = pointers.data();
+	for (int i = 1; i < argc; ++i) if (std::string(argv[i]) == "--encounter-26") {
+		if (i != 1 || argc != 3 || std::string(argv[2]).empty() || std::string(argv[2]).rfind("--", 0) == 0) {
+			std::cerr << "Usage: --encounter-26 <game-directory>\n"; return 1;
+		}
+		return mmodern::Application().encounter26(std::filesystem::u8path(argv[2]));
+	}
 	if (argc == 3 && std::string(argv[1]) == "--inspect-map")
 		return mmodern::Application().inspectMap(argv[2]);
 	if (argc == 4 && std::string(argv[1]) == "--inspect-map") {

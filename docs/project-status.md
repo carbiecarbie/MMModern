@@ -2,9 +2,9 @@
 
 ## Stable baseline
 
-**Milestone 25 is the latest completed milestone; both 25A and 25B are accepted.**
+**Milestone 26 is the latest completed milestone; both 26A and 26B are accepted.**
 This file describes stable capabilities and architecture. Acceptance belongs in
-the [M25 closed plan](milestone-25-plan.md#final-acceptance); completed
+the [M26 closed plan](milestone-26-plan.md#final-acceptance); completed
 milestone chronology belongs in [project history](project-history.md).
 
 ## Supported scope
@@ -51,8 +51,22 @@ portrait's 150 ms timing. Dialogue, reward and inventory presentation retain
 their semantic state while the underlying scene animates. Indoor object animation is outside
 this capability.
 
+Bounded original outdoor monster support uses world-owned live actors with
+distinct monster identities, resource-derived statistics from `DARK.CC/xeen.mon`
+and normal sprites from `XEEN.CC`. Typed actor commands join the existing ordered
+terrain/object stream. The map-20 diagnostic supports one Skeleton's activation,
+delayed approach and terminal same-cell engagement. Commands, occupancy and
+composition caches are disposable; live coordinates, HP and activation survive
+reconstruction. This is bounded encounter support, not playable combat or map travel.
+
 ### Events and interactions
 
+- `--encounter-26` starts the fixed map-20 diagnostic; period (`.`) supplies Wait.
+  Encounter Flow intercepts before ordinary initial/navigation/manual event
+  dispatch and excludes inventory/equipment and direct event resumption.
+  Engagement/support-stop notices are terminal, with readable collision and
+  boundary feedback. Escape/window close exits the unsaved session; no terminal
+  input resumes exploration. The following event capabilities apply outside it.
 - Bounded event decoding/execution supports conditions, Call/Return, transfers,
   game flags and Remove. Space dispatches from the current cell/facing without
   requiring the automatic-event bit; automatic dispatch retains that gate.
@@ -131,13 +145,24 @@ restoration and compatibility.
 ## Architectural ownership and invariants
 
 - Application owns committed camera/game flags. `XeenPartyState` owns roster,
-  membership, quest counters and quest flags. `XeenWorld` owns session-disabled
-  object/event identity sets. Coordinators and borrowed providers create no
+  membership, quest counters, quest flags and optional admitted encounter context.
+  `XeenWorld` / `XeenSessionWorldState` owns session-disabled object/event identity
+  sets, the complete original-order live actor collection and irreversible
+  encounter-session marker. Coordinators and borrowed providers create no
   parallel gameplay owners.
 - Map identity includes side and numeric map ID; object/event identities add
   the original record index, never sprite ID, visible index or coordinate.
   Disabled events become effective `None` without deletion/reordering or changed
   first-match precedence. Original metadata remains intact.
+- `XeenMonsterIdentity` separately identifies side/map/original monster record.
+  Actors retain original metadata plus signed coordinates/live HP, activation
+  and bounded lifecycle/status; ordinary Remove does not mutate them.
+- `XeenActorApproach` owns bounded preparation and separate synchronous `action`
+  and `pulse` publications. `XeenEncounterFlow` coordinates them under existing
+  Flow, borrowing world/party/camera. Results are adopted before fallible feedback.
+  Retained owner/revision authorization rejects stale/reentrant overwrites and
+  failure stops; current authoritative failures still stop and retire their work.
+  Terminal states remain terminal through presentation/cache cleanup.
 - Physical camera position and logical script address are distinct. Remove
   disables the selected object, when present, and events at the physical working
   cell, then restarts at line 0 of the logical address. Selection follows original
@@ -178,6 +203,14 @@ restoration and compatibility.
   reveals the current animated base on dismissal. Remove remains authoritative
   by object identity through animation and cache reconstruction. No general
   world clock or per-object/per-map timing store is introduced.
+- Encounter actions, pending opportunities, explicit gameplay pulses, actor
+  cosmetics, ordinary-object animation and redraw/cache refresh are independent.
+  Charged steps publish count 3, then a distinct supplied pulse normally yields 2;
+  bounded 100 ms idle pulses finish old work without elapsed backlog. Wait can
+  consume old and immediate opportunities. Redraw/cosmetics authorize no movement.
+  M22 ordinary action advances and committed-facing resets still apply inside
+  encounter navigation, independently rearming the ordinary deadline; turns do
+  not reset actor cosmetics. See the [M26 timing contract](milestone-26-plan.md#actions-and-independent-timing).
 - Geometry/object, script, text and sprite caches are disposable. Reconstruction
   consults authoritative state and read-only resources; cache lifetime never
   defines gameplay lifetime. The interpreter remains separate from SDL/drawing,
@@ -232,6 +265,15 @@ Equip operation, infer or normalize a loadout, or restore a transient selection
 certificate. M24 transfer remains independent: it resets the moved frame and
 compacts touched categories, whereas equipment changes one frame in place.
 
+M26 encounter sessions are deliberately unsaveable from startup through all
+terminal/failure states. F9 refuses before target handling, capture, restore
+preflight or I/O; direct capture/restore guards also protect live encounter owners.
+Live actors and encounter context are authoritative but absent from v2, not
+reconstructible substitutes for saved state. M26 changes no snapshot schema,
+codec or version.
+[M28's future boundary](roadmap.md#m28---durable-bounded-encounter-completion-and-revisit)
+must address these values and actual map-load versus cache-reconstruction semantics.
+
 **Format and compatibility:** the writer emits MMModern Clouds binary **v2**;
 the reader accepts **v1 and v2**. `.mmsave` uses bounded little-endian encoding,
 a 4 MiB limit and CRC32 corruption checks. Compatibility requires matching
@@ -248,7 +290,8 @@ in full. A transient presence marker permits v1 decoding/restoration but prevent
 direct encoding of unresolved v1 snapshots. Reading never rewrites the file;
 an explicit eligible F9 save writes v2 through protected replacement.
 
-**Save boundary:** startup must succeed, and no dispatch, execution, presentation,
+**Save boundary:** the session must be outside encounter mode, startup must succeed,
+and no dispatch, execution, presentation,
 open inventory, synchronous transfer, shutdown or fatal presentation failure may
 be active. Nonblocking retained labels are allowed but omitted. Pending F9 performs
 no capture, I/O, advancement or queued save; close inventory or complete the
@@ -264,7 +307,8 @@ or absolute power-loss guarantees are excluded.
 
 Resume restores owners before the first frame, with no retained UI or initial
 automatic dispatch; later navigation retains normal automatic behavior. New
-sessions retain normal initial dispatch. Invalid/incompatible saves fail startup
+ordinary sessions retain normal initial dispatch; encounter startup uses explicit
+domain initialization instead. Invalid/incompatible saves fail startup
 without a fresh-session fallback. There is no original Xeen/ScummVM save
 compatibility, suspended-dialog save, in-session load, autosave, save-on-exit,
 slot menu or general migration framework.
@@ -282,10 +326,19 @@ or of a generally playable region.
 | Myra, map 23 `(9,11)` West | No-Root request sets Q2 after final acknowledgment, including Escape. Root-owned return consumes one Root, clears Q2 and produces five `{10,37,1,0}` rewards subject to delivery capacity/eligibility; receipt acknowledgment completes nine instructions. Further Roots allow returns; exhaustion restores request behavior. |
 | Air / Corner and Snake Oil | Original sign and reduced door-label presentation; Air / Corner also exercises static object/text layering. |
 | Nightshadow, map 29 `(4,6)` West | Original RIP gravestone rendered as a static ordinary indoor object with its original bottom-window clue and acknowledgment. The interaction is repeatable and has no durable state effect. |
+| Skeleton diagnostic, map 20 `(13,1)` North | Original monster record 5, type 8, initially `(13,2)`, with all 27 identities retained. World of Xeen Clouds/Adventurer context, bounded four-cell approach and terminal same-cell engagement before combat; entire session unsaveable. |
 
 Myra's ordinary tent-flag cycle runs without input and continues underneath
 dialogue, independently of the portrait. The [M22 checkpoint contract](milestone-22-plan.md#certified-original-data-checkpoint)
 owns its directional frame oracle and acceptance boundary.
+
+The Skeleton's initial original command is almost completely occluded by later
+terrain: approximately 6-9 pixels survive across normal frames. This accepted
+source-faithful raster does not promise initial visual recognition. The
+identifiable approach/engagement presentation passed maintainer physical SDL
+acceptance. The [M26 closed plan](milestone-26-plan.md#accepted-initial-occlusion)
+owns the exact composition and bounded admission contract; this is not general
+map-20 travel or combat acceptance.
 
 Nightshadow validation covers the selected gravestone at four centered distances,
 partial wall occlusion and a fully blocked control. The
@@ -323,7 +376,8 @@ complete automated, original-data, independent-review and physical boundary.
   resistance modeling, combat inventory/statistics and
   recruitment/reordering. Random treasure, generic TakeOrGive and NPC
   modes/services beyond Clouds mode 1 also remain unsupported.
-- Combat, monsters, normal-route/playable-region certification, Swimming /
+- Playable combat (the next M27 objective), actors beyond the bounded M26 outdoor
+  encounter, normal-route/playable-region certification, Swimming /
   Walk on Water and other unsupported movement capabilities. General indoor
   traversal, connected-map behavior and playable-region certification remain
   outside the accepted checkpoints.
@@ -342,8 +396,8 @@ Ordinary CTest does not depend on commercial data.
 
 ## Next direction
 
-M25's bounded equipment capability is now an available foundation. The
-[roadmap](roadmap.md#current-planning-state) retains provisional investigation of
-an original encounter/navigation envelope and its actual combat, recovery,
-connected-exploration and persistence prerequisites; no next milestone is yet
-specified or authorized.
+M26's actor/approach and terminal engagement capability is an accepted foundation.
+The [roadmap](roadmap.md#current-planning-state) makes M27's bounded Attack/Block
+encounter the immediate next direction, followed provisionally by M28 persistence.
+M27 requires separate detailed planning and implementation authorization; neither
+combat nor the persistence extension is implemented by M26.

@@ -6,6 +6,8 @@
 #include "games/xeen/XeenWorld.h"
 #include "games/xeen/XeenInventoryView.h"
 #include "games/xeen/XeenEquipment.h"
+#include "app/XeenEncounterFlow.h"
+#include <memory>
 
 namespace mmodern {
 
@@ -19,11 +21,13 @@ public:
 		bool containsOrdinaryAnimation = false;
 	};
 	using Compose = std::function<Composition(std::uint64_t ordinaryPhase)>;
+	using EncounterCompose = std::function<Composition(std::uint64_t ordinaryPhase, std::uint8_t actorFrame)>;
 	XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
 		XeenPartyState &party, XeenCamera &camera, XeenGameFlags &flags,
 		const XeenFontFormat &font, Compose compose,
 		XeenEventPresenter::NpcDraw npcDraw = {}, XeenEventPresenter::Clock clock = {},
-		XeenEventPresenter::RandomFrame randomFrame = {}, const XeenItemCatalog *catalog = nullptr);
+		XeenEventPresenter::RandomFrame randomFrame = {}, const XeenItemCatalog *catalog = nullptr,
+		const XeenEncounterSetup *encounter = nullptr, EncounterCompose encounterCompose = {});
 	~XeenEventFlow();
 	XeenEventFlow(const XeenEventFlow &) = delete;
 	XeenEventFlow &operator=(const XeenEventFlow &) = delete;
@@ -33,7 +37,14 @@ public:
 	IndexedFrame acceptManual(XeenManualEventResult result);
 	IndexedFrame acceptAutomatic(XeenAutomaticEventResult result);
 	const IndexedFrame &frame() const { return _frame; }
-	bool blocksGameplay() const { return _pending.has_value() || _dispatching || inventoryOpen() || _fatal; }
+	bool blocksGameplay() const { return _encounter || _pending.has_value() || _dispatching || inventoryOpen() || _fatal; }
+	const XeenEncounterFlow *encounter() const noexcept { return _encounter.get(); }
+	void beginCycle(std::uint64_t cycle);
+	bool encounterFrameCurrent() const noexcept;
+	void failEncounterHandoff(const XeenEncounterFlow::Ticket &) noexcept;
+	// Fault/observer seam immediately before the actual fallible frame copy.
+	std::function<void()> beforeEncounterFrameCopy;
+	std::function<void()> rebuildEncounterPresentation;
 	bool inventoryOpen() const { return _inventory.mode != XeenInventoryMode::Closed; }
 	const XeenInventorySelection &inventorySelection() const { return _inventory; }
 	const XeenTransferResult &transferResult() const { return _transferResult; }
@@ -62,6 +73,12 @@ private:
 	// Synchronous dispatch also covers callbacks before a suspension is installed.
 	bool _dispatching = false;
 	bool _fatal = false;
+	std::unique_ptr<XeenEncounterFlow> _encounter;
+	EncounterCompose _encounterCompose;
+	std::optional<XeenEncounterFlow::Ticket> _encounterFrame;
+	std::optional<std::uint64_t> _cycle;
+	IndexedFrame renderEncounter(bool report = false);
+	IndexedFrame frameCopy();
 	const XeenFontFormat &_inventoryFont;
 	const XeenItemCatalog &_catalog;
 	XeenInventorySelection _inventory;
@@ -102,6 +119,8 @@ private:
 	XeenRewardReceipt cleanup(XeenRewardDiscard reason) noexcept;
 	bool resumePending(std::uint64_t generation, XeenPresentationResponse response);
 	enum class OrdinaryCause { None, Action, Idle };
+	bool updateOrdinaryPhase(OrdinaryCause cause, bool reset, std::uint64_t now);
+	bool advanceEncounterOrdinary(OrdinaryCause cause = OrdinaryCause::Idle);
 	bool refreshScene(bool reconstruct, OrdinaryCause cause, bool committedTransition = false);
 	template<class Result> IndexedFrame drive(Result result, bool automatic, bool reconstruct = false,
 		OrdinaryCause cause = OrdinaryCause::None, bool committedTransition = false);

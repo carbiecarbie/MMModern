@@ -28,6 +28,12 @@ struct XeenGameplayServices {
    XeenCamera &, const XeenGameFlags &)> observeGameplay;
  XeenEventPresenter::Clock clock = {};
  const XeenItemCatalog *catalog = nullptr;
+ decltype(XeenEncounterSetup::initialize) initializeEncounter;
+ decltype(XeenEncounterSetup::validateNormalSprite) validateEncounterSprite;
+ std::function<XeenEventFlow::Composition(XeenWorld &, const XeenPartyState &, const XeenCamera &,
+   std::uint64_t, std::uint8_t)> composeEncounter;
+ enum class SaveStage { Capture, Preflight, Write };
+ std::function<void(SaveStage)> observeSaveStage;
 };
 }
 #endif

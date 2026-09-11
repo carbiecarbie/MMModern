@@ -2,6 +2,7 @@
 #define MMODERN_APP_APPLICATION_H
 
 #include "games/xeen/XeenNavigation.h"
+#include "app/XeenEncounterFlow.h"
 
 #include <filesystem>
 #include <cstdint>
@@ -27,13 +28,16 @@ public:
 		XeenDirection direction = XeenDirection::South,
 		std::optional<std::filesystem::path> savePath = std::nullopt) const;
 	int loadGame(const std::filesystem::path &gameDirectory, const std::filesystem::path &savePath) const;
+	int encounter26(const std::filesystem::path &gameDirectory) const;
 	// Shared production construction; providers outlive this call. Target has
 	// already been resolved/checked against the installation by gameplay().
 	int playGameplay(const XeenGameplayServices &, XeenCamera,
-		const std::optional<std::filesystem::path> &target, bool resume) const;
+		const std::optional<std::filesystem::path> &target, bool resume,
+		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary) const;
 private:
 	int gameplay(const std::filesystem::path &, XeenCamera,
-		const std::optional<std::filesystem::path> &, bool resume) const;
+		const std::optional<std::filesystem::path> &, bool resume,
+		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary) const;
 };
 
 } // namespace mmodern

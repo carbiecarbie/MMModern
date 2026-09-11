@@ -7,12 +7,23 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <utility>
 
 namespace mmodern {
 
 class SdlWindow {
 public:
-	using FrameUpdateHandler = std::function<std::optional<IndexedFrame>(const PlayerAction &)>;
+	struct FrameUpdateHandler : std::function<std::optional<IndexedFrame>(const PlayerAction &)> {
+		using Function = std::function<std::optional<IndexedFrame>(const PlayerAction &)>;
+		using Function::Function;
+		FrameUpdateHandler() = default;
+		FrameUpdateHandler(Function function) : Function(std::move(function)) {}
+		// One identity per event batch/idle iteration, independent of elapsed time.
+		std::function<void(std::uint64_t)> beginCycle;
+		std::function<bool()> frameCurrent;
+		std::function<void()> failed;
+		std::function<void()> closed;
+	};
 	using IdleFrameHandler = std::function<std::optional<IndexedFrame>()>;
 
 	bool show(const IndexedFrame &frame, const std::string &title) const;

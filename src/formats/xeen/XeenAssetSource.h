@@ -37,6 +37,10 @@ public:
 	std::size_t cachedSpriteCount() const;
 	// Successful resource reads + SpriteResource constructions, not draw calls.
 	std::size_t spriteLoadCount() const;
+	static std::string normalMonsterResource(std::uint8_t image);
+	void validateNormalMonster(std::uint8_t image);
+	void drawNormalMonster(std::uint8_t image, std::size_t frame, int x, int y,
+		const XeenSpriteDrawOptions &options);
 	// Explicit physical origin; nullopt means archive/member absent, not empty.
 	std::optional<std::vector<std::uint8_t>> readCloudsVisualMetadataFromDarkArchive();
 	// Optional commercial English material names from exactly DARK.CC/mae.xen.

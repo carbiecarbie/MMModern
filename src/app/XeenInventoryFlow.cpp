@@ -82,6 +82,7 @@ void XeenEventFlow::invalidateInventorySelection() {
 	} else if (!validInventorySource(true)) { _inventory.slot.reset(); _inventory.record = {}; }
 }
 void XeenEventFlow::invalidateInventory() {
+	if (_encounter) return;
 	// Notification remains effective inside an observer, but never draws/reenters.
 	invalidateInventorySelection();
 }
@@ -103,6 +104,7 @@ void XeenEventFlow::drawInventory() {
 	catch (...) { recoverInventory(); }
 }
 IndexedFrame XeenEventFlow::refuseInventorySave() {
+	if (_encounter) return _frame;
 	if (_dispatching || _fatal || !inventoryOpen()) return _frame;
 	Scope scope(_dispatching);
 	_equipmentResult.reset();

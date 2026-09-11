@@ -1,24 +1,25 @@
 # MMModern - Roadmap
 
-**Milestone 25 is the latest completed milestone.**
+**Milestone 26 is the latest completed milestone.**
 [Project status](project-status.md) owns current capabilities;
-[project history](project-history.md) and the [closed M25 plan](milestone-25-plan.md)
+[project history](project-history.md) and the [closed M26 plan](milestone-26-plan.md)
 own completed work. Reference provenance belongs to [dependencies](dependencies.md).
 
 ## Current planning state
 
-The maintainer has approved the bounded Clouds combat direction, the Skeleton
-anchor and the M26 -> M27 -> M28 sequence below. M26 is next for detailed
-specification; its [investigation and plan](milestone-26-plan.md) does not itself
-authorize implementation. Roadmap approval does not approve the detailed
-specification or authorize implementation. Later milestone details remain subject
-to the [documented replanning rules](#replanning-and-review-cadence).
+The maintainer-approved bounded Clouds combat direction and Skeleton anchor now
+have an accepted M26 actor/approach and terminal engagement foundation.
+**M27 is the immediate next milestone**, for separate detailed planning of the
+existing bounded Attack/Block objective. M28 remains the provisional persistence
+boundary. The [closed M26 plan](milestone-26-plan.md) owns the completed resource,
+actor, scheduling and presentation contracts. Roadmap approval and M26 acceptance
+do not authorize M27 implementation. Later details remain subject to the
+[documented replanning rules](#replanning-and-review-cadence).
 
-Recommend an original outdoor Skeleton encounter, reached through an explicitly
-bounded diagnostic entry, followed by combat actions and then durable completion.
-Do not postpone this arc for inventory completion or normal-start navigation.
-M25 equipment supplies useful agency, but does not implement attack, defense,
-monster simulation, gameplay time or progression.
+Continue the bounded diagnostic encounter through combat actions and then durable
+completion. M25 equipment and M26 actor authority are available foundations;
+attack, defense, combat progression and encounter persistence remain future work.
+Normal-start navigation and inventory completion are not prerequisites for this arc.
 
 The implementation agent investigates and implements authorized work; the
 architecture/specification agent prepares contracts; the independent reviewer
@@ -71,55 +72,15 @@ first Attack/Block domain; neither means a harmless exit to the entry cell.
 Leaving the supported envelope must report a diagnostic boundary before advancing
 unsupported gameplay. It must not present an invisible wall as original geography.
 
-This is a source-and-resource-supported choice, not exercised reference combat
-or maintainer physical acceptance. M26 specification must confirm the exact
-approach/input sequence, activation and delayed movement scheduling against the
-pinned reference. If that narrow check disproves isolation or the entry sequence,
-reconsider the envelope before implementation rather than freezing other actors.
+M26 accepted the exact entry, activation, delayed approach, source-faithful actor
+composition and same-cell pre-combat stopping boundary, including independent
+review and maintainer native SDL acceptance. The initial and one-forward views
+may leave the actor hidden by forest occlusion; identifiable engagement is the
+accepted visual boundary. Reference behavior derives from pinned source plus
+bounded extracted-harness evidence, not full ScummVM encounter/combat execution.
+M27 must specify its combat rules separately against that reference.
 
 ## Preferred milestone sequence
-
-### M26 - Visible original actor approach and engagement
-
-**Objective and observable result:** the original Skeleton appears in the outdoor
-scene, activates and approaches under supported player steps/waiting, and reaches
-an explicit engagement boundary that prevents continuing ordinary exploration.
-This is the first meaningful visible enemy interaction. It deliberately stops
-before combat actions; it is not a completed fight.
-
-**Scope and order:** add bounded monster-stat resource interpretation, original
-record identity, authoritative actor position/lifecycle state, outdoor monster
-composition and the approach/engagement rules needed by the anchor. Reuse map,
-archive, scene, input and party infrastructure. Include the supported step/time
-cost and pending monster-movement scheduling; do not derive enemy actions from
-ordinary-object or portrait animation ticks. Gameplay time starts from original
-party state and must stop explicitly before an unsupported calendar/condition
-boundary. A general calendar, indoor monsters, attacks, rewards, Run, ranged
-combat and connected travel are excluded.
-
-Actor state and its composition/activation boundary belong before damage because
-they determine whom a player can encounter, where that actor lives, and whether
-reconstruction can duplicate or reset it. This is an independently observable
-contract with substantial ownership risk, not a generic architecture-preparation
-milestone. Additional character attack calculations belong inside M27, where
-actions actually consume them; no separate inventory or character-sheet milestone
-is justified.
-
-**Acceptance:** deterministic identity, occupancy, movement, activation, boundary
-and cache-reconstruction checks; original-data approach evidence including nearby
-actors; scene ordering/clipping and unchanged ordinary-object behavior; one SDL
-loop, explicit unsupported engagement feedback and no event/inventory bypass.
-Maintainer physical acceptance must observe approach and engagement separately
-from automated/image evidence. Record the new state categories and intended
-persistence boundary before introducing new owners. Until M28 supports persistence, the diagnostic
-encounter session is explicitly unsaveable, including after an interrupted
-approach; existing non-encounter save behavior remains governed by
-[M20](milestone-20-plan.md) and [M21](milestone-21-plan.md).
-
-**Confidence:** medium. The actor and local resource envelope are established;
-precise scheduling, monster projection and interaction ordering still need a
-bounded specification. Additional actors entering this envelope or a required
-new terrain/event contract trigger replanning.
 
 ### M27 - Playable Attack/Block encounter with original outcomes
 
@@ -220,8 +181,8 @@ unresolvable migration conflict require review before widening implementation.
 - Keep roster characters/items and party progression in the accepted party owner,
   and committed camera/game flags with their existing owner. Monster identity is
   side/map/original monster-record index, distinct from ordinary-object identity.
-  Mutable monster HP/position/lifecycle needs genuine authoritative world state;
-  the current disabled-object/event sets and immutable MOB cache are insufficient.
+  M26 supplies authoritative live monster HP/position/lifecycle in the world owner;
+  preserve its separation from disabled-object/event sets and immutable MOB caches.
 - Input/modal coordination must prevent navigation, events, inventory/equipment,
   saving and combat from advancing incompatible work simultaneously. Reuse the
   Application/Flow/SDL seams without making the event interpreter a combat engine
@@ -231,9 +192,9 @@ unresolvable migration conflict require review before widening implementation.
   transient at the proposed save boundary. HP, conditions, item breakage, XP and
   admitted gameplay-time/context values are authoritative. Statistics, occupancy
   queries, scene commands and sprite frames are derived; reconstruction cannot
-  award XP or advance a turn. Reference rendering currently contributes to actor
-  activation and delayed movement, so extracting that behavior requires explicit
-  coordination rather than copying mutation into MMModern's compositor.
+  award XP or advance a turn. M26 extracts reference render-coupled activation and
+  delayed movement into explicit domain publications and Flow pulses. Combat
+  must preserve that separation from composition.
 - Existing inventory/catalog/equipment acceptance is reusable infrastructure;
   it is not acceptance of combat effects for every storable item. Conversely,
   missing combat integration does not justify rebuilding the accepted inventory,
@@ -260,7 +221,7 @@ lifecycle and progression rules.
 
 Inventory completion, indoor animation and normal-start connectivity offer
 independent value but delay the selected enemy interaction without satisfying a
-prerequisite it actually has. Combining all three proposed milestones would hide
+prerequisite it actually has. Combining actor, combat and persistence work would hide
 actor integration, combat-rule and persistence risks in one large acceptance gate.
 Splitting out general statistics, loot, recovery or calendar foundations would
 add scope before there is evidence that this bounded fight needs them.

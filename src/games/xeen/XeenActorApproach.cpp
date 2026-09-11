@@ -259,6 +259,14 @@ XeenEncounterResult XeenActorApproach::initializeFromResources(XeenAssetSource &
 	return initialize(world,party,camera,state,statistics,context,loader.load(20));
 }
 
+bool XeenActorApproach::authoritative(const XeenWorld &world, const XeenPartyState &party,
+		const XeenCamera &camera, const XeenEncounterState &state) noexcept {
+	const auto &s = world._sessionState;
+	return s._encounterMarked && s._encounterInitialized && state._world == &world &&
+		state._party == &party && state._camera == &camera && state._revision == s._encounterRevision &&
+		s._encounterTerminal == (state._phase != XeenEncounterPhase::Exploring);
+}
+
 XeenEncounterResult XeenActorApproach::stop(XeenWorld &world, XeenEncounterState &state,
 		XeenEncounterStop reason) noexcept {
 	auto &s = world._sessionState;

@@ -27,6 +27,22 @@ XeenAssetSource::XeenAssetSource(const GameInstallation &installation,
 
 XeenAssetSource::~XeenAssetSource() = default;
 
+std::string XeenAssetSource::normalMonsterResource(std::uint8_t image) {
+	const auto number = std::to_string(image);
+	return std::string(3 - number.size(), '0') + number + ".mon";
+}
+void XeenAssetSource::validateNormalMonster(std::uint8_t image) {
+	_impl->bridge.validateNormalMonster(normalMonsterResource(image));
+}
+void XeenAssetSource::drawNormalMonster(std::uint8_t image, std::size_t frame, int x, int y,
+		const XeenSpriteDrawOptions &options) {
+	if (frame >= 8 || options.horizontalFlip || options.enlarge || !options.sceneClipped)
+		throw std::invalid_argument("Unsupported normal monster drawing");
+	const auto resource = normalMonsterResource(image);
+	_impl->bridge.validateNormalMonster(resource);
+	_impl->bridge.drawObjectSprite(resource, frame, x, y, options);
+}
+
 void XeenAssetSource::discardSpriteCache() { _impl->bridge.discardSpriteCache(); }
 std::size_t XeenAssetSource::cachedSpriteCount() const { return _impl->bridge.cachedSpriteCount(); }
 std::size_t XeenAssetSource::spriteLoadCount() const { return _impl->bridge.spriteLoadCount(); }

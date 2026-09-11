@@ -6,7 +6,7 @@ Might and Magic V: Darkside of Xeen / World of Xeen.
 
 ## Status
 
-**Milestone 25 is the latest completed milestone.**
+**Milestone 26 is the latest completed milestone.**
 
 The engine supports a bounded Clouds quest loop: request a quest, collect an
 item, return it for character-held rewards, and save/resume the resulting progress.
@@ -18,6 +18,10 @@ SDL application, with ordinary outdoor objects animating while stationary and
 during dialogue. Static ordinary indoor objects use original directional
 appearances, placement and wall occlusion; the bounded Nightshadow gravestone
 interaction displays its original clue through the existing event flow.
+
+A bounded diagnostic entry now presents an original outdoor Skeleton, supports
+its activation and approach, and stops at terminal same-cell engagement before
+combat. This encounter is unsaveable and does not enable normal-start gameplay.
 
 MMModern remains incomplete and experimental. It is not yet a generally playable
 replacement for the original games: combat, item use, complete item effects and Darkside
@@ -35,6 +39,8 @@ See the [technical snapshot](docs/project-status.md),
 ## Current capabilities
 
 - Original Clouds resource loading, outdoor/indoor rendering, navigation and collision.
+- Resource-derived outdoor monster state, normal sprite and delayed approach at
+  one bounded Skeleton checkpoint, with terminal pre-combat engagement.
 - Supported static and ordinary animated outdoor objects and static ordinary
   indoor objects, with persistent removal after interactions. Indoor ordinary
   animation remains unsupported.
@@ -55,11 +61,20 @@ Run from a terminal to see diagnostics; quote paths containing spaces:
 ```text
 mmodern --render-map <game-directory> [<map> <x> <y> <north|east|south|west>] [--save-file <path.mmsave>]
 mmodern --load-game <game-directory> <path.mmsave>
+mmodern --encounter-26 <game-directory>
 ```
 
 Use an existing save directory outside the original game installation. Relative
 paths resolve against the working directory. Resume uses the loaded file as the
 subsequent save target; invalid/incompatible saves fail without starting a new game.
+
+`--encounter-26` opens the bounded World of Xeen Clouds map-20 diagnostic at
+`(13,1)` North. Period (`.`) is Wait; the initial Skeleton may be almost completely
+hidden by original forest occlusion, becoming identifiable at engagement. The
+entire session is unsaveable: F9 is refused, as are ordinary events and inventory.
+Engagement or a support stop terminates supported exploration before combat;
+Escape/window close exits. This mode accepts no save options or camera overrides.
+Ordinary `--render-map` behavior remains unchanged.
 
 | Key | Action |
 | --- | --- |
@@ -71,7 +86,8 @@ subsequent save target; invalid/incompatible saves fail without starting a new g
 | 1-9 | Select a physical inventory slot while browsing |
 | T | Begin transfer of the selected occupied slot |
 | E | Equip or remove the explicitly selected occupied weapon, armor or accessory |
-| F9 | Save an idle session; refused while inventory is open |
+| . | Wait in the diagnostic encounter; no action elsewhere |
+| F9 | Save an eligible idle session; refused in encounter mode or while inventory is open |
 | I | Open inventory while idle; close while browsing; also print live diagnostics on opening |
 | Escape | Back/cancel transfer or close inventory; cancel WhoWill; acknowledge NPC/reward pages; otherwise exit |
 
@@ -83,9 +99,9 @@ Escape returns to browsing before changing category or slot. Each equipment
 attempt consumes its selection; select the slot again before another E action.
 Misc item use and general item effects are not provided by this panel.
 
-F9 refuses during an interaction or while inventory is open, without advancing it
-or scheduling a later save. Close inventory or finish the interaction, then issue
-a new F9. Without a configured path, it writes nothing.
+Outside encounter mode, F9 refuses during an interaction or while inventory is
+open, without advancing it or scheduling a later save. Close inventory or finish
+the interaction, then issue a new F9. Without a configured path, it writes nothing.
 Save results appear in the console and window title. Existing supported valid
 MMModern saves can be replaced; there is no autosave, save-on-exit or in-session load.
 Current saves write v2 and read v1/v2, require matching game archives, and are
@@ -111,6 +127,8 @@ SDL backend. The exact pin and configuration live in
   ownership, persistence and boundaries.
 - [Project history](docs/project-history.md): concise completed milestones and plan links.
 - [Roadmap](docs/roadmap.md): future direction and planning review cadence.
+- [Milestone 26 plan](docs/milestone-26-plan.md): closed actor/approach, timing,
+  engagement and unsaveable-session contracts, with acceptance results.
 - [Milestone 25 plan](docs/milestone-25-plan.md): closed bounded equipment
   contracts, architectural decisions and acceptance results.
 - [Milestone 24 plan](docs/milestone-24-plan.md): closed item catalog, inspection

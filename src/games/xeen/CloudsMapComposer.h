@@ -24,7 +24,8 @@ public:
 		const XeenCharacterRulesContext &context,
 		std::vector<XeenObjectVisual> *objectDiagnostics = nullptr,
 		std::optional<std::uint64_t> ordinaryPhase = std::nullopt,
-		bool *containsOrdinaryAnimation = nullptr) const;
+		bool *containsOrdinaryAnimation = nullptr,
+		std::optional<std::uint8_t> actorFrame = std::nullopt) const;
 	// Execute the single, already ordered outdoor command stream.
 	void drawOutdoorCommands(XeenAssetSource &assets,
 		const std::vector<XeenOutdoorDrawCommand> &commands) const;

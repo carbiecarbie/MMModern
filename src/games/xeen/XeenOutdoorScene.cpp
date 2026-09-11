@@ -56,7 +56,10 @@ XeenSpriteDrawOptions optionsFor(const Placement &placement) {
 std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::build(
 		XeenWorld &world, const XeenCamera &camera,
 		const XeenObjectVisualResolver *resolver, std::vector<XeenObjectVisual> *diagnostics,
-		std::optional<std::uint64_t> ordinaryPhase) const {
+		std::optional<std::uint64_t> ordinaryPhase, std::optional<std::uint8_t> actorFrame) const {
+	// Retain values before terrain/resource providers can publish or discard caches.
+	const auto actors = actorFrame ? actorCommands(world.sessionState().actors(), camera, *actorFrame) :
+		std::vector<XeenOutdoorDrawCommand>{};
 	if (diagnostics) diagnostics->clear();
 	const XeenMap &map = world.map(camera.mapId);
 	if (!map.geometry.isOutdoors())
@@ -159,8 +162,42 @@ std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::build(
 		}
 	}
 
+	commands.insert(commands.end(), actors.begin(), actors.end());
 	std::stable_sort(commands.begin(), commands.end(),
 		[](const auto &left, const auto &right) { return left.originalOrder < right.originalOrder; });
+	return commands;
+}
+
+std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::actorCommands(
+		const std::vector<XeenActor> &actors, const XeenCamera &camera, std::uint8_t frame) {
+	if (frame >= 8) throw std::invalid_argument("Unsupported normal actor frame");
+	const auto view = XeenActorApproach::classify(actors, camera);
+	std::vector<XeenOutdoorDrawCommand> commands;
+	for (std::size_t i = 0; i < actors.size(); ++i) {
+		if (!view.placements[i]) continue;
+		const auto &a = actors[i];
+		if (!(a.id == XeenMonsterIdentity{20,5}) || !a.statistics || !a.statistics->supportsApproach() ||
+			a.lifecycle != XeenActorLifecycle::Present || a.status != XeenActorStatus::Physical)
+			throw std::runtime_error("Unsupported visible encounter actor");
+		XeenOutdoorDrawCommand c;
+		XeenOutdoorActorDraw draw{a.id, a.statistics->image(), frame};
+		switch (*view.placements[i]) {
+		case XeenActorPlacement::SameCell:
+			c.sampleIndex=2; draw.selectedSlot=0; c.originalOrder=118; c.x=-5; c.y=2;
+			draw.scaleIndex=0; draw.bottomClipped=true; break;
+		case XeenActorPlacement::Forward:
+			c.sampleIndex=7; draw.selectedSlot=3; c.originalOrder=94; c.x=-7; c.y=34; draw.scaleIndex=8; break;
+		case XeenActorPlacement::ForwardLeft:
+			c.sampleIndex=5; draw.selectedSlot=12; c.originalOrder=90; c.x=-112; c.y=34; draw.scaleIndex=8; break;
+		case XeenActorPlacement::ForwardRight:
+			c.sampleIndex=9; draw.selectedSlot=13; c.originalOrder=91; c.x=98; c.y=34; draw.scaleIndex=8; break;
+		default: throw std::runtime_error("Unsupported visible encounter placement");
+		}
+		if (!(view.slots[draw.selectedSlot] == std::optional<XeenMonsterIdentity>{a.id}))
+			throw std::runtime_error("Unsupported encounter selection");
+		c.sourceMapId=a.id.mapId; c.sourceX=a.x; c.sourceY=a.y; c.content=draw;
+		commands.push_back(std::move(c));
+	}
 	return commands;
 }
 

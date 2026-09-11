@@ -19,6 +19,14 @@ int main(int argc,char **argv){try{
  const auto dir=fs::current_path()/"save-cli-tests";const auto game=dir/"commercial";fs::create_directories(game);
  const auto log=dir/"cli.log";const auto path=dir/fs::path(L"space \u00e7 \u6e38.mmsave");fs::remove(path);
  const std::vector<std::vector<std::wstring>> bad{
+ {L"--encounter-26"}, {L"--encounter-26",L""}, {L"--encounter-26",L"--load-game"},
+ {L"--encounter-26",game.wstring(),L"20",L"13",L"1",L"north"},
+ {L"--encounter-26",game.wstring(),L"extra"},
+ {L"--encounter-26",game.wstring(),L"--save-file",path.wstring()},
+ {L"--encounter-26",game.wstring(),L"--load-game",path.wstring()},
+ {L"--render-map",game.wstring(),L"--encounter-26"},
+ {L"--manual-equipment",game.wstring(),L"--encounter-26"},
+ {L"--load-game",game.wstring(),path.wstring(),L"--encounter-26"},
  {L"--load-game"},{L"--load-game",game.wstring()},{L"--load-game",game.wstring(),path.wstring(),L"1"},
  {L"--load-game",game.wstring(),path.wstring(),L"--save-file",path.wstring()},
  {L"--render-map"},{L"--render-map",game.wstring(),L"--save-file"},
@@ -35,6 +43,9 @@ int main(int argc,char **argv){try{
  for(std::size_t i=2+3*8;i<inner.size();++i)inner[i]^=0x35; // Initial archive payload is plaintext.
  sprite_test::archive(game/"xeen.cc",{{"fnt",fontBytes()},{"2a0c",inner}});
  GameInstallation installation{game,game/"xeen.cc",{},GameEdition::CloudsOfXeen};
+ const auto encounter = launch(exe,{L"--encounter-26",game.wstring()},log);
+ check(encounter.exit==3&&encounter.output.find("World of Xeen")!=std::string::npos,
+  "valid encounter syntax did not reach edition admission");
  auto s=fixture.saved();s.resources=XeenSaveFile::fingerprint(installation);
  const auto run=[&](const char *message){const auto r=launch(exe,{L"--load-game",game.wstring(),path.wstring()},log);check(r.exit==3&&r.output.find(message)!=std::string::npos&&r.output.find("Resumed ")==std::string::npos,"CLI startup failure/fallback contract");};
  run("Inspect save file");

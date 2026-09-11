@@ -3,6 +3,7 @@
 #include <utility>
 #include <iostream>
 #include <chrono>
+#include <limits>
 
 namespace mmodern {
 namespace {
@@ -25,27 +26,126 @@ bool sameCamera(const XeenCamera &a, const XeenCamera &b) {
 }
 }
 
+void XeenEventFlow::beginCycle(std::uint64_t cycle) {
+	if (!_encounter) return;
+	if (_dispatching || _fatal || cycle == 0 || (_cycle && cycle <= *_cycle))
+		throw std::runtime_error("Obsolete encounter loop cycle");
+	_cycle = cycle;
+}
+
+bool XeenEventFlow::encounterFrameCurrent() const noexcept {
+	return !_encounter || (!_fatal && _encounterFrame && _encounter->current(*_encounterFrame));
+}
+
+void XeenEventFlow::failEncounterHandoff(const XeenEncounterFlow::Ticket &entry) noexcept {
+	if (_encounter) _encounter->fail(entry);
+	_fatal = true;
+}
+
+IndexedFrame XeenEventFlow::frameCopy() {
+	if (!_encounter) return _frame;
+	const auto entry = _encounter->ticket();
+	try { return _frame; }
+	catch (...) { failEncounterHandoff(entry); throw; }
+}
+bool XeenEventFlow::updateOrdinaryPhase(OrdinaryCause cause, bool reset, std::uint64_t now) {
+	if (!reset && cause != OrdinaryCause::Action &&
+		(cause != OrdinaryCause::Idle || now < _ordinary.deadline)) return false;
+	if (now > std::numeric_limits<std::uint64_t>::max() - 100 ||
+		(!reset && _ordinary.phase == std::numeric_limits<std::uint64_t>::max()))
+		throw std::overflow_error("Ordinary animation overflow");
+	// One shared M22 policy: committed facing/map reset wins over the action step.
+	_ordinary.phase = reset ? 0 : _ordinary.phase + 1;
+	_ordinary.deadline = now + 100;
+	if (reset) {
+		_ordinary.mapId = _camera.mapId;
+		_ordinary.direction = _camera.direction;
+	}
+	return true;
+}
+
+bool XeenEventFlow::advanceEncounterOrdinary(OrdinaryCause cause) {
+	if (cause == OrdinaryCause::Idle && _encounter->state().phase() != XeenEncounterPhase::Exploring) return false;
+	const auto entry = _encounter->ticket();
+	try {
+		const auto now = _clock();
+		if (!_encounter->current(entry)) throw std::runtime_error("Stale ordinary animation callback");
+		const bool reset = _ordinary.mapId != _camera.mapId || _ordinary.direction != _camera.direction;
+		return updateOrdinaryPhase(cause, reset, now) && _ordinary.containsOrdinaryAnimation;
+	} catch (...) {
+		if (!_encounter->fail(entry, XeenEncounterStop::Preparation)) { _fatal = true; throw; }
+		return true;
+	}
+}
+
+IndexedFrame XeenEventFlow::renderEncounter(bool report) {
+	const bool hadFrame = _frame.isValid();
+	for (unsigned attempt = 0; attempt < 2; ++attempt) {
+		const auto entry = _encounter->ticket();
+		try {
+			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter composition");
+			if (attempt) {
+				_world.discardMapCache();
+				if (rebuildEncounterPresentation) rebuildEncounterPresentation();
+				if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter rebuild");
+			}
+			auto composed = _encounterCompose(_ordinary.phase, _encounter->frame());
+			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter frame");
+			if (!composed.frame.isValid()) throw std::runtime_error("Invalid encounter frame");
+			const auto notice = _encounter->notice();
+			XeenTextRenderOptions options;
+			options.bounds = {9, 9, 222, 50}; options.x = 10; options.y = 10;
+			options.size = XeenFontSize::Reduced;
+			options.paginate = true;
+			options.drawWindow = true; options.windowBounds = {8,8,223,51};
+			auto rendered = XeenTextRenderer(_inventoryFont).render(composed.frame, notice, options);
+			if (rendered.pages.size() != 1) throw std::runtime_error("Encounter notice did not fit");
+			if (report && !attempt && reportText) reportText(notice);
+			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter report");
+			// Complete the fallible return copy before installing the frame.
+			if (!attempt && beforeEncounterFrameCopy) beforeEncounterFrameCopy();
+			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter frame copy");
+			IndexedFrame returned = rendered.pages.front();
+			_frame = std::move(rendered.pages.front());
+			_ordinary.containsOrdinaryAnimation = composed.containsOrdinaryAnimation;
+			_encounterFrame = entry;
+			return returned;
+		} catch (...) {
+			if (!_encounter->fail(entry) || attempt || !hadFrame) { _fatal = true; throw; }
+		}
+	}
+	throw std::logic_error("Unreachable encounter recovery");
+}
+
 XeenEventFlow::XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
 		XeenPartyState &party, XeenCamera &camera, XeenGameFlags &flags,
 		const XeenFontFormat &font, Compose compose, XeenEventPresenter::NpcDraw npcDraw,
-		XeenEventPresenter::Clock clock, XeenEventPresenter::RandomFrame randomFrame, const XeenItemCatalog *catalog) :
+		XeenEventPresenter::Clock clock, XeenEventPresenter::RandomFrame randomFrame, const XeenItemCatalog *catalog,
+		const XeenEncounterSetup *encounter, EncounterCompose encounterCompose) :
 	_inventoryFont(font), _catalog(catalog ? *catalog : fallbackCatalog()),
 	_world(world), _events(events), _party(party), _camera(camera), _flags(flags),
 	_navigation(events), _clock(clock ? std::move(clock) : XeenEventPresenter::Clock{[] {
 		return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
 			std::chrono::steady_clock::now().time_since_epoch()).count());
 	}}), _presenter(font, std::move(npcDraw), [this] { return _clock(); }, std::move(randomFrame)),
-	_ordinary{0, _clock() + 100, camera.mapId, camera.direction, false},
+	_ordinary{0, 0, camera.mapId, camera.direction, false},
 	_compose(std::move(compose)) {
+	if (encounter) {
+		if (!_encounterCompose && !encounterCompose) throw std::invalid_argument("Missing encounter composer");
+		_encounterCompose = std::move(encounterCompose);
+		_encounter = std::make_unique<XeenEncounterFlow>(world, party, camera, _clock, *encounter);
+		_ordinary.deadline = _encounter->cosmeticDeadline();
+	} else _ordinary.deadline = _clock() + 100;
 	refresh(true);
 }
 
 IndexedFrame XeenEventFlow::refresh(bool reconstruct) {
-	if (_dispatching || _fatal) return _frame;
+	if (_dispatching || _fatal) return frameCopy();
 	DispatchScope dispatch(_dispatching);
+	if (_encounter) return renderEncounter();
 	if (reconstruct) invalidateInventorySelection();
 	refreshScene(reconstruct, OrdinaryCause::None);
-	return _frame;
+	return frameCopy();
 }
 
 bool XeenEventFlow::refreshScene(bool reconstruct, OrdinaryCause cause, bool committedTransition) {
@@ -53,20 +153,8 @@ bool XeenEventFlow::refreshScene(bool reconstruct, OrdinaryCause cause, bool com
 	const bool reset = committedTransition || _ordinary.mapId != _camera.mapId ||
 		_ordinary.direction != _camera.direction;
 	bool stepped = false;
-	if (reset) {
-		// Recognize committed transitions independently of successful rendering.
-		_ordinary.mapId = _camera.mapId;
-		_ordinary.direction = _camera.direction;
-		_ordinary.phase = 0;
-		_ordinary.deadline = _clock() + 100;
-	} else if (cause != OrdinaryCause::None && _world.map(_camera.mapId).geometry.isOutdoors()) {
-		const auto now = _clock();
-		if (cause == OrdinaryCause::Action || now >= _ordinary.deadline) {
-			++_ordinary.phase;
-			_ordinary.deadline = now + 100;
-			stepped = true;
-		}
-	}
+	if (reset || (cause != OrdinaryCause::None && _world.map(_camera.mapId).geometry.isOutdoors()))
+		stepped = updateOrdinaryPhase(cause, reset, _clock());
 	const bool cameraChanged = !sameCamera(_camera, _renderedCamera);
 	// M15's disabled set only grows during a session. Its size is an exact,
 	// constant-time change detector for the only supported visual mutation.
@@ -105,7 +193,7 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 		reconstruct = false;
 		cause = OrdinaryCause::None;
 		committedTransition = false;
-		if (suspended && !_pending) return _frame;
+		if (suspended && !_pending) return frameCopy();
 		// Reporting receives a value snapshot; Flow has already adopted ownership
 		// and can account for it if constructing this snapshot fails.
 		if (suspended) suspended->state = _pending->state;
@@ -114,14 +202,14 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 		} else {
 			if (reportAutomatic) reportAutomatic(result);
 		}
-		if (!suspended) return _frame;
-		if (!_pending) return _frame; // A reporting callback may explicitly abandon.
+		if (!suspended) return frameCopy();
+		if (!_pending) return frameCopy(); // A reporting callback may explicitly abandon.
 		_frame = _presenter.dismissSelection();
 		XeenPresentationUpdate update;
 		update = _presenter.present(_frame, _pending->state.pendingPresentation->request);
 		_frame = std::move(update.frame);
 		if (reportText) for (const auto &message : _presenter.diagnostics()) reportText(message);
-		if (!update.response) return _frame;
+		if (!update.response) return frameCopy();
 		auto pending = std::move(*_pending);
 		_pending.reset(); // Consume before calling into the execution system.
 		if constexpr (std::is_same_v<Result, XeenManualEventResult>)
@@ -148,7 +236,7 @@ IndexedFrame XeenEventFlow::acceptAutomatic(XeenAutomaticEventResult result) {
 	return drive(std::move(result), true);
 }
 IndexedFrame XeenEventFlow::initial() {
-	if (blocksGameplay()) return _frame;
+	if (blocksGameplay()) return frameCopy();
 	DispatchScope dispatch(_dispatching);
 	return drive(_navigation.processInitialEvent(_world, _party, _camera, _flags), true);
 }
@@ -162,6 +250,7 @@ bool XeenEventFlow::pendingNpc() const {
 		_pending->state.pendingPresentation->request.kind == XeenPresentationKind::NpcAcknowledgment;
 }
 bool XeenEventFlow::handlesEscape() const {
+	if (_encounter) return false;
 	return inventoryOpen() || canCancelInteraction() || pendingNpc() || (_pending && _pending->state.rewardPhase != XeenRewardPhase::Running);
 }
 XeenRewardReceipt XeenEventFlow::cleanup(XeenRewardDiscard reason) noexcept {
@@ -181,6 +270,7 @@ XeenEventFlow::~XeenEventFlow() {
 	}
 }
 void XeenEventFlow::abandonPresentation() {
+	if (_encounter) return; // Presentation cleanup cannot reset encounter authority.
 	if (_dispatching && !_pending) return;
 	DispatchScope dispatch(_dispatching);
 	closeInventory();
@@ -208,11 +298,18 @@ IndexedFrame XeenEventFlow::presentationFailed(const std::exception &exception) 
 		try { if (reportManual) reportManual(error); }
 		catch (...) { std::cerr << "Manual presentation reporting failed after cleanup\n"; }
 	}
-	return _frame;
+	return frameCopy();
 }
 std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 	if (_dispatching || _fatal) return std::nullopt;
 	DispatchScope dispatch(_dispatching);
+	if (_encounter) {
+		const bool changed = _encounter->idle(_cycle);
+		if (!_encounter->current(_encounter->ticket())) { _fatal = true; throw std::runtime_error("Stale encounter idle"); }
+		const bool ordinary = advanceEncounterOrdinary();
+		if (changed || ordinary) return renderEncounter();
+		return std::nullopt;
+	}
 	const bool recomposed = refreshScene(false, OrdinaryCause::Idle);
 	if (!pendingNpc()) return recomposed ? std::optional<IndexedFrame>{_frame} : std::nullopt;
 	try {
@@ -228,7 +325,7 @@ std::optional<std::uint64_t> XeenEventFlow::presentationGeneration() const {
 	return _pending ? std::optional<std::uint64_t>{_pending->generation} : std::nullopt;
 }
 bool XeenEventFlow::respond(std::uint64_t generation, XeenPresentationResponse response) {
-	if (_dispatching || inventoryOpen() || _fatal) return false;
+	if (_encounter || _dispatching || inventoryOpen() || _fatal) return false;
 	DispatchScope dispatch(_dispatching);
 	return resumePending(generation, response);
 }
@@ -249,19 +346,35 @@ bool XeenEventFlow::resumePending(std::uint64_t generation, XeenPresentationResp
 	return true;
 }
 IndexedFrame XeenEventFlow::handle(const PlayerAction &action) {
-	if (std::holds_alternative<SaveGameAction>(action) || _dispatching || _fatal) return _frame;
+	if (std::holds_alternative<SaveGameAction>(action) || _dispatching || _fatal) return frameCopy();
+	if (!_encounter && std::holds_alternative<WaitAction>(action)) return frameCopy();
 	DispatchScope dispatch(_dispatching);
+	if (_encounter) {
+		const auto entry = _encounter->ticket();
+		const bool changed = _encounter->handle(action, _cycle);
+		if (!_encounter->current(_encounter->ticket())) { _fatal = true; throw std::runtime_error("Stale encounter input"); }
+		if (changed) {
+			// Gameplay action and its distinct pulse are already adopted. Consume
+			// this physical navigation's visual cause once, never during recovery.
+			const auto &accepted = _encounter->actionResult();
+			if (std::holds_alternative<NavigationAction>(action) && accepted.revision > entry.state.revision() &&
+				(accepted.outcome == XeenEncounterOutcome::Accepted || accepted.outcome == XeenEncounterOutcome::Blocked))
+				advanceEncounterOrdinary(OrdinaryCause::Action);
+			return renderEncounter(true);
+		}
+		return frameCopy();
+	}
 	const bool inventoryOnly = std::holds_alternative<InspectInventoryAction>(action) ||
 		std::holds_alternative<SelectInventorySlotAction>(action) || std::holds_alternative<TransferInventoryAction>(action) ||
 		std::holds_alternative<EquipmentInventoryAction>(action);
-	if (_pending && inventoryOnly) return _frame;
+	if (_pending && inventoryOnly) return frameCopy();
 	if (inventoryOpen() || std::holds_alternative<InspectInventoryAction>(action)) return handleInventory(action);
-	if (inventoryOnly) return _frame;
+	if (inventoryOnly) return frameCopy();
 	if (std::holds_alternative<SelectMemberAction>(action) && !canCancelInteraction())
-		return _frame;
+		return frameCopy();
 	const bool hadPending = _pending.has_value();
 	refreshScene(false, OrdinaryCause::None);
-	if (hadPending && !_pending) return _frame; // Rebase failure must not dispatch this input.
+	if (hadPending && !_pending) return frameCopy(); // Rebase failure must not dispatch this input.
 	if (_pending) {
 		const auto generation = _pending->generation;
 		XeenPresentationUpdate update;
@@ -270,9 +383,9 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &action) {
 			return presentationFailed(e);
 		}
 		_frame = std::move(update.frame);
-		if (!update.response) return _frame;
+		if (!update.response) return frameCopy();
 		resumePending(generation, *update.response);
-		return _frame;
+		return frameCopy();
 	}
 	_presenter.clear(); // M14 labels last until the next gameplay action.
 	if (const auto *navigation = std::get_if<NavigationAction>(&action)) {
@@ -291,6 +404,6 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &action) {
 	if (std::holds_alternative<InteractionAction>(action))
 		return drive(_navigation.processInteraction(_world, _party, _camera, _flags), false, true, OrdinaryCause::Action);
 	refreshScene(true, OrdinaryCause::None);
-	return _frame;
+	return frameCopy();
 }
 }

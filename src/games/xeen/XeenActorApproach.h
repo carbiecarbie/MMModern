@@ -51,6 +51,9 @@ class XeenActorApproach {
 public:
 	static constexpr std::size_t kCapacity = 107;
 	static constexpr XeenCamera kEntry{20, 13, 1, XeenDirection::North};
+	// Read-only authorization, including terminal states. Never adopts a revision.
+	static bool authoritative(const XeenWorld &, const XeenPartyState &, const XeenCamera &,
+		const XeenEncounterState &) noexcept;
 	using Terrain = std::function<XeenMonsterTerrain(const XeenActor &, int, int)>;
 	static std::vector<XeenActor> actorsFromResources(const XeenObjectFile &mob,
 		const std::vector<XeenMonsterRecord> &statistics);

@@ -24,7 +24,7 @@ inline BOOL CALLBACK findWindow(HWND window, LPARAM data) {
 // Bounded Win32 launch extracted from XeenSaveCliTests. Used only by tests;
 // no process framework, game-state transport or application-specific startup.
 inline Result launch(const fs::path &exe, const std::vector<std::wstring> &args,
- const fs::path &log, bool closeNativeWindow = false) {
+ const fs::path &log, bool closeNativeWindow = false, bool escapeExits = false) {
  std::wstring command = L"\"" + exe.wstring() + L"\"";
  for (const auto &arg : args) {
   require(arg.find(L'"') == std::wstring::npos && (arg.empty() || arg.back() != L'\\'), "unsupported test argument quoting");
@@ -72,7 +72,8 @@ inline Result launch(const fs::path &exe, const std::vector<std::wstring> &args,
  const DWORD pid = process.dwProcessId; CloseHandle(process.hThread); CloseHandle(process.hProcess);
  std::cout << "PID " << pid << " exit " << code << " wait " << wait << '\n' << std::flush;
  require(wait == WAIT_OBJECT_0 && gotCode, "child failed/timed out; acceptance stopped");
- require(!closeNativeWindow || closed, "CLI did not expose its gameplay window");
+ require(!closeNativeWindow || closed || (escapeExits && inputStage==4 && code==0),
+  "CLI did not expose and normally close its gameplay window");
  require(!closeNativeWindow || inputStage==4,"CLI inventory input sequence incomplete");
  std::ifstream input(log); require(bool(input), "child log read failed");
  return {code, std::string(std::istreambuf_iterator<char>(input), {}), pid};
