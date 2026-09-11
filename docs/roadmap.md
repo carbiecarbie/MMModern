@@ -10,8 +10,11 @@ own completed work. Reference provenance belongs to [dependencies](dependencies.
 The maintainer-approved bounded Clouds combat direction and Skeleton anchor now
 have an accepted M26 actor/approach and terminal engagement foundation.
 **M27 is the immediate next milestone**, for separate detailed planning of the
-existing bounded Attack/Block objective. M28 remains the provisional persistence
-boundary. The [closed M26 plan](milestone-26-plan.md) owns the completed resource,
+existing bounded Attack/Block objective. The
+[M27 investigation/specification](milestone-27-plan.md) records the proposed
+detailed contracts for review, without implementation authorization.
+M28 remains the provisional persistence boundary. The
+[closed M26 plan](milestone-26-plan.md) owns the completed resource,
 actor, scheduling and presentation contracts. Roadmap approval and M26 acceptance
 do not authorize M27 implementation. Later details remain subject to the
 [documented replanning rules](#replanning-and-review-cadence).
