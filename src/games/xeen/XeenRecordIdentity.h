@@ -6,6 +6,17 @@
 
 namespace mmodern {
 
+struct XeenMonsterIdentity {
+	XeenMapIdentity mapId;
+	std::size_t recordIndex = 0;
+	friend bool operator==(XeenMonsterIdentity a, XeenMonsterIdentity b) {
+		return a.mapId == b.mapId && a.recordIndex == b.recordIndex;
+	}
+	friend bool operator<(XeenMonsterIdentity a, XeenMonsterIdentity b) {
+		return std::tie(a.mapId, a.recordIndex) < std::tie(b.mapId, b.recordIndex);
+	}
+};
+
 // Original zero-based record order, never an active/visible index or resource ID.
 struct XeenObjectIdentity {
 	XeenMapIdentity mapId;

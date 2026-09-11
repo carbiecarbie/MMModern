@@ -39,6 +39,10 @@ std::optional<std::vector<std::uint8_t>> XeenAssetSource::readItemMaterialNamesF
 	return _impl->bridge.readItemMaterialNamesFromDarkArchive();
 }
 
+std::optional<std::vector<std::uint8_t>> XeenAssetSource::readCloudsMonsterStatisticsFromDarkArchive() {
+	return _impl->bridge.readCloudsMonsterStatisticsFromDarkArchive();
+}
+
 void XeenAssetSource::drawObjectVisual(const XeenObjectVisual &visual, int x, int y,
 		const XeenSpriteDrawOptions &options) {
 	if ((visual.status != XeenObjectVisualStatus::SupportedStatic &&

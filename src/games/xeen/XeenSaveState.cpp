@@ -14,6 +14,8 @@ namespace mmodern {
 XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resources,
 		const XeenPartyState &party, const XeenCamera &camera,
 		const XeenGameFlags &flags, const XeenWorld &world) {
+	if (world.hasEncounterState() || party.encounterContext)
+		throw std::logic_error("MMModern save: encounter sessions cannot be captured");
 	XeenSaveSnapshot snapshot;
 	snapshot.resources = resources;
 	snapshot.camera = camera;
@@ -32,6 +34,8 @@ XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resourc
 void XeenSaveState::restoreBeforeGameplay(const XeenSaveSnapshot &snapshot,
 		const Resources &resources, XeenPartyState &party, XeenCamera &camera,
 		XeenGameFlags &flags, XeenWorld &world, const Preflight &preflight) {
+	if (world.hasEncounterState() || party.encounterContext)
+		throw std::logic_error("MMModern save: cannot restore into encounter owners");
 	XeenSaveFormat::validate(snapshot);
 	if (!(snapshot.resources == resources.signature))
 		throw std::runtime_error("MMModern save: original archive contents are incompatible");
@@ -41,6 +45,8 @@ void XeenSaveState::restoreBeforeGameplay(const XeenSaveSnapshot &snapshot,
 	// Initial records supply metadata and only the fields absent from v1.
 	// Resolve locally by roster slot before replacing the complete character.
 	XeenPartyState candidateParty = resources.loadInitialParty();
+	if (candidateParty.encounterContext)
+		throw std::logic_error("MMModern save: ordinary provider supplied encounter context");
 	for (std::size_t i = 0; i < snapshot.characters.size(); ++i) {
 		if (candidateParty.roster.at(i).rosterId != i)
 			throw std::runtime_error("initial roster source has an inconsistent slot identity");
@@ -70,6 +76,10 @@ void XeenSaveState::restoreBeforeGameplay(const XeenSaveSnapshot &snapshot,
 	static_cast<void>(candidateWorld.map(candidateCamera.mapId));
 	candidateWorld.restoreSessionState(snapshot.disabledObjects, snapshot.disabledEvents, resources.loadEvents);
 	preflight(candidateWorld, candidateParty, candidateCamera, candidateFlags);
+	// Providers/preflight are fallible external calls. Recheck both graphs before stores.
+	if (world.hasEncounterState() || party.encounterContext ||
+			candidateWorld.hasEncounterState() || candidateParty.encounterContext)
+		throw std::logic_error("MMModern save: encounter state appeared during preparation");
 
 	static_assert(std::is_nothrow_swappable<XeenPartyState>::value, "party publication must not throw");
 	static_assert(std::is_nothrow_copy_assignable<XeenCamera>::value, "camera publication must not throw");

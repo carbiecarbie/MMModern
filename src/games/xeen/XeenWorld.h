@@ -4,6 +4,7 @@
 #include "games/xeen/XeenMap.h"
 #include "games/xeen/XeenRecordIdentity.h"
 #include "games/xeen/XeenEventFile.h"
+#include "games/xeen/XeenActor.h"
 #include <set>
 
 #include <cstddef>
@@ -23,7 +24,7 @@ struct XeenCellSample {
 	const XeenMapCell *cell = nullptr;
 };
 
-// Session-owned overlays only. Original object/event records remain untouched.
+// Session-owned overlays and explicit encounter authority. Original records remain untouched.
 class XeenSessionWorldState {
 public:
 	bool isObjectDisabled(XeenObjectIdentity id) const { return _objects.count(id) != 0; }
@@ -32,8 +33,16 @@ public:
 	std::size_t disabledEventCount() const { return _events.size(); }
 	const std::set<XeenObjectIdentity> &disabledObjects() const { return _objects; }
 	const std::set<XeenEventIdentity> &disabledEvents() const { return _events; }
+	bool encounterMarked() const { return _encounterMarked; }
+	bool encounterInitialized() const { return _encounterInitialized; }
+	bool encounterTerminal() const { return _encounterTerminal; }
+	const std::vector<XeenActor> &actors() const { return _actors; }
 private:
 	friend class XeenWorld;
+	friend class XeenActorApproach;
+	bool _encounterMarked = false, _encounterInitialized = false, _encounterTerminal = false;
+	std::uint64_t _encounterRevision = 0;
+	std::vector<XeenActor> _actors;
 	std::set<XeenObjectIdentity> _objects;
 	std::set<XeenEventIdentity> _events;
 };
@@ -58,6 +67,12 @@ public:
 	XeenWorld(const XeenWorld &) = delete;
 	XeenWorld &operator=(const XeenWorld &) = delete;
 	const XeenSessionWorldState &sessionState() const { return _sessionState; }
+	// Irreversible safety marker, including failed preparation. No clear/reset API.
+	void markEncounterSession() noexcept { _sessionState._encounterMarked = true; }
+	bool hasEncounterState() const {
+		return _sessionState._encounterMarked || _sessionState._encounterInitialized ||
+			!_sessionState._actors.empty();
+	}
 	// For unpublished startup owners only. Validates every original identity
 	// before replacing either set; no script execution or cell expansion.
 	void restoreSessionState(const std::vector<XeenObjectIdentity> &objects,
@@ -71,6 +86,7 @@ public:
 
 private:
 	friend class XeenSaveState;
+	friend class XeenActorApproach;
 	void swapPreparedState(XeenWorld &candidate) noexcept;
 	XeenSessionWorldState _sessionState;
 	MapLoader _loader;

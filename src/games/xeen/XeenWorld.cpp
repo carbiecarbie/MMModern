@@ -13,6 +13,7 @@ XeenWorld::XeenWorld(MapLoader loader, ObjectLoader objectLoader) :
 
 void XeenWorld::restoreSessionState(const std::vector<XeenObjectIdentity> &objects,
 		const std::vector<XeenEventIdentity> &events, const EventLoader &eventLoader) {
+	if (hasEncounterState()) throw std::logic_error("cannot restore an encounter world");
 	XeenSessionWorldState prepared;
 	for (const auto id : objects) {
 		static_cast<void>(map(id.mapId));
@@ -37,6 +38,7 @@ void XeenWorld::restoreSessionState(const std::vector<XeenObjectIdentity> &objec
 }
 
 void XeenWorld::swapPreparedState(XeenWorld &candidate) noexcept {
+	// Private to guarded save publication. Never swaps/clears encounter authority.
 	_sessionState._objects.swap(candidate._sessionState._objects);
 	_sessionState._events.swap(candidate._sessionState._events);
 	_maps.swap(candidate._maps);

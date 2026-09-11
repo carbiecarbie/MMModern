@@ -2,6 +2,7 @@
 #define MMODERN_GAMES_XEEN_XEEN_PARTY_H
 
 #include "games/xeen/XeenCharacter.h"
+#include "games/xeen/XeenGameplayContext.h"
 
 #include <array>
 #include <cstddef>
@@ -79,6 +80,8 @@ private:
 };
 
 struct XeenPartyState {
+	// Only explicit encounter preparation installs this; ordinary loading/restoration does not.
+	std::optional<XeenGameplayContext> encounterContext;
 	XeenRoster roster;
 	XeenParty party;
 	XeenCloudsQuestItems questItems;

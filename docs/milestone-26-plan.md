@@ -2,13 +2,12 @@
 
 ## Status, objective and authority
 
-**Investigation/specification only. M26 is not implemented or complete. No M26
-unit is implementation-authorized.** This specification is ready for architectural
-review, not approved implementation. After maintainer review and an explicitly
-authorized specification commit/push, the architecture/specification agent should
-review that fixed SHA against the accepted architecture and pinned reference,
-resolve or reject unsafe assumptions, and produce the first implementation prompt
-only if ready. This document is not that prompt.
+**26A-only implementation authorization. M26 is not complete.** Following the
+architecture/specification review of `53c81f3cd565722d0a291626a3b2564ce2ffb4b4`,
+the maintainer authorized resource-derived actor authority and deterministic
+approach, with explicit domain operations and capture/restore safeguards.
+26B, combat, visible acceptance and milestone closure still require separate
+authorization. The stable [project status](project-status.md) remains M25.
 
 The [approved roadmap](roadmap.md) selects Clouds map 20, original monster record
 5, initially `(13,2)`, Skeleton type 8, party entry `(13,1)` North, and the four-cell
@@ -681,8 +680,7 @@ an artificial handoff without a complete domain contract.
 
 ### 26A - Resource-derived actor authority and deterministic approach
 
-**Recommended first unit for a later implementation prompt**, after specification
-review and separate authorization. Deliver checked monster/context interpretation,
+**Authorized bounded implementation unit.** Deliver checked monster/context interpretation,
 world-owned actor identities/state, pure activation/occupancy classification,
 prepared approach transitions and the save-capture protection. Do not expose the
 CLI, enable actors in ordinary `--render-map`, or claim visible gameplay yet.
@@ -710,6 +708,77 @@ time bounds, capture refusal; optional original-data records/approach comparison
 Run relevant existing map/world/movement/party/save tests. Stop with independently
 testable domain operations and unchanged production behavior. This unit does not
 complete M26 and does not authorize 26B.
+
+#### 26A concrete interfaces and publication contract
+
+`XeenMonsterFormat` preserves each complete 60-byte record, with bounded name and
+explicit little-endian accessors. `XeenGameplayContextFormat` reads the checked
+PTY prefix independently of ordinary party loading. The explicitly named
+AssetSource/bridge statistics read returns absent archive/member as `nullopt`,
+throws on extent/read failure, and leaves malformed-payload classification to
+the parser. Metadata acceptance is separate from behavior admission; no visual
+preflight is implied by 26A domain readiness.
+
+`XeenActorApproach::initialize` is the synchronous one-time initialization
+boundary over the existing world, party and camera; `initializeFromResources`
+reads only the explicit statistics/context/event inputs through existing
+providers. Ordinary loading never calls it. The world retains the complete
+original-order actor collection, owned statistics values, signed live HP,
+activation and lifecycle/status; no payload pointers survive preparation.
+`XeenMonsterIdentity` is distinct from object/event identity. An irreversible
+world marker is established before preparation; a failed attempt may retain
+only that safety marker and is not successful initialization. Repeated successful
+initialization refuses without replacing actors, context or coordination.
+
+`classify`, `occupancy` and `move` operate on values without publishing live state.
+Classification includes all twelve source queries and activation independent of
+slot capacity. `move` uses a terrain predicate distinct from party collision;
+the production adapter admits only the verified ordinary-ground branch. Synthetic
+multi-actor/fallback controls exercise the pure helper without widening diagnostic
+admission. All original bystanders remain present and must remain isolated.
+
+`XeenEncounterState` is the small transient value to be held by 26B coordination:
+pending count 0..3, phase, reason and checked revision, bound to the world/party/
+camera addresses. World revision and terminal latches reject stale copies and
+prevent a replacement presentation value from resuming terminal gameplay.
+`action` and `pulse` are separate synchronous publication operations: a charged
+step returns count 3; its one supplied post-action pulse returns 2. Turns and
+blocked steps create no new opportunity; a supplied pulse can finish old work.
+Wait flushes old work and consumes the new opportunity immediately, then
+classifies and returns `Engaged` if selected slots 0..2 are occupied. Navigation
+classification/activation occurs on its supplied post-action pulse. 26B must
+deliver that pulse once before reporting/drawing, and supply subsequent timed
+pulses separately; no clock or scheduler is instantiated in 26A.
+
+All fallible resource calls, copies, terrain queries, validation and fixed result
+construction precede actor-vector swap and nonthrowing camera/context/count/
+revision stores. No public apply-prepared-result operation exists. Failure before
+publication preserves completed gameplay facts, latches a support stop and retires
+pending work. After publication the caller retains the result/revision and must
+use `stop` on reporting failure rather than replaying the action. Engagement and
+support stops remain terminal across cache/presentation cleanup.
+
+Provider callbacks may reenter encounter operations during preparation. Immediately
+before any post-callback mutation (including support/time and exception-handler
+stops), transitions revalidate their entry owner bindings, revision
+and coordination facts against the live world and reject stale or terminal work
+without changing the newer authority. Initialization rechecks the exact uninitialized
+owner state at that same boundary; a nested successful initialization cannot be
+replaced, and its revision cannot be reset. These are pre-publication checks,
+not rollback or a second transaction owner.
+
+Capture rejects marked, actor-bearing or context-bearing owners before snapshot
+construction. Ordinary restoration rejects live encounter destinations and
+unexpected context from initial-party providers; it also rechecks both graphs
+after preflight, before any publication. World overlay restoration cannot erase
+encounter authority. No snapshot schema, wire format or writer policy changes.
+
+Focused synthetic targets are `xeen_monster_format`, `xeen_actor_approach` and
+`xeen_encounter_save`. The optional `mmodern_encounter_domain_smoke` requires an
+explicit original installation and is excluded from ordinary CTest and the
+default build. It checks the resource chain, all 27 identities, 64 isolation
+controls and literal approach traces through production domain/providers.
+It does not execute the ScummVM engine or establish sprite/physical acceptance.
 
 ### 26B - Production visible approach, coordination and terminal engagement
 
@@ -739,8 +808,9 @@ and authorized; do not continue into damage or migration because 26B passes.
 
 ## Verification and acceptance
 
-All new names/targets below are **proposed**, and no planned test is reported as
-passed. Ordinary CTest must use synthetic resources only. Expected values come
+The matrix below specifies the full M26 acceptance boundary; 26B names/targets
+remain **proposed**. Concrete 26A interfaces are recorded above, without claiming
+full-milestone acceptance. Ordinary CTest must use synthetic resources only. Expected values come
 from literal tables/traces here and pinned sources; never ask the implementation's
 movement/view helper to generate its own expected result.
 
@@ -842,7 +912,7 @@ distinguished in eventual closure evidence.
 
 ## Readiness and replanning triggers
 
-**Ready for architectural review.** The approved entry/envelope survives the
+**Investigation conclusion.** The approved entry/envelope survives the
 bounded investigation. No encounter replacement or roadmap scope change is
 required. The critical new decisions are the same-cell engagement edge, charged
 delayed movement that may finish during idle, distinct zero-cost turns/blocked

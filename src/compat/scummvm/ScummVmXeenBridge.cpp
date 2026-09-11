@@ -96,31 +96,45 @@ public:
 	}
 
 	std::optional<std::vector<std::uint8_t>> readItemMaterialNamesChecked() const {
+		return readMetadataChecked("mae.xen", 8192);
+	}
+	std::optional<std::vector<std::uint8_t>> readMonsterStatisticsChecked() const {
+		return readMetadataChecked("xeen.mon", 65535, true);
+	}
+
+private:
+	// Only the two explicit metadata reads above use this checked path.
+	std::optional<std::vector<std::uint8_t>> readMetadataChecked(const char *name,
+			std::size_t limit, bool requirePayloadOffset = false) const {
 		MM::Shared::Xeen::CCEntry entry;
-		const Common::Path member("mae.xen", Common::Path::kNoSeparator);
+		const Common::Path member(name, Common::Path::kNoSeparator);
+		const std::string origin = std::string("DARK.CC/") + name;
 		if (!getHeaderEntry(member, entry))
 			return std::nullopt;
-		if (entry._offset < 0 || entry._size > 8192)
-			throw std::runtime_error("invalid DARK.CC/mae.xen index bounds");
+		if (entry._offset < 0 || entry._size > limit)
+			throw std::runtime_error("invalid " + origin + " index bounds");
+		if (requirePayloadOffset && static_cast<std::uint64_t>(entry._offset) <
+				2 + 8 * static_cast<std::uint64_t>(_index.size()))
+			throw std::runtime_error("invalid " + origin + " payload overlaps archive index");
 
 		Common::File file;
 		const Common::Path archive("dark.cc", Common::Path::kNoSeparator);
 		if (!file.open(archive))
-			throw std::runtime_error("cannot reopen DARK.CC for optional mae.xen read");
+			throw std::runtime_error("cannot reopen " + origin);
 		const auto archiveSize = file.size();
 		const auto offset = static_cast<std::uint64_t>(entry._offset);
 		const auto size = static_cast<std::uint64_t>(entry._size);
 		if (archiveSize < 0 || offset > static_cast<std::uint64_t>(archiveSize) ||
 				size > static_cast<std::uint64_t>(archiveSize) - offset)
-			throw std::runtime_error("truncated DARK.CC/mae.xen payload");
+			throw std::runtime_error("truncated " + origin + " payload");
 		if (!file.seek(entry._offset))
-			throw std::runtime_error("cannot seek to DARK.CC/mae.xen payload");
+			throw std::runtime_error("cannot seek to " + origin + " payload");
 
 		std::vector<std::uint8_t> bytes(entry._size);
 		if (!bytes.empty() &&
 				(file.read(bytes.data(), static_cast<uint32>(bytes.size())) != bytes.size() ||
 				 file.err()))
-			throw std::runtime_error("incomplete DARK.CC/mae.xen payload read");
+			throw std::runtime_error("incomplete " + origin + " payload read");
 		for (auto &byte : bytes)
 			byte ^= 0x35;
 		return bytes;
@@ -238,6 +252,13 @@ std::optional<std::vector<std::uint8_t>> ScummVmXeenBridge::readItemMaterialName
 	if (!_impl->darkMetadataArchive)
 		_impl->darkMetadataArchive.reset(new DarkMetadataArchive());
 	return _impl->darkMetadataArchive->readItemMaterialNamesChecked();
+}
+
+std::optional<std::vector<std::uint8_t>> ScummVmXeenBridge::readCloudsMonsterStatisticsFromDarkArchive() {
+	if (!_impl->darkAvailable) return std::nullopt;
+	if (!_impl->darkMetadataArchive)
+		_impl->darkMetadataArchive.reset(new DarkMetadataArchive());
+	return _impl->darkMetadataArchive->readMonsterStatisticsChecked();
 }
 
 void ScummVmXeenBridge::drawObjectSprite(const std::string &resourceName,

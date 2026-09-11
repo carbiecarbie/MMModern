@@ -231,6 +231,29 @@ Preserve that attribution and license, and supply the corresponding adapted
 source and pinned upstream source in distributions. Commercial resources are
 not part of these tables.
 
+## Bounded actor interpretation and approach provenance
+
+The 26A parser and approach adaptation use ScummVM
+`6814ee9ba54582f5b5adcffab49efbbd8f589edd`: Xeen `map.cpp`
+(`MonsterStruct::synchronize`, `MonsterObjectData::synchronize`), `party.cpp`
+(`Party::synchronize/changeTime`), `interface.cpp` (`chargeStep`, `stepTime`,
+`perform`, `draw3d`), `combat.cpp` (`moveMonsters`, `canMonsterMove`,
+`moveMonster`, movement grids), `combat.h` (107-record capacity), and
+`interface_scene.cpp` (`setOutdoorsMonsters`). The classifier reuses the existing
+position constants sourced from `devtools/create_mm/create_xeen/constants.cpp`.
+This adapted logic remains GPL-3.0-or-later material attributed to the ScummVM
+developers in upstream `COPYRIGHT`; distributions must preserve corresponding
+source/provenance. It adds no engine linkage or copied commercial resource.
+
+`readCloudsMonsterStatisticsFromDarkArchive` extends the existing lazy Dark
+archive owner with a checked, explicitly named `xeen.mon` read. Its private
+extent/read helper is shared only with `mae.xen`; the material size limit and
+availability semantics remain unchanged. The 60-byte parser enforces the CC
+65535-byte member bound separately. Missing data, malformed bytes and I/O failures
+remain distinct. The existing archive-index-construction limitation documented
+above still applies. Actor admission/context/persistence contracts belong in
+[M26](milestone-26-plan.md#26a-concrete-interfaces-and-publication-contract).
+
 ## MMModern configuration and validation
 
 Configure MMModern in its own new build directory with explicit dependency

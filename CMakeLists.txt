@@ -23,6 +23,9 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/MMModernItemCatalog.cmake")
 add_mmodern_item_catalog_generation()
 
 add_library(mmodern_xeen STATIC
+	src/formats/xeen/XeenMonsterFormat.cpp
+	src/formats/xeen/XeenGameplayContextFormat.cpp
+	src/games/xeen/XeenActorApproach.cpp
 	src/formats/xeen/XeenAssetSource.cpp
 	src/formats/xeen/XeenCloudsVisualMetadata.cpp
 	src/formats/xeen/XeenMaterialNames.cpp
@@ -107,7 +110,18 @@ if(MINGW)
 endif()
 
 include(CTest)
+add_executable(mmodern_encounter_domain_smoke EXCLUDE_FROM_ALL tests/XeenEncounterSmoke.cpp)
+target_link_libraries(mmodern_encounter_domain_smoke PRIVATE mmodern_xeen)
 if(BUILD_TESTING)
+	add_executable(mmodern_monster_format_tests tests/XeenMonsterFormatTests.cpp)
+	target_link_libraries(mmodern_monster_format_tests PRIVATE mmodern_xeen)
+	add_test(NAME xeen_monster_format COMMAND mmodern_monster_format_tests)
+	add_executable(mmodern_actor_approach_tests tests/XeenActorApproachTests.cpp)
+	target_link_libraries(mmodern_actor_approach_tests PRIVATE mmodern_xeen)
+	add_test(NAME xeen_actor_approach COMMAND mmodern_actor_approach_tests)
+	add_executable(mmodern_encounter_save_tests tests/XeenEncounterSaveTests.cpp)
+	target_link_libraries(mmodern_encounter_save_tests PRIVATE mmodern_xeen)
+	add_test(NAME xeen_encounter_save COMMAND mmodern_encounter_save_tests)
 	add_executable(mmodern_item_transfer_tests tests/XeenItemTransferTests.cpp)
 	target_link_libraries(mmodern_item_transfer_tests PRIVATE mmodern_app mmodern_xeen ZLIB::ZLIB)
 	add_test(NAME xeen_item_transfer COMMAND mmodern_item_transfer_tests)
