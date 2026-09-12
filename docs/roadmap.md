@@ -1,91 +1,214 @@
 # MMModern - Roadmap
 
 **Milestone 28 is the latest completed milestone.**
-[Project status](project-status.md) owns current capabilities;
-[project history](project-history.md) and the [closed M28 plan](milestone-28-plan.md)
-own completed work. Reference provenance belongs to
-[dependencies](dependencies.md).
+[Project status](project-status.md) owns implemented capabilities and their
+acceptance boundaries; [project history](project-history.md) owns completed
+chronology. Reference provenance belongs to [dependencies](dependencies.md).
 
 ## Current planning state
 
-The bounded Clouds map-20 Skeleton diagnostic now has accepted original actor
-approach, playable Attack/Block combat, successful-End retirement, completed
-save/restart and bounded true revisit. Exact party state, owner XP and encounter
-context survive fresh-owner restoration while the admitted Skeleton remains
-defeated. M28 closes this diagnostic persistence boundary; it does not establish
-normal exploration, repeatable combat or recovery gameplay.
+MMModern has connected ordinary navigation, bounded original interactions,
+quest rewards, inventory/equipment management and save/restart within accepted
+checkpoints. The encounter foundation adds original actor approach
+([M26](milestone-26-plan.md)), playable bounded Attack/Block combat
+([M27](milestone-27-plan.md)), and completed encounter persistence and revisit
+([M28](milestone-28-plan.md)). These contracts do not certify travel between
+checkpoints, normal original startup or a generally playable region.
 
-No successor milestone is selected or authorized. The next conditional objective
-should be chosen from observed value and dependency evidence after this durable
-boundary. A repeatable recovery/exploration loop remains a plausible direction,
-alongside connected original Clouds quests/exploration, selective item effects
-and services, encounter presentation/audio and wider World of Xeen fidelity.
-Darkside progression, portability and localization remain separate decisions.
+The organizing goal is a meaningful connected Clouds vertical slice: a finite
+piece of original gameplay with an understandable objective, real consequences
+and a durable continuation. The priority is integrating accepted systems into
+coherent gameplay. Additional diagnostics are useful as validation controls,
+but are not substitutes for that integration.
 
-The implementation agent investigates and implements authorized work; the
-architecture/specification agent prepares contracts; the independent reviewer
-audits implementation and evidence; the maintainer approves direction and
-separately authorizes work. Create a detailed plan only when its milestone is
-about to begin.
+**M29 is selected as the immediate direction for architectural planning.**
+M30 and M31 are provisional, dependency-gated successors leading toward the
+first connected slice; its content remains conditional. Roadmap selection does not
+authorize implementation or establish the detailed milestone contract. The
+architecture/specification agent prepares that contract; the maintainer
+separately authorizes work; the independent reviewer audits implementation and
+evidence. Create a milestone plan only when the milestone is about to begin.
 
-## Completed encounter foundation
+## Near term
 
-The accepted [M26 plan](milestone-26-plan.md) owns the bounded entry, actor
-identity, activation, approach, timing and same-cell engagement contract. The
-accepted [M27 plan](milestone-27-plan.md) owns Attack/Block combat, original
-MON/ATT appearance, injury, armor breakage, terminal outcomes and once-only XP.
-The accepted [M28 plan](milestone-28-plan.md) owns successful completion,
-retirement, save v3, fresh-owner restore, read-only inspection and true revisit.
+### M29 - Mutable encounter continuity and durable journey state
 
-The shared envelope remains World of Xeen Clouds map 20, camera `(13,1)` North,
-original monster record 5 at `(13,2)`, Skeleton type 8, the original six active
-roster owners and the admitted four-cell area. Commercial resources remain
-external and unmodified. The diagnostic does not certify the wider map, the Run
-destination, a route from Vertigo or general travel.
+Enable an admitted encounter to occur inside a continuing gameplay session.
+After surviving combat, the player should be able to navigate, inspect and
+manage party/items, save at a supported idle boundary, restart and continue
+with the same authoritative consequences. Admission must account for supported
+party, item and quest changes before combat as well as mutation after combat.
 
-Completed Diagnostic27 is a quiescent checkpoint. Preparation, approach, combat,
-incomplete victory, defeat and failure remain unsaveable. Resume and R revisit
-keep record 5 defeated and do not execute combat, XP, events, transfer or
-equipment actions. R is a bounded same-map true-entry operation, distinct from
-cache reconstruction and unrelated to Run.
+This addresses a concrete separation in the current implementation. Ordinary
+saves write v2; completed Diagnostic27 writes narrowly constrained v3. Combat
+admission and completed validation retain original-party/item restrictions,
+single-encounter XP and a canonical defeated actor overlay while other actors
+remain resource-initialized. Those boundaries do not yet compose into a mutable
+journey. See the [persistence model](project-status.md#persistence-model) and
+[M28 contract](milestone-28-plan.md#save-format-and-compatibility).
 
-## Conditional next direction
+The specification must bound supported gameplay state, encounter entry/exit,
+injury and failure outcomes, progression accounting and save compatibility.
+It must distinguish gameplay time from cosmetic animation, and true map entry
+from cache reconstruction and process restoration. Choose the smallest original
+content envelope that demonstrates continuity through production controls and
+save/restart; detailed representation, acceptance witnesses and internal stages
+belong in that specification.
 
-A repeatable recovery/exploration loop would need an explicit contract before
-implementation. Rest carries food, eight-hour time, interruption, condition and
-temporary-effect consequences; healing items, antidotes and town services have
-separate action, targeting and economic rules. None follows automatically from
-M28 completion, and none is assigned a milestone number here.
+M29 does not commit to general combat, universal monster support, full map-20
+playability, normal Vertigo startup or the complete vertical slice. Recovery,
+services, item-use effects, Run/disengagement and arbitrary mid-combat saving
+are not implicit deliverables. If continuity cannot be bounded without one of
+these capabilities, review the scope explicitly before implementation.
 
-Future connected exploration must continue to distinguish diagnostic checkpoints,
-normal original start, connected routes and generally playable regions. Map 23's
-Myra/Phirna loop, Vertigo encounters and Nightshadow each introduce different
-actor, event, navigation, condition or service dependencies. A terrain path or
-visible checkpoint alone does not establish a supported route.
+Confidence is high in the need for this foundation. Its precise admission and
+persistence boundary still requires architectural specification and review.
 
-Preserve the established ownership boundaries in future work: roster characters,
-items and progression remain party-owned; committed camera/game flags retain
-their current owners; live monster identity and lifecycle remain world-owned;
-Flow and SDL coordinate transient input/presentation without becoming gameplay
-owners. Reuse the accepted inventory, event, persistence and encounter systems
-before introducing broader frameworks.
+### Post-M29 gate - Route evidence before detailed M30 planning
+
+After M29 closes with acceptance, verify the new committed baseline and perform
+a small targeted investigation of the preferred expedition against original
+resources and the pinned reference. Establish actor influence across movement,
+facing and waiting; encounter grouping; Zombie/Disease rules; attrition with the
+proposed starting party; and whether recovery or Run is necessary. Include
+reachable event branches, a credible failure/exit policy and readable navigation,
+threat and outcome feedback. Parsed resources and terrain passability alone are
+insufficient evidence.
+
+Review the M30/M31 assumptions against those findings before creating the detailed
+M30 plan. If Bone Whistle requires disproportionate actor, rule, recovery,
+disengagement or persistence work, adapt both milestones to a better original
+slice. Their exact scope and separation may change without changing the connected
+Clouds strategy.
+
+### M30 - Bounded expedition encounter integration (provisional)
+
+Apply M29's continuity foundation to the actual actor and encounter consequences
+of the selected expedition. The player should be able to navigate its bounded
+footprint, face all materially influencing actors and resolve successive
+encounters while retaining accumulated injuries, XP, item/equipment state and
+world consequences through supported save/restart boundaries.
+
+Add only the monster rules, conditions and failure behavior that route evidence
+requires. Necessary recovery or disengagement must be explicitly scoped or trigger
+replanning; they cannot be omitted while claiming the route is playable. This is
+route-specific integration, not general combat or whole-map certification.
+
+Confidence is conditional on accepted M29 continuity and the route gate. This
+boundary provides a connected navigation/combat acceptance target before full
+objective-loop closure in M31. Reuse the production path intended for that slice;
+do not build a separate diagnostic framework. Detailed actors, rules and acceptance
+contracts remain for the M30 specification.
+
+### M31 - First connected Clouds vertical slice (provisional)
+
+Close a short original-game objective loop on the expedition behavior established
+by M30. The player should understand the entry, objective and return/continuation,
+manage party/items between encounters, complete the original interaction and
+resume the resulting journey after a process restart. Navigation, combat,
+interaction and persistence must operate coherently through production controls.
+
+The preferred first slice is a bounded expedition in Clouds map 20: enter once
+with a declared original party/resource state, navigate to the Whistle, resolve
+the influencing encounters, perform the already-supported original collection,
+and return with party/world consequences preserved through save/restart.
+Success should connect navigation, combat, inventory/equipment and progression
+in one session, including consequences across successive encounters.
+
+This is a bounded entry into original content, not a claim of travel from
+Vertigo or from the Skeleton diagnostic. Its attraction is a short route and a
+small quest-script surface that reuse existing outdoor and interaction systems.
+The [supported checkpoints](project-status.md#supported-original-data-checkpoints)
+establish the collection behavior, not the expedition.
+
+Confidence in the exact slice remains conditional on the route gate and M30
+integration. Bone Whistle is the preferred candidate, not an irrevocable content
+commitment. Do not obtain a successful slice through repeated relocation, state
+injection, suppressed influencing actors or altered commercial data.
+
+M31 certifies the selected loop, not all of map 20, general Clouds exploration,
+normal Vertigo startup, full recovery, complete combat/item effects, services or
+original UI/audio fidelity. Provide the controls and feedback required to play
+and understand that loop. Closure requires connected automated evidence,
+independent review and maintainer physical acceptance appropriate to its actual
+scope. Split or combine M30/M31 if integration evidence supports a better boundary.
+
+## Medium term
+
+Expand capabilities in response to playable-route evidence rather than assign
+speculative milestone numbers:
+
+- **Connected quests and rewards:** Myra -> Phirna -> Myra is a stronger later
+  RPG slice, linking acquisition, return rewards and party management. Its route
+  adds actor, ranged-combat, poison/sleep and possible treasure dependencies;
+  accepted dialogue and reward checkpoints do not certify that journey.
+- **Encounter breadth and recovery:** support the additional actors, targeting,
+  damage, conditions and failure outcomes required by selected routes. Add
+  selective item effects, healing, rest or disengagement when those outcomes
+  justify them. Inventory/catalog support does not imply item effects; rest
+  carries food, time, interruption and temporary-effect consequences.
+- **Original startup and connected regions:** establish Vertigo's logical indoor
+  area and neighboring geometry semantics, then connect increasingly playable
+  towns, outdoors and dungeons. Doors, hazards, lighting and movement abilities
+  should follow the dependencies of those routes.
+- **Sustained progression:** extend quest rewards, item/spell/combat support and
+  services such as shops, temples, inns and training as coherent progression
+  requires them. Economy, broader time behavior and persistence across visits
+  must advance with their gameplay consumers.
+
+Reassess these unnumbered directions after the first slice. Myra/Phirna and
+normal startup remain candidates for different player-visible value, not a
+fixed sequence following Bone Whistle. Persistence must grow with admitted
+state without silently discarding consequences or changing legacy save meaning.
+
+## Long term
+
+Progress from bounded connected Clouds gameplay to increasingly playable
+connected regions, normal Clouds progression, broad gameplay coverage and
+substantially complete Clouds of Xeen. Expand engine and content support toward
+Darkside progression and the eventual World of Xeen objective as the shared
+foundations become reliable. Access to Clouds metadata in DARK.CC does not
+establish Darkside gameplay.
+
+Darkside content progression, portability, localization, distribution and wider
+presentation/audio fidelity remain separate planning decisions. Their ordering
+should follow demonstrated dependencies and maintainer priorities rather than
+being inferred from a Clouds milestone closure.
+
+## Architectural direction
+
+Preserve the established owners: characters, items and progression belong to
+party/roster; actors and lifecycle belong to world; camera/game flags retain
+their existing owners. Flow and SDL coordinate transient gameplay and
+presentation. Reuse accepted systems before introducing parallel frameworks.
+
+Completed Diagnostic27 remains terminal and quiescent under its accepted
+contract. Future mutable gameplay needs its own admitted contract; do not
+disable M28's owner/preimage or presentation safeguards to permit exploration.
+Retain their reusable safety principles while distinguishing diagnostic-specific
+restrictions from general gameplay rules. Commercial resources remain external
+and unmodified.
 
 ## Replanning and review cadence
 
-Review the next specification against the verified Git baseline and the pinned
-reference. Replan earlier if:
+Review each specification against verified repository state and the pinned
+reference. Replan when:
 
-- The selected objective requires unsupported normal-route navigation, wider
-  actor admission, Run/disengagement or repeatable encounters.
-- Recovery introduces food, time, interruption, condition, temporary-effect,
-  targeting or economic branches outside the proposed envelope.
-- New durable state cannot fit the accepted ownership and compatibility model,
-  or save eligibility must expand beyond ordinary and completed Diagnostic27.
-- Evidence supports combining or splitting acceptance contracts, or maintainer
-  priorities change.
+- Route evidence reveals substantially more actor, combat-rule, condition or
+  recovery work than expected.
+- The objective requires unsupported travel, Run/disengagement, services or
+  time/recovery semantics beyond its proposed boundary.
+- Persistence or world-state generalization exceeds the bounded objective, or
+  compatibility and lifecycle policies cannot preserve admitted consequences.
+- Integration or acceptance evidence supports splitting or combining milestones.
+- Another slice becomes materially cheaper or more architecturally valuable,
+  or maintainer priorities change.
 
-Retain approximately three completed milestones as the ordinary broader review
-cadence, with focused scope review before each specification. The cadence is not
-a quota. Use the verified SHA and handoff gate in [AGENTS.md](../AGENTS.md) for
-external planning/review. Roadmap approval, detailed planning and implementation
-authorization remain separate.
+Retain approximately three completed milestones as the ordinary broader roadmap
+review cadence, with focused scope review before each specification. This is
+not a quota and does not delay an earlier evidence-driven review. Closure of the
+proposed M29-M31 sequence is a natural broader reassessment point; the post-M29
+route gate remains necessary before detailed M30 planning. Use the
+verified SHA and handoff gate in [AGENTS.md](../AGENTS.md) for external planning
+and review. Roadmap approval, detailed planning and implementation authorization
+remain separate.
