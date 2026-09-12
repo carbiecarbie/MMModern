@@ -6,6 +6,9 @@ namespace mmodern {
 // Retained callback preimages, never a gameplay owner or a publication capability.
 class XeenRestoreGuard {
 public:
+	// Watches actual nested map/MOB callbacks and admits only checked detached
+	// provider values. Retained cache preimages are never replaced by cache hits.
+	class Providers;
 	XeenRestoreGuard(const XeenWorld &world, const XeenPartyState &party,
 		const XeenCamera &camera, const XeenGameFlags &flags, bool exactCaches = false) :
 		w(world), p(party), c(camera), f(flags), worldId(w._incarnation),
@@ -71,6 +74,11 @@ public:
 		}
 		return true;
 	}
+	bool worldAlive() const noexcept { return borrowStates[0]->alive; }
+	bool ownersAlive() const noexcept {
+		for (const auto &state : borrowStates) if (!state->alive) return false;
+		return true;
+	}
 	void check() const {
 		if (!current()) {
 			failed = true;
@@ -120,6 +128,30 @@ private:
 	std::array<std::shared_ptr<XeenGameplayBorrowOwner::State>, 5> borrowStates;
 	std::array<std::uint64_t, 5> borrowRevisions;
 	mutable bool failed = false;
+};
+class XeenRestoreGuard::Providers {
+public:
+	Providers(XeenRestoreGuard &guard, XeenWorld &world) : g(guard), w(world), maps(w._loader), objects(w._objectLoader) {
+		g.check();
+		XeenWorld::MapLoader map = [this](XeenMapIdentity id) {
+			g.check();
+			try { auto value = maps(id); g.check(); g.admitMap(id, value); return value; }
+			catch (...) { g.check(); throw; }
+		};
+		XeenWorld::ObjectLoader object;
+		if (objects) object = [this](XeenMapIdentity id) {
+			g.check();
+			try { auto value = objects(id); g.check(); g.admitObjects(id, value); return value; }
+			catch (...) { g.check(); throw; }
+		};
+		w._loader.swap(map); w._objectLoader.swap(object);
+	}
+	~Providers() { if (g.worldAlive()) { w._loader.swap(maps); w._objectLoader.swap(objects); } }
+	Providers(const Providers &) = delete;
+	Providers &operator=(const Providers &) = delete;
+private:
+	XeenRestoreGuard &g; XeenWorld &w;
+	XeenWorld::MapLoader maps; XeenWorld::ObjectLoader objects;
 };
 }
 #endif

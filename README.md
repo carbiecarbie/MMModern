@@ -6,7 +6,7 @@ Might and Magic V: Darkside of Xeen / World of Xeen.
 
 ## Status
 
-**Milestone 27 is the latest completed milestone.**
+**Milestone 28 is the latest completed milestone.**
 
 The engine supports a bounded Clouds quest loop: request a quest, collect an
 item, return it for character-held rewards, and save/resume the resulting progress.
@@ -23,7 +23,10 @@ The Diagnostic26 entry presents an original outdoor Skeleton, supports its
 activation and approach, and stops at terminal same-cell engagement. Diagnostic27
 continues that bounded encounter through playable Attack/Block combat with
 original MON/ATT appearance, injury, armor breakage, victory/defeat and once-only
-XP. Both diagnostics are unsaveable and do not enable normal-start gameplay.
+XP. A successfully ended victory becomes a saveable completed checkpoint that
+can resume in a new process, expose read-only inspection and perform a bounded
+true revisit with the Skeleton still defeated. Neither diagnostic enables
+normal-start gameplay.
 
 MMModern remains incomplete and experimental. It is not yet a generally playable
 replacement for the original games: general combat, item use, complete item effects and Darkside
@@ -54,7 +57,8 @@ See the [technical snapshot](docs/project-status.md),
   inspection and character-to-character transfer, with nine slots per category.
 - Contextual equip/remove for bounded Clouds weapons, armor and accessories,
   including class, conflict, capacity and curse feedback for modeled rules.
-- Local Windows save/resume, including transferred ownership, and live diagnostics.
+- Local Windows save/resume for ordinary progress and completed Diagnostic27,
+  including transferred ownership, exact combat outcomes and live diagnostics.
 
 ## Running and controls
 
@@ -65,7 +69,7 @@ Run from a terminal to see diagnostics; quote paths containing spaces:
 mmodern --render-map <game-directory> [<map> <x> <y> <north|east|south|west>] [--save-file <path.mmsave>]
 mmodern --load-game <game-directory> <path.mmsave>
 mmodern --encounter-26 <game-directory>
-mmodern --encounter-27 [--combat-seed <nonzero-u32>] <game-directory>
+mmodern --encounter-27 [--combat-seed <nonzero-u32>] <game-directory> [--save-file <path.mmsave>]
 ```
 
 Use an existing save directory outside the original game installation. Relative
@@ -85,10 +89,14 @@ without live actors: I opens inventory for normal transfer/equipment operations,
 and Enter begins only with inventory closed. In transfer selection/confirmation,
 I cancels to Browse; another I closes. N also cancels confirmation. Escape always
 exits the session. After approach engagement, Space attacks and B blocks for the
-displayed character; enemy and round work continues automatically. All phases,
-including victory and defeat, refuse saving and cannot return to exploration.
-The optional nonzero 32-bit seed reproduces diagnostic RNG. Save options, camera
-overrides and other entry modes cannot be combined with this entry.
+displayed character; enemy and round work continues automatically. Preparation,
+approach, combat, incomplete victory, defeat and failure remain unsaveable. After
+a successful End, the completed checkpoint permits F9 saving to the configured
+target, read-only I inspection and bounded R re-entry at `(13,1)` North. Resume
+that checkpoint with `--load-game`; it cannot resume combat or exploration, and R
+does not mean Run or general navigation. The optional nonzero 32-bit seed
+reproduces diagnostic RNG. Camera overrides and other entry modes cannot be
+combined with this entry.
 Combat uses the original normal and attack sprites with bounded source-derived
 sequences, while the live roster panel retains injuries and terminal XP results.
 
@@ -103,8 +111,9 @@ sequences, while the live roster panel retains injuries and terminal XP results.
 | T | Begin transfer of the selected occupied slot |
 | E | Equip or remove the explicitly selected occupied weapon, armor or accessory |
 | . | Wait in the diagnostic encounter; no action elsewhere |
-| F9 | Save an eligible idle session; refused in encounter mode or while inventory is open |
-| I | Open inventory while idle; close while browsing; also print live diagnostics on opening |
+| F9 | Save an eligible idle ordinary session or completed Diagnostic27; refused before completion or while inspection/inventory is open |
+| I | Open inventory while idle; in completed Diagnostic27 open read-only inspection; close while browsing and print live diagnostics on opening |
+| R | Revisit the completed Diagnostic27 checkpoint through its bounded true re-entry |
 | Escape | Exit either diagnostic session; otherwise back/cancel transfer or close inventory, cancel WhoWill, acknowledge NPC/reward pages, or exit |
 
 Movement and ordinary interaction are blocked while a response is required;
@@ -115,13 +124,16 @@ Escape returns to browsing before changing category or slot. Each equipment
 attempt consumes its selection; select the slot again before another E action.
 Misc item use and general item effects are not provided by this panel.
 
-Outside encounter mode, F9 refuses during an interaction or while inventory is
-open, without advancing it or scheduling a later save. Close inventory or finish
-the interaction, then issue a new F9. Without a configured path, it writes nothing.
-Save results appear in the console and window title. Existing supported valid
-MMModern saves can be replaced; there is no autosave, save-on-exit or in-session load.
-Current saves write v2 and read v1/v2, require matching game archives, and are
-not compatible with original Xeen or ScummVM saves. See the
+F9 refuses during an interaction, while inventory or completed inspection is
+open, or before Diagnostic27 reaches its completed boundary, without advancing
+work or scheduling a later save. Close the blocking UI or finish the interaction,
+then issue a new F9. Without a configured path, it writes nothing. Save results
+appear in the console and window title. Existing supported valid MMModern saves
+can be replaced; there is no autosave, save-on-exit or in-session load. Ordinary
+eligible saves write v2, completed Diagnostic27 writes v3, and the reader accepts
+supported v1/v2/v3 under their respective compatibility policies. Saves require
+matching game archives and are not compatible with original Xeen or ScummVM
+saves. See the
 [persistence model](docs/project-status.md#persistence-model) for details.
 
 ## Requirements and original game data
@@ -143,8 +155,10 @@ SDL backend. The exact pin and configuration live in
   ownership, persistence and boundaries.
 - [Project history](docs/project-history.md): concise completed milestones and plan links.
 - [Roadmap](docs/roadmap.md): future direction and planning review cadence.
+- [Milestone 28 plan](docs/milestone-28-plan.md): closed completed-encounter
+  authority, persistence, restoration, revisit and acceptance contract.
 - [Milestone 27 plan](docs/milestone-27-plan.md): closed bounded combat rules,
-  ownership, original appearance, persistence boundary and acceptance results.
+  ownership, original appearance and acceptance results.
 - [Milestone 26 plan](docs/milestone-26-plan.md): closed actor/approach, timing,
   engagement and unsaveable-session contracts, with acceptance results.
 - [Milestone 25 plan](docs/milestone-25-plan.md): closed bounded equipment

@@ -178,6 +178,20 @@ Historical limitations in those plans describe their recorded boundaries.
   maintainer physical SDL victory, loss and regression acceptance completed. See
   the [Milestone 27 plan](milestone-27-plan.md).
 
+## M28 - Durable bounded encounter completion and revisit
+
+- Added guarded retirement of a successfully ended Diagnostic27 victory into
+  world/party/roster/camera-bound quiescent completed authority.
+- Added save v3 and fresh-owner restart for the minimum completed identity,
+  context and owner supplements, reconstructing all 27 actors from compatible
+  resources with the admitted Skeleton's canonical defeated overlay.
+- Connected production F9, read-only completed inspection and bounded true R
+  revisit while preserving exact party state and preventing combat, XP, event or
+  equipment replay.
+- Automated and original-data process validation, independent implementation
+  review and maintainer physical lifecycle acceptance completed. See the
+  [Milestone 28 plan](milestone-28-plan.md).
+
 ## Maintaining this history
 
 Add one short section with 2-4 lasting-result bullets per completed milestone

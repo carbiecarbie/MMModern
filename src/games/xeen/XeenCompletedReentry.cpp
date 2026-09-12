@@ -8,8 +8,11 @@
 namespace mmodern {
 XeenCompletedReentry XeenWorld::reenterCompletedEncounter(const XeenCompletedEncounterTicket &ticket,
 		XeenPartyState &party, XeenCamera &camera, const XeenGameFlags &flags,
-		const MonsterLoader &loadMonsters, const EventLoader &loadEvents, const CompletedPreflight &preflight) {
+		const MonsterLoader &loadMonsters, const EventLoader &loadEvents, const CompletedPreflight &preflight,
+		std::optional<XeenCompletedEncounterTicket> *releasedOnFailure, const std::function<void()> &checkBoundary) {
+	if (releasedOnFailure) releasedOnFailure->reset();
 	const auto monsters = loadMonsters; const auto events = loadEvents; const auto presentation = preflight;
+	const auto boundary = checkBoundary;
 	if (!monsters || !events || !presentation) throw std::invalid_argument("completed re-entry requires resource/preflight services");
 	if (_sessionState._encounterRevision > std::numeric_limits<std::uint64_t>::max() - 3 ||
 		_sessionState._completedEntryGeneration == std::numeric_limits<std::uint64_t>::max())
@@ -28,10 +31,16 @@ XeenCompletedReentry XeenWorld::reenterCompletedEncounter(const XeenCompletedEnc
 		std::optional<XeenRestoreGuard> prepared;
 		const auto adoptPhase = [&] { prepared.emplace(candidate, party, entry, flags); };
 		adoptPhase();
-		const auto callback = [&](auto &&provider) {
+		const auto check = [&] {
 			retained.check(); prepared->check();
-			try { auto value = provider(); retained.check(); prepared->check(); const auto owned = value; return owned; }
+			try { if (boundary) boundary(); }
 			catch (...) { retained.check(); prepared->check(); throw; }
+			retained.check(); prepared->check();
+		};
+		const auto callback = [&](auto &&provider) {
+			check();
+			try { auto value = provider(); check(); const auto owned = value; return owned; }
+			catch (...) { check(); throw; }
 		};
 		const auto maps = candidate._loader; const auto objects = candidate._objectLoader;
 		candidate._loader = [&](XeenMapIdentity id) {
@@ -64,14 +73,14 @@ XeenCompletedReentry XeenWorld::reenterCompletedEncounter(const XeenCompletedEnc
 		s._completedAuthority.emplace(xeenCompletedPreimage(candidate, party, entry));
 		adoptPhase(); // Retain private completed facts across all nested preflight calls.
 		try { presentation(candidate, party, entry, flags); }
-		catch (...) { retained.check(); prepared->check(); throw; }
-		retained.check(); prepared->check();
+		catch (...) { check(); throw; }
+		check();
 		auto authority = *s._completedAuthority;
 		authority.camera = &camera;
 		XeenCompletedReentry result{_sessionState._completedEntryGeneration,
 			_sessionState._completedEntryGeneration + 1, entry, s._completedMonster};
 		static_assert(std::is_nothrow_move_assignable_v<XeenCompletedEncounterAuthority>);
-		retained.check(); prepared->check();
+		check();
 		_maps.swap(candidate._maps); _objects.swap(candidate._objects);
 		_sessionState._actors.swap(s._actors); camera = entry;
 		*_sessionState._completedAuthority = std::move(authority);
@@ -82,7 +91,8 @@ XeenCompletedReentry XeenWorld::reenterCompletedEncounter(const XeenCompletedEnc
 	} catch (...) {
 		if (retainedGuard && !retainedGuard->current())
 			escalateCompletedGuard(ticket, XeenCompletedGuard::Operation, lease, XeenCompletedGuard::Integrity);
-		else releaseCompletedGuard(ticket, XeenCompletedGuard::Operation, lease);
+		else if (releaseCompletedGuard(ticket, XeenCompletedGuard::Operation, lease) && releasedOnFailure)
+			*releasedOnFailure = completedTicket(party, camera);
 		throw;
 	}
 }

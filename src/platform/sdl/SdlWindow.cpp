@@ -40,6 +40,7 @@ std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key) {
 	switch (key.keysym.sym) {
 	case SDLK_PERIOD: return WaitAction{};
 	case SDLK_b: return BlockAction{};
+	case SDLK_r: return RevisitCompletedAction{};
 	case SDLK_F9: return SaveGameAction{};
 	case SDLK_i: return InspectInventoryAction{};
 	case SDLK_t: return TransferInventoryAction{};
@@ -159,15 +160,19 @@ bool showLoop(const IndexedFrame &initialFrame, const std::string &title,
 	if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale initial frame handoff");
 	success = uploadFrame(texture, initialFrame, initialFrame.width,
 		initialFrame.height, pixels);
+	auto uploadedInput = handler.displayedInput ? handler.displayedInput() : std::nullopt;
 	bool running = success;
 	if (running) {
 		SDL_SetRenderDrawColor(renderer,0,0,0,255);
 		SDL_RenderClear(renderer);
 		if (SDL_RenderCopy(renderer,texture,nullptr,nullptr) != 0) { success=false; return false; }
 		SDL_RenderPresent(renderer);
+		if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale initial upload");
+		if (handler.framePresented) handler.framePresented();
+		uploadedInput = handler.displayedInput ? handler.displayedInput() : std::nullopt;
 	}
 	std::uint64_t cycle = 0;
-	bool spaceDown = false, blockDown = false;
+	bool spaceDown = false, blockDown = false, revisitDown = false, inspectDown = false;
 	std::uint32_t readyAt = SDL_GetTicks();
 	std::optional<std::uint64_t> displayedInput = handler.displayedInput ? handler.displayedInput() : std::nullopt;
 	while (running) {
@@ -184,10 +189,14 @@ bool showLoop(const IndexedFrame &initialFrame, const std::string &title,
 				} else if (event.type == SDL_KEYUP) {
 					if (event.key.keysym.sym == SDLK_SPACE) spaceDown = false;
 					if (event.key.keysym.sym == SDLK_b) blockDown = false;
+					if (event.key.keysym.sym == SDLK_r) revisitDown = false;
+					if (event.key.keysym.sym == SDLK_i) inspectDown = false;
 				} else if (event.type == SDL_KEYDOWN) {
 					if (event.key.repeat != 0) continue;
-					if (batchInput && (event.key.keysym.sym == SDLK_SPACE || event.key.keysym.sym == SDLK_b)) {
-						auto &down = event.key.keysym.sym == SDLK_SPACE ? spaceDown : blockDown;
+					if (batchInput && (event.key.keysym.sym == SDLK_SPACE || event.key.keysym.sym == SDLK_b ||
+						event.key.keysym.sym == SDLK_r || event.key.keysym.sym == SDLK_i)) {
+						auto &down = event.key.keysym.sym == SDLK_SPACE ? spaceDown : event.key.keysym.sym == SDLK_b ? blockDown :
+							event.key.keysym.sym == SDLK_r ? revisitDown : inspectDown;
 						const bool held = down; down = true;
 						if (held || static_cast<std::int32_t>(event.key.timestamp-readyAt) <= 0) continue;
 					}
@@ -206,6 +215,7 @@ bool showLoop(const IndexedFrame &initialFrame, const std::string &title,
 									success = false;
 									running = false;
 								}
+								if (nextFrame && success) uploadedInput = handler.displayedInput ? handler.displayedInput() : std::nullopt;
 							} catch (const std::exception &error) {
 								std::cerr << "Scene update failed: " << error.what() << '\n';
 								success = false;
@@ -226,6 +236,7 @@ bool showLoop(const IndexedFrame &initialFrame, const std::string &title,
 					success = false;
 					break;
 				}
+				if (nextFrame) uploadedInput = handler.displayedInput ? handler.displayedInput() : std::nullopt;
 			} catch (const std::exception &error) {
 				std::cerr << "Presentation update failed: " << error.what() << '\n';
 				success = false;
@@ -248,6 +259,11 @@ bool showLoop(const IndexedFrame &initialFrame, const std::string &title,
 			break;
 		}
 		SDL_RenderPresent(renderer);
+		if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale presented frame");
+		if (uploadedInput != (handler.displayedInput ? handler.displayedInput() : std::nullopt))
+			throw std::runtime_error("Current frame was not uploaded");
+		if (handler.framePresented) handler.framePresented();
+		uploadedInput = handler.displayedInput ? handler.displayedInput() : std::nullopt;
 		const auto nextInput = handler.displayedInput ? handler.displayedInput() : std::nullopt;
 		if (nextInput != displayedInput) readyAt = SDL_GetTicks();
 		displayedInput = nextInput;

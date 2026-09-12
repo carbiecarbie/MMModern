@@ -1,25 +1,26 @@
 # MMModern - Roadmap
 
-**Milestone 27 is the latest completed milestone.**
+**Milestone 28 is the latest completed milestone.**
 [Project status](project-status.md) owns current capabilities;
-[project history](project-history.md) and the [closed M27 plan](milestone-27-plan.md)
-own completed work. Reference provenance belongs to [dependencies](dependencies.md).
+[project history](project-history.md) and the [closed M28 plan](milestone-28-plan.md)
+own completed work. Reference provenance belongs to
+[dependencies](dependencies.md).
 
 ## Current planning state
 
-The bounded Clouds Skeleton anchor now has accepted actor approach and playable
-Attack/Block combat with original outcomes and MON/ATT appearance.
-**M28 — Durable bounded encounter completion and revisit is the immediate next
-milestone**, retaining provisional planning status. The
-[closed M27 plan](milestone-27-plan.md) owns the completed combat rules,
-authority, production coordination, appearance and persistence boundary.
-M27 acceptance does not authorize M28 planning or implementation. Later details remain subject to the
-[documented replanning rules](#replanning-and-review-cadence).
+The bounded Clouds map-20 Skeleton diagnostic now has accepted original actor
+approach, playable Attack/Block combat, successful-End retirement, completed
+save/restart and bounded true revisit. Exact party state, owner XP and encounter
+context survive fresh-owner restoration while the admitted Skeleton remains
+defeated. M28 closes this diagnostic persistence boundary; it does not establish
+normal exploration, repeatable combat or recovery gameplay.
 
-Continue the bounded diagnostic encounter through durable completion. M27's
-attack, defense, combat progression and actor authority are accepted foundations;
-encounter persistence and revisit remain future work.
-Normal-start navigation and inventory completion are not prerequisites for this arc.
+No successor milestone is selected or authorized. The next conditional objective
+should be chosen from observed value and dependency evidence after this durable
+boundary. A repeatable recovery/exploration loop remains a plausible direction,
+alongside connected original Clouds quests/exploration, selective item effects
+and services, encounter presentation/audio and wider World of Xeen fidelity.
+Darkside progression, portability and localization remain separate decisions.
 
 The implementation agent investigates and implements authorized work; the
 architecture/specification agent prepares contracts; the independent reviewer
@@ -27,195 +28,64 @@ audits implementation and evidence; the maintainer approves direction and
 separately authorizes work. Create a detailed plan only when its milestone is
 about to begin.
 
-## Preferred encounter and acceptance envelope
+## Completed encounter foundation
 
-Use **Clouds map 20, original monster record 5 at `(13,2)`, Skeleton type 8**.
-The initial Clouds `maze0020.mob` supplies placement and stable record identity;
-`maze0020.dat` supplies terrain. In the validated World of Xeen installation,
-`DARK.CC/xeen.mon` supplies statistics and `XEEN.CC/008.mon` and `008.att` supply
-appearance. These commercial resources remain external and unmodified.
-The pinned [map/resource lifecycle](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/map.cpp)
-and [combat paths](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/combat.cpp)
-are the reference anchors for subsequent specification.
+The accepted [M26 plan](milestone-26-plan.md) owns the bounded entry, actor
+identity, activation, approach, timing and same-cell engagement contract. The
+accepted [M27 plan](milestone-27-plan.md) owns Attack/Block combat, original
+MON/ATT appearance, injury, armor breakage, terminal outcomes and once-only XP.
+The accepted [M28 plan](milestone-28-plan.md) owns successful completion,
+retirement, save v3, fresh-owner restore, read-only inspection and true revisit.
 
-The Skeleton has 20 HP, AC 5, speed 10, one physical attack with two six-sided
-damage dice, hit parameter 4, Cleric preference and 50% physical resistance.
-It has no ranged or special attack, gold, gems or item drop. Its base XP award
-is 250. These properties eliminate random-loot and condition-inflicting attack
-systems from this encounter, without eliminating mandatory retaliation, armor
-breakage on severe injury, XP or gameplay-time consequences.
+The shared envelope remains World of Xeen Clouds map 20, camera `(13,1)` North,
+original monster record 5 at `(13,2)`, Skeleton type 8, the original six active
+roster owners and the admitted four-cell area. Commercial resources remain
+external and unmodified. The diagnostic does not certify the wider map, the Run
+destination, a route from Vertigo or general travel.
 
-Recommend the **World of Xeen Clouds-side behavior profile**, matching the
-accepted installation layout, with original initial Adventurer difficulty.
-The pinned reference doubles per-recipient XP below level 15 outside standalone
-Clouds: six eligible level-one recipients receive 82 each for this Skeleton,
-after division and then doubling. Standalone Clouds would give 41. Resource
-availability alone must not silently select a different rules profile; detailed
-specification must declare the chosen profile and default reference options.
-This does not authorize Darkside gameplay.
+Completed Diagnostic27 is a quiescent checkpoint. Preparation, approach, combat,
+incomplete victory, defeat and failure remain unsaveable. Resume and R revisit
+keep record 5 defeated and do not execute combat, XP, events, transfer or
+equipment actions. R is a bounded same-map true-entry operation, distinct from
+cache reconstruction and unrelated to Run.
 
-Start acceptance at map 20 `(13,1)` North, using the original six active roster
-owners. The initial envelope is the four cells `x=13..14, y=1..2`, not a route
-from Vertigo. Resource inspection finds ordinary surface type 1, no event records
-or cell hazards there, and only record 5 inside the reference's seven-by-seven
-movement scan around any of those cells. The target can activate in front of the
-party and approach its cell; engagement follows original actor occupancy and
-ordering, not an invented adjacent-cell combat rule. Preserve all original
-records and consider offscreen actors; never obtain isolation by disabling them.
+## Conditional next direction
 
-This envelope has real limits. South/west of the entry are blocked space cells;
-farther north can bring Skeleton record 7 at `(10,6)` into movement range.
-Map 20 also contains Zombies, other Skeletons and unsupported event tails.
-Its Run destination `(0,3)` lies near two Skeletons and a Zombie. Run and combat
-rotation/disengagement therefore remain explicit unsupported commands in this
-first Attack/Block domain; neither means a harmless exit to the entry cell.
-Leaving the supported envelope must report a diagnostic boundary before advancing
-unsupported gameplay. It must not present an invisible wall as original geography.
+A repeatable recovery/exploration loop would need an explicit contract before
+implementation. Rest carries food, eight-hour time, interruption, condition and
+temporary-effect consequences; healing items, antidotes and town services have
+separate action, targeting and economic rules. None follows automatically from
+M28 completion, and none is assigned a milestone number here.
 
-M26 accepted the exact entry, activation, delayed approach and same-cell
-engagement boundary. M27 accepted the bounded Attack/Block rules, original
-MON/ATT composition, readable results and terminal outcomes. The initial and
-one-forward views may leave the actor hidden by source-faithful forest occlusion;
-neither milestone certifies wider map travel or a generally playable region.
+Future connected exploration must continue to distinguish diagnostic checkpoints,
+normal original start, connected routes and generally playable regions. Map 23's
+Myra/Phirna loop, Vertigo encounters and Nightshadow each introduce different
+actor, event, navigation, condition or service dependencies. A terrain path or
+visible checkpoint alone does not establish a supported route.
 
-## Preferred milestone sequence
-
-### Completed foundation: M27 Attack/Block combat
-
-M27 delivered the bounded playable exchange, original outcomes and MON/ATT
-appearance described in the [closed plan](milestone-27-plan.md). Its encounter
-remains deliberately unsaveable; that accepted limitation is the starting point
-for M28, not unfinished M27 scope.
-
-### M28 - Durable bounded encounter completion and revisit
-
-**Objective and observable result:** finish the supported encounter, save at an
-eligible quiescent boundary, terminate the process, resume and revisit the
-checkpoint with the enemy still defeated, XP awarded once, and exact party HP,
-conditions and broken/equipped item state. M28 completes the supported encounter
-**and its persistence boundary**, not a repeatable exploration/recovery loop.
-
-**Scope and order:** extend existing capture, serialization, validation and
-restore for the actor state, new character/progression inputs and gameplay
-context introduced by M26/M27. Decide format version and legacy compatibility
-explicitly; v2 cannot represent these values. Preserve existing saved fields and
-resource checks, and distinguish missing legacy data from explicit new values.
-Do not infer monster deaths from ordinary-object Remove or reconstruct earned
-XP from the initial roster. The compatibility policy must be chosen before this
-milestone's implementation, with the state requirements identified in M26.
-
-Live partial HP and moved position must survive disposable cache rebuilds.
-The pinned reference writes monster positions/removal into MOB state, but reloads
-surviving monsters at their resource HP on a real map load, including restart.
-Prefer that semantic reset at actual map entry/load; it must never occur merely
-because MMModern discarded a rendering/resource cache. Combat, pending movement,
-action publication and unresolved encounter outcomes remain unsaveable. Do not
-silently turn a mid-fight process exit into a saved victory or a healed live foe.
-The first saveable completion is victory with a viable party and all outcomes
-published; defeat and unsupported-boundary stops are not successful completions.
-
-True map re-entry may use disclosed diagnostic access for acceptance. This does
-not certify travel across map 20, the Run landing region, Vertigo, or the Bone
-Whistle route. Run, free disengagement, recovery and wider time effects are still
-excluded. If later scope permits saving a surviving wounded actor outside combat,
-the reference HP-reset policy must receive its own connected acceptance.
-
-**Acceptance:** use the existing production save/restart harness and fresh owners;
-compare full expected state, actual disk data and separate-process restoration;
-prove no respawn/reward replay, correct legacy behavior, refused unsafe saves and
-preservation on I/O failure. Independently distinguish cache reconstruction,
-diagnostic real map re-entry, restart and fresh new game. Require maintainer
-physical save/terminate/resume/revisit acceptance in addition to automated evidence.
-
-**Confidence:** medium on the need for this boundary, provisional on exact format
-and compatibility scope. New durable categories, broader save eligibility or an
-unresolvable migration conflict require review before widening implementation.
-
-## Architectural risks and shared boundaries
-
-- Keep roster characters/items and party progression in the accepted party owner,
-  and committed camera/game flags with their existing owner. Monster identity is
-  side/map/original monster-record index, distinct from ordinary-object identity.
-  M26/M27 supply authoritative live monster HP/position/lifecycle in the world owner;
-  preserve its separation from disabled-object/event sets and immutable MOB caches.
-- Input/modal coordination must prevent navigation, events, inventory/equipment,
-  saving and combat from advancing incompatible work simultaneously. Reuse the
-  Application/Flow/SDL seams without making the event interpreter a combat engine
-  or making Flow a second party/world owner. Preserve publication-before-feedback
-  and once-only outcomes across fallible presentation.
-- Initiative, turn progress, selected target and pending action coordination are
-  transient at the proposed save boundary. HP, conditions, item breakage, XP and
-  admitted gameplay-time/context values are authoritative. Statistics, occupancy
-  queries, scene commands and sprite frames are derived; reconstruction cannot
-  award XP or advance a turn. M26 extracts reference render-coupled activation and
-  delayed movement into explicit domain publications and Flow pulses; M27
-  preserves that separation for combat and MON/ATT cosmetics.
-- Existing inventory/catalog/equipment acceptance is reusable infrastructure;
-  it is not acceptance of combat effects for every storable item. Conversely,
-  missing combat integration does not justify rebuilding the accepted inventory,
-  event-reward or persistence systems. The selected Skeleton produces no item
-  drops, so M21's bounded miscellaneous reward queue need not become a loot system.
-
-## Alternatives and planning horizon
-
-Vertigo's Slimes/Doom Bugs are credible early-game alternatives, but their attacks
-use poison damage/resistance and saving throws even though they have no poison
-condition special. Vertigo's original actors and party occupy a 32-coordinate
-indoor layout across connected maps; accepting normal start adds navigation and
-script work that this outdoor diagnostic fight does not need. Their lower HP is
-not sufficient reason to select them first.
-
-Map 23 remains valuable for the eventual Myra -> Phirna -> Myra loop. Its 19
-original active actors include ranged/loot-bearing Orcs, poisoning Giant Snakes,
-Giant Toads and undead. A terrain path between accepted event coordinates does
-not establish a playable route. Neighboring map 24 has similar mixed threats.
-Nightshadow's visible gravestone likewise does not make its Bat Queens and
-Vampires a simple combat anchor. Map 20's selected isolated Skeleton avoids
-those immediate dependencies while exercising reusable melee, defense, actor
-lifecycle and progression rules.
-
-Inventory completion, indoor animation and normal-start connectivity offer
-independent value but delay the selected enemy interaction without satisfying a
-prerequisite it actually has. Combining actor, combat and persistence work would hide
-actor integration, combat-rule and persistence risks in one large acceptance gate.
-Splitting out general statistics, loot, recovery or calendar foundations would
-add scope before there is evidence that this bounded fight needs them.
-
-Stop numbered planning at durable completion of this encounter. That is enough
-to test whether the ownership, rules and persistence design supports real combat;
-a longer sequence would speculate about recovery and route requirements before
-there is playable evidence. The next conditional objective is a repeatable
-recovery/exploration loop, selected after combat acceptance. Rest has food,
-eight-hour time, interruption, condition and temporary-effect consequences;
-item healing/antidotes and town services have their own action/target/economic
-contracts. None should be treated as automatic HP reset or assigned a milestone
-number now.
-
-Broader direction remains connected original Clouds quests/exploration, selective
-item effects/services, encounter-driven presentation/audio, and eventually wider
-World of Xeen fidelity. Darkside progression, portability and localization remain
-separate decisions. Preserve the distinction between diagnostic checkpoints,
-normal original start, connected routes and generally playable regions.
+Preserve the established ownership boundaries in future work: roster characters,
+items and progression remain party-owned; committed camera/game flags retain
+their current owners; live monster identity and lifecycle remain world-owned;
+Flow and SDL coordinate transient input/presentation without becoming gameplay
+owners. Reuse the accepted inventory, event, persistence and encounter systems
+before introducing broader frameworks.
 
 ## Replanning and review cadence
 
 Review the next specification against the verified Git baseline and the pinned
 reference. Replan earlier if:
 
-- Exact approach/scheduling or offscreen actor tracing invalidates the bounded
-  envelope, or a more faithful simpler encounter is demonstrated.
-- Supported equipment/conditions, the chosen game/difficulty profile, combat time
-  or a reference quirk introduces a required branch outside the admitted domain.
-- Monster composition/activation conflicts with accepted cache or modal ownership,
-  or repeatable input/presentation failure can duplicate turns or rewards.
-- Save compatibility cannot preserve new authoritative values, or partial-state,
-  Run, recovery or normal-start acceptance is requested.
-- Evidence supports combining/splitting acceptance contracts or maintainer
+- The selected objective requires unsupported normal-route navigation, wider
+  actor admission, Run/disengagement or repeatable encounters.
+- Recovery introduces food, time, interruption, condition, temporary-effect,
+  targeting or economic branches outside the proposed envelope.
+- New durable state cannot fit the accepted ownership and compatibility model,
+  or save eligibility must expand beyond ordinary and completed Diagnostic27.
+- Evidence supports combining or splitting acceptance contracts, or maintainer
   priorities change.
 
 Retain approximately three completed milestones as the ordinary broader review
-cadence, with focused scope review before each specification. The three-milestone
-horizon here follows the actor, fight and durable-completion boundaries; the
-cadence is not a quota. Use the verified SHA and handoff gate in
-[AGENTS.md](../AGENTS.md) for external planning/review. Roadmap approval, detailed
-planning and implementation authorization remain separate.
+cadence, with focused scope review before each specification. The cadence is not
+a quota. Use the verified SHA and handoff gate in [AGENTS.md](../AGENTS.md) for
+external planning/review. Roadmap approval, detailed planning and implementation
+authorization remain separate.

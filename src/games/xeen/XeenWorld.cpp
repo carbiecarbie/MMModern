@@ -35,12 +35,16 @@ XeenWorld::XeenWorld(MapLoader loader, ObjectLoader objectLoader) :
 }
 
 bool XeenWorld::completedCaptureEligible(const XeenPartyState &party, const XeenCamera &camera) const noexcept {
+	return !_sessionState._completedLease && !_sessionState._completedLeaseKind && completedFactsCurrent(party, camera);
+}
+
+bool XeenWorld::completedFactsCurrent(const XeenPartyState &party, const XeenCamera &camera) const noexcept {
 	const auto &s = _sessionState;
 	if (!s._completedPublished || s._completion != XeenEncounterCompletion::VictoryQuiescent || !s._completedAuthority ||
 		!s._combatAccounted || !s._diagnostic27 || !s._combatEntered || !s._encounterMarked ||
 		!s._encounterInitialized || !s._encounterTerminal || s._entry != XeenEncounterEntry::Diagnostic27 ||
 		s._combatOwner || s._combatApproachState || _combatCheck || _combatAuthorized ||
-		s._completedIntegrityUnsafe || s._completedFatal || s._completedLease || s._completedLeaseKind) return false;
+		s._completedIntegrityUnsafe || s._completedFatal) return false;
 	const auto &a = *s._completedAuthority;
 	// A detached or copied caller owns no capability and cannot poison the bound graph.
 	if (a.party != &party || a.roster != &party.roster || a.camera != &camera) return false;
@@ -62,6 +66,21 @@ bool XeenWorld::completedCaptureEligible(const XeenPartyState &party, const Xeen
 		if (s._encounterRevision != std::numeric_limits<std::uint64_t>::max()) ++s._encounterRevision;
 	}
 	return exact;
+}
+
+bool XeenWorld::completedTicketCurrent(const XeenCompletedEncounterTicket &t,
+		const XeenPartyState &p, const XeenCamera &c) const noexcept {
+	return t.world == this && t.incarnation == _incarnation && t.revision == _sessionState._encounterRevision &&
+		completedCaptureEligible(p, c);
+}
+
+bool XeenWorld::completedGuardCurrent(const XeenCompletedEncounterTicket &t, XeenCompletedGuard kind,
+		std::uint64_t lease, const XeenPartyState &p, const XeenCamera &c) const noexcept {
+	const auto &s = _sessionState;
+	return (kind == XeenCompletedGuard::Operation || kind == XeenCompletedGuard::Presentation) &&
+		t.world == this && t.incarnation == _incarnation && t.revision != std::numeric_limits<std::uint64_t>::max() &&
+		t.revision + 1 == lease && s._completedLease == lease && s._completedLeaseKind == kind &&
+		s._encounterRevision == lease && completedFactsCurrent(p, c);
 }
 
 XeenCompletedEncounterTicket XeenWorld::completedTicket(const XeenPartyState &party,

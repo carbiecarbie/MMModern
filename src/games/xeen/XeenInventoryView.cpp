@@ -61,7 +61,7 @@ std::vector<std::string> equipmentMessages(const XeenEquipmentResult &result) {
 std::vector<XeenInventoryLine> xeenInventoryLayout(const XeenFontFormat &font,
 		const XeenItemCatalog &catalog, const XeenPartyState &party,
 		const XeenInventorySelection &selection, const char *feedback,
-		const XeenEquipmentResult *equipmentResult, bool combatPreparation) {
+		const XeenEquipmentResult *equipmentResult, bool combatPreparation, bool readOnly) {
 	XeenTextRenderer renderer(font);
 	std::vector<XeenInventoryLine> lines;
 	const auto line = [&](int x, int right, int y, std::string text, bool elide = false) {
@@ -122,6 +122,11 @@ std::vector<XeenInventoryLine> xeenInventoryLayout(const XeenFontFormat &font,
 		line(170,310,8,std::string("Condition: ") + xeenConditionName(c.worstCondition()));
 		line(10,310,17,"HP " + std::to_string(c.currentHp) + " / " + std::to_string(XeenCharacterRules::maxHp(c,{kCloudsInitialYear})));
 		line(10,310,26,"SP " + std::to_string(c.currentSp) + " / " + std::to_string(XeenCharacterRules::maxSp(c,{kCloudsInitialYear})));
+		if (readOnly) {
+			const auto &inputs = party.roster.combatInputs(ids[selection.source]);
+			line(170,310,17,"XP " + (inputs ? std::to_string(inputs->experience) : "absent"));
+			line(170,310,26,"Uncon=" + std::to_string(c.conditions[12]) + " Dead=" + std::to_string(c.conditions[13]));
+		}
 	} else line(10,310,8,"No active characters");
 	const char *categories[]{"Weapons","Armor","Accessories","Miscellaneous"};
 	const auto category = static_cast<unsigned>(selection.category);
@@ -155,8 +160,8 @@ std::vector<XeenInventoryLine> xeenInventoryLayout(const XeenFontFormat &font,
 		line(154,310,116,party.roster.at(*selection.destinationOwner).name,true);
 	} else if (selection.mode == XeenInventoryMode::ChooseDestination) line(154,310,35,"To: choose F1-F6");
 	if (selection.mode == XeenInventoryMode::Browse) {
-		std::string context = "E equip/remove";
-		if (selected) {
+		std::string context = readOnly ? "Read-only inspection" : "E equip/remove";
+		if (selected && !readOnly) {
 			const auto &item = (*items)[*selection.slot];
 			if (selection.category == XeenInventoryCategory::Miscellaneous) context = "Misc cannot equip";
 			else if (!item.id) context = "E: select occupied item";
@@ -166,7 +171,7 @@ std::vector<XeenInventoryLine> xeenInventoryLayout(const XeenFontFormat &font,
 	}
 	if (equipmentResult) line(10,310,126,measured(10,310,equipmentMessages(*equipmentResult)));
 	else line(10,310,126,feedback ? feedback : "",true);
-	line(10,310,137,combatPreparation ?
+	line(10,310,137,readOnly ? "Read-only: F1-6; arrows/1-9; I close; Esc exits" : combatPreparation ?
 		(selection.mode == XeenInventoryMode::Browse ? "F1-6; arrows/1-9; T transfer; E equip; I close; Esc exits" :
 		selection.mode == XeenInventoryMode::Confirm ? "Enter confirms; I/N cancels; Esc exits" : "F1-F6 recipient; I cancels; Esc exits") : selection.mode == XeenInventoryMode::Browse ?
 		(selection.category == XeenInventoryCategory::Miscellaneous ? measured(10,310,{
@@ -179,13 +184,13 @@ std::vector<XeenInventoryLine> xeenInventoryLayout(const XeenFontFormat &font,
 IndexedFrame drawXeenInventory(const IndexedFrame &base, const XeenFontFormat &font,
 		const XeenItemCatalog &catalog, const XeenPartyState &party,
 		const XeenInventorySelection &selection, const char *feedback,
-		const XeenEquipmentResult *equipmentResult, bool combatPreparation) {
+		const XeenEquipmentResult *equipmentResult, bool combatPreparation, bool readOnly) {
 	XeenTextRenderer renderer(font);
 	XeenTextRenderOptions options;
 	options.bounds = options.windowBounds = {4,4,316,149};
 	options.x=4; options.y=4; options.drawWindow=true;
 	auto frame = renderer.render(base,"",options).pages.front();
-	for (const auto &line : xeenInventoryLayout(font,catalog,party,selection,feedback,equipmentResult,combatPreparation)) {
+	for (const auto &line : xeenInventoryLayout(font,catalog,party,selection,feedback,equipmentResult,combatPreparation,readOnly)) {
 		options.bounds=line.bounds; options.x=line.bounds.left; options.y=line.bounds.top;
 		options.drawWindow=false; options.size=XeenFontSize::Reduced;
 		frame=renderer.render(frame,line.text,options).pages.front();

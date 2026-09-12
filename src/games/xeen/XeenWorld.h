@@ -158,6 +158,10 @@ public:
 	}
 	bool completedCaptureEligible(const XeenPartyState &, const XeenCamera &) const noexcept;
 	XeenCompletedEncounterTicket completedTicket(const XeenPartyState &, const XeenCamera &) const noexcept;
+	bool completedTicketCurrent(const XeenCompletedEncounterTicket &, const XeenPartyState &, const XeenCamera &) const noexcept;
+	// Checks an already-held capability; never grants capture or a new ticket.
+	bool completedGuardCurrent(const XeenCompletedEncounterTicket &, XeenCompletedGuard, std::uint64_t,
+		const XeenPartyState &, const XeenCamera &) const noexcept;
 	std::uint64_t holdCompletedGuard(const XeenCompletedEncounterTicket &, XeenCompletedGuard,
 		const XeenPartyState &, const XeenCamera &);
 	bool releaseCompletedGuard(const XeenCompletedEncounterTicket &, XeenCompletedGuard, std::uint64_t) noexcept;
@@ -169,9 +173,13 @@ public:
 	using CompletedPreflight = std::function<void(XeenWorld &, const XeenPartyState &,
 		const XeenCamera &, const XeenGameFlags &)>;
 	std::uint64_t completedEntryGeneration() const noexcept { return _sessionState._completedEntryGeneration; }
+	// The optional UI check runs inside the retained graph guard. A failed
+	// operation returns renewal authority only after its own checked lease release.
 	XeenCompletedReentry reenterCompletedEncounter(const XeenCompletedEncounterTicket &,
 		XeenPartyState &, XeenCamera &, const XeenGameFlags &, const MonsterLoader &,
-		const EventLoader &, const CompletedPreflight &);
+		const EventLoader &, const CompletedPreflight &,
+		std::optional<XeenCompletedEncounterTicket> *releasedOnFailure = nullptr,
+		const std::function<void()> &checkBoundary = {});
 	// For unpublished startup owners only. Validates every original identity
 	// before replacing either set; no script execution or cell expansion.
 	void restoreSessionState(const std::vector<XeenObjectIdentity> &objects,
@@ -188,6 +196,7 @@ private:
 	friend class XeenRestoreGuard;
 	friend class XeenCombat;
 	friend class XeenActorApproach;
+	bool completedFactsCurrent(const XeenPartyState &, const XeenCamera &) const noexcept;
 	void swapPreparedState(XeenWorld &candidate) noexcept;
 	// Process-lifetime capability identity. It belongs to this object lifetime,
 	// not session gameplay state, and is never serialized or swapped.

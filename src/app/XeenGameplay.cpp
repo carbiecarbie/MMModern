@@ -30,32 +30,59 @@ struct EncounterHandoff {
  ~EncounterHandoff() { if (std::uncaught_exceptions() > exceptions) fail(); }
 };
 }
-int Application::playGameplay(const XeenGameplayServices &services, XeenCamera camera,
+int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera camera,
   const std::optional<std::filesystem::path> &target, bool resume, XeenEncounterEntry entry) const {
  try {
-  const bool encounter = entry != XeenEncounterEntry::Ordinary;
+  XeenGameplayServices services = supplied;
+  std::function<void()> sourceCheck;
+  const auto callback = [&](auto &&provider) {
+   if (sourceCheck) sourceCheck();
+   try { auto value = provider(); if (sourceCheck) sourceCheck(); return value; }
+   catch (...) { if (sourceCheck) sourceCheck(); throw; }
+  };
+  services.maps = [&](XeenMapIdentity id) { return callback([&] { return supplied.maps(id); }); };
+  services.objects = [&](XeenMapIdentity id) { return callback([&] { return supplied.objects(id); }); };
+  services.resources.loadInitialParty = [&] { return callback(supplied.resources.loadInitialParty); };
+  services.resources.loadEvents = [&](XeenMapIdentity id) { return callback([&] { return supplied.resources.loadEvents(id); }); };
+  if (supplied.resources.loadInitialCharacters) services.resources.loadInitialCharacters = [&] { return callback(supplied.resources.loadInitialCharacters); };
+  if (supplied.resources.loadInitialContext) services.resources.loadInitialContext = [&] { return callback(supplied.resources.loadInitialContext); };
+  if (supplied.resources.loadMonsterStatistics) services.resources.loadMonsterStatistics = [&] { return callback(supplied.resources.loadMonsterStatistics); };
+  services.compose = [&](auto &w, const auto &p, const auto &c, auto phase) { return callback([&] { return supplied.compose(w,p,c,phase); }); };
+  if (supplied.composeEncounter) services.composeEncounter = [&](auto &w, const auto &p, const auto &c, auto phase, auto actor) {
+   return callback([&] { return supplied.composeEncounter(w,p,c,phase,actor); });
+  };
+  bool encounter = entry != XeenEncounterEntry::Ordinary;
   if (encounter && resume) throw std::invalid_argument("Encounter entry cannot resume");
   XeenWorld world(services.maps, services.objects);
   if (encounter) world.markEncounterSession(entry);
   XeenPartyState party;
   XeenGameFlags flags;
   const auto preflight = [&](XeenWorld &w, const XeenPartyState &p, const XeenCamera &c, const XeenGameFlags &) {
-   if (!services.compose(w, p, c, std::uint64_t{0}).frame.isValid()) throw std::runtime_error("Invalid first gameplay frame");
+   if (w.sessionState().completion() == XeenEncounterCompletion::VictoryQuiescent) {
+    if (!services.composeEncounter) throw std::invalid_argument("Missing completed presentation provider");
+    auto frame = services.composeEncounter(w,p,c,0,XeenMonsterAppearance{0}).frame;
+    // Candidate facts are intentionally unpublished. Presentation neither
+    // captures them nor creates GameplayBorrow/combat preparation authority.
+    static_cast<void>(XeenEventFlow::preflightCompleted(std::move(frame), services.font, services.catalog, w,p,c));
+   } else if (!services.compose(w, p, c, std::uint64_t{0}).frame.isValid()) throw std::runtime_error("Invalid first gameplay frame");
+   if (sourceCheck) sourceCheck();
   };
   if (resume) {
    if (!target) throw std::runtime_error("Resume requires a save path");
    const auto saved = XeenSaveFile::read(*target);
    XeenSaveState::restoreBeforeGameplay(saved, services.resources, party, camera, flags, world, preflight);
+   entry = world.sessionState().encounterEntry();
+   encounter = entry != XeenEncounterEntry::Ordinary;
   } else {
    party = services.resources.loadInitialParty();
    flags = services.initialFlags();
   }
   for (const auto &diagnostic : party.diagnostics) std::cerr << "Party warning: " << diagnostic << '\n';
   XeenEventSystem events([&](XeenMapIdentity id) { return XeenEventScript(services.resources.loadEvents(id)); }, services.texts);
-  const auto encounterEvents = encounter ? services.resources.loadEvents(20) : XeenEventFile{};
+  const auto encounterEvents = encounter && !resume ? services.resources.loadEvents(20) : XeenEventFile{};
   std::optional<XeenEncounterSetup> setup;
   if (encounter) setup.emplace(XeenEncounterSetup{encounterEvents, services.initializeEncounter, services.validateEncounterSprite});
-  if (entry == XeenEncounterEntry::Diagnostic27) {
+  if (entry == XeenEncounterEntry::Diagnostic27 && !resume) {
    if (!services.prepareCombat) throw std::invalid_argument("Missing combat preparation provider");
    setup->prepareCombat = services.prepareCombat;
    setup->validateAttackSprite = services.validateCombatSprite;
@@ -70,6 +97,9 @@ int Application::playGameplay(const XeenGameplayServices &services, XeenCamera c
     return services.composeEncounter(world, observedParty, observedCamera, ordinary, actor);
    });
   EncounterHandoff handoff(flow);
+  flow.completedMonsters = services.resources.loadMonsterStatistics;
+  flow.completedEvents = services.resources.loadEvents;
+  flow.completedPreflight = preflight;
   if (services.configureFlow) services.configureFlow(flow, camera);
   handoff.verify();
   if (!flow.frame().isValid()) throw std::runtime_error("Invalid first gameplay frame");
@@ -87,7 +117,7 @@ int Application::playGameplay(const XeenGameplayServices &services, XeenCamera c
    std::cout << "Warning: dark indoor map is rendered illuminated for diagnostics.\n";
   std::string status = "MMModern - Map " + std::to_string(camera.mapId.number);
   status += " - " + xeenInventorySummary(party);
-  if (target && !encounter) {
+  if (target && entry != XeenEncounterEntry::Diagnostic26) {
    status += " - F9 saves and replaces " + target->u8string();
    std::cout << "F9 saves and replaces " << target->u8string() << '\n';
   }
@@ -95,15 +125,26 @@ int Application::playGameplay(const XeenGameplayServices &services, XeenCamera c
   bool dispatching = false;
   bool active = true;
   const auto dispatch = [&](const PlayerAction &action, std::optional<std::uint64_t> input) -> std::optional<IndexedFrame> {
-   // Irreversible session policy precedes busy/modal/target checks and all save work.
-   if (std::holds_alternative<SaveGameAction>(action) && (world.hasEncounterState() || party.encounterContext || party.roster.combatMarked())) {
-    try { status = "MMModern - Cannot save: encounter session is unsaveable."; }
-    catch (...) { handoff.fail(); active = false; throw; }
+   // This irreversible entry decision needs no access to possibly closed owners.
+   if (std::holds_alternative<SaveGameAction>(action) && encounter && !flow.completed()) {
+    status = "MMModern - Cannot save: encounter session is unsaveable.";
     return std::nullopt;
    }
    if (!active || dispatching) {
     if (std::holds_alternative<SaveGameAction>(action))
      status = "MMModern - Cannot save outside an idle gameplay boundary.";
+    return std::nullopt;
+   }
+   // Unsafe encounter refusal precedes target handling and all save work.
+   if (std::holds_alternative<SaveGameAction>(action) && !flow.completed() &&
+       !XeenSaveState::canCapture(party,camera,world)) {
+    try { status = "MMModern - Cannot save: encounter session is unsaveable."; }
+    catch (...) { handoff.fail(); active = false; throw; }
+    return std::nullopt;
+   }
+   if (std::holds_alternative<SaveGameAction>(action) && flow.completed() && !flow.canSave()) {
+    status = flow.inventoryOpen() ? "MMModern - Cannot save while inspection is open. Close it and press F9 again." :
+     "MMModern - Cannot save outside a completed idle frame boundary.";
     return std::nullopt;
    }
    GameplayScope scope(dispatching);
@@ -112,24 +153,52 @@ int Application::playGameplay(const XeenGameplayServices &services, XeenCamera c
     std::string message;
     bool success = false;
     if (flow.inventoryOpen()) message = "Cannot save while inventory is open. Close it and press F9 again.";
-    else if (flow.blocksGameplay()) message = "Cannot save while an interaction is pending.";
+    else if (!flow.canSave()) message = "Cannot save while an interaction is pending.";
     else if (!target) message = "No save target configured. Use --save-file <path>.";
     else try {
-     if (services.observeSaveStage) services.observeSaveStage(XeenGameplayServices::SaveStage::Capture);
+     // Capture while publicly eligible, then acquire the exclusive operation
+     // lease before the first observer. There are no callbacks in between.
+     const XeenRestoreGuard beforeCapture(world,party,camera,flags);
      const auto snapshot = XeenSaveState::capture(services.resources.signature, party, camera, flags, world);
+     beforeCapture.check();
+     const auto boundary = flow.beginSave();
+     std::optional<XeenRestoreGuard> ordinarySource;
+     if (!flow.completed()) ordinarySource.emplace(world,party,camera,flags);
+     auto &retained = flow.completed() ? flow.completedSavePreimage() : *ordinarySource;
+     XeenRestoreGuard::Providers providers(retained,world);
+     sourceCheck = [&] {
+      retained.check();
+      if (!flow.saveCurrent(boundary)) throw std::logic_error("Save UI authorization changed");
+     };
+     struct SourceScope { std::function<void()> &check; ~SourceScope() { check = {}; } } sourceScope{sourceCheck};
+     const auto stage = [&](XeenGameplayServices::SaveStage value) {
+      sourceCheck();
+      try { if (services.observeSaveStage) services.observeSaveStage(value); }
+      catch (...) { sourceCheck(); throw; }
+      sourceCheck();
+     };
+     stage(XeenGameplayServices::SaveStage::Capture);
      // Validate capture against original resources without touching live owners/caches.
      XeenWorld candidate(services.maps, services.objects);
      XeenPartyState p; XeenCamera c; XeenGameFlags f;
-     if (services.observeSaveStage) services.observeSaveStage(XeenGameplayServices::SaveStage::Preflight);
+     stage(XeenGameplayServices::SaveStage::Preflight);
      XeenSaveState::restoreBeforeGameplay(snapshot, services.resources, p, c, f, candidate, preflight);
-     if (services.observeSaveStage) services.observeSaveStage(XeenGameplayServices::SaveStage::Write);
+     stage(XeenGameplayServices::SaveStage::Write);
+     sourceCheck();
      XeenSaveFile::write(*target, snapshot);
      success = true; message = "Saved";
     } catch (const std::exception &e) { message = std::string("Save failed: ") + e.what(); }
+    flow.endSave();
+    handoff.retain();
     if (target) message += " [" + target->u8string() + "]";
     status = "MMModern - " + message;
     (success ? std::cout : std::cerr) << message << '\n';
     if (flow.inventoryOpen()) return flow.refuseInventorySave();
+    if (flow.completed()) {
+     auto frame = flow.completedFeedback(success ? "Saved; Escape exits without autosave" : "Save refused/failed; press F9 again");
+     handoff.retain();
+     return frame;
+    }
     return std::nullopt; // Never forward Save to the presenter or clear a label.
    }
    auto mapped = action;
@@ -150,8 +219,9 @@ int Application::playGameplay(const XeenGameplayServices &services, XeenCamera c
    flow.beginCycle(cycle);
   };
   handler.frameCurrent = [&] { return active && flow.encounterFrameCurrent(); };
+  handler.framePresented = [&] { flow.framePresented(); handoff.retain(); };
   handler.failed = [&] { handoff.fail(); active = false; };
-  handler.closed = [&] { active = false; };
+  handler.closed = [&] { flow.closeGameplay(); active = false; };
   const auto idle = [&]() -> std::optional<IndexedFrame> {
    if (!active || dispatching) return std::nullopt;
    GameplayScope scope(dispatching);
@@ -163,6 +233,7 @@ int Application::playGameplay(const XeenGameplayServices &services, XeenCamera c
    try { return status; } catch (...) { handoff.fail(); active = false; throw; }
   });
   if (!ok) handler.failed();
+  flow.closeGameplay();
   active = false;
   flow.abandonPresentation();
   return ok ? 0 : 4;

@@ -1,3 +1,4 @@
+#include "XeenCombatGameplayTestSupport.h"
 #include "XeenCombatTestSupport.h"
 #include "XeenSaveGameplayTestSupport.h"
 #include "XeenChildProcessTestSupport.h"
@@ -24,95 +25,7 @@ void ppm(const std::string &name, const IndexedFrame &f) {
  for(auto p:f.pixels)out.write(reinterpret_cast<const char*>(f.palette.data()+3*p),3);
  check(bool(out),"image output");
 }
-struct Harness {
- XeenFontFormat font{gameplay_test::fontBytes()};
- std::unique_ptr<XeenAssetSource> assets;
- std::unique_ptr<XeenEventLoader> eventLoader;
- XeenMapLoader mapLoader;
- XeenEventFlow *flow=nullptr;
- XeenCombat *combat=nullptr;
- XeenCombatBoundary *combatBoundary=nullptr;
- const XeenPartyState *party=nullptr;
- XeenWorld *world=nullptr;
- std::uint64_t now=0,cycle=0;
- unsigned saves=0,compositions=0;
- std::uint64_t observedOrdinary=0;
- XeenMonsterAppearance observedAppearance;
- IndexedFrame base;
- std::optional<XeenCombatRandom> random;
- bool badTerrain=false;
- explicit Harness(const std::optional<std::filesystem::path> &game={}) {
-  if (!game) return;
-  const auto installation=XeenInstallationDetector().detect(*game);
-  check(installation&&installation->hasDarkside(),"World of Xeen required");
-  assets=std::make_unique<XeenAssetSource>(*installation,320,200);
-  font=XeenFontFormat(assets->readArchiveResource("fnt"));
-  eventLoader=std::make_unique<XeenEventLoader>([&](const std::string &name)->std::optional<Bytes>{
-   if(!assets->hasInitialResource(name))return {};return assets->readInitialResource(name);});
- }
- XeenGameplayServices services(unsigned seed=1) {
-  XeenGameplayServices s{
-   {{{1,2},{}},[&]{return assets?XeenPartyLoader().loadInitialCloudsParty(*assets):XeenPartyLoader().loadFromResources(chr(),pty());},
-    [&](XeenMapIdentity id){return assets?eventLoader->load(id):events();}},
-   []{return XeenGameFlags{};},
-   [&](XeenMapIdentity id){
-    if(assets)return mapLoader.loadGeometryMap(*assets,id);
-    auto value=map();if(badTerrain)value.geometry.flags=1;return value;
-   },
-   [&](XeenMapIdentity id){return assets?mapLoader.loadObjects(*assets,id):objects();},
-   [](XeenMapIdentity){return XeenEventTextFile{};},font,
-   [](XeenWorld &,const XeenPartyState &,const XeenCamera &,std::uint64_t)->XeenEventFlow::Composition{
-    throw std::runtime_error("Combat routed through ordinary composition");}, {},
-   [&](XeenEventFlow &f,const XeenCamera &){flow=&f;}, {},
-   [&](XeenWorld &w,XeenEventSystem &,const XeenPartyState &p,XeenCamera &,const XeenGameFlags &){world=&w;party=&p;}
-  };
-  s.clock=[&]{return now;};
-  s.prepareCombat=[&,seed](XeenWorld &w,XeenPartyState &p,XeenCamera &c,XeenCombatBoundary &b){
-   check(w.sessionState().encounterEntry()==XeenEncounterEntry::Diagnostic27,"typed reservation precedes providers");
-   const auto bytes=assets?assets->readInitialResource("maze.chr"):chr();
-   const auto context=XeenGameplayContextFormat::parse(assets?assets->readInitialResource("maze.pty"):pty());
-   const auto stats=assets?XeenMonsterFormat::parse(*assets->readCloudsMonsterStatisticsFromDarkArchive()):statistics();
-   auto value=std::make_unique<XeenCombat>(w,p,c,b,bytes,context,stats,assets?eventLoader->load(20):events(),random.value_or(XeenCombatRandom(seed)));
-   combat=value.get();combatBoundary=&b;
-   return value;
-  };
-  s.validateEncounterSprite=[&](std::uint8_t image){if(assets)assets->validateNormalMonster(image);};
-  s.validateCombatSprite=[&](std::uint8_t image){if(assets)assets->validateAttackMonster(image);};
-  s.composeEncounter=[&](XeenWorld &w,const XeenPartyState &p,const XeenCamera &c,std::uint64_t ordinary,XeenMonsterAppearance actor){
-   ++compositions;
-   observedOrdinary=ordinary;
-   observedAppearance=actor;
-   check(actor.valid(),"bounded production appearance");
-   check(p.roster.combatMarked(),"composition borrows marked roster");
-   XeenEventFlow::Composition out;
-   if(assets)out.frame=CloudsMapComposer().compose(*assets,w,p,c,{610},nullptr,ordinary,&out.containsOrdinaryAnimation,actor);
-   else {out.frame.width=320;out.frame.height=200;out.frame.pixels.resize(64000);out.containsOrdinaryAnimation=true;}
-   base=out.frame;
-   return out;
-  };
-  s.observeSaveStage=[&](auto){++saves;};
-  return s;
- }
- const XeenCombat &fight() const {return *combat;}
- XeenCombat &fight() {return *combat;}
- void visibleScene() {
-  if(flow->inventoryOpen())return;
-  const auto &f=flow->frame();
-  for(int y=8;y<135;++y)for(int x=8;x<223;++x)
-   check(f.pixels[y*320+x]==base.pixels[y*320+x],"combat panels obscure scene");
- }
- void press(const SdlWindow::FrameUpdateHandler &handler,const PlayerAction &action) {
-  handler.beginCycle(++cycle);
-  check(handler.displayedInput().has_value(),"displayed ticket exists");
-  handler.withDisplayedInput(action,*handler.displayedInput());
-  check(handler.frameCurrent(),"current returned frame");
-  visibleScene();
- }
- void tick(const SdlWindow::FrameUpdateHandler &handler,const SdlWindow::IdleFrameHandler &idle) {
-  now+=100;handler.beginCycle(++cycle);idle();check(handler.frameCurrent(),"current idle frame");
-  visibleScene();
- }
-};
+using combat_gameplay_test::Harness;
 
 void appearance(const std::optional<std::filesystem::path> &game={}) {
  Harness h(game);auto s=h.services();
@@ -163,13 +76,13 @@ void appearance(const std::optional<std::filesystem::path> &game={}) {
    const auto pixels=h.flow->frame().pixels;
    const auto deadline=h.flow->encounter()->cosmeticDeadline();
    const auto service=h.flow->encounter()->deadline();
-   const auto revision=h.fight().result().revision, rng=h.fight().random().position();
+   const auto revision=h.result().revision, rng=h.randomPosition();
    const auto hp=h.world->sessionState().actors()[5].hp;
    h.world->discardMapCache();if(h.assets)h.assets->discardSpriteCache();
    h.flow->refresh(true);
    check(h.flow->frame().pixels==pixels && h.flow->encounter()->cosmeticDeadline()==deadline &&
-    h.flow->encounter()->deadline()==service && h.fight().result().revision==revision &&
-    h.fight().random().position()==rng && h.world->sessionState().actors()[5].hp==hp,"cache changed appearance or gameplay");
+    h.flow->encounter()->deadline()==service && h.result().revision==revision &&
+    h.randomPosition()==rng && h.world->sessionState().actors()[5].hp==hp,"cache changed appearance or gameplay");
   };
   for(unsigned i=0;i<8;++i){frame(i);rebuild();h.tick(handler,idle);}
   for(unsigned i=0;i<6;++i)h.press(handler,BlockAction{});
@@ -179,18 +92,18 @@ void appearance(const std::optional<std::filesystem::path> &game={}) {
   for(auto expected:enemy){h.tick(handler,idle);frame(expected);}
   // Seed1: Arturius misses, then Tyro hits. Pending intent is not a hit.
   h.press(handler,InteractionAction{});h.tick(handler,idle);
-  check(h.fight().result().attackOutcome==XeenCombatAttackOutcome::Miss,"seeded miss control");
+  check(h.result().attackOutcome==XeenCombatAttackOutcome::Miss,"seeded miss control");
   check(h.observedAppearance.kind==XeenMonsterSpriteKind::Normal,"miss created hit effect");
   h.press(handler,InteractionAction{});h.tick(handler,idle);frame(11);
   check(h.world->sessionState().actors()[5].hp==12,"partial live HP control");
   rebuild();
-  const auto revision=h.fight().result().revision,rng=h.fight().random().position();
+  const auto revision=h.result().revision,rng=h.randomPosition();
   // Same-time and backward observations do not advance or rearm.
   const auto deadline=h.flow->encounter()->cosmeticDeadline();
   idle();h.now-=1;idle();h.now+=1;frame(11);
   check(h.flow->encounter()->cosmeticDeadline()==deadline,"obsolete cosmetic clock");
   for(unsigned i=0;i<5;++i){h.tick(handler,idle);frame(i==4?0:11);}
-  check(h.fight().result().revision==revision && h.fight().random().position()==rng,"cosmetics ran gameplay");
+  check(h.result().revision==revision && h.randomPosition()==rng,"cosmetics ran gameplay");
   h.now+=10000;h.tick(handler,idle);frame(1);
   check(h.flow->encounter()->cosmeticDeadline()==h.now+100,"no cosmetic backlog");
   return true;
@@ -204,7 +117,7 @@ void attackAdmission() {
   s.show=[&](const auto &,const auto &,const auto &,const auto &,const auto &){shown=true;return true;};
   if(!failure)s.validateCombatSprite={};
   else s.validateCombatSprite=[&](std::uint8_t image){
-   checked=true;check(image==8&&h.fight().phase()==Phase::Preparation,"typed attack admission before gameplay");
+   checked=true;check(image==8&&h.phase()==Phase::Preparation,"typed attack admission before gameplay");
    if(failure==1)throw std::runtime_error("invalid attack sprite");
    h.fight().invalidate();
   };
@@ -226,9 +139,9 @@ void criticalPresentation(const std::optional<std::filesystem::path> &game={}) {
  s.show=[&](const IndexedFrame &,const auto &handler,const auto &,const auto &idle,const auto &){
   h.press(handler,AcknowledgeAction{});h.press(handler,WaitAction{});
   for(unsigned step=0;step<100&&!h.flow->encounter()->terminal();++step){
-   if(h.fight().phase()==Phase::PlayerReady)h.press(handler,BlockAction{});
+   if(h.phase()==Phase::PlayerReady)h.press(handler,BlockAction{});
    else {
-    h.tick(handler,idle);const auto &r=h.fight().result();
+    h.tick(handler,idle);const auto &r=h.result();
     if(r.operation==XeenCombatOperation::EnemyAttack){
      ++enemies;check(r.critical&&r.injuryCount==(enemies==2?1U:2U),"ordered critical presentation observations");
      check(h.observedAppearance.kind==XeenMonsterSpriteKind::Attack&&h.observedAppearance.frame==0,"critical ATT initial frame");
@@ -237,7 +150,7 @@ void criticalPresentation(const std::optional<std::filesystem::path> &game={}) {
     }
    }
   }
-  check(enemies==6&&h.fight().phase()==Phase::Defeat&&h.party->encounterContext->minutes==495,"critical production defeat");
+  check(enemies==6&&h.phase()==Phase::Defeat&&h.party->encounterContext->minutes==495,"critical production defeat");
   const auto &notice=h.flow->encounter()->notice();
   check(notice.find("Uncon. + Dead")!=std::string::npos&&notice.find("Broken armor:")!=std::string::npos,"complete condition/breakage feedback");
   return true;
@@ -250,11 +163,11 @@ void preparation() {
  const auto save=std::filesystem::temp_directory_path()/("combat-save-"+std::to_string(GetCurrentProcessId())+".mmsave");
  {std::ofstream out(save,std::ios::binary);out<<"unchanged existing save";}
  s.show=[&](const IndexedFrame &,const auto &handler,const auto &escape,const auto &idle,const auto &status){
-  check(!escape()&&h.fight().phase()==Phase::Preparation,"preparation and top-level escape");
+  check(!escape()&&h.phase()==Phase::Preparation,"preparation and top-level escape");
   check(h.world->sessionState().actors().empty()&&!h.flow->encounter()->deadline(),"no preparation actors/deadlines");
   const auto ticket=*handler.displayedInput();
   handler(AcknowledgeAction{});h.flow->handle(BeginEncounterAction{});
-  check(h.fight().phase()==Phase::Preparation,"unticketed service and Flow bypass refused");
+  check(h.phase()==Phase::Preparation,"unticketed service and Flow bypass refused");
   h.tick(handler,idle);check(h.world->sessionState().actors().empty(),"idle does not begin actors");
   h.press(handler,InspectInventoryAction{});
   handler.withDisplayedInput(AcknowledgeAction{},ticket);
@@ -274,22 +187,22 @@ void preparation() {
   check(h.flow->inventoryOpen()&&!h.flow->inventoryConfirmation(),"I confirm cancellation stays open");
   h.press(handler,SelectInventorySlotAction{1});h.press(handler,TransferInventoryAction{});h.press(handler,SelectMemberAction{0});
   h.press(handler,AcknowledgeAction{});
-  check(h.flow->transferResult().status==XeenTransferStatus::Success&&h.fight().phase()==Phase::Preparation,"Enter transfers only");
+  check(h.flow->transferResult().status==XeenTransferStatus::Success&&h.phase()==Phase::Preparation,"Enter transfers only");
   h.press(handler,SelectMemberAction{0});h.press(handler,SelectInventorySlotAction{1});h.press(handler,EquipmentInventoryAction{});
   check(h.party->roster.at(0).accessories[1].frame!=0,"coordinator equipment publication");
   h.press(handler,InspectInventoryAction{});
   check(!h.flow->inventoryOpen(),"I closes Browse");
   h.press(handler,SaveGameAction{});check(!h.saves&&status().find("unsaveable")!=std::string::npos,"zero save stages");
   check(status().find(save.filename().string())==std::string::npos,"save refusal precedes target formatting");
-  h.press(handler,AcknowledgeAction{});check(h.fight().phase()==Phase::Approach,"single-use Begin");
+  h.press(handler,AcknowledgeAction{});check(h.phase()==Phase::Approach,"single-use Begin");
   h.press(handler,AcknowledgeAction{});h.press(handler,InspectInventoryAction{});check(!h.flow->inventoryOpen(),"no return to preparation");
-  h.press(handler,WaitAction{});check(h.fight().phase()==Phase::PlayerReady,"automatic handoff");
+  h.press(handler,WaitAction{});check(h.phase()==Phase::PlayerReady,"automatic handoff");
   check(h.party->encounterContext->minutes==490&&!h.flow->encounter()->deadline(),"handoff retires approach work");
   const auto ready=*handler.displayedInput();
   h.press(handler,BlockAction{});
-  const auto after=h.fight().result().generation;
+  const auto after=h.result().generation;
   handler.withDisplayedInput(BlockAction{},ready);
-  check(h.fight().result().generation==after,"buffered old owner cannot block again");
+  check(h.result().generation==after,"buffered old owner cannot block again");
   return true;
  };
  check(Application().playGameplay(s,XeenActorApproach::kEntry,save,false,XeenEncounterEntry::Diagnostic27)==0,"preparation production route");
@@ -305,11 +218,11 @@ void delayed() {
   const auto pending=h.flow->encounter()->state().pending();idle();
   check(h.flow->encounter()->state().pending()==pending,"same-cycle idle cannot pulse again");
   h.tick(handler,idle);h.tick(handler,idle);h.press(handler,WaitAction{});
-  check(h.fight().phase()==Phase::PlayerReady&&h.party->encounterContext->minutes==500,"delayed production engagement at500");
+  check(h.phase()==Phase::PlayerReady&&h.party->encounterContext->minutes==500,"delayed production engagement at500");
   const auto ordinary=h.observedOrdinary;
   h.press(handler,BlockAction{});check(h.observedOrdinary==ordinary,"Block does not act as navigation");
   h.tick(handler,idle);check(h.observedOrdinary==ordinary+1,"ordinary idle animation continues in combat");
-  check(h.fight().random().position()==0,"idle without combat work creates no turn");
+  check(h.randomPosition()==0,"idle without combat work creates no turn");
   return true;
  };
  check(Application().playGameplay(s,XeenActorApproach::kEntry,{},false,XeenEncounterEntry::Diagnostic27)==0,"delayed production route");
@@ -325,15 +238,15 @@ void staleCoordination() {
     check(h.flow->encounter()->state().pending()==2&&h.flow->encounter()->deadline(),"approach stale fixture pending work");
    } else if(mode==2) {
     h.press(handler,WaitAction{});
-    check(h.fight().phase()==Phase::PlayerReady,"service stale fixture entered combat");
+    check(h.phase()==Phase::PlayerReady,"service stale fixture entered combat");
     h.press(handler,InteractionAction{});
     check(h.fight().pending()==Work::Action&&h.flow->encounter()->deadline(),"service stale fixture pending work");
    }
-   const auto revision=mode==2?h.fight().result().revision:h.flow->encounter()->state().revision();
+   const auto revision=mode==2?h.result().revision:h.flow->encounter()->state().revision();
    const auto pending=mode==2?static_cast<unsigned>(h.fight().pending()):h.flow->encounter()->state().pending();
    const auto deadline=h.flow->encounter()->deadline();
-   const auto resultGeneration=h.fight().result().generation;
-   const auto randomPosition=h.fight().random().position();
+   const auto resultGeneration=h.result().generation;
+   const auto randomPosition=h.randomPosition();
    unsigned probes=0;
    h.fight().setProbe([&]{
     ++probes;
@@ -354,23 +267,23 @@ void staleCoordination() {
    } catch(const std::runtime_error &) { threw=true; }
    h.fight().setProbe({});
    check(threw,"stale production operation stops its call chain");
-   check(h.fight().random().position()==randomPosition,"stale production operation adopted RNG");
-   if(mode!=3) check(h.fight().result().generation==resultGeneration,
+   check(h.randomPosition()==randomPosition,"stale production operation adopted RNG");
+   if(mode!=3) check(h.result().generation==resultGeneration,
     "stale production operation adopted result");
    check(h.flow->encounter()->deadline()==deadline,"stale production operation altered deadline");
    if(mode==2) {
-    check(h.fight().result().revision==revision&&static_cast<unsigned>(h.fight().pending())==pending&&
-     h.fight().phase()==Phase::PreparingAction&&h.world->sessionState().actors()[5].hp==20,
+    check(h.result().revision==revision&&static_cast<unsigned>(h.fight().pending())==pending&&
+     h.phase()==Phase::PreparingAction&&h.world->sessionState().actors()[5].hp==20,
      "stale service consumed automatic combat work");
    } else if(mode==3) {
     check(h.flow->encounter()->state().revision()==revision+1&&h.flow->encounter()->state().pending()==0&&
-     h.fight().phase()==Phase::Engaged&&h.fight().result().revision==revision+1&&
-     h.fight().result().operation==XeenCombatOperation::ApproachAction&&
-     h.fight().result().generation==resultGeneration+1,
+     h.phase()==Phase::Engaged&&h.result().revision==revision+1&&
+     h.result().operation==XeenCombatOperation::ApproachAction&&
+     h.result().generation==resultGeneration+1,
      "stale handoff changed the accepted engagement or entered combat");
    } else {
     check(h.flow->encounter()->state().revision()==revision&&h.flow->encounter()->state().pending()==pending&&
-     h.fight().phase()==Phase::Approach&&!h.world->sessionState().encounterTerminal(),
+     h.phase()==Phase::Approach&&!h.world->sessionState().encounterTerminal(),
      "stale approach operation advanced or retired pending work");
    }
    observed=true;return true;
@@ -386,7 +299,7 @@ void automaticSupportStop() {
   const auto revision=h.flow->encounter()->state().revision();
   check(h.flow->encounter()->deadline()&&h.flow->encounter()->state().pending()==2,"support-stop fixture pending work");
   h.badTerrain=true;h.world->discardMapCache();h.tick(handler,idle);
-  check(h.fight().phase()==Phase::SupportStopped&&h.flow->encounter()->state().revision()==revision+1&&
+  check(h.phase()==Phase::SupportStopped&&h.flow->encounter()->state().revision()==revision+1&&
    h.flow->encounter()->state().pending()==0&&!h.flow->encounter()->deadline(),
    "current automatic support stop did not retire only its own work");
   return true;
@@ -409,24 +322,24 @@ void outcome(bool loss,const std::optional<std::filesystem::path> &game={}) {
    h.press(handler,InspectInventoryAction{});
   }
   h.press(handler,AcknowledgeAction{});h.press(handler,WaitAction{});
-  for(unsigned n=0;n<500&&h.fight().phase()!=Phase::Victory&&h.fight().phase()!=Phase::Defeat;++n){
+  for(unsigned n=0;n<500&&h.phase()!=Phase::Victory&&h.phase()!=Phase::Defeat;++n){
    check(!h.flow->encounter()->terminal(),"unexpected combat failure");
    h.press(handler,SaveGameAction{});check(h.saves==0,"zero save side effects in every phase");
-   if(h.fight().phase()==Phase::PlayerReady){
+   if(h.phase()==Phase::PlayerReady){
     h.press(handler,loss||commands<6?PlayerAction{BlockAction{}}:PlayerAction{InteractionAction{}});++commands;
    }else{
-    const auto before=h.fight().result().generation;
+    const auto before=h.result().generation;
     h.press(handler,InteractionAction{});
-    check(before==h.fight().result().generation,"pending input does not replace automatic work");
+    check(before==h.result().generation,"pending input does not replace automatic work");
     h.tick(handler,idle);
-    const auto &r=h.fight().result();
+    const auto &r=h.result();
     if(r.critical&&!criticalImage){ppm(loss?"loss-critical":"victory-critical",h.flow->frame());criticalImage=true;}
     if(r.attackOutcome==XeenCombatAttackOutcome::HitZeroDamage&&!zeroImage){ppm("zero-damage",h.flow->frame());zeroImage=true;}
-    const auto after=h.fight().result().generation;idle();
-    check(after==h.fight().result().generation,"same time/cycle cannot repeat automatic work");
+    const auto after=h.result().generation;idle();
+    check(after==h.result().generation,"same time/cycle cannot repeat automatic work");
    }
   }
-  check(h.fight().phase()==(loss?Phase::Defeat:Phase::Victory),"real production terminal outcome");
+  check(h.phase()==(loss?Phase::Defeat:Phase::Victory),"real production terminal outcome");
   ppm(loss?"defeat":"victory",h.flow->frame());
   if(game){
    check(commands==(loss?35U:15U),"seeded command count");
@@ -434,17 +347,17 @@ void outcome(bool loss,const std::optional<std::filesystem::path> &game={}) {
    for(unsigned i=0;i<6;++i)check(h.party->roster.at(kXeenCombatOwners[i]).currentHp==(loss?lost[i]:won[i]),"seeded final HP");
   }
   const auto pixels=h.flow->frame().pixels;
-  const auto rng=h.fight().random().position();
-  h.world->discardMapCache();if(h.assets)h.assets->discardSpriteCache();h.flow->refresh(true);
-  check(h.flow->frame().pixels==pixels && h.fight().random().position()==rng,"terminal cache reconstruction");
+  const auto rng=h.randomPosition();
+  h.world->discardMapCache();if(h.assets)h.assets->discardSpriteCache();h.flow->refresh(true);handler.framePresented();
+  check(h.flow->frame().pixels==pixels && h.randomPosition()==rng,"terminal cache reconstruction");
   if(game)check(h.party->encounterContext->minutes==(loss?500:493),"original seeded time");
-  const auto terminal=h.fight().result().generation;
+  const auto terminal=h.result().generation;
   for(const PlayerAction action:std::initializer_list<PlayerAction>{InteractionAction{},BlockAction{},AcknowledgeAction{},InspectInventoryAction{},WaitAction{},SaveGameAction{}})
    h.press(handler,action);
   h.tick(handler,idle);
-  check(h.fight().result().generation==terminal&&!h.saves,"terminal stays terminal and unsaveable");
-  check(h.flow->encounter()->notice().find(loss?"DEFEAT":"VICTORY")!=std::string::npos,"in-frame terminal text");
-  if(!loss)check(h.flow->encounter()->notice().find("XP +82")!=std::string::npos,"fixed award retained through End");
+  check(h.result().generation==terminal&&!h.saves,"terminal stays terminal and unsaveable");
+  check(h.flow->encounter()->notice().find(loss?"DEFEAT":"Victory completed")!=std::string::npos,"in-frame terminal text");
+  if(!loss)check(h.flow->encounter()->notice().find(h.flow->completed()?"XP 82":"XP +82")!=std::string::npos,"fixed award retained through End");
   std::cout<<(loss?"Defeat":"Victory")<<" commands="<<commands<<" time="<<h.party->encounterContext->minutes<<'\n';
   return true;
  };
@@ -455,17 +368,17 @@ void failures() {
   Harness h;auto s=h.services();bool injected=false;
   const auto compose=s.composeEncounter;
   s.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto ordinary,auto actor){
-   if(fault==0&&h.flow&&h.fight().phase()==Phase::PreparingAction&&!injected){injected=true;throw std::runtime_error("composition failure");}
+   if(fault==0&&h.flow&&h.phase()==Phase::PreparingAction&&!injected){injected=true;throw std::runtime_error("composition failure");}
    return compose(w,p,c,ordinary,actor);
   };
   const auto configure=s.configureFlow;
   s.configureFlow=[&](auto &flow,const auto &camera){
    configure(flow,camera);
    flow.reportText=[&](const std::string &){
-    if(fault==1&&h.fight().phase()==Phase::PreparingAction&&!injected){injected=true;throw std::runtime_error("report failure");}
+    if(fault==1&&h.phase()==Phase::PreparingAction&&!injected){injected=true;throw std::runtime_error("report failure");}
    };
    flow.beforeEncounterFrameCopy=[&]{
-    if(fault==2&&h.fight().phase()==Phase::PreparingAction&&!injected){injected=true;throw std::runtime_error("frame-copy failure");}
+    if(fault==2&&h.phase()==Phase::PreparingAction&&!injected){injected=true;throw std::runtime_error("frame-copy failure");}
    };
    flow.reportEquipment=[&](const XeenEquipmentResult &r){
     if(fault==3&&!injected){check(r.status==XeenEquipmentStatus::Success,"fixed equipment adopted before callback");injected=true;throw std::runtime_error("equipment reporting failure");}
@@ -483,14 +396,14 @@ void failures() {
      injected=true;
      const auto old=h.flow->encounter()->ticket();
      h.tick(handler,idle);
-     const auto generation=h.fight().result().generation;
+     const auto generation=h.result().generation;
      h.flow->failEncounterHandoff(old);
-     check(h.fight().result().generation==generation,"stale handoff cannot fail newer combat");
+     check(h.result().generation==generation,"stale handoff cannot fail newer combat");
      return true;
     }
    }
-   check(injected&&h.fight().phase()==Phase::Failed,"current failure stops combat");
-   check(h.fight().random().position()==0,"failure did not roll pending player attack");
+   check(injected&&h.phase()==Phase::Failed,"current failure stops combat");
+   check(h.randomPosition()==0,"failure did not roll pending player attack");
    h.press(handler,SaveGameAction{});check(h.saves==0,"failure is unsaveable");
    return true;
   };
@@ -504,9 +417,9 @@ void publicationFailures() {
   const auto compose=s.composeEncounter;
   s.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto ordinary,auto actor){
    if(h.flow&&!injected){
-    const auto &r=h.fight().result();
+    const auto &r=h.result();
     const bool target=fault==0?(r.operation==XeenCombatOperation::PlayerAttack&&r.attackOutcome==XeenCombatAttackOutcome::HitPositiveDamage):
-     fault==1?h.fight().phase()==Phase::VictoryAwaitingEnd:fault==2?h.fight().phase()==Phase::Victory:h.fight().phase()==Phase::Defeat;
+     fault==1?h.phase()==Phase::VictoryAwaitingEnd:fault==2?h.phase()==Phase::Victory:h.phase()==Phase::Defeat;
     if(target){injected=true;throw std::runtime_error("post-publication composition");}
    }
    return compose(w,p,c,ordinary,actor);
@@ -520,14 +433,14 @@ void publicationFailures() {
    }
    h.press(handler,AcknowledgeAction{});h.press(handler,WaitAction{});
    for(unsigned n=0;n<500&&!injected;++n){
-    if(h.fight().phase()==Phase::PlayerReady){h.press(handler,fault==3||commands++<6?PlayerAction{BlockAction{}}:PlayerAction{InteractionAction{}});}
+    if(h.phase()==Phase::PlayerReady){h.press(handler,fault==3||commands++<6?PlayerAction{BlockAction{}}:PlayerAction{InteractionAction{}});}
     else h.tick(handler,idle);
    }
    check(injected,"publication fault reached through real commands");
-   check(h.fight().phase()==(fault==2?Phase::Victory:fault==3?Phase::Defeat:Phase::Failed),"failure preserves actual terminal boundary");
+   check(h.phase()==(fault==2?Phase::Victory:fault==3?Phase::Defeat:Phase::Failed),"failure preserves actual terminal boundary");
    const auto hp=h.world->sessionState().actors()[5].hp;
    check(fault==3||hp<20,"published damage survives failure");
-   if(fault==1||fault==2){check(hp==0,"lethal removal retained");check(h.flow->encounter()->notice().find("XP +82")!=std::string::npos,"award retained despite composition failure");}
+   if(fault==1||fault==2){check(hp==0,"lethal removal retained");check(h.flow->encounter()->notice().find(h.flow->completed()?"XP 82":"XP +82")!=std::string::npos,"award retained despite composition failure");}
    h.press(handler,SaveGameAction{});h.tick(handler,idle);check(h.saves==0&&h.world->sessionState().actors()[5].hp==hp,"no save or replay after failure");
    return true;
   };
@@ -539,9 +452,9 @@ void sdl() {
  s.show=[&](const IndexedFrame &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
   auto wrapped=handler;
   wrapped.withDisplayedInput=[&](const PlayerAction &a,std::uint64_t t){
-   const auto before=h.fight().result().generation;
+   const auto before=h.result().generation;
    auto result=handler.withDisplayedInput(a,t);
-   if(std::holds_alternative<BlockAction>(a)&&before!=h.fight().result().generation)++accepted;
+   if(std::holds_alternative<BlockAction>(a)&&before!=h.result().generation)++accepted;
    return result;
   };
   auto key=[](SDL_Keycode code,Uint32 type=SDL_KEYDOWN,Uint8 repeat=0){
@@ -554,8 +467,8 @@ void sdl() {
    if(idles>100)throw std::runtime_error("SDL combat test timed out");
    switch(stage++){
     case 0:key(SDLK_RETURN);break;
-    case 1:check(h.fight().phase()==Phase::Approach,"SDL Begin");key(SDLK_PERIOD);break;
-    case 2:check(h.fight().phase()==Phase::PlayerReady,"SDL handoff");break;
+    case 1:check(h.phase()==Phase::Approach,"SDL Begin");key(SDLK_PERIOD);break;
+    case 2:check(h.phase()==Phase::PlayerReady,"SDL handoff");break;
     case 3:key(SDLK_b);key(SDLK_b,SDL_KEYDOWN,1);key(SDLK_b,SDL_KEYUP);key(SDLK_b);break;
     case 4:check(accepted==1,"one owner per poll batch");key(SDLK_b);break;
     case 5:check(accepted==1,"held B requires release");key(SDLK_b,SDL_KEYUP);break;
@@ -565,8 +478,8 @@ void sdl() {
     case 9:break;
     case 10:key(SDLK_SPACE);break;
     default:
-     if(h.fight().phase()==Phase::PlayerReady){
-      check(h.fight().random().position()>0,"automatic attack runs without another key");
+     if(h.phase()==Phase::PlayerReady){
+      check(h.randomPosition()>0,"automatic attack runs without another key");
       key(SDLK_ESCAPE);
      }
    }
@@ -621,8 +534,8 @@ void callbacks() {
     check(fault==1||fault==2||fault==3,"unexpected callback exit");
    }
    observed=true;
-   check(injected&&h.fight().phase()==Phase::Failed,"callback failure retains its legitimate stop");
-   check(h.fight().random().position()==0&&h.saves==0,"callback failure cannot roll or save");
+   check(injected&&h.phase()==Phase::Failed,"callback failure retains its legitimate stop");
+   check(h.randomPosition()==0&&h.saves==0,"callback failure cannot roll or save");
    return fault==0||fault==4;
   };
   const int result=Application().playGameplay(s,XeenActorApproach::kEntry,{},false,XeenEncounterEntry::Diagnostic27);
@@ -634,11 +547,15 @@ void cli(const std::filesystem::path &exe) {
  std::filesystem::create_directories(directory);
  const std::vector<std::vector<std::wstring>> invalid{
   {L"--combat-seed",L"1",L"missing"},{L"--encounter-27"},
+  {L"--load-game",L"missing",L"save",L"--combat-seed",L"1"},
+  {L"--load-game",L"missing",L"save",L"--encounter-27"},
+  {L"--encounter-27",L"--save-file",L"save",L"missing"},
   {L"--encounter-27",L"--encounter-27",L"missing"},{L"--encounter-27",L"missing",L"extra"},
   {L"--encounter-27",L"--encounter-26",L"missing"},
   {L"--encounter-27",L"--render-map",L"missing"},
   {L"--encounter-27",L"--load-game",L"missing"},
-  {L"--encounter-27",L"missing",L"--save-file",L"untouched"},
+  {L"--encounter-27",L"missing",L"--save-file",L""},
+  {L"--encounter-27",L"missing",L"--save-file",L"untouched",L"--save-file",L"again"},
   {L"--encounter-27",L"missing",L"20",L"13",L"1",L"north"},
   {L"--encounter-27",L"--combat-seed",L"1",L"--combat-seed",L"2",L"missing"}
  };

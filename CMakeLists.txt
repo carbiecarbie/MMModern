@@ -88,6 +88,7 @@ add_library(mmodern_app STATIC
 	src/platform/XeenSaveFile.cpp
 	src/app/XeenGameplay.cpp
 	src/app/XeenEncounterFlow.cpp
+	src/app/XeenCompletedFlow.cpp
 	src/app/Application.cpp
 	src/app/XeenEventFlow.cpp
 	src/app/XeenInventoryFlow.cpp
@@ -142,6 +143,11 @@ if(BUILD_TESTING)
 		target_link_options(mmodern_completed_restore_tests PRIVATE "LINKER:--wrap,${CMAKE_MATCH_1}")
 	endforeach()
 	add_test(NAME xeen_completed_restore COMMAND mmodern_completed_restore_tests)
+	add_executable(mmodern_completed_gameplay_tests tests/XeenCompletedGameplayTests.cpp)
+	target_link_libraries(mmodern_completed_gameplay_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2)
+	add_test(NAME xeen_completed_gameplay COMMAND mmodern_completed_gameplay_tests)
+	add_test(NAME xeen_completed_sdl COMMAND mmodern_completed_gameplay_tests sdl)
+	set_tests_properties(xeen_completed_sdl PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software" TIMEOUT 180)
 	add_executable(mmodern_encounter_flow_tests tests/XeenEncounterFlowTests.cpp)
 	target_link_libraries(mmodern_encounter_flow_tests PRIVATE mmodern_app mmodern_xeen)
 	add_test(NAME xeen_encounter_flow COMMAND mmodern_encounter_flow_tests)

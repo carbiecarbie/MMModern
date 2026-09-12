@@ -24,10 +24,114 @@ struct DispatchScope {
 bool sameCamera(const XeenCamera &a, const XeenCamera &b) {
 	return a.mapId == b.mapId && a.x == b.x && a.y == b.y && a.direction == b.direction;
 }
+
+IndexedFrame noticeFrame(const IndexedFrame &base, const XeenFontFormat &font, const std::string &notice, bool roster) {
+	XeenTextRenderOptions options;
+	options.bounds = {9, 9, 222, 50}; options.x = 10; options.y = 10;
+	options.size = XeenFontSize::Reduced;
+	options.paginate = true;
+	options.drawWindow = true; options.windowBounds = {8,8,223,51};
+	if (roster) {
+		options.bounds = {3,137,229,200}; options.windowBounds = {1,135,231,200};
+		options.x = 3; options.y = 137;
+	}
+	const auto split = roster ? notice.find("\n\n") : std::string::npos;
+	auto rendered = XeenTextRenderer(font).render(base, notice.substr(0,split), options);
+	if (rendered.pages.size() != 1) throw std::runtime_error("Encounter notice did not fit");
+	if (split != std::string::npos) {
+		options.bounds = {235,3,318,198}; options.windowBounds = {233,1,320,200};
+		options.x=235; options.y=3;
+		rendered = XeenTextRenderer(font).render(rendered.pages.front(),notice.substr(split+2),options);
+		if (rendered.pages.size()!=1) throw std::runtime_error("Combat roster notice did not fit");
+	}
+	return std::move(rendered.pages.front());
+}
+}
+
+IndexedFrame XeenEventFlow::preflightCompleted(IndexedFrame base, const XeenFontFormat &font, const XeenItemCatalog *catalog,
+		const XeenWorld &world, const XeenPartyState &party, const XeenCamera &camera) {
+	if (!base.isValid()) throw std::runtime_error("Invalid completed scene");
+	auto frame = noticeFrame(base, font, XeenEncounterFlow::completedNotice(world, party, camera), true);
+	static_cast<void>(XeenEncounterFlow::completedInspection(world, party, camera));
+	for (unsigned member = 0; member < party.party.size(); ++member) {
+		XeenInventorySelection selection;
+		selection.mode = XeenInventoryMode::Browse; selection.source = member;
+		selection.sourceOwner = party.party.activeRosterIds()[member];
+		for (unsigned category = 0; category < 4; ++category) {
+			selection.category = static_cast<XeenInventoryCategory>(category);
+			for (unsigned slot = 0; slot < 9; ++slot) {
+				selection.slot = slot;
+				selection.record = (*xeenInventoryItems(party.roster.at(*selection.sourceOwner), selection.category))[slot];
+				static_cast<void>(xeenInventoryLayout(font, catalog ? *catalog : fallbackCatalog(), party, selection, "", nullptr, false, true));
+			}
+			static_cast<void>(drawXeenInventory(frame, font, catalog ? *catalog : fallbackCatalog(), party, selection, "", nullptr, false, true));
+		}
+	}
+	return frame;
 }
 
 void XeenEventFlow::requireCurrentOwners() const {
 	if (!_gameplayBorrow.current()) throw std::runtime_error("Stale Flow borrowed owner lifetime");
+}
+
+bool XeenEventFlow::canSave() const noexcept {
+	return _gameplayBorrow.current() && !_fatal && !_dispatching && !_saving && !_handoffPending &&
+		!inventoryOpen() && !_pending && !_equipmentSelection && !_inventoryConfirmation &&
+		(!_encounter || (_encounter->canSave() && encounterFrameCurrent()));
+}
+
+void XeenEventFlow::authorizeCompletedFrame() {
+	if (!completed()) return;
+	if (_inputGeneration == std::numeric_limits<std::uint64_t>::max()) throw std::overflow_error("Completed input generation exhausted");
+	++_inputGeneration;
+	_displayedCombat.reset();
+	_displayedCompleted = _encounter->ticket();
+	_encounterFrame = _displayedCompleted;
+}
+
+XeenEventFlow::SaveBoundary XeenEventFlow::beginSave() {
+	if (!canSave()) throw std::logic_error("Save boundary is unavailable");
+	if (completed()) _encounter->holdCompleted();
+	_saving = true;
+	SaveBoundary boundary;
+	boundary.owner = this; boundary.generation = _generation;
+	boundary.inventory = _inventoryEpoch; boundary.input = _inputGeneration;
+	return boundary;
+}
+
+bool XeenEventFlow::saveCurrent(const SaveBoundary &b) const noexcept {
+	return b.owner == this && _saving && !_fatal && !_dispatching && _gameplayBorrow.current() &&
+		b.generation == _generation && b.inventory == _inventoryEpoch && b.input == _inputGeneration &&
+		!inventoryOpen() && !_pending && !_equipmentSelection && !_inventoryConfirmation;
+}
+
+void XeenEventFlow::endSave() {
+	if (!_saving) return;
+	if (completed()) { _encounter->releaseCompleted(); authorizeCompletedFrame(); }
+	_saving = false;
+}
+
+void XeenEventFlow::framePresented() {
+	requireCurrentOwners();
+	if (_dispatching || _saving) throw std::logic_error("Frame handoff during dispatch");
+	if (!encounterFrameCurrent()) throw std::logic_error("Stale successful frame handoff");
+	if (completed() && _handoffPending) {
+		if (!inventoryOpen()) _encounter->releaseCompleted();
+		_handoffPending = false;
+		authorizeCompletedFrame();
+	}
+}
+
+void XeenEventFlow::closeGameplay() noexcept {
+	if (_gameplayBorrow.current() && completed()) _encounter->closeCompleted();
+	_fatal = true;
+}
+
+IndexedFrame XeenEventFlow::completedFeedback(std::string message) {
+	if (!completed() || _dispatching || _saving || _fatal) return frameCopy();
+	DispatchScope dispatch(_dispatching);
+	_encounter->feedback(std::move(message));
+	return renderEncounter();
 }
 
 void XeenEventFlow::beginCycle(std::uint64_t cycle) {
@@ -43,7 +147,10 @@ bool XeenEventFlow::encounterFrameCurrent() const noexcept {
 }
 
 void XeenEventFlow::failEncounterHandoff(const XeenEncounterFlow::Ticket &entry) noexcept {
-	if (_gameplayBorrow.current() && _encounter) _encounter->fail(entry);
+	if (_gameplayBorrow.current() && _encounter) {
+		if (completed()) { if (_encounter->current(entry)) _encounter->closeCompleted(); }
+		else _encounter->fail(entry);
+	}
 	_fatal = true;
 }
 
@@ -88,9 +195,12 @@ bool XeenEventFlow::advanceEncounterOrdinary(OrdinaryCause cause) {
 IndexedFrame XeenEventFlow::renderEncounter(bool report) {
 	const bool hadFrame = _frame.isValid();
 	for (unsigned attempt = 0; attempt < 2; ++attempt) {
+		if (completed()) _encounter->holdCompleted();
 		const auto entry = _encounter->ticket();
 		try {
 			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter composition");
+			std::optional<XeenRestoreGuard::Providers> providers;
+			if (completed()) providers.emplace(_encounter->completedPreimage(), _world);
 			if (attempt) {
 				_world.discardMapCache();
 				if (rebuildEncounterPresentation) rebuildEncounterPresentation();
@@ -100,39 +210,22 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report) {
 			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter frame");
 			if (!composed.frame.isValid()) throw std::runtime_error("Invalid encounter frame");
 			const auto notice = _encounter->notice();
-			XeenTextRenderOptions options;
-			options.bounds = {9, 9, 222, 50}; options.x = 10; options.y = 10;
-			options.size = XeenFontSize::Reduced;
-			options.paginate = true;
-			options.drawWindow = true; options.windowBounds = {8,8,223,51};
-			if (_encounter->combat()) {
-				options.bounds = {3,137,229,200}; options.windowBounds = {1,135,231,200};
-				options.x = 3; options.y = 137;
-			}
-			const auto split = _encounter->combat() ? notice.find("\n\n") : std::string::npos;
-			auto rendered = XeenTextRenderer(_inventoryFont).render(composed.frame, notice.substr(0,split), options);
-			if (rendered.pages.size() != 1) throw std::runtime_error("Encounter notice did not fit");
-			if (split != std::string::npos) {
-				options.bounds = {235,3,318,198}; options.windowBounds = {233,1,320,200};
-				options.x=235; options.y=3;
-				rendered = XeenTextRenderer(_inventoryFont).render(rendered.pages.front(),notice.substr(split+2),options);
-				if (rendered.pages.size()!=1) throw std::runtime_error("Combat roster notice did not fit");
-			}
+			auto rendered = noticeFrame(composed.frame, _inventoryFont, notice, _encounter->combat() || completed());
 			if (report && !attempt && reportText) reportText(notice);
 			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter report");
 			// Complete the fallible return copy before installing the frame.
 			if (!attempt && beforeEncounterFrameCopy) beforeEncounterFrameCopy();
 			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter frame copy");
-			IndexedFrame returned = rendered.pages.front();
-			_frame = std::move(rendered.pages.front());
-			if (_encounter->combat()) {
+			IndexedFrame returned = rendered;
+			_frame = std::move(rendered);
+			if (_encounter->combat() || completed()) {
 				_inventoryUnderlay = _frame;
 				if (inventoryOpen()) {
 					_frame = drawXeenInventory(_inventoryUnderlay,_inventoryFont,_catalog,_party,_inventory,_inventoryFeedback,
-						_equipmentResult ? &*_equipmentResult : nullptr, true);
+						_equipmentResult ? &*_equipmentResult : nullptr, !completed(), completed());
 					returned = _frame;
 				}
-				if (!_displayedCombat || !_encounter->combat()->current(*_displayedCombat)) {
+				if (_encounter->combat() && (!_displayedCombat || !_encounter->combat()->current(*_displayedCombat))) {
 					if (_inputGeneration == std::numeric_limits<std::uint64_t>::max()) throw std::overflow_error("Combat input generation exhausted");
 					++_inputGeneration;
 					_displayedCombat = _encounter->combat()->ticket();
@@ -141,9 +234,10 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report) {
 			}
 			_ordinary.containsOrdinaryAnimation = composed.containsOrdinaryAnimation;
 			_encounterFrame = entry;
+			if (completed()) { _handoffPending = true; authorizeCompletedFrame(); }
 			return returned;
 		} catch (...) {
-			if (!_encounter->fail(entry) || attempt || !hadFrame) { _fatal = true; throw; }
+			if (!_encounter->fail(entry) || attempt || !hadFrame) { _encounter->closeCompleted(); _fatal = true; throw; }
 			if (_encounter->combat()) closeInventory();
 		}
 	}
@@ -166,7 +260,7 @@ XeenEventFlow::XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
 	if (encounter) {
 		if (!_encounterCompose && !encounterCompose) throw std::invalid_argument("Missing encounter composer");
 		_encounterCompose = std::move(encounterCompose);
-		_encounter = std::make_unique<XeenEncounterFlow>(world, party, camera, _clock, *encounter);
+		_encounter = std::make_unique<XeenEncounterFlow>(world, party, camera, flags, _clock, *encounter);
 		_ordinary.deadline = _encounter->cosmeticDeadline();
 	} else _ordinary.deadline = _clock() + 100;
 	refresh(true);
@@ -174,7 +268,7 @@ XeenEventFlow::XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
 
 IndexedFrame XeenEventFlow::refresh(bool reconstruct) {
 	requireCurrentOwners();
-	if (_dispatching || _fatal) return frameCopy();
+	if (_dispatching || _fatal || _saving) return frameCopy();
 	DispatchScope dispatch(_dispatching);
 	if (_encounter) {
 		if (_encounter->combat() && reconstruct) invalidateInventorySelection();
@@ -187,7 +281,7 @@ IndexedFrame XeenEventFlow::refresh(bool reconstruct) {
 
 bool XeenEventFlow::refreshScene(bool reconstruct, OrdinaryCause cause, bool committedTransition) {
 	requireCurrentOwners();
-	if (_encounter && _encounter->combat()) { renderEncounter(); return true; }
+	if (_encounter && (_encounter->combat() || completed())) { renderEncounter(); return true; }
 	try {
 	const bool reset = committedTransition || _ordinary.mapId != _camera.mapId ||
 		_ordinary.direction != _camera.direction;
@@ -349,17 +443,19 @@ IndexedFrame XeenEventFlow::presentationFailed(const std::exception &exception) 
 }
 std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 	requireCurrentOwners();
-	if (_dispatching || _fatal) return std::nullopt;
+	if (_dispatching || _fatal || _saving) return std::nullopt;
 	DispatchScope dispatch(_dispatching);
 	if (_encounter) {
 		const bool changed = _encounter->idle(_cycle);
+		if (!_pending && !inventoryOpen() && !_equipmentSelection && !_inventoryConfirmation)
+			_encounter->retireVictory();
 		if (_encounter->combatOperationStale()) {
 			_fatal = true;
 			throw std::runtime_error("Stale automatic combat operation");
 		}
 		if (!_encounter->current(_encounter->ticket())) { _fatal = true; throw std::runtime_error("Stale encounter idle"); }
 		const bool ordinary = advanceEncounterOrdinary();
-		if (changed || ordinary) return renderEncounter();
+		if (changed || ordinary) return renderEncounter(completed());
 		return std::nullopt;
 	}
 	const bool recomposed = refreshScene(false, OrdinaryCause::Idle);
@@ -402,14 +498,52 @@ bool XeenEventFlow::resumePending(std::uint64_t generation, XeenPresentationResp
 }
 IndexedFrame XeenEventFlow::handle(const PlayerAction &action, std::optional<std::uint64_t> displayedInput) {
 	requireCurrentOwners();
-	if (std::holds_alternative<SaveGameAction>(action) || _dispatching || _fatal) return frameCopy();
+	if (std::holds_alternative<SaveGameAction>(action) || _dispatching || _fatal || _saving) return frameCopy();
+	if (completed() && (!displayedInput || *displayedInput != _inputGeneration || !_displayedCompleted ||
+		!_encounter->current(*_displayedCompleted) || _handoffPending)) return frameCopy();
 	if (_encounter && _encounter->combat() && (!displayedInput || *displayedInput != _inputGeneration ||
 		!_displayedCombat || !_encounter->combat()->current(*_displayedCombat))) return frameCopy();
 	if (!_encounter && std::holds_alternative<WaitAction>(action)) return frameCopy();
 	if (!_encounter && (std::holds_alternative<AttackAction>(action) || std::holds_alternative<BlockAction>(action) ||
-		std::holds_alternative<BeginEncounterAction>(action))) return frameCopy();
+		std::holds_alternative<BeginEncounterAction>(action) || std::holds_alternative<RevisitCompletedAction>(action))) return frameCopy();
 	DispatchScope dispatch(_dispatching);
 	if (_encounter) {
+		if (completed()) {
+			if (std::holds_alternative<CancelInteractionAction>(action)) return frameCopy();
+			if (inventoryOpen() && (std::holds_alternative<RevisitCompletedAction>(action) ||
+				std::holds_alternative<TransferInventoryAction>(action) || std::holds_alternative<EquipmentInventoryAction>(action) ||
+				std::holds_alternative<AcknowledgeAction>(action) || std::holds_alternative<AttackAction>(action) ||
+				std::holds_alternative<BlockAction>(action) || std::holds_alternative<WaitAction>(action))) return frameCopy();
+			if (inventoryOpen() || std::holds_alternative<InspectInventoryAction>(action)) {
+				_encounter->holdCompleted();
+				const auto entry = _encounter->ticket();
+				try {
+					handleInventory(action);
+					if (!_encounter->current(entry)) throw std::runtime_error("Stale completed inspection");
+				} catch (...) {
+					if (!_encounter->fail(entry)) { _fatal = true; _encounter->closeCompleted(); throw; }
+					closeInventory();
+				}
+				return renderEncounter();
+			}
+			if (std::holds_alternative<RevisitCompletedAction>(action)) {
+				try {
+					const auto input = _inputGeneration, inventory = _inventoryEpoch;
+					const auto result = _encounter->reenter(completedMonsters, completedEvents, completedPreflight, [&] {
+						if (!_gameplayBorrow.current() || _fatal || !_dispatching || _saving ||
+							input != _inputGeneration || inventory != _inventoryEpoch || inventoryOpen())
+							throw std::logic_error("Completed re-entry UI boundary changed");
+					});
+					_encounter->feedback("Re-entered " + std::to_string(result.oldGeneration) + " -> " + std::to_string(result.newGeneration) + "; (13,1) North");
+					_ordinary = {0, 0, _camera.mapId, _camera.direction, false};
+				} catch (const std::exception &) {
+					if (_fatal || !_encounter->canSave()) { _fatal = true; _encounter->closeCompleted(); throw; }
+					_encounter->feedback("Revisit failed; entry unchanged");
+				}
+				return renderEncounter(true);
+			}
+			return frameCopy();
+		}
 		if (combatPreparation()) {
 			if (std::holds_alternative<CancelInteractionAction>(action)) return frameCopy();
 			if (inventoryOpen() || std::holds_alternative<InspectInventoryAction>(action)) {

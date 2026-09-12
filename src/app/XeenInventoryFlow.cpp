@@ -23,6 +23,7 @@ void XeenEventFlow::advanceInventoryEpoch() noexcept {
 	else _inventory = {}; // Exhausted generations can never arm again.
 }
 void XeenEventFlow::armEquipmentSelection() {
+	if (completed()) return;
 	const auto &ids = _party.party.activeRosterIds();
 	if (_inventory.mode != XeenInventoryMode::Browse || !_inventory.slot ||
 			ids.size() > XeenParty::kMaximumVisibleMembers || _inventory.source >= ids.size() ||
@@ -91,6 +92,7 @@ void XeenEventFlow::invalidateInventory() {
 	requireCurrentOwners();
 	if (_encounter) {
 		if (_encounter->combat()) _encounter->combat()->invalidate();
+		if (completed()) { _encounter->closeCompleted(); _fatal = true; }
 		return;
 	}
 	// Notification remains effective inside an observer, but never draws/reenters.
@@ -108,7 +110,7 @@ void XeenEventFlow::closeInventory() noexcept {
 	_equipmentResult.reset();
 }
 void XeenEventFlow::recoverInventory() {
-	if (_encounter && _encounter->combat()) {
+	if (_encounter && (_encounter->combat() || completed())) {
 		const auto entry = _encounter->ticket();
 		_encounter->fail(entry);
 		closeInventory();
@@ -121,7 +123,8 @@ void XeenEventFlow::recoverInventory() {
 	catch (...) { _fatal = true; throw; }
 }
 void XeenEventFlow::drawInventory() {
-	if (_encounter && _encounter->combat()) { syncCombatInventory(); renderEncounter(); return; }
+	if (completed()) return; // The completed dispatcher performs one guarded render.
+	if (_encounter && (_encounter->combat() || completed())) { syncCombatInventory(); renderEncounter(); return; }
 	try { _frame = drawXeenInventory(_inventoryUnderlay,_inventoryFont,_catalog,_party,_inventory,_inventoryFeedback,
 		_equipmentResult ? &*_equipmentResult : nullptr); }
 	catch (...) { recoverInventory(); }
@@ -137,6 +140,7 @@ IndexedFrame XeenEventFlow::refuseInventorySave() {
 	return _frame;
 }
 void XeenEventFlow::handleEquipment() {
+	if (completed()) return;
 	const auto certificate = _equipmentSelection;
 	const bool currentCertificate = certificate && validEquipmentSelection(*certificate);
 	advanceInventoryEpoch(); // Every E is consumed before preparation or callbacks.
@@ -173,6 +177,7 @@ void XeenEventFlow::handleEquipment() {
 	else drawInventory();
 }
 void XeenEventFlow::confirmInventory() {
+	if (completed()) return;
 	if (!_inventoryConfirmation || _inventory.mode != XeenInventoryMode::Confirm) return;
 	const auto token = *_inventoryConfirmation;
 	const bool current = token.epoch == _inventoryEpoch;
@@ -210,6 +215,9 @@ void XeenEventFlow::confirmInventory() {
 IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
 	using Mode = XeenInventoryMode;
 	try {
+	if (completed() && (std::holds_alternative<TransferInventoryAction>(action) ||
+		std::holds_alternative<EquipmentInventoryAction>(action) || std::holds_alternative<AcknowledgeAction>(action) ||
+		std::holds_alternative<RevisitCompletedAction>(action))) return _frame;
 	if (_inventoryEpoch >= std::numeric_limits<std::uint64_t>::max()-2) {
 		closeInventory(); _frame=_inventoryUnderlay; return _frame;
 	}
@@ -225,9 +233,9 @@ IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
 		_equipmentResult.reset();
 		_inventoryFeedback = "";
 		_presenter.clear();
-		refreshScene(true,OrdinaryCause::None);
+		if (!completed()) refreshScene(true,OrdinaryCause::None);
 		if (!inventoryOpen()) return _frame;
-		std::cout << xeenInventoryInspection(_party);
+		std::cout << (completed() ? XeenEncounterFlow::completedInspection(_world, _party, _camera) : xeenInventoryInspection(_party));
 		return _frame;
 	}
 	if (std::holds_alternative<CancelInteractionAction>(action) ||
@@ -296,6 +304,7 @@ IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
 	if (inventoryOpen()) drawInventory();
 	return _frame;
 	} catch (...) {
+		if (completed()) throw; // Recovery belongs to the retained completed dispatcher.
 		if (_fatal) throw; // A failed clean-base recovery is already terminal.
 		recoverInventory(); return _frame;
 	}

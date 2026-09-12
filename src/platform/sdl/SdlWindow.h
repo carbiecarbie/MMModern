@@ -21,6 +21,8 @@ public:
 		// One identity per event batch/idle iteration, independent of elapsed time.
 		std::function<void(std::uint64_t)> beginCycle;
 		std::function<bool()> frameCurrent;
+		// Called only after successful upload and normal current-frame presentation.
+		std::function<void()> framePresented;
 		std::function<void()> failed;
 		std::function<void()> closed;
 		std::function<std::optional<std::uint64_t>()> displayedInput;

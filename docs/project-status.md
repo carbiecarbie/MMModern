@@ -2,9 +2,9 @@
 
 ## Stable baseline
 
-**Milestone 27 is the latest completed milestone; stages 27A, 27B and 27C are accepted.**
+**Milestone 28 is the latest completed milestone; stages 28A, 28B and 28C are accepted.**
 This file describes stable capabilities and architecture. Acceptance belongs in
-the [M27 closed plan](milestone-27-plan.md#final-acceptance); completed
+the [M28 closed plan](milestone-28-plan.md#final-acceptance); completed
 milestone chronology belongs in [project history](project-history.md).
 
 ## Supported scope
@@ -73,8 +73,10 @@ bounded diagnostic, not certified map travel or general combat.
   existing inventory transfer/equipment controls may arrange the admitted party.
   Enter begins the encounter, period supplies approach Wait, and after engagement
   Space attacks while B blocks for the displayed character. Required enemy and
-  round work advances automatically. Every phase is unsaveable and terminal
-  victory, defeat or failure cannot resume exploration.
+  round work advances automatically. Preparation, approach, combat, incomplete
+  victory, defeat and failure are unsaveable. A successful End retires into a
+  quiescent completed checkpoint with F9 saving, read-only I inspection and
+  bounded R revisit. Completed mode cannot resume combat or exploration.
 - Bounded event decoding/execution supports conditions, Call/Return, transfers,
   game flags and Remove. Space dispatches from the current cell/facing without
   requiring the automatic-event bit; automatic dispatch retains that gate.
@@ -142,13 +144,17 @@ bounded diagnostic, not certified map travel or general combat.
   owners, raw fields, Root and Q2. Setup emits the same observation before initial
   automatic dispatch; resume emits restored values. Inspection does not mutate
   state or dispatch events.
+- Completed Diagnostic27 I uses the existing owner/category/physical-slot browser
+  in read-only mode and reports completion/accounting, actor identity and
+  coordinates, context, supplements/XP, HP/SP, conditions and raw item bytes.
+  Transfer, equipment, confirmation, F9 and R remain disabled until it closes.
 
 ### Save and resume
 
 Local Windows F9 saving and startup resume preserve supported durable state
-across process restarts. [README](../README.md#running-and-controls) owns the
-public CLI/control reference. The persistence contract below defines eligibility,
-restoration and compatibility.
+across process restarts, including an eligible completed Diagnostic27 victory.
+[README](../README.md#running-and-controls) owns the public CLI/control reference.
+The persistence contract below defines eligibility, restoration and compatibility.
 
 ## Architectural ownership and invariants
 
@@ -183,6 +189,15 @@ restoration and compatibility.
   lifecycle, terminal outcome and once-only defeated-identity accounting. Lethal
   victory atomically removes the selected actor and awards eligible XP once;
   defeat preserves injury and awards none.
+- Successful combat End publishes world-owned completed evidence. A guarded
+  retirement removes the combat coordinator and binds quiescent completion to
+  the actual world, party, roster and camera owners. Runtime tickets, leases,
+  generations and retained preimages are transient authority; copied values or
+  reconstructed pointers cannot authorize capture or revisit.
+- Completed Flow presentation preserves irreversible victory/accounting facts
+  across recoverable composition failure while holding capture closed until an
+  authorized frame handoff succeeds. Integrity violations permanently invalidate
+  that graph, while fatal presentation or shutdown keeps it unavailable.
 - Physical camera position and logical script address are distinct. Remove
   disables the selected object, when present, and events at the physical working
   cell, then restarts at line 0 of the logical address. Selection follows original
@@ -261,6 +276,13 @@ to maxima or normalized to original defaults. Slot holes, unknown item bytes
 and ID-zero metadata round-trip; only explicit category compaction clears empty
 metadata.
 
+Completed Diagnostic27 additionally persists the completed/accounted Clouds
+map-20 record-5 identity, exact encounter context and precisely six owner-keyed
+combat supplements including XP. Exact HP/SP, simultaneous conditions, all item
+bytes and equipment/breakage frames remain in the existing character payloads.
+No actor array, combat transcript, runtime capability or presentation state is
+serialized.
+
 **Transient or reconstructed:** resource payloads, loader metadata/diagnostics,
 derived rules/frames/caches, indoor placement/wall/command/raster values,
 interpreter working state and call stacks, temporary
@@ -273,7 +295,8 @@ resumed sessions reconstruct independent
 owners and presentation from saved values plus compatible resources.
 Fresh and restored gameplay start ordinary animation at phase zero with a new
 100 ms deadline. F9 preflight uses independent phase zero; saving and inventory
-inspection do not advance or rearm live animation. The save format is unchanged.
+inspection do not advance or rearm live animation. M28's completed-save extension
+does not change these animation semantics.
 
 M23 introduced no persistent category and no save-version change. Existing
 disabled object/event identities are sufficient to reconstruct indoor visibility
@@ -295,23 +318,21 @@ Equip operation, infer or normalize a loadout, or restore a transient selection
 certificate. M24 transfer remains independent: it resets the moved frame and
 compacts touched categories, whereas equipment changes one frame in place.
 
-M26/M27 encounter sessions are deliberately unsaveable from startup through all
-preparation, approach, combat, terminal and failure states. F9 refuses before
-target handling, capture, restore preflight or I/O; direct capture/restore guards
-also protect live encounter owners, context and the marked roster supplement.
-Live actors, combat outcomes, XP inputs and encounter context are authoritative
-but absent from v2, not reconstructible substitutes for saved state. M27 changes
-no snapshot schema, codec or version.
-[M28's future boundary](roadmap.md#m28---durable-bounded-encounter-completion-and-revisit)
-must address these values and actual map-load versus cache-reconstruction semantics.
+Diagnostic26 and every incomplete or unsafe Diagnostic27 state remain unsaveable.
+F9 refuses those states before capture, provider/preflight work or file I/O and
+never queues a later save. A coherent Diagnostic27 successful-End result becomes
+saveable only after guarded retirement into bound quiescent authority and after
+normal UI/presentation handoff guards are clear.
 
-**Format and compatibility:** the writer emits MMModern Clouds binary **v2**;
-the reader accepts **v1 and v2**. `.mmsave` uses bounded little-endian encoding,
+**Format and compatibility:** ordinary eligible saves use **v2** and completed
+Diagnostic27 saves use **v3**; the reader accepts supported **v1, v2 and v3**.
+`.mmsave` uses bounded little-endian encoding,
 a 4 MiB limit and CRC32 corruption checks. Compatibility requires matching
 `xeen.cc` length/CRC32 and `dark.cc` presence/length/CRC32, independently of the
 installation path. CRC32 is not cryptographic authentication. The envelope and
 unchanged fields are specified in the [M20 format](milestone-20-plan.md#4-concrete-format-mmmodern-clouds-save-v1);
-the exact item extension is in [M21](milestone-21-plan.md#save-v2-and-legacy-v1-compatibility).
+the item extension is in [M21](milestone-21-plan.md#save-v2-and-legacy-v1-compatibility),
+and completed v3 is specified in the [M28 format](milestone-28-plan.md#save-format-and-compatibility).
 
 V2 stores 144 item bytes per character in category/slot/material-ID-state-frame
 order. V1 stores equipment modifier triples: restoration preserves all saved
@@ -319,14 +340,16 @@ values and supplies only missing equipment IDs and miscellaneous arrays from
 the matching initial roster slots. V2 arrays, including explicit empties, win
 in full. A transient presence marker permits v1 decoding/restoration but prevents
 direct encoding of unresolved v1 snapshots. Reading never rewrites the file;
-an explicit eligible F9 save writes v2 through protected replacement.
+an explicit eligible F9 save writes v2 or v3 according to the captured session.
+V3 is the complete v2 payload followed by the fixed completed encounter/context/
+supplement extension; legacy absence never implies encounter completion.
 
-**Save boundary:** the session must be outside encounter mode, startup must succeed,
-and no dispatch, execution, presentation,
-open inventory, synchronous transfer, shutdown or fatal presentation failure may
-be active. Nonblocking retained labels are allowed but omitted. Pending F9 performs
-no capture, I/O, advancement or queued save; close inventory or complete the
-interaction and issue a new F9. No target means no write.
+**Save boundary:** an ordinary session or coherent quiescent completed
+Diagnostic27 may be captured after startup. No dispatch, execution, save/re-entry,
+open inventory/inspection, synchronous transfer, unresolved presentation lease,
+shutdown or fatal failure may be active. Nonblocking retained labels are allowed
+but omitted. Refused F9 performs no capture, provider, I/O, advancement or queued
+save; clear the blocking boundary and issue a new F9. No target means no write.
 
 An existing parent outside the commercial installation is required. Saving uses
 a sibling temporary file and preserves the old valid save on handled write or
@@ -336,11 +359,19 @@ alias containment. The contract targets local Windows filesystems; concurrent
 writers, network filesystems, running-resource replacement and arbitrary-crash
 or absolute power-loss guarantees are excluded.
 
-Resume restores owners before the first frame, with no retained UI or initial
-automatic dispatch; later navigation retains normal automatic behavior. New
-ordinary sessions retain normal initial dispatch; encounter startup uses explicit
-domain initialization instead. Invalid/incompatible saves fail startup
-without a fresh-session fallback. There is no original Xeen/ScummVM save
+Resume restores fresh owners before the first frame, with no retained UI or
+initial automatic dispatch. Ordinary resume later retains normal navigation/event
+behavior. Completed resume reconstructs all 27 original actors from compatible
+resources and applies the canonical defeated overlay to Clouds map 20 record 5;
+it restores exact party/context/supplement values and creates new runtime bindings.
+Invalid/incompatible saves fail startup without a fresh-session fallback.
+
+Cache reconstruction preserves the current live actor collection. Completed R
+revisit is a distinct, bounded true-entry operation: it reconstructs compatible
+entry resources even with warm caches, reapplies the canonical defeated overlay,
+repositions the camera to `(13,1)` North and advances a transient entry generation.
+Neither process resume nor revisit replays approach, combat, damage, XP, events,
+transfer or equipment actions. There is no original Xeen/ScummVM save
 compatibility, suspended-dialog save, in-session load, autosave, save-on-exit,
 slot menu or general migration framework.
 
@@ -357,7 +388,7 @@ or of a generally playable region.
 | Myra, map 23 `(9,11)` West | No-Root request sets Q2 after final acknowledgment, including Escape. Root-owned return consumes one Root, clears Q2 and produces five `{10,37,1,0}` rewards subject to delivery capacity/eligibility; receipt acknowledgment completes nine instructions. Further Roots allow returns; exhaustion restores request behavior. |
 | Air / Corner and Snake Oil | Original sign and reduced door-label presentation; Air / Corner also exercises static object/text layering. |
 | Nightshadow, map 29 `(4,6)` West | Original RIP gravestone rendered as a static ordinary indoor object with its original bottom-window clue and acknowledgment. The interaction is repeatable and has no durable state effect. |
-| Skeleton diagnostic, map 20 `(13,1)` North | Original monster record 5, type 8, initially `(13,2)`, with all 27 identities retained. World of Xeen Clouds/Adventurer context, bounded four-cell approach and playable Attack/Block combat with original MON/ATT appearance, injury, armor breakage, victory/defeat and once-only XP; entire session unsaveable. |
+| Skeleton diagnostic, map 20 `(13,1)` North | Original monster record 5, type 8, initially `(13,2)`, with all 27 identities retained. World of Xeen Clouds/Adventurer context, bounded four-cell approach and playable Attack/Block combat with original MON/ATT appearance, injury, armor breakage, victory/defeat and once-only XP. Incomplete/unsafe states remain unsaveable; successful completed victory supports restart, read-only inspection and bounded true revisit with record 5 still defeated. |
 
 Myra's ordinary tent-flag cycle runs without input and continues underneath
 dialogue, independently of the portrait. The [M22 checkpoint contract](milestone-22-plan.md#certified-original-data-checkpoint)
@@ -408,7 +439,7 @@ complete automated, original-data, independent-review and physical boundary.
   admitted melee/statistics/item domain, combat-time inventory mutation and
   recruitment/reordering. Random treasure, generic TakeOrGive and NPC
   modes/services beyond Clouds mode 1 also remain unsupported.
-- Actors and encounters beyond the bounded M27 outdoor fight,
+- Actors and encounters beyond the bounded M28 completed outdoor diagnostic,
   normal-route/playable-region certification, Swimming /
   Walk on Water and other unsupported movement capabilities. General indoor
   traversal, connected-map behavior and playable-region certification remain
@@ -428,8 +459,7 @@ Ordinary CTest does not depend on commercial data.
 
 ## Next direction
 
-M27's bounded Attack/Block encounter is an accepted foundation. The
-[roadmap](roadmap.md#current-planning-state) makes M28 durable encounter
-completion and revisit the immediate provisional direction. M28 must specify and
-implement persistence for the new actor, combat, progression and context state;
-its planning and implementation remain separately unauthorized.
+M28's durable bounded encounter completion and revisit are an accepted foundation.
+The [roadmap](roadmap.md#current-planning-state) retains broader connected Clouds
+progression and a possible repeatable recovery/exploration loop as conditional
+directions. No successor milestone is selected or authorized.

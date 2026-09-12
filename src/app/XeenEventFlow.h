@@ -33,7 +33,25 @@ public:
 	XeenEventFlow &operator=(const XeenEventFlow &) = delete;
 	IndexedFrame initial();
 	IndexedFrame handle(const PlayerAction &action, std::optional<std::uint64_t> displayedInput = {});
-	std::optional<std::uint64_t> displayedInput() const noexcept { return _encounter && _encounter->combat() ? std::optional<std::uint64_t>{_inputGeneration} : std::nullopt; }
+	std::optional<std::uint64_t> displayedInput() const noexcept { return _encounter && (_encounter->combat() || _encounter->completed()) ? std::optional<std::uint64_t>{_inputGeneration} : std::nullopt; }
+	bool completed() const noexcept { return _encounter && _encounter->completed(); }
+	bool canSave() const noexcept;
+	class SaveBoundary {
+		friend class XeenEventFlow;
+		const XeenEventFlow *owner = nullptr;
+		std::uint64_t generation = 0, inventory = 0, input = 0;
+	};
+	SaveBoundary beginSave();
+	bool saveCurrent(const SaveBoundary &) const noexcept;
+	void endSave();
+	void framePresented();
+	void closeGameplay() noexcept;
+	IndexedFrame completedFeedback(std::string);
+	static IndexedFrame preflightCompleted(IndexedFrame, const XeenFontFormat &, const XeenItemCatalog *,
+		const XeenWorld &, const XeenPartyState &, const XeenCamera &);
+	XeenWorld::MonsterLoader completedMonsters;
+	XeenWorld::EventLoader completedEvents;
+	XeenWorld::CompletedPreflight completedPreflight;
 	IndexedFrame refresh(bool reconstruct = false);
 	IndexedFrame acceptManual(XeenManualEventResult result);
 	IndexedFrame acceptAutomatic(XeenAutomaticEventResult result);
@@ -69,18 +87,23 @@ public:
 	std::function<void(const XeenEquipmentResult &)> reportEquipment;
 	std::function<void(XeenMovementResult)> reportMovement;
 private:
+	friend class Application;
+	XeenRestoreGuard &completedSavePreimage() { return _encounter->completedPreimage(); }
 	void requireCurrentOwners() const;
 	friend struct XeenRewardTestAccess;
 	friend struct XeenInventoryTestAccess;
 	// Synchronous dispatch also covers callbacks before a suspension is installed.
 	bool _dispatching = false;
 	bool _fatal = false;
+	bool _saving = false, _handoffPending = false;
 	std::unique_ptr<XeenEncounterFlow> _encounter;
 	EncounterCompose _encounterCompose;
 	std::optional<XeenEncounterFlow::Ticket> _encounterFrame;
 	std::optional<std::uint64_t> _cycle;
 	std::uint64_t _inputGeneration = 0;
 	std::optional<XeenCombat::Ticket> _displayedCombat;
+	std::optional<XeenEncounterFlow::Ticket> _displayedCompleted;
+	void authorizeCompletedFrame();
 	std::uint64_t _inventoryLease = 0, _certificateLease = 0;
 	bool combatPreparation() const noexcept { return _encounter && _encounter->preparation(); }
 	void syncCombatInventory();

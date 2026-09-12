@@ -382,13 +382,14 @@ int Application::loadGame(const std::filesystem::path &gameDirectory,
 int Application::encounter26(const std::filesystem::path &gameDirectory) const {
     return gameplay(gameDirectory, XeenActorApproach::kEntry, {}, false, XeenEncounterEntry::Diagnostic26);
 }
-int Application::encounter27(const std::filesystem::path &gameDirectory, std::optional<std::uint32_t> seed) const {
-    return gameplay(gameDirectory,XeenActorApproach::kEntry,{},false,XeenEncounterEntry::Diagnostic27,seed);
+int Application::encounter27(const std::filesystem::path &gameDirectory, std::optional<std::uint32_t> seed,
+        std::optional<std::filesystem::path> savePath) const {
+    return gameplay(gameDirectory,XeenActorApproach::kEntry,savePath,false,XeenEncounterEntry::Diagnostic27,seed);
 }
 int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera camera,
         const std::optional<std::filesystem::path> &savePath, bool resume, XeenEncounterEntry entry, std::optional<std::uint32_t> seed) const {
     try {
-        if (entry != XeenEncounterEntry::Ordinary && (resume || savePath))
+        if ((entry != XeenEncounterEntry::Ordinary && resume) || (entry == XeenEncounterEntry::Diagnostic26 && savePath))
             throw std::invalid_argument("Encounter entry cannot load or configure a save");
         const auto installation = XeenInstallationDetector().detect(gameDirectory);
         if (!installation) {
@@ -422,6 +423,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
         if (!assets.hasArchiveResource("fnt")) throw std::runtime_error("Missing Xeen font resource 'fnt'");
         const XeenFontFormat font(assets.readArchiveResource("fnt"));
         const CloudsMapComposer composer;
+        bool diagnosticControls = entry == XeenEncounterEntry::Diagnostic27;
         const auto catalog = loadXeenItemCatalog(assets);
         if (!catalog.diagnostic.empty()) std::cerr << "Item catalog: " << catalog.diagnostic << '\n';
         XeenGameplayServices services{
@@ -439,6 +441,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
             },
             [&](IndexedFrame &frame, std::uint8_t portrait, std::size_t index) { assets.drawNpc(frame, portrait, index); },
             [&](XeenEventFlow &flow, const XeenCamera &position) {
+                diagnosticControls = diagnosticControls || flow.completed();
                 flow.rebuildEncounterPresentation = [&] { assets.discardSpriteCache(); };
                 flow.reportManual = printManualEventResult;
                 flow.reportAutomatic = requireAutomaticEventSuccess;
@@ -450,11 +453,11 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                 };
             },
             [&](const IndexedFrame &first, const auto &handler, const auto &escape, const auto &idle, const auto &status) {
-                if (entry == XeenEncounterEntry::Diagnostic27)
+                if (diagnosticControls)
                     std::cout << "M27: I prepares inventory; Enter begins with inventory closed. "
                         "I cancels a transfer or closes Browse; N cancels confirmation. "
                         "Arrows and period control approach; Space attacks and B blocks in combat. "
-                        "Enemy work is automatic. F9 refuses saving; Escape exits the session.\n";
+                        "Enemy work is automatic. Completed Victory: F9 saves, I inspects, R revisits; Escape exits.\n";
                 else std::cout << "Controls: W/S move, A/D turn, Space interacts, Enter acknowledges, "
                     "Y/N answers, F1-F6 selects, I opens inventory, 1-9 selects a slot, T transfers, "
                     "F9 saves with inventory closed, Escape closes/cancels or exits.\n";
@@ -462,6 +465,13 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
             }
         };
         services.catalog = &catalog.catalog;
+        services.resources.loadInitialCharacters = [&] { return assets.readInitialResource("maze.chr"); };
+        services.resources.loadInitialContext = [&] { return XeenGameplayContextFormat::parse(assets.readInitialResource("maze.pty")); };
+        services.resources.loadMonsterStatistics = [&] {
+            const auto bytes = assets.readCloudsMonsterStatisticsFromDarkArchive();
+            if (!bytes) throw std::runtime_error("Missing DARK.CC/xeen.mon");
+            return XeenMonsterFormat::parse(*bytes);
+        };
         if (entry == XeenEncounterEntry::Diagnostic27) {
             std::uint32_t value = seed ? *seed : std::random_device{}();
             if (!seed && !value) value = 1;
