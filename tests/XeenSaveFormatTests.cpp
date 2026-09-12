@@ -274,7 +274,7 @@ void malformedBytes() {
 	}
 	auto bad = good;
 	bad[0] ^= 1; rejects([&] { XeenSaveFormat::decode(bad); }, "unrecognized format");
-	bad = good; bad[8] = 4; rejects([&] { XeenSaveFormat::decode(bad); }, "unsupported version");
+	bad = good; bad[8] = 5; rejects([&] { XeenSaveFormat::decode(bad); }, "unsupported version");
 	bad = good; bad[8] = 3; rejects([&] { XeenSaveFormat::decode(bad); }); // v1 payload is not v3.
 	bad = good; bad[8] = 2; rejects([&] { XeenSaveFormat::decode(bad); }); // v1 payload is not v2.
 	bad = good; bad[8] = 0; rejects([&] { XeenSaveFormat::decode(bad); }, "unsupported version");

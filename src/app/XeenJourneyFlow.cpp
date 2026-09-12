@@ -1,5 +1,6 @@
 #include "app/XeenEncounterFlow.h"
 #include "games/xeen/XeenJourneyRules.h"
+#include "games/xeen/XeenJourneyCapture.h"
 #include <limits>
 #include <stdexcept>
 
@@ -10,7 +11,9 @@ struct BusyJourney { bool &value; explicit BusyJourney(bool &v) : value(v) { val
 XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera &c, const XeenGameFlags &flags,
 		const XeenEventPresenter::Clock &clock, const XeenJourneySetup &setup) :
 	_journey(true), _journeyStatistics(setup.statistics), _world(w), _party(p), _camera(c), _flags(flags),
-	_clock(clock), _events(setup.events), _boundary(w,p,c) {
+	_clock(clock), _events(_journeyEvents), _boundary(w,p,c) {
+	_journeyEvents = setup.events;
+	_journeyCapture.reset(new XeenJourneyCapture(w,p,c,_state,_boundary,_busy,_journeyPreimage));
 	if (w.hasEncounterState() || p.roster.combatMarked() || p.encounterContext || w._combatCheck || w._combatAuthorized)
 		throw std::invalid_argument("Journey requires fresh uncoordinated owners");
 	try {
@@ -27,16 +30,42 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 				_journeyStatistics,_events,setup.seed);
 		}
 		w._combatCheck = {};
+		_journeyCapture->admittedActors = w.sessionState().actors();
 		auto &s = w._sessionState;
 		s._journeyOwner = this; s._combatApproachState = &_state;
 		s._journeyActivity = XeenJourneyActivity::Presentation;
 		++s._journeyGeneration; ++_generation;
 		retainJourney();
+		w._journeyCapture = _journeyCapture;
 	} catch (...) { closeJourney(); throw; }
 }
 XeenEncounterFlow::~XeenEncounterFlow() { if (_journey) closeJourney(); }
+XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera &c, const XeenGameFlags &f,
+		const XeenEventPresenter::Clock &clock, XeenJourneyRestoreTag) :
+	_journey(true), _world(w), _party(p), _camera(c), _flags(f), _clock(clock), _events(_journeyEvents), _boundary(w,p,c) {
+	const auto binding = w._journeyRestoration;
+	if (!binding || !binding->guard || !binding->guard->current() ||
+		&binding->guard->w != &w || &binding->guard->p != &p || &binding->guard->c != &c || &binding->guard->f != &f ||
+		!w.sessionState().journey() ||
+		w._sessionState._journeyActivity != XeenJourneyActivity::Unbound || w._sessionState._journeyOwner)
+		throw std::logic_error("Journey restoration binding is unavailable or stale");
+	// SaveState prepared all storage before publication. This handoff only binds
+	// fresh final-owner coordination; it performs no allocation or resource work.
+	binding->guard->check();
+	_journeyCapture.swap(binding->capture);
+	_journeyCapture->bind(w,p,c,_state,_boundary,_busy,_journeyPreimage);
+	_journeyStatistics.swap(binding->statistics); std::swap(_journeyEvents,binding->events);
+	_journeyPreimage.swap(binding->guard);
+	_state._world = &w; _state._party = &p; _state._camera = &c; _state._revision = 1;
+	w._sessionState._journeyOwner = this; w._sessionState._combatApproachState = &_state;
+	w._sessionState._journeyActivity = XeenJourneyActivity::Presentation;
+	++w._sessionState._journeyGeneration; ++_generation;
+	_journeyPreimage->adoptJourneyCoordination();
+	w._journeyCapture = _journeyCapture; w._journeyRestoration.reset();
+}
 void XeenEncounterFlow::retainJourney() {
-	_journeyPreimage = std::make_unique<XeenRestoreGuard>(_world,_party,_camera,_flags);
+	_journeyPreimage = std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
+	if (_journeyCapture) _journeyCapture->generation = _boundary.generation();
 }
 bool XeenEncounterFlow::journeyCapacity() noexcept {
 	if (_generation < std::numeric_limits<std::uint64_t>::max()-2 &&
@@ -45,6 +74,7 @@ bool XeenEncounterFlow::journeyCapacity() noexcept {
 }
 void XeenEncounterFlow::closeJourney() noexcept {
 	_failure = true;
+	if (_journeyCapture) _journeyCapture->closed = true;
 	if (!_journeyPreimage || !_journeyPreimage->worldAlive()) return;
 	auto &s = _world._sessionState;
 	if (s._journeyOwner && s._journeyOwner != this) return;
@@ -54,7 +84,26 @@ void XeenEncounterFlow::closeJourney() noexcept {
 }
 bool XeenEncounterFlow::journeyQuiet() const noexcept {
 	return _journey && !_busy && !_combat && !_failure && _boundary.quiet() && current(ticket()) &&
-		_world.sessionState().journeyActivity() == XeenJourneyActivity::Quiet && !_state.pending();
+		_world.journeyCaptureEligible(_party,_camera);
+}
+XeenEncounterFlow::Ticket XeenEncounterFlow::beginJourneySave() {
+	if (!journeyQuiet() || !journeyCapacity()) throw std::logic_error("Journey save boundary unavailable");
+	_world._sessionState._journeyActivity = XeenJourneyActivity::Saving;
+	++_world._sessionState._journeyGeneration; ++_generation;
+	_journeyPreimage->adoptJourneyCoordination();
+	return ticket();
+}
+bool XeenEncounterFlow::journeySaveCurrent(const Ticket &t) const noexcept {
+	return _journey && !_busy && !_combat && !_failure && current(t) && _boundary.quiet() &&
+		_world.sessionState().journeyActivity() == XeenJourneyActivity::Saving;
+}
+bool XeenEncounterFlow::endJourneySave(const Ticket &t) noexcept {
+	if (!journeySaveCurrent(t)) return false;
+	_world._sessionState._journeyActivity = XeenJourneyActivity::Quiet;
+	++_world._sessionState._journeyGeneration; ++_generation;
+	_journeyPreimage->adoptJourneyCoordination();
+	_journeyCapture->generation = _boundary.generation();
+	return true;
 }
 bool XeenEncounterFlow::presentJourney(const Ticket &entry) {
 	if (!_journey || _busy || _combat || !_journeyFramePrepared || !current(entry) ||
@@ -65,6 +114,7 @@ bool XeenEncounterFlow::presentJourney(const Ticket &entry) {
 	++s._journeyGeneration; ++_generation;
 	_journeyFramePrepared = _journeyFrameRetry = false;
 	_journeyPreimage->adoptJourneyCoordination();
+	_journeyCapture->generation = _boundary.generation();
 	return true;
 }
 bool XeenEncounterFlow::prepareJourneyFrame(const Ticket &entry, const std::function<void()> &compose) {
@@ -198,7 +248,7 @@ bool XeenEncounterFlow::retireJourney(const Ticket &entry) {
 	BusyJourney busy(_busy);
 	try {
 		// Allocate the returned preimage before consuming End. Only runtime fields change below.
-		auto prepared = std::make_unique<XeenRestoreGuard>(_world,_party,_camera,_flags);
+		auto prepared = std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 		_combat->retireJourney(*entry.combat,_state);
 		_retiredCombatResult = _combat->result(); _combat.reset(); ++_generation;
 		prepared->adoptJourneyCoordination(); prepared->adoptJourneyBorrowRelease(); _journeyPreimage.swap(prepared);

@@ -37,5 +37,11 @@ struct XeenGameplayServices {
  std::function<void(SaveStage)> observeSaveStage;
  decltype(XeenEncounterSetup::prepareCombat) prepareCombat;
 };
+// Application's persistence transaction, also usable by internal domain tests.
+// The target is already installation-checked by the caller. Refusal precedes
+// providers and file work; no public Journey entry is implied by this seam.
+void xeenSaveGameplay(const XeenGameplayServices &, XeenWorld &, XeenPartyState &,
+	XeenCamera &, XeenGameFlags &, XeenEventFlow &, const std::filesystem::path &,
+	const XeenSaveState::Preflight &, std::function<void()> *nestedSourceCheck = nullptr);
 }
 #endif

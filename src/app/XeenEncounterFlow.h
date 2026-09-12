@@ -27,6 +27,7 @@ struct XeenJourneySetup {
 	const XeenEventFile &events;
 	std::uint32_t seed;
 };
+struct XeenJourneyRestoreTag {};
 
 // Bounded coordinator. World/party/camera and the normalized clock remain borrowed.
 class XeenEncounterFlow {
@@ -37,8 +38,16 @@ public:
 		const XeenEventPresenter::Clock &, const XeenEncounterSetup &);
 	XeenEncounterFlow(XeenWorld &, XeenPartyState &, XeenCamera &, const XeenGameFlags &,
 		const XeenEventPresenter::Clock &, const XeenJourneySetup &);
+	XeenEncounterFlow(XeenWorld &, XeenPartyState &, XeenCamera &, const XeenGameFlags &,
+		const XeenEventPresenter::Clock &, XeenJourneyRestoreTag);
 	~XeenEncounterFlow();
 	bool journeyQuiet() const noexcept;
+	bool journey() const noexcept { return _journey; }
+	Ticket beginJourneySave();
+	bool journeySaveCurrent(const Ticket &) const noexcept;
+	bool endJourneySave(const Ticket &) noexcept;
+	XeenRestoreGuard &journeySavePreimage() { return *_journeyPreimage; }
+	std::shared_ptr<XeenRestoreGuard> retainSavePreimage() const { return _journey ? _journeyPreimage : _completedPreimage; }
 	const std::string &journeyRefusal() const noexcept { return _journeyRefusal; }
 	XeenEncounterResult journeyAction(const Ticket &, XeenEncounterAction);
 	XeenEncounterResult journeyPulse(const Ticket &);
@@ -52,7 +61,7 @@ public:
 	XeenEncounterFlow &operator=(const XeenEncounterFlow &) = delete;
 	Ticket ticket() const noexcept { return {state(), _generation, _combat ? std::optional<XeenCombat::Ticket>{_combat->ticket()} : std::nullopt, _completed, _boundary.generation()}; }
 	bool completed() const noexcept { return _completed.has_value(); }
-	bool canSave() const noexcept { return completed() && !_completedLease && current(ticket()); }
+	bool canSave() const noexcept { return journeyQuiet() || (completed() && !_completedLease && current(ticket())); }
 	void retireVictory();
 	void holdCompleted();
 	void releaseCompleted();
@@ -93,7 +102,9 @@ private:
 	bool _journey = false;
 	bool _journeyFramePrepared = false, _journeyFrameRetry = false;
 	std::string _journeyRefusal;
-	std::unique_ptr<XeenRestoreGuard> _journeyPreimage;
+	std::shared_ptr<XeenRestoreGuard> _journeyPreimage;
+	std::shared_ptr<XeenJourneyCapture> _journeyCapture;
+	XeenEventFile _journeyEvents;
 	std::vector<XeenMonsterRecord> _journeyStatistics;
 	void retainJourney();
 	bool journeyCapacity() noexcept;
@@ -119,7 +130,7 @@ private:
 	std::optional<XeenCompletedEncounterTicket> _completed;
 	std::uint64_t _completedLease = 0;
 	XeenCompletedGuard _completedLeaseKind = XeenCompletedGuard::Operation;
-	std::unique_ptr<XeenRestoreGuard> _completedPreimage;
+	std::shared_ptr<XeenRestoreGuard> _completedPreimage;
 	std::string _completedFeedback;
 	void retainCompleted();
 	const XeenEventPresenter::Clock &_clock;

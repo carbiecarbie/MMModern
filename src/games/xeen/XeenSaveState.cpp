@@ -9,12 +9,123 @@
 #include "games/xeen/XeenCombatRules.h"
 #include "games/xeen/XeenRestoreGuard.h"
 #include "formats/xeen/XeenCharacterFormat.h"
+#include "games/xeen/XeenJourneyCapture.h"
 
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
 
 namespace mmodern {
+
+bool XeenWorld::journeyCaptureEligible(const XeenPartyState &party, const XeenCamera &camera) const noexcept {
+	const auto retained = _journeyCapture.lock();
+	return retained && retained->current(party,camera);
+}
+
+void XeenSaveState::validateJourneyValues(const XeenSaveSnapshot &s) {
+	const auto &j = *s.journey;
+	const auto require = [](bool ok) { if (!ok) throw std::invalid_argument("Unsupported Journey durable state"); };
+	require(s.resources.darkside.has_value() && j.initializedMap == XeenMapIdentity(20) && j.originalActorCount == 27 &&
+		j.actors.size() == 1 && s.camera.mapId == XeenMapIdentity(20) && s.camera.x >= 13 && s.camera.x <= 14 &&
+		s.camera.y >= 1 && s.camera.y <= 2);
+	const auto &a = j.actors.front();
+	require(a.id == XeenMonsterIdentity{20,5} && a.status == XeenActorStatus::Physical);
+	if (a.lifecycle == XeenActorLifecycle::Present)
+		require(a.hp == 20 && a.activated && !a.accounted && a.x >= 13 && a.x <= 14 && a.y >= 1 && a.y <= 2 &&
+			(a.x != s.camera.x || a.y != s.camera.y));
+	else require(a.lifecycle == XeenActorLifecycle::Defeated && a.hp == 0 && !a.activated && a.accounted && a.x == -128 && a.y == -128);
+}
+
+void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resources &resources,
+		XeenPartyState &party, XeenCamera &camera, XeenGameFlags &flags, XeenWorld &world, const Preflight &preflight) {
+	const auto snapshot = source;
+	validateJourneyValues(snapshot);
+	const auto monsters = resources.loadMonsterStatistics;
+	const auto eventProvider = resources.loadEvents;
+	const auto presentation = preflight;
+	if (!monsters || !eventProvider || !presentation || !world._objectLoader)
+		throw std::invalid_argument("Journey restoration requires MON/MOB/EVT and presentation providers");
+	if (world._gameplayBorrow.borrowed() || party._gameplayBorrow.borrowed() || party.roster._gameplayBorrow.borrowed() ||
+		camera.gameplayBorrow.borrowed() || flags._gameplayBorrow.borrowed() || world._combatCheck || world._combatAuthorized ||
+		world._journeyRestoration || !world._journeyCapture.expired() || world._sessionState._combatOwner ||
+		world._sessionState._combatApproachState || world._sessionState._journeyOwner ||
+		world._sessionState._encounterRevision || world._sessionState._completedAuthority || world._sessionState._completedLease)
+		throw std::logic_error("Journey restoration requires fresh unborrowed destinations");
+	for (unsigned i = 0; i < 30; ++i)
+		if (party.roster.combatInputs(i)) throw std::logic_error("Journey destination has detached supplements");
+	XeenRestoreGuard destination(world,party,camera,flags,true);
+	XeenPartyState p;
+	XeenCamera c = snapshot.camera;
+	XeenGameFlags f(snapshot.gameFlags);
+	XeenWorld w(world._loader,world._objectLoader);
+	for (unsigned i = 0; i < 30; ++i) p.roster.at(i) = snapshot.characters[i];
+	p.party = XeenParty::fromRosterIds(snapshot.activeRosterIds);
+	p.questItems = XeenCloudsQuestItems(snapshot.questItems); p.questFlags = XeenCloudsQuestFlags(snapshot.questFlags);
+	p.firstSerializedCount = p.effectiveSerializedCount = 6;
+	p.encounterContext = snapshot.journey->context;
+	p.roster._combatMarked = true;
+	for (const auto &r : snapshot.journey->supplements) p.roster._combatInputs[r.owner] = r.inputs;
+	w._sessionState._skeletonSeed = snapshot.journey->skeletonSeed;
+	xeenValidateJourneyParty(p);
+	std::optional<XeenRestoreGuard> prepared;
+	const auto adopt = [&] { prepared.emplace(w,p,c,f); };
+	adopt();
+	const auto callback = [&](auto &&provider) {
+		destination.check(); prepared->check();
+		try {
+			auto returned = provider(); destination.check(); prepared->check();
+			const auto detached = returned; return detached;
+		} catch (...) { destination.check(); prepared->check(); throw; }
+	};
+	const auto mapProvider = w._loader; const auto mobProvider = w._objectLoader;
+	w._loader = [&](XeenMapIdentity id) {
+		auto value = callback([&] { return mapProvider(id); }); prepared->admitMap(id,value); return value;
+	};
+	w._objectLoader = [&](XeenMapIdentity id) {
+		auto value = callback([&] { return mobProvider(id); }); prepared->admitObjects(id,value); return value;
+	};
+	const auto events = [&](XeenMapIdentity id) { return callback([&] { return eventProvider(id); }); };
+	static_cast<void>(w.map(c.mapId));
+	w.restoreSessionState(snapshot.disabledObjects,snapshot.disabledEvents,events);
+	adopt(); // Only checked overlay preparation changed candidate gameplay values.
+	auto statistics = callback(monsters);
+	auto actors = XeenActorApproach::actorsFromResources(w.objectFile(20),statistics);
+	auto evt = events(20);
+	if (actors.size() != 27 || actors[5].original.resourceId != 8 || !actors[5].statistics)
+		throw std::invalid_argument("Journey requires original Skeleton collection");
+	actors[5].statistics->validateCombat();
+	if (actors[5].statistics->baseHp() != 20) throw std::invalid_argument("Journey Skeleton HP mismatch");
+	const auto &live = snapshot.journey->actors.front();
+	auto &a = actors[5];
+	a.x = live.x; a.y = live.y; a.hp = live.hp; a.activated = live.activated; a.lifecycle = live.lifecycle; a.status = live.status;
+	static_cast<void>(CloudsUiComposer::buildPortraitPlacements(p));
+	auto &s = w._sessionState;
+	s._actors.swap(actors); s._entry = XeenEncounterEntry::Journey;
+	s._encounterMarked = s._encounterInitialized = true; s._encounterRevision = 1;
+	s._skeletonSeed = snapshot.journey->skeletonSeed;
+	if (live.accounted) s._accountedMonsters.insert(live.id);
+	adopt(); // Complete saved domain, deliberately unbound and unavailable.
+	XeenActorApproach::validateEnvironment(w,s._actors,evt);
+	try { presentation(w,p,c,f); }
+	catch (...) { destination.check(); prepared->check(); throw; }
+	destination.check(); prepared->check();
+	// Prepare the complete handoff and its FINAL-owner preimage before any stores.
+	auto binding = std::make_shared<XeenJourneyRestoration>();
+	binding->capture.reset(new XeenJourneyCapture);
+	binding->capture->admittedActors = s._actors;
+	binding->statistics = std::move(statistics); binding->events = std::move(evt);
+	binding->guard = std::make_shared<XeenRestoreGuard>(world,party,camera,flags);
+	binding->guard->prepareJourneyPublication(*prepared);
+	destination.check(); prepared->check();
+	party.publishCompleted(p); // Same private full supplement publication; public copy rules remain closed.
+	camera = c; flags = f;
+	world.swapPreparedState(w);
+	auto &out = world._sessionState;
+	out._actors.swap(s._actors); out._accountedMonsters.swap(s._accountedMonsters);
+	out._entry = XeenEncounterEntry::Journey; out._encounterMarked = out._encounterInitialized = true;
+	out._encounterRevision = 1; out._skeletonSeed = snapshot.journey->skeletonSeed;
+	world._journeyRestoration.swap(binding);
+}
 
 void XeenSaveState::restoreCompleted(const XeenSaveSnapshot &source, const Resources &resources,
 		XeenPartyState &party, XeenCamera &camera, XeenGameFlags &flags,
@@ -144,13 +255,19 @@ void XeenSaveState::restoreCompleted(const XeenSaveSnapshot &source, const Resou
 bool XeenSaveState::canCapture(const XeenPartyState &party, const XeenCamera &camera,
 		const XeenWorld &world) noexcept {
 	return (!world.hasEncounterState() && !party.encounterContext && !party.roster.combatMarked()) ||
-		world.completedCaptureEligible(party, camera);
+		world.completedCaptureEligible(party, camera) || world.journeyCaptureEligible(party,camera);
 }
 
 XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resources,
 		const XeenPartyState &party, const XeenCamera &camera,
 		const XeenGameFlags &flags, const XeenWorld &world) {
 	const bool completed = world.sessionState().completion() == XeenEncounterCompletion::VictoryQuiescent;
+	// Reject an unrelated flag owner before observing the bound graph's integrity.
+	if (world.sessionState().journey()) {
+		const auto authority = world._journeyCapture.lock();
+		if (!authority || !authority->preimage || &(**authority->preimage).f != &flags)
+			throw std::logic_error("Journey capture requires the bound game-flag owner");
+	}
 	if (!canCapture(party, camera, world))
 		throw std::logic_error("MMModern save: encounter sessions cannot be captured");
 	XeenSaveSnapshot snapshot;
@@ -178,6 +295,17 @@ XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resourc
 		}
 		snapshot.completedEncounter = std::move(value);
 	}
+	if (state.journey()) {
+		xeenValidateJourneyParty(party);
+		XeenSaveJourney j;
+		j.context = party.encounterContext; j.skeletonSeed = state.skeletonSeed();
+		for (unsigned i = 0; i < 30; ++i) j.supplements[i] = {static_cast<std::uint8_t>(i), *party.roster.combatInputs(i)};
+		if (state.actors().size() != 27) throw std::logic_error("Journey actor collection changed");
+		const auto &a = state.actors()[5];
+		j.actors.push_back({a.id,a.x,a.y,a.hp,a.activated,a.lifecycle,a.status,state.accountedMonsters().count(a.id) != 0});
+		snapshot.journey = std::move(j);
+		validateJourneyValues(snapshot);
+	}
 	XeenSaveFormat::validate(snapshot);
 	return snapshot;
 }
@@ -190,6 +318,10 @@ void XeenSaveState::restoreBeforeGameplay(const XeenSaveSnapshot &snapshot,
 	XeenSaveFormat::validate(snapshot);
 	if (!(snapshot.resources == resources.signature))
 		throw std::runtime_error("MMModern save: original archive contents are incompatible");
+	if (snapshot.journey) {
+		restoreJourney(snapshot,resources,party,camera,flags,world,preflight);
+		return;
+	}
 	if (snapshot.completedEncounter) {
 		restoreCompleted(snapshot, resources, party, camera, flags, world, preflight);
 		return;

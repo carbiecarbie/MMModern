@@ -38,6 +38,9 @@ public:
 		const Resources &resources, XeenPartyState &party, XeenCamera &camera,
 		XeenGameFlags &flags, XeenWorld &world, const Preflight &preflight);
 private:
+	static void validateJourneyValues(const XeenSaveSnapshot &);
+	static void restoreJourney(const XeenSaveSnapshot &, const Resources &,
+		XeenPartyState &, XeenCamera &, XeenGameFlags &, XeenWorld &, const Preflight &);
 	static void restoreCompleted(const XeenSaveSnapshot &, const Resources &,
 		XeenPartyState &, XeenCamera &, XeenGameFlags &, XeenWorld &, const Preflight &);
 };

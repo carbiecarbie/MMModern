@@ -1,6 +1,38 @@
 #include "XeenRestoreReplayProbe.h"
 #include "games/xeen/XeenCombat.h"
 #include "games/xeen/XeenEventInterpreter.h"
+
+namespace replay_test {
+using namespace mmodern;
+void observe();
+unsigned journeyInitializations=0, journeyConstructions=0, actions=0, pulses=0, retirements=0, commands=0, draws=0;
+XeenEncounterResult real_journeyInitialize(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s, const std::vector<std::uint8_t> &chr, const XeenGameplayContext &ctx, const std::vector<XeenMonsterRecord> &mon, const XeenEventFile &evt, std::uint32_t seed) asm("__real_" XEEN_REPLAY_JOURNEY_INITIALIZE);
+XeenEncounterResult probe_journeyInitialize(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s, const std::vector<std::uint8_t> &chr, const XeenGameplayContext &ctx, const std::vector<XeenMonsterRecord> &mon, const XeenEventFile &evt, std::uint32_t seed) asm("__wrap_" XEEN_REPLAY_JOURNEY_INITIALIZE);
+XeenEncounterResult probe_journeyInitialize(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s, const std::vector<std::uint8_t> &chr, const XeenGameplayContext &ctx, const std::vector<XeenMonsterRecord> &mon, const XeenEventFile &evt, std::uint32_t seed) { observe(); ++journeyInitializations; return real_journeyInitialize(w,p,c,s,chr,ctx,mon,evt,seed); }
+XeenEncounterResult real_approachAction(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s, XeenEncounterAction a, const XeenEventFile &evt) asm("__real_" XEEN_REPLAY_ACTION);
+XeenEncounterResult probe_approachAction(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s, XeenEncounterAction a, const XeenEventFile &evt) asm("__wrap_" XEEN_REPLAY_ACTION);
+XeenEncounterResult probe_approachAction(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s, XeenEncounterAction a, const XeenEventFile &evt) { observe(); ++actions; return real_approachAction(w,p,c,s,a,evt); }
+XeenEncounterResult real_approachPulse(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s, const XeenEventFile &evt) asm("__real_" XEEN_REPLAY_PULSE);
+XeenEncounterResult probe_approachPulse(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s, const XeenEventFile &evt) asm("__wrap_" XEEN_REPLAY_PULSE);
+XeenEncounterResult probe_approachPulse(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s, const XeenEventFile &evt) { observe(); ++pulses; return real_approachPulse(w,p,c,s,evt); }
+struct JourneyReal {
+	void construct(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenCombatBoundary &b, const XeenGameFlags &f, const XeenEncounterState &s, const std::vector<XeenMonsterRecord> &mon, const XeenEventFile &evt) asm("__real_" XEEN_REPLAY_JOURNEY_CONSTRUCT);
+	void retire(const XeenCombat::Ticket &t, XeenEncounterState &s) asm("__real_" XEEN_REPLAY_RETIRE);
+	XeenCombatResult command(const XeenCombat::Ticket &t, XeenCombatCommand c) asm("__real_" XEEN_REPLAY_COMMAND);
+	std::optional<std::uint32_t> draw(std::uint32_t lo, std::uint32_t hi) asm("__real_" XEEN_REPLAY_DRAW);
+};
+struct JourneyProbe {
+	void construct(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenCombatBoundary &b, const XeenGameFlags &f, const XeenEncounterState &s, const std::vector<XeenMonsterRecord> &mon, const XeenEventFile &evt) asm("__wrap_" XEEN_REPLAY_JOURNEY_CONSTRUCT);
+	void retire(const XeenCombat::Ticket &t, XeenEncounterState &s) asm("__wrap_" XEEN_REPLAY_RETIRE);
+	XeenCombatResult command(const XeenCombat::Ticket &t, XeenCombatCommand c) asm("__wrap_" XEEN_REPLAY_COMMAND);
+	std::optional<std::uint32_t> draw(std::uint32_t lo, std::uint32_t hi) asm("__wrap_" XEEN_REPLAY_DRAW);
+};
+void JourneyProbe::construct(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenCombatBoundary &b, const XeenGameFlags &f, const XeenEncounterState &s, const std::vector<XeenMonsterRecord> &mon, const XeenEventFile &evt) { observe(); ++journeyConstructions; return reinterpret_cast<JourneyReal *>(this)->construct(w,p,c,b,f,s,mon,evt); }
+void JourneyProbe::retire(const XeenCombat::Ticket &t, XeenEncounterState &s) { observe(); ++retirements; return reinterpret_cast<JourneyReal *>(this)->retire(t,s); }
+XeenCombatResult JourneyProbe::command(const XeenCombat::Ticket &t, XeenCombatCommand c) { observe(); ++commands; return reinterpret_cast<JourneyReal *>(this)->command(t,c); }
+std::optional<std::uint32_t> JourneyProbe::draw(std::uint32_t lo, std::uint32_t hi) { observe(); ++draws; return reinterpret_cast<JourneyReal *>(this)->draw(lo,hi); }
+}
+
 using namespace mmodern;
 namespace replay_test {
 unsigned depth = 0, unexpected = 0, constructions = 0, services = 0, preparations = 0;

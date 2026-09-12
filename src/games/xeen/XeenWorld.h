@@ -21,8 +21,10 @@ namespace mmodern {
 
 enum class XeenEncounterCompletion { None, VictoryEnded, VictoryQuiescent };
 enum class XeenCompletedGuard { Operation, Presentation, Integrity, Fatal };
-enum class XeenJourneyActivity { Unbound, Quiet, Approach, Attachment, Combat, Presentation, Failed };
+enum class XeenJourneyActivity { Unbound, Quiet, Approach, Attachment, Combat, Presentation, Saving, Failed };
 class XeenGameFlags;
+class XeenJourneyCapture;
+struct XeenJourneyRestoration;
 struct XeenCompletedReentry {
 	std::uint64_t oldGeneration = 0, newGeneration = 0;
 	XeenCamera destination;
@@ -169,6 +171,7 @@ public:
 			!_sessionState._actors.empty();
 	}
 	bool completedCaptureEligible(const XeenPartyState &, const XeenCamera &) const noexcept;
+	bool journeyCaptureEligible(const XeenPartyState &, const XeenCamera &) const noexcept;
 	XeenCompletedEncounterTicket completedTicket(const XeenPartyState &, const XeenCamera &) const noexcept;
 	bool completedTicketCurrent(const XeenCompletedEncounterTicket &, const XeenPartyState &, const XeenCamera &) const noexcept;
 	// Checks an already-held capability; never grants capture or a new ticket.
@@ -217,6 +220,8 @@ private:
 	std::uint64_t _ownerRevision = 0;
 	std::uint64_t _cacheRevision = 0;
 	XeenGameplayBorrowOwner _gameplayBorrow;
+	std::weak_ptr<XeenJourneyCapture> _journeyCapture;
+	std::shared_ptr<XeenJourneyRestoration> _journeyRestoration;
 	// Diagnostic27 checks retained authority after fallible resource providers.
 	std::function<void()> _combatCheck;
 	// Retained Diagnostic27 authorization, separate from domain validity.

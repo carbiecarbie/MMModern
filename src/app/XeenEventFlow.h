@@ -27,7 +27,8 @@ public:
 		const XeenFontFormat &font, Compose compose,
 		XeenEventPresenter::NpcDraw npcDraw = {}, XeenEventPresenter::Clock clock = {},
 		XeenEventPresenter::RandomFrame randomFrame = {}, const XeenItemCatalog *catalog = nullptr,
-		const XeenEncounterSetup *encounter = nullptr, EncounterCompose encounterCompose = {});
+		const XeenEncounterSetup *encounter = nullptr, EncounterCompose encounterCompose = {},
+		const XeenJourneySetup *journey = nullptr);
 	~XeenEventFlow();
 	XeenEventFlow(const XeenEventFlow &) = delete;
 	XeenEventFlow &operator=(const XeenEventFlow &) = delete;
@@ -40,10 +41,14 @@ public:
 		friend class XeenEventFlow;
 		const XeenEventFlow *owner = nullptr;
 		std::uint64_t generation = 0, inventory = 0, input = 0;
+		std::uint64_t operation = 0;
+		std::optional<XeenEncounterFlow::Ticket> journey;
 	};
 	SaveBoundary beginSave();
 	bool saveCurrent(const SaveBoundary &) const noexcept;
 	void endSave();
+	void endSave(const SaveBoundary &);
+	bool journey() const noexcept { return _encounter && _encounter->journey(); }
 	void framePresented();
 	void closeGameplay() noexcept;
 	IndexedFrame completedFeedback(std::string);
@@ -87,6 +92,8 @@ public:
 	std::function<void(const XeenEquipmentResult &)> reportEquipment;
 	std::function<void(XeenMovementResult)> reportMovement;
 private:
+	std::uint64_t _saveOperation = 0;
+	std::optional<SaveBoundary> _saveBoundary;
 	friend class Application;
 	XeenRestoreGuard &completedSavePreimage() { return _encounter->completedPreimage(); }
 	void requireCurrentOwners() const;

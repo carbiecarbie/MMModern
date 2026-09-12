@@ -115,6 +115,18 @@ public:
 	}
 private:
 	friend class XeenEncounterFlow;
+	friend class XeenSaveState;
+	// Prepare a final-destination preimage before publication. Only the private
+	// SaveState swaps below are anticipated; no callback mutation is adopted.
+	void prepareJourneyPublication(const XeenRestoreGuard &candidate) {
+		s = candidate.s; characters = candidate.characters; inputs = candidate.inputs;
+		marked = candidate.marked; membership = candidate.membership;
+		quests = candidate.quests; questFlags = candidate.questFlags; context = candidate.context;
+		first = candidate.first; effective = candidate.effective; diagnostics = candidate.diagnostics;
+		cameraValue = candidate.cameraValue; flagValues = candidate.flagValues;
+		maps = candidate.maps; objects = candidate.objects;
+		++worldRevision; ++partyReplacement; ++rosterReplacement;
+	}
 	// Only the coordinator's checked, callback-free authority transitions may adopt these fields.
 	// Gameplay values, identity controls and cache preimages remain retained.
 	void adoptJourneyCoordination() noexcept {

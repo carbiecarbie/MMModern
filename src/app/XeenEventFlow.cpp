@@ -91,30 +91,48 @@ void XeenEventFlow::authorizeCompletedFrame() {
 
 XeenEventFlow::SaveBoundary XeenEventFlow::beginSave() {
 	if (!canSave()) throw std::logic_error("Save boundary is unavailable");
+	if (_saveOperation == std::numeric_limits<std::uint64_t>::max()) throw std::overflow_error("Save generation exhausted");
 	if (completed()) _encounter->holdCompleted();
-	_saving = true;
 	SaveBoundary boundary;
+	if (journey()) boundary.journey = _encounter->beginJourneySave();
+	_saving = true;
+	boundary.operation = ++_saveOperation;
 	boundary.owner = this; boundary.generation = _generation;
 	boundary.inventory = _inventoryEpoch; boundary.input = _inputGeneration;
+	_saveBoundary = boundary;
 	return boundary;
 }
 
 bool XeenEventFlow::saveCurrent(const SaveBoundary &b) const noexcept {
 	return b.owner == this && _saving && !_fatal && !_dispatching && _gameplayBorrow.current() &&
+		b.operation == _saveOperation && (!b.journey || _encounter->journeySaveCurrent(*b.journey)) &&
 		b.generation == _generation && b.inventory == _inventoryEpoch && b.input == _inputGeneration &&
 		!inventoryOpen() && !_pending && !_equipmentSelection && !_inventoryConfirmation;
 }
 
 void XeenEventFlow::endSave() {
+	if (_saveBoundary) endSave(*_saveBoundary);
+}
+void XeenEventFlow::endSave(const SaveBoundary &boundary) {
+	if (boundary.owner != this || boundary.operation != _saveOperation) return;
 	if (!_saving) return;
+	if (boundary.journey) {
+		if (!_encounter->endJourneySave(*boundary.journey)) { _fatal = true; return; }
+		_encounterFrame = _encounter->ticket();
+	}
 	if (completed()) { _encounter->releaseCompleted(); authorizeCompletedFrame(); }
 	_saving = false;
+	_saveBoundary.reset();
 }
 
 void XeenEventFlow::framePresented() {
 	requireCurrentOwners();
 	if (_dispatching || _saving) throw std::logic_error("Frame handoff during dispatch");
 	if (!encounterFrameCurrent()) throw std::logic_error("Stale successful frame handoff");
+	if (journey() && _handoffPending) {
+		if (!_encounter->presentJourney(*_encounterFrame)) throw std::logic_error("Stale Journey frame handoff");
+		_handoffPending = false; _encounterFrame = _encounter->ticket();
+	}
 	if (completed() && _handoffPending) {
 		if (!inventoryOpen()) _encounter->releaseCompleted();
 		_handoffPending = false;
@@ -124,6 +142,7 @@ void XeenEventFlow::framePresented() {
 
 void XeenEventFlow::closeGameplay() noexcept {
 	if (_gameplayBorrow.current() && completed()) _encounter->closeCompleted();
+	if (_gameplayBorrow.current() && journey()) _encounter->fail(_encounter->ticket());
 	_fatal = true;
 }
 
@@ -193,6 +212,16 @@ bool XeenEventFlow::advanceEncounterOrdinary(OrdinaryCause cause) {
 }
 
 IndexedFrame XeenEventFlow::renderEncounter(bool report) {
+	if (journey() && !_encounter->combat()) {
+		const auto t = _encounter->ticket();
+		if (!_encounter->prepareJourneyFrame(t,[&] {
+			auto composed = _encounterCompose(0,XeenMonsterAppearance{0});
+			if (!composed.frame.isValid()) throw std::runtime_error("Invalid Journey frame");
+			_frame = std::move(composed.frame);
+		})) throw std::runtime_error("Journey presentation preparation failed");
+		_encounterFrame = _encounter->ticket(); _handoffPending = true;
+		return frameCopy();
+	}
 	const bool hadFrame = _frame.isValid();
 	for (unsigned attempt = 0; attempt < 2; ++attempt) {
 		if (completed()) _encounter->holdCompleted();
@@ -248,7 +277,7 @@ XeenEventFlow::XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
 		XeenPartyState &party, XeenCamera &camera, XeenGameFlags &flags,
 		const XeenFontFormat &font, Compose compose, XeenEventPresenter::NpcDraw npcDraw,
 		XeenEventPresenter::Clock clock, XeenEventPresenter::RandomFrame randomFrame, const XeenItemCatalog *catalog,
-		const XeenEncounterSetup *encounter, EncounterCompose encounterCompose) :
+		const XeenEncounterSetup *encounter, EncounterCompose encounterCompose, const XeenJourneySetup *journey) :
 	_inventoryFont(font), _catalog(catalog ? *catalog : fallbackCatalog()),
 	_world(world), _gameplayBorrow(world, party, camera, flags), _events(events), _party(party), _camera(camera), _flags(flags),
 	_navigation(events), _clock(clock ? std::move(clock) : XeenEventPresenter::Clock{[] {
@@ -257,7 +286,11 @@ XeenEventFlow::XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
 	}}), _presenter(font, std::move(npcDraw), [this] { return _clock(); }, std::move(randomFrame)),
 	_ordinary{0, 0, camera.mapId, camera.direction, false},
 	_compose(std::move(compose)) {
-	if (encounter) {
+	if (journey) {
+		if (encounter || !encounterCompose) throw std::invalid_argument("Journey requires exclusive presentation setup");
+		_encounterCompose = std::move(encounterCompose);
+		_encounter = std::make_unique<XeenEncounterFlow>(world,party,camera,flags,_clock,*journey);
+	} else if (encounter) {
 		if (!_encounterCompose && !encounterCompose) throw std::invalid_argument("Missing encounter composer");
 		_encounterCompose = std::move(encounterCompose);
 		_encounter = std::make_unique<XeenEncounterFlow>(world, party, camera, flags, _clock, *encounter);

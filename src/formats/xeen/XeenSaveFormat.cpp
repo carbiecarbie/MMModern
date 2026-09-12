@@ -180,6 +180,7 @@ std::vector<Identity> readIdentities(Reader &in, std::size_t limit) {
 } // namespace
 
 void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
+	require(!(s.completedEncounter && s.journey), "mutually exclusive save domains");
 	validateMap(s.camera.mapId);
 	require(s.camera.x >= 0 && s.camera.x <= 15 && s.camera.y >= 0 && s.camera.y <= 15 &&
 		static_cast<unsigned>(s.camera.direction) <= 3, "invalid committed camera");
@@ -193,6 +194,39 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 	}
 	validateIdentities(s.disabledObjects, kMaximumObjects);
 	validateIdentities(s.disabledEvents, kMaximumEvents);
+	if (s.journey) {
+		const auto &j = *s.journey;
+		require(s.itemState == XeenSaveItemState::Complete, "Journey requires complete item fields");
+		require(j.entry == XeenEncounterEntry::Journey && j.schema == 1 && j.contract == 1,
+			"unsupported Journey domain/schema/contract");
+		require(j.context.has_value(), "missing Journey context");
+		require(j.context->profile == XeenBehaviorProfile::WorldOfXeenClouds &&
+			(j.context->difficulty == XeenDifficulty::Adventurer || j.context->difficulty == XeenDifficulty::Warrior),
+			"invalid Journey context enum");
+		for (std::size_t i = 0; i < j.supplements.size(); ++i) {
+			const auto &r = j.supplements[i];
+			require(r.owner == i, "invalid Journey supplemental owner sequence");
+			for (int v : {r.inputs.might.permanent, r.inputs.might.temporary, r.inputs.speed.permanent,
+				r.inputs.speed.temporary, r.inputs.accuracy.permanent, r.inputs.accuracy.temporary, r.inputs.temporaryAc})
+				require(v >= 0 && v <= 255, "Journey supplement outside byte range");
+		}
+		require(j.skeletonSeed != 0, "zero Journey seed");
+		validateMap(j.initializedMap);
+		require(j.originalActorCount >= 1 && j.originalActorCount <= 107 &&
+			j.actors.size() == 1, "invalid Journey actor counts");
+		for (std::size_t i = 0; i < j.actors.size(); ++i) {
+			const auto &a = j.actors[i];
+			validateMap(a.id.mapId);
+			require(a.id.recordIndex <= std::numeric_limits<std::uint32_t>::max() &&
+				(i == 0 || j.actors[i-1].id < a.id), "invalid Journey identity order/range");
+			require(a.x >= -128 && a.x <= 31 && a.y >= -128 && a.y <= 31 && a.hp >= 0 && a.hp <= 65535,
+				"Journey live value outside wire bounds");
+			require(a.lifecycle == XeenActorLifecycle::Present || a.lifecycle == XeenActorLifecycle::Disabled ||
+				a.lifecycle == XeenActorLifecycle::Unresolved || a.lifecycle == XeenActorLifecycle::Defeated,
+				"invalid Journey lifecycle");
+			require(a.status == XeenActorStatus::Physical || a.status == XeenActorStatus::Unsupported, "invalid Journey status");
+		}
+	}
 	if (s.completedEncounter) {
 		const auto &e = *s.completedEncounter;
 		require(s.itemState == XeenSaveItemState::Complete, "completed encounter requires complete item fields");
@@ -224,7 +258,7 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 std::vector<std::uint8_t> XeenSaveFormat::encode(const XeenSaveSnapshot &s) {
 	validate(s);
 	require(s.itemState == XeenSaveItemState::Complete, "unresolved legacy item state cannot be encoded");
-	const auto version = s.completedEncounter ? kCompletedVersion : kOrdinaryVersion;
+	const auto version = s.journey ? kJourneyVersion : s.completedEncounter ? kCompletedVersion : kOrdinaryVersion;
 	Writer out;
 	out.bytes.resize(kHeaderSize);
 	out.fingerprint(s.resources.clouds);
@@ -260,6 +294,36 @@ std::vector<std::uint8_t> XeenSaveFormat::encode(const XeenSaveSnapshot &s) {
 			out.u32(record.inputs.experience);
 		}
 	}
+	if (s.journey) {
+		const auto &j = *s.journey;
+		out.u8(3); out.u16(j.schema); out.u16(j.contract); out.u8(1);
+		const auto &c = *j.context;
+		out.u8(0); out.u8(c.difficulty == XeenDifficulty::Adventurer ? 0 : 1);
+		out.u16(c.ctr24); out.u16(c.day); out.u16(c.year); out.u16(c.minutes);
+		for (auto v : c.effects) out.u8(v);
+		for (auto v : c.lightAndResistances) out.u16(v);
+		out.u8(c.rested); out.u8(c.newDay); out.u8(30);
+		for (const auto &r : j.supplements) {
+			out.u8(r.owner);
+			for (int v : {r.inputs.might.permanent, r.inputs.might.temporary, r.inputs.speed.permanent,
+				r.inputs.speed.temporary, r.inputs.accuracy.permanent, r.inputs.accuracy.temporary, r.inputs.temporaryAc}) out.i32(v);
+			out.u32(r.inputs.experience);
+		}
+		out.u32(j.skeletonSeed); out.u8(0); out.u16(j.initializedMap.number);
+		out.u16(j.originalActorCount); out.u16(static_cast<std::uint16_t>(j.actors.size()));
+		for (const auto &a : j.actors) {
+			out.u8(0); out.u16(a.id.mapId.number); out.u32(static_cast<std::uint32_t>(a.id.recordIndex));
+			out.i16(static_cast<std::int16_t>(a.x)); out.i16(static_cast<std::int16_t>(a.y)); out.i32(a.hp);
+			out.u8(a.activated);
+			switch (a.lifecycle) {
+			case XeenActorLifecycle::Present: out.u8(0); break;
+			case XeenActorLifecycle::Disabled: out.u8(1); break;
+			case XeenActorLifecycle::Unresolved: out.u8(2); break;
+			case XeenActorLifecycle::Defeated: out.u8(3); break;
+			}
+			out.u8(a.status == XeenActorStatus::Physical ? 0 : 1); out.u8(a.accounted);
+		}
+	}
 	Writer header;
 	for (const auto byte : kMagic) header.u8(byte);
 	header.u16(version); header.u8(0); header.u8(0);
@@ -274,7 +338,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	Reader in{bytes};
 	for (const auto byte : kMagic) require(in.u8() == byte, "unrecognized format");
 	const auto version = in.u16();
-	require(version == 1 || version == 2 || version == 3, "unsupported version");
+	require(version == 1 || version == 2 || version == 3 || version == 4, "unsupported version");
 	require(in.u8() == 0, "unsupported game side");
 	require(in.u8() == 0, "nonzero reserved byte");
 	const auto length = in.u32();
@@ -326,6 +390,55 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 			supplement.inputs.temporaryAc=in.i32();supplement.inputs.experience=in.u32();
 		}
 		s.completedEncounter=std::move(e);
+	}
+	if (version == 4) {
+		require(in.remaining() == 1060, "invalid v4 extension size");
+		XeenSaveJourney j;
+		require(in.u8() == 3, "invalid v4 domain");
+		j.schema = in.u16(); j.contract = in.u16();
+		require(j.schema == 1 && j.contract == 1, "unsupported Journey schema/contract");
+		require(in.u8() == 1, "missing Journey context");
+		XeenGameplayContext c;
+		require(in.u8() == 0, "invalid Journey profile");
+		const auto difficulty = in.u8(); require(difficulty <= 1, "invalid Journey difficulty");
+		c.difficulty = difficulty == 0 ? XeenDifficulty::Adventurer : XeenDifficulty::Warrior;
+		c.ctr24 = in.u16(); c.day = in.u16(); c.year = in.u16(); c.minutes = in.u16();
+		for (auto &v : c.effects) v = in.u8();
+		for (auto &v : c.lightAndResistances) v = in.u16();
+		c.rested = in.boolean(); c.newDay = in.boolean(); j.context = c;
+		require(in.u8() == 30, "invalid Journey supplement count");
+		for (unsigned i = 0; i < 30; ++i) {
+			auto &r = j.supplements[i]; r.owner = in.u8();
+			require(r.owner == i, "invalid Journey supplemental owner sequence");
+			r.inputs.might.permanent = in.i32(); r.inputs.might.temporary = in.i32();
+			r.inputs.speed.permanent = in.i32(); r.inputs.speed.temporary = in.i32();
+			r.inputs.accuracy.permanent = in.i32(); r.inputs.accuracy.temporary = in.i32();
+			r.inputs.temporaryAc = in.i32(); r.inputs.experience = in.u32();
+		}
+		j.skeletonSeed = in.u32();
+		require(in.u8() == 0, "invalid Journey map side"); j.initializedMap = {XeenSide::Clouds, in.u16()};
+		j.originalActorCount = in.u16();
+		const auto count = in.u16();
+		require(count >= 1 && count <= 107 && count <= in.remaining()/19 && count == 1, "invalid Journey live record count");
+		for (unsigned i = 0; i < count; ++i) {
+			XeenSaveJourneyActor a;
+			require(in.u8() == 0, "invalid Journey actor side"); a.id.mapId = {XeenSide::Clouds, in.u16()};
+			const auto index = in.u32();
+			require(index <= std::numeric_limits<std::size_t>::max(), "Journey identity cannot be represented");
+			a.id.recordIndex = static_cast<std::size_t>(index);
+			a.x = in.i16(); a.y = in.i16(); a.hp = in.i32(); a.activated = in.boolean();
+			switch (in.u8()) {
+			case 0: a.lifecycle = XeenActorLifecycle::Present; break;
+			case 1: a.lifecycle = XeenActorLifecycle::Disabled; break;
+			case 2: a.lifecycle = XeenActorLifecycle::Unresolved; break;
+			case 3: a.lifecycle = XeenActorLifecycle::Defeated; break;
+			default: require(false, "invalid Journey lifecycle");
+			}
+			const auto status = in.u8(); require(status <= 1, "invalid Journey status");
+			a.status = status == 0 ? XeenActorStatus::Physical : XeenActorStatus::Unsupported;
+			a.accounted = in.boolean(); j.actors.push_back(a);
+		}
+		s.journey = std::move(j);
 	}
 	require(in.remaining() == 0, "trailing payload data");
 	validate(s);

@@ -30,6 +30,57 @@ struct EncounterHandoff {
  ~EncounterHandoff() { if (std::uncaught_exceptions() > exceptions) fail(); }
 };
 }
+void xeenSaveGameplay(const XeenGameplayServices &services, XeenWorld &world, XeenPartyState &party,
+	XeenCamera &camera, XeenGameFlags &flags, XeenEventFlow &flow, const std::filesystem::path &target,
+	const XeenSaveState::Preflight &preflight, std::function<void()> *nestedSourceCheck) {
+	if (!flow.canSave() || !XeenSaveState::canCapture(party,camera,world))
+		throw std::logic_error("Save boundary is unavailable");
+	XeenRestoreGuard before(world,party,camera,flags);
+	const auto snapshot = XeenSaveState::capture(services.resources.signature,party,camera,flags,world);
+	before.check();
+	const auto boundary = flow.beginSave();
+	struct Lease {
+		XeenEventFlow &flow; XeenEventFlow::SaveBoundary boundary;
+		~Lease() { try { flow.endSave(boundary); } catch (...) { flow.closeGameplay(); } }
+	} lease{flow,boundary};
+	// Journey and completed Flow retained this preimage before capture and admit
+	// only their own explicit lease transition. Ordinary beginSave changes no owner.
+	const auto heldPreimage = flow.encounter() ? flow.encounter()->retainSavePreimage() : nullptr;
+	auto &retained = heldPreimage ? *heldPreimage : before;
+	const auto check = [&] { retained.check(); if (!flow.saveCurrent(boundary)) throw std::logic_error("Save UI authorization changed"); };
+	XeenRestoreGuard::Providers providers(retained,world,check);
+	struct NestedSource {
+		std::function<void()> *slot;
+		std::function<void()> previous;
+		~NestedSource() { if (slot) slot->swap(previous); }
+	} nested{nestedSourceCheck,check};
+	if (nested.slot) nested.slot->swap(nested.previous);
+	const auto callback = [&](auto &&provider) {
+		check();
+		try { auto value = provider(); check(); const auto detached = value; return detached; }
+		catch (...) { check(); throw; }
+	};
+	auto resources = services.resources;
+	if (resources.loadInitialParty) resources.loadInitialParty = [&] { return callback(services.resources.loadInitialParty); };
+	if (resources.loadInitialCharacters) resources.loadInitialCharacters = [&] { return callback(services.resources.loadInitialCharacters); };
+	if (resources.loadInitialContext) resources.loadInitialContext = [&] { return callback(services.resources.loadInitialContext); };
+	if (resources.loadMonsterStatistics) resources.loadMonsterStatistics = [&] { return callback(services.resources.loadMonsterStatistics); };
+	if (resources.loadEvents) resources.loadEvents = [&](XeenMapIdentity id) { return callback([&] { return services.resources.loadEvents(id); }); };
+	const auto stage = [&](XeenGameplayServices::SaveStage stage) {
+		check(); try { if (services.observeSaveStage) services.observeSaveStage(stage); }
+		catch (...) { check(); throw; } check();
+	};
+	stage(XeenGameplayServices::SaveStage::Capture);
+	XeenWorld candidate([&](XeenMapIdentity id) { return callback([&] { return services.maps(id); }); },
+		[&](XeenMapIdentity id) { return callback([&] { return services.objects(id); }); });
+	XeenPartyState p; XeenCamera c; XeenGameFlags f;
+	stage(XeenGameplayServices::SaveStage::Preflight);
+	XeenSaveState::restoreBeforeGameplay(snapshot,resources,p,c,f,candidate,[&](auto &w,const auto &p,const auto &c,const auto &f) {
+		check(); try { preflight(w,p,c,f); } catch (...) { check(); throw; } check();
+	});
+	stage(XeenGameplayServices::SaveStage::Write);
+	check(); XeenSaveFile::write(target,snapshot);
+}
 int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera camera,
   const std::optional<std::filesystem::path> &target, bool resume, XeenEncounterEntry entry) const {
  try {
@@ -58,7 +109,11 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   XeenPartyState party;
   XeenGameFlags flags;
   const auto preflight = [&](XeenWorld &w, const XeenPartyState &p, const XeenCamera &c, const XeenGameFlags &) {
-   if (w.sessionState().completion() == XeenEncounterCompletion::VictoryQuiescent) {
+   if (w.sessionState().journey()) {
+    if (!services.composeEncounter) throw std::invalid_argument("Missing Journey presentation provider");
+    if (!services.composeEncounter(w,p,c,0,XeenMonsterAppearance{0}).frame.isValid())
+     throw std::runtime_error("Invalid Journey first frame");
+   } else if (w.sessionState().completion() == XeenEncounterCompletion::VictoryQuiescent) {
     if (!services.composeEncounter) throw std::invalid_argument("Missing completed presentation provider");
     auto frame = services.composeEncounter(w,p,c,0,XeenMonsterAppearance{0}).frame;
     // Candidate facts are intentionally unpublished. Presentation neither
@@ -70,6 +125,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   if (resume) {
    if (!target) throw std::runtime_error("Resume requires a save path");
    const auto saved = XeenSaveFile::read(*target);
+   if (saved.journey) throw std::invalid_argument("Journey public load routing is not available");
    XeenSaveState::restoreBeforeGameplay(saved, services.resources, party, camera, flags, world, preflight);
    entry = world.sessionState().encounterEntry();
    encounter = entry != XeenEncounterEntry::Ordinary;
@@ -135,7 +191,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   bool active = true;
   const auto dispatch = [&](const PlayerAction &action, std::optional<std::uint64_t> input) -> std::optional<IndexedFrame> {
    // This irreversible entry decision needs no access to possibly closed owners.
-   if (std::holds_alternative<SaveGameAction>(action) && encounter && !flow.completed()) {
+   if (std::holds_alternative<SaveGameAction>(action) && encounter && !flow.completed() && !flow.journey()) {
     status = "MMModern - Cannot save: encounter session is unsaveable.";
     return std::nullopt;
    }
@@ -165,39 +221,10 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
     else if (!flow.canSave()) message = "Cannot save while an interaction is pending.";
     else if (!target) message = "No save target configured. Use --save-file <path>.";
     else try {
-     // Capture while publicly eligible, then acquire the exclusive operation
-     // lease before the first observer. There are no callbacks in between.
-     const XeenRestoreGuard beforeCapture(world,party,camera,flags);
-     const auto snapshot = XeenSaveState::capture(services.resources.signature, party, camera, flags, world);
-     beforeCapture.check();
-     const auto boundary = flow.beginSave();
-     std::optional<XeenRestoreGuard> ordinarySource;
-     if (!flow.completed()) ordinarySource.emplace(world,party,camera,flags);
-     auto &retained = flow.completed() ? flow.completedSavePreimage() : *ordinarySource;
-     XeenRestoreGuard::Providers providers(retained,world);
-     sourceCheck = [&] {
-      retained.check();
-      if (!flow.saveCurrent(boundary)) throw std::logic_error("Save UI authorization changed");
-     };
-     struct SourceScope { std::function<void()> &check; ~SourceScope() { check = {}; } } sourceScope{sourceCheck};
-     const auto stage = [&](XeenGameplayServices::SaveStage value) {
-      sourceCheck();
-      try { if (services.observeSaveStage) services.observeSaveStage(value); }
-      catch (...) { sourceCheck(); throw; }
-      sourceCheck();
-     };
-     stage(XeenGameplayServices::SaveStage::Capture);
-     // Validate capture against original resources without touching live owners/caches.
-     XeenWorld candidate(services.maps, services.objects);
-     XeenPartyState p; XeenCamera c; XeenGameFlags f;
-     stage(XeenGameplayServices::SaveStage::Preflight);
-     XeenSaveState::restoreBeforeGameplay(snapshot, services.resources, p, c, f, candidate, preflight);
-     stage(XeenGameplayServices::SaveStage::Write);
-     sourceCheck();
-     XeenSaveFile::write(*target, snapshot);
+     xeenSaveGameplay(services,world,party,camera,flags,flow,*target,preflight,&sourceCheck);
      success = true; message = "Saved";
     } catch (const std::exception &e) { message = std::string("Save failed: ") + e.what(); }
-    flow.endSave();
+
     handoff.retain();
     if (target) message += " [" + target->u8string() + "]";
     status = "MMModern - " + message;

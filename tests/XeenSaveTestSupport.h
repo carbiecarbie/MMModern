@@ -63,6 +63,19 @@ inline void sameSnapshot(const XeenSaveSnapshot &a, const XeenSaveSnapshot &b) {
 		"independent world identities changed");
 	check(sameCompleted(a.completedEncounter, b.completedEncounter),
 		"completed encounter extension changed");
+	check(bool(a.journey)==bool(b.journey),"Journey presence changed");
+	if(a.journey) {
+		const auto &x=*a.journey,&y=*b.journey;
+		check(x.entry==y.entry&&x.schema==y.schema&&x.contract==y.contract&&x.context==y.context&&
+			x.skeletonSeed==y.skeletonSeed&&x.initializedMap==y.initializedMap&&x.originalActorCount==y.originalActorCount&&
+			x.actors.size()==y.actors.size(),"Journey header values changed");
+		for(unsigned i=0;i<30;++i) check(x.supplements[i].owner==y.supplements[i].owner&&
+			sameInputs(x.supplements[i].inputs,y.supplements[i].inputs),"Journey supplements changed");
+		for(std::size_t i=0;i<x.actors.size();++i) {const auto &p=x.actors[i],&q=y.actors[i];
+			check(p.id==q.id&&p.x==q.x&&p.y==q.y&&p.hp==q.hp&&p.activated==q.activated&&
+				p.lifecycle==q.lifecycle&&p.status==q.status&&p.accounted==q.accounted,"Journey actor record changed");
+		}
+	}
 }
 
 inline XeenSaveSnapshot sample() {

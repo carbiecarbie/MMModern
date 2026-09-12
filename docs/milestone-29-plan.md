@@ -722,6 +722,19 @@ never rolled back or hidden. Invalid restoration fails startup without silently
 starting fresh. Do not run initial events, approach, combat, damage, XP,
 transfer/equip or seed advancement to reconstruct a save.
 
+The M29B internal handoff prepares its resource values, capture storage and a
+preimage bound to the final destination identities before private publication.
+Published Journey values remain Unbound and unavailable until the restore-only
+EncounterFlow constructor consumes that checked handoff without allocation or
+gameplay initialization. It binds pending-zero coordination and holds Presentation
+until the matching prepared frame is presented. World exposes capture through a
+weak reference to Flow-owned lifetime storage that checks the actual coordination,
+retained owner/resource facts and boundary generation; it invokes no provider or
+coordinator callback. Save operations retain the same pre-capture guard across
+their explicit Saving transition. Operation generations prevent stale cleanup
+from releasing a newer save lease. These internal seams do not enable public
+Journey startup, load routing or connected controls.
+
 Plain v1/v2 loads remain ordinary and write v2 on explicit save. V1's exact
 missing-ID/miscellaneous policy remains intact; v2 explicit empties win. V3
 continues to restore terminal completed Diagnostic27 with exactly six supplements

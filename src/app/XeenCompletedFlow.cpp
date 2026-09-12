@@ -7,7 +7,7 @@ namespace mmodern {
 void XeenEncounterFlow::retainCompleted() {
 	if (_generation == std::numeric_limits<std::uint64_t>::max()) throw std::overflow_error("Completed Flow generation exhausted");
 	++_generation;
-	_completedPreimage = std::make_unique<XeenRestoreGuard>(_world, _party, _camera, _flags);
+	_completedPreimage = std::make_shared<XeenRestoreGuard>(_world, _party, _camera, _flags);
 }
 
 void XeenEncounterFlow::retireVictory() {
