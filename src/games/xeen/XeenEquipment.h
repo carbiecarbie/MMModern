@@ -47,5 +47,8 @@ static_assert(std::is_nothrow_move_assignable_v<XeenEquipmentResult>);
 XeenEquipmentResult xeenSetEquipment(XeenPartyState &, std::size_t activeIndex,
 	XeenInventoryCategory, std::size_t physicalSlot, XeenEquipmentOperation);
 
+// Read-only completed-domain admission; performs no equipment operation.
+void xeenValidateCompletedEquipment(const XeenCharacter &);
+
 } // namespace mmodern
 #endif

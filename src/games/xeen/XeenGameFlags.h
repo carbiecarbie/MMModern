@@ -3,6 +3,7 @@
 
 #include <array>
 #include <cstddef>
+#include "games/xeen/XeenGameplayBorrow.h"
 
 namespace mmodern {
 
@@ -21,6 +22,10 @@ public:
 	const Storage &values() const { return _flags; }
 
 private:
+	friend class XeenWorld;
+	friend class XeenRestoreGuard;
+	friend class XeenSaveState;
+	XeenGameplayBorrowOwner _gameplayBorrow;
 	static std::size_t checkedIndex(int index);
 
 	Storage _flags{};

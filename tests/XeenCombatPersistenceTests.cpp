@@ -7,7 +7,8 @@ struct Ordinary {
 	XeenWorld world{[](XeenMapIdentity){return map();},[](XeenMapIdentity){return objects();}};
 	XeenSaveResourceSignature signature=save_test::sample().resources;
 	XeenSaveSnapshot capture(){return XeenSaveState::capture(signature,p,camera,flags,world);}
-	XeenSaveState::Resources resources(){return {signature,[]{return XeenPartyLoader().loadFromResources(chr(),pty());},[](XeenMapIdentity){return events();}};}
+	XeenSaveState::Resources resources(){return {signature,[]{return XeenPartyLoader().loadFromResources(chr(),pty());},
+		[](XeenMapIdentity){return events();},[]{return chr();},[]{return XeenGameplayContextFormat::parse(pty());},[]{return statistics();}};}
 };
 
 std::vector<Draw> victoryTape() {
@@ -88,9 +89,13 @@ void completedAuthorityAndCapture() {
 	auto resources=destination.resources();resources.signature=signature;
 	resources.loadInitialParty=[&]{++calls;return XeenPartyLoader().loadFromResources(chr(),pty());};
 	resources.loadEvents=[&](XeenMapIdentity){++calls;return events();};
-	rejects([&]{XeenSaveState::restoreBeforeGameplay(snapshot,resources,destination.p,destination.camera,
-		destination.flags,destination.world,[&](XeenWorld &,const XeenPartyState &,const XeenCamera &,const XeenGameFlags &){++calls;});},"28B");
-	check(calls==0,"v3 restoration refusal invoked a provider");save_test::sameSnapshot(before,destination.capture());
+	XeenSaveState::restoreBeforeGameplay(XeenSaveFormat::decode(bytes),resources,destination.p,destination.camera,
+		destination.flags,destination.world,[&](XeenWorld &w,const XeenPartyState &p,const XeenCamera &c,const XeenGameFlags &){
+			++calls; check(!XeenSaveState::canCapture(p,c,w),"unpublished candidate acquired capture authority");
+			rejects([&]{w.holdCompletedGuard(w.completedTicket(p,c),XeenCompletedGuard::Operation,p,c);},"stale");
+		});
+	check(calls==3,"completed restore provider/preflight count");save_test::sameSnapshot(snapshot,destination.capture());
+	rejects([&]{destination.world.holdCompletedGuard(completed,XeenCompletedGuard::Operation,destination.p,destination.camera);},"stale");
 }
 
 void retirementAndIntegrityRefusals() {

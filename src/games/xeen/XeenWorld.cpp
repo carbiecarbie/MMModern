@@ -1,4 +1,6 @@
 #include "games/xeen/XeenWorld.h"
+#include "games/xeen/XeenStateEquality.h"
+#include "games/xeen/XeenGameFlags.h"
 
 #include <atomic>
 #include <stdexcept>
@@ -6,6 +8,12 @@
 #include <utility>
 
 namespace mmodern {
+XeenWorld::GameplayBorrow::GameplayBorrow(XeenWorld &w, XeenPartyState &p,
+		XeenCamera &c, XeenGameFlags &f) : owners{w._gameplayBorrow.retain(),
+		p._gameplayBorrow.retain(), p.roster._gameplayBorrow.retain(),
+		c.gameplayBorrow.retain(), f._gameplayBorrow.retain()} {
+	for (const auto &state : owners) { ++state->references; ++state->revision; }
+}
 namespace {
 std::uint64_t nextWorldIncarnation() {
 	static std::atomic<std::uint64_t> next{1};
@@ -17,45 +25,7 @@ std::uint64_t nextWorldIncarnation() {
 				std::memory_order_relaxed, std::memory_order_relaxed)) return value;
 	}
 }
-bool sameAttribute(XeenAttributeValue a, XeenAttributeValue b) {
-	return a.permanent == b.permanent && a.temporary == b.temporary;
-}
-bool sameInputs(const XeenCombatInputs &a, const XeenCombatInputs &b) {
-	return sameAttribute(a.might, b.might) && sameAttribute(a.speed, b.speed) &&
-		sameAttribute(a.accuracy, b.accuracy) && a.temporaryAc == b.temporaryAc &&
-		a.experience == b.experience;
-}
-bool sameItemCategory(const XeenItemCategory &a, const XeenItemCategory &b) {
-	for (std::size_t i = 0; i < a.size(); ++i)
-		if (a[i].material != b[i].material || a[i].id != b[i].id ||
-			a[i].state != b[i].state || a[i].frame != b[i].frame) return false;
-	return true;
-}
-bool sameCharacter(const XeenCharacter &a, const XeenCharacter &b) {
-	return a.rosterId == b.rosterId && a.name == b.name && a.sex == b.sex &&
-		a.race == b.race && a.characterClass == b.characterClass &&
-		sameAttribute(a.intellect, b.intellect) && sameAttribute(a.personality, b.personality) &&
-		sameAttribute(a.endurance, b.endurance) && a.permanentLevel == b.permanentLevel &&
-		a.temporaryLevel == b.temporaryLevel && a.temporaryAge == b.temporaryAge &&
-		a.maxStatSkills.astrologer == b.maxStatSkills.astrologer &&
-		a.maxStatSkills.bodybuilder == b.maxStatSkills.bodybuilder &&
-		a.maxStatSkills.prayerMaster == b.maxStatSkills.prayerMaster &&
-		a.maxStatSkills.prestidigitation == b.maxStatSkills.prestidigitation &&
-		a.hasSpells == b.hasSpells && sameItemCategory(a.weapons, b.weapons) &&
-		sameItemCategory(a.armor, b.armor) && sameItemCategory(a.accessories, b.accessories) &&
-		sameItemCategory(a.miscellaneous, b.miscellaneous) && a.currentHp == b.currentHp &&
-		a.currentSp == b.currentSp && a.conditions == b.conditions && a.birthYear == b.birthYear;
-}
-bool sameCamera(const XeenCamera &a, const XeenCamera &b) {
-	return a.mapId == b.mapId && a.x == b.x && a.y == b.y && a.direction == b.direction;
-}
-bool sameActor(const XeenActor &a, const XeenActor &b) {
-	return a.id == b.id && a.original.x == b.original.x && a.original.y == b.original.y &&
-		a.original.direction == b.original.direction && a.original.tableIndex == b.original.tableIndex &&
-		a.original.resourceId == b.original.resourceId && a.x == b.x && a.y == b.y && a.hp == b.hp &&
-		a.activated == b.activated && a.lifecycle == b.lifecycle && a.status == b.status &&
-		bool(a.statistics) == bool(b.statistics) && (!a.statistics || a.statistics->raw == b.statistics->raw);
-}
+using namespace xeen_state;
 }
 
 XeenWorld::XeenWorld(MapLoader loader, ObjectLoader objectLoader) :
@@ -66,7 +36,7 @@ XeenWorld::XeenWorld(MapLoader loader, ObjectLoader objectLoader) :
 
 bool XeenWorld::completedCaptureEligible(const XeenPartyState &party, const XeenCamera &camera) const noexcept {
 	const auto &s = _sessionState;
-	if (s._completion != XeenEncounterCompletion::VictoryQuiescent || !s._completedAuthority ||
+	if (!s._completedPublished || s._completion != XeenEncounterCompletion::VictoryQuiescent || !s._completedAuthority ||
 		!s._combatAccounted || !s._diagnostic27 || !s._combatEntered || !s._encounterMarked ||
 		!s._encounterInitialized || !s._encounterTerminal || s._entry != XeenEncounterEntry::Diagnostic27 ||
 		s._combatOwner || s._combatApproachState || _combatCheck || _combatAuthorized ||
@@ -199,6 +169,7 @@ void XeenWorld::restoreSessionState(const std::vector<XeenObjectIdentity> &objec
 	if (hasEncounterState()) throw std::logic_error("encounter appeared before overlay publication");
 	_sessionState._objects.swap(prepared._objects);
 	_sessionState._events.swap(prepared._events);
+	++_ownerRevision;
 }
 
 void XeenWorld::swapPreparedState(XeenWorld &candidate) noexcept {
@@ -207,6 +178,7 @@ void XeenWorld::swapPreparedState(XeenWorld &candidate) noexcept {
 	_sessionState._events.swap(candidate._sessionState._events);
 	_maps.swap(candidate._maps);
 	_objects.swap(candidate._objects);
+	++_ownerRevision; ++candidate._ownerRevision;
 }
 
 const XeenObjectFile &XeenWorld::objectFile(XeenMapIdentity mapId) {
@@ -219,7 +191,9 @@ const XeenObjectFile &XeenWorld::objectFile(XeenMapIdentity mapId) {
 	if (_combatCheck) _combatCheck();
 	if (loaded.mapId != mapId)
 		throw std::runtime_error("object file identity differs from requested map");
-	return _objects.emplace(mapId, std::move(loaded)).first->second;
+	const auto result = _objects.emplace(mapId, std::move(loaded));
+	++_cacheRevision;
+	return result.first->second;
 }
 
 void XeenWorld::validateObject(XeenObjectIdentity id) {
@@ -299,7 +273,9 @@ const XeenMap &XeenWorld::map(XeenMapIdentity mapId) {
 	if (_combatCheck) _combatCheck();
 	if (loaded.identity() != mapId)
 		throw std::runtime_error("ID interno do mapa nao corresponde ao recurso solicitado");
-	return _maps.emplace(mapId, std::move(loaded)).first->second;
+	const auto result = _maps.emplace(mapId, std::move(loaded));
+	++_cacheRevision;
+	return result.first->second;
 }
 
 std::optional<XeenCellSample> XeenWorld::sampleCell(

@@ -217,8 +217,7 @@ struct XeenCombat::Impl {
 	}
 };
 
-namespace {
-void validateOriginal(const XeenPartyState &p,const std::vector<std::uint8_t> &chr,const std::array<XeenCombatInputs,6> &inputs) {
+void xeenValidateInitialCombatParty(const XeenPartyState &p,const std::vector<std::uint8_t> &chr,const std::array<XeenCombatInputs,6> &inputs) {
 	const auto parsed=XeenCharacterFormat::parseRoster(chr);
 	for(unsigned i=0;i<30;++i) require(same(p.roster.at(i),parsed.at(i)),"party does not match initial CHR");
 	require(p.party.activeRosterIds()==std::vector<std::uint8_t>(kXeenCombatOwners.begin(),kXeenCombatOwners.end())&&
@@ -247,7 +246,6 @@ void validateOriginal(const XeenPartyState &p,const std::vector<std::uint8_t> &c
 		require(actual==expected,"original combat item multiset differs");
 	}
 }
-}
 
 XeenCombat::XeenCombat(XeenWorld &w,XeenPartyState &p,XeenCamera &c,XeenCombatBoundary &b,
 		const std::vector<std::uint8_t> &chr,const XeenGameplayContext &ctx,const std::vector<XeenMonsterRecord> &stats,
@@ -261,7 +259,7 @@ XeenCombat::XeenCombat(XeenWorld &w,XeenPartyState &p,XeenCamera &c,XeenCombatBo
 	require(b.world==&w&&b.party==&p&&b.camera==&c,"combat boundary owner mismatch");
 	require(b.quiet()&&same(c,XeenActorApproach::kEntry),"combat preparation boundary is not quiescent");
 	for(unsigned i=0;i<6;++i)d.inputs[i]=XeenCharacterFormat::parseCombatInputs(chr,kXeenCombatOwners[i]);
-	validateOriginal(d.expected,chr,d.inputs);
+	xeenValidateInitialCombatParty(d.expected,chr,d.inputs);
 	require(ctx.minutes==480&&ctx.ctr24==0,"combat requires initial PTY time");
 	const auto boundaryGeneration=b.generation();
 	try {
@@ -635,6 +633,7 @@ XeenCompletedEncounterTicket XeenCombat::retireCompletedVictory(const Ticket &t)
 	}
 	static_assert(std::is_nothrow_move_constructible_v<XeenCompletedEncounterAuthority>);
 	s._completedAuthority.emplace(std::move(prepared));
+	s._completedPublished=true;
 	s._completion=XeenEncounterCompletion::VictoryQuiescent;
 	s._completedIntegrityUnsafe=false;s._completedFatal=false;s._completedLease=0;s._completedLeaseKind.reset();
 	s._combatOwner=nullptr;s._combatApproachState=nullptr;

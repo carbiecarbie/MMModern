@@ -27,6 +27,8 @@ add_library(mmodern_xeen STATIC
 	src/formats/xeen/XeenGameplayContextFormat.cpp
 	src/games/xeen/XeenActorApproach.cpp
 	src/games/xeen/XeenCombat.cpp
+	src/games/xeen/XeenCompletedDomain.cpp
+	src/games/xeen/XeenCompletedReentry.cpp
 	src/formats/xeen/XeenAssetSource.cpp
 	src/formats/xeen/XeenCloudsVisualMetadata.cpp
 	src/formats/xeen/XeenMaterialNames.cpp
@@ -132,6 +134,14 @@ if(BUILD_TESTING)
 	add_executable(mmodern_combat_persistence_tests tests/XeenCombatPersistenceTests.cpp)
 	target_link_libraries(mmodern_combat_persistence_tests PRIVATE mmodern_xeen)
 	add_test(NAME xeen_combat_persistence COMMAND mmodern_combat_persistence_tests)
+	add_executable(mmodern_completed_restore_tests tests/XeenCompletedRestoreTests.cpp tests/XeenRestoreReplayProbe.cpp)
+	target_link_libraries(mmodern_completed_restore_tests PRIVATE mmodern_app mmodern_xeen)
+	file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/tests/XeenRestoreReplayProbe.h" xeen_replay_symbols REGEX "^#define XEEN_REPLAY_")
+	foreach(xeen_replay_definition IN LISTS xeen_replay_symbols)
+		string(REGEX MATCH "\"([^\"]+)\"" xeen_replay_match "${xeen_replay_definition}")
+		target_link_options(mmodern_completed_restore_tests PRIVATE "LINKER:--wrap,${CMAKE_MATCH_1}")
+	endforeach()
+	add_test(NAME xeen_completed_restore COMMAND mmodern_completed_restore_tests)
 	add_executable(mmodern_encounter_flow_tests tests/XeenEncounterFlowTests.cpp)
 	target_link_libraries(mmodern_encounter_flow_tests PRIVATE mmodern_app mmodern_xeen)
 	add_test(NAME xeen_encounter_flow COMMAND mmodern_encounter_flow_tests)

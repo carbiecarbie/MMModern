@@ -26,7 +26,12 @@ bool sameCamera(const XeenCamera &a, const XeenCamera &b) {
 }
 }
 
+void XeenEventFlow::requireCurrentOwners() const {
+	if (!_gameplayBorrow.current()) throw std::runtime_error("Stale Flow borrowed owner lifetime");
+}
+
 void XeenEventFlow::beginCycle(std::uint64_t cycle) {
+	requireCurrentOwners();
 	if (!_encounter) return;
 	if (_dispatching || _fatal || cycle == 0 || (_cycle && cycle <= *_cycle))
 		throw std::runtime_error("Obsolete encounter loop cycle");
@@ -34,21 +39,23 @@ void XeenEventFlow::beginCycle(std::uint64_t cycle) {
 }
 
 bool XeenEventFlow::encounterFrameCurrent() const noexcept {
-	return !_encounter || (!_fatal && _encounterFrame && _encounter->current(*_encounterFrame));
+	return _gameplayBorrow.current() && (!_encounter || (!_fatal && _encounterFrame && _encounter->current(*_encounterFrame)));
 }
 
 void XeenEventFlow::failEncounterHandoff(const XeenEncounterFlow::Ticket &entry) noexcept {
-	if (_encounter) _encounter->fail(entry);
+	if (_gameplayBorrow.current() && _encounter) _encounter->fail(entry);
 	_fatal = true;
 }
 
 IndexedFrame XeenEventFlow::frameCopy() {
+	requireCurrentOwners();
 	if (!_encounter) return _frame;
 	const auto entry = _encounter->ticket();
 	try { return _frame; }
 	catch (...) { failEncounterHandoff(entry); throw; }
 }
 bool XeenEventFlow::updateOrdinaryPhase(OrdinaryCause cause, bool reset, std::uint64_t now) {
+	requireCurrentOwners();
 	if (!reset && cause != OrdinaryCause::Action &&
 		(cause != OrdinaryCause::Idle || now < _ordinary.deadline)) return false;
 	if (now > std::numeric_limits<std::uint64_t>::max() - 100 ||
@@ -149,7 +156,7 @@ XeenEventFlow::XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
 		XeenEventPresenter::Clock clock, XeenEventPresenter::RandomFrame randomFrame, const XeenItemCatalog *catalog,
 		const XeenEncounterSetup *encounter, EncounterCompose encounterCompose) :
 	_inventoryFont(font), _catalog(catalog ? *catalog : fallbackCatalog()),
-	_world(world), _events(events), _party(party), _camera(camera), _flags(flags),
+	_world(world), _gameplayBorrow(world, party, camera, flags), _events(events), _party(party), _camera(camera), _flags(flags),
 	_navigation(events), _clock(clock ? std::move(clock) : XeenEventPresenter::Clock{[] {
 		return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
 			std::chrono::steady_clock::now().time_since_epoch()).count());
@@ -166,6 +173,7 @@ XeenEventFlow::XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
 }
 
 IndexedFrame XeenEventFlow::refresh(bool reconstruct) {
+	requireCurrentOwners();
 	if (_dispatching || _fatal) return frameCopy();
 	DispatchScope dispatch(_dispatching);
 	if (_encounter) {
@@ -178,6 +186,7 @@ IndexedFrame XeenEventFlow::refresh(bool reconstruct) {
 }
 
 bool XeenEventFlow::refreshScene(bool reconstruct, OrdinaryCause cause, bool committedTransition) {
+	requireCurrentOwners();
 	if (_encounter && _encounter->combat()) { renderEncounter(); return true; }
 	try {
 	const bool reset = committedTransition || _ordinary.mapId != _camera.mapId ||
@@ -193,6 +202,7 @@ bool XeenEventFlow::refreshScene(bool reconstruct, OrdinaryCause cause, bool com
 			(stepped && _ordinary.containsOrdinaryAnimation)) {
 		// Always use the committed camera, never logicalAddress/workingCamera.
 		const auto composition = _compose(_ordinary.phase);
+		requireCurrentOwners();
 		_ordinary.containsOrdinaryAnimation = composition.containsOrdinaryAnimation;
 		if (cameraChanged && !_pending) _presenter.clear();
 		_frame = _presenter.rebase(composition.frame);
@@ -204,6 +214,7 @@ bool XeenEventFlow::refreshScene(bool reconstruct, OrdinaryCause cause, bool com
 	}
 	return false;
 	} catch (const std::exception &e) {
+		requireCurrentOwners();
 		if (_fatal) throw;
 		if (inventoryOpen()) { recoverInventory(); return true; }
 		if (!_pending) throw;
@@ -214,6 +225,7 @@ bool XeenEventFlow::refreshScene(bool reconstruct, OrdinaryCause cause, bool com
 
 template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool automatic, bool reconstruct,
 		OrdinaryCause cause, bool committedTransition) {
+	requireCurrentOwners();
 	for (;;) {
 		// Adopt ownership before composition, reporting or presentation can fail.
 		auto *suspended = std::get_if<XeenEventExecutionSuspended>(&result);
@@ -239,6 +251,7 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 		update = _presenter.present(_frame, _pending->state.pendingPresentation->request);
 		_frame = std::move(update.frame);
 		if (reportText) for (const auto &message : _presenter.diagnostics()) reportText(message);
+		requireCurrentOwners();
 		if (!update.response) return frameCopy();
 		auto pending = std::move(*_pending);
 		_pending.reset(); // Consume before calling into the execution system.
@@ -256,16 +269,19 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 }
 
 IndexedFrame XeenEventFlow::acceptManual(XeenManualEventResult result) {
+	requireCurrentOwners();
 	if (blocksGameplay()) throw std::logic_error("Cannot replace pending event; abandon before dispatching replacement");
 	DispatchScope dispatch(_dispatching);
 	return drive(std::move(result), false);
 }
 IndexedFrame XeenEventFlow::acceptAutomatic(XeenAutomaticEventResult result) {
+	requireCurrentOwners();
 	if (blocksGameplay()) throw std::logic_error("Cannot replace pending event; abandon before dispatching replacement");
 	DispatchScope dispatch(_dispatching);
 	return drive(std::move(result), true);
 }
 IndexedFrame XeenEventFlow::initial() {
+	requireCurrentOwners();
 	if (blocksGameplay()) return frameCopy();
 	DispatchScope dispatch(_dispatching);
 	return drive(_navigation.processInitialEvent(_world, _party, _camera, _flags), true);
@@ -300,6 +316,7 @@ XeenEventFlow::~XeenEventFlow() {
 	}
 }
 void XeenEventFlow::abandonPresentation() {
+	requireCurrentOwners();
 	if (_encounter) return; // Presentation cleanup cannot reset encounter authority.
 	if (_dispatching && !_pending) return;
 	DispatchScope dispatch(_dispatching);
@@ -331,6 +348,7 @@ IndexedFrame XeenEventFlow::presentationFailed(const std::exception &exception) 
 	return frameCopy();
 }
 std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
+	requireCurrentOwners();
 	if (_dispatching || _fatal) return std::nullopt;
 	DispatchScope dispatch(_dispatching);
 	if (_encounter) {
@@ -359,16 +377,19 @@ std::optional<std::uint64_t> XeenEventFlow::presentationGeneration() const {
 	return _pending ? std::optional<std::uint64_t>{_pending->generation} : std::nullopt;
 }
 bool XeenEventFlow::respond(std::uint64_t generation, XeenPresentationResponse response) {
+	requireCurrentOwners();
 	if (_encounter || _dispatching || inventoryOpen() || _fatal) return false;
 	DispatchScope dispatch(_dispatching);
 	return resumePending(generation, response);
 }
 bool XeenEventFlow::resumePending(std::uint64_t generation, XeenPresentationResponse response) {
+	requireCurrentOwners();
 	if (!_pending || _pending->generation != generation) return false;
 	if (!_pending->state.pendingPresentation ||
 		!xeenResponseMatches(_pending->state.pendingPresentation->request.response, response)) return false;
 	try { _frame = _presenter.finishPresentation(); }
 	catch (const std::exception &e) { presentationFailed(e); return true; }
+	requireCurrentOwners();
 	auto pending = std::move(*_pending);
 	_pending.reset();
 	if (pending.automatic)
@@ -380,6 +401,7 @@ bool XeenEventFlow::resumePending(std::uint64_t generation, XeenPresentationResp
 	return true;
 }
 IndexedFrame XeenEventFlow::handle(const PlayerAction &action, std::optional<std::uint64_t> displayedInput) {
+	requireCurrentOwners();
 	if (std::holds_alternative<SaveGameAction>(action) || _dispatching || _fatal) return frameCopy();
 	if (_encounter && _encounter->combat() && (!displayedInput || *displayedInput != _inputGeneration ||
 		!_displayedCombat || !_encounter->combat()->current(*_displayedCombat))) return frameCopy();

@@ -69,6 +69,7 @@ public:
 	std::function<void(const XeenEquipmentResult &)> reportEquipment;
 	std::function<void(XeenMovementResult)> reportMovement;
 private:
+	void requireCurrentOwners() const;
 	friend struct XeenRewardTestAccess;
 	friend struct XeenInventoryTestAccess;
 	// Synchronous dispatch also covers callbacks before a suspension is installed.
@@ -135,6 +136,7 @@ private:
 	struct Pending { XeenEventExecutionState state; bool automatic; std::uint64_t generation; };
 	std::uint64_t _generation = 0;
 	XeenWorld &_world;
+	XeenWorld::GameplayBorrow _gameplayBorrow;
 	XeenEventSystem &_events;
 	XeenPartyState &_party;
 	XeenCamera &_camera;

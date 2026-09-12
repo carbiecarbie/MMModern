@@ -4,6 +4,8 @@
 #include "games/xeen/XeenCharacter.h"
 #include "games/xeen/XeenGameplayContext.h"
 #include "games/xeen/XeenCombatInputs.h"
+#include "games/xeen/XeenOwnerIdentity.h"
+#include "games/xeen/XeenGameplayBorrow.h"
 
 #include <array>
 #include <cstddef>
@@ -33,7 +35,13 @@ public:
 
 private:
 	friend class XeenCombat;
+	friend class XeenSaveState;
+	friend class XeenRestoreGuard;
+	friend class XeenWorld;
+	XeenGameplayBorrowOwner _gameplayBorrow;
 	friend struct XeenPartyState;
+	const std::uint64_t _incarnation = xeenNextOwnerIdentity();
+	std::uint64_t _replacement = 0;
 	static void requireOrdinary(const XeenRoster &);
 	void swapOrdinary(XeenRoster &) noexcept;
 	bool _combatMarked = false;
@@ -114,7 +122,14 @@ struct XeenPartyState {
 	std::vector<std::string> diagnostics;
 private:
 	friend class XeenSaveState;
+	friend class XeenRestoreGuard;
+	friend class XeenWorld;
+	XeenGameplayBorrowOwner _gameplayBorrow;
+	const std::uint64_t _incarnation = xeenNextOwnerIdentity();
+	std::uint64_t _replacement = 0;
 	void swapOrdinary(XeenPartyState &) noexcept;
+	// SaveState alone checks fresh destination and an unpublished completed candidate.
+	void publishCompleted(XeenPartyState &) noexcept;
 };
 
 } // namespace mmodern

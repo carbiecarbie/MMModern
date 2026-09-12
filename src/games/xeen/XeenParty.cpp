@@ -15,6 +15,7 @@ XeenRoster::XeenRoster(XeenRoster &&r) { requireOrdinary(r); _characters = std::
 void XeenRoster::swapOrdinary(XeenRoster &r) noexcept {
 	static_assert(std::is_nothrow_swappable_v<decltype(_characters)>);
 	_characters.swap(r._characters);
+	++_replacement; ++r._replacement;
 }
 void XeenRoster::swap(XeenRoster &r) { requireOrdinary(*this); requireOrdinary(r); swapOrdinary(r); }
 XeenRoster &XeenRoster::operator=(const XeenRoster &r) {
@@ -41,9 +42,16 @@ void XeenPartyState::swapOrdinary(XeenPartyState &p) noexcept {
 	swap(questItems,p.questItems); swap(questFlags,p.questFlags);
 	swap(firstSerializedCount,p.firstSerializedCount); swap(effectiveSerializedCount,p.effectiveSerializedCount);
 	diagnostics.swap(p.diagnostics);
+	++_replacement; ++p._replacement;
 }
 void XeenPartyState::swap(XeenPartyState &p) {
 	XeenRoster::requireOrdinary(roster); XeenRoster::requireOrdinary(p.roster); swapOrdinary(p);
+}
+void XeenPartyState::publishCompleted(XeenPartyState &prepared) noexcept {
+	static_assert(std::is_nothrow_swappable_v<decltype(roster._combatInputs)>);
+	swapOrdinary(prepared);
+	roster._combatInputs.swap(prepared.roster._combatInputs);
+	roster._combatMarked = true;
 }
 XeenPartyState &XeenPartyState::operator=(const XeenPartyState &p) {
 	XeenRoster::requireOrdinary(roster); XeenRoster::requireOrdinary(p.roster);

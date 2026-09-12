@@ -493,11 +493,31 @@ void initialDispatchAndReconstruction() {
 	}
 }
 
+void completedBorrowRefusal() {
+	Fixture f;
+	XeenEventSystem events([&](XeenMapIdentity id) { return XeenEventScript(f.loadEvents(id)); },
+		[](XeenMapIdentity id) { return XeenEventTextFile{id, "synthetic.txt", true, {}}; });
+	auto textFont = font();
+	XeenEventFlow flow(f.world, events, f.party, f.camera, f.flags, textFont,
+		[&](std::uint64_t) { return XeenEventFlow::Composition{Fixture::compose(f.world, f.party, f.camera, f.flags), false}; });
+	auto snapshot = completedSample(); snapshot.resources = f.signature;
+	auto resources = f.resources();
+	unsigned encounterReads = 0;
+	resources.loadInitialCharacters = [&] { ++encounterReads; return Bytes{}; };
+	resources.loadInitialContext = [&] { ++encounterReads; return XeenGameplayContext{}; };
+	resources.loadMonsterStatistics = [&] { ++encounterReads; return std::vector<XeenMonsterRecord>{}; };
+	const auto before = f.capture(); const auto initialReads = f.initialLoads;
+	rejects([&] { XeenSaveState::restoreBeforeGameplay(snapshot, resources, f.party, f.camera, f.flags, f.world,
+		[](XeenWorld &, const XeenPartyState &, const XeenCamera &, const XeenGameFlags &) {}); }, "unborrowed");
+	check(encounterReads == 0 && initialReads == f.initialLoads, "borrowed restore invoked resource providers");
+	sameSnapshot(before, f.capture());
+}
+
 } // namespace
 
 int main() {
 	try {
-		fullRestoration(); legacyAndExplicitItems(); invalidResourceAndState(); characterPreflight(); mutationPolicies(); initialDispatchAndReconstruction();
+		fullRestoration(); legacyAndExplicitItems(); invalidResourceAndState(); characterPreflight(); mutationPolicies(); initialDispatchAndReconstruction(); completedBorrowRefusal();
 		std::cout << "M20A save state: atomic preparation, resource identities, rules and owner/flow lifetimes passed\n";
 		return 0;
 	} catch (const std::exception &error) {

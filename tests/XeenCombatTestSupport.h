@@ -31,9 +31,10 @@ inline XeenObjectFile objects() {auto m=mob();while(m.entities.monsters.size()<2
 struct CombatFixture {
 	Bytes bytes=chr();XeenPartyState p=XeenPartyLoader().loadFromResources(bytes,pty());
 	XeenCamera camera=XeenActorApproach::kEntry;
-	XeenWorld w{[](XeenMapIdentity){return map();},[](XeenMapIdentity){return objects();}};
+	XeenObjectFile objectResources=objects();
+	XeenWorld w{[](XeenMapIdentity){return map();},[this](XeenMapIdentity){return objectResources;}};
 	XeenCombatBoundary boundary{w,p,camera};std::unique_ptr<XeenCombat> combat;
-	explicit CombatFixture(XeenCombatRandom rng=XeenCombatRandom(1)) {
+	explicit CombatFixture(XeenCombatRandom rng=XeenCombatRandom(1), XeenObjectFile resources=objects()) : objectResources(std::move(resources)) {
 		combat=std::make_unique<XeenCombat>(w,p,camera,boundary,bytes,XeenGameplayContextFormat::parse(pty()),statistics(),events(),std::move(rng));
 	}
 	void enter(bool delayed=false) {

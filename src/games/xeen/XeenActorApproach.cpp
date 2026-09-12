@@ -175,6 +175,12 @@ void XeenActorApproach::validateDomain(XeenWorld &world, const XeenPartyState &p
 		require(c.rosterId == id && c.currentHp > 0 && c.conditions == std::array<std::uint8_t,16>{},
 			"encounter requires original Good party owners");
 	}
+	validateEnvironment(world, actors, events);
+}
+
+void XeenActorApproach::validateEnvironment(XeenWorld &world,
+		const std::vector<XeenActor> &actors, const XeenEventFile &events) {
+	bounded(actors, kEntry);
 	const auto &geometry = world.map(20).geometry;
 	require(geometry.isOutdoors() && geometry.flags == 0, "unsupported encounter map flags");
 	require(events.mapId == XeenMapIdentity(20) && events.resourcePresent, "missing encounter event data");

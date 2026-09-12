@@ -88,6 +88,7 @@ void XeenEventFlow::invalidateInventorySelection() {
 	} else if (!validInventorySource(true)) { _inventory.slot.reset(); _inventory.record = {}; }
 }
 void XeenEventFlow::invalidateInventory() {
+	requireCurrentOwners();
 	if (_encounter) {
 		if (_encounter->combat()) _encounter->combat()->invalidate();
 		return;
@@ -126,6 +127,7 @@ void XeenEventFlow::drawInventory() {
 	catch (...) { recoverInventory(); }
 }
 IndexedFrame XeenEventFlow::refuseInventorySave() {
+	requireCurrentOwners();
 	if (_encounter) return _frame;
 	if (_dispatching || _fatal || !inventoryOpen()) return _frame;
 	Scope scope(_dispatching);

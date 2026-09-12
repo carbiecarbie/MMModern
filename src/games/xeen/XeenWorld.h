@@ -21,6 +21,12 @@ namespace mmodern {
 
 enum class XeenEncounterCompletion { None, VictoryEnded, VictoryQuiescent };
 enum class XeenCompletedGuard { Operation, Presentation, Integrity, Fatal };
+class XeenGameFlags;
+struct XeenCompletedReentry {
+	std::uint64_t oldGeneration = 0, newGeneration = 0;
+	XeenCamera destination;
+	XeenMonsterIdentity defeated{{XeenSide::Clouds, 20}, 5};
+};
 
 class XeenCompletedEncounterTicket {
 public:
@@ -81,12 +87,16 @@ private:
 	friend class XeenWorld;
 	friend class XeenActorApproach;
 	friend class XeenCombat;
+	friend class XeenSaveState;
+	friend class XeenRestoreGuard;
 	const void *_combatOwner = nullptr;
 	const void *_combatApproachState = nullptr;
 	bool _diagnostic27 = false, _combatEntered = false, _combatAccounted = false;
 	XeenEncounterCompletion _completion = XeenEncounterCompletion::None;
 	XeenMonsterIdentity _completedMonster{{XeenSide::Clouds, 20}, 5};
 	std::optional<XeenCompletedEncounterAuthority> _completedAuthority;
+	bool _completedPublished = false;
+	std::uint64_t _completedEntryGeneration = 0;
 	mutable bool _completedIntegrityUnsafe = false, _completedFatal = false;
 	mutable std::uint64_t _completedLease = 0;
 	mutable std::optional<XeenCompletedGuard> _completedLeaseKind;
@@ -100,6 +110,20 @@ private:
 
 class XeenWorld {
 public:
+	class GameplayBorrow {
+	public:
+		~GameplayBorrow() { for (const auto &state : owners) { --state->references; ++state->revision; } }
+		bool current() const noexcept {
+			for (const auto &state : owners) if (!state->alive) return false;
+			return true;
+		}
+		GameplayBorrow(const GameplayBorrow &) = delete;
+		GameplayBorrow &operator=(const GameplayBorrow &) = delete;
+	private:
+		friend class XeenEventFlow;
+		GameplayBorrow(XeenWorld &, XeenPartyState &, XeenCamera &, XeenGameFlags &);
+		std::array<std::shared_ptr<XeenGameplayBorrowOwner::State>, 5> owners;
+	};
 	using MapLoader = std::function<XeenMap(XeenMapIdentity)>;
 
 	using ObjectLoader = std::function<XeenObjectFile(XeenMapIdentity)>;
@@ -141,12 +165,19 @@ public:
 		const XeenPartyState &, const XeenCamera &) noexcept;
 	bool escalateCompletedGuard(const XeenCompletedEncounterTicket &, XeenCompletedGuard,
 		std::uint64_t, XeenCompletedGuard) noexcept;
+	using MonsterLoader = std::function<std::vector<XeenMonsterRecord>()>;
+	using CompletedPreflight = std::function<void(XeenWorld &, const XeenPartyState &,
+		const XeenCamera &, const XeenGameFlags &)>;
+	std::uint64_t completedEntryGeneration() const noexcept { return _sessionState._completedEntryGeneration; }
+	XeenCompletedReentry reenterCompletedEncounter(const XeenCompletedEncounterTicket &,
+		XeenPartyState &, XeenCamera &, const XeenGameFlags &, const MonsterLoader &,
+		const EventLoader &, const CompletedPreflight &);
 	// For unpublished startup owners only. Validates every original identity
 	// before replacing either set; no script execution or cell expansion.
 	void restoreSessionState(const std::vector<XeenObjectIdentity> &objects,
 		const std::vector<XeenEventIdentity> &events, const EventLoader &eventLoader);
 	// Invalidates map/cell/object-file references, not the session state.
-	void discardMapCache() { _maps.clear(); _objects.clear(); }
+	void discardMapCache() { _maps.clear(); _objects.clear(); ++_cacheRevision; }
 
 	const XeenMap &map(XeenMapIdentity mapId);
 	std::optional<XeenCellSample> sampleCell(XeenMapIdentity mapId, int x, int y);
@@ -154,12 +185,16 @@ public:
 
 private:
 	friend class XeenSaveState;
+	friend class XeenRestoreGuard;
 	friend class XeenCombat;
 	friend class XeenActorApproach;
 	void swapPreparedState(XeenWorld &candidate) noexcept;
 	// Process-lifetime capability identity. It belongs to this object lifetime,
 	// not session gameplay state, and is never serialized or swapped.
 	const std::uint64_t _incarnation;
+	std::uint64_t _ownerRevision = 0;
+	std::uint64_t _cacheRevision = 0;
+	XeenGameplayBorrowOwner _gameplayBorrow;
 	// Diagnostic27 checks retained authority after fallible resource providers.
 	std::function<void()> _combatCheck;
 	// Retained Diagnostic27 authorization, separate from domain validity.

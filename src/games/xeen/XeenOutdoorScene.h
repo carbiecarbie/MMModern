@@ -73,7 +73,7 @@ struct XeenOutdoorDrawCommand {
 
 class XeenOutdoorScene {
 public:
-	static constexpr XeenCamera kAreaA1Camera{1, 9, 6, XeenDirection::South};
+	inline static const XeenCamera kAreaA1Camera{1, 9, 6, XeenDirection::South};
 
 	// A null resolver preserves terrain-only clients. Production composition
 	// supplies 16A's resolver. Diagnostics retain skipped first-record results.

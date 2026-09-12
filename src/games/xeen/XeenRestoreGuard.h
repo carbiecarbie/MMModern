@@ -1,0 +1,125 @@
+#ifndef MMODERN_XEEN_RESTORE_GUARD_H
+#define MMODERN_XEEN_RESTORE_GUARD_H
+#include "games/xeen/XeenStateEquality.h"
+#include "games/xeen/XeenGameFlags.h"
+namespace mmodern {
+// Retained callback preimages, never a gameplay owner or a publication capability.
+class XeenRestoreGuard {
+public:
+	XeenRestoreGuard(const XeenWorld &world, const XeenPartyState &party,
+		const XeenCamera &camera, const XeenGameFlags &flags, bool exactCaches = false) :
+		w(world), p(party), c(camera), f(flags), worldId(w._incarnation),
+		worldRevision(w._ownerRevision),
+		partyId(p._incarnation), rosterId(p.roster._incarnation),
+		partyReplacement(p._replacement), rosterReplacement(p.roster._replacement),
+		s(w._sessionState), characters(p.roster.characters()), inputs(p.roster._combatInputs),
+		marked(p.roster.combatMarked()), membership(p.party.activeRosterIds()),
+		quests(p.questItems.counts()), questFlags(p.questFlags.values()), context(p.encounterContext),
+		first(p.firstSerializedCount), effective(p.effectiveSerializedCount), diagnostics(p.diagnostics),
+		cameraValue(c), flagValues(f.values()), combatCheck(bool(w._combatCheck)), combatAuthorized(bool(w._combatAuthorized)),
+		maps(w._maps), objects(w._objects), cacheRevision(w._cacheRevision), exactCaches(exactCaches),
+		borrowOwners{&w._gameplayBorrow, &p._gameplayBorrow, &p.roster._gameplayBorrow, &c.gameplayBorrow, &f._gameplayBorrow} {
+		for (unsigned i = 0; i < borrowOwners.size(); ++i) {
+			borrowStates[i] = borrowOwners[i]->retain();
+			borrowRevisions[i] = borrowStates[i]->revision;
+		}
+	}
+	bool current() const noexcept {
+		using namespace xeen_state;
+		if (failed) return false;
+		for (const auto &state : borrowStates) if (!state->alive) return false;
+		for (unsigned i = 0; i < borrowOwners.size(); ++i)
+			if (borrowOwners[i]->state != borrowStates[i] || borrowStates[i]->revision != borrowRevisions[i]) return false;
+		if (w._incarnation != worldId || w._ownerRevision != worldRevision ||
+			p._incarnation != partyId || p.roster._incarnation != rosterId ||
+			p._replacement != partyReplacement || p.roster._replacement != rosterReplacement ||
+			p.roster.combatMarked() != marked || p.party.activeRosterIds() != membership ||
+			p.questItems.counts() != quests || p.questFlags.values() != questFlags ||
+			!(p.encounterContext == context) || p.firstSerializedCount != first ||
+			p.effectiveSerializedCount != effective || p.diagnostics != diagnostics ||
+			!sameCamera(c, cameraValue) || f.values() != flagValues ||
+			bool(w._combatCheck) != combatCheck || bool(w._combatAuthorized) != combatAuthorized) return false;
+		const auto &live = w._sessionState;
+		if (live._combatOwner != s._combatOwner || live._combatApproachState != s._combatApproachState ||
+			live._diagnostic27 != s._diagnostic27 || live._combatEntered != s._combatEntered ||
+			live._combatAccounted != s._combatAccounted || live._completion != s._completion ||
+			!(live._completedMonster == s._completedMonster) ||
+			bool(live._completedAuthority) != bool(s._completedAuthority) ||
+			live._completedPublished != s._completedPublished || live._completedEntryGeneration != s._completedEntryGeneration ||
+			live._completedIntegrityUnsafe != s._completedIntegrityUnsafe || live._completedFatal != s._completedFatal ||
+			live._completedLease != s._completedLease || live._completedLeaseKind != s._completedLeaseKind ||
+			live._entry != s._entry || live._encounterMarked != s._encounterMarked ||
+			live._encounterInitialized != s._encounterInitialized || live._encounterTerminal != s._encounterTerminal ||
+			live._encounterRevision != s._encounterRevision || live._objects != s._objects || live._events != s._events ||
+			live._actors.size() != s._actors.size()) return false;
+		if (s._completedAuthority && !sameAuthority(*live._completedAuthority, *s._completedAuthority)) return false;
+		for (std::size_t i = 0; i < characters.size(); ++i) {
+			if (!sameCharacter(p.roster.characters()[i], characters[i]) ||
+				bool(p.roster.combatInputs(i)) != bool(inputs[i])) return false;
+			if (inputs[i] && !sameInputs(*p.roster.combatInputs(i), *inputs[i])) return false;
+		}
+		for (std::size_t i = 0; i < s._actors.size(); ++i)
+			if (!sameActor(live._actors[i], s._actors[i])) return false;
+		if (exactCaches && (w._cacheRevision != cacheRevision || maps.size() != w._maps.size() || objects.size() != w._objects.size())) return false;
+		for (const auto &entry : w._maps) {
+			const auto found = maps.find(entry.first);
+			if (found == maps.end() || !sameMap(entry.second, found->second)) return false;
+		}
+		for (const auto &entry : w._objects) {
+			const auto found = objects.find(entry.first);
+			if (found == objects.end() || !sameObjectFile(entry.second, found->second)) return false;
+		}
+		return true;
+	}
+	void check() const {
+		if (!current()) {
+			failed = true;
+			throw std::logic_error("completed preparation owner preimage changed");
+		}
+	}
+	// Called only with detached provider results after both callback guards pass,
+	// before XeenWorld inserts them. Cache hits never establish a new preimage.
+	void admitMap(XeenMapIdentity id, const XeenMap &value) {
+		check();
+		if (value.identity() != id) throw std::invalid_argument("prepared map identity mismatch");
+		const auto found = maps.find(id);
+		if (found != maps.end() && !xeen_state::sameMap(found->second, value))
+			throw std::invalid_argument("prepared map resource changed during reconstruction");
+		maps.emplace(id, value);
+	}
+	void admitObjects(XeenMapIdentity id, const XeenObjectFile &value) {
+		check();
+		if (value.mapId != id) throw std::invalid_argument("prepared object identity mismatch");
+		const auto found = objects.find(id);
+		if (found != objects.end() && !xeen_state::sameObjectFile(found->second, value))
+			throw std::invalid_argument("prepared object resource changed during reconstruction");
+		objects.emplace(id, value);
+	}
+private:
+	const XeenWorld &w; const XeenPartyState &p; const XeenCamera &c; const XeenGameFlags &f;
+	std::uint64_t worldId, worldRevision;
+	std::uint64_t partyId, rosterId, partyReplacement, rosterReplacement;
+	XeenSessionWorldState s;
+	std::array<XeenCharacter, 30> characters;
+	std::array<std::optional<XeenCombatInputs>, 30> inputs;
+	bool marked;
+	std::vector<std::uint8_t> membership;
+	XeenCloudsQuestItems::Counts quests;
+	XeenCloudsQuestFlags::Values questFlags;
+	std::optional<XeenGameplayContext> context;
+	std::uint8_t first, effective;
+	std::vector<std::string> diagnostics;
+	XeenCamera cameraValue;
+	XeenGameFlags::Storage flagValues;
+	bool combatCheck, combatAuthorized;
+	std::map<XeenMapIdentity, XeenMap> maps;
+	std::map<XeenMapIdentity, XeenObjectFile> objects;
+	std::uint64_t cacheRevision;
+	bool exactCaches;
+	std::array<const XeenGameplayBorrowOwner *, 5> borrowOwners;
+	std::array<std::shared_ptr<XeenGameplayBorrowOwner::State>, 5> borrowStates;
+	std::array<std::uint64_t, 5> borrowRevisions;
+	mutable bool failed = false;
+};
+}
+#endif

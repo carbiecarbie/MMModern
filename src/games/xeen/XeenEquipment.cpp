@@ -27,6 +27,22 @@ constexpr std::array<std::uint8_t, 8> kArmorRestrictions = {
 	0,68,100,116,125,255,255,85
 };
 
+std::uint8_t equipmentFrame(Category category, unsigned id) {
+	if (category == Category::Weapons)
+		return id <= 17 ? 1 : (id >= 30 && id <= 33 ? 4 : 13);
+	if (category == Category::Armor)
+		return id <= 7 ? 3 : id == 8 ? 2 : id == 9 ? 5 : id == 10 ? 9 : id <= 12 ? 10 : 6;
+	return id == 1 ? 8 : id == 2 ? 12 : id <= 7 ? 7 : 11;
+}
+
+bool proficient(const XeenCharacter &character, Category category, unsigned id) {
+	const auto c = static_cast<unsigned>(character.characterClass);
+	if (c > 9) return false;
+	if (category != Category::Weapons && (category != Category::Armor || id > 8)) return true;
+	const auto mask = category == Category::Weapons ? kWeaponRestrictions.at(id - 1) : kArmorRestrictions.at(id - 1);
+	return c < 2 || !(mask & (1u << (c - 2)));
+}
+
 std::optional<XeenEquipmentPosition> firstConflict(const XeenCharacter &character,
 		Category category, std::uint8_t frame, std::uint8_t alternateFrame) {
 	const auto &items = *xeenInventoryItems(character, category);
@@ -81,15 +97,9 @@ XeenEquipmentResult xeenSetEquipment(XeenPartyState &party, std::size_t activeIn
 		if (category == Category::Weapons || (category == Category::Armor && id <= 8)) {
 			const auto c = static_cast<unsigned>(character.characterClass);
 			if (c > 9) return refuse(Status::UnsafeRules);
-			const auto mask = category == Category::Weapons ? kWeaponRestrictions[id - 1] : kArmorRestrictions[id - 1];
-			if (c >= 2 && (mask & (1u << (c - 2)))) return refuse(Status::NotProficient);
+			if (!proficient(character, category, id)) return refuse(Status::NotProficient);
 		}
-		if (category == Category::Weapons)
-			candidateFrame = id <= 17 ? 1 : (id >= 30 && id <= 33 ? 4 : 13);
-		else if (category == Category::Armor)
-			candidateFrame = id <= 7 ? 3 : id == 8 ? 2 : id == 9 ? 5 : id == 10 ? 9 : id <= 12 ? 10 : 6;
-		else
-			candidateFrame = id == 1 ? 8 : id == 2 ? 12 : id <= 7 ? 7 : 11;
+		candidateFrame = equipmentFrame(category, id);
 
 		if (category == Category::Accessories && (candidateFrame == 8 || candidateFrame == 7)) {
 			std::size_t count = 0;
@@ -125,5 +135,27 @@ XeenEquipmentResult xeenSetEquipment(XeenPartyState &party, std::size_t activeIn
 	// are complete; the fixed result's copy/move operations cannot throw.
 	selected.frame = candidateFrame;
 	return result;
+}
+
+void xeenValidateCompletedEquipment(const XeenCharacter &character) {
+	std::array<std::array<unsigned, 14>, 3> counts{};
+	for (unsigned cat = 0; cat < 3; ++cat) {
+		const auto category = static_cast<Category>(cat);
+		for (const auto &item : *xeenInventoryItems(character, category)) {
+			if (!item.id || !item.frame) continue;
+			const unsigned limit = cat == 0 ? 34 : cat == 1 ? 13 : 10;
+			const bool legacyMedal = character.rosterId == 1 && category == Category::Accessories &&
+				item.material == 42 && item.id == 5 && item.state == 0 && item.frame == 8;
+			if (item.id > limit || (!legacyMedal && item.frame != equipmentFrame(category, item.id)) ||
+				!proficient(character, category, item.id))
+				throw std::invalid_argument("unsupported completed equipment arrangement");
+			++counts[cat].at(item.frame);
+		}
+		for (unsigned frame = 1; frame < 14; ++frame)
+			if (counts[cat][frame] > ((cat == 2 && (frame == 7 || frame == 8)) ? 2u : 1u))
+				throw std::invalid_argument("completed equipment capacity exceeded");
+	}
+	if (counts[0][1] + counts[0][13] > 1 || (counts[0][13] && counts[1][2]))
+		throw std::invalid_argument("completed weapon/shield conflict");
 }
 } // namespace mmodern

@@ -1,9 +1,12 @@
 #ifndef MMODERN_XEEN_COMBAT_RULES_H
 #define MMODERN_XEEN_COMBAT_RULES_H
-#include "games/xeen/XeenCharacter.h"
+#include "games/xeen/XeenParty.h"
 #include <limits>
 #include <stdexcept>
 namespace mmodern {
+// Pure immutable-resource admission shared with completed restore.
+void xeenValidateInitialCombatParty(const XeenPartyState &, const std::vector<std::uint8_t> &,
+	const std::array<XeenCombatInputs, 6> &);
 // Pure arithmetic controls, also usable with artificial overflow/predicate inputs.
 // They do not grant admission, mutate XP or apply a prepared result.
 inline bool xeenCombatXpEligible(XeenCondition c) noexcept {

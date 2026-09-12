@@ -13,6 +13,9 @@ public:
 		XeenSaveResourceSignature signature;
 		std::function<XeenPartyState()> loadInitialParty;
 		XeenWorld::EventLoader loadEvents;
+		std::function<std::vector<std::uint8_t>()> loadInitialCharacters = {};
+		std::function<XeenGameplayContext()> loadInitialContext = {};
+		std::function<std::vector<XeenMonsterRecord>()> loadMonsterStatistics = {};
 	};
 	// Must check needed disposable presentation resources on the candidate.
 	// It must not mutate gameplay or retain candidate references after returning.
@@ -34,6 +37,9 @@ public:
 	static void restoreBeforeGameplay(const XeenSaveSnapshot &snapshot,
 		const Resources &resources, XeenPartyState &party, XeenCamera &camera,
 		XeenGameFlags &flags, XeenWorld &world, const Preflight &preflight);
+private:
+	static void restoreCompleted(const XeenSaveSnapshot &, const Resources &,
+		XeenPartyState &, XeenCamera &, XeenGameFlags &, XeenWorld &, const Preflight &);
 };
 
 } // namespace mmodern

@@ -2,6 +2,7 @@
 #define MMODERN_GAMES_XEEN_NAVIGATION_H
 
 #include "games/xeen/XeenMapIdentity.h"
+#include "games/xeen/XeenGameplayBorrow.h"
 
 #include <cstdint>
 
@@ -19,6 +20,7 @@ struct XeenCamera {
 	int x = 0;
 	int y = 0;
 	XeenDirection direction = XeenDirection::North;
+	XeenGameplayBorrowOwner gameplayBorrow{};
 };
 
 } // namespace mmodern

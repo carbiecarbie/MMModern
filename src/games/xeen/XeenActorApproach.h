@@ -50,7 +50,7 @@ struct XeenEncounterResult {
 class XeenActorApproach {
 public:
 	static constexpr std::size_t kCapacity = 107;
-	static constexpr XeenCamera kEntry{20, 13, 1, XeenDirection::North};
+	inline static const XeenCamera kEntry{20, 13, 1, XeenDirection::North};
 	// Read-only authorization, including terminal states. Never adopts a revision.
 	static bool authoritative(const XeenWorld &, const XeenPartyState &, const XeenCamera &,
 		const XeenEncounterState &) noexcept;
@@ -64,6 +64,9 @@ public:
 		const XeenCamera &camera, const Terrain &terrain, bool movementEnabled = true);
 	static void validateDomain(XeenWorld &world, const XeenPartyState &party,
 		const XeenGameplayContext &context, const std::vector<XeenActor> &actors,
+		const XeenEventFile &events);
+	// Immutable environment admission, independent of the party's injury state.
+	static void validateEnvironment(XeenWorld &world, const std::vector<XeenActor> &actors,
 		const XeenEventFile &events);
 	// Explicit startup only; leaves an irreversible marker on preparation failure.
 	static XeenEncounterResult initialize(XeenWorld &world, XeenPartyState &party,
