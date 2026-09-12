@@ -43,6 +43,9 @@ public:
 			!sameCamera(c, cameraValue) || f.values() != flagValues ||
 			bool(w._combatCheck) != combatCheck || bool(w._combatAuthorized) != combatAuthorized) return false;
 		const auto &live = w._sessionState;
+		if (live._journeyActivity != s._journeyActivity || live._journeyOwner != s._journeyOwner ||
+			live._journeyGeneration != s._journeyGeneration || live._skeletonSeed != s._skeletonSeed ||
+			live._accountedMonsters != s._accountedMonsters) return false;
 		if (live._combatOwner != s._combatOwner || live._combatApproachState != s._combatApproachState ||
 			live._diagnostic27 != s._diagnostic27 || live._combatEntered != s._combatEntered ||
 			live._combatAccounted != s._combatAccounted || live._completion != s._completion ||
@@ -63,6 +66,13 @@ public:
 		}
 		for (std::size_t i = 0; i < s._actors.size(); ++i)
 			if (!sameActor(live._actors[i], s._actors[i])) return false;
+		return cachesCurrent();
+	}
+	// Combat owns its gameplay preimage separately; retain the admitted resource
+	// values across its publications, allowing matching cache reconstruction.
+	bool cachesCurrent() const noexcept {
+		using namespace xeen_state;
+		if (failed || !worldAlive()) return false;
 		if (exactCaches && (w._cacheRevision != cacheRevision || maps.size() != w._maps.size() || objects.size() != w._objects.size())) return false;
 		for (const auto &entry : w._maps) {
 			const auto found = maps.find(entry.first);
@@ -104,6 +114,18 @@ public:
 		objects.emplace(id, value);
 	}
 private:
+	friend class XeenEncounterFlow;
+	// Only the coordinator's checked, callback-free authority transitions may adopt these fields.
+	// Gameplay values, identity controls and cache preimages remain retained.
+	void adoptJourneyCoordination() noexcept {
+		const auto &live = w._sessionState;
+		s._journeyActivity = live._journeyActivity; s._journeyOwner = live._journeyOwner;
+		s._journeyGeneration = live._journeyGeneration; s._combatOwner = live._combatOwner;
+		s._combatApproachState = live._combatApproachState; s._combatEntered = live._combatEntered;
+		s._encounterTerminal = live._encounterTerminal; s._encounterRevision = live._encounterRevision;
+		combatCheck = bool(w._combatCheck); combatAuthorized = bool(w._combatAuthorized);
+	}
+	void adoptJourneyBorrowRelease() noexcept { for (auto &revision : borrowRevisions) ++revision; }
 	const XeenWorld &w; const XeenPartyState &p; const XeenCamera &c; const XeenGameFlags &f;
 	std::uint64_t worldId, worldRevision;
 	std::uint64_t partyId, rosterId, partyReplacement, rosterReplacement;
@@ -131,18 +153,19 @@ private:
 };
 class XeenRestoreGuard::Providers {
 public:
-	Providers(XeenRestoreGuard &guard, XeenWorld &world) : g(guard), w(world), maps(w._loader), objects(w._objectLoader) {
-		g.check();
+	Providers(XeenRestoreGuard &guard, XeenWorld &world, std::function<void()> authorization = {}) :
+		g(guard), w(world), maps(w._loader), objects(w._objectLoader), authorization(std::move(authorization)) {
+		check();
 		XeenWorld::MapLoader map = [this](XeenMapIdentity id) {
-			g.check();
-			try { auto value = maps(id); g.check(); g.admitMap(id, value); return value; }
-			catch (...) { g.check(); throw; }
+			check();
+			try { auto value = maps(id); check(); g.admitMap(id, value); return value; }
+			catch (...) { check(); throw; }
 		};
 		XeenWorld::ObjectLoader object;
 		if (objects) object = [this](XeenMapIdentity id) {
-			g.check();
-			try { auto value = objects(id); g.check(); g.admitObjects(id, value); return value; }
-			catch (...) { g.check(); throw; }
+			check();
+			try { auto value = objects(id); check(); g.admitObjects(id, value); return value; }
+			catch (...) { check(); throw; }
 		};
 		w._loader.swap(map); w._objectLoader.swap(object);
 	}
@@ -152,6 +175,8 @@ public:
 private:
 	XeenRestoreGuard &g; XeenWorld &w;
 	XeenWorld::MapLoader maps; XeenWorld::ObjectLoader objects;
+	std::function<void()> authorization;
+	void check() const { if (authorization) authorization(); g.check(); }
 };
 }
 #endif

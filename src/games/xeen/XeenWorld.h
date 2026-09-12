@@ -21,6 +21,7 @@ namespace mmodern {
 
 enum class XeenEncounterCompletion { None, VictoryEnded, VictoryQuiescent };
 enum class XeenCompletedGuard { Operation, Presentation, Integrity, Fatal };
+enum class XeenJourneyActivity { Unbound, Quiet, Approach, Attachment, Combat, Presentation, Failed };
 class XeenGameFlags;
 struct XeenCompletedReentry {
 	std::uint64_t oldGeneration = 0, newGeneration = 0;
@@ -69,6 +70,10 @@ struct XeenCellSample {
 // Session-owned overlays and explicit encounter authority. Original records remain untouched.
 class XeenSessionWorldState {
 public:
+	bool journey() const noexcept { return _entry == XeenEncounterEntry::Journey; }
+	XeenJourneyActivity journeyActivity() const noexcept { return _journeyActivity; }
+	std::uint32_t skeletonSeed() const noexcept { return _skeletonSeed; }
+	const std::set<XeenMonsterIdentity> &accountedMonsters() const noexcept { return _accountedMonsters; }
 	bool isObjectDisabled(XeenObjectIdentity id) const { return _objects.count(id) != 0; }
 	bool isEventDisabled(XeenEventIdentity id) const { return _events.count(id) != 0; }
 	std::size_t disabledObjectCount() const { return _objects.size(); }
@@ -84,6 +89,12 @@ public:
 	XeenMonsterIdentity completedMonster() const noexcept { return _completedMonster; }
 	const std::vector<XeenActor> &actors() const { return _actors; }
 private:
+	friend class XeenEncounterFlow;
+	XeenJourneyActivity _journeyActivity = XeenJourneyActivity::Unbound;
+	const void *_journeyOwner = nullptr;
+	std::uint64_t _journeyGeneration = 0;
+	std::uint32_t _skeletonSeed = 0;
+	std::set<XeenMonsterIdentity> _accountedMonsters;
 	friend class XeenWorld;
 	friend class XeenActorApproach;
 	friend class XeenCombat;
@@ -121,7 +132,8 @@ public:
 		GameplayBorrow &operator=(const GameplayBorrow &) = delete;
 	private:
 		friend class XeenEventFlow;
-		GameplayBorrow(XeenWorld &, XeenPartyState &, XeenCamera &, XeenGameFlags &);
+		friend class XeenCombat;
+		GameplayBorrow(XeenWorld &, XeenPartyState &, XeenCamera &, const XeenGameFlags &);
 		std::array<std::shared_ptr<XeenGameplayBorrowOwner::State>, 5> owners;
 	};
 	using MapLoader = std::function<XeenMap(XeenMapIdentity)>;
@@ -193,6 +205,7 @@ public:
 
 private:
 	friend class XeenSaveState;
+	friend class XeenEncounterFlow;
 	friend class XeenRestoreGuard;
 	friend class XeenCombat;
 	friend class XeenActorApproach;

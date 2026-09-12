@@ -9,7 +9,7 @@
 
 namespace mmodern {
 XeenWorld::GameplayBorrow::GameplayBorrow(XeenWorld &w, XeenPartyState &p,
-		XeenCamera &c, XeenGameFlags &f) : owners{w._gameplayBorrow.retain(),
+		XeenCamera &c, const XeenGameFlags &f) : owners{w._gameplayBorrow.retain(),
 		p._gameplayBorrow.retain(), p.roster._gameplayBorrow.retain(),
 		c.gameplayBorrow.retain(), f._gameplayBorrow.retain()} {
 	for (const auto &state : owners) { ++state->references; ++state->revision; }

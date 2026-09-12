@@ -19,16 +19,38 @@ struct XeenEncounterSetup {
 	std::function<void(std::uint8_t image)> validateAttackSprite;
 };
 
+// Internal domain entry; public CLI and SDL routing are a later integration stage.
+struct XeenJourneySetup {
+	const std::vector<std::uint8_t> &characters;
+	XeenGameplayContext context;
+	const std::vector<XeenMonsterRecord> &statistics;
+	const XeenEventFile &events;
+	std::uint32_t seed;
+};
+
 // Bounded coordinator. World/party/camera and the normalized clock remain borrowed.
 class XeenEncounterFlow {
 public:
 	struct Ticket { XeenEncounterState state; std::uint64_t generation; std::optional<XeenCombat::Ticket> combat;
-		std::optional<XeenCompletedEncounterTicket> completed; };
+		std::optional<XeenCompletedEncounterTicket> completed; std::uint64_t boundaryGeneration = 0; };
 	XeenEncounterFlow(XeenWorld &, XeenPartyState &, XeenCamera &, const XeenGameFlags &,
 		const XeenEventPresenter::Clock &, const XeenEncounterSetup &);
+	XeenEncounterFlow(XeenWorld &, XeenPartyState &, XeenCamera &, const XeenGameFlags &,
+		const XeenEventPresenter::Clock &, const XeenJourneySetup &);
+	~XeenEncounterFlow();
+	bool journeyQuiet() const noexcept;
+	const std::string &journeyRefusal() const noexcept { return _journeyRefusal; }
+	XeenEncounterResult journeyAction(const Ticket &, XeenEncounterAction);
+	XeenEncounterResult journeyPulse(const Ticket &);
+	XeenEquipmentResult journeyEquipment(const Ticket &, std::size_t, XeenInventoryCategory, std::size_t, XeenEquipmentOperation);
+	XeenTransferResult journeyTransfer(const Ticket &, std::size_t, std::size_t, XeenInventoryCategory, std::size_t);
+	bool attachJourney(const Ticket &, const std::function<void()> &prepareSprites);
+	bool retireJourney(const Ticket &);
+	bool prepareJourneyFrame(const Ticket &, const std::function<void()> &compose);
+	bool presentJourney(const Ticket &);
 	XeenEncounterFlow(const XeenEncounterFlow &) = delete;
 	XeenEncounterFlow &operator=(const XeenEncounterFlow &) = delete;
-	Ticket ticket() const noexcept { return {state(), _generation, _combat ? std::optional<XeenCombat::Ticket>{_combat->ticket()} : std::nullopt, _completed}; }
+	Ticket ticket() const noexcept { return {state(), _generation, _combat ? std::optional<XeenCombat::Ticket>{_combat->ticket()} : std::nullopt, _completed, _boundary.generation()}; }
 	bool completed() const noexcept { return _completed.has_value(); }
 	bool canSave() const noexcept { return completed() && !_completedLease && current(ticket()); }
 	void retireVictory();
@@ -68,6 +90,15 @@ public:
 	std::uint64_t cosmeticDeadline() const noexcept { return _cosmeticDeadline; }
 	std::string notice() const;
 private:
+	bool _journey = false;
+	bool _journeyFramePrepared = false, _journeyFrameRetry = false;
+	std::string _journeyRefusal;
+	std::unique_ptr<XeenRestoreGuard> _journeyPreimage;
+	std::vector<XeenMonsterRecord> _journeyStatistics;
+	void retainJourney();
+	bool journeyCapacity() noexcept;
+	void closeJourney() noexcept;
+	XeenEncounterResult advanceJourney(const Ticket &, std::optional<XeenEncounterAction>);
 	bool handleCombat(const PlayerAction &, std::optional<std::uint64_t>);
 	bool idleCombat(std::optional<std::uint64_t>);
 	bool acceptCombatResult(const XeenCombatResult &);

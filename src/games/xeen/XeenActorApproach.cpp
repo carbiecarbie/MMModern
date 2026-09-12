@@ -1,4 +1,6 @@
 #include "games/xeen/XeenActorApproach.h"
+#include "games/xeen/XeenJourneyRules.h"
+#include "formats/xeen/XeenCharacterFormat.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "formats/xeen/XeenGameplayContextFormat.h"
 #include "games/xeen/XeenEventLoader.h"
@@ -170,7 +172,8 @@ void XeenActorApproach::validateDomain(XeenWorld &world, const XeenPartyState &p
 		context.lightAndResistances == std::array<std::uint16_t,6>{}, "unsupported encounter context");
 	require(party.party.activeRosterIds() == std::vector<std::uint8_t>({0,18,14,11,1,6}) &&
 		party.firstSerializedCount == 6 && party.effectiveSerializedCount == 6, "unsupported encounter party");
-	for (auto id : party.party.activeRosterIds()) {
+	if (world.sessionState().journey()) xeenValidateJourneyParty(party);
+	else for (auto id : party.party.activeRosterIds()) {
 		const auto &c = party.roster.at(id);
 		require(c.rosterId == id && c.currentHp > 0 && c.conditions == std::array<std::uint8_t,16>{},
 			"encounter requires original Good party owners");
@@ -198,11 +201,22 @@ void XeenActorApproach::validateEnvironment(XeenWorld &world,
 	for (std::size_t i = 0; i < actors.size(); ++i) {
 		const auto &a = actors[i];
 		require(sameEntity(a.original, mob.entities.monsters[i]), "encounter original metadata changed");
-		if (i != 5) require(a.x == a.original.x && a.y == a.original.y, "encounter bystander moved");
+		if (i != 5) {
+			require(a.x == a.original.x && a.y == a.original.y, "encounter bystander moved");
+			if (world.sessionState().journey()) {
+				const auto lifecycle = a.original.isDisabled() ? XeenActorLifecycle::Disabled :
+					a.original.hasResource() ? XeenActorLifecycle::Present : XeenActorLifecycle::Unresolved;
+				require(a.lifecycle == lifecycle && !a.activated && a.status == XeenActorStatus::Physical &&
+					a.hp == (a.statistics ? a.statistics->baseHp() : 0), "Journey bystander live state changed");
+			}
+		}
 	}
 	const auto &anchor = actors[5];
-	require(anchor.original.x == 13 && anchor.original.y == 2 && envelope(anchor.x,anchor.y) &&
-		anchor.lifecycle == XeenActorLifecycle::Present && anchor.status == XeenActorStatus::Physical &&
+	const bool defeated = world.sessionState().journey() && anchor.lifecycle == XeenActorLifecycle::Defeated &&
+		anchor.hp == 0 && anchor.x == -128 && anchor.y == -128 && !anchor.activated &&
+		world.sessionState().accountedMonsters().count(anchor.id);
+	require(anchor.original.x == 13 && anchor.original.y == 2 &&
+		(defeated || (envelope(anchor.x,anchor.y) && anchor.lifecycle == XeenActorLifecycle::Present)) && anchor.status == XeenActorStatus::Physical &&
 		anchor.statistics && anchor.statistics->supportsApproach() && anchor.original.resourceId != 59,
 		"unsupported encounter anchor metadata");
 	// Full four-cell/four-facing union, independent of activation and occlusion.
@@ -216,10 +230,49 @@ void XeenActorApproach::validateEnvironment(XeenWorld &world,
 	}
 }
 
+XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenPartyState &party,
+		XeenCamera &camera, XeenEncounterState &state, const std::vector<std::uint8_t> &chr,
+		const XeenGameplayContext &context, const std::vector<XeenMonsterRecord> &statistics,
+		const XeenEventFile &events, std::uint32_t seed) {
+	const auto &reservation = world._sessionState;
+	require(reservation._entry == XeenEncounterEntry::Ordinary && reservation._encounterMarked &&
+		!reservation._encounterInitialized && !reservation._encounterTerminal && reservation._actors.empty() &&
+		reservation._journeyOwner && reservation._journeyActivity == XeenJourneyActivity::Attachment &&
+		!party.roster.combatMarked() && !party.encounterContext &&
+		!state._world && seed && world._combatCheck, "Journey requires guarded fresh owners");
+	require(camera.mapId == kEntry.mapId && camera.x == 13 && camera.y == 1 && camera.direction == XeenDirection::North &&
+		context.minutes == 480 && context.ctr24 == 0, "Journey requires fresh entry context");
+	XeenPartyState candidate(party);
+	for (unsigned id = 0; id < 30; ++id) candidate.roster._combatInputs[id] = XeenCharacterFormat::parseCombatInputs(chr, id);
+	candidate.roster._combatMarked = true;
+	candidate.encounterContext = context;
+	xeenValidateJourneyMelee(candidate);
+	const auto detachedStatistics = statistics;
+	const auto detachedEvents = events;
+	auto actors = actorsFromResources(world.objectFile(20), detachedStatistics);
+	require(actors.size() == 27 && actors[5].original.resourceId == 8 && actors[5].statistics,
+		"Journey requires original Skeleton collection");
+	actors[5].statistics->validateCombat();
+	validateEnvironment(world, actors, detachedEvents);
+	XeenEncounterResult result;
+	result.outcome = XeenEncounterOutcome::Started; result.revision = 1;
+	result.view = classify(actors, camera); activate(actors, result.view);
+	world._combatCheck();
+	auto &s = world._sessionState;
+	party.roster._combatInputs = candidate.roster._combatInputs;
+	party.roster._combatMarked = true; party.encounterContext = candidate.encounterContext;
+	s._actors.swap(actors); s._entry = XeenEncounterEntry::Journey;
+	s._encounterMarked = s._encounterInitialized = true; s._encounterRevision = 1;
+	s._skeletonSeed = seed;
+	state._world = &world; state._party = &party; state._camera = &camera; state._revision = 1;
+	return result;
+}
+
 XeenEncounterResult XeenActorApproach::initialize(XeenWorld &world, XeenPartyState &party,
 		XeenCamera &camera, XeenEncounterState &state, const std::vector<XeenMonsterRecord> &statistics,
 		const XeenGameplayContext &context, const XeenEventFile &events) {
 	auto &session = world._sessionState;
+	require(!session.journey(), "Journey cannot reenter diagnostic initialization");
 	const auto uninitialized = [&] {
 		if (session._entry == XeenEncounterEntry::Diagnostic27 && (!world._combatCheck || session._combatApproachState != &state)) return false;
 		return !session._encounterInitialized && !session._encounterTerminal && session._actors.empty() &&
@@ -255,6 +308,7 @@ XeenEncounterResult XeenActorApproach::initialize(XeenWorld &world, XeenPartySta
 
 XeenEncounterResult XeenActorApproach::initializeFromResources(XeenAssetSource &assets, XeenWorld &world,
 		XeenPartyState &party, XeenCamera &camera, XeenEncounterState &state) {
+	require(!world.sessionState().journey(), "Journey cannot reenter resource initialization");
 	require(world._sessionState._entry != XeenEncounterEntry::Diagnostic27 || bool(world._combatCheck), "Diagnostic27 initialization requires its coordinator");
 	world.markEncounterSession();
 	const auto bytes = assets.readCloudsMonsterStatisticsFromDarkArchive();
@@ -281,6 +335,8 @@ XeenEncounterResult XeenActorApproach::stop(XeenWorld &world, XeenEncounterState
 	auto &s = world._sessionState;
 	XeenEncounterResult r;
 	r.revision = s._encounterRevision;
+	if (s.journey() && (!world._combatCheck || !world._combatAuthorized || !world._combatAuthorized() ||
+		s._combatApproachState != &state)) { r.outcome = XeenEncounterOutcome::Refused; return r; }
 	if (s._diagnostic27 && (!world._combatCheck || s._combatApproachState != &state)) { r.outcome = XeenEncounterOutcome::Refused; return r; }
 	if (s._diagnostic27 && (!world._combatAuthorized || !world._combatAuthorized())) { r.outcome = XeenEncounterOutcome::Stale; return r; }
 	if (state._world != &world || state._revision != s._encounterRevision) {
@@ -310,6 +366,8 @@ XeenEncounterResult XeenActorApproach::transition(XeenWorld &world, XeenPartySta
 	auto &session = world._sessionState;
 	XeenEncounterResult result;
 	result.revision = session._encounterRevision;
+	if (session.journey() && (!world._combatCheck || !world._combatAuthorized || !world._combatAuthorized() ||
+		session._combatApproachState != &state || session._journeyActivity != XeenJourneyActivity::Approach)) return result;
 	if (session._diagnostic27 && (!world._combatCheck || session._combatApproachState != &state)) return result;
 	if (state._world != &world || state._party != &party || state._camera != &camera ||
 		state._revision != session._encounterRevision) { result.outcome = XeenEncounterOutcome::Stale; return result; }
@@ -318,8 +376,9 @@ XeenEncounterResult XeenActorApproach::transition(XeenWorld &world, XeenPartySta
 	if (state._revision == std::numeric_limits<std::uint64_t>::max()) return stop(world,state,XeenEncounterStop::Overflow);
 	const auto entry = state; // Keep authorization facts from before any provider callback.
 	const auto combatAuthorized = world._combatAuthorized;
+	const bool guardedCoordination = session._diagnostic27 || session.journey();
 	const auto entryCurrent = [&] {
-		return (!session._diagnostic27 || (combatAuthorized && combatAuthorized())) &&
+		return (!guardedCoordination || (combatAuthorized && combatAuthorized())) &&
 			!session._encounterTerminal && session._encounterRevision == entry._revision &&
 			state._revision == entry._revision && state._world == entry._world &&
 			state._party == entry._party && state._camera == entry._camera &&
@@ -327,6 +386,9 @@ XeenEncounterResult XeenActorApproach::transition(XeenWorld &world, XeenPartySta
 	};
 	const auto refusal = [&] {
 		XeenEncounterResult refused;
+		if (guardedCoordination && (!combatAuthorized || !combatAuthorized())) {
+			refused.outcome = XeenEncounterOutcome::Stale; return refused;
+		}
 		refused.outcome = session._encounterTerminal ? XeenEncounterOutcome::Terminal : XeenEncounterOutcome::Stale;
 		refused.revision = session._encounterRevision;
 		refused.reason = state._reason;
@@ -358,8 +420,12 @@ XeenEncounterResult XeenActorApproach::transition(XeenWorld &world, XeenPartySta
 			charge = movement == XeenMovementResult::Moved;
 			stepTime = charge || movement == XeenMovementResult::Turned;
 			if (!stepTime) result.outcome = XeenEncounterOutcome::Blocked;
-			if (charge && (candidateCamera.mapId != XeenMapIdentity(20) || !envelope(candidateCamera.x,candidateCamera.y)))
+			if (charge && (candidateCamera.mapId != XeenMapIdentity(20) || !envelope(candidateCamera.x,candidateCamera.y))) {
+				if (session.journey()) {
+					result.outcome = XeenEncounterOutcome::Refused; result.reason = XeenEncounterStop::Envelope; return result;
+				}
 				return stopForEntry(XeenEncounterStop::Envelope);
+			}
 		}
 		// Time-boundary refusal precedes old movement, camera, ctr24 and minute stores.
 		if (charge && context.minutes >= 950) return stopForEntry(XeenEncounterStop::Time);

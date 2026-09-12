@@ -31,6 +31,8 @@ public:
 	XeenEncounterStop reason() const { return _reason; }
 private:
 	friend class XeenActorApproach;
+	friend class XeenCombat;
+	friend class XeenEncounterFlow;
 	const XeenWorld *_world = nullptr;
 	const XeenPartyState *_party = nullptr;
 	const XeenCamera *_camera = nullptr;
@@ -49,6 +51,10 @@ struct XeenEncounterResult {
 
 class XeenActorApproach {
 public:
+	// Internal fresh-domain initialization. The caller retains destination/provider guards.
+	static XeenEncounterResult initializeJourney(XeenWorld &, XeenPartyState &, XeenCamera &,
+		XeenEncounterState &, const std::vector<std::uint8_t> &, const XeenGameplayContext &,
+		const std::vector<XeenMonsterRecord> &, const XeenEventFile &, std::uint32_t seed);
 	static constexpr std::size_t kCapacity = 107;
 	inline static const XeenCamera kEntry{20, 13, 1, XeenDirection::North};
 	// Read-only authorization, including terminal states. Never adopts a revision.

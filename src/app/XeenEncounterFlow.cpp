@@ -66,6 +66,17 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 }
 
 bool XeenEncounterFlow::current(const Ticket &t) const noexcept {
+	if (_journey) {
+		if (_failure || !_journeyPreimage) return false;
+		if (!_journeyPreimage->ownersAlive()) { const_cast<XeenEncounterFlow *>(this)->closeJourney(); return false; }
+		if (t.generation != _generation || t.boundaryGeneration != _boundary.generation() ||
+			_world._sessionState._journeyOwner != this || _world._sessionState._journeyActivity == XeenJourneyActivity::Failed) return false;
+		if (_combat) return t.combat && _combat->current(*t.combat);
+		if (!_journeyPreimage->current()) { const_cast<XeenEncounterFlow *>(this)->closeJourney(); return false; }
+		return !t.combat && t.state.revision() == _state.revision() && t.state.pending() == _state.pending() &&
+			t.state.phase() == _state.phase() && t.state.reason() == _state.reason() &&
+			XeenActorApproach::authoritative(_world,_party,_camera,t.state);
+	}
 	if (completed()) {
 		if (!_completedPreimage || !_completedPreimage->ownersAlive() || !t.completed || t.generation != _generation) return false;
 		const bool authority = _completedLease ? _world.completedGuardCurrent(*t.completed, _completedLeaseKind, _completedLease, _party, _camera) :
@@ -97,6 +108,7 @@ bool XeenEncounterFlow::adopt(const XeenEncounterResult &r, std::uint64_t genera
 
 bool XeenEncounterFlow::fail(const Ticket &entry, XeenEncounterStop reason) noexcept {
 	if (!current(entry)) return false;
+	if (_journey) { closeJourney(); return true; }
 	if (completed()) {
 		try {
 			if (_completedLeaseKind == XeenCompletedGuard::Presentation && _completedLease) return false;
@@ -142,6 +154,7 @@ void XeenEncounterFlow::schedule(std::uint64_t now) noexcept {
 }
 
 bool XeenEncounterFlow::handle(const PlayerAction &input, std::optional<std::uint64_t> cycle, std::optional<XeenCombat::Ticket> displayed) {
+	if (_journey) return false; // Production input routing belongs to M29C.
 	if (completed()) return false;
 	if (_combat) return displayed && _combat->current(*displayed) && handleCombat(input, cycle);
 	const auto action = mapped(input);
@@ -188,6 +201,7 @@ bool XeenEncounterFlow::handle(const PlayerAction &input, std::optional<std::uin
 }
 
 bool XeenEncounterFlow::idle(std::optional<std::uint64_t> cycle) {
+	if (_journey) return false;
 	if (completed()) return false;
 	if (_combat) return idleCombat(cycle);
 	if (_busy || _state.phase() != XeenEncounterPhase::Exploring) return false;
@@ -250,6 +264,7 @@ std::string XeenEncounterFlow::notice() const {
 }
 
 bool XeenEncounterFlow::terminal() const noexcept {
+	if (_journey && _failure) return true;
 	if (completed()) return true;
 	if (!_combat) return _state.phase() != XeenEncounterPhase::Exploring;
 	const auto p = _combat->phase();

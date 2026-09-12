@@ -124,6 +124,10 @@ public:
 	// publication and checked immediately. An observer never receives a capability.
 	void setProbe(std::function<void()>);
 private:
+	friend class XeenEncounterFlow;
+	XeenCombat(XeenWorld &, XeenPartyState &, XeenCamera &, XeenCombatBoundary &, const XeenGameFlags &,
+		const XeenEncounterState &, const std::vector<XeenMonsterRecord> &, const XeenEventFile &);
+	void retireJourney(const Ticket &, XeenEncounterState &);
 	struct Impl;
 	std::unique_ptr<Impl> impl;
 	XeenCombatResult runApproach(const Ticket &,std::optional<XeenEncounterAction>);

@@ -35,6 +35,7 @@ public:
 
 private:
 	friend class XeenCombat;
+	friend class XeenActorApproach;
 	friend class XeenSaveState;
 	friend class XeenRestoreGuard;
 	friend class XeenWorld;

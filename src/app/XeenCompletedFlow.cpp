@@ -11,6 +11,7 @@ void XeenEncounterFlow::retainCompleted() {
 }
 
 void XeenEncounterFlow::retireVictory() {
+	if (_journey) throw std::logic_error("Journey requires mutable retirement");
 	if (!_combat || _combat->phase() != XeenCombatPhase::Victory) return;
 	if (_busy || !_boundary.quiet()) throw std::logic_error("Victory retirement requires a quiet Flow boundary");
 	_completed = _combat->retireCompletedVictory(_combat->ticket());

@@ -27,6 +27,7 @@ add_library(mmodern_xeen STATIC
 	src/formats/xeen/XeenGameplayContextFormat.cpp
 	src/games/xeen/XeenActorApproach.cpp
 	src/games/xeen/XeenCombat.cpp
+	src/games/xeen/XeenJourneyRules.cpp
 	src/games/xeen/XeenCompletedDomain.cpp
 	src/games/xeen/XeenCompletedReentry.cpp
 	src/formats/xeen/XeenAssetSource.cpp
@@ -88,6 +89,7 @@ add_library(mmodern_app STATIC
 	src/platform/XeenSaveFile.cpp
 	src/app/XeenGameplay.cpp
 	src/app/XeenEncounterFlow.cpp
+	src/app/XeenJourneyFlow.cpp
 	src/app/XeenCompletedFlow.cpp
 	src/app/Application.cpp
 	src/app/XeenEventFlow.cpp
@@ -117,9 +119,14 @@ endif()
 include(CTest)
 add_executable(mmodern_encounter_domain_smoke EXCLUDE_FROM_ALL tests/XeenEncounterSmoke.cpp)
 add_executable(mmodern_combat_smoke EXCLUDE_FROM_ALL tests/XeenCombatSmoke.cpp)
+add_executable(mmodern_journey_original EXCLUDE_FROM_ALL tests/XeenJourneyOriginal.cpp)
+target_link_libraries(mmodern_journey_original PRIVATE mmodern_app mmodern_xeen)
 target_link_libraries(mmodern_combat_smoke PRIVATE mmodern_xeen)
 target_link_libraries(mmodern_encounter_domain_smoke PRIVATE mmodern_xeen)
 if(BUILD_TESTING)
+	add_executable(mmodern_journey_tests tests/XeenJourneyTests.cpp)
+	target_link_libraries(mmodern_journey_tests PRIVATE mmodern_app mmodern_xeen)
+	add_test(NAME xeen_journey COMMAND mmodern_journey_tests)
 	add_executable(mmodern_combat_tests tests/XeenCombatTests.cpp)
 	add_executable(mmodern_combat_gameplay_tests tests/XeenCombatGameplayTests.cpp)
 	target_link_libraries(mmodern_combat_gameplay_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2)

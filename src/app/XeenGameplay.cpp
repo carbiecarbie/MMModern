@@ -91,6 +91,15 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    [&](std::uint64_t phase) { return services.compose(world, party, camera, phase); }, services.npcDraw, services.clock, {}, services.catalog,
    setup ? &*setup : nullptr, [&](std::uint64_t ordinary, XeenMonsterAppearance actor) {
     const auto observedCamera = camera;
+    if (entry == XeenEncounterEntry::Journey) {
+     XeenRestoreGuard guard(world, party, camera, flags);
+     XeenRestoreGuard::Providers providers(guard, world);
+     try {
+      auto frame = services.composeEncounter(world, party, observedCamera, ordinary, actor);
+      guard.check();
+      return frame;
+     } catch (...) { guard.check(); throw; }
+    }
     if (entry == XeenEncounterEntry::Diagnostic27)
      return services.composeEncounter(world, party, observedCamera, ordinary, actor);
     const auto observedParty = party;
