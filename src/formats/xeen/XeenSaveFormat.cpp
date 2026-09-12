@@ -140,10 +140,10 @@ XeenCharacter readCharacter(Reader &in, std::uint16_t version) {
 	for (auto *items : {&c.weapons, &c.armor, &c.accessories})
 		for (auto &item : *items) {
 			item.material = in.u8();
-			if (version == 2) item.id = in.u8();
+			if (version >= 2) item.id = in.u8();
 			item.state = in.u8(); item.frame = in.u8();
 		}
-	if (version == 2)
+	if (version >= 2)
 		for (auto &item : c.miscellaneous) {
 			item.material = in.u8(); item.id = in.u8();
 			item.state = in.u8(); item.frame = in.u8();
@@ -193,11 +193,38 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 	}
 	validateIdentities(s.disabledObjects, kMaximumObjects);
 	validateIdentities(s.disabledEvents, kMaximumEvents);
+	if (s.completedEncounter) {
+		const auto &e = *s.completedEncounter;
+		require(s.itemState == XeenSaveItemState::Complete, "completed encounter requires complete item fields");
+		require(e.entry == XeenEncounterEntry::Diagnostic27 && e.victory && e.accountingConsumed,
+			"invalid completed encounter discriminator");
+		require(e.monster == XeenMonsterIdentity{{XeenSide::Clouds, 20}, 5},
+			"invalid completed monster identity");
+		require(s.camera.mapId == XeenMapIdentity{XeenSide::Clouds, 20} && s.camera.x >= 13 && s.camera.x <= 14 &&
+			s.camera.y >= 1 && s.camera.y <= 2, "completed encounter camera is outside the admitted envelope");
+		require(s.activeRosterIds == std::vector<std::uint8_t>(kXeenCombatOwners.begin(), kXeenCombatOwners.end()),
+			"completed encounter membership differs from Diagnostic27");
+		const auto &c = e.context;
+		require(c.profile == XeenBehaviorProfile::WorldOfXeenClouds && c.difficulty == XeenDifficulty::Adventurer &&
+			c.ctr24 < 24 && c.day == 1 && c.year == 610 && c.minutes >= 491 && c.minutes <= 959 &&
+			c.effects == std::array<std::uint8_t, 9>{} && c.lightAndResistances == std::array<std::uint16_t, 6>{} &&
+			!c.rested && !c.newDay, "invalid completed encounter context");
+		constexpr std::array<std::uint8_t, 6> owners{0, 1, 6, 11, 14, 18};
+		for (std::size_t i = 0; i < owners.size(); ++i) {
+			const auto &record = e.supplements[i];
+			require(record.owner == owners[i], "invalid completed supplemental owner sequence");
+			for (const int value : {record.inputs.might.permanent, record.inputs.might.temporary,
+				record.inputs.speed.permanent, record.inputs.speed.temporary,
+				record.inputs.accuracy.permanent, record.inputs.accuracy.temporary, record.inputs.temporaryAc})
+				require(value >= 0 && value <= 255, "completed supplemental input outside byte-origin range");
+		}
+	}
 }
 
 std::vector<std::uint8_t> XeenSaveFormat::encode(const XeenSaveSnapshot &s) {
 	validate(s);
-	require(s.itemState == XeenSaveItemState::Complete, "unresolved legacy item state cannot be encoded as v2");
+	require(s.itemState == XeenSaveItemState::Complete, "unresolved legacy item state cannot be encoded");
+	const auto version = s.completedEncounter ? kCompletedVersion : kOrdinaryVersion;
 	Writer out;
 	out.bytes.resize(kHeaderSize);
 	out.fingerprint(s.resources.clouds);
@@ -215,9 +242,27 @@ std::vector<std::uint8_t> XeenSaveFormat::encode(const XeenSaveSnapshot &s) {
 	for (const bool value : s.gameFlags) out.u8(value);
 	writeIdentities(out, s.disabledObjects);
 	writeIdentities(out, s.disabledEvents);
+	if (s.completedEncounter) {
+		const auto &e = *s.completedEncounter;
+		out.u8(1);out.u8(2);out.u8(1);out.u8(1);
+		out.map(e.monster.mapId);out.u32(static_cast<std::uint32_t>(e.monster.recordIndex));
+		out.u8(static_cast<std::uint8_t>(e.context.profile));
+		out.u8(static_cast<std::uint8_t>(e.context.difficulty));
+		out.u16(e.context.ctr24);out.u16(e.context.day);out.u16(e.context.year);out.u16(e.context.minutes);
+		for(const auto value:e.context.effects)out.u8(value);
+		for(const auto value:e.context.lightAndResistances)out.u16(value);
+		out.u8(e.context.rested);out.u8(e.context.newDay);out.u8(6);
+		for(const auto &record:e.supplements) {
+			out.u8(record.owner);
+			for(const int value:{record.inputs.might.permanent,record.inputs.might.temporary,
+				record.inputs.speed.permanent,record.inputs.speed.temporary,
+				record.inputs.accuracy.permanent,record.inputs.accuracy.temporary,record.inputs.temporaryAc})out.i32(value);
+			out.u32(record.inputs.experience);
+		}
+	}
 	Writer header;
 	for (const auto byte : kMagic) header.u8(byte);
-	header.u16(kVersion); header.u8(0); header.u8(0);
+	header.u16(version); header.u8(0); header.u8(0);
 	header.u32(static_cast<std::uint32_t>(out.bytes.size() - kHeaderSize));
 	header.u32(checksum(out.bytes.data() + kHeaderSize, out.bytes.size() - kHeaderSize));
 	std::copy(header.bytes.begin(), header.bytes.end(), out.bytes.begin());
@@ -229,7 +274,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	Reader in{bytes};
 	for (const auto byte : kMagic) require(in.u8() == byte, "unrecognized format");
 	const auto version = in.u16();
-	require(version == 1 || version == 2, "unsupported version");
+	require(version == 1 || version == 2 || version == 3, "unsupported version");
 	require(in.u8() == 0, "unsupported game side");
 	require(in.u8() == 0, "nonzero reserved byte");
 	const auto length = in.u32();
@@ -256,6 +301,32 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	for (auto &value : s.gameFlags) value = in.boolean();
 	s.disabledObjects = readIdentities<XeenObjectIdentity>(in, kMaximumObjects);
 	s.disabledEvents = readIdentities<XeenEventIdentity>(in, kMaximumEvents);
+	if(version==3) {
+		XeenSaveCompletedEncounter e;
+		require(in.remaining()==243,"invalid v3 extension size");
+		require(in.u8()==1,"v3 extension is absent");
+		require(in.u8()==2,"invalid v3 entry kind");e.entry=XeenEncounterEntry::Diagnostic27;
+		require(in.u8()==1,"invalid v3 completion");e.victory=true;
+		require(in.u8()==1,"invalid v3 accounting state");e.accountingConsumed=true;
+		e.monster.mapId=in.map();const auto record=in.u32();
+		require(record<=std::numeric_limits<std::size_t>::max(),"monster identity cannot be represented");
+		e.monster.recordIndex=static_cast<std::size_t>(record);
+		e.context.profile=static_cast<XeenBehaviorProfile>(in.u8());
+		e.context.difficulty=static_cast<XeenDifficulty>(in.u8());
+		e.context.ctr24=in.u16();e.context.day=in.u16();e.context.year=in.u16();e.context.minutes=in.u16();
+		for(auto &value:e.context.effects)value=in.u8();
+		for(auto &value:e.context.lightAndResistances)value=in.u16();
+		e.context.rested=in.boolean();e.context.newDay=in.boolean();
+		require(in.u8()==6,"invalid v3 supplemental owner count");
+		for(auto &supplement:e.supplements) {
+			supplement.owner=in.u8();
+			supplement.inputs.might.permanent=in.i32();supplement.inputs.might.temporary=in.i32();
+			supplement.inputs.speed.permanent=in.i32();supplement.inputs.speed.temporary=in.i32();
+			supplement.inputs.accuracy.permanent=in.i32();supplement.inputs.accuracy.temporary=in.i32();
+			supplement.inputs.temporaryAc=in.i32();supplement.inputs.experience=in.u32();
+		}
+		s.completedEncounter=std::move(e);
+	}
 	require(in.remaining() == 0, "trailing payload data");
 	validate(s);
 	return s;

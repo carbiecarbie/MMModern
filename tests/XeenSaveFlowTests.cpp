@@ -113,7 +113,7 @@ void failures(const fs::path &path){
   XeenSaveFile::write(path,s);
   if(mode==0)fs::remove(path);
   if(mode==3){std::ofstream out(path,std::ios::binary|std::ios::trunc);out<<"not a save";}
-  if(mode==4){auto bytes=XeenSaveFormat::encode(s);bytes[8]=3;std::ofstream out(path,std::ios::binary|std::ios::trunc);out.write(reinterpret_cast<const char*>(bytes.data()),bytes.size());}
+  if(mode==4){auto bytes=XeenSaveFormat::encode(s);bytes[8]=4;std::ofstream out(path,std::ios::binary|std::ios::trunc);out.write(reinterpret_cast<const char*>(bytes.data()),bytes.size());}
   if(mode==5)f.failCompose=true;if(mode==6)f.invalidFrame=true;
   auto services=f.services();bool shown=false;services.show=[&](const auto&,const auto&,const auto&,const auto&,const auto&){shown=true;return true;};
   check(Application().playGameplay(services,start,path,true)==3&&!shown,"failed resume exposed gameplay or fell back");

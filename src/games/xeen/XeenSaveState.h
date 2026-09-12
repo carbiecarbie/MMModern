@@ -19,6 +19,8 @@ public:
 	using Preflight = std::function<void(XeenWorld &, const XeenPartyState &,
 		const XeenCamera &, const XeenGameFlags &)>;
 
+	static bool canCapture(const XeenPartyState &, const XeenCamera &, const XeenWorld &) noexcept;
+
 	// Caller enforces the idle boundary. This layer never acknowledges or cancels
 	// an interaction, and deliberately has no EventFlow/Application dependency.
 	static XeenSaveSnapshot capture(const XeenSaveResourceSignature &resources,

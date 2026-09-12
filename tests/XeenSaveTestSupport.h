@@ -31,6 +31,26 @@ inline bool sameCamera(const XeenCamera &a, const XeenCamera &b) {
 	return a.mapId == b.mapId && a.x == b.x && a.y == b.y && a.direction == b.direction;
 }
 
+inline bool sameInputs(const XeenCombatInputs &a, const XeenCombatInputs &b) {
+	return a.might.permanent == b.might.permanent && a.might.temporary == b.might.temporary &&
+		a.speed.permanent == b.speed.permanent && a.speed.temporary == b.speed.temporary &&
+		a.accuracy.permanent == b.accuracy.permanent && a.accuracy.temporary == b.accuracy.temporary &&
+		a.temporaryAc == b.temporaryAc && a.experience == b.experience;
+}
+
+inline bool sameCompleted(const std::optional<XeenSaveCompletedEncounter> &a,
+		const std::optional<XeenSaveCompletedEncounter> &b) {
+	if (bool(a) != bool(b)) return false;
+	if (!a) return true;
+	if (a->entry != b->entry || a->victory != b->victory ||
+		a->accountingConsumed != b->accountingConsumed || !(a->monster == b->monster) ||
+		!(a->context == b->context)) return false;
+	for (std::size_t i = 0; i < a->supplements.size(); ++i)
+		if (a->supplements[i].owner != b->supplements[i].owner ||
+			!sameInputs(a->supplements[i].inputs, b->supplements[i].inputs)) return false;
+	return true;
+}
+
 inline void sameSnapshot(const XeenSaveSnapshot &a, const XeenSaveSnapshot &b) {
 	check(a.resources == b.resources && sameCamera(a.camera, b.camera), "signature/camera changed");
 	check(a.itemState == b.itemState, "item presence changed");
@@ -41,6 +61,8 @@ inline void sameSnapshot(const XeenSaveSnapshot &a, const XeenSaveSnapshot &b) {
 		"independent counters/flags changed");
 	check(a.disabledObjects == b.disabledObjects && a.disabledEvents == b.disabledEvents,
 		"independent world identities changed");
+	check(sameCompleted(a.completedEncounter, b.completedEncounter),
+		"completed encounter extension changed");
 }
 
 inline XeenSaveSnapshot sample() {
@@ -86,6 +108,26 @@ inline XeenSaveSnapshot sample() {
 	for (std::size_t i = 0; i < s.gameFlags.size(); ++i) s.gameFlags[i] = i % 5 == 2;
 	s.disabledObjects = {{1, 0}, {2, 1}, {9999, 0xffffffffU}};
 	s.disabledEvents = {{2, 0}, {3, 1}, {9999, 0xffffffffU}};
+	return s;
+}
+
+inline XeenSaveSnapshot completedSample() {
+	auto s = sample();
+	s.camera = {20, 14, 2, XeenDirection::East};
+	s.activeRosterIds.assign(kXeenCombatOwners.begin(), kXeenCombatOwners.end());
+	XeenSaveCompletedEncounter completed;
+	completed.context = {XeenBehaviorProfile::WorldOfXeenClouds, XeenDifficulty::Adventurer,
+		23, 1, 610, 959, {}, {}, false, false};
+	constexpr std::array<std::uint8_t, 6> owners{0, 1, 6, 11, 14, 18};
+	for (std::size_t i = 0; i < owners.size(); ++i) {
+		auto &r = completed.supplements[i]; r.owner = owners[i];
+		r.inputs.might = {int(i * 7), int(i * 7 + 1)};
+		r.inputs.speed = {int(i * 7 + 2), int(i * 7 + 3)};
+		r.inputs.accuracy = {int(i * 7 + 4), int(i * 7 + 5)};
+		r.inputs.temporaryAc = int(i * 7 + 6);
+		r.inputs.experience = i == 0 ? 0U : 0x10203040U + static_cast<std::uint32_t>(i * 0x01010101U);
+	}
+	s.completedEncounter = completed;
 	return s;
 }
 

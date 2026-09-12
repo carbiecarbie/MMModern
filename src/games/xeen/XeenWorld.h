@@ -6,6 +6,7 @@
 #include "games/xeen/XeenEventFile.h"
 #include "games/xeen/XeenActor.h"
 #include "games/xeen/XeenEncounterEntry.h"
+#include "games/xeen/XeenParty.h"
 #include <stdexcept>
 #include <set>
 
@@ -17,6 +18,39 @@
 #include <vector>
 
 namespace mmodern {
+
+enum class XeenEncounterCompletion { None, VictoryEnded, VictoryQuiescent };
+enum class XeenCompletedGuard { Operation, Presentation, Integrity, Fatal };
+
+class XeenCompletedEncounterTicket {
+public:
+	XeenCompletedEncounterTicket() = default;
+private:
+	friend class XeenWorld;
+	const class XeenWorld *world = nullptr;
+	std::uint64_t incarnation = 0, revision = 0;
+};
+
+// Runtime-only preimage and owner binding. This is an authorization record, not
+// another gameplay owner, and none of it is serialized verbatim.
+struct XeenCompletedEncounterAuthority {
+	const XeenPartyState *party = nullptr;
+	const XeenRoster *roster = nullptr;
+	const XeenCamera *camera = nullptr;
+	std::array<XeenCharacter, XeenRoster::kCharacterCount> characters{};
+	std::array<std::optional<XeenCombatInputs>, XeenRoster::kCharacterCount> combatInputs{};
+	std::vector<std::uint8_t> activeRosterIds;
+	XeenCloudsQuestItems::Counts questItems{};
+	XeenCloudsQuestFlags::Values questFlags{};
+	std::optional<XeenGameplayContext> context;
+	std::uint8_t firstSerializedCount = 0, effectiveSerializedCount = 0;
+	std::vector<std::string> diagnostics;
+	XeenCamera cameraValue;
+	std::vector<XeenActor> actors;
+	std::set<XeenObjectIdentity> objects;
+	std::set<XeenEventIdentity> events;
+	XeenMonsterIdentity monster{{XeenSide::Clouds, 20}, 5};
+};
 
 struct XeenCellSample {
 	XeenMapIdentity mapId = 0;
@@ -39,6 +73,9 @@ public:
 	XeenEncounterEntry encounterEntry() const noexcept { return _entry; }
 	bool encounterInitialized() const { return _encounterInitialized; }
 	bool encounterTerminal() const { return _encounterTerminal; }
+	XeenEncounterCompletion completion() const noexcept { return _completion; }
+	bool combatAccounted() const noexcept { return _combatAccounted; }
+	XeenMonsterIdentity completedMonster() const noexcept { return _completedMonster; }
 	const std::vector<XeenActor> &actors() const { return _actors; }
 private:
 	friend class XeenWorld;
@@ -47,9 +84,15 @@ private:
 	const void *_combatOwner = nullptr;
 	const void *_combatApproachState = nullptr;
 	bool _diagnostic27 = false, _combatEntered = false, _combatAccounted = false;
+	XeenEncounterCompletion _completion = XeenEncounterCompletion::None;
+	XeenMonsterIdentity _completedMonster{{XeenSide::Clouds, 20}, 5};
+	std::optional<XeenCompletedEncounterAuthority> _completedAuthority;
+	mutable bool _completedIntegrityUnsafe = false, _completedFatal = false;
+	mutable std::uint64_t _completedLease = 0;
+	mutable std::optional<XeenCompletedGuard> _completedLeaseKind;
 	XeenEncounterEntry _entry = XeenEncounterEntry::Ordinary;
 	bool _encounterMarked = false, _encounterInitialized = false, _encounterTerminal = false;
-	std::uint64_t _encounterRevision = 0;
+	mutable std::uint64_t _encounterRevision = 0;
 	std::vector<XeenActor> _actors;
 	std::set<XeenObjectIdentity> _objects;
 	std::set<XeenEventIdentity> _events;
@@ -89,6 +132,15 @@ public:
 		return _sessionState._encounterMarked || _sessionState._encounterInitialized ||
 			!_sessionState._actors.empty();
 	}
+	bool completedCaptureEligible(const XeenPartyState &, const XeenCamera &) const noexcept;
+	XeenCompletedEncounterTicket completedTicket(const XeenPartyState &, const XeenCamera &) const noexcept;
+	std::uint64_t holdCompletedGuard(const XeenCompletedEncounterTicket &, XeenCompletedGuard,
+		const XeenPartyState &, const XeenCamera &);
+	bool releaseCompletedGuard(const XeenCompletedEncounterTicket &, XeenCompletedGuard, std::uint64_t) noexcept;
+	bool latchCompletedGuard(const XeenCompletedEncounterTicket &, XeenCompletedGuard,
+		const XeenPartyState &, const XeenCamera &) noexcept;
+	bool escalateCompletedGuard(const XeenCompletedEncounterTicket &, XeenCompletedGuard,
+		std::uint64_t, XeenCompletedGuard) noexcept;
 	// For unpublished startup owners only. Validates every original identity
 	// before replacing either set; no script execution or cell expansion.
 	void restoreSessionState(const std::vector<XeenObjectIdentity> &objects,
@@ -105,6 +157,9 @@ private:
 	friend class XeenCombat;
 	friend class XeenActorApproach;
 	void swapPreparedState(XeenWorld &candidate) noexcept;
+	// Process-lifetime capability identity. It belongs to this object lifetime,
+	// not session gameplay state, and is never serialized or swapped.
+	const std::uint64_t _incarnation;
 	// Diagnostic27 checks retained authority after fallible resource providers.
 	std::function<void()> _combatCheck;
 	// Retained Diagnostic27 authorization, separate from domain validity.

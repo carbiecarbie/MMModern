@@ -53,7 +53,7 @@ int main(int argc,char **argv){try{
   auto saved=s;if(kind==0)saved.resources.clouds.crc32++;if(kind==1)saved.activeRosterIds={24};
   XeenSaveFile::write(path,saved);
   if(kind==2){std::ofstream out(path,std::ios::binary|std::ios::trunc);out<<"bad";}
-  if(kind==3){auto b=XeenSaveFormat::encode(s);b[8]=3;std::ofstream out(path,std::ios::binary|std::ios::trunc);out.write(reinterpret_cast<const char*>(b.data()),b.size());}
+  if(kind==3){auto b=XeenSaveFormat::encode(s);b[8]=4;std::ofstream out(path,std::ios::binary|std::ios::trunc);out.write(reinterpret_cast<const char*>(b.data()),b.size());}
   run(kind==0?"incompatible":kind==1?"portrait":kind==2?"format":kind==3?"version":"mm4.pal");
   fs::remove(path);
  }

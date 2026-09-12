@@ -98,6 +98,7 @@ void timeBoundary() {
 		if(lethal){f.action(Command::Attack);f.action(Command::Attack);check(f.combat->phase()==Phase::VictoryAwaitingEnd&&f.p.roster.combatInputs(0)->experience==82,"959 lethal accounting retained");}
 		else{f.action(Command::Attack);f.blockRound();f.service();check(f.combat->pending()==Work::Round&&f.w.sessionState().actors()[5].hp==13&&f.p.roster.at(1).currentHp==-17,"959 earlier player/enemy injuries precede refusal");}
 		const auto pos=f.combat->random().position();check(f.service().status==Status::SupportStopped,"960 refuses round or end");
+		XeenGameFlags flags;rejects([&]{XeenSaveState::capture(save_test::sample().resources,f.p,f.camera,flags,f.w);},"encounter");
 		check(f.p.encounterContext->minutes==959&&f.combat->random().position()==pos,"no condition RNG or unsupported minute");
 	}
 }

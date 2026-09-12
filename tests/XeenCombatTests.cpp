@@ -16,6 +16,7 @@ void mixed() {
 	for(auto id:kXeenCombatOwners)check(f.p.roster.combatInputs(id)->experience==82,"XP divide before multiply");
 	const auto &a=f.w.sessionState().actors()[5];check(a.hp==0&&a.x==-128&&a.y==-128&&a.lifecycle==XeenActorLifecycle::Defeated,"identity-preserving removal");
 	check(f.service().status==Status::Victory&&f.p.encounterContext->minutes==492,"separate victory end minute");
+	XeenGameFlags flags;rejects([&]{XeenSaveState::capture(save_test::sample().resources,f.p,f.camera,flags,f.w);},"encounter");
 	f.combat->fail(f.combat->ticket());check(f.combat->phase()==Phase::Victory,"terminal observation failure preserves Victory");
 	f.w.discardMapCache();f.w.map(20);f.w.objectFile(20);check(a.hp==0&&f.p.roster.combatInputs(0)->experience==82,"cache does not heal or reward");
 	for(unsigned i=0;i<30;++i)remove_test::checkSameCharacter(before[i],f.p.roster.at(i));
@@ -31,6 +32,7 @@ void defeat() {
 		if(round<5){check(f.combat->pending()==Work::Round,"pending round");f.service();}
 	}
 	check(f.combat->phase()==Phase::Defeat&&f.p.encounterContext->minutes==495,"real all-Block defeat without final minute");
+	XeenGameFlags flags;rejects([&]{XeenSaveState::capture(save_test::sample().resources,f.p,f.camera,flags,f.w);},"encounter");
 	check(f.w.sessionState().actors()[5].hp==20,"defeat preserves enemy HP");for(auto id:kXeenCombatOwners)check(f.p.roster.combatInputs(id)->experience==0,"no defeat XP");
 }
 void seeds() {

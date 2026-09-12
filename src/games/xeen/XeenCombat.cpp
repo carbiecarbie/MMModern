@@ -197,6 +197,11 @@ struct XeenCombat::Impl {
 	}
 	void capacity() { require(revision()<std::numeric_limits<std::uint64_t>::max()&&generation<std::numeric_limits<std::uint64_t>::max()-2,"combat revision exhausted"); }
 	void published() noexcept { ++session()._encounterRevision;++generation; }
+	void latchIntegrity() noexcept {
+		session()._completedIntegrityUnsafe=true;
+		if(revision()!=std::numeric_limits<std::uint64_t>::max())++session()._encounterRevision;
+		if(generation!=std::numeric_limits<std::uint64_t>::max())++generation;
+	}
 	void injury(Candidate &c) {
 		auto &ch=*c.injured; auto &r=c.result;
 		XeenCombatDamage d;d.owner=ch.rosterId;d.amount=c.damage;d.beforeHp=ch.currentHp;d.beforeAc=armor(ch,c.target);
@@ -271,13 +276,23 @@ XeenCombat::XeenCombat(XeenWorld &w,XeenPartyState &p,XeenCamera &c,XeenCombatBo
 	for(unsigned i=0;i<6;++i)p.roster._combatInputs[kXeenCombatOwners[i]]=d.inputs[i];
 	d.attached=true;d.last=d.observation(Status::Accepted);
 }
-XeenCombat::~XeenCombat()=default;
+XeenCombat::~XeenCombat() {
+	if (!impl) return;
+	auto &d=*impl;
+	if (d.world._sessionState._combatOwner==this) {
+		d.world._combatCheck={};d.world._combatAuthorized={};
+		d.world._sessionState._combatOwner=nullptr;
+		d.world._sessionState._combatApproachState=nullptr;
+	}
+}
 XeenCombat::Ticket XeenCombat::ticket() const noexcept {
-	Ticket t;const auto &d=*impl;t.owner=this;t.generation=d.generation;t.revision=d.revision();
+	Ticket t;const auto &d=*impl;t.owner=this;t.incarnation=d.world._incarnation;
+	t.generation=d.generation;t.revision=d.revision();
 	t.boundary=d.boundary.generation();t.phase=d.phase;t.work=d.work;return t;
 }
 bool XeenCombat::current(const Ticket &t) const noexcept {
-	const auto &d=*impl;return t.owner==this&&t.generation==d.generation&&t.revision==d.revision()&&t.boundary==d.boundary.generation()&&
+	const auto &d=*impl;return t.owner==this&&t.incarnation==d.world._incarnation&&
+		t.generation==d.generation&&t.revision==d.revision()&&t.boundary==d.boundary.generation()&&
 		t.phase==d.phase&&t.work==d.work&&d.world._sessionState._combatOwner==this;
 }
 const XeenCombatResult &XeenCombat::result() const noexcept {return impl->last;}
@@ -294,7 +309,12 @@ const XeenCombatRandom &XeenCombat::random() const noexcept {return impl->rng;}
 void XeenCombat::setProbe(std::function<void()> p) { require(!impl->busy,"cannot replace an in-flight probe");impl->probe=std::move(p); }
 XeenCombatResult XeenCombat::fail(const Ticket &t,Failure f) noexcept {
 	auto &d=*impl;if(!current(t))return d.observation(Status::Stale);
-	if(terminal(d.phase))return d.last;
+	if(terminal(d.phase)) {
+		if(d.phase==Phase::Victory&&f==Failure::Integrity&&
+			d.session()._completion==XeenEncounterCompletion::VictoryEnded&&
+			!d.session()._completedIntegrityUnsafe)d.latchIntegrity();
+		return d.last;
+	}
 	auto r=d.observation(Status::Failed);r.oldRevision=d.revision();r.failure=f;r.operation=Operation::Failure;
 	d.phase=f==Failure::Time?Phase::SupportStopped:Phase::Failed;d.work=Work::None;d.candidate.reset();
 	d.session()._encounterTerminal=true;
@@ -459,7 +479,11 @@ XeenCombatResult XeenCombat::service(const Ticket &t) {
 				for(unsigned i=0;i<moved.size();++i)require(same(moved[i],d.actors[i]),"round isolation changed");
 				d.sortOrder();d.probeFor(t);
 				d.session()._actors.swap(moved);d.acted.fill(false);d.blocked.fill(false);d.selectNext();
-			} else {d.phase=Phase::Victory;d.work=Work::None;}
+			} else {
+				d.phase=Phase::Victory;d.work=Work::None;
+				d.session()._completion=XeenEncounterCompletion::VictoryEnded;
+				d.session()._completedMonster=XeenMonsterIdentity{{XeenSide::Clouds,20},5};
+			}
 			++d.party.encounterContext->minutes;++d.expected.encounterContext->minutes;d.published();
 			return d.adopt(r,d.phase==Phase::Victory?Status::Victory:Status::Advanced);
 		}
@@ -570,6 +594,53 @@ XeenCombatResult XeenCombat::service(const Ticket &t) {
 		d.rng=c.rng;d.candidate.reset();d.published();return d.adopt(r,d.phase==Phase::Defeat?Status::Defeat:Status::Advanced);
 	}catch(const IntegrityError &){d.world._combatCheck={};return fail(t,Failure::Integrity);}
 	catch(...){d.world._combatCheck={};return fail(t,Failure::Preparation);}
+}
+
+XeenCompletedEncounterTicket XeenCombat::retireCompletedVictory(const Ticket &t) {
+	auto &d=*impl;auto &s=d.session();
+	require(current(t),"completed combat ticket is stale");
+	require(!d.busy&&d.phase==Phase::Victory&&d.work==Work::None&&
+		!d.candidate&&d.boundary.quiet(),"completed combat is not current and quiescent");
+	require(!s._completedIntegrityUnsafe,"completed combat integrity is unsafe");
+	if(!d.exact()) {
+		d.latchIntegrity();
+		throw std::invalid_argument("completed combat preimage changed during retirement");
+	}
+	require(s._completion==XeenEncounterCompletion::VictoryEnded&&s._combatAccounted&&
+		s._encounterMarked&&s._encounterInitialized&&s._encounterTerminal&&s._combatEntered&&
+		s._entry==XeenEncounterEntry::Diagnostic27&&s._diagnostic27&&d.approach.pending()==0,
+		"completed encounter invariants are incomplete");
+	require(s._actors.size()==27,"completed actor collection is incomplete");
+	const auto &target=s._actors.at(5);
+	require(target.id==XeenMonsterIdentity{{XeenSide::Clouds,20},5}&&target.hp==0&&target.x==-128&&target.y==-128&&
+		!target.activated&&target.lifecycle==XeenActorLifecycle::Defeated&&target.status==XeenActorStatus::Physical,
+		"completed target is not canonical");
+
+	XeenCompletedEncounterAuthority prepared;
+	prepared.party=&d.party;prepared.roster=&d.party.roster;prepared.camera=&d.camera;
+	prepared.characters=d.party.roster.characters();
+	for(std::size_t i=0;i<prepared.combatInputs.size();++i)prepared.combatInputs[i]=d.party.roster.combatInputs(i);
+	prepared.activeRosterIds=d.party.party.activeRosterIds();prepared.questItems=d.party.questItems.counts();
+	prepared.questFlags=d.party.questFlags.values();prepared.context=d.party.encounterContext;
+	prepared.firstSerializedCount=d.party.firstSerializedCount;prepared.effectiveSerializedCount=d.party.effectiveSerializedCount;
+	prepared.diagnostics=d.party.diagnostics;prepared.cameraValue=d.camera;prepared.actors=s._actors;
+	prepared.objects=s._objects;prepared.events=s._events;prepared.monster=s._completedMonster;
+
+	require(current(t),"completed combat ticket became stale during retirement");
+	require(!d.busy&&d.boundary.quiet()&&!s._completedIntegrityUnsafe&&
+		s._completion==XeenEncounterCompletion::VictoryEnded,"completed authority changed during retirement");
+	if(!d.exact()) {
+		d.latchIntegrity();
+		throw std::invalid_argument("completed combat preimage changed during retirement");
+	}
+	static_assert(std::is_nothrow_move_constructible_v<XeenCompletedEncounterAuthority>);
+	s._completedAuthority.emplace(std::move(prepared));
+	s._completion=XeenEncounterCompletion::VictoryQuiescent;
+	s._completedIntegrityUnsafe=false;s._completedFatal=false;s._completedLease=0;s._completedLeaseKind.reset();
+	s._combatOwner=nullptr;s._combatApproachState=nullptr;
+	d.world._combatCheck={};d.world._combatAuthorized={};
+	++s._encounterRevision;++d.generation;
+	return d.world.completedTicket(d.party,d.camera);
 }
 static_assert(std::is_nothrow_copy_assignable_v<XeenCombatResult>);
 static_assert(std::is_nothrow_copy_assignable_v<XeenActor>);

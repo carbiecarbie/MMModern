@@ -1,14 +1,173 @@
 #include "games/xeen/XeenWorld.h"
 
+#include <atomic>
 #include <stdexcept>
+#include <limits>
 #include <utility>
 
 namespace mmodern {
+namespace {
+std::uint64_t nextWorldIncarnation() {
+	static std::atomic<std::uint64_t> next{1};
+	auto value = next.load(std::memory_order_relaxed);
+	for (;;) {
+		if (value == std::numeric_limits<std::uint64_t>::max())
+			throw std::overflow_error("world incarnation exhausted");
+		if (next.compare_exchange_weak(value, value + 1,
+				std::memory_order_relaxed, std::memory_order_relaxed)) return value;
+	}
+}
+bool sameAttribute(XeenAttributeValue a, XeenAttributeValue b) {
+	return a.permanent == b.permanent && a.temporary == b.temporary;
+}
+bool sameInputs(const XeenCombatInputs &a, const XeenCombatInputs &b) {
+	return sameAttribute(a.might, b.might) && sameAttribute(a.speed, b.speed) &&
+		sameAttribute(a.accuracy, b.accuracy) && a.temporaryAc == b.temporaryAc &&
+		a.experience == b.experience;
+}
+bool sameItemCategory(const XeenItemCategory &a, const XeenItemCategory &b) {
+	for (std::size_t i = 0; i < a.size(); ++i)
+		if (a[i].material != b[i].material || a[i].id != b[i].id ||
+			a[i].state != b[i].state || a[i].frame != b[i].frame) return false;
+	return true;
+}
+bool sameCharacter(const XeenCharacter &a, const XeenCharacter &b) {
+	return a.rosterId == b.rosterId && a.name == b.name && a.sex == b.sex &&
+		a.race == b.race && a.characterClass == b.characterClass &&
+		sameAttribute(a.intellect, b.intellect) && sameAttribute(a.personality, b.personality) &&
+		sameAttribute(a.endurance, b.endurance) && a.permanentLevel == b.permanentLevel &&
+		a.temporaryLevel == b.temporaryLevel && a.temporaryAge == b.temporaryAge &&
+		a.maxStatSkills.astrologer == b.maxStatSkills.astrologer &&
+		a.maxStatSkills.bodybuilder == b.maxStatSkills.bodybuilder &&
+		a.maxStatSkills.prayerMaster == b.maxStatSkills.prayerMaster &&
+		a.maxStatSkills.prestidigitation == b.maxStatSkills.prestidigitation &&
+		a.hasSpells == b.hasSpells && sameItemCategory(a.weapons, b.weapons) &&
+		sameItemCategory(a.armor, b.armor) && sameItemCategory(a.accessories, b.accessories) &&
+		sameItemCategory(a.miscellaneous, b.miscellaneous) && a.currentHp == b.currentHp &&
+		a.currentSp == b.currentSp && a.conditions == b.conditions && a.birthYear == b.birthYear;
+}
+bool sameCamera(const XeenCamera &a, const XeenCamera &b) {
+	return a.mapId == b.mapId && a.x == b.x && a.y == b.y && a.direction == b.direction;
+}
+bool sameActor(const XeenActor &a, const XeenActor &b) {
+	return a.id == b.id && a.original.x == b.original.x && a.original.y == b.original.y &&
+		a.original.direction == b.original.direction && a.original.tableIndex == b.original.tableIndex &&
+		a.original.resourceId == b.original.resourceId && a.x == b.x && a.y == b.y && a.hp == b.hp &&
+		a.activated == b.activated && a.lifecycle == b.lifecycle && a.status == b.status &&
+		bool(a.statistics) == bool(b.statistics) && (!a.statistics || a.statistics->raw == b.statistics->raw);
+}
+}
 
 XeenWorld::XeenWorld(MapLoader loader, ObjectLoader objectLoader) :
-	_loader(std::move(loader)), _objectLoader(std::move(objectLoader)) {
+	_incarnation(nextWorldIncarnation()), _loader(std::move(loader)), _objectLoader(std::move(objectLoader)) {
 	if (!_loader)
 		throw std::invalid_argument("XeenWorld requer um carregador de mapas");
+}
+
+bool XeenWorld::completedCaptureEligible(const XeenPartyState &party, const XeenCamera &camera) const noexcept {
+	const auto &s = _sessionState;
+	if (s._completion != XeenEncounterCompletion::VictoryQuiescent || !s._completedAuthority ||
+		!s._combatAccounted || !s._diagnostic27 || !s._combatEntered || !s._encounterMarked ||
+		!s._encounterInitialized || !s._encounterTerminal || s._entry != XeenEncounterEntry::Diagnostic27 ||
+		s._combatOwner || s._combatApproachState || _combatCheck || _combatAuthorized ||
+		s._completedIntegrityUnsafe || s._completedFatal || s._completedLease || s._completedLeaseKind) return false;
+	const auto &a = *s._completedAuthority;
+	// A detached or copied caller owns no capability and cannot poison the bound graph.
+	if (a.party != &party || a.roster != &party.roster || a.camera != &camera) return false;
+	bool exact = party.roster.combatMarked() && party.party.activeRosterIds() == a.activeRosterIds &&
+		party.questItems.counts() == a.questItems && party.questFlags.values() == a.questFlags &&
+		party.encounterContext == a.context && party.firstSerializedCount == a.firstSerializedCount &&
+		party.effectiveSerializedCount == a.effectiveSerializedCount && party.diagnostics == a.diagnostics &&
+		sameCamera(camera, a.cameraValue) && s._actors.size() == a.actors.size() &&
+		s._objects == a.objects && s._events == a.events && s._completedMonster == a.monster &&
+		s._completedMonster == XeenMonsterIdentity{{XeenSide::Clouds, 20}, 5};
+	for (std::size_t i = 0; exact && i < a.characters.size(); ++i) {
+		exact = sameCharacter(party.roster.characters()[i], a.characters[i]) &&
+			bool(party.roster.combatInputs(i)) == bool(a.combatInputs[i]);
+		if (exact && a.combatInputs[i]) exact = sameInputs(*party.roster.combatInputs(i), *a.combatInputs[i]);
+	}
+	for (std::size_t i = 0; exact && i < a.actors.size(); ++i) exact = sameActor(s._actors[i], a.actors[i]);
+	if (!exact) {
+		s._completedIntegrityUnsafe = true;
+		if (s._encounterRevision != std::numeric_limits<std::uint64_t>::max()) ++s._encounterRevision;
+	}
+	return exact;
+}
+
+XeenCompletedEncounterTicket XeenWorld::completedTicket(const XeenPartyState &party,
+		const XeenCamera &camera) const noexcept {
+	XeenCompletedEncounterTicket ticket;
+	if (completedCaptureEligible(party, camera)) {
+		ticket.world = this;
+		ticket.incarnation = _incarnation;
+		ticket.revision = _sessionState._encounterRevision;
+	}
+	return ticket;
+}
+
+std::uint64_t XeenWorld::holdCompletedGuard(const XeenCompletedEncounterTicket &ticket,
+		XeenCompletedGuard guard, const XeenPartyState &party, const XeenCamera &camera) {
+	auto &s = _sessionState;
+	if ((guard != XeenCompletedGuard::Operation && guard != XeenCompletedGuard::Presentation) ||
+		ticket.world != this || ticket.incarnation != _incarnation ||
+		ticket.revision != s._encounterRevision || s._completedLease ||
+		s._completedLeaseKind ||
+		s._completion != XeenEncounterCompletion::VictoryQuiescent || !completedCaptureEligible(party, camera))
+		throw std::logic_error("stale completed encounter ticket");
+	if (s._encounterRevision == std::numeric_limits<std::uint64_t>::max())
+		throw std::overflow_error("completed encounter revision exhausted");
+	++s._encounterRevision;
+	s._completedLease = s._encounterRevision;
+	s._completedLeaseKind = guard;
+	return s._encounterRevision;
+}
+
+bool XeenWorld::releaseCompletedGuard(const XeenCompletedEncounterTicket &ticket,
+		XeenCompletedGuard guard, std::uint64_t lease) noexcept {
+	auto &s = _sessionState;
+	if ((guard != XeenCompletedGuard::Operation && guard != XeenCompletedGuard::Presentation) ||
+		ticket.world != this || ticket.incarnation != _incarnation ||
+		ticket.revision == std::numeric_limits<std::uint64_t>::max() ||
+		ticket.revision + 1 != lease || s._completedLease != lease || s._completedLeaseKind != guard ||
+		s._encounterRevision != lease || s._completedIntegrityUnsafe || s._completedFatal ||
+		s._encounterRevision == std::numeric_limits<std::uint64_t>::max()) return false;
+	++s._encounterRevision;
+	s._completedLease = 0;
+	s._completedLeaseKind.reset();
+	return true;
+}
+
+bool XeenWorld::latchCompletedGuard(const XeenCompletedEncounterTicket &ticket,
+		XeenCompletedGuard guard, const XeenPartyState &party, const XeenCamera &camera) noexcept {
+	auto &s = _sessionState;
+	if ((guard != XeenCompletedGuard::Integrity && guard != XeenCompletedGuard::Fatal) ||
+		ticket.world != this || ticket.incarnation != _incarnation ||
+		ticket.revision != s._encounterRevision || s._completedLease ||
+		s._completedLeaseKind || s._encounterRevision == std::numeric_limits<std::uint64_t>::max() ||
+		!completedCaptureEligible(party, camera)) return false;
+	++s._encounterRevision;
+	if (guard == XeenCompletedGuard::Integrity) s._completedIntegrityUnsafe = true;
+	else s._completedFatal = true;
+	return true;
+}
+
+bool XeenWorld::escalateCompletedGuard(const XeenCompletedEncounterTicket &ticket,
+		XeenCompletedGuard heldGuard, std::uint64_t lease, XeenCompletedGuard escalation) noexcept {
+	auto &s = _sessionState;
+	if ((heldGuard != XeenCompletedGuard::Operation && heldGuard != XeenCompletedGuard::Presentation) ||
+		(escalation != XeenCompletedGuard::Integrity && escalation != XeenCompletedGuard::Fatal) ||
+		ticket.world != this || ticket.incarnation != _incarnation ||
+		ticket.revision == std::numeric_limits<std::uint64_t>::max() ||
+		ticket.revision + 1 != lease || s._completedLease != lease || s._completedLeaseKind != heldGuard ||
+		s._encounterRevision != lease || s._completion != XeenEncounterCompletion::VictoryQuiescent ||
+		s._completedIntegrityUnsafe || s._completedFatal ||
+		s._encounterRevision == std::numeric_limits<std::uint64_t>::max()) return false;
+	++s._encounterRevision;
+	s._completedLease = 0;
+	s._completedLeaseKind.reset();
+	if (escalation == XeenCompletedGuard::Integrity) s._completedIntegrityUnsafe = true;
+	else s._completedFatal = true;
+	return true;
 }
 
 void XeenWorld::restoreSessionState(const std::vector<XeenObjectIdentity> &objects,

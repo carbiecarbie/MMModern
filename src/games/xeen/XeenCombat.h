@@ -85,7 +85,7 @@ public:
 	class Ticket {
 		friend class XeenCombat;
 		const XeenCombat *owner=nullptr;
-		std::uint64_t generation=0,revision=0,boundary=0;
+		std::uint64_t incarnation=0,generation=0,revision=0,boundary=0;
 		XeenCombatPhase phase=XeenCombatPhase::Failed;
 		XeenCombatWork work=XeenCombatWork::None;
 	};
@@ -116,6 +116,7 @@ public:
 	XeenCombatResult beginCombat(const Ticket &);
 	XeenCombatResult command(const Ticket &,XeenCombatCommand);
 	XeenCombatResult service(const Ticket &);
+	XeenCompletedEncounterTicket retireCompletedVictory(const Ticket &);
 	XeenCombatResult fail(const Ticket &,XeenCombatFailure=XeenCombatFailure::Observation) noexcept;
 	// Single-writer replacement notification, including byte-identical ABA.
 	void invalidate() noexcept;

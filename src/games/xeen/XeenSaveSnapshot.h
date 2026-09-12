@@ -5,6 +5,9 @@
 #include "games/xeen/XeenNavigation.h"
 #include "games/xeen/XeenParty.h"
 #include "games/xeen/XeenRecordIdentity.h"
+#include "games/xeen/XeenEncounterEntry.h"
+#include "games/xeen/XeenCombatInputs.h"
+#include "games/xeen/XeenGameplayContext.h"
 
 #include <optional>
 #include <vector>
@@ -32,6 +35,20 @@ struct XeenSaveResourceSignature {
 // Loading metadata, caches and all interpreter/presentation state are absent.
 enum class XeenSaveItemState { Complete, LegacyV1MissingFields };
 
+struct XeenSaveCombatSupplement {
+	std::uint8_t owner = 0;
+	XeenCombatInputs inputs;
+};
+
+struct XeenSaveCompletedEncounter {
+	XeenEncounterEntry entry = XeenEncounterEntry::Diagnostic27;
+	bool victory = true;
+	bool accountingConsumed = true;
+	XeenMonsterIdentity monster{{XeenSide::Clouds, 20}, 5};
+	XeenGameplayContext context;
+	std::array<XeenSaveCombatSupplement, 6> supplements{};
+};
+
 struct XeenSaveSnapshot {
 	// Transient presence only; never stored on the wire or in live gameplay.
 	XeenSaveItemState itemState = XeenSaveItemState::Complete;
@@ -44,6 +61,7 @@ struct XeenSaveSnapshot {
 	XeenGameFlags::Storage gameFlags{};
 	std::vector<XeenObjectIdentity> disabledObjects;
 	std::vector<XeenEventIdentity> disabledEvents;
+	std::optional<XeenSaveCompletedEncounter> completedEncounter;
 
 	XeenSaveSnapshot() {
 		for (std::size_t i = 0; i < characters.size(); ++i)

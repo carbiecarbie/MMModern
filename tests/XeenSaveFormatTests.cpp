@@ -131,6 +131,79 @@ void asymmetricV2() {
 	}
 }
 
+void v3WireContract() {
+	auto expectedSnapshot = completedSample();
+	auto ordinary = expectedSnapshot; ordinary.completedEncounter.reset();
+	auto expected = XeenSaveFormat::encode(ordinary);
+	const auto base = expected.size();
+	auto u8=[&](std::uint8_t v){expected.push_back(v);};
+	auto u16=[&](std::uint16_t v){u8(v);u8(v>>8);};
+	auto u32=[&](std::uint32_t v){for(unsigned i=0;i<4;++i)u8(v>>(8*i));};
+	u8(1);u8(2);u8(1);u8(1);u8(0);u16(20);u32(5);u8(0);u8(0);
+	const auto &context=expectedSnapshot.completedEncounter->context;
+	u16(context.ctr24);u16(context.day);u16(context.year);u16(context.minutes);
+	for(auto v:context.effects)u8(v);for(auto v:context.lightAndResistances)u16(v);
+	u8(context.rested);u8(context.newDay);u8(6);
+	for(const auto &record:expectedSnapshot.completedEncounter->supplements) {
+		u8(record.owner);
+		for(int v:{record.inputs.might.permanent,record.inputs.might.temporary,
+			record.inputs.speed.permanent,record.inputs.speed.temporary,
+			record.inputs.accuracy.permanent,record.inputs.accuracy.temporary,record.inputs.temporaryAc})u32(static_cast<std::uint32_t>(v));
+		u32(record.inputs.experience);
+	}
+	check(expected.size()==base+243,"independent v3 extension is not 243 bytes");
+	expected[8]=3;fixIndependentEnvelope(expected);
+	check(XeenSaveFormat::encode(expectedSnapshot)==expected,"encoder differs from independent v3 suffix oracle");
+	sameSnapshot(expectedSnapshot,XeenSaveFormat::decode(expected));
+	auto lowerBound=expectedSnapshot;lowerBound.completedEncounter->context.ctr24=0;
+	lowerBound.completedEncounter->context.minutes=491;roundTrip(lowerBound);
+	check(expected[base+44]==6&&expected[base+45]==0&&expected[base+78]==1&&expected[base+111]==6&&
+		expected[base+144]==11&&expected[base+177]==14&&expected[base+210]==18,"v3 fixed owner offsets differ");
+
+	// Every new compared field, including presence and explicit zero, has a negative control.
+	auto changed=expectedSnapshot;changed.completedEncounter.reset();
+	check(!sameCompleted(expectedSnapshot.completedEncounter,changed.completedEncounter),"completion presence mismatch was ignored");
+	for(unsigned record=0;record<6;++record)for(unsigned field=0;field<9;++field) {
+		changed=expectedSnapshot;auto &r=changed.completedEncounter->supplements[record];
+		if(field==0)r.owner^=1;
+		else if(field==1)r.inputs.might.permanent^=1;else if(field==2)r.inputs.might.temporary^=1;
+		else if(field==3)r.inputs.speed.permanent^=1;else if(field==4)r.inputs.speed.temporary^=1;
+		else if(field==5)r.inputs.accuracy.permanent^=1;else if(field==6)r.inputs.accuracy.temporary^=1;
+		else if(field==7)r.inputs.temporaryAc^=1;else r.inputs.experience^=1;
+		check(!sameCompleted(expectedSnapshot.completedEncounter,changed.completedEncounter),"supplement mismatch was ignored");
+	}
+	auto mismatch=[&](auto mutate){changed=expectedSnapshot;mutate(*changed.completedEncounter);
+		check(!sameCompleted(expectedSnapshot.completedEncounter,changed.completedEncounter),"completion/context mismatch was ignored");};
+	mismatch([](auto &e){e.entry=XeenEncounterEntry::Diagnostic26;});
+	mismatch([](auto &e){e.victory=false;});mismatch([](auto &e){e.accountingConsumed=false;});
+	mismatch([](auto &e){e.monster.mapId.side=XeenSide::Darkside;});
+	mismatch([](auto &e){e.monster.mapId.number++;});mismatch([](auto &e){e.monster.recordIndex++;});
+	mismatch([](auto &e){e.context.profile=static_cast<XeenBehaviorProfile>(1);});
+	mismatch([](auto &e){e.context.difficulty=XeenDifficulty::Warrior;});
+	mismatch([](auto &e){e.context.ctr24--;});mismatch([](auto &e){e.context.day++;});
+	mismatch([](auto &e){e.context.year++;});mismatch([](auto &e){e.context.minutes--;});
+	for(unsigned i=0;i<9;++i)mismatch([i](auto &e){e.context.effects[i]=1;});
+	for(unsigned i=0;i<6;++i)mismatch([i](auto &e){e.context.lightAndResistances[i]=1;});
+	mismatch([](auto &e){e.context.rested=true;});mismatch([](auto &e){e.context.newDay=true;});
+
+	for(std::size_t size=base;size<expected.size();++size) {
+		Bytes truncated(expected.begin(),expected.begin()+size);fixIndependentEnvelope(truncated);
+		rejects([&]{XeenSaveFormat::decode(truncated);});
+	}
+	auto malformed=expected;
+	for(auto value:{0,27,30,255}){malformed=expected;malformed[base+44]=static_cast<std::uint8_t>(value);fixIndependentEnvelope(malformed);rejects([&]{XeenSaveFormat::decode(malformed);});}
+	for(auto offset:{0U,1U,2U,3U,4U,5U,7U,11U,12U,42U,43U}) {
+		malformed=expected;malformed[base+offset]=static_cast<std::uint8_t>(malformed[base+offset]+1);fixIndependentEnvelope(malformed);rejects([&]{XeenSaveFormat::decode(malformed);});
+	}
+	for(auto offset:{0U,1U,2U,3U}){malformed=expected;malformed[base+offset]=0;fixIndependentEnvelope(malformed);rejects([&]{XeenSaveFormat::decode(malformed);});}
+	for(auto offset:{42U,43U}){malformed=expected;malformed[base+offset]=2;fixIndependentEnvelope(malformed);rejects([&]{XeenSaveFormat::decode(malformed);},"boolean");}
+	for(unsigned record=0;record<6;++record){malformed=expected;malformed[base+45+33*record]^=1;fixIndependentEnvelope(malformed);rejects([&]{XeenSaveFormat::decode(malformed);});}
+	malformed=expected;put32(malformed,base+46,0xffffffffU);fixIndependentEnvelope(malformed);rejects([&]{XeenSaveFormat::decode(malformed);},"range");
+	malformed=expected;put32(malformed,base+46,256);fixIndependentEnvelope(malformed);rejects([&]{XeenSaveFormat::decode(malformed);},"range");
+	malformed=expected;malformed.push_back(0);fixIndependentEnvelope(malformed);rejects([&]{XeenSaveFormat::decode(malformed);});
+	malformed=XeenSaveFormat::encode(ordinary);malformed[8]=3;fixIndependentEnvelope(malformed);rejects([&]{XeenSaveFormat::decode(malformed);},"extension");
+}
+
 void completeRoundTrips() {
 	auto s = sample();
 	for (const auto &ids : std::vector<std::vector<std::uint8_t>>{
@@ -201,7 +274,8 @@ void malformedBytes() {
 	}
 	auto bad = good;
 	bad[0] ^= 1; rejects([&] { XeenSaveFormat::decode(bad); }, "unrecognized format");
-	bad = good; bad[8] = 3; rejects([&] { XeenSaveFormat::decode(bad); }, "unsupported version");
+	bad = good; bad[8] = 4; rejects([&] { XeenSaveFormat::decode(bad); }, "unsupported version");
+	bad = good; bad[8] = 3; rejects([&] { XeenSaveFormat::decode(bad); }); // v1 payload is not v3.
 	bad = good; bad[8] = 2; rejects([&] { XeenSaveFormat::decode(bad); }); // v1 payload is not v2.
 	bad = good; bad[8] = 0; rejects([&] { XeenSaveFormat::decode(bad); }, "unsupported version");
 	bad = good; bad[10] = 1; rejects([&] { XeenSaveFormat::decode(bad); }, "unsupported game side");
@@ -316,7 +390,7 @@ void fingerprints() {
 
 int main() {
 	try {
-		wireContract(); asymmetricV2(); completeRoundTrips(); numericDomains(); malformedBytes(); invalidValuesAndLimits(); fingerprints();
+		wireContract(); asymmetricV2(); v3WireContract(); completeRoundTrips(); numericDomains(); malformedBytes(); invalidValuesAndLimits(); fingerprints();
 		std::cout << "M20A save format: wire contract, all modeled values, domains, malformed input and fingerprints passed\n";
 		return 0;
 	} catch (const std::exception &error) {

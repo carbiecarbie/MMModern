@@ -11,10 +11,17 @@
 
 namespace mmodern {
 
+bool XeenSaveState::canCapture(const XeenPartyState &party, const XeenCamera &camera,
+		const XeenWorld &world) noexcept {
+	return (!world.hasEncounterState() && !party.encounterContext && !party.roster.combatMarked()) ||
+		world.completedCaptureEligible(party, camera);
+}
+
 XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resources,
 		const XeenPartyState &party, const XeenCamera &camera,
 		const XeenGameFlags &flags, const XeenWorld &world) {
-	if (world.hasEncounterState() || party.encounterContext || party.roster.combatMarked())
+	const bool completed = world.sessionState().completion() == XeenEncounterCompletion::VictoryQuiescent;
+	if (!canCapture(party, camera, world))
 		throw std::logic_error("MMModern save: encounter sessions cannot be captured");
 	XeenSaveSnapshot snapshot;
 	snapshot.resources = resources;
@@ -27,6 +34,20 @@ XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resourc
 	const auto &state = world.sessionState();
 	snapshot.disabledObjects.assign(state.disabledObjects().begin(), state.disabledObjects().end());
 	snapshot.disabledEvents.assign(state.disabledEvents().begin(), state.disabledEvents().end());
+	if (completed) {
+		XeenSaveCompletedEncounter value;
+		value.entry = state.encounterEntry();
+		value.victory = state.completion() == XeenEncounterCompletion::VictoryQuiescent;
+		value.accountingConsumed = state.combatAccounted();
+		value.monster = state.completedMonster();
+		value.context = *party.encounterContext;
+		constexpr std::array<std::uint8_t, 6> owners{0, 1, 6, 11, 14, 18};
+		for (std::size_t i = 0; i < owners.size(); ++i) {
+			value.supplements[i].owner = owners[i];
+			value.supplements[i].inputs = *party.roster.combatInputs(owners[i]);
+		}
+		snapshot.completedEncounter = std::move(value);
+	}
 	XeenSaveFormat::validate(snapshot);
 	return snapshot;
 }
@@ -37,6 +58,8 @@ void XeenSaveState::restoreBeforeGameplay(const XeenSaveSnapshot &snapshot,
 	if (world.hasEncounterState() || party.encounterContext || party.roster.combatMarked())
 		throw std::logic_error("MMModern save: cannot restore into encounter owners");
 	XeenSaveFormat::validate(snapshot);
+	if (snapshot.completedEncounter)
+		throw std::logic_error("MMModern save: v3 completed encounter restoration is not supported before Milestone 28B");
 	if (!(snapshot.resources == resources.signature))
 		throw std::runtime_error("MMModern save: original archive contents are incompatible");
 	if (!resources.loadInitialParty || !preflight)

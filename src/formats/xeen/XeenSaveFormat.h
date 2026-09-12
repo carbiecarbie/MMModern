@@ -9,7 +9,8 @@ namespace mmodern {
 
 class XeenSaveFormat {
 public:
-	static constexpr std::uint16_t kVersion = 2;
+	static constexpr std::uint16_t kOrdinaryVersion = 2;
+	static constexpr std::uint16_t kCompletedVersion = 3;
 	static constexpr std::size_t kHeaderSize = 20;
 	static constexpr std::size_t kMaximumSize = 4 * 1024 * 1024;
 	static constexpr std::size_t kMaximumObjects = 65536;

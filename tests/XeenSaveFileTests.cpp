@@ -195,11 +195,26 @@ void legacyReplacement(const fs::path &path) {
  XeenSaveFile::write(path,sample());
  check(raw(path)[8]==2,"valid v1 target was not replaced with v2");sameSnapshot(sample(),XeenSaveFile::read(path));
  for(bool unsupported:{false,true}){
-  auto bad=oldBytes;if(unsupported)bad[8]=3;else bad[16]^=1;put(path,bad);
+  auto bad=oldBytes;if(unsupported)bad[8]=4;else bad[16]^=1;put(path,bad);
   rejects([&]{XeenSaveFile::write(path,sample());});check(raw(path)==bad,"invalid legacy target overwritten");
  }
  put(path,oldBytes);
  std::cout<<"Independent v1 read, encoding rejection, safe v2 replacement and fault preservation passed\n";
+}
+void v3Replacement(const fs::path &path) {
+	const auto completed=completedSample(),ordinary=sample();
+	XeenSaveFile::write(path,completed);check(raw(path)[8]==3,"completed file writer did not select v3");
+	sameSnapshot(completed,XeenSaveFile::read(path));const auto prior=raw(path);
+	using Op=XeenSaveFile::Operation;
+	for(auto failure:{Op::Open,Op::Write,Op::ShortWrite,Op::Flush,Op::Close,Op::Replace}) {
+		rejects([&]{XeenSaveFile::write(path,ordinary,[&](auto op){return op==failure;});});
+		check(raw(path)==prior,"failed replacement damaged valid v3 target");
+		sameSnapshot(completed,XeenSaveFile::read(path));
+	}
+	XeenSaveFile::write(path,ordinary);check(raw(path)[8]==2,"valid v3 target was not replaced with v2");
+	sameSnapshot(ordinary,XeenSaveFile::read(path));
+	XeenSaveFile::write(path,completed);check(raw(path)[8]==3,"valid v2 target was not replaced with v3");
+	sameSnapshot(completed,XeenSaveFile::read(path));
 }
 int main(int argc,char **argv) {
  try {
@@ -213,6 +228,7 @@ int main(int argc,char **argv) {
   rejects([&]{XeenSaveFile::resolve(directory/"CON.mmsave",directory/"commercial");},"device");
   fs::remove(path);
   legacyReplacement(path);
+  v3Replacement(path);
   auto old=sample(), next=old; next.questItems[17]=34;
   XeenSaveFile::write(path,old); sameSnapshot(XeenSaveFile::read(path),old);
   XeenSaveFile::write(path,next); sameSnapshot(XeenSaveFile::read(path),next);
@@ -237,7 +253,7 @@ int main(int argc,char **argv) {
   check(locked!=INVALID_HANDLE_VALUE,"could not exclusively lock target");
   rejects([&]{XeenSaveFile::read(path);}); CloseHandle(locked);
   for(auto bad:std::vector<Bytes>{{1,2,3},Bytes(XeenSaveFormat::kMaximumSize+1),prior}) {
-   if(bad==prior) bad[8]=3;
+   if(bad==prior) bad[8]=4;
    put(path,bad); rejects([&]{XeenSaveFile::write(path,old);});check(raw(path)==bad,"unknown file overwritten");
   }
   put(path,prior);
