@@ -23,50 +23,81 @@ and a durable continuation. The priority is integrating accepted systems into
 coherent gameplay. Additional diagnostics are useful as validation controls,
 but are not substitutes for that integration.
 
-**Post-M29 route-evidence investigation is next.** It is an investigation and
-replanning gate before detailed M30 planning, not authorization to implement
-M30. M30 and M31 remain provisional, dependency-gated directions whose content
-and separation may change from the evidence. Roadmap selection, detailed
-planning and implementation authorization remain separate. Create a milestone
-plan only when that milestone is about to begin.
+**The Post-M29 route-selection gate is closed: retain Bone Whistle for planning.**
+Cumulative original-resource and pinned-reference research supports the bounded
+expedition with a prepared early-progression party. This is route selection,
+not production acceptance or authorization to specify or implement M30.
+M30 and M31 remain dependency-gated directions whose detailed scope and
+separation require later approval. Create a milestone plan only when that
+milestone is about to begin.
 
 ## Near term
 
-### Post-M29 gate - Route evidence before detailed M30 planning
+<a id="post-m29-gate---route-evidence-before-detailed-m30-planning"></a>
 
-After the M29 closure is committed and its post-push baseline is verified,
-perform a small targeted investigation of the preferred expedition against
-original resources and the pinned reference. Establish actor influence across
-movement, facing and waiting; encounter grouping; Zombie/Disease rules; attrition with the
-proposed starting party; and whether recovery or Run is necessary. Include
-reachable event branches, a credible failure/exit policy and readable navigation,
-threat and outcome feedback. Parsed resources and terrain passability alone are
-insufficient evidence.
+### Post-M29 gate - Bone Whistle selected for planning
 
-Review the M30/M31 assumptions against those findings before creating the detailed
-M30 plan. If Bone Whistle requires disproportionate actor, rule, recovery,
-disengagement or persistence work, adapt both milestones to a better original
-slice. Their exact scope and separation may change without changing the connected
-Clouds strategy.
+The selected boundary enters Clouds map 20 once at `(0,14)` East, traverses
+`(1..5,14)`, collects Bone Whistle at `(5,14)` North and returns to `(0,14)`
+West. The influencing original actors are Skeleton record 9 and Zombie records
+17, 18 and 25. Facing, pending movement, Wait and combat duration affect
+grouping and whether activated survivors remain outside contact. Preserve all
+influencing actors and their consequences; independent Skeleton-like duels
+cannot represent this expedition.
+
+Use the original active party and starting equipment with a declared prepared
+post-Vertigo entry. The conservative planning baseline derives from Vertigo's
+5,000-XP reward and affordable training: levels `[3,3,3,4,3,3]` in original
+party order, full derived HP/SP, no initial conditions or temporary combat
+effects, and no equipment upgrades. Rebecca has 21 SP at this baseline.
+Training and preparation occur before the bounded entry; XP does not itself
+train or heal, and no resources are injected during the expedition. Fresh
+level-1 remains a conservative control rather than the playability baseline.
+The prepared context must admit a later day and a morning expedition window;
+M29's day-1 restriction cannot represent that progression history. This bounded
+entry does not establish normal Vertigo progression, training or travel to map 20.
+
+Cumulative research supports committed-contact combat without Run or broad
+in-slice recovery. Disease is an expected durable consequence that future
+integration must apply, preserve and present; a cure is not required to complete
+this loop. Rebecca's known First Aid is useful but optional, with real SP, turn
+and outdoor time/movement costs. If admitted, it must consume a reusable
+spell/effect mechanism. It is not a free healing control or a promise to rescue
+an incapacitated caster. Retain injuries and broken equipment through completion;
+quiet explicit save/restart is persistence, not combat escape.
+
+Confidence in route selection is moderate to high: cumulative evidence supports
+objective-and-return play across ordinary scheduling and grouped-contact variants.
+This is not production acceptance. Required work is primarily reusable grouped
+combat, Zombie multiattack and Disease rules, multi-actor continuity, successive-
+encounter RNG continuity, Journey/event coordination and readable threats,
+targets and consequences. Reassess proportionality if production integration
+contradicts these findings.
 
 ### M30 - Bounded expedition encounter integration (provisional)
 
 Apply M29's continuity foundation to the actual actor and encounter consequences
 of the selected expedition. The player should be able to navigate its bounded
-footprint, face all materially influencing actors and resolve successive
-encounters while retaining accumulated injuries, XP, item/equipment state and
-world consequences through supported save/restart boundaries.
+footprint, face all materially influencing actors and resolve genuine grouped
+and successive encounters while retaining accumulated injuries, XP,
+item/equipment state and world consequences through supported save/restart boundaries.
 
-Add only the monster rules, conditions and failure behavior that route evidence
-requires. Necessary recovery or disengagement must be explicitly scoped or trigger
-replanning; they cannot be omitted while claiming the route is playable. This is
-route-specific integration, not general combat or whole-map certification.
+Extend reusable targeting, scheduling, joining and group completion for the
+admitted Skeleton/Zombies, including Disease application and derived effects.
+Preserve live moved/activated actors, per-identity damage and accounting, and
+cumulative party state across quiet save/restart boundaries. Future compatibility
+work must preserve legacy-save meaning; v4 content contract 1 remains the closed
+record-5 contract. Admit the selected progression/context explicitly. Run and
+broad recovery are not required for this bounded first slice; they remain future
+capabilities and replanning triggers if contrary production evidence emerges.
+This is bounded content integration, not whole-map certification.
 
-Confidence is conditional on the route gate; M29 continuity is now an accepted
-foundation. This boundary provides a connected navigation/combat acceptance
-target before full objective-loop closure in M31. Reuse the production path intended for that slice;
-do not build a separate diagnostic framework. Detailed actors, rules and acceptance
-contracts remain for the M30 specification.
+Route selection is established; production integration remains unaccepted.
+M29 continuity is the accepted foundation. This boundary provides a connected
+navigation/combat acceptance target before full objective-loop closure in M31.
+Reuse the production path intended for that slice; do not build a separate
+diagnostic framework. Detailed actors, rules and acceptance contracts remain
+for the M30 specification.
 
 ### M31 - First connected Clouds vertical slice (provisional)
 
@@ -76,8 +107,8 @@ manage party/items between encounters, complete the original interaction and
 resume the resulting journey after a process restart. Navigation, combat,
 interaction and persistence must operate coherently through production controls.
 
-The preferred first slice is a bounded expedition in Clouds map 20: enter once
-with a declared original party/resource state, navigate to the Whistle, resolve
+The selected first slice is the bounded Bone Whistle expedition above: enter once
+with the declared resource-backed party state, navigate to the Whistle, resolve
 the influencing encounters, perform the already-supported original collection,
 and return with party/world consequences preserved through save/restart.
 Success should connect navigation, combat, inventory/equipment and progression
@@ -89,10 +120,14 @@ small quest-script surface that reuse existing outdoor and interaction systems.
 The [supported checkpoints](project-status.md#supported-original-data-checkpoints)
 establish the collection behavior, not the expedition.
 
-Confidence in the exact slice remains conditional on the route gate and M30
-integration. Bone Whistle is the preferred candidate, not an irrevocable content
-commitment. Do not obtain a successful slice through repeated relocation, state
-injection, suppressed influencing actors or altered commercial data.
+Integrate the existing ordinary WhoWill/grant/Remove continuation with mutable
+Journey state and its presentation/save safeguards. Provide readable navigation,
+group targets, Disease/injuries and objective/return outcomes. Optional First Aid
+may be the first bounded consumer of reusable spell availability, resource and
+effect handling; its placement across M30/M31 belongs to later specification.
+Confidence in production playability remains conditional on M30/M31 integration
+and acceptance. Do not obtain a successful slice through repeated relocation,
+state injection, suppressed influencing actors or altered commercial data.
 
 M31 certifies the selected loop, not all of map 20, general Clouds exploration,
 normal Vertigo startup, full recovery, complete combat/item effects, services or
@@ -175,7 +210,8 @@ Retain approximately three completed milestones as the ordinary broader roadmap
 review cadence, with focused scope review before each specification. This is
 not a quota and does not delay an earlier evidence-driven review. Completion of
 the provisional M30-M31 direction is a natural broader reassessment point; the
-post-M29 route gate remains necessary before detailed M30 planning. Use the
+Post-M29 route-selection gate is closed, while specification approval and
+production acceptance remain outstanding. Use the
 verified SHA and handoff gate in [AGENTS.md](../AGENTS.md) for external planning
 and review. Roadmap approval, detailed planning and implementation authorization
 remain separate.
