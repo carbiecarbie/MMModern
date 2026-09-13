@@ -1,6 +1,6 @@
 # Milestone 31 - First connected Clouds vertical slice
 
-**Status: specification for independent architecture review; not implemented.**
+**Status: implementation-ready specification; not implemented.**
 Baseline: `dfacac7076a7ae7714229b691eb80afea0f70347`,
 `Complete M30 production expedition and milestone closure`.
 Implementation requires separate authorization. This plan owns the M31 contract;
@@ -319,11 +319,10 @@ Build and run focused changed-subsystem tests during implementation; full CTest,
 relevant original-resource controls and the connected process witnesses must
 pass at milestone closure. Inspect native frames for the objective phases.
 
-## Independent review and maintainer acceptance
+## Implementation review and maintainer acceptance
 
-Independent architecture review must resolve material issues in this contract
-before implementation authorization. Independent implementation review must
-inspect the final candidate and evidence, especially publication authorization,
+Independent implementation review must inspect the final candidate and evidence,
+especially publication authorization,
 surviving effects on failure, modal/frame authority, immutable-versus-effective
 events, exact persistence and connected no-replay evidence. Closure requires an
 accepted verdict, full automated validation and separate maintainer physical
