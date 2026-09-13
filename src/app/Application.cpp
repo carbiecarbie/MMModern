@@ -387,7 +387,8 @@ int Application::encounter27(const std::filesystem::path &gameDirectory, std::op
     return gameplay(gameDirectory,XeenActorApproach::kEntry,savePath,false,XeenEncounterEntry::Diagnostic27,seed);
 }
 int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera camera,
-        const std::optional<std::filesystem::path> &savePath, bool resume, XeenEncounterEntry entry, std::optional<std::uint32_t> seed) const {
+        const std::optional<std::filesystem::path> &savePath, bool resume, XeenEncounterEntry entry, std::optional<std::uint32_t> seed,
+        std::optional<std::uint16_t> journeyContract) const {
     try {
         if ((entry != XeenEncounterEntry::Ordinary && resume) || (entry == XeenEncounterEntry::Diagnostic26 && savePath))
             throw std::invalid_argument("Encounter entry cannot load or configure a save");
@@ -499,7 +500,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                 &result.containsOrdinaryAnimation, actor);
             return result;
         };
-        return playGameplay(services, camera, target, resume, entry, entry == XeenEncounterEntry::Journey ? seed : std::nullopt);
+        return playGameplay(services, camera, target, resume, entry, entry == XeenEncounterEntry::Journey ? seed : std::nullopt, journeyContract);
     } catch (const std::exception &error) {
         std::cerr << "Gameplay startup failed";
         if (savePath) std::cerr << " [" << std::filesystem::absolute(*savePath).u8string() << ']';

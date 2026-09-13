@@ -122,10 +122,10 @@ std::vector<XeenInventoryLine> xeenInventoryLayout(const XeenFontFormat &font,
 		line(170,310,8,std::string("Condition: ") + xeenConditionName(c.worstCondition()));
 		line(10,310,17,"HP " + std::to_string(c.currentHp) + " / " + std::to_string(XeenCharacterRules::maxHp(c,{kCloudsInitialYear})));
 		line(10,310,26,"SP " + std::to_string(c.currentSp) + " / " + std::to_string(XeenCharacterRules::maxSp(c,{kCloudsInitialYear})));
-		if (readOnly) {
+		if (readOnly || party.encounterContext) {
 			const auto &inputs = party.roster.combatInputs(ids[selection.source]);
 			line(170,310,17,"XP " + (inputs ? std::to_string(inputs->experience) : "absent"));
-			line(170,310,26,"Uncon=" + std::to_string(c.conditions[12]) + " Dead=" + std::to_string(c.conditions[13]));
+			line(170,310,26,"Disease=" + std::to_string(c.conditions[4]) + " U=" + std::to_string(c.conditions[12]) + " Dead=" + std::to_string(c.conditions[13]));
 		}
 	} else line(10,310,8,"No active characters");
 	const char *categories[]{"Weapons","Armor","Accessories","Miscellaneous"};

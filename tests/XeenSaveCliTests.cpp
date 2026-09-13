@@ -36,7 +36,7 @@ int main(int argc,char **argv){try{
  {L"--render-map",game.wstring(),L"1",L"16",L"0",L"north"},
  {L"--render-map",game.wstring(),L"--save-file",L"--load-game"}};
  for(const auto &args:bad)check(launch(exe,args,log).exit==1,"invalid CLI syntax accepted");
- for(const auto *entry:{L"--journey-skeleton",L"--encounter-27"}) {
+ for(const auto *entry:{L"--journey-expedition",L"--journey-skeleton",L"--encounter-27"}) {
   for(const auto *seed:{L"0",L"-1",L"+1",L"1x",L"4294967296",L"",L" 56",L"99999999999"})
    check(launch(exe,{entry,L"--combat-seed",seed,game.wstring()},log).exit==1,"strict seed syntax");
   for(const auto &args:std::vector<std::vector<std::wstring>>{
@@ -47,7 +47,7 @@ int main(int argc,char **argv){try{
    {L"--load-game",game.wstring(),path.wstring(),entry},
    {L"--load-game",game.wstring(),path.wstring(),L"--combat-seed",L"56"},
    {entry,game.wstring(),L"--encounter-26"},{entry,game.wstring(),L"--journey-skeleton"},
-   {entry,game.wstring(),L"--encounter-27"}})
+   {entry,game.wstring(),L"--journey-expedition"},{entry,game.wstring(),L"--encounter-27"}})
    check(launch(exe,args,log).exit==1,"Journey/diagnostic duplicate or conflict accepted");
  }
  Fixture fixture;Bytes party(782),roster(30*354),map(892);map[768]=1;map[781]=128;
@@ -61,6 +61,8 @@ int main(int argc,char **argv){try{
  check(encounter.exit==3&&encounter.output.find("World of Xeen")!=std::string::npos,
   "valid encounter syntax did not reach edition admission");
  for(const auto &args:std::vector<std::vector<std::wstring>>{
+  {L"--journey-expedition",game.wstring()},
+  {L"--journey-expedition",L"--combat-seed",L"4294967295",game.wstring()},
   {L"--journey-skeleton",game.wstring()},
   {L"--journey-skeleton",L"--combat-seed",L"56",game.wstring(),L"--save-file",path.wstring()},
   {L"--journey-skeleton",L"--combat-seed",L"4294967295",game.wstring()},

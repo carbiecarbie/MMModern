@@ -1,4 +1,5 @@
 #include "XeenJourneyTestSupport.h"
+#include "XeenExpeditionTestSupport.h"
 #include "XeenCombatGameplayTestSupport.h"
 #include "formats/xeen/XeenSaveFormat.h"
 #include "games/xeen/XeenStateEquality.h"
@@ -18,10 +19,7 @@ std::optional<std::uint32_t> wrappedDraw(XeenCombatRandom *r,std::uint32_t lo,st
  check(cursor<tape.size(),"literal tape exhausted");auto d=tape[cursor++];check(d.lo==lo&&d.hi==hi,"literal request endpoints");return d.raw?std::optional<std::uint32_t>{}:d.value;
 }
 struct Tape { explicit Tape(std::vector<Draw> values){tape=std::move(values);cursor=0;taped=true;}~Tape(){taped=false;} };
-XeenMap terrain(){auto m=combat_test::map();for(int y=13;y<=15;++y)for(int x=0;x<=8;++x){auto &c=m.geometry.cells[y*16+x];if(y==15&&(x==5||x==7)){c.rawWord=0;c.rawAttributes=c.flags=0x40;c.geometry=XeenOutdoorLayers{0,0,0,0};}else{c.rawWord=0x31;c.rawAttributes=c.flags=0;c.geometry=XeenOutdoorLayers{1,3,0,0};}}return m;}
-XeenObjectFile objects(){auto o=combat_test::objects();o.entities.objects.push_back({5,14,0,0,7});o.entities.monsters[9]={6,14,0,0,8};o.entities.monsters[17]=o.entities.monsters[18]={8,15,0,0,9};o.entities.monsters[25]={1,13,0,0,9};return o;}
-XeenEventFile events(){auto e=combat_test::events();e.records.resize(16);const unsigned op[]{0x20,0x29,0x09,0x0c,0x0e};const std::vector<Bytes> args{{0,3},{0},{0x2c,1,3},{0,0,0x15,0x64},{}};for(unsigned i=1;i<=5;++i){auto &r=e.records[i];r.x=5;r.y=14;r.direction=4;r.line=i-1;r.opcode=op[i-1];r.parameters=args[i-1];}return e;}
-std::vector<XeenMonsterRecord> monsters(){auto m=combat_test::statistics();auto &z=m[9];z=m[8];z.raw[16]=44;z.raw[17]=1;z.raw[20]=30;z.raw[22]=2;z.raw[23]=4;z.raw[24]=2;z.raw[28]=4;z.raw[30]=7;z.raw[31]=5;z.raw[47]=9;return m;}
+using expedition_fixture::terrain; using expedition_fixture::objects; using expedition_fixture::events; using expedition_fixture::monsters;
 const XeenSaveResourceSignature signature{{1,2},XeenArchiveFingerprint{3,4}};
 struct Domain {
  XeenWorld w{[](auto){return terrain();},[](auto){return objects();}};
@@ -142,10 +140,11 @@ void restorationGuards(){Domain initial;auto saved=initial.save();
 }
 
 XeenSaveSnapshot finishGroup(Domain &d){auto &c=d.engage();for(unsigned i=0;i<500&&c.phase()!=Phase::Victory;++i){auto r=c.phase()==Phase::PlayerReady?action(c,Command::Attack):c.service(c.ticket());check(r.status!=Status::Failed&&r.status!=Status::Defeat,"restart combat");}check(c.phase()==Phase::Victory&&d.flow->retireJourney(d.flow->ticket()),"restart End retirement");d.present();return d.save();}
-void startupGate(const std::filesystem::path &dir){
+void startupAdmission(const std::filesystem::path &dir){
  Domain d;auto path=dir/"successor.mmsave";XeenSaveFile::write(path,d.save());combat_gameplay_test::Harness harness;auto services=harness.services();unsigned providers=0;
- services.maps=[&](auto){++providers;return terrain();};services.objects=[&](auto){++providers;return objects();};services.resources.loadInitialParty=[&]{++providers;return combat_test::party();};
- check(Application().playGameplay(services,{},path,true)!=0&&providers==0&&harness.compositions==0&&!harness.flow,"Application successor gate before providers/publication");
+ services.maps=[&](auto){++providers;return terrain();};services.objects=[&](auto){++providers;return objects();};services.resources.signature=signature;services.resources.loadMonsterStatistics=[] {return monsters();};services.resources.loadEvents=[](auto) {return events();};services.resources.loadInitialParty=[&]()->XeenPartyState{throw std::runtime_error("restore must not load initial party");};
+ services.show=[&](const auto &,const auto &handler,const auto &,const auto &,const auto &){handler.framePresented();check(harness.flow->canSave()&&harness.world->sessionState().journeyContract()==2,"schema2 startup frame admission");return true;};
+ check(Application().playGameplay(services,{},path,true)==0&&providers>0&&harness.compositions>0,"Application descriptor-driven successor startup");
 }
 void restart(const std::filesystem::path &exe,const std::filesystem::path &dir){
  for(unsigned variant=0;variant<3;++variant){auto s=group({25});if(variant==1){s.journey->actors[1].x=8;s.journey->actors[1].y=14;s.journey->actors[1].hp=30;s.journey->actors[1].activated=true;s.journey->actors[1].accounted=false;s.journey->actors[1].lifecycle=XeenActorLifecycle::Present;s.characters[1].conditions[4]=2;s.characters[1].currentHp=12;s.characters[1].currentSp=21;}if(variant==2){s.journey->random->state=234;s.journey->random->count=100;s.journey->context->minutes=700;}
@@ -160,6 +159,6 @@ void restart(const std::filesystem::path &exe,const std::filesystem::path &dir){
 int main(int argc,char **argv){using namespace expedition_test;try{
  if(argc==4&&std::string(argv[1])=="--resume"){Domain restored(XeenSaveFile::read(std::filesystem::absolute(argv[2])));XeenSaveFile::write(std::filesystem::absolute(argv[3]),finishGroup(restored));return 0;}
  profileBinding();groups();disease();failure();injuriesAndDefeat();scheduler();prefixes();derived();codec();restorationGuards();
- auto dir=std::filesystem::temp_directory_path()/("mmodern-m30a-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));std::filesystem::create_directory(dir);startupGate(dir);restart(std::filesystem::absolute(argv[0]),dir);
- std::cout<<"Expedition group, literal Zombie, failure, Luck, successor codec, startup gate and process controls passed\n";return 0;
+ auto dir=std::filesystem::temp_directory_path()/("mmodern-m30a-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));std::filesystem::create_directory(dir);startupAdmission(dir);restart(std::filesystem::absolute(argv[0]),dir);
+ std::cout<<"Expedition group, literal Zombie, failure, Luck, successor codec, production startup and process controls passed\n";return 0;
  }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

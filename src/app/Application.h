@@ -33,15 +33,19 @@ public:
 		std::optional<std::filesystem::path> savePath = {}) const;
 	int journeySkeleton(const std::filesystem::path &, std::optional<std::uint32_t> seed = {},
 		std::optional<std::filesystem::path> savePath = {}) const;
+	int journeyExpedition(const std::filesystem::path &, std::optional<std::uint32_t> seed = {},
+		std::optional<std::filesystem::path> savePath = {}) const;
 	// Shared production construction; providers outlive this call. Target has
 	// already been resolved/checked against the installation by gameplay().
 	int playGameplay(const XeenGameplayServices &, XeenCamera,
 		const std::optional<std::filesystem::path> &target, bool resume,
-		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary, std::optional<std::uint32_t> seed = {}) const;
+		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary, std::optional<std::uint32_t> seed = {},
+		std::optional<std::uint16_t> journeyContract = {}) const;
 private:
 	int gameplay(const std::filesystem::path &, XeenCamera,
 		const std::optional<std::filesystem::path> &, bool resume,
-		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary, std::optional<std::uint32_t> seed = {}) const;
+		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary, std::optional<std::uint32_t> seed = {},
+		std::optional<std::uint16_t> journeyContract = {}) const;
 };
 
 } // namespace mmodern

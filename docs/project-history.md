@@ -207,6 +207,22 @@ Historical limitations in those plans describe their recorded boundaries.
   review and maintainer physical acceptance completed. See the
   [Milestone 29 plan](milestone-29-plan.md).
 
+## M30 - Bounded expedition encounter integration
+
+- Extended the production Journey with a descriptor-admitted six-cell Bone
+  Whistle expedition, grouped Skeleton/Zombie combat, identity-bound target
+  selection, joining, Zombie multiattack/Disease and readable multi-actor
+  MON/ATT consequences.
+- Added world-owned Journey RNG continuation and v4 schema-2 current-state
+  persistence for Luck, four influencing actors and accumulated party/item/XP
+  state, with startup-only separate-process restoration and no gameplay replay.
+- Kept the objective Deferred before script dispatch, preserving the existing
+  Journey owners and quiet authority as the M31 integration seam; contract-1
+  `--journey-skeleton` behavior remains compatible.
+- Automated, original-resource and process validation, independent implementation
+  acceptance and maintainer physical SDL acceptance completed. See the
+  [Milestone 30 plan](milestone-30-plan.md#final-acceptance).
+
 ## Maintaining this history
 
 Add one short section with 2-4 lasting-result bullets per completed milestone

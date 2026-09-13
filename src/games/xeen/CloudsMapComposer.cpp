@@ -73,6 +73,13 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 		assets.validateNormalMonster(8);
 		assets.validateAttackMonster(8);
 	}
+	if (world.sessionState().journey()) {
+		const auto &content = xeenJourneyContent(world.sessionState().journeyContract());
+		for (unsigned i=0;i<content.count;++i) {
+			const auto image = content.actor(content.records[i]).profileImage;
+			assets.validateNormalMonster(image); assets.validateAttackMonster(image);
+		}
+	}
 	CloudsUiComposer().loadBackground(assets);
 
 	const XeenMap &map = world.map(camera.mapId);

@@ -9,9 +9,9 @@
 #include <cstdlib>
 using namespace journey_gameplay_test;
 namespace fs=std::filesystem;
-#define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjE"
-extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__real_" PLAY_SYMBOL);
-extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__wrap_" PLAY_SYMBOL);
+#define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjES5_ItE"
+extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>,std::optional<std::uint16_t>) asm("__real_" PLAY_SYMBOL);
+extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>,std::optional<std::uint16_t>) asm("__wrap_" PLAY_SYMBOL);
 namespace {
 void key(SDL_Keycode code, Uint32 type=SDL_KEYDOWN, Uint8 repeat=0) {
  SDL_Event e{};e.type=type;e.key.keysym.sym=code;e.key.keysym.scancode=SDL_GetScancodeFromKey(code);
@@ -31,7 +31,7 @@ void diskOracle(const JourneyOracle &oracle,const fs::path &path) {
 }
 }
 extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &original,XeenCamera camera,
- const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,std::optional<std::uint32_t> seed) {
+ const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract) {
  try {
   const char *modeValue=std::getenv("MMODERN_JOURNEY_WITNESS");check(modeValue,"witness mode required");const std::string mode=modeValue;
   Harness h;auto services=original;JourneyOracle oracle(original);
@@ -122,6 +122,6 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    check(success&&done,"actual SDL witness completed and exited");
    std::cout<<"CLI SDL witness "<<mode<<" passed; exact all-owner/actor/context/wire oracle\n";return success;
   };
-  return realPlay(app,services,camera,target,resume,entry,seed);
+  return realPlay(app,services,camera,target,resume,entry,seed,contract);
  }catch(const std::exception &e){std::cerr<<"Witness failed: "<<e.what()<<'\n';return 8;}
 }

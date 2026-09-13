@@ -2,6 +2,7 @@
 #include <limits>
 #include <stdexcept>
 #include <type_traits>
+#include "games/xeen/XeenCharacterRules.h"
 
 namespace mmodern {
 namespace {
@@ -165,7 +166,7 @@ bool XeenEncounterFlow::handle(const PlayerAction &input, std::optional<std::uin
 		const auto r = journeyAction(ticket(),*action);
 		_actionResult = r; _actionPending = _state.pending(); _inputCycle = cycle;
 		if (r.outcome == XeenEncounterOutcome::Refused) {
-			if (r.reason == XeenEncounterStop::Envelope) _journeyRefusal = "Four-cell boundary: x=13..14, y=1..2";
+			if (r.reason == XeenEncounterStop::Envelope) _journeyRefusal = _world.sessionState().journeyContract()==2 ? "Expedition boundary: x0..5/y14" : "Four-cell boundary: x=13..14, y=1..2";
 			return true;
 		}
 		if (_state.phase() == XeenEncounterPhase::Exploring &&
@@ -173,6 +174,7 @@ bool XeenEncounterFlow::handle(const PlayerAction &input, std::optional<std::uin
 			if (!prepareTime(ticket(),now)) return true;
 			journeyPulse(ticket());
 		}
+		if (r.outcome==XeenEncounterOutcome::Blocked) _journeyRefusal="Movement blocked by terrain.";
 		schedule(now); return true;
 	}
 	Busy busy(_busy);
@@ -256,6 +258,7 @@ bool XeenEncounterFlow::idle(std::optional<std::uint64_t> cycle) {
 }
 
 std::string XeenEncounterFlow::notice() const {
+	if (_journey && _world.sessionState().journeyContract()==2) return expeditionNotice();
 	if (completed()) return completedNotice(_world, _party, _camera, _completedFeedback);
 	if (_combat) return combatNotice();
 	if (_journey) {
@@ -358,9 +361,11 @@ bool XeenEncounterFlow::observeCombat() noexcept {
 	// feedback, round work and redraws cannot restart it.
 	if (r.attackOutcome == XeenCombatAttackOutcome::Pending) return false;
 	if (r.operation == XeenCombatOperation::EnemyAttack) {
+		_appearanceIdentity = r.actingMonster;
 		_frame = 8; _appearanceStep = 0; _appearanceAfterFrame = true; return true;
 	}
 	if (r.operation == XeenCombatOperation::PlayerAttack && r.damage > 0) {
+		_appearanceIdentity = r.targetMonster;
 		_frame = r.actorHpAfter > 0 ? 11 : 0;
 		_appearanceStep = 0; _appearanceAfterFrame = true; return true;
 	}
@@ -385,7 +390,8 @@ bool XeenEncounterFlow::handleCombat(const PlayerAction &input, std::optional<st
 	const bool begin = phase == P::Preparation && std::holds_alternative<BeginEncounterAction>(input);
 	const bool command = phase == P::PlayerReady &&
 		(std::holds_alternative<AttackAction>(input) || std::holds_alternative<BlockAction>(input));
-	if (!begin && !command && !(phase == P::Approach && movement)) return false;
+	const auto *target = phase == P::PlayerReady ? std::get_if<SelectCombatTargetAction>(&input) : nullptr;
+	if (!begin && !command && !target && !(phase == P::Approach && movement)) return false;
 	Busy busy(_busy);
 	const auto entry = ticket();
 	std::uint64_t now;
@@ -396,6 +402,8 @@ bool XeenEncounterFlow::handleCombat(const PlayerAction &input, std::optional<st
 	_lastTime = now;
 	if (begin) {
 		if (!acceptCombatResult(_combat->beginApproach(*entry.combat))) return false;
+	} else if (target) {
+		if (!acceptCombatResult(_combat->selectTarget(*entry.combat,target->row))) return false;
 	} else if (command) {
 		if (!acceptCombatResult(_combat->command(*entry.combat,
 			std::holds_alternative<AttackAction>(input) ? XeenCombatCommand::Attack : XeenCombatCommand::Block))) return false;
@@ -433,7 +441,8 @@ bool XeenEncounterFlow::idleCombat(std::optional<std::uint64_t> cycle) {
 		if (!current(entry) && !terminal()) _combatOperationStale = true;
 		return !current(entry);
 	}
-	const bool due = _deadline && now >= *_deadline && !(cycle && _inputCycle == cycle);
+	const bool due = _deadline && now >= *_deadline && !(cycle && _inputCycle == cycle) &&
+		!(_journey && _world.sessionState().journeyContract()==2 && _frame>=8);
 	const bool cosmetic = now >= _cosmeticDeadline;
 	bool startedAppearance = false;
 	_lastTime = now;
@@ -453,6 +462,92 @@ bool XeenEncounterFlow::idleCombat(std::optional<std::uint64_t> cycle) {
 		++_generation;
 	}
 	return due || cosmetic;
+}
+std::string XeenEncounterFlow::expeditionNotice() const {
+	const auto &actors=_world.sessionState().actors();
+	const auto label=[&](XeenMonsterIdentity id) {
+		const auto &actor=actors.at(id.recordIndex);
+		std::string name=actor.statistics->name();
+		unsigned ordinal=0, total=0;
+		const auto &content=xeenJourneyContent(2);
+		for(unsigned i=0;i<content.count;++i) {
+			const auto &a=actors.at(content.records[i]);
+			if(a.statistics->image()==actor.statistics->image()) {++total;if(a.id.recordIndex<=id.recordIndex)++ordinal;}
+		}
+		if(total>1) name+=" " + std::string(1,static_cast<char>('A'+ordinal-1));
+		return name;
+	};
+	std::string text="("+std::to_string(_camera.x)+","+std::to_string(_camera.y)+") "+
+		std::string(1,"NESW"[unsigned(_camera.direction)])+" T="+std::to_string(_party.encounterContext->minutes);
+	if (_combat) {
+		text+=" Combat / no save\n";
+		if(_failure) text+="STOPPED: unsafe session; restart last save\n";
+		else if(_combat->phase()==XeenCombatPhase::PlayerReady)
+			text+=_party.roster.at(kXeenCombatOwners[_combat->participant()]).name+": Space=Attack B=Block 1-3=target\n";
+		else if(_combat->phase()==XeenCombatPhase::Defeat) text+="DEFEAT: no recovery; restart last save\n";
+		else if(_combat->phase()==XeenCombatPhase::Failed || _combat->phase()==XeenCombatPhase::SupportStopped) {
+			const char *reason="unsupported combat";
+			switch(_combat->result().failure) {
+			case XeenCombatFailure::Integrity: reason="state changed"; break;
+			case XeenCombatFailure::Preparation: reason="preparation failed"; break;
+			case XeenCombatFailure::Time: reason="time boundary"; break;
+			case XeenCombatFailure::Observation: reason="presentation failed"; break;
+			case XeenCombatFailure::Overflow: reason="numeric limit"; break;
+			default: break;
+			}
+			text+="STOPPED: "+std::string(reason)+"; restart save\n";
+		}
+		else text+="Automatic combat work / joining / End\n";
+		const auto rows=_combat->contacts();
+		for(unsigned i=0;i<rows.size();++i) if(rows[i])
+			text+=std::string(_combat->selectedTarget()==rows[i]?">":"")+std::to_string(i+1)+" "+label(*rows[i])+":"+std::to_string(actors.at(rows[i]->recordIndex).hp)+" ";
+		text+="\n";
+		const auto &r=_combatObservation;
+		if(r.operation==XeenCombatOperation::Block && r.actingOwner) text+=_party.roster.at(*r.actingOwner).name+" blocks\n";
+		else if(r.attackOutcome!=XeenCombatAttackOutcome::NotApplicable) {
+			text+=r.actingOwner?_party.roster.at(*r.actingOwner).name:r.actingMonster?label(*r.actingMonster):"Enemy";
+			if(r.targetOwner) text+=" -> "+_party.roster.at(*r.targetOwner).name;
+			else if(r.targetMonster) text+=" -> "+label(*r.targetMonster);
+			text+=r.attackOutcome==XeenCombatAttackOutcome::Pending?" pending":r.attackOutcome==XeenCombatAttackOutcome::Miss?" misses":" -"+std::to_string(r.damage);
+			if(r.armorCount) text+=" armor broken:"+std::to_string(r.armorCount);
+			text+="\n";
+		}
+		for(unsigned i=0;i<r.injuryCount;++i) {
+			const auto &d=r.injuries[i];
+			text+="-"+std::to_string(d.amount)+" HP="+std::to_string(d.afterHp)+" Disease="+std::to_string(d.conditions[4]);
+			if(d.conditions[13])text+=" Dead";else if(d.conditions[12])text+=" Unconscious";
+			text+="\n";
+		}
+	} else {
+		text+=_failure?" STOPPED\n":_state.pending()?" Approach pending "+std::to_string(_state.pending())+"\n":" Quiet\n";
+		const auto view=XeenActorApproach::classify(actors,_camera);
+		text+="Threats: ";bool any=false;
+		for(unsigned id:xeenJourneyContent(2).records) if(view.placements.at(id)) {
+			if(any)text+=", ";text+=label(actors.at(id).id);any=true;
+		}
+		if(!any)text+="none in view";
+		if (_failure) text+="\nUnsafe session; restart last save.\nNo recovery or saving.\n";
+		else {
+			text+="\nx0..5/y14; . Wait; I inventory\nF9 quiet save; Space interacts\n";
+			text+=_journeyRefusal.empty()?"Collection pending M31; return playable\n":_journeyRefusal+"\n";
+		}
+	}
+	if(_combat && _combatAward.xpCount && _combatObservation.xpCount)text+="XP: "+label(_combatAward.monster)+"; party totals at right\n";
+	if(!text.empty()&&text.back()=='\n')text.pop_back();
+	for(auto gap=text.find("\n\n");gap!=std::string::npos;gap=text.find("\n\n"))text.erase(gap,1);
+	text+="\n\nD=Disease\n";
+	for(auto owner:kXeenCombatOwners) {
+		const auto &c=_party.roster.at(owner);
+		text+=c.name+" "+std::to_string(c.currentHp)+"/"+std::to_string(XeenCharacterRules::maxHp(c,{610}))+"\n";
+		unsigned broken=0;for(const auto &item:c.armor)if(item.id && (item.state&128))++broken;
+		text+="SP"+std::to_string(c.currentSp)+"/"+std::to_string(XeenCharacterRules::maxSp(c,{610}))+" D"+std::to_string(c.conditions[4]);
+		if(broken)text+=" Br"+std::to_string(broken);
+		text+="\n";
+		text+=c.conditions[13]?"Dead ":c.conditions[12]?"Uncon ":"";
+		text+="XP"+std::to_string(_party.roster.combatInputs(owner)->experience);
+		text+="\n";
+	}
+	text.pop_back();return text;
 }
 std::string XeenEncounterFlow::combatNotice() const {
 	using P = XeenCombatPhase;

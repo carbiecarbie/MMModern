@@ -134,11 +134,24 @@ void XeenEncounterFlow::journeyRead(const std::function<void()> &operation) {
 		operation(); _journeyPreimage->check();
 	} catch (...) { if (!_journeyPreimage->current()) closeJourney(); throw; }
 }
+bool XeenEncounterFlow::presentDeferredObjective() {
+	if (!journeyQuiet()) return false;
+	const auto &content = xeenJourneyContent(_world.sessionState().journeyContract());
+	if (!content.deferredObjective || _camera.mapId != XeenMapIdentity(20) || _camera.x != 5 || _camera.y != 14) return false;
+	// No script callback; input and saving wait for a matching new frame.
+	_journeyRefusal = "Objective collection unavailable; M31.";
+	holdJourneyFrame();
+	return true;
+}
 std::string XeenEncounterFlow::journeyInspection() const {
 	std::ostringstream out;
 	out << "Journey " << xeenInventoryInspection(_party);
 	out << "Camera " << _camera.mapId << ' ' << _camera.x << ' ' << _camera.y << ' ' << unsigned(_camera.direction)
-		<< " pending=" << _state.pending() << " combat=" << bool(_combat) << " seed=" << _world.sessionState().skeletonSeed() << '\n';
+		<< " pending=" << _state.pending() << " combat=" << bool(_combat);
+	if (const auto &random=_world.sessionState().journeyRandom())
+		out << " contract=2 RNG=" << random->state << " draws=" << random->count;
+	else out << " seed=" << _world.sessionState().skeletonSeed();
+	out << '\n';
 	const auto &c = *_party.encounterContext;
 	out << "Context profile=" << unsigned(c.profile) << " difficulty=" << unsigned(c.difficulty)
 		<< " minutes=" << c.minutes << " ctr24=" << c.ctr24 << " day=" << c.day << " year=" << c.year
@@ -149,7 +162,9 @@ std::string XeenEncounterFlow::journeyInspection() const {
 		const auto &v = *_party.roster.combatInputs(owner);
 		out << "Supplement " << owner << " Might=" << v.might.permanent << '/' << v.might.temporary
 			<< " Speed=" << v.speed.permanent << '/' << v.speed.temporary << " Accuracy=" << v.accuracy.permanent << '/' << v.accuracy.temporary
-			<< " temporaryAC=" << v.temporaryAc << " XP=" << v.experience << '\n';
+			<< " temporaryAC=" << v.temporaryAc << " XP=" << v.experience;
+		if(v.luck) out << " Luck=" << v.luck->permanent << '/' << v.luck->temporary;
+		out << '\n';
 	}
 	for (const auto &a : _world.sessionState().actors())
 		out << "Actor " << a.id.recordIndex << ' ' << a.x << ' ' << a.y << " HP=" << a.hp

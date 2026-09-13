@@ -86,8 +86,13 @@ int Application::journeySkeleton(const std::filesystem::path &directory, std::op
   std::optional<std::filesystem::path> save) const {
  return gameplay(directory,XeenActorApproach::kEntry,save,false,XeenEncounterEntry::Journey,seed);
 }
+int Application::journeyExpedition(const std::filesystem::path &directory, std::optional<std::uint32_t> seed,
+  std::optional<std::filesystem::path> save) const {
+ return gameplay(directory,xeenJourneyContent(2).entry,save,false,XeenEncounterEntry::Journey,seed,2);
+}
 int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera camera,
-  const std::optional<std::filesystem::path> &target, bool resume, XeenEncounterEntry entry, std::optional<std::uint32_t> seed) const {
+  const std::optional<std::filesystem::path> &target, bool resume, XeenEncounterEntry entry, std::optional<std::uint32_t> seed,
+  std::optional<std::uint16_t> journeyContract) const {
  try {
   XeenGameplayServices services = supplied;
   std::function<void()> sourceCheck;
@@ -110,6 +115,8 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   bool encounter = entry != XeenEncounterEntry::Ordinary;
   if (encounter && resume) throw std::invalid_argument("Encounter entry cannot resume");
   if (seed && (resume || entry != XeenEncounterEntry::Journey || !*seed)) throw std::invalid_argument("Invalid Journey seed override");
+  if (journeyContract && (resume || entry != XeenEncounterEntry::Journey)) throw std::invalid_argument("Invalid Journey content override");
+  if (entry == XeenEncounterEntry::Journey) camera = xeenJourneyContent(journeyContract.value_or(1)).entry;
   XeenWorld world(services.maps, services.objects);
   if (encounter && entry != XeenEncounterEntry::Journey) world.markEncounterSession(entry);
   XeenPartyState party;
@@ -131,8 +138,6 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   if (resume) {
    if (!target) throw std::runtime_error("Resume requires a save path");
    const auto saved = XeenSaveFile::read(*target);
-   if (saved.journey && saved.journey->contract != 1)
-    throw std::invalid_argument("Successor Journey production startup is unavailable before M30B");
    XeenSaveState::restoreBeforeGameplay(saved, services.resources, party, camera, flags, world, preflight);
    entry = world.sessionState().encounterEntry();
    encounter = entry != XeenEncounterEntry::Ordinary;
@@ -155,7 +160,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    journeyStatistics = services.resources.loadMonsterStatistics();
    auto value = seed ? *seed : (services.sampleJourneySeed ? services.sampleJourneySeed() : std::random_device{}());
    if (!value) value = 1;
-   journeySetup.emplace(XeenJourneySetup{journeyCharacters,services.resources.loadInitialContext(),journeyStatistics,encounterEvents,value});
+   journeySetup.emplace(XeenJourneySetup{journeyCharacters,services.resources.loadInitialContext(),journeyStatistics,encounterEvents,value,journeyContract.value_or(1)});
   }
   if (entry == XeenEncounterEntry::Diagnostic27 && !resume) {
    if (!services.prepareCombat) throw std::invalid_argument("Missing combat preparation provider");
@@ -186,16 +191,22 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   flow.completedPreflight = preflight;
   flow.prepareJourneySprites = [&] {
    if (!services.validateEncounterSprite || !services.validateCombatSprite) throw std::invalid_argument("Missing Journey sprite providers");
-   services.validateEncounterSprite(8);
-   if (!flow.encounter()->current(flow.encounter()->ticket())) throw std::logic_error("Stale Journey normal sprite preparation");
-   services.validateCombatSprite(8);
+   const auto ticket = flow.encounter()->ticket();
+   const auto &content = xeenJourneyContent(world.sessionState().journeyContract());
+   for (unsigned i=0;i<content.count;++i) {
+    const auto image = content.actor(content.records[i]).profileImage;
+    services.validateEncounterSprite(image);
+    if (!flow.encounter()->current(ticket)) throw std::logic_error("Stale Journey normal sprite preparation");
+    services.validateCombatSprite(image);
+    if (!flow.encounter()->current(ticket)) throw std::logic_error("Stale Journey attack sprite preparation");
+   }
   };
   if (services.configureFlow) services.configureFlow(flow, camera);
   handoff.verify();
   if (!flow.frame().isValid()) throw std::runtime_error("Invalid first gameplay frame");
   std::cout << "Setup " << xeenInventoryInspection(party);
   if (flow.journey()) std::cout << flow.encounter()->journeyInspection()
-   << "Journey objective: survive the Skeleton, then continue and save. Four cells only: x=13..14, y=1..2. "
+   << (world.sessionState().journeyContract()==2 ? "Prepared expedition: encounter integration available; collection pending M31. Six cells x=0..5/y=14; return remains mutable. 1-3 selects a combat target. " : "Journey objective: survive the Skeleton, then continue and save. Four cells only: x=13..14, y=1..2. ") <<
       "Time must stay below 960 minutes. No healing, rest, recovery or disengagement. "
       "Arrows/WASD move and turn; period waits; Space interacts outside combat and attacks in combat; B blocks. "
       "I inventory; F1-F6 owner; arrows category; 1-9 slot; T transfer; Enter confirms; E equips/removes; "
@@ -273,6 +284,11 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    }
    auto mapped = action;
    if (flow.journey() && flow.encounter()->combat() && std::holds_alternative<InteractionAction>(action)) mapped = AttackAction{};
+   if (flow.encounter() && flow.encounter()->combat() && !flow.inventoryOpen() &&
+       flow.encounter()->combat()->phase() == XeenCombatPhase::PlayerReady) {
+    if (const auto *slot = std::get_if<SelectInventorySlotAction>(&action); slot && slot->slot < 3)
+     mapped = SelectCombatTargetAction{static_cast<unsigned>(slot->slot)};
+   }
    if (entry == XeenEncounterEntry::Diagnostic27) {
     if (std::holds_alternative<InteractionAction>(action)) mapped = AttackAction{};
     if (std::holds_alternative<AcknowledgeAction>(action) && !flow.inventoryOpen()) mapped = BeginEncounterAction{};

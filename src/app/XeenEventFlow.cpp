@@ -37,12 +37,12 @@ IndexedFrame noticeFrame(const IndexedFrame &base, const XeenFontFormat &font, c
 	}
 	const auto split = roster ? notice.find("\n\n") : std::string::npos;
 	auto rendered = XeenTextRenderer(font).render(base, notice.substr(0,split), options);
-	if (rendered.pages.size() != 1) throw std::runtime_error("Encounter notice did not fit");
+	if (rendered.pages.size() != 1) { std::cerr << "Encounter notice overflow: " << notice.substr(0,split) << std::endl; throw std::runtime_error("Encounter notice did not fit"); }
 	if (split != std::string::npos) {
 		options.bounds = {235,3,318,198}; options.windowBounds = {233,1,320,200};
 		options.x=235; options.y=3;
 		rendered = XeenTextRenderer(font).render(rendered.pages.front(),notice.substr(split+2),options);
-		if (rendered.pages.size()!=1) throw std::runtime_error("Combat roster notice did not fit");
+		if (rendered.pages.size()!=1) { std::cerr << "Roster notice overflow: " << notice.substr(split+2) << std::endl; throw std::runtime_error("Combat roster notice did not fit"); }
 	}
 	return std::move(rendered.pages.front());
 }
@@ -597,6 +597,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &action, std::optional<std
 			}
 			if (std::holds_alternative<InteractionAction>(action)) {
 				if (!_encounter->journeyQuiet()) return frameCopy();
+				if (_encounter->presentDeferredObjective()) return renderEncounter();
 				try { _encounter->journeyRead([&] {
 					const auto result = _navigation.processInteraction(_world,_party,_camera,_flags);
 					if (!std::holds_alternative<XeenManualEventNoEvent>(result)) throw std::runtime_error("Journey requires the admitted event-free footprint");

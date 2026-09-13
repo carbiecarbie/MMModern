@@ -173,33 +173,43 @@ std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::actorCommands(
 	if (!appearance.valid()) throw std::invalid_argument("Unsupported actor appearance");
 	const auto view = XeenActorApproach::classify(actors, camera);
 	std::vector<XeenOutdoorDrawCommand> commands;
-	for (std::size_t i = 0; i < actors.size(); ++i) {
-		if (!view.placements[i]) continue;
-		const auto &a = actors[i];
-		if (!(a.id == XeenMonsterIdentity{20,5}) || !a.statistics || !a.statistics->supportsApproach() ||
-			a.lifecycle != XeenActorLifecycle::Present || a.status != XeenActorStatus::Physical)
-			throw std::runtime_error("Unsupported visible encounter actor");
-		XeenOutdoorDrawCommand c;
-		XeenOutdoorActorDraw draw{a.id, a.statistics->image(), appearance.frame, appearance.kind};
-		if (appearance.kind == XeenMonsterSpriteKind::Attack && *view.placements[i] != XeenActorPlacement::SameCell)
-			throw std::invalid_argument("Attack appearance requires same-cell placement");
-		switch (*view.placements[i]) {
-		case XeenActorPlacement::SameCell:
-			c.sampleIndex=2; draw.selectedSlot=0;
-			c.originalOrder=appearance.kind == XeenMonsterSpriteKind::Attack ? 121 : 118; c.x=-5; c.y=2;
-			draw.scaleIndex=0; draw.bottomClipped=true; break;
-		case XeenActorPlacement::Forward:
-			c.sampleIndex=7; draw.selectedSlot=3; c.originalOrder=94; c.x=-7; c.y=34; draw.scaleIndex=8; break;
-		case XeenActorPlacement::ForwardLeft:
-			c.sampleIndex=5; draw.selectedSlot=12; c.originalOrder=90; c.x=-112; c.y=34; draw.scaleIndex=8; break;
-		case XeenActorPlacement::ForwardRight:
-			c.sampleIndex=9; draw.selectedSlot=13; c.originalOrder=91; c.x=98; c.y=34; draw.scaleIndex=8; break;
-		default: throw std::runtime_error("Unsupported visible encounter placement");
+	// Selected-slot projection from pinned ScummVM; M30 MON/ATT table.
+	struct Group { int query, count; int slots[3], orders[3], xs[3]; int y, scale; int pair[2]; };
+	static constexpr Group groups[]{
+		{2,3,{0,1,2},{118,112,115},{-5,-67,58},2,0,{31,-36}},
+		{7,3,{3,4,5},{94,92,93},{-7,-38,25},34,8,{8,-23}},
+		{5,1,{12},{90},{-112},34,8,{-112}}, {9,1,{13},{91},{98},34,8,{98}},
+		{14,3,{6,7,8},{75,73,74},{-8,-24,9},53,12,{0,-16}},
+		{12,2,{14,20},{69,70},{-65,-85},53,12,{-65,-85}},
+		{16,2,{15,21},{71,72},{49,65},53,12,{49,65}},
+		{27,3,{9,10,11},{52,50,51},{-9,-17,-1},59,14,{-5,-13}},
+		{25,3,{16,22,24},{44,42,43},{-34,-41,-26},59,14,{-27,-37}},
+		{23,1,{18},{48},{-58},59,14,{-58}},
+		{29,3,{17,23,25},{47,45,46},{16,-16,23},59,14,{20,-12}},
+		{31,1,{19},{49},{40},59,14,{40}}
+	};
+	for (const auto &g : groups) {
+		int count=0; for (int i=0;i<g.count;++i) if (view.slots[g.slots[i]]) ++count;
+		for (int i=0;i<g.count;++i) {
+			const auto id=view.slots[g.slots[i]]; if (!id) continue;
+			const auto found=std::find_if(actors.begin(),actors.end(),[&](const auto &actor){return actor.id==*id;});
+			if (found==actors.end() || !found->statistics || !found->statistics->supportsRendering() ||
+				found->lifecycle!=XeenActorLifecycle::Present || found->status!=XeenActorStatus::Physical)
+				throw std::runtime_error("Unsupported selected encounter actor");
+			const auto &actor=*found;
+			const bool special=appearance.kind==XeenMonsterSpriteKind::Attack &&
+				(appearance.identity ? *appearance.identity==actor.id : actor.id==XeenMonsterIdentity{20,5});
+			if (special && g.query!=2) throw std::invalid_argument("Attack appearance requires same-cell placement");
+			XeenOutdoorDrawCommand c;
+			c.sampleIndex=g.query; c.originalOrder=special ? 121 : g.orders[i];
+			c.x=count==2 && i<2 ? g.pair[i] : g.xs[i]; c.y=g.y;
+			c.sourceMapId=actor.id.mapId; c.sourceX=actor.x; c.sourceY=actor.y;
+			XeenOutdoorActorDraw draw{actor.id,actor.statistics->image(),
+				static_cast<std::uint8_t>(special || appearance.kind==XeenMonsterSpriteKind::Normal ? appearance.frame : 0),
+				special ? XeenMonsterSpriteKind::Attack : XeenMonsterSpriteKind::Normal};
+			draw.selectedSlot=g.slots[i]; draw.scaleIndex=g.scale; draw.bottomClipped=g.query==2;
+			c.content=draw; commands.push_back(std::move(c));
 		}
-		if (!(view.slots[draw.selectedSlot] == std::optional<XeenMonsterIdentity>{a.id}))
-			throw std::runtime_error("Unsupported encounter selection");
-		c.sourceMapId=a.id.mapId; c.sourceX=a.x; c.sourceY=a.y; c.content=draw;
-		commands.push_back(std::move(c));
 	}
 	return commands;
 }

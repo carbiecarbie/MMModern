@@ -1,5 +1,8 @@
 #ifndef MMODERN_RESTORE_REPLAY_PROBE_H
 #define MMODERN_RESTORE_REPLAY_PROBE_H
+#include <functional>
+#include <optional>
+#include "games/xeen/XeenJourneyContent.h"
 // Executable-only GNU linker probes for the pinned Windows/UCRT64 test build.
 // No callbacks or counters are installed in production gameplay owners.
 #define XEEN_REPLAY_CONSTRUCT "_ZN7mmodern10XeenCombatC1ERNS_9XeenWorldERNS_14XeenPartyStateERNS_10XeenCameraERNS_18XeenCombatBoundaryERKSt6vectorIhSaIhEERKNS_19XeenGameplayContextERKS9_INS_17XeenMonsterRecordESaISH_EERKNS_13XeenEventFileENS_16XeenCombatRandomE"
@@ -18,6 +21,7 @@ namespace replay_test {
 #define XEEN_REPLAY_RETIRE "_ZN7mmodern10XeenCombat13retireJourneyERKNS0_6TicketERNS_18XeenEncounterStateE"
 #define XEEN_REPLAY_COMMAND "_ZN7mmodern10XeenCombat7commandERKNS0_6TicketENS_17XeenCombatCommandE"
 #define XEEN_REPLAY_DRAW "_ZN7mmodern16XeenCombatRandom4drawEjj"
+extern std::function<void(std::uint32_t,std::uint32_t,std::optional<std::uint32_t>,mmodern::XeenJourneyRandomState)> observeDraw;
 extern unsigned journeyInitializations, journeyConstructions, actions, pulses, retirements, commands, draws;
 extern unsigned depth, unexpected, constructions, services, preparations;
 struct Scope { Scope() { ++depth; } ~Scope() { --depth; } };

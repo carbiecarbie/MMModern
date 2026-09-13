@@ -48,6 +48,7 @@ public:
 	void releaseJourneyWork(XeenCombatBoundary::Work, std::uint64_t);
 	void holdJourneyFrame();
 	void journeyRead(const std::function<void()> &);
+	bool presentDeferredObjective();
 	std::string journeyInspection() const;
 	bool journey() const noexcept { return _journey; }
 	Ticket beginJourneySave();
@@ -99,8 +100,10 @@ public:
 	unsigned actionPending() const noexcept { return _actionPending; }
 	std::uint8_t frame() const noexcept { return _frame; }
 	XeenMonsterAppearance appearance() const noexcept {
-		return _frame < 8 ? XeenMonsterAppearance{_frame} :
+		auto result = _frame < 8 ? XeenMonsterAppearance{_frame} :
 			XeenMonsterAppearance{XeenMonsterSpriteKind::Attack, static_cast<std::uint8_t>(_frame - 8)};
+		if (_frame >= 8) result.identity = _appearanceIdentity;
+		return result;
 	}
 	std::optional<std::uint64_t> deadline() const noexcept { return _deadline; }
 	std::uint64_t cosmeticDeadline() const noexcept { return _cosmeticDeadline; }
@@ -125,6 +128,7 @@ private:
 	void scheduleCombat(std::uint64_t);
 	bool handoffCombat();
 	std::string combatNotice() const;
+	std::string expeditionNotice() const;
 	bool observeCombat() noexcept;
 	void advanceAppearance() noexcept;
 	XeenCombatResult _combatObservation, _combatAward, _retiredCombatResult;
@@ -153,6 +157,7 @@ private:
 	std::optional<std::uint64_t> _deadline, _inputCycle;
 	std::uint8_t _frame = 0;
 	std::uint8_t _appearanceStep = 0;
+	std::optional<XeenMonsterIdentity> _appearanceIdentity;
 	bool _appearanceAfterFrame = false;
 	bool _busy = false, _failure = false;
 	std::optional<std::pair<int, int>> _attempted;

@@ -6,7 +6,7 @@ Might and Magic V: Darkside of Xeen / World of Xeen.
 
 ## Status
 
-**Milestone 29 is the latest completed milestone.**
+**Milestone 30 is the latest completed milestone.**
 
 The engine supports a bounded Clouds quest loop: request a quest, collect an
 item, return it for character-held rewards, and save/resume the resulting progress.
@@ -26,6 +26,14 @@ fight with Attack/Block through a genuine End, then return to mutable gameplay
 on the same owners and save/restart the resulting injuries, XP, items, context
 and defeated actor consequence. This is a bounded Journey, not general map-20
 exploration or normal original-game startup.
+
+The production `--journey-expedition` entry adds a prepared six-cell map-20
+route with grouped Skeleton/Zombie encounters, identity-bound target selection,
+automatic joining and Zombie multiattack, Disease and accumulated injury,
+equipment and XP consequences. Quiet F9 saves restore the same current state and
+RNG continuation in another process. The Bone Whistle address is reachable but
+reports a Deferred interaction; collection through this expedition remains
+unimplemented pending M31.
 
 The Diagnostic26 entry presents an original outdoor Skeleton, supports its
 activation and approach, and stops at terminal same-cell engagement. Diagnostic27
@@ -68,6 +76,8 @@ See the [technical snapshot](docs/project-status.md),
 - Local Windows save/resume for ordinary progress and completed Diagnostic27,
   plus Journey v4 restart with transferred ownership, exact combat outcomes,
   continued bounded navigation/item management and live diagnostics.
+- A bounded production expedition with up to three simultaneous contacts,
+  readable multi-actor MON/ATT combat and schema-2 separate-process continuation.
 
 ## Running and controls
 
@@ -80,6 +90,7 @@ mmodern --load-game <game-directory> <path.mmsave>
 mmodern --encounter-26 <game-directory>
 mmodern --encounter-27 [--combat-seed <nonzero-u32>] <game-directory> [--save-file <path.mmsave>]
 mmodern --journey-skeleton [--combat-seed <nonzero-u32>] <game-directory> [--save-file <path.mmsave>]
+mmodern --journey-expedition [--combat-seed <nonzero-u32>] <game-directory> [--save-file <path.mmsave>]
 ```
 
 Use an existing save directory outside the original game installation. Relative
@@ -121,6 +132,16 @@ F9 saves only at a presented, quiet Journey boundary with inventory closed and
 no pending approach or combat work. R remains exclusive to completed
 Diagnostic27 and has no Journey action.
 
+`--journey-expedition` starts the prepared contract-2 Journey at `(0,14)` East.
+Movement is bounded to six party cells along `x=0..5,y=14`; original actor work
+may form successive, mixed or three-monster contacts. During a ready combat turn,
+1/2/3 selects the corresponding named contact row, Space attacks and B blocks.
+Selection, joining and enemy/round work use new presented generations, so batched,
+held or stale keys cannot attack a replacement identity. Disease, exact current
+versus maximum HP/SP, broken armor and XP remain visible. Quiet inventory and F9
+work as in the Skeleton Journey. Space at the Bone Whistle address presents an
+unavailable-objective notice without WhoWill, grant or Remove.
+
 | Key | Action |
 | --- | --- |
 | W/Up, S/Down | Move forward/backward; browse physical slots in inventory |
@@ -128,7 +149,7 @@ Diagnostic27 and has no Journey action.
 | Space, Enter | Interact (Space) or advance/acknowledge text; Enter confirms an armed transfer |
 | Y / N | Answer Yes/No; N cancels a transfer confirmation |
 | F1-F6 | Select inventory owner or transfer recipient; outside inventory, select an eligible member during WhoWill |
-| 1-9 | Select a physical inventory slot while browsing |
+| 1-9 | Select a physical inventory slot while browsing; 1-3 select a displayed target during a ready expedition combat turn |
 | T | Begin transfer of the selected occupied slot |
 | E | Equip or remove the explicitly selected occupied weapon, armor or accessory |
 | . | Wait during the bounded encounter diagnostics and Journey; no action in ordinary gameplay |
@@ -152,7 +173,8 @@ work, then issue a new F9. Without a configured path, it writes nothing. Save
 results appear in the console and window title. Existing supported valid MMModern
 saves can be replaced; there is no autosave, save-on-exit or in-session load.
 Ordinary eligible saves write v2, completed Diagnostic27 writes v3, and Journey
-saves write v4. The reader accepts supported v1/v2/v3/v4 in their distinct
+saves write v4: the Skeleton Journey retains schema/content 1/1 and the expedition
+uses schema/content 2/2. The reader accepts supported v1/v2/v3/v4 in their distinct
 domains. `--load-game` selects Journey directly from v4 and restores fresh owners
 without replaying fresh Journey initialization, approach, combat or item actions.
 Saves require matching game archives and are not compatible with original Xeen
@@ -180,6 +202,8 @@ SDL backend. The exact pin and configuration live in
 - [Roadmap](docs/roadmap.md): future direction and planning review cadence.
 - [Milestone 29 plan](docs/milestone-29-plan.md): closed mutable Journey,
   encounter-continuity, v4 persistence and acceptance contract.
+- [Milestone 30 plan](docs/milestone-30-plan.md): closed grouped expedition,
+  Disease, presentation, schema-2 continuation and acceptance contract.
 - [Milestone 28 plan](docs/milestone-28-plan.md): closed completed-encounter
   authority, persistence, restoration, revisit and acceptance contract.
 - [Milestone 27 plan](docs/milestone-27-plan.md): closed bounded combat rules,
