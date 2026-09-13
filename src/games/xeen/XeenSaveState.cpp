@@ -25,15 +25,25 @@ bool XeenWorld::journeyCaptureEligible(const XeenPartyState &party, const XeenCa
 void XeenSaveState::validateJourneyValues(const XeenSaveSnapshot &s) {
 	const auto &j = *s.journey;
 	const auto require = [](bool ok) { if (!ok) throw std::invalid_argument("Unsupported Journey durable state"); };
-	require(s.resources.darkside.has_value() && j.initializedMap == XeenMapIdentity(20) && j.originalActorCount == 27 &&
-		j.actors.size() == 1 && s.camera.mapId == XeenMapIdentity(20) && s.camera.x >= 13 && s.camera.x <= 14 &&
-		s.camera.y >= 1 && s.camera.y <= 2);
-	const auto &a = j.actors.front();
-	require(a.id == XeenMonsterIdentity{20,5} && a.status == XeenActorStatus::Physical);
-	if (a.lifecycle == XeenActorLifecycle::Present)
-		require(a.hp == 20 && a.activated && !a.accounted && a.x >= 13 && a.x <= 14 && a.y >= 1 && a.y <= 2 &&
-			(a.x != s.camera.x || a.y != s.camera.y));
-	else require(a.lifecycle == XeenActorLifecycle::Defeated && a.hp == 0 && !a.activated && a.accounted && a.x == -128 && a.y == -128);
+	const auto &policy=xeenJourneyContent(j.contract);
+	require(s.resources.darkside.has_value() && j.initializedMap==XeenMapIdentity(20) && j.originalActorCount==27 && j.actors.size()==policy.count && s.camera.mapId==XeenMapIdentity(20) && policy.contains(s.camera.x,s.camera.y));
+	for (unsigned i=0;i<policy.count;++i) {
+		const auto &a=j.actors[i]; const auto id=policy.records[i]; const auto admission=policy.actor(id);
+		require(a.id==XeenMonsterIdentity{20,id} && a.status==XeenActorStatus::Physical);
+		if (a.lifecycle==XeenActorLifecycle::Present) {
+			require(a.hp==admission.hp && !a.accounted && policy.movementContains(a.x,a.y) && (a.x!=s.camera.x || a.y!=s.camera.y));
+			if (j.contract==1) require(a.activated);
+			else {
+				require(!policy.blockedTerrain(a.x,a.y) && admission.contains(a.x,a.y));
+				if (!a.activated) require(a.x==admission.spawnX && a.y==admission.spawnY);
+			}
+		} else require(a.lifecycle==XeenActorLifecycle::Defeated && a.hp==0 && !a.activated && a.accounted && a.x==-128 && a.y==-128);
+	}
+	if (j.contract==2) {
+		for (auto id:s.disabledObjects) require(!(id==XeenObjectIdentity{20,1}));
+		for (auto id:s.disabledEvents) require(!(id.mapId==XeenMapIdentity(20) && id.recordIndex>=1 && id.recordIndex<=5));
+	}
+
 }
 
 void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resources &resources,
@@ -66,7 +76,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	p.roster._combatMarked = true;
 	for (const auto &r : snapshot.journey->supplements) p.roster._combatInputs[r.owner] = r.inputs;
 	w._sessionState._skeletonSeed = snapshot.journey->skeletonSeed;
-	xeenValidateJourneyParty(p);
+	xeenValidateJourneyParty(p,snapshot.journey->contract);
 	std::optional<XeenRestoreGuard> prepared;
 	const auto adopt = [&] { prepared.emplace(w,p,c,f); };
 	adopt();
@@ -91,21 +101,31 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	auto statistics = callback(monsters);
 	auto actors = XeenActorApproach::actorsFromResources(w.objectFile(20),statistics);
 	auto evt = events(20);
-	if (actors.size() != 27 || actors[5].original.resourceId != 8 || !actors[5].statistics)
-		throw std::invalid_argument("Journey requires original Skeleton collection");
-	actors[5].statistics->validateCombat();
-	if (actors[5].statistics->baseHp() != 20) throw std::invalid_argument("Journey Skeleton HP mismatch");
-	const auto &live = snapshot.journey->actors.front();
-	auto &a = actors[5];
-	a.x = live.x; a.y = live.y; a.hp = live.hp; a.activated = live.activated; a.lifecycle = live.lifecycle; a.status = live.status;
+	if (actors.size()!=27) throw std::invalid_argument("Journey requires complete original actor collection");
+	const auto &policy=xeenJourneyContent(snapshot.journey->contract);
+	for (unsigned i=0;i<policy.count;++i) {
+		const auto &a=actors.at(policy.records[i]);
+		const auto admission=policy.actor(policy.records[i]);
+		if (!a.statistics || a.original.resourceId!=admission.resourceId) throw std::invalid_argument("Journey original species mismatch");
+		if (snapshot.journey->contract==2) admission.validateStatistics(*a.statistics);
+		else a.statistics->validateCombat();
+	}
+	for (const auto &live:snapshot.journey->actors) {
+		auto &a=actors.at(live.id.recordIndex);
+		a.x=live.x; a.y=live.y; a.hp=live.hp; a.activated=live.activated; a.lifecycle=live.lifecycle; a.status=live.status;
+	}
 	static_cast<void>(CloudsUiComposer::buildPortraitPlacements(p));
 	auto &s = w._sessionState;
 	s._actors.swap(actors); s._entry = XeenEncounterEntry::Journey;
 	s._encounterMarked = s._encounterInitialized = true; s._encounterRevision = 1;
 	s._skeletonSeed = snapshot.journey->skeletonSeed;
-	if (live.accounted) s._accountedMonsters.insert(live.id);
+	s._journeyContract=snapshot.journey->contract; s._journeyRandom=snapshot.journey->random;
+	for (const auto &live:snapshot.journey->actors) if (live.accounted) s._accountedMonsters.insert(live.id);
 	adopt(); // Complete saved domain, deliberately unbound and unavailable.
-	XeenActorApproach::validateEnvironment(w,s._actors,evt);
+	XeenActorApproach::validateEnvironment(w,s._actors,evt,s._journeyContract);
+	const auto view=XeenActorApproach::classify(s._actors,c);
+	for (unsigned i=0;i<s._actors.size();++i) if (view.activation[i] && !s._actors[i].activated) throw std::invalid_argument("Quiet actor activation missing");
+	for (auto n:XeenActorApproach::occupancy(s._actors)) if (n>3) throw std::invalid_argument("Quiet actor occupancy exceeded");
 	try { presentation(w,p,c,f); }
 	catch (...) { destination.check(); prepared->check(); throw; }
 	destination.check(); prepared->check();
@@ -124,6 +144,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	out._actors.swap(s._actors); out._accountedMonsters.swap(s._accountedMonsters);
 	out._entry = XeenEncounterEntry::Journey; out._encounterMarked = out._encounterInitialized = true;
 	out._encounterRevision = 1; out._skeletonSeed = snapshot.journey->skeletonSeed;
+	out._journeyContract=snapshot.journey->contract; out._journeyRandom=snapshot.journey->random;
 	world._journeyRestoration.swap(binding);
 }
 
@@ -254,8 +275,12 @@ void XeenSaveState::restoreCompleted(const XeenSaveSnapshot &source, const Resou
 
 bool XeenSaveState::canCapture(const XeenPartyState &party, const XeenCamera &camera,
 		const XeenWorld &world) noexcept {
-	return (!world.hasEncounterState() && !party.encounterContext && !party.roster.combatMarked()) ||
-		world.completedCaptureEligible(party, camera) || world.journeyCaptureEligible(party,camera);
+	if (!world.hasEncounterState() && !party.encounterContext && !party.roster.combatMarked()) {
+		for (unsigned owner = 0; owner < XeenRoster::kCharacterCount; ++owner)
+			if (party.roster.combatInputs(owner)) return false;
+		return true;
+	}
+	return world.completedCaptureEligible(party, camera) || world.journeyCaptureEligible(party,camera);
 }
 
 XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resources,
@@ -296,13 +321,14 @@ XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resourc
 		snapshot.completedEncounter = std::move(value);
 	}
 	if (state.journey()) {
-		xeenValidateJourneyParty(party);
+		xeenValidateJourneyParty(party,state.journeyContract());
 		XeenSaveJourney j;
 		j.context = party.encounterContext; j.skeletonSeed = state.skeletonSeed();
+		j.schema=j.contract=state.journeyContract(); j.random=state.journeyRandom();
 		for (unsigned i = 0; i < 30; ++i) j.supplements[i] = {static_cast<std::uint8_t>(i), *party.roster.combatInputs(i)};
 		if (state.actors().size() != 27) throw std::logic_error("Journey actor collection changed");
-		const auto &a = state.actors()[5];
-		j.actors.push_back({a.id,a.x,a.y,a.hp,a.activated,a.lifecycle,a.status,state.accountedMonsters().count(a.id) != 0});
+		for (const auto &a:state.actors()) if (xeenJourneyContent(j.contract).influences(a.id.recordIndex))
+			j.actors.push_back({a.id,a.x,a.y,a.hp,a.activated,a.lifecycle,a.status,state.accountedMonsters().count(a.id) != 0});
 		snapshot.journey = std::move(j);
 		validateJourneyValues(snapshot);
 	}

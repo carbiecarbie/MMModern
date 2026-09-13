@@ -54,7 +54,7 @@ public:
 	// Internal fresh-domain initialization. The caller retains destination/provider guards.
 	static XeenEncounterResult initializeJourney(XeenWorld &, XeenPartyState &, XeenCamera &,
 		XeenEncounterState &, const std::vector<std::uint8_t> &, const XeenGameplayContext &,
-		const std::vector<XeenMonsterRecord> &, const XeenEventFile &, std::uint32_t seed);
+		const std::vector<XeenMonsterRecord> &, const XeenEventFile &, std::uint32_t seed, std::uint16_t contract = 1);
 	static constexpr std::size_t kCapacity = 107;
 	inline static const XeenCamera kEntry{20, 13, 1, XeenDirection::North};
 	// Read-only authorization, including terminal states. Never adopts a revision.
@@ -73,7 +73,7 @@ public:
 		const XeenEventFile &events);
 	// Immutable environment admission, independent of the party's injury state.
 	static void validateEnvironment(XeenWorld &world, const std::vector<XeenActor> &actors,
-		const XeenEventFile &events);
+		const XeenEventFile &events, std::uint16_t contract = 1);
 	// Explicit startup only; leaves an irreversible marker on preparation failure.
 	static XeenEncounterResult initialize(XeenWorld &world, XeenPartyState &party,
 		XeenCamera &camera, XeenEncounterState &state,

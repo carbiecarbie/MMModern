@@ -7,6 +7,7 @@
 #include "games/xeen/XeenActor.h"
 #include "games/xeen/XeenEncounterEntry.h"
 #include "games/xeen/XeenParty.h"
+#include "games/xeen/XeenJourneyContent.h"
 #include <stdexcept>
 #include <set>
 
@@ -75,6 +76,8 @@ public:
 	bool journey() const noexcept { return _entry == XeenEncounterEntry::Journey; }
 	XeenJourneyActivity journeyActivity() const noexcept { return _journeyActivity; }
 	std::uint32_t skeletonSeed() const noexcept { return _skeletonSeed; }
+	std::uint16_t journeyContract() const noexcept { return _journeyContract; }
+	const std::optional<XeenJourneyRandomState> &journeyRandom() const noexcept { return _journeyRandom; }
 	const std::set<XeenMonsterIdentity> &accountedMonsters() const noexcept { return _accountedMonsters; }
 	bool isObjectDisabled(XeenObjectIdentity id) const { return _objects.count(id) != 0; }
 	bool isEventDisabled(XeenEventIdentity id) const { return _events.count(id) != 0; }
@@ -96,6 +99,8 @@ private:
 	const void *_journeyOwner = nullptr;
 	std::uint64_t _journeyGeneration = 0;
 	std::uint32_t _skeletonSeed = 0;
+	std::uint16_t _journeyContract = 1;
+	std::optional<XeenJourneyRandomState> _journeyRandom;
 	std::set<XeenMonsterIdentity> _accountedMonsters;
 	friend class XeenWorld;
 	friend class XeenActorApproach;

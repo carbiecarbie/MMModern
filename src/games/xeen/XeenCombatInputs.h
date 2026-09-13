@@ -8,6 +8,8 @@ struct XeenCombatInputs {
 	XeenAttributeValue might, speed, accuracy;
 	int temporaryAc = 0;
 	std::uint32_t experience = 0;
+	// Explicit successor input; legacy supplement presence does not supply Luck.
+	std::optional<XeenAttributeValue> luck;
 };
 inline constexpr std::array<std::uint8_t,6> kXeenCombatOwners{0,18,14,11,1,6};
 }

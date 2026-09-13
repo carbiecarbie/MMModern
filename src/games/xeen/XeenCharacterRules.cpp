@@ -260,10 +260,14 @@ int maximumSp(const XeenCharacter &character,
 } // namespace
 
 int XeenCharacterRules::physicalBonus(int value) { return statBonus(value); }
+int XeenCharacterRules::effectiveLuck(const XeenCharacter &c, const XeenCombatInputs &input) {
+	if (!input.luck) throw std::invalid_argument("Missing physical saving throw Luck");
+	return std::max(add<true>(add<true>(input.luck->permanent,input.luck->temporary),itemBonus(c,6)),0);
+}
 int XeenCharacterRules::effectivePhysical(const XeenCharacter &c, const XeenCombatInputs &input,
 		PhysicalAttribute attribute, const XeenCharacterRulesContext &context) {
 	for (unsigned i=0;i<c.conditions.size();++i)
-		if (i!=12 && i!=13 && c.conditions[i]) throw std::invalid_argument("unsupported physical combat condition");
+		if (i!=4 && i!=12 && i!=13 && c.conditions[i]) throw std::invalid_argument("unsupported physical combat condition");
 	const XeenAttributeValue *v = nullptr;
 	switch (attribute) {
 	case PhysicalAttribute::Might: v=&input.might; break;

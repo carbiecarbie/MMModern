@@ -33,13 +33,15 @@ public:
 	struct Draw { std::uint32_t lo,hi,value; bool raw=false; };
 	explicit XeenCombatRandom(std::uint32_t seed=1);
 	explicit XeenCombatRandom(std::vector<Draw> tape);
+	explicit XeenCombatRandom(XeenJourneyRandomState);
+	XeenJourneyRandomState continuation() const;
 	// One provider/raw draw, including a rejected conversion. nullopt means reject.
 	std::optional<std::uint32_t> draw(std::uint32_t lo,std::uint32_t hi);
 	std::uint32_t state() const noexcept { return value; }
-	std::size_t position() const noexcept { return offset; }
+	std::uint64_t position() const noexcept { return offset; }
 private:
 	std::uint32_t value=1;
-	std::size_t offset=0;
+	std::uint64_t offset=0;
 	std::shared_ptr<const std::vector<Draw>> tape;
 };
 
@@ -115,6 +117,9 @@ public:
 	XeenCombatResult approachPulse(const Ticket &);
 	XeenCombatResult beginCombat(const Ticket &);
 	XeenCombatResult command(const Ticket &,XeenCombatCommand);
+	XeenCombatResult selectTarget(const Ticket &, unsigned row);
+	std::array<std::optional<XeenMonsterIdentity>,3> contacts() const noexcept;
+	std::optional<XeenMonsterIdentity> selectedTarget() const noexcept;
 	XeenCombatResult service(const Ticket &);
 	XeenCompletedEncounterTicket retireCompletedVictory(const Ticket &);
 	XeenCombatResult fail(const Ticket &,XeenCombatFailure=XeenCombatFailure::Observation) noexcept;

@@ -43,9 +43,9 @@ class XeenJourneyCapture {
 		const auto &actors = w->sessionState().actors();
 		if (actors.size() != 27 || admittedActors.size() != 27) return false;
 		for (unsigned i = 0; i < 27; ++i)
-			if (i != 5 && !xeen_state::sameActor(actors[i],admittedActors[i])) return false;
-		if (w->sessionState().accountedMonsters().size() > 1 ||
-			(!w->sessionState().accountedMonsters().empty() && !w->sessionState().accountedMonsters().count({20,5}))) return false;
+			if (!xeenJourneyContent(w->sessionState().journeyContract()).influences(i) && !xeen_state::sameActor(actors[i],admittedActors[i])) return false;
+		for (auto id:w->sessionState().accountedMonsters())
+			if (id.mapId!=XeenMapIdentity(20) || !xeenJourneyContent(w->sessionState().journeyContract()).influences(id.recordIndex)) return false;
 		return true;
 	}
 };

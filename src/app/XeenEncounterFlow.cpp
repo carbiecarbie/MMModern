@@ -361,7 +361,7 @@ bool XeenEncounterFlow::observeCombat() noexcept {
 		_frame = 8; _appearanceStep = 0; _appearanceAfterFrame = true; return true;
 	}
 	if (r.operation == XeenCombatOperation::PlayerAttack && r.damage > 0) {
-		_frame = _world.sessionState().actors()[5].hp > 0 ? 11 : 0;
+		_frame = r.actorHpAfter > 0 ? 11 : 0;
 		_appearanceStep = 0; _appearanceAfterFrame = true; return true;
 	}
 	return false;

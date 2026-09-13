@@ -9,6 +9,7 @@
 #include "games/xeen/XeenCombatInputs.h"
 #include "games/xeen/XeenGameplayContext.h"
 #include "games/xeen/XeenActor.h"
+#include "games/xeen/XeenJourneyContent.h"
 
 #include <optional>
 #include <vector>
@@ -66,6 +67,7 @@ struct XeenSaveJourney {
 	std::optional<XeenGameplayContext> context;
 	std::array<XeenSaveCombatSupplement, 30> supplements{};
 	std::uint32_t skeletonSeed = 0;
+	std::optional<XeenJourneyRandomState> random;
 	XeenMapIdentity initializedMap{XeenSide::Clouds, 20};
 	std::uint16_t originalActorCount = 27;
 	std::vector<XeenSaveJourneyActor> actors;

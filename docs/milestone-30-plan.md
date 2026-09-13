@@ -912,6 +912,11 @@ roster-owned optional Luck; party context/conditions/XP; one combat borrow and
 existing Flow boundary; snapshot transfer values and source/destination guards.
 No replacement graph or serialized runtime capability.
 
+The M30A read-only Journey service refuses the Deferred objective address before
+invoking a script-capable callback, in every facing. The player-facing notice
+and its presentation handoff remain M30B work; this domain refusal creates no
+modal state or gameplay mutation.
+
 **Reusable value:** shared identity-based group combat, ordered multiattack and
 condition application, durable current-state continuation and a content admission
 seam. Existing Skeleton production behavior exercises the shared engine under

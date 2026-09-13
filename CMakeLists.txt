@@ -26,7 +26,8 @@ add_library(mmodern_xeen STATIC
 	src/formats/xeen/XeenMonsterFormat.cpp
 	src/formats/xeen/XeenGameplayContextFormat.cpp
 	src/games/xeen/XeenActorApproach.cpp
-	src/games/xeen/XeenCombat.cpp
+    src/games/xeen/XeenCombat.cpp
+    src/games/xeen/XeenCombatRandom.cpp
 	src/games/xeen/XeenJourneyRules.cpp
 	src/games/xeen/XeenCompletedDomain.cpp
 	src/games/xeen/XeenCompletedReentry.cpp
@@ -119,6 +120,8 @@ endif()
 include(CTest)
 add_executable(mmodern_encounter_domain_smoke EXCLUDE_FROM_ALL tests/XeenEncounterSmoke.cpp)
 add_executable(mmodern_combat_smoke EXCLUDE_FROM_ALL tests/XeenCombatSmoke.cpp)
+add_executable(mmodern_expedition_original EXCLUDE_FROM_ALL tests/XeenExpeditionOriginal.cpp)
+target_link_libraries(mmodern_expedition_original PRIVATE mmodern_app mmodern_xeen)
 add_executable(mmodern_journey_original EXCLUDE_FROM_ALL tests/XeenJourneyOriginal.cpp tests/XeenRestoreReplayProbe.cpp)
 target_link_libraries(mmodern_journey_original PRIVATE mmodern_app mmodern_xeen)
 target_link_libraries(mmodern_combat_smoke PRIVATE mmodern_xeen)
@@ -132,6 +135,10 @@ function(xeen_restore_replay target)
 endfunction()
 xeen_restore_replay(mmodern_journey_original)
 if(BUILD_TESTING)
+	add_executable(mmodern_expedition_tests tests/XeenExpeditionTests.cpp)
+	target_link_libraries(mmodern_expedition_tests PRIVATE mmodern_app mmodern_xeen)
+	target_link_options(mmodern_expedition_tests PRIVATE "LINKER:--wrap,_ZN7mmodern16XeenCombatRandom4drawEjj")
+	add_test(NAME xeen_expedition COMMAND mmodern_expedition_tests)
 	add_executable(mmodern_journey_tests tests/XeenJourneyTests.cpp)
 	target_link_libraries(mmodern_journey_tests PRIVATE mmodern_app mmodern_xeen)
 	add_test(NAME xeen_journey COMMAND mmodern_journey_tests)

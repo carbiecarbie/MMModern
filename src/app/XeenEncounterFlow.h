@@ -26,6 +26,7 @@ struct XeenJourneySetup {
 	const std::vector<XeenMonsterRecord> &statistics;
 	const XeenEventFile &events;
 	std::uint32_t seed;
+	std::uint16_t contract = 1;
 };
 struct XeenJourneyRestoreTag {};
 

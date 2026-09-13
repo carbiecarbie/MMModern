@@ -131,6 +131,8 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   if (resume) {
    if (!target) throw std::runtime_error("Resume requires a save path");
    const auto saved = XeenSaveFile::read(*target);
+   if (saved.journey && saved.journey->contract != 1)
+    throw std::invalid_argument("Successor Journey production startup is unavailable before M30B");
    XeenSaveState::restoreBeforeGameplay(saved, services.resources, party, camera, flags, world, preflight);
    entry = world.sessionState().encounterEntry();
    encounter = entry != XeenEncounterEntry::Ordinary;

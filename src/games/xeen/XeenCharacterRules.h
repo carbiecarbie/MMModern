@@ -18,6 +18,7 @@ public:
 	static int effectivePhysical(const XeenCharacter &, const XeenCombatInputs &, PhysicalAttribute,
 		const XeenCharacterRulesContext &);
 	static int physicalBonus(int);
+	static int effectiveLuck(const XeenCharacter &, const XeenCombatInputs &);
 	static int combatArmorClass(const XeenCharacter &, const XeenCombatInputs &, const XeenCharacterRulesContext &);
 	// Preflight untrusted active-character values using the same calculations,
 	// with checked intermediates. Does not normalize or mutate the character.

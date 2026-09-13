@@ -45,6 +45,7 @@ public:
 		const auto &live = w._sessionState;
 		if (live._journeyActivity != s._journeyActivity || live._journeyOwner != s._journeyOwner ||
 			live._journeyGeneration != s._journeyGeneration || live._skeletonSeed != s._skeletonSeed ||
+			live._journeyContract != s._journeyContract || live._journeyRandom != s._journeyRandom ||
 			live._accountedMonsters != s._accountedMonsters) return false;
 		if (live._combatOwner != s._combatOwner || live._combatApproachState != s._combatApproachState ||
 			live._diagnostic27 != s._diagnostic27 || live._combatEntered != s._combatEntered ||

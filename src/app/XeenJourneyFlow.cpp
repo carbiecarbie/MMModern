@@ -3,6 +3,7 @@
 #include "games/xeen/XeenJourneyCapture.h"
 #include "games/xeen/XeenInventoryView.h"
 #include <limits>
+#include <algorithm>
 #include <stdexcept>
 #include <sstream>
 
@@ -29,7 +30,7 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 		{
 			XeenRestoreGuard::Providers providers(*_journeyPreimage,w);
 			_result = XeenActorApproach::initializeJourney(w,p,c,_state,setup.characters,setup.context,
-				_journeyStatistics,_events,setup.seed);
+				_journeyStatistics,_events,setup.seed,setup.contract);
 		}
 		w._combatCheck = {};
 		_journeyCapture->admittedActors = w.sessionState().actors();
@@ -121,6 +122,11 @@ void XeenEncounterFlow::holdJourneyFrame() {
 }
 void XeenEncounterFlow::journeyRead(const std::function<void()> &operation) {
 	if (!journeyMutable() || !_boundary.quiet()) throw std::logic_error("Journey interaction unavailable");
+	// The domain refuses before invoking a script-capable callback. M30B owns
+	// the player-facing deferred notice and its presentation handoff.
+	const auto &content = xeenJourneyContent(_world.sessionState().journeyContract());
+	if (content.deferredObjective && _camera.mapId == XeenMapIdentity(20) && _camera.x == 5 && _camera.y == 14)
+		throw std::logic_error("Journey objective interaction is deferred");
 	holdJourneyFrame();
 	BusyJourney busy(_busy);
 	try {
@@ -216,8 +222,8 @@ XeenEncounterResult XeenEncounterFlow::advanceJourney(const Ticket &entry, std::
 		!(s._journeyActivity == XeenJourneyActivity::Presentation && !action && !_journeyFramePrepared && !_journeyFrameRetry)) return refused;
 	if (!journeyCapacity()) return refused;
 	try {
-		xeenValidateJourneyParty(_party);
-		if (s._actors.at(5).lifecycle == XeenActorLifecycle::Present) xeenValidateJourneyMelee(_party);
+		xeenValidateJourneyParty(_party,_world.sessionState().journeyContract());
+		if (std::any_of(s._actors.begin(),s._actors.end(),[&](const XeenActor &a) { return xeenJourneyContent(s.journeyContract()).influences(a.id.recordIndex) && a.lifecycle == XeenActorLifecycle::Present; })) xeenValidateJourneyMelee(_party,_world.sessionState().journeyContract());
 	} catch (const std::invalid_argument &e) { _journeyRefusal = e.what(); refused.reason = XeenEncounterStop::Domain; return refused; }
 	_journeyRefusal.clear();
 	const auto boundaryGeneration = _boundary.generation();
@@ -262,7 +268,7 @@ XeenEquipmentResult XeenEncounterFlow::journeyEquipment(const Ticket &entry, std
 	if (!journeyMutable() || !_boundary.preparationReady() || !current(entry) || !journeyCapacity()) return {};
 	BusyJourney busy(_busy);
 	try {
-		xeenValidateJourneyParty(_party);
+		xeenValidateJourneyParty(_party,_world.sessionState().journeyContract());
 		const auto result = xeenSetEquipment(_party,active,category,slot,operation);
 		if (result.status == XeenEquipmentStatus::Success) _world._sessionState._journeyActivity = XeenJourneyActivity::Presentation;
 		++_generation; retainJourney(); return result;
@@ -273,7 +279,7 @@ XeenTransferResult XeenEncounterFlow::journeyTransfer(const Ticket &entry, std::
 	if (!journeyMutable() || !_boundary.preparationReady() || !current(entry) || !journeyCapacity()) return {};
 	BusyJourney busy(_busy);
 	try {
-		xeenValidateJourneyParty(_party);
+		xeenValidateJourneyParty(_party,_world.sessionState().journeyContract());
 		const auto result = xeenTransferItem(_party,from,to,category,slot);
 		if (result.status == XeenTransferStatus::Success) _world._sessionState._journeyActivity = XeenJourneyActivity::Presentation;
 		++_generation; retainJourney(); return result;
@@ -289,10 +295,10 @@ bool XeenEncounterFlow::attachJourney(const Ticket &entry, const std::function<v
 	};
 	BusyJourney busy(_busy);
 	try {
-		xeenValidateJourneyMelee(_party);
+		xeenValidateJourneyMelee(_party,_world.sessionState().journeyContract());
 		{
 			XeenRestoreGuard::Providers providers(*_journeyPreimage,_world,checkBoundary);
-			XeenActorApproach::validateEnvironment(_world,_world.sessionState().actors(),_events);
+			XeenActorApproach::validateEnvironment(_world,_world.sessionState().actors(),_events,_world.sessionState().journeyContract());
 			checkBoundary();
 			_journeyPreimage->check();
 			if (prepareSprites) prepareSprites();
@@ -300,7 +306,7 @@ bool XeenEncounterFlow::attachJourney(const Ticket &entry, const std::function<v
 			_journeyPreimage->check();
 			// Sprite preparation may discard geometry/MOB caches. Rebuild under the
 			// same entry authority before combat construction can publish a borrow.
-			XeenActorApproach::validateEnvironment(_world,_world.sessionState().actors(),_events);
+			XeenActorApproach::validateEnvironment(_world,_world.sessionState().actors(),_events,_world.sessionState().journeyContract());
 		}
 		checkBoundary();
 		_journeyPreimage->check();

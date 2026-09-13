@@ -3,7 +3,7 @@
 #include "games/xeen/XeenParty.h"
 namespace mmodern {
 // Side-effect-free predicates over current values, never initial CHR equality.
-void xeenValidateJourneyParty(const XeenPartyState &);
-void xeenValidateJourneyMelee(const XeenPartyState &);
+void xeenValidateJourneyParty(const XeenPartyState &, std::uint16_t contract = 1);
+void xeenValidateJourneyMelee(const XeenPartyState &, std::uint16_t contract = 1);
 }
 #endif

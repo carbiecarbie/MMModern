@@ -20,6 +20,8 @@ std::uint32_t XeenMonsterRecord::experience() const {
 std::uint16_t XeenMonsterRecord::baseHp() const { return word(*this, 20); }
 std::uint16_t XeenMonsterRecord::strikes() const { return word(*this, 26); }
 std::uint16_t XeenMonsterRecord::gold() const { return word(*this, 42); }
+bool XeenMonsterRecord::supportsMovement() const { return baseHp()!=0 && raw[32]==0 && raw[46]==0; }
+bool XeenMonsterRecord::supportsRendering() const { return image()!=255 && raw[48]==0 && raw[49]==0; }
 bool XeenMonsterRecord::supportsApproach() const {
 	return baseHp() != 0 && raw[30] == 0 && raw[32] == 0 && raw[46] == 0 &&
 		raw[47] != 255 && raw[48] == 0 && raw[49] == 0;
@@ -34,9 +36,10 @@ std::vector<XeenMonsterRecord> XeenMonsterFormat::parse(const std::vector<std::u
 	return records;
 }
 void XeenMonsterRecord::validateCombat() const {
-	if (!supportsApproach() || baseHp()!=20 || experience()!=250 || armorClass()!=5 || speed()!=10 ||
+	const bool zombie=supportsMovement() && supportsRendering() && baseHp()==30 && experience()==300 && armorClass()==2 && speed()==4 && attacks()==2 && preferredClass()==3 && strikes()==2 && damageDie()==4 && raw[29]==0 && raw[30]==7 && hitParameter()==5 && raw[33]==4 && physicalResistance()==50 && gold()==0 && raw[44]==0 && raw[45]==0 && image()==9;
+	if (!zombie && (!supportsApproach() || raw[30]!=0 || baseHp()!=20 || experience()!=250 || armorClass()!=5 || speed()!=10 ||
 		attacks()!=1 || preferredClass()!=3 || strikes()!=2 || damageDie()!=6 || raw[29]!=0 ||
-		hitParameter()!=4 || raw[33]!=4 || physicalResistance()!=50 || gold()!=0 || raw[44]!=0 || raw[45]!=0 || image()!=8)
+		hitParameter()!=4 || raw[33]!=4 || physicalResistance()!=50 || gold()!=0 || raw[44]!=0 || raw[45]!=0 || image()!=8))
 		throw std::invalid_argument("monster resource is outside the Diagnostic27 combat profile");
 	for (unsigned i=34;i<=40;++i) if (raw[i]>100)
 		throw std::invalid_argument("monster resistance percentage out of bounds");
