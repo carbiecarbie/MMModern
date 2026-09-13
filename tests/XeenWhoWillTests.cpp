@@ -36,6 +36,7 @@ Bytes fontBytes() {
 	for (int c=0; c<128; ++c) {
 		bytes[0x1000+c]=6; bytes[0x1080+c]=3;
 		for (int y=0; y<8; ++y) bytes[c*16+y*2]=0x55;
+		for (int y=0; y<7; ++y) bytes[0x0800+c*16+y*2]=0x15;
 	}
 	return bytes;
 }
@@ -358,11 +359,11 @@ void presentationLayout() {
 		bool footerVisible=false;
 		for(int y=0;y<200;++y)for(int x=0;x<320;++x) {
 			const auto offset=static_cast<std::size_t>(y*320+x);
-			if(x<225 || x>=320 || y<74 || y>=154)
+			if(x<225 || x>=320 || y>=199)
 				check(clipped.frame.pixels[offset]==f.base.pixels[offset],"WhoWill drew outside panel");
-			if(x>=233 && x<312 && y>=104 && y<146)
+			if(x>=233 && x<312 && y>=32 && y<195)
 				check(normal.frame.pixels[offset]==clipped.frame.pixels[offset],"long title displaced question/keys");
-			if(x>=233 && x<312 && y>=138 && y<146 && normal.frame.pixels[offset]!=normal.frame.pixels[138*320+233])
+			if(x>=233 && x<312 && y>=174 && y<195 && normal.frame.pixels[offset]!=normal.frame.pixels[174*320+233])
 				footerVisible=true;
 		}
 		check(footerVisible,"WhoWill F-key label clipped");

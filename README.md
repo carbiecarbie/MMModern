@@ -6,7 +6,7 @@ Might and Magic V: Darkside of Xeen / World of Xeen.
 
 ## Status
 
-**Milestone 30 is the latest completed milestone.**
+**Milestone 31 is the latest completed milestone.**
 
 The engine supports a bounded Clouds quest loop: request a quest, collect an
 item, return it for character-held rewards, and save/resume the resulting progress.
@@ -30,10 +30,13 @@ exploration or normal original-game startup.
 The production `--journey-expedition` entry adds a prepared six-cell map-20
 route with grouped Skeleton/Zombie encounters, identity-bound target selection,
 automatic joining and Zombie multiattack, Disease and accumulated injury,
-equipment and XP consequences. Quiet F9 saves restore the same current state and
-RNG continuation in another process. The Bone Whistle address is reachable but
-reports a Deferred interaction; collection through this expedition remains
-unimplemented pending M31.
+equipment and XP consequences. The first connected Clouds vertical slice runs
+from that prepared entry through original Bone Whistle collection and return.
+WhoWill, discovery, acknowledgment, grant and removal preserve accumulated
+consequences. Quiet F9 saves before or after collection restore the same current
+state and RNG continuation in another process, allowing further navigation and
+item management without replay. The supported route remains six cells; it adds
+no general map-20 exploration, Vertigo travel, normal startup or Whistle use/turn-in.
 
 The Diagnostic26 entry presents an original outdoor Skeleton, supports its
 activation and approach, and stops at terminal same-cell engagement. Diagnostic27
@@ -77,7 +80,8 @@ See the [technical snapshot](docs/project-status.md),
   plus Journey v4 restart with transferred ownership, exact combat outcomes,
   continued bounded navigation/item management and live diagnostics.
 - A bounded production expedition with up to three simultaneous contacts,
-  readable multi-actor MON/ATT combat and schema-2 separate-process continuation.
+  readable multi-actor MON/ATT combat, original Bone Whistle collection and
+  return, and schema-2 separate-process continuation.
 
 ## Running and controls
 
@@ -139,8 +143,16 @@ may form successive, mixed or three-monster contacts. During a ready combat turn
 Selection, joining and enemy/round work use new presented generations, so batched,
 held or stale keys cannot attack a replacement identity. Disease, exact current
 versus maximum HP/SP, broken armor and XP remain visible. Quiet inventory and F9
-work as in the Skeleton Journey. Space at the Bone Whistle address presents an
-unavailable-objective notice without WhoWill, grant or Remove.
+work as in the Skeleton Journey. At a quiet `(5,14)` boundary, Space starts the
+original Bone Whistle interaction from any facing. F1-F6 chooses an eligible
+member; Escape cancels WhoWill and permits a fresh retry. Space/Enter acknowledges
+the discovery, grants the party's Whistle and removes the bones. Movement,
+inventory, combat controls and F9 remain blocked while the interaction is pending.
+Escape after WhoWill exits without acknowledging acquisition. After success,
+discovery text remains readable, repeat interaction grants nothing, and a fresh
+F9 may save at the presented quiet boundary. Turn West and return to `(0,14)`;
+the Journey remains mutable after return and restart. There is no autosave or
+healing requirement for the accepted seed-1 route.
 
 | Key | Action |
 | --- | --- |
@@ -176,7 +188,9 @@ Ordinary eligible saves write v2, completed Diagnostic27 writes v3, and Journey
 saves write v4: the Skeleton Journey retains schema/content 1/1 and the expedition
 uses schema/content 2/2. The reader accepts supported v1/v2/v3/v4 in their distinct
 domains. `--load-game` selects Journey directly from v4 and restores fresh owners
-without replaying fresh Journey initialization, approach, combat or item actions.
+without replaying fresh Journey initialization, approach, combat, objective
+grant/removal or item actions. Existing expedition schema-2 saves remain readable
+and can collect the Whistle through a fresh explicit interaction.
 Saves require matching game archives and are not compatible with original Xeen
 or ScummVM saves. See the
 [persistence model](docs/project-status.md#persistence-model) for details.
@@ -200,6 +214,8 @@ SDL backend. The exact pin and configuration live in
   ownership, persistence and boundaries.
 - [Project history](docs/project-history.md): concise completed milestones and plan links.
 - [Roadmap](docs/roadmap.md): future direction and planning review cadence.
+- [Milestone 31 plan](docs/milestone-31-plan.md): closed connected collection,
+  event authority, publication/failure, restart and acceptance contract.
 - [Milestone 29 plan](docs/milestone-29-plan.md): closed mutable Journey,
   encounter-continuity, v4 persistence and acceptance contract.
 - [Milestone 30 plan](docs/milestone-30-plan.md): closed grouped expedition,

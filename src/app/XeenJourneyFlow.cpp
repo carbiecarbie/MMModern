@@ -112,7 +112,7 @@ void XeenEncounterFlow::releaseJourneyWork(XeenCombatBoundary::Work work, std::u
 void XeenEncounterFlow::holdJourneyFrame() {
 	if (!_journey || _busy || _combat || !current(ticket()) || !journeyCapacity()) throw std::logic_error("Journey frame boundary unavailable");
 	auto &s = _world._sessionState;
-	if (s._journeyActivity == XeenJourneyActivity::Presentation) return;
+	if (s._journeyActivity == XeenJourneyActivity::Presentation || s._journeyActivity == XeenJourneyActivity::Event) return;
 	if (s._journeyActivity != XeenJourneyActivity::Quiet && s._journeyActivity != XeenJourneyActivity::Approach)
 		throw std::logic_error("Journey frame cannot replace active work");
 	s._journeyActivity = XeenJourneyActivity::Presentation;
@@ -120,28 +120,38 @@ void XeenEncounterFlow::holdJourneyFrame() {
 	_journeyFramePrepared = false;
 	_journeyPreimage->adoptJourneyCoordination();
 }
+void XeenEncounterFlow::beginJourneyEvent() {
+	if (!journeyQuiet() || !journeyCapacity() || _world.sessionState().journeyContract()!=2 ||
+		_camera.mapId!=XeenMapIdentity(20) || _camera.x!=5 || _camera.y!=14)
+		throw std::logic_error("Journey objective admission unavailable");
+	_eventLease = _boundary.hold(XeenCombatBoundary::Work::Event);
+	_world._sessionState._journeyActivity = XeenJourneyActivity::Event;
+	++_world._sessionState._journeyGeneration; ++_generation;
+	_journeyPreimage->adoptJourneyCoordination();
+	_journeyFramePrepared = _journeyFrameRetry = false;
+}
+void XeenEncounterFlow::endJourneyEvent() {
+	if (!journeyEvent() || _busy || !current(ticket()) || !journeyCapacity())
+		throw std::logic_error("Journey event retirement unavailable");
+	// Transfer to Presentation before releasing Event: no quiet capture gap.
+	_world._sessionState._journeyActivity = XeenJourneyActivity::Presentation;
+	++_world._sessionState._journeyGeneration; ++_generation;
+	_journeyPreimage->adoptJourneyCoordination();
+	_boundary.release(XeenCombatBoundary::Work::Event,_eventLease);
+	_eventLease=0; _journeyFramePrepared = _journeyFrameRetry = false;
+}
 void XeenEncounterFlow::journeyRead(const std::function<void()> &operation) {
 	if (!journeyMutable() || !_boundary.quiet()) throw std::logic_error("Journey interaction unavailable");
-	// The domain refuses before invoking a script-capable callback. M30B owns
-	// the player-facing deferred notice and its presentation handoff.
+	// Objective scripts require the exclusive Event continuation, never this read seam.
 	const auto &content = xeenJourneyContent(_world.sessionState().journeyContract());
-	if (content.deferredObjective && _camera.mapId == XeenMapIdentity(20) && _camera.x == 5 && _camera.y == 14)
-		throw std::logic_error("Journey objective interaction is deferred");
+	if (content.manualObjective && _camera.mapId == XeenMapIdentity(20) && _camera.x == 5 && _camera.y == 14)
+		throw std::logic_error("Journey objective requires Event authority");
 	holdJourneyFrame();
 	BusyJourney busy(_busy);
 	try {
 		XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
 		operation(); _journeyPreimage->check();
 	} catch (...) { if (!_journeyPreimage->current()) closeJourney(); throw; }
-}
-bool XeenEncounterFlow::presentDeferredObjective() {
-	if (!journeyQuiet()) return false;
-	const auto &content = xeenJourneyContent(_world.sessionState().journeyContract());
-	if (!content.deferredObjective || _camera.mapId != XeenMapIdentity(20) || _camera.x != 5 || _camera.y != 14) return false;
-	// No script callback; input and saving wait for a matching new frame.
-	_journeyRefusal = "Objective collection unavailable; M31.";
-	holdJourneyFrame();
-	return true;
 }
 std::string XeenEncounterFlow::journeyInspection() const {
 	std::ostringstream out;
@@ -199,10 +209,10 @@ bool XeenEncounterFlow::endJourneySave(const Ticket &t) noexcept {
 }
 bool XeenEncounterFlow::presentJourney(const Ticket &entry) {
 	if (!_journey || _busy || _combat || !_journeyFramePrepared || !current(entry) ||
-		_world.sessionState().journeyActivity() != XeenJourneyActivity::Presentation) return false;
+		(_world.sessionState().journeyActivity() != XeenJourneyActivity::Presentation && !journeyEvent())) return false;
 	if (!journeyCapacity()) return false;
 	auto &s = _world._sessionState;
-	s._journeyActivity = _state.pending() ? XeenJourneyActivity::Approach : XeenJourneyActivity::Quiet;
+	if (!journeyEvent()) s._journeyActivity = _state.pending() ? XeenJourneyActivity::Approach : XeenJourneyActivity::Quiet;
 	++s._journeyGeneration; ++_generation;
 	_journeyFramePrepared = _journeyFrameRetry = false;
 	_journeyPreimage->adoptJourneyCoordination();
@@ -211,7 +221,7 @@ bool XeenEncounterFlow::presentJourney(const Ticket &entry) {
 }
 bool XeenEncounterFlow::prepareJourneyFrame(const Ticket &entry, const std::function<void()> &compose) {
 	if (!_journey || _busy || _combat || !current(entry) || !compose ||
-		_world.sessionState().journeyActivity() != XeenJourneyActivity::Presentation) return false;
+		(_world.sessionState().journeyActivity() != XeenJourneyActivity::Presentation && !journeyEvent())) return false;
 	BusyJourney busy(_busy);
 	_journeyFramePrepared = false;
 	try {
@@ -266,7 +276,7 @@ XeenEncounterResult XeenEncounterFlow::advanceJourney(const Ticket &entry, std::
 		if (result.outcome == XeenEncounterOutcome::Stale) { closeJourney(); return refused; }
 		if (_state.phase() == XeenEncounterPhase::SupportStopped) { closeJourney(); return result; }
 		if (result.outcome == XeenEncounterOutcome::Refused) {
-			s._journeyActivity = _state.pending() ? XeenJourneyActivity::Approach : XeenJourneyActivity::Quiet;
+			if (!journeyEvent()) s._journeyActivity = _state.pending() ? XeenJourneyActivity::Approach : XeenJourneyActivity::Quiet;
 			_journeyPreimage->adoptJourneyCoordination(); _journeyPreimage->check(); return result;
 		}
 		_result = result; ++_generation; _journeyFramePrepared = false;

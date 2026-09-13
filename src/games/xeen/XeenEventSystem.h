@@ -58,21 +58,21 @@ public:
 	// camera/flag changes, not earlier movement/rotation, world mutations or grants.
 	XeenAutomaticEventResult runAutomaticEvent(XeenWorld &world,
 		XeenPartyState &partyState, XeenCamera &camera,
-		XeenGameFlags &gameFlags);
+		XeenGameFlags &gameFlags, const XeenEventPublication *publication = nullptr);
 
 	XeenManualEventResult runManualEvent(XeenWorld &world,
 		XeenPartyState &partyState, XeenCamera &camera,
-		XeenGameFlags &gameFlags);
+		XeenGameFlags &gameFlags, const XeenEventPublication *publication = nullptr);
 
 	XeenAutomaticEventResult resumeAutomaticEvent(XeenEventExecutionState state,
 		XeenPresentationResponse response, XeenWorld &world,
 		XeenPartyState &partyState, XeenCamera &camera,
-		XeenGameFlags &gameFlags);
+		XeenGameFlags &gameFlags, const XeenEventPublication *publication = nullptr);
 
 	XeenManualEventResult resumeManualEvent(XeenEventExecutionState state,
 		XeenPresentationResponse response, XeenWorld &world,
 		XeenPartyState &partyState, XeenCamera &camera,
-		XeenGameFlags &gameFlags);
+		XeenGameFlags &gameFlags, const XeenEventPublication *publication = nullptr);
 
 	std::size_t cachedScriptCount() const { return _scripts.size(); }
 	std::size_t cachedTextCount() const { return _texts.size(); }
@@ -81,6 +81,7 @@ public:
 	void discardTextCache() { _texts.clear(); }
 
 private:
+	friend class XeenEventFlow;
 	XeenEventScript scriptForMap(XeenMapIdentity mapId);
 	XeenEventTextFile textForMap(XeenMapIdentity mapId);
 

@@ -223,6 +223,18 @@ Historical limitations in those plans describe their recorded boundaries.
   acceptance and maintainer physical SDL acceptance completed. See the
   [Milestone 30 plan](milestone-30-plan.md#final-acceptance).
 
+## M31 - First connected Clouds vertical slice
+
+- Connected original Bone Whistle WhoWill/discovery/acknowledgment/grant/Remove
+  to the production expedition through existing Journey, party and world owners.
+- Preserved accumulated encounters, injuries, equipment, XP and surviving actors
+  through collection, return, explicit saving and separate-process continuation
+  without replay or a new save format.
+- Automated and original-resource/restart validation, independent implementation
+  review and native-frame inspection, and separate maintainer physical SDL
+  acceptance completed. See the
+  [Milestone 31 plan](milestone-31-plan.md#final-acceptance).
+
 ## Maintaining this history
 
 Add one short section with 2-4 lasting-result bullets per completed milestone

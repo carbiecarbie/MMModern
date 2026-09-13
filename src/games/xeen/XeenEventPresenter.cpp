@@ -48,9 +48,9 @@ XeenTextRenderOptions XeenEventPresenter::optionsFor(
 	case XeenPresentationKind::NpcAcknowledgment:
 		break; // Its heading/body have independent bounded layout below.
 	case XeenPresentationKind::CharacterSelection:
-		options.bounds = {225, 74, 320, 154};
+		options.bounds = {225, 0, 320, 199};
 		options.x = 233;
-		options.y = 82;
+		options.y = 8;
 		options.alignment = XeenTextAlignment::Center;
 		options.drawWindow = true;
 		break;
@@ -119,6 +119,13 @@ XeenTextRenderOptions XeenEventPresenter::optionsFor(
 
 IndexedFrame XeenEventPresenter::drawConfirmation(const IndexedFrame &base) const {
 	IndexedFrame result = base;
+	if (_request.response == XeenPresentationResponseRequirement::Acknowledgment) {
+		fill(result, 228, 74, 318, 110, 0x99);
+		XeenTextRenderOptions options;
+		options.bounds={232,78,314,108}; options.x=232; options.y=81;
+		options.alignment=XeenTextAlignment::Center;
+		return _renderer.render(result,"Space / Enter",options).pages.front();
+	}
 	fill(result, 232, 74, 285, 96, 0x99);
 	fill(result, 234, 76, 258, 94, 0xa4);
 	fill(result, 236, 78, 256, 92, 0x99);
@@ -151,7 +158,7 @@ XeenTextRenderResult XeenEventPresenter::drawSelection(const IndexedFrame &base,
 	// Bound the title independently so a long map string cannot displace the
 	// question or the selection keys. Reuse the existing metric wrapping/clipping.
 	auto options = optionsFor(request);
-	options.bounds.bottom = 100;
+	options.bounds.bottom = 30;
 	auto rendered = _renderer.render(base, request.text, options);
 	auto append = [&](const std::string &text, int top, int bottom) {
 		options.drawWindow = false;
@@ -162,8 +169,18 @@ XeenTextRenderResult XeenEventPresenter::drawSelection(const IndexedFrame &base,
 		rendered.diagnostics.insert(rendered.diagnostics.end(),
 			part.diagnostics.begin(), part.diagnostics.end());
 	};
-	append(std::string("Who will\n") + verbs[verb] + "?", 104, 134);
-	append("F1 - F" + std::to_string(request.members.size()), 138, 146);
+	append(std::string("Who will\n") + verbs[verb] + "?", 32, 60);
+	options.size=XeenFontSize::Reduced;
+	append("F1 - F" + std::to_string(request.members.size()) + "\nEscape cancels", 174, 195);
+	XeenTextRenderOptions choices;
+	choices.bounds={233,62,317,172};
+	choices.x=233; choices.y=62; choices.drawWindow=false; choices.size=XeenFontSize::Reduced;
+	std::string members;
+	for (const auto &member:request.members) {
+		if (!members.empty()) members+='\n';
+		members+="F"+std::to_string(member.partyIndex+1)+" "+member.name+"\n"+(member.eligible?"Eligible":"Cannot act");
+	}
+	rendered.pages.front()=_renderer.render(rendered.pages.front(),members,choices).pages.front();
 	if (!request.refusal.empty()) {
 		XeenTextRenderOptions feedback;
 		feedback.bounds = {8, 112, 216, 140};

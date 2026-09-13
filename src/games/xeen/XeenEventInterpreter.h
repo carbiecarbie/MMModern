@@ -208,6 +208,7 @@ using XeenEventExecutionStepResult = std::variant<
 	XeenEventExecutionSuspended,
 	XeenEventExecutionError>;
 
+class XeenEventPublication;
 class XeenEventInterpreter {
 public:
 	static constexpr std::size_t kMaximumInstructions = 1024;
@@ -224,22 +225,22 @@ public:
 	XeenEventExecutionStepResult begin(const XeenCamera &initialCamera,
 		XeenPartyState &partyState, const XeenGameFlags &gameFlags,
 		XeenWorld &world, const ScriptProvider &scriptProvider,
-		const TextProvider &textProvider, std::uint8_t initialLine = 0) const;
+		const TextProvider &textProvider, std::uint8_t initialLine = 0, const XeenEventPublication *publication = nullptr) const;
 
 	XeenEventExecutionStepResult resume(XeenEventExecutionState state,
 		XeenPresentationResponse response, XeenPartyState &partyState,
 		XeenWorld &world, const ScriptProvider &scriptProvider,
-		const TextProvider &textProvider) const;
+		const TextProvider &textProvider, const XeenEventPublication *publication = nullptr) const;
 
 private:
 	XeenEventExecutionStepResult runInstructions(XeenEventExecutionState &state,
 		std::optional<XeenPresentationResponse> response,
 		XeenPartyState &partyState, XeenWorld &world,
-		const ScriptProvider &scriptProvider, const TextProvider &textProvider) const;
+		const ScriptProvider &scriptProvider, const TextProvider &textProvider, const XeenEventPublication *publication = nullptr) const;
 	XeenEventExecutionStepResult run(XeenEventExecutionState state,
 		std::optional<XeenPresentationResponse> response,
 		XeenPartyState &partyState, XeenWorld &world,
-		const ScriptProvider &scriptProvider, const TextProvider &textProvider) const;
+		const ScriptProvider &scriptProvider, const TextProvider &textProvider, const XeenEventPublication *publication = nullptr) const;
 };
 
 } // namespace mmodern

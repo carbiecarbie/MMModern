@@ -48,7 +48,6 @@ public:
 	void releaseJourneyWork(XeenCombatBoundary::Work, std::uint64_t);
 	void holdJourneyFrame();
 	void journeyRead(const std::function<void()> &);
-	bool presentDeferredObjective();
 	std::string journeyInspection() const;
 	bool journey() const noexcept { return _journey; }
 	Ticket beginJourneySave();
@@ -111,6 +110,10 @@ public:
 private:
 	friend class XeenEventFlow;
 	void adoptJourneyFlowBorrow();
+	void beginJourneyEvent();
+	void endJourneyEvent();
+	bool journeyEvent() const noexcept { return _journey && _world.sessionState().journeyActivity() == XeenJourneyActivity::Event; }
+	std::uint64_t _eventLease = 0;
 	bool _journey = false;
 	bool _journeyFramePrepared = false, _journeyFrameRetry = false;
 	std::string _journeyRefusal;

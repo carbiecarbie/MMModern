@@ -87,20 +87,20 @@ struct RealEvent {
 	XeenEventExecutionResult execute(const XeenCamera &, XeenPartyState &, const XeenGameFlags &, XeenWorld &,
 		const XeenEventInterpreter::ScriptProvider &) const asm("__real_" XEEN_REPLAY_EVENT);
 	XeenEventExecutionStepResult begin(const XeenCamera &, XeenPartyState &, const XeenGameFlags &, XeenWorld &,
-		const XeenEventInterpreter::ScriptProvider &, const XeenEventInterpreter::TextProvider &, std::uint8_t) const asm("__real_" XEEN_REPLAY_EVENT_BEGIN);
+		const XeenEventInterpreter::ScriptProvider &, const XeenEventInterpreter::TextProvider &, std::uint8_t, const XeenEventPublication *) const asm("__real_" XEEN_REPLAY_EVENT_BEGIN);
 };
 struct ProbeEvent {
 	XeenEventExecutionResult execute(const XeenCamera &, XeenPartyState &, const XeenGameFlags &, XeenWorld &,
 		const XeenEventInterpreter::ScriptProvider &) const asm("__wrap_" XEEN_REPLAY_EVENT);
 	XeenEventExecutionStepResult begin(const XeenCamera &, XeenPartyState &, const XeenGameFlags &, XeenWorld &,
-		const XeenEventInterpreter::ScriptProvider &, const XeenEventInterpreter::TextProvider &, std::uint8_t) const asm("__wrap_" XEEN_REPLAY_EVENT_BEGIN);
+		const XeenEventInterpreter::ScriptProvider &, const XeenEventInterpreter::TextProvider &, std::uint8_t, const XeenEventPublication *) const asm("__wrap_" XEEN_REPLAY_EVENT_BEGIN);
 };
 XeenEventExecutionResult ProbeEvent::execute(const XeenCamera &c, XeenPartyState &p, const XeenGameFlags &f,
 		XeenWorld &w, const XeenEventInterpreter::ScriptProvider &scripts) const {
 	observe(); return reinterpret_cast<const RealEvent *>(this)->execute(c, p, f, w, scripts);
 }
 XeenEventExecutionStepResult ProbeEvent::begin(const XeenCamera &c, XeenPartyState &p, const XeenGameFlags &f,
-		XeenWorld &w, const XeenEventInterpreter::ScriptProvider &scripts, const XeenEventInterpreter::TextProvider &text, std::uint8_t line) const {
-	observe(); return reinterpret_cast<const RealEvent *>(this)->begin(c, p, f, w, scripts, text, line);
+		XeenWorld &w, const XeenEventInterpreter::ScriptProvider &scripts, const XeenEventInterpreter::TextProvider &text, std::uint8_t line, const XeenEventPublication *publication) const {
+	observe(); return reinterpret_cast<const RealEvent *>(this)->begin(c, p, f, w, scripts, text, line, publication);
 }
 }

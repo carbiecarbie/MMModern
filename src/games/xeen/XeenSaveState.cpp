@@ -39,11 +39,9 @@ void XeenSaveState::validateJourneyValues(const XeenSaveSnapshot &s) {
 			}
 		} else require(a.lifecycle==XeenActorLifecycle::Defeated && a.hp==0 && !a.activated && a.accounted && a.x==-128 && a.y==-128);
 	}
-	if (j.contract==2) {
-		for (auto id:s.disabledObjects) require(!(id==XeenObjectIdentity{20,1}));
-		for (auto id:s.disabledEvents) require(!(id.mapId==XeenMapIdentity(20) && id.recordIndex>=1 && id.recordIndex<=5));
-	}
-
+	// Quest counters and disabled identities are independent base-save values.
+	// Restoration validates their resource identities and immutable topology;
+	// neither possession nor any subset of the overlay implies the other.
 }
 
 void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resources &resources,

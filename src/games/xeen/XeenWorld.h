@@ -22,7 +22,8 @@ namespace mmodern {
 
 enum class XeenEncounterCompletion { None, VictoryEnded, VictoryQuiescent };
 enum class XeenCompletedGuard { Operation, Presentation, Integrity, Fatal };
-enum class XeenJourneyActivity { Unbound, Quiet, Approach, Attachment, Combat, Presentation, Saving, Failed };
+class XeenEventPublication;
+enum class XeenJourneyActivity { Unbound, Quiet, Event, Approach, Attachment, Combat, Presentation, Saving, Failed };
 class XeenGameFlags;
 class XeenJourneyCapture;
 struct XeenJourneyRestoration;
@@ -107,6 +108,7 @@ private:
 	friend class XeenCombat;
 	friend class XeenSaveState;
 	friend class XeenRestoreGuard;
+	friend class XeenEventPublication;
 	const void *_combatOwner = nullptr;
 	const void *_combatApproachState = nullptr;
 	bool _diagnostic27 = false, _combatEntered = false, _combatAccounted = false;
@@ -156,7 +158,7 @@ public:
 	void disableObject(XeenObjectIdentity id);
 	void disableEventsAtCell(const XeenCamera &physical, const XeenEventFile &events);
 	void applyRemove(const XeenCamera &physical, std::optional<XeenObjectIdentity> selected,
-		const XeenEventFile &events);
+		const XeenEventFile &events, const XeenEventPublication *publication = nullptr);
 	std::size_t cachedObjectFileCount() const { return _objects.size(); }
 	XeenWorld(const XeenWorld &) = delete;
 	XeenWorld &operator=(const XeenWorld &) = delete;

@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**Milestone 30 is the latest completed milestone.**
+**Milestone 31 is the latest completed milestone.**
 [Project status](project-status.md) owns implemented capabilities and acceptance
 boundaries; [project history](project-history.md) owns completed chronology.
 Reference provenance belongs to [dependencies](dependencies.md).
@@ -15,46 +15,30 @@ checkpoints. The encounter line now includes original actor approach
 ([M28](milestone-28-plan.md)), mutable Journey continuity
 ([M29](milestone-29-plan.md)), and the production contract-2 Bone Whistle
 expedition with grouped Skeleton/Zombie combat, accumulated consequences,
-schema-2 restart and Deferred objective presentation
-([M30](milestone-30-plan.md)). These contracts do not certify travel between
-checkpoints, normal original startup or a generally playable region.
+schema-2 restart ([M30](milestone-30-plan.md)), followed by connected original
+Bone Whistle collection, return and restart ([M31](milestone-31-plan.md)).
+These contracts do not certify travel between checkpoints, normal original
+startup or a generally playable region.
 
-The organizing goal remains a meaningful connected Clouds vertical slice: a
-finite piece of original gameplay with an understandable objective, real
-consequences and durable continuation. M30 supplies the accepted route, grouped
-combat, presentation, persistence and event-disposition seam. M31 is the
-immediate next planned direction and requires separate specification and
-implementation authorization.
+The first connected Clouds vertical slice is accepted: a finite original
+objective with encounter consequences, collection, return and durable
+continuation. The next planning decision is which bounded expansion provides
+the most useful original gameplay on that foundation.
 
 ## Near term
 
-### M31 - First connected Clouds vertical slice
+### Post-M31 roadmap investigation
 
-Close the selected Bone Whistle objective loop on the accepted M30 expedition.
-The player should enter through the declared prepared boundary, navigate and
-resolve the influencing encounters, perform the original collection, return
-with party/world consequences intact, and resume the result after a process
-restart.
+M31 completion reaches the planned broader reassessment point. A focused
+roadmap investigation is required before selecting the next concrete milestone;
+the accepted slice does not make an immediate M32 scope unambiguous.
 
-Integrate the existing ordinary WhoWill/grant/Remove continuation with M30's
-same Journey owners, Deferred event address and presentation/save safeguards.
-Retain grouped targets, automatic joining/multiattack, Disease/injuries,
-inventory/equipment mutation, world RNG continuation and schema-2 current-state
-persistence. A suspended objective interaction must hold exclusive coordination
-and remain unsaveable until its acknowledged result and new frame establish a
-quiet boundary.
-
-This is a bounded entry into original content, not a claim of travel from
-Vertigo, general map-20 exploration or normal original-game startup. M31
-certifies the selected objective loop only. It does not imply full recovery,
-general combat/item effects, services, original UI/audio fidelity or Darkside
-gameplay. Optional First Aid is not required by M30 and should be admitted only
-through a separately justified reusable spell/effect contract.
-
-Do not obtain the slice through repeated relocation, state injection, suppressed
-influencing actors or altered commercial data. Closure requires connected
-automated evidence, independent implementation review and maintainer physical
-acceptance appropriate to M31's actual scope.
+Compare the medium-term candidates against the accepted M31 state, original
+route dependencies and maintainer priorities. Establish the next player-visible
+objective, its minimum reusable capabilities, compatibility boundary and
+acceptance route. Distinguish verified dependencies from provisional estimates
+and record the resulting order and confidence here before a milestone plan is
+created. No M32 specification or implementation is authorized by M31 closure.
 
 ## Medium term
 
@@ -79,8 +63,8 @@ speculative milestone numbers:
   requires them. Economy, broader time behavior and persistence across visits
   must advance with their consumers.
 
-Reassess these unnumbered directions after the first slice. Myra/Phirna and
-normal startup remain candidates for different player-visible value, not a
+These unnumbered directions are provisional inputs to the post-M31 investigation.
+Myra/Phirna and normal startup remain candidates for different player-visible value, not a
 fixed sequence following Bone Whistle. Persistence must grow with admitted state
 without silently discarding consequences or changing legacy save meaning.
 
@@ -106,7 +90,8 @@ introducing parallel frameworks.
 
 Completed Diagnostic27 remains terminal and quiescent under its contract.
 Mutable Journey uses M29's admitted domain, M30's content descriptor/group/
-current-state extensions, and M28's owner/preimage and presentation safeguards.
+current-state extensions, M31's exclusive event/publication integration, and
+M28's owner/preimage and presentation safeguards.
 Commercial resources remain external and unmodified.
 
 ## Replanning and review cadence
@@ -124,7 +109,8 @@ reference. Replan when:
 
 Retain approximately three completed milestones as the ordinary broader-roadmap
 review cadence, with focused scope review before each specification. Completion
-of M31 is a natural broader reassessment point. M30's production foundation is
-accepted; M31 planning approval and implementation authorization remain separate.
+of M31 triggers the focused roadmap investigation above. Subsequent roadmap
+approval, milestone specification approval and implementation authorization
+remain separate; completion does not authorize the next milestone.
 Use the verified SHA and handoff gate in [AGENTS.md](../AGENTS.md) for external
 planning and review.

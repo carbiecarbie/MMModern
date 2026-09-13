@@ -2,9 +2,9 @@
 
 ## Stable baseline
 
-**Milestone 30 is the latest completed milestone; stages 30A and 30B are accepted.**
+**Milestone 31 is the latest completed milestone.**
 This file describes stable capabilities and architecture. Acceptance belongs in
-the [M30 closed plan](milestone-30-plan.md#final-acceptance); completed
+the [M31 closed plan](milestone-31-plan.md#final-acceptance); completed
 milestone chronology belongs in [project history](project-history.md).
 
 ## Supported scope
@@ -93,9 +93,14 @@ This remains bounded content, not certified map travel or general combat.
   East. Six party cells lead to the Bone Whistle address and back. Keys 1/2/3
   select named contact rows during a ready combat turn; Space attacks and B
   blocks. Group joining and enemy work advance automatically. Quiet boundaries
-  permit inventory/equipment mutation and F9 saving. At the objective, Space
-  presents a Deferred notice before script dispatch; WhoWill, grant, Remove and
-  objective completion remain M31 work.
+  permit inventory/equipment mutation and F9 saving. At quiet `(5,14)`, Space
+  runs the original WhoWill/discovery/acknowledgment/grant/Remove chain through
+  the existing event owners. F1-F6 selects an eligible member; Escape cancels
+  WhoWill; Space/Enter acknowledges acquisition. Modal work blocks incompatible
+  input and saving. Collection removes the bones, retains discovery text and
+  preserves accumulated expedition consequences. Return to `(0,14)` West and
+  save/restart continue mutable navigation/item management without replay.
+  Collection adds no turn-in, reward, terminal completion mode or broader route.
 - Bounded event decoding/execution supports conditions, Call/Return, transfers,
   game flags and Remove. Space dispatches from the current cell/facing without
   requiring the automatic-event bit; automatic dispatch retains that gate.
@@ -231,6 +236,16 @@ The persistence contract below defines eligibility, restoration and compatibilit
   End, retirement, modal work and frame handoff. Only a matching successful SDL
   presentation opens new input. Stale keys, including Application-intercepted F9,
   cannot initiate capture, providers or later work.
+- The bounded expedition objective holds an exclusive Event lease across the
+  existing Flow continuation, WhoWill, discovery pagination and acknowledgment.
+  A stack-bound publication capability checks the retained owner preimage and
+  authorizes only the original counter increment and physical-cell Remove.
+  Each effect is admitted before another callback; Remove prepares both overlay
+  sets and guard storage before nonthrowing publication. Earlier grants/removal
+  survive later failure without replay or refund. Terminal event work transfers
+  to Presentation without a quiet gap; only a matching successful frame permits
+  input and capture. The [M31 contract](milestone-31-plan.md#ownership-and-journey-integration)
+  owns the full authority and failure boundary.
 - Completed Flow presentation preserves irreversible victory/accounting facts
   across recoverable composition failure while holding capture closed until an
   authorized frame handoff succeeds. Integrity violations permanently invalidate
@@ -328,6 +343,15 @@ all supplements including Luck/XP, world RNG algorithm/state/count, and keyed
 state for actors 9, 17, 18 and 25. The complete 27-actor collection is validated
 and reconstructed from compatible resources. Runtime countdowns, contact,
 initiative, target, End, lease and presentation/input state are not serialized.
+
+M31 collection uses existing base quest counters and disabled object/event sets;
+v4 schema 2/content 2 and its 1366-byte suffix are unchanged. Counters and overlay
+subsets remain independent, including grant-only failure states. Immutable EVT/MOB
+topology is validated even after removal and during survivor/cache reconstruction.
+Quiet saves before or after collection restore exact consequences without event,
+grant/Remove, combat, XP, time or RNG replay. Existing M30 schema-2 saves can
+collect through a fresh explicit interaction. See the
+[M31 persistence contract](milestone-31-plan.md#save-eligibility-and-restoration).
 
 **Transient or reconstructed:** resource payloads, loader metadata/diagnostics,
 derived rules/frames/caches, indoor placement/wall/command/raster values,
@@ -445,13 +469,13 @@ or of a generally playable region.
 | --- | --- |
 | Castle Basenji, map 1 `(8,8)` West | Original text and Yes/No; No stays, Yes teleports and recomposes the indoor destination; suspended text survives cache reconstruction. |
 | Phirna, map 23 `(8,2)` North | Yes/acknowledgment grants one Root and removes the plant while retaining success text. No/already-owned refusal grants nothing and leaves it present. Completed collection cannot repeat. |
-| Bone Whistle isolated interaction, map 20 `(5,14)` North | In ordinary checkpoint execution, WhoWill/acknowledgment grants one Whistle and removes the bones. Cancellation leaves collection state unchanged and permits retry; completed collection cannot repeat. The contract-2 expedition defers this script until M31. |
+| Bone Whistle isolated interaction, map 20 `(5,14)` North | In ordinary checkpoint execution, WhoWill/acknowledgment grants one Whistle and removes the bones. Cancellation leaves collection state unchanged and permits retry; completed collection cannot repeat. The same original chain is integrated into the contract-2 expedition below. |
 | Myra, map 23 `(9,11)` West | No-Root request sets Q2 after final acknowledgment, including Escape. Root-owned return consumes one Root, clears Q2 and produces five `{10,37,1,0}` rewards subject to delivery capacity/eligibility; receipt acknowledgment completes nine instructions. Further Roots allow returns; exhaustion restores request behavior. |
 | Air / Corner and Snake Oil | Original sign and reduced door-label presentation; Air / Corner also exercises static object/text layering. |
 | Nightshadow, map 29 `(4,6)` West | Original RIP gravestone rendered as a static ordinary indoor object with its original bottom-window clue and acknowledgment. The interaction is repeatable and has no durable state effect. |
 | Skeleton diagnostic, map 20 `(13,1)` North | Original monster record 5, type 8, initially `(13,2)`, with all 27 identities retained. World of Xeen Clouds/Adventurer context, bounded four-cell approach and playable Attack/Block combat with original MON/ATT appearance, injury, armor breakage, victory/defeat and once-only XP. Incomplete/unsafe states remain unsaveable; successful completed victory supports restart, read-only inspection and bounded true revisit with record 5 still defeated. |
 | Skeleton Journey, map 20 four-cell footprint | Production `--journey-skeleton` permits mutable inventory/equipment before automatic engagement, Attack/Block through genuine End, guarded return to bounded navigation/item management and v4 save/restart on the same owners. Context, all 30 supplements/XP, exact injuries/items and record-5 live or defeated/accounted state survive direct restoration without replay. This is distinct from Diagnostic27 completion/R. |
-| Bone Whistle expedition, map 20 `(0..5,14)` | Production `--journey-expedition` admits records 9/17/18/25 for grouped and successive combat, identity-bound targets, joining, Zombie multiattack/Disease, multi-actor MON/ATT presentation and accumulated injury/breakage/XP. Quiet return, schema-2 F9 and separate-process continuation preserve exact current party, item, actor and RNG state without replay. Space at `(5,14)` is Deferred before dispatch; collection remains M31 work. |
+| Bone Whistle expedition, map 20 `(0..5,14)` | Production `--journey-expedition` connects grouped and successive Skeleton/Zombie encounters to original Bone Whistle collection at quiet `(5,14)` from any facing, then mutable return to `(0,14)` West. WhoWill, discovery, acknowledgment, grant and Remove preserve accumulated injury, Disease, equipment, XP and surviving actors. Schema-2 F9 before/after collection and separate-process continuation preserve exact state and RNG without replay; successful repeat executes five effective None records. |
 
 Myra's ordinary tent-flag cycle runs without input and continues underneath
 dialogue, independently of the portrait. The [M22 checkpoint contract](milestone-22-plan.md#certified-original-data-checkpoint)
@@ -524,8 +548,7 @@ Ordinary CTest does not depend on commercial data.
 
 ## Next direction
 
-M30's accepted expedition, grouped combat, current-state persistence and Deferred
-event seam are the foundation for [M31](roadmap.md#m31---first-connected-clouds-vertical-slice).
-M31 is the next planned objective and remains unimplemented: it must connect the
-existing Bone Whistle WhoWill/grant/Remove interaction to the same Journey owners
-and preserve accepted consequences through return and restart.
+M31 establishes the first connected Clouds collection-and-return slice. The
+immediate next step is the [post-M31 roadmap investigation](roadmap.md#post-m31-roadmap-investigation)
+to select a bounded successor against verified route dependencies and maintainer
+priorities. No concrete M32 scope or implementation is established by closure.

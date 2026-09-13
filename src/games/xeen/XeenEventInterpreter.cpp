@@ -1,4 +1,5 @@
 #include "games/xeen/XeenEventInterpreter.h"
+#include "games/xeen/XeenEventPublication.h"
 
 #include "games/xeen/XeenWorld.h"
 
@@ -128,7 +129,9 @@ XeenEventExecutionStepResult XeenEventInterpreter::begin(
 		const XeenCamera &initialCamera, XeenPartyState &partyState,
 		const XeenGameFlags &gameFlags, XeenWorld &world,
 		const ScriptProvider &scriptProvider, const TextProvider &textProvider,
-		std::uint8_t initialLine) const {
+		std::uint8_t initialLine, const XeenEventPublication *publication) const {
+	if (world.sessionState().journey() && !publication) throw std::logic_error("Journey event requires live continuation authority");
+	if (publication) publication->check();
 	XeenEventExecutionState state;
 	state.logicalAddress = {initialCamera.mapId, initialCamera.x, initialCamera.y, initialLine};
 	state.lookupDirection = initialCamera.direction;
@@ -157,6 +160,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::begin(
 
 	try {
 		state.currentScript.emplace(scriptProvider(initialCamera.mapId));
+		if (publication) publication->script(state.currentScript->file());
 	} catch (const std::exception &exception) {
 		return error(XeenEventExecutionErrorKind::ScriptLoadFailed,
 			std::string("failed to load initial event script: ") + exception.what(),
@@ -175,24 +179,28 @@ XeenEventExecutionStepResult XeenEventInterpreter::begin(
 			0, state.logicalAddress);
 	}
 	return run(std::move(state), std::nullopt, partyState, world,
-		scriptProvider, textProvider);
+		scriptProvider, textProvider, publication);
 }
 
 XeenEventExecutionStepResult XeenEventInterpreter::resume(
 		XeenEventExecutionState state, XeenPresentationResponse response,
 		XeenPartyState &partyState, XeenWorld &world,
-		const ScriptProvider &scriptProvider, const TextProvider &textProvider) const {
+		const ScriptProvider &scriptProvider, const TextProvider &textProvider, const XeenEventPublication *publication) const {
+	if (world.sessionState().journey() && !publication) throw std::logic_error("Journey event requires live continuation authority");
+	if (publication) publication->check();
 	return run(std::move(state), response, partyState, world,
-		scriptProvider, textProvider);
+		scriptProvider, textProvider, publication);
 }
 
 XeenEventExecutionStepResult XeenEventInterpreter::run(
 		XeenEventExecutionState state,
 		std::optional<XeenPresentationResponse> response,
 		XeenPartyState &partyState, XeenWorld &world,
-		const ScriptProvider &scriptProvider, const TextProvider &textProvider) const {
+		const ScriptProvider &scriptProvider, const TextProvider &textProvider, const XeenEventPublication *publication) const {
+	if (world.sessionState().journey() && !publication) throw std::logic_error("Journey event requires live continuation authority");
+	if (publication) publication->check();
 	try {
-		auto result = runInstructions(state, response, partyState, world, scriptProvider, textProvider);
+		auto result = runInstructions(state, response, partyState, world, scriptProvider, textProvider, publication);
 		if (auto *failure = std::get_if<XeenEventExecutionError>(&result)) {
 			xeenDiscardRewards(state.pendingRewards, state.rewardReceipt, XeenRewardDiscard::ExecutionError);
 			failure->rewards = state.rewardReceipt;
@@ -211,7 +219,9 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 		XeenEventExecutionState &state,
 		std::optional<XeenPresentationResponse> response,
 		XeenPartyState &partyState, XeenWorld &world,
-		const ScriptProvider &scriptProvider, const TextProvider &textProvider) const {
+		const ScriptProvider &scriptProvider, const TextProvider &textProvider, const XeenEventPublication *publication) const {
+	if (world.sessionState().journey() && !publication) throw std::logic_error("Journey event requires live continuation authority");
+	if (publication) publication->check();
 	auto &logical = state.logicalAddress;
 	auto &workingCamera = state.workingCamera;
 	auto &workingGameFlags = state.workingGameFlags;
@@ -318,6 +328,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 	}
 
 	for (;;) {
+		if (publication) publication->execution(state);
 		if (logical.x < 0 || logical.x > 255 || logical.y < 0 || logical.y > 255 ||
 				logical.line < 0 || logical.line > 255) {
 			const auto kind = missingPolicy == MissingInstructionPolicy::ExplicitCall ?
@@ -402,7 +413,9 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			}
 			XeenEventTextFile textFile;
 			try {
+				if (publication) publication->check();
 				textFile = textProvider(logical.mapId);
+				if (publication) publication->check();
 			} catch (const std::exception &exception) {
 				return error(XeenEventExecutionErrorKind::MissingTextResource,
 					std::string("failed to load event text resource: ") + exception.what(),
@@ -475,7 +488,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			try {
 				// Calls change logical X/Y, never the physical mutation cell.
 				// Current supported transfers keep the script on the physical map.
-				world.applyRemove(workingCamera, state.selectedObject, script->file());
+				world.applyRemove(workingCamera, state.selectedObject, script->file(), publication);
 			} catch (const std::exception &exception) {
 				return error(XeenEventExecutionErrorKind::InvalidRemoveContext,
 					exception.what(), instructionCount, logical, decoded.source);
@@ -571,9 +584,11 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 					return error(XeenEventExecutionErrorKind::LineOverflow,
 						"quest-item mutation sequential line overflow", instructionCount, logical, decoded.source);
 				// Party effects are immediate, independent of camera/flag commit.
+				if (publication && grantQuestItem && partyState.questItems.counts()[*index] != std::numeric_limits<std::uint32_t>::max()) publication->prepareGrant(*index);
 				if (grantQuestItem && !partyState.questItems.increment(*index))
 					return error(XeenEventExecutionErrorKind::QuestItemOverflow,
 						detail + " counter would overflow", instructionCount, logical, decoded.source);
+				if (publication && grantQuestItem) publication->granted();
 				if (takeQuestItem && !partyState.questItems.decrement(*index))
 					return error(XeenEventExecutionErrorKind::QuestItemUnderflow,
 						detail + " counter is zero", instructionCount, logical, decoded.source);

@@ -115,6 +115,7 @@ public:
 		objects.emplace(id, value);
 	}
 private:
+	friend class XeenEventPublication;
 	friend class XeenEncounterFlow;
 	friend class XeenSaveState;
 	// Prepare a final-destination preimage before publication. Only the private

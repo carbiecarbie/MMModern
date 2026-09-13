@@ -13,6 +13,13 @@ namespace {
 Bytes diskBytes(const fs::path &path){std::ifstream in(path,std::ios::binary);return Bytes(std::istreambuf_iterator<char>(in),{});}
 XeenGameplayServices services(Harness &h) {
  auto s=h.services();
+ s.texts=[&h](XeenMapIdentity id) {
+  if (!h.assets) return XeenEventTextFile{id,"synthetic.txt",true,{"Synthetic discovery","","","Synthetic bones"}};
+  return XeenEventTextLoader([&h](const std::string &name)->std::optional<Bytes> {
+   if (!h.assets->hasArchiveResource(name)) return {};
+   return h.assets->readArchiveResource(name);
+  }).load(id);
+ };
  if(!h.assets){s.maps=[](auto){return expedition_fixture::terrain();};s.objects=[](auto){return expedition_fixture::objects();};
  s.resources.loadEvents=[](auto){return expedition_fixture::events();};s.resources.loadMonsterStatistics=[]{return expedition_fixture::monsters();};}
  return s;
@@ -23,6 +30,60 @@ void press(Harness &h,const SdlWindow::FrameUpdateHandler &handler,const PlayerA
 }
 void tick(Harness &h,const SdlWindow::FrameUpdateHandler &handler,const SdlWindow::IdleFrameHandler &idle) {
  h.now+=100;handler.beginCycle(++h.cycle);idle();check(handler.frameCurrent(),"current automatic frame");handler.framePresented();h.visibleScene();
+}
+void collect(Harness &h,const SdlWindow::FrameUpdateHandler &handler,const fs::path &path) {
+ const auto baseline=XeenSaveState::capture(h.signature,*h.party,*h.camera,*h.flags,*h.world);
+ const auto wire=XeenSaveFormat::encode(baseline);
+ const auto reconstruct=[&] {
+  const auto frame=h.flow->frame();const auto pending=h.flow->presentationGeneration();
+  for(unsigned cache=0;cache<5;++cache) {
+   const auto maps=h.mapCalls,mobs=h.mobCalls;
+   if(cache==0||cache==4)h.world->discardMapCache();
+   if(cache==1||cache==4)h.eventSystem->discardScriptCache();
+   if(cache==2||cache==4)h.eventSystem->discardTextCache();
+   if(h.assets&&(cache==3||cache==4))h.assets->discardSpriteCache();
+   h.flow->refresh(true);check(!h.flow->canSave(),"cache frame requires new presentation");handler.framePresented();
+   check(h.flow->frame().pixels==frame.pixels&&h.flow->presentationGeneration()==pending,"individual and combined caches retain objective frame and continuation");
+   if(cache==1||cache==4)check(h.eventSystem->cachedScriptCount()>0,"EVT cache really reconstructed");
+   if(cache==2||cache==4)check(h.eventSystem->cachedTextCount()>0,"text cache really reconstructed");
+   if(h.assets&&(cache==0||cache==4))check(h.mapCalls>maps&&h.mobCalls>mobs,"original scene/MOB caches really reloaded");
+   if(h.assets&&(cache==3||cache==4))check(h.assets->cachedSpriteCount()>0,"original sprite cache really reloaded");
+  }
+ };
+ unsigned instructions=0;
+ h.flow->reportManual=[&](const auto &r) { if (const auto *c=std::get_if<XeenManualEventCompleted>(&r)) instructions=c->instructionCount; if(const auto *e=std::get_if<XeenEventExecutionError>(&r)) std::cerr<<"Objective error: "<<e->message<<"\n"; };
+ press(h,handler,InteractionAction{});
+ check(h.flow->canCancelInteraction()&&!h.flow->canSave(),"Journey original WhoWill owns unsaveable Event");
+ visual_remove_test::save(h.flow->frame(),path.string()+"-who.bmp");
+ reconstruct();
+ const auto gen=*handler.displayedInput();
+ const auto saves=h.saves;
+ for (const PlayerAction &a:std::vector<PlayerAction>{NavigationAction::MoveForward,WaitAction{},InspectInventoryAction{},BlockAction{},SaveGameAction{}})
+  press(h,handler,a);
+ check(h.saves==saves&&h.party->questItems.counts()==baseline.questItems,"modal incompatible controls cannot publish/save");
+ press(h,handler,CancelInteractionAction{});
+ check(instructions==1&&h.flow->canSave()&&XeenSaveFormat::encode(XeenSaveState::capture(h.signature,*h.party,*h.camera,*h.flags,*h.world))==wire,"cancel exactly one instruction and no durable mutation");
+ handler.withDisplayedInput(InteractionAction{},gen);
+ check(!h.flow->canCancelInteraction(),"stale cancel-to-retry refused");
+ press(h,handler,InteractionAction{});
+ std::size_t selected=4;
+ if(!h.party->party.member(h.party->roster,selected).canAct()) { selected=1; while(selected<h.party->party.size()&&!h.party->party.member(h.party->roster,selected).canAct())++selected; }
+ check(selected<h.party->party.size(),"connected live nonfirst WhoWill recipient");
+ press(h,handler,SelectMemberAction{selected});
+ check(!h.flow->canCancelInteraction()&&!h.flow->canSave()&&h.party->questItems.counts()==baseline.questItems,"eligible nonfirst discovery precedes grant");
+ visual_remove_test::save(h.flow->frame(),path.string()+"-ack.bmp");
+ reconstruct();
+ check(h.party->questItems.counts()==baseline.questItems&&!h.flow->canSave(),"reconstruction retains acknowledgment without mutation");
+ press(h,handler,AcknowledgeAction{});
+ check(h.flow->canSave()&&instructions==10,"ten original instructions and presented quiet success");
+ auto expected=baseline;++expected.questItems[18];expected.disabledObjects.push_back({20,1});
+ for(unsigned i=1;i<=5;++i)expected.disabledEvents.push_back({20,i});
+ check(XeenSaveFormat::encode(XeenSaveState::capture(h.signature,*h.party,*h.camera,*h.flags,*h.world))==XeenSaveFormat::encode(expected),"only checked counter and exact Remove effects; expedition consequences unchanged");
+ visual_remove_test::save(h.flow->frame(),path.string()+"-collected.bmp");
+ reconstruct();
+ press(h,handler,InteractionAction{});
+ check(instructions==5&&h.party->questItems.counts()==expected.questItems,"repeat executes five effective None without grant");
+ h.flow->reportManual={};
 }
 void projection() {
  const auto stats=expedition_fixture::monsters();
@@ -59,8 +120,8 @@ void controls(const fs::path &path) {
  const auto initial=XeenSaveFile::read(path);
  for(unsigned variant=0;variant<4;++variant){auto bad=initial;
   if(variant==0)--bad.journey->actors[0].hp;
-  if(variant==1)bad.disabledEvents.push_back({20,1});
-  if(variant==2)bad.disabledObjects.push_back({20,1});
+  if(variant==1)bad.disabledEvents.push_back({20,999});
+  if(variant==2)bad.disabledObjects.push_back({20,999});
   if(variant==3)bad.journey->actors[3].activated=false;
   XeenSaveFile::write(path,bad);Harness rejected;auto s=services(rejected);bool shown=false;s.show=[&](const auto &,const auto &,const auto &,const auto &,const auto &){shown=true;return true;};
   check(Application().playGameplay(s,{},path,true)==3&&!shown&&!rejected.flow,"malformed successor fails production startup before first frame without fallback");
@@ -75,12 +136,29 @@ void controls(const fs::path &path) {
   for(auto &a:saved.journey->actors){a.hp=0;a.x=a.y=-128;a.activated=false;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
   XeenSaveFile::write(path,saved);Harness h;auto s=services(h);unsigned dispatched=0;
   s.show=[&](const auto &,const auto &handler,const auto &,const auto &,const auto &){handler.framePresented();h.flow->reportManual=[&](const auto &){++dispatched;};
-   auto before=diskBytes(path);const auto gen=*handler.displayedInput();const auto replayBefore=replay_test::unexpected;{replay_test::Scope noDispatch;handler.withDisplayedInput(InteractionAction{},gen);}
-   check(replay_test::unexpected==replayBefore,"Deferred invokes no script or gameplay work");
-   check(!h.flow->canSave()&&h.flow->encounter()->notice().find("Objective collection unavailable")!=std::string::npos,"all-facing Deferred notice holds frame");
-   handler.withDisplayedInput(SaveGameAction{},gen);check(h.saves==0,"Deferred stale F9 no work");handler.framePresented();
-   check(dispatched==0&&XeenSaveFormat::encode(XeenSaveState::capture(h.signature,*h.party,*h.camera,*h.flags,*h.world))==before,"all-facing Deferred predispatch no mutation");return true;};
-  check(Application().playGameplay(s,{},path,true)==0,"all-facing production restore/deferral");
+   collect(h,handler,path);return true;};
+  check(Application().playGameplay(s,{},path,true)==0,"all-facing production restore/collection");
+ }
+ // Objective phases through the real SDL poll loop; queued keys cannot cross modal frames.
+ {Harness h;auto s=services(h);unsigned stage=0,stable=0,loops=0;
+ const auto key=[](SDL_Keycode code,Uint32 type=SDL_KEYDOWN,Uint8 repeat=0){SDL_Event e{};e.type=type;e.key.keysym.sym=code;e.key.timestamp=SDL_GetTicks()+1;e.key.repeat=repeat;check(SDL_PushEvent(&e)==1,"SDL objective key queue");};
+ const auto tap=[&](SDL_Keycode code){key(code);key(code,SDL_KEYUP);};
+ s.show=[&](const auto &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
+  auto driver=[&]()->std::optional<IndexedFrame>{
+   check(++loops<120,"bounded SDL objective schedule");auto frame=idle();if(frame){stable=0;return frame;}if(++stable<2)return frame;stable=0;
+   switch(stage++){
+   case 0:tap(SDLK_SPACE);tap(SDLK_F9);break;
+   case 1:check(h.flow->canCancelInteraction()&&h.saves==0,"SDL WhoWill holds F9");tap(SDLK_ESCAPE);tap(SDLK_SPACE);break;
+   case 2:check(h.flow->canSave()&&!h.flow->presentationGeneration(),"SDL cancel batch cannot retry");tap(SDLK_SPACE);break;
+   case 3:check(h.flow->canCancelInteraction(),"SDL fresh retry");key(SDLK_F2);tap(SDLK_SPACE);tap(SDLK_F9);break;
+   case 4:check(!h.flow->canCancelInteraction()&&h.flow->presentationGeneration()&&h.party->questItems.counts()[18]==0&&h.saves==0,"SDL selecting F-key batch cannot acknowledge/save");key(SDLK_F2,SDL_KEYDOWN,1);break;
+   case 5:check(h.party->questItems.counts()[18]==0,"held/repeated selection cannot acknowledge");key(SDLK_F2,SDL_KEYUP);tap(SDLK_SPACE);tap(SDLK_F9);break;
+   case 6:check(h.flow->canSave()&&h.party->questItems.counts()[18]==1&&h.saves==0,"SDL acknowledgment-to-save batch closed");tap(SDLK_F9);break;
+   default:check(h.saves==3&&XeenSaveFile::read(path).questItems[18]==1,"SDL fresh F9 persists collection");{SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);}break;
+   }return frame;};
+  return SdlWindow().showInteractive(first,"M31 objective modal controls",handler,escape,driver,status);
+ };
+ check(Application().playGameplay(s,{},path,true)==0&&stage>=8,"real SDL objective authority");
  }
  auto grouped=initial;grouped.camera={20,4,14,XeenDirection::East};
  for(auto &a:grouped.journey->actors){if(a.id.recordIndex==9||a.id.recordIndex==25){a.x=5;a.y=14;a.activated=true;}else{a.x=a.y=-128;a.hp=0;a.activated=false;a.accounted=true;a.lifecycle=XeenActorLifecycle::Defeated;}}
@@ -231,23 +309,19 @@ void route(const std::optional<fs::path> &game,const fs::path &path,unsigned sch
   };
   if(stop==0){save();return true;}
   for(unsigned i=start;i<5;++i){action(NavigationAction::MoveForward);if(original&&schedule<2&&i==0)check(h.party->encounterContext->minutes==491,"P1 first25 End491");if(original&&schedule<2&&i==3)check(h.party->encounterContext->minutes==522,"P1 successive9 End522");if(stop==i+1){save();return true;}}
-  if(start<6){
+  if(start!=6){
+   if(start<=5){
    if(schedule==1)for(unsigned i=0;i<3;++i)action(WaitAction{});
    if(original&&schedule==1)visual_remove_test::save(h.flow->frame(),path.string()+"-condition.bmp");
    if(original&&schedule==1)check(h.flow->encounter()->notice().find("Rebecca 5/18\nSP21/18 D3")!=std::string::npos&&h.party->encounterContext->minutes==565&&h.party->roster.at(1).currentHp==5&&h.party->roster.at(1).conditions[4]==3,"P1 pair End565 RebeccaHP5 D3");
    if(original&&schedule==2)check(h.party->encounterContext->minutes==532&&h.party->roster.at(1).currentHp==12&&h.party->roster.at(1).conditions[4]==2,"P1 mixed End532 RebeccaHP12 D2");
    if(original&&schedule==3)check(h.party->encounterContext->minutes==536&&triple,"P1 joined End536");
    action(NavigationAction::TurnLeft);
-   if(!h.flow->encounter()->state().pending()){
-    const auto before=savedState();unsigned dispatch=0;h.flow->reportManual=[&](const auto &){++dispatch;};
-    for(unsigned facing=0;facing<4;++facing){const auto snapshot=savedState();const auto gen=*handler.displayedInput();const auto replayBefore=replay_test::unexpected;{replay_test::Scope noDispatch;handler.withDisplayedInput(InteractionAction{},gen);}
-     check(replay_test::unexpected==replayBefore,"original Deferred invokes no script or gameplay work");
-     check(!h.flow->canSave()&&dispatch==0&&h.flow->encounter()->notice().find("Objective collection unavailable")!=std::string::npos,"Deferred before script with new-frame lease");
-     const auto stages=h.saves;handler.withDisplayedInput(SaveGameAction{},gen);check(h.saves==stages,"stale Deferred F9 refuses");handler.framePresented();check(savedState()==snapshot,"Deferred no gameplay/flags/object/event/RNG mutation");
-     // Only the North-facing witness keeps the exact schedule. All-facing synthetic controls are separate.
-     break;
-    }
    }
+   if(stop==7){save();return true;}
+   if(start!=8 && !h.flow->encounter()->state().pending()) collect(h,handler,path);
+   if(start==8){unsigned count=0;h.flow->reportManual=[&](const auto &r){if(const auto *c=std::get_if<XeenManualEventCompleted>(&r))count=c->instructionCount;};press(h,handler,InteractionAction{});check(count==5,"postcollection restart repeat has five None only");h.flow->reportManual={};}
+   if(stop==8){save();return true;}
    action(NavigationAction::TurnLeft);for(unsigned i=0;i<5;++i)action(NavigationAction::MoveForward);
    for(unsigned n=0;h.flow->encounter()->state().pending()&&n<20;++n)tick(h,handler,idle);
    check(h.camera->x==0&&h.camera->y==14&&h.camera->direction==XeenDirection::West,"survivor return endpoint");
@@ -274,7 +348,7 @@ int main(int argc,char **argv){try{
  projection();
  const auto dir=fs::temp_directory_path()/("mmodern-m30b-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));fs::create_directories(dir);
  if(argc==2){const fs::path game=fs::absolute(argv[1]);for(unsigned schedule=0;schedule<4;++schedule){auto direct=dir/("direct"+std::to_string(schedule)+".mmsave");route(game,direct,schedule,0,99,false);
-  for(unsigned checkpoint:{0u,1u,6u}){if(schedule>=2&&checkpoint==1)continue;auto continued=dir/("continued"+std::to_string(schedule)+"-"+std::to_string(checkpoint)+".mmsave");
+  for(unsigned checkpoint:{0u,1u,6u,7u,8u}){if(schedule>=2&&(checkpoint==1||checkpoint>=7))continue;auto continued=dir/("continued"+std::to_string(schedule)+"-"+std::to_string(checkpoint)+".mmsave");
    const auto child=[&](unsigned start,unsigned stop,bool resume,const std::string &label){auto result=child_test::launch(fs::absolute(argv[0]),{L"--child",game.wstring(),continued.wstring(),std::to_wstring(schedule),std::to_wstring(start),std::to_wstring(stop),resume?L"load":L"fresh"},dir/(label+".log"));if(result.exit)std::cerr<<result.output;check(result.exit==0,"separate process production route");std::cout<<label<<" PID="<<result.pid<<" passed\n";};
    const auto label=std::to_string(schedule)+"-"+std::to_string(checkpoint);child(0,checkpoint,false,"producer"+label);child(checkpoint,99,true,"consumer"+label);
    check(diskBytes(direct)==diskBytes(continued),"uninterrupted versus separate-process restart exact complete wire");
@@ -285,5 +359,5 @@ int main(int argc,char **argv){try{
   const auto cli=fs::absolute(argv[0]).parent_path()/"mmodern.exe";const auto saved=dir/"direct0.mmsave";
   for(bool resume:{false,true}){const auto before=diskBytes(saved);const auto args=resume?std::vector<std::wstring>{L"--load-game",game.wstring(),saved.wstring()}:std::vector<std::wstring>{L"--journey-expedition",L"--combat-seed",L"1",game.wstring(),L"--save-file",saved.wstring()};auto result=child_test::launch(cli,args,dir/(resume?"product-load.log":"product-entry.log"),true,true);if(result.exit)std::cerr<<result.output;check(result.exit==0&&diskBytes(saved)==before,"uninstrumented expedition CLI/SDL startup inventory exit does not rewrite save");}
  } else {const auto path=dir/"synthetic.mmsave";route({},path,0,0,0,false);controls(path);deathControl(path);}
- std::cout<<"M30B production projection/route/restart controls passed. Evidence "<<dir.u8string()<<'\n';return 0;
+ std::cout<<"M31 production collection/projection/route/restart controls passed. Evidence "<<dir.u8string()<<'\n';return 0;
  }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

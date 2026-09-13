@@ -125,9 +125,39 @@ void codec(){
  for(auto field:{0u,1u,3u,5u,6u,7u,37u,38u,39u,40u,1270u,1283u,1286u,1288u,1290u,1305u,1306u,1307u,1308u}){auto bad=bytes;bad[offset+field]=255;repair(bad);rejects([&]{XeenSaveFormat::decode(bad);});}
  for(unsigned mode=0;mode<3;++mode){auto bad=bytes;if(mode==0)bad.push_back(0);else if(mode==1)bad.pop_back();else bad[offset+1271]^=1;if(mode!=2)repair(bad);rejects([&]{XeenSaveFormat::decode(bad);});}
 
- for(unsigned field=0;field<13;++field){auto bad=s;switch(field){case 0:bad.journey->schema=1;break;case 1:bad.journey->contract=1;break;case 2:bad.journey->supplements[29].inputs.luck.reset();break;case 3:bad.journey->supplements[0].inputs.luck->temporary=256;break;case 4:bad.journey->random->state=0;break;case 5:bad.journey->random->algorithm=2;break;case 6:bad.journey->skeletonSeed=1;break;case 7:bad.journey->actors.pop_back();break;case 8:bad.journey->actors[1].id=bad.journey->actors[0].id;break;case 9:bad.journey->actors[0].hp=19;break;case 10:bad.disabledEvents.push_back({20,1});break;case 11:bad.disabledObjects.push_back({20,1});break;case 12:bad.journey->context->minutes=960;break;}rejects([&]{Domain invalid(bad);});}
+ for(unsigned field=0;field<13;++field){auto bad=s;switch(field){case 0:bad.journey->schema=1;break;case 1:bad.journey->contract=1;break;case 2:bad.journey->supplements[29].inputs.luck.reset();break;case 3:bad.journey->supplements[0].inputs.luck->temporary=256;break;case 4:bad.journey->random->state=0;break;case 5:bad.journey->random->algorithm=2;break;case 6:bad.journey->skeletonSeed=1;break;case 7:bad.journey->actors.pop_back();break;case 8:bad.journey->actors[1].id=bad.journey->actors[0].id;break;case 9:bad.journey->actors[0].hp=19;break;case 10:bad.disabledEvents.push_back({20,16});break;case 11:bad.disabledObjects.push_back({20,2});break;case 12:bad.journey->context->minutes=960;break;}rejects([&]{Domain invalid(bad);});}
  s.journey->random->count=std::numeric_limits<std::uint64_t>::max();Domain full(s);check(full.save().journey->random==s.journey->random,"maximum cursor quiet roundtrip");
  auto exhausted=group({25});exhausted.journey->random->count=std::numeric_limits<std::uint64_t>::max();Domain max(exhausted);auto &c=max.engage();auto r=action(c,Command::Attack);check(r.status==Status::Failed&&max.w.sessionState().actors()[25].hp==30,"next draw exhaustion before publication");
+}
+void objectivePersistence(){
+ Domain initial;const auto fresh=initial.save();
+ // Independent categories include grant-only failure, each partial overlay,
+ // removal without possession, and collection with an existing counter.
+ for(unsigned mask=0;mask<64;++mask)for(unsigned count:{0u,7u,std::numeric_limits<unsigned>::max()}){
+  auto saved=fresh;saved.questItems[100-XeenCloudsQuestItems::kFirstItemId]=count;
+  if(mask&1)saved.disabledObjects.push_back({20,1});
+  for(unsigned i=1;i<=5;++i)if(mask&(1u<<i))saved.disabledEvents.push_back({20,i});
+  Domain restored(XeenSaveFormat::decode(XeenSaveFormat::encode(saved)));
+  check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(restored.save()),"independent objective counters and overlay subsets preserve every byte");
+  auto base=saved;base.journey.reset();
+  check(XeenSaveFormat::encode(saved).size()-XeenSaveFormat::encode(base).size()==1366,"overlay base growth retains schema2 suffix");
+  restored.w.discardMapCache();
+  XeenActorApproach::validateEnvironment(restored.w,restored.w.sessionState().actors(),events(),2);
+  check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(restored.save()),"cache reconstruction preserves all saved values");
+  check(restored.flow->journeyAction(restored.flow->ticket(),XeenEncounterAction::Right).outcome==XeenEncounterOutcome::Accepted,"partial overlays retain mutable navigation with surviving actors");
+  restored.present();auto after=restored.save();
+  auto expectedContext=saved.journey->context;expectedContext->ctr24=(expectedContext->ctr24+1)%24;
+  check(after.questItems==saved.questItems&&after.disabledObjects==saved.disabledObjects&&after.disabledEvents==saved.disabledEvents&&after.journey->random==saved.journey->random&&after.journey->context==expectedContext,"turning preserves objective effects and RNG with inherited ctr24 advancement");
+ }
+ auto removed=fresh;removed.disabledObjects={{20,1}};for(unsigned i=1;i<=5;++i)removed.disabledEvents.push_back({20,i});
+ for(unsigned field=0;field<14;++field){
+  auto mob=objects();auto evt=events();
+  switch(field){case 0:mob.entities.objects[1].resourceId=7;break;case 1:mob.entities.objects[1].tableIndex=0;break;case 2:mob.entities.objects[1].direction=1;break;case 3:mob.entities.objects[1].x=4;break;case 4:mob.entities.objectTable[1]=7;break;case 5:evt.records[1].opcode=0;break;case 6:evt.records[2].parameters={1};break;case 7:evt.records[3].direction=0;break;case 8:evt.records[4].fileOffset=30;break;case 9:evt.records[5].lengthField=6;break;case 10:evt.records[5].line=5;break;case 11:evt.records[0].x=0;evt.records[0].y=14;break;case 12:evt.records.pop_back();break;case 13:mob.entities.objects[0]=mob.entities.objects[1];break;}
+  XeenWorld world([](auto){return terrain();},[mob](auto){return mob;});XeenPartyState party;XeenCamera camera;XeenGameFlags flags;
+  XeenSaveState::Resources resources{signature,{},[evt](auto){return evt;},{},{},[]{return monsters();}};bool presented=false;
+  rejects([&]{XeenSaveState::restoreBeforeGameplay(removed,resources,party,camera,flags,world,[&](auto &,const auto &,const auto &,const auto &){presented=true;});});
+  check(!presented&&!world.hasEncounterState()&&world.sessionState().disabledObjectCount()==0&&world.sessionState().disabledEventCount()==0&&!party.encounterContext,"disabled overlays cannot hide invalid immutable topology or publish a partial restore");
+ }
 }
 void restorationGuards(){Domain initial;auto saved=initial.save();
  for(unsigned facing=0;facing<4;++facing){auto objective=group({25});objective.camera={20,5,14,static_cast<XeenDirection>(facing)};objective.journey->actors[3].x=4;Domain d(objective);auto before=XeenSaveFormat::encode(d.save());bool called=false;rejects([&]{d.flow->journeyRead([&]{called=true;});});check(!called&&XeenSaveFormat::encode(d.save())==before,"deferred objective refuses callback in every facing without mutation");}
@@ -135,7 +165,7 @@ void restorationGuards(){Domain initial;auto saved=initial.save();
   rejects([&]{XeenSaveState::restoreBeforeGameplay(saved,resources,party,camera,flags,world,[&](auto &w,const auto &p,const auto &,const auto &){if(field<3){auto &v=const_cast<XeenCombatInputs &>(*p.roster.combatInputs(29));if(field==0)v.luck.reset();else if(field==1)++v.luck->permanent;else ++v.luck->temporary;}else{auto &r=const_cast<std::optional<XeenJourneyRandomState>&>(w.sessionState().journeyRandom());if(field==3)++r->state;else if(field==4)++r->count;else r->algorithm=2;}});});
   check(!world.hasEncounterState()&&!party.roster.combatMarked()&&!party.encounterContext,"mutated successor preflight leaves fresh destinations unchanged");
  }
- for(unsigned record=1;record<=5;++record){auto bad=saved;bad.disabledEvents.push_back({20,record});rejects([&]{Domain rejected(bad);});}
+ for(unsigned record=1;record<=5;++record){auto partial=saved;partial.disabledEvents.push_back({20,record});Domain accepted(partial);check(XeenSaveFormat::encode(partial)==XeenSaveFormat::encode(accepted.save()),"independent objective event overlay roundtrip");}
  for(unsigned variant=0;variant<5;++variant){auto bad=group({25});auto &actor=bad.journey->actors[3];if(variant==0){actor.x=4;actor.y=14;}if(variant==1)actor.activated=false;if(variant==2){actor.x=5;actor.y=15;}if(variant==3)actor.hp=29;if(variant==4)actor.accounted=true;rejects([&]{Domain rejected(bad);});}
 }
 
@@ -158,7 +188,7 @@ void restart(const std::filesystem::path &exe,const std::filesystem::path &dir){
 }
 int main(int argc,char **argv){using namespace expedition_test;try{
  if(argc==4&&std::string(argv[1])=="--resume"){Domain restored(XeenSaveFile::read(std::filesystem::absolute(argv[2])));XeenSaveFile::write(std::filesystem::absolute(argv[3]),finishGroup(restored));return 0;}
- profileBinding();groups();disease();failure();injuriesAndDefeat();scheduler();prefixes();derived();codec();restorationGuards();
+ profileBinding();groups();disease();failure();injuriesAndDefeat();scheduler();prefixes();derived();codec();objectivePersistence();restorationGuards();
  auto dir=std::filesystem::temp_directory_path()/("mmodern-m30a-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));std::filesystem::create_directory(dir);startupAdmission(dir);restart(std::filesystem::absolute(argv[0]),dir);
  std::cout<<"Expedition group, literal Zombie, failure, Luck, successor codec, production startup and process controls passed\n";return 0;
  }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

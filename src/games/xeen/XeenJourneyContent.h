@@ -24,7 +24,7 @@ struct XeenJourneyContent {
 	std::array<unsigned,4> records;
 	unsigned count;
 	std::uint16_t day;
-	bool deferredObjective;
+	bool manualObjective;
 	bool contains(int x, int y) const noexcept {
 		return contract == 1 ? x >= 13 && x <= 14 && y >= 1 && y <= 2 : x >= 0 && x <= 5 && y == 14;
 	}

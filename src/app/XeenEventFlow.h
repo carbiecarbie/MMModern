@@ -95,6 +95,9 @@ public:
 	std::function<void(const XeenEquipmentResult &)> reportEquipment;
 	std::function<void(XeenMovementResult)> reportMovement;
 private:
+	const XeenEventPublication *_eventPublication = nullptr;
+	bool _journeyEventLayers = false;
+	IndexedFrame journeyEventWork(const std::function<void()> &);
 	std::uint64_t _saveOperation = 0;
 	std::optional<SaveBoundary> _saveBoundary;
 	friend class Application;

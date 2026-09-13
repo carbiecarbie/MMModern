@@ -1,4 +1,5 @@
 #include "games/xeen/XeenEventSystem.h"
+#include "games/xeen/XeenEventPublication.h"
 
 #include "games/xeen/XeenEventTrigger.h"
 #include "games/xeen/XeenWorld.h"
@@ -78,7 +79,9 @@ XeenEventScript XeenEventSystem::scriptForMap(XeenMapIdentity mapId) {
 
 XeenAutomaticEventResult XeenEventSystem::runAutomaticEvent(
 		XeenWorld &world, XeenPartyState &partyState, XeenCamera &camera,
-		XeenGameFlags &gameFlags) {
+		XeenGameFlags &gameFlags, const XeenEventPublication *publication) {
+	if (world.sessionState().journey() && !publication) throw std::logic_error("Journey dispatch requires live event authority");
+	if (publication) publication->check();
 	if (!camera.mapId || camera.x < 0 || camera.x > 15 || camera.y < 0 ||
 			camera.y > 15 || !validDirection(camera.direction)) {
 		return systemError(XeenEventExecutionErrorKind::InvalidInitialCamera,
@@ -99,14 +102,14 @@ XeenAutomaticEventResult XeenEventSystem::runAutomaticEvent(
 
 	const XeenCamera beforeCamera = camera;
 	const XeenGameFlags beforeFlags = gameFlags;
-	const auto provider = [this](XeenMapIdentity mapId) {
-		return scriptForMap(mapId);
+	const auto provider = [this, publication](XeenMapIdentity mapId) {
+		if (publication) publication->check(); auto value=scriptForMap(mapId); if (publication) publication->script(value.file()); return value;
 	};
-	const auto textProvider = [this](XeenMapIdentity mapId) {
-		return textForMap(mapId);
+	const auto textProvider = [this, publication](XeenMapIdentity mapId) {
+		if (publication) publication->check(); auto value=textForMap(mapId); if (publication) publication->check(); return value;
 	};
 	XeenEventExecutionStepResult execution = _interpreter.begin(camera,
-		partyState, gameFlags, world, provider, textProvider);
+		partyState, gameFlags, world, provider, textProvider, 0, publication);
 	if (const auto *executionError =
 			std::get_if<XeenEventExecutionError>(&execution))
 		return *executionError;
@@ -119,14 +122,17 @@ XeenAutomaticEventResult XeenEventSystem::runAutomaticEvent(
 	result.instructionCount = completed.instructionCount;
 	result.cameraChanged = !sameCamera(beforeCamera, completed.finalCamera);
 	result.flagsChanged = beforeFlags.values() != completed.finalGameFlags.values();
-	camera = completed.finalCamera;
-	gameFlags = completed.finalGameFlags;
+	if (publication) { publication->check(); if (!sameCamera(camera,completed.finalCamera) || gameFlags.values()!=completed.finalGameFlags.values()) throw std::logic_error("Journey event completion changed camera/flags"); }
+	else camera = completed.finalCamera;
+	if (!publication) gameFlags = completed.finalGameFlags;
 	return result;
 }
 
 XeenManualEventResult XeenEventSystem::runManualEvent(
 		XeenWorld &world, XeenPartyState &partyState, XeenCamera &camera,
-		XeenGameFlags &gameFlags) {
+		XeenGameFlags &gameFlags, const XeenEventPublication *publication) {
+	if (world.sessionState().journey() && !publication) throw std::logic_error("Journey dispatch requires live event authority");
+	if (publication) publication->check();
 	if (!camera.mapId || camera.x < 0 || camera.x > 15 || camera.y < 0 ||
 			camera.y > 15 || !validDirection(camera.direction)) {
 		return systemError(XeenEventExecutionErrorKind::InvalidInitialCamera,
@@ -147,6 +153,7 @@ XeenManualEventResult XeenEventSystem::runManualEvent(
 	std::optional<XeenEventScript> script;
 	try {
 		script.emplace(scriptForMap(camera.mapId));
+		if (publication) publication->script(script->file());
 	} catch (const std::exception &exception) {
 		return systemError(XeenEventExecutionErrorKind::ScriptLoadFailed,
 			std::string("failed to load manual event script: ") + exception.what(), camera);
@@ -157,14 +164,14 @@ XeenManualEventResult XeenEventSystem::runManualEvent(
 
 	const XeenCamera beforeCamera = camera;
 	const XeenGameFlags beforeFlags = gameFlags;
-	const auto provider = [this](XeenMapIdentity mapId) {
-		return scriptForMap(mapId);
+	const auto provider = [this, publication](XeenMapIdentity mapId) {
+		if (publication) publication->check(); auto value=scriptForMap(mapId); if (publication) publication->script(value.file()); return value;
 	};
-	const auto textProvider = [this](XeenMapIdentity mapId) {
-		return textForMap(mapId);
+	const auto textProvider = [this, publication](XeenMapIdentity mapId) {
+		if (publication) publication->check(); auto value=textForMap(mapId); if (publication) publication->check(); return value;
 	};
 	XeenEventExecutionStepResult execution = _interpreter.begin(camera,
-		partyState, gameFlags, world, provider, textProvider);
+		partyState, gameFlags, world, provider, textProvider, 0, publication);
 	if (const auto *executionError =
 			std::get_if<XeenEventExecutionError>(&execution))
 		return *executionError;
@@ -177,21 +184,24 @@ XeenManualEventResult XeenEventSystem::runManualEvent(
 	result.instructionCount = completed.instructionCount;
 	result.cameraChanged = !sameCamera(beforeCamera, completed.finalCamera);
 	result.flagsChanged = beforeFlags.values() != completed.finalGameFlags.values();
-	camera = completed.finalCamera;
-	gameFlags = completed.finalGameFlags;
+	if (publication) { publication->check(); if (!sameCamera(camera,completed.finalCamera) || gameFlags.values()!=completed.finalGameFlags.values()) throw std::logic_error("Journey event completion changed camera/flags"); }
+	else camera = completed.finalCamera;
+	if (!publication) gameFlags = completed.finalGameFlags;
 	return result;
 }
 
 XeenAutomaticEventResult XeenEventSystem::resumeAutomaticEvent(
 		XeenEventExecutionState state, XeenPresentationResponse response,
 		XeenWorld &world, XeenPartyState &partyState, XeenCamera &camera,
-		XeenGameFlags &gameFlags) {
+		XeenGameFlags &gameFlags, const XeenEventPublication *publication) {
+	if (world.sessionState().journey() && !publication) throw std::logic_error("Journey dispatch requires live event authority");
+	if (publication) publication->check();
 	const XeenCamera beforeCamera = camera;
 	const XeenGameFlags beforeFlags = gameFlags;
-	const auto provider = [this](XeenMapIdentity mapId) { return scriptForMap(mapId); };
-	const auto textProvider = [this](XeenMapIdentity mapId) { return textForMap(mapId); };
+	const auto provider = [this, publication](XeenMapIdentity mapId) { if (publication) publication->check(); auto value=scriptForMap(mapId); if (publication) publication->script(value.file()); return value; };
+	const auto textProvider = [this, publication](XeenMapIdentity mapId) { if (publication) publication->check(); auto value=textForMap(mapId); if (publication) publication->check(); return value; };
 	XeenEventExecutionStepResult execution = _interpreter.resume(
-		std::move(state), response, partyState, world, provider, textProvider);
+		std::move(state), response, partyState, world, provider, textProvider, publication);
 	if (const auto *value = std::get_if<XeenEventExecutionError>(&execution))
 		return *value;
 	if (auto *value = std::get_if<XeenEventExecutionSuspended>(&execution))
@@ -200,21 +210,24 @@ XeenAutomaticEventResult XeenEventSystem::resumeAutomaticEvent(
 	XeenAutomaticEventCompleted result{value.instructionCount,
 		!sameCamera(beforeCamera, value.finalCamera),
 		beforeFlags.values() != value.finalGameFlags.values()};
-	camera = value.finalCamera;
-	gameFlags = value.finalGameFlags;
+	if (publication) { publication->check(); if (!sameCamera(camera,value.finalCamera) || gameFlags.values()!=value.finalGameFlags.values()) throw std::logic_error("Journey event completion changed camera/flags"); }
+	else camera = value.finalCamera;
+	if (!publication) gameFlags = value.finalGameFlags;
 	return result;
 }
 
 XeenManualEventResult XeenEventSystem::resumeManualEvent(
 		XeenEventExecutionState state, XeenPresentationResponse response,
 		XeenWorld &world, XeenPartyState &partyState, XeenCamera &camera,
-		XeenGameFlags &gameFlags) {
+		XeenGameFlags &gameFlags, const XeenEventPublication *publication) {
+	if (world.sessionState().journey() && !publication) throw std::logic_error("Journey dispatch requires live event authority");
+	if (publication) publication->check();
 	const XeenCamera beforeCamera = camera;
 	const XeenGameFlags beforeFlags = gameFlags;
-	const auto provider = [this](XeenMapIdentity mapId) { return scriptForMap(mapId); };
-	const auto textProvider = [this](XeenMapIdentity mapId) { return textForMap(mapId); };
+	const auto provider = [this, publication](XeenMapIdentity mapId) { if (publication) publication->check(); auto value=scriptForMap(mapId); if (publication) publication->script(value.file()); return value; };
+	const auto textProvider = [this, publication](XeenMapIdentity mapId) { if (publication) publication->check(); auto value=textForMap(mapId); if (publication) publication->check(); return value; };
 	XeenEventExecutionStepResult execution = _interpreter.resume(
-		std::move(state), response, partyState, world, provider, textProvider);
+		std::move(state), response, partyState, world, provider, textProvider, publication);
 	if (const auto *value = std::get_if<XeenEventExecutionError>(&execution))
 		return *value;
 	if (auto *value = std::get_if<XeenEventExecutionSuspended>(&execution))
@@ -223,8 +236,9 @@ XeenManualEventResult XeenEventSystem::resumeManualEvent(
 	XeenManualEventCompleted result{value.instructionCount,
 		!sameCamera(beforeCamera, value.finalCamera),
 		beforeFlags.values() != value.finalGameFlags.values()};
-	camera = value.finalCamera;
-	gameFlags = value.finalGameFlags;
+	if (publication) { publication->check(); if (!sameCamera(camera,value.finalCamera) || gameFlags.values()!=value.finalGameFlags.values()) throw std::logic_error("Journey event completion changed camera/flags"); }
+	else camera = value.finalCamera;
+	if (!publication) gameFlags = value.finalGameFlags;
 	return result;
 }
 

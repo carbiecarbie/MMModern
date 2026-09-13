@@ -1,4 +1,5 @@
 #include "app/XeenEventFlow.h"
+#include "games/xeen/XeenEventPublication.h"
 #include <type_traits>
 #include <utility>
 #include <iostream>
@@ -72,6 +73,7 @@ IndexedFrame XeenEventFlow::preflightCompleted(IndexedFrame base, const XeenFont
 
 void XeenEventFlow::requireCurrentOwners() const {
 	if (!_gameplayBorrow->current()) throw std::runtime_error("Stale Flow borrowed owner lifetime");
+	if (_eventPublication) _eventPublication->check();
 }
 
 bool XeenEventFlow::canSave() const noexcept {
@@ -234,17 +236,27 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report) {
 			const auto t = _encounter->ticket();
 			if (_encounter->prepareJourneyFrame(t,[&] {
 				if (attempt) { _world.discardMapCache(); if (rebuildEncounterPresentation) rebuildEncounterPresentation(); }
+				if (_journeyEventLayers) {
+					XeenEventPublication validation(_encounter->journeySavePreimage(),_encounter->_journeyEvents,[&] {
+						if (!_encounter->current(t)) throw std::logic_error("Stale objective reconstruction");
+					});
+					validation.script(_events.scriptForMap(_camera.mapId).file());
+					_events.textForMap(_camera.mapId); validation.check();
+				}
 				auto composed = _encounterCompose(_ordinary.phase,_encounter->appearance());
+				if (!_encounter->current(t)) throw std::logic_error("Stale Journey composition");
 				if (!composed.frame.isValid()) throw std::runtime_error("Invalid Journey frame");
-				auto rendered = noticeFrame(composed.frame,_inventoryFont,_encounter->notice(),true);
+				auto rendered = _journeyEventLayers ? _presenter.rebase(composed.frame) : noticeFrame(composed.frame,_inventoryFont,_encounter->notice(),true);
 				_inventoryUnderlay = rendered;
 				if (inventoryOpen()) rendered = drawXeenInventory(rendered,_inventoryFont,_catalog,_party,_inventory,_inventoryFeedback,
 					_equipmentResult ? &*_equipmentResult : nullptr);
 				if (report && !attempt) {
 					if (reportText) reportText(_encounter->notice());
+					if (!_encounter->current(t)) throw std::logic_error("Stale Journey reporting");
 					std::cout << _encounter->journeyInspection();
 				}
 				if (!attempt && beforeEncounterFrameCopy) beforeEncounterFrameCopy();
+				if (!_encounter->current(t)) throw std::logic_error("Stale Journey frame copy");
 				returned = rendered; _frame = std::move(rendered);
 				_ordinary.containsOrdinaryAnimation = composed.containsOrdinaryAnimation;
 			})) {
@@ -358,6 +370,14 @@ IndexedFrame XeenEventFlow::refresh(bool reconstruct) {
 
 bool XeenEventFlow::refreshScene(bool reconstruct, OrdinaryCause cause, bool committedTransition) {
 	requireCurrentOwners();
+	if (journey() && _eventPublication) {
+		auto composition=_encounterCompose(_ordinary.phase,_encounter->appearance());
+		requireCurrentOwners();
+		_frame=_presenter.rebase(composition.frame);
+		requireCurrentOwners();
+		_ordinary.containsOrdinaryAnimation=composition.containsOrdinaryAnimation;
+		return true;
+	}
 	if (_encounter && (journey() || _encounter->combat() || completed())) { if (!journey()) renderEncounter(); return true; }
 	try {
 	const bool reset = committedTransition || _ordinary.mapId != _camera.mapId ||
@@ -415,30 +435,54 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 		} else {
 			if (reportAutomatic) reportAutomatic(result);
 		}
+		requireCurrentOwners();
 		if (!suspended) return frameCopy();
 		if (!_pending) return frameCopy(); // A reporting callback may explicitly abandon.
 		_frame = _presenter.dismissSelection();
 		XeenPresentationUpdate update;
 		update = _presenter.present(_frame, _pending->state.pendingPresentation->request);
 		_frame = std::move(update.frame);
-		if (reportText) for (const auto &message : _presenter.diagnostics()) reportText(message);
+		if (reportText) for (const auto &message : _presenter.diagnostics()) { reportText(message); requireCurrentOwners(); }
 		requireCurrentOwners();
 		if (!update.response) return frameCopy();
 		auto pending = std::move(*_pending);
 		_pending.reset(); // Consume before calling into the execution system.
 		if constexpr (std::is_same_v<Result, XeenManualEventResult>)
 			result = _events.resumeManualEvent(std::move(pending.state), *update.response,
-				_world, _party, _camera, _flags);
+				_world, _party, _camera, _flags, _eventPublication);
 		else
 			result = _events.resumeAutomaticEvent(std::move(pending.state), *update.response,
-				_world, _party, _camera, _flags);
+				_world, _party, _camera, _flags, _eventPublication);
 		} catch (const std::exception &e) {
 			if (!_pending) throw;
+			requireCurrentOwners();
 			return presentationFailed(e);
 		}
 	}
 }
 
+IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operation) {
+	const auto entry=_encounter->ticket();
+	try {
+		XeenEventPublication publication(_encounter->journeySavePreimage(),_encounter->_journeyEvents,[&] {
+			if (!_dispatching || !_encounter->journeyEvent() || !_encounter->current(entry))
+				throw std::logic_error("Stale Journey event continuation");
+		});
+		XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world,[&] { publication.check(); });
+		_eventPublication=&publication;
+		try { operation(); publication.check(); }
+		catch (...) { _eventPublication=nullptr; throw; }
+		_eventPublication=nullptr;
+	} catch (const std::exception &error) {
+		std::cerr << "Journey event: " << error.what() << '\n';
+		_eventPublication=nullptr;
+		cleanup(XeenRewardDiscard::PresentationFailure);
+		if (!_encounter->current(entry)) { _fatal=true; throw; }
+		// Only trusted published effects survive. A recovery frame never resumes the script.
+	}
+	if (!_pending) _encounter->endJourneyEvent();
+	return renderEncounter();
+}
 IndexedFrame XeenEventFlow::acceptManual(XeenManualEventResult result) {
 	requireCurrentOwners();
 	if (_encounter || blocksGameplay()) throw std::logic_error("Cannot replace pending event; abandon before dispatching replacement");
@@ -467,7 +511,7 @@ bool XeenEventFlow::pendingNpc() const {
 		_pending->state.pendingPresentation->request.kind == XeenPresentationKind::NpcAcknowledgment;
 }
 bool XeenEventFlow::handlesEscape() const {
-	if (journey()) return !_fatal && !_handoffPending && inventoryOpen();
+	if (journey()) return !_fatal && !_handoffPending && (inventoryOpen() || canCancelInteraction());
 	if (_encounter) return false;
 	return inventoryOpen() || canCancelInteraction() || pendingNpc() || (_pending && _pending->state.rewardPhase != XeenRewardPhase::Running);
 }
@@ -524,6 +568,10 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 	if (_dispatching || _fatal || _saving || (journey() && _handoffPending)) return std::nullopt;
 	DispatchScope dispatch(_dispatching);
 	if (_encounter) {
+		if (journey() && _encounter->journeyEvent()) {
+			if (advanceEncounterOrdinary()) return renderEncounter();
+			return std::nullopt;
+		}
 		const bool hadJourneyCombat = journey() && _encounter->combat();
 		const bool changed = _encounter->idle(_cycle);
 		prepareJourneyTransition();
@@ -554,6 +602,17 @@ std::optional<std::uint64_t> XeenEventFlow::presentationGeneration() const {
 }
 bool XeenEventFlow::respond(std::uint64_t generation, XeenPresentationResponse response) {
 	requireCurrentOwners();
+	if (journey()) {
+		if (_dispatching || _fatal || _saving || _handoffPending || !encounterFrameCurrent() ||
+			!_encounter->journeyEvent() || !_pending || _pending->generation!=generation ||
+			!_pending->state.pendingPresentation || !xeenResponseMatches(_pending->state.pendingPresentation->request.response,response)) return false;
+		if (_presenter.pageIndex()+1<_presenter.pageCount()) return false;
+		if (const auto *selected=std::get_if<SelectedCharacter>(&response.value))
+			if (selected->partyIndex>=_pending->state.pendingPresentation->request.members.size()) return false;
+		DispatchScope dispatch(_dispatching);
+		journeyEventWork([&] { resumePending(generation,response); });
+		return true;
+	}
 	if (_encounter || _dispatching || inventoryOpen() || _fatal) return false;
 	DispatchScope dispatch(_dispatching);
 	return resumePending(generation, response);
@@ -570,10 +629,10 @@ bool XeenEventFlow::resumePending(std::uint64_t generation, XeenPresentationResp
 	_pending.reset();
 	if (pending.automatic)
 		drive(_events.resumeAutomaticEvent(std::move(pending.state), response,
-			_world, _party, _camera, _flags), true);
+			_world, _party, _camera, _flags, _eventPublication), true);
 	else
 		drive(_events.resumeManualEvent(std::move(pending.state), response,
-			_world, _party, _camera, _flags), false);
+			_world, _party, _camera, _flags, _eventPublication), false);
 	return true;
 }
 IndexedFrame XeenEventFlow::handle(const PlayerAction &action, std::optional<std::uint64_t> displayedInput) {
@@ -590,6 +649,16 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &action, std::optional<std
 	DispatchScope dispatch(_dispatching);
 	if (_encounter) {
 		if (journey() && !_encounter->combat()) {
+			if (_encounter->journeyEvent()) {
+				if (!_pending) return frameCopy();
+				return journeyEventWork([&] {
+					const auto generation=_pending->generation;
+					auto update=_presenter.handle(action,false);
+					_frame=std::move(update.frame);
+					if (update.response) resumePending(generation,*update.response);
+				});
+			}
+			if (_journeyEventLayers) { _presenter.clear(); _journeyEventLayers=false; }
 			if (inventoryOpen() || std::holds_alternative<InspectInventoryAction>(action)) {
 				if (!_encounter->journeyMutable()) return frameCopy();
 				handleInventory(action);
@@ -597,9 +666,12 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &action, std::optional<std
 			}
 			if (std::holds_alternative<InteractionAction>(action)) {
 				if (!_encounter->journeyQuiet()) return frameCopy();
-				if (_encounter->presentDeferredObjective()) return renderEncounter();
+				if (_world.sessionState().journeyContract()==2 && _camera.mapId==XeenMapIdentity(20) && _camera.x==5 && _camera.y==14) {
+					_encounter->beginJourneyEvent(); _journeyEventLayers=true;
+					return journeyEventWork([&] { drive(_events.runManualEvent(_world,_party,_camera,_flags,_eventPublication),false); });
+				}
 				try { _encounter->journeyRead([&] {
-					const auto result = _navigation.processInteraction(_world,_party,_camera,_flags);
+					const XeenManualEventResult result = XeenManualEventNoEvent{};
 					if (!std::holds_alternative<XeenManualEventNoEvent>(result)) throw std::runtime_error("Journey requires the admitted event-free footprint");
 					if (reportManual) reportManual(result);
 				}); } catch (...) {

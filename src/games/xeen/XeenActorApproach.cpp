@@ -199,12 +199,13 @@ void XeenActorApproach::validateEnvironment(XeenWorld &world,
 			require(policy.contains(e.x,e.y) == (i>=1 && i<=5), "Expedition event footprint changed");
 			if (i>=1 && i<=5) {
 				static const std::array<std::uint8_t,5> opcodes{0x20,0x29,0x09,0x0c,0x0e};
+				static const std::array<std::size_t,5> offsets{7,15,22,31,41};
 				static const std::array<std::vector<std::uint8_t>,5> operands{{{0,3},{0},{0x2c,1,3},{0,0,0x15,0x64},{}}};
-				require(e.x==5 && e.y==14 && e.direction==4 && e.line==i-1 && e.opcode==opcodes[i-1] && e.parameters==operands[i-1], "Expedition objective address/bytes changed");
+				require(e.fileOffset==offsets[i-1] && e.lengthField==5+operands[i-1].size() && e.x==5 && e.y==14 && e.direction==4 && e.line==i-1 && e.opcode==opcodes[i-1] && e.parameters==operands[i-1], "Expedition objective address/bytes changed");
 			}
 		}
-		for (unsigned i=1;i<=5;++i) require(!world.sessionState().isEventDisabled({20,i}), "Expedition objective event disabled");
-		require(!world.sessionState().isObjectDisabled({20,1}), "Expedition objective object disabled");
+		// Validate immutable originals above, independently of collected or partial
+		// disabled overlays. Effective None is an interpreter lookup decision.
 	}
 	for (int y = contract == 2 ? 13 : 1; y <= (contract == 2 ? 15 : 2); ++y) for (int x = contract == 2 ? 0 : 13; x <= (contract == 2 ? 8 : 14); ++x) {
 		const auto &c = geometry.cells[y * 16 + x];
@@ -217,7 +218,15 @@ void XeenActorApproach::validateEnvironment(XeenWorld &world,
 	const auto &mob = world.objectFile(20);
 	require(mob.resourcePresent && actors.size() == mob.entities.monsters.size() && actors.size() > 5,
 		"encounter original record list changed");
-	if (contract==2) require(actors.size()==27 && mob.entities.objects.size()>1 && mob.entities.objects[1].x==5 && mob.entities.objects[1].y==14, "Expedition objective object changed");
+	if (contract==2) {
+		require(actors.size()==27 && mob.entities.objects.size()>1, "Expedition objective object changed");
+		const auto &objective=mob.entities.objects[1];
+		require(objective.x==5 && objective.y==14 && objective.direction==0 && objective.tableIndex==1 &&
+			objective.resourceId==26 && mob.entities.objectTable[1]==26, "Expedition objective object changed");
+		for (std::size_t i=0;i<mob.entities.objects.size();++i)
+			require(i==1 || mob.entities.objects[i].x!=5 || mob.entities.objects[i].y!=14,
+				"Expedition objective physical identity changed");
+	}
 	for (std::size_t i = 0; i < actors.size(); ++i) {
 		const auto &a = actors[i];
 		require(sameEntity(a.original, mob.entities.monsters[i]), "encounter original metadata changed");

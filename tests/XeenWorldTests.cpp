@@ -3,7 +3,23 @@
 #include <cstdlib>
 #include <iostream>
 #include <map>
+#include <new>
 #include <stdexcept>
+
+// Local to this test executable: exercise each allocation in Remove preparation
+// without adding a production fault-injection interface.
+namespace {
+int allocationsBeforeFailure = -1;
+}
+
+void *operator new(std::size_t size) {
+	if (allocationsBeforeFailure == 0) throw std::bad_alloc();
+	if (allocationsBeforeFailure > 0) --allocationsBeforeFailure;
+	if (auto *memory = std::malloc(size ? size : 1)) return memory;
+	throw std::bad_alloc();
+}
+void operator delete(void *memory) noexcept { std::free(memory); }
+void operator delete(void *memory, std::size_t) noexcept { std::free(memory); }
 
 namespace {
 
@@ -117,6 +133,76 @@ void testIndoorCacheAndLocalSampling() {
 		"cache interior recarregou o mapa ou seguiu vizinho declarado");
 }
 
+void testRemovePreparationPublication() {
+	using namespace mmodern;
+	const XeenCamera physical{1, 5, 14, XeenDirection::West};
+	XeenEventFile events;
+	events.mapId = 1;
+	events.resourcePresent = true;
+	events.records.resize(6);
+	for (std::size_t i = 1; i < events.records.size(); ++i) {
+		events.records[i].x = 5;
+		events.records[i].y = 14;
+	}
+	auto objectLoader = [](XeenMapIdentity id) {
+		XeenObjectFile file;
+		file.mapId = id;
+		file.resourcePresent = true;
+		file.entities.objects.resize(2);
+		return file;
+	};
+	bool completed = false;
+	int failures = 0;
+	for (int allocation = 0; allocation < 64 && !completed; ++allocation) {
+		XeenWorld world(mapFixture, objectLoader);
+		world.map(1);
+		world.disableObject({1, 0});
+		world.disableEventsAtCell({1, 0, 0, XeenDirection::North}, events);
+		const auto beforeObjects = world.sessionState().disabledObjects();
+		const auto beforeEvents = world.sessionState().disabledEvents();
+		allocationsBeforeFailure = allocation;
+		try {
+			world.applyRemove(physical, XeenObjectIdentity{1, 1}, events);
+			allocationsBeforeFailure = -1;
+			completed = true;
+		} catch (const std::bad_alloc &) {
+			allocationsBeforeFailure = -1;
+			++failures;
+			require(world.sessionState().disabledObjects() == beforeObjects &&
+				world.sessionState().disabledEvents() == beforeEvents,
+				"Remove allocation failure published a partial overlay");
+		} catch (...) {
+			allocationsBeforeFailure = -1;
+			throw;
+		}
+		if (completed) {
+			require(world.sessionState().disabledObjectCount() == 2 &&
+				world.sessionState().disabledEventCount() == 6,
+				"Remove did not publish both overlays while retaining earlier identities");
+			world.applyRemove(physical, XeenObjectIdentity{1, 1}, events);
+			require(world.sessionState().disabledObjectCount() == 2 &&
+				world.sessionState().disabledEventCount() == 6,
+				"repeated Remove changed already-published identities");
+		}
+	}
+	require(completed && failures >= 6,
+		"Remove allocation sweep did not cover object and event preparation");
+	XeenWorld noObject(mapFixture);
+	noObject.applyRemove(physical, std::nullopt, events);
+	require(noObject.sessionState().disabledObjectCount() == 0 &&
+		noObject.sessionState().disabledEventCount() == 5,
+		"Remove without a selected object did not retain physical-cell semantics");
+	XeenWorld providerFailure(mapFixture, [](XeenMapIdentity) -> XeenObjectFile {
+		throw std::runtime_error("synthetic object provider failure");
+	});
+	bool rejected = false;
+	try { providerFailure.applyRemove(physical, XeenObjectIdentity{1, 1}, events); }
+	catch (const std::runtime_error &) { rejected = true; }
+	require(rejected && providerFailure.sessionState().disabledObjectCount() == 0 &&
+		providerFailure.sessionState().disabledEventCount() == 0,
+		"Remove provider failure published an overlay");
+}
+
 } // namespace
 
 int main() {
@@ -124,6 +210,7 @@ int main() {
 		testCardinalAndDiagonalResolution();
 		testInvalidDistanceAndIdentityValidation();
 		testIndoorCacheAndLocalSampling();
+		testRemovePreparationPublication();
 		std::cout << "Xeen world tests passed\n";
 		return EXIT_SUCCESS;
 	} catch (const std::exception &error) {

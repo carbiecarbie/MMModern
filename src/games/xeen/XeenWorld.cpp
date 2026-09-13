@@ -1,4 +1,5 @@
 #include "games/xeen/XeenWorld.h"
+#include "games/xeen/XeenEventPublication.h"
 #include "games/xeen/XeenStateEquality.h"
 #include "games/xeen/XeenGameFlags.h"
 
@@ -269,16 +270,31 @@ void XeenWorld::disableEventsAtCell(const XeenCamera &physical, const XeenEventF
 }
 
 void XeenWorld::applyRemove(const XeenCamera &physical,
-		std::optional<XeenObjectIdentity> selected, const XeenEventFile &events) {
-	// Resolve every predictable failure before changing this operation's state.
+		std::optional<XeenObjectIdentity> selected, const XeenEventFile &events, const XeenEventPublication *publication) {
+	if (_sessionState.journey() && !publication) throw std::logic_error("Journey Remove requires live event authority");
+	if (publication) publication->check();
+	// Validate and allocate both overlays before publishing either one. Remove is
+	// atomic on its own; an earlier script grant remains independently published.
 	validateEventCell(physical, events);
 	if (selected) {
 		if (selected->mapId != physical.mapId)
 			throw std::invalid_argument("selected object belongs to another physical map/side");
 		validateObject(*selected);
 	}
-	if (selected) disableObject(*selected);
-	disableEventsAtCell(physical, events);
+	auto disabledObjects = _sessionState._objects;
+	auto disabledEvents = _sessionState._events;
+	if (selected) disabledObjects.insert(*selected);
+	for (std::size_t i = 0; i < events.records.size(); ++i) {
+		const auto &record = events.records[i];
+		if (record.x == physical.x && record.y == physical.y)
+			disabledEvents.insert({physical.mapId, i});
+	}
+	if (publication) publication->prepareRemove(physical, selected, events);
+	static_assert(noexcept(_sessionState._objects.swap(disabledObjects)));
+	static_assert(noexcept(_sessionState._events.swap(disabledEvents)));
+	_sessionState._objects.swap(disabledObjects);
+	_sessionState._events.swap(disabledEvents);
+	if (publication) publication->removed();
 }
 
 const XeenMap &XeenWorld::map(XeenMapIdentity mapId) {

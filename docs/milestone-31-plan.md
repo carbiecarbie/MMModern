@@ -1,15 +1,12 @@
 # Milestone 31 - First connected Clouds vertical slice
 
-**Status: implementation-ready specification; not implemented.**
-Baseline: `dfacac7076a7ae7714229b691eb80afea0f70347`,
-`Complete M30 production expedition and milestone closure`.
-Implementation requires separate authorization. This plan owns the M31 contract;
+**Status: completed and accepted.** This plan owns the M31 contract;
 [M30](milestone-30-plan.md) owns the inherited expedition, combat and schema-2
-details, and [project status](project-status.md) remains the stable baseline.
+details. [Project status](project-status.md) owns the current technical snapshot.
 
 ## Objective and acceptance boundary
 
-Close the original Bone Whistle collection loop in production
+M31 closes the original Bone Whistle collection loop in production
 `--journey-expedition`, on the same contract-2 party/world/camera owners:
 
 ```text
@@ -26,16 +23,11 @@ resolve through the accepted scheduler whenever they engage; surviving actors
 remain authoritative. Collection has no all-actors-defeated prerequisite and
 never suppresses survivors or retires an active encounter.
 
-Keep M30's prepared party, six party cells, actor bounds, four influencing
+M31 preserves M30's prepared party, six party cells, actor bounds, four influencing
 identities, grouped combat, targeting, joining, Disease/injuries/breakage/XP,
-inventory/equipment rules, clock and RNG continuation unchanged. Normal entry
+inventory/equipment rules, clock and RNG continuation. Normal entry
 and startup resume retain their existing CLI meanings. This milestone certifies
 neither general map-20 exploration nor travel from Vertigo.
-
-Use **one implementation unit**, with focused internal tests followed by connected
-acceptance. Event authority, modal handoff and persistence admission must agree
-before collection is usable; separate A/B release boundaries add no useful
-independent capability here.
 
 ## Original interaction and address contract
 
@@ -94,16 +86,15 @@ original records. `XeenPartyState::questItems` owns the counter; `XeenWorld` /
 owns committed camera/game flags. No new quest owner, event engine, Journey
 mode, completion flag, save system or commercial-data override is permitted.
 
-Replace contract 2's Deferred disposition with bounded event admission, not an
-unrestricted script callback. Admission must check the actual owner graph,
-contract, immutable event/object contract, physical address and current presented
-input before script-capable work. All other route cells remain event-free;
+Contract 2 admits only the bounded objective event. Admission checks the actual
+owner graph, contract, immutable event/object contract, physical address and
+current presented input before script-capable work. All other route cells remain event-free;
 contract 1 and encounter diagnostics retain their existing exclusions. Initial
 and movement processing must not start this manual event or bypass actor work.
 
-Add an exclusive **Event activity within Journey**, coordinated by the existing
+An exclusive **Event activity within Journey** is coordinated by the existing
 `XeenEncounterFlow`, using `XeenCombatBoundary::Work::Event` and the existing
-ticket/preimage/generation discipline. Acquire it only from a presented quiet
+ticket/preimage/generation discipline. It is acquired only from a presented quiet
 boundary: pending approach zero, Exploring, no contact/combat, attachment,
 Round/End/retirement, inventory/certificate, save or unresolved frame work.
 Actor work has priority; a refused interaction is not queued for later.
@@ -116,18 +107,12 @@ must not turn Event into Quiet. On terminal event handling, transfer authority
 to the existing Presentation boundary without a quiet gap. Only its matching
 successful SDL presentation opens mutable input and capture again.
 
-Extend the existing production seams in
-[`XeenJourneyFlow.cpp`](../src/app/XeenJourneyFlow.cpp),
-[`XeenEventFlow.cpp`](../src/app/XeenEventFlow.cpp) and
-[`XeenRestoreGuard.h`](../src/games/xeen/XeenRestoreGuard.h).
-Today `journeyRead` refuses the objective, Flow rejects encounter responses,
-Journey composition bypasses event rebasing, and quiet preimages reject any
-grant/Remove. Simply removing these checks is insufficient.
-
-Use a bounded publication authorization tied to the live Flow continuation,
-Journey ticket/lease and expected operation. Reuse the existing interpreter
-operations and party/world publishers; any added guard interface must authorize
-their publication, not reproduce their semantics in Flow. In M31 it admits
+[`XeenEventPublication`](../src/games/xeen/XeenEventPublication.h) is a noncopyable,
+stack-bound capability issued by the live Flow continuation. It binds the
+Journey ticket/lease and expected operation to the retained
+[`XeenRestoreGuard`](../src/games/xeen/XeenRestoreGuard.h). The existing interpreter
+operations and party/world publishers retain their semantics; the capability
+authorizes publication rather than reproducing those operations in Flow. It admits
 only the chain above and its effective-None/cancellation paths. Successful
 grant authorizes precisely counter 100's checked increment; Remove authorizes
 only the selected object and this physical cell's five event identities.
@@ -177,12 +162,11 @@ If reporting, continuation or drawing fails after Remove, removal survives.
 Do not refund, rerun the acknowledged operation, restore a pre-event snapshot
 or infer a quest flag from either effect.
 
-For the admitted Remove publication, prepare both resulting identity sets and
-all fallible validation/storage before changing the world, then publish without
-throwing. Keep this in the existing world Remove operation. The baseline inserts
-into sets incrementally; M31 must make this publication boundary explicit so
-allocation failure cannot leave untracked partial removal. This operation-level
-preparation does not combine or roll back the preceding grant.
+The existing world Remove operation prepares both resulting identity sets and
+all fallible validation/storage before changing the world, then publishes with
+nonthrowing swaps. The retained guard's successor overlays are also prepared
+before publication. Allocation failure leaves both live sets unchanged. This
+operation-level preparation does not combine or roll back the preceding grant.
 
 Known manual script/presentation failures may return to mutable Journey only
 after pending continuation is consumed/discarded, already-published effects are
@@ -202,18 +186,18 @@ saved at a later eligible boundary.
 
 ## Modal presentation and controls
 
-Use the existing presenter, original fonts/text and the single SDL loop. Event
-layers must rebase over production Journey composition of the committed camera,
+The existing presenter, original fonts/text and single SDL loop render event
+layers rebased over production Journey composition of the committed camera,
 world and party, including actors. During suspension, cosmetic animation/cache
 reconstruction may refresh that base without advancing actor work, gameplay
 time or RNG, dismissing the modal, losing its page/selection, or acknowledging it.
 The Journey notice must not cover the prompt, discovery text or response controls.
 
-Show F1-F6/eligible choices and Escape cancellation for WhoWill. Discovery/Action-44
-acknowledgment uses Space/Enter and must be visibly acknowledgment-only: adapt
-the existing confirmation widget by its response requirement instead of showing
-misleading Yes/No controls. Actual Yes/No events keep their behavior. Escape
-after WhoWill retains the ordinary non-NPC acknowledgment checkpoint's exit
+WhoWill shows F1-F6/eligible choices and Escape cancellation. Discovery/Action-44
+acknowledgment uses Space/Enter. The existing confirmation widget uses its
+response requirement to show acknowledgment-only controls. Actual Yes/No events
+keep their behavior. Escape after WhoWill retains the ordinary non-NPC
+acknowledgment checkpoint's exit
 semantics; it is not an acquisition acknowledgment or a rollback command.
 
 Navigation, Wait, Attack/Block, target selection, inventory, transfer/equipment,
@@ -231,21 +215,20 @@ text as usual. A nonblocking retained message alone does not prohibit F9.
 
 ## Save eligibility and restoration
 
-**No new durable field, envelope version, content contract or schema is needed.**
-Keep Journey v4, schema 2/content 2, its 1366-byte suffix and all M30 validation
-of party, actor, context and RNG state. The existing v2 base already serializes
+**M31 adds no durable field, envelope version, content contract or schema.**
+Journey v4, schema 2/content 2, its 1366-byte suffix and M30 validation of party,
+actor, context and RNG state are preserved. The existing v2 base serializes
 all 35 quest counters and independent disabled object/event identity sets.
 Object/event additions change the variable base length, not the Journey suffix.
 Do not serialize a completion Boolean, WhoWill selection, event lease, request,
 page, instruction cursor or retained message.
 
-Remove M30's objective-overlay prohibition in
-[`XeenSaveState::validateJourneyValues`](../src/games/xeen/XeenSaveState.cpp) and
-the corresponding environment check in `XeenActorApproach`. Separate immutable
-original EVT/MOB topology admission from mutable overlay admission. Continue
-validating the original records even after removal, including on restored
-navigation, survivor attachment and cache reconstruction; do not compare an
-effective-None script to the immutable opcode contract or require fresh bones.
+[`XeenSaveState`](../src/games/xeen/XeenSaveState.cpp) and `XeenActorApproach`
+admit mutable objective overlays independently of immutable original EVT/MOB
+topology. Original records remain validated after removal, including on restored
+navigation, survivor attachment and cache reconstruction. Effective None is an
+interpreter lookup result; topology validation neither compares it to the
+original opcode contract nor requires fresh bones.
 
 Counters and identity sets remain independent categories with existing bounds,
 uniqueness and resource-identity validation. Do not impose `count == 1`, derive
@@ -279,23 +262,9 @@ under M31. M30 binaries may reject newly admitted removed-object saves; backward
 execution support is not promised. Ordinary v1/v2, completed Diagnostic27 v3
 and Journey schema-1/content-1 retain their distinct meanings and behavior.
 
-## Required automated evidence
+## Connected acceptance boundary
 
-Extend existing event/WhoWill, Journey/expedition, persistence, Application and
-SDL harnesses. Synthetic tests remain independent of commercial data; original
-integration uses external unmodified archives. Test observable facts and
-publication boundaries, not only a new activity enum or isolated helper calls.
-
-| Evidence | Required assertions |
-| --- | --- |
-| Original chain in Journey | Exact table/identities above; all-facing manual admission; live eligible non-first selection, ineligible refusal and cancellation/retry; no durable changes before acknowledgment; success `q+1`, object 1/events 1-5 disabled, ten instructions; repeat five None. |
-| Exclusive authority | Pending approach/contact/attachment/combat/retirement/save/inventory refuse dispatch before providers; modal blocks incompatible controls; stale/copied/wrong-phase/direct responses, same-batch/held/repeated SDL keys and F9 cannot publish or release. Test reentrancy/owner replacement in event/text/map/MOB/report/compose callbacks and on cache-hit paths. |
-| Publication and failure | Overflow; failure before grant, after grant/before Remove, after Remove/before completion/report/frame; counter and overlays survive exactly once; Remove preparation failure publishes no partial sets; recovery does not replay; integrity/fatal cases cannot save. Independent counters/overlays remain independent. |
-| Presentation/reconstruction | WhoWill, discovery pagination, acknowledgment and retained success survive individual and combined scene/script/text/sprite cache rebuilds with real reload evidence; committed camera only, correct bones visibility, readable controls, no modal overlap or gameplay/RNG/time advance; failed and stale frame handoffs stay closed. |
-| Persistence/compatibility | Production F9 before and after collection, cancellation and recoverable failure; exact counters/sets plus all 30 owners/items/supplements, 27 actors/accounting, context/camera/flags and RNG; malformed identities/topology reject; legacy v1-v4 domains and existing M30 schema-2 saves retain behavior. |
-| Connected restart | Fresh production entry through encounters, collection, return, disk save, distinct-process `--load-game` and further real mutation; compare all persisted bytes and RNG continuation with uninterrupted execution. Also split before collection and immediately after collection, then continue the return in a new process. Startup performs zero event/grant/Remove/combat/XP/RNG replay; a later explicit repeat executes only the five None records. |
-
-The main original connected witness extends schedule 1 in
+The main original connected witness uses schedule 1 in
 [`XeenExpeditionGameplayTests.cpp`](../tests/XeenExpeditionGameplayTests.cpp):
 seed 1, settle approach after each forward step, Attack against the first
 original-ordered contact, five eastward moves, then three Wait actions to resolve
@@ -303,54 +272,48 @@ the Zombie pair. Existing checkpoints are End minutes 491/522/565, with Rebecca
 at current HP 5, Disease 3, maximum HP 18 and SP 21/18. Turn North, cancel once,
 retry/select an eligible member, acknowledge, then turn West and return five
 cells. With the same movement schedule, collection/cancellation adds no time or
-RNG, so return remains minute 615. Assert unchanged M30 consequences around
-each objective step rather than rederive combat formulas here.
+RNG, so return remains minute 615. Complete serialized-state comparisons around
+the objective preserve all inherited expedition consequences.
 
-Also extend a connected surviving-actor schedule (M30 schedule 0 or 2) through
-collection and subsequent movement/attachment as applicable. This catches a
-remaining fresh-object restriction in environment validation. Keep M30 grouped,
-triple, unfavorable/defeat and legacy controls as regressions without duplicating
-their complete combat oracle. A relocated objective fixture or an injected
-post-collection save is useful unit coverage but cannot replace the connected
-witness. Include real SDL input routing and separate-process Application/F9/load
-evidence; distinguish those from uninstrumented CLI and physical validation.
+Distinct producer/consumer processes cover quiet saves before collection,
+immediately after collection and after return, then continue navigation and
+item management. Complete save bytes and inclusive RNG request/result/state/count
+traces match uninterrupted execution. Startup has zero gameplay replay; an
+explicit post-collection repeat executes five None records. Connected survivor
+schedules retain live actors through collection and return. Grouped, triple,
+unfavorable/defeat and legacy controls retain the M30 regression boundary.
 
-Build and run focused changed-subsystem tests during implementation; full CTest,
-relevant original-resource controls and the connected process witnesses must
-pass at milestone closure. Inspect native frames for the objective phases.
+The physical acceptance route uses the same prepared seed-1 expedition and
+normal controls: resolve encounters; inspect HP/SP, Disease, equipment and XP;
+save/restart before collection; cancel/retry WhoWill; select an eligible member;
+acknowledge discovery; verify blocked modal controls, disappearing bones and
+repeat prevention; save immediately after collection and resume the return;
+return to `(0,14)` West, save/restart and continue navigation/item management.
+An unfavorable run may still lose. First Aid remains excluded because this
+route survives without recovery and collection has no HP/SP, time or RNG cost.
 
-## Implementation review and maintainer acceptance
+## Final acceptance
 
-Independent implementation review must inspect the final candidate and evidence,
-especially publication authorization,
-surviving effects on failure, modal/frame authority, immutable-versus-effective
-events, exact persistence and connected no-replay evidence. Closure requires an
-accepted verdict, full automated validation and separate maintainer physical
-SDL acceptance; images or synthetic input do not substitute for the latter.
+- Implementation completed; independent implementation review verdict: **ACCEPT**.
+  No known M31 contract item remains unmet.
+- Build and full automated suite passed: **90/90 CTest**. Focused authority,
+  callback/reentrancy, failure/publication, allocation, pagination, cache,
+  persistence and SDL controls passed. Independent counters and all objective
+  overlay subsets preserve exact state; invalid identities/topology reject.
+- Required connected/restart/original-resource evidence passed against external,
+  unmodified archives, including the connected boundary above and legacy
+  Journey, WhoWill, Remove and Yes/No controls. Synthetic tests require no
+  commercial data.
+- Independent native-frame inspection passed for WhoWill, acknowledgment and
+  retained discovery after removal. Separately, maintainer physical SDL
+  acceptance passed along the defined route with no observed defect.
 
-The maintainer should use the unchanged prepared expedition with a reproducible
-seed-1 successful route, resolve influencing encounters using normal controls,
-and inspect accumulated HP/SP, Disease, equipment and XP. At a quiet objective
-boundary, save and restart before collection; verify the original WhoWill prompt,
-cancel and retry, choose a live member, and acknowledge the original discovery.
-Check blocked movement/inventory/F9 while pending, readable acknowledgment-only
-controls, disappearing bones and recovery of mutable controls. Reinteraction
-must not grant again. Return to `(0,14)` West, inspect consequences, explicitly
-save, close, load in a new process and confirm persistence plus further ordinary
-navigation/item management. Include a quiet save immediately after collection
-and resume the return from it. An unfavorable run may still lose; acceptance
-does not promise recovery from every seed or input schedule.
-
-First Aid is excluded: M30's original schedule-1 witness already survives the
-complete route with the stated injury/Disease values, and the objective has no
-HP/SP, combat, time or RNG cost. There is no demonstrated recovery dependency.
-If implementation reveals a contradiction, report it and replan before adding
-spells, altered preparation or healing; do not silently change the boundary.
-
-At accepted closure, update stable status/history and condense this plan under
-[AGENTS.md](../AGENTS.md). Update README for the production collection capability
-and controls, and remove completed future scope from the roadmap. Planning
-alone changes none of those stable completion claims.
+The focused regression coverage lives in
+[`XeenJourneyEventTests.cpp`](../tests/XeenJourneyEventTests.cpp),
+[`XeenExpeditionTests.cpp`](../tests/XeenExpeditionTests.cpp),
+[`XeenWorldTests.cpp`](../tests/XeenWorldTests.cpp) and the connected gameplay
+harness linked above. Images and automated input remain distinct from the
+maintainer's physical acceptance.
 
 ## Explicit non-goals
 

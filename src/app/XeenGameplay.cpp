@@ -206,7 +206,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   if (!flow.frame().isValid()) throw std::runtime_error("Invalid first gameplay frame");
   std::cout << "Setup " << xeenInventoryInspection(party);
   if (flow.journey()) std::cout << flow.encounter()->journeyInspection()
-   << (world.sessionState().journeyContract()==2 ? "Prepared expedition: encounter integration available; collection pending M31. Six cells x=0..5/y=14; return remains mutable. 1-3 selects a combat target. " : "Journey objective: survive the Skeleton, then continue and save. Four cells only: x=13..14, y=1..2. ") <<
+   << (world.sessionState().journeyContract()==2 ? "Prepared expedition: collect the Bone Whistle at (5,14), then return and save. Six cells x=0..5/y=14; return remains mutable. 1-3 selects a combat target. " : "Journey objective: survive the Skeleton, then continue and save. Four cells only: x=13..14, y=1..2. ") <<
       "Time must stay below 960 minutes. No healing, rest, recovery or disengagement. "
       "Arrows/WASD move and turn; period waits; Space interacts outside combat and attacks in combat; B blocks. "
       "I inventory; F1-F6 owner; arrows category; 1-9 slot; T transfer; Enter confirms; E equips/removes; "
