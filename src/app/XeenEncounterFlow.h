@@ -19,7 +19,7 @@ struct XeenEncounterSetup {
 	std::function<void(std::uint8_t image)> validateAttackSprite;
 };
 
-// Internal domain entry; public CLI and SDL routing are a later integration stage.
+// Borrowed original values for one fresh Journey initialization, never restoration.
 struct XeenJourneySetup {
 	const std::vector<std::uint8_t> &characters;
 	XeenGameplayContext context;
@@ -42,6 +42,12 @@ public:
 		const XeenEventPresenter::Clock &, XeenJourneyRestoreTag);
 	~XeenEncounterFlow();
 	bool journeyQuiet() const noexcept;
+	bool journeyMutable() const noexcept;
+	std::uint64_t holdJourneyWork(XeenCombatBoundary::Work);
+	void releaseJourneyWork(XeenCombatBoundary::Work, std::uint64_t);
+	void holdJourneyFrame();
+	void journeyRead(const std::function<void()> &);
+	std::string journeyInspection() const;
 	bool journey() const noexcept { return _journey; }
 	Ticket beginJourneySave();
 	bool journeySaveCurrent(const Ticket &) const noexcept;
@@ -99,6 +105,8 @@ public:
 	std::uint64_t cosmeticDeadline() const noexcept { return _cosmeticDeadline; }
 	std::string notice() const;
 private:
+	friend class XeenEventFlow;
+	void adoptJourneyFlowBorrow();
 	bool _journey = false;
 	bool _journeyFramePrepared = false, _journeyFrameRetry = false;
 	std::string _journeyRefusal;

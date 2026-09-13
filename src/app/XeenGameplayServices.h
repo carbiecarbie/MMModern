@@ -36,6 +36,8 @@ struct XeenGameplayServices {
  enum class SaveStage { Capture, Preflight, Write };
  std::function<void(SaveStage)> observeSaveStage;
  decltype(XeenEncounterSetup::prepareCombat) prepareCombat;
+ // Optional deterministic sampling seam; called once only for an unseeded fresh Journey.
+ std::function<std::uint32_t()> sampleJourneySeed;
 };
 // Application's persistence transaction, also usable by internal domain tests.
 // The target is already installation-checked by the caller. Refusal precedes

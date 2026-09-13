@@ -86,7 +86,8 @@ int main(int argc, char *argv[]) {
 	std::vector<char *> pointers;
 	for (auto &argument : arguments) pointers.push_back(argument.data());
 	argc = wideCount; argv = pointers.data();
-	for (int i=1;i<argc;++i) if (std::string(argv[i]) == "--encounter-27" || std::string(argv[i]) == "--combat-seed") {
+	for (int i=1;i<argc;++i) if (std::string(argv[i]) == "--encounter-27" || std::string(argv[i]) == "--combat-seed" || std::string(argv[i]) == "--journey-skeleton") {
+		const bool journey = argc >= 2 && std::string(argv[1]) == "--journey-skeleton";
 		std::optional<std::uint32_t> seed;
 		std::optional<std::filesystem::path> save;
 		int positional = argc;
@@ -97,7 +98,7 @@ int main(int argc, char *argv[]) {
 			}
 			save = std::filesystem::u8path(target); positional -= 2;
 		}
-		bool valid = argc >= 3 && std::string(argv[1]) == "--encounter-27";
+		bool valid = argc >= 3 && (journey || std::string(argv[1]) == "--encounter-27");
 		int path = 2;
 		if (valid && positional == 5 && std::string(argv[2]) == "--combat-seed") {
 			const std::string text = argv[3];
@@ -111,7 +112,8 @@ int main(int argc, char *argv[]) {
 			seed=static_cast<std::uint32_t>(value); path=4;
 		} else valid = valid && positional == 3;
 		valid = valid && path<argc && std::string(argv[path]).size() && std::string(argv[path]).rfind("--",0)!=0;
-		if (!valid) { std::cerr << "Usage: --encounter-27 [--combat-seed <nonzero-u32>] <game-directory> [--save-file <path>]\n"; return 1; }
+		if (!valid) { std::cerr << "Usage: " << (journey ? "--journey-skeleton" : "--encounter-27") << " [--combat-seed <nonzero-u32>] <game-directory> [--save-file <path>]\n"; return 1; }
+		if (journey) return mmodern::Application().journeySkeleton(std::filesystem::u8path(argv[path]),seed,save);
 		return mmodern::Application().encounter27(std::filesystem::u8path(argv[path]),seed,save);
 	}
 	for (int i = 1; i < argc; ++i) if (std::string(argv[i]) == "--encounter-26") {

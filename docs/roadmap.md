@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**Milestone 28 is the latest completed milestone.**
+**Milestone 29 is the latest completed milestone.**
 [Project status](project-status.md) owns implemented capabilities and their
 acceptance boundaries; [project history](project-history.md) owns completed
 chronology. Reference provenance belongs to [dependencies](dependencies.md).
@@ -11,8 +11,10 @@ MMModern has connected ordinary navigation, bounded original interactions,
 quest rewards, inventory/equipment management and save/restart within accepted
 checkpoints. The encounter foundation adds original actor approach
 ([M26](milestone-26-plan.md)), playable bounded Attack/Block combat
-([M27](milestone-27-plan.md)), and completed encounter persistence and revisit
-([M28](milestone-28-plan.md)). These contracts do not certify travel between
+([M27](milestone-27-plan.md)), completed encounter persistence and revisit
+([M28](milestone-28-plan.md)), and a bounded production Journey with automatic
+attachment, guarded mutable return and v4 restart
+([M29](milestone-29-plan.md)). These contracts do not certify travel between
 checkpoints, normal original startup or a generally playable region.
 
 The organizing goal is a meaningful connected Clouds vertical slice: a finite
@@ -21,55 +23,21 @@ and a durable continuation. The priority is integrating accepted systems into
 coherent gameplay. Additional diagnostics are useful as validation controls,
 but are not substitutes for that integration.
 
-**M29 is selected as the immediate direction for architectural planning.**
-M30 and M31 are provisional, dependency-gated successors leading toward the
-first connected slice; its content remains conditional. Roadmap selection does not
-authorize implementation or establish the detailed milestone contract. The
-architecture/specification agent prepares that contract; the maintainer
-separately authorizes work; the independent reviewer audits implementation and
-evidence. Create a milestone plan only when the milestone is about to begin.
+**Post-M29 route-evidence investigation is next.** It is an investigation and
+replanning gate before detailed M30 planning, not authorization to implement
+M30. M30 and M31 remain provisional, dependency-gated directions whose content
+and separation may change from the evidence. Roadmap selection, detailed
+planning and implementation authorization remain separate. Create a milestone
+plan only when that milestone is about to begin.
 
 ## Near term
 
-### M29 - Mutable encounter continuity and durable journey state
-
-Enable an admitted encounter to occur inside a continuing gameplay session.
-After surviving combat, the player should be able to navigate, inspect and
-manage party/items, save at a supported idle boundary, restart and continue
-with the same authoritative consequences. Admission must account for supported
-party, item and quest changes before combat as well as mutation after combat.
-
-This addresses a concrete separation in the current implementation. Ordinary
-saves write v2; completed Diagnostic27 writes narrowly constrained v3. Combat
-admission and completed validation retain original-party/item restrictions,
-single-encounter XP and a canonical defeated actor overlay while other actors
-remain resource-initialized. Those boundaries do not yet compose into a mutable
-journey. See the [persistence model](project-status.md#persistence-model) and
-[M28 contract](milestone-28-plan.md#save-format-and-compatibility).
-
-The specification must bound supported gameplay state, encounter entry/exit,
-injury and failure outcomes, progression accounting and save compatibility.
-It must distinguish gameplay time from cosmetic animation, and true map entry
-from cache reconstruction and process restoration. Choose the smallest original
-content envelope that demonstrates continuity through production controls and
-save/restart; detailed representation, acceptance witnesses and internal stages
-belong in that specification.
-
-M29 does not commit to general combat, universal monster support, full map-20
-playability, normal Vertigo startup or the complete vertical slice. Recovery,
-services, item-use effects, Run/disengagement and arbitrary mid-combat saving
-are not implicit deliverables. If continuity cannot be bounded without one of
-these capabilities, review the scope explicitly before implementation.
-
-Confidence is high in the need for this foundation. Its precise admission and
-persistence boundary still requires architectural specification and review.
-
 ### Post-M29 gate - Route evidence before detailed M30 planning
 
-After M29 closes with acceptance, verify the new committed baseline and perform
-a small targeted investigation of the preferred expedition against original
-resources and the pinned reference. Establish actor influence across movement,
-facing and waiting; encounter grouping; Zombie/Disease rules; attrition with the
+After the M29 closure is committed and its post-push baseline is verified,
+perform a small targeted investigation of the preferred expedition against
+original resources and the pinned reference. Establish actor influence across
+movement, facing and waiting; encounter grouping; Zombie/Disease rules; attrition with the
 proposed starting party; and whether recovery or Run is necessary. Include
 reachable event branches, a credible failure/exit policy and readable navigation,
 threat and outcome feedback. Parsed resources and terrain passability alone are
@@ -94,9 +62,9 @@ requires. Necessary recovery or disengagement must be explicitly scoped or trigg
 replanning; they cannot be omitted while claiming the route is playable. This is
 route-specific integration, not general combat or whole-map certification.
 
-Confidence is conditional on accepted M29 continuity and the route gate. This
-boundary provides a connected navigation/combat acceptance target before full
-objective-loop closure in M31. Reuse the production path intended for that slice;
+Confidence is conditional on the route gate; M29 continuity is now an accepted
+foundation. This boundary provides a connected navigation/combat acceptance
+target before full objective-loop closure in M31. Reuse the production path intended for that slice;
 do not build a separate diagnostic framework. Detailed actors, rules and acceptance
 contracts remain for the M30 specification.
 
@@ -183,11 +151,10 @@ their existing owners. Flow and SDL coordinate transient gameplay and
 presentation. Reuse accepted systems before introducing parallel frameworks.
 
 Completed Diagnostic27 remains terminal and quiescent under its accepted
-contract. Future mutable gameplay needs its own admitted contract; do not
-disable M28's owner/preimage or presentation safeguards to permit exploration.
-Retain their reusable safety principles while distinguishing diagnostic-specific
-restrictions from general gameplay rules. Commercial resources remain external
-and unmodified.
+contract. Mutable Journey gameplay uses M29's separate admitted domain and
+retains M28's reusable owner/preimage and presentation safeguards without
+changing diagnostic semantics. Commercial resources remain external and
+unmodified.
 
 ## Replanning and review cadence
 
@@ -206,9 +173,9 @@ reference. Replan when:
 
 Retain approximately three completed milestones as the ordinary broader roadmap
 review cadence, with focused scope review before each specification. This is
-not a quota and does not delay an earlier evidence-driven review. Closure of the
-proposed M29-M31 sequence is a natural broader reassessment point; the post-M29
-route gate remains necessary before detailed M30 planning. Use the
+not a quota and does not delay an earlier evidence-driven review. Completion of
+the provisional M30-M31 direction is a natural broader reassessment point; the
+post-M29 route gate remains necessary before detailed M30 planning. Use the
 verified SHA and handoff gate in [AGENTS.md](../AGENTS.md) for external planning
 and review. Roadmap approval, detailed planning and implementation authorization
 remain separate.

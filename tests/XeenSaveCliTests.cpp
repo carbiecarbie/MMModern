@@ -36,6 +36,20 @@ int main(int argc,char **argv){try{
  {L"--render-map",game.wstring(),L"1",L"16",L"0",L"north"},
  {L"--render-map",game.wstring(),L"--save-file",L"--load-game"}};
  for(const auto &args:bad)check(launch(exe,args,log).exit==1,"invalid CLI syntax accepted");
+ for(const auto *entry:{L"--journey-skeleton",L"--encounter-27"}) {
+  for(const auto *seed:{L"0",L"-1",L"+1",L"1x",L"4294967296",L"",L" 56",L"99999999999"})
+   check(launch(exe,{entry,L"--combat-seed",seed,game.wstring()},log).exit==1,"strict seed syntax");
+  for(const auto &args:std::vector<std::vector<std::wstring>>{
+   {entry},{entry,L""},{entry,game.wstring(),L"extra"},
+   {entry,game.wstring(),L"--combat-seed",L"56"},{entry,L"--combat-seed",L"56",L"--combat-seed",L"56",game.wstring()},
+   {entry,game.wstring(),L"--save-file",path.wstring(),L"--save-file",path.wstring()},
+   {entry,L"--load-game",game.wstring(),path.wstring()},
+   {L"--load-game",game.wstring(),path.wstring(),entry},
+   {L"--load-game",game.wstring(),path.wstring(),L"--combat-seed",L"56"},
+   {entry,game.wstring(),L"--encounter-26"},{entry,game.wstring(),L"--journey-skeleton"},
+   {entry,game.wstring(),L"--encounter-27"}})
+   check(launch(exe,args,log).exit==1,"Journey/diagnostic duplicate or conflict accepted");
+ }
  Fixture fixture;Bytes party(782),roster(30*354),map(892);map[768]=1;map[781]=128;
  sprite_test::archive(dir/"initial-test.cc",{{"maze.chr",roster},{"maze.pty",party},{"maze0001.dat",map}});
  std::ifstream innerFile(dir/"initial-test.cc",std::ios::binary);
@@ -46,6 +60,13 @@ int main(int argc,char **argv){try{
  const auto encounter = launch(exe,{L"--encounter-26",game.wstring()},log);
  check(encounter.exit==3&&encounter.output.find("World of Xeen")!=std::string::npos,
   "valid encounter syntax did not reach edition admission");
+ for(const auto &args:std::vector<std::vector<std::wstring>>{
+  {L"--journey-skeleton",game.wstring()},
+  {L"--journey-skeleton",L"--combat-seed",L"56",game.wstring(),L"--save-file",path.wstring()},
+  {L"--journey-skeleton",L"--combat-seed",L"4294967295",game.wstring()},
+  {L"--encounter-27",L"--combat-seed",L"56",game.wstring(),L"--save-file",path.wstring()}}) {
+  const auto result=launch(exe,args,log);check(result.exit==3&&result.output.find("World of Xeen")!=std::string::npos,"valid bounded entry parsing");
+ }
  auto s=fixture.saved();s.resources=XeenSaveFile::fingerprint(installation);
  const auto run=[&](const char *message){const auto r=launch(exe,{L"--load-game",game.wstring(),path.wstring()},log);check(r.exit==3&&r.output.find(message)!=std::string::npos&&r.output.find("Resumed ")==std::string::npos,"CLI startup failure/fallback contract");};
  run("Inspect save file");

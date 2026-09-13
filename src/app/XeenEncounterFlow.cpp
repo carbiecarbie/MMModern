@@ -154,11 +154,27 @@ void XeenEncounterFlow::schedule(std::uint64_t now) noexcept {
 }
 
 bool XeenEncounterFlow::handle(const PlayerAction &input, std::optional<std::uint64_t> cycle, std::optional<XeenCombat::Ticket> displayed) {
-	if (_journey) return false; // Production input routing belongs to M29C.
 	if (completed()) return false;
 	if (_combat) return displayed && _combat->current(*displayed) && handleCombat(input, cycle);
 	const auto action = mapped(input);
 	if (_busy || !action || _state.phase() != XeenEncounterPhase::Exploring) return false;
+	if (_journey) {
+		std::uint64_t now;
+		if (!prepareTime(ticket(),now)) return false;
+		_lastTime = now;
+		const auto r = journeyAction(ticket(),*action);
+		_actionResult = r; _actionPending = _state.pending(); _inputCycle = cycle;
+		if (r.outcome == XeenEncounterOutcome::Refused) {
+			if (r.reason == XeenEncounterStop::Envelope) _journeyRefusal = "Four-cell boundary: x=13..14, y=1..2";
+			return true;
+		}
+		if (_state.phase() == XeenEncounterPhase::Exploring &&
+			(r.outcome == XeenEncounterOutcome::Accepted || r.outcome == XeenEncounterOutcome::Blocked)) {
+			if (!prepareTime(ticket(),now)) return true;
+			journeyPulse(ticket());
+		}
+		schedule(now); return true;
+	}
 	Busy busy(_busy);
 	const auto entry = ticket();
 	if (!current(entry)) return false;
@@ -201,10 +217,22 @@ bool XeenEncounterFlow::handle(const PlayerAction &input, std::optional<std::uin
 }
 
 bool XeenEncounterFlow::idle(std::optional<std::uint64_t> cycle) {
-	if (_journey) return false;
 	if (completed()) return false;
 	if (_combat) return idleCombat(cycle);
 	if (_busy || _state.phase() != XeenEncounterPhase::Exploring) return false;
+	if (_journey) {
+		if (_world.sessionState().journeyActivity() == XeenJourneyActivity::Presentation || !_boundary.quiet()) return false;
+		std::uint64_t now;
+		if (!prepareTime(ticket(),now)) return false;
+		const bool due = _state.pending() && _deadline && now >= *_deadline && !(cycle && _inputCycle == cycle);
+		const bool cosmetic = now >= _cosmeticDeadline;
+		_lastTime = now;
+		if (due) { journeyPulse(ticket()); schedule(now); _inputCycle = cycle; }
+		if (cosmetic && _state.phase() == XeenEncounterPhase::Exploring) {
+			_frame = (_frame + 1) % 8; _cosmeticDeadline = now + 100;
+		}
+		return due || cosmetic;
+	}
 	Busy busy(_busy);
 	const auto entry = ticket();
 	if (!current(entry)) return false;
@@ -230,6 +258,16 @@ bool XeenEncounterFlow::idle(std::optional<std::uint64_t> cycle) {
 std::string XeenEncounterFlow::notice() const {
 	if (completed()) return completedNotice(_world, _party, _camera, _completedFeedback);
 	if (_combat) return combatNotice();
+	if (_journey) {
+		const auto &a = _world.sessionState().actors().at(5);
+		return "Journey (" + std::to_string(_camera.x) + "," + std::to_string(_camera.y) + ") " +
+			std::string(1,"NESW"[unsigned(_camera.direction)]) + " T=" + std::to_string(_party.encounterContext->minutes) +
+			" pending=" + std::to_string(_state.pending()) + "\n" +
+			(a.lifecycle == XeenActorLifecycle::Defeated ? "Defeated/accounted. Continue; no recovery." :
+			 "Threat (" + std::to_string(a.x) + "," + std::to_string(a.y) + "). Survive; no recovery.") +
+			"\nI inventory; F9 quiet save; . Wait; Space interact\n" +
+			"Four cells x13..14/y1..2; time <960" + (_journeyRefusal.empty() ? "" : "\n\n" + _journeyRefusal);
+	}
 	std::string text = "M26: Arrows move/turn, . Wait, Esc exit\n";
 	text += "Map 20 (" + std::to_string(_camera.x) + "," + std::to_string(_camera.y) + ") ";
 	constexpr const char *directions[]{"N","E","S","W"};

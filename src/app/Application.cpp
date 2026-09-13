@@ -424,6 +424,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
         const XeenFontFormat font(assets.readArchiveResource("fnt"));
         const CloudsMapComposer composer;
         bool diagnosticControls = entry == XeenEncounterEntry::Diagnostic27;
+        bool journeyControls = entry == XeenEncounterEntry::Journey;
         const auto catalog = loadXeenItemCatalog(assets);
         if (!catalog.diagnostic.empty()) std::cerr << "Item catalog: " << catalog.diagnostic << '\n';
         XeenGameplayServices services{
@@ -442,6 +443,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
             [&](IndexedFrame &frame, std::uint8_t portrait, std::size_t index) { assets.drawNpc(frame, portrait, index); },
             [&](XeenEventFlow &flow, const XeenCamera &position) {
                 diagnosticControls = diagnosticControls || flow.completed();
+                journeyControls = journeyControls || flow.journey();
                 flow.rebuildEncounterPresentation = [&] { assets.discardSpriteCache(); };
                 flow.reportManual = printManualEventResult;
                 flow.reportAutomatic = requireAutomaticEventSuccess;
@@ -453,7 +455,8 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                 };
             },
             [&](const IndexedFrame &first, const auto &handler, const auto &escape, const auto &idle, const auto &status) {
-                if (diagnosticControls)
+                if (journeyControls) {} // The shared startup prints the bounded Journey controls.
+                else if (diagnosticControls)
                     std::cout << "M27: I prepares inventory; Enter begins with inventory closed. "
                         "I cancels a transfer or closes Browse; N cancels confirmation. "
                         "Arrows and period control approach; Space attacks and B blocks in combat. "
@@ -496,7 +499,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                 &result.containsOrdinaryAnimation, actor);
             return result;
         };
-        return playGameplay(services, camera, target, resume, entry);
+        return playGameplay(services, camera, target, resume, entry, entry == XeenEncounterEntry::Journey ? seed : std::nullopt);
     } catch (const std::exception &error) {
         std::cerr << "Gameplay startup failed";
         if (savePath) std::cerr << " [" << std::filesystem::absolute(*savePath).u8string() << ']';

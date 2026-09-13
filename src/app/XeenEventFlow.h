@@ -34,7 +34,9 @@ public:
 	XeenEventFlow &operator=(const XeenEventFlow &) = delete;
 	IndexedFrame initial();
 	IndexedFrame handle(const PlayerAction &action, std::optional<std::uint64_t> displayedInput = {});
-	std::optional<std::uint64_t> displayedInput() const noexcept { return _encounter && (_encounter->combat() || _encounter->completed()) ? std::optional<std::uint64_t>{_inputGeneration} : std::nullopt; }
+	std::optional<std::uint64_t> displayedInput() const noexcept { return _encounter && (journey() || _encounter->combat() || _encounter->completed()) ? std::optional<std::uint64_t>{_inputGeneration} : std::nullopt; }
+	bool journeyInputCurrent(std::optional<std::uint64_t>) const noexcept;
+	std::function<void()> prepareJourneySprites;
 	bool completed() const noexcept { return _encounter && _encounter->completed(); }
 	bool canSave() const noexcept;
 	class SaveBoundary {
@@ -61,7 +63,8 @@ public:
 	IndexedFrame acceptManual(XeenManualEventResult result);
 	IndexedFrame acceptAutomatic(XeenAutomaticEventResult result);
 	const IndexedFrame &frame() const { return _frame; }
-	bool blocksGameplay() const { return _encounter || _pending.has_value() || _dispatching || inventoryOpen() || _fatal; }
+	bool blocksGameplay() const { return (_encounter && (!journey() || !_encounter->journeyQuiet())) ||
+		_pending.has_value() || _dispatching || _saving || _handoffPending || inventoryOpen() || _fatal; }
 	const XeenEncounterFlow *encounter() const noexcept { return _encounter.get(); }
 	void beginCycle(std::uint64_t cycle);
 	bool encounterFrameCurrent() const noexcept;
@@ -111,6 +114,7 @@ private:
 	std::optional<XeenCombat::Ticket> _displayedCombat;
 	std::optional<XeenEncounterFlow::Ticket> _displayedCompleted;
 	void authorizeCompletedFrame();
+	void prepareJourneyTransition();
 	std::uint64_t _inventoryLease = 0, _certificateLease = 0;
 	bool combatPreparation() const noexcept { return _encounter && _encounter->preparation(); }
 	void syncCombatInventory();
@@ -166,7 +170,7 @@ private:
 	struct Pending { XeenEventExecutionState state; bool automatic; std::uint64_t generation; };
 	std::uint64_t _generation = 0;
 	XeenWorld &_world;
-	XeenWorld::GameplayBorrow _gameplayBorrow;
+	std::unique_ptr<XeenWorld::GameplayBorrow> _gameplayBorrow;
 	XeenEventSystem &_events;
 	XeenPartyState &_party;
 	XeenCamera &_camera;

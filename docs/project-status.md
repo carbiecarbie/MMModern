@@ -2,9 +2,9 @@
 
 ## Stable baseline
 
-**Milestone 28 is the latest completed milestone; stages 28A, 28B and 28C are accepted.**
+**Milestone 29 is the latest completed milestone; stages 29A, 29B and 29C are accepted.**
 This file describes stable capabilities and architecture. Acceptance belongs in
-the [M28 closed plan](milestone-28-plan.md#final-acceptance); completed
+the [M29 closed plan](milestone-29-plan.md#final-acceptance); completed
 milestone chronology belongs in [project history](project-history.md).
 
 ## Supported scope
@@ -55,11 +55,14 @@ Bounded original outdoor monster support uses world-owned live actors with
 distinct monster identities and resource-derived statistics from
 `DARK.CC/xeen.mon`. Normal MON and combat ATT sprites from `XEEN.CC` use typed
 appearances in the existing ordered terrain/object/actor stream. The map-20
-diagnostic supports one Skeleton's activation, delayed approach, same-cell
-engagement and a playable Attack/Block fight through victory or defeat. Commands,
-occupancy, cosmetic frames and composition caches are disposable; authoritative
-coordinates, HP, lifecycle and outcomes survive reconstruction. This remains a
-bounded diagnostic, not certified map travel or general combat.
+diagnostics support one Skeleton's activation, delayed approach, same-cell
+engagement and a playable Attack/Block fight through victory or defeat. The
+separate production Journey connects the same admitted encounter to mutable
+inventory and four-cell navigation before and after combat, with automatic
+attachment and durable continuation. Commands, occupancy, cosmetic frames and
+composition caches are disposable; authoritative coordinates, HP, lifecycle
+and outcomes survive reconstruction. This remains a bounded checkpoint, not
+certified map travel or general combat.
 
 ### Events and interactions
 
@@ -77,6 +80,13 @@ bounded diagnostic, not certified map travel or general combat.
   victory, defeat and failure are unsaveable. A successful End retires into a
   quiescent completed checkpoint with F9 saving, read-only I inspection and
   bounded R revisit. Completed mode cannot resume combat or exploration.
+- `--journey-skeleton` starts bounded production gameplay at `(13,1)` North.
+  Existing inventory/equipment is mutable before combat; same-cell engagement
+  attaches the Skeleton combat automatically without Diagnostic27 Begin. Space
+  attacks and B blocks during combat. Successful End retires the coordinator and
+  returns to mutable four-cell navigation and item management on the same owners.
+  Quiet presented boundaries permit F9 v4 saving; Enter and R have no Journey
+  encounter/revisit meaning.
 - Bounded event decoding/execution supports conditions, Call/Return, transfers,
   game flags and Remove. Space dispatches from the current cell/facing without
   requiring the automatic-event bit; automatic dispatch retains that gate.
@@ -152,7 +162,8 @@ bounded diagnostic, not certified map travel or general combat.
 ### Save and resume
 
 Local Windows F9 saving and startup resume preserve supported durable state
-across process restarts, including an eligible completed Diagnostic27 victory.
+across process restarts, including an eligible completed Diagnostic27 victory
+and quiet pre- or post-combat Journey state.
 [README](../README.md#running-and-controls) owns the public CLI/control reference.
 The persistence contract below defines eligibility, restoration and compatibility.
 
@@ -194,6 +205,22 @@ The persistence contract below defines eligibility, restoration and compatibilit
   the actual world, party, roster and camera owners. Runtime tickets, leases,
   generations and retained preimages are transient authority; copied values or
   reconstructed pointers cannot authorize capture or revisit.
+- Journey is a separate positively admitted mutable domain. Party/roster owns
+  all 30 complete supplements and XP plus the retained gameplay context; world
+  owns all 27 actors, per-identity defeat accounting and the single Skeleton
+  seed. Approach and combat coordinators borrow those owners and create no
+  replacement graph. Successful End is runtime authority for guarded retirement,
+  after which mutable Flow continues on the same owners.
+- Journey-valid state can be preserved and manipulated even when equipped data
+  is not supported by the bounded melee consumer. Melee readiness is checked at
+  the live-enemy action/attachment boundary before publication; supported item
+  operations may repair the loadout without healing, clamping or reclassifying
+  retained injuries.
+- Journey activity, boundary leases and presented-input generations keep capture
+  and incompatible controls closed during pending approach, attachment, combat,
+  End, retirement, modal work and frame handoff. Only a matching successful SDL
+  presentation opens new input. Stale keys, including Application-intercepted F9,
+  cannot initiate capture, providers or later work.
 - Completed Flow presentation preserves irreversible victory/accounting facts
   across recoverable composition failure while holding capture closed until an
   authorized frame handoff succeeds. Integrity violations permanently invalidate
@@ -283,6 +310,14 @@ bytes and equipment/breakage frames remain in the existing character payloads.
 No actor array, combat transcript, runtime capability or presentation state is
 serialized.
 
+Journey v4 additionally persists the complete gameplay context, all 30
+owner-keyed supplements including XP, the nonzero Skeleton seed, and one exact
+live-state record for Clouds map-20 actor 5. The complete 27-actor collection is
+validated at capture and reconstructed from compatible resources on restore;
+the record preserves either the activated live anchor or canonical
+defeated/accounted consequence. Runtime countdowns, combat cursor, End authority,
+leases and presentation/input generations are not serialized.
+
 **Transient or reconstructed:** resource payloads, loader metadata/diagnostics,
 derived rules/frames/caches, indoor placement/wall/command/raster values,
 interpreter working state and call stacks, temporary
@@ -319,20 +354,24 @@ certificate. M24 transfer remains independent: it resets the moved frame and
 compacts touched categories, whereas equipment changes one frame in place.
 
 Diagnostic26 and every incomplete or unsafe Diagnostic27 state remain unsaveable.
-F9 refuses those states before capture, provider/preflight work or file I/O and
-never queues a later save. A coherent Diagnostic27 successful-End result becomes
-saveable only after guarded retirement into bound quiescent authority and after
-normal UI/presentation handoff guards are clear.
+Journey capture additionally requires a valid graph at a quiet pending-zero
+boundary with no combat, attachment, End, retirement, modal/save work or
+unresolved presentation. F9 refuses blocked states before capture,
+provider/preflight work or file I/O and never queues a later save. A coherent
+Diagnostic27 successful-End result becomes saveable only after guarded retirement
+into bound quiescent authority and after normal UI/presentation guards are clear.
 
-**Format and compatibility:** ordinary eligible saves use **v2** and completed
-Diagnostic27 saves use **v3**; the reader accepts supported **v1, v2 and v3**.
+**Format and compatibility:** ordinary eligible saves use **v2**, completed
+Diagnostic27 saves use **v3**, and Journey saves use Journey-only **v4**; the
+reader accepts supported **v1, v2, v3 and v4** in their distinct domains.
 `.mmsave` uses bounded little-endian encoding,
 a 4 MiB limit and CRC32 corruption checks. Compatibility requires matching
 `xeen.cc` length/CRC32 and `dark.cc` presence/length/CRC32, independently of the
 installation path. CRC32 is not cryptographic authentication. The envelope and
 unchanged fields are specified in the [M20 format](milestone-20-plan.md#4-concrete-format-mmmodern-clouds-save-v1);
 the item extension is in [M21](milestone-21-plan.md#save-v2-and-legacy-v1-compatibility),
-and completed v3 is specified in the [M28 format](milestone-28-plan.md#save-format-and-compatibility).
+completed v3 is specified in the [M28 format](milestone-28-plan.md#save-format-and-compatibility),
+and Journey v4 is specified in the [M29 format](milestone-29-plan.md#v4-journey-format).
 
 V2 stores 144 item bytes per character in category/slot/material-ID-state-frame
 order. V1 stores equipment modifier triples: restoration preserves all saved
@@ -340,16 +379,19 @@ values and supplies only missing equipment IDs and miscellaneous arrays from
 the matching initial roster slots. V2 arrays, including explicit empties, win
 in full. A transient presence marker permits v1 decoding/restoration but prevents
 direct encoding of unresolved v1 snapshots. Reading never rewrites the file;
-an explicit eligible F9 save writes v2 or v3 according to the captured session.
+an explicit eligible F9 save writes v2, v3 or v4 according to the captured domain.
 V3 is the complete v2 payload followed by the fixed completed encounter/context/
 supplement extension; legacy absence never implies encounter completion.
+V4 retains the v2 base and appends the exact Journey schema; no legacy version
+converts implicitly to Journey.
 
-**Save boundary:** an ordinary session or coherent quiescent completed
-Diagnostic27 may be captured after startup. No dispatch, execution, save/re-entry,
-open inventory/inspection, synchronous transfer, unresolved presentation lease,
-shutdown or fatal failure may be active. Nonblocking retained labels are allowed
-but omitted. Refused F9 performs no capture, provider, I/O, advancement or queued
-save; clear the blocking boundary and issue a new F9. No target means no write.
+**Save boundary:** an ordinary session, coherent quiescent completed
+Diagnostic27 or eligible quiet Journey may be captured after startup. No
+dispatch, execution, save/re-entry, open inventory/inspection, synchronous
+transfer, unresolved presentation lease, shutdown or fatal failure may be
+active. Nonblocking retained labels are allowed but omitted. Refused F9 performs
+no capture, provider, I/O, advancement or queued save; clear the blocking
+boundary and issue a new F9. No target means no write.
 
 An existing parent outside the commercial installation is required. Saving uses
 a sibling temporary file and preserves the old valid save on handled write or
@@ -364,6 +406,12 @@ initial automatic dispatch. Ordinary resume later retains normal navigation/even
 behavior. Completed resume reconstructs all 27 original actors from compatible
 resources and applies the canonical defeated overlay to Clouds map 20 record 5;
 it restores exact party/context/supplement values and creates new runtime bindings.
+Journey v4 resume reconstructs compatible immutable actor/resource metadata,
+applies the saved live record, publishes guarded fresh owners, consumes the
+restore-only Journey binding and presents the saved camera/state without fresh
+initialization, classification, action, pulse, combat, End, item operation or RNG
+replay. EventFlow acquires its gameplay borrow only after consuming that binding;
+the retained guard admits exactly that borrow revision and no arbitrary change.
 Invalid/incompatible saves fail startup without a fresh-session fallback.
 
 Cache reconstruction preserves the current live actor collection. Completed R
@@ -389,6 +437,7 @@ or of a generally playable region.
 | Air / Corner and Snake Oil | Original sign and reduced door-label presentation; Air / Corner also exercises static object/text layering. |
 | Nightshadow, map 29 `(4,6)` West | Original RIP gravestone rendered as a static ordinary indoor object with its original bottom-window clue and acknowledgment. The interaction is repeatable and has no durable state effect. |
 | Skeleton diagnostic, map 20 `(13,1)` North | Original monster record 5, type 8, initially `(13,2)`, with all 27 identities retained. World of Xeen Clouds/Adventurer context, bounded four-cell approach and playable Attack/Block combat with original MON/ATT appearance, injury, armor breakage, victory/defeat and once-only XP. Incomplete/unsafe states remain unsaveable; successful completed victory supports restart, read-only inspection and bounded true revisit with record 5 still defeated. |
+| Skeleton Journey, map 20 four-cell footprint | Production `--journey-skeleton` permits mutable inventory/equipment before automatic engagement, Attack/Block through genuine End, guarded return to bounded navigation/item management and v4 save/restart on the same owners. Context, all 30 supplements/XP, exact injuries/items and record-5 live or defeated/accounted state survive direct restoration without replay. This is distinct from Diagnostic27 completion/R. |
 
 Myra's ordinary tent-flag cycle runs without input and continues underneath
 dialogue, independently of the portrait. The [M22 checkpoint contract](milestone-22-plan.md#certified-original-data-checkpoint)
@@ -439,9 +488,10 @@ complete automated, original-data, independent-review and physical boundary.
   admitted melee/statistics/item domain, combat-time inventory mutation and
   recruitment/reordering. Random treasure, generic TakeOrGive and NPC
   modes/services beyond Clouds mode 1 also remain unsupported.
-- Actors and encounters beyond the bounded M28 completed outdoor diagnostic,
-  normal-route/playable-region certification, Swimming /
-  Walk on Water and other unsupported movement capabilities. General indoor
+- Actors and encounters beyond the bounded M28 completed outdoor diagnostic
+  and M29's single-Skeleton four-cell Journey; normal-route/playable-region
+  certification, Swimming / Walk on Water and other unsupported movement
+  capabilities. General indoor
   traversal, connected-map behavior and playable-region certification remain
   outside the accepted checkpoints.
 - Scripted object animation/appearance changes, terrain animation, ordinary
@@ -459,7 +509,8 @@ Ordinary CTest does not depend on commercial data.
 
 ## Next direction
 
-M28's durable bounded encounter completion and revisit are an accepted foundation.
-The [roadmap](roadmap.md#current-planning-state) retains broader connected Clouds
-progression and a possible repeatable recovery/exploration loop as conditional
-directions. No successor milestone is selected or authorized.
+M29's mutable Journey and durable continuation are the accepted foundation. The
+immediate next activity is the [post-M29 route-evidence gate](roadmap.md#post-m29-gate---route-evidence-before-detailed-m30-planning):
+a targeted investigation and replanning step before any detailed M30 plan. M30
+and M31 remain provisional; neither planning nor implementation is authorized by
+M29 completion.

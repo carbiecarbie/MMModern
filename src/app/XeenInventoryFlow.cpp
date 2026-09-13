@@ -12,6 +12,11 @@ struct Scope {
 };
 }
 void XeenEventFlow::advanceInventoryEpoch() noexcept {
+	if (_certificateLease && journey()) {
+		try { _encounter->releaseJourneyWork(XeenCombatBoundary::Work::Certificate,_certificateLease); }
+		catch (...) { closeGameplay(); }
+		_certificateLease = 0;
+	}
 	if (_certificateLease && _encounter && _encounter->combat()) {
 		try { _encounter->boundary().release(XeenCombatBoundary::Work::Certificate,_certificateLease); }
 		catch (...) { _encounter->combat()->invalidate(); _fatal=true; }
@@ -91,6 +96,7 @@ void XeenEventFlow::invalidateInventorySelection() {
 void XeenEventFlow::invalidateInventory() {
 	requireCurrentOwners();
 	if (_encounter) {
+		if (journey()) { closeGameplay(); return; }
 		if (_encounter->combat()) _encounter->combat()->invalidate();
 		if (completed()) { _encounter->closeCompleted(); _fatal = true; }
 		return;
@@ -100,6 +106,11 @@ void XeenEventFlow::invalidateInventory() {
 }
 void XeenEventFlow::closeInventory() noexcept {
 	advanceInventoryEpoch();
+	if (_inventoryLease && journey()) {
+		try { _encounter->releaseJourneyWork(XeenCombatBoundary::Work::Inventory,_inventoryLease); }
+		catch (...) { closeGameplay(); }
+		_inventoryLease = 0;
+	}
 	if (_inventoryLease && _encounter && _encounter->combat()) {
 		try { _encounter->boundary().release(XeenCombatBoundary::Work::Inventory,_inventoryLease); }
 		catch (...) { _encounter->combat()->invalidate(); _fatal=true; }
@@ -110,6 +121,11 @@ void XeenEventFlow::closeInventory() noexcept {
 	_equipmentResult.reset();
 }
 void XeenEventFlow::recoverInventory() {
+	if (journey()) {
+		if (!_encounter->current(_encounter->ticket())) { _fatal = true; throw std::runtime_error("Journey inventory integrity failure"); }
+		closeInventory();
+		return; // The retained outer dispatcher performs the guarded rebuild.
+	}
 	if (_encounter && (_encounter->combat() || completed())) {
 		const auto entry = _encounter->ticket();
 		_encounter->fail(entry);
@@ -123,6 +139,7 @@ void XeenEventFlow::recoverInventory() {
 	catch (...) { _fatal = true; throw; }
 }
 void XeenEventFlow::drawInventory() {
+	if (journey()) return; // One composition under the Journey presentation guard.
 	if (completed()) return; // The completed dispatcher performs one guarded render.
 	if (_encounter && (_encounter->combat() || completed())) { syncCombatInventory(); renderEncounter(); return; }
 	try { _frame = drawXeenInventory(_inventoryUnderlay,_inventoryFont,_catalog,_party,_inventory,_inventoryFeedback,
@@ -161,7 +178,9 @@ void XeenEventFlow::handleEquipment() {
 	}
 	const auto operation = certificate->selectedRecord.frame == 0 ?
 		XeenEquipmentOperation::Equip : XeenEquipmentOperation::Remove;
-	const auto result = _encounter && _encounter->combat() ? _encounter->combat()->equipment(_encounter->combat()->ticket(),
+	const auto result = journey() ? _encounter->journeyEquipment(_encounter->ticket(),
+		certificate->sourceActiveIndex,certificate->category,certificate->physicalSlot,operation) :
+		_encounter && _encounter->combat() ? _encounter->combat()->equipment(_encounter->combat()->ticket(),
 		certificate->sourceActiveIndex,certificate->category,certificate->physicalSlot,operation) :
 		xeenSetEquipment(_party, certificate->sourceActiveIndex, certificate->category, certificate->physicalSlot, operation);
 	_equipmentResult = result;
@@ -170,7 +189,7 @@ void XeenEventFlow::handleEquipment() {
 	const auto report = result; // Stable even if the callback invalidates Flow state.
 	const auto authority = _encounter ? std::optional<XeenEncounterFlow::Ticket>{_encounter->ticket()} : std::nullopt;
 	try { if (reportEquipment) reportEquipment(report); }
-	catch (...) { if (authority && !_encounter->fail(*authority)) _fatal=true; throw; }
+	catch (...) { if (authority && !journey() && !_encounter->fail(*authority)) _fatal=true; throw; }
 	if (authority && !_encounter->current(*authority)) { _fatal=true; throw std::runtime_error("Stale equipment reporting"); }
 	if (result.status == XeenEquipmentStatus::Success)
 		refreshScene(true, OrdinaryCause::None);
@@ -198,7 +217,8 @@ void XeenEventFlow::confirmInventory() {
 		else if (s.sourceOwner == s.destinationOwner) _transferResult.status = XeenTransferStatus::SameOwner;
 		else if (_inventory.category == s.category && _inventory.slot == s.slot && s.slot &&
 			validInventorySource(true) && xeenSameItem(_inventory.record,s.record))
-			_transferResult = _encounter && _encounter->combat() ? _encounter->combat()->transfer(_encounter->combat()->ticket(),
+			_transferResult = journey() ? _encounter->journeyTransfer(_encounter->ticket(),s.source,*s.destination,s.category,*s.slot) :
+				_encounter && _encounter->combat() ? _encounter->combat()->transfer(_encounter->combat()->ticket(),
 				s.source,*s.destination,s.category,*s.slot) : xeenTransferItem(_party,s.source,*s.destination,s.category,*s.slot);
 	}
 	const bool success = _transferResult.status == XeenTransferStatus::Success;
@@ -208,7 +228,7 @@ void XeenEventFlow::confirmInventory() {
 	// Result and disarming precede every callback, formatting operation and draw.
 	const auto authority = _encounter ? std::optional<XeenEncounterFlow::Ticket>{_encounter->ticket()} : std::nullopt;
 	try { if (reportInventory) reportInventory(_transferResult); }
-	catch (...) { if (authority && !_encounter->fail(*authority)) _fatal=true; throw; }
+	catch (...) { if (authority && !journey() && !_encounter->fail(*authority)) _fatal=true; throw; }
 	if (authority && !_encounter->current(*authority)) { _fatal=true; throw std::runtime_error("Stale transfer reporting"); }
 	if (success) refreshScene(true,OrdinaryCause::None);
 }
@@ -235,7 +255,7 @@ IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
 		_presenter.clear();
 		if (!completed()) refreshScene(true,OrdinaryCause::None);
 		if (!inventoryOpen()) return _frame;
-		std::cout << (completed() ? XeenEncounterFlow::completedInspection(_world, _party, _camera) : xeenInventoryInspection(_party));
+		if (!journey()) std::cout << (completed() ? XeenEncounterFlow::completedInspection(_world, _party, _camera) : xeenInventoryInspection(_party));
 		return _frame;
 	}
 	if (std::holds_alternative<CancelInteractionAction>(action) ||
@@ -310,6 +330,12 @@ IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
 	}
 }
 void XeenEventFlow::syncCombatInventory() {
+	if (journey()) {
+		if (inventoryOpen() && !_inventoryLease) _inventoryLease = _encounter->holdJourneyWork(XeenCombatBoundary::Work::Inventory);
+		if ((_equipmentSelection || _inventoryConfirmation) && !_certificateLease)
+			_certificateLease = _encounter->holdJourneyWork(XeenCombatBoundary::Work::Certificate);
+		return;
+	}
 	if (!_encounter || !_encounter->combat()) return;
 	auto &boundary = _encounter->boundary();
 	if (inventoryOpen() && !_inventoryLease) _inventoryLease = boundary.hold(XeenCombatBoundary::Work::Inventory);

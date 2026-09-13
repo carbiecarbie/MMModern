@@ -25,6 +25,7 @@ public:
 		std::function<void()> framePresented;
 		std::function<void()> failed;
 		std::function<void()> closed;
+		bool protectAllKeys = false;
 		std::function<std::optional<std::uint64_t>()> displayedInput;
 		std::function<std::optional<IndexedFrame>(const PlayerAction &,std::uint64_t)> withDisplayedInput;
 	};

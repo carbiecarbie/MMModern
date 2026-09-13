@@ -192,6 +192,21 @@ Historical limitations in those plans describe their recorded boundaries.
   review and maintainer physical lifecycle acceptance completed. See the
   [Milestone 28 plan](milestone-28-plan.md).
 
+## M29 - Mutable encounter continuity and durable journey state
+
+- Established a bounded mutable Journey whose party, context, all 30 owner
+  supplements/progression and world-owned actor consequences persist across an
+  automatically attached encounter and guarded return from successful End.
+- Added Journey-only save v4 and fresh-owner production restart, preserving
+  exact mutable state and the live or defeated/accounted Skeleton without
+  replaying initialization, combat or item actions.
+- Connected `--journey-skeleton`, existing inventory/equipment, four-cell
+  navigation, Attack/Block combat and eligible F9 saving through the production
+  Application/Flow/SDL path.
+- Automated and original-data process validation, independent implementation
+  review and maintainer physical acceptance completed. See the
+  [Milestone 29 plan](milestone-29-plan.md).
+
 ## Maintaining this history
 
 Add one short section with 2-4 lasting-result bullets per completed milestone

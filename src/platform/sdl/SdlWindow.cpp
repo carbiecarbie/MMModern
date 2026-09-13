@@ -4,6 +4,7 @@
 #include <SDL.h>
 
 #include <cstdint>
+#include <array>
 #include <exception>
 #include <iostream>
 #include <optional>
@@ -173,6 +174,7 @@ bool showLoop(const IndexedFrame &initialFrame, const std::string &title,
 	}
 	std::uint64_t cycle = 0;
 	bool spaceDown = false, blockDown = false, revisitDown = false, inspectDown = false;
+	std::array<bool,SDL_NUM_SCANCODES> journeyKeys{};
 	std::uint32_t readyAt = SDL_GetTicks();
 	std::optional<std::uint64_t> displayedInput = handler.displayedInput ? handler.displayedInput() : std::nullopt;
 	while (running) {
@@ -187,13 +189,20 @@ bool showLoop(const IndexedFrame &initialFrame, const std::string &title,
 				if (event.type == SDL_QUIT) {
 					running = false;
 				} else if (event.type == SDL_KEYUP) {
+					const auto scan = SDL_GetScancodeFromKey(event.key.keysym.sym);
+					if (scan > SDL_SCANCODE_UNKNOWN && scan < SDL_NUM_SCANCODES) journeyKeys[scan] = false;
 					if (event.key.keysym.sym == SDLK_SPACE) spaceDown = false;
 					if (event.key.keysym.sym == SDLK_b) blockDown = false;
 					if (event.key.keysym.sym == SDLK_r) revisitDown = false;
 					if (event.key.keysym.sym == SDLK_i) inspectDown = false;
 				} else if (event.type == SDL_KEYDOWN) {
 					if (event.key.repeat != 0) continue;
-					if (batchInput && (event.key.keysym.sym == SDLK_SPACE || event.key.keysym.sym == SDLK_b ||
+					if (handler.protectAllKeys && playerAction(event.key)) {
+						const auto scan = SDL_GetScancodeFromKey(event.key.keysym.sym);
+						if (scan <= SDL_SCANCODE_UNKNOWN || scan >= SDL_NUM_SCANCODES) continue;
+						const bool held = journeyKeys[scan]; journeyKeys[scan] = true;
+						if (held || static_cast<std::int32_t>(event.key.timestamp-readyAt) <= 0) continue;
+					} else if (batchInput && (event.key.keysym.sym == SDLK_SPACE || event.key.keysym.sym == SDLK_b ||
 						event.key.keysym.sym == SDLK_r || event.key.keysym.sym == SDLK_i)) {
 						auto &down = event.key.keysym.sym == SDLK_SPACE ? spaceDown : event.key.keysym.sym == SDLK_b ? blockDown :
 							event.key.keysym.sym == SDLK_r ? revisitDown : inspectDown;

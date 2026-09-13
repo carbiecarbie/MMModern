@@ -6,7 +6,7 @@ Might and Magic V: Darkside of Xeen / World of Xeen.
 
 ## Status
 
-**Milestone 28 is the latest completed milestone.**
+**Milestone 29 is the latest completed milestone.**
 
 The engine supports a bounded Clouds quest loop: request a quest, collect an
 item, return it for character-held rewards, and save/resume the resulting progress.
@@ -18,6 +18,14 @@ SDL application, with ordinary outdoor objects animating while stationary and
 during dialogue. Static ordinary indoor objects use original directional
 appearances, placement and wall occlusion; the bounded Nightshadow gravestone
 interaction displays its original clue through the existing event flow.
+
+The production `--journey-skeleton` entry connects inventory/equipment,
+four-cell navigation, the original map-20 Skeleton encounter and durable
+continuation. Players may arrange the party before combat, engage automatically,
+fight with Attack/Block through a genuine End, then return to mutable gameplay
+on the same owners and save/restart the resulting injuries, XP, items, context
+and defeated actor consequence. This is a bounded Journey, not general map-20
+exploration or normal original-game startup.
 
 The Diagnostic26 entry presents an original outdoor Skeleton, supports its
 activation and approach, and stops at terminal same-cell engagement. Diagnostic27
@@ -58,7 +66,8 @@ See the [technical snapshot](docs/project-status.md),
 - Contextual equip/remove for bounded Clouds weapons, armor and accessories,
   including class, conflict, capacity and curse feedback for modeled rules.
 - Local Windows save/resume for ordinary progress and completed Diagnostic27,
-  including transferred ownership, exact combat outcomes and live diagnostics.
+  plus Journey v4 restart with transferred ownership, exact combat outcomes,
+  continued bounded navigation/item management and live diagnostics.
 
 ## Running and controls
 
@@ -70,6 +79,7 @@ mmodern --render-map <game-directory> [<map> <x> <y> <north|east|south|west>] [-
 mmodern --load-game <game-directory> <path.mmsave>
 mmodern --encounter-26 <game-directory>
 mmodern --encounter-27 [--combat-seed <nonzero-u32>] <game-directory> [--save-file <path.mmsave>]
+mmodern --journey-skeleton [--combat-seed <nonzero-u32>] <game-directory> [--save-file <path.mmsave>]
 ```
 
 Use an existing save directory outside the original game installation. Relative
@@ -100,6 +110,17 @@ combined with this entry.
 Combat uses the original normal and attack sprites with bounded source-derived
 sequences, while the live roster panel retains injuries and terminal XP results.
 
+`--journey-skeleton` starts bounded production gameplay at Clouds map 20
+`(13,1)` North with the original party, all 27 actors and one retained Skeleton
+combat seed. I permits normal transfer/equipment before combat. Arrows or WASD
+and period use the four-cell movement/Wait contract; same-cell engagement
+attaches combat automatically, so Enter never begins Journey combat. Space
+interacts outside combat and attacks during combat; B blocks. A successful End
+retires combat and returns to mutable inventory/navigation on the same owners.
+F9 saves only at a presented, quiet Journey boundary with inventory closed and
+no pending approach or combat work. R remains exclusive to completed
+Diagnostic27 and has no Journey action.
+
 | Key | Action |
 | --- | --- |
 | W/Up, S/Down | Move forward/backward; browse physical slots in inventory |
@@ -110,8 +131,8 @@ sequences, while the live roster panel retains injuries and terminal XP results.
 | 1-9 | Select a physical inventory slot while browsing |
 | T | Begin transfer of the selected occupied slot |
 | E | Equip or remove the explicitly selected occupied weapon, armor or accessory |
-| . | Wait in the diagnostic encounter; no action elsewhere |
-| F9 | Save an eligible idle ordinary session or completed Diagnostic27; refused before completion or while inspection/inventory is open |
+| . | Wait during the bounded encounter diagnostics and Journey; no action in ordinary gameplay |
+| F9 | Save an eligible idle ordinary session, completed Diagnostic27 or quiet presented Journey; refused while blocking work/UI is active |
 | I | Open inventory while idle; in completed Diagnostic27 open read-only inspection; close while browsing and print live diagnostics on opening |
 | R | Revisit the completed Diagnostic27 checkpoint through its bounded true re-entry |
 | Escape | Exit either diagnostic session; otherwise back/cancel transfer or close inventory, cancel WhoWill, acknowledge NPC/reward pages, or exit |
@@ -124,16 +145,18 @@ Escape returns to browsing before changing category or slot. Each equipment
 attempt consumes its selection; select the slot again before another E action.
 Misc item use and general item effects are not provided by this panel.
 
-F9 refuses during an interaction, while inventory or completed inspection is
-open, or before Diagnostic27 reaches its completed boundary, without advancing
-work or scheduling a later save. Close the blocking UI or finish the interaction,
-then issue a new F9. Without a configured path, it writes nothing. Save results
-appear in the console and window title. Existing supported valid MMModern saves
-can be replaced; there is no autosave, save-on-exit or in-session load. Ordinary
-eligible saves write v2, completed Diagnostic27 writes v3, and the reader accepts
-supported v1/v2/v3 under their respective compatibility policies. Saves require
-matching game archives and are not compatible with original Xeen or ScummVM
-saves. See the
+F9 refuses during an interaction, open inventory/inspection, pending Journey
+approach, combat/End/retirement, unresolved frame handoff or an unsafe session,
+without advancing work or scheduling a later save. Close or finish the blocking
+work, then issue a new F9. Without a configured path, it writes nothing. Save
+results appear in the console and window title. Existing supported valid MMModern
+saves can be replaced; there is no autosave, save-on-exit or in-session load.
+Ordinary eligible saves write v2, completed Diagnostic27 writes v3, and Journey
+saves write v4. The reader accepts supported v1/v2/v3/v4 in their distinct
+domains. `--load-game` selects Journey directly from v4 and restores fresh owners
+without replaying fresh Journey initialization, approach, combat or item actions.
+Saves require matching game archives and are not compatible with original Xeen
+or ScummVM saves. See the
 [persistence model](docs/project-status.md#persistence-model) for details.
 
 ## Requirements and original game data
@@ -155,6 +178,8 @@ SDL backend. The exact pin and configuration live in
   ownership, persistence and boundaries.
 - [Project history](docs/project-history.md): concise completed milestones and plan links.
 - [Roadmap](docs/roadmap.md): future direction and planning review cadence.
+- [Milestone 29 plan](docs/milestone-29-plan.md): closed mutable Journey,
+  encounter-continuity, v4 persistence and acceptance contract.
 - [Milestone 28 plan](docs/milestone-28-plan.md): closed completed-encounter
   authority, persistence, restoration, revisit and acceptance contract.
 - [Milestone 27 plan](docs/milestone-27-plan.md): closed bounded combat rules,

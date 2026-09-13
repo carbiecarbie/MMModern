@@ -1,8 +1,10 @@
 #include "app/XeenEncounterFlow.h"
 #include "games/xeen/XeenJourneyRules.h"
 #include "games/xeen/XeenJourneyCapture.h"
+#include "games/xeen/XeenInventoryView.h"
 #include <limits>
 #include <stdexcept>
+#include <sstream>
 
 namespace mmodern {
 namespace {
@@ -67,6 +69,12 @@ void XeenEncounterFlow::retainJourney() {
 	_journeyPreimage = std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 	if (_journeyCapture) _journeyCapture->generation = _boundary.generation();
 }
+void XeenEncounterFlow::adoptJourneyFlowBorrow() {
+	// EventFlow checked this guard immediately before acquiring its one borrow.
+	// Admit exactly that revision increment, retaining every value and identity.
+	_journeyPreimage->adoptJourneyBorrowRelease();
+	_journeyPreimage->check();
+}
 bool XeenEncounterFlow::journeyCapacity() noexcept {
 	if (_generation < std::numeric_limits<std::uint64_t>::max()-2 &&
 		_world._sessionState._journeyGeneration < std::numeric_limits<std::uint64_t>::max()-2) return true;
@@ -85,6 +93,69 @@ void XeenEncounterFlow::closeJourney() noexcept {
 bool XeenEncounterFlow::journeyQuiet() const noexcept {
 	return _journey && !_busy && !_combat && !_failure && _boundary.quiet() && current(ticket()) &&
 		_world.journeyCaptureEligible(_party,_camera);
+}
+bool XeenEncounterFlow::journeyMutable() const noexcept {
+	return _journey && !_busy && !_combat && !_failure && current(ticket()) &&
+		_state.pending() == 0 && _state.phase() == XeenEncounterPhase::Exploring &&
+		_world.sessionState().journeyActivity() == XeenJourneyActivity::Quiet;
+}
+std::uint64_t XeenEncounterFlow::holdJourneyWork(XeenCombatBoundary::Work work) {
+	if (!journeyMutable()) throw std::logic_error("Journey modal boundary unavailable");
+	return _boundary.hold(work);
+}
+void XeenEncounterFlow::releaseJourneyWork(XeenCombatBoundary::Work work, std::uint64_t lease) {
+	if (!_journey || _busy || _combat || !current(ticket())) throw std::logic_error("Stale Journey modal release");
+	_boundary.release(work,lease);
+	_journeyCapture->generation = _boundary.generation();
+}
+void XeenEncounterFlow::holdJourneyFrame() {
+	if (!_journey || _busy || _combat || !current(ticket()) || !journeyCapacity()) throw std::logic_error("Journey frame boundary unavailable");
+	auto &s = _world._sessionState;
+	if (s._journeyActivity == XeenJourneyActivity::Presentation) return;
+	if (s._journeyActivity != XeenJourneyActivity::Quiet && s._journeyActivity != XeenJourneyActivity::Approach)
+		throw std::logic_error("Journey frame cannot replace active work");
+	s._journeyActivity = XeenJourneyActivity::Presentation;
+	++s._journeyGeneration; ++_generation;
+	_journeyFramePrepared = false;
+	_journeyPreimage->adoptJourneyCoordination();
+}
+void XeenEncounterFlow::journeyRead(const std::function<void()> &operation) {
+	if (!journeyMutable() || !_boundary.quiet()) throw std::logic_error("Journey interaction unavailable");
+	holdJourneyFrame();
+	BusyJourney busy(_busy);
+	try {
+		XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
+		operation(); _journeyPreimage->check();
+	} catch (...) { if (!_journeyPreimage->current()) closeJourney(); throw; }
+}
+std::string XeenEncounterFlow::journeyInspection() const {
+	std::ostringstream out;
+	out << "Journey " << xeenInventoryInspection(_party);
+	out << "Camera " << _camera.mapId << ' ' << _camera.x << ' ' << _camera.y << ' ' << unsigned(_camera.direction)
+		<< " pending=" << _state.pending() << " combat=" << bool(_combat) << " seed=" << _world.sessionState().skeletonSeed() << '\n';
+	const auto &c = *_party.encounterContext;
+	out << "Context profile=" << unsigned(c.profile) << " difficulty=" << unsigned(c.difficulty)
+		<< " minutes=" << c.minutes << " ctr24=" << c.ctr24 << " day=" << c.day << " year=" << c.year
+		<< " rested=" << c.rested << " newDay=" << c.newDay << " effects=";
+	for (auto v:c.effects) out << unsigned(v) << ',';
+	out << " light/resistances="; for (auto v:c.lightAndResistances) out << v << ','; out << '\n';
+	for (unsigned owner=0;owner<30;++owner) {
+		const auto &v = *_party.roster.combatInputs(owner);
+		out << "Supplement " << owner << " Might=" << v.might.permanent << '/' << v.might.temporary
+			<< " Speed=" << v.speed.permanent << '/' << v.speed.temporary << " Accuracy=" << v.accuracy.permanent << '/' << v.accuracy.temporary
+			<< " temporaryAC=" << v.temporaryAc << " XP=" << v.experience << '\n';
+	}
+	for (const auto &a : _world.sessionState().actors())
+		out << "Actor " << a.id.recordIndex << ' ' << a.x << ' ' << a.y << " HP=" << a.hp
+			<< " active=" << a.activated << " lifecycle=" << unsigned(a.lifecycle) << " status=" << unsigned(a.status)
+			<< " accounted=" << _world.sessionState().accountedMonsters().count(a.id) << '\n';
+	out << "Game flags="; for (auto v:_flags.values()) out << (v?'1':'0');
+	out << "\nQuest flags="; for (auto v:_party.questFlags.values()) out << (v?'1':'0');
+	out << "\nQuest counts="; for (auto v:_party.questItems.counts()) out << v << ',';
+	out << "\nDisabled objects="; for (auto id:_world.sessionState().disabledObjects()) out << id.mapId << ':' << id.recordIndex << ',';
+	out << "\nDisabled events="; for (auto id:_world.sessionState().disabledEvents()) out << id.mapId << ':' << id.recordIndex << ',';
+	out << '\n';
+	return out.str();
 }
 XeenEncounterFlow::Ticket XeenEncounterFlow::beginJourneySave() {
 	if (!journeyQuiet() || !journeyCapacity()) throw std::logic_error("Journey save boundary unavailable");
@@ -188,7 +259,7 @@ XeenEncounterResult XeenEncounterFlow::advanceJourney(const Ticket &entry, std::
 }
 XeenEquipmentResult XeenEncounterFlow::journeyEquipment(const Ticket &entry, std::size_t active,
 		XeenInventoryCategory category, std::size_t slot, XeenEquipmentOperation operation) {
-	if (!journeyQuiet() || !current(entry) || !journeyCapacity()) return {};
+	if (!journeyMutable() || !_boundary.preparationReady() || !current(entry) || !journeyCapacity()) return {};
 	BusyJourney busy(_busy);
 	try {
 		xeenValidateJourneyParty(_party);
@@ -199,7 +270,7 @@ XeenEquipmentResult XeenEncounterFlow::journeyEquipment(const Ticket &entry, std
 }
 XeenTransferResult XeenEncounterFlow::journeyTransfer(const Ticket &entry, std::size_t from, std::size_t to,
 		XeenInventoryCategory category, std::size_t slot) {
-	if (!journeyQuiet() || !current(entry) || !journeyCapacity()) return {};
+	if (!journeyMutable() || !_boundary.preparationReady() || !current(entry) || !journeyCapacity()) return {};
 	BusyJourney busy(_busy);
 	try {
 		xeenValidateJourneyParty(_party);
@@ -235,7 +306,12 @@ bool XeenEncounterFlow::attachJourney(const Ticket &entry, const std::function<v
 		_journeyPreimage->check();
 		_combat.reset(new XeenCombat(_world,_party,_camera,_boundary,_flags,_state,_journeyStatistics,_events));
 		++_generation;
-		return _combat->beginCombat(_combat->ticket()).status == XeenCombatStatus::Advanced;
+		if (!acceptCombatResult(_combat->beginCombat(_combat->ticket()))) return false;
+		observeCombat(); _deadline.reset(); _frame = 0; _appearanceStep = 0;
+		std::uint64_t now;
+		if (!prepareTime(ticket(),now)) throw std::runtime_error("Journey attachment scheduling failed");
+		_lastTime = now; _cosmeticDeadline = now + 100; scheduleCombat(now);
+		return true;
 	} catch (...) {
 		// As in approach, obsolete work cannot fail or release a newer boundary.
 		if (_boundary.generation() != boundaryGeneration) return false;
@@ -251,6 +327,8 @@ bool XeenEncounterFlow::retireJourney(const Ticket &entry) {
 		auto prepared = std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 		_combat->retireJourney(*entry.combat,_state);
 		_retiredCombatResult = _combat->result(); _combat.reset(); ++_generation;
+		_deadline.reset(); _frame = 0; _appearanceStep = 0;
+		_scheduleAfterFrame = _appearanceAfterFrame = false;
 		prepared->adoptJourneyCoordination(); prepared->adoptJourneyBorrowRelease(); _journeyPreimage.swap(prepared);
 		return true;
 	} catch (const std::invalid_argument &) { return false; }

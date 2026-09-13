@@ -31,11 +31,13 @@ public:
 	int encounter26(const std::filesystem::path &gameDirectory) const;
 	int encounter27(const std::filesystem::path &gameDirectory, std::optional<std::uint32_t> seed = {},
 		std::optional<std::filesystem::path> savePath = {}) const;
+	int journeySkeleton(const std::filesystem::path &, std::optional<std::uint32_t> seed = {},
+		std::optional<std::filesystem::path> savePath = {}) const;
 	// Shared production construction; providers outlive this call. Target has
 	// already been resolved/checked against the installation by gameplay().
 	int playGameplay(const XeenGameplayServices &, XeenCamera,
 		const std::optional<std::filesystem::path> &target, bool resume,
-		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary) const;
+		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary, std::optional<std::uint32_t> seed = {}) const;
 private:
 	int gameplay(const std::filesystem::path &, XeenCamera,
 		const std::optional<std::filesystem::path> &, bool resume,

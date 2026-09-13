@@ -4,6 +4,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <exception>
+#include <random>
 namespace mmodern {
 namespace {
 struct GameplayScope {
@@ -81,8 +82,12 @@ void xeenSaveGameplay(const XeenGameplayServices &services, XeenWorld &world, Xe
 	stage(XeenGameplayServices::SaveStage::Write);
 	check(); XeenSaveFile::write(target,snapshot);
 }
+int Application::journeySkeleton(const std::filesystem::path &directory, std::optional<std::uint32_t> seed,
+  std::optional<std::filesystem::path> save) const {
+ return gameplay(directory,XeenActorApproach::kEntry,save,false,XeenEncounterEntry::Journey,seed);
+}
 int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera camera,
-  const std::optional<std::filesystem::path> &target, bool resume, XeenEncounterEntry entry) const {
+  const std::optional<std::filesystem::path> &target, bool resume, XeenEncounterEntry entry, std::optional<std::uint32_t> seed) const {
  try {
   XeenGameplayServices services = supplied;
   std::function<void()> sourceCheck;
@@ -104,8 +109,9 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   };
   bool encounter = entry != XeenEncounterEntry::Ordinary;
   if (encounter && resume) throw std::invalid_argument("Encounter entry cannot resume");
+  if (seed && (resume || entry != XeenEncounterEntry::Journey || !*seed)) throw std::invalid_argument("Invalid Journey seed override");
   XeenWorld world(services.maps, services.objects);
-  if (encounter) world.markEncounterSession(entry);
+  if (encounter && entry != XeenEncounterEntry::Journey) world.markEncounterSession(entry);
   XeenPartyState party;
   XeenGameFlags flags;
   const auto preflight = [&](XeenWorld &w, const XeenPartyState &p, const XeenCamera &c, const XeenGameFlags &) {
@@ -125,7 +131,6 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   if (resume) {
    if (!target) throw std::runtime_error("Resume requires a save path");
    const auto saved = XeenSaveFile::read(*target);
-   if (saved.journey) throw std::invalid_argument("Journey public load routing is not available");
    XeenSaveState::restoreBeforeGameplay(saved, services.resources, party, camera, flags, world, preflight);
    entry = world.sessionState().encounterEntry();
    encounter = entry != XeenEncounterEntry::Ordinary;
@@ -137,7 +142,19 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   XeenEventSystem events([&](XeenMapIdentity id) { return XeenEventScript(services.resources.loadEvents(id)); }, services.texts);
   const auto encounterEvents = encounter && !resume ? services.resources.loadEvents(20) : XeenEventFile{};
   std::optional<XeenEncounterSetup> setup;
-  if (encounter) setup.emplace(XeenEncounterSetup{encounterEvents, services.initializeEncounter, services.validateEncounterSprite});
+  if (encounter && entry != XeenEncounterEntry::Journey) setup.emplace(XeenEncounterSetup{encounterEvents, services.initializeEncounter, services.validateEncounterSprite});
+  std::vector<std::uint8_t> journeyCharacters;
+  std::vector<XeenMonsterRecord> journeyStatistics;
+  std::optional<XeenJourneySetup> journeySetup;
+  if (entry == XeenEncounterEntry::Journey && !resume) {
+   if (!services.resources.loadInitialCharacters || !services.resources.loadInitialContext || !services.resources.loadMonsterStatistics)
+    throw std::invalid_argument("Missing Journey initialization providers");
+   journeyCharacters = services.resources.loadInitialCharacters();
+   journeyStatistics = services.resources.loadMonsterStatistics();
+   auto value = seed ? *seed : (services.sampleJourneySeed ? services.sampleJourneySeed() : std::random_device{}());
+   if (!value) value = 1;
+   journeySetup.emplace(XeenJourneySetup{journeyCharacters,services.resources.loadInitialContext(),journeyStatistics,encounterEvents,value});
+  }
   if (entry == XeenEncounterEntry::Diagnostic27 && !resume) {
    if (!services.prepareCombat) throw std::invalid_argument("Missing combat preparation provider");
    setup->prepareCombat = services.prepareCombat;
@@ -160,15 +177,27 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
      return services.composeEncounter(world, party, observedCamera, ordinary, actor);
     const auto observedParty = party;
     return services.composeEncounter(world, observedParty, observedCamera, ordinary, actor);
-   });
+   }, journeySetup ? &*journeySetup : nullptr);
   EncounterHandoff handoff(flow);
   flow.completedMonsters = services.resources.loadMonsterStatistics;
   flow.completedEvents = services.resources.loadEvents;
   flow.completedPreflight = preflight;
+  flow.prepareJourneySprites = [&] {
+   if (!services.validateEncounterSprite || !services.validateCombatSprite) throw std::invalid_argument("Missing Journey sprite providers");
+   services.validateEncounterSprite(8);
+   if (!flow.encounter()->current(flow.encounter()->ticket())) throw std::logic_error("Stale Journey normal sprite preparation");
+   services.validateCombatSprite(8);
+  };
   if (services.configureFlow) services.configureFlow(flow, camera);
   handoff.verify();
   if (!flow.frame().isValid()) throw std::runtime_error("Invalid first gameplay frame");
   std::cout << "Setup " << xeenInventoryInspection(party);
+  if (flow.journey()) std::cout << flow.encounter()->journeyInspection()
+   << "Journey objective: survive the Skeleton, then continue and save. Four cells only: x=13..14, y=1..2. "
+      "Time must stay below 960 minutes. No healing, rest, recovery or disengagement. "
+      "Arrows/WASD move and turn; period waits; Space interacts outside combat and attacks in combat; B blocks. "
+      "I inventory; F1-F6 owner; arrows category; 1-9 slot; T transfer; Enter confirms; E equips/removes; "
+      "F9 saves only when quiet with inventory closed. Enter never starts combat; R has no Journey action. Escape cancels/closes or exits.\n";
   // This is the only production new-session/resume initialization choice.
   const auto first = resume || encounter ? flow.frame() : flow.initial();
   if (!first.isValid()) throw std::runtime_error("Invalid first gameplay frame");
@@ -190,6 +219,9 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   bool dispatching = false;
   bool active = true;
   const auto dispatch = [&](const PlayerAction &action, std::optional<std::uint64_t> input) -> std::optional<IndexedFrame> {
+   // F9 is intercepted here, so it must pass the same displayed authority gate
+   // as every Journey input before capture, providers, or target work.
+   if (flow.journey() && !flow.journeyInputCurrent(input)) return std::nullopt;
    // This irreversible entry decision needs no access to possibly closed owners.
    if (std::holds_alternative<SaveGameAction>(action) && encounter && !flow.completed() && !flow.journey()) {
     status = "MMModern - Cannot save: encounter session is unsaveable.";
@@ -238,6 +270,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
     return std::nullopt; // Never forward Save to the presenter or clear a label.
    }
    auto mapped = action;
+   if (flow.journey() && flow.encounter()->combat() && std::holds_alternative<InteractionAction>(action)) mapped = AttackAction{};
    if (entry == XeenEncounterEntry::Diagnostic27) {
     if (std::holds_alternative<InteractionAction>(action)) mapped = AttackAction{};
     if (std::holds_alternative<AcknowledgeAction>(action) && !flow.inventoryOpen()) mapped = BeginEncounterAction{};
@@ -249,6 +282,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   };
   SdlWindow::FrameUpdateHandler handler = [&](const PlayerAction &action) { return dispatch(action,{}); };
   handler.displayedInput = [&] { return flow.displayedInput(); };
+  handler.protectAllKeys = flow.journey();
   handler.withDisplayedInput = [&](const PlayerAction &action,std::uint64_t input) { return dispatch(action,input); };
   handler.beginCycle = [&](std::uint64_t cycle) {
    if (!active) throw std::runtime_error("Gameplay session is closed");
