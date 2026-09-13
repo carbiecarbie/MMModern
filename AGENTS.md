@@ -121,6 +121,22 @@ At milestone closure:
 - Use the exact resulting SHA for the next external planning/review task.
   Keep planning approval and implementation authorization separate.
 
+## Resource-efficiency priority
+
+Prioritize, in this order:
+
+1. Correctness and completeness.
+2. Credit/resource efficiency.
+3. Execution speed.
+
+Do not sacrifice correctness, validation, or necessary investigation to reduce credit usage.
+
+When multiple approaches are expected to produce equivalent-quality results, prefer the one
+that uses fewer model resources, even if it takes longer to complete.
+
+Do not parallelize work merely to reduce wall-clock time. Use parallelism or subagents when
+they materially improve correctness, independent verification, or overall resource efficiency.
+
 ## Dependencies and efficiency
 
 Consult `docs/dependencies.md` for the authoritative pinned ScummVM revision and
