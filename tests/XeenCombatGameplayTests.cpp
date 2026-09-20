@@ -348,7 +348,7 @@ void outcome(bool loss,const std::optional<std::filesystem::path> &game={}) {
   }
   const auto pixels=h.flow->frame().pixels;
   const auto rng=h.randomPosition();
-  h.world->discardMapCache();if(h.assets)h.assets->discardSpriteCache();h.flow->refresh(true);handler.framePresented();
+  h.world->discardMapCache();if(h.assets)h.assets->discardSpriteCache();h.flow->refresh(true);handler.framePresented(h.flow->frame().presentation());
   check(h.flow->frame().pixels==pixels && h.randomPosition()==rng,"terminal cache reconstruction");
   if(game)check(h.party->encounterContext->minutes==(loss?500:493),"original seeded time");
   const auto terminal=h.result().generation;

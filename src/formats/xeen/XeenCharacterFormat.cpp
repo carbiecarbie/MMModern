@@ -76,13 +76,26 @@ std::string readBoundedName(const std::uint8_t *data) {
 
 } // namespace
 
-XeenCombatInputs XeenCharacterFormat::parseCombatInputs(const std::vector<std::uint8_t> &bytes, std::size_t owner, bool includeLuck) {
+XeenCombatInputs XeenCharacterFormat::parseCombatInputs(const std::vector<std::uint8_t> &bytes, std::size_t owner,
+		bool includeLuck, bool includeResistances) {
 	if (bytes.size() != XeenRoster::kCharacterCount * XeenCharacter::kSerializedSize || owner >= XeenRoster::kCharacterCount)
 		throw std::invalid_argument("combat CHR requires exactly thirty complete 354-byte records and a valid owner");
 	const auto *p = bytes.data() + owner * XeenCharacter::kSerializedSize;
 	XeenCombatInputs result{{p[20],p[21]}, {p[28],p[29]}, {p[30],p[31]}, p[34],
 		std::uint32_t(p[348]) | (std::uint32_t(p[349])<<8) | (std::uint32_t(p[350])<<16) | (std::uint32_t(p[351])<<24)};
 	if (includeLuck) result.luck = XeenAttributeValue{p[32],p[33]};
+	if (includeResistances) result.resistances = XeenCombatResistances{p[313],p[314],p[315],p[316]};
+	return result;
+}
+
+XeenMonsterTreasure XeenCharacterFormat::parseMonsterPurse(const std::vector<std::uint8_t> &bytes) {
+	if (bytes.size() < 646) throw std::invalid_argument("maze.pty truncated before carried purse");
+	const auto u32 = [&](std::size_t offset) {
+		return std::uint32_t(bytes[offset]) | (std::uint32_t(bytes[offset+1]) << 8) |
+			(std::uint32_t(bytes[offset+2]) << 16) | (std::uint32_t(bytes[offset+3]) << 24);
+	};
+	XeenMonsterTreasure result;
+	result.gold = u32(638); result.gems = u32(642);
 	return result;
 }
 

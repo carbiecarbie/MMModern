@@ -41,6 +41,7 @@ std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key) {
 	switch (key.keysym.sym) {
 	case SDLK_PERIOD: return WaitAction{};
 	case SDLK_b: return BlockAction{};
+	case SDLK_f: return ShootAction{};
 	case SDLK_r: return RevisitCompletedAction{};
 	case SDLK_F9: return SaveGameAction{};
 	case SDLK_i: return InspectInventoryAction{};
@@ -84,11 +85,13 @@ std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key) {
 	}
 }
 
-bool showLoop(const IndexedFrame &initialFrame, const std::string &title,
+bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 		const SdlWindow::FrameUpdateHandler &handler,
 		const std::function<bool()> &canCancelInteraction = {},
 		const SdlWindow::IdleFrameHandler &idle = {},
 		const std::function<std::string()> &status = {}) {
+	const auto initialBinding = suppliedInitial.presentation();
+	const auto &initialFrame = initialBinding ? *initialBinding : suppliedInitial;
 	bool success = false;
 	struct CloseNotification {
 		const SdlWindow::FrameUpdateHandler &handler;
@@ -159,24 +162,52 @@ bool showLoop(const IndexedFrame &initialFrame, const std::string &title,
 	SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_NONE);
 	std::vector<std::uint32_t> pixels;
 	if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale initial frame handoff");
-	success = uploadFrame(texture, initialFrame, initialFrame.width,
-		initialFrame.height, pixels);
-	auto uploadedInput = handler.displayedInput ? handler.displayedInput() : std::nullopt;
+	IndexedFrame::Presentation uploadedFrame;
+	std::optional<std::uint64_t> uploadedInput;
+	bool uploaded = false;
+	const auto accepts = [&](const IndexedFrame::Presentation &frame) {
+		return !handler.acceptsFrame || handler.acceptsFrame(frame);
+	};
+	// All three upload paths use the content and identity supplied together.
+	// Stale/wrong-owner frames are ignored without releasing the live boundary.
+	const auto upload = [&](const IndexedFrame &supplied) {
+		const auto bound = supplied.presentation();
+		if (!accepts(bound)) return true;
+		const auto &content = bound ? *bound : supplied;
+		if (!uploadFrame(texture, content, initialFrame.width, initialFrame.height, pixels)) return false;
+		uploadedFrame = bound;
+		uploaded = true;
+		uploadedInput = handler.displayedInput ? handler.displayedInput() : std::nullopt;
+		return true;
+	};
+	success = upload(suppliedInitial);
 	bool running = success;
-	if (running) {
+	if (running && uploaded && accepts(uploadedFrame)) {
 		SDL_SetRenderDrawColor(renderer,0,0,0,255);
 		SDL_RenderClear(renderer);
 		if (SDL_RenderCopy(renderer,texture,nullptr,nullptr) != 0) { success=false; return false; }
 		SDL_RenderPresent(renderer);
 		if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale initial upload");
-		if (handler.framePresented) handler.framePresented();
+		if (handler.framePresented) handler.framePresented(uploadedFrame);
 		uploadedInput = handler.displayedInput ? handler.displayedInput() : std::nullopt;
 	}
 	std::uint64_t cycle = 0;
 	bool spaceDown = false, blockDown = false, revisitDown = false, inspectDown = false;
 	std::array<bool,SDL_NUM_SCANCODES> journeyKeys{};
 	std::uint32_t readyAt = SDL_GetTicks();
-	std::optional<std::uint64_t> displayedInput = handler.displayedInput ? handler.displayedInput() : std::nullopt;
+	const auto retireQueuedKeys = [&] {
+		// Fence keys already sampled before a semantic presentation boundary.
+		// Preserve queue order/key-up processing and allow genuinely new keys
+		// sampled in the same millisecond as the newly presented frame.
+		SDL_PumpEvents();
+		SDL_FilterEvents([](void *context, SDL_Event *queued) -> int {
+			if (queued->type == SDL_KEYDOWN)
+				queued->key.timestamp = *static_cast<std::uint32_t *>(context) - 1;
+			return 1;
+		}, &readyAt);
+	};
+	retireQueuedKeys();
+	std::optional<std::uint64_t> displayedInput = uploaded && accepts(uploadedFrame) && handler.displayedInput ? handler.displayedInput() : std::nullopt;
 	while (running) {
 		try {
 			if (cycle == std::numeric_limits<std::uint64_t>::max()) throw std::overflow_error("SDL loop cycle overflow");
@@ -201,30 +232,27 @@ bool showLoop(const IndexedFrame &initialFrame, const std::string &title,
 						const auto scan = SDL_GetScancodeFromKey(event.key.keysym.sym);
 						if (scan <= SDL_SCANCODE_UNKNOWN || scan >= SDL_NUM_SCANCODES) continue;
 						const bool held = journeyKeys[scan]; journeyKeys[scan] = true;
-						if (held || static_cast<std::int32_t>(event.key.timestamp-readyAt) <= 0) continue;
+						if (held || static_cast<std::int32_t>(event.key.timestamp-readyAt) < 0) continue;
 					} else if (batchInput && (event.key.keysym.sym == SDLK_SPACE || event.key.keysym.sym == SDLK_b ||
 						event.key.keysym.sym == SDLK_r || event.key.keysym.sym == SDLK_i)) {
 						auto &down = event.key.keysym.sym == SDLK_SPACE ? spaceDown : event.key.keysym.sym == SDLK_b ? blockDown :
 							event.key.keysym.sym == SDLK_r ? revisitDown : inspectDown;
 						const bool held = down; down = true;
-						if (held || static_cast<std::int32_t>(event.key.timestamp-readyAt) <= 0) continue;
+						if (held || static_cast<std::int32_t>(event.key.timestamp-readyAt) < 0) continue;
 					}
 					if (event.key.keysym.sym == SDLK_ESCAPE &&
 							!(handler && canCancelInteraction && canCancelInteraction())) {
 						running = false;
 					} else if (event.key.repeat == 0 && handler) {
 						const auto action = playerAction(event.key);
-						if (action) {
+						if (action && (!handler.acceptsFrame || (uploaded && accepts(uploadedFrame)))) {
 							try {
 								const auto nextFrame = batchInput && handler.withDisplayedInput ?
 									handler.withDisplayedInput(*action,*batchInput) : handler(*action);
 								if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale gameplay frame handoff");
-								if (nextFrame && !uploadFrame(texture, *nextFrame,
-										initialFrame.width, initialFrame.height, pixels)) {
-									success = false;
-									running = false;
+								if (nextFrame && !upload(*nextFrame)) {
+									success = false; running = false;
 								}
-								if (nextFrame && success) uploadedInput = handler.displayedInput ? handler.displayedInput() : std::nullopt;
 							} catch (const std::exception &error) {
 								std::cerr << "Scene update failed: " << error.what() << '\n';
 								success = false;
@@ -240,12 +268,9 @@ bool showLoop(const IndexedFrame &initialFrame, const std::string &title,
 			try {
 				const auto nextFrame = idle();
 				if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale idle frame handoff");
-				if (nextFrame && !uploadFrame(texture, *nextFrame,
-						initialFrame.width, initialFrame.height, pixels)) {
-					success = false;
-					break;
+				if (nextFrame && !upload(*nextFrame)) {
+					success = false; break;
 				}
-				if (nextFrame) uploadedInput = handler.displayedInput ? handler.displayedInput() : std::nullopt;
 			} catch (const std::exception &error) {
 				std::cerr << "Presentation update failed: " << error.what() << '\n';
 				success = false;
@@ -260,6 +285,7 @@ bool showLoop(const IndexedFrame &initialFrame, const std::string &title,
 				SDL_SetWindowTitle(window, title.c_str());
 			}
 		} catch (...) { success = false; break; }
+		if (!uploaded || !accepts(uploadedFrame)) continue;
 		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 		SDL_RenderClear(renderer);
 		if (SDL_RenderCopy(renderer, texture, nullptr, nullptr) != 0) {
@@ -271,10 +297,10 @@ bool showLoop(const IndexedFrame &initialFrame, const std::string &title,
 		if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale presented frame");
 		if (uploadedInput != (handler.displayedInput ? handler.displayedInput() : std::nullopt))
 			throw std::runtime_error("Current frame was not uploaded");
-		if (handler.framePresented) handler.framePresented();
+		if (handler.framePresented) handler.framePresented(uploadedFrame);
 		uploadedInput = handler.displayedInput ? handler.displayedInput() : std::nullopt;
 		const auto nextInput = handler.displayedInput ? handler.displayedInput() : std::nullopt;
-		if (nextInput != displayedInput) readyAt = SDL_GetTicks();
+		if (nextInput != displayedInput) { readyAt = SDL_GetTicks(); retireQueuedKeys(); }
 		displayedInput = nextInput;
 	}
 

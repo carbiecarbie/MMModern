@@ -17,7 +17,7 @@ public:
 		partyReplacement(p._replacement), rosterReplacement(p.roster._replacement),
 		s(w._sessionState), characters(p.roster.characters()), inputs(p.roster._combatInputs),
 		marked(p.roster.combatMarked()), membership(p.party.activeRosterIds()),
-		quests(p.questItems.counts()), questFlags(p.questFlags.values()), context(p.encounterContext),
+		quests(p.questItems.counts()), questFlags(p.questFlags.values()), context(p.encounterContext), treasure(p.monsterTreasure),
 		first(p.firstSerializedCount), effective(p.effectiveSerializedCount), diagnostics(p.diagnostics),
 		cameraValue(c), flagValues(f.values()), combatCheck(bool(w._combatCheck)), combatAuthorized(bool(w._combatAuthorized)),
 		maps(w._maps), objects(w._objects), cacheRevision(w._cacheRevision), exactCaches(exactCaches),
@@ -38,7 +38,7 @@ public:
 			p._replacement != partyReplacement || p.roster._replacement != rosterReplacement ||
 			p.roster.combatMarked() != marked || p.party.activeRosterIds() != membership ||
 			p.questItems.counts() != quests || p.questFlags.values() != questFlags ||
-			!(p.encounterContext == context) || p.firstSerializedCount != first ||
+			!(p.encounterContext == context) || p.monsterTreasure != treasure || p.firstSerializedCount != first ||
 			p.effectiveSerializedCount != effective || p.diagnostics != diagnostics ||
 			!sameCamera(c, cameraValue) || f.values() != flagValues ||
 			bool(w._combatCheck) != combatCheck || bool(w._combatAuthorized) != combatAuthorized) return false;
@@ -128,6 +128,8 @@ public:
 private:
 	friend class XeenEventPublication;
 	friend class XeenEncounterFlow;
+	friend class XeenCombat;
+	friend class XeenEventFlow;
 	friend class XeenSaveState;
 	// Authorized publication renews mutable values, not immutable compatibility.
 	// Carry the union of admitted preimages even when disposable caches are empty.
@@ -159,7 +161,7 @@ private:
 	void prepareJourneyPublication(const XeenRestoreGuard &candidate) {
 		s = candidate.s; characters = candidate.characters; inputs = candidate.inputs;
 		marked = candidate.marked; membership = candidate.membership;
-		quests = candidate.quests; questFlags = candidate.questFlags; context = candidate.context;
+		quests = candidate.quests; questFlags = candidate.questFlags; context = candidate.context; treasure = candidate.treasure;
 		first = candidate.first; effective = candidate.effective; diagnostics = candidate.diagnostics;
 		cameraValue = candidate.cameraValue; flagValues = candidate.flagValues;
 		maps = candidate.maps; objects = candidate.objects;
@@ -187,6 +189,7 @@ private:
 	XeenCloudsQuestItems::Counts quests;
 	XeenCloudsQuestFlags::Values questFlags;
 	std::optional<XeenGameplayContext> context;
+	std::optional<XeenMonsterTreasure> treasure;
 	std::uint8_t first, effective;
 	std::vector<std::string> diagnostics;
 	XeenCamera cameraValue;

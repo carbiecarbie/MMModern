@@ -92,7 +92,7 @@ int Application::journeyExpedition(const std::filesystem::path &directory, std::
 }
 int Application::journeyRegion(const std::filesystem::path &directory, std::optional<std::uint32_t> seed,
   std::optional<std::filesystem::path> save) const {
- return gameplay(directory,xeenJourneyContent(3).entry,save,false,XeenEncounterEntry::Journey,seed,3);
+ return gameplay(directory,xeenJourneyContent(4).entry,save,false,XeenEncounterEntry::Journey,seed,4);
 }
 int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera camera,
   const std::optional<std::filesystem::path> &target, bool resume, XeenEncounterEntry entry, std::optional<std::uint32_t> seed,
@@ -112,6 +112,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   if (supplied.resources.loadInitialCharacters) services.resources.loadInitialCharacters = [&] { return callback(supplied.resources.loadInitialCharacters); };
   if (supplied.resources.loadInitialContext) services.resources.loadInitialContext = [&] { return callback(supplied.resources.loadInitialContext); };
   if (supplied.resources.loadMonsterStatistics) services.resources.loadMonsterStatistics = [&] { return callback(supplied.resources.loadMonsterStatistics); };
+  if (supplied.resources.loadInitialPurse) services.resources.loadInitialPurse = [&] { return callback(supplied.resources.loadInitialPurse); };
   services.compose = [&](auto &w, const auto &p, const auto &c, auto phase) { return callback([&] { return supplied.compose(w,p,c,phase); }); };
   if (supplied.composeEncounter) services.composeEncounter = [&](auto &w, const auto &p, const auto &c, auto phase, auto actor) {
    return callback([&] { return supplied.composeEncounter(w,p,c,phase,actor); });
@@ -166,6 +167,10 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    if (!value) value = 1;
    journeySetup.emplace(XeenJourneySetup{journeyCharacters,services.resources.loadInitialContext(),journeyStatistics,encounterEvents,value,journeyContract.value_or(1)});
    journeySetup->regionalManifest=services.resources.regionalManifest;
+   if(journeySetup->contract==4) {
+    if(!services.resources.loadInitialPurse) throw std::invalid_argument("Missing original purse provider");
+    journeySetup->purse=services.resources.loadInitialPurse();
+   }
   }
   if (entry == XeenEncounterEntry::Diagnostic27 && !resume) {
    if (!services.prepareCombat) throw std::invalid_argument("Missing combat preparation provider");
@@ -199,7 +204,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    const auto &content = xeenJourneyContent(world.sessionState().journeyContract());
    if (!services.validateEncounterSprite || (content.contract!=3 && !services.validateCombatSprite)) throw std::invalid_argument("Missing Journey sprite providers");
    for (unsigned i=0;i<content.count;++i) {
-    const auto image = content.contract==3 ? world.sessionState().actors().at(content.records[i]).statistics->image() : content.actor(content.records[i]).profileImage;
+    const auto image = content.contract>=3 ? world.sessionState().actors().at(content.records[i]).statistics->image() : content.actor(content.records[i]).profileImage;
     services.validateEncounterSprite(image);
     if (!flow.encounter()->current(ticket)) throw std::logic_error("Stale Journey normal sprite preparation");
     if (content.contract!=3) services.validateCombatSprite(image);
@@ -210,7 +215,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   handoff.verify();
   if (!flow.frame().isValid()) throw std::runtime_error("Invalid first gameplay frame");
   std::cout << "Setup " << xeenInventoryInspection(party);
-  if (flow.journey() && world.sessionState().journeyContract()==3) std::cout << flow.encounter()->journeyInspection() << flow.encounter()->notice() << '\n';
+  if (flow.journey() && world.sessionState().journeyContract()>=3) std::cout << flow.encounter()->journeyInspection() << flow.encounter()->notice() << '\n';
   else if (flow.journey()) std::cout << flow.encounter()->journeyInspection()
    << (world.sessionState().journeyContract()==2 ? "Prepared expedition: collect the Bone Whistle at (5,14), then return and save. Six cells x=0..5/y=14; return remains mutable. 1-3 selects a combat target. " : "Journey objective: survive the Skeleton, then continue and save. Four cells only: x=13..14, y=1..2. ") <<
       "Time must stay below 960 minutes. No healing, rest, recovery or disengagement. "
@@ -306,6 +311,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   };
   SdlWindow::FrameUpdateHandler handler = [&](const PlayerAction &action) { return dispatch(action,{}); };
   handler.displayedInput = [&] { return flow.displayedInput(); };
+  handler.acceptsFrame = [&](const auto &frame) { return flow.acceptsFrame(frame); };
   handler.protectAllKeys = flow.journey();
   handler.withDisplayedInput = [&](const PlayerAction &action,std::uint64_t input) { return dispatch(action,input); };
   handler.beginCycle = [&](std::uint64_t cycle) {
@@ -313,7 +319,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    flow.beginCycle(cycle);
   };
   handler.frameCurrent = [&] { return active && flow.encounterFrameCurrent(); };
-  handler.framePresented = [&] { flow.framePresented(); handoff.retain(); };
+  handler.framePresented = [&](const auto &frame) { flow.framePresented(frame); handoff.retain(); };
   handler.failed = [&] { handoff.fail(); active = false; };
   handler.closed = [&] { flow.closeGameplay(); active = false; };
   const auto idle = [&]() -> std::optional<IndexedFrame> {

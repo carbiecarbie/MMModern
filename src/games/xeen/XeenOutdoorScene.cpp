@@ -163,6 +163,15 @@ std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::build(
 	}
 
 	commands.insert(commands.end(), actors.begin(), actors.end());
+	if(actorFrame && actorFrame->projectile) {
+		const auto &p=*actorFrame->projectile;
+		if(p.row>3 || p.lane>5) throw std::invalid_argument("Invalid projectile placement");
+		constexpr int order[]{124,95,76,53};
+		constexpr int x[4][6]{{72,72,93,51,97,47},{72,72,85,59,89,55},{72,72,77,67,81,63},{72,72,69,75,73,71}};
+		constexpr int y[4][6]{{43,43,48,48,36,36},{48,48,53,53,41,41},{53,53,58,58,47,47},{58,58,63,63,53,53}};
+		XeenOutdoorDrawCommand command;command.originalOrder=order[p.row]+p.lane;command.x=x[p.row][p.lane];command.y=y[p.row][p.lane];
+		command.sourceMapId=camera.mapId;command.content=XeenOutdoorProjectileDraw{p.enemy,p.row,p.lane};commands.push_back(command);
+	}
 	std::stable_sort(commands.begin(), commands.end(),
 		[](const auto &left, const auto &right) { return left.originalOrder < right.originalOrder; });
 	return commands;

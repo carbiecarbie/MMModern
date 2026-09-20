@@ -9,6 +9,7 @@ namespace mmodern {
 
 void XeenRoster::requireOrdinary(const XeenRoster &r) {
 	if (r._combatMarked) throw std::logic_error("marked combat roster cannot be copied, moved or replaced");
+	for (const auto &input:r._combatInputs) if (input) throw std::logic_error("detached combat supplements cannot be copied, moved or replaced");
 }
 XeenRoster::XeenRoster(const XeenRoster &r) { requireOrdinary(r); _characters = r._characters; }
 XeenRoster::XeenRoster(XeenRoster &&r) { requireOrdinary(r); _characters = std::move(r._characters); }
@@ -28,7 +29,7 @@ XeenRoster &XeenRoster::operator=(XeenRoster &&r) {
 XeenPartyState::XeenPartyState(const XeenPartyState &p) {
 	XeenRoster::requireOrdinary(p.roster);
 	roster = p.roster; encounterContext = p.encounterContext; party = p.party;
-	questItems = p.questItems; questFlags = p.questFlags;
+	questItems = p.questItems; questFlags = p.questFlags; monsterTreasure = p.monsterTreasure;
 	firstSerializedCount = p.firstSerializedCount; effectiveSerializedCount = p.effectiveSerializedCount;
 	diagnostics = p.diagnostics;
 }
@@ -39,7 +40,7 @@ void XeenPartyState::swapOrdinary(XeenPartyState &p) noexcept {
 	using std::swap;
 	static_assert(std::is_nothrow_swappable_v<XeenParty> && std::is_nothrow_swappable_v<decltype(encounterContext)>);
 	roster.swapOrdinary(p.roster); swap(encounterContext,p.encounterContext); swap(party,p.party);
-	swap(questItems,p.questItems); swap(questFlags,p.questFlags);
+	swap(questItems,p.questItems); swap(questFlags,p.questFlags); swap(monsterTreasure,p.monsterTreasure);
 	swap(firstSerializedCount,p.firstSerializedCount); swap(effectiveSerializedCount,p.effectiveSerializedCount);
 	diagnostics.swap(p.diagnostics);
 	++_replacement; ++p._replacement;

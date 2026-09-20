@@ -39,6 +39,8 @@ public:
 	// Successful resource reads + SpriteResource constructions, not draw calls.
 	std::size_t spriteLoadCount() const;
 	static std::string normalMonsterResource(std::uint8_t image);
+	void validateProjectile(bool enemy);
+	void drawProjectile(bool enemy,unsigned row,int x,int y,const XeenSpriteDrawOptions &);
 	void validateNormalMonster(std::uint8_t image);
 	void validateAttackMonster(std::uint8_t image);
 	static std::string attackMonsterResource(std::uint8_t image);

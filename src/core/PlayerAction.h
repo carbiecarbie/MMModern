@@ -11,6 +11,7 @@ namespace mmodern {
 struct SaveGameAction {};
 struct WaitAction {};
 struct AttackAction {};
+struct ShootAction {};
 struct BlockAction {};
 struct SelectCombatTargetAction { unsigned row; };
 struct BeginEncounterAction {};
@@ -29,7 +30,7 @@ struct CancelInteractionAction {};
 using PlayerAction = std::variant<NavigationAction, InteractionAction,
 	AcknowledgeAction, YesAction, NoAction, SelectMemberAction, CancelInteractionAction, SaveGameAction, InspectInventoryAction,
 	SelectInventorySlotAction, TransferInventoryAction, EquipmentInventoryAction, WaitAction,
-	AttackAction, BlockAction, SelectCombatTargetAction, BeginEncounterAction, RevisitCompletedAction>;
+	AttackAction, ShootAction, BlockAction, SelectCombatTargetAction, BeginEncounterAction, RevisitCompletedAction>;
 
 } // namespace mmodern
 

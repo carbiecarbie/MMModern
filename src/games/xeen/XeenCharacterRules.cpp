@@ -267,7 +267,7 @@ int XeenCharacterRules::effectiveLuck(const XeenCharacter &c, const XeenCombatIn
 int XeenCharacterRules::effectivePhysical(const XeenCharacter &c, const XeenCombatInputs &input,
 		PhysicalAttribute attribute, const XeenCharacterRulesContext &context) {
 	for (unsigned i=0;i<c.conditions.size();++i)
-		if (i!=4 && i!=12 && i!=13 && c.conditions[i]) throw std::invalid_argument("unsupported physical combat condition");
+		if (i!=3 && i!=4 && i!=8 && i!=12 && i!=13 && c.conditions[i]) throw std::invalid_argument("unsupported physical combat condition");
 	const XeenAttributeValue *v = nullptr;
 	switch (attribute) {
 	case PhysicalAttribute::Might: v=&input.might; break;
@@ -276,7 +276,7 @@ int XeenCharacterRules::effectivePhysical(const XeenCharacter &c, const XeenComb
 	default: throw std::invalid_argument("invalid physical attribute");
 	}
 	return std::max(add<true>(add<true>(add<true>(v->permanent,v->temporary),
-		ageAdjustment<true>(c,context,false)),itemBonus(c,static_cast<int>(attribute))),0);
+		ageAdjustment<true>(c,context,false)),itemBonus(c,static_cast<int>(attribute))) - (c.conditions[13] ? 0 : c.conditions[3]),0);
 }
 int XeenCharacterRules::combatArmorClass(const XeenCharacter &c, const XeenCombatInputs &input,
 		const XeenCharacterRulesContext &context) {

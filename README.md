@@ -6,7 +6,7 @@ Might and Magic V: Darkside of Xeen / World of Xeen.
 
 ## Status
 
-**Milestone 32 is the latest completed milestone.**
+**Milestone 33 is the latest completed milestone.**
 
 The engine supports a bounded Clouds quest loop: request a quest, collect an
 item, return it for character-held rewards, and save/resume the resulting progress.
@@ -38,14 +38,14 @@ state and RNG continuation in another process, allowing further navigation and
 item management without replay. The supported route remains six cells; it adds
 no general map-20 exploration, Vertigo travel, normal startup or Whistle use/turn-in.
 
-The production `--journey-region` entry adds resource-derived exploration of
-the connected mainland containing `(9,11)` on Clouds map 23. It retains all 19
-original regional actors, their independent movement and exact state across
-schema-3 save/restart, while keeping inventory/equipment and the original
-automatic sign available at quiet boundaries. This is map-local regional
-exploration, not unrestricted map-23 or Clouds support: regional combat, enemy
-ranged resolution, Shoot, Poison/Sleep, loot, Run and Myra quest execution remain
-outside the supported boundary.
+The production `--journey-region` entry explores the connected mainland
+containing `(9,11)` on Clouds map 23. Its 19 original actors retain position,
+wounds and defeat accounting across 4/4 Journey saves. The five admitted species
+use contact combat and Orc ranged attacks; F fires equipped missile weapons.
+Poison, Sleep, Disease, ordinary generated equipment, monster gold and delayed
+treasure remain attached to their character, party and world owners. Inventory,
+the original sign and saving are available at the admitted quiet boundaries.
+Run, recovery, Myra quest execution and travel beyond this mainland remain excluded.
 
 The Diagnostic26 entry presents an original outdoor Skeleton, supports its
 activation and approach, and stops at terminal same-cell engagement. Diagnostic27
@@ -92,8 +92,8 @@ See the [technical snapshot](docs/project-status.md),
   readable multi-actor MON/ATT combat, original Bone Whistle collection and
   return, and schema-2 separate-process continuation.
 - Resource-derived map-23 mainland exploration through `--journey-region`, with
-  all 19 original actors, automatic sign presentation, quiet inventory/save
-  boundaries and schema-3 separate-process continuation.
+  all 19 original actors, physical combat/Shoot, conditions and monster treasure,
+  automatic sign presentation, and exact 4/4 continuation at quiet boundaries.
 
 ## Running and controls
 
@@ -167,20 +167,29 @@ F9 may save at the presented quiet boundary. Turn West and return to `(0,14)`;
 the Journey remains mutable after return and restart. There is no autosave or
 healing requirement for the accepted seed-1 route.
 
-`--journey-region` starts Regional Journey at Clouds map 23 `(9,11)` West,
-with the prepared party and all 19 original actors. Movement follows the
-resource-derived mainland connected to that entry. The original actors activate
-and move independently of party reachability; ranged operations and contact
-produce a terminal, unsaveable `SupportStopped` notice. Regional combat, enemy
-ranged resolution, Shoot, Poison/Sleep, loot, Run, Myra quest execution,
-recovery and travel beyond the mainland are unavailable. Space refuses
-unsupported interactions without running their scripts; the admitted sign can
-also be requested manually. Facing North at `(5,9)` automatically displays that
-original sign through normal Event presentation. Inventory/equipment and F9
-work at presented quiet boundaries.
-Time processing outside the supported interval also stops before publishing the
-unsupported change. Restart a quiet save with `--load-game`; a stopped session
-cannot be resumed by further gameplay input.
+`--journey-region` starts a 4/4 Regional Journey at Clouds map 23 `(9,11)` West,
+minute 480, with the prepared party and all 19 original actors. Movement follows
+the resource-derived mainland. Contact opens Attack/Block combat; 1-3 selects a
+live contact. Orcs can fire during movement opportunities. F initiates an
+exploration volley from eligible equipped missile users, then charges ten minutes.
+Wounds, Poison/Sleep/Disease, broken armor, XP, gold and generated ordinary items
+persist. Monster treasure waits while an actor remains in the selected view;
+when collection becomes eligible, acknowledge every reward page before continuing.
+Inventory shows condition severities, HP/SP, derived Speed/AC and purse state.
+
+Space refuses unsupported interactions without executing their scripts. Facing
+North at `(5,9)` automatically displays the original sign; it can also be
+requested manually. It requires no acknowledgment, and ordinary eligible controls
+remain available while its text is visible. Inventory/equipment and F9 require
+presented quiet boundaries.
+Save files include living actor wounds, surviving conditions and delayed treasure,
+without storing combat, projectiles or UI work. Loaded 1/1, 2/2 and 3/3 Journeys
+retain their original rules, including the 3/3 contact/ranged/time support stops.
+
+Run, recovery, Myra quest execution and travel beyond the mainland are unavailable.
+Defeat and unsupported time processing close further gameplay/save admission.
+Restart a quiet save with `--load-game`. The closed scope and acceptance contract
+are in [M33](docs/milestone-33-plan.md).
 
 | Key | Action |
 | --- | --- |
@@ -189,7 +198,8 @@ cannot be resumed by further gameplay input.
 | Space, Enter | Interact (Space) or advance/acknowledge text; Enter confirms an armed transfer |
 | Y / N | Answer Yes/No; N cancels a transfer confirmation |
 | F1-F6 | Select inventory owner or transfer recipient; outside inventory, select an eligible member during WhoWill |
-| 1-9 | Select a physical inventory slot while browsing; 1-3 select a displayed target during a ready expedition combat turn |
+| 1-9 | Select a physical inventory slot while browsing; 1-3 select a displayed target during a ready expedition or regional combat turn |
+| F | Shoot in 4/4 regional exploration; unavailable during contact combat |
 | T | Begin transfer of the selected occupied slot |
 | E | Equip or remove the explicitly selected occupied weapon, armor or accessory |
 | . | Wait during the bounded encounter diagnostics and Journey; no action in ordinary gameplay |
@@ -206,16 +216,18 @@ Escape returns to browsing before changing category or slot. Each equipment
 attempt consumes its selection; select the slot again before another E action.
 Misc item use and general item effects are not provided by this panel.
 
-F9 refuses during an interaction, open inventory/inspection, pending Journey
-approach, combat/End/retirement, unresolved frame handoff or an unsafe session,
+F9 refuses during a response-requiring interaction, open inventory/inspection,
+pending Journey approach, combat/End/retirement, unresolved frame handoff or an unsafe session,
 without advancing work or scheduling a later save. Close or finish the blocking
 work, then issue a new F9. Without a configured path, it writes nothing. Save
 results appear in the console and window title. Existing supported valid MMModern
 saves can be replaced; there is no autosave, save-on-exit or in-session load.
 Ordinary eligible saves write v2, completed Diagnostic27 writes v3, and Journey
 saves write v4: the Skeleton Journey retains schema/content 1/1 and the expedition
-uses schema/content 2/2. Regional Journey uses schema/content 3/3 with all 19
-actor records, retained context, supplements and RNG continuation. The reader
+uses schema/content 2/2. Fresh Regional Journey uses schema/content 4/4 with all
+19 actor records, living wounds, conditions, purse/pending treasure, retained
+context, supplements and RNG continuation. Legacy regional 3/3 saves retain their
+original rules and support stops; loading does not upgrade them. The reader
 accepts supported v1/v2/v3/v4 in their distinct
 domains. `--load-game` selects Journey directly from v4 and restores fresh owners
 without replaying fresh Journey initialization, approach, combat, objective
@@ -244,6 +256,8 @@ SDL backend. The exact pin and configuration live in
   ownership, persistence and boundaries.
 - [Project history](docs/project-history.md): concise completed milestones and plan links.
 - [Roadmap](docs/roadmap.md): future direction and planning review cadence.
+- [Milestone 33 plan](docs/milestone-33-plan.md): closed mainland combat, Shoot,
+  conditions/rewards, schema/content 4/4 and acceptance contract.
 - [Milestone 32 plan](docs/milestone-32-plan.md): closed regional navigation,
   actor/resource authority, schema-3 persistence and acceptance contract.
 - [Milestone 31 plan](docs/milestone-31-plan.md): closed connected collection,

@@ -34,6 +34,7 @@ public:
 	std::size_t cachedSpriteCount() const;
 	// Successful resource reads + SpriteResource constructions, not draw calls.
 	std::size_t spriteLoadCount() const;
+	void validateProjectile(const std::string &resourceName);
 	void validateNormalMonster(const std::string &resourceName);
 	void validateAttackMonster(const std::string &resourceName);
 	std::optional<std::vector<std::uint8_t>> readCloudsVisualMetadataFromDarkArchive();

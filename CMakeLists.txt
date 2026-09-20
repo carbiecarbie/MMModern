@@ -28,6 +28,8 @@ add_library(mmodern_xeen STATIC
 	src/games/xeen/XeenActorApproach.cpp
     src/games/xeen/XeenCombat.cpp
     src/games/xeen/XeenCombatRandom.cpp
+	src/games/xeen/XeenCombatRules.cpp
+	src/games/xeen/XeenMonsterTreasure.cpp
 	src/games/xeen/XeenJourneyRules.cpp
 	src/games/xeen/XeenGameplayContext.cpp
 	src/games/xeen/XeenRegionalRules.cpp
@@ -93,6 +95,7 @@ add_library(mmodern_app STATIC
 	src/app/XeenGameplay.cpp
 	src/app/XeenEncounterFlow.cpp
 	src/app/XeenJourneyFlow.cpp
+	src/app/XeenJourneyConsequences.cpp
 	src/app/XeenCompletedFlow.cpp
 	src/app/Application.cpp
 	src/app/XeenEventFlow.cpp
@@ -148,6 +151,16 @@ if(BUILD_TESTING)
 	add_executable(mmodern_regional_persistence_tests tests/XeenRegionalPersistenceTests.cpp)
 	target_link_libraries(mmodern_regional_persistence_tests PRIVATE mmodern_xeen ZLIB::ZLIB)
 	add_test(NAME xeen_regional_persistence COMMAND mmodern_regional_persistence_tests)
+	add_executable(mmodern_consequence_original EXCLUDE_FROM_ALL tests/XeenConsequenceOriginal.cpp)
+	target_link_libraries(mmodern_consequence_original PRIVATE mmodern_app)
+	target_link_options(mmodern_consequence_original PRIVATE "-Wl,--wrap=_ZN7mmodern16XeenCombatRandom4drawEjj"
+        "-Wl,--wrap=_ZN7mmodern27XeenPhysicalPlayerCandidateC1ERKNS_13XeenCharacterERKNS_16XeenCombatInputsERKNS_17XeenMonsterRecordEjjb")
+    add_executable(mmodern_consequence_sprite_tests tests/XeenConsequenceSpriteTests.cpp)
+    target_link_libraries(mmodern_consequence_sprite_tests PRIVATE mmodern_xeen)
+    add_test(NAME xeen_consequence_sprites COMMAND mmodern_consequence_sprite_tests)
+	add_executable(mmodern_consequence_rules_tests tests/XeenConsequenceRulesTests.cpp)
+	target_link_libraries(mmodern_consequence_rules_tests PRIVATE mmodern_xeen)
+	add_test(NAME xeen_consequence_rules COMMAND mmodern_consequence_rules_tests)
 	add_executable(mmodern_regional_rules_tests tests/XeenRegionalRulesTests.cpp)
 	target_link_libraries(mmodern_regional_rules_tests PRIVATE mmodern_xeen)
 	add_test(NAME xeen_regional_rules COMMAND mmodern_regional_rules_tests)
@@ -181,6 +194,10 @@ if(BUILD_TESTING)
 	target_link_libraries(mmodern_regional_cli_witness PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2 shell32)
 	target_link_options(mmodern_regional_cli_witness PRIVATE "-Wl,--wrap=_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjES5_ItE")
 	xeen_restore_replay(mmodern_regional_cli_witness)
+	add_executable(mmodern_consequence_cli_witness EXCLUDE_FROM_ALL src/main.cpp tests/XeenConsequenceCliWitness.cpp tests/XeenRestoreReplayProbe.cpp)
+	target_link_libraries(mmodern_consequence_cli_witness PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2 shell32)
+	target_link_options(mmodern_consequence_cli_witness PRIVATE "-Wl,--wrap=_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjES5_ItE")
+	xeen_restore_replay(mmodern_consequence_cli_witness)
 	add_executable(mmodern_journey_process_tests EXCLUDE_FROM_ALL tests/XeenJourneyProcessTests.cpp)
 	target_link_libraries(mmodern_journey_process_tests PRIVATE mmodern_app mmodern_xeen)
 	add_executable(mmodern_combat_tests tests/XeenCombatTests.cpp)
@@ -446,6 +463,7 @@ if(BUILD_TESTING)
 	add_executable(mmodern_sdl_input_tests tests/SdlInputTests.cpp)
 	target_link_libraries(mmodern_sdl_input_tests PRIVATE
 		mmodern_platform_sdl SDL2::SDL2)
+	target_link_options(mmodern_sdl_input_tests PRIVATE "-Wl,--wrap=SDL_GetTicks")
 	add_test(NAME sdl_input COMMAND mmodern_sdl_input_tests)
 	set_tests_properties(sdl_input PROPERTIES ENVIRONMENT
 		"SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software")

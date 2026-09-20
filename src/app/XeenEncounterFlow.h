@@ -10,6 +10,7 @@
 #include "games/xeen/XeenRegionalRules.h"
 
 namespace mmodern {
+class XeenItemCatalog;
 
 // Borrowed providers used once, before EventFlow's first refresh.
 struct XeenEncounterSetup {
@@ -29,6 +30,7 @@ struct XeenJourneySetup {
 	std::uint32_t seed;
 	std::uint16_t contract = 1;
 	XeenRegionalManifest regionalManifest;
+	std::optional<XeenMonsterTreasure> purse;
 };
 struct XeenJourneyRestoreTag {};
 
@@ -104,6 +106,7 @@ public:
 		auto result = _frame < 8 ? XeenMonsterAppearance{_frame} :
 			XeenMonsterAppearance{XeenMonsterSpriteKind::Attack, static_cast<std::uint8_t>(_frame - 8)};
 		if (_frame >= 8) result.identity = _appearanceIdentity;
+		if(_projectileCursor<_projectiles.size()) result.projectile=_projectiles[_projectileCursor];
 		return result;
 	}
 	std::optional<std::uint64_t> deadline() const noexcept { return _deadline; }
@@ -119,7 +122,25 @@ private:
 	bool _journey = false;
 	bool _journeyFramePrepared = false, _journeyFrameRetry = false;
 	std::string _journeyRefusal;
+	std::unique_ptr<XeenRegionalActionCandidate> _regionalWork;
+	std::unique_ptr<XeenShootCandidate> _shoot;
+	std::vector<XeenProjectileAppearance> _projectiles;
+	unsigned _projectileCursor=0;
+	std::uint64_t _projectileDeadline=0;
+	std::shared_ptr<const XeenRegionalObservation> _rangedObservation;
+	void observeRanged(std::shared_ptr<const XeenRegionalObservation>);
+	bool animateProjectiles();
+	bool projectilesPending() const noexcept { return _projectileCursor<_projectiles.size(); }
+	std::optional<XeenMonsterDeliveryCandidate> _monsterReceipt;
+	std::string _monsterReceiptText;
+	std::uint64_t _rewardLease=0;
+	bool beginShoot();
+	bool serviceShoot();
+	bool beginMonsterReward(const XeenItemCatalog &);
+	void acknowledgeMonsterReward();
+	bool monsterReward() const noexcept { return _monsterReceipt.has_value(); }
 	bool _regionalAutomatic = false;
+	bool _shootIntent = false;
 	std::shared_ptr<XeenRestoreGuard> _journeyPreimage;
 	std::shared_ptr<XeenJourneyCapture> _journeyCapture;
 	XeenEventFile _journeyEvents;
@@ -134,6 +155,7 @@ private:
 	void scheduleCombat(std::uint64_t);
 	bool handoffCombat();
 	std::string combatNotice() const;
+	std::string consequenceNotice() const;
 	std::string expeditionNotice() const;
 	bool observeCombat() noexcept;
 	void advanceAppearance() noexcept;

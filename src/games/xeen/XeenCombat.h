@@ -69,6 +69,10 @@ struct XeenCombatResult {
 	std::optional<XeenMonsterIdentity> actingMonster, targetMonster;
 	std::optional<XeenEncounterAction> approachAction;
 	bool critical=false;
+	std::uint8_t targetedMembers=0; // Published physical target mask, including misses.
+	std::optional<XeenMonsterDropOutcome> monsterDrop;
+	XeenMonsterTreasureItem generatedItem;
+	bool generatedArmor=false;
 	XeenCombatStatus status=XeenCombatStatus::Refused;
 	XeenCombatPhase phase=XeenCombatPhase::Preparation;
 	XeenCombatFailure failure=XeenCombatFailure::None;
@@ -77,11 +81,13 @@ struct XeenCombatResult {
 	int participant=-1, actorHpBefore=0,actorHpAfter=0, damage=0;
 	XeenMonsterIdentity monster{20,5};
 	std::uint16_t minutes=480;
-	std::array<XeenCombatDamage,2> injuries{}; unsigned injuryCount=0;
-	std::array<XeenCombatArmorChange,9> armor{}; unsigned armorCount=0;
+	std::array<XeenCombatDamage,12> injuries{}; unsigned injuryCount=0;
+	std::array<XeenCombatArmorChange,54> armor{}; unsigned armorCount=0;
 	std::array<XeenCombatXp,6> xp{}; unsigned xpCount=0;
+	std::shared_ptr<const XeenRegionalObservation> ranged;
 };
 
+class XeenRestoreGuard;
 class XeenCombat {
 public:
 	class Ticket {
@@ -128,13 +134,16 @@ public:
 	// Optional fallible observation/probe seam. Called after each draw or before
 	// publication and checked immediately. An observer never receives a capability.
 	void setProbe(std::function<void()>);
+	void preparePresentation(const Ticket &, const std::function<void()> &);
 private:
 	friend class XeenEncounterFlow;
 	XeenCombat(XeenWorld &, XeenPartyState &, XeenCamera &, XeenCombatBoundary &, const XeenGameFlags &,
 		const XeenEncounterState &, const std::vector<XeenMonsterRecord> &, const XeenEventFile &);
 	void retireJourney(const Ticket &, XeenEncounterState &);
+	void retainResources(XeenRestoreGuard &) const;
 	struct Impl;
 	std::unique_ptr<Impl> impl;
+	XeenCombatResult serviceConsequences(const Ticket &);
 	XeenCombatResult runApproach(const Ticket &,std::optional<XeenEncounterAction>);
 };
 }

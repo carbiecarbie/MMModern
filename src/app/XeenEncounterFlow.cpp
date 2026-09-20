@@ -150,12 +150,13 @@ bool XeenEncounterFlow::prepareTime(const Ticket &entry, std::uint64_t &now) {
 }
 
 void XeenEncounterFlow::schedule(std::uint64_t now) noexcept {
-	_deadline = _state.phase() == XeenEncounterPhase::Exploring && _state.pending() ?
+	_deadline = _state.phase() == XeenEncounterPhase::Exploring && (_state.pending() || _regionalWork) ?
 		std::optional<std::uint64_t>{now + 100} : std::nullopt;
 }
 
 bool XeenEncounterFlow::handle(const PlayerAction &input, std::optional<std::uint64_t> cycle, std::optional<XeenCombat::Ticket> displayed) {
-	if (completed()) return false;
+	if (completed() || projectilesPending() || _shootIntent) return false;
+	if (_journey && !_combat && std::holds_alternative<ShootAction>(input)) { const bool accepted=beginShoot();schedule(_lastTime);return accepted; }
 	if (_combat) return displayed && _combat->current(*displayed) && handleCombat(input, cycle);
 	const auto action = mapped(input);
 	if (_busy || !action || _state.phase() != XeenEncounterPhase::Exploring) return false;
@@ -220,13 +221,15 @@ bool XeenEncounterFlow::handle(const PlayerAction &input, std::optional<std::uin
 
 bool XeenEncounterFlow::idle(std::optional<std::uint64_t> cycle) {
 	if (completed()) return false;
+	if(projectilesPending()) return animateProjectiles();
 	if (_combat) return idleCombat(cycle);
+	if (_shoot && !monsterReward()) { const bool changed=serviceShoot();schedule(_lastTime);return changed; }
 	if (_busy || _state.phase() != XeenEncounterPhase::Exploring) return false;
 	if (_journey) {
 		if (_world.sessionState().journeyActivity() == XeenJourneyActivity::Presentation || !_boundary.quiet()) return false;
 		std::uint64_t now;
 		if (!prepareTime(ticket(),now)) return false;
-		const bool due = _state.pending() && _deadline && now >= *_deadline && !(cycle && _inputCycle == cycle);
+		const bool due = (_state.pending() || _regionalWork) && _deadline && now >= *_deadline && !(cycle && _inputCycle == cycle);
 		const bool cosmetic = now >= _cosmeticDeadline;
 		_lastTime = now;
 		if (due) { journeyPulse(ticket()); schedule(now); _inputCycle = cycle; }
@@ -241,7 +244,7 @@ bool XeenEncounterFlow::idle(std::optional<std::uint64_t> cycle) {
 	std::uint64_t now;
 	if (!prepareTime(entry, now)) return !current(entry);
 	const bool cosmetic = now >= _cosmeticDeadline;
-	const bool pulseDue = _state.pending() && _deadline && now >= *_deadline &&
+	const bool pulseDue = (_state.pending() || _regionalWork) && _deadline && now >= *_deadline &&
 		!(cycle && _inputCycle && *cycle == *_inputCycle);
 	_lastTime = now;
 	if (pulseDue) {
@@ -258,7 +261,8 @@ bool XeenEncounterFlow::idle(std::optional<std::uint64_t> cycle) {
 }
 
 std::string XeenEncounterFlow::notice() const {
-	if (_journey && _world.sessionState().journeyContract()==3) {
+	if(_journey && _world.sessionState().journeyContract()==4) return consequenceNotice();
+	if (_journey && _world.sessionState().journeyContract()>=3 && !_combat) {
 		std::string text="Regional Journey: Map 23 ("+std::to_string(_camera.x)+","+std::to_string(_camera.y)+") "+
 			std::string(1,"NESW"[unsigned(_camera.direction)])+" T="+std::to_string(_party.encounterContext->minutes)+"\n";
 		if (_state.phase()==XeenEncounterPhase::SupportStopped) {
@@ -357,6 +361,7 @@ bool XeenEncounterFlow::acceptCombatResult(const XeenCombatResult &result) {
 	if (result.status != adopted.status || result.phase != adopted.phase || result.work != adopted.work ||
 		result.revision != adopted.revision || result.generation != adopted.generation)
 		throw std::logic_error("Combat operation result was not adopted");
+	if(result.ranged && result.status!=XeenCombatStatus::Pending) observeRanged(result.ranged);
 	return true;
 }
 bool XeenEncounterFlow::handoffCombat() {

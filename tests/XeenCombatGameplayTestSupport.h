@@ -105,18 +105,18 @@ struct Harness {
    check(f.pixels[y*320+x]==base.pixels[y*320+x],"combat panels obscure scene");
  }
  void press(const SdlWindow::FrameUpdateHandler &handler,const PlayerAction &action) {
-  if(handler.framePresented)handler.framePresented();
+  if(handler.framePresented)handler.framePresented(flow->frame().presentation());
   handler.beginCycle(++cycle);
   check(handler.displayedInput().has_value(),"displayed ticket exists");
   handler.withDisplayedInput(action,*handler.displayedInput());
   check(handler.frameCurrent(),"current returned frame");
-  if(handler.framePresented)handler.framePresented();
+  if(handler.framePresented)handler.framePresented(flow->frame().presentation());
   visibleScene();
  }
  void tick(const SdlWindow::FrameUpdateHandler &handler,const SdlWindow::IdleFrameHandler &idle) {
   if(!flow->completed())retainedRng=fight().random().position();
   now+=100;handler.beginCycle(++cycle);idle();check(handler.frameCurrent(),"current idle frame");
-  if(handler.framePresented)handler.framePresented();
+  if(handler.framePresented)handler.framePresented(flow->frame().presentation());
   visibleScene();
  }
 };

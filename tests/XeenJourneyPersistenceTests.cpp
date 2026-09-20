@@ -310,7 +310,7 @@ struct ApplicationFixture {
 		flow=std::make_unique<XeenEventFlow>(w,eventsOwner,p,c,f,presentation.font,
 			[](auto){return XeenEventFlow::Composition{};},XeenEventPresenter::NpcDraw{},XeenEventPresenter::Clock{[]{return 0;}},
 			XeenEventPresenter::RandomFrame{},nullptr,nullptr,[](auto,auto){return XeenEventFlow::Composition{IndexedFrame{320,200,Bytes(64000)},false};},&setup);
-		check(!flow->canSave(),"Application initial handoff closed"); flow->framePresented(); check(flow->canSave(),"Application presented Journey");
+		check(!flow->canSave(),"Application initial handoff closed"); flow->framePresented(flow->frame().presentation()); check(flow->canSave(),"Application presented Journey");
 	}
 	XeenGameplayServices services() {
 		auto s=presentation.services();

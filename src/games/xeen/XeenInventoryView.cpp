@@ -179,6 +179,17 @@ std::vector<XeenInventoryLine> xeenInventoryLayout(const XeenFontFormat &font,
 			measured(10,310,{"F1-6 owner; arrows/1-9; T move; E equip/remove; Esc/I close",
 			"F1-6; arrows/1-9; T move; E equip/remove; Esc/I close"})) :
 		selection.mode == XeenInventoryMode::Confirm ? "Enter confirms; F1-F6 changes recipient; Esc/N cancels" : "F1-F6 recipient; Escape to cancel",true);
+	if(character && party.monsterTreasure) {
+  const auto &c=*character;const auto &v=*party.monsterTreasure;
+  line(10,310,147,"Poison "+std::to_string(c.conditions[3])+" Sleep "+std::to_string(c.conditions[8])+" Disease "+std::to_string(c.conditions[4]));
+  line(10,310,156,"Unconscious "+std::to_string(c.conditions[12])+" Dead "+std::to_string(c.conditions[13]));
+  const auto &in=*party.roster.combatInputs(c.rosterId);
+  try {line(10,310,165,"Speed "+std::to_string(XeenCharacterRules::effectivePhysical(c,in,XeenCharacterRules::PhysicalAttribute::Speed,{party.encounterContext->year}))+" AC "+std::to_string(XeenCharacterRules::combatArmorClass(c,in,{party.encounterContext->year})));}
+  catch(const std::invalid_argument &) {line(10,310,165,"Speed/AC: unsupported equipped contribution");}
+  line(10,310,174,"Gold "+std::to_string(v.gold)+" Gems "+std::to_string(v.gems));
+  unsigned count=0;for(const auto &r:v.weapons)count+=r.item.id!=0;for(const auto &r:v.armor)count+=r.item.id!=0;
+  line(10,310,183,"Pending gold "+std::to_string(v.pendingGold)+" Items "+std::to_string(count));
+ }
 	return lines;
 }
 IndexedFrame drawXeenInventory(const IndexedFrame &base, const XeenFontFormat &font,
@@ -187,7 +198,7 @@ IndexedFrame drawXeenInventory(const IndexedFrame &base, const XeenFontFormat &f
 		const XeenEquipmentResult *equipmentResult, bool combatPreparation, bool readOnly) {
 	XeenTextRenderer renderer(font);
 	XeenTextRenderOptions options;
-	options.bounds = options.windowBounds = {4,4,316,149};
+	options.bounds = options.windowBounds = {4,4,316,party.monsterTreasure?198:149};
 	options.x=4; options.y=4; options.drawWindow=true;
 	auto frame = renderer.render(base,"",options).pages.front();
 	for (const auto &line : xeenInventoryLayout(font,catalog,party,selection,feedback,equipmentResult,combatPreparation,readOnly)) {

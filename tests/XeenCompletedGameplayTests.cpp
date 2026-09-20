@@ -7,7 +7,7 @@ using namespace completed_test;
 namespace fs=std::filesystem;
 namespace {
 void complete(Harness &h,const SdlWindow::FrameUpdateHandler &handler,const SdlWindow::IdleFrameHandler &idle,unsigned seed=1){
- handler.framePresented();
+ handler.framePresented(h.flow->frame().presentation());
  if(seed==56){
   for(const PlayerAction &a:std::vector<PlayerAction>{InspectInventoryAction{},SelectMemberAction{5},NavigationAction::TurnRight,
    NavigationAction::TurnRight,SelectInventorySlotAction{1},TransferInventoryAction{},SelectMemberAction{0},AcknowledgeAction{},
@@ -39,7 +39,7 @@ void directLifecycle(const fs::path &dir){
    const auto observe=load.observeGameplay;
    load.observeGameplay=[&](auto &w,auto &e,const auto &p,auto &c,const auto &f){observe(w,e,p,c,f);oracle.live(w,p,c,f);check(next.flow->completed(),"effective completed mode before first frame");};
    load.show=[&](const auto &,const auto &handler,const auto &,const auto &,const auto &){
-    handler.framePresented();const auto bytes=diskBytes(path);const auto input=*handler.displayedInput();
+    handler.framePresented(next.flow->frame().presentation());const auto bytes=diskBytes(path);const auto input=*handler.displayedInput();
     next.press(handler,InspectInventoryAction{});check(next.flow->inventoryOpen()&&!next.flow->inventoryConfirmation(),"read-only inspection open");
     for(const PlayerAction &a:std::vector<PlayerAction>{SelectMemberAction{4},NavigationAction::TurnRight,SelectInventorySlotAction{1},TransferInventoryAction{},EquipmentInventoryAction{},AcknowledgeAction{},RevisitCompletedAction{}})next.press(handler,a);
     const auto calls=next.compositions;next.press(handler,SaveGameAction{});
@@ -52,7 +52,7 @@ void directLifecycle(const fs::path &dir){
      oracle.live(next);check(diskBytes(path)==bytes,"inspection/revisit changed disk without F9");
      handler.withDisplayedInput(RevisitCompletedAction{},input);check(next.world->completedEntryGeneration()==entry,"stale displayed revisit refused");
     }
-    next.world->discardMapCache();next.flow->refresh(true);handler.framePresented();oracle.live(next);
+    next.world->discardMapCache();next.flow->refresh(true);handler.framePresented(next.flow->frame().presentation());oracle.live(next);
     next.press(handler,SaveGameAction{});oracle.disk(path);return true;
    };
    check(Application().playGameplay(load,{},path,true)==0&&preparations==0,"fresh owner completed restart without preparation");
@@ -122,17 +122,17 @@ void presentationFailures(const fs::path &dir){
   };
   bool observed=false;
   s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){
-   handler.framePresented();h.press(handler,AcknowledgeAction{});h.press(handler,WaitAction{});unsigned commands=0;
+   handler.framePresented(h.flow->frame().presentation());h.press(handler,AcknowledgeAction{});h.press(handler,WaitAction{});unsigned commands=0;
    try{for(unsigned step=0;!h.flow->completed()&&step<200;++step){
     if(h.phase()==Phase::PlayerReady)h.press(handler,commands++<6?PlayerAction{BlockAction{}}:PlayerAction{InteractionAction{}});
-    else {h.now+=100;handler.beginCycle(++h.cycle);idle();if(!h.flow->completed())handler.framePresented();}
+    else {h.now+=100;handler.beginCycle(++h.cycle);idle();if(!h.flow->completed())handler.framePresented(h.flow->frame().presentation());}
    }}catch(const std::exception &){check(mode>=3,"unexpected recovery failure");}
    check(injected&&h.world->sessionState().completion()==XeenEncounterCompletion::VictoryQuiescent,"successful End survives presentation failure");
    check(!XeenSaveState::canCapture(*h.party,*h.camera,*h.world),"lease/fatal failure blocks direct capture before handoff");
    if(mode<3){
     oracle.live(h);check(handler.frameCurrent(),"authorized reconstructed frame exists");
     handler(SaveGameAction{});check(h.saves==0&&!fs::exists(path),"unhanded recovery F9 refuses without providers");
-    handler.framePresented();check(h.flow->canSave(),"actual handoff releases recovery lease");
+    handler.framePresented(h.flow->frame().presentation());check(h.flow->canSave(),"actual handoff releases recovery lease");
     h.press(handler,SaveGameAction{});oracle.disk(path);recovered=true;
    }else check(!h.flow->canSave()&&!fs::exists(path),"fatal/integrity recovery never permits save");
    observed=true;return mode<3;
@@ -196,7 +196,7 @@ void disposedRecovery(){
   [](auto){return XeenEventFlow::Composition{};},XeenEventPresenter::NpcDraw{},XeenEventPresenter::Clock{[]{return 0;}},
   XeenEventPresenter::RandomFrame{},nullptr,&setup,[&](auto,auto){if(fail&&++calls==1)throw std::runtime_error("dispose pending recovery");
    return XeenEventFlow::Composition{IndexedFrame{320,200,Bytes(64000)},false};});
- flow->framePresented();fail=true;flow->refresh(true);
+ flow->framePresented(flow->frame().presentation());fail=true;flow->refresh(true);
  check(!XeenSaveState::canCapture(f.p,f.camera,f.w),"pending reconstructed frame holds presentation lease");
  flow.reset();check(!XeenSaveState::canCapture(f.p,f.camera,f.w),"Flow disposal cannot clear world presentation lease");
  for(unsigned i=0;i<30;++i)remove_test::checkSameCharacter(before[i],f.p.roster.at(i));sameActors(actors,f.w.sessionState().actors());
@@ -244,7 +244,7 @@ void inspectionAndHandoff(const fs::path &dir){
    if(mode<2){
     handler.withDisplayedInput(InspectInventoryAction{},*handler.displayedInput());
     check(injected&&handler.frameCurrent()&&h.flow->inventoryOpen()&&!XeenSaveState::canCapture(*h.party,*h.camera,*h.world),"inspection recovery retained until handoff");
-    handler.framePresented();oracle.live(h);h.press(handler,InspectInventoryAction{});
+    handler.framePresented(h.flow->frame().presentation());oracle.live(h);h.press(handler,InspectInventoryAction{});
     check(h.flow->canSave(),"closing recovered inspection releases only matching lease");h.press(handler,SaveGameAction{});oracle.disk(path);
    }else {
     if(mode==2){h.flow->refresh(true);handler.failed();}else handler.closed();

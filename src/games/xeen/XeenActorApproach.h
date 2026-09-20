@@ -8,6 +8,8 @@
 
 namespace mmodern {
 class XeenAssetSource;
+struct XeenRegionalActionCandidate;
+struct XeenRegionalObservation;
 enum class XeenActorPlacement { SameCell, Forward, ForwardLeft, ForwardRight, Other };
 struct XeenActorView {
 	std::array<std::optional<XeenMonsterIdentity>, 26> slots{};
@@ -18,8 +20,8 @@ struct XeenActorView {
 enum class XeenMonsterTerrain { Allowed, Blocked, Unsupported };
 enum class XeenEncounterAction { Forward, Backward, Left, Right, Wait, Unsupported };
 enum class XeenEncounterPhase { Exploring, Engaged, SupportStopped };
-enum class XeenEncounterOutcome { Started, Accepted, Blocked, Pulsed, Engaged, Refused, Stale, Terminal, Stopped };
-enum class XeenEncounterStop { None, Envelope, Time, Domain, Preparation, Reporting, Overflow, Ranged, RegionalContact };
+enum class XeenEncounterOutcome { Started, Accepted, Blocked, Pulsed, Pending, Engaged, Refused, Stale, Terminal, Stopped };
+enum class XeenEncounterStop { None, Envelope, Time, Domain, Preparation, Reporting, Overflow, Ranged, RegionalContact, Defeat };
 
 // Transient coordination value for 26B. Copies are observations; revisions reject replay.
 // No clock, scheduler, callbacks or owner instances live here.
@@ -50,6 +52,7 @@ struct XeenEncounterResult {
 	std::optional<XeenMonsterIdentity> stoppedActor;
 	int stoppedX = 0, stoppedY = 0;
 	XeenActorView view;
+	std::shared_ptr<const XeenRegionalObservation> consequences;
 };
 
 class XeenActorApproach {
@@ -58,6 +61,10 @@ public:
 	static XeenEncounterResult initializeJourney(XeenWorld &, XeenPartyState &, XeenCamera &,
 		XeenEncounterState &, const std::vector<std::uint8_t> &, const XeenGameplayContext &,
 		const std::vector<XeenMonsterRecord> &, const XeenEventFile &, std::uint32_t seed, std::uint16_t contract = 1);
+	static XeenEncounterResult initializeJourney(XeenWorld &, XeenPartyState &, XeenCamera &,
+		XeenEncounterState &, const std::vector<std::uint8_t> &, const XeenGameplayContext &,
+		const std::vector<XeenMonsterRecord> &, const XeenEventFile &, std::uint32_t, std::uint16_t,
+		const std::optional<XeenMonsterTreasure> &);
 	static constexpr std::size_t kCapacity = 107;
 	inline static const XeenCamera kEntry{20, 13, 1, XeenDirection::North};
 	// Read-only authorization, including terminal states. Never adopts a revision.
@@ -98,6 +105,9 @@ public:
 	static XeenEncounterResult stop(XeenWorld &world, XeenEncounterState &state,
 		XeenEncounterStop reason) noexcept;
 private:
+	friend class XeenEncounterFlow;
+	static XeenEncounterResult regionalTransition(XeenWorld &, XeenPartyState &, XeenCamera &, XeenEncounterState &,
+		const XeenEventFile &, std::optional<XeenEncounterAction>, std::unique_ptr<XeenRegionalActionCandidate> &);
 	static XeenEncounterResult transition(XeenWorld &, XeenPartyState &, XeenCamera &,
 		XeenEncounterState &, XeenEncounterAction, const XeenEventFile &, bool pulse);
 };

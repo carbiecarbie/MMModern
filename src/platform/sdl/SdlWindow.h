@@ -21,8 +21,10 @@ public:
 		// One identity per event batch/idle iteration, independent of elapsed time.
 		std::function<void(std::uint64_t)> beginCycle;
 		std::function<bool()> frameCurrent;
+		// Checks the identity carried by the supplied immutable frame, never relabels it.
+		std::function<bool(const IndexedFrame::Presentation &)> acceptsFrame;
 		// Called only after successful upload and normal current-frame presentation.
-		std::function<void()> framePresented;
+		std::function<void(const IndexedFrame::Presentation &)> framePresented;
 		std::function<void()> failed;
 		std::function<void()> closed;
 		bool protectAllKeys = false;

@@ -165,6 +165,8 @@ struct ScummVmXeenBridge::Impl {
 	};
 	std::unordered_map<std::string, CachedSprite> sprites;
 	std::size_t spriteLoads = 0;
+	std::unordered_map<std::string,std::vector<std::uint8_t>> admittedSprites;
+	bool spriteIntegrityFailed=false;
 	std::unique_ptr<InitialCloudsArchive> initialArchive;
 
 	explicit Impl(const GameInstallation &installation) :
@@ -200,7 +202,12 @@ struct ScummVmXeenBridge::Impl {
 
 	StreamSpriteResource &sprite(const std::string &resourceName,
 			std::optional<std::size_t> checkedFrame = std::nullopt, unsigned monsterFrames = 0) {
+		if(spriteIntegrityFailed) throw std::runtime_error("Sprite resource integrity previously failed");
 		const auto validate = [&](const std::vector<std::uint8_t> &bytes) {
+			const auto known=admittedSprites.find(resourceName);
+			if(known!=admittedSprites.end() && known->second!=bytes) {
+				spriteIntegrityFailed=true;throw std::runtime_error("Admitted sprite resource changed: "+resourceName);
+			}
 			if (monsterFrames) {
 				if (bytes.size() < 2 || bytes[0] != monsterFrames || bytes[1] != 0)
 					throw std::runtime_error("Unexpected monster sprite frame count");
@@ -222,6 +229,7 @@ struct ScummVmXeenBridge::Impl {
 		if (!resource->loadFromStream(path, input))
 			throw std::runtime_error("nao foi possivel decodificar: " + resourceName);
 
+		admittedSprites.emplace(resourceName,bytes);
 		StreamSpriteResource &result = *resource;
 		sprites.emplace(resourceName, CachedSprite{std::move(bytes), std::move(resource)});
 		++spriteLoads;
@@ -242,6 +250,8 @@ ScummVmXeenBridge::~ScummVmXeenBridge() = default;
 void ScummVmXeenBridge::discardSpriteCache() { _impl->sprites.clear(); }
 std::size_t ScummVmXeenBridge::cachedSpriteCount() const { return _impl->sprites.size(); }
 std::size_t ScummVmXeenBridge::spriteLoadCount() const { return _impl->spriteLoads; }
+
+void ScummVmXeenBridge::validateProjectile(const std::string &name) { _impl->sprite(name,std::nullopt,3); }
 
 void ScummVmXeenBridge::validateNormalMonster(const std::string &resourceName) {
 	_impl->sprite(resourceName, std::nullopt, 8);

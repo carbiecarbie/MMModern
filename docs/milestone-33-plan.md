@@ -2,19 +2,12 @@
 
 ## Objective and acceptance boundary
 
-Candidate specification against MMModern commit
-`5e15e1d9436b01cd491b2831f805029182595854` (Complete Milestone 32 regional
-Journey foundations). This document specifies one implementation task with
-dependency-ordered internal checkpoints. It does not record implementation or
-acceptance, and does not authorize M34 or M35.
-
-Extend the existing Regional Journey to original Orc, Giant Snake and Giant Toad
-combat, alongside Skeleton/Zombie, enemy ranged attacks, player physical Shoot,
-Poison/Sleep, gold and bounded level-1 monster treasure. Consequences must remain
-exact through attachment, victory, reward delivery, mutable exploration, explicit
-save, fresh-process restoration and further play. A living actor wounded by Shoot
-outside contact must retain its HP, position, activation and identity through that
-entire path. Shoot is required production gameplay.
+**Completed and accepted.** M33 extends the Regional Journey with faithful
+admitted Orc, Giant Snake and Giant Toad combat alongside Skeleton/Zombie,
+enemy ranged attacks, player physical Shoot, Poison/Sleep, gold and bounded
+level-1 monster treasure. Consequences remain exact through attachment, victory,
+reward delivery, mutable exploration, explicit save, fresh-process restoration
+and further play, including living actors wounded outside contact.
 
 Use the [M32 regional foundation](milestone-32-plan.md), the
 [M30 grouped encounter](milestone-30-plan.md),
@@ -25,7 +18,7 @@ diagnostic and inherited physical arithmetic. M24/M25 retain inventory, transfer
 and equipment ownership and legality. Changes below are scoped to new content
 contract 4 unless explicitly described as a behavior-preserving shared refactor.
 
-The accepted boundary will be:
+The accepted boundary is:
 
 ```text
 prepared regional entry -> resource-derived mainland navigation
@@ -45,21 +38,15 @@ transitions and all other event addresses retain their current refusal.
 
 ## Evidence and compatibility authority
 
-Evidence labels used here have distinct meanings:
+Original resources establish data values; the pinned ScummVM implementation
+establishes reference algorithms. **ORIGINAL** identifies resource observations,
+**REFERENCE** identifies pinned algorithms, and **INFERENCE** identifies deliberate
+bounded integration decisions retained by this contract. Reference quirks are not
+claims of independently observed DOS executable behavior.
 
-- **ORIGINAL:** values read from the external commercial resources. Resource
-  parameters establish data, not executable algorithms.
-- **REFERENCE:** algorithms and constants inspected in the clean configured
-  ScummVM checkout at `6814ee9ba54582f5b5adcffab49efbbd8f589edd`.
-- **IMPLEMENTED:** code/tests at the MMModern baseline above.
-- **INFERENCE:** the explicit bounded integration decision in this contract.
-
-The configured source is `D:/Projetos/MModern/scummvm-known-good-candidate`;
-the configured dependency build is
-`D:/Projetos/MModern/build-scummvm-6814ee9b-ucrt64`. HEAD and clean source status
-were verified. These are investigation locations, not required future directory
-names. [Dependencies](dependencies.md) owns the pin, configuration and GPL
-attribution. No ScummVM engine linkage or dependency update is needed.
+[Dependencies](dependencies.md) owns the ScummVM pin
+`6814ee9ba54582f5b5adcffab49efbbd8f589edd`, configuration and GPL attribution.
+Commercial resources remain external and unmodified.
 
 All reference paths in this document are relative to that pinned source:
 
@@ -74,21 +61,13 @@ All reference paths in this document are relative to that pinned source:
 | `engines/mm/xeen/map.cpp`, `combat.h`, `item.cpp`, `item.h`, `xeen.cpp` | `MonsterStruct::synchronize`, special/hated-class/POW enums, equipment predicates, item state, inclusive `getRandomNumber` |
 | `engines/mm/shared/xeen/cc_archive.cpp`, `engines/mm/xeen/files.cpp` | CC member decoding and `SaveArchive::reset` initial-block order |
 
-**IMPLEMENTED:** the decisive seams are
-[`XeenCombat.cpp`](../src/games/xeen/XeenCombat.cpp),
-[`XeenActorApproach.cpp`](../src/games/xeen/XeenActorApproach.cpp),
-[`XeenRegionalRules.cpp`](../src/games/xeen/XeenRegionalRules.cpp),
-[`XeenJourneyRules.cpp`](../src/games/xeen/XeenJourneyRules.cpp), and
-[`XeenJourneyFlow.cpp`](../src/app/XeenJourneyFlow.cpp). Today regional contact
-clears pending work and stops, regional ranged relevance throws before candidate
-publication, attachment explicitly rejects contract 3, and the combat constructor
-uses world RNG only for contract 2. None is an implemented M33 capability.
-
-Other necessary current limitations are the two-injury/one-target combat result,
-six-ID melee weapon switch, cached initial player speeds, literal year 610 in
-combat consumers, `canAct` used for both defeat and enemy targeting, and strict
-Disease/Unconscious/Dead-only regional validation. Generalization must replace
-these assumptions selectively; changing only profile validation is insufficient.
+The implementation retains the existing combat, actor approach, regional rules
+and Journey Flow owners. Shared physical consequences live in
+[`XeenCombatRules.cpp`](../src/games/xeen/XeenCombatRules.cpp), bounded treasure
+candidates in [`XeenMonsterTreasure.cpp`](../src/games/xeen/XeenMonsterTreasure.cpp),
+and exploration coordination in
+[`XeenJourneyConsequences.cpp`](../src/app/XeenJourneyConsequences.cpp).
+These helpers create no independent gameplay owner or RNG.
 
 ### Original resource identities
 
@@ -143,7 +122,7 @@ than adding an unrelated whole-installation manifest.
 
 ## Regional ownership, attachment and combat lifecycle
 
-**INFERENCE:** introduce content contract 4 over the same M32 regional descriptor
+**INFERENCE:** content contract 4 extends the same M32 regional descriptor
 and owners. Fresh `--journey-region` selects 4; loading 3/3 continues the closed
 M32 behavior, including its support stops. Do not change the meaning of 3/3.
 `--journey-skeleton`, `--journey-expedition`, diagnostics and ordinary saves
@@ -228,9 +207,8 @@ SDL call.
 
 ### One shared physical consequence resolver
 
-Factor the existing arithmetic/candidate steps so contact, regional ranged work
-and Shoot share character damage, actor damage and lethal production. The
-resolver is a pure bounded candidate helper, with no world lifetime, independent
+Contact, regional ranged work and Shoot share character damage, actor damage
+and lethal production. The resolver is a pure bounded candidate helper, with no world lifetime, independent
 RNG, UI, save authority or combat state machine. `XeenCombat` publishes contact
 work; the guarded Journey/approach operation publishes exploration work.
 
@@ -267,7 +245,7 @@ published operations with automatic target reselection and no player input
 between them. A Snake/Toad resource attack is one candidate spanning all six
 targets in active order `[0,18,14,11,1,6]`, including dead/incapacitated targets;
 do not truncate it when an earlier member falls. It needs up to 12 damage
-applications and 54 distinct armor-slot changes, not today's 2/9 result bounds.
+applications and 54 distinct armor-slot changes.
 
 For Orc, draw `U[0,5]`; there is no Paladin preference. For Skeleton/Zombie,
 select the first Cleric whose worst condition is outside Paralyzed..Eradicated,
@@ -382,7 +360,7 @@ opportunity's ranged attacks.
 ## Player physical Shoot
 
 **REFERENCE:** `Interface::perform` exposes Shoot in exploration, not the combat
-menu. M33 follows that boundary. Add a typed `ShootAction`, bound to **F** in
+menu. M33 follows that boundary. Typed `ShootAction` is bound to **F** in
 regional exploration; S remains the accepted backward movement key. F has no
 Shoot meaning in contact combat or legacy contracts. No ammunition, target
 picker, spell variant or new projectile simulation framework is required.
@@ -463,7 +441,8 @@ before firing; if it attaches combat, discard this Shoot intent and require a
 new exploration F after retirement. Do not queue a delayed shot across combat.
 This is the same stale-intent safety adaptation used by the existing Flow.
 
-An empty/invalid volley refuses before time, ctr24, actor opportunities or RNG.
+A volley with no eligible shooter or invalid consumed equipment refuses before
+time, ctr24, actor opportunities or RNG.
 An eligible volley into empty space, a wall, or with every shot missing still
 costs ten minutes and arms pending=3. **Shoot does not increment ctr24**:
 the reference calls `chargeStep` and `doStepCode`, not `stepTime`. Process shots
@@ -522,15 +501,11 @@ retain Sleep, including an all-asleep party when no mandatory work is owed;
 restore preserves it. Individual equipment/transfer restrictions remain M24/M25,
 which intentionally do not add a `canAct` gate.
 
-### Why 950 -> 960 must become supported
+### Consequence-aware daytime ticks
 
-**ORIGINAL/IMPLEMENTED:** the checked mainland paths include a 16-move route
-from `(9,11)` to `(8,2)` and return; combat rounds, Shoot and return branches
-add time. Forty-eight ten-minute charges reach the first post-entry tick even
-without combat. Repeated regional play and the required restart/continued-play
-witness cannot truthfully retain a permanent stop before 960 while claiming
-these consequences are supported. M33 implements that tick, not a deferred
-flag or skipped-effect clock advance.
+Repeated mainland combat, Shoot and continued play admit the 480-minute
+condition tick, including `950 -> 960`; time never advances by skipping its
+consequences or deferring an unsupported effect.
 
 **INFERENCE:** retain M32's calendar domain `day 0..99`, year u16, minutes
 `300..1259`, ctr24 `0..23`, WorldOfXeenClouds/Adventurer, effects/resistances/
@@ -648,7 +623,7 @@ effect here because every such Orc also produced gold.
 
 ### Owners and settlement state
 
-Add one optional contract-4 consequence value to `XeenPartyState`, present only
+`XeenPartyState` owns one optional contract-4 consequence value, present only
 in this domain. It contains:
 
 - carried gold u32, initialized once from original `maze.pty` LE u32 at 638;
@@ -751,10 +726,10 @@ purse and cannot recredit it. A recovered frame re-presents observation, not
 production/delivery. A fatal failure remains terminal; closing the process
 does not retroactively alter the previous explicit disk save.
 
-### Close every obtainable equipment path
+### Generated equipment consumers
 
-For contract 4, broaden the bounded physical consumer to all ordinary Weapons
-1..33, Armor 1..7, plus the existing admitted original equipment. Preserve
+Contract 4 physical consumers admit all ordinary Weapons 1..33 and Armor 1..7,
+plus the existing admitted original equipment. Preserve
 M25's exact class masks, frames, two-handed/shield conflicts and removability;
 do not broaden equipment legality merely because a catalog can name an ID.
 Weapon 34 remains equip-supported by M25 but is not generated by this path;
@@ -930,13 +905,10 @@ performs no capture, provider, preflight, file I/O or queued future save.
 
 ### Atomic restoration and legacy behavior
 
-Trace every new field through `XeenSaveSnapshot`, format validation/codec,
-`XeenSaveState::capture/validateJourneyValues/restoreJourney`,
-`XeenPartyState::publishCompleted`/private swaps, `XeenRestoreGuard` construction,
-`prepareJourneyPublication`, shared `sameInputs`/state equality, combat's local
-party/input preimages, Journey capture and post-publication renewal. Update
-copy/move refusal for marked owners and detached-supplement guards; public copy
-must not become a route to replace an active graph with byte-equal state.
+The snapshot, codec, capture, restore, owner publication and all retained
+preimages include the new resistance and consequence fields. Marked-owner
+copy/move and detached-supplement guards prevent replacing an active graph with
+byte-equal state through public copies.
 
 Restore proceeds entirely on unpublished candidates:
 
@@ -994,9 +966,9 @@ it stores produced consequences, never partially executed modal work.
 Reuse `XeenEncounterFlow`, `XeenJourneyFlow`, `XeenEventFlow`'s presenter helpers,
 `XeenGameplay`, `Application::playGameplay`, `PlayerAction` and the single SDL
 input/idle loop. F9 interception must share the same presented-generation and
-lease guard as every other control. Add F to the existing per-key held/repeat/
-timestamp/SDL-batch rejection path. A key sampled before the new frame cannot
-Shoot, acknowledge a later receipt, attack a joined replacement or save it.
+lease guard as every other control. F shares the existing per-key held/repeat/
+timestamp/SDL-batch rejection path. A key sampled before a new semantic boundary
+cannot Shoot, acknowledge a later receipt, attack a joined replacement or save it.
 
 Required feedback is bounded and factual:
 
@@ -1051,279 +1023,73 @@ may reconstruct or finish a retained animation; it cannot recompute the outcome.
 Keep the existing ordinary-object/NPC clocks independent. No general audio,
 HUD or inventory redesign is required.
 
-## Concrete integration and implementation order
+### Semantic input and concrete frame authority
 
-These are internal checkpoints of one M33 implementation task, not separately
-accepted releases. Keep contract 3 regressions executable throughout. Implement
-new-domain admission only when its consumers and guards are ready; do not expose
-a partially supported production contract 4.
+Semantic input authority/epoch is distinct from the immutable identity of the
+concrete composed/presented frame. Cosmetic redraws may preserve an unchanged
+semantic input epoch, so legitimate fresh Quiet movement is not discarded merely
+because cosmetics changed. Semantic transitions still fence held, sampled or
+stale input, including F9 and identity-bound combat selection.
 
-| Existing surface | Required change |
-| --- | --- |
-| `src/games/xeen/XeenCombat.h/.cpp`, `XeenCombatRules.h`, `XeenJourneyProgression.h` | Attach contract 4, borrow world RNG, refresh initiative, distinguish eligibility predicates, enlarge bounded results and factor shared physical/lethal candidate preparation. Add `XeenCombatRules.cpp` for non-inline shared arithmetic; it owns no live state. |
-| `XeenActorApproach.h/.cpp`, `XeenRegionalRules.h/.cpp`, `XeenJourneyRules.h/.cpp` | Preserve regional scheduler/order; add opportunity-local ranged queue and complete candidate effects, condition-aware time and contract-specific admission. Preserve contract 3 refusal paths. |
-| `XeenParty.h/.cpp`, `XeenCombatInputs.h`, `XeenCharacterRules.cpp`, party/character loaders and `src/formats/xeen/XeenCharacterFormat.cpp` | Optional consequence owner and four resistance inputs; resource initialization; current-condition consumers, equality and marked-owner protection. Keep existing character item/condition bytes and supplement ownership. |
-| New `src/games/xeen/XeenMonsterTreasure.h/.cpp` | Pure bounded generation/delivery candidates and typed observations over the party-owned value; no second reward owner or RNG. Share low-level insertion/receipt helpers with `XeenItemRewards` without widening Event authority. |
-| `XeenEquipment.cpp`, item transfer, inventory model/catalog/presenter | Complete ordinary weapon consumer and generated armor readiness; reuse legality, exact inspection, transfer and Equip/Remove. Expose all relevant conditions and money. |
-| `src/app/XeenJourneyFlow.cpp`, `XeenEncounterFlow`, `XeenEventFlow` presenter helpers and `XeenGameplay` | Shoot operation, ranged/time idle continuation, generalized attachment, mandatory delivery, input/capture exclusion and post-publication recovery. Keep a single combat Flow and regional owner graph. |
-| `src/core/PlayerAction.h`, `src/platform/sdl/SdlWindow.cpp`, application gameplay dispatch and outdoor draw-command composition | Typed F input under existing generation guards; bounded projectile/ATT/damage observations and terminal/refusal feedback. |
-| `XeenJourneyContent.h`, `XeenJourneyCapture.h`, `XeenSaveSnapshot.h`, `XeenSaveState.cpp`, `src/formats/xeen/XeenSaveFormat.cpp`, `XeenRestoreGuard.h`, `XeenStateEquality.h` | Explicit 4/4 selection; suffix, presence and current-state checks; full preimages/capture/atomic restore; retained immutable-resource union. |
-| Existing combat, regional, Journey, equipment, save/SDL/process tests and original-resource witnesses | Independent arithmetic/order oracles, domain and failure regressions, genuine input-driven routes, separate-process comparisons. Register focused new tests in existing CMake test structure during implementation. |
+An exact frame binding travels with the immutable `IndexedFrame` snapshot used
+for upload and acknowledgment. Only the current frame for the current owner and
+incarnation can satisfy the presentation boundary. Missing, stale, reordered,
+foreign-owner, destroyed-owner and previous-incarnation frames cannot open input
+or capture. Preserving an input epoch never substitutes for presenting that frame.
 
-1. **State and pure rules.** Introduce optional values, resource readers, shared
-   physical calculations, condition-aware time candidate and treasure candidates.
-   Gate: exact profile/tables, all condition/save/draw branches, item reachability,
-   capacity and integer boundaries; old-domain presence/equality unchanged.
-2. **Contact generalization.** Attach the existing combat object to contract 4,
-   generalized targets/results, current initiative and shared lethal production.
-   Gate: mixed grouped/joining identities, wound preservation, owed movement,
-   all-party attacks, all-sleep automatic cycles, genuine End/defeat, inherited
-   Skeleton/Zombie arithmetic and M30 selection/movement ordering.
-3. **Exploration consequences.** Add regional ranged candidate work and Shoot,
-   time/RNG continuation and unified mandatory delivery. Gate: exact scans,
-   rays, volleys, no-contact deaths, prior-candidate effects, delayed collection,
-   no false Quiet and pre/post-publication failure behavior.
-4. **Persistence and mutable closure.** Complete 4/4 codec, guards, restored
-   ownership and item-consumer closure. Gate: literal wire fixtures, malformed
-   and missing-field rejection, legacy byte semantics, wound/pending-reward/
-   condition round trips and a separate-process continued-mutation witness.
-5. **Production presentation and acceptance.** Wire F and retained projectile/
-   receipt/condition observations, execute the original-resource journeys below,
-   then build and run the complete CTest suite. Gate: independent review and
-   maintainer physical native-SDL acceptance, with every mandatory feature
-   covered. No checkpoint is permission to claim M33 completion on its own.
+An eligible player volley presents outward projectile feedback independently of
+having a chosen victim, including empty space, obstruction and misses. Its visual
+lanes do not invent targets, damage or RNG; mechanics and time follow the
+consequence contract above. Player lanes currently animate sequentially, whereas
+the reference initially shows them simultaneously. Independent review accepted
+this as a nonblocking presentation fidelity difference.
 
-## Acceptance contract
+## Final acceptance
 
-All items in this section are **future implementation acceptance**, not tests
-claimed to have run during this investigation. Arithmetic probes below establish
-expected values only. A successful fixture cannot replace a production route.
+The complete implementation passed the full build, full CTest suite (**95/95**),
+M33 process/witness suite (**432 cases**), original-resource validation,
+separate-process save/restart comparisons, required exact semantic-state and
+save-byte comparisons, schema/content **4/4** validation and legacy Journey
+**1/1, 2/2 and 3/3** compatibility. `git diff --check` passed.
+Independent technical review, including the final presentation/input authority
+correction, returned **ACCEPT**.
 
-### Comparison and replay discipline
+Retained production witnesses include wound/contact/restart and generated armor
+seed **3**, Poison **7**, Sleep/Toad **226**, undead **18**, and generated missile
+**64**. Input-driven witnesses use the original prepared entry and production
+Flow/action boundaries. Named artificial rule/fault fixtures cover rare capacity,
+overflow, all-sleep and delayed-treasure arrangements; they do not claim those
+arrangements were reached through a genuine route.
 
-Every input-driven witness uses the external original installation, fresh
-`--journey-region --combat-seed <seed>` or unmodified `--load-game <save>`, and
-the existing prepared party/loadout. Test output/save/log locations are outside
-the source tree and commercial installation. No edited actor/party/context,
-injected draw tape, regeneration, free healing or special test entry is allowed
-in these gameplay witnesses. Artificial inputs belong only to named rule/fault
-tests. CLI harnesses must drive the same typed action/idle/Flow boundaries as
-SDL, never call the lethal or delivery publisher as a shortcut.
+Restart comparisons cover the complete roster and supplements, exact items and
+conditions, purse and source-tagged pending treasure, camera/flags/quests/overlays,
+context, all 19 actor identities and mutable fields, accounting and RNG state/raw
+count. Restored and uninterrupted branches also perform the same further mutation
+and compare again; visible HP or a save hash alone is not the acceptance boundary.
 
-Use explicit action/idle transcripts: after each exploration action service
-one pulse at a time through the owed three ticks and any mandatory work, then
-act only on a successfully presented generation. Zero-time turns still use the
-accepted ctr24 and classification rules. Do not add speculative Wait inputs to
-advance animation. In combat service every automatic step; Space attacks the
-lowest original-index live contact unless a witness specifies another target;
-acknowledge genuine End and all receipt pages. No Run or recovery is available.
+Separately, the **maintainer completed physical native-SDL acceptance** after the
+final corrections. It covered the fixed seed-3 wound/restart path, contact and
+consequence continuation, Poison and Sleep, reward pages and generated equipment,
+player/enemy projectiles, Shoot with and without a visible target, save/restart
+and further mutation, blocked F9 states, terminal DEFEAT, regional sign behavior
+and responsive movement after presentation handoff. This is maintainer-performed
+physical evidence, distinct from automation, image inspection and technical review.
 
-At every named checkpoint record and compare the complete semantic snapshot:
-all 30 characters and supplements (including inactive owners), active order,
-exact four-category item arrays/holes/metadata, HP/SP/conditions/XP, purse and
-pending source-tagged treasure, camera/flags/quests/overlays, context, all 19
-actor identities/HP/positions/activation/lifecycle/status/accounting, and RNG
-algorithm/state/raw count. Compare selected/owed runtime work separately where
-it exists; do not serialize it. Save files must additionally round-trip exactly.
-Compare an uninterrupted control to a fresh-process resume at each save, then
-apply the same further actions to both and compare again. Visible HP or a file
-hash alone is not sufficient evidence of restored owner authority.
-
-### Fixed connected wound, contact, equipment and restart witness
-
-Seed **3**, default entry `(9,11)` West, minute 480, ctr24 0, original prepared
-loadout (Badger alone has equipped Bow ID 30). Use Up for Forward; **F here
-always means Shoot**, unlike the single-letter Forward notation in old probes.
-
-1. Up, then service all three pulses: camera `(8,11)` West, minute 490,
-   ctr24 1, Orc identity 9 at `(6,11)`, HP25. This approach prefix is already
-   covered by the M32 resource oracle; no random draw is owed by the move.
-2. F and finish the new opportunity. Badger rolls `2,2,2`, hit d20=14,
-   monster save=4 on `[1,56]`: 18 damage is halved to 9, so Orc 9 has HP16.
-   It moves to `(7,11)` and fires: random target=1 (Tyro), d20=4 and
-   parameter=2 miss. At presented Quiet: minute 500, ctr24 1, unchanged party
-   HP, no defeated/accounted actor or treasure; RNG state `0x4a767d04`, count8.
-3. F9, close the process, load this save in a new process. Inspect the same
-   HP16 actor outside contact and all exact values above. This is the required
-   surviving wound save, not a Run-produced survivor.
-4. Up enters `(7,11)`; the next classification attaches Orc 9 with HP16 and
-   carries one owed movement. Orc acts before the party: target=1, d20=16,
-   parameter=4, damage die=5. Tyro becomes HP43. The attachment obligation
-   completes before Arturius's ready frame. Space: Arturius's dice `2,1,2,2`,
-   hit d20=8 produce 24 physical damage and kill identity 9 once.
-5. Orc drop=8; category=48, subcategory=50, armor ID=2, ignored enchantment=46.
-   The item is ordinary Armor `0/2/0/0`; delivery chooses Arturius. Complete
-   End and receipt acknowledgment. At Quiet: minute511, ctr24 2; party HP
-   `[36,43,36,40,21,15]`; all six XP increased by66; gold810, gems10; empty
-   pending treasure; actor9 canonical defeated/accounted. RNG state
-   `0x692b3851`, count22. No other actor was killed to make collection possible.
-6. Inspect the delivered item; transfer it from Arturius to Tyro using I,
-   category/slot selection, T, recipient selection and Enter. Remove Tyro's
-   original equipped Armor ID2, then equip the received record with E. Distinguish
-   the records by their transfer/slot history and complete arrays, not name.
-   Class/frame legality succeeds; HP/XP/money/time/RNG are unchanged.
-7. Save, restart again and compare the whole state. Remove/re-equip the received
-   armor, turn East and Shoot into empty center rows, then finish its charge and
-   pulses. This additional legal mutation must succeed with no duplicated XP,
-   gold or item and no revived Orc9. Save and compare against the uninterrupted
-   branch again. Further encounters use the same RNG continuation and owners.
-
-The consecutive accepted draw intervals/values through step5 are:
-
-```text
-[1,2]:2, [1,2]:2, [1,2]:2, [1,20]:14, [1,56]:4,
-[0,5]:1, [1,20]:4, [1,5]:2,
-[0,5]:1, [1,20]:16, [1,5]:4, [1,10]:5,
-[1,2]:2, [1,2]:1, [1,2]:2, [1,2]:2, [1,20]:8,
-[1,100]:8, [0,100]:48, [0,100]:50, [1,7]:2, [1,100]:46
-```
-
-A separate branch loads step3 and presses F instead of Up. Its next dice are
-`2,2,2`, d20=15, monster save=20, giving18 damage and a ranged kill. Drop=59
-produces no item. After the receipt and owed charge/pulses: camera `(8,11)`
-West, minute510, ctr24 1, original party HP, gold810/gems10, XP+66 each,
-actor9 defeated, empty pending treasure, RNG `0xb8d3b48a`, count14. There was
-no combat attachment, End or retirement. Save/restart, turn and Shoot again;
-the death, gold and XP must remain once-only. This independently closes the
-out-of-contact kill path.
-
-### Mainland conditions, grouped combat and time journeys
-
-The following coordinate routes are resource-checked mainland paths. They do
-not promise that an actor remains at its spawn until the party arrives: the
-normal scheduler may attach it earlier. Face the next coordinate using the
-shortest turn sequence (Right for a 180-degree tie), then Up; drain work after
-each action. Contacts preempt routing and use the combat policy above. Resume
-the route from the unchanged party cell after retirement. A sign may open its
-accepted modal; acknowledge it without bypassing the M31 Event path.
-
-Use these exact route families, each from a fresh prepared entry:
-
-```text
-Common southern corridor C:
-(9,11),(9,10),(9,9),(9,8),(8,8),(7,8),(7,7),
-(6,7),(5,7),(5,6),(5,5)
-
-Snake route: C,(5,4),(5,3),(5,2),(5,1),(5,0)
-Toad route:  C,(6,5),(7,5),(7,4),(7,3),(6,3),(6,2),(6,1)
-Undead route: C,(5,4),(5,3),(5,2),(4,2),(3,2),(2,2),(1,2),(1,1)
-```
-
-For repeatable coverage without claiming an unexecuted seed already wins these
-new fights, the original-resource replay test deterministically enumerates seeds
-1..256 in ascending order for each family, using exactly this policy and no
-mid-run reload. Each run stops at terminal defeat, unsupported boundary, or
-completion. Retain the first successful transcript satisfying each predicate
-below; rerun that exact seed/transcript in a separate process. This bounded
-enumeration is an acceptance-fixture selection algorithm, not permission to
-change formulas, loadout, routes or arrange state. If it finds no witness for a
-required predicate, acceptance fails; injected arrangements cannot fill the gap.
-
-- Snake: naturally attach identity12, observe at least one failed save producing
-  Poison and changed derived values, win, retire with a living poisoned member,
-  save/restart, and continue navigation/equipment mutation without cure/reset.
-- Toad: naturally attach identity14 or15, observe party-wide targeting and Sleep,
-  skipped sleeping turns and at least one damage wake (including immediate
-  reapplication when its save fails). Win and retire; save/restart exact surviving
-  conditions and continue. Keep a distinct terminal-defeat transcript as a
-  negative control, not a substitute for the victory witness.
-- Mixed continuity: retain a route transcript with a second contact joining an
-  existing episode, or grouped contacts, original identity selection/compaction
-  and successful return. Independently require both regional Skeleton17 and
-  Zombie18 combat and Zombie Disease, as well as unchanged M30 expedition tests.
-- At least one successful family transcript must include two completed episodes
-  with a save/restart between them and a later published attack/item mutation.
-  If its first victim carries pending rewards delayed by a selected survivor,
-  preserve that queue across the save and verify later collection once.
-
-For the 960 tick, take the successful Snake transcript with persistent Poison
-and, after its required victory, follow the same route backwards to `(9,11)`.
-At each quiet boundary use Wait until the next ten-minute charge crosses 960;
-combat may preempt these waits and is completed normally. Exact minutes may be
-`951..959 -> 961..969` because End/Round costs one minute. Save before and after
-the crossing, fresh-process resume each, compare full condition/time/RNG state
-and continue one further charged action. No clock assignment or removal of
-actors is allowed. A separate pure-rule test covers exactly `950 -> 960` and
-Round/End `959 -> 960`. Defeat/dusk before the crossing is a failed candidate
-transcript; the same bounded seed enumeration must retain a successful one.
-
-Level-1 loot coverage also runs the fixed first-Orc route for seeds1..4096 with
-the same actions and contact policy, retaining the first actual delivered
-weapon, armor and missile weapon (IDs30..33). The seed3 armor result is the
-fixed primary witness. Inspect and transfer each retained generated weapon to
-Arturius, remove conflicting melee/shield/missile equipment as needed, equip
-legally, use melee or Shoot as appropriate, then save/restart and use it again.
-No item injection supplies this production consumer witness. Exact full catalog
-coverage and rare generation/capacity branches are deterministic rule tests.
-
-### Deterministic rules, authority and negative controls
-
-Use literal independent draw tapes for pure/candidate tests, in addition to
-seeded world-RNG tests. Assert every requested interval, accepted value, rejected
-raw conversion, resulting count and operation boundary. At minimum:
-
-| Area | Required controls and expected consequences |
-| --- | --- |
-| Monster profiles and target order | All five exact records; hates1 random rather than Paladin bias; Cleric preference including Sleep; fallback draw even with one target; hates16 all six including Dead, no target-selection draw or mid-party early exit; Zombie two distinct resource attacks. |
-| Physical attack | Natural1 stops before parameter/damage; natural20 first damage then parameter and possible second damage; Poison/armor changes from first application affect second threshold; asleep skips hit draws and wakes before damage/special; zero damage has no special-save draw. |
-| Conditions | Save equality succeeds; failed positive hit increments Poison/Disease or sets Sleep; checked255 refusal; Poison modifies exactly three stats, Disease the other three; current HP/SP never clamped; initiative refresh/zero Speed; all-sleep automatic service versus actual terminal defeat. |
-| Block across inner reset | Deterministic tape: Block -> Sleep -> all-asleep inner reset -> Block remains active -> wake -> subsequent enemy attack, before an ordinary round transition, still uses `currentAC + floor(currentLevel/2) + 15`. Choose a noncritical hit total at least `currentAC+10` but below that blocked threshold: it must miss. A separate ordinary round transition clears acted and blocked state; the same awake-target attack then uses `currentAC+10` and hits. |
-| Time | Clean six-member tick with Poison branch2 and Disease branch0 consumes exactly12 accepted draws; each branch1 adds its correct resistance interval, including `[1,40]` at zero resistance. Nonzero Poison/Disease skip their respective branch draws. New stat death becomes Dead2 with HP unchanged; existing Dead increments; Dead255 refuses atomically; unchanged Sleep. No draws for zero-time operations. |
-| Shoot | All four missile dice sets, class divisors and Accuracy; dice before exploding hit; no Might or melee count; each miss continues to the next original-ordered target/row; hit spends even zero damage; physical resistance then monster save; lethal drop before next shooter; multiple shooters, empty eligibility, empty ray, all misses, blocked rows, edge and middle15 contrast with enemy ray. |
-| Ranged scheduling | All four directions, distances1..3, facing independent, raw east mask asymmetry, disconnected actor closures, failed-ray tested-once, full scan/pass ordering, earlier actors changing later occupancy/contact eligibility; shot plus move-to-contact; two opportunities in a charged Wait; no input/capture gap before queued damage. |
-| Lethal production | XP eligibility/division/levels, u32 XP/purse overflow, nonlethal HP persistence, ranged/contact shared identity, repeated observation and End do not regenerate; each drop boundary10/11, category40/41/85/86, subcategory30/31/60/61/85/86, exact ignored draws and six-draw miscellaneous-generation loss. |
-| Delivery | Ten slots per category, eleventh retained-production loss, full generated draws despite overflow, all four tails globally full, category-only full, disabled recipients, first eligible recipient, holes with full tail, sequential compaction and exact bytes; warnings do not lose gold; item delivery before receipt and gold only at final acknowledgment. |
-| Equipment closure | Every generated ID through inspection/transfer/legal equip, all class masks and conflicts; each weapon dice table entry; original material exceptions; bad-state base damage and armor suppression; unknown carried item remains storable while unsupported consumed record refuses explicitly. |
-| Publication and failure | Stale input, changed/reverted preimage, owner ABA, reentrant provider/presenter, callback throwing before preparation and after each publication; no partial party-wide hit/opportunity/tick/delivery; committed predecessor retained; no reroll/recredit on retry or receipt page replay; bounded raw-rejection/exploding-die service. |
-| Save exclusion | Every pending pulse/ranged queue/Shoot attempt/charge, contact/attachment, player turn, all-sleep automatic work, victory awaiting End, retirement, eligible reward, receipt, Event/inventory, presentation and failure latch refuses F9 before provider or file calls. Delayed uncollectable treasure alone is expressly saveable. |
-| Persistence | Literal 4/4 offsets and minimum/maximum lengths; all truncations, extra bytes, count/source/order/mask mismatches, unknown pair, missing resistances/purse, noncanonical actors, bad condition/time/HP correlations, overflow, immediately collectable pending queue and resource identity changes reject atomically. Old optional absence stays absent. |
-| Resource authority | Existing M32 wrong-key/internal-ID, mutable known DAT/MOB after cache clear and mutation/reversion controls across Shoot/combat/reward/inventory/capture/restore; EVT and profile/POW/MON/ATT compatibility; known mismatch permanently latches, compatible I/O retry remains distinct. |
-
-Some rare controls (ten-item category overflow, saturated purse/conditions,
-all-sleep saves, pending-treasure saves and mixed candidate arrangements) may
-use expressly labeled artificial fixtures. They are additional correctness
-evidence, never proof that those arrangements were reached by the genuine
-route suite. The pending-treasure restore control keeps another selected living
-actor, saves at the resulting legal Quiet boundary, restarts and turns away
-until selection is empty; verify mandatory delivery and once-only credit. Its
-fixture provenance must remain explicit. The fixed seed3 connected and ranged
-branches supply genuine production death/reward/save evidence independently.
-
-Legacy regression gates retain all M27-M32 tests, particularly M30 grouped
-attachment/selection/owed movement and exact combat arithmetic, M31 sign/Event
-owner and post-publication authority, M32 312-case original regional oracle,
-schema3 restore/closures and immutable cache authority. Add explicit old 3/3
-load controls reaching its original contact/ranged/time support stops; fresh
-entry4 does not retroactively alter their expected outcomes. Run unchanged
-v1/v2/v3 and v4 1/1,2/2,3/3 fixtures through their established entry/restore
-policies, including malformed files and forbidden command-line combinations.
-
-### Acceptance responsibilities
-
-Automated acceptance covers rule tapes, arithmetic, state/authority/fault tests,
-wire/legacy tests and complete CTest. Original-resource acceptance separately
-covers immutable manifests, input-driven journeys and fresh-process durable
-comparisons. Record actual seeds/transcripts, commands and results in the task
-report; do not turn this plan into an operational log.
-
-An independent reviewer must check the reference derivation, all mandatory
-features, complete consequence/save chain and implementation/tests. The
-maintainer must physically execute native SDL acceptance: the fixed seed3 wound
-and both restart branches, at least one retained Poison/Sleep route, generated
-equipment use, enemy/player projectiles and reward pages, sign regression and
-terminal/blocked-save controls. Record which work is physical versus automated
-or image-based. Screenshots or a headless driver do not claim physical acceptance.
-
-M33 closes only after these gates pass. Then update durable status/history/
-roadmap and condense this plan under AGENTS.md; that closure work and Git actions
-require their applicable authorization. This candidate changes none of them.
+The map-23 opcode-04 SignText correction is shared with the
+[M32 sign contract](milestone-32-plan.md#event-and-sign-authority): original-game
+physical comparison and the pinned reference establish nonmodal retained text
+with no acknowledgment. After natural Event termination and matching frame
+handoff, ordinary eligible controls remain available while the text is visible.
+WhoWill, acknowledgments, Yes/No and other response-requiring continuations retain
+their modal authority and exclusion.
 
 ## Non-goals and successor handoff
 
 M34 owns Run/disengagement, failed/run-outcome policy and non-victory retirement.
 It must consume the same wound/accounting/treasure owners and preserve pending
-obligations; M33 grants retirement only for genuine successful End. Do not add
-Run now to produce saves or escape unwinnable acceptance arrangements.
+obligations; M33 grants retirement only for genuine successful End. M33 provides
+no Run action or non-victory retirement. Completion does not authorize M34
+implementation; the [roadmap](roadmap.md) retains the successor approval boundary.
 
 M35 owns connected Myra -> Phirna -> Myra authority and selected recovery/item
 use. It receives exact Poison/Sleep/Disease/injury bytes, resource-derived purse,
@@ -1337,26 +1103,3 @@ movement abilities, additional maps/scripts, daily/midnight clock processing,
 save-anywhere combat snapshots and UI redesign remain excluded. Conditions may
 therefore persist without an M33 cure. Defeat and the explicit temporal boundary
 remain visible terminal/support limits, not implicit healing opportunities.
-
-## Investigation performed and limits
-
-The baseline and configured ScummVM source were verified at the exact commits
-identified above; the evidence is tied to those revisions.
-
-Investigation read the current owners/Flows/rules/codec/guards and relevant tests,
-the current status/roadmap/M32 contract, and the inherited contracts selectively.
-Read-only disposable probes decoded the external monster records, required
-MON/ATT/POW frames, initial nested PTY purse and CHR resistances, and checked the
-listed mainland coordinate paths. No commercial bytes were written or copied
-into the repository. The existing `mmodern_regional_original` diagnostic passed
-its 312 fresh/restored cases, resource/closure/scheduler comparisons and resource
-authority fault controls. A scalar xorshift/arithmetic probe checked the fixed
-seed3 draw tape and RNG checkpoints; it was not an M33 Flow execution.
-
-No M33 code exists or was run as part of planning. No build/full CTest, native
-SDL physical acceptance, new-route combat execution, DOS executable comparison
-or independent implementation review is claimed. In particular, condition/loot
-route selection above remains a required future acceptance run; reference quirks
-are attributed to the verified pinned implementation, not asserted as independently
-observed original executable behavior. This is an uncommitted candidate contract
-for review, not a milestone completion record.

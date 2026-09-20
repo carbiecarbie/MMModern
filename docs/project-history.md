@@ -252,6 +252,21 @@ Historical limitations in those plans describe their recorded boundaries.
   review acceptance and maintainer physical SDL acceptance completed. See the
   [Milestone 32 plan](milestone-32-plan.md#final-acceptance).
 
+## M33 - Faithful mainland combat and consequences
+
+- Extended the Regional Journey with Orc/Snake/Toad and inherited undead combat,
+  grouped contact/joining, enemy ranged attacks, player Shoot, Poison/Sleep,
+  consequence-aware time, XP/gold and bounded level-1 generated equipment.
+- Kept wounds, defeat accounting, conditions, purse/pending treasure and RNG on
+  authoritative world/party owners through exact 4/4 save/restart and further
+  mutation, while preserving legacy Journey contracts.
+- Separated semantic input authority from immutable presented-frame identity,
+  preserving fresh movement during cosmetic redraws and strict frame handoff.
+- Full build, 95/95 CTest and 432 process/witness cases passed; independent
+  technical review accepted the implementation. Separately, the maintainer
+  completed physical native-SDL acceptance. See the
+  [Milestone 33 plan](milestone-33-plan.md#final-acceptance).
+
 ## Maintaining this history
 
 Add one short section with 2-4 lasting-result bullets per completed milestone

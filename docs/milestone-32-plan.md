@@ -154,9 +154,16 @@ chains refuse before publication or stop still-current mandatory work; malformed
 or changed resources are integrity failures, never empty cells.
 
 Every other manual address refuses before interpreter entry with no effect,
-time or RNG change. The sign uses the existing Event-to-Presentation handoff,
-response generations and modal exclusion. No retry, frame reconstruction or
-cache rebuild redispatches it.
+time or RNG change. The sign uses the existing Event-to-Presentation handoff
+with an immediate `Presented` response, then releases Event ownership after
+natural script termination and the matching frame handoff. Its retained scene
+label is nonmodal: movement, inventory, saving and otherwise eligible actions
+remain available. It requires no acknowledgment. The pinned reference's
+`Scripts::cmdSignText` (opcode `04`) sets `_screenText`/`_upDoorText`, calls
+`draw3d(true)` and returns; it does not wait for input. Response generations and
+modal exclusion still apply to acknowledgment, WhoWill, Yes/No and NPC
+continuations that actually require a response. No retry, frame reconstruction
+or cache rebuild redispatches the sign.
 
 ## Complete actor ownership and scheduler
 
@@ -408,5 +415,6 @@ presentation; ordinary water/mountain collision; naturally encountered Orc
 ranged support; normal actor movement/presentation; and legacy Skeleton Journey
 and Bone Whistle expedition/collection smoke tests.
 
-Milestone 32 is therefore complete and physically accepted. M33 remains the next
-separately specified and authorized milestone.
+Milestone 32 is complete and physically accepted. The
+[M33 closed plan](milestone-33-plan.md) records the subsequent contract-4 extension;
+this plan retains the contract-3 boundaries and compatibility meaning.

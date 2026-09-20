@@ -26,10 +26,10 @@ XeenGameplayServices services(Harness &h) {
 }
 void press(Harness &h,const SdlWindow::FrameUpdateHandler &handler,const PlayerAction &a) {
  handler.beginCycle(++h.cycle);handler.withDisplayedInput(a,*handler.displayedInput());
- check(handler.frameCurrent(),"current Application input frame");handler.framePresented();h.visibleScene();
+ check(handler.frameCurrent(),"current Application input frame");handler.framePresented(h.flow->frame().presentation());h.visibleScene();
 }
 void tick(Harness &h,const SdlWindow::FrameUpdateHandler &handler,const SdlWindow::IdleFrameHandler &idle) {
- h.now+=100;handler.beginCycle(++h.cycle);idle();check(handler.frameCurrent(),"current automatic frame");handler.framePresented();h.visibleScene();
+ h.now+=100;handler.beginCycle(++h.cycle);idle();check(handler.frameCurrent(),"current automatic frame");handler.framePresented(h.flow->frame().presentation());h.visibleScene();
 }
 void collect(Harness &h,const SdlWindow::FrameUpdateHandler &handler,const fs::path &path) {
  const auto baseline=XeenSaveState::capture(h.signature,*h.party,*h.camera,*h.flags,*h.world);
@@ -42,7 +42,7 @@ void collect(Harness &h,const SdlWindow::FrameUpdateHandler &handler,const fs::p
    if(cache==1||cache==4)h.eventSystem->discardScriptCache();
    if(cache==2||cache==4)h.eventSystem->discardTextCache();
    if(h.assets&&(cache==3||cache==4))h.assets->discardSpriteCache();
-   h.flow->refresh(true);check(!h.flow->canSave(),"cache frame requires new presentation");handler.framePresented();
+   h.flow->refresh(true);check(!h.flow->canSave(),"cache frame requires new presentation");handler.framePresented(h.flow->frame().presentation());
    check(h.flow->frame().pixels==frame.pixels&&h.flow->presentationGeneration()==pending,"individual and combined caches retain objective frame and continuation");
    if(cache==1||cache==4)check(h.eventSystem->cachedScriptCount()>0,"EVT cache really reconstructed");
    if(cache==2||cache==4)check(h.eventSystem->cachedTextCount()>0,"text cache really reconstructed");
@@ -135,7 +135,7 @@ void controls(const fs::path &path) {
  for(unsigned facing=0;facing<4;++facing){auto saved=initial;saved.camera={20,5,14,static_cast<XeenDirection>(facing)};
   for(auto &a:saved.journey->actors){a.hp=0;a.x=a.y=-128;a.activated=false;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
   XeenSaveFile::write(path,saved);Harness h;auto s=services(h);unsigned dispatched=0;
-  s.show=[&](const auto &,const auto &handler,const auto &,const auto &,const auto &){handler.framePresented();h.flow->reportManual=[&](const auto &){++dispatched;};
+  s.show=[&](const auto &,const auto &handler,const auto &,const auto &,const auto &){handler.framePresented(h.flow->frame().presentation());h.flow->reportManual=[&](const auto &){++dispatched;};
    collect(h,handler,path);return true;};
   check(Application().playGameplay(s,{},path,true)==0,"all-facing production restore/collection");
  }
@@ -165,7 +165,7 @@ void controls(const fs::path &path) {
  XeenSaveFile::write(path,grouped);
  // Recomposition failure follows a real publication, and cannot rerun it.
  {Harness h;auto s=services(h);bool injected=false;
- s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){handler.framePresented();press(h,handler,NavigationAction::MoveForward);
+ s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){handler.framePresented(h.flow->frame().presentation());press(h,handler,NavigationAction::MoveForward);
   const auto old=*handler.displayedInput();auto *c=h.flow->encounter()->combat();check(c&&c->contacts()[1],"mixed production attachment");
   const auto rng=h.world->sessionState().journeyRandom()->count;
   h.flow->beforeEncounterFrameCopy=[&]{if(!injected&&h.world->sessionState().journeyRandom()->count>rng){injected=true;check(!h.flow->canSave(),"capture closed after publication before handoff");throw std::runtime_error("postpublication frame fault");}};
@@ -179,7 +179,7 @@ void controls(const fs::path &path) {
  const auto compose=s.composeEncounter;s.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto ordinary,auto appearance){
   if(h.flow&&h.flow->encounter()->combat()&&w.sessionState().journeyRandom()->count>initialCount)throw std::runtime_error("persistent postpublication composition fault");
   return compose(w,p,c,ordinary,appearance);};
- s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){handler.framePresented();initialCount=h.world->sessionState().journeyRandom()->count;press(h,handler,NavigationAction::MoveForward);
+ s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){handler.framePresented(h.flow->frame().presentation());initialCount=h.world->sessionState().journeyRandom()->count;press(h,handler,NavigationAction::MoveForward);
   const auto old=*handler.displayedInput();
   for(unsigned n=0;!failed&&n<100;++n){try{if(h.flow->encounter()->combat()->phase()==Phase::PlayerReady)press(h,handler,InteractionAction{});else tick(h,handler,idle);}catch(const std::exception &){failed=true;}}
   check(failed&&h.world->sessionState().journeyRandom()->count>initialCount&&!h.flow->canSave(),"fatal composition retains published cursor and closes capture");
@@ -213,7 +213,7 @@ void deathControl(const fs::path &path) {
  for(auto owner:kXeenCombatOwners){auto &c=saved.characters[owner];c.currentHp=0;c.conditions[12]=1;}
  auto &cleric=saved.characters[1];cleric.currentHp=1;cleric.conditions[12]=0;cleric.permanentLevel=1;cleric.temporaryLevel=0;cleric.endurance={0,0};
  XeenSaveFile::write(path,saved);const auto before=diskBytes(path);Harness h;auto s=services(h);
- s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){handler.framePresented();press(h,handler,NavigationAction::MoveForward);
+ s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){handler.framePresented(h.flow->frame().presentation());press(h,handler,NavigationAction::MoveForward);
   for(unsigned n=0;n<1000&&h.flow->encounter()->combat()->phase()!=Phase::Defeat;++n){auto *c=h.flow->encounter()->combat();check(c->phase()!=Phase::Failed&&c->phase()!=Phase::SupportStopped,"death fixture remains supported");if(c->phase()==Phase::PlayerReady)press(h,handler,BlockAction{});else tick(h,handler,idle);}
   check(h.flow->encounter()->combat()->phase()==Phase::Defeat&&h.party->roster.at(1).conditions[13]&&h.flow->encounter()->notice().find("Dead")!=std::string::npos,"production injury sets and presents death");
   check(h.flow->encounter()->combatObservation().armorCount&&h.flow->encounter()->notice().find("armor broken:")!=std::string::npos,"production lethal injury presents armor breakage");
@@ -226,7 +226,7 @@ void unfavorable(const fs::path &game,const fs::path &path,unsigned seed=3) {
  std::ofstream requests(path.string()+".rng");
  replay_test::observeDraw=[&](auto lo,auto hi,auto result,auto state){requests<<lo<<','<<hi<<','<<(result?std::to_string(*result):"reject")<<','<<state.state<<','<<state.count<<'\n';};
  struct ClearDraw { ~ClearDraw(){replay_test::observeDraw={};} } clearDraw;
- s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){handler.framePresented();
+ s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){handler.framePresented(h.flow->frame().presentation());
   press(h,handler,InspectInventoryAction{});
   for(unsigned member:{4u,5u}){press(h,handler,SelectMemberAction{member});press(h,handler,SelectInventorySlotAction{0});press(h,handler,EquipmentInventoryAction{});}
   press(h,handler,InspectInventoryAction{});press(h,handler,NavigationAction::MoveForward);
@@ -257,7 +257,7 @@ void route(const std::optional<fs::path> &game,const fs::path &path,unsigned sch
  if(restart){++replay_test::depth;s.resources.loadInitialParty=[]()->XeenPartyState{throw std::runtime_error("initial party replay");};s.resources.loadInitialCharacters=[]()->Bytes{throw std::runtime_error("CHR replay");};s.resources.loadInitialContext=[]()->XeenGameplayContext{throw std::runtime_error("preparation replay");};}
  auto observer=s.observeGameplay;s.observeGameplay=[&](auto &w,auto &e,const auto &p,auto &c,const auto &f){observer(w,e,p,c,f);if(restart){--replay_test::depth;check(replay_test::unexpected==expectedReplay,"startup restores with zero gameplay replay");}};
  s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){
-  check(!h.flow->canSave(),"first-frame capture closed");handler.framePresented();check(h.flow->canSave(),"matching first frame opens quiet");
+  check(!h.flow->canSave(),"first-frame capture closed");handler.framePresented(h.flow->frame().presentation());check(h.flow->canSave(),"matching first frame opens quiet");
   if(original&&!restart){
    visual_remove_test::save(h.flow->frame(),path.string()+"-entry.bmp");
    const auto classified=XeenOutdoorScene::actorCommands(h.world->sessionState().actors(),*h.camera,0);check(!classified.empty(),"forest entry has selected actor independent of visibility");
@@ -294,7 +294,7 @@ void route(const std::optional<fs::path> &game,const fs::path &path,unsigned sch
      for(unsigned row=0;row<occupied;++row){press(h,handler,SelectInventorySlotAction{row});check(c->selectedTarget()==rows[row]&&c->participant()==turn&&h.world->sessionState().journeyRandom()->count==rng,"production row selection no turn or RNG");}
      press(h,handler,SelectInventorySlotAction{0});
      handler.withDisplayedInput(InteractionAction{},old);check(c->participant()==turn&&h.world->sessionState().journeyRandom()->count==rng,"stale selection batch cannot attack replacement");
-     const auto gen=*handler.displayedInput();handler.withDisplayedInput(SelectInventorySlotAction{8},gen);check(c->participant()==turn&&h.world->sessionState().journeyRandom()->count==rng,"empty row refuses");handler.framePresented();
+     const auto gen=*handler.displayedInput();handler.withDisplayedInput(SelectInventorySlotAction{8},gen);check(c->participant()==turn&&h.world->sessionState().journeyRandom()->count==rng,"empty row refuses");handler.framePresented(h.flow->frame().presentation());
      press(h,handler,InteractionAction{});
     } else {check(c->phase()!=Phase::Failed&&c->phase()!=Phase::SupportStopped&&c->phase()!=Phase::Defeat,"connected combat failure");tick(h,handler,idle);}
     if(h.flow->encounter()->combat()){auto stages=h.saves;handler.withDisplayedInput(SaveGameAction{},*handler.displayedInput());check(h.saves==stages,"busy combat F9 refuses all providers");}

@@ -15,6 +15,8 @@ void CloudsMapComposer::drawOutdoorCommands(XeenAssetSource &assets,
 			assets.drawObjectVisual(object->visual, command.x, command.y, command.drawOptions());
 		else if (const auto *actor = command.actor())
 			assets.drawMonster(actor->image, {actor->kind, actor->frame}, command.x, command.y, command.drawOptions());
+		else if(const auto *p=command.projectile())
+			assets.drawProjectile(p->enemy,p->row,command.x,command.y,command.drawOptions());
 		else
 			assets.drawSprite(command.terrain().resourceName, command.terrain().frame,
 				command.x, command.y, command.drawOptions());
@@ -75,8 +77,9 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 	}
 	if (world.sessionState().journey()) {
 		const auto &content = xeenJourneyContent(world.sessionState().journeyContract());
+		if(content.contract==4) { assets.validateProjectile(false);assets.validateProjectile(true); }
 		for (unsigned i=0;i<content.count;++i) {
-			const auto image = content.contract==3 ? world.sessionState().actors().at(content.records[i]).statistics->image() : content.actor(content.records[i]).profileImage;
+			const auto image = content.contract>=3 ? world.sessionState().actors().at(content.records[i]).statistics->image() : content.actor(content.records[i]).profileImage;
 			assets.validateNormalMonster(image);
 			if (content.contract!=3) assets.validateAttackMonster(image);
 		}

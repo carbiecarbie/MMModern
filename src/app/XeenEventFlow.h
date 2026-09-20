@@ -35,6 +35,10 @@ public:
 	IndexedFrame initial();
 	IndexedFrame handle(const PlayerAction &action, std::optional<std::uint64_t> displayedInput = {});
 	std::optional<std::uint64_t> displayedInput() const noexcept { return _encounter && (journey() || _encounter->combat() || _encounter->completed()) ? std::optional<std::uint64_t>{_inputGeneration} : std::nullopt; }
+	// Copies retain the exact immutable published snapshot, including across Flow destruction.
+	bool acceptsFrame(const IndexedFrame::Presentation &frame) const noexcept {
+		return encounterFrameCurrent() && frame == _frame.presentation() && (!_encounter || frame);
+	}
 	bool journeyInputCurrent(std::optional<std::uint64_t>) const noexcept;
 	std::function<void()> prepareJourneySprites;
 	bool completed() const noexcept { return _encounter && _encounter->completed(); }
@@ -51,7 +55,7 @@ public:
 	void endSave();
 	void endSave(const SaveBoundary &);
 	bool journey() const noexcept { return _encounter && _encounter->journey(); }
-	void framePresented();
+	void framePresented(const IndexedFrame::Presentation &);
 	void closeGameplay() noexcept;
 	IndexedFrame completedFeedback(std::string);
 	static IndexedFrame preflightCompleted(IndexedFrame, const XeenFontFormat &, const XeenItemCatalog *,
@@ -96,6 +100,7 @@ public:
 	std::function<void(XeenMovementResult)> reportMovement;
 private:
 	const XeenEventPublication *_eventPublication = nullptr;
+	bool _monsterReceiptPresented=false;
 	bool _journeyEventLayers = false;
 	void validateRegionalEvents();
 	IndexedFrame journeyEventWork(const std::function<void()> &, bool automatic = false);
@@ -122,8 +127,9 @@ private:
 	std::uint64_t _inventoryLease = 0, _certificateLease = 0;
 	bool combatPreparation() const noexcept { return _encounter && _encounter->preparation(); }
 	void syncCombatInventory();
-	IndexedFrame renderEncounter(bool report = false);
+	IndexedFrame renderEncounter(bool report = false, bool cosmeticInput = false);
 	IndexedFrame frameCopy();
+	void sealFrame(IndexedFrame &returned);
 	const XeenFontFormat &_inventoryFont;
 	const XeenItemCatalog &_catalog;
 	XeenInventorySelection _inventory;

@@ -1,4 +1,5 @@
 #include "app/Application.h"
+#include "formats/xeen/XeenCharacterFormat.h"
 #include "app/XeenGameplayServices.h"
 #include "platform/XeenSaveFile.h"
 #include <chrono>
@@ -474,6 +475,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
             xeenValidateRegionalManifest(map,mob,evt,mon,assets.readInitialResource("maze0023.dat"),
                 assets.readInitialResource("maze0023.mob"),assets.readInitialResource("maze0023.evt"));
         };
+        services.resources.loadInitialPurse = [&] { return XeenCharacterFormat::parseMonsterPurse(assets.readInitialResource("maze.pty")); };
         services.resources.loadInitialContext = [&] { return XeenGameplayContextFormat::parse(assets.readInitialResource("maze.pty")); };
         services.resources.loadMonsterStatistics = [&] {
             const auto bytes = assets.readCloudsMonsterStatisticsFromDarkArchive();

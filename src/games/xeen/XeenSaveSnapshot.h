@@ -71,6 +71,7 @@ struct XeenSaveJourney {
 	XeenMapIdentity initializedMap{XeenSide::Clouds, 20};
 	std::uint16_t originalActorCount = 27;
 	std::vector<XeenSaveJourneyActor> actors;
+	std::optional<XeenMonsterTreasure> treasure;
 };
 
 struct XeenSaveSnapshot {

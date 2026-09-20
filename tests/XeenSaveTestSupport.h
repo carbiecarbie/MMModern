@@ -35,7 +35,7 @@ inline bool sameInputs(const XeenCombatInputs &a, const XeenCombatInputs &b) {
 	return a.might.permanent == b.might.permanent && a.might.temporary == b.might.temporary &&
 		a.speed.permanent == b.speed.permanent && a.speed.temporary == b.speed.temporary &&
 		a.accuracy.permanent == b.accuracy.permanent && a.accuracy.temporary == b.accuracy.temporary &&
-		a.temporaryAc == b.temporaryAc && a.experience == b.experience;
+		a.temporaryAc == b.temporaryAc && a.experience == b.experience && bool(a.luck)==bool(b.luck) && (!a.luck || (a.luck->permanent==b.luck->permanent && a.luck->temporary==b.luck->temporary)) && a.resistances == b.resistances;
 }
 
 inline bool sameCompleted(const std::optional<XeenSaveCompletedEncounter> &a,
@@ -68,7 +68,7 @@ inline void sameSnapshot(const XeenSaveSnapshot &a, const XeenSaveSnapshot &b) {
 		const auto &x=*a.journey,&y=*b.journey;
 		check(x.entry==y.entry&&x.schema==y.schema&&x.contract==y.contract&&x.context==y.context&&
 			x.skeletonSeed==y.skeletonSeed&&x.initializedMap==y.initializedMap&&x.originalActorCount==y.originalActorCount&&
-			x.actors.size()==y.actors.size(),"Journey header values changed");
+			x.actors.size()==y.actors.size() && x.random==y.random && x.treasure==y.treasure,"Journey header values changed");
 		for(unsigned i=0;i<30;++i) check(x.supplements[i].owner==y.supplements[i].owner&&
 			sameInputs(x.supplements[i].inputs,y.supplements[i].inputs),"Journey supplements changed");
 		for(std::size_t i=0;i<x.actors.size();++i) {const auto &p=x.actors[i],&q=y.actors[i];

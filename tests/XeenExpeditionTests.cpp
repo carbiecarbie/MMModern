@@ -173,7 +173,7 @@ XeenSaveSnapshot finishGroup(Domain &d){auto &c=d.engage();for(unsigned i=0;i<50
 void startupAdmission(const std::filesystem::path &dir){
  Domain d;auto path=dir/"successor.mmsave";XeenSaveFile::write(path,d.save());combat_gameplay_test::Harness harness;auto services=harness.services();unsigned providers=0;
  services.maps=[&](auto){++providers;return terrain();};services.objects=[&](auto){++providers;return objects();};services.resources.signature=signature;services.resources.loadMonsterStatistics=[] {return monsters();};services.resources.loadEvents=[](auto) {return events();};services.resources.loadInitialParty=[&]()->XeenPartyState{throw std::runtime_error("restore must not load initial party");};
- services.show=[&](const auto &,const auto &handler,const auto &,const auto &,const auto &){handler.framePresented();check(harness.flow->canSave()&&harness.world->sessionState().journeyContract()==2,"schema2 startup frame admission");return true;};
+ services.show=[&](const auto &,const auto &handler,const auto &,const auto &,const auto &){handler.framePresented(harness.flow->frame().presentation());check(harness.flow->canSave()&&harness.world->sessionState().journeyContract()==2,"schema2 startup frame admission");return true;};
  check(Application().playGameplay(services,{},path,true)==0&&providers>0&&harness.compositions>0,"Application descriptor-driven successor startup");
 }
 void restart(const std::filesystem::path &exe,const std::filesystem::path &dir){

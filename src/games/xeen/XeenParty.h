@@ -6,6 +6,7 @@
 #include "games/xeen/XeenCombatInputs.h"
 #include "games/xeen/XeenOwnerIdentity.h"
 #include "games/xeen/XeenGameplayBorrow.h"
+#include "games/xeen/XeenMonsterTreasure.h"
 
 #include <array>
 #include <cstddef>
@@ -36,6 +37,7 @@ public:
 private:
 	friend class XeenCombat;
 	friend class XeenActorApproach;
+	friend class XeenEncounterFlow;
 	friend class XeenSaveState;
 	friend class XeenRestoreGuard;
 	friend class XeenWorld;
@@ -114,6 +116,7 @@ struct XeenPartyState {
 	friend void swap(XeenPartyState &a, XeenPartyState &b) { a.swap(b); }
 	// Only explicit encounter preparation installs this; ordinary loading/restoration does not.
 	std::optional<XeenGameplayContext> encounterContext;
+	std::optional<XeenMonsterTreasure> monsterTreasure;
 	XeenRoster roster;
 	XeenParty party;
 	XeenCloudsQuestItems questItems;

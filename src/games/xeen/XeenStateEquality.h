@@ -9,7 +9,7 @@ inline bool sameInputs(const XeenCombatInputs &a, const XeenCombatInputs &b) {
 	return sameAttribute(a.might, b.might) && sameAttribute(a.speed, b.speed) &&
 		sameAttribute(a.accuracy, b.accuracy) && a.temporaryAc == b.temporaryAc &&
 		a.experience == b.experience && bool(a.luck) == bool(b.luck) &&
-		(!a.luck || sameAttribute(*a.luck, *b.luck));
+		(!a.luck || sameAttribute(*a.luck, *b.luck)) && a.resistances == b.resistances;
 }
 inline bool sameItemCategory(const XeenItemCategory &a, const XeenItemCategory &b) {
 	for (std::size_t i = 0; i < a.size(); ++i)

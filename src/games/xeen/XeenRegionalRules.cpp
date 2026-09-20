@@ -59,6 +59,19 @@ bool rayMiddle(unsigned middle) {
 	}
 }
 }
+unsigned xeenPlayerRayRows(const XeenMap &map,const XeenCamera &camera) {
+ constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};const auto d=unsigned(camera.direction);
+ if(d>3 || !local(camera.x,camera.y)) throw std::invalid_argument("Invalid player ray origin");
+ for(unsigned row=1;row<4;++row) {
+  const int x=camera.x+dx[d]*int(row),y=camera.y+dy[d]*int(row);
+  if(!local(x,y)) return row;
+  const auto *l=std::get_if<XeenOutdoorLayers>(&map.geometry.cells[y*16+x].geometry);
+  if(!l) throw std::invalid_argument("Shoot requires outdoor geometry");
+  const auto m=l->middle;
+  if(m==1 || m==3 || m==6 || m==7 || m==9 || m==10 || m==12) return row;
+ }
+ return 4;
+}
 XeenMonsterTerrain xeenRegionalActorTerrain(const XeenMap &map, const XeenActor &a, int x, int y) {
 	if (!local(x,y) || map.side!=XeenSide::Clouds || !map.geometry.isOutdoors() ||
 		map.identity()!=a.id.mapId || !a.statistics || !a.statistics->supportsGroundMovement() || a.original.resourceId==59)
@@ -136,5 +149,43 @@ void xeenValidateRegionalActors(const XeenMap &map, const XeenObjectFile &mob, c
 	}
 	for (auto count:XeenActorApproach::occupancy(actors)) if (count>3)
 		throw std::invalid_argument("Regional occupancy exceeded");
+}
+}
+
+namespace mmodern {
+XeenRegionalOpportunityCandidate::XeenRegionalOpportunityCandidate(const XeenMap &map,
+		const std::vector<XeenActor> &before,const XeenCamera &c,const XeenConsequenceCharacters &p,
+		const XeenConsequenceInputs &i,unsigned y,const std::array<bool,6> &b) :
+		characters(p),camera(c),inputs(i),year(y),blocked(b) {
+	std::array<bool,107> tested{};
+	actors=XeenActorApproach::move(before,c,[&](const XeenActor &a,int x,int z) {
+		return xeenRegionalActorTerrain(map,a,x,z);
+	},true,[&](const std::vector<XeenActor> &current,std::size_t index) {
+		const auto &a=current[index];
+		if (tested[index] || !a.activated || a.lifecycle!=XeenActorLifecycle::Present ||
+			a.status!=XeenActorStatus::Physical || a.original.resourceId!=6 || !a.statistics || a.statistics->raw[32]!=1 ||
+			(a.x==c.x && a.y==c.y) || (a.x!=c.x && a.y!=c.y)) return;
+		tested[index]=true;
+		if (!xeenOutdoorRangedRay(map,c,a)) return;
+		auto &shot=shots.at(shotCount++);shot.source=a.id;shot.x=a.x;shot.y=a.y;
+		shot.distance=unsigned(std::abs(a.x-c.x)+std::abs(a.y-c.y));
+		shot.direction=a.x>c.x ? XeenDirection::East : a.x<c.x ? XeenDirection::West : a.y>c.y ? XeenDirection::North : XeenDirection::South;
+	});
+}
+bool XeenRegionalOpportunityCandidate::service(XeenConsequenceDraw &draw) {
+	while (cursor<shotCount && draw.remaining) {
+		auto &shot=shots[cursor];
+		const auto &source=actors.at(shot.source.recordIndex);
+		if (!(source.id==shot.source) || !source.statistics) throw std::invalid_argument("Ranged source identity changed");
+		if (!attack) attack.emplace(characters,inputs,*source.statistics,year,blocked);
+		if (!attack->service(draw)) return false;
+		characters.swap(attack->characters);
+		shot.attack=attack->result;shot.attack.actingMonster=shot.source;shot.attack.monster=shot.source;
+		attack.reset();++cursor;
+	}
+	if (cursor<shotCount) return false;
+	view=XeenActorApproach::classify(actors,camera);
+	for (unsigned i=0;i<actors.size();++i) actors[i].activated=actors[i].activated || view.activation[i];
+	return true;
 }
 }

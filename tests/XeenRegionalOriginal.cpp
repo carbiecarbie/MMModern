@@ -6,6 +6,7 @@
 #include "games/xeen/XeenEventLoader.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "formats/xeen/XeenGameplayContextFormat.h"
+#include "formats/xeen/XeenCharacterFormat.h"
 #include "formats/xeen/XeenSaveFormat.h"
 #include "games/xeen/XeenPartyLoader.h"
 #include "games/xeen/XeenSaveState.h"
@@ -13,11 +14,12 @@
 #include "XeenRegionalOracle.h"
 #include "XeenJourneyResourceTestSupport.h"
 #include <iostream>
+#include "platform/XeenSaveFile.h"
 #include <stdexcept>
 using namespace mmodern;
 int main(int argc,char **argv) {
 	try {
-		if (argc!=2) throw std::invalid_argument("usage: mmodern_regional_original <installation>");
+		if (argc!=2 && argc!=3) throw std::invalid_argument("usage: mmodern_regional_original <installation> [legacy-3-save]");
 		const auto installation=XeenInstallationDetector().detect(argv[1]);
 		if (!installation) throw std::runtime_error("Installation not found");
 		XeenAssetSource assets(*installation);XeenMapLoader maps;
@@ -60,10 +62,39 @@ int main(int argc,char **argv) {
 		}
 		std::cout << "Original regional manifest, 121-cell mainland, Run (10,12), 19 actors and normal sprites passed\n";
 		const auto chr=assets.readInitialResource("maze.chr");
-		const auto context=XeenGameplayContextFormat::parse(assets.readInitialResource("maze.pty"));
+		const auto pty=assets.readInitialResource("maze.pty");
+		const auto context=XeenGameplayContextFormat::parse(pty);
+		const auto purse=XeenCharacterFormat::parseMonsterPurse(pty);
+		if (purse.gold!=800 || purse.gems!=10 || purse.pending()) throw std::runtime_error("Original purse mismatch");
+		constexpr std::array<unsigned,6> activeResistances{7,10,2,5,7,0};
+		for (unsigned owner=0;owner<30;++owner) {
+			const auto input=XeenCharacterFormat::parseCombatInputs(chr,owner,true,true);
+			if (!input.resistances || !input.luck) throw std::runtime_error("Missing original consequence input");
+			const auto &r=*input.resistances;
+			const auto pos=std::find(kXeenCombatOwners.begin(),kXeenCombatOwners.end(),owner);
+			if (pos!=kXeenCombatOwners.end()) {
+				const auto expected=activeResistances[pos-kXeenCombatOwners.begin()];
+				if (r.coldPermanent!=expected || r.electricalPermanent!=expected || r.coldTemporary || r.electricalTemporary)
+					throw std::runtime_error("Original active resistances mismatch");
+			}
+			if (r.coldPermanent!=chr[354*owner+313] || r.coldTemporary!=chr[354*owner+314] ||
+				r.electricalPermanent!=chr[354*owner+315] || r.electricalTemporary!=chr[354*owner+316])
+				throw std::runtime_error("Original complete resistance inputs mismatch");
+		}
+		std::cout << "Original M33 purse and thirty resistance records passed (resource readers only)\n";
 		const XeenRegionalManifest manifest=[&](const auto &m,const auto &o,const auto &e,const auto &s) {
 			xeenValidateRegionalManifest(m,o,e,s,assets.readInitialResource("maze0023.dat"),assets.readInitialResource("maze0023.mob"),assets.readInitialResource("maze0023.evt"));
 		};
+
+        if(argc==3) {
+            auto party=XeenPartyLoader().loadInitialCloudsParty(assets);
+            XeenWorld world([&](auto id){return maps.loadGeometryMap(assets,id);},[&](auto id){return maps.loadObjects(assets,id);});
+            auto camera=xeenJourneyContent(3).entry;XeenGameFlags flags;XeenEventPresenter::Clock clock=[]{return 0;};
+            XeenEncounterFlow flow(world,party,camera,flags,clock,XeenJourneySetup{chr,context,statistics,events,1,3,manifest});
+            if(!flow.prepareJourneyFrame(flow.ticket(),[]{}) || !flow.presentJourney(flow.ticket()))throw std::runtime_error("Legacy initial presentation");
+            XeenSaveFile::write(XeenSaveFile::resolve(argv[2],argv[1]),XeenSaveState::capture(XeenSaveFile::fingerprint(*installation),party,camera,flags,world));
+            std::cout<<"Explicit legacy 3/3 initial fixture saved\n";
+        }
 		journey_resources_test::run([&]{return XeenPartyLoader().loadInitialCloudsParty(assets);},
 			XeenJourneySetup{chr,context,statistics,events,1,3,manifest},
 			[&](auto id){return maps.loadGeometryMap(assets,id);},[&](auto id){return maps.loadObjects(assets,id);},

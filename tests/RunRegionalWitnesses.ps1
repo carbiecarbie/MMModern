@@ -11,12 +11,15 @@ $savedRenderer=$env:SDL_RENDER_DRIVER
 $savedRoute=$env:MMODERN_REGION_ROUTE
 function Invoke-Witness([string]$Name,[string]$Route,[string]$Save,[bool]$Resume) {
     $env:MMODERN_REGION_ROUTE=$Route
-    $arguments=if($Resume){@('--load-game',$game,$Save)}else{@('--journey-region','--combat-seed','1',$game,'--save-file',$Save)}
+    if(-not $Resume){Copy-Item -LiteralPath (Join-Path $build 'm32-initial.mmsave') -Destination $Save}
+    $arguments=@('--load-game',$game,$Save)
     & $exe @arguments > (Join-Path $build "m32-$Name.log") 2>&1
     if($LASTEXITCODE -ne 0){throw "Regional witness $Name failed; see m32-$Name.log"}
     Write-Output "PASS $Name"
 }
 try {
+    & (Join-Path $build 'mmodern_regional_original.exe') $game (Join-Path $build 'm32-initial.mmsave') > (Join-Path $build 'm32-original.log') 2>&1
+    if($LASTEXITCODE -ne 0){throw 'Legacy fixture/original controls failed'}
     $env:SDL_VIDEODRIVER='dummy'
     $env:SDL_RENDER_DRIVER='software'
     foreach($case in @(@('first','F'),@('east','RRFLFRFRFFRFRF'))) {

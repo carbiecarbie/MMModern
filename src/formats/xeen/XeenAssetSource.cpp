@@ -31,6 +31,12 @@ std::string XeenAssetSource::normalMonsterResource(std::uint8_t image) {
 	const auto number = std::to_string(image);
 	return std::string(3 - number.size(), '0') + number + ".mon";
 }
+void XeenAssetSource::validateProjectile(bool enemy) { _impl->bridge.validateProjectile(enemy?"pow12.icn":"pow11.icn"); }
+void XeenAssetSource::drawProjectile(bool enemy,unsigned row,int x,int y,const XeenSpriteDrawOptions &options) {
+ if(row>3) throw std::invalid_argument("Invalid projectile row");
+ validateProjectile(enemy);constexpr unsigned frames[2][4]{{0,1,2,0},{0,2,1,0}};
+ _impl->bridge.drawObjectSprite(enemy?"pow12.icn":"pow11.icn",frames[enemy][row],x,y,options);
+}
 void XeenAssetSource::validateNormalMonster(std::uint8_t image) {
 	_impl->bridge.validateNormalMonster(normalMonsterResource(image));
 }

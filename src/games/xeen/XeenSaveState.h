@@ -18,6 +18,7 @@ public:
 		std::function<XeenGameplayContext()> loadInitialContext = {};
 		std::function<std::vector<XeenMonsterRecord>()> loadMonsterStatistics = {};
 		XeenRegionalManifest regionalManifest;
+		std::function<XeenMonsterTreasure()> loadInitialPurse;
 	};
 	// Must check needed disposable presentation resources on the candidate.
 	// It must not mutate gameplay or retain candidate references after returning.

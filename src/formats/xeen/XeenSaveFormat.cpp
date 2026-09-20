@@ -197,7 +197,7 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 	if (s.journey) {
 		const auto &j = *s.journey;
 		require(s.itemState == XeenSaveItemState::Complete, "Journey requires complete item fields");
-		require(j.entry == XeenEncounterEntry::Journey && ((j.schema == 1 && j.contract == 1) || (j.schema == 2 && j.contract == 2) || (j.schema == 3 && j.contract == 3)),
+		require(j.entry == XeenEncounterEntry::Journey && ((j.schema == 1 && j.contract == 1) || (j.schema == 2 && j.contract == 2) || (j.schema == 3 && j.contract == 3) || (j.schema == 4 && j.contract == 4)),
 			"unsupported Journey domain/schema/contract");
 		require(j.context.has_value(), "missing Journey context");
 		require(j.context->profile == XeenBehaviorProfile::WorldOfXeenClouds &&
@@ -206,6 +206,7 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 		for (std::size_t i = 0; i < j.supplements.size(); ++i) {
 			const auto &r = j.supplements[i];
 			require(bool(r.inputs.luck) == (j.schema >= 2), "Journey Luck presence mismatch");
+			require(bool(r.inputs.resistances)==(j.schema==4), "Journey resistance presence mismatch");
 			if (r.inputs.luck) for (int v : {r.inputs.luck->permanent,r.inputs.luck->temporary}) require(v >= 0 && v <= 255, "Journey Luck outside byte range");
 			require(r.owner == i, "invalid Journey supplemental owner sequence");
 			for (int v : {r.inputs.might.permanent, r.inputs.might.temporary, r.inputs.speed.permanent,
@@ -214,12 +215,22 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 		}
 		if (j.schema == 1) require(j.skeletonSeed != 0, "zero Journey seed");
 		require(j.schema == 1 ? j.skeletonSeed != 0 && !j.random : j.skeletonSeed == 0 && j.random && j.random->algorithm == 1 && j.random->state != 0, "invalid Journey random representation");
+		require(bool(j.treasure)==(j.schema==4),"Journey treasure presence mismatch");
+		if(j.treasure) {
+			xeenValidateMonsterTreasure(*j.treasure);
+			for(unsigned i=0;i<12;++i) if(j.treasure->pendingMask & (1u<<i)) {
+				require(i<j.actors.size(),"Pending source missing");
+				const auto &a=j.actors[i];
+				require(a.id==XeenMonsterIdentity{23,i} && a.accounted && a.lifecycle==XeenActorLifecycle::Defeated &&
+					a.status==XeenActorStatus::Physical && !a.hp && !a.activated && a.x==-128 && a.y==-128,"Noncanonical pending source");
+			}
+		}
 		validateMap(j.initializedMap);
 		require(j.originalActorCount >= 1 && j.originalActorCount <= 107 &&
-			j.actors.size() == (j.schema == 3 ? 19u : j.schema == 2 ? 4u : 1u), "invalid Journey actor counts");
+			j.actors.size() == (j.schema >= 3 ? 19u : j.schema == 2 ? 4u : 1u), "invalid Journey actor counts");
 		for (std::size_t i = 0; i < j.actors.size(); ++i) {
 			const auto &a = j.actors[i];
-			if (j.schema==3) require(j.initializedMap==XeenMapIdentity(23) && j.originalActorCount==19 && a.id==XeenMonsterIdentity{23,i}, "invalid regional actor identity/count");
+			if (j.schema>=3) require(j.initializedMap==XeenMapIdentity(23) && j.originalActorCount==19 && a.id==XeenMonsterIdentity{23,i}, "invalid regional actor identity/count");
 			if (j.schema==2) require(j.initializedMap==XeenMapIdentity(20) && j.originalActorCount==27 && a.id==XeenMonsterIdentity{20,xeenJourneyContent(2).records[i]}, "invalid successor actor identity/count");
 			validateMap(a.id.mapId);
 			require(a.id.recordIndex <= std::numeric_limits<std::uint32_t>::max() &&
@@ -252,6 +263,7 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 		for (std::size_t i = 0; i < owners.size(); ++i) {
 			const auto &record = e.supplements[i];
 			require(!record.inputs.luck, "Legacy encoding would lose Luck");
+			require(!record.inputs.resistances, "Legacy encoding would lose consequence resistances");
 			require(record.owner == owners[i], "invalid completed supplemental owner sequence");
 			for (const int value : {record.inputs.might.permanent, record.inputs.might.temporary,
 				record.inputs.speed.permanent, record.inputs.speed.temporary,
@@ -332,6 +344,19 @@ std::vector<std::uint8_t> XeenSaveFormat::encode(const XeenSaveSnapshot &s) {
 			}
 			out.u8(a.status == XeenActorStatus::Physical ? 0 : 1); out.u8(a.accounted);
 		}
+		if(j.schema==4) {
+			out.u8(30);
+			for(const auto &r:j.supplements) {
+				const auto &v=*r.inputs.resistances;out.u8(r.owner);
+				out.u8(v.coldPermanent);out.u8(v.coldTemporary);out.u8(v.electricalPermanent);out.u8(v.electricalTemporary);
+			}
+			const auto &v=*j.treasure;out.u32(v.gold);out.u32(v.gems);out.u32(v.pendingMask);out.u32(v.pendingGold);
+			unsigned weapons=0,armor=0;for(const auto &r:v.weapons) weapons+=r.item.id!=0;for(const auto &r:v.armor) armor+=r.item.id!=0;
+			out.u8(weapons);out.u8(armor);
+			for(unsigned category=0;category<2;++category) for(const auto &r:category?v.armor:v.weapons) if(r.item.id) {
+				out.u8(r.source);out.u8(r.item.material);out.u8(r.item.id);out.u8(r.item.state);out.u8(r.item.frame);
+			}
+		}
 	}
 	Writer header;
 	for (const auto byte : kMagic) header.u8(byte);
@@ -406,8 +431,8 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 		XeenSaveJourney j;
 		require(in.u8() == 3, "invalid v4 domain");
 		j.schema = in.u16(); j.contract = in.u16();
-		require(((j.schema == 1 && j.contract == 1) || (j.schema == 2 && j.contract == 2) || (j.schema == 3 && j.contract == 3)), "unsupported Journey schema/contract");
-		require(j.schema==3 || suffixSize == (j.schema == 2 ? 1366u : 1060u), "Journey schema size mismatch");
+		require(((j.schema == 1 && j.contract == 1) || (j.schema == 2 && j.contract == 2) || (j.schema == 3 && j.contract == 3) || (j.schema == 4 && j.contract == 4)), "unsupported Journey schema/contract");
+		require(j.schema>=3 || suffixSize == (j.schema == 2 ? 1366u : 1060u), "Journey schema size mismatch");
 		require(in.u8() == 1, "missing Journey context");
 		XeenGameplayContext c;
 		require(in.u8() == 0, "invalid Journey profile");
@@ -433,7 +458,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 		j.originalActorCount = in.u16();
 		const auto count = in.u16();
 		if (j.schema==3) require(j.originalActorCount>=1 && j.originalActorCount<=107 && count==j.originalActorCount && in.remaining()==19u*count,"invalid full regional actor coverage");
-		require(count >= 1 && count <= 107 && count <= in.remaining()/19 && count == (j.schema == 3 ? 19u : j.schema == 2 ? 4u : 1u), "invalid Journey live record count");
+		require(count >= 1 && count <= 107 && count <= in.remaining()/19 && count == (j.schema >= 3 ? 19u : j.schema == 2 ? 4u : 1u), "invalid Journey live record count");
 		for (unsigned i = 0; i < count; ++i) {
 			XeenSaveJourneyActor a;
 			require(in.u8() == 0, "invalid Journey actor side"); a.id.mapId = {XeenSide::Clouds, in.u16()};
@@ -451,6 +476,21 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 			const auto status = in.u8(); require(status <= 1, "invalid Journey status");
 			a.status = status == 0 ? XeenActorStatus::Physical : XeenActorStatus::Unsupported;
 			a.accounted = in.boolean(); j.actors.push_back(a);
+		}
+		if(j.schema==4) {
+			require(in.u8()==30,"Invalid resistance count");
+			for(unsigned owner=0;owner<30;++owner) {
+				require(in.u8()==owner,"Invalid resistance owner order");
+				j.supplements[owner].inputs.resistances=XeenCombatResistances{in.u8(),in.u8(),in.u8(),in.u8()};
+			}
+			XeenMonsterTreasure v;v.gold=in.u32();v.gems=in.u32();v.pendingMask=in.u32();v.pendingGold=in.u32();
+			const unsigned weapons=in.u8(),armor=in.u8();
+			require(weapons<=10 && armor<=10 && weapons+armor<=12 && in.remaining()==5u*(weapons+armor),"Invalid treasure extent");
+			for(unsigned category=0;category<2;++category) for(unsigned i=0;i<(category?armor:weapons);++i) {
+				auto &r=(category?v.armor:v.weapons)[i];r.source=in.u8();r.item={in.u8(),in.u8(),in.u8(),in.u8()};
+				require(r.item.id!=0,"Empty wire treasure");
+			}
+			j.treasure=v;
 		}
 		s.journey = std::move(j);
 	}

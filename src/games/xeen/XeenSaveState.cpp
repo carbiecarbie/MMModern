@@ -13,6 +13,7 @@
 #include "games/xeen/XeenMovement.h"
 
 #include <stdexcept>
+#include <algorithm>
 #include <type_traits>
 #include <utility>
 
@@ -27,7 +28,7 @@ void XeenSaveState::validateJourneyValues(const XeenSaveSnapshot &s) {
 	const auto &j = *s.journey;
 	const auto require = [](bool ok) { if (!ok) throw std::invalid_argument("Unsupported Journey durable state"); };
 	const auto &policy=xeenJourneyContent(j.contract);
-	if (j.contract==3) {
+	if (j.contract>=3) {
 		require(s.resources.darkside && j.initializedMap==XeenMapIdentity(23) && j.originalActorCount==19 && j.actors.size()==19 &&
 			s.camera.mapId==XeenMapIdentity(23) && s.camera.x>=0 && s.camera.x<16 && s.camera.y>=0 && s.camera.y<16);
 		for (unsigned i=0;i<19;++i) {
@@ -83,6 +84,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	p.questItems = XeenCloudsQuestItems(snapshot.questItems); p.questFlags = XeenCloudsQuestFlags(snapshot.questFlags);
 	p.firstSerializedCount = p.effectiveSerializedCount = 6;
 	p.encounterContext = snapshot.journey->context;
+	p.monsterTreasure=snapshot.journey->treasure;
 	p.roster._combatMarked = true;
 	for (const auto &r : snapshot.journey->supplements) p.roster._combatInputs[r.owner] = r.inputs;
 	w._sessionState._skeletonSeed = snapshot.journey->skeletonSeed;
@@ -116,13 +118,13 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	const auto &policy=xeenJourneyContent(snapshot.journey->contract);
 	auto actors = XeenActorApproach::actorsFromResources(w.objectFile(policy.entry.mapId),statistics);
 	auto evt = events(policy.entry.mapId);
-	if (policy.contract==3) {
+	if (policy.contract>=3) {
 		if (!regionalManifest) throw std::invalid_argument("Missing regional restoration manifest");
 		callback([&] { regionalManifest(w.map(23),w.objectFile(23),evt,statistics);return true; });
 		if (!XeenMovement::component(w.map(23),9,11,policy.traversal)[c.y*16+c.x]) throw std::invalid_argument("Regional camera outside mainland");
 	}
-	if (actors.size()!=(policy.contract==3 ? 19u : 27u)) throw std::invalid_argument("Journey requires complete original actor collection");
-	for (unsigned i=0;policy.contract!=3 && i<policy.count;++i) {
+	if (actors.size()!=(policy.contract>=3 ? 19u : 27u)) throw std::invalid_argument("Journey requires complete original actor collection");
+	for (unsigned i=0;policy.contract<3 && i<policy.count;++i) {
 		const auto &a=actors.at(policy.records[i]);
 		const auto admission=policy.actor(policy.records[i]);
 		if (!a.statistics || a.original.resourceId!=admission.resourceId) throw std::invalid_argument("Journey original species mismatch");
@@ -143,6 +145,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	adopt(); // Complete saved domain, deliberately unbound and unavailable.
 	XeenActorApproach::validateEnvironment(w,s._actors,evt,s._journeyContract);
 	const auto view=XeenActorApproach::classify(s._actors,c);
+	if(p.monsterTreasure && p.monsterTreasure->pending() && std::none_of(view.slots.begin(),view.slots.end(),[](const auto &v){return bool(v);})) throw std::invalid_argument("Quiet treasure is immediately collectable");
 	for (unsigned i=0;i<s._actors.size();++i) if (view.activation[i] && !s._actors[i].activated) throw std::invalid_argument("Quiet actor activation missing");
 	for (auto n:XeenActorApproach::occupancy(s._actors)) if (n>3) throw std::invalid_argument("Quiet actor occupancy exceeded");
 	try { presentation(w,p,c,f); }
@@ -298,6 +301,7 @@ void XeenSaveState::restoreCompleted(const XeenSaveSnapshot &source, const Resou
 
 bool XeenSaveState::canCapture(const XeenPartyState &party, const XeenCamera &camera,
 		const XeenWorld &world) noexcept {
+	if (party.monsterTreasure && (!world.sessionState().journey() || world.sessionState().journeyContract()!=4)) return false;
 	if (!world.hasEncounterState() && !party.encounterContext && !party.roster.combatMarked()) {
 		for (unsigned owner = 0; owner < XeenRoster::kCharacterCount; ++owner)
 			if (party.roster.combatInputs(owner)) return false;
@@ -347,10 +351,10 @@ XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resourc
 		xeenValidateJourneyParty(party,state.journeyContract());
 		XeenSaveJourney j;
 		j.context = party.encounterContext; j.skeletonSeed = state.skeletonSeed();
-		j.schema=j.contract=state.journeyContract(); j.random=state.journeyRandom();
+		j.schema=j.contract=state.journeyContract(); j.random=state.journeyRandom();j.treasure=party.monsterTreasure;
 		for (unsigned i = 0; i < 30; ++i) j.supplements[i] = {static_cast<std::uint8_t>(i), *party.roster.combatInputs(i)};
 		j.initializedMap=xeenJourneyContent(j.contract).entry.mapId;
-		j.originalActorCount=j.contract==3 ? 19 : 27;
+		j.originalActorCount=j.contract>=3 ? 19 : 27;
 		if (state.actors().size() != j.originalActorCount) throw std::logic_error("Journey actor collection changed");
 		for (const auto &a:state.actors()) if (xeenJourneyContent(j.contract).influences(a.id.recordIndex))
 			j.actors.push_back({a.id,a.x,a.y,a.hp,a.activated,a.lifecycle,a.status,state.accountedMonsters().count(a.id) != 0});
@@ -364,7 +368,7 @@ XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resourc
 void XeenSaveState::restoreBeforeGameplay(const XeenSaveSnapshot &snapshot,
 		const Resources &resources, XeenPartyState &party, XeenCamera &camera,
 		XeenGameFlags &flags, XeenWorld &world, const Preflight &preflight) {
-	if (world.hasEncounterState() || party.encounterContext || party.roster.combatMarked())
+	if (world.hasEncounterState() || party.encounterContext || party.monsterTreasure || party.roster.combatMarked())
 		throw std::logic_error("MMModern save: cannot restore into encounter owners");
 	XeenSaveFormat::validate(snapshot);
 	if (!(snapshot.resources == resources.signature))

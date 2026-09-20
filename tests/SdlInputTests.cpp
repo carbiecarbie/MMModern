@@ -12,7 +12,41 @@
 
 using namespace mmodern;
 
+// Deterministic millisecond collision at the production SDL boundary.
+static bool fixedTicks=false;
+extern "C" Uint32 __real_SDL_GetTicks();
+extern "C" Uint32 __wrap_SDL_GetTicks(){return fixedTicks?100:__real_SDL_GetTicks();}
+
 namespace {
+
+void semanticBoundaryKeys() {
+ IndexedFrame frame;frame.width=frame.height=1;frame.pixels={0};
+ unsigned accepted=0,stage=0;std::uint64_t epoch=1;bool queuedOld=false;
+ const auto key=[](SDL_Keycode code,Uint32 type=SDL_KEYDOWN,Uint32 stamp=100,Uint8 repeat=0){
+  SDL_Event e{};e.type=type;e.key.keysym.sym=code;e.key.timestamp=stamp;e.key.repeat=repeat;
+  if(SDL_PeepEvents(&e,1,SDL_ADDEVENT,0,0)!=1)throw std::runtime_error("boundary key queue");
+ };
+ const auto check=[&](bool v){if(!v)throw std::runtime_error("SDL equal-tick boundary stage="+std::to_string(stage)+" accepted="+std::to_string(accepted));};
+ SdlWindow::FrameUpdateHandler handler=[](const PlayerAction &)->std::optional<IndexedFrame>{throw std::runtime_error("unversioned protected dispatch");};
+ handler.protectAllKeys=true;handler.displayedInput=[&]{return std::optional<std::uint64_t>{epoch};};
+ handler.withDisplayedInput=[&](const PlayerAction &,std::uint64_t supplied)->std::optional<IndexedFrame>{if(supplied!=epoch)return {}; ++accepted;++epoch;return frame;};
+ handler.framePresented=[&](const auto &){if(epoch==2&&!queuedOld){queuedOld=true;key(SDLK_UP);key(SDLK_UP,SDL_KEYUP);}};
+ fixedTicks=true;
+ const bool ok=SdlWindow().showInteractive(frame,"SDL semantic boundary",handler,{},[&]()->std::optional<IndexedFrame>{
+  switch(stage++){
+  case 0:key(SDLK_RIGHT);key(SDLK_RIGHT,SDL_KEYUP);break;
+  case 1:check(accepted==1);break; // First command still awaits presentation.
+  case 2:check(accepted==1);key(SDLK_RIGHT);key(SDLK_LEFT);key(SDLK_LEFT,SDL_KEYUP);break;
+  case 3:check(accepted==2);break;
+  case 4:key(SDLK_RIGHT);key(SDLK_RIGHT,SDL_KEYDOWN,100,1);break;
+  case 5:check(accepted==2);key(SDLK_RIGHT,SDL_KEYUP);break;
+  case 6:key(SDLK_w,SDL_KEYDOWN,99);key(SDLK_w,SDL_KEYUP,99);key(SDLK_RIGHT);key(SDLK_RIGHT,SDL_KEYUP);break;
+  default:check(accepted==3);{SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);}break;
+  }
+  return {};
+ });
+ fixedTicks=false;check(ok&&accepted==3&&queuedOld);
+}
 
 void pushKey(std::atomic<bool> &finished, SDL_Keycode key, std::uint8_t repeat,
 		std::uint32_t type = SDL_KEYDOWN) {
@@ -32,6 +66,7 @@ void pushKey(std::atomic<bool> &finished, SDL_Keycode key, std::uint8_t repeat,
 } // namespace
 
 int main() {
+ semanticBoundaryKeys();
 	std::atomic<bool> finished{false};
 	std::atomic<int> interactions{0};
 	std::atomic<int> navigation{0};
@@ -41,11 +76,14 @@ int main() {
 	std::atomic<int> selections{0};
 	std::atomic<int> cancellations{0};
 	std::atomic<int> inspections{0};
-	std::atomic<int> slots{0}, transfers{0}, equipment{0};
+	std::atomic<int> slots{0}, transfers{0}, equipment{0}, shots{0};
 	std::atomic<bool> canCancel{true};
 	std::exception_ptr senderError;
 	std::thread sender([&] {
 		try {
+			pushKey(finished, SDLK_f, 0);
+            pushKey(finished, SDLK_f, 1);
+            pushKey(finished, SDLK_f, 0, SDL_KEYUP);
 			pushKey(finished, SDLK_SPACE, 0);
 			pushKey(finished, SDLK_i, 0);
 			pushKey(finished, SDLK_i, 1);
@@ -88,7 +126,8 @@ int main() {
 	frame.pixels = {0};
 	const bool result = SdlWindow().showInteractive(frame, "MMModern input test",
 		[&](const PlayerAction &action) -> std::optional<IndexedFrame> {
-			if (std::holds_alternative<InteractionAction>(action))
+			if (std::holds_alternative<ShootAction>(action)) ++shots;
+            else if (std::holds_alternative<InteractionAction>(action))
 				++interactions;
 			else if (std::holds_alternative<NavigationAction>(action))
 				++navigation;
@@ -120,7 +159,7 @@ int main() {
 	if (senderError)
 		std::rethrow_exception(senderError);
 	if (!result || interactions != 2 || navigation != 2 || acknowledgments != 1 ||
-			yes != 1 || no != 1 || selections != 6 || cancellations != 1 || inspections != 1 || slots != 9 || transfers != 1 || equipment != 1) {
+			yes != 1 || no != 1 || selections != 6 || cancellations != 1 || inspections != 1 || slots != 9 || transfers != 1 || equipment != 1 || shots != 1) {
 		std::cerr << "Space dispatch/repeat filtering failed: interactions="
 			<< interactions << " navigation=" << navigation
 			<< " acknowledgments=" << acknowledgments << " yes=" << yes
