@@ -109,6 +109,10 @@ bool XeenEventFlow::journeyInputCurrent(std::optional<std::uint64_t> input) cons
 }
 void XeenEventFlow::prepareJourneyTransition() {
 	if (!journey()) return;
+	if (_encounter->_regionalAutomatic && !_encounter->state().pending() && _encounter->state().phase()==XeenEncounterPhase::Exploring) {
+		_encounter->beginJourneyEvent();_journeyEventLayers=true;
+		journeyEventWork([&] { drive(_events.runAutomaticEvent(_world,_party,_camera,_flags,_eventPublication),true); },true);
+	}
 	if (!_encounter->combat() && _world.sessionState().journeyActivity() == XeenJourneyActivity::Attachment) {
 		closeInventory();
 		if (!_encounter->attachJourney(_encounter->ticket(),prepareJourneySprites)) throw std::runtime_error("Journey attachment failed");
@@ -230,12 +234,14 @@ bool XeenEventFlow::advanceEncounterOrdinary(OrdinaryCause cause) {
 
 IndexedFrame XeenEventFlow::renderEncounter(bool report) {
 	if (journey() && !_encounter->combat()) {
+		report=report || _encounter->state().phase()==XeenEncounterPhase::SupportStopped;
 		_encounter->holdJourneyFrame();
 		for (unsigned attempt=0;attempt<2;++attempt) {
 			IndexedFrame returned;
 			const auto t = _encounter->ticket();
 			if (_encounter->prepareJourneyFrame(t,[&] {
 				if (attempt) { _world.discardMapCache(); if (rebuildEncounterPresentation) rebuildEncounterPresentation(); }
+				validateRegionalEvents();
 				if (_journeyEventLayers) {
 					XeenEventPublication validation(_encounter->journeySavePreimage(),_encounter->_journeyEvents,[&] {
 						if (!_encounter->current(t)) throw std::logic_error("Stale objective reconstruction");
@@ -430,6 +436,8 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 		// Reporting receives a value snapshot; Flow has already adopted ownership
 		// and can account for it if constructing this snapshot fails.
 		if (suspended) suspended->state = _pending->state;
+		if (journey() && automatic && std::holds_alternative<XeenEventExecutionError>(result))
+			throw std::runtime_error("Automatic Journey event failed");
 		if constexpr (std::is_same_v<Result, XeenManualEventResult>) {
 			if (reportManual) reportManual(result);
 		} else {
@@ -461,7 +469,17 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 	}
 }
 
-IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operation) {
+void XeenEventFlow::validateRegionalEvents() {
+	if (!journey() || _world.sessionState().journeyContract()!=3) return;
+	const auto entry=_encounter->ticket();
+	XeenEventPublication validation(_encounter->journeySavePreimage(),_encounter->_journeyEvents,[&] {
+		if (!_encounter->current(entry)) throw std::logic_error("Stale regional event resources");
+	});
+	XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world,[&] {validation.check();});
+	validation.script(_events.scriptForMap(23).file());
+}
+IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operation, bool automatic) {
+	automatic=automatic || (_pending && _pending->automatic);
 	const auto entry=_encounter->ticket();
 	try {
 		XeenEventPublication publication(_encounter->journeySavePreimage(),_encounter->_journeyEvents,[&] {
@@ -477,6 +495,7 @@ IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operat
 		std::cerr << "Journey event: " << error.what() << '\n';
 		_eventPublication=nullptr;
 		cleanup(XeenRewardDiscard::PresentationFailure);
+		if (automatic) { _fatal=true;_encounter->fail(_encounter->ticket());throw; }
 		if (!_encounter->current(entry)) { _fatal=true; throw; }
 		// Only trusted published effects survive. A recovery frame never resumes the script.
 	}
@@ -567,6 +586,7 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 	requireCurrentOwners();
 	if (_dispatching || _fatal || _saving || (journey() && _handoffPending)) return std::nullopt;
 	DispatchScope dispatch(_dispatching);
+	validateRegionalEvents();
 	if (_encounter) {
 		if (journey() && _encounter->journeyEvent()) {
 			if (advanceEncounterOrdinary()) return renderEncounter();
@@ -647,8 +667,18 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &action, std::optional<std
 	if (!_encounter && (std::holds_alternative<AttackAction>(action) || std::holds_alternative<BlockAction>(action) ||
 		std::holds_alternative<BeginEncounterAction>(action) || std::holds_alternative<RevisitCompletedAction>(action))) return frameCopy();
 	DispatchScope dispatch(_dispatching);
+	validateRegionalEvents();
 	if (_encounter) {
 		if (journey() && !_encounter->combat()) {
+			if (_world.sessionState().journeyContract()==3 &&
+				(std::holds_alternative<AttackAction>(action) || std::holds_alternative<BlockAction>(action) ||
+				 std::holds_alternative<BeginEncounterAction>(action) || std::holds_alternative<RevisitCompletedAction>(action))) {
+				if (_encounter->journeyMutable()) {
+					_encounter->_journeyRefusal="Unsupported regional action: combat/Run/Begin/Revisit";
+					return renderEncounter();
+				}
+				return frameCopy();
+			}
 			if (_encounter->journeyEvent()) {
 				if (!_pending) return frameCopy();
 				return journeyEventWork([&] {
@@ -666,6 +696,25 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &action, std::optional<std
 			}
 			if (std::holds_alternative<InteractionAction>(action)) {
 				if (!_encounter->journeyQuiet()) return frameCopy();
+				if (_world.sessionState().journeyContract()==3) {
+					if (xeenRegionalSign(_encounter->_journeyEvents,_camera)) {
+						_encounter->beginJourneyEvent();_journeyEventLayers=true;
+						return journeyEventWork([&] { drive(_events.runManualEvent(_world,_party,_camera,_flags,_eventPublication),false); });
+					}
+					try { _encounter->journeyRead([&] {
+						XeenEventPublication validation(_encounter->journeySavePreimage(),_encounter->_journeyEvents,[&] {
+							if (!_encounter->current(_encounter->ticket())) throw std::logic_error("Stale regional event lookup");
+						});
+						validation.script(_events.scriptForMap(_camera.mapId).file());
+						const auto record=xeenRegionalEvent(_encounter->_journeyEvents,_camera);
+						if (record) _encounter->_journeyRefusal="Unsupported event "+std::to_string(*record)+" at ("+std::to_string(_camera.x)+","+std::to_string(_camera.y)+")";
+						else if (reportManual) reportManual(XeenManualEventNoEvent{});
+					}); } catch (...) {
+						if (!_encounter->current(_encounter->ticket())) throw;
+						_encounter->_journeyRefusal="Regional interaction failed; no event executed";
+					}
+					return renderEncounter();
+				}
 				if (_world.sessionState().journeyContract()==2 && _camera.mapId==XeenMapIdentity(20) && _camera.x==5 && _camera.y==14) {
 					_encounter->beginJourneyEvent(); _journeyEventLayers=true;
 					return journeyEventWork([&] { drive(_events.runManualEvent(_world,_party,_camera,_flags,_eventPublication),false); });

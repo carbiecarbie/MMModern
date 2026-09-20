@@ -117,11 +117,11 @@ std::vector<XeenInventoryLine> xeenInventoryLayout(const XeenFontFormat &font,
 		character = &party.roster.at(ids[selection.source]);
 	if (character) {
 		const auto &c = *character;
-		XeenCharacterRules::validateForUse(c, {kCloudsInitialYear});
+		XeenCharacterRules::validateForUse(c, {party.encounterContext ? party.encounterContext->year : kCloudsInitialYear});
 		line(10,166,8,"F" + std::to_string(selection.source+1) + " [owner " + std::to_string(ids[selection.source]) + "] " + c.name,true);
 		line(170,310,8,std::string("Condition: ") + xeenConditionName(c.worstCondition()));
-		line(10,310,17,"HP " + std::to_string(c.currentHp) + " / " + std::to_string(XeenCharacterRules::maxHp(c,{kCloudsInitialYear})));
-		line(10,310,26,"SP " + std::to_string(c.currentSp) + " / " + std::to_string(XeenCharacterRules::maxSp(c,{kCloudsInitialYear})));
+		line(10,310,17,"HP " + std::to_string(c.currentHp) + " / " + std::to_string(XeenCharacterRules::maxHp(c,{party.encounterContext ? party.encounterContext->year : kCloudsInitialYear})));
+		line(10,310,26,"SP " + std::to_string(c.currentSp) + " / " + std::to_string(XeenCharacterRules::maxSp(c,{party.encounterContext ? party.encounterContext->year : kCloudsInitialYear})));
 		if (readOnly || party.encounterContext) {
 			const auto &inputs = party.roster.combatInputs(ids[selection.source]);
 			line(170,310,17,"XP " + (inputs ? std::to_string(inputs->experience) : "absent"));

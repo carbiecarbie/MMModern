@@ -90,6 +90,10 @@ int Application::journeyExpedition(const std::filesystem::path &directory, std::
   std::optional<std::filesystem::path> save) const {
  return gameplay(directory,xeenJourneyContent(2).entry,save,false,XeenEncounterEntry::Journey,seed,2);
 }
+int Application::journeyRegion(const std::filesystem::path &directory, std::optional<std::uint32_t> seed,
+  std::optional<std::filesystem::path> save) const {
+ return gameplay(directory,xeenJourneyContent(3).entry,save,false,XeenEncounterEntry::Journey,seed,3);
+}
 int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera camera,
   const std::optional<std::filesystem::path> &target, bool resume, XeenEncounterEntry entry, std::optional<std::uint32_t> seed,
   std::optional<std::uint16_t> journeyContract) const {
@@ -147,7 +151,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   }
   for (const auto &diagnostic : party.diagnostics) std::cerr << "Party warning: " << diagnostic << '\n';
   XeenEventSystem events([&](XeenMapIdentity id) { return XeenEventScript(services.resources.loadEvents(id)); }, services.texts);
-  const auto encounterEvents = encounter && !resume ? services.resources.loadEvents(20) : XeenEventFile{};
+  const auto encounterEvents = encounter && !resume ? services.resources.loadEvents(camera.mapId) : XeenEventFile{};
   std::optional<XeenEncounterSetup> setup;
   if (encounter && entry != XeenEncounterEntry::Journey) setup.emplace(XeenEncounterSetup{encounterEvents, services.initializeEncounter, services.validateEncounterSprite});
   std::vector<std::uint8_t> journeyCharacters;
@@ -161,6 +165,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    auto value = seed ? *seed : (services.sampleJourneySeed ? services.sampleJourneySeed() : std::random_device{}());
    if (!value) value = 1;
    journeySetup.emplace(XeenJourneySetup{journeyCharacters,services.resources.loadInitialContext(),journeyStatistics,encounterEvents,value,journeyContract.value_or(1)});
+   journeySetup->regionalManifest=services.resources.regionalManifest;
   }
   if (entry == XeenEncounterEntry::Diagnostic27 && !resume) {
    if (!services.prepareCombat) throw std::invalid_argument("Missing combat preparation provider");
@@ -190,14 +195,14 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   flow.completedEvents = services.resources.loadEvents;
   flow.completedPreflight = preflight;
   flow.prepareJourneySprites = [&] {
-   if (!services.validateEncounterSprite || !services.validateCombatSprite) throw std::invalid_argument("Missing Journey sprite providers");
    const auto ticket = flow.encounter()->ticket();
    const auto &content = xeenJourneyContent(world.sessionState().journeyContract());
+   if (!services.validateEncounterSprite || (content.contract!=3 && !services.validateCombatSprite)) throw std::invalid_argument("Missing Journey sprite providers");
    for (unsigned i=0;i<content.count;++i) {
-    const auto image = content.actor(content.records[i]).profileImage;
+    const auto image = content.contract==3 ? world.sessionState().actors().at(content.records[i]).statistics->image() : content.actor(content.records[i]).profileImage;
     services.validateEncounterSprite(image);
     if (!flow.encounter()->current(ticket)) throw std::logic_error("Stale Journey normal sprite preparation");
-    services.validateCombatSprite(image);
+    if (content.contract!=3) services.validateCombatSprite(image);
     if (!flow.encounter()->current(ticket)) throw std::logic_error("Stale Journey attack sprite preparation");
    }
   };
@@ -205,7 +210,8 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   handoff.verify();
   if (!flow.frame().isValid()) throw std::runtime_error("Invalid first gameplay frame");
   std::cout << "Setup " << xeenInventoryInspection(party);
-  if (flow.journey()) std::cout << flow.encounter()->journeyInspection()
+  if (flow.journey() && world.sessionState().journeyContract()==3) std::cout << flow.encounter()->journeyInspection() << flow.encounter()->notice() << '\n';
+  else if (flow.journey()) std::cout << flow.encounter()->journeyInspection()
    << (world.sessionState().journeyContract()==2 ? "Prepared expedition: collect the Bone Whistle at (5,14), then return and save. Six cells x=0..5/y=14; return remains mutable. 1-3 selects a combat target. " : "Journey objective: survive the Skeleton, then continue and save. Four cells only: x=13..14, y=1..2. ") <<
       "Time must stay below 960 minutes. No healing, rest, recovery or disengagement. "
       "Arrows/WASD move and turn; period waits; Space interacts outside combat and attacks in combat; B blocks. "

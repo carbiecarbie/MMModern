@@ -74,17 +74,8 @@ XeenMovementResult applyOutdoor(XeenWorld &world, XeenCamera &camera,
 	if (!target)
 		return XeenMovementResult::BlockedByMapBoundary;
 
-	const auto *outdoor = std::get_if<XeenOutdoorLayers>(&target->cell->geometry);
-	if (!outdoor)
-		throw std::runtime_error("celula interior encontrada em mapa exterior");
-
-	if (blocksWithoutMountaineer(outdoor->middle))
-		return XeenMovementResult::BlockedByTerrain;
-	if (checksSurface(outdoor->middle)) {
-		const std::uint8_t surface = target->geometry->surfaceTypes[outdoor->surface];
-		if (blockedSurface(surface))
-			return XeenMovementResult::BlockedBySurface;
-	}
+	const auto admission = XeenMovement::outdoorDestination(*target->geometry, *target->cell, {});
+	if (admission != XeenMovementResult::Moved) return admission;
 
 	XeenCamera destination = camera;
 	destination.mapId = target->mapId;
@@ -125,6 +116,52 @@ XeenMovementResult applyIndoor(XeenWorld &world, XeenCamera &camera,
 }
 
 } // namespace
+
+XeenMovementResult XeenMovement::outdoorDestination(const XeenMapGeometry &geometry,
+		const XeenMapCell &cell, Capabilities capabilities) {
+	if (capabilities.swimming || capabilities.walkOnWater || capabilities.mountaineer)
+		throw std::invalid_argument("Unsupported outdoor traversal capability");
+	const auto *layers = std::get_if<XeenOutdoorLayers>(&cell.geometry);
+	if (!geometry.isOutdoors() || !layers || layers->surface >= 16 || layers->middle >= 16)
+		throw std::invalid_argument("Invalid outdoor destination geometry");
+	if (blocksWithoutMountaineer(layers->middle)) return XeenMovementResult::BlockedByTerrain;
+	if (checksSurface(layers->middle) && blockedSurface(geometry.surfaceTypes[layers->surface]))
+		return XeenMovementResult::BlockedBySurface;
+	return XeenMovementResult::Moved;
+}
+
+XeenMovementResult XeenMovement::localOutdoor(const XeenMap &map, int fromX, int fromY,
+		int toX, int toY, Capabilities capabilities) {
+	if (map.side != XeenSide::Clouds || !map.geometry.isOutdoors())
+		throw std::invalid_argument("Local outdoor traversal requires Clouds geometry");
+	if (fromX < 0 || fromX >= 16 || fromY < 0 || fromY >= 16)
+		throw std::invalid_argument("Invalid local traversal source");
+	if (toX < 0 || toX >= 16 || toY < 0 || toY >= 16) return XeenMovementResult::BlockedByMapBoundary;
+	if (std::abs(toX-fromX) + std::abs(toY-fromY) != 1)
+		throw std::invalid_argument("Local traversal requires adjacent cells");
+	return outdoorDestination(map.geometry, map.geometry.cells[toY*16+toX], capabilities);
+}
+
+std::bitset<256> XeenMovement::component(const XeenMap &map, int anchorX, int anchorY,
+		Capabilities capabilities) {
+	if (map.side != XeenSide::Clouds || anchorX < 0 || anchorX >= 16 || anchorY < 0 || anchorY >= 16 ||
+		outdoorDestination(map.geometry, map.geometry.cells[anchorY*16+anchorX], capabilities) != XeenMovementResult::Moved)
+		throw std::invalid_argument("Invalid or impassable outdoor component anchor");
+	std::bitset<256> cells;
+	std::array<int,256> queue{};
+	unsigned begin = 0, end = 0;
+	queue[end++] = anchorY*16+anchorX; cells.set(queue[0]);
+	while (begin != end) {
+		const auto index = queue[begin++];
+		const int x = index%16, y = index/16;
+		for (const auto d : {std::pair<int,int>{1,0}, {-1,0}, {0,1}, {0,-1}}) {
+			const int nx=x+d.first, ny=y+d.second;
+			if (localOutdoor(map,x,y,nx,ny,capabilities) != XeenMovementResult::Moved) continue;
+			if (!cells[ny*16+nx]) { cells.set(ny*16+nx); queue[end++]=ny*16+nx; }
+		}
+	}
+	return cells;
+}
 
 XeenMovementResult XeenMovement::apply(XeenWorld &world, XeenCamera &camera,
 		NavigationAction action) const {

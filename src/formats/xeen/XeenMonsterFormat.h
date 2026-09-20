@@ -19,6 +19,7 @@ struct XeenMonsterRecord {
 	std::uint8_t image() const { return raw[47]; }
 	bool supportsApproach() const;
 	bool supportsMovement() const;
+	bool supportsGroundMovement() const;
 	bool supportsRendering() const;
 	void validateCombat() const;
 	unsigned armorClass() const { return raw[22]; }

@@ -2,6 +2,7 @@
 #define MMODERN_XEEN_EVENT_PUBLICATION_H
 #include "games/xeen/XeenRestoreGuard.h"
 #include "games/xeen/XeenEventInterpreter.h"
+#include "games/xeen/XeenRegionalRules.h"
 #include <limits>
 namespace mmodern {
 // A stack-bound publication capability, issued only to the live Journey continuation.
@@ -23,6 +24,17 @@ public:
 	}
 	void execution(const XeenEventExecutionState &state) const {
 		check();
+		if (guard.s.journeyContract()==3) {
+			if (!xeenRegionalSign(original,guard.cameraValue) || !xeen_state::sameCamera(state.workingCamera,guard.cameraValue) ||
+				state.workingGameFlags.values()!=guard.flagValues || state.logicalAddress.mapId!=XeenMapIdentity(23) ||
+				state.logicalAddress.x!=5 || state.logicalAddress.y!=9 || state.logicalAddress.line<0 || state.logicalAddress.line>1 ||
+				state.lookupDirection!=guard.cameraValue.direction || state.instructionCount>1 ||
+				!state.callStack.empty() || state.pendingRewards.hasWork() ||
+				(state.selectedObject && !(*state.selectedObject==XeenObjectIdentity{23,7})) || !state.currentScript)
+				integrity("Regional read-only sign continuation changed");
+			script(state.currentScript->file());
+			return;
+		}
 		if (!xeen_state::sameCamera(state.workingCamera,guard.cameraValue) || state.workingGameFlags.values()!=guard.flagValues ||
 			state.logicalAddress.mapId!=XeenMapIdentity(20) || state.logicalAddress.x!=5 || state.logicalAddress.y!=14 ||
 			state.logicalAddress.line<0 || state.logicalAddress.line>5 || !state.callStack.empty() ||
@@ -33,6 +45,7 @@ public:
 	}
 	void prepareGrant(std::size_t index) const {
 		check();
+		if (guard.s.journeyContract()==3) integrity("Regional sign cannot grant");
 		if (index!=18 || grant || guard.quests[index]==std::numeric_limits<std::uint32_t>::max())
 			throw std::logic_error("Journey grant publication unavailable");
 		grant=true;
@@ -41,6 +54,7 @@ public:
 	void prepareRemove(const XeenCamera &physical, std::optional<XeenObjectIdentity> selected,
 		const XeenEventFile &file) const {
 		check(); script(file);
+		if (guard.s.journeyContract()==3) integrity("Regional sign cannot remove");
 		if (!xeen_state::sameCamera(physical,guard.cameraValue) || (selected && !(*selected==XeenObjectIdentity{20,1})) || removal)
 			throw std::logic_error("Journey Remove publication unavailable");
 		objects=guard.s._objects; events=guard.s._events;

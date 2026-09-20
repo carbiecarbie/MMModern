@@ -35,6 +35,8 @@ public:
 		std::optional<std::filesystem::path> savePath = {}) const;
 	int journeyExpedition(const std::filesystem::path &, std::optional<std::uint32_t> seed = {},
 		std::optional<std::filesystem::path> savePath = {}) const;
+	int journeyRegion(const std::filesystem::path &, std::optional<std::uint32_t> seed = {},
+		std::optional<std::filesystem::path> savePath = {}) const;
 	// Shared production construction; providers outlive this call. Target has
 	// already been resolved/checked against the installation by gameplay().
 	int playGameplay(const XeenGameplayServices &, XeenCamera,

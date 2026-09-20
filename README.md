@@ -6,7 +6,7 @@ Might and Magic V: Darkside of Xeen / World of Xeen.
 
 ## Status
 
-**Milestone 31 is the latest completed milestone.**
+**Milestone 32 is the latest completed milestone.**
 
 The engine supports a bounded Clouds quest loop: request a quest, collect an
 item, return it for character-held rewards, and save/resume the resulting progress.
@@ -37,6 +37,15 @@ consequences. Quiet F9 saves before or after collection restore the same current
 state and RNG continuation in another process, allowing further navigation and
 item management without replay. The supported route remains six cells; it adds
 no general map-20 exploration, Vertigo travel, normal startup or Whistle use/turn-in.
+
+The production `--journey-region` entry adds resource-derived exploration of
+the connected mainland containing `(9,11)` on Clouds map 23. It retains all 19
+original regional actors, their independent movement and exact state across
+schema-3 save/restart, while keeping inventory/equipment and the original
+automatic sign available at quiet boundaries. This is map-local regional
+exploration, not unrestricted map-23 or Clouds support: regional combat, enemy
+ranged resolution, Shoot, Poison/Sleep, loot, Run and Myra quest execution remain
+outside the supported boundary.
 
 The Diagnostic26 entry presents an original outdoor Skeleton, supports its
 activation and approach, and stops at terminal same-cell engagement. Diagnostic27
@@ -82,6 +91,9 @@ See the [technical snapshot](docs/project-status.md),
 - A bounded production expedition with up to three simultaneous contacts,
   readable multi-actor MON/ATT combat, original Bone Whistle collection and
   return, and schema-2 separate-process continuation.
+- Resource-derived map-23 mainland exploration through `--journey-region`, with
+  all 19 original actors, automatic sign presentation, quiet inventory/save
+  boundaries and schema-3 separate-process continuation.
 
 ## Running and controls
 
@@ -95,6 +107,7 @@ mmodern --encounter-26 <game-directory>
 mmodern --encounter-27 [--combat-seed <nonzero-u32>] <game-directory> [--save-file <path.mmsave>]
 mmodern --journey-skeleton [--combat-seed <nonzero-u32>] <game-directory> [--save-file <path.mmsave>]
 mmodern --journey-expedition [--combat-seed <nonzero-u32>] <game-directory> [--save-file <path.mmsave>]
+mmodern --journey-region [--combat-seed <nonzero-u32>] <game-directory> [--save-file <path.mmsave>]
 ```
 
 Use an existing save directory outside the original game installation. Relative
@@ -154,6 +167,21 @@ F9 may save at the presented quiet boundary. Turn West and return to `(0,14)`;
 the Journey remains mutable after return and restart. There is no autosave or
 healing requirement for the accepted seed-1 route.
 
+`--journey-region` starts Regional Journey at Clouds map 23 `(9,11)` West,
+with the prepared party and all 19 original actors. Movement follows the
+resource-derived mainland connected to that entry. The original actors activate
+and move independently of party reachability; ranged operations and contact
+produce a terminal, unsaveable `SupportStopped` notice. Regional combat, enemy
+ranged resolution, Shoot, Poison/Sleep, loot, Run, Myra quest execution,
+recovery and travel beyond the mainland are unavailable. Space refuses
+unsupported interactions without running their scripts; the admitted sign can
+also be requested manually. Facing North at `(5,9)` automatically displays that
+original sign through normal Event presentation. Inventory/equipment and F9
+work at presented quiet boundaries.
+Time processing outside the supported interval also stops before publishing the
+unsupported change. Restart a quiet save with `--load-game`; a stopped session
+cannot be resumed by further gameplay input.
+
 | Key | Action |
 | --- | --- |
 | W/Up, S/Down | Move forward/backward; browse physical slots in inventory |
@@ -186,7 +214,9 @@ results appear in the console and window title. Existing supported valid MMModer
 saves can be replaced; there is no autosave, save-on-exit or in-session load.
 Ordinary eligible saves write v2, completed Diagnostic27 writes v3, and Journey
 saves write v4: the Skeleton Journey retains schema/content 1/1 and the expedition
-uses schema/content 2/2. The reader accepts supported v1/v2/v3/v4 in their distinct
+uses schema/content 2/2. Regional Journey uses schema/content 3/3 with all 19
+actor records, retained context, supplements and RNG continuation. The reader
+accepts supported v1/v2/v3/v4 in their distinct
 domains. `--load-game` selects Journey directly from v4 and restores fresh owners
 without replaying fresh Journey initialization, approach, combat, objective
 grant/removal or item actions. Existing expedition schema-2 saves remain readable
@@ -214,6 +244,8 @@ SDL backend. The exact pin and configuration live in
   ownership, persistence and boundaries.
 - [Project history](docs/project-history.md): concise completed milestones and plan links.
 - [Roadmap](docs/roadmap.md): future direction and planning review cadence.
+- [Milestone 32 plan](docs/milestone-32-plan.md): closed regional navigation,
+  actor/resource authority, schema-3 persistence and acceptance contract.
 - [Milestone 31 plan](docs/milestone-31-plan.md): closed connected collection,
   event authority, publication/failure, restart and acceptance contract.
 - [Milestone 29 plan](docs/milestone-29-plan.md): closed mutable Journey,

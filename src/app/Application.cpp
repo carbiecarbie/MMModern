@@ -470,6 +470,10 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
         };
         services.catalog = &catalog.catalog;
         services.resources.loadInitialCharacters = [&] { return assets.readInitialResource("maze.chr"); };
+        services.resources.regionalManifest = [&](const XeenMap &map,const XeenObjectFile &mob,const XeenEventFile &evt,const std::vector<XeenMonsterRecord> &mon) {
+            xeenValidateRegionalManifest(map,mob,evt,mon,assets.readInitialResource("maze0023.dat"),
+                assets.readInitialResource("maze0023.mob"),assets.readInitialResource("maze0023.evt"));
+        };
         services.resources.loadInitialContext = [&] { return XeenGameplayContextFormat::parse(assets.readInitialResource("maze.pty")); };
         services.resources.loadMonsterStatistics = [&] {
             const auto bytes = assets.readCloudsMonsterStatisticsFromDarkArchive();
@@ -496,7 +500,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
         services.composeEncounter = [&](XeenWorld &w, const XeenPartyState &p, const XeenCamera &c,
                 std::uint64_t ordinary, XeenMonsterAppearance actor) {
             XeenEventFlow::Composition result;
-            result.frame = composer.compose(assets, w, p, c, {kCloudsInitialYear}, nullptr, ordinary,
+            result.frame = composer.compose(assets, w, p, c, {p.encounterContext ? p.encounterContext->year : kCloudsInitialYear}, nullptr, ordinary,
                 &result.containsOrdinaryAnimation, actor);
             return result;
         };

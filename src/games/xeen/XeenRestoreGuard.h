@@ -100,24 +100,60 @@ public:
 	// before XeenWorld inserts them. Cache hits never establish a new preimage.
 	void admitMap(XeenMapIdentity id, const XeenMap &value) {
 		check();
-		if (value.identity() != id) throw std::invalid_argument("prepared map identity mismatch");
 		const auto found = maps.find(id);
-		if (found != maps.end() && !xeen_state::sameMap(found->second, value))
+		if (value.identity() != id) {
+			// A retained key binds internal identity as well as resource contents.
+			if (found != maps.end()) failed = true;
+			throw std::invalid_argument("prepared map identity mismatch");
+		}
+		if (found != maps.end() && !xeen_state::sameMap(found->second, value)) {
+			failed = true;
 			throw std::invalid_argument("prepared map resource changed during reconstruction");
+		}
 		maps.emplace(id, value);
 	}
 	void admitObjects(XeenMapIdentity id, const XeenObjectFile &value) {
 		check();
-		if (value.mapId != id) throw std::invalid_argument("prepared object identity mismatch");
 		const auto found = objects.find(id);
-		if (found != objects.end() && !xeen_state::sameObjectFile(found->second, value))
+		if (value.mapId != id) {
+			if (found != objects.end()) failed = true;
+			throw std::invalid_argument("prepared object identity mismatch");
+		}
+		if (found != objects.end() && !xeen_state::sameObjectFile(found->second, value)) {
+			failed = true;
 			throw std::invalid_argument("prepared object resource changed during reconstruction");
+		}
 		objects.emplace(id, value);
 	}
 private:
 	friend class XeenEventPublication;
 	friend class XeenEncounterFlow;
 	friend class XeenSaveState;
+	// Authorized publication renews mutable values, not immutable compatibility.
+	// Carry the union of admitted preimages even when disposable caches are empty.
+	// The old mutable preimage is intentionally not checked after publication.
+	void retainResources(const XeenRestoreGuard &previous) {
+		if (previous.failed || !previous.worldAlive() || &w != &previous.w || worldId != previous.worldId) {
+			failed = true;
+			throw std::logic_error("cannot renew invalid resource authority");
+		}
+		for (const auto &entry : previous.maps) {
+			const auto found = maps.find(entry.first);
+			if (found != maps.end() && !xeen_state::sameMap(found->second,entry.second)) {
+				failed = previous.failed = true;
+				throw std::logic_error("map resource changed at guard renewal");
+			}
+			maps.emplace(entry);
+		}
+		for (const auto &entry : previous.objects) {
+			const auto found = objects.find(entry.first);
+			if (found != objects.end() && !xeen_state::sameObjectFile(found->second,entry.second)) {
+				failed = previous.failed = true;
+				throw std::logic_error("object resource changed at guard renewal");
+			}
+			objects.emplace(entry);
+		}
+	}
 	// Prepare a final-destination preimage before publication. Only the private
 	// SaveState swaps below are anticipated; no callback mutation is adopted.
 	void prepareJourneyPublication(const XeenRestoreGuard &candidate) {

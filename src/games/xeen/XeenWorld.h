@@ -23,7 +23,7 @@ namespace mmodern {
 enum class XeenEncounterCompletion { None, VictoryEnded, VictoryQuiescent };
 enum class XeenCompletedGuard { Operation, Presentation, Integrity, Fatal };
 class XeenEventPublication;
-enum class XeenJourneyActivity { Unbound, Quiet, Event, Approach, Attachment, Combat, Presentation, Saving, Failed };
+enum class XeenJourneyActivity { Unbound, Quiet, Event, Approach, Attachment, Combat, Presentation, Saving, Failed, SupportStopped };
 class XeenGameFlags;
 class XeenJourneyCapture;
 struct XeenJourneyRestoration;

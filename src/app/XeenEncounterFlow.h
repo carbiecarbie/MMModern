@@ -7,6 +7,7 @@
 #include "games/xeen/XeenCombat.h"
 #include "games/xeen/XeenEventPresenter.h"
 #include "games/xeen/XeenRestoreGuard.h"
+#include "games/xeen/XeenRegionalRules.h"
 
 namespace mmodern {
 
@@ -27,6 +28,7 @@ struct XeenJourneySetup {
 	const XeenEventFile &events;
 	std::uint32_t seed;
 	std::uint16_t contract = 1;
+	XeenRegionalManifest regionalManifest;
 };
 struct XeenJourneyRestoreTag {};
 
@@ -117,6 +119,7 @@ private:
 	bool _journey = false;
 	bool _journeyFramePrepared = false, _journeyFrameRetry = false;
 	std::string _journeyRefusal;
+	bool _regionalAutomatic = false;
 	std::shared_ptr<XeenRestoreGuard> _journeyPreimage;
 	std::shared_ptr<XeenJourneyCapture> _journeyCapture;
 	XeenEventFile _journeyEvents;

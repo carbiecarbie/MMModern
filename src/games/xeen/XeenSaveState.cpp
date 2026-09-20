@@ -10,6 +10,7 @@
 #include "games/xeen/XeenRestoreGuard.h"
 #include "formats/xeen/XeenCharacterFormat.h"
 #include "games/xeen/XeenJourneyCapture.h"
+#include "games/xeen/XeenMovement.h"
 
 #include <stdexcept>
 #include <type_traits>
@@ -26,6 +27,16 @@ void XeenSaveState::validateJourneyValues(const XeenSaveSnapshot &s) {
 	const auto &j = *s.journey;
 	const auto require = [](bool ok) { if (!ok) throw std::invalid_argument("Unsupported Journey durable state"); };
 	const auto &policy=xeenJourneyContent(j.contract);
+	if (j.contract==3) {
+		require(s.resources.darkside && j.initializedMap==XeenMapIdentity(23) && j.originalActorCount==19 && j.actors.size()==19 &&
+			s.camera.mapId==XeenMapIdentity(23) && s.camera.x>=0 && s.camera.x<16 && s.camera.y>=0 && s.camera.y<16);
+		for (unsigned i=0;i<19;++i) {
+			const auto &a=j.actors[i];require(a.id==XeenMonsterIdentity{23,i} && a.status==XeenActorStatus::Physical);
+			if (a.lifecycle==XeenActorLifecycle::Present) require(a.hp>0 && !a.accounted && a.x>=0 && a.x<16 && a.y>=0 && a.y<16 && (a.x!=s.camera.x || a.y!=s.camera.y));
+			else require(a.lifecycle==XeenActorLifecycle::Defeated && !a.hp && !a.activated && a.accounted && a.x==-128 && a.y==-128);
+		}
+		return; // Topology/profile/closure validation needs the installation during restore.
+	}
 	require(s.resources.darkside.has_value() && j.initializedMap==XeenMapIdentity(20) && j.originalActorCount==27 && j.actors.size()==policy.count && s.camera.mapId==XeenMapIdentity(20) && policy.contains(s.camera.x,s.camera.y));
 	for (unsigned i=0;i<policy.count;++i) {
 		const auto &a=j.actors[i]; const auto id=policy.records[i]; const auto admission=policy.actor(id);
@@ -50,6 +61,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	validateJourneyValues(snapshot);
 	const auto monsters = resources.loadMonsterStatistics;
 	const auto eventProvider = resources.loadEvents;
+	const auto regionalManifest = resources.regionalManifest;
 	const auto presentation = preflight;
 	if (!monsters || !eventProvider || !presentation || !world._objectLoader)
 		throw std::invalid_argument("Journey restoration requires MON/MOB/EVT and presentation providers");
@@ -76,7 +88,11 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	w._sessionState._skeletonSeed = snapshot.journey->skeletonSeed;
 	xeenValidateJourneyParty(p,snapshot.journey->contract);
 	std::optional<XeenRestoreGuard> prepared;
-	const auto adopt = [&] { prepared.emplace(w,p,c,f); };
+	const auto adopt = [&] {
+		XeenRestoreGuard next(w,p,c,f);
+		if (prepared) next.retainResources(*prepared);
+		prepared.emplace(std::move(next));
+	};
 	adopt();
 	const auto callback = [&](auto &&provider) {
 		destination.check(); prepared->check();
@@ -97,11 +113,16 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	w.restoreSessionState(snapshot.disabledObjects,snapshot.disabledEvents,events);
 	adopt(); // Only checked overlay preparation changed candidate gameplay values.
 	auto statistics = callback(monsters);
-	auto actors = XeenActorApproach::actorsFromResources(w.objectFile(20),statistics);
-	auto evt = events(20);
-	if (actors.size()!=27) throw std::invalid_argument("Journey requires complete original actor collection");
 	const auto &policy=xeenJourneyContent(snapshot.journey->contract);
-	for (unsigned i=0;i<policy.count;++i) {
+	auto actors = XeenActorApproach::actorsFromResources(w.objectFile(policy.entry.mapId),statistics);
+	auto evt = events(policy.entry.mapId);
+	if (policy.contract==3) {
+		if (!regionalManifest) throw std::invalid_argument("Missing regional restoration manifest");
+		callback([&] { regionalManifest(w.map(23),w.objectFile(23),evt,statistics);return true; });
+		if (!XeenMovement::component(w.map(23),9,11,policy.traversal)[c.y*16+c.x]) throw std::invalid_argument("Regional camera outside mainland");
+	}
+	if (actors.size()!=(policy.contract==3 ? 19u : 27u)) throw std::invalid_argument("Journey requires complete original actor collection");
+	for (unsigned i=0;policy.contract!=3 && i<policy.count;++i) {
 		const auto &a=actors.at(policy.records[i]);
 		const auto admission=policy.actor(policy.records[i]);
 		if (!a.statistics || a.original.resourceId!=admission.resourceId) throw std::invalid_argument("Journey original species mismatch");
@@ -176,7 +197,11 @@ void XeenSaveState::restoreCompleted(const XeenSaveSnapshot &source, const Resou
 	XeenGameFlags candidateFlags(snapshot.gameFlags);
 	XeenWorld candidate(world._loader, world._objectLoader);
 	std::optional<XeenRestoreGuard> prepared;
-	const auto adoptPhase = [&] { prepared.emplace(candidate, candidateParty, candidateCamera, candidateFlags); };
+	const auto adoptPhase = [&] {
+		XeenRestoreGuard next(candidate, candidateParty, candidateCamera, candidateFlags);
+		if (prepared) next.retainResources(*prepared);
+		prepared.emplace(std::move(next));
+	};
 	adoptPhase();
 	const auto callback = [&](auto &&provider) {
 		destination.check(); prepared->check();
@@ -324,7 +349,9 @@ XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resourc
 		j.context = party.encounterContext; j.skeletonSeed = state.skeletonSeed();
 		j.schema=j.contract=state.journeyContract(); j.random=state.journeyRandom();
 		for (unsigned i = 0; i < 30; ++i) j.supplements[i] = {static_cast<std::uint8_t>(i), *party.roster.combatInputs(i)};
-		if (state.actors().size() != 27) throw std::logic_error("Journey actor collection changed");
+		j.initializedMap=xeenJourneyContent(j.contract).entry.mapId;
+		j.originalActorCount=j.contract==3 ? 19 : 27;
+		if (state.actors().size() != j.originalActorCount) throw std::logic_error("Journey actor collection changed");
 		for (const auto &a:state.actors()) if (xeenJourneyContent(j.contract).influences(a.id.recordIndex))
 			j.actors.push_back({a.id,a.x,a.y,a.hp,a.activated,a.lifecycle,a.status,state.accountedMonsters().count(a.id) != 0});
 		snapshot.journey = std::move(j);

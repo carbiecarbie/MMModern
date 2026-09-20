@@ -52,8 +52,8 @@ std::optional<XeenEquipmentPosition> firstConflict(const XeenCharacter &characte
 	return std::nullopt;
 }
 
-XeenEquipmentValues modeledValues(const XeenCharacter &character) {
-	const XeenCharacterRulesContext context{kCloudsInitialYear};
+XeenEquipmentValues modeledValues(const XeenCharacter &character, unsigned year) {
+	const XeenCharacterRulesContext context{year};
 	return {XeenCharacterRules::effectiveIntellect(character, context),
 		XeenCharacterRules::effectivePersonality(character, context),
 		XeenCharacterRules::effectiveEndurance(character, context),
@@ -124,10 +124,10 @@ XeenEquipmentResult xeenSetEquipment(XeenPartyState &party, std::size_t activeIn
 	auto candidate = character;
 	(*xeenInventoryItems(candidate, category))[physicalSlot].frame = candidateFrame;
 	try {
-		XeenCharacterRules::validateForUse(character, {kCloudsInitialYear});
-		XeenCharacterRules::validateForUse(candidate, {kCloudsInitialYear});
+		XeenCharacterRules::validateForUse(character, {party.encounterContext ? party.encounterContext->year : kCloudsInitialYear});
+		XeenCharacterRules::validateForUse(candidate, {party.encounterContext ? party.encounterContext->year : kCloudsInitialYear});
 	} catch (const std::invalid_argument &) { return refuse(Status::UnsafeRules); }
-	result.modeled = XeenEquipmentChange{modeledValues(character), modeledValues(candidate)};
+	result.modeled = XeenEquipmentChange{modeledValues(character,party.encounterContext ? party.encounterContext->year : kCloudsInitialYear), modeledValues(candidate,party.encounterContext ? party.encounterContext->year : kCloudsInitialYear)};
 	result.afterItem = (*xeenInventoryItems(candidate, category))[physicalSlot];
 	result.status = candidateFrame == selected.frame ? Status::NoChange : Status::Success;
 	if (result.status == Status::NoChange) return result;

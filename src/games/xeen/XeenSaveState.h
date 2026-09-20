@@ -3,6 +3,7 @@
 
 #include "games/xeen/XeenSaveSnapshot.h"
 #include "games/xeen/XeenWorld.h"
+#include "games/xeen/XeenRegionalRules.h"
 
 namespace mmodern {
 
@@ -16,6 +17,7 @@ public:
 		std::function<std::vector<std::uint8_t>()> loadInitialCharacters = {};
 		std::function<XeenGameplayContext()> loadInitialContext = {};
 		std::function<std::vector<XeenMonsterRecord>()> loadMonsterStatistics = {};
+		XeenRegionalManifest regionalManifest;
 	};
 	// Must check needed disposable presentation resources on the candidate.
 	// It must not mutate gameplay or retain candidate references after returning.

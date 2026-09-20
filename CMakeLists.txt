@@ -29,6 +29,8 @@ add_library(mmodern_xeen STATIC
     src/games/xeen/XeenCombat.cpp
     src/games/xeen/XeenCombatRandom.cpp
 	src/games/xeen/XeenJourneyRules.cpp
+	src/games/xeen/XeenGameplayContext.cpp
+	src/games/xeen/XeenRegionalRules.cpp
 	src/games/xeen/XeenCompletedDomain.cpp
 	src/games/xeen/XeenCompletedReentry.cpp
 	src/formats/xeen/XeenAssetSource.cpp
@@ -118,6 +120,10 @@ if(MINGW)
 endif()
 
 include(CTest)
+add_executable(mmodern_regional_original EXCLUDE_FROM_ALL tests/XeenRegionalOriginal.cpp)
+target_link_libraries(mmodern_regional_original PRIVATE mmodern_app mmodern_xeen)
+add_executable(mmodern_regional_event_original EXCLUDE_FROM_ALL tests/XeenRegionalEventOriginal.cpp)
+target_link_libraries(mmodern_regional_event_original PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2)
 add_executable(mmodern_encounter_domain_smoke EXCLUDE_FROM_ALL tests/XeenEncounterSmoke.cpp)
 add_executable(mmodern_combat_smoke EXCLUDE_FROM_ALL tests/XeenCombatSmoke.cpp)
 add_executable(mmodern_expedition_original EXCLUDE_FROM_ALL tests/XeenExpeditionOriginal.cpp)
@@ -136,6 +142,15 @@ function(xeen_restore_replay target)
 endfunction()
 xeen_restore_replay(mmodern_journey_original)
 if(BUILD_TESTING)
+	add_executable(mmodern_journey_resource_tests tests/XeenJourneyResourceTests.cpp)
+	target_link_libraries(mmodern_journey_resource_tests PRIVATE mmodern_app mmodern_xeen)
+	add_test(NAME xeen_journey_resources COMMAND mmodern_journey_resource_tests)
+	add_executable(mmodern_regional_persistence_tests tests/XeenRegionalPersistenceTests.cpp)
+	target_link_libraries(mmodern_regional_persistence_tests PRIVATE mmodern_xeen ZLIB::ZLIB)
+	add_test(NAME xeen_regional_persistence COMMAND mmodern_regional_persistence_tests)
+	add_executable(mmodern_regional_rules_tests tests/XeenRegionalRulesTests.cpp)
+	target_link_libraries(mmodern_regional_rules_tests PRIVATE mmodern_xeen)
+	add_test(NAME xeen_regional_rules COMMAND mmodern_regional_rules_tests)
 	add_executable(mmodern_journey_event_tests tests/XeenJourneyEventTests.cpp)
 	target_link_libraries(mmodern_journey_event_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2)
 	add_test(NAME xeen_journey_event COMMAND mmodern_journey_event_tests)
@@ -162,6 +177,10 @@ if(BUILD_TESTING)
 	target_link_libraries(mmodern_journey_cli_witness PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2 shell32)
 	target_link_options(mmodern_journey_cli_witness PRIVATE "-Wl,--wrap=_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjES5_ItE")
 	xeen_restore_replay(mmodern_journey_cli_witness)
+	add_executable(mmodern_regional_cli_witness EXCLUDE_FROM_ALL src/main.cpp tests/XeenRegionalCliWitness.cpp tests/XeenRestoreReplayProbe.cpp)
+	target_link_libraries(mmodern_regional_cli_witness PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2 shell32)
+	target_link_options(mmodern_regional_cli_witness PRIVATE "-Wl,--wrap=_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjES5_ItE")
+	xeen_restore_replay(mmodern_regional_cli_witness)
 	add_executable(mmodern_journey_process_tests EXCLUDE_FROM_ALL tests/XeenJourneyProcessTests.cpp)
 	target_link_libraries(mmodern_journey_process_tests PRIVATE mmodern_app mmodern_xeen)
 	add_executable(mmodern_combat_tests tests/XeenCombatTests.cpp)

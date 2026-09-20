@@ -19,7 +19,7 @@ enum class XeenMonsterTerrain { Allowed, Blocked, Unsupported };
 enum class XeenEncounterAction { Forward, Backward, Left, Right, Wait, Unsupported };
 enum class XeenEncounterPhase { Exploring, Engaged, SupportStopped };
 enum class XeenEncounterOutcome { Started, Accepted, Blocked, Pulsed, Engaged, Refused, Stale, Terminal, Stopped };
-enum class XeenEncounterStop { None, Envelope, Time, Domain, Preparation, Reporting, Overflow };
+enum class XeenEncounterStop { None, Envelope, Time, Domain, Preparation, Reporting, Overflow, Ranged, RegionalContact };
 
 // Transient coordination value for 26B. Copies are observations; revisions reject replay.
 // No clock, scheduler, callbacks or owner instances live here.
@@ -46,6 +46,9 @@ struct XeenEncounterResult {
 	XeenEncounterStop reason = XeenEncounterStop::None;
 	std::uint64_t revision = 0;
 	unsigned movementOpportunities = 0;
+	bool automaticEvent = false;
+	std::optional<XeenMonsterIdentity> stoppedActor;
+	int stoppedX = 0, stoppedY = 0;
 	XeenActorView view;
 };
 
@@ -61,6 +64,7 @@ public:
 	static bool authoritative(const XeenWorld &, const XeenPartyState &, const XeenCamera &,
 		const XeenEncounterState &) noexcept;
 	using Terrain = std::function<XeenMonsterTerrain(const XeenActor &, int, int)>;
+	using BeforeMovement = std::function<void(const std::vector<XeenActor> &, std::size_t)>;
 	static std::vector<XeenActor> actorsFromResources(const XeenObjectFile &mob,
 		const std::vector<XeenMonsterRecord> &statistics);
 	static XeenActorView classify(const std::vector<XeenActor> &actors, const XeenCamera &camera);
@@ -68,6 +72,9 @@ public:
 	// Pure preparation. Callback only queries terrain; failure publishes nothing.
 	static std::vector<XeenActor> move(const std::vector<XeenActor> &actors,
 		const XeenCamera &camera, const Terrain &terrain, bool movementEnabled = true);
+	static std::vector<XeenActor> move(const std::vector<XeenActor> &actors,
+		const XeenCamera &camera, const Terrain &terrain, bool movementEnabled,
+		const BeforeMovement &beforeMovement);
 	static void validateDomain(XeenWorld &world, const XeenPartyState &party,
 		const XeenGameplayContext &context, const std::vector<XeenActor> &actors,
 		const XeenEventFile &events);

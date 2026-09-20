@@ -38,6 +38,12 @@ using namespace mmodern;
 namespace replay_test {
 unsigned depth = 0, unexpected = 0, constructions = 0, services = 0, preparations = 0;
 void observe() { if (depth) ++unexpected; }
+XeenTimePreparation realTime(const XeenGameplayContext &,std::uint64_t) asm("__real_" XEEN_REPLAY_TIME);
+XeenTimePreparation probeTime(const XeenGameplayContext &,std::uint64_t) asm("__wrap_" XEEN_REPLAY_TIME);
+XeenTimePreparation probeTime(const XeenGameplayContext &context,std::uint64_t minutes) {observe();return realTime(context,minutes);}
+std::vector<XeenActor> realRegionalMove(const std::vector<XeenActor> &,const XeenCamera &,const XeenActorApproach::Terrain &,bool,const XeenActorApproach::BeforeMovement &) asm("__real_" XEEN_REPLAY_REGIONAL_MOVE);
+std::vector<XeenActor> probeRegionalMove(const std::vector<XeenActor> &,const XeenCamera &,const XeenActorApproach::Terrain &,bool,const XeenActorApproach::BeforeMovement &) asm("__wrap_" XEEN_REPLAY_REGIONAL_MOVE);
+std::vector<XeenActor> probeRegionalMove(const std::vector<XeenActor> &a,const XeenCamera &c,const XeenActorApproach::Terrain &t,bool enabled,const XeenActorApproach::BeforeMovement &before) {observe();return realRegionalMove(a,c,t,enabled,before);}
 // Member thunks preserve the target ABI's hidden result/this argument ordering.
 struct RealCombat {
 	void construct(XeenWorld &, XeenPartyState &, XeenCamera &, XeenCombatBoundary &,

@@ -235,6 +235,23 @@ Historical limitations in those plans describe their recorded boundaries.
   acceptance completed. See the
   [Milestone 31 plan](milestone-31-plan.md#final-acceptance).
 
+## M32 - Regional Journey foundations
+
+- Established content contract 3 as a resource-derived, map-local Journey over
+  the connected mainland of Clouds map 23, with complete ownership and regional
+  scheduling of all 19 original actors.
+- Added reusable separation between party reachability, whole-map actor influence
+  and exact event admission, including the original automatic sign and truthful
+  terminal boundaries for regional ranged action, contact and unsupported time
+  processing before combat/consequence support.
+- Added Journey v4 schema/content 3/3 with complete regional actor/context state,
+  startup-only restoration and immutable resource-preimage/internal-identity
+  authority across disposable cache reloads while preserving legacy save/Journey
+  domains.
+- Automated and original-resource/process validation, final independent technical
+  review acceptance and maintainer physical SDL acceptance completed. See the
+  [Milestone 32 plan](milestone-32-plan.md#final-acceptance).
+
 ## Maintaining this history
 
 Add one short section with 2-4 lasting-result bullets per completed milestone

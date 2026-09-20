@@ -97,7 +97,8 @@ public:
 private:
 	const XeenEventPublication *_eventPublication = nullptr;
 	bool _journeyEventLayers = false;
-	IndexedFrame journeyEventWork(const std::function<void()> &);
+	void validateRegionalEvents();
+	IndexedFrame journeyEventWork(const std::function<void()> &, bool automatic = false);
 	std::uint64_t _saveOperation = 0;
 	std::optional<SaveBoundary> _saveBoundary;
 	friend class Application;

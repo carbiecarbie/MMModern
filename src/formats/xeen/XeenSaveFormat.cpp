@@ -197,7 +197,7 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 	if (s.journey) {
 		const auto &j = *s.journey;
 		require(s.itemState == XeenSaveItemState::Complete, "Journey requires complete item fields");
-		require(j.entry == XeenEncounterEntry::Journey && ((j.schema == 1 && j.contract == 1) || (j.schema == 2 && j.contract == 2)),
+		require(j.entry == XeenEncounterEntry::Journey && ((j.schema == 1 && j.contract == 1) || (j.schema == 2 && j.contract == 2) || (j.schema == 3 && j.contract == 3)),
 			"unsupported Journey domain/schema/contract");
 		require(j.context.has_value(), "missing Journey context");
 		require(j.context->profile == XeenBehaviorProfile::WorldOfXeenClouds &&
@@ -205,7 +205,7 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 			"invalid Journey context enum");
 		for (std::size_t i = 0; i < j.supplements.size(); ++i) {
 			const auto &r = j.supplements[i];
-			require(bool(r.inputs.luck) == (j.schema == 2), "Journey Luck presence mismatch");
+			require(bool(r.inputs.luck) == (j.schema >= 2), "Journey Luck presence mismatch");
 			if (r.inputs.luck) for (int v : {r.inputs.luck->permanent,r.inputs.luck->temporary}) require(v >= 0 && v <= 255, "Journey Luck outside byte range");
 			require(r.owner == i, "invalid Journey supplemental owner sequence");
 			for (int v : {r.inputs.might.permanent, r.inputs.might.temporary, r.inputs.speed.permanent,
@@ -216,9 +216,10 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 		require(j.schema == 1 ? j.skeletonSeed != 0 && !j.random : j.skeletonSeed == 0 && j.random && j.random->algorithm == 1 && j.random->state != 0, "invalid Journey random representation");
 		validateMap(j.initializedMap);
 		require(j.originalActorCount >= 1 && j.originalActorCount <= 107 &&
-			j.actors.size() == (j.schema == 2 ? 4u : 1u), "invalid Journey actor counts");
+			j.actors.size() == (j.schema == 3 ? 19u : j.schema == 2 ? 4u : 1u), "invalid Journey actor counts");
 		for (std::size_t i = 0; i < j.actors.size(); ++i) {
 			const auto &a = j.actors[i];
+			if (j.schema==3) require(j.initializedMap==XeenMapIdentity(23) && j.originalActorCount==19 && a.id==XeenMonsterIdentity{23,i}, "invalid regional actor identity/count");
 			if (j.schema==2) require(j.initializedMap==XeenMapIdentity(20) && j.originalActorCount==27 && a.id==XeenMonsterIdentity{20,xeenJourneyContent(2).records[i]}, "invalid successor actor identity/count");
 			validateMap(a.id.mapId);
 			require(a.id.recordIndex <= std::numeric_limits<std::uint32_t>::max() &&
@@ -313,7 +314,7 @@ std::vector<std::uint8_t> XeenSaveFormat::encode(const XeenSaveSnapshot &s) {
 			for (int v : {r.inputs.might.permanent, r.inputs.might.temporary, r.inputs.speed.permanent,
 				r.inputs.speed.temporary, r.inputs.accuracy.permanent, r.inputs.accuracy.temporary, r.inputs.temporaryAc}) out.i32(v);
 			out.u32(r.inputs.experience);
-			if (j.schema == 2) { out.i32(r.inputs.luck->permanent); out.i32(r.inputs.luck->temporary); }
+			if (j.schema >= 2) { out.i32(r.inputs.luck->permanent); out.i32(r.inputs.luck->temporary); }
 		}
 		if (j.schema == 1) out.u32(j.skeletonSeed);
 		else { out.u8(j.random->algorithm); out.u32(j.random->state); out.u64(j.random->count); }
@@ -401,12 +402,12 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	}
 	if (version == 4) {
 		const auto suffixSize = in.remaining();
-		require(suffixSize == 1060 || suffixSize == 1366, "invalid v4 extension size");
+		require(suffixSize == 1060 || suffixSize == 1366 || (suffixSize >= 1309 && suffixSize <= 3323), "invalid v4 extension size");
 		XeenSaveJourney j;
 		require(in.u8() == 3, "invalid v4 domain");
 		j.schema = in.u16(); j.contract = in.u16();
-		require(((j.schema == 1 && j.contract == 1) || (j.schema == 2 && j.contract == 2)), "unsupported Journey schema/contract");
-		require(suffixSize == (j.schema == 2 ? 1366u : 1060u), "Journey schema size mismatch");
+		require(((j.schema == 1 && j.contract == 1) || (j.schema == 2 && j.contract == 2) || (j.schema == 3 && j.contract == 3)), "unsupported Journey schema/contract");
+		require(j.schema==3 || suffixSize == (j.schema == 2 ? 1366u : 1060u), "Journey schema size mismatch");
 		require(in.u8() == 1, "missing Journey context");
 		XeenGameplayContext c;
 		require(in.u8() == 0, "invalid Journey profile");
@@ -424,14 +425,15 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 			r.inputs.speed.permanent = in.i32(); r.inputs.speed.temporary = in.i32();
 			r.inputs.accuracy.permanent = in.i32(); r.inputs.accuracy.temporary = in.i32();
 			r.inputs.temporaryAc = in.i32(); r.inputs.experience = in.u32();
-			if (j.schema == 2) r.inputs.luck = XeenAttributeValue{in.i32(),in.i32()};
+			if (j.schema >= 2) r.inputs.luck = XeenAttributeValue{in.i32(),in.i32()};
 		}
 		if (j.schema == 1) j.skeletonSeed = in.u32();
 		else { XeenJourneyRandomState r; r.algorithm=in.u8(); r.state=in.u32(); r.count=in.u64(); j.random=r; }
 		require(in.u8() == 0, "invalid Journey map side"); j.initializedMap = {XeenSide::Clouds, in.u16()};
 		j.originalActorCount = in.u16();
 		const auto count = in.u16();
-		require(count >= 1 && count <= 107 && count <= in.remaining()/19 && count == (j.schema == 2 ? 4u : 1u), "invalid Journey live record count");
+		if (j.schema==3) require(j.originalActorCount>=1 && j.originalActorCount<=107 && count==j.originalActorCount && in.remaining()==19u*count,"invalid full regional actor coverage");
+		require(count >= 1 && count <= 107 && count <= in.remaining()/19 && count == (j.schema == 3 ? 19u : j.schema == 2 ? 4u : 1u), "invalid Journey live record count");
 		for (unsigned i = 0; i < count; ++i) {
 			XeenSaveJourneyActor a;
 			require(in.u8() == 0, "invalid Journey actor side"); a.id.mapId = {XeenSide::Clouds, in.u16()};

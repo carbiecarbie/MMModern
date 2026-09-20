@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**Milestone 31 is the latest completed milestone.**
+**Milestone 32 is the latest completed milestone.**
 [Project status](project-status.md) owns implemented capabilities and acceptance
 boundaries; [project history](project-history.md) owns completed chronology.
 Reference provenance belongs to [dependencies](dependencies.md).
@@ -17,30 +17,26 @@ checkpoints. The encounter line now includes original actor approach
 expedition with grouped Skeleton/Zombie combat, accumulated consequences,
 schema-2 restart ([M30](milestone-30-plan.md)), followed by connected original
 Bone Whistle collection, return and restart ([M31](milestone-31-plan.md)).
-These contracts do not certify travel between checkpoints, normal original
-startup or a generally playable region.
+M32 then established the Regional Journey foundation: resource-derived map-23
+mainland navigation, complete 19-actor ownership/scheduling, exact sign admission,
+truthful support boundaries and schema-3 continuation
+([M32](milestone-32-plan.md)). These contracts do not certify unrestricted map-23
+or Clouds travel, normal original startup or regional combat.
 
-The first connected Clouds vertical slice is accepted: a finite original
-objective with encounter consequences, collection, return and durable
-continuation. The post-M31 investigation and focused boundary review are complete.
-The maintainer has approved Myra -> Phirna -> Myra as the next player-visible
-arc, across the connected mainland region of Clouds map 23.
+The first connected Clouds vertical slice and its Regional Journey foundation
+are accepted. The approved Myra -> Phirna -> Myra arc continues across the
+connected mainland region of Clouds map 23.
 
 ## Near term
 
-<a id="post-m31-roadmap-investigation"></a>
+<a id="approved-m33-m35-arc"></a>
 
-### Approved M32-M35 arc
+### Approved M33-M35 arc
 
 This sequence records the approved strategic direction, not detailed milestone
 specifications. Each milestone requires its own specification and explicit
 implementation authorization; roadmap approval does not authorize implementation.
 
-- **M32 - Regional Journey foundations:** establish resource-driven map-local
-  navigation across the connected mainland of Clouds map 23, regional actor
-  ownership/admission and persistence/context foundations for the larger Journey.
-  Use reusable rules rather than another hard-coded cell corridor, retaining
-  an explicit supported-region boundary.
 - **M33 - Faithful mainland combat and consequences:** support Orc, Giant Snake
   and Giant Toad profiles, Poison/Sleep, enemy ranged attacks and player physical
   Shoot. Include gold, bounded level-1 monster loot, compatible ordinary equipment
@@ -105,15 +101,16 @@ should follow demonstrated dependencies and maintainer priorities.
 ## Architectural direction
 
 Preserve established owners: characters, items and progression belong to
-party/roster; actors, lifecycle and contract-2 RNG belong to world; camera/game
+party/roster; actors, lifecycle and Journey RNG belong to world; camera/game
 flags retain their existing owners. Flow and SDL coordinate transient gameplay,
 modal work, presentation and save authority. Reuse accepted systems before
 introducing parallel frameworks.
 
 Completed Diagnostic27 remains terminal and quiescent under its contract.
 Mutable Journey uses M29's admitted domain, M30's content descriptor/group/
-current-state extensions, M31's exclusive event/publication integration, and
-M28's owner/preimage and presentation safeguards.
+current-state extensions, M31's exclusive event/publication integration, M32's
+resource-derived regional/complete-actor/context foundation, and M28's
+owner/preimage and presentation safeguards.
 Commercial resources remain external and unmodified.
 
 ## Replanning and review cadence
@@ -133,7 +130,7 @@ Retain approximately three completed milestones as the ordinary broader-roadmap
 review cadence, with focused scope review before each specification. The post-M31
 investigation is complete; M35 arc closure is the next natural broader roadmap
 reassessment point, with the evidence-based triggers above applying throughout
-M32-M35. Subsequent roadmap approval, milestone specification approval and
+M33-M35. Subsequent roadmap approval, milestone specification approval and
 implementation authorization
 remain separate; completion does not authorize the next milestone.
 Use the verified SHA and handoff gate in [AGENTS.md](../AGENTS.md) for external

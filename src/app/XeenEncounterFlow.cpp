@@ -258,6 +258,20 @@ bool XeenEncounterFlow::idle(std::optional<std::uint64_t> cycle) {
 }
 
 std::string XeenEncounterFlow::notice() const {
+	if (_journey && _world.sessionState().journeyContract()==3) {
+		std::string text="Regional Journey: Map 23 ("+std::to_string(_camera.x)+","+std::to_string(_camera.y)+") "+
+			std::string(1,"NESW"[unsigned(_camera.direction)])+" T="+std::to_string(_party.encounterContext->minutes)+"\n";
+		if (_state.phase()==XeenEncounterPhase::SupportStopped) {
+			text+="SUPPORT STOP: ";
+			text+=_state.reason()==XeenEncounterStop::Ranged ? "regional ranged attack" :
+				_state.reason()==XeenEncounterStop::RegionalContact ? "regional combat contact" :
+				_state.reason()==XeenEncounterStop::Time ? "temporal processing required" : "unsupported regional operation";
+			if (_result.stoppedActor) text+=" actor "+std::to_string(_result.stoppedActor->recordIndex)+" ("+std::to_string(_result.stoppedX)+","+std::to_string(_result.stoppedY)+")";
+			return text+"\nGameplay and F9 unavailable. Esc exits.";
+		}
+		return text+"Arrows/WASD move/turn; . Wait; Space interact\nI inventory; F9 quiet save; Esc exit\nMap-local mainland boundary"+
+			(_journeyRefusal.empty() ? "" : "\n"+_journeyRefusal);
+	}
 	if (_journey && _world.sessionState().journeyContract()==2) return expeditionNotice();
 	if (completed()) return completedNotice(_world, _party, _camera, _completedFeedback);
 	if (_combat) return combatNotice();

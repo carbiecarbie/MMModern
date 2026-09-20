@@ -20,5 +20,19 @@ struct XeenGameplayContext {
 			a.lightAndResistances == b.lightAndResistances && a.rested == b.rested && a.newDay == b.newDay;
 	}
 };
+
+// Preparation only: the caller must admit and consume required work before
+// publishing this candidate. Counts retain every crossing, including multi-day
+// charges; ctr24 is separately charged by the action scheduler.
+struct XeenTimePreparation {
+	XeenGameplayContext context;
+	std::uint64_t processing480 = 0, midnights = 0, yearRollovers = 0;
+	std::uint64_t dawns = 0, dusks = 0, dailyProcessing = 0;
+	bool requiresEffects() const noexcept {
+		return processing480 || midnights || yearRollovers || dawns || dusks || dailyProcessing;
+	}
+};
+XeenTimePreparation xeenPrepareTime(const XeenGameplayContext &, std::uint64_t minutes);
+bool xeenRegionalContext(const XeenGameplayContext &) noexcept;
 }
 #endif
