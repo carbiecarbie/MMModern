@@ -155,8 +155,9 @@ void xeenValidateRegionalActors(const XeenMap &map, const XeenObjectFile &mob, c
 namespace mmodern {
 XeenRegionalOpportunityCandidate::XeenRegionalOpportunityCandidate(const XeenMap &map,
 		const std::vector<XeenActor> &before,const XeenCamera &c,const XeenConsequenceCharacters &p,
-		const XeenConsequenceInputs &i,unsigned y,const std::array<bool,6> &b) :
-		characters(p),camera(c),inputs(i),year(y),blocked(b) {
+		const XeenConsequenceInputs &i,unsigned y,unsigned mask,const std::array<bool,6> &b) :
+		characters(p),camera(c),inputs(i),year(y),participantMask(mask),blocked(b) {
+	if (mask>0x3f) throw std::invalid_argument("Invalid regional participation mask");
 	std::array<bool,107> tested{};
 	actors=XeenActorApproach::move(before,c,[&](const XeenActor &a,int x,int z) {
 		return xeenRegionalActorTerrain(map,a,x,z);
@@ -177,7 +178,7 @@ bool XeenRegionalOpportunityCandidate::service(XeenConsequenceDraw &draw) {
 		auto &shot=shots[cursor];
 		const auto &source=actors.at(shot.source.recordIndex);
 		if (!(source.id==shot.source) || !source.statistics) throw std::invalid_argument("Ranged source identity changed");
-		if (!attack) attack.emplace(characters,inputs,*source.statistics,year,blocked);
+		if (!attack) attack.emplace(characters,inputs,*source.statistics,year,participantMask,blocked);
 		if (!attack->service(draw)) return false;
 		characters.swap(attack->characters);
 		shot.attack=attack->result;shot.attack.actingMonster=shot.source;shot.attack.monster=shot.source;

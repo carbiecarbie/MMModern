@@ -2,12 +2,7 @@
 
 ## Status, objective and acceptance boundary
 
-**Independently reviewed with corrections; unimplemented and pending maintainer
-approval.** This document does not authorize implementation or certify milestone
-acceptance.
-The investigated MMModern baseline is
-`ac1399965abe81f245f25e687df4ee760a2f8538`,
-`Complete Milestone 33 mainland combat and consequences`.
+**Completed and accepted.**
 
 M34 adds individual Run to regional combat, partial-party participation, explicit
 non-victory endings, original fixed relocation, and continued play against the
@@ -27,39 +22,23 @@ No healing, regeneration, respawn or duplication of XP, treasure production or
 delivery may occur through this chain. Defeat remains terminal and unsaveable. A Run
 success is not itself a party-wide escape, a victory, or permission to save.
 
-Consume [M33](milestone-33-plan.md), especially its contact episode, physical
-consequences, time, treasure, publication and concrete-frame contracts. Retain
+Inherited contracts include [M33](milestone-33-plan.md) contact episodes, physical
+consequences, time, treasure, publication and concrete frames, together with
 [M32](milestone-32-plan.md)'s mainland/actor/event separation,
 [M30](milestone-30-plan.md)'s grouped initiative and joining,
 [M29](milestone-29-plan.md)'s Journey owners and
 [M31](milestone-31-plan.md)'s exclusive Event authority. Those specifications
-remain authoritative except for the explicit new-content changes below. M34 is
-one milestone; the checkpoints here are dependency order, not separate acceptance
-or implementation authorizations.
+remain authoritative except for the explicit new-content changes below.
 
 ## Evidence and provenance
 
-### Verified baseline and interpretation
-
-The architecture/specification investigation read `AGENTS.md` before checking
-origin. Origin was `https://github.com/carbiecarbie/MMModern.git`; branch was
-`main`; HEAD, `origin/main` and direct `git ls-remote origin refs/heads/main`
-all equalled the baseline above. The required log, porcelain including untracked
-files, unstaged diff and staged diff commands succeeded with a clean tree/index.
-The gate was repeated successfully after the maintainer reported a PC interruption.
-
-**ORIGINAL** below means bytes read from the commercial installation, not a
-physical observation of the DOS executable. **REFERENCE** means algorithms read
-in the pinned ScummVM source. **IMPLEMENTED** means inspected baseline code/tests.
-**INFERENCE** means a deliberate bounded integration decision specified here.
-No M34 DOS or native-SDL behavioral acceptance was performed during planning.
-
-[Dependencies](dependencies.md) owns the reference pin and attribution. The local
-ScummVM checkout was verified at
-`6814ee9ba54582f5b5adcffab49efbbd8f589edd` with empty porcelain status. The build
-cache points to that checkout and the separately configured ScummVM build. All
-reference paths below are relative to that exact revision; inherited M33 damage,
-equipment and generation arithmetic is not reinvestigated or replaced.
+Original-resource facts below come from read-only commercial data; reference
+algorithms come from ScummVM revision
+`6814ee9ba54582f5b5adcffab49efbbd8f589edd`, as pinned in
+[dependencies](dependencies.md). They are not physical observations of the DOS
+executable. Stable-slot participation and explicit exit causes are bounded
+integration decisions that preserve source semantics without compacted-index or
+incidental mode artifacts.
 
 | Evidence | Decisive locations and facts |
 | --- | --- |
@@ -69,55 +48,18 @@ equipment and generation arithmetic is not reinvestigated or replaced.
 | REFERENCE partial party | `combat.cpp`, `setupCombatParty`, `setSpeedTable`, `allHaveGone`, `charsCantAct`, both `doMonsterTurn` overloads, `giveExperience`, `monstersAttack`. Contact and in-combat ranged targeting and XP use the remaining combat-party pointers; ordinary exploration reconstitutes full membership. |
 | REFERENCE treasure quirk | `interface.cpp` R branch sets `_treasure._gold=0`, `_gems=0`, `_hasItems=false` without clearing item arrays. `party.cpp`, `Treasure::clear/reset`, `giveTreasure` (699 onward); `combat.cpp`, lethal branch of `attack2` (1516 onward). Later gold or item production can reopen delivery of those retained arrays. `giveTreasure` actually clears them only on delivery/capacity processing. |
 | ORIGINAL map metadata | Initial `maze0023.dat`: 892 bytes, CRC32 `8f3e28ee`; Run X/Y offsets 815/824 are 10/12; signed difficulty byte at 823 is 100. `MazeDifficulties::synchronize` in reference `map.cpp` identifies difficulty index 7 as signed `_chance2Run`; MMModern `XeenMapFormat::parseDat` already preserves it. |
-| IMPLEMENTED combat | `src/games/xeen/XeenCombat.cpp`: `Impl::sortOrder/selectNext/defeated/reconcile`, `command`, `serviceConsequences`, `retireJourney`. Six fixed owner slots currently participate; commands are Attack/Block; retirement requires `Victory`, `ended`, an episode lethal and no owed work. |
-| IMPLEMENTED integration | `src/app/XeenEncounterFlow.cpp`, `handleCombat`, `idleCombat`, `acceptCombatResult`, `observeCombat`; `XeenJourneyFlow.cpp`, `attachJourney`, `retireJourney`, `advanceJourney`, `presentJourney`; `XeenEventFlow.cpp`, `prepareJourneyTransition`, `handle`, `framePresented`, save gates. |
-| IMPLEMENTED consequences/persistence | `XeenCombatRules.cpp`, `XeenEnemyAttackCandidate` and `XeenConditionTimeCandidate`; `XeenRegionalRules.cpp`, `XeenRegionalOpportunityCandidate`; `XeenJourneyProgression.h`, `xeenPrepareJourneyLethal`; `XeenMonsterTreasure.*`; `XeenJourneyRules.cpp`; `XeenJourneyCapture.h`; `XeenSaveState::validateJourneyValues/restoreJourney/capture`; `XeenSaveFormat::validate/encode/decode`. |
 
-### Original relocation facts and reproducible planning evidence
-
-The original installation at `F:\Games\gog\Might and Magic 4-5` was read-only.
-A memory-only probe decoded the existing initial CC blocks in reference
-`SaveArchive::reset` order (`2a0c,2a1c,2a2c,2a3c,284c,2a5c`), verified the DAT CRC,
-and applied `XeenMovement::outdoorDestination/component`'s admitted collision
-rules from anchor `(9,11)`. It wrote no extracted resources or asset dumps.
-
-| Cell | Raw word | Surface index / resolved type | Middle | Attributes | Mainland |
-| --- | --- | --- | --- | --- | --- |
-| Run `(10,12)` | `0x0007` | 7 / 7 | 0 | 0 | yes |
-| `(9,12)` | `0x0002` | 2 / 2 | 0 | 0 | yes |
-| `(11,12)` | `0x0022` | 2 / 2 | 2 | 0 | yes |
-| `(10,11)` | `0x0007` | 7 / 7 | 0 | 0 | yes |
-| `(10,13)` | `0x0807` | 7 / 7 | 0 | 0 | yes |
-
-The component contains 121 cells. The nominal destination therefore needs no
-geometry extension, alternate safe tile or movement ability. The destination has
-no automatic-event bit. The retained original event-address checks in
-`tests/XeenRegionalOriginal.cpp` exclude `(10,12)` for all four facings; the
-adjacent `(10,13)` transition remains unadmitted.
-
-To reproduce the additional scalar probe, use the existing bridge's initial
-resource reader, `XeenMapFormat::parseDat`, and `XeenMovement::component`; inspect
-`runX/runY`, `difficulties[7]` and `cells[12*16+10]`. The CC decoding and DAT offsets
-are also explicit in `ScummVmXeenBridge.cpp`, pinned `cc_archive.cpp` and
-`XeenMapFormat.cpp`. Compare the CRC before interpreting offsets. These are
-read-only observations, not a proposed second production resource reader.
-
-Planning ran the existing `mmodern_regional_original.exe <installation>` with no
-save-output argument: the manifest, actor closures, route schedules, restoration,
-resource renewal and synthetic unknown-event refusal checks passed. It also ran
-the existing consequence CLI witness with seed 3, route `UF`, oracle `wound` and
-a save destination under the OS temporary directory. The fixed original-resource
-wound oracle passed: camera `(8,11)` West, minute 500, ctr24 1, actor 9 HP 16,
-world RNG state `0x4a767d04`, raw count 8, carried gold/gems 800/10, empty treasure.
-The original owner HP vector remains `[36,48,36,40,21,15]`. This verifies a useful
-M34 starting prefix, not a Run outcome. No build or full CTest was needed for
-this documentation task; M33's closed acceptance is inherited evidence.
+The original Run cell `(10,12)` is inside the existing 121-cell mainland
+component rooted at `(9,11)`: raw word `0x0007`, surface 7, no middle object or
+automatic-event bit. Original event-address checks exclude that cell at all four
+facings. The adjacent `(10,13)` transition remains unadmitted. No geometry
+extension, alternate destination or new production resource reader is required.
 
 ## Content boundary and ownership
 
-**INFERENCE:** introduce regional content contract **5**, with the same entry,
+Regional content contract **5** is admitted, with the same entry,
 prepared party, all 19 original actors, terrain, events, profiles and time domain
-as contract 4. Fresh `--journey-region` selects 5 after implementation. Explicit
+as contract 4. Fresh `--journey-region` selects 5. Explicit
 legacy fixtures/load select their saved contract; no implicit upgrade or content
 override on load is permitted. Contracts 1..4 do not acquire Run.
 
@@ -358,7 +300,7 @@ the current, possibly relocated position. Record the supersession in the finish
 observation; retirement alone is not cancellation authority. No Event lease or
 partially executed script can coexist with Run, so no begun Event mutation is
 discarded. A preparation failure before relocation retains the origin request
-in the unavailable graph. Add a sign-contact-escape control for this handoff.
+in the unavailable graph.
 
 Journey authority resumes only when the combat borrow has been released by guarded
 retirement and the fresh Journey preimage has adopted the exact publication.
@@ -389,8 +331,8 @@ identity. Defeated actors stay HP=0, `(-128,-128)`, inactive and accounted.
 
 ### XP publication
 
-Extend `xeenPrepareJourneyLethal` with an explicit eligible participation mask,
-defaulting only at callers that intentionally represent full-party exploration.
+`xeenPrepareJourneyLethal` takes an explicit eligible participation mask;
+full-party exploration callers supply all six slots.
 All six supplement values remain present; nonparticipants retain their XP.
 Compute the eligible count from the current participant/condition intersection.
 Keep M33's `floor(baseXP/eligibleCount) * (permanentLevel<15 ? 2 : 1)` and checked
@@ -477,7 +419,7 @@ Run draw, wound, kill, XP or item publication. Never call `changeTime(0)`.
 
 ### Version decision
 
-Retain **save envelope v4**. Introduce **Journey schema 5 / content contract 5**.
+The format retains **save envelope v4** with **Journey schema 5 / content contract 5**.
 The schema uses exactly the 4/4 field layout and suffix length
 `1820 + 5*(weaponCount + armorCount)` from
 [M33's wire contract](milestone-33-plan.md#exact-new-state-and-wire-layout), with
@@ -589,9 +531,9 @@ Consume an input intent before any callback/random/resource work. Preallocate
 mask/result storage, source lists, guard replacement and finish observations;
 check overflow and all providers before nonthrowing stores. Recheck ticket,
 owners, full preimages and leases after every callback and immediately before
-publication. Include owner destruction/replacement, byte-equal copy/move/ABA,
-stale completion, same-address new combat, changed map internal ID and stale
-resource retry in failure controls. Stale work cannot fail, overwrite, retire or
+publication. Owner destruction/replacement, byte-equal copy/move/ABA, stale completion,
+same-address new combat, changed map internal ID and stale resource retry cannot
+revive authority. Stale work cannot fail, overwrite, retire or
 release a newer owner's work. A current integrity failure latches that graph
 unavailable; later equal bytes cannot reopen it.
 
@@ -621,275 +563,86 @@ in every unresolved phase and must never queue a later save. Fresh controls afte
 a valid matching frame remain responsive; do not block them merely because an
 unrelated cosmetic frame changed.
 
-## Concrete implementation seams and presentation
+## Presentation and controls
 
-The following changes belong to a future authorized implementation, not this
-planning task:
+Native R maps to typed `RunAction` only in contract-5 combat, after current
+input-generation checks. Completed Diagnostic27 retains R revisit; exploration
+and legacy combat do not admit Run. Escape/window close retain their existing
+interaction/exit meanings. Typed and native input use the same combat command.
 
-- `XeenJourneyContent.h`: add explicit contract 5 and bounded descriptor queries
-  for consequence behavior (4 or 5) and disengagement (5 only). Audit current
-  `==4`/`!=4` branches in ActorApproach, Combat, JourneyRules, SaveState/Format,
-  Journey/Encounter/Event Flow, Gameplay and CloudsMapComposer. Share M33 logic
-  without accidentally admitting Run or relaxed treasure rules to legacy 4.
-- `XeenCombat.h/.cpp`: add `XeenCombatCommand::Run`, a Run operation/result with
-  acting owner, accepted roll/success and before/after mask; read-only participant
-  mask observation; pending disengagement work, successful `Disengaged` phase and
-  explicit exit cause. Add a private guarded non-victory retirement path alongside
-  victory retirement. Keep the successful-finish proof private to the coordinator.
-  `sortOrder/selectNext/defeated/reconcile`, enemy scheduling and all-asleep handling
-  must use the correct participation predicate. No movable/copyable combat object.
-- `XeenCombatRules.*` and `XeenRegionalRules.*`: pass an explicit bounded target
-  mask into `XeenEnemyAttackCandidate` and `XeenRegionalOpportunityCandidate`.
-  Keep fixed six-owner storage for detached deltas/results; derive ordered target
-  indexes for random selection. Exploration callers use all six. Time candidates
-  intentionally remain full-party. `XeenJourneyProgression.h` takes the explicit
-  XP mask. Preserve result bounds; smaller participation needs no smaller owner
-  arrays or translated roster IDs.
-- `XeenMonsterTreasure.*`: make validation content-aware, retaining strict 4/4
-  behavior and the independent stored-item/gold-source rules for 5/5. Distinguish
-  ready money, stored items and dormant items in queries/inspection. Extend the
-  existing candidate preparation for direct forfeiture; do not route it through
-  gold credit or erase item arrays. Update lethal, receipt, guard equality and
-  snapshot validation callers together.
-- `XeenJourneyFlow.cpp`/`XeenEncounterFlow.cpp`: prepare the post-finish guard before
-  consuming authority, union both guards' retained resources, adopt exact changed
-  camera/party/world values, reset only obsolete encounter cosmetics/selection,
-  and retain the finish observation. Select `Attachment` or `Presentation/Reward`
-  from the published destination view, never unconditional Exploring/Quiet.
-- `XeenEventFlow::prepareJourneyTransition`: dispatch the appropriate retirement
-  gate, then service mandatory follow-up without a one-frame Quiet gap. Keep Event
-  and receipt leases exclusive and preserve passive-sign semantics. Do not let the
-  current victory-only branch silently leave Disengaged terminal forever.
-- `PlayerAction.h`/Flow/SDL: introduce typed `RunAction`. Preserve existing native
-  R mapping (`RevisitCompletedAction`) and normalize it to `RunAction` only inside
-  contract-5 combat after input-generation checks, as contextual Space already
-  becomes Attack. Completed Diagnostic27 keeps R revisit; exploration/legacy
-  combat refuse Run. Typed test input and native R must reach the same command.
-- `XeenSaveSnapshot`, `XeenSaveFormat`, `XeenSaveState`, `XeenJourneyCapture` and
-  restore guards: admit exact 5/5 with the same fields and revised provenance/
-  readiness validation. Extend serializers' current schema-4-only suffix gates
-  explicitly; do not infer schema from map/camera. No transient finish proof enters
-  any snapshot. Refresh the fresh-entry default and CLI observations to 5/5 while
-  retaining explicit 4/4 regression setup.
+The combat panel identifies the acting member, R=Run, stable roster slots,
+escaped members, current conditions and selected actor identity/HP. Named failed
+and successful attempts remain distinct from attacks and victory. Destination
+feedback shows casualties, forfeited gold and dormant versus ready treasure.
+Keep notices bounded or paginated so text capacity cannot truncate these
+published consequences.
 
-The combat panel must show the acting member, R=Run, participants versus escaped
-members, remaining conditions and selected actor identity/current HP. Keep the
-roster/portrait positions stable, marking escaped members rather than renumbering
-their owners. Show a failed attempt and who succeeded; neither may look like an
-attack miss or party-wide victory. Show abandoned casualties, destination/facing,
-surviving threats, forfeited gold and dormant versus ready/delivered treasure.
-Keep notices bounded/paginated using existing presentation; text capacity cannot
-truncate mechanical consequences. English is canonical for development feedback.
+Finish feedback survives immediate destination reattachment: Flow binds the
+retired observation to the exact retirement revision and, only for immediate
+attachment, the new combat ticket. New combat intent/publication or an ordinary
+Journey revision expires it; subsequent retirement replaces it. Recomposition
+and bounded presentation retry reuse the observation without replaying gameplay.
+These bindings confer no input, save, retirement or durable gameplay authority.
+The first appropriate destination frame shows the finish facts even when combat
+is already attached, without an intervening Quiet/save/input opportunity.
 
-Reuse original MON/ATT/portrait resources and the existing indexed scene and
-100 ms appearance service. An old contact's ATT frame must not transfer to a
-destination contact occupying the same row. Pending/projectile observations must
-be presented or recovered before cleanup; their damage is never recomputed.
-No new audio system, original asset copies, HUD framework or inventory redesign
-is required. Escape/window close retain their existing interaction/exit meanings;
-Run is R, not Escape. Read-only complete state inspection must expose masks and
-exit reason during combat and durable actor/treasure state after retirement.
+Original MON/ATT/portrait resources and the existing indexed scene/100 ms
+appearance service remain authoritative. Obsolete origin ATT effects cannot
+transfer to a destination actor occupying the same display row. Pending projectile
+observations finish presentation/recovery before cleanup; damage is not recomputed.
+Read-only inspection exposes participation/exit facts during combat and durable
+actor/treasure state after retirement.
 
-## Implementation checkpoints
+## Final acceptance
 
-1. **Content and durable semantics:** add contract/schema 5 admission and treasure
-   validation/query distinctions with 4/4 regression controls; prove the dormant
-   queue codec/restore cases before exposing fresh contract 5 to gameplay.
-2. **Participant-aware consumers:** add the mask to initiative, targeting, group
-   attacks and XP; preserve full-party time/treasure recipients. Validate six-to-
-   zero matrices and unchanged full-mask M33 traces.
-3. **Run publication:** connect the typed command and exact signed-threshold draw
-   to existing service/tickets, action consumption and semantic input fencing.
-4. **Finish and retirement:** add cause-specific disposition, casualties, owed-work
-   drainage, fixed relocation, activation and separate successful-finish proof;
-   integrate guarded retirement/new attachment/Reward/Presentation recovery.
-5. **Connected continuity:** exercise surviving identities, return, repeated escape,
-   later death, dormant-item reactivation, explicit save/fresh-process continuation
-   and further mutation. Extend existing witness infrastructure and native input
-   controls; close authority/resource/publication faults.
-6. **Closure evidence:** build, full CTest, original-resource/process witnesses,
-   maintainer physical native-SDL acceptance and required independent review.
-   Only then perform separately authorized milestone closure documentation/Git
-   work. A checkpoint pass is not authorization for a new milestone or a push.
+**M34 completed and accepted.** The acceptance classes are distinct:
 
-## Acceptance requirements
+- **Automated validation:** full build and full CTest **95/95 passed** after the
+  presentation correction. Deterministic controls cover Run thresholds and draw
+  continuation, participation/targeting/XP, exit causes and owed work, casualty
+  and treasure rules, guarded publication/failures, concrete frames/input fences,
+  exact 5/5 persistence and legacy compatibility. Ordinary CTest uses no commercial
+  resources; artificial resource controls are separately identified.
+- **Original-resource/process evidence:** required production witnesses passed
+  for wounded-survivor return/re-engagement/death, failed/mixed Run and victory
+  after escape, casualties, DirectRun dormancy/reactivation/delivery, and retained
+  ready treasure after attrition. Explicit legacy 4/4 regressions also passed.
+  Commercial resources were read-only; genuine witnesses used production input
+  without injected gameplay state.
+- **Exact continuation:** every required post-retirement family passed
+  uninterrupted play, save/fresh-process restore with an identical suffix, and
+  a second save/restart with further mutation. Comparisons covered all semantic
+  fields and exact save bytes, including headers/CRC, all 30 characters and
+  supplements, item arrays, membership, conditions, purse and independent
+  gold/item provenance, camera/context/flags/quests/overlays, all 19 actors,
+  accounting and RNG. Intermediate publication/draw observations, source
+  conservation and actual item recipients were checked separately.
+- **Independent technical review:** one immediate-reattachment presentation
+  defect was found and corrected. Focused independent re-review returned
+  **ACCEPT**, verifying destination feedback, repeated exits, retry/recomposition,
+  exactly-once state and absence of a Quiet/input/F9 gap.
+- **Maintainer physical acceptance:** after the correction, the maintainer
+  personally completed the required native-SDL checklist and reported all
+  required checks passed with no issues: named Run/partial-party feedback,
+  relocation and input handoff, wounded-survivor restart/re-engagement, dormant
+  item inspection, and casualty/ready-treasure settlement. This is separate from
+  automated SDL controls and independent image/technical review.
 
-All requirements below await implementation. Keep three evidence classes separate.
-Reuse existing test targets/helpers instead of a parallel acceptance framework:
-`XeenConsequenceRulesTests`, `XeenConsequenceOriginal`,
-`XeenConsequenceReviewControls.h`, `XeenConsequencePhysicalControls.h`,
-`XeenConsequenceCliWitness`, `RunConsequenceWitnesses.py`, combat authority/gameplay/
-persistence tests, Journey/regional resource and persistence tests, and save/SDL
-authority tests. Production input must travel through `Application::playGameplay`,
-displayed input, Event/Encounter Flow, actual actor/consequence owners and F9.
+## Exclusions and M35 handoff
 
-### Automated deterministic correctness
-
-Require bounded matrices and literal draw traces for:
-
-- Threshold -128, 0, 1, 2, 99, 100, 101, 127 and draw endpoints/equality; conversion
-  rejection, yield at raw budget, cursor overflow and stale/pre-publication failure.
-  Map-23 success 1..99/failure 100 is mandatory.
-- Each owner as acting runner; none/some/all bits cleared; all subset sizes and
-  stable owner order; initiative ties, already-acted peers, joins and next-round
-  reset. Failed Run consumes an action without changing membership or target.
-- All relevant action/target/XP/recipient predicates with Good, Poison, Disease,
-  Sleep, zero Speed, Unconscious, Dead and simultaneous admitted conditions.
-  Include sleeping-only remaining participants versus genuine exhaustion.
-- Preferred-class/random/fallback and all-party attacks over masks, including
-  singleton target draws, excluded escaped members, dead remaining targets, all
-  no-target ranged queues and no invalid empty interval. Preserve full-mask traces.
-- DirectRun versus attrition after Attack/Block/failed Run; last capable member
-  escaping beside unconscious/dead members; already-Dead counter preservation;
-  victory after escape; full-party defeat at an owed tick; no false victory based
-  on an older accounted actor. Casualty conversion changes only the Dead byte.
-- Owed attachment versus charged-round opportunities, ranged sources that join,
-  exit intent during owed work, all-party attack completion and Zombie cutoff.
-  Verify no discarded charge/work or invented post-escape round/End minute.
-- Destination same as origin, destination occupied, off-contact selected threat,
-  all four facings, changed Run metadata/terrain/EVT, and immediate new incarnation.
-  Artificial destination-occupancy/resource fixtures are labelled as such.
-- XP before/after escape with checked division/overflow; no reward replay on
-  repeated retirement/death observation; prior gold credited versus pending gold
-  forfeited; stored items retained dormant; later no-item Orc kill reactivating old
-  items without old gold/XP; non-Orc kills leaving them dormant; repeated Run,
-  capacity loss, all-full tails, no recipient and separate final gold acknowledgment.
-- Quiet dormant-item saves without selected threats; ready delayed saves with
-  selected threats; rejection of collectable ready saves, contact or missing
-  activation. Corrupt/crossed schemas, source-mask independence, forged living
-  source, duplicate source, noncanonical arrays, exact lengths and ordinary/legacy
-  behavior. Include positive-HP Dead state and exact simultaneous condition bytes.
-- Every publication unit's before/after failure, reentrancy and ABA controls;
-  cache/resource renewal, changed internal identities and retry failure latches;
-  held/repeated/stale/same-batch R/Space/B/target/F9; wrong/missing/reordered/foreign
-  or previous-incarnation concrete frame. Assert zero save-provider/file calls on
-  blocked F9 and responsiveness to fresh input after a valid handoff.
-
-Artificial tapes/fixtures are appropriate for the rare rule and failure matrix.
-They must not be presented as route-reachable original gameplay. Ordinary CTest
-must remain independent of commercial resources. Run the full CTest suite at
-milestone closure, not only helper tests.
-
-### Genuine production, original-resource and process witnesses
-
-Extend the existing consequence runner with explicit combat action policies,
-without altering production RNG/damage/resources or injecting live state. Keep
-the M33 route alphabet (`U` forward, `L/R` turn, `F` exploration Shoot) distinct
-from typed combat Run; a route R must not ambiguously become Run. A combat-policy
-record supplies Run/Block/Attack at actual presented ready boundaries. Automatic
-work and receipt acknowledgment use their production paths.
-
-Retain M33's committed recipes in `tests/RunConsequenceWitnesses.py`: seed-3 `UF`
-wound and `UFU` contact/generated armor, seed-7 Snake/Poison route,
-seed-226 Toad/Sleep route, seed-18 undead route and seed-64 generated missile.
-These existing recipes are retained evidence; their M34 variants have not passed
-yet. Preserve 4/4 regressions explicitly rather than treating new fresh 5/5 output
-as byte-identical legacy saves.
-
-Require the following connected witnesses; fixed prefixes may be followed by a
-bounded deterministic selection recipe, then the selected literal transcript is
-retained and replayed without search:
-
-| Witness | Production setup/actions and required observations |
-| --- | --- |
-| Wounded survivor escape/return | Seed 3, genuine `UF` prefix, then forward into actor-9 contact. At ready turns Run until disengagement. Keep actor 9 alive at its inherited wound, verify fixed relocation and exact durable state; save/restart. Return toward that same live identity through ordinary mainland moves and re-engage; run again, then return and kill it. Record actual contact/movement positions, not assumed spawn coordinates. |
-| Failed and mixed Run | From the same contact prefix, bounded seeds 1..4096. First ready turn Run, then Run at each new ready turn until a failure and at least one success have occurred. Retain first ascending seed satisfying both while nonterminal. A separate replay branches after the first success to Attack through victory, proving escaped-member XP exclusion and later reintegration. |
-| Casualties after escape | Use the retained M33 Snake/Toad/undead route families and actual grouped contacts; try fixed retained seeds first, then ascending 1..4096. Let the first ready owner escape, Block with remaining members until participant exhaustion, bounded by 128 resource attacks/600 player inputs and the existing time boundary. Retain a non-defeated full-party attrition exit, casualty bytes and exact treasure disposition. Also retain a direct Run beside an already unconscious member when found. Rare predicate combinations remain separately artificial; at least one genuine casualty escape is required. |
-| Treasure through direct exit | At genuine grouped Orc contact on the retained mainland route families, Attack the lowest original-index contact until a kill produces a retained ordinary item while another contact survives, then Run remaining able members. Search seeds 1..4096 in ascending order with the same input/time bounds. Assert forfeited gold, dormant item/source retention and retained defeated accounting. Save/restart, kill a different Orc through production play, then obtain no-selected-threat delivery; compare item/recipient bytes and only the new gold credit. |
-| Ready delayed treasure / attrition | Use the inherited delayed-treasure route in the runner and the casualty policy. Preserve ready pending ownership across a non-DirectRun ending, a selected surviving threat and restart; turn/move until the original selection predicate permits settlement. A separate artificial dormant-item/full-capacity fixture supplements, never substitutes for, the genuine treasure witness. |
-| Occupied destination and rare failures | Genuine bounded routes should report when reached; deterministic labelled fixtures establish the full state matrix even if that original route is rare. They cannot replace the genuine wounded-survivor, casualty or treasure chains above. |
-
-For return routing, use a deterministic test-side shortest path over the existing
-121-cell mainland to the retained survivor's latest cell: neighbor tie order
-North, East, South, West; minimal turns, Right for a 180-degree tie; emit only
-ordinary production navigation actions, settle each mandatory boundary, and
-replan after each publication. Cap at 64 charged moves, never cross an unadmitted
-map/Event/time boundary. This chooses inputs, not actor locations or RNG. From
-Run `(10,12)` facing West, the static route toward the original seed-3 contact
-cell `(7,11)` is `LURUUU`; actual earlier recontact must be adopted rather than
-forcing the endpoint. Log the exact emitted sequence and survivor identity.
-
-The bounded searches are automated preparation, not acceptance by hope: absence
-of a required genuine witness at the stated bounds is a failing acceptance gate
-to investigate/report, never authority to inject a fixture, extend time, heal or
-claim success. Do not make the maintainer hunt seeds or transcribe state. Record
-selected seeds, original setup, full typed input/idle policy, literal accepted
-and rejected draw intervals/counts, actor/participant transition observations and
-each expected semantic checkpoint. Replay selected cases deterministically.
-
-For every required post-retirement save family, create three real process paths:
-
-1. Uninterrupted production input to checkpoint and through a recorded suffix.
-2. Production F9 at that checkpoint, process exit, fresh `--load-game`, exact
-   comparison before any new input, then the identical suffix.
-3. Another save/restart after that suffix and an identical further mutation,
-   including re-engagement or final survivor death/treasure settlement.
-
-Compare complete semantic snapshots AND exact save bytes at matching points:
-all 30 characters/supplements, active membership/order, current HP/SP, conditions,
-all exact item arrays, purse and both gold/item provenance domains, context,
-camera/flags/quests/overlays, all 19 actor identities and mutable fields,
-accounting, and RNG algorithm/state/raw count. Compare publication observations
-for non-saveable intermediate boundaries. Visible HP, screenshots or a hash alone
-are insufficient. Account for header CRC/discriminators normally; do not ignore
-fields to obtain an equality. Uninterrupted/restored branches must use the same
-contract; 4/4 legacy comparison is a separate regression.
-
-Extend `RunConsequenceWitnesses.py` to retain new evidence beneath a dedicated
-`<build>/m34-evidence` directory: selected recipes, process commands/exits, full
-state comparisons, draw transcripts and saves, excluding commercial data. Retain
-the runner's existing 4/4 cases and label artificial outputs explicitly. These
-locations are a future acceptance recipe, not a claim that M34 logs exist now.
-
-### Maintainer physical native-SDL acceptance
-
-Automation prepares the selected genuine seeds, short transcripts and quiet saves
-above, plus a small launch recipe using the existing executable, legal installation,
-`--journey-region --combat-seed <selected>` and an external `--save-file` path.
-The seed-3 setup begins with Up, F, Up, settling each boundary. A native Run test
-continues from actual combat; never require a combat snapshot or debug teleport.
-Provide a direct `--load-game <installation> <prepared-quiet-save>` launch for the
-return/restart portion. Clearly label any optional artificial visual control.
-
-The maintainer's short checklist is limited to human judgments:
-
-1. R applies to the named current member; failed/successful feedback and escaped
-   versus incapacitated/dead portraits are understandable during partial combat.
-2. Relocation, casualty/treasure feedback and any immediate new contact are clear;
-   old attack effects do not appear attached to a replacement actor.
-3. Fresh movement/combat controls respond after handoff; holding R/Space/F9 across
-   it does not cause an unintended action. F9 communicates unavailable versus saved.
-4. Restart shows the expected wound/conditions/dormant-or-ready treasure clearly,
-   and return/re-engagement remains responsive. Receipt text identifies actual
-   delivery/loss without suggesting healing or lost gold has been restored.
-
-No manual seed search, arithmetic verification, invariant transcription or repeated
-save-byte comparison belongs in this checklist. Physical native-SDL acceptance is
-maintainer evidence, distinct from deterministic automation, headless/original-
-resource witnesses, image inspection and independent technical review.
-
-## Exclusions, review notes and M35 handoff
-
-Do not add recovery, Rest, resurrection, services, training, spending, general
+M34 excludes recovery, Rest, resurrection, services, training, spending, general
 magic, item use, new monster profiles/loot levels, party recruitment/reordering,
 combat-time inventory mutation, new maps, swimming/mountaineering, disconnected
 map-23 geometry, map transitions, new quest scripts, unsupported calendar work,
 save-anywhere snapshots, autosave or in-session load. Preserve all current
 ordinary/diagnostic controls and the original commercial resources unchanged.
 
-There is no material geometry/objective blocker: the original Run cell is already
-admitted. The persistence semantic extension and dormant treasure are the material
-findings beyond a naive escape implementation; they fit the approved M34 arc.
-No roadmap change or M34 subdivision is proposed. Reference index/mode accidents
-are resolved into the explicit stable-identity/exit-cause contract above; this is
-identified integration policy, not claimed independent DOS observation. Physical
-original-game comparison of those quirks is not available from this planning task
-and is a nonblocking provenance limitation for independent review.
-
 M35 retains connected **Myra -> Phirna -> Myra** and selected local recovery/
 antidote item use. It receives the same mutable regional owners, exact injuries/
 conditions/items/XP/purse, dormant or ready monster consequences and continuous
 time/RNG. It must consume those owners rather than reconstructing history from
 old encounter UI, and must revisit treasure readiness if adding a new producer.
-M34 does not execute that quest or introduce recovery to make its witnesses easier.
-Review approval of this candidate is distinct from implementation authorization.
+M34 does not execute that quest or introduce recovery. M35 is the next planned
+unit in the [approved roadmap](roadmap.md#approved-m33-m35-arc); M34 completion
+does not authorize its specification or implementation. Broader roadmap
+reassessment remains associated with M35 arc closure, subject to existing triggers.

@@ -145,7 +145,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	adopt(); // Complete saved domain, deliberately unbound and unavailable.
 	XeenActorApproach::validateEnvironment(w,s._actors,evt,s._journeyContract);
 	const auto view=XeenActorApproach::classify(s._actors,c);
-	if(p.monsterTreasure && p.monsterTreasure->pending() && std::none_of(view.slots.begin(),view.slots.end(),[](const auto &v){return bool(v);})) throw std::invalid_argument("Quiet treasure is immediately collectable");
+	if(p.monsterTreasure && p.monsterTreasure->ready() && std::none_of(view.slots.begin(),view.slots.end(),[](const auto &v){return bool(v);})) throw std::invalid_argument("Quiet treasure is immediately collectable");
 	for (unsigned i=0;i<s._actors.size();++i) if (view.activation[i] && !s._actors[i].activated) throw std::invalid_argument("Quiet actor activation missing");
 	for (auto n:XeenActorApproach::occupancy(s._actors)) if (n>3) throw std::invalid_argument("Quiet actor occupancy exceeded");
 	try { presentation(w,p,c,f); }
@@ -301,7 +301,7 @@ void XeenSaveState::restoreCompleted(const XeenSaveSnapshot &source, const Resou
 
 bool XeenSaveState::canCapture(const XeenPartyState &party, const XeenCamera &camera,
 		const XeenWorld &world) noexcept {
-	if (party.monsterTreasure && (!world.sessionState().journey() || world.sessionState().journeyContract()!=4)) return false;
+	if (party.monsterTreasure && (!world.sessionState().journey() || (world.sessionState().journeyContract()!=4 && world.sessionState().journeyContract()!=5))) return false;
 	if (!world.hasEncounterState() && !party.encounterContext && !party.roster.combatMarked()) {
 		for (unsigned owner = 0; owner < XeenRoster::kCharacterCount; ++owner)
 			if (party.roster.combatInputs(owner)) return false;

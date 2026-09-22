@@ -42,7 +42,7 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 				manifest(w.map(23),w.objectFile(23),_events,_journeyStatistics);
 				_journeyPreimage->check();
 			}
-			_result = contract==4 ? XeenActorApproach::initializeJourney(w,p,c,_state,characters,context,
+			_result = xeenJourneyContent(contract).consequences() ? XeenActorApproach::initializeJourney(w,p,c,_state,characters,context,
 				_journeyStatistics,_events,seed,contract,purse) : XeenActorApproach::initializeJourney(w,p,c,_state,characters,context,_journeyStatistics,_events,seed,contract);
 		}
 		w._combatCheck = {};
@@ -137,13 +137,16 @@ void XeenEncounterFlow::holdJourneyFrame() {
 }
 void XeenEncounterFlow::beginJourneyEvent() {
 	const bool regional=_world.sessionState().journeyContract()>=3;
+	if(_regionalAutomatic && (!_regionalAutomaticAddress || _regionalAutomaticAddress->mapId!=_camera.mapId ||
+		_regionalAutomaticAddress->x!=_camera.x || _regionalAutomaticAddress->y!=_camera.y || _regionalAutomaticAddress->direction!=_camera.direction))
+		throw std::logic_error("Automatic Journey event address changed");
 	const bool ready=_regionalAutomatic ? !_busy && !_combat && !_failure && _boundary.quiet() && current(ticket()) &&
 		_state.pending()==0 && _state.phase()==XeenEncounterPhase::Exploring : journeyQuiet();
 	if (!ready || !journeyCapacity() || (regional ? !xeenRegionalSign(_events,_camera) :
 		_world.sessionState().journeyContract()!=2 || _camera.mapId!=XeenMapIdentity(20) || _camera.x!=5 || _camera.y!=14))
 		throw std::logic_error("Journey objective admission unavailable");
 	_eventLease = _boundary.hold(XeenCombatBoundary::Work::Event);
-	_regionalAutomatic=false;
+	_regionalAutomatic=false;_regionalAutomaticAddress.reset();
 	_world._sessionState._journeyActivity = XeenJourneyActivity::Event;
 	++_world._sessionState._journeyGeneration; ++_generation;
 	_journeyPreimage->adoptJourneyCoordination();
@@ -205,7 +208,10 @@ std::string XeenEncounterFlow::journeyInspection() const {
   const auto &v=*_party.monsterTreasure;out<<"Purse gold="<<v.gold<<" gems="<<v.gems<<" pendingMask="<<v.pendingMask<<" pendingGold="<<v.pendingGold<<'\n';
   for(unsigned category=0;category<2;++category)for(const auto &r:category?v.armor:v.weapons)out<<"Pending "<<(category?"armor":"weapon")<<" source="<<unsigned(r.source)<<" M/ID/S/F="<<unsigned(r.item.material)<<'/'<<unsigned(r.item.id)<<'/'<<unsigned(r.item.state)<<'/'<<unsigned(r.item.frame)<<'\n';
  }
+ if(_combat)out<<"Participants="<<unsigned(_combat->participants())<<" exit="<<unsigned(_combat->exitCause())<<'\n';
  const auto describe=[&](const XeenCombatResult &r) {
+  if(r.operation==XeenCombatOperation::PlayerRun)out<<"Run owner="<<unsigned(*r.actingOwner)<<" roll="<<r.runRoll<<" success="<<r.runSuccess<<" mask="<<unsigned(r.participantsBefore)<<"->"<<unsigned(r.participantsAfter)<<'\n';
+  if(r.operation==XeenCombatOperation::FinishDisengagement)out<<"Disengaged cause="<<unsigned(r.exitCause)<<" casualties="<<unsigned(r.casualties)<<" forfeitedGold="<<r.forfeitedGold<<'\n';
   if(r.monsterDrop)out<<"Drop source="<<unsigned(r.generatedItem.source)<<" outcome="<<unsigned(*r.monsterDrop)<<" armor="<<r.generatedArmor<<" M/ID/S/F="<<unsigned(r.generatedItem.item.material)<<'/'<<unsigned(r.generatedItem.item.id)<<'/'<<unsigned(r.generatedItem.item.state)<<'/'<<unsigned(r.generatedItem.item.frame)<<'\n';
   for(unsigned i=0;i<r.injuryCount;++i){const auto &v=r.injuries[i];out<<"Injury owner="<<unsigned(v.owner)<<" amount="<<v.amount<<" HP="<<v.beforeHp<<"->"<<v.afterHp<<" AC="<<v.beforeAc<<"->"<<v.afterAc<<" conditions=";for(auto c:v.conditions)out<<unsigned(c)<<',';out<<'\n';}
   for(unsigned i=0;i<r.armorCount;++i){const auto &v=r.armor[i];out<<"Broken armor owner="<<unsigned(v.owner)<<" slot="<<unsigned(v.slot)<<" state="<<unsigned(v.before.state)<<"->"<<unsigned(v.after.state)<<'\n';}
@@ -299,7 +305,7 @@ XeenEncounterResult XeenEncounterFlow::advanceJourney(const Ticket &entry, std::
 		XeenEncounterResult result;
 		{
 			XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
-			result = s.journeyContract()==4 ? XeenActorApproach::regionalTransition(_world,_party,_camera,_state,_events,action,_regionalWork) : action ? XeenActorApproach::action(_world,_party,_camera,_state,*action,_events) :
+			result = xeenJourneyContent(s.journeyContract()).consequences() ? XeenActorApproach::regionalTransition(_world,_party,_camera,_state,_events,action,_regionalWork) : action ? XeenActorApproach::action(_world,_party,_camera,_state,*action,_events) :
 				XeenActorApproach::pulse(_world,_party,_camera,_state,_events);
 		}
 		if (!_journeyPreimage->ownersAlive()) { closeJourney(); return refused; }
@@ -308,7 +314,7 @@ XeenEncounterResult XeenEncounterFlow::advanceJourney(const Ticket &entry, std::
 		_world._combatCheck = {}; _world._combatAuthorized = {};
 		if (result.outcome == XeenEncounterOutcome::Stale) { closeJourney(); return refused; }
 		if (_state.phase() == XeenEncounterPhase::SupportStopped) {
-			_regionalAutomatic=false;
+			_regionalAutomatic=false;_regionalAutomaticAddress.reset();
 			if (s.journeyContract()<3) { closeJourney(); return result; }
 			_result=result;++_generation;_journeyFramePrepared=false;s._journeyActivity=XeenJourneyActivity::Presentation;
 			retainJourney();return result;
@@ -319,6 +325,7 @@ XeenEncounterResult XeenEncounterFlow::advanceJourney(const Ticket &entry, std::
 		}
 		_result = result; ++_generation; _journeyFramePrepared = false;
 		if(result.consequences) observeRanged(result.consequences);
+		if(result.automaticEvent) _regionalAutomaticAddress=XeenCombatLocation{_camera.mapId,_camera.x,_camera.y,_camera.direction};
 		_regionalAutomatic = _regionalAutomatic || result.automaticEvent;
 		s._journeyActivity = _state.phase() == XeenEncounterPhase::Engaged ? XeenJourneyActivity::Attachment :
 			(_state.pending() || _regionalWork) ? XeenJourneyActivity::Approach : XeenJourneyActivity::Presentation;
@@ -363,6 +370,7 @@ bool XeenEncounterFlow::attachJourney(const Ticket &entry, const std::function<v
 	BusyJourney busy(_busy);
 	try {
 		xeenValidateJourneyMelee(_party,_world.sessionState().journeyContract());
+		const bool carryFinish = _disengagementNoticeRevision && *_disengagementNoticeRevision == _state.revision();
 		{
 			XeenRestoreGuard::Providers providers(*_journeyPreimage,_world,checkBoundary);
 			XeenActorApproach::validateEnvironment(_world,_world.sessionState().actors(),_events,_world.sessionState().journeyContract());
@@ -380,6 +388,8 @@ bool XeenEncounterFlow::attachJourney(const Ticket &entry, const std::function<v
 		_combat.reset(new XeenCombat(_world,_party,_camera,_boundary,_flags,_state,_journeyStatistics,_events));
 		++_generation;
 		if (!acceptCombatResult(_combat->beginCombat(_combat->ticket()))) return false;
+		// Only this immediate destination incarnation may present the retained finish.
+		if (carryFinish) _disengagementNoticeCombat = _combat->ticket();
 		observeCombat(); _deadline.reset(); _frame = 0; _appearanceStep = 0;
 		std::uint64_t now;
 		if (!prepareTime(ticket(),now)) throw std::runtime_error("Journey attachment scheduling failed");
@@ -396,13 +406,22 @@ bool XeenEncounterFlow::retireJourney(const Ticket &entry) {
 	if (!journeyCapacity()) return false;
 	BusyJourney busy(_busy);
 	try {
-		// Allocate the returned preimage before consuming End. Only runtime fields change below.
+		// Allocate the returned preimage before consuming either completion proof.
+		// Gameplay values are already published; retirement changes only coordination.
 		auto prepared = std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 		prepared->retainResources(*_journeyPreimage);
 		_combat->retainResources(*prepared);
-		_combat->retireJourney(*entry.combat,_state);
+		const bool disengaged=_combat->phase()==XeenCombatPhase::Disengaged;
+		if(disengaged && _regionalAutomatic && !_combat->result().originAutomaticSuperseded) throw std::logic_error("Finish did not supersede the origin event");
+		if(disengaged) _combat->retireDisengagedJourney(*entry.combat,_state);
+		else _combat->retireJourney(*entry.combat,_state);
+		if(disengaged) { _regionalAutomatic=false;_regionalAutomaticAddress.reset();_combatObservation=_combat->result(); }
 		_retiredCombatResult = _combat->result(); _combat.reset(); ++_generation;
-		_deadline.reset(); _frame = 0; _appearanceStep = 0;
+		_disengagementNoticeRevision = disengaged ? std::optional<std::uint64_t>{_state.revision()} : std::nullopt;
+		_disengagementNoticeCombat.reset();
+		// The origin observations have completed presentation before retirement.
+		if(disengaged) { _journeyRefusal.clear();_rangedObservation.reset(); }
+		_deadline.reset(); _frame = 0; _appearanceStep = 0; _appearanceIdentity.reset();
 		_scheduleAfterFrame = _appearanceAfterFrame = false;
 		prepared->adoptJourneyCoordination(); prepared->adoptJourneyBorrowRelease(); _journeyPreimage.swap(prepared);
 		return true;

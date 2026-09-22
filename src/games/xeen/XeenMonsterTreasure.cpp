@@ -2,10 +2,11 @@
 #include <limits>
 #include <stdexcept>
 namespace mmodern {
-void xeenValidateMonsterTreasure(const XeenMonsterTreasure &value) {
+void xeenValidateMonsterTreasure(const XeenMonsterTreasure &value, std::uint16_t contract) {
 	const auto require = [](bool valid) {
 		if (!valid) throw std::invalid_argument("Invalid pending monster treasure");
 	};
+	require(contract == 4 || contract == 5);
 	require((value.pendingMask & ~0xfffu) == 0);
 	unsigned count = 0;
 	for (unsigned i = 0; i < 12; ++i) count += (value.pendingMask >> i) & 1;
@@ -23,7 +24,7 @@ void xeenValidateMonsterTreasure(const XeenMonsterTreasure &value) {
 			require(!empty && entry.source < 12 && entry.item.id <= (category ? 7 : 33) &&
 				entry.item.material == 0 && entry.item.state == 0 && entry.item.frame == 0);
 			const auto bit = 1u << entry.source;
-			require((value.pendingMask & bit) && !(sources & bit));
+			require((contract == 5 || (value.pendingMask & bit)) && !(sources & bit));
 			sources |= bit;
 		}
 	}
@@ -32,9 +33,12 @@ void xeenValidateMonsterTreasure(const XeenMonsterTreasure &value) {
 
 #include "games/xeen/XeenCombatRules.h"
 namespace mmodern {
-XeenMonsterDropCandidate::XeenMonsterDropCandidate(const XeenMonsterTreasure &before,unsigned source) : treasure(before) {
-	xeenValidateMonsterTreasure(before);
-	if (source>=12 || (before.pendingMask & (1u<<source))) throw std::invalid_argument("Duplicate or invalid Orc production");
+XeenMonsterDropCandidate::XeenMonsterDropCandidate(const XeenMonsterTreasure &before,unsigned source,std::uint16_t contract) : treasure(before) {
+	xeenValidateMonsterTreasure(before, contract);
+	bool stored = false;
+	for (const auto &entries : {before.weapons, before.armor}) for (const auto &entry : entries)
+		stored = stored || (entry.item.id && entry.source == source);
+	if (source>=12 || stored || (before.pendingMask & (1u<<source))) throw std::invalid_argument("Duplicate or invalid Orc production");
 	if (std::uint64_t(before.gold)+before.pendingGold+10>std::numeric_limits<std::uint32_t>::max())
 		throw std::overflow_error("Monster gold overflow");
 	treasure.pendingMask |= 1u<<source;treasure.pendingGold+=10;generated.source=static_cast<std::uint8_t>(source);
@@ -65,8 +69,9 @@ bool XeenMonsterDropCandidate::service(XeenConsequenceDraw &draw) {
 	return step==Step::Done;
 }
 XeenMonsterDeliveryCandidate xeenPrepareMonsterDelivery(const XeenMonsterTreasure &before,
-		const std::array<XeenCharacter,6> &characters) {
-	xeenValidateMonsterTreasure(before);
+		const std::array<XeenCharacter,6> &characters, std::uint16_t contract) {
+	xeenValidateMonsterTreasure(before, contract);
+	if (contract == 5 && !before.ready()) throw std::invalid_argument("Monster treasure is not ready for delivery");
 	XeenMonsterDeliveryCandidate result; result.characters=characters;result.treasure=before;
 	result.globallyFull=true; bool eligible=false;
 	for (const auto &c:characters) {
@@ -88,8 +93,13 @@ XeenMonsterDeliveryCandidate xeenPrepareMonsterDelivery(const XeenMonsterTreasur
 	}
 	return result;
 }
-XeenMonsterTreasure xeenPrepareMonsterGoldCredit(const XeenMonsterTreasure &before) {
-	xeenValidateMonsterTreasure(before);
+XeenMonsterTreasure xeenPrepareMonsterGoldForfeiture(const XeenMonsterTreasure &before, std::uint16_t contract) {
+	if (contract != 5) throw std::invalid_argument("Monster gold forfeiture requires content 5");
+	xeenValidateMonsterTreasure(before, contract);
+	auto after = before; after.pendingGold = after.pendingMask = 0; return after;
+}
+XeenMonsterTreasure xeenPrepareMonsterGoldCredit(const XeenMonsterTreasure &before, std::uint16_t contract) {
+	xeenValidateMonsterTreasure(before, contract);
 	for (unsigned category=0;category<2;++category) for (const auto &entry:category ? before.armor : before.weapons)
 		if (entry.item.id) throw std::invalid_argument("Monster items must be delivered before gold credit");
 	auto after=before;after.gold+=after.pendingGold;after.pendingGold=after.pendingMask=0;return after;

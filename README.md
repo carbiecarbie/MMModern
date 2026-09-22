@@ -6,7 +6,7 @@ Might and Magic V: Darkside of Xeen / World of Xeen.
 
 ## Status
 
-**Milestone 33 is the latest completed milestone.**
+**Milestone 34 is the latest completed milestone.**
 
 The engine supports a bounded Clouds quest loop: request a quest, collect an
 item, return it for character-held rewards, and save/resume the resulting progress.
@@ -40,12 +40,15 @@ no general map-20 exploration, Vertigo travel, normal startup or Whistle use/tur
 
 The production `--journey-region` entry explores the connected mainland
 containing `(9,11)` on Clouds map 23. Its 19 original actors retain position,
-wounds and defeat accounting across 4/4 Journey saves. The five admitted species
+wounds and defeat accounting across Journey saves. The five admitted species
 use contact combat and Orc ranged attacks; F fires equipped missile weapons.
 Poison, Sleep, Disease, ordinary generated equipment, monster gold and delayed
 treasure remain attached to their character, party and world owners. Inventory,
 the original sign and saving are available at the admitted quiet boundaries.
-Run, recovery, Myra quest execution and travel beyond this mainland remain excluded.
+Individual Run permits partial-party combat and non-victory disengagement to the
+original fixed destination, followed by return/re-engagement with wounded survivors.
+Casualties and dormant or ready treasure survive restart. Recovery, Myra quest
+execution and travel beyond this mainland remain excluded.
 
 The Diagnostic26 entry presents an original outdoor Skeleton, supports its
 activation and approach, and stops at terminal same-cell engagement. Diagnostic27
@@ -93,7 +96,8 @@ See the [technical snapshot](docs/project-status.md),
   return, and schema-2 separate-process continuation.
 - Resource-derived map-23 mainland exploration through `--journey-region`, with
   all 19 original actors, physical combat/Shoot, conditions and monster treasure,
-  automatic sign presentation, and exact 4/4 continuation at quiet boundaries.
+  individual Run/disengagement and survivor re-engagement, automatic sign
+  presentation, and exact continuation at quiet boundaries.
 
 ## Running and controls
 
@@ -146,8 +150,7 @@ attaches combat automatically, so Enter never begins Journey combat. Space
 interacts outside combat and attacks during combat; B blocks. A successful End
 retires combat and returns to mutable inventory/navigation on the same owners.
 F9 saves only at a presented, quiet Journey boundary with inventory closed and
-no pending approach or combat work. R remains exclusive to completed
-Diagnostic27 and has no Journey action.
+no pending approach or combat work. R has no action in this Skeleton Journey.
 
 `--journey-expedition` starts the prepared contract-2 Journey at `(0,14)` East.
 Movement is bounded to six party cells along `x=0..5,y=14`; original actor work
@@ -167,29 +170,41 @@ F9 may save at the presented quiet boundary. Turn West and return to `(0,14)`;
 the Journey remains mutable after return and restart. There is no autosave or
 healing requirement for the accepted seed-1 route.
 
-`--journey-region` starts a 4/4 Regional Journey at Clouds map 23 `(9,11)` West,
+`--journey-region` starts a Regional Journey at Clouds map 23 `(9,11)` West,
 minute 480, with the prepared party and all 19 original actors. Movement follows
-the resource-derived mainland. Contact opens Attack/Block combat; 1-3 selects a
-live contact. Orcs can fire during movement opportunities. F initiates an
-exploration volley from eligible equipped missile users, then charges ten minutes.
+the resource-derived mainland. Contact opens Attack/Block/Run combat; 1-3 selects a
+live contact. R attempts Run for the displayed member and consumes that turn,
+even on failure. Escaped members leave the current combat participation; the
+remaining members continue fighting. Orcs can fire during movement opportunities.
+F initiates an exploration volley from eligible equipped missile users, then charges ten minutes.
 Wounds, Poison/Sleep/Disease, broken armor, XP, gold and generated ordinary items
-persist. Monster treasure waits while an actor remains in the selected view;
+persist. Ready monster treasure waits while an actor remains in the selected view;
 when collection becomes eligible, acknowledge every reward page before continuing.
 Inventory shows condition severities, HP/SP, derived Speed/AC and purse state.
+
+Non-victory disengagement relocates to `(10,12)` with facing unchanged. It can
+leave abandoned casualties; the destination is not guaranteed safe and may
+immediately start another encounter. Surviving enemies keep their wounds and
+identities for return/re-engagement. A direct Run exit forfeits undelivered monster
+gold and retains stored items dormant until later Orc treasure reactivates them.
+An exit caused by later attrition after escape preserves ready treasure. Escaped
+members receive no subsequent XP in that encounter and rejoin at retirement;
+no injuries or conditions are healed.
 
 Space refuses unsupported interactions without executing their scripts. Facing
 North at `(5,9)` automatically displays the original sign; it can also be
 requested manually. It requires no acknowledgment, and ordinary eligible controls
 remain available while its text is visible. Inventory/equipment and F9 require
 presented quiet boundaries.
-Save files include living actor wounds, surviving conditions and delayed treasure,
-without storing combat, projectiles or UI work. Loaded 1/1, 2/2 and 3/3 Journeys
-retain their original rules, including the 3/3 contact/ranged/time support stops.
+Save files include living actor wounds, casualties, conditions and dormant/ready
+treasure, without storing combat, projectiles or UI work. Loaded legacy Journeys
+retain their original rules and controls, including their existing support stops;
+Run is available only in contract-5 regional combat.
 
-Run, recovery, Myra quest execution and travel beyond the mainland are unavailable.
+Recovery, Myra quest execution and travel beyond the mainland are unavailable.
 Defeat and unsupported time processing close further gameplay/save admission.
 Restart a quiet save with `--load-game`. The closed scope and acceptance contract
-are in [M33](docs/milestone-33-plan.md).
+are in [M34](docs/milestone-34-plan.md).
 
 | Key | Action |
 | --- | --- |
@@ -199,13 +214,13 @@ are in [M33](docs/milestone-33-plan.md).
 | Y / N | Answer Yes/No; N cancels a transfer confirmation |
 | F1-F6 | Select inventory owner or transfer recipient; outside inventory, select an eligible member during WhoWill |
 | 1-9 | Select a physical inventory slot while browsing; 1-3 select a displayed target during a ready expedition or regional combat turn |
-| F | Shoot in 4/4 regional exploration; unavailable during contact combat |
+| F | Shoot in contract-4/5 regional exploration; unavailable during contact combat |
 | T | Begin transfer of the selected occupied slot |
 | E | Equip or remove the explicitly selected occupied weapon, armor or accessory |
 | . | Wait during the bounded encounter diagnostics and Journey; no action in ordinary gameplay |
 | F9 | Save an eligible idle ordinary session, completed Diagnostic27 or quiet presented Journey; refused while blocking work/UI is active |
 | I | Open inventory while idle; in completed Diagnostic27 open read-only inspection; close while browsing and print live diagnostics on opening |
-| R | Revisit the completed Diagnostic27 checkpoint through its bounded true re-entry |
+| R | Run for the displayed member in contract-5 regional combat; revisit the completed Diagnostic27 checkpoint in that separate mode |
 | Escape | Exit either diagnostic session; otherwise back/cancel transfer or close inventory, cancel WhoWill, acknowledge NPC/reward pages, or exit |
 
 Movement and ordinary interaction are blocked while a response is required;
@@ -223,15 +238,14 @@ work, then issue a new F9. Without a configured path, it writes nothing. Save
 results appear in the console and window title. Existing supported valid MMModern
 saves can be replaced; there is no autosave, save-on-exit or in-session load.
 Ordinary eligible saves write v2, completed Diagnostic27 writes v3, and Journey
-saves write v4: the Skeleton Journey retains schema/content 1/1 and the expedition
-uses schema/content 2/2. Fresh Regional Journey uses schema/content 4/4 with all
-19 actor records, living wounds, conditions, purse/pending treasure, retained
-context, supplements and RNG continuation. Legacy regional 3/3 saves retain their
-original rules and support stops; loading does not upgrade them. The reader
-accepts supported v1/v2/v3/v4 in their distinct
-domains. `--load-game` selects Journey directly from v4 and restores fresh owners
+saves write v4. Fresh Regional Journey saves use schema/content 5/5 and preserve
+all 19 actor records, living wounds, casualties, conditions, purse and
+dormant/ready treasure with exact continuation. Legacy 4/4 and earlier Journey
+saves retain their original rules and controls; loading does not upgrade them.
+The reader accepts supported v1/v2/v3/v4 in their
+distinct domains. `--load-game` selects Journey directly from v4 and restores fresh owners
 without replaying fresh Journey initialization, approach, combat, objective
-grant/removal or item actions. Existing expedition schema-2 saves remain readable
+grant/removal or item actions. Existing expedition saves remain readable
 and can collect the Whistle through a fresh explicit interaction.
 Saves require matching game archives and are not compatible with original Xeen
 or ScummVM saves. See the
@@ -256,6 +270,8 @@ SDL backend. The exact pin and configuration live in
   ownership, persistence and boundaries.
 - [Project history](docs/project-history.md): concise completed milestones and plan links.
 - [Roadmap](docs/roadmap.md): future direction and planning review cadence.
+- [Milestone 34 plan](docs/milestone-34-plan.md): closed Run, partial-party
+  disengagement, survivor/treasure continuation and acceptance contract.
 - [Milestone 33 plan](docs/milestone-33-plan.md): closed mainland combat, Shoot,
   conditions/rewards, schema/content 4/4 and acceptance contract.
 - [Milestone 32 plan](docs/milestone-32-plan.md): closed regional navigation,

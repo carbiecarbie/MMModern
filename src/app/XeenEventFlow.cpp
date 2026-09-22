@@ -109,22 +109,24 @@ bool XeenEventFlow::journeyInputCurrent(std::optional<std::uint64_t> input) cons
 	return journey() && input && *input == _inputGeneration && !_handoffPending && !_fatal && !_dispatching && !_saving && encounterFrameCurrent();
 }
 void XeenEventFlow::prepareJourneyTransition() {
-	if (!journey()) return;
-	_encounter->beginMonsterReward(_catalog);
-	if (_encounter->_regionalAutomatic && !_encounter->_regionalWork && !_encounter->_shoot && !_encounter->monsterReward() && !_encounter->state().pending() && _encounter->state().phase()==XeenEncounterPhase::Exploring) {
-		_encounter->beginJourneyEvent();_journeyEventLayers=true;
-		journeyEventWork([&] { drive(_events.runAutomaticEvent(_world,_party,_camera,_flags,_eventPublication),true); },true);
-	}
-	if (!_encounter->combat() && _world.sessionState().journeyActivity() == XeenJourneyActivity::Attachment) {
-		closeInventory();
-		if (!_encounter->attachJourney(_encounter->ticket(),prepareJourneySprites)) throw std::runtime_error("Journey attachment failed");
-	}
-	if (_encounter->combat() && _encounter->combat()->phase() == XeenCombatPhase::Victory) {
-		if (!_encounter->retireJourney(_encounter->ticket())) throw std::runtime_error("Journey retirement failed");
-		_displayedCombat.reset();
-		_encounter->beginMonsterReward(_catalog);
-	}
-	if(_encounter->_shootIntent && !_encounter->state().pending() && !_encounter->_regionalWork && !_encounter->projectilesPending()) _encounter->beginShoot();
+ if (!journey()) return;
+ if (_encounter->combat() && (_encounter->combat()->phase()==XeenCombatPhase::Victory ||
+  _encounter->combat()->phase()==XeenCombatPhase::Disengaged)) {
+  if(_encounter->projectilesPending()) return;
+  if(!_encounter->retireJourney(_encounter->ticket())) throw std::runtime_error("Journey retirement failed");
+  _displayedCombat.reset();
+ }
+ if(!_encounter->combat() && _world.sessionState().journeyActivity()==XeenJourneyActivity::Attachment) {
+  closeInventory();
+  if(!_encounter->attachJourney(_encounter->ticket(),prepareJourneySprites)) throw std::runtime_error("Journey attachment failed");
+ }
+ _encounter->beginMonsterReward(_catalog);
+ if(!_encounter->combat() && _encounter->_regionalAutomatic && !_encounter->_regionalWork && !_encounter->_shoot &&
+  !_encounter->monsterReward() && !_encounter->state().pending() && _encounter->state().phase()==XeenEncounterPhase::Exploring) {
+  _encounter->beginJourneyEvent();_journeyEventLayers=true;
+  journeyEventWork([&] { drive(_events.runAutomaticEvent(_world,_party,_camera,_flags,_eventPublication),true); },true);
+ }
+ if(_encounter->_shootIntent && !_encounter->state().pending() && !_encounter->_regionalWork && !_encounter->projectilesPending()) _encounter->beginShoot();
 }
 
 bool XeenEventFlow::saveCurrent(const SaveBoundary &b) const noexcept {
@@ -266,7 +268,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 				auto composed = _encounterCompose(_ordinary.phase,_encounter->appearance());
 				if (!_encounter->current(t)) throw std::logic_error("Stale Journey composition");
 				if (!composed.frame.isValid()) throw std::runtime_error("Invalid Journey frame");
-				auto rendered = _journeyEventLayers ? _presenter.rebase(composed.frame) : noticeFrame(composed.frame,_inventoryFont,_encounter->notice(),true,_world.sessionState().journeyContract()==4);
+				auto rendered = _journeyEventLayers ? _presenter.rebase(composed.frame) : noticeFrame(composed.frame,_inventoryFont,_encounter->notice(),true,xeenJourneyContent(_world.sessionState().journeyContract()).consequences());
 				if(_encounter->monsterReward()) {
 					if(!_monsterReceiptPresented) {
 						_presenter.clear();XeenPresentationRequest request;
@@ -318,7 +320,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter frame");
 			if (!composed.frame.isValid()) throw std::runtime_error("Invalid encounter frame");
 			const auto notice = _encounter->notice();
-			auto rendered = noticeFrame(composed.frame, _inventoryFont, notice, _encounter->combat() || completed(),journey() && _world.sessionState().journeyContract()==4);
+			auto rendered = noticeFrame(composed.frame, _inventoryFont, notice, _encounter->combat() || completed(),journey() && xeenJourneyContent(_world.sessionState().journeyContract()).consequences());
 			if (report && !attempt && reportText) reportText(notice);
 			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter report");
 			// Complete the fallible return copy before installing the frame.
@@ -693,7 +695,8 @@ bool XeenEventFlow::resumePending(std::uint64_t generation, XeenPresentationResp
 			_world, _party, _camera, _flags, _eventPublication), false);
 	return true;
 }
-IndexedFrame XeenEventFlow::handle(const PlayerAction &action, std::optional<std::uint64_t> displayedInput) {
+IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::optional<std::uint64_t> displayedInput) {
+	PlayerAction action=physicalAction;
 	requireCurrentOwners();
 	if (journey() && !journeyInputCurrent(displayedInput)) return frameCopy();
 	if (std::holds_alternative<SaveGameAction>(action) || _dispatching || _fatal || _saving) return frameCopy();
@@ -702,8 +705,10 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &action, std::optional<std
 	if (_encounter && _encounter->combat() && (!displayedInput || *displayedInput != _inputGeneration ||
 		!_displayedCombat || !_encounter->combat()->current(*_displayedCombat))) return frameCopy();
 	if (!_encounter && std::holds_alternative<WaitAction>(action)) return frameCopy();
-	if (!_encounter && (std::holds_alternative<AttackAction>(action) || std::holds_alternative<BlockAction>(action) ||
+	if (!_encounter && (std::holds_alternative<AttackAction>(action) || std::holds_alternative<BlockAction>(action) || std::holds_alternative<RunAction>(action) ||
 		std::holds_alternative<BeginEncounterAction>(action) || std::holds_alternative<RevisitCompletedAction>(action))) return frameCopy();
+	if (journey() && _encounter->combat() && _world.sessionState().journeyContract()==5 &&
+		std::holds_alternative<RevisitCompletedAction>(action)) action=RunAction{};
 	DispatchScope dispatch(_dispatching);
 	validateRegionalEvents();
 	if (_encounter) {
@@ -716,7 +721,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &action, std::optional<std
 				return renderEncounter();
 			}
 			if (_world.sessionState().journeyContract()>=3 &&
-				(std::holds_alternative<AttackAction>(action) || std::holds_alternative<BlockAction>(action) ||
+				(std::holds_alternative<AttackAction>(action) || std::holds_alternative<BlockAction>(action) || std::holds_alternative<RunAction>(action) ||
 				 std::holds_alternative<BeginEncounterAction>(action) || std::holds_alternative<RevisitCompletedAction>(action))) {
 				if (_encounter->journeyMutable()) {
 					_encounter->_journeyRefusal="Unsupported regional action: combat/Run/Begin/Revisit";
@@ -781,7 +786,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &action, std::optional<std
 			if (inventoryOpen() && (std::holds_alternative<RevisitCompletedAction>(action) ||
 				std::holds_alternative<TransferInventoryAction>(action) || std::holds_alternative<EquipmentInventoryAction>(action) ||
 				std::holds_alternative<AcknowledgeAction>(action) || std::holds_alternative<AttackAction>(action) ||
-				std::holds_alternative<BlockAction>(action) || std::holds_alternative<WaitAction>(action))) return frameCopy();
+				std::holds_alternative<BlockAction>(action) || std::holds_alternative<RunAction>(action) || std::holds_alternative<WaitAction>(action))) return frameCopy();
 			if (inventoryOpen() || std::holds_alternative<InspectInventoryAction>(action)) {
 				_encounter->holdCompleted();
 				const auto entry = _encounter->ticket();

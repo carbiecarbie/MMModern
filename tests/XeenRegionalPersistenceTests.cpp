@@ -64,6 +64,42 @@ int main() {
   const auto maxBytes=XeenSaveFormat::encode(maximum);check(maxBytes.size()-offset==1880,"Schema-4 maximum 12-source suffix length");sameSnapshot(maximum,XeenSaveFormat::decode(maxBytes));
   auto extraFour=fourBytes;extraFour.push_back(0);fixIndependentEnvelope(extraFour);rejects([&]{XeenSaveFormat::decode(extraFour);});
 
+  // Artificial 5/5 codec controls; retained item provenance is independent of gold.
+  auto five=four;five.journey->schema=five.journey->contract=5;
+  five.journey->treasure=xeenPrepareMonsterGoldForfeiture(*five.journey->treasure,5);
+  five.characters[0].currentHp=15;five.characters[0].conditions[13]=7;
+  five.characters[1].conditions[12]=1;five.characters[1].conditions[13]=2;
+  auto fiveBytes=XeenSaveFormat::encode(five);
+  check(fiveBytes.size()-offset==1830 && fiveBytes[offset+1]==5 && fiveBytes[offset+3]==5,"Schema-5 exact discriminator and unchanged extent");
+  for(unsigned n=1810;n<1818;++n)check(fiveBytes[offset+n]==0,"Dormant wire has no gold obligations");
+  sameSnapshot(five,XeenSaveFormat::decode(fiveBytes));
+  check(XeenSaveFormat::encode(XeenSaveFormat::decode(fiveBytes))==fiveBytes,"Schema-5 complete exact roundtrip");
+  auto legacyDormant=five;legacyDormant.journey->schema=legacyDormant.journey->contract=4;rejects([&]{XeenSaveFormat::encode(legacyDormant);});
+  for(unsigned mode=0;mode<8;++mode){auto bad=five;
+   if(mode==0)bad.journey->schema=4;
+   if(mode==1)bad.journey->contract=4;
+   if(mode==2)bad.journey->actors[9].accounted=false;
+   if(mode==3)bad.journey->actors[9].hp=1;
+   if(mode==4)bad.journey->treasure->pendingGold=10;
+   if(mode==5)bad.journey->treasure->armor[0].source=9;
+   if(mode==6)bad.journey->treasure->weapons[0].item.frame=1;
+   if(mode==7)bad.journey->treasure->weapons[0].source=12;
+   rejects([&]{XeenSaveFormat::encode(bad);});
+  }
+  const auto badFive=[&](unsigned at,unsigned value){auto b=fiveBytes;b[offset+at]=value;fixIndependentEnvelope(b);rejects([&]{XeenSaveFormat::decode(b);});};
+  for(unsigned value:{0u,1u,2u,3u,4u,6u,255u}){badFive(1,value);badFive(3,value);}
+  for(unsigned at:{1651u,1652u,1818u,1819u})badFive(at,31);
+  for(unsigned at:{1821u,1823u,1824u,1826u,1828u,1829u})badFive(at,1);
+  badFive(1820,3);badFive(1822,34);badFive(1827,8);badFive(1814,10);
+  auto dormantMaximum=maximum;dormantMaximum.journey->schema=dormantMaximum.journey->contract=5;
+  dormantMaximum.journey->treasure=xeenPrepareMonsterGoldForfeiture(*dormantMaximum.journey->treasure,5);
+  const auto maxFive=XeenSaveFormat::encode(dormantMaximum);
+  check(maxFive.size()-offset==1880,"Schema-5 maximum 12 dormant sources extent");
+  sameSnapshot(dormantMaximum,XeenSaveFormat::decode(maxFive));
+  auto later=five;later.journey->treasure->pendingMask=1u<<3;later.journey->treasure->pendingGold=10;
+  sameSnapshot(later,XeenSaveFormat::decode(XeenSaveFormat::encode(later)));
+  for(std::size_t size=offset;size<fiveBytes.size();++size){auto b=fiveBytes;b.resize(size);fixIndependentEnvelope(b);rejects([&]{XeenSaveFormat::decode(b);});}
+  auto extraFive=fiveBytes;extraFive.push_back(0);fixIndependentEnvelope(extraFive);rejects([&]{XeenSaveFormat::decode(extraFive);});
 		std::cout << "Schema-3 exact layout, full coverage and malformed-wire controls passed\n";
 		return 0;
 	} catch(const std::exception &e) {std::cerr << e.what() << '\n';return 1;}

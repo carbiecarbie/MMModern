@@ -267,6 +267,19 @@ Historical limitations in those plans describe their recorded boundaries.
   completed physical native-SDL acceptance. See the
   [Milestone 33 plan](milestone-33-plan.md#final-acceptance).
 
+## M34 - Original disengagement and encounter lifecycle
+
+- Added individual Run and partial-party combat, guarded non-victory retirement,
+  original fixed relocation, casualty and cause-specific treasure consequences.
+- Preserved wounded survivors through return/re-engagement and exact 5/5 restart,
+  including dormant item reactivation without forfeited-gold or XP replay;
+  legacy Journey 1/1-4/4 retain their meanings.
+- Full build and 95/95 CTest, required original-resource/process witnesses and
+  exact cross-process continuation passed. Independent technical re-review
+  accepted the corrected immediate-reattachment presentation. Separately, the
+  maintainer completed all required physical native-SDL checks after correction
+  with no issues. See the [Milestone 34 plan](milestone-34-plan.md#final-acceptance).
+
 ## Maintaining this history
 
 Add one short section with 2-4 lasting-result bullets per completed milestone

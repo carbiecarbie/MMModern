@@ -261,7 +261,7 @@ bool XeenEncounterFlow::idle(std::optional<std::uint64_t> cycle) {
 }
 
 std::string XeenEncounterFlow::notice() const {
-	if(_journey && _world.sessionState().journeyContract()==4) return consequenceNotice();
+	if(_journey && xeenJourneyContent(_world.sessionState().journeyContract()).consequences()) return consequenceNotice();
 	if (_journey && _world.sessionState().journeyContract()>=3 && !_combat) {
 		std::string text="Regional Journey: Map 23 ("+std::to_string(_camera.x)+","+std::to_string(_camera.y)+") "+
 			std::string(1,"NESW"[unsigned(_camera.direction)])+" T="+std::to_string(_party.encounterContext->minutes)+"\n";
@@ -327,7 +327,7 @@ bool XeenEncounterFlow::terminal() const noexcept {
 	if (completed()) return true;
 	if (!_combat) return _state.phase() != XeenEncounterPhase::Exploring;
 	const auto p = _combat->phase();
-	return _failure || p == XeenCombatPhase::Victory || p == XeenCombatPhase::Defeat ||
+	return _failure || p == XeenCombatPhase::Disengaged || p == XeenCombatPhase::Victory || p == XeenCombatPhase::Defeat ||
 		p == XeenCombatPhase::SupportStopped || p == XeenCombatPhase::Failed;
 }
 void XeenEncounterFlow::scheduleCombat(std::uint64_t now) {
@@ -375,6 +375,7 @@ bool XeenEncounterFlow::observeCombat() noexcept {
 	const auto &r = _combat->result();
 	if (r.xpCount) _combatAward = r;
 	if (r.operation == XeenCombatOperation::PlayerAttack || r.operation == XeenCombatOperation::Block ||
+		r.operation == XeenCombatOperation::PlayerRun || r.operation == XeenCombatOperation::FinishDisengagement ||
 		r.operation == XeenCombatOperation::EnemyAttack) _combatObservation = r;
 	// Only a published attack starts an effect. Pending RNG prefixes, retained
 	// feedback, round work and redraws cannot restart it.
@@ -408,7 +409,7 @@ bool XeenEncounterFlow::handleCombat(const PlayerAction &input, std::optional<st
 	const auto movement = mapped(input);
 	const bool begin = phase == P::Preparation && std::holds_alternative<BeginEncounterAction>(input);
 	const bool command = phase == P::PlayerReady &&
-		(std::holds_alternative<AttackAction>(input) || std::holds_alternative<BlockAction>(input));
+		(std::holds_alternative<AttackAction>(input) || std::holds_alternative<BlockAction>(input) || std::holds_alternative<RunAction>(input));
 	const auto *target = phase == P::PlayerReady ? std::get_if<SelectCombatTargetAction>(&input) : nullptr;
 	if (!begin && !command && !target && !(phase == P::Approach && movement)) return false;
 	Busy busy(_busy);
@@ -425,7 +426,7 @@ bool XeenEncounterFlow::handleCombat(const PlayerAction &input, std::optional<st
 		if (!acceptCombatResult(_combat->selectTarget(*entry.combat,target->row))) return false;
 	} else if (command) {
 		if (!acceptCombatResult(_combat->command(*entry.combat,
-			std::holds_alternative<AttackAction>(input) ? XeenCombatCommand::Attack : XeenCombatCommand::Block))) return false;
+			std::holds_alternative<AttackAction>(input) ? XeenCombatCommand::Attack : std::holds_alternative<RunAction>(input) ? XeenCombatCommand::Run : XeenCombatCommand::Block))) return false;
 	}
 	else {
 		const auto action = _combat->approachAction(*entry.combat,*movement);

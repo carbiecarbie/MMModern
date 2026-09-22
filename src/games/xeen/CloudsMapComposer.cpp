@@ -77,7 +77,7 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 	}
 	if (world.sessionState().journey()) {
 		const auto &content = xeenJourneyContent(world.sessionState().journeyContract());
-		if(content.contract==4) { assets.validateProjectile(false);assets.validateProjectile(true); }
+		if(content.consequences()) { assets.validateProjectile(false);assets.validateProjectile(true); }
 		for (unsigned i=0;i<content.count;++i) {
 			const auto image = content.contract>=3 ? world.sessionState().actors().at(content.records[i]).statistics->image() : content.actor(content.records[i]).profileImage;
 			assets.validateNormalMonster(image);

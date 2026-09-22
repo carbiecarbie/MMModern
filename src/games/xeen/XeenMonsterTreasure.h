@@ -18,16 +18,19 @@ struct XeenMonsterTreasureItem {
 struct XeenMonsterTreasure {
 	std::uint32_t gold = 0, gems = 0, pendingMask = 0, pendingGold = 0;
 	std::array<XeenMonsterTreasureItem,10> weapons{}, armor{};
-	bool pending() const noexcept { return pendingMask != 0; }
+	bool ready() const noexcept { return pendingMask != 0; }
+	bool pending() const noexcept { return ready(); }
+	bool storedItems() const noexcept { return weapons[0].item.id || armor[0].item.id; }
+	bool dormant() const noexcept { return storedItems() && !ready(); }
 	friend bool operator==(const XeenMonsterTreasure &a, const XeenMonsterTreasure &b) noexcept {
 		return a.gold == b.gold && a.gems == b.gems && a.pendingMask == b.pendingMask &&
 			a.pendingGold == b.pendingGold && a.weapons == b.weapons && a.armor == b.armor;
 	}
 	friend bool operator!=(const XeenMonsterTreasure &a, const XeenMonsterTreasure &b) noexcept { return !(a == b); }
 };
-// Structural validation only; the caller separately binds pending sources to
+// Structural validation only; the caller separately binds gold AND item sources to
 // canonical world-owned defeated/accounted Orcs.
-void xeenValidateMonsterTreasure(const XeenMonsterTreasure &);
+void xeenValidateMonsterTreasure(const XeenMonsterTreasure &, std::uint16_t contract = 4);
 struct XeenConsequenceDraw;
 enum class XeenMonsterDropOutcome { None, Item, ReferenceMiscellaneousDropLoss, CategoryCapacityLoss };
 struct XeenMonsterDropCandidate {
@@ -35,7 +38,7 @@ struct XeenMonsterDropCandidate {
 	XeenMonsterDropOutcome outcome = XeenMonsterDropOutcome::None;
 	XeenMonsterTreasureItem generated;
 	bool armor = false;
-	XeenMonsterDropCandidate(const XeenMonsterTreasure &, unsigned source);
+	XeenMonsterDropCandidate(const XeenMonsterTreasure &, unsigned source, std::uint16_t contract = 4);
 	bool service(XeenConsequenceDraw &);
 private:
 	enum class Step { Drop, Category, Subcategory, Id, Enchantment, Special, Charges, Store, Done };
@@ -57,7 +60,8 @@ struct XeenMonsterDeliveryCandidate {
 	bool globallyFull = false;
 };
 XeenMonsterDeliveryCandidate xeenPrepareMonsterDelivery(const XeenMonsterTreasure &,
-	const std::array<XeenCharacter,6> &);
-XeenMonsterTreasure xeenPrepareMonsterGoldCredit(const XeenMonsterTreasure &);
+	const std::array<XeenCharacter,6> &, std::uint16_t contract = 4);
+XeenMonsterTreasure xeenPrepareMonsterGoldCredit(const XeenMonsterTreasure &, std::uint16_t contract = 4);
+XeenMonsterTreasure xeenPrepareMonsterGoldForfeiture(const XeenMonsterTreasure &, std::uint16_t contract);
 }
 #endif

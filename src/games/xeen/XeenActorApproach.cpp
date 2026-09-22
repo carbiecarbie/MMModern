@@ -312,7 +312,7 @@ XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenP
 	require(camera.mapId == policy.entry.mapId && camera.x == policy.entry.x && camera.y == policy.entry.y && camera.direction == policy.entry.direction &&
 		context.minutes == 480 && context.ctr24 == 0, "Journey requires fresh entry context");
 	XeenPartyState candidate(party);
-	require(bool(purse)==(contract==4),"Fresh consequence purse presence mismatch");
+	require(bool(purse)==(xeenJourneyContent(contract).consequences()),"Fresh consequence purse presence mismatch");
 	candidate.monsterTreasure=purse;
 	if (contract>=3) {
 		require(chr.size()==30*354 && context.year==610 && context.day==1 && !context.rested && !context.newDay &&
@@ -324,7 +324,7 @@ XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenP
 		}
 		require(swimming<6 && mountaineer<2 && navigator==0 && pathfinder<2,"Regional effective traversal prerequisites changed");
 	}
-	for (unsigned id = 0; id < 30; ++id) candidate.roster._combatInputs[id] = XeenCharacterFormat::parseCombatInputs(chr, id, contract>=2, contract==4);
+	for (unsigned id = 0; id < 30; ++id) candidate.roster._combatInputs[id] = XeenCharacterFormat::parseCombatInputs(chr, id, contract>=2, xeenJourneyContent(contract).consequences());
 	candidate.roster._combatMarked = true;
 	candidate.encounterContext = context;
 	if (contract>=2) {
@@ -625,7 +625,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		std::optional<XeenEncounterAction> action,std::unique_ptr<XeenRegionalActionCandidate> &work) {
 	auto &session=world._sessionState;XeenEncounterResult refused;
 	if(action && static_cast<unsigned>(*action)>5)return refused;
-	if(session.journeyContract()!=4 || !world._combatCheck || !world._combatAuthorized || !world._combatAuthorized() ||
+	if(!xeenJourneyContent(session.journeyContract()).consequences() || !world._combatCheck || !world._combatAuthorized || !world._combatAuthorized() ||
 		session._combatApproachState!=&state || session._journeyActivity!=XeenJourneyActivity::Approach ||
 		!authoritative(world,party,camera,state) || session._encounterTerminal || (work && action)) return refused;
 	const auto entry=state;
@@ -654,12 +654,12 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 					if(*action==XeenEncounterAction::Forward || *action==XeenEncounterAction::Backward) {
 						const unsigned d=unsigned(camera.direction)^(*action==XeenEncounterAction::Backward?2u:0u);
 						constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};const int x=camera.x+dx[d],y=camera.y+dy[d];
-						result=XeenMovement::localOutdoor(map,camera.x,camera.y,x,y,xeenJourneyContent(4).traversal);
+						result=XeenMovement::localOutdoor(map,camera.x,camera.y,x,y,xeenJourneyContent(session.journeyContract()).traversal);
 						if(result==XeenMovementResult::Moved) { c.camera.x=x;c.camera.y=y; }
 					} else result=XeenMovement().apply(world,c.camera,*action==XeenEncounterAction::Left?NavigationAction::TurnLeft:NavigationAction::TurnRight);
 					charge=result==XeenMovementResult::Moved;stepTime=charge || result==XeenMovementResult::Turned;
 					if(!stepTime) c.result.outcome=XeenEncounterOutcome::Blocked;
-					const auto component=XeenMovement::component(map,9,11,xeenJourneyContent(4).traversal);
+					const auto component=XeenMovement::component(map,9,11,xeenJourneyContent(session.journeyContract()).traversal);
 					if(c.camera.mapId!=XeenMapIdentity(23) || c.camera.x<0 || c.camera.x>=16 || c.camera.y<0 || c.camera.y>=16 || !component[c.camera.y*16+c.camera.x]) { refused.reason=XeenEncounterStop::Envelope;return refused; }
 					if(hasAutomaticTrigger(map.geometry,c.camera.x,c.camera.y)) {
 						const auto event=xeenRegionalEvent(events,c.camera);
@@ -691,7 +691,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 			if(!living) c.remaining=0;
 		}
 		while(c.remaining) {
-			if(!c.opportunity) c.opportunity.emplace(map,c.actors,c.camera,c.characters,c.inputs,c.context.year);
+			if(!c.opportunity) c.opportunity.emplace(map,c.actors,c.camera,c.characters,c.inputs,c.context.year,0x3f);
 			if(!c.opportunity->service(draw)) return pending();
 			for(unsigned i=0;i<c.opportunity->shotCount;++i) c.shots.at(c.shotCount++)=c.opportunity->shots[i];
 			c.actors.swap(c.opportunity->actors);c.characters.swap(c.opportunity->characters);c.opportunity.reset();
@@ -702,7 +702,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		const bool engaged=living && c.classify && c.result.view.engaged();
 		if(engaged) c.result.outcome=XeenEncounterOutcome::Engaged;
 		if(!living) { c.result.outcome=XeenEncounterOutcome::Stopped;c.result.reason=XeenEncounterStop::Defeat;c.pending=0; }
-		validateEnvironment(world,c.actors,events,4);
+		validateEnvironment(world,c.actors,events,session.journeyContract());
 		auto observation=std::make_shared<XeenRegionalObservation>();observation->shots=c.shots;observation->count=c.shotCount;observation->after=c.characters;
 		c.result.consequences=std::move(observation);check();
 		c.result.revision=entry._revision+1;

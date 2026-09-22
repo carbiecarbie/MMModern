@@ -174,4 +174,158 @@ void playerRayControls(Source &s) {
   check(xeenPlayerRayRows(map,camera)==distance+1,"Edge terminates before wrap or fourth forward step");}
  std::cout<<"REVIEW production blocked rows1/2/3 and map edge; ARTIFICIAL pure ray192 middle/direction/row and12 edge controls PASS\n";
 }
-void reviewControls(Source &s){playerRayControls(s);refusedPendingShoot(s);chargedWait(s);poisonInitiative(s);terminalNotices(s);zeroHitVolley(s);}
+// M34 fixtures below deliberately alter saved representations for rare authority
+// boundaries. They never stand in for the genuine production Run witnesses.
+XeenSaveSnapshot runAuthorityFixture(Source &s,bool occupied=false) {
+ Domain initial(s);auto saved=initial.save();saved.journey->schema=saved.journey->contract=5;
+ for(unsigned slot=0;slot<6;++slot) {
+  const auto id=kXeenCombatOwners[slot];saved.journey->supplements[id].inputs.speed={slot?1:255,0};
+  if(slot) {saved.characters[id].currentHp=0;saved.characters[id].conditions[12]=1;}
+ }
+ saved.characters[kXeenCombatOwners[2]].conditions[13]=7;
+ auto &a=saved.journey->actors[9];a.x=occupied?10:8;a.y=occupied?12:11;a.hp=16;a.activated=true;
+ if(occupied)saved.camera={23,10,11,XeenDirection::North};
+ auto &dead=saved.journey->actors[3];dead.x=dead.y=-128;dead.hp=0;dead.activated=false;dead.lifecycle=XeenActorLifecycle::Defeated;dead.accounted=true;
+ auto &treasure=*saved.journey->treasure;treasure.pendingMask=8;treasure.pendingGold=10;treasure.armor[0]={3,{0,2,0,0}};
+ return saved;
+}
+XeenCombat &runAuthorityReady(Domain &d,bool *automatic=nullptr) {
+ const auto movement=d.flow->journeyAction(d.flow->ticket(),XeenEncounterAction::Forward);
+ if(automatic)*automatic=movement.automaticEvent;
+ if(d.flow->state().phase()==XeenEncounterPhase::Exploring)d.flow->journeyPulse(d.flow->ticket());
+ check(d.flow->attachJourney(d.flow->ticket(),[]{}),"Artificial Run authority attachment");
+ auto &c=*d.flow->combat();unsigned n=0;
+ while(c.phase()!=XeenCombatPhase::PlayerReady){check(++n<30,"Run authority fixture reaches ready");const auto r=c.service(c.ticket());check(r.status!=XeenCombatStatus::Failed,"Run authority fixture preparation");}
+ check(c.participant()==0,"Artificial sole awake fast owner acts first");return c;
+}
+XeenSaveSnapshot runAuthorityValues(const Domain &d,const XeenSaveSnapshot &base) {
+ auto value=base;value.camera=d.camera;value.characters=d.party.roster.characters();
+ value.journey->context=d.party.encounterContext;value.journey->treasure=d.party.monsterTreasure;value.journey->random=d.world.sessionState().journeyRandom();
+ for(unsigned i=0;i<30;++i)value.journey->supplements[i].inputs=*d.party.roster.combatInputs(i);
+ for(unsigned i=0;i<19;++i){const auto &a=d.world.sessionState().actors()[i];auto &b=value.journey->actors[i];b.x=a.x;b.y=a.y;b.hp=a.hp;b.activated=a.activated;b.lifecycle=a.lifecycle;b.status=a.status;}
+ return value;
+}
+XeenCombatResult runAuthorityPublish(XeenCombat &c) {
+ const auto accepted=c.command(c.ticket(),XeenCombatCommand::Run);
+ if(accepted.status==XeenCombatStatus::Failed)return accepted;
+ check(accepted.status==XeenCombatStatus::Pending,"Run intent has no immediate publication");
+ tape={{1,100,1}};cursor=0;taped=true;const auto result=c.service(c.ticket());taped=false;
+ return result;
+}
+void runNoticeFits(Source &s,const std::string &notice) {
+ const XeenFontFormat font(s.assets.readArchiveResource("fnt"));
+ IndexedFrame base(320,200,std::vector<std::uint8_t>(320*200));
+ const auto split=notice.find("\n\n");check(split!=std::string::npos,"Consequence notice retains explicit roster boundary");
+ XeenTextRenderOptions options;options.bounds={3,107,229,200};options.windowBounds={1,105,231,200};options.x=3;options.y=107;
+ options.size=XeenFontSize::Reduced;options.paginate=true;options.drawWindow=true;
+ auto rendered=XeenTextRenderer(font).render(base,notice.substr(0,split),options);
+ if(rendered.pages.size()!=1)throw std::runtime_error("M34 original-font notice overflow: "+notice.substr(0,split));
+ options.bounds={235,3,318,198};options.windowBounds={233,1,320,200};options.x=235;options.y=3;
+ rendered=XeenTextRenderer(font).render(rendered.pages.front(),notice.substr(split+2),options);
+ if(rendered.pages.size()!=1)throw std::runtime_error("M34 original-font roster overflow: "+notice.substr(split+2));
+}
+void runSignSupersession(Source &s) {
+ auto setup=runAuthorityFixture(s);setup.camera={23,5,8,XeenDirection::North};
+ for(auto &a:setup.journey->actors)if(a.lifecycle==XeenActorLifecycle::Present)a.activated=true;
+ setup.journey->actors[9].x=5;setup.journey->actors[9].y=9;
+ Domain d(s,setup);bool automatic=false;auto &c=runAuthorityReady(d,&automatic);
+ check(automatic,"Original sign contact retains automatic dispatch obligation");
+ runAuthorityPublish(c);const auto finish=c.service(c.ticket());
+ check(finish.phase==XeenCombatPhase::Disengaged && finish.originAutomaticSuperseded && finish.origin &&
+  finish.origin->x==5 && finish.origin->y==9 && finish.origin->direction==XeenDirection::North,"Finish explicitly supersedes original sign address");
+ check(d.flow->retireJourney(d.flow->ticket()),"Sign-origin escape retires");d.present();
+ check(d.flow->canSave() && d.world.sessionState().journeyActivity()!=XeenJourneyActivity::Event,"Old sign obligation cannot dispatch at relocated destination");
+ check(d.flow->journeyAction(d.flow->ticket(),XeenEncounterAction::Right).outcome==XeenEncounterOutcome::Accepted,"Fresh navigation is responsive after sign supersession");d.present();
+ std::cout<<"ARTIFICIAL original sign contact -> Run -> explicit origin-address supersession -> fresh navigation PASS\n";
+}
+void runAuthorityControls(Source &s) {
+ const auto fixture=runAuthorityFixture(s);
+ {
+  // Original decoded EVT is immutable once attached. Corrupt a detached source
+  // before restore: the manifest must reject the new destination event before
+  // any candidate owner can be published.
+  const auto events=s.evt;s.evt.records.at(56).x=10;s.evt.records.at(56).y=12;
+  bool refused=false;try{Domain rejected(s,fixture);}catch(const std::exception &){refused=true;}s.evt=events;
+  check(refused,"Changed original destination EVT rejects unpublished restoration");
+ }
+ unsigned probes=0;
+ {Domain d(s,fixture);auto &c=runAuthorityReady(d);c.setProbe([&]{++probes;});const auto result=runAuthorityPublish(c);
+  check(result.status==XeenCombatStatus::Advanced && result.runSuccess && c.participants()==0x3e && c.pending()==XeenCombatWork::FinishDisengagement,"Sole runner exhausts transient participation");}
+ check(probes>=3,"Run has observable prepublication probes");
+ for(unsigned failAt=1;failAt<=probes;++failAt) {
+  Domain d(s,fixture);auto &c=runAuthorityReady(d);const auto before=runAuthorityValues(d,fixture);unsigned count=0;
+  c.setProbe([&]{if(++count==failAt)throw std::bad_alloc();});const auto result=runAuthorityPublish(c);
+  check(count==failAt && result.status==XeenCombatStatus::Failed && c.participants()==0x3f,"Every Run probe fails before mask/RNG publication");sameLive(d,before);
+  check(c.service(c.ticket()).status==XeenCombatStatus::Refused && !d.flow->canSave(),"Failed Run cannot replay or save");
+ }
+ for(unsigned facing=0;facing<4;++facing) {
+  auto setup=fixture;setup.camera.direction=static_cast<XeenDirection>(facing);
+  for(auto &a:setup.journey->actors)if(a.lifecycle==XeenActorLifecycle::Present)a.activated=true;
+  setup.characters[0].currentHp=1000;
+  constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};
+  setup.journey->actors[9].x=setup.camera.x+dx[facing];setup.journey->actors[9].y=setup.camera.y+dy[facing];
+  Domain d(s,setup);auto &c=runAuthorityReady(d);runAuthorityPublish(c);const auto finish=c.service(c.ticket());
+  check(finish.phase==XeenCombatPhase::Disengaged && finish.destination && finish.destination->x==10 && finish.destination->y==12 &&
+   finish.destination->direction==static_cast<XeenDirection>(facing) && d.camera.direction==setup.camera.direction,"All four facings survive original fixed relocation");
+ }
+ unsigned finishProbes=0;
+ {Domain d(s,fixture);auto &c=runAuthorityReady(d);runAuthorityPublish(c);c.setProbe([&]{++finishProbes;});check(c.service(c.ticket()).status==XeenCombatStatus::Advanced,"Finish probe census");}
+ check(finishProbes>=2,"Finish preparation probes observed");
+ for(unsigned failAt=1;failAt<=finishProbes;++failAt) {
+  Domain d(s,fixture);auto &c=runAuthorityReady(d);runAuthorityPublish(c);const auto before=runAuthorityValues(d,fixture);unsigned count=0;
+  c.setProbe([&]{if(++count==failAt)throw std::bad_alloc();});check(c.service(c.ticket()).status==XeenCombatStatus::Failed,"Every finish probe fails closed");
+  sameLive(d,before);check(d.camera.x==before.camera.x && d.camera.y==before.camera.y && c.participants()==0x3e && !d.flow->canSave(),"Failed finish retains published escape without relocation/refund");
+ }
+ for(unsigned phase=0;phase<2;++phase) {
+  Domain d(s,fixture);auto &c=runAuthorityReady(d);if(phase)runAuthorityPublish(c);
+  unsigned calls=0;c.setProbe([&]{++calls;check(c.service(c.ticket()).status==XeenCombatStatus::Refused,"Reentrant service cannot publish Run/finish");check(c.command(c.ticket(),XeenCombatCommand::Run).status==XeenCombatStatus::Refused,"Reentrant Run cannot consume another member");});
+  const auto result=phase?c.service(c.ticket()):runAuthorityPublish(c);
+  check(result.status==XeenCombatStatus::Advanced && calls>=2,"Outer publication survives refused reentrance");
+ }
+ for(unsigned field=0;field<5;++field) {
+  Domain d(s,fixture);auto &c=runAuthorityReady(d);runAuthorityPublish(c);const auto before=runAuthorityValues(d,fixture);
+  auto &g=const_cast<XeenMap &>(d.world.map(23)).geometry;const auto originalGeometry=g;
+  if(field==0)g.runX^=1;if(field==1)g.difficulties[7]^=1;if(field==2)g.cells[12*16+10].rawAttributes^=1;
+  if(field==3)d.world.discardMapCache();if(field==4)g.id=24;
+  const auto result=c.service(c.ticket());
+  if(field!=3){check(result.status==XeenCombatStatus::Failed && !d.flow->canSave(),"Changed Run metadata/destination/identity latches failure");sameLive(d,before);
+   g=originalGeometry;check(c.service(c.ticket()).status==XeenCombatStatus::Refused && !d.flow->canSave(),"Restored equal resource bytes cannot revive failed finish");}
+  else check(result.status==XeenCombatStatus::Advanced && c.phase()==XeenCombatPhase::Disengaged,"Unchanged cache reconstruction preserves finish authority");
+ }
+ {
+  Domain d(s,fixture);auto &c=runAuthorityReady(d);runAuthorityPublish(c);c.service(c.ticket());const auto after=runAuthorityValues(d,fixture);
+  auto &map=const_cast<XeenMap &>(d.world.map(23));const auto originalMap=map;map.geometry.runY^=1;
+  bool retired=false;try{retired=d.flow->retireJourney(d.flow->ticket());}catch(const std::exception &){}
+  check(!retired,"Changed retained map refuses retirement resource renewal");map=originalMap;
+  try{retired=d.flow->retireJourney(d.flow->ticket());}catch(const std::exception &){}
+  check(!retired && !d.flow->canSave(),"Retirement resource ABA cannot renew a failed guard");sameLive(d,after);
+ }
+ for(bool occupied:{false,true}) {
+  const auto setup=runAuthorityFixture(s,occupied);Domain d(s,setup);auto &c=runAuthorityReady(d);
+  const auto old=c.ticket();runAuthorityPublish(c);const auto before=runAuthorityValues(d,setup);
+  check(c.service(old).status==XeenCombatStatus::Stale,"Stale pre-Run service cannot finish");sameLive(d,before);
+  const auto result=c.service(c.ticket());check(result.status==XeenCombatStatus::Advanced && c.phase()==XeenCombatPhase::Disengaged,"Successful nonvictory finish");
+  check(result.forfeitedGold==10 && d.party.monsterTreasure->dormant() && d.party.roster.at(kXeenCombatOwners[2]).conditions[13]==7,"Finish retains dormant items and prior Dead counter");
+  check(d.camera.x==10 && d.camera.y==12 && d.camera.direction==setup.camera.direction,"Fixed destination preserves facing");
+  const auto after=runAuthorityValues(d,setup);c.preparePresentation(c.ticket(),[]{});
+  bool failed=false;try{c.preparePresentation(c.ticket(),[]{throw std::bad_alloc();});}catch(const std::bad_alloc &){failed=true;}
+  check(failed,"Post-finish resource presentation failure injected");sameLive(d,after);
+  c.preparePresentation(c.ticket(),[]{});check(d.flow->retireJourney(d.flow->ticket()),"Successful finish retires through Flow");
+  check(!d.flow->combat() && !d.flow->canSave(),"Retirement has no intermediate saveable frame");
+  auto notice=d.flow->notice();runNoticeFits(s,notice);
+  if(!occupied){
+   d.present();check(d.flow->handle(ShootAction{}),"Fresh no-missile Shoot produces readable refusal");
+   check(!d.flow->journeyRefusal().empty(),"Quiet post-finish refusal is observable");
+   runNoticeFits(s,d.flow->notice());
+   d.flow->holdJourneyFrame();d.present();
+   check(d.flow->journeyAction(d.flow->ticket(),XeenEncounterAction::Right).outcome==XeenEncounterOutcome::Accepted,"Fresh action supersedes finish notice");
+   runNoticeFits(s,d.flow->notice());check(d.flow->notice().find("Disengaged;")==std::string::npos,"Consumed finish notice does not stack with new action feedback");
+   check(d.flow->journeyInspection().find("Disengaged cause=")!=std::string::npos,"Read-only inspection retains full finish observation after its notice expires");
+  }
+
+  if(occupied){check(d.world.sessionState().journeyActivity()==XeenJourneyActivity::Attachment && d.flow->state().phase()==XeenEncounterPhase::Engaged,"Occupied same-origin destination requires immediate attachment");
+   check(d.flow->attachJourney(d.flow->ticket(),[]{}),"New occupied-destination incarnation attaches");check(d.flow->combat()->participants()==0x3f && d.world.sessionState().actors()[9].hp==16,"New incarnation reintegrates owners without regenerating survivor");}
+ }
+ std::cout<<"ARTIFICIAL M34 Run/finish probe failures, reentrance, stale tickets, metadata/cache and occupied retirement controls PASS\n";
+}
+void reviewControls(Source &s){runSignSupersession(s);runAuthorityControls(s);playerRayControls(s);refusedPendingShoot(s);chargedWait(s);poisonInitiative(s);terminalNotices(s);zeroHitVolley(s);}

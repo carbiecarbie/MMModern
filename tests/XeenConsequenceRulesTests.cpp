@@ -1,5 +1,6 @@
 #include "games/xeen/XeenCombatRules.h"
 #include "games/xeen/XeenRegionalRules.h"
+#include "games/xeen/XeenJourneyProgression.h"
 #include "games/xeen/XeenCharacterRules.h"
 #include "formats/xeen/XeenCharacterFormat.h"
 #include <iostream>
@@ -31,32 +32,109 @@ void physical() {
 	auto c=characters();auto i=inputs();
 	c[0].characterClass=XeenCharacterClass::Paladin;
 	XeenCombatRandom miss(std::vector<XeenCombatRandom::Draw>{{0,5,1},{1,20,1}});
-	XeenEnemyAttackCandidate noPreference(c,i,profile(),610);finish(noPreference,miss,1);
+	XeenEnemyAttackCandidate noPreference(c,i,profile(),610,0x3f);finish(noPreference,miss,1);
 	check(noPreference.result.targetOwner==c[1].rosterId && noPreference.result.injuryCount==0 && miss.position()==2,"Hates one is random and natural one ends the attack");
 	c[0].characterClass=XeenCharacterClass::Cleric;c[0].conditions[8]=1;
 	XeenCombatRandom asleep(std::vector<XeenCombatRandom::Draw>{{1,10,4}});
-	XeenEnemyAttackCandidate preferred(c,i,profile(3),610);finish(preferred,asleep,1);
+	XeenEnemyAttackCandidate preferred(c,i,profile(3),610,0x3f);finish(preferred,asleep,1);
 	check(preferred.characters[0].currentHp==46 && !preferred.characters[0].conditions[8] && asleep.position()==1,"Sleeping Cleric remains preferred and skips hit draws");
 	for (auto &owner:c) owner.conditions[8]=1;
 	c[5].conditions[13]=1;
 	std::vector<XeenCombatRandom::Draw> tape;
 	for (unsigned n=0;n<6;++n) { tape.push_back({1,10,2});tape.push_back({1,25,25}); }
-	XeenCombatRandom partyTape(tape);XeenEnemyAttackCandidate all(c,i,profile(16,9),610);finish(all,partyTape,1);
+	XeenCombatRandom partyTape(tape);XeenEnemyAttackCandidate all(c,i,profile(16,9),610,0x3f);finish(all,partyTape,1);
 	check(all.result.injuryCount==6 && partyTape.position()==12,"Hates party includes dead targets without selection draws");
 	for (const auto &owner:all.characters) check(owner.currentHp==48 && owner.conditions[8]==1,"Wake precedes Sleep reapplication");
 	c=characters();c[0].characterClass=XeenCharacterClass::Cleric;
 	// Noncritical total 15 reaches ordinary AC(2)+10 but not blocked AC+16.
 	std::array<bool,6> blocked{};blocked[0]=true;
 	XeenCombatRandom blockTape(std::vector<XeenCombatRandom::Draw>{{1,20,10},{1,5,4}});
-	XeenEnemyAttackCandidate block(c,i,profile(3),610,blocked);finish(block,blockTape);
+	XeenEnemyAttackCandidate block(c,i,profile(3),610,0x3f,blocked);finish(block,blockTape);
 	check(block.result.injuryCount==0,"Block threshold");
 	XeenCombatRandom ordinaryTape(std::vector<XeenCombatRandom::Draw>{{1,20,10},{1,5,4},{1,10,3}});
-	XeenEnemyAttackCandidate ordinary(c,i,profile(3),610);finish(ordinary,ordinaryTape);
+	XeenEnemyAttackCandidate ordinary(c,i,profile(3),610,0x3f);finish(ordinary,ordinaryTape);
 	check(ordinary.characters[0].currentHp==47,"Ordinary threshold");
 	c[0].conditions[3]=255;c[0].conditions[8]=1;
 	XeenCombatRandom overflowTape(std::vector<XeenCombatRandom::Draw>{{1,10,1},{1,25,25}});
-	XeenEnemyAttackCandidate overflow(c,i,profile(3,5),610);rejects([&] { finish(overflow,overflowTape); });
+	XeenEnemyAttackCandidate overflow(c,i,profile(3,5),610,0x3f);rejects([&] { finish(overflow,overflowTape); });
 	check(c[0].currentHp==50 && c[0].conditions[3]==255,"Pure overflow does not mutate source");
+}
+void runAndParticipation() {
+ // Artificial signed-threshold and every six-owner subset controls.
+ for (int threshold:{-128,0,1,2,99,100,101,127}) for (unsigned roll=1;roll<=100;++roll) {
+  XeenCombatRandom rng(std::vector<XeenCombatRandom::Draw>{{1,100,roll}});
+  XeenRunCandidate run(threshold);finish(run,rng,1);
+  check(run.roll==roll && run.success==(int(roll)<threshold) && rng.position()==1,"Run signed threshold and exact inclusive draw");
+  finish(run,rng,1);check(rng.position()==1,"Completed Run does not redraw");
+ }
+ rejects([]{XeenRunCandidate invalid(-129);});rejects([]{XeenRunCandidate invalid(128);});
+ std::vector<XeenCombatRandom::Draw> rejected(64,{1,100,0,true});rejected.push_back({1,100,99});
+ XeenCombatRandom rng(rejected);XeenRunCandidate run(100);XeenConsequenceDraw first{rng};
+ check(!run.service(first) && !run.roll && rng.position()==64,"Run yields exactly at raw budget");
+ finish(run,rng,1);check(run.success && rng.position()==65,"Run resumes rejected conversion prefix");
+ XeenCombatRandom stale(std::vector<XeenCombatRandom::Draw>{{1,100,1}});XeenRunCandidate unpublished(100);
+ XeenConsequenceDraw checked{stale,64,[]{throw std::runtime_error("stale artificial authority");}};
+ rejects([&]{unpublished.service(checked);});check(!unpublished.roll && !unpublished.success,"Authority refusal leaves Run observation unpublished");
+ XeenCombatRandom overflow(XeenJourneyRandomState{1,3,std::numeric_limits<std::uint64_t>::max()});XeenRunCandidate exhausted(100);
+ rejects([&]{finish(exhausted,overflow);});check(!exhausted.roll && overflow.position()==std::numeric_limits<std::uint64_t>::max(),"Run cursor overflow publishes nothing");
+ const auto in=inputs();
+ for (unsigned mask=0;mask<64;++mask) {
+  auto c=characters();std::vector<unsigned> slots;std::vector<XeenCombatRandom::Draw> tape;
+  for (unsigned owner=0;owner<6;++owner) { c[owner].conditions[8]=1;if(mask&(1u<<owner)){slots.push_back(owner);tape.push_back({1,10,2});} }
+  c[5].conditions[13]=1;
+  XeenCombatRandom allTape(tape);XeenEnemyAttackCandidate all(c,in,profile(16),610,mask);finish(all,allTape,1);
+  check(all.result.injuryCount==slots.size() && all.result.targetedMembers==mask && allTape.position()==slots.size(),"All-party visits only participants including dead in fixed order");
+  for(unsigned owner=0;owner<6;++owner) check(all.characters[owner].currentHp==((mask&(1u<<owner))?48:50) && all.characters[owner].conditions[8]==((mask&(1u<<owner))?0:1),"Escaped HP and Sleep bytes are untouched");
+  for(unsigned n=0;n<slots.size();++n)check(all.result.injuries[n].owner==c[slots[n]].rosterId,"Participant injuries retain stable owner order");
+  if(slots.empty()) {check(all.result.attackOutcome==XeenCombatAttackOutcome::NoParticipants,"Explicit no-participants result");continue;}
+  c=characters();for(auto &owner:c)owner.conditions[13]=1;
+  XeenCombatRandom noTarget(std::vector<XeenCombatRandom::Draw>{{0,unsigned(slots.size()-1),0}});
+  XeenEnemyAttackCandidate dead(c,in,profile(),610,mask);finish(dead,noTarget,1);
+  check(noTarget.position()==1 && !dead.result.targetOwner && !dead.result.injuryCount,"Nonempty exhausted participants retain initial random draw only");
+  c[slots.back()].conditions[13]=0;
+  std::vector<XeenCombatRandom::Draw> fallback{{0,unsigned(slots.size()-1),0}};
+  if(slots.size()>1)fallback.push_back({0,0,0});fallback.push_back({1,20,1});
+  XeenCombatRandom targetTape(fallback);XeenEnemyAttackCandidate target(c,in,profile(),610,mask);finish(target,targetTape,1);
+  check(target.result.targetOwner==c[slots.back()].rosterId && targetTape.position()==fallback.size(),"Ordered masked fallback retains singleton draw");
+  c=characters();for(auto &owner:c)owner.characterClass=XeenCharacterClass::Cleric;
+  XeenCombatRandom preference(std::vector<XeenCombatRandom::Draw>{{1,20,1}});
+  XeenEnemyAttackCandidate cleric(c,in,profile(3),610,mask);finish(cleric,preference,1);
+  check(cleric.result.targetOwner==c[slots.front()].rosterId && preference.position()==1,"Preferred class excludes escaped owners");
+ }
+ auto c=characters();rejects([&]{XeenEnemyAttackCandidate invalid(c,in,profile(),610,64);});
+ XeenCombatRandom none(std::vector<XeenCombatRandom::Draw>{});XeenEnemyAttackCandidate empty(c,in,profile(),610,0);finish(empty,none);
+ check(empty.result.attackOutcome==XeenCombatAttackOutcome::NoParticipants && none.position()==0,"Empty random-target view never draws an invalid interval");
+ XeenActor actor;actor.id={23,9};actor.hp=25;actor.lifecycle=XeenActorLifecycle::Present;actor.statistics=profile();actor.statistics->raw[16]=61;
+ for(unsigned mask=1;mask<64;++mask){
+  std::array<const XeenCharacter *,6> owners{};auto xpInputs=in;unsigned count=0;
+  for(unsigned n=0;n<6;++n){owners[n]=&c[n];xpInputs[n].experience=100+n;if(mask&(1u<<n))++count;}
+  const auto lethal=xeenPrepareJourneyLethal(actor,owners,xpInputs,{},mask);
+  for(unsigned n=0;n<6;++n)check(lethal.experience[n]==100+n+((mask&(1u<<n))?(actor.statistics->experience()/count)*2:0),"XP divides only among participants and preserves excluded supplements");
+  rejects([&]{xeenPrepareJourneyLethal(actor,owners,xpInputs,{},0);});
+ }
+ // The eligibility domains intentionally differ: Sleep is targetable but not
+ // actionable, and Unconscious still participates in XP division.
+ for (int condition:{-1,3,4,8,12,13}) {
+  c=characters();if(condition>=0)c[1].conditions[condition]=2;
+  const bool targetable=condition!=12 && condition!=13;
+  check(xeenCombatTargetable(c[1])==targetable,"Continuing-life predicate differs from action eligibility");
+  std::array<const XeenCharacter *,6> owners{};auto xpInputs=in;
+  for(unsigned n=0;n<6;++n){owners[n]=&c[n];xpInputs[n].experience=100;}
+  const auto kill=xeenPrepareJourneyLethal(actor,owners,xpInputs,{},3);
+  check(kill.experience[0]==(condition==13?222u:160u) && kill.experience[1]==(condition==13?100u:160u),"XP includes Sleep and Unconscious, excludes Dead");
+  check(kill.experience[2]==100,"Excluded XP owner retained");
+ }
+ c=characters();c[1].conditions[3]=2;c[1].conditions[4]=3;c[1].conditions[8]=4;c[1].conditions[12]=5;
+ std::array<const XeenCharacter *,6> owners{};auto xpInputs=in;
+ for(unsigned n=0;n<6;++n){owners[n]=&c[n];xpInputs[n].experience=100;}
+ xpInputs[5].experience=std::numeric_limits<std::uint32_t>::max();
+ const auto exact=c[1];const auto kill=xeenPrepareJourneyLethal(actor,owners,xpInputs,{},3);
+ check(kill.experience[0]==160 && kill.experience[1]==160 && kill.experience[5]==xpInputs[5].experience && c[1].conditions==exact.conditions,"Simultaneous conditions preserve XP domain; escaped maximum XP cannot overflow");
+ xpInputs[1].experience=std::numeric_limits<std::uint32_t>::max();
+ rejects([&]{xeenPrepareJourneyLethal(actor,owners,xpInputs,{},3);});
+ c[1].conditions[13]=7;const auto dead=xeenPrepareJourneyLethal(actor,owners,xpInputs,{},3);
+ check(dead.experience[1]==xpInputs[1].experience && c[1].conditions[13]==7,"Dead participant's XP and exact death counter survive lethal publication");
+
 }
 void shootAndLoot() {
 	auto c=characters();auto i=inputs();c[0].weapons[0]={0,30,0,4};i[0].accuracy={18,0};
@@ -82,11 +160,11 @@ void additionalTapes() {
  auto c=characters();auto i=inputs();
  for(auto &v:c)v.conditions[13]=1;c[2].conditions[13]=0;
  XeenCombatRandom fallback(std::vector<XeenCombatRandom::Draw>{{0,5,0},{0,0,0},{1,20,1}});
- XeenEnemyAttackCandidate single(c,i,profile(),610);finish(single,fallback,1);
+ XeenEnemyAttackCandidate single(c,i,profile(),610,0x3f);finish(single,fallback,1);
  check(single.result.targetOwner==c[2].rosterId && fallback.position()==3,"One surviving fallback still draws [0,0]");
  c=characters();c[0].characterClass=XeenCharacterClass::Cleric;
  XeenCombatRandom critical(std::vector<XeenCombatRandom::Draw>{{1,20,20},{1,10,1},{1,25,25},{1,5,1},{1,10,1},{1,25,5}});
- XeenEnemyAttackCandidate poison(c,i,profile(3,5),610);finish(poison,critical,1);
+ XeenEnemyAttackCandidate poison(c,i,profile(3,5),610,0x3f);finish(poison,critical,1);
  check(poison.result.injuryCount==2 && poison.characters[0].conditions[3]==1 && poison.characters[0].currentHp==48 && critical.position()==6,"Critical first injury then parameter, equality saves second Poison");
  check(poison.result.injuries[0].beforeAc==2 && poison.result.injuries[0].afterAc==1 && poison.result.injuries[1].beforeAc==1,"Poison injury observation retains pre-special AC and next-application AC");
  for(unsigned id=30;id<=33;++id){
@@ -138,7 +216,7 @@ void missileClassAndZeroDamage() {
 void rejectionBudgets() {
  auto c=characters();auto in=inputs();c[0].characterClass=XeenCharacterClass::Cleric;
  std::vector<XeenCombatRandom::Draw> tape(64,{1,20,0,true});tape.push_back({1,20,1});
- XeenCombatRandom random(tape);XeenEnemyAttackCandidate attack(c,in,profile(3),610);XeenConsequenceDraw draw{random,64,{}};
+ XeenCombatRandom random(tape);XeenEnemyAttackCandidate attack(c,in,profile(3),610,0x3f);XeenConsequenceDraw draw{random,64,{}};
  check(!attack.service(draw) && random.position()==64 && c[0].currentHp==50,"64 rejected raw conversions yield unpublished");finish(attack,random,1);check(random.position()==65 && attack.result.injuryCount==0,"Rejected continuation consumes exact next raw draw");
  c[0].weapons[0]={0,30,0,4};tape={{1,2,1},{1,2,1},{1,2,1}};for(unsigned n=0;n<70;++n)tape.push_back({1,20,20});tape.push_back({1,20,1});tape.push_back({1,56,56});
  XeenCombatRandom exploding(tape);XeenPhysicalPlayerCandidate shot(c[0],in[0],profile(),6,610,true);XeenConsequenceDraw first{exploding,64,{}};
@@ -180,7 +258,7 @@ void rangedOpportunity() {
 	auto c=characters();c[0].conditions[12]=1;c[0].currentHp=0;
 	for (unsigned n=1;n<6;++n) c[n].currentHp=30000;
 	const auto i=inputs();
-	XeenRegionalOpportunityCandidate opportunity(map,actors,camera,c,i,610);
+	XeenRegionalOpportunityCandidate opportunity(map,actors,camera,c,i,610,0x3f);
 	check(opportunity.shotCount==12,"Every activated Orc queues once before moving, including joining sources");
 	std::vector<XeenCombatRandom::Draw> tape;
 	for (unsigned n=0;n<12;++n) {
@@ -193,6 +271,37 @@ void rangedOpportunity() {
 	XeenConsequenceDraw next{rng};check(opportunity.service(next) && rng.position()==72,"Retained opportunity resumes without repeated draws");
 	check(opportunity.characters[1].currentHp==29976,"All twenty-four critical damage applications retained");
 	for (unsigned n=0;n<12;++n) check(opportunity.shots[n].attack.injuryCount==2,"No shot observation is truncated");
+ XeenRegionalOpportunityCandidate escaped(map,actors,camera,c,i,610,0);
+ XeenCombatRandom empty(std::vector<XeenCombatRandom::Draw>{});finish(escaped,empty,1);
+ check(escaped.shotCount==12 && empty.position()==0,"Empty participant view retains all owed shot bookkeeping without target draws");
+ for(unsigned n=0;n<12;++n)check(escaped.shots[n].source==opportunity.shots[n].source && escaped.shots[n].attack.attackOutcome==XeenCombatAttackOutcome::NoParticipants && !escaped.shots[n].attack.injuryCount,"Every owed empty-view shot retains source and explicit no-participant observation");
+ XeenRegionalOpportunityCandidate singleton(map,actors,camera,c,i,610,1u<<5);
+ std::vector<XeenCombatRandom::Draw> singles;
+ for(unsigned n=0;n<12;++n){singles.push_back({0,0,0});singles.push_back({1,20,1});}
+ XeenCombatRandom singleTape(singles);finish(singleton,singleTape,1);
+ for(unsigned n=0;n<12;++n)check(singleton.shots[n].attack.targetOwner==c[5].rosterId,"Every owed shot targets the remaining stable owner");
+}
+void dormantTreasure() {
+ // Artificial semantic fixture: no production witness or actor accounting claim.
+ XeenMonsterTreasure ready;ready.gold=800;ready.gems=10;ready.pendingMask=1;ready.pendingGold=10;
+ ready.weapons[0]={0,{0,30,0,0}};
+ const auto dormant=xeenPrepareMonsterGoldForfeiture(ready,5);
+ check(dormant.dormant() && !dormant.ready() && dormant.storedItems() && dormant.gold==800 && dormant.gems==10 && dormant.weapons==ready.weapons,"Direct forfeiture preserves stored items and purse");
+ xeenValidateMonsterTreasure(dormant,5);
+ rejects([&]{xeenValidateMonsterTreasure(dormant,4);});
+ rejects([&]{xeenPrepareMonsterGoldForfeiture(ready,4);});
+ rejects([&]{xeenPrepareMonsterDelivery(dormant,characters(),5);});
+ rejects([&]{XeenMonsterDropCandidate duplicate(dormant,0,5);});
+ check(xeenPrepareMonsterGoldForfeiture(dormant,5)==dormant,"Repeated forfeiture is idempotent");
+ XeenMonsterDropCandidate later(dormant,1,5);
+ XeenCombatRandom tape(std::vector<XeenCombatRandom::Draw>{{1,100,11}});finish(later,tape,1);
+ check(later.treasure.ready() && later.treasure.pendingMask==2 && later.treasure.pendingGold==10 && later.treasure.weapons==dormant.weapons,"No-item Orc reactivates older items without old gold");
+ const auto delivered=xeenPrepareMonsterDelivery(later.treasure,characters(),5);
+ check(delivered.count==1 && delivered.records[0].production.source==0 && !delivered.treasure.storedItems(),"Dormant source delivers in original order");
+ const auto credited=xeenPrepareMonsterGoldCredit(delivered.treasure,5);
+ check(credited.gold==810 && !credited.ready(),"Only later Orc gold credits");
+ auto invalid=dormant;invalid.armor[0]=invalid.weapons[0];rejects([&]{xeenValidateMonsterTreasure(invalid,5);});
+ invalid=dormant;invalid.weapons[1]=invalid.weapons[0];invalid.weapons[0]={};rejects([&]{xeenValidateMonsterTreasure(invalid,5);});
 }
 void timeAndInputs() {
 	auto c=characters();auto i=inputs();XeenGameplayContext context;context.year=610;context.day=8;context.minutes=950;
@@ -214,4 +323,4 @@ void timeAndInputs() {
 	pty.pop_back();rejects([&] { XeenCharacterFormat::parseMonsterPurse(pty); });
 }
 }
-int main() { try { physical();shootAndLoot();additionalTapes();completeWeaponRules();missileClassAndZeroDamage();rejectionBudgets();rangedOpportunity();timeAndInputs();std::cout<<"M33 artificial pure-rule controls passed\n";return 0; } catch (const std::exception &e) { std::cerr<<e.what()<<'\n';return 1; } }
+int main() { try { dormantTreasure();physical();runAndParticipation();shootAndLoot();additionalTapes();completeWeaponRules();missileClassAndZeroDamage();rejectionBudgets();rangedOpportunity();timeAndInputs();std::cout<<"M33/M34 artificial pure-rule controls passed\n";return 0; } catch (const std::exception &e) { std::cerr<<e.what()<<'\n';return 1; } }

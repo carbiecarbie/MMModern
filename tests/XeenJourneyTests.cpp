@@ -173,18 +173,18 @@ void progression() {
 	values[4].currentHp = -17; values[4].conditions[12] = values[4].conditions[13] = 1;
 	values[2].currentHp = -13; values[2].conditions[12] = 1;
 	const auto original = f.w.sessionState().actors()[5];
-	const auto first = xeenPrepareJourneyLethal(original,owners,inputs,{});
+	const auto first = xeenPrepareJourneyLethal(original,owners,inputs,{},0x3f);
 	for (unsigned i = 0; i < 6; ++i) { check(first.experience[i] == (i == 4 ? 1000u : 1100u), "literal first identity XP"); inputs[i].experience = first.experience[i]; }
-	rejects([&] { xeenPrepareJourneyLethal(original,owners,inputs,first.accounted); }, "identity");
+	rejects([&] { xeenPrepareJourneyLethal(original,owners,inputs,first.accounted,0x3f); }, "identity");
 	auto secondActor = original; secondActor.id.recordIndex = 6; // Synthetic identity, never production target selection.
-	const auto second = xeenPrepareJourneyLethal(secondActor,owners,inputs,first.accounted);
+	const auto second = xeenPrepareJourneyLethal(secondActor,owners,inputs,first.accounted,0x3f);
 	for (unsigned i = 0; i < 6; ++i) check(second.experience[i] == (i == 4 ? 1000u : 1200u), "literal composed identity XP");
 	check(second.accounted.size() == 2 && values[2].currentHp == -13 && values[4].conditions[13] == 1, "identity composition preserves prior facts");
 	values[0].permanentLevel = 15;
-	const auto level15 = xeenPrepareJourneyLethal(secondActor,owners,inputs,first.accounted);
+	const auto level15 = xeenPrepareJourneyLethal(secondActor,owners,inputs,first.accounted,0x3f);
 	check(level15.experience[0] == 1150, "literal permanent-level15 non-doubled arithmetic");
 	inputs[0].experience = std::numeric_limits<std::uint32_t>::max();
-	bool overflow = false; try { xeenPrepareJourneyLethal(secondActor,owners,inputs,first.accounted); } catch (const std::exception &) { overflow = true; }
+	bool overflow = false; try { xeenPrepareJourneyLethal(secondActor,owners,inputs,first.accounted,0x3f); } catch (const std::exception &) { overflow = true; }
 	check(overflow && first.accounted.size() == 1 && original.hp == 20, "overflow publishes no lethal candidate");
 	auto bytes = chr();
 	// The first five recipients can be prepared; only the last recipient overflows.

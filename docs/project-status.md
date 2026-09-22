@@ -2,9 +2,9 @@
 
 ## Stable baseline
 
-**Milestone 33 is the latest completed milestone.**
+**Milestone 34 is the latest completed milestone.**
 This file describes stable capabilities and architecture. Acceptance belongs in
-the [M33 closed plan](milestone-33-plan.md#final-acceptance); completed
+the [M34 closed plan](milestone-34-plan.md#final-acceptance); completed
 milestone chronology belongs in [project history](project-history.md).
 
 ## Supported scope
@@ -62,10 +62,14 @@ six-cell contract-2 expedition. Contract 3 adds resource-derived, map-local
 navigation over the connected mainland containing `(9,11)` on Clouds map 23,
 with complete ownership, activation and scheduling of all 19 original actors.
 Actor influence is not restricted to the party component. Fresh regional entry
-uses contract 4, adding Orc, Giant Snake and Giant Toad to the inherited
+uses contract 5, retaining Orc, Giant Snake and Giant Toad alongside inherited
 Skeleton/Zombie combat behavior, grouped contact/joining, enemy ranged attacks
 and player physical Shoot. Living wounds and kills outside contact use the same
 world-owned consequences as melee; legacy contract 3 retains its support stops.
+Contract 5 adds individual Run, partial-party combat and guarded non-victory
+disengagement to the original fixed `(10,12)` destination, preserving facing.
+Wounded survivors retain identity, HP and position through return/re-engagement
+and quiet restart; there is no healing, respawn or reward replay.
 The expedition admits grouped Skeleton/Zombie
 combat with up to three contacts, identity-bound targets, joining, automatic
 Zombie multiattack, Disease and accumulated injury/equipment/XP consequences.
@@ -110,17 +114,19 @@ combat.
   preserves accumulated expedition consequences. Return to `(0,14)` West and
   save/restart continue mutable navigation/item management without replay.
   Collection adds no turn-in, reward, terminal completion mode or broader route.
-- `--journey-region` starts content contract 4 at map 23 `(9,11)` West. Party
+- `--journey-region` starts content contract 5 at map 23 `(9,11)` West. Party
   movement follows the resource-derived mainland; all 19 actors retain independent
-  regional scheduling. Contact automatically attaches Attack/Block combat with
-  1/2/3 target selection and joining. F fires eligible equipped missile weapons
-  during exploration, including volleys without a visible target. Quiet presented
+  regional scheduling. Contact automatically attaches Attack/Block/Run combat with
+  1/2/3 target selection and joining. R attempts Run for the displayed member;
+  success removes only that member from the current encounter participation. F fires
+  eligible equipped missile weapons during exploration, including volleys without a visible target. Quiet presented
   boundaries permit inventory/equipment and F9. The `(5,9)` North opcode-04
   SignText runs automatically or manually through Event/Presentation authority,
   returns without acknowledgment and retains nonmodal text while ordinary eligible
   controls continue. Other scripts and transitions refuse before execution.
-  WhoWill, acknowledgments and Yes/No remain modal. Run, recovery and connected
-  Myra quest execution remain unsupported.
+  WhoWill, acknowledgments and Yes/No remain modal. Recovery and connected
+  Myra quest execution remain unsupported. Legacy contracts 1-4 and diagnostics
+  do not gain Run.
 - Bounded event decoding/execution supports conditions, Call/Return, transfers,
   game flags and Remove. Space dispatches from the current cell/facing without
   requiring the automatic-event bit; automatic dispatch retains that gate.
@@ -193,23 +199,34 @@ combat.
   coordinates, context, supplements/XP, HP/SP, conditions and raw item bytes.
   Transfer, equipment, confirmation, F9 and R remain disabled until it closes.
 
-Contract 4 adds Poison/Sleep alongside inherited Disease, condition-aware current
-Speed/AC and exact current-versus-maximum HP/SP without healing or clamping.
+Contracts 4/5 support Poison/Sleep alongside inherited Disease, condition-aware
+current Speed/AC and exact current-versus-maximum HP/SP without healing or clamping.
 Party-owned gold, inert gems and source-tagged pending monster treasure survive
 quiet restart. Once-only lethals grant eligible XP, Orc gold and bounded level-1
 treasure; ordinary generated weapons/armor use existing inspection, transfer,
-equip/remove and supported melee/Shoot consumers. Delivery waits until no selected
-living threat remains; items publish before receipt acknowledgment and gold at
+equip/remove and supported melee/Shoot consumers. Ready delivery waits until no
+selected living threat remains; items publish before receipt acknowledgment and gold at
 the final acknowledgment. This durable pending monster treasure is distinct from
 the transient event reward queue. Exact rules and reference generation losses
 belong in the [M33 contract](milestone-33-plan.md#gold-monster-treasure-and-equipment-closure).
+
+Contract 5 distinguishes direct Run from later attrition after escape. DirectRun
+forfeits undelivered monster gold while retaining stored items dormant; later
+Orc production can reactivate those items without restoring forfeited gold.
+AttritionAfterEscape preserves ready treasure. Remaining unconscious casualties
+become Dead at finish without healing or changing HP/items; already-Dead counters
+remain exact. Escaped members receive no later encounter XP, but rejoin the full
+recipient domain at retirement. See the
+[M34 consequence contract](milestone-34-plan.md#surviving-actors-xp-and-treasure).
 
 ### Save and resume
 
 Local Windows F9 saving and startup resume preserve supported durable state
 across process restarts, including an eligible completed Diagnostic27 victory
-and quiet pre- or post-combat Journey state. Regional Journey schema 3 preserves
-the complete actor collection, context, supplements and RNG continuation.
+and quiet pre- or post-combat/disengagement Journey state. Fresh Regional Journey
+schema/content 5/5 preserves the complete actor collection, wounds, casualties,
+dormant/ready treasure, context, supplements and RNG continuation. Legacy 1/1-4/4
+retain their own rules without implicit upgrade.
 [README](../README.md#running-and-controls) owns the public CLI/control reference.
 The persistence contract below defines eligibility, restoration and compatibility.
 
@@ -217,7 +234,7 @@ The persistence contract below defines eligibility, restoration and compatibilit
 
 - Application owns committed camera/game flags. `XeenPartyState` owns roster,
   membership, quest counters, quest flags and optional admitted encounter context;
-  contract 4 also retains the purse and pending monster treasure there.
+  contracts 4/5 also retain the purse and pending monster treasure there.
   `XeenWorld` / `XeenSessionWorldState` owns session-disabled object/event identity
   sets, the complete original-order live actor collection and irreversible
   encounter-session marker. Coordinators and borrowed providers create no
@@ -256,12 +273,27 @@ The persistence contract below defines eligibility, restoration and compatibilit
   all 30 complete supplements and XP plus the retained gameplay context. The
   world owns the complete contract-specific actor collection and per-identity
   defeat accounting: contracts 1/2 reconstruct all 27 map-20 actors, while
-  contracts 3/4 admit all 19 map-23 actors as mutable regional state. Contract 1
-  retains its Skeleton seed; contracts 2/3/4 use roster-owned Luck and one
+  contracts 3/4/5 admit all 19 map-23 actors as mutable regional state. Contract 1
+  retains its Skeleton seed; contracts 2/3/4/5 use roster-owned Luck and one
   world-owned gameplay RNG continuation. Coordinators borrow those owners and
   create no replacement graph. Successful legacy combat End remains runtime
   authority for guarded retirement; contract 4 attaches the same combat coordinator
   to regional owners and retires only after a genuine successful End.
+- Contract 5 combat owns a transient six-slot participation mask; roster membership
+  never changes. Initiative, enemy targeting and lethal XP use participants;
+  condition-time work still visits all active owners. New contact restores full
+  participation without changing character state. Non-victory retirement requires
+  a private successful-finish proof after owed origin work drains, distinct from
+  victory End. Finish publishes casualties, cause-specific treasure disposition,
+  fixed relocation and destination classification with no extra time/RNG.
+  Full-party defeat remains terminal and unsaveable.
+- Disengagement transfers directly to required Attachment, Reward, Event or
+  Presentation work. An occupied destination reattaches on the same surviving
+  actors with no Quiet/input/save gap. Finish feedback remains visible through
+  immediate reattachment and presentation retry; its revision/ticket binding is
+  observation only. Relocation supersedes an unstarted origin sign request by
+  address, without dispatching a destination script. Existing resource-preimage,
+  semantic-input and exact-frame guards remain mandatory.
 - Regional contracts separate party reachability, actor influence and event admission.
   The party component is derived from checked original outdoor geometry and
   fixed traversal capabilities. Actor movement uses original identity/profile,
@@ -270,8 +302,8 @@ The persistence contract below defines eligibility, restoration and compatibilit
   the original map-23 sign record at `(5,9)` North is admitted.
 - Regional action/time publication uses a checked detached candidate. Supported
   moves advance the retained calendar and ctr24 before guarded publication;
-  contract 3 stops before any 480-minute processing. Contract 4 atomically
-  publishes the admitted condition tick with time and RNG, including the 960
+  contract 3 stops before any 480-minute processing. Contracts 4/5 atomically
+  publish the admitted condition tick with time and RNG, including the 960
   boundary. Dusk, daily and other unsupported temporal work still refuses before
   the proposed action. Context remains one party-owned value; no deferred effects
   or second clock are inferred. Round/End charge one minute; successful forward/
@@ -284,8 +316,8 @@ The persistence contract below defines eligibility, restoration and compatibilit
   retained injuries.
 - Journey activity, boundary leases and presented-input generations keep capture
   and incompatible controls closed during pending approach, attachment, combat,
-  End, retirement, modal work and frame handoff. Only a matching successful SDL
-  presentation opens new input. Stale keys, including Application-intercepted F9,
+  End, disengagement finish, retirement, modal work and frame handoff. Only a
+  matching successful SDL presentation opens new input. Stale keys, including Application-intercepted F9,
   cannot initiate capture, providers or later work. Cosmetic redraws may preserve
   unchanged semantic input authority while renewing concrete frame identity.
   An immutable `IndexedFrame` snapshot carries the exact presentation binding;
@@ -364,7 +396,7 @@ The persistence contract below defines eligibility, restoration and compatibilit
   encounter navigation, independently rearming the ordinary deadline; turns do
   not reset actor cosmetics. See the [M26 timing contract](milestone-26-plan.md#actions-and-independent-timing).
 - Combat gameplay RNG is deterministic. Diagnostics and contract 1 retain their
-  established coordinator/seed policy; contracts 2/3/4 borrow a world-owned
+  established coordinator/seed policy; contracts 2/3/4/5 borrow a world-owned
   xorshift32 state and checked raw-draw count for the whole Journey. Accepted
   actions retain bounded prefixes and advance it only with publication; Block,
   targeting, redraw, cache reconstruction and cosmetic MON/ATT advancement consume no RNG. Enemy/round/end work uses
@@ -430,6 +462,19 @@ ranged work and receipts forbid capture. Legacy 1/1, 2/2 and 3/3 keep their exac
 rules and optional-field absence, including 3/3 contact/ranged/time support stops.
 The [M33 persistence contract](milestone-33-plan.md#persistence-and-entryrestore-policy)
 owns the wire layout and validation; no implicit upgrade occurs.
+
+Journey v4 schema/content **5/5** retains the 4/4 wire layout with new semantic
+discriminators: item provenance is independent of pending gold provenance.
+Zero pending gold/mask can coexist with dormant stored items; a nonzero gold
+mask means ready treasure in the admitted Orc-only producer domain. Canonical
+accounted Orc sources are validated independently for money and items. No
+participation, exit cause, finish proof or presentation binding is serialized.
+Post-disengagement capture requires guarded retirement and presented Quiet;
+ready collectable treasure must settle first, while dormant items impose no
+receipt. Restore preserves exact casualties, survivor wounds and consequences
+without replay. Legacy 1/1-4/4 remain unchanged; 4/4 keeps coupled treasure
+provenance and no Run/dormancy. Unknown or crossed schema/content pairs refuse.
+See the [M34 persistence contract](milestone-34-plan.md#time-rng-and-persistence).
 
 M31 collection uses existing base quest counters and disabled object/event sets;
 v4 schema 2/content 2 and its 1366-byte suffix are unchanged. Counters and overlay
@@ -499,7 +544,9 @@ and Journey v4 schema 1 is specified in the
 schema 3 is specified in the
 [M32 persistence contract](milestone-32-plan.md#schema-3-persistence-and-restore);
 schema 4 is specified in the
-[M33 persistence contract](milestone-33-plan.md#exact-new-state-and-wire-layout).
+[M33 persistence contract](milestone-33-plan.md#exact-new-state-and-wire-layout);
+schema 5 semantics are specified in the
+[M34 version decision](milestone-34-plan.md#version-decision).
 
 V2 stores 144 item bytes per character in category/slot/material-ID-state-frame
 order. V1 stores equipment modifier triples: restoration preserves all saved
@@ -567,7 +614,7 @@ or of a generally playable region.
 | Skeleton diagnostic, map 20 `(13,1)` North | Original monster record 5, type 8, initially `(13,2)`, with all 27 identities retained. World of Xeen Clouds/Adventurer context, bounded four-cell approach and playable Attack/Block combat with original MON/ATT appearance, injury, armor breakage, victory/defeat and once-only XP. Incomplete/unsafe states remain unsaveable; successful completed victory supports restart, read-only inspection and bounded true revisit with record 5 still defeated. |
 | Skeleton Journey, map 20 four-cell footprint | Production `--journey-skeleton` permits mutable inventory/equipment before automatic engagement, Attack/Block through genuine End, guarded return to bounded navigation/item management and v4 save/restart on the same owners. Context, all 30 supplements/XP, exact injuries/items and record-5 live or defeated/accounted state survive direct restoration without replay. This is distinct from Diagnostic27 completion/R. |
 | Bone Whistle expedition, map 20 `(0..5,14)` | Production `--journey-expedition` connects grouped and successive Skeleton/Zombie encounters to original Bone Whistle collection at quiet `(5,14)` from any facing, then mutable return to `(0,14)` West. WhoWill, discovery, acknowledgment, grant and Remove preserve accumulated injury, Disease, equipment, XP and surviving actors. Schema-2 F9 before/after collection and separate-process continuation preserve exact state and RNG without replay; successful repeat executes five effective None records. |
-| Regional Journey, map 23 mainland | Production `--journey-region` starts at `(9,11)` West and derives the connected party component from original terrain while retaining all 19 actors and whole-map actor influence. Contract 4 supports grouped five-species combat/joining, enemy ranged attacks, physical Shoot, conditions, XP/gold/level-1 treasure, generated equipment and exact schema/content 4/4 restart. Nonmodal sign text permits ordinary eligible controls. Other map-23 scripts/transitions and unsupported temporal processing remain excluded; legacy 3/3 keeps its support stops. This does not certify unrestricted map-23 or Clouds play. |
+| Regional Journey, map 23 mainland | Production `--journey-region` starts at `(9,11)` West and derives the connected party component from original terrain while retaining all 19 actors and whole-map actor influence. Contract 5 supports grouped five-species combat/joining, enemy ranged attacks, physical Shoot, individual Run/partial participation, non-victory fixed relocation, survivor return/re-engagement, conditions/casualties, XP/gold/level-1 treasure, dormant/ready items and exact schema/content 5/5 restart. Nonmodal sign text permits ordinary eligible controls. Other map-23 scripts/transitions and unsupported temporal processing remain excluded; legacy 3/3 keeps its support stops. This does not certify unrestricted map-23 or Clouds play. |
 
 Myra's ordinary tent-flag cycle runs without input and continues underneath
 dialogue, independently of the portrait. The [M22 checkpoint contract](milestone-22-plan.md#certified-original-data-checkpoint)
@@ -618,11 +665,12 @@ complete automated, original-data, independent-review and physical boundary.
   admitted diagnostic/Journey profiles, combat-time inventory mutation and
   recruitment/reordering. Treasure beyond M33's bounded level-1 monster path,
   generic TakeOrGive and NPC modes/services beyond Clouds mode 1 remain unsupported.
-- Run/disengagement and non-victory retirement belong to M34. Connected
-  Myra -> Phirna -> Myra and selected recovery/item use belong to M35. Broader
+- Run/disengagement is limited to contract-5 regional combat; legacy Journeys
+  and diagnostics retain their prior controls. Connected Myra -> Phirna -> Myra
+  and selected recovery/item use remain planned for M35. Broader
   magic, Rest, services/economy and training remain unsupported. Actors and
   encounters beyond the completed diagnostic, contract-1 Skeleton Journey,
-  contract-2 expedition and contract-4 map-23 region remain unsupported.
+  contract-2 expedition and contract-5 map-23 region remain unsupported.
   Unrestricted map-23/Clouds certification, Swimming / Walk on Water and other
   unsupported movement capabilities remain excluded. General indoor
   traversal, connected-map behavior and playable-region certification remain
@@ -642,7 +690,7 @@ Ordinary CTest does not depend on commercial data.
 
 ## Next direction
 
-M33 establishes accepted mainland combat and durable consequences. The immediate
-next milestone is **M34 - Original disengagement and encounter lifecycle**;
-M35 remains the connected quest/local recovery successor. M33 completion does
-not authorize M34 implementation. See the [roadmap](roadmap.md#approved-m33-m35-arc).
+M34 establishes accepted regional disengagement and survivor continuation. The
+immediate next milestone is **M35 - Connected Myra quest and local recovery**.
+M34 completion does not authorize M35 specification or implementation. See the
+[roadmap](roadmap.md#approved-m33-m35-arc).

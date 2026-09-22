@@ -92,7 +92,7 @@ int Application::journeyExpedition(const std::filesystem::path &directory, std::
 }
 int Application::journeyRegion(const std::filesystem::path &directory, std::optional<std::uint32_t> seed,
   std::optional<std::filesystem::path> save) const {
- return gameplay(directory,xeenJourneyContent(4).entry,save,false,XeenEncounterEntry::Journey,seed,4);
+ return gameplay(directory,xeenJourneyContent(5).entry,save,false,XeenEncounterEntry::Journey,seed,5);
 }
 int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera camera,
   const std::optional<std::filesystem::path> &target, bool resume, XeenEncounterEntry entry, std::optional<std::uint32_t> seed,
@@ -167,7 +167,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    if (!value) value = 1;
    journeySetup.emplace(XeenJourneySetup{journeyCharacters,services.resources.loadInitialContext(),journeyStatistics,encounterEvents,value,journeyContract.value_or(1)});
    journeySetup->regionalManifest=services.resources.regionalManifest;
-   if(journeySetup->contract==4) {
+   if(xeenJourneyContent(journeySetup->contract).consequences()) {
     if(!services.resources.loadInitialPurse) throw std::invalid_argument("Missing original purse provider");
     journeySetup->purse=services.resources.loadInitialPurse();
    }

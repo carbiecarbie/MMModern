@@ -46,14 +46,16 @@ private:
 };
 
 enum class XeenCombatPhase { Preparation, Approach, Engaged, PlayerReady, PreparingAction,
-	PendingEnemy, PendingRound, VictoryAwaitingEnd, Victory, Defeat, SupportStopped, Failed };
-enum class XeenCombatWork { None, Action, Enemy, Round, End };
-enum class XeenCombatCommand { Attack, Block };
+	PendingEnemy, PendingRound, DisengagementPending, Disengaged, VictoryAwaitingEnd, Victory, Defeat, SupportStopped, Failed };
+enum class XeenCombatWork { None, Action, Enemy, Round, End, FinishDisengagement };
+enum class XeenCombatCommand { Attack, Block, Run };
 enum class XeenCombatStatus { Accepted, Pending, Advanced, Refused, Stale, Failed, SupportStopped, Victory, Defeat };
 enum class XeenCombatFailure { None, Integrity, Preparation, Time, Observation, Overflow };
 enum class XeenCombatOperation { None, Equipment, Transfer, BeginApproach, ApproachAction,
-	ApproachPulse, BeginCombat, PlayerAttack, Block, EnemyAttack, Round, End, Failure };
-enum class XeenCombatAttackOutcome { NotApplicable, Pending, Miss, HitZeroDamage, HitPositiveDamage };
+	ApproachPulse, BeginCombat, PlayerAttack, Block, PlayerRun, FinishDisengagement, EnemyAttack, Round, End, Failure };
+enum class XeenCombatAttackOutcome { NotApplicable, NoParticipants, Pending, Miss, HitZeroDamage, HitPositiveDamage };
+enum class XeenCombatExitCause { None, DirectRun, AttritionAfterEscape };
+struct XeenCombatLocation { XeenMapIdentity mapId; int x=0,y=0; XeenDirection direction=XeenDirection::North; };
 struct XeenCombatDamage {
 	std::uint8_t owner=0;
 	int amount=0, beforeHp=0, afterHp=0, beforeAc=0, afterAc=0;
@@ -69,6 +71,13 @@ struct XeenCombatResult {
 	std::optional<XeenMonsterIdentity> actingMonster, targetMonster;
 	std::optional<XeenEncounterAction> approachAction;
 	bool critical=false;
+	unsigned runRoll=0;
+	bool runSuccess=false;
+	std::uint8_t participantsBefore=0x3f, participantsAfter=0x3f, casualties=0;
+	XeenCombatExitCause exitCause=XeenCombatExitCause::None;
+	std::optional<XeenCombatLocation> origin, destination;
+	std::uint32_t forfeitedGold=0, forfeitedMask=0;
+	bool originAutomaticSuperseded=false;
 	std::uint8_t targetedMembers=0; // Published physical target mask, including misses.
 	std::optional<XeenMonsterDropOutcome> monsterDrop;
 	XeenMonsterTreasureItem generatedItem;
@@ -115,6 +124,8 @@ public:
 	XeenCombatPhase phase() const noexcept;
 	XeenCombatWork pending() const noexcept;
 	int participant() const noexcept;
+	std::uint8_t participants() const noexcept;
+	XeenCombatExitCause exitCause() const noexcept;
 	const XeenCombatRandom &random() const noexcept;
 	XeenEquipmentResult equipment(const Ticket &,std::size_t,XeenInventoryCategory,std::size_t,XeenEquipmentOperation);
 	XeenTransferResult transfer(const Ticket &,std::size_t,std::size_t,XeenInventoryCategory,std::size_t);
@@ -140,6 +151,8 @@ private:
 	XeenCombat(XeenWorld &, XeenPartyState &, XeenCamera &, XeenCombatBoundary &, const XeenGameFlags &,
 		const XeenEncounterState &, const std::vector<XeenMonsterRecord> &, const XeenEventFile &);
 	void retireJourney(const Ticket &, XeenEncounterState &);
+	void retireDisengagedJourney(const Ticket &, XeenEncounterState &);
+	XeenCombatResult finishDisengagement(const Ticket &);
 	void retainResources(XeenRestoreGuard &) const;
 	struct Impl;
 	std::unique_ptr<Impl> impl;

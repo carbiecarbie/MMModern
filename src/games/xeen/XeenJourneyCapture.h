@@ -47,7 +47,7 @@ class XeenJourneyCapture {
 			if (!xeenJourneyContent(w->sessionState().journeyContract()).influences(i) && !xeen_state::sameActor(actors[i],admittedActors[i])) return false;
 		for (auto id:w->sessionState().accountedMonsters())
 			if (id.mapId!=xeenJourneyContent(w->sessionState().journeyContract()).entry.mapId || !xeenJourneyContent(w->sessionState().journeyContract()).influences(id.recordIndex)) return false;
-		if(p->monsterTreasure && p->monsterTreasure->pending()) {
+		if(p->monsterTreasure && p->monsterTreasure->ready()) {
 			const auto view=XeenActorApproach::classify(actors,*c);bool selected=false;
 			for(const auto &v:view.slots) selected=selected || bool(v);if(!selected) return false;
 		}

@@ -140,6 +140,7 @@ private:
 	void acknowledgeMonsterReward();
 	bool monsterReward() const noexcept { return _monsterReceipt.has_value(); }
 	bool _regionalAutomatic = false;
+	std::optional<XeenCombatLocation> _regionalAutomaticAddress;
 	bool _shootIntent = false;
 	std::shared_ptr<XeenRestoreGuard> _journeyPreimage;
 	std::shared_ptr<XeenJourneyCapture> _journeyCapture;
@@ -160,6 +161,9 @@ private:
 	bool observeCombat() noexcept;
 	void advanceAppearance() noexcept;
 	XeenCombatResult _combatObservation, _combatAward, _retiredCombatResult;
+	// Presentation-only binding for the already published finish. Never retirement authority.
+	std::optional<std::uint64_t> _disengagementNoticeRevision;
+	std::optional<XeenCombat::Ticket> _disengagementNoticeCombat;
 	bool _scheduleAfterFrame = false, _combatOperationStale = false;
 	bool adopt(const XeenEncounterResult &, std::uint64_t generation) noexcept;
 	bool prepareTime(const Ticket &, std::uint64_t &now);

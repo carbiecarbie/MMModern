@@ -1,3 +1,5 @@
+#define SDL_MAIN_HANDLED
+#include <SDL.h>
 // Read-only original resources with explicitly artificial rare-rule arrangements.
 // This executable is additional evidence, never a replacement for gameplay routes.
 #include "app/XeenEncounterFlow.h"
@@ -41,7 +43,7 @@ struct Source {
  XeenAssetSource assets;XeenMapLoader maps;
  std::vector<std::uint8_t> chr,pty;std::vector<XeenMonsterRecord> mon;XeenEventFile evt;
  XeenSaveResourceSignature signature{{1,2},XeenArchiveFingerprint{3,4}};
- explicit Source(const GameInstallation &i):assets(i) {
+ explicit Source(const GameInstallation &i):assets(i,320,200) {
   chr=assets.readInitialResource("maze.chr");pty=assets.readInitialResource("maze.pty");mon=XeenMonsterFormat::parse(*assets.readCloudsMonsterStatisticsFromDarkArchive());
   XeenEventLoader loader([&](const std::string &name)->std::optional<std::vector<std::uint8_t>>{if(!assets.hasInitialResource(name))return {};return assets.readInitialResource(name);});evt=loader.load(23);
  }
@@ -50,14 +52,14 @@ struct Source {
 struct Domain {
  Source &source;XeenWorld world;XeenPartyState party;XeenCamera camera{23,9,11,XeenDirection::West};XeenGameFlags flags;
  std::uint64_t now=0;XeenEventPresenter::Clock clock=[this]{return now;};std::unique_ptr<XeenEncounterFlow> flow;
- Domain(Source &s,const std::optional<XeenSaveSnapshot> &saved={}):source(s),world([&](auto id){return s.maps.loadGeometryMap(s.assets,id);},[&](auto id){return s.maps.loadObjects(s.assets,id);}) {
+ Domain(Source &s,const std::optional<XeenSaveSnapshot> &saved={},std::uint16_t contract=4):source(s),world([&](auto id){return s.maps.loadGeometryMap(s.assets,id);},[&](auto id){return s.maps.loadObjects(s.assets,id);}) {
   if(saved) {
    XeenSaveState::Resources r{s.signature,{},[&](auto){return s.evt;},{},{},[&]{return s.mon;},s.manifest()};
    XeenSaveState::restoreBeforeGameplay(*saved,r,party,camera,flags,world,[](auto &,const auto &,const auto &,const auto &){});
    flow=std::make_unique<XeenEncounterFlow>(world,party,camera,flags,clock,XeenJourneyRestoreTag{});
   }else{
    party=XeenPartyLoader().loadFromResources(s.chr,s.pty);
-   flow=std::make_unique<XeenEncounterFlow>(world,party,camera,flags,clock,XeenJourneySetup{s.chr,XeenGameplayContextFormat::parse(s.pty),s.mon,s.evt,1,4,s.manifest(),XeenCharacterFormat::parseMonsterPurse(s.pty)});
+   flow=std::make_unique<XeenEncounterFlow>(world,party,camera,flags,clock,XeenJourneySetup{s.chr,XeenGameplayContextFormat::parse(s.pty),s.mon,s.evt,1,contract,s.manifest(),XeenCharacterFormat::parseMonsterPurse(s.pty)});
   }
   present();
  }
@@ -252,9 +254,10 @@ void blockReset(Source &source) {
 }
 #include "XeenConsequenceReviewControls.h"
 #include "XeenConsequencePhysicalControls.h"
+#include "XeenDisengagementTestControls.h"
 }
 using namespace consequence_controls;
-int main(int argc,char **argv){try{check(argc==2 || argc==3,"usage: mmodern_consequence_original <installation> [artificial-pending-item-save]");const auto i=XeenInstallationDetector().detect(argv[1]);check(bool(i),"Original installation");Source source(*i);source.signature=XeenSaveFile::fingerprint(*i);reviewControls(source);appearanceResources(source);shootOrder(source);blockReset(source);combatPublicationFaults(source);restoreConsequences(source,argc==3?std::optional<std::filesystem::path>{XeenSaveFile::resolve(argv[2],argv[1])}:std::nullopt);
+int main(int argc,char **argv){try{check(argc==2 || argc==3,"usage: mmodern_consequence_original <installation> [artificial-pending-item-save]");const auto i=XeenInstallationDetector().detect(argv[1]);check(bool(i),"Original installation");Source source(*i);source.signature=XeenSaveFile::fingerprint(*i);if(std::getenv("MMODERN_M34_FINISH_PRESENTATION_ONLY")){disengagementFinishPresentation(source);return 0;}reviewControls(source);disengagementControls(source);appearanceResources(source);shootOrder(source);blockReset(source);combatPublicationFaults(source);restoreConsequences(source,argc==3?std::optional<std::filesystem::path>{XeenSaveFile::resolve(argv[2],argv[1])}:std::nullopt);
  journey_resources_test::run([&]{return XeenPartyLoader().loadFromResources(source.chr,source.pty);},
  XeenJourneySetup{source.chr,XeenGameplayContextFormat::parse(source.pty),source.mon,source.evt,1,4,source.manifest(),XeenCharacterFormat::parseMonsterPurse(source.pty)},
  [&](auto id){return source.maps.loadGeometryMap(source.assets,id);},[&](auto id){return source.maps.loadObjects(source.assets,id);},source.signature);

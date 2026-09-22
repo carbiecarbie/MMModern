@@ -43,11 +43,19 @@ struct XeenConsequenceDraw {
 };
 using XeenConsequenceCharacters = std::array<XeenCharacter,6>;
 using XeenConsequenceInputs = std::array<XeenCombatInputs,6>;
+struct XeenRunCandidate {
+	unsigned roll = 0;
+	bool success = false;
+	explicit XeenRunCandidate(int signedThreshold);
+	bool service(XeenConsequenceDraw &);
+private:
+	int threshold;
+};
 struct XeenEnemyAttackCandidate {
 	XeenConsequenceCharacters characters;
 	XeenCombatResult result;
 	XeenEnemyAttackCandidate(const XeenConsequenceCharacters &, const XeenConsequenceInputs &,
-		const XeenMonsterRecord &, unsigned year, const std::array<bool,6> &blocked = {});
+		const XeenMonsterRecord &, unsigned year, unsigned participantMask, const std::array<bool,6> &blocked = {});
 	bool service(XeenConsequenceDraw &);
 private:
 	enum class Step { Target, Fallback, Begin, Roll, Dice, Special, Injury, Parameter, Next, Done };
@@ -55,6 +63,8 @@ private:
 	XeenConsequenceInputs inputs;
 	XeenMonsterRecord monster;
 	unsigned year;
+	std::array<unsigned,6> participants{};
+	unsigned participantCount = 0, participantCursor = 0;
 	std::array<bool,6> blocked;
 	int target = -1, roll = 0, damage = 0, beforeDamageAc = 0;
 	unsigned dice = 0;

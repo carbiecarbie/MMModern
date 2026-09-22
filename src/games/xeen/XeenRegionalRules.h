@@ -42,12 +42,12 @@ struct XeenRegionalOpportunityCandidate {
 	XeenActorView view;
 	XeenRegionalOpportunityCandidate(const XeenMap &, const std::vector<XeenActor> &,
 		const XeenCamera &, const XeenConsequenceCharacters &, const XeenConsequenceInputs &,
-		unsigned year, const std::array<bool,6> &blocked = {});
+		unsigned year, unsigned participantMask, const std::array<bool,6> &blocked = {});
 	bool service(XeenConsequenceDraw &);
 private:
 	XeenCamera camera;
 	XeenConsequenceInputs inputs;
-	unsigned year, cursor=0;
+	unsigned year, participantMask, cursor=0;
 	std::array<bool,6> blocked;
 	std::optional<XeenEnemyAttackCandidate> attack;
 };

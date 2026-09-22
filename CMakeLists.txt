@@ -152,7 +152,7 @@ if(BUILD_TESTING)
 	target_link_libraries(mmodern_regional_persistence_tests PRIVATE mmodern_xeen ZLIB::ZLIB)
 	add_test(NAME xeen_regional_persistence COMMAND mmodern_regional_persistence_tests)
 	add_executable(mmodern_consequence_original EXCLUDE_FROM_ALL tests/XeenConsequenceOriginal.cpp)
-	target_link_libraries(mmodern_consequence_original PRIVATE mmodern_app)
+	target_link_libraries(mmodern_consequence_original PRIVATE mmodern_app SDL2::SDL2)
 	target_link_options(mmodern_consequence_original PRIVATE "-Wl,--wrap=_ZN7mmodern16XeenCombatRandom4drawEjj"
         "-Wl,--wrap=_ZN7mmodern27XeenPhysicalPlayerCandidateC1ERKNS_13XeenCharacterERKNS_16XeenCombatInputsERKNS_17XeenMonsterRecordEjjb")
     add_executable(mmodern_consequence_sprite_tests tests/XeenConsequenceSpriteTests.cpp)

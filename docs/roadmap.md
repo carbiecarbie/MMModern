@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**Milestone 33 is the latest completed milestone.**
+**Milestone 34 is the latest completed milestone.**
 [Project status](project-status.md) owns implemented capabilities and acceptance
 boundaries; [project history](project-history.md) owns completed chronology.
 Reference provenance belongs to [dependencies](dependencies.md).
@@ -22,7 +22,9 @@ mainland navigation, complete 19-actor ownership/scheduling, exact sign admissio
 truthful support boundaries and schema-3 continuation
 ([M32](milestone-32-plan.md)). M33 added admitted mainland combat, ranged/Shoot,
 conditions, rewards and exact consequence-aware 4/4 restart
-([M33](milestone-33-plan.md)). These contracts do not certify unrestricted map-23
+([M33](milestone-33-plan.md)). M34 completed individual Run, partial-party combat,
+non-victory fixed relocation and exact survivor/treasure continuation in 5/5
+([M34](milestone-34-plan.md)). These contracts do not certify unrestricted map-23
 or Clouds travel or normal original startup.
 
 The first connected Clouds vertical slice and its Regional Journey foundation
@@ -39,14 +41,11 @@ This sequence records the approved strategic direction, not detailed milestone
 specifications. Each milestone requires its own specification and explicit
 implementation authorization; roadmap approval does not authorize implementation.
 
-M33 is the completed combat/consequence foundation of this arc. **M34 is the
-immediate next milestone**; its implementation requires separate authorization.
+M33 and M34 are the completed combat/consequence and disengagement foundations
+of this arc; their results belong in [completed history](project-history.md).
+**M35 is the immediate next milestone.** Its specification and implementation
+require separate authorization; M34 completion does not authorize either.
 
-- **M34 - Original disengagement and encounter lifecycle:** add per-character
-  Run, partial-party combat participation, escape/failure/casualty and treasure
-  outcomes, fixed original relocation and non-victory retirement. Preserve
-  surviving damaged enemies through return, re-engagement and save/restart
-  without healing or replay.
 - **M35 - Connected Myra quest and local recovery:** integrate the existing
   [M21 endpoints](milestone-21-plan.md) through the expanded Journey and selected
   route-justified mainland interactions/recovery, including a narrow reusable
@@ -110,7 +109,8 @@ Completed Diagnostic27 remains terminal and quiescent under its contract.
 Mutable Journey uses M29's admitted domain, M30's content descriptor/group/
 current-state extensions, M31's exclusive event/publication integration, M32's
 resource-derived regional/complete-actor/context foundation, M33's shared physical
-consequences and party-owned monster treasure, and M28's
+consequences and party-owned monster treasure, M34's participation/non-victory
+lifecycle and dormant-item semantics, and M28's
 owner/preimage and presentation safeguards.
 Commercial resources remain external and unmodified.
 
@@ -119,8 +119,8 @@ Commercial resources remain external and unmodified.
 Review each specification against verified repository state and the pinned
 reference. Replan when:
 
-- The objective requires unsupported travel, Run/disengagement, services,
-  recovery or time semantics beyond its proposed boundary.
+- The objective requires unsupported travel, Run/disengagement beyond contract 5,
+  services, recovery or time semantics beyond its proposed boundary.
 - Persistence or world-state generalization exceeds the bounded objective, or
   compatibility cannot preserve admitted consequences.
 - Integration evidence supports splitting the objective or another slice becomes
