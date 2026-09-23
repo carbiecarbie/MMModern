@@ -735,6 +735,6 @@ Ordinary CTest does not depend on commercial data.
 
 ## Next direction
 
-M35 completes the approved M33-M35 arc. The immediate planning activity is the
-separately authorized, evidence-based [post-M35 roadmap reassessment](roadmap.md#near-term).
-No successor implementation is selected or authorized by M35 completion.
+M35 completes the approved M33-M35 arc. The accepted successor direction and
+next planning unit are recorded in the [roadmap](roadmap.md#near-term); M35
+completion does not itself authorize successor implementation.

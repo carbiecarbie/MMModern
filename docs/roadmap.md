@@ -30,41 +30,67 @@ well recovery and bounded antidote use with exact 6/6 continuation
 or Clouds travel or normal original startup.
 
 The approved M33-M35 arc is complete within its bounded map-23 mainland scope.
+After the maintainer-reviewed post-M35 reassessment, the accepted direction is
+to pause quest-driven vertical slices and develop reusable Clouds systems with
+Vertigo progressively serving as their production hub. A bounded learned
+exploration-casting step comes first because the admitted mainland already has
+original learned spells and a clean gameplay consumer. Vertigo admission then
+establishes the city/world boundary before a town service depends on it.
 
 ## Near term
 
-### Post-M35 reassessment boundary
+The approved default short arc is M36-M38 below. These are roadmap-level
+purposes and acceptance directions, not technical specifications or
+implementation authorization. Each milestone still requires its own scope
+review, specification and implementation authorization. Change this
+decomposition only when concrete implementation evidence shows a materially
+better acceptance boundary.
 
-The immediate next planning activity is **post-M35 evidence-based roadmap
-reassessment**. It requires separate authorization. M35 completion neither
-performs that reassessment nor selects, numbers or authorizes a successor
-implementation milestone. The approved M33-M35 arc and its bounded exclusions
-are recorded in [completed history](project-history.md) and the
-[M35 closed plan](milestone-35-plan.md).
+### M36 - Learned exploration casting
+
+Establish reusable learned-spell ownership and bounded exploration casting on
+the admitted mainland, with original learned spells as the production consumer.
+The observable result is a character using an eligible learned spell, its
+resources and effect carrying through ordinary play and quiet restart. This
+first magic foundation covers knowledge, resource use, selection and effects
+without coupling them to Vertigo admission. Broad combat magic, guild
+acquisition, duration and world-changing spell families remain later work.
+
+### M37 - Vertigo entry, initial traversal and return
+
+Establish a production-supported mainland-to-Vertigo transition, a coherent
+initial indoor/logical-area route and reliable return, revisit and restart.
+This introduces reusable cross-region admission and the necessary indoor
+navigation, composition, actor and event ownership while preserving party and
+world consequences, time, RNG and persistent state across the boundary. It
+does not certify all of Vertigo or its services.
+
+### M38 - Vertigo blacksmith and economy
+
+Use the admitted city to establish a first meaningful town service and reusable
+economy transaction path. A supported blacksmith transaction should give
+accumulated gold a gameplay use and connect the purse, items, inventory and
+equipment, merchant state and quiet persistence in an original location.
+Broader trading, complete shop/item functionality and other services remain
+outside this unit.
 
 ## Medium term
 
-After reassessment, expand capabilities in response to playable-route evidence without
-assigning speculative milestone numbers or ordering:
+After the initial Vertigo foundation/economy arc, conduct a focused
+reassessment **within the accepted Vertigo-centered systems direction**:
+given the infrastructure then actually present, which reusable system has the
+best next production and acceptance consumer? Candidates, not a committed
+sequence, include training/progression, broader magic and combat casting,
+guild/spell acquisition, temple and recovery services, and further economy/item
+breadth. Route evidence may identify another prerequisite system. Training
+deserves particular attention as a consumer of both XP and gold, but its
+original time/day consequences should be evaluated against the city and time
+foundations then available.
 
-- **Connected quests and rewards:** extend the implemented Myra/Phirna foundation
-  toward further original objectives as their routes and dependencies justify.
-- **Encounter breadth and recovery:** M33-M35 cover the selected mainland
-  combat, disengagement and local recovery. Broader actors, conditions, item
-  effects, healing and rest remain future route-driven work. Rest carries food,
-  time, interruption and temporary-effect consequences.
-- **Original startup and connected regions:** establish Vertigo's logical indoor
-  area and neighboring geometry semantics, then connect increasingly playable
-  towns, outdoors and dungeons. Doors, hazards, lighting and movement abilities
-  should follow route dependencies.
-- **Sustained progression:** extend quest rewards, item/spell/combat support and
-  services such as shops, temples, inns and training as coherent progression
-  requires them. Economy, broader time behavior and persistence across visits
-  must advance with their consumers.
-
-These unnumbered post-M35 directions remain provisional. Persistence must grow
-with admitted state without silently discarding consequences or changing legacy
-save meaning.
+Further city content, regions, quests and encounters should follow demonstrated
+system or route value. Another quest chain is not the default successor. Grow
+persistence with admitted state without discarding consequences or changing
+legacy save meanings.
 
 ## Long term
 
@@ -98,22 +124,24 @@ Commercial resources remain external and unmodified.
 ## Replanning and review cadence
 
 Review each specification against verified repository state and the pinned
-reference. Replan when:
+reference. Refine a milestone boundary when its route, service, time or
+persistence dependencies prevent independent acceptance. Reopen the accepted
+Vertigo-centered strategy only if new evidence shows a material contradiction:
 
-- The objective requires unsupported travel, Run/disengagement beyond the admitted
-  contracts, services, recovery or time semantics beyond its proposed boundary.
-- Persistence or world-state generalization exceeds the bounded objective, or
-  compatibility cannot preserve admitted consequences.
-- Integration evidence supports splitting the objective or another slice becomes
-  materially cheaper or more architecturally valuable.
-- Maintainer priorities change.
+- Vertigo admission requires substantially broader architecture than the
+  current evidence indicates, or actor/event/persistence ownership requires a
+  fundamental redesign.
+- A major system outside the short arc becomes a proven prerequisite.
+- The proposed units cannot be independently accepted despite a focused scope
+  adjustment.
+- Another original area or system demonstrates materially better leverage for
+  a required foundation, or maintainer priorities explicitly change.
 
+Ordinary implementation difficulty alone does not reopen the direction.
 Retain approximately three completed milestones as the ordinary broader-roadmap
-review cadence, with focused scope review before each specification. The post-M31
-investigation is complete; M35 arc closure has reached the broader roadmap
-reassessment boundary. That reassessment remains a separately authorized
-planning activity. Subsequent roadmap approval, milestone specification approval and
-implementation authorization
-remain separate; completion does not authorize the next milestone.
+review cadence, with focused scope review before each specification and the
+focused system choice after M38. Roadmap approval, milestone specification and
+implementation authorization remain separate; completing one unit does not
+authorize the next.
 Use the verified SHA and handoff gate in [AGENTS.md](../AGENTS.md) for external
 planning and review.
