@@ -76,14 +76,17 @@ int main() {
 	std::atomic<int> selections{0};
 	std::atomic<int> cancellations{0};
 	std::atomic<int> inspections{0};
-	std::atomic<int> slots{0}, transfers{0}, equipment{0}, uses{0}, shots{0};
+	std::atomic<int> slots{0}, transfers{0}, equipment{0}, uses{0}, shots{0}, casts{0};
 	std::atomic<bool> canCancel{true};
 	std::exception_ptr senderError;
 	std::thread sender([&] {
 		try {
 			pushKey(finished, SDLK_f, 0);
             pushKey(finished, SDLK_f, 1);
-            pushKey(finished, SDLK_f, 0, SDL_KEYUP);
+			pushKey(finished, SDLK_f, 0, SDL_KEYUP);
+			pushKey(finished, SDLK_c, 0);
+			pushKey(finished, SDLK_c, 1);
+			pushKey(finished, SDLK_c, 0, SDL_KEYUP);
 			pushKey(finished, SDLK_SPACE, 0);
 			pushKey(finished, SDLK_i, 0);
 			pushKey(finished, SDLK_i, 1);
@@ -130,6 +133,7 @@ int main() {
 	const bool result = SdlWindow().showInteractive(frame, "MMModern input test",
 		[&](const PlayerAction &action) -> std::optional<IndexedFrame> {
 			if (std::holds_alternative<ShootAction>(action)) ++shots;
+			else if (std::holds_alternative<CastSpellAction>(action)) ++casts;
             else if (std::holds_alternative<InteractionAction>(action))
 				++interactions;
 			else if (std::holds_alternative<NavigationAction>(action))
@@ -163,7 +167,7 @@ int main() {
 	if (senderError)
 		std::rethrow_exception(senderError);
 	if (!result || interactions != 2 || navigation != 2 || acknowledgments != 1 ||
-			yes != 1 || no != 1 || selections != 6 || cancellations != 1 || inspections != 1 || slots != 9 || transfers != 1 || equipment != 1 || uses != 1 || shots != 1) {
+			yes != 1 || no != 1 || selections != 6 || cancellations != 1 || inspections != 1 || slots != 9 || transfers != 1 || equipment != 1 || uses != 1 || shots != 1 || casts != 1) {
 		std::cerr << "Space dispatch/repeat filtering failed: interactions="
 			<< interactions << " navigation=" << navigation
 			<< " acknowledgments=" << acknowledgments << " yes=" << yes

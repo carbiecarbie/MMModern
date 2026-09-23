@@ -97,7 +97,7 @@ void ring(Harness &h,const SdlWindow::FrameUpdateHandler &handler,bool returning
   EquipmentInventoryAction{},InspectInventoryAction{}})press(h,handler,a);
 }
 void boundaries(const fs::path &dir) {
- for(unsigned mode=0;mode<11;++mode) {
+ for(unsigned mode=0;mode<12;++mode) {
   Harness h;auto s=h.services();JourneyOracle oracle(s);const auto path=dir/("boundary-"+std::to_string(mode)+".mmsave");
   XeenSaveFile::write(path,save_test::sample());const auto old=completed_test::diskBytes(path);
   bool armed=false,injected=false;unsigned attempts=0,samples=0;
@@ -151,6 +151,12 @@ void boundaries(const fs::path &dir) {
     press(h,handler,AcknowledgeAction{});press(h,handler,RevisitCompletedAction{});
     press(h,handler,NavigationAction::MoveBackward);
     check(!h.flow->encounter()->combat()&&*h.party->encounterContext==t&&xeen_state::sameCamera(c,*h.camera),"Enter/R/edge cannot publish Journey actions");
+   } else if(mode==11) {
+    const auto before=XeenSaveState::capture(h.signature,*h.party,*h.camera,*h.flags,*h.world);
+    press(h,handler,CastSpellAction{});
+    check(h.flow->canSave()&&!h.flow->encounter()->castingActive()&&h.saves==0,
+     "Legacy Journey C cannot start casting");
+    save_test::sameSnapshot(before,XeenSaveState::capture(h.signature,*h.party,*h.camera,*h.flags,*h.world));
    } else if(mode==9) {
     // Save callbacks are observed through the supplied service function below.
     press(h,handler,SaveGameAction{});

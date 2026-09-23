@@ -123,6 +123,10 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 		if (!resources.loadRegionalText) throw std::invalid_argument("Missing regional text restoration provider");
 		prepared->admitRegionalText(callback([&] { return resources.loadRegionalText(23); }));
 	}
+	if (policy.learnedCasting()) {
+		if (!resources.loadLearnedSpellNames) throw std::invalid_argument("Missing learned spell names restoration provider");
+		prepared->admitLearnedSpellNames(callback(resources.loadLearnedSpellNames));
+	}
 	if (policy.contract>=3) {
 		if (!regionalManifest) throw std::invalid_argument("Missing regional restoration manifest");
 		callback([&] { regionalManifest(w.map(23),w.objectFile(23),evt,statistics);return true; });
@@ -161,6 +165,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	binding->capture.reset(new XeenJourneyCapture);
 	binding->capture->admittedActors = s._actors;
 	binding->statistics = std::move(statistics); binding->events = std::move(evt);
+	binding->learnedNamesProvider=resources.loadLearnedSpellNames;
 	binding->guard = std::make_shared<XeenRestoreGuard>(world,party,camera,flags);
 	binding->guard->prepareJourneyPublication(*prepared);
 	destination.check(); prepared->check();

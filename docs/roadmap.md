@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**Milestone 35 is the latest completed milestone.**
+**Milestone 36 is the latest completed milestone.**
 [Project status](project-status.md) owns implemented capabilities and acceptance
 boundaries; [project history](project-history.md) owns completed chronology.
 Reference provenance belongs to [dependencies](dependencies.md).
@@ -26,35 +26,28 @@ conditions, rewards and exact consequence-aware 4/4 restart
 non-victory fixed relocation and exact survivor/treasure continuation in 5/5
 ([M34](milestone-34-plan.md)). M35 connected the Myra/Phirna quest, selected
 well recovery and bounded antidote use with exact 6/6 continuation
-([M35](milestone-35-plan.md)). These contracts do not certify unrestricted map-23
+([M35](milestone-35-plan.md)). M36 added learned First Aid and Awaken with exact
+7/7 continuation on the same mainland ([M36](milestone-36-plan.md)).
+These contracts do not certify unrestricted map-23
 or Clouds travel or normal original startup.
 
 The approved M33-M35 arc is complete within its bounded map-23 mainland scope.
 After the maintainer-reviewed post-M35 reassessment, the accepted direction is
 to pause quest-driven vertical slices and develop reusable Clouds systems with
 Vertigo progressively serving as their production hub. A bounded learned
-exploration-casting step comes first because the admitted mainland already has
-original learned spells and a clean gameplay consumer. Vertigo admission then
+exploration-casting step was completed first using original learned spells on
+the admitted mainland. Vertigo admission next
 establishes the city/world boundary before a town service depends on it.
 
 ## Near term
 
-The approved default short arc is M36-M38 below. These are roadmap-level
-purposes and acceptance directions, not technical specifications or
-implementation authorization. Each milestone still requires its own scope
+The accepted short arc was M36-M38. M36 is completed; M37 is the next planning
+unit, followed provisionally by M38. These are roadmap-level purposes and
+acceptance directions, not technical specifications or implementation
+authorization. Each successor still requires its own scope
 review, specification and implementation authorization. Change this
 decomposition only when concrete implementation evidence shows a materially
 better acceptance boundary.
-
-### M36 - Learned exploration casting
-
-Establish reusable learned-spell ownership and bounded exploration casting on
-the admitted mainland, with original learned spells as the production consumer.
-The observable result is a character using an eligible learned spell, its
-resources and effect carrying through ordinary play and quiet restart. This
-first magic foundation covers knowledge, resource use, selection and effects
-without coupling them to Vertigo admission. Broad combat magic, guild
-acquisition, duration and world-changing spell families remain later work.
 
 ### M37 - Vertigo entry, initial traversal and return
 
@@ -117,7 +110,8 @@ Mutable Journey uses M29's admitted domain, M30's content descriptor/group/
 current-state extensions, M31's exclusive event/publication integration, M32's
 resource-derived regional/complete-actor/context foundation, M33's shared physical
 consequences and party-owned monster treasure, M34's participation/non-victory
-lifecycle and dormant-item semantics, and M28's
+lifecycle and dormant-item semantics, M36's learned casting and 7/7
+continuation, and M28's
 owner/preimage and presentation safeguards.
 Commercial resources remain external and unmodified.
 

@@ -34,6 +34,7 @@ void xeenValidateJourneyParty(const XeenPartyState &party, std::uint16_t contrac
 		const auto &c = party.roster.at(id);
 		const auto &input = party.roster.combatInputs(id);
 		require(c.rosterId == id && input.has_value(), "Missing Journey owner supplement");
+		require(bool(c.learnedSpells) == (contract == 7), "Journey learned-spell presence mismatch");
 		require(bool(input->luck) == (contract >= 2), "Journey Luck presence mismatch");
 		require(bool(input->resistances) == (consequences), "Journey resistance presence mismatch");
 		if (input->luck) require(attribute(*input->luck), "Journey Luck outside byte range");

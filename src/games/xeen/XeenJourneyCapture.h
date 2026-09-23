@@ -62,6 +62,7 @@ struct XeenJourneyRestoration {
 	std::shared_ptr<XeenRestoreGuard> guard;
 	std::vector<XeenMonsterRecord> statistics;
 	XeenEventFile events;
+	std::function<XeenLearnedSpellNames()> learnedNamesProvider;
 };
 }
 #endif

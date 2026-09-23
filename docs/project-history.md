@@ -295,6 +295,20 @@ Historical limitations in those plans describe their recorded boundaries.
   the maintainer completed physical native-SDL route and restart acceptance.
   See the [Milestone 35 plan](milestone-35-plan.md#exclusions-and-final-acceptance).
 
+## M36 - Learned exploration casting
+
+- Added original thirty-owner learned books and resource-named, bounded
+  exploration First Aid and Awaken in Regional Journey contract 7, while
+  preserving unsupported learned spells as visible knowledge.
+- Added modal casting with concrete-frame input authority, exact SP/refund and
+  ten-minute/actor consequences, and Journey v4 schema/content 7/7 fresh-process
+  continuation without replay or legacy-domain upgrade.
+- Full build, 97/97 CTest and genuine original-resource/process routes passed.
+  Independent review accepted the corrected implementation with no remaining
+  findings. Separately, the maintainer completed physical native-SDL casting,
+  cancellation, settlement and restart acceptance. See the
+  [Milestone 36 plan](milestone-36-plan.md#exclusions-and-final-acceptance).
+
 ## Maintaining this history
 
 Add one short section with 2-4 lasting-result bullets per completed milestone

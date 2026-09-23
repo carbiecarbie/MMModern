@@ -1,30 +1,18 @@
 # Milestone 36 - Learned exploration casting
 
-## Status, objective and acceptance boundary
+## Final scope and acceptance boundary
 
-This is the implementation contract for M36, not an implementation or completion
-record. Specification baseline: `e2cabd4209ecefc475f753204c17dd5fa1f9626a`
-(Record post-M35 roadmap direction). The planning gate verified `main`, HEAD,
-local `origin/main` and direct remote `main` at that SHA, with a clean worktree
-and index. Implementation requires separate authorization and a fresh baseline
-check under [AGENTS.md](../AGENTS.md).
+**Completed and accepted.** M36 adds learned First Aid and Awaken in fresh
+Regional Journey exploration on the admitted map-23 mainland. It establishes
+roster-owned knowledge, bounded spell identity and resource admission, modal
+selection, exact SP/effect/time/actor publication, and quiet restart. First Aid
+and Awaken are distinct learned effects, not item-use shortcuts.
 
-Implement learned **First Aid and Awaken**, during exploration in a fresh
-Regional Journey. Establish reusable character knowledge, class/slot-to-spell
-identity, eligibility, SP charging, selection, target response, effect publication,
-owed exploration work and exact quiet restart. The result must be playable
-through the ordinary native SDL controls on the admitted map-23 mainland.
-First Aid is one consumer of this foundation, not a privileged character/item
-shortcut. Awaken adds a real party-target consumer and recovery from already
-admitted monster-inflicted Sleep without duration or combat-magic machinery.
-
-Fresh `--journey-region` selects content contract 7. Contract 7 inherits all of
-contract 6, including its prepared party, mainland, actors, events, well, antidote,
-Shoot, Run, consequences and treasure; only learned exploration casting and its
-knowledge persistence are new. No new CLI entry, city, original-data mutation,
-spell grant, SP grant or recovery service is needed. The accepted
-[roadmap](roadmap.md#near-term) supersedes historical successor pointers: M36 is
-independently acceptable here; M37 retains Vertigo entry/traversal.
+Fresh `--journey-region` selects content contract 7. Contract 7 inherits the
+contract-6 prepared party, mainland, actors, events, well, antidote, Shoot, Run,
+consequences and treasure. It adds learned exploration casting and knowledge
+persistence. The [roadmap](roadmap.md#near-term) records M37 as the next planning
+unit; M36 completion grants no authorization to implement it.
 
 Inherited authority lives in [M28](milestone-28-plan.md#completion-authority-and-retirement),
 [M29](milestone-29-plan.md#durable-ownership-and-authority),
@@ -35,100 +23,35 @@ Inherited authority lives in [M28](milestone-28-plan.md#completion-authority-and
 [M35](milestone-35-plan.md#selected-well-and-bounded-item-use).
 These remain authoritative for their domains; M36 does not re-specify them.
 
-## Targeted evidence and provenance
+## Original-data and reference provenance
 
-Evidence labels below distinguish commercial bytes (**ORIGINAL**), pinned
-ScummVM algorithms (**REFERENCE**), current MMModern behavior (**IMPLEMENTED**)
-and deliberate bounded adaptations/derived conclusions (**INFERENCE**).
-Reference source is not independently observed DOS behavior.
+The pinned ScummVM revision and configuration are in
+[dependencies.md](dependencies.md#pinned-scummvm-revision). Original
+`XEEN.CC/maze.chr` contains thirty 354-byte character records. Each owner's
+39 raw learned flags occupy offsets 121..159; the class-category slot is
+separate from a global spell ID and from any miscellaneous item spell ID.
+`SPELLS_ALLOWED` maps Clerical, Wizardry and Druidic slots 0..38 to global IDs
+0..75; slot 39 and global ID 76 are UI sentinels. Original current-spell and
+quick-option bytes are selection convenience, not durable knowledge.
 
-The [dependency contract](dependencies.md#pinned-scummvm-revision) pins ScummVM
-`6814ee9ba54582f5b5adcffab49efbbd8f589edd`. The actual `build/CMakeCache.txt`
-configuration resolves source to
-`D:/Projetos/MModern/scummvm-known-good-candidate` and external build to
-`D:/Projetos/MModern/build-scummvm-6814ee9b-ucrt64`; source HEAD and clean status
-were checked. Those paths describe this investigation, not required directory
-names. Dependency revision, four linked artifacts and configuration are unchanged.
-
-### Character bytes, names and initial consumers
-
-**ORIGINAL:** Read-only `F:/Games/gog/Might and Magic 4-5/XEEN.CC`, through the
-initial-container reconstruction used by
-[`ScummVmXeenBridge::Impl::initial`](../src/compat/scummvm/ScummVmXeenBridge.cpp), supplies
-`maze.chr`: 10,620 bytes, thirty 354-byte records, inner offset 2441, SHA-256
-`c1bb681d2a9c5b3b29b2b75ad314328debfd6f512d942d699c4891a5f6da227a`.
-The outer block order is `2a0c,2a1c,2a2c,2a3c,284c,2a5c`; outer payloads use
-XOR `0x35`, inner payloads are plaintext. No extracted data is added to the repo.
-`maze.pty` is 812 bytes; header bytes 0/1 are 6/6, active references at bytes
-2..7 are `[0,18,14,11,1,6]`; carried gold/gems at 638/642 are 800/10.
-
-**REFERENCE:** `engines/mm/xeen/character.cpp`, `Character::synchronize`, stores
-39 byte-valued learned flags at record offsets **121..159**, Lloyd data at
-160..162, `_hasSpells` at 163, signed `_currentSpell` at 164 and `_quickOption`
-at 165. The learned index is a **class-category slot**, not a global spell ID
-or miscellaneous item spell ID. `getSpellsCategory` maps Paladin/Cleric to
-Clerical (0), Archer/Sorcerer to Wizardry (1), Druid/Ranger to Druidic (2), and
-other classes to Invalid. `devtools/create_mm/create_xeen/constants.cpp`,
-`SPELLS_ALLOWED[3][40]`, maps slots 0..38; slot 39 is the UI sentinel 76
-(`None Ready`), not learned storage. `spells.h`/`Spells::executeSpell` use
-global IDs 0..75. The exact pinned sources are available at the
-[ScummVM commit](https://github.com/scummvm/scummvm/tree/6814ee9ba54582f5b5adcffab49efbbd8f589edd).
-
-**ORIGINAL + REFERENCE mapping:** Nonzero learned slots in the installation:
-
-| Active key / owner | Class | Learned slot -> global ID / name | Original HP/SP | Prepared Regional HP/SP |
-| --- | --- | --- | --- | --- |
-| F1 / 0 Arturius | Paladin | 21 -> 42 Light | 12/2 | 36/6 |
-| F2 / 18 Tyro | Knight | none | 16/0 | 48/0 |
-| F3 / 14 Badger | Ranger | 1 -> 1 Awaken; 20 -> 42 Light | 12/2 | 36/6 |
-| F4 / 11 Zippo | Robber | none | 10/0 | 40/0 |
-| F5 / 1 Rebecca | Cleric | 1 -> 1 Awaken; 14 -> 26 First Aid; 21 -> 42 Light | 7/7 | 21/21 |
-| F6 / 6 Seymour | Sorcerer | 0 -> 1 Awaken; 22 -> 42 Light; 25 -> 45 Magic Arrow | 5/9 | 15/27 |
-
-All other original roster records have zero learned flags. The original current
-spell bytes for owners 0/1/6/11/14/18 are 21/21/22/255/20/255: defaulting to
-them would select unsupported Light for every caster. Original known flags here
-are exactly 1. **IMPLEMENTED:** `XeenActorApproach::initializeJourney` retains
-the admitted preparation: active levels `[3,3,3,4,3,3]` in active order, year
-610/day 8/minute 480/ctr24 0, current HP/SP initialized from existing live maximum
-rules. This is existing production preparation, not an M36 test grant. Original
-knowledge must survive it unchanged.
-
-**ORIGINAL:** `DARK.CC/spells.xen`, resource ID `0x64b2`, archive offset 391041,
-contains 77 NUL-terminated names, 937 bytes, CRC32 `0x63568f11`, SHA-256
-`3e64cc674720401c58dcf5c57ddaaffd46fc6eb4af2b9a78934c26fa0f7bec1e`.
-Entries 1/26/76 are Awaken/First Aid/None Ready. This World-of-Xeen installation
-has no `spells.cld` resource in the two gameplay archives. **REFERENCE:**
-`Spells::load` reads `spells.xen` from archive side 1 for this profile; the
-Clouds-only profile uses `spells.cld`. M36 admits the existing WorldOfXeenClouds
-profile only and uses `DARK.CC/spells.xen` explicitly.
-
-### Algorithms and integration precedents
-
-| Label | Evidence site | Decision established |
-| --- | --- | --- |
-| REFERENCE | `spells.cpp`: `subSpellCost`, `addSpellCost`, `castSpell` | Check SP then carried gems; subtract before dispatch. Negative SP coefficients scale by current level. Neither selected spell uses that scaling. |
-| REFERENCE | `dialogs/dialogs_spells.cpp`: `CastSpell::show/execute`, `SpellOnWho::execute` | Incapacity blocks casting; insufficient cost returns to selection. Escape at a target prompt refunds SP/gems; returning from that spell still counts as a completed cast attempt. |
-| REFERENCE | `spells.cpp`: `firstAid`; `character.cpp`: `isDead`, `addHitPoints` | First Aid targets one active member; terminal conditions fail after debit; otherwise bounded +6 HP and conditional Unconscious clearing. |
-| REFERENCE | `spells.cpp`: `awaken` | Clear Sleep on every active member; clear Unconscious when HP>0, even with another terminal condition. No `isDead` test here. |
-| REFERENCE | `interface.cpp`: exploration `KEYCODE_c`, `chargeStep`, `doStepCode`, `stepTime` | Completed attempt calls `chargeStep` plus `doStepCode`, not `stepTime`: ten outdoor minutes, delayed actor work, no ctr24 increment. Cancelling the cast dialog before dispatch has no such charge. |
-| IMPLEMENTED | `XeenCharacterFormat::parseRoster`, `XeenCharacter`, `XeenPartyLoader` | Only `hasSpells`, SP and existing rule inputs are modeled; learned flags and current spell are currently discarded. All thirty characters belong to roster; active references are aliases. |
-| IMPLEMENTED | `XeenJourneyFlow` item-use continuation; `XeenInventoryFlow`; `XeenEventFlow::sealFrame/framePresented/handle`; SDL | Existing leases, generations and concrete presented-frame authority are reusable; M35 cost/opportunity rules are not reusable spell semantics. |
-| IMPLEMENTED | `XeenEncounterFlow::serviceShoot` in `XeenJourneyConsequences.cpp`, `XeenActorApproach::regionalTransition`, `XeenRegionalActionCandidate` | Existing checked ten-minute tick, world RNG and pending=3 scheduler can settle casting without another clock or actor owner. |
-| IMPLEMENTED | `XeenStateEquality`, `XeenRestoreGuard`, `XeenJourneyCapture`, `XeenSaveState/Format` | Exact character preimages already flow through gameplay, save and fresh-owner restore. The common character wire prefix has no learned state. |
-
-**INFERENCE:** The two selected spells are sufficient. First Aid gives an
-affordable, useful HP consumer; Awaken exercises party effects, three existing
-learned categories and a currently unrecoverable admitted condition. Light would
-require duration/world-light state; Magic Arrow would introduce offensive spell
-targeting/damage. Neither is necessary. Do not substitute the antidote's
-miscellaneous spell ID 37 or First Aid's item spell ID 4 for learned global ID 26.
+For the admitted World-of-Xeen Clouds profile, original spell names come from
+`DARK.CC/spells.xen`: exactly 77 NUL-terminated entries, 937 bytes, CRC32
+`0x63568f11`. Entry 1 is Awaken and entry 26 is First Aid. Contract-7
+admission validates this resource and retains its immutable preimage. Commercial
+names and character bytes remain external; no extracted data is stored here.
+Original learned Light and Magic Arrow remain visible but unsupported.
+Learned global First Aid (26) is distinct from item spell First Aid (4), and
+the M35 antidote remains a separate miscellaneous item action.
+The selected numerical rules follow the pinned reference's learned spell
+mapping and costs, while MMModern's bounded Flow/EncounterFlow/SDL owners provide
+runtime authority. Reference source is evidence of intended algorithms, not a
+claim of independently observed DOS behavior.
 
 ## Knowledge, identity and resource model
 
 ### Authoritative representation
 
-Add `XeenLearnedSpells` as a fixed `array<uint8_t,39>` value and an optional
+`XeenLearnedSpells` is a fixed `array<uint8_t,39>` value with an optional
 `learnedSpells` member on `XeenCharacter`. **Present** means an explicitly loaded
 or saved spellbook, including all-zero; **absent** means this domain does not
 model knowledge. Preserve raw flags, including noncanonical nonzero values;
@@ -138,14 +61,14 @@ no parallel spellbook map on Flow, party or world and no acquisition API in M36.
 
 `XeenCharacterFormat::parseLearnedSpells(bytes, owner)` is a bounded inert parser:
 require exactly `30*354` bytes and owner 0..29, return offsets 121..159 without
-changing `hasSpells` or any other field. Keep ordinary `parseRoster` behavior
+changing `hasSpells` or any other field. Ordinary `parseRoster` behavior remains
 unchanged. Fresh contract-7 Journey preparation explicitly loads all thirty
 books from the same retained CHR bytes already used for supplements, prepares
 them in the detached candidate and publishes them in the guarded initialization.
 All other fresh entry domains retain absent knowledge. Do not load only active
 casters or initialize a book on opening the UI.
 
-Keep four separate queries:
+Four separate queries govern casting:
 
 1. Capability: existing `hasSpells` and a valid class category.
 2. Knowledge: optional present and the selected slot nonzero.
@@ -159,7 +82,7 @@ its worst-condition precedence for simultaneous conditions; do not introduce an
 independent incapacity list or impose HP>0 on the pure caster query. Production
 Journey's existing condition/HP validation remains in force.
 
-Use category+slot for lookup and a typed global identity for effect dispatch.
+Category+slot identifies lookup; a typed global identity governs effect dispatch.
 Bounds are explicit: category 0..2, slot 0..38, effect ID 0..75. Reject sentinel
 39/76 and out-of-range identities before indexing. A learned supported spell
 does not become castable for a class whose mapping lacks it. Unknown/invalid
@@ -175,8 +98,8 @@ not selectable or affected. Contract 7 retains the fixed original active order;
 alias handling is tested at shared query/effect boundaries, not used to expand
 Regional membership admission.
 
-Update `xeen_state::sameCharacter`, test snapshot equality and any hand-written
-character comparisons to include optional presence and all 39 bytes. Existing
+`xeen_state::sameCharacter`, test snapshot equality and hand-written
+character comparisons include optional presence and all 39 bytes. Existing
 guarded copy/move/swap restrictions remain; copied values carry knowledge, never
 casting authority. Full-character combat/consequence candidate copies must retain
 knowledge; narrow HP/condition/SP publishers must not overwrite unrelated fields.
@@ -193,22 +116,21 @@ selection; opening a caster's list highlights its first learned row and requires
 fresh confirmation. Closing/restarting discards selection. Original current
 spell `255` or invalid values are never indices or errors in the new book parser.
 
-Add a small immutable learned-spell catalog/rules module. Adapt precisely the
+A small immutable learned-spell catalog/rules module adapts precisely the
 three 39-entry mapping rows from pinned `SPELLS_ALLOWED` (exclude the sentinel),
-with GPL attribution and pinned path/SHA. Include only the two supported effect
+with GPL attribution and pinned path/SHA. It includes only the two supported effect
 descriptors and their numeric costs from `SPELL_COSTS`/`SPELL_GEM_COST`.
 This is a finite lookup, not a survey/implementation of other spell effects.
-Test table extents, identity bounds, per-category uniqueness and selected mappings.
 No ScummVM engine construction, new linked library, full `mm.dat` decoder or
 additional build dependency is admitted.
 
-Add an explicit read-only `DARK.CC/spells.xen` accessor through the existing
+An explicit read-only `DARK.CC/spells.xen` accessor uses the existing
 asset/bridge owner, analogous to monster statistics/material names. Parse exactly
 77 terminated strings with no trailing bytes; enforce archive extent and bounded
 nonempty display names (at most 63 bytes each). Retain original bytes and use the
 existing font/text renderer; do not copy commercial names into source or saves.
 Contract-7 resource admission checks size 937 and CRC32 `0x63568f11` through
-existing zlib support; SHA-256 above is provenance, not a new runtime dependency.
+existing zlib support; No SHA-256 runtime dependency is added.
 Retain the exact parsed/raw name preimage across cache reconstruction. Missing,
 malformed or incompatible names prevent contract-7 startup/restore; a changed
 previously admitted resource latches integrity failure. No fallback empty book
@@ -341,7 +263,7 @@ is unsaveable.
 
 ## Input and native presentation authority
 
-Add C as `CastSpellAction`. It is admitted only from a current presented quiet
+C is `CastSpellAction`. It is admitted only from a current presented quiet
 contract-7 exploration boundary: no combat or same-cell contact, pending actor
 work, projectiles, attachment/round/end/retirement, Event, inventory, item use,
 receipt, dispatch/save operation, unresolved presentation or integrity failure.
@@ -384,7 +306,7 @@ phase, selected owner/book/slot, active membership, displayed-input generation
 and the **concrete frame token that actually completed SDL presentation**.
 Prepared, copied, returned, merely uploaded, or equal-pixel frames are not enough.
 `sealFrame`, `framePresented`, SDL's fixed batch generation and all-key held/repeat/
-timestamp protection remain the model. Add C to that protection; F keys, arrows,
+timestamp protection remain the model. C shares that protection; F keys, arrows,
 Enter and Escape must also require a fresh key press after a phase change.
 One batch cannot choose caster, confirm a spell and pick a target. Direct typed
 responses, reentrant callbacks and test adapters get no weaker authority.
@@ -409,11 +331,10 @@ UI phase and concrete input authorization. These are transient coordination,
 not another magic engine or gameplay owner.
 
 Use pure `XeenLearnedSpellRules` queries/preparation and a fixed result describing
-already published facts. Suggested narrow interface responsibilities are:
+already published facts. The narrow interface responsibilities are:
 `categoryForClass`, `spellForSlot`, `known`, `eligibility`, `prepareFirstAid`,
 `prepareAwaken`; EncounterFlow provides guarded begin/confirm/respond/service
 methods accessible through Flow, not public mutation by detached results.
-Keep exact names consistent with local conventions during implementation.
 
 There are four separately retained publication boundaries: **cost commitment**,
 **target effect or explicit refund**, **calendar/condition/RNG charge**, and
@@ -550,7 +471,7 @@ mutable owners.
 
 ### Capture, fresh restoration and continuation
 
-Extend current full-graph save authorization, not a second capture path. Unsafe
+Capture extends full-graph save authorization without a second path. Unsafe
 F9 refuses **before** capture, providers, fingerprint/target work or file I/O.
 It cannot finish a cast, refund it, close its UI, settle owed work or queue a save.
 Every casting phase, retained cost/response/effect/time/opportunity obligation,
@@ -563,200 +484,41 @@ map/MOB/EVT/statistics/names, install **saved** books/HP/SP/conditions and other
 durable fields, retain provider preimages, validate topology/current state,
 preflight presentation, publish once and bind new runtime capabilities. Never
 invoke fresh Journey preparation over a saved graph. No original CHR knowledge
-provider is necessary to restore 7/7; test that a provider cannot replace the
-saved books. Original resources still supply the existing immutable content.
+provider is needed to restore 7/7; saved books remain authoritative if a
+provider is consulted. Original resources still supply immutable content.
 
 Do not serialize caster/target/list selection, selected/current spell, phases,
 debited amounts/refund obligations, time/opportunity continuations, results,
 leases, frames, revisions or catalog text. A quiet restored Journey begins with
 no cast underway. Rebuilding catalog/UI/map caches neither relearns nor casts.
-Verify exact encoded bytes and every owner field before the first gameplay input,
-then compare uninterrupted and fresh-process branches after identical further
-casts and ordinary play. Restoration must not heal, clamp, wake, refund, charge
+Exact encoded bytes and every owner field are checked before first gameplay input;
+uninterrupted and fresh-process branches match after further casts and play. Restoration must not heal, clamp, wake, refund, charge
 time, draw RNG, activate/move actors, replay events/treasure or reconstruct a cast
 from reduced SP.
 
-## Implementation boundaries and likely files
+## Exclusions and final acceptance
 
-Implement in dependency order, with targeted deterministic checks at each boundary.
-These are engineering steps within M36, not authorization to start another milestone.
+Excluded: combat and quick casting; guild/spell acquisition; Vertigo and new
+transitions; Light, durations, buffs and other world-changing or offensive
+spells; nonzero gem/scaled costs; new item spells; Rest, resurrection, SP
+recovery, services and unrestricted Clouds gameplay. Unsupported learned spells
+remain preserved data. General magic is not established.
 
-1. **Knowledge and resource identity:** character optional value and bounded CHR
-   parser; immutable mapping/descriptors and explicit name accessor/parser;
-   equality and provider guards. Likely files: `XeenCharacter.h`,
-   `XeenCharacterFormat.*`, `XeenStateEquality.h`, asset/bridge files and new
-   `XeenLearnedSpellRules.*`/small catalog support. Keep legacy parser behavior.
-2. **Pure rules and prepared publications:** two target shapes, checked HP/SP
-   behavior and fixed results. Reuse `XeenCharacterRules` and existing condition
-   fields. Introduce no abstract effect hierarchy, item-spell unification or RNG.
-3. **Contract-7 lifecycle/persistence:** explicit content predicates in
-   `XeenJourneyContent`, fresh initialization, party-domain validation, guards,
-   `XeenSaveSnapshot/State/Format`, capture and fresh-owner restore. Audit exact
-   `contract==6` and `schema==6` gates in Event, item use, text admission, world,
-   treasure and Application so 7 inherits 6 while every legacy pair stays closed.
-   Use explicit supported-pair checks, not unbounded `>=7` future admission.
-4. **Casting coordination and SDL:** `XeenEncounterFlow`, `XeenJourneyFlow`,
-   `XeenEventFlow`, `XeenJourneyConsequences`, `PlayerAction`, `XeenGameplay` and
-   `SdlWindow`; add the transient work/activity, presentation/selection state,
-   cast/refund/effect publications and existing time/actor settlement. A dedicated
-   `XeenCastingFlow.cpp` implementation unit within these owners is reasonable;
-   no second live Flow or nested loop. Verify direct APIs as well as SDL routing.
-5. **Production integration and acceptance:** CMake test registration, existing
-   CLI/resource/process witness extensions and restore replay probes. Add a
-   focused M36 witness adapter analogous to `XeenM35CliWitness`, with contract 7
-   explicitly selected; the retained M33 adapter forces 4 and is not an M36 test.
-   Update public controls/durable docs only at authorized implementation closure.
+The complete build and unfiltered CTest suite (97/97) passed, with focused
+casting authority, publication and persistence controls. Genuine original-resource
+First Aid and Awaken routes, real F9 save, full process exit, fresh-process restore
+and uninterrupted/resumed comparisons passed; the relevant M35 process regression
+also passed. Independent technical review accepted after focused corrections, with
+no remaining BLOCKER, MAJOR or MINOR finding. The final design retains casting
+protection through combat/projectile completion and presentation of the resulting
+concrete frame; completed Event presentation does not hide casting, and stale
+casting feedback does not outlive its intended interval.
 
-No public callable grants of learned spells, debug cast commands, test hooks in
-production owners or new runtime dependencies are required.
-
-## Acceptance and planned verification
-
-The four acceptance classes are separate. Nothing below claims future M36 tests,
-review or physical acceptance have passed.
-
-### 1. Automated deterministic validation
-
-Use the character, Journey gameplay/Event, publication/authority, regional
-persistence and save families registered by [CMakeLists.txt](../CMakeLists.txt).
-Add focused learned-rule and casting-flow tests where those families do not
-express the boundary. Preserve the M35 antidote suite as a distinct regression.
-
-| Area | Required controls |
-| --- | --- |
-| Parsing/knowledge | Exact 30x354 extent and offsets; owners 0/29 and invalid owner; present zero book versus absent; raw 1/2/255; inactive books; all class categories, every slot bound, unsupported learned slots, current byte 255/invalid ignored; aliases resolve to the same owner. |
-| Eligibility/cost | Capability, learned and supported predicates independent; every disabling worst condition and simultaneous-condition precedence; SP -32768/-1/0/1/32767 and above maximum; level/class changes do not scale either cost; gems 0/10/u32 maximum unchanged; invalid domain/caster/slot never debits. |
-| Effects | First Aid self/other/alias; negative/zero HP, min(H+6,M), H=M, H>M, live equipment/Disease maximum, Unconscious threshold, Sleep retained, all terminal conditions/no refund, repeated and healthy casts, checked storage overflow. Awaken all active owners, inactive exclusion, alias deduplication, Sleep+Poison/Disease/Unconscious/Dead combinations, HP-positive conditional clearing, all-awake no-op. |
-| Cancellation and units | Escape at each precommit phase; postdebit target Escape exact once-only refund but ten-minute charge; invalid target retains prompt; repeated refund/effect responses; failure before debit versus after debit/effect/time; allocation and reporting faults; no transaction-wide rollback or lost cost obligation. |
-| Authority/input | Owner replacement/destruction/ABA, book/class/membership/SP/purse/context mutation, reentrant providers/reporters, generation overflow, copied observations, copied/equal-pixel/merely uploaded frames, wrong frame/phase/owner, stale F9, batched C/F5/Enter/Enter/F6, held/repeat/timestamp input, stale callbacks against newer work. |
-| Settlement | Exactly +10 minutes and unchanged ctr24 on success, failure, no-op and refunded target cancellation; zero on precommit refusal/cancel; 950->960 tick after effect/refund and before ranged RNG; 1250+10 refused before debit; checked draw continuation/failure; pending=3 and one opportunity, immediate contact, postcast combat uses changed state, defeat, receipts and dormant treasure, no automatic Event invented. |
-| Exclusions/restore | Explicit C refusal in combat, legacy/diagnostic domains, Event, inventory/U, receipt, approach, save and unresolved presentation; no provider/I/O on unsafe F9; save/restore/cache rebuild never executes casting; continued mutation after restart. |
-| Wire | Independent literal schema-7 offsets/length/count/order/CRC; thirty full books including inactive/unknown flags; partial/missing/duplicate/reordered owner records, every truncation boundary, extra bytes, crossed/unknown pairs, wrong optional presence; unchanged common character prefix and legacy golden bytes/domains. |
-
-Include the existing M28/M29 save preimage/reentry tests, M31 Event publication,
-M32 regional admission, M33 Shoot/tick/ranged/condition/treasure, M34 Run/legacy
-consequence and M35 quest/well/antidote families. Full build and complete CTest
-are required at implementation closure, with no failing test accepted as closure.
-
-### 2. Genuine original-resource and process evidence
-
-Use the legal external installation and real Application/CLI/Flow/scene/resource
-construction. Witness adapters supply typed input and a controlled presentation
-clock, not owner mutations, fabricated injuries, spell/resource grants, frozen
-actors or substitute effect functions. They must complete the concrete-frame
-handoff. Original DOS behavior is not claimed by these MMModern witnesses.
-
-The planning investigation read original CHR/PTY/names in memory and inspected
-the existing source/test chains. Read-only runs of the existing
-`mmodern_consequence_cli_witness` established these **inherited contract-4
-gameplay prefixes**, using its normal lowest-record contact target/Attack policy,
-normal automatic work, 100 ms pulses, and no equipment changes:
-
-| Seed / ordinary input prefix | Observed settled state before magic |
-| --- | --- |
-| 1 / `UFU` | `(7,11)` West, minute 511, ctr24 2, RNG state 3323190024/count 18; Seymour HP 11/15, SP 27; Rebecca HP 21, SP 21; actor 9 defeated. |
-| 7 / `LUUURUULURUULUUU` (16 inputs) | `(5,4)` South, minute 592, ctr24 16, RNG state 3210387611/count 62; Rebecca HP 4/SP 21/Sleep 1, Badger HP 21/SP 6/Sleep 1; Seymour HP 15/SP 27/able; Toad record 15 defeated, record 14 alive at `(5,2)`. |
-
-Here U=Forward, L/R=TurnLeft/TurnRight and F=Shoot; each input waits for ordinary
-work and combat to settle before the next. In combat, select the lowest original
-record among contacts and Attack for each ready member; acknowledge receipts.
-These probes supplied no save target and wrote no saves: their final snapshot
-footer refused `Unsupported Journey durable state` because Application omits
-archive fingerprints without a target. They are resource/gameplay setup evidence,
-not a passed process/save test or proof of the new contract. Rebuild the witness
-against the implementation and verify these prefixes under contract 7; unchanged
-pre-casting behavior is required. No acceptance claim rests on a prebuilt binary.
-
-**Required primary route (First Aid):**
-
-1. Start the real executable with
-   `--journey-region --combat-seed 1 <installation> --save-file <external-save>`.
-   Verify contract 7, original thirty books and the prepared HP/SP table. The
-   save path is outside the commercial installation. Reach the first prefix
-   above with ordinary controls; no Myra/Phirna/well interaction is needed.
-2. C, F5 Rebecca; browse to First Aid (slot 14, global 26), Enter to confirmation,
-   a fresh Enter to commit, then a newly presented F6 target choice. Observe
-   Rebecca SP **21->20**, Seymour HP **11->15**, gems **10->10**, and no unrelated
-   spell effect. The result must identify the selected caster/target.
-3. Settle the ten-minute charge **511->521**, ctr24 remaining **2**, and the
-   normal opportunity/projectile/contact/treasure work. Capture effect-time and
-   post-opportunity observations separately so any later damage is not mistaken
-   for a failed heal. Require a presented Quiet checkpoint; finish any genuinely
-   attached combat normally before F9.
-4. F9, full process exit, then launch a fresh process with
-   `--load-game <installation> <external-save>`. Before first input compare exact
-   save bytes/full semantic state, including books, SP, HP, conditions, all actors,
-   treasure, context and RNG against the uninterrupted branch. Probes must show
-   no initialization/casting/refund/time/RNG/event/treasure replay.
-5. In the resumed process cast First Aid again on the same active target, using
-   its live HP predicate, then make an ordinary turn and forward/backward movement
-   within the mainland, settle work and save again. Execute identical input in
-   the uninterrupted control and compare bytes/state after this continuation.
-   The further cast may be a no-op heal; it must still spend exactly one SP and
-   service its ten-minute/opportunity obligations. No reseeding or SP refill.
-
-**Required party-effect route (Awaken):**
-
-Start independently with seed 7 and the second prefix, stopping after the 16th
-input, before the next southward step. Use C, F6 Seymour, Awaken, confirmation.
-Observe SP **27->26**, both original Sleep bytes **1->0**, their HP unchanged at
-effect publication, and the whole active condition delta. Settle **592->602**,
-unchanged ctr24 **16**, and the ordinary opportunity. The living nearby Toad
-must remain active; if it contacts, the healed/woken owners enter normal combat
-and later Sleep/damage is a new consequence. Finish mandatory combat/receipts,
-reach Quiet, save, exit and fresh-load; compare with an uninterrupted control.
-Continue with Rebecca's now-eligible First Aid if she remains able, otherwise
-Seymour's or Badger's eligible learned cast after ordinary settlement. The
-separate primary route already requires First Aid after fresh restore; this
-route must prove the party effect and ensuing genuine actor consequences.
-
-For both routes, the implementation witness records the complete post-casting
-literal trace and saves, not just the two displayed scalars. Extend the existing
-`XeenM35CliWitness` style with distinct new stages and the
-[`XeenRestoreReplayProbe`](../tests/XeenRestoreReplayProbe.h) linker approach to
-observe new cost/effect/settlement sites. Require real file capture and separate
-process invocations via the existing process-test approach; helper round-trips
-alone are insufficient. Keep synthetic failure injections, alias fixtures,
-overflow, terminal recipients and artificial tick/contact setups explicitly
-separate from these resource-derived routes.
-
-### 3. Independent technical review
-
-Before closure, an independent reviewer checks the implementation and tests
-against this contract and exact candidate SHA, especially learned versus capable,
-target refund versus time charge, Awaken's terminal-condition quirk, self-target
-SP preservation, concrete-frame input, partial publication, all-thirty-owner
-persistence, legacy absence and fresh-process no-replay continuation. Correct
-material findings and obtain acceptance before recording stable completion.
-Planning approval and this document do not substitute for that review.
-
-### 4. Maintainer native-SDL physical acceptance
-
-The maintainer personally runs the primary route with ordinary keyboard controls,
-reads the caster/list/cost/target/result panels, observes actual injury recovery,
-waits for actor settlement, saves with F9, exits the process, fresh-loads and
-casts/plays again. Also exercise the party-effect route's Sleep clearing and
-nearby actor continuation, precommit Escape, First Aid target Escape (SP refund
-but time spent), unsupported Light selection, held/batched keys and combat C
-refusal. Check panel readability at 320x200, highlight/scroll behavior, changing
-phase controls and result visibility across contact. Automated SDL, screenshots
-or reference reading cannot be recorded as physical acceptance.
-
-## Exclusions and closure criteria
-
-Excluded: combat magic and quick casting; guild/spell acquisition; Vertigo or
-any new map transition; Light/duration/buffs and general temporary effects;
-movement/world-changing/offensive spells; nonzero gem costs and scaled-cost
-consumers; new item spells; Rest/temple/resurrection/SP-recovery services;
-progression/economy; a complete magic dialog, original audio/sparkle fidelity,
-Clouds-only packaging/localization and unrestricted Clouds gameplay.
-Original learned unsupported spells remain data, not newly enabled behavior.
-
-M36 closes only when both supported spells work through the production path,
-the primary save/fresh-process/further-casting route and party-effect route pass,
-required regressions/full build/CTest pass, independent technical review accepts,
-and maintainer physical acceptance is recorded separately. Then, under closure
-authorization, update stable status/history/public controls and condense this
-plan to durable decisions/results. There are no unresolved maintainer product
-choices in this contract. Do not mark M36 complete or start M37 from planning
-completion; no staging, commit, push or tag is authorized by this specification.
+Separately, the maintainer personally completed native-SDL physical acceptance
+with ordinary keyboard controls: both production spells and their effects,
+precommit cancellation, postdebit target cancellation/refund with owed settlement,
+unsupported Light refusal, combat C refusal, held/batched input fencing, readable
+phases, mandatory settlement, F9 save, full exit, fresh `--load-game`, restored
+HP/SP/conditions, and continued casting and ordinary play. Automated/process
+evidence, independent technical review and maintainer physical acceptance are
+separate acceptance classes.

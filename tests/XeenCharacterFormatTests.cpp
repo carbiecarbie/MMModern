@@ -178,6 +178,32 @@ void testPartyHeaderAndReferences() {
 	rejects([&] { XeenCharacterFormat::parsePartyHeader(Bytes(9, 0)); });
 }
 
+void testLearnedSpells() {
+	Bytes bytes = rosterFixture();
+	for (std::size_t owner=0; owner<30; ++owner)
+		for (std::size_t slot=0; slot<39; ++slot)
+			bytes[owner*354+121+slot] = static_cast<std::uint8_t>((owner+slot)%256);
+	bytes[29*354+121] = 255;
+	bytes[29*354+159] = 2;
+	for (std::size_t owner=0; owner<30; ++owner) {
+		const auto book=XeenCharacterFormat::parseLearnedSpells(bytes,owner);
+		check(book.front()==(owner==29 ? 255 : owner) &&
+			book.back()==(owner==29 ? 2 : owner+38),"learned bytes include both endpoints for all owners");
+	}
+	const auto legacy=XeenCharacterFormat::parseRoster(bytes);
+	check(!legacy.at(0).learnedSpells && !legacy.at(29).learnedSpells,
+		"ordinary CHR parsing must leave knowledge absent");
+	bool rejected=false;
+	try { (void)XeenCharacterFormat::parseLearnedSpells(bytes,30); }
+	catch (const std::invalid_argument &) { rejected=true; }
+	check(rejected,"owner 30 must be rejected");
+	bytes.pop_back();
+	rejected=false;
+	try { (void)XeenCharacterFormat::parseLearnedSpells(bytes,0); }
+	catch (const std::invalid_argument &) { rejected=true; }
+	check(rejected,"truncated CHR must be rejected");
+}
+
 void testItemStorage() {
 	check(XeenCharacter::kSerializedSize == 354 && rosterFixture().size() == 10620,
 		"original CHR size changed with the save schema");
@@ -344,6 +370,7 @@ void testHpLayout() {
 int main() {
 	try {
 		testCharacterOffsetsAndBounds();
+		testLearnedSpells();
 		testPartyHeaderAndReferences();
 		testItemStorage();
 		testPortraitLayoutAndConditions();

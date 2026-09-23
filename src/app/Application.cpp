@@ -484,6 +484,11 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
             if (!bytes) throw std::runtime_error("Missing DARK.CC/xeen.mon");
             return XeenMonsterFormat::parse(*bytes);
         };
+		services.resources.loadLearnedSpellNames = [&] {
+			const auto bytes=assets.readLearnedSpellNamesFromDarkArchive();
+			if (!bytes) throw std::runtime_error("Missing DARK.CC/spells.xen");
+			return XeenLearnedSpellNames::parse(*bytes);
+		};
         if (entry == XeenEncounterEntry::Diagnostic27) {
             std::uint32_t value = seed ? *seed : std::random_device{}();
             if (!seed && !value) value = 1;

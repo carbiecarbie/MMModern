@@ -78,6 +78,10 @@ std::optional<std::vector<std::uint8_t>> XeenAssetSource::readItemMaterialNamesF
 	return _impl->bridge.readItemMaterialNamesFromDarkArchive();
 }
 
+std::optional<std::vector<std::uint8_t>> XeenAssetSource::readLearnedSpellNamesFromDarkArchive() {
+	return _impl->bridge.readLearnedSpellNamesFromDarkArchive();
+}
+
 std::optional<std::vector<std::uint8_t>> XeenAssetSource::readCloudsMonsterStatisticsFromDarkArchive() {
 	return _impl->bridge.readCloudsMonsterStatisticsFromDarkArchive();
 }

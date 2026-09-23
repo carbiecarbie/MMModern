@@ -88,6 +88,7 @@ struct XeenCharacter {
 	static constexpr std::size_t kConditionCount = 16;
 	static constexpr std::size_t kEquipmentSlotsPerCategory = 9;
 	static constexpr std::uint8_t kPortraitRosterCount = 24;
+	using XeenLearnedSpells = std::array<std::uint8_t, 39>;
 
 	std::uint8_t rosterId = 0;
 	std::string name;
@@ -102,6 +103,8 @@ struct XeenCharacter {
 	int temporaryAge = 0;
 	XeenMaxStatSkills maxStatSkills;
 	bool hasSpells = false;
+	// Presence is distinct from an explicitly empty spellbook. Original flags are retained verbatim.
+	std::optional<XeenLearnedSpells> learnedSpells;
 	XeenItemCategory weapons{};
 	XeenItemCategory armor{};
 	XeenItemCategory accessories{};

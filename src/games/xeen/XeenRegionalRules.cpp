@@ -201,7 +201,7 @@ XeenRegionalInteraction xeenRegionalInteraction(const XeenEventFile &events,cons
 	const auto first=xeenRegionalEvent(events,camera);
 	if (!first) return XeenRegionalInteraction::None;
 	if (xeenRegionalSign(events,camera)) return XeenRegionalInteraction::Sign;
-	if (contract!=6) return XeenRegionalInteraction::None;
+	if (contract!=6 && contract!=7) return XeenRegionalInteraction::None;
 	if (*first==21 && camera.x==9 && camera.y==11 && camera.direction==XeenDirection::West)
 		return XeenRegionalInteraction::Myra;
 	if (*first==125 && camera.x==8 && camera.y==2)

@@ -26,6 +26,7 @@ constexpr std::size_t kBodybuilderOffset = 42;
 constexpr std::size_t kPrayerMasterOffset = 51;
 constexpr std::size_t kPrestidigitationOffset = 52;
 constexpr std::size_t kHasSpellsOffset = 163;
+constexpr std::size_t kLearnedSpellsOffset = 121;
 constexpr std::size_t kWeaponsOffset = 166;
 constexpr std::size_t kArmorOffset = 202;
 constexpr std::size_t kAccessoriesOffset = 238;
@@ -86,6 +87,17 @@ XeenCombatInputs XeenCharacterFormat::parseCombatInputs(const std::vector<std::u
 	if (includeLuck) result.luck = XeenAttributeValue{p[32],p[33]};
 	if (includeResistances) result.resistances = XeenCombatResistances{p[313],p[314],p[315],p[316]};
 	return result;
+}
+
+XeenCharacter::XeenLearnedSpells XeenCharacterFormat::parseLearnedSpells(
+		const std::vector<std::uint8_t> &bytes, std::size_t owner) {
+	if (bytes.size() != XeenRoster::kCharacterCount * XeenCharacter::kSerializedSize ||
+			owner >= XeenRoster::kCharacterCount)
+		throw std::invalid_argument("learned CHR requires thirty complete records and a valid owner");
+	XeenCharacter::XeenLearnedSpells flags{};
+	const auto *record = bytes.data() + owner * XeenCharacter::kSerializedSize;
+	std::copy_n(record + kLearnedSpellsOffset, flags.size(), flags.begin());
+	return flags;
 }
 
 XeenMonsterTreasure XeenCharacterFormat::parseMonsterPurse(const std::vector<std::uint8_t> &bytes) {

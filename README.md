@@ -6,7 +6,7 @@ Might and Magic V: Darkside of Xeen / World of Xeen.
 
 ## Status
 
-**Milestone 35 is the latest completed milestone.**
+**Milestone 36 is the latest completed milestone.**
 
 The engine supports a bounded Clouds quest loop: request a quest, collect an
 item, return it for character-held rewards, and save/resume the resulting progress.
@@ -100,7 +100,8 @@ See the [technical snapshot](docs/project-status.md),
   all 19 original actors, physical combat/Shoot, conditions and monster treasure,
   individual Run/disengagement and survivor re-engagement, automatic sign
   presentation, connected Myra/Phirna quest and exchange, selected well recovery,
-  bounded antidote use, and exact 6/6 continuation at quiet boundaries.
+  bounded antidote use, learned First Aid/Awaken exploration casting, and exact
+  7/7 continuation at quiet boundaries.
 
 ## Running and controls
 
@@ -173,7 +174,7 @@ F9 may save at the presented quiet boundary. Turn West and return to `(0,14)`;
 the Journey remains mutable after return and restart. There is no autosave or
 healing requirement for the accepted seed-1 route.
 
-`--journey-region` starts a Regional Journey at Clouds map 23 `(9,11)` West,
+`--journey-region` starts a contract-7 Regional Journey at Clouds map 23 `(9,11)` West,
 minute 480, with the prepared party and all 19 original actors. Movement follows
 the resource-derived mainland. Contact opens Attack/Block/Run combat; 1-3 selects a
 live contact. R attempts Run for the displayed member and consumes that turn,
@@ -211,40 +212,53 @@ At the selected well `(7,7)`, Space opens WhoWill; F1-F6 chooses an eligible
 member and Escape cancels before selection. It adds 25 HP while that member's
 current HP is at or below live maximum, including at maximum; repeated use may
 work until HP exceeds maximum, when the original refusal text appears. It does
-not clear conditions or restore SP. In quiet contract-6 exploration, open I,
+not clear conditions or restore SP. In quiet Regional Journey exploration, open I,
 select a supported miscellaneous antidote and press U. Enter confirms spending
 one charge before a fresh F1-F6 target choice; Escape before Enter is free,
 while Escape at target choice still spends the charge. A chosen target loses
 Poison only. The item action then services one ordinary actor opportunity,
 which can lead to an encounter. General and combat-time item use remain unavailable.
 
+At a presented quiet contract-7 boundary, C opens learned exploration casting.
+Choose an eligible caster with F1-F6, browse that character's learned spells with
+Up/Down, press Enter to review the cost and Enter again to cast. First Aid heals
+one active member selected with a fresh F1-F6; Awaken clears Sleep across the
+active party. Each costs one current SP and ten minutes, followed by one ordinary
+regional actor opportunity. Escape before confirmation costs nothing. Escape at
+First Aid's target prompt refunds the SP, but the time and actor obligation still
+settle. Learned unsupported spells such as Light remain visible but unusable.
+Casting is unavailable during combat, events, open inventory and other pending
+work; C cannot queue a cast for later.
+
 Save files include living actor wounds, casualties, conditions and dormant/ready
 treasure, without storing combat, projectiles or UI work. Loaded legacy Journeys
 retain their original rules and controls, including their existing support stops;
-Run is available in contract-5/6 regional combat.
+Run is available in contract-5/6/7 regional combat.
 
 General recovery/Rest, other quests and travel beyond the mainland are unavailable.
 Defeat and unsupported time processing close further gameplay/save admission.
 Restart a quiet save with `--load-game`. The closed scope and acceptance contract
-are in [M35](docs/milestone-35-plan.md).
+are in [M35](docs/milestone-35-plan.md). Learned casting and its boundary are
+in [M36](docs/milestone-36-plan.md).
 
 | Key | Action |
 | --- | --- |
 | W/Up, S/Down | Move forward/backward; browse physical slots in inventory |
 | A/Left, D/Right | Turn left/right; browse categories in inventory |
-| Space, Enter | Interact (Space) or advance/acknowledge text; Enter confirms an armed transfer |
+| Space, Enter | Interact (Space) or advance/acknowledge text; Enter confirms transfer, antidote use or a learned cast in its current phase |
 | Y / N | Answer Yes/No; N cancels a transfer confirmation |
-| F1-F6 | Select inventory owner or transfer recipient; select an eligible member during WhoWill or any active target after confirmed antidote debit |
+| F1-F6 | Select inventory owner or transfer recipient, an eligible member during WhoWill, an antidote target, or a learned caster/First Aid target |
 | 1-9 | Select a physical inventory slot while browsing; 1-3 select a displayed target during a ready expedition or regional combat turn |
-| F | Shoot in contract-4/5/6 regional exploration; unavailable during contact combat |
-| U | Use a selected eligible antidote from inventory in quiet contract-6 exploration; confirm with Enter, then choose a target with a fresh F1-F6 |
+| F | Shoot in contract-4/5/6/7 regional exploration; unavailable during contact combat |
+| C | Open learned exploration casting at a presented quiet contract-7 boundary |
+| U | Use a selected eligible antidote from inventory in quiet contract-6/7 exploration; confirm with Enter, then choose a target with a fresh F1-F6 |
 | T | Begin transfer of the selected occupied slot |
 | E | Equip or remove the explicitly selected occupied weapon, armor or accessory |
 | . | Wait during the bounded encounter diagnostics and Journey; no action in ordinary gameplay |
 | F9 | Save an eligible idle ordinary session, completed Diagnostic27 or quiet presented Journey; refused while blocking work/UI is active |
 | I | Open inventory while idle; in completed Diagnostic27 open read-only inspection; close while browsing and print live diagnostics on opening |
-| R | Run for the displayed member in contract-5/6 regional combat; revisit the completed Diagnostic27 checkpoint in that separate mode |
-| Escape | Exit either diagnostic session; otherwise back/cancel transfer or close inventory, cancel WhoWill or antidote selection, acknowledge NPC/reward pages, or exit |
+| R | Run for the displayed member in contract-5/6/7 regional combat; revisit the completed Diagnostic27 checkpoint in that separate mode |
+| Escape | Exit either diagnostic session; otherwise back/cancel transfer or close inventory, cancel WhoWill or antidote selection, back out of precommit casting for free or refund First Aid at target choice while settlement remains owed, acknowledge NPC/reward pages, or exit |
 
 Movement and ordinary interaction are blocked while a response is required;
 repeated keydown events are ignored. NPC dialogue and reward pages accept
@@ -252,7 +266,7 @@ Space/Enter/Escape, including final acknowledgment with Escape.
 Inventory navigation applies while browsing; during transfer selection/confirmation,
 Escape returns to browsing before changing category or slot. Each equipment
 attempt consumes its selection; select the slot again before another E action.
-Only the bounded contract-6 antidote has inventory use; general item effects are unavailable.
+Only the bounded contract-6/7 antidote has inventory use; general item effects are unavailable.
 
 F9 refuses during a response-requiring interaction, open inventory/inspection,
 pending Journey approach, combat/End/retirement, unresolved frame handoff or an unsafe session,
@@ -261,10 +275,12 @@ work, then issue a new F9. Without a configured path, it writes nothing. Save
 results appear in the console and window title. Existing supported valid MMModern
 saves can be replaced; there is no autosave, save-on-exit or in-session load.
 Ordinary eligible saves write v2, completed Diagnostic27 writes v3, and Journey
-saves write v4. Fresh Regional Journey saves use schema/content 6/6 and preserve
+saves write v4. Fresh Regional Journey saves use schema/content 7/7 and preserve
 all 19 actor records, living wounds, casualties, conditions, purse and
 dormant/ready treasure, world flag 16 and the connected quest/recovery/item
-consequences with exact continuation. Legacy 5/5 and earlier Journey
+consequences and exact learned books for all thirty roster owners, with exact
+continuation of casting and ordinary play without replay or relearning. Legacy
+6/6 and earlier Journey
 saves retain their original rules and controls; loading does not upgrade them.
 The reader accepts supported v1/v2/v3/v4 in their
 distinct domains. `--load-game` selects Journey directly from v4 and restores fresh owners
@@ -292,6 +308,8 @@ SDL backend. The exact pin and configuration live in
 
 - [Milestone 35 plan](docs/milestone-35-plan.md): closed connected quest,
   selected well, antidote use, 6/6 continuation and acceptance contract.
+- [Milestone 36 plan](docs/milestone-36-plan.md): closed learned casting,
+  7/7 continuation and acceptance contract.
 - [Project status](docs/project-status.md): current stable technical capabilities,
   ownership, persistence and boundaries.
 - [Project history](docs/project-history.md): concise completed milestones and plan links.

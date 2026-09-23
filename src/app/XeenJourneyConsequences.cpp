@@ -18,7 +18,7 @@ bool unsupportedTime(const XeenGameplayContext &c) {
 }
 }
 bool XeenEncounterFlow::beginShoot() {
- if(!_journey || !xeenJourneyContent(_world.sessionState().journeyContract()).consequences() || _combat || _busy || _shoot || _regionalWork ||
+ if(_castingSettlement || !_journey || !xeenJourneyContent(_world.sessionState().journeyContract()).consequences() || _combat || _busy || _shoot || _regionalWork ||
   !current(ticket()) || !_boundary.quiet() || _state.phase()!=XeenEncounterPhase::Exploring) return false;
  const bool continuation=_shootIntent && !_regionalWork && !_regionalAutomatic && !projectilesPending() && !monsterReward();
  if((!_state.pending() && !journeyMutable() && !continuation) || !journeyCapacity()) return false;
@@ -34,7 +34,7 @@ bool XeenEncounterFlow::beginShoot() {
   if(!eligible) { _journeyRefusal="Shoot refused: no awake eligible missile user";return true; }
   // Check before retaining intent or consuming old work, and again when that
   // work finishes: ranged damage can disable a previously eligible shooter.
-  if(_state.pending()) { _shootIntent=true;journeyPulse(ticket());return true; }
+  if(_state.pending()) { retireCastingFeedback();_shootIntent=true;journeyPulse(ticket());return true; }
   const auto heldPreimage=_journeyPreimage;
   XeenRestoreGuard::Providers providers(*heldPreimage,_world);
   const auto &map=_world.map(23);const auto view=XeenActorApproach::classify(_world.sessionState().actors(),_camera);
@@ -50,7 +50,7 @@ bool XeenEncounterFlow::beginShoot() {
   for(unsigned row=0;row<rows;++row)
    for(unsigned slot=0;slot<3;++slot) candidate->targets[row*3+slot]=view.slots[row*3+slot];
   candidate->random=XeenCombatRandom(*_world.sessionState().journeyRandom());_journeyPreimage->check();
-  _shoot.swap(candidate);_world._sessionState._journeyActivity=XeenJourneyActivity::Shoot;
+  retireCastingFeedback();_shoot.swap(candidate);_world._sessionState._journeyActivity=XeenJourneyActivity::Shoot;
   ++_world._sessionState._journeyGeneration;++_generation;_journeyPreimage->adoptJourneyCoordination();
   _journeyRefusal.clear();return true;
  } catch(const std::invalid_argument &e) {
@@ -259,6 +259,11 @@ std::string XeenEncounterFlow::consequenceNotice() const {
   if(use.exhausted)out<<"; item exhausted";
   out<<'\n';
  }
+	if (!_castingResult.empty()) {
+		out<<_castingResult;
+		if (_castingSettlement && !_combat && (_state.pending() || _regionalWork || projectilesPending())) out<<"; actor work pending";
+		out<<'\n';
+	}
  const bool finishNotice = _disengagementNoticeRevision &&
   _retiredCombatResult.operation==XeenCombatOperation::FinishDisengagement &&
   (_combat ? _disengagementNoticeCombat && _combat->current(*_disengagementNoticeCombat) :

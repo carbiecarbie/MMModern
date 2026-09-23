@@ -9,6 +9,8 @@
 #include "games/xeen/XeenRestoreGuard.h"
 #include "games/xeen/XeenRegionalRules.h"
 #include "games/xeen/XeenAntidoteUse.h"
+#include "games/xeen/XeenLearnedSpellRules.h"
+#include "games/xeen/XeenCombatRules.h"
 
 namespace mmodern {
 class XeenItemCatalog;
@@ -34,6 +36,8 @@ struct XeenJourneySetup {
 	std::optional<XeenMonsterTreasure> purse;
 	std::optional<XeenRegionalRecoveryState> regionalRecovery;
 	std::optional<XeenEventTextFile> regionalText;
+	std::optional<XeenLearnedSpellNames> learnedNames;
+	std::function<XeenLearnedSpellNames()> learnedNamesProvider;
 };
 struct XeenJourneyRestoreTag {};
 
@@ -80,6 +84,10 @@ public:
 		std::optional<std::size_t> targetIndex, std::uint64_t displayedInput,
 		const IndexedFrame::Presentation &selectorFrame);
 	bool itemUseActive() const noexcept { return bool(_itemUse); }
+	bool castingActive() const noexcept { return bool(_casting); }
+	bool castingSettlement() const noexcept { return _castingSettlement; }
+	bool castingCommitted() const noexcept { return _casting && _casting->committed; }
+	const std::string &castingResult() const noexcept { return _castingResult; }
 	bool itemUseReady() const noexcept;
 	const std::optional<XeenAntidoteResult> &itemUseResult() const noexcept { return _itemUseResult; }
 	bool attachJourney(const Ticket &, const std::function<void()> &prepareSprites);
@@ -132,6 +140,15 @@ public:
 	std::string notice() const;
 private:
 	friend class XeenEventFlow;
+	bool beginCasting(const Ticket &);
+	void authorizeCastingFrame(const Ticket &, std::uint64_t, const IndexedFrame::Presentation &);
+	bool castingFrameCurrent(std::uint64_t, const IndexedFrame::Presentation &) const noexcept;
+	bool cancelCasting(const Ticket &, std::uint64_t, const IndexedFrame::Presentation &);
+	bool confirmCasting(const Ticket &, std::size_t casterIndex, std::size_t slot,
+		std::uint64_t, const IndexedFrame::Presentation &);
+	bool respondCastingTarget(const Ticket &, std::optional<std::size_t> targetIndex,
+		std::uint64_t, const IndexedFrame::Presentation &);
+	bool publishAwaken(const Ticket &);
 	void adoptJourneyFlowBorrow();
 	void beginJourneyEvent();
 	void endJourneyEvent();
@@ -152,6 +169,24 @@ private:
 		std::unique_ptr<XeenRegionalActionCandidate> opportunity;
 	};
 	std::unique_ptr<ItemUseContinuation> _itemUse;
+	struct CastingContinuation {
+		std::uint64_t lease=0, generation=0, displayedInput=0;
+		IndexedFrame::Presentation displayedFrame;
+		std::uint8_t casterOwner=0, slot=0;
+		XeenLearnedSpell spell=XeenLearnedSpell::Awaken;
+		std::int16_t originalSp=0;
+		bool committed=false,effectDone=false;
+		XeenCombatRandom random;
+		std::optional<XeenConditionTimeCandidate> time;
+	};
+	std::unique_ptr<CastingContinuation> _casting;
+	// Input protection outlives spell selection and the time publication.
+	// Approach, projectiles and successor presentation retain their existing owners.
+	bool _castingSettlement=false;
+	void retireCastingFeedback() noexcept { if (!_casting && !_castingSettlement) _castingResult.clear(); }
+	std::string _castingResult;
+	std::uint64_t _castingGeneration=0;
+	bool serviceCasting();
 	std::optional<XeenAntidoteResult> _itemUseResult;
 	std::uint64_t _itemUseGeneration=0;
 	bool authorizeItemUseTarget(const Ticket &, std::uint64_t generation, std::uint64_t inventoryEpoch,
@@ -182,6 +217,7 @@ private:
 	std::shared_ptr<XeenJourneyCapture> _journeyCapture;
 	XeenEventFile _journeyEvents;
 	std::vector<XeenMonsterRecord> _journeyStatistics;
+	std::function<XeenLearnedSpellNames()> _learnedNamesProvider;
 	void retainJourney();
 	bool journeyCapacity() noexcept;
 	void closeJourney() noexcept;

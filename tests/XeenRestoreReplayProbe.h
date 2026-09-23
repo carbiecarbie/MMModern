@@ -26,6 +26,7 @@ namespace replay_test {
 extern std::function<void(std::uint32_t,std::uint32_t,std::optional<std::uint32_t>,mmodern::XeenJourneyRandomState)> observeDraw;
 extern unsigned journeyInitializations, journeyConstructions, actions, pulses, retirements, commands, draws;
 extern unsigned depth, unexpected, constructions, services, preparations;
+extern unsigned timePreparations, eventExecutions, transfers, equipmentChanges;
 struct Scope { Scope() { ++depth; } ~Scope() { --depth; } };
 }
 #endif

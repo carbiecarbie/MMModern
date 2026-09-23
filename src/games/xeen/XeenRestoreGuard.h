@@ -3,6 +3,7 @@
 #include "games/xeen/XeenStateEquality.h"
 #include "games/xeen/XeenGameFlags.h"
 #include "games/xeen/XeenEventTextLoader.h"
+#include "games/xeen/XeenLearnedSpellRules.h"
 namespace mmodern {
 // Retained callback preimages, never a gameplay owner or a publication capability.
 class XeenRestoreGuard {
@@ -139,6 +140,18 @@ public:
 		}
 		if (!regionalText) regionalText=value;
 	}
+	void admitLearnedSpellNames(const XeenLearnedSpellNames &value) {
+		check();
+		verifyLearnedSpellNames(value);
+		if (!learnedNames) learnedNames=value;
+	}
+	// Combat checks a fresh live guard, but a changed resource must also poison
+	// the retained exploration preimage so a later equal callback cannot reopen it.
+	void verifyLearnedSpellNames(const XeenLearnedSpellNames &value) {
+		if (learnedNames && !(*learnedNames==value)) {
+			failed=true;throw std::logic_error("Learned spell names changed");
+		}
+	}
 private:
 	friend class XeenEventPublication;
 	friend class XeenEncounterFlow;
@@ -170,6 +183,7 @@ private:
 			objects.emplace(entry);
 		}
 		if (previous.regionalText) admitRegionalText(*previous.regionalText);
+		if (previous.learnedNames) admitLearnedSpellNames(*previous.learnedNames);
 	}
 	// Prepare a final-destination preimage before publication. Only the private
 	// SaveState swaps below are anticipated; no callback mutation is adopted.
@@ -189,6 +203,10 @@ private:
 			throw std::logic_error("Regional text changed at restore publication");
 		}
 		if (candidate.regionalText) regionalText=candidate.regionalText;
+		if (learnedNames && candidate.learnedNames && !(*learnedNames==*candidate.learnedNames)) {
+			failed=true;throw std::logic_error("Learned spell names changed at restore publication");
+		}
+		if (candidate.learnedNames) learnedNames=candidate.learnedNames;
 		++worldRevision; ++partyReplacement; ++rosterReplacement;
 	}
 	// Only the coordinator's checked, callback-free authority transitions may adopt these fields.
@@ -223,6 +241,7 @@ private:
 	std::map<XeenMapIdentity, XeenMap> maps;
 	std::map<XeenMapIdentity, XeenObjectFile> objects;
 	std::optional<XeenEventTextFile> regionalText;
+	std::optional<XeenLearnedSpellNames> learnedNames;
 	std::uint64_t cacheRevision;
 	bool exactCaches;
 	std::array<const XeenGameplayBorrowOwner *, 5> borrowOwners;

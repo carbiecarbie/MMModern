@@ -325,6 +325,8 @@ XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenP
 		require(swimming<6 && mountaineer<2 && navigator==0 && pathfinder<2,"Regional effective traversal prerequisites changed");
 	}
 	for (unsigned id = 0; id < 30; ++id) candidate.roster._combatInputs[id] = XeenCharacterFormat::parseCombatInputs(chr, id, contract>=2, xeenJourneyContent(contract).consequences());
+	if (contract == 7) for (unsigned id = 0; id < 30; ++id)
+		candidate.roster.at(id).learnedSpells = XeenCharacterFormat::parseLearnedSpells(chr, id);
 	candidate.roster._combatMarked = true;
 	candidate.encounterContext = context;
 	if (contract>=2) {
@@ -363,6 +365,8 @@ XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenP
 		to.intellect.temporary=to.personality.temporary=to.endurance.temporary=0; to.currentHp=from.currentHp; to.currentSp=from.currentSp;
 	}
 	party.roster._combatInputs = candidate.roster._combatInputs;
+	if (contract == 7) for (unsigned id = 0; id < 30; ++id)
+		party.roster.at(id).learnedSpells = candidate.roster.at(id).learnedSpells;
 	party.roster._combatMarked = true; party.encounterContext = candidate.encounterContext;
 	party.monsterTreasure=candidate.monsterTreasure;
 	s._actors.swap(actors); s._entry = XeenEncounterEntry::Journey;

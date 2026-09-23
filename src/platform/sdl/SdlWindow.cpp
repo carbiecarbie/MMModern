@@ -42,6 +42,7 @@ std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key) {
 	case SDLK_PERIOD: return WaitAction{};
 	case SDLK_b: return BlockAction{};
 	case SDLK_f: return ShootAction{};
+	case SDLK_c: return CastSpellAction{};
 	case SDLK_r: return RevisitCompletedAction{};
 	case SDLK_F9: return SaveGameAction{};
 	case SDLK_i: return InspectInventoryAction{};
@@ -163,7 +164,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 	SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_NONE);
 	std::vector<std::uint32_t> pixels;
 	if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale initial frame handoff");
-	IndexedFrame::Presentation uploadedFrame;
+	IndexedFrame::Presentation uploadedFrame, presentedFrame;
 	std::optional<std::uint64_t> uploadedInput;
 	bool uploaded = false;
 	const auto accepts = [&](const IndexedFrame::Presentation &frame) {
@@ -190,6 +191,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 		SDL_RenderPresent(renderer);
 		if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale initial upload");
 		if (handler.framePresented) handler.framePresented(uploadedFrame);
+		presentedFrame = uploadedFrame;
 		uploadedInput = handler.displayedInput ? handler.displayedInput() : std::nullopt;
 	}
 	std::uint64_t cycle = 0;
@@ -241,6 +243,10 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 						const bool held = down; down = true;
 						if (held || static_cast<std::int32_t>(event.key.timestamp-readyAt) < 0) continue;
 					}
+					// Exit must obey the same semantic presentation fence as gameplay.
+					if (handler.protectAllKeys && event.key.keysym.sym == SDLK_ESCAPE &&
+						(batchInput != (handler.displayedInput ? handler.displayedInput() : std::nullopt) ||
+						 !uploaded || !accepts(uploadedFrame) || uploadedFrame != presentedFrame)) continue;
 					if (event.key.keysym.sym == SDLK_ESCAPE &&
 							!(handler && canCancelInteraction && canCancelInteraction())) {
 						running = false;
@@ -299,6 +305,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 		if (uploadedInput != (handler.displayedInput ? handler.displayedInput() : std::nullopt))
 			throw std::runtime_error("Current frame was not uploaded");
 		if (handler.framePresented) handler.framePresented(uploadedFrame);
+		presentedFrame = uploadedFrame;
 		uploadedInput = handler.displayedInput ? handler.displayedInput() : std::nullopt;
 		const auto nextInput = handler.displayedInput ? handler.displayedInput() : std::nullopt;
 		if (nextInput != displayedInput) { readyAt = SDL_GetTicks(); retireQueuedKeys(); }

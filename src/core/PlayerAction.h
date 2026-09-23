@@ -12,6 +12,7 @@ struct SaveGameAction {};
 struct WaitAction {};
 struct AttackAction {};
 struct ShootAction {};
+struct CastSpellAction {};
 struct BlockAction {};
 struct RunAction {};
 struct SelectCombatTargetAction { unsigned row; };
@@ -32,7 +33,7 @@ struct CancelInteractionAction {};
 using PlayerAction = std::variant<NavigationAction, InteractionAction,
 	AcknowledgeAction, YesAction, NoAction, SelectMemberAction, CancelInteractionAction, SaveGameAction, InspectInventoryAction,
 	SelectInventorySlotAction, TransferInventoryAction, EquipmentInventoryAction, UseItemAction, WaitAction,
-	AttackAction, ShootAction, BlockAction, RunAction, SelectCombatTargetAction, BeginEncounterAction, RevisitCompletedAction>;
+	AttackAction, ShootAction, CastSpellAction, BlockAction, RunAction, SelectCombatTargetAction, BeginEncounterAction, RevisitCompletedAction>;
 
 } // namespace mmodern
 

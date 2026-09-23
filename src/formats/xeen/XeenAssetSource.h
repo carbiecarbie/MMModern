@@ -52,6 +52,7 @@ public:
 	std::optional<std::vector<std::uint8_t>> readCloudsVisualMetadataFromDarkArchive();
 	// Optional commercial English material names from exactly DARK.CC/mae.xen.
 	std::optional<std::vector<std::uint8_t>> readItemMaterialNamesFromDarkArchive();
+	std::optional<std::vector<std::uint8_t>> readLearnedSpellNamesFromDarkArchive();
 	// Missing archive/member: nullopt; extent/read failures: exception. Parsing is separate.
 	std::optional<std::vector<std::uint8_t>> readCloudsMonsterStatisticsFromDarkArchive();
 	void drawObjectVisual(const XeenObjectVisual &visual, int x, int y,

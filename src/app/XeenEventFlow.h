@@ -152,6 +152,16 @@ private:
 	};
 	std::optional<EquipmentSelection> _equipmentSelection;
 	std::optional<std::uint64_t> _itemUseGeneration;
+	struct CastingUi {
+		enum class Phase { ChooseCaster, BrowseLearned, ConfirmCast, ChooseTarget, Settling };
+		Phase phase=Phase::ChooseCaster;
+		std::size_t caster=0, slot=0, scroll=0;
+		std::string refusal;
+	};
+	std::optional<CastingUi> _castingUi;
+	bool castingCasterEligible(std::size_t) const;
+	std::string castingText() const;
+	IndexedFrame handleCasting(const PlayerAction &, std::uint64_t);
 	struct InventoryConfirmation {
 		std::uint64_t epoch;
 		XeenInventorySelection selection;

@@ -115,6 +115,39 @@ int main() {
 	  auto missing=six;missing.journey->regionalRecovery.reset();rejects([&]{XeenSaveFormat::encode(missing);});
 	  auto crossed=six;crossed.journey->contract=5;rejects([&]{XeenSaveFormat::encode(crossed);});
 	  crossed=six;crossed.journey->schema=5;rejects([&]{XeenSaveFormat::encode(crossed);});
+	  auto seven=six;seven.journey->schema=seven.journey->contract=7;
+	  for(unsigned owner=0;owner<30;++owner) {
+	   XeenCharacter::XeenLearnedSpells book{};
+	   if(owner!=2)for(unsigned slot=0;slot<39;++slot)book[slot]=std::uint8_t((owner*7+slot*3)&255);
+	   seven.characters[owner].learnedSpells=book;
+	  }
+	  seven.characters[29].learnedSpells->at(38)=255;
+	  const auto sevenBytes=XeenSaveFormat::encode(seven);
+	  check(sevenBytes.size()-offset==3032 && sevenBytes[offset+1]==7 && sevenBytes[offset+3]==7,
+	   "Schema-7 exact suffix extent and discriminator");
+	  check(std::equal(sevenBytes.begin()+20,sevenBytes.begin()+offset,sixBytes.begin()+20),
+	   "Schema-7 changed the common character wire prefix");
+	  constexpr unsigned knowledge=1831;
+	  check(sevenBytes[offset+knowledge]==30 && sevenBytes[offset+knowledge+1]==0 &&
+	   sevenBytes[offset+knowledge+2]==0 && sevenBytes[offset+knowledge+2+38]==114 &&
+	   sevenBytes[offset+knowledge+1+40*2]==2 && sevenBytes[offset+knowledge+2+40*2]==0 &&
+	   sevenBytes[offset+knowledge+1+40*29]==29 && sevenBytes.back()==255,
+	   "Schema-7 literal owner sequence and raw learned bytes");
+	  sameSnapshot(seven,XeenSaveFormat::decode(sevenBytes));
+	  check(XeenSaveFormat::encode(XeenSaveFormat::decode(sevenBytes))==sevenBytes,
+	   "Schema-7 exact byte continuation");
+	  auto wrongBooks=six;wrongBooks.characters[0].learnedSpells=XeenCharacter::XeenLearnedSpells{};
+	  rejects([&]{XeenSaveFormat::encode(wrongBooks);});
+	  wrongBooks=seven;wrongBooks.characters[29].learnedSpells.reset();rejects([&]{XeenSaveFormat::encode(wrongBooks);});
+	  wrongBooks=seven;wrongBooks.journey->schema=6;rejects([&]{XeenSaveFormat::encode(wrongBooks);});
+	  wrongBooks=seven;wrongBooks.journey->contract=6;rejects([&]{XeenSaveFormat::encode(wrongBooks);});
+	  const auto badSeven=[&](unsigned at,unsigned value){auto wire=sevenBytes;wire[offset+at]=value;fixIndependentEnvelope(wire);rejects([&]{XeenSaveFormat::decode(wire);});};
+	  badSeven(knowledge,29);badSeven(knowledge+1,1);badSeven(knowledge+1+40,0);
+	  badSeven(1,6);badSeven(3,6);
+	  for(std::size_t size=offset+knowledge;size<sevenBytes.size();++size){
+	   auto wire=sevenBytes;wire.resize(size);fixIndependentEnvelope(wire);rejects([&]{XeenSaveFormat::decode(wire);});
+	  }
+	  auto extraSeven=sevenBytes;extraSeven.push_back(0);fixIndependentEnvelope(extraSeven);rejects([&]{XeenSaveFormat::decode(extraSeven);});
 		std::cout << "Schema-3 exact layout, full coverage and malformed-wire controls passed\n";
 		return 0;
 	} catch(const std::exception &e) {std::cerr << e.what() << '\n';return 1;}

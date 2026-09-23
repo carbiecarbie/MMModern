@@ -98,6 +98,9 @@ public:
 	std::optional<std::vector<std::uint8_t>> readItemMaterialNamesChecked() const {
 		return readMetadataChecked("mae.xen", 8192);
 	}
+	std::optional<std::vector<std::uint8_t>> readLearnedSpellNamesChecked() const {
+		return readMetadataChecked("spells.xen", 937, true);
+	}
 	std::optional<std::vector<std::uint8_t>> readMonsterStatisticsChecked() const {
 		return readMetadataChecked("xeen.mon", 65535, true);
 	}
@@ -276,6 +279,13 @@ std::optional<std::vector<std::uint8_t>> ScummVmXeenBridge::readItemMaterialName
 	if (!_impl->darkMetadataArchive)
 		_impl->darkMetadataArchive.reset(new DarkMetadataArchive());
 	return _impl->darkMetadataArchive->readItemMaterialNamesChecked();
+}
+
+std::optional<std::vector<std::uint8_t>> ScummVmXeenBridge::readLearnedSpellNamesFromDarkArchive() {
+	if (!_impl->darkAvailable) return std::nullopt;
+	if (!_impl->darkMetadataArchive)
+		_impl->darkMetadataArchive.reset(new DarkMetadataArchive());
+	return _impl->darkMetadataArchive->readLearnedSpellNamesChecked();
 }
 
 std::optional<std::vector<std::uint8_t>> ScummVmXeenBridge::readCloudsMonsterStatisticsFromDarkArchive() {

@@ -39,6 +39,7 @@ public:
 	void validateAttackMonster(const std::string &resourceName);
 	std::optional<std::vector<std::uint8_t>> readCloudsVisualMetadataFromDarkArchive();
 	std::optional<std::vector<std::uint8_t>> readItemMaterialNamesFromDarkArchive();
+	std::optional<std::vector<std::uint8_t>> readLearnedSpellNamesFromDarkArchive();
 	std::optional<std::vector<std::uint8_t>> readCloudsMonsterStatisticsFromDarkArchive();
 	void drawObjectSprite(const std::string &resourceName, std::size_t frame,
 		int x, int y, const XeenSpriteDrawOptions &options);

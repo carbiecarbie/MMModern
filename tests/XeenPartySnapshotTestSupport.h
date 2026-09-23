@@ -13,6 +13,7 @@ inline void checkSameCharacter(const XeenCharacter &a, const XeenCharacter &b) {
 			a.permanentLevel != b.permanentLevel || a.temporaryLevel != b.temporaryLevel ||
 			a.temporaryAge != b.temporaryAge || a.birthYear != b.birthYear ||
 			a.currentHp != b.currentHp || a.currentSp != b.currentSp || a.hasSpells != b.hasSpells ||
+			a.learnedSpells != b.learnedSpells ||
 			a.conditions != b.conditions ||
 			a.maxStatSkills.astrologer != b.maxStatSkills.astrologer ||
 			a.maxStatSkills.bodybuilder != b.maxStatSkills.bodybuilder ||

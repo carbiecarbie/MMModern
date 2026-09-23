@@ -51,6 +51,7 @@ add_library(mmodern_xeen STATIC
 	src/formats/xeen/XeenMapFormat.cpp
 	src/games/xeen/XeenCharacter.cpp
 	src/games/xeen/XeenCharacterRules.cpp
+	src/games/xeen/XeenLearnedSpellRules.cpp
 	src/games/xeen/XeenEventDecoder.cpp
 	src/games/xeen/XeenEventDiagnostics.cpp
 	src/games/xeen/XeenEventInterpreter.cpp
@@ -97,6 +98,8 @@ add_library(mmodern_app STATIC
 	src/app/XeenEncounterFlow.cpp
 	src/app/XeenJourneyFlow.cpp
 	src/app/XeenJourneyConsequences.cpp
+	src/app/XeenCastingFlow.cpp
+	src/app/XeenCastingUi.cpp
 	src/app/XeenCompletedFlow.cpp
 	src/app/Application.cpp
 	src/app/XeenEventFlow.cpp
@@ -203,6 +206,15 @@ if(BUILD_TESTING)
 	target_link_libraries(mmodern_consequence_cli_witness PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2 shell32)
 	target_link_options(mmodern_consequence_cli_witness PRIVATE "-Wl,--wrap=_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjES5_ItE")
 	xeen_restore_replay(mmodern_consequence_cli_witness)
+	add_executable(mmodern_m36_cli_witness EXCLUDE_FROM_ALL src/main.cpp tests/XeenM36CliWitness.cpp tests/XeenRestoreReplayProbe.cpp)
+	target_link_libraries(mmodern_m36_cli_witness PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2 shell32)
+	target_link_options(mmodern_m36_cli_witness PRIVATE "-Wl,--wrap=_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjES5_ItE")
+	target_link_options(mmodern_m36_cli_witness PRIVATE
+		"-Wl,--wrap=_ZN7mmodern17XeenEncounterFlow14confirmCastingERKNS0_6TicketEyyyRKSt10shared_ptrIKNS_12IndexedFrameEE"
+		"-Wl,--wrap=_ZN7mmodern17XeenEncounterFlow20respondCastingTargetERKNS0_6TicketESt8optionalIyEyRKSt10shared_ptrIKNS_12IndexedFrameEE"
+		"-Wl,--wrap=_ZN7mmodern17XeenEncounterFlow13publishAwakenERKNS0_6TicketE"
+		"-Wl,--wrap=_ZN7mmodern17XeenEncounterFlow14serviceCastingEv")
+	xeen_restore_replay(mmodern_m36_cli_witness)
 	add_executable(mmodern_journey_process_tests EXCLUDE_FROM_ALL tests/XeenJourneyProcessTests.cpp)
 	target_link_libraries(mmodern_journey_process_tests PRIVATE mmodern_app mmodern_xeen)
 	add_executable(mmodern_combat_tests tests/XeenCombatTests.cpp)
@@ -554,6 +566,9 @@ if(BUILD_TESTING)
 	)
 	target_link_libraries(mmodern_character_rules_tests PRIVATE mmodern_core)
 	add_test(NAME xeen_character_rules COMMAND mmodern_character_rules_tests)
+	add_executable(mmodern_learned_spell_rules_tests tests/XeenLearnedSpellRulesTests.cpp)
+	target_link_libraries(mmodern_learned_spell_rules_tests PRIVATE mmodern_xeen)
+	add_test(NAME xeen_learned_spell_rules COMMAND mmodern_learned_spell_rules_tests)
 	add_executable(mmodern_equipment_tests
 		tests/XeenEquipmentTests.cpp
 		src/games/xeen/XeenEquipment.cpp
