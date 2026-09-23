@@ -160,6 +160,12 @@ void XeenEventFlow::framePresented(const IndexedFrame::Presentation &presented) 
 		if (_encounter->combat()) _encounter->presented(*_encounterFrame);
 		else if (!_encounter->presentJourney(*_encounterFrame)) throw std::logic_error("Stale Journey frame handoff");
 		_handoffPending = false; _encounterFrame = _encounter->ticket();
+		if (_inventory.mode==XeenInventoryMode::UseTarget &&
+			(!_itemUseGeneration || !_encounter->authorizeItemUseTarget(*_encounterFrame,*_itemUseGeneration,
+				_inventoryEpoch,_inputGeneration,presented))) {
+			closeGameplay();
+			throw std::logic_error("Antidote target frame authority unavailable");
+		}
 	}
 	if (completed() && _handoffPending) {
 		if (!inventoryOpen()) _encounter->releaseCompleted();
@@ -279,7 +285,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 				}
 				_inventoryUnderlay = rendered;
 				if (inventoryOpen()) rendered = drawXeenInventory(rendered,_inventoryFont,_catalog,_party,_inventory,_inventoryFeedback,
-					_equipmentResult ? &*_equipmentResult : nullptr);
+					_equipmentResult ? &*_equipmentResult : nullptr,false,false,_world.sessionState().journeyContract()==6);
 				if (report && !attempt) {
 					if (reportText) reportText(_encounter->notice());
 					if (!_encounter->current(t)) throw std::logic_error("Stale Journey reporting");
@@ -512,6 +518,7 @@ void XeenEventFlow::validateRegionalEvents() {
 	});
 	XeenRestoreGuard::Providers providers(guard,_world,[&] {validation.check();});
 	validation.script(_events.scriptForMap(23).file());
+	if (_world.sessionState().journeyContract()==6) validation.text(_events.textForMap(23));
 }
 IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operation, bool automatic) {
 	automatic=automatic || (_pending && _pending->automatic);
@@ -520,7 +527,7 @@ IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operat
 		XeenEventPublication publication(_encounter->journeySavePreimage(),_encounter->_journeyEvents,[&] {
 			if (!_dispatching || !_encounter->journeyEvent() || !_encounter->current(entry))
 				throw std::logic_error("Stale Journey event continuation");
-		});
+		},beforeRewardEnqueue);
 		XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world,[&] { publication.check(); });
 		_eventPublication=&publication;
 		try { operation(); publication.check(); }
@@ -707,7 +714,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 	if (!_encounter && std::holds_alternative<WaitAction>(action)) return frameCopy();
 	if (!_encounter && (std::holds_alternative<AttackAction>(action) || std::holds_alternative<BlockAction>(action) || std::holds_alternative<RunAction>(action) ||
 		std::holds_alternative<BeginEncounterAction>(action) || std::holds_alternative<RevisitCompletedAction>(action))) return frameCopy();
-	if (journey() && _encounter->combat() && _world.sessionState().journeyContract()==5 &&
+	if (journey() && _encounter->combat() && xeenJourneyContent(_world.sessionState().journeyContract()).disengagement() &&
 		std::holds_alternative<RevisitCompletedAction>(action)) action=RunAction{};
 	DispatchScope dispatch(_dispatching);
 	validateRegionalEvents();
@@ -740,14 +747,14 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 			}
 			if (_journeyEventLayers) { _presenter.clear(); _journeyEventLayers=false; }
 			if (inventoryOpen() || std::holds_alternative<InspectInventoryAction>(action)) {
-				if (!_encounter->journeyMutable()) return frameCopy();
+				if (!_encounter->journeyMutable() && !(_encounter->itemUseActive() && inventoryOpen())) return frameCopy();
 				handleInventory(action);
 				return renderEncounter(true);
 			}
 			if (std::holds_alternative<InteractionAction>(action)) {
 				if (!_encounter->journeyQuiet()) return frameCopy();
 				if (_world.sessionState().journeyContract()>=3) {
-					if (xeenRegionalSign(_encounter->_journeyEvents,_camera)) {
+					if (xeenRegionalInteraction(_encounter->_journeyEvents,_camera,_world.sessionState().journeyContract())!=XeenRegionalInteraction::None) {
 						_encounter->beginJourneyEvent();_journeyEventLayers=true;
 						return journeyEventWork([&] { drive(_events.runManualEvent(_world,_party,_camera,_flags,_eventPublication),false); });
 					}

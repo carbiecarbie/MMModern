@@ -72,6 +72,7 @@ struct XeenSaveJourney {
 	std::uint16_t originalActorCount = 27;
 	std::vector<XeenSaveJourneyActor> actors;
 	std::optional<XeenMonsterTreasure> treasure;
+	std::optional<XeenRegionalRecoveryState> regionalRecovery;
 };
 
 struct XeenSaveSnapshot {

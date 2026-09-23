@@ -99,6 +99,7 @@ struct XeenEventGiveEnchanted {
 	// Owned diagnostic bytes; no gameplay meaning in the bounded misc branch.
 	std::vector<std::uint8_t> suffix;
 };
+struct XeenEventVoiceCue { std::uint8_t index = 0; };
 
 struct XeenEventTakeOrGivePair {
 	std::uint8_t mode = 0;
@@ -124,7 +125,8 @@ using XeenDecodedEventOperation = std::variant<
 	XeenEventCallEvent,
 	XeenEventConditional,
 	XeenEventTakeOrGive,
-	XeenEventGiveEnchanted>;
+	XeenEventGiveEnchanted,
+	XeenEventVoiceCue>;
 
 struct XeenDecodedEventInstruction {
 	XeenEventSourceLocation source;

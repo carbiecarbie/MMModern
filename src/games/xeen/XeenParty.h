@@ -106,6 +106,15 @@ private:
 	Values _values{};
 };
 
+// The one original world bit admitted by the connected regional recovery contract.
+struct XeenRegionalRecoveryState {
+	bool worldFlag16 = false;
+	friend bool operator==(XeenRegionalRecoveryState a, XeenRegionalRecoveryState b) noexcept {
+		return a.worldFlag16 == b.worldFlag16;
+	}
+	friend bool operator!=(XeenRegionalRecoveryState a, XeenRegionalRecoveryState b) noexcept { return !(a == b); }
+};
+
 struct XeenPartyState {
 	XeenPartyState() = default;
 	XeenPartyState(const XeenPartyState &);
@@ -121,6 +130,7 @@ struct XeenPartyState {
 	XeenParty party;
 	XeenCloudsQuestItems questItems;
 	XeenCloudsQuestFlags questFlags;
+	std::optional<XeenRegionalRecoveryState> regionalRecovery;
 	std::uint8_t firstSerializedCount = 0;
 	std::uint8_t effectiveSerializedCount = 0;
 	std::vector<std::string> diagnostics;

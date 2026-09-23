@@ -21,6 +21,7 @@ struct InspectInventoryAction {};
 struct SelectInventorySlotAction { std::size_t slot; };
 struct TransferInventoryAction {};
 struct EquipmentInventoryAction {};
+struct UseItemAction {};
 struct InteractionAction {};
 struct AcknowledgeAction {};
 struct YesAction {};
@@ -30,7 +31,7 @@ struct CancelInteractionAction {};
 
 using PlayerAction = std::variant<NavigationAction, InteractionAction,
 	AcknowledgeAction, YesAction, NoAction, SelectMemberAction, CancelInteractionAction, SaveGameAction, InspectInventoryAction,
-	SelectInventorySlotAction, TransferInventoryAction, EquipmentInventoryAction, WaitAction,
+	SelectInventorySlotAction, TransferInventoryAction, EquipmentInventoryAction, UseItemAction, WaitAction,
 	AttackAction, ShootAction, BlockAction, RunAction, SelectCombatTargetAction, BeginEncounterAction, RevisitCompletedAction>;
 
 } // namespace mmodern

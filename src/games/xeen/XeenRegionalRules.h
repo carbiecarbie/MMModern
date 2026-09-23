@@ -14,6 +14,9 @@ unsigned xeenPlayerRayRows(const XeenMap &, const XeenCamera &);
 bool xeenOutdoorRangedRay(const XeenMap &, const XeenCamera &, const XeenActor &);
 std::optional<std::size_t> xeenRegionalEvent(const XeenEventFile &, const XeenCamera &);
 bool xeenRegionalSign(const XeenEventFile &, const XeenCamera &);
+enum class XeenRegionalInteraction { None, Sign, Myra, Phirna, Well };
+XeenRegionalInteraction xeenRegionalInteraction(const XeenEventFile &, const XeenCamera &, std::uint16_t contract);
+std::optional<std::int16_t> xeenWellHpAfter(std::int16_t before) noexcept;
 void xeenValidateRegionalActors(const XeenMap &, const XeenObjectFile &, const std::vector<XeenActor> &,
 	const std::set<XeenMonsterIdentity> &accounted);
 using XeenRegionalManifest = std::function<void(const XeenMap &, const XeenObjectFile &,

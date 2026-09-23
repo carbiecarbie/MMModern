@@ -11,4 +11,10 @@ XeenCloudsQuestFlags XeenQuestFlagFormat::parseClouds(const std::vector<std::uin
 		values[i] = (bytes[kOffset + i / 8] & (1u << (i % 8))) != 0;
 	return XeenCloudsQuestFlags(values);
 }
+XeenRegionalRecoveryState XeenQuestFlagFormat::parseRegionalRecovery(const std::vector<std::uint8_t> &bytes) {
+	constexpr std::size_t offset = 659 + 32 + 32;
+	if (bytes.size() < offset + 16)
+		throw std::runtime_error("maze.pty truncated before complete world-flag block");
+	return {(bytes[offset + 2] & 1u) != 0};
+}
 }

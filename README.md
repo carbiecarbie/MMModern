@@ -6,7 +6,7 @@ Might and Magic V: Darkside of Xeen / World of Xeen.
 
 ## Status
 
-**Milestone 34 is the latest completed milestone.**
+**Milestone 35 is the latest completed milestone.**
 
 The engine supports a bounded Clouds quest loop: request a quest, collect an
 item, return it for character-held rewards, and save/resume the resulting progress.
@@ -47,8 +47,10 @@ treasure remain attached to their character, party and world owners. Inventory,
 the original sign and saving are available at the admitted quiet boundaries.
 Individual Run permits partial-party combat and non-victory disengagement to the
 original fixed destination, followed by return/re-engagement with wounded survivors.
-Casualties and dormant or ready treasure survive restart. Recovery, Myra quest
-execution and travel beyond this mainland remain excluded.
+Casualties and dormant or ready treasure survive restart. Fresh Regional Journey
+also connects explicit Myra request, Phirna collection and Myra exchange across
+ordinary mainland travel, with selected well recovery and narrow exploration
+use of Myra's delivered antidote. Travel beyond this mainland remains excluded.
 
 The Diagnostic26 entry presents an original outdoor Skeleton, supports its
 activation and approach, and stops at terminal same-cell engagement. Diagnostic27
@@ -60,8 +62,8 @@ true revisit with the Skeleton still defeated. Neither diagnostic enables
 normal-start gameplay.
 
 MMModern remains incomplete and experimental. It is not yet a generally playable
-replacement for the original games: general combat, item use, complete item effects and Darkside
-gameplay remain unsupported, and travel between validated checkpoints is not certified.
+replacement for the original games: general combat, general item use/effects and Darkside
+gameplay remain unsupported, and travel outside admitted routes is not certified.
 
 See the [technical snapshot](docs/project-status.md),
 [completed milestones](docs/project-history.md) and [future direction](docs/roadmap.md).
@@ -97,7 +99,8 @@ See the [technical snapshot](docs/project-status.md),
 - Resource-derived map-23 mainland exploration through `--journey-region`, with
   all 19 original actors, physical combat/Shoot, conditions and monster treasure,
   individual Run/disengagement and survivor re-engagement, automatic sign
-  presentation, and exact continuation at quiet boundaries.
+  presentation, connected Myra/Phirna quest and exchange, selected well recovery,
+  bounded antidote use, and exact 6/6 continuation at quiet boundaries.
 
 ## Running and controls
 
@@ -196,15 +199,34 @@ North at `(5,9)` automatically displays the original sign; it can also be
 requested manually. It requires no acknowledgment, and ordinary eligible controls
 remain available while its text is visible. Inventory/equipment and F9 require
 presented quiet boundaries.
+
+At Myra `(9,11)` West, Space explicitly requests the original quest. Travel to
+Phirna `(8,2)` and use Space from any facing, answer Yes, and acknowledge the
+collection. Return by ordinary mainland travel, use Space at Myra and acknowledge
+the exchange and receipt for up to five one-charge antidotes. Root possession
+controls the return branch; another Root can support another exchange. This is
+one bounded connected quest, not general questing.
+
+At the selected well `(7,7)`, Space opens WhoWill; F1-F6 chooses an eligible
+member and Escape cancels before selection. It adds 25 HP while that member's
+current HP is at or below live maximum, including at maximum; repeated use may
+work until HP exceeds maximum, when the original refusal text appears. It does
+not clear conditions or restore SP. In quiet contract-6 exploration, open I,
+select a supported miscellaneous antidote and press U. Enter confirms spending
+one charge before a fresh F1-F6 target choice; Escape before Enter is free,
+while Escape at target choice still spends the charge. A chosen target loses
+Poison only. The item action then services one ordinary actor opportunity,
+which can lead to an encounter. General and combat-time item use remain unavailable.
+
 Save files include living actor wounds, casualties, conditions and dormant/ready
 treasure, without storing combat, projectiles or UI work. Loaded legacy Journeys
 retain their original rules and controls, including their existing support stops;
-Run is available only in contract-5 regional combat.
+Run is available in contract-5/6 regional combat.
 
-Recovery, Myra quest execution and travel beyond the mainland are unavailable.
+General recovery/Rest, other quests and travel beyond the mainland are unavailable.
 Defeat and unsupported time processing close further gameplay/save admission.
 Restart a quiet save with `--load-game`. The closed scope and acceptance contract
-are in [M34](docs/milestone-34-plan.md).
+are in [M35](docs/milestone-35-plan.md).
 
 | Key | Action |
 | --- | --- |
@@ -212,16 +234,17 @@ are in [M34](docs/milestone-34-plan.md).
 | A/Left, D/Right | Turn left/right; browse categories in inventory |
 | Space, Enter | Interact (Space) or advance/acknowledge text; Enter confirms an armed transfer |
 | Y / N | Answer Yes/No; N cancels a transfer confirmation |
-| F1-F6 | Select inventory owner or transfer recipient; outside inventory, select an eligible member during WhoWill |
+| F1-F6 | Select inventory owner or transfer recipient; select an eligible member during WhoWill or any active target after confirmed antidote debit |
 | 1-9 | Select a physical inventory slot while browsing; 1-3 select a displayed target during a ready expedition or regional combat turn |
-| F | Shoot in contract-4/5 regional exploration; unavailable during contact combat |
+| F | Shoot in contract-4/5/6 regional exploration; unavailable during contact combat |
+| U | Use a selected eligible antidote from inventory in quiet contract-6 exploration; confirm with Enter, then choose a target with a fresh F1-F6 |
 | T | Begin transfer of the selected occupied slot |
 | E | Equip or remove the explicitly selected occupied weapon, armor or accessory |
 | . | Wait during the bounded encounter diagnostics and Journey; no action in ordinary gameplay |
 | F9 | Save an eligible idle ordinary session, completed Diagnostic27 or quiet presented Journey; refused while blocking work/UI is active |
 | I | Open inventory while idle; in completed Diagnostic27 open read-only inspection; close while browsing and print live diagnostics on opening |
-| R | Run for the displayed member in contract-5 regional combat; revisit the completed Diagnostic27 checkpoint in that separate mode |
-| Escape | Exit either diagnostic session; otherwise back/cancel transfer or close inventory, cancel WhoWill, acknowledge NPC/reward pages, or exit |
+| R | Run for the displayed member in contract-5/6 regional combat; revisit the completed Diagnostic27 checkpoint in that separate mode |
+| Escape | Exit either diagnostic session; otherwise back/cancel transfer or close inventory, cancel WhoWill or antidote selection, acknowledge NPC/reward pages, or exit |
 
 Movement and ordinary interaction are blocked while a response is required;
 repeated keydown events are ignored. NPC dialogue and reward pages accept
@@ -229,7 +252,7 @@ Space/Enter/Escape, including final acknowledgment with Escape.
 Inventory navigation applies while browsing; during transfer selection/confirmation,
 Escape returns to browsing before changing category or slot. Each equipment
 attempt consumes its selection; select the slot again before another E action.
-Misc item use and general item effects are not provided by this panel.
+Only the bounded contract-6 antidote has inventory use; general item effects are unavailable.
 
 F9 refuses during a response-requiring interaction, open inventory/inspection,
 pending Journey approach, combat/End/retirement, unresolved frame handoff or an unsafe session,
@@ -238,9 +261,10 @@ work, then issue a new F9. Without a configured path, it writes nothing. Save
 results appear in the console and window title. Existing supported valid MMModern
 saves can be replaced; there is no autosave, save-on-exit or in-session load.
 Ordinary eligible saves write v2, completed Diagnostic27 writes v3, and Journey
-saves write v4. Fresh Regional Journey saves use schema/content 5/5 and preserve
+saves write v4. Fresh Regional Journey saves use schema/content 6/6 and preserve
 all 19 actor records, living wounds, casualties, conditions, purse and
-dormant/ready treasure with exact continuation. Legacy 4/4 and earlier Journey
+dormant/ready treasure, world flag 16 and the connected quest/recovery/item
+consequences with exact continuation. Legacy 5/5 and earlier Journey
 saves retain their original rules and controls; loading does not upgrade them.
 The reader accepts supported v1/v2/v3/v4 in their
 distinct domains. `--load-game` selects Journey directly from v4 and restores fresh owners
@@ -266,6 +290,8 @@ SDL backend. The exact pin and configuration live in
 
 ## Documentation
 
+- [Milestone 35 plan](docs/milestone-35-plan.md): closed connected quest,
+  selected well, antidote use, 6/6 continuation and acceptance contract.
 - [Project status](docs/project-status.md): current stable technical capabilities,
   ownership, persistence and boundaries.
 - [Project history](docs/project-history.md): concise completed milestones and plan links.

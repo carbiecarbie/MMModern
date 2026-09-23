@@ -116,6 +116,9 @@ void actors() {
 	check(checked==2 && a.x==3 && later.x==4,"Later failure discards whole candidate");
 }
 void events() {
+	check(xeenWellHpAfter(2)==27 && xeenWellHpAfter(32742)==32767 &&
+		!xeenWellHpAfter(32743) && !xeenWellHpAfter(32767),
+		"Well HP addition is checked and unclamped");
 	XeenEventFile file;file.mapId=23;file.resourcePresent=true;file.records.reserve(58);file.records.resize(57);
 	for(auto &r:file.records){r.x=255;r.y=255;}
 	auto &sign=file.records[56];sign={495,6,5,9,0,0,4,{16}};

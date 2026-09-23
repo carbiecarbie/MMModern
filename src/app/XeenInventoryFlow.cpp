@@ -81,6 +81,12 @@ bool XeenEventFlow::validInventorySource(bool record) const {
 	return !record || (_inventory.slot && *_inventory.slot < 9 && xeenSameItem((*items)[*_inventory.slot],_inventory.record));
 }
 void XeenEventFlow::invalidateInventorySelection() {
+	if (_encounter && _encounter->itemUseActive() && !_encounter->itemUseReady()) {
+		if (!_encounter->abandonItemUse(_encounter->ticket(),_itemUseGeneration.value_or(0),_inventoryEpoch)) {
+			closeGameplay();return;
+		}
+	}
+	_itemUseGeneration.reset();
 	advanceInventoryEpoch();
 	_equipmentResult.reset();
 	if (!inventoryOpen()) return;
@@ -105,6 +111,12 @@ void XeenEventFlow::invalidateInventory() {
 	invalidateInventorySelection();
 }
 void XeenEventFlow::closeInventory() noexcept {
+	// A spent charge remains owned by EncounterFlow; shutdown cannot publish Quiet.
+	if (_encounter && _encounter->itemUseActive() && !_encounter->itemUseReady() && _itemUseGeneration) {
+		try { if (!_encounter->abandonItemUse(_encounter->ticket(),*_itemUseGeneration,_inventoryEpoch)) closeGameplay(); }
+		catch (...) { closeGameplay(); }
+	}
+	_itemUseGeneration.reset();
 	advanceInventoryEpoch();
 	if (_inventoryLease && journey()) {
 		try { _encounter->releaseJourneyWork(XeenCombatBoundary::Work::Inventory,_inventoryLease); }
@@ -258,6 +270,42 @@ IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
 		if (!journey()) std::cout << (completed() ? XeenEncounterFlow::completedInspection(_world, _party, _camera) : xeenInventoryInspection(_party));
 		return _frame;
 	}
+	if (_inventory.mode==Mode::UseConfirm) {
+		if (std::holds_alternative<CancelInteractionAction>(action) || std::holds_alternative<NoAction>(action)) {
+			invalidateInventorySelection();_inventoryFeedback="Use cancelled without spending";
+		} else if (std::holds_alternative<AcknowledgeAction>(action)) {
+			const auto certificate=_equipmentSelection;
+			if (!journey() || !certificate || !validEquipmentSelection(*certificate)) {
+				invalidateInventorySelection();_inventoryFeedback="Selection changed; select again";
+			} else {
+				XeenEncounterFlow::ItemUseSelection selection;
+				selection.epoch=certificate->epoch;selection.membership=certificate->membership;
+				selection.membershipSize=certificate->membershipSize;selection.sourceIndex=certificate->sourceActiveIndex;
+				selection.sourceOwner=certificate->resolvedOwner;selection.category=certificate->category;
+				selection.slot=certificate->physicalSlot;selection.record=certificate->selectedRecord;
+				const auto generation=_encounter->beginItemUse(_encounter->ticket(),selection,_inventoryLease,_certificateLease);
+				if (!generation) { invalidateInventorySelection();_inventoryFeedback="Antidote use is unavailable"; }
+				else {
+					advanceInventoryEpoch();_itemUseGeneration=*generation;
+					_inventory.mode=Mode::UseTarget;_inventoryFeedback="F1-F6 target; Esc cancels after charge spent";
+				}
+			}
+		}
+		drawInventory();return _frame;
+	}
+	if (_inventory.mode==Mode::UseTarget) {
+		const auto *member=std::get_if<SelectMemberAction>(&action);
+		if (member && member->partyIndex>=_party.party.size()) { _inventoryFeedback="No active member at that F-key";drawInventory();return _frame; }
+		if (member || std::holds_alternative<CancelInteractionAction>(action)) {
+			if (!_itemUseGeneration || !_encounter->finishItemUse(_encounter->ticket(),*_itemUseGeneration,_inventoryEpoch,
+				member ? std::optional<std::size_t>{member->partyIndex} : std::nullopt,
+				_inputGeneration,_frame.presentation())) {
+				closeGameplay();return _frame;
+			}
+			closeInventory();_frame=_inventoryUnderlay;return _frame;
+		}
+		_inventoryFeedback="F1-F6 target; Esc cancels after charge spent";drawInventory();return _frame;
+	}
 	if (std::holds_alternative<CancelInteractionAction>(action) ||
 		(combatPreparation() && _inventory.mode != Mode::Browse && std::holds_alternative<InspectInventoryAction>(action)) ||
 		(_inventory.mode == Mode::Confirm && std::holds_alternative<NoAction>(action))) {
@@ -295,6 +343,17 @@ IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
 	} else if (std::holds_alternative<EquipmentInventoryAction>(action)) {
 		handleEquipment();
 		return _frame;
+	} else if (std::holds_alternative<UseItemAction>(action)) {
+		if (!journey() || !_encounter->journeyMutable() || _world.sessionState().journeyContract()!=6 ||
+			!_equipmentSelection || !validEquipmentSelection(*_equipmentSelection) ||
+			_inventory.category!=XeenInventoryCategory::Miscellaneous || !_inventory.sourceOwner ||
+			!_party.roster.at(*_inventory.sourceOwner).canAct() ||
+			!XeenAntidoteUse::eligible(_inventory.record))
+			_inventoryFeedback="Use requires an able source and charged M10 antidote";
+		else {
+			_inventory.mode=Mode::UseConfirm;
+			_inventoryFeedback="Target Esc after Enter still spends 1 charge";
+		}
 	} else if (const auto *nav = std::get_if<NavigationAction>(&action)) {
 		advanceInventoryEpoch(); _inventoryFeedback = "";
 		if (*nav == NavigationAction::TurnLeft || *nav == NavigationAction::TurnRight) {

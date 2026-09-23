@@ -10,6 +10,7 @@ public:
 	static constexpr std::size_t kOffset = 739;
 	static constexpr std::size_t kRequiredSize = kOffset + 8;
 	static XeenCloudsQuestFlags parseClouds(const std::vector<std::uint8_t> &bytes);
+	static XeenRegionalRecoveryState parseRegionalRecovery(const std::vector<std::uint8_t> &bytes);
 };
 }
 #endif

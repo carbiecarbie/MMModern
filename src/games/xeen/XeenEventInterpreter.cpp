@@ -2,6 +2,7 @@
 #include "games/xeen/XeenEventPublication.h"
 
 #include "games/xeen/XeenWorld.h"
+#include "games/xeen/XeenCharacterRules.h"
 
 #include <limits>
 #include <stdexcept>
@@ -232,6 +233,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 	auto &pendingTransferSource = state.pendingTransferSource;
 
 	const auto finalize = [&]() -> XeenEventExecutionStepResult {
+		if (publication) publication->execution(state);
 		state.pendingPresentation.reset();
 		if (!state.pendingRewards.hasWork() && state.rewardPhase == XeenRewardPhase::Running)
 			return completed(workingCamera, workingGameFlags, instructionCount);
@@ -248,7 +250,9 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			state.rewardPhase = XeenRewardPhase::Completed;
 			return completed(workingCamera, workingGameFlags, instructionCount);
 		} else {
-			state.rewardReceipt = xeenDeliverRewards(state.pendingRewards, partyState, state.preferredRewardRecipient);
+			state.rewardReceipt = publication && partyState.regionalRecovery ?
+				publication->deliverRewards(state.pendingRewards,partyState,state.preferredRewardRecipient) :
+				xeenDeliverRewards(state.pendingRewards, partyState, state.preferredRewardRecipient);
 			state.rewardPhase = XeenRewardPhase::Receipt;
 			// Clear production and establish the typed receipt before formatting.
 			request.kind = XeenPresentationKind::RewardReceipt;
@@ -508,6 +512,14 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			missingPolicy = MissingInstructionPolicy::NaturalCompletion;
 			continue;
 		}
+		if (const auto *voice=std::get_if<XeenEventVoiceCue>(&decoded.operation)) {
+			if (!publication) return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
+				"voice cue has no admitted gameplay context",instructionCount,logical,decoded.source);
+			publication->voiceCue(voice->index);
+			++logical.line;
+			missingPolicy=MissingInstructionPolicy::NaturalCompletion;
+			continue;
+		}
 
 		if (const auto *enchanted = std::get_if<XeenEventGiveEnchanted>(&decoded.operation)) {
 			if (logical.mapId.side != XeenSide::Clouds || workingCamera.mapId.side != XeenSide::Clouds)
@@ -523,6 +535,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			item.material = enchanted->itemCode - 60;
 			item.id = enchanted->specialId;
 			item.state = 1;
+			if (publication && partyState.regionalRecovery) publication->prepareRewardEnqueue(state,item);
 			state.pendingRewards.enqueue(item);
 			++logical.line;
 			missingPolicy = MissingInstructionPolicy::NaturalCompletion;
@@ -546,6 +559,34 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				neutral(takeOrGive->second) && neutral(takeOrGive->third);
 			const bool clearQuestFlag = takeOrGive->first.mode == 104 &&
 				neutral(takeOrGive->second) && neutral(takeOrGive->third);
+			const bool giveWellHp = neutral(takeOrGive->first) && takeOrGive->second.mode==8 &&
+				takeOrGive->second.value==25 && neutral(takeOrGive->third);
+			const bool setWellFlag = neutral(takeOrGive->first) && takeOrGive->second.mode==103 &&
+				takeOrGive->second.value==16 && neutral(takeOrGive->third);
+			if (giveWellHp || setWellFlag) {
+				if (!publication || !partyState.regionalRecovery || logical.mapId!=XeenMapIdentity(23))
+					return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
+						"regional well effect is unavailable",instructionCount,logical,decoded.source);
+				if (giveWellHp) {
+					if (!state.activeCharacterIndex || *state.activeCharacterIndex>=partyState.party.size())
+						return error(XeenEventExecutionErrorKind::InvalidPresentationResponse,
+							"well recipient is unavailable",instructionCount,logical,decoded.source);
+					const auto owner=partyState.party.activeRosterIds()[*state.activeCharacterIndex];
+					auto &member=partyState.roster.at(owner);
+					const auto after=xeenWellHpAfter(member.currentHp);
+					if (!after)
+						return error(XeenEventExecutionErrorKind::UnsupportedOperationMode,
+							"well HP addition overflows int16",instructionCount,logical,decoded.source);
+					publication->prepareWellHp(owner,member.currentHp,*after);
+					member.currentHp=*after;
+					publication->wellHpWritten(owner,member.currentHp);
+				} else {
+					publication->prepareWellFlag();
+					partyState.regionalRecovery->worldFlag16=true;
+					publication->wellFlagWritten();
+				}
+				++logical.line; missingPolicy=MissingInstructionPolicy::NaturalCompletion; continue;
+			}
 			if (setQuestFlag || clearQuestFlag) {
 				const auto index = setQuestFlag ? takeOrGive->second.value : takeOrGive->first.value;
 				if (!XeenCloudsQuestFlags::validIndex(index))
@@ -561,8 +602,10 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 					return error(XeenEventExecutionErrorKind::LineOverflow,
 						"quest-flag mutation sequential line overflow", instructionCount, logical, decoded.source);
 				// Authoritative party effect: immediate, idempotent, once per party.
+				if (publication) publication->prepareQuestFlag(setQuestFlag);
 				if (setQuestFlag) partyState.questFlags.set(index);
 				else partyState.questFlags.clear(index);
+				if (publication) publication->questFlagWritten(setQuestFlag);
 				++logical.line;
 				missingPolicy = MissingInstructionPolicy::NaturalCompletion;
 				continue;
@@ -589,9 +632,11 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 					return error(XeenEventExecutionErrorKind::QuestItemOverflow,
 						detail + " counter would overflow", instructionCount, logical, decoded.source);
 				if (publication && grantQuestItem) publication->granted();
+				if (publication && takeQuestItem && partyState.questItems.at(*index)) publication->prepareQuestTake(*index);
 				if (takeQuestItem && !partyState.questItems.decrement(*index))
 					return error(XeenEventExecutionErrorKind::QuestItemUnderflow,
 						detail + " counter is zero", instructionCount, logical, decoded.source);
+				if (publication && takeQuestItem) publication->questTaken();
 				++logical.line;
 				missingPolicy = MissingInstructionPolicy::NaturalCompletion;
 				continue;
@@ -679,6 +724,13 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 						detail + " requires an active party member", instructionCount, logical, decoded.source);
 				actual = partyState.questItems.at(*index) != 0 ? conditional->value :
 					std::numeric_limits<std::uint32_t>::max();
+			} else if (conditional->action == 78 && publication && partyState.regionalRecovery &&
+				logical.mapId==XeenMapIdentity(23) && decoded.source.recordIndex==59) {
+				if (!state.activeCharacterIndex || *state.activeCharacterIndex>=partyState.party.size())
+					return error(XeenEventExecutionErrorKind::InvalidPresentationResponse,
+						"well recipient is unavailable",instructionCount,logical,decoded.source);
+				const auto &member=partyState.party.member(partyState.roster,*state.activeCharacterIndex);
+				actual=member.currentHp<=XeenCharacterRules::maxHp(member,{partyState.encounterContext->year}) ? 1u : 0u;
 			} else {
 				return error(XeenEventExecutionErrorKind::UnsupportedConditionAction,
 					"condition action is outside the interpreter subset",

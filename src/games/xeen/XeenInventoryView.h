@@ -5,7 +5,7 @@
 #include "games/xeen/XeenTextRenderer.h"
 
 namespace mmodern {
-enum class XeenInventoryMode { Closed, Browse, ChooseDestination, Confirm };
+enum class XeenInventoryMode { Closed, Browse, ChooseDestination, Confirm, UseConfirm, UseTarget };
 // Selection facts only, owned by Flow. No retained character or category copy.
 struct XeenInventorySelection {
 	XeenInventoryMode mode = XeenInventoryMode::Closed;
@@ -21,9 +21,11 @@ struct XeenInventorySelection {
 struct XeenInventoryLine { XeenTextRect bounds; std::string text; };
 std::vector<XeenInventoryLine> xeenInventoryLayout(const XeenFontFormat &,
 	const XeenItemCatalog &, const XeenPartyState &, const XeenInventorySelection &, const char *feedback,
-	const XeenEquipmentResult *equipmentResult = nullptr, bool combatPreparation = false, bool readOnly = false);
+	const XeenEquipmentResult *equipmentResult = nullptr, bool combatPreparation = false, bool readOnly = false,
+	bool useSupported = false);
 IndexedFrame drawXeenInventory(const IndexedFrame &, const XeenFontFormat &,
 	const XeenItemCatalog &, const XeenPartyState &, const XeenInventorySelection &, const char *feedback,
-	const XeenEquipmentResult *equipmentResult = nullptr, bool combatPreparation = false, bool readOnly = false);
+	const XeenEquipmentResult *equipmentResult = nullptr, bool combatPreparation = false, bool readOnly = false,
+	bool useSupported = false);
 }
 #endif

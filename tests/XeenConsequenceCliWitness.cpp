@@ -7,6 +7,7 @@
 #include "XeenRestoreReplayProbe.h"
 #include "games/xeen/XeenStateEquality.h"
 #include "XeenSaveTestSupport.h"
+#include "XeenM35CliWitness.h"
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 #include <cstdlib>
@@ -30,6 +31,10 @@ void check(bool v,const char *m) { if(!v) throw std::runtime_error(m); }
 extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &original,XeenCamera camera,
  const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract) {
  try {
+  if(std::getenv("MMODERN_M35_STAGE"))
+   return runM35CliWitness(original,target,resume,seed,contract,[&](const XeenGameplayServices &services) {
+    return realPlay(app,services,camera,target,resume,entry,seed,contract);
+   });
   std::function<void(std::uint64_t)> drawFault;
   std::vector<XeenCombatRandom::Draw> trace;
   replay_test::observeDraw=[&](auto lo,auto hi,auto value,auto state){if(value)trace.push_back({lo,hi,*value});std::cout<<"DRAW ["<<lo<<','<<hi<<"] "<<(value?std::to_string(*value):"rejected")<<" count="<<state.count<<'\n';if(drawFault)drawFault(state.count);};
@@ -305,7 +310,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    throw std::runtime_error("Gameplay witness service bound");
    }catch(...){if(drawFaultFired){verifyFailedUnit();const auto before=saveCalls;handler.withDisplayedInput(SaveGameAction{},*handler.displayedInput());check(saveCalls==before,"Failed F9 entered providers");std::cout<<"ARTIFICIAL RAW-DRAW FAILURE ATOMICITY PASS "<<failDraw<<'\n';return false;}throw;}
   };
-  if(!m34 && !resume)contract=4; // Explicit retained legacy contract, independent of the new CLI default.
+  if(!resume)contract=m34?5:4; // Explicit retained legacy contracts, independent of the M35 CLI default.
   check(resume || contract==(m34?5:4),"Fresh production CLI must admit selected witness contract");
   return realPlay(app,services,camera,target,resume,entry,seed,contract);
  } catch(const std::exception &e) {std::cerr<<"M33 witness: "<<e.what()<<'\n';return 8;}

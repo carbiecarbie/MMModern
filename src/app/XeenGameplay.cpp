@@ -67,6 +67,7 @@ void xeenSaveGameplay(const XeenGameplayServices &services, XeenWorld &world, Xe
 	if (resources.loadInitialContext) resources.loadInitialContext = [&] { return callback(services.resources.loadInitialContext); };
 	if (resources.loadMonsterStatistics) resources.loadMonsterStatistics = [&] { return callback(services.resources.loadMonsterStatistics); };
 	if (resources.loadEvents) resources.loadEvents = [&](XeenMapIdentity id) { return callback([&] { return services.resources.loadEvents(id); }); };
+	if (resources.loadRegionalText) resources.loadRegionalText = [&](XeenMapIdentity id) { return callback([&] { return services.resources.loadRegionalText(id); }); };
 	const auto stage = [&](XeenGameplayServices::SaveStage stage) {
 		check(); try { if (services.observeSaveStage) services.observeSaveStage(stage); }
 		catch (...) { check(); throw; } check();
@@ -92,7 +93,7 @@ int Application::journeyExpedition(const std::filesystem::path &directory, std::
 }
 int Application::journeyRegion(const std::filesystem::path &directory, std::optional<std::uint32_t> seed,
   std::optional<std::filesystem::path> save) const {
- return gameplay(directory,xeenJourneyContent(5).entry,save,false,XeenEncounterEntry::Journey,seed,5);
+ return gameplay(directory,xeenJourneyContent(6).entry,save,false,XeenEncounterEntry::Journey,seed,6);
 }
 int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera camera,
   const std::optional<std::filesystem::path> &target, bool resume, XeenEncounterEntry entry, std::optional<std::uint32_t> seed,
@@ -113,6 +114,8 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   if (supplied.resources.loadInitialContext) services.resources.loadInitialContext = [&] { return callback(supplied.resources.loadInitialContext); };
   if (supplied.resources.loadMonsterStatistics) services.resources.loadMonsterStatistics = [&] { return callback(supplied.resources.loadMonsterStatistics); };
   if (supplied.resources.loadInitialPurse) services.resources.loadInitialPurse = [&] { return callback(supplied.resources.loadInitialPurse); };
+  if (supplied.resources.loadInitialRegionalRecovery) services.resources.loadInitialRegionalRecovery = [&] { return callback(supplied.resources.loadInitialRegionalRecovery); };
+  if (supplied.texts) services.resources.loadRegionalText = [&](XeenMapIdentity id) { return callback([&] { return supplied.texts(id); }); };
   services.compose = [&](auto &w, const auto &p, const auto &c, auto phase) { return callback([&] { return supplied.compose(w,p,c,phase); }); };
   if (supplied.composeEncounter) services.composeEncounter = [&](auto &w, const auto &p, const auto &c, auto phase, auto actor) {
    return callback([&] { return supplied.composeEncounter(w,p,c,phase,actor); });
@@ -170,6 +173,12 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    if(xeenJourneyContent(journeySetup->contract).consequences()) {
     if(!services.resources.loadInitialPurse) throw std::invalid_argument("Missing original purse provider");
     journeySetup->purse=services.resources.loadInitialPurse();
+   }
+   if (xeenJourneyContent(journeySetup->contract).connectedRecovery()) {
+    if (!services.resources.loadInitialRegionalRecovery) throw std::invalid_argument("Missing original regional recovery provider");
+    if (!services.resources.loadRegionalText) throw std::invalid_argument("Missing regional text provider");
+    journeySetup->regionalRecovery=services.resources.loadInitialRegionalRecovery();
+    journeySetup->regionalText=services.resources.loadRegionalText(23);
    }
   }
   if (entry == XeenEncounterEntry::Diagnostic27 && !resume) {

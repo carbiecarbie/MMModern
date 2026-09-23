@@ -226,6 +226,7 @@ bool XeenEncounterFlow::idle(std::optional<std::uint64_t> cycle) {
 	if (_shoot && !monsterReward()) { const bool changed=serviceShoot();schedule(_lastTime);return changed; }
 	if (_busy || _state.phase() != XeenEncounterPhase::Exploring) return false;
 	if (_journey) {
+		if (itemUseReady()) return serviceItemUse();
 		if (_world.sessionState().journeyActivity() == XeenJourneyActivity::Presentation || !_boundary.quiet()) return false;
 		std::uint64_t now;
 		if (!prepareTime(ticket(),now)) return false;

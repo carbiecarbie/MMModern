@@ -68,7 +68,8 @@ inline void sameSnapshot(const XeenSaveSnapshot &a, const XeenSaveSnapshot &b) {
 		const auto &x=*a.journey,&y=*b.journey;
 		check(x.entry==y.entry&&x.schema==y.schema&&x.contract==y.contract&&x.context==y.context&&
 			x.skeletonSeed==y.skeletonSeed&&x.initializedMap==y.initializedMap&&x.originalActorCount==y.originalActorCount&&
-			x.actors.size()==y.actors.size() && x.random==y.random && x.treasure==y.treasure,"Journey header values changed");
+			x.actors.size()==y.actors.size() && x.random==y.random && x.treasure==y.treasure &&
+			x.regionalRecovery==y.regionalRecovery,"Journey header values changed");
 		for(unsigned i=0;i<30;++i) check(x.supplements[i].owner==y.supplements[i].owner&&
 			sameInputs(x.supplements[i].inputs,y.supplements[i].inputs),"Journey supplements changed");
 		for(std::size_t i=0;i<x.actors.size();++i) {const auto &p=x.actors[i],&q=y.actors[i];

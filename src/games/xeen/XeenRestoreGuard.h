@@ -2,6 +2,7 @@
 #define MMODERN_XEEN_RESTORE_GUARD_H
 #include "games/xeen/XeenStateEquality.h"
 #include "games/xeen/XeenGameFlags.h"
+#include "games/xeen/XeenEventTextLoader.h"
 namespace mmodern {
 // Retained callback preimages, never a gameplay owner or a publication capability.
 class XeenRestoreGuard {
@@ -17,7 +18,7 @@ public:
 		partyReplacement(p._replacement), rosterReplacement(p.roster._replacement),
 		s(w._sessionState), characters(p.roster.characters()), inputs(p.roster._combatInputs),
 		marked(p.roster.combatMarked()), membership(p.party.activeRosterIds()),
-		quests(p.questItems.counts()), questFlags(p.questFlags.values()), context(p.encounterContext), treasure(p.monsterTreasure),
+		quests(p.questItems.counts()), questFlags(p.questFlags.values()), recovery(p.regionalRecovery), context(p.encounterContext), treasure(p.monsterTreasure),
 		first(p.firstSerializedCount), effective(p.effectiveSerializedCount), diagnostics(p.diagnostics),
 		cameraValue(c), flagValues(f.values()), combatCheck(bool(w._combatCheck)), combatAuthorized(bool(w._combatAuthorized)),
 		maps(w._maps), objects(w._objects), cacheRevision(w._cacheRevision), exactCaches(exactCaches),
@@ -37,7 +38,7 @@ public:
 			p._incarnation != partyId || p.roster._incarnation != rosterId ||
 			p._replacement != partyReplacement || p.roster._replacement != rosterReplacement ||
 			p.roster.combatMarked() != marked || p.party.activeRosterIds() != membership ||
-			p.questItems.counts() != quests || p.questFlags.values() != questFlags ||
+			p.questItems.counts() != quests || p.questFlags.values() != questFlags || p.regionalRecovery != recovery ||
 			!(p.encounterContext == context) || p.monsterTreasure != treasure || p.firstSerializedCount != first ||
 			p.effectiveSerializedCount != effective || p.diagnostics != diagnostics ||
 			!sameCamera(c, cameraValue) || f.values() != flagValues ||
@@ -125,6 +126,19 @@ public:
 		}
 		objects.emplace(id, value);
 	}
+	void admitRegionalText(const XeenEventTextFile &value) {
+		check();
+		if (value.mapId!=XeenMapIdentity(23) || value.resourceName!="aaze0023.txt" ||
+			!value.resourcePresent || value.strings.size()<=32) {
+			if (regionalText) failed=true;
+			throw std::invalid_argument("Regional event text is missing or incomplete");
+		}
+		if (regionalText && (regionalText->mapId!=value.mapId || regionalText->resourceName!=value.resourceName ||
+			regionalText->resourcePresent!=value.resourcePresent || regionalText->strings!=value.strings)) {
+			failed=true; throw std::logic_error("Regional event text changed");
+		}
+		if (!regionalText) regionalText=value;
+	}
 private:
 	friend class XeenEventPublication;
 	friend class XeenEncounterFlow;
@@ -155,16 +169,26 @@ private:
 			}
 			objects.emplace(entry);
 		}
+		if (previous.regionalText) admitRegionalText(*previous.regionalText);
 	}
 	// Prepare a final-destination preimage before publication. Only the private
 	// SaveState swaps below are anticipated; no callback mutation is adopted.
 	void prepareJourneyPublication(const XeenRestoreGuard &candidate) {
 		s = candidate.s; characters = candidate.characters; inputs = candidate.inputs;
 		marked = candidate.marked; membership = candidate.membership;
-		quests = candidate.quests; questFlags = candidate.questFlags; context = candidate.context; treasure = candidate.treasure;
+		quests = candidate.quests; questFlags = candidate.questFlags; recovery = candidate.recovery; context = candidate.context; treasure = candidate.treasure;
 		first = candidate.first; effective = candidate.effective; diagnostics = candidate.diagnostics;
 		cameraValue = candidate.cameraValue; flagValues = candidate.flagValues;
 		maps = candidate.maps; objects = candidate.objects;
+		if (regionalText && candidate.regionalText &&
+			(regionalText->mapId!=candidate.regionalText->mapId ||
+			 regionalText->resourceName!=candidate.regionalText->resourceName ||
+			 regionalText->resourcePresent!=candidate.regionalText->resourcePresent ||
+			 regionalText->strings!=candidate.regionalText->strings)) {
+			failed=true;
+			throw std::logic_error("Regional text changed at restore publication");
+		}
+		if (candidate.regionalText) regionalText=candidate.regionalText;
 		++worldRevision; ++partyReplacement; ++rosterReplacement;
 	}
 	// Only the coordinator's checked, callback-free authority transitions may adopt these fields.
@@ -188,6 +212,7 @@ private:
 	std::vector<std::uint8_t> membership;
 	XeenCloudsQuestItems::Counts quests;
 	XeenCloudsQuestFlags::Values questFlags;
+	std::optional<XeenRegionalRecoveryState> recovery;
 	std::optional<XeenGameplayContext> context;
 	std::optional<XeenMonsterTreasure> treasure;
 	std::uint8_t first, effective;
@@ -197,6 +222,7 @@ private:
 	bool combatCheck, combatAuthorized;
 	std::map<XeenMapIdentity, XeenMap> maps;
 	std::map<XeenMapIdentity, XeenObjectFile> objects;
+	std::optional<XeenEventTextFile> regionalText;
 	std::uint64_t cacheRevision;
 	bool exactCaches;
 	std::array<const XeenGameplayBorrowOwner *, 5> borrowOwners;

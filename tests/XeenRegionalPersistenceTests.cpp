@@ -100,6 +100,21 @@ int main() {
   sameSnapshot(later,XeenSaveFormat::decode(XeenSaveFormat::encode(later)));
   for(std::size_t size=offset;size<fiveBytes.size();++size){auto b=fiveBytes;b.resize(size);fixIndependentEnvelope(b);rejects([&]{XeenSaveFormat::decode(b);});}
   auto extraFive=fiveBytes;extraFive.push_back(0);fixIndependentEnvelope(extraFive);rejects([&]{XeenSaveFormat::decode(extraFive);});
+	  auto six=five;six.journey->schema=six.journey->contract=6;six.journey->regionalRecovery=XeenRegionalRecoveryState{false};
+	  const auto sixBytes=XeenSaveFormat::encode(six);
+	  check(sixBytes.size()-offset==1831 && sixBytes[offset+1]==6 && sixBytes[offset+3]==6 && sixBytes.back()==0,
+		  "Schema-6 discriminator, extent and flag");
+	  sameSnapshot(six,XeenSaveFormat::decode(sixBytes));
+	  six.journey->regionalRecovery->worldFlag16=true;
+	  const auto flagged=XeenSaveFormat::encode(six);
+	  check(flagged.back()==1 && flagged.size()==sixBytes.size(),"Schema-6 canonical flag byte");
+	  sameSnapshot(six,XeenSaveFormat::decode(flagged));
+	  auto badSix=flagged;badSix.back()=2;fixIndependentEnvelope(badSix);rejects([&]{XeenSaveFormat::decode(badSix);});
+	  badSix=flagged;badSix.pop_back();fixIndependentEnvelope(badSix);rejects([&]{XeenSaveFormat::decode(badSix);});
+	  badSix=flagged;badSix.push_back(0);fixIndependentEnvelope(badSix);rejects([&]{XeenSaveFormat::decode(badSix);});
+	  auto missing=six;missing.journey->regionalRecovery.reset();rejects([&]{XeenSaveFormat::encode(missing);});
+	  auto crossed=six;crossed.journey->contract=5;rejects([&]{XeenSaveFormat::encode(crossed);});
+	  crossed=six;crossed.journey->schema=5;rejects([&]{XeenSaveFormat::encode(crossed);});
 		std::cout << "Schema-3 exact layout, full coverage and malformed-wire controls passed\n";
 		return 0;
 	} catch(const std::exception &e) {std::cerr << e.what() << '\n';return 1;}

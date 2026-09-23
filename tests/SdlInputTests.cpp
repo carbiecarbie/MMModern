@@ -76,7 +76,7 @@ int main() {
 	std::atomic<int> selections{0};
 	std::atomic<int> cancellations{0};
 	std::atomic<int> inspections{0};
-	std::atomic<int> slots{0}, transfers{0}, equipment{0}, shots{0};
+	std::atomic<int> slots{0}, transfers{0}, equipment{0}, uses{0}, shots{0};
 	std::atomic<bool> canCancel{true};
 	std::exception_ptr senderError;
 	std::thread sender([&] {
@@ -93,6 +93,9 @@ int main() {
 			pushKey(finished, SDLK_e, 0);
 			pushKey(finished, SDLK_e, 1);
 			pushKey(finished, SDLK_e, 0, SDL_KEYUP);
+			pushKey(finished, SDLK_u, 0);
+			pushKey(finished, SDLK_u, 1);
+			pushKey(finished, SDLK_u, 0, SDL_KEYUP);
 			for (int i=0;i<9;++i) {
 				pushKey(finished, SDLK_1+i, 0);
 				pushKey(finished, SDLK_1+i, 1);
@@ -141,6 +144,7 @@ int main() {
 				++inspections;
 			else if (std::holds_alternative<TransferInventoryAction>(action)) ++transfers;
 			else if (std::holds_alternative<EquipmentInventoryAction>(action)) ++equipment;
+			else if (std::holds_alternative<UseItemAction>(action)) ++uses;
 			else if (const auto *slot=std::get_if<SelectInventorySlotAction>(&action)) {
 				if (slot->slot!=static_cast<std::size_t>(slots++)) throw std::runtime_error("1-9 slot mapping");
 			}
@@ -159,7 +163,7 @@ int main() {
 	if (senderError)
 		std::rethrow_exception(senderError);
 	if (!result || interactions != 2 || navigation != 2 || acknowledgments != 1 ||
-			yes != 1 || no != 1 || selections != 6 || cancellations != 1 || inspections != 1 || slots != 9 || transfers != 1 || equipment != 1 || shots != 1) {
+			yes != 1 || no != 1 || selections != 6 || cancellations != 1 || inspections != 1 || slots != 9 || transfers != 1 || equipment != 1 || uses != 1 || shots != 1) {
 		std::cerr << "Space dispatch/repeat filtering failed: interactions="
 			<< interactions << " navigation=" << navigation
 			<< " acknowledgments=" << acknowledgments << " yes=" << yes

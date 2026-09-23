@@ -61,7 +61,7 @@ std::vector<std::string> equipmentMessages(const XeenEquipmentResult &result) {
 std::vector<XeenInventoryLine> xeenInventoryLayout(const XeenFontFormat &font,
 		const XeenItemCatalog &catalog, const XeenPartyState &party,
 		const XeenInventorySelection &selection, const char *feedback,
-		const XeenEquipmentResult *equipmentResult, bool combatPreparation, bool readOnly) {
+		const XeenEquipmentResult *equipmentResult, bool combatPreparation, bool readOnly, bool useSupported) {
 	XeenTextRenderer renderer(font);
 	std::vector<XeenInventoryLine> lines;
 	const auto line = [&](int x, int right, int y, std::string text, bool elide = false) {
@@ -159,26 +159,34 @@ std::vector<XeenInventoryLine> xeenInventoryLayout(const XeenFontFormat &font,
 		line(154,310,35,"To F"+std::to_string(*selection.destination+1)+" [owner "+std::to_string(*selection.destinationOwner)+"]");
 		line(154,310,116,party.roster.at(*selection.destinationOwner).name,true);
 	} else if (selection.mode == XeenInventoryMode::ChooseDestination) line(154,310,35,"To: choose F1-F6");
+	else if (selection.mode == XeenInventoryMode::UseConfirm) line(154,310,35,"Use selected antidote?");
+	else if (selection.mode == XeenInventoryMode::UseTarget) line(154,310,35,"Choose target F1-F6");
 	if (selection.mode == XeenInventoryMode::Browse) {
 		std::string context = readOnly ? "Read-only inspection" : "E equip/remove";
 		if (selected && !readOnly) {
 			const auto &item = (*items)[*selection.slot];
-			if (selection.category == XeenInventoryCategory::Miscellaneous) context = "Misc cannot equip";
+			if (selection.category == XeenInventoryCategory::Miscellaneous) context = useSupported ? "U use M10 antidote" : "Misc cannot equip";
 			else if (!item.id) context = "E: select occupied item";
 			else context = item.frame ? "E remove" : "E equip";
 		}
 		line(154,310,116,std::move(context));
 	}
 	if (equipmentResult) line(10,310,126,measured(10,310,equipmentMessages(*equipmentResult)));
+	else if (selection.mode==XeenInventoryMode::UseConfirm)
+		line(10,310,126,measured(10,310,{"Target Esc after Enter still spends 1 charge",
+			"Target cancel after Enter costs 1 charge"}));
 	else line(10,310,126,feedback ? feedback : "",true);
 	line(10,310,137,readOnly ? "Read-only: F1-6; arrows/1-9; I close; Esc exits" : combatPreparation ?
 		(selection.mode == XeenInventoryMode::Browse ? "F1-6; arrows/1-9; T transfer; E equip; I close; Esc exits" :
 		selection.mode == XeenInventoryMode::Confirm ? "Enter confirms; I/N cancels; Esc exits" : "F1-F6 recipient; I cancels; Esc exits") : selection.mode == XeenInventoryMode::Browse ?
 		(selection.category == XeenInventoryCategory::Miscellaneous ? measured(10,310,{
-			"F1-6 owner; arrows/1-9; T move; Esc/I close", "F1-6; arrows/1-9; T move; Esc/I close"}) :
+			useSupported ? "F1-6; arrows/1-9; T move; U use; Esc/I close" : "F1-6 owner; arrows/1-9; T move; Esc/I close",
+			useSupported ? "F1-6; 1-9 slot; T move; U use; Esc/I" : "F1-6; arrows/1-9; T move; Esc/I close"}) :
 			measured(10,310,{"F1-6 owner; arrows/1-9; T move; E equip/remove; Esc/I close",
 			"F1-6; arrows/1-9; T move; E equip/remove; Esc/I close"})) :
-		selection.mode == XeenInventoryMode::Confirm ? "Enter confirms; F1-F6 changes recipient; Esc/N cancels" : "F1-F6 recipient; Escape to cancel",true);
+		selection.mode == XeenInventoryMode::Confirm ? "Enter confirms; F1-F6 changes recipient; Esc/N cancels" :
+		selection.mode == XeenInventoryMode::UseConfirm ? "Enter spends charge; Esc now is free" :
+		selection.mode == XeenInventoryMode::UseTarget ? "F1-F6 target; Esc cancels after spending" : "F1-F6 recipient; Escape to cancel",true);
 	if(character && party.monsterTreasure) {
   const auto &c=*character;const auto &v=*party.monsterTreasure;
   line(10,310,147,"Poison "+std::to_string(c.conditions[3])+" Sleep "+std::to_string(c.conditions[8])+" Disease "+std::to_string(c.conditions[4]));
@@ -195,13 +203,13 @@ std::vector<XeenInventoryLine> xeenInventoryLayout(const XeenFontFormat &font,
 IndexedFrame drawXeenInventory(const IndexedFrame &base, const XeenFontFormat &font,
 		const XeenItemCatalog &catalog, const XeenPartyState &party,
 		const XeenInventorySelection &selection, const char *feedback,
-		const XeenEquipmentResult *equipmentResult, bool combatPreparation, bool readOnly) {
+		const XeenEquipmentResult *equipmentResult, bool combatPreparation, bool readOnly, bool useSupported) {
 	XeenTextRenderer renderer(font);
 	XeenTextRenderOptions options;
 	options.bounds = options.windowBounds = {4,4,316,party.monsterTreasure?198:149};
 	options.x=4; options.y=4; options.drawWindow=true;
 	auto frame = renderer.render(base,"",options).pages.front();
-	for (const auto &line : xeenInventoryLayout(font,catalog,party,selection,feedback,equipmentResult,combatPreparation,readOnly)) {
+	for (const auto &line : xeenInventoryLayout(font,catalog,party,selection,feedback,equipmentResult,combatPreparation,readOnly,useSupported)) {
 		options.bounds=line.bounds; options.x=line.bounds.left; options.y=line.bounds.top;
 		options.drawWindow=false; options.size=XeenFontSize::Reduced;
 		frame=renderer.render(frame,line.text,options).pages.front();

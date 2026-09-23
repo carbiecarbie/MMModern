@@ -225,7 +225,7 @@ std::string XeenEncounterFlow::consequenceNotice() const {
  out<<" G"<<_party.monsterTreasure->gold<<"/"<<_party.monsterTreasure->gems<<'\n';
  if(stopped)out<<"Gameplay unavailable. Esc exits; restart last save.\n";
  if(_combat) {
-  if(!stopped && _combat->phase()==XeenCombatPhase::PlayerReady) out<<_party.roster.at(kXeenCombatOwners[_combat->participant()]).name<<(_world.sessionState().journeyContract()==5?": Space/B; R Run; 1-3 target\n":": Space/B; 1-3 target\n");
+  if(!stopped && _combat->phase()==XeenCombatPhase::PlayerReady) out<<_party.roster.at(kXeenCombatOwners[_combat->participant()]).name<<(xeenJourneyContent(_world.sessionState().journeyContract()).disengagement()?": Space/B; R Run; 1-3 target\n":": Space/B; 1-3 target\n");
   else if(!stopped)out<<"Automatic combat / End\n";
   const auto rows=_combat->contacts();
   for(unsigned i=0;i<rows.size();++i)if(rows[i]) {const auto &a=_world.sessionState().actors().at(rows[i]->recordIndex);out<<(rows[i]==_combat->selectedTarget()?">":"")<<i+1<<' '<<a.statistics->name()<<" #"<<a.id.recordIndex<<" HP"<<a.hp<<'\n';}
@@ -246,9 +246,18 @@ std::string XeenEncounterFlow::consequenceNotice() const {
   if(visible>1)out<<" +"<<visible-1<<" threats";
   if(visible)out<<'\n';
   if(_party.monsterTreasure->dormant())out<<"Dormant items; no gold owed\n";
-  if(_party.monsterTreasure->pending())out<<"Ready treasure: +"<<_party.monsterTreasure->pendingGold<<" gold\n";
+ if(_party.monsterTreasure->pending())out<<"Ready treasure: +"<<_party.monsterTreasure->pendingGold<<" gold\n";
   if(!_journeyRefusal.empty())out<<_journeyRefusal<<'\n';
   if(_rangedObservation && _rangedObservation->count) {const auto &v=_rangedObservation->shots[(_lastTime/500)%_rangedObservation->count];out<<"Enemy shot #"<<v.source.recordIndex<<" from "<<"NESW"[unsigned(v.direction)]<<" damage "<<v.attack.damage<<'\n';}
+ }
+ if(!stopped && _itemUseResult) {
+  const auto &use=*_itemUseResult;
+  out<<"Antidote: ";
+  if(!use.target)out<<"target cancelled after charge spent";
+  else if(use.poisonBefore)out<<"Poison cleared for "<<_party.roster.at(*use.target).name;
+  else out<<"no Poison on "<<_party.roster.at(*use.target).name;
+  if(use.exhausted)out<<"; item exhausted";
+  out<<'\n';
  }
  const bool finishNotice = _disengagementNoticeRevision &&
   _retiredCombatResult.operation==XeenCombatOperation::FinishDisengagement &&

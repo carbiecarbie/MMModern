@@ -27,8 +27,9 @@ struct XeenJourneyContent {
 	std::uint16_t day;
 	bool manualObjective;
 	XeenMovement::Capabilities traversal{};
-	bool consequences() const noexcept { return contract == 4 || contract == 5; }
-	bool disengagement() const noexcept { return contract == 5; }
+	bool consequences() const noexcept { return contract == 4 || contract == 5 || contract == 6; }
+	bool disengagement() const noexcept { return contract == 5 || contract == 6; }
+	bool connectedRecovery() const noexcept { return contract == 6; }
 	bool contains(int x, int y) const noexcept {
 		if (contract >= 3) return false; // Regional admission requires checked geometry.
 		return contract == 1 ? x >= 13 && x <= 14 && y >= 1 && y <= 2 : x >= 0 && x <= 5 && y == 14;
@@ -64,6 +65,8 @@ inline const XeenJourneyContent &xeenJourneyContent(std::uint16_t contract) {
 	if (contract == 4) return consequences;
 	static const XeenJourneyContent disengagement{5,regional.entry,regional.records,19,8,false};
 	if (contract == 5) return disengagement;
+	static const XeenJourneyContent connectedRecovery{6,regional.entry,regional.records,19,8,false};
+	if (contract == 6) return connectedRecovery;
 	throw std::invalid_argument("Unsupported Journey content contract");
 }
 struct XeenJourneyRandomState {

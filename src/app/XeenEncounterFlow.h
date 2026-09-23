@@ -8,6 +8,7 @@
 #include "games/xeen/XeenEventPresenter.h"
 #include "games/xeen/XeenRestoreGuard.h"
 #include "games/xeen/XeenRegionalRules.h"
+#include "games/xeen/XeenAntidoteUse.h"
 
 namespace mmodern {
 class XeenItemCatalog;
@@ -31,6 +32,8 @@ struct XeenJourneySetup {
 	std::uint16_t contract = 1;
 	XeenRegionalManifest regionalManifest;
 	std::optional<XeenMonsterTreasure> purse;
+	std::optional<XeenRegionalRecoveryState> regionalRecovery;
+	std::optional<XeenEventTextFile> regionalText;
 };
 struct XeenJourneyRestoreTag {};
 
@@ -64,6 +67,21 @@ public:
 	XeenEncounterResult journeyPulse(const Ticket &);
 	XeenEquipmentResult journeyEquipment(const Ticket &, std::size_t, XeenInventoryCategory, std::size_t, XeenEquipmentOperation);
 	XeenTransferResult journeyTransfer(const Ticket &, std::size_t, std::size_t, XeenInventoryCategory, std::size_t);
+	struct ItemUseSelection {
+		std::uint64_t epoch=0;
+		std::array<std::uint8_t,XeenParty::kMaximumVisibleMembers> membership{};
+		std::size_t membershipSize=0,sourceIndex=0,slot=0;
+		std::uint8_t sourceOwner=0;
+		XeenInventoryCategory category=XeenInventoryCategory::Weapons;
+		XeenItem record{};
+	};
+	std::optional<std::uint64_t> beginItemUse(const Ticket &, const ItemUseSelection &, std::uint64_t inventoryLease, std::uint64_t certificateLease);
+	bool finishItemUse(const Ticket &, std::uint64_t generation, std::uint64_t inventoryEpoch,
+		std::optional<std::size_t> targetIndex, std::uint64_t displayedInput,
+		const IndexedFrame::Presentation &selectorFrame);
+	bool itemUseActive() const noexcept { return bool(_itemUse); }
+	bool itemUseReady() const noexcept;
+	const std::optional<XeenAntidoteResult> &itemUseResult() const noexcept { return _itemUseResult; }
 	bool attachJourney(const Ticket &, const std::function<void()> &prepareSprites);
 	bool retireJourney(const Ticket &);
 	bool prepareJourneyFrame(const Ticket &, const std::function<void()> &compose);
@@ -123,6 +141,24 @@ private:
 	bool _journeyFramePrepared = false, _journeyFrameRetry = false;
 	std::string _journeyRefusal;
 	std::unique_ptr<XeenRegionalActionCandidate> _regionalWork;
+	struct ItemUseContinuation {
+		std::uint64_t generation=0,lease=0,epoch=0;
+		std::uint64_t selectorInput=0;
+		std::optional<Ticket> selectorTicket;
+		IndexedFrame::Presentation selectorFrame;
+		std::uint8_t sourceOwner=0,spentCharge=0;
+		std::size_t slot=0;
+		bool exhausted=false,ready=false;
+		std::unique_ptr<XeenRegionalActionCandidate> opportunity;
+	};
+	std::unique_ptr<ItemUseContinuation> _itemUse;
+	std::optional<XeenAntidoteResult> _itemUseResult;
+	std::uint64_t _itemUseGeneration=0;
+	bool authorizeItemUseTarget(const Ticket &, std::uint64_t generation, std::uint64_t inventoryEpoch,
+		std::uint64_t displayedInput, const IndexedFrame::Presentation &selectorFrame);
+	bool abandonItemUse(const Ticket &, std::uint64_t generation, std::uint64_t inventoryEpoch);
+	bool settleItemUse(const Ticket &, std::uint64_t generation, std::uint64_t inventoryEpoch,
+		std::optional<std::size_t> targetIndex);
 	std::unique_ptr<XeenShootCandidate> _shoot;
 	std::vector<XeenProjectileAppearance> _projectiles;
 	unsigned _projectileCursor=0;
@@ -150,6 +186,7 @@ private:
 	bool journeyCapacity() noexcept;
 	void closeJourney() noexcept;
 	XeenEncounterResult advanceJourney(const Ticket &, std::optional<XeenEncounterAction>);
+	bool serviceItemUse();
 	bool handleCombat(const PlayerAction &, std::optional<std::uint64_t>);
 	bool idleCombat(std::optional<std::uint64_t>);
 	bool acceptCombatResult(const XeenCombatResult &);

@@ -106,7 +106,7 @@ XeenAutomaticEventResult XeenEventSystem::runAutomaticEvent(
 		if (publication) publication->check(); auto value=scriptForMap(mapId); if (publication) publication->script(value.file()); return value;
 	};
 	const auto textProvider = [this, publication](XeenMapIdentity mapId) {
-		if (publication) publication->check(); auto value=textForMap(mapId); if (publication) publication->check(); return value;
+		if (publication) publication->check(); auto value=textForMap(mapId); if (publication) publication->text(value); return value;
 	};
 	XeenEventExecutionStepResult execution = _interpreter.begin(camera,
 		partyState, gameFlags, world, provider, textProvider, 0, publication);
@@ -168,7 +168,7 @@ XeenManualEventResult XeenEventSystem::runManualEvent(
 		if (publication) publication->check(); auto value=scriptForMap(mapId); if (publication) publication->script(value.file()); return value;
 	};
 	const auto textProvider = [this, publication](XeenMapIdentity mapId) {
-		if (publication) publication->check(); auto value=textForMap(mapId); if (publication) publication->check(); return value;
+		if (publication) publication->check(); auto value=textForMap(mapId); if (publication) publication->text(value); return value;
 	};
 	XeenEventExecutionStepResult execution = _interpreter.begin(camera,
 		partyState, gameFlags, world, provider, textProvider, 0, publication);
@@ -199,7 +199,7 @@ XeenAutomaticEventResult XeenEventSystem::resumeAutomaticEvent(
 	const XeenCamera beforeCamera = camera;
 	const XeenGameFlags beforeFlags = gameFlags;
 	const auto provider = [this, publication](XeenMapIdentity mapId) { if (publication) publication->check(); auto value=scriptForMap(mapId); if (publication) publication->script(value.file()); return value; };
-	const auto textProvider = [this, publication](XeenMapIdentity mapId) { if (publication) publication->check(); auto value=textForMap(mapId); if (publication) publication->check(); return value; };
+	const auto textProvider = [this, publication](XeenMapIdentity mapId) { if (publication) publication->check(); auto value=textForMap(mapId); if (publication) publication->text(value); return value; };
 	XeenEventExecutionStepResult execution = _interpreter.resume(
 		std::move(state), response, partyState, world, provider, textProvider, publication);
 	if (const auto *value = std::get_if<XeenEventExecutionError>(&execution))
@@ -225,7 +225,7 @@ XeenManualEventResult XeenEventSystem::resumeManualEvent(
 	const XeenCamera beforeCamera = camera;
 	const XeenGameFlags beforeFlags = gameFlags;
 	const auto provider = [this, publication](XeenMapIdentity mapId) { if (publication) publication->check(); auto value=scriptForMap(mapId); if (publication) publication->script(value.file()); return value; };
-	const auto textProvider = [this, publication](XeenMapIdentity mapId) { if (publication) publication->check(); auto value=textForMap(mapId); if (publication) publication->check(); return value; };
+	const auto textProvider = [this, publication](XeenMapIdentity mapId) { if (publication) publication->check(); auto value=textForMap(mapId); if (publication) publication->text(value); return value; };
 	XeenEventExecutionStepResult execution = _interpreter.resume(
 		std::move(state), response, partyState, world, provider, textProvider, publication);
 	if (const auto *value = std::get_if<XeenEventExecutionError>(&execution))

@@ -19,6 +19,7 @@
 #include "games/xeen/XeenEventScript.h"
 #include "games/xeen/XeenEventSystem.h"
 #include "games/xeen/XeenEventTextLoader.h"
+#include "formats/xeen/XeenQuestFlagFormat.h"
 #include "games/xeen/XeenEventTrigger.h"
 #include "games/xeen/XeenGameFlagsLoader.h"
 #include "games/xeen/XeenMapLoader.h"
@@ -476,6 +477,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                 assets.readInitialResource("maze0023.mob"),assets.readInitialResource("maze0023.evt"));
         };
         services.resources.loadInitialPurse = [&] { return XeenCharacterFormat::parseMonsterPurse(assets.readInitialResource("maze.pty")); };
+        services.resources.loadInitialRegionalRecovery = [&] { return XeenQuestFlagFormat::parseRegionalRecovery(assets.readInitialResource("maze.pty")); };
         services.resources.loadInitialContext = [&] { return XeenGameplayContextFormat::parse(assets.readInitialResource("maze.pty")); };
         services.resources.loadMonsterStatistics = [&] {
             const auto bytes = assets.readCloudsMonsterStatisticsFromDarkArchive();

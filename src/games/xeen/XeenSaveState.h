@@ -4,6 +4,7 @@
 #include "games/xeen/XeenSaveSnapshot.h"
 #include "games/xeen/XeenWorld.h"
 #include "games/xeen/XeenRegionalRules.h"
+#include "games/xeen/XeenEventTextLoader.h"
 
 namespace mmodern {
 
@@ -19,6 +20,8 @@ public:
 		std::function<std::vector<XeenMonsterRecord>()> loadMonsterStatistics = {};
 		XeenRegionalManifest regionalManifest;
 		std::function<XeenMonsterTreasure()> loadInitialPurse;
+		std::function<XeenRegionalRecoveryState()> loadInitialRegionalRecovery;
+		std::function<XeenEventTextFile(XeenMapIdentity)> loadRegionalText;
 	};
 	// Must check needed disposable presentation resources on the candidate.
 	// It must not mutate gameplay or retain candidate references after returning.

@@ -291,6 +291,9 @@ XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 		return decodeEmpty(record, context, XeenEventReturn{});
 	case 0x1f:
 		return decodeTeleport(record, context, false);
+	case 0x28:
+		if (record.parameters.size()!=1) return wrongSize(record,context,1);
+		return instruction(record,context,XeenEventVoiceCue{record.parameters[0]});
 	case 0x29:
 		return decodeDisplay(record, context, XeenEventDisplayKind::BottomWindow);
 	case 0x31:

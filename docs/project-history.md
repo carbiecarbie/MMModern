@@ -280,6 +280,21 @@ Historical limitations in those plans describe their recorded boundaries.
   maintainer completed all required physical native-SDL checks after correction
   with no issues. See the [Milestone 34 plan](milestone-34-plan.md#final-acceptance).
 
+## M35 - Connected Myra quest and local recovery
+
+- Connected explicit Myra request, ordinary map-23 travel/encounters, Phirna
+  collection and return exchange on the same Regional Journey owners. Added
+  selected well recovery and exploration-only use of the delivered antidote,
+  preserving M33/M34 injuries, conditions, survivor and treasure consequences.
+- Journey v4 schema/content 6/6 preserves original world flag 16 and exact
+  quest, item and consequence continuation across fresh-process restart;
+  legacy 1/1-5/5 retain their meanings.
+- Full build and 96/96 CTest, genuine original-resource/CLI route and restart
+  comparisons passed. Independent review defects were corrected and focused
+  independent re-review returned ACCEPT with no material findings. Separately,
+  the maintainer completed physical native-SDL route and restart acceptance.
+  See the [Milestone 35 plan](milestone-35-plan.md#exclusions-and-final-acceptance).
+
 ## Maintaining this history
 
 Add one short section with 2-4 lasting-result bullets per completed milestone

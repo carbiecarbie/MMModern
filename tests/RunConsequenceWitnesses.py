@@ -2,6 +2,7 @@
 Usage: python tests/RunConsequenceWitnesses.py BUILD_DIRECTORY INSTALLATION
 Legacy saves and transcripts go to BUILD_DIRECTORY/m33-evidence.
 Append --m34 for bounded lifecycle acceptance under BUILD_DIRECTORY/m34-evidence.
+Append --m35 for the connected original-resource/process route.
 """
 import json
 import os
@@ -13,11 +14,12 @@ from pathlib import Path
 
 build, game = map(lambda x: Path(x).resolve(), sys.argv[1:3])
 m34 = "--m34" in sys.argv[3:]
-output = build / ("m34-evidence" if m34 else "m33-evidence")
+m35 = "--m35" in sys.argv[3:]
+output = build / ("m35-evidence" if m35 else "m34-evidence" if m34 else "m33-evidence")
 output.mkdir(exist_ok=True)
 exe = build / "mmodern_consequence_cli_witness.exe"
 env = os.environ.copy()
-for key in ("MMODERN_M33_EXPECT", "MMODERN_M33_ORACLE", "MMODERN_M33_ROUTE", "MMODERN_M33_FAULT", "MMODERN_M33_FAIL_DRAW", "MMODERN_M34_POLICY", "MMODERN_M34_STOP_AFTER_EXIT", "MMODERN_M34_CHECKPOINT_FILE", "MMODERN_M34_CHECKPOINT_ROUTE"):
+for key in ("MMODERN_M33_EXPECT", "MMODERN_M33_ORACLE", "MMODERN_M33_ROUTE", "MMODERN_M33_FAULT", "MMODERN_M33_FAIL_DRAW", "MMODERN_M34_POLICY", "MMODERN_M34_STOP_AFTER_EXIT", "MMODERN_M34_CHECKPOINT_FILE", "MMODERN_M34_CHECKPOINT_ROUTE", "MMODERN_M35_STAGE"):
     env.pop(key, None)
 env["MMODERN_M33_SUMMARY"] = "1"
 replay_selected = "--replay-selected" in sys.argv[3:]
@@ -416,7 +418,311 @@ def lifecycle():
     }, indent=2) + '\n')
     print('All M34 bounded genuine gameplay and complete fresh-process comparisons passed', flush=True)
 
-if m34:
+if m35:
+    connected = build / 'mmodern_regional_event_original.exe'
+    assert connected.exists(), 'Build mmodern_regional_event_original before M35 acceptance'
+    chain = output / 'connected-chain.mmsave'
+    full = output / 'connected-full.mmsave'
+    stages = ('request', 'collected', 'return', 'exchange', 'recovery', 'continue')
+    stage_bytes = {}
+    for stage in stages:
+        with (output / f'connected-{stage}.log').open('w') as log:
+            child = subprocess.Popen([str(connected), str(game), str(chain), stage],
+                                     stdout=log, stderr=subprocess.STDOUT)
+            code = child.wait()
+        transcript = (output / f'connected-{stage}.log').read_text()
+        index.write(f'M35 connected {stage} PID={child.pid} exit={code} save={chain}\n')
+        index.flush()
+        if code or f'M35 STAGE PASS {stage}' not in transcript:
+            raise RuntimeError(f'M35 {stage} failed: {transcript[-2000:]}')
+        stage_bytes[stage] = chain.read_bytes()
+        (output / f'connected-{stage}.mmsave').write_bytes(stage_bytes[stage])
+    with (output / 'connected-full.log').open('w') as log:
+        child = subprocess.Popen([str(connected), str(game), str(full), 'full'],
+                                 stdout=log, stderr=subprocess.STDOUT)
+        code = child.wait()
+    transcript = (output / 'connected-full.log').read_text()
+    index.write(f'M35 connected full PID={child.pid} exit={code} save={full}\n')
+    index.flush()
+    if code or 'M35 STAGE PASS full' not in transcript:
+        raise RuntimeError(f'M35 full failed: {transcript[-2000:]}')
+    for stage in ('request', 'collected', 'return', 'exchange', 'recovery'):
+        assert stage_bytes[stage] == Path(str(full) + '.' + stage).read_bytes(), (
+            f'M35 {stage} fresh-process and uninterrupted exact save bytes differ')
+    assert stage_bytes['continue'] == full.read_bytes(), 'M35 fresh-process and uninterrupted exact save bytes differ'
+    branch_save = output / 'connected-branches.mmsave'
+    branch_save.write_bytes(stage_bytes['exchange'])
+    with (output / 'connected-branches.log').open('w') as log:
+        child = subprocess.Popen([str(connected), str(game), str(branch_save), 'branches'],
+                                 stdout=log, stderr=subprocess.STDOUT)
+        code = child.wait()
+    transcript = (output / 'connected-branches.log').read_text()
+    index.write(f'M35 connected branches PID={child.pid} exit={code} save={branch_save}\n')
+    index.flush()
+    if code or 'M35 genuine no-Root/healthy/cancel branches PASS' not in transcript:
+        raise RuntimeError(f'M35 branches failed: {transcript[-2000:]}')
+    grant_save = output / 'connected-phirna-grant-fault.mmsave'
+    grant_save.write_bytes(stage_bytes['request'])
+    with (output / 'connected-phirna-grant-fault.log').open('w') as log:
+        child = subprocess.Popen([str(connected), str(game), str(grant_save), 'phirna-grant-fault'],
+                                 stdout=log, stderr=subprocess.STDOUT)
+        code = child.wait()
+    transcript = (output / 'connected-phirna-grant-fault.log').read_text()
+    index.write(f'M35 Phirna grant-only fault PID={child.pid} exit={code}\n')
+    index.flush()
+    if code or 'M35 Phirna grant-before-Remove full-state prefix PASS' not in transcript:
+        raise RuntimeError(f'M35 Phirna grant fault failed: {transcript[-2000:]}')
+    take_save = output / 'connected-myra-take-fault.mmsave'
+    take_save.write_bytes(stage_bytes['return'])
+    with (output / 'connected-myra-take-fault.log').open('w') as log:
+        child = subprocess.Popen([str(connected), str(game), str(take_save), 'myra-take-fault'],
+                                 stdout=log, stderr=subprocess.STDOUT)
+        code = child.wait()
+    transcript = (output / 'connected-myra-take-fault.log').read_text()
+    index.write(f'M35 Myra consumed-Root fault PID={child.pid} exit={code}\n')
+    index.flush()
+    if code or 'M35 Myra consumed-Root-before-reward full-state prefix PASS' not in transcript:
+        raise RuntimeError(f'M35 Myra take fault failed: {transcript[-2000:]}')
+    for kind in ('myra', 'well'):
+        for readiness in ('dormant', 'ready'):
+            stage = f'treasure-{kind}-{readiness}'
+            treasure_save = output / f'connected-{stage}.mmsave'
+            treasure_save.write_bytes(stage_bytes['exchange'])
+            with (output / f'connected-{stage}.log').open('w') as log:
+                child = subprocess.Popen([str(connected), str(game), str(treasure_save), stage],
+                                         stdout=log, stderr=subprocess.STDOUT)
+                code = child.wait()
+            transcript = (output / f'connected-{stage}.log').read_text()
+            index.write(f'M35 artificial {stage} PID={child.pid} exit={code}\n')
+            index.flush()
+            expected = f'M35 {readiness} monster treasure preserved across '
+            expected += 'Myra rewards' if kind == 'myra' else 'well and antidote'
+            if code or expected + ' PASS' not in transcript:
+                raise RuntimeError(f'M35 {stage} failed: {transcript[-2000:]}')
+    contact_save = output / 'connected-treasure-after-item-contact.mmsave'
+    contact_save.write_bytes(stage_bytes['exchange'])
+    with (output / 'connected-treasure-after-item-contact.log').open('w') as log:
+        child = subprocess.Popen([str(connected), str(game), str(contact_save),
+                                  'treasure-after-item-contact'], stdout=log, stderr=subprocess.STDOUT)
+        code = child.wait()
+    transcript = (output / 'connected-treasure-after-item-contact.log').read_text()
+    index.write(f'M35 item contact/treasure suffix PID={child.pid} exit={code}\n')
+    index.flush()
+    if code or 'M35 item contact followed by original combat/treasure/presentation PASS' not in transcript:
+        raise RuntimeError(f'M35 item contact/treasure suffix failed: {transcript[-2000:]}')
+    selector_save = output / 'connected-selector-authority.mmsave'
+    selector_save.write_bytes(stage_bytes['exchange'])
+    with (output / 'connected-selector-authority.log').open('w') as log:
+        child = subprocess.Popen([str(connected), str(game), str(selector_save), 'selector-authority'],
+                                 stdout=log, stderr=subprocess.STDOUT)
+        code = child.wait()
+    transcript = (output / 'connected-selector-authority.log').read_text()
+    index.write(f'M35 selector authority/retry PID={child.pid} exit={code} save={selector_save}\n')
+    index.flush()
+    if code or 'M35 reentrant selector/retry authority PASS' not in transcript:
+        raise RuntimeError(f'M35 selector authority/retry failed: {transcript[-2000:]}')
+    aba_save = output / 'connected-selector-aba.mmsave'
+    aba_save.write_bytes(stage_bytes['exchange'])
+    with (output / 'connected-selector-aba.log').open('w') as log:
+        child = subprocess.Popen([str(connected), str(game), str(aba_save), 'selector-aba'],
+                                 stdout=log, stderr=subprocess.STDOUT)
+        code = child.wait()
+    transcript = (output / 'connected-selector-aba.log').read_text()
+    index.write(f'M35 selector owner ABA PID={child.pid} exit={code}\n')
+    index.flush()
+    if code or 'M35 selector owner ABA refuses target and preserves debit PASS' not in transcript:
+        raise RuntimeError(f'M35 selector owner ABA failed: {transcript[-2000:]}')
+    assert aba_save.read_bytes() == stage_bytes['exchange'], 'Invalidated selector rewrote save'
+    owed_save = output / 'connected-item-owed-fault.mmsave'
+    owed_save.write_bytes(stage_bytes['exchange'])
+    with (output / 'connected-item-owed-fault.log').open('w') as log:
+        child = subprocess.Popen([str(connected), str(game), str(owed_save), 'item-owed-fault'],
+                                 stdout=log, stderr=subprocess.STDOUT)
+        code = child.wait()
+    transcript = (output / 'connected-item-owed-fault.log').read_text()
+    index.write(f'M35 owed item opportunity fault PID={child.pid} exit={code}\n')
+    index.flush()
+    if code or 'M35 owed opportunity fault preserves debit/effect and blocks capture PASS' not in transcript:
+        raise RuntimeError(f'M35 owed item opportunity fault failed: {transcript[-2000:]}')
+    assert owed_save.read_bytes() == stage_bytes['exchange'], 'Failed owed work rewrote save'
+    draw_save = output / 'connected-item-draw-fault.mmsave'
+    draw_save.write_bytes(stage_bytes['exchange'])
+    with (output / 'connected-item-draw-fault.log').open('w') as log:
+        child = subprocess.Popen([str(connected), str(game), str(draw_save), 'item-draw-fault'],
+                                 stdout=log, stderr=subprocess.STDOUT)
+        code = child.wait()
+    transcript = (output / 'connected-item-draw-fault.log').read_text()
+    index.write(f'M35 owed ranged draw fault PID={child.pid} exit={code}\n')
+    index.flush()
+    if code or 'M35 owed ranged draw failure preserves published debit/effect atomically PASS' not in transcript:
+        raise RuntimeError(f'M35 owed ranged draw fault failed: {transcript[-2000:]}')
+    assert draw_save.read_bytes() == Path(str(draw_save) + '.prepared').read_bytes(), 'Failed owed draw rewrote prepared save'
+    for variant in ('1', '2', '4', '8', '16', '3', '17', '31', 'warning'):
+        overlay_save = output / f'connected-overlay-{variant}.mmsave'
+        overlay_save.write_bytes(stage_bytes['return'])
+        with (output / f'connected-overlay-{variant}.log').open('w') as log:
+            child = subprocess.Popen([str(connected), str(game), str(overlay_save), f'overlay-{variant}'],
+                                     stdout=log, stderr=subprocess.STDOUT)
+            code = child.wait()
+        transcript = (output / f'connected-overlay-{variant}.log').read_text()
+        index.write(f'M35 artificial Myra reward overlay {variant} PID={child.pid} exit={code}\n')
+        index.flush()
+        if code or 'M35 effective Myra reward overlay PASS' not in transcript:
+            raise RuntimeError(f'M35 reward overlay {variant} failed: {transcript[-2000:]}')
+    receipt_save = output / 'connected-receipt-fault.mmsave'
+    receipt_save.write_bytes(stage_bytes['return'])
+    with (output / 'connected-receipt-fault.log').open('w') as log:
+        child = subprocess.Popen([str(connected), str(game), str(receipt_save), 'receipt-fault'],
+                                 stdout=log, stderr=subprocess.STDOUT)
+        code = child.wait()
+    transcript = (output / 'connected-receipt-fault.log').read_text()
+    index.write(f'M35 post-delivery receipt fault PID={child.pid} exit={code}\n')
+    index.flush()
+    if code or 'M35 reward receipt fault prefix PASS' not in transcript:
+        raise RuntimeError(f'M35 receipt fault failed: {transcript[-2000:]}')
+    for stage, source, marker in (
+            ('text-handoff', stage_bytes['request'], 'M35 regional text restore handoff/cache/latched failure PASS'),
+            ('fresh-text-fault', None, 'M35 fresh regional text/cache latched failure PASS')):
+        text_save = output / f'connected-{stage}.mmsave'
+        if source is not None:
+            text_save.write_bytes(source)
+        with (output / f'connected-{stage}.log').open('w') as log:
+            child = subprocess.Popen([str(connected), str(game), str(text_save), stage],
+                                     stdout=log, stderr=subprocess.STDOUT)
+            code = child.wait()
+        transcript = (output / f'connected-{stage}.log').read_text()
+        index.write(f'M35 {stage} PID={child.pid} exit={code}\n')
+        index.flush()
+        if code or marker not in transcript:
+            raise RuntimeError(f'M35 {stage} failed: {transcript[-2000:]}')
+    well_save = output / 'connected-well-repeat.mmsave'
+    well_save.write_bytes(stage_bytes['recovery'])
+    with (output / 'connected-well-repeat.log').open('w') as log:
+        child = subprocess.Popen([str(connected), str(game), str(well_save), 'well-repeat'],
+                                 stdout=log, stderr=subprocess.STDOUT)
+        code = child.wait()
+    transcript = (output / 'connected-well-repeat.log').read_text()
+    index.write(f'M35 connected well-repeat PID={child.pid} exit={code} save={well_save}\n')
+    index.flush()
+    if code or 'M35 genuine repeat/refusal well branch PASS' not in transcript:
+        raise RuntimeError(f'M35 well-repeat failed: {transcript[-2000:]}')
+    equal_save = output / 'connected-well-equal.mmsave'
+    equal_save.write_bytes(stage_bytes['exchange'])
+    with (output / 'connected-well-equal.log').open('w') as log:
+        child = subprocess.Popen([str(connected), str(game), str(equal_save), 'well-equal'],
+                                 stdout=log, stderr=subprocess.STDOUT)
+        code = child.wait()
+    transcript = (output / 'connected-well-equal.log').read_text()
+    index.write(f'M35 equal-maximum well PID={child.pid} exit={code}\n')
+    index.flush()
+    if code or 'M35 equal-maximum well full-state gain PASS' not in transcript:
+        raise RuntimeError(f'M35 well-equal failed: {transcript[-2000:]}')
+    retry_save = output / 'connected-well-frame-retry.mmsave'
+    retry_save.write_bytes(stage_bytes['exchange'])
+    with (output / 'connected-well-frame-retry.log').open('w') as log:
+        child = subprocess.Popen([str(connected), str(game), str(retry_save), 'well-frame-retry'],
+                                 stdout=log, stderr=subprocess.STDOUT)
+        code = child.wait()
+    transcript = (output / 'connected-well-frame-retry.log').read_text()
+    index.write(f'M35 well success-frame retry PID={child.pid} exit={code}\n')
+    index.flush()
+    if code or 'M35 well HP/frame retry/flag full-state publication PASS' not in transcript:
+        raise RuntimeError(f'M35 well frame retry failed: {transcript[-2000:]}')
+    fault_save = output / 'connected-well-text-fault.mmsave'
+    fault_save.write_bytes(stage_bytes['exchange'])
+    with (output / 'connected-well-text-fault.log').open('w') as log:
+        child = subprocess.Popen([str(connected), str(game), str(fault_save), 'well-text-fault'],
+                                 stdout=log, stderr=subprocess.STDOUT)
+        code = child.wait()
+    transcript = (output / 'connected-well-text-fault.log').read_text()
+    index.write(f'M35 connected well-text-fault PID={child.pid} exit={code} save={fault_save}\n')
+    index.flush()
+    if code or 'M35 well partial publication/resource fault PASS' not in transcript:
+        raise RuntimeError(f'M35 well-text-fault failed: {transcript[-2000:]}')
+    assert fault_save.read_bytes() == stage_bytes['exchange'], 'Failed well resource load rewrote save'
+    run_save = output / 'connected-run.mmsave'
+    selected_run_seed = None
+    for seed in range(1, 257):
+        stage = 'run-quest'
+        with (output / f'connected-{stage}.log').open('w') as log:
+            child = subprocess.Popen([str(connected), str(game), str(run_save), stage, str(seed)],
+                                     stdout=log, stderr=subprocess.STDOUT)
+            code = child.wait()
+        transcript = (output / f'connected-{stage}.log').read_text()
+        index.write(f'M35 connected {stage} PID={child.pid} exit={code} seed={seed} save={run_save}\n')
+        index.flush()
+        if not code and f'M35 STAGE PASS {stage}' in transcript:
+            selected_run_seed = seed
+            (output / 'connected-run-quest.mmsave').write_bytes(run_save.read_bytes())
+            break
+        if not any(reason in transcript for reason in ('Genuine contract-6 wounded Run/disengagement',
+                'M35 combat terminal', 'M35 600 player-input bound')):
+            raise RuntimeError(f'M35 run seed {seed} failed unexpectedly: {transcript[-2000:]}')
+    if selected_run_seed is None:
+        raise RuntimeError('M35 genuine contract-6 Run/quest seed selection exhausted 1..256')
+    (output / 'connected-run-selection.json').write_text(json.dumps({
+        'seed': selected_run_seed, 'route': 'UFU; Run all ready members; ULUR; Myra request',
+        'input_bound': 600, 'return_move_bound': 64}, indent=2) + '\n')
+    stage = 'run-restart'
+    with (output / f'connected-{stage}.log').open('w') as log:
+        child = subprocess.Popen([str(connected), str(game), str(run_save), stage],
+                                 stdout=log, stderr=subprocess.STDOUT)
+        code = child.wait()
+    transcript = (output / f'connected-{stage}.log').read_text()
+    index.write(f'M35 connected {stage} PID={child.pid} exit={code} save={run_save}\n')
+    index.flush()
+    if code or f'M35 STAGE PASS {stage}' not in transcript:
+        raise RuntimeError(f'M35 {stage} failed: {transcript[-2000:]}')
+    run_full = output / 'connected-run-full.mmsave'
+    with (output / 'connected-run-full.log').open('w') as log:
+        child = subprocess.Popen([str(connected), str(game), str(run_full), 'run-full', str(selected_run_seed)],
+                                 stdout=log, stderr=subprocess.STDOUT)
+        code = child.wait()
+    transcript = (output / 'connected-run-full.log').read_text()
+    index.write(f'M35 connected run-full PID={child.pid} exit={code} seed={selected_run_seed} save={run_full}\n')
+    index.flush()
+    if code or 'M35 STAGE PASS run-full' not in transcript:
+        raise RuntimeError(f'M35 run-full failed: {transcript[-2000:]}')
+    assert (output / 'connected-run-quest.mmsave').read_bytes() == Path(str(run_full) + '.run-quest').read_bytes(), (
+        'M35 wounded quest checkpoint differs across fresh process')
+    assert run_save.read_bytes() == run_full.read_bytes(), 'M35 wounded quest suffix differs across fresh process'
+    cli = build / 'mmodern_consequence_cli_witness.exe'
+    assert cli.exists(), 'Build the production CLI witness before M35 acceptance'
+    cli_chain = output / 'cli-connected-chain.mmsave'
+    cli_full = output / 'cli-connected-full.mmsave'
+    cli_stages = ('entry', 'request', 'before-phirna', 'collected', 'return', 'exchange', 'well', 'item', 'continue', 'post')
+    cli_bytes = {}
+    cli_observations = {}
+    for stage in cli_stages + ('full',):
+        save = cli_full if stage == 'full' else cli_chain
+        local = env.copy()
+        local.pop('MMODERN_M33_SUMMARY', None)
+        local['MMODERN_M35_STAGE'] = stage
+        args = ([str(cli), '--journey-region', '--combat-seed', '7', str(game), '--save-file', str(save)]
+                if stage in ('entry', 'full') else [str(cli), '--load-game', str(game), str(save)])
+        with (output / f'cli-connected-{stage}.log').open('w') as log:
+            child = subprocess.Popen(args, env=local, stdout=log, stderr=subprocess.STDOUT)
+            code = child.wait()
+        transcript = (output / f'cli-connected-{stage}.log').read_text()
+        index.write(f'M35 production CLI {stage} PID={child.pid} exit={code} save={save}\n')
+        index.flush()
+        if code or f'M35 CLI OBS {"post" if stage == "full" else stage} ' not in transcript:
+            raise RuntimeError(f'M35 production CLI {stage} failed: {transcript[-2400:]}')
+        observations = dict(re.findall(r'^M35 CLI OBS ([\w-]+) (.+) composed=\d+$', transcript, re.M))
+        if stage == 'full':
+            for checkpoint in cli_stages:
+                assert cli_bytes[checkpoint] == Path(str(cli_full) + '.' + checkpoint).read_bytes(), (
+                    f'M35 CLI {checkpoint} save differs after process restart')
+                assert cli_observations[checkpoint] == observations[checkpoint], (
+                    f'M35 CLI {checkpoint} intermediate publication/RNG differs after restart')
+        else:
+            cli_bytes[stage] = save.read_bytes()
+            cli_observations[stage] = observations[stage]
+            (output / f'cli-connected-{stage}.mmsave').write_bytes(cli_bytes[stage])
+    assert cli_bytes['post'] == cli_full.read_bytes(), 'M35 CLI final exact save bytes differ'
+    print('M35 connected original-resource/process route and exact final save bytes PASS', flush=True)
+    print('M35 production CLI/original scene and fresh-process checkpoints PASS', flush=True)
+elif m34:
     lifecycle()
 else:
     legacy()

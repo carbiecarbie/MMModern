@@ -29,7 +29,7 @@ XeenRoster &XeenRoster::operator=(XeenRoster &&r) {
 XeenPartyState::XeenPartyState(const XeenPartyState &p) {
 	XeenRoster::requireOrdinary(p.roster);
 	roster = p.roster; encounterContext = p.encounterContext; party = p.party;
-	questItems = p.questItems; questFlags = p.questFlags; monsterTreasure = p.monsterTreasure;
+	questItems = p.questItems; questFlags = p.questFlags; regionalRecovery = p.regionalRecovery; monsterTreasure = p.monsterTreasure;
 	firstSerializedCount = p.firstSerializedCount; effectiveSerializedCount = p.effectiveSerializedCount;
 	diagnostics = p.diagnostics;
 }
@@ -40,7 +40,7 @@ void XeenPartyState::swapOrdinary(XeenPartyState &p) noexcept {
 	using std::swap;
 	static_assert(std::is_nothrow_swappable_v<XeenParty> && std::is_nothrow_swappable_v<decltype(encounterContext)>);
 	roster.swapOrdinary(p.roster); swap(encounterContext,p.encounterContext); swap(party,p.party);
-	swap(questItems,p.questItems); swap(questFlags,p.questFlags); swap(monsterTreasure,p.monsterTreasure);
+	swap(questItems,p.questItems); swap(questFlags,p.questFlags); swap(regionalRecovery,p.regionalRecovery); swap(monsterTreasure,p.monsterTreasure);
 	swap(firstSerializedCount,p.firstSerializedCount); swap(effectiveSerializedCount,p.effectiveSerializedCount);
 	diagnostics.swap(p.diagnostics);
 	++_replacement; ++p._replacement;

@@ -21,6 +21,7 @@ void xeenValidateJourneyParty(const XeenPartyState &party, std::uint16_t contrac
 	const bool consequences = xeenJourneyContent(contract).consequences();
 	require(party.roster.combatMarked() && party.encounterContext.has_value(), "Journey requires complete owner state");
 	require(bool(party.monsterTreasure) == (consequences), "Journey consequence presence mismatch");
+	require(bool(party.regionalRecovery) == xeenJourneyContent(contract).connectedRecovery(), "Journey recovery presence mismatch");
 	if (party.monsterTreasure) xeenValidateMonsterTreasure(*party.monsterTreasure, contract);
 	const auto &context = *party.encounterContext;
 	require(context.profile == XeenBehaviorProfile::WorldOfXeenClouds && context.difficulty == XeenDifficulty::Adventurer &&

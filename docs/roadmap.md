@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**Milestone 34 is the latest completed milestone.**
+**Milestone 35 is the latest completed milestone.**
 [Project status](project-status.md) owns implemented capabilities and acceptance
 boundaries; [project history](project-history.md) owns completed chronology.
 Reference provenance belongs to [dependencies](dependencies.md).
@@ -24,49 +24,30 @@ truthful support boundaries and schema-3 continuation
 conditions, rewards and exact consequence-aware 4/4 restart
 ([M33](milestone-33-plan.md)). M34 completed individual Run, partial-party combat,
 non-victory fixed relocation and exact survivor/treasure continuation in 5/5
-([M34](milestone-34-plan.md)). These contracts do not certify unrestricted map-23
+([M34](milestone-34-plan.md)). M35 connected the Myra/Phirna quest, selected
+well recovery and bounded antidote use with exact 6/6 continuation
+([M35](milestone-35-plan.md)). These contracts do not certify unrestricted map-23
 or Clouds travel or normal original startup.
 
-The first connected Clouds vertical slice and its Regional Journey foundation
-are accepted. The approved Myra -> Phirna -> Myra arc continues across the
-connected mainland region of Clouds map 23.
+The approved M33-M35 arc is complete within its bounded map-23 mainland scope.
 
 ## Near term
 
-<a id="approved-m33-m35-arc"></a>
+### Post-M35 reassessment boundary
 
-### Approved M33-M35 arc
-
-This sequence records the approved strategic direction, not detailed milestone
-specifications. Each milestone requires its own specification and explicit
-implementation authorization; roadmap approval does not authorize implementation.
-
-M33 and M34 are the completed combat/consequence and disengagement foundations
-of this arc; their results belong in [completed history](project-history.md).
-**M35 is the immediate next milestone.** Its specification and implementation
-require separate authorization; M34 completion does not authorize either.
-
-- **M35 - Connected Myra quest and local recovery:** integrate the existing
-  [M21 endpoints](milestone-21-plan.md) through the expanded Journey and selected
-  route-justified mainland interactions/recovery, including a narrow reusable
-  antidote-item-use path. Close the arc with Myra request -> mainland travel and
-  encounters -> Phirna collection -> connected return -> Myra exchange/reward
-  -> save/restart -> continued gameplay, preserving accumulated consequences.
-
-Unless evidence triggers replanning, this arc excludes general magic/spellcasting,
-full Rest, shops/temples/inns and broader services/economy, training/permanent
-level progression, Swimming/Walk on Water/Mountaineer and disconnected map-23
-areas, Vertigo/mines/adjacent maps/Darkside transfer, unrestricted higher-tier
-loot/item effects and unrelated side-quest completion. Gold and XP are durable
-consequences; their spending and progression consumers remain outside the
-accepted scope.
+The immediate next planning activity is **post-M35 evidence-based roadmap
+reassessment**. It requires separate authorization. M35 completion neither
+performs that reassessment nor selects, numbers or authorizes a successor
+implementation milestone. The approved M33-M35 arc and its bounded exclusions
+are recorded in [completed history](project-history.md) and the
+[M35 closed plan](milestone-35-plan.md).
 
 ## Medium term
 
-Beyond M35, expand capabilities in response to playable-route evidence without
+After reassessment, expand capabilities in response to playable-route evidence without
 assigning speculative milestone numbers or ordering:
 
-- **Connected quests and rewards:** extend the planned Myra/Phirna foundation
+- **Connected quests and rewards:** extend the implemented Myra/Phirna foundation
   toward further original objectives as their routes and dependencies justify.
 - **Encounter breadth and recovery:** M33-M35 cover the selected mainland
   combat, disengagement and local recovery. Broader actors, conditions, item
@@ -119,8 +100,8 @@ Commercial resources remain external and unmodified.
 Review each specification against verified repository state and the pinned
 reference. Replan when:
 
-- The objective requires unsupported travel, Run/disengagement beyond contract 5,
-  services, recovery or time semantics beyond its proposed boundary.
+- The objective requires unsupported travel, Run/disengagement beyond the admitted
+  contracts, services, recovery or time semantics beyond its proposed boundary.
 - Persistence or world-state generalization exceeds the bounded objective, or
   compatibility cannot preserve admitted consequences.
 - Integration evidence supports splitting the objective or another slice becomes
@@ -129,9 +110,9 @@ reference. Replan when:
 
 Retain approximately three completed milestones as the ordinary broader-roadmap
 review cadence, with focused scope review before each specification. The post-M31
-investigation is complete; M35 arc closure is the next natural broader roadmap
-reassessment point, with the evidence-based triggers above applying throughout
-M33-M35. Subsequent roadmap approval, milestone specification approval and
+investigation is complete; M35 arc closure has reached the broader roadmap
+reassessment boundary. That reassessment remains a separately authorized
+planning activity. Subsequent roadmap approval, milestone specification approval and
 implementation authorization
 remain separate; completion does not authorize the next milestone.
 Use the verified SHA and handoff gate in [AGENTS.md](../AGENTS.md) for external

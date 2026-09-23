@@ -1,5 +1,6 @@
 #include "games/xeen/XeenRegionalRules.h"
 #include <stdexcept>
+#include <limits>
 #include "formats/xeen/XeenMapFormat.h"
 #include "formats/xeen/XeenEventFormat.h"
 #include "games/xeen/XeenStateEquality.h"
@@ -188,5 +189,25 @@ bool XeenRegionalOpportunityCandidate::service(XeenConsequenceDraw &draw) {
 	view=XeenActorApproach::classify(actors,camera);
 	for (unsigned i=0;i<actors.size();++i) actors[i].activated=actors[i].activated || view.activation[i];
 	return true;
+}
+}
+namespace mmodern {
+std::optional<std::int16_t> xeenWellHpAfter(std::int16_t before) noexcept {
+	const int after=int(before)+25;
+	if(after>std::numeric_limits<std::int16_t>::max())return {};
+	return static_cast<std::int16_t>(after);
+}
+XeenRegionalInteraction xeenRegionalInteraction(const XeenEventFile &events,const XeenCamera &camera,std::uint16_t contract) {
+	const auto first=xeenRegionalEvent(events,camera);
+	if (!first) return XeenRegionalInteraction::None;
+	if (xeenRegionalSign(events,camera)) return XeenRegionalInteraction::Sign;
+	if (contract!=6) return XeenRegionalInteraction::None;
+	if (*first==21 && camera.x==9 && camera.y==11 && camera.direction==XeenDirection::West)
+		return XeenRegionalInteraction::Myra;
+	if (*first==125 && camera.x==8 && camera.y==2)
+		return XeenRegionalInteraction::Phirna;
+	if (*first==57 && camera.x==7 && camera.y==7)
+		return XeenRegionalInteraction::Well;
+	return XeenRegionalInteraction::None;
 }
 }

@@ -3,6 +3,7 @@
 #include "games/xeen/XeenJourneyCapture.h"
 #include "games/xeen/XeenInventoryView.h"
 #include "games/xeen/XeenJourneyProgression.h"
+#include "games/xeen/XeenCombatRules.h"
 #include <limits>
 #include <algorithm>
 #include <stdexcept>
@@ -23,13 +24,22 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 	const auto contract=setup.contract;
 	const auto manifest=setup.regionalManifest;
 	const auto purse=setup.purse;
+	const auto recovery=setup.regionalRecovery;
+	const auto regionalText=setup.regionalText;
 	_journeyEvents = setup.events;
 	_journeyCapture.reset(new XeenJourneyCapture(w,p,c,_state,_boundary,_busy,_journeyPreimage));
 	if (w.hasEncounterState() || p.roster.combatMarked() || p.encounterContext || w._combatCheck || w._combatAuthorized)
 		throw std::invalid_argument("Journey requires fresh uncoordinated owners");
+	if (bool(recovery) != xeenJourneyContent(contract).connectedRecovery() || p.regionalRecovery)
+		throw std::invalid_argument("Journey recovery preparation mismatch");
+	p.regionalRecovery = recovery;
 	try {
 		// Retain lifetime controls before installing callbacks, including allocation failure paths.
 		retainJourney();
+		if (contract==6) {
+			if (!regionalText) throw std::invalid_argument("Regional text preflight is missing");
+			_journeyPreimage->admitRegionalText(*regionalText);
+		}
 		w._sessionState._encounterMarked = true;
 		w._sessionState._journeyOwner = this;
 		w._sessionState._journeyActivity = XeenJourneyActivity::Attachment;
@@ -115,6 +125,137 @@ bool XeenEncounterFlow::journeyMutable() const noexcept {
 		_state.pending() == 0 && _state.phase() == XeenEncounterPhase::Exploring &&
 		_world.sessionState().journeyActivity() == XeenJourneyActivity::Quiet;
 }
+bool XeenEncounterFlow::itemUseReady() const noexcept { return _itemUse && _itemUse->ready; }
+std::optional<std::uint64_t> XeenEncounterFlow::beginItemUse(const Ticket &entry,const ItemUseSelection &selection,
+		std::uint64_t inventoryLease,std::uint64_t certificateLease) {
+	if (!journeyMutable() || !current(entry) || !_journeyPreimage || _itemUse ||
+		_world.sessionState().journeyContract()!=6 || !_boundary.holds(XeenCombatBoundary::Work::Inventory,inventoryLease) ||
+		!_boundary.holds(XeenCombatBoundary::Work::Certificate,certificateLease) ||
+		selection.category!=XeenInventoryCategory::Miscellaneous || selection.slot>=9 ||
+		!XeenAntidoteUse::eligible(selection.record) ||
+		_itemUseGeneration==std::numeric_limits<std::uint64_t>::max()) return {};
+	const auto &ids=_party.party.activeRosterIds();
+	if (selection.membershipSize!=ids.size() || ids.size()>XeenParty::kMaximumVisibleMembers ||
+		!std::equal(ids.begin(),ids.end(),selection.membership.begin()) || selection.sourceIndex>=ids.size() ||
+		ids[selection.sourceIndex]!=selection.sourceOwner || selection.sourceOwner>=XeenRoster::kCharacterCount) return {};
+	const auto &source=_party.roster.at(selection.sourceOwner);
+	if (source.rosterId!=selection.sourceOwner || !source.canAct() ||
+		!xeenSameItem(source.miscellaneous[selection.slot],selection.record)) return {};
+	_journeyPreimage->check();
+	try {
+		xeenValidateJourneyParty(_party,6);
+		auto next=std::make_unique<ItemUseContinuation>();
+		next->opportunity=std::make_unique<XeenRegionalActionCandidate>();
+		auto &c=*next->opportunity;
+		const auto &s=_world.sessionState();
+		c.camera=_camera;c.context=*_party.encounterContext;c.actors=s.actors();
+		c.random=XeenCombatRandom(*s.journeyRandom());c.revision=_state.revision();c.pending=0;
+		c.remaining=1;c.classify=true;c.result.outcome=XeenEncounterOutcome::Pulsed;
+		for(unsigned i=0;i<6;++i) { c.characters[i]=_party.roster.at(kXeenCombatOwners[i]);c.inputs[i]=*_party.roster.combatInputs(kXeenCombatOwners[i]); }
+		next->generation=++_itemUseGeneration;next->epoch=selection.epoch+1;
+		next->sourceOwner=selection.sourceOwner;next->slot=selection.slot;
+		next->spentCharge=selection.record.state&0x3f;next->exhausted=next->spentCharge==1;
+		next->lease=_boundary.hold(XeenCombatBoundary::Work::ItemUse);
+		// The charge and continuation are published together before any target frame or callback.
+		_party.roster.at(selection.sourceOwner).miscellaneous[selection.slot]=XeenAntidoteUse::debit(selection.record);
+		_itemUse=std::move(next);_itemUseResult.reset();
+		_world._sessionState._journeyActivity=XeenJourneyActivity::ItemUse;
+		++_world._sessionState._journeyGeneration;++_generation;
+		retainJourney();
+		return _itemUseGeneration;
+	} catch (...) { closeJourney(); throw; }
+}
+bool XeenEncounterFlow::authorizeItemUseTarget(const Ticket &entry,std::uint64_t generation,
+		std::uint64_t inventoryEpoch,std::uint64_t displayedInput,
+		const IndexedFrame::Presentation &selectorFrame) {
+	if (_busy || !selectorFrame || !_itemUse || _itemUse->ready || !current(entry) ||
+		generation!=_itemUse->generation || inventoryEpoch!=_itemUse->epoch ||
+		_world.sessionState().journeyActivity()!=XeenJourneyActivity::ItemUse ||
+		!_boundary.holds(XeenCombatBoundary::Work::ItemUse,_itemUse->lease)) return false;
+	_itemUse->selectorTicket=entry;
+	_itemUse->selectorInput=displayedInput;
+	_itemUse->selectorFrame=selectorFrame;
+	return true;
+}
+bool XeenEncounterFlow::finishItemUse(const Ticket &entry,std::uint64_t generation,std::uint64_t inventoryEpoch,
+		std::optional<std::size_t> targetIndex,std::uint64_t displayedInput,
+		const IndexedFrame::Presentation &selectorFrame) {
+	if (_busy || !_itemUse || !_itemUse->selectorTicket || !selectorFrame ||
+		!_itemUse->selectorFrame || selectorFrame!=_itemUse->selectorFrame ||
+		displayedInput!=_itemUse->selectorInput || !current(*_itemUse->selectorTicket)) return false;
+	return settleItemUse(entry,generation,inventoryEpoch,targetIndex);
+}
+bool XeenEncounterFlow::abandonItemUse(const Ticket &entry,std::uint64_t generation,
+		std::uint64_t inventoryEpoch) {
+	return settleItemUse(entry,generation,inventoryEpoch,{});
+}
+bool XeenEncounterFlow::settleItemUse(const Ticket &entry,std::uint64_t generation,std::uint64_t inventoryEpoch,
+		std::optional<std::size_t> targetIndex) {
+	if (_busy || !_itemUse || _itemUse->ready || !current(entry) || generation!=_itemUse->generation ||
+		inventoryEpoch!=_itemUse->epoch ||
+		_world.sessionState().journeyActivity()!=XeenJourneyActivity::ItemUse || !_boundary.holds(XeenCombatBoundary::Work::ItemUse,_itemUse->lease)) return false;
+	const auto &ids=_party.party.activeRosterIds();
+	if (targetIndex && *targetIndex>=ids.size()) return false;
+	try {
+		_journeyPreimage->check();
+		const auto target=targetIndex ? std::optional<std::uint8_t>{ids[*targetIndex]} : std::nullopt;
+		std::optional<XeenCharacter> targetCandidate;
+		if (target) targetCandidate=_party.roster.at(*target);
+		auto result=XeenAntidoteUse::effect(_itemUse->sourceOwner,target,targetCandidate ? &*targetCandidate : nullptr,
+			_itemUse->spentCharge,_itemUse->exhausted);
+		auto sourceItems=_party.roster.at(_itemUse->sourceOwner).miscellaneous;
+		XeenAntidoteUse::settle(sourceItems,_itemUse->slot,_itemUse->exhausted);
+		if (target) {
+			_party.roster.at(*target).conditions=targetCandidate->conditions;
+			for(auto &c:_itemUse->opportunity->characters) if(c.rosterId==*target) c.conditions=targetCandidate->conditions;
+		}
+		_party.roster.at(_itemUse->sourceOwner).miscellaneous=sourceItems;
+		_itemUseResult=result;_itemUse->ready=true;
+		_itemUse->selectorTicket.reset();_itemUse->selectorFrame.reset();
+		++_world._sessionState._journeyGeneration;++_generation;
+		retainJourney();return true;
+	} catch (...) { closeJourney(); throw; }
+}
+bool XeenEncounterFlow::serviceItemUse() {
+	if (!itemUseReady() || _busy || _combat || !_journeyPreimage || !journeyCapacity()) return false;
+	const auto boundaryGeneration=_boundary.generation();
+	BusyJourney busy(_busy);
+	try {
+		_journeyPreimage->check();
+		auto &s=_world._sessionState;
+		s._journeyActivity=XeenJourneyActivity::Approach;++s._journeyGeneration;
+		_world._combatCheck=[this,boundaryGeneration] {
+			if(_boundary.generation()!=boundaryGeneration) throw std::logic_error("Stale item opportunity boundary");
+			_journeyPreimage->check();
+		};
+		_world._combatAuthorized=[this,boundaryGeneration,generation=_generation] {
+			return !_failure && _generation==generation && _boundary.generation()==boundaryGeneration && _journeyPreimage->ownersAlive();
+		};
+		_journeyPreimage->adoptJourneyCoordination();
+		if (!_regionalWork) _regionalWork.swap(_itemUse->opportunity);
+		XeenEncounterResult result;
+		{
+			XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
+			result=XeenActorApproach::regionalTransition(_world,_party,_camera,_state,_events,{},_regionalWork);
+		}
+		if (!_journeyPreimage->ownersAlive() || _boundary.generation()!=boundaryGeneration ||
+			result.outcome==XeenEncounterOutcome::Stale || result.outcome==XeenEncounterOutcome::Refused ||
+			result.outcome==XeenEncounterOutcome::Stopped) { closeJourney();return false; }
+		_world._combatCheck={};_world._combatAuthorized={};
+		if(result.outcome==XeenEncounterOutcome::Pending) {
+			s._journeyActivity=XeenJourneyActivity::ItemUse;++s._journeyGeneration;
+			_journeyPreimage->adoptJourneyCoordination();return true;
+		}
+		_result=result;++_generation;_journeyFramePrepared=false;
+		if(result.consequences) observeRanged(result.consequences);
+		s._journeyActivity=_state.phase()==XeenEncounterPhase::Engaged ? XeenJourneyActivity::Attachment : XeenJourneyActivity::Presentation;
+		++s._journeyGeneration;
+		_journeyPreimage->adoptJourneyCoordination();
+		_boundary.release(XeenCombatBoundary::Work::ItemUse,_itemUse->lease);
+		_itemUse.reset();
+		retainJourney();return true;
+	} catch (...) { closeJourney();throw; }
+}
 std::uint64_t XeenEncounterFlow::holdJourneyWork(XeenCombatBoundary::Work work) {
 	if (!journeyMutable()) throw std::logic_error("Journey modal boundary unavailable");
 	return _boundary.hold(work);
@@ -127,7 +268,7 @@ void XeenEncounterFlow::releaseJourneyWork(XeenCombatBoundary::Work work, std::u
 void XeenEncounterFlow::holdJourneyFrame() {
 	if (!_journey || _busy || _combat || !current(ticket()) || !journeyCapacity()) throw std::logic_error("Journey frame boundary unavailable");
 	auto &s = _world._sessionState;
-	if (s._journeyActivity == XeenJourneyActivity::Presentation || s._journeyActivity == XeenJourneyActivity::Event || s._journeyActivity == XeenJourneyActivity::Shoot || s._journeyActivity == XeenJourneyActivity::Reward) return;
+	if (s._journeyActivity == XeenJourneyActivity::Presentation || s._journeyActivity == XeenJourneyActivity::Event || s._journeyActivity == XeenJourneyActivity::Shoot || s._journeyActivity == XeenJourneyActivity::Reward || s._journeyActivity == XeenJourneyActivity::ItemUse) return;
 	if (s._journeyActivity != XeenJourneyActivity::Quiet && s._journeyActivity != XeenJourneyActivity::Approach && s._journeyActivity != XeenJourneyActivity::SupportStopped)
 		throw std::logic_error("Journey frame cannot replace active work");
 	s._journeyActivity = XeenJourneyActivity::Presentation;
@@ -142,7 +283,8 @@ void XeenEncounterFlow::beginJourneyEvent() {
 		throw std::logic_error("Automatic Journey event address changed");
 	const bool ready=_regionalAutomatic ? !_busy && !_combat && !_failure && _boundary.quiet() && current(ticket()) &&
 		_state.pending()==0 && _state.phase()==XeenEncounterPhase::Exploring : journeyQuiet();
-	if (!ready || !journeyCapacity() || (regional ? !xeenRegionalSign(_events,_camera) :
+	const auto interaction = regional ? xeenRegionalInteraction(_events,_camera,_world.sessionState().journeyContract()) : XeenRegionalInteraction::None;
+	if (!ready || !journeyCapacity() || (regional ? interaction==XeenRegionalInteraction::None || (_regionalAutomatic && interaction!=XeenRegionalInteraction::Sign) :
 		_world.sessionState().journeyContract()!=2 || _camera.mapId!=XeenMapIdentity(20) || _camera.x!=5 || _camera.y!=14))
 		throw std::logic_error("Journey objective admission unavailable");
 	_eventLease = _boundary.hold(XeenCombatBoundary::Work::Event);
@@ -247,10 +389,10 @@ bool XeenEncounterFlow::endJourneySave(const Ticket &t) noexcept {
 }
 bool XeenEncounterFlow::presentJourney(const Ticket &entry) {
 	if (!_journey || _busy || _combat || !_journeyFramePrepared || !current(entry) ||
-		(_world.sessionState().journeyActivity() != XeenJourneyActivity::Presentation && !journeyEvent() && !_shoot && !monsterReward())) return false;
+		(_world.sessionState().journeyActivity() != XeenJourneyActivity::Presentation && !journeyEvent() && !_shoot && !monsterReward() && !_itemUse)) return false;
 	if (!journeyCapacity()) return false;
 	auto &s = _world._sessionState;
-	if (!journeyEvent() && !_shoot && !monsterReward()) s._journeyActivity = _state.phase()==XeenEncounterPhase::SupportStopped ? XeenJourneyActivity::SupportStopped : (_state.pending() || _regionalWork || projectilesPending() || _shootIntent || _regionalAutomatic) ? XeenJourneyActivity::Approach : XeenJourneyActivity::Quiet;
+	if (!journeyEvent() && !_shoot && !monsterReward() && !_itemUse) s._journeyActivity = _state.phase()==XeenEncounterPhase::SupportStopped ? XeenJourneyActivity::SupportStopped : (_state.pending() || _regionalWork || projectilesPending() || _shootIntent || _regionalAutomatic) ? XeenJourneyActivity::Approach : XeenJourneyActivity::Quiet;
 	++s._journeyGeneration; ++_generation;
 	_journeyFramePrepared = _journeyFrameRetry = false;
 	_journeyPreimage->adoptJourneyCoordination();
@@ -259,12 +401,14 @@ bool XeenEncounterFlow::presentJourney(const Ticket &entry) {
 }
 bool XeenEncounterFlow::prepareJourneyFrame(const Ticket &entry, const std::function<void()> &compose) {
 	if (!_journey || _busy || _combat || !current(entry) || !compose ||
-		(_world.sessionState().journeyActivity() != XeenJourneyActivity::Presentation && !journeyEvent() && !_shoot && !monsterReward())) return false;
+		(_world.sessionState().journeyActivity() != XeenJourneyActivity::Presentation && !journeyEvent() && !_shoot && !monsterReward() && !_itemUse)) return false;
 	BusyJourney busy(_busy);
 	_journeyFramePrepared = false;
+	if (_itemUse) { _itemUse->selectorTicket.reset(); _itemUse->selectorFrame.reset(); }
 	try {
 		XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
 		compose(); _journeyPreimage->check();
+		if (!current(entry)) throw std::logic_error("Stale Journey frame preparation");
 		_journeyFramePrepared = true; return true;
 	} catch (...) {
 		if (!_journeyPreimage->current() || _journeyFrameRetry) closeJourney();
@@ -324,6 +468,7 @@ XeenEncounterResult XeenEncounterFlow::advanceJourney(const Ticket &entry, std::
 			_journeyPreimage->adoptJourneyCoordination(); _journeyPreimage->check(); return result;
 		}
 		_result = result; ++_generation; _journeyFramePrepared = false;
+		if(action) _itemUseResult.reset();
 		if(result.consequences) observeRanged(result.consequences);
 		if(result.automaticEvent) _regionalAutomaticAddress=XeenCombatLocation{_camera.mapId,_camera.x,_camera.y,_camera.direction};
 		_regionalAutomatic = _regionalAutomatic || result.automaticEvent;

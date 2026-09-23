@@ -82,6 +82,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	for (unsigned i = 0; i < 30; ++i) p.roster.at(i) = snapshot.characters[i];
 	p.party = XeenParty::fromRosterIds(snapshot.activeRosterIds);
 	p.questItems = XeenCloudsQuestItems(snapshot.questItems); p.questFlags = XeenCloudsQuestFlags(snapshot.questFlags);
+	p.regionalRecovery = snapshot.journey->regionalRecovery;
 	p.firstSerializedCount = p.effectiveSerializedCount = 6;
 	p.encounterContext = snapshot.journey->context;
 	p.monsterTreasure=snapshot.journey->treasure;
@@ -118,6 +119,10 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	const auto &policy=xeenJourneyContent(snapshot.journey->contract);
 	auto actors = XeenActorApproach::actorsFromResources(w.objectFile(policy.entry.mapId),statistics);
 	auto evt = events(policy.entry.mapId);
+	if (policy.connectedRecovery()) {
+		if (!resources.loadRegionalText) throw std::invalid_argument("Missing regional text restoration provider");
+		prepared->admitRegionalText(callback([&] { return resources.loadRegionalText(23); }));
+	}
 	if (policy.contract>=3) {
 		if (!regionalManifest) throw std::invalid_argument("Missing regional restoration manifest");
 		callback([&] { regionalManifest(w.map(23),w.objectFile(23),evt,statistics);return true; });
@@ -301,7 +306,7 @@ void XeenSaveState::restoreCompleted(const XeenSaveSnapshot &source, const Resou
 
 bool XeenSaveState::canCapture(const XeenPartyState &party, const XeenCamera &camera,
 		const XeenWorld &world) noexcept {
-	if (party.monsterTreasure && (!world.sessionState().journey() || (world.sessionState().journeyContract()!=4 && world.sessionState().journeyContract()!=5))) return false;
+	if (party.monsterTreasure && (!world.sessionState().journey() || !xeenJourneyContent(world.sessionState().journeyContract()).consequences())) return false;
 	if (!world.hasEncounterState() && !party.encounterContext && !party.roster.combatMarked()) {
 		for (unsigned owner = 0; owner < XeenRoster::kCharacterCount; ++owner)
 			if (party.roster.combatInputs(owner)) return false;
@@ -351,7 +356,7 @@ XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resourc
 		xeenValidateJourneyParty(party,state.journeyContract());
 		XeenSaveJourney j;
 		j.context = party.encounterContext; j.skeletonSeed = state.skeletonSeed();
-		j.schema=j.contract=state.journeyContract(); j.random=state.journeyRandom();j.treasure=party.monsterTreasure;
+		j.schema=j.contract=state.journeyContract(); j.random=state.journeyRandom();j.treasure=party.monsterTreasure;j.regionalRecovery=party.regionalRecovery;
 		for (unsigned i = 0; i < 30; ++i) j.supplements[i] = {static_cast<std::uint8_t>(i), *party.roster.combatInputs(i)};
 		j.initializedMap=xeenJourneyContent(j.contract).entry.mapId;
 		j.originalActorCount=j.contract>=3 ? 19 : 27;

@@ -10,20 +10,21 @@ namespace mmodern {
 // to these leases; it cannot assert that an unrelated owner graph is quiescent.
 class XeenCombatBoundary {
 public:
-	enum class Work { Inventory, Certificate, Event, Reward, PresentationFailure };
+	enum class Work { Inventory, Certificate, Event, Reward, ItemUse, PresentationFailure };
 	XeenCombatBoundary(const XeenWorld &w,const XeenPartyState &p,const XeenCamera &c):world(&w),party(&p),camera(&c) {}
 	XeenCombatBoundary(const XeenCombatBoundary &)=delete;
 	XeenCombatBoundary &operator=(const XeenCombatBoundary &)=delete;
 	std::uint64_t hold(Work);
 	void release(Work,std::uint64_t);
 	std::uint64_t generation() const noexcept { return epoch; }
+	bool holds(Work work, std::uint64_t lease) const noexcept { return lease && leases[static_cast<unsigned>(work)]==lease; }
 	bool quiet() const noexcept;
 	bool preparationReady() const noexcept;
 private:
 	friend class XeenCombat;
 	const XeenWorld *world; const XeenPartyState *party; const XeenCamera *camera;
 	std::uint64_t epoch=0;
-	std::array<std::uint64_t,5> leases{};
+	std::array<std::uint64_t,6> leases{};
 };
 
 // A value cursor: cloning never shares mutable position/state. The immutable tape

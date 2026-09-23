@@ -75,6 +75,8 @@ public:
 	void failEncounterHandoff(const XeenEncounterFlow::Ticket &) noexcept;
 	// Fault/observer seam immediately before the actual fallible frame copy.
 	std::function<void()> beforeEncounterFrameCopy;
+	// Fault seam after an admitted reward producer is validated, before enqueue.
+	std::function<void()> beforeRewardEnqueue;
 	std::function<void()> rebuildEncounterPresentation;
 	bool inventoryOpen() const { return _inventory.mode != XeenInventoryMode::Closed; }
 	const XeenInventorySelection &inventorySelection() const { return _inventory; }
@@ -149,6 +151,7 @@ private:
 		XeenItem selectedRecord{};
 	};
 	std::optional<EquipmentSelection> _equipmentSelection;
+	std::optional<std::uint64_t> _itemUseGeneration;
 	struct InventoryConfirmation {
 		std::uint64_t epoch;
 		XeenInventorySelection selection;
