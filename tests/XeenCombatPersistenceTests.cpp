@@ -125,9 +125,9 @@ void retirementAndIntegrityRefusals() {
 		rejects([&]{f.combat->retireCompletedVictory(f.combat->ticket());});
 		f.boundary.release(XeenCombatBoundary::Work::Event,lease);
 		f.combat->retireCompletedVictory(f.combat->ticket());
-		auto &actors=const_cast<std::vector<XeenActor>&>(f.w.sessionState().actors());actors[0].hp--;
+		auto &actor=const_cast<XeenActor&>(f.w.sessionState().actors()[0]);actor.hp--;
 		rejects([&]{XeenSaveState::capture(signature,f.p,f.camera,flags,f.w);},"encounter");
-		actors[0].hp++;
+		actor.hp++;
 		rejects([&]{XeenSaveState::capture(signature,f.p,f.camera,flags,f.w);},"encounter");
 	}
 	{

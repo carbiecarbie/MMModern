@@ -7,7 +7,7 @@ namespace fs=std::filesystem;
 int main(int argc,char **argv) {try {
  child_test::require(argc==3,"usage: journey-process <CLI-witness> <original-installation>");
  const auto exe=fs::absolute(argv[1]),game=fs::absolute(argv[2]);
- const auto dir=fs::current_path()/("journey-process-"+std::to_string(GetCurrentProcessId()));fs::create_directories(dir);
+ const auto dir=child_test::freshDirectory(fs::current_path()/"journey-process");
  const auto connected=dir/fs::path(L"connected \u00e7 \u6e38.mmsave"),moved=dir/"moved.mmsave",fresh=dir/"fresh.mmsave";
  SetEnvironmentVariableW(L"SDL_VIDEODRIVER",L"dummy");SetEnvironmentVariableW(L"SDL_RENDER_DRIVER",L"software");
  std::ofstream report(dir/"processes.log");std::set<DWORD> pids;

@@ -52,8 +52,8 @@ XeenTransferResult xeenTransferItem(XeenPartyState &party, std::size_t source,
 	xeenCompactItems(s);
 	xeenCompactItems(d);
 	try {
-		XeenCharacterRules::validateForUse(candidateSource, {party.encounterContext ? party.encounterContext->year : kCloudsInitialYear});
-		XeenCharacterRules::validateForUse(candidateDestination, {party.encounterContext ? party.encounterContext->year : kCloudsInitialYear});
+		XeenCharacterRules::validateForUse(candidateSource, {party.encounterContext ? std::uint32_t(party.encounterContext->year) : kCloudsInitialYear});
+		XeenCharacterRules::validateForUse(candidateDestination, {party.encounterContext ? std::uint32_t(party.encounterContext->year) : kCloudsInitialYear});
 	} catch (const std::invalid_argument &) { return {Status::UnsafeRules}; }
 	XeenTransferResult result{Status::Success, ids[source], ids[destination], 0, item};
 	for (const auto &record : *destinationItems) if (record.id) ++result.destinationSlot;

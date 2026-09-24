@@ -12,7 +12,7 @@ struct XeenRegionalActionCandidate;
 struct XeenRegionalObservation;
 enum class XeenActorPlacement { SameCell, Forward, ForwardLeft, ForwardRight, Other };
 struct XeenActorView {
-	std::array<std::optional<XeenMonsterIdentity>, 26> slots{};
+	std::array<XeenMutableOptional<XeenMonsterIdentity>, 26> slots{};
 	std::array<bool, 107> activation{};
 	std::array<std::optional<XeenActorPlacement>, 107> placements{};
 	bool engaged() const { return slots[0] || slots[1] || slots[2]; }
@@ -49,7 +49,7 @@ struct XeenEncounterResult {
 	std::uint64_t revision = 0;
 	unsigned movementOpportunities = 0;
 	bool automaticEvent = false;
-	std::optional<XeenMonsterIdentity> stoppedActor;
+	XeenMutableOptional<XeenMonsterIdentity> stoppedActor;
 	int stoppedX = 0, stoppedY = 0;
 	XeenActorView view;
 	std::shared_ptr<const XeenRegionalObservation> consequences;

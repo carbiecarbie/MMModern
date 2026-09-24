@@ -84,7 +84,7 @@ int main(int argc,char **argv) {
 			}
 			const auto &a=w.sessionState().actors()[5];check(s.phase()==XeenEncounterPhase::Engaged && s.pending()==0 && a.x==c.x && a.y==c.y && a.hp==20,"original terminal engagement");
 			check(p.encounterContext->minutes==(trace>=2?500:490),"original final minutes");sameParty(initial,p);
-			const auto live=w.sessionState().actors();w.discardMapCache();w.map(20);w.objectFile(20);sameActors(live,w.sessionState().actors());
+			const std::vector<XeenActor> live=w.sessionState().actors();w.discardMapCache();w.map(20);w.objectFile(20);sameActors(live,w.sessionState().actors());
 			std::cout<<"trace="<<trace<<" party="<<c.x<<','<<c.y<<" actor="<<a.x<<','<<a.y<<" minutes="<<p.encounterContext->minutes<<" Engaged\n";
 		}
 		std::cout<<"Original resource/domain evidence: 90 statistics, 27 identities, "<<controls<<" isolation controls, 4 transition traces passed. Visual admission not tested.\n";

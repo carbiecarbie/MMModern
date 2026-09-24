@@ -43,7 +43,7 @@ mmodern::XeenMap indoorMapFixture(mmodern::XeenMapIdentity id) {
 	map.geometry.id = id.number;
 	map.side = id.side;
 	map.geometry.flags2 = 0;
-	map.geometry.neighbors = {115, 2, 3, 4};
+	map.geometry.neighbors = std::array<std::uint16_t,4>{115, 2, 3, 4};
 	for (auto &cell : map.geometry.cells)
 		cell.geometry = mmodern::XeenIndoorWalls{};
 	map.geometry.cells[8 * 16 + 4].rawWord = 0x1234;
@@ -63,10 +63,10 @@ void testCardinalAndDiagonalResolution() {
 	auto map2 = mapFixture(2);
 	auto map5 = mapFixture(5);
 	auto map6 = mapFixture(6);
-	map1.geometry.neighbors = {0, 5, 2, 0};
-	map5.geometry.neighbors = {0, 0, 6, 1};
-	map2.geometry.neighbors = {1, 6, 0, 0};
-	map6.geometry.neighbors = {5, 0, 0, 2};
+	map1.geometry.neighbors = std::array<std::uint16_t,4>{0, 5, 2, 0};
+	map5.geometry.neighbors = std::array<std::uint16_t,4>{0, 0, 6, 1};
+	map2.geometry.neighbors = std::array<std::uint16_t,4>{1, 6, 0, 0};
+	map6.geometry.neighbors = std::array<std::uint16_t,4>{5, 0, 0, 2};
 	std::map<mmodern::XeenMapIdentity, mmodern::XeenMap> maps = {
 		{1, map1}, {2, map2}, {5, map5}, {6, map6}
 	};
@@ -158,8 +158,8 @@ void testRemovePreparationPublication() {
 		world.map(1);
 		world.disableObject({1, 0});
 		world.disableEventsAtCell({1, 0, 0, XeenDirection::North}, events);
-		const auto beforeObjects = world.sessionState().disabledObjects();
-		const auto beforeEvents = world.sessionState().disabledEvents();
+		const std::set<mmodern::XeenObjectIdentity> beforeObjects = world.sessionState().disabledObjects();
+		const std::set<mmodern::XeenEventIdentity> beforeEvents = world.sessionState().disabledEvents();
 		allocationsBeforeFailure = allocation;
 		try {
 			world.applyRemove(physical, XeenObjectIdentity{1, 1}, events);

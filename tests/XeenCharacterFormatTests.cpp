@@ -187,8 +187,8 @@ void testLearnedSpells() {
 	bytes[29*354+159] = 2;
 	for (std::size_t owner=0; owner<30; ++owner) {
 		const auto book=XeenCharacterFormat::parseLearnedSpells(bytes,owner);
-		check(book.front()==(owner==29 ? 255 : owner) &&
-			book.back()==(owner==29 ? 2 : owner+38),"learned bytes include both endpoints for all owners");
+		check(book[0]==(owner==29 ? 255 : owner) &&
+			book[book.size()-1]==(owner==29 ? 2 : owner+38),"learned bytes include both endpoints for all owners");
 	}
 	const auto legacy=XeenCharacterFormat::parseRoster(bytes);
 	check(!legacy.at(0).learnedSpells && !legacy.at(29).learnedSpells,

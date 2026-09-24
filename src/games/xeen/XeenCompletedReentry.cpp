@@ -22,7 +22,7 @@ XeenCompletedReentry XeenWorld::reenterCompletedEncounter(const XeenCompletedEnc
 	try {
 		retainedGuard.emplace(*this, party, camera, flags, true);
 		const auto &retained = *retainedGuard;
-		XeenWorld candidate(_loader, _objectLoader);
+		XeenWorld candidate(_baseLoader, _baseObjectLoader);
 		candidate._maps = _maps; candidate._maps.erase(20);
 		candidate._objects = _objects; candidate._objects.erase(20);
 		candidate._sessionState._objects = _sessionState._objects;

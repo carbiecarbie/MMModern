@@ -4,6 +4,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -13,6 +14,14 @@ namespace child_test {
 namespace fs = std::filesystem;
 struct Result { DWORD exit; std::string output; DWORD pid; };
 inline void require(bool ok, const char *message) { if (!ok) throw std::runtime_error(message); }
+// Retain prior evidence, including from processes whose Windows PID is reused.
+inline fs::path freshDirectory(const fs::path &prefix) {
+ const auto run=prefix.wstring()+L"-"+std::to_wstring(GetCurrentProcessId())+L"-"+std::to_wstring(GetTickCount64())+L"-";
+ for(std::uint64_t attempt=0;;++attempt) {
+  const fs::path path(run+std::to_wstring(attempt));
+  if(fs::create_directory(path))return path;
+ }
+}
 struct Window { DWORD pid; HWND handle = nullptr; };
 inline BOOL CALLBACK findWindow(HWND window, LPARAM data) {
  auto &target = *reinterpret_cast<Window *>(data); DWORD pid = 0;

@@ -23,7 +23,7 @@ mmodern::XeenMap indoorFixture(mmodern::XeenMapIdentity id = 33) {
 	mmodern::XeenMap map;
 	map.geometry.id = id.number;
 	map.side = id.side;
-	map.geometry.neighbors = {115, 116, 117, 118};
+	map.geometry.neighbors = std::array<std::uint16_t,4>{115, 116, 117, 118};
 	for (auto &cell : map.geometry.cells)
 		cell.geometry = mmodern::XeenIndoorWalls{{1, 2, 3, 4}};
 	return map;
@@ -40,7 +40,7 @@ mmodern::XeenMap emptyIndoorFixture(std::uint8_t wallKind = 1) {
 
 mmodern::XeenWorld worldWith(mmodern::XeenMap map) {
 	return mmodern::XeenWorld([map = std::move(map)](mmodern::XeenMapIdentity id) {
-		if (id != map.geometry.id)
+		if (id != mmodern::XeenMapIdentity(map.geometry.id))
 			throw std::runtime_error("unexpected map load");
 		return map;
 	});
@@ -115,7 +115,7 @@ void setQueryWall(mmodern::XeenMap &map, const mmodern::XeenCamera &camera,
 	require(x >= 0 && x < 16 && y >= 0 && y < 16, "synthetic query outside fixture");
 	const auto shift = mmodern::xeen_indoor_scene_tables::kWallShifts[direction][queryIndex];
 	const std::size_t face = shift == 12 ? 0 : shift == 8 ? 1 : shift == 4 ? 2 : 3;
-	std::get<mmodern::XeenIndoorWalls>(
+	mmodern::xeenGet<mmodern::XeenIndoorWalls>(
 		map.geometry.cells[static_cast<std::size_t>(y) * 16 + x].geometry).walls[face] = value;
 }
 
@@ -258,12 +258,39 @@ void testRejectsOutdoorAndInvalidCamera() {
 	require(rejected, "cena interior aceitou camera fora do mapa");
 }
 
+void testCellSelectedSky() {
+	using namespace mmodern;
+	for (unsigned kind=0;kind<6;++kind) for (unsigned flags=0;flags<256;flags+=8) {
+		auto map=emptyIndoorFixture(kind);
+		map.geometry.cells[8*16+8].flags=flags;
+		auto world=worldWith(map);
+		for (unsigned direction=0;direction<4;++direction) for (bool night:{false,true}) {
+			const XeenCamera camera{33,8,8,static_cast<XeenDirection>(direction)};
+			const auto day=XeenIndoorScene().build(world,camera);
+			const auto commands=XeenIndoorScene().build(world,camera,nullptr,nullptr,{}, {},night);
+			const std::string expected=(flags&8)?
+				std::string(std::array<const char *,6>{"town","cave","towr","cstl","dung","scfi"}[kind])+".sky":
+				(night?"night.sky":"sky.sky");
+			for(unsigned i=0;i<2;++i) require(commands[i].geometry().resourceName==expected &&
+				commands[i].geometry().frame==i && commands[i].originalOrder==int(i) &&
+				commands[i].x==8 && commands[i].y==(i?25:8) && commands[i].drawOptions().sceneClipped,
+				"cell-selected ceiling/day/night sky mismatch");
+			for(unsigned i=2;i<commands.size();++i) require(
+				commands[i].geometry().resourceName==day[i].geometry().resourceName &&
+				commands[i].geometry().frame==day[i].geometry().frame,
+				"sky selection changed remaining geometry");
+		}
+	}
+}
+
 void testFixedSceneAndTerrainResources() {
 	const std::array<const char *, 6> prefixes = {
 		"town", "cave", "towr", "cstl", "dung", "scfi"
 	};
 	for (std::size_t kind = 0; kind < prefixes.size(); ++kind) {
-		auto world = worldWith(emptyIndoorFixture(static_cast<std::uint8_t>(kind)));
+		auto map = emptyIndoorFixture(static_cast<std::uint8_t>(kind));
+		map.geometry.cells[8 * 16 + 8].flags = 0x08;
+		auto world = worldWith(map);
 		const auto commands = mmodern::XeenIndoorScene().build(world,
 			{33, 8, 8, mmodern::XeenDirection::North});
 		require(commands.size() == 4, "empty interior should contain four fixed commands");
@@ -660,6 +687,129 @@ void testObjectIdentityPrecedenceAndBoundaries() {
 	}
 }
 
+// Independent transcription of setIndoorsMonsters at pinned ScummVM
+// 6814ee9ba54582f5b5adcffab49efbbd8f589edd. Object predicates differ at 12/29.
+struct MonsterSpec {
+	int query, capacity, slots[3], orders[3], x[3], y, scale;
+	std::vector<std::vector<int>> blockers;
+};
+const std::vector<MonsterSpec> monsterSpecs{
+	{2,3,{0,1,2},{156,150,153},{-5,-67,58},2,0,{}},
+	{7,3,{3,4,5},{132,130,131},{-7,-38,25},34,8,{{27}}},
+	{5,1,{12},{128},{-112},34,8,{{27,25},{27,28},{23,25},{23,28}}},
+	{9,1,{13},{129},{98},34,8,{{27,26},{27,29},{24,26},{24,29}}},
+	{14,3,{6,7,8},{106,104,105},{-8,-24,9},53,12,{{22},{27}}},
+	{12,2,{14,20},{100,101},{-65,-85},53,12,{{27},{22,23},{22,20},{23,17}}},
+	{16,2,{15,21},{102,103},{49,65},53,12,{{27},{22,24},{22,21},{24,19},{21,19}}},
+	{27,3,{9,10,11},{70,68,69},{-9,-17,-1},59,14,{{27},{22},{15}}},
+	{25,3,{16,22,24},{62,60,61},{-34,-41,-26},59,14,{{27},{22},{15,17},{15,12},{12,7},{17,7}}},
+	{23,1,{18},{66},{-58},59,14,{{27},{22,20},{22,23},{20,17},{23,17},{12},{8}}},
+	{29,3,{17,23,25},{65,63,64},{16,-16,23},59,14,{{27},{22},{15,19},{15,14},{14,9},{19,9}}},
+	{31,3,{19,23,25},{67,63,64},{40,-16,23},59,14,{{27},{22,21},{22,24},{21,19},{24,19},{14},{10}}}
+};
+
+mmodern::XeenActor monsterAt(const mmodern::XeenCamera &camera,int query,unsigned index) {
+	using namespace mmodern;
+	const auto at=indoor_object_test::expectedSource(camera,*indoor_object_test::specForQuery(query));
+	XeenActor actor;actor.id={28,index};actor.x=at.x;actor.y=at.y;
+	actor.original.resourceId=2;actor.hp=2;actor.lifecycle=XeenActorLifecycle::Present;
+	actor.statistics=XeenMonsterRecord{};actor.statistics->raw[20]=2;
+	return actor;
+}
+
+void testCompleteMonsterPredicates() {
+	using namespace mmodern;
+	for(unsigned direction=0;direction<4;++direction) {
+		const XeenCamera camera{28,8,8,static_cast<XeenDirection>(direction)};
+		for(const auto &spec:monsterSpecs) {
+			std::vector<int> bits;
+			for(const auto &term:spec.blockers) for(int bit:term)
+				if(std::find(bits.begin(),bits.end(),bit)==bits.end()) bits.push_back(bit);
+			// Exhaust every assignment of the finite predicate's independent wall bits.
+			for(unsigned mask=0;mask<(1u<<bits.size());++mask) {
+				auto map=emptyIndoorFixture();map.geometry.id=28;
+				auto enabled=[&](int bit) {
+					const auto i=std::find(bits.begin(),bits.end(),bit)-bits.begin();
+					return (mask&(1u<<i))!=0;
+				};
+				for(int bit:bits) if(enabled(bit)) setMazeBit(map,camera,bit);
+				bool blocked=false;
+				for(const auto &term:spec.blockers)
+					blocked|=std::all_of(term.begin(),term.end(),enabled);
+				auto world=worldWith(map);
+				const std::vector<XeenActor> actors{monsterAt(camera,spec.query,0)};
+				const auto view=XeenIndoorScene().classifyActors(world,camera,actors);
+				const auto draws=XeenIndoorScene().buildActors(world,camera,actors);
+				require(view.activation[0]==(!blocked || spec.query==2 || spec.query==7 || spec.query==14),
+					"indoor monster activation predicate differs from reference");
+				require(bool(view.slots[spec.slots[0]])==!blocked && draws.empty()==blocked,
+					"indoor monster visibility predicate differs from reference");
+			}
+		}
+	}
+}
+
+void checkMonsterPlacement(const mmodern::XeenCamera &camera,const std::vector<int> &queries) {
+	using namespace mmodern;
+	auto map=emptyIndoorFixture();map.geometry.id=28;auto world=worldWith(map);
+	std::vector<XeenActor> actors;
+	std::array<int,26> selected;selected.fill(-1);
+	for(unsigned i=0;i<queries.size();++i) {
+		const int query=queries[i];actors.push_back(monsterAt(camera,query,i));
+		const auto &spec=*std::find_if(monsterSpecs.begin(),monsterSpecs.end(),[&](const auto &s) {return s.query==query;});
+		for(int n=0;n<spec.capacity;++n) {
+			if(query==7 && n==2) {if(selected[2]==-1) selected[5]=i;break;}
+			if(selected[spec.slots[n]]==-1) {selected[spec.slots[n]]=i;break;}
+		}
+	}
+	const auto view=XeenIndoorScene().classifyActors(world,camera,actors);
+	const auto draws=XeenIndoorScene().buildActors(world,camera,actors);
+	unsigned expectedCount=0;
+	for(unsigned slot=0;slot<selected.size();++slot) {
+		require(bool(view.slots[slot])==(selected[slot]>=0),"reference monster slot occupancy");
+		if(selected[slot]<0) continue;
+		++expectedCount;
+		require(view.slots[slot]->recordIndex==unsigned(selected[slot]),"reference monster record precedence/overwrite");
+		const int query=queries[selected[slot]];
+		const auto &spec=*std::find_if(monsterSpecs.begin(),monsterSpecs.end(),[&](const auto &s) {return s.query==query;});
+		const int n=std::find(spec.slots,spec.slots+spec.capacity,int(slot))-spec.slots;
+		int x=spec.x[n];
+		// Literal final draw-list adjustments from the reference, using neighbor slots.
+		if(selected[1]>=0 && selected[2]<0) {if(slot==0)x=31;if(slot==1)x=-36;}
+		if(selected[4]>=0 && selected[5]<0) {if(slot==3)x=8;if(slot==4)x=-23;}
+		if(selected[7]>=0 && selected[8]<0) {if(slot==6)x=0;if(slot==7)x=-16;}
+		if(selected[10]>=0 && selected[11]<0) {if(slot==9)x=-5;if(slot==10)x=-13;}
+		if(selected[22]<0 && selected[24]<0) {if(slot==16)x=-27;if(slot==22)x=-37;}
+		if(selected[23]>=0 && selected[25]<0) {if(slot==17)x=20;if(slot==23)x=-12;}
+		const auto *draw=byOrder(draws,spec.orders[n]);
+		require(draw && draw->actor() && draw->actor()->identity.recordIndex==unsigned(selected[slot]) &&
+			draw->queryIndex==query && draw->x==x && draw->y==spec.y &&
+			draw->actor()->selectedSlot==int(slot) && draw->drawOptions().scaleIndex==spec.scale &&
+			draw->drawOptions().bottomClipped==(query==2) && draw->drawOptions().sceneClipped,
+			"reference monster draw identity/order/anchor/perspective/clipping");
+	}
+	require(draws.size()==expectedCount,"shared indoor monster slots emitted duplicate commands");
+}
+
+void testCompleteMonsterPlacements() {
+	using namespace mmodern;
+	for(unsigned direction=0;direction<4;++direction) {
+		const XeenCamera camera{28,8,8,static_cast<XeenDirection>(direction)};
+		for(const auto &spec:monsterSpecs) for(unsigned count=1;count<=5;++count)
+			checkMonsterPlacement(camera,std::vector<int>(count,spec.query));
+		// Shared slots 23/25 and query7's unusual dependency on same-cell slot2:
+		// enumerate both record orders, including interleaved and excess actors.
+		for(unsigned mask=0;mask<64;++mask) {
+			std::vector<int> diagonals,central;
+			for(unsigned i=0;i<6;++i) {
+				diagonals.push_back(mask&(1u<<i)?29:31);
+				central.push_back(mask&(1u<<i)?2:7);
+			}
+			checkMonsterPlacement(camera,diagonals);checkMonsterPlacement(camera,central);
+		}
+	}
+}
+
 } // namespace
 
 int main() {
@@ -668,12 +818,15 @@ int main() {
 		testBordersDoNotReadOrLoadNeighbors();
 		testRejectsOutdoorAndInvalidCamera();
 		testFixedSceneAndTerrainResources();
+		testCellSelectedSky();
 		testStaticWallCommandsAndFrames();
 		testOcclusionDirectionsAndBorders();
 		testObjectProjectionAndGeometryOnlyCompatibility();
 		testResource113AnchorUsesResolvedResourceOnly();
 		testObjectWallPredicatesFromRawSamples();
 		testObjectIdentityPrecedenceAndBoundaries();
+		testCompleteMonsterPredicates();
+		testCompleteMonsterPlacements();
 		std::cout << "Xeen indoor geometry and static object tests passed\n";
 		return EXIT_SUCCESS;
 	} catch (const std::exception &error) {

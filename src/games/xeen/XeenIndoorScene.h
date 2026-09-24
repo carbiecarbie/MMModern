@@ -4,6 +4,8 @@
 #include "games/xeen/XeenNavigation.h"
 #include "games/xeen/XeenObjectVisual.h"
 #include "formats/xeen/XeenSpriteDrawOptions.h"
+#include "games/xeen/XeenActorApproach.h"
+#include "formats/xeen/XeenMonsterAppearance.h"
 
 #include <array>
 #include <cstddef>
@@ -38,6 +40,14 @@ struct XeenIndoorObjectDraw {
 	bool bottomClipped = false;
 };
 
+struct XeenIndoorActorDraw {
+	XeenMonsterIdentity identity;
+	std::uint8_t image=0,frame=0;
+	XeenMonsterSpriteKind kind=XeenMonsterSpriteKind::Normal;
+	int selectedSlot=0,scaleIndex=0,palettePhase=-1;
+	bool bottomClipped=false;
+};
+
 struct XeenIndoorDrawCommand {
 	int originalOrder = 0;
 	int x = 0;
@@ -47,7 +57,7 @@ struct XeenIndoorDrawCommand {
 	int sourceY = -1;
 	XeenDirection sourceFace = XeenDirection::North;
 	int queryIndex = -1;
-	std::variant<XeenIndoorGeometryDraw, XeenIndoorObjectDraw> content;
+	std::variant<XeenIndoorGeometryDraw, XeenIndoorObjectDraw, XeenIndoorActorDraw> content;
 	XeenIndoorGeometryDraw &geometry() { return std::get<XeenIndoorGeometryDraw>(content); }
 	const XeenIndoorGeometryDraw &geometry() const {
 		return std::get<XeenIndoorGeometryDraw>(content);
@@ -55,7 +65,14 @@ struct XeenIndoorDrawCommand {
 	const XeenIndoorObjectDraw *object() const {
 		return std::get_if<XeenIndoorObjectDraw>(&content);
 	}
+	const XeenIndoorActorDraw *actor() const { return std::get_if<XeenIndoorActorDraw>(&content); }
 	XeenSpriteDrawOptions drawOptions() const {
+		if (const auto *draw=actor()) {
+			XeenSpriteDrawOptions result;
+			result.scaleIndex=draw->scaleIndex;result.sceneClipped=true;
+			result.bottomClipped=draw->bottomClipped;result.slimePalettePhase=draw->palettePhase;
+			return result;
+		}
 		if (const auto *draw = object()) {
 			XeenSpriteDrawOptions result;
 			result.scaleIndex = draw->scaleIndex;
@@ -74,10 +91,19 @@ public:
 
 	std::array<XeenIndoorWallSample, kWallSampleCount> sampleWalls(
 		XeenWorld &world, const XeenCamera &camera) const;
+	XeenActorView classifyActors(XeenWorld &world, const XeenCamera &camera,
+		const std::vector<XeenActor> &actors) const;
+	std::vector<XeenIndoorDrawCommand> buildActors(XeenWorld &world,
+		const XeenCamera &camera, const std::vector<XeenActor> &actors,
+		std::optional<std::uint64_t> ordinaryPhase = std::nullopt,
+		std::optional<XeenMonsterAppearance> actorFrame = std::nullopt) const;
 	std::vector<XeenIndoorDrawCommand> build(XeenWorld &world,
 		const XeenCamera &camera,
 		const XeenObjectVisualResolver *resolver = nullptr,
-		std::vector<XeenObjectVisual> *diagnostics = nullptr) const;
+		std::vector<XeenObjectVisual> *diagnostics = nullptr,
+		std::optional<std::uint64_t> ordinaryPhase = std::nullopt,
+		std::optional<XeenMonsterAppearance> actorFrame = std::nullopt,
+		bool night = false) const;
 };
 
 } // namespace mmodern

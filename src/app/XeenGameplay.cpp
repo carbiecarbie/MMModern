@@ -93,7 +93,7 @@ int Application::journeyExpedition(const std::filesystem::path &directory, std::
 }
 int Application::journeyRegion(const std::filesystem::path &directory, std::optional<std::uint32_t> seed,
   std::optional<std::filesystem::path> save) const {
- return gameplay(directory,xeenJourneyContent(7).entry,save,false,XeenEncounterEntry::Journey,seed,7);
+ return gameplay(directory,xeenJourneyContent(8).entry,save,false,XeenEncounterEntry::Journey,seed,8);
 }
 int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera camera,
   const std::optional<std::filesystem::path> &target, bool resume, XeenEncounterEntry entry, std::optional<std::uint32_t> seed,
@@ -170,6 +170,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    if (!value) value = 1;
    journeySetup.emplace(XeenJourneySetup{journeyCharacters,services.resources.loadInitialContext(),journeyStatistics,encounterEvents,value,journeyContract.value_or(1)});
    journeySetup->regionalManifest=services.resources.regionalManifest;
+   journeySetup->vertigoManifest=services.resources.vertigoManifest;
    if(xeenJourneyContent(journeySetup->contract).consequences()) {
     if(!services.resources.loadInitialPurse) throw std::invalid_argument("Missing original purse provider");
     journeySetup->purse=services.resources.loadInitialPurse();
@@ -180,7 +181,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
     journeySetup->regionalRecovery=services.resources.loadInitialRegionalRecovery();
     journeySetup->regionalText=services.resources.loadRegionalText(23);
    }
-   if (journeySetup->contract==7) {
+   if (xeenJourneyContent(journeySetup->contract).learnedCasting()) {
     if (!services.resources.loadLearnedSpellNames) throw std::invalid_argument("Missing learned spell names provider");
     journeySetup->learnedNames=services.resources.loadLearnedSpellNames();
     journeySetup->learnedNamesProvider=services.resources.loadLearnedSpellNames;
@@ -208,7 +209,11 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
      return services.composeEncounter(world, party, observedCamera, ordinary, actor);
     const auto observedParty = party;
     return services.composeEncounter(world, observedParty, observedCamera, ordinary, actor);
-   }, journeySetup ? &*journeySetup : nullptr);
+	  }, journeySetup ? &*journeySetup : nullptr,
+	  [&](XeenWorld &candidate, const XeenPartyState &candidateParty, const XeenCamera &candidateCamera,
+	      std::uint64_t ordinary, XeenMonsterAppearance actor) {
+	   return services.composeEncounter(candidate,candidateParty,candidateCamera,ordinary,actor);
+	  });
   EncounterHandoff handoff(flow);
   flow.completedMonsters = services.resources.loadMonsterStatistics;
   flow.completedEvents = services.resources.loadEvents;

@@ -434,7 +434,7 @@ extern "C" int wrappedPlay(const Application *application,const XeenGameplayServ
 					check(flow->encounter()->state().pending()==pending,"Normal countdown stage skipped");
 					const auto cameraBefore=*position;const auto contextBefore=*party->encounterContext;
 					const auto rng=*world->sessionState().journeyRandom();
-					const auto characters=party->roster.characters();const auto actors=world->sessionState().actors();
+					const auto characters=party->roster.characters();const std::vector<XeenActor> actors=world->sessionState().actors();
 					const auto saveBefore=saveStages;
 					const auto ticket=flow->encounter()->ticket();
 					for(const PlayerAction &action:std::vector<PlayerAction>{NavigationAction::MoveForward,NavigationAction::MoveBackward,
@@ -474,7 +474,7 @@ extern "C" int wrappedPlay(const Application *application,const XeenGameplayServ
 						"First presented combat frame did not retain the reviewed actor-9 projectile");
 					const auto cameraBefore=*position;const auto contextBefore=*party->encounterContext;
 					const auto rng=*world->sessionState().journeyRandom();
-					const auto characters=party->roster.characters();const auto actors=world->sessionState().actors();
+					const auto characters=party->roster.characters();const std::vector<XeenActor> actors=world->sessionState().actors();
 					const auto combat=flow->encounter()->combat()->ticket();
 					const auto counts=std::array<unsigned,9>{m36_probe::confirms,m36_probe::targets,m36_probe::awakens,
 						m36_probe::services,replay_test::commands,replay_test::services,replay_test::draws,

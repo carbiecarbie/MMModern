@@ -4,6 +4,8 @@
 #include "app/XeenNavigationFlow.h"
 #include "games/xeen/XeenEventPresenter.h"
 #include "games/xeen/XeenWorld.h"
+#include "games/xeen/XeenGameFlags.h"
+#include "games/xeen/XeenRegionalRules.h"
 #include "games/xeen/XeenInventoryView.h"
 #include "games/xeen/XeenEquipment.h"
 #include "app/XeenEncounterFlow.h"
@@ -22,13 +24,15 @@ public:
 	};
 	using Compose = std::function<Composition(std::uint64_t ordinaryPhase)>;
 	using EncounterCompose = std::function<Composition(std::uint64_t ordinaryPhase, XeenMonsterAppearance actorFrame)>;
+	using TransitionCompose = std::function<Composition(XeenWorld &, const XeenPartyState &,
+		const XeenCamera &, std::uint64_t, XeenMonsterAppearance)>;
 	XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
 		XeenPartyState &party, XeenCamera &camera, XeenGameFlags &flags,
 		const XeenFontFormat &font, Compose compose,
 		XeenEventPresenter::NpcDraw npcDraw = {}, XeenEventPresenter::Clock clock = {},
 		XeenEventPresenter::RandomFrame randomFrame = {}, const XeenItemCatalog *catalog = nullptr,
 		const XeenEncounterSetup *encounter = nullptr, EncounterCompose encounterCompose = {},
-		const XeenJourneySetup *journey = nullptr);
+		const XeenJourneySetup *journey = nullptr, TransitionCompose transitionCompose = {});
 	~XeenEventFlow();
 	XeenEventFlow(const XeenEventFlow &) = delete;
 	XeenEventFlow &operator=(const XeenEventFlow &) = delete;
@@ -81,7 +85,7 @@ public:
 	bool inventoryOpen() const { return _inventory.mode != XeenInventoryMode::Closed; }
 	const XeenInventorySelection &inventorySelection() const { return _inventory; }
 	const XeenTransferResult &transferResult() const { return _transferResult; }
-	const std::optional<XeenEquipmentResult> &equipmentResult() const { return _equipmentResult; }
+	const XeenMutableOptional<XeenEquipmentResult> &equipmentResult() const { return _equipmentResult; }
 	std::optional<std::uint64_t> inventoryConfirmation() const;
 	// Explicit single-writer notification, including byte-identical owner replacement.
 	void invalidateInventory();
@@ -104,6 +108,24 @@ private:
 	const XeenEventPublication *_eventPublication = nullptr;
 	bool _monsterReceiptPresented=false;
 	bool _journeyEventLayers = false;
+	struct TransitionCandidate {
+		XeenRegionalInteraction kind = XeenRegionalInteraction::None;
+		std::unique_ptr<XeenWorld> world;
+		XeenPartyState party;
+		XeenCamera camera;
+		XeenGameFlags flags;
+		XeenEventFile destinationEvents;
+		std::unique_ptr<XeenRestoreGuard> guard;
+		bool preludePublished = false;
+		bool refused = false;
+	};
+	std::unique_ptr<TransitionCandidate> _transition;
+	TransitionCompose _transitionCompose;
+	bool _arrivalPending = false;
+	void checkTransitionCandidate();
+	XeenManualEventResult beginVertigoEvent(XeenRegionalInteraction);
+	XeenManualEventResult resumeVertigoEvent(XeenEventExecutionState, XeenPresentationResponse);
+	void prepareVertigoResult(const XeenManualEventResult &);
 	void validateRegionalEvents();
 	IndexedFrame journeyEventWork(const std::function<void()> &, bool automatic = false);
 	std::uint64_t _saveOperation = 0;
@@ -138,7 +160,7 @@ private:
 	IndexedFrame _inventoryUnderlay;
 	const char *_inventoryFeedback = "";
 	XeenTransferResult _transferResult;
-	std::optional<XeenEquipmentResult> _equipmentResult;
+	XeenMutableOptional<XeenEquipmentResult> _equipmentResult;
 	std::uint64_t _inventoryEpoch = 0;
 	struct EquipmentSelection {
 		std::uint64_t epoch;

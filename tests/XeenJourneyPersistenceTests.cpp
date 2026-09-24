@@ -183,14 +183,27 @@ void captureIntegrity() {
 	XeenCamera detached = valid.camera;
 	XeenGameFlags detachedFlags;
 	const auto validTicket = valid.flow->ticket();
-	const auto validHp = valid.p.roster.at(0).currentHp;
-	valid.p.roster.at(0).currentHp = validHp - 1;
 	rejects([&] { XeenSaveState::capture(save_test::sample().resources,unrelated,valid.camera,valid.flags,valid.w); });
 	rejects([&] { XeenSaveState::capture(save_test::sample().resources,valid.p,detached,valid.flags,valid.w); });
 	rejects([&] { XeenSaveState::capture(save_test::sample().resources,valid.p,valid.camera,detachedFlags,valid.w); });
-	valid.p.roster.at(0).currentHp = validHp;
-	check(valid.flow->current(validTicket), "wrong-owner requests do not observe the bound graph's integrity");
+	check(valid.flow->current(validTicket), "wrong-owner requests preserve healthy bound authority");
 	check(capture(valid).journey.has_value(), "unrelated capture requests do not poison bound owners");
+	{
+		Fixture aba;
+		const auto abaTicket=aba.flow->ticket();
+		const auto before=aba.p.roster.at(0).currentHp;
+		aba.p.roster.at(0).currentHp=before-1;
+		XeenCamera otherCamera=aba.camera;
+		rejects([&] { XeenSaveState::capture(save_test::sample().resources,unrelated,aba.camera,aba.flags,aba.w); });
+		rejects([&] { XeenSaveState::capture(save_test::sample().resources,aba.p,otherCamera,aba.flags,aba.w); });
+		rejects([&] { XeenSaveState::capture(save_test::sample().resources,aba.p,aba.camera,detachedFlags,aba.w); });
+		aba.p.roster.at(0).currentHp=before;
+		// Wrong-owner refusal cannot erase writes independently observed by the
+		// retained owner boundary, even when the final gameplay values match.
+		rejects([&] { capture(aba); });
+		check(!aba.flow->current(abaTicket),"wrong-owner requests cannot revive mutated owner authority");
+		check(!aba.flow->journeyQuiet(),"owner ABA remains non-saveable");
+	}
 	valid.flow->journeyAction(valid.flow->ticket(),XeenEncounterAction::Right);
 	rejects([&] { capture(valid); });
 	valid.present();

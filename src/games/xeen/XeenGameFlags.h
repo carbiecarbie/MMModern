@@ -4,6 +4,7 @@
 #include <array>
 #include <cstddef>
 #include "games/xeen/XeenGameplayBorrow.h"
+#include "games/xeen/XeenMutation.h"
 
 namespace mmodern {
 
@@ -13,13 +14,15 @@ public:
 	using Storage = std::array<bool, kCount>;
 
 	XeenGameFlags() = default;
+	XeenGameFlags(const XeenGameFlags &) = default;
+	XeenGameFlags &operator=(const XeenGameFlags &other) noexcept { XeenMutationWatch::write(this);_flags=other._flags;return *this; }
 	explicit XeenGameFlags(Storage flags);
 
 	bool isSet(int index) const;
 	void set(int index);
 	void clear(int index);
 
-	const Storage &values() const { return _flags; }
+	const XeenMutableArray<bool,kCount> &values() const { return _flags; }
 
 private:
 	friend class XeenWorld;
@@ -28,7 +31,7 @@ private:
 	XeenGameplayBorrowOwner _gameplayBorrow;
 	static std::size_t checkedIndex(int index);
 
-	Storage _flags{};
+	XeenMutableArray<bool,kCount> _flags{};
 };
 
 } // namespace mmodern

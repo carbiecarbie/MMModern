@@ -35,7 +35,7 @@ void stopDuringPreparation() {
 	f.start(); f.action(Action::Right); f.pulse();
 	const auto beforeParty = f.p;
 	const auto beforeCamera = f.camera;
-	const auto beforeActors = f.world.sessionState().actors();
+	const std::vector<XeenActor> beforeActors = f.world.sessionState().actors();
 	auto stale = f.state;
 	std::uint64_t stoppedRevision = 0;
 	f.world.discardMapCache();
@@ -142,7 +142,7 @@ void authoritativeFailureStops() {
 		if (failure == 2) f.p.encounterContext->minutes = 950;
 		const auto beforeParty = f.p;
 		const auto beforeCamera = f.camera;
-		const auto beforeActors = f.world.sessionState().actors();
+		const std::vector<XeenActor> beforeActors = f.world.sessionState().actors();
 		if (failure == 1) {
 			f.world.discardMapCache();
 			f.onMap = [] { throw std::runtime_error("current preparation failure"); };
@@ -179,14 +179,14 @@ void viewAndMovement() {
 			view.placements[2]==XeenActorPlacement::ForwardLeft && view.placements[3]==XeenActorPlacement::ForwardRight,"four placements");
 		for(const auto &v:a)check(!v.activated,"pure classifier mutated activation");
 	}
-	m.entities.monsters.assign(4,{10,11,0,0,8});
+	m.entities.monsters=std::vector<XeenMapEntity>(4,{10,11,0,0,8});
 	auto a=XeenActorApproach::actorsFromResources(m,stats());
 	auto v=XeenActorApproach::classify(a,{20,10,10,XeenDirection::North});
 	check(!v.engaged() && v.slots[3]->recordIndex==0 && v.slots[4]->recordIndex==1 && v.slots[5]->recordIndex==2 && v.activation[3],"three slots erased fourth activation");
 	a[0].x=10;a[0].y=10;check(XeenActorApproach::classify(a,{20,10,10,XeenDirection::North}).engaged(),"same cell engagement");
 	a[0].x=0;a[0].y=31; a[1].x=31;a[1].y=0;a[2].x=-1;a[2].y=5;a[3].x=32;a[3].y=5;
 	auto occupancy=XeenActorApproach::occupancy(a);check(occupancy[31*32]==1 && occupancy[31]==1 && occupancy[5*32+31]==0,"offscreen/signed occupancy");
-	m.entities.monsters={{9,11,0,0,8}};a=XeenActorApproach::actorsFromResources(m,stats());a[0].activated=true;
+	m.entities.monsters=std::vector<XeenMapEntity>{{9,11,0,0,8}};a=XeenActorApproach::actorsFromResources(m,stats());a[0].activated=true;
 	auto allowed=[](const XeenActor &,int,int){return XeenMonsterTerrain::Allowed;};
 	auto moved=XeenActorApproach::move(a,{20,10,10,XeenDirection::North},allowed);
 	check(moved[0].x==10 && moved[0].y==11,"North primary or one-move/two-pass changed");
@@ -216,7 +216,7 @@ void traces() {
 	for(int i=0;i<5;++i)f.pulse();check(f.anchor().y==2 && f.p.encounterContext->minutes==480,"idle created movement");
 	r=f.action(Action::Wait);check(r.outcome==XeenEncounterOutcome::Engaged && f.anchor().y==1 && f.camera.y==1 && f.p.encounterContext->minutes==490 &&
 		f.state.phase()==XeenEncounterPhase::Engaged && f.state.pending()==0 && f.anchor().hp==20,"fresh Wait approach trace");
-	sameParty(before,f.p);auto actorBefore=f.world.sessionState().actors();auto context=f.p.encounterContext;
+	sameParty(before,f.p);std::vector<XeenActor> actorBefore=f.world.sessionState().actors();auto context=f.p.encounterContext;
 	f.input(Action::Forward);f.action(Action::Wait);f.pulse();sameActors(actorBefore,f.world.sessionState().actors());
 	check(context==f.p.encounterContext,"terminal resumed");
 	Fixture forward;forward.start();forward.action(Action::Forward);
@@ -253,7 +253,7 @@ void traces() {
 	blocked.pulse();check(blocked.state.pending()==0 && blocked.anchor().x==14 && blocked.anchor().y==2,"blocked pulse old move ordering");
 	Fixture time;time.start();time.input(Action::Right);time.input(Action::Forward);
 	time.p.encounterContext->minutes=950;time.p.encounterContext->ctr24=23;
-	auto old=time.world.sessionState().actors();auto cam=time.camera;auto ctx=time.p.encounterContext;
+	std::vector<XeenActor> old=time.world.sessionState().actors();auto cam=time.camera;auto ctx=time.p.encounterContext;
 	r=time.action(Action::Wait);check(r.reason==XeenEncounterStop::Time && time.state.pending()==0 && time.p.encounterContext==ctx && save_test::sameCamera(cam,time.camera),"950 refusal published facts");sameActors(old,time.world.sessionState().actors());
 	Fixture wrap;wrap.start();wrap.p.encounterContext->ctr24=23;wrap.action(Action::Right);check(wrap.p.encounterContext->ctr24==0,"ctr24 wrap");
 	Fixture boundary;boundary.start();boundary.input(Action::Right);boundary.input(Action::Forward);old=boundary.world.sessionState().actors();ctx=boundary.p.encounterContext;
@@ -262,7 +262,7 @@ void traces() {
 void lifetimeAndFailures() {
 	Fixture f;check(!f.world.hasEncounterState(),"ordinary cache initialized encounter");f.world.map(20);f.world.objectFile(20);
 	check(!f.world.hasEncounterState(),"ordinary map20 cache activated actors");
-	f.world.disableObject({20,0});f.start();auto p=f.p;auto actors=f.world.sessionState().actors();auto rev=f.state.revision();
+	f.world.disableObject({20,0});f.start();auto p=f.p;std::vector<XeenActor> actors=f.world.sessionState().actors();auto rev=f.state.revision();
 	rejects([&]{f.start();});sameParty(p,f.p);sameActors(actors,f.world.sessionState().actors());check(f.p.encounterContext==p.encounterContext && f.state.revision()==rev,"reinitialization changed context");
 	// Test-only injected live HP: no production damage/reset command is introduced.
 	const_cast<XeenActor &>(f.anchor()).hp=7;

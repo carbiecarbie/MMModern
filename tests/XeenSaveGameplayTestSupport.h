@@ -36,7 +36,7 @@ struct Fixture {
   {signature,[&]{return initial;},[&](XeenMapIdentity id){++eventReads;return XeenEventFile{id,"test.evt",true,scripts.at(id)};}},
   []{return XeenGameFlags{};},
   [&](XeenMapIdentity id){++mapReads;auto m=remove_test::map(id);m.geometry.cells[17].rawAttributes=automatic?0x10:0;m.geometry.surfaceTypes[0]=1;return m;},
-  [&](XeenMapIdentity id){++objectReads;XeenObjectFile o{id,"test.mob",true,{}};o.entities.objects={{1,1,0,0,111},{2,1,0,0,112}};return o;},
+  [&](XeenMapIdentity id){++objectReads;XeenObjectFile o{id,"test.mob",true,{}};o.entities.objects=std::vector<XeenMapEntity>{{1,1,0,0,111},{2,1,0,0,112}};return o;},
   [&](XeenMapIdentity id){auto t=text;t.mapId=id;return t;},font,
   [&](XeenWorld &w,const XeenPartyState &p,const XeenCamera &c,std::uint64_t phase){
    phases.push_back(phase);

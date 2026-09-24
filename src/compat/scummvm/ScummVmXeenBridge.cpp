@@ -373,7 +373,12 @@ void ScummVmXeenBridge::drawSprite(const std::string &resourceName,
 
 	if (options.scaleIndex < 0 || options.scaleIndex > 15)
 		throw std::runtime_error("indice de reducao de sprite invalido");
+	if (options.slimePalettePhase < -1 || options.slimePalettePhase > 7 ||
+		(options.slimePalettePhase >= 0 && resourceName != "000.mon" && resourceName != "000.att"))
+		throw std::runtime_error("unsupported monster palette effect");
 	uint flags = 0;
+	if (options.slimePalettePhase >= 0)
+		flags |= static_cast<uint>(0x104 + options.slimePalettePhase);
 	if (options.horizontalFlip)
 		flags |= MM::Shared::Xeen::SPRFLAG_HORIZ_FLIPPED;
 	if (options.sceneClipped)

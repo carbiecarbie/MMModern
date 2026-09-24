@@ -129,7 +129,7 @@ void combatPublicationFaults(Source &source) {
   }
   for(unsigned failAt=1;failAt<=calls;++failAt){
    Domain d(source,saved);ready(d);auto &c=*d.flow->combat();
-   const auto chars=d.party.roster.characters();const auto actors=d.world.sessionState().actors();
+   const auto chars=d.party.roster.characters();const std::vector<XeenActor> actors=d.world.sessionState().actors();
    const auto random=d.world.sessionState().journeyRandom();const auto purse=d.party.monsterTreasure;const auto context=d.party.encounterContext;
    unsigned n=0;c.setProbe([&]{if(++n==failAt)throw std::bad_alloc();});
    XeenCombatResult result;do{result=c.service(c.ticket());}while(result.status==XeenCombatStatus::Pending);
@@ -158,7 +158,7 @@ void combatPublicationFaults(Source &source) {
   }
   // A published predecessor survives compatible presentation failure and retry.
   {Domain d(source,saved);ready(d);auto &c=*d.flow->combat();while(c.service(c.ticket()).status==XeenCombatStatus::Pending){}
-   const auto chars=d.party.roster.characters();const auto actors=d.world.sessionState().actors();const auto rng=d.world.sessionState().journeyRandom();
+   const auto chars=d.party.roster.characters();const std::vector<XeenActor> actors=d.world.sessionState().actors();const auto rng=d.world.sessionState().journeyRandom();
    bool threw=false;try{c.preparePresentation(c.ticket(),[]{throw std::bad_alloc();});}catch(const std::bad_alloc &){threw=true;}check(threw,"Injected post-publication I/O failure");
    c.preparePresentation(c.ticket(),[]{});
    for(unsigned i=0;i<30;++i)check(xeen_state::sameCharacter(chars[i],d.party.roster.at(i)),"Presentation retry retains published party");

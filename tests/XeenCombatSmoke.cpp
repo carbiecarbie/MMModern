@@ -31,7 +31,7 @@ int main(int argc,char **argv) {try {
 		if(trace==4){fight.approachAction(fight.ticket(),XeenEncounterAction::Right);fight.approachPulse(fight.ticket());fight.approachAction(fight.ticket(),XeenEncounterAction::Forward);fight.approachPulse(fight.ticket());fight.approachPulse(fight.ticket());fight.approachPulse(fight.ticket());}
 		fight.approachAction(fight.ticket(),XeenEncounterAction::Wait);check(fight.phase()==Phase::Engaged,"original engagement");
 		check(party.encounterContext->minutes==(trace==4?500:490),"original entry minutes");
-		const auto actors=world.sessionState().actors();check(actors.size()==27,"all original actors");fight.beginCombat(fight.ticket());
+		const std::vector<XeenActor> actors=world.sessionState().actors();check(actors.size()==27,"all original actors");fight.beginCombat(fight.ticket());
 		unsigned commands=0,iterations=0;
 		while(fight.phase()!=Phase::Victory&&fight.phase()!=Phase::Defeat&&iterations++<300) {
 			check(fight.phase()!=Phase::Failed&&fight.phase()!=Phase::SupportStopped,"original fight stopped");

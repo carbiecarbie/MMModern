@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
 		XeenEncounterFlow flow(world,party,camera,flags,clock,XeenJourneySetup{characters,context,monsters,event,56});
 		const auto present = [&] { return flow.prepareJourneyFrame(flow.ticket(),[] {}) && flow.presentJourney(flow.ticket()); };
 		check(present(), "original initial handoff");
-		const auto actors = world.sessionState().actors();
+		const std::vector<XeenActor> actors = world.sessionState().actors();
 		check(actors.size() == 27, "complete original actor collection");
 		for (unsigned id = 0; id < 30; ++id) {
 			check(xeen_state::sameCharacter(before[id],party.roster.at(id)), "initialization preserves all original base fields");
@@ -114,7 +114,7 @@ int main(int argc, char **argv) {
 		check(party.roster.at(1).conditions[12] == 1 && party.roster.at(1).conditions[13] == 1 &&
 			xeenSameItem(party.roster.at(1).armor[0],{0,2,128,3}) && xeenSameItem(party.roster.at(1).armor[1],{38,10,128,9}),
 			"original literal injury and broken armor");
-		const auto defeated = world.sessionState().actors();
+		const std::vector<XeenActor> defeated = world.sessionState().actors();
 		restore(XeenSaveState::capture(signature,party,camera,flags,world),defeated,false);
 
 		for (int y = 1; y <= 2; ++y) for (int x = 13; x <= 14; ++x) for (unsigned d = 0; d < 4; ++d) {

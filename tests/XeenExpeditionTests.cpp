@@ -72,12 +72,24 @@ void failure(){auto s=group({25});s.characters[1].armor={};s.characters[1].acces
  for(unsigned field=0;field<3;++field){Domain altered(group({25}));auto &combat=altered.engage();combat.setProbe([&]{auto &v=const_cast<XeenCombatInputs &>(*altered.p.roster.combatInputs(29));if(field==0)v.luck.reset();else if(field==1)++v.luck->permanent;else ++v.luck->temporary;});check(action(combat,Command::Attack).status==Status::Failed,"inactive Luck guarded on callbacks");}
 }
 void injuriesAndDefeat(){
+	// The combat publication callback uses the same owner write boundary even
+	// when the visible preimage is restored before the callback returns.
+	for(unsigned field=0;field<3;++field) {
+		Domain changed(group({25}));auto &combat=changed.engage();
+		combat.setProbe([&] {
+			if(field==0){auto &hp=changed.p.roster.at(0).currentHp;++hp;--hp;}
+			else if(field==1){auto &r=const_cast<XeenMutableOptional<XeenJourneyRandomState>&>(changed.w.sessionState().journeyRandom());++r->count;--r->count;}
+			else {auto &s=const_cast<XeenSessionWorldState&>(changed.w.sessionState());const auto before=s;s=XeenSessionWorldState{};s=before;}
+		});
+		taped=false;
+		check(action(combat,Command::Attack).status==Status::Failed && !changed.flow->journeyQuiet(),"combat callback ABA rejected");
+	}
  auto s=group({25});s.characters[1].currentHp=1;
  for(auto id:kXeenCombatOwners)if(id!=0&&id!=1){s.characters[id].currentHp=-1;s.characters[id].conditions[12]=1;}
  Domain d(s);auto &c=d.engage();block(c);auto values=critical();values.insert(values.end(),{{0,5,4},{0,0,0},{1,20,1}});Tape t(values);
  auto first=c.service(c.ticket());check(first.status!=Status::Failed&&first.injuryCount==2&&d.p.roster.at(1).currentHp==-15&&!d.p.roster.at(1).canAct(),"critical keeps target through incapacitation");check(first.armorCount>0,"ordered armor breakage at negative HP");auto second=c.service(c.ticket());check(second.status!=Status::Failed&&second.targetOwner==0&&cursor==11,"second attack reselects with singleton fallback request");
  auto only=s;only.characters[0].currentHp=-1;only.characters[0].conditions[12]=1;Domain defeated(only);auto &enemy=defeated.engage();block(enemy);Tape loss(critical());auto before=defeated.p.encounterContext->minutes;check(enemy.service(enemy.ticket()).status==Status::Defeat&&cursor==8&&defeated.p.encounterContext->minutes==before&&!defeated.flow->journeyQuiet(),"defeat suppresses second resource attack and time");
- for(unsigned field=0;field<3;++field){Domain changed(group({25}));auto &combat=changed.engage();auto beforeRandom=*changed.w.sessionState().journeyRandom();combat.setProbe([&]{auto &r=const_cast<std::optional<XeenJourneyRandomState>&>(changed.w.sessionState().journeyRandom());if(field==0)++r->state;else if(field==1)++r->count;else r->algorithm=2;});taped=false;check(action(combat,Command::Attack).status==Status::Failed&&changed.w.sessionState().actors()[25].hp==30,"world random fields participate in preimage");}
+ for(unsigned field=0;field<3;++field){Domain changed(group({25}));auto &combat=changed.engage();auto beforeRandom=*changed.w.sessionState().journeyRandom();combat.setProbe([&]{auto &r=const_cast<XeenMutableOptional<XeenJourneyRandomState>&>(changed.w.sessionState().journeyRandom());if(field==0)++r->state;else if(field==1)++r->count;else r->algorithm=2;});taped=false;check(action(combat,Command::Attack).status==Status::Failed&&changed.w.sessionState().actors()[25].hp==30,"world random fields participate in preimage");}
 }
 
 void scheduler(){
@@ -112,7 +124,7 @@ void derived(){
 }
 
 void codec(){
- XeenPartyState ordinary;XeenWorld ordinaryWorld([](auto){return terrain();});XeenCamera ordinaryCamera;XeenGameFlags flags;XeenCombatInputs detached;detached.luck=XeenAttributeValue{14,0};const_cast<std::optional<XeenCombatInputs>&>(ordinary.roster.combatInputs(29))=detached;rejects([&]{XeenSaveState::capture(signature,ordinary,ordinaryCamera,flags,ordinaryWorld);});
+ XeenPartyState ordinary;XeenWorld ordinaryWorld([](auto){return terrain();});XeenCamera ordinaryCamera;XeenGameFlags flags;XeenCombatInputs detached;detached.luck=XeenAttributeValue{14,0};const_cast<XeenMutableOptional<XeenCombatInputs>&>(ordinary.roster.combatInputs(29))=detached;rejects([&]{XeenSaveState::capture(signature,ordinary,ordinaryCamera,flags,ordinaryWorld);});
  Domain d;auto s=d.save();auto bytes=XeenSaveFormat::encode(s);auto base=s;base.journey.reset();auto offset=XeenSaveFormat::encode(base).size();check(bytes.size()-offset==1366,"exact successor suffix length");check(bytes[offset]==3&&bytes[offset+1]==2&&bytes[offset+3]==2&&bytes[offset+39]==30&&bytes[offset+1270]==1&&bytes[offset+1288]==4,"literal wire offsets");
  Bytes expected(1366,0);const auto put=[&](unsigned at,std::uint64_t v,unsigned n){for(unsigned i=0;i<n;++i)expected[at+i]=v>>(8*i);};
  put(0,3,1);put(1,2,2);put(3,2,2);put(5,1,1);put(10,8,2);put(12,610,2);put(14,480,2);put(39,30,1);
@@ -162,7 +174,7 @@ void objectivePersistence(){
 void restorationGuards(){Domain initial;auto saved=initial.save();
  for(unsigned facing=0;facing<4;++facing){auto objective=group({25});objective.camera={20,5,14,static_cast<XeenDirection>(facing)};objective.journey->actors[3].x=4;Domain d(objective);auto before=XeenSaveFormat::encode(d.save());bool called=false;rejects([&]{d.flow->journeyRead([&]{called=true;});});check(!called&&XeenSaveFormat::encode(d.save())==before,"deferred objective refuses callback in every facing without mutation");}
  for(unsigned field=0;field<6;++field){XeenWorld world([](auto){return terrain();},[](auto){return objects();});XeenPartyState party;XeenCamera camera;XeenGameFlags flags;XeenSaveState::Resources resources{signature,{},[](auto){return events();},{},{},[]{return monsters();}};
-  rejects([&]{XeenSaveState::restoreBeforeGameplay(saved,resources,party,camera,flags,world,[&](auto &w,const auto &p,const auto &,const auto &){if(field<3){auto &v=const_cast<XeenCombatInputs &>(*p.roster.combatInputs(29));if(field==0)v.luck.reset();else if(field==1)++v.luck->permanent;else ++v.luck->temporary;}else{auto &r=const_cast<std::optional<XeenJourneyRandomState>&>(w.sessionState().journeyRandom());if(field==3)++r->state;else if(field==4)++r->count;else r->algorithm=2;}});});
+  rejects([&]{XeenSaveState::restoreBeforeGameplay(saved,resources,party,camera,flags,world,[&](auto &w,const auto &p,const auto &,const auto &){if(field<3){auto &v=const_cast<XeenCombatInputs &>(*p.roster.combatInputs(29));if(field==0)v.luck.reset();else if(field==1)++v.luck->permanent;else ++v.luck->temporary;}else{auto &r=const_cast<XeenMutableOptional<XeenJourneyRandomState>&>(w.sessionState().journeyRandom());if(field==3)++r->state;else if(field==4)++r->count;else r->algorithm=2;}});});
   check(!world.hasEncounterState()&&!party.roster.combatMarked()&&!party.encounterContext,"mutated successor preflight leaves fresh destinations unchanged");
  }
  for(unsigned record=1;record<=5;++record){auto partial=saved;partial.disabledEvents.push_back({20,record});Domain accepted(partial);check(XeenSaveFormat::encode(partial)==XeenSaveFormat::encode(accepted.save()),"independent objective event overlay roundtrip");}

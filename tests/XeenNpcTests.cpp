@@ -42,7 +42,7 @@ struct Fixture {
 	XeenEventTextFile text{1,"synthetic.txt",true,{"Title\n\t125Subtitle","one two three four"}};
 	std::map<XeenMapIdentity,XeenEventScript> scripts;
 	XeenWorld world{[](XeenMapIdentity id){return map(id);},[](XeenMapIdentity id){
-		XeenObjectFile f{id,"synthetic.mob",true,{}};f.entities.objects={{1,1,0,0,111}};return f;}};
+		XeenObjectFile f{id,"synthetic.mob",true,{}};f.entities.objects=std::vector<XeenMapEntity>{{1,1,0,0,111}};return f;}};
 	XeenEventSystem events{[&](XeenMapIdentity id){return scripts.at(id);},
 		[&](XeenMapIdentity){++loads;return text;}};
 	XeenEventInterpreter interpreter;

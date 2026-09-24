@@ -3,6 +3,7 @@
 #include "games/xeen/XeenCombat.h"
 #include "games/xeen/XeenRestoreGuard.h"
 #include "games/xeen/XeenJourneyRules.h"
+#include "games/xeen/XeenIndoorScene.h"
 namespace mmodern {
 // Flow alone owns this lifetime. World holds a weak reference, never a raw
 // coordinator or callback. No countdown is copied: queries read the actual state.
@@ -46,7 +47,23 @@ class XeenJourneyCapture {
 		for (unsigned i = 0; i < expected; ++i)
 			if (!xeenJourneyContent(w->sessionState().journeyContract()).influences(i) && !xeen_state::sameActor(actors[i],admittedActors[i])) return false;
 		for (auto id:w->sessionState().accountedMonsters())
-			if (id.mapId!=xeenJourneyContent(w->sessionState().journeyContract()).entry.mapId || !xeenJourneyContent(w->sessionState().journeyContract()).influences(id.recordIndex)) return false;
+			if (id.mapId!=xeenJourneyContent(w->sessionState().journeyContract()).entry.mapId &&
+				!(w->sessionState().journeyContract()==8 && id.mapId==XeenMapIdentity(28) &&
+					(id.recordIndex==35 || id.recordIndex==36))) return false;
+		if (w->sessionState().journeyContract()==8 && c->mapId==XeenMapIdentity(28)) {
+			if (!w->sessionState().hasRegionalActors(28)) return false;
+			try {
+				const auto &city=w->sessionState().regionalActors(28);
+				const auto view=XeenIndoorScene().classifyActors(*const_cast<XeenWorld *>(w),*c,city);
+				if (view.engaged()) return false;
+				for(unsigned i=0;i<city.size();++i) if(view.activation[i] && !city[i].activated) return false;
+				if(p->monsterTreasure && p->monsterTreasure->ready()) {
+					bool selected=false;for(const auto &slot:view.slots)selected=selected || bool(slot);
+					if(!selected)return false;
+				}
+			} catch (...) { return false; }
+			return true;
+		}
 		if(p->monsterTreasure && p->monsterTreasure->ready()) {
 			const auto view=XeenActorApproach::classify(actors,*c);bool selected=false;
 			for(const auto &v:view.slots) selected=selected || bool(v);if(!selected) return false;
@@ -63,6 +80,7 @@ struct XeenJourneyRestoration {
 	std::vector<XeenMonsterRecord> statistics;
 	XeenEventFile events;
 	std::function<XeenLearnedSpellNames()> learnedNamesProvider;
+	XeenVertigoManifest vertigoManifest;
 };
 }
 #endif

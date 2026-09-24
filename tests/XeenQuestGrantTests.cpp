@@ -31,7 +31,7 @@ struct Fixture {
 	std::string message="Text";
 	XeenWorld world{[&](XeenMapIdentity id){++maps;auto m=map(id);m.geometry.cells[17].rawAttributes=0x10;return m;},
 		[&](XeenMapIdentity id){++objects;XeenObjectFile f{id,"synthetic.mob",true,{}};
-			f.entities.objects={{1,1,0,0,111},{2,2,0,0,111}};return f;}};
+			f.entities.objects=std::vector<XeenMapEntity>{{1,1,0,0,111},{2,2,0,0,111}};return f;}};
 	XeenEventSystem events{[&](XeenMapIdentity id){++loads;return scripts.at(id);},
 		[&](XeenMapIdentity id){++texts;return XeenEventTextFile{id,"text",true,{message}};}};
 	XeenEventInterpreter interpreter;

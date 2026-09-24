@@ -26,7 +26,7 @@ inline XeenJourneyLethal xeenPrepareJourneyLethal(const XeenActor &actor,
 	for (unsigned i = 0; i < 6; ++i) {
 		if (!characters[i]) throw std::invalid_argument("Journey lethal owner is missing");
 		result.experience[i] = (participantMask&(1u<<i)) && xeenCombatXpEligible(characters[i]->worstCondition()) ?
-			xeenCombatExperience(actor.statistics->experience(),eligible,characters[i]->permanentLevel,inputs[i].experience) : inputs[i].experience;
+			xeenCombatExperience(actor.statistics->experience(),eligible,characters[i]->permanentLevel,inputs[i].experience) : std::uint32_t(inputs[i].experience);
 	}
 	result.accounted.insert(actor.id);
 	result.actor.hp = 0; result.actor.x = result.actor.y = -128;

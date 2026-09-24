@@ -9,7 +9,9 @@ inline bool sameInputs(const XeenCombatInputs &a, const XeenCombatInputs &b) {
 	return sameAttribute(a.might, b.might) && sameAttribute(a.speed, b.speed) &&
 		sameAttribute(a.accuracy, b.accuracy) && a.temporaryAc == b.temporaryAc &&
 		a.experience == b.experience && bool(a.luck) == bool(b.luck) &&
-		(!a.luck || sameAttribute(*a.luck, *b.luck)) && a.resistances == b.resistances;
+		(!a.luck || sameAttribute(*a.luck, *b.luck)) && a.resistances == b.resistances &&
+		bool(a.poisonResistance) == bool(b.poisonResistance) &&
+		(!a.poisonResistance || sameAttribute(*a.poisonResistance,*b.poisonResistance));
 }
 inline bool sameItemCategory(const XeenItemCategory &a, const XeenItemCategory &b) {
 	for (std::size_t i = 0; i < a.size(); ++i)
@@ -66,10 +68,10 @@ inline bool sameMap(const XeenMap &a, const XeenMap &b) {
 		const auto &c = x.cells[i], &d = y.cells[i];
 		if (c.rawWord != d.rawWord || c.rawAttributes != d.rawAttributes || c.surfaceIndex != d.surfaceIndex ||
 			c.flags != d.flags || c.seen != d.seen || c.stepped != d.stepped || c.geometry.index() != d.geometry.index()) return false;
-		if (const auto *layers = std::get_if<XeenOutdoorLayers>(&c.geometry)) {
-			const auto &other = std::get<XeenOutdoorLayers>(d.geometry);
+		if (const auto *layers = xeenGetIf<XeenOutdoorLayers>(&c.geometry)) {
+			const auto &other = xeenGet<XeenOutdoorLayers>(d.geometry);
 			if (layers->surface != other.surface || layers->middle != other.middle || layers->top != other.top || layers->overlay != other.overlay) return false;
-		} else if (std::get<XeenIndoorWalls>(c.geometry).walls != std::get<XeenIndoorWalls>(d.geometry).walls) return false;
+		} else if (xeenGet<XeenIndoorWalls>(c.geometry).walls != xeenGet<XeenIndoorWalls>(d.geometry).walls) return false;
 	}
 	for (std::size_t i = 0; i < a.instructions.size(); ++i) {
 		const auto &c = a.instructions[i], &d = b.instructions[i];

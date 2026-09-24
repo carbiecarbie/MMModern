@@ -6,14 +6,15 @@
 #include <stdexcept>
 #include <tuple>
 
+#include "games/xeen/XeenMutation.h"
 namespace mmodern {
 
 enum class XeenSide : std::uint8_t { Clouds, Darkside };
 
 // Runtime/loading context, never part of the original binary map format.
 struct XeenMapIdentity {
-	XeenSide side = XeenSide::Clouds;
-	std::uint16_t number = 0;
+	XeenMutable<XeenSide> side = XeenSide::Clouds;
+	XeenMutable<std::uint16_t> number = 0;
 
 	constexpr XeenMapIdentity() = default;
 	// Compatibility for existing Clouds entry points/fixtures. No conversion

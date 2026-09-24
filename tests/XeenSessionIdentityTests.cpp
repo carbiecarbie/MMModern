@@ -43,7 +43,7 @@ void worldLifetimeAndNavigation() {
 	XeenWorld world([&](XeenMapIdentity id) {
 		++loads[id];
 		auto result = map(id);
-		result.geometry.neighbors = {2, 3, 4, 5};
+		result.geometry.neighbors = std::array<std::uint16_t,4>{2, 3, 4, 5};
 		return result;
 	});
 	const auto *session = &world.sessionState();
@@ -73,13 +73,13 @@ void worldLifetimeAndNavigation() {
 	int indoorLoads = 0;
 	XeenWorld indoor([&](XeenMapIdentity id) {
 		++indoorLoads; auto result = map(id); result.geometry.flags2 = 0;
-		result.geometry.neighbors = {2,3,4,5};
+		result.geometry.neighbors = std::array<std::uint16_t,4>{2,3,4,5};
 		for (auto &cell : result.geometry.cells) cell.geometry = XeenIndoorWalls{};
 		return result;
 	});
 	check(indoor.sampleCell(dark, 4, 4)->mapId == dark && !indoor.sampleCell(dark, -1, 4) &&
 		indoorLoads == 1, "indoor sampling lost side or followed neighbors");
-	XeenWorld wrong([](XeenMapIdentity id) { return map(id.number); });
+	XeenWorld wrong([](XeenMapIdentity id) { return map(XeenMapIdentity{id.number}); });
 	bool rejected = false;
 	try { wrong.map(dark); } catch (const std::runtime_error &) { rejected = true; }
 	check(rejected && wrong.cachedMapCount() == 0, "wrong-side map accepted");
@@ -158,7 +158,7 @@ void rejectionAndRollback() {
 	XeenCamera camera{dark, 1, 1, XeenDirection::North};
 	XeenGameFlags flags;
 	XeenEventSystem wrong([](XeenMapIdentity id) {
-		return script(id.number, {record(1, 1, 0, 0x12)});
+		return script(XeenMapIdentity{id.number}, {record(1, 1, 0, 0x12)});
 	});
 	check(std::holds_alternative<XeenEventExecutionError>(
 		wrong.runManualEvent(world, party, camera, flags)) && wrong.cachedScriptCount() == 0,
@@ -180,18 +180,18 @@ void rejectionAndRollback() {
 		error.source->mapId == error.logicalAddress.mapId, "rollback/error side lost");
 	XeenEventSystem wrongText([](XeenMapIdentity id) {
 		return script(id, {record(1, 1, 0, 0x01, {0})});
-	}, [](XeenMapIdentity id) { return XeenEventTextFile{id.number, "wrong", true, {"wrong side"}}; });
+	}, [](XeenMapIdentity id) { return XeenEventTextFile{XeenMapIdentity{id.number}, "wrong", true, {"wrong side"}}; });
 	check(std::holds_alternative<XeenEventExecutionError>(
 		wrongText.runManualEvent(world, party, camera, flags)) && wrongText.cachedTextCount() == 0,
 		"wrong-side text accepted/cached");
 	XeenEventInterpreter interpreter;
 	const auto direct = interpreter.begin(camera, party, flags, world,
-		[](XeenMapIdentity id) { return script(id.number, {}); }, {});
+		[](XeenMapIdentity id) { return script(XeenMapIdentity{id.number}, {}); }, {});
 	check(std::get<XeenEventExecutionError>(direct).kind == XeenEventExecutionErrorKind::ScriptMapMismatch,
 		"direct interpreter accepted wrong-side script");
 	const auto badText = interpreter.begin(camera, party, flags, world,
 		[](XeenMapIdentity id) { return script(id, {record(1, 1, 0, 0x01, {0})}); },
-		[](XeenMapIdentity id) { return XeenEventTextFile{id.number, "wrong", true, {"wrong"}}; });
+		[](XeenMapIdentity id) { return XeenEventTextFile{XeenMapIdentity{id.number}, "wrong", true, {"wrong"}}; });
 	check(std::get<XeenEventExecutionError>(badText).kind == XeenEventExecutionErrorKind::TextMapMismatch,
 		"direct interpreter accepted wrong-side text");
 	const auto badTarget = interpreter.execute(camera, party, flags, world,

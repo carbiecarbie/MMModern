@@ -29,6 +29,8 @@ void CloudsMapComposer::drawIndoorCommands(XeenAssetSource &assets,
 		if (const auto *object = command.object())
 			assets.drawObjectVisual(object->visual, command.x, command.y,
 				command.drawOptions());
+		else if (const auto *actor=command.actor())
+			assets.drawMonster(actor->image,{actor->kind,actor->frame},command.x,command.y,command.drawOptions());
 		else
 			assets.drawSprite(command.geometry().resourceName, command.geometry().frame,
 				command.x, command.y, command.drawOptions());
@@ -83,6 +85,9 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 			assets.validateNormalMonster(image);
 			if (content.contract!=3) assets.validateAttackMonster(image);
 		}
+		if (content.vertigo() && world.sessionState().hasRegionalActors(28)) {
+			assets.validateNormalMonster(0);assets.validateAttackMonster(0);
+		}
 	}
 	CloudsUiComposer().loadBackground(assets);
 
@@ -98,10 +103,16 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 		// Indoor darkness is deliberately ignored in Milestone 12D: the scene is
 		// rendered illuminated so its geometry can be validated without gameplay.
 		const auto resolver = XeenObjectVisualResolver::load(assets);
-		// Indoor ordinary appearances are deliberately resolved without the
-		// outdoor phase: animated visuals remain explicitly unsupported.
+		const bool vertigo=world.regionalContract8() &&
+			camera.mapId==XeenMapIdentity(28);
+		const bool night = partyState.encounterContext &&
+			(partyState.encounterContext->minutes < 5 * 60 ||
+			 partyState.encounterContext->minutes >= 21 * 60);
 		const auto commands = XeenIndoorScene().build(
-			world, camera, &resolver, objectDiagnostics);
+			world, camera, &resolver, objectDiagnostics,vertigo?ordinaryPhase:std::nullopt,actorFrame,night);
+		emittedAnimation=std::any_of(commands.begin(),commands.end(),[](const auto &command) {
+			return command.object() && command.object()->visual.status==XeenObjectVisualStatus::SupportedAnimated;
+		});
 		drawIndoorCommands(assets, commands);
 	}
 

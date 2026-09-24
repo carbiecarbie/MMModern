@@ -42,8 +42,12 @@ XeenMap XeenMapLoader::loadGeometryMap(XeenAssetSource &assets,
 	if (!mapId || mapId.number > 9999)
 		throw std::invalid_argument("ID de mapa fora do formato Clouds de quatro digitos");
 	char resourceName[13];
-	std::snprintf(resourceName, sizeof(resourceName), "maze%04u.dat",
-		static_cast<unsigned>(mapId.number));
+	if (mapId.number >= 109 && mapId.number <= 111)
+		std::snprintf(resourceName, sizeof(resourceName), "mazex%03u.dat",
+			static_cast<unsigned>(mapId.number));
+	else
+		std::snprintf(resourceName, sizeof(resourceName), "maze%04u.dat",
+			static_cast<unsigned>(mapId.number));
 	XeenMap map;
 	map.geometry = XeenMapFormat::parseDat(assets.readInitialResource(resourceName));
 	map.side = mapId.side;

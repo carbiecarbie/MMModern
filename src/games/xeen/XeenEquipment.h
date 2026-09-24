@@ -32,7 +32,7 @@ struct XeenEquipmentResult {
 	std::optional<XeenEquipmentOperation> operation;
 	std::optional<std::uint8_t> owner;
 	std::optional<XeenEquipmentPosition> selection;
-	std::optional<XeenItem> beforeItem, afterItem;
+	XeenMutableOptional<XeenItem> beforeItem, afterItem;
 	std::optional<XeenEquipmentPosition> conflict;
 	std::optional<std::size_t> matchingFrameCount;
 	std::optional<XeenEquipmentChange> modeled;

@@ -37,7 +37,7 @@ mmodern::XeenMap makeAreaA1ViewFixture() {
 	}
 	for (const auto &point : {std::pair<int, int>{8, 3}, {8, 4}, {8, 5}, {9, 5}}) {
 		auto &cell = map.geometry.cells[static_cast<std::size_t>(point.second) * 16 + point.first];
-		auto layers = std::get<mmodern::XeenOutdoorLayers>(cell.geometry);
+		auto layers = mmodern::xeenGet<mmodern::XeenOutdoorLayers>(cell.geometry);
 		layers.middle = 1;
 		cell.geometry = layers;
 	}
@@ -49,7 +49,7 @@ mmodern::XeenMap makeFlatFixture(mmodern::XeenMapIdentity id = 1) {
 	map.geometry.id = id.number;
 	map.side = id.side;
 	for (auto &cell : map.geometry.cells) {
-		auto outdoor = std::get<mmodern::XeenOutdoorLayers>(cell.geometry);
+		auto outdoor = mmodern::xeenGet<mmodern::XeenOutdoorLayers>(cell.geometry);
 		outdoor.middle = 0;
 		cell.geometry = outdoor;
 	}
@@ -114,7 +114,7 @@ void testFourDirections() {
 	for (const auto &item : expected) {
 		auto map = makeFlatFixture();
 		auto &cell = map.geometry.cells[static_cast<std::size_t>(item.y) * 16 + item.x];
-		auto outdoor = std::get<mmodern::XeenOutdoorLayers>(cell.geometry);
+		auto outdoor = mmodern::xeenGet<mmodern::XeenOutdoorLayers>(cell.geometry);
 		outdoor.middle = 1;
 		cell.geometry = outdoor;
 		const mmodern::XeenCamera camera{1, 9, 6, item.direction};
@@ -155,10 +155,10 @@ void testNeighborAndDiagonalSources() {
 	auto map2 = makeFlatFixture(2);
 	auto map5 = makeFlatFixture(5);
 	auto map6 = makeFlatFixture(6);
-	map1.geometry.neighbors = {0, 5, 2, 0};
-	map5.geometry.neighbors = {0, 0, 6, 1};
-	map2.geometry.neighbors = {1, 6, 0, 0};
-	map6.geometry.neighbors = {5, 0, 0, 2};
+	map1.geometry.neighbors = std::array<std::uint16_t,4>{0, 5, 2, 0};
+	map5.geometry.neighbors = std::array<std::uint16_t,4>{0, 0, 6, 1};
+	map2.geometry.neighbors = std::array<std::uint16_t,4>{1, 6, 0, 0};
+	map6.geometry.neighbors = std::array<std::uint16_t,4>{5, 0, 0, 2};
 	auto world = worldWith({{1, map1}, {2, map2}, {5, map5}, {6, map6}});
 
 	const auto east = mmodern::XeenOutdoorScene().build(world,

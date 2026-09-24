@@ -52,6 +52,9 @@ void XeenAssetSource::drawMonster(std::uint8_t image, XeenMonsterAppearance appe
 		const XeenSpriteDrawOptions &options) {
 	if (!appearance.valid() || options.horizontalFlip || options.enlarge || !options.sceneClipped)
 		throw std::invalid_argument("Unsupported monster drawing");
+	if (options.slimePalettePhase < -1 || options.slimePalettePhase > 7 ||
+		(options.slimePalettePhase >= 0 && image != 0))
+		throw std::invalid_argument("Unsupported monster palette effect");
 	const bool attack = appearance.kind == XeenMonsterSpriteKind::Attack;
 	if (attack) validateAttackMonster(image); else validateNormalMonster(image);
 	_impl->bridge.drawObjectSprite(attack ? attackMonsterResource(image) : normalMonsterResource(image),

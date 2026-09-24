@@ -68,7 +68,7 @@ void addTrigger(XeenMap &map, int x, int y) {
 }
 
 XeenOutdoorLayers &layersAt(XeenMap &map, int x, int y) {
-	return std::get<XeenOutdoorLayers>(
+	return xeenGet<XeenOutdoorLayers>(
 		map.geometry.cells[static_cast<std::size_t>(y) * 16 +
 			static_cast<std::size_t>(x)].geometry);
 }

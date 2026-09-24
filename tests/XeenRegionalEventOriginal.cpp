@@ -242,7 +242,7 @@ int main(int argc,char **argv) {
      check(h.flow->encounter()->itemUseReady() && h.party->roster.at(18).conditions[3]==0 && sameSource,
       "Draw fault starts after exact published debit/effect/compaction");
      const auto characters=h.party->roster.characters();
-     const auto actors=h.world->sessionState().actors();
+     const std::vector<XeenActor> actors=h.world->sessionState().actors();
      const auto random=h.world->sessionState().journeyRandom();
      const auto context=h.party->encounterContext;
      const auto treasure=h.party->monsterTreasure;

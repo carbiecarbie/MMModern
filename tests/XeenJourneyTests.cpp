@@ -89,7 +89,7 @@ void approachAndGuards() {
 	check(f.flow->journeyQuiet() && f.w.sessionState().actors()[5].x == 13 && f.w.sessionState().actors()[5].y == 1 &&
 		f.camera.x == 14 && f.camera.y == 1 && f.p.encounterContext->minutes == 490 && f.p.encounterContext->ctr24 == 2,
 		"independent moved-anchor oracle");
-	const auto actors = f.w.sessionState().actors();
+	const std::vector<XeenActor> actors = f.w.sessionState().actors();
 	f.w.discardMapCache();
 	f.pulse();
 	for (unsigned i = 0; i < 27; ++i) check(xeen_state::sameActor(actors[i],f.w.sessionState().actors()[i]), "cache rebuild preserves every actor field");
@@ -129,7 +129,7 @@ void readinessAndHistory() {
 	check(XeenCharacterRules::maxHp(f.p.roster.at(0),{610}) == 16, "independent +4 maximum HP");
 	xeenValidateJourneyParty(f.p);
 	rejects([&] { xeenValidateJourneyMelee(f.p); }, "accessory");
-	const auto actors = f.w.sessionState().actors();
+	const std::vector<XeenActor> actors = f.w.sessionState().actors();
 	check(f.action(XeenEncounterAction::Wait).outcome == XeenEncounterOutcome::Refused && f.flow->journeyQuiet() &&
 		f.p.encounterContext->minutes == 480, "unready action refuses before publication");
 	check(f.flow->journeyRefusal().find("owner 0, slot 1, M/ID/S/F=105/1/0/8") != std::string::npos,
@@ -157,7 +157,7 @@ void readinessAndHistory() {
 	for (auto id : kXeenCombatOwners) { raw.p.roster.at(id).currentHp = 0; raw.p.roster.at(id).conditions[12] = 1; }
 	rejects([&] { xeenValidateJourneyParty(raw.p); }, "acting");
 	Fixture partial;
-	const_cast<std::optional<XeenCombatInputs> &>(partial.p.roster.combatInputs(29)).reset();
+	const_cast<XeenMutableOptional<XeenCombatInputs> &>(partial.p.roster.combatInputs(29)).reset();
 	rejects([&] { xeenValidateJourneyParty(partial.p); }, "supplement");
 	check(!partial.flow->journeyQuiet(), "partial supplement presence cannot be replenished");
 }
@@ -205,7 +205,7 @@ void postEndInvalidation() {
 	auto *combat = f.flow->combat();
 	check(combat->service(combat->ticket()).status == Status::Victory, "post-End control genuinely ends");
 	const auto old = combat->ticket(); const auto retirement = f.flow->ticket();
-	const auto actors = f.w.sessionState().actors(); const auto characters = f.p.roster.characters();
+	const std::vector<XeenActor> actors = f.w.sessionState().actors(); const auto characters = f.p.roster.characters();
 	std::array<unsigned,6> xp{};
 	for (unsigned i=0;i<6;++i) xp[i] = f.p.roster.combatInputs(kXeenCombatOwners[i])->experience;
 	combat->invalidate(); combat->invalidate();
@@ -226,7 +226,7 @@ void postEndInvalidation() {
 }
 void approachBoundaryReplacement() {
 	for (bool throws : {false,true}) {
-		Fixture f; const auto old = f.flow->ticket(); const auto actors = f.w.sessionState().actors();
+		Fixture f; const auto old = f.flow->ticket(); const std::vector<XeenActor> actors = f.w.sessionState().actors();
 		f.w.discardMapCache();
 		f.onMap = [&] {
 			const auto lease = f.flow->boundary().hold(XeenCombatBoundary::Work::Inventory);
@@ -255,7 +255,7 @@ void attachmentBoundaryReplacement() {
 	for (unsigned seam = 0; seam < 5; ++seam) for (bool throws : {false,true}) for (bool held : {false,true}) {
 		Fixture f;
 		check(f.action(XeenEncounterAction::Wait).outcome == XeenEncounterOutcome::Engaged, "attachment regression genuinely engages");
-		const auto old = f.flow->ticket(); const auto actors = f.w.sessionState().actors();
+		const auto old = f.flow->ticket(); const std::vector<XeenActor> actors = f.w.sessionState().actors();
 		const auto context = *f.p.encounterContext; const auto revision = f.flow->state().revision();
 		std::uint64_t lease = 0; unsigned callbacks = 0, sprites = 0;
 		const auto replace = [&] {
@@ -300,7 +300,7 @@ void attachmentBoundaryReplacement() {
 void retainedCombatCaches() {
 	for (bool objectsChanged : {false,true}) for (bool throws : {false,true}) {
 		Fixture f; f.engage(); auto *combat = f.flow->combat();
-		const auto actors = f.w.sessionState().actors();
+		const std::vector<XeenActor> actors = f.w.sessionState().actors();
 		combat->setProbe([&] {
 			if (objectsChanged) const_cast<XeenObjectFile &>(f.w.objectFile(20)).resourcePresent = false;
 			else const_cast<XeenMap &>(f.w.map(20)).geometry.cells[0].rawWord ^= 1;
@@ -443,7 +443,7 @@ void approachTimeLimit() {
 		check(f.action(i%2 ? XeenEncounterAction::Backward : XeenEncounterAction::Forward).outcome == XeenEncounterOutcome::Accepted,
 			"rapid bounded actions retain independent pending work");
 	check(f.p.encounterContext->minutes == 950 && f.flow->state().pending() == 3, "literal approach time boundary");
-	const auto actors = f.w.sessionState().actors(); const auto camera = f.camera;
+	const std::vector<XeenActor> actors = f.w.sessionState().actors(); const auto camera = f.camera;
 	check(f.action(XeenEncounterAction::Backward).outcome == XeenEncounterOutcome::Stopped && !f.flow->journeyQuiet(),
 		"charge at950 terminates before dependent work");
 	check(f.p.encounterContext->minutes == 950 && xeen_state::sameCamera(camera,f.camera), "time stop preserves prior camera and clock");

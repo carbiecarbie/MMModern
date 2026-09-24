@@ -58,7 +58,8 @@ struct XeenEnemyAttackCandidate {
 		const XeenMonsterRecord &, unsigned year, unsigned participantMask, const std::array<bool,6> &blocked = {});
 	bool service(XeenConsequenceDraw &);
 private:
-	enum class Step { Target, Fallback, Begin, Roll, Dice, Special, Injury, Parameter, Next, Done };
+	enum class Step { Target, Fallback, Begin, Roll, Dice, Special, Injury, Parameter,
+		PoisonSaveInitial, PoisonSaveRepeat, Next, Done };
 	Step step = Step::Target, afterInjury = Step::Next;
 	XeenConsequenceInputs inputs;
 	XeenMonsterRecord monster;
@@ -69,6 +70,7 @@ private:
 	int target = -1, roll = 0, damage = 0, beforeDamageAc = 0;
 	unsigned dice = 0;
 	bool allParty;
+	bool poison=false;
 };
 struct XeenPhysicalPlayerCandidate {
 	int damage = 0;

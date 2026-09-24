@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <stdexcept>
+#include <zlib.h>
 
 namespace mmodern {
 namespace {
@@ -44,5 +45,18 @@ void XeenMonsterRecord::validateCombat() const {
 		throw std::invalid_argument("monster resource is outside the Diagnostic27 combat profile");
 	for (unsigned i=34;i<=40;++i) if (raw[i]>100)
 		throw std::invalid_argument("monster resistance percentage out of bounds");
+}
+std::uint32_t XeenMonsterRecord::fingerprint() const {
+	const std::array<std::uint8_t,60> bytes=raw;
+	return static_cast<std::uint32_t>(crc32(0,bytes.data(),static_cast<uInt>(bytes.size())));
+}
+void XeenMonsterRecord::validateSlime() const {
+	if(fingerprint()!=0x4743814e ||
+		!supportsMovement() || image()!=0 || raw[48]!=1 || raw[49]!=0 || baseHp()!=2 ||
+		experience()!=50 || armorClass()!=0 || speed()!=25 || attacks()!=2 ||
+		preferredClass()!=16 || strikes()!=1 || damageDie()!=2 || raw[29]!=5 ||
+		raw[30]!=0 || raw[32]!=0 || physicalResistance()!=0 || gold()!=0 ||
+		raw[44]!=0 || raw[45]!=0)
+		throw std::invalid_argument("Original Slime combat profile changed");
 }
 } // namespace mmodern

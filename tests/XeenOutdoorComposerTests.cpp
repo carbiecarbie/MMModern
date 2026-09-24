@@ -43,9 +43,9 @@ int main(){try {
 	auto geometry=[](XeenMapIdentity id){XeenMap m;m.geometry.id=id.number;m.side=id.side;m.geometry.flags2=0x8000;
 		m.geometry.wallTypes[1]=1;for(auto &c:m.geometry.cells)c.geometry=XeenOutdoorLayers{};
 		// Far terrain before the object, near terrain after it.
-		std::get<XeenOutdoorLayers>(m.geometry.cells[12*16+8].geometry).middle=1;
-		std::get<XeenOutdoorLayers>(m.geometry.cells[9*16+8].geometry).middle=1;return m;};
-	auto objectFile=[](XeenMapIdentity id){XeenObjectFile f;f.mapId=id;f.resourcePresent=true;f.entities.objects={{8,9,0,0,111},{8,9,0,0,111}};return f;};
+		xeenGet<XeenOutdoorLayers>(m.geometry.cells[12*16+8].geometry).middle=1;
+		xeenGet<XeenOutdoorLayers>(m.geometry.cells[9*16+8].geometry).middle=1;return m;};
+	auto objectFile=[](XeenMapIdentity id){XeenObjectFile f;f.mapId=id;f.resourcePresent=true;f.entities.objects=std::vector<XeenMapEntity>{{8,9,0,0,111},{8,9,0,0,111}};return f;};
 	const XeenCamera camera{23,8,8,XeenDirection::North};
 	{
 		XeenAssetSource assets(installation,320,200);XeenWorld world(geometry,objectFile);
@@ -122,12 +122,12 @@ int main(){try {
 		check(composer.compose(assets,world,{},camera,{},nullptr,2,&presence).pixels==removed.pixels && !presence,"removed cache reconstruction");
 		// First static or invalid record suppresses a later animated overlap.
 		for(int first:{111,121}) {
-			XeenWorld overlap(geometry,[&](auto id){auto f=objectFile(id);f.entities.objects={{8,9,0,0,first},{8,9,0,0,110}};return f;});
+			XeenWorld overlap(geometry,[&](auto id){auto f=objectFile(id);f.entities.objects=std::vector<XeenMapEntity>{{8,9,0,0,first},{8,9,0,0,110}};return f;});
 			presence=true;composer.compose(assets,overlap,{},camera,{},nullptr,1,&presence);check(!presence,"suppressed animation presence");
 		}
-		XeenWorld offscreen(geometry,[&](auto id){auto f=objectFile(id);f.entities.objects={{1,1,0,0,110}};return f;});
+		XeenWorld offscreen(geometry,[&](auto id){auto f=objectFile(id);f.entities.objects=std::vector<XeenMapEntity>{{1,1,0,0,110}};return f;});
 		presence=true;composer.compose(assets,offscreen,{},camera,{},nullptr,1,&presence);check(!presence,"offscreen animation presence");
-		XeenWorld covered(geometry,[&](auto id){auto f=objectFile(id);f.entities.objects={{8,9,0,0,109}};return f;});
+		XeenWorld covered(geometry,[&](auto id){auto f=objectFile(id);f.entities.objects=std::vector<XeenMapEntity>{{8,9,0,0,109}};return f;});
 		assets.loadRawFramebuffer("back.raw");
 		const auto coveredCommands=XeenOutdoorScene().build(covered,camera,&resolver,nullptr,1);
 		bool touched=false;
@@ -160,7 +160,7 @@ int main(){try {
 	archive(installation.darkArchive,{{"clouds.dat",animatedMetadata}});
 	files["110.0bj"]=multiFrameSprite({{solid(10,10,17),{}},{cell(0,8,0,1,{2,0,1}),{}}});archive(directory/"xeen.cc",files);
 	{
-		XeenAssetSource assets(installation,320,200);XeenWorld world(geometry,[&](auto id){auto f=objectFile(id);f.entities.objects={{8,9,0,0,110}};return f;});
+		XeenAssetSource assets(installation,320,200);XeenWorld world(geometry,[&](auto id){auto f=objectFile(id);f.entities.objects=std::vector<XeenMapEntity>{{8,9,0,0,110}};return f;});
 		bool presence=true,rejected=false;
 		try{CloudsMapComposer().compose(assets,world,{},camera,{},nullptr,1,&presence);}catch(const std::runtime_error &){rejected=true;}
 		check(rejected && !presence,"failed animated draw published presence");

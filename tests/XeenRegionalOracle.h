@@ -17,7 +17,7 @@ inline bool visible(const XeenCamera &c,const XeenActor &a) {
 }
 inline bool terrain(const XeenMap &m,int x,int y) {
  if(x<0 || y<0 || x>=16 || y>=16)throw std::runtime_error("Oracle unsupported local terrain");
- const auto l=std::get<XeenOutdoorLayers>(m.geometry.cells[y*16+x].geometry);
+ const auto l=xeenGet<XeenOutdoorLayers>(m.geometry.cells[y*16+x].geometry);
  constexpr bool ordinary[]{true,false,true,true,true,true,true,false,true,false,false,true,false,true,true,false};
  const auto s=m.geometry.surfaceTypes[l.surface];
  return ordinary[l.middle] ? s!=0 && s!=8 && s!=15 : l.middle<=m.geometry.difficulties[0];
@@ -28,7 +28,7 @@ inline bool ray(const XeenMap &m,const XeenCamera &c,const XeenActor &a) {
  const int sx=(a.x>c.x)-(a.x<c.x),sy=(a.y>c.y)-(a.y<c.y);
  for(int x=c.x+sx,y=c.y+sy;x!=c.x || y!=c.y;x+=sx,y+=sy) {
   const auto &cell=m.geometry.cells[y*16+x];
-  if(sx==1 ? bool(cell.rawWord&8) : !transparent[std::get<XeenOutdoorLayers>(cell.geometry).middle])return false;
+  if(sx==1 ? bool(cell.rawWord&8) : !transparent[xeenGet<XeenOutdoorLayers>(cell.geometry).middle])return false;
   if(x==a.x && y==a.y)break;
  }
  return true;

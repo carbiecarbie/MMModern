@@ -1,23 +1,14 @@
 # Milestone 37 - Vertigo entry, initial traversal and return
 
-## Status, objective and inherited authority
+## Completed scope and inherited contracts
 
-**Implementation contract; not implemented or accepted.** Establish a production
-Regional Journey from the admitted Clouds mainland through the original Vertigo
-entrance, around a small indoor route, through the original exit, and back again.
-Both regions must support quiet save, complete process exit, fresh restore and
-continued play. This is one Journey with retained regional state, not another
-startup mode or a camera-placement demonstration.
+**Completed and accepted.** Regional Journey contract 8 connects the admitted
+Clouds mainland to the original Vertigo entrance, an eleven-cell indoor route,
+the original exit, return and revisit. Both regions support quiet save, complete
+process exit, fresh restore and continued play on one retained Journey.
 
-Planning baseline: `main`, with HEAD, `refs/remotes/origin/main` and direct
-`git ls-remote origin refs/heads/main` all equal to
-`f8ba96efda7abf7f0fc0bc0a19d7525e526f3272` (Complete Milestone 36 learned
-exploration casting). Origin is `https://github.com/carbiecarbie/MMModern.git`;
-the initial index and working tree, including untracked files, were clean.
-M36 remains completed and accepted.
-
-Use code/tests at that baseline as implementation truth, [status](project-status.md)
-as accepted-state context and the [roadmap](roadmap.md) as purpose. Inherit
+[Project status](project-status.md) owns the current capability snapshot and the
+[roadmap](roadmap.md) owns future direction. This contract inherits
 [M23](milestone-23-plan.md) indoor composition,
 [M28](milestone-28-plan.md), [M29](milestone-29-plan.md) and
 [M31](milestone-31-plan.md) ownership, publication and fresh authority;
@@ -26,7 +17,7 @@ as accepted-state context and the [roadmap](roadmap.md) as purpose. Inherit
 [M35](milestone-35-plan.md) and [M36](milestone-36-plan.md) accumulated
 conditions, combat, accounting, equipment, item use and learned casting.
 Their formulas and legacy domains remain authoritative except for the explicit
-M37 extensions below. This plan does not reopen their acceptance.
+M37 extensions below.
 
 The maintainer resolved the reset policy: **no implicit reset on transition,
 admission, cache reconstruction, revisit or restore; an explicit original Event
@@ -36,18 +27,14 @@ A later, separately confirmed exit may legitimately execute the reset again.
 
 ## Evidence and provenance
 
-Original installation: `F:\Games\gog\Might and Magic 4-5`, read-only. Resources
-below were inspected in memory through the existing inspection executable and
-a small external read-only archive probe; no commercial files were extracted
-into the repository. DAT/MOB/EVT come from the Clouds initial archive assembled
-by the existing bridge from XEEN.CC's initial-save chunks, not a user's XEEN.CUR.
+Original resources remain external, read-only and unmodified; no commercial
+files are included in the repository. DAT/MOB/EVT come from the Clouds initial
+archive assembled by the existing bridge from XEEN.CC's initial-save chunks, not a user's XEEN.CUR.
 Text and appearance resources come from XEEN.CC; shared monster statistics
 come from DARK.CC as in the accepted World-of-Xeen Clouds profile.
 
-The [documented dependency](dependencies.md) was discovered through
-`build/CMakeCache.txt`, at `D:/Projetos/MModern/scummvm-known-good-candidate`.
-Its detached HEAD was verified as
-`6814ee9ba54582f5b5adcffab49efbbd8f589edd`, with a clean checkout. Relevant
+The [documented dependency](dependencies.md) pins ScummVM revision
+`6814ee9ba54582f5b5adcffab49efbbd8f589edd`. Relevant
 pinned reference sources are `engines/mm/xeen/scripts.cpp` (`cmdTeleport`,
 `cmdCallEvent`, `cmdReturn`, `cmdSpawn`, `cmdAlterEvent`, `cmdSetVar`,
 `copyProtectionCheck`), `map.cpp`/`map.h` (logical areas, MOB loading and
@@ -218,7 +205,7 @@ the conditional uses `Scripts::ifProc` action 20, so this is Clouds game flag
 it never manufactures flag 9 or grants that discovery. A true-flag fixture is
 an artificial predicate control, not a claimed production route.
 
-Protection policy: implement opcode 2f as an explicit successful protection
+Protection policy: opcode 2f supplies an explicit successful protection
 capability for this supported original profile, matching pinned ScummVM's
 default `copy_protection=false`; no new DRM/manual-code UI. Do not delete the
 instruction. Opcode 18 must still disable record 764 durably, by original
@@ -275,10 +262,10 @@ reset's cosmetic random frames consume **no Journey gameplay RNG**, following
 the existing separation of presentation randomness from gameplay. No frame seed
 is durable. This is an explicit cosmetic adaptation to the accepted RNG model.
 
-## Existing reuse and necessary extensions
+## Architecture and bounded extensions
 
-The implementation is not a new indoor engine. Baseline
-`XeenMovement::applyIndoor`, `XeenIndoorScene::sampleWalls/build`,
+The implementation reuses `XeenMovement::applyIndoor`,
+`XeenIndoorScene::sampleWalls/build`,
 `CloudsMapComposer`, `XeenObjectVisualResolver`, Xeen map/object/resource
 adapters and M23's ordered wall/object stream already provide indoor geometry,
 collision, perspective, wall predicates and object occlusion. Ordinary rendering
@@ -293,14 +280,10 @@ retain mutable gameplay state and must not acquire that responsibility.
 | Route data | Root 28 topology, eleven cells, original entrance/door/exit chains, full actor identity catalog and reset targets |
 | Unsupported | All other city player cells/services/Events, general monster populations/combat, indoor Shoot and Run, arbitrary teleports/worlds |
 
-Audit every `contract == 7`, actor-count 19, camera-map 23 and local-coordinate
-assumption. Do not broaden `>=` checks across legacy domains without explicit
-schema/content dispatch. Existing general Call/Return/Teleport interpretation
-does not authorize Journey publication: extend `XeenEventSystem`,
-`XeenEventPublication`, `XeenEventInterpreter` and the coordinator together.
-The baseline Journey guard intentionally forbids camera/flag changes and call
-stacks outside its admitted chains. Replace that restriction only with checked
-capabilities for the exact transitive instruction graphs above.
+Content capabilities use explicit schema/content dispatch without widening legacy
+domains. General Call/Return/Teleport interpretation does not itself authorize
+Journey publication: Event execution and its coordinator admit only the checked
+transitive instruction graphs above.
 
 ### Objects, actors and influence closure
 
@@ -329,21 +312,17 @@ cells/facings in this contract can activate the entrance Slime; other original
 actors remain outside activation influence. Distant Doom Bugs/Breeder Slimes
 must remain retained dormant state, not be silently removed or granted combat.
 
-Make this claim an executable admission/review gate: enumerate all eleven
-cells/facings, their sampled wall queries, original and reset actor positions,
-and the movement/activation closure under arbitrary supported turns, waits,
-route movement and revisits. Include off-route actor paths and all 46/52 slots.
-Party support boundaries do not constrain monster movement. Use the reference's
-edge-aware indoor `canMonsterMove` predicate (current-cell wall <= wallNoPass),
-not party collision, outdoor destination terrain, or a clamp to the eleven
-cells. Preserve record order, occupancy and the accepted two-pass approach
-scheduling. An unexpected influencing unsupported actor is a support stop,
-never an omitted actor; failure of this closure gate requires specification
-review before expanding the route or combat scope.
+Influence admission covers all eleven cells/facings, original/reset actor states,
+off-route actor paths and all 46/52 slots under supported turns, waits, movement
+and revisits. Party boundaries do not constrain monster movement. The reference's
+edge-aware indoor `canMonsterMove` uses current-cell wall <= wallNoPass, distinct
+from party collision. Record order, occupancy and two-pass approach scheduling
+remain intact. Unexpected influencing unsupported actors cause a support stop;
+they are never omitted or silently admitted.
 
-Indoor view activation and placement must share one checked classification.
-Port the pinned `setIndoorsMonsters` wall predicates/query order into the
-existing actor approach and indoor draw stream. In particular same-cell,
+Indoor view activation and placement share one checked classification, using
+the pinned `setIndoorsMonsters` wall predicates/query order in the existing
+actor approach and indoor draw stream. In particular same-cell,
 one-forward and two-forward central activation precedes their visual wall
 tests; three-forward central requires `!W27 && !W22 && !W15`. Do not activate
 only drawn pixels or reuse the outdoor slot table. Reuse M23 wall sample indexes
@@ -351,15 +330,28 @@ and the reference's remaining diagonal predicates exactly. Merge MON/ATT command
 at the original indoor draw-list orders (central same-cell 156/150/153,
 one-forward 132/130/131, two-forward 106/104/105, three-forward 70/68/69),
 with the reference's diagonal placements, perspective and bottom clipping.
-The independent review must compare the complete finite placement/predicate
-table with the pinned function, not just a screenshot of one facing.
+The complete finite placement/predicate table follows the pinned function.
 
-Support Slime animation effect 1 through a bounded platform-neutral draw option
-mapped by the sprite bridge to the reference's effect-1 palette sequence
-(`MONSTER_EFFECT_FLAGS`, row 0, eight phases). The other fourteen effects remain
-unsupported. Keep options range-checked and native clipping safe; no direct
-ScummVM flags leak into gameplay. MON/ATT/cosmetic phases and object animation
-must not advance gameplay RNG, time, actor movement or saves.
+Town composition samples the logical camera cell's original `0x08` ceiling
+flag: set selects terrain `town.sky`, clear selects open `sky.sky` or `night.sky`.
+Night is before minute 300 or from minute 1260; the pinned always-day exception
+for roots 89..112, 128 and 129 remains a rendering rule, not travel admission.
+Both sky layers use the selected resource; geometry tiles never replace root
+identity for this decision. Rendering does not widen supported time processing.
+
+The admitted Slime honors its checked original `animationEffect = 0` and native
+green palette for both MON and ATT. The 60-byte `xeen.mon` record contains
+**byte 48 `loopAnimation = 1`** and **byte 49 `animationEffect = 0`**, as decoded
+by pinned `MonsterStruct::synchronize`. `MonsterObjectData::synchronize` derives
+effects from `animationEffect`, not `loopAnimation`; species identity never
+forces recoloring.
+The existing bounded platform-neutral effect-1 option maps to
+`MONSTER_EFFECT_FLAGS`, row 0, eight phases, but may be selected only when a
+checked source record legitimately requests effect 1; this does not admit any
+additional monster profile. The other fourteen effects remain unsupported.
+Keep options range-checked and native clipping safe; no direct ScummVM flags
+leak into gameplay. MON/ATT/cosmetic phases and object animation must not advance
+gameplay RNG, time, actor movement or saves.
 
 ### Minimum Slime combat extension
 
@@ -385,7 +377,7 @@ physical attack roll is inserted. Use the existing bounded candidate/RNG
 continuation mechanism across the complete two-attack sequence, with no replay
 of already committed draws or effects at presentation boundaries.
 
-Add explicitly present poison resistance inputs for all 30 roster owners,
+Poison resistance inputs are explicitly present for all 30 roster owners,
 including inactive owners. Original CHR record offsets 317 and 318 are the
 permanent/temporary raw bytes. Under the inherited bounded equipment domain,
 the elemental poison contribution is zero; validate that domain and use the
@@ -396,9 +388,10 @@ Do not turn the new damage type into general elemental combat or new magic.
 
 ## Durable ownership and transition publication
 
-Extend `XeenSessionWorldState` inside the existing `XeenWorld` to retain regional
-actor collections keyed by logical `XeenMapIdentity`. Each collection owns its
-ordered mutable actors and per-identity accounted state; original/statistics
+`XeenSessionWorldState` inside the existing `XeenWorld` retains the mainland
+actor collection and an optional Vertigo collection, selected by logical
+`XeenMapIdentity`. Ordered mutable actors and root-qualified accounting remain
+session-owned; original/statistics
 descriptors remain immutable admission data. Mainland is always admitted;
 Vertigo is absent until first admission, then retained for the lifetime of this
 Journey. Disabled object/Event overlays remain globally keyed by
@@ -468,6 +461,15 @@ input, capture, restore, Event completion or transition attempts cannot borrow
 the outer operation's authority. Do not refresh a guard from arbitrary callback
 state and thereby bless a mutation. Mutation-and-reversion is rejected by
 epochs/retained authority in addition to value equality.
+
+Mutation observation covers live and detached owners, scalar/container writes,
+Map/MOB storage and nested entity/instruction/parameter storage. Before a newly
+inserted or reconstructed cache value can escape by mutable reference, its full
+storage ranges join every existing observer of that world. Capacity is prepared
+before insertion; enrollment does not renew observers or discard prior mutation
+history. Immediate ABA writes are therefore rejected even before a later guard
+check. Eviction retires addresses without clearing observed writes; only checked,
+callback-free owned publication may renew its own authority, never stale peers.
 
 Before the main commit, a plain I/O/allocation/presentation-preparation failure
 leaves camera, visited membership, all actors, overlays, party, RNG and time
@@ -603,9 +605,8 @@ numeric coordinates with the active camera: that is not same-region contact.
 Retain their exact values without activation or normalization. Quiet snapshots
 are valid on the mainland before entry, inside before exit, on the mainland
 after the reset commits, and inside after revisit. Wounded/defeated city actors
-remain durable until an actual reset Event; if a chosen active encounter cannot
-become Quiet, use deterministic quiet-state fixtures for wounded coverage and
-the genuine post-defeat route for process evidence.
+remain durable until an actual reset Event. Capture never forces an active
+encounter into Quiet.
 
 Do not serialize leases, callbacks, frame tokens, revisions, call stacks,
 modal selections, partially prepared reset deltas, cosmetics or resource caches.
@@ -672,211 +673,43 @@ different operation or release its lease. Apply the same rules after restore.
 | Failure after main transition commit | Keep committed result; no script/reset replay or rollback; no save until mandatory work and presentation recover |
 | Unsupported mandatory actor/time consequence | Existing truthful support stop, not Quiet and not victory |
 
-## Implementation responsibilities and review gates
-
-Keep changes bounded to these existing responsibilities; helpers may be added
-beside them, but no second world/session/Journey owner is justified:
-
-1. `src/games/xeen/XeenWorld.*`, `XeenJourneyContent.h`, `XeenRegionalRules.*`,
-   `XeenActorApproach.*`: regional durable collections, immutable descriptor,
-   tile/actor influence closure and active-region scheduling. Preserve legacy
-   access semantics through explicit contract dispatch.
-2. `XeenMovement.*`, map/resource adapters, `XeenIndoorScene.*`,
-   `CloudsMapComposer.*`, object resolver, `XeenSpriteDrawOptions.h` and
-   `ScummVmXeenBridge.*`: logical sampling, actor/animated-object stream and
-   bounded Slime palette option, all through checked resources.
-3. `XeenEventDecoder.*`, `XeenEventInterpreter.*`, `XeenEventSystem.*`,
-   `XeenEventPublication.*`, `XeenEventFlow.*`, `XeenJourneyFlow.*`,
-   `XeenGameplay.*` and Application: complete graph admission, new primitives,
-   candidate/prelude/transition publication and concrete native-frame handoff.
-4. Character/statistics/equipment adapters and `XeenCombatRules.*`: explicit
-   poison inputs and exact Slime attack sequence using existing candidate,
-   RNG, encounter and accounting owners.
-5. `XeenSaveSnapshot`, `XeenSaveState.*`, `XeenSaveFormat.*`,
-   `XeenRestoreGuard.h`, `XeenJourneyCapture.h`, state equality and associated
-   guards: exact 8/8 wire, both regions, fresh restore and legacy isolation.
-
-Before combining implementation, independently review (a) resource/script and
-flag provenance including 46-to-52 slot semantics, (b) influence closure and
-indoor predicates, (c) multi-owner publication/ABA/exception boundaries and
-(d) wire/legacy admission. These are technical gates, not permission to change
-the plan's scope. A concrete contradiction that invalidates closure or demands
-another monster behavior must be reported with its triggering original data;
-do not quietly hide the actor, truncate a script or implement the full city.
-
-## Acceptance specification
-
-The following are four separate evidence classes. None has been completed for
-M37 by this planning task.
-
-### 1. Automated deterministic validation
-
-Extend the existing indoor, navigation, Journey Event/persistence, regional
-consequence and concrete-frame suites. Relevant baseline entry points are
-`IndoorMapIntegrationTest`, `IndoorObjectIntegrationTest`, `XeenIndoorSceneTests`,
-`XeenIndoorComposerTests`, `NavigationFlowIntegrationTest`,
-`XeenJourneyEventTests`, `XeenJourneyPersistenceTests`,
-`XeenRegionalPersistenceTests`, the regional CLI witnesses and M36
-`XeenM36CliWitness`/process controls. Required independent assertions include:
-
-- Both directions; first visit versus revisit; No at entrance and exit; flag
-  231 prelude branches; flag 9 false and true; disabled protection opcode;
-  full 43-slot reset, unused fourth operand, untouched 41..45, safe gaps and
-  script-created 50/51. No repeated publication from duplicate responses.
-- Every route cell/facing, logical seam in both directions, collision and
-  support boundary, door text dispatch, full wall/object/actor command ordering,
-  animated object 53, Slime MON/ATT/palette phases, clipping and occlusion.
-- All original and reset actor influence closure, original 35 versus reset 36,
-  retained off-route state, inactive mainland freeze with advancing party time,
-  exact Slime draws/damage including sleeping/disabled/dead targets, zero-damage
-  saves, XP once per life, legitimate later reset and no item/purse reward.
-- Sentinel values in every mutable owner, including inactive roster books,
-  poison bytes, inventory and equipment, wounds, flag 16, pending treasure,
-  unrelated game flags and inactive-region activation/accounting. Compare full
-  preimages, not just camera/actor count. Include ABA mutation-and-reversion.
-- F9/capture attempts in every lifecycle phase and provider/presentation
-  callback; copied, delayed, held/batched, stale and reentrant frames/responses;
-  destination cannot be commanded by source frame. Resource mismatch and plain
-  failures at each preparation point; presentation failure after commitment
-  cannot replay reset or reopen Quiet prematurely.
-- All three 8/8 wire lengths; exact bytes/round trips for unvisited, visited46,
-  visited52 with active mainland/city; malformed identities/counts/booleans,
-  holes, HP/lifecycle/accounting, invalid camera/tile aliases, missing city,
-  illegal overlays, truncated/appended data, mixed version pairs. Reject forged
-  dormant activation and incorrect physical/logical Event identity.
-- Exact ordinary/Diagnostic27/Journey 1..7 representations and behavior;
-  absent poison/books retain absence. Fresh restore under all injected provider
-  faults leaves existing owners unchanged; new capabilities are required.
-
-Synthetic cameras, actor wounds, true flag 9, failed providers and tailored RNG
-are valid controls and must be labeled artificial. They do not prove the
-production route is reachable. Do not use final-candidate output as its own
-oracle: assert original instruction/target tables and independent expected
-owner deltas/draw traces.
-
-### 2. Genuine original-resource and distinct-process evidence
-
-Use the committed `src/main.cpp` positional syntax, verified during planning:
-
-```powershell
-$env:PATH = 'C:\msys64\ucrt64\bin;' + $env:PATH
-$game = 'F:\Games\gog\Might and Magic 4-5'
-$save = Join-Path $env:TEMP 'mmodern-m37.sav'
-& .\build\mmodern.exe --journey-region --combat-seed 56 $game --save-file $save
-# F9 at the selected quiet checkpoint, then fully exit the process.
-& .\build\mmodern.exe --load-game $game $save
-```
-
-The game directory precedes the save path for `--load-game`; the seed precedes
-the game directory for `--journey-region`, and `--save-file` is last. Seed 56
-is a reproducibility control, not a guarantee of success independent of input
-and pulse timing. The implementation witness must record the successful exact
-input/settlement trace for this route and compare an uninterrupted branch with
-each resumed branch under that same trace. No production shortcut or direct
-camera assignment is permitted.
-
-Start at the inherited prepared mainland `(23,9,11,West)`. Turn to East,
-advance to `(10,11)`, turn North and advance to `(10,12)`, resolving any
-ordinary mainland actor work/combat with accepted controls before proceeding.
-Checkpoint A is Quiet `(23,10,12,North)` with retained mainland consequences.
-Advance to `(10,13)`, Space, Yes, arrive `(28,15,0,North)`. Checkpoint B is
-Quiet inside the route after settling the entrance Slime and reaching
-`(16,2)`; preserve its defeat/accounting and mainland state. Continue via
-`(16,4)` to `(13,4,West)`, observe the original door label, then return along
-the route to `(15,0,South)`. Space/No demonstrates the prelude; Space/Yes
-executes the complete exit and reaches `(23,10,12,South)`. Checkpoint C is
-Quiet after any mandatory arrival settlement. Re-enter, observe/resolve the
-reset entrance slot 36, and take checkpoint D at `(16,2)` again. Continue
-traversal and return after restoring D.
-
-For each A/B/C/D: genuine F9, full process exit, a distinct fresh `--load-game`
-process, checked restored state before first command, then continued movement,
-Events and return/revisit. Preserve separate save/oracle files outside the
-repository and original installation. Compare exact durable state and encoded
-bytes at equivalent quiet checkpoints, including time, RNG state/draw count,
-roster, books, treasure, both actor collections, flags and overlays. Cosmetic
-clock/frame phase is deliberately excluded. In particular B restore must not
-reset; C restore/re-entry must not rerun the committed exit; a new later exit
-must reset when flag 9 remains clear.
-
-Reuse `XeenJourneyProcessTests` and M35/M36 process/oracle patterns: child
-executables exercising the real CLI/Application, actual F9 event delivery,
-explicit process-exit boundaries, emitted full-state/draw oracles and distinct
-PIDs. Add M37-specific witnesses/CTest registration within that pattern; do
-not invent a production `--vertigo` or test-camera command. Automated SDL event
-injection/dummy driver is process evidence only. The registered M37 process
-tests must run as part of the complete CTest command below; their exact target
-names are implementation details, not existing commands claimed by this plan.
-
-Read-only resource inspection can be reproduced now with:
-
-```powershell
-& .\build\mmodern.exe --inspect-events $game 23 10 13 all
-& .\build\mmodern.exe --inspect-events $game 28 15 0 south
-& .\build\mmodern.exe --inspect-events $game 28 75 76 all
-& .\build\mmodern.exe --inspect-events $game 28 100 100 all
-& .\build\mmodern.exe --inspect-events $game 28 13 4 west
-& .\build\mmodern.exe --inspect-events $game 28 9 22 all
-```
-
-During planning, the existing entry/exit/door inspections and existing
-`mmodern_indoor_map_smoke` and `mmodern_navigation_flow_smoke` executables were
-used successfully as investigation evidence. They establish existing indoor
-reuse, not M37 acceptance. No full build/CTest is required to validate this prose.
-
-### 3. Independent technical review
-
-Require an independent reviewer to inspect original route/provenance, full
-scripts, slot defaults/gaps, flag predicates, all-facing influence closure,
-map identity separation, Slime rules, owner/preimage completeness, commit and
-failure boundaries, exact wire/legacy behavior, and genuine process traces.
-Review the actual final implementation and tests against this contract, not
-only plan prose or a successful route video. Resolve all blocking/major/minor
-correctness findings before milestone closure; document any bounded adaptation
-at its natural contract location. Specification review of this plan is a
-separate gate and grants no implementation authorization.
-
-### 4. Maintainer physical native-SDL acceptance
-
-The maintainer personally executes the A-D route with ordinary keyboard input
-in a visible native SDL window and real original resources. Observe correct
-entry/facing; coherent street, seam, objects, occlusion and Slime behavior;
-readable original door/exit text; honest cell/service/Shoot/Run refusals;
-inherited inventory, item and learned-cast behavior indoors; denied F9 during
-modal/transition/arrival work; held/batched keys not leaking through handoff;
-and return to the correct mainland facing with retained consequences.
-
-Perform real F9, close the process completely, launch the exact load command
-and continue from both sides and after revisit. Confirm no restoration reward,
-healing, clock jump or implicit monster reset. Observe that a confirmed exit
-with flag 9 clear legitimately places a new entrance Slime for the next visit.
-Same-process reload, artificially positioned cameras, dummy-SDL input,
-automated screenshots and reviewer inspection do not count as this acceptance.
-
-At the later implementation-candidate closure, require a full build, complete
-unfiltered CTest and whitespace check, in addition to all four evidence classes:
-
-```powershell
-cmake --build build --parallel 4
-ctest --test-dir build --output-on-failure
-git diff --check
-```
-
-## Exclusions and closure criteria
+## Exclusions and final acceptance
 
 Exclude full Vertigo/city simulation, M38 blacksmith/economy, guild/spell
 acquisition, temple, training and other services, broad NPC interaction,
 unrestricted indoor combat, unrelated magic, Darkside, general Clouds startup
-and arbitrary cross-world travel. Loading geometry or showing a service label
-does not authorize that service. The unavoidable Slime, animated visible object,
-logical seam and complete exit procedure are the smallest justified additions
-to the original entry/traversal/return objective; they do not replan M38.
+and arbitrary cross-world travel. Loading geometry or showing the Ironworks
+outside-door label does not admit its service or travel beyond the eleven cells.
+Indoor Shoot and Run remain refused. The Slime, visible animated object, logical
+seam and complete exit procedure are bounded additions to entry/traversal/return.
 
-Close M37 only when the real route and return/revisit are independently useful,
-every required script/actor influence is supported, retained states and explicit
-resets are distinguishable in code/tests/save behavior, fresh-process play
-matches uninterrupted play, legacy domains remain exact, independent review is
-accepted and the maintainer's physical route passes. Planning establishes no
-such result. No remaining maintainer policy decision is required: the scripted
-reset policy has been resolved; the source-derived slot and protection policies
-above are explicit reviewable parts of this contract.
+M37 passed four separate acceptance classes; none substitutes for another:
+
+- **Automated deterministic validation:** focused correction tests, full build
+  and complete unfiltered CTest passed (102/102), with `git diff --check` clean.
+  Coverage includes script branches/reset slots, actor influence, indoor
+  composition, Slime damage/RNG, owner and immediate-ABA guards, publication
+  failures, exact 8/8 wire/admission and legacy isolation.
+- **Original-resource and distinct-process evidence:** the real CLI/Application
+  route used genuine F9 and separate fresh-load processes at A/B/C/D, checking
+  restored state before input and exact durable continuation against uninterrupted
+  play. A is mainland `(23,10,12,North)` before entry; B is `(28,16,2)` after the
+  original entrance Slime; C is mainland after the confirmed reset exit; D is
+  `(28,16,2)` after re-entry and the reset entrance Slime. B does not reset on
+  restore, C does not replay exit/reset, and D continues the second traversal
+  and final exit. Artificial flag-9-true, wounded-state and failure controls
+  establish their predicates only, not production reachability.
+- **Independent technical review:** accepted the implementation and focused
+  corrections, including immediate Map/MOB insertion/reconstruction ABA coverage
+  through nested storage without stale-authority renewal. No material technical
+  finding remains.
+- **Maintainer physical native-SDL acceptance:** passed the production mainland
+  entry, open-sky/day-night town presentation, native-green Slime and real combat,
+  logical seam, automatic Ironworks outside-door label, exit No/Yes, legitimate
+  reset/reappearance on later entry, fresh-process A/B/C/D continuation without
+  reset replay, second traversal and final exit. Ordinary visible-window physical
+  acceptance is separate from automated injection, process or image evidence.
+
+The accepted boundary preserves both regions' consequences, distinguishes explicit
+original reset from restore/revisit, and retains exact legacy domains. Future
+service scope and authorization belong in the [roadmap](roadmap.md#near-term).

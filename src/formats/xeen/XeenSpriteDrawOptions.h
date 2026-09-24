@@ -10,6 +10,8 @@ struct XeenSpriteDrawOptions {
 	bool sceneClipped = false;
 	bool bottomClipped = false;
 	bool enlarge = false;
+	// -1 disables effects; 0..7 selects Slime effect-1 palette phase.
+	int slimePalettePhase = -1;
 };
 
 } // namespace mmodern

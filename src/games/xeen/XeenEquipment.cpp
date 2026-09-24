@@ -124,10 +124,10 @@ XeenEquipmentResult xeenSetEquipment(XeenPartyState &party, std::size_t activeIn
 	auto candidate = character;
 	(*xeenInventoryItems(candidate, category))[physicalSlot].frame = candidateFrame;
 	try {
-		XeenCharacterRules::validateForUse(character, {party.encounterContext ? party.encounterContext->year : kCloudsInitialYear});
-		XeenCharacterRules::validateForUse(candidate, {party.encounterContext ? party.encounterContext->year : kCloudsInitialYear});
+		XeenCharacterRules::validateForUse(character, {party.encounterContext ? std::uint32_t(party.encounterContext->year) : kCloudsInitialYear});
+		XeenCharacterRules::validateForUse(candidate, {party.encounterContext ? std::uint32_t(party.encounterContext->year) : kCloudsInitialYear});
 	} catch (const std::invalid_argument &) { return refuse(Status::UnsafeRules); }
-	result.modeled = XeenEquipmentChange{modeledValues(character,party.encounterContext ? party.encounterContext->year : kCloudsInitialYear), modeledValues(candidate,party.encounterContext ? party.encounterContext->year : kCloudsInitialYear)};
+	result.modeled = XeenEquipmentChange{modeledValues(character,party.encounterContext ? std::uint32_t(party.encounterContext->year) : kCloudsInitialYear), modeledValues(candidate,party.encounterContext ? std::uint32_t(party.encounterContext->year) : kCloudsInitialYear)};
 	result.afterItem = (*xeenInventoryItems(candidate, category))[physicalSlot];
 	result.status = candidateFrame == selected.frame ? Status::NoChange : Status::Success;
 	if (result.status == Status::NoChange) return result;

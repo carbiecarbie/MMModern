@@ -15,8 +15,11 @@ struct BusyCast {
 	explicit BusyCast(bool &value) : flag(value) { flag=true; }
 	~BusyCast() { flag=false; }
 };
-bool unsupportedCharge(const XeenGameplayContext &context) {
-	const auto t=xeenPrepareTime(context,10);
+unsigned explorationCharge(const XeenCamera &camera) {
+	return camera.mapId == XeenMapIdentity(28) ? 1 : 10;
+}
+bool unsupportedCharge(const XeenGameplayContext &context, const XeenCamera &camera) {
+	const auto t=xeenPrepareTime(context,explorationCharge(camera));
 	return t.dusks || t.dawns || t.midnights || t.yearRollovers || t.dailyProcessing;
 }
 XeenConsequenceCharacters activeCharacters(const XeenPartyState &party) {
@@ -32,13 +35,13 @@ XeenConsequenceInputs activeInputs(const XeenPartyState &party) {
 }
 
 bool XeenEncounterFlow::beginCasting(const Ticket &entry) {
-	if (!current(entry) || !journeyMutable() || _world.sessionState().journeyContract()!=7 ||
+	if (!current(entry) || !journeyMutable() || _world.sessionState().journeyContract()!=7 && _world.sessionState().journeyContract()!=8 ||
 			_casting || !_boundary.quiet() || _castingGeneration==std::numeric_limits<std::uint64_t>::max() ||
 			!journeyCapacity()) return false;
 	BusyCast busy(_busy);
 	try {
 		_journeyPreimage->check();
-		xeenValidateJourneyParty(_party,7);
+		xeenValidateJourneyParty(_party,_world.sessionState().journeyContract());
 		auto next=std::make_unique<CastingContinuation>();
 		next->generation=++_castingGeneration;
 		next->lease=_boundary.hold(XeenCombatBoundary::Work::Casting);
@@ -90,9 +93,9 @@ bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIn
 	BusyCast busy(_busy);
 	try {
 		_journeyPreimage->check();
-		xeenValidateJourneyParty(_party,7);
+		xeenValidateJourneyParty(_party,_world.sessionState().journeyContract());
 		if (!XeenLearnedSpellRules::eligible(_party,casterIndex,slot) ||
-			unsupportedCharge(*_party.encounterContext)) return false;
+			unsupportedCharge(*_party.encounterContext,_camera)) return false;
 		const auto owner=_party.party.activeRosterIds()[casterIndex];
 		const auto &caster=_party.roster.at(owner);
 		const auto category=XeenLearnedSpellRules::categoryForClass(caster.characterClass);
@@ -198,7 +201,7 @@ bool XeenEncounterFlow::serviceCasting() {
 	try {
 		_journeyPreimage->check();
 		auto &work=*_casting;
-		if (!work.time) work.time.emplace(*_party.encounterContext,10,activeCharacters(_party),activeInputs(_party));
+		if (!work.time) work.time.emplace(*_party.encounterContext,explorationCharge(_camera),activeCharacters(_party),activeInputs(_party));
 		XeenConsequenceDraw draw{work.random,64,[&] { _journeyPreimage->check(); }};
 		if (!work.time->service(draw)) return true;
 		if (_world._sessionState._encounterRevision==std::numeric_limits<std::uint64_t>::max())

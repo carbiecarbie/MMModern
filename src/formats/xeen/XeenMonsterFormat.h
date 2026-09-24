@@ -5,12 +5,13 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include "games/xeen/XeenMutation.h"
 
 namespace mmodern {
 
 // Opaque combat fields remain bytes, never unchecked enum/table indexes.
 struct XeenMonsterRecord {
-	std::array<std::uint8_t, 60> raw{};
+	XeenMutableArray<std::uint8_t, 60> raw{};
 	std::string name() const;
 	std::uint32_t experience() const;
 	std::uint16_t baseHp() const;
@@ -22,6 +23,8 @@ struct XeenMonsterRecord {
 	bool supportsGroundMovement() const;
 	bool supportsRendering() const;
 	void validateCombat() const;
+	void validateSlime() const;
+	std::uint32_t fingerprint() const;
 	unsigned armorClass() const { return raw[22]; }
 	unsigned speed() const { return raw[23]; }
 	unsigned attacks() const { return raw[24]; }

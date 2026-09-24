@@ -19,11 +19,15 @@ bool XeenGameFlags::isSet(int index) const {
 }
 
 void XeenGameFlags::set(int index) {
-	_flags[checkedIndex(index)] = true;
+	const auto slot = checkedIndex(index);
+	XeenMutationWatch::write(this);
+	_flags[slot] = true;
 }
 
 void XeenGameFlags::clear(int index) {
-	_flags[checkedIndex(index)] = false;
+	const auto slot = checkedIndex(index);
+	XeenMutationWatch::write(this);
+	_flags[slot] = false;
 }
 
 } // namespace mmodern

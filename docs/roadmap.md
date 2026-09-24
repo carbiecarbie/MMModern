@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**Milestone 36 is the latest completed milestone.**
+**Milestone 37 is the latest completed milestone.**
 [Project status](project-status.md) owns implemented capabilities and acceptance
 boundaries; [project history](project-history.md) owns completed chronology.
 Reference provenance belongs to [dependencies](dependencies.md).
@@ -27,7 +27,9 @@ non-victory fixed relocation and exact survivor/treasure continuation in 5/5
 ([M34](milestone-34-plan.md)). M35 connected the Myra/Phirna quest, selected
 well recovery and bounded antidote use with exact 6/6 continuation
 ([M35](milestone-35-plan.md)). M36 added learned First Aid and Awaken with exact
-7/7 continuation on the same mainland ([M36](milestone-36-plan.md)).
+7/7 continuation on the same mainland ([M36](milestone-36-plan.md)). M37
+completed original Vertigo entry, bounded traversal, return/revisit and retained
+two-region 8/8 continuation ([M37](milestone-37-plan.md)).
 These contracts do not certify unrestricted map-23
 or Clouds travel or normal original startup.
 
@@ -36,27 +38,18 @@ After the maintainer-reviewed post-M35 reassessment, the accepted direction is
 to pause quest-driven vertical slices and develop reusable Clouds systems with
 Vertigo progressively serving as their production hub. A bounded learned
 exploration-casting step was completed first using original learned spells on
-the admitted mainland. Vertigo admission next
-establishes the city/world boundary before a town service depends on it.
+the admitted mainland. Completed Vertigo admission establishes the city/world
+boundary for the next bounded town service.
 
 ## Near term
 
-The accepted short arc was M36-M38. M36 is completed; M37 is the next planning
-unit, followed provisionally by M38. These are roadmap-level purposes and
-acceptance directions, not technical specifications or implementation
-authorization. Each successor still requires its own scope
-review, specification and implementation authorization. Change this
-decomposition only when concrete implementation evidence shows a materially
-better acceptance boundary.
-
-### M37 - Vertigo entry, initial traversal and return
-
-Establish a production-supported mainland-to-Vertigo transition, a coherent
-initial indoor/logical-area route and reliable return, revisit and restart.
-This introduces reusable cross-region admission and the necessary indoor
-navigation, composition, actor and event ownership while preserving party and
-world consequences, time, RNG and persistent state across the boundary. It
-does not certify all of Vertigo or its services.
+The accepted short arc is M36-M38. M36 and M37 are completed; **M38 - Vertigo
+blacksmith and economy** is the immediate provisional successor. Its purpose
+below is a roadmap direction, not a technical specification or implementation
+authorization. M38 still requires scope review, specification and explicit
+implementation authorization; M37 completion does not authorize that work.
+Change this decomposition only when concrete implementation evidence shows a
+materially better acceptance boundary.
 
 ### M38 - Vertigo blacksmith and economy
 
@@ -110,8 +103,8 @@ Mutable Journey uses M29's admitted domain, M30's content descriptor/group/
 current-state extensions, M31's exclusive event/publication integration, M32's
 resource-derived regional/complete-actor/context foundation, M33's shared physical
 consequences and party-owned monster treasure, M34's participation/non-victory
-lifecycle and dormant-item semantics, M36's learned casting and 7/7
-continuation, and M28's
+lifecycle and dormant-item semantics, M36's learned casting, M37's retained
+two-region transitions and 8/8 continuation, and M28's
 owner/preimage and presentation safeguards.
 Commercial resources remain external and unmodified.
 

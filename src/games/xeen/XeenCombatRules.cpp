@@ -55,7 +55,9 @@ bool XeenRunCandidate::service(XeenConsequenceDraw &draw) {
 XeenEnemyAttackCandidate::XeenEnemyAttackCandidate(const XeenConsequenceCharacters &c,
 		const XeenConsequenceInputs &i, const XeenMonsterRecord &m, unsigned y, unsigned mask, const std::array<bool,6> &b) :
 		characters(c), inputs(i), monster(m), year(y), blocked(b), allParty(m.preferredClass()==16) {
-	ruleRequire(m.strikes() && m.damageDie() && m.hitParameter() && m.raw[29]==0 &&
+	poison=m.raw[29]==5;
+	if(poison) m.validateSlime();
+	else ruleRequire(m.strikes() && m.damageDie() && m.hitParameter() && m.raw[29]==0 &&
 		(m.raw[30]==0 || m.raw[30]==5 || m.raw[30]==7 || m.raw[30]==9),"Unsupported physical attack profile");
 	ruleRequire(mask<=0x3f,"Invalid combat participation mask");
 	for (unsigned owner=0;owner<6;++owner) if (mask&(1u<<owner)) participants[participantCount++]=owner;
@@ -83,7 +85,10 @@ bool XeenEnemyAttackCandidate::service(XeenConsequenceDraw &draw) {
 		case Step::Begin:
             result.targetedMembers|=std::uint8_t(1u<<target);
 			result.targetOwner=characters[target].rosterId;
-			if (characters[target].conditions[8]) { characters[target].conditions[8]=0; afterInjury=Step::Next; step=Step::Dice; }
+			if (poison) {
+				characters[target].conditions[8]=0;
+				afterInjury=Step::Next;step=Step::Dice;
+			} else if (characters[target].conditions[8]) { characters[target].conditions[8]=0; afterInjury=Step::Next; step=Step::Dice; }
 			else step=Step::Roll;
 			break;
 		case Step::Roll: {
@@ -108,7 +113,20 @@ bool XeenEnemyAttackCandidate::service(XeenConsequenceDraw &draw) {
             if(!dice) beforeDamageAc=Rules::combatArmorClass(characters[target],inputs[target],{year});
 			const auto n=draw.draw(1,monster.damageDie()); if (!n) break;
 			damage=physicalChecked(std::int64_t(damage)+*n);
-			if (++dice==monster.strikes()) step=damage && monster.raw[30] ? Step::Special : Step::Injury;
+			if (++dice==monster.strikes()) step=poison ? Step::PoisonSaveInitial :
+				(damage && monster.raw[30] ? Step::Special : Step::Injury);
+			break;
+		}
+		case Step::PoisonSaveInitial:
+		case Step::PoisonSaveRepeat: {
+			const bool first=step==Step::PoisonSaveInitial;
+			const auto v=Rules::poisonSaveValue(characters[target],inputs[target]);
+			ruleRequire(v<=std::numeric_limits<int>::max()-40,"Poison saving interval overflow");
+			const auto n=draw.draw(1,unsigned(v+40));if(!n)break;
+			if(*n<=unsigned(v))damage/=2;
+			else if(!first) {step=Step::Injury;break;}
+			// The admitted party-wide poison shield/resistance inputs are zero.
+			step=damage>0 ? Step::PoisonSaveRepeat : Step::Injury;
 			break;
 		}
 		case Step::Special: {

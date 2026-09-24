@@ -35,7 +35,7 @@ std::optional<XeenCellSample> sample(XeenWorld &world,
 }
 
 const XeenOutdoorLayers &layers(const XeenMapCell &cell) {
-	const auto *result = std::get_if<XeenOutdoorLayers>(&cell.geometry);
+	const auto *result = xeenGetIf<XeenOutdoorLayers>(&cell.geometry);
 	if (!result)
 		throw std::runtime_error("celula interior encontrada em mapa exterior");
 	return *result;

@@ -171,7 +171,7 @@ void controls(const fs::path &path) {
   h.flow->beforeEncounterFrameCopy=[&]{if(!injected&&h.world->sessionState().journeyRandom()->count>rng){injected=true;check(!h.flow->canSave(),"capture closed after publication before handoff");throw std::runtime_error("postpublication frame fault");}};
   for(unsigned n=0;!injected&&n<100;++n){if(c->phase()==Phase::PlayerReady)press(h,handler,InteractionAction{});else tick(h,handler,idle);}
   check(injected&&h.flow->encounter()->combat()->phase()!=Phase::Failed,"one guarded rebuild retains result");
-  const auto after=*h.world->sessionState().journeyRandom();auto actors=h.world->sessionState().actors();handler.withDisplayedInput(InteractionAction{},old);
+  const auto after=*h.world->sessionState().journeyRandom();std::vector<XeenActor> actors=h.world->sessionState().actors();handler.withDisplayedInput(InteractionAction{},old);
   check(*h.world->sessionState().journeyRandom()==after&&xeen_state::sameActor(actors[9],h.world->sessionState().actors()[9]),"stale frame cannot replay published attack");return true;};
  check(Application().playGameplay(s,{},path,true)==0,"production postpublication rebuild");}
  // A second composition failure closes capture while retaining the published RNG/result.

@@ -8,7 +8,7 @@ namespace mmodern {
 
 struct XeenMonsterIdentity {
 	XeenMapIdentity mapId;
-	std::size_t recordIndex = 0;
+	XeenMutable<std::size_t> recordIndex = 0;
 	friend bool operator==(XeenMonsterIdentity a, XeenMonsterIdentity b) {
 		return a.mapId == b.mapId && a.recordIndex == b.recordIndex;
 	}
@@ -20,7 +20,7 @@ struct XeenMonsterIdentity {
 // Original zero-based record order, never an active/visible index or resource ID.
 struct XeenObjectIdentity {
 	XeenMapIdentity mapId;
-	std::size_t recordIndex = 0;
+	XeenMutable<std::size_t> recordIndex = 0;
 	friend bool operator==(XeenObjectIdentity a, XeenObjectIdentity b) {
 		return a.mapId == b.mapId && a.recordIndex == b.recordIndex;
 	}
@@ -31,7 +31,7 @@ struct XeenObjectIdentity {
 
 struct XeenEventIdentity {
 	XeenMapIdentity mapId;
-	std::size_t recordIndex = 0;
+	XeenMutable<std::size_t> recordIndex = 0;
 	friend bool operator==(XeenEventIdentity a, XeenEventIdentity b) {
 		return a.mapId == b.mapId && a.recordIndex == b.recordIndex;
 	}

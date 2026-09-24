@@ -14,7 +14,7 @@ void refusedPendingShoot(Source &s) {
   if(mode==2)fixture.journey->context->minutes=1240;
   Domain d(s,fixture);check(d.flow->handle(NavigationAction::MoveForward),"Arm pending approach through typed movement");repaint(d);
   check(d.flow->state().pending()==2,"Refusal test must retain old work, not Quiet");
-  const auto old=d.flow->ticket();const auto actors=d.world.sessionState().actors();const auto random=d.world.sessionState().journeyRandom();const auto context=d.party.encounterContext;
+  const auto old=d.flow->ticket();const std::vector<XeenActor> actors=d.world.sessionState().actors();const auto random=d.world.sessionState().journeyRandom();const auto context=d.party.encounterContext;
   XeenRestoreGuard retained(d.world,d.party,d.camera,d.flags);
   check(d.flow->handle(ShootAction{}),"Refused Shoot reports feedback");
   check(!d.flow->appearance().projectile && retained.current() && d.flow->state().pending()==2 && d.flow->ticket().generation==old.generation,"Refused Shoot consumed pending work or authority");
@@ -77,7 +77,7 @@ void poisonInitiative(Source &s) {
  Domain d(s,zero);auto &c=attachSnake(d);
  const std::vector<XeenCombatRandom::Draw> misses(6,{1,20,1});attack(c,misses);
  c.service(c.ticket()); // Finish transferred attachment movement first.
- const auto context=d.party.encounterContext;const auto actors=d.world.sessionState().actors();
+ const auto context=d.party.encounterContext;const std::vector<XeenActor> actors=d.world.sessionState().actors();
  for(unsigned cycle=0;cycle<3;++cycle){const auto random=d.world.sessionState().journeyRandom();const auto revision=c.result().revision;
   check(c.service(c.ticket()).status==XeenCombatStatus::Pending && c.pending()==XeenCombatWork::Enemy,"Zero-Speed inner reset yields to automatic enemy service");
   check(random==d.world.sessionState().journeyRandom() && context==d.party.encounterContext && revision==c.result().revision,"Inner reset has no draw, charge or publication");
@@ -149,7 +149,7 @@ void playerRayControls(Source &s) {
   if(v.blocked==3){saved.journey->actors[17].x=0;saved.journey->actors[18].x=0;}
   // Persistent activation permits this representation fixture's quiet view.
   for(auto &a:saved.journey->actors)a.activated=true;
-  Domain d(s,saved);const auto actors=d.world.sessionState().actors();
+  Domain d(s,saved);const std::vector<XeenActor> actors=d.world.sessionState().actors();
   std::vector<unsigned> visualRows;
   tape.clear();cursor=0;taped=true;d.flow->handle(ShootAction{});d.present();
   for(unsigned n=0;n<20 && d.party.encounterContext->minutes==480;++n){d.now+=100;d.flow->idle();repaint(d);if(const auto p=d.flow->appearance().projectile){check(!p->enemy&&!p->source&&p->lane==2,"Blocked/edge shooter identity without target");visualRows.push_back(p->row);}}taped=false;
@@ -170,7 +170,7 @@ void playerRayControls(Source &s) {
    check(xeenOutdoorRangedRay(map,camera,actor)==(f==1),"Middle15 player admission differs from enemy non-east rays; east retains raw mask rule");}
  }
  for(unsigned f=0;f<4;++f)for(unsigned distance=0;distance<3;++distance){XeenCamera camera{23,f==1?15-int(distance):f==3?int(distance):8,f==0?15-int(distance):f==2?int(distance):8,static_cast<XeenDirection>(f)};
-  for(auto &cell:map.geometry.cells)std::get<XeenOutdoorLayers>(cell.geometry).middle=0;
+  for(auto &cell:map.geometry.cells)xeenGet<XeenOutdoorLayers>(cell.geometry).middle=0;
   check(xeenPlayerRayRows(map,camera)==distance+1,"Edge terminates before wrap or fourth forward step");}
  std::cout<<"REVIEW production blocked rows1/2/3 and map edge; ARTIFICIAL pure ray192 middle/direction/row and12 edge controls PASS\n";
 }

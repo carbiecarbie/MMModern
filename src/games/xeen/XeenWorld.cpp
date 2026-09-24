@@ -1,4 +1,5 @@
 #include "games/xeen/XeenWorld.h"
+#include "games/xeen/XeenActorApproach.h"
 #include "games/xeen/XeenEventPublication.h"
 #include "games/xeen/XeenStateEquality.h"
 #include "games/xeen/XeenGameFlags.h"
@@ -16,6 +17,20 @@ XeenWorld::GameplayBorrow::GameplayBorrow(XeenWorld &w, XeenPartyState &p,
 	for (const auto &state : owners) { ++state->references; ++state->revision; }
 }
 namespace {
+template<class Visit> void resourceEntityRanges(const XeenMapEntities &entities,const Visit &visit) {
+	visit(entities.objects.data(),entities.objects.size()*sizeof(XeenMapEntity));
+	visit(entities.monsters.data(),entities.monsters.size()*sizeof(XeenMapEntity));
+	visit(entities.wallItems.data(),entities.wallItems.size()*sizeof(XeenMapEntity));
+}
+template<class Visit> void resourceRanges(const XeenMap &map,const Visit &visit) {
+	visit(&map,sizeof(map));resourceEntityRanges(map.entities,visit);
+	visit(map.instructions.data(),map.instructions.size()*sizeof(XeenEventInstruction));
+	for(const auto &instruction:map.instructions)
+		visit(instruction.parameters.data(),instruction.parameters.size()*sizeof(XeenMutable<std::uint8_t>));
+}
+template<class Visit> void resourceRanges(const XeenObjectFile &objects,const Visit &visit) {
+	visit(&objects,sizeof(objects));resourceEntityRanges(objects.entities,visit);
+}
 std::uint64_t nextWorldIncarnation() {
 	static std::atomic<std::uint64_t> next{1};
 	auto value = next.load(std::memory_order_relaxed);
@@ -30,7 +45,8 @@ using namespace xeen_state;
 }
 
 XeenWorld::XeenWorld(MapLoader loader, ObjectLoader objectLoader) :
-	_incarnation(nextWorldIncarnation()), _loader(std::move(loader)), _objectLoader(std::move(objectLoader)) {
+	_incarnation(nextWorldIncarnation()), _baseLoader(loader), _baseObjectLoader(objectLoader),
+	_loader(std::move(loader)), _objectLoader(std::move(objectLoader)) {
 	if (!_loader)
 		throw std::invalid_argument("XeenWorld requer um carregador de mapas");
 }
@@ -187,12 +203,14 @@ void XeenWorld::restoreSessionState(const std::vector<XeenObjectIdentity> &objec
 			throw std::invalid_argument("duplicate restored event identity");
 	}
 	if (hasEncounterState()) throw std::logic_error("encounter appeared before overlay publication");
+	XeenMutationWatch::write(this);
 	_sessionState._objects.swap(prepared._objects);
 	_sessionState._events.swap(prepared._events);
 	++_ownerRevision;
 }
 
 void XeenWorld::swapPreparedState(XeenWorld &candidate) noexcept {
+	XeenMutationWatch::write(this);XeenMutationWatch::write(&candidate);
 	// Private to guarded save publication. Never swaps/clears encounter authority.
 	_sessionState._objects.swap(candidate._sessionState._objects);
 	_sessionState._events.swap(candidate._sessionState._events);
@@ -211,8 +229,10 @@ const XeenObjectFile &XeenWorld::objectFile(XeenMapIdentity mapId) {
 	if (_combatCheck) _combatCheck();
 	if (loaded.mapId != mapId)
 		throw std::runtime_error("object file identity differs from requested map");
+	XeenMutationWatch::prepareOwned(this,4);
 	const auto result = _objects.emplace(mapId, std::move(loaded));
 	++_cacheRevision;
+	resourceRanges(result.first->second,[this](const void *p,std::size_t n) { XeenMutationWatch::addOwned(this,p,n); });
 	return result.first->second;
 }
 
@@ -250,6 +270,7 @@ XeenEventRecord XeenWorld::effectiveEvent(XeenEventIdentity id, const XeenEventR
 
 void XeenWorld::disableObject(XeenObjectIdentity id) {
 	validateObject(id);
+	XeenMutationWatch::write(this);
 	_sessionState._objects.insert(id);
 }
 
@@ -262,6 +283,7 @@ void XeenWorld::validateEventCell(const XeenCamera &physical, const XeenEventFil
 
 void XeenWorld::disableEventsAtCell(const XeenCamera &physical, const XeenEventFile &events) {
 	validateEventCell(physical, events);
+	XeenMutationWatch::write(this);
 	for (std::size_t i = 0; i < events.records.size(); ++i) {
 		const auto &record = events.records[i];
 		if (record.x == physical.x && record.y == physical.y)
@@ -292,6 +314,7 @@ void XeenWorld::applyRemove(const XeenCamera &physical,
 	if (publication) publication->prepareRemove(physical, selected, events);
 	static_assert(noexcept(_sessionState._objects.swap(disabledObjects)));
 	static_assert(noexcept(_sessionState._events.swap(disabledEvents)));
+	XeenMutationWatch::write(this);
 	_sessionState._objects.swap(disabledObjects);
 	_sessionState._events.swap(disabledEvents);
 	if (publication) publication->removed();
@@ -308,9 +331,20 @@ const XeenMap &XeenWorld::map(XeenMapIdentity mapId) {
 	if (_combatCheck) _combatCheck();
 	if (loaded.identity() != mapId)
 		throw std::runtime_error("ID interno do mapa nao corresponde ao recurso solicitado");
+	XeenMutationWatch::prepareOwned(this,5+loaded.instructions.size());
 	const auto result = _maps.emplace(mapId, std::move(loaded));
 	++_cacheRevision;
+	resourceRanges(result.first->second,[this](const void *p,std::size_t n) { XeenMutationWatch::addOwned(this,p,n); });
 	return result.first->second;
+}
+
+void XeenWorld::discardMapCache() {
+	// The immutable value preimages remain in guards. Retire only the addresses
+	// being freed, preserving any mutation already observed before eviction.
+	const auto retire=[](const void *p,std::size_t n) { XeenMutationWatch::retire(p,n); };
+	for(const auto &entry:_maps) resourceRanges(entry.second,retire);
+	for(const auto &entry:_objects) resourceRanges(entry.second,retire);
+	_maps.clear();_objects.clear();++_cacheRevision;
 }
 
 std::optional<XeenCellSample> XeenWorld::sampleCell(
@@ -321,6 +355,21 @@ std::optional<XeenCellSample> XeenWorld::sampleCell(
 
 	const XeenMap *current = &map(mapId);
 	if (!current->geometry.isOutdoors()) {
+		if (mapId == XeenMapIdentity(28) && regionalContract8()) {
+			if (x < 0 || x >= 32 || y < 0 || y >= 32) return std::nullopt;
+			const unsigned tile = y >= 16 ? (x >= 16 ? 111 : 110) : (x >= 16 ? 109 : 28);
+			current = &map({mapId.side, static_cast<std::uint16_t>(tile)});
+			const auto &g = current->geometry;
+			const std::array<std::uint16_t,4> expected = tile == 28 ?
+				std::array<std::uint16_t,4>{110,109,0,0} : tile == 109 ?
+				std::array<std::uint16_t,4>{111,0,0,28} : tile == 110 ?
+				std::array<std::uint16_t,4>{0,111,28,0} :
+				std::array<std::uint16_t,4>{0,0,109,110};
+			if (g.isOutdoors() || g.neighbors != expected)
+				throw std::runtime_error("Vertigo logical tile topology changed");
+			const auto index = static_cast<std::size_t>(y % 16) * 16 + static_cast<std::size_t>(x % 16);
+			return XeenCellSample{mapId, x, y, &g, &g.cells[index]};
+		}
 		// Interior exits are event-driven. Declared neighbors deliberately do not
 		// extend the coordinate plane until that behavior has its own milestone.
 		if (x < 0 || x >= 16 || y < 0 || y >= 16)
@@ -365,6 +414,51 @@ std::optional<XeenCellSample> XeenWorld::sampleCell(
 		static_cast<std::size_t>(x);
 	return XeenCellSample{current->identity(), x, y,
 		&current->geometry, &current->geometry.cells[index]};
+}
+
+std::unique_ptr<XeenWorld> XeenWorld::transitionCandidate() const {
+	if (!_sessionState.journey() || _sessionState.journeyContract()!=8)
+		throw std::logic_error("Vertigo candidate requires Journey content 8");
+	auto candidate=std::make_unique<XeenWorld>(_baseLoader,_baseObjectLoader);
+	candidate->_sessionState=_sessionState;
+	// The interpreter operates only on detached values; live Journey authority
+	// remains with the source world and its Flow lease.
+	candidate->_sessionState._entry=XeenEncounterEntry::Ordinary;
+	candidate->_detachedEventCandidate=true;
+	candidate->_maps=_maps;candidate->_objects=_objects;
+	candidate->_vertigoSpawnSlime=_vertigoSpawnSlime;
+	candidate->_vertigoClosure=_vertigoClosure;
+	return candidate;
+}
+
+void XeenWorld::applyAlterEvent(const XeenCamera &physical, std::uint8_t line,
+		std::uint8_t replacement, const XeenEventFile &events) {
+	XeenMutationWatch::write(this);
+	if (_sessionState._journeyContract!=8 || _sessionState._entry!=XeenEncounterEntry::Ordinary ||
+		physical.mapId!=events.mapId || replacement!=0)
+		throw std::invalid_argument("AlterEvent replacement is unsupported");
+	bool found=false;
+	for (std::size_t i=0;i<events.records.size();++i) {
+		const auto &r=events.records[i];
+		if (r.x==physical.x && r.y==physical.y && r.line==line &&
+			(r.direction==static_cast<std::uint8_t>(physical.direction) || r.direction==4)) {
+			_sessionState._events.insert({physical.mapId,i});found=true;
+		}
+	}
+	if (!found) throw std::invalid_argument("AlterEvent physical line was not found");
+}
+
+void XeenWorld::publishTransition(XeenWorld &candidate) noexcept {
+	XeenMutationWatch::write(this);XeenMutationWatch::write(&candidate);
+	_sessionState._actors.swap(candidate._sessionState._actors);
+	_sessionState._vertigoActors.swap(candidate._sessionState._vertigoActors);
+	_sessionState._accountedMonsters.swap(candidate._sessionState._accountedMonsters);
+	_sessionState._events.swap(candidate._sessionState._events);
+	_sessionState._objects.swap(candidate._sessionState._objects);
+	_vertigoSpawnSlime.swap(candidate._vertigoSpawnSlime);
+	_vertigoClosure.swap(candidate._vertigoClosure);
+	_maps.swap(candidate._maps);_objects.swap(candidate._objects);
+	++_ownerRevision;
 }
 
 } // namespace mmodern

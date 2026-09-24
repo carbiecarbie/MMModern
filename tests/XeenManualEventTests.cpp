@@ -190,7 +190,7 @@ void testUnsupportedSpecialInteractionPrecedence() {
 			std::uint8_t{9}}) {
 		XeenMap specialMap = map(1, false);
 		auto &specialCell = specialMap.geometry.cells[5 * 16 + 4];
-		std::get<XeenIndoorWalls>(specialCell.geometry).walls[
+		xeenGet<XeenIndoorWalls>(specialCell.geometry).walls[
 			static_cast<std::size_t>(XeenDirection::West)] = wall;
 		const auto detected = unsupportedManualSpecialInteraction(
 			specialMap.geometry, 4, 5, XeenDirection::West);
@@ -198,7 +198,7 @@ void testUnsupportedSpecialInteractionPrecedence() {
 			"Clouds grate wall value should be recognized");
 	}
 	XeenMap ordinaryIndoor = map(1, false);
-	std::get<XeenIndoorWalls>(ordinaryIndoor.geometry.cells[5 * 16 + 4].geometry)
+	xeenGet<XeenIndoorWalls>(ordinaryIndoor.geometry.cells[5 * 16 + 4].geometry)
 		.walls[static_cast<std::size_t>(XeenDirection::West)] = 2;
 	check(!unsupportedManualSpecialInteraction(ordinaryIndoor.geometry, 4, 5,
 		XeenDirection::West), "ordinary indoor wall is not a special interaction");
@@ -212,7 +212,7 @@ void testUnsupportedSpecialInteractionPrecedence() {
 		record(4, 5, 0, 0x0c, setFlag(10)), record(4, 5, 1, 0x12)
 	}));
 	auto &cell = fixture.maps.at(1).geometry.cells[5 * 16 + 4];
-	std::get<XeenIndoorWalls>(cell.geometry).walls[
+	xeenGet<XeenIndoorWalls>(cell.geometry).walls[
 		static_cast<std::size_t>(XeenDirection::West)] = 1;
 	XeenCamera camera{1, 4, 5, XeenDirection::West};
 	XeenGameFlags flags;
@@ -231,7 +231,7 @@ void testUnsupportedSpecialInteractionPrecedence() {
 		record(4, 5, 0, 0x0c, setFlag(10)), record(4, 5, 1, 0x12)
 	}));
 	auto &lockedCell = lockedFixture.maps.at(1).geometry.cells[5 * 16 + 4];
-	std::get<XeenIndoorWalls>(lockedCell.geometry).walls[
+	xeenGet<XeenIndoorWalls>(lockedCell.geometry).walls[
 		static_cast<std::size_t>(XeenDirection::West)] = 13;
 	XeenGameFlags lockedFlags;
 	const auto locked = completed(lockedFixture.system.runManualEvent(
@@ -243,7 +243,7 @@ void testUnsupportedSpecialInteractionPrecedence() {
 	unlockedFixture.maps.emplace(1, map(1, false));
 	unlockedFixture.scripts.emplace(1, script(1, {}));
 	auto &unlockedCell = unlockedFixture.maps.at(1).geometry.cells[5 * 16 + 4];
-	std::get<XeenIndoorWalls>(unlockedCell.geometry).walls[
+	xeenGet<XeenIndoorWalls>(unlockedCell.geometry).walls[
 		static_cast<std::size_t>(XeenDirection::West)] = 13;
 	unlockedCell.rawAttributes |= kXeenGrateUnlockedFlag;
 	check(std::holds_alternative<XeenManualSpecialInteractionUnsupported>(

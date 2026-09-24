@@ -1,5 +1,6 @@
 #include "app/XeenEventFlow.h"
 #include "games/xeen/XeenEventPublication.h"
+#include "games/xeen/XeenVertigoRoute.h"
 #include <type_traits>
 #include <utility>
 #include <iostream>
@@ -15,7 +16,7 @@ const XeenItemCatalog &fallbackCatalog() {
 }
 static_assert(std::is_nothrow_move_constructible<XeenEventExecutionState>::value,
 	"Flow must adopt execution ownership without allocation");
-static_assert(std::is_nothrow_copy_assignable<std::optional<XeenEquipmentResult>>::value,
+static_assert(std::is_nothrow_copy_assignable<XeenMutableOptional<XeenEquipmentResult>>::value,
 	"Flow must adopt a fixed equipment result without allocation");
 struct DispatchScope {
 	bool &value;
@@ -79,7 +80,7 @@ void XeenEventFlow::requireCurrentOwners() const {
 }
 
 bool XeenEventFlow::canSave() const noexcept {
-	return _gameplayBorrow->current() && !_fatal && !_dispatching && !_saving && !_handoffPending &&
+	return _gameplayBorrow->current() && !_fatal && !_dispatching && !_saving && !_handoffPending && !_transition && !_arrivalPending &&
 		!inventoryOpen() && !_pending && !_equipmentSelection && !_inventoryConfirmation &&
 		(!_encounter || (_encounter->canSave() && encounterFrameCurrent()));
 }
@@ -125,7 +126,12 @@ void XeenEventFlow::prepareJourneyTransition() {
  if(!_encounter->combat() && _encounter->_regionalAutomatic && !_encounter->_regionalWork && !_encounter->_shoot &&
   !_encounter->monsterReward() && !_encounter->state().pending() && _encounter->state().phase()==XeenEncounterPhase::Exploring) {
   _encounter->beginJourneyEvent();_journeyEventLayers=true;
-  journeyEventWork([&] { drive(_events.runAutomaticEvent(_world,_party,_camera,_flags,_eventPublication),true); },true);
+  journeyEventWork([&] {
+   if(_world.sessionState().journeyContract()==8 &&
+      xeenRegionalInteraction(_encounter->_journeyEvents,_camera,8)==XeenRegionalInteraction::VertigoDoor)
+    drive(beginVertigoEvent(XeenRegionalInteraction::VertigoDoor),false);
+   else drive(_events.runAutomaticEvent(_world,_party,_camera,_flags,_eventPublication),true);
+  },true);
  }
  if(_encounter->_shootIntent && !_encounter->state().pending() && !_encounter->_regionalWork && !_encounter->projectilesPending()) _encounter->beginShoot();
 }
@@ -166,6 +172,7 @@ void XeenEventFlow::framePresented(const IndexedFrame::Presentation &presented) 
 		}
 		else if (!_encounter->presentJourney(*_encounterFrame)) throw std::logic_error("Stale Journey frame handoff");
 		_handoffPending = false; _encounterFrame = _encounter->ticket();
+		_arrivalPending = false;
 		if (_castingUi && _encounter->castingActive())
 			_encounter->authorizeCastingFrame(*_encounterFrame,_inputGeneration,presented);
 		if (_inventory.mode==XeenInventoryMode::UseTarget &&
@@ -295,7 +302,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 				_inventoryUnderlay = rendered;
 				if (inventoryOpen()) rendered = drawXeenInventory(rendered,_inventoryFont,_catalog,_party,_inventory,_inventoryFeedback,
 					_equipmentResult ? &*_equipmentResult : nullptr,false,false,
-					_world.sessionState().journeyContract()==6 || _world.sessionState().journeyContract()==7);
+					_world.sessionState().journeyContract()==6 || _world.sessionState().journeyContract()==7 || _world.sessionState().journeyContract()==8);
 				if (report && !attempt) {
 					if (reportText) reportText(_encounter->notice());
 					if (!_encounter->current(t)) throw std::logic_error("Stale Journey reporting");
@@ -380,7 +387,9 @@ XeenEventFlow::XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
 		XeenPartyState &party, XeenCamera &camera, XeenGameFlags &flags,
 		const XeenFontFormat &font, Compose compose, XeenEventPresenter::NpcDraw npcDraw,
 		XeenEventPresenter::Clock clock, XeenEventPresenter::RandomFrame randomFrame, const XeenItemCatalog *catalog,
-		const XeenEncounterSetup *encounter, EncounterCompose encounterCompose, const XeenJourneySetup *journey) :
+		const XeenEncounterSetup *encounter, EncounterCompose encounterCompose, const XeenJourneySetup *journey,
+		TransitionCompose transitionCompose) :
+	_transitionCompose(std::move(transitionCompose)),
 	_inventoryFont(font), _catalog(catalog ? *catalog : fallbackCatalog()),
 	_world(world), _gameplayBorrow(world.sessionState().journey() ? nullptr : new XeenWorld::GameplayBorrow(world,party,camera,flags)),
 	_events(events), _party(party), _camera(camera), _flags(flags),
@@ -472,6 +481,8 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 		OrdinaryCause cause, bool committedTransition) {
 	requireCurrentOwners();
 	for (;;) {
+		if constexpr (std::is_same_v<Result, XeenManualEventResult>)
+			if (_transition) prepareVertigoResult(result);
 		// Adopt ownership before composition, reporting or presentation can fail.
 		auto *suspended = std::get_if<XeenEventExecutionSuspended>(&result);
 		if (suspended) _pending.emplace(Pending{std::move(suspended->state), automatic, ++_generation});
@@ -504,8 +515,9 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 		auto pending = std::move(*_pending);
 		_pending.reset(); // Consume before calling into the execution system.
 		if constexpr (std::is_same_v<Result, XeenManualEventResult>)
-			result = _events.resumeManualEvent(std::move(pending.state), *update.response,
-				_world, _party, _camera, _flags, _eventPublication);
+			result = _transition ? resumeVertigoEvent(std::move(pending.state),*update.response) :
+				_events.resumeManualEvent(std::move(pending.state), *update.response,
+					_world, _party, _camera, _flags, _eventPublication);
 		else
 			result = _events.resumeAutomaticEvent(std::move(pending.state), *update.response,
 				_world, _party, _camera, _flags, _eventPublication);
@@ -517,13 +529,179 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 	}
 }
 
+void XeenEventFlow::checkTransitionCandidate() {
+	if (!_transition || !_transition->guard) return;
+	try { _transition->guard->check(); }
+	catch (...) { _encounter->journeySavePreimage().failed=true; throw; }
+}
+
+XeenManualEventResult XeenEventFlow::beginVertigoEvent(XeenRegionalInteraction kind) try {
+	if (_transition || !_eventPublication || !_encounter->journeyEvent() ||
+		_world.sessionState().journeyContract()!=8 || !_transitionCompose)
+		throw std::logic_error("Vertigo Event candidate is unavailable");
+	auto work=std::make_unique<TransitionCandidate>();
+	const auto mainland=_events.scriptForMap(23).file();
+	const auto city=_events.scriptForMap(28).file();
+	_eventPublication->check();
+	try { xeenValidateVertigoRoute(mainland,city); }
+	catch (const std::invalid_argument &) { _encounter->journeySavePreimage().failed=true; throw; }
+	const auto mainText=_events.textForMap(23),cityText=_events.textForMap(28);
+	_eventPublication->check();
+	if(mainText.mapId!=XeenMapIdentity(23) || mainText.strings.size()!=44 ||
+		cityText.mapId!=XeenMapIdentity(28) || cityText.strings.size()!=64)
+		throw std::invalid_argument("Vertigo original text catalog changed");
+	_eventPublication->text(mainText);_eventPublication->text(cityText);
+	work->kind=kind;
+	work->world=_world.transitionCandidate();
+	work->camera=_camera;work->flags=_flags;
+	work->party.party=XeenParty::fromRosterIds(_party.party.activeRosterIds());
+	for(unsigned i=0;i<XeenRoster::kCharacterCount;++i)work->party.roster.at(i)=_party.roster.at(i);
+	work->party.encounterContext=_party.encounterContext;
+	work->party.monsterTreasure=_party.monsterTreasure;
+	work->party.questItems=_party.questItems;work->party.questFlags=_party.questFlags;
+	work->party.regionalRecovery=_party.regionalRecovery;
+	work->party.firstSerializedCount=_party.firstSerializedCount;
+	work->party.effectiveSerializedCount=_party.effectiveSerializedCount;
+	work->party.diagnostics=_party.diagnostics;
+	{
+		XeenRestoreGuard guard(*work->world,work->party,work->camera,work->flags);
+		XeenRestoreGuard::Providers providers(guard,*work->world,[&] {_eventPublication->check();});
+		if (!_encounter->_vertigoManifest) throw std::invalid_argument("Vertigo immutable manifest provider missing");
+		try { _encounter->_vertigoManifest(*work->world,city,_encounter->_journeyStatistics); }
+		catch (...) { guard.check();_eventPublication->check();throw; }
+		guard.check();_eventPublication->check();
+		work->guard=std::make_unique<XeenRestoreGuard>(*work->world,work->party,work->camera,work->flags);
+		work->guard->retainResources(guard);
+	}
+	const auto destination=kind==XeenRegionalInteraction::VertigoExit ? XeenMapIdentity(23) : XeenMapIdentity(28);
+	work->destinationEvents=_events.scriptForMap(destination).file();
+	_eventPublication->check();
+	work->guard->check();
+	{
+		XeenRestoreGuard::EventProviders providers(*work->world,work->party,work->camera,work->flags,
+			*work->guard,[&] {_eventPublication->check();},
+			[&] {_encounter->journeySavePreimage().failed=true;});
+		for(int y=0;y<32;++y)for(int x=0;x<32;++x)
+			if(!work->world->sampleCell(28,x,y))throw std::invalid_argument("Vertigo geometry tile is missing");
+		const auto &cityMob=work->world->objectFile(28);
+		if(cityMob.entities.objects.size()!=143 || cityMob.entities.monsters.size()!=46)
+			throw std::invalid_argument("Vertigo original MOB catalog changed");
+		if(kind==XeenRegionalInteraction::VertigoEntrance && !work->world->sessionState().hasRegionalActors(28))
+			work->world->stageVertigoActors(cityMob,_encounter->_journeyStatistics);
+	}
+	_eventPublication->check();
+	_transition=std::move(work);
+	XeenRestoreGuard::EventProviders providers(*_transition->world,_transition->party,_transition->camera,
+		_transition->flags,*_transition->guard,[&] {_eventPublication->check();},
+		[&] {_encounter->journeySavePreimage().failed=true;});
+	auto result=_events.runManualEvent(*_transition->world,_transition->party,_transition->camera,
+		_transition->flags,nullptr);
+	auto prepared=std::make_unique<XeenRestoreGuard>(*_transition->world,_transition->party,_transition->camera,_transition->flags);
+	prepared->retainResources(*_transition->guard);_transition->guard.swap(prepared);
+	return result;
+} catch (const std::logic_error &) {
+	_encounter->journeySavePreimage().failed=true;
+	throw;
+}
+
+XeenManualEventResult XeenEventFlow::resumeVertigoEvent(XeenEventExecutionState state,
+		XeenPresentationResponse response) {
+	if (!_transition || !_eventPublication) throw std::logic_error("Vertigo Event continuation is absent");
+	_eventPublication->check();
+	checkTransitionCandidate();
+	if(response==XeenPresentationResponse::No)_transition->refused=true;
+	XeenRestoreGuard::EventProviders providers(*_transition->world,_transition->party,_transition->camera,
+		_transition->flags,*_transition->guard,[&] {_eventPublication->check();},
+		[&] {_encounter->journeySavePreimage().failed=true;});
+	auto result=_events.resumeManualEvent(std::move(state),response,*_transition->world,
+		_transition->party,_transition->camera,_transition->flags,nullptr);
+	_eventPublication->check();
+	auto prepared=std::make_unique<XeenRestoreGuard>(*_transition->world,_transition->party,_transition->camera,_transition->flags);
+	prepared->retainResources(*_transition->guard);_transition->guard.swap(prepared);
+	return result;
+}
+
+void XeenEventFlow::prepareVertigoResult(const XeenManualEventResult &result) try {
+	if (!_transition || !_eventPublication) return;
+	checkTransitionCandidate();
+	auto &work=*_transition;
+	_eventPublication->check();
+	if (const auto *suspended=std::get_if<XeenEventExecutionSuspended>(&result)) {
+		if(work.kind==XeenRegionalInteraction::VertigoExit && !work.preludePublished &&
+			suspended->state.logicalAddress.mapId==XeenMapIdentity(28) &&
+			suspended->state.logicalAddress.x==15 && suspended->state.logicalAddress.y==0 &&
+			suspended->state.logicalAddress.line==2 && suspended->state.callStack.empty()) {
+			// Return from the original flag prelude is its own publication boundary.
+			_encounter->journeySavePreimage().prepareVertigoPrelude(suspended->state.workingGameFlags);
+			_flags=suspended->state.workingGameFlags;
+			_encounter->journeySavePreimage().adoptMutationBoundary();
+			work.preludePublished=true;
+		}
+		return;
+	}
+	if (std::holds_alternative<XeenEventExecutionError>(result)) { _transition.reset(); return; }
+	const auto *done=std::get_if<XeenManualEventCompleted>(&result);
+	if (!done) throw std::logic_error("Vertigo Event did not reach a terminal result");
+	if (work.camera.mapId==_camera.mapId) {
+		if(done->cameraChanged ||
+			(work.kind!=XeenRegionalInteraction::VertigoDoor && !work.refused) ||
+			(work.kind==XeenRegionalInteraction::VertigoExit && !work.preludePublished))
+			throw std::logic_error("Vertigo Event ended without its required teleport");
+		_transition.reset();return;
+	}
+	const auto expected=work.kind==XeenRegionalInteraction::VertigoExit ? XeenMapIdentity(23) : XeenMapIdentity(28);
+	if(work.camera.mapId!=expected || !done->cameraChanged ||
+		(work.kind==XeenRegionalInteraction::VertigoExit && !work.preludePublished))
+		throw std::logic_error("Vertigo Event ended at an unexpected destination");
+	const auto before=_encounter->ticket();
+	const auto arrival=[&] {
+		XeenRestoreGuard::EventProviders providers(*work.world,work.party,work.camera,work.flags,
+			*work.guard,[&] {_eventPublication->check();},
+			[&] {_encounter->journeySavePreimage().failed=true;});
+		if(work.world->sessionState().hasRegionalActors(28))
+			xeenValidateVertigoActors(*work.world,work.world->sessionState().regionalActors(28));
+		return work.world->prepareTransitionArrival(work.camera);
+	}();
+	_eventPublication->check();
+	XeenRestoreGuard candidateGuard(*work.world,work.party,work.camera,work.flags);
+	candidateGuard.retainResources(*work.guard);
+	XeenRestoreGuard::Providers providers(candidateGuard,*work.world,[&] {_eventPublication->check();});
+	const auto composed=[&] {
+		try {
+			auto frame=_transitionCompose(*work.world,work.party,work.camera,0,XeenMonsterAppearance{0});
+			candidateGuard.check();return frame;
+		} catch (...) { candidateGuard.check();throw; }
+	}();
+	if(!composed.frame.isValid())throw std::runtime_error("Vertigo destination frame is invalid");
+	_eventPublication->check();
+	if(!_encounter->current(before))throw std::logic_error("Stale Vertigo preparation");
+	// Storage and the destination frame are ready. No provider or callback follows
+	// until all owner writes and the new frame authority have been installed.
+	_encounter->journeySavePreimage().prepareVertigoPublication(candidateGuard);
+	_world.publishTransition(*work.world);
+	_camera=work.camera;_flags=work.flags;
+	// Retain the classified destination under the Event lease. Keep the Event's
+	// concrete ticket intact until its final provider/publication checks finish;
+	// contact changes the encounter phase at callback-free retirement below.
+	_encounter->_result.view=arrival;
+	using std::swap;
+	swap(_encounter->_journeyEvents,work.destinationEvents);
+	_encounter->journeySavePreimage().adoptMutationBoundary();
+	_presenter.clear();_journeyEventLayers=false;
+	_arrivalPending=true;
+	_transition.reset();
+} catch (const std::logic_error &) {
+	_encounter->journeySavePreimage().failed=true;
+	throw;
+}
+
 void XeenEventFlow::validateRegionalEvents() {
 	if (!journey() || _world.sessionState().journeyContract()<3) return;
 	const auto entry=_encounter->ticket();
 	XeenRestoreGuard currentCombat(_world,_party,_camera,_flags);
 	currentCombat.retainResources(_encounter->journeySavePreimage());
 	auto &guard=_encounter->combat()?currentCombat:_encounter->journeySavePreimage();
-	if (_world.sessionState().journeyContract()==7) {
+	if (_world.sessionState().journeyContract()==7 || _world.sessionState().journeyContract()==8) {
 		if (!_encounter->_learnedNamesProvider) throw std::logic_error("Learned spell name provider unavailable");
 		guard.check();
 		const auto value=_encounter->_learnedNamesProvider();
@@ -534,8 +712,8 @@ void XeenEventFlow::validateRegionalEvents() {
 		if (!_encounter->current(entry)) throw std::logic_error("Stale regional event resources");
 	});
 	XeenRestoreGuard::Providers providers(guard,_world,[&] {validation.check();});
-	validation.script(_events.scriptForMap(23).file());
-	if (_world.sessionState().journeyContract()==6 || _world.sessionState().journeyContract()==7) validation.text(_events.textForMap(23));
+	validation.script(_events.scriptForMap(_camera.mapId).file());
+	if (_world.sessionState().journeyContract()==6 || _world.sessionState().journeyContract()==7 || _world.sessionState().journeyContract()==8) validation.text(_events.textForMap(_camera.mapId));
 }
 IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operation, bool automatic) {
 	automatic=automatic || (_pending && _pending->automatic);
@@ -554,11 +732,16 @@ IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operat
 		std::cerr << "Journey event: " << error.what() << '\n';
 		_eventPublication=nullptr;
 		cleanup(XeenRewardDiscard::PresentationFailure);
+		_transition.reset();
 		if (automatic) { _fatal=true;_encounter->fail(_encounter->ticket());throw; }
 		if (!_encounter->current(entry)) { _fatal=true; throw; }
 		// Only trusted published effects survive. A recovery frame never resumes the script.
 	}
-	if (!_pending) _encounter->endJourneyEvent();
+	if (!_pending) {
+		if (_arrivalPending) _encounter->publishArrival(_encounter->_result.view);
+		_encounter->endJourneyEvent();
+	}
+	if (_arrivalPending) prepareJourneyTransition();
 	return renderEncounter();
 }
 IndexedFrame XeenEventFlow::acceptManual(XeenManualEventResult result) {
@@ -715,7 +898,9 @@ bool XeenEventFlow::resumePending(std::uint64_t generation, XeenPresentationResp
 	requireCurrentOwners();
 	auto pending = std::move(*_pending);
 	_pending.reset();
-	if (pending.automatic)
+	if (_transition)
+		drive(resumeVertigoEvent(std::move(pending.state),response),false);
+	else if (pending.automatic)
 		drive(_events.resumeAutomaticEvent(std::move(pending.state), response,
 			_world, _party, _camera, _flags, _eventPublication), true);
 	else
@@ -744,7 +929,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 			if (_castingUi) return handleCasting(action,*displayedInput);
 			if (_encounter->castingSettlement() && !_encounter->monsterReward() && !_encounter->journeyEvent()) return frameCopy();
 			if (std::holds_alternative<CastSpellAction>(action)) {
-				if (_world.sessionState().journeyContract()!=7 || !_encounter->beginCasting(_encounter->ticket())) return frameCopy();
+				if (_world.sessionState().journeyContract()!=7 && _world.sessionState().journeyContract()!=8 || !_encounter->beginCasting(_encounter->ticket())) return frameCopy();
 				// beginCasting acquired its lease; only completed Event layers may be retired here.
 				if (_journeyEventLayers) { _presenter.clear(); _journeyEventLayers=false; }
 				_castingUi.emplace();
@@ -787,7 +972,14 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 				if (_world.sessionState().journeyContract()>=3) {
 					if (xeenRegionalInteraction(_encounter->_journeyEvents,_camera,_world.sessionState().journeyContract())!=XeenRegionalInteraction::None) {
 						_encounter->beginJourneyEvent();_journeyEventLayers=true;
-						return journeyEventWork([&] { drive(_events.runManualEvent(_world,_party,_camera,_flags,_eventPublication),false); });
+						const auto interaction=xeenRegionalInteraction(_encounter->_journeyEvents,_camera,_world.sessionState().journeyContract());
+						return journeyEventWork([&] {
+							if(interaction==XeenRegionalInteraction::VertigoEntrance ||
+								interaction==XeenRegionalInteraction::VertigoDoor ||
+								interaction==XeenRegionalInteraction::VertigoExit)
+								drive(beginVertigoEvent(interaction),false);
+							else drive(_events.runManualEvent(_world,_party,_camera,_flags,_eventPublication),false);
+						});
 					}
 					try { _encounter->journeyRead([&] {
 						XeenEventPublication validation(_encounter->journeySavePreimage(),_encounter->_journeyEvents,[&] {

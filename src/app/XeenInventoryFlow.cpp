@@ -345,7 +345,7 @@ IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
 		return _frame;
 	} else if (std::holds_alternative<UseItemAction>(action)) {
 		if (!journey() || !_encounter->journeyMutable() ||
-			(_world.sessionState().journeyContract()!=6 && _world.sessionState().journeyContract()!=7) ||
+			(_world.sessionState().journeyContract()!=6 && _world.sessionState().journeyContract()!=7 && _world.sessionState().journeyContract()!=8) ||
 			!_equipmentSelection || !validEquipmentSelection(*_equipmentSelection) ||
 			_inventory.category!=XeenInventoryCategory::Miscellaneous || !_inventory.sourceOwner ||
 			!_party.roster.at(*_inventory.sourceOwner).canAct() ||

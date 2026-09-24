@@ -89,7 +89,7 @@ void traces(const std::optional<fs::path> &game,const fs::path &output) {
 		Harness h(game);auto services=h.services();
 		services.show=[&](const IndexedFrame &first,const auto &handle,const auto &escape,const auto &idle,const auto &status){
 			check(h.initialized==1&&h.validated==1&&h.composed==1&&h.ordinary==0,"production entry counts");
-			const auto initial=*h.party;const auto actors=h.world->sessionState().actors();
+			const auto initial=*h.party;const std::vector<XeenActor> actors=h.world->sessionState().actors();
 			check(h.camera->x==13&&h.camera->y==1&&h.party->encounterContext->minutes==480,"fixed startup");
 			if(game){const int hp[]{12,16,12,10,7,5},sp[]{2,0,2,0,7,9};check(actors.size()==27,"original 27 actors");
 				for(unsigned i=0;i<6;++i){const auto &c=h.party->party.member(h.party->roster,i);check(c.currentHp==hp[i]&&c.currentSp==sp[i],"original HP/SP");}
@@ -151,7 +151,7 @@ void traces(const std::optional<fs::path> &game,const fs::path &output) {
 			const auto phase=h.flow->encounter()->state().phase();
 			check(phase==(trace==3?XeenEncounterPhase::SupportStopped:XeenEncounterPhase::Engaged),"real terminal state");
 			check(h.party->encounterContext->minutes==(trace==2?500:490),"real final time");
-			const auto before=h.flow->frame();const auto live=h.world->sessionState().actors();
+			const auto before=h.flow->frame();const std::vector<XeenActor> live=h.world->sessionState().actors();
 			h.world->discardMapCache();if(h.assets)h.assets->discardSpriteCache();h.flow->refresh(true);
 			check(h.flow->frame().pixels==before.pixels,"real cache frame mismatch");sameActors(live,h.world->sessionState().actors());
 			for(unsigned i=0;i<actors.size();++i)if(i!=5) sameActors({actors[i]},{live[i]});
@@ -226,7 +226,7 @@ void sdlFailures(const fs::path &out) {
 		Harness h({});auto s=h.services();
 		s.show=[&](const IndexedFrame &,const SdlWindow::FrameUpdateHandler &handle,const auto &escape,const auto &idle,const auto &status){
 			handle(NavigationAction::TurnRight);handle(NavigationAction::MoveForward);
-			const auto beforeActors=h.world->sessionState().actors();
+			const std::vector<XeenActor> beforeActors=h.world->sessionState().actors();
 			const auto beforeContext=h.party->encounterContext;
 			std::optional<XeenEncounterState> newer;
 			unsigned failures=0,closes=0,cycles=0;
@@ -262,7 +262,7 @@ void sdlFailures(const fs::path &out) {
 				sameActors(beforeActors,h.world->sessionState().actors());check(h.party->encounterContext==beforeContext,"quit charged time");}
 			else check(h.flow->encounter()->state().phase()==XeenEncounterPhase::SupportStopped&&
 				h.flow->encounter()->state().pending()==0,"current SDL failure did not stop");
-			const auto actors=h.world->sessionState().actors();const auto context=h.party->encounterContext;
+			const std::vector<XeenActor> actors=h.world->sessionState().actors();const auto context=h.party->encounterContext;
 			h.now=10000;handle(WaitAction{});idle();handle(SaveGameAction{});
 			check(status().find("unsaveable")!=std::string::npos&&context==h.party->encounterContext&&h.saveStages==0,
 				"inactive callback advanced/saved");sameActors(actors,h.world->sessionState().actors());

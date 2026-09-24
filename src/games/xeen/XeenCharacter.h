@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include "games/xeen/XeenMutation.h"
 
 namespace mmodern {
 
@@ -57,23 +58,23 @@ enum class XeenCondition : std::uint8_t {
 };
 
 struct XeenAttributeValue {
-	int permanent = 0;
-	int temporary = 0;
+	XeenMutable<int> permanent = 0;
+	XeenMutable<int> temporary = 0;
 };
 
 struct XeenMaxStatSkills {
-	bool astrologer = false;
-	bool bodybuilder = false;
-	bool prayerMaster = false;
-	bool prestidigitation = false;
+	XeenMutable<bool> astrologer = false;
+	XeenMutable<bool> bodybuilder = false;
+	XeenMutable<bool> prayerMaster = false;
+	XeenMutable<bool> prestidigitation = false;
 };
 
 // Stored original item bytes. ID zero is empty, but other bytes remain state.
 struct XeenItem {
-	std::uint8_t material = 0;
-	std::uint8_t id = 0;
-	std::uint8_t state = 0;
-	std::uint8_t frame = 0;
+	XeenMutable<std::uint8_t> material = 0;
+	XeenMutable<std::uint8_t> id = 0;
+	XeenMutable<std::uint8_t> state = 0;
+	XeenMutable<std::uint8_t> frame = 0;
 };
 
 // Fixed category size checks the helper boundary without accepting arbitrary spans.
@@ -88,31 +89,31 @@ struct XeenCharacter {
 	static constexpr std::size_t kConditionCount = 16;
 	static constexpr std::size_t kEquipmentSlotsPerCategory = 9;
 	static constexpr std::uint8_t kPortraitRosterCount = 24;
-	using XeenLearnedSpells = std::array<std::uint8_t, 39>;
+	using XeenLearnedSpells = XeenMutableArray<std::uint8_t, 39>;
 
-	std::uint8_t rosterId = 0;
-	std::string name;
-	XeenSex sex = XeenSex::Male;
-	XeenRace race = XeenRace::Human;
-	XeenCharacterClass characterClass = XeenCharacterClass::Knight;
+	XeenMutable<std::uint8_t> rosterId = 0;
+	XeenMutableString name;
+	XeenMutable<XeenSex> sex = XeenSex::Male;
+	XeenMutable<XeenRace> race = XeenRace::Human;
+	XeenMutable<XeenCharacterClass> characterClass = XeenCharacterClass::Knight;
 	XeenAttributeValue intellect;
 	XeenAttributeValue personality;
 	XeenAttributeValue endurance;
-	int permanentLevel = 0;
-	int temporaryLevel = 0;
-	int temporaryAge = 0;
+	XeenMutable<int> permanentLevel = 0;
+	XeenMutable<int> temporaryLevel = 0;
+	XeenMutable<int> temporaryAge = 0;
 	XeenMaxStatSkills maxStatSkills;
-	bool hasSpells = false;
+	XeenMutable<bool> hasSpells = false;
 	// Presence is distinct from an explicitly empty spellbook. Original flags are retained verbatim.
-	std::optional<XeenLearnedSpells> learnedSpells;
+	XeenMutableOptional<XeenLearnedSpells> learnedSpells;
 	XeenItemCategory weapons{};
 	XeenItemCategory armor{};
 	XeenItemCategory accessories{};
 	XeenItemCategory miscellaneous{};
-	std::int16_t currentHp = 0;
-	std::int16_t currentSp = 0;
-	std::array<std::uint8_t, kConditionCount> conditions{};
-	std::uint16_t birthYear = 0;
+	XeenMutable<std::int16_t> currentHp = 0;
+	XeenMutable<std::int16_t> currentSp = 0;
+	XeenMutableArray<std::uint8_t, kConditionCount> conditions{};
+	XeenMutable<std::uint16_t> birthYear = 0;
 
 	unsigned currentLevel() const;
 	XeenCondition worstCondition() const;

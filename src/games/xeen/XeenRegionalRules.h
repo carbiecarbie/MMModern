@@ -7,6 +7,7 @@
 namespace mmodern {
 // Disposable queries over checked immutable geometry; these own no live state.
 XeenMonsterTerrain xeenRegionalActorTerrain(const XeenMap &, const XeenActor &, int x, int y);
+XeenMonsterTerrain xeenIndoorActorTerrain(XeenWorld &, const XeenActor &, int x, int y);
 std::bitset<256> xeenActorClosure(const XeenMap &, const XeenActor &);
 // First excluded center row (edge or obstruction), or four for all rows.
 // Player missiles admit middle 15; non-east enemy rays do not.
@@ -14,11 +15,17 @@ unsigned xeenPlayerRayRows(const XeenMap &, const XeenCamera &);
 bool xeenOutdoorRangedRay(const XeenMap &, const XeenCamera &, const XeenActor &);
 std::optional<std::size_t> xeenRegionalEvent(const XeenEventFile &, const XeenCamera &);
 bool xeenRegionalSign(const XeenEventFile &, const XeenCamera &);
-enum class XeenRegionalInteraction { None, Sign, Myra, Phirna, Well };
+enum class XeenRegionalInteraction { None, Sign, Myra, Phirna, Well, VertigoEntrance, VertigoDoor, VertigoExit };
 XeenRegionalInteraction xeenRegionalInteraction(const XeenEventFile &, const XeenCamera &, std::uint16_t contract);
 std::optional<std::int16_t> xeenWellHpAfter(std::int16_t before) noexcept;
 void xeenValidateRegionalActors(const XeenMap &, const XeenObjectFile &, const std::vector<XeenActor> &,
 	const std::set<XeenMonsterIdentity> &accounted);
+void xeenValidateVertigoActors(XeenWorld &, const std::vector<XeenActor> &);
+using XeenVertigoManifest = std::function<void(XeenWorld &, const XeenEventFile &,
+	const std::vector<XeenMonsterRecord> &)>;
+void xeenValidateVertigoManifest(XeenWorld &, const XeenEventFile &,
+	const std::vector<XeenMonsterRecord> &,
+	const std::function<std::vector<std::uint8_t>(const std::string &)> &);
 using XeenRegionalManifest = std::function<void(const XeenMap &, const XeenObjectFile &,
 	const XeenEventFile &, const std::vector<XeenMonsterRecord> &)>;
 void xeenValidateRegionalManifest(const XeenMap &, const XeenObjectFile &, const XeenEventFile &,
@@ -46,6 +53,9 @@ struct XeenRegionalOpportunityCandidate {
 	XeenRegionalOpportunityCandidate(const XeenMap &, const std::vector<XeenActor> &,
 		const XeenCamera &, const XeenConsequenceCharacters &, const XeenConsequenceInputs &,
 		unsigned year, unsigned participantMask, const std::array<bool,6> &blocked = {});
+	XeenRegionalOpportunityCandidate(XeenWorld &, const std::vector<XeenActor> &,
+		const XeenCamera &, const XeenConsequenceCharacters &, const XeenConsequenceInputs &,
+		unsigned year, unsigned participantMask, const std::array<bool,6> &blocked = {});
 	bool service(XeenConsequenceDraw &);
 private:
 	XeenCamera camera;
@@ -53,6 +63,7 @@ private:
 	unsigned year, participantMask, cursor=0;
 	std::array<bool,6> blocked;
 	std::optional<XeenEnemyAttackCandidate> attack;
+	XeenWorld *indoorWorld = nullptr;
 };
 // Retained preparation of one existing action/pulse publication. Flow holds the
 // continuation while Approach retains sole authority to publish world deltas.

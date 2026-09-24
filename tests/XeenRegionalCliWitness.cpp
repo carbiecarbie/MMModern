@@ -93,7 +93,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
 				if (stage==4) {
 					check(saves==0,"Stopped F9 called save providers");
 					if (!expected.empty()) check(disk(*target)==expected,"Stop changed disk save");
-					const auto context=*party->encounterContext;const auto actors=world->sessionState().actors();
+					const auto context=*party->encounterContext;const std::vector<XeenActor> actors=world->sessionState().actors();
 					handler.withDisplayedInput(WaitAction{},*handler.displayedInput());
 					check(*party->encounterContext==context && world->sessionState().actors().size()==actors.size(),"Stopped input advanced context");
 					for(unsigned i=0;i<actors.size();++i)check(xeen_state::sameActor(actors[i],world->sessionState().actors()[i]),"Stopped input changed actor");stage=3;

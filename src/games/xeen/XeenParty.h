@@ -28,7 +28,7 @@ public:
 	void swap(XeenRoster &);
 	friend void swap(XeenRoster &a, XeenRoster &b) { a.swap(b); }
 	bool combatMarked() const noexcept { return _combatMarked; }
-	const std::optional<XeenCombatInputs> &combatInputs(std::size_t owner) const { return _combatInputs.at(owner); }
+	const XeenMutableOptional<XeenCombatInputs> &combatInputs(std::size_t owner) const { return _combatInputs.at(owner); }
 
 	const XeenCharacter &at(std::size_t rosterId) const;
 	XeenCharacter &at(std::size_t rosterId);
@@ -48,24 +48,30 @@ private:
 	static void requireOrdinary(const XeenRoster &);
 	void swapOrdinary(XeenRoster &) noexcept;
 	bool _combatMarked = false;
-	std::array<std::optional<XeenCombatInputs>, kCharacterCount> _combatInputs{};
+	std::array<XeenMutableOptional<XeenCombatInputs>, kCharacterCount> _combatInputs{};
 	std::array<XeenCharacter, kCharacterCount> _characters{};
 };
 
 class XeenParty {
 public:
+	// Membership is this value's sole state. PartyState owns the other party data.
+	XeenParty()=default;
+	XeenParty(const XeenParty &)=default;
+	XeenParty(XeenParty &&other) noexcept : _activeRosterIds(std::move(other._activeRosterIds)) { XeenMutationWatch::write(&other); }
+	XeenParty &operator=(const XeenParty &other) { XeenMutationWatch::write(this);_activeRosterIds=other._activeRosterIds;return *this; }
+	XeenParty &operator=(XeenParty &&other) noexcept { XeenMutationWatch::write(this);XeenMutationWatch::write(&other);_activeRosterIds=std::move(other._activeRosterIds);return *this; }
 	static constexpr std::size_t kSerializedMemberSlots = 8;
 	static constexpr std::size_t kMaximumVisibleMembers = 6;
 	// Restore exact active order, including the loader's supported duplicates.
 	static XeenParty fromRosterIds(std::vector<std::uint8_t> ids);
 
-	const std::vector<std::uint8_t> &activeRosterIds() const { return _activeRosterIds; }
+	const XeenMutableVector<std::uint8_t> &activeRosterIds() const { return _activeRosterIds; }
 	std::size_t size() const { return _activeRosterIds.size(); }
 	const XeenCharacter &member(const XeenRoster &roster, std::size_t partyIndex) const;
 
 private:
 	friend class XeenPartyLoader;
-	std::vector<std::uint8_t> _activeRosterIds;
+	XeenMutableVector<std::uint8_t> _activeRosterIds;
 };
 
 // Party-owned Clouds quest counters, independent of character inventories.
@@ -76,6 +82,8 @@ public:
 	using Counts = std::array<std::uint32_t, kCount>;
 
 	XeenCloudsQuestItems() = default;
+	XeenCloudsQuestItems(const XeenCloudsQuestItems &)=default;
+	XeenCloudsQuestItems &operator=(const XeenCloudsQuestItems &other) noexcept { XeenMutationWatch::write(this);_counts=other._counts;return *this; }
 	explicit XeenCloudsQuestItems(Counts counts) : _counts(counts) {}
 	static std::optional<std::size_t> indexForItemId(std::int64_t itemId);
 	std::uint32_t at(std::size_t index) const { return _counts.at(index); }
@@ -83,10 +91,10 @@ public:
 	bool increment(std::size_t index);
 	// Bounded access; returns false at zero without changing the counter.
 	bool decrement(std::size_t index);
-	const Counts &counts() const { return _counts; }
+	const XeenMutableArray<std::uint32_t,kCount> &counts() const { return _counts; }
 
 private:
-	Counts _counts{};
+	XeenMutableArray<std::uint32_t,kCount> _counts{};
 };
 
 // Clouds request state, separate from transactional game flags and item counts.
@@ -95,20 +103,22 @@ public:
 	static constexpr std::size_t kCount = 30;
 	using Values = std::array<bool, kCount>;
 	XeenCloudsQuestFlags() = default;
+	XeenCloudsQuestFlags(const XeenCloudsQuestFlags &)=default;
+	XeenCloudsQuestFlags &operator=(const XeenCloudsQuestFlags &other) noexcept { XeenMutationWatch::write(this);_values=other._values;return *this; }
 	explicit XeenCloudsQuestFlags(Values values) : _values(values) {}
 	static bool validIndex(std::int64_t index);
 	bool isSet(std::int64_t index) const;
 	void set(std::int64_t index);
 	void clear(std::int64_t index);
-	const Values &values() const { return _values; }
+	const XeenMutableArray<bool,kCount> &values() const { return _values; }
 private:
 	static std::size_t checkedIndex(std::int64_t index);
-	Values _values{};
+	XeenMutableArray<bool,kCount> _values{};
 };
 
 // The one original world bit admitted by the connected regional recovery contract.
 struct XeenRegionalRecoveryState {
-	bool worldFlag16 = false;
+	XeenMutable<bool> worldFlag16 = false;
 	friend bool operator==(XeenRegionalRecoveryState a, XeenRegionalRecoveryState b) noexcept {
 		return a.worldFlag16 == b.worldFlag16;
 	}
@@ -124,16 +134,16 @@ struct XeenPartyState {
 	void swap(XeenPartyState &);
 	friend void swap(XeenPartyState &a, XeenPartyState &b) { a.swap(b); }
 	// Only explicit encounter preparation installs this; ordinary loading/restoration does not.
-	std::optional<XeenGameplayContext> encounterContext;
-	std::optional<XeenMonsterTreasure> monsterTreasure;
+	XeenMutableOptional<XeenGameplayContext> encounterContext;
+	XeenMutableOptional<XeenMonsterTreasure> monsterTreasure;
 	XeenRoster roster;
 	XeenParty party;
 	XeenCloudsQuestItems questItems;
 	XeenCloudsQuestFlags questFlags;
-	std::optional<XeenRegionalRecoveryState> regionalRecovery;
-	std::uint8_t firstSerializedCount = 0;
-	std::uint8_t effectiveSerializedCount = 0;
-	std::vector<std::string> diagnostics;
+	XeenMutableOptional<XeenRegionalRecoveryState> regionalRecovery;
+	XeenMutable<std::uint8_t> firstSerializedCount = 0;
+	XeenMutable<std::uint8_t> effectiveSerializedCount = 0;
+	XeenMutableDiagnostics diagnostics;
 private:
 	friend class XeenSaveState;
 	friend class XeenRestoreGuard;

@@ -35,7 +35,7 @@ XeenCombatResult literalRun(XeenCombat &combat,unsigned roll) {
 void disengagementSurvivor(Source &source) {
  auto saved=disengagementFixture(source);Domain d(source,saved);auto &combat=disengagementContact(d);
  const auto before=d.party.roster.characters();const auto membership=d.party.party.activeRosterIds();
- const auto actors=d.world.sessionState().actors();const auto context=d.party.encounterContext;const auto origin=d.camera;
+ const std::vector<XeenActor> actors=d.world.sessionState().actors();const auto context=d.party.encounterContext;const auto origin=d.camera;
  const auto startRandom=d.world.sessionState().journeyRandom()->count;
  for(unsigned owner=0;owner<6;++owner) {
   check(combat.phase()==XeenCombatPhase::PlayerReady && combat.participant()==int(owner),"Equal-speed Run retains stable owner order and earlier actions");

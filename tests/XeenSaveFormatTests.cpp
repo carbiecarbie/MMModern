@@ -245,7 +245,7 @@ void numericDomains() {
 		s.gameFlags.fill(false); s.gameFlags[i] = true; roundTrip(s);
 	}
 	auto &c = s.characters[0];
-	for (int *field : {&c.intellect.permanent, &c.intellect.temporary, &c.personality.permanent,
+	for (auto *field : {&c.intellect.permanent, &c.intellect.temporary, &c.personality.permanent,
 			&c.personality.temporary, &c.endurance.permanent, &c.endurance.temporary,
 			&c.permanentLevel, &c.temporaryLevel, &c.temporaryAge})
 		for (int value : {std::numeric_limits<int>::min(), -2, 0, 255, 256, 70000,

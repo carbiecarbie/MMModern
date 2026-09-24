@@ -27,7 +27,7 @@ inline void run(const std::function<XeenPartyState()> &initial,const XeenJourney
     if(change>=9){if(kind==1)throw std::runtime_error("Transient DAT I/O");throw std::bad_alloc();}
     if(change>=5){++m.geometry.id;return m;}
     // Change real traversal geometry, not an ignored fixture-only field.
-    auto &cell=m.geometry.cells[11*16+8];auto &layers=std::get<XeenOutdoorLayers>(cell.geometry);
+    auto &cell=m.geometry.cells[11*16+8];auto &layers=xeenGet<XeenOutdoorLayers>(cell.geometry);
     layers.middle=layers.middle==1 ? 0 : 1;cell.rawWord^=0x10;
    }return m;},[&](auto id){auto o=objects(id);if(altered && ((kind==2 && id==home)||(kind==4 && id==neighbor))) {
     if(change>=9){if(kind==4)throw std::runtime_error("Transient MOB I/O");throw std::bad_alloc();}
@@ -51,7 +51,7 @@ inline void run(const std::function<XeenPartyState()> &initial,const XeenJourney
   if(operation==1)require(flow->journeyTransfer(flow->ticket(),5,0,XeenInventoryCategory::Accessories,1).status==XeenTransferStatus::Success,"Authorized transfer publication");
   if(operation==2)require(flow->journeyAction(flow->ticket(),XeenEncounterAction::Right).outcome==XeenEncounterOutcome::Accepted,"Authorized navigation publication");
   if(operation==3)require(flow->journeyPulse(flow->ticket()).outcome==XeenEncounterOutcome::Pulsed,"Authorized actor pulse publication");
-  const auto camera=c;const auto context=p.encounterContext;const auto actors=w.sessionState().actors();
+  const auto camera=c;const auto context=p.encounterContext;const std::vector<XeenActor> actors=w.sessionState().actors();
   const auto characters=p.roster.characters();const auto random=w.sessionState().journeyRandom();
   // Isolate entries forgotten at renewal even when that publication reloaded home.
   w.discardMapCache();altered=change!=0;flow->holdJourneyFrame();

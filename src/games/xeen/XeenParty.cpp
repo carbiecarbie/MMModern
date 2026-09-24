@@ -89,17 +89,22 @@ bool XeenCloudsQuestFlags::isSet(std::int64_t index) const {
 }
 
 void XeenCloudsQuestFlags::set(std::int64_t index) {
-	_values[checkedIndex(index)] = true;
+	const auto slot = checkedIndex(index);
+	XeenMutationWatch::write(this);
+	_values[slot] = true;
 }
 
 void XeenCloudsQuestFlags::clear(std::int64_t index) {
-	_values[checkedIndex(index)] = false;
+	const auto slot = checkedIndex(index);
+	XeenMutationWatch::write(this);
+	_values[slot] = false;
 }
 
 bool XeenCloudsQuestItems::decrement(std::size_t index) {
 	auto &count = _counts.at(index);
 	if (!count)
 		return false;
+	XeenMutationWatch::write(this);
 	--count;
 	return true;
 }
@@ -108,6 +113,7 @@ bool XeenCloudsQuestItems::increment(std::size_t index) {
 	auto &count = _counts.at(index);
 	if (count == std::numeric_limits<std::uint32_t>::max())
 		return false;
+	XeenMutationWatch::write(this);
 	++count;
 	return true;
 }

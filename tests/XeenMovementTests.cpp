@@ -43,14 +43,14 @@ mmodern::XeenWorld worldWith(std::map<mmodern::XeenMapIdentity, mmodern::XeenMap
 }
 
 mmodern::XeenOutdoorLayers &layersAt(mmodern::XeenMap &map, int x, int y) {
-	return std::get<mmodern::XeenOutdoorLayers>(
+	return mmodern::xeenGet<mmodern::XeenOutdoorLayers>(
 		map.geometry.cells[static_cast<std::size_t>(y) * 16 + x].geometry);
 }
 
 mmodern::XeenMap freeIndoorMap(int wallNoPass = 7) {
 	mmodern::XeenMap map;
 	map.geometry.id = 33;
-	map.geometry.neighbors = {115, 116, 117, 118};
+	map.geometry.neighbors = std::array<std::uint16_t,4>{115, 116, 117, 118};
 	map.geometry.difficulties[0] = wallNoPass;
 	for (auto &cell : map.geometry.cells)
 		cell.geometry = mmodern::XeenIndoorWalls{};
@@ -63,7 +63,7 @@ mmodern::XeenMapCell &indoorCellAt(mmodern::XeenMap &map, int x, int y) {
 
 void setIndoorWall(mmodern::XeenMap &map, int x, int y,
 		mmodern::XeenDirection direction, std::uint8_t value) {
-	std::get<mmodern::XeenIndoorWalls>(indoorCellAt(map, x, y).geometry)
+	mmodern::xeenGet<mmodern::XeenIndoorWalls>(indoorCellAt(map, x, y).geometry)
 		.walls[static_cast<std::size_t>(direction)] = value;
 }
 
@@ -121,7 +121,7 @@ void testNeighborTransitions() {
 	auto map1 = freeMap(1);
 	auto map2 = freeMap(2);
 	auto map5 = freeMap(5);
-	map1.geometry.neighbors = {0, 5, 2, 0};
+	map1.geometry.neighbors = std::array<std::uint16_t,4>{0, 5, 2, 0};
 	map5.geometry.neighbors[3] = 1;
 	map2.geometry.neighbors[0] = 1;
 	auto world = worldWith({{1, map1}, {2, map2}, {5, map5}});

@@ -296,7 +296,7 @@ std::string XeenEncounterFlow::notice() const {
 	constexpr const char *directions[]{"N","E","S","W"};
 	const auto direction = static_cast<unsigned>(_camera.direction);
 	text += direction < 4 ? directions[direction] : "?";
-	text += " | T=" + std::to_string(_party.encounterContext ? _party.encounterContext->minutes : 0) + " | Unsaveable\n";
+	text += " | T=" + std::to_string(_party.encounterContext ? unsigned(_party.encounterContext->minutes) : 0) + " | Unsaveable\n";
 	if (_state.phase() == XeenEncounterPhase::Engaged) {
 		const auto actor = _world.sessionState().actors().at(5);
 		std::string name = actor.statistics ? actor.statistics->name() : "";
@@ -528,7 +528,7 @@ std::string XeenEncounterFlow::expeditionNotice() const {
 		const auto &r=_combatObservation;
 		if(r.operation==XeenCombatOperation::Block && r.actingOwner) text+=_party.roster.at(*r.actingOwner).name+" blocks\n";
 		else if(r.attackOutcome!=XeenCombatAttackOutcome::NotApplicable) {
-			text+=r.actingOwner?_party.roster.at(*r.actingOwner).name:r.actingMonster?label(*r.actingMonster):"Enemy";
+			text+=r.actingOwner?std::string(_party.roster.at(*r.actingOwner).name):r.actingMonster?label(*r.actingMonster):"Enemy";
 			if(r.targetOwner) text+=" -> "+_party.roster.at(*r.targetOwner).name;
 			else if(r.targetMonster) text+=" -> "+label(*r.targetMonster);
 			text+=r.attackOutcome==XeenCombatAttackOutcome::Pending?" pending":r.attackOutcome==XeenCombatAttackOutcome::Miss?" misses":" -"+std::to_string(r.damage);

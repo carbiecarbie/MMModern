@@ -148,6 +148,80 @@ int main() {
 	   auto wire=sevenBytes;wire.resize(size);fixIndependentEnvelope(wire);rejects([&]{XeenSaveFormat::decode(wire);});
 	  }
 	  auto extraSeven=sevenBytes;extraSeven.push_back(0);fixIndependentEnvelope(extraSeven);rejects([&]{XeenSaveFormat::decode(extraSeven);});
+	  // Artificial schema-8 wire controls. The expected suffix is written here
+	  // independently of the production encoder and its decoded output.
+	  auto eight=seven;eight.journey->schema=eight.journey->contract=8;
+	  for(unsigned owner=0;owner<30;++owner)
+	   eight.journey->supplements[owner].inputs.poisonResistance=XeenAttributeValue{int(owner),int(255-owner)};
+	  auto expectedEight=sevenBytes;expectedEight[offset+1]=8;expectedEight[offset+3]=8;
+	  expectedEight.push_back(30);
+	  for(unsigned owner=0;owner<30;++owner){expectedEight.push_back(owner);expectedEight.push_back(owner);expectedEight.push_back(255-owner);}
+	  expectedEight.push_back(0);fixIndependentEnvelope(expectedEight);
+	  auto eightBytes=XeenSaveFormat::encode(eight);
+	  check(eightBytes==expectedEight && eightBytes.size()-offset==3124,"Schema-8 unvisited literal wire and extent");
+	  const auto badEight=[&](const Bytes &source,unsigned at,unsigned value){auto wire=source;wire[offset+at]=value;fixIndependentEnvelope(wire);rejects([&]{XeenSaveFormat::decode(wire);});};
+	  constexpr unsigned poison=3032;
+	  badEight(eightBytes,poison,29);badEight(eightBytes,poison+1,1);
+	  badEight(eightBytes,poison+4,0);badEight(eightBytes,poison+91,2);
+	  auto missingPoison=eight;missingPoison.journey->supplements[29].inputs.poisonResistance.reset();rejects([&]{XeenSaveFormat::encode(missingPoison);});
+	  auto city=eight;
+	  city.journey->vertigoActors.emplace();
+	  for(unsigned i=0;i<46;++i)city.journey->vertigoActors->push_back({{28,i},int(i%16),int(i/16),2,false,XeenActorLifecycle::Present,XeenActorStatus::Physical,false});
+	  city.camera={28,16,2,XeenDirection::North};
+	  auto expectedCity=expectedEight;expectedCity.back()=1;
+	  const auto push16=[&](Bytes &b,unsigned value){b.push_back(value&255);b.push_back((value>>8)&255);};
+	  const auto push32=[&](Bytes &b,unsigned value){for(unsigned n=0;n<4;++n)b.push_back((value>>(8*n))&255);};
+	  push16(expectedCity,46);push16(expectedCity,46);
+	  for(unsigned i=0;i<46;++i){expectedCity.push_back(0);push16(expectedCity,28);push32(expectedCity,i);
+	   push16(expectedCity,i%16);push16(expectedCity,i/16);push32(expectedCity,2);
+	   expectedCity.insert(expectedCity.end(),{0,0,0,0});}
+	  expectedCity[46]=28;expectedCity[47]=0;expectedCity[48]=16;expectedCity[49]=2;expectedCity[50]=0;
+	  fixIndependentEnvelope(expectedCity);
+	  auto cityBytes=XeenSaveFormat::encode(city);
+	  check(cityBytes==expectedCity && cityBytes.size()-offset==4002,"Schema-8 visited-46 literal wire and extent");
+	  badEight(cityBytes,poison+92,47);badEight(cityBytes,poison+94,45);
+	  auto reset=city;
+	  for(unsigned i=46;i<52;++i)reset.journey->vertigoActors->push_back({{28,i},0,0,i<50?0:2,false,
+	   i<50?XeenActorLifecycle::Unresolved:XeenActorLifecycle::Present,XeenActorStatus::Physical,false});
+	  auto expectedReset=expectedCity;expectedReset[offset+poison+94]=52;
+	  for(unsigned i=46;i<52;++i){expectedReset.push_back(0);push16(expectedReset,28);push32(expectedReset,i);
+	   push16(expectedReset,0);push16(expectedReset,0);push32(expectedReset,i<50?0:2);
+	   expectedReset.insert(expectedReset.end(),{0,std::uint8_t(i<50?2:0),0,0});}
+	  fixIndependentEnvelope(expectedReset);
+	  auto resetBytes=XeenSaveFormat::encode(reset);
+	  check(resetBytes==expectedReset && resetBytes.size()-offset==4116,"Schema-8 visited-52 literal wire and extent");
+	  badEight(resetBytes,poison+94,51);
+	  for(const auto &wire:{eightBytes,cityBytes,resetBytes}){
+	   check(XeenSaveFormat::encode(XeenSaveFormat::decode(wire))==wire,"Schema-8 exact byte continuation");
+	   auto truncated=wire;truncated.pop_back();fixIndependentEnvelope(truncated);rejects([&]{XeenSaveFormat::decode(truncated);});
+	   auto appended=wire;appended.push_back(0);fixIndependentEnvelope(appended);rejects([&]{XeenSaveFormat::decode(appended);});
+	  }
+	  auto mixed=eight;mixed.journey->contract=7;rejects([&]{XeenSaveFormat::encode(mixed);});
+	  // Forge the base overlay records directly, with an independent repaired
+	  // envelope: semantic rejection must not depend on the trusted encoder.
+	  const auto overlayWire=[&](Bytes wire, bool object, unsigned record) {
+	   const auto insertion=offset-(object?4u:0u);
+	   wire.at(offset-(object?8u:4u))=1;
+	   Bytes identity{0,28,0};push32(identity,record);
+	   wire.insert(wire.begin()+insertion,identity.begin(),identity.end());
+	   fixIndependentEnvelope(wire);return wire;
+	  };
+	  for(unsigned record:{539u,761u}) {
+	   const auto forged=overlayWire(cityBytes,false,record);
+	   rejects([&]{XeenSaveFormat::decode(forged);});
+	  }
+	  for(const auto &source:{cityBytes,resetBytes,eightBytes}) {
+	   const auto object=overlayWire(source,true,0);
+	   rejects([&]{XeenSaveFormat::decode(object);});
+	  }
+	  const auto absentOverlay=overlayWire(eightBytes,false,764);
+	  rejects([&]{XeenSaveFormat::decode(absentOverlay);});
+	  for(const auto &source:{cityBytes,resetBytes}) {
+	   const auto valid=overlayWire(source,false,764);
+	   const auto decoded=XeenSaveFormat::decode(valid);
+	   check(decoded.disabledEvents==std::vector<XeenEventIdentity>{{28,764}},"exact city protection overlay rejected");
+	  }
+	  mixed=eight;mixed.journey->schema=7;rejects([&]{XeenSaveFormat::encode(mixed);});
 		std::cout << "Schema-3 exact layout, full coverage and malformed-wire controls passed\n";
 		return 0;
 	} catch(const std::exception &e) {std::cerr << e.what() << '\n';return 1;}

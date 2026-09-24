@@ -2,6 +2,7 @@
 #include "games/xeen/XeenJourneyProgression.h"
 #include "games/xeen/XeenJourneyCapture.h"
 #include "games/xeen/XeenItemCatalog.h"
+#include "games/xeen/XeenIndoorScene.h"
 #include <sstream>
 #include <limits>
 namespace mmodern {
@@ -23,6 +24,9 @@ bool XeenEncounterFlow::beginShoot() {
  const bool continuation=_shootIntent && !_regionalWork && !_regionalAutomatic && !projectilesPending() && !monsterReward();
  if((!_state.pending() && !journeyMutable() && !continuation) || !journeyCapacity()) return false;
  _shootIntent=false;
+ if(_world.sessionState().journeyContract()==8 && _camera.mapId==XeenMapIdentity(28)) {
+  _journeyRefusal="Shoot refused indoors";return true;
+ }
  try {
   xeenValidateJourneyMelee(_party,_world.sessionState().journeyContract());
   if(unsupportedTime(*_party.encounterContext)) { _journeyRefusal="Shoot refused: charge crosses the supported time boundary";return true; }
@@ -138,7 +142,9 @@ bool XeenEncounterFlow::beginMonsterReward(const XeenItemCatalog &catalog) {
  if(!xeenJourneyContent(_world.sessionState().journeyContract()).consequences() || monsterReward() || _combat || _busy || _failure || _regionalWork || projectilesPending() ||
   _state.pending() || _state.phase()!=XeenEncounterPhase::Exploring || (_shoot && !_shoot->volleyDone) || !_boundary.quiet()) return false;
  if(!_party.monsterTreasure || !_party.monsterTreasure->pending()) return false;
- const auto view=XeenActorApproach::classify(_world.sessionState().actors(),_camera);
+ const auto &actors=_world.sessionState().regionalActors(_camera.mapId);
+ const auto view=_world.sessionState().journeyContract()==8 && _camera.mapId==XeenMapIdentity(28)
+  ? XeenIndoorScene().classifyActors(_world,_camera,actors) : XeenActorApproach::classify(actors,_camera);
  for(const auto &slot:view.slots) if(slot) return false;
  if(!current(ticket()) || !journeyCapacity()) throw std::logic_error("Stale monster delivery");
  ConsequenceScope busy(_busy);
@@ -228,7 +234,7 @@ std::string XeenEncounterFlow::consequenceNotice() const {
   if(!stopped && _combat->phase()==XeenCombatPhase::PlayerReady) out<<_party.roster.at(kXeenCombatOwners[_combat->participant()]).name<<(xeenJourneyContent(_world.sessionState().journeyContract()).disengagement()?": Space/B; R Run; 1-3 target\n":": Space/B; 1-3 target\n");
   else if(!stopped)out<<"Automatic combat / End\n";
   const auto rows=_combat->contacts();
-  for(unsigned i=0;i<rows.size();++i)if(rows[i]) {const auto &a=_world.sessionState().actors().at(rows[i]->recordIndex);out<<(rows[i]==_combat->selectedTarget()?">":"")<<i+1<<' '<<a.statistics->name()<<" #"<<a.id.recordIndex<<" HP"<<a.hp<<'\n';}
+  for(unsigned i=0;i<rows.size();++i)if(rows[i]) {const auto &a=_world.sessionState().regionalActors(rows[i]->mapId).at(rows[i]->recordIndex);out<<(rows[i]==_combat->selectedTarget()?">":"")<<i+1<<' '<<a.statistics->name()<<" #"<<a.id.recordIndex<<" HP"<<a.hp<<'\n';}
   const auto &r=_combatObservation;
   if(r.operation==XeenCombatOperation::PlayerRun && r.runRoll)out<<_party.roster.at(*r.actingOwner).name<<(r.runSuccess?" escaped":" Run failed")<<" ("<<r.runRoll<<")\n";
   else if(r.monsterDrop)out<<"Orc "<<unsigned(r.generatedItem.source)<<" +10 gold pending; "<<(*r.monsterDrop==XeenMonsterDropOutcome::ReferenceMiscellaneousDropLoss?"misc drop lost":*r.monsterDrop==XeenMonsterDropOutcome::CategoryCapacityLoss?"full category: lost":*r.monsterDrop==XeenMonsterDropOutcome::Item?"item produced":"no item")<<'\n';
@@ -236,13 +242,15 @@ std::string XeenEncounterFlow::consequenceNotice() const {
   else if(!r.monsterDrop && r.targetMonster && r.attackOutcome!=XeenCombatAttackOutcome::NotApplicable)out<<"Actor "<<r.targetMonster->recordIndex<<(r.attackOutcome==XeenCombatAttackOutcome::Miss?" missed":" damage ")<<r.damage<<'\n';
 
  } else if(!stopped) {
+  const bool city=_world.sessionState().journeyContract()==8 && _camera.mapId==XeenMapIdentity(28);
   out<<"Arrows move/turn; . Wait; F Shoot:";
   bool eligible=false;
   for(unsigned i=0;i<6;++i){const auto &c=_party.roster.at(kXeenCombatOwners[i]);if(c.canAct())for(const auto &w:c.weapons)if(w.frame==4){out<<' '<<i+1;eligible=true;break;}}
   if(!eligible)out<<" none";
   out<<"\nI inventory; F9 quiet save; Space interact\n";
-  const auto selected=XeenActorApproach::classify(_world.sessionState().actors(),_camera);
-  unsigned visible=0;for(const auto &id:selected.slots)if(id){if(!visible){const auto &a=_world.sessionState().actors().at(id->recordIndex);out<<a.statistics->name()<<" #"<<a.id.recordIndex<<" HP"<<a.hp;}++visible;}
+  const auto &active=_world.sessionState().regionalActors(_camera.mapId);
+  const auto selected=city ? XeenIndoorScene().classifyActors(const_cast<XeenWorld &>(_world),_camera,active) : XeenActorApproach::classify(active,_camera);
+  unsigned visible=0;for(const auto &id:selected.slots)if(id){if(!visible){const auto &a=active.at(id->recordIndex);out<<a.statistics->name()<<" #"<<a.id.recordIndex<<" HP"<<a.hp;}++visible;}
   if(visible>1)out<<" +"<<visible-1<<" threats";
   if(visible)out<<'\n';
   if(_party.monsterTreasure->dormant())out<<"Dormant items; no gold owed\n";

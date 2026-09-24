@@ -11,6 +11,8 @@
 #include "formats/xeen/XeenCharacterFormat.h"
 #include "games/xeen/XeenJourneyCapture.h"
 #include "games/xeen/XeenMovement.h"
+#include "games/xeen/XeenIndoorScene.h"
+#include "games/xeen/XeenVertigoRoute.h"
 
 #include <stdexcept>
 #include <algorithm>
@@ -30,10 +32,27 @@ void XeenSaveState::validateJourneyValues(const XeenSaveSnapshot &s) {
 	const auto &policy=xeenJourneyContent(j.contract);
 	if (j.contract>=3) {
 		require(s.resources.darkside && j.initializedMap==XeenMapIdentity(23) && j.originalActorCount==19 && j.actors.size()==19 &&
-			s.camera.mapId==XeenMapIdentity(23) && s.camera.x>=0 && s.camera.x<16 && s.camera.y>=0 && s.camera.y<16);
+			((s.camera.mapId==XeenMapIdentity(23) && s.camera.x>=0 && s.camera.x<16 && s.camera.y>=0 && s.camera.y<16) ||
+			 (j.contract==8 && s.camera.mapId==XeenMapIdentity(28) && xeenJourneyContent(8).vertigoCell(s.camera.x,s.camera.y) && j.vertigoActors)));
+		require(j.contract==8 || !j.vertigoActors);
+		if (j.vertigoActors) {
+			require(j.vertigoActors->size()==46 || j.vertigoActors->size()==52);
+			for (unsigned i=0;i<j.vertigoActors->size();++i) {
+				const auto &a=(*j.vertigoActors)[i];
+				require(a.id==XeenMonsterIdentity{28,i});
+				require(s.camera.mapId!=XeenMapIdentity(28) || a.lifecycle!=XeenActorLifecycle::Present ||
+					a.x!=s.camera.x || a.y!=s.camera.y);
+			}
+		}
+		if (j.contract==8) {
+			for (const auto &id:s.disabledObjects) require(id.mapId!=XeenMapIdentity(28));
+			for (const auto &id:s.disabledEvents)
+				require(id.mapId!=XeenMapIdentity(28) || (j.vertigoActors && id.recordIndex==764));
+		}
 		for (unsigned i=0;i<19;++i) {
 			const auto &a=j.actors[i];require(a.id==XeenMonsterIdentity{23,i} && a.status==XeenActorStatus::Physical);
-			if (a.lifecycle==XeenActorLifecycle::Present) require(a.hp>0 && !a.accounted && a.x>=0 && a.x<16 && a.y>=0 && a.y<16 && (a.x!=s.camera.x || a.y!=s.camera.y));
+			if (a.lifecycle==XeenActorLifecycle::Present) require(a.hp>0 && !a.accounted && a.x>=0 && a.x<16 && a.y>=0 && a.y<16 &&
+				(s.camera.mapId!=XeenMapIdentity(23) || a.x!=s.camera.x || a.y!=s.camera.y));
 			else require(a.lifecycle==XeenActorLifecycle::Defeated && !a.hp && !a.activated && a.accounted && a.x==-128 && a.y==-128);
 		}
 		return; // Topology/profile/closure validation needs the installation during restore.
@@ -78,7 +97,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	XeenPartyState p;
 	XeenCamera c = snapshot.camera;
 	XeenGameFlags f(snapshot.gameFlags);
-	XeenWorld w(world._loader,world._objectLoader);
+	XeenWorld w(world._baseLoader,world._baseObjectLoader);
 	for (unsigned i = 0; i < 30; ++i) p.roster.at(i) = snapshot.characters[i];
 	p.party = XeenParty::fromRosterIds(snapshot.activeRosterIds);
 	p.questItems = XeenCloudsQuestItems(snapshot.questItems); p.questFlags = XeenCloudsQuestFlags(snapshot.questFlags);
@@ -130,7 +149,9 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	if (policy.contract>=3) {
 		if (!regionalManifest) throw std::invalid_argument("Missing regional restoration manifest");
 		callback([&] { regionalManifest(w.map(23),w.objectFile(23),evt,statistics);return true; });
-		if (!XeenMovement::component(w.map(23),9,11,policy.traversal)[c.y*16+c.x]) throw std::invalid_argument("Regional camera outside mainland");
+		if (c.mapId==XeenMapIdentity(23) &&
+			!XeenMovement::component(w.map(23),9,11,policy.traversal)[c.y*16+c.x])
+			throw std::invalid_argument("Regional camera outside mainland");
 	}
 	if (actors.size()!=(policy.contract>=3 ? 19u : 27u)) throw std::invalid_argument("Journey requires complete original actor collection");
 	for (unsigned i=0;policy.contract<3 && i<policy.count;++i) {
@@ -151,12 +172,47 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	s._skeletonSeed = snapshot.journey->skeletonSeed;
 	s._journeyContract=snapshot.journey->contract; s._journeyRandom=snapshot.journey->random;
 	for (const auto &live:snapshot.journey->actors) if (live.accounted) s._accountedMonsters.insert(live.id);
+	adopt(); // Base Journey values are complete before optional regional resources.
+	if (snapshot.journey->vertigoActors) {
+		const auto cityEvents=events(28);
+		if (!resources.vertigoManifest) throw std::invalid_argument("Missing Vertigo restoration manifest");
+		callback([&] { resources.vertigoManifest(w,cityEvents,statistics);return true; });
+		xeenValidateVertigoRoute(evt,cityEvents);
+		const auto cityMob=callback([&] { return w.objectFile(28); });
+		auto city=XeenActorApproach::actorsFromResources(cityMob,statistics);
+		if (city.size()!=46 || statistics.empty() || statistics[0].image()!=0 || statistics[0].baseHp()!=2)
+			throw std::invalid_argument("Vertigo actor catalog changed on restore");
+		w._vertigoSpawnSlime=statistics[0];
+		if (snapshot.journey->vertigoActors->size()==52) {
+			city.reserve(52);
+			for (unsigned i=46;i<52;++i) {XeenActor a;a.id={28,i};a.original={};a.original.x=a.original.y=0;a.x=a.y=0;
+				if(i>=50){a.original.resourceId=0;a.statistics=statistics[0];}city.push_back(std::move(a));}
+		}
+		for (const auto &live:*snapshot.journey->vertigoActors) {
+			auto &a=city.at(live.id.recordIndex);
+			a.x=live.x;a.y=live.y;a.hp=live.hp;a.activated=live.activated;a.lifecycle=live.lifecycle;a.status=live.status;
+			if(live.accounted)s._accountedMonsters.insert(live.id);
+		}
+		s._vertigoActors.emplace(std::move(city));
+		adopt(); // The complete saved actor graph precedes checked geometry callbacks.
+		xeenValidateVertigoActors(w,*s._vertigoActors);
+		adopt();
+	}
 	adopt(); // Complete saved domain, deliberately unbound and unavailable.
 	XeenActorApproach::validateEnvironment(w,s._actors,evt,s._journeyContract);
-	const auto view=XeenActorApproach::classify(s._actors,c);
+	const bool cityActive=c.mapId==XeenMapIdentity(28);
+	std::optional<XeenEventFile> activeCityEvents;
+	if(cityActive) {
+		activeCityEvents=events(28);
+		xeenValidateVertigoRoute(evt,*activeCityEvents);
+	}
+	const auto &active=cityActive ? s._vertigoActors.value() : s._actors;
+	const auto view=cityActive ? XeenIndoorScene().classifyActors(w,c,active) : XeenActorApproach::classify(active,c);
+	if (view.engaged()) throw std::invalid_argument("Quiet restore has active contact");
 	if(p.monsterTreasure && p.monsterTreasure->ready() && std::none_of(view.slots.begin(),view.slots.end(),[](const auto &v){return bool(v);})) throw std::invalid_argument("Quiet treasure is immediately collectable");
-	for (unsigned i=0;i<s._actors.size();++i) if (view.activation[i] && !s._actors[i].activated) throw std::invalid_argument("Quiet actor activation missing");
+	for (unsigned i=0;i<active.size();++i) if (view.activation[i] && !active[i].activated) throw std::invalid_argument("Quiet actor activation missing");
 	for (auto n:XeenActorApproach::occupancy(s._actors)) if (n>3) throw std::invalid_argument("Quiet actor occupancy exceeded");
+	if(s._vertigoActors)for(auto n:XeenActorApproach::occupancy(*s._vertigoActors))if(n>3)throw std::invalid_argument("Quiet city actor occupancy exceeded");
 	try { presentation(w,p,c,f); }
 	catch (...) { destination.check(); prepared->check(); throw; }
 	destination.check(); prepared->check();
@@ -164,8 +220,9 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	auto binding = std::make_shared<XeenJourneyRestoration>();
 	binding->capture.reset(new XeenJourneyCapture);
 	binding->capture->admittedActors = s._actors;
-	binding->statistics = std::move(statistics); binding->events = std::move(evt);
+	binding->statistics = std::move(statistics); binding->events = cityActive ? std::move(*activeCityEvents) : std::move(evt);
 	binding->learnedNamesProvider=resources.loadLearnedSpellNames;
+	binding->vertigoManifest=resources.vertigoManifest;
 	binding->guard = std::make_shared<XeenRestoreGuard>(world,party,camera,flags);
 	binding->guard->prepareJourneyPublication(*prepared);
 	destination.check(); prepared->check();
@@ -173,11 +230,14 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	camera = c; flags = f;
 	world.swapPreparedState(w);
 	auto &out = world._sessionState;
-	out._actors.swap(s._actors); out._accountedMonsters.swap(s._accountedMonsters);
+	out._actors.swap(s._actors); out._vertigoActors.swap(s._vertigoActors);
+	out._accountedMonsters.swap(s._accountedMonsters);
+	world._vertigoSpawnSlime.swap(w._vertigoSpawnSlime);
 	out._entry = XeenEncounterEntry::Journey; out._encounterMarked = out._encounterInitialized = true;
 	out._encounterRevision = 1; out._skeletonSeed = snapshot.journey->skeletonSeed;
 	out._journeyContract=snapshot.journey->contract; out._journeyRandom=snapshot.journey->random;
 	world._journeyRestoration.swap(binding);
+	world._journeyRestoration->guard->adoptMutationBoundary();
 }
 
 void XeenSaveState::restoreCompleted(const XeenSaveSnapshot &source, const Resources &resources,
@@ -208,7 +268,7 @@ void XeenSaveState::restoreCompleted(const XeenSaveSnapshot &source, const Resou
 	XeenPartyState candidateParty;
 	XeenCamera candidateCamera = snapshot.camera;
 	XeenGameFlags candidateFlags(snapshot.gameFlags);
-	XeenWorld candidate(world._loader, world._objectLoader);
+	XeenWorld candidate(world._baseLoader, world._baseObjectLoader);
 	std::optional<XeenRestoreGuard> prepared;
 	const auto adoptPhase = [&] {
 		XeenRestoreGuard next(candidate, candidateParty, candidateCamera, candidateFlags);
@@ -368,6 +428,12 @@ XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resourc
 		if (state.actors().size() != j.originalActorCount) throw std::logic_error("Journey actor collection changed");
 		for (const auto &a:state.actors()) if (xeenJourneyContent(j.contract).influences(a.id.recordIndex))
 			j.actors.push_back({a.id,a.x,a.y,a.hp,a.activated,a.lifecycle,a.status,state.accountedMonsters().count(a.id) != 0});
+		if (j.contract==8 && state._vertigoActors) {
+			std::vector<XeenSaveJourneyActor> city;city.reserve(state._vertigoActors->size());
+			for (const auto &a:*state._vertigoActors)
+				city.push_back({a.id,a.x,a.y,a.hp,a.activated,a.lifecycle,a.status,state.accountedMonsters().count(a.id)!=0});
+			j.vertigoActors=std::move(city);
+		}
 		snapshot.journey = std::move(j);
 		validateJourneyValues(snapshot);
 	}
@@ -425,7 +491,7 @@ void XeenSaveState::restoreBeforeGameplay(const XeenSaveSnapshot &snapshot,
 
 	XeenCamera candidateCamera = snapshot.camera;
 	XeenGameFlags candidateFlags(snapshot.gameFlags);
-	XeenWorld candidateWorld(world._loader, world._objectLoader);
+	XeenWorld candidateWorld(world._baseLoader, world._baseObjectLoader);
 	const auto guard = [&] {
 		if (world.hasEncounterState() || party.encounterContext || party.roster.combatMarked() ||
 			candidateWorld.hasEncounterState() || candidateParty.encounterContext || candidateParty.roster.combatMarked())

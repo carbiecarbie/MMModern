@@ -3,6 +3,7 @@
 
 #include "games/xeen/XeenMapIdentity.h"
 #include "games/xeen/XeenGameplayBorrow.h"
+#include "games/xeen/XeenMutation.h"
 
 #include <cstdint>
 
@@ -17,9 +18,9 @@ enum class XeenDirection : std::uint8_t {
 
 struct XeenCamera {
 	XeenMapIdentity mapId = 0;
-	int x = 0;
-	int y = 0;
-	XeenDirection direction = XeenDirection::North;
+	XeenMutable<int> x = 0;
+	XeenMutable<int> y = 0;
+	XeenMutable<XeenDirection> direction = XeenDirection::North;
 	XeenGameplayBorrowOwner gameplayBorrow{};
 };
 

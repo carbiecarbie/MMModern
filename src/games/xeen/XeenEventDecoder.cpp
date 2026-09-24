@@ -240,6 +240,18 @@ XeenEventDecodeResult decodeTakeOrGive(const XeenEventRecord &record,
 XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 		XeenEventDecodeContext context) {
 	switch (record.opcode) {
+	case 0x10:
+		if (record.parameters.size()!=4) return wrongSize(record,context,4);
+		return instruction(record,context,XeenEventSpawn{record.parameters[0],
+			static_cast<std::int8_t>(record.parameters[1]),static_cast<std::int8_t>(record.parameters[2]),record.parameters[3]});
+	case 0x18:
+		if (record.parameters.size()!=2) return wrongSize(record,context,2);
+		return instruction(record,context,XeenEventAlterEvent{record.parameters[0],record.parameters[1]});
+	case 0x1b:
+		if (record.parameters.size()!=2) return wrongSize(record,context,2);
+		return instruction(record,context,XeenEventSetVar{record.parameters[0],record.parameters[1]});
+	case 0x2f:
+		return decodeEmpty(record,context,XeenEventProtectionCheck{});
 	case 0x2c: {
 		// MMModern's bounded envelope, not the original permissive iterator.
 		if (record.parameters.size() < 2) return wrongSize(record, context, 2);

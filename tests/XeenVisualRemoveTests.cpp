@@ -45,7 +45,7 @@ struct Fixture {
 	XeenAssetSource &assets;
 	XeenWorld world{[this](XeenMapIdentity id){++maps;auto m=map(id);if(automatic)m.geometry.cells[2*16+8].rawAttributes=0x10;return m;},
 		[this](XeenMapIdentity id){++objects;XeenObjectFile f;f.mapId=id;f.resourcePresent=true;
-			f.entities.objects={{8,2,0,0,111},{9,3,0,0,111},{1,1,0,0,111}};return f;}};
+			f.entities.objects=std::vector<XeenMapEntity>{{8,2,0,0,111},{9,3,0,0,111},{1,1,0,0,111}};return f;}};
 	XeenEventSystem events{[this](XeenMapIdentity id){++scripts;
 		if(transfer && id.number==23)return script(id,{record(8,2,0,0x1f,{24,8,2})});
 		return script(id,records);},

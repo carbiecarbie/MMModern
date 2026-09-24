@@ -484,6 +484,11 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
             if (!bytes) throw std::runtime_error("Missing DARK.CC/xeen.mon");
             return XeenMonsterFormat::parse(*bytes);
         };
+        services.resources.vertigoManifest = [&](XeenWorld &world,const XeenEventFile &evt,const std::vector<XeenMonsterRecord> &mon) {
+            xeenValidateVertigoManifest(world,evt,mon,[&](const std::string &name) {
+                return name.rfind("aaze",0)==0 ? assets.readArchiveResource(name) : assets.readInitialResource(name);
+            });
+        };
 		services.resources.loadLearnedSpellNames = [&] {
 			const auto bytes=assets.readLearnedSpellNamesFromDarkArchive();
 			if (!bytes) throw std::runtime_error("Missing DARK.CC/spells.xen");
@@ -509,7 +514,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
         services.composeEncounter = [&](XeenWorld &w, const XeenPartyState &p, const XeenCamera &c,
                 std::uint64_t ordinary, XeenMonsterAppearance actor) {
             XeenEventFlow::Composition result;
-            result.frame = composer.compose(assets, w, p, c, {p.encounterContext ? p.encounterContext->year : kCloudsInitialYear}, nullptr, ordinary,
+            result.frame = composer.compose(assets, w, p, c, {p.encounterContext ? std::uint32_t(p.encounterContext->year) : kCloudsInitialYear}, nullptr, ordinary,
                 &result.containsOrdinaryAnimation, actor);
             return result;
         };

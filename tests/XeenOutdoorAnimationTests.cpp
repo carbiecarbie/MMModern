@@ -24,7 +24,7 @@ struct Fixture {
   m.geometry.neighbors[2]=id.number==1?2:1;
   if(automatic)for(auto &c:m.geometry.cells)c.rawAttributes=0x10;
   if(indoor && id.number==3){m.geometry.flags2=0;for(auto &c:m.geometry.cells)c.geometry=XeenIndoorWalls{};}
-  return m;},[&](XeenMapIdentity id){XeenObjectFile f{id,"test.mob",true,{}};f.entities.objects={{1,1,0,0,111}};return f;}};
+  return m;},[&](XeenMapIdentity id){XeenObjectFile f{id,"test.mob",true,{}};f.entities.objects=std::vector<XeenMapEntity>{{1,1,0,0,111}};return f;}};
  XeenEventSystem events{[&](XeenMapIdentity id){return remove_test::script(id,data.scripts[id]);},
   [&](XeenMapIdentity id){auto t=data.text;t.mapId=id;return t;}};
  XeenEventFlow flow{world,events,data.initial,camera,flags,data.font,[&](std::uint64_t phase){
@@ -147,7 +147,7 @@ void realComposition(bool sdl){
  services.clock=[&]{return now;};
  services.resources.loadInitialParty=[] { return XeenPartyState{}; };
  services.maps=[](auto id) { return remove_test::map(id); };
- services.objects=[](XeenMapIdentity id){XeenObjectFile o{id,"test.mob",true,{}};o.entities.objects={{1,1,0,0,110}};return o;};
+ services.objects=[](XeenMapIdentity id){XeenObjectFile o{id,"test.mob",true,{}};o.entities.objects=std::vector<XeenMapEntity>{{1,1,0,0,110}};return o;};
  services.compose=[&](XeenWorld &w,const XeenPartyState &p,const XeenCamera &c,std::uint64_t phase){
   XeenEventFlow::Composition result;result.frame=composer.compose(assets,w,p,c,{},nullptr,phase,&result.containsOrdinaryAnimation);
   const auto resolver=XeenObjectVisualResolver::load(assets);auto commands=XeenOutdoorScene().build(w,c,&resolver,nullptr,phase);
@@ -173,7 +173,7 @@ void realComposition(bool sdl){
 void warmedMalformedFrame(){
  RealScene resources(true);XeenAssetSource assets(resources.installation,320,200);CloudsMapComposer composer;
  Fixture f;std::uint64_t now=0;std::vector<std::uint64_t> phases;
- XeenWorld world([](auto id){return remove_test::map(id);},[](auto id){XeenObjectFile o{id,"test.mob",true,{}};o.entities.objects={{1,1,0,0,110}};return o;});
+ XeenWorld world([](auto id){return remove_test::map(id);},[](auto id){XeenObjectFile o{id,"test.mob",true,{}};o.entities.objects=std::vector<XeenMapEntity>{{1,1,0,0,110}};return o;});
  XeenEventFlow flow(world,f.events,f.data.initial,f.camera,f.flags,f.data.font,[&](std::uint64_t phase){phases.push_back(phase);XeenEventFlow::Composition r;r.frame=composer.compose(assets,world,{},f.camera,{},nullptr,phase,&r.containsOrdinaryAnimation);return r;},{},[&]{return now;});
  const auto loads=assets.spriteLoadCount();now=100;bool failed=false;
  try{flow.updatePresentation();}catch(const std::runtime_error&){failed=true;}

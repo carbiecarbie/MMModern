@@ -90,6 +90,19 @@ XeenMovementResult applyIndoor(XeenWorld &world, XeenCamera &camera,
 	const auto delta = directionDelta(effectiveDirection);
 	const int targetX = camera.x + delta.first;
 	const int targetY = camera.y + delta.second;
+	const bool vertigo = camera.mapId == XeenMapIdentity(28) && world.regionalContract8();
+	if (vertigo) {
+		if (!xeenJourneyContent(8).vertigoCell(targetX,targetY))
+			return XeenMovementResult::BlockedByMapBoundary;
+		const auto source = world.sampleCell(camera.mapId,camera.x,camera.y);
+		const auto target = world.sampleCell(camera.mapId,targetX,targetY);
+		if (!source || !target) return XeenMovementResult::BlockedByMapBoundary;
+		if (wallAt(*source->cell,effectiveDirection) >= source->geometry->difficulties[0])
+			return XeenMovementResult::BlockedByWall;
+		if (target->cell->surfaceIndex == 4) return XeenMovementResult::BlockedBySurface;
+		camera.x=targetX;camera.y=targetY;
+		return XeenMovementResult::Moved;
+	}
 	// Interior exits are event-driven. They do not use the neighbor plane here.
 	if (targetX < 0 || targetX >= 16 || targetY < 0 || targetY >= 16)
 		return XeenMovementResult::BlockedByMapBoundary;
@@ -103,7 +116,7 @@ XeenMovementResult applyIndoor(XeenWorld &world, XeenCamera &camera,
 	const auto target = world.sampleCell(camera.mapId, targetX, targetY);
 	if (!target)
 		return XeenMovementResult::BlockedByMapBoundary;
-	if (!std::holds_alternative<XeenIndoorWalls>(target->cell->geometry))
+	if (!xeenHolds<XeenIndoorWalls>(target->cell->geometry))
 		throw std::runtime_error("celula exterior encontrada em mapa interior");
 	if (target->cell->surfaceIndex == 4)
 		return XeenMovementResult::BlockedBySurface;
@@ -121,7 +134,7 @@ XeenMovementResult XeenMovement::outdoorDestination(const XeenMapGeometry &geome
 		const XeenMapCell &cell, Capabilities capabilities) {
 	if (capabilities.swimming || capabilities.walkOnWater || capabilities.mountaineer)
 		throw std::invalid_argument("Unsupported outdoor traversal capability");
-	const auto *layers = std::get_if<XeenOutdoorLayers>(&cell.geometry);
+	const auto *layers = xeenGetIf<XeenOutdoorLayers>(&cell.geometry);
 	if (!geometry.isOutdoors() || !layers || layers->surface >= 16 || layers->middle >= 16)
 		throw std::invalid_argument("Invalid outdoor destination geometry");
 	if (blocksWithoutMountaineer(layers->middle)) return XeenMovementResult::BlockedByTerrain;
@@ -168,7 +181,8 @@ XeenMovementResult XeenMovement::apply(XeenWorld &world, XeenCamera &camera,
 	const XeenMap &currentMap = world.map(camera.mapId);
 	if (camera.mapId != currentMap.identity())
 		throw std::runtime_error("camera e mapa possuem IDs diferentes");
-	if (camera.x < 0 || camera.x >= 16 || camera.y < 0 || camera.y >= 16)
+	const bool vertigo = camera.mapId == XeenMapIdentity(28) && world.regionalContract8();
+	if (camera.x < 0 || camera.x >= (vertigo ? 32 : 16) || camera.y < 0 || camera.y >= (vertigo ? 32 : 16))
 		throw std::runtime_error("camera invalida antes do movimento");
 
 	if (action == NavigationAction::TurnLeft) {
@@ -181,7 +195,7 @@ XeenMovementResult XeenMovement::apply(XeenWorld &world, XeenCamera &camera,
 	}
 
 	const XeenDirection effectiveDirection =
-		action == NavigationAction::MoveBackward ? opposite(camera.direction) : camera.direction;
+		action == NavigationAction::MoveBackward ? opposite(camera.direction) : XeenDirection(camera.direction);
 	if (currentMap.geometry.isOutdoors())
 		return applyOutdoor(world, camera, effectiveDirection);
 	return applyIndoor(world, camera, currentMap.geometry, effectiveDirection);

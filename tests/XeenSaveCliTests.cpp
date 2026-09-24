@@ -16,7 +16,10 @@ Result launch(const fs::path &exe,const std::vector<std::wstring>&args,const fs:
 }
 int main(int argc,char **argv){try{
  check(argc==2,"CLI test executable argument");const fs::path exe=fs::absolute(argv[1]);
- const auto dir=fs::current_path()/"save-cli-tests";const auto game=dir/"commercial";fs::create_directories(game);
+ const auto root=fs::current_path()/"save-cli-tests";fs::create_directories(root);
+ const auto dir=child_test::freshDirectory(root/"run");
+ check(child_test::freshDirectory(root/"run")!=dir,"process evidence directories are isolated");
+ const auto game=dir/"commercial";fs::create_directories(game);
  const auto log=dir/"cli.log";const auto path=dir/fs::path(L"space \u00e7 \u6e38.mmsave");fs::remove(path);
  const std::vector<std::vector<std::wstring>> bad{
  {L"--encounter-26"}, {L"--encounter-26",L""}, {L"--encounter-26",L"--load-game"},

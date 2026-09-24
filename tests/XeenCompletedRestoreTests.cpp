@@ -214,11 +214,11 @@ void restoreFailureMatrix() {
 			if (mode == 0) ++const_cast<XeenPartyState &>(p).roster.at(29).currentSp;
 			if (mode == 1) ++const_cast<XeenCamera &>(c).x;
 			if (mode == 2) const_cast<XeenGameFlags &>(f).set(4);
-			if (mode == 3) ++const_cast<std::vector<XeenActor> &>(w.sessionState().actors())[0].hp;
+			if (mode == 3) ++const_cast<XeenActor &>(w.sessionState().actors()[0]).hp;
 			if (mode == 4) ++const_cast<XeenMap &>(w.map(20)).geometry.trapDamage;
 			if (mode == 5) { w.~XeenWorld(); new (&w) XeenWorld([](XeenMapIdentity) { return map(); }); }
 			if (mode == 6) { auto &owner = const_cast<XeenPartyState &>(p); owner.~XeenPartyState(); new (&owner) XeenPartyState; }
-			if (mode == 7) const_cast<std::optional<XeenCombatInputs> &>(p.roster.combatInputs(0)).reset();
+			if (mode == 7) const_cast<XeenMutableOptional<XeenCombatInputs> &>(p.roster.combatInputs(0)).reset();
 			if (mode == 8) const_cast<XeenPartyState &>(p).encounterContext.reset();
 		}); });
 		save_test::sameSnapshot(before, d.capture());
@@ -253,7 +253,7 @@ void invalidDomain() {
 	for (unsigned mode = 0; mode < 4; ++mode) {
 		Destination d;
 		if (mode == 0) d.terrain.geometry.flags = 1;
-		if (mode == 1) d.mob.entities.monsters.pop_back();
+		if (mode == 1) d.mob.entities.monsters.resize(d.mob.entities.monsters.size()-1);
 		if (mode == 2) d.mob.entities.monsters[5].x = 14;
 		if (mode == 3) d.mob.entities.monsters[0].x = 13;
 		const auto before = d.capture(); rejects([&] { d.restore(original); }); save_test::sameSnapshot(before, d.capture());
@@ -265,7 +265,7 @@ void actorIntegrityAndNestedProviders() {
 	for (unsigned field = 0; field < 15; ++field) for (unsigned owner : {0u, 5u}) {
 		Destination d; d.restore(snapshot);
 		const auto ticket = d.world.completedTicket(d.party, d.camera);
-		auto &actor = const_cast<std::vector<XeenActor> &>(d.world.sessionState().actors())[owner];
+		auto &actor = const_cast<XeenActor &>(d.world.sessionState().actors()[owner]);
 		const auto original = actor;
 		switch (field) {
 		case 0: ++actor.id.recordIndex; break;
@@ -430,7 +430,7 @@ void retainedNestedPreimages() {
 		bool nestedRefused = false, providerEntered = false;
 		const auto generation = d.world.completedEntryGeneration();
 		rejects([&] { d.reenter(d.world.completedTicket(d.party, d.camera), [&](XeenWorld &w, const XeenPartyState &, const XeenCamera &, const XeenGameFlags &) {
-			auto &hp = const_cast<std::vector<XeenActor> &>((live ? d.world : w).sessionState().actors())[5].hp;
+			auto &hp = const_cast<XeenActor &>((live ? d.world : w).sessionState().actors()[5]).hp;
 			const auto calls = d.calls; ++hp;
 			try { w.map(21); } catch (...) {
 				--hp; nestedRefused = true; providerEntered = d.calls != calls; return;

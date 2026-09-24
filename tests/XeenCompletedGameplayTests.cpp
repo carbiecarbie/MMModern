@@ -188,7 +188,7 @@ void disposedRecovery(){
  CombatFixture f;f.enter();f.blockRound();
  for(unsigned n=0;f.combat->phase()!=Phase::Victory&&n<200;++n){if(f.combat->phase()==Phase::PlayerReady)f.action(Command::Attack);else f.service();}
  f.combat->retireCompletedVictory(f.combat->ticket());f.combat.reset();
- XeenGameFlags flags;const auto before=f.p.roster.characters();const auto actors=f.w.sessionState().actors();
+ XeenGameFlags flags;const auto before=f.p.roster.characters();const std::vector<XeenActor> actors=f.w.sessionState().actors();
  XeenEventSystem events([](auto){return XeenEventScript(combat_test::events());},[](auto){return XeenEventTextFile{};});
  XeenFontFormat font(gameplay_test::fontBytes());auto evt=combat_test::events();XeenEncounterSetup setup{evt,{},{}};
  bool fail=false;unsigned calls=0;

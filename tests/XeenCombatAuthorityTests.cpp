@@ -116,7 +116,7 @@ void delegatedApproachAuthorization() {
 		fight.approachAction(fight.ticket(),XeenEncounterAction::Forward);
 		check(fight.approachState().revision()==3&&fight.approachState().pending()==3&&boundary.generation()==0,
 			"review oracle: revision3 pending3 boundary0 before callback");
-		const auto actors=w.sessionState().actors();const auto context=p.encounterContext;const auto beforeCamera=camera;
+		const std::vector<XeenActor> actors=w.sessionState().actors();const auto context=p.encounterContext;const auto beforeCamera=camera;
 		const auto ticket=fight.ticket();const auto generation=fight.result().generation;
 		w.discardMapCache();callback=[&]{++calls;
 			if(mode==0||mode==3){const auto lease=boundary.hold(XeenCombatBoundary::Work::Inventory);boundary.release(XeenCombatBoundary::Work::Inventory,lease);}

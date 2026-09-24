@@ -89,7 +89,7 @@ void ordinaryNavigation() {
 }
 
 void collisionFeedback() {
-	Production fresh;fresh.startFlow();const auto party=fresh.p;const auto actors=fresh.world.sessionState().actors();
+	Production fresh;fresh.startFlow();const auto party=fresh.p;const std::vector<XeenActor> actors=fresh.world.sessionState().actors();
 	unsigned modalReports=0;
 	fresh.flow->reportManual=[&](const auto &){++modalReports;};fresh.flow->reportAutomatic=[&](const auto &){++modalReports;};
 	fresh.flow->reportInventory=[&](const auto &){++modalReports;};fresh.flow->reportEquipment=[&](const auto &){++modalReports;};
@@ -147,7 +147,7 @@ void timing() {
 	const auto revision=f.coordinator().state().revision();
 	f.now=1000;f.flow->updatePresentation();check(f.coordinator().state().revision()==revision,"pulse at zero pending");
 	check(f.coordinator().frame()==3,"cosmetic no-backlog");
-	auto actors=f.world.sessionState().actors();auto context=f.p.encounterContext;
+	std::vector<XeenActor> actors=f.world.sessionState().actors();auto context=f.p.encounterContext;
 	const auto deadline=f.coordinator().cosmeticDeadline();
 	f.world.discardMapCache();f.flow->refresh(true);f.flow->refresh();
 	sameActors(actors,f.world.sessionState().actors());check(f.coordinator().frame()==3&&
@@ -179,7 +179,7 @@ void actionsAndBypasses() {
 		if(mode==2) {f.east();f.flow->handle(WaitAction{});check(f.coordinator().actionResult().movementOpportunities==2,"rapid Wait lost old/new opportunity");}
 		if(mode==3) {f.flow->handle(NavigationAction::TurnRight);f.flow->handle(NavigationAction::TurnRight);f.flow->handle(NavigationAction::MoveBackward);}
 		check(f.coordinator().state().phase()==XeenEncounterPhase::Engaged&&f.anchor().hp==20,"action engagement");
-		sameParty(party,f.p);const auto actors=f.world.sessionState().actors();auto context=f.p.encounterContext;
+		sameParty(party,f.p);const std::vector<XeenActor> actors=f.world.sessionState().actors();auto context=f.p.encounterContext;
 		const auto camera=f.camera;const auto revision=f.coordinator().state().revision();
 		for(const PlayerAction &a : std::vector<PlayerAction>{WaitAction{},NavigationAction::MoveForward,NavigationAction::MoveBackward,
 			NavigationAction::TurnLeft,NavigationAction::TurnRight,InteractionAction{},AcknowledgeAction{},YesAction{},NoAction{},
@@ -198,7 +198,7 @@ void actionsAndBypasses() {
 	check(f.coordinator().state().reason()==XeenEncounterStop::Envelope&&f.camera.x==14&&f.p.encounterContext->minutes==490&&
 		f.coordinator().notice().find("(15,1)")!=std::string::npos,"envelope stop");
 	Production time;time.startFlow();time.east();time.p.encounterContext->minutes=950;
-	auto actors=time.world.sessionState().actors();time.flow->handle(WaitAction{});
+	std::vector<XeenActor> actors=time.world.sessionState().actors();time.flow->handle(WaitAction{});
 	check(time.coordinator().state().reason()==XeenEncounterStop::Time&&time.p.encounterContext->minutes==950,"time boundary");sameActors(actors,time.world.sessionState().actors());
 	Production dest;dest.startFlow();dest.east();dest.flow->handle(NavigationAction::TurnLeft);dest.flow->handle(NavigationAction::MoveForward);
 	check(dest.anchor().x==14&&dest.anchor().y==2&&dest.coordinator().state().phase()==XeenEncounterPhase::Engaged,"candidate destination old work");
@@ -206,7 +206,7 @@ void actionsAndBypasses() {
 
 void failures() {
 	for(int kind=0;kind<7;++kind) {
-		Production f;f.startFlow();f.east();const auto party=f.p;const auto actors=f.world.sessionState().actors();
+		Production f;f.startFlow();f.east();const auto party=f.p;const std::vector<XeenActor> actors=f.world.sessionState().actors();
 		unsigned clockCalls=0;
 		if(kind==0) f.onClock=[] {throw std::runtime_error("clock");};
 		if(kind==1) {f.world.discardMapCache();f.failMap=true;}
@@ -271,7 +271,7 @@ void ordinaryWait() {
 }
 
 void projections() {
-	Fixture f;f.start();auto actors=f.world.sessionState().actors();
+	Fixture f;f.start();std::vector<XeenActor> actors=f.world.sessionState().actors();
 	const int orders[]{118,94,90,91}, slots[]{0,3,12,13}, queries[]{2,7,5,9}, xs[]{-5,-7,-112,98};
 	for(unsigned d=0;d<4;++d)for(int placement=0;placement<4;++placement) {
 		XeenCamera c{20,13,1,static_cast<XeenDirection>(d)};

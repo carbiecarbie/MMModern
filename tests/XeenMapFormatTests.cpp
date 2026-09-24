@@ -32,7 +32,7 @@ void testGeometry() {
 	auto map = XeenMapFormat::parseDat(dat);
 	check(!map.isOutdoors() && map.id == 1 && map.cells.size() == 256, "DAT header");
 	check(map.neighbors == std::array<std::uint16_t, 4>{291, 5, 2, 0}, "neighbors / endian");
-	check(std::get<XeenIndoorWalls>(map.cells[0].geometry).walls ==
+	check(xeenGet<XeenIndoorWalls>(map.cells[0].geometry).walls ==
 		std::array<std::uint8_t, 4>{1, 2, 3, 4}, "indoor directions");
 	check(wallAt(map.cells[0], XeenDirection::North) == 1 &&
 		wallAt(map.cells[0], XeenDirection::East) == 2 &&
@@ -46,7 +46,7 @@ void testGeometry() {
 	dat[781] = 0x80;
 	dat[480] = 0x0e; // (0,15), independently different from (0,0).
 	map = XeenMapFormat::parseDat(dat);
-	const auto layers = std::get<XeenOutdoorLayers>(map.cells[0].geometry);
+	const auto layers = xeenGet<XeenOutdoorLayers>(map.cells[0].geometry);
 	check(map.isOutdoors() && layers.surface == 4 && layers.middle == 3 &&
 		layers.top == 2 && layers.overlay == 1, "outdoor layers");
 	check(map.cells[0].surfaceIndex == 4 && map.cells[240].surfaceIndex == 14, "outdoor Y ordering");

@@ -27,10 +27,15 @@ struct XeenJourneyContent {
 	std::uint16_t day;
 	bool manualObjective;
 	XeenMovement::Capabilities traversal{};
-	bool consequences() const noexcept { return contract == 4 || contract == 5 || contract == 6 || contract == 7; }
-	bool disengagement() const noexcept { return contract == 5 || contract == 6 || contract == 7; }
-	bool connectedRecovery() const noexcept { return contract == 6 || contract == 7; }
-	bool learnedCasting() const noexcept { return contract == 7; }
+	bool consequences() const noexcept { return contract >= 4 && contract <= 8; }
+	bool disengagement() const noexcept { return contract >= 5 && contract <= 8; }
+	bool connectedRecovery() const noexcept { return contract >= 6 && contract <= 8; }
+	bool learnedCasting() const noexcept { return contract == 7 || contract == 8; }
+	bool vertigo() const noexcept { return contract == 8; }
+	bool vertigoCell(int x, int y) const noexcept {
+		return vertigo() && ((x == 15 && y >= 0 && y <= 4) ||
+			(x == 16 && y >= 1 && y <= 4) || (y == 4 && (x == 13 || x == 14)));
+	}
 	bool contains(int x, int y) const noexcept {
 		if (contract >= 3) return false; // Regional admission requires checked geometry.
 		return contract == 1 ? x >= 13 && x <= 14 && y >= 1 && y <= 2 : x >= 0 && x <= 5 && y == 14;
@@ -70,12 +75,14 @@ inline const XeenJourneyContent &xeenJourneyContent(std::uint16_t contract) {
 	if (contract == 6) return connectedRecovery;
 	static const XeenJourneyContent learnedCasting{7,regional.entry,regional.records,19,8,false};
 	if (contract == 7) return learnedCasting;
+	static const XeenJourneyContent vertigo{8,regional.entry,regional.records,19,8,false};
+	if (contract == 8) return vertigo;
 	throw std::invalid_argument("Unsupported Journey content contract");
 }
 struct XeenJourneyRandomState {
-	std::uint8_t algorithm=1;
-	std::uint32_t state=1;
-	std::uint64_t count=0;
+	XeenMutable<std::uint8_t> algorithm=1;
+	XeenMutable<std::uint32_t> state=1;
+	XeenMutable<std::uint64_t> count=0;
 	friend bool operator==(const XeenJourneyRandomState &a,const XeenJourneyRandomState &b) {
 		return a.algorithm==b.algorithm && a.state==b.state && a.count==b.count;
 	}

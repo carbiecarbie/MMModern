@@ -100,7 +100,7 @@ void setQueryWall(XeenMap &map, const XeenCamera &camera,
 	check(x >= 0 && x < 16 && y >= 0 && y < 16, "wall fixture query outside map");
 	const auto shift = xeen_indoor_scene_tables::kWallShifts[direction][query];
 	const std::size_t face = shift == 12 ? 0 : shift == 8 ? 1 : shift == 4 ? 2 : 3;
-	std::get<XeenIndoorWalls>(map.geometry.cells[static_cast<std::size_t>(y) * 16 + x].geometry)
+	xeenGet<XeenIndoorWalls>(map.geometry.cells[static_cast<std::size_t>(y) * 16 + x].geometry)
 		.walls[face] = value;
 }
 
@@ -137,7 +137,7 @@ const XeenIndoorDrawCommand &targetCommand(
 std::map<std::string, Bytes> baseFiles() {
 	const auto empty = repeatedFrames(cell(0, 0, 0, 0, {}), 50);
 	std::map<std::string, Bytes> files;
-	for (const char *name : {"town.sky", "town.gnd", "ftown1.fwl", "ftown2.fwl",
+	for (const char *name : {"sky.sky", "night.sky", "town.sky", "town.gnd", "ftown1.fwl", "ftown2.fwl",
 			"ftown4.fwl", "global.icn", "border.icn", "fecp.brd", "bless.icn",
 			"restorex.icn", "main.icn"})
 		files[name] = empty;
@@ -273,6 +273,26 @@ IndexedFrame replay(XeenAssetSource &assets, const CloudsMapComposer &composer,
 	}
 	composer.drawInterfaceLayers(assets, party, context);
 	return assets.snapshot();
+}
+
+void testSkyComposition(const std::filesystem::path &directory) {
+	auto files=baseFiles();
+	files["sky.sky"]=repeatedFrames(solid(0,215,0,60,31),2);
+	files["night.sky"]=repeatedFrames(solid(0,215,0,60,32),2);
+	files["town.sky"]=repeatedFrames(solid(0,215,0,60,33),2);
+	const auto installation=installationAt(directory,files,metadata());
+	XeenAssetSource assets(installation,320,200);
+	for(bool covered:{false,true}) {
+		auto map=indoorMap();map.geometry.cells[8*16+8].flags=covered?8:0;
+		auto world=worldWith(map,objectFile(33,{}));
+		auto party=validEmptyParty();party.encounterContext=XeenGameplayContext{};
+		for(unsigned minutes:{0u,299u,300u,1259u,1260u,1439u}) {
+			party.encounterContext->minutes=minutes;
+			const auto frame=CloudsMapComposer().compose(assets,world,party,{33,8,8,XeenDirection::North},{});
+			check(frame.pixels[20*320+100]==(covered?33:minutes<300 || minutes>=1260?32:31),
+				"composer lost cell ceiling or party day/night selection");
+		}
+	}
 }
 
 void testAllPlacementPixels(const GameInstallation &installation) {
@@ -698,6 +718,9 @@ int main() {
 		} cleanup{directory};
 		const auto files = baseFiles();
 		const auto installation = installationAt(directory, files, metadata());
+		const auto skyDirectory=directory/"sky";
+		std::filesystem::create_directories(skyDirectory);
+		testSkyComposition(skyDirectory);
 		testAllPlacementPixels(installation);
 		std::cout << "Indoor placement pixels passed\n";
 		testOrderedWallCoverage(installation);

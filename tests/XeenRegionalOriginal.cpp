@@ -218,7 +218,7 @@ int main(int argc,char **argv) {
 			auto camera=xeenJourneyContent(3).entry;XeenGameFlags flags;XeenEventPresenter::Clock clock=[]{return 0;};
 			XeenEncounterFlow flow(world,party,camera,flags,clock,XeenJourneySetup{chr,context,statistics,events,1,3,manifest});
 			if(!flow.prepareJourneyFrame(flow.ticket(),[]{}) || !flow.presentJourney(flow.ticket()))throw std::runtime_error("Fault fixture presentation");
-			const auto before=world.sessionState().actors();const auto time=*party.encounterContext;const auto old=flow.ticket();
+			const std::vector<XeenActor> before=world.sessionState().actors();const auto time=*party.encounterContext;const auto old=flow.ticket();
 			std::uint64_t lease=0;
 			if(fault==0)const_cast<XeenMap &>(world.map(23)).geometry.runX=11;
 			if(fault==1){changed=true;world.discardMapCache();}
@@ -254,7 +254,7 @@ int main(int argc,char **argv) {
 			XeenEncounterFlow flow(world,party,camera,flags,clock,setup);
 			if(world.sessionState().journeyRandom()->state!=1 || party.encounterContext->minutes!=480)throw std::runtime_error("Manifest callback replaced retained preparation arguments");
 			if(!flow.prepareJourneyFrame(flow.ticket(),[]{}) || !flow.presentJourney(flow.ticket()))throw std::runtime_error("Synthetic automatic setup");
-			const auto before=world.sessionState().actors();const auto time=*party.encounterContext;
+			const std::vector<XeenActor> before=world.sessionState().actors();const auto time=*party.encounterContext;
 			const auto result=flow.journeyAction(flow.ticket(),XeenEncounterAction::Forward);
 			if(result.outcome!=XeenEncounterOutcome::Refused || camera.x!=9 || !(*party.encounterContext==time))throw std::runtime_error("Unknown automatic chain published navigation");
 			for(unsigned i=0;i<19;++i)if(!xeen_state::sameActor(before[i],world.sessionState().actors()[i]))throw std::runtime_error("Unknown automatic chain changed actors");

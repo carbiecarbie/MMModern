@@ -71,6 +71,8 @@ struct XeenSaveJourney {
 	XeenMapIdentity initializedMap{XeenSide::Clouds, 20};
 	std::uint16_t originalActorCount = 27;
 	std::vector<XeenSaveJourneyActor> actors;
+	// Content 8 retains the optional second region independently of the camera.
+	std::optional<std::vector<XeenSaveJourneyActor>> vertigoActors;
 	std::optional<XeenMonsterTreasure> treasure;
 	std::optional<XeenRegionalRecoveryState> regionalRecovery;
 };

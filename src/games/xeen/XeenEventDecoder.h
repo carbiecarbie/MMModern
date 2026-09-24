@@ -100,6 +100,10 @@ struct XeenEventGiveEnchanted {
 	std::vector<std::uint8_t> suffix;
 };
 struct XeenEventVoiceCue { std::uint8_t index = 0; };
+struct XeenEventSpawn { std::uint8_t slot=0; int x=0,y=0; std::uint8_t unused=0; };
+struct XeenEventAlterEvent { std::uint8_t line=0, replacement=0; };
+struct XeenEventSetVar { std::uint8_t mode=0, value=0; };
+struct XeenEventProtectionCheck {};
 
 struct XeenEventTakeOrGivePair {
 	std::uint8_t mode = 0;
@@ -126,7 +130,11 @@ using XeenDecodedEventOperation = std::variant<
 	XeenEventConditional,
 	XeenEventTakeOrGive,
 	XeenEventGiveEnchanted,
-	XeenEventVoiceCue>;
+	XeenEventVoiceCue,
+	XeenEventSpawn,
+	XeenEventAlterEvent,
+	XeenEventSetVar,
+	XeenEventProtectionCheck>;
 
 struct XeenDecodedEventInstruction {
 	XeenEventSourceLocation source;

@@ -48,7 +48,7 @@ struct Fixture {
 	bool automaticCell = true;
 	XeenWorld world{[&](XeenMapIdentity id) { auto m=map(id);m.geometry.cells[17].rawAttributes=automaticCell?0x10:0;return m; },
 		[](XeenMapIdentity id) { XeenObjectFile f{id,"synthetic.mob",true,{}};
-			f.entities.objects={{1,1,0,0,111}};return f; }};
+			f.entities.objects=std::vector<XeenMapEntity>{{1,1,0,0,111}};return f; }};
 	XeenEventSystem events{[&](XeenMapIdentity id) { return scripts.at(id); },
 		[&](XeenMapIdentity) { ++textLoads; return text; }};
 	XeenEventInterpreter interpreter;
@@ -147,13 +147,13 @@ void eligibilityAndProtocol() {
 	}
 	Fixture f;f.set({record(1,1,0,0x20,{0,0}),record(1,1,1,0xff)});
 	for (int condition : {8,11,12,13,14,15}) {
-		f.members.roster.at(18).conditions={};
+		f.members.roster.at(18).conditions.fill(0);
 		f.members.roster.at(18).conditions[condition]=1;
 		auto refused=pending(f.resume(pending(f.begin()),SelectedCharacter{1}));
 		check(!refused.pendingPresentation->request.refusal.empty() && refused.instructionCount==1,"blocking condition failed to refuse/retry");
 		complete(f.resume(refused,CharacterSelectionCancelled{}));
 	}
-	f.members.roster.at(18).conditions={};
+	f.members.roster.at(18).conditions.fill(0);
 	f.members.roster.at(18).conditions[8]=1;f.members.roster.at(18).conditions[10]=1;
 	error(f.resume(pending(f.begin()),SelectedCharacter{1}),Kind::UnsupportedOpcode);
 	auto state=pending(f.begin());
@@ -164,7 +164,7 @@ void eligibilityAndProtocol() {
 			state.pendingPresentation->request.refusal.find("Member "+std::to_string(index))!=std::string::npos,"refusal/retry");
 	}
 	complete(f.resume(state,CharacterSelectionCancelled{}));
-	f.members.roster.at(18).conditions={};
+	f.members.roster.at(18).conditions.fill(0);
 	error(f.resume(state,SelectedCharacter{1}),Kind::UnsupportedOpcode); // live recovery accepted
 	for(int mutation=0;mutation<3;++mutation) {
 		Fixture changed;changed.set({record(1,1,0,0x20,{0,0}),record(1,1,1,0x0c,{0,0,21,100})});
@@ -318,7 +318,7 @@ void productionFlow() {
 		const auto refusal=flow.frame();check(refusal.pixels!=frame.pixels,"refusal invisible");
 		check(flow.refresh(true).pixels==refusal.pixels,"refusal rebase changed");
 		check(!flow.respond(generation,SelectedCharacter{1}),"stale response accepted");
-		f.members.roster.at(18).conditions={};const auto retry=*flow.presentationGeneration();
+		f.members.roster.at(18).conditions.fill(0);const auto retry=*flow.presentationGeneration();
 		flow.handle(SelectMemberAction{1});
 		check(!flow.respond(retry,SelectedCharacter{1}) && line==1 && !flow.canCancelInteraction(),"response replay/selection acknowledged next page");
 		const auto page=flow.frame();flow.handle(SelectMemberAction{1});check(flow.frame().pixels==page.pixels,"F-key acknowledged");

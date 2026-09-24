@@ -542,6 +542,31 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			continue;
 		}
 
+		if (std::holds_alternative<XeenEventProtectionCheck>(decoded.operation)) {
+			if (logical.mapId!=XeenMapIdentity(28))
+				return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
+					"protection check is outside the admitted profile",instructionCount,logical,decoded.source);
+			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
+		}
+		if (const auto *spawn=std::get_if<XeenEventSpawn>(&decoded.operation)) {
+			if (logical.mapId!=XeenMapIdentity(28))
+				return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
+					"Spawn is outside Vertigo",instructionCount,logical,decoded.source);
+			world.applySpawn(spawn->slot,spawn->x,spawn->y,spawn->unused);
+			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
+		}
+		if (const auto *alter=std::get_if<XeenEventAlterEvent>(&decoded.operation)) {
+			world.applyAlterEvent(workingCamera,alter->line,alter->replacement,script->file());
+			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
+		}
+		if (const auto *setVar=std::get_if<XeenEventSetVar>(&decoded.operation)) {
+			if (logical.mapId!=XeenMapIdentity(28) || setVar->mode!=84 || setVar->value>3)
+				return error(XeenEventExecutionErrorKind::UnsupportedOperationMode,
+					"SetVar direction mode is unsupported",instructionCount,logical,decoded.source);
+			workingCamera.direction=static_cast<XeenDirection>(setVar->value);
+			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
+		}
+
 		if (const auto *takeOrGive =
 				std::get_if<XeenEventTakeOrGive>(&decoded.operation)) {
 			const auto neutral = [](const XeenEventTakeOrGivePair &pair) {

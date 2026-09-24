@@ -22,5 +22,22 @@ int main(){try{
   assets.discardSpriteCache();auto changed=original;changed[name]=frames(data[0],8);archive(installation.xeenArchive,changed);
   rejects(validate);archive(installation.xeenArchive,original);assets.discardSpriteCache();rejects(validate);
  }
- std::cout<<"Twelve synthetic MON/ATT/POW compatible-reload and permanent mismatch/reversion controls passed\n";return 0;
+ // Explicit effect requests only: independent pinned DRAWER1 offset/mask
+ // expectations, retaining bounded support without assigning an effect by species.
+ original["000.mon"]=frames(8,0x9d);original["000.att"]=frames(4,0x9d);
+ archive(installation.xeenArchive,original);
+ XeenAssetSource effects(installation,320,200);
+ constexpr unsigned offsets[]{0x41,0x20,0x40,0x21,0x48,0x46,0x43,0x40};
+ constexpr unsigned masks[]{15,7,7,15,7,7,7,7};
+ for(auto kind:{XeenMonsterSpriteKind::Normal,XeenMonsterSpriteKind::Attack}) for(int phase=-1;phase<8;++phase) {
+  XeenSpriteDrawOptions options;options.sceneClipped=true;options.bottomClipped=true;options.slimePalettePhase=phase;
+  effects.drawMonster(0,{kind,0},100,100,options);
+  check(effects.snapshot().pixels[100*320+100]==(phase<0?0x9d:(0x9d&masks[phase])+offsets[phase]),
+   "Explicit bounded effect-1 palette sequence differs from pinned drawer");
+ }
+ for(int phase:{-2,8}) {XeenSpriteDrawOptions options;options.sceneClipped=true;options.slimePalettePhase=phase;
+  rejects([&]{effects.drawMonster(0,{0},100,100,options);});}
+ XeenSpriteDrawOptions wrongImage;wrongImage.sceneClipped=true;wrongImage.slimePalettePhase=0;
+ rejects([&]{effects.drawMonster(8,{0},100,100,wrongImage);});
+ std::cout<<"Synthetic MON/ATT/POW integrity and bounded effect palette controls passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

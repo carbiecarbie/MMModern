@@ -69,14 +69,14 @@ struct XeenCombatResult {
 	XeenCombatOperation operation=XeenCombatOperation::None;
 	XeenCombatAttackOutcome attackOutcome=XeenCombatAttackOutcome::NotApplicable;
 	std::optional<std::uint8_t> actingOwner, targetOwner;
-	std::optional<XeenMonsterIdentity> actingMonster, targetMonster;
+	XeenMutableOptional<XeenMonsterIdentity> actingMonster, targetMonster;
 	std::optional<XeenEncounterAction> approachAction;
 	bool critical=false;
 	unsigned runRoll=0;
 	bool runSuccess=false;
 	std::uint8_t participantsBefore=0x3f, participantsAfter=0x3f, casualties=0;
 	XeenCombatExitCause exitCause=XeenCombatExitCause::None;
-	std::optional<XeenCombatLocation> origin, destination;
+	XeenMutableOptional<XeenCombatLocation> origin, destination;
 	std::uint32_t forfeitedGold=0, forfeitedMask=0;
 	bool originAutomaticSuperseded=false;
 	std::uint8_t targetedMembers=0; // Published physical target mask, including misses.

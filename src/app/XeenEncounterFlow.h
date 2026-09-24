@@ -38,6 +38,7 @@ struct XeenJourneySetup {
 	std::optional<XeenEventTextFile> regionalText;
 	std::optional<XeenLearnedSpellNames> learnedNames;
 	std::function<XeenLearnedSpellNames()> learnedNamesProvider;
+	XeenVertigoManifest vertigoManifest;
 };
 struct XeenJourneyRestoreTag {};
 
@@ -152,6 +153,7 @@ private:
 	void adoptJourneyFlowBorrow();
 	void beginJourneyEvent();
 	void endJourneyEvent();
+	void publishArrival(const XeenActorView &) noexcept;
 	bool journeyEvent() const noexcept { return _journey && _world.sessionState().journeyActivity() == XeenJourneyActivity::Event; }
 	std::uint64_t _eventLease = 0;
 	bool _journey = false;
@@ -217,6 +219,7 @@ private:
 	std::shared_ptr<XeenJourneyCapture> _journeyCapture;
 	XeenEventFile _journeyEvents;
 	std::vector<XeenMonsterRecord> _journeyStatistics;
+	XeenVertigoManifest _vertigoManifest;
 	std::function<XeenLearnedSpellNames()> _learnedNamesProvider;
 	void retainJourney();
 	bool journeyCapacity() noexcept;

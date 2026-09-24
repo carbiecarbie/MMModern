@@ -6,7 +6,7 @@ Might and Magic V: Darkside of Xeen / World of Xeen.
 
 ## Status
 
-**Milestone 36 is the latest completed milestone.**
+**Milestone 37 is the latest completed milestone.**
 
 The engine supports a bounded Clouds quest loop: request a quest, collect an
 item, return it for character-held rewards, and save/resume the resulting progress.
@@ -50,7 +50,10 @@ original fixed destination, followed by return/re-engagement with wounded surviv
 Casualties and dormant or ready treasure survive restart. Fresh Regional Journey
 also connects explicit Myra request, Phirna collection and Myra exchange across
 ordinary mainland travel, with selected well recovery and narrow exploration
-use of Myra's delivered antidote. Travel beyond this mainland remains excluded.
+use of Myra's delivered antidote. It now connects the original Vertigo entrance,
+a bounded eleven-cell town route with Slime combat and the Ironworks outside-door
+label, and original exit/reset/revisit behavior. Both regions retain consequences
+through exact save/restart. Full Vertigo and town services remain unsupported.
 
 The Diagnostic26 entry presents an original outdoor Skeleton, supports its
 activation and approach, and stops at terminal same-cell engagement. Diagnostic27
@@ -81,8 +84,8 @@ See the [technical snapshot](docs/project-status.md),
   one bounded Skeleton checkpoint, plus playable Attack/Block combat with original
   attack sprites and outcomes in Diagnostic27.
 - Supported static and ordinary animated outdoor objects and static ordinary
-  indoor objects, with persistent removal after interactions. Indoor ordinary
-  animation remains unsupported.
+  indoor objects, with persistent removal after interactions; the bounded Vertigo
+  route adds its visible animated object, town sky and Slime composition.
 - Bounded event execution, teleports, original text, choices, character selection
   and animated NPC dialogue portraits.
 - Party/character state, quest items and flags, and deterministic item rewards.
@@ -100,8 +103,8 @@ See the [technical snapshot](docs/project-status.md),
   all 19 original actors, physical combat/Shoot, conditions and monster treasure,
   individual Run/disengagement and survivor re-engagement, automatic sign
   presentation, connected Myra/Phirna quest and exchange, selected well recovery,
-  bounded antidote use, learned First Aid/Awaken exploration casting, and exact
-  7/7 continuation at quiet boundaries.
+  bounded antidote use, learned First Aid/Awaken exploration casting,
+  bounded mainland/Vertigo travel and exact 8/8 continuation at quiet boundaries.
 
 ## Running and controls
 
@@ -174,7 +177,7 @@ F9 may save at the presented quiet boundary. Turn West and return to `(0,14)`;
 the Journey remains mutable after return and restart. There is no autosave or
 healing requirement for the accepted seed-1 route.
 
-`--journey-region` starts a contract-7 Regional Journey at Clouds map 23 `(9,11)` West,
+`--journey-region` starts a contract-8 Regional Journey at Clouds map 23 `(9,11)` West,
 minute 480, with the prepared party and all 19 original actors. Movement follows
 the resource-derived mainland. Contact opens Attack/Block/Run combat; 1-3 selects a
 live contact. R attempts Run for the displayed member and consumes that turn,
@@ -219,12 +222,13 @@ while Escape at target choice still spends the charge. A chosen target loses
 Poison only. The item action then services one ordinary actor opportunity,
 which can lead to an encounter. General and combat-time item use remain unavailable.
 
-At a presented quiet contract-7 boundary, C opens learned exploration casting.
+At a presented quiet contract-7/8 boundary, C opens learned exploration casting.
 Choose an eligible caster with F1-F6, browse that character's learned spells with
 Up/Down, press Enter to review the cost and Enter again to cast. First Aid heals
 one active member selected with a fresh F1-F6; Awaken clears Sleep across the
-active party. Each costs one current SP and ten minutes, followed by one ordinary
-regional actor opportunity. Escape before confirmation costs nothing. Escape at
+active party. Each costs one current SP and ten mainland minutes (one minute indoors),
+followed by one ordinary actor opportunity in the active region. Escape before
+confirmation costs nothing. Escape at
 First Aid's target prompt refunds the SP, but the time and actor obligation still
 settle. Learned unsupported spells such as Light remain visible but unusable.
 Casting is unavailable during combat, events, open inventory and other pending
@@ -233,13 +237,26 @@ work; C cannot queue a cast for later.
 Save files include living actor wounds, casualties, conditions and dormant/ready
 treasure, without storing combat, projectiles or UI work. Loaded legacy Journeys
 retain their original rules and controls, including their existing support stops;
-Run is available in contract-5/6/7 regional combat.
+Run is available in contract-5/6/7/8 mainland combat.
 
-General recovery/Rest, other quests and travel beyond the mainland are unavailable.
+In contract 8, approach mainland `(10,13)` facing North, press Space and answer
+Yes to enter Vertigo at `(15,0)`. The admitted town route is `x=15,y=0..4`,
+`x=16,y=1..4`, and `(14,4)/(13,4)`. Resolve the entrance Slime through normal
+combat; face West at `(13,4)` to see the automatic Ironworks outside-door label.
+Return to `(15,0)`, face South and use Space. No stays in town after the original
+flag prelude; Yes returns to mainland `(10,12)` South and runs the original
+monster reset while game flag 9 is clear. A later entry then has a new entrance
+Slime. F9 at a quiet boundary and a fresh `--load-game` preserve the current
+state on either side; loading never repeats that reset. Movement/Wait cost one
+minute indoors; Shoot, Run, other city cells and services remain unavailable.
+
+General recovery/Rest, other quests and travel outside the admitted mainland
+and bounded Vertigo route are unavailable.
 Defeat and unsupported time processing close further gameplay/save admission.
 Restart a quiet save with `--load-game`. The closed scope and acceptance contract
 are in [M35](docs/milestone-35-plan.md). Learned casting and its boundary are
-in [M36](docs/milestone-36-plan.md).
+in [M36](docs/milestone-36-plan.md); the town route and regional continuation are
+in [M37](docs/milestone-37-plan.md).
 
 | Key | Action |
 | --- | --- |
@@ -249,15 +266,15 @@ in [M36](docs/milestone-36-plan.md).
 | Y / N | Answer Yes/No; N cancels a transfer confirmation |
 | F1-F6 | Select inventory owner or transfer recipient, an eligible member during WhoWill, an antidote target, or a learned caster/First Aid target |
 | 1-9 | Select a physical inventory slot while browsing; 1-3 select a displayed target during a ready expedition or regional combat turn |
-| F | Shoot in contract-4/5/6/7 regional exploration; unavailable during contact combat |
-| C | Open learned exploration casting at a presented quiet contract-7 boundary |
-| U | Use a selected eligible antidote from inventory in quiet contract-6/7 exploration; confirm with Enter, then choose a target with a fresh F1-F6 |
+| F | Shoot in contract-4/5/6/7/8 mainland exploration; unavailable during contact combat |
+| C | Open learned exploration casting at a presented quiet contract-7/8 boundary |
+| U | Use a selected eligible antidote from inventory in quiet contract-6/7/8 exploration; confirm with Enter, then choose a target with a fresh F1-F6 |
 | T | Begin transfer of the selected occupied slot |
 | E | Equip or remove the explicitly selected occupied weapon, armor or accessory |
 | . | Wait during the bounded encounter diagnostics and Journey; no action in ordinary gameplay |
 | F9 | Save an eligible idle ordinary session, completed Diagnostic27 or quiet presented Journey; refused while blocking work/UI is active |
 | I | Open inventory while idle; in completed Diagnostic27 open read-only inspection; close while browsing and print live diagnostics on opening |
-| R | Run for the displayed member in contract-5/6/7 regional combat; revisit the completed Diagnostic27 checkpoint in that separate mode |
+| R | Run for the displayed member in contract-5/6/7/8 mainland combat; revisit the completed Diagnostic27 checkpoint in that separate mode |
 | Escape | Exit either diagnostic session; otherwise back/cancel transfer or close inventory, cancel WhoWill or antidote selection, back out of precommit casting for free or refund First Aid at target choice while settlement remains owed, acknowledge NPC/reward pages, or exit |
 
 Movement and ordinary interaction are blocked while a response is required;
@@ -266,7 +283,7 @@ Space/Enter/Escape, including final acknowledgment with Escape.
 Inventory navigation applies while browsing; during transfer selection/confirmation,
 Escape returns to browsing before changing category or slot. Each equipment
 attempt consumes its selection; select the slot again before another E action.
-Only the bounded contract-6/7 antidote has inventory use; general item effects are unavailable.
+Only the bounded contract-6/7/8 antidote has inventory use; general item effects are unavailable.
 
 F9 refuses during a response-requiring interaction, open inventory/inspection,
 pending Journey approach, combat/End/retirement, unresolved frame handoff or an unsafe session,
@@ -275,13 +292,13 @@ work, then issue a new F9. Without a configured path, it writes nothing. Save
 results appear in the console and window title. Existing supported valid MMModern
 saves can be replaced; there is no autosave, save-on-exit or in-session load.
 Ordinary eligible saves write v2, completed Diagnostic27 writes v3, and Journey
-saves write v4. Fresh Regional Journey saves use schema/content 7/7 and preserve
-all 19 actor records, living wounds, casualties, conditions, purse and
-dormant/ready treasure, world flag 16 and the connected quest/recovery/item
-consequences and exact learned books for all thirty roster owners, with exact
-continuation of casting and ordinary play without replay or relearning. Legacy
-6/6 and earlier Journey
-saves retain their original rules and controls; loading does not upgrade them.
+saves write v4. Fresh Regional Journey saves use schema/content 8/8 and preserve
+all 19 mainland actors, optional retained Vertigo actors and explicit reset
+results, living wounds, casualties, conditions, purse/treasure, flags, quest/item
+consequences, and exact learned books and poison inputs for all thirty owners.
+Continuation does not replay Events, reset actors or relearn spells. Legacy
+7/7 and earlier Journeys retain their original domains and controls; loading
+does not upgrade them or grant Vertigo entry.
 The reader accepts supported v1/v2/v3/v4 in their
 distinct domains. `--load-game` selects Journey directly from v4 and restores fresh owners
 without replaying fresh Journey initialization, approach, combat, objective
@@ -306,6 +323,8 @@ SDL backend. The exact pin and configuration live in
 
 ## Documentation
 
+- [Milestone 37 plan](docs/milestone-37-plan.md): closed bounded Vertigo travel,
+  retained regional state, 8/8 continuation and acceptance contract.
 - [Milestone 35 plan](docs/milestone-35-plan.md): closed connected quest,
   selected well, antidote use, 6/6 continuation and acceptance contract.
 - [Milestone 36 plan](docs/milestone-36-plan.md): closed learned casting,

@@ -144,7 +144,8 @@ XeenIndoorScene::sampleWalls(XeenWorld &world, const XeenCamera &camera) const {
 		throw std::runtime_error("XeenIndoorScene requires an indoor map");
 	if (map.identity() != camera.mapId)
 		throw std::runtime_error("camera and map identities differ");
-	if (camera.x < 0 || camera.x >= 16 || camera.y < 0 || camera.y >= 16)
+	const bool city=world.regionalContract8() && camera.mapId==XeenMapIdentity(28);
+	if (camera.x < 0 || camera.x >= (city?32:16) || camera.y < 0 || camera.y >= (city?32:16))
 		throw std::runtime_error("camera is outside the indoor map");
 
 	const auto directionIndex = static_cast<std::size_t>(camera.direction);
@@ -172,16 +173,85 @@ XeenIndoorScene::sampleWalls(XeenWorld &world, const XeenCamera &camera) const {
 	return result;
 }
 
+XeenActorView XeenIndoorScene::classifyActors(XeenWorld &world, const XeenCamera &camera,
+		const std::vector<XeenActor> &actors) const {
+	if (camera.mapId!=XeenMapIdentity(28) || actors.size()>107)
+		throw std::invalid_argument("Indoor actor classification requires a bounded city collection");
+	const auto samples=sampleWalls(world,camera);
+	const auto w=buildMazeBits(samples).active;
+	const auto visible=[&](unsigned q) {
+		switch(q) {
+		case 2:return true;
+		case 7:return !w[27];
+		case 5:return !(w[27]&&w[25]) && !(w[27]&&w[28]) && !(w[23]&&w[25]) && !(w[23]&&w[28]);
+		case 9:return !(w[27]&&w[26]) && !(w[27]&&w[29]) && !(w[24]&&w[26]) && !(w[24]&&w[29]);
+		case 14:return !w[22] && !w[27];
+		case 12:return !w[27] && !(w[22]&&w[23]) && !(w[22]&&w[20]) && !(w[23]&&w[17]);
+		case 16:return !w[27] && !(w[22]&&w[24]) && !(w[22]&&w[21]) && !(w[24]&&w[19]) && !(w[21]&&w[19]);
+		case 27:return !w[27] && !w[22] && !w[15];
+		case 25:return !w[27] && !w[22] && !(w[15]&&w[17]) && !(w[15]&&w[12]) && !(w[12]&&w[7]) && !(w[17]&&w[7]);
+		case 23:return !w[27] && !(w[22]&&w[20]) && !(w[22]&&w[23]) && !(w[20]&&w[17]) && !(w[23]&&w[17]) && !w[12] && !w[8];
+		case 29:return !w[27] && !w[22] && !(w[15]&&w[19]) && !(w[15]&&w[14]) && !(w[14]&&w[9]) && !(w[19]&&w[9]);
+		case 31:return !w[27] && !(w[22]&&w[21]) && !(w[22]&&w[24]) && !(w[21]&&w[19]) && !(w[24]&&w[19]) && !w[14] && !w[10];
+		default:throw std::logic_error("Unknown indoor actor query");
+		}
+	};
+	struct Entry {unsigned query;std::array<int,3> slots;};
+	static constexpr std::array<Entry,12> entries{{
+		{2,{0,1,2}},{7,{3,4,5}},{5,{12,-1,-1}},{9,{13,-1,-1}},
+		{14,{6,7,8}},{12,{14,20,-1}},{16,{15,21,-1}},
+		{27,{9,10,11}},{25,{16,22,24}},{23,{18,-1,-1}},
+		{29,{17,23,25}},{31,{19,23,25}}
+	}};
+	XeenActorView view;
+	const auto direction=static_cast<unsigned>(camera.direction);
+	for (std::size_t i=0;i<actors.size();++i) {
+		const auto &actor=actors[i];
+		if (actor.lifecycle!=XeenActorLifecycle::Present || actor.hp<=0 || !actor.statistics) continue;
+		for (const auto &entry:entries) {
+			const int x=camera.x+xeen_indoor_scene_tables::kScreenPositioningX[direction][entry.query];
+			const int y=camera.y+xeen_indoor_scene_tables::kScreenPositioningY[direction][entry.query];
+			if(actor.x!=x || actor.y!=y) continue;
+			const bool central=entry.query==2 || entry.query==7 || entry.query==14;
+			if(!central && !visible(entry.query)) continue;
+			view.activation[i]=true;
+			view.placements[i]=entry.query==2?XeenActorPlacement::SameCell:
+				central || entry.query==27?XeenActorPlacement::Forward:XeenActorPlacement::Other;
+			if (!visible(entry.query)) continue;
+			for (const int slot:entry.slots) {
+				if(slot<0) continue;
+				if(entry.query==7 && slot==5) {
+					// The reference tests slot 2, and overwrites slot 5 even when occupied.
+					if (!view.slots[2]) view.slots[5]=actor.id;
+					break;
+				}
+				if(!view.slots[slot]) {view.slots[slot]=actor.id;break;}
+			}
+		}
+	}
+	return view;
+}
+
 std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 		XeenWorld &world, const XeenCamera &camera,
 		const XeenObjectVisualResolver *resolver,
-		std::vector<XeenObjectVisual> *diagnostics) const {
+		std::vector<XeenObjectVisual> *diagnostics,
+		std::optional<std::uint64_t> ordinaryPhase,
+		std::optional<XeenMonsterAppearance> actorFrame, bool night) const {
 	if (diagnostics) diagnostics->clear();
 	const XeenMap &map = world.map(camera.mapId);
 	if (map.geometry.isOutdoors())
 		throw std::runtime_error("XeenIndoorScene requires an indoor map");
 	const std::string terrain = terrainPrefix(map.geometry.wallKind);
-	const std::string sky = terrain + ".sky";
+	const auto cameraCell = world.sampleCell(camera.mapId, camera.x, camera.y);
+	if (!cameraCell) throw std::runtime_error("Invalid indoor camera cell");
+	// Pinned Map::cellFlagLookup/loadSky: bit 0x08 selects the terrain
+	// ceiling; otherwise both sky layers use the open day/night resource.
+	// Resolve the logical camera through the same tile sampler as the walls.
+	const auto root = camera.mapId.number;
+	const bool alwaysDay = (root >= 89 && root <= 112) || root == 128 || root == 129;
+	const std::string sky = (cameraCell->cell->flags & 0x08) ? terrain + ".sky" :
+		(night && !alwaysDay ? "night.sky" : "sky.sky");
 	const std::string ground = terrain + ".gnd";
 	const std::string fwl1 = "f" + terrain + "1.fwl";
 	const std::string fwl2 = "f" + terrain + "2.fwl";
@@ -383,7 +453,8 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 					xeen_indoor_scene_tables::kScreenPositioningX[direction][placement.query];
 				const int sourceY = camera.y +
 					xeen_indoor_scene_tables::kScreenPositioningY[direction][placement.query];
-				if (sourceX < 0 || sourceX >= 16 || sourceY < 0 || sourceY >= 16)
+				const bool city=world.regionalContract8() && camera.mapId==XeenMapIdentity(28);
+				if (sourceX < 0 || sourceX >= (city?32:16) || sourceY < 0 || sourceY >= (city?32:16))
 					continue;
 				for (std::size_t recordIndex = 0;
 						recordIndex < file.entities.objects.size(); ++recordIndex) {
@@ -392,8 +463,9 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 							object.resourceId >= 255 ||
 							world.isObjectDisabled({camera.mapId, recordIndex}))
 						continue;
-					auto visual = resolver->resolve(file, recordIndex, camera.direction);
-					if (visual.status == XeenObjectVisualStatus::SupportedStatic) {
+					auto visual = resolver->resolve(file, recordIndex, camera.direction,ordinaryPhase);
+					if (visual.status == XeenObjectVisualStatus::SupportedStatic ||
+						visual.status == XeenObjectVisualStatus::SupportedAnimated) {
 						const std::size_t anchorRow = object.resourceId == 113 ? 1 : 0;
 						XeenIndoorDrawCommand command;
 						command.originalOrder = placement.order;
@@ -416,7 +488,75 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 			}
 		}
 	}
+	if (camera.mapId==XeenMapIdentity(28) && world.regionalContract8() &&
+		world.sessionState().hasRegionalActors(28)) {
+		auto actorCommands=buildActors(world,camera,world.sessionState().regionalActors(28),ordinaryPhase,actorFrame);
+		commands.insert(commands.end(),actorCommands.begin(),actorCommands.end());
+	}
 
+	std::stable_sort(commands.begin(), commands.end(), [](const auto &left, const auto &right) {
+		return left.originalOrder < right.originalOrder;
+	});
+	return commands;
+}
+
+std::vector<XeenIndoorDrawCommand> XeenIndoorScene::buildActors(
+		XeenWorld &world, const XeenCamera &camera, const std::vector<XeenActor> &actors,
+		std::optional<std::uint64_t> ordinaryPhase,
+		std::optional<XeenMonsterAppearance> actorFrame) const {
+	std::vector<XeenIndoorDrawCommand> commands;
+		const auto view=classifyActors(world,camera,actors);
+		const auto appearance=actorFrame.value_or(XeenMonsterAppearance{0});
+		if (!appearance.valid()) throw std::invalid_argument("Invalid indoor actor appearance");
+		struct Group {int query,count;int slots[3],orders[3],xs[3];int y,scale,pair[2];};
+		static constexpr Group groups[]{
+			{2,3,{0,1,2},{156,150,153},{-5,-67,58},2,0,{31,-36}},
+			{7,3,{3,4,5},{132,130,131},{-7,-38,25},34,8,{8,-23}},
+			{5,1,{12},{128},{-112},34,8,{-112}}, {9,1,{13},{129},{98},34,8,{98}},
+			{14,3,{6,7,8},{106,104,105},{-8,-24,9},53,12,{0,-16}},
+			{12,2,{14,20},{100,101},{-65,-85},53,12,{-65,-85}},
+			{16,2,{15,21},{102,103},{49,65},53,12,{49,65}},
+			{27,3,{9,10,11},{70,68,69},{-9,-17,-1},59,14,{-5,-13}},
+			{25,3,{16,22,24},{62,60,61},{-34,-41,-26},59,14,{-27,-37}},
+			{23,1,{18},{66},{-58},59,14,{-58}},
+			{29,3,{17,23,25},{65,63,64},{16,-16,23},59,14,{20,-12}},
+			{31,3,{19,23,25},{67,63,64},{40,-16,23},59,14,{40,-12}}
+		};
+		for (const auto &g:groups) {
+			for(int i=0;i<g.count;++i) {
+				const auto id=view.slots[g.slots[i]];if(!id)continue;
+				const auto &a=actors.at(id->recordIndex);
+				const auto direction=static_cast<unsigned>(camera.direction);
+				// Queries 29 and 31 share slots 23/25 and draw orders 63/64.
+				if (a.x!=camera.x+xeen_indoor_scene_tables::kScreenPositioningX[direction][g.query] ||
+					a.y!=camera.y+xeen_indoor_scene_tables::kScreenPositioningY[direction][g.query]) continue;
+				if (!(a.id==*id) || !a.statistics ||
+					!(a.original.resourceId==0 ? (a.statistics->validateSlime(),true) : a.statistics->supportsRendering()) ||
+					a.lifecycle!=XeenActorLifecycle::Present || a.status!=XeenActorStatus::Physical)
+					throw std::runtime_error("Unsupported selected indoor actor");
+				const bool attacking=appearance.kind==XeenMonsterSpriteKind::Attack &&
+					appearance.identity && *appearance.identity==a.id;
+				if(attacking && g.query!=2)throw std::invalid_argument("Indoor attack sprite requires same-cell actor");
+				XeenIndoorDrawCommand command;
+				command.originalOrder=g.orders[i];command.x=g.xs[i];command.y=g.y;
+				// Preserve the reference's individual neighboring-slot predicates.
+				const auto pair=[&](int second,int third) {return view.slots[second] && !view.slots[third];};
+				if (i<2 && ((g.query==2 && pair(1,2)) || (g.query==7 && pair(4,5)) ||
+					(g.query==14 && pair(7,8)) || (g.query==27 && pair(10,11)) ||
+					(g.query==25 && !view.slots[22] && !view.slots[24]) ||
+					(g.query==29 && pair(23,25)) || (g.query==31 && i==1 && pair(23,25))))
+					command.x=g.pair[i];
+				command.sourceMapId=a.id.mapId;command.sourceX=a.x;command.sourceY=a.y;command.queryIndex=g.query;
+				XeenIndoorActorDraw draw{a.id,a.statistics->image(),appearance.frame,
+					attacking?XeenMonsterSpriteKind::Attack:XeenMonsterSpriteKind::Normal};
+				draw.selectedSlot=g.slots[i];draw.scaleIndex=g.scale;draw.bottomClipped=g.query==2;
+				// Byte 48 is loopAnimation, not animationEffect (byte 49).
+				// The checked original Slime has effect 0: retain its green pixels.
+				if(a.original.resourceId==0 && a.statistics->raw[49]==1)
+					draw.palettePhase=static_cast<int>(ordinaryPhase.value_or(0)%8);
+				command.content=draw;commands.push_back(std::move(command));
+			}
+		}
 	std::stable_sort(commands.begin(), commands.end(), [](const auto &left, const auto &right) {
 		return left.originalOrder < right.originalOrder;
 	});

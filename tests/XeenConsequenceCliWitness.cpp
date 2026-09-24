@@ -50,7 +50,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   const auto failDraw=std::getenv("MMODERN_M33_FAIL_DRAW")?std::strtoull(std::getenv("MMODERN_M33_FAIL_DRAW"),nullptr,10):0;
   bool drawFaultFired=false;std::function<void()> verifyFailedUnit;
   drawFault=[&](auto count){if(!failDraw || count!=failDraw || drawFaultFired)return;
-   const auto characters=party->roster.characters();const auto actors=world->sessionState().actors();const auto rng=world->sessionState().journeyRandom();
+   const auto characters=party->roster.characters();const std::vector<XeenActor> actors=world->sessionState().actors();const auto rng=world->sessionState().journeyRandom();
    const auto treasure=party->monsterTreasure;const auto context=party->encounterContext;const auto camera=*position;
    std::array<std::optional<XeenCombatInputs>,30> inputs;for(unsigned i=0;i<30;++i)inputs[i]=party->roster.combatInputs(i);
    verifyFailedUnit=[&,characters,actors,rng,treasure,context,camera,inputs]{
@@ -71,7 +71,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
      (fault=="lethal" && flow->encounter()->combat() && world->sessionState().actors()[9].lifecycle==XeenActorLifecycle::Defeated) ||
      (fault=="delivery" && activity==XeenJourneyActivity::Reward) || (fault=="credit" && party->monsterTreasure->gold==810);
     if(!eligible)return;
-    const auto characters=party->roster.characters();const auto actors=world->sessionState().actors();const auto rng=world->sessionState().journeyRandom();
+    const auto characters=party->roster.characters();const std::vector<XeenActor> actors=world->sessionState().actors();const auto rng=world->sessionState().journeyRandom();
     const auto treasure=party->monsterTreasure;const auto context=party->encounterContext;const auto camera=*position;
     std::array<std::optional<XeenCombatInputs>,30> inputs;for(unsigned i=0;i<30;++i)inputs[i]=party->roster.combatInputs(i);
     verifyPublication=[&,characters,actors,rng,treasure,context,camera,inputs]{
@@ -110,7 +110,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    unsigned wake=0,reapply=0,allParty=0,poisonDerived=0,sleepSkipped=0,enemyProjectile=0,playerProjectile=0,blockedSaves=0;
    std::array<XeenCharacter,6> preceding;for(unsigned i=0;i<6;++i)preceding[i]=party->roster.at(kXeenCombatOwners[i]);
    std::uint64_t observedCombatRevision=0;std::set<unsigned> saveExclusions;
-   const auto initialTreasure=*party->monsterTreasure;const auto initialAccounting=world->sessionState().accountedMonsters();
+   const auto initialTreasure=*party->monsterTreasure;const std::set<XeenMonsterIdentity> initialAccounting=world->sessionState().accountedMonsters();
    auto previousTreasure=initialTreasure;auto receiptCharacters=preceding;std::uint64_t forfeitedTotal=0;std::set<std::uint64_t> finishObserved;
    const auto observeFinish=[&](const XeenCombatResult &r){if(m34 && r.operation==XeenCombatOperation::FinishDisengagement && finishObserved.insert(r.revision).second){if(r.exitCause==XeenCombatExitCause::DirectRun){check(r.forfeitedGold==previousTreasure.pendingGold&&r.forfeitedMask==previousTreasure.pendingMask,"DirectRun forfeiture differs from published pending sources");check(previousTreasure.weapons==party->monsterTreasure->weapons&&previousTreasure.armor==party->monsterTreasure->armor,"DirectRun changed stored item provenance or bytes");}forfeitedTotal+=r.forfeitedGold;std::cout<<"FORFEIT gold="<<r.forfeitedGold<<" sources="<<r.forfeitedMask<<" revision="<<r.revision<<'\n';}};
    const auto sameItem=[](const XeenItem &a,const XeenItem &b){return a.material==b.material&&a.id==b.id&&a.state==b.state&&a.frame==b.frame;};

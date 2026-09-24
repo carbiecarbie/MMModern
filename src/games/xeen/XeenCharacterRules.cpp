@@ -264,6 +264,15 @@ int XeenCharacterRules::effectiveLuck(const XeenCharacter &c, const XeenCombatIn
 	if (!input.luck) throw std::invalid_argument("Missing physical saving throw Luck");
 	return std::max(add<true>(add<true>(input.luck->permanent,input.luck->temporary),itemBonus(c,6)),0);
 }
+int XeenCharacterRules::equipmentBonus(const XeenCharacter &c,int category) {
+	if(category<0 || category>14)throw std::invalid_argument("Unsupported equipment attribute query");
+	return itemBonus(c,category);
+}
+int XeenCharacterRules::poisonSaveValue(const XeenCharacter &c,const XeenCombatInputs &input) {
+	if(!input.poisonResistance)throw std::invalid_argument("Missing poison resistance input");
+	return std::max(add<true>(add<true>(input.poisonResistance->permanent,
+		input.poisonResistance->temporary),equipmentBonus(c,14)),0);
+}
 int XeenCharacterRules::effectivePhysical(const XeenCharacter &c, const XeenCombatInputs &input,
 		PhysicalAttribute attribute, const XeenCharacterRulesContext &context) {
 	for (unsigned i=0;i<c.conditions.size();++i)

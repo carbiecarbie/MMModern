@@ -32,7 +32,7 @@ struct Fixture {
 	XeenPartyState members=party();XeenCamera camera{1,1,1,XeenDirection::North};XeenGameFlags flags;
 	std::map<XeenMapIdentity,XeenEventScript> scripts;
 	XeenWorld world{[](XeenMapIdentity id){auto m=map(id);m.geometry.cells[17].rawAttributes=0x10;return m;},
-		[](XeenMapIdentity id){XeenObjectFile f{id,"synthetic.mob",true,{}};f.entities.objects={{1,1,0,0,111},{2,2,0,0,111}};return f;}};
+		[](XeenMapIdentity id){XeenObjectFile f{id,"synthetic.mob",true,{}};f.entities.objects=std::vector<XeenMapEntity>{{1,1,0,0,111},{2,2,0,0,111}};return f;}};
 	XeenEventSystem events{[&](XeenMapIdentity id){return scripts.at(id);},
 		[](XeenMapIdentity id){return XeenEventTextFile{id,"synthetic.txt",true,{"Title","Body words"}};}};
 	XeenEventInterpreter interpreter;

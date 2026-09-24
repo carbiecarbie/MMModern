@@ -16,10 +16,10 @@ int main() {
 			f.world.disableObject({20,0});
 			XeenEventRecord event;event.x=4;event.y=4;f.evt.records.push_back(event);
 			f.world.disableEventsAtCell({20,4,4,XeenDirection::North},f.evt);
-			auto p=f.p;auto camera=f.camera;auto actors=f.world.sessionState().actors();
+			auto p=f.p;auto camera=f.camera;std::vector<XeenActor> actors=f.world.sessionState().actors();
 			const auto flagValues=flags.values();
-			const auto objects=f.world.sessionState().disabledObjects();
-			const auto events=f.world.sessionState().disabledEvents();
+			const std::set<XeenObjectIdentity> objects=f.world.sessionState().disabledObjects();
+			const std::set<XeenEventIdentity> events=f.world.sessionState().disabledEvents();
 			const auto marked=f.world.sessionState().encounterMarked();
 			unsigned calls=0;
 			XeenSaveState::Resources resources{signature,[&]{++calls;return party();},[&](XeenMapIdentity){++calls;return encounter_test::events();}};

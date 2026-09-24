@@ -4,11 +4,12 @@
 #include <array>
 #include <cstdint>
 #include <optional>
+#include "games/xeen/XeenMutation.h"
 namespace mmodern {
 // Durable produced consequences. The party owns this value; runtime receipts
 // and partially executed delivery never belong here.
 struct XeenMonsterTreasureItem {
-	std::uint8_t source = 0;
+	XeenMutable<std::uint8_t> source = 0;
 	XeenItem item;
 	friend bool operator==(const XeenMonsterTreasureItem &a, const XeenMonsterTreasureItem &b) noexcept {
 		return a.source == b.source && a.item.material == b.item.material && a.item.id == b.item.id &&
@@ -16,7 +17,7 @@ struct XeenMonsterTreasureItem {
 	}
 };
 struct XeenMonsterTreasure {
-	std::uint32_t gold = 0, gems = 0, pendingMask = 0, pendingGold = 0;
+	XeenMutable<std::uint32_t> gold = 0, gems = 0, pendingMask = 0, pendingGold = 0;
 	std::array<XeenMonsterTreasureItem,10> weapons{}, armor{};
 	bool ready() const noexcept { return pendingMask != 0; }
 	bool pending() const noexcept { return ready(); }
@@ -37,7 +38,7 @@ struct XeenMonsterDropCandidate {
 	XeenMonsterTreasure treasure;
 	XeenMonsterDropOutcome outcome = XeenMonsterDropOutcome::None;
 	XeenMonsterTreasureItem generated;
-	bool armor = false;
+	XeenMutable<bool> armor = false;
 	XeenMonsterDropCandidate(const XeenMonsterTreasure &, unsigned source, std::uint16_t contract = 4);
 	bool service(XeenConsequenceDraw &);
 private:
@@ -48,7 +49,7 @@ private:
 enum class XeenMonsterDeliveryLoss { None, GloballyFull, NoEligibleRecipient, CategoryTailsFull };
 struct XeenMonsterDeliveryRecord {
 	XeenMonsterTreasureItem production;
-	bool armor = false;
+	XeenMutable<bool> armor = false;
 	std::optional<std::uint8_t> recipient;
 	XeenMonsterDeliveryLoss loss = XeenMonsterDeliveryLoss::None;
 };
@@ -57,7 +58,7 @@ struct XeenMonsterDeliveryCandidate {
 	XeenMonsterTreasure treasure;
 	std::array<XeenMonsterDeliveryRecord,12> records{};
 	unsigned count = 0;
-	bool globallyFull = false;
+	XeenMutable<bool> globallyFull = false;
 };
 XeenMonsterDeliveryCandidate xeenPrepareMonsterDelivery(const XeenMonsterTreasure &,
 	const std::array<XeenCharacter,6> &, std::uint16_t contract = 4);

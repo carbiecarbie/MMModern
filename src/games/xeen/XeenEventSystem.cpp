@@ -73,7 +73,7 @@ XeenEventScript XeenEventSystem::scriptForMap(XeenMapIdentity mapId) {
 
 	XeenEventScript loaded = _scriptProvider(mapId);
 	if (loaded.file().mapId != mapId)
-		throw std::runtime_error("event script identity differs from requested map");
+		throw std::invalid_argument("event script identity differs from requested map");
 	return _scripts.emplace(mapId, std::move(loaded)).first->second;
 }
 

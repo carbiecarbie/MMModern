@@ -43,10 +43,10 @@ inline std::string geometrySnapshot(const XeenMapGeometry &g) {
 	for (const auto &c : g.cells) {
 		value(c.rawWord); value(c.rawAttributes); value(c.surfaceIndex); value(c.flags);
 		value(c.seen); value(c.stepped); value(c.geometry.index());
-		if (const auto *w = std::get_if<XeenIndoorWalls>(&c.geometry)) {
+		if (const auto *w = xeenGetIf<XeenIndoorWalls>(&c.geometry)) {
 			for (auto x : w->walls) value(x);
 		} else {
-			const auto &o = std::get<XeenOutdoorLayers>(c.geometry);
+			const auto &o = xeenGet<XeenOutdoorLayers>(c.geometry);
 			value(o.surface); value(o.middle); value(o.top); value(o.overlay);
 		}
 	}

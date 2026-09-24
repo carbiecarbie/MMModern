@@ -16,7 +16,7 @@ Bytes mob() {
 	return bytes;
 }
 XeenObjectFile objects(XeenMapIdentity id) {
-	auto file = XeenMapLoader().loadObjects([](const std::string &) { return mob(); }, id.number);
+	auto file = XeenMapLoader().loadObjects([](const std::string &) { return mob(); }, XeenMapIdentity{id.number});
 	file.mapId = id; // Synthetic side provider; the real adapter remains Clouds-only.
 	return file;
 }

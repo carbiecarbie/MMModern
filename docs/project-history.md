@@ -309,6 +309,19 @@ Historical limitations in those plans describe their recorded boundaries.
   cancellation, settlement and restart acceptance. See the
   [Milestone 36 plan](milestone-36-plan.md#exclusions-and-final-acceptance).
 
+## M37 - Vertigo entry, initial traversal and return
+
+- Connected the original mainland entrance to an eleven-cell Vertigo route,
+  logical tile seam, Ironworks outside-door label and complete exit/revisit,
+  including original flag-9 reset semantics and retained two-region state.
+- Added bounded town sky/object/actor composition and native-palette Slime
+  combat; Journey v4 schema/content 8/8 preserves both regions and exact
+  continuation without reset replay or legacy-domain upgrade.
+- Full build and 102/102 CTest, original-resource A/B/C/D distinct-process
+  continuation and independent technical review passed. Separately, the
+  maintainer completed physical native-SDL route and restart acceptance. See the
+  [Milestone 37 plan](milestone-37-plan.md#exclusions-and-final-acceptance).
+
 ## Maintaining this history
 
 Add one short section with 2-4 lasting-result bullets per completed milestone
