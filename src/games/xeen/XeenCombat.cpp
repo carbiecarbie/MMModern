@@ -189,7 +189,7 @@ struct XeenCombat::Impl {
 	std::vector<XeenActor> &activeActors() {
 		return journey && camera.mapId==XeenMapIdentity(28) ? *session()._vertigoActors : session()._actors;
 	}
-	bool indoor() const noexcept { return journey && contract==8 && camera.mapId==XeenMapIdentity(28); }
+	bool indoor() const noexcept { return journey && xeenJourneyContent(contract).vertigo() && camera.mapId==XeenMapIdentity(28); }
 	XeenActorView classify(const std::vector<XeenActor> &values) {
 		return indoor() ? XeenIndoorScene().classifyActors(world,camera,values) : XeenActorApproach::classify(values,camera);
 	}
@@ -422,7 +422,7 @@ XeenCombat::XeenCombat(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenComba
 	if(c.mapId==XeenMapIdentity(28)) {
 		require(bool(s._vertigoActors),"Vertigo combat actors are absent");
 		d.inactiveActors=s._actors;
-	} else if(s.journeyContract()==8 && s._vertigoActors) d.inactiveActors=*s._vertigoActors;
+	} else if(xeenJourneyContent(s.journeyContract()).vertigo() && s._vertigoActors) d.inactiveActors=*s._vertigoActors;
 	d.actors = d.activeActors(); d.accounted = s._accountedMonsters; d.approach = state;
 	for (unsigned i = 0; i < 30; ++i) d.allInputs[i] = p.roster.combatInputs(i);
 	for (unsigned i = 0; i < 6; ++i) d.inputs[i] = *d.allInputs[kXeenCombatOwners[i]];

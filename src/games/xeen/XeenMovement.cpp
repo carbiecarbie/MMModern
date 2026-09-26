@@ -92,7 +92,7 @@ XeenMovementResult applyIndoor(XeenWorld &world, XeenCamera &camera,
 	const int targetY = camera.y + delta.second;
 	const bool vertigo = camera.mapId == XeenMapIdentity(28) && world.regionalContract8();
 	if (vertigo) {
-		if (!xeenJourneyContent(8).vertigoCell(targetX,targetY))
+		if (!xeenJourneyContent(world.sessionState().journeyContract()).vertigoCell(targetX,targetY))
 			return XeenMovementResult::BlockedByMapBoundary;
 		const auto source = world.sampleCell(camera.mapId,camera.x,camera.y);
 		const auto target = world.sampleCell(camera.mapId,targetX,targetY);

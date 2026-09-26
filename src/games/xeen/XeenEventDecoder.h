@@ -35,6 +35,7 @@ struct XeenEventSourceLocation {
 struct XeenEventNone {};
 struct XeenEventRemove {};
 struct XeenEventExit {};
+struct XeenEventTownService { std::uint8_t action = 0; };
 struct XeenEventReturn {};
 struct XeenEventNpc {
 	std::uint8_t titleTextIndex, bodyTextIndex, portraitId, confirmationMode, targetLine;
@@ -120,6 +121,7 @@ using XeenDecodedEventOperation = std::variant<
 	XeenEventNone,
 	XeenEventRemove,
 	XeenEventExit,
+	XeenEventTownService,
 	XeenEventReturn,
 	XeenEventNpc,
 	XeenEventWhoWill,

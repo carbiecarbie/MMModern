@@ -12,7 +12,7 @@
 #include <vector>
 namespace child_test {
 namespace fs = std::filesystem;
-struct Result { DWORD exit; std::string output; DWORD pid; };
+struct Result { DWORD exit; std::string output; DWORD pid; std::uint64_t created; };
 inline void require(bool ok, const char *message) { if (!ok) throw std::runtime_error(message); }
 // Retain prior evidence, including from processes whose Windows PID is reused.
 inline fs::path freshDirectory(const fs::path &prefix) {
@@ -78,14 +78,17 @@ inline Result launch(const fs::path &exe, const std::vector<std::wstring> &args,
  }
  if (wait != WAIT_OBJECT_0) { TerminateProcess(process.hProcess, 99); WaitForSingleObject(process.hProcess, 2000); }
  DWORD code = 99; const bool gotCode = GetExitCodeProcess(process.hProcess, &code);
+ FILETIME created{},exited{},kernel{},user{};
+ const bool gotTimes=GetProcessTimes(process.hProcess,&created,&exited,&kernel,&user);
+ const std::uint64_t creation=(std::uint64_t(created.dwHighDateTime)<<32)|created.dwLowDateTime;
  const DWORD pid = process.dwProcessId; CloseHandle(process.hThread); CloseHandle(process.hProcess);
  std::cout << "PID " << pid << " exit " << code << " wait " << wait << '\n' << std::flush;
- require(wait == WAIT_OBJECT_0 && gotCode, "child failed/timed out; acceptance stopped");
+ require(wait == WAIT_OBJECT_0 && gotCode && gotTimes && creation, "child failed/timed out; acceptance stopped");
  require(!closeNativeWindow || closed || (escapeExits && inputStage==4 && code==0),
   "CLI did not expose and normally close its gameplay window");
  require(!closeNativeWindow || inputStage==4,"CLI inventory input sequence incomplete");
  std::ifstream input(log); require(bool(input), "child log read failed");
- return {code, std::string(std::istreambuf_iterator<char>(input), {}), pid};
+ return {code, std::string(std::istreambuf_iterator<char>(input), {}), pid, creation};
 }
 }
 #endif

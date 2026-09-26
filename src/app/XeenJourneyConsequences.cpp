@@ -24,7 +24,7 @@ bool XeenEncounterFlow::beginShoot() {
  const bool continuation=_shootIntent && !_regionalWork && !_regionalAutomatic && !projectilesPending() && !monsterReward();
  if((!_state.pending() && !journeyMutable() && !continuation) || !journeyCapacity()) return false;
  _shootIntent=false;
- if(_world.sessionState().journeyContract()==8 && _camera.mapId==XeenMapIdentity(28)) {
+ if(xeenJourneyContent(_world.sessionState().journeyContract()).vertigo() && _camera.mapId==XeenMapIdentity(28)) {
   _journeyRefusal="Shoot refused indoors";return true;
  }
  try {
@@ -143,7 +143,7 @@ bool XeenEncounterFlow::beginMonsterReward(const XeenItemCatalog &catalog) {
   _state.pending() || _state.phase()!=XeenEncounterPhase::Exploring || (_shoot && !_shoot->volleyDone) || !_boundary.quiet()) return false;
  if(!_party.monsterTreasure || !_party.monsterTreasure->pending()) return false;
  const auto &actors=_world.sessionState().regionalActors(_camera.mapId);
- const auto view=_world.sessionState().journeyContract()==8 && _camera.mapId==XeenMapIdentity(28)
+ const auto view=xeenJourneyContent(_world.sessionState().journeyContract()).vertigo() && _camera.mapId==XeenMapIdentity(28)
   ? XeenIndoorScene().classifyActors(_world,_camera,actors) : XeenActorApproach::classify(actors,_camera);
  for(const auto &slot:view.slots) if(slot) return false;
  if(!current(ticket()) || !journeyCapacity()) throw std::logic_error("Stale monster delivery");
@@ -242,7 +242,7 @@ std::string XeenEncounterFlow::consequenceNotice() const {
   else if(!r.monsterDrop && r.targetMonster && r.attackOutcome!=XeenCombatAttackOutcome::NotApplicable)out<<"Actor "<<r.targetMonster->recordIndex<<(r.attackOutcome==XeenCombatAttackOutcome::Miss?" missed":" damage ")<<r.damage<<'\n';
 
  } else if(!stopped) {
-  const bool city=_world.sessionState().journeyContract()==8 && _camera.mapId==XeenMapIdentity(28);
+  const bool city=xeenJourneyContent(_world.sessionState().journeyContract()).vertigo() && _camera.mapId==XeenMapIdentity(28);
   out<<"Arrows move/turn; . Wait; F Shoot:";
   bool eligible=false;
   for(unsigned i=0;i<6;++i){const auto &c=_party.roster.at(kXeenCombatOwners[i]);if(c.canAct())for(const auto &w:c.weapons)if(w.frame==4){out<<' '<<i+1;eligible=true;break;}}

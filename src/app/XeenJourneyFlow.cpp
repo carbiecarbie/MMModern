@@ -137,7 +137,7 @@ bool XeenEncounterFlow::itemUseReady() const noexcept { return _itemUse && _item
 std::optional<std::uint64_t> XeenEncounterFlow::beginItemUse(const Ticket &entry,const ItemUseSelection &selection,
 		std::uint64_t inventoryLease,std::uint64_t certificateLease) {
 	if (!journeyMutable() || !current(entry) || !_journeyPreimage || _itemUse ||
-		(_world.sessionState().journeyContract()!=6 && _world.sessionState().journeyContract()!=7 && _world.sessionState().journeyContract()!=8) ||
+		(_world.sessionState().journeyContract()!=6 && _world.sessionState().journeyContract()!=7 && !xeenJourneyContent(_world.sessionState().journeyContract()).vertigo()) ||
 		!_boundary.holds(XeenCombatBoundary::Work::Inventory,inventoryLease) ||
 		!_boundary.holds(XeenCombatBoundary::Work::Certificate,certificateLease) ||
 		selection.category!=XeenInventoryCategory::Miscellaneous || selection.slot>=9 ||
@@ -278,7 +278,7 @@ void XeenEncounterFlow::holdJourneyFrame() {
 	if (!_journey || _busy || _combat || !current(ticket()) || !journeyCapacity()) throw std::logic_error("Journey frame boundary unavailable");
 	auto &s = _world._sessionState;
 	if (s._journeyActivity == XeenJourneyActivity::Presentation || s._journeyActivity == XeenJourneyActivity::Event || s._journeyActivity == XeenJourneyActivity::Shoot || s._journeyActivity == XeenJourneyActivity::Reward || s._journeyActivity == XeenJourneyActivity::ItemUse) return;
-	if (s._journeyActivity == XeenJourneyActivity::Casting) return;
+	if (s._journeyActivity == XeenJourneyActivity::Casting || s._journeyActivity == XeenJourneyActivity::Service) return;
 	if (s._journeyActivity != XeenJourneyActivity::Quiet && s._journeyActivity != XeenJourneyActivity::Approach && s._journeyActivity != XeenJourneyActivity::SupportStopped)
 		throw std::logic_error("Journey frame cannot replace active work");
 	s._journeyActivity = XeenJourneyActivity::Presentation;
@@ -408,10 +408,10 @@ bool XeenEncounterFlow::endJourneySave(const Ticket &t) noexcept {
 }
 bool XeenEncounterFlow::presentJourney(const Ticket &entry) {
 	if (!_journey || _busy || _combat || !_journeyFramePrepared || !current(entry) ||
-		(_world.sessionState().journeyActivity() != XeenJourneyActivity::Presentation && !journeyEvent() && !_shoot && !monsterReward() && !_itemUse && !_casting)) return false;
+		(_world.sessionState().journeyActivity() != XeenJourneyActivity::Presentation && !journeyEvent() && !_shoot && !monsterReward() && !_itemUse && !_casting && !_smith)) return false;
 	if (!journeyCapacity()) return false;
 	auto &s = _world._sessionState;
-	if (!journeyEvent() && !_shoot && !monsterReward() && !_itemUse && !_casting) s._journeyActivity = _state.phase()==XeenEncounterPhase::SupportStopped ? XeenJourneyActivity::SupportStopped : (_state.pending() || _regionalWork || projectilesPending() || _shootIntent || _regionalAutomatic) ? XeenJourneyActivity::Approach : XeenJourneyActivity::Quiet;
+	if (!journeyEvent() && !_shoot && !monsterReward() && !_itemUse && !_casting && !_smith) s._journeyActivity = _state.phase()==XeenEncounterPhase::SupportStopped ? XeenJourneyActivity::SupportStopped : (_state.pending() || _regionalWork || projectilesPending() || _shootIntent || _regionalAutomatic) ? XeenJourneyActivity::Approach : XeenJourneyActivity::Quiet;
 	if (_castingSettlement && (s._journeyActivity==XeenJourneyActivity::Quiet ||
 		s._journeyActivity==XeenJourneyActivity::SupportStopped || journeyEvent() || monsterReward()))
 		_castingSettlement=false;
@@ -423,7 +423,7 @@ bool XeenEncounterFlow::presentJourney(const Ticket &entry) {
 }
 bool XeenEncounterFlow::prepareJourneyFrame(const Ticket &entry, const std::function<void()> &compose) {
 	if (!_journey || _busy || _combat || !current(entry) || !compose ||
-		(_world.sessionState().journeyActivity() != XeenJourneyActivity::Presentation && !journeyEvent() && !_shoot && !monsterReward() && !_itemUse && !_casting)) return false;
+		(_world.sessionState().journeyActivity() != XeenJourneyActivity::Presentation && !journeyEvent() && !_shoot && !monsterReward() && !_itemUse && !_casting && !_smith)) return false;
 	BusyJourney busy(_busy);
 	_journeyFramePrepared = false;
 	if (_itemUse) { _itemUse->selectorTicket.reset(); _itemUse->selectorFrame.reset(); }

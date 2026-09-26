@@ -14,6 +14,7 @@
 #include "mm/shared/xeen/xsurface.h"
 
 #include <algorithm>
+#include <zlib.h>
 #include <array>
 #include <cstdint>
 #include <memory>
@@ -406,6 +407,21 @@ IndexedFrame ScummVmXeenBridge::snapshot() const {
 	}
 
 	return frame;
+}
+
+void ScummVmXeenBridge::drawSmith(IndexedFrame &frame) {
+	if (!frame.isValid() || frame.width!=320 || frame.height!=200)
+		throw std::invalid_argument("Invalid Ironworks draw context");
+	const auto bytes=readArchiveResource("blck1.twn");
+	if (bytes.size()!=42348 || crc32(0,bytes.data(),static_cast<uInt>(bytes.size()))!=0x70459675)
+		throw std::invalid_argument("Ironworks original artwork identity changed");
+	auto &sprite=_impl->sprite("blck1.twn",0,8);
+	XSurface surface;surface.create(320,200);
+	for(int y=0;y<200;++y)std::copy_n(frame.pixels.data()+y*320,320,
+		static_cast<std::uint8_t *>(surface.getBasePtr(0,y)));
+	sprite.draw(surface,0,Common::Point(8,8));
+	for(int y=8;y<140;++y)std::copy_n(static_cast<const std::uint8_t *>(surface.getBasePtr(8,y)),215,
+		frame.pixels.data()+y*320+8);
 }
 
 void ScummVmXeenBridge::drawNpc(IndexedFrame &frame, std::uint8_t portraitId,

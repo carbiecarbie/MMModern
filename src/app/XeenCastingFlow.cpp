@@ -35,7 +35,7 @@ XeenConsequenceInputs activeInputs(const XeenPartyState &party) {
 }
 
 bool XeenEncounterFlow::beginCasting(const Ticket &entry) {
-	if (!current(entry) || !journeyMutable() || _world.sessionState().journeyContract()!=7 && _world.sessionState().journeyContract()!=8 ||
+	if (!current(entry) || !journeyMutable() || _world.sessionState().journeyContract()!=7 && !xeenJourneyContent(_world.sessionState().journeyContract()).vertigo() ||
 			_casting || !_boundary.quiet() || _castingGeneration==std::numeric_limits<std::uint64_t>::max() ||
 			!journeyCapacity()) return false;
 	BusyCast busy(_busy);

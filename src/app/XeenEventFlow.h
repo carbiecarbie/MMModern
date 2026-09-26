@@ -45,8 +45,11 @@ public:
 	}
 	bool journeyInputCurrent(std::optional<std::uint64_t>) const noexcept;
 	std::function<void()> prepareJourneySprites;
+	std::function<void(IndexedFrame &)> drawSmithArt;
+	std::function<void(XeenSmithBoundary)> smithBoundary;
 	bool completed() const noexcept { return _encounter && _encounter->completed(); }
 	bool canSave() const noexcept;
+	bool serviceSaveBlocked() const noexcept { return _smithUi.has_value() || _dispatching || _handoffPending || _saving || _fatal; }
 	class SaveBoundary {
 		friend class XeenEventFlow;
 		const XeenEventFlow *owner = nullptr;
@@ -105,6 +108,18 @@ public:
 	std::function<void(const XeenEquipmentResult &)> reportEquipment;
 	std::function<void(XeenMovementResult)> reportMovement;
 private:
+	struct SmithUi {
+		XeenItemCatalog catalog;
+		enum class Phase { Lobby, Browse, Quote, Result, Departure };
+		Phase phase=Phase::Lobby;
+		std::size_t member=0, slot=0;
+		std::string title, feedback;
+		IndexedFrame art;
+	};
+	std::optional<SmithUi> _smithUi;
+	void prepareSmith();
+	IndexedFrame drawSmith(const IndexedFrame &) const;
+	IndexedFrame handleSmith(const PlayerAction &,std::uint64_t);
 	const XeenEventPublication *_eventPublication = nullptr;
 	bool _monsterReceiptPresented=false;
 	bool _journeyEventLayers = false;

@@ -30,11 +30,14 @@ void XeenSaveState::validateJourneyValues(const XeenSaveSnapshot &s) {
 	const auto &j = *s.journey;
 	const auto require = [](bool ok) { if (!ok) throw std::invalid_argument("Unsupported Journey durable state"); };
 	const auto &policy=xeenJourneyContent(j.contract);
+	require(xeenSupportedJourneyPair(j.schema,j.contract));
+	if (policy.armorRepair()) require(j.context && j.context->year==610 &&
+		j.context->day>=8 && j.context->day<=10 && (j.context->day==8 || j.vertigoActors));
 	if (j.contract>=3) {
 		require(s.resources.darkside && j.initializedMap==XeenMapIdentity(23) && j.originalActorCount==19 && j.actors.size()==19 &&
 			((s.camera.mapId==XeenMapIdentity(23) && s.camera.x>=0 && s.camera.x<16 && s.camera.y>=0 && s.camera.y<16) ||
-			 (j.contract==8 && s.camera.mapId==XeenMapIdentity(28) && xeenJourneyContent(8).vertigoCell(s.camera.x,s.camera.y) && j.vertigoActors)));
-		require(j.contract==8 || !j.vertigoActors);
+			 (xeenJourneyContent(j.contract).vertigo() && s.camera.mapId==XeenMapIdentity(28) && xeenJourneyContent(j.contract).vertigoCell(s.camera.x,s.camera.y) && j.vertigoActors)));
+		require(xeenJourneyContent(j.contract).vertigo() || !j.vertigoActors);
 		if (j.vertigoActors) {
 			require(j.vertigoActors->size()==46 || j.vertigoActors->size()==52);
 			for (unsigned i=0;i<j.vertigoActors->size();++i) {
@@ -44,7 +47,7 @@ void XeenSaveState::validateJourneyValues(const XeenSaveSnapshot &s) {
 					a.x!=s.camera.x || a.y!=s.camera.y);
 			}
 		}
-		if (j.contract==8) {
+		if (xeenJourneyContent(j.contract).vertigo()) {
 			for (const auto &id:s.disabledObjects) require(id.mapId!=XeenMapIdentity(28));
 			for (const auto &id:s.disabledEvents)
 				require(id.mapId!=XeenMapIdentity(28) || (j.vertigoActors && id.recordIndex==764));
@@ -177,7 +180,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 		const auto cityEvents=events(28);
 		if (!resources.vertigoManifest) throw std::invalid_argument("Missing Vertigo restoration manifest");
 		callback([&] { resources.vertigoManifest(w,cityEvents,statistics);return true; });
-		xeenValidateVertigoRoute(evt,cityEvents);
+		xeenValidateVertigoRoute(evt,cityEvents,snapshot.journey->contract);
 		const auto cityMob=callback([&] { return w.objectFile(28); });
 		auto city=XeenActorApproach::actorsFromResources(cityMob,statistics);
 		if (city.size()!=46 || statistics.empty() || statistics[0].image()!=0 || statistics[0].baseHp()!=2)
@@ -204,7 +207,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	std::optional<XeenEventFile> activeCityEvents;
 	if(cityActive) {
 		activeCityEvents=events(28);
-		xeenValidateVertigoRoute(evt,*activeCityEvents);
+		xeenValidateVertigoRoute(evt,*activeCityEvents,snapshot.journey->contract);
 	}
 	const auto &active=cityActive ? s._vertigoActors.value() : s._actors;
 	const auto view=cityActive ? XeenIndoorScene().classifyActors(w,c,active) : XeenActorApproach::classify(active,c);
@@ -421,14 +424,14 @@ XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resourc
 		xeenValidateJourneyParty(party,state.journeyContract());
 		XeenSaveJourney j;
 		j.context = party.encounterContext; j.skeletonSeed = state.skeletonSeed();
-		j.schema=j.contract=state.journeyContract(); j.random=state.journeyRandom();j.treasure=party.monsterTreasure;j.regionalRecovery=party.regionalRecovery;
+		j.contract=state.journeyContract(); j.schema=xeenJourneyContent(j.contract).schema(); j.random=state.journeyRandom();j.treasure=party.monsterTreasure;j.regionalRecovery=party.regionalRecovery;
 		for (unsigned i = 0; i < 30; ++i) j.supplements[i] = {static_cast<std::uint8_t>(i), *party.roster.combatInputs(i)};
 		j.initializedMap=xeenJourneyContent(j.contract).entry.mapId;
 		j.originalActorCount=j.contract>=3 ? 19 : 27;
 		if (state.actors().size() != j.originalActorCount) throw std::logic_error("Journey actor collection changed");
 		for (const auto &a:state.actors()) if (xeenJourneyContent(j.contract).influences(a.id.recordIndex))
 			j.actors.push_back({a.id,a.x,a.y,a.hp,a.activated,a.lifecycle,a.status,state.accountedMonsters().count(a.id) != 0});
-		if (j.contract==8 && state._vertigoActors) {
+		if (xeenJourneyContent(j.contract).vertigo() && state._vertigoActors) {
 			std::vector<XeenSaveJourneyActor> city;city.reserve(state._vertigoActors->size());
 			for (const auto &a:*state._vertigoActors)
 				city.push_back({a.id,a.x,a.y,a.hp,a.activated,a.lifecycle,a.status,state.accountedMonsters().count(a.id)!=0});

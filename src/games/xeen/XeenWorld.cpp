@@ -417,8 +417,8 @@ std::optional<XeenCellSample> XeenWorld::sampleCell(
 }
 
 std::unique_ptr<XeenWorld> XeenWorld::transitionCandidate() const {
-	if (!_sessionState.journey() || _sessionState.journeyContract()!=8)
-		throw std::logic_error("Vertigo candidate requires Journey content 8");
+	if (!regionalContract8())
+		throw std::logic_error("Vertigo candidate requires admitted city content");
 	auto candidate=std::make_unique<XeenWorld>(_baseLoader,_baseObjectLoader);
 	candidate->_sessionState=_sessionState;
 	// The interpreter operates only on detached values; live Journey authority
@@ -434,7 +434,7 @@ std::unique_ptr<XeenWorld> XeenWorld::transitionCandidate() const {
 void XeenWorld::applyAlterEvent(const XeenCamera &physical, std::uint8_t line,
 		std::uint8_t replacement, const XeenEventFile &events) {
 	XeenMutationWatch::write(this);
-	if (_sessionState._journeyContract!=8 || _sessionState._entry!=XeenEncounterEntry::Ordinary ||
+	if (!regionalContract8() || _sessionState._entry!=XeenEncounterEntry::Ordinary ||
 		physical.mapId!=events.mapId || replacement!=0)
 		throw std::invalid_argument("AlterEvent replacement is unsupported");
 	bool found=false;

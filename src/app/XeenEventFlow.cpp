@@ -127,8 +127,8 @@ void XeenEventFlow::prepareJourneyTransition() {
   !_encounter->monsterReward() && !_encounter->state().pending() && _encounter->state().phase()==XeenEncounterPhase::Exploring) {
   _encounter->beginJourneyEvent();_journeyEventLayers=true;
   journeyEventWork([&] {
-   if(_world.sessionState().journeyContract()==8 &&
-      xeenRegionalInteraction(_encounter->_journeyEvents,_camera,8)==XeenRegionalInteraction::VertigoDoor)
+   if(xeenJourneyContent(_world.sessionState().journeyContract()).vertigo() &&
+      xeenRegionalInteraction(_encounter->_journeyEvents,_camera,_world.sessionState().journeyContract())==XeenRegionalInteraction::VertigoDoor)
     drive(beginVertigoEvent(XeenRegionalInteraction::VertigoDoor),false);
    else drive(_events.runAutomaticEvent(_world,_party,_camera,_flags,_eventPublication),true);
   },true);
@@ -175,6 +175,8 @@ void XeenEventFlow::framePresented(const IndexedFrame::Presentation &presented) 
 		_arrivalPending = false;
 		if (_castingUi && _encounter->castingActive())
 			_encounter->authorizeCastingFrame(*_encounterFrame,_inputGeneration,presented);
+		if (_smithUi && _encounter->_smith)
+			_encounter->authorizeSmithFrame(_inputGeneration,presented);
 		if (_inventory.mode==XeenInventoryMode::UseTarget &&
 			(!_itemUseGeneration || !_encounter->authorizeItemUseTarget(*_encounterFrame,*_itemUseGeneration,
 				_inventoryEpoch,_inputGeneration,presented))) {
@@ -302,7 +304,8 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 				_inventoryUnderlay = rendered;
 				if (inventoryOpen()) rendered = drawXeenInventory(rendered,_inventoryFont,_catalog,_party,_inventory,_inventoryFeedback,
 					_equipmentResult ? &*_equipmentResult : nullptr,false,false,
-					_world.sessionState().journeyContract()==6 || _world.sessionState().journeyContract()==7 || _world.sessionState().journeyContract()==8);
+					_world.sessionState().journeyContract()==6 || _world.sessionState().journeyContract()==7 || xeenJourneyContent(_world.sessionState().journeyContract()).vertigo());
+				if (_smithUi) rendered=drawSmith(composed.frame);
 				if (report && !attempt) {
 					if (reportText) reportText(_encounter->notice());
 					if (!_encounter->current(t)) throw std::logic_error("Stale Journey reporting");
@@ -486,6 +489,8 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 		// Adopt ownership before composition, reporting or presentation can fail.
 		auto *suspended = std::get_if<XeenEventExecutionSuspended>(&result);
 		if (suspended) _pending.emplace(Pending{std::move(suspended->state), automatic, ++_generation});
+		if (suspended && suspended->request.kind==XeenPresentationKind::ArmorRepairService)
+			return frameCopy(); // Exclusive Event transfers to Service after its final guard check.
 		try {
 		refreshScene(reconstruct, cause, committedTransition);
 		reconstruct = false;
@@ -537,13 +542,13 @@ void XeenEventFlow::checkTransitionCandidate() {
 
 XeenManualEventResult XeenEventFlow::beginVertigoEvent(XeenRegionalInteraction kind) try {
 	if (_transition || !_eventPublication || !_encounter->journeyEvent() ||
-		_world.sessionState().journeyContract()!=8 || !_transitionCompose)
+		!xeenJourneyContent(_world.sessionState().journeyContract()).vertigo() || !_transitionCompose)
 		throw std::logic_error("Vertigo Event candidate is unavailable");
 	auto work=std::make_unique<TransitionCandidate>();
 	const auto mainland=_events.scriptForMap(23).file();
 	const auto city=_events.scriptForMap(28).file();
 	_eventPublication->check();
-	try { xeenValidateVertigoRoute(mainland,city); }
+	try { xeenValidateVertigoRoute(mainland,city,_world.sessionState().journeyContract()); }
 	catch (const std::invalid_argument &) { _encounter->journeySavePreimage().failed=true; throw; }
 	const auto mainText=_events.textForMap(23),cityText=_events.textForMap(28);
 	_eventPublication->check();
@@ -701,7 +706,7 @@ void XeenEventFlow::validateRegionalEvents() {
 	XeenRestoreGuard currentCombat(_world,_party,_camera,_flags);
 	currentCombat.retainResources(_encounter->journeySavePreimage());
 	auto &guard=_encounter->combat()?currentCombat:_encounter->journeySavePreimage();
-	if (_world.sessionState().journeyContract()==7 || _world.sessionState().journeyContract()==8) {
+	if (_world.sessionState().journeyContract()==7 || xeenJourneyContent(_world.sessionState().journeyContract()).vertigo()) {
 		if (!_encounter->_learnedNamesProvider) throw std::logic_error("Learned spell name provider unavailable");
 		guard.check();
 		const auto value=_encounter->_learnedNamesProvider();
@@ -713,7 +718,7 @@ void XeenEventFlow::validateRegionalEvents() {
 	});
 	XeenRestoreGuard::Providers providers(guard,_world,[&] {validation.check();});
 	validation.script(_events.scriptForMap(_camera.mapId).file());
-	if (_world.sessionState().journeyContract()==6 || _world.sessionState().journeyContract()==7 || _world.sessionState().journeyContract()==8) validation.text(_events.textForMap(_camera.mapId));
+	if (_world.sessionState().journeyContract()==6 || _world.sessionState().journeyContract()==7 || xeenJourneyContent(_world.sessionState().journeyContract()).vertigo()) validation.text(_events.textForMap(_camera.mapId));
 }
 IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operation, bool automatic) {
 	automatic=automatic || (_pending && _pending->automatic);
@@ -737,6 +742,9 @@ IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operat
 		if (!_encounter->current(entry)) { _fatal=true; throw; }
 		// Only trusted published effects survive. A recovery frame never resumes the script.
 	}
+	if (_pending && _pending->state.pendingPresentation &&
+		_pending->state.pendingPresentation->request.kind==XeenPresentationKind::ArmorRepairService && !_smithUi)
+		prepareSmith();
 	if (!_pending) {
 		if (_arrivalPending) _encounter->publishArrival(_encounter->_result.view);
 		_encounter->endJourneyEvent();
@@ -763,6 +771,7 @@ IndexedFrame XeenEventFlow::initial() {
 	return drive(_navigation.processInitialEvent(_world, _party, _camera, _flags), true);
 }
 bool XeenEventFlow::canCancelInteraction() const {
+	if (_smithUi) return true;
 	if (_castingUi || (journey() && _encounter->castingSettlement())) return true;
 	return _pending && _pending->state.pendingPresentation &&
 		_pending->state.pendingPresentation->request.response ==
@@ -829,7 +838,7 @@ IndexedFrame XeenEventFlow::presentationFailed(const std::exception &exception) 
 }
 std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 	requireCurrentOwners();
-	if (_dispatching || _fatal || _saving || (journey() && _handoffPending)) return std::nullopt;
+	if (_dispatching || _fatal || _saving || _smithUi || (journey() && _handoffPending)) return std::nullopt;
 	DispatchScope dispatch(_dispatching);
 	validateRegionalEvents();
 	if (_encounter) {
@@ -874,6 +883,7 @@ std::optional<std::uint64_t> XeenEventFlow::presentationGeneration() const {
 bool XeenEventFlow::respond(std::uint64_t generation, XeenPresentationResponse response) {
 	requireCurrentOwners();
 	if (journey()) {
+		if (_smithUi) return false;
 		if (_dispatching || _fatal || _saving || _handoffPending || !encounterFrameCurrent() ||
 			!_encounter->journeyEvent() || !_pending || _pending->generation!=generation ||
 			!_pending->state.pendingPresentation || !xeenResponseMatches(_pending->state.pendingPresentation->request.response,response)) return false;
@@ -913,6 +923,10 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 	requireCurrentOwners();
 	if (journey() && !journeyInputCurrent(displayedInput)) return frameCopy();
 	if (std::holds_alternative<SaveGameAction>(action) || _dispatching || _fatal || _saving) return frameCopy();
+	if (_smithUi) {
+		DispatchScope dispatch(_dispatching);
+		return handleSmith(action,*displayedInput);
+	}
 	if (completed() && (!displayedInput || *displayedInput != _inputGeneration || !_displayedCompleted ||
 		!_encounter->current(*_displayedCompleted) || _handoffPending)) return frameCopy();
 	if (_encounter && _encounter->combat() && (!displayedInput || *displayedInput != _inputGeneration ||
@@ -929,7 +943,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 			if (_castingUi) return handleCasting(action,*displayedInput);
 			if (_encounter->castingSettlement() && !_encounter->monsterReward() && !_encounter->journeyEvent()) return frameCopy();
 			if (std::holds_alternative<CastSpellAction>(action)) {
-				if (_world.sessionState().journeyContract()!=7 && _world.sessionState().journeyContract()!=8 || !_encounter->beginCasting(_encounter->ticket())) return frameCopy();
+				if (_world.sessionState().journeyContract()!=7 && !xeenJourneyContent(_world.sessionState().journeyContract()).vertigo() || !_encounter->beginCasting(_encounter->ticket())) return frameCopy();
 				// beginCasting acquired its lease; only completed Event layers may be retired here.
 				if (_journeyEventLayers) { _presenter.clear(); _journeyEventLayers=false; }
 				_castingUi.emplace();

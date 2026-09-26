@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**Milestone 37 is the latest completed milestone.**
+**Milestone 38 is the latest completed milestone.**
 [Project status](project-status.md) owns implemented capabilities and acceptance
 boundaries; [project history](project-history.md) owns completed chronology.
 Reference provenance belongs to [dependencies](dependencies.md).
@@ -29,7 +29,9 @@ well recovery and bounded antidote use with exact 6/6 continuation
 ([M35](milestone-35-plan.md)). M36 added learned First Aid and Awaken with exact
 7/7 continuation on the same mainland ([M36](milestone-36-plan.md)). M37
 completed original Vertigo entry, bounded traversal, return/revisit and retained
-two-region 8/8 continuation ([M37](milestone-37-plan.md)).
+two-region 8/8 continuation ([M37](milestone-37-plan.md)). M38 completed
+bounded Ironworks Armor Repair, atomic carried-gold/item publication, one-day
+departure and 8/9 continuation ([M38](milestone-38-plan.md)).
 These contracts do not certify unrestricted map-23
 or Clouds travel or normal original startup.
 
@@ -38,40 +40,33 @@ After the maintainer-reviewed post-M35 reassessment, the accepted direction is
 to pause quest-driven vertical slices and develop reusable Clouds systems with
 Vertigo progressively serving as their production hub. A bounded learned
 exploration-casting step was completed first using original learned spells on
-the admitted mainland. Completed Vertigo admission establishes the city/world
-boundary for the next bounded town service.
+the admitted mainland. Vertigo admission and its first bounded town service
+now complete that short arc.
 
 ## Near term
 
-The accepted short arc is M36-M38. M36 and M37 are completed; **M38 - Vertigo
-blacksmith and economy** is the immediate provisional successor. Its purpose
-below is a roadmap direction, not a technical specification or implementation
-authorization. M38 still requires scope review, specification and explicit
-implementation authorization; M37 completion does not authorize that work.
-Change this decomposition only when concrete implementation evidence shows a
-materially better acceptance boundary.
+The approved **M36-M38 short arc is completed and accepted**: learned
+exploration casting, bounded Vertigo travel, and Ironworks Armor Repair.
+The repair slice gives earned gold a use without merchant stock or trading.
 
-### M38 - Vertigo blacksmith and economy
-
-Use the admitted city to establish a first meaningful town service and reusable
-economy transaction path. A supported blacksmith transaction should give
-accumulated gold a gameplay use and connect the purse, items, inventory and
-equipment, merchant state and quiet persistence in an original location.
-Broader trading, complete shop/item functionality and other services remain
-outside this unit.
+The next activity is a **focused post-M38 systems/roadmap reassessment** within
+the accepted Vertigo-centered reusable-system direction described below.
+Assess the infrastructure actually present and choose its best next production
+and acceptance consumer. This closure does not choose/specify M39 or authorize
+another implementation milestone.
 
 ## Medium term
 
-After the initial Vertigo foundation/economy arc, conduct a focused
-reassessment **within the accepted Vertigo-centered systems direction**:
-given the infrastructure then actually present, which reusable system has the
+The post-M38 reassessment remains **within the accepted Vertigo-centered
+systems direction**:
+given the infrastructure now actually present, which reusable system has the
 best next production and acceptance consumer? Candidates, not a committed
 sequence, include training/progression, broader magic and combat casting,
 guild/spell acquisition, temple and recovery services, and further economy/item
 breadth. Route evidence may identify another prerequisite system. Training
 deserves particular attention as a consumer of both XP and gold, but its
 original time/day consequences should be evaluated against the city and time
-foundations then available.
+foundations now available.
 
 Further city content, regions, quests and encounters should follow demonstrated
 system or route value. Another quest chain is not the default successor. Grow
@@ -104,7 +99,8 @@ current-state extensions, M31's exclusive event/publication integration, M32's
 resource-derived regional/complete-actor/context foundation, M33's shared physical
 consequences and party-owned monster treasure, M34's participation/non-victory
 lifecycle and dormant-item semantics, M36's learned casting, M37's retained
-two-region transitions and 8/8 continuation, and M28's
+two-region transitions and 8/8 continuation, M38's bounded repair/departure
+publications and explicit 8/9 pair, and M28's
 owner/preimage and presentation safeguards.
 Commercial resources remain external and unmodified.
 

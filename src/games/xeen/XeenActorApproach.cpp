@@ -186,8 +186,8 @@ void XeenActorApproach::validateDomain(XeenWorld &world, const XeenPartyState &p
 	if (world.sessionState().journeyContract()>=3) {
 		require(xeenRegionalContext(context),"Unsupported regional context");
 		xeenValidateJourneyParty(party,world.sessionState().journeyContract());
-		if(world.sessionState().journeyContract()==8 && events.mapId==XeenMapIdentity(28)) {
-			validateEnvironment(world,actors,events,8);
+		if(xeenJourneyContent(world.sessionState().journeyContract()).vertigo() && events.mapId==XeenMapIdentity(28)) {
+			validateEnvironment(world,actors,events,world.sessionState().journeyContract());
 			std::set<XeenMonsterIdentity> mainland;
 			for(const auto id:world.sessionState().accountedMonsters())if(id.mapId==XeenMapIdentity(23))mainland.insert(id);
 			xeenValidateRegionalActors(world.map(23),world.objectFile(23),world.sessionState().actors(),mainland);
@@ -215,7 +215,7 @@ void XeenActorApproach::validateDomain(XeenWorld &world, const XeenPartyState &p
 
 void XeenActorApproach::validateEnvironment(XeenWorld &world,
 		const std::vector<XeenActor> &actors, const XeenEventFile &events, std::uint16_t contract) {
-	if(contract==8 && events.mapId==XeenMapIdentity(28)) {
+	if(xeenJourneyContent(contract).vertigo() && events.mapId==XeenMapIdentity(28)) {
 		require(events.resourcePresent && events.records.size()==847,"Vertigo Event topology changed");
 		xeenValidateVertigoActors(world,actors);
 		return;
@@ -341,7 +341,7 @@ XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenP
 		}
 		require(swimming<6 && mountaineer<2 && navigator==0 && pathfinder<2,"Regional effective traversal prerequisites changed");
 	}
-	for (unsigned id = 0; id < 30; ++id) candidate.roster._combatInputs[id] = XeenCharacterFormat::parseCombatInputs(chr, id, contract>=2, xeenJourneyContent(contract).consequences(), contract==8);
+	for (unsigned id = 0; id < 30; ++id) candidate.roster._combatInputs[id] = XeenCharacterFormat::parseCombatInputs(chr, id, contract>=2, xeenJourneyContent(contract).consequences(), xeenJourneyContent(contract).vertigo());
 	if (xeenJourneyContent(contract).learnedCasting()) for (unsigned id = 0; id < 30; ++id)
 		candidate.roster.at(id).learnedSpells = XeenCharacterFormat::parseLearnedSpells(chr, id);
 	candidate.roster._combatMarked = true;
@@ -657,7 +657,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		world._combatCheck();
 	};
 	try {
-		const bool indoor=session.journeyContract()==8 && camera.mapId==XeenMapIdentity(28);
+		const bool indoor=xeenJourneyContent(session.journeyContract()).vertigo() && camera.mapId==XeenMapIdentity(28);
 		if(indoor && !session._vertigoActors)throw std::invalid_argument("Vertigo actors are absent");
 		auto &regionalActors=indoor ? *session._vertigoActors : session._actors;
 		check();validateDomain(world,party,*party.encounterContext,regionalActors,events);
@@ -679,7 +679,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 						const unsigned d=unsigned(camera.direction)^(*action==XeenEncounterAction::Backward?2u:0u);
 						constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};const int x=camera.x+dx[d],y=camera.y+dy[d];
 						if(indoor) {
-							if(!xeenJourneyContent(8).vertigoCell(x,y)) {refused.reason=XeenEncounterStop::Envelope;return refused;}
+							if(!xeenJourneyContent(session.journeyContract()).vertigoCell(x,y)) {refused.reason=XeenEncounterStop::Envelope;return refused;}
 							result=XeenMovement().apply(world,c.camera,*action==XeenEncounterAction::Forward?
 								NavigationAction::MoveForward:NavigationAction::MoveBackward);
 						} else {
@@ -689,7 +689,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 					} else result=XeenMovement().apply(world,c.camera,*action==XeenEncounterAction::Left?NavigationAction::TurnLeft:NavigationAction::TurnRight);
 					charge=result==XeenMovementResult::Moved;stepTime=charge || result==XeenMovementResult::Turned;
 					if(!stepTime) c.result.outcome=XeenEncounterOutcome::Blocked;
-					if(indoor ? !xeenJourneyContent(8).vertigoCell(c.camera.x,c.camera.y) :
+					if(indoor ? !xeenJourneyContent(session.journeyContract()).vertigoCell(c.camera.x,c.camera.y) :
 						(c.camera.mapId!=XeenMapIdentity(23) || c.camera.x<0 || c.camera.x>=16 || c.camera.y<0 || c.camera.y>=16 ||
 						 !XeenMovement::component(map,9,11,xeenJourneyContent(session.journeyContract()).traversal)[c.camera.y*16+c.camera.x]))
 						{ refused.reason=XeenEncounterStop::Envelope;return refused; }

@@ -11,6 +11,7 @@
 #include "games/xeen/XeenAntidoteUse.h"
 #include "games/xeen/XeenLearnedSpellRules.h"
 #include "games/xeen/XeenCombatRules.h"
+#include "games/xeen/XeenArmorRepair.h"
 
 namespace mmodern {
 class XeenItemCatalog;
@@ -141,6 +142,23 @@ public:
 	std::string notice() const;
 private:
 	friend class XeenEventFlow;
+	struct SmithContinuation {
+		std::uint64_t lease=0, input=0, operation=0;
+		IndexedFrame::Presentation frame;
+		std::uint8_t owner=0, slot=0;
+		static constexpr auto category=XeenInventoryCategory::Armor;
+		bool quoted=false, departed=false;
+		XeenArmorRepairCandidate result;
+	};
+	std::unique_ptr<SmithContinuation> _smith;
+	std::function<void(XeenSmithBoundary)> _smithBoundary;
+	void checkSmithBoundary(XeenSmithBoundary);
+	bool beginSmith(const std::function<void()> &);
+	void authorizeSmithFrame(std::uint64_t,const IndexedFrame::Presentation &);
+	bool consumeSmithFrame(std::uint64_t,const IndexedFrame::Presentation &);
+	void quoteSmith(std::size_t,std::size_t);
+	void confirmSmith();
+	void departSmith();
 	bool beginCasting(const Ticket &);
 	void authorizeCastingFrame(const Ticket &, std::uint64_t, const IndexedFrame::Presentation &);
 	bool castingFrameCurrent(std::uint64_t, const IndexedFrame::Presentation &) const noexcept;

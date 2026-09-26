@@ -24,6 +24,9 @@ void xeenValidateJourneyParty(const XeenPartyState &party, std::uint16_t contrac
 	require(bool(party.regionalRecovery) == xeenJourneyContent(contract).connectedRecovery(), "Journey recovery presence mismatch");
 	if (party.monsterTreasure) xeenValidateMonsterTreasure(*party.monsterTreasure, contract);
 	const auto &context = *party.encounterContext;
+	if (xeenJourneyContent(contract).armorRepair())
+		require(context.year == 610 && context.day >= 8 && context.day <= 10,
+			"Unsupported Ironworks calendar");
 	require(context.profile == XeenBehaviorProfile::WorldOfXeenClouds && context.difficulty == XeenDifficulty::Adventurer &&
 		(contract >= 3 ? xeenRegionalContext(context) : context.day == xeenJourneyContent(contract).day && context.year == 610 && context.minutes >= 480 && context.minutes < 960 && context.ctr24 < 24) &&
 		!context.rested && !context.newDay && context.effects == std::array<std::uint8_t,9>{} &&
@@ -37,7 +40,7 @@ void xeenValidateJourneyParty(const XeenPartyState &party, std::uint16_t contrac
 		require(bool(c.learnedSpells) == xeenJourneyContent(contract).learnedCasting(), "Journey learned-spell presence mismatch");
 		require(bool(input->luck) == (contract >= 2), "Journey Luck presence mismatch");
 		require(bool(input->resistances) == (consequences), "Journey resistance presence mismatch");
-		require(bool(input->poisonResistance) == (contract == 8), "Journey poison-resistance presence mismatch");
+		require(bool(input->poisonResistance) == (xeenJourneyContent(contract).vertigo()), "Journey poison-resistance presence mismatch");
 		if (input->poisonResistance) require(attribute(*input->poisonResistance), "Journey poison resistance outside byte range");
 		if (input->luck) require(attribute(*input->luck), "Journey Luck outside byte range");
 		require(attribute(input->might) && attribute(input->speed) && attribute(input->accuracy) && byte(input->temporaryAc),

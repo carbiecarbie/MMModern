@@ -322,6 +322,21 @@ Historical limitations in those plans describe their recorded boundaries.
   maintainer completed physical native-SDL route and restart acceptance. See the
   [Milestone 37 plan](milestone-37-plan.md#exclusions-and-final-acceptance).
 
+## M38 - Vertigo Ironworks armor repair
+
+- Extended the admitted route to original Ironworks Armor Repair, connecting
+  carried gold and broken supported armor through atomic payment/item mutation.
+- Added a separate one-day departure for every admitted visit, allowing day
+  8 to 9 and 9 to 10, with the next admission refused before excluded restocking.
+  Journey v4 schema 8/content 9 preserves exact two-region continuation;
+  legacy 8/8 and older domains retain their capabilities.
+- Full build, 104/104 CTest, five supplemental original-resource targets and
+  53 terminated child-process acceptance passed. Independent technical review
+  returned ACCEPT with no material or actionable minor findings. Separately,
+  maintainer physical native-SDL
+  repair, departure and fresh-process restart acceptance passed. See the
+  [Milestone 38 plan](milestone-38-plan.md#final-acceptance).
+
 ## Maintaining this history
 
 Add one short section with 2-4 lasting-result bullets per completed milestone

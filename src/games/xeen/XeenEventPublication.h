@@ -26,6 +26,15 @@ public:
 		check();
 		if (guard.s.journeyContract()>=3) {
 			const auto interaction=xeenRegionalInteraction(original,guard.cameraValue,guard.s.journeyContract());
+			if (interaction==XeenRegionalInteraction::Ironworks) {
+				if (!xeen_state::sameCamera(state.workingCamera,guard.cameraValue) ||
+					state.workingGameFlags.values()!=guard.flagValues || state.logicalAddress.mapId!=XeenMapIdentity(28) ||
+					state.logicalAddress.x!=8 || state.logicalAddress.y!=4 || state.logicalAddress.line!=0 ||
+					state.lookupDirection!=guard.cameraValue.direction || state.instructionCount>1 ||
+					!state.callStack.empty() || state.pendingRewards.hasWork() || !state.currentScript)
+					integrity("Ironworks terminal continuation changed");
+				script(state.currentScript->file());currentSite=0;return;
+			}
 			const int end=interaction==XeenRegionalInteraction::Myra ? 15 : interaction==XeenRegionalInteraction::Phirna ? 11 :
 				interaction==XeenRegionalInteraction::Well ? 10 : 1;
 			const std::size_t first=interaction==XeenRegionalInteraction::Myra ? 21 : interaction==XeenRegionalInteraction::Phirna ? 125 :
@@ -70,48 +79,48 @@ public:
 	}
 	void prepareGrant(std::size_t index) const {
 		check();
-		const bool phirna=(guard.s.journeyContract()>=6 && guard.s.journeyContract()<=8) && currentSite==131 && index==17;
+		const bool phirna=xeenJourneyContent(guard.s.journeyContract()).connectedRecovery() && currentSite==131 && index==17;
 		if (guard.s.journeyContract()>=3 && !phirna) integrity("Regional grant site changed");
 		if ((!phirna && index!=18) || grant || guard.quests[index]==std::numeric_limits<std::uint32_t>::max())
 			throw std::logic_error("Journey grant publication unavailable");
 		grant=true; grantIndex=index;
 	}
 	void text(const XeenEventTextFile &file) const {
-		if (guard.s.journeyContract()==8 && file.mapId==XeenMapIdentity(28)) guard.admitVertigoText(file);
-		else if (guard.s.journeyContract()>=6 && guard.s.journeyContract()<=8) guard.admitRegionalText(file);
+		if (xeenJourneyContent(guard.s.journeyContract()).vertigo() && file.mapId==XeenMapIdentity(28)) guard.admitVertigoText(file);
+		else if (xeenJourneyContent(guard.s.journeyContract()).connectedRecovery()) guard.admitRegionalText(file);
 		else check();
 	}
 	void granted() const noexcept { ++guard.quests[grantIndex];guard.adoptMutationBoundary(); }
 	void prepareQuestFlag(bool value) const {
 		check();
-		if ((guard.s.journeyContract()<6 || guard.s.journeyContract()>8) || currentSite!=(value ? 26u : 30u)) integrity("Regional quest flag site changed");
+		if (!xeenJourneyContent(guard.s.journeyContract()).connectedRecovery() || currentSite!=(value ? 26u : 30u)) integrity("Regional quest flag site changed");
 	}
 	void questFlagWritten(bool value) const noexcept { guard.questFlags[2]=value;guard.adoptMutationBoundary(); }
 	void prepareQuestTake(std::size_t index) const {
 		check();
-		if ((guard.s.journeyContract()<6 || guard.s.journeyContract()>8) || currentSite!=29 || index!=17 || !guard.quests[17]) integrity("Regional quest take site changed");
+		if (!xeenJourneyContent(guard.s.journeyContract()).connectedRecovery() || currentSite!=29 || index!=17 || !guard.quests[17]) integrity("Regional quest take site changed");
 	}
 	void questTaken() const noexcept { --guard.quests[17];guard.adoptMutationBoundary(); }
 	void voiceCue(std::uint8_t index) const {
 		check();
-		if ((guard.s.journeyContract()<6 || guard.s.journeyContract()>8) || currentSite!=58 || index!=2) integrity("Regional voice cue site changed");
+		if (!xeenJourneyContent(guard.s.journeyContract()).connectedRecovery() || currentSite!=58 || index!=2) integrity("Regional voice cue site changed");
 	}
 	void prepareWellHp(std::uint8_t owner,std::int16_t before,std::int16_t after) const {
 		check();
-		if ((guard.s.journeyContract()<6 || guard.s.journeyContract()>8) || currentSite!=60 || owner>=30 ||
+		if (!xeenJourneyContent(guard.s.journeyContract()).connectedRecovery() || currentSite!=60 || owner>=30 ||
 			guard.characters[owner].currentHp!=before || std::int32_t(before)+25!=after)
 			integrity("Regional well HP site or preimage changed");
 	}
 	void wellHpWritten(std::uint8_t owner,std::int16_t after) const noexcept { guard.characters[owner].currentHp=after;guard.adoptMutationBoundary(); }
 	void prepareWellFlag() const {
 		check();
-		if ((guard.s.journeyContract()<6 || guard.s.journeyContract()>8) || currentSite!=63 || !guard.recovery)
+		if (!xeenJourneyContent(guard.s.journeyContract()).connectedRecovery() || currentSite!=63 || !guard.recovery)
 			integrity("Regional well flag site changed");
 	}
 	void wellFlagWritten() const noexcept { guard.recovery->worldFlag16=true;guard.adoptMutationBoundary(); }
 	void prepareRewardEnqueue(const XeenEventExecutionState &state,const XeenItem &item) const {
 		check();
-		if ((guard.s.journeyContract()<6 || guard.s.journeyContract()>8) || !currentSite || *currentSite<31 || *currentSite>35 ||
+		if (!xeenJourneyContent(guard.s.journeyContract()).connectedRecovery() || !currentSite || *currentSite<31 || *currentSite>35 ||
 			guard.s._events.count({XeenMapIdentity(23),*currentSite}) ||
 			state.rewardPhase!=XeenRewardPhase::Running || state.pendingRewards.size()!=rewardProducerCount(*currentSite) ||
 			state.pendingRewards.overflow() || state.pendingRewards.invalid() ||
@@ -124,7 +133,7 @@ public:
 	XeenRewardReceipt deliverRewards(XeenPendingRewards &pending,XeenPartyState &party,
 		std::optional<std::size_t> preferred) const {
 		check();
-		if ((guard.s.journeyContract()<6 || guard.s.journeyContract()>8) ||
+		if (!xeenJourneyContent(guard.s.journeyContract()).connectedRecovery() ||
 			xeenRegionalInteraction(original,guard.cameraValue,guard.s.journeyContract())!=XeenRegionalInteraction::Myra ||
 			preferred || pending.size()!=rewardProducerCount(36) || pending.overflow() || pending.invalid())
 			integrity("Regional reward delivery changed");
@@ -147,7 +156,7 @@ public:
 	void prepareRemove(const XeenCamera &physical, std::optional<XeenObjectIdentity> selected,
 		const XeenEventFile &file) const {
 		check(); script(file);
-		const bool phirna=(guard.s.journeyContract()>=6 && guard.s.journeyContract()<=8) && currentSite==132;
+		const bool phirna=xeenJourneyContent(guard.s.journeyContract()).connectedRecovery() && currentSite==132;
 		if (guard.s.journeyContract()>=3 && !phirna) integrity("Regional Remove site changed");
 		const XeenObjectIdentity expected{phirna ? 23u : 20u,phirna ? 13u : 1u};
 		if (!xeen_state::sameCamera(physical,guard.cameraValue) || (selected && !(*selected==expected)) || removal)

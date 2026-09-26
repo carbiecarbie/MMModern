@@ -48,9 +48,9 @@ class XeenJourneyCapture {
 			if (!xeenJourneyContent(w->sessionState().journeyContract()).influences(i) && !xeen_state::sameActor(actors[i],admittedActors[i])) return false;
 		for (auto id:w->sessionState().accountedMonsters())
 			if (id.mapId!=xeenJourneyContent(w->sessionState().journeyContract()).entry.mapId &&
-				!(w->sessionState().journeyContract()==8 && id.mapId==XeenMapIdentity(28) &&
+				!(xeenJourneyContent(w->sessionState().journeyContract()).vertigo() && id.mapId==XeenMapIdentity(28) &&
 					(id.recordIndex==35 || id.recordIndex==36))) return false;
-		if (w->sessionState().journeyContract()==8 && c->mapId==XeenMapIdentity(28)) {
+		if (xeenJourneyContent(w->sessionState().journeyContract()).vertigo() && c->mapId==XeenMapIdentity(28)) {
 			if (!w->sessionState().hasRegionalActors(28)) return false;
 			try {
 				const auto &city=w->sessionState().regionalActors(28);

@@ -386,11 +386,143 @@ void fingerprints() {
 	check(XeenSaveFormat::fingerprint(throwing) == XeenArchiveFingerprint{9, 0xcbf43926U}, "EOF exception handling");
 }
 
+// Synthetic wire-only owners: no original resources or gameplay injection.
+XeenSaveSnapshot journeyWire(std::uint16_t contract) {
+	XeenSaveSnapshot s;
+	s.camera = {23,9,11,XeenDirection::West};
+	s.journey.emplace();
+	auto &j = *s.journey;
+	j.schema = contract == 9 ? 8 : contract;
+	j.contract = contract;
+	j.context.emplace();
+	j.context->day = contract == 1 ? 1 : 8;
+	j.context->year = 610;
+	j.context->minutes = 577;
+	for (unsigned i=0; i<30; ++i) {
+		j.supplements[i].owner = i;
+		auto &input = j.supplements[i].inputs;
+		if (contract >= 2) input.luck.emplace();
+		if (contract >= 4) input.resistances.emplace();
+		if (contract >= 8) input.poisonResistance.emplace();
+		if (contract >= 7) s.characters[i].learnedSpells.emplace();
+	}
+	if (contract == 1) j.skeletonSeed = 1;
+	else j.random.emplace();
+	j.initializedMap = contract >= 3 ? 23 : 20;
+	j.originalActorCount = contract >= 3 ? 19 : 27;
+	for (unsigned i=0; i<(contract >= 3 ? 19u : contract == 2 ? 4u : 1u); ++i) {
+		XeenSaveJourneyActor actor;
+		actor.id = {j.initializedMap, contract >= 3 ? i : xeenJourneyContent(contract).records[i]};
+		j.actors.push_back(actor);
+	}
+	if (contract >= 4) j.treasure.emplace();
+	if (contract >= 6) j.regionalRecovery.emplace();
+	return s;
+}
+
+void ironworksWireContract() {
+	const auto legacy = XeenSaveFormat::encode(journeyWire(8));
+	const auto successor = XeenSaveFormat::encode(journeyWire(9));
+	const auto start = successor.size() - 3114;
+	check(successor.size() == legacy.size() && successor[8] == 4 &&
+		successor[start] == 3 && successor[start+1] == 8 && successor[start+2] == 0 &&
+		successor[start+3] == 9 && successor[start+4] == 0 && successor[start+5] == 1,
+		"Ironworks must retain v4/schema8 and exact absent-city suffix extent");
+	auto expected = legacy;
+	expected[start+3] = 9;
+	fixIndependentEnvelope(expected);
+	check(expected == successor, "8/9 changed schema8 representation beyond content selector");
+	for (unsigned count=1; count<=12; ++count) {
+		auto pending = journeyWire(9);
+		pending.journey->treasure->gold = 0xffffffffU;
+		pending.journey->treasure->gems = 0xffffffffU;
+		for (unsigned source=0; source<count; ++source) {
+			auto &actor = pending.journey->actors[source];
+			actor.accounted = true; actor.lifecycle = XeenActorLifecycle::Defeated;
+			actor.x = actor.y = -128;
+			auto &entry = source<10 ? pending.journey->treasure->weapons[source] : pending.journey->treasure->armor[source-10];
+			entry.source = source; entry.item.id = 1;
+		}
+		const auto bytes = XeenSaveFormat::encode(pending);
+		check(bytes.size() == successor.size()+5*count, "Ironworks pending-item wire extent");
+		const auto restored = XeenSaveFormat::decode(bytes);
+		check(restored.journey->treasure->gold == 0xffffffffU && restored.journey->treasure->dormant() &&
+			XeenSaveFormat::encode(restored) == bytes, "Ironworks full-u32 purse/dormant treasure changed");
+	}
+	for (unsigned contract=1; contract<=9; ++contract) {
+		const auto bytes = XeenSaveFormat::encode(journeyWire(contract));
+		const auto decoded = XeenSaveFormat::decode(bytes);
+		check(decoded.journey->contract == contract && decoded.journey->schema == (contract==9 ? 8 : contract),
+			"supported pair changed on decode");
+		check(XeenSaveFormat::encode(decoded) == bytes, "legacy/successor bytes changed on recapture");
+	}
+	for (unsigned schema=0; schema<=10; ++schema) for (unsigned contract=0; contract<=10; ++contract) {
+		const bool supported = (schema >= 1 && schema <= 8 && schema == contract) || (schema == 8 && contract == 9);
+		if (supported) continue;
+		auto invalid = journeyWire(9);
+		invalid.journey->schema = schema; invalid.journey->contract = contract;
+		rejects([&] { XeenSaveFormat::encode(invalid); }, "schema/contract");
+		auto bytes = successor;
+		bytes[start+1] = schema; bytes[start+3] = contract; fixIndependentEnvelope(bytes);
+		rejects([&] { XeenSaveFormat::decode(bytes); }, "schema/contract");
+	}
+	auto city = journeyWire(9);
+	city.journey->vertigoActors.emplace();
+	for (unsigned i=0; i<46; ++i) {
+		XeenSaveJourneyActor actor; actor.id = {28,i};
+		city.journey->vertigoActors->push_back(actor);
+	}
+	city.camera = {28,8,4,XeenDirection::West};
+	for (unsigned day=8; day<=10; ++day) {
+		city.journey->context->day = day;
+		const auto bytes = XeenSaveFormat::encode(city);
+		check(bytes.size() == start+3992, "Ironworks 46-slot suffix extent");
+		check(XeenSaveFormat::encode(XeenSaveFormat::decode(bytes)) == bytes, "Ironworks city/date recapture");
+	}
+	for (unsigned day : {0u,7u,11u,99u}) {
+		auto invalid = city; invalid.journey->context->day = day;
+		rejects([&] { XeenSaveFormat::encode(invalid); }, "calendar");
+	}
+	for (unsigned day : {9u,10u}) {
+		auto invalid = journeyWire(9); invalid.journey->context->day = day;
+		rejects([&] { XeenSaveFormat::encode(invalid); }, "retained city");
+	}
+	for (unsigned mode=0; mode<7; ++mode) {
+		auto invalid = city;
+		switch (mode) {
+		case 0: invalid.journey->context->year = 611; break;
+		case 1: invalid.journey->context->minutes = 299; break;
+		case 2: invalid.journey->context->minutes = 1260; break;
+		case 3: invalid.journey->context->effects[0] = 1; break;
+		case 4: invalid.journey->context->rested = true; break;
+		case 5: invalid.journey->context->newDay = true; break;
+		case 6: invalid.journey->context->difficulty = XeenDifficulty::Warrior; break;
+		}
+		rejects([&] { XeenSaveFormat::encode(invalid); }, "calendar");
+	}
+	city.journey->context->day = 8;
+	for (unsigned y=0; y<16; ++y) for (unsigned x=0; x<32; ++x) {
+		city.camera.x = x; city.camera.y = y;
+		const bool admitted = (x==15 && y<=4) || (x==16 && y>=1 && y<=4) || (y==4 && x>=8 && x<=14);
+		if (admitted) XeenSaveFormat::encode(city);
+		else rejects([&] { XeenSaveFormat::encode(city); });
+	}
+	city.camera = {28,8,4,XeenDirection::West};
+	for (unsigned i=46; i<52; ++i) {
+		XeenSaveJourneyActor actor; actor.id = {28,i}; city.journey->vertigoActors->push_back(actor);
+	}
+	rejects([&] { XeenSaveFormat::encode(city); }, "protection overlay");
+	city.disabledEvents.push_back({28,764});
+	const auto reset = XeenSaveFormat::encode(city);
+	check(reset.size() == start+7+4106, "Ironworks reset suffix extent");
+	check(XeenSaveFormat::encode(XeenSaveFormat::decode(reset)) == reset, "Ironworks reset recapture");
+}
+
 } // namespace
 
 int main() {
 	try {
-		wireContract(); asymmetricV2(); v3WireContract(); completeRoundTrips(); numericDomains(); malformedBytes(); invalidValuesAndLimits(); fingerprints();
+		wireContract(); asymmetricV2(); v3WireContract(); completeRoundTrips(); numericDomains(); malformedBytes(); invalidValuesAndLimits(); fingerprints(); ironworksWireContract();
 		std::cout << "M20A save format: wire contract, all modeled values, domains, malformed input and fingerprints passed\n";
 		return 0;
 	} catch (const std::exception &error) {

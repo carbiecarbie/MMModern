@@ -231,6 +231,21 @@ Preserve that attribution and license, and supply the corresponding adapted
 source and pinned upstream source in distributions. Commercial resources are
 not part of these tables.
 
+## Bounded armor repair provenance
+
+`XeenArmorRepair.h` adapts the thirteen armor base costs in
+`LangConstants::ARMOR_BASE_COSTS` and repair divisor 10 from
+`devtools/create_mm/create_xeen/constants.cpp`, together with material-38
+integer division, minimum-price and broken-bit behavior in
+`engines/mm/xeen/dialogs/dialogs_items.cpp` (`ItemsDialog::calcItemCost`,
+repair handling), at pinned revision
+`6814ee9ba54582f5b5adcffab49efbbd8f589edd`. The adapted data and rules are
+GPL-3.0-or-later, attributed to the ScummVM developers in upstream `COPYRIGHT`,
+without warranty; preserve the corresponding source and attribution in
+redistribution. No merchant stock tables or commercial assets are embedded.
+The exact bounded dispatch, prices and separate departure operation belong in
+[M38's contract](milestone-38-plan.md).
+
 ## Bounded actor interpretation and approach provenance
 
 The 26A parser and approach adaptation use ScummVM

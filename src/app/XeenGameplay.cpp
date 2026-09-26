@@ -93,7 +93,7 @@ int Application::journeyExpedition(const std::filesystem::path &directory, std::
 }
 int Application::journeyRegion(const std::filesystem::path &directory, std::optional<std::uint32_t> seed,
   std::optional<std::filesystem::path> save) const {
- return gameplay(directory,xeenJourneyContent(8).entry,save,false,XeenEncounterEntry::Journey,seed,8);
+ return gameplay(directory,xeenJourneyContent(9).entry,save,false,XeenEncounterEntry::Journey,seed,9);
 }
 int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera camera,
   const std::optional<std::filesystem::path> &target, bool resume, XeenEncounterEntry entry, std::optional<std::uint32_t> seed,
@@ -262,6 +262,13 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   bool dispatching = false;
   bool active = true;
   const auto dispatch = [&](const PlayerAction &action, std::optional<std::uint64_t> input) -> std::optional<IndexedFrame> {
+   // A service/handoff refusal is pure coordination: no owner/resource guard,
+   // capture provider, path preparation or file operation may run here.
+   if (std::holds_alternative<SaveGameAction>(action) && flow.journey() &&
+       (dispatching || flow.serviceSaveBlocked())) {
+    status="MMModern - Cannot save during service or pending presentation.";
+    return std::nullopt;
+   }
    // F9 is intercepted here, so it must pass the same displayed authority gate
    // as every Journey input before capture, providers, or target work.
    if (flow.journey() && !flow.journeyInputCurrent(input)) return std::nullopt;

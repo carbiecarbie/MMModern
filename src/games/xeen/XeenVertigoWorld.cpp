@@ -19,7 +19,7 @@ XeenActorView XeenWorld::prepareTransitionArrival(const XeenCamera &camera) {
 void XeenWorld::stageVertigoActors(const XeenObjectFile &mob,
 		const std::vector<XeenMonsterRecord> &statistics) {
 	XeenMutationWatch::write(this);
-	if (_sessionState._journeyContract!=8 || _sessionState._entry!=XeenEncounterEntry::Ordinary ||
+	if (!xeenJourneyContent(_sessionState._journeyContract).vertigo() || _sessionState._entry!=XeenEncounterEntry::Ordinary ||
 		_sessionState._vertigoActors || mob.mapId!=XeenMapIdentity(28))
 		throw std::logic_error("Vertigo actor staging is unavailable");
 	auto actors=XeenActorApproach::actorsFromResources(mob,statistics);
@@ -35,7 +35,7 @@ void XeenWorld::stageVertigoActors(const XeenObjectFile &mob,
 
 void XeenWorld::applySpawn(std::uint8_t slot, int x, int y, std::uint8_t) {
 	XeenMutationWatch::write(this);
-	if (_sessionState._journeyContract!=8 || _sessionState._entry!=XeenEncounterEntry::Ordinary ||
+	if (!xeenJourneyContent(_sessionState._journeyContract).vertigo() || _sessionState._entry!=XeenEncounterEntry::Ordinary ||
 		!_sessionState._vertigoActors || x<0 || x>=32 || y<0 || y>=32 ||
 		!(slot<=40 || slot==50 || slot==51))
 		throw std::invalid_argument("Spawn is outside the admitted city reset");
@@ -118,10 +118,11 @@ void xeenValidateVertigoActors(XeenWorld &world,const std::vector<XeenActor> &ac
 	// A saved activated Slime must be reachable from the checked original/reset
 	// spawn under every admitted player cell and facing. Keep every other original
 	// slot in the simulation; a newly influencing actor invalidates admission.
-	auto &closure=world._vertigoClosure[reset?1:0];
+	const auto &content=xeenJourneyContent(world.sessionState().journeyContract());
+	auto &closure=world._vertigoClosure[(content.armorRepair()?2:0)+(reset?1:0)];
 	if(!closure) {
 	std::vector<XeenCamera> cameras;
-	for(int y=0;y<=4;++y)for(int x=13;x<=16;++x)if(xeenJourneyContent(8).vertigoCell(x,y))
+	for(int y=0;y<=4;++y)for(int x=8;x<=16;++x)if(content.vertigoCell(x,y))
 		for(unsigned facing=0;facing<4;++facing)
 			cameras.push_back({28,x,y,static_cast<XeenDirection>(facing)});
 	std::bitset<2048> reachable;

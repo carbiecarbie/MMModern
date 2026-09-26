@@ -364,7 +364,14 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			{logical.mapId, *recordIndex}, script->records()[*recordIndex]);
 		const XeenEventDecodeResult decodedResult = XeenEventDecoder::decode(effective,
 			{logical.mapId, script->file().resourceName, *recordIndex});
-		if (const auto *decodeError = std::get_if<XeenEventDecodeError>(&decodedResult)) {
+		// Older domains keep their original refusal and zero dispatched instructions,
+        // even though the shared decoder now knows the bounded town operand.
+        if (effective.opcode==0x11 && (!publication || world.sessionState().journeyContract()!=9)) {
+            const auto source=std::visit([](const auto &value){return value.source;},decodedResult);
+            return error(XeenEventExecutionErrorKind::UnsupportedOpcode,
+                "opcode 17 is outside the supported decoder subset",instructionCount,logical,source);
+        }
+        if (const auto *decodeError = std::get_if<XeenEventDecodeError>(&decodedResult)) {
 			return error(executionKind(decodeError->kind), decodeError->message,
 				instructionCount, logical, decodeError->source);
 		}
@@ -378,6 +385,19 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 
 		if (std::holds_alternative<XeenEventExit>(decoded.operation))
 			return finalize();
+		if (const auto *service=std::get_if<XeenEventTownService>(&decoded.operation)) {
+			if (!publication || world.sessionState().journeyContract()!=9 || service->action!=1 ||
+				logical.mapId!=XeenMapIdentity(28) || logical.x!=8 || logical.y!=4 || logical.line!=0 ||
+				*recordIndex!=0 || !state.callStack.empty() || instructionCount!=1)
+				return error(XeenEventExecutionErrorKind::UnsupportedOperand,
+					"Town service is outside the admitted Ironworks Event",instructionCount,logical,decoded.source);
+			XeenPresentationRequest request;
+			request.kind=XeenPresentationKind::ArmorRepairService;
+			request.response=XeenPresentationResponseRequirement::Acknowledgment;
+			request.mapId=logical.mapId;request.source=decoded.source;
+			state.pendingPresentation=XeenEventPendingPresentation{request,XeenEventPendingContinuation::Terminate,{}};
+			return XeenEventExecutionSuspended{state,request};
+		}
 
 		const auto *who = std::get_if<XeenEventWhoWill>(&decoded.operation);
 		if (who) {

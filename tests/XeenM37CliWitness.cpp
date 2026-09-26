@@ -31,6 +31,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   replay_test::constructions=replay_test::services=replay_test::preparations=0;
   replay_test::timePreparations=replay_test::eventExecutions=0;
   replay_test::transfers=replay_test::equipmentChanges=0;
+  // Explicit legacy-entry control: retain 8/8 coverage after production selects 8/9.
+  // M38 has a separate fresh-production CLI witness.
+  if (!resume && contract==9) contract=8;
   check(target.has_value(),"M37 witness needs save file");
   check(resume || (entry==XeenEncounterEntry::Journey && contract==8),"M37 CLI content 8 expected");
   auto services=original;
@@ -67,6 +70,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
      for(const auto &command:commands)if(command.actor())check(command.drawOptions().slimePalettePhase==-1,
       "admitted Slime was recolored during route composition");
     }
+    XeenCamera westBoundary{28,13,4,XeenDirection::West};
+    check(XeenMovement().apply(w,westBoundary,NavigationAction::MoveForward)==XeenMovementResult::BlockedByMapBoundary &&
+     westBoundary.x==13 && westBoundary.y==4,"M38 widened the legacy 8/8 west boundary");
     visualProbe=true;
    }
    if(resume && c.mapId==XeenMapIdentity(28) && !candidateProbe && stage.rfind("restore-candidate-",0)==0) {

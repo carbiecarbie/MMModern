@@ -71,6 +71,14 @@ void testEmptyOperationsAndStrictSizes() {
 	}
 }
 
+void testTownService() {
+ check(operation<XeenEventTownService>(XeenEventDecoder::decode(record(0x11,{1}))).action==1,
+  "Ironworks action decode");
+ for(const auto &payload:std::vector<std::vector<std::uint8_t>>{{},{1,0}})
+  failure(XeenEventDecoder::decode(record(0x11,payload)),XeenEventDecodeErrorKind::MalformedInstruction);
+ for(unsigned action=0;action<256;++action)if(action!=1)
+  failure(XeenEventDecoder::decode(record(0x11,{static_cast<std::uint8_t>(action)})),XeenEventDecodeErrorKind::UnsupportedOperand);
+}
 void testTeleports() {
 	const auto &exit = operation<XeenEventTeleportAndExit>(
 		XeenEventDecoder::decode(record(0x07, {31, 4, 9})));
@@ -326,7 +334,8 @@ void testOwnedResultLifetime() {
 int main() {
 	try {
 		testEmptyOperationsAndStrictSizes();
-		testTeleports();
+		testTownService();
+        testTeleports();
 		testCallEvent();
 		testConditionals();
 		testTakeOrGive();

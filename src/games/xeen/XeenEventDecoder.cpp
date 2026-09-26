@@ -297,6 +297,12 @@ XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 		return decodeTakeOrGive(record, context);
 	case 0x12:
 		return decodeEmpty(record, context, XeenEventExit{});
+	case 0x11:
+		if (record.parameters.size()!=1) return wrongSize(record,context,1);
+		if (record.parameters[0]!=1)
+			return makeError(record,context,XeenEventDecodeErrorKind::UnsupportedOperand,
+				"Only the admitted Ironworks service is supported");
+		return instruction(record,context,XeenEventTownService{record.parameters[0]});
 	case 0x19:
 		return decodeCallEvent(record, context);
 	case 0x1a:

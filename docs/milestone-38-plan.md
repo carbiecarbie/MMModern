@@ -1,14 +1,13 @@
 # Milestone 38 - Vertigo Ironworks armor repair
 
-## Specification status and scope
+## Completed scope and acceptance boundary
 
-**SPECIFIED; implementation is not authorized by this document.** The baseline is
-MMModern `891b2a0c2fa5156cba29220f1658d7c4bad27c4e`, branch `main`, with M37
-implemented, independently reviewed, physically accepted and closed. Local HEAD,
-origin/main and direct remote main were verified at that revision before this
-investigation, with a clean worktree, empty index and no unfinished Git operation.
+**COMPLETED AND ACCEPTED.** M38 connects bounded Vertigo Ironworks Armor Repair
+to the production Regional Journey. Automated deterministic validation,
+original-resource/process validation, independent technical review and
+maintainer physical native-SDL acceptance passed; see [final acceptance](#final-acceptance).
 
-The selected M38 slice is the original Ironworks **repair of carried armor**, IDs
+The M38 slice is the original Ironworks **repair of carried armor**, IDs
 1..13 with material 0 or 38, reached through its actual town-service Event. It
 connects earned gold, physical inventory records, broken equipment, existing
 armor-class/combat consumers, retained city consequences and quiet saving.
@@ -26,7 +25,7 @@ new calendar display convention. It permits two independently useful visits and 
 exact restart/revisit witness without inventing a general calendar or skipping
 mandatory service work.
 
-This satisfies the [M38 roadmap purpose](roadmap.md#near-term): an actual
+This completes the economy step of the M36-M38 arc: an actual
 damaged, equipped item becomes useful again in the production Journey in
 exchange for carried gold. The reusable part is a checked item/purse publication
 path integrated with existing owners, not a generic transaction engine or
@@ -54,15 +53,14 @@ below:
    chunks. No player's mutable XEEN.CUR supplies initial state. No commercial
    payload, extracted fixture or original file is a repository deliverable.
 2. **Pinned-reference-derived behavior:** ScummVM
-   `6814ee9ba54582f5b5adcffab49efbbd8f589edd`, verified clean at the source path
-   selected by `SCUMMVM_SOURCE_DIR` in the current CMake cache. The configured
-   source and build were located, not inferred from directory names. This is
+   `6814ee9ba54582f5b5adcffab49efbbd8f589edd`, as configured in
+   [dependencies](dependencies.md). This is
    reference interpretation, not independently observed DOS execution.
 3. **MMModern decisions:** the armor/material boundary, direct repair menu,
    static service illustration, temporal admission gate, owner/publication
    design and schema/content separation below.
 4. **Artificial deterministic controls:** the supported CLI seed and injected
-   typed inputs used to establish the production witness; future fault, funds,
+   typed inputs used to establish the production witness; fault, funds,
    inventory, stale-authority and condition fixtures. These are separate from
    original resources and must never be described as original game records.
 
@@ -104,15 +102,11 @@ Item names use M24's checked English catalog and external DARK.CC `mae.xen`,
 including its existing bounded fallback. Do not hard-code original item or
 location text. New controls/refusals are authored English application text.
 
-Temporary probes, outside both repository and commercial installation, reused
-the current archive, map, Event, actor, compositor and sprite adapters. They
-established the route, exact dispatch, stock bytes, appearance decoding and
-influence closure below. A separate wrapper of the real CLI/Application
-production path supplied typed actions bound to presented frames and observed
-owners without mutating them. It established the earned-gold/damaged-item
-witness through the M37 endpoint. These probes did not implement a service,
-repair, successor save or M38 SDL interface, and are not implementation tests or
-physical acceptance. No full build/CTest result is claimed by this investigation.
+Original-resource validation uses the existing archive, map, Event, actor,
+compositor and sprite adapters. The production witness uses the real
+Application/CLI path and frame-bound input without overwriting live owners.
+Artificial fault/state controls remain distinct from that witness and from
+maintainer physical acceptance.
 
 ## Exact route, Event graph and city consequences
 
@@ -187,9 +181,9 @@ It explored `(x,y,activated)` states with `XeenIndoorScene::classifyActors`,
 for occupancy and sampling the full logical city geometry. Both cases yielded
 26 reachable selected-Slime states and no additional actor activation: slot 35
 in original state, slot 36 after reset. Actors were not constrained to the
-player-cell set. Implementation must turn this into a content-selected
-production validation/acceptance check, including wounded/defeated selected
-states and continued reset/revisit; do not reuse a cache keyed only to content 8.
+player-cell set. Content-selected production validation covers wounded/defeated
+selected states and continued reset/revisit; content-8-only cache authority cannot
+authorize content 9.
 
 M37's complete reset and retained-region rules remain in force: original 46
 slots, exact reset targets, canonical gaps 46..49, script-created Slimes 50/51,
@@ -201,14 +195,13 @@ adapted through M37's existing retained-world policy, not a new reset trigger.
 
 ## Transaction choice, price and item contract
 
-### Candidate comparison and stock boundary
+### Stock boundary and direct repair menu
 
-| Candidate | Original dependencies/outcome | Decision |
-| --- | --- | --- |
-| Purchase | Real stock identity, new-game generation/RNG, item-generation bounds, capacity, removal and downstream equipment support | Exclude. Catalog names do not establish useful generated equipment or a fixed original offer. |
-| Sale | Curse/quest restrictions, skill-dependent price, item removal/compaction and purse increase; original sell does not retain the sold item in stock | Exclude. It does not itself give accumulated gold a use; adding it is unnecessary for repair. |
-| Paid identification | Confirmation/payment followed by `getIdentifiedDetails`/attributes; no item identification bit or durable mutation | Exclude. It is more than the already readable name, but would require a useful bounded details screen; do not invent an identification flag or charge for existing catalog descriptions. |
-| Repair | A broken carried record, exact price, purse subtraction and clearing one state bit; restores existing equipment effect | Select armor/material domain already consumed by Journey combat. No generation, capacity or stock mutation is required. |
+Repair connects earned gold to existing equipment effects without generating,
+inserting or removing items. Purchase would require original stock generation
+and RNG; sale would require pricing/removal and would not itself give gold a use.
+Paid identification is a details operation, not a durable identification bit.
+All three remain excluded.
 
 Original `BLACKSMITH_MAP_IDS` identifies Clouds map 28 as shop slot 0. Original
 wares contain four categories, two sides, four shops and nine physical slots,
@@ -317,44 +310,26 @@ production witness has state 128 only and uses already supported consumers.
 
 ### Reachable production witness
 
-An external probe ran the current real `--journey-region --combat-seed 7`
-entry, using original initial state and production input/settlement. No gold,
-item, condition, camera or RNG field was overwritten after initialization.
-The seed is an explicit deterministic control, not an original-resource fact.
+The real `--journey-region --combat-seed 7` path starts from original resources.
+Mainland combat earns 10 gold (800 to 810); original entry and entrance-Slime
+combat naturally break Seymour's equipped Armor slots 0 and 1. Rebecca's
+existing learned First Aid twice restores Seymour to HP 1, leaving her SP 19.
+No gold, item, condition, camera or RNG field is overwritten after initialization.
+The seed and injected frame-bound inputs are deterministic controls, not original
+resource facts. `tests/XeenM38CliWitness.cpp` owns the reproducible input sequence.
 
-For reproduction, U/D are Forward/Backward, L/R turns, F physical Shoot. From
-the original `(23,9,11,West)` start:
+After the five-cell corridor extension, service entry is day 8/minute 584,
+gold 810, RNG draw count 317. Seymour (roster owner 6) has slot 0
+`(0,1,128,3)` and slot 1 `(38,10,128,9)`. The first repair costs 2 gold,
+produces `(0,1,0,3)`, restores 2 AC and leaves gold 808. Departure reaches
+day 9/minute 584. A second legitimate repair costs 1 gold, produces
+`(38,10,0,9)`, restores 1 AC and leaves gold 807; departure reaches day 10.
+The next admission refuses. Neither visit consumes gameplay RNG.
 
-1. Use `U F U D D`, settling actual combat with Attack and acknowledging every
-   monster receipt. This earns 10 gold, bringing the original 800 to **810**.
-2. Use `L L U L U U`, then Space/Yes at the original entrance. In the city use
-   `U R U L U U U L U U U` to reach `(28,13,4,West)`. During the entrance Slime,
-   choose Block at each PlayerReady phase until equipped armor breaks, then
-   finish with Attack and settle all required work. With seed 7 this took 39
-   Block inputs; minute 577, day 8, RNG count 317 at the endpoint.
-3. The naturally damaged records are Seymour, roster owner **6**, Armor slot
-   **0 = `(0,1,128,3)`**, and slot **1 = `(38,10,128,9)`**. His HP is -11 and
-   unconscious is set. Damage uses current `xeenApplyPhysicalInjury`, which
-   breaks occupied equipped armor at HP <= -10 or death.
-4. Rebecca, owner 1/current member F5, remains able with 21 SP. Use existing
-   learned casting for First Aid on Seymour/F6 twice. The actual probe verified
-   Seymour HP 1, unconscious 0, Rebecca SP 19, gold 810, minute **579**, RNG
-   count **317**. This uses M36, not a synthetic recovery or new temple feature.
-5. The **future M38 continuation** is five Forward steps, manual Space, select
-   Seymour and armor slot 0, confirm price 2: gold **808**, bytes
-   `(0,1,0,3)`, existing AC contribution restored by 2. With no additional timed
-   actions, the expected entry minute is 584 and departure is day 9/minute 584.
-6. A second legitimate visit can repair slot 1 for 1 gold: gold **807**, bytes
-   `(38,10,0,9)`, an additional AC contribution of 1; departure reaches day 10.
-   A new visit then visibly refuses the unsupported restocking boundary.
-
-Steps 1..4 were established through current production owners; steps 5..6 are
-specified outcomes requiring future implementation validation. Inventory
-inspection, M25 equipment/transfer where legal, and subsequent admitted combat
-must consume the repaired records. Do not replace this witness with a generated
-but unusable catalog item. A separate continuation must exercise actual city
-exit/reset, mainland return and revisit; account for its extra ordinary movement
-and combat time rather than reusing the no-detour minute prediction.
+Separate original-input branches validate zero-transaction departure and actual
+city exit/reset, mainland return and revisit. Their extra movement/combat time
+and RNG remain branch-specific. Complete fresh-process comparisons preserve
+all durable owners before first input and after identical continuation.
 
 ## Time, departure and scheduling
 
@@ -367,7 +342,8 @@ confirmation, successful repair, ordinary refusal and inner-dialog cancellation
 have no intrinsic time/ctr24 charge or actor opportunity. Cancelling the lobby
 is departure and does owe the day, including a visit with zero transactions.
 
-**Do not implement this as `changeTime(1440)` or 1440 ordinary steps.**
+**The departure uses the bounded `addTime` semantics, not `changeTime(1440)`
+or 1440 ordinary steps.**
 `addTime` advances the date while retaining minute of day. On a changed day,
 destination `day % 10 == 1`, or a charge strictly greater than 1440, invokes
 stock reset and bank interest. It sets newDay; at minute >=300, script mode
@@ -377,8 +353,8 @@ the admitted day-8/9 departure path. The existing regional daytime context
 already has minute 300..1259, rested=false, newDay=false and zero unsupported
 effects. M38 keeps these invariants and limits content 9 to year 610/day 8..10.
 
-Prepare a dedicated bounded **smith departure candidate** over the existing
-context: day+1, all other context values unchanged, newDay=false. Its preflight
+The bounded **smith departure candidate** uses the existing context: day+1,
+all other context values unchanged, newDay=false. Its preflight
 requires content 9, service origin, day 8 or 9, canonical inherited daytime
 context, no unpaid prior continuation, and a destination without restock/bank
 work. No new general calendar owner/API is needed. Run the same predicate before
@@ -430,9 +406,9 @@ animation is required.
 | Application / `XeenGameplay` / native SDL | Route typed actions and presented-frame acknowledgments through the single loop, exclusive modals and early F9 denial. |
 | Save capture/format/restore | Encode schema 8/content 9 explicitly, validate content-specific state, prepare fresh unpublished owners and runtime capabilities. |
 
-A small pure repair rule/candidate helper beside `XeenEquipment` and
-`XeenItemTransfer` is appropriate. Inputs are a checked operation/owner/physical
-slot and detached item/purse preimages; output is a fixed typed result, exact
+`XeenArmorRepair.h` supplies the pure repair/departure rule and candidate
+helpers beside `XeenEquipment` and `XeenItemTransfer`. Inputs are a checked
+operation/owner/physical slot and detached item/purse preimages; output is a fixed typed result, exact
 price, expected before values and after values. It has no provider, RNG, live
 mutation, UI, save or merchant owner. Public low-level calculation is not a
 publication capability. Only the live coordinator can commit it.
@@ -444,13 +420,26 @@ view of that result and owns its UI phase, not a second payable transaction.
 Refusals use the same bounded result channel with no success delta. All strings
 and other fallible display work are prepared separately from publication.
 
-Add a **Service** work kind to the existing `XeenCombatBoundary` and a Service
-Journey activity, not another modal system. `XeenEventFlow` holds the service
+The existing `XeenCombatBoundary` and Journey activity include **Service**
+work within the same modal system. `XeenEventFlow` holds the service
 continuation while the existing coordinator owns its exclusive authority.
 Transfer Event -> Service and Service -> terminal Event/settlement/presentation
 without releasing into Quiet. Acquire exclusive work before any new callback,
 resource access, quote preparation or UI provider. Empty UI queues and a
 released predecessor lease do not establish save eligibility.
+
+The implementation retains the predecessor Event lease while acquiring Service,
+then releases Service only after returning to the terminal Event continuation.
+Final world presentation retains the inherited presentation lease. Service
+catalog values and prepared art pixels are privately owned detached values;
+providers never receive references to the retained service storage. The existing
+world cache insertion handshake observes reconstructed map/MOB storage before
+references escape. Schema selection uses the explicit supported-pair predicate;
+content 9 selects schema 8 without changing legacy content selection.
+
+Automated integration is registered as `xeen_smith_process`, backed by
+`mmodern_m38_cli_witness` and the normal Application/SDL path. Test-only
+branch/fault controls are absent from the ordinary executable.
 
 ### Validation order and commit units
 
@@ -556,10 +545,8 @@ Required phases and controls:
 | Final world presentation | Correct retained world at the service cell, settled date and purse | Denied until the actual required frame is presented and all inherited work settles |
 | Returned exploration | No service continuation; same camera/facing, original movement/casting/inventory consumers | F9 if Quiet; manual Space is required for another visit |
 
-No action can silently invoke Buy, Sell or Identify. If these options are shown,
-mark them unavailable and accept no transaction; hiding them with a concise
-"Armor repair only" scope label is sufficient. Long names/details must fit or
-use the existing bounded scrolling layout. Price, purse and selected item cannot
+The menu offers Armor Repair only; no action invokes Buy, Sell or Identify.
+Long names/details must fit or use the existing bounded scrolling layout. Price, purse and selected item cannot
 be obscured by a success/refusal overlay. Never infer a transaction from merely
 displaying an item, selecting a member or acknowledging a result.
 For insufficient funds, display the shortfall or an unavailable gold-after
@@ -600,9 +587,9 @@ Use **content contract 9** because route admission, service behavior and the
 bounded calendar continuation change. The successor to 8/8 is therefore
 **8/9**, not an automatic 9/9.
 
-Accept exactly the existing v4 pairs 1/1 through 8/8 plus 8/9. Replace current
-`schema == contract` assumptions with an explicit supported-pair mapping at
-codec, capture and restore boundaries; do not globally relax version checks.
+The accepted v4 pairs are exactly 1/1 through 8/8 plus 8/9. An explicit
+supported-pair mapping governs codec, capture and restore boundaries;
+version checks are not globally relaxed.
 Schema selects representation; content selects gameplay admission. Fresh
 `--journey-region` selects 8/9. Loading 8/8 keeps its eleven-cell route and
 unsupported service boundary, even in the new executable. No implicit upgrade,
@@ -665,9 +652,9 @@ Capture reads the existing sole owners only after exclusive Quiet acquisition
 and full preimage/resource checks. Gold/item/date changes are already present
 in existing fields. Capture, codec and restore must all use the explicit 8/9
 pair, content-aware camera/time/actor validation and all thirty supplements/
-books, including inactive owners. Current hard-coded content-8 checks in
-Journey content, rules, event publication, guard, regional flow and save paths
-must be extended by explicit capability decisions, not broad unchecked `>=8`.
+books, including inactive owners. Journey content, rules, Event publication,
+guards, regional flow and save paths use explicit capability decisions,
+not broad unchecked `>=8` admission.
 
 Restore prepares unpublished fresh party/world/camera/flags and checked original
 resources, installs the exact saved values, validates both regions and active
@@ -692,141 +679,44 @@ city fields by loading in a newer binary. Require both byte-level regression
 and identical later action/refusal behavior. In particular an 8/8 game still
 refuses the step west from M37's outside endpoint; recapture remains 8/8.
 
-## Bounded implementation sequence
+## Final acceptance
 
-Implementation requires separate maintainer authorization. Once authorized,
-use these bounded stages within M38; none authorizes another milestone:
+All four acceptance classes passed. These results certify only the bounded
+contract above.
 
-1. **Admission and evidence tests.** Add explicit content 9 and the 8/9 pairing;
-   extend the exact route/service manifest, five-cell collision/views and
-   original/reset actor closure. Add typed opcode-0x11 service continuation and
-   test its terminal graph without broad town dispatch. Preserve 8/8 behavior.
-2. **Rules and publication.** Add pure armor-repair quotation/candidate logic,
-   exact price data/provenance and departure candidate. Integrate sole purse,
-   physical slots, preflight, full-owner/resource/ABA guards and separate commit
-   units under existing coordinator authority. Test failures before UI breadth.
-3. **Production Flow/native interface.** Add exclusive Service continuation and
-   the phases/controls above in existing Application/SDL routing. Complete
-   concrete-frame response authority, retries, handoffs, F9 denial and final
-   world settlement. Demonstrate the genuine production witness.
-4. **Quiet continuation and closure.** Complete capture/codec/fresh restoration,
-   distinct-process and legacy continuation controls, city return/revisit and
-   all acceptance classes below. Only after required review and physical
-   acceptance update the normal closure documents under separately authorized
-   implementation scope and AGENTS.md; this planning task changes only this file.
-
-Relevant existing anchors include `XeenEquipmentTests`, `XeenItemTransferTests`,
-`XeenItemCatalogTests`, `XeenJourneyResourceTests`, mutation/consequence tests,
-`XeenEncounterFlowTests`, `XeenSaveFormatTests`, `XeenSaveStateTests`,
-`XeenSaveSdlTests`, `XeenSaveCliTests`, `XeenVertigoOriginal.cpp`,
-`XeenVertigoProcessTests.cpp` and `XeenM37CliWitness.cpp`. Extend the actual
-production consumers and smallest relevant fixtures rather than build a second
-simulated service for tests.
-
-## Future acceptance and closure criteria
-
-All four classes are required and distinct. Full build and complete CTest must
-pass at implementation closure. No unimplemented M38 test is claimed to pass
-by this specification.
-
-### 1. Automated deterministic validation
-
-- Exact price table, division order/minimum, full-u32 purse, exact funds/zero/
-  insufficient funds, unsupported indexes/materials/categories and refusal order.
-  Cursed/counter states preserve lower bits; all four bytes, full inventories,
-  holes/empty metadata, last slot, inactive owners and byte-identical quantities
-  obey the item contract. Derived equipped AC changes without HP/SP changes.
-- Repeat/cancel/acknowledge cannot charge twice. Stale owner/slot/quote, changed
-  membership, aliases, copied/foreign frame, direct response seams, recursion and
-  previous-visit authority cannot publish. Test callbacks at every provider and
-  between preparation and commit, not merely repeated happy-path calls.
-- Atomic payment/item publication; separate time commit; failures before/after
-  each unit; all full-owner/resource mutation controls including immediate ABA,
-  inactive region changes and nested newly inserted/reconstructed cache storage.
-  Matching retries never clear an integrity latch or adopt unauthorized state.
-- Enter/browse/repair/refuse/cancel/leave time matrix; day-8 and day-9 departures,
-  day-10 pre-admission refusal, unchanged minute/ctr24/RNG/conditions, no three
-  synthetic 480-minute ticks, no restock/reset/actor catchup. Regular action time
-  still follows inherited consequences/support stops.
-- Native and typed-input frame gates; held/repeated/batched Enter/Escape/Space,
-  owner/slot keys, stale batch on returned world, resize/redraw and presentation
-  retry. F9 denied with zero capture/provider/file calls in every service and
-  handoff phase, including recursive calls and an empty modal queue.
-- Exact 8/9 lengths/fields/canonical rejection, saved repaired raw bytes and date,
-  capture/restore preimage failures, fresh runtime authority, no restore replay.
-  Preserve byte fixtures and subsequent behavior for every legacy domain,
-  especially 8/8 route refusal and recapture; reject fabricated 9/9/mixed pairs.
-
-Artificial funds, broken/cursed inventory, unsupported bytes, dates, stock
-sentinels or mutation/fault providers belong only to explicitly labeled controls.
-They do not replace the original-input production witness or introduce stock
-into the runtime model. Native insufficient-funds coverage may use such a
-clearly identified control; the original witness starts with legitimate 810.
-
-### 2. Original resources and distinct-process integration
-
-Use a legally obtained installation and the genuine Application/CLI path. The
-current parser and process tests establish these positional orders:
-
-```text
-mmodern.exe --journey-region --combat-seed 7 "<installation>" --save-file "<external-save-path>"
-mmodern.exe --load-game "<installation>" "<external-save-path>"
-```
-
-Installation precedes save on load; do not reverse them or add unsupported
-load flags. Put test saves outside the commercial installation. Use native F9
-through the normal save handler, not direct snapshot serialization as its
-substitute. Distinct-process fixtures may inject native/typed actions using
-the existing witnessed-CLI pattern, but must label that automation accurately.
-
-Reproduce the earned 810 gold, naturally broken armor and First Aid witness;
-walk all five added cells, invoke actual record 0, cancel a quote, make the
-2-gold repair and verify its downstream AC/combat use. Test intact-repeat
-refusal and departure with and without a transaction. Save at genuine Quiet
-before service entry, after repair plus departure, after actual city
-exit/reset/return, and after revisit/another legitimate repair. The two broken
-records permit a second paid operation without artificial grants. Use a
-separate deterministic branch for city-reset combat if it affects the second
-repair's raw bytes; assert the actual selected item and exact calculated price.
-
-For each checkpoint, completely terminate the writer and launch a fresh CLI
-process. Compare the **complete durable state before first input**, then after
-identical continuation against an uninterrupted branch: all thirty character/
-item/supplement/book values, gold/gems and pending treasure provenance, context,
-RNG state/count, both regional collections, flags and overlays, camera and
-membership. Merchant state is absent on both branches; no stock initialization
-or generation call is allowed. Fresh restore must not advance the day or
-execute a service/reset, and a second quiet save must preserve the same pair.
-Also compare day-10 refusal after fresh restart. Existing file contents must
-remain byte-identical after F9 in a modal or failed state.
-
-Verify corridor appearance and actor influence against the real original and
-reset-derived resources, including all admitted facings, cache reconstruction
-and inactive mainland retention. Integration is not satisfied by a rules-only
-money mutation, direct camera assignment, out-of-band item grant or a menu
-opened through a diagnostic hotkey.
-
-### 3. Independent technical review
-
-An independent reviewer must inspect decisive original-resource identities,
-reference dispatch/repair/stock/time chain, the explicit buy-menu adaptation,
-two-visit boundary and production utility; review price/state rules, sole purse,
-pending-source isolation, complete owners, commit/failure boundaries, immediate
-ABA/resource reconstruction, native frame authority and 8/9 versus legacy
-continuation. Resolve material findings before closure; implementation tests
-or this investigation do not stand in for independent review.
-
-### 4. Maintainer physical acceptance
-
-The maintainer uses an ordinary visible native SDL window to follow the actual
-route, read the Ironworks/owner/item/price/purse feedback, cancel a quote, confirm
-a genuine repair, observe success and repeat/intact refusal, depart, inspect/use
-the repaired equipment, save with F9 at Quiet, terminate and restart with the
-ordinary CLI, and continue through revisit/another legitimate operation. Verify
-modal F9 refusal, the truthful one-day departure and eventual support-boundary
-message. Exercise insufficient funds in a separately labeled control if needed.
-Automated input, distinct-process assertions and rendered images are evidence
-of their own classes and never substitute for this physical acceptance.
+- **Automated deterministic validation:** full build and complete unfiltered
+  CTest passed **104/104**; `git diff --check` passed. Coverage includes exact
+  repair rules, payment/item atomicity, separate once-only departure,
+  schema/content compatibility, native input/F9 and concrete-frame authority,
+  failures/retries, complete-owner guards, immediate mutation/reversion (ABA)
+  and reconstructed-cache authority.
+- **Original-resource and process validation:** all five supplemental targets
+  (`mmodern_regional_original`, `mmodern_consequence_original`,
+  `mmodern_journey_original`, `mmodern_expedition_original`,
+  `mmodern_regional_event_original`) passed. The genuine production witness
+  used original initialization, earned gold, naturally broken supported armor
+  and existing First Aid. `xeen_smith_process` completed **53 distinct terminated
+  child processes**, comparing complete durable continuation before first input
+  and after identical actions without replay. Original/reset corridor views,
+  exact service Event/resource identity and actor influence were validated.
+- **Independent implementation review:** **ACCEPT**, with no material or
+  actionable minor findings. The reviewer inspected the complete implementation,
+  verified baseline and file hashes, independently checked decisive pinned
+  reference behavior, and reran the full build, 104/104 CTest, 53-process
+  acceptance and all five original-resource targets. Review confirmed 8/9 versus
+  8/8 isolation, payment/departure publication, Flow/frame/F9 authority,
+  immediate ABA/cache safeguards and fresh restoration.
+- **Maintainer physical native-SDL acceptance:** passed in an ordinary visible
+  SDL window. The maintainer loaded the legitimate production checkpoint,
+  entered through the actual service interaction, selected Seymour and broken
+  armor, read price/purse feedback, canceled without payment, then confirmed
+  the 2-gold repair (810 to 808). Intact-repeat and modal F9 refusals worked.
+  Normal departure advanced day 8 to 9 with minute 584 retained. After quiet
+  F9, complete process exit and fresh load, the second legitimate repair cost
+  1 gold (808 to 807); departure reached day 10 and the next service attempt
+  refused. Repaired items retained their expected inventory/equipment state.
+  The maintainer reported no blocking gameplay/input issue. This is physical
+  acceptance, distinct from automated input, process assertions or images.
 
 ## Explicit exclusions and remaining limitations
 
@@ -842,5 +732,6 @@ to obtain useful broken armor; it is deterministic and reachable, not a promise
 that every player visits with a broken item. The original service's one-day exit
 means content 9 admits at most two visits before restocking would be required.
 Expanding that boundary needs a later specification/authorization. This is a
-bounded independently acceptable M38 slice; neither its approval nor eventual
-closure authorizes that successor work.
+completed bounded M38 slice; its closure does not authorize successor work.
+The next planning activity is the [focused post-M38 systems reassessment](roadmap.md#near-term),
+not an already selected or authorized M39.

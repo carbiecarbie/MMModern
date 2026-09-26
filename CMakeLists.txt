@@ -101,6 +101,7 @@ add_library(mmodern_app STATIC
 	src/app/XeenJourneyFlow.cpp
 	src/app/XeenJourneyConsequences.cpp
 	src/app/XeenCastingFlow.cpp
+	src/app/XeenSmithFlow.cpp
 	src/app/XeenCastingUi.cpp
 	src/app/XeenCompletedFlow.cpp
 	src/app/Application.cpp
@@ -218,6 +219,16 @@ if(BUILD_TESTING)
 	target_link_options(mmodern_consequence_cli_witness PRIVATE "-Wl,--wrap=_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjES5_ItE")
 	xeen_restore_replay(mmodern_consequence_cli_witness)
 	add_executable(mmodern_m36_cli_witness EXCLUDE_FROM_ALL src/main.cpp tests/XeenM36CliWitness.cpp tests/XeenRestoreReplayProbe.cpp)
+	add_executable(mmodern_m38_cli_witness src/main.cpp tests/XeenM38CliWitness.cpp tests/XeenRestoreReplayProbe.cpp)
+	target_link_libraries(mmodern_m38_cli_witness PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2 shell32)
+	target_link_options(mmodern_m38_cli_witness PRIVATE "-Wl,--wrap=_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjES5_ItE")
+	target_link_options(mmodern_m38_cli_witness PRIVATE "-Wl,--wrap=SDL_UpdateTexture" "-Wl,--wrap=SDL_RenderCopy")
+	xeen_restore_replay(mmodern_m38_cli_witness)
+	add_executable(mmodern_smith_process_tests tests/XeenSmithProcessTests.cpp)
+	target_link_libraries(mmodern_smith_process_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl)
+	add_dependencies(mmodern_smith_process_tests mmodern_m38_cli_witness)
+	add_test(NAME xeen_smith_process COMMAND mmodern_smith_process_tests $<TARGET_FILE:mmodern_m38_cli_witness> "F:/Games/gog/Might and Magic 4-5")
+	set_tests_properties(xeen_smith_process PROPERTIES TIMEOUT 300)
 	add_executable(mmodern_m37_cli_witness src/main.cpp tests/XeenM37CliWitness.cpp tests/XeenRestoreReplayProbe.cpp)
 	target_link_libraries(mmodern_m37_cli_witness PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2 shell32)
 	target_link_options(mmodern_m37_cli_witness PRIVATE "-Wl,--wrap=_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjES5_ItE")
@@ -349,6 +360,9 @@ if(BUILD_TESTING)
 	add_executable(mmodern_save_flow_tests tests/XeenSaveFlowTests.cpp)
 	target_link_libraries(mmodern_save_flow_tests PRIVATE mmodern_app mmodern_xeen ZLIB::ZLIB)
 	add_test(NAME xeen_save_flow COMMAND mmodern_save_flow_tests)
+	add_executable(mmodern_armor_repair_tests tests/XeenArmorRepairTests.cpp)
+	target_link_libraries(mmodern_armor_repair_tests PRIVATE mmodern_xeen)
+	add_test(NAME xeen_armor_repair COMMAND mmodern_armor_repair_tests)
 	add_executable(mmodern_save_format_tests tests/XeenSaveFormatTests.cpp)
 	target_link_libraries(mmodern_save_format_tests PRIVATE mmodern_xeen ZLIB::ZLIB)
 	add_test(NAME xeen_save_format COMMAND mmodern_save_format_tests)

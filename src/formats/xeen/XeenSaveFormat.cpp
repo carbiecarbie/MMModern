@@ -182,8 +182,8 @@ std::vector<Identity> readIdentities(Reader &in, std::size_t limit) {
 void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 	require(!(s.completedEncounter && s.journey), "mutually exclusive save domains");
 	validateMap(s.camera.mapId);
-	const bool cityCamera = s.journey && s.journey->schema == 8 &&
-		s.camera.mapId == XeenMapIdentity(28) && xeenJourneyContent(8).vertigoCell(s.camera.x,s.camera.y);
+	const bool cityCamera = s.journey && xeenSupportedJourneyPair(s.journey->schema, s.journey->contract) &&
+		s.camera.mapId == XeenMapIdentity(28) && xeenJourneyContent(s.journey->contract).vertigoCell(s.camera.x,s.camera.y);
 	require((cityCamera || (s.camera.x >= 0 && s.camera.x <= 15 && s.camera.y >= 0 && s.camera.y <= 15)) &&
 		static_cast<unsigned>(s.camera.direction) <= 3, "invalid committed camera");
 	require(s.activeRosterIds.size() <= XeenParty::kMaximumVisibleMembers, "too many active members");
@@ -199,13 +199,23 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 	if (s.journey) {
 		const auto &j = *s.journey;
 		require(s.itemState == XeenSaveItemState::Complete, "Journey requires complete item fields");
-		require(j.entry == XeenEncounterEntry::Journey && j.schema >= 1 && j.schema <= 8 && j.schema == j.contract,
+		require(j.entry == XeenEncounterEntry::Journey && xeenSupportedJourneyPair(j.schema, j.contract),
 			"unsupported Journey domain/schema/contract");
 		require(bool(j.regionalRecovery) == (j.schema >= 6), "Journey recovery presence mismatch");
 		require(j.context.has_value(), "missing Journey context");
 		require(j.context->profile == XeenBehaviorProfile::WorldOfXeenClouds &&
 			(j.context->difficulty == XeenDifficulty::Adventurer || j.context->difficulty == XeenDifficulty::Warrior),
 			"invalid Journey context enum");
+		if (j.contract == 9) {
+			require(xeenRegionalContext(*j.context) && j.context->year == 610 &&
+				j.context->day >= 8 && j.context->day <= 10, "invalid Ironworks calendar context");
+			require(j.context->day == 8 || j.vertigoActors.has_value(), "Ironworks departure requires retained city");
+			require(s.camera.mapId != XeenMapIdentity(28) || cityCamera, "camera outside Ironworks city domain");
+			require(j.vertigoActors || s.camera.mapId == XeenMapIdentity(23), "absent city requires mainland camera");
+			if (j.vertigoActors && j.vertigoActors->size() == 52)
+				require(std::find(s.disabledEvents.begin(), s.disabledEvents.end(), XeenEventIdentity{28,764}) !=
+					s.disabledEvents.end(), "reset city requires protection overlay");
+		}
 		for (std::size_t i = 0; i < j.supplements.size(); ++i) {
 			const auto &r = j.supplements[i];
 			require(bool(r.inputs.luck) == (j.schema >= 2), "Journey Luck presence mismatch");
@@ -482,7 +492,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 		XeenSaveJourney j;
 		require(in.u8() == 3, "invalid v4 domain");
 		j.schema = in.u16(); j.contract = in.u16();
-		require(j.schema>=1 && j.schema<=8 && j.schema==j.contract, "unsupported Journey schema/contract");
+		require(xeenSupportedJourneyPair(j.schema, j.contract), "unsupported Journey schema/contract");
 		require(j.schema>=3 || suffixSize == (j.schema == 2 ? 1366u : 1060u), "Journey schema size mismatch");
 		require(in.u8() == 1, "missing Journey context");
 		XeenGameplayContext c;

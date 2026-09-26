@@ -26,7 +26,7 @@ namespace mmodern {
 enum class XeenEncounterCompletion { None, VictoryEnded, VictoryQuiescent };
 enum class XeenCompletedGuard { Operation, Presentation, Integrity, Fatal };
 class XeenEventPublication;
-enum class XeenJourneyActivity { Unbound, Quiet, Event, Approach, Attachment, Combat, Presentation, Saving, Shoot, Reward, ItemUse, Casting, Failed, SupportStopped };
+enum class XeenJourneyActivity { Unbound, Quiet, Event, Approach, Attachment, Combat, Presentation, Saving, Shoot, Reward, ItemUse, Casting, Failed, SupportStopped, Service };
 class XeenGameFlags;
 class XeenJourneyCapture;
 struct XeenActorView;
@@ -183,7 +183,7 @@ public:
 	XeenWorld &operator=(const XeenWorld &) = delete;
 	const XeenSessionWorldState &sessionState() const { return _sessionState; }
 	bool regionalContract8() const noexcept {
-		return _sessionState._journeyContract==8 && (_sessionState.journey() || _detachedEventCandidate);
+		return (_sessionState._journeyContract==8 || _sessionState._journeyContract==9) && (_sessionState.journey() || _detachedEventCandidate);
 	}
 	// Irreversible safety marker, including failed preparation. No clear/reset API.
 	void markEncounterSession() noexcept { XeenMutationWatch::write(this);_sessionState._encounterMarked = true; }
@@ -268,7 +268,7 @@ private:
 	XeenSessionWorldState _sessionState;
 	std::optional<XeenMonsterRecord> _vertigoSpawnSlime;
 	// Derived from checked immutable city resources; never gameplay authority.
-	std::array<std::optional<std::bitset<2048>>,2> _vertigoClosure;
+	std::array<std::optional<std::bitset<2048>>,4> _vertigoClosure;
 	bool _detachedEventCandidate = false;
 	// Stable dependencies never contain a scoped RestoreGuard::Providers wrapper.
 	const MapLoader _baseLoader;

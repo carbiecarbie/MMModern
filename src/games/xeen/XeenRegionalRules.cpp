@@ -264,7 +264,9 @@ std::optional<std::int16_t> xeenWellHpAfter(std::int16_t before) noexcept {
 XeenRegionalInteraction xeenRegionalInteraction(const XeenEventFile &events,const XeenCamera &camera,std::uint16_t contract) {
 	const auto first=xeenRegionalEvent(events,camera);
 	if (!first) return XeenRegionalInteraction::None;
-	if (contract==8) {
+	if (xeenJourneyContent(contract).vertigo()) {
+		if (contract==9 && camera.mapId==XeenMapIdentity(28) && *first==0 && camera.x==8 && camera.y==4)
+			return XeenRegionalInteraction::Ironworks;
 		if (camera.mapId==XeenMapIdentity(23) && *first==136 && camera.x==10 && camera.y==13)
 			return XeenRegionalInteraction::VertigoEntrance;
 		if (camera.mapId==XeenMapIdentity(28) && *first==539 && camera.x==13 && camera.y==4 && camera.direction==XeenDirection::West)
@@ -273,7 +275,7 @@ XeenRegionalInteraction xeenRegionalInteraction(const XeenEventFile &events,cons
 			return XeenRegionalInteraction::VertigoExit;
 	}
 	if (xeenRegionalSign(events,camera)) return XeenRegionalInteraction::Sign;
-	if (contract!=6 && contract!=7 && contract!=8) return XeenRegionalInteraction::None;
+	if (contract!=6 && contract!=7 && !xeenJourneyContent(contract).vertigo()) return XeenRegionalInteraction::None;
 	if (*first==21 && camera.x==9 && camera.y==11 && camera.direction==XeenDirection::West)
 		return XeenRegionalInteraction::Myra;
 	if (*first==125 && camera.x==8 && camera.y==2)

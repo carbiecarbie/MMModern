@@ -6,6 +6,9 @@
 #include <array>
 #include <stdexcept>
 namespace mmodern {
+inline bool xeenSupportedJourneyPair(std::uint16_t schema, std::uint16_t contract) noexcept {
+	return (schema >= 1 && schema <= 8 && schema == contract) || (schema == 8 && contract == 9);
+}
 struct XeenJourneyActorAdmission {
 	unsigned record, resourceId, profileImage;
 	int spawnX, spawnY, minX, maxX, minY, maxY, hp;
@@ -27,14 +30,16 @@ struct XeenJourneyContent {
 	std::uint16_t day;
 	bool manualObjective;
 	XeenMovement::Capabilities traversal{};
-	bool consequences() const noexcept { return contract >= 4 && contract <= 8; }
-	bool disengagement() const noexcept { return contract >= 5 && contract <= 8; }
-	bool connectedRecovery() const noexcept { return contract >= 6 && contract <= 8; }
-	bool learnedCasting() const noexcept { return contract == 7 || contract == 8; }
-	bool vertigo() const noexcept { return contract == 8; }
+	bool armorRepair() const noexcept { return contract == 9; }
+	bool consequences() const noexcept { return (contract >= 4 && contract <= 8) || armorRepair(); }
+	bool disengagement() const noexcept { return (contract >= 5 && contract <= 8) || armorRepair(); }
+	bool connectedRecovery() const noexcept { return contract == 6 || learnedCasting(); }
+	bool learnedCasting() const noexcept { return contract == 7 || vertigo(); }
+	bool vertigo() const noexcept { return contract == 8 || armorRepair(); }
+	std::uint16_t schema() const noexcept { return armorRepair() ? 8 : contract; }
 	bool vertigoCell(int x, int y) const noexcept {
 		return vertigo() && ((x == 15 && y >= 0 && y <= 4) ||
-			(x == 16 && y >= 1 && y <= 4) || (y == 4 && (x == 13 || x == 14)));
+			(x == 16 && y >= 1 && y <= 4) || (y == 4 && x >= (armorRepair() ? 8 : 13) && x <= 14));
 	}
 	bool contains(int x, int y) const noexcept {
 		if (contract >= 3) return false; // Regional admission requires checked geometry.
@@ -77,6 +82,8 @@ inline const XeenJourneyContent &xeenJourneyContent(std::uint16_t contract) {
 	if (contract == 7) return learnedCasting;
 	static const XeenJourneyContent vertigo{8,regional.entry,regional.records,19,8,false};
 	if (contract == 8) return vertigo;
+	static const XeenJourneyContent ironworks{9,regional.entry,regional.records,19,8,false};
+	if (contract == 9) return ironworks;
 	throw std::invalid_argument("Unsupported Journey content contract");
 }
 struct XeenJourneyRandomState {

@@ -420,6 +420,15 @@ void testTeleportsAndTransactionalResult() {
 		XeenEventExecutionErrorKind::UnsupportedOpcode);
 }
 
+void testLegacyTownRefusal() {
+ for(const auto &parameters:std::vector<std::vector<std::uint8_t>>{{},{0},{1},{1,2}}) {
+  Fixture fixture;fixture.scripts.emplace(1,script(1,{record(1,1,0,0x11,parameters)}));
+  const XeenCamera camera{1,1,1,XeenDirection::North};auto party=partyWithSp(2);XeenGameFlags flags;
+  const auto result=failure(fixture.execute(camera,party,flags),XeenEventExecutionErrorKind::UnsupportedOpcode);
+  check(result.instructionCount==0 && result.message=="opcode 17 is outside the supported decoder subset",
+   "Legacy service refusal changed after typed Ironworks decoding");
+ }
+}
 void testTakeOrGiveFlagOperations() {
 	const XeenCamera camera{1, 1, 1, XeenDirection::North};
 	auto party = partyWithSp(2);
@@ -706,6 +715,7 @@ int main() {
 		testConditions();
 		testCallsReturnsAndStack();
 		testTeleportsAndTransactionalResult();
+		testLegacyTownRefusal();
 		testTakeOrGiveFlagOperations();
 		testTakeOrGiveVisibilityAcrossFlow();
 		testTakeOrGiveRollback();

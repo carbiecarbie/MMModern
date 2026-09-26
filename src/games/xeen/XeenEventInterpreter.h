@@ -47,7 +47,8 @@ enum class XeenPresentationKind {
 	NpcAcknowledgment,
 	CharacterSelection,
 	RewardWarning,
-	RewardReceipt
+	RewardReceipt,
+	ArmorRepairService
 };
 
 enum class XeenPresentationResponseRequirement {
