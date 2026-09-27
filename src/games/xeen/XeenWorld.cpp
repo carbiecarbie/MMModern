@@ -65,7 +65,7 @@ bool XeenWorld::completedFactsCurrent(const XeenPartyState &party, const XeenCam
 	const auto &a = *s._completedAuthority;
 	// A detached or copied caller owns no capability and cannot poison the bound graph.
 	if (a.party != &party || a.roster != &party.roster || a.camera != &camera) return false;
-	bool exact = party.roster.combatMarked() && party.party.activeRosterIds() == a.activeRosterIds &&
+	bool exact = !party.serviceEconomy && party.roster.combatMarked() && party.party.activeRosterIds() == a.activeRosterIds &&
 		party.questItems.counts() == a.questItems && party.questFlags.values() == a.questFlags &&
 		party.encounterContext == a.context && party.firstSerializedCount == a.firstSerializedCount &&
 		party.effectiveSerializedCount == a.effectiveSerializedCount && party.diagnostics == a.diagnostics &&

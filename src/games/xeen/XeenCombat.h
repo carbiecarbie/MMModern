@@ -177,6 +177,8 @@ public:
 	void preparePresentation(const Ticket &, const std::function<void()> &);
 private:
 	friend class XeenEncounterFlow;
+	bool ticketCurrent(const Ticket &) const noexcept;
+	void guardCallback(const Ticket &, const std::function<void()> &);
     // Only the coordinator can mint this consumed concrete-frame response.
     class CastResponse {
         friend class XeenEncounterFlow;

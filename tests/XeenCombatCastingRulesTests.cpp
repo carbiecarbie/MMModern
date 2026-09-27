@@ -61,15 +61,16 @@ void arrow() {
 void domainsAndBooks() {
     using Rules=XeenLearnedSpellRules;
     for(unsigned schema=0;schema<13;++schema)for(unsigned content=0;content<13;++content) {
-        const bool accepted=(schema>=1 && schema<=8 && schema==content) || (schema==8 && (content==9 || content==10));
+        const bool accepted=(schema>=1 && schema<=8 && schema==content) || (schema==8 && (content==9 || content==10)) || (schema==9 && content==11);
         check(xeenSupportedJourneyPair(schema,content)==accepted,"Journey admitted an unknown/crossed pair");
     }
-    for(unsigned content=1;content<=10;++content) {
+    for(unsigned content=1;content<=11;++content) {
         const auto &policy=xeenJourneyContent(content);
-        check(policy.combatCasting()==(content==10),"Combat capability widened");
-        check(policy.armorRepair()==(content==9 || content==10),"Content10 lost inherited Armor Repair");
+        check(policy.combatCasting()==(content==10 || content==11),"Combat capability differs from explicit admitted domains");
+        check(policy.armorRepair()==(content==9 || content==10 || content==11),"Inherited Armor Repair capability differs");
+        check(policy.serviceDays()==(content==11),"Legacy content gained service-day continuation");
         for(unsigned id=0;id<256;++id)for(bool combat:{false,true}) {
-            const bool accepted=combat ? content==10 && (id==1 || id==26 || id==45) : content>=7 && (id==1 || id==26);
+            const bool accepted=combat ? (content==10 || content==11) && (id==1 || id==26 || id==45) : content>=7 && (id==1 || id==26);
             check(bool(Rules::supportedIn(id,content,combat))==accepted,"Context support admission widened");
         }
     }
@@ -83,7 +84,7 @@ void domainsAndBooks() {
     check(!Rules::eligible(party,0,25,10,true),"All-zero book cast admitted");
     for(unsigned raw=1;raw<256;++raw) {
         caster.learnedSpells->at(25)=raw;
-        check(Rules::eligible(party,0,25,10,true) && !Rules::eligible(party,0,25,9,true) &&
+        check(Rules::eligible(party,0,25,10,true) && Rules::eligible(party,0,25,11,true) && !Rules::eligible(party,0,25,9,true) &&
             !Rules::eligible(party,0,25,10,false) && caster.learnedSpells->at(25)==raw,"Raw knowledge/context semantics changed");
     }
     for(int sp:{-32768,-1,0,1,2,32767}) {

@@ -20,7 +20,7 @@ public:
 		partyReplacement(p._replacement), rosterReplacement(p.roster._replacement),
 		s(w._sessionState), characters(p.roster.characters()), inputs(p.roster._combatInputs),
 		marked(p.roster.combatMarked()), membership(p.party.activeRosterIds()),
-		quests(p.questItems.counts()), questFlags(p.questFlags.values()), recovery(p.regionalRecovery), context(p.encounterContext), treasure(p.monsterTreasure),
+		quests(p.questItems.counts()), questFlags(p.questFlags.values()), recovery(p.regionalRecovery), context(p.encounterContext), treasure(p.monsterTreasure), economy(p.serviceEconomy),
 		first(p.firstSerializedCount), effective(p.effectiveSerializedCount), diagnostics(p.diagnostics),
 		cameraValue(c), flagValues(f.values()), combatCheck(bool(w._combatCheck)), combatAuthorized(bool(w._combatAuthorized)),
 		maps(w._maps), objects(w._objects), spawnSlime(w._vertigoSpawnSlime), cacheRevision(w._cacheRevision), exactCaches(exactCaches),
@@ -43,7 +43,7 @@ public:
 			p._replacement != partyReplacement || p.roster._replacement != rosterReplacement ||
 			p.roster.combatMarked() != marked || p.party.activeRosterIds() != membership ||
 			p.questItems.counts() != quests || p.questFlags.values() != questFlags || p.regionalRecovery != recovery ||
-			!(p.encounterContext == context) || p.monsterTreasure != treasure || p.firstSerializedCount != first ||
+			!(p.encounterContext == context) || p.monsterTreasure != treasure || p.serviceEconomy != economy || p.firstSerializedCount != first ||
 			p.effectiveSerializedCount != effective || p.diagnostics != diagnostics ||
 			!sameCamera(c, cameraValue) || f.values() != flagValues ||
 			bool(w._combatCheck) != combatCheck || bool(w._combatAuthorized) != combatAuthorized ||
@@ -86,6 +86,10 @@ public:
 	}
 	// Combat owns its gameplay preimage separately; retain the admitted resource
 	// values across its publications, allowing matching cache reconstruction.
+	bool mutationHistoryCurrent() const noexcept {
+		if (!mutations.current()) failed = true;
+		return !failed;
+	}
 	bool cachesCurrent() const noexcept {
 		using namespace xeen_state;
 		if (failed || !worldAlive()) return false;
@@ -215,12 +219,32 @@ private:
 		if (previous.learnedNames) admitLearnedSpellNames(*previous.learnedNames);
 		prepareMutationRanges();
 	}
+	// Fresh initialization keeps the existing owner addresses/replacement
+	// revisions. Copy its exact detached successor before irreversible stores;
+	// resource retention and all range allocation already precede this method.
+	void prepareFreshJourneyPublication(const XeenPartyState &candidate,
+		const std::vector<XeenActor> &actors, std::uint16_t contract, std::uint32_t seed,
+		const std::optional<XeenJourneyRandomState> &random) {
+		check();
+		characters=candidate.roster.characters();
+		for(unsigned owner=0;owner<inputs.size();++owner)inputs[owner]=candidate.roster.combatInputs(owner);
+		marked=candidate.roster.combatMarked();membership=candidate.party.activeRosterIds();
+		quests=candidate.questItems.counts();questFlags=candidate.questFlags.values();
+		recovery=candidate.regionalRecovery;context=candidate.encounterContext;
+		treasure=candidate.monsterTreasure;economy=candidate.serviceEconomy;
+		first=candidate.firstSerializedCount;effective=candidate.effectiveSerializedCount;diagnostics=candidate.diagnostics;
+		s._actors=actors;s._entry=XeenEncounterEntry::Journey;
+		s._encounterMarked=s._encounterInitialized=true;s._encounterRevision=1;
+		s._journeyContract=contract;s._skeletonSeed=contract==1?seed:0;s._journeyRandom=random;
+		prepareMutationRanges();
+	}
 	// Prepare a final-destination preimage before publication. Only the private
 	// SaveState swaps below are anticipated; no callback mutation is adopted.
 	void prepareJourneyPublication(const XeenRestoreGuard &candidate) {
 		s = candidate.s; characters = candidate.characters; inputs = candidate.inputs;
 		marked = candidate.marked; membership = candidate.membership;
 		quests = candidate.quests; questFlags = candidate.questFlags; recovery = candidate.recovery; context = candidate.context; treasure = candidate.treasure;
+		economy = candidate.economy;
 		first = candidate.first; effective = candidate.effective; diagnostics = candidate.diagnostics;
 		cameraValue = candidate.cameraValue; flagValues = candidate.flagValues;
 		maps = candidate.maps; objects = candidate.objects;
@@ -343,6 +367,7 @@ private:
 	std::optional<XeenRegionalRecoveryState> recovery;
 	std::optional<XeenGameplayContext> context;
 	std::optional<XeenMonsterTreasure> treasure;
+	std::optional<XeenServiceEconomy> economy;
 	std::uint8_t first, effective;
 	std::vector<std::string> diagnostics;
 	XeenCamera cameraValue;

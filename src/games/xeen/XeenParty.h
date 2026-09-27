@@ -7,6 +7,7 @@
 #include "games/xeen/XeenOwnerIdentity.h"
 #include "games/xeen/XeenGameplayBorrow.h"
 #include "games/xeen/XeenMonsterTreasure.h"
+#include "games/xeen/XeenServiceEconomy.h"
 
 #include <array>
 #include <cstddef>
@@ -136,6 +137,8 @@ struct XeenPartyState {
 	// Only explicit encounter preparation installs this; ordinary loading/restoration does not.
 	XeenMutableOptional<XeenGameplayContext> encounterContext;
 	XeenMutableOptional<XeenMonsterTreasure> monsterTreasure;
+	// Only the explicit content-11 lifecycle installs merchant stock/shared bank.
+	XeenMutableOptional<XeenServiceEconomy> serviceEconomy;
 	XeenRoster roster;
 	XeenParty party;
 	XeenCloudsQuestItems questItems;

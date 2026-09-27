@@ -12,6 +12,24 @@ unsigned timePreparations=0, eventExecutions=0, transfers=0, equipmentChanges=0;
 XeenEncounterResult real_journeyInitialize(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s, const std::vector<std::uint8_t> &chr, const XeenGameplayContext &ctx, const std::vector<XeenMonsterRecord> &mon, const XeenEventFile &evt, std::uint32_t seed, std::uint16_t contract) asm("__real_" XEEN_REPLAY_JOURNEY_INITIALIZE);
 XeenEncounterResult probe_journeyInitialize(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s, const std::vector<std::uint8_t> &chr, const XeenGameplayContext &ctx, const std::vector<XeenMonsterRecord> &mon, const XeenEventFile &evt, std::uint32_t seed, std::uint16_t contract) asm("__wrap_" XEEN_REPLAY_JOURNEY_INITIALIZE);
 XeenEncounterResult probe_journeyInitialize(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s, const std::vector<std::uint8_t> &chr, const XeenGameplayContext &ctx, const std::vector<XeenMonsterRecord> &mon, const XeenEventFile &evt, std::uint32_t seed, std::uint16_t contract) { observe(); ++journeyInitializations; return real_journeyInitialize(w,p,c,s,chr,ctx,mon,evt,seed,contract); }
+// Every fresh Flow domain shares this publication initializer, including
+// consequence/economy paths omitted by the old ten-argument probe.
+using FreshPreparation=std::function<void(const XeenPartyState &,const std::vector<XeenActor> &,
+	const std::optional<XeenJourneyRandomState> &)>;
+XeenEncounterResult real_freshPublicationInitialize(XeenWorld &,XeenPartyState &,XeenCamera &,XeenEncounterState &,
+	const std::vector<std::uint8_t> &,const XeenGameplayContext &,const std::vector<XeenMonsterRecord> &,
+	const XeenEventFile &,std::uint32_t,std::uint16_t,const std::optional<XeenMonsterTreasure> &,
+	const std::optional<XeenBankBalances> &,const FreshPreparation &) asm("__real_" XEEN_REPLAY_FRESH_PUBLICATION_INITIALIZE);
+XeenEncounterResult probe_freshPublicationInitialize(XeenWorld &,XeenPartyState &,XeenCamera &,XeenEncounterState &,
+	const std::vector<std::uint8_t> &,const XeenGameplayContext &,const std::vector<XeenMonsterRecord> &,
+	const XeenEventFile &,std::uint32_t,std::uint16_t,const std::optional<XeenMonsterTreasure> &,
+	const std::optional<XeenBankBalances> &,const FreshPreparation &) asm("__wrap_" XEEN_REPLAY_FRESH_PUBLICATION_INITIALIZE);
+XeenEncounterResult probe_freshPublicationInitialize(XeenWorld &w,XeenPartyState &p,XeenCamera &c,XeenEncounterState &s,
+	const std::vector<std::uint8_t> &chr,const XeenGameplayContext &ctx,const std::vector<XeenMonsterRecord> &mon,
+	const XeenEventFile &evt,std::uint32_t seed,std::uint16_t contract,const std::optional<XeenMonsterTreasure> &purse,
+	const std::optional<XeenBankBalances> &bank,const FreshPreparation &prepare) {
+	observe();++journeyInitializations;return real_freshPublicationInitialize(w,p,c,s,chr,ctx,mon,evt,seed,contract,purse,bank,prepare);
+}
 XeenEncounterResult real_approachAction(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s, XeenEncounterAction a, const XeenEventFile &evt) asm("__real_" XEEN_REPLAY_ACTION);
 XeenEncounterResult probe_approachAction(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s, XeenEncounterAction a, const XeenEventFile &evt) asm("__wrap_" XEEN_REPLAY_ACTION);
 XeenEncounterResult probe_approachAction(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s, XeenEncounterAction a, const XeenEventFile &evt) { observe(); ++actions; return real_approachAction(w,p,c,s,a,evt); }

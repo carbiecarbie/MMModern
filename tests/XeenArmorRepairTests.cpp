@@ -89,7 +89,7 @@ void departure() {
 		auto expected=before;expected.day=day+1;
 		check(after && *after==expected && before==original,"departure changed fields other than day or mutated input");
 	}
-	for (unsigned content=0; content<12; ++content) if (content!=9 && content!=10)
+	for (unsigned content=0; content<12; ++content) if (content!=9 && content!=10 && content!=11)
 		check(!xeenPrepareSmithDeparture(canonical,content),"legacy/unknown content received smith day jump");
 	for (unsigned day : {0u,1u,7u,10u,11u,99u,65535u}) {
 		auto before=canonical;before.day=day;

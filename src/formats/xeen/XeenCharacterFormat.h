@@ -24,6 +24,8 @@ public:
 	static XeenCharacter::XeenLearnedSpells parseLearnedSpells(const std::vector<std::uint8_t> &bytes,
 		std::size_t owner);
 	static XeenMonsterTreasure parseMonsterPurse(const std::vector<std::uint8_t> &bytes);
+	// Only the checked original fresh Regional Journey PTY supplies bank input.
+	static XeenBankBalances parseBankBalances(const std::vector<std::uint8_t> &bytes);
 	static PartyHeader parsePartyHeader(const std::vector<std::uint8_t> &bytes);
 };
 

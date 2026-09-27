@@ -30,6 +30,9 @@ add_library(mmodern_xeen STATIC
     src/games/xeen/XeenCombatRandom.cpp
 	src/games/xeen/XeenCombatRules.cpp
 	src/games/xeen/XeenMonsterTreasure.cpp
+	src/games/xeen/XeenServiceEconomy.cpp
+	src/games/xeen/XeenMerchantGeneration.cpp
+	src/games/xeen/XeenServiceDay.cpp
 	src/games/xeen/XeenJourneyRules.cpp
 	src/games/xeen/XeenGameplayContext.cpp
 	src/games/xeen/XeenRegionalRules.cpp
@@ -155,6 +158,28 @@ endfunction()
 xeen_restore_replay(mmodern_journey_original)
 xeen_restore_replay(mmodern_regional_event_original)
 if(BUILD_TESTING)
+	add_executable(mmodern_service_economy_tests tests/XeenServiceEconomyTests.cpp)
+	target_link_libraries(mmodern_service_economy_tests PRIVATE mmodern_xeen bcrypt)
+	add_test(NAME xeen_service_economy COMMAND mmodern_service_economy_tests)
+	add_executable(mmodern_service_day_initialization_tests tests/XeenServiceDayInitializationTests.cpp)
+	target_link_libraries(mmodern_service_day_initialization_tests PRIVATE mmodern_app mmodern_xeen)
+	add_test(NAME xeen_service_day_initialization COMMAND mmodern_service_day_initialization_tests "F:/Games/gog/Might and Magic 4-5")
+	add_executable(mmodern_m40_cli_witness src/main.cpp tests/XeenM40CliWitness.cpp tests/XeenRestoreReplayProbe.cpp)
+	target_link_libraries(mmodern_m40_cli_witness PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2 shell32 bcrypt)
+	target_link_options(mmodern_m40_cli_witness PRIVATE "LINKER:--wrap,_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjES5_ItE"
+		"LINKER:--wrap,_ZN7mmodern23xeenPrepareBankInterestERKNS_16XeenBankBalancesE")
+	xeen_restore_replay(mmodern_m40_cli_witness)
+	target_link_options(mmodern_m40_cli_witness PRIVATE "LINKER:--wrap,SDL_UpdateTexture" "LINKER:--wrap,SDL_RenderCopy")
+	add_executable(mmodern_service_day_process_tests tests/XeenServiceDayProcessTests.cpp)
+	target_link_libraries(mmodern_service_day_process_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl bcrypt)
+	add_dependencies(mmodern_service_day_process_tests mmodern_m40_cli_witness)
+	add_test(NAME xeen_service_day_process COMMAND mmodern_service_day_process_tests $<TARGET_FILE:mmodern_m40_cli_witness> "F:/Games/gog/Might and Magic 4-5")
+	set_tests_properties(xeen_service_day_process PROPERTIES TIMEOUT 600)
+	add_executable(mmodern_combat_clock_process_tests tests/XeenCombatClockProcessTests.cpp)
+	target_link_libraries(mmodern_combat_clock_process_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl bcrypt)
+	add_dependencies(mmodern_combat_clock_process_tests mmodern_m40_cli_witness)
+	add_test(NAME xeen_combat_clock_process COMMAND mmodern_combat_clock_process_tests $<TARGET_FILE:mmodern_m40_cli_witness> "F:/Games/gog/Might and Magic 4-5")
+	set_tests_properties(xeen_combat_clock_process PROPERTIES TIMEOUT 300)
 	add_test(NAME xeen_vertigo_original COMMAND mmodern_vertigo_original "F:/Games/gog/Might and Magic 4-5")
 	add_executable(mmodern_journey_resource_tests tests/XeenJourneyResourceTests.cpp)
 	target_link_libraries(mmodern_journey_resource_tests PRIVATE mmodern_app mmodern_xeen)

@@ -32,7 +32,9 @@ void XeenSaveState::validateJourneyValues(const XeenSaveSnapshot &s) {
 	const auto &policy=xeenJourneyContent(j.contract);
 	require(xeenSupportedJourneyPair(j.schema,j.contract));
 	if (policy.armorRepair()) require(j.context && j.context->year==610 &&
-		j.context->day>=8 && j.context->day<=10 && (j.context->day==8 || j.vertigoActors));
+		j.context->day>=8 && j.context->day<=(policy.serviceDays() ? 99 : 10) && (j.context->day==8 || j.vertigoActors));
+	require(bool(j.serviceEconomy)==policy.serviceDays());
+	if (j.serviceEconomy) xeenValidateServiceEconomy(*j.serviceEconomy);
 	if (j.contract>=3) {
 		require(s.resources.darkside && j.initializedMap==XeenMapIdentity(23) && j.originalActorCount==19 && j.actors.size()==19 &&
 			((s.camera.mapId==XeenMapIdentity(23) && s.camera.x>=0 && s.camera.x<16 && s.camera.y>=0 && s.camera.y<16) ||
@@ -108,6 +110,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	p.firstSerializedCount = p.effectiveSerializedCount = 6;
 	p.encounterContext = snapshot.journey->context;
 	p.monsterTreasure=snapshot.journey->treasure;
+	p.serviceEconomy=snapshot.journey->serviceEconomy;
 	p.roster._combatMarked = true;
 	for (const auto &r : snapshot.journey->supplements) p.roster._combatInputs[r.owner] = r.inputs;
 	w._sessionState._skeletonSeed = snapshot.journey->skeletonSeed;
@@ -285,7 +288,7 @@ void XeenSaveState::restoreCompleted(const XeenSaveSnapshot &source, const Resou
 			auto value = provider();
 			destination.check(); prepared->check();
 			if constexpr (std::is_same_v<decltype(value), XeenPartyState>) {
-				if (value.encounterContext || value.roster.combatMarked())
+				if (value.encounterContext || value.serviceEconomy || value.roster.combatMarked())
 					throw std::logic_error("initial provider supplied encounter owners");
 				for (unsigned i = 0; i < XeenRoster::kCharacterCount; ++i)
 					if (value.roster.combatInputs(i)) throw std::logic_error("initial provider supplied detached supplements");
@@ -308,7 +311,7 @@ void XeenSaveState::restoreCompleted(const XeenSaveSnapshot &source, const Resou
 		};
 	const auto events = [&](XeenMapIdentity id) { return callback([&] { return eventProvider(id); }); };
 	auto initial = callback(initialProvider);
-	if (initial.encounterContext || initial.roster.combatMarked())
+	if (initial.encounterContext || initial.serviceEconomy || initial.roster.combatMarked())
 		throw std::invalid_argument("completed initial party provider supplied encounter state");
 	const auto chr = callback(chrProvider);
 	std::array<XeenCombatInputs, 6> initialInputs;
@@ -374,6 +377,7 @@ void XeenSaveState::restoreCompleted(const XeenSaveSnapshot &source, const Resou
 
 bool XeenSaveState::canCapture(const XeenPartyState &party, const XeenCamera &camera,
 		const XeenWorld &world) noexcept {
+	if (party.serviceEconomy && (!world.sessionState().journey() || !xeenJourneyContent(world.sessionState().journeyContract()).serviceDays())) return false;
 	if (party.monsterTreasure && (!world.sessionState().journey() || !xeenJourneyContent(world.sessionState().journeyContract()).consequences())) return false;
 	if (!world.hasEncounterState() && !party.encounterContext && !party.roster.combatMarked()) {
 		for (unsigned owner = 0; owner < XeenRoster::kCharacterCount; ++owner)
@@ -425,6 +429,7 @@ XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resourc
 		XeenSaveJourney j;
 		j.context = party.encounterContext; j.skeletonSeed = state.skeletonSeed();
 		j.contract=state.journeyContract(); j.schema=xeenJourneyContent(j.contract).schema(); j.random=state.journeyRandom();j.treasure=party.monsterTreasure;j.regionalRecovery=party.regionalRecovery;
+		j.serviceEconomy=party.serviceEconomy;
 		for (unsigned i = 0; i < 30; ++i) j.supplements[i] = {static_cast<std::uint8_t>(i), *party.roster.combatInputs(i)};
 		j.initializedMap=xeenJourneyContent(j.contract).entry.mapId;
 		j.originalActorCount=j.contract>=3 ? 19 : 27;
@@ -447,7 +452,7 @@ XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resourc
 void XeenSaveState::restoreBeforeGameplay(const XeenSaveSnapshot &snapshot,
 		const Resources &resources, XeenPartyState &party, XeenCamera &camera,
 		XeenGameFlags &flags, XeenWorld &world, const Preflight &preflight) {
-	if (world.hasEncounterState() || party.encounterContext || party.monsterTreasure || party.roster.combatMarked())
+	if (world.hasEncounterState() || party.encounterContext || party.monsterTreasure || party.serviceEconomy || party.roster.combatMarked())
 		throw std::logic_error("MMModern save: cannot restore into encounter owners");
 	XeenSaveFormat::validate(snapshot);
 	if (!(snapshot.resources == resources.signature))
@@ -466,7 +471,7 @@ void XeenSaveState::restoreBeforeGameplay(const XeenSaveSnapshot &snapshot,
 	// Initial records supply metadata and only the fields absent from v1.
 	// Resolve locally by roster slot before replacing the complete character.
 	XeenPartyState candidateParty = resources.loadInitialParty();
-	if (candidateParty.encounterContext || candidateParty.roster.combatMarked() ||
+	if (candidateParty.encounterContext || candidateParty.serviceEconomy || candidateParty.roster.combatMarked() ||
 		world.hasEncounterState() || party.encounterContext || party.roster.combatMarked())
 		throw std::logic_error("MMModern save: ordinary provider supplied encounter context");
 	for (std::size_t i = 0; i < snapshot.characters.size(); ++i) {
@@ -496,8 +501,8 @@ void XeenSaveState::restoreBeforeGameplay(const XeenSaveSnapshot &snapshot,
 	XeenGameFlags candidateFlags(snapshot.gameFlags);
 	XeenWorld candidateWorld(world._baseLoader, world._baseObjectLoader);
 	const auto guard = [&] {
-		if (world.hasEncounterState() || party.encounterContext || party.roster.combatMarked() ||
-			candidateWorld.hasEncounterState() || candidateParty.encounterContext || candidateParty.roster.combatMarked())
+		if (world.hasEncounterState() || party.encounterContext || party.serviceEconomy || party.roster.combatMarked() ||
+			candidateWorld.hasEncounterState() || candidateParty.encounterContext || candidateParty.serviceEconomy || candidateParty.roster.combatMarked())
 			throw std::logic_error("MMModern save: encounter state appeared during preparation");
 	};
 	// Guard destination and candidate after each resource callback, before another

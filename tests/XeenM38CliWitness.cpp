@@ -43,7 +43,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
  const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,
  std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract) {
  const std::uint16_t content=std::getenv("MMODERN_M38_CONTENT10")?10:9;
- if(!resume && contract==10)contract=content; // Explicit inherited/legacy-domain witness.
+ if(!resume && (contract==10 || contract==11))contract=content; // Explicit inherited/legacy-domain witness.
  if(resume) {
   replay_test::journeyInitializations=replay_test::journeyConstructions=0;
   replay_test::actions=replay_test::pulses=replay_test::retirements=0;

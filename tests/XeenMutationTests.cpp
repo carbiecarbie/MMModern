@@ -86,10 +86,65 @@ void materializedResources() {
   require(!stale.current() && fresh.current(),"cache registration renewed stale history or invalidated read");
  }
 }
+void economyOwners() {
+ XeenPartyState party;
+ XeenWorld world([](XeenMapIdentity id){XeenMap m;m.side=id.side;m.geometry.id=id.number;return m;});
+ XeenCamera camera{23,9,11,XeenDirection::West};XeenGameFlags flags;
+ party.serviceEconomy.emplace();
+ // Every new stock byte is observed in fixed inline storage. Acquire aliases
+ // before the guard, then mutate/revert without an intervening current().
+ for(unsigned side=0;side<2;++side)for(unsigned shop=0;shop<4;++shop)
+  for(unsigned category=0;category<4;++category)for(unsigned slot=0;slot<9;++slot)
+   for(unsigned field=0;field<4;++field) {
+    auto &item=party.serviceEconomy->wares[side][shop][category][slot];
+    auto &value=field==0?item.material:field==1?item.id:field==2?item.state:item.frame;
+    XeenRestoreGuard guard(world,party,camera,flags);
+    ++value;--value;require(!guard.current(),"merchant physical byte ABA");
+   }
+ for(bool gems:{false,true}) {
+  auto &value=gems?party.serviceEconomy->bank.gems:party.serviceEconomy->bank.gold;
+  XeenRestoreGuard guard(world,party,camera,flags);
+  ++value;--value;require(!guard.current(),"shared bank scalar ABA");
+ }
+ {
+  XeenRestoreGuard guard(world,party,camera,flags);const auto before=party.serviceEconomy;
+  party.serviceEconomy.reset();party.serviceEconomy=before;
+  require(!guard.current(),"economy optional reset/reconstruction ABA");
+ }
+ {
+  XeenRestoreGuard guard(world,party,camera,flags);const auto before=*party.serviceEconomy;
+  XeenServiceEconomy changed=before;changed.bank.gold=100;changed.wares[1][3][2][7].state=255;
+  *party.serviceEconomy=changed;*party.serviceEconomy=before;
+  require(!guard.current(),"complete economy assignment ABA");
+ }
+ {
+  XeenRestoreGuard guard(world,party,camera,flags);XeenServiceEconomy other;
+  other.bank.gems=99;
+  using std::swap;swap(*party.serviceEconomy,other);swap(*party.serviceEconomy,other);
+  require(!guard.current(),"complete economy swap ABA");
+ }
+ {
+  party.serviceEconomy.reset();XeenRestoreGuard guard(world,party,camera,flags);
+  party.serviceEconomy.emplace();
+  auto &escaped=party.serviceEconomy->wares[1][3][3][8].frame;
+  ++escaped;--escaped;party.serviceEconomy.reset();
+  require(!guard.current(),"newly inserted economy immediate ABA and removal");
+ }
+ party.serviceEconomy.emplace();party.serviceEconomy->bank.gold=0xfedcba98u;
+ party.serviceEconomy->bank.gems=0x76543210u;party.serviceEconomy->wares[1][3][3][8]={1,2,3,4};
+ const auto expected=party.serviceEconomy;
+ XeenPartyState copied(party);require(copied.serviceEconomy==expected,"party copy economy");
+ XeenPartyState moved(std::move(copied));require(moved.serviceEconomy==expected,"party move economy");
+ XeenPartyState assigned;assigned=party;require(assigned.serviceEconomy==expected,"party copy assignment economy");
+ XeenPartyState movedAssigned;movedAssigned=std::move(assigned);require(movedAssigned.serviceEconomy==expected,"party move assignment economy");
+ XeenPartyState empty;using std::swap;swap(empty,party);
+ require(empty.serviceEconomy==expected&&!party.serviceEconomy,"party swap economy presence and bytes");
+}
 }
 int main() {
  try {
   materializedResources();
+  economyOwners();
   static_assert(!HasRawReferenceConversion<XeenReadOnlyVector<XeenActor>,const std::vector<XeenActor>>::value);
   static_assert(!HasRawReferenceConversion<XeenReadOnlySet<XeenEventIdentity>,const std::set<XeenEventIdentity>>::value);
   static_assert(!std::is_convertible_v<XeenReadOnlyVector<XeenActor>,std::vector<XeenActor>&>);

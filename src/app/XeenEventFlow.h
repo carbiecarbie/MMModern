@@ -110,14 +110,17 @@ public:
 private:
 	struct SmithUi {
 		XeenItemCatalog catalog;
-		enum class Phase { Lobby, Browse, Quote, Result, Departure };
+		enum class Phase { Preparation, Lobby, Browse, Quote, Result, Departure };
 		Phase phase=Phase::Lobby;
 		std::size_t member=0, slot=0;
 		std::string title, feedback;
 		IndexedFrame art;
 	};
 	std::optional<SmithUi> _smithUi;
+	bool _smithSettlement=false, _smithReported=false;
+	std::optional<XeenManualEventResult> _smithTerminalResult;
 	void prepareSmith();
+	IndexedFrame settleSmithEvent();
 	IndexedFrame drawSmith(const IndexedFrame &) const;
 	IndexedFrame handleSmith(const PlayerAction &,std::uint64_t);
 	const XeenEventPublication *_eventPublication = nullptr;

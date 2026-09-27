@@ -65,6 +65,10 @@ public:
 		XeenEncounterState &, const std::vector<std::uint8_t> &, const XeenGameplayContext &,
 		const std::vector<XeenMonsterRecord> &, const XeenEventFile &, std::uint32_t, std::uint16_t,
 		const std::optional<XeenMonsterTreasure> &);
+	static XeenEncounterResult initializeJourney(XeenWorld &, XeenPartyState &, XeenCamera &,
+		XeenEncounterState &, const std::vector<std::uint8_t> &, const XeenGameplayContext &,
+		const std::vector<XeenMonsterRecord> &, const XeenEventFile &, std::uint32_t, std::uint16_t,
+		const std::optional<XeenMonsterTreasure> &, const std::optional<XeenBankBalances> &);
 	static constexpr std::size_t kCapacity = 107;
 	inline static const XeenCamera kEntry{20, 13, 1, XeenDirection::North};
 	// Read-only authorization, including terminal states. Never adopts a revision.
@@ -106,6 +110,14 @@ public:
 		XeenEncounterStop reason) noexcept;
 private:
 	friend class XeenEncounterFlow;
+	// Flow prepares final-owner guard/capture storage from detached values.
+	using FreshPublicationPreparation = std::function<void(const XeenPartyState &,
+		const std::vector<XeenActor> &, const std::optional<XeenJourneyRandomState> &)>;
+	static XeenEncounterResult initializeJourney(XeenWorld &, XeenPartyState &, XeenCamera &,
+		XeenEncounterState &, const std::vector<std::uint8_t> &, const XeenGameplayContext &,
+		const std::vector<XeenMonsterRecord> &, const XeenEventFile &, std::uint32_t, std::uint16_t,
+		const std::optional<XeenMonsterTreasure> &, const std::optional<XeenBankBalances> &,
+		const FreshPublicationPreparation &);
 	static XeenEncounterResult regionalTransition(XeenWorld &, XeenPartyState &, XeenCamera &, XeenEncounterState &,
 		const XeenEventFile &, std::optional<XeenEncounterAction>, std::unique_ptr<XeenRegionalActionCandidate> &);
 	static XeenEncounterResult transition(XeenWorld &, XeenPartyState &, XeenCamera &,

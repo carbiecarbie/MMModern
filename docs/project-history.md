@@ -350,6 +350,19 @@ Historical limitations in those plans describe their recorded boundaries.
   separately, maintainer physical native-SDL acceptance passed. See the
   [Milestone 39 plan](milestone-39-plan.md#final-acceptance).
 
+## M40 - Bounded service-day continuation
+
+- Added repeated admitted Ironworks repair across bounded same-year service
+  days, complete two-side/eight-shop merchant generation, shared party bank
+  balances and stock regeneration/interest with atomic departure and world RNG.
+- Added envelope-v4 schema 9/content 11 exact economy/service-day save/restart,
+  retaining M39 combat casting and legacy 8/9 and 8/10 behavior. Complete
+  mutation/clock guards preserve monotonic integrity failure, including ABA.
+- Build, full 114/114 CTest, original-resource/process continuation and independent
+  technical review including focused re-review passed. Separately, the maintainer
+  completed physical native-SDL repeated repair, restart and later casting
+  acceptance. See the [Milestone 40 plan](milestone-40-plan.md#final-acceptance).
+
 ## Maintaining this history
 
 Add one short section with 2-4 lasting-result bullets per completed milestone

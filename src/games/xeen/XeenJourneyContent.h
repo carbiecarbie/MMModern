@@ -7,7 +7,8 @@
 #include <stdexcept>
 namespace mmodern {
 inline bool xeenSupportedJourneyPair(std::uint16_t schema, std::uint16_t contract) noexcept {
-	return (schema >= 1 && schema <= 8 && schema == contract) || (schema == 8 && (contract == 9 || contract == 10));
+	return (schema >= 1 && schema <= 8 && schema == contract) ||
+		(schema == 8 && (contract == 9 || contract == 10)) || (schema == 9 && contract == 11);
 }
 struct XeenJourneyActorAdmission {
 	unsigned record, resourceId, profileImage;
@@ -30,14 +31,15 @@ struct XeenJourneyContent {
 	std::uint16_t day;
 	bool manualObjective;
 	XeenMovement::Capabilities traversal{};
-	bool combatCasting() const noexcept { return contract == 10; }
+	bool serviceDays() const noexcept { return contract == 11; }
+	bool combatCasting() const noexcept { return contract == 10 || serviceDays(); }
 	bool armorRepair() const noexcept { return contract == 9 || combatCasting(); }
 	bool consequences() const noexcept { return (contract >= 4 && contract <= 8) || armorRepair(); }
 	bool disengagement() const noexcept { return (contract >= 5 && contract <= 8) || armorRepair(); }
 	bool connectedRecovery() const noexcept { return contract == 6 || learnedCasting(); }
 	bool learnedCasting() const noexcept { return contract == 7 || vertigo(); }
 	bool vertigo() const noexcept { return contract == 8 || armorRepair(); }
-	std::uint16_t schema() const noexcept { return armorRepair() ? 8 : contract; }
+	std::uint16_t schema() const noexcept { return serviceDays() ? 9 : armorRepair() ? 8 : contract; }
 	bool vertigoCell(int x, int y) const noexcept {
 		return vertigo() && ((x == 15 && y >= 0 && y <= 4) ||
 			(x == 16 && y >= 1 && y <= 4) || (y == 4 && x >= (armorRepair() ? 8 : 13) && x <= 14));
@@ -87,6 +89,8 @@ inline const XeenJourneyContent &xeenJourneyContent(std::uint16_t contract) {
 	if (contract == 9) return ironworks;
 	static const XeenJourneyContent combatCasting{10,regional.entry,regional.records,19,8,false};
 	if (contract == 10) return combatCasting;
+	static const XeenJourneyContent serviceDays{11,regional.entry,regional.records,19,8,false};
+	if (contract == 11) return serviceDays;
 	throw std::invalid_argument("Unsupported Journey content contract");
 }
 struct XeenJourneyRandomState {

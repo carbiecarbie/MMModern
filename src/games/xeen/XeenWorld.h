@@ -183,7 +183,7 @@ public:
 	XeenWorld &operator=(const XeenWorld &) = delete;
 	const XeenSessionWorldState &sessionState() const { return _sessionState; }
 	bool regionalContract8() const noexcept {
-		return (_sessionState._journeyContract==8 || _sessionState._journeyContract==9 || _sessionState._journeyContract==10) && (_sessionState.journey() || _detachedEventCandidate);
+		return (_sessionState._journeyContract==8 || _sessionState._journeyContract==9 || _sessionState._journeyContract==10 || _sessionState._journeyContract==11) && (_sessionState.journey() || _detachedEventCandidate);
 	}
 	// Irreversible safety marker, including failed preparation. No clear/reset API.
 	void markEncounterSession() noexcept { XeenMutationWatch::write(this);_sessionState._encounterMarked = true; }

@@ -478,6 +478,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                 assets.readInitialResource("maze0023.mob"),assets.readInitialResource("maze0023.evt"));
         };
         services.resources.loadInitialPurse = [&] { return XeenCharacterFormat::parseMonsterPurse(assets.readInitialResource("maze.pty")); };
+        services.resources.loadInitialBankBalances = [&] { return XeenCharacterFormat::parseBankBalances(assets.readInitialResource("maze.pty")); };
         services.resources.loadInitialRegionalRecovery = [&] { return XeenQuestFlagFormat::parseRegionalRecovery(assets.readInitialResource("maze.pty")); };
         services.resources.loadInitialContext = [&] { return XeenGameplayContextFormat::parse(assets.readInitialResource("maze.pty")); };
         services.resources.loadMonsterStatistics = [&] {

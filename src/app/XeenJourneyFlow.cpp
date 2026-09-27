@@ -27,6 +27,7 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 	const auto recovery=setup.regionalRecovery;
 	const auto regionalText=setup.regionalText;
 	const auto learnedNames=setup.learnedNames;
+	const auto bank=setup.bank;
 	_journeyEvents = setup.events;
 	_vertigoManifest = setup.vertigoManifest;
 	_journeyCapture.reset(new XeenJourneyCapture(w,p,c,_state,_boundary,_busy,_journeyPreimage));
@@ -51,6 +52,17 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 		w._sessionState._journeyActivity = XeenJourneyActivity::Attachment;
 		w._combatCheck = [this] { _journeyPreimage->check(); };
 		retainJourney();
+		std::shared_ptr<XeenRestoreGuard> publishedPreimage;
+		const XeenActorApproach::FreshPublicationPreparation preparePublication=[&](const XeenPartyState &candidate,
+			const std::vector<XeenActor> &actors,const std::optional<XeenJourneyRandomState> &random) {
+			_journeyPreimage->check();
+			auto prepared=std::make_shared<XeenRestoreGuard>(w,p,c,flags);
+			prepared->retainResources(*_journeyPreimage);
+			prepared->prepareFreshJourneyPublication(candidate,actors,contract,seed,random);
+			_journeyCapture->admittedActors=actors;
+			_journeyPreimage->check();
+			publishedPreimage.swap(prepared);
+		};
 		{
 			XeenRestoreGuard::Providers providers(*_journeyPreimage,w);
 			if (contract>=3) {
@@ -58,16 +70,17 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 				manifest(w.map(23),w.objectFile(23),_events,_journeyStatistics);
 				_journeyPreimage->check();
 			}
-			_result = xeenJourneyContent(contract).consequences() ? XeenActorApproach::initializeJourney(w,p,c,_state,characters,context,
-				_journeyStatistics,_events,seed,contract,purse) : XeenActorApproach::initializeJourney(w,p,c,_state,characters,context,_journeyStatistics,_events,seed,contract);
+			_result = XeenActorApproach::initializeJourney(w,p,c,_state,characters,context,
+				_journeyStatistics,_events,seed,contract,purse,bank,preparePublication);
 		}
 		w._combatCheck = {};
-		_journeyCapture->admittedActors = w.sessionState().actors();
+		_journeyPreimage.swap(publishedPreimage);
 		auto &s = w._sessionState;
 		s._journeyOwner = this; s._combatApproachState = &_state;
 		s._journeyActivity = XeenJourneyActivity::Presentation;
 		++s._journeyGeneration; ++_generation;
-		retainJourney();
+		_journeyPreimage->adoptJourneyCoordination();
+		_journeyCapture->generation=_boundary.generation();
 		w._journeyCapture = _journeyCapture;
 	} catch (...) { closeJourney(); throw; }
 }

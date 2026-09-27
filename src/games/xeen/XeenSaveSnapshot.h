@@ -75,6 +75,7 @@ struct XeenSaveJourney {
 	std::optional<std::vector<XeenSaveJourneyActor>> vertigoActors;
 	std::optional<XeenMonsterTreasure> treasure;
 	std::optional<XeenRegionalRecoveryState> regionalRecovery;
+	std::optional<XeenServiceEconomy> serviceEconomy;
 };
 
 struct XeenSaveSnapshot {

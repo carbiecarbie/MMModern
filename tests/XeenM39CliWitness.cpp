@@ -94,6 +94,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract) {
     const auto branch=env("MMODERN_M39_BRANCH","A"),stage=env("MMODERN_M39_STAGE","fresh"),control=env("MMODERN_M39_CONTROL");
     if((branch=="legacy" || branch=="legacy8") && !resume)contract=branch=="legacy8"?8:9;
+    else if(!resume && contract==11)contract=10; // Keep the M39 witness in its accepted legacy domain.
     if(resume) {
         castBegins=castResponses=castServices=0;
         replay_test::journeyInitializations=replay_test::journeyConstructions=0;

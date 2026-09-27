@@ -93,7 +93,7 @@ int Application::journeyExpedition(const std::filesystem::path &directory, std::
 }
 int Application::journeyRegion(const std::filesystem::path &directory, std::optional<std::uint32_t> seed,
   std::optional<std::filesystem::path> save) const {
- return gameplay(directory,xeenJourneyContent(10).entry,save,false,XeenEncounterEntry::Journey,seed,10);
+ return gameplay(directory,xeenJourneyContent(11).entry,save,false,XeenEncounterEntry::Journey,seed,11);
 }
 int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera camera,
   const std::optional<std::filesystem::path> &target, bool resume, XeenEncounterEntry entry, std::optional<std::uint32_t> seed,
@@ -114,6 +114,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   if (supplied.resources.loadInitialContext) services.resources.loadInitialContext = [&] { return callback(supplied.resources.loadInitialContext); };
   if (supplied.resources.loadMonsterStatistics) services.resources.loadMonsterStatistics = [&] { return callback(supplied.resources.loadMonsterStatistics); };
   if (supplied.resources.loadInitialPurse) services.resources.loadInitialPurse = [&] { return callback(supplied.resources.loadInitialPurse); };
+  if (supplied.resources.loadInitialBankBalances) services.resources.loadInitialBankBalances = [&] { return callback(supplied.resources.loadInitialBankBalances); };
   if (supplied.resources.loadInitialRegionalRecovery) services.resources.loadInitialRegionalRecovery = [&] { return callback(supplied.resources.loadInitialRegionalRecovery); };
   if (supplied.texts) services.resources.loadRegionalText = [&](XeenMapIdentity id) { return callback([&] { return supplied.texts(id); }); };
   services.compose = [&](auto &w, const auto &p, const auto &c, auto phase) { return callback([&] { return supplied.compose(w,p,c,phase); }); };
@@ -171,6 +172,10 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    journeySetup.emplace(XeenJourneySetup{journeyCharacters,services.resources.loadInitialContext(),journeyStatistics,encounterEvents,value,journeyContract.value_or(1)});
    journeySetup->regionalManifest=services.resources.regionalManifest;
    journeySetup->vertigoManifest=services.resources.vertigoManifest;
+   if (xeenJourneyContent(journeySetup->contract).serviceDays()) {
+    if (!services.resources.loadInitialBankBalances) throw std::invalid_argument("Missing original bank provider");
+    journeySetup->bank=services.resources.loadInitialBankBalances();
+   }
    if(xeenJourneyContent(journeySetup->contract).consequences()) {
     if(!services.resources.loadInitialPurse) throw std::invalid_argument("Missing original purse provider");
     journeySetup->purse=services.resources.loadInitialPurse();

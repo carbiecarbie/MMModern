@@ -2,19 +2,14 @@
 
 ## Status, baseline and scope
 
-**Specification candidate for independent review. Implementation is not authorized
-by this document.** M39 is closed; M40 is the approved immediate successor and
-M41 Training remains subsequent, separately authorized work. This plan resolves
-the targeted investigation and defines the implementation/acceptance contract.
-It does not record M40 gameplay acceptance.
-
-The inspected MMModern baseline is
-`0760a6b8fcdfd5b42dd1e95082ed5c7320216572`, `Complete Milestone 39 bounded combat
-casting`. The initial gate established `main`, identical HEAD, local
-`refs/remotes/origin/main` and direct `git ls-remote` main, an empty index and a
-clean worktree. [Project status](project-status.md) establishes M39's stable
-implemented capabilities; [roadmap M40](roadmap.md#m40---bounded-service-day-continuation)
-establishes accepted direction. This candidate changes neither source.
+**COMPLETED AND ACCEPTED.** This closed plan is the technical home for M40's
+implemented service-day, economy, RNG and persistence contract. It builds on
+M39's completed combat casting and the implementation specification committed as
+`f39d82772783b7cd0d0c3ac3e74c4df16139dfbe`, `Define Milestone 40 service-day
+continuation`. [Project status](project-status.md) owns the stable snapshot;
+[project history](project-history.md) owns chronology. M41 Training is the next
+[roadmap unit](roadmap.md#near-term), requiring separate planning/specification
+and implementation authorization.
 
 M40 enables repeated admitted Ironworks armor repair through **daytime,
 same-year, script-driven one-day service operations**, including all mandatory
@@ -32,11 +27,10 @@ quests/regions and M41 implementation. In particular, do not admit Temple's
 separate two-day call. Numeric Darkside stock does not admit Darkside gameplay.
 No new reference-engine dependency or commercial-data modification is needed.
 
-The investigation found no roadmap trigger requiring a scope change: neither
-player access to generated items, another temporal mode, state outside the
-same-year domain nor a new acquisition/recovery system is necessary. Two genuine
-broken armor records and the existing purse suffice for useful repeated repair;
-the continuation diagnostic below establishes surviving play opportunities.
+Two genuinely broken armor records and the existing purse establish useful
+repeated repair and surviving play opportunities without item acquisition or
+new recovery. M40 established no roadmap replanning trigger; the accepted broad
+review remains after M41.
 
 ## Evidence and provenance
 
@@ -46,19 +40,13 @@ Evidence labels used below:
   `6814ee9ba54582f5b5adcffab49efbbd8f589edd`, not a claim of observed DOS execution.
 - **Resource:** read-only observations from the original installation through the
   existing archive adapter, not a player's mutable save.
-- **Baseline:** implemented MMModern code/tests at the SHA above.
-- **Diagnostic:** isolated numerical/reference checks, original-initialization
-  baseline execution, or explicitly artificial continuation probes.
-- **Decision/requirement:** the future MMModern contract, subject to independent
-  specification review and later implementation acceptance.
+- **Inherited behavior:** accepted M38 repair/route and M39 casting contracts.
+- **Diagnostic:** independent numerical/reference or synthetic controls, distinct
+  from production play and maintainer physical acceptance.
+- **Contract:** implemented MMModern decisions and required maintenance invariants.
 
-The configured paths were discovered in `build/CMakeCache.txt`:
-`SCUMMVM_SOURCE_DIR=D:/Projetos/MModern/scummvm-known-good-candidate` and
-`SCUMMVM_BUILD_DIR=D:/Projetos/MModern/build-scummvm-6814ee9b-ucrt64`.
-The source HEAD matched the dependency pin and its status was empty. A
-command-local `safe.directory` exception allowed read-only Git inspection under
-the sandbox identity; no Git configuration or dependency file was changed.
-The authoritative dependency configuration remains [dependencies.md](dependencies.md).
+The authoritative dependency pin and configuration remain in
+[dependencies.md](dependencies.md); M40 adds no runtime reference-engine access.
 
 | Source relative to the pinned ScummVM checkout | Decisive symbols/facts |
 | --- | --- |
@@ -82,7 +70,7 @@ commercial resource bytes. Item names remain under the existing catalog policy.
 The inherited route, original Event graph, art and appearance resource manifest
 belong in [M38 evidence](milestone-38-plan.md#evidence-and-provenance) and
 [M38 route](milestone-38-plan.md#exact-route-event-graph-and-city-consequences).
-Their revalidation is required; no new region manifest is introduced.
+M40 retains and revalidates those resources; no new region manifest is introduced.
 
 ### Original initialization facts
 
@@ -92,7 +80,7 @@ The adapter reconstructs the original initial archive from `XEEN.CC` chunks
 `maze.pty` supplies party inputs. Do not read `XEEN.CUR` or user saves for fresh
 initialization.
 
-Read-only planning observations reconfirmed:
+Read-only original-resource observations:
 
 | Decoded original member | Observation |
 | --- | --- |
@@ -155,7 +143,7 @@ regenerate/apply interest even when its destination is not `1 mod 10`; two
 separate 1440 calls do not acquire that property. Never coalesce separate service
 operations, substitute `changeTime(1440)`, replay movement steps, or loop over
 each skipped day to add uncalled resets/interest. Multi-day calls are outside
-M40 admission, although this distinction needs reference-boundary tests.
+M40 admission; reference-boundary tests retain this distinction.
 
 For the admitted script operation, minute of day and `ctr24` are unchanged;
 year is unchanged; `newDay` is set and cleared within the operation, leaving
@@ -202,12 +190,12 @@ unsupported-boundary behavior remain intact.
 
 ### Sole owners
 
-Add a domain-specific optional `serviceEconomy` value to `XeenPartyState`, with
+`XeenPartyState` owns a domain-specific optional `serviceEconomy` value, with
 two fixed components: `wares` and `bank`. Presence is required exactly for
 content 11 and absent in every legacy/ordinary/diagnostic domain. Use existing
 `XeenMutableOptional`, observed scalar/item fields and fixed arrays; no registry,
 shop actor, second purse or general economy owner is introduced.
-Name the value types `XeenServiceEconomy`, `XeenMerchantWares` and
+The value types are `XeenServiceEconomy`, `XeenMerchantWares` and
 `XeenBankBalances`; the latter two are members of the first, not additional
 independently published owners.
 
@@ -249,7 +237,7 @@ are made. For example, level 1 cannot produce accessories, nonzero equipment
 material, armor IDs 8..13 or weapon effectiveness. Level 6 cannot produce
 Miscellaneous or weapon IDs 30..33.
 
-A bounded, deterministic validator can use a Boolean dynamic program over the
+A bounded, deterministic validator uses a Boolean dynamic program over the
 twenty-call sequence and four consumed-prefix counters (each 0..8). Start with
 all counters zero. For the next level, a category transition either consumes
 its next serialized occupied record if `possible` holds, or discards one
@@ -269,16 +257,15 @@ new equipment effects from merchant records.
 
 ### Fresh prepared Journey lifecycle
 
-Leave `XeenPartyLoader::loadInitialCloudsParty/loadFromResources` ordinary loading
-free of merchant/bank injection and RNG. Extend the existing explicit Journey
-setup/resource boundary with checked original bank input, obtained from the
+`XeenPartyLoader::loadInitialCloudsParty/loadFromResources` ordinary loading
+remains free of merchant/bank injection and RNG. The explicit Journey
+setup/resource boundary supplies checked original bank input, obtained from the
 same original PTY identity at offsets 646/650. Detach the returned bytes/value
 before any further provider callback. Require the supported original PTY
 identity/extent (812 bytes, CRC32 `866d0ff1`) and its zero initial balances;
-malformed/truncated/mismatched
-inputs fail initialization. Do not require or import a side-1 initial-stock
+malformed/truncated/mismatched inputs fail initialization. Do not require or import a side-1 initial-stock
 tail. Read-only initial Clouds zeros establish provenance, not offers to keep.
-Add the narrow `XeenCharacterFormat::parseBankBalances` parser and an explicit
+The narrow `XeenCharacterFormat::parseBankBalances` parser supplies an explicit
 checked bank input in `XeenJourneySetup`/the existing save-resource provider
 boundary. It reads these two u32 fields; it does not deserialize initial wares
 or mutate a party. Only fresh content 11 consumes this initialization input.
@@ -304,7 +291,7 @@ For fresh content 11, in this order:
    overwrite that cursor with `{seed,0}` afterward.
 5. Complete existing initial presentation/attachment obligations before Quiet.
 
-The seed is sampled once per new Journey attempt, as today; menu entry, retries,
+The seed is sampled once per new Journey attempt; menu entry, retries,
 restore and cosmetics never reseed it. If initialization fails, there is no
 usable partially initialized owner graph or salvageable quiet save. Detached
 work may be abandoned and fresh unpublished destinations discarded. A retry
@@ -499,9 +486,9 @@ static-service presentation contract.
 
 **Reuse decision:** retain `XeenMonsterDropCandidate`'s existing bounded logic.
 Reuse item byte types, checked RNG/consequence servicing and small pure numeric
-helpers only where exact semantics agree; add a separate merchant item candidate
-for the broader reason-0 generation. Do not replace the legacy drop state
-machine wholesale. Baseline Orc production first draws drop chance `U[1,100]`
+helpers only where exact semantics agree. A separate merchant item candidate
+handles the broader reason-0 generation. The legacy drop state machine remains
+unchanged. Legacy Orc production first draws drop chance `U[1,100]`
 (<=10), then level-1 C/S, base ID, unconditional E; Miscellaneous additionally
 draws special/charges but is deliberately lost as
 `ReferenceMiscellaneousDropLoss`. Other capacity losses, pending-source proofs,
@@ -511,7 +498,7 @@ lock both traces even if a helper is factored.
 
 ### Independently checkable numerical vectors
 
-Planning compared an independent Python transcription against the **exact
+An independent Python transcription was compared against the **exact
 pinned `Character::makeItem` function** compiled in an isolated minimal harness
 with MMModern's specified RNG conversion, plus the pinned stock-loop counts.
 All 1152 stock bytes and final state/count agreed for the following seeds.
@@ -579,8 +566,8 @@ these are not seeded raw tapes) provide small branch oracles:
 | 6: C=100, S=80, `U[8,10]=10`, E=100, attribute selector=100, `U[7,10]=10` | Accessory `(130,10,0,0)`; S request is `[0,80]`, not `[0,100]` |
 | 5: C=100, S=100, `U[1,9]=9`, E=1, `U[51,60]=60`, `U[1,8]=8` | Miscellaneous `(9,60,8,0)`; E is consumed but does not select its type |
 
-These supplement, rather than replace, threshold-adjacent tapes for every row
-and branch in the validation matrix.
+These supplement threshold-adjacent tapes for every row and branch in the
+maintenance validation boundary.
 
 ## Bank interest
 
@@ -608,17 +595,16 @@ can compute interest again, but only one admitted departure may publish it.
 
 ## Coordination, publication and failure
 
-### Existing owners and proposed narrow interfaces
+### Existing owners and narrow interfaces
 
-Extend the Ironworks coordinator in `src/app/XeenSmithFlow.cpp`, its existing
+The Ironworks coordinator in `src/app/XeenSmithFlow.cpp` uses the existing
 `SmithContinuation` and `Work::Service`/Event/Presentation leases. EventFlow owns
 the original dispatch and menu; EncounterFlow owns reservation and publication;
 the party owns context/economy/roster; the world owns RNG, retained actors and
 session state. Pure candidate values grant no authority. Do not introduce a
 parallel transaction coordinator, calendar owner or generalized service registry.
 
-Use a narrow checked one-day script-service `XeenServiceDayCandidate`
-containing the exact original context/economy/RNG
+The checked one-day script-service `XeenServiceDayCandidate` contains exact context/economy/RNG
 preimages, ending context, detached economy and cursor, stock progress, and
 complete/triggered facts. Its preparation/service APIs operate on detached
 values, expose immutable observations, and cannot publish. `beginSmith`, idle
@@ -719,10 +705,10 @@ fencing and the inherited semantic-epoch/concrete-frame distinction.
 
 ### Full guards and mutation observation
 
-Extend **the existing** `XeenRestoreGuard`, combat `PartyPreimage`/`exact`,
-capture guards and restore final-destination preimages with complete economy
-presence/values, every physical item byte and bank scalar. Include this in party
-copy/move/swap and private publication paths, equality utilities and snapshots.
+The existing `XeenRestoreGuard`, combat `PartyPreimage`/`exact`, capture guards
+and restore final-destination preimages include complete economy presence/values,
+every physical item byte and bank scalar. Party copy/move/swap, private
+publication paths, equality utilities and snapshots preserve this state.
 No broad whole-party reassignment may bypass marked-roster/borrow restrictions.
 
 The checked graph still contains all thirty roster owners, books, supplements,
@@ -734,8 +720,8 @@ service cannot ignore inactive characters or mainland actors.
 
 Use fixed inline economy arrays so all nested storage is within the observed
 party range; use observed `XeenItem` bytes and bank scalars, including assignment,
-reset, replacement and swap. If storage is materialized elsewhere during
-implementation, extend the existing `XeenMutationWatch::prepareOwned/addOwned`
+reset, replacement and swap. If future changes materialize storage elsewhere,
+extend the existing `XeenMutationWatch::prepareOwned/addOwned`
 insertion/reconstruction handshake before any reference escapes. Registering
 only at the next `current()` call is too late. Newly reconstructed Map/MOB/Event
 nested storage retains the same requirement. Never clear another observer's
@@ -759,18 +745,26 @@ changes. Never renew a guard from arbitrary callback-mutated live values.
 Prepared guards must bind final owner addresses before fresh/restore references
 escape, including newly engaged optional stock storage.
 
+Both scheduling and cosmetic combat clock callbacks check complete retained
+preimages and mutation history before and after invocation, including exceptional
+exits. Bank gold/gems, any stock byte and economy reset/reconstruction cannot
+mutate and revert undetected. Integrity failure is monotonic across combat
+presentation, guard replacement, retry and cache reconstruction; equal later
+values cannot restore gameplay, Quiet or F9 authority. Authorized callback-free
+combat publications renew only their checked mutation boundary.
+
 ## Persistence and compatibility
 
 ### Exact version choice
 
 Keep **envelope version 4**: its existing magic, 20-byte header, Clouds side,
 reserved zero byte, payload length/CRC32 and bounded base save are sufficient.
-Choose **Journey schema 9 / content 11**. Schema 9 is necessary because complete
-stock and bank do not fit schema 8; content 11 identifies the new initialization,
-time, RNG and gameplay semantics. This is unrelated to the milestone number.
+The final choice is **Journey schema 9 / content 11**. Schema 9 is necessary
+because complete stock and bank do not fit schema 8; content 11 identifies the
+new initialization, time, RNG and gameplay semantics. This is unrelated to the milestone number.
 Do not create envelope 5, schema 40, or silently reinterpret 8/10.
 
-The supported-pair set becomes exactly `{1/1,2/2,3/3,4/4,5/5,6/6,7/7,8/8,
+The supported-pair set is exactly `{1/1,2/2,3/3,4/4,5/5,6/6,7/7,8/8,
 8/9,8/10,9/11}`. Preserve ordinary v1/v2 and completed v3 domain behavior and
 existing envelope-v4 legacy representations. Unsupported pairs, including
 9/9, 9/10, 8/11 and 10/11, reject. No migration, backfill, old-save generation,
@@ -804,9 +798,9 @@ With N combined occupied pending monster items (inherited N<=12), exact suffix
 sizes are `4278+5*N` without city, `5156+5*N` with 46 city actors, and
 `5270+5*N` with 52 city actors; maximum **5330**. The whole-file bound remains
 4 MiB. Schema-8 formulas/bounds remain `3114/3992/4106 + 5*N`, maximum 4166.
-Legacy schema-1/2 fixed sizes and schema-3..7 rules stay unchanged. Update the
-decoder's initial suffix envelope bound and exact schema-specific extent checks;
-do not merely widen the upper bound and leave trailing interpretation ambiguous.
+Legacy schema-1/2 fixed sizes and schema-3..7 rules stay unchanged. The decoder
+enforces both the initial suffix envelope bound and exact schema-specific extent
+checks; widening the upper bound alone cannot admit trailing interpretation.
 
 Validate the pair before selecting wire features. Retain all base/actor/treasure
 cross-owner canonical checks; apply the new date and stock canonical predicates.
@@ -817,37 +811,20 @@ flag-9 semantics, dormant actors/treasure and original actor closure. Validate
 bank as exact u32, without enforcing zero on restore. Do not validate generated
 stock using equipped-party consumer restrictions or add its effects to party AC.
 
-### Capability and equality audit required by the representation
+### Explicit capability and representation gates
 
-Adding a supported pair alone is incorrect. At the baseline:
+`XeenJourneyContent` explicitly admits service days only for content 11, combat
+casting for 10/11, Armor Repair for 9/10/11, and schema 9 only for 11. City
+geometry/actors/transitions include 11 through the inherited Vertigo capability;
+poison inputs and city wire features exist in supported schemas 8 and 9. Known
+pair validation precedes representation feature checks. Calendar validation
+separates legacy day 8..10 from content-11 day 8..99.
 
-- `XeenJourneyContent::combatCasting()` is exact `contract==10`;
-  `armorRepair`, `vertigo`, `learnedCasting`, recovery/consequence/disengagement
-  capability chains and `schema()` depend on it. Add explicit content-11
-  capabilities, a service-day capability, and return schema 9 for 11.
-- `XeenWorld::regionalContract8()` explicitly lists 8/9/10. Its city geometry,
-  actor and transition users must also include the admitted successor, retaining
-  exact pair validation rather than admitting arbitrary `>=8` contents.
-- `XeenSaveFormat.cpp` uses exact `schema==8` for poison presence, city legality,
-  city overlays, encoding, decoding, treasure-tail extent and suffix length.
-  Replace these with explicit supported representation features (8 or 9 after
-  pair validation), with schema-specific lengths. Learned-book/recovery/resistance
-  `>=` branches must remain gated by the known pair set.
-- `XeenJourneyRules.cpp`, `XeenArmorRepair.h` and codec calendar validation use
-  day<=10 for repair domains. Split legacy 9/10 limits from content-11 limits.
-- `XeenParty.cpp` copy/move/swap/private restore publication;
-  `XeenSaveSnapshot.h`; `XeenSaveState::capture/restoreJourney`; detached Event
-  candidates; `XeenRestoreGuard` construction/current/prepared publication;
-  and combat `PartyPreimage`/`exact` must all carry/compare economy presence and
-  bytes, including untouched values through combat/casting/repair.
-- Fresh setup in `XeenGameplay.cpp`, `XeenJourneyFlow.cpp`,
-  `XeenActorApproach::initializeJourney`, setup/resource provider structures and
-  Application providers must agree on bank input and post-generation RNG.
-
-Search the touched code for other exact schema/content checks during
-implementation; this list is a verified set of required fixes, not permission
-to broaden all inequalities mechanically. Existing path names containing
-`Contract8` may remain where their meaning is inherited city capability.
+Party copy/move/swap, detached Event and disengagement candidates, combat
+preimages, capture, restoration and final-owner guards all preserve complete
+economy presence/bytes. Fresh setup carries checked bank input and publishes
+the post-generation RNG. Existing names containing `Contract8` denote inherited
+city capability, not permission for arbitrary schema/content inequalities.
 
 ### Quiet capture and fresh-owner restore
 
@@ -877,47 +854,23 @@ actors. Content 10 remains combat-capable but cannot cross its day-10 service
 gate. Content 9 retains combat-C refusal. Use explicit regression captures and
 fresh-process restores for both, not just a successor save test.
 
-## Production witness and planning feasibility
+## Production acceptance boundary
 
 ### Evidence boundary
 
-Planning executed the existing `mmodern_m38_cli_witness` from original resources,
-seed 7, with `MMODERN_M38_CONTENT10=1`, software SDL/dummy display. It passed
-its real original-initialization injury/repair/day-10 path. This is **baseline
-diagnostic evidence**, not maintainer physical acceptance or an M40 day-11 test.
+The accepted production witness uses original fresh inputs, normal
+Application/Flow/SDL work and concrete presented controls. It creates no items,
+funds, wounds, actors or recovery through owner edits. Automated deterministic,
+original-resource/process, independent-review and maintainer physical evidence
+remain distinct; synthetic fault/arithmetic controls cannot substitute for play.
 
-The numeric seed **3626689381** was found by inverting xorshift steps and testing
-complete stock generation; the exact pinned-function comparison above verified
-that it ends at state **7**, count **886**. Therefore the existing baseline
-seed-7 action prefix has identical subsequent accepted/random values in content
-11, with count shifted by 886, provided the specified fresh initialization is
-implemented. This is a derived, independently checkable prediction, not a
-post-initialization overwrite of the live RNG. Plain seed 7 would instead start
-play at state 1652828136 and must not use M38's old checkpoints.
+Seed **3626689381** produces the independently checked fresh stock vector and
+post-generation cursor **(7,886)**. This preserves M38's seed-7 gameplay prefix
+with count shifted by 886; it is actual generation, not a live cursor overwrite.
+Plain seed 7 instead starts play at state 1652828136. Earlier artificial
+feasibility diagnostics are not part of production acceptance.
 
-An additional **artificial detached continuation diagnostic** used a copy of the
-baseline's genuinely repaired 8/10 day-10 snapshot. Before restore, only its RNG
-field was set to the independently calculated post-restock `(3686439625,2109)`;
-the existing codec/checksum validated the file. The diagnostic then restored
-fresh owners and sent ordinary frame-bound movement/spell inputs. It did not
-edit live owners, implement service time/stock/bank, admit day 11 to content 10,
-or become the production witness. Its day remained 10. The temporary input
-driver reused production Application/Flow/SDL from the existing configured-build
-libraries; it added no gameplay logic. These pre-existing build artifacts were
-not a new all-target build at the baseline SHA. Their diagnostic results are
-corroborating evidence alongside current source inspection, not M40 production
-acceptance.
-
-This diagnostic established the exact post-stock route below at the old date,
-including surviving combat use of all three M39 spells. The specified service
-day is inert to that same-year daytime combat/route except for stocks/bank and
-the already supplied RNG cursor. The corridor walk has no contact or draw, so
-moving the second already-confirmed repair from before to after that walk does
-not alter its demonstrated continuation. This gives a concrete feasibility
-argument while leaving actual 9/11 integration and day-11 execution to future
-acceptance.
-
-### Deterministic required route
+### Deterministic accepted route
 
 Use `U` forward, `D` backward, `L/R` turn, `F` Shoot; each character means a
 separate fresh presented input, with inherited mandatory work drained between
@@ -981,15 +934,13 @@ items, HP/SP, conditions, books, actors, camera, date or RNG to meet a checkpoin
     Mainland state and stock/bank are retained. Capture/restore E too, then
     perform identical further navigation (e.g. `LR`) to prove continued input.
 
-Values in steps 1 and 4..11 with content 11/new dates are **derived M40 expected
-checkpoints**, not results from an unimplemented binary. The isolated diagnostic
-matched steps 7's navigation and 9..11's gameplay fields at day 10 with both
-repairs already paid. Stock is never transferred to characters. Several mainland
-actors remain alive (all except the initial Orc 9 in this route); original city
-exit/reset supplies the later legitimate Slime life. No new spawn mechanism is
-needed. The route remains well below dusk or the next 960-minute condition tick.
+The original-resource/process witness verified checkpoints A-E and exact
+uninterrupted/fresh-process continuation. Stock never transfers to characters.
+Several mainland actors remain alive (all except initial Orc 9 in this route);
+original city exit/reset supplies the later legitimate Slime life. The route
+stays below dusk and the next 960-minute condition tick.
 
-The diagnostic's 71 post-stock raw draws ended with
+The accepted 71 post-stock raw draws end with
 `U[1,50], raw=2018868320, accepted=21, count=2180` for the Slime Arrow.
 First Aid/Awaken publications were at cursor `(1023461121,2143)` and drew
 nothing themselves. For a compact independent trace oracle, canonicalize each
@@ -1022,114 +973,94 @@ value, so this table plus the formula independently determines the digest:
 2176:47:37 2177:2:1   2178:40:15 2179:40:6  2180:50:21
 ```
 
-### Reproducibility and native physical acceptance
+### Reproducibility and native physical boundary
 
-Existing baseline diagnostic command (PowerShell, no source changes required):
+`mmodern_m40_cli_witness` follows the accepted route through production owners;
+`mmodern_service_day_process_tests <witness-executable> <original-installation>`
+orchestrates distinct process incarnations, exact pre-input restore comparisons
+and identical continuation. `mmodern_combat_clock_process_tests` covers both
+combat clock paths and presentation after genuine service/full-exit/restore.
+Synthetic controls are separately labeled. Deterministic seed selection is a
+control, not original game data.
 
-```powershell
-$env:SDL_VIDEODRIVER = 'dummy'
-$env:SDL_RENDER_DRIVER = 'software'
-$env:MMODERN_M38_CONTENT10 = '1'
-& <build>/mmodern_m38_cli_witness.exe --journey-region --combat-seed 7 `
-  'F:/Games/gog/Might and Magic 4-5' --save-file <temporary-save>
+Maintainer physical acceptance uses normal native SDL, with no dummy driver or
+witness/control environment variables:
+
+```text
+mmodern --journey-region --combat-seed 3626689381 <original-installation> --save-file <acceptance-save>
+mmodern --load-game <original-installation> <acceptance-save>
 ```
 
-At implementation, add a dedicated M40 CLI/process witness following the input
-sequence above, derived from M38/M39 harnesses rather than altering legacy
-witness semantics. Name targets `mmodern_m40_cli_witness` and
-`mmodern_service_day_process_tests`; the latter takes `<witness-executable>
-<original-installation>` and orchestrates separate process incarnations and
-isolated saves. Normal fresh invocation uses the chosen seed and existing CLI.
-Synthetic controls are clearly labeled and cannot be used to print a production
-pass for this route. Seed choice is a deterministic control, not original data.
+Actual keyboard-driven repair/payment, repeated departure, navigation, quiet F9,
+complete exit/fresh load and further exploration/combat casting establish the
+physical boundary. Automated SDL input and screenshots do not substitute for
+maintainer play. Normal Escape-in-service departure and window-close behavior
+remain inherited.
 
-For **maintainer physical native-SDL acceptance**, remove dummy-driver and all
-witness/control environment variables, then run:
+## Maintenance validation boundary
 
-```powershell
-& <build>/mmodern.exe --journey-region --combat-seed 3626689381 `
-  'F:/Games/gog/Might and Magic 4-5' --save-file <acceptance-save>
-# Physically follow the route/checkpoints above; save at D and exit fully.
-& <build>/mmodern.exe --load-game `
-  'F:/Games/gog/Might and Magic 4-5' <acceptance-save>
-```
+The contract is maintained by generation/finite-support rules, service-day
+candidates, initialization, codec/mutation tests and original-resource/process
+witnesses. Coverage includes:
 
-The maintainer verifies actual repair/payment/AC, day-11 return, later repair,
-readable admission/departure preparation/refusal feedback, no duplicate actions
-on held/batched keys, modal F9 denial, truthful results, full exit/load and the
-three combat spells/further play. Preserve normal Escape-in-service departure
-semantics and window-close behavior. Automated SDL input, screenshots and this
-planning diagnostic **do not** substitute for that physical acceptance.
+- Literal item/table/request vectors, all 160 calls, capacity discards, complete
+  stock hashes, canonical prefix/order/level rejection and unchanged legacy drops.
+- Raw rejection and singleton draws, 0/1/63/64 budgets, cursor exhaustion,
+  retained/discarded preparation, exact retry and cosmetic-cadence independence.
+- Original fresh bank/stock inputs and final-owner publication, malformed inputs,
+  allocation/callback faults, exact nonzero bank restore and no fresh-provider replay.
+- Every day 8..98 successor, canonical minute/ctr24 endpoints, trigger dates,
+  single-charge reference contrasts, bank rounding/wrap and ordinary time isolation.
+- Independent repair/departure commits, zero-transaction and later triggering
+  visits, reservation/authority exhaustion, settlement failure/retry, native
+  rendering faults, stale/reentrant input and F9 refusal before providers or I/O.
+- Complete economy/owner/resource mutation observation, immediate ABA after
+  insertion/reconstruction, both clock callbacks and exceptional exits, and
+  monotonic failure through presentation/guard replacement.
+- Exact 9/11 wire lengths and shape, malformed/crossed pairs, canonical stocks,
+  retained-city/reset rules, raw learned flags and legacy 8/9 and 8/10 isolation.
+- Genuine A-E repair/navigation/casting, full process exit, exact fresh restore
+  before first input, subsequent gameplay and independent raw/request traces.
 
-## Implementation touchpoints and validation matrix
-
-Keep changes focused on the following existing seams, plus small named pure
-service-economy/item-generation rules and focused tests:
-
-| Area | Required touchpoints |
-| --- | --- |
-| Data/rules | `XeenParty.h/.cpp`, `XeenItem` bytes, `XeenJourneyContent.h`, `XeenJourneyRules.cpp`, `XeenArmorRepair.h`; new fixed economy value and detached one-day/item candidates |
-| Original inputs/setup | `XeenCharacterFormat::parseBankBalances`; `XeenSaveState::Resources`, `XeenJourneySetup`, Application providers, `XeenGameplay.cpp`, `XeenJourneyFlow.cpp`, `XeenActorApproach::initializeJourney` |
-| Runtime coordinator | `XeenSmithFlow.cpp`, `XeenEncounterFlow` service continuation/idle work, EventFlow preparation/phase feedback; existing frame/busy/lease machinery |
-| RNG and drops | Existing `XeenCombatRandom`/`XeenConsequenceDraw` continuation and budget, with merchant candidate; preserve `XeenMonsterTreasure.cpp` legacy production/delivery semantics |
-| Integrity | `XeenRestoreGuard.h`, `XeenMutation.h` only as required by nested-storage enrollment, `XeenCombat.cpp` party preimages/equality, `XeenStateEquality.h`, complete candidate/capture comparators |
-| Persistence | `XeenSaveSnapshot.h`, `XeenSaveState.cpp`, `XeenSaveFormat.cpp`, Journey capture/restoration guards and exact schema/content feature gates |
-| Tests | `XeenArmorRepairTests.cpp`, `XeenSmithProcessTests.cpp`, M38/M39 CLI witnesses as inherited evidence, new service-day/generator/canonical/process coverage, affected Journey/save/combat authority tests |
-
-Do not add merchant behavior to arbitrary PartyLoader callers or change original
-drop rewards to simplify reuse. Durable implementation decisions belong here;
-no second current-work/status document is needed.
-
-| Requirement | Required independent tests/evidence |
-| --- | --- |
-| Complete numeric generation | Literal branch tapes for every category, ID branch and boundary, L1..6, all material/element/attribute rows, specials/charges/effectiveness, inclusive zero endpoints and singleton draws. Verify exact M/ID/state/frame bytes and request order. |
-| Global iteration/capacity | Both numeric sides/all four shops, all 160 ordered calls, level schedules, fresh clearing and replacement of nonzero prior wares, slot-8 zeros, full-category discarded items still drawing to completion. Compare literal counts/hashes above and a separate reference oracle. |
-| Canonical stock validator | Valid generated vectors, all-zero stock rejection, holes/dirty empty/tail/frame/curse/broken corruption, impossible category/level/charge/material combinations and impossible ordering/discard schedules. Verify counts/shape/length before allocation. |
-| RNG continuation | Raw rejection at each generation phase, yields with budgets 0/1/63/64, >64-attempt rejection tapes, exact raw versus accepted counts, final UINT64_MAX draw/exhaustion, retry from prefix and discarded candidate, no duplicate live consumption; changing idle/cosmetic cadence does not change bytes/trace. |
-| Fresh initialization | Original PTY/CHR, all thirty owners, zero bank read versus generated wares, both-side generation before first world RNG use; malformed/truncated bank input, missing resources and allocation/callback faults publish no usable graph. Legacy starts call no economy generator/provider. |
-| Bank arithmetic | Literal zero/nonzero/rounding/wrap vectors, gold/gems independence, repeated arithmetic, once-only interest after generation even at 0/0; generation failure cannot publish bank. No purse/pending-gold interaction. |
-| Time domain | Every day 8..98 departure and ending day 9..99; exact trigger dates; valid minute/ctr24 endpoints 300/1259 and 0/23; changed-day prerequisite and single-charge >1440 reference contrast; unsupported amounts/modes refused. Year/day/context boundaries and day-99 entry reservation refusal. |
-| Ordinary time isolation | Mainland/indoor movement, Wait, Shoot, exploration/combat casting, round/End, 960 processing and dusk/dawn/midnight/support stops unchanged at multiple later days. No actor pulse, Weak/daily reset or HP/SP gain from service days. |
-| Independent repairs/departure | Multiple repairs, insufficient funds/intact/unsupported/cancelled quotes, zero-transaction visits; repair stays paid across departure failure, atomic date/stock/bank/RNG, fixed result/once-only marker, no visitor-wide rollback. |
-| Failure/retry matrix | Fault before/after reservation, admission, each repair, stock completion, bank preparation, before/after departure publication, classification/arrival/Event handoff and final frame. Byte-identical eventual result to uninterrupted execution for recoverable failures; terminal failures preserve prior disk. |
-| Authority and F9 | Stale/copy/foreign/reentrant responses; wrong phase/session/owner/operation/frame, repeat/held/batched native input, resize/expose and presentation failure; assert zero provider/path/I/O calls for every denied save, including pending idle generation and failed settlement. |
-| Mutation then reversion | Every new bank scalar and representative/all-index stock bytes, optional reset/reinsert/swap, nested storage; all thirty roster owners, both regions, context/RNG and immutable inputs. Exercise during service, combat/spells, capture and restore, immediately after new resource insertion/reconstruction before callback return. Failure stays monotonic. |
-| Codec and resource compatibility | Exact 9/11 wire/suffix sizes, all supported legacy pairs, wrong pairs/counts/order/booleans/bytes/bounds/trailing/truncation/checksum; canonical stock corruptions with corrected CRC; incompatible original signatures/manifests/generation constants. Never normalize malformed input. |
-| M39 inheritance | Content 11 Magic Arrow/First Aid/Awaken before/after generating service and restore, exact SP/HP/conditions/books and shared XP/drop/treasure/actor outcomes; synthetic stock->Arrow->Orc-drop vector; content 10 still stops service at day 10; content 9 still refuses combat C. |
-| Production value | Genuine fresh route A..E above with two paid repairs, continued navigation and reset-Slime casting; separate empty-departure and later trigger-day branches. No owner overwrite or manufactured item/funds in this witness. |
-| Distinct processes | Real F9 at A/B/C/D/E as useful, full process exit, fresh load, comparison before first restored input and after identical continuation; process incarnation checks, full durable fields plus exact subsequent raw/request traces. No initialization/time/RNG/service/spell replay before input. |
-| Physical and final acceptance | Native SDL maintainer acceptance, independent technical implementation review, normal all-target build and complete **unfiltered CTest** at implementation closure. Automated/process/visual evidence is separately labeled. |
-
-Process equality must compare resource signature/pair, camera, membership, all
-thirty characters and supplements/books/raw inventories, quest/game flags and
+Process equality compares resource signature/pair, camera, membership, all
+thirty characters, supplements/books/raw inventories, quest/game flags and
 overlays, every actor field in both regions, recovery, context, purse/pending
-treasure, all 288 stock records, both bank balances and RNG algorithm/state/count.
-Require both encoded-byte equality and field-level checks, with independent
-expected traces; using the production generator to calculate its own oracle is
-insufficient. Compare before the first restored input as well as after
-continuation, so replay followed by apparent convergence cannot pass.
+treasure, all 288 stock records, bank balances and RNG algorithm/state/count.
+Encoded-byte equality and field checks accompany independent expected traces;
+replay followed by apparent convergence cannot satisfy the pre-input boundary.
 
-## Planning validation and acceptance boundary
+## Final acceptance
 
-This planning task performed targeted source inspection at the two verified
-pins, read-only original PTY observation, isolated complete generation comparison,
-the existing content-10 M38 original-initialization witness, and the explicitly
-artificial post-generation continuation diagnostic. Temporary source, binaries,
-stock output, saves and logs are removed before handoff; only this plan remains.
-No game implementation, test-suite/configuration change, commercial-data write,
-dependency modification, staging, commit, push or tag is part of the task.
+**M40 is COMPLETED AND ACCEPTED**, within the scope and exclusions above.
 
-For this documentation candidate, validation is full-file review, path/link and
-numeric/contract consistency checks, changed-file/index inspection and
-`git diff --check`; the new untracked file must also be inspected explicitly.
-No build/full CTest is required merely for this prose. Compiling isolated
-diagnostic harnesses above resolved concrete generation/witness uncertainties;
-it does not establish an implementation build or acceptance result.
+- **Automated deterministic/testing evidence:** the normal all-target build and
+  complete unfiltered CTest passed, **114/114**. Generation, time/bank, atomic
+  publication, mutation/failure and persistence controls passed; `git diff --check`
+  passed. Legacy M38/M39 behavior remains compatible.
+- **Original-resource/process evidence:** the dedicated M40 witness passed
+  checkpoints A-E, both genuine paid repairs, zero-transaction departures and
+  further navigation/casting. Quiet save, complete process exit, exact pre-input
+  fresh restore and identical subsequent continuation passed, including retained
+  economy, both regions and RNG. This is separate from physical acceptance.
+- **Independent technical review:** the final implementation is accepted with
+  no remaining findings.
+- **Focused independent re-review:** review of the corrected combat-clock ABA
+  defect returned **ACCEPT**, confirming both scheduling/cosmetic paths,
+  normal/exceptional exits, bank gold/gems, stock-byte
+  and economy reconstruction ABA, monotonic presentation/guard failure and F9
+  closure. Post-service/full-exit/restore/later-combat and healthy clock,
+  presentation and casting coverage passed. The durable guarantee is specified
+  in the guard contract above.
+- **Maintainer physical native-SDL acceptance:** the maintainer physically played
+  the normal seed-3626689381 route without dummy SDL or witness/control variables.
+  Startup/controls, days 8->9->10, day-10 admission and 2-gold repair, day-11
+  navigation/later 1-gold repair, day-12 departure, quiet F9, full application
+  exit and fresh load all behaved as required. Further exploration First Aid,
+  combat First Aid/Awaken/Magic Arrow and exit/re-entry/reset-Slime continuation
+  passed with normal keyboard input. This is maintainer-performed physical
+  acceptance, distinct from automated/process/reviewer evidence.
 
-**Ready for review means specification review only.** Independent review must
-accept this contract before implementation is separately authorized. M40 closure
-later requires the normal build, complete unfiltered CTest, independent technical
-review and maintainer physical SDL acceptance with no unresolved material
-findings. Only then perform the durable closure updates prescribed by
-[AGENTS.md](../AGENTS.md); this planning task changes no stable status/history,
-README or roadmap and grants no M41 implementation authority.
+The final domain is **envelope v4 / schema 9 / content 11**. Generated numeric
+side-1 stock admits no Darkside gameplay. Buy/Sell, Training, Temple and general
+calendar processing remain excluded. Closure grants no M41 planning or
+implementation authorization.

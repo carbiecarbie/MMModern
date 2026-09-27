@@ -68,8 +68,8 @@ std::optional<XeenLearnedSpell> XeenLearnedSpellRules::supported(std::uint8_t id
 }
 
 std::optional<XeenLearnedSpell> XeenLearnedSpellRules::supportedIn(std::uint8_t id, std::uint16_t content, bool combat) noexcept {
-    if (combat) return content==10 ? supported(id) : std::nullopt;
-    if ((content==7 || content==8 || content==9 || content==10) && (id==1 || id==26)) return supported(id);
+    if (combat) return (content==10 || content==11) ? supported(id) : std::nullopt;
+    if ((content==7 || content==8 || content==9 || content==10 || content==11) && (id==1 || id==26)) return supported(id);
     return std::nullopt;
 }
 unsigned XeenLearnedSpellRules::cost(XeenLearnedSpell spell) noexcept {

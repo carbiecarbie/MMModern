@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**Milestone 39 is the latest completed milestone.**
+**Milestone 40 is the latest completed milestone.**
 [Project status](project-status.md) owns implemented capabilities and acceptance
 boundaries; [project history](project-history.md) owns completed chronology.
 Reference provenance belongs to [dependencies](dependencies.md).
@@ -34,6 +34,9 @@ bounded Ironworks Armor Repair, atomic carried-gold/item publication, one-day
 departure and 8/9 continuation ([M38](milestone-38-plan.md)). M39 completed
 combat-owned Magic Arrow, First Aid and Awaken, bounded native feedback and
 exact 8/10 continuation with legacy isolation ([M39](milestone-39-plan.md)).
+M40 completed bounded same-year service-day continuation, complete merchant
+wares/shared bank state, stock regeneration/interest and exact 9/11 continuation
+while retaining M39 casting ([M40](milestone-40-plan.md)).
 These contracts do not certify unrestricted map-23
 or Clouds travel or normal original startup.
 
@@ -67,73 +70,25 @@ consumers and their consequences on existing routes before M41 connects
 progression and the original training refill. Exploration recovery remains
 unchanged; no new service time or route was needed for acceptance.
 
-**M40 is the immediate next roadmap unit; its planning/specification requires
-separate authorization.** M41 remains the following accepted commitment.
-No concrete replanning trigger was identified at M39 closure, so the accepted
-sequence, rationale and post-M41 broad-review cadence remain unchanged.
+**M41 - Vertigo Training and progression is the immediate next roadmap unit.**
+Its planning/specification requires separate authorization; M40 closure does
+not authorize M41 implementation. No M40 result met a replanning trigger, so the
+accepted rationale, provisional consumers and broad review after M41 remain.
 
 ### M40 - Bounded service-day continuation
 
-Remove the day-10 obstacle to repeated admitted Ironworks visits by supporting
-the mandatory consequences of daytime, script-driven service-day advances
-within the current year. This is the prerequisite for M41's useful repeated
-Training/repair loop, not a general calendar framework. Keep ordinary movement
-and combat time admission bounded; exclude overnight adventuring, rest,
-year rollover/aging and new service routes. Reserve any required departure
-before admitting an operation that could exceed the supported date range.
-
-The smallest useful production boundary is real Ironworks repair and subsequent
-adventuring across day 11, a later visit, quiet save, process restart and further
-repair/play. Include zero-transaction departures, but do not accept empty visits
-alone as the gameplay witness. Date, retained actors/items, generated stock,
-bank balances and subsequent world RNG must continue exactly, with no duplicate
-departure or regeneration on failure/retry, revisit or restore. Require native
-SDL acceptance alongside deterministic and process evidence. M38's route and
-guarded publication/Flow ownership are the starting point; M39 remains usable
-through the expanded service-day domain.
-
-The minimum coherent foundation includes party-owned merchant wares and bank
-gold/gems, explicit fresh-domain initialization, stock regeneration, interest,
-and guarded publication with date and world-owned RNG. Reference regeneration
-replaces the fixed wares for both sides' four shops, generating items even when
-a category is already full. The reached stock-generation path covers item
-levels 1-6, materials/enchantments and charges; it is substantially broader than
-the existing bounded monster-drop generator. Preserve the complete reached
-draw sequence, including the other shops and the second side's numeric tables,
-without admitting Darkside gameplay. Reuse suitable checked item/RNG helpers
-without changing legacy monster-drop semantics or adding a merchant RNG owner.
-
-Original bank balances are zero in the inspected initial resources. Interest
-still belongs to the operation and must preserve durable balances; bank UI,
-deposits and withdrawals are unnecessary. New-game stock generation and later
-regeneration are explicit lifecycle operations, never lazy menu or restore
-work. Generated offers can remain unavailable to the player: exclude Buy,
-stock depletion, Sell, new equipment effects and a general transaction/service
-registry. This leaves a concrete foundation for later trading without making
-trading a prerequisite for faithful service time.
-
-Schema 8 has neither merchant wares nor bank balances, so M40 requires a new
-persistence representation and explicit content admission. Specify fresh
-initialization and its RNG position for the prepared Regional Journey domain;
-do not pretend its day-8 start replays normal startup or silently populate old
-saves. Existing domains, including 8/9 and 8/10, retain their original support limits.
-
-The decisive time contract is reference `Party::addTime`: a day-changing call
-regenerates stock and applies bank interest when its resulting day modulo ten
-is one, or when the individual charge exceeds 1440 minutes. Preserve calls,
-not just the final date. In the admitted daytime script-service path, the mode
-suppresses the ordinary daily reset/Weak handling and clears the pending
-new-day marker; this is not a replay of movement's condition ticks, actor
-turns or `changeTime`. Prove that boundary in the specification. M40 must
-support the separate one-day operations M41 needs; Temple's two-day operation
-and other temporal modes remain later admissions.
-
-Confidence is medium-high that this is an independent milestone. It separates
-the shared stock/RNG/persistence change from Training's route, UI and character
-publication, so M41 can use the same checked service-time consequence path
-without revisiting a deliberately restricted first Training implementation.
-
-## Medium term
+M40 is the **completed and accepted second milestone** of the near-term arc.
+Its [closed contract](milestone-40-plan.md) supports repeated genuine Ironworks
+repair through daytime, script-driven one-day operations in year 610, with
+complete party-owned wares/shared bank balances, explicit fresh initialization,
+stock regeneration/interest and atomic date/economy/world-RNG departure.
+Envelope v4/schema 9/content 11 preserves exact save/restart and continued M39
+casting; legacy 8/9 and 8/10 keep their service limits and no economy backfill.
+Automated, original-resource/process, independent technical review and separate
+maintainer physical native-SDL acceptance passed. Numeric side-1 generation
+admits no Darkside gameplay; Buy/Sell, Training, Temple, overnight play and
+general calendar processing remain excluded. This supplies the service-time
+foundation for the separately authorized M41 specification.
 
 ### M41 - Vertigo Training and progression
 
@@ -173,8 +128,8 @@ not general condition healing or free rest. Validate the complete reset inputs,
 including currently unmodeled temporary resistances, as zero or explicitly
 represented within the admitted domain rather than silently discarding them.
 
-Levels, XP, HP/SP and modeled temporary state already fit schema 8; M41 is
-expected to reuse M40's expanded representation with new content semantics.
+Levels, XP, HP/SP and modeled temporary state already fit the inherited fields;
+M41 is expected to reuse schema 9 with new content semantics.
 Transient visit bookkeeping need not survive a quiet save. Recheck this during
 specification if route consequences or reset inputs introduce durable state.
 Exclude other trainers, class changes, skill purchases, guild/Temple work,
@@ -183,6 +138,8 @@ a connected combat -> repeated services -> progression arc, leaving useful gold
 expenditure and durable stock as foundations for a subsequent trading or spell
 acquisition decision. Confidence in M41's position is medium; route closure
 and the end-to-end earned-XP witness are its main remaining specification risks.
+
+## Medium term
 
 ### Why service continuation precedes Training and Sell
 
@@ -227,7 +184,7 @@ Review the next short arc after M41. Keep the deferred boundaries distinct:
   class/town offers and the route with additional Slime influence are not yet
   admitted. Teaching First Aid/Awaken to other eligible members already has a
   consumer, but need not precede using already-known Magic Arrow in combat.
-  Membership needs representation beyond schema 8. Departure costs one day
+  Membership is not represented in current schema 9. Departure costs one day
   even without a purchase.
 - **Temple recovery** should follow a coherent service-time boundary. Original
   Heal includes temporary-stat/resistance clearing and resurrection costs; it
@@ -238,13 +195,14 @@ Review the next short arc after M41. Keep the deferred boundaries distinct:
 
 These are pinned-reference interpretations and planning conclusions, not
 independent DOS observations. The reference pin belongs to
-[dependencies](dependencies.md#pinned-scummvm-revision); M38's narrower accepted
+[dependencies](dependencies.md#pinned-scummvm-revision). The implemented stock/time
+contract belongs to [M40](milestone-40-plan.md); M38's narrower accepted
 [stock boundary](milestone-38-plan.md#stock-boundary-and-direct-repair-menu)
-remains authoritative for implemented behavior.
+remains authoritative for legacy contents 9/10.
 
-The current day-10 entry refusal remains an MMModern support limit, not an
-original opening rule. It remains outside completed M39 and is deliberately resolved
-by M40 for the selected service loop. Do not combine Training's separate day
+The legacy content-9/10 day-10 entry refusal is an MMModern support limit, not an
+original opening rule. M40 resolves it in fresh content 11 for the selected
+same-year service loop. Do not combine Training's separate day
 charges or split Temple's two-day charge: the reference consequences differ.
 
 Further city content, regions, quests and encounters should follow demonstrated
@@ -280,8 +238,8 @@ consequences and party-owned monster treasure, M34's participation/non-victory
 lifecycle and dormant-item semantics, M36's learned casting, M37's retained
 two-region transitions and 8/8 continuation, M38's bounded repair/departure
 publications and explicit 8/9 pair, M39's combat-owned casting and 8/10
-continuation, and M28's
-owner/preimage and presentation safeguards.
+continuation, M40's party-owned economy/atomic service-day departure and 9/11
+continuation, and M28's owner/preimage and presentation safeguards.
 Commercial resources remain external and unmodified.
 
 ## Replanning and review cadence
@@ -301,14 +259,14 @@ Vertigo-centered strategy only if new evidence shows a material contradiction:
   a required foundation, or maintainer priorities explicitly change.
 
 Ordinary implementation difficulty alone does not reopen the direction.
-Use focused scope review before each specification, normally planning M40 after
-M39 and M41 after M40. The next broad roadmap review follows M41, preserving the
-approximately three-completed-milestone cadence. Replan earlier on concrete
+Use focused scope review before each specification; M41 planning follows M40
+closure only with separate authorization. The next broad roadmap review follows
+M41, preserving the approximately three-completed-milestone cadence. Replan earlier on concrete
 evidence that:
 
-- M40's reached stock/time path requires player access to generated items,
-  other temporal modes or state outside the bounded same-year service domain;
-  or repeated actual repair cannot independently demonstrate its value.
+- M40's accepted stock/time contract proves insufficient for the progression
+  arc without player access to generated items, other temporal modes or state
+  outside the bounded same-year service domain.
 - M41's original route requires substantially wider actor/event/effect coverage,
   its reset inputs cannot be represented within the expected domain, or earned
   XP, survivability or replenishment prevents the connected progression witness.

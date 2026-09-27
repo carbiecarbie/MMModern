@@ -16,6 +16,7 @@ void require(bool value, const char *message) {
 
 void xeenValidateCompletedParty(const XeenPartyState &party, const XeenPartyState &initial,
 		const std::array<XeenCombatInputs, 6> &inputs, const XeenMonsterRecord &monster) {
+	require(!party.serviceEconomy && !initial.serviceEconomy, "legacy completed domain cannot own service economy");
 	require(party.party.activeRosterIds() == initial.party.activeRosterIds() &&
 		party.firstSerializedCount == 6 && party.effectiveSerializedCount == 6 && party.roster.combatMarked(),
 		"completed party membership/metadata mismatch");
@@ -87,6 +88,7 @@ void xeenApplyCompletedOverlay(std::vector<XeenActor> &actors, XeenMonsterIdenti
 
 XeenCompletedEncounterAuthority xeenCompletedPreimage(const XeenWorld &world,
 		const XeenPartyState &party, const XeenCamera &camera) {
+	require(!party.serviceEconomy, "legacy completed preimage cannot own service economy");
 	XeenCompletedEncounterAuthority a;
 	a.party = &party; a.roster = &party.roster; a.camera = &camera;
 	a.characters = party.roster.characters();

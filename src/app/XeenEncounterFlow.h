@@ -12,6 +12,7 @@
 #include "games/xeen/XeenLearnedSpellRules.h"
 #include "games/xeen/XeenCombatRules.h"
 #include "games/xeen/XeenArmorRepair.h"
+#include "games/xeen/XeenServiceDay.h"
 
 namespace mmodern {
 class XeenItemCatalog;
@@ -40,6 +41,7 @@ struct XeenJourneySetup {
 	std::optional<XeenLearnedSpellNames> learnedNames;
 	std::function<XeenLearnedSpellNames()> learnedNamesProvider;
 	XeenVertigoManifest vertigoManifest;
+	std::optional<XeenBankBalances> bank;
 };
 struct XeenJourneyRestoreTag {};
 
@@ -159,11 +161,15 @@ private:
 		static constexpr auto category=XeenInventoryCategory::Armor;
 		bool quoted=false, departed=false;
 		XeenArmorRepairCandidate result;
+		std::optional<XeenGameplayContext> legacyDeparture;
+		std::unique_ptr<XeenServiceDayCandidate> departure;
 	};
 	std::unique_ptr<SmithContinuation> _smith;
+	std::unique_ptr<SmithContinuation> _smithPreparation;
 	std::function<void(XeenSmithBoundary)> _smithBoundary;
 	void checkSmithBoundary(XeenSmithBoundary);
 	bool beginSmith(const std::function<void()> &);
+	bool serviceSmithPreparation();
 	void authorizeSmithFrame(std::uint64_t,const IndexedFrame::Presentation &);
 	bool consumeSmithFrame(std::uint64_t,const IndexedFrame::Presentation &);
 	void quoteSmith(std::size_t,std::size_t);
@@ -251,6 +257,7 @@ private:
 	std::function<XeenLearnedSpellNames()> _learnedNamesProvider;
 	void retainJourney();
 	bool journeyCapacity() noexcept;
+	bool smithCapacity(unsigned journeySteps,unsigned boundarySteps) const noexcept;
 	void closeJourney() noexcept;
 	XeenEncounterResult advanceJourney(const Ticket &, std::optional<XeenEncounterAction>);
 	bool serviceItemUse();
@@ -271,6 +278,7 @@ private:
 	bool _scheduleAfterFrame = false, _combatOperationStale = false;
 	bool adopt(const XeenEncounterResult &, std::uint64_t generation) noexcept;
 	bool prepareTime(const Ticket &, std::uint64_t &now);
+	void guardCallback(const Ticket &, const std::function<void()> &);
 	void schedule(std::uint64_t now) noexcept;
 	XeenWorld &_world;
 	XeenPartyState &_party;

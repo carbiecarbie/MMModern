@@ -33,7 +33,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   replay_test::transfers=replay_test::equipmentChanges=0;
   // Explicit legacy-entry control: retain 8/8 coverage after production selects 8/9.
   // M38 has a separate fresh-production CLI witness.
-  if (!resume && (contract==9 || contract==10)) contract=8;
+  if (!resume && (contract==9 || contract==10 || contract==11)) contract=8;
   check(target.has_value(),"M37 witness needs save file");
   check(resume || (entry==XeenEncounterEntry::Journey && contract==8),"M37 CLI content 8 expected");
   auto services=original;

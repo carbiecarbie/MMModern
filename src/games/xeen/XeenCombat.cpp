@@ -96,10 +96,12 @@ struct XeenCombat::Impl {
 		std::optional<XeenRegionalRecoveryState> recovery;
 		std::optional<XeenGameplayContext> encounterContext;
 		std::optional<XeenMonsterTreasure> treasure;
+		std::optional<XeenServiceEconomy> serviceEconomy;
 		std::uint8_t firstSerializedCount, effectiveSerializedCount;
 		std::vector<std::string> diagnostics;
 		explicit PartyPreimage(const XeenPartyState &p) : roster{p.roster.characters()}, party(p.party),
 			questItems(p.questItems), questFlags(p.questFlags), recovery(p.regionalRecovery), encounterContext(p.encounterContext), treasure(p.monsterTreasure),
+			serviceEconomy(p.serviceEconomy),
 			firstSerializedCount(p.firstSerializedCount), effectiveSerializedCount(p.effectiveSerializedCount), diagnostics(p.diagnostics) {}
 	} expected;
 	bool journey = false, ended = false, episodeLethal = false;
@@ -268,7 +270,7 @@ struct XeenCombat::Impl {
 	}
 	std::uint64_t revision() const { return journey && lifetime && !lifetime->worldAlive() ? 0 : world._sessionState._encounterRevision; }
 	bool exact() const {
-		if (journey && (!lifetime || !lifetime->ownersAlive() || !lifetime->cachesCurrent() || flags->values() != expectedFlags ||
+		if (journey && (!lifetime || !lifetime->ownersAlive() || !lifetime->mutationHistoryCurrent() || !lifetime->cachesCurrent() || flags->values() != expectedFlags ||
 			!world.sessionState().journey() || world.sessionState().skeletonSeed() != journeySeed ||
 			world.sessionState().journeyContract()!=contract || world.sessionState().journeyRandom()!=expectedRandom ||
 			world._sessionState._journeyOwner != journeyOwner || world._sessionState._journeyGeneration != journeyGeneration ||
@@ -277,7 +279,7 @@ struct XeenCombat::Impl {
 			world._sessionState._combatEntered != (phase != Phase::Engaged) || world._sessionState._combatAccounted ||
 			world._sessionState._diagnostic27 || world._sessionState._completion != XeenEncounterCompletion::None ||
 			world.sessionState().accountedMonsters() != accounted || world.sessionState().journeyActivity() != XeenJourneyActivity::Combat)) return false;
-		if(!same(camera,expectedCamera)||party.monsterTreasure!=expected.treasure||party.party.activeRosterIds()!=expected.party.activeRosterIds()||
+		if(!same(camera,expectedCamera)||party.monsterTreasure!=expected.treasure||party.serviceEconomy!=expected.serviceEconomy||party.party.activeRosterIds()!=expected.party.activeRosterIds()||
 			party.questItems.counts()!=expected.questItems.counts()||party.questFlags.values()!=expected.questFlags.values()||party.regionalRecovery!=expected.recovery||
 			party.firstSerializedCount!=expected.firstSerializedCount||party.effectiveSerializedCount!=expected.effectiveSerializedCount||
 			party.diagnostics!=expected.diagnostics||bool(party.encounterContext)!=bool(expected.encounterContext)) return false;
@@ -403,7 +405,12 @@ struct XeenCombat::Impl {
         return r;
 	}
 	void capacity() { require(revision()<std::numeric_limits<std::uint64_t>::max()&&generation<std::numeric_limits<std::uint64_t>::max()-2,"combat revision exhausted"); }
-	void published() noexcept { ++session()._encounterRevision;++generation; }
+	void published() noexcept {
+		++session()._encounterRevision;++generation;
+		// Every callback/preimage check precedes these callback-free owned stores.
+		// Renew observation for their authorized delta, never a failed history.
+		if (journey && !lifetime->failed) lifetime->adoptMutationBoundary();
+	}
 	void latchIntegrity() noexcept {
 		session()._completedIntegrityUnsafe=true;
 		if(revision()!=std::numeric_limits<std::uint64_t>::max())++session()._encounterRevision;
@@ -420,6 +427,7 @@ struct XeenCombat::Impl {
 
 void xeenValidateInitialCombatParty(const XeenPartyState &p,const std::vector<std::uint8_t> &chr,const std::array<XeenCombatInputs,6> &inputs) {
 	require(!p.monsterTreasure,"Legacy initial combat cannot own monster treasure");
+	require(!p.serviceEconomy,"Legacy initial combat cannot own service economy");
 	const auto parsed=XeenCharacterFormat::parseRoster(chr);
 	for(unsigned i=0;i<30;++i) require(same(p.roster.at(i),parsed.at(i)),"party does not match initial CHR");
 	require(p.party.activeRosterIds()==std::vector<std::uint8_t>(kXeenCombatOwners.begin(),kXeenCombatOwners.end())&&
@@ -522,11 +530,19 @@ XeenCombat::Ticket XeenCombat::ticket() const noexcept {
 	t.generation=d.generation;t.revision=d.revision();
 	t.boundary=d.boundary.generation();t.phase=d.phase;t.work=d.work;return t;
 }
-bool XeenCombat::current(const Ticket &t) const noexcept {
+bool XeenCombat::ticketCurrent(const Ticket &t) const noexcept {
 	const auto &d=*impl;if (d.journey && !d.lifetime->ownersAlive()) return false;
 	return t.owner==this&&t.incarnation==d.world._incarnation&&
 		t.generation==d.generation&&t.revision==d.revision()&&t.boundary==d.boundary.generation()&&
 		t.phase==d.phase&&t.work==d.work&&d.world._sessionState._combatOwner==this;
+}
+bool XeenCombat::current(const Ticket &t) const noexcept {
+	if (!ticketCurrent(t)) return false;
+	if (impl->journey && !impl->exact()) {
+		const_cast<XeenCombat *>(this)->fail(t,Failure::Integrity);
+		return false;
+	}
+	return true;
 }
 XeenCombatResult XeenCombat::result() const noexcept {return impl->last;}
 bool XeenCombat::boundTo(const XeenWorld &w,const XeenPartyState &p,const XeenCamera &c,const XeenCombatBoundary &b) const noexcept {
@@ -541,23 +557,26 @@ int XeenCombat::participant() const noexcept {return impl->turn;}
 XeenCombatRandom XeenCombat::random() const noexcept {return impl->rng;}
 void XeenCombat::setProbe(std::function<void()> p) { require(!impl->busy,"cannot replace an in-flight probe");impl->probe=std::move(p); }
 void XeenCombat::preparePresentation(const Ticket &t,const std::function<void()> &compose) {
+ guardCallback(t,compose);
+}
+void XeenCombat::guardCallback(const Ticket &t,const std::function<void()> &callback) {
  auto &d=*impl;
- require(current(t)&&!d.busy,"Stale combat presentation");
- if(!d.journey) { compose();return; }
- require(d.exact(),"Combat presentation preimage changed");
+ require(current(t)&&!d.busy,"Stale combat callback");
+ if(!d.journey) { callback();return; }
+ require(d.exact(),"Combat callback preimage changed");
  if(d.casting)d.checkCast(t);
  Busy busy(d.busy);
  auto guard=std::make_unique<XeenRestoreGuard>(d.world,d.party,d.camera,*d.flags);
  guard->retainResources(*d.lifetime);
- const auto check=[&] {require(current(t),"Reentrant combat presentation");guard->check();if(d.casting)d.checkCast(t);};
+ const auto check=[&] {guard->check();require(current(t),"Reentrant combat callback");if(d.casting)d.checkCast(t);};
  try {
-  { XeenRestoreGuard::Providers providers(*guard,d.world,check);compose();check(); }
+  { XeenRestoreGuard::Providers providers(*guard,d.world,check);callback();check(); }
   if(d.casting)d.casting->guard->retainResources(*guard);
   d.lifetime.swap(guard);
  } catch(...) {
   // Compatible I/O failure retains all successfully admitted resource bytes.
   // A changed owner or resource fails closed and cannot renew authority.
-  try {check();d.lifetime.swap(guard);}catch(...){fail(t,Failure::Integrity);}
+  try {check();d.lifetime.swap(guard);}catch(...){d.lifetime->failed=true;fail(ticket(),Failure::Integrity);}
   throw;
  }
 }
@@ -572,7 +591,8 @@ void XeenCombat::retainResources(XeenRestoreGuard &guard) const {
  if(impl->journey)guard.retainResources(*impl->lifetime);
 }
 XeenCombatResult XeenCombat::fail(const Ticket &t,Failure f) noexcept {
-	auto &d=*impl;if(!current(t))return d.observation(Status::Stale);
+	auto &d=*impl;if(!ticketCurrent(t))return d.observation(Status::Stale);
+	if (d.journey && f==Failure::Integrity) d.lifetime->failed=true;
 	if(terminal(d.phase) && !(d.journey && (d.phase==Phase::Disengaged || (d.phase == Phase::Victory && f == Failure::Integrity)))) {
 		if(d.phase==Phase::Victory&&f==Failure::Integrity&&
 			d.session()._completion==XeenEncounterCompletion::VictoryEnded&&
@@ -1386,6 +1406,7 @@ XeenCombatResult XeenCombat::finishDisengagement(const Ticket &t) {
   candidate.party=d.party.party;candidate.encounterContext=d.party.encounterContext;
   candidate.questItems=d.party.questItems;candidate.questFlags=d.party.questFlags;
   candidate.regionalRecovery=d.party.regionalRecovery;
+  candidate.serviceEconomy=d.party.serviceEconomy;
   candidate.firstSerializedCount=d.party.firstSerializedCount;candidate.effectiveSerializedCount=d.party.effectiveSerializedCount;
   for(const auto &c:characters) candidate.roster.at(c.rosterId).conditions=c.conditions;
   candidate.monsterTreasure=treasure;xeenValidateJourneyParty(candidate,d.contract);

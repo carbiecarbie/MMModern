@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <stdexcept>
 #include <string>
+#include <zlib.h>
 
 namespace mmodern {
 namespace {
@@ -110,6 +111,18 @@ XeenMonsterTreasure XeenCharacterFormat::parseMonsterPurse(const std::vector<std
 	XeenMonsterTreasure result;
 	result.gold = u32(638); result.gems = u32(642);
 	return result;
+}
+
+XeenBankBalances XeenCharacterFormat::parseBankBalances(const std::vector<std::uint8_t> &bytes) {
+	if (bytes.size()!=812 || crc32(0,bytes.data(),static_cast<uInt>(bytes.size()))!=0x866d0ff1u)
+		throw std::invalid_argument("Unsupported original maze.pty bank input");
+	const auto u32 = [&](std::size_t offset) {
+		return std::uint32_t(bytes[offset]) | (std::uint32_t(bytes[offset+1])<<8) |
+			(std::uint32_t(bytes[offset+2])<<16) | (std::uint32_t(bytes[offset+3])<<24);
+	};
+	XeenBankBalances bank{u32(646),u32(650)};
+	if (bank.gold || bank.gems) throw std::invalid_argument("Original bank balances must be zero");
+	return bank;
 }
 
 XeenRoster XeenCharacterFormat::parseRoster(const std::vector<std::uint8_t> &bytes) {

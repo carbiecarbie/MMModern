@@ -201,6 +201,9 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 		require(s.itemState == XeenSaveItemState::Complete, "Journey requires complete item fields");
 		require(j.entry == XeenEncounterEntry::Journey && xeenSupportedJourneyPair(j.schema, j.contract),
 			"unsupported Journey domain/schema/contract");
+		const bool cityRepresentation = j.schema == 8 || j.schema == 9;
+		require(bool(j.serviceEconomy) == (j.schema == 9), "Journey economy presence mismatch");
+		if (j.serviceEconomy) xeenValidateServiceEconomy(*j.serviceEconomy);
 		require(bool(j.regionalRecovery) == (j.schema >= 6), "Journey recovery presence mismatch");
 		require(j.context.has_value(), "missing Journey context");
 		require(j.context->profile == XeenBehaviorProfile::WorldOfXeenClouds &&
@@ -208,7 +211,7 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 			"invalid Journey context enum");
 		if (xeenJourneyContent(j.contract).armorRepair()) {
 			require(xeenRegionalContext(*j.context) && j.context->year == 610 &&
-				j.context->day >= 8 && j.context->day <= 10, "invalid Ironworks calendar context");
+				j.context->day >= 8 && j.context->day <= (j.contract == 11 ? 99 : 10), "invalid Ironworks calendar context");
 			require(j.context->day == 8 || j.vertigoActors.has_value(), "Ironworks departure requires retained city");
 			require(s.camera.mapId != XeenMapIdentity(28) || cityCamera, "camera outside Ironworks city domain");
 			require(j.vertigoActors || s.camera.mapId == XeenMapIdentity(23), "absent city requires mainland camera");
@@ -220,7 +223,7 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 			const auto &r = j.supplements[i];
 			require(bool(r.inputs.luck) == (j.schema >= 2), "Journey Luck presence mismatch");
 			require(bool(r.inputs.resistances)==(j.schema>=4), "Journey resistance presence mismatch");
-			require(bool(r.inputs.poisonResistance)==(j.schema==8), "Journey poison presence mismatch");
+			require(bool(r.inputs.poisonResistance)==cityRepresentation, "Journey poison presence mismatch");
 			if (r.inputs.poisonResistance) for (int v:{r.inputs.poisonResistance->permanent,r.inputs.poisonResistance->temporary}) require(v>=0 && v<=255,"Journey poison input outside byte range");
 			if (r.inputs.luck) for (int v : {r.inputs.luck->permanent,r.inputs.luck->temporary}) require(v >= 0 && v <= 255, "Journey Luck outside byte range");
 			require(r.owner == i, "invalid Journey supplemental owner sequence");
@@ -260,9 +263,9 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 				"invalid Journey lifecycle");
 			require(a.status == XeenActorStatus::Physical || a.status == XeenActorStatus::Unsupported, "invalid Journey status");
 		}
-		require(j.schema == 8 || !j.vertigoActors, "legacy Journey cannot contain city actors");
-		require(s.camera.mapId != XeenMapIdentity(28) || (j.schema == 8 && j.vertigoActors), "city camera requires city actors");
-		if (j.schema==8) {
+		require(cityRepresentation || !j.vertigoActors, "legacy Journey cannot contain city actors");
+		require(s.camera.mapId != XeenMapIdentity(28) || (cityRepresentation && j.vertigoActors), "city camera requires city actors");
+		if (cityRepresentation) {
 			for (const auto &id:s.disabledObjects) require(id.mapId!=XeenMapIdentity(28), "city object overlay is unsupported");
 			for (const auto &id:s.disabledEvents) require(id.mapId!=XeenMapIdentity(28) ||
 				(j.vertigoActors && id.recordIndex==764), "city Event overlay is unsupported");
@@ -401,7 +404,7 @@ std::vector<std::uint8_t> XeenSaveFormat::encode(const XeenSaveSnapshot &s) {
 					for (const auto flag:*s.characters[owner].learnedSpells) out.u8(flag);
 				}
 			}
-			if (j.schema==8) {
+			if (j.schema==8 || j.schema==9) {
 				out.u8(30);
 				for (unsigned owner=0; owner<30; ++owner) {
 					const auto &v=*j.supplements[owner].inputs.poisonResistance;
@@ -416,6 +419,14 @@ std::vector<std::uint8_t> XeenSaveFormat::encode(const XeenSaveSnapshot &s) {
 						out.u8(a.activated);out.u8(static_cast<std::uint8_t>(a.lifecycle));out.u8(static_cast<std::uint8_t>(a.status));out.u8(a.accounted);
 					}
 				}
+			}
+			if (j.schema==9) {
+				out.u8(2);out.u8(4);out.u8(4);out.u8(9);
+				for (const auto &side:j.serviceEconomy->wares.records)
+					for (const auto &shop:side) for (const auto &category:shop) for (const auto &item:category) {
+						out.u8(item.material);out.u8(item.id);out.u8(item.state);out.u8(item.frame);
+					}
+				out.u32(j.serviceEconomy->bank.gold);out.u32(j.serviceEconomy->bank.gems);
 			}
 		}
 	}
@@ -488,11 +499,13 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	}
 	if (version == 4) {
 		const auto suffixSize = in.remaining();
-		require(suffixSize == 1060 || suffixSize == 1366 || (suffixSize >= 1309 && suffixSize <= 4166), "invalid v4 extension size");
+		require(suffixSize == 1060 || suffixSize == 1366 || (suffixSize >= 1309 && suffixSize <= 5330), "invalid v4 extension size");
 		XeenSaveJourney j;
 		require(in.u8() == 3, "invalid v4 domain");
 		j.schema = in.u16(); j.contract = in.u16();
 		require(xeenSupportedJourneyPair(j.schema, j.contract), "unsupported Journey schema/contract");
+		require(j.schema != 8 || (suffixSize >= 3114 && suffixSize <= 4166), "Journey schema-8 size mismatch");
+		require(j.schema != 9 || (suffixSize >= 4278 && suffixSize <= 5330), "Journey schema-9 size mismatch");
 		require(j.schema>=3 || suffixSize == (j.schema == 2 ? 1366u : 1060u), "Journey schema size mismatch");
 		require(in.u8() == 1, "missing Journey context");
 		XeenGameplayContext c;
@@ -547,7 +560,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 			XeenMonsterTreasure v;v.gold=in.u32();v.gems=in.u32();v.pendingMask=in.u32();v.pendingGold=in.u32();
 			const unsigned weapons=in.u8(),armor=in.u8();
 			require(weapons<=10 && armor<=10 && weapons+armor<=12 &&
-				(j.schema==8 || in.remaining()==5u*(weapons+armor)+(j.schema==7 ? 1202u : j.schema==6 ? 1u : 0u)),"Invalid treasure extent");
+				(j.schema==8 || j.schema==9 || in.remaining()==5u*(weapons+armor)+(j.schema==7 ? 1202u : j.schema==6 ? 1u : 0u)),"Invalid treasure extent");
 			for(unsigned category=0;category<2;++category) for(unsigned i=0;i<(category?armor:weapons);++i) {
 				auto &r=(category?v.armor:v.weapons)[i];r.source=in.u8();r.item={in.u8(),in.u8(),in.u8(),in.u8()};
 				require(r.item.id!=0,"Empty wire treasure");
@@ -563,7 +576,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 					s.characters[owner].learnedSpells=book;
 				}
 			}
-			if (j.schema==8) {
+			if (j.schema==8 || j.schema==9) {
 				require(in.u8()==30,"Invalid poison owner count");
 				for (unsigned owner=0; owner<30; ++owner) {
 					require(in.u8()==owner,"Invalid poison owner order");
@@ -584,8 +597,17 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 					j.vertigoActors=std::move(city);
 				}
 				const unsigned n=weapons+armor;
-				const unsigned expected=j.vertigoActors ? (j.vertigoActors->size()==46 ? 3992 : 4106) : 3114;
-				require(suffixSize==expected+5u*n,"Invalid schema-8 suffix length");
+				const unsigned expected=(j.vertigoActors ? (j.vertigoActors->size()==46 ? 3992 : 4106) : 3114) + (j.schema==9 ? 1164 : 0);
+				require(suffixSize==expected+5u*n,"Invalid city/economy suffix length");
+			}
+			if (j.schema==9) {
+				require(in.u8()==2 && in.u8()==4 && in.u8()==4 && in.u8()==9,"Invalid merchant stock shape");
+				XeenServiceEconomy economy;
+				for (auto &side:economy.wares.records)
+					for (auto &shop:side) for (auto &category:shop) for (auto &item:category)
+						item={in.u8(),in.u8(),in.u8(),in.u8()};
+				economy.bank.gold=in.u32();economy.bank.gems=in.u32();
+				j.serviceEconomy=std::move(economy);
 			}
 		}
 		s.journey = std::move(j);

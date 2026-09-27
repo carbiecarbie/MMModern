@@ -22,10 +22,12 @@ void xeenValidateJourneyParty(const XeenPartyState &party, std::uint16_t contrac
 	require(party.roster.combatMarked() && party.encounterContext.has_value(), "Journey requires complete owner state");
 	require(bool(party.monsterTreasure) == (consequences), "Journey consequence presence mismatch");
 	require(bool(party.regionalRecovery) == xeenJourneyContent(contract).connectedRecovery(), "Journey recovery presence mismatch");
+	require(bool(party.serviceEconomy) == xeenJourneyContent(contract).serviceDays(), "Journey service-economy presence mismatch");
+	if (party.serviceEconomy) xeenValidateMerchantWares(party.serviceEconomy->wares);
 	if (party.monsterTreasure) xeenValidateMonsterTreasure(*party.monsterTreasure, contract);
 	const auto &context = *party.encounterContext;
 	if (xeenJourneyContent(contract).armorRepair())
-		require(context.year == 610 && context.day >= 8 && context.day <= 10,
+		require(context.year == 610 && context.day >= 8 && context.day <= (xeenJourneyContent(contract).serviceDays() ? 99 : 10),
 			"Unsupported Ironworks calendar");
 	require(context.profile == XeenBehaviorProfile::WorldOfXeenClouds && context.difficulty == XeenDifficulty::Adventurer &&
 		(contract >= 3 ? xeenRegionalContext(context) : context.day == xeenJourneyContent(contract).day && context.year == 610 && context.minutes >= 480 && context.minutes < 960 && context.ctr24 < 24) &&

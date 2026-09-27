@@ -4,8 +4,16 @@
 #include "games/xeen/XeenGameplayContext.h"
 #include <algorithm>
 #include <optional>
+#include <limits>
 namespace mmodern {
-enum class XeenSmithBoundary { BeforeAdmission, AfterAdmission, Quote, BeforeRepair, AfterRepair, BeforeDeparture, AfterDeparture, Return };
+enum class XeenSmithBoundary { BeforeAdmission, AfterAdmission, Quote, BeforeRepair, AfterRepair, BeforeDeparture, AfterDeparture, Return,
+	BeforeReservation, AfterReservation, StockComplete, BankPrepared, BeforeEventSettlement, AfterEventSettlement,
+	DeparturePublished };
+// Checked finite authority arithmetic; this confers neither frame nor owner
+// authority. Reserve the entire owed suffix before consuming another revision.
+inline bool xeenSmithAuthorityRoom(std::uint64_t generation,unsigned remaining) noexcept {
+	return generation<=std::numeric_limits<std::uint64_t>::max()-remaining;
+}
 enum class XeenArmorRepairOutcome { Quoted, Repaired, Empty, Unsupported, Intact, InsufficientGold, Cancelled };
 struct XeenArmorRepairCandidate {
 	XeenArmorRepairOutcome outcome=XeenArmorRepairOutcome::Unsupported;
@@ -40,8 +48,8 @@ inline XeenArmorRepairCandidate xeenPrepareArmorRepair(const XeenItem &item,std:
 }
 inline std::optional<XeenGameplayContext> xeenPrepareSmithDeparture(
 		const XeenGameplayContext &before,std::uint16_t content) {
-	if ((content!=9 && content!=10) || !xeenRegionalContext(before) || before.year!=610 ||
-		(before.day!=8 && before.day!=9)) return {};
+	if ((content!=9 && content!=10 && content!=11) || !xeenRegionalContext(before) || before.year!=610 ||
+		before.day<8 || before.day>(content==11 ? 98 : 9)) return {};
 	auto after=before;after.day=static_cast<std::uint16_t>(before.day+1);
 	return after;
 }

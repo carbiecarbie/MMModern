@@ -254,7 +254,8 @@ bool XeenEventFlow::advanceEncounterOrdinary(OrdinaryCause cause) {
 	if (cause == OrdinaryCause::Idle && (_encounter->terminal() || _encounter->preparation())) return false;
 	const auto entry = _encounter->ticket();
 	try {
-		const auto now = _clock();
+		std::uint64_t now;
+		_encounter->guardCallback(entry,[&] { now = _clock(); });
 		if (!_encounter->current(entry)) throw std::runtime_error("Stale ordinary animation callback");
 		const bool reset = _ordinary.mapId != _camera.mapId || _ordinary.direction != _camera.direction;
 		return updateOrdinaryPhase(cause, reset, now) && _ordinary.containsOrdinaryAnimation;
@@ -274,6 +275,18 @@ void XeenEventFlow::sealFrame(IndexedFrame &returned) {
 }
 
 IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
+	if (_smithUi && _encounter && _encounter->_smith && !_smithSettlement && !_encounter->_smith->departed) {
+		// Resize/expose and other redraws consume the same presented Journey
+		// revision as menu input. Preserve the concrete last departure frame
+		// rather than allowing cosmetics to exhaust its reserved suffix.
+		if (_encounter->_smith->frame &&
+			(!_encounter->smithCapacity(7,2) || !xeenSmithAuthorityRoom(_inputGeneration,2))) return frameCopy();
+		if (_smithUi->phase!=SmithUi::Phase::Departure &&
+			(!_encounter->smithCapacity(9,2) || !xeenSmithAuthorityRoom(_inputGeneration,3))) {
+			_smithUi->phase=SmithUi::Phase::Departure;
+			_smithUi->feedback="Further repairs unavailable. Departure remains reserved.";
+		}
+	}
 	if (journey() && !_encounter->combat()) {
 		report=report || _encounter->state().phase()==XeenEncounterPhase::SupportStopped;
 		_encounter->holdJourneyFrame();
@@ -565,6 +578,7 @@ XeenManualEventResult XeenEventFlow::beginVertigoEvent(XeenRegionalInteraction k
 	for(unsigned i=0;i<XeenRoster::kCharacterCount;++i)work->party.roster.at(i)=_party.roster.at(i);
 	work->party.encounterContext=_party.encounterContext;
 	work->party.monsterTreasure=_party.monsterTreasure;
+	work->party.serviceEconomy=_party.serviceEconomy;
 	work->party.questItems=_party.questItems;work->party.questFlags=_party.questFlags;
 	work->party.regionalRecovery=_party.regionalRecovery;
 	work->party.firstSerializedCount=_party.firstSerializedCount;
@@ -738,6 +752,11 @@ IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operat
 	} catch (const std::exception &error) {
 		std::cerr << "Journey event: " << error.what() << '\n';
 		_eventPublication=nullptr;
+		if (_smithSettlement) {
+			if (_fatal || !_encounter->current(entry)) { _fatal=true;throw; }
+			_smithUi->feedback="Event settlement pending; Enter retries.";
+			return renderEncounter();
+		}
 		cleanup(XeenRewardDiscard::PresentationFailure);
 		_transition.reset();
 		if (automatic) { _fatal=true;_encounter->fail(_encounter->ticket());throw; }
@@ -840,6 +859,24 @@ IndexedFrame XeenEventFlow::presentationFailed(const std::exception &exception) 
 }
 std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 	requireCurrentOwners();
+	if (_smithUi && _smithUi->phase==SmithUi::Phase::Preparation && !_dispatching && !_fatal && !_saving) {
+		DispatchScope dispatch(_dispatching);
+		try {
+			if (!_encounter->serviceSmithPreparation()) return std::nullopt;
+			_smithUi->phase=SmithUi::Phase::Lobby;
+		} catch (const std::exception &error) {
+			_encounter->journeySavePreimage().check();
+			if (_encounter->_smith) {
+				_smithUi->phase=SmithUi::Phase::Lobby;
+				_smithUi->feedback="Retry; one-day departure still owed.";
+			} else {
+				_encounter->_smithPreparation.reset();_smithUi.reset();_pending.reset();
+				_encounter->_journeyRefusal=std::string("Ironworks preparation refused: ")+error.what();
+				_encounter->endJourneyEvent();
+			}
+		}
+		return renderEncounter();
+	}
 	if (_dispatching || _fatal || _saving || _smithUi || (journey() && _handoffPending)) return std::nullopt;
 	DispatchScope dispatch(_dispatching);
 	validateRegionalEvents();

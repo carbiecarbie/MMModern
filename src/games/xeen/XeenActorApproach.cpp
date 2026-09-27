@@ -10,6 +10,7 @@
 #include "games/xeen/XeenMovement.h"
 #include "games/xeen/XeenOutdoorSceneTables.h"
 #include "games/xeen/XeenIndoorScene.h"
+#include "games/xeen/XeenMerchantGeneration.h"
 #include <algorithm>
 #include <limits>
 #include <stdexcept>
@@ -319,6 +320,23 @@ XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenP
 		const XeenGameplayContext &context, const std::vector<XeenMonsterRecord> &statistics,
 		const XeenEventFile &events, std::uint32_t seed, std::uint16_t contract,
 		const std::optional<XeenMonsterTreasure> &purse) {
+	return initializeJourney(world,party,camera,state,chr,context,statistics,events,seed,contract,purse,{});
+}
+XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenPartyState &party,
+		XeenCamera &camera, XeenEncounterState &state, const std::vector<std::uint8_t> &chr,
+		const XeenGameplayContext &context, const std::vector<XeenMonsterRecord> &statistics,
+		const XeenEventFile &events, std::uint32_t seed, std::uint16_t contract,
+		const std::optional<XeenMonsterTreasure> &purse, const std::optional<XeenBankBalances> &bankInput) {
+	return initializeJourney(world,party,camera,state,chr,context,statistics,events,seed,contract,purse,bankInput,{});
+}
+XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenPartyState &party,
+		XeenCamera &camera, XeenEncounterState &state, const std::vector<std::uint8_t> &chr,
+		const XeenGameplayContext &context, const std::vector<XeenMonsterRecord> &statistics,
+		const XeenEventFile &events, std::uint32_t seed, std::uint16_t contract,
+		const std::optional<XeenMonsterTreasure> &purse, const std::optional<XeenBankBalances> &bankInput,
+		const FreshPublicationPreparation &beforePublication) {
+	const auto bank=bankInput; // Detach before all further compatibility callbacks.
+	const auto preparePublication=beforePublication;
 	const auto &policy=xeenJourneyContent(contract);
 	const auto &reservation = world._sessionState;
 	require(reservation._entry == XeenEncounterEntry::Ordinary && reservation._encounterMarked &&
@@ -326,6 +344,8 @@ XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenP
 		reservation._journeyOwner && reservation._journeyActivity == XeenJourneyActivity::Attachment &&
 		!party.roster.combatMarked() && !party.encounterContext &&
 		!state._world && seed && world._combatCheck, "Journey requires guarded fresh owners");
+	require(!party.serviceEconomy && bool(bank)==policy.serviceDays(), "Fresh service economy input mismatch");
+	if (bank) require(!bank->gold && !bank->gems,"Unsupported original bank balances");
 	require(camera.mapId == policy.entry.mapId && camera.x == policy.entry.x && camera.y == policy.entry.y && camera.direction == policy.entry.direction &&
 		context.minutes == 480 && context.ctr24 == 0, "Journey requires fresh entry context");
 	XeenPartyState candidate(party);
@@ -358,6 +378,17 @@ XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenP
 			c.currentHp=XeenCharacterRules::maxHp(c,{610}); c.currentSp=XeenCharacterRules::maxSp(c,{610});
 		}
 	}
+	XeenCombatRandom preparedRandom(seed);
+	if (policy.serviceDays()) {
+		XeenMerchantStockCandidate stock;
+		// Fresh detached initialization precedes any playable owner graph. Each
+		// invocation keeps the same bounded draw servicing as idle preparation.
+		while (!stock.complete()) {
+			XeenConsequenceDraw draw{preparedRandom,64,world._combatCheck};
+			stock.service(draw);
+		}
+		candidate.serviceEconomy=XeenServiceEconomy{stock.wares(),*bank};
+	}
 	if (contract>=3) xeenValidateJourneyParty(candidate,contract);
 	else xeenValidateJourneyMelee(candidate,contract);
 	const auto detachedStatistics = statistics;
@@ -374,7 +405,17 @@ XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenP
 	XeenEncounterResult result;
 	result.outcome = XeenEncounterOutcome::Started; result.revision = 1;
 	result.view = classify(actors, camera); activate(actors, result.view);
+	std::optional<XeenJourneyRandomState> finalRandom;
+	if (contract>=2) finalRandom=preparedRandom.continuation();
 	world._combatCheck();
+	try { if (preparePublication) preparePublication(candidate,actors,finalRandom); }
+	catch (...) {world._combatCheck();throw;}
+	world._combatCheck();
+	static_assert(std::is_nothrow_copy_assignable_v<decltype(party.serviceEconomy)> &&
+		std::is_nothrow_copy_assignable_v<decltype(party.encounterContext)> &&
+		std::is_nothrow_copy_assignable_v<decltype(party.roster._combatInputs)> &&
+		std::is_nothrow_copy_assignable_v<decltype(party.monsterTreasure)> &&
+		std::is_nothrow_copy_assignable_v<decltype(world._sessionState._journeyRandom)>);
 	auto &s = world._sessionState;
 	if (contract>=2) for (auto id:kXeenCombatOwners) {
 		auto &to=party.roster.at(id); const auto &from=candidate.roster.at(id);
@@ -386,11 +427,12 @@ XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenP
 		party.roster.at(id).learnedSpells = candidate.roster.at(id).learnedSpells;
 	party.roster._combatMarked = true; party.encounterContext = candidate.encounterContext;
 	party.monsterTreasure=candidate.monsterTreasure;
+	party.serviceEconomy=candidate.serviceEconomy;
 	s._actors.swap(actors); s._entry = XeenEncounterEntry::Journey;
 	s._encounterMarked = s._encounterInitialized = true; s._encounterRevision = 1;
 	s._journeyContract=contract;
 	s._skeletonSeed = contract==1 ? seed : 0;
-	if (contract>=2) s._journeyRandom=XeenJourneyRandomState{1,seed,0};
+	if (contract>=2) s._journeyRandom=finalRandom;
 	state._world = &world; state._party = &party; state._camera = &camera; state._revision = 1;
 	return result;
 }

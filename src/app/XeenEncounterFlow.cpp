@@ -72,7 +72,13 @@ bool XeenEncounterFlow::current(const Ticket &t) const noexcept {
 		if (!_journeyPreimage->ownersAlive()) { const_cast<XeenEncounterFlow *>(this)->closeJourney(); return false; }
 		if (t.generation != _generation || t.boundaryGeneration != _boundary.generation() ||
 			_world._sessionState._journeyOwner != this || _world._sessionState._journeyActivity == XeenJourneyActivity::Failed) return false;
-		if (_combat) return t.combat && _combat->current(*t.combat);
+		if (_combat) {
+			const bool valid=t.combat && _combat->current(*t.combat);
+			if (!valid && _combat->phase()==XeenCombatPhase::Failed &&
+				_combat->result().failure==XeenCombatFailure::Integrity)
+				const_cast<XeenEncounterFlow *>(this)->closeJourney();
+			return valid;
+		}
 		if (!_journeyPreimage->current()) { const_cast<XeenEncounterFlow *>(this)->closeJourney(); return false; }
 		return !t.combat && t.state.revision() == _state.revision() && t.state.pending() == _state.pending() &&
 			t.state.phase() == _state.phase() && t.state.reason() == _state.reason() &&
@@ -137,8 +143,22 @@ bool XeenEncounterFlow::fail(const Ticket &entry, XeenEncounterStop reason) noex
 	return true;
 }
 
+void XeenEncounterFlow::guardCallback(const Ticket &entry, const std::function<void()> &callback) {
+	if (!current(entry)) throw std::logic_error("Stale encounter callback preimage");
+	try {
+		if (_combat) _combat->guardCallback(*entry.combat,callback);
+		else callback();
+		if (!current(entry)) throw std::logic_error("Encounter callback changed owner preimage");
+	} catch (...) {
+		// Exceptional callbacks must prove the same retained history as returns.
+		if (!current(entry)) throw std::logic_error("Encounter callback changed owner preimage");
+		throw;
+	}
+}
+
 bool XeenEncounterFlow::prepareTime(const Ticket &entry, std::uint64_t &now) {
-	try { now = _clock(); }
+	if (!current(entry)) return false;
+	try { guardCallback(entry,[&] { now = _clock(); }); }
 	catch (...) { if (!fail(entry, XeenEncounterStop::Preparation)) throw; return false; }
 	if (!current(entry)) return false;
 	if (now < _lastTime) return false;
