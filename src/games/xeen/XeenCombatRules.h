@@ -43,6 +43,18 @@ struct XeenConsequenceDraw {
 };
 using XeenConsequenceCharacters = std::array<XeenCharacter,6>;
 using XeenConsequenceInputs = std::array<XeenCombatInputs,6>;
+// Detached learned Magic Arrow. Same world-owned cursor and bounded draw service.
+struct XeenMagicArrowCandidate {
+    int damage=0;
+    bool resisted=false;
+    XeenMagicArrowCandidate(std::int64_t permanentLevel, std::int64_t temporaryLevel,
+        unsigned resistance, unsigned resourceId);
+    bool service(XeenConsequenceDraw &);
+private:
+    enum class Step { Resistance, Save, Done };
+    Step step;
+    unsigned levelBound, resistance, resourceId, saveBound;
+};
 struct XeenRunCandidate {
 	unsigned roll = 0;
 	bool success = false;

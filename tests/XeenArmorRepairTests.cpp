@@ -85,10 +85,11 @@ void departure() {
 		auto before=canonical;before.day=day;before.minutes=minute;before.ctr24=ctr;
 		const auto original=before;
 		const auto after=xeenPrepareSmithDeparture(before,9);
+        check(after==xeenPrepareSmithDeparture(before,10),"content10 changed inherited day boundary");
 		auto expected=before;expected.day=day+1;
 		check(after && *after==expected && before==original,"departure changed fields other than day or mutated input");
 	}
-	for (unsigned content=0; content<12; ++content) if (content!=9)
+	for (unsigned content=0; content<12; ++content) if (content!=9 && content!=10)
 		check(!xeenPrepareSmithDeparture(canonical,content),"legacy/unknown content received smith day jump");
 	for (unsigned day : {0u,1u,7u,10u,11u,99u,65535u}) {
 		auto before=canonical;before.day=day;

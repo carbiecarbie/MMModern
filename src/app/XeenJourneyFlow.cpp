@@ -553,6 +553,7 @@ bool XeenEncounterFlow::attachJourney(const Ticket &entry, const std::function<v
 		checkBoundary();
 		_journeyPreimage->check();
 		_combat.reset(new XeenCombat(_world,_party,_camera,_boundary,_flags,_state,_journeyStatistics,_events));
+        _combat->inheritResources(_combat->ticket(),*_journeyPreimage);
 		++_generation;
 		if (!acceptCombatResult(_combat->beginCombat(_combat->ticket()))) return false;
 		// Only this immediate destination incarnation may present the retained finish.

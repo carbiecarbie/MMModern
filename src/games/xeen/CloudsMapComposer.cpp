@@ -31,6 +31,7 @@ void CloudsMapComposer::drawIndoorCommands(XeenAssetSource &assets,
 				command.drawOptions());
 		else if (const auto *actor=command.actor())
 			assets.drawMonster(actor->image,{actor->kind,actor->frame},command.x,command.y,command.drawOptions());
+		else if(command.projectile())assets.drawProjectile(false,0,command.x,command.y,command.drawOptions());
 		else
 			assets.drawSprite(command.geometry().resourceName, command.geometry().frame,
 				command.x, command.y, command.drawOptions());

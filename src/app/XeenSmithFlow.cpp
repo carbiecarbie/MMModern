@@ -21,12 +21,12 @@ void XeenEncounterFlow::checkSmithBoundary(XeenSmithBoundary boundary) {
 }
 bool XeenEncounterFlow::beginSmith(const std::function<void()> &preflight) {
 	if (!journeyEvent() || _smith || _busy || !current(ticket()) || !journeyCapacity() ||
-		_world.sessionState().journeyContract()!=9 || _camera.mapId!=XeenMapIdentity(28) ||
+		!xeenJourneyContent(_world.sessionState().journeyContract()).armorRepair() || _camera.mapId!=XeenMapIdentity(28) ||
 		_camera.x!=8 || _camera.y!=4 || !_party.encounterContext) return false;
 	SmithBusy busy(_busy);
 	_journeyPreimage->check();
-	if (!xeenPrepareSmithDeparture(*_party.encounterContext,9)) return false;
-	xeenValidateJourneyParty(_party,9);
+	if (!xeenPrepareSmithDeparture(*_party.encounterContext,_world.sessionState().journeyContract())) return false;
+	xeenValidateJourneyParty(_party,_world.sessionState().journeyContract());
 	auto next=std::make_unique<SmithContinuation>();
  checkSmithBoundary(XeenSmithBoundary::BeforeAdmission);
 	// Event remains exclusive throughout resource and first-frame preparation.
@@ -59,7 +59,7 @@ void XeenEncounterFlow::quoteSmith(std::size_t member,std::size_t slot) {
 	if (!_smith || _busy || _smith->frame || member>=_party.party.size() || slot>=9)
 		throw std::logic_error("Smith selection authority unavailable");
 	SmithBusy busy(_busy);_journeyPreimage->check();
-	xeenValidateJourneyParty(_party,9);
+	xeenValidateJourneyParty(_party,_world.sessionState().journeyContract());
 	if (_smith->operation==std::numeric_limits<std::uint64_t>::max())
         throw std::overflow_error("Smith operation generation exhausted");
     ++_smith->operation;
@@ -98,7 +98,7 @@ void XeenEncounterFlow::departSmith() {
 		throw std::logic_error("Smith departure authority unavailable");
 	SmithBusy busy(_busy);_journeyPreimage->check();
 	if (!_smith->departed) {
-		const auto after=xeenPrepareSmithDeparture(*_party.encounterContext,9);
+		const auto after=xeenPrepareSmithDeparture(*_party.encounterContext,_world.sessionState().journeyContract());
 		if (!after) throw std::logic_error("Owed smith departure is no longer canonical");
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 		prepared->retainResources(*_journeyPreimage);prepared->context=*after;
@@ -129,7 +129,7 @@ void XeenEventFlow::prepareSmith() {
 			if (!drawSmithArt) throw std::runtime_error("Ironworks artwork provider is unavailable");
 			const auto events=_events.scriptForMap(28).file();
 			const auto mainland=_events.scriptForMap(23).file();
-			try { xeenValidateVertigoRoute(mainland,events,9); }
+			try { xeenValidateVertigoRoute(mainland,events,_world.sessionState().journeyContract()); }
             catch (const std::invalid_argument &) { _encounter->journeySavePreimage().failed=true;throw; }
 			const auto text=_events.textForMap(28);
 			_encounter->journeySavePreimage().admitVertigoText(text);

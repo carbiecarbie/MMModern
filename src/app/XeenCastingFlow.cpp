@@ -100,7 +100,7 @@ bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIn
 		const auto &caster=_party.roster.at(owner);
 		const auto category=XeenLearnedSpellRules::categoryForClass(caster.characterClass);
 		const auto id=category ? XeenLearnedSpellRules::spellForSlot(*category,slot) : std::nullopt;
-		const auto spell=id ? XeenLearnedSpellRules::supported(*id) : std::nullopt;
+		const auto spell=id ? XeenLearnedSpellRules::supportedIn(*id,_world.sessionState().journeyContract(),false) : std::nullopt;
 		if (!spell) return false;
 		const auto after=static_cast<std::int16_t>(caster.currentSp-1);
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);

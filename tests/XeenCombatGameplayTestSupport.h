@@ -94,7 +94,7 @@ struct Harness {
   return s;
  }
  Phase phase() const {return flow&&flow->completed()?Phase::Victory:fight().phase();}
- const XeenCombatResult &result() const {return flow?flow->encounter()->combatResult():fight().result();}
+ XeenCombatResult result() const {return flow?flow->encounter()->combatResult():fight().result();}
  std::size_t randomPosition() const {return flow&&flow->completed()?retainedRng:fight().random().position();}
  const XeenCombat &fight() const {check(!flow||!flow->completed(),"retired combat pointer access");return *combat;}
  XeenCombat &fight() {check(!flow||!flow->completed(),"retired combat pointer access");return *combat;}

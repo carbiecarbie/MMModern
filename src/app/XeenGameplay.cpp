@@ -93,7 +93,7 @@ int Application::journeyExpedition(const std::filesystem::path &directory, std::
 }
 int Application::journeyRegion(const std::filesystem::path &directory, std::optional<std::uint32_t> seed,
   std::optional<std::filesystem::path> save) const {
- return gameplay(directory,xeenJourneyContent(9).entry,save,false,XeenEncounterEntry::Journey,seed,9);
+ return gameplay(directory,xeenJourneyContent(10).entry,save,false,XeenEncounterEntry::Journey,seed,10);
 }
 int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera camera,
   const std::optional<std::filesystem::path> &target, bool resume, XeenEncounterEntry entry, std::optional<std::uint32_t> seed,
@@ -320,7 +320,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
     return std::nullopt; // Never forward Save to the presenter or clear a label.
    }
    auto mapped = action;
-   if (flow.journey() && flow.encounter()->combat() && std::holds_alternative<InteractionAction>(action)) mapped = AttackAction{};
+   if (flow.journey() && flow.encounter()->combat() && !flow.encounter()->combat()->cast() && std::holds_alternative<InteractionAction>(action)) mapped = AttackAction{};
    if (flow.encounter() && flow.encounter()->combat() && !flow.inventoryOpen() &&
        flow.encounter()->combat()->phase() == XeenCombatPhase::PlayerReady) {
     if (const auto *slot = std::get_if<SelectInventorySlotAction>(&action); slot && slot->slot < 3)

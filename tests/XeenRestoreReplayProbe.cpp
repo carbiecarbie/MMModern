@@ -5,6 +5,7 @@
 namespace replay_test {
 using namespace mmodern;
 void observe();
+std::function<std::optional<std::uint32_t>(std::optional<std::uint32_t>)> filterDraw;
 std::function<void(std::uint32_t,std::uint32_t,std::optional<std::uint32_t>,XeenJourneyRandomState)> observeDraw;
 unsigned journeyInitializations=0, journeyConstructions=0, actions=0, pulses=0, retirements=0, commands=0, draws=0;
 unsigned timePreparations=0, eventExecutions=0, transfers=0, equipmentChanges=0;
@@ -32,7 +33,7 @@ struct JourneyProbe {
 void JourneyProbe::construct(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenCombatBoundary &b, const XeenGameFlags &f, const XeenEncounterState &s, const std::vector<XeenMonsterRecord> &mon, const XeenEventFile &evt) { observe(); ++journeyConstructions; return reinterpret_cast<JourneyReal *>(this)->construct(w,p,c,b,f,s,mon,evt); }
 void JourneyProbe::retire(const XeenCombat::Ticket &t, XeenEncounterState &s) { observe(); ++retirements; return reinterpret_cast<JourneyReal *>(this)->retire(t,s); }
 XeenCombatResult JourneyProbe::command(const XeenCombat::Ticket &t, XeenCombatCommand c) { observe(); ++commands; return reinterpret_cast<JourneyReal *>(this)->command(t,c); }
-std::optional<std::uint32_t> JourneyProbe::draw(std::uint32_t lo, std::uint32_t hi) { observe(); ++draws; const auto result=reinterpret_cast<JourneyReal *>(this)->draw(lo,hi); if(observeDraw)observeDraw(lo,hi,result,reinterpret_cast<XeenCombatRandom *>(this)->continuation()); return result; }
+std::optional<std::uint32_t> JourneyProbe::draw(std::uint32_t lo, std::uint32_t hi) { observe(); ++draws; auto result=reinterpret_cast<JourneyReal *>(this)->draw(lo,hi); if(filterDraw)result=filterDraw(result); if(observeDraw)observeDraw(lo,hi,result,reinterpret_cast<XeenCombatRandom *>(this)->continuation()); return result; }
 }
 
 using namespace mmodern;

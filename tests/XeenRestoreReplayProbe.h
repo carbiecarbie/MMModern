@@ -23,6 +23,7 @@ namespace replay_test {
 #define XEEN_REPLAY_RETIRE "_ZN7mmodern10XeenCombat13retireJourneyERKNS0_6TicketERNS_18XeenEncounterStateE"
 #define XEEN_REPLAY_COMMAND "_ZN7mmodern10XeenCombat7commandERKNS0_6TicketENS_17XeenCombatCommandE"
 #define XEEN_REPLAY_DRAW "_ZN7mmodern16XeenCombatRandom4drawEjj"
+extern std::function<std::optional<std::uint32_t>(std::optional<std::uint32_t>)> filterDraw; // Artificial bounded-rejection fixture only.
 extern std::function<void(std::uint32_t,std::uint32_t,std::optional<std::uint32_t>,mmodern::XeenJourneyRandomState)> observeDraw;
 extern unsigned journeyInitializations, journeyConstructions, actions, pulses, retirements, commands, draws;
 extern unsigned depth, unexpected, constructions, services, preparations;

@@ -197,6 +197,8 @@ private:
 	};
 	std::optional<CastingUi> _castingUi;
 	bool castingCasterEligible(std::size_t) const;
+	std::string combatCastingText() const;
+	IndexedFrame handleCombatCasting(const PlayerAction &,std::uint64_t);
 	std::string castingText() const;
 	IndexedFrame handleCasting(const PlayerAction &, std::uint64_t);
 	struct InventoryConfirmation {

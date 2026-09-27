@@ -42,6 +42,29 @@ std::optional<unsigned> XeenConsequenceDraw::draw(unsigned lo, unsigned hi) {
 	if (check) check();
 	return result;
 }
+// ScummVM spells.cpp magicArrow / combat.cpp RT_GROUP, DT_MAGIC_ARROW.
+// The saving throw is required even though it cannot change this spell's damage.
+XeenMagicArrowCandidate::XeenMagicArrowCandidate(std::int64_t permanent, std::int64_t temporary,
+        unsigned r, unsigned index) : resistance(r), resourceId(index) {
+    ruleRequire(permanent>=std::numeric_limits<int>::min() && permanent<=std::numeric_limits<int>::max() &&
+        temporary>=std::numeric_limits<int>::min() && temporary<=std::numeric_limits<int>::max(),"Invalid Arrow level operands");
+    const auto level=std::max<std::int64_t>(permanent+temporary,0);
+    ruleRequire(r<=100 && level<=std::numeric_limits<int>::max()-100 &&
+        index<=unsigned(std::numeric_limits<int>::max()-50),"Invalid Arrow interval");
+    levelBound=unsigned(100+level);saveBound=50+index;
+    step=r ? Step::Resistance : Step::Save;
+}
+bool XeenMagicArrowCandidate::service(XeenConsequenceDraw &draw) {
+    while (step!=Step::Done && draw.remaining) {
+        const auto accepted=draw.draw(1,step==Step::Resistance ? levelBound : saveBound);
+        if (!accepted) continue;
+        if (step==Step::Resistance) {
+            if (*accepted<resistance) {resisted=true;step=Step::Done;}
+            else step=Step::Save;
+        } else { damage=8;step=Step::Done; }
+    }
+    return step==Step::Done;
+}
 XeenRunCandidate::XeenRunCandidate(int signedThreshold) : threshold(signedThreshold) {
 	ruleRequire(threshold>=-128 && threshold<=127,"Invalid signed Run threshold");
 }

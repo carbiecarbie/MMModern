@@ -366,7 +366,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			{logical.mapId, script->file().resourceName, *recordIndex});
 		// Older domains keep their original refusal and zero dispatched instructions,
         // even though the shared decoder now knows the bounded town operand.
-        if (effective.opcode==0x11 && (!publication || world.sessionState().journeyContract()!=9)) {
+        if (effective.opcode==0x11 && (!publication || !xeenJourneyContent(world.sessionState().journeyContract()).armorRepair())) {
             const auto source=std::visit([](const auto &value){return value.source;},decodedResult);
             return error(XeenEventExecutionErrorKind::UnsupportedOpcode,
                 "opcode 17 is outside the supported decoder subset",instructionCount,logical,source);
@@ -386,7 +386,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 		if (std::holds_alternative<XeenEventExit>(decoded.operation))
 			return finalize();
 		if (const auto *service=std::get_if<XeenEventTownService>(&decoded.operation)) {
-			if (!publication || world.sessionState().journeyContract()!=9 || service->action!=1 ||
+			if (!publication || !xeenJourneyContent(world.sessionState().journeyContract()).armorRepair() || service->action!=1 ||
 				logical.mapId!=XeenMapIdentity(28) || logical.x!=8 || logical.y!=4 || logical.line!=0 ||
 				*recordIndex!=0 || !state.callStack.empty() || instructionCount!=1)
 				return error(XeenEventExecutionErrorKind::UnsupportedOperand,

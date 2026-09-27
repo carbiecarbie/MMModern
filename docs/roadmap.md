@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**Milestone 38 is the latest completed milestone.**
+**Milestone 39 is the latest completed milestone.**
 [Project status](project-status.md) owns implemented capabilities and acceptance
 boundaries; [project history](project-history.md) owns completed chronology.
 Reference provenance belongs to [dependencies](dependencies.md).
@@ -31,7 +31,9 @@ well recovery and bounded antidote use with exact 6/6 continuation
 completed original Vertigo entry, bounded traversal, return/revisit and retained
 two-region 8/8 continuation ([M37](milestone-37-plan.md)). M38 completed
 bounded Ironworks Armor Repair, atomic carried-gold/item publication, one-day
-departure and 8/9 continuation ([M38](milestone-38-plan.md)).
+departure and 8/9 continuation ([M38](milestone-38-plan.md)). M39 completed
+combat-owned Magic Arrow, First Aid and Awaken, bounded native feedback and
+exact 8/10 continuation with legacy isolation ([M39](milestone-39-plan.md)).
 These contracts do not certify unrestricted map-23
 or Clouds travel or normal original startup.
 
@@ -59,49 +61,16 @@ or implementation authorization. After each closure, the default is to plan
 the next named milestone; a new broad reassessment is not required unless the
 triggers below are met.
 
-### M39 - Bounded already-learned combat casting
+M39 is the **completed and accepted first milestone** of this arc. Its
+[closed contract](milestone-39-plan.md) establishes useful finite-SP combat
+consumers and their consequences on existing routes before M41 connects
+progression and the original training refill. Exploration recovery remains
+unchanged; no new service time or route was needed for acceptance.
 
-Connect the existing learned books and SP to the current combat turn owner,
-using **Magic Arrow, First Aid and Awaken** as the bounded useful spell set.
-Original Seymour already knows Magic Arrow; Rebecca already knows First Aid,
-and the admitted party has learned Awaken. Acquisition is therefore not a
-prerequisite. Magic Arrow gives the sorcerer's SP an offensive consumer;
-combat recovery adds a meaningful alternative to Attack/Block/Run while injury,
-Sleep and partial-party participation already matter. Keep the existing
-exploration-casting contract intact.
-
-The smallest production/acceptance slice is a real admitted Regional Journey
-fight with an acting caster, an identity-bound enemy target or eligible party
-target, visible cost/effect and correct subsequent turns, followed by quiet
-save, process restart and further play. Exercise offensive wounds/lethals and
-their existing XP/treasure accounting, recovery and cancellation/refusal, and
-retained mainland/Vertigo consequences. Use existing encounters and routes;
-no new city corridor, quest or enemy species is needed. Require native-SDL
-physical acceptance as well as deterministic and process evidence.
-
-This reuses knowledge, effect rules, targets, world RNG and consequence owners,
-but **does require a combat-owned casting operation**: acting-participant
-eligibility, partial-party target semantics, cost/refund and turn consumption,
-Magic Arrow's reference resistance/RNG path, bounded effect/projectile feedback,
-and guarded Flow/modal integration. Exploration casting cannot simply run
-inside combat as a second writer, nor supply its exploration time charge.
-Preserve combat round/End time and existing save authority. The current schema-8
-fields appear sufficient for the resulting quiet state; specify explicit new
-content admission and revalidate that representation during milestone planning.
-Do not implicitly upgrade 8/9 or any older domain.
-
-Exclude guild membership/purchases, new learned books, general spell coverage,
-area attacks, new monster statuses, exploration offensive casting, lighting,
-rest/SP replenishment, new routes and calendar expansion from this immediate
-milestone. It is a useful finite-SP step, not a claim of sustained unrestricted
-adventuring. It comes first because existing encounters can independently
-demonstrate its benefit without new service time or routes. It establishes
-combat spell consumers and their resource consequences before M41 connects
-progression and the original training refill to those consumers. Confidence in
-this ordering is high; exact casting and presentation contracts remain the work
-of separately authorized milestone planning.
-
-## Medium term
+**M40 is the immediate next roadmap unit; its planning/specification requires
+separate authorization.** M41 remains the following accepted commitment.
+No concrete replanning trigger was identified at M39 closure, so the accepted
+sequence, rationale and post-M41 broad-review cadence remain unchanged.
 
 ### M40 - Bounded service-day continuation
 
@@ -147,7 +116,7 @@ Schema 8 has neither merchant wares nor bank balances, so M40 requires a new
 persistence representation and explicit content admission. Specify fresh
 initialization and its RNG position for the prepared Regional Journey domain;
 do not pretend its day-8 start replays normal startup or silently populate old
-saves. Existing domains, including 8/9, retain their original support limits.
+saves. Existing domains, including 8/9 and 8/10, retain their original support limits.
 
 The decisive time contract is reference `Party::addTime`: a day-changing call
 regenerates stock and applies bank interest when its resulting day modulo ten
@@ -163,6 +132,8 @@ Confidence is medium-high that this is an independent milestone. It separates
 the shared stock/RNG/persistence change from Training's route, UI and character
 publication, so M41 can use the same checked service-time consequence path
 without revisiting a deliberately restricted first Training implementation.
+
+## Medium term
 
 ### M41 - Vertigo Training and progression
 
@@ -272,7 +243,7 @@ independent DOS observations. The reference pin belongs to
 remains authoritative for implemented behavior.
 
 The current day-10 entry refusal remains an MMModern support limit, not an
-original opening rule. It is safely deferred for M39 and deliberately resolved
+original opening rule. It remains outside completed M39 and is deliberately resolved
 by M40 for the selected service loop. Do not combine Training's separate day
 charges or split Temple's two-day charge: the reference consequences differ.
 
@@ -308,7 +279,8 @@ resource-derived regional/complete-actor/context foundation, M33's shared physic
 consequences and party-owned monster treasure, M34's participation/non-victory
 lifecycle and dormant-item semantics, M36's learned casting, M37's retained
 two-region transitions and 8/8 continuation, M38's bounded repair/departure
-publications and explicit 8/9 pair, and M28's
+publications and explicit 8/9 pair, M39's combat-owned casting and 8/10
+continuation, and M28's
 owner/preimage and presentation safeguards.
 Commercial resources remain external and unmodified.
 
@@ -334,7 +306,6 @@ M39 and M41 after M40. The next broad roadmap review follows M41, preserving the
 approximately three-completed-milestone cadence. Replan earlier on concrete
 evidence that:
 
-- M39's finite SP or combat ownership prevents its useful independent witness.
 - M40's reached stock/time path requires player access to generated items,
   other temporal modes or state outside the bounded same-year service domain;
   or repeated actual repair cannot independently demonstrate its value.

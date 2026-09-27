@@ -42,6 +42,8 @@ template<class F> auto countProvider(F fn,unsigned &calls) {
 extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &original,XeenCamera camera,
  const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,
  std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract) {
+ const std::uint16_t content=std::getenv("MMODERN_M38_CONTENT10")?10:9;
+ if(!resume && contract==10)contract=content; // Explicit inherited/legacy-domain witness.
  if(resume) {
   replay_test::journeyInitializations=replay_test::journeyConstructions=0;
   replay_test::actions=replay_test::pulses=replay_test::retirements=0;
@@ -121,7 +123,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
  };
  services.show=[&](const IndexedFrame &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
   check(target && flow && world && party && position && flags,"M38 production owners absent");
-  check(world->sessionState().journeyContract()==9,"M38 expected content 9");
+  check(world->sessionState().journeyContract()==content,"M38 inherited content mismatch");
   recursiveProbe=[&] {
    const auto calls=providerCalls,saves=saveCalls;
    const auto gold=std::uint32_t(party->monsterTreasure->gold);

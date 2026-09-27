@@ -115,7 +115,7 @@ public:
 	// Fixed observations for downstream presentation, never continuation authority.
 	const XeenCombatResult &combatObservation() const noexcept { return _combatObservation; }
 	const XeenCombatResult &combatAward() const noexcept { return _combatAward; }
-	const XeenCombatResult &combatResult() const noexcept { return _combat ? _combat->result() : _retiredCombatResult; }
+	XeenCombatResult combatResult() const noexcept { return _combat ? _combat->result() : _retiredCombatResult; }
 	XeenCombatBoundary &boundary() noexcept { return _boundary; }
 	bool preparation() const noexcept { return _combat && _combat->phase() == XeenCombatPhase::Preparation; }
 	bool terminal() const noexcept;
@@ -130,10 +130,12 @@ public:
 	const XeenEncounterResult &actionResult() const noexcept { return _actionResult; }
 	unsigned actionPending() const noexcept { return _actionPending; }
 	std::uint8_t frame() const noexcept { return _frame; }
-	XeenMonsterAppearance appearance() const noexcept {
+	XeenMonsterAppearance appearance() const {
 		auto result = _frame < 8 ? XeenMonsterAppearance{_frame} :
 			XeenMonsterAppearance{XeenMonsterSpriteKind::Attack, static_cast<std::uint8_t>(_frame - 8)};
 		if (_frame >= 8) result.identity = _appearanceIdentity;
+        if(_combat && _combat->cast() && _combat->cast()->phase==XeenCombatCastPhase::Projectile)
+            result.projectile=XeenProjectileAppearance{false,0,0,0,{}};
 		if(_projectileCursor<_projectiles.size()) result.projectile=_projectiles[_projectileCursor];
 		return result;
 	}
@@ -142,6 +144,14 @@ public:
 	std::string notice() const;
 private:
 	friend class XeenEventFlow;
+    std::optional<Ticket> _castFrameTicket;
+    IndexedFrame::Presentation _castFrame;
+    std::uint64_t _castInput=0;
+    std::string _combatCastRefusal;
+    void authorizeCombatCastFrame(const Ticket &,std::uint64_t,const IndexedFrame::Presentation &);
+    bool respondCombatCast(const PlayerAction &,std::uint64_t,const IndexedFrame::Presentation &,
+        const std::function<XeenLearnedSpellNames()> &);
+
 	struct SmithContinuation {
 		std::uint64_t lease=0, input=0, operation=0;
 		IndexedFrame::Presentation frame;

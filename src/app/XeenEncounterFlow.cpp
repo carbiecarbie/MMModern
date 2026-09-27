@@ -332,6 +332,54 @@ bool XeenEncounterFlow::terminal() const noexcept {
 	return _failure || p == XeenCombatPhase::Disengaged || p == XeenCombatPhase::Victory || p == XeenCombatPhase::Defeat ||
 		p == XeenCombatPhase::SupportStopped || p == XeenCombatPhase::Failed;
 }
+
+void XeenEncounterFlow::authorizeCombatCastFrame(const Ticket &t,std::uint64_t input,
+        const IndexedFrame::Presentation &frame) {
+    if(!_combat || !current(t) || !frame || !input)throw std::logic_error("Combat cast frame unavailable");
+    _castFrameTicket=t;_castFrame=frame;_castInput=input;
+}
+bool XeenEncounterFlow::respondCombatCast(const PlayerAction &action,std::uint64_t input,
+        const IndexedFrame::Presentation &frame,const std::function<XeenLearnedSpellNames()> &prepare) {
+    if(_busy || !_combat || !_castFrameTicket || !_castFrame || _castFrame!=frame ||
+        _castInput!=input || !current(*_castFrameTicket))return false;
+    using CI=XeenCombatCastInput;
+    const bool begin=std::holds_alternative<CastSpellAction>(action) && !_combat->cast();
+    std::optional<CI> response;unsigned index=0;
+    if(_combat->cast()) {
+        const auto phase=_combat->cast()->phase;
+        if(std::holds_alternative<AcknowledgeAction>(action) ||
+            (phase==XeenCombatCastPhase::Result && std::holds_alternative<InteractionAction>(action)))response=CI::Enter;
+        if(std::holds_alternative<CancelInteractionAction>(action))response=CI::Escape;
+        if(const auto *nav=std::get_if<NavigationAction>(&action)) {
+            if(*nav==NavigationAction::MoveForward)response=CI::Up;
+            if(*nav==NavigationAction::MoveBackward)response=CI::Down;
+        }
+        if(phase==XeenCombatCastPhase::PartyTarget)if(const auto *member=std::get_if<SelectMemberAction>(&action)) {
+            if(member->partyIndex<6){response=CI::PartyTarget;index=unsigned(member->partyIndex);}
+        }
+        if(phase==XeenCombatCastPhase::Enemy) {
+            if(const auto *row=std::get_if<SelectInventorySlotAction>(&action)){response=CI::EnemyTarget;index=unsigned(row->slot);}
+            if(const auto *row=std::get_if<SelectCombatTargetAction>(&action)){response=CI::EnemyTarget;index=row->row;}
+        }
+    }
+    if(!begin && !response)return false;
+    Busy busy(_busy);
+    auto source=*_castFrameTicket->combat;
+    _castFrame.reset();_castFrameTicket.reset();_castInput=0; // Consume before any provider.
+    XeenCombat::CastResponse authorization(source);
+    const auto result=begin ? _combat->beginCast(authorization,prepare) :
+        _combat->respondCast(authorization,*response,index,prepare);
+    if(result.status==XeenCombatStatus::Refused) {
+        _combatCastRefusal=result.failure==XeenCombatFailure::Preparation ? "Cast preparation unavailable; C retries" : "Cast unavailable for this domain or acting book";
+        return true;
+    }
+    _combatCastRefusal.clear();
+    if(!acceptCombatResult(result))return false;
+    if(_combat->cast() && (_combat->cast()->phase==XeenCombatCastPhase::Projectile ||
+        _combat->cast()->phase==XeenCombatCastPhase::Result))observeCombat();
+    scheduleCombat(_lastTime);return true;
+}
+
 void XeenEncounterFlow::scheduleCombat(std::uint64_t now) {
 	_scheduleAfterFrame = true;
 	_deadline.reset();
@@ -346,6 +394,7 @@ void XeenEncounterFlow::presented(const Ticket &entry) {
 		throw std::runtime_error("Combat frame scheduling failed");
 	}
 	_lastTime=now;
+	_combat->castPresented(*entry.combat,now);
 	scheduleCombat(now);
 	if (_appearanceAfterFrame) {
 		_cosmeticDeadline = now + 100;
@@ -376,7 +425,7 @@ bool XeenEncounterFlow::handoffCombat() {
 bool XeenEncounterFlow::observeCombat() noexcept {
 	const auto &r = _combat->result();
 	if (r.xpCount) _combatAward = r;
-	if (r.operation == XeenCombatOperation::PlayerAttack || r.operation == XeenCombatOperation::Block ||
+	if (r.operation == XeenCombatOperation::PlayerAttack || r.operation == XeenCombatOperation::Cast || r.operation == XeenCombatOperation::Block ||
 		r.operation == XeenCombatOperation::PlayerRun || r.operation == XeenCombatOperation::FinishDisengagement ||
 		r.operation == XeenCombatOperation::EnemyAttack) _combatObservation = r;
 	// Only a published attack starts an effect. Pending RNG prefixes, retained
@@ -386,7 +435,7 @@ bool XeenEncounterFlow::observeCombat() noexcept {
 		_appearanceIdentity = r.actingMonster;
 		_frame = 8; _appearanceStep = 0; _appearanceAfterFrame = true; return true;
 	}
-	if (r.operation == XeenCombatOperation::PlayerAttack && r.damage > 0) {
+	if ((r.operation == XeenCombatOperation::PlayerAttack || r.operation == XeenCombatOperation::Cast) && r.damage > 0) {
 		_appearanceIdentity = r.targetMonster;
 		_frame = r.actorHpAfter > 0 ? 11 : 0;
 		_appearanceStep = 0; _appearanceAfterFrame = true; return true;
@@ -408,6 +457,7 @@ bool XeenEncounterFlow::handleCombat(const PlayerAction &input, std::optional<st
 	_combatOperationStale = false;
 	if (_busy || terminal()) return false;
 	const auto phase = _combat->phase();
+	if(_combat->cast())return false;
 	const auto movement = mapped(input);
 	const bool begin = phase == P::Preparation && std::holds_alternative<BeginEncounterAction>(input);
 	const bool command = phase == P::PlayerReady &&
@@ -469,6 +519,14 @@ bool XeenEncounterFlow::idleCombat(std::optional<std::uint64_t> cycle) {
 	const bool cosmetic = now >= _cosmeticDeadline;
 	bool startedAppearance = false;
 	_lastTime = now;
+	if (_combat->cast()) {
+        const auto phase=_combat->cast()->phase;
+        if(_scheduleAfterFrame || (phase!=XeenCombatCastPhase::Preparing && phase!=XeenCombatCastPhase::Projectile))return false;
+        const auto result=_combat->serviceCast(*entry.combat,now);
+        if(!acceptCombatResult(result))return false;
+        if(phase==XeenCombatCastPhase::Preparing && _combat->cast() && _combat->cast()->phase==XeenCombatCastPhase::Projectile && observeCombat())_cosmeticDeadline=now+100;
+        scheduleCombat(now);return true;
+    }
 	if (due) {
 		const auto result = _combat->phase() == XeenCombatPhase::Approach ?
 			_combat->approachPulse(*entry.combat) : _combat->service(*entry.combat);
@@ -504,9 +562,10 @@ std::string XeenEncounterFlow::expeditionNotice() const {
 		std::string(1,"NESW"[unsigned(_camera.direction)])+" T="+std::to_string(_party.encounterContext->minutes);
 	if (_combat) {
 		text+=" Combat / no save\n";
+		if(!_combatCastRefusal.empty())text+=_combatCastRefusal+"\n";
 		if(_failure) text+="STOPPED: unsafe session; restart last save\n";
 		else if(_combat->phase()==XeenCombatPhase::PlayerReady)
-			text+=_party.roster.at(kXeenCombatOwners[_combat->participant()]).name+": Space=Attack B=Block 1-3=target\n";
+			text+=_party.roster.at(kXeenCombatOwners[_combat->participant()]).name+": Space=Attack B=Block C=Cast 1-3=target\n";
 		else if(_combat->phase()==XeenCombatPhase::Defeat) text+="DEFEAT: no recovery; restart last save\n";
 		else if(_combat->phase()==XeenCombatPhase::Failed || _combat->phase()==XeenCombatPhase::SupportStopped) {
 			const char *reason="unsupported combat";
@@ -576,7 +635,7 @@ std::string XeenEncounterFlow::combatNotice() const {
 	using P = XeenCombatPhase;
 	const auto phase = _combat->phase();
 	const auto &r = _combatObservation;
-	std::string text = "T=" + std::to_string(_combat->result().minutes) + " | Unsaveable | Esc exits\n";
+	std::string text = (_combatCastRefusal.empty() ? "T=" : _combatCastRefusal+"\nT=") + std::to_string(_combat->result().minutes) + " | Unsaveable | Esc exits\n";
 	auto name = [&](unsigned owner) { return _party.roster.at(owner).name; };
 	if (phase == P::Preparation)
 		return text + "Preparation: actors have not begun.\nI inventory / equipment; Enter begins.";
@@ -587,7 +646,7 @@ std::string XeenEncounterFlow::combatNotice() const {
 	else if (phase == P::SupportStopped) text += "SUPPORT STOP - encounter cannot continue\n";
 	else if (phase == P::PlayerReady) {
 		const auto slot = _combat->participant();
-		text += "F" + std::to_string(slot+1) + " " + name(kXeenCombatOwners[slot]) + ": Space Attack / B Block\n";
+		text += "F" + std::to_string(slot+1) + " " + name(kXeenCombatOwners[slot]) + ": Space Attack / B Block / C Cast\n";
 	} else if (phase == P::PendingEnemy) text += "Enemy attack pending (automatic)\n";
 	else if (phase == P::PendingRound) text += "Next round pending (automatic)\n";
 	else if (phase == P::VictoryAwaitingEnd) text += "Enemy defeated; victory end pending\n";

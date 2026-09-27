@@ -494,6 +494,13 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 		commands.insert(commands.end(),actorCommands.begin(),actorCommands.end());
 	}
 
+    if(actorFrame && actorFrame->projectile) {
+        const auto &p=*actorFrame->projectile;
+        if(!world.sessionState().journey() || !xeenJourneyContent(world.sessionState().journeyContract()).combatCasting() || camera.mapId!=XeenMapIdentity(28) || p.enemy || p.row || p.lane || p.distance)
+            throw std::invalid_argument("Unsupported indoor projectile");
+        XeenIndoorDrawCommand command;command.originalOrder=162;command.x=72;command.y=43;
+        command.sourceMapId=camera.mapId;command.content=XeenIndoorProjectileDraw{};commands.push_back(command);
+    }
 	std::stable_sort(commands.begin(), commands.end(), [](const auto &left, const auto &right) {
 		return left.originalOrder < right.originalOrder;
 	});

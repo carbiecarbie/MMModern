@@ -31,6 +31,7 @@ struct XeenMonsterRecord {
 	unsigned preferredClass() const { return raw[25]; }
 	unsigned damageDie() const { return raw[28]; }
 	unsigned hitParameter() const { return raw[31]; }
+	unsigned magicResistance() const { return raw[39]; }
 	unsigned physicalResistance() const { return raw[40]; }
 };
 

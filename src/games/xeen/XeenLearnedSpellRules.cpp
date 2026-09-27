@@ -63,7 +63,17 @@ std::optional<std::uint8_t> XeenLearnedSpellRules::spellForSlot(XeenSpellCategor
 std::optional<XeenLearnedSpell> XeenLearnedSpellRules::supported(std::uint8_t id) noexcept {
 	if (id == 1) return XeenLearnedSpell::Awaken;
 	if (id == 26) return XeenLearnedSpell::FirstAid;
+	if (id == 45) return XeenLearnedSpell::MagicArrow;
 	return std::nullopt;
+}
+
+std::optional<XeenLearnedSpell> XeenLearnedSpellRules::supportedIn(std::uint8_t id, std::uint16_t content, bool combat) noexcept {
+    if (combat) return content==10 ? supported(id) : std::nullopt;
+    if ((content==7 || content==8 || content==9 || content==10) && (id==1 || id==26)) return supported(id);
+    return std::nullopt;
+}
+unsigned XeenLearnedSpellRules::cost(XeenLearnedSpell spell) noexcept {
+    return spell==XeenLearnedSpell::MagicArrow ? 2 : 1;
 }
 
 bool XeenLearnedSpellRules::known(const XeenCharacter &character, std::size_t slot) noexcept {
@@ -71,15 +81,16 @@ bool XeenLearnedSpellRules::known(const XeenCharacter &character, std::size_t sl
 }
 
 bool XeenLearnedSpellRules::eligible(const XeenPartyState &party, std::size_t activeIndex,
-		std::size_t slot) noexcept {
+		std::size_t slot, std::uint16_t content, bool combat) noexcept {
 	if (activeIndex >= party.party.size()) return false;
 	const auto owner = party.party.activeRosterIds()[activeIndex];
 	if (owner >= XeenRoster::kCharacterCount) return false;
 	const auto &character = party.roster.at(owner);
 	const auto category = categoryForClass(character.characterClass);
 	const auto spell = category ? spellForSlot(*category, slot) : std::nullopt;
-	return character.hasSpells && character.canAct() && character.currentSp >= 1 &&
-		known(character, slot) && spell && supported(*spell).has_value();
+	const auto effect=spell ? supportedIn(*spell,content,combat) : std::nullopt;
+	return character.hasSpells && character.canAct() && effect &&
+		character.currentSp >= int(cost(*effect)) && known(character, slot);
 }
 
 XeenSpellPreparation XeenLearnedSpellRules::prepareFirstAid(const XeenPartyState &party,

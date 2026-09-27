@@ -231,7 +231,8 @@ std::string XeenEncounterFlow::consequenceNotice() const {
  out<<" G"<<_party.monsterTreasure->gold<<"/"<<_party.monsterTreasure->gems<<'\n';
  if(stopped)out<<"Gameplay unavailable. Esc exits; restart last save.\n";
  if(_combat) {
-  if(!stopped && _combat->phase()==XeenCombatPhase::PlayerReady) out<<_party.roster.at(kXeenCombatOwners[_combat->participant()]).name<<(xeenJourneyContent(_world.sessionState().journeyContract()).disengagement()?": Space/B; R Run; 1-3 target\n":": Space/B; 1-3 target\n");
+   if(!_combatCastRefusal.empty())out<<_combatCastRefusal<<'\n';
+  if(!stopped && _combat->phase()==XeenCombatPhase::PlayerReady) out<<_party.roster.at(kXeenCombatOwners[_combat->participant()]).name<<(xeenJourneyContent(_world.sessionState().journeyContract()).disengagement()?": Space/B; C Cast; R Run; 1-3 target\n":": Space/B; 1-3 target\n");
   else if(!stopped)out<<"Automatic combat / End\n";
   const auto rows=_combat->contacts();
   for(unsigned i=0;i<rows.size();++i)if(rows[i]) {const auto &a=_world.sessionState().regionalActors(rows[i]->mapId).at(rows[i]->recordIndex);out<<(rows[i]==_combat->selectedTarget()?">":"")<<i+1<<' '<<a.statistics->name()<<" #"<<a.id.recordIndex<<" HP"<<a.hp<<'\n';}

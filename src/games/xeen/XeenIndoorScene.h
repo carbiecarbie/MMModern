@@ -48,6 +48,8 @@ struct XeenIndoorActorDraw {
 	bool bottomClipped=false;
 };
 
+struct XeenIndoorProjectileDraw {};
+
 struct XeenIndoorDrawCommand {
 	int originalOrder = 0;
 	int x = 0;
@@ -57,7 +59,7 @@ struct XeenIndoorDrawCommand {
 	int sourceY = -1;
 	XeenDirection sourceFace = XeenDirection::North;
 	int queryIndex = -1;
-	std::variant<XeenIndoorGeometryDraw, XeenIndoorObjectDraw, XeenIndoorActorDraw> content;
+	std::variant<XeenIndoorGeometryDraw, XeenIndoorObjectDraw, XeenIndoorActorDraw, XeenIndoorProjectileDraw> content;
 	XeenIndoorGeometryDraw &geometry() { return std::get<XeenIndoorGeometryDraw>(content); }
 	const XeenIndoorGeometryDraw &geometry() const {
 		return std::get<XeenIndoorGeometryDraw>(content);
@@ -66,7 +68,9 @@ struct XeenIndoorDrawCommand {
 		return std::get_if<XeenIndoorObjectDraw>(&content);
 	}
 	const XeenIndoorActorDraw *actor() const { return std::get_if<XeenIndoorActorDraw>(&content); }
+	const XeenIndoorProjectileDraw *projectile() const { return std::get_if<XeenIndoorProjectileDraw>(&content); }
 	XeenSpriteDrawOptions drawOptions() const {
+        if(projectile()){XeenSpriteDrawOptions result;result.sceneClipped=true;return result;}
 		if (const auto *draw=actor()) {
 			XeenSpriteDrawOptions result;
 			result.scaleIndex=draw->scaleIndex;result.sceneClipped=true;

@@ -392,7 +392,7 @@ XeenSaveSnapshot journeyWire(std::uint16_t contract) {
 	s.camera = {23,9,11,XeenDirection::West};
 	s.journey.emplace();
 	auto &j = *s.journey;
-	j.schema = contract == 9 ? 8 : contract;
+	j.schema = (contract == 9 || contract == 10) ? 8 : contract;
 	j.contract = contract;
 	j.context.emplace();
 	j.context->day = contract == 1 ? 1 : 8;
@@ -449,15 +449,15 @@ void ironworksWireContract() {
 		check(restored.journey->treasure->gold == 0xffffffffU && restored.journey->treasure->dormant() &&
 			XeenSaveFormat::encode(restored) == bytes, "Ironworks full-u32 purse/dormant treasure changed");
 	}
-	for (unsigned contract=1; contract<=9; ++contract) {
+	for (unsigned contract=1; contract<=10; ++contract) {
 		const auto bytes = XeenSaveFormat::encode(journeyWire(contract));
 		const auto decoded = XeenSaveFormat::decode(bytes);
-		check(decoded.journey->contract == contract && decoded.journey->schema == (contract==9 ? 8 : contract),
+		check(decoded.journey->contract == contract && decoded.journey->schema == ((contract==9 || contract==10) ? 8 : contract),
 			"supported pair changed on decode");
 		check(XeenSaveFormat::encode(decoded) == bytes, "legacy/successor bytes changed on recapture");
 	}
 	for (unsigned schema=0; schema<=10; ++schema) for (unsigned contract=0; contract<=10; ++contract) {
-		const bool supported = (schema >= 1 && schema <= 8 && schema == contract) || (schema == 8 && contract == 9);
+		const bool supported = (schema >= 1 && schema <= 8 && schema == contract) || (schema == 8 && (contract == 9 || contract == 10));
 		if (supported) continue;
 		auto invalid = journeyWire(9);
 		invalid.journey->schema = schema; invalid.journey->contract = contract;

@@ -265,7 +265,7 @@ XeenRegionalInteraction xeenRegionalInteraction(const XeenEventFile &events,cons
 	const auto first=xeenRegionalEvent(events,camera);
 	if (!first) return XeenRegionalInteraction::None;
 	if (xeenJourneyContent(contract).vertigo()) {
-		if (contract==9 && camera.mapId==XeenMapIdentity(28) && *first==0 && camera.x==8 && camera.y==4)
+		if (xeenJourneyContent(contract).armorRepair() && camera.mapId==XeenMapIdentity(28) && *first==0 && camera.x==8 && camera.y==4)
 			return XeenRegionalInteraction::Ironworks;
 		if (camera.mapId==XeenMapIdentity(23) && *first==136 && camera.x==10 && camera.y==13)
 			return XeenRegionalInteraction::VertigoEntrance;

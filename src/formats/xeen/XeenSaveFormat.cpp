@@ -206,7 +206,7 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 		require(j.context->profile == XeenBehaviorProfile::WorldOfXeenClouds &&
 			(j.context->difficulty == XeenDifficulty::Adventurer || j.context->difficulty == XeenDifficulty::Warrior),
 			"invalid Journey context enum");
-		if (j.contract == 9) {
+		if (xeenJourneyContent(j.contract).armorRepair()) {
 			require(xeenRegionalContext(*j.context) && j.context->year == 610 &&
 				j.context->day >= 8 && j.context->day <= 10, "invalid Ironworks calendar context");
 			require(j.context->day == 8 || j.vertigoActors.has_value(), "Ironworks departure requires retained city");

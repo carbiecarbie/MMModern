@@ -1,4 +1,5 @@
 #include "XeenChildProcessTestSupport.h"
+#include <cstdlib>
 #include "platform/XeenSaveFile.h"
 #include "formats/xeen/XeenSaveFormat.h"
 #include <set>
@@ -26,7 +27,7 @@ int main(int argc,char **argv) {
   const auto fresh=child_test::launch(exe,{L"--journey-region",L"--combat-seed",L"7",game.wstring(),L"--save-file",route.wstring()},dir/"production.log");
   child_test::require(fresh.exit==0 && fresh.output.find("M38 PRODUCTION WITNESS PASSED")!=std::string::npos,"M38 production witness failed");
   const auto a=XeenSaveFile::read(dir/"production-A.mmsave");
-  child_test::require(a.journey && a.journey->schema==8 && a.journey->contract==9 &&
+  child_test::require(a.journey && a.journey->schema==8 && a.journey->contract==(std::getenv("MMODERN_M38_CONTENT10")?10:9) &&
    a.journey->context->day==8 && a.journey->context->minutes==584 &&
    a.journey->treasure->gold==810 && a.characters[6].armor[0].state==128 &&
    a.characters[6].armor[1].state==128,"M38 production-input checkpoint differs from contract");

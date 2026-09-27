@@ -173,6 +173,8 @@ void XeenEventFlow::framePresented(const IndexedFrame::Presentation &presented) 
 		else if (!_encounter->presentJourney(*_encounterFrame)) throw std::logic_error("Stale Journey frame handoff");
 		_handoffPending = false; _encounterFrame = _encounter->ticket();
 		_arrivalPending = false;
+		if (_encounter->combat())
+			_encounter->authorizeCombatCastFrame(*_encounterFrame,_inputGeneration,presented);
 		if (_castingUi && _encounter->castingActive())
 			_encounter->authorizeCastingFrame(*_encounterFrame,_inputGeneration,presented);
 		if (_smithUi && _encounter->_smith)
@@ -345,7 +347,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 			const auto composed=_encounterCompose(_ordinary.phase,_encounter->appearance());
 			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter frame");
 			if (!composed.frame.isValid()) throw std::runtime_error("Invalid encounter frame");
-			const auto notice = _encounter->notice();
+			const auto notice = _encounter->combat() && _encounter->combat()->cast() ? combatCastingText() : _encounter->notice();
 			auto rendered = noticeFrame(composed.frame, _inventoryFont, notice, _encounter->combat() || completed(),journey() && xeenJourneyContent(_world.sessionState().journeyContract()).consequences());
 			if (report && !attempt && reportText) reportText(notice);
 			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter report");
@@ -361,7 +363,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 						_equipmentResult ? &*_equipmentResult : nullptr, !completed(), completed());
 					returned = _frame;
 				}
-				if (_encounter->combat() && (journey() || !_displayedCombat || !_encounter->combat()->current(*_displayedCombat))) {
+				if (_encounter->combat() && ((journey() && !cosmeticInput) || !_displayedCombat || !_encounter->combat()->current(*_displayedCombat))) {
 					if (_inputGeneration == std::numeric_limits<std::uint64_t>::max()) throw std::overflow_error("Combat input generation exhausted");
 					++_inputGeneration;
 					_displayedCombat = _encounter->combat()->ticket();
@@ -772,7 +774,7 @@ IndexedFrame XeenEventFlow::initial() {
 }
 bool XeenEventFlow::canCancelInteraction() const {
 	if (_smithUi) return true;
-	if (_castingUi || (journey() && _encounter->castingSettlement())) return true;
+	if ((_encounter && _encounter->combat() && _encounter->combat()->cast()) || _castingUi || (journey() && _encounter->castingSettlement())) return true;
 	return _pending && _pending->state.pendingPresentation &&
 		_pending->state.pendingPresentation->request.response ==
 			XeenPresentationResponseRequirement::CharacterSelection;
@@ -862,8 +864,12 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 		}
 		if (!_encounter->current(_encounter->ticket())) { _fatal = true; throw std::runtime_error("Stale encounter idle"); }
 		const bool ordinary = advanceEncounterOrdinary();
+		// Combat appearance/ordinary animation can replace the concrete frame while
+		// retaining the exact semantic ticket. Do not retire fresh keys for that redraw.
+		const bool combatCosmetic = hadJourneyCombat && _encounter->combat() && beforeIdle.combat &&
+			_encounter->combat()->current(*beforeIdle.combat);
 		if (changed || ordinary) return renderEncounter(completed() || (hadJourneyCombat && !_encounter->combat()),
-			quietBefore && _encounter->journeyMutable() && _encounter->current(beforeIdle));
+			combatCosmetic || (quietBefore && _encounter->journeyMutable() && _encounter->current(beforeIdle)));
 		return std::nullopt;
 	}
 	const bool recomposed = refreshScene(false, OrdinaryCause::Idle);
@@ -937,6 +943,8 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 	if (journey() && _encounter->combat() && xeenJourneyContent(_world.sessionState().journeyContract()).disengagement() &&
 		std::holds_alternative<RevisitCompletedAction>(action)) action=RunAction{};
 	DispatchScope dispatch(_dispatching);
+    if(journey() && _encounter->combat() && (_encounter->combat()->cast() || std::holds_alternative<CastSpellAction>(action)))
+        return handleCombatCasting(action,*displayedInput);
 	validateRegionalEvents();
 	if (_encounter) {
 		if (journey() && !_encounter->combat()) {

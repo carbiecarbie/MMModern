@@ -337,6 +337,19 @@ Historical limitations in those plans describe their recorded boundaries.
   repair, departure and fresh-process restart acceptance passed. See the
   [Milestone 38 plan](milestone-38-plan.md#final-acceptance).
 
+## M39 - Bounded already-learned combat casting
+
+- Connected Magic Arrow, First Aid and Awaken to the existing combat owner,
+  with stable participant/target semantics, exact cost/refund/action behavior,
+  original Arrow RNG/damage and shared wound/lethal/XP/treasure consequences.
+- Added bounded native projectile/result presentation and retained semantic
+  input authority across same-ticket redraws while requiring each new concrete
+  frame to be presented. Journey v4 schema 8/content 10 preserves settled
+  consequences through restart; legacy 8/9 and older behavior remains isolated.
+- Build, full CTest, process validation and independent technical review passed;
+  separately, maintainer physical native-SDL acceptance passed. See the
+  [Milestone 39 plan](milestone-39-plan.md#final-acceptance).
+
 ## Maintaining this history
 
 Add one short section with 2-4 lasting-result bullets per completed milestone

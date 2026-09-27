@@ -7,7 +7,7 @@
 #include <stdexcept>
 namespace mmodern {
 inline bool xeenSupportedJourneyPair(std::uint16_t schema, std::uint16_t contract) noexcept {
-	return (schema >= 1 && schema <= 8 && schema == contract) || (schema == 8 && contract == 9);
+	return (schema >= 1 && schema <= 8 && schema == contract) || (schema == 8 && (contract == 9 || contract == 10));
 }
 struct XeenJourneyActorAdmission {
 	unsigned record, resourceId, profileImage;
@@ -30,7 +30,8 @@ struct XeenJourneyContent {
 	std::uint16_t day;
 	bool manualObjective;
 	XeenMovement::Capabilities traversal{};
-	bool armorRepair() const noexcept { return contract == 9; }
+	bool combatCasting() const noexcept { return contract == 10; }
+	bool armorRepair() const noexcept { return contract == 9 || combatCasting(); }
 	bool consequences() const noexcept { return (contract >= 4 && contract <= 8) || armorRepair(); }
 	bool disengagement() const noexcept { return (contract >= 5 && contract <= 8) || armorRepair(); }
 	bool connectedRecovery() const noexcept { return contract == 6 || learnedCasting(); }
@@ -84,6 +85,8 @@ inline const XeenJourneyContent &xeenJourneyContent(std::uint16_t contract) {
 	if (contract == 8) return vertigo;
 	static const XeenJourneyContent ironworks{9,regional.entry,regional.records,19,8,false};
 	if (contract == 9) return ironworks;
+	static const XeenJourneyContent combatCasting{10,regional.entry,regional.records,19,8,false};
+	if (contract == 10) return combatCasting;
 	throw std::invalid_argument("Unsupported Journey content contract");
 }
 struct XeenJourneyRandomState {
