@@ -49,24 +49,232 @@ The approved **M36-M38 short arc is completed and accepted**: learned
 exploration casting, bounded Vertigo travel, and Ironworks Armor Repair.
 The repair slice gives earned gold a use without merchant stock or trading.
 
-The next activity is a **focused post-M38 systems/roadmap reassessment** within
-the accepted Vertigo-centered reusable-system direction described below.
-Assess the infrastructure actually present and choose its best next production
-and acceptance consumer. This closure does not choose/specify M39 or authorize
-another implementation milestone.
+The maintainer accepted the following three-milestone near-term arc:
+
+**M39 - Bounded already-learned combat casting -> M40 - Bounded service-day
+continuation -> M41 - Vertigo Training and progression.**
+
+These are accepted roadmap planning commitments, not milestone specifications
+or implementation authorization. After each closure, the default is to plan
+the next named milestone; a new broad reassessment is not required unless the
+triggers below are met.
+
+### M39 - Bounded already-learned combat casting
+
+Connect the existing learned books and SP to the current combat turn owner,
+using **Magic Arrow, First Aid and Awaken** as the bounded useful spell set.
+Original Seymour already knows Magic Arrow; Rebecca already knows First Aid,
+and the admitted party has learned Awaken. Acquisition is therefore not a
+prerequisite. Magic Arrow gives the sorcerer's SP an offensive consumer;
+combat recovery adds a meaningful alternative to Attack/Block/Run while injury,
+Sleep and partial-party participation already matter. Keep the existing
+exploration-casting contract intact.
+
+The smallest production/acceptance slice is a real admitted Regional Journey
+fight with an acting caster, an identity-bound enemy target or eligible party
+target, visible cost/effect and correct subsequent turns, followed by quiet
+save, process restart and further play. Exercise offensive wounds/lethals and
+their existing XP/treasure accounting, recovery and cancellation/refusal, and
+retained mainland/Vertigo consequences. Use existing encounters and routes;
+no new city corridor, quest or enemy species is needed. Require native-SDL
+physical acceptance as well as deterministic and process evidence.
+
+This reuses knowledge, effect rules, targets, world RNG and consequence owners,
+but **does require a combat-owned casting operation**: acting-participant
+eligibility, partial-party target semantics, cost/refund and turn consumption,
+Magic Arrow's reference resistance/RNG path, bounded effect/projectile feedback,
+and guarded Flow/modal integration. Exploration casting cannot simply run
+inside combat as a second writer, nor supply its exploration time charge.
+Preserve combat round/End time and existing save authority. The current schema-8
+fields appear sufficient for the resulting quiet state; specify explicit new
+content admission and revalidate that representation during milestone planning.
+Do not implicitly upgrade 8/9 or any older domain.
+
+Exclude guild membership/purchases, new learned books, general spell coverage,
+area attacks, new monster statuses, exploration offensive casting, lighting,
+rest/SP replenishment, new routes and calendar expansion from this immediate
+milestone. It is a useful finite-SP step, not a claim of sustained unrestricted
+adventuring. It comes first because existing encounters can independently
+demonstrate its benefit without new service time or routes. It establishes
+combat spell consumers and their resource consequences before M41 connects
+progression and the original training refill to those consumers. Confidence in
+this ordering is high; exact casting and presentation contracts remain the work
+of separately authorized milestone planning.
 
 ## Medium term
 
-The post-M38 reassessment remains **within the accepted Vertigo-centered
-systems direction**:
-given the infrastructure now actually present, which reusable system has the
-best next production and acceptance consumer? Candidates, not a committed
-sequence, include training/progression, broader magic and combat casting,
-guild/spell acquisition, temple and recovery services, and further economy/item
-breadth. Route evidence may identify another prerequisite system. Training
-deserves particular attention as a consumer of both XP and gold, but its
-original time/day consequences should be evaluated against the city and time
-foundations now available.
+### M40 - Bounded service-day continuation
+
+Remove the day-10 obstacle to repeated admitted Ironworks visits by supporting
+the mandatory consequences of daytime, script-driven service-day advances
+within the current year. This is the prerequisite for M41's useful repeated
+Training/repair loop, not a general calendar framework. Keep ordinary movement
+and combat time admission bounded; exclude overnight adventuring, rest,
+year rollover/aging and new service routes. Reserve any required departure
+before admitting an operation that could exceed the supported date range.
+
+The smallest useful production boundary is real Ironworks repair and subsequent
+adventuring across day 11, a later visit, quiet save, process restart and further
+repair/play. Include zero-transaction departures, but do not accept empty visits
+alone as the gameplay witness. Date, retained actors/items, generated stock,
+bank balances and subsequent world RNG must continue exactly, with no duplicate
+departure or regeneration on failure/retry, revisit or restore. Require native
+SDL acceptance alongside deterministic and process evidence. M38's route and
+guarded publication/Flow ownership are the starting point; M39 remains usable
+through the expanded service-day domain.
+
+The minimum coherent foundation includes party-owned merchant wares and bank
+gold/gems, explicit fresh-domain initialization, stock regeneration, interest,
+and guarded publication with date and world-owned RNG. Reference regeneration
+replaces the fixed wares for both sides' four shops, generating items even when
+a category is already full. The reached stock-generation path covers item
+levels 1-6, materials/enchantments and charges; it is substantially broader than
+the existing bounded monster-drop generator. Preserve the complete reached
+draw sequence, including the other shops and the second side's numeric tables,
+without admitting Darkside gameplay. Reuse suitable checked item/RNG helpers
+without changing legacy monster-drop semantics or adding a merchant RNG owner.
+
+Original bank balances are zero in the inspected initial resources. Interest
+still belongs to the operation and must preserve durable balances; bank UI,
+deposits and withdrawals are unnecessary. New-game stock generation and later
+regeneration are explicit lifecycle operations, never lazy menu or restore
+work. Generated offers can remain unavailable to the player: exclude Buy,
+stock depletion, Sell, new equipment effects and a general transaction/service
+registry. This leaves a concrete foundation for later trading without making
+trading a prerequisite for faithful service time.
+
+Schema 8 has neither merchant wares nor bank balances, so M40 requires a new
+persistence representation and explicit content admission. Specify fresh
+initialization and its RNG position for the prepared Regional Journey domain;
+do not pretend its day-8 start replays normal startup or silently populate old
+saves. Existing domains, including 8/9, retain their original support limits.
+
+The decisive time contract is reference `Party::addTime`: a day-changing call
+regenerates stock and applies bank interest when its resulting day modulo ten
+is one, or when the individual charge exceeds 1440 minutes. Preserve calls,
+not just the final date. In the admitted daytime script-service path, the mode
+suppresses the ordinary daily reset/Weak handling and clears the pending
+new-day marker; this is not a replay of movement's condition ticks, actor
+turns or `changeTime`. Prove that boundary in the specification. M40 must
+support the separate one-day operations M41 needs; Temple's two-day operation
+and other temporal modes remain later admissions.
+
+Confidence is medium-high that this is an independent milestone. It separates
+the shared stock/RNG/persistence change from Training's route, UI and character
+publication, so M41 can use the same checked service-time consequence path
+without revisiting a deliberately restricted first Training implementation.
+
+### M41 - Vertigo Training and progression
+
+Connect legitimately accumulated XP and carried gold to the original Vertigo
+training service, permanent levels and existing derived HP/SP/combat rules.
+Training is the preferred progression consumer: it uses both resources and
+returns the trained member to full HP/SP, giving M39's spell users a connected
+benefit. It follows M40 so repairs, different trainees and later visits need
+not compete for the two days before the old stock boundary.
+
+Admit the original training doorway/service route, its meaningful events,
+additional Slime influence and resource-driven service presentation. The
+examined route is a small extension of Vertigo admission, but full dynamic
+actor closure and retained-city/revisit consequences must be proved during
+specification; the existing static route evidence is not that certification.
+Preserve party/roster progression ownership and Flow/modal/save authority.
+Use M40's service-time operations and the existing purse, XP, character rules,
+retained actors and M39 combat consumers rather than parallel progression or
+payment systems.
+
+The smallest useful acceptance boundary is earning the missing XP through
+admitted play, reaching Training, paying for a level, observing derived stats
+and the original refill, and using the result in further combat/casting after
+quiet save and process restart. Also establish different-member training and
+return visits across a stock boundary as connected service continuity, with
+eligibility/refusal and departure behavior. Respect Vertigo's original level
+cap and supported character/effect bounds; no synthetic grant of XP/gold is a
+substitute for the production witness. Native SDL, deterministic and process
+evidence remain distinct requirements.
+
+The later specification must preserve class/XP eligibility, gold cost and XP
+consumption, a day for each distinct newly trained member in a visit, and a
+separate day on departure even without training. Additional levels for the
+same member in that visit do not add another training day. Successful training
+resets party temporary state and refills the selected member's HP/SP; it is
+not general condition healing or free rest. Validate the complete reset inputs,
+including currently unmodeled temporary resistances, as zero or explicitly
+represented within the admitted domain rather than silently discarding them.
+
+Levels, XP, HP/SP and modeled temporary state already fit schema 8; M41 is
+expected to reuse M40's expanded representation with new content semantics.
+Transient visit bookkeeping need not survive a quiet save. Recheck this during
+specification if route consequences or reset inputs introduce durable state.
+Exclude other trainers, class changes, skill purchases, guild/Temple work,
+general replenishment, new quests and unrestricted city travel. This completes
+a connected combat -> repeated services -> progression arc, leaving useful gold
+expenditure and durable stock as foundations for a subsequent trading or spell
+acquisition decision. Confidence in M41's position is medium; route closure
+and the end-to-end earned-XP witness are its main remaining specification risks.
+
+### Why service continuation precedes Training and Sell
+
+A faithful first Training visit is possible under the old boundary: from day 8,
+one distinct member can train on day 9 and depart on day 10. It can produce a
+real level/refill and could later be extended without replacing its owners.
+But one earlier smith departure already prevents that successful train-and-exit
+sequence without day-11 consequences. Two distinct trainees also cross that
+boundary. Such a slice would leave the intended repeatable progression loop
+unavailable and force an immediate service-time follow-up. Combining all of
+M40 with Training instead would couple stock generation and persistence to a
+new route, modal UI and progression publication. The independent Ironworks
+consumer makes the split preferable.
+
+Sell is the strongest small alternative: it reuses the M38 route, modal work,
+purse/item guards and removes carried items without adding them to stock.
+However, the prepared party's carried gold already funds early Training;
+earned XP and service continuity are the more immediate constraints. Sell
+alone adds gold while preserving the repeated-visit limit. Advance it only if
+real play establishes inventory congestion or a funding shortage that blocks
+the chosen progression witness. Fewest changed lines does not by itself make
+it the better next system.
+
+### After M41 - provisional consumers
+
+Review the next short arc after M41. Keep the deferred boundaries distinct:
+
+- **Sell** is the strongest small economy candidate: reuse the admitted
+  Ironworks route and publication guards to remove/compact carried items and
+  credit gold, without merchant stock. Admit pricing, Merchant-skill inputs and
+  equipment consequences explicitly. Prefer it when surplus loot or funding a
+  useful gold consumer warrants it. Broader repair needs an actual unsupported
+  damaged-item consumer; paid identification buys details, not a persistent
+  identified bit. Neither is the automatic successor to repair.
+- **Buy** would consume M40's generated, durable stock but still requires
+  pricing, stock depletion, capacity/equipment eligibility and acceptance of
+  purchased-item effects. Generation alone does not authorize those effects or
+  establish a trading UI. Keep Buy separate from Sell unless a later consumer
+  makes a combined scope independently acceptable.
+- **Guild acquisition** should follow useful supported spell consumers. Books
+  and payment owners are reusable; membership purchase/award persistence,
+  class/town offers and the route with additional Slime influence are not yet
+  admitted. Teaching First Aid/Awaken to other eligible members already has a
+  consumer, but need not precede using already-known Magic Arrow in combat.
+  Membership needs representation beyond schema 8. Departure costs one day
+  even without a purchase.
+- **Temple recovery** should follow a coherent service-time boundary. Original
+  Heal includes temporary-stat/resistance clearing and resurrection costs; it
+  does not refill SP. Successful Heal or Uncurse makes departure a single
+  two-day charge, triggering stock regeneration/bank interest even from day 8.
+  Admit the northward route and separate healing/resurrection, uncurse and
+  donations rather than bundling a complete temple by default.
+
+These are pinned-reference interpretations and planning conclusions, not
+independent DOS observations. The reference pin belongs to
+[dependencies](dependencies.md#pinned-scummvm-revision); M38's narrower accepted
+[stock boundary](milestone-38-plan.md#stock-boundary-and-direct-repair-menu)
+remains authoritative for implemented behavior.
+
+The current day-10 entry refusal remains an MMModern support limit, not an
+original opening rule. It is safely deferred for M39 and deliberately resolved
+by M40 for the selected service loop. Do not combine Training's separate day
+charges or split Temple's two-day charge: the reference consequences differ.
 
 Further city content, regions, quests and encounters should follow demonstrated
 system or route value. Another quest chain is not the default successor. Grow
@@ -115,15 +323,32 @@ Vertigo-centered strategy only if new evidence shows a material contradiction:
   current evidence indicates, or actor/event/persistence ownership requires a
   fundamental redesign.
 - A major system outside the short arc becomes a proven prerequisite.
-- The proposed units cannot be independently accepted despite a focused scope
+- The planned units cannot be independently accepted despite a focused scope
   adjustment.
 - Another original area or system demonstrates materially better leverage for
   a required foundation, or maintainer priorities explicitly change.
 
 Ordinary implementation difficulty alone does not reopen the direction.
-Retain approximately three completed milestones as the ordinary broader-roadmap
-review cadence, with focused scope review before each specification and the
-focused system choice after M38. Roadmap approval, milestone specification and
+Use focused scope review before each specification, normally planning M40 after
+M39 and M41 after M40. The next broad roadmap review follows M41, preserving the
+approximately three-completed-milestone cadence. Replan earlier on concrete
+evidence that:
+
+- M39's finite SP or combat ownership prevents its useful independent witness.
+- M40's reached stock/time path requires player access to generated items,
+  other temporal modes or state outside the bounded same-year service domain;
+  or repeated actual repair cannot independently demonstrate its value.
+- M41's original route requires substantially wider actor/event/effect coverage,
+  its reset inputs cannot be represented within the expected domain, or earned
+  XP, survivability or replenishment prevents the connected progression witness.
+- Inventory congestion or lack of gold makes Sell a demonstrated prerequisite,
+  or a concrete recovery/acquisition prerequisite outranks the planned consumer.
+
+Resolve these through the smallest targeted investigation or scope adjustment;
+ordinary implementation detail is not a reason to repeat the candidate survey.
+The current service-route evidence is not complete dynamic actor-closure
+certification; require that proof when admitting the Training route.
+Roadmap approval, milestone specification and
 implementation authorization remain separate; completing one unit does not
 authorize the next.
 Use the verified SHA and handoff gate in [AGENTS.md](../AGENTS.md) for external
