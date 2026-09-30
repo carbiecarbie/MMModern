@@ -9,225 +9,379 @@ Reference provenance belongs to [dependencies](dependencies.md).
 
 <a id="m28---durable-bounded-encounter-completion-and-revisit"></a>
 
-MMModern has connected ordinary navigation, bounded original interactions,
-quest rewards, inventory/equipment management and save/restart within accepted
-checkpoints. The encounter line now includes original actor approach
-([M26](milestone-26-plan.md)), playable bounded combat
-([M27](milestone-27-plan.md)), completed encounter persistence/revisit
-([M28](milestone-28-plan.md)), mutable Journey continuity
-([M29](milestone-29-plan.md)), and the production contract-2 Bone Whistle
-expedition with grouped Skeleton/Zombie combat, accumulated consequences,
-schema-2 restart ([M30](milestone-30-plan.md)), followed by connected original
-Bone Whistle collection, return and restart ([M31](milestone-31-plan.md)).
-M32 then established the Regional Journey foundation: resource-derived map-23
-mainland navigation, complete 19-actor ownership/scheduling, exact sign admission,
-truthful support boundaries and schema-3 continuation
-([M32](milestone-32-plan.md)). M33 added admitted mainland combat, ranged/Shoot,
-conditions, rewards and exact consequence-aware 4/4 restart
-([M33](milestone-33-plan.md)). M34 completed individual Run, partial-party combat,
-non-victory fixed relocation and exact survivor/treasure continuation in 5/5
-([M34](milestone-34-plan.md)). M35 connected the Myra/Phirna quest, selected
-well recovery and bounded antidote use with exact 6/6 continuation
-([M35](milestone-35-plan.md)). M36 added learned First Aid and Awaken with exact
-7/7 continuation on the same mainland ([M36](milestone-36-plan.md)). M37
-completed original Vertigo entry, bounded traversal, return/revisit and retained
-two-region 8/8 continuation ([M37](milestone-37-plan.md)). M38 completed
-bounded Ironworks Armor Repair, atomic carried-gold/item publication, one-day
-departure and 8/9 continuation ([M38](milestone-38-plan.md)). M39 completed
-combat-owned Magic Arrow, First Aid and Awaken, bounded native feedback and
-exact 8/10 continuation with legacy isolation ([M39](milestone-39-plan.md)).
-M40 completed bounded same-year service-day continuation, complete merchant
-wares/shared bank state, stock regeneration/interest and exact 9/11 continuation
-while retaining M39 casting ([M40](milestone-40-plan.md)).
-M41 completed bounded original Training, permanent levels from earned XP/carried
-gold, active temporary reset and selected refill, distinct-member service days,
-expanded route/actor admission and exact 9/12 continuation
-([M41](milestone-41-plan.md)).
-These contracts do not certify unrestricted map-23
-or Clouds travel or normal original startup.
+The encounter/Journey line progressed from original actor approach and bounded
+combat through completion/revisit ([M26](milestone-26-plan.md),
+[M27](milestone-27-plan.md), [M28](milestone-28-plan.md)), mutable continuity and
+the Bone Whistle expedition/collection ([M29](milestone-29-plan.md),
+[M30](milestone-30-plan.md), [M31](milestone-31-plan.md)). The Regional Journey
+then connected mainland navigation, combat/consequences, Run and Myra/Phirna
+recovery ([M32](milestone-32-plan.md), [M33](milestone-33-plan.md),
+[M34](milestone-34-plan.md), [M35](milestone-35-plan.md)).
 
 <a id="approved-m33-m35-arc"></a>
 
-The approved M33-M35 arc is complete within its bounded map-23 mainland scope.
-After the maintainer-reviewed post-M35 reassessment, the accepted direction is
-to pause quest-driven vertical slices and develop reusable Clouds systems with
-Vertigo progressively serving as their production hub. A bounded learned
-exploration-casting step was completed first using original learned spells on
-the admitted mainland. Vertigo admission and its first bounded town service
-now complete that short arc.
+The approved M33-M35 arc is complete. The subsequent approved M36-M38 arc added
+learned exploration casting, bounded Vertigo entry/return and Armor Repair
+([M36](milestone-36-plan.md), [M37](milestone-37-plan.md),
+[M38](milestone-38-plan.md)). The approved **M39-M41 arc is complete and accepted**:
+combat-owned learned casting, repeated service days with merchant/bank state,
+and earned Training progression ([M39](milestone-39-plan.md),
+[M40](milestone-40-plan.md), [M41](milestone-41-plan.md)).
+
+The post-M41 broad reassessment uses committed baseline
+`0c9877efb2e92bd8b6b1049c0d369cc13da2c7b9`. Its proposed direction below replaces
+the earlier unselected service candidates. **These choices require maintainer
+roadmap review; they are not maintainer approval, milestone specification or
+implementation authorization.**
+
+M41 supports a prepared Journey across the map-23 mainland and twenty-eight
+Vertigo cells, with exact envelope-v4/schema-9/content-12 continuation. It does
+not provide normal original startup, unrestricted town services, a general
+calendar or broadly playable Clouds. Merchant wares have no player purchase
+consumer; learned books have no Guild acquisition; Training refill is selected
+and XP-dependent, preserves conditions and does not establish general recovery.
+See [current boundaries](project-status.md#current-boundaries).
 
 ## Near term
 
-The approved **M36-M38 short arc is completed and accepted**: learned
-exploration casting, bounded Vertigo travel, and Ironworks Armor Repair.
+### M42 - Bounded Ironworks equipment purchase
 
-The approved **M39-M41 short arc is completed and accepted**:
+**Selected next milestone for roadmap review; high confidence in this boundary.**
+Connect carried gold to a useful equipment upgrade through the already reachable
+original Ironworks. Purchase ordinary, unmodified Weapons and Armor whose effects
+are already supported, retain their depletion in party-owned merchant stock,
+then use the existing inventory/equipment controls and demonstrate the improvement
+in continued combat. This gives the M40 economy a player-visible consumer and
+makes equipment choice part of progression without requiring new spell/item
+semantics or a new town route.
 
-**M39 - Bounded already-learned combat casting -> M40 - Bounded service-day
-continuation -> M41 - Vertigo Training and progression.**
+An independent acceptance boundary is: reach Ironworks through supported play,
+buy an affordable useful offer from actual generated stock, depart, transfer or
+equip it legally, continue combat, and save/restart with payment, inventory,
+remaining stock and subsequent service-day/RNG consequences exact. Repeated
+purchases, refusal/cancellation and a later restock must preserve that loop.
+Prepared Journey startup remains the boundary; synthetic stock or injected gold
+cannot substitute for the gameplay witness.
 
-M39's [closed contract](milestone-39-plan.md) established useful finite-SP combat
-consumers. M40's [closed contract](milestone-40-plan.md) established complete
-party-owned merchant wares/shared bank state, repeated same-year service days
-and exact stock/interest/world-RNG continuation. These foundations enabled M41
-without a parallel progression, payment or service-time system.
+The existing content-12 seed-7 initialization supplies plain weapon ID 6 and
+armor ID 3. Reference prices are 60 and 200 gold, respectively, against the
+prepared carried purse of 800. Tyro's existing weapon ID 2 has weaker base dice,
+and his armor ID 2 has a lower armor contribution. These are useful, affordable
+consumers now, rather than hypothetical effects of representable item bytes.
+This initialization evidence is distinct from physical gameplay acceptance.
 
-### M41 - Vertigo Training and progression
+Major dependencies are existing Smith/Event/Service coordination, party/roster
+inventory and purse owners, M40 stock/time/RNG, and shared equipment and physical
+combat rules. Purchase pricing uses the reference Buy rule, which ignores
+Merchant skill; purchase capacity and subsequent class/equipment eligibility
+remain distinct. Preserve original item movement, unequipped delivery and
+compaction semantics. Purchase must atomically update purse, inventory and
+wares while retaining a valid departure reservation for the resulting owners;
+the repair-only departure preimage currently requires unchanged stock.
+Training's existing reservation/publication pattern demonstrates reusable
+coordination without introducing another scheduler or wallet.
 
-M41 is the **completed and accepted final milestone** of this arc. Its
-[closed contract](milestone-41-plan.md) connects legitimately earned XP and
-carried gold to original Training, permanent levels, active temporary reset and
-selected-member HP/SP refill. The bounded twenty-eight-cell Vertigo route and
-initial/reset actor closures, separate distinct-member Training days and
-departure, stock-boundary consequences and exact envelope-v4/schema-9/content-12
-restart passed acceptance. Automated testing, original-resource/process
-continuation and independent technical review passed; separately, maintainer
-physical native-SDL acceptance passed, including responsive input and continued
-combat/casting after progression.
+Current stock validation recognizes complete generated output, not depleted
+shops. M42 therefore requires explicit successor content admission and validated
+post-purchase stock, including restore. Existing schema-9 storage appears
+sufficient for settled purchases; this is not permission to weaken legacy
+validation or silently upgrade saves. The specification must settle depleted
+stock validity and departure interaction before implementation. New durable
+provenance, if proved necessary, requires an explicit schema decision and review.
 
-The next required activity is the scheduled **post-M41 broad roadmap
-reassessment**, as a separate task. It must review the next short arc against
-the accepted M41 state and maintainer priorities. No M42 or other implementation
-successor is selected or authorized here. Sell, Buy, Guild and Temple remain
-provisional candidates below; closure does not conduct that review.
+Exclude Sell, Merchant-skill acquisition, Identify, bank menus, other shops,
+modified equipment/effect expansion, miscellaneous item spells, Guild, Temple,
+normal startup and wider travel. Unsupported offers retain honest boundaries;
+do not manufacture or replace stock to guarantee a purchase. This milestone
+precedes the strongest alternatives because it has useful existing offers,
+existing effect consumers and an accepted route, while also exercising durable
+stock mutation needed by later shops. Its value is not measured by changed lines.
 
-## Medium term
+### Proposed short arc - equip, recover, then test wider admission
 
-### Why service continuation precedes Training and Sell
+The near-term objective is to improve the current connected Journey's capacity
+to venture further, rather than accumulate a fixed list of town menus.
 
-A faithful first Training visit is possible under the old boundary: from day 8,
-one distinct member can train on day 9 and depart on day 10. It can produce a
-real level/refill and could later be extended without replacing its owners.
-But one earlier smith departure already prevents that successful train-and-exit
-sequence without day-11 consequences. Two distinct trainees also cross that
-boundary. Such a slice would leave the intended repeatable progression loop
-unavailable and force an immediate service-time follow-up. Combining all of
-M40 with Training instead would couple stock generation and persistence to a
-new route, modal UI and progression publication. The independent Ironworks
-consumer makes the split preferable.
+| Unit | Purpose and independently acceptable boundary | Dependency and confidence |
+| --- | --- | --- |
+| **M42: Ironworks equipment purchase** | Buy, equip/use and retain an actual improvement through departure, combat and restart. | Selected above; high confidence. No Sell prerequisite is demonstrated. |
+| **M43 candidate: bounded Vertigo Temple Heal and resurrection** | Bring an injured/conditioned member, or a supported Dead member with a surviving party, through an admitted approach; pay for selected recovery, depart, resume useful play and retain consequences through restart. | Provisional; medium confidence in the recovery value and reuse, lower confidence in the exact route/actor boundary. Reuse M42's mutated-stock compatibility and existing service/publication owners. It can be independently useful even if M42 ordering changes. |
+| **Following unit: connected Clouds content expansion** | Add a useful connected area with original encounters or an interaction, retained consequences, return to the established hub and exact restart. | Direction only; no M44/map/dungeon is selected. Recovery, time, actor profiles and region representation must support the chosen witness. |
 
-Sell is the strongest small alternative: it reuses the M38 route, modal work,
-purse/item guards and removes carried items without adding them to stock.
-However, the prepared party's carried gold already funds early Training;
-earned XP and service continuity are the more immediate constraints. Sell
-alone adds gold while preserving the repeated-visit limit. Advance it only if
-real play establishes inventory congestion or a funding shortage that blocks
-the chosen progression witness. Fewest changed lines does not by itself make
-it the better next system.
+Temple Heal supplies a recovery path for admitted Disease and Dead states.
+Poison already has the quest antidote, and living HP/unconsciousness have bounded
+well/spell/Training consumers; their availability has distinct limits. Restrict
+the first recovery scope to supported conditions and selected Heal/resurrection; Uncurse
+and donations are separate choices. Heal resets the selected character's
+reference temporary attributes/resistances and restores HP, **not SP**. A paid
+Heal makes departure **one two-day service operation**. It needs a complete
+supported successor and exact stock/interest/RNG consequences, not two copies
+of M40's one-day operation: it regenerates stock/applies interest even on an
+8->10 departure. A refusal-only visit retains the original one-day departure.
+Training's separate member-days and departure must also remain separate calls.
+This is a bounded service extension, not general overnight processing.
 
-### Post-M41 reassessment - provisional consumers
+The original Temple dispatch is at logical `(28,15,28)` on the northern city
+tile, well outside current admission. Its approach, relevant Events/art,
+initial and reset actor influence, surviving-party access and return must be
+certified before committing M43's scope. Existing HP/conditions and modeled
+reset inputs suggest no new settled character owner; route/actor/content and
+two-day time admission still change. Donations would introduce nonzero party
+effects and lighting, while Uncurse would require admitted curse/equipment
+semantics; neither is a free addition to Heal.
 
-The scheduled broad review is now due. These candidates remain provisional until
-that separate review selects and approves a direction. Keep their boundaries distinct:
+Do not promise a sustainable SP loop from these two milestones. After M42 and
+the recovery candidate, reassess the next unit before selecting its plan. Prefer
+connected content that mostly composes established systems. If lack of repeatable
+SP/food/rest or ordinary time processing prevents an honest exploration witness,
+select that narrowly justified foundation first. This is why only two milestone
+boundaries are proposed now, with the third determined by play and focused
+route evidence rather than an arbitrary service sequence.
 
-- **Sell** is the strongest small economy candidate: reuse the admitted
-  Ironworks route and publication guards to remove/compact carried items and
-  credit gold, without merchant stock. Admit pricing, Merchant-skill inputs and
-  equipment consequences explicitly. Prefer it when surplus loot or funding a
-  useful gold consumer warrants it. Broader repair needs an actual unsupported
-  damaged-item consumer; paid identification buys details, not a persistent
-  identified bit. Neither is the automatic successor to repair.
-- **Buy** would consume M40's generated, durable stock but still requires
-  pricing, stock depletion, capacity/equipment eligibility and acceptance of
-  purchased-item effects. Generation alone does not authorize those effects or
-  establish a trading UI. Keep Buy separate from Sell unless a later consumer
-  makes a combined scope independently acceptable.
-- **Guild acquisition** should follow useful supported spell consumers. Books
-  and payment owners are reusable; membership purchase/award persistence,
-  class/town offers and Guild-specific route/actor closure are not yet admitted.
-  Teaching First Aid/Awaken to other eligible members already has a
-  consumer, but need not precede using already-known Magic Arrow in combat.
-  Membership is not represented in current schema 9. Departure costs one day
-  even without a purchase.
-- **Temple recovery** should follow a coherent service-time boundary. Original
-  Heal includes temporary-stat/resistance clearing and resurrection costs; it
-  does not refill SP. Successful Heal or Uncurse makes departure a single
-  two-day charge, triggering stock regeneration/bank interest even from day 8.
-  Admit the northward route and separate healing/resurrection, uncurse and
-  donations rather than bundling a complete temple by default.
+## Decision evidence and alternatives
 
-These are pinned-reference interpretations and planning conclusions, not
-independent DOS observations. The reference pin belongs to
-[dependencies](dependencies.md#pinned-scummvm-revision). The implemented stock/time
-contract belongs to [M40](milestone-40-plan.md); M38's narrower accepted
-[stock boundary](milestone-38-plan.md#stock-boundary-and-direct-repair-menu)
-remains authoritative for legacy contents 9/10.
+Repository code/tests establish implemented behavior; the closed plans establish
+accepted scope. Original-resource inspection confirms the service addresses,
+not reachability or new gameplay acceptance. Reference interpretation uses only
+ScummVM [6814ee9b](https://github.com/scummvm/scummvm/tree/6814ee9ba54582f5b5adcffab49efbbd8f589edd).
+There is no new DOS observation or physical acceptance claim in this assessment.
 
-The legacy content-9/10 day-10 entry refusal is an MMModern support limit, not an
-original opening rule. M40 resolves it in content 11, inherited by fresh content
-12, for the selected same-year service loop. Do not combine Training's separate day
-charges or split Temple's two-day charge: the reference consequences differ.
+- **Buy:** [merchant generation](../src/games/xeen/XeenMerchantGeneration.cpp)
+  and [initialization coverage](../tests/XeenServiceDayInitializationTests.cpp)
+  establish real stock and original carried inventory.
+  [Equipment](../src/games/xeen/XeenEquipment.cpp),
+  [Journey contribution admission](../src/games/xeen/XeenJourneyRules.cpp) and
+  [physical rules](../src/games/xeen/XeenCombatRules.cpp) distinguish useful plain
+  equipment from unsupported modified records. Pinned
+  [ItemsDialog::calcItemCost/doItemOptions](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/dialogs/dialogs_items.cpp)
+  establishes Buy price, capacity, unequipped transfer and stock removal.
+  [Stock validation](../src/games/xeen/XeenServiceEconomy.cpp) must evolve for
+  depletion under a new content contract; generation is not already trading.
+- **Broader equipment/item use:** modified weapons/armor and miscellaneous
+  effects would make more loot and stock useful. Physical item bytes, catalog,
+  transfer/equipment and selected antidote consumption already exist; elemental
+  attacks, weapon effectiveness, wider material contributions and item spells
+  still require actual consumers. An independent boundary must acquire a real
+  item, equip/use it, demonstrate its effect and retain charges/conditions or
+  combat consequences through restart. Many effects can reuse current item
+  storage, while newly consumed character/effect inputs may require schema work.
+  Pursue effect families required by chosen content after the plain purchase
+  loop, rather than make every generated record a prerequisite to the first shop.
+- **Sell:** a useful independently acceptable unit would sell actual surplus
+  loot, compact the owner's category, apply removal/equipment consequences,
+  credit carried gold and spend it on an admitted consumer, with exact restart.
+  It needs no stock addition or new route, but pricing uses the selected
+  character's unmodeled Merchant-skill input. Cursed items and special weapons
+  have original refusals. Clearing an equipped item changes derived consumers;
+  purse overflow and atomic purse/item publication need explicit admission.
+  New skill representation/persistence must be decided, not inferred from the
+  four modeled maximum-stat skills. M41's accepted earned route reaches Training
+  with 870 gold and leaves with 690; no inventory-relief or funding bottleneck
+  is demonstrated there. Defer Sell unless purchases/recovery or wider loot
+  make its funding/capacity value decisive. Buy-before-Sell is this evidence-backed
+  choice, not a general ordering rule.
+- **Guild acquisition:** Vertigo's original offers include supported Awaken,
+  First Aid and Magic Arrow, so acquisition could expand useful learned consumers.
+  However, class/town offer filtering, prices, original membership acquisition
+  and per-character award state are additional work. Current learned books do
+  not represent membership. The service at `(28,20,13)`, membership seller's
+  complete Event path, actor closure and return are unadmitted. A valid boundary
+  must acquire membership through supported play, buy a previously unknown useful
+  spell, cast it and restart with award/book/payment exact. Existing books can
+  hold learning; award representation likely needs a schema extension. Defer
+  until repeatable SP supply or a needed exploration spell makes acquisition
+  more valuable than the already-known consumers. Its original one-day departure
+  remains owed even without buying a spell. See pinned
+  [Character::guildMember](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/character.cpp),
+  [SpellsDialog::setSpellText](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/dialogs/dialogs_spells.cpp)
+  and `LangConstants::CLOUDS_GUILD_SPELLS` at the same pin.
+- **Temple versus Rest:** Temple's recovery boundary above has existing condition
+  consumers and an explicit original service. General Rest/SP replenishment
+  would solve a different bottleneck, but food, sleeping/rested state, ordinary
+  dawn/daily processing and their condition consequences are not admitted.
+  These can require new party state and schema coverage. Select them when
+  practical continued play demonstrates the prerequisite; do not claim paid
+  Heal completes recovery. The operation distinction follows pinned
+  [BaseLocation::show/TempleLocation](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/locations.cpp),
+  [Party::addTime](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/party.cpp)
+  and the [closed service-time contract](milestone-40-plan.md#service-time-and-admitted-domain).
+- **Exploration, dungeons and reusable quests:** another outdoor area could reuse
+  terrain/navigation, physical combat, rewards and existing Event operations;
+  an indoor area could reuse checked geometry/object projection. As a concrete
+  frontier, original map 23 connects north to map 22, whose geometry connects
+  back to 23. Its two interaction chains require SetChar, GiveMulti and
+  MakeNothingHere, outside the current Event decoder; geometry reuse alone does
+  not make that original gameplay admissible. Neither expansion admits
+  arbitrary monsters, map edges, doors/locks/traps, lighting, damage types or
+  script operations. Current persistence has the mainland actor collection and
+  an optional Vertigo collection, rather than a general collection of visited
+  regions. A third retained region may need schema work. A useful expansion must
+  enter from supported play, accomplish an original purpose and return with
+  actors/flags/rewards exact, including initial/reset paths. Confidence in reuse
+  is medium, in a complete area boundary low. It is the preferred subsequent
+  proof of leverage, but no area has been certified to precede M42. A quest alone
+  is not the default successor; select it when it tests reusable semantics or
+  supplies a necessary gameplay purpose.
+- **Wider town gameplay:** extending Vertigo can reuse its retained region and
+  transition/reset owners without adding a third region. Completing an original
+  town objective with exploration/combat and useful return visits has more value
+  than adding menus alone. It still requires full newly influencing actor
+  profiles/closure, directional Event paths, object/door semantics and original
+  quest/discovery consequences; M41 admits only one reachable Slime life per
+  city form. Confidence in ownership reuse is higher than for a third region,
+  but the wider gameplay boundary is unproved. Compare it with outdoor/indoor
+  expansion at the next review instead of assuming Vertigo must remain central.
+- **Normal startup/party preparation:** original level-1 party loading exists,
+  while Journey deliberately substitutes prepared levels/XP/refill, fixed active
+  owners and a selected starting context. Normal gameplay must begin from honest
+  original initialization and support party preparation/recruitment and viable
+  early encounters, recovery and progression. That is more than removing a flag.
+  It likely needs broader skill/award/membership state and an independently
+  playable opening. Prioritize it within the medium-term target, once the opening
+  loop can survive without prepared advantages; an isolated startup screen is
+  not an acceptable substitute.
 
-Further city content, regions, quests and encounters should follow demonstrated
-system or route value. Another quest chain is not the default successor. Grow
-persistence with admitted state without discarding consequences or changing
-legacy save meanings.
+## Generalization and architectural direction
 
-## Long term
+**Reusable now:** resource loaders/identity, outdoor terrain navigation and
+indoor projection, ordinary object ordering, world-owned actor scheduling and
+lifecycle, supported combat/reward rules, original Event selection/resumption,
+flags/quest counters, roster inventory/equipment, learned casting, derived
+progression, service coordination, merchant generation and guarded exact restart.
+The M39-M41 arc demonstrates cross-system reuse, not unrestricted admission.
 
-Progress from bounded connected Clouds gameplay to increasingly playable
-regions, normal Clouds progression, broad gameplay coverage and substantially
-complete Clouds of Xeen. Expand shared foundations toward Darkside progression
-and the eventual World of Xeen objective. Access to Clouds metadata in DARK.CC
-does not establish Darkside gameplay.
+**Intentional gates:**
+[XeenJourneyContent](../src/games/xeen/XeenJourneyContent.h) explicitly selects
+capabilities and Vertigo cells; [regional rules](../src/games/xeen/XeenRegionalRules.cpp),
+[route graphs](../src/games/xeen/XeenVertigoRoute.cpp) and
+[city actor validation](../src/games/xeen/XeenVertigoWorld.cpp) bind original
+resources and initial/reset influence. These restrictions protect honest
+support. Their removal cannot supply missing effects, service rules or events.
 
-Darkside content progression, portability, localization, distribution and wider
-presentation/audio fidelity remain separate planning decisions. Their ordering
-should follow demonstrated dependencies and maintainer priorities.
+**Missing mechanics/state:** modified weapon/armor and miscellaneous effects,
+more damage/condition/monster behavior, meaningful lighting/doors/traps, broader
+script consumers, recurring HP/SP/food recovery and ordinary calendar behavior,
+character skills/awards/acquisition and normal preparation. Implement a mechanic
+when selected content needs it, with its original semantics and existing owners;
+do not treat accepting additional IDs/opcodes as completion.
 
-## Architectural direction
+**Content-specific work and validation:** special scripts, city resets and
+exceptional monster behavior still need explicit treatment. Current exact
+manifests, fixed region shapes, per-route actor certification and many capability
+branches also make each new domain expensive to admit. Evolve these in the
+chosen production slices: reusable depleted-stock validation, original-profile
+admission, region retention and resource-driven actor/route closure should reduce
+repeated implementation while retaining independent evidence. Existing parser,
+original-resource, process-continuation and native-input tests are foundations;
+repeatable content admission checks need to grow alongside new domains. A generic
+framework rewrite or a separate validation-tooling milestone is not justified now.
 
-Preserve established owners: characters, items and progression belong to
-party/roster; actors, lifecycle and Journey RNG belong to world; camera/game
-flags retain their existing owners. Flow and SDL coordinate transient gameplay,
-modal work, presentation and save authority. Reuse accepted systems before
-introducing parallel frameworks.
+The transition toward predominantly content admission occurs when an area's
+terrain, actors, interactions, effects and retained state all fall within
+established contracts. The medium-term expansion must demonstrate this with a
+second useful area that mainly adds original resource/configuration admission
+and validation, rather than another special Flow or state owner. Judge progress
+by recurring mechanics reused and complete connected play, not admitted-ID counts
+or reduced validation. Some original exceptions will continue to require code.
+If consecutive areas still demand bespoke coordinators or persistence shapes,
+reassess that bottleneck before admitting more content.
 
-Completed Diagnostic27 remains terminal and quiescent under its contract.
-Mutable Journey uses M29's admitted domain, M30's content descriptor/group/
-current-state extensions, M31's exclusive event/publication integration, M32's
-resource-derived regional/complete-actor/context foundation, M33's shared physical
-consequences and party-owned monster treasure, M34's participation/non-victory
-lifecycle and dormant-item semantics, M36's learned casting, M37's retained
-two-region transitions and 8/8 continuation, M38's bounded repair/departure
-publications and explicit 8/9 pair, M39's combat-owned casting and 8/10
-continuation, M40's party-owned economy/atomic service-day departure and 9/11
-continuation, M41's existing-owner progression, chained day reservations,
-expanded city admission and exact 9/12 continuation, and M28's owner/preimage
-and presentation safeguards. Cosmetic input replacement retains acquired old
-concrete authority until successor handoff, with exact-origin stale-input safety.
-Commercial resources remain external and unmodified.
+Preserve party/roster character, progression and inventory owners; world actor,
+lifecycle and RNG owners; camera and flag owners; combat-owned actions; and
+existing Event/Service/Presentation coordination. Preserve Quiet-only capture,
+exact continuation, legacy isolation, full mutation/preimage observation and
+accepted shared native-input scheduling. These are established contracts, not
+generic prerequisite work. Commercial resources remain external and read-only.
+
+## Medium-term objective
+
+Target a **normal-start, connected Clouds foothold**, rather than an indefinitely
+prepared Journey or a town with disconnected service menus. Vertigo is a useful
+existing base, not a permanent restriction on which area has the best leverage.
+After several arcs, observable completion should include:
+
+- An original startup and supported party-preparation path into viable early
+  play, without prepared levels, injected XP or substituted recovery.
+- A connected town/outdoor/indoor loop with useful equipment acquisition and
+  loot disposal/funding, repeatable HP/SP recovery, needed spell acquisition/use,
+  earned Training and original quest progress. Useful recovery must remain
+  available when no member has enough XP to train or has reached a trainer cap.
+- Enough calendar, food, skills/awards, monster/effect and Event semantics for
+  that loop to repeat without the current daylight/service-only assumptions.
+  Cross-map actors, injuries, purchases, discoveries and return/reset behavior
+  must remain exact across process restart.
+- At least one subsequent useful area admitted mostly by established mechanics,
+  resource/configuration policy and independent validation. Adding an area must
+  not routinely introduce another party/world owner or special coordinator.
+
+The foundational dependencies are the selected purchase consumer, honest
+recurring recovery/time, acquisition/effect coverage driven by actual content,
+normal party state and scalable retained-region/admission support. The next arcs
+should close these dependencies through connected gameplay witnesses. Sell,
+Guild, broader equipment and an indoor/dungeon slice are means to this target,
+not an approved fixed sequence. A substantially functional production hub is a
+step toward the foothold, not the whole medium-term objective.
+
+## Long-term direction
+
+1. **Bounded connected gameplay:** turn accepted systems into useful upgrade,
+   recovery, exploration and progression loops, then prove reuse in another
+   connected area. Keep honest boundaries and exact saves.
+2. **Broader normal Clouds play:** support original initialization, party
+   creation/recruitment/preparation, ordinary travel and time/rest/food, repeatable
+   economy/recovery, skills and spell acquisition, needed equipment/monster
+   effects, indoor hazards and reusable quest/Event behavior. Sustain multiple
+   connected regions and return paths without prepared Journey assumptions.
+3. **Substantially complete Clouds:** cover its regions/dungeons, progression,
+   quests and ending, including exceptional scripts/monsters, comprehensive
+   item/spell/service semantics and faithful resource-driven presentation.
+   Completion requires whole-game progression and durable continuation, not a
+   collection of isolated checkpoints. Prioritize audio/UI fidelity and wider
+   delivery concerns according to demonstrated play and maintainer priorities.
+4. **Mature shared foundations and Darkside:** reuse proven map, party, combat,
+   economy, casting, script and save contracts; independently admit Darkside's
+   content, balance, progression and exceptions. Numeric side-1 stock and access
+   to `DARK.CC` metadata do not establish its gameplay readiness.
+5. **World of Xeen integration:** connect both playable sides with original
+   travel, shared/cross-side state, progression and integrated objectives/endings.
+   Verify identity and compatibility across transitions; do not infer World
+   integration from resource availability or shared numeric IDs.
+
+Portability, localization, distribution and broader presentation/audio work
+remain distinct decisions. At each review, ask whether recent arcs enable more
+of the original game to be played continuously and more content to reuse the
+same systems, rather than merely increasing the feature inventory.
 
 ## Replanning and review cadence
 
-Review each specification against verified repository state and the pinned
-reference. Refine a milestone boundary when its route, service, time or
-persistence dependencies prevent independent acceptance. Reopen the accepted
-Vertigo-centered strategy only if new evidence shows a material contradiction:
+Review each proposed specification against verified Git state, current code/tests
+and the pinned reference. The next broad review is **after M42 and the proposed
+recovery unit, before choosing a connected-area or recurring-SP foundation**.
+Two milestones are appropriate here because recovery's longer route and the
+remaining SP/time limits can materially decide which expansion is playable.
+If recovery is replaced or split, hold that review at the first independently
+accepted recovery boundary; do not mechanically wait for a milestone number.
 
-- Vertigo admission requires substantially broader architecture than the
-  current evidence indicates, or actor/event/persistence ownership requires a
-  fundamental redesign.
-- A major system outside the short arc becomes a proven prerequisite.
-- The planned units cannot be independently accepted despite a focused scope
-  adjustment.
-- Another original area or system demonstrates materially better leverage for
-  a required foundation, or maintainer priorities explicitly change.
+Replan earlier when:
 
-Ordinary implementation difficulty alone does not reopen the direction.
-The scheduled post-M41 broad reassessment is now due, preserving the
-approximately three-completed-milestone cadence. The M39-M41 arc met its bounded
-acceptance requirements, including complete dynamic actor closure and the earned
-progression witness; those are closed contracts, not outstanding planning risks.
+- A useful purchase/recovery witness needs materially broader item effects,
+  route/actor/Event semantics, or hidden prerequisites than the proposed boundary.
+- Depleted stock, service operation boundaries, new character inputs or another
+  retained region require unexpected persistence/compatibility state.
+- Practical play reveals inventory congestion, funding, SP, survival or normal
+  startup constraints that contradict the assumed ordering.
+- A chosen unit cannot be independently accepted, or an alternative area offers
+  materially better reuse and a reachable original gameplay purpose.
+- Consecutive content additions remain bespoke despite established mechanics,
+  or maintainer priorities change.
 
-The separate review should retain the established triggers for targeted
-replanning: stock/time requirements outside the accepted same-year domain;
-materially wider actor/Event/effect or persistence requirements; and demonstrated
-inventory, funding, survival or acquisition prerequisites. Resolve concrete
-contradictions through the smallest necessary investigation. Completion alone
-does not promote a provisional consumer into an approved milestone.
+Resolve a trigger with the smallest decision-changing investigation. Reconsider
+M43 and the unselected following unit first; reopen M42's boundary if its own
+useful consumer or persistence feasibility is contradicted. Pricing details,
+menu design and exact acceptance matrices belong in an authorized specification,
+not this roadmap. Ordinary implementation difficulty alone is not a replan.
 
-Roadmap approval, milestone specification and implementation authorization
-remain separate; completing the arc does not authorize its successor.
-Use the verified SHA and handoff gate in [AGENTS.md](../AGENTS.md) for external
-planning and review.
+Roadmap approval, milestone-specification authorization and implementation
+authorization remain separate. Completion or push does not promote provisional
+units into approved work. Use the verified baseline/handoff gate in
+[AGENTS.md](../AGENTS.md) for subsequent planning and review.
