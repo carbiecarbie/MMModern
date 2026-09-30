@@ -37,19 +37,27 @@ public:
 	XeenEventFlow(const XeenEventFlow &) = delete;
 	XeenEventFlow &operator=(const XeenEventFlow &) = delete;
 	IndexedFrame initial();
-	IndexedFrame handle(const PlayerAction &action, std::optional<std::uint64_t> displayedInput = {});
+	IndexedFrame handle(const PlayerAction &action, std::optional<std::uint64_t> displayedInput = {},
+		const IndexedFrame::Presentation &inputFrame = {});
 	std::optional<std::uint64_t> displayedInput() const noexcept { return _encounter && (journey() || _encounter->combat() || _encounter->completed()) ? std::optional<std::uint64_t>{_inputGeneration} : std::nullopt; }
 	// Copies retain the exact immutable published snapshot, including across Flow destruction.
 	bool acceptsFrame(const IndexedFrame::Presentation &frame) const noexcept {
 		return encounterFrameCurrent() && frame == _frame.presentation() && (!_encounter || frame);
 	}
+	// Upload candidates and acquired input origins are distinct during cosmetics.
+	bool acceptsInputFrame(const IndexedFrame::Presentation &frame) const noexcept {
+		return !_fatal && !_handoffPending && encounterFrameCurrent() &&
+			frame == _actionableFrame && (!_encounter || frame);
+	}
 	bool journeyInputCurrent(std::optional<std::uint64_t>) const noexcept;
 	std::function<void()> prepareJourneySprites;
 	std::function<void(IndexedFrame &)> drawSmithArt;
 	std::function<void(XeenSmithBoundary)> smithBoundary;
+	std::function<void(IndexedFrame &)> drawTrainingArt;
+	std::function<void(XeenTrainingBoundary)> trainingBoundary;
 	bool completed() const noexcept { return _encounter && _encounter->completed(); }
 	bool canSave() const noexcept;
-	bool serviceSaveBlocked() const noexcept { return _smithUi.has_value() || _dispatching || _handoffPending || _saving || _fatal; }
+	bool serviceSaveBlocked() const noexcept { return _smithUi.has_value() || _trainingUi.has_value() || _dispatching || _handoffPending || _saving || _fatal; }
 	class SaveBoundary {
 		friend class XeenEventFlow;
 		const XeenEventFlow *owner = nullptr;
@@ -62,7 +70,8 @@ public:
 	void endSave();
 	void endSave(const SaveBoundary &);
 	bool journey() const noexcept { return _encounter && _encounter->journey(); }
-	void framePresented(const IndexedFrame::Presentation &);
+	void framePresented(const IndexedFrame::Presentation &, bool deferCosmeticInput = false);
+	void completeInputHandoff(const IndexedFrame::Presentation &);
 	void closeGameplay() noexcept;
 	IndexedFrame completedFeedback(std::string);
 	static IndexedFrame preflightCompleted(IndexedFrame, const XeenFontFormat &, const XeenItemCatalog *,
@@ -108,6 +117,24 @@ public:
 	std::function<void(const XeenEquipmentResult &)> reportEquipment;
 	std::function<void(XeenMovementResult)> reportMovement;
 private:
+	struct TrainingUi {
+		enum class Phase { Preparation, Menu, Quote, Candidate, Result, Departure };
+		Phase phase=Phase::Preparation;
+		std::size_t member=0;
+		std::uint64_t revision=0;
+		std::string title,feedback;
+		IndexedFrame art;
+	};
+	std::optional<TrainingUi> _trainingUi;
+	std::optional<std::uint64_t> _trainingRenderedRevision;
+	bool _trainingSettlement=false,_trainingReported=false;
+	std::optional<XeenManualEventResult> _trainingTerminalResult;
+	void prepareTraining();
+	IndexedFrame drawTraining(const IndexedFrame &) const;
+	std::string trainingText() const;
+	IndexedFrame handleTraining(const PlayerAction &,std::uint64_t,const IndexedFrame::Presentation &);
+	IndexedFrame settleTrainingEvent();
+	std::optional<IndexedFrame> updateTraining();
 	struct SmithUi {
 		XeenItemCatalog catalog;
 		enum class Phase { Preparation, Lobby, Browse, Quote, Result, Departure };
@@ -149,6 +176,7 @@ private:
 	std::uint64_t _saveOperation = 0;
 	std::optional<SaveBoundary> _saveBoundary;
 	friend class Application;
+	friend struct XeenTrainingTestAccess;
 	XeenRestoreGuard &completedSavePreimage() { return _encounter->completedPreimage(); }
 	void requireCurrentOwners() const;
 	friend struct XeenRewardTestAccess;
@@ -157,6 +185,12 @@ private:
 	bool _dispatching = false;
 	bool _fatal = false;
 	bool _saving = false, _handoffPending = false;
+	bool _cosmeticPending = false;
+	IndexedFrame::Presentation _actionableFrame, _acquiredCosmeticFrame;
+	const IndexedFrame::Presentation &responseFrame() const noexcept {
+		return _actionableFrame ? _actionableFrame : _frame.presentation();
+	}
+	void authorizeInputFrame(const IndexedFrame::Presentation &);
 	std::unique_ptr<XeenEncounterFlow> _encounter;
 	EncounterCompose _encounterCompose;
 	std::optional<XeenEncounterFlow::Ticket> _encounterFrame;

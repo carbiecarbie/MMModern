@@ -74,9 +74,11 @@ void testEmptyOperationsAndStrictSizes() {
 void testTownService() {
  check(operation<XeenEventTownService>(XeenEventDecoder::decode(record(0x11,{1}))).action==1,
   "Ironworks action decode");
- for(const auto &payload:std::vector<std::vector<std::uint8_t>>{{},{1,0}})
+ check(operation<XeenEventTownService>(XeenEventDecoder::decode(record(0x11,{5}))).action==5,
+  "Training action decode");
+ for(const auto &payload:std::vector<std::vector<std::uint8_t>>{{},{1,0},{5,0}})
   failure(XeenEventDecoder::decode(record(0x11,payload)),XeenEventDecodeErrorKind::MalformedInstruction);
- for(unsigned action=0;action<256;++action)if(action!=1)
+ for(unsigned action=0;action<256;++action)if(action!=1 && action!=5)
   failure(XeenEventDecoder::decode(record(0x11,{static_cast<std::uint8_t>(action)})),XeenEventDecodeErrorKind::UnsupportedOperand);
 }
 void testTeleports() {

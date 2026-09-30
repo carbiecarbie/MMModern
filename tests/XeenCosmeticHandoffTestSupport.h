@@ -23,9 +23,9 @@ inline bool exercise(Harness &h,const SdlWindow::FrameUpdateHandler &handler,
  unsigned loops=0,acknowledged=0;bool pending=false,correctSent=false,issued=false,triggered=false,delay=false;
  std::optional<IndexedFrame> correct;
  const auto blocked=[&] {
-  unchanged();handler.withDisplayedInput(action,*epoch);unchanged();
-  const auto saves=h.saves;handler.withDisplayedInput(SaveGameAction{},*epoch);
-  check(h.saves==saves&&!h.flow->canSave()&&!XeenSaveState::canCapture(*h.party,*h.camera,*h.world),"Wrong/missing frame cannot admit input/F9/capture");
+  unchanged();handler.withPresentedInput(action,*epoch,correct->presentation());unchanged();
+  const auto saves=h.saves;handler.withPresentedInput(SaveGameAction{},*epoch,correct->presentation());
+  check(h.saves==saves && handler.acceptsInputFrame(old.presentation()) && !handler.acceptsInputFrame(correct->presentation()),"Unacquired B cannot borrow live A authority for input/F9");
   unchanged();check(acknowledged==0,"Wrong/missing frame acknowledged the current frame");
  };
  const auto cosmetic=[&] {
@@ -33,6 +33,8 @@ inline bool exercise(Harness &h,const SdlWindow::FrameUpdateHandler &handler,
   check(correct && correct->pixels!=old.pixels && correct->presentation()!=old.presentation(),"Changed pixels carry distinct immutable identity");
   check(handler.displayedInput()==epoch,"Cosmetic substitution must preserve semantic epoch");
   check(correct->presentation()->pixels==correct->pixels,"Identity binds the exact composed content");
+  handler.completeInputHandoff(correct->presentation());
+  check(!handler.acceptsInputFrame(correct->presentation()),"Completion cannot skip successful acquisition");
   // A mutable carrier cannot pair other pixels with the bound identity: SDL
   // consumes the retained const snapshot, not subsequently edited draft fields.
   auto edited=*correct;edited.pixels=old.pixels;
@@ -47,8 +49,8 @@ inline bool exercise(Harness &h,const SdlWindow::FrameUpdateHandler &handler,
  windowHandler.beginCycle=[&](std::uint64_t){handler.beginCycle(++h.cycle);};
  windowHandler.framePresented=[&](const auto &frame){if(pending&&!issued){check(frame==correct->presentation(),"SDL must acknowledge supplied current identity only");++acknowledged;}handler.framePresented(frame);};
  const auto queue=[&]{SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=key;check(SDL_PushEvent(&e)==1,"Fresh handoff key");e.type=SDL_KEYUP;check(SDL_PushEvent(&e)==1,"Fresh handoff release");};
- if(mode==4)windowHandler.withDisplayedInput=[&](const auto &a,std::uint64_t input)->std::optional<IndexedFrame>{
-  if(!triggered){triggered=true;cosmetic();delay=true;return old;}return handler.withDisplayedInput(a,input);
+ if(mode==4)windowHandler.withPresentedInput=[&](const auto &a,std::uint64_t input,const auto &origin)->std::optional<IndexedFrame>{
+  if(!triggered){triggered=true;cosmetic();delay=true;return old;}return handler.withPresentedInput(a,input,origin);
  };
  const bool ok=SdlWindow().showInteractive(first,"Bound concrete frame",windowHandler,escape,[&]()->std::optional<IndexedFrame>{
   check(++loops<12,"Bounded stale-frame recovery");

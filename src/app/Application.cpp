@@ -449,6 +449,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                 journeyControls = journeyControls || flow.journey();
                 flow.rebuildEncounterPresentation = [&] { assets.discardSpriteCache(); };
 				flow.drawSmithArt = [&](IndexedFrame &frame) { assets.drawSmith(frame); };
+				flow.drawTrainingArt = [&](IndexedFrame &frame) { assets.drawTraining(frame); };
                 flow.reportManual = printManualEventResult;
                 flow.reportAutomatic = requireAutomaticEventSuccess;
                 flow.reportText = [](const std::string &message) { std::cerr << "Text warning: " << message << '\n'; };
@@ -488,7 +489,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
         };
         services.resources.vertigoManifest = [&](XeenWorld &world,const XeenEventFile &evt,const std::vector<XeenMonsterRecord> &mon) {
             xeenValidateVertigoManifest(world,evt,mon,[&](const std::string &name) {
-                return name.rfind("aaze",0)==0 ? assets.readArchiveResource(name) : assets.readInitialResource(name);
+                return name.rfind("maze",0)==0 ? assets.readInitialResource(name) : assets.readArchiveResource(name);
             });
         };
 		services.resources.loadLearnedSpellNames = [&] {

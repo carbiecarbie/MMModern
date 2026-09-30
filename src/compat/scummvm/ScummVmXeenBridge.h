@@ -31,6 +31,7 @@ public:
 	IndexedFrame snapshot() const;
 	void drawNpc(IndexedFrame &frame, std::uint8_t portraitId, std::size_t portraitFrame);
 	void drawSmith(IndexedFrame &frame);
+	void drawTraining(IndexedFrame &frame);
 	void discardSpriteCache();
 	std::size_t cachedSpriteCount() const;
 	// Successful resource reads + SpriteResource constructions, not draw calls.

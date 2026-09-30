@@ -42,6 +42,8 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
  const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,
  std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract) {
     const auto stage=env("MMODERN_M40_STAGE","fresh"),branch=env("MMODERN_M40_BRANCH","production"),control=env("MMODERN_M40_CONTROL");
+    const unsigned content=std::getenv("MMODERN_M40_CONTENT12")?12:11;
+    if(!resume)contract=content;
     if(resume) {
         replay_test::journeyInitializations=replay_test::journeyConstructions=0;
         replay_test::actions=replay_test::pulses=replay_test::retirements=0;
@@ -143,7 +145,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     };
     services.show=[&](const IndexedFrame &first,const auto &handler,const auto &escape,const auto &idle,const auto &status) {
         check(flow && world && party && position && flags && target,"M40 production owners absent");
-        check(world->sessionState().journeyContract()==11 && party->serviceEconomy,"M40 normal CLI did not select content11/economy");
+        check(world->sessionState().journeyContract()==content && party->serviceEconomy,"M40 witness content/economy differs");
         std::deque<std::function<bool()>> steps;std::optional<IndexedFrame> next;
         bool shown=false,acted=false,breakArmor=false;unsigned blocks=0,iterations=0;
         const auto snapshot=[&]{return XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world);};
@@ -184,7 +186,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 if(key==SDLK_UNKNOWN && !*phase){act(a);return true;}
                 const auto send=[&](SDL_Keycode k,bool down,bool repeat=false) {SDL_Event e{};e.type=down?SDL_KEYDOWN:SDL_KEYUP;
                     e.key.keysym.sym=k;e.key.keysym.scancode=SDL_GetScancodeFromKey(k);e.key.timestamp=SDL_GetTicks()+1;e.key.repeat=repeat;
-                    check(SDL_PushEvent(&e)==1,"M40 native key batch enqueue failed");};
+                    check(SDL_PushEvent(&e)==1,"M40 native key batch enqueue failed");
+                    if(down)acted=true; // Do not replace its acquired frame before SDL samples the key.
+                };
                 if(!*phase) {
                     *token=*handler.displayedInput();send(key,true);send(key,true);send(key,true,true);
                     send(key==SDLK_RETURN?SDLK_ESCAPE:SDLK_RETURN,true);++*phase;return false;
@@ -235,7 +239,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         });};
         const auto checkpoint=[&](const std::string &label) {
             auto before=std::make_shared<unsigned>();
-            inspect([&,before]{check(flow->canSave(),"M40 checkpoint not Quiet");*before=saveCalls;SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=SDLK_F9;e.key.keysym.scancode=SDL_SCANCODE_F9;e.key.timestamp=SDL_GetTicks()+1;check(SDL_PushEvent(&e)==1,"M40 native F9 enqueue");});
+            inspect([&,before]{check(flow->canSave(),"M40 checkpoint not Quiet");*before=saveCalls;SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=SDLK_F9;e.key.keysym.scancode=SDL_SCANCODE_F9;e.key.timestamp=SDL_GetTicks()+1;check(SDL_PushEvent(&e)==1,"M40 native F9 enqueue");acted=true;});
             steps.push_back([&,before,label] {
                 if(saveCalls==*before)return false;
                 check(saveCalls==*before+3,"M40 native F9 did not complete normal pipeline");

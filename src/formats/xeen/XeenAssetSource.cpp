@@ -141,6 +141,9 @@ IndexedFrame XeenAssetSource::snapshot() const {
 void XeenAssetSource::drawSmith(IndexedFrame &frame) {
 	_impl->bridge.drawSmith(frame);
 }
+void XeenAssetSource::drawTraining(IndexedFrame &frame) {
+	_impl->bridge.drawTraining(frame);
+}
 
 void XeenAssetSource::drawNpc(IndexedFrame &frame, std::uint8_t portraitId,
 		std::size_t portraitFrame) {

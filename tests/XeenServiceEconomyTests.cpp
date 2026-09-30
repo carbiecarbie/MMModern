@@ -232,9 +232,9 @@ void interestAndDates() {
 	}
 	check(xeenBankInterest(xeenBankInterest(199))==202,"repeated bank interest wrong");
 	XeenServiceEconomy economy;economy.wares=literalValid();economy.bank={199,4252442868u};
-	for(unsigned day=8;day<=98;++day)for(unsigned minute:{300u,1259u})for(unsigned ctr:{0u,23u}) {
+	for(unsigned content:{11u,12u})for(unsigned day=8;day<=98;++day)for(unsigned minute:{300u,1259u})for(unsigned ctr:{0u,23u}) {
 		XeenGameplayContext before;before.day=day;before.year=610;before.minutes=minute;before.ctr24=ctr;
-		const XeenJourneyRandomState cursor{1,2732157854u,1203};XeenServiceDayCandidate candidate(before,economy,cursor);
+		const XeenJourneyRandomState cursor{1,2732157854u,1203};XeenServiceDayCandidate candidate(before,economy,cursor,content);
 		const bool trigger=(day+1)%10==1;check(candidate.triggered()==trigger,"incorrect destination regeneration trigger");
 		while(!candidate.complete())candidate.service(64);
 		auto expected=before;expected.day=day+1;check(candidate.context()==expected && before.day==day,"service changed ordinary time/context");
@@ -246,7 +246,7 @@ void interestAndDates() {
 		const auto final=candidate.continuation();const auto end=candidate.economy();check(candidate.service() && candidate.continuation()==final && candidate.economy()==end,"completed day repeated stock/interest/RNG");
 	}
 	XeenGameplayContext c;c.year=610;c.day=99;c.minutes=300;rejects([&]{XeenServiceDayCandidate candidate(c,economy,{1,7,0});});
-	c.day=8;for(unsigned content:{1u,8u,9u,10u,12u})rejects([&]{XeenServiceDayCandidate candidate(c,economy,{1,7,0},content);});
+	c.day=8;for(unsigned content:{1u,8u,9u,10u,13u})rejects([&]{XeenServiceDayCandidate candidate(c,economy,{1,7,0},content);});
 	for(unsigned day:{0u,7u,100u,65535u}){c.day=day;rejects([&]{XeenServiceDayCandidate candidate(c,economy,{1,7,0});});}
 	c.day=10;XeenServiceDayCandidate yielded(c,economy,{1,2732157854u,1203});check(!yielded.service(0) && yielded.continuation()==XeenJourneyRandomState{1,2732157854u,1203},"zero service budget changed detached cursor");
 	while(!yielded.complete())yielded.service(1);check(yielded.continuation()==XeenJourneyRandomState{1,3686439625u,2109},"one-raw service cadence changed result");

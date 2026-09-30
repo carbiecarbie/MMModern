@@ -48,8 +48,8 @@ inline XeenArmorRepairCandidate xeenPrepareArmorRepair(const XeenItem &item,std:
 }
 inline std::optional<XeenGameplayContext> xeenPrepareSmithDeparture(
 		const XeenGameplayContext &before,std::uint16_t content) {
-	if ((content!=9 && content!=10 && content!=11) || !xeenRegionalContext(before) || before.year!=610 ||
-		before.day<8 || before.day>(content==11 ? 98 : 9)) return {};
+	if ((content!=9 && content!=10 && content!=11 && content!=12) || !xeenRegionalContext(before) || before.year!=610 ||
+		before.day<8 || before.day>((content==11 || content==12) ? 98 : 9)) return {};
 	auto after=before;after.day=static_cast<std::uint16_t>(before.day+1);
 	return after;
 }

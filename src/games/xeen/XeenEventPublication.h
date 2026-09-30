@@ -26,14 +26,15 @@ public:
 		check();
 		if (guard.s.journeyContract()>=3) {
 			const auto interaction=xeenRegionalInteraction(original,guard.cameraValue,guard.s.journeyContract());
-			if (interaction==XeenRegionalInteraction::Ironworks) {
+			if (interaction==XeenRegionalInteraction::Ironworks || interaction==XeenRegionalInteraction::Training) {
+				const bool training=interaction==XeenRegionalInteraction::Training;
 				if (!xeen_state::sameCamera(state.workingCamera,guard.cameraValue) ||
 					state.workingGameFlags.values()!=guard.flagValues || state.logicalAddress.mapId!=XeenMapIdentity(28) ||
-					state.logicalAddress.x!=8 || state.logicalAddress.y!=4 || state.logicalAddress.line!=0 ||
+					state.logicalAddress.x!=(training?10:8) || state.logicalAddress.y!=(training?11:4) || state.logicalAddress.line!=0 ||
 					state.lookupDirection!=guard.cameraValue.direction || state.instructionCount>1 ||
 					!state.callStack.empty() || state.pendingRewards.hasWork() || !state.currentScript)
-					integrity("Ironworks terminal continuation changed");
-				script(state.currentScript->file());currentSite=0;return;
+					integrity("Service terminal continuation changed");
+				script(state.currentScript->file());currentSite=training?3:0;return;
 			}
 			const int end=interaction==XeenRegionalInteraction::Myra ? 15 : interaction==XeenRegionalInteraction::Phirna ? 11 :
 				interaction==XeenRegionalInteraction::Well ? 10 : 1;

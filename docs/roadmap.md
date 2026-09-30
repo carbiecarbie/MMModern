@@ -1,11 +1,13 @@
 # MMModern - Roadmap
 
-**Milestone 40 is the latest completed milestone.**
+**M41 is the latest completed milestone.**
 [Project status](project-status.md) owns implemented capabilities and acceptance
 boundaries; [project history](project-history.md) owns completed chronology.
 Reference provenance belongs to [dependencies](dependencies.md).
 
 ## Current planning state
+
+<a id="m28---durable-bounded-encounter-completion-and-revisit"></a>
 
 MMModern has connected ordinary navigation, bounded original interactions,
 quest rewards, inventory/equipment management and save/restart within accepted
@@ -37,8 +39,14 @@ exact 8/10 continuation with legacy isolation ([M39](milestone-39-plan.md)).
 M40 completed bounded same-year service-day continuation, complete merchant
 wares/shared bank state, stock regeneration/interest and exact 9/11 continuation
 while retaining M39 casting ([M40](milestone-40-plan.md)).
+M41 completed bounded original Training, permanent levels from earned XP/carried
+gold, active temporary reset and selected refill, distinct-member service days,
+expanded route/actor admission and exact 9/12 continuation
+([M41](milestone-41-plan.md)).
 These contracts do not certify unrestricted map-23
 or Clouds travel or normal original startup.
+
+<a id="approved-m33-m35-arc"></a>
 
 The approved M33-M35 arc is complete within its bounded map-23 mainland scope.
 After the maintainer-reviewed post-M35 reassessment, the accepted direction is
@@ -52,92 +60,36 @@ now complete that short arc.
 
 The approved **M36-M38 short arc is completed and accepted**: learned
 exploration casting, bounded Vertigo travel, and Ironworks Armor Repair.
-The repair slice gives earned gold a use without merchant stock or trading.
 
-The maintainer accepted the following three-milestone near-term arc:
+The approved **M39-M41 short arc is completed and accepted**:
 
 **M39 - Bounded already-learned combat casting -> M40 - Bounded service-day
 continuation -> M41 - Vertigo Training and progression.**
 
-These are accepted roadmap planning commitments, not milestone specifications
-or implementation authorization. After each closure, the default is to plan
-the next named milestone; a new broad reassessment is not required unless the
-triggers below are met.
-
-M39 is the **completed and accepted first milestone** of this arc. Its
-[closed contract](milestone-39-plan.md) establishes useful finite-SP combat
-consumers and their consequences on existing routes before M41 connects
-progression and the original training refill. Exploration recovery remains
-unchanged; no new service time or route was needed for acceptance.
-
-**M41 - Vertigo Training and progression is the immediate next roadmap unit.**
-Its planning/specification requires separate authorization; M40 closure does
-not authorize M41 implementation. No M40 result met a replanning trigger, so the
-accepted rationale, provisional consumers and broad review after M41 remain.
-
-### M40 - Bounded service-day continuation
-
-M40 is the **completed and accepted second milestone** of the near-term arc.
-Its [closed contract](milestone-40-plan.md) supports repeated genuine Ironworks
-repair through daytime, script-driven one-day operations in year 610, with
-complete party-owned wares/shared bank balances, explicit fresh initialization,
-stock regeneration/interest and atomic date/economy/world-RNG departure.
-Envelope v4/schema 9/content 11 preserves exact save/restart and continued M39
-casting; legacy 8/9 and 8/10 keep their service limits and no economy backfill.
-Automated, original-resource/process, independent technical review and separate
-maintainer physical native-SDL acceptance passed. Numeric side-1 generation
-admits no Darkside gameplay; Buy/Sell, Training, Temple, overnight play and
-general calendar processing remain excluded. This supplies the service-time
-foundation for the separately authorized M41 specification.
+M39's [closed contract](milestone-39-plan.md) established useful finite-SP combat
+consumers. M40's [closed contract](milestone-40-plan.md) established complete
+party-owned merchant wares/shared bank state, repeated same-year service days
+and exact stock/interest/world-RNG continuation. These foundations enabled M41
+without a parallel progression, payment or service-time system.
 
 ### M41 - Vertigo Training and progression
 
-Connect legitimately accumulated XP and carried gold to the original Vertigo
-training service, permanent levels and existing derived HP/SP/combat rules.
-Training is the preferred progression consumer: it uses both resources and
-returns the trained member to full HP/SP, giving M39's spell users a connected
-benefit. It follows M40 so repairs, different trainees and later visits need
-not compete for the two days before the old stock boundary.
+M41 is the **completed and accepted final milestone** of this arc. Its
+[closed contract](milestone-41-plan.md) connects legitimately earned XP and
+carried gold to original Training, permanent levels, active temporary reset and
+selected-member HP/SP refill. The bounded twenty-eight-cell Vertigo route and
+initial/reset actor closures, separate distinct-member Training days and
+departure, stock-boundary consequences and exact envelope-v4/schema-9/content-12
+restart passed acceptance. Automated testing, original-resource/process
+continuation and independent technical review passed; separately, maintainer
+physical native-SDL acceptance passed, including responsive input and continued
+combat/casting after progression.
 
-Admit the original training doorway/service route, its meaningful events,
-additional Slime influence and resource-driven service presentation. The
-examined route is a small extension of Vertigo admission, but full dynamic
-actor closure and retained-city/revisit consequences must be proved during
-specification; the existing static route evidence is not that certification.
-Preserve party/roster progression ownership and Flow/modal/save authority.
-Use M40's service-time operations and the existing purse, XP, character rules,
-retained actors and M39 combat consumers rather than parallel progression or
-payment systems.
-
-The smallest useful acceptance boundary is earning the missing XP through
-admitted play, reaching Training, paying for a level, observing derived stats
-and the original refill, and using the result in further combat/casting after
-quiet save and process restart. Also establish different-member training and
-return visits across a stock boundary as connected service continuity, with
-eligibility/refusal and departure behavior. Respect Vertigo's original level
-cap and supported character/effect bounds; no synthetic grant of XP/gold is a
-substitute for the production witness. Native SDL, deterministic and process
-evidence remain distinct requirements.
-
-The later specification must preserve class/XP eligibility, gold cost and XP
-consumption, a day for each distinct newly trained member in a visit, and a
-separate day on departure even without training. Additional levels for the
-same member in that visit do not add another training day. Successful training
-resets party temporary state and refills the selected member's HP/SP; it is
-not general condition healing or free rest. Validate the complete reset inputs,
-including currently unmodeled temporary resistances, as zero or explicitly
-represented within the admitted domain rather than silently discarding them.
-
-Levels, XP, HP/SP and modeled temporary state already fit the inherited fields;
-M41 is expected to reuse schema 9 with new content semantics.
-Transient visit bookkeeping need not survive a quiet save. Recheck this during
-specification if route consequences or reset inputs introduce durable state.
-Exclude other trainers, class changes, skill purchases, guild/Temple work,
-general replenishment, new quests and unrestricted city travel. This completes
-a connected combat -> repeated services -> progression arc, leaving useful gold
-expenditure and durable stock as foundations for a subsequent trading or spell
-acquisition decision. Confidence in M41's position is medium; route closure
-and the end-to-end earned-XP witness are its main remaining specification risks.
+The next required activity is the scheduled **post-M41 broad roadmap
+reassessment**, as a separate task. It must review the next short arc against
+the accepted M41 state and maintainer priorities. No M42 or other implementation
+successor is selected or authorized here. Sell, Buy, Guild and Temple remain
+provisional candidates below; closure does not conduct that review.
 
 ## Medium term
 
@@ -163,9 +115,10 @@ real play establishes inventory congestion or a funding shortage that blocks
 the chosen progression witness. Fewest changed lines does not by itself make
 it the better next system.
 
-### After M41 - provisional consumers
+### Post-M41 reassessment - provisional consumers
 
-Review the next short arc after M41. Keep the deferred boundaries distinct:
+The scheduled broad review is now due. These candidates remain provisional until
+that separate review selects and approves a direction. Keep their boundaries distinct:
 
 - **Sell** is the strongest small economy candidate: reuse the admitted
   Ironworks route and publication guards to remove/compact carried items and
@@ -181,8 +134,8 @@ Review the next short arc after M41. Keep the deferred boundaries distinct:
   makes a combined scope independently acceptable.
 - **Guild acquisition** should follow useful supported spell consumers. Books
   and payment owners are reusable; membership purchase/award persistence,
-  class/town offers and the route with additional Slime influence are not yet
-  admitted. Teaching First Aid/Awaken to other eligible members already has a
+  class/town offers and Guild-specific route/actor closure are not yet admitted.
+  Teaching First Aid/Awaken to other eligible members already has a
   consumer, but need not precede using already-known Magic Arrow in combat.
   Membership is not represented in current schema 9. Departure costs one day
   even without a purchase.
@@ -201,8 +154,8 @@ contract belongs to [M40](milestone-40-plan.md); M38's narrower accepted
 remains authoritative for legacy contents 9/10.
 
 The legacy content-9/10 day-10 entry refusal is an MMModern support limit, not an
-original opening rule. M40 resolves it in fresh content 11 for the selected
-same-year service loop. Do not combine Training's separate day
+original opening rule. M40 resolves it in content 11, inherited by fresh content
+12, for the selected same-year service loop. Do not combine Training's separate day
 charges or split Temple's two-day charge: the reference consequences differ.
 
 Further city content, regions, quests and encounters should follow demonstrated
@@ -239,7 +192,10 @@ lifecycle and dormant-item semantics, M36's learned casting, M37's retained
 two-region transitions and 8/8 continuation, M38's bounded repair/departure
 publications and explicit 8/9 pair, M39's combat-owned casting and 8/10
 continuation, M40's party-owned economy/atomic service-day departure and 9/11
-continuation, and M28's owner/preimage and presentation safeguards.
+continuation, M41's existing-owner progression, chained day reservations,
+expanded city admission and exact 9/12 continuation, and M28's owner/preimage
+and presentation safeguards. Cosmetic input replacement retains acquired old
+concrete authority until successor handoff, with exact-origin stale-input safety.
 Commercial resources remain external and unmodified.
 
 ## Replanning and review cadence
@@ -259,26 +215,19 @@ Vertigo-centered strategy only if new evidence shows a material contradiction:
   a required foundation, or maintainer priorities explicitly change.
 
 Ordinary implementation difficulty alone does not reopen the direction.
-Use focused scope review before each specification; M41 planning follows M40
-closure only with separate authorization. The next broad roadmap review follows
-M41, preserving the approximately three-completed-milestone cadence. Replan earlier on concrete
-evidence that:
+The scheduled post-M41 broad reassessment is now due, preserving the
+approximately three-completed-milestone cadence. The M39-M41 arc met its bounded
+acceptance requirements, including complete dynamic actor closure and the earned
+progression witness; those are closed contracts, not outstanding planning risks.
 
-- M40's accepted stock/time contract proves insufficient for the progression
-  arc without player access to generated items, other temporal modes or state
-  outside the bounded same-year service domain.
-- M41's original route requires substantially wider actor/event/effect coverage,
-  its reset inputs cannot be represented within the expected domain, or earned
-  XP, survivability or replenishment prevents the connected progression witness.
-- Inventory congestion or lack of gold makes Sell a demonstrated prerequisite,
-  or a concrete recovery/acquisition prerequisite outranks the planned consumer.
+The separate review should retain the established triggers for targeted
+replanning: stock/time requirements outside the accepted same-year domain;
+materially wider actor/Event/effect or persistence requirements; and demonstrated
+inventory, funding, survival or acquisition prerequisites. Resolve concrete
+contradictions through the smallest necessary investigation. Completion alone
+does not promote a provisional consumer into an approved milestone.
 
-Resolve these through the smallest targeted investigation or scope adjustment;
-ordinary implementation detail is not a reason to repeat the candidate survey.
-The current service-route evidence is not complete dynamic actor-closure
-certification; require that proof when admitting the Training route.
-Roadmap approval, milestone specification and
-implementation authorization remain separate; completing one unit does not
-authorize the next.
+Roadmap approval, milestone specification and implementation authorization
+remain separate; completing the arc does not authorize its successor.
 Use the verified SHA and handoff gate in [AGENTS.md](../AGENTS.md) for external
 planning and review.

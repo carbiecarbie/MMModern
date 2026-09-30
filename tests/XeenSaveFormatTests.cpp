@@ -433,7 +433,7 @@ XeenSaveSnapshot journeyWire(std::uint16_t contract) {
 	}
 	if (contract >= 4) j.treasure.emplace();
 	if (contract >= 6) j.regionalRecovery.emplace();
-	if (contract == 11) j.serviceEconomy=literalMerchantEconomy();
+	if (contract == 11 || contract == 12) j.serviceEconomy=literalMerchantEconomy();
 	return s;
 }
 
@@ -466,15 +466,15 @@ void ironworksWireContract() {
 		check(restored.journey->treasure->gold == 0xffffffffU && restored.journey->treasure->dormant() &&
 			XeenSaveFormat::encode(restored) == bytes, "Ironworks full-u32 purse/dormant treasure changed");
 	}
-	for (unsigned contract=1; contract<=11; ++contract) {
+	for (unsigned contract=1; contract<=12; ++contract) {
 		const auto bytes = XeenSaveFormat::encode(journeyWire(contract));
 		const auto decoded = XeenSaveFormat::decode(bytes);
 		check(decoded.journey->contract == contract && decoded.journey->schema == xeenJourneyContent(contract).schema(),
 			"supported pair changed on decode");
 		check(XeenSaveFormat::encode(decoded) == bytes, "legacy/successor bytes changed on recapture");
 	}
-	for (unsigned schema=0; schema<=11; ++schema) for (unsigned contract=0; contract<=12; ++contract) {
-		const bool supported = (schema >= 1 && schema <= 8 && schema == contract) || (schema == 8 && (contract == 9 || contract == 10)) || (schema == 9 && contract == 11);
+	for (unsigned schema=0; schema<=11; ++schema) for (unsigned contract=0; contract<=13; ++contract) {
+		const bool supported = (schema >= 1 && schema <= 8 && schema == contract) || (schema == 8 && (contract == 9 || contract == 10)) || (schema == 9 && (contract == 11 || contract == 12));
 		if (supported) continue;
 		auto invalid = journeyWire(9);
 		invalid.journey->schema = schema; invalid.journey->contract = contract;
@@ -536,15 +536,16 @@ void ironworksWireContract() {
 }
 
 void serviceEconomyWireContract() {
-	auto s=journeyWire(11);
+	for(unsigned content:{11u,12u}) {
+	auto s=journeyWire(content);
 	for(unsigned owner=0;owner<30;++owner) {
 		(*s.characters[owner].learnedSpells)[owner%39]=255-owner;
 		s.journey->supplements[owner].inputs.poisonResistance=XeenAttributeValue{int(owner),int(255-owner)};
 	}
 	const auto bytes=XeenSaveFormat::encode(s);const auto start=bytes.size()-4278;
-	check(bytes[8]==4 && bytes[start+1]==9 && bytes[start+3]==11,"M40 exact v4/schema9/content11 selectors");
+	check(bytes[8]==4 && bytes[start+1]==9 && bytes[start+3]==content,"exact v4/schema9/content selectors");
 	auto inherited=s;inherited.journey->schema=8;inherited.journey->contract=10;inherited.journey->serviceEconomy.reset();
-	auto expected=XeenSaveFormat::encode(inherited);expected[start+1]=9;expected[start+3]=11;
+	auto expected=XeenSaveFormat::encode(inherited);expected[start+1]=9;expected[start+3]=content;
 	expected.insert(expected.end(),{2,4,4,9});
 	// Literal wire recipe is independent of the production encoder and validator.
 	const std::array<std::array<std::uint8_t,8>,8> materials{{
@@ -618,6 +619,7 @@ void serviceEconomyWireContract() {
 	}
 	for(unsigned day:{0u,7u,100u,65535u}) {auto state=s;state.journey->context->day=day;rejects([&]{XeenSaveFormat::encode(state);},"calendar");}
 	for(unsigned day:{9u,11u,99u}) {auto state=s;state.journey->context->day=day;rejects([&]{XeenSaveFormat::encode(state);},"retained city");}
+	}
 }
 
 } // namespace

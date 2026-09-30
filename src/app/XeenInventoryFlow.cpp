@@ -299,7 +299,7 @@ IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
 		if (member || std::holds_alternative<CancelInteractionAction>(action)) {
 			if (!_itemUseGeneration || !_encounter->finishItemUse(_encounter->ticket(),*_itemUseGeneration,_inventoryEpoch,
 				member ? std::optional<std::size_t>{member->partyIndex} : std::nullopt,
-				_inputGeneration,_frame.presentation())) {
+				_inputGeneration,responseFrame())) {
 				closeGameplay();return _frame;
 			}
 			closeInventory();_frame=_inventoryUnderlay;return _frame;

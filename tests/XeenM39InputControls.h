@@ -38,10 +38,10 @@ bool m39InputControls(const std::string &control,const IndexedFrame &first,const
     nativeInputReceived=[&](const SDL_Event &e){if(fresh && e.type==SDL_KEYDOWN && e.key.keysym.sym==code && !e.key.repeat)++received;};
     nativeInputRetired=[&](const SDL_KeyboardEvent &e){if(fresh && e.keysym.sym==code && !e.repeat)++retired;};
     auto native=handler;native.closed={};native.beginCycle=[&](std::uint64_t){handler.beginCycle(++cycle);};
-    native.withDisplayedInput=[&](const PlayerAction &a,std::uint64_t input){
+    native.withPresentedInput=[&](const PlayerAction &a,std::uint64_t input,const auto &origin){
         const auto generation=combat().result().generation;
         if(fresh && matches(a))++dispatched;
-        auto f=handler.withDisplayedInput(a,input);
+        auto f=handler.withPresentedInput(a,input,origin);
         if(fresh && matches(a) && combat().result().generation!=generation)++accepted;
         return f;
     };
@@ -81,17 +81,27 @@ bool m39InputControls(const std::string &control,const IndexedFrame &first,const
             now+=100;auto f=idle();composeProbe={};
             cosmeticInput=handler.displayedInput();
             check(cosmetic && f && f->presentation()!=stableFrame && !flow.acceptsFrame(stableFrame) &&
-                !flow.acceptsFrame(IndexedFrame{}.presentation()) && !flow.encounter()->current(encounter) &&
+                !flow.acceptsFrame(IndexedFrame{}.presentation()) && flow.encounter()->current(encounter) &&
                 combat().current(*stableTicket),"M39 cosmetic concrete/semantic identity split");
-            check(!flow.journeyInputCurrent(stableInput),"M39 unpresented cosmetic frame gained authority");
-            handler.withDisplayedInput(AttackAction{},*stableInput);
+            check(flow.journeyInputCurrent(stableInput) && flow.acceptsInputFrame(stableFrame) &&
+                !flow.acceptsInputFrame(f->presentation()),"M39 cosmetic must retain A until acquired B handoff");
+            handler.withPresentedInput(AttackAction{},*stableInput,f->presentation());
             check(combat().result().generation==generation,"M39 early response to unpresented cosmetic frame executed");
             shown=false;++stage;return f;
+        }
+        if(stage==4) {
+            check(received==1 && retired==0 && dispatched==1 && accepted==1 &&
+                !combat().current(*stableTicket),"M39 first live-A cosmetic tap was lost or duplicated");
+            // Replay still names A; it cannot authorize the semantic successor.
+            const auto generation=combat().result().generation;
+            handler.withPresentedInput(AttackAction{},*stableInput,stableFrame);
+            check(combat().result().generation==generation,"M39 retired A response authorized successor");
+            ++stage;return {};
         }
         std::cout<<"M39 INPUT TRACE "<<control<<" received="<<received<<" retired="<<retired<<" dispatched="<<dispatched
             <<" accepted="<<accepted<<" epoch="<<*stableInput<<"->"<<*cosmeticInput<<"->"<<*handler.displayedInput()
             <<" original-ticket-current="<<combat().current(*stableTicket)<<'\n';
-        check(cosmeticInput==stableInput && received==1 && retired==0 && dispatched==1 && accepted==1,"M39 fresh post-presentation key lost at cosmetic input fence");
+        check(cosmeticInput==stableInput && received==1 && retired==0 && dispatched==1 && accepted==1,"M39 live-A cosmetic input must execute exactly once");
         check(replay_test::commands==baselineCommands+(control=="attack" || control=="block" || control=="run"?2:1),"M39 second action executed in same native batch");
         check(!combat().current(*stableTicket) && !combat().current(XeenCombat::Ticket{}),"M39 stale/foreign semantic ticket accepted");
         const auto generation=combat().result().generation;
@@ -102,7 +112,7 @@ bool m39InputControls(const std::string &control,const IndexedFrame &first,const
     };
     const auto ok=show(flow.frame(),native,escape,drive,status);
     composeProbe={};nativeInputReceived={};nativeInputRetired={};
-    check(ok && accepted==1 && stage==5,"M39 native PlayerReady input control failed");
+    check(ok && accepted==1 && stage==6,"M39 native PlayerReady input control failed");
     std::cout<<"M39 PLAYERREADY INPUT PASSED "<<control<<'\n';return true;
 }
 #endif

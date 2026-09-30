@@ -62,8 +62,13 @@ void authority(const fs::path &path,const XeenSaveSnapshot &saved){
 void modalSdlReturn(const fs::path &path,const XeenSaveSnapshot &saved) {
  run(path,saved,[&](Harness &h,XeenGameplayServices &s){s.show=[&](const auto &,const auto &handler,const auto &escape,const auto &idle,const auto &status){
   handler.framePresented(h.flow->frame().presentation());acknowledgment(h,handler);unsigned stage=0,loops=0;
-  const auto key=[](SDL_Keycode code){SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=code;check(SDL_PushEvent(&e)==1,"modal SDL key");e.type=SDL_KEYUP;check(SDL_PushEvent(&e)==1,"modal SDL release");};
-  auto windowHandler=handler;windowHandler.beginCycle=[&](std::uint64_t){handler.beginCycle(++h.cycle);};
+  std::vector<SDL_Event> pendingKeys;
+  const auto key=[&](SDL_Keycode code){SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=code;pendingKeys.push_back(e);e.type=SDL_KEYUP;pendingKeys.push_back(e);};
+  auto windowHandler=handler;windowHandler.beginCycle=[&](std::uint64_t){
+   handler.beginCycle(++h.cycle);
+   for(auto &event:pendingKeys)check(SDL_PushEvent(&event)==1,"modal SDL key/release");
+   pendingKeys.clear();
+  };
   return SdlWindow().showInteractive(h.flow->frame(),"Modal Event to Quiet input",windowHandler,escape,[&]()->std::optional<IndexedFrame>{
    check(++loops<60,"modal SDL return bounded");h.now+=100;
    if(stage==0){key(SDLK_RETURN);key(SDLK_RIGHT);++stage;}

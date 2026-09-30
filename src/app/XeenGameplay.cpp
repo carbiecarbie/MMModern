@@ -93,7 +93,7 @@ int Application::journeyExpedition(const std::filesystem::path &directory, std::
 }
 int Application::journeyRegion(const std::filesystem::path &directory, std::optional<std::uint32_t> seed,
   std::optional<std::filesystem::path> save) const {
- return gameplay(directory,xeenJourneyContent(11).entry,save,false,XeenEncounterEntry::Journey,seed,11);
+ return gameplay(directory,xeenJourneyContent(12).entry,save,false,XeenEncounterEntry::Journey,seed,12);
 }
 int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera camera,
   const std::optional<std::filesystem::path> &target, bool resume, XeenEncounterEntry entry, std::optional<std::uint32_t> seed,
@@ -172,6 +172,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    journeySetup.emplace(XeenJourneySetup{journeyCharacters,services.resources.loadInitialContext(),journeyStatistics,encounterEvents,value,journeyContract.value_or(1)});
    journeySetup->regionalManifest=services.resources.regionalManifest;
    journeySetup->vertigoManifest=services.resources.vertigoManifest;
+	journeySetup->cityEventsProvider=[&] { return services.resources.loadEvents(28); };
    if (xeenJourneyContent(journeySetup->contract).serviceDays()) {
     if (!services.resources.loadInitialBankBalances) throw std::invalid_argument("Missing original bank provider");
     journeySetup->bank=services.resources.loadInitialBankBalances();
@@ -266,7 +267,8 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   if (resume) std::cout << "Resumed " << target->u8string() << '\n';
   bool dispatching = false;
   bool active = true;
-  const auto dispatch = [&](const PlayerAction &action, std::optional<std::uint64_t> input) -> std::optional<IndexedFrame> {
+  const auto dispatch = [&](const PlayerAction &action, std::optional<std::uint64_t> input,
+      const IndexedFrame::Presentation &inputFrame = {}) -> std::optional<IndexedFrame> {
    // A service/handoff refusal is pure coordination: no owner/resource guard,
    // capture provider, path preparation or file operation may run here.
    if (std::holds_alternative<SaveGameAction>(action) && flow.journey() &&
@@ -276,6 +278,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    }
    // F9 is intercepted here, so it must pass the same displayed authority gate
    // as every Journey input before capture, providers, or target work.
+   if (inputFrame && !flow.acceptsInputFrame(inputFrame)) return std::nullopt;
    if (flow.journey() && !flow.journeyInputCurrent(input)) return std::nullopt;
    // This irreversible entry decision needs no access to possibly closed owners.
    if (std::holds_alternative<SaveGameAction>(action) && encounter && !flow.completed() && !flow.journey()) {
@@ -335,7 +338,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
     if (std::holds_alternative<InteractionAction>(action)) mapped = AttackAction{};
     if (std::holds_alternative<AcknowledgeAction>(action) && !flow.inventoryOpen()) mapped = BeginEncounterAction{};
    }
-   auto next = flow.handle(mapped,input);
+   auto next = flow.handle(mapped,input,inputFrame);
    handoff.retain();
    return next;
    } catch (...) { handoff.fail(); active = false; throw; }
@@ -343,14 +346,17 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   SdlWindow::FrameUpdateHandler handler = [&](const PlayerAction &action) { return dispatch(action,{}); };
   handler.displayedInput = [&] { return flow.displayedInput(); };
   handler.acceptsFrame = [&](const auto &frame) { return flow.acceptsFrame(frame); };
+  handler.acceptsInputFrame = [&](const auto &frame) { return flow.acceptsInputFrame(frame); };
+  handler.completeInputHandoff = [&](const auto &frame) { flow.completeInputHandoff(frame); handoff.retain(); };
   handler.protectAllKeys = flow.journey();
   handler.withDisplayedInput = [&](const PlayerAction &action,std::uint64_t input) { return dispatch(action,input); };
+  handler.withPresentedInput = [&](const PlayerAction &action,std::uint64_t input,const auto &frame) { return dispatch(action,input,frame); };
   handler.beginCycle = [&](std::uint64_t cycle) {
    if (!active) throw std::runtime_error("Gameplay session is closed");
    flow.beginCycle(cycle);
   };
   handler.frameCurrent = [&] { return active && flow.encounterFrameCurrent(); };
-  handler.framePresented = [&](const auto &frame) { flow.framePresented(frame); handoff.retain(); };
+  handler.framePresented = [&](const auto &frame) { flow.framePresented(frame,true); handoff.retain(); };
   handler.failed = [&] { handoff.fail(); active = false; };
   handler.closed = [&] { flow.closeGameplay(); active = false; };
   const auto idle = [&]() -> std::optional<IndexedFrame> {

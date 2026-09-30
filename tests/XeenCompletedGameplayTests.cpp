@@ -261,7 +261,8 @@ void image(const fs::path &path,const IndexedFrame &frame){
  for(auto pixel:frame.pixels)out.write(reinterpret_cast<const char*>(frame.palette.data()+3*pixel),3);
  check(bool(out),"frame evidence write");
 }
-void key(SDL_Keycode code,Uint32 type=SDL_KEYDOWN,Uint8 repeat=0){SDL_Event e{};e.type=type;e.key.keysym.sym=code;e.key.repeat=repeat;check(SDL_PushEvent(&e)==1,"continuous SDL input");}
+std::vector<SDL_Event> pendingKeys;
+void key(SDL_Keycode code,Uint32 type=SDL_KEYDOWN,Uint8 repeat=0){SDL_Event e{};e.type=type;e.key.keysym.sym=code;e.key.repeat=repeat;pendingKeys.push_back(e);}
 void pressKey(SDL_Keycode code){key(code);key(code,SDL_KEYUP);}
 int child(const std::optional<fs::path> &game,const fs::path &dir,unsigned seed,const std::string &role){
  Harness h(game);auto s=h.services(seed);Oracle oracle(h,s,seed);const auto path=dir/(std::to_string(seed)+".mmsave");
@@ -281,6 +282,13 @@ int child(const std::optional<fs::path> &game,const fs::path &dir,unsigned seed,
  s.show=[&](const auto &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
   check(observed,"startup owners observed before SDL");
   image(dir/(std::to_string(seed)+"-"+role+"-first.ppm"),first);
+  auto native=handler;
+  native.beginCycle=[&](auto cycle){
+   handler.beginCycle(cycle);
+   // Sample scheduled commands after idle's target frame was acquired.
+   for(auto &event:pendingKeys)check(SDL_PushEvent(&event)==1,"continuous SDL input");
+   pendingKeys.clear();
+  };
   const auto drivenIdle=[&]()->std::optional<IndexedFrame>{
    h.now+=100;auto frame=idle();if(++idles>900)throw std::runtime_error("bounded completed SDL driver timed out");
    const auto ticket=handler.displayedInput();if(ticket!=lastInput){lastInput=ticket;stable=0;return frame;}
@@ -326,7 +334,7 @@ int child(const std::optional<fs::path> &game,const fs::path &dir,unsigned seed,
    }
    return frame;
   };
-  return SdlWindow().showInteractive(first,"MMModern - Map completed acceptance",handler,escape,drivenIdle,status);
+  return SdlWindow().showInteractive(first,"MMModern - Map completed acceptance",native,escape,drivenIdle,status);
  };
  const auto result=Application().playGameplay(s,XeenActorApproach::kEntry,fresh?std::optional<fs::path>{}:path,resume,
   resume?XeenEncounterEntry::Ordinary:XeenEncounterEntry::Diagnostic27);

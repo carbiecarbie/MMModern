@@ -33,7 +33,7 @@ inline BOOL CALLBACK findWindow(HWND window, LPARAM data) {
 // Bounded Win32 launch extracted from XeenSaveCliTests. Used only by tests;
 // no process framework, game-state transport or application-specific startup.
 inline Result launch(const fs::path &exe, const std::vector<std::wstring> &args,
- const fs::path &log, bool closeNativeWindow = false, bool escapeExits = false) {
+ const fs::path &log, bool closeNativeWindow = false, bool escapeExits = false, DWORD timeoutMs = 30000) {
  std::wstring command = L"\"" + exe.wstring() + L"\"";
  for (const auto &arg : args) {
   require(arg.find(L'"') == std::wstring::npos && (arg.empty() || arg.back() != L'\\'), "unsupported test argument quoting");
@@ -59,7 +59,7 @@ inline Result launch(const fs::path &exe, const std::vector<std::wstring> &args,
  std::cout << "PID " << process.dwProcessId << " command " << fs::path(command).u8string() << '\n' << std::flush;
  const auto began = GetTickCount64(); DWORD wait = WAIT_TIMEOUT; bool closed = false;
  unsigned inputStage=0; ULONGLONG lastInput=0;
- while ((wait = WaitForSingleObject(process.hProcess, 50)) == WAIT_TIMEOUT && GetTickCount64() - began < 30000) {
+ while ((wait = WaitForSingleObject(process.hProcess, 50)) == WAIT_TIMEOUT && GetTickCount64() - began < timeoutMs) {
   if (closeNativeWindow && !closed && GetTickCount64() - began > 1000) {
    Window target{process.dwProcessId}; EnumWindows(findWindow, reinterpret_cast<LPARAM>(&target));
    if (target.handle && GetTickCount64()-lastInput>=150) {

@@ -117,7 +117,7 @@ IndexedFrame XeenEventFlow::handleCombatCasting(const PlayerAction &action,std::
         }
         return names;
     };
-    if(!_encounter->respondCombatCast(action,input,_frame.presentation(),prepare))return frameCopy();
+    if(!_encounter->respondCombatCast(action,input,responseFrame(),prepare))return frameCopy();
     return renderEncounter();
 }
 
@@ -204,7 +204,7 @@ std::string XeenEventFlow::castingText() const {
 }
 
 IndexedFrame XeenEventFlow::handleCasting(const PlayerAction &action, std::uint64_t input) {
-	if (!_castingUi || !_encounter->castingFrameCurrent(input,_frame.presentation())) return frameCopy();
+	if (!_castingUi || !_encounter->castingFrameCurrent(input,responseFrame())) return frameCopy();
 	auto &ui=*_castingUi;
 	if (ui.phase==CastingUi::Phase::Settling) return frameCopy();
 	const auto *member=std::get_if<SelectMemberAction>(&action);
@@ -213,7 +213,7 @@ IndexedFrame XeenEventFlow::handleCasting(const PlayerAction &action, std::uint6
 	const bool escape=std::holds_alternative<CancelInteractionAction>(action);
 	if (ui.phase==CastingUi::Phase::ChooseCaster) {
 		if (escape) {
-			if (!_encounter->cancelCasting(_encounter->ticket(),input,_frame.presentation())) return frameCopy();
+			if (!_encounter->cancelCasting(_encounter->ticket(),input,responseFrame())) return frameCopy();
 			_castingUi.reset();return renderEncounter();
 		}
 		if (!member || member->partyIndex>=_party.party.size()) return frameCopy();
@@ -254,7 +254,7 @@ IndexedFrame XeenEventFlow::handleCasting(const PlayerAction &action, std::uint6
 	if (ui.phase==CastingUi::Phase::ConfirmCast) {
 		if (escape) { ui.phase=CastingUi::Phase::BrowseLearned;return renderEncounter(); }
 		if (!enter) return frameCopy();
-		if (!_encounter->confirmCasting(_encounter->ticket(),ui.caster,ui.slot,input,_frame.presentation())) {
+		if (!_encounter->confirmCasting(_encounter->ticket(),ui.caster,ui.slot,input,responseFrame())) {
 			ui.refusal="Cast refused: eligibility, SP or time";return renderEncounter();
 		}
 		const auto &c=_party.party.member(_party.roster,ui.caster);
@@ -270,7 +270,7 @@ IndexedFrame XeenEventFlow::handleCasting(const PlayerAction &action, std::uint6
 	if (ui.phase==CastingUi::Phase::ChooseTarget) {
 		if (!escape && (!member || member->partyIndex>=_party.party.size())) return frameCopy();
 		if (!_encounter->respondCastingTarget(_encounter->ticket(),escape ? std::nullopt :
-			std::optional<std::size_t>{member->partyIndex},input,_frame.presentation())) return frameCopy();
+			std::optional<std::size_t>{member->partyIndex},input,responseFrame())) return frameCopy();
 		ui.phase=CastingUi::Phase::Settling;return renderEncounter();
 	}
 	return frameCopy();

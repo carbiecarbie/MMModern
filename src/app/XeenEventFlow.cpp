@@ -158,11 +158,18 @@ void XeenEventFlow::endSave(const SaveBoundary &boundary) {
 	_saveBoundary.reset();
 }
 
-void XeenEventFlow::framePresented(const IndexedFrame::Presentation &presented) {
+void XeenEventFlow::framePresented(const IndexedFrame::Presentation &presented, bool deferCosmeticInput) {
 	if (!acceptsFrame(presented)) throw std::logic_error("Unmatched concrete frame handoff");
 	requireCurrentOwners();
 	if (_dispatching || _saving) throw std::logic_error("Frame handoff during dispatch");
 	if (!encounterFrameCurrent()) throw std::logic_error("Stale successful frame handoff");
+	if (_cosmeticPending) {
+		// A remains actionable through composition, upload and successful B
+		// acquisition. Native SDL drains its last A-origin batch before switching.
+		_acquiredCosmeticFrame = presented;
+		if (!deferCosmeticInput) completeInputHandoff(presented);
+		return;
+	}
 	if (journey() && _handoffPending) {
 		if (_encounter->combat()) {
 			_encounter->presented(*_encounterFrame);
@@ -173,23 +180,43 @@ void XeenEventFlow::framePresented(const IndexedFrame::Presentation &presented) 
 		else if (!_encounter->presentJourney(*_encounterFrame)) throw std::logic_error("Stale Journey frame handoff");
 		_handoffPending = false; _encounterFrame = _encounter->ticket();
 		_arrivalPending = false;
+		authorizeInputFrame(presented);
+	}
+	if (completed() && _handoffPending) {
+		if (!inventoryOpen()) _encounter->releaseCompleted();
+		_handoffPending = false;
+		authorizeCompletedFrame();
+	}
+	_actionableFrame = presented;
+}
+
+void XeenEventFlow::completeInputHandoff(const IndexedFrame::Presentation &presented) {
+	// An A action may have superseded B during SDL's bounded queue drain.
+	if (!_cosmeticPending || _acquiredCosmeticFrame != presented || !acceptsFrame(presented)) return;
+	requireCurrentOwners();
+	if (_dispatching || _saving || _handoffPending) throw std::logic_error("Input handoff during dispatch");
+	authorizeInputFrame(presented);
+	_actionableFrame = presented;
+	_cosmeticPending = false;
+	_acquiredCosmeticFrame.reset();
+}
+
+void XeenEventFlow::authorizeInputFrame(const IndexedFrame::Presentation &presented) {
+	if (journey()) {
 		if (_encounter->combat())
 			_encounter->authorizeCombatCastFrame(*_encounterFrame,_inputGeneration,presented);
 		if (_castingUi && _encounter->castingActive())
 			_encounter->authorizeCastingFrame(*_encounterFrame,_inputGeneration,presented);
 		if (_smithUi && _encounter->_smith)
 			_encounter->authorizeSmithFrame(_inputGeneration,presented);
+		if (_trainingUi && _encounter->_training)
+			_encounter->authorizeTrainingFrame(_inputGeneration,presented);
 		if (_inventory.mode==XeenInventoryMode::UseTarget &&
 			(!_itemUseGeneration || !_encounter->authorizeItemUseTarget(*_encounterFrame,*_itemUseGeneration,
 				_inventoryEpoch,_inputGeneration,presented))) {
 			closeGameplay();
 			throw std::logic_error("Antidote target frame authority unavailable");
 		}
-	}
-	if (completed() && _handoffPending) {
-		if (!inventoryOpen()) _encounter->releaseCompleted();
-		_handoffPending = false;
-		authorizeCompletedFrame();
 	}
 }
 
@@ -275,6 +302,11 @@ void XeenEventFlow::sealFrame(IndexedFrame &returned) {
 }
 
 IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
+	if(_trainingUi) {
+		cosmeticInput=_trainingRenderedRevision && *_trainingRenderedRevision==_trainingUi->revision;
+		if(_encounter->_training && _encounter->_training->frame &&
+			(!xeenSmithAuthorityRoom(_inputGeneration,8) || !_encounter->smithCapacity(16,4)))return frameCopy();
+	}
 	if (_smithUi && _encounter && _encounter->_smith && !_smithSettlement && !_encounter->_smith->departed) {
 		// Resize/expose and other redraws consume the same presented Journey
 		// revision as menu input. Preserve the concrete last departure frame
@@ -287,9 +319,16 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 			_smithUi->feedback="Further repairs unavailable. Departure remains reserved.";
 		}
 	}
+	// A consumed Training frame is a strict retry even if its phase/revision
+	// survived an exception. Only an unconsumed, acquired origin can overlap B.
+	const bool cosmetic = (journey() || _encounter->combat()) && cosmeticInput && _actionableFrame &&
+		!_handoffPending && encounterFrameCurrent() &&
+		(!_trainingUi || (_encounter->_training && _encounter->_training->frame == _actionableFrame));
+	_acquiredCosmeticFrame.reset();
+	if (!cosmetic) { _actionableFrame.reset(); _cosmeticPending = false; }
 	if (journey() && !_encounter->combat()) {
 		report=report || _encounter->state().phase()==XeenEncounterPhase::SupportStopped;
-		_encounter->holdJourneyFrame();
+		if (!cosmetic) _encounter->holdJourneyFrame();
 		for (unsigned attempt=0;attempt<2;++attempt) {
 			IndexedFrame returned;
 			const auto t = _encounter->ticket();
@@ -321,6 +360,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 					_equipmentResult ? &*_equipmentResult : nullptr,false,false,
 					_world.sessionState().journeyContract()==6 || _world.sessionState().journeyContract()==7 || xeenJourneyContent(_world.sessionState().journeyContract()).vertigo());
 				if (_smithUi) rendered=drawSmith(composed.frame);
+				if (_trainingUi) rendered=drawTraining(composed.frame);
 				if (report && !attempt) {
 					if (reportText) reportText(_encounter->notice());
 					if (!_encounter->current(t)) throw std::logic_error("Stale Journey reporting");
@@ -331,11 +371,13 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 				returned = rendered; _frame = std::move(rendered);
 				_ordinary.containsOrdinaryAnimation = composed.containsOrdinaryAnimation;
 				sealFrame(returned);
-			})) {
+			}, cosmetic)) {
 				if (_inputGeneration == std::numeric_limits<std::uint64_t>::max()) throw std::overflow_error("Journey input generation exhausted");
 				// A cosmetic frame renews frame authority, not the semantic input epoch.
 				if (!cosmeticInput) ++_inputGeneration;
-				_encounterFrame = _encounter->ticket(); _handoffPending = true;
+				if(_trainingUi)_trainingRenderedRevision=_trainingUi->revision;
+				_encounterFrame = _encounter->ticket(); _handoffPending = !cosmetic;
+				_cosmeticPending = cosmetic;
 				return returned;
 			}
 			if (!_encounter->current(t)) break;
@@ -385,7 +427,8 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 			}
 			_ordinary.containsOrdinaryAnimation = composed.containsOrdinaryAnimation;
 			_encounterFrame = entry;
-			if (journey()) _handoffPending = true;
+			_cosmeticPending = cosmetic;
+			if (journey()) _handoffPending = !cosmetic;
 			if (completed()) { _handoffPending = true; authorizeCompletedFrame(); }
 			sealFrame(returned);
             };
@@ -504,7 +547,7 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 		// Adopt ownership before composition, reporting or presentation can fail.
 		auto *suspended = std::get_if<XeenEventExecutionSuspended>(&result);
 		if (suspended) _pending.emplace(Pending{std::move(suspended->state), automatic, ++_generation});
-		if (suspended && suspended->request.kind==XeenPresentationKind::ArmorRepairService)
+		if (suspended && (suspended->request.kind==XeenPresentationKind::ArmorRepairService || suspended->request.kind==XeenPresentationKind::TrainingService))
 			return frameCopy(); // Exclusive Event transfers to Service after its final guard check.
 		try {
 		refreshScene(reconstruct, cause, committedTransition);
@@ -752,9 +795,10 @@ IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operat
 	} catch (const std::exception &error) {
 		std::cerr << "Journey event: " << error.what() << '\n';
 		_eventPublication=nullptr;
-		if (_smithSettlement) {
+		if (_smithSettlement || _trainingSettlement) {
 			if (_fatal || !_encounter->current(entry)) { _fatal=true;throw; }
-			_smithUi->feedback="Event settlement pending; Enter retries.";
+			if(_smithUi)_smithUi->feedback="Event settlement pending; Enter retries.";
+			if(_trainingUi)_trainingUi->feedback="Event settlement pending; Enter retries.";
 			return renderEncounter();
 		}
 		cleanup(XeenRewardDiscard::PresentationFailure);
@@ -766,6 +810,9 @@ IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operat
 	if (_pending && _pending->state.pendingPresentation &&
 		_pending->state.pendingPresentation->request.kind==XeenPresentationKind::ArmorRepairService && !_smithUi)
 		prepareSmith();
+	if (_pending && _pending->state.pendingPresentation &&
+		_pending->state.pendingPresentation->request.kind==XeenPresentationKind::TrainingService && !_trainingUi)
+		prepareTraining();
 	if (!_pending) {
 		if (_arrivalPending) _encounter->publishArrival(_encounter->_result.view);
 		_encounter->endJourneyEvent();
@@ -792,7 +839,7 @@ IndexedFrame XeenEventFlow::initial() {
 	return drive(_navigation.processInitialEvent(_world, _party, _camera, _flags), true);
 }
 bool XeenEventFlow::canCancelInteraction() const {
-	if (_smithUi) return true;
+	if (_smithUi || _trainingUi) return true;
 	if ((_encounter && _encounter->combat() && _encounter->combat()->cast()) || _castingUi || (journey() && _encounter->castingSettlement())) return true;
 	return _pending && _pending->state.pendingPresentation &&
 		_pending->state.pendingPresentation->request.response ==
@@ -859,6 +906,7 @@ IndexedFrame XeenEventFlow::presentationFailed(const std::exception &exception) 
 }
 std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 	requireCurrentOwners();
+	if(_trainingUi)return updateTraining();
 	if (_smithUi && _smithUi->phase==SmithUi::Phase::Preparation && !_dispatching && !_fatal && !_saving) {
 		DispatchScope dispatch(_dispatching);
 		try {
@@ -903,7 +951,7 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 		const bool ordinary = advanceEncounterOrdinary();
 		// Combat appearance/ordinary animation can replace the concrete frame while
 		// retaining the exact semantic ticket. Do not retire fresh keys for that redraw.
-		const bool combatCosmetic = hadJourneyCombat && _encounter->combat() && beforeIdle.combat &&
+		const bool combatCosmetic = _encounter->combat() && beforeIdle.combat &&
 			_encounter->combat()->current(*beforeIdle.combat);
 		if (changed || ordinary) return renderEncounter(completed() || (hadJourneyCombat && !_encounter->combat()),
 			combatCosmetic || (quietBefore && _encounter->journeyMutable() && _encounter->current(beforeIdle)));
@@ -926,7 +974,7 @@ std::optional<std::uint64_t> XeenEventFlow::presentationGeneration() const {
 bool XeenEventFlow::respond(std::uint64_t generation, XeenPresentationResponse response) {
 	requireCurrentOwners();
 	if (journey()) {
-		if (_smithUi) return false;
+		if (_smithUi || _trainingUi) return false;
 		if (_dispatching || _fatal || _saving || _handoffPending || !encounterFrameCurrent() ||
 			!_encounter->journeyEvent() || !_pending || _pending->generation!=generation ||
 			!_pending->state.pendingPresentation || !xeenResponseMatches(_pending->state.pendingPresentation->request.response,response)) return false;
@@ -961,11 +1009,19 @@ bool XeenEventFlow::resumePending(std::uint64_t generation, XeenPresentationResp
 			_world, _party, _camera, _flags, _eventPublication), false);
 	return true;
 }
-IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::optional<std::uint64_t> displayedInput) {
+IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::optional<std::uint64_t> displayedInput,
+        const IndexedFrame::Presentation &inputFrame) {
 	PlayerAction action=physicalAction;
 	requireCurrentOwners();
+	// Concrete origin is independent of semantic meaning. A retry/redraw may
+	// retain the generation, but input from its retired frame cannot authorize it.
+	if ((inputFrame && !acceptsInputFrame(inputFrame)) || (_trainingUi && !inputFrame)) return frameCopy();
 	if (journey() && !journeyInputCurrent(displayedInput)) return frameCopy();
 	if (std::holds_alternative<SaveGameAction>(action) || _dispatching || _fatal || _saving) return frameCopy();
+	if(_trainingUi) {
+		DispatchScope dispatch(_dispatching);
+		return handleTraining(action,*displayedInput,inputFrame);
+	}
 	if (_smithUi) {
 		DispatchScope dispatch(_dispatching);
 		return handleSmith(action,*displayedInput);

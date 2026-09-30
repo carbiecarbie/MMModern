@@ -43,7 +43,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
  const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,
  std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract) {
  const std::uint16_t content=std::getenv("MMODERN_M38_CONTENT10")?10:9;
- if(!resume && (contract==10 || contract==11))contract=content; // Explicit inherited/legacy-domain witness.
+ if(!resume)contract=content; // Explicit inherited/legacy-domain witness.
  if(resume) {
   replay_test::journeyInitializations=replay_test::journeyConstructions=0;
   replay_test::actions=replay_test::pulses=replay_test::retirements=0;
@@ -172,7 +172,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    steps.push_back([&,key,token,phase]{
     const auto send=[&](SDL_Keycode k,bool down,bool repeat=false){SDL_Event e{};e.type=down?SDL_KEYDOWN:SDL_KEYUP;
      e.key.keysym.sym=k;e.key.keysym.scancode=SDL_GetScancodeFromKey(k);e.key.timestamp=SDL_GetTicks()+1;e.key.repeat=repeat;
-     check(SDL_PushEvent(&e)==1,"M38 native batch enqueue");};
+     check(SDL_PushEvent(&e)==1,"M38 native batch enqueue");
+     if(down)acted=true; // Sample against the acquired frame before any idle redraw.
+    };
     if(!*phase){*token=*handler.displayedInput();send(key,true);send(key,true);send(key,true,true);
      send(key==SDLK_RETURN?SDLK_ESCAPE:SDLK_RETURN,true);++*phase;return false;}
     if(*phase==1) {
@@ -214,7 +216,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   }};
   const auto pushKey=[&](SDL_Keycode key,bool down=true){SDL_Event e{};e.type=down?SDL_KEYDOWN:SDL_KEYUP;e.key.keysym.sym=key;
    e.key.keysym.scancode=SDL_GetScancodeFromKey(key);e.key.timestamp=SDL_GetTicks()+1;
-   check(SDL_PushEvent(&e)==1,"M38 native key enqueue failed");};
+   check(SDL_PushEvent(&e)==1,"M38 native key enqueue failed");if(down)acted=true;};
   const auto checkpoint=[&](char label){
    auto count=std::make_shared<unsigned>();
    inspect([&,count]{check(flow->canSave(),"M38 checkpoint is not Quiet");*count=saveCalls;pushKey(SDLK_F9);});
@@ -411,7 +413,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   }
   inspect([&]{std::cout<<"M38 PRODUCTION WITNESS PASSED\n";SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);});
   auto native=handler;native.closed={};
-  native.withDisplayedInput=[&](const PlayerAction &a,std::uint64_t token){if(std::holds_alternative<SaveGameAction>(a))++nativeSaveResponses;return handler.withDisplayedInput(a,token);};
+  native.withPresentedInput=[&](const PlayerAction &a,std::uint64_t token,const auto &origin){if(std::holds_alternative<SaveGameAction>(a))++nativeSaveResponses;return handler.withPresentedInput(a,token,origin);};
   native.beginCycle=[&](std::uint64_t){handler.beginCycle(++cycle);};
   unsigned evidenceFrame=0;
   native.framePresented=[&](const auto &f){

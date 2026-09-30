@@ -23,6 +23,11 @@ public:
 		std::function<bool()> frameCurrent;
 		// Checks the identity carried by the supplied immutable frame, never relabels it.
 		std::function<bool(const IndexedFrame::Presentation &)> acceptsFrame;
+		// A cosmetic upload may coexist with the still actionable acquired origin.
+		std::function<bool(const IndexedFrame::Presentation &)> acceptsInputFrame;
+		// Follow framePresented with this after the final bounded old-origin batch.
+		// Alternate Show implementations complete both steps when acquiring a frame.
+		std::function<void(const IndexedFrame::Presentation &)> completeInputHandoff;
 		// Called only after successful upload and normal current-frame presentation.
 		std::function<void(const IndexedFrame::Presentation &)> framePresented;
 		std::function<void()> failed;
@@ -30,6 +35,9 @@ public:
 		bool protectAllKeys = false;
 		std::function<std::optional<std::uint64_t>()> displayedInput;
 		std::function<std::optional<IndexedFrame>(const PlayerAction &,std::uint64_t)> withDisplayedInput;
+		// Native responses retain the concrete frame sampled with their semantic input.
+		std::function<std::optional<IndexedFrame>(const PlayerAction &,std::uint64_t,
+			const IndexedFrame::Presentation &)> withPresentedInput;
 	};
 	using IdleFrameHandler = std::function<std::optional<IndexedFrame>()>;
 

@@ -42,6 +42,7 @@ int main(int argc,char **argv) {
     try {
         child_test::require(argc==3,"usage: combat-casting-process <witness> <original-installation>");
         const auto exe=fs::absolute(argv[1]),game=fs::absolute(argv[2]);
+        const bool training=std::getenv("MMODERN_M39_CONTENT12");const unsigned schema=training?9:8,content=training?12:10,offset=training?886:0;
         const auto dir=child_test::freshDirectory(fs::temp_directory_path()/"mmodern-m39-process");
         std::cout<<"M39 evidence: "<<dir<<'\n';
         SetEnvironmentVariableW(L"SDL_VIDEODRIVER",L"dummy");SetEnvironmentVariableW(L"SDL_RENDER_DRIVER",L"software");
@@ -59,32 +60,37 @@ int main(int argc,char **argv) {
             if(!source.empty())child_test::require(result.output.find("M39 RESTORE EXACT BEFORE INPUT")!=std::string::npos,"M39 pre-input restore proof missing");
             return save;
         };
+        // Content 12's genuine stock initialization ends at state 7 with the
+        // accepted M40 seed, retaining the earned B/C combat stream. The full
+        // A/native/control suite remains in the unchanged content-10 target.
+        if(!training) {
         const auto a=run("A","A","fresh");
         const auto orc=XeenSaveFile::read(dir/"A-A.mmsave");
-        child_test::require(orc.journey && orc.journey->schema==8 && orc.journey->contract==10 && orc.characters[1].currentSp==20 &&
+        child_test::require(orc.journey && orc.journey->schema==schema && orc.journey->contract==content && orc.characters[1].currentSp==20 &&
             orc.characters[6].currentSp==25 && orc.journey->actors[9].accounted && orc.journey->actors[9].hp==0 &&
             orc.journey->treasure->gold==810 && orc.journey->context->minutes==511 && orc.journey->context->ctr24==2 &&
-            orc.journey->random->state==82049198u && orc.journey->random->count==14,"M39 genuine Orc Quiet checkpoint differs");
+            orc.journey->random->state==82049198u && orc.journey->random->count==offset+14,"M39 genuine Orc Quiet checkpoint differs");
         equal(a,run("A-from-orc","A","A",dir/"A-A.mmsave"));
         child_test::require(drawsAfter(dir/"A.log","M39 CHECKPOINT A ")==drawsAfter(dir/"A-from-orc.log","M39 RESTORE EXACT BEFORE INPUT"),"M39 mainland continuation RNG request trace differs");
         const auto city=XeenSaveFile::read(dir/"A-city.mmsave");
         child_test::require(city.journey->vertigoActors && city.characters[6].currentSp==23 && city.journey->actors[9].accounted &&
-            city.characters[1].currentSp==20 && city.journey->random->state==2670584965u && city.journey->random->count==50 &&
+            city.characters[1].currentSp==20 && city.journey->random->state==2670584965u && city.journey->random->count==offset+50 &&
             city.journey->context->minutes==570 && city.journey->context->ctr24==21,"M39 genuine two-region Slime checkpoint differs");
         equal(a,run("A-from-city","A","city",dir/"A-city.mmsave"));
         child_test::require(drawsAfter(dir/"A.log","M39 CHECKPOINT city ")==drawsAfter(dir/"A-from-city.log","M39 RESTORE EXACT BEFORE INPUT"),"M39 city continuation RNG request trace differs");
         run("A-reset","A","reset",dir/"A-city.mmsave");
         run("controls","controls","fresh");
         run("native","native","fresh");
+        }
         for(const auto branch:{"B","C"}) {
             const auto fresh=run(branch,branch,"fresh");
             const bool waking=std::string(branch)=="B";
             const auto settled=XeenSaveFile::read(dir/(std::string(branch)+"-"+branch+".mmsave"));
-            child_test::require(settled.journey->schema==8 && settled.journey->contract==10 &&
+            child_test::require(settled.journey->schema==schema && settled.journey->contract==content &&
                 settled.camera.mapId==XeenMapIdentity(23) && settled.camera.x==10 && settled.camera.y==12 &&
                 settled.journey->context->minutes==(waking?592:591) && settled.journey->context->ctr24==16 &&
                 settled.characters[1].currentSp==(waking?20:21) && settled.characters[6].currentSp==(waking?26:25) &&
-                settled.journey->random->state==(waking?1073225241u:776403607u) && settled.journey->random->count==(waking?105u:86u) &&
+                settled.journey->random->state==(waking?1073225241u:776403607u) && settled.journey->random->count==offset+(waking?105u:86u) &&
                 settled.journey->actors[15].hp==(waking?50:46) && !settled.journey->actors[15].accounted,
                 "M39 unchanged seed7 production checkpoint differs");
             equal(fresh,run(std::string(branch)+"-restore",branch,"continued",dir/(std::string(branch)+"-"+branch+".mmsave")));

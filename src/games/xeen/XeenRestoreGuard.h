@@ -187,6 +187,7 @@ public:
 private:
 	friend class XeenEventPublication;
 	friend class XeenEncounterFlow;
+	friend struct XeenTrainingTestAccess;
 	friend class XeenCombat;
 	friend class XeenEventFlow;
 	friend class XeenSaveState;

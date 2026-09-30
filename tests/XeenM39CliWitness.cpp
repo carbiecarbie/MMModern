@@ -29,6 +29,7 @@ extern "C" void __wrap_SDL_FilterEvents(SDL_EventFilter filter,void *context){
     __real_SDL_FilterEvents([](void *p,SDL_Event *e)->int{
         const auto &f=*static_cast<Forward *>(p);const auto stamp=e->type==SDL_KEYDOWN?e->key.timestamp:0;
         const auto result=f.filter(f.context,e);
+        if(!result && nativeInputReceived)nativeInputReceived(*e);
         if(e->type==SDL_KEYDOWN && e->key.timestamp!=stamp && nativeInputRetired)nativeInputRetired(e->key);
         return result;
     },&forward);
@@ -94,7 +95,12 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract) {
     const auto branch=env("MMODERN_M39_BRANCH","A"),stage=env("MMODERN_M39_STAGE","fresh"),control=env("MMODERN_M39_CONTROL");
     if((branch=="legacy" || branch=="legacy8") && !resume)contract=branch=="legacy8"?8:9;
-    else if(!resume && contract==11)contract=10; // Keep the M39 witness in its accepted legacy domain.
+    else if(!resume)contract=std::getenv("MMODERN_M39_CONTENT12")?12:10; // Preserve the accepted legacy witness and test explicit inheritance.
+    const unsigned rngOffset=std::getenv("MMODERN_M39_CONTENT12") && branch!="legacy" && branch!="legacy8"?886:0;
+    // The accepted M40 fresh seed naturally consumes 886 stock draws and ends
+    // at state 7. This reproduces M39's earned combat stream under content 12,
+    // through normal initialization, without replacing any live cursor/owner.
+    if(!resume && rngOffset)seed=3626689381u;
     if(resume) {
         castBegins=castResponses=castServices=0;
         replay_test::journeyInitializations=replay_test::journeyConstructions=0;
@@ -153,7 +159,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             };
             return m39CastControls(control,first,handler,idle,*flow,*world,*party,*position,*flags,*target,now,cycle,providers,saves,resourceFault,renderFault,mutate);
         }
-        check(world->sessionState().journeyContract()==(branch=="legacy8"?8:branch=="legacy"?9:10),"M39 content selection mismatch");
+        check(world->sessionState().journeyContract()==(branch=="legacy8"?8:branch=="legacy"?9:std::getenv("MMODERN_M39_CONTENT12")?12:10),"M39 content selection mismatch");
         std::deque<std::function<bool()>> steps;std::optional<IndexedFrame> next;
         bool shown=false,acted=false;unsigned iterations=0,arrowProjectiles=0;
         const auto act=[&](PlayerAction a) {
@@ -224,7 +230,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         };
         const auto checkpoint=[&](const std::string &label) {
             auto before=std::make_shared<unsigned>();
-            inspect([&,before]{check(flow->canSave(),"M39 checkpoint not presented Quiet");*before=saves;SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=SDLK_F9;e.key.keysym.scancode=SDL_SCANCODE_F9;e.key.timestamp=SDL_GetTicks()+1;check(SDL_PushEvent(&e)==1,"M39 F9 enqueue");});
+            inspect([&,before]{check(flow->canSave(),"M39 checkpoint not presented Quiet");*before=saves;SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=SDLK_F9;e.key.keysym.scancode=SDL_SCANCODE_F9;e.key.timestamp=SDL_GetTicks()+1;check(SDL_PushEvent(&e)==1,"M39 F9 enqueue");acted=true;});
             steps.push_back([&,before,label]{
                 if(saves==*before)return false;
                 check(saves==*before+3,"M39 actual F9 pipeline incomplete");
@@ -334,18 +340,18 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 }
             }else {
                 route("LUUURUULURUULUUU",false);untilActor(5,true);
-                inspect([&]{check(party->encounterContext->minutes==590 && world->sessionState().journeyRandom()->count==29 &&
+                inspect([&]{check(party->encounterContext->minutes==590 && world->sessionState().journeyRandom()->count==rngOffset+29 &&
                     world->sessionState().actors()[15].hp==54,"M39 seed7 first-cycle prefix");});
                 if(branch=="C") {
                     arrow(15);inspect([&]{check(world->sessionState().actors()[15].hp==46 && party->roster.at(6).currentSp==25,"M39 C wound");std::cout<<"M39 C WOUND HP54->46 SP27->25\n";});
                     action(AcknowledgeAction{});settle();checkpoint("C");
                 }else {
                     action(AttackAction{});untilActor(5,false);
-                    inspect([&]{check(party->encounterContext->minutes==591 && world->sessionState().journeyRandom()->count==51 &&
+                    inspect([&]{check(party->encounterContext->minutes==591 && world->sessionState().journeyRandom()->count==rngOffset+51 &&
                         world->sessionState().actors()[15].hp==50 && party->roster.at(14).conditions[8]==1 && party->roster.at(1).conditions[8]==1 && party->roster.at(1).currentHp==4,"M39 B prefix");});
                     action(CastSpellAction{});action(AcknowledgeAction{});action(AcknowledgeAction{});result();
                     inspect([&]{check(party->roster.at(6).currentSp==26 && !party->roster.at(14).conditions[8] && !party->roster.at(1).conditions[8] &&
-                        party->encounterContext->minutes==591 && world->sessionState().journeyRandom()->count==51,"M39 B Awaken");std::cout<<"M39 B AWAKEN Sleep1->0 unchanged RNG/time\n";});
+                        party->encounterContext->minutes==591 && world->sessionState().journeyRandom()->count==rngOffset+51,"M39 B Awaken");std::cout<<"M39 B AWAKEN Sleep1->0 unchanged RNG/time\n";});
                     action(AcknowledgeAction{});untilActor(2,false);action(BlockAction{});untilActor(4,false);firstAid(4);
                     inspect([&]{check(party->roster.at(1).currentHp==10 && party->roster.at(1).currentSp==20,"M39 B self-target SP preservation");std::cout<<"M39 B FIRST AID HP4->10 SP21->20\n";});
                     action(AcknowledgeAction{});settle();checkpoint("B");
@@ -423,7 +429,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         if(branch=="native-fault") {
             check(!ok && nativeFailed && saves==3 && !flow->canSave(),"M39 native failed frame manufactured authority/save");
             const auto prior=XeenSaveFile::read(*target);
-            check(prior.characters[1].currentSp==21 && prior.characters[6].currentSp==27 && prior.journey->random->count==0,"M39 native failure overwrote previous disk save");
+            check(prior.characters[1].currentSp==21 && prior.characters[6].currentSp==27 && prior.journey->random->count==rngOffset,"M39 native failure overwrote previous disk save");
             if(control.find("projectile")!=std::string::npos)check(party->roster.at(6).currentSp==25 && world->sessionState().actors()[9].hp==0 && world->sessionState().accountedMonsters().count({23,9}),"M39 failed projectile replayed/refunded lethal prefix");
             else check(party->roster.at(1).currentSp==20 && party->roster.at(6).currentHp==(control.find("result")!=std::string::npos?15:11),"M39 native failure changed committed cost/effect prefix");
             std::cout<<"M39 NATIVE FAILURE PREFIX PASSED "<<control<<'\n';return true;

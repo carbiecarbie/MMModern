@@ -76,6 +76,8 @@ void xeenValidateVertigoActors(XeenWorld &world,const std::vector<XeenActor> &ac
 		{{30,1}},{{7,24}},{{6,27}}
 	}};
 	const unsigned selected=reset?36:35;
+	const bool training=xeenJourneyContent(world.sessionState().journeyContract()).training();
+	const unsigned small=reset?35:34;
 	for(unsigned i=0;i<actors.size();++i) {
 		const auto &a=actors[i];
 		if(!(a.id==XeenMonsterIdentity{28,i}) || a.status!=XeenActorStatus::Physical)
@@ -106,6 +108,11 @@ void xeenValidateVertigoActors(XeenWorld &world,const std::vector<XeenActor> &ac
 				accounted || a.x<0 || a.x>=32 || a.y<0 || a.y>=32 ||
 				(!a.activated && (a.x!=x || a.y!=y)))
 				throw std::invalid_argument("Live Vertigo Slime is noncanonical");
+		} else if(training && i==small) {
+			a.statistics->validateSlime();
+			if(a.hp!=2 || accounted || a.lifecycle!=XeenActorLifecycle::Present ||
+				(a.activated ? !((a.x==7 && (a.y==6 || a.y==7)) || (a.x==8 && a.y==7)) : (a.x!=7 || a.y!=7)))
+				throw std::invalid_argument("Blocked Training Slime is noncanonical");
 		} else if(a.x!=x || a.y!=y || a.hp!=a.statistics->baseHp() || a.activated || accounted ||
 			a.lifecycle!=XeenActorLifecycle::Present)
 			throw std::invalid_argument("Dormant Vertigo actor changed");
@@ -119,7 +126,21 @@ void xeenValidateVertigoActors(XeenWorld &world,const std::vector<XeenActor> &ac
 	// spawn under every admitted player cell and facing. Keep every other original
 	// slot in the simulation; a newly influencing actor invalidates admission.
 	const auto &content=xeenJourneyContent(world.sessionState().journeyContract());
-	auto &closure=world._vertigoClosure[(content.armorRepair()?2:0)+(reset?1:0)];
+	auto &closure=world._vertigoClosure[(content.training()?4:content.armorRepair()?2:0)+(reset?1:0)];
+	if(training && !closure) {
+		// Certified M41 fixed point, including off-route positions. Independent
+		// resource-driven enumeration in tests binds this policy to both city forms.
+		std::bitset<2048> reachable;
+		reachable.set(4*32+15);
+		const auto row=[&](int y,std::initializer_list<int> xs) {
+			for(int x:xs)reachable.set(1024+y*32+x);
+		};
+		row(0,{15});row(1,{9,10,11,12,13,14,15,16});row(2,{13,14,15,16});
+		row(3,{14,15,16});row(4,{8,9,10,11,12,13,14,15,16});
+		row(5,{9,10,11,14,15,16});row(6,{13,14,15,16});
+		row(7,{9,10,11,12,13,14,15,16});row(8,{10});row(9,{10,12});
+		row(10,{10,11,12});row(11,{10,11,12});closure=reachable;
+	}
 	if(!closure) {
 	std::vector<XeenCamera> cameras;
 	for(int y=0;y<=4;++y)for(int x=8;x<=16;++x)if(content.vertigoCell(x,y))

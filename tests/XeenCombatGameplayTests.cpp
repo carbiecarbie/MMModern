@@ -451,15 +451,22 @@ void sdl() {
  Harness h;auto s=h.services();unsigned stage=0,accepted=0,idles=0;
  s.show=[&](const IndexedFrame &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
   auto wrapped=handler;
-  wrapped.withDisplayedInput=[&](const PlayerAction &a,std::uint64_t t){
+  std::vector<SDL_Event> pendingKeys;
+  wrapped.beginCycle=[&](auto cycle){
+   handler.beginCycle(cycle);
+   // Commands planned by idle belong to its successfully acquired frame.
+   for(auto &event:pendingKeys)check(SDL_PushEvent(&event)==1,"push production SDL key");
+   pendingKeys.clear();
+  };
+  wrapped.withPresentedInput=[&](const PlayerAction &a,std::uint64_t t,const auto &origin){
    const auto before=h.result().generation;
-   auto result=handler.withDisplayedInput(a,t);
+   auto result=handler.withPresentedInput(a,t,origin);
    if(std::holds_alternative<BlockAction>(a)&&before!=h.result().generation)++accepted;
    return result;
   };
-  auto key=[](SDL_Keycode code,Uint32 type=SDL_KEYDOWN,Uint8 repeat=0){
+  auto key=[&](SDL_Keycode code,Uint32 type=SDL_KEYDOWN,Uint8 repeat=0){
    SDL_Event event{};event.type=type;event.key.keysym.sym=code;event.key.repeat=repeat;
-   check(SDL_PushEvent(&event)==1,"push production SDL key");
+   pendingKeys.push_back(event);
   };
   const auto scriptedIdle=[&]()->std::optional<IndexedFrame>{
    h.now+=20;++idles;
@@ -543,8 +550,7 @@ void callbacks() {
  }
 }
 void cli(const std::filesystem::path &exe) {
- const auto directory=std::filesystem::temp_directory_path()/("mmodern-combat-cli-"+std::to_string(GetCurrentProcessId()));
- std::filesystem::create_directories(directory);
+ const auto directory=child_test::freshDirectory(std::filesystem::temp_directory_path()/"mmodern-combat-cli");
  const std::vector<std::vector<std::wstring>> invalid{
   {L"--combat-seed",L"1",L"missing"},{L"--encounter-27"},
   {L"--load-game",L"missing",L"save",L"--combat-seed",L"1"},

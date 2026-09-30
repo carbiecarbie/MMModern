@@ -386,13 +386,15 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 		if (std::holds_alternative<XeenEventExit>(decoded.operation))
 			return finalize();
 		if (const auto *service=std::get_if<XeenEventTownService>(&decoded.operation)) {
-			if (!publication || !xeenJourneyContent(world.sessionState().journeyContract()).armorRepair() || service->action!=1 ||
-				logical.mapId!=XeenMapIdentity(28) || logical.x!=8 || logical.y!=4 || logical.line!=0 ||
-				*recordIndex!=0 || !state.callStack.empty() || instructionCount!=1)
+			const auto &content=xeenJourneyContent(world.sessionState().journeyContract());
+			const bool smith=content.armorRepair() && service->action==1 && logical.x==8 && logical.y==4 && *recordIndex==0;
+			const bool training=content.training() && service->action==5 && logical.x==10 && logical.y==11 && *recordIndex==3;
+			if (!publication || (!smith && !training) || logical.mapId!=XeenMapIdentity(28) || logical.line!=0 ||
+				!state.callStack.empty() || instructionCount!=1)
 				return error(XeenEventExecutionErrorKind::UnsupportedOperand,
-					"Town service is outside the admitted Ironworks Event",instructionCount,logical,decoded.source);
+					"Town service is outside the admitted service Event",instructionCount,logical,decoded.source);
 			XeenPresentationRequest request;
-			request.kind=XeenPresentationKind::ArmorRepairService;
+			request.kind=training?XeenPresentationKind::TrainingService:XeenPresentationKind::ArmorRepairService;
 			request.response=XeenPresentationResponseRequirement::Acknowledgment;
 			request.mapId=logical.mapId;request.source=decoded.source;
 			state.pendingPresentation=XeenEventPendingPresentation{request,XeenEventPendingContinuation::Terminate,{}};

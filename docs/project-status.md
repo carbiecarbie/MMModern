@@ -2,9 +2,9 @@
 
 ## Stable baseline
 
-**Milestone 40 is the latest completed milestone.**
+**M41 is the latest completed milestone.**
 This file describes stable capabilities and architecture. Acceptance belongs in
-the [M40 closed plan](milestone-40-plan.md#final-acceptance); completed
+the [M41 closed plan](milestone-41-plan.md#final-acceptance); completed
 milestone chronology belongs in [project history](project-history.md).
 
 ## Supported scope
@@ -63,7 +63,7 @@ six-cell contract-2 expedition. Contract 3 adds resource-derived, map-local
 navigation over the connected mainland containing `(9,11)` on Clouds map 23,
 with complete ownership, activation and scheduling of all 19 original actors.
 Actor influence is not restricted to the party component. Fresh regional entry
-uses content contract 11, retaining Orc, Giant Snake and Giant Toad alongside inherited
+uses content contract 12, retaining Orc, Giant Snake and Giant Toad alongside inherited
 Skeleton/Zombie combat behavior, grouped contact/joining, enemy ranged attacks
 and player physical Shoot. Living wounds and kills outside contact use the same
 world-owned consequences as melee; legacy contract 3 retains its support stops.
@@ -87,21 +87,27 @@ combat.
 Contract 8 adds the original manual mainland entrance at `(23,10,13)` and return
 to `(23,10,12,South)`. Vertigo remains logical root 28 across its geometry-tile
 seam. Legacy 8/8 travel retains eleven cells around the entrance street and
-Ironworks outside-door label. Contents 9/10/11 include five corridor cells to the actual
-Ironworks service, for sixteen admitted player cells. All four facings, movement,
-turns and Wait use original indoor collision. Boundary steps visibly refuse without new time or
+Ironworks outside-door label. Contents 9/10/11/12 include five corridor cells to the actual
+Ironworks service, for sixteen admitted player cells. Content 12 adds twelve
+cells to original Training, for twenty-eight admitted cells. All four facings,
+movement, turns and Wait use original indoor collision. Boundary steps visibly refuse without new time or
 actor work. The [closed route contract](milestone-37-plan.md#exact-production-route-and-admission-boundary)
 defines the inherited cells, original Event graphs and topology; the
 [M38 route contract](milestone-38-plan.md#exact-route-event-graph-and-city-consequences)
-defines the corridor extension and original town-service dispatch.
+defines the Ironworks extension; the
+[M41 route contract](milestone-41-plan.md#route-events-and-resources) defines
+the exact Training approach, label, Event and resource admission.
 
 Town walls, objects and Slime MON/ATT share the checked indoor order/occlusion
 stream. The original cell ceiling flag selects town ceiling or open day/night
 sky; Slime uses its checked native green palette. The bounded visible animated
 object shares the cosmetic phase. Original entrance Slime slot 35, then slot 36
 after reset, supports real Attack/Block combat, poison-type HP damage and 50 XP
-per defeated life with no item or purse reward. Other city actors remain retained
-dormant state, not general city combat admission.
+per defeated life with no item or purse reward. Content 12 also retains the
+additional initial slot-34/reset slot-35 Slime's exact blocked activation/movement
+closure. It cannot contact the player, receive wounds or yield rewards.
+The [M41 actor contract](milestone-41-plan.md#dynamic-actor-closure) owns both
+expanded closures. Other city actors remain dormant; this admits no new city species.
 
 The complete exit executes its flag prelude even on No. Yes disables the original
 protection instruction, resets the specified city slots only when game flag 9 is
@@ -114,20 +120,27 @@ accounting until an explicit original reset changes the named city slots.
 Inventory, supported antidote use and learned First Aid/Awaken remain available
 at eligible indoor exploration boundaries. Movement/Wait and exploration casting
 cost one indoor minute; turns and inherited Events/transitions add no time.
-Contents 9/10/11 admit manual
+Contents 9/10/11/12 admit manual
 Space at `(28,8,4)` through original opcode 0x11/action 1 for **Armor Repair**
-only. Every admitted service visit owes a separate once-only 1440-minute/day
-departure, including zero-transaction visits. Fresh content 11 admits starting
+only. Content 12 additionally admits Space at `(28,10,11)` from any facing
+through original opcode 0x11/action 5 for **Training**. Training uses permanent
+levels, legitimately accumulated XP and carried gold, resets all distinct active
+members' modeled temporary bonuses and refills only the selected member's
+derived maximum HP/SP. Conditions and nonselected/inactive current HP/SP persist.
+The first successful level per distinct member in a visit costs one day; further
+levels for that member in the visit cost no additional member-day.
+Every admitted service visit also owes a separate once-only 1440-minute/day
+departure, including refusal-only visits. Fresh content 12 and legacy content 11 admit starting
 days 8..98 and ending days 9..99 in year 610, with daytime minutes and ctr24
 unchanged. Day-99 entry refuses before any service obligation or mutation;
-day-99 daytime play and quiet capture remain available. Day-changing departures
-to 11,21,...,91 replace all merchant stock and apply shared bank interest with
+day-99 daytime play and quiet capture remain available. Individual service-day calls ending on
+11,21,...,91 replace all merchant stock and apply shared bank interest with
 exact world RNG continuation. Legacy contents 9/10 retain day 8/9 entry,
 day 9/10 departure and day-10 refusal, without economy state. No skipped-day
 condition ticks, healing, ordinary daily reset or actor catch-up is replayed.
 Restoring at the service cell does not reopen it. Indoor Shoot and Run refuse.
-Full Vertigo, other services, access to merchant stock/trading, unrestricted indoor travel
-and broader Clouds support remain excluded.
+Full Vertigo, services beyond bounded repair/Training, merchant stock/trading,
+unrestricted indoor travel and broader Clouds support remain excluded.
 
 ### Events and interactions
 
@@ -164,7 +177,7 @@ and broader Clouds support remain excluded.
   preserves accumulated expedition consequences. Return to `(0,14)` West and
   save/restart continue mutable navigation/item management without replay.
   Collection adds no turn-in, reward, terminal completion mode or broader route.
-- `--journey-region` starts content contract 11 at map 23 `(9,11)` West. Party
+- `--journey-region` starts content contract 12 at map 23 `(9,11)` West. Party
   movement follows the resource-derived mainland; all 19 actors retain independent
   regional scheduling. Contact automatically attaches Attack/Block/Run combat with
   1/2/3 target selection and joining. R attempts Run for the displayed member;
@@ -180,11 +193,14 @@ and broader Clouds support remain excluded.
   selected-character +25 HP while current HP is at or below live maximum and
   records original world flag 16 after acknowledgment. WhoWill,
   acknowledgments and Yes/No remain modal. Contract 8 also admits the exact
-  Vertigo entrance/door/exit chains described above; contents 9/10/11 additionally
-  admit the exact Ironworks service Event. Other scripts and transitions refuse.
+  Vertigo entrance/door/exit chains described above; contents 9/10/11/12 additionally
+  admit the exact Ironworks service Event; content 12 adds only the exact Training
+  label/service graph. Training uses F1-F6 selection, Enter to quote, a fresh Enter
+  to confirm one level and Enter to acknowledge its result/refusal; Escape cancels
+  a quote or requests departure from the menu. Other scripts and transitions refuse.
   C opens learned exploration casting at a presented quiet boundary: First Aid
   and Awaken are supported, while learned Light remains visible but unusable.
-  In contents 10/11, combat C opens the acting participant's learned book for Magic
+  In contents 10/11/12, combat C opens the acting participant's learned book for Magic
   Arrow, First Aid or Awaken on admitted mainland/Vertigo contacts. Older content
   retains combat C refusal. Other blocking states cannot queue a cast. Legacy contracts
   1-4 and diagnostics do not gain Run; contract 5 retains Run but no M35
@@ -211,27 +227,34 @@ and broader Clouds support remain excluded.
 - Party state includes all 30 roster characters, ordered active membership,
   modeled rule inputs, current HP/SP and conditions. Membership aliases refer
   to the same roster owners, including their inventories.
-- Contract-7/8/9/10/11 roster characters each own an explicit 39-byte learned book,
+- Contract-7/8/9/10/11/12 roster characters each own an explicit 39-byte learned book,
   including inactive owners and all-zero books. Other domains retain absent
   knowledge. Class-category slots map to bounded global learned spell identities;
   the learned global First Aid is distinct from item spell IDs and M35 antidote use.
   Names come from validated original `spells.xen`; unsupported learned entries
   remain visible and inert. See the [M36 knowledge contract](milestone-36-plan.md#knowledge-identity-and-resource-model).
-- Contents 9/10/11 repair carried Armor IDs 1..13, materials 0 and 38, selected by
+- Contents 9/10/11/12 repair carried Armor IDs 1..13, materials 0 and 38, selected by
   active roster owner and physical slot. Exact original pricing debits carried
   gold atomically with clearing only the selected broken bit; slot, frame and
   all other bytes remain intact. Existing equipment/AC consumers derive the
   restored effect. Pending treasure cannot pay. There is no Buy, Sell, Identify,
   player access to merchant stock or transaction ledger. See the
   [M38 repair contract](milestone-38-plan.md#exact-repair-rules).
-- Content 11 owns optional `serviceEconomy` as durable party state: complete
+- Contents 11/12 own optional `serviceEconomy` as durable party state: complete
   two-side/eight-shop wares (288 exact physical item records) and shared u32 bank
   gold/gems. Fresh initialization checks original zero bank inputs and generates
-  all stock before play. Triggering service departures replace stock and apply
+  all stock before play. Triggering individual service-day calls replace stock and apply
   `balance += balance / 100` with u32 wrapping, gold then gems. No bank menus,
   deposits/withdrawals, Buy/Sell or new item effects are admitted. Numeric side-1
   wares grant no Darkside gameplay. The [M40 economy contract](milestone-40-plan.md#durable-representation-and-initialization)
   owns canonical stocks, generation, provenance and exact arithmetic.
+- Content 12 publishes permanent Training progression in existing roster character
+  and XP owners, with atomic carried-gold debit, active temporary reset and selected
+  HP/SP refill. Class thresholds, XP remainder, price, cap/refusal precedence and
+  exact reset fields belong to the
+  [M41 progression contract](milestone-41-plan.md#training-rules-and-state-ownership).
+  Progressed levels feed the existing combat/casting and derived-stat consumers;
+  Training grants no condition cure, resurrection, skills or spells.
 - Each character holds four nine-slot arrays of exact material/ID/state/frame
   bytes. Existing equipment modifier behavior is retained. Contract 6 admits
   only the selected material-10/ID-37 miscellaneous antidote use in exploration;
@@ -312,7 +335,7 @@ miscellaneous records clear and compact. Target or cancellation services one
 ordinary regional actor opportunity before Quiet. Myra Event rewards remain
 separate from monster treasure and do not awaken dormant items. The
 [M35 closed plan](milestone-35-plan.md#selected-well-and-bounded-item-use) owns
-the exact use, well and publication boundaries. Contracts 7/8/9/10/11 admit exploration
+the exact use, well and publication boundaries. Contracts 7/8/9/10/11/12 admit exploration
 First Aid (+6 HP under its live maximum predicate, with limited Unconscious
 clearing) and Awaken (party Sleep clearing, plus positive-HP Unconscious clearing).
 Each costs one current SP and zero gems. Precommit Escape is free; First Aid
@@ -320,7 +343,7 @@ target Escape refunds the SP but still owes ten mainland minutes or one Vertigo
 minute and one ordinary actor opportunity in the active region. Supported casts settle effects or refund before time/condition/
 RNG and actor work. See the [M36 rules](milestone-36-plan.md#supported-spells-and-exact-rules).
 
-Contents 10/11 also admit already-learned Magic Arrow (2 SP), First Aid and Awaken
+Contents 10/11/12 also admit already-learned Magic Arrow (2 SP), First Aid and Awaken
 (1 SP each) in combat, all at zero gem cost. XeenCombat fixes the caster to the
 acting participant. First Aid targets stable remaining participant slots;
 Awaken affects all distinct active owners without reinstating escaped members
@@ -338,23 +361,27 @@ the [M39 spell contract](milestone-39-plan.md#spell-rules-and-support-admission)
 Local Windows F9 saving and startup resume preserve supported durable state
 across process restarts, including an eligible completed Diagnostic27 victory
 and quiet pre- or post-combat/disengagement Journey state. Fresh Regional Journey
-schema/content 9/11 preserves accumulated mainland state, all thirty learned
+schema/content 9/12 preserves accumulated mainland state, all thirty learned
 books and poison inputs, optional retained Vertigo actors/reset results, and
-exact repaired items, purse, departure date and settled combat-casting consequences,
-plus complete merchant wares, shared bank balances and post-service world RNG.
+exact repaired items, progressed levels/XP, reset temporary fields, selected
+refill/current HP/SP, purse, individual service dates and settled combat-casting
+consequences, plus complete merchant wares, shared bank balances and world RNG.
 Quiet saves before city entry, within the city, after exit and after revisit resume exactly
 without reset, reward, time/RNG or Event replay. Legacy 1/1-7/7 retain their own
 rules and field presence without implicit upgrade; 7/7 remains mainland-only.
 Legacy 8/8 retains its eleven-cell route and unsupported-service boundary.
 Legacy 8/9 retains M38 repair/exploration behavior and combat C refusal.
 Legacy 8/10 retains M39 combat casting and its day-10 service limit. Neither gains
-economy state, stock generation or the content-11 service-day range.
+economy state, stock generation or the content-11/12 service-day range.
+Legacy 9/11 retains M40's route/service semantics and gains no Training or expanded
+actor influence. Content-12 restart preserves progressed combat/casting inputs
+without Training, refill, reset or payment replay.
 [README](../README.md#running-and-controls) owns the public CLI/control reference.
 The persistence contract below defines eligibility, restoration and compatibility.
 
 ## Architectural ownership and invariants
 
-Contracts 8/9/10/11 retain the mainland and optional Vertigo actor collections in the
+Contracts 8/9/10/11/12 retain the mainland and optional Vertigo actor collections in the
 same session world, with root-qualified identities/accounting and one authoritative
 camera. Inactive actors remain exact and receive no pulses or catch-up, while
 shared party time and consequences continue. Transition prelude flags commit
@@ -368,10 +395,10 @@ publication rules are in the [M37 contract](milestone-37-plan.md#durable-ownersh
 
 - Application owns committed camera/game flags. `XeenPartyState` owns roster,
   membership, quest counters, quest flags and optional admitted encounter context;
-  contracts 4/5/6/7/8/9/10/11 also retain the purse and pending monster treasure there;
-  contracts 6/7/8/9/10/11 retain original world flag 16; contract 7/8/9/10/11 roster owners retain
-  their own optional learned books; contracts 8/9/10/11 also retain explicit poison inputs.
-  Content 11 additionally owns complete merchant wares and shared bank balances
+  contracts 4/5/6/7/8/9/10/11/12 also retain the purse and pending monster treasure there;
+  contracts 6/7/8/9/10/11/12 retain original world flag 16; contract 7/8/9/10/11/12 roster owners retain
+  their own optional learned books; contracts 8/9/10/11/12 also retain explicit poison inputs.
+  Contents 11/12 additionally own complete merchant wares and shared bank balances
   in the party's optional `serviceEconomy`; world ownership of Journey RNG is unchanged.
   `XeenWorld` / `XeenSessionWorldState` owns session-disabled object/event identity
   sets, the original-order regional actor collections and irreversible
@@ -411,13 +438,13 @@ publication rules are in the [M37 contract](milestone-37-plan.md#durable-ownersh
   all 30 complete supplements and XP plus the retained gameplay context. The
   world owns the complete contract-specific actor collection and per-identity
   defeat accounting: contracts 1/2 reconstruct all 27 map-20 actors, while
-  contracts 3/4/5/6/7/8/9/10/11 admit all 19 map-23 actors as mutable regional state. Contract 1
-  retains its Skeleton seed; contracts 2/3/4/5/6/7/8/9/10/11 use roster-owned Luck and one
+  contracts 3/4/5/6/7/8/9/10/11/12 admit all 19 map-23 actors as mutable regional state. Contract 1
+  retains its Skeleton seed; contracts 2/3/4/5/6/7/8/9/10/11/12 use roster-owned Luck and one
   world-owned gameplay RNG continuation. Coordinators borrow those owners and
   create no replacement graph. Successful legacy combat End remains runtime
   authority for guarded retirement; contract 4 attaches the same combat coordinator
   to regional owners and retires only after a genuine successful End.
-- Contracts 5/6/7/8/9/10/11 combat own a transient six-slot participation mask; roster membership
+- Contracts 5/6/7/8/9/10/11/12 combat own a transient six-slot participation mask; roster membership
   never changes. Initiative, enemy targeting and lethal XP use participants;
   condition-time work still visits all active owners. New contact restores full
   participation without changing character state. Non-victory retirement requires
@@ -437,14 +464,15 @@ publication rules are in the [M37 contract](milestone-37-plan.md#durable-ownersh
   fixed traversal capabilities. Actor movement uses original identity/profile,
   activation, whole-map terrain closure and the regional scheduler, never party
   component membership. Events require an independent exact capability; only
-  the original sign, contract-6/7/8/9/10/11 Myra, Phirna and selected well records, and
-  contract-8/9/10/11 Vertigo entrance/door/exit graphs are admitted at exact addresses
-  and directions. Contents 9/10/11 also admit the exact Ironworks service dispatch.
+  the original sign, contract-6/7/8/9/10/11/12 Myra, Phirna and selected well records, and
+  contract-8/9/10/11/12 Vertigo entrance/door/exit graphs are admitted at exact addresses
+  and directions. Contents 9/10/11/12 also admit the exact Ironworks service dispatch;
+  content 12 adds the exact Training label/service graph.
 - Regional action/time publication uses a checked detached candidate. Supported
   moves advance the retained calendar and ctr24 before guarded publication;
-  contract 3 stops before any 480-minute processing. Contracts 4/5/6/7/8/9/10/11 atomically
+  contract 3 stops before any 480-minute processing. Contracts 4/5/6/7/8/9/10/11/12 atomically
   publish the admitted condition tick with time and RNG, including the 960
-  boundary. Apart from the bounded content-9/10/11 service departure above, dusk,
+  boundary. Apart from admitted individual service-day calls and departure, dusk,
   daily and other unsupported temporal work still refuses before
   the proposed action. Context remains one party-owned value; no deferred effects
   or second clock are inferred. Round/End charge one minute; successful forward/
@@ -462,10 +490,14 @@ publication rules are in the [M37 contract](milestone-37-plan.md#durable-ownersh
   matching successful SDL presentation opens new input. Stale keys, including Application-intercepted F9,
   cannot initiate capture, providers or later work. Cosmetic redraws may preserve
   unchanged semantic input authority while renewing concrete frame identity.
-  In combat, an idle redraw retaining the exact same combat ticket preserves the
-  semantic input epoch, but blocks input until the new concrete frame is presented.
-  Genuine semantic/ticket transitions invalidate prior input; early, stale, held,
-  repeated and batched responses remain rejected.
+  Cosmetic replacement uses make-before-break authority: the acquired old frame
+  stays actionable while its successor is prepared/presented, and queued input
+  retains its exact concrete origin. Handoff never relabels old-frame input for the
+  new frame; an intervening semantic action supersedes an obsolete cosmetic successor.
+  Unchanged cosmetics preserve semantic generations without recurring input gaps.
+  Genuine semantic/ticket transitions retain strict presentation fencing; stale,
+  held, repeated and batched responses cannot cross authority.
+  See the [M41 input invariant](milestone-41-plan.md#narrow-continuation-and-native-input).
   An immutable `IndexedFrame` snapshot carries the exact presentation binding;
   only its matching current-owner/current-incarnation acknowledgment satisfies
   the boundary. Missing, stale, reordered, foreign or destroyed-owner frames
@@ -540,7 +572,7 @@ publication rules are in the [M37 contract](milestone-37-plan.md#durable-ownersh
   one target/cancellation response after debit. Compaction and one owed regional
   actor opportunity settle before Quiet; stale input or presentation retry
   cannot repeat debit, effect, opportunity or capture through a modal gap.
-- Exploration casting in contracts 7/8/9/10/11 holds exclusive work from C selection through mandatory
+- Exploration casting in contracts 7/8/9/10/11/12 holds exclusive work from C selection through mandatory
   settlement, including pending projectiles and the resulting concrete frame.
   Flow owns modal phases and SDL-presented input authority; EncounterFlow owns
   the retained continuation and guarded publications. SP debit, effect or exact
@@ -548,7 +580,7 @@ publication rules are in the [M37 contract](milestone-37-plan.md#durable-ownersh
   are separate once-only units. No Quiet/input/save gap opens during
   handoff to combat, receipt or presentation; stale responses cannot replay work.
   See the [M36 authority contract](milestone-36-plan.md#publication-exploration-time-and-failure-boundaries).
-- Content-10/11 combat casting is owned by XeenCombat under Journey activity Combat and
+- Content-10/11/12 combat casting is owned by XeenCombat under Journey activity Combat and
   an exclusive Casting lease. Flow/UI observe detached values; private consumed
   response capabilities authorize the exact caster/target reservation. Cost and
   effect/refund are separate checked publications; Arrow effect/XP/drop/RNG and
@@ -558,7 +590,7 @@ publication rules are in the [M37 contract](milestone-37-plan.md#durable-ownersh
   Complete owner/resource guards and monotonic integrity checks persist across
   callbacks and reconstruction. See the
   [M39 authority contract](milestone-39-plan.md#ownership-authority-and-publication).
-- Content-9/10/11 Service work stays exclusive across Event admission, repair phases,
+- Content-9/10/11/12 Service work stays exclusive across Event admission, repair phases,
   departure, terminal Event completion and required world presentation. Flow owns
   the service UI and concrete-frame responses; the Journey coordinator owns
   atomic item/payment and separate once-only departure publications. Failures
@@ -568,13 +600,23 @@ publication rules are in the [M37 contract](milestone-37-plan.md#durable-ownersh
   immediate mutation/reversion and newly reconstructed nested cache storage
   remain guarded; matching retries cannot clear integrity failure. See the
   [M38 authority contract](milestone-38-plan.md#owners-authority-and-publication).
-- Content-11 service entry reserves the complete detached one-day successor
+- Content-11/12 Ironworks entry reserves the complete detached one-day successor
   before irreversible admission. Date, all wares, bank and world RNG publish as
   one callback-free departure unit after exact preimage/authority checks; each
   repair remains a separate item/payment commit. Retries preserve committed
   repairs and departure, settling only unfinished work. No partial stock or
   regenerated cursor becomes visible during preparation. See the
   [M40 publication contract](milestone-40-plan.md#coordination-publication-and-failure).
+- Content-12 Training retains a complete unavoidable departure reservation.
+  A new member consumes that candidate as its member-day only after the next
+  complete departure successor is prepared. Payment, XP/level, member-day
+  context/economy/RNG, active reset and selected refill publish atomically;
+  same-member further levels retain the reservation without another day.
+  Departure is a separate once-only publication. Flow owns UI/concrete-frame
+  responses; EncounterFlow owns transient visit/quote/member bits and mutation
+  authority. Faults retain committed results and the owed departure; no service
+  phase or settlement gap permits capture. See the
+  [M41 publication contract](milestone-41-plan.md#architecture-phases-and-publication-boundaries).
 - Complete owner preimages and mutation observation include economy presence,
   every stock byte and both bank scalars through service, combat, capture and
   restoration. Scheduling and cosmetic combat clock callbacks check retained
@@ -597,13 +639,13 @@ publication rules are in the [M37 contract](milestone-37-plan.md#durable-ownersh
   encounter navigation, independently rearming the ordinary deadline; turns do
   not reset actor cosmetics. See the [M26 timing contract](milestone-26-plan.md#actions-and-independent-timing).
 - Combat gameplay RNG is deterministic. Diagnostics and contract 1 retain their
-  established coordinator/seed policy; contracts 2/3/4/5/6/7/8/9/10/11 borrow a world-owned
+  established coordinator/seed policy; contracts 2/3/4/5/6/7/8/9/10/11/12 borrow a world-owned
   xorshift32 state and checked raw-draw count for the whole Journey. Accepted
   actions retain bounded prefixes and advance it only with publication; Block,
   targeting, redraw, cache reconstruction and cosmetic MON/ATT advancement consume no RNG. Enemy/round/end work uses
   retained tickets and the existing idle route rather than a nested loop.
-  Content 11 also uses this cursor for fresh merchant generation and triggering
-  service-day stock replacement; bank arithmetic and nontriggering departures
+  Contents 11/12 also use this cursor for fresh merchant generation and triggering
+  service-day stock replacement; bank arithmetic and nontriggering service days
   consume no draws. Preparation never publishes a partial live cursor.
 - Flow owns the typed MON/ATT appearance and bounded 100 ms cosmetic sequence.
   Selected-slot projection covers admitted one-, two- and three-actor arrangements.
@@ -715,7 +757,7 @@ owns exact lengths, encodings and rejection rules.
 
 Journey envelope **v4**, **schema 8/content 9** reuses the 8/8 representation
 with explicit new route/service/day capabilities. Schema and content need not
-be equal; the current supported-pair set is stated in the M40 persistence
+be equal; the current supported-pair set is stated in the M41 persistence
 contract below. Content 9 admits year 610/day 8..10, with a retained city required
 after day 8. Repair bytes, purse and date occupy existing fields; no merchant,
 service phase, quote or departure obligation is serialized. Quiet F9/fresh
@@ -735,7 +777,7 @@ their route/service/exploration behavior. Quiet restart performs no cast, refund
 turn or consequence replay. See the
 [M39 persistence contract](milestone-39-plan.md#persistence-and-compatibility).
 
-Fresh Regional Journey uses **envelope v4 / schema 9 / content 11**. It retains
+Legacy M40 Journey uses **envelope v4 / schema 9 / content 11**. It retains
 the schema-8 fields and appends a fixed 1164-byte shape/wares/bank suffix after
 the optional city block. Stocks are canonical complete generation outputs;
 bank balances retain exact u32 values, including nonzero saved values. Context
@@ -744,11 +786,23 @@ available. Fresh initialization checks original bank zeros and generates all
 eight shops from the chosen seed; the world cursor begins play after generation.
 Quiet capture/restore preserves complete economy, service-day consequences and
 exact RNG without initialization, stock/interest, payment, reset, time or cast
-replay. The supported pairs are exactly 1/1 through 8/8, 8/9, 8/10 and 9/11;
+replay. The supported pairs are exactly 1/1 through 8/8, 8/9, 8/10, 9/11 and 9/12;
 crossed/unknown pairs refuse. Legacy 8/9 and 8/10 retain no economy and their
 day-10 entry refusal. No upgrade or backfill occurs. The
 [M40 persistence contract](milestone-40-plan.md#persistence-and-compatibility)
 owns the exact wire layout, lengths and compatibility predicates.
+
+Fresh Regional Journey uses **envelope v4 / schema 9 / content 12**, preserving
+the same wire layout and economy suffix. Existing character/supplement fields
+store progressed levels, exact XP remainders, active temporary resets and current
+HP/SP after selected refill or later gameplay. Content-12 canonical admission
+binds the expanded route, both actor closures and Training resources. Visit
+selection, quotes, trained-member bits, owed departure and results remain
+transient; capture is impossible throughout service work. Restore installs all
+saved values before first input without training, refill, clamp, reset, payment,
+service time or Event replay. Content 11 remains unchanged on load, with no
+Training/route upgrade. See the
+[M41 persistence contract](milestone-41-plan.md#persistence-and-inherited-capability-admission).
 
 M31 collection uses existing base quest counters and disabled object/event sets;
 v4 schema 2/content 2 and its 1366-byte suffix are unchanged. Counters and overlay
@@ -888,7 +942,7 @@ or of a generally playable region.
 | Skeleton diagnostic, map 20 `(13,1)` North | Original monster record 5, type 8, initially `(13,2)`, with all 27 identities retained. World of Xeen Clouds/Adventurer context, bounded four-cell approach and playable Attack/Block combat with original MON/ATT appearance, injury, armor breakage, victory/defeat and once-only XP. Incomplete/unsafe states remain unsaveable; successful completed victory supports restart, read-only inspection and bounded true revisit with record 5 still defeated. |
 | Skeleton Journey, map 20 four-cell footprint | Production `--journey-skeleton` permits mutable inventory/equipment before automatic engagement, Attack/Block through genuine End, guarded return to bounded navigation/item management and v4 save/restart on the same owners. Context, all 30 supplements/XP, exact injuries/items and record-5 live or defeated/accounted state survive direct restoration without replay. This is distinct from Diagnostic27 completion/R. |
 | Bone Whistle expedition, map 20 `(0..5,14)` | Production `--journey-expedition` connects grouped and successive Skeleton/Zombie encounters to original Bone Whistle collection at quiet `(5,14)` from any facing, then mutable return to `(0,14)` West. WhoWill, discovery, acknowledgment, grant and Remove preserve accumulated injury, Disease, equipment, XP and surviving actors. Schema-2 F9 before/after collection and separate-process continuation preserve exact state and RNG without replay; successful repeat executes five effective None records. |
-| Regional Journey, map 23 mainland | Production `--journey-region` starts content contract 11 at `(9,11)` West with the connected party component and all 19 actors. It inherits grouped combat/joining, ranged/Shoot, Run/partial participation, survivor return/re-engagement, conditions/casualties, treasure, Myra/Phirna, the selected well and bounded antidote use. It includes exploration First Aid/Awaken, combat Magic Arrow/First Aid/Awaken, bounded Vertigo entry/return and repeated original Ironworks Armor Repair across same-year service days, complete merchant wares/shared bank state and atomic departure consequences. Retained two-region 9/11 save/restart preserves exact economy and RNG. The sign remains nonmodal; unsupported scripts/transitions and ordinary time processing retain their boundaries. Legacy contracts keep their prior behavior. This does not certify unrestricted map-23 or Clouds play. |
+| Regional Journey, map 23 mainland | Production `--journey-region` starts content contract 12 at `(9,11)` West with the connected party component and all 19 actors. It inherits grouped combat/joining, ranged/Shoot, Run/partial participation, survivor return/re-engagement, conditions/casualties, treasure, Myra/Phirna, the selected well and bounded antidote use. It includes exploration First Aid/Awaken, combat Magic Arrow/First Aid/Awaken, bounded Vertigo entry/return and repeated original Ironworks Armor Repair across same-year service days, complete merchant wares/shared bank state and atomic departure consequences. Original Training consumes earned XP/carried gold for permanent levels, active temporary reset and selected HP/SP refill, with distinct-member Training days and a separate departure. Retained two-region 9/12 save/restart preserves progression, expanded actor state, economy and RNG without replay. The sign remains nonmodal; unsupported scripts/transitions and ordinary time processing retain their boundaries. Legacy contracts keep their prior behavior. This does not certify unrestricted map-23 or Clouds play. |
 
 Myra's ordinary tent-flag cycle runs without input and continues underneath
 dialogue, independently of the portrait. The [M22 checkpoint contract](milestone-22-plan.md#certified-original-data-checkpoint)
@@ -940,13 +994,13 @@ complete automated, original-data, independent-review and physical boundary.
   admitted diagnostic/Journey profiles, combat-time inventory mutation and
   recruitment/reordering. Treasure beyond M33's bounded level-1 monster path,
   generic TakeOrGive and NPC dialogue modes beyond Clouds mode 1 remain unsupported.
-- Run/disengagement is limited to contracts 5/6/7/8/9/10/11 mainland combat; indoor
+- Run/disengagement is limited to contracts 5/6/7/8/9/10/11/12 mainland combat; indoor
   Shoot and Run refuse. Supported regional interactions include Myra/Phirna,
   the selected well, exploration antidote/casting, exact Vertigo
-  entrance, outside-door label and exit/reset, plus M38 Armor Repair. General
-  recovery/Rest, combat-time item use, magic beyond the three content-10/11 combat
-  spells and existing exploration recovery, other services/economy operations and
-  training remain unsupported.
+  entrance, door labels and exit/reset, plus M38 Armor Repair and M41 Training.
+  General recovery/Rest, combat-time item use, magic beyond the three content-10/11/12 combat
+  spells and existing exploration recovery, Training outside the bounded Vertigo
+  contract, and other services/economy operations remain unsupported.
   Actors/encounters beyond admitted diagnostic/Journey profiles remain excluded.
   Unrestricted map-23/Clouds play, full Vertigo, arbitrary connected-map travel,
   Swimming / Walk on Water and unrestricted indoor traversal are unsupported.
@@ -968,8 +1022,7 @@ that require that external installation.
 
 ## Next direction
 
-M40 completes the second milestone of the accepted M39-M41 arc. The immediate
-next unit is **M41 - Vertigo Training and progression**. Its planning/specification
-requires separate authorization, as described in the [roadmap](roadmap.md#near-term);
-M41 implementation is not authorized by M40 closure. No replanning trigger was
-met, so the accepted broad roadmap review remains after M41.
+M41 completes and accepts the M39-M41 combat-casting, service-day and progression
+arc. The scheduled **post-M41 broad roadmap reassessment is now due**, as described
+in the [roadmap](roadmap.md#near-term). It is a separate planning task; no successor
+milestone or implementation is selected or authorized by this closure.

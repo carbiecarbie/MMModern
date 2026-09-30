@@ -43,7 +43,7 @@ bool XeenEncounterFlow::beginSmith(const std::function<void()> &preflight) {
         if (!_party.serviceEconomy || !_world.sessionState().journeyRandom())
             throw std::logic_error("Missing service-day owners");
         next->departure=std::make_unique<XeenServiceDayCandidate>(*_party.encounterContext,
-            *_party.serviceEconomy,*_world.sessionState().journeyRandom());
+            *_party.serviceEconomy,*_world.sessionState().journeyRandom(),_world.sessionState().journeyContract());
     }
 	checkSmithBoundary(XeenSmithBoundary::AfterReservation);
  checkSmithBoundary(XeenSmithBoundary::BeforeAdmission);
@@ -333,7 +333,7 @@ IndexedFrame XeenEventFlow::handleSmith(const PlayerAction &action,std::uint64_t
 	// A wrong key cannot consume the last reserved departure frame and force
 	// another presentation merely to repeat the same settlement instruction.
 	if (_smithUi->phase==SmithUi::Phase::Departure && !confirmation && !cancellation) return frameCopy();
-	if (!_encounter->consumeSmithFrame(input,_frame.presentation())) return frameCopy();
+	if (!_encounter->consumeSmithFrame(input,responseFrame())) return frameCopy();
 	auto &ui=*_smithUi;
  ui.feedback.clear();
 	const unsigned remaining=ui.phase==SmithUi::Phase::Quote && confirmation?10:9;

@@ -190,7 +190,12 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 		if (SDL_RenderCopy(renderer,texture,nullptr,nullptr) != 0) { success=false; return false; }
 		SDL_RenderPresent(renderer);
 		if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale initial upload");
+		// Sample pending OS input while this handoff is still unacquired. Never
+		// pump between successful acquisition and the queue fence below: that
+		// would collect and retire a genuinely fresh press under the new frame.
+		SDL_PumpEvents();
 		if (handler.framePresented) handler.framePresented(uploadedFrame);
+		if (handler.completeInputHandoff) handler.completeInputHandoff(uploadedFrame);
 		presentedFrame = uploadedFrame;
 		uploadedInput = handler.displayedInput ? handler.displayedInput() : std::nullopt;
 	}
@@ -199,10 +204,12 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 	std::array<bool,SDL_NUM_SCANCODES> journeyKeys{};
 	std::uint32_t readyAt = SDL_GetTicks();
 	const auto retireQueuedKeys = [&] {
-		// Fence keys already sampled before a semantic presentation boundary.
+		// Fence keys already sampled before acquisition of a new concrete frame,
+		// including retries/redraws that retain the same semantic generation.
 		// Preserve queue order/key-up processing and allow genuinely new keys
 		// sampled in the same millisecond as the newly presented frame.
-		SDL_PumpEvents();
+		// Acquisition callbacks can also queue input. Fence that existing queue,
+		// without sampling more OS events after the frame became actionable.
 		SDL_FilterEvents([](void *context, SDL_Event *queued) -> int {
 			if (queued->type == SDL_KEYDOWN)
 				queued->key.timestamp = *static_cast<std::uint32_t *>(context) - 1;
@@ -211,6 +218,64 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 	};
 	retireQueuedKeys();
 	std::optional<std::uint64_t> displayedInput = uploaded && accepts(uploadedFrame) && handler.displayedInput ? handler.displayedInput() : std::nullopt;
+	const auto inputCurrent = [&](const IndexedFrame::Presentation &origin) {
+		return handler.acceptsInputFrame ? handler.acceptsInputFrame(origin) :
+			uploaded && uploadedFrame == origin && accepts(origin);
+	};
+	const auto dispatchEvent = [&](const SDL_Event &event, const std::optional<std::uint64_t> &batchInput,
+			const IndexedFrame::Presentation &batchFrame) {
+		if (event.type == SDL_QUIT) {
+			running = false;
+		} else if (event.type == SDL_KEYUP) {
+			const auto scan = SDL_GetScancodeFromKey(event.key.keysym.sym);
+			if (scan > SDL_SCANCODE_UNKNOWN && scan < SDL_NUM_SCANCODES) journeyKeys[scan] = false;
+			if (event.key.keysym.sym == SDLK_SPACE) spaceDown = false;
+			if (event.key.keysym.sym == SDLK_b) blockDown = false;
+			if (event.key.keysym.sym == SDLK_r) revisitDown = false;
+			if (event.key.keysym.sym == SDLK_i) inspectDown = false;
+		} else if (event.type == SDL_KEYDOWN) {
+			if (event.key.repeat != 0) return;
+			if (handler.protectAllKeys && playerAction(event.key)) {
+				const auto scan = SDL_GetScancodeFromKey(event.key.keysym.sym);
+				if (scan <= SDL_SCANCODE_UNKNOWN || scan >= SDL_NUM_SCANCODES) return;
+				const bool held = journeyKeys[scan]; journeyKeys[scan] = true;
+				if (held || static_cast<std::int32_t>(event.key.timestamp-readyAt) < 0) return;
+			} else if (batchInput && (event.key.keysym.sym == SDLK_SPACE || event.key.keysym.sym == SDLK_b ||
+				event.key.keysym.sym == SDLK_r || event.key.keysym.sym == SDLK_i)) {
+				auto &down = event.key.keysym.sym == SDLK_SPACE ? spaceDown : event.key.keysym.sym == SDLK_b ? blockDown :
+					event.key.keysym.sym == SDLK_r ? revisitDown : inspectDown;
+				const bool held = down; down = true;
+				if (held || static_cast<std::int32_t>(event.key.timestamp-readyAt) < 0) return;
+			}
+			if (handler.withPresentedInput && static_cast<std::int32_t>(event.key.timestamp-readyAt) < 0) return;
+			// Exit must obey both presentation fences used by gameplay.
+			if (handler.protectAllKeys && event.key.keysym.sym == SDLK_ESCAPE &&
+				(batchInput != (handler.displayedInput ? handler.displayedInput() : std::nullopt) ||
+				 !inputCurrent(batchFrame))) return;
+			if (event.key.keysym.sym == SDLK_ESCAPE &&
+					!(handler && canCancelInteraction && canCancelInteraction())) {
+				running = false;
+			} else if (event.key.repeat == 0 && handler) {
+				const auto action = playerAction(event.key);
+				if (action && ((!handler.acceptsFrame && !handler.withPresentedInput) ||
+					inputCurrent(batchFrame))) {
+					try {
+						const auto nextFrame = batchInput && handler.withPresentedInput ?
+							handler.withPresentedInput(*action,*batchInput,batchFrame) :
+							batchInput && handler.withDisplayedInput ? handler.withDisplayedInput(*action,*batchInput) : handler(*action);
+						if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale gameplay frame handoff");
+						if (nextFrame && !upload(*nextFrame)) {
+							success = false; running = false;
+						}
+					} catch (const std::exception &error) {
+						std::cerr << "Scene update failed: " << error.what() << '\n';
+						success = false;
+						running = false;
+					}
+				}
+			}
+		}
+	};
 	while (running) {
 		try {
 			if (cycle == std::numeric_limits<std::uint64_t>::max()) throw std::overflow_error("SDL loop cycle overflow");
@@ -218,56 +283,10 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 		} catch (...) { success = false; break; }
 		SDL_Event event;
 		const auto batchInput = displayedInput;
+		const auto batchFrame = presentedFrame;
 		if (SDL_WaitEventTimeout(&event, 16)) {
 			do {
-				if (event.type == SDL_QUIT) {
-					running = false;
-				} else if (event.type == SDL_KEYUP) {
-					const auto scan = SDL_GetScancodeFromKey(event.key.keysym.sym);
-					if (scan > SDL_SCANCODE_UNKNOWN && scan < SDL_NUM_SCANCODES) journeyKeys[scan] = false;
-					if (event.key.keysym.sym == SDLK_SPACE) spaceDown = false;
-					if (event.key.keysym.sym == SDLK_b) blockDown = false;
-					if (event.key.keysym.sym == SDLK_r) revisitDown = false;
-					if (event.key.keysym.sym == SDLK_i) inspectDown = false;
-				} else if (event.type == SDL_KEYDOWN) {
-					if (event.key.repeat != 0) continue;
-					if (handler.protectAllKeys && playerAction(event.key)) {
-						const auto scan = SDL_GetScancodeFromKey(event.key.keysym.sym);
-						if (scan <= SDL_SCANCODE_UNKNOWN || scan >= SDL_NUM_SCANCODES) continue;
-						const bool held = journeyKeys[scan]; journeyKeys[scan] = true;
-						if (held || static_cast<std::int32_t>(event.key.timestamp-readyAt) < 0) continue;
-					} else if (batchInput && (event.key.keysym.sym == SDLK_SPACE || event.key.keysym.sym == SDLK_b ||
-						event.key.keysym.sym == SDLK_r || event.key.keysym.sym == SDLK_i)) {
-						auto &down = event.key.keysym.sym == SDLK_SPACE ? spaceDown : event.key.keysym.sym == SDLK_b ? blockDown :
-							event.key.keysym.sym == SDLK_r ? revisitDown : inspectDown;
-						const bool held = down; down = true;
-						if (held || static_cast<std::int32_t>(event.key.timestamp-readyAt) < 0) continue;
-					}
-					// Exit must obey the same semantic presentation fence as gameplay.
-					if (handler.protectAllKeys && event.key.keysym.sym == SDLK_ESCAPE &&
-						(batchInput != (handler.displayedInput ? handler.displayedInput() : std::nullopt) ||
-						 !uploaded || !accepts(uploadedFrame) || uploadedFrame != presentedFrame)) continue;
-					if (event.key.keysym.sym == SDLK_ESCAPE &&
-							!(handler && canCancelInteraction && canCancelInteraction())) {
-						running = false;
-					} else if (event.key.repeat == 0 && handler) {
-						const auto action = playerAction(event.key);
-						if (action && (!handler.acceptsFrame || (uploaded && accepts(uploadedFrame)))) {
-							try {
-								const auto nextFrame = batchInput && handler.withDisplayedInput ?
-									handler.withDisplayedInput(*action,*batchInput) : handler(*action);
-								if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale gameplay frame handoff");
-								if (nextFrame && !upload(*nextFrame)) {
-									success = false; running = false;
-								}
-							} catch (const std::exception &error) {
-								std::cerr << "Scene update failed: " << error.what() << '\n';
-								success = false;
-								running = false;
-							}
-						}
-					}
-				}
+				dispatchEvent(event,batchInput,batchFrame);
 			} while (running && SDL_PollEvent(&event));
 		}
 		if (!running) break;
@@ -304,11 +323,38 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 		if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale presented frame");
 		if (uploadedInput != (handler.displayedInput ? handler.displayedInput() : std::nullopt))
 			throw std::runtime_error("Current frame was not uploaded");
-		if (handler.framePresented) handler.framePresented(uploadedFrame);
+		SDL_PumpEvents();
+		const auto acquired = uploadedFrame;
+		if (handler.framePresented) handler.framePresented(acquired);
+		const bool cosmetic = acquired != presentedFrame && handler.acceptsInputFrame &&
+			handler.completeInputHandoff && handler.acceptsInputFrame(presentedFrame);
+		if (cosmetic) {
+			// The queue cut is the input handoff's linearization point. B is fully
+			// acquired; the bounded existing batch still belongs to live A. Never
+			// pump or relabel it as B. Keys arriving after this cut belong to B.
+			struct Batch { std::vector<SDL_Event> events; bool failed = false; } pending;
+			SDL_FilterEvents([](void *context, SDL_Event *queued) -> int {
+				auto &batch = *static_cast<Batch *>(context);
+				try { batch.events.push_back(*queued); } catch (...) { batch.failed = true; }
+				return 0;
+			}, &pending);
+			if (pending.failed) throw std::runtime_error("Cannot retain acquired input batch");
+			// Preserve non-key event order too: a queued close precedes later keys.
+			for (const auto &event : pending.events) {
+				if (!running) break;
+				dispatchEvent(event,displayedInput,presentedFrame);
+			}
+			if (!running) break;
+			// An A response can supersede B. Its semantic successor must pass
+			// the ordinary strict pre-acquisition fence before accepting input.
+			if (uploadedFrame != acquired || !accepts(acquired)) continue;
+		}
+		if (handler.completeInputHandoff) handler.completeInputHandoff(acquired);
+		const bool concreteChanged = presentedFrame != uploadedFrame;
 		presentedFrame = uploadedFrame;
 		uploadedInput = handler.displayedInput ? handler.displayedInput() : std::nullopt;
 		const auto nextInput = handler.displayedInput ? handler.displayedInput() : std::nullopt;
-		if (nextInput != displayedInput) { readyAt = SDL_GetTicks(); retireQueuedKeys(); }
+		if (!cosmetic && (concreteChanged || nextInput != displayedInput)) { readyAt = SDL_GetTicks(); retireQueuedKeys(); }
 		displayedInput = nextInput;
 	}
 

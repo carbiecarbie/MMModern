@@ -3,6 +3,8 @@
 #include "games/xeen/XeenJourneyCapture.h"
 #include "games/xeen/XeenInventoryView.h"
 #include "games/xeen/XeenJourneyProgression.h"
+#include "games/xeen/XeenTraining.h"
+#include "games/xeen/XeenVertigoRoute.h"
 #include "games/xeen/XeenCombatRules.h"
 #include <limits>
 #include <algorithm>
@@ -22,6 +24,7 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 	const auto context=setup.context;
 	const auto seed=setup.seed;
 	const auto contract=setup.contract;
+	if(xeenJourneyContent(contract).training())xeenValidateTrainingSource(characters);
 	const auto manifest=setup.regionalManifest;
 	const auto purse=setup.purse;
 	const auto recovery=setup.regionalRecovery;
@@ -80,6 +83,14 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 		s._journeyActivity = XeenJourneyActivity::Presentation;
 		++s._journeyGeneration; ++_generation;
 		_journeyPreimage->adoptJourneyCoordination();
+		if(xeenJourneyContent(contract).training()) {
+			XeenRestoreGuard::Providers providers(*_journeyPreimage,w);
+			if(!_vertigoManifest)throw std::invalid_argument("Missing Training resource manifest");
+			const auto cityEvents=setup.cityEventsProvider ? setup.cityEventsProvider() : XeenEventFile{};
+			_vertigoManifest(w,cityEvents,_journeyStatistics);
+			xeenValidateVertigoRoute(_events,cityEvents,contract);
+			_journeyPreimage->check();
+		}
 		_journeyCapture->generation=_boundary.generation();
 		w._journeyCapture = _journeyCapture;
 	} catch (...) { closeJourney(); throw; }
@@ -327,6 +338,7 @@ void XeenEncounterFlow::endJourneyEvent() {
 	++_world._sessionState._journeyGeneration; ++_generation;
 	_journeyPreimage->adoptJourneyCoordination();
 	_boundary.release(XeenCombatBoundary::Work::Event,_eventLease);
+	_trainingEventSettlement=false;
 	_eventLease=0; _journeyFramePrepared = _journeyFrameRetry = false;
 }
 void XeenEncounterFlow::publishArrival(const XeenActorView &view) noexcept {
@@ -421,30 +433,32 @@ bool XeenEncounterFlow::endJourneySave(const Ticket &t) noexcept {
 }
 bool XeenEncounterFlow::presentJourney(const Ticket &entry) {
 	if (!_journey || _busy || _combat || !_journeyFramePrepared || !current(entry) ||
-		(_world.sessionState().journeyActivity() != XeenJourneyActivity::Presentation && !journeyEvent() && !_shoot && !monsterReward() && !_itemUse && !_casting && !_smith)) return false;
+		(_world.sessionState().journeyActivity() != XeenJourneyActivity::Presentation && !journeyEvent() && !_shoot && !monsterReward() && !_itemUse && !_casting && !_smith && !_training)) return false;
 	if (!journeyCapacity()) return false;
 	auto &s = _world._sessionState;
-	if (!journeyEvent() && !_shoot && !monsterReward() && !_itemUse && !_casting && !_smith) s._journeyActivity = _state.phase()==XeenEncounterPhase::SupportStopped ? XeenJourneyActivity::SupportStopped : (_state.pending() || _regionalWork || projectilesPending() || _shootIntent || _regionalAutomatic) ? XeenJourneyActivity::Approach : XeenJourneyActivity::Quiet;
+	if (!journeyEvent() && !_shoot && !monsterReward() && !_itemUse && !_casting && !_smith && !_training) s._journeyActivity = _state.phase()==XeenEncounterPhase::SupportStopped ? XeenJourneyActivity::SupportStopped : (_state.pending() || _regionalWork || projectilesPending() || _shootIntent || _regionalAutomatic) ? XeenJourneyActivity::Approach : XeenJourneyActivity::Quiet;
 	if (_castingSettlement && (s._journeyActivity==XeenJourneyActivity::Quiet ||
 		s._journeyActivity==XeenJourneyActivity::SupportStopped || journeyEvent() || monsterReward()))
 		_castingSettlement=false;
-	++s._journeyGeneration; ++_generation;
+	if(!_training && !_trainingPreparation && !(journeyEvent() && _trainingEventSettlement)){++s._journeyGeneration; ++_generation;}
 	_journeyFramePrepared = _journeyFrameRetry = false;
 	_journeyPreimage->adoptJourneyCoordination();
 	_journeyCapture->generation = _boundary.generation();
 	return true;
 }
-bool XeenEncounterFlow::prepareJourneyFrame(const Ticket &entry, const std::function<void()> &compose) {
+bool XeenEncounterFlow::prepareJourneyFrame(const Ticket &entry, const std::function<void()> &compose, bool cosmetic) {
 	if (!_journey || _busy || _combat || !current(entry) || !compose ||
-		(_world.sessionState().journeyActivity() != XeenJourneyActivity::Presentation && !journeyEvent() && !_shoot && !monsterReward() && !_itemUse && !_casting && !_smith)) return false;
+		(!cosmetic && _world.sessionState().journeyActivity() != XeenJourneyActivity::Presentation && !journeyEvent() && !_shoot && !monsterReward() && !_itemUse && !_casting && !_smith && !_training)) return false;
 	BusyJourney busy(_busy);
-	_journeyFramePrepared = false;
-	if (_itemUse) { _itemUse->selectorTicket.reset(); _itemUse->selectorFrame.reset(); }
+	if (!cosmetic) _journeyFramePrepared = false;
+	if (_itemUse && !cosmetic) { _itemUse->selectorTicket.reset(); _itemUse->selectorFrame.reset(); }
 	try {
 		XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
 		compose(); _journeyPreimage->check();
 		if (!current(entry)) throw std::logic_error("Stale Journey frame preparation");
-		_journeyFramePrepared = true; return true;
+		if (!cosmetic) _journeyFramePrepared = true;
+		else _journeyFrameRetry = false;
+		return true;
 	} catch (...) {
 		if (!_journeyPreimage->current() || _journeyFrameRetry) closeJourney();
 		else _journeyFrameRetry = true;

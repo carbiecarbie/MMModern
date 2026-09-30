@@ -211,7 +211,7 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 			"invalid Journey context enum");
 		if (xeenJourneyContent(j.contract).armorRepair()) {
 			require(xeenRegionalContext(*j.context) && j.context->year == 610 &&
-				j.context->day >= 8 && j.context->day <= (j.contract == 11 ? 99 : 10), "invalid Ironworks calendar context");
+				j.context->day >= 8 && j.context->day <= (xeenJourneyContent(j.contract).serviceDays() ? 99 : 10), "invalid Ironworks calendar context");
 			require(j.context->day == 8 || j.vertigoActors.has_value(), "Ironworks departure requires retained city");
 			require(s.camera.mapId != XeenMapIdentity(28) || cityCamera, "camera outside Ironworks city domain");
 			require(j.vertigoActors || s.camera.mapId == XeenMapIdentity(23), "absent city requires mainland camera");

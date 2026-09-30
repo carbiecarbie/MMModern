@@ -191,9 +191,9 @@ void disengagementNativeInput(Source &source) {
  auto services=disengagementServices(source,h);unsigned accepted=0,stage=0,cycles=0;
  services.show=[&](const auto &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
   auto wrapped=handler;
-  wrapped.withDisplayedInput=[&](const PlayerAction &a,std::uint64_t input){
+  wrapped.withPresentedInput=[&](const PlayerAction &a,std::uint64_t input,const auto &origin){
    const auto *combat=h.flow->encounter()->combat();const auto generation=combat?combat->result().generation:0;
-   auto frame=handler.withDisplayedInput(a,input);combat=h.flow->encounter()->combat();
+   auto frame=handler.withPresentedInput(a,input,origin);combat=h.flow->encounter()->combat();
    if(std::holds_alternative<RevisitCompletedAction>(a) && combat && combat->result().generation!=generation && combat->phase()==XeenCombatPhase::PreparingAction && combat->result().operation==XeenCombatOperation::PlayerRun)++accepted;
    return frame;
   };

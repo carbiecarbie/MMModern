@@ -8,14 +8,15 @@ using namespace journey_gameplay_test;
 namespace fs=std::filesystem;
 namespace {
 void quietCosmeticInput() {
- Harness h;auto services=h.services();bool inject=false;unsigned issued=0,settled=0,loops=0;
+ Harness h;auto services=h.services();bool inject=false;unsigned issued=0,settled=0,loops=0,stage=0;
+ std::optional<std::uint64_t> semantic;
  const auto compose=services.composeEncounter;
  services.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto phase,auto actor){
   auto frame=compose(w,p,c,phase,actor);
   if(inject){inject=false;++issued;
-   // Sample a fresh key while a purely cosmetic Quiet frame is being built.
+   // Sample an early key while a purely cosmetic Quiet frame is being built.
    SDL_Event down{};down.type=SDL_KEYDOWN;down.key.keysym.sym=SDLK_RIGHT;
-   check(SDL_PushEvent(&down)==1,"Queue fresh key during Quiet recomposition");
+   check(SDL_PushEvent(&down)==1,"Queue early key during Quiet recomposition");
    SDL_Event up=down;up.type=SDL_KEYUP;check(SDL_PushEvent(&up)==1,"Queue release");
    SDL_Delay(5); // Distinguish sampling from the later frame handoff timestamp.
   }
@@ -24,10 +25,22 @@ void quietCosmeticInput() {
  services.show=[&](const auto &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
   const auto driver=[&]()->std::optional<IndexedFrame>{
    check(++loops<80,"Quiet input control terminates");
-   if(h.flow->canSave()) {
-    if(issued>settled){check(h.party->encounterContext->ctr24==issued,"Fresh Quiet movement was discarded during cosmetic presentation");settled=issued;}
+   if(stage==0) {
+    check(h.flow->canSave(),"Quiet cosmetic starting authority");
     if(settled==3){SDL_Event quit{};quit.type=SDL_QUIT;SDL_PushEvent(&quit);return {};}
-    inject=true;
+    semantic=handler.displayedInput();inject=true;stage=1;h.now+=100;return idle();
+   }
+   if(stage==1) {
+    if(!h.flow->canSave())return idle();
+    check(handler.displayedInput()!=semantic && issued==settled+1 &&
+        h.party->encounterContext->ctr24==2*settled+1,"Live A input during cosmetic preparation must execute under A");
+    SDL_Event down{};down.type=SDL_KEYDOWN;down.key.keysym.sym=SDLK_RIGHT;
+    check(SDL_PushEvent(&down)==1,"Fresh key after Quiet acquisition");
+    down.type=SDL_KEYUP;check(SDL_PushEvent(&down)==1,"Fresh Quiet release");stage=2;return {};
+   }
+   if(h.flow->canSave()) {
+    check(h.party->encounterContext->ctr24==2*issued,"Fresh Quiet movement was discarded after acquisition");
+    settled=issued;stage=0;return {};
    }
    h.now+=100;return idle();
   };

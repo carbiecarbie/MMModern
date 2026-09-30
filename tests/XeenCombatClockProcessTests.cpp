@@ -30,7 +30,7 @@ int main(int argc,char **argv) {
         const auto before=XeenSaveFormat::encode(XeenSaveFile::read(source));
         const auto diskBefore=m40_test::diskBytes(source);
         const auto d=XeenSaveFile::read(source);
-        child_test::require(d.journey && d.journey->schema==9 && d.journey->contract==11 && d.journey->context->day==12 &&
+        child_test::require(d.journey && d.journey->schema==9 && d.journey->contract==(std::getenv("MMODERN_M40_CONTENT12")?12:11) && d.journey->context->day==12 &&
             d.journey->treasure->gold==807 && d.characters[6].armor[0].state==0 && d.characters[6].armor[1].state==0,
             "Clock regression source is not genuine post-service D");
         const auto run=[&](const std::string &control,bool healthy=false) {

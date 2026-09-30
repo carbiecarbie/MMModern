@@ -7,7 +7,7 @@ XeenServiceDayCandidate::XeenServiceDayCandidate(const XeenGameplayContext &cont
 		const XeenServiceEconomy &economy,const XeenJourneyRandomState &cursor,std::uint16_t content):
 	originalContext(context),endingContext(context),originalEconomy(economy),endingEconomy(economy),
 	originalRandom(cursor),random(cursor) {
-	if(content!=11)throw std::invalid_argument("Service economy requires Journey content 11");
+	if(content!=11 && content!=12)throw std::invalid_argument("Service economy requires Journey content 11 or 12");
 	const auto successor=xeenPrepareSmithDeparture(context,content);
 	if(!successor)throw std::invalid_argument("Unsupported one-day script service context");
 	xeenValidateServiceEconomy(economy);endingContext=*successor;

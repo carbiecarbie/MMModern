@@ -13,6 +13,7 @@
 #include "games/xeen/XeenCombatRules.h"
 #include "games/xeen/XeenArmorRepair.h"
 #include "games/xeen/XeenServiceDay.h"
+#include "games/xeen/XeenTraining.h"
 
 namespace mmodern {
 class XeenItemCatalog;
@@ -42,6 +43,7 @@ struct XeenJourneySetup {
 	std::function<XeenLearnedSpellNames()> learnedNamesProvider;
 	XeenVertigoManifest vertigoManifest;
 	std::optional<XeenBankBalances> bank;
+	std::function<XeenEventFile()> cityEventsProvider;
 };
 struct XeenJourneyRestoreTag {};
 
@@ -96,7 +98,7 @@ public:
 	const std::optional<XeenAntidoteResult> &itemUseResult() const noexcept { return _itemUseResult; }
 	bool attachJourney(const Ticket &, const std::function<void()> &prepareSprites);
 	bool retireJourney(const Ticket &);
-	bool prepareJourneyFrame(const Ticket &, const std::function<void()> &compose);
+	bool prepareJourneyFrame(const Ticket &, const std::function<void()> &compose, bool cosmetic = false);
 	bool presentJourney(const Ticket &);
 	XeenEncounterFlow(const XeenEncounterFlow &) = delete;
 	XeenEncounterFlow &operator=(const XeenEncounterFlow &) = delete;
@@ -146,6 +148,8 @@ public:
 	std::string notice() const;
 private:
 	friend class XeenEventFlow;
+	friend struct XeenTrainingTestAccess;
+	bool _trainingEventSettlement=false;
     std::optional<Ticket> _castFrameTicket;
     IndexedFrame::Presentation _castFrame;
     std::uint64_t _castInput=0;
@@ -166,6 +170,28 @@ private:
 	};
 	std::unique_ptr<SmithContinuation> _smith;
 	std::unique_ptr<SmithContinuation> _smithPreparation;
+	struct TrainingContinuation {
+		std::uint64_t lease=0,input=0,operation=0;
+		IndexedFrame::Presentation frame;
+		std::uint8_t owner=0;
+		std::bitset<30> trained;
+		bool quoted=false,departed=false,published=false;
+		XeenTrainingResult result;
+		std::unique_ptr<XeenServiceDayCandidate> departure,nextDeparture;
+		std::unique_ptr<XeenTrainingCandidate> pending;
+	};
+	std::unique_ptr<TrainingContinuation> _training,_trainingPreparation;
+	std::function<void(XeenTrainingBoundary)> _trainingBoundary;
+	void checkTrainingBoundary(XeenTrainingBoundary);
+	bool beginTraining(const std::function<void()> &);
+	bool serviceTrainingPreparation();
+	void authorizeTrainingFrame(std::uint64_t,const IndexedFrame::Presentation &);
+	bool consumeTrainingFrame(std::uint64_t,const IndexedFrame::Presentation &);
+	void quoteTraining(std::size_t);
+	void confirmTraining();
+	bool serviceTrainingLevel();
+	void departTraining();
+	void advanceTraining() noexcept;
 	std::function<void(XeenSmithBoundary)> _smithBoundary;
 	void checkSmithBoundary(XeenSmithBoundary);
 	bool beginSmith(const std::function<void()> &);

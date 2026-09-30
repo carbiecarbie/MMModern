@@ -1,4 +1,5 @@
 #include "games/xeen/XeenRegionalRules.h"
+#include "games/xeen/XeenTraining.h"
 #include <stdexcept>
 #include <limits>
 #include "formats/xeen/XeenMapFormat.h"
@@ -201,6 +202,14 @@ void xeenValidateVertigoManifest(XeenWorld &world, const XeenEventFile &events,
 			throw std::invalid_argument("Vertigo typed Event differs from immutable resource");
 	}
 	checked("aaze0028.txt",3014,0x8dc60e26);
+	if(xeenJourneyContent(world.sessionState().journeyContract()).training()) {
+		xeenValidateTrainingSource(checked("maze.chr",10620,0x81a2dd16));
+		checked("trng1.twn",27998,0xa4e3bbdb);checked("train.icn",1614,0x76c6ac78);
+		checked("esc.icn",792,0x096b68b7);
+		checked("004.obj",3159,0xbf5e5f91);checked("006.obj",5534,0x4eb51842);
+		checked("008.obj",18331,0xff9b7e6d);checked("009.obj",12450,0x3deef973);
+		checked("010.obj",4340,0xbc3a2ad6);checked("011.obj",7355,0x9eea738b);
+	}
 	constexpr unsigned types[]{0,2,73};
 	constexpr std::uint32_t checksums[]{0x4743814e,0xf9c6fa54,0xd14e5e01};
 	for (unsigned i=0;i<3;++i)
@@ -265,6 +274,11 @@ XeenRegionalInteraction xeenRegionalInteraction(const XeenEventFile &events,cons
 	const auto first=xeenRegionalEvent(events,camera);
 	if (!first) return XeenRegionalInteraction::None;
 	if (xeenJourneyContent(contract).vertigo()) {
+		if (xeenJourneyContent(contract).training() && camera.mapId==XeenMapIdentity(28)) {
+			if (*first==3 && camera.x==10 && camera.y==11)return XeenRegionalInteraction::Training;
+			if (*first==538 && camera.x==10 && camera.y==8 && camera.direction==XeenDirection::North)
+				return XeenRegionalInteraction::VertigoDoor;
+		}
 		if (xeenJourneyContent(contract).armorRepair() && camera.mapId==XeenMapIdentity(28) && *first==0 && camera.x==8 && camera.y==4)
 			return XeenRegionalInteraction::Ironworks;
 		if (camera.mapId==XeenMapIdentity(23) && *first==136 && camera.x==10 && camera.y==13)

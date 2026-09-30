@@ -560,7 +560,8 @@ bool XeenEncounterFlow::idleCombat(std::optional<std::uint64_t> cycle) {
 	if (cosmetic && !startedAppearance && !terminal()) {
 		advanceAppearance();
 		_cosmeticDeadline = now + 100;
-		++_generation;
+		// Appearance has its own concrete presentation identity. Retain the
+		// gameplay ticket so the acquired frame stays usable during its redraw.
 	}
 	return due || cosmetic;
 }

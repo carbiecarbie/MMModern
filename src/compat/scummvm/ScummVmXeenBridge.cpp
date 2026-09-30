@@ -409,6 +409,23 @@ IndexedFrame ScummVmXeenBridge::snapshot() const {
 	return frame;
 }
 
+void ScummVmXeenBridge::drawTraining(IndexedFrame &frame) {
+	if(!frame.isValid() || frame.width!=320 || frame.height!=200)throw std::invalid_argument("Invalid Training draw context");
+	struct Resource {const char *name;std::size_t bytes;std::uint32_t crc;unsigned frames;};
+	constexpr Resource resources[]={{"trng1.twn",27998,0xa4e3bbdb,8},{"train.icn",1614,0x76c6ac78,4},{"esc.icn",792,0x096b68b7,2}};
+	for(const auto &r:resources) {
+		const auto bytes=readArchiveResource(r.name);
+		if(bytes.size()!=r.bytes || crc32(0,bytes.data(),static_cast<uInt>(bytes.size()))!=r.crc)
+			throw std::invalid_argument("Training original artwork identity changed");
+		_impl->sprite(r.name,0,r.frames);
+	}
+	XSurface surface;surface.create(320,200);
+	for(int y=0;y<200;++y)std::copy_n(frame.pixels.data()+y*320,320,static_cast<std::uint8_t *>(surface.getBasePtr(0,y)));
+	_impl->sprite("trng1.twn",0,8).draw(surface,0,Common::Point(8,8));
+	_impl->sprite("train.icn",0,4).draw(surface,0,Common::Point(8,140));
+	_impl->sprite("esc.icn",0,2).draw(surface,0,Common::Point(86,140));
+	for(int y=0;y<200;++y)std::copy_n(static_cast<const std::uint8_t *>(surface.getBasePtr(0,y)),320,frame.pixels.data()+y*320);
+}
 void ScummVmXeenBridge::drawSmith(IndexedFrame &frame) {
 	if (!frame.isValid() || frame.width!=320 || frame.height!=200)
 		throw std::invalid_argument("Invalid Ironworks draw context");

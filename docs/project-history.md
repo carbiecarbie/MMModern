@@ -363,6 +363,19 @@ Historical limitations in those plans describe their recorded boundaries.
   completed physical native-SDL repeated repair, restart and later casting
   acceptance. See the [Milestone 40 plan](milestone-40-plan.md#final-acceptance).
 
+## M41 - Vertigo Training and progression
+
+- Connected original Vertigo Training to legitimately earned XP and carried
+  gold for permanent levels, active temporary reset and selected HP/SP refill,
+  with one day per distinct trained member per visit and a separate departure.
+- Expanded bounded route/actor admission and added exact schema-9/content-12
+  progression/service continuity, preserving later combat/casting and legacy saves.
+- Build, full 127/127 CTest, original-resource/separate-process continuation and
+  independent technical review passed, including the native input-scheduling
+  correction. Separately, maintainer physical native-SDL progression, responsive
+  input, restart and later refusal-only visit acceptance passed. See the
+  [Milestone 41 plan](milestone-41-plan.md#final-acceptance).
+
 ## Maintaining this history
 
 Add one short section with 2-4 lasting-result bullets per completed milestone

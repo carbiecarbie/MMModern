@@ -739,7 +739,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 					if(indoor ? (sampled && (sampled->cell->rawAttributes & kXeenAutomaticEventFlag)!=0) :
 						hasAutomaticTrigger(map.geometry,c.camera.x,c.camera.y)) {
 						const auto event=xeenRegionalEvent(events,c.camera);
-						if(event && !(indoor ? xeenRegionalInteraction(events,c.camera,8)==XeenRegionalInteraction::VertigoDoor : xeenRegionalSign(events,c.camera)))
+						if(event && !(indoor ? xeenRegionalInteraction(events,c.camera,session.journeyContract())==XeenRegionalInteraction::VertigoDoor : xeenRegionalSign(events,c.camera)))
 							{ refused.reason=XeenEncounterStop::Domain;return refused; }
 						c.result.automaticEvent=event.has_value();
 					}

@@ -13,6 +13,7 @@
 #include "games/xeen/XeenMovement.h"
 #include "games/xeen/XeenIndoorScene.h"
 #include "games/xeen/XeenVertigoRoute.h"
+#include "games/xeen/XeenTraining.h"
 
 #include <stdexcept>
 #include <algorithm>
@@ -142,8 +143,18 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	adopt(); // Only checked overlay preparation changed candidate gameplay values.
 	auto statistics = callback(monsters);
 	const auto &policy=xeenJourneyContent(snapshot.journey->contract);
-	auto actors = XeenActorApproach::actorsFromResources(w.objectFile(policy.entry.mapId),statistics);
 	auto evt = events(policy.entry.mapId);
+	if(policy.training()) {
+		if(!resources.loadInitialCharacters || !resources.vertigoManifest)
+			throw std::invalid_argument("Missing Training restoration resources");
+		xeenValidateTrainingSource(callback(resources.loadInitialCharacters));
+		// Bind resources even when the saved Journey has never entered the city.
+		w._sessionState._journeyContract=policy.contract;adopt();
+		const auto cityEvents=events(28);
+		callback([&] {resources.vertigoManifest(w,cityEvents,statistics);return true;});
+		xeenValidateVertigoRoute(evt,cityEvents,policy.contract);
+	}
+	auto actors = XeenActorApproach::actorsFromResources(w.objectFile(policy.entry.mapId),statistics);
 	if (policy.connectedRecovery()) {
 		if (!resources.loadRegionalText) throw std::invalid_argument("Missing regional text restoration provider");
 		prepared->admitRegionalText(callback([&] { return resources.loadRegionalText(23); }));
