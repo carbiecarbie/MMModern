@@ -1,9 +1,11 @@
-# Milestone 43 proposal - Bounded Vertigo Temple Heal and resurrection
+# Milestone 43 plan - Bounded Vertigo Temple Heal and resurrection
 
 ## Decision and approval boundary
 
-**PROPOSED FOR APPROVAL; implementation is not authorized.** Recommend proceeding
-with one independently acceptable M43: reach the original Temple with survivors,
+**SPECIFICATION APPROVED by the maintainer on 2026-10-01; implementation is not authorized.**
+Independent technical review returned ACCEPT with one nonblocking factual correction
+to the witness's roster names; that correction is incorporated. The approved scope
+is one independently acceptable M43: reach the original Temple with survivors,
 pay for selected supported recovery, depart by the original service-time operation,
 resume useful combat and preserve exact continuation through a process restart.
 The investigation found no reason to split recovery from resurrection or to reopen
@@ -14,8 +16,8 @@ The inspected MMModern baseline is
 `b3b3679f42b45fa18e9683f2f3f54f6107c545dd`. Before investigation, branch `main`,
 HEAD, `origin/main` and direct remote `refs/heads/main` all matched that SHA;
 the working tree and index were clean. M42 remains the stable accepted state.
-This document neither approves itself nor records M43 completion. Implementation,
-independent review, maintainer physical acceptance and Git publication are separate
+Specification approval does not record M43 completion. Implementation authorization,
+independent implementation review, maintainer physical acceptance and Git publication are separate
 gates. The [roadmap review cadence](roadmap.md#replanning-and-review-cadence)
 still applies after the first accepted recovery boundary.
 
@@ -72,7 +74,7 @@ Investigation evidence is deliberately separated:
 | Automated investigation probes | Shortest-path search; all 49 cameras in four facings; actor fixed points with/without other-actor occupancy; 1,568 in-memory route rasters over eight cosmetic phases, without unsupported object diagnostics. Temporary probes linked the existing local build; a fresh implementation build remains required. |
 | Automated native production prefix | Normal content-13 initialization and SDL dummy/software execution, driven through presented-frame gameplay input, obtained the real injury/death and reached the existing route frontier. No owner-state injection supplied these results. |
 | Detached calculation | Complete stock generation from the observed prefix RNG, and reference-derived future Heal/date results. These are expected M43 results, not executed M43 gameplay. |
-| Physical observation/review | No DOS observation, maintainer physical acceptance or independent review of M43 has occurred. |
+| Physical observation/review | Independent technical review of the specification returned ACCEPT; the maintainer approved the specification. No DOS observation, maintainer physical acceptance or independent review of the M43 implementation has occurred. |
 
 ## Exact route, Events and resources
 
@@ -648,7 +650,7 @@ the existing architecture. Any unexpected nonzero omitted input, new influencing
 actor/mechanic, or inability to complete the honest witness is a concrete stop
 and focused replanning trigger, not permission to broaden scope silently.
 
-After maintainer approval and separate implementation authorization, implement
+After separate implementation authorization, implement
 in order: content/route/resource/actor admission and its independent tests;
 pure selected recovery and bounded 2880 candidate/upgrade; existing-owner Temple
 coordination/UI and fault/input coverage; explicit 9/14 persistence/legacy
@@ -658,4 +660,4 @@ milestone, not separately approved capabilities or premature closure points.
 
 At closure follow [AGENTS.md](../AGENTS.md): required build/full tests/review and
 physical acceptance precede stable-status/history updates and plan condensation.
-This proposal changes neither current capabilities nor future roadmap selection.
+This approved specification changes neither current capabilities nor future roadmap selection.
