@@ -113,6 +113,7 @@ public:
 private:
 	friend class XeenEncounterFlow;
 	friend struct XeenTrainingTestAccess;
+	friend struct XeenPurchaseTestAccess;
 	XeenMutationMarker _mutation;
 	XeenJourneyActivity _journeyActivity = XeenJourneyActivity::Unbound;
 	const void *_journeyOwner = nullptr;
@@ -184,7 +185,7 @@ public:
 	XeenWorld &operator=(const XeenWorld &) = delete;
 	const XeenSessionWorldState &sessionState() const { return _sessionState; }
 	bool regionalContract8() const noexcept {
-		return (_sessionState._journeyContract==8 || _sessionState._journeyContract==9 || _sessionState._journeyContract==10 || _sessionState._journeyContract==11 || _sessionState._journeyContract==12) && (_sessionState.journey() || _detachedEventCandidate);
+		return (_sessionState._journeyContract==8 || _sessionState._journeyContract==9 || _sessionState._journeyContract==10 || _sessionState._journeyContract==11 || _sessionState._journeyContract==12 || _sessionState._journeyContract==13) && (_sessionState.journey() || _detachedEventCandidate);
 	}
 	// Irreversible safety marker, including failed preparation. No clear/reset API.
 	void markEncounterSession() noexcept { XeenMutationWatch::write(this);_sessionState._encounterMarked = true; }

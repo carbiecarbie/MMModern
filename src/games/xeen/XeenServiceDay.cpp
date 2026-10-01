@@ -1,16 +1,17 @@
 #include "games/xeen/XeenServiceDay.h"
 #include "games/xeen/XeenArmorRepair.h"
+#include "games/xeen/XeenEquipmentPurchase.h"
 #include <algorithm>
 #include <stdexcept>
 namespace mmodern {
 XeenServiceDayCandidate::XeenServiceDayCandidate(const XeenGameplayContext &context,
 		const XeenServiceEconomy &economy,const XeenJourneyRandomState &cursor,std::uint16_t content):
 	originalContext(context),endingContext(context),originalEconomy(economy),endingEconomy(economy),
-	originalRandom(cursor),random(cursor) {
-	if(content!=11 && content!=12)throw std::invalid_argument("Service economy requires Journey content 11 or 12");
+	originalRandom(cursor),random(cursor),content(content) {
+	if(content!=11 && content!=12 && content!=13)throw std::invalid_argument("Service economy requires Journey content 11, 12 or 13");
 	const auto successor=xeenPrepareSmithDeparture(context,content);
 	if(!successor)throw std::invalid_argument("Unsupported one-day script service context");
-	xeenValidateServiceEconomy(economy);endingContext=*successor;
+	xeenValidateCurrentServiceEconomy(economy,content);endingContext=*successor;
 	regenerating=xeenServiceDayRegenerates(originalContext.day,endingContext.day,1440);
 	completed=!regenerating;
 }
@@ -26,5 +27,43 @@ bool XeenServiceDayCandidate::service(unsigned budget,const std::function<void()
 	if(check)check();
 	endingEconomy.wares=stock.wares();endingEconomy.bank=xeenPrepareBankInterest(originalEconomy.bank);
 	completed=true;return true;
+}
+XeenServiceDayCandidate XeenServiceDayCandidate::rebindPurchase(const XeenServiceEconomy &after,
+		XeenInventoryCategory category,std::size_t slot,const XeenItem &expected) const {
+	if(content!=13 || !completed)throw std::invalid_argument("Equipment Buy requires a complete content-13 departure");
+	validateComplete();
+	xeenValidateEquipmentPurchaseEconomyDelta(originalEconomy,after,category,slot,expected);
+	xeenValidateCurrentServiceEconomy(after,content);
+	// Copy the completed random/generation state; never construct/service another
+	// generation or recalculate interest. Triggered ending stock remains exact.
+	auto replacement=*this;
+	replacement.originalEconomy=after;
+	if(!regenerating)replacement.endingEconomy=after;
+	replacement.validateComplete();
+	return replacement;
+}
+void XeenServiceDayCandidate::validateComplete() const {
+	if(!completed)throw std::invalid_argument("Service-day departure is incomplete");
+	const auto expected=xeenPrepareSmithDeparture(originalContext,content);
+	if(!expected || !(endingContext==*expected) ||
+		regenerating!=xeenServiceDayRegenerates(originalContext.day,endingContext.day,1440))
+		throw std::invalid_argument("Service-day context successor changed");
+	xeenValidateCurrentServiceEconomy(originalEconomy,content);
+	const auto ending=random.continuation();
+	if(!regenerating) {
+		if(endingEconomy!=originalEconomy || ending!=originalRandom)
+			throw std::invalid_argument("Nontriggering service-day successor changed");
+	} else {
+		xeenValidateServiceEconomy(endingEconomy);
+		// Verify the prepared interest relation without executing another interest
+		// operation (whose production call trace must remain exactly once).
+		const auto interest=[](std::uint32_t value) noexcept {
+			return static_cast<std::uint32_t>(std::uint64_t(value)+value/100u);
+		};
+		if(endingEconomy.bank.gold!=interest(originalEconomy.bank.gold) ||
+			endingEconomy.bank.gems!=interest(originalEconomy.bank.gems) ||
+			ending.algorithm!=originalRandom.algorithm || !ending.state || ending.count<=originalRandom.count)
+			throw std::invalid_argument("Triggering service-day successor changed");
+	}
 }
 }

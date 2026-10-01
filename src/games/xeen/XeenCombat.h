@@ -25,6 +25,7 @@ public:
 private:
 	friend class XeenCombat;
 	friend struct XeenTrainingTestAccess;
+	friend struct XeenPurchaseTestAccess;
 	const XeenWorld *world; const XeenPartyState *party; const XeenCamera *camera;
 	std::uint64_t epoch=0;
 	std::array<std::uint64_t,8> leases{};

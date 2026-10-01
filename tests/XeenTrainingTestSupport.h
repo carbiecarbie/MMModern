@@ -62,8 +62,8 @@ struct Inputs {
     XeenRegionalManifest regional(){return [this](const auto &m,const auto &o,const auto &e,const auto &s){
         xeenValidateRegionalManifest(m,o,e,s,assets.readInitialResource("maze0023.dat"),assets.readInitialResource("maze0023.mob"),assets.readInitialResource("maze0023.evt"));};}
     XeenVertigoManifest vertigo(){return [this](auto &w,const auto &e,const auto &s){xeenValidateVertigoManifest(w,e,s,reader());};}
-    XeenJourneySetup setup(){
-        XeenJourneySetup value{chr,XeenGameplayContextFormat::parse(pty),statistics,mainland,7,12,regional()};
+    XeenJourneySetup setup(std::uint16_t content=12){
+        XeenJourneySetup value{chr,XeenGameplayContextFormat::parse(pty),statistics,mainland,7,content,regional()};
         value.purse=XeenCharacterFormat::parseMonsterPurse(pty);value.regionalRecovery=XeenQuestFlagFormat::parseRegionalRecovery(pty);
         value.regionalText=texts.load(23);value.learnedNames=names;value.learnedNamesProvider=[this]{return names;};
         value.vertigoManifest=vertigo();value.bank=XeenCharacterFormat::parseBankBalances(pty);value.cityEventsProvider=[this]{return city;};return value;
@@ -74,9 +74,9 @@ struct Inputs {
         r.regionalManifest=regional();r.vertigoManifest=vertigo();r.loadRegionalText=[this](auto id){return texts.load(id);};
         r.loadLearnedSpellNames=[this]{return names;};return r;
     }
-    XeenSaveSnapshot base(){
-        auto p=XeenPartyLoader().loadInitialCloudsParty(assets);auto c=xeenJourneyContent(12).entry;XeenGameFlags f;
-        XeenWorld w(mapLoader(),objectLoader());auto value=setup();XeenEncounterFlow flow(w,p,c,f,[]{return 0;},value);
+    XeenSaveSnapshot base(std::uint16_t content=12){
+        auto p=XeenPartyLoader().loadInitialCloudsParty(assets);auto c=xeenJourneyContent(content).entry;XeenGameFlags f;
+        XeenWorld w(mapLoader(),objectLoader());auto value=setup(content);XeenEncounterFlow flow(w,p,c,f,[]{return 0;},value);
         check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"synthetic base frame");
         return XeenSaveState::capture(signature,p,c,f,w);
     }

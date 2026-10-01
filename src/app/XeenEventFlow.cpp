@@ -302,12 +302,18 @@ void XeenEventFlow::sealFrame(IndexedFrame &returned) {
 }
 
 IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
+	if (_smithUi && xeenJourneyContent(_world.sessionState().journeyContract()).equipmentPurchase()) {
+		cosmeticInput=_smithRenderedRevision && *_smithRenderedRevision==_smithUi->revision;
+		if (_encounter->_smith && _encounter->_smith->frame &&
+			(!xeenSmithAuthorityRoom(_inputGeneration,8) || !_encounter->smithCapacity(16,4))) return frameCopy();
+	}
 	if(_trainingUi) {
 		cosmeticInput=_trainingRenderedRevision && *_trainingRenderedRevision==_trainingUi->revision;
 		if(_encounter->_training && _encounter->_training->frame &&
 			(!xeenSmithAuthorityRoom(_inputGeneration,8) || !_encounter->smithCapacity(16,4)))return frameCopy();
 	}
-	if (_smithUi && _encounter && _encounter->_smith && !_smithSettlement && !_encounter->_smith->departed) {
+	if (_smithUi && _encounter && _encounter->_smith && !_smithSettlement && !_encounter->_smith->departed &&
+		!xeenJourneyContent(_world.sessionState().journeyContract()).equipmentPurchase()) {
 		// Resize/expose and other redraws consume the same presented Journey
 		// revision as menu input. Preserve the concrete last departure frame
 		// rather than allowing cosmetics to exhaust its reserved suffix.
@@ -323,7 +329,8 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 	// survived an exception. Only an unconsumed, acquired origin can overlap B.
 	const bool cosmetic = (journey() || _encounter->combat()) && cosmeticInput && _actionableFrame &&
 		!_handoffPending && encounterFrameCurrent() &&
-		(!_trainingUi || (_encounter->_training && _encounter->_training->frame == _actionableFrame));
+		(!_trainingUi || (_encounter->_training && _encounter->_training->frame == _actionableFrame)) &&
+		(!_smithUi || (_encounter->_smith && _encounter->_smith->frame == _actionableFrame));
 	_acquiredCosmeticFrame.reset();
 	if (!cosmetic) { _actionableFrame.reset(); _cosmeticPending = false; }
 	if (journey() && !_encounter->combat()) {
@@ -376,6 +383,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 				// A cosmetic frame renews frame authority, not the semantic input epoch.
 				if (!cosmeticInput) ++_inputGeneration;
 				if(_trainingUi)_trainingRenderedRevision=_trainingUi->revision;
+				if(_smithUi)_smithRenderedRevision=_smithUi->revision;
 				_encounterFrame = _encounter->ticket(); _handoffPending = !cosmetic;
 				_cosmeticPending = cosmetic;
 				return returned;
@@ -546,6 +554,9 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 			if (_transition) prepareVertigoResult(result);
 		// Adopt ownership before composition, reporting or presentation can fail.
 		auto *suspended = std::get_if<XeenEventExecutionSuspended>(&result);
+		if (suspended && journey() && xeenJourneyContent(_world.sessionState().journeyContract()).equipmentPurchase() &&
+			suspended->request.kind==XeenPresentationKind::ArmorRepairService && !xeenSmithAuthorityRoom(_generation,1))
+			throw std::overflow_error("Smith Event ticket generation exhausted before preparation");
 		if (suspended) _pending.emplace(Pending{std::move(suspended->state), automatic, ++_generation});
 		if (suspended && (suspended->request.kind==XeenPresentationKind::ArmorRepairService || suspended->request.kind==XeenPresentationKind::TrainingService))
 			return frameCopy(); // Exclusive Event transfers to Service after its final guard check.
@@ -910,6 +921,9 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 	if (_smithUi && _smithUi->phase==SmithUi::Phase::Preparation && !_dispatching && !_fatal && !_saving) {
 		DispatchScope dispatch(_dispatching);
 		try {
+			if (xeenJourneyContent(_world.sessionState().journeyContract()).equipmentPurchase() &&
+				!xeenSmithAuthorityRoom(_inputGeneration,9))
+				throw std::overflow_error("Smith admission would consume mandatory input authority");
 			if (!_encounter->serviceSmithPreparation()) return std::nullopt;
 			_smithUi->phase=SmithUi::Phase::Lobby;
 		} catch (const std::exception &error) {
@@ -923,6 +937,7 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 				_encounter->endJourneyEvent();
 			}
 		}
+		if (_smithUi) ++_smithUi->revision;
 		return renderEncounter();
 	}
 	if (_dispatching || _fatal || _saving || _smithUi || (journey() && _handoffPending)) return std::nullopt;
@@ -1015,7 +1030,8 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 	requireCurrentOwners();
 	// Concrete origin is independent of semantic meaning. A retry/redraw may
 	// retain the generation, but input from its retired frame cannot authorize it.
-	if ((inputFrame && !acceptsInputFrame(inputFrame)) || (_trainingUi && !inputFrame)) return frameCopy();
+	if ((inputFrame && !acceptsInputFrame(inputFrame)) || (_trainingUi && !inputFrame) ||
+		(_smithUi && xeenJourneyContent(_world.sessionState().journeyContract()).equipmentPurchase() && !inputFrame)) return frameCopy();
 	if (journey() && !journeyInputCurrent(displayedInput)) return frameCopy();
 	if (std::holds_alternative<SaveGameAction>(action) || _dispatching || _fatal || _saving) return frameCopy();
 	if(_trainingUi) {
@@ -1024,7 +1040,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 	}
 	if (_smithUi) {
 		DispatchScope dispatch(_dispatching);
-		return handleSmith(action,*displayedInput);
+		return handleSmith(action,*displayedInput,inputFrame);
 	}
 	if (completed() && (!displayedInput || *displayedInput != _inputGeneration || !_displayedCompleted ||
 		!_encounter->current(*_displayedCompleted) || _handoffPending)) return frameCopy();

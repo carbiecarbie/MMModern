@@ -66,7 +66,6 @@ void stress(Inputs &in) {
   auto previous=first.presentation();auto epoch=handler.displayedInput();
   native.framePresented=[&](const auto &f){handler.framePresented(f);
    h.observedOrigin=f;
-   if(h.flow->canSave())settled=true;
    if(f!=previous && handler.displayedInput()==epoch)++cosmetic;
    previous=f;epoch=handler.displayedInput();
    if(!sender.joinable())sender=std::thread([&]{
@@ -93,7 +92,14 @@ void stress(Inputs &in) {
    unsigned index=*nav==NavigationAction::MoveForward?0:*nav==NavigationAction::TurnLeft?1:*nav==NavigationAction::MoveBackward?2:3;
    ++counts[index];++dispatches;return result;
   };
-  const bool ok=SdlWindow().showInteractive(first,"Real clock scheduling",native,escape,[&](){if(done)quit();return idle();},status);
+  const bool ok=SdlWindow().showInteractive(first,"Real clock scheduling",native,escape,[&](){
+   // framePresented and completeInputHandoff both precede SDL's strict queue
+   // fence. Observe readiness in a later loop's idle callback, after that fence,
+   // only while the exact acquired origin accepts input. A dispatched action
+   // clears readiness; purely cosmetic work retains its live predecessor.
+   if(h.flow->canSave() && h.observedOrigin && handler.acceptsInputFrame(h.observedOrigin))settled=true;
+   if(done)quit();return idle();
+  },status);
   check(sent==80,"stress sender incomplete");return ok;
  };
  check(h.run(s,source,"stress")==0,"real clock application failed");

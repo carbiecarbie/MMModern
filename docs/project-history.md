@@ -376,6 +376,20 @@ Historical limitations in those plans describe their recorded boundaries.
   input, restart and later refusal-only visit acceptance passed. See the
   [Milestone 41 plan](milestone-41-plan.md#final-acceptance).
 
+## M42 - Bounded Ironworks equipment purchase
+
+- Connected actual generated Ironworks plain Weapons/Armor stock to carried-gold
+  payment, unequipped delivery, depletion, legal equipment and useful continued
+  combat, with repeated purchases and Repair sharing a valid once-only departure.
+- Added content-13 depleted-stock admission and exact envelope-v4/schema-9
+  continuation without wire changes or legacy upgrades, retaining Training,
+  original restock/interest/RNG and the earned production loot.
+- Build, full 135/135 serial CTest, original-reference/resource/process validation
+  and independent implementation ACCEPT passed. Separately, the maintainer
+  reported successful native-SDL walkthrough acceptance, observing permitted
+  static service illustrations and out-of-scope unanimated scenery torches.
+  See the [Milestone 42 plan](milestone-42-plan.md#final-acceptance).
+
 ## Maintaining this history
 
 Add one short section with 2-4 lasting-result bullets per completed milestone

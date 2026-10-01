@@ -34,6 +34,7 @@ add_library(mmodern_xeen STATIC
 	src/games/xeen/XeenMerchantGeneration.cpp
 	src/games/xeen/XeenServiceDay.cpp
 	src/games/xeen/XeenTraining.cpp
+	src/games/xeen/XeenEquipmentPurchase.cpp
 	src/games/xeen/XeenJourneyRules.cpp
 	src/games/xeen/XeenGameplayContext.cpp
 	src/games/xeen/XeenRegionalRules.cpp
@@ -160,6 +161,27 @@ endfunction()
 xeen_restore_replay(mmodern_journey_original)
 xeen_restore_replay(mmodern_regional_event_original)
 if(BUILD_TESTING)
+	add_executable(mmodern_equipment_purchase_rules_tests tests/XeenEquipmentPurchaseRulesTests.cpp)
+	target_link_libraries(mmodern_equipment_purchase_rules_tests PRIVATE mmodern_app mmodern_xeen)
+	add_test(NAME xeen_equipment_purchase_rules COMMAND mmodern_equipment_purchase_rules_tests "F:/Games/gog/Might and Magic 4-5")
+	set_tests_properties(xeen_equipment_purchase_rules PROPERTIES TIMEOUT 300)
+	add_test(NAME xeen_equipment_purchase_reference COMMAND mmodern_equipment_purchase_rules_tests "F:/Games/gog/Might and Magic 4-5" --reference "${SCUMMVM_SOURCE_DIR}")
+	set_tests_properties(xeen_equipment_purchase_reference PROPERTIES TIMEOUT 300)
+	add_executable(mmodern_purchase_flow_tests tests/XeenPurchaseFlowTests.cpp)
+	target_link_libraries(mmodern_purchase_flow_tests PRIVATE mmodern_app mmodern_xeen)
+	add_test(NAME xeen_purchase_flow COMMAND mmodern_purchase_flow_tests "F:/Games/gog/Might and Magic 4-5")
+	set_tests_properties(xeen_purchase_flow PROPERTIES TIMEOUT 300)
+	add_executable(mmodern_purchase_allocation_tests tests/XeenPurchaseAllocationTests.cpp)
+	target_link_libraries(mmodern_purchase_allocation_tests PRIVATE mmodern_app mmodern_xeen)
+	add_test(NAME xeen_purchase_allocation COMMAND mmodern_purchase_allocation_tests "F:/Games/gog/Might and Magic 4-5")
+	set_tests_properties(xeen_purchase_allocation PROPERTIES TIMEOUT 600)
+	add_executable(mmodern_purchase_input_tests tests/XeenPurchaseInputTests.cpp)
+	target_link_libraries(mmodern_purchase_input_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2)
+	target_link_options(mmodern_purchase_input_tests PRIVATE "LINKER:--wrap,SDL_GetTicks")
+	foreach(mode authority native controls)
+		add_test(NAME xeen_purchase_input_${mode} COMMAND mmodern_purchase_input_tests "F:/Games/gog/Might and Magic 4-5" ${mode})
+		set_tests_properties(xeen_purchase_input_${mode} PROPERTIES TIMEOUT 120)
+	endforeach()
 	add_executable(mmodern_training_rules_tests tests/XeenTrainingRulesTests.cpp)
 	target_link_libraries(mmodern_training_rules_tests PRIVATE mmodern_xeen)
 	add_test(NAME xeen_training_rules COMMAND mmodern_training_rules_tests)
@@ -202,6 +224,19 @@ if(BUILD_TESTING)
 	add_dependencies(mmodern_training_process_tests mmodern_m41_cli_witness)
 	add_test(NAME xeen_training_process COMMAND mmodern_training_process_tests $<TARGET_FILE:mmodern_m41_cli_witness> "F:/Games/gog/Might and Magic 4-5")
 	set_tests_properties(xeen_training_process PROPERTIES TIMEOUT 600)
+	add_executable(mmodern_m42_cli_witness src/main.cpp tests/XeenM42CliWitness.cpp tests/XeenRestoreReplayProbe.cpp)
+	target_link_libraries(mmodern_m42_cli_witness PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2 shell32 bcrypt)
+	target_link_options(mmodern_m42_cli_witness PRIVATE "LINKER:--wrap,_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjES5_ItE"
+		"LINKER:--wrap,_ZN7mmodern23xeenPrepareBankInterestERKNS_16XeenBankBalancesE"
+		"LINKER:--wrap,_ZN7mmodern24XeenEnemyAttackCandidateC1ERKSt5arrayINS_13XeenCharacterELy6EERKS1_INS_16XeenCombatInputsELy6EERKNS_17XeenMonsterRecordEjjRKS1_IbLy6EE"
+		"LINKER:--wrap,_ZN7mmodern27XeenPhysicalPlayerCandidateC1ERKNS_13XeenCharacterERKNS_16XeenCombatInputsERKNS_17XeenMonsterRecordEjjb")
+	xeen_restore_replay(mmodern_m42_cli_witness)
+	target_link_options(mmodern_m42_cli_witness PRIVATE "LINKER:--wrap,SDL_UpdateTexture" "LINKER:--wrap,SDL_RenderCopy")
+	add_executable(mmodern_purchase_process_tests tests/XeenPurchaseProcessTests.cpp)
+	target_link_libraries(mmodern_purchase_process_tests PRIVATE mmodern_app mmodern_xeen bcrypt)
+	add_dependencies(mmodern_purchase_process_tests mmodern_m42_cli_witness)
+	add_test(NAME xeen_purchase_process COMMAND mmodern_purchase_process_tests $<TARGET_FILE:mmodern_m42_cli_witness> "F:/Games/gog/Might and Magic 4-5")
+	set_tests_properties(xeen_purchase_process PROPERTIES TIMEOUT 1200)
 	add_executable(mmodern_service_economy_tests tests/XeenServiceEconomyTests.cpp)
 	target_link_libraries(mmodern_service_economy_tests PRIVATE mmodern_xeen bcrypt)
 	add_test(NAME xeen_service_economy COMMAND mmodern_service_economy_tests)

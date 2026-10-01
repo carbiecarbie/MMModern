@@ -14,6 +14,7 @@
 #include "games/xeen/XeenArmorRepair.h"
 #include "games/xeen/XeenServiceDay.h"
 #include "games/xeen/XeenTraining.h"
+#include "games/xeen/XeenEquipmentPurchase.h"
 
 namespace mmodern {
 class XeenItemCatalog;
@@ -149,7 +150,9 @@ public:
 private:
 	friend class XeenEventFlow;
 	friend struct XeenTrainingTestAccess;
+	friend struct XeenPurchaseTestAccess;
 	bool _trainingEventSettlement=false;
+	bool _smithEventSettlement=false;
     std::optional<Ticket> _castFrameTicket;
     IndexedFrame::Presentation _castFrame;
     std::uint64_t _castInput=0;
@@ -158,15 +161,34 @@ private:
     bool respondCombatCast(const PlayerAction &,std::uint64_t,const IndexedFrame::Presentation &,
         const std::function<XeenLearnedSpellNames()> &);
 
+	// Exact immutable value binding of the complete prepared obligation. This
+	// never generates stock and cannot adopt later provider-mutated candidates.
+	struct SmithDepartureBinding {
+		XeenGameplayContext beforeContext,endingContext;
+		XeenServiceEconomy beforeEconomy,endingEconomy;
+		XeenJourneyRandomState beforeRandom,endingRandom;
+		bool triggered;
+		explicit SmithDepartureBinding(const XeenServiceDayCandidate &day):
+			beforeContext(day.beforeContext()),endingContext(day.context()),beforeEconomy(day.beforeEconomy()),
+			endingEconomy(day.economy()),beforeRandom(day.beforeRandom()),endingRandom(day.continuation()),triggered(day.triggered()) {}
+		bool matches(const XeenServiceDayCandidate &day) const {
+			return day.complete() && beforeContext==day.beforeContext() && endingContext==day.context() &&
+				beforeEconomy==day.beforeEconomy() && endingEconomy==day.economy() &&
+				beforeRandom==day.beforeRandom() && endingRandom==day.continuation() && triggered==day.triggered();
+		}
+	};
 	struct SmithContinuation {
-		std::uint64_t lease=0, input=0, operation=0;
+		std::uint64_t lease=0, input=0, operation=0, reservation=0;
 		IndexedFrame::Presentation frame;
 		std::uint8_t owner=0, slot=0;
 		static constexpr auto category=XeenInventoryCategory::Armor;
-		bool quoted=false, departed=false;
+		bool quoted=false, departed=false, published=false, buy=false;
 		XeenArmorRepairCandidate result;
+		std::unique_ptr<XeenEquipmentPurchaseCandidate> purchase;
+		std::uint64_t quoteOperation=0, quoteReservation=0;
 		std::optional<XeenGameplayContext> legacyDeparture;
 		std::unique_ptr<XeenServiceDayCandidate> departure;
+		std::optional<SmithDepartureBinding> binding;
 	};
 	std::unique_ptr<SmithContinuation> _smith;
 	std::unique_ptr<SmithContinuation> _smithPreparation;
@@ -199,7 +221,11 @@ private:
 	void authorizeSmithFrame(std::uint64_t,const IndexedFrame::Presentation &);
 	bool consumeSmithFrame(std::uint64_t,const IndexedFrame::Presentation &);
 	void quoteSmith(std::size_t,std::size_t);
+	void quoteSmithBuy(std::size_t,XeenInventoryCategory,std::size_t);
 	void confirmSmith();
+	void confirmSmithBuy();
+	void advanceSmith() noexcept;
+	void checkSmithReservation();
 	void departSmith();
 	bool beginCasting(const Ticket &);
 	void authorizeCastingFrame(const Ticket &, std::uint64_t, const IndexedFrame::Presentation &);

@@ -35,7 +35,10 @@ void XeenSaveState::validateJourneyValues(const XeenSaveSnapshot &s) {
 	if (policy.armorRepair()) require(j.context && j.context->year==610 &&
 		j.context->day>=8 && j.context->day<=(policy.serviceDays() ? 99 : 10) && (j.context->day==8 || j.vertigoActors));
 	require(bool(j.serviceEconomy)==policy.serviceDays());
-	if (j.serviceEconomy) xeenValidateServiceEconomy(*j.serviceEconomy);
+	if (j.serviceEconomy) {
+		xeenValidateCurrentServiceEconomy(*j.serviceEconomy,j.contract);
+		if(j.context && j.context->day==8)xeenValidateServiceEconomy(*j.serviceEconomy);
+	}
 	if (j.contract>=3) {
 		require(s.resources.darkside && j.initializedMap==XeenMapIdentity(23) && j.originalActorCount==19 && j.actors.size()==19 &&
 			((s.camera.mapId==XeenMapIdentity(23) && s.camera.x>=0 && s.camera.x<16 && s.camera.y>=0 && s.camera.y<16) ||

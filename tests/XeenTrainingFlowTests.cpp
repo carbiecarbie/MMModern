@@ -1,4 +1,7 @@
 #include "XeenTrainingTestSupport.h"
+#include "XeenPurchaseTestSupport.h"
+#include "XeenM42Evidence.h"
+#include "games/xeen/XeenItemTransfer.h"
 #include <iostream>
 using namespace training_test;
 using save_test::rejects;
@@ -12,7 +15,7 @@ int main(int argc,char **argv) {
             s.characters[18].weapons={};s.characters[18].armor={};s.characters[18].accessories={};s.characters[18].miscellaneous={};
             const unsigned debit=bases[cls]*(1u<<(level==1?0:level-2));
             s.journey->supplements[18].inputs.experience=debit+1;s.journey->treasure->gold=10*level*level;
-            Fixture fixture(inputs,s);const auto delta=xeenPrepareTraining(fixture.p,18,*fixture.p.encounterContext);
+            Fixture fixture(inputs,s);const auto delta=xeenPrepareTraining(fixture.p,18,*fixture.p.encounterContext,fixture.w.sessionState().journeyContract());
             check(delta.result.outcome==XeenTrainingOutcome::Trained && delta.result.levelAfter==level+1 &&
                 delta.result.xpAfter==1 && delta.result.goldAfter==0 && delta.result.maxHpAfter==delta.result.hpAfter &&
                 delta.result.maxSpAfter==delta.result.spAfter,"class/level progression debit/remainder/exact funds/derived refill differs");
@@ -69,6 +72,116 @@ int main(int argc,char **argv) {
             }
             fixture.act(CancelInteractionAction{});check(fixture.flow->canSave() && fixture.p.encounterContext->day==(day>=97?99:day+3),"mandatory departure charged wrong day");
             const auto after=fixture.snapshot();Fixture restart(inputs,after);check(XeenSaveFormat::encode(after)==XeenSaveFormat::encode(restart.snapshot()),"post-training restore changed durable state");
+        }
+        // Synthetic successor checkpoint contains an actual seed-7 supported
+        // Armor deletion and physical delivered record. It must never be
+        // classified under legacy generated-only semantics during Training.
+        {
+            auto s=source;s.journey->contract=13;s.journey->context->day=9;
+            auto &stock=s.journey->serviceEconomy->wares[0][0][1];
+            for(unsigned slot=3;slot<8;++slot)stock[slot]=stock[slot+1];stock[8]={};
+            s.characters[0].armor[4]={0,3,0,0};s.journey->treasure->gold=670;
+            const XeenItem literal[6]={{0,6,0,0},{0,4,0,0},{0,6,0,0},{0,5,0,0},{40,8,0,0},{48,6,0,0}};
+            for(unsigned slot=0;slot<6;++slot)check(xeenSameItem(stock[slot],literal[slot]),"Training depleted literal differs");
+            Fixture fixture(inputs,s);save_test::sameSnapshot(s,fixture.snapshot());
+            rejects([&]{xeenPrepareTraining(fixture.p,18,*fixture.p.encounterContext,12);});
+            rejects([&]{xeenPrepareTraining(fixture.p,18,*fixture.p.encounterContext,11);});
+            check(xeenPrepareTraining(fixture.p,18,*fixture.p.encounterContext,13).result.outcome==XeenTrainingOutcome::Trained,
+                "actual successor Training candidate rejected depleted economy");
+            const auto before=*fixture.p.serviceEconomy;const auto cursor=*fixture.w.sessionState().journeyRandom();
+            fixture.enter();fixture.train(1);
+            check(fixture.p.encounterContext->day==10 && *fixture.p.serviceEconomy==before &&
+                *fixture.w.sessionState().journeyRandom()==cursor && fixture.p.monsterTreasure->gold==580 &&
+                xeenSameItem(fixture.p.roster.at(0).armor[4],{0,3,0,0}),"nontrigger successor Training changed depletion/delivery/RNG");
+            fixture.act(CancelInteractionAction{});
+            check(fixture.flow->canSave() && fixture.p.encounterContext->day==11 && fixture.p.serviceEconomy->wares!=before.wares &&
+                fixture.p.serviceEconomy->bank==before.bank && fixture.p.monsterTreasure->gold==580 &&
+                xeenSameItem(fixture.p.roster.at(0).armor[4],{0,3,0,0}),"successor Training trigger missed restock or changed bought inventory");
+            xeenValidateServiceEconomy(*fixture.p.serviceEconomy);
+            const auto settled=fixture.snapshot();check(settled.journey->schema==9 && settled.journey->contract==13,"Training silently remapped successor content");
+            Fixture restarted(inputs,settled);save_test::sameSnapshot(settled,restarted.snapshot());
+            restarted.enter();restarted.train(4);restarted.act(CancelInteractionAction{});
+            check(restarted.p.encounterContext->day==13 && restarted.p.serviceEconomy->wares==settled.journey->serviceEconomy->wares &&
+                *restarted.w.sessionState().journeyRandom()==*settled.journey->random,"postrestore successor Training changed nontrigger economy/RNG");
+        }
+        // Synthetic service addresses/XP/purse isolate the shared successor
+        // candidates. Both new-member days and the restock publish through
+        // actual Training, followed by actual Smith Buy on that exact stock.
+        {
+            auto s=source;s.journey->contract=13;s.journey->context->day=9;
+            auto &stock=s.journey->serviceEconomy->wares[0][0][1];
+            for(unsigned slot=3;slot<8;++slot)stock[slot]=stock[slot+1];stock[8]={};
+            s.characters[0].armor[4]={0,3,0,0};s.journey->treasure->gold=670;
+            s.journey->serviceEconomy->bank={199,100};
+            Fixture training(inputs,s);const auto depleted=*training.p.serviceEconomy;
+            const auto cursor=*training.w.sessionState().journeyRandom();
+            m42_test::StockOracle oracle{cursor.state,cursor.count,{}};
+            auto restocked=oracle.generate();restocked.bank={200,101};
+            training.enter();training.train(1);
+            check(training.p.encounterContext->day==10 && *training.p.serviceEconomy==depleted &&
+                *training.w.sessionState().journeyRandom()==cursor && training.p.monsterTreasure->gold==580,
+                "first successor member day changed depleted stock/RNG");
+            training.train(4);
+            check(training.p.encounterContext->day==11 && training.p.monsterTreasure->gold==490 &&
+                *training.p.serviceEconomy==restocked &&
+                *training.w.sessionState().journeyRandom()==XeenJourneyRandomState{1,oracle.state,oracle.count},
+                "second successor member day missed independently expected full restock/interest/RNG");
+            training.act(CancelInteractionAction{});
+            auto settled=training.snapshot();
+            check(settled.journey->context->day==12 && *settled.journey->serviceEconomy==restocked &&
+                xeenSameItem(settled.characters[0].armor[4],{0,3,0,0}),
+                "separate successor departure repeated restock or lost prior bought armor");
+            // A synthetic checkpoint address selects the other admitted service;
+            // every Training-published owner and resource value stays exact.
+            settled.camera={28,8,4,XeenDirection::West};
+            purchase_test::Fixture smith(inputs,settled);save_test::sameSnapshot(settled,smith.snapshot());
+            unsigned offerSlot=9;
+            for(unsigned slot=0;slot<8;++slot) {
+                const auto &item=restocked.wares[0][0][0][slot];
+                if(item.id>=1 && item.id<=33 && !item.material && !item.state && !item.frame){offerSlot=slot;break;}
+            }
+            check(offerSlot<8,"independent post-Training restock lacks a plain Weapon offer");
+            const auto offer=restocked.wares[0][0][0][offerSlot];
+            constexpr unsigned prices[]={50,15,100,80,40,60,1,10,150,30,60,8,50,100,15,30,15,200,80,250,150,400,100,40,120,300,100,200,300,25,100,50,15};
+            const unsigned price=prices[offer.id-1];
+            auto expected=settled;XeenItemCategory delivered{},removed{};unsigned recipient=0,retained=0;
+            for(const auto &item:settled.characters[0].weapons)if(item.id)delivered[recipient++]=item;
+            check(recipient<9,"synthetic post-Training recipient has no physical tail capacity");
+            delivered[recipient]=offer;
+            for(unsigned slot=0;slot<9;++slot)if(slot!=offerSlot && restocked.wares[0][0][0][slot].id)
+                removed[retained++]=restocked.wares[0][0][0][slot];
+            expected.characters[0].weapons=delivered;
+            expected.journey->serviceEconomy->wares[0][0][0]=removed;
+            expected.journey->treasure->gold=490-price;expected.journey->context->day=13;
+            smith.enter();smith.quote(XeenInventoryCategory::Weapons,offerSlot);smith.act(AcknowledgeAction{});
+            check(smith.p.monsterTreasure->gold==490-price &&
+                xeenSameItem(smith.p.roster.at(0).weapons[recipient],offer),
+                "Buy following actual successor Training/restock changed quote/payment/delivery");
+            smith.leave();save_test::sameSnapshot(expected,smith.snapshot());
+        }
+        // A real synthetic Buy settles before capture. A genuinely fresh owner
+        // restoration then repairs against the retained depleted economy.
+        {
+            auto s=purchase_test::service(inputs);
+            // Independently recorded original Arturius body armor is ID3,
+            // base200/divisor10 =20 gold (M27/M38 original-data contracts).
+            check(xeenSameItem(s.characters[0].armor[0],{0,3,0,3}),"original Arturius repair source differs");
+            s.characters[0].armor[0].state=128;
+            purchase_test::Fixture original(inputs,s);original.enter();original.purchaseArmor();original.leave();
+            const auto checkpoint=original.snapshot();
+            purchase_test::Fixture restored(inputs,checkpoint);save_test::sameSnapshot(checkpoint,restored.snapshot());
+            auto expected=checkpoint;expected.characters[0].armor[0].state=0;
+            expected.journey->treasure->gold=650;expected.journey->context->day=10;
+            restored.enter();restored.act(RevisitCompletedAction{});restored.act(SelectInventorySlotAction{0});
+            restored.act(AcknowledgeAction{});
+            check(XeenPurchaseTestAccess::text(*restored.flow).find("Repair price: 20 gold")!=std::string::npos,
+                "fresh-owner depleted Repair quote differs from literal base200/divisor10");
+            restored.act(AcknowledgeAction{});
+            check(restored.p.monsterTreasure->gold==650 && !restored.p.roster.at(0).armor[0].state &&
+                *restored.p.serviceEconomy==*checkpoint.journey->serviceEconomy &&
+                restored.w.sessionState().journeyRandom()==checkpoint.journey->random,
+                "fresh-owner depleted Repair lost exact twenty-gold repair/stock/RNG semantics");
+            restored.leave();save_test::sameSnapshot(expected,restored.snapshot());
         }
         // Every fallible publication/settlement hook, with committed prefixes.
         for(unsigned counter=0;counter<5;++counter) {

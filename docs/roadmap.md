@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M41 is the latest completed milestone.**
+**M42 is the latest completed and accepted milestone.**
 [Project status](project-status.md) owns implemented capabilities and acceptance
 boundaries; [project history](project-history.md) owns completed chronology.
 Reference provenance belongs to [dependencies](dependencies.md).
@@ -28,84 +28,28 @@ combat-owned learned casting, repeated service days with merchant/bank state,
 and earned Training progression ([M39](milestone-39-plan.md),
 [M40](milestone-40-plan.md), [M41](milestone-41-plan.md)).
 
-The post-M41 broad reassessment uses committed baseline
-`0c9877efb2e92bd8b6b1049c0d369cc13da2c7b9`. Its proposed direction below replaces
-the earlier unselected service candidates. **These choices require maintainer
-roadmap review; they are not maintainer approval, milestone specification or
-implementation authorization.**
+The maintainer accepted the post-M41 roadmap direction. M42 bounded Ironworks
+equipment purchase is now **COMPLETED AND ACCEPTED**; its scope, depleted-stock
+proof, exact 9/13 continuation and separate automated/reviewer/maintainer evidence
+belong in the [closed plan](milestone-42-plan.md). It is removed from future scope.
 
-M41 supports a prepared Journey across the map-23 mainland and twenty-eight
-Vertigo cells, with exact envelope-v4/schema-9/content-12 continuation. It does
-not provide normal original startup, unrestricted town services, a general
-calendar or broadly playable Clouds. Merchant wares have no player purchase
-consumer; learned books have no Guild acquisition; Training refill is selected
-and XP-dependent, preserves conditions and does not establish general recovery.
-See [current boundaries](project-status.md#current-boundaries).
+The prepared Journey still covers the map-23 mainland and twenty-eight Vertigo
+cells. Ordinary generated Weapons/Armor now have a purchase consumer. Normal
+original startup, unrestricted town services and general calendar/recovery remain
+outside support. Learned books have no Guild acquisition; Training refill is
+selected and XP-dependent and preserves conditions. See
+[current boundaries](project-status.md#current-boundaries).
 
 ## Near term
 
-### M42 - Bounded Ironworks equipment purchase
-
-**Selected next milestone for roadmap review; high confidence in this boundary.**
-Connect carried gold to a useful equipment upgrade through the already reachable
-original Ironworks. Purchase ordinary, unmodified Weapons and Armor whose effects
-are already supported, retain their depletion in party-owned merchant stock,
-then use the existing inventory/equipment controls and demonstrate the improvement
-in continued combat. This gives the M40 economy a player-visible consumer and
-makes equipment choice part of progression without requiring new spell/item
-semantics or a new town route.
-
-An independent acceptance boundary is: reach Ironworks through supported play,
-buy an affordable useful offer from actual generated stock, depart, transfer or
-equip it legally, continue combat, and save/restart with payment, inventory,
-remaining stock and subsequent service-day/RNG consequences exact. Repeated
-purchases, refusal/cancellation and a later restock must preserve that loop.
-Prepared Journey startup remains the boundary; synthetic stock or injected gold
-cannot substitute for the gameplay witness.
-
-The existing content-12 seed-7 initialization supplies plain weapon ID 6 and
-armor ID 3. Reference prices are 60 and 200 gold, respectively, against the
-prepared carried purse of 800. Tyro's existing weapon ID 2 has weaker base dice,
-and his armor ID 2 has a lower armor contribution. These are useful, affordable
-consumers now, rather than hypothetical effects of representable item bytes.
-This initialization evidence is distinct from physical gameplay acceptance.
-
-Major dependencies are existing Smith/Event/Service coordination, party/roster
-inventory and purse owners, M40 stock/time/RNG, and shared equipment and physical
-combat rules. Purchase pricing uses the reference Buy rule, which ignores
-Merchant skill; purchase capacity and subsequent class/equipment eligibility
-remain distinct. Preserve original item movement, unequipped delivery and
-compaction semantics. Purchase must atomically update purse, inventory and
-wares while retaining a valid departure reservation for the resulting owners;
-the repair-only departure preimage currently requires unchanged stock.
-Training's existing reservation/publication pattern demonstrates reusable
-coordination without introducing another scheduler or wallet.
-
-Current stock validation recognizes complete generated output, not depleted
-shops. M42 therefore requires explicit successor content admission and validated
-post-purchase stock, including restore. Existing schema-9 storage appears
-sufficient for settled purchases; this is not permission to weaken legacy
-validation or silently upgrade saves. The specification must settle depleted
-stock validity and departure interaction before implementation. New durable
-provenance, if proved necessary, requires an explicit schema decision and review.
-
-Exclude Sell, Merchant-skill acquisition, Identify, bank menus, other shops,
-modified equipment/effect expansion, miscellaneous item spells, Guild, Temple,
-normal startup and wider travel. Unsupported offers retain honest boundaries;
-do not manufacture or replace stock to guarantee a purchase. This milestone
-precedes the strongest alternatives because it has useful existing offers,
-existing effect consumers and an accepted route, while also exercising durable
-stock mutation needed by later shops. Its value is not measured by changed lines.
-
-### Proposed short arc - equip, recover, then test wider admission
+### Remaining short arc - recover, then test wider admission
 
 The near-term objective is to improve the current connected Journey's capacity
 to venture further, rather than accumulate a fixed list of town menus.
 
 | Unit | Purpose and independently acceptable boundary | Dependency and confidence |
 | --- | --- | --- |
-| **M42: Ironworks equipment purchase** | Buy, equip/use and retain an actual improvement through departure, combat and restart. | Selected above; high confidence. No Sell prerequisite is demonstrated. |
-| **M43 candidate: bounded Vertigo Temple Heal and resurrection** | Bring an injured/conditioned member, or a supported Dead member with a surviving party, through an admitted approach; pay for selected recovery, depart, resume useful play and retain consequences through restart. | Provisional; medium confidence in the recovery value and reuse, lower confidence in the exact route/actor boundary. Reuse M42's mutated-stock compatibility and existing service/publication owners. It can be independently useful even if M42 ordering changes. |
+| **M43 candidate: bounded Vertigo Temple Heal and resurrection** | Bring an injured/conditioned member, or a supported Dead member with a surviving party, through an admitted approach; pay for selected recovery, depart, resume useful play and retain consequences through restart. | Provisional; medium confidence in the recovery value and reuse, lower confidence in the exact route/actor boundary. Reuse M42's mutated-stock compatibility and existing service/publication owners. M42 completion does not settle its unresolved scope or authorize implementation. |
 | **Following unit: connected Clouds content expansion** | Add a useful connected area with original encounters or an interaction, retained consequences, return to the established hub and exact restart. | Direction only; no M44/map/dungeon is selected. Recovery, time, actor profiles and region representation must support the chosen witness. |
 
 Temple Heal supplies a recovery path for admitted Disease and Dead states.
@@ -134,9 +78,9 @@ Do not promise a sustainable SP loop from these two milestones. After M42 and
 the recovery candidate, reassess the next unit before selecting its plan. Prefer
 connected content that mostly composes established systems. If lack of repeatable
 SP/food/rest or ordinary time processing prevents an honest exploration witness,
-select that narrowly justified foundation first. This is why only two milestone
-boundaries are proposed now, with the third determined by play and focused
-route evidence rather than an arbitrary service sequence.
+select that narrowly justified foundation first. The recovery candidate remains
+provisional; the following unit is determined
+by play and focused route evidence under the accepted review cadence.
 
 ## Decision evidence and alternatives
 
@@ -144,7 +88,8 @@ Repository code/tests establish implemented behavior; the closed plans establish
 accepted scope. Original-resource inspection confirms the service addresses,
 not reachability or new gameplay acceptance. Reference interpretation uses only
 ScummVM [6814ee9b](https://github.com/scummvm/scummvm/tree/6814ee9ba54582f5b5adcffab49efbbd8f589edd).
-There is no new DOS observation or physical acceptance claim in this assessment.
+The post-M41 assessment below added no DOS observation or physical acceptance;
+M42's later acceptance is recorded in its closed plan.
 
 - **Buy:** [merchant generation](../src/games/xeen/XeenMerchantGeneration.cpp)
   and [initialization coverage](../tests/XeenServiceDayInitializationTests.cpp)
@@ -155,8 +100,9 @@ There is no new DOS observation or physical acceptance claim in this assessment.
   equipment from unsupported modified records. Pinned
   [ItemsDialog::calcItemCost/doItemOptions](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/dialogs/dialogs_items.cpp)
   establishes Buy price, capacity, unequipped transfer and stock removal.
-  [Stock validation](../src/games/xeen/XeenServiceEconomy.cpp) must evolve for
-  depletion under a new content contract; generation is not already trading.
+  [Stock validation](../src/games/xeen/XeenServiceEconomy.cpp) now admits bounded
+  purchase depletion only under content 13, separately from strict generation.
+  The [closed M42 contract](milestone-42-plan.md) owns that completed boundary.
 - **Broader equipment/item use:** modified weapons/armor and miscellaneous
   effects would make more loot and stock useful. Physical item bytes, catalog,
   transfer/equipment and selected antidote consumption already exist; elemental
@@ -248,7 +194,7 @@ indoor projection, ordinary object ordering, world-owned actor scheduling and
 lifecycle, supported combat/reward rules, original Event selection/resumption,
 flags/quest counters, roster inventory/equipment, learned casting, derived
 progression, service coordination, merchant generation and guarded exact restart.
-The M39-M41 arc demonstrates cross-system reuse, not unrestricted admission.
+The M39-M41 arc and M42 demonstrate cross-system reuse, not unrestricted admission.
 
 **Intentional gates:**
 [XeenJourneyContent](../src/games/xeen/XeenJourneyContent.h) explicitly selects

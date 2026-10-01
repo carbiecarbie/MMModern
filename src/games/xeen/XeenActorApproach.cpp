@@ -387,6 +387,7 @@ XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenP
 			XeenConsequenceDraw draw{preparedRandom,64,world._combatCheck};
 			stock.service(draw);
 		}
+		xeenValidateMerchantWares(stock.wares());
 		candidate.serviceEconomy=XeenServiceEconomy{stock.wares(),*bank};
 	}
 	if (contract>=3) xeenValidateJourneyParty(candidate,contract);

@@ -38,8 +38,10 @@ XeenTrainingResult xeenQuoteTraining(const XeenCharacter &c,const XeenCombatInpu
         gold<r.cost?XeenTrainingOutcome::InsufficientGold:XeenTrainingOutcome::Quoted;
     return r;
 }
-XeenTrainingCandidate xeenPrepareTraining(const XeenPartyState &party,std::uint8_t owner,const XeenGameplayContext &context) {
-    xeenValidateJourneyParty(party,12);
+XeenTrainingCandidate xeenPrepareTraining(const XeenPartyState &party,std::uint8_t owner,const XeenGameplayContext &context,
+        std::uint16_t content) {
+    if(content!=12 && content!=13)throw std::invalid_argument("Unsupported Training content");
+    xeenValidateJourneyParty(party,content);
     if(owner>=30 || !party.roster.combatInputs(owner) || !party.monsterTreasure)
         throw std::invalid_argument("Missing Training owner");
     XeenTrainingCandidate candidate;

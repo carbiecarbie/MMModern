@@ -29,8 +29,14 @@ int main(int argc,char **argv) {
     try {
         check(argc==2,"usage: training-original <original-installation>");const auto installation=XeenInstallationDetector().detect(argv[1]);
         check(bool(installation),"original installation absent");Inputs in(*installation);auto base=in.base();
+        auto successor=in.base(13),expected=base;expected.journey->contract=13;
+        save_test::sameSnapshot(expected,successor);
+        check(successor.journey->schema==9 && successor.journey->contract==13 &&
+            *successor.journey->random==XeenJourneyRandomState{1,1652828136u,901} &&
+            successor.journey->treasure->gold==800 && successor.journey->treasure->gems==10 &&
+            successor.journey->serviceEconomy->bank==XeenBankBalances{0,0},"fresh successor changed independently recorded seed-7 initialization");
         const auto original=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,28),in.statistics);
-        xeenValidateVertigoRoute(in.mainland,in.city,12);xeenValidateTrainingSource(in.chr);
+        xeenValidateVertigoRoute(in.mainland,in.city,12);xeenValidateVertigoRoute(in.mainland,in.city,13);xeenValidateTrainingSource(in.chr);
         std::vector<unsigned> sites{0,3,538,539};
         for(unsigned n=760;n<=813;++n)sites.push_back(n);
         for(unsigned n=816;n<=846;++n)sites.push_back(n);

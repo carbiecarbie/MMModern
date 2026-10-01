@@ -433,7 +433,7 @@ XeenSaveSnapshot journeyWire(std::uint16_t contract) {
 	}
 	if (contract >= 4) j.treasure.emplace();
 	if (contract >= 6) j.regionalRecovery.emplace();
-	if (contract == 11 || contract == 12) j.serviceEconomy=literalMerchantEconomy();
+	if (contract == 11 || contract == 12 || contract == 13) j.serviceEconomy=literalMerchantEconomy();
 	return s;
 }
 
@@ -466,15 +466,15 @@ void ironworksWireContract() {
 		check(restored.journey->treasure->gold == 0xffffffffU && restored.journey->treasure->dormant() &&
 			XeenSaveFormat::encode(restored) == bytes, "Ironworks full-u32 purse/dormant treasure changed");
 	}
-	for (unsigned contract=1; contract<=12; ++contract) {
+	for (unsigned contract=1; contract<=13; ++contract) {
 		const auto bytes = XeenSaveFormat::encode(journeyWire(contract));
 		const auto decoded = XeenSaveFormat::decode(bytes);
 		check(decoded.journey->contract == contract && decoded.journey->schema == xeenJourneyContent(contract).schema(),
 			"supported pair changed on decode");
 		check(XeenSaveFormat::encode(decoded) == bytes, "legacy/successor bytes changed on recapture");
 	}
-	for (unsigned schema=0; schema<=11; ++schema) for (unsigned contract=0; contract<=13; ++contract) {
-		const bool supported = (schema >= 1 && schema <= 8 && schema == contract) || (schema == 8 && (contract == 9 || contract == 10)) || (schema == 9 && (contract == 11 || contract == 12));
+	for (unsigned schema=0; schema<=11; ++schema) for (unsigned contract=0; contract<=14; ++contract) {
+		const bool supported = (schema >= 1 && schema <= 8 && schema == contract) || (schema == 8 && (contract == 9 || contract == 10)) || (schema == 9 && (contract == 11 || contract == 12 || contract == 13));
 		if (supported) continue;
 		auto invalid = journeyWire(9);
 		invalid.journey->schema = schema; invalid.journey->contract = contract;
@@ -536,7 +536,7 @@ void ironworksWireContract() {
 }
 
 void serviceEconomyWireContract() {
-	for(unsigned content:{11u,12u}) {
+	for(unsigned content:{11u,12u,13u}) {
 	auto s=journeyWire(content);
 	for(unsigned owner=0;owner<30;++owner) {
 		(*s.characters[owner].learnedSpells)[owner%39]=255-owner;
@@ -621,12 +621,52 @@ void serviceEconomyWireContract() {
 	for(unsigned day:{9u,11u,99u}) {auto state=s;state.journey->context->day=day;rejects([&]{XeenSaveFormat::encode(state);},"retained city");}
 	}
 }
+void purchaseDepletedWireContract() {
+	auto state=journeyWire(13);state.camera={28,8,4,XeenDirection::West};state.journey->vertigoActors.emplace();
+	for(unsigned owner=0;owner<46;++owner){XeenSaveJourneyActor a;a.id={28,owner};state.journey->vertigoActors->push_back(a);}
+	const auto complete=XeenSaveFormat::encode(state);
+	const auto economyOffset=complete.size()-1164,start=complete.size()-5156;
+	check(complete[8]==4 && complete[start+1]==9 && complete[start+3]==13,"purchase selector/extent differs");
+	// Literal eight L1 Weapon source from twenty Weapon calls. Removing one
+	// inserted plain record leaves seven; old generated-only meaning rejects it.
+	state.journey->serviceEconomy->wares[0][0][0][7]={};
+	rejects([&]{XeenSaveFormat::encode(state);}); // Quiet saved day8 must be complete.
+	state.journey->context->day=9;
+	const auto depleted=XeenSaveFormat::encode(state);
+	auto expected=complete;
+	// Journey context starts after six domain/schema/content/entry bytes,
+	// then profile/difficulty/ctr24 and the little-endian day.
+	// Obtain no offsets from the production encoder's internals.
+	const auto dayOffset=start+10;
+	check(expected[dayOffset]==8 && expected[dayOffset+1]==0,"literal schema9 day offset differs");
+	expected[dayOffset]=9;
+	std::fill(expected.begin()+economyOffset+4+7*4,expected.begin()+economyOffset+4+8*4,0);
+	fixIndependentEnvelope(expected);
+	check(expected==depleted,"purchase retained schema9 bytes differ from literal deletion/day recipe");
+	sameSnapshot(state,XeenSaveFormat::decode(expected));
+	for(unsigned day:{9u,10u,11u,98u,99u}) {
+		state.journey->context->day=day;XeenSaveFormat::validate(state);
+		const auto bytes=XeenSaveFormat::encode(state);sameSnapshot(state,XeenSaveFormat::decode(bytes));
+	}
+	for(unsigned legacy:{11u,12u}) {
+		auto rejected=state;rejected.journey->contract=legacy;
+		rejects([&]{XeenSaveFormat::encode(rejected);});
+		auto bytes=depleted;bytes[start+3]=legacy;fixIndependentEnvelope(bytes);
+		rejects([&]{XeenSaveFormat::decode(bytes);});
+	}
+	auto day8=depleted;day8[dayOffset]=8;fixIndependentEnvelope(day8);
+	rejects([&]{XeenSaveFormat::decode(day8);});
+	for(unsigned category:{2u,3u})for(unsigned slot=0;slot<9;++slot) {
+		auto bad=depleted;bad[economyOffset+4+category*36+slot*4+1]=255;fixIndependentEnvelope(bad);
+		rejects([&]{XeenSaveFormat::decode(bad);});
+	}
+}
 
 } // namespace
 
 int main() {
 	try {
-		wireContract(); asymmetricV2(); v3WireContract(); completeRoundTrips(); numericDomains(); malformedBytes(); invalidValuesAndLimits(); fingerprints(); ironworksWireContract(); serviceEconomyWireContract();
+		wireContract(); asymmetricV2(); v3WireContract(); completeRoundTrips(); numericDomains(); malformedBytes(); invalidValuesAndLimits(); fingerprints(); ironworksWireContract(); serviceEconomyWireContract(); purchaseDepletedWireContract();
 		std::cout << "M20A save format: wire contract, all modeled values, domains, malformed input and fingerprints passed\n";
 		return 0;
 	} catch (const std::exception &error) {

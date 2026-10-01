@@ -23,7 +23,7 @@ void xeenValidateJourneyParty(const XeenPartyState &party, std::uint16_t contrac
 	require(bool(party.monsterTreasure) == (consequences), "Journey consequence presence mismatch");
 	require(bool(party.regionalRecovery) == xeenJourneyContent(contract).connectedRecovery(), "Journey recovery presence mismatch");
 	require(bool(party.serviceEconomy) == xeenJourneyContent(contract).serviceDays(), "Journey service-economy presence mismatch");
-	if (party.serviceEconomy) xeenValidateMerchantWares(party.serviceEconomy->wares);
+	if (party.serviceEconomy) xeenValidateCurrentServiceEconomy(*party.serviceEconomy,contract);
 	if (party.monsterTreasure) xeenValidateMonsterTreasure(*party.monsterTreasure, contract);
 	const auto &context = *party.encounterContext;
 	if (xeenJourneyContent(contract).armorRepair())

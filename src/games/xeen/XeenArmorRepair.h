@@ -8,7 +8,7 @@
 namespace mmodern {
 enum class XeenSmithBoundary { BeforeAdmission, AfterAdmission, Quote, BeforeRepair, AfterRepair, BeforeDeparture, AfterDeparture, Return,
 	BeforeReservation, AfterReservation, StockComplete, BankPrepared, BeforeEventSettlement, AfterEventSettlement,
-	DeparturePublished };
+	DeparturePublished, BeforePurchase, AfterPurchase, BeforeRebind, AfterRebind };
 // Checked finite authority arithmetic; this confers neither frame nor owner
 // authority. Reserve the entire owed suffix before consuming another revision.
 inline bool xeenSmithAuthorityRoom(std::uint64_t generation,unsigned remaining) noexcept {
@@ -20,6 +20,9 @@ struct XeenArmorRepairCandidate {
 	XeenItem before{}, after{};
 	std::uint32_t price=0, goldBefore=0, goldAfter=0;
 };
+// ScummVM GPL-3.0-or-later armor base costs, in physical ID order. Repair
+// applies its divisor separately; the content-13 plain Buy rule uses divisor 1.
+inline constexpr std::array<std::uint32_t,13> kXeenArmorBaseCosts{{20,100,200,400,600,1000,2000,100,60,40,250,200,100}};
 // Pure detached values. Publication and owner/frame authority belong to Flow.
 // Armor costs and divisor adapted from ScummVM developers' GPL-3.0-or-later
 // constants.cpp / ItemsDialog::calcItemCost, revision
@@ -32,8 +35,7 @@ inline XeenArmorRepairCandidate xeenQuoteArmorRepair(XeenInventoryCategory categ
 	if (!item.id) { result.outcome=XeenArmorRepairOutcome::Empty;return result; }
 	if (item.id>13 || (item.material!=0 && item.material!=38)) return result;
 	if (!(item.state&0x80)) { result.outcome=XeenArmorRepairOutcome::Intact;return result; }
-	static constexpr std::array<std::uint32_t,13> costs{{20,100,200,400,600,1000,2000,100,60,40,250,200,100}};
-	const std::uint64_t base=costs[item.id-1];
+	const std::uint64_t base=kXeenArmorBaseCosts[item.id-1];
 	result.price=static_cast<std::uint32_t>(std::max<std::uint64_t>(1,(item.material==38?base/4:base)/10));
 	result.outcome=XeenArmorRepairOutcome::Quoted;
 	return result;
@@ -48,8 +50,8 @@ inline XeenArmorRepairCandidate xeenPrepareArmorRepair(const XeenItem &item,std:
 }
 inline std::optional<XeenGameplayContext> xeenPrepareSmithDeparture(
 		const XeenGameplayContext &before,std::uint16_t content) {
-	if ((content!=9 && content!=10 && content!=11 && content!=12) || !xeenRegionalContext(before) || before.year!=610 ||
-		before.day<8 || before.day>((content==11 || content==12) ? 98 : 9)) return {};
+	if ((content!=9 && content!=10 && content!=11 && content!=12 && content!=13) || !xeenRegionalContext(before) || before.year!=610 ||
+		before.day<8 || before.day>((content==11 || content==12 || content==13) ? 98 : 9)) return {};
 	auto after=before;after.day=static_cast<std::uint16_t>(before.day+1);
 	return after;
 }

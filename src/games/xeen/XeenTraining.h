@@ -25,7 +25,8 @@ struct XeenTrainingCandidate {
 };
 XeenTrainingResult xeenQuoteTraining(const XeenCharacter &,const XeenCombatInputs &,std::uint32_t gold,
     const XeenGameplayContext &);
-XeenTrainingCandidate xeenPrepareTraining(const XeenPartyState &,std::uint8_t owner,const XeenGameplayContext &);
+XeenTrainingCandidate xeenPrepareTraining(const XeenPartyState &,std::uint8_t owner,const XeenGameplayContext &,
+    std::uint16_t content);
 void xeenValidateTrainingSource(const std::vector<std::uint8_t> &);
 }
 #endif

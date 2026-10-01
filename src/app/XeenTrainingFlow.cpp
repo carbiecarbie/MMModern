@@ -40,12 +40,13 @@ bool XeenEncounterFlow::beginTraining(const std::function<void()> &preflight) {
         !xeenJourneyContent(_world.sessionState().journeyContract()).training() ||
         _camera.mapId!=XeenMapIdentity(28) || _camera.x!=10 || _camera.y!=11 || !smithCapacity(17,4))return false;
     TrainingBusy busy(_busy);_journeyPreimage->check();
-    if(!xeenPrepareSmithDeparture(*_party.encounterContext,12))return false;
-    xeenValidateJourneyParty(_party,12);
+    const auto content=_world.sessionState().journeyContract();
+    if(!xeenPrepareSmithDeparture(*_party.encounterContext,content))return false;
+    xeenValidateJourneyParty(_party,content);
     checkTrainingBoundary(XeenTrainingBoundary::BeforeReservation);
     auto next=std::make_unique<TrainingContinuation>();next->owner=_party.party.activeRosterIds().front();
     next->departure=std::make_unique<XeenServiceDayCandidate>(*_party.encounterContext,*_party.serviceEconomy,
-        *_world.sessionState().journeyRandom(),12);
+        *_world.sessionState().journeyRandom(),content);
     checkTrainingBoundary(XeenTrainingBoundary::BeforeAdmission);
     try {XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);preflight();_journeyPreimage->check();}
     catch(...){_journeyPreimage->check();throw;}
@@ -59,7 +60,7 @@ bool XeenEncounterFlow::serviceTrainingPreparation() {
     if(!day.service(64,[&]{_journeyPreimage->check();},[&]{checkTrainingBoundary(XeenTrainingBoundary::StockComplete);}))return false;
     checkTrainingBoundary(XeenTrainingBoundary::BankPrepared);
     if(!matches(day,_party,_world)){_journeyPreimage->failed=true;throw std::logic_error("Training reservation preimage changed");}
-    xeenValidateServiceEconomy(day.economy());
+    xeenValidateCurrentServiceEconomy(day.economy(),_world.sessionState().journeyContract());
     _trainingPreparation->lease=_boundary.hold(XeenCombatBoundary::Work::Service);
     _training=std::move(_trainingPreparation);_world._sessionState._journeyActivity=XeenJourneyActivity::Service;
     advanceTraining();checkTrainingBoundary(XeenTrainingBoundary::AfterAdmission);return true;
@@ -78,12 +79,13 @@ bool XeenEncounterFlow::consumeTrainingFrame(std::uint64_t input,const IndexedFr
 void XeenEncounterFlow::quoteTraining(std::size_t member) {
     if(!_training || _busy || _training->frame || member>=_party.party.size() || !smithCapacity(17,4) ||
         !xeenSmithAuthorityRoom(_training->operation,1))throw std::logic_error("Training quote authority unavailable");
-    TrainingBusy busy(_busy);_journeyPreimage->check();xeenValidateJourneyParty(_party,12);
+    TrainingBusy busy(_busy);_journeyPreimage->check();
+    const auto content=_world.sessionState().journeyContract();xeenValidateJourneyParty(_party,content);
     const auto owner=_party.party.activeRosterIds()[member];
     auto result=xeenQuoteTraining(_party.roster.at(owner),*_party.roster.combatInputs(owner),
         _party.monsterTreasure->gold,*_party.encounterContext);
     if(result.outcome==XeenTrainingOutcome::Quoted && !_training->trained.test(owner) &&
-        !xeenPrepareSmithDeparture(_training->departure->context(),12))result.outcome=XeenTrainingOutcome::Capacity;
+        !xeenPrepareSmithDeparture(_training->departure->context(),content))result.outcome=XeenTrainingOutcome::Capacity;
     _training->owner=owner;_training->result=result;_training->quoted=result.outcome==XeenTrainingOutcome::Quoted;
     _training->published=false;++_training->operation;advanceTraining();checkTrainingBoundary(XeenTrainingBoundary::Quote);
 }
@@ -95,18 +97,19 @@ void XeenEncounterFlow::confirmTraining() {
         _journeyPreimage->failed=true;throw std::logic_error("Mandatory Training departure changed");
     }
     const bool newMember=!_training->trained.test(_training->owner);
+    const auto content=_world.sessionState().journeyContract();
     const auto &context=newMember?_training->departure->context():*_party.encounterContext;
-    auto delta=std::make_unique<XeenTrainingCandidate>(xeenPrepareTraining(_party,_training->owner,context));
+    auto delta=std::make_unique<XeenTrainingCandidate>(xeenPrepareTraining(_party,_training->owner,context,content));
     if(delta->result.outcome!=XeenTrainingOutcome::Trained) {
         _journeyPreimage->failed=true;throw std::logic_error("Training quoted owner preimage changed");
     }
     std::unique_ptr<XeenServiceDayCandidate> replacement;
     if(newMember) {
-        if(!xeenPrepareSmithDeparture(context,12)) {
+        if(!xeenPrepareSmithDeparture(context,content)) {
             _training->result.outcome=XeenTrainingOutcome::Capacity;_training->quoted=false;advanceTraining();return;
         }
         replacement=std::make_unique<XeenServiceDayCandidate>(context,_training->departure->economy(),
-            _training->departure->continuation(),12);
+            _training->departure->continuation(),content);
     }
     _journeyPreimage->check();_training->pending=std::move(delta);_training->nextDeparture=std::move(replacement);
     _training->quoted=false;advanceTraining();
@@ -130,7 +133,7 @@ bool XeenEncounterFlow::serviceTrainingLevel() {
             visit.nextDeparture->beforeRandom()!=visit.departure->continuation()) {
             _journeyPreimage->failed=true;throw std::logic_error("Replacement Training departure changed");
         }
-        xeenValidateServiceEconomy(visit.nextDeparture->economy());
+        xeenValidateCurrentServiceEconomy(visit.nextDeparture->economy(),_world.sessionState().journeyContract());
     }
     if(!smithCapacity(17,4))throw std::overflow_error("Training publication would consume mandatory settlement authority");
     const auto &delta=*visit.pending;
@@ -202,7 +205,7 @@ void XeenEventFlow::prepareTraining() {
         _encounter->_trainingBoundary=[this](XeenTrainingBoundary stage){if(trainingBoundary)trainingBoundary(stage);};
         const bool admitted=_encounter->beginTraining([&] {
             if(!drawTrainingArt)throw std::runtime_error("Training artwork provider unavailable");
-            xeenValidateVertigoRoute(_events.scriptForMap(23).file(),_events.scriptForMap(28).file(),12);
+            xeenValidateVertigoRoute(_events.scriptForMap(23).file(),_events.scriptForMap(28).file(),_world.sessionState().journeyContract());
             const auto text=_events.textForMap(28);_encounter->journeySavePreimage().admitVertigoText(text);
             TrainingUi ui;ui.title=text.strings.at(32);ui.art=_frame;
             try {drawTrainingArt(ui.art);}catch(const std::invalid_argument &){_encounter->journeySavePreimage().failed=true;throw;}

@@ -203,9 +203,12 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 			"unsupported Journey domain/schema/contract");
 		const bool cityRepresentation = j.schema == 8 || j.schema == 9;
 		require(bool(j.serviceEconomy) == (j.schema == 9), "Journey economy presence mismatch");
-		if (j.serviceEconomy) xeenValidateServiceEconomy(*j.serviceEconomy);
+		if (j.serviceEconomy) xeenValidateCurrentServiceEconomy(*j.serviceEconomy,j.contract);
 		require(bool(j.regionalRecovery) == (j.schema >= 6), "Journey recovery presence mismatch");
 		require(j.context.has_value(), "missing Journey context");
+		// No admitted Smith visit settles on its entry day. Day-8 Quiet state
+		// therefore still requires a complete generation even for content 13.
+		if(j.serviceEconomy && j.context->day==8)xeenValidateServiceEconomy(*j.serviceEconomy);
 		require(j.context->profile == XeenBehaviorProfile::WorldOfXeenClouds &&
 			(j.context->difficulty == XeenDifficulty::Adventurer || j.context->difficulty == XeenDifficulty::Warrior),
 			"invalid Journey context enum");

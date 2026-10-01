@@ -54,13 +54,19 @@ int main() {
             rejects([&]{xeenValidateTrainingSource(bytes);});
         }
         xeenValidateTrainingSource(std::vector<std::uint8_t>(10620));
-        check(xeenSupportedJourneyPair(9,12) && !xeenSupportedJourneyPair(8,12) && !xeenSupportedJourneyPair(9,13),"content pair broadened");
+        check(xeenSupportedJourneyPair(9,12) && xeenSupportedJourneyPair(9,13) &&
+            !xeenSupportedJourneyPair(8,12) && !xeenSupportedJourneyPair(8,13) && !xeenSupportedJourneyPair(10,13),"content pair differs");
         unsigned cells=0;
         for(int y=0;y<32;++y)for(int x=0;x<32;++x)cells+=xeenJourneyContent(12).vertigoCell(x,y);
         check(cells==28 && !xeenJourneyContent(11).vertigoCell(10,11) && !xeenJourneyContent(11).training(),"Training route/capability leaked");
-        for(unsigned content:{9u,10u,11u,12u})for(unsigned day:{9u,10u,97u,98u,99u}) {
+        for(int y=0;y<32;++y)for(int x=0;x<32;++x)
+            check(xeenJourneyContent(13).vertigoCell(x,y)==xeenJourneyContent(12).vertigoCell(x,y),"purchase route differs from Training route");
+        check(xeenJourneyContent(13).equipmentPurchase() && xeenJourneyContent(13).training() &&
+            xeenJourneyContent(13).serviceDays() && xeenJourneyContent(13).armorRepair() &&
+            xeenJourneyContent(13).combatCasting() && !xeenJourneyContent(12).equipmentPurchase(),"purchase capability selection differs");
+        for(unsigned content:{9u,10u,11u,12u,13u})for(unsigned day:{9u,10u,97u,98u,99u}) {
             context.day=day;const auto next=xeenPrepareSmithDeparture(context,content);
-            check(bool(next)==(day<=((content==11 || content==12)?98u:9u)),"legacy service date semantics changed");
+            check(bool(next)==(day<=((content==11 || content==12 || content==13)?98u:9u)),"legacy service date semantics changed");
         }
         context.day=97;XeenServiceEconomy economy;XeenJourneyRandomState rng{1,7,0};
         XeenCombatRandom generation(rng);XeenMerchantStockCandidate stock;

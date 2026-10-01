@@ -246,6 +246,17 @@ redistribution. No merchant stock tables or commercial assets are embedded.
 The exact bounded dispatch, prices and separate departure operation belong in
 [M38's contract](milestone-38-plan.md).
 
+`XeenEquipmentPurchase.cpp` additionally adapts the thirty-three ordinary
+weapon base costs from `LangConstants::WEAPON_BASE_COSTS` and the Buy divisor-0
+rule in `ItemsDialog::calcItemCost` at the same pinned revision. Armor Buy uses
+the shared thirteen-entry armor base-cost table, without Repair's divisor or
+material adjustment. These private numeric adaptations and rules remain
+ScummVM GPL-3.0-or-later-derived material attributed to the ScummVM developers
+in upstream `COPYRIGHT`; preserve their notices and corresponding source in
+redistributions. They embed no commercial resource or modifier/effect table.
+The plain-offer domain, immutable browsing adaptation, physical movement and
+content-specific stock admission belong in [M42's contract](milestone-42-plan.md).
+
 ## Bounded actor interpretation and approach provenance
 
 The 26A parser and approach adaptation use ScummVM

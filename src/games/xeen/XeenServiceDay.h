@@ -1,6 +1,7 @@
 #ifndef MMODERN_XEEN_SERVICE_DAY_H
 #define MMODERN_XEEN_SERVICE_DAY_H
 #include "games/xeen/XeenMerchantGeneration.h"
+#include "games/xeen/XeenItemCatalog.h"
 namespace mmodern {
 // The reference changed-day/charge predicate is arithmetic only. This grants
 // no admission to multi-day calls, other modes or calendar advancement.
@@ -21,12 +22,19 @@ public:
 	const XeenGameplayContext &context() const noexcept { return endingContext; }
 	const XeenServiceEconomy &economy() const noexcept { return endingEconomy; }
 	XeenJourneyRandomState continuation() const { return random.continuation(); }
+	void validateComplete() const;
+	// Narrow relation for an already complete content-13 Smith departure. It
+	// preserves the existing reservation while copying/validating a replacement;
+	// the Flow supplies and atomically publishes its checked identity increment.
+	XeenServiceDayCandidate rebindPurchase(const XeenServiceEconomy &after,
+		XeenInventoryCategory,std::size_t slot,const XeenItem &expected) const;
 private:
 	XeenGameplayContext originalContext,endingContext;
 	XeenServiceEconomy originalEconomy,endingEconomy;
 	XeenJourneyRandomState originalRandom;
 	XeenCombatRandom random;
 	XeenMerchantStockCandidate stock;
+	std::uint16_t content;
 	bool regenerating=false,completed=false;
 };
 }

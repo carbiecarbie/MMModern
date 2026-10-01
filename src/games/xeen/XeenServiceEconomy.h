@@ -37,6 +37,11 @@ struct XeenServiceEconomy {
 bool xeenPossibleMerchantItem(unsigned level,unsigned category,const XeenItem &) noexcept;
 void xeenValidateMerchantWares(const XeenMerchantWares &);
 inline void xeenValidateServiceEconomy(const XeenServiceEconomy &v) { xeenValidateMerchantWares(v.wares); }
+// Current-state admission is content-specific. Complete generation remains a
+// separate, stricter contract for fresh initialization and every restock.
+// Content 13 proves existence of a permitted generated predecessor and plain
+// W/A deletions; it does not establish historical purchases or payment.
+void xeenValidateCurrentServiceEconomy(const XeenServiceEconomy &,std::uint16_t content);
 std::uint32_t xeenBankInterest(std::uint32_t balance) noexcept;
 XeenBankBalances xeenPrepareBankInterest(const XeenBankBalances &) noexcept;
 }

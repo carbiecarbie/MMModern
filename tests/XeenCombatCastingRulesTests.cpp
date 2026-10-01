@@ -60,39 +60,45 @@ void arrow() {
 }
 void domainsAndBooks() {
     using Rules=XeenLearnedSpellRules;
-    for(unsigned schema=0;schema<=13;++schema)for(unsigned content=0;content<=13;++content) {
-        const bool accepted=(schema>=1 && schema<=8 && schema==content) || (schema==8 && (content==9 || content==10)) || (schema==9 && (content==11 || content==12));
+    for(unsigned schema=0;schema<=14;++schema)for(unsigned content=0;content<=14;++content) {
+        const bool accepted=(schema>=1 && schema<=8 && schema==content) || (schema==8 && (content==9 || content==10)) || (schema==9 && (content==11 || content==12 || content==13));
         check(xeenSupportedJourneyPair(schema,content)==accepted,"Journey admitted an unknown/crossed pair");
     }
-    for(unsigned content=1;content<=12;++content) {
+    for(unsigned content=1;content<=13;++content) {
         const auto &policy=xeenJourneyContent(content);
-        check(policy.combatCasting()==(content==10 || content==11 || content==12),"Combat capability differs from explicit admitted domains");
-        check(policy.armorRepair()==(content==9 || content==10 || content==11 || content==12),"Inherited Armor Repair capability differs");
-        check(policy.serviceDays()==(content==11 || content==12),"Legacy content gained service-day continuation");
-        check(policy.training()==(content==12),"Training capability leaked into a legacy domain");
+        check(policy.combatCasting()==(content==10 || content==11 || content==12 || content==13),"Combat capability differs from explicit admitted domains");
+        check(policy.armorRepair()==(content==9 || content==10 || content==11 || content==12 || content==13),"Inherited Armor Repair capability differs");
+        check(policy.serviceDays()==(content==11 || content==12 || content==13),"Legacy content gained service-day continuation");
+        check(policy.training()==(content==12 || content==13),"Training capability leaked into a legacy domain");
+        check(policy.equipmentPurchase()==(content==13),"Equipment purchase capability leaked into a legacy domain");
         for(unsigned id=0;id<256;++id)for(bool combat:{false,true}) {
-            const bool accepted=combat ? (content==10 || content==11 || content==12) && (id==1 || id==26 || id==45) : content>=7 && (id==1 || id==26);
+            const bool accepted=combat ? (content==10 || content==11 || content==12 || content==13) && (id==1 || id==26 || id==45) : content>=7 && (id==1 || id==26);
             check(bool(Rules::supportedIn(id,content,combat))==accepted,"Context support admission widened");
         }
     }
+    for(unsigned id=0;id<256;++id)for(bool combat:{false,true})
+        check(!Rules::supportedIn(id,14,combat),"Unknown content gained casting support");
     for(unsigned id=0;id<256;++id)check(bool(Rules::supported(id))==(id==1 || id==26 || id==45),"Effect recognition changed");
     check(Rules::cost(XeenLearnedSpell::Awaken)==1 && Rules::cost(XeenLearnedSpell::FirstAid)==1 && Rules::cost(XeenLearnedSpell::MagicArrow)==2,"Fixed costs differ");
     check(Rules::spellForSlot(XeenSpellCategory::Wizardry,25)==45 && Rules::spellForSlot(XeenSpellCategory::Druidic,23)==45,"Magic Arrow class slots differ");
     XeenPartyState party;party.party=XeenParty::fromRosterIds({6});auto &caster=party.roster.at(6);
     caster.rosterId=6;caster.characterClass=XeenCharacterClass::Sorcerer;caster.hasSpells=true;caster.currentSp=2;
-    check(!Rules::eligible(party,0,25,10,true),"Absent book cast admitted");
+    check(!Rules::eligible(party,0,25,10,true) && !Rules::eligible(party,0,25,13,true),"Absent book cast admitted");
     caster.learnedSpells=XeenCharacter::XeenLearnedSpells{};
-    check(!Rules::eligible(party,0,25,10,true),"All-zero book cast admitted");
+    check(!Rules::eligible(party,0,25,10,true) && !Rules::eligible(party,0,25,13,true),"All-zero book cast admitted");
     for(unsigned raw=1;raw<256;++raw) {
         caster.learnedSpells->at(25)=raw;
-        check(Rules::eligible(party,0,25,10,true) && Rules::eligible(party,0,25,11,true) && Rules::eligible(party,0,25,12,true) && !Rules::eligible(party,0,25,9,true) &&
-            !Rules::eligible(party,0,25,10,false) && caster.learnedSpells->at(25)==raw,"Raw knowledge/context semantics changed");
+        check(Rules::eligible(party,0,25,10,true) && Rules::eligible(party,0,25,11,true) && Rules::eligible(party,0,25,12,true) && Rules::eligible(party,0,25,13,true) && !Rules::eligible(party,0,25,9,true) &&
+            !Rules::eligible(party,0,25,10,false) && !Rules::eligible(party,0,25,13,false) && caster.learnedSpells->at(25)==raw,"Raw knowledge/context semantics changed");
     }
     for(int sp:{-32768,-1,0,1,2,32767}) {
-        caster.currentSp=sp;check(Rules::eligible(party,0,25,10,true)==(sp>=2),"Signed SP eligibility wrong");
+        caster.currentSp=sp;
+        check(Rules::eligible(party,0,25,10,true)==(sp>=2) && Rules::eligible(party,0,25,13,true)==(sp>=2),"Signed SP eligibility wrong");
     }
-    caster.currentSp=2;caster.conditions[8]=1;check(!Rules::eligible(party,0,25,10,true),"Sleeping caster admitted");
-    caster.conditions.fill(0);caster.hasSpells=false;check(!Rules::eligible(party,0,25,10,true),"Capability ignored");
+    caster.currentSp=2;caster.conditions[8]=1;
+    check(!Rules::eligible(party,0,25,10,true) && !Rules::eligible(party,0,25,13,true),"Sleeping caster admitted");
+    caster.conditions.fill(0);caster.hasSpells=false;
+    check(!Rules::eligible(party,0,25,10,true) && !Rules::eligible(party,0,25,13,true),"Capability ignored");
 }
 }
 int main(){try{arrow();domainsAndBooks();std::cout<<"M39 pure rule/context/RNG tests passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

@@ -207,6 +207,125 @@ void canonicalAndMutation() {
 	XeenMutationWatch replaced;replaced.add(&optional,sizeof(optional));optional.reset();optional.emplace(economy);
 	check(!replaced.current(),"equal economy reset/reinsert cleared integrity violation");
 }
+// Independent aggregate-band oracle for a literal palette whose members have
+// disjoint level support: plain W/A and Misc ID1 only L1, material37 W/A/X
+// and Misc ID16 only L2. It enumerates hidden plain predecessor quantities,
+// not per-call retained-prefix states or the production possible() predicate.
+bool literalBandOracle(const std::array<unsigned,4> &plain,const std::array<unsigned,4> &modified) {
+	for(unsigned hiddenW=0;hiddenW+plain[0]+modified[0]<=8;++hiddenW)
+	for(unsigned hiddenA=0;hiddenA+plain[1]+modified[1]<=8;++hiddenA) {
+		const unsigned level1=plain[0]+plain[1]+plain[3]+hiddenW+hiddenA;
+		const unsigned level2=modified[0]+modified[1]+modified[2]+modified[3];
+		const bool fullAfterL1=plain[0]+hiddenW==8 || plain[1]+hiddenA==8 || plain[3]==8;
+		const bool fullAfterL2=plain[0]+modified[0]+hiddenW==8 || plain[1]+modified[1]+hiddenA==8 ||
+			modified[2]==8 || plain[3]+modified[3]==8;
+		// Each level band must use exactly its call count. Extra calls can only
+		// discard at a category whose original insertions already reached eight.
+		if(level1<=15 && (level1==15 || fullAfterL1) && level2<=5 && (level2==5 || fullAfterL2))return true;
+	}
+	return false;
+}
+void independentDepletionOracle(const XeenServiceEconomy &baseline) {
+	std::uint32_t cursor=0x42f13a7u;unsigned accepted=0,rejected=0;
+	const auto bounded=[&](unsigned span){cursor=cursor*1664525u+1013904223u;return (cursor>>8)%span;};
+	for(unsigned test=0;test<128;++test) {
+		std::array<unsigned,4> plain{},modified{};
+		plain[0]=bounded(9);plain[1]=bounded(9);plain[3]=bounded(9);
+		modified[0]=bounded(9-plain[0]);modified[1]=bounded(9-plain[1]);
+		modified[2]=bounded(7);modified[3]=bounded(9-plain[3]);
+		auto current=baseline;auto &shop=current.wares[0][0];shop={};
+		for(unsigned category=0;category<4;++category) {
+			unsigned slot=0;
+			for(unsigned n=0;n<plain[category];++n)shop[category][slot++]=category==3?XeenItem{1,1,1,0}:XeenItem{0,1,0,0};
+			for(unsigned n=0;n<modified[category];++n)shop[category][slot++]=category==0?XeenItem{37,1,0,0}:
+				category==1?XeenItem{37,8,0,0}:category==2?XeenItem{37,1,0,0}:XeenItem{1,16,1,0};
+		}
+		const bool expected=literalBandOracle(plain,modified);bool actual=true;
+		try{xeenValidateCurrentServiceEconomy(current,13);}catch(const std::invalid_argument &){actual=false;}
+		check(actual==expected,"depletion per-call proof differs from independent literal band/capacity oracle");
+		accepted+=expected;rejected+=!expected;
+	}
+	check(accepted && rejected,"independent depletion oracle did not cover both verdicts");
+}
+void currentDepletion() {
+	XeenServiceEconomy literal;literal.wares=literalValid();
+	independentDepletionOracle(literal);
+	for(unsigned content:{11u,12u,13u})xeenValidateCurrentServiceEconomy(literal,content);
+	for(unsigned content:{0u,8u,9u,10u,14u,65535u})rejects([&]{xeenValidateCurrentServiceEconomy(literal,content);});
+	// Independent twenty-Armor-call schedule: eight L1 entries inserted,
+	// seven remaining L1 and five L2 entries discarded at original capacity.
+	// Every deletion subset, including all eight, has a literal complete source.
+	for(unsigned mask=0;mask<256;++mask) {
+		auto current=literal;auto &armor=current.wares[0][0][1];armor={};unsigned retained=0;
+		for(unsigned slot=0;slot<8;++slot)if(!(mask&(1u<<slot)))armor[retained++]={0,1,0,0};
+		xeenValidateCurrentServiceEconomy(current,13);
+		if(mask)for(unsigned legacy:{11u,12u})rejects([&]{xeenValidateCurrentServiceEconomy(current,legacy);});
+	}
+	// Independent source: eight Weapons followed by seven Armor at L1,
+	// then five Weapons discarded at original full capacity at L2. Purchasing
+	// all fifteen inserted plain records gives one completely empty shop.
+	auto emptyShop=literal;emptyShop.wares[0][0]={};xeenValidateCurrentServiceEconomy(emptyShop,13);
+	rejects([&]{xeenValidateServiceEconomy(emptyShop);});
+	XeenServiceEconomy allEmpty;rejects([&]{xeenValidateCurrentServiceEconomy(allEmpty,13);});
+	// A full modified Weapon category requires eight L2 insertions, but shop
+	// 0/0 has only five L2 calls. Deleted L1 capacity cannot be reused to refill.
+	auto refill=emptyShop;for(unsigned i=0;i<8;++i)refill.wares[0][0][0][i]={37,1,0,0};
+	rejects([&]{xeenValidateCurrentServiceEconomy(refill,13);});
+	for(unsigned side=0;side<2;++side)for(unsigned shop=0;shop<4;++shop) {
+		if(!side && !shop)continue;
+		auto depleted=literal;depleted.wares[side][shop][1][7]={};
+		rejects([&]{xeenValidateCurrentServiceEconomy(depleted,13);});
+	}
+	for(unsigned category:{2u,3u}) {
+		// Fifteen L1 Armor calls fill A to eight. Five L2 calls each insert
+		// the chosen X/M category. Its fifth physical entry cannot disappear:
+		// only W/A omissions exist and the other four L2 entries consume calls.
+		auto stock=literal;for(unsigned i=0;i<5;++i)stock.wares[0][0][category][i]=
+			category==2?XeenItem{37,1,0,0}:XeenItem{1,16,1,0};
+		xeenValidateServiceEconomy(stock);xeenValidateCurrentServiceEconomy(stock,13);
+		// Make four L2 entries plus a retained L2 Weapon. This different
+		// complete schedule is valid; exact runtime deletion is tested by Buy.
+		stock.wares[0][0][category][4]={};stock.wares[0][0][0][0]={37,1,0,0};
+		xeenValidateCurrentServiceEconomy(stock,13);
+		for(unsigned i=0;i<6;++i)stock.wares[0][0][category][i]=
+			category==2?XeenItem{37,1,0,0}:XeenItem{1,16,1,0};
+		rejects([&]{xeenValidateCurrentServiceEconomy(stock,13);});
+	}
+	for(unsigned field=0;field<4;++field) {
+		auto broken=emptyShop;auto &tail=broken.wares[0][0][0][8];
+		if(field==0)tail.material=1;else if(field==1)tail.id=1;else if(field==2)tail.state=1;else tail.frame=1;
+		rejects([&]{xeenValidateCurrentServiceEconomy(broken,13);});
+	}
+	for(unsigned mutation=0;mutation<7;++mutation) {
+		auto broken=literal;auto &item=broken.wares[0][0][1][0];
+		if(mutation==0)item={};else if(mutation==1)item.frame=1;else if(mutation==2)item.state=64;
+		else if(mutation==3)item.state=128;else if(mutation==4)item.material=255;
+		else if(mutation==5)item.id=14;else {item.material=37;broken.wares[0][0][1][1].material=0;}
+		rejects([&]{xeenValidateCurrentServiceEconomy(broken,13);});
+	}
+	// Production seed-7 stock has independently recorded literal identity/order.
+	const auto original=seeded(7,64,1652828136u,901,"4abf1666f71af84fbdd0a8acb10749dcf78350b8b746d946a7cf3f5b88253b65");
+	const XeenItem armorBefore[7]={{0,6,0,0},{0,4,0,0},{0,6,0,0},{0,3,0,0},{0,5,0,0},{40,8,0,0},{48,6,0,0}};
+	for(unsigned slot=0;slot<7;++slot)check(same(original.wares[0][0][1][slot],armorBefore[slot]),"seed-7 literal Armor source mismatch");
+	for(unsigned category=0;category<2;++category)for(unsigned slot=0;slot<9;++slot) {
+		const auto &offer=original.wares[0][0][category][slot];
+		if(!offer.id || offer.material || offer.state || offer.frame)continue;
+		auto depleted=original;auto &records=depleted.wares[0][0][category];
+		for(unsigned i=slot;i<8;++i)records[i]=records[i+1];records[8]={};
+		xeenValidateCurrentServiceEconomy(depleted,13);
+	}
+	auto depleted=original;
+	for(unsigned category=0;category<2;++category) {
+		auto &records=depleted.wares[0][0][category];XeenItemCategory retained{};unsigned n=0;
+		for(const auto &item:records)if(item.id && (item.material || item.state || item.frame))retained[n++]=item;
+		records=retained;
+	}
+	xeenValidateCurrentServiceEconomy(depleted,13);
+	for(unsigned legacy:{11u,12u})rejects([&]{xeenValidateCurrentServiceEconomy(depleted,legacy);});
+	// Snapshots prove possible current values, never actual historical deletion.
+	// These unsupported bytes cannot even participate in any permitted source.
+	depleted.wares[0][0][0][0].state=7;rejects([&]{xeenValidateCurrentServiceEconomy(depleted,13);});
+}
 void interestAndDates() {
 	const auto maximum=std::numeric_limits<std::uint64_t>::max();
 	for(unsigned remaining:{0u,1u,2u,3u,6u,9u,10u}) {
@@ -232,7 +351,7 @@ void interestAndDates() {
 	}
 	check(xeenBankInterest(xeenBankInterest(199))==202,"repeated bank interest wrong");
 	XeenServiceEconomy economy;economy.wares=literalValid();economy.bank={199,4252442868u};
-	for(unsigned content:{11u,12u})for(unsigned day=8;day<=98;++day)for(unsigned minute:{300u,1259u})for(unsigned ctr:{0u,23u}) {
+	for(unsigned content:{11u,12u,13u})for(unsigned day=8;day<=98;++day)for(unsigned minute:{300u,1259u})for(unsigned ctr:{0u,23u}) {
 		XeenGameplayContext before;before.day=day;before.year=610;before.minutes=minute;before.ctr24=ctr;
 		const XeenJourneyRandomState cursor{1,2732157854u,1203};XeenServiceDayCandidate candidate(before,economy,cursor,content);
 		const bool trigger=(day+1)%10==1;check(candidate.triggered()==trigger,"incorrect destination regeneration trigger");
@@ -246,7 +365,7 @@ void interestAndDates() {
 		const auto final=candidate.continuation();const auto end=candidate.economy();check(candidate.service() && candidate.continuation()==final && candidate.economy()==end,"completed day repeated stock/interest/RNG");
 	}
 	XeenGameplayContext c;c.year=610;c.day=99;c.minutes=300;rejects([&]{XeenServiceDayCandidate candidate(c,economy,{1,7,0});});
-	c.day=8;for(unsigned content:{1u,8u,9u,10u,13u})rejects([&]{XeenServiceDayCandidate candidate(c,economy,{1,7,0},content);});
+	c.day=8;for(unsigned content:{1u,8u,9u,10u,14u})rejects([&]{XeenServiceDayCandidate candidate(c,economy,{1,7,0},content);});
 	for(unsigned day:{0u,7u,100u,65535u}){c.day=day;rejects([&]{XeenServiceDayCandidate candidate(c,economy,{1,7,0});});}
 	c.day=10;XeenServiceDayCandidate yielded(c,economy,{1,2732157854u,1203});check(!yielded.service(0) && yielded.continuation()==XeenJourneyRandomState{1,2732157854u,1203},"zero service budget changed detached cursor");
 	while(!yielded.complete())yielded.service(1);check(yielded.continuation()==XeenJourneyRandomState{1,3686439625u,2109},"one-raw service cadence changed result");
@@ -271,7 +390,7 @@ void legacyDropInterleaving() {
 }
 }
 int main() {
-	try {branchTapes();seededVectors();capacityDiscard();rejectionAndExhaustion();canonicalAndMutation();interestAndDates();legacyDropInterleaving();
+	try {branchTapes();seededVectors();capacityDiscard();rejectionAndExhaustion();canonicalAndMutation();currentDepletion();interestAndDates();legacyDropInterleaving();
 		std::cout<<"M40 exact merchant generation, finite canonical validator, bank and service-day candidates passed\n";return 0;
 	}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}
 }

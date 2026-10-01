@@ -137,19 +137,26 @@ private:
 	std::optional<IndexedFrame> updateTraining();
 	struct SmithUi {
 		XeenItemCatalog catalog;
+		enum class Mode { Repair, Buy };
+		Mode mode=Mode::Repair;
 		enum class Phase { Preparation, Lobby, Browse, Quote, Result, Departure };
 		Phase phase=Phase::Lobby;
 		std::size_t member=0, slot=0;
+		XeenInventoryCategory category=XeenInventoryCategory::Weapons;
+		bool selected=false;
+		std::uint64_t revision=0;
 		std::string title, feedback;
 		IndexedFrame art;
 	};
 	std::optional<SmithUi> _smithUi;
+	std::optional<std::uint64_t> _smithRenderedRevision;
 	bool _smithSettlement=false, _smithReported=false;
 	std::optional<XeenManualEventResult> _smithTerminalResult;
 	void prepareSmith();
 	IndexedFrame settleSmithEvent();
 	IndexedFrame drawSmith(const IndexedFrame &) const;
-	IndexedFrame handleSmith(const PlayerAction &,std::uint64_t);
+	std::string smithText() const;
+	IndexedFrame handleSmith(const PlayerAction &,std::uint64_t,const IndexedFrame::Presentation &);
 	const XeenEventPublication *_eventPublication = nullptr;
 	bool _monsterReceiptPresented=false;
 	bool _journeyEventLayers = false;
@@ -177,6 +184,7 @@ private:
 	std::optional<SaveBoundary> _saveBoundary;
 	friend class Application;
 	friend struct XeenTrainingTestAccess;
+	friend struct XeenPurchaseTestAccess;
 	XeenRestoreGuard &completedSavePreimage() { return _encounter->completedPreimage(); }
 	void requireCurrentOwners() const;
 	friend struct XeenRewardTestAccess;

@@ -339,6 +339,7 @@ void XeenEncounterFlow::endJourneyEvent() {
 	_journeyPreimage->adoptJourneyCoordination();
 	_boundary.release(XeenCombatBoundary::Work::Event,_eventLease);
 	_trainingEventSettlement=false;
+	_smithEventSettlement=false;
 	_eventLease=0; _journeyFramePrepared = _journeyFrameRetry = false;
 }
 void XeenEncounterFlow::publishArrival(const XeenActorView &view) noexcept {
@@ -440,7 +441,9 @@ bool XeenEncounterFlow::presentJourney(const Ticket &entry) {
 	if (_castingSettlement && (s._journeyActivity==XeenJourneyActivity::Quiet ||
 		s._journeyActivity==XeenJourneyActivity::SupportStopped || journeyEvent() || monsterReward()))
 		_castingSettlement=false;
-	if(!_training && !_trainingPreparation && !(journeyEvent() && _trainingEventSettlement)){++s._journeyGeneration; ++_generation;}
+	const bool smithSemantic=xeenJourneyContent(s.journeyContract()).equipmentPurchase() &&
+		(_smith || _smithPreparation || (journeyEvent() && _smithEventSettlement));
+	if(!_training && !_trainingPreparation && !(journeyEvent() && _trainingEventSettlement) && !smithSemantic){++s._journeyGeneration; ++_generation;}
 	_journeyFramePrepared = _journeyFrameRetry = false;
 	_journeyPreimage->adoptJourneyCoordination();
 	_journeyCapture->generation = _boundary.generation();
