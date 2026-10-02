@@ -4,171 +4,125 @@ MMModern is an open-source reimplementation of the engine used by
 Might and Magic IV: Clouds of Xeen and
 Might and Magic V: Darkside of Xeen / World of Xeen.
 
+The goal is a game people can actually play. Judge every task by whether more
+of the original game becomes continuously playable, or whether the next piece
+of content becomes cheaper to add.
+
 ## Source of truth
 
 - Repository: https://github.com/carbiecarbie/MMModern
-- With local access, actual Git state and the working tree establish the
-  candidate; current code/tests establish implemented behavior. Inspect them
-  before changing concrete interfaces or relying on earlier prose.
-- Milestone plans specify intended scope. Historical planning prose does not
-  override later accepted implementation. Identify conflicts among plans,
-  code/tests and status before expanding scope or making architectural assumptions.
-- Read relevant `docs/` files before architectural changes. Do not assume prior
-  conversations describe the current checkout accurately.
-- Architecture/specification agents without local access must use a verified
-  commit SHA as their public baseline and prefer GitHub/raw/permalink retrieval
-  pinned to that SHA. Cached `/main/` pages do not override a verified commit.
-  If that commit cannot be retrieved, report the limitation; do not invent local state.
+- Actual Git state, the working tree and current code/tests establish implemented
+  behavior. Inspect them before changing interfaces or relying on prose.
+- `docs/roadmap.md` sets direction; the active milestone plan sets scope. Older
+  plans and history are background, not current authority.
+- Agents without local access must use a verified commit SHA as their baseline
+  and report when it cannot be retrieved; do not invent local state.
 
-## Development workflow
+## Development principles
 
-Before implementing a task:
+- **Playable by default.** Load whole original maps, actors and events from the
+  original resources. When play reaches something not yet implemented (an Event
+  opcode, monster ability, service, spell or item effect), show a clear
+  "not supported yet" notice and keep the game running when that is safe.
+  Do not certify content cell by cell or gate areas behind per-route manifests.
+- **Implement mechanics generically.** Follow the original semantics from the
+  pinned ScummVM reference and implement each mechanic once, for every place the
+  original game uses it, instead of for one selected address or witness.
+- **Reuse existing owners.** Preserve the party/roster, world/actor, combat,
+  Event, Service and Flow ownership already in place. Introduce a new owner or
+  coordinator only for a concrete reason, and say why.
+- **Faithful UI.** Use the original interface: main screen buttons, portraits
+  and original dialogs, operable by mouse and keyboard. Avoid project-specific
+  menus except as a temporary stopgap.
+- Never modify or include original commercial Might and Magic game data.
 
-1. Read `docs/project-status.md` and the applicable milestone specification.
-2. Inspect the implementation and identify relevant tests.
-3. Preserve existing architecture unless there is a concrete reason to change it;
-   reuse project abstractions before introducing parallel systems or owners.
-4. Keep changes within the requested task or sub-stage.
-5. Never modify or include original commercial Might and Magic game data.
+## Save compatibility (pre-release policy)
 
-After implementation, build, run relevant tests and run the complete CTest suite
-when practical. Do not declare completion with failing tests. Update durable
-technical documentation as appropriate and summarize changes and validation.
-For documentation-only work, review the diff, links, factual consistency and
-`git diff --check`; do not build or run CTest solely for prose changes.
+Until a public release is declared, there is **one current save format**.
+- Saves from older builds may be rejected with a clear message; do not keep
+  legacy readers, frozen per-milestone behavior or content/contract numbers.
+- Change the format version whenever its layout or meaning changes.
+- Restoring must still be exact for the current format: no replayed events,
+  rewards, time or RNG. A generic save/load round-trip test covers this.
 
-When modifying a subsystem, add or update tests for changed behavior. Prefer the
-smallest sufficient set during iteration; full CTest is required at milestone closure.
+## Milestone workflow
 
-## Documentation responsibilities
+Each milestone is classified in its plan as Tier A or Tier B.
 
-Persistent documents describe durable truths, with one natural home per topic:
+| | Tier A - core | Tier B - content, UI, services |
+| --- | --- | --- |
+| Applies to | Save format, RNG, timing/scheduling, ownership/architecture, ScummVM integration | Areas, Events, monsters, items, spells, services, UI, presentation |
+| Plan | Short plan (~100-150 lines): goal, design decisions, risks, acceptance | Checklist: goal, tasks, acceptance criteria (~30-60 lines) |
+| Review | Independent review of the plan and of the implementation | No mandatory independent review; request one if risk appears |
+| Acceptance | Tests plus maintainer play-test | Tests plus maintainer play-test |
 
-| Document | Responsibility |
-| --- | --- |
-| `README.md` | Concise public introduction, capabilities and runtime guidance |
-| `docs/project-status.md` | Technical snapshot of the latest stable committed state |
-| `docs/project-history.md` | Concise completed-milestone history; not current-state authority |
-| `docs/roadmap.md` | Future direction, dependencies, confidence and review cadence |
-| `docs/milestone-N-plan.md` | That milestone's specification, durable decisions and concise final record |
-| `AGENTS.md` | Source-of-truth, workflow, documentation and Git rules |
+Steps:
 
-Link to the natural home instead of duplicating narratives. History is optional
-reading for ordinary implementation work; consult it when evolution matters.
-Do not create another workflow/status document or a current-work-in-progress file.
+1. Read `docs/project-status.md` and the milestone plan; inspect relevant code/tests.
+2. Implement within the milestone scope. Planning and implementation may be
+   one task for Tier B. If the scope proves wrong, stop and say so instead of
+   silently widening or narrowing it.
+3. Add or update tests for changed behavior: unit tests for rules, and a few
+   original-data end-to-end tests where they prove real gameplay. Do not add a
+   separate process-continuation witness per feature.
+4. Build and run the complete CTest suite before declaring completion. Do not
+   declare completion with failing tests.
+5. The maintainer plays the result and accepts it. Record acceptance briefly.
 
-Keep transient workflow state in task reports, chat context and temporary build
-logs. README, status, roadmap and closed plans must not record a local candidate's
-commit/push readiness, outstanding review, or just-finished implementation as
-project state. These moments are not durable capabilities or acceptance results.
+Roadmap approval does not authorize implementation; the maintainer starts each
+milestone explicitly.
 
-`project-status.md` describes only the latest **stable committed** state. Leave
-it unchanged when a milestone starts, a local candidate exists, review is outstanding
-or a correction is in progress. Update it during final closure only after required
-acceptance/review establishes the durable state to be committed. It must remain
-usable as the stable baseline throughout subsequent local implementation work.
+## Documentation
 
-Use roles for durable attribution: maintainer, implementation agent,
-architecture/specification agent and independent reviewer. Distinguish
-maintainer-performed physical acceptance from independent review and automated
-or image-based evidence. Keep technically relevant tool names such as SDL,
-ScummVM and CMake. Apply this rule to documents being maintained and future work;
-do not mechanically rewrite unrelated historical files.
+| Document | Responsibility | Target size |
+| --- | --- | --- |
+| `README.md` | Public introduction, how to build, run and play | Short |
+| `docs/project-status.md` | What can be played and done now; architecture overview; known gaps | ~200-300 lines |
+| `docs/project-history.md` | One short paragraph per completed milestone | Short |
+| `docs/roadmap.md` | Next milestones and longer-term direction | ~100-150 lines |
+| `docs/milestone-N-plan.md` | That milestone's plan; condensed at closure | Closed: ~30-100 lines |
+| `AGENTS.md` | These rules | This file |
 
-Active plans may contain investigation. At closure, condense them to final scope,
-durable architectural decisions, original-data/behavior contracts,
-persistence/compatibility policy, acceptance boundary and concise final results.
-Keep a superseded decision only if a short explanation clarifies the final design.
-Remove operational diaries: process IDs, ephemeral build/log/image paths, repeated
-commands/test totals, review iterations, candidate states and duplicated matrices.
-Git history preserves removed text; a closed plan is not a transcript archive.
+- Describe capabilities in player terms ("the Temple heals and resurrects"),
+  not as lists of contract numbers or acceptance matrices.
+- Update `project-status.md` only when a milestone closes. Do not record
+  in-progress work, review state or commit readiness in durable docs.
+- At closure, condense the plan to scope, key decisions and results. Git keeps
+  everything else; a closed plan is not a transcript.
+- Do not create additional workflow or work-in-progress documents.
+- For documentation-only changes, check the diff, links and `git diff --check`;
+  do not build or run CTest.
 
-## Milestones
+## Git
 
-- Create a dedicated plan only when that milestone is about to begin.
-- Treat the applicable milestone/sub-stage specification as its intended scope.
-- Use the next roadmap entry as the default successor for planning. Entries
-  beyond the immediate next milestone remain provisional; revise them when
-  evidence meets replanning triggers, not merely because work completed.
-- Check roadmap approval and review cadence. Neither roadmap approval, completed
-  work nor a push authorizes the next milestone or sub-stage implementation.
-- Do not investigate future stages unless necessary to avoid an architectural
-  mistake in the authorized stage.
+- `main` is the stable branch. Prefer focused commits with clear messages.
+- Never force-push or rewrite history. Do not commit build directories or
+  original data.
+- Do not commit, push or tag without the maintainer's explicit authorization.
+- When two agents work at the same time, give each its own `git worktree` and
+  build directory; at most one agent writes to a given checkout.
+- After an authorized push, report branch, `git rev-parse HEAD`,
+  `git rev-parse origin/main` and `git status --short`. If the tree is dirty or
+  diverged before new work, stop and report it; do not repair it silently.
 
-At milestone closure:
+## Efficiency
 
-1. Ensure the build, full CTest suite and required manual validation pass.
-2. Obtain required acceptance/review before recording completion.
-3. Update the stable status, add concise history, condense the closed plan and
-   remove completed entries from future roadmap scope; link between them.
-4. Update README only for public capability/interface changes.
-5. Prepare a concise commit message; observe the Git authorization rules below.
+Priorities, in order: correctness, then credit/resource efficiency, then speed.
+- Prefer targeted inspection; do not rescan ScummVM or original resources when
+  the docs already establish the behavior.
+- Keep prompts and plans short: reference the plan instead of restating it.
+- Use subagents or parallel work only when they improve correctness or
+  independent verification.
 
-## Git workflow and post-push baseline
+## Dependencies
 
-- `main` is the stable development branch. Prefer focused commits with clear messages.
-- Never force-push or rewrite history. Do not commit build directories or original data.
-- Do not push or create/push milestone tags without explicit authorization.
-- After an authorized commit and push closes a work unit, record in the handoff:
-  branch, `git rev-parse HEAD`, `git rev-parse origin/main`,
-  `git ls-remote origin refs/heads/main` and `git status --short`.
-- Expected healthy handoff: branch `main`, HEAD == origin/main == direct remote
-  main, with a clean working tree and empty staged state. Direct remote Git is
-  the post-push authority; public HTML/raw/history views may refresh inconsistently.
-- Before continuing from that handoff, verify the gate and intended committed
-  closure. If dirty, divergent, on another branch, or unverifiable, stop and
-  report the exact discrepancy; do not repair/synchronize the baseline implicitly.
-- Use the exact resulting SHA for the next external planning/review task.
-  Keep planning approval and implementation authorization separate.
-
-## Resource-efficiency priority
-
-Prioritize, in this order:
-
-1. Correctness and completeness.
-2. Credit/resource efficiency.
-3. Execution speed.
-
-Do not sacrifice correctness, validation, or necessary investigation to reduce credit usage.
-
-When multiple approaches are expected to produce equivalent-quality results, prefer the one
-that uses fewer model resources, even if it takes longer to complete.
-
-Do not parallelize work merely to reduce wall-clock time. Use parallelism or subagents when
-they materially improve correctness, independent verification, or overall resource efficiency.
-
-## Dependencies and efficiency
-
-Consult `docs/dependencies.md` for the authoritative pinned ScummVM revision and
-configuration; source/build directory names are not fixed. Use that configuration
-and never copy the full ScummVM source tree into this repository.
+`docs/dependencies.md` is authoritative for the pinned ScummVM revision and
+configuration. Never copy the ScummVM source tree into this repository.
 MMModern links selected ScummVM portions and is GPL-3.0-or-later.
-
-Prefer targeted inspection. Do not rescan ScummVM or original resources when
-existing documentation already establishes the required behavior.
-
-For implementation-task preparation:
-
-- The committed milestone/stage plan is the authoritative technical contract.
-- Execution prompts should reference detailed formulas, traces, matrices,
-  architectural decisions and acceptance requirements already recorded in this
-  file or the plan instead of reproducing them.
-- Prompts should primarily carry the verified baseline, authorized scope and
-  objective, task-specific clarifications, validation requirements, Git
-  restrictions and expected handoff.
-- Investigate inherited milestones, code/tests, ScummVM and original resources
-  selectively when the current contract already establishes needed behavior.
-- Record durable new implementation decisions in the active milestone plan; do
-  not create a second specification in the execution prompt.
-- Investigation and implementation may remain one task when narrow investigation
-  is necessary to execute an approved contract.
-- Brevity must not weaken safety, ownership, scope or validation.
 
 ## Project language
 
-English is canonical for identifiers, comments, diagnostics, command-line output,
-tests, documentation and commit messages. Original game content stays
-resource-driven; do not hard-code original text to satisfy this convention.
-Localization is separate from development-language policy. Translate existing
-non-English development strings opportunistically when touching relevant code,
-without expanding unrelated work.
+English is canonical for identifiers, comments, diagnostics, command-line
+output, tests, documentation and commit messages. Original game text stays
+resource-driven. Translate existing non-English development strings when
+touching that code.
