@@ -114,6 +114,18 @@ Priorities, in order: correctness, then credit/resource efficiency, then speed.
 - Use subagents or parallel work only when they improve correctness or
   independent verification.
 
+### Long-running commands
+
+- Run long builds and test suites as one blocking command with a generous
+  timeout, writing output to a log file. Read only the summary and failures
+  when it finishes.
+- Do not poll logs or report progress while a command runs. If a tool timeout
+  forces a check, wait at least 10 minutes between checks.
+- During iteration, run only affected test targets. Run the complete CTest
+  suite once, at the end, unless a failure requires a rerun.
+- Do not start subagents, mid-task reviews or parallel worktrees unless the
+  maintainer asks for them.
+
 ## Dependencies
 
 `docs/dependencies.md` is authoritative for the pinned ScummVM revision and
