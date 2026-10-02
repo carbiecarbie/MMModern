@@ -138,6 +138,17 @@ original data.
 2. D3: remove modes and the Completed/Diagnostic27 flow with their now-redundant
    tests.
 3. D1: restrict reader/writer, overwrite policy, retarget ordinary-save oracles.
+   Process tests and witnesses that save/restore older Journey contents
+   (e.g. Smith, combat-casting, service-day, Training, M35-M42 witnesses) are
+   migrated in this step, pulling that part of step 5 forward:
+   - assertions about legacy-only behavior (for example "combat casting is
+     unavailable in content 8/9") are obsolete, not lost coverage; delete them
+     and add D1 rejection tests for those versions;
+   - assertions about behavior content 14 still has (repair, casting, service
+     days, Training, purchase) are retargeted to content 14, or deleted when an
+     existing content-14 process test or the Step-0 scenarios already cover it;
+     record which in the handoff.
+   The "preserve assertions" rule applies to content-14 behavior only.
 
 **Stage B - configuration, consolidation and docs:**
 4. D2: collapse the configuration.
