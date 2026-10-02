@@ -150,11 +150,17 @@ original data.
      record which in the handoff.
    The "preserve assertions" rule applies to content-14 behavior only.
 
-**Stage B - configuration, consolidation and docs:**
-4. D2: collapse the configuration.
+**Stage B - docs, consolidation and configuration** (one commit per step):
+4. D5: documentation first. After Stage A, README and `project-status.md`
+   describe removed modes, contracts and save versions, so they mislead agents.
+   Status and README describe the post-Stage-A state; step 6 updates any line
+   it invalidates.
 5. D4 remainder: three process scenarios checked against Step-0 digests,
-   round-trip test, probe updates, removal of old witnesses.
-6. D5: documentation.
+   round-trip test, probe updates, removal of old witnesses. Also label every
+   CTest entry `fast` or `process` (`set_tests_properties(... LABELS ...)`) so
+   iteration can run `ctest -L fast` and full runs remain unchanged; document
+   both commands in README.
+6. D2: collapse the configuration, protected by the step-5 scenarios.
 
 Every step leaves the build and remaining tests green. The maintainer may accept
 Stage A before Stage B starts; if Stage B grows beyond plan, it closes as a
