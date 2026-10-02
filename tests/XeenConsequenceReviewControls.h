@@ -116,7 +116,7 @@ void shootRevalidation(Source &source,const std::filesystem::path &game) {
  auto &a=saved.journey->actors[9];a.x=5;a.y=11;a.activated=true;
  const auto path=std::filesystem::temp_directory_path()/"mmodern-m33-review-revalidation.mms";
  XeenSaveFile::write(path,saved);
- combat_gameplay_test::Harness h(game);auto services=h.services();services.resources.regionalManifest=source.manifest();
+ combat_gameplay_test::Harness h(game);auto services=currentServices(h,source);services.resources.regionalManifest=source.manifest();
  bool shown=false;
  services.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){
   shown=true;handler.framePresented(h.flow->frame().presentation());
@@ -177,7 +177,7 @@ void playerRayControls(Source &s) {
 // M34 fixtures below deliberately alter saved representations for rare authority
 // boundaries. They never stand in for the genuine production Run witnesses.
 XeenSaveSnapshot runAuthorityFixture(Source &s,bool occupied=false) {
- Domain initial(s);auto saved=initial.save();saved.journey->schema=saved.journey->contract=5;
+ Domain initial(s);auto saved=initial.save();saved.journey->schema=9;saved.journey->contract=14;
  for(unsigned slot=0;slot<6;++slot) {
   const auto id=kXeenCombatOwners[slot];saved.journey->supplements[id].inputs.speed={slot?1:255,0};
   if(slot) {saved.characters[id].currentHp=0;saved.characters[id].conditions[12]=1;}
@@ -256,7 +256,7 @@ void runAuthorityControls(Source &s) {
   Domain d(s,fixture);auto &c=runAuthorityReady(d);const auto before=runAuthorityValues(d,fixture);unsigned count=0;
   c.setProbe([&]{if(++count==failAt)throw std::bad_alloc();});const auto result=runAuthorityPublish(c);
   check(count==failAt && result.status==XeenCombatStatus::Failed && c.participants()==0x3f,"Every Run probe fails before mask/RNG publication");sameLive(d,before);
-  check(c.service(c.ticket()).status==XeenCombatStatus::Refused && !d.flow->canSave(),"Failed Run cannot replay or save");
+  const auto retry=c.service(c.ticket());check(retry.status==XeenCombatStatus::Stale && !d.flow->canSave(),"Failed Run cannot replay or save");
  }
  for(unsigned facing=0;facing<4;++facing) {
   auto setup=fixture;setup.camera.direction=static_cast<XeenDirection>(facing);
@@ -288,8 +288,8 @@ void runAuthorityControls(Source &s) {
   if(field==0)g.runX^=1;if(field==1)g.difficulties[7]^=1;if(field==2)g.cells[12*16+10].rawAttributes^=1;
   if(field==3)d.world.discardMapCache();if(field==4)g.id=24;
   const auto result=c.service(c.ticket());
-  if(field!=3){check(result.status==XeenCombatStatus::Failed && !d.flow->canSave(),"Changed Run metadata/destination/identity latches failure");sameLive(d,before);
-   g=originalGeometry;check(c.service(c.ticket()).status==XeenCombatStatus::Refused && !d.flow->canSave(),"Restored equal resource bytes cannot revive failed finish");}
+  if(field!=3){check(result.status==XeenCombatStatus::Stale && !d.flow->canSave(),"Changed Run metadata/destination/identity latches failure");sameLive(d,before);
+   g=originalGeometry;check(c.service(c.ticket()).status==XeenCombatStatus::Stale && !d.flow->canSave(),"Restored equal resource bytes cannot revive failed finish");}
   else check(result.status==XeenCombatStatus::Advanced && c.phase()==XeenCombatPhase::Disengaged,"Unchanged cache reconstruction preserves finish authority");
  }
  {

@@ -23,82 +23,24 @@ std::optional<XeenEncounterAction> mapped(const PlayerAction &input) {
 }
 }
 
-XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera &c, const XeenGameFlags &flags,
-		const XeenEventPresenter::Clock &clock, const XeenEncounterSetup &setup) :
-	_world(w), _party(p), _camera(c), _flags(flags), _clock(clock), _events(setup.events), _boundary(w,p,c) {
-	if (w.sessionState().completion() == XeenEncounterCompletion::VictoryQuiescent) {
-		if (!w.completedCaptureEligible(p,c)) throw std::logic_error("Completed Flow requires published bound authority");
-		_completed = w.completedTicket(p,c);
-		retainCompleted();
-		return;
-	}
-	if (setup.prepareCombat) {
-		_combat = setup.prepareCombat(w,p,c,_boundary);
-		if (!_combat || !_combat->boundTo(w,p,c,_boundary) || !preparation() || !setup.validateNormalSprite || !setup.validateAttackSprite)
-			throw std::invalid_argument("Missing combat preparation providers");
-		const auto entry = ticket();
-		try {
-			setup.validateNormalSprite(8);
-			if (!current(entry)) throw std::runtime_error("Stale combat sprite admission");
-			setup.validateAttackSprite(8);
-			if (!current(entry)) throw std::runtime_error("Stale combat attack sprite admission");
-		} catch (...) { fail(entry, XeenEncounterStop::Preparation); throw; }
-		return;
-	}
-	w.markEncounterSession();
-	if (!setup.initialize || !setup.validateNormalSprite) throw std::invalid_argument("Missing encounter admission providers");
-	const auto r = setup.initialize(w, p, c, _state);
-	if (!adopt(r, 0) || r.outcome != XeenEncounterOutcome::Started)
-		throw std::runtime_error("Encounter initialization did not publish current authority");
-	const auto entry = ticket();
-	try {
-		// Own the image number before any provider can invalidate actor storage.
-		const auto image = w.sessionState().actors().at(5).statistics.value().image();
-		setup.validateNormalSprite(image);
-		if (!current(entry)) throw std::runtime_error("Stale encounter sprite admission");
-		const auto now = _clock();
-		if (!current(entry)) throw std::runtime_error("Stale encounter clock admission");
-		if (now > std::numeric_limits<std::uint64_t>::max() - 100)
-			throw std::overflow_error("Encounter clock deadline overflow");
-		_lastTime = now;
-		_cosmeticDeadline = now + 100;
-		++_generation;
-	} catch (...) { fail(entry, XeenEncounterStop::Preparation); throw; }
-}
-
 bool XeenEncounterFlow::current(const Ticket &t) const noexcept {
-	if (_journey) {
-		if (_failure || !_journeyPreimage) return false;
-		if (!_journeyPreimage->ownersAlive()) { const_cast<XeenEncounterFlow *>(this)->closeJourney(); return false; }
-		if (t.generation != _generation || t.boundaryGeneration != _boundary.generation() ||
-			_world._sessionState._journeyOwner != this || _world._sessionState._journeyActivity == XeenJourneyActivity::Failed) return false;
-		if (_combat) {
-			const bool valid=t.combat && _combat->current(*t.combat);
-			if (!valid && _combat->phase()==XeenCombatPhase::Failed &&
-				_combat->result().failure==XeenCombatFailure::Integrity)
-				const_cast<XeenEncounterFlow *>(this)->closeJourney();
-			return valid;
-		}
-		if (!_journeyPreimage->current()) { const_cast<XeenEncounterFlow *>(this)->closeJourney(); return false; }
-		return !t.combat && t.state.revision() == _state.revision() && t.state.pending() == _state.pending() &&
-			t.state.phase() == _state.phase() && t.state.reason() == _state.reason() &&
-			XeenActorApproach::authoritative(_world,_party,_camera,t.state);
+
+	if (_failure || !_journeyPreimage) return false;
+	if (!_journeyPreimage->ownersAlive()) { const_cast<XeenEncounterFlow *>(this)->closeJourney(); return false; }
+	if (t.generation != _generation || t.boundaryGeneration != _boundary.generation() ||
+		_world._sessionState._journeyOwner != this || _world._sessionState._journeyActivity == XeenJourneyActivity::Failed) return false;
+	if (_combat) {
+		const bool valid=t.combat && _combat->current(*t.combat);
+		if (!valid && _combat->phase()==XeenCombatPhase::Failed &&
+			_combat->result().failure==XeenCombatFailure::Integrity)
+			const_cast<XeenEncounterFlow *>(this)->closeJourney();
+		return valid;
 	}
-	if (completed()) {
-		if (!_completedPreimage || !_completedPreimage->ownersAlive() || !t.completed || t.generation != _generation) return false;
-		const bool authority = _completedLease ? _world.completedGuardCurrent(*t.completed, _completedLeaseKind, _completedLease, _party, _camera) :
-			_world.completedTicketCurrent(*t.completed, _party, _camera);
-		if (!authority) return false;
-		if (_completedPreimage->current()) return true;
-		if (_completedLease) _world.escalateCompletedGuard(*t.completed, _completedLeaseKind, _completedLease, XeenCompletedGuard::Integrity);
-		else _world.latchCompletedGuard(*t.completed, XeenCompletedGuard::Integrity, _party, _camera);
-		return false;
-	}
-	if (_combat) return t.combat && t.generation == _generation && _combat->current(*t.combat);
-	return t.generation == _generation && t.state.revision() == _state.revision() &&
-		t.state.pending() == _state.pending() && t.state.phase() == _state.phase() &&
-		t.state.reason() == _state.reason() &&
-		XeenActorApproach::authoritative(_world, _party, _camera, t.state);
+	if (!_journeyPreimage->current()) { const_cast<XeenEncounterFlow *>(this)->closeJourney(); return false; }
+	return !t.combat && t.state.revision() == _state.revision() && t.state.pending() == _state.pending() &&
+		t.state.phase() == _state.phase() && t.state.reason() == _state.reason() &&
+		XeenActorApproach::authoritative(_world,_party,_camera,t.state);
+
 }
 
 bool XeenEncounterFlow::adopt(const XeenEncounterResult &r, std::uint64_t generation) noexcept {
@@ -113,33 +55,9 @@ bool XeenEncounterFlow::adopt(const XeenEncounterResult &r, std::uint64_t genera
 	return true;
 }
 
-bool XeenEncounterFlow::fail(const Ticket &entry, XeenEncounterStop reason) noexcept {
+bool XeenEncounterFlow::fail(const Ticket &entry, XeenEncounterStop) noexcept {
 	if (!current(entry)) return false;
-	if (_journey) { closeJourney(); return true; }
-	if (completed()) {
-		try {
-			if (_completedLeaseKind == XeenCompletedGuard::Presentation && _completedLease) return false;
-			if (_completedLease) releaseCompleted();
-			_completedLeaseKind = XeenCompletedGuard::Presentation;
-			_completedLease = _world.holdCompletedGuard(*_completed, _completedLeaseKind, _party, _camera);
-			retainCompleted();
-			return true;
-		} catch (...) { closeCompleted(); return false; }
-	}
-	if (_combat) {
-		_combat->fail(*entry.combat);
-		try { _boundary.hold(XeenCombatBoundary::Work::PresentationFailure); } catch (...) {}
-		_failure = true;
-		_deadline.reset();
-		if (_generation != std::numeric_limits<std::uint64_t>::max()) ++_generation;
-		return true;
-	}
-	if (_state.phase() == XeenEncounterPhase::Exploring) {
-		const auto r = XeenActorApproach::stop(_world, _state, reason);
-		if (!adopt(r, entry.generation)) return false;
-	} else if (_generation != std::numeric_limits<std::uint64_t>::max()) ++_generation;
-	_failure = true;
-	_deadline.reset();
+	closeJourney();
 	return true;
 }
 
@@ -175,111 +93,51 @@ void XeenEncounterFlow::schedule(std::uint64_t now) noexcept {
 }
 
 bool XeenEncounterFlow::handle(const PlayerAction &input, std::optional<std::uint64_t> cycle, std::optional<XeenCombat::Ticket> displayed) {
-	if (completed() || projectilesPending() || _shootIntent || _castingSettlement) return false;
+	if (projectilesPending() || _shootIntent || _castingSettlement) return false;
 	if (_journey && !_combat && std::holds_alternative<ShootAction>(input)) { const bool accepted=beginShoot();schedule(_lastTime);return accepted; }
 	if (_combat) return displayed && _combat->current(*displayed) && handleCombat(input, cycle);
 	const auto action = mapped(input);
 	if (_busy || !action || _state.phase() != XeenEncounterPhase::Exploring) return false;
-	if (_journey) {
-		std::uint64_t now;
-		if (!prepareTime(ticket(),now)) return false;
-		_lastTime = now;
-		const auto r = journeyAction(ticket(),*action);
-		_actionResult = r; _actionPending = _state.pending(); _inputCycle = cycle;
-		if (r.outcome == XeenEncounterOutcome::Refused) {
-			if (r.reason == XeenEncounterStop::Envelope) _journeyRefusal = _world.sessionState().journeyContract()==2 ? "Expedition boundary: x0..5/y14" : "Four-cell boundary: x=13..14, y=1..2";
-			return true;
-		}
-		if (_state.phase() == XeenEncounterPhase::Exploring &&
-			(r.outcome == XeenEncounterOutcome::Accepted || r.outcome == XeenEncounterOutcome::Blocked)) {
-			if (!prepareTime(ticket(),now)) return true;
-			journeyPulse(ticket());
-		}
-		if (r.outcome==XeenEncounterOutcome::Blocked) _journeyRefusal="Movement blocked by terrain.";
-		schedule(now); return true;
-	}
-	Busy busy(_busy);
-	const auto entry = ticket();
-	if (!current(entry)) return false;
-	// Diagnostic arithmetic only, never a movement/collision query.
-	std::optional<std::pair<int,int>> attempted;
-	if (*action == XeenEncounterAction::Forward || *action == XeenEncounterAction::Backward) {
-		constexpr int dx[]{0,1,0,-1}, dy[]{1,0,-1,0};
-		const auto d = static_cast<unsigned>(_camera.direction);
-		if (d < 4 && _camera.x >= 13 && _camera.x <= 14 && _camera.y >= 1 && _camera.y <= 2) {
-			const int sign = *action == XeenEncounterAction::Forward ? 1 : -1;
-			attempted = std::make_pair(_camera.x + sign * dx[d], _camera.y + sign * dy[d]);
-		}
-	}
+
 	std::uint64_t now;
-	if (!prepareTime(entry, now)) return !current(entry);
-	_attempted = attempted;
+	if (!prepareTime(ticket(),now)) return false;
 	_lastTime = now;
-	const auto r = XeenActorApproach::action(_world, _party, _camera, _state, *action, _events);
-	if (!adopt(r, entry.generation)) return false;
-	// Retain the intermediate publication before pulse preparation invokes providers.
-	_actionResult = r;
-	_actionPending = _state.pending();
-	_inputCycle = cycle;
+	const auto r = journeyAction(ticket(),*action);
+	_actionResult = r; _actionPending = _state.pending(); _inputCycle = cycle;
+	if (r.outcome == XeenEncounterOutcome::Refused) {
+		if (r.reason == XeenEncounterStop::Envelope) _journeyRefusal = _world.sessionState().journeyContract()==2 ? "Expedition boundary: x0..5/y14" : "Four-cell boundary: x=13..14, y=1..2";
+		return true;
+	}
 	if (_state.phase() == XeenEncounterPhase::Exploring &&
 		(r.outcome == XeenEncounterOutcome::Accepted || r.outcome == XeenEncounterOutcome::Blocked)) {
-		// The action is already adopted. A fallible clock observation/preparation for
-		// its separate pulse cannot roll it back or authorize a stale continuation.
-		const auto pulseEntry = ticket();
-		if (!prepareTime(pulseEntry, now)) {
-			if (current(pulseEntry)) fail(pulseEntry, XeenEncounterStop::Preparation);
-			return true;
-		}
-		_lastTime = now;
-		const auto generation = _generation;
-		const auto pulse = XeenActorApproach::pulse(_world, _party, _camera, _state, _events);
-		if (!adopt(pulse, generation)) return false;
+		if (!prepareTime(ticket(),now)) return true;
+		journeyPulse(ticket());
 	}
-	schedule(now);
-	return true;
+	if (r.outcome==XeenEncounterOutcome::Blocked) _journeyRefusal="Movement blocked by terrain.";
+	schedule(now); return true;
+
 }
 
 bool XeenEncounterFlow::idle(std::optional<std::uint64_t> cycle) {
-	if (completed()) return false;
 	if(projectilesPending()) return animateProjectiles();
 	if (_combat) return idleCombat(cycle);
 	if (_shoot && !monsterReward()) { const bool changed=serviceShoot();schedule(_lastTime);return changed; }
 	if (_casting && _casting->effectDone) { const bool changed=serviceCasting();schedule(_lastTime);return changed; }
 	if (_busy || _state.phase() != XeenEncounterPhase::Exploring) return false;
-	if (_journey) {
-		if (itemUseReady()) return serviceItemUse();
-		if (_world.sessionState().journeyActivity() == XeenJourneyActivity::Presentation || !_boundary.quiet()) return false;
-		std::uint64_t now;
-		if (!prepareTime(ticket(),now)) return false;
-		const bool due = (_state.pending() || _regionalWork) && _deadline && now >= *_deadline && !(cycle && _inputCycle == cycle);
-		const bool cosmetic = now >= _cosmeticDeadline;
-		_lastTime = now;
-		if (due) { journeyPulse(ticket()); schedule(now); _inputCycle = cycle; }
-		if (cosmetic && _state.phase() == XeenEncounterPhase::Exploring) {
-			_frame = (_frame + 1) % 8; _cosmeticDeadline = now + 100;
-		}
-		return due || cosmetic;
-	}
-	Busy busy(_busy);
-	const auto entry = ticket();
-	if (!current(entry)) return false;
+
+	if (itemUseReady()) return serviceItemUse();
+	if (_world.sessionState().journeyActivity() == XeenJourneyActivity::Presentation || !_boundary.quiet()) return false;
 	std::uint64_t now;
-	if (!prepareTime(entry, now)) return !current(entry);
+	if (!prepareTime(ticket(),now)) return false;
+	const bool due = (_state.pending() || _regionalWork) && _deadline && now >= *_deadline && !(cycle && _inputCycle == cycle);
 	const bool cosmetic = now >= _cosmeticDeadline;
-	const bool pulseDue = (_state.pending() || _regionalWork) && _deadline && now >= *_deadline &&
-		!(cycle && _inputCycle && *cycle == *_inputCycle);
 	_lastTime = now;
-	if (pulseDue) {
-		const auto r = XeenActorApproach::pulse(_world, _party, _camera, _state, _events);
-		if (!adopt(r, entry.generation)) return false;
-		schedule(now);
-	}
+	if (due) { journeyPulse(ticket()); schedule(now); _inputCycle = cycle; }
 	if (cosmetic && _state.phase() == XeenEncounterPhase::Exploring) {
-		_frame = (_frame + 1) % 8;
-		_cosmeticDeadline = now + 100;
-		++_generation;
+		_frame = (_frame + 1) % 8; _cosmeticDeadline = now + 100;
 	}
-	return pulseDue || cosmetic;
+	return due || cosmetic;
+
 }
 
 std::string XeenEncounterFlow::notice() const {
@@ -299,7 +157,6 @@ std::string XeenEncounterFlow::notice() const {
 			(_journeyRefusal.empty() ? "" : "\n"+_journeyRefusal);
 	}
 	if (_journey && _world.sessionState().journeyContract()==2) return expeditionNotice();
-	if (completed()) return completedNotice(_world, _party, _camera, _completedFeedback);
 	if (_combat) return combatNotice();
 	if (_journey) {
 		const auto &a = _world.sessionState().actors().at(5);
@@ -311,42 +168,11 @@ std::string XeenEncounterFlow::notice() const {
 			"\nI inventory; F9 quiet save; . Wait; Space interact\n" +
 			"Four cells x13..14/y1..2; time <960" + (_journeyRefusal.empty() ? "" : "\n\n" + _journeyRefusal);
 	}
-	std::string text = "M26: Arrows move/turn, . Wait, Esc exit\n";
-	text += "Map 20 (" + std::to_string(_camera.x) + "," + std::to_string(_camera.y) + ") ";
-	constexpr const char *directions[]{"N","E","S","W"};
-	const auto direction = static_cast<unsigned>(_camera.direction);
-	text += direction < 4 ? directions[direction] : "?";
-	text += " | T=" + std::to_string(_party.encounterContext ? unsigned(_party.encounterContext->minutes) : 0) + " | Unsaveable\n";
-	if (_state.phase() == XeenEncounterPhase::Engaged) {
-		const auto actor = _world.sessionState().actors().at(5);
-		std::string name = actor.statistics ? actor.statistics->name() : "";
-		for (unsigned char ch : name) if (ch < 32 || ch > 126) { name.clear(); break; }
-		if (name.empty()) name = "Monster " + std::to_string(actor.original.resourceId);
-		text += "Engaged: " + name + ". M26 stops before combat.";
-	} else if (_state.phase() == XeenEncounterPhase::SupportStopped) {
-		text += "Support stop: ";
-		switch (_state.reason()) {
-		case XeenEncounterStop::Envelope:
-			text += "diagnostic envelope";
-			if (_attempted) text += " (" + std::to_string(_attempted->first) + "," + std::to_string(_attempted->second) + ")";
-			break;
-		case XeenEncounterStop::Time: text += "unsupported 960-minute boundary"; break;
-		case XeenEncounterStop::Domain: text += "unsupported domain"; break;
-		case XeenEncounterStop::Overflow: text += "scheduling overflow"; break;
-		case XeenEncounterStop::Preparation: text += "resource/clock preparation failed"; break;
-		default: text += "presentation failed"; break;
-		}
-	} else if (_actionResult.outcome == XeenEncounterOutcome::Blocked) {
-		// Retained action facts only; its supplied pulse may already have made a
-		// terminal notice above authoritative. No movement query or modal is needed.
-		text += "Movement blocked by terrain.";
-	} else text += "Events, inventory and saving unavailable.";
-	return text;
+	return {};
 }
 
 bool XeenEncounterFlow::terminal() const noexcept {
 	if (_journey && _failure) return true;
-	if (completed()) return true;
 	if (!_combat) return _state.phase() != XeenEncounterPhase::Exploring;
 	const auto p = _combat->phase();
 	return _failure || p == XeenCombatPhase::Disengaged || p == XeenCombatPhase::Victory || p == XeenCombatPhase::Defeat ||
@@ -403,11 +229,10 @@ bool XeenEncounterFlow::respondCombatCast(const PlayerAction &action,std::uint64
 void XeenEncounterFlow::scheduleCombat(std::uint64_t now) {
 	_scheduleAfterFrame = true;
 	_deadline.reset();
-	if (!terminal() && (_combat->pending() != XeenCombatWork::None ||
-		(_combat->phase() == XeenCombatPhase::Approach && state().pending()))) _deadline = now + 100;
+	if (!terminal() && _combat->pending() != XeenCombatWork::None) _deadline = now + 100;
 }
 void XeenEncounterFlow::presented(const Ticket &entry) {
-	if (!_combat || !_scheduleAfterFrame || terminal() || preparation()) return;
+	if (!_combat || !_scheduleAfterFrame || terminal()) return;
 	std::uint64_t now;
 	if (!prepareTime(entry,now)) {
 		if (current(entry)) fail(entry,XeenEncounterStop::Preparation);
@@ -478,12 +303,10 @@ bool XeenEncounterFlow::handleCombat(const PlayerAction &input, std::optional<st
 	if (_busy || terminal()) return false;
 	const auto phase = _combat->phase();
 	if(_combat->cast())return false;
-	const auto movement = mapped(input);
-	const bool begin = phase == P::Preparation && std::holds_alternative<BeginEncounterAction>(input);
 	const bool command = phase == P::PlayerReady &&
 		(std::holds_alternative<AttackAction>(input) || std::holds_alternative<BlockAction>(input) || std::holds_alternative<RunAction>(input));
 	const auto *target = phase == P::PlayerReady ? std::get_if<SelectCombatTargetAction>(&input) : nullptr;
-	if (!begin && !command && !target && !(phase == P::Approach && movement)) return false;
+	if (!command && !target) return false;
 	Busy busy(_busy);
 	const auto entry = ticket();
 	std::uint64_t now;
@@ -492,41 +315,23 @@ bool XeenEncounterFlow::handleCombat(const PlayerAction &input, std::optional<st
 		return !current(entry);
 	}
 	_lastTime = now;
-	if (begin) {
-		if (!acceptCombatResult(_combat->beginApproach(*entry.combat))) return false;
-	} else if (target) {
+	if (target) {
 		if (!acceptCombatResult(_combat->selectTarget(*entry.combat,target->row))) return false;
 	} else if (command) {
 		if (!acceptCombatResult(_combat->command(*entry.combat,
 			std::holds_alternative<AttackAction>(input) ? XeenCombatCommand::Attack : std::holds_alternative<RunAction>(input) ? XeenCombatCommand::Run : XeenCombatCommand::Block))) return false;
-	}
-	else {
-		const auto action = _combat->approachAction(*entry.combat,*movement);
-		if (!acceptCombatResult(action)) return false;
-		_actionPending = state().pending();
-		if (action.status == XeenCombatStatus::Advanced && _combat->phase() == P::Approach) {
-			const auto pulse = ticket();
-			if (!prepareTime(pulse,now)) {
-				if (!current(pulse)) {
-					if (!terminal()) _combatOperationStale = true;
-				} else fail(pulse);
-				return true;
-			}
-			if (!acceptCombatResult(_combat->approachPulse(*pulse.combat))) return true;
-		}
 	}
 	retireCastingFeedback();
 	if (!handoffCombat()) return true;
 	if (observeCombat()) _cosmeticDeadline = now + 100;
 	_inputCycle = cycle;
 	_lastTime = now;
-	if (begin) _cosmeticDeadline = now + 100;
 	scheduleCombat(now);
 	return true;
 }
 bool XeenEncounterFlow::idleCombat(std::optional<std::uint64_t> cycle) {
 	_combatOperationStale = false;
-	if (_busy || preparation() || terminal()) return false;
+	if (_busy || terminal()) return false;
 	Busy busy(_busy);
 	const auto entry = ticket();
 	std::uint64_t now;
@@ -548,8 +353,7 @@ bool XeenEncounterFlow::idleCombat(std::optional<std::uint64_t> cycle) {
         scheduleCombat(now);return true;
     }
 	if (due) {
-		const auto result = _combat->phase() == XeenCombatPhase::Approach ?
-			_combat->approachPulse(*entry.combat) : _combat->service(*entry.combat);
+		const auto result = _combat->service(*entry.combat);
 		if (!acceptCombatResult(result)) return false;
 		if (!handoffCombat()) return false;
 		_inputCycle = cycle;
@@ -658,9 +462,6 @@ std::string XeenEncounterFlow::combatNotice() const {
 	const auto &r = _combatObservation;
 	std::string text = (_combatCastRefusal.empty() ? "T=" : _combatCastRefusal+"\nT=") + std::to_string(_combat->result().minutes) + " | Unsaveable | Esc exits\n";
 	auto name = [&](unsigned owner) { return _party.roster.at(owner).name; };
-	if (phase == P::Preparation)
-		return text + "Preparation: actors have not begun.\nI inventory / equipment; Enter begins.";
-	if (phase == P::Approach) return text + "Approach: arrows move/turn, . Wait";
 	if (phase == P::Victory) text += "VICTORY\n";
 	else if (phase == P::Defeat) text += "DEFEAT - no healing or XP\n";
 	else if (phase == P::Failed) text += "FAILED - encounter cannot continue\n";

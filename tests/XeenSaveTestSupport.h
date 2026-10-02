@@ -40,22 +40,10 @@ inline bool sameInputs(const XeenCombatInputs &a, const XeenCombatInputs &b) {
 		(a.poisonResistance->permanent==b.poisonResistance->permanent && a.poisonResistance->temporary==b.poisonResistance->temporary));
 }
 
-inline bool sameCompleted(const std::optional<XeenSaveCompletedEncounter> &a,
-		const std::optional<XeenSaveCompletedEncounter> &b) {
-	if (bool(a) != bool(b)) return false;
-	if (!a) return true;
-	if (a->entry != b->entry || a->victory != b->victory ||
-		a->accountingConsumed != b->accountingConsumed || !(a->monster == b->monster) ||
-		!(a->context == b->context)) return false;
-	for (std::size_t i = 0; i < a->supplements.size(); ++i)
-		if (a->supplements[i].owner != b->supplements[i].owner ||
-			!sameInputs(a->supplements[i].inputs, b->supplements[i].inputs)) return false;
-	return true;
-}
+
 
 inline void sameSnapshot(const XeenSaveSnapshot &a, const XeenSaveSnapshot &b) {
 	check(a.resources == b.resources && sameCamera(a.camera, b.camera), "signature/camera changed");
-	check(a.itemState == b.itemState, "item presence changed");
 	check(a.activeRosterIds == b.activeRosterIds, "membership order changed");
 	for (std::size_t i = 0; i < a.characters.size(); ++i)
 		remove_test::checkSameCharacter(a.characters[i], b.characters[i]);
@@ -63,8 +51,6 @@ inline void sameSnapshot(const XeenSaveSnapshot &a, const XeenSaveSnapshot &b) {
 		"independent counters/flags changed");
 	check(a.disabledObjects == b.disabledObjects && a.disabledEvents == b.disabledEvents,
 		"independent world identities changed");
-	check(sameCompleted(a.completedEncounter, b.completedEncounter),
-		"completed encounter extension changed");
 	check(bool(a.journey)==bool(b.journey),"Journey presence changed");
 	if(a.journey) {
 		const auto &x=*a.journey,&y=*b.journey;
@@ -89,8 +75,35 @@ inline void sameSnapshot(const XeenSaveSnapshot &a, const XeenSaveSnapshot &b) {
 	}
 }
 
+inline XeenServiceEconomy literalMerchantEconomy() {
+	// Independent possible output: all twenty calls choose Weapons; calls after
+	// the eighth discard. First eight levels follow each shop's literal bands.
+	XeenServiceEconomy e;
+	const std::array<std::array<std::uint8_t,8>,8> materials{{
+		{{0,0,0,0,0,0,0,0}},{{0,0,0,0,0,37,37,37}},
+		{{0,0,0,0,0,37,37,37}},{{0,0,0,0,0,37,37,37}},
+		{{0,0,0,0,0,0,0,0}},{{0,0,0,0,0,37,37,37}},
+		{{40,40,40,40,40,41,41,41}},{{39,39,39,39,39,40,40,40}}
+	}};
+	for (unsigned shop=0;shop<8;++shop) for(unsigned slot=0;slot<8;++slot)
+		e.wares[shop/4][shop%4][0][slot]={materials[shop][slot],1,0,0};
+	e.bank.gold=0xfedcba98u;e.bank.gems=0xffffffffu;
+	return e;
+}
+
+inline XeenSaveSnapshot currentWireSnapshot() {
+ XeenSaveSnapshot s;s.camera={23,9,11,XeenDirection::West};s.journey.emplace();
+ auto &j=*s.journey;j.schema=9;j.contract=14;j.context.emplace();
+ j.context->day=8;j.context->year=610;j.context->minutes=577;
+ for(unsigned i=0;i<30;++i){j.supplements[i].owner=i;auto &v=j.supplements[i].inputs;
+  v.luck.emplace();v.resistances.emplace();v.poisonResistance.emplace();s.characters[i].learnedSpells.emplace();}
+ j.random.emplace();j.initializedMap=23;j.originalActorCount=19;
+ for(unsigned i=0;i<19;++i){XeenSaveJourneyActor a;a.id={23,i};j.actors.push_back(a);}
+ j.treasure.emplace();j.regionalRecovery.emplace();j.serviceEconomy=literalMerchantEconomy();return s;
+}
+
 inline XeenSaveSnapshot sample() {
-	XeenSaveSnapshot s;
+	auto s = currentWireSnapshot();
 	s.resources = {{123456, 0x12345678U}, XeenArchiveFingerprint{654321, 0x87654321U}};
 	s.camera = {23, 8, 2, XeenDirection::North};
 	s.activeRosterIds = {18, 0, 18, 23, 1, 6};
@@ -135,25 +148,7 @@ inline XeenSaveSnapshot sample() {
 	return s;
 }
 
-inline XeenSaveSnapshot completedSample() {
-	auto s = sample();
-	s.camera = {20, 14, 2, XeenDirection::East};
-	s.activeRosterIds.assign(kXeenCombatOwners.begin(), kXeenCombatOwners.end());
-	XeenSaveCompletedEncounter completed;
-	completed.context = {XeenBehaviorProfile::WorldOfXeenClouds, XeenDifficulty::Adventurer,
-		23, 1, 610, 959, {}, {}, false, false};
-	constexpr std::array<std::uint8_t, 6> owners{0, 1, 6, 11, 14, 18};
-	for (std::size_t i = 0; i < owners.size(); ++i) {
-		auto &r = completed.supplements[i]; r.owner = owners[i];
-		r.inputs.might = {int(i * 7), int(i * 7 + 1)};
-		r.inputs.speed = {int(i * 7 + 2), int(i * 7 + 3)};
-		r.inputs.accuracy = {int(i * 7 + 4), int(i * 7 + 5)};
-		r.inputs.temporaryAc = int(i * 7 + 6);
-		r.inputs.experience = i == 0 ? 0U : 0x10203040U + static_cast<std::uint32_t>(i * 0x01010101U);
-	}
-	s.completedEncounter = completed;
-	return s;
-}
+
 
 inline void put32(Bytes &bytes, std::size_t offset, std::uint32_t value) {
 	for (unsigned i = 0; i < 4; ++i) bytes.at(offset + i) = static_cast<std::uint8_t>(value >> (i * 8));
@@ -224,33 +219,7 @@ inline void distinctiveInitialItems(XeenRoster &roster) {
 	}
 }
 
-inline XeenSaveSnapshot expectedLegacy(const XeenSaveSnapshot &legacy, const XeenRoster &initial) {
-	check(legacy.itemState == XeenSaveItemState::LegacyV1MissingFields, "fixture was not decoded as v1");
-	check(legacy.activeRosterIds == std::vector<std::uint8_t>({18, 0, 18}) &&
-		legacy.questItems[17] == 3 && legacy.questFlags[2] && legacy.gameFlags[7],
-		"independent v1 membership/quest/flag layout differs");
-	auto expected = legacy;
-	expected.itemState = XeenSaveItemState::Complete;
-	for (unsigned i = 0; i < 30; ++i) {
-		auto &c = expected.characters[i];
-		check(c.name == "R" + std::string(i < 10 ? "0" : "") + std::to_string(i) &&
-			c.permanentLevel == 1 && c.currentHp == 40 + i && c.currentSp == 5 + i && c.birthYear == 592,
-			"independent v1 fields around item block differ");
-		const auto &defaults = initial.at(i);
-		const XeenItemCategory *sources[]{&defaults.weapons, &defaults.armor, &defaults.accessories};
-		XeenItemCategory *targets[]{&c.weapons, &c.armor, &c.accessories};
-		for (unsigned category = 0; category < 3; ++category)
-			for (unsigned slot = 0; slot < 9; ++slot) {
-				auto &item = (*targets[category])[slot];
-				check(item.material == 140 + i + category * 9 + slot &&
-					item.state == 33 + category * 29 + slot && item.frame == 2 + i && item.id == 0,
-					"independent v1 triple layout differs");
-				item.id = (*sources[category])[slot].id;
-			}
-		c.miscellaneous = defaults.miscellaneous;
-	}
-	return expected;
-}
+
 
 } // namespace save_test
 #endif

@@ -20,15 +20,6 @@
 namespace mmodern {
 class XeenItemCatalog;
 
-// Borrowed providers used once, before EventFlow's first refresh.
-struct XeenEncounterSetup {
-	const XeenEventFile &events;
-	std::function<XeenEncounterResult(XeenWorld &, XeenPartyState &, XeenCamera &, XeenEncounterState &)> initialize;
-	std::function<void(std::uint8_t image)> validateNormalSprite;
-	std::function<std::unique_ptr<XeenCombat>(XeenWorld &, XeenPartyState &, XeenCamera &, XeenCombatBoundary &)> prepareCombat;
-	std::function<void(std::uint8_t image)> validateAttackSprite;
-};
-
 // Borrowed original values for one fresh Journey initialization, never restoration.
 struct XeenJourneySetup {
 	const std::vector<std::uint8_t> &characters;
@@ -53,9 +44,7 @@ struct XeenJourneyRestoreTag {};
 class XeenEncounterFlow {
 public:
 	struct Ticket { XeenEncounterState state; std::uint64_t generation; std::optional<XeenCombat::Ticket> combat;
-		std::optional<XeenCompletedEncounterTicket> completed; std::uint64_t boundaryGeneration = 0; };
-	XeenEncounterFlow(XeenWorld &, XeenPartyState &, XeenCamera &, const XeenGameFlags &,
-		const XeenEventPresenter::Clock &, const XeenEncounterSetup &);
+		std::uint64_t boundaryGeneration = 0; };
 	XeenEncounterFlow(XeenWorld &, XeenPartyState &, XeenCamera &, const XeenGameFlags &,
 		const XeenEventPresenter::Clock &, const XeenJourneySetup &);
 	XeenEncounterFlow(XeenWorld &, XeenPartyState &, XeenCamera &, const XeenGameFlags &,
@@ -73,7 +62,7 @@ public:
 	bool journeySaveCurrent(const Ticket &) const noexcept;
 	bool endJourneySave(const Ticket &) noexcept;
 	XeenRestoreGuard &journeySavePreimage() { return *_journeyPreimage; }
-	std::shared_ptr<XeenRestoreGuard> retainSavePreimage() const { return _journey ? _journeyPreimage : _completedPreimage; }
+	std::shared_ptr<XeenRestoreGuard> retainSavePreimage() const { return _journeyPreimage; }
 	const std::string &journeyRefusal() const noexcept { return _journeyRefusal; }
 	XeenEncounterResult journeyAction(const Ticket &, XeenEncounterAction);
 	XeenEncounterResult journeyPulse(const Ticket &);
@@ -104,18 +93,8 @@ public:
 	bool presentJourney(const Ticket &);
 	XeenEncounterFlow(const XeenEncounterFlow &) = delete;
 	XeenEncounterFlow &operator=(const XeenEncounterFlow &) = delete;
-	Ticket ticket() const noexcept { return {state(), _generation, _combat ? std::optional<XeenCombat::Ticket>{_combat->ticket()} : std::nullopt, _completed, _boundary.generation()}; }
-	bool completed() const noexcept { return _completed.has_value(); }
-	bool canSave() const noexcept { return journeyQuiet() || (completed() && !_completedLease && current(ticket())); }
-	void retireVictory();
-	void holdCompleted();
-	void releaseCompleted();
-	void closeCompleted() noexcept;
-	XeenRestoreGuard &completedPreimage() { return *_completedPreimage; }
-	XeenCompletedReentry reenter(const XeenWorld::MonsterLoader &, const XeenWorld::EventLoader &, const XeenWorld::CompletedPreflight &, const std::function<void()> &);
-	static std::string completedNotice(const XeenWorld &, const XeenPartyState &, const XeenCamera &, const std::string &feedback = {});
-	static std::string completedInspection(const XeenWorld &, const XeenPartyState &, const XeenCamera &);
-	void feedback(std::string value) { _completedFeedback = std::move(value); }
+	Ticket ticket() const noexcept { return {state(), _generation, _combat ? std::optional<XeenCombat::Ticket>{_combat->ticket()} : std::nullopt, _boundary.generation()}; }
+	bool canSave() const noexcept { return journeyQuiet(); }
 	XeenCombat *combat() noexcept { return _combat.get(); }
 	const XeenCombat *combat() const noexcept { return _combat.get(); }
 	// Fixed observations for downstream presentation, never continuation authority.
@@ -123,7 +102,6 @@ public:
 	const XeenCombatResult &combatAward() const noexcept { return _combatAward; }
 	XeenCombatResult combatResult() const noexcept { return _combat ? _combat->result() : _retiredCombatResult; }
 	XeenCombatBoundary &boundary() noexcept { return _boundary; }
-	bool preparation() const noexcept { return _combat && _combat->phase() == XeenCombatPhase::Preparation; }
 	bool terminal() const noexcept;
 	bool combatOperationStale() const noexcept { return _combatOperationStale; }
 	void presented(const Ticket &);
@@ -344,12 +322,6 @@ private:
 	XeenPartyState &_party;
 	XeenCamera &_camera;
 	const XeenGameFlags &_flags;
-	std::optional<XeenCompletedEncounterTicket> _completed;
-	std::uint64_t _completedLease = 0;
-	XeenCompletedGuard _completedLeaseKind = XeenCompletedGuard::Operation;
-	std::shared_ptr<XeenRestoreGuard> _completedPreimage;
-	std::string _completedFeedback;
-	void retainCompleted();
 	const XeenEventPresenter::Clock &_clock;
 	const XeenEventFile &_events;
 	XeenCombatBoundary _boundary;

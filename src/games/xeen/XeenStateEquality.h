@@ -83,19 +83,6 @@ inline bool sameObjectFile(const XeenObjectFile &a, const XeenObjectFile &b) {
 	return a.mapId == b.mapId && a.resourceName == b.resourceName && a.resourcePresent == b.resourcePresent && sameEntities(a.entities, b.entities);
 }
 
-inline bool sameAuthority(const XeenCompletedEncounterAuthority &a, const XeenCompletedEncounterAuthority &b) {
-	if (a.party != b.party || a.roster != b.roster || a.camera != b.camera ||
-		a.activeRosterIds != b.activeRosterIds || a.questItems != b.questItems || a.questFlags != b.questFlags ||
-		!(a.context == b.context) || a.firstSerializedCount != b.firstSerializedCount ||
-		a.effectiveSerializedCount != b.effectiveSerializedCount || a.diagnostics != b.diagnostics ||
-		!sameCamera(a.cameraValue, b.cameraValue) || a.actors.size() != b.actors.size() ||
-		a.objects != b.objects || a.events != b.events || !(a.monster == b.monster)) return false;
-	for (std::size_t i = 0; i < a.characters.size(); ++i) {
-		if (!sameCharacter(a.characters[i], b.characters[i]) || bool(a.combatInputs[i]) != bool(b.combatInputs[i])) return false;
-		if (a.combatInputs[i] && !sameInputs(*a.combatInputs[i], *b.combatInputs[i])) return false;
-	}
-	for (std::size_t i = 0; i < a.actors.size(); ++i) if (!sameActor(a.actors[i], b.actors[i])) return false;
-	return true;
-}
+
 }
 #endif

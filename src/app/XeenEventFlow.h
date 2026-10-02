@@ -31,7 +31,7 @@ public:
 		const XeenFontFormat &font, Compose compose,
 		XeenEventPresenter::NpcDraw npcDraw = {}, XeenEventPresenter::Clock clock = {},
 		XeenEventPresenter::RandomFrame randomFrame = {}, const XeenItemCatalog *catalog = nullptr,
-		const XeenEncounterSetup *encounter = nullptr, EncounterCompose encounterCompose = {},
+		EncounterCompose encounterCompose = {},
 		const XeenJourneySetup *journey = nullptr, TransitionCompose transitionCompose = {});
 	~XeenEventFlow();
 	XeenEventFlow(const XeenEventFlow &) = delete;
@@ -39,7 +39,7 @@ public:
 	IndexedFrame initial();
 	IndexedFrame handle(const PlayerAction &action, std::optional<std::uint64_t> displayedInput = {},
 		const IndexedFrame::Presentation &inputFrame = {});
-	std::optional<std::uint64_t> displayedInput() const noexcept { return _encounter && (journey() || _encounter->combat() || _encounter->completed()) ? std::optional<std::uint64_t>{_inputGeneration} : std::nullopt; }
+	std::optional<std::uint64_t> displayedInput() const noexcept { return _encounter && (journey() || _encounter->combat()) ? std::optional<std::uint64_t>{_inputGeneration} : std::nullopt; }
 	// Copies retain the exact immutable published snapshot, including across Flow destruction.
 	bool acceptsFrame(const IndexedFrame::Presentation &frame) const noexcept {
 		return encounterFrameCurrent() && frame == _frame.presentation() && (!_encounter || frame);
@@ -56,7 +56,6 @@ public:
 	std::function<void(IndexedFrame &)> drawTrainingArt;
 	std::function<void(IndexedFrame &)> drawTempleArt;
 	std::function<void(XeenTrainingBoundary)> trainingBoundary;
-	bool completed() const noexcept { return _encounter && _encounter->completed(); }
 	bool canSave() const noexcept;
 	bool serviceSaveBlocked() const noexcept { return _smithUi.has_value() || _trainingUi.has_value() || _dispatching || _handoffPending || _saving || _fatal; }
 	class SaveBoundary {
@@ -74,12 +73,6 @@ public:
 	void framePresented(const IndexedFrame::Presentation &, bool deferCosmeticInput = false);
 	void completeInputHandoff(const IndexedFrame::Presentation &);
 	void closeGameplay() noexcept;
-	IndexedFrame completedFeedback(std::string);
-	static IndexedFrame preflightCompleted(IndexedFrame, const XeenFontFormat &, const XeenItemCatalog *,
-		const XeenWorld &, const XeenPartyState &, const XeenCamera &);
-	XeenWorld::MonsterLoader completedMonsters;
-	XeenWorld::EventLoader completedEvents;
-	XeenWorld::CompletedPreflight completedPreflight;
 	IndexedFrame refresh(bool reconstruct = false);
 	IndexedFrame acceptManual(XeenManualEventResult result);
 	IndexedFrame acceptAutomatic(XeenAutomaticEventResult result);
@@ -187,7 +180,6 @@ private:
 	friend class Application;
 	friend struct XeenTrainingTestAccess;
 	friend struct XeenPurchaseTestAccess;
-	XeenRestoreGuard &completedSavePreimage() { return _encounter->completedPreimage(); }
 	void requireCurrentOwners() const;
 	friend struct XeenRewardTestAccess;
 	friend struct XeenInventoryTestAccess;
@@ -207,11 +199,8 @@ private:
 	std::optional<std::uint64_t> _cycle;
 	std::uint64_t _inputGeneration = 0;
 	std::optional<XeenCombat::Ticket> _displayedCombat;
-	std::optional<XeenEncounterFlow::Ticket> _displayedCompleted;
-	void authorizeCompletedFrame();
 	void prepareJourneyTransition();
 	std::uint64_t _inventoryLease = 0, _certificateLease = 0;
-	bool combatPreparation() const noexcept { return _encounter && _encounter->preparation(); }
 	void syncCombatInventory();
 	IndexedFrame renderEncounter(bool report = false, bool cosmeticInput = false);
 	IndexedFrame frameCopy();

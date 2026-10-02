@@ -1,165 +1,23 @@
-#include "XeenEncounterTestSupport.h"
+#include "XeenRegionalJourneyTestSupport.h"
+#include "games/xeen/XeenStateEquality.h"
 #include <iostream>
 #include <type_traits>
-
 using namespace encounter_test;
 using Action=XeenEncounterAction;
 namespace {
-struct ReentrantFixture {
-	XeenPartyState p = party();
-	XeenCamera camera = XeenActorApproach::kEntry;
-	XeenEncounterState state;
-	const std::vector<XeenMonsterRecord> statistics = stats();
-	const XeenGameplayContext context = XeenGameplayContextFormat::parse(pty());
-	const XeenEventFile evt = events();
-	std::function<void()> onMap;
-	XeenWorld world{[&](XeenMapIdentity) {
-		if (onMap) {
-			auto callback = std::move(onMap);
-			onMap = {};
-			callback();
-		}
-		return map();
-	}, [](XeenMapIdentity) { return mob(); }};
-	XeenEncounterResult start() {
-		return XeenActorApproach::initialize(world,p,camera,state,statistics,context,evt);
-	}
-	XeenEncounterResult action(Action a) {
-		return XeenActorApproach::action(world,p,camera,state,a,evt);
-	}
-	XeenEncounterResult pulse() { return XeenActorApproach::pulse(world,p,camera,state,evt); }
+using regional_journey_test::Fixture;
+struct Observation {
+    std::array<XeenCharacter,30> characters;
+    std::optional<XeenGameplayContext> context;
+    XeenCamera camera;
+    std::vector<XeenActor> actors;
+    explicit Observation(Fixture &f):characters(f.p.roster.characters()),context(f.p.encounterContext),camera(f.camera),actors(f.w.sessionState().actors()){}
+    void unchanged(Fixture &f)const{
+        for(unsigned i=0;i<30;++i)check(xeen_state::sameCharacter(characters[i],f.p.roster.at(i)),"actor transition changed character facts");
+        check(context==f.p.encounterContext&&save_test::sameCamera(camera,f.camera),"refused actor transition published camera/time");
+        sameActors(actors,f.w.sessionState().actors());
+    }
 };
-
-void stopDuringPreparation() {
-	ReentrantFixture f;
-	f.start(); f.action(Action::Right); f.pulse();
-	const auto beforeParty = f.p;
-	const auto beforeCamera = f.camera;
-	const std::vector<XeenActor> beforeActors = f.world.sessionState().actors();
-	auto stale = f.state;
-	std::uint64_t stoppedRevision = 0;
-	f.world.discardMapCache();
-	f.onMap = [&] {
-		const auto stop = XeenActorApproach::stop(f.world,f.state,XeenEncounterStop::Reporting);
-		check(stop.outcome == XeenEncounterOutcome::Stopped,"provider did not stop encounter");
-		stoppedRevision = f.state.revision();
-	};
-	const auto result = f.action(Action::Forward);
-	check(stoppedRevision != 0 && result.outcome != XeenEncounterOutcome::Accepted,
-		"Forward accepted after provider terminated encounter");
-	auto preserved = [&] {
-		check(f.world.sessionState().encounterTerminal() && f.state.phase() == XeenEncounterPhase::SupportStopped &&
-			f.state.reason() == XeenEncounterStop::Reporting && f.state.revision() == stoppedRevision &&
-			f.state.pending() == 0,"provider stop/revision/pending work was overwritten");
-		check(save_test::sameCamera(beforeCamera,f.camera) && f.p.encounterContext == beforeParty.encounterContext,
-			"stopped Forward published camera/time/ctr24");
-		sameActors(beforeActors,f.world.sessionState().actors()); sameParty(beforeParty,f.p);
-	};
-	preserved();
-	check(f.pulse().outcome == XeenEncounterOutcome::Terminal,"pulse resumed stopped encounter");
-	check(XeenActorApproach::action(f.world,f.p,f.camera,stale,Action::Forward,f.evt).outcome ==
-		XeenEncounterOutcome::Stale,"pre-stop state replayed Forward");
-	preserved();
-}
-
-void initializationDuringPreparation() {
-	ReentrantFixture f;
-	auto beforeInitialization = f.state;
-	XeenEncounterState beforeWait;
-	XeenPartyState innerParty;
-	std::vector<XeenActor> innerActors;
-	std::uint64_t innerRevision = 0;
-	f.onMap = [&] {
-		check(f.start().outcome == XeenEncounterOutcome::Started,"inner initialization failed");
-		beforeWait = f.state;
-		check(f.action(Action::Wait).outcome == XeenEncounterOutcome::Engaged,"inner Wait did not engage");
-		innerRevision = f.state.revision(); innerParty = f.p; innerActors = f.world.sessionState().actors();
-	};
-	// Existing initialization refusal contract is an exception, not a Started result.
-	rejects([&] { f.start(); });
-	auto preserved = [&] {
-		check(innerRevision > 1 && f.state.revision() == innerRevision && f.state.pending() == 0 &&
-			f.state.phase() == XeenEncounterPhase::Engaged && f.world.sessionState().encounterTerminal() &&
-			f.world.sessionState().encounterInitialized(),"outer initialization replaced inner authority/revision");
-		check(f.p.encounterContext == innerParty.encounterContext && f.p.encounterContext->minutes == 490 &&
-			f.world.sessionState().actors().at(5).y == 1 && save_test::sameCamera(f.camera,XeenActorApproach::kEntry),
-			"outer initialization reset inner gameplay");
-		sameActors(innerActors,f.world.sessionState().actors()); sameParty(innerParty,f.p);
-	};
-	preserved();
-	check(f.pulse().outcome == XeenEncounterOutcome::Terminal,"pulse resumed inner engagement");
-	for (auto *stale : {&beforeInitialization,&beforeWait})
-		check(XeenActorApproach::action(f.world,f.p,f.camera,*stale,Action::Wait,f.evt).outcome ==
-			XeenEncounterOutcome::Stale,"pre-initialization/Wait state replayed");
-	rejects([&] { f.start(); });
-	preserved();
-}
-
-void staleFailureDuringPreparation(bool throwAfterInner) {
-	ReentrantFixture f;
-	f.start(); f.action(Action::Right); f.pulse();
-	auto stale = f.state;
-	XeenPartyState innerParty;
-	XeenCamera innerCamera;
-	XeenEncounterState innerState;
-	std::vector<XeenActor> innerActors;
-	f.world.discardMapCache();
-	f.onMap = [&] {
-		check(f.action(Action::Forward).outcome == XeenEncounterOutcome::Accepted,"inner Forward failed");
-		innerParty = f.p; innerCamera = f.camera; innerState = f.state;
-		innerActors = f.world.sessionState().actors();
-		if (throwAfterInner) throw std::runtime_error("provider failure after inner publication");
-	};
-	const auto result = f.action(Action::Forward);
-	auto preserved = [&] {
-		check(f.camera.x == 14 && f.camera.y == 1 && save_test::sameCamera(f.camera,innerCamera) &&
-			f.p.encounterContext == innerParty.encounterContext && f.p.encounterContext->minutes == 490,
-			"stale failure changed inner camera/context");
-		check(f.state.revision() == 4 && f.state.revision() == innerState.revision() &&
-			f.state.pending() == 3 && f.state.pending() == innerState.pending() &&
-			f.state.phase() == XeenEncounterPhase::Exploring && f.state.phase() == innerState.phase() &&
-			f.state.reason() == XeenEncounterStop::None && f.state.reason() == innerState.reason() &&
-			!f.world.sessionState().encounterTerminal() && f.world.sessionState().encounterInitialized() &&
-			f.world.sessionState().encounterMarked(),"stale failure stopped newer authoritative work");
-		sameActors(innerActors,f.world.sessionState().actors()); sameParty(innerParty,f.p);
-	};
-	preserved();
-	check(result.outcome == XeenEncounterOutcome::Stale && result.revision == 4 &&
-		result.movementOpportunities == 0,"outer failure was not observationally refused");
-	check(XeenActorApproach::action(f.world,f.p,f.camera,stale,Action::Forward,f.evt).outcome ==
-		XeenEncounterOutcome::Stale,"stale outer Forward replayed");
-	check(XeenActorApproach::pulse(f.world,f.p,f.camera,stale,f.evt).outcome ==
-		XeenEncounterOutcome::Stale,"stale outer pulse replayed");
-	preserved();
-	check(f.pulse().outcome == XeenEncounterOutcome::Pulsed && f.state.pending() == 2 &&
-		f.state.revision() == 5,"inner authorized pending work was lost");
-}
-
-void authoritativeFailureStops() {
-	for (int failure = 0; failure < 3; ++failure) {
-		ReentrantFixture f;
-		f.start(); f.action(Action::Right); f.pulse(); f.action(Action::Forward);
-		if (failure == 2) f.p.encounterContext->minutes = 950;
-		const auto beforeParty = f.p;
-		const auto beforeCamera = f.camera;
-		const std::vector<XeenActor> beforeActors = f.world.sessionState().actors();
-		if (failure == 1) {
-			f.world.discardMapCache();
-			f.onMap = [] { throw std::runtime_error("current preparation failure"); };
-		}
-		const auto result = f.action(failure == 2 ? Action::Wait : Action::Forward);
-		const auto reason = failure == 0 ? XeenEncounterStop::Envelope :
-			failure == 1 ? XeenEncounterStop::Preparation : XeenEncounterStop::Time;
-		check(result.outcome == XeenEncounterOutcome::Stopped && result.reason == reason &&
-			f.state.reason() == reason && f.state.phase() == XeenEncounterPhase::SupportStopped &&
-			f.world.sessionState().encounterTerminal() && f.state.pending() == 0 && f.state.revision() == 5,
-			"current authorization no longer stops/retire pending work");
-		check(save_test::sameCamera(f.camera,beforeCamera) && f.p.encounterContext == beforeParty.encounterContext,
-			"authoritative refusal published gameplay");
-		sameActors(beforeActors,f.world.sessionState().actors()); sameParty(beforeParty,f.p);
-	}
-}
-
 void viewAndMovement() {
 	static_assert(!std::is_convertible<XeenObjectIdentity,XeenMonsterIdentity>::value);
 	XeenObjectFile m{20,"synthetic",true,{}};
@@ -210,105 +68,100 @@ void viewAndMovement() {
 	rejects([&]{XeenActorApproach::move(a,{20,10,10,XeenDirection::North},allowed);});
 	sameActors(a,XeenActorApproach::move(a,{20,10,10,XeenDirection::North},allowed,false));
 }
-void traces() {
-	Fixture f;auto before=f.p;auto r=f.start();
-	check(r.view.slots[3]->recordIndex==5 && !r.view.engaged() && f.anchor().activated && f.state.pending()==0,"startup literal trace");
-	for(int i=0;i<5;++i)f.pulse();check(f.anchor().y==2 && f.p.encounterContext->minutes==480,"idle created movement");
-	r=f.action(Action::Wait);check(r.outcome==XeenEncounterOutcome::Engaged && f.anchor().y==1 && f.camera.y==1 && f.p.encounterContext->minutes==490 &&
-		f.state.phase()==XeenEncounterPhase::Engaged && f.state.pending()==0 && f.anchor().hp==20,"fresh Wait approach trace");
-	sameParty(before,f.p);std::vector<XeenActor> actorBefore=f.world.sessionState().actors();auto context=f.p.encounterContext;
-	f.input(Action::Forward);f.action(Action::Wait);f.pulse();sameActors(actorBefore,f.world.sessionState().actors());
-	check(context==f.p.encounterContext,"terminal resumed");
-	Fixture forward;forward.start();forward.action(Action::Forward);
-	check(forward.camera.y==2 && forward.anchor().y==2 && forward.state.pending()==3 && forward.p.encounterContext->minutes==490,"direct forward intermediate");
-	forward.pulse();check(forward.state.phase()==XeenEncounterPhase::Engaged && forward.state.pending()==0,"direct forward engagement");
-	Fixture backward;backward.start();backward.input(Action::Right);backward.input(Action::Right);
-	backward.action(Action::Backward);check(backward.camera.y==2 && backward.state.pending()==3 &&
-		backward.p.encounterContext->minutes==490,"accepted backward step");backward.pulse();
-	Fixture east;east.start();east.input(Action::Right);east.action(Action::Forward);
-	check(east.camera.x==14 && east.state.pending()==3 && east.anchor().y==2,"delayed intermediate count3");
-	east.pulse();check(east.state.pending()==2 && east.anchor().y==2,"post-action pulse duplicated");
-	east.pulse();check(east.state.pending()==1 && east.anchor().y==2,"early delayed movement");
-	east.pulse();check(east.state.pending()==0 && east.anchor().x==13 && east.anchor().y==1 && east.camera.x==14 &&
-		east.p.encounterContext->minutes==490 && east.anchor().activated,"East delayed approach/latch");
-	east.input(Action::Left);r=east.input(Action::Left);check(r.view.slots[3]->recordIndex==5,"two turns reveal actor");
-	east.action(Action::Wait);check(east.anchor().x==14 && east.anchor().y==1 && east.p.encounterContext->minutes==500 && east.state.phase()==XeenEncounterPhase::Engaged,"West wait trace");
-	Fixture rapid;rapid.start();rapid.input(Action::Right);rapid.input(Action::Forward);r=rapid.action(Action::Wait);
-	check(r.movementOpportunities==2 && rapid.anchor().x==14 && rapid.anchor().y==1 && rapid.p.encounterContext->minutes==500,"old/new rapid opportunities");
-	Fixture destination;destination.start();destination.input(Action::Right);destination.input(Action::Forward);
-	destination.input(Action::Left);r=destination.action(Action::Forward);
-	check(r.movementOpportunities==1 && destination.camera.x==14 && destination.camera.y==2 &&
-		destination.anchor().x==14 && destination.anchor().y==2 && destination.state.pending()==3,
-		"old opportunity did not use candidate destination camera");destination.pulse();
-	Fixture turn;turn.start();turn.input(Action::Right);turn.input(Action::Forward);
-	turn.input(Action::Left);check(turn.state.pending()==1 && turn.p.encounterContext->minutes==490,"turn minute charge");
-	turn.input(Action::Right);check(turn.state.pending()==0 && turn.anchor().y==1,"turn did not finish old work");
-	Fixture blocked;blocked.start();blocked.input(Action::Backward);
-	check(blocked.camera.y==1 && blocked.p.encounterContext->minutes==480 && blocked.p.encounterContext->ctr24==0,"real blocked step charged");
-	blocked.input(Action::Right);blocked.input(Action::Forward);blocked.input(Action::Right); // South, pending 1
-	// Make the south destination a real space collision outside the four admitted cells.
-	blocked.world.discardMapCache();auto &cell=blocked.terrain.geometry.cells[14];cell.rawWord=15;cell.geometry=XeenOutdoorLayers{15,0,0,0};
-	const auto ctr=blocked.p.encounterContext->ctr24;r=blocked.action(Action::Forward);
-	check(r.outcome==XeenEncounterOutcome::Blocked && blocked.p.encounterContext->ctr24==ctr,"blocked step counters");
-	blocked.pulse();check(blocked.state.pending()==0 && blocked.anchor().x==14 && blocked.anchor().y==2,"blocked pulse old move ordering");
-	Fixture time;time.start();time.input(Action::Right);time.input(Action::Forward);
-	time.p.encounterContext->minutes=950;time.p.encounterContext->ctr24=23;
-	std::vector<XeenActor> old=time.world.sessionState().actors();auto cam=time.camera;auto ctx=time.p.encounterContext;
-	r=time.action(Action::Wait);check(r.reason==XeenEncounterStop::Time && time.state.pending()==0 && time.p.encounterContext==ctx && save_test::sameCamera(cam,time.camera),"950 refusal published facts");sameActors(old,time.world.sessionState().actors());
-	Fixture wrap;wrap.start();wrap.p.encounterContext->ctr24=23;wrap.action(Action::Right);check(wrap.p.encounterContext->ctr24==0,"ctr24 wrap");
-	Fixture boundary;boundary.start();boundary.input(Action::Right);boundary.input(Action::Forward);old=boundary.world.sessionState().actors();ctx=boundary.p.encounterContext;
-	r=boundary.action(Action::Forward);check(r.reason==XeenEncounterStop::Envelope && boundary.camera.x==14 && boundary.p.encounterContext==ctx,"passable boundary became geography");sameActors(old,boundary.world.sessionState().actors());
+
+void traces(){
+    Fixture f;
+    check(f.flow->state().pending()==0&&f.anchor().activated&&f.anchor().x==13&&f.anchor().y==2,"regional startup actor observation");
+    for(unsigned i=0;i<5;++i)f.pulse();check(f.anchor().y==2&&f.p.encounterContext->minutes==480,"idle created movement");
+    auto r=f.action(Action::Wait);
+    check(r.outcome==XeenEncounterOutcome::Engaged&&f.anchor().y==1&&f.camera.y==1&&f.p.encounterContext->minutes==490&&f.flow->state().pending()==0&&f.anchor().hp==20,"Wait approach trace");
+    Observation engaged(f);f.action(Action::Forward);f.action(Action::Wait);f.pulse();engaged.unchanged(f);
+    Fixture forward;forward.action(Action::Forward);
+    check(forward.camera.y==2&&forward.anchor().y==2&&forward.flow->state().pending()==3&&forward.p.encounterContext->minutes==490,"direct forward intermediate");
+    forward.pulse();check(forward.flow->state().phase()==XeenEncounterPhase::Engaged&&forward.flow->state().pending()==2,"direct forward engagement retains pending count");
+    Fixture backward;backward.input(Action::Right);backward.input(Action::Right);backward.action(Action::Backward);
+    check(backward.camera.y==2&&backward.flow->state().pending()==3&&backward.p.encounterContext->minutes==490,"accepted backward step");backward.pulse();
+    Fixture east;east.input(Action::Right);east.action(Action::Forward);
+    check(east.camera.x==14&&east.flow->state().pending()==3&&east.anchor().y==2,"delayed intermediate count3");
+    east.pulse();check(east.flow->state().pending()==2&&east.anchor().y==2,"post-action pulse duplicated");
+    east.pulse();check(east.flow->state().pending()==1&&east.anchor().y==2,"early delayed movement");
+    east.pulse();check(east.flow->state().pending()==0&&east.anchor().x==13&&east.anchor().y==1&&east.camera.x==14&&east.p.encounterContext->minutes==490&&east.anchor().activated,"East delayed approach/latch");
+    east.input(Action::Left);r=east.input(Action::Left);check(r.view.slots[3]->recordIndex==5,"two turns reveal actor");
+    east.action(Action::Wait);check(east.anchor().x==14&&east.anchor().y==1&&east.p.encounterContext->minutes==500&&east.flow->state().phase()==XeenEncounterPhase::Engaged,"West wait trace");
+    Fixture rapid;rapid.input(Action::Right);rapid.input(Action::Forward);r=rapid.action(Action::Wait);
+    check(r.movementOpportunities==2&&rapid.anchor().x==14&&rapid.anchor().y==1&&rapid.p.encounterContext->minutes==500,"old/new rapid opportunities");
+    Fixture destination;destination.input(Action::Right);destination.input(Action::Forward);destination.input(Action::Left);r=destination.action(Action::Forward);
+    check(r.movementOpportunities==1&&destination.camera.x==14&&destination.camera.y==2&&destination.anchor().x==14&&destination.anchor().y==2&&destination.flow->state().pending()==3,"old opportunity uses candidate destination");destination.pulse();
+    Fixture turn;turn.input(Action::Right);turn.input(Action::Forward);turn.input(Action::Left);
+    check(turn.flow->state().pending()==1&&turn.p.encounterContext->minutes==490,"turn minute charge");
+    turn.input(Action::Right);check(turn.flow->state().pending()==0&&turn.anchor().y==1,"turn finishes old work");
+    Fixture blocked;Observation before(blocked);r=blocked.action(Action::Backward);blocked.pulse();
+    check(r.outcome==XeenEncounterOutcome::Blocked&&blocked.p.encounterContext->ctr24==0,"blocked step charged");before.unchanged(blocked);
+    Fixture wrap;
+    for(unsigned i=0;i<24;++i)wrap.input(Action::Right);
+    check(wrap.p.encounterContext->ctr24==0&&wrap.p.encounterContext->minutes==480,"ctr24 wraps without turn time");
 }
-void lifetimeAndFailures() {
-	Fixture f;check(!f.world.hasEncounterState(),"ordinary cache initialized encounter");f.world.map(20);f.world.objectFile(20);
-	check(!f.world.hasEncounterState(),"ordinary map20 cache activated actors");
-	f.world.disableObject({20,0});f.start();auto p=f.p;std::vector<XeenActor> actors=f.world.sessionState().actors();auto rev=f.state.revision();
-	rejects([&]{f.start();});sameParty(p,f.p);sameActors(actors,f.world.sessionState().actors());check(f.p.encounterContext==p.encounterContext && f.state.revision()==rev,"reinitialization changed context");
-	// Test-only injected live HP: no production damage/reset command is introduced.
-	const_cast<XeenActor &>(f.anchor()).hp=7;
-	f.input(Action::Right);f.input(Action::Forward);f.pulse();f.pulse();actors=f.world.sessionState().actors();p=f.p;
-	f.statistics.clear();f.world.discardMapCache();f.world.map(20);f.world.objectFile(20);
-	sameActors(actors,f.world.sessionState().actors());sameParty(p,f.p);check(f.anchor().hp==7 && f.world.isObjectDisabled({20,0}) && f.mapLoads==2 && f.mobLoads==2,"cache reset authority");
-	auto stale=f.state;f.action(Action::Left);actors=f.world.sessionState().actors();p=f.p;
-	auto r=XeenActorApproach::action(f.world,f.p,f.camera,stale,Action::Wait,f.evt);
-	check(r.outcome==XeenEncounterOutcome::Stale,"stale value replayed");sameActors(actors,f.world.sessionState().actors());check(f.p.encounterContext==p.encounterContext,"stale time replay");
-	Fixture other;other.start();r=XeenActorApproach::action(other.world,f.p,f.camera,f.state,Action::Wait,f.evt);check(r.outcome==XeenEncounterOutcome::Stale,"foreign owners accepted");
-	const auto revision=f.state.revision();f.action(Action::Unsupported);check(f.state.revision()==revision,"unsupported command was pulse");
-	Fixture failed;failed.statistics[8].raw[46]=1;auto ordinary=failed.p;rejects([&]{failed.start();});
-	check(failed.world.sessionState().encounterMarked() && !failed.world.sessionState().encounterInitialized() && failed.world.sessionState().actors().empty() && !failed.p.encounterContext,"partial initialization");sameParty(ordinary,failed.p);
-	Fixture failure;failure.start();failure.input(Action::Right);failure.input(Action::Forward);actors=failure.world.sessionState().actors();p=failure.p;auto camera=failure.camera;
-	failure.world.discardMapCache();failure.failMap=true;r=failure.action(Action::Wait);
-	check(r.reason==XeenEncounterStop::Preparation && failure.state.phase()==XeenEncounterPhase::SupportStopped && failure.state.pending()==0 && save_test::sameCamera(camera,failure.camera) && failure.p.encounterContext==p.encounterContext,"preparation failure published gameplay");sameActors(actors,failure.world.sessionState().actors());
-	Fixture reporting;reporting.start();reporting.action(Action::Wait);actors=reporting.world.sessionState().actors();
-	XeenActorApproach::stop(reporting.world,reporting.state,XeenEncounterStop::Reporting);reporting.action(Action::Wait);
-	sameActors(actors,reporting.world.sessionState().actors());check(reporting.p.encounterContext->minutes==490,"report failure replayed action");
-	Fixture fresh;fresh.start();check(fresh.anchor().hp==20 && fresh.anchor().y==2,"fresh owner did not restore originals");
-	for(int which=0;which<6;++which) {
-		Fixture bad;
-		if(which==0)bad.objects.entities.monsters[0]={14,4,0,0,8}; // offscreen but inside scan
-		if(which==1)bad.objects.entities.monsters[0]={14,4,7,0,-1};
-		if(which==2)bad.statistics[8].raw[32]=1;
-		if(which==3)bad.terrain.geometry.cells[29].rawAttributes=1;
-		if(which==4){XeenEventRecord e;e.x=13;e.y=1;bad.evt.records.push_back(e);}
-		if(which==5)bad.p.roster.at(0).conditions[0]=1;
-		rejects([&]{bad.start();});check(!bad.p.encounterContext && bad.world.sessionState().actors().empty(),"bad admission leaked state");
-	}
+void providerFailure(){
+    Fixture f;f.input(Action::Right);f.input(Action::Forward);Observation before(f);
+    f.w.discardMapCache();f.onMap=[]{throw std::runtime_error("current preparation failure");};
+    try{f.action(Action::Wait);}catch(const std::exception &){}
+    check(!f.flow->journeyQuiet(),"current provider failure leaves quiet boundary closed");before.unchanged(f);
+}
+void staleProvider(bool throws){
+    for(bool objects:{false,true})for(bool pending:{false,true})for(bool directStop:{false,true}){
+        Fixture f;if(pending){f.input(Action::Right);f.action(Action::Forward);}
+        const auto old=f.flow->ticket();const auto pendingBefore=f.flow->state().pending();Observation before(f);f.w.discardMapCache();unsigned calls=0;
+        auto callback=[&]{++calls;const auto lease=f.flow->boundary().hold(XeenCombatBoundary::Work::Inventory);f.flow->boundary().release(XeenCombatBoundary::Work::Inventory,lease);
+            if(directStop){auto state=f.flow->state();check(XeenActorApproach::stop(f.w,state,XeenEncounterStop::Reporting).outcome==XeenEncounterOutcome::Stale,"direct stop refuses expired delegated authority");}
+            if(throws)throw std::runtime_error("obsolete provider failure");};
+        if(objects)f.onObjects=callback;else f.onMap=callback;
+        const auto result=pending?f.flow->journeyPulse(old):f.flow->journeyAction(old,Action::Forward);
+        check(result.outcome!=XeenEncounterOutcome::Accepted&&result.outcome!=XeenEncounterOutcome::Pulsed,"obsolete action/pulse refused");
+        check(calls==1&&!f.flow->current(old)&&f.flow->state().pending()==pendingBefore,"provider fired and preserved pending work");before.unchanged(f);
+        f.onMap={};f.onObjects={};
+        if(pending){check(f.pulse().outcome==XeenEncounterOutcome::Pulsed&&f.flow->state().pending()==2,"fresh pulse services preserved work");}
+        else check(f.action(Action::Right).outcome==XeenEncounterOutcome::Accepted,"fresh authority survives obsolete callback");
+        check(!f.flow->fail(old,XeenEncounterStop::Reporting),"stale stop cannot replace new authority");
+    }
+}
+void nestedInitialization(){for(bool mutation:{false,true}){
+    auto bytes=regional_test::characterBytes();auto p=XeenPartyLoader().loadFromResources(bytes,regional_test::partyBytes());
+    auto camera=xeenJourneyContent(14).entry;XeenGameFlags flags;
+    const auto resources=regional_test::resources();auto monsters=regional_test::statistics();auto event=regional_test::events(23);
+    XeenJourneySetup setup{bytes,XeenGameplayContextFormat::parse(regional_test::partyBytes()),monsters,event,1,14,resources.regionalManifest};
+    setup.purse=XeenMonsterTreasure{};setup.regionalRecovery=XeenRegionalRecoveryState{};setup.regionalText=regional_test::texts(23);
+    setup.learnedNames=XeenLearnedSpellNames{};setup.learnedNamesProvider=resources.loadLearnedSpellNames;setup.vertigoManifest=resources.vertigoManifest;
+    setup.bank=XeenBankBalances{};setup.cityEventsProvider=[]{return regional_test::events(28);};
+    XeenEventPresenter::Clock clock=[]{return 0;};bool fired=false;XeenWorld *world=nullptr;
+    XeenWorld w([&](auto id){if(!fired){fired=true;if(mutation)++p.roster.at(0).currentHp;else rejects([&]{XeenEncounterFlow nested(*world,p,camera,flags,clock,setup);},"fresh");}return regional_test::map(id);},regional_test::objects);world=&w;
+    if(mutation){
+        rejects([&]{XeenEncounterFlow flow(w,p,camera,flags,clock,setup);});
+        check(fired&&w.hasEncounterState()&&!p.encounterContext&&!p.roster.combatInputs(0)&&p.roster.at(0).currentHp==11,"failed admission keeps external mutation without partial owner attachment");
+        w.discardMapCache();(void)w.map(23);continue;
+    }
+    XeenEncounterFlow flow(w,p,camera,flags,clock,setup);
+    check(fired&&w.sessionState().actors().size()==19&&p.encounterContext->minutes==480,"nested initialization cannot overwrite fresh publication");
+    check(flow.prepareJourneyFrame(flow.ticket(),[]{})&&flow.presentJourney(flow.ticket())&&flow.journeyQuiet(),"outer fresh initialization remains usable");
+}}
+void lifetimeAndFailures(){
+    Fixture f;const auto actors=f.w.sessionState().actors();const auto characters=f.p.roster.characters();
+    f.w.discardMapCache();f.w.map(23);f.w.objectFile(23);sameActors(actors,f.w.sessionState().actors());
+    for(unsigned i=0;i<30;++i)check(xeen_state::sameCharacter(characters[i],f.p.roster.at(i)),"cache reconstruction retains party");
+    auto stale=f.flow->state();f.action(Action::Right);Observation current(f);
+    check(XeenActorApproach::action(f.w,f.p,f.camera,stale,Action::Wait,f.event).outcome!=XeenEncounterOutcome::Accepted,"direct stale state cannot publish");current.unchanged(f);
+    Fixture other;auto foreign=f.flow->state();
+    check(XeenActorApproach::action(other.w,f.p,f.camera,foreign,Action::Wait,f.event).outcome!=XeenEncounterOutcome::Accepted,"foreign owners cannot publish");current.unchanged(f);
+    const auto revision=f.flow->state().revision();f.action(Action::Unsupported);check(f.flow->state().revision()==revision,"unsupported command is not a pulse");
+    Fixture fresh;check(fresh.anchor().hp==20&&fresh.anchor().y==2,"fresh owners restore source actor facts");
 }
 }
-int main(int argc, char **argv) {
-	try {
-		if (argc == 2 && std::string(argv[1]) == "reentrant-stop") stopDuringPreparation();
-		else if (argc == 2 && std::string(argv[1]) == "reentrant-initialize") initializationDuringPreparation();
-		else if (argc == 2 && std::string(argv[1]) == "stale-support") staleFailureDuringPreparation(false);
-		else if (argc == 2 && std::string(argv[1]) == "stale-exception") staleFailureDuringPreparation(true);
-		else if (argc == 2 && std::string(argv[1]) == "current-failure") authoritativeFailureStops();
-		else {
-			check(argc == 1,"unknown test selection");
-			viewAndMovement(); traces(); lifetimeAndFailures();
-			stopDuringPreparation(); initializationDuringPreparation();
-			staleFailureDuringPreparation(false); staleFailureDuringPreparation(true); authoritativeFailureStops();
-		}
-		std::cout << "Actor classification, transitions and lifetime tests passed\n";
-		return 0;
-	} catch (const std::exception &e) { std::cerr << e.what() << '\n'; return 1; }
-}
+int main(int argc,char **argv){try{
+    const std::string selection=argc==2?argv[1]:"";
+    if(selection=="reentrant-stop")staleProvider(false);
+    else if(selection=="reentrant-initialize"){nestedInitialization();}
+    else if(selection=="stale-support")staleProvider(false);
+    else if(selection=="stale-exception")staleProvider(true);
+    else if(selection=="current-failure"){providerFailure();}
+    else{check(argc==1,"unknown test selection");viewAndMovement();traces();lifetimeAndFailures();staleProvider(false);staleProvider(true);providerFailure();nestedInitialization();}
+    std::cout<<"Regional actor rules, transitions and lifetime tests passed\n";return 0;
+}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

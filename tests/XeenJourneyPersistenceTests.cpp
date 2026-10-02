@@ -1,4 +1,5 @@
 #include "games/xeen/XeenJourneyRules.h"
+#include "XeenRegionalJourneyTestSupport.h"
 #include "XeenJourneyTestSupport.h"
 #include "XeenRestoreReplayProbe.h"
 #include "XeenSaveGameplayTestSupport.h"
@@ -11,8 +12,8 @@
 #include "XeenChildProcessTestSupport.h"
 using namespace combat_test;
 namespace {
-using journey_test::Fixture;
-XeenSaveSnapshot capture(Fixture &f) { return XeenSaveState::capture(save_test::sample().resources,f.p,f.camera,f.flags,f.w); }
+using regional_journey_test::Fixture;
+XeenSaveSnapshot capture(Fixture &f) { return XeenSaveState::capture(regional_test::signature(),f.p,f.camera,f.flags,f.w); }
 XeenSaveSnapshot moved() {
 	Fixture f; f.action(XeenEncounterAction::Right); f.action(XeenEncounterAction::Forward);
 	f.pulse(); f.pulse(); f.pulse();
@@ -41,21 +42,21 @@ XeenSaveSnapshot ended() {
 }
 struct Destination {
 	XeenPartyState p;
-	XeenCamera c{20,14,2,XeenDirection::West};
+	XeenCamera c{23,14,2,XeenDirection::West};
 	XeenGameFlags f;
 	std::function<void(unsigned)> observer;
 	unsigned calls=0, legacy=0;
 	void observe(unsigned seam) { ++calls; if(observer) observer(seam); }
-	XeenWorld w{[&](XeenMapIdentity id) { observe(0); auto m=map(); m.geometry.id=id.number; return m; },
-		[&](XeenMapIdentity id) { observe(1); auto m=objects(); m.mapId=id; return m; }};
+	XeenWorld w{[&](XeenMapIdentity id) { observe(0); auto m=regional_journey_test::regionalMap(); m.geometry.id=id.number; return m; },
+		[&](XeenMapIdentity id) { observe(1); auto m=regional_journey_test::regionalObjects(); m.mapId=id; return m; }};
 	XeenEventPresenter::Clock clock=[] { return 0; };
 	std::unique_ptr<XeenEncounterFlow> flow;
 	XeenSaveState::Resources resources() {
-		return {save_test::sample().resources,[&] { ++legacy; return XeenPartyLoader().loadFromResources(chr(),pty()); },
-			[&](XeenMapIdentity id) { observe(2); auto e=events(); e.mapId=id; e.records.emplace_back(); return e; },
-			[&] { ++legacy; return chr(); },[&] { ++legacy; return XeenGameplayContextFormat::parse(pty()); },
-			[&] { observe(3); return statistics(); }};
-	}
+        auto r=regional_test::resources();
+        r.loadInitialParty=[&]{++legacy;return XeenPartyLoader().loadFromResources(chr(),pty());};
+        r.loadEvents=[&](auto id){observe(2);return regional_test::events(id);};
+        r.loadMonsterStatistics=[&]{observe(3);return regional_test::statistics();};return r;
+    }
 	static void compose(XeenWorld &w,const XeenPartyState &p,const XeenCamera &c,const XeenGameFlags &) {
 		check(w.sessionState().journey() && !XeenSaveState::canCapture(p,c,w),"preflight has no capture authority");
 		check(CloudsUiComposer::buildPortraitPlacements(p).size()==6,"Journey portraits");
@@ -76,22 +77,19 @@ struct Destination {
 		check(!XeenSaveState::canCapture(p,c,w),"restored binding awaits frame");
 		check(flow->prepareJourneyFrame(flow->ticket(),[] {}) && flow->presentJourney(flow->ticket()),"restored frame handoff");
 	}
-	XeenSaveSnapshot capture() { return XeenSaveState::capture(save_test::sample().resources,p,c,f,w); }
+	XeenSaveSnapshot capture() { return XeenSaveState::capture(regional_test::signature(),p,c,f,w); }
 };
 void same(const XeenSaveSnapshot &s, Destination &d) {
 	save_test::sameSnapshot(s,d.capture());
 	check(d.p.firstSerializedCount==6 && d.p.effectiveSerializedCount==6 && d.legacy==0,"fixed counts, no CHR/PTY reinitialization");
 	for(unsigned i=0;i<30;++i) check(xeen_state::sameInputs(s.journey->supplements[i].inputs,*d.p.roster.combatInputs(i)),"all owner supplements");
 	check(d.p.encounterContext==s.journey->context && d.w.sessionState().skeletonSeed()==s.journey->skeletonSeed,"context/seed exact");
-	const auto mob=objects(); const auto mon=statistics();
-	for(unsigned i=0;i<27;++i) {
-		XeenActor expected; expected.id={20,i}; expected.original=mob.entities.monsters[i];
-		expected.x=expected.original.x; expected.y=expected.original.y;
-		if(expected.original.hasResource()) { expected.statistics=mon.at(expected.original.resourceId); expected.hp=expected.statistics->baseHp(); expected.lifecycle=XeenActorLifecycle::Present; }
-		if(expected.original.isDisabled()) expected.lifecycle=XeenActorLifecycle::Disabled;
-		if(i==5) { const auto &a=s.journey->actors[0]; expected.x=a.x;expected.y=a.y;expected.hp=a.hp;expected.activated=a.activated;expected.lifecycle=a.lifecycle;expected.status=a.status; }
-		check(xeen_state::sameActor(expected,d.w.sessionState().actors()[i]),"independent complete actor oracle");
-	}
+    const auto mob=regional_journey_test::regionalObjects();const auto mon=regional_test::statistics();
+    for(unsigned i=0;i<19;++i){const auto &saved=s.journey->actors[i];
+        XeenActor expected;expected.id={23,i};expected.original=mob.entities.monsters[i];expected.statistics=mon.at(expected.original.resourceId);
+        expected.x=saved.x;expected.y=saved.y;expected.hp=saved.hp;expected.activated=saved.activated;expected.lifecycle=saved.lifecycle;expected.status=saved.status;
+        check(xeen_state::sameActor(expected,d.w.sessionState().actors()[i]),"independent complete actor oracle");
+    }
 	check(XeenSaveFormat::encode(s)==XeenSaveFormat::encode(d.capture()),"all exact detached fields");
 }
 void roundtrips() {
@@ -105,7 +103,7 @@ void roundtrips() {
 		s.characters[0].currentHp=-300; s.characters[0].conditions[12]=1;
 		s.characters[0].accessories[7]={105,1,0,8}; // Historical injury, Journey-valid but melee-unready.
 		s.questItems[17]=7; s.questFlags[2]=true; s.gameFlags[7]=true;
-		s.disabledObjects={{20,0},{21,0}}; s.disabledEvents={{21,0}};
+		s.disabledObjects={{23,0}}; s.disabledEvents={{23,0}};
 		for(unsigned pass=0;pass<3;++pass) {
 			Destination d; d.restore(XeenSaveFormat::decode(XeenSaveFormat::encode(s))); d.bind(); same(s,d);
 			rejects([&]{xeenValidateJourneyMelee(d.p);});
@@ -131,40 +129,8 @@ void repair(Bytes &b) {
 	put(12,static_cast<std::uint32_t>(b.size()-20));
 	put(16,static_cast<std::uint32_t>(crc32(0,b.data()+20,static_cast<uInt>(b.size()-20))));
 }
-void wire() {
-	auto s=moved(); auto ordinary=s; ordinary.journey.reset();
-	const auto base=XeenSaveFormat::encode(ordinary); const auto bytes=XeenSaveFormat::encode(s); const auto B=base.size();
-	check(bytes[8]==4 && bytes[9]==0 && base[8]==2 && bytes.size()==B+1060,"literal v4 size/version/EOF");
-	check(std::equal(base.begin()+20,base.end(),bytes.begin()+20),"unchanged v2 base");
-	Bytes expected(1060,0);
-	const auto put=[&](unsigned at,std::uint32_t value,unsigned width) {for(unsigned i=0;i<width;++i)expected[at+i]=static_cast<std::uint8_t>(value>>(8*i));};
-	put(0,3,1);put(1,1,2);put(3,1,2);put(5,1,1);put(8,2,2);put(10,1,2);put(12,610,2);put(14,490,2);put(39,30,1);
-	// Independently read the synthetic CHR physical fields, not the codec/capture.
-	const auto raw=chr();
-	for(unsigned i=0;i<30;++i) {const unsigned b=40+i*33;put(b,i,1); unsigned k=1;
-		for(unsigned offset:{20u,21u,28u,29u,30u,31u,34u}) {put(b+k,raw[i*354+offset],4);k+=4;}
-		put(b+29,0,4);
-	}
-	put(1030,56,4);put(1034,0,1);put(1035,20,2);put(1037,27,2);put(1039,1,2);
-	put(1041,0,1);put(1042,20,2);put(1044,5,4);put(1048,13,2);put(1050,1,2);put(1052,20,4);put(1056,1,1);
-	check(std::equal(expected.begin(),expected.end(),bytes.begin()+B),"every literal suffix byte/width/offset");
-	const auto diskPath=std::filesystem::temp_directory_path()/("mmodern-journey-wire-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64())+".mmsave");
-	XeenSaveFile::write(diskPath,s);
-	{std::ifstream file(diskPath,std::ios::binary);const Bytes actual(std::istreambuf_iterator<char>(file),{});
-		check(actual.size()==B+1060 && actual[8]==4 && std::equal(expected.begin(),expected.end(),actual.begin()+B),"literal independent disk suffix and exact EOF");}
-	std::filesystem::remove(diskPath);
-	for(unsigned offset:{0u,1u,3u,5u,6u,7u,37u,38u,39u,40u,73u,42u,1034u,1037u,1039u,1041u,1049u,1055u,1056u,1057u,1058u,1059u}) {
-		auto bad=bytes; bad[B+offset]=255; repair(bad); rejects([&]{XeenSaveFormat::decode(bad);});
-	}
-	for(unsigned size=0;size<1060;++size) {auto bad=bytes;bad.resize(B+size);repair(bad);rejects([&]{XeenSaveFormat::decode(bad);},"extension");}
-	auto bad=bytes;bad.push_back(0);repair(bad);rejects([&]{XeenSaveFormat::decode(bad);},"extension");
-	bad=bytes;for(unsigned n=0;n<4;++n)bad[B+1030+n]=0;repair(bad);rejects([&]{XeenSaveFormat::decode(bad);},"seed");
-	bad=bytes;bad[B+1039]=2;bad.insert(bad.end(),bytes.begin()+B+1041,bytes.end());repair(bad);rejects([&]{XeenSaveFormat::decode(bad);},"extension");
-	bad=bytes;bad[B+1059]=1; // Valid boolean, incoherent Present accounting: distinct domain rejection.
-	repair(bad);const auto incoherent=XeenSaveFormat::decode(bad);Destination domain;rejects([&]{domain.restore(incoherent);},"durable");
-	bad=bytes;bad[8]=5;rejects([&]{XeenSaveFormat::decode(bad);},"version");
-	s.completedEncounter.emplace(); rejects([&]{XeenSaveFormat::encode(s);},"exclusive");
-}
+void wire(){auto old=moved();old.journey->schema=1;old.journey->contract=1;rejects([&]{XeenSaveFormat::encode(old);},"no longer supported");}
+
 void captureIntegrity() {
 	Fixture f;
 	const auto ticket = f.flow->ticket();
@@ -183,9 +149,9 @@ void captureIntegrity() {
 	XeenCamera detached = valid.camera;
 	XeenGameFlags detachedFlags;
 	const auto validTicket = valid.flow->ticket();
-	rejects([&] { XeenSaveState::capture(save_test::sample().resources,unrelated,valid.camera,valid.flags,valid.w); });
-	rejects([&] { XeenSaveState::capture(save_test::sample().resources,valid.p,detached,valid.flags,valid.w); });
-	rejects([&] { XeenSaveState::capture(save_test::sample().resources,valid.p,valid.camera,detachedFlags,valid.w); });
+	rejects([&] { XeenSaveState::capture(regional_test::signature(),unrelated,valid.camera,valid.flags,valid.w); });
+	rejects([&] { XeenSaveState::capture(regional_test::signature(),valid.p,detached,valid.flags,valid.w); });
+	rejects([&] { XeenSaveState::capture(regional_test::signature(),valid.p,valid.camera,detachedFlags,valid.w); });
 	check(valid.flow->current(validTicket), "wrong-owner requests preserve healthy bound authority");
 	check(capture(valid).journey.has_value(), "unrelated capture requests do not poison bound owners");
 	{
@@ -194,9 +160,9 @@ void captureIntegrity() {
 		const auto before=aba.p.roster.at(0).currentHp;
 		aba.p.roster.at(0).currentHp=before-1;
 		XeenCamera otherCamera=aba.camera;
-		rejects([&] { XeenSaveState::capture(save_test::sample().resources,unrelated,aba.camera,aba.flags,aba.w); });
-		rejects([&] { XeenSaveState::capture(save_test::sample().resources,aba.p,otherCamera,aba.flags,aba.w); });
-		rejects([&] { XeenSaveState::capture(save_test::sample().resources,aba.p,aba.camera,detachedFlags,aba.w); });
+		rejects([&] { XeenSaveState::capture(regional_test::signature(),unrelated,aba.camera,aba.flags,aba.w); });
+		rejects([&] { XeenSaveState::capture(regional_test::signature(),aba.p,otherCamera,aba.flags,aba.w); });
+		rejects([&] { XeenSaveState::capture(regional_test::signature(),aba.p,aba.camera,detachedFlags,aba.w); });
 		aba.p.roster.at(0).currentHp=before;
 		// Wrong-owner refusal cannot erase writes independently observed by the
 		// retained owner boundary, even when the final gameplay values match.
@@ -222,7 +188,7 @@ void captureIntegrity() {
 }
 void refusals() {
 	Fixture flagOwner;XeenGameFlags detachedFlags;
-	rejects([&]{XeenSaveState::capture(save_test::sample().resources,flagOwner.p,flagOwner.camera,detachedFlags,flagOwner.w);},"bound game-flag");
+	rejects([&]{XeenSaveState::capture(regional_test::signature(),flagOwner.p,flagOwner.camera,detachedFlags,flagOwner.w);},"bound game-flag");
 	Fixture f; f.action(XeenEncounterAction::Right); f.action(XeenEncounterAction::Forward);
 	for(unsigned n:{3u,2u,1u}) {const auto time=f.p.encounterContext;rejects([&]{capture(f);});check(f.flow->state().pending()==n&&time==f.p.encounterContext,"refusal drains nothing");f.pulse();}
 	const auto old=f.flow->ticket();auto lease=f.flow->boundary().hold(XeenCombatBoundary::Work::Inventory);
@@ -236,13 +202,13 @@ void refusals() {
 void failures() {
 	const auto s=moved();
 	for(unsigned seam=0;seam<5;++seam) for(bool throws:{false,true}) for(unsigned mutation=0;mutation<5;++mutation) {
-		Destination d; d.w.map(20); d.w.objectFile(20); unsigned hits=0;
+		Destination d; d.w.map(23); d.w.objectFile(23); unsigned hits=0;
 		d.observer=[&](unsigned at) {if(at!=seam)return;++hits;
 			switch(mutation) {
 			case 0:d.p.roster.at(29).currentSp=-19;break;
 			case 1:d.p=XeenPartyState(d.p);break;
-			case 2:d.c.~XeenCamera();new(&d.c)XeenCamera{20,14,2,XeenDirection::West};break;
-			case 3:const_cast<XeenMap &>(d.w.map(20)).geometry.cells[0].rawWord^=1;break;
+			case 2:d.c.~XeenCamera();new(&d.c)XeenCamera{23,14,2,XeenDirection::West};break;
+			case 3:const_cast<XeenMap &>(d.w.map(23)).geometry.cells[0].rawWord^=1;break;
 			case 4:d.f.set(7);break;
 			}
 			if(throws)throw std::runtime_error("after external mutation");
@@ -258,7 +224,7 @@ void failures() {
 			case 2:const_cast<XeenCombatInputs &>(*party.roster.combatInputs(29)).experience++;break;
 			case 3:const_cast<XeenActor &>(w.sessionState().actors()[5]).activated=false;break;
 			case 4:const_cast<XeenGameFlags &>(flags).set(7);break;
-			case 5:const_cast<XeenMap &>(w.map(20)).geometry.cells[0].rawWord^=1;break;
+			case 5:const_cast<XeenMap &>(w.map(23)).geometry.cells[0].rawWord^=1;break;
 			case 6:const_cast<XeenCamera &>(camera).x=13;break;
 			}
 			if(throws)throw std::runtime_error("candidate mutation exception");
@@ -268,13 +234,13 @@ void failures() {
 	for(unsigned kind=0;kind<8;++kind) {
 		auto bad=s;switch(kind) {
 		case 0:bad.resources.clouds.crc32++;break;
-		case 1:bad.journey->actors[0].accounted=true;break;
-		case 2:bad.journey->actors[0].hp=19;break;
-		case 3:bad.journey->actors[0].activated=false;break;
-		case 4:bad.journey->context->minutes=960;break;
-		case 5:bad.journey->actors[0].id.recordIndex=6;break;
-		case 6:bad.journey->originalActorCount=26;break;
-		case 7:bad.characters[0].conditions[1]=1;break;
+		case 1:bad.journey->actors[5].accounted=true;break;
+		case 2:bad.journey->actors[5].hp=21;break;
+		case 3:bad.journey->actors[5].x=16;break;
+		case 4:bad.journey->context->minutes=1260;break;
+		case 5:bad.journey->actors[5].id.recordIndex=6;break;
+		case 6:bad.journey->originalActorCount=18;break;
+		case 7:bad.characters[0].learnedSpells.reset();break;
 		}Destination d;rejects([&]{d.restore(bad);});check(!d.w.hasEncounterState(),"invalid domain not published");
 	}
 	for(bool throws:{false,true})for(unsigned seam:{0u,1u}) {
@@ -282,59 +248,59 @@ void failures() {
 		d.observer=[&](unsigned at){if(!candidate||at!=seam)return;hit=true;candidate->roster.at(29).currentSp=-71;
 			if(throws)throw std::runtime_error("nested candidate mutation");};
 		rejects([&]{d.restore(s,[&](auto &w,const auto &p,const auto &,const auto &){candidate=&const_cast<XeenPartyState &>(p);
-			w.discardMapCache();if(seam==0)w.map(20);else w.objectFile(20);});});
+			w.discardMapCache();if(seam==0)w.map(23);else w.objectFile(23);});});
 		check(hit&&!d.w.hasEncounterState(),"nested candidate provider mutation cannot become an adopted phase");
 	}
 	for(unsigned owner=0;owner<3;++owner) {
 		Destination d;d.observer=[&](unsigned at){if(at!=3)return;
 			if(owner==0){d.p.~XeenPartyState();new(&d.p)XeenPartyState;}
-			if(owner==1){d.w.~XeenWorld();new(&d.w)XeenWorld([](auto){return map();},[](auto){return objects();});}
+			if(owner==1){d.w.~XeenWorld();new(&d.w)XeenWorld([](auto){return regional_journey_test::regionalMap();},[](auto){return regional_journey_test::regionalObjects();});}
 			if(owner==2){d.f.~XeenGameFlags();new(&d.f)XeenGameFlags;}
 			throw std::runtime_error("destination lifetime ABA");};
 		rejects([&]{d.restore(s);});check(!d.w.hasEncounterState(),"same-address destination lifetime rejects publication");
 	}
-	Destination caches;caches.restore(s,[](auto &w,const auto &,const auto &c,const auto &){w.discardMapCache();w.map(c.mapId);w.objectFile(20);});
+	Destination caches;caches.restore(s,[](auto &w,const auto &,const auto &c,const auto &){w.discardMapCache();w.map(c.mapId);w.objectFile(23);});
 	caches.bind();same(s,caches);
 	// Retain aliases to movable provider storage. Saved owners must use detached copies.
 	XeenPartyState p;XeenCamera c;XeenGameFlags flags;
 	XeenMapEntity *alias=nullptr;
-	XeenWorld w([](auto){return map();},[&](auto){auto mob=objects();alias=mob.entities.monsters.data();return mob;});
+	XeenWorld w([](auto){return regional_journey_test::regionalMap();},[&](auto){auto mob=regional_journey_test::regionalObjects();alias=mob.entities.monsters.data();return mob;});
 	Destination providers;auto r=providers.resources();
 	XeenSaveState::restoreBeforeGameplay(s,r,p,c,flags,w,[&](auto &candidate,const auto &,const auto &,const auto &){
 		// The moved return's storage may have been freed after detachment. Never
 		// dereference an expired alias; assert it is not the candidate's storage.
-		check(alias!=candidate.objectFile(20).entities.monsters.data(),"MOB storage detached from provider-held alias");
+		check(alias!=candidate.objectFile(23).entities.monsters.data(),"MOB storage detached from provider-held alias");
 	});
 }
 struct ApplicationFixture {
 	gameplay_test::Fixture presentation;
 	Bytes bytes=chr(); XeenPartyState p=XeenPartyLoader().loadFromResources(bytes,pty());
-	XeenCamera c=XeenActorApproach::kEntry; XeenGameFlags f;
-	XeenEventFile evt=events(); std::vector<XeenMonsterRecord> mon=statistics();
+	XeenCamera c=regional_test::snapshot().camera; XeenGameFlags f;
+	XeenEventFile evt=regional_test::events(23); std::vector<XeenMonsterRecord> mon=regional_test::statistics();
 	bool armed=false; unsigned calls=0;
 	std::function<void(unsigned)> observer;
 	void observe(unsigned seam) {if(armed){++calls;if(observer)observer(seam);}}
-	XeenWorld w{[&](XeenMapIdentity id){observe(0);auto m=map();m.geometry.id=id.number;return m;},
-		[&](XeenMapIdentity id){observe(1);auto m=objects();m.mapId=id;return m;}};
-	XeenEventSystem eventsOwner{[&](auto){return XeenEventScript(evt);},[](auto){return XeenEventTextFile{};}};
+	XeenWorld w{[&](XeenMapIdentity id){observe(0);auto m=regional_journey_test::regionalMap();m.geometry.id=id.number;return m;},
+		[&](XeenMapIdentity id){observe(1);auto m=regional_journey_test::regionalObjects();m.mapId=id;return m;}};
+	XeenEventSystem eventsOwner{[](auto id){return XeenEventScript(regional_test::events(id));},regional_test::texts};
 	std::unique_ptr<XeenEventFlow> flow;
 	ApplicationFixture() {
-		XeenJourneySetup setup{bytes,XeenGameplayContextFormat::parse(pty()),mon,evt,56};
+		auto saved=moved();XeenSaveState::restoreBeforeGameplay(saved,services().resources,p,c,f,w,Destination::compose);
 		flow=std::make_unique<XeenEventFlow>(w,eventsOwner,p,c,f,presentation.font,
 			[](auto){return XeenEventFlow::Composition{};},XeenEventPresenter::NpcDraw{},XeenEventPresenter::Clock{[]{return 0;}},
-			XeenEventPresenter::RandomFrame{},nullptr,nullptr,[](auto,auto){return XeenEventFlow::Composition{IndexedFrame{320,200,Bytes(64000)},false};},&setup);
+			XeenEventPresenter::RandomFrame{},nullptr,[](auto,auto){return XeenEventFlow::Composition{IndexedFrame{320,200,Bytes(64000)},false};},nullptr);
 		check(!flow->canSave(),"Application initial handoff closed"); flow->framePresented(flow->frame().presentation()); check(flow->canSave(),"Application presented Journey");
 	}
 	XeenGameplayServices services() {
 		auto s=presentation.services();
-		s.resources.signature=save_test::sample().resources;
+		s.resources=regional_test::resources();
 		s.resources.loadInitialParty=[]()->XeenPartyState{throw std::runtime_error("unexpected Journey CHR/PTY read");};
-		s.resources.loadInitialCharacters=[]()->Bytes{throw std::runtime_error("unexpected Journey CHR read");};
+		s.resources.loadInitialCharacters=regional_test::characterBytes;
 		s.resources.loadInitialContext=[]()->XeenGameplayContext{throw std::runtime_error("unexpected Journey PTY read");};
-		s.resources.loadMonsterStatistics=[&]{observe(3);return statistics();};
-		s.resources.loadEvents=[&](auto id){observe(2);auto e=events();e.mapId=id;return e;};
-		s.maps=[&](auto id){observe(0);auto m=map();m.geometry.id=id.number;return m;};
-		s.objects=[&](auto id){observe(1);auto m=objects();m.mapId=id;return m;};
+		s.resources.loadMonsterStatistics=[&]{observe(3);return regional_test::statistics();};
+		s.resources.loadEvents=[&](auto id){observe(2);return regional_test::events(id);};
+		s.maps=[&](auto id){observe(0);auto m=regional_journey_test::regionalMap();m.geometry.id=id.number;return m;};
+		s.objects=[&](auto id){observe(1);auto m=regional_journey_test::regionalObjects();m.mapId=id;return m;};
 		s.observeSaveStage=[&](auto stage){observe(5+unsigned(stage));};
 		return s;
 	}
@@ -395,11 +361,11 @@ int main(int argc,char **argv) {
 				"new process restore has no initialization/combat history");
 			XeenSaveFile::write(std::filesystem::absolute(argv[3]),d.capture());return 0;
 		}
-		captureIntegrity(); wire(); roundtrips(); refusals(); failures();
+		captureIntegrity();wire();roundtrips();refusals();failures();
 		const auto directory=std::filesystem::temp_directory_path()/("mmodern-journey-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));
 		application(directory);
 		for(auto s:{moved(),ended()}) {
-			const auto label=s.journey->actors[0].accounted?"ended":"moved";
+			const auto label=s.journey->actors[5].accounted?"ended":"moved";
 			auto input=directory/(std::string(label)+"0.mmsave");XeenSaveFile::write(input,s);
 			for(unsigned n=1;n<=2;++n) {
 				const auto output=directory/(std::string(label)+std::to_string(n)+".mmsave");
@@ -409,11 +375,12 @@ int main(int argc,char **argv) {
 			}
 		}
 		check(replay_test::unexpected==0,"restore replay observed gameplay");
+		{journey_test::Fixture probeControl;probeControl.action(XeenEncounterAction::Right);probeControl.pulse();}
 		check(replay_test::journeyInitializations && replay_test::journeyConstructions && replay_test::actions && replay_test::pulses &&
 			replay_test::retirements && replay_test::commands && replay_test::services,"positive controls reached Journey probes");
 		// The active scope must detect genuine calls, not merely expose counters.
 		const auto before=replay_test::unexpected;
-		{replay_test::Scope scope;journey_test::Fixture positive;positive.action(XeenEncounterAction::Right);positive.pulse();XeenCombatRandom rng(56);rng.draw(1,20);}
+		{replay_test::Scope scope;regional_journey_test::Fixture positive;positive.action(XeenEncounterAction::Right);positive.pulse();XeenCombatRandom rng(56);rng.draw(1,20);}
 		check(replay_test::unexpected>before && replay_test::draws,"probe positive control detects real work in scope");
 		std::cout<<"Journey persistence tests passed\n";return 0;
 	} catch(const std::exception &e) {std::cerr<<e.what()<<'\n';return 1;}

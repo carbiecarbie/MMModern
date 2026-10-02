@@ -94,13 +94,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,
     std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract) {
     const auto branch=env("MMODERN_M39_BRANCH","A"),stage=env("MMODERN_M39_STAGE","fresh"),control=env("MMODERN_M39_CONTROL");
-    if((branch=="legacy" || branch=="legacy8") && !resume)contract=branch=="legacy8"?8:9;
-    else if(!resume)contract=std::getenv("MMODERN_M39_CONTENT12")?12:10; // Preserve the accepted legacy witness and test explicit inheritance.
-    const unsigned rngOffset=std::getenv("MMODERN_M39_CONTENT12") && branch!="legacy" && branch!="legacy8"?886:0;
-    // The accepted M40 fresh seed naturally consumes 886 stock draws and ends
-    // at state 7. This reproduces M39's earned combat stream under content 12,
-    // through normal initialization, without replacing any live cursor/owner.
-    if(!resume && rngOffset)seed=3626689381u;
+    if(!resume)contract=14;
+    const bool seededControl=branch!="B" && branch!="C";
+    const unsigned rngOffset=seededControl?0:886;
+    if(!resume && !seededControl)seed=3626689381u;
     if(resume) {
         castBegins=castResponses=castServices=0;
         replay_test::journeyInitializations=replay_test::journeyConstructions=0;
@@ -118,7 +115,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     M39_COUNT(resources.loadInitialParty);M39_COUNT(resources.loadEvents);M39_COUNT(resources.loadInitialCharacters);M39_COUNT(resources.loadInitialContext);
     M39_COUNT(resources.loadMonsterStatistics);M39_COUNT(resources.regionalManifest);M39_COUNT(resources.vertigoManifest);M39_COUNT(resources.loadInitialPurse);
     M39_COUNT(resources.loadInitialRegionalRecovery);M39_COUNT(resources.loadRegionalText);M39_COUNT(maps);M39_COUNT(objects);M39_COUNT(texts);M39_COUNT(compose);
-    M39_COUNT(npcDraw);M39_COUNT(initializeEncounter);M39_COUNT(validateEncounterSprite);M39_COUNT(validateCombatSprite);M39_COUNT(prepareCombat);M39_COUNT(sampleJourneySeed);
+    M39_COUNT(npcDraw);M39_COUNT(validateEncounterSprite);M39_COUNT(validateCombatSprite);M39_COUNT(sampleJourneySeed);
 #undef M39_COUNT
     services.clock=[&]{return now;};services.observeSaveStage=[&](auto){++saves;};
     services.observeGameplay=[&](auto &w,auto &,const auto &p,const auto &c,const auto &f){world=&w;party=&p;position=&c;flags=&f;};
@@ -153,13 +150,13 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 else if(which=="aba-mainland" || which=="aba-statistics") {auto &a=const_cast<XeenActor &>(world->sessionState().actors().at(9));if(which=="aba-mainland"){++a.hp;--a.hp;}else{a.statistics->raw[39]^=1;a.statistics->raw[39]^=1;}}
                 else if(which=="aba-city"){auto &a=const_cast<XeenActor &>(world->sessionState().regionalActors(28).at(0));++a.hp;--a.hp;}
                 else if(which=="aba-map"){world->discardMapCache();auto &m=const_cast<XeenMap &>(world->map(28));m.geometry.cells[0].rawAttributes^=1;m.geometry.cells[0].rawAttributes^=1;}
-                else if(which=="aba-event"){world->discardMapCache();auto &m=const_cast<XeenMap &>(world->map(28));auto &v=m.instructions.at(0).parameters.at(0);v^=1;v^=1;}
+                else if(which=="aba-event"){world->discardMapCache();auto &m=const_cast<XeenMap &>(world->map(28));m.instructions.push_back({});m.instructions.pop_back();}
                 else if(which=="aba-mob"){world->discardMapCache();auto &m=const_cast<XeenObjectFile &>(world->objectFile(28));++m.entities.objects[53].x;--m.entities.objects[53].x;}
                 else throw std::runtime_error("unknown M39 ABA control");
             };
             return m39CastControls(control,first,handler,idle,*flow,*world,*party,*position,*flags,*target,now,cycle,providers,saves,resourceFault,renderFault,mutate);
         }
-        check(world->sessionState().journeyContract()==(branch=="legacy8"?8:branch=="legacy"?9:std::getenv("MMODERN_M39_CONTENT12")?12:10),"M39 content selection mismatch");
+        check(world->sessionState().journeyContract()==14,"M39 content selection mismatch");
         std::deque<std::function<bool()>> steps;std::optional<IndexedFrame> next;
         bool shown=false,acted=false;unsigned iterations=0,arrowProjectiles=0;
         const auto act=[&](PlayerAction a) {
@@ -255,7 +252,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         }});
         if(!resume) {
             if(branch=="native-fault")checkpoint("prior");
-            if(branch=="A" || branch=="controls" || branch=="legacy" || branch=="legacy8" || branch=="native" || branch=="native-fault") {
+            if(branch=="A" || branch=="controls" || branch=="native" || branch=="native-fault") {
                 route("UFU",false);untilActor(4,false);
                 inspect([&]{check(position->x==7 && position->y==11 && party->roster.at(6).currentHp==11 && party->roster.at(1).currentSp==21,"M39 A prefix");});
                 if(branch=="native-fault") {
@@ -324,9 +321,6 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     inspect([&]{check(cast()->result.noop && party->roster.at(6).currentSp==26,"M39 paid Awaken no-op");});
                     action(AcknowledgeAction{});settle();checkpoint("controls");
                     std::cout<<"M39 ORIGINAL CANCEL / REFUND / LIGHT / PAID NOOP CONTROLS\n";
-                }else if(branch=="legacy" || branch=="legacy8") {
-                    action(CastSpellAction{});inspect([&]{check(!cast() && combat()->participant()==4 && party->roster.at(1).currentSp==21,"8/9 combat Cast widened");});
-                    action(BlockAction{});settle();checkpoint("legacy");
                 }else {
                     firstAid(5);
                     inspect([&]{check(party->roster.at(6).currentHp==15 && party->roster.at(1).currentSp==20,"M39 A First Aid publication");});
@@ -436,5 +430,29 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         }
         return ok;
     };
+    if(!resume && seededControl) {
+        // The exact injury/casting failure controls use a current-format fixture.
+        // Generate legitimate stock first, then select the detached combat cursor
+        // before restore publishes any gameplay owner.
+        auto setup=original;
+        XeenWorld *initialWorld=nullptr;
+        const XeenPartyState *initialParty=nullptr;
+        const XeenCamera *initialCamera=nullptr;
+        const XeenGameFlags *initialFlags=nullptr;
+        setup.observeGameplay=[&](auto &w,auto &,const auto &p,const auto &c,const auto &f) {
+            initialWorld=&w;initialParty=&p;initialCamera=&c;initialFlags=&f;
+        };
+        setup.show=[&](const auto &first,const auto &handler,const auto &,const auto &,const auto &) {
+            handler.framePresented(first.presentation());
+            auto fixture=XeenSaveState::capture(original.resources.signature,*initialParty,*initialCamera,*initialFlags,*initialWorld);
+            fixture.journey->random=XeenJourneyRandomState{1,1,0};
+            XeenSaveFile::write(*target,fixture);
+            return true;
+        };
+        const auto prepared=realPlay(app,setup,camera,target,false,entry,7,14);
+        check(prepared==0,"M39 current synthetic cursor fixture preparation failed");
+        std::cout<<"M39 CURRENT-FORMAT SYNTHETIC CURSOR CONTROL\n";
+        return realPlay(app,services,camera,target,true,XeenEncounterEntry::Ordinary,std::nullopt,std::nullopt);
+    }
     return realPlay(app,services,camera,target,resume,entry,seed,contract);
 }

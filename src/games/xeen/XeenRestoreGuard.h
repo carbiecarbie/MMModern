@@ -55,19 +55,12 @@ public:
 			live._journeyContract != s._journeyContract || live._journeyRandom != s._journeyRandom ||
 			live._accountedMonsters != s._accountedMonsters) return false;
 		if (live._combatOwner != s._combatOwner || live._combatApproachState != s._combatApproachState ||
-			live._diagnostic27 != s._diagnostic27 || live._combatEntered != s._combatEntered ||
-			live._combatAccounted != s._combatAccounted || live._completion != s._completion ||
-			!(live._completedMonster == s._completedMonster) ||
-			bool(live._completedAuthority) != bool(s._completedAuthority) ||
-			live._completedPublished != s._completedPublished || live._completedEntryGeneration != s._completedEntryGeneration ||
-			live._completedIntegrityUnsafe != s._completedIntegrityUnsafe || live._completedFatal != s._completedFatal ||
-			live._completedLease != s._completedLease || live._completedLeaseKind != s._completedLeaseKind ||
+			live._combatEntered != s._combatEntered ||
 			live._entry != s._entry || live._encounterMarked != s._encounterMarked ||
 			live._encounterInitialized != s._encounterInitialized || live._encounterTerminal != s._encounterTerminal ||
 			live._encounterRevision != s._encounterRevision || live._objects != s._objects || live._events != s._events ||
 			live._actors.size() != s._actors.size() ||
 			bool(live._vertigoActors) != bool(s._vertigoActors)) return false;
-		if (s._completedAuthority && !sameAuthority(*live._completedAuthority, *s._completedAuthority)) return false;
 		for (std::size_t i = 0; i < characters.size(); ++i) {
 			if (!sameCharacter(p.roster.characters()[i], characters[i]) ||
 				bool(p.roster.combatInputs(i)) != bool(inputs[i])) return false;
@@ -112,7 +105,7 @@ public:
 	void check() const {
 		if (!current()) {
 			failed = true;
-			throw std::logic_error("completed preparation owner preimage changed");
+			throw std::logic_error("preparation owner preimage changed");
 		}
 	}
 	// Called only with detached provider results after both callback guards pass,

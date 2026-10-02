@@ -1,4 +1,5 @@
 #include "XeenSaveGameplayTestSupport.h"
+#include "XeenRegionalSaveGameplayTestSupport.h"
 #include "XeenEquipmentTestSupport.h"
 #include "XeenChildProcessTestSupport.h"
 #include "games/xeen/CloudsUiComposer.h"
@@ -362,44 +363,24 @@ void representativeRulesAndFeedback() {
 }
 
 int persistenceChild(const std::filesystem::path &path, bool resume) {
-	Fixture f;
-	character(f.initial.roster.at(0),0); character(f.initial.roster.at(1),1);
-	f.initial.party=XeenParty::fromRosterIds({0,1,0});
-	f.initial.roster.at(0).weapons[0]={17,7,5,0};
-	f.initial.roster.at(0).weapons[4]={105,18,9,0};
-	f.initial.roster.at(0).weapons[8]={255,0,193,7};
-	f.initial.roster.at(0).miscellaneous[3]={255,0,222,99};
-	f.initial.roster.at(29).weapons[2]={254,255,223,11};
-	f.initial.roster.at(29).accessories[7]={253,254,221,12};
-	auto expected=f.saved(); expected.activeRosterIds={0,1,0};
-	expected.characters.at(0).weapons[4].frame=13;
-	auto services=f.services(); const XeenPartyState *party=nullptr;
-	services.observeGameplay=[&](auto &world,auto &,const auto &p,auto &,const auto &){party=&p;f.world=&world;};
-	services.show=[&](const auto &,const auto &handle,const auto &,const auto &,const auto &){
-		check(!f.flow->inventoryOpen()&&!f.flow->equipmentResult(),"restart persisted transient equipment UI");
-		handle(InspectInventoryAction{});
-		if(!resume) {
-			handle(SelectMemberAction{2}); handle(SelectInventorySlotAction{4}); handle(EquipmentInventoryAction{});
-			check(f.flow->equipmentResult()&&f.flow->equipmentResult()->status==Status::Success&&
-				f.flow->equipmentResult()->owner==0&&party->roster.at(0).weapons[4].frame==13,
-				"producer did not equip alias-selected two-handed weapon");
-		} else {
-			for(const std::size_t active:{0u,2u}) {
-				handle(SelectMemberAction{active}); handle(SelectInventorySlotAction{4});
-				check(f.flow->inventorySelection().sourceOwner==0&&f.flow->inventorySelection().record.frame==13,
-					"consumer did not inspect restored alias equipment");
-			}
-			f.flow->refresh(true);
-			check(party->roster.at(0).weapons[4].frame==13,"refresh normalized restored frame");
-		}
-		sameSnapshot(expected,XeenSaveState::capture(f.signature,*party,start,XeenGameFlags{},*f.world));
-		handle(CancelInteractionAction{});
-		if(!resume) handle(SaveGameAction{});
-		sameSnapshot(expected,XeenSaveFile::read(path));
-		return true;
-	};
-	Quiet quiet; const int result=Application().playGameplay(services,start,path,resume);
-	if(result) std::cerr<<quiet.out.str(); return result;
+ regional_save_test::Fixture f;
+ f.saved.characters[0].weapons={};f.saved.characters[0].weapons[4]={0,18,0,0};
+ f.saved.characters[0].weapons[8]={255,0,193,7};
+ f.saved.characters[0].miscellaneous[3]={255,0,222,99};
+ f.saved.characters[29].weapons[2]={254,255,223,11};
+ f.saved.characters[29].accessories[7]={253,254,221,12};
+ auto expected=f.saved;expected.characters[0].weapons[4].frame=13;
+ if(!resume)XeenSaveFile::write(path,f.saved);
+ auto services=f.services();
+ services.show=[&](const auto &,const auto &raw,const auto &,const auto &,const auto &){
+  f.present(raw);const auto handle=[&](const PlayerAction &a){f.send(raw,a);};
+  check(!f.flow->inventoryOpen()&&!f.flow->equipmentResult(),"restart persisted transient equipment UI");handle(InspectInventoryAction{});
+  handle(SelectMemberAction{0});handle(SelectInventorySlotAction{4});
+  if(!resume){handle(EquipmentInventoryAction{});check(f.flow->equipmentResult()&&f.flow->equipmentResult()->status==Status::Success&&f.party->roster.at(0).weapons[4].frame==13,"producer did not equip two-handed weapon");}
+  else {check(f.flow->inventorySelection().sourceOwner==0&&f.flow->inventorySelection().record.frame==13,"consumer did not inspect restored equipment");f.flow->refresh(true);f.present(raw);check(f.party->roster.at(0).weapons[4].frame==13,"refresh normalized restored frame");}
+  handle(CancelInteractionAction{});sameSnapshot(expected,f.capture());if(!resume)handle(SaveGameAction{});sameSnapshot(expected,XeenSaveFile::read(path));return true;
+ };
+ Quiet quiet;const int result=Application().playGameplay(services,{},path,true);if(result)std::cerr<<quiet.out.str();return result;
 }
 
 void persistenceRestart(const std::filesystem::path &exe) {

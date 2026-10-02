@@ -11,6 +11,7 @@ inline void changingPixels(XeenGameplayServices &s) {
 }
 // 0 omitted idle; 1 deferred correct initial; 2 stale idle; 3 stale initial;
 // 4 stale action result; 5 another, already destroyed Flow's initial frame.
+template<class Harness>
 inline bool exercise(Harness &h,const SdlWindow::FrameUpdateHandler &handler,
  const SdlWindow::IdleFrameHandler &idle,const std::function<bool()> &escape,
  const std::function<std::string()> &status,unsigned mode,SDL_Keycode key,const PlayerAction &action,

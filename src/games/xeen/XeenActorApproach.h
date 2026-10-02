@@ -93,13 +93,7 @@ public:
 	static void validateEnvironment(XeenWorld &world, const std::vector<XeenActor> &actors,
 		const XeenEventFile &events, std::uint16_t contract = 1);
 	// Explicit startup only; leaves an irreversible marker on preparation failure.
-	static XeenEncounterResult initialize(XeenWorld &world, XeenPartyState &party,
-		XeenCamera &camera, XeenEncounterState &state,
-		const std::vector<XeenMonsterRecord> &statistics, const XeenGameplayContext &context,
-		const XeenEventFile &events);
 	// Reads context/statistics explicitly; ordinary party loading remains unchanged.
-	static XeenEncounterResult initializeFromResources(XeenAssetSource &assets, XeenWorld &world,
-		XeenPartyState &party, XeenCamera &camera, XeenEncounterState &state);
 	// Actions do NOT supply a pulse. Caller supplies exactly one post-action pulse,
 	// observing intermediate count 3 before pulse 3->2; later pulses finish old work.
 	static XeenEncounterResult action(XeenWorld &world, XeenPartyState &party, XeenCamera &camera,

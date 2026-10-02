@@ -65,7 +65,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     M41_COUNT(resources.loadEvents);M41_COUNT(resources.loadMonsterStatistics);M41_COUNT(resources.regionalManifest);M41_COUNT(resources.vertigoManifest);
     M41_COUNT(resources.loadInitialPurse);M41_COUNT(resources.loadInitialRegionalRecovery);M41_COUNT(resources.loadRegionalText);M41_COUNT(resources.loadLearnedSpellNames);
     M41_COUNT(resources.loadInitialBankBalances);M41_COUNT(maps);M41_COUNT(objects);M41_COUNT(texts);M41_COUNT(compose);M41_COUNT(npcDraw);
-    M41_COUNT(initializeEncounter);M41_COUNT(validateEncounterSprite);M41_COUNT(validateCombatSprite);M41_COUNT(prepareCombat);M41_COUNT(sampleJourneySeed);
+    M41_COUNT(validateEncounterSprite);M41_COUNT(validateCombatSprite);M41_COUNT(sampleJourneySeed);
 #undef M41_COUNT
     services.observeGameplay=[&](auto &w,auto &,const auto &p,const auto &c,const auto &f){world=&w;party=&p;position=&c;flags=&f;};
     const auto compose=services.composeEncounter;
@@ -91,7 +91,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     };
     services.show=[&](const IndexedFrame &first,const auto &handler,const auto &escape,const auto &idle,const auto &status) {
         check(flow && world && party && position && flags && target,"M41 production owners absent");
-        check(world->sessionState().journeyContract()==12,"M41 content not selected");
+        check(world->sessionState().journeyContract()==14,"M41 content not selected");
         std::deque<std::function<bool()>> steps;std::optional<IndexedFrame> next;bool shown=false,acted=false;
         IndexedFrame::Presentation presented;
         unsigned iterations=0;bool cityFight=false;
@@ -333,5 +333,5 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         }
         return ok;
     };
-    return realPlay(app,services,camera,target,resume,entry,seed,resume?std::nullopt:std::optional<std::uint16_t>{12});
+    return realPlay(app,services,camera,target,resume,entry,seed,resume?std::nullopt:std::optional<std::uint16_t>{14});
 }

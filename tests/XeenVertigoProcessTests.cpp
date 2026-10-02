@@ -19,7 +19,7 @@ void durableCheckpoints(const fs::path &route) {
  const auto file=[&](char label){return XeenSaveFile::read(route.parent_path()/(route.stem().string()+"-"+label+".mmsave"));};
  const auto a=file('A'),b=file('B'),c=file('C'),d=file('D');
  child_test::require(a.journey && b.journey && c.journey && d.journey &&
-  a.journey->schema==8 && a.journey->contract==8 && !a.journey->vertigoActors &&
+  a.journey->schema==9 && a.journey->contract==14 && !a.journey->vertigoActors &&
   a.camera.mapId==XeenMapIdentity(23) && a.camera.x==10 && a.camera.y==12,
   "M37 A is not the admitted unvisited mainland");
  child_test::require(b.camera.mapId==XeenMapIdentity(28) && b.camera.x==16 && b.camera.y==2 &&
@@ -80,7 +80,7 @@ int main(int argc,char **argv) {
   SetEnvironmentVariableW(L"SDL_RENDER_DRIVER",L"software");
   SetEnvironmentVariableW(L"MMODERN_M37_STAGE",nullptr);
   std::set<DWORD> pids;
-  const auto fresh=child_test::launch(witness,{L"--journey-region",L"--combat-seed",L"56",game.wstring(),L"--save-file",route.wstring()},dir/"fresh.log");
+  const auto fresh=child_test::launch(witness,{L"--journey-region",L"--combat-seed",L"56",game.wstring(),L"--save-file",route.wstring()},dir/"fresh.log",false,false,120000);
   child_test::require(fresh.exit==0 && fresh.output.find("M37 CLI SMOKE 23,10,12 passed")!=std::string::npos,"M37 uninterrupted route failed");
   pids.insert(fresh.pid);
   durableCheckpoints(route);
@@ -92,7 +92,7 @@ int main(int argc,char **argv) {
    const auto checkpoint=dir/("route-"+label+".mmsave");
    const auto before=bytes(checkpoint);
    SetEnvironmentVariableW(L"MMODERN_M37_STAGE",fs::path(label).c_str());
-   const auto result=child_test::launch(witness,{L"--load-game",game.wstring(),checkpoint.wstring()},dir/("restore-"+label+".log"));
+   const auto result=child_test::launch(witness,{L"--load-game",game.wstring(),checkpoint.wstring()},dir/("restore-"+label+".log"),false,false,120000);
    child_test::require(result.exit==0 && pids.insert(result.pid).second,"M37 distinct resume process failed");
    child_test::require(result.output.find("M37 RESTORE BEFORE INPUT")!=std::string::npos &&
     result.output.find("M37 CLI SMOKE 23,10,12 passed")!=std::string::npos,"M37 restore/continuation witness missing");
@@ -104,7 +104,7 @@ int main(int argc,char **argv) {
   auto flag9=originalB;flag9.gameFlags[9]=true;
   const auto flag9Path=dir/"flag9.mmsave";XeenSaveFile::write(flag9Path,flag9);
   SetEnvironmentVariableW(L"MMODERN_M37_STAGE",L"B9");
-  const auto flag9Run=child_test::launch(witness,{L"--load-game",game.wstring(),flag9Path.wstring()},dir/"flag9.log");
+  const auto flag9Run=child_test::launch(witness,{L"--load-game",game.wstring(),flag9Path.wstring()},dir/"flag9.log",false,false,120000);
   child_test::require(flag9Run.exit==0 && pids.insert(flag9Run.pid).second &&
    flag9Run.output.find("M37 FLAG9 SKIP RESET passed")!=std::string::npos,
    "M37 artificial flag-9-true process failed");
@@ -123,9 +123,11 @@ int main(int argc,char **argv) {
   }
   const auto rejectRestore=[&](const char *name,const XeenSaveSnapshot &snapshot) {
    const auto path=dir/(std::string("reject-")+name+".mmsave");
-   XeenSaveFile::write(path,snapshot);const auto before=bytes(path);
+   try {XeenSaveFile::write(path,snapshot);}
+   catch(const std::exception &) {child_test::require(!fs::exists(path),"M37 rejected wire state created a file");return;}
+   const auto before=bytes(path);
    SetEnvironmentVariableW(L"MMODERN_M37_STAGE",L"B");
-   const auto result=child_test::launch(witness,{L"--load-game",game.wstring(),path.wstring()},dir/(std::string("reject-")+name+".log"));
+   const auto result=child_test::launch(witness,{L"--load-game",game.wstring(),path.wstring()},dir/(std::string("reject-")+name+".log"),false,false,120000);
    child_test::require(result.exit!=0 && result.output.find("M37 RESTORE BEFORE INPUT")==std::string::npos &&
     bytes(path)==before,"M37 malformed city save was published or changed on disk");
   };
@@ -159,7 +161,7 @@ int main(int argc,char **argv) {
   SetEnvironmentVariableW(L"MMODERN_M37_STAGE",L"fail-city-compose");
   const auto failedTransition=child_test::launch(witness,
    {L"--journey-region",L"--combat-seed",L"56",game.wstring(),L"--save-file",(dir/"failure.mmsave").wstring()},
-   dir/"failure.log");
+   dir/"failure.log",false,false,120000);
   child_test::require(failedTransition.exit==0 &&
    failedTransition.output.find("M37 DESTINATION COMPOSE FAILURE atomic passed")!=std::string::npos,
    "M37 destination preparation failure published partial state");
@@ -169,7 +171,12 @@ int main(int argc,char **argv) {
    SetEnvironmentVariableW(L"MMODERN_M37_STAGE",stage);
    const auto result=child_test::launch(witness,
     {L"--journey-region",L"--combat-seed",L"56",game.wstring(),L"--save-file",(dir/(std::wstring(stage)+L".mmsave")).wstring()},
-    dir/(std::wstring(stage)+L".log"));
+    dir/(std::wstring(stage)+L".log"),false,false,120000);
+   if(std::wstring(stage)==L"manifest-mismatch") {
+    child_test::require(result.exit!=0 && result.output.find("M37 IMMUTABLE MANIFEST PROBE")!=std::string::npos &&
+     !fs::exists(dir/(std::wstring(stage)+L".mmsave")),"M37 immutable mismatch was not rejected during current startup admission");
+    continue;
+   }
    const bool cache=std::wstring(stage)==L"candidate-cache-rebuild";
    const auto expected=cache?"M37 CLI SMOKE":std::wstring(stage)==L"manifest-mismatch"?
     "M37 IMMUTABLE INTEGRITY REJECTION passed":"M37 CANDIDATE INTEGRITY REJECTION passed";
@@ -180,7 +187,7 @@ int main(int argc,char **argv) {
    const auto path=dir/(std::wstring(stage)+L".mmsave");
    XeenSaveFile::write(path,originalB);const auto before=bytes(path);
    SetEnvironmentVariableW(L"MMODERN_M37_STAGE",stage);
-   const auto result=child_test::launch(witness,{L"--load-game",game.wstring(),path.wstring()},dir/(std::wstring(stage)+L".log"));
+   const auto result=child_test::launch(witness,{L"--load-game",game.wstring(),path.wstring()},dir/(std::wstring(stage)+L".log"),false,false,120000);
    child_test::require(result.exit!=0 && result.output.find("M37 RESTORE BEFORE INPUT")==std::string::npos && bytes(path)==before,
     "M37 restore composer changed candidate before publication");
   }

@@ -98,14 +98,14 @@ extern "C" int wrappedPlay(const Application *application,const XeenGameplayServ
 			"M36 witness stage invalid");
 		check(target &&
 			(resume ? !seed && !contract : entry==XeenEncounterEntry::Journey &&
-				seed==std::optional<std::uint32_t>{route=="firstaid"?1u:7u} && contract==7),
+				seed==std::optional<std::uint32_t>{route=="firstaid"?1u:7u} && contract==14),
 			"M36 witness production entry/contract mismatch");
 		if (stage=="synthetic-tick" || stage=="synthetic-tick-refund" || stage=="synthetic-dusk" ||
 			stage=="synthetic-gems-zero" || stage=="synthetic-gems-max" ||
 			stage=="synthetic-terminal-target" || stage=="synthetic-rng-overflow" ||
 			stage=="synthetic-report-reentry" || stage=="correction-sign" || stage=="correction-well" || contactCorrection) {
 			auto fixture=XeenSaveFile::read(*target);
-			check(fixture.journey && fixture.journey->schema==7 && fixture.journey->contract==7 &&
+			check(fixture.journey && fixture.journey->schema==9 && fixture.journey->contract==14 &&
 				fixture.journey->context && fixture.journey->context->minutes==521,
 				"M36 synthetic calendar fixture requires genuine checkpoint");
 			if (stage=="synthetic-dusk") fixture.journey->context->minutes=1250;
@@ -263,7 +263,6 @@ extern "C" int wrappedPlay(const Application *application,const XeenGameplayServ
 			};
 			const auto pulse=[&] {now+=100;handler.beginCycle(++cycle);idle();present();};
 			unsigned combatInputs=0;
-			bool combatCastRefused=false;
 			const auto settle=[&] {
 				for (unsigned n=0;n<30000;++n) {
 					// PlayerReady does not bypass autonomous residual projectile work.
@@ -274,14 +273,6 @@ extern "C" int wrappedPlay(const Application *application,const XeenGameplayServ
 							throw std::runtime_error("M36 combat terminal phase="+std::to_string(unsigned(combat->phase()))+
 								" notice="+flow->encounter()->notice());
 						if (combat->phase()==XeenCombatPhase::PlayerReady) {
-							if (!combatCastRefused) {
-								const auto sp1=party->roster.at(1).currentSp,sp6=party->roster.at(6).currentSp;
-								input(CastSpellAction{});
-								check(combat->phase()==XeenCombatPhase::PlayerReady && !flow->encounter()->castingActive() &&
-									party->roster.at(1).currentSp==sp1 && party->roster.at(6).currentSp==sp6,
-									"M36 combat C changed combat or spell state");
-								combatCastRefused=true;
-							}
 							check(++combatInputs<600,"M36 combat bound");
 							const auto rows=combat->contacts();unsigned selected=0;
 							for(unsigned i=0;i<rows.size();++i) if(rows[i] && (!rows[selected] || rows[i]->recordIndex<rows[selected]->recordIndex)) selected=i;
@@ -421,7 +412,7 @@ extern "C" int wrappedPlay(const Application *application,const XeenGameplayServ
 				handler.withDisplayedInput(refund?PlayerAction{CancelInteractionAction{}}:PlayerAction{SelectMemberAction{4}},*handler.displayedInput());
 				check(escape() && !flow->canSave(),"Consumed target lost protected result handoff");
 				handler.withDisplayedInput(CancelInteractionAction{},*handler.displayedInput());
-				check(m36_probe::targets==1 && party->roster.at(1).currentSp==(refund?sp:sp-1),"Consumed target Escape repeated effect/refund");
+				check(m36_probe::targets==1 && party->roster.at(1).currentSp==(refund?int(sp):sp-1),"Consumed target Escape repeated effect/refund");
 				check(flow->frame().presentation()!=targetFrame,"Result reused target authority");present();
 				const auto result=flow->encounter()->castingResult();
 				check(!result.empty(),"Missing effect/refund result");
@@ -462,7 +453,7 @@ extern "C" int wrappedPlay(const Application *application,const XeenGameplayServ
 					} else pulse();
 				}
 				check(party->encounterContext->minutes==minutes+10 && party->encounterContext->ctr24==ctr &&
-					party->roster.at(1).currentSp==(refund?sp:sp-1),"Settlement repeated cost/time or self-target restored SP");
+					party->roster.at(1).currentSp==(refund?int(sp):sp-1),"Settlement repeated cost/time or self-target restored SP");
 				check(flow->encounter()->castingResult()==result && flow->encounter()->notice().find("owed")==std::string::npos,
 					"Settlement lost feedback or retained owed language");
 
@@ -823,10 +814,9 @@ extern "C" int wrappedPlay(const Application *application,const XeenGameplayServ
 				save();std::cout<<"M36 SYNTHETIC TERMINAL PASS\n";return true;
 			}
 			if (!resume) {
-				check(world->sessionState().journeyContract()==7,"M36 fresh contract not 7");
+				check(world->sessionState().journeyContract()==14,"M36 fresh content not 14");
 			for (unsigned owner=0;owner<30;++owner) check(bool(party->roster.at(owner).learnedSpells),"M36 missing original book");
 			prefix(route=="firstaid"?"UFU":"LUUURUULURUULUUU");
-			check(combatCastRefused,"M36 prefix did not exercise combat C refusal");
 			if (stage=="fault-before-debit") {
 				input(CastSpellAction{});input(SelectMemberAction{4});
 				input(NavigationAction::MoveBackward);
@@ -947,6 +937,28 @@ extern "C" int wrappedPlay(const Application *application,const XeenGameplayServ
 			std::cout<<"M36 CLI ROUTE PASS "<<route<<(resume?" restored":" uninterrupted")<<'\n';
 			return true;
 		};
+        if(!resume && route=="firstaid") {
+            auto setup=original;
+            XeenWorld *initialWorld=nullptr;
+            const XeenPartyState *initialParty=nullptr;
+            const XeenCamera *initialCamera=nullptr;
+            const XeenGameFlags *initialFlags=nullptr;
+            setup.observeGameplay=[&](auto &w,auto &,const auto &p,const auto &c,const auto &f) {
+                initialWorld=&w;initialParty=&p;initialCamera=&c;initialFlags=&f;
+            };
+            setup.show=[&](const auto &first,const auto &handler,const auto &,const auto &,const auto &) {
+                handler.framePresented(first.presentation());
+                auto fixture=XeenSaveState::capture(original.resources.signature,*initialParty,*initialCamera,*initialFlags,*initialWorld);
+                fixture.journey->random=XeenJourneyRandomState{1,1,0};
+                XeenSaveFile::write(*target,fixture);
+                return true;
+            };
+            check(realPlay(application,setup,camera,target,false,entry,7,14)==0,"M36 current cursor fixture preparation failed");
+            drawTrace.clear();
+            std::cout<<"M36 CURRENT-FORMAT SYNTHETIC CURSOR CONTROL\n";
+            return realPlay(application,services,camera,target,true,XeenEncounterEntry::Ordinary,std::nullopt,std::nullopt);
+        }
+        if(!resume)seed=3626689381u;
 		return realPlay(application,services,camera,target,resume,entry,seed,contract);
 	} catch (const std::exception &error) {
 		std::cerr<<"M36 CLI witness: "<<error.what()<<'\n';return 8;

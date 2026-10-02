@@ -18,6 +18,7 @@ void application(const fs::path &path,bool fullPacks){
 	f.initial.roster.at(29).miscellaneous[3]={255,254,253,252};
 	f.scripts[1]={pause(),record(1,1,1,12,{0,0,20,7}),record(1,1,2,0x12)};
 	auto services=f.services();CaptureOutput output;bool reentrant=false;unsigned inspections=0;
+ const XeenPartyState *live=nullptr;const XeenGameFlags *flags=nullptr;services.observeGameplay=[&](auto &,auto &,const auto &p,auto &,const auto &g){live=&p;flags=&g;};
 	services.show=[&](const auto&,const auto &handle,const auto &escape,const auto&,const auto &status){
 		check(output.text.str().find("Setup Inventory:")!=std::string::npos&&output.text.str().find("[2->1 alias]")!=std::string::npos&&
 			output.text.str().find("Owner 29  inactive")!=std::string::npos&&output.text.str().find("ID=254")!=std::string::npos,"setup owner/alias snapshot");
@@ -35,17 +36,10 @@ void application(const fs::path &path,bool fullPacks){
 		check(XeenRewardTestAccess::state(*f.flow).rewardReceipt.delivered==(fullPacks?0U:10U),"production receipt result");
 		while(f.flow->blocksGameplay())handle(CancelInteractionAction{});
 		check(!fs::exists(path),"deferred save occurred");handle(InspectInventoryAction{});++inspections;handle(CancelInteractionAction{});
-		handle(SaveGameAction{});check(status().find("Saved")!=std::string::npos,"post-ACK F9 failed");
-		auto saved=XeenSaveFile::read(path);check(saved.gameFlags[7]&&saved.characters[1].miscellaneous[0].id==(fullPacks?0:37)&&saved.characters[29].miscellaneous[3].id==254,"save lost durable inserted/inactive items");return true;};
+		handle(SaveGameAction{});check(status().find("Map exploration cannot save.")!=std::string::npos&&!fs::exists(path),"ordinary reward flow became saveable");
+		check(flags->isSet(7)&&live->roster.at(1).miscellaneous[0].id==(fullPacks?0:37)&&live->roster.at(29).miscellaneous[3].id==254,"reward flow lost inserted/inactive items");return true;};
 	check(Application().playGameplay(services,start,path,false)==0&&reentrant&&inspections==2,"Application reward flow");
-	Fixture next;next.automatic=true;auto resumed=next.services();
-	resumed.show=[&](const auto&,const auto &handle,const auto&,const auto&,const auto &status){
-		check(next.eventReads==0&&!next.flow->blocksGameplay()&&!next.flow->presentationGeneration(),"resume dispatched/restored transient state");
-		const auto before=output.text.str().size();handle(InspectInventoryAction{});
-		const auto text=output.text.str().substr(before);check(text.find("Live recipient")!=std::string::npos&&text.find("ID=254")!=std::string::npos&&
-			(fullPacks||text.find("ID=37")!=std::string::npos),"I reconstructed initial records instead of live resume");
-		check(status().find("Inventory:")!=std::string::npos&&next.eventReads==0,"resume inspection dispatch/status");return true;};
-	check(Application().playGameplay(resumed,start,path,true)==0,"production reward resume");
+
 }
 void actualProducerGuards(){
 	Fixture f;f.initial.questItems.increment(17);f.initial.questFlags.set(2);
@@ -77,7 +71,7 @@ void actualProducerGuards(){
 		unsigned acks=0;while(f.flow->blocksGameplay()){check(++acks<100,"actual receipt bound");handle(AcknowledgeAction{});}
 		const auto before=output.text.str().size();handle(InspectInventoryAction{});
 		check(output.text.str().substr(before).find("Root=0 Q2=0")!=std::string::npos,"actual post-cleanup I");
-		handle(CancelInteractionAction{});handle(SaveGameAction{});check(status().find("No save target configured")!=std::string::npos,"actual post-cleanup F9 guard");
+		handle(CancelInteractionAction{});handle(SaveGameAction{});check(status().find("Map exploration cannot save.")!=std::string::npos,"actual post-cleanup F9 guard");
 		return true;
 	};
 	check(Application().playGameplay(services,start,{},false)==0 && reentrant,"actual producer Application guards");
@@ -94,7 +88,7 @@ void setupOrder(){
 void cleanupSaving(const fs::path &path){
 	for(bool automatic:{false,true})for(bool afterDelivery:{false,true}){
 		fs::remove(path);Fixture f;f.automatic=automatic;f.scripts[1]={pause(),pause(1),record(1,1,2,0x12)};
-		auto services=f.services();CaptureOutput output;
+		auto services=f.services();CaptureOutput output;const XeenPartyState *live=nullptr;services.observeGameplay=[&](auto &,auto &,const auto &p,auto &,const auto &){live=&p;};
 		services.show=[&](const auto&,const auto &handle,const auto&,const auto&,const auto &status){
 			if(!automatic)handle(InteractionAction{});XeenRewardTestAccess::seed(*f.flow,3);
 			const auto report=[&](const auto &r){
@@ -107,7 +101,7 @@ void cleanupSaving(const fs::path &path){
 			check(threw==automatic&&!f.flow->blocksGameplay()&&!f.flow->presentationGeneration(),"manual/fatal reward cleanup");
 			handle(SaveGameAction{});
 			if(automatic)check(!fs::exists(path)&&status().find("idle gameplay boundary")!=std::string::npos,"fatal automatic state saveable");
-			else {const auto saved=XeenSaveFile::read(path);check(saved.characters[0].miscellaneous[0].id==(afterDelivery?37:0),"recoverable cleanup lost inserted items");}
+			else {check(!fs::exists(path)&&status().find("Map exploration cannot save.")!=std::string::npos&&live->roster.at(0).miscellaneous[0].id==(afterDelivery?37:0),"recoverable cleanup lost inserted items");}
 			return !automatic;};
 		check(Application().playGameplay(services,start,path,false)==(automatic?4:0),"cleanup Application outcome");
 	}
@@ -115,6 +109,7 @@ void cleanupSaving(const fs::path &path){
 void sdl(const fs::path &path,bool fullPacks){
 	fs::remove(path);Fixture f;if(fullPacks)full(f.initial,true);f.scripts[1]={pause(),record(1,1,1,0x12)};auto services=f.services();CaptureOutput output;
 	unsigned refused=0,saved=0;bool seeded=false,delivered=false,receiptSeen=false;
+ const XeenPartyState *live=nullptr;services.observeGameplay=[&](auto &,auto &,const auto &p,auto &,const auto &){live=&p;};
 	services.show=[&](const auto &first,const auto &handle,const auto &escape,const auto &idle,const auto &status){
 		std::atomic<bool> finished{false};
 		std::thread sender([&]{while(!finished){if(SDL_WasInit(SDL_INIT_VIDEO)){SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=SDLK_SPACE;SDL_PushEvent(&e);return;}std::this_thread::sleep_for(std::chrono::milliseconds(10));}});
@@ -132,9 +127,9 @@ void sdl(const fs::path &path,bool fullPacks){
 			}
 			return frame;
 		},escape,idle,status);
-		finished=true;sender.join();return ok;};
+		finished=true;sender.join();check(live->roster.at(0).miscellaneous[0].id==(fullPacks?0:37),"SDL reward inventory");return ok;};
 	check(Application().playGameplay(services,start,path,false)==0&&seeded&&refused==(fullPacks?3U:2U)&&saved==1,"actual SDL F9 reward flow");
-	check(XeenSaveFile::read(path).characters[0].miscellaneous[0].id==(fullPacks?0:37),"SDL saved inventory");
+	check(!fs::exists(path),"SDL ordinary reward flow wrote a save");
 }
 int main(int argc,char**){try{const auto dir=fs::current_path()/"reward-gameplay-tests";fs::create_directories(dir);
 	if(argc>1){sdl(dir/"sdl.mmsave",false);sdl(dir/"sdl-full.mmsave",true);}else{application(dir/"delivery.mmsave",false);application(dir/"loss.mmsave",true);actualProducerGuards();setupOrder();cleanupSaving(dir/"cleanup.mmsave");}

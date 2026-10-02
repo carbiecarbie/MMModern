@@ -1,7 +1,8 @@
 #include "app/XeenEventFlow.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "formats/xeen/XeenFontFormat.h"
-#include "formats/xeen/XeenSaveFormat.h"
+#include "XeenPartySnapshotTestSupport.h"
+#include "games/xeen/XeenStateEquality.h"
 #include "games/xeen/CloudsMapComposer.h"
 #include "games/xeen/CloudsUiComposer.h"
 #include "games/xeen/XeenCharacterRules.h"
@@ -293,8 +294,13 @@ int main(int argc, char *argv[]) {
 			}, {}, [&] { return now; });
 		flow.reportManual = [&](const auto &result) { reports.push_back(result); };
 		const auto base = flow.frame();
-		const auto beforeSnapshot = XeenSaveFormat::encode(XeenSaveState::capture(
-			{}, flowParty, flowCamera, flowFlags, flowWorld));
+		const auto beforeParty = remove_test::partySnapshot(flowParty);
+		const auto beforeCamera = flowCamera;
+		const auto beforeFlags = flowFlags.values();
+		const auto beforeObjects = flowWorld.sessionState().disabledObjects();
+		const std::vector<XeenObjectIdentity> beforeObjectIds(beforeObjects.begin(), beforeObjects.end());
+		const auto beforeEvents = flowWorld.sessionState().disabledEvents();
+		const std::vector<XeenEventIdentity> beforeEventIds(beforeEvents.begin(), beforeEvents.end());
 		const auto pending = flow.handle(InteractionAction{});
 		check(flow.blocksGameplay() && flow.presentationGeneration() && reports.size() == 2 &&
 			std::holds_alternative<XeenEventExecutionSuspended>(reports[0]) &&
@@ -337,10 +343,13 @@ int main(int argc, char *argv[]) {
 			completed(reports.back(), "Nightshadow Flow did not report completion").instructionCount == 2 &&
 			flow.frame().pixels != base.pixels,
 			"Nightshadow acknowledgment replayed or prematurely cleared retained text");
-		const auto afterSnapshot = XeenSaveFormat::encode(XeenSaveState::capture(
-			{}, flowParty, flowCamera, flowFlags, flowWorld));
-		check(beforeSnapshot == afterSnapshot,
-			"Nightshadow original interaction changed encoded durable state");
+		const auto afterObjects = flowWorld.sessionState().disabledObjects();
+		const auto afterEvents = flowWorld.sessionState().disabledEvents();
+		check(beforeParty == remove_test::partySnapshot(flowParty) &&
+			beforeCamera.mapId == flowCamera.mapId && beforeCamera.x == flowCamera.x && beforeCamera.y == flowCamera.y && beforeCamera.direction == flowCamera.direction && beforeFlags == flowFlags.values() &&
+			beforeObjectIds == std::vector<XeenObjectIdentity>(afterObjects.begin(), afterObjects.end()) &&
+			beforeEventIds == std::vector<XeenEventIdentity>(afterEvents.begin(), afterEvents.end()),
+			"Nightshadow original interaction changed owner state");
 		flow.handle(NavigationAction::TurnRight);
 		check(!flow.blocksGameplay() && flowCamera.direction == XeenDirection::North &&
 			flow.frame().pixels == composer.compose(
@@ -373,26 +382,19 @@ int main(int argc, char *argv[]) {
 		check(!objectOnly.state.selectedObject && objectOnly.request.textIndex == 6,
 			"object-only disabled event selected a hidden object or wrong clue");
 
-		const auto disabledSnapshot = XeenSaveFormat::decode(XeenSaveFormat::encode(
-			XeenSaveState::capture({}, disabledParty, disabledCamera, disabledFlags, disabledWorld)));
+		const auto disabledObjects = disabledWorld.sessionState().disabledObjects();
+		const auto disabledEventIds = disabledWorld.sessionState().disabledEvents();
 		XeenWorld restoredWorld(mapProvider, objectProvider);
-		XeenPartyState restoredParty;
-		XeenCamera restoredCamera;
-		XeenGameFlags restoredFlags;
-		XeenSaveState::Resources resources{
-			{}, [&] { return XeenPartyLoader().loadInitialCloudsParty(assets); },
-			[&](XeenMapIdentity id) { return eventLoader.load(id); }};
-		XeenSaveState::restoreBeforeGameplay(disabledSnapshot, resources,
-			restoredParty, restoredCamera, restoredFlags, restoredWorld,
-			[&](XeenWorld &candidateWorld, const XeenPartyState &candidateParty,
-					const XeenCamera &candidateCamera, const XeenGameFlags &) {
-				check(composer.compose(assets, candidateWorld, candidateParty,
-					candidateCamera, context).isValid(),
-					"restored indoor disabled identity failed preflight");
-			});
+		const auto restoredCamera = disabledCamera;
+		restoredWorld.restoreSessionState(
+			{disabledObjects.begin(), disabledObjects.end()},
+			{disabledEventIds.begin(), disabledEventIds.end()},
+			[&](XeenMapIdentity id) { return eventLoader.load(id); });
+		check(composer.compose(assets, restoredWorld, disabledParty,
+			restoredCamera, context).isValid(), "reconstructed indoor frame invalid");
 		check(restoredWorld.isObjectDisabled(target) &&
 			!findTarget(XeenIndoorScene().build(restoredWorld, restoredCamera, &resolver), target),
-			"saved indoor disabled identity was resurrected after owner reconstruction");
+			"detached indoor disabled identity was resurrected after owner reconstruction");
 
 		XeenWorld removedWorld(mapProvider, objectProvider);
 		removedWorld.applyRemove({mapId,4,6,XeenDirection::West}, target, eventFile);

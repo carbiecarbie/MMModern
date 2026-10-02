@@ -54,13 +54,10 @@ int main(int argc,char **argv) {
         }
         check(cells==49 && !xeenJourneyContent(13).vertigoCell(15,8) &&
             policy.vertigoCell(15,28),"exact 49-cell route differs");
-		for(unsigned legacy=8;legacy<=13;++legacy) {
-			check(!xeenJourneyContent(legacy).vertigoCell(15,8) &&
-				!xeenJourneyContent(legacy).vertigoCell(15,28),
-				"Temple corridor leaked into legacy Journey content");
-			Fixture legacySelection(in,in.base(legacy));
-			rejects([&]{legacySelection.w.selectObject({28,16,4,XeenDirection::North});});
-		}
+        for(unsigned legacy=8;legacy<=13;++legacy) {
+            auto rejected=in.base();rejected.journey->schema=xeenJourneyContent(legacy).schema();rejected.journey->contract=legacy;
+            rejects([&]{Fixture old(in,rejected);},"no longer supported");
+        }
 		auto selectionSave=in.service();
 		selectionSave.journey->contract=14;
 		Fixture templeSelection(in,selectionSave);

@@ -1,76 +1,62 @@
-#include "XeenSaveGameplayTestSupport.h"
+#include "XeenRegionalSaveGameplayTestSupport.h"
 #include <fstream>
 #include <iostream>
 using namespace gameplay_test;
 using save_test::rejects;
 namespace fs=std::filesystem;
 const XeenCamera start{1,1,1,XeenDirection::North};
-Bytes diskBytes(const fs::path &path) {
- std::ifstream in(path,std::ios::binary);check(bool(in),"cannot read Application fixture");
- return Bytes(std::istreambuf_iterator<char>(in),{});
-}
-void legacyUpgrade(const fs::path &path) {
- const auto original=save_test::nonzeroLegacy();
- {std::ofstream out(path,std::ios::binary|std::ios::trunc);
-  out.write(reinterpret_cast<const char*>(original.data()),original.size());out.close();check(bool(out),"cannot write independent v1 fixture");}
- Fixture f;save_test::distinctiveInitialItems(f.initial.roster);
- const auto legacy=XeenSaveFormat::decode(original);
- const auto expected=save_test::expectedLegacy(legacy,f.initial.roster);
- auto services=f.services();bool observed=false;
- services.observeGameplay=[&](XeenWorld &world,XeenEventSystem &,const XeenPartyState &party,XeenCamera &camera,const XeenGameFlags &flags){
-  sameSnapshot(expected,XeenSaveState::capture(f.signature,party,camera,flags,world));
-  check(&party.party.member(party.roster,0)==&party.roster.at(18)&&
-   &party.party.member(party.roster,2)==&party.roster.at(18),"Application legacy membership aliases");
-  check(diskBytes(path)==original,"Application startup migrated v1 on disk");observed=true;
- };
- services.show=[&](const auto&,const auto &handle,const auto&,const auto&,const auto &status){
-  check(observed,"legacy owners not observed before gameplay input");
-  check(diskBytes(path)==original,"read/startup changed v1 bytes");
-  handle(SaveGameAction{}); // The production action handler used by F9.
-  check(status().find("Saved")!=std::string::npos,"Application legacy upgrade save failed");
-  const auto bytes=diskBytes(path);check(bytes[8]==2&&bytes[9]==0,"F9 did not write v2");
-  sameSnapshot(expected,XeenSaveFile::read(path));return true;
- };
- check(Application().playGameplay(services,start,path,true)==0&&observed,"production legacy resume failed");
- // Different initial items prove that v2 restoration uses its saved complete records.
- Fixture next;save_test::distinctiveInitialItems(next.initial.roster);
- for(unsigned i=0;i<30;++i){auto &c=next.initial.roster.at(i);c.weapons={};c.armor={};c.accessories={};c.miscellaneous={};}
- auto resumed=next.services();bool restored=false;
- resumed.observeGameplay=[&](XeenWorld &world,XeenEventSystem &,const XeenPartyState &party,XeenCamera &camera,const XeenGameFlags &flags){
-  sameSnapshot(expected,XeenSaveState::capture(next.signature,party,camera,flags,world));restored=true;
- };
- resumed.show=[&](const auto&,const auto&,const auto&,const auto&,const auto&){check(restored,"v2 owners not observed");return true;};
- check(Application().playGameplay(resumed,start,path,true)==0&&restored,"production upgraded v2 restore failed");
- std::cout<<"Application independent v1 resume, unchanged startup bytes, F9 v2 upgrade and authoritative v2 resume passed\n";
+Bytes diskBytes(const fs::path &path){std::ifstream in(path,std::ios::binary);check(bool(in),"cannot read Application fixture");return Bytes(std::istreambuf_iterator<char>(in),{});}
+void writeBytes(const fs::path &path,const Bytes &bytes){std::ofstream out(path,std::ios::binary|std::ios::trunc);out.write(reinterpret_cast<const char *>(bytes.data()),bytes.size());check(bool(out),"fixture write");}
+void olderPolicy(const fs::path &path){
+ const auto old=save_test::nonzeroLegacy();writeBytes(path,old);
+ regional_save_test::Fixture f;auto services=f.services();bool shown=false;
+ services.show=[&](const auto&,const auto&,const auto&,const auto&,const auto&){shown=true;return true;};
+ check(Application().playGameplay(services,{},path,true)==3&&!shown&&diskBytes(path)==old,"older startup published or rewrote file");
+ services.show=[&](const auto&,const auto &handle,const auto&,const auto&,const auto &status){f.present(handle);f.send(handle,SaveGameAction{});check(status().find("Saved")!=std::string::npos,"F9 older overwrite failed");sameSnapshot(f.capture(),XeenSaveFile::read(path));return true;};
+ check(Application().playGameplay(services,{},path,false,XeenEncounterEntry::Journey,1,14)==0,"fresh Journey older overwrite");
 }
 void startup(const fs::path &path){
- for(bool resume:{false,true}){
-  Fixture f;f.automatic=true;f.scripts[1]={record(1,1,0,12,{0,0,21,99}),record(1,1,1,12,{0,0,20,7}),record(1,1,2,0x1f,{2,1,1})};
-  auto s=f.saved();s.questItems[17]=3;s.characters[0].currentHp=23;XeenSaveFile::write(path,s);
-  auto services=f.services();services.show=[&](const auto &first,const auto &handle,const auto&,const auto&,const auto &status){
-   check(first.pixels[0]==(resume?1:2) && first.pixels[4]==(resume?3:1),"production initial dispatch choice");
-   check(first.pixels[6]==(resume?23:10),"default party flashed on resume");
-   check(f.eventReads==(resume?0U:2U),"unexpected initial automatic dispatch");
-   check(!f.flow->blocksGameplay() && !f.flow->presentationGeneration(),"stale presentation");
-   handle(SaveGameAction{});auto saved=XeenSaveFile::read(path);
-   check(saved.gameFlags[7]==!resume,"initial flag commit");
-   if(resume){handle(NavigationAction::TurnRight);handle(SaveGameAction{});saved=XeenSaveFile::read(path);check(saved.camera.mapId==XeenMapIdentity(2)&&saved.questItems[17]==4&&saved.gameFlags[7],"later navigation skipped automatic event");}
-   check(status().find("Saved")!=std::string::npos,"save status absent");return true;
+ std::vector<Bytes> frames;
+ for(unsigned index:{0u,1u}){
+  regional_save_test::Fixture f;f.saved.camera={23,8,2,XeenDirection::North};f.saved.questItems[17]=3;f.saved.characters[0].currentHp=23;f.saved.disabledObjects={{23,index}};
+  XeenSaveFile::write(path,f.saved);const auto original=diskBytes(path);auto services=f.services();regional_save_test::phirna(services);
+  unsigned mapReads=0,objectReads=0,eventReads=0,textReads=0,automatic=0;
+  services.maps=[&](auto id){++mapReads;return regional_test::map(id);};
+  const auto objectProvider=services.objects;services.objects=[&](auto id){++objectReads;return objectProvider(id);};
+  const auto scriptProvider=services.resources.loadEvents;services.resources.loadEvents=[&](auto id){++eventReads;return scriptProvider(id);};
+  services.texts=[&](auto id){++textReads;return regional_test::texts(id);};
+  auto configure=services.configureFlow;services.configureFlow=[&](auto &flow,const auto &c){configure(flow,c);flow.reportAutomatic=[&](const auto&){++automatic;};};
+  auto compose=services.composeEncounter;std::vector<Bytes> composed;
+  services.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto phase,auto actor){auto frame=compose(w,p,c,phase,actor);frame.frame.pixels[11]=w.isObjectDisabled({23,1});composed.push_back(frame.frame.pixels);return frame;};
+  services.show=[&](const auto &first,const auto &handle,const auto&,const auto&,const auto &status){
+   f.present(handle);check(first.pixels[6]==23&&first.pixels[4]==3&&first.pixels[10+index]&&!first.pixels[11-index],"restored first frame used default or wrong equal-count owners");
+   frames.push_back(first.pixels);for(const auto &pixels:composed)check(std::equal(pixels.begin(),pixels.begin()+12,first.pixels.begin()),"default frame flashed before restored owners");
+   check(!automatic&&!f.flow->presentationGeneration()&&diskBytes(path)==original,"restore replayed event or rewrote disk");
+   auto &events=*f.events;
+   f.send(handle,InteractionAction{});check(f.flow->blocksGameplay(),"resumed interaction did not dispatch");f.send(handle,CancelInteractionAction{});
+   const auto maps=mapReads,objects=objectReads,scripts=eventReads,texts=textReads;const auto retained=f.flow->frame().pixels;
+   f.world->discardMapCache();events.discardScriptCache();events.discardTextCache();
+   check(f.flow->refresh(true).pixels==retained,"cache reconstruction changed restored frame");f.present(handle);
+   f.send(handle,InteractionAction{});check(f.flow->blocksGameplay(),"resumed interaction did not dispatch");f.send(handle,CancelInteractionAction{});
+   check(mapReads>maps&&objectReads>objects&&eventReads>scripts&&textReads>texts,"cache reconstruction did not call each provider");
+   f.send(handle,SaveGameAction{});check(status().find("Saved")!=std::string::npos&&diskBytes(path)==original,"eligible F9 changed durable state");return true;
   };
-  check(Application().playGameplay(services,start,path,resume)==0,"startup failed");
+  check(Application().playGameplay(services,{},path,true)==0,"current startup graph failed");
  }
- // Equal counts, separate production startup graphs; no initial/default frame.
- std::vector<Bytes> firstFrames;
- for(unsigned index:{0U,1U}){
-  Fixture f;auto s=f.saved();s.disabledObjects={{1,index}};XeenSaveFile::write(path,s);auto services=f.services();
-  services.show=[&](const auto &first,const auto&,const auto&,const auto&,const auto&){
-   firstFrames.push_back(first.pixels);check(first.pixels[10+index]==1&&first.pixels[11-index]==0,"wrong equal-count frame");
-   for(const auto &frame:f.frames)check(frame.pixels==first.pixels,"a default frame composed before restored owners");
-   const auto maps=f.mapReads,objects=f.objectReads;f.world->discardMapCache();
-   check(f.flow->refresh(true).pixels==first.pixels&&f.mapReads>maps&&f.objectReads>objects,"genuine cache reconstruction failed");return true;
-  };check(Application().playGameplay(services,start,path,true)==0,"restored graph failed");
+ check(frames[0]!=frames[1],"equal-count identities collapsed");
+}
+void failures(const fs::path &path){
+ for(int mode=0;mode<7;++mode){
+  fs::remove(path);regional_save_test::Fixture f;auto s=f.saved;if(mode==1)s.resources.clouds.crc32++;if(mode==2)s.activeRosterIds={24};XeenSaveFile::write(path,s);
+  if(mode==0)fs::remove(path);if(mode==3)writeBytes(path,{'b','a','d'});if(mode==4){auto bytes=XeenSaveFormat::encode(s);bytes[8]=5;writeBytes(path,bytes);}
+  auto services=f.services();auto compose=services.composeEncounter;
+  services.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto phase,auto actor){if(mode==5)throw std::runtime_error("injected first-frame failure");auto frame=compose(w,p,c,phase,actor);if(mode==6)frame.frame.width=0;return frame;};
+  bool shown=false;services.show=[&](const auto&,const auto&,const auto&,const auto&,const auto&){shown=true;return true;};
+  check(Application().playGameplay(services,{},path,true)==3&&!shown,"failed resume exposed gameplay or fell back");
  }
- check(firstFrames[0]!=firstFrames[1],"equal-count startup retained another graph");
+ fs::remove(path);regional_save_test::Fixture f;auto services=f.services();
+ services.show=[&](const auto&,const auto &h,const auto&,const auto&,const auto &status){f.present(h);writeBytes(path,{'u','n','k','n','o','w','n'});const auto old=diskBytes(path);f.send(h,SaveGameAction{});check(status().find("Save failed")!=std::string::npos&&diskBytes(path)==old,"unknown destination protection");f.send(h,NavigationAction::TurnRight);fs::remove(path);f.send(h,SaveGameAction{});check(XeenSaveFile::read(path).camera.direction==XeenDirection::North,"write failure stopped current gameplay");return true;};
+ check(Application().playGameplay(services,{},path,false,XeenEncounterEntry::Journey,1,14)==0,"recoverable current write failure");
 }
 void pending(const fs::path &path){
  for(int kind=0;kind<7;++kind){
@@ -100,55 +86,12 @@ void pending(const fs::path &path){
    }
    check(!f.flow->blocksGameplay()&&!fs::exists(path),"refused save was queued");
    const auto retained=f.flow->frame().pixels;handle(SaveGameAction{});
-   check(fs::exists(path)&&retained==f.flow->frame().pixels,"fresh save cleared retained label");return true;
+   check(!fs::exists(path)&&retained==f.flow->frame().pixels,"unsaveable explorer F9 cleared retained label");return true;
   };
   check(Application().playGameplay(services,start,path,false)==0,"pending Application path");
  }
- Fixture f;auto services=f.services();services.show=[&](const auto&,const auto &handle,const auto&,const auto&,const auto &status){handle(SaveGameAction{});check(status().find("No save target")!=std::string::npos,"no-target feedback");return true;};
+ Fixture f;auto services=f.services();services.show=[&](const auto&,const auto &handle,const auto&,const auto&,const auto &status){handle(SaveGameAction{});check(status().find("Map exploration cannot save.")!=std::string::npos,"no-target feedback");return true;};
  check(Application().playGameplay(services,start,std::nullopt,false)==0,"no target session");
-}
-void failures(const fs::path &path){
- for(int mode=0;mode<7;++mode){
-  Fixture f;auto s=f.saved();if(mode==1)s.resources.clouds.crc32++;if(mode==2)s.activeRosterIds={24};
-  XeenSaveFile::write(path,s);
-  if(mode==0)fs::remove(path);
-  if(mode==3){std::ofstream out(path,std::ios::binary|std::ios::trunc);out<<"not a save";}
-  if(mode==4){auto bytes=XeenSaveFormat::encode(s);bytes[8]=4;std::ofstream out(path,std::ios::binary|std::ios::trunc);out.write(reinterpret_cast<const char*>(bytes.data()),bytes.size());}
-  if(mode==5)f.failCompose=true;if(mode==6)f.invalidFrame=true;
-  auto services=f.services();bool shown=false;services.show=[&](const auto&,const auto&,const auto&,const auto&,const auto&){shown=true;return true;};
-  check(Application().playGameplay(services,start,path,true)==3&&!shown,"failed resume exposed gameplay or fell back");
-  fs::remove(path);
- }
- Fixture f;auto services=f.services();
- services.show=[&](const auto&,const auto &handle,const auto&,const auto&,const auto &status){
-  {std::ofstream out(path);out<<"unknown";}handle(SaveGameAction{});check(status().find("Save failed")!=std::string::npos,"save failure feedback");
-  handle(NavigationAction::TurnRight);fs::remove(path);handle(SaveGameAction{});
-  check(XeenSaveFile::read(path).camera.direction==XeenDirection::East,"save failure stopped gameplay");return true;
- };check(Application().playGameplay(services,start,path,false)==0,"recoverable write failure");
-}
-void mutation(const fs::path &path){
- for(int outcome=0;outcome<3;++outcome){
-  Fixture f;f.scripts[1]={record(1,1,0,0x1f,{2,1,1})};
-  f.scripts[2]={record(1,1,0,12,{0,0,20,7}),record(1,1,1,12,{0,0,104,2}),record(1,1,2,12,{0,0,21,99}),
-   record(1,1,3,outcome==0?0x0e:outcome==1?9:0x20,outcome==1?Bytes{44,1,4}:outcome==2?Bytes{0,0}:Bytes{}),record(1,1,4,0xff)};
-  if(outcome==0)f.scripts[2]={record(1,1,0,0x19,{7,8,0}),record(1,1,1,0x12),
-   record(7,8,0,9,{21,99,6}),record(7,8,1,12,{0,0,20,7}),record(7,8,2,12,{0,0,104,2}),
-   record(7,8,3,12,{0,0,21,99}),record(7,8,4,0x0e),record(7,8,5,0xff),record(7,8,6,0xff)};
-  auto services=f.services();services.show=[&](const auto&,const auto &handle,const auto&,const auto&,const auto&){
-   handle(InteractionAction{});if(outcome==1)f.flow->abandonPresentation();if(outcome==2)handle(CancelInteractionAction{});
-   check(!f.flow->blocksGameplay(),"mutation not at idle");handle(SaveGameAction{});const auto saved=XeenSaveFile::read(path);
-   check(saved.questItems[17]==1&&saved.questFlags[2]&&saved.gameFlags[7]==(outcome==2)&&saved.camera.mapId==XeenMapIdentity(outcome==2?2:1),"saved mutation/rollback policy");
-   check(saved.disabledObjects.size()==(outcome==0?1U:0U),"Remove error effects missing");return true;
-  };check(Application().playGameplay(services,start,path,false)==0,"mutation save path");
-  const auto expected=XeenSaveFile::read(path);
-  check(expected.disabledEvents.size()==(outcome==0?2U:0U),"independent Remove events missing");
-  Fixture restored;restored.scripts=f.scripts;auto resumed=restored.services();
-  resumed.show=[&](const auto &first,const auto &handle,const auto&,const auto&,const auto&){
-   check(first.pixels[0]==expected.camera.mapId.number&&first.pixels[4]==1&&first.pixels[5]==1,"mutation resume first frame");
-   handle(SaveGameAction{});sameSnapshot(XeenSaveFile::read(path),expected);return true;
-  };
-  check(Application().playGameplay(resumed,start,path,true)==0,"mutation production resume path");
- }
 }
 void dispatchBoundaries(const fs::path &path){
  fs::remove(path);Fixture f;auto services=f.services();
@@ -161,7 +104,7 @@ void dispatchBoundaries(const fs::path &path){
  services.show=[&](const auto&,const auto &handle,const auto&,const auto&,const auto &status){
   current=handle;handle(InteractionAction{});
   check(!fs::exists(path)&&status().find("idle gameplay boundary")!=std::string::npos,"event callback saved reentrantly");
-  handle(SaveGameAction{});check(fs::exists(path),"fresh idle save after dispatch refused");current={};return true;
+  handle(SaveGameAction{});check(!fs::exists(path),"unsaveable explorer wrote after dispatch");current={};return true;
  };
  check(Application().playGameplay(services,start,path,false)==0,"dispatch guard");
  // A fatal automatic report retains prior movement, but production exits and may not save afterward.
@@ -176,38 +119,20 @@ void dispatchBoundaries(const fs::path &path){
  };
  check(Application().playGameplay(fatalServices,start,path,false)==4,"fatal shutdown result");
 }
-void ordinarySaveBoundary(const fs::path &path){
- fs::remove(path);Fixture f;f.ordinary=true;std::uint64_t now=0;unsigned clockCalls=0;
- auto services=f.services();services.clock=[&]{++clockCalls;return now;};
- const XeenPartyState *party=nullptr;const XeenGameFlags *flags=nullptr;XeenCamera *camera=nullptr;
- auto observe=services.observeGameplay;
- services.observeGameplay=[&](XeenWorld &w,XeenEventSystem &e,const XeenPartyState &p,XeenCamera &c,const XeenGameFlags &g){observe(w,e,p,c,g);party=&p;flags=&g;camera=&c;};
- Bytes firstBytes;
- services.show=[&](const auto&,const auto &handle,const auto&,const auto &idle,const auto &status){
-  check(f.phases==std::vector<std::uint64_t>{0},"fresh startup added preflight");
-  f.world->disableObject({1,0});f.flow->refresh();
-  auto capture=[&]{return XeenSaveFormat::encode(XeenSaveState::capture(f.signature,*party,*camera,*flags,*f.world));};
-  firstBytes=capture();now=100;idle();check(f.phases.back()==1 && capture()==firstBytes,"phase serialized into v2");
-  now=199;const auto calls=clockCalls;const auto liveFrame=f.flow->frame();
-  handle(InspectInventoryAction{});check(clockCalls==calls && f.phases.back()==1,"inventory changed phase/clock");
-  handle(CancelInteractionAction{}); // Close the player panel before a new eligible F9.
-  handle(SaveGameAction{});
-  check(status().find("Saved")!=std::string::npos && clockCalls==calls && f.phases.back()==0,"preflight did not use independent zero");
-  check(diskBytes(path)==firstBytes && f.flow->frame().pixels==liveFrame.pixels,"F9 mutated live frame or save bytes");
-  check(f.world->isObjectDisabled({1,0}),"preflight replaced live-world observer");
-  const auto n=f.phases.size();idle();check(f.phases.size()==n,"preflight moved deadline earlier");
-  now=200;idle();check(f.phases.back()==2 && capture()==firstBytes,"preflight secretly rearmed live deadline");
-  return true;
+void currentSaveBoundary(const fs::path &path){
+ fs::remove(path);regional_save_test::Fixture f;auto services=f.services();unsigned clocks=0;services.clock=[&]{++clocks;return f.now;};Bytes initial;
+ SdlWindow::FrameUpdateHandler nested;bool reentered=false;auto compose=services.composeEncounter;
+ services.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto phase,auto actor){if(nested&&&w!=f.world){const auto count=f.compositions;nested(SaveGameAction{});nested(InspectInventoryAction{});check(!f.flow->inventoryOpen()&&f.compositions==count,"F9 preflight allowed reentrancy");reentered=true;}return compose(w,p,c,phase,actor);};
+ services.show=[&](const auto&,const auto &h,const auto&,const auto &idle,const auto &status){
+  f.present(h);nested=h;initial=XeenSaveFormat::encode(f.capture());f.now=100;idle();f.present(h);check(f.phases.back()==1&&XeenSaveFormat::encode(f.capture())==initial,"cosmetic phase serialized");
+  f.now=199;const auto calls=clocks;const auto pixels=f.flow->frame().pixels;f.send(h,SaveGameAction{});
+  check(status().find("Saved")!=std::string::npos&&reentered&&clocks==calls&&f.phases.back()==0,"F9 preflight phase/clock/reentrancy");
+  check(diskBytes(path)==initial&&f.flow->frame().pixels==pixels,"F9 changed current durable or presentation state");
+  const auto n=f.phases.size();idle();check(f.phases.size()==n,"F9 moved deadline earlier");f.now=200;idle();f.present(h);check(f.phases.back()==2&&XeenSaveFormat::encode(f.capture())==initial,"F9 rearmed deadline");return true;
  };
- check(Application().playGameplay(services,start,path,false)==0,"ordinary save producer");
- Fixture restored;restored.ordinary=true;restored.automatic=true;now=500;
- auto resumed=restored.services();resumed.clock=[&]{return now;};
- resumed.show=[&](const auto &first,const auto&,const auto&,const auto &idle,const auto&){
-  check(restored.phases==std::vector<std::uint64_t>({0,0}) && restored.eventReads==0,"restored phase/preflight or initial replay");
-  check(restored.world->isObjectDisabled({1,0}) && first.pixels[20]==0,"restored animation/removal");
-  now=599;const auto n=restored.phases.size();idle();check(restored.phases.size()==n,"restored early deadline");
-  now=600;idle();check(restored.phases.back()==1,"restored first due tick");return true;
- };
- check(Application().playGameplay(resumed,start,path,true)==0 && diskBytes(path)==firstBytes,"ordinary save restored startup");
+ check(Application().playGameplay(services,{},path,false,XeenEncounterEntry::Journey,1,14)==0,"current save animation boundary");
+ regional_save_test::Fixture restored;restored.now=500;auto resumed=restored.services();
+ resumed.show=[&](const auto &first,const auto &h,const auto&,const auto &idle,const auto&){restored.present(h);check(first.pixels[20]==0&&restored.phases==std::vector<std::uint64_t>({0,0}),"restored phase/preflight");idle();restored.present(h);check(restored.phases.back()==1,"restored first idle tick");restored.now=599;const auto n=restored.phases.size();idle();check(restored.phases.size()==n,"restored early deadline");restored.now=600;idle();restored.present(h);check(restored.phases.back()==2,"restored scheduled tick");return true;};
+ check(Application().playGameplay(resumed,{},path,true)==0&&diskBytes(path)==initial,"current restored startup changed file");
 }
-int main(){try{const auto dir=fs::current_path()/"save-flow-tests";fs::create_directories(dir);const auto path=dir/"session.mmsave";fs::remove(path);legacyUpgrade(path);startup(path);pending(path);failures(path);mutation(path);dispatchBoundaries(path);ordinarySaveBoundary(dir/"animation.mmsave");std::cout<<"Production Application startup, save eligibility, failures and mutation policies passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(){try{const auto dir=fs::current_path()/"save-flow-tests";fs::create_directories(dir);const auto path=dir/"session.mmsave";fs::remove(path);olderPolicy(path);startup(path);pending(path);failures(path);dispatchBoundaries(path);currentSaveBoundary(dir/"animation.mmsave");std::cout<<"Current Application startup, save eligibility, overwrite and failure paths passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

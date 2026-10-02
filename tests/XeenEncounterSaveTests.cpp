@@ -1,61 +1,65 @@
+#include "XeenRegionalTestSupport.h"
 #include "XeenEncounterTestSupport.h"
 #include <iostream>
-using namespace encounter_test;
-
-int main() {
-	try {
-		XeenSaveResourceSignature signature{{123,456},XeenArchiveFingerprint{789,1011}};
-		XeenGameFlags flags;flags.set(7);
-		Fixture ordinary;
-		const auto snapshot=XeenSaveState::capture(signature,ordinary.p,ordinary.camera,flags,ordinary.world);
-		for(int kind=0;kind<3;++kind) {
-			Fixture f;
-			if(kind==0)f.world.markEncounterSession();
-			if(kind==1)f.p.encounterContext=f.context;
-			if(kind==2)f.start();
-			f.world.disableObject({20,0});
-			XeenEventRecord event;event.x=4;event.y=4;f.evt.records.push_back(event);
-			f.world.disableEventsAtCell({20,4,4,XeenDirection::North},f.evt);
-			auto p=f.p;auto camera=f.camera;std::vector<XeenActor> actors=f.world.sessionState().actors();
-			const auto flagValues=flags.values();
-			const std::set<XeenObjectIdentity> objects=f.world.sessionState().disabledObjects();
-			const std::set<XeenEventIdentity> events=f.world.sessionState().disabledEvents();
-			const auto marked=f.world.sessionState().encounterMarked();
-			unsigned calls=0;
-			XeenSaveState::Resources resources{signature,[&]{++calls;return party();},[&](XeenMapIdentity){++calls;return encounter_test::events();}};
-			for(int i=0;i<2;++i) {
-				rejects([&]{XeenSaveState::capture(signature,f.p,f.camera,flags,f.world);},"encounter");
-				rejects([&]{XeenSaveState::restoreBeforeGameplay(snapshot,resources,f.p,f.camera,flags,f.world,
-					[&](XeenWorld &,const XeenPartyState &,const XeenCamera &,const XeenGameFlags &){++calls;});},"encounter");
-				if(kind!=1)rejects([&]{f.world.restoreSessionState({}, {}, {});},"encounter");
-				f.world.discardMapCache();
-			}
-			check(calls==0 && f.p.encounterContext==p.encounterContext && save_test::sameCamera(camera,f.camera) &&
-				flags.values()==flagValues && f.world.sessionState().disabledObjects()==objects && f.world.sessionState().disabledEvents()==events &&
-				f.world.sessionState().encounterMarked()==marked,"refused restore changed destination state");
-			sameParty(p,f.p);sameActors(actors,f.world.sessionState().actors());
-			if(kind==2) {
-				// Simulate an inconsistent service caller clearing just party context.
-				f.p.encounterContext.reset();
-				rejects([&]{XeenSaveState::capture(signature,f.p,f.camera,flags,f.world);},"encounter");
-				rejects([&]{f.world.restoreSessionState({}, {}, {});},"encounter");
-				sameActors(actors,f.world.sessionState().actors());
-			}
-		}
-		Fixture target;auto before=target.p;auto camera=target.camera;
-		XeenSaveState::Resources bad{signature,[&]{auto p=party();p.encounterContext=target.context;return p;},
-			[](XeenMapIdentity){return events();}};
-		rejects([&]{XeenSaveState::restoreBeforeGameplay(snapshot,bad,target.p,target.camera,flags,target.world,
-			[](XeenWorld &,const XeenPartyState &,const XeenCamera &,const XeenGameFlags &){});},"provider");
-		sameParty(before,target.p);check(!target.p.encounterContext && !target.world.hasEncounterState() && save_test::sameCamera(camera,target.camera),"bad provider partially restored");
-		bad.loadInitialParty=[] {return party();};
-		XeenSaveState::restoreBeforeGameplay(snapshot,bad,target.p,target.camera,flags,target.world,
-			[](XeenWorld &,const XeenPartyState &,const XeenCamera &,const XeenGameFlags &){});
-		save_test::sameSnapshot(snapshot,XeenSaveState::capture(signature,target.p,target.camera,flags,target.world));
-		// A preflight cannot smuggle a marked candidate into ordinary publication.
-		rejects([&]{XeenSaveState::restoreBeforeGameplay(snapshot,bad,target.p,target.camera,flags,target.world,
-			[](XeenWorld &w,const XeenPartyState &,const XeenCamera &,const XeenGameFlags &){w.markEncounterSession();});},"preparation");
-		save_test::sameSnapshot(snapshot,XeenSaveState::capture(signature,target.p,target.camera,flags,target.world));
-		std::cout<<"Encounter capture/restore preservation tests passed\n";return 0;
-	}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}
+using namespace mmodern;
+using save_test::check;using save_test::rejects;
+namespace {
+struct Destination {
+ XeenPartyState party=regional_test::resources().loadInitialParty();
+ XeenCamera camera{23,9,11,XeenDirection::West};XeenGameFlags flags;
+ XeenWorld world{regional_test::map,regional_test::objects};
+};
+void rejectionBoundaries() {
+ const auto saved=regional_test::snapshot();
+ for(unsigned kind=0;kind<3;++kind) {
+  Destination f;
+  f.world.disableObject({23,0});
+  auto events=regional_test::events(23);events.records[0].x=4;events.records[0].y=4;
+  f.world.disableEventsAtCell({23,4,4,XeenDirection::North},events);
+  std::unique_ptr<regional_test::Fixture> live;
+  if(kind==0)f.world.markEncounterSession();
+  if(kind==1)f.party.encounterContext=regional_test::resources().loadInitialContext();
+  if(kind==2){live=std::make_unique<regional_test::Fixture>();live->flow->holdJourneyWork(XeenCombatBoundary::Work::Event);}
+  auto &party=live?live->p:f.party;auto &camera=live?live->camera:f.camera;
+  auto &world=live?live->w:f.world;auto &flags=live?live->flags:f.flags;
+  auto before=regional_test::resources().loadInitialParty();
+  for(unsigned owner=0;owner<30;++owner)before.roster.at(owner)=party.roster.at(owner);
+  before.party=XeenParty::fromRosterIds(party.party.activeRosterIds());
+  before.questItems=party.questItems;before.questFlags=party.questFlags;before.encounterContext=party.encounterContext;
+  before.firstSerializedCount=party.firstSerializedCount;before.effectiveSerializedCount=party.effectiveSerializedCount;before.diagnostics=party.diagnostics;
+  const auto view=camera;const auto flagValues=flags.values();
+  const std::vector<XeenActor> actors=world.sessionState().actors();
+  const std::set<XeenObjectIdentity> objects=world.sessionState().disabledObjects();
+  const std::set<XeenEventIdentity> disabledEvents=world.sessionState().disabledEvents();
+  const auto marked=world.sessionState().encounterMarked();unsigned calls=0;
+  auto r=regional_test::resources();r.loadInitialParty=[&]{++calls;return regional_test::resources().loadInitialParty();};
+  r.loadEvents=[&](auto id){++calls;return regional_test::events(id);};
+  r.loadMonsterStatistics=[&]{++calls;return regional_test::statistics();};
+  for(unsigned attempt=0;attempt<2;++attempt) {
+   rejects([&]{XeenSaveState::capture(r.signature,party,camera,flags,world);},"encounter");
+   rejects([&]{XeenSaveState::restoreBeforeGameplay(saved,r,party,camera,flags,world,[&](auto &,const auto &,const auto &,const auto &){++calls;});},"encounter");
+   if(kind!=1)rejects([&]{world.restoreSessionState({}, {}, {});},"encounter");
+   world.discardMapCache();
+  }
+  check(calls==0&&party.encounterContext==before.encounterContext&&save_test::sameCamera(camera,view)&&flags.values()==flagValues&&
+   world.sessionState().disabledObjects()==objects&&world.sessionState().disabledEvents()==disabledEvents&&world.sessionState().encounterMarked()==marked,
+   "Rejected restore changed destination values or invoked providers");
+  encounter_test::sameParty(before,party);encounter_test::sameActors(actors,world.sessionState().actors());
+  if(kind==2){party.encounterContext.reset();rejects([&]{XeenSaveState::capture(r.signature,party,camera,flags,world);},"encounter");
+   rejects([&]{world.restoreSessionState({}, {}, {});},"encounter");encounter_test::sameActors(actors,world.sessionState().actors());}
+ }
 }
+void candidateFailures() {
+ const auto saved=regional_test::snapshot();
+ for(bool preflight:{false,true}) {
+  Destination f;const auto before=f.party;const auto camera=f.camera;auto r=regional_test::resources();bool fired=false;
+  if(!preflight)r.loadMonsterStatistics=[&]{fired=true;throw std::runtime_error("Injected monster provider failure");return regional_test::statistics();};
+  rejects([&]{XeenSaveState::restoreBeforeGameplay(saved,r,f.party,f.camera,f.flags,f.world,[&](auto &w,const auto &,const auto &,const auto &){fired=true;w.markEncounterSession();});});
+  check(fired&&!f.party.encounterContext&&!f.world.hasEncounterState()&&save_test::sameCamera(camera,f.camera),"Bad provider/preflight partially restored");
+  encounter_test::sameParty(before,f.party);
+ }
+ regional_test::Fixture restored(saved);save_test::sameSnapshot(saved,restored.snapshot());
+}
+}
+int main(){try{rejectionBoundaries();candidateFailures();std::cout<<"Regional destination rejection and preservation passed\n";return 0;}
+ catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

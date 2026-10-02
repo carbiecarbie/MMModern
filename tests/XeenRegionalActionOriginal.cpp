@@ -24,9 +24,10 @@ XeenGameplayServices services(Harness &h) {
  };
  s.resources.vertigoManifest=[&](auto &w,const auto &evt,const auto &mon) {
   xeenValidateVertigoManifest(w,evt,mon,[&](const std::string &name) {
-   return name.rfind("aaze",0)==0?h.assets->readArchiveResource(name):h.assets->readInitialResource(name);
+   return name.rfind("maze",0)==0?h.assets->readInitialResource(name):h.assets->readArchiveResource(name);
   });
  };
+ s.resources.loadInitialBankBalances=[&]{return XeenCharacterFormat::parseBankBalances(h.assets->readInitialResource("maze.pty"));};
  s.resources.loadInitialPurse=[&]{return XeenCharacterFormat::parseMonsterPurse(h.assets->readInitialResource("maze.pty"));};
  s.resources.loadInitialRegionalRecovery=[&]{return XeenQuestFlagFormat::parseRegionalRecovery(h.assets->readInitialResource("maze.pty"));};
  s.resources.loadRegionalText=[&](XeenMapIdentity id) {
@@ -45,10 +46,10 @@ XeenSaveSnapshot baseline(const fs::path &game) {
  Harness h(game);auto s=services(h);XeenSaveSnapshot saved;
  s.show=[&](const auto &,const auto &handler,const auto &,const auto &,const auto &) {
   handler.framePresented(h.flow->frame().presentation());
-  check(h.flow->canSave(),"Initial content-8 source must be Quiet");
+  check(h.flow->canSave(),"Initial content-14 source must be Quiet");
   saved=XeenSaveState::capture(h.signature,*h.party,*h.camera,*h.flags,*h.world);return true;
  };
- check(Application().playGameplay(s,{}, {},false,XeenEncounterEntry::Journey,56,8)==0,"Original content-8 startup");
+ check(Application().playGameplay(s,{}, {},false,XeenEncounterEntry::Journey,56,14)==0,"Original content-14 startup");
  // Eliminate incidental outdoor battles in these action-only controls. The
  // twelve mainland Orc identities remain canonical defeated/accounted actors.
  for(unsigned i=0;i<12;++i) {

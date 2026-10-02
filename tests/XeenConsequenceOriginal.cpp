@@ -15,6 +15,7 @@
 #include "XeenSaveTestSupport.h"
 #include "XeenCombatGameplayTestSupport.h"
 #include "XeenJourneyResourceTestSupport.h"
+#include "XeenTrainingTestSupport.h"
 #include <iostream>
 #include "platform/XeenSaveFile.h"
 #include "games/xeen/XeenOutdoorScene.h"
@@ -39,28 +40,26 @@ void wrappedPlayer(XeenPhysicalPlayerCandidate *,const XeenCharacter &,const Xee
 void wrappedPlayer(XeenPhysicalPlayerCandidate *self,const XeenCharacter &c,const XeenCombatInputs &i,const XeenMonsterRecord &m,unsigned type,unsigned year,bool shoot){
  auto operand=m;if(zeroResistanceFixture && shoot)operand.raw[40]=100;realPlayer(self,c,i,operand,type,year,shoot);
 }
-struct Source {
- XeenAssetSource assets;XeenMapLoader maps;
- std::vector<std::uint8_t> chr,pty;std::vector<XeenMonsterRecord> mon;XeenEventFile evt;
- XeenSaveResourceSignature signature{{1,2},XeenArchiveFingerprint{3,4}};
- explicit Source(const GameInstallation &i):assets(i,320,200) {
-  chr=assets.readInitialResource("maze.chr");pty=assets.readInitialResource("maze.pty");mon=XeenMonsterFormat::parse(*assets.readCloudsMonsterStatisticsFromDarkArchive());
-  XeenEventLoader loader([&](const std::string &name)->std::optional<std::vector<std::uint8_t>>{if(!assets.hasInitialResource(name))return {};return assets.readInitialResource(name);});evt=loader.load(23);
- }
- XeenRegionalManifest manifest(){return [&](const auto &m,const auto &o,const auto &e,const auto &s){xeenValidateRegionalManifest(m,o,e,s,assets.readInitialResource("maze0023.dat"),assets.readInitialResource("maze0023.mob"),assets.readInitialResource("maze0023.evt"));};}
+struct Source:training_test::Inputs {
+ std::vector<XeenMonsterRecord> &mon=statistics;XeenEventFile &evt=mainland;
+ explicit Source(const GameInstallation &i):Inputs(i){}
+ XeenRegionalManifest manifest(){return regional();}
+ auto resources(){auto r=Inputs::resources();r.loadEvents=[this](auto id){return id==XeenMapIdentity(23)?evt:city;};return r;}
 };
+auto currentServices(combat_gameplay_test::Harness &h,Source &source){
+ auto services=h.services();auto r=source.resources();r.loadInitialParty=services.resources.loadInitialParty;r.loadInitialContext=services.resources.loadInitialContext;
+ r.loadInitialPurse=[&source]{return XeenCharacterFormat::parseMonsterPurse(source.pty);};
+ r.loadInitialRegionalRecovery=[&source]{return XeenQuestFlagFormat::parseRegionalRecovery(source.pty);};
+ r.loadInitialBankBalances=[&source]{return XeenCharacterFormat::parseBankBalances(source.pty);};services.resources=r;services.texts=r.loadRegionalText;return services;
+}
 struct Domain {
  Source &source;XeenWorld world;XeenPartyState party;XeenCamera camera{23,9,11,XeenDirection::West};XeenGameFlags flags;
  std::uint64_t now=0;XeenEventPresenter::Clock clock=[this]{return now;};std::unique_ptr<XeenEncounterFlow> flow;
- Domain(Source &s,const std::optional<XeenSaveSnapshot> &saved={},std::uint16_t contract=4):source(s),world([&](auto id){return s.maps.loadGeometryMap(s.assets,id);},[&](auto id){return s.maps.loadObjects(s.assets,id);}) {
-  if(saved) {
-   XeenSaveState::Resources r{s.signature,{},[&](auto){return s.evt;},{},{},[&]{return s.mon;},s.manifest()};
-   XeenSaveState::restoreBeforeGameplay(*saved,r,party,camera,flags,world,[](auto &,const auto &,const auto &,const auto &){});
-   flow=std::make_unique<XeenEncounterFlow>(world,party,camera,flags,clock,XeenJourneyRestoreTag{});
-  }else{
-   party=XeenPartyLoader().loadFromResources(s.chr,s.pty);
-   flow=std::make_unique<XeenEncounterFlow>(world,party,camera,flags,clock,XeenJourneySetup{s.chr,XeenGameplayContextFormat::parse(s.pty),s.mon,s.evt,1,contract,s.manifest(),XeenCharacterFormat::parseMonsterPurse(s.pty)});
-  }
+ Domain(Source &s,const std::optional<XeenSaveSnapshot> &saved={},std::uint16_t contract=14):source(s),world([&](auto id){return s.maps.loadGeometryMap(s.assets,id);},[&](auto id){return s.maps.loadObjects(s.assets,id);}) {
+  auto state=saved?*saved:s.base(14);
+  if(!saved)state.journey->random=XeenJourneyRandomState{1,1,0};
+  XeenSaveState::restoreBeforeGameplay(state,s.resources(),party,camera,flags,world,[](auto &,const auto &,const auto &,const auto &){});
+  flow=std::make_unique<XeenEncounterFlow>(world,party,camera,flags,clock,XeenJourneyRestoreTag{});
   present();
  }
  void present(){check(flow->prepareJourneyFrame(flow->ticket(),[]{}) && flow->presentJourney(flow->ticket()),"Artificial control presentation");}
@@ -259,6 +258,6 @@ void blockReset(Source &source) {
 using namespace consequence_controls;
 int main(int argc,char **argv){try{check(argc==2 || argc==3,"usage: mmodern_consequence_original <installation> [artificial-pending-item-save]");const auto i=XeenInstallationDetector().detect(argv[1]);check(bool(i),"Original installation");Source source(*i);source.signature=XeenSaveFile::fingerprint(*i);if(std::getenv("MMODERN_M34_FINISH_PRESENTATION_ONLY")){disengagementFinishPresentation(source);return 0;}reviewControls(source);disengagementControls(source);appearanceResources(source);shootOrder(source);blockReset(source);combatPublicationFaults(source);restoreConsequences(source,argc==3?std::optional<std::filesystem::path>{XeenSaveFile::resolve(argv[2],argv[1])}:std::nullopt);
  journey_resources_test::run([&]{return XeenPartyLoader().loadFromResources(source.chr,source.pty);},
- XeenJourneySetup{source.chr,XeenGameplayContextFormat::parse(source.pty),source.mon,source.evt,1,4,source.manifest(),XeenCharacterFormat::parseMonsterPurse(source.pty)},
- [&](auto id){return source.maps.loadGeometryMap(source.assets,id);},[&](auto id){return source.maps.loadObjects(source.assets,id);},source.signature);
- std::cout<<"312 contract-4 fresh/restored retained-resource controls PASS\n";shootRevalidation(source,std::filesystem::path(argv[1]));physicalPresentationControls(source,std::filesystem::path(argv[1]));return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+ source.setup(14),
+ [&](auto id){return source.maps.loadGeometryMap(source.assets,id);},[&](auto id){return source.maps.loadObjects(source.assets,id);},source.signature,source.resources());
+ std::cout<<"312 content-14 fresh/restored retained-resource controls PASS\n";shootRevalidation(source,std::filesystem::path(argv[1]));physicalPresentationControls(source,std::filesystem::path(argv[1]));return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

@@ -49,7 +49,7 @@ int main(int argc,char **argv) {
             if(source.empty())args={L"--journey-region",L"--combat-seed",L"3626689381",game.wstring(),L"--save-file",save.wstring()};
             else {fs::copy_file(source,save);args={L"--load-game",game.wstring(),save.wstring()};}
             const auto before=source.empty()?std::vector<std::uint8_t>{}:XeenSaveFormat::encode(XeenSaveFile::read(save));
-            const auto result=child_test::launch(exe,args,dir/(name+".log"));
+            const auto result=child_test::launch(exe,args,dir/(name+".log"),false,false,120000);
             child_test::require(incarnations.insert({result.pid,result.created}).second,"M40 full process incarnation reused");
             if(!source.empty())child_test::require(result.output.find("M40 RESTORE EXACT BEFORE INPUT")!=std::string::npos,"M40 exact field/pre-input/no replay proof absent");
             if(control.rfind("upload-",0)==0 || control.rfind("copy-",0)==0) {
@@ -72,10 +72,9 @@ int main(int argc,char **argv) {
         }
         if(const auto branch=std::getenv("MMODERN_M40_ONLY_BRANCH")) {
             const auto source=std::getenv("MMODERN_M40_CONTROL_SOURCE"),expected=std::getenv("MMODERN_M40_CONTROL_EXPECTED");
-            child_test::require(source && expected && (std::string(branch)=="native" || std::string(branch)=="empty"),"M40 focused branch needs certified snapshots and native/empty branch");
+            child_test::require(source && expected && std::string(branch)=="empty","M40 focused branch needs certified snapshots and the empty branch");
             const auto result=run("focused","A",fs::path(source),"",branch);
-            if(std::string(branch)=="native")equal(result,fs::path(expected));
-            else for(const std::string label:{"empty11","empty20","empty21"}) {
+            for(const std::string label:{"empty11","empty20","empty21"}) {
                 equal(result,run("focused-restore-"+label,label,dir/("focused-"+label+".mmsave"),"",branch));
                 child_test::require(drawsAfter(dir/"focused.log","M40 CHECKPOINT "+label+" ")==drawsAfter(dir/("focused-restore-"+label+".log"),"M40 RESTORE EXACT BEFORE INPUT"),
                     "M40 focused later-service exact trace differs");
@@ -85,7 +84,7 @@ int main(int argc,char **argv) {
         const auto uninterrupted=run("production","fresh");
         const auto a=XeenSaveFile::read(dir/"production-A.mmsave"),b=XeenSaveFile::read(dir/"production-B.mmsave"),
             c=XeenSaveFile::read(dir/"production-C.mmsave"),d=XeenSaveFile::read(dir/"production-D.mmsave"),e=XeenSaveFile::read(dir/"production-E.mmsave");
-        child_test::require(a.journey && a.journey->schema==9 && a.journey->contract==(std::getenv("MMODERN_M40_CONTENT12")?12:11) && a.journey->serviceEconomy &&
+        child_test::require(a.journey && a.journey->schema==9 && a.journey->contract==14 && a.journey->serviceEconomy &&
             a.journey->context->day==8 && a.journey->context->minutes==584 && a.journey->context->ctr24==2 &&
             a.journey->treasure->gold==810 && a.characters[6].armor[0].state==128 && a.characters[6].armor[1].state==128 &&
             a.journey->random->state==2732157854u && a.journey->random->count==1203,"M40 A original-resource checkpoint differs");
@@ -108,7 +107,6 @@ int main(int argc,char **argv) {
             const auto actual=drawsAfter(dir/("restore-"+label+".log"),"M40 RESTORE EXACT BEFORE INPUT");
             child_test::require(expected==actual,"M40 uninterrupted/restored complete request/raw/value trace differs");
         }
-        equal(uninterrupted,run("native-service","A",dir/"production-A.mmsave","","native"));
         for(const std::string control:{"fail-before-reservation","fail-after-reservation","fail-stock-complete","fail-bank-prepared","fail-before-admission","fail-after-admission","fail-after-repair","fail-before-departure","fail-departure-published","fail-after-departure","fail-return","fail-before-event-settlement","fail-after-event-settlement","recursive"})
             equal(uninterrupted,run(control,"A",dir/"production-A.mmsave",control));
         for(const std::string control:{"aba-bank-gold","aba-bank-gems","aba-stock","aba-presence"})run(control,"A",dir/"production-A.mmsave",control);

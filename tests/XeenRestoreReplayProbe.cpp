@@ -66,33 +66,14 @@ std::vector<XeenActor> probeRegionalMove(const std::vector<XeenActor> &,const Xe
 std::vector<XeenActor> probeRegionalMove(const std::vector<XeenActor> &a,const XeenCamera &c,const XeenActorApproach::Terrain &t,bool enabled,const XeenActorApproach::BeforeMovement &before) {observe();return realRegionalMove(a,c,t,enabled,before);}
 // Member thunks preserve the target ABI's hidden result/this argument ordering.
 struct RealCombat {
-	void construct(XeenWorld &, XeenPartyState &, XeenCamera &, XeenCombatBoundary &,
-		const std::vector<std::uint8_t> &, const XeenGameplayContext &, const std::vector<XeenMonsterRecord> &,
-		const XeenEventFile &, XeenCombatRandom) asm("__real_" XEEN_REPLAY_CONSTRUCT);
 	XeenCombatResult service(const XeenCombat::Ticket &) asm("__real_" XEEN_REPLAY_SERVICE);
 };
 struct ProbeCombat {
-	void construct(XeenWorld &, XeenPartyState &, XeenCamera &, XeenCombatBoundary &,
-		const std::vector<std::uint8_t> &, const XeenGameplayContext &, const std::vector<XeenMonsterRecord> &,
-		const XeenEventFile &, XeenCombatRandom) asm("__wrap_" XEEN_REPLAY_CONSTRUCT);
 	XeenCombatResult service(const XeenCombat::Ticket &) asm("__wrap_" XEEN_REPLAY_SERVICE);
 };
-void ProbeCombat::construct(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenCombatBoundary &b,
-		const std::vector<std::uint8_t> &chr, const XeenGameplayContext &ctx, const std::vector<XeenMonsterRecord> &mon,
-		const XeenEventFile &evt, XeenCombatRandom random) {
-	observe(); ++constructions;
-	reinterpret_cast<RealCombat *>(this)->construct(w, p, c, b, chr, ctx, mon, evt, std::move(random));
-}
+
 XeenCombatResult ProbeCombat::service(const XeenCombat::Ticket &ticket) {
 	observe(); ++services; return reinterpret_cast<RealCombat *>(this)->service(ticket);
-}
-XeenEncounterResult realInitialize(XeenWorld &, XeenPartyState &, XeenCamera &, XeenEncounterState &,
-	const std::vector<XeenMonsterRecord> &, const XeenGameplayContext &, const XeenEventFile &) asm("__real_" XEEN_REPLAY_INITIALIZE);
-XeenEncounterResult probeInitialize(XeenWorld &, XeenPartyState &, XeenCamera &, XeenEncounterState &,
-	const std::vector<XeenMonsterRecord> &, const XeenGameplayContext &, const XeenEventFile &) asm("__wrap_" XEEN_REPLAY_INITIALIZE);
-XeenEncounterResult probeInitialize(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s,
-		const std::vector<XeenMonsterRecord> &m, const XeenGameplayContext &ctx, const XeenEventFile &e) {
-	observe(); ++preparations; return realInitialize(w, p, c, s, m, ctx, e);
 }
 std::vector<XeenActor> realMove(const std::vector<XeenActor> &, const XeenCamera &, const XeenActorApproach::Terrain &, bool) asm("__real_" XEEN_REPLAY_MOVE);
 std::vector<XeenActor> probeMove(const std::vector<XeenActor> &, const XeenCamera &, const XeenActorApproach::Terrain &, bool) asm("__wrap_" XEEN_REPLAY_MOVE);

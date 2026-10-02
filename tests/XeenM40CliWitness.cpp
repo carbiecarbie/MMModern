@@ -13,6 +13,7 @@
 #include <deque>
 #include <iostream>
 #include <stdexcept>
+namespace mmodern { struct XeenTrainingTestAccess {static bool admitted(const XeenEventFlow &f){return f._smithUi && f._smithUi->phase!=XeenEventFlow::SmithUi::Phase::Preparation;} static std::string text(const XeenEventFlow &f){return f._smithUi?f.smithText():"none";}}; }
 using namespace mmodern;
 namespace fs=std::filesystem;
 namespace {
@@ -42,7 +43,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
  const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,
  std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract) {
     const auto stage=env("MMODERN_M40_STAGE","fresh"),branch=env("MMODERN_M40_BRANCH","production"),control=env("MMODERN_M40_CONTROL");
-    const unsigned content=std::getenv("MMODERN_M40_CONTENT12")?12:11;
+    const unsigned content=14;
     if(!resume)contract=content;
     if(resume) {
         replay_test::journeyInitializations=replay_test::journeyConstructions=0;
@@ -75,8 +76,8 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     M40_COUNT(resources.loadInitialParty);M40_COUNT(resources.loadInitialCharacters);M40_COUNT(resources.loadInitialContext);
     M40_COUNT(resources.loadEvents);M40_COUNT(resources.loadMonsterStatistics);M40_COUNT(resources.regionalManifest);M40_COUNT(resources.vertigoManifest);
     M40_COUNT(resources.loadInitialPurse);M40_COUNT(resources.loadInitialRegionalRecovery);M40_COUNT(resources.loadRegionalText);M40_COUNT(resources.loadLearnedSpellNames);
-    M40_COUNT(maps);M40_COUNT(objects);M40_COUNT(texts);M40_COUNT(compose);M40_COUNT(npcDraw);M40_COUNT(initializeEncounter);
-    M40_COUNT(validateEncounterSprite);M40_COUNT(validateCombatSprite);M40_COUNT(prepareCombat);M40_COUNT(sampleJourneySeed);
+    M40_COUNT(maps);M40_COUNT(objects);M40_COUNT(texts);M40_COUNT(compose);M40_COUNT(npcDraw);
+    M40_COUNT(validateEncounterSprite);M40_COUNT(validateCombatSprite);M40_COUNT(sampleJourneySeed);
 #undef M40_COUNT
     const auto bankInput=original.resources.loadInitialBankBalances;
     services.resources.loadInitialBankBalances=[&]{++providerCalls;++bankInputCalls;check(bool(bankInput),"M40 bank resource provider absent");return bankInput();};
@@ -146,7 +147,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     services.show=[&](const IndexedFrame &first,const auto &handler,const auto &escape,const auto &idle,const auto &status) {
         check(flow && world && party && position && flags && target,"M40 production owners absent");
         check(world->sessionState().journeyContract()==content && party->serviceEconomy,"M40 witness content/economy differs");
-        std::deque<std::function<bool()>> steps;std::optional<IndexedFrame> next;
+        std::deque<std::function<bool()>> steps;std::optional<IndexedFrame> next;IndexedFrame::Presentation presented;
         bool shown=false,acted=false,breakArmor=false;unsigned blocks=0,iterations=0;
         const auto snapshot=[&]{return XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world);};
         const auto exact=[&](const XeenSaveSnapshot &expected) {
@@ -166,47 +167,13 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         const auto act=[&](PlayerAction a) {
             check(shown,"M40 input preceded successful native presentation");
             const auto token=handler.displayedInput();check(bool(token),"M40 input authority absent");
-            next=handler.withDisplayedInput(a,*token);acted=true;shown=false;
+            next=handler.withPresentedInput(a,*token,presented);acted=true;shown=false;
             const auto providers=providerCalls,saves=saveCalls;
             handler.withDisplayedInput(SaveGameAction{},*token);handler.withDisplayedInput(a,*token);
             check(providers==providerCalls && saves==saveCalls,"M40 consumed/unpresented input reached providers/save");
             check(!flow->acceptsFrame(std::make_shared<const IndexedFrame>(flow->frame())),"M40 equal foreign frame acquired authority");
         };
-        const auto action=[&](PlayerAction a) {
-            auto phase=std::make_shared<unsigned>(0);auto token=std::make_shared<std::uint64_t>();auto savedKey=std::make_shared<SDL_Keycode>(SDLK_UNKNOWN);
-            steps.push_back([&,a,phase,token,savedKey] {
-                auto key=*savedKey;
-                if(!*phase && branch=="native" && world->sessionState().journeyActivity()==XeenJourneyActivity::Service) {
-                    if(std::holds_alternative<AcknowledgeAction>(a))key=SDLK_RETURN;
-                    if(std::holds_alternative<CancelInteractionAction>(a))key=SDLK_ESCAPE;
-                    if(const auto *member=std::get_if<SelectMemberAction>(&a))key=SDLK_F1+int(member->partyIndex);
-                    if(const auto *slot=std::get_if<SelectInventorySlotAction>(&a))key=SDLK_1+int(slot->slot);
-                    *savedKey=key;
-                }
-                if(key==SDLK_UNKNOWN && !*phase){act(a);return true;}
-                const auto send=[&](SDL_Keycode k,bool down,bool repeat=false) {SDL_Event e{};e.type=down?SDL_KEYDOWN:SDL_KEYUP;
-                    e.key.keysym.sym=k;e.key.keysym.scancode=SDL_GetScancodeFromKey(k);e.key.timestamp=SDL_GetTicks()+1;e.key.repeat=repeat;
-                    check(SDL_PushEvent(&e)==1,"M40 native key batch enqueue failed");
-                    if(down)acted=true; // Do not replace its acquired frame before SDL samples the key.
-                };
-                if(!*phase) {
-                    *token=*handler.displayedInput();send(key,true);send(key,true);send(key,true,true);
-                    send(key==SDLK_RETURN?SDLK_ESCAPE:SDLK_RETURN,true);++*phase;return false;
-                }
-                if(*phase==1) {
-                    if(*handler.displayedInput()==*token)return false;
-                    check(*handler.displayedInput()==*token+1,"M40 native batch crossed several service responses");
-                    *token=*handler.displayedInput();send(key,true);send(key,true,true);
-                    for(auto event:{SDL_WINDOWEVENT_SIZE_CHANGED,SDL_WINDOWEVENT_EXPOSED}) {
-                        SDL_Event redraw{};redraw.type=SDL_WINDOWEVENT;redraw.window.event=event;redraw.window.data1=640;redraw.window.data2=400;
-                        check(SDL_PushEvent(&redraw)==1,"M40 native resize/expose enqueue failed");
-                    }
-                    ++*phase;return false;
-                }
-                check(*handler.displayedInput()==*token,"M40 held native key crossed a later service frame");
-                send(key,false);send(key==SDLK_RETURN?SDLK_ESCAPE:SDLK_RETURN,false);return true;
-            });
-        };
+        const auto action=[&](PlayerAction a) {steps.push_back([&,a]{act(a);return true;});};
         const auto inspect=[&](std::function<void()> fn){steps.push_back([fn]{fn();return true;});};
         const auto combat=[&]()->const XeenCombat *{return flow->encounter()->combat();};
         const auto settle=[&]{steps.push_back([&] {
@@ -256,7 +223,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         };
         const auto waitService=[&] {
             steps.push_back([&] {
-                if(world->sessionState().journeyActivity()==XeenJourneyActivity::Service)return true;
+                if(XeenTrainingTestAccess::admitted(*flow))return true;
                 if(flow->canSave() && faultFired && !retriedPreparation &&
                     (control=="fail-before-reservation" || control=="fail-after-reservation" || control=="fail-stock-complete" || control=="fail-bank-prepared")) {
                     retriedPreparation=true;act(InteractionAction{});return false;
@@ -431,7 +398,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         inspect([&]{check(control.empty() || faultFired || control=="recursive","M40 requested synthetic control did not execute");
             std::cout<<(!control.empty()?"M40 SYNTHETIC FAULT CONTINUATION PASSED":branch=="empty"?"M40 EMPTY DEPARTURE WITNESS PASSED":"M40 PRODUCTION WITNESS PASSED")<<'\n';SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);});
         auto native=handler;native.closed={};native.beginCycle=[&](std::uint64_t){handler.beginCycle(++cycle);};
-        native.framePresented=[&](const auto &frame){check(!nativeFailed,"M40 failed native frame gained input authority");handler.framePresented(frame);shown=true;};
+        native.framePresented=[&](const auto &frame){check(!nativeFailed,"M40 failed native frame gained input authority");handler.framePresented(frame);presented=frame;shown=true;};
         const auto verifyClockFailure=[&] {
             check(faultFired && combat() && combat()->phase()==XeenCombatPhase::Failed &&
                 combat()->result().failure==XeenCombatFailure::Integrity && world->sessionState().journeyActivity()==XeenJourneyActivity::Failed &&

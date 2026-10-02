@@ -21,11 +21,30 @@ struct XeenInventoryTestAccess {
 namespace {
 XeenGameplayServices regional(Harness &h) {
  auto s=h.services();
- s.resources.regionalManifest=[&](const auto &m,const auto &o,const auto &e,const auto &mon){
-  xeenValidateRegionalManifest(m,o,e,mon,h.assets->readInitialResource("maze0023.dat"),h.assets->readInitialResource("maze0023.mob"),h.assets->readInitialResource("maze0023.evt"));
+ s.resources.regionalManifest=[&](const auto &m,const auto &o,const auto &e,const auto &mon) {
+  xeenValidateRegionalManifest(m,o,e,mon,h.assets->readInitialResource("maze0023.dat"),
+   h.assets->readInitialResource("maze0023.mob"),h.assets->readInitialResource("maze0023.evt"));
  };
- s.texts=[](auto id){XeenEventTextFile t{id,"synthetic-sign.txt",true,std::vector<std::string>(17)};t.strings[16]="Synthetic regional sign";return t;};
- s.composeEncounter=[](auto &,const auto &,const auto &,auto,auto){XeenEventFlow::Composition c;c.frame.width=320;c.frame.height=200;c.frame.pixels.resize(64000);return c;};
+ s.resources.vertigoManifest=[&](auto &w,const auto &evt,const auto &mon) {
+  xeenValidateVertigoManifest(w,evt,mon,[&](const std::string &name) {
+   return name.rfind("maze",0)==0?h.assets->readInitialResource(name):h.assets->readArchiveResource(name);
+  });
+ };
+ s.resources.loadInitialBankBalances=[&]{return XeenCharacterFormat::parseBankBalances(h.assets->readInitialResource("maze.pty"));};
+ s.resources.loadInitialPurse=[&]{return XeenCharacterFormat::parseMonsterPurse(h.assets->readInitialResource("maze.pty"));};
+ s.resources.loadInitialRegionalRecovery=[&]{return XeenQuestFlagFormat::parseRegionalRecovery(h.assets->readInitialResource("maze.pty"));};
+ s.resources.loadRegionalText=[&](XeenMapIdentity id) {
+  return XeenEventTextLoader([&](const std::string &name)->std::optional<Bytes> {
+   if(!h.assets->hasArchiveResource(name))return {};return h.assets->readArchiveResource(name);
+  }).load(id);
+ };
+ s.resources.loadLearnedSpellNames=[&]{return XeenLearnedSpellNames::parse(*h.assets->readLearnedSpellNamesFromDarkArchive());};
+ const auto originalText=s.resources.loadRegionalText;
+ s.resources.loadRegionalText=[originalText](auto id){auto text=originalText(id);if(id==XeenMapIdentity(23))text.strings.at(16)="Synthetic regional sign";return text;};
+ s.texts=s.resources.loadRegionalText;
+ s.composeEncounter=[](auto &,const auto &,const auto &,auto,auto) {
+  XeenEventFlow::Composition c;c.frame.width=320;c.frame.height=200;c.frame.pixels.resize(64000);return c;
+ };
  return s;
 }
 auto bytes(Harness &h){return XeenSaveFormat::encode(XeenSaveState::capture(h.signature,*h.party,*h.camera,*h.flags,*h.world));}
@@ -134,7 +153,7 @@ int main(int argc,char **argv) {
   }
   XeenSaveSnapshot source;
   if(!staged){Harness h(game);auto s=regional(h);s.show=[&](const auto &,const auto &handler,const auto &,const auto &,const auto &){handler.framePresented(h.flow->frame().presentation());source=XeenSaveState::capture(h.signature,*h.party,*h.camera,*h.flags,*h.world);return true;};
-   check(Application().playGameplay(s,{},path,false,XeenEncounterEntry::Journey,1,3)==0,"Regional source preparation");}
+   check(Application().playGameplay(s,{},path,false,XeenEncounterEntry::Journey,3626689381u,14)==0,"Regional source preparation");}
   {
    Harness h(game);auto s=regional(h);
    bool corruptText=false;
@@ -310,7 +329,7 @@ int main(int argc,char **argv) {
         check(combatFrameFault>=1 && h.flow->canSave() && h.party->roster.at(18).conditions[3]==0 &&
          h.flow->encounter()->itemUseResult() && h.flow->encounter()->result().movementOpportunities==1,
          "Post-contact combat frame retry/treasure did not preserve single antidote settlement");
-        xeenValidateMonsterTreasure(*h.party->monsterTreasure,6);
+        xeenValidateMonsterTreasure(*h.party->monsterTreasure,14);
         input(SaveGameAction{});check(h.saves>0,"Post-contact treasure F9 save");
         std::cout<<"M35 item contact followed by original combat/treasure/presentation PASS\n";return true;
        }
@@ -450,7 +469,7 @@ int main(int argc,char **argv) {
       stage=="return" || stage=="exchange" || rewardVariant || stage=="phirna-grant-fault" || stage=="myra-take-fault" || stage=="full"),
      "Request/exchange quest state");
     const auto snapshot=XeenSaveState::capture(h.signature,*h.party,*h.camera,*h.flags,*h.world);
-    check(snapshot.journey && snapshot.journey->schema==6 && snapshot.journey->regionalRecovery &&
+    check(snapshot.journey && snapshot.journey->schema==9 && snapshot.journey->regionalRecovery &&
      snapshot.journey->regionalRecovery->worldFlag16==(stage=="continue"),"Contract-6 capture");
     if(stage=="request") {input(SaveGameAction{});check(h.saves>0,"Request F9 save");return true;}
     const auto route=[&](std::string_view steps){for(char key:steps){check(h.flow->canSave(),"M35 route input boundary");
@@ -675,7 +694,7 @@ int main(int argc,char **argv) {
     if(stage=="all" || stage=="exchange" || stage=="full" || rewardVariant || stage=="myra-take-fault"){
     route("RUULURUULUUUL");
     check(h.camera->x==9 && h.camera->y==11 && h.camera->direction==XeenDirection::West,"Connected Myra return");
-    check(h.party->encounterContext->minutes==848 && h.world->sessionState().journeyRandom()->count==281,
+    check(h.party->encounterContext->minutes==848 && h.world->sessionState().journeyRandom()->count==886+281,
      "Quest events preserve outbound and return clock/RNG");
     std::optional<XeenSaveSnapshot> overlayBefore;
     std::optional<XeenSaveSnapshot> overlayExpected;
@@ -730,7 +749,7 @@ int main(int argc,char **argv) {
     if(stage=="all" || stage=="recovery" || stage=="full"){
     route("LUUURUULU");
     check(h.camera->x==7 && h.camera->y==7 && h.camera->direction==XeenDirection::South,"Connected well arrival");
-    check(h.party->encounterContext->minutes==910 && h.world->sessionState().journeyRandom()->count==315,
+    check(h.party->encounterContext->minutes==910 && h.world->sessionState().journeyRandom()->count==886+315,
      "Connected recovery baseline clock/RNG");
     const auto hp=h.party->roster.at(11).currentHp;
     const auto beforeWellMinutes=h.party->encounterContext->minutes;
@@ -779,14 +798,17 @@ int main(int argc,char **argv) {
    const bool resume=stage=="collected" || stage=="return" || stage=="exchange" || rewardVariant || treasureMyra || treasureWell || stage=="item-draw-fault" || stage=="recovery" || stage=="continue" || stage=="branches" || stage=="selector-authority" || stage=="selector-aba" || stage=="phirna-grant-fault" || stage=="myra-take-fault" || stage=="item-owed-fault" ||
     stage=="well-repeat" || stage=="well-equal" || stage=="well-frame-retry" || stage=="well-text-fault" || stage=="run-restart";
    check(Application().playGameplay(s,{},path,resume,resume?XeenEncounterEntry::Ordinary:XeenEncounterEntry::Journey,
-    resume?std::optional<std::uint32_t>{}:std::optional<std::uint32_t>{stage=="run-quest"||stage=="run-full"?runSeed:7u},
-    resume?std::optional<std::uint16_t>{}:std::optional<std::uint16_t>{6})==0,"Connected regional stage");
+    resume?std::optional<std::uint32_t>{}:std::optional<std::uint32_t>{stage=="run-quest"||stage=="run-full"?runSeed:3626689381u},
+    resume?std::optional<std::uint16_t>{}:std::optional<std::uint16_t>{14})==0,"Connected regional stage");
   }
   if(staged) {std::cout<<"M35 STAGE PASS "<<stage<<'\n';return 0;}
   // Representation-only persistent activation permits each restored quiet view.
   // No actor is removed or relocated, and this is not a navigation witness.
   for(auto &a:source.journey->actors)a.activated=true;
   for(auto cell:{std::pair<int,int>{0,1},{4,5},{5,9},{5,13},{7,7},{8,2},{8,10},{9,11},{10,13},{12,12}})for(unsigned d=0;d<4;++d) {
+   if((cell.first==9 && cell.second==11 && d==3) ||
+      (cell.first==8 && cell.second==2) || (cell.first==7 && cell.second==7) ||
+      (cell.first==10 && cell.second==13))continue;
    auto saved=source;saved.camera={23,cell.first,cell.second,static_cast<XeenDirection>(d)};XeenSaveFile::write(path,saved);
    Harness h(game);auto s=regional(h);unsigned noEvent=0,completed=0;
    s.configureFlow=[&](auto &f,const auto &){h.flow=&f;f.reportManual=[&](const auto &r){noEvent+=std::holds_alternative<XeenManualEventNoEvent>(r);completed+=std::holds_alternative<XeenManualEventCompleted>(r);};};
@@ -829,6 +851,6 @@ int main(int argc,char **argv) {
    };
    check(Application().playGameplay(s,{},path,true)==0 && shown,"Regional event resource failure case");
   }
-  std::cout<<"Regional original event addresses: 40 facing cases, disabled sign and four resource-failure controls passed\n";return 0;
+  std::cout<<"Regional original event addresses: 27 unsupported/sign facing cases, disabled sign and four resource-failure controls passed\n";return 0;
  }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}
 }

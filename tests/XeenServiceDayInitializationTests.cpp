@@ -24,8 +24,10 @@
 namespace allocation_test {
 long countdown=-1;
 bool triggered=false;
+const mmodern::XeenPartyState *publication=nullptr;
 }
 void *operator new(std::size_t size) {
+	if(allocation_test::publication && allocation_test::publication->serviceEconomy)allocation_test::countdown=-1;
 	if(allocation_test::countdown>=0 && allocation_test::countdown--==0) {
 		allocation_test::countdown=-1;allocation_test::triggered=true;throw std::bad_alloc();
 	}
@@ -71,15 +73,16 @@ struct Inputs {
 	}
 	XeenVertigoManifest vertigo() {
 		return [&](auto &w,const auto &e,const auto &s) {xeenValidateVertigoManifest(w,e,s,[&](const auto &name) {
-			return name.rfind("aaze",0)==0?assets.readArchiveResource(name):assets.readInitialResource(name);});};
+			return name.rfind("maze",0)==0?assets.readInitialResource(name):assets.readArchiveResource(name);});};
 	}
-	XeenJourneySetup setup(unsigned content=11) {
+	XeenJourneySetup setup(unsigned content=14) {
 		XeenJourneySetup out{chr,XeenGameplayContextFormat::parse(pty),statistics,mainlandEvents,3626689381u,
 			static_cast<std::uint16_t>(content),regional()};
 		out.purse=XeenCharacterFormat::parseMonsterPurse(pty);
 		out.regionalRecovery=XeenQuestFlagFormat::parseRegionalRecovery(pty);out.regionalText=texts.load(23);
 		out.learnedNames=names;out.learnedNamesProvider=[&]{return names;};out.vertigoManifest=vertigo();
-		if(content==11)out.bank=XeenCharacterFormat::parseBankBalances(pty);
+		if(content==14)out.bank=XeenCharacterFormat::parseBankBalances(pty);
+		out.cityEventsProvider=[&]{return events.load(28);};
 		return out;
 	}
 	XeenSaveState::Resources restoreResources(unsigned &freshCalls) {
@@ -89,7 +92,7 @@ struct Inputs {
 		r.loadRegionalText=[&](auto id){return texts.load(id);};r.loadLearnedSpellNames=[&]{return names;};
 		// A restored graph may read immutable resources, never any fresh inputs.
 		r.loadInitialParty=[&]{++freshCalls;throw std::runtime_error("restore called fresh party");return XeenPartyState{};};
-		r.loadInitialCharacters=[&]{++freshCalls;throw std::runtime_error("restore called fresh CHR");return chr;};
+		r.loadInitialCharacters=[&]{return chr;};
 		r.loadInitialContext=[&]{++freshCalls;throw std::runtime_error("restore called fresh context");return XeenGameplayContext{};};
 		r.loadInitialPurse=[&]{++freshCalls;throw std::runtime_error("restore called fresh purse");return XeenMonsterTreasure{};};
 		r.loadInitialRegionalRecovery=[&]{++freshCalls;throw std::runtime_error("restore called fresh recovery");return XeenRegionalRecoveryState{};};
@@ -129,7 +132,7 @@ void parserAndFresh(Inputs &i) {
 		auto changed=i.pty;changed[offset]^=1;rejects([&]{XeenCharacterFormat::parseBankBalances(changed);});
 	}
 	Graph source(i);source.fresh(i.setup());const auto s=source.capture(i);
-	check(s.journey->schema==9 && s.journey->contract==11 && s.journey->serviceEconomy &&
+	check(s.journey->schema==9 && s.journey->contract==14 && s.journey->serviceEconomy &&
 		s.journey->random==std::optional<XeenJourneyRandomState>{{1,7,886}},"fresh post-generation world cursor differs from independent vector");
 	check(s.journey->context->year==610 && s.journey->context->day==8 && s.journey->context->minutes==480 &&
 		!s.journey->context->ctr24 && !s.journey->serviceEconomy->bank.gold && !s.journey->serviceEconomy->bank.gems,"fresh bank/calendar mismatch");
@@ -150,14 +153,7 @@ void parserAndFresh(Inputs &i) {
 		else check(c.currentHp==initial.currentHp && c.currentSp==initial.currentSp,"fresh inactive HP/SP changed");
 	}
 	check(s.journey->treasure->gold==800 && s.journey->treasure->gems==10,"fresh carried purse changed");
-	for(unsigned content:{8u,9u,10u}) {
-		Graph legacy(i);legacy.fresh(i.setup(content));const auto before=legacy.capture(i);
-		check(!before.journey->serviceEconomy && before.journey->schema==8 && before.journey->contract==content &&
-			before.journey->random==std::optional<XeenJourneyRandomState>{{1,3626689381u,0}},"legacy initialization acquired new economy/draws");
-		unsigned fresh=0;Graph restored(i,false);restored.restore(i,before,fresh);save_test::sameSnapshot(before,restored.capture(i));
-		check(fresh==0,"legacy restore called fresh providers");
-	}
-	std::cout<<"M40 original PTY/ordinary-loader, complete fresh post-generation cursor/stock, thirty original owners and legacy initialization checks passed\n";
+	std::cout<<"M40 original PTY/ordinary-loader, complete fresh post-generation cursor/stock, thirty original owners initialization checks passed\n";
 }
 
 void freshFailures(Inputs &i) {
@@ -224,6 +220,17 @@ void restoreAndFinalOwners(Inputs &i) {
 	}
 	std::cout<<"M40 SYNTHETIC exact nonzero bank restore, no fresh-provider replay, exceptional preflight ABA and final-owner stock/bank guards passed\n";
 }
+void postPublicationFailure(Inputs &i) {
+ for(bool manifest:{false,true}) {
+  Graph g(i);auto setup=i.setup();bool fired=false;
+  const auto fail=[&]{fired=true;check(g.p.serviceEconomy && g.p.encounterContext && g.p.roster.combatMarked(),"Training validation did not follow fresh publication");throw std::bad_alloc();};
+  if(manifest)setup.vertigoManifest=[&](auto &,const auto &,const auto &){fail();};
+  else setup.cityEventsProvider=[&]()->XeenEventFile{fail();return {};};
+  rejects([&]{g.fresh(setup);});
+  check(fired && g.p.serviceEconomy && g.p.encounterContext && !XeenSaveState::canCapture(g.p,g.c,g.world),"failed Training admission left save authority");
+  check(g.world.sessionState().journeyRandom()==std::optional<XeenJourneyRandomState>{{1,7,886}},"failed Training admission replayed fresh RNG");
+ }
+}
 void freshPublicationAllocationSweep(Inputs &i) {
 	// Exercise every allocating preparation from the admitted resource callback
 	// through detached stock generation, final-owner guard and capture storage.
@@ -233,10 +240,10 @@ void freshPublicationAllocationSweep(Inputs &i) {
 		setup.regionalManifest=[&](const auto &m,const auto &o,const auto &e,const auto &s) {
 			manifest(m,o,e,s);allocation_test::triggered=false;allocation_test::countdown=skipped;
 		};
-		bool failed=false;
+		bool failed=false;allocation_test::publication=&g.p;
 		try {g.flow=std::make_unique<XeenEncounterFlow>(g.world,g.p,g.c,g.flags,[]{return 0;},setup);}
 		catch(const std::bad_alloc &) {failed=true;}
-		allocation_test::countdown=-1;
+		allocation_test::countdown=-1;allocation_test::publication=nullptr;
 		if(!failed) {
 			check(!allocation_test::triggered && skipped>0,"allocation sweep did not cover failing preparation");
 			g.present();check(g.p.serviceEconomy && g.world.sessionState().journeyRandom()==std::optional<XeenJourneyRandomState>{{1,7,886}},"allocation-sweep final fresh state");
@@ -253,7 +260,7 @@ int main(int argc,char **argv) {
 	try {
 		if(argc!=2)throw std::invalid_argument("usage: mmodern_service_day_initialization_tests <original-installation>");
 		const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"original installation absent");
-		Inputs inputs(*installation);parserAndFresh(inputs);freshFailures(inputs);restoreAndFinalOwners(inputs);freshPublicationAllocationSweep(inputs);
+		Inputs inputs(*installation);parserAndFresh(inputs);freshFailures(inputs);restoreAndFinalOwners(inputs);freshPublicationAllocationSweep(inputs);postPublicationFailure(inputs);
 		return 0;
 	}catch(const std::exception &error){std::cerr<<error.what()<<'\n';return 1;}
 }

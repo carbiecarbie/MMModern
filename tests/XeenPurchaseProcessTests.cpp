@@ -27,7 +27,7 @@ std::string drawsBetween(const std::string &text,const std::string &before,const
     while(std::getline(lines,line))if(line.rfind("DRAW ",0)==0)result+=line+'\n';return result;
 }
 void context(const XeenSaveSnapshot &s,unsigned day,std::uint32_t state,std::uint64_t count) {
-    check(s.journey && s.journey->schema==9 && s.journey->contract==13 && s.journey->context->year==610 &&
+    check(s.journey && s.journey->schema==9 && s.journey->contract==14 && s.journey->context->year==610 &&
         s.journey->context->day==day && s.journey->context->minutes==803 && s.journey->random->algorithm==1 &&
         s.journey->random->state==state && s.journey->random->count==count && s.journey->serviceEconomy->bank.gold==0 &&
         s.journey->serviceEconomy->bank.gems==0,"M42 independent literal checkpoint fields differ");

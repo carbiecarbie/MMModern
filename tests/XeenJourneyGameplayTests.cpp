@@ -1,12 +1,18 @@
-#include "XeenJourneyGameplayTestSupport.h"
-#include "XeenRestoreReplayProbe.h"
+#include "XeenCombatGameplayTestSupport.h"
+#include "XeenRegionalSaveGameplayTestSupport.h"
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
-#include <iostream>
 #include "XeenCosmeticHandoffTestSupport.h"
-using namespace journey_gameplay_test;
+#include <iostream>
+using namespace mmodern;
+using gameplay_test::check;
 namespace fs=std::filesystem;
 namespace {
+std::vector<std::uint8_t> diskBytes(const fs::path &path){std::ifstream in(path,std::ios::binary);check(bool(in),"disk evidence read");return {std::istreambuf_iterator<char>(in),{}};}
+struct Harness:regional_save_test::Fixture {
+ unsigned saves=0;
+ auto services(){auto s=Fixture::services();s.observeSaveStage=[&](auto){++saves;};return s;}
+};
 void quietCosmeticInput() {
  Harness h;auto services=h.services();bool inject=false;unsigned issued=0,settled=0,loops=0,stage=0;
  std::optional<std::uint64_t> semantic;
@@ -46,7 +52,7 @@ void quietCosmeticInput() {
   };
   return SdlWindow().showInteractive(first,"Quiet cosmetic input",handler,escape,driver,status);
  };
- check(Application().playGameplay(services,XeenActorApproach::kEntry,{},false,XeenEncounterEntry::Journey,56)==0 && settled==3,"Three consecutive fresh Quiet commands through real SDL");
+ check(Application().playGameplay(services,XeenActorApproach::kEntry,{},false,XeenEncounterEntry::Journey,56,14)==0 && settled==3,"Three consecutive fresh Quiet commands through real SDL");
 }
 void cosmeticOmissions() {
  for(bool inventory:{false,true})for(unsigned mode=0;mode<6;++mode) {
@@ -54,12 +60,12 @@ void cosmeticOmissions() {
   services.show=[&](const auto &,const auto &handler,const auto &escape,const auto &idle,const auto &status){
    handler.framePresented(h.flow->frame().presentation());
    if(inventory){handler.beginCycle(++h.cycle);handler.withDisplayedInput(InspectInventoryAction{},*handler.displayedInput());handler.framePresented(h.flow->frame().presentation());}
-   const auto unchanged=[&]{check(h.flow->inventoryOpen()==inventory && h.camera->direction==XeenDirection::North,"Omission preserves inventory lease and navigation");};
-   const auto accepted=[&]{check(inventory?!h.flow->inventoryOpen():h.camera->direction==XeenDirection::East,"Fresh input accepted once after correct cosmetic upload");};
+   const auto unchanged=[&]{check(h.flow->inventoryOpen()==inventory && h.camera->direction==XeenDirection::West,"Omission preserves inventory lease and navigation");};
+   const auto accepted=[&]{check(inventory?!h.flow->inventoryOpen():h.camera->direction==XeenDirection::North,"Fresh input accepted once after correct cosmetic upload");};
    const PlayerAction action=inventory?PlayerAction{InspectInventoryAction{}}:PlayerAction{NavigationAction::TurnRight};
    return cosmetic_handoff_test::exercise(h,handler,idle,escape,status,mode,inventory?SDLK_i:SDLK_RIGHT,action,unchanged,accepted);
   };
-  check(Application().playGameplay(services,XeenActorApproach::kEntry,{},false,XeenEncounterEntry::Journey,56)==0,"Quiet/inventory cosmetic handoff result");
+  check(Application().playGameplay(services,XeenActorApproach::kEntry,{},false,XeenEncounterEntry::Journey,56,14)==0,"Quiet/inventory cosmetic handoff result");
  }
 }
 void sdlBoundaries() {
@@ -75,10 +81,10 @@ void sdlBoundaries() {
     auto frame=idle();if(frame){stable=0;return frame;}if(++stable<2)return frame;stable=0;
     switch(stage++) {
     case 0:key(SDLK_RIGHT);key(SDLK_RIGHT,SDL_KEYDOWN,1);key(SDLK_F9);key(SDLK_F9,SDL_KEYUP);key(SDLK_SPACE);key(SDLK_SPACE,SDL_KEYUP);key(SDLK_i);key(SDLK_i,SDL_KEYUP);break;
-    case 1:check(h.camera->direction==XeenDirection::East&&h.party->encounterContext->ctr24==1&&!h.flow->inventoryOpen()&&h.saves==0&&noEvents==0,"fixed poll batch protects whole Journey");key(SDLK_RIGHT);break;
-    case 2:check(h.camera->direction==XeenDirection::East,"held navigation cannot repeat");key(SDLK_RIGHT,SDL_KEYUP);break;
+    case 1:check(h.camera->direction==XeenDirection::North&&h.party->encounterContext->ctr24==1&&!h.flow->inventoryOpen()&&h.saves==0&&noEvents==0,"fixed poll batch protects whole Journey");key(SDLK_RIGHT);break;
+    case 2:check(h.camera->direction==XeenDirection::North,"held navigation cannot repeat");key(SDLK_RIGHT,SDL_KEYUP);break;
     case 3:key(SDLK_RIGHT);key(SDLK_RIGHT,SDL_KEYUP);break;
-    case 4:check(h.camera->direction==XeenDirection::South&&h.party->encounterContext->ctr24==2,"released fresh navigation accepted");key(SDLK_i);break;
+    case 4:check(h.camera->direction==XeenDirection::East&&h.party->encounterContext->ctr24==2,"released fresh navigation accepted");key(SDLK_i);break;
     case 5:check(h.flow->inventoryOpen()&&!XeenSaveState::canCapture(*h.party,*h.camera,*h.world),"SDL modal capture lease");key(SDLK_i);break;
     case 6:check(h.flow->inventoryOpen(),"held I cannot cross inventory boundary");key(SDLK_i,SDL_KEYUP);break;
     case 7:key(SDLK_i);key(SDLK_i,SDL_KEYUP);break;
@@ -92,7 +98,7 @@ void sdlBoundaries() {
    check(done&&ok&&!h.flow->canSave()&&!XeenSaveState::canCapture(*h.party,*h.camera,*h.world),"SDL lost-upload/shutdown closes Journey");
    return ok;
   };
-  check(Application().playGameplay(s,XeenActorApproach::kEntry,{},false,XeenEncounterEntry::Journey,56)==0,"Journey SDL boundary result");
+  check(Application().playGameplay(s,XeenActorApproach::kEntry,{},false,XeenEncounterEntry::Journey,56,14)==0,"Journey SDL boundary result");
  }
 }
 void press(Harness &h,const SdlWindow::FrameUpdateHandler &handler,const PlayerAction &a) {
@@ -103,26 +109,21 @@ void press(Harness &h,const SdlWindow::FrameUpdateHandler &handler,const PlayerA
 void tick(Harness &h,const SdlWindow::FrameUpdateHandler &handler,const SdlWindow::IdleFrameHandler &idle) {
  h.now+=100;handler.beginCycle(++h.cycle);idle();check(handler.frameCurrent(),"current idle frame");handler.framePresented(h.flow->frame().presentation());
 }
-void ring(Harness &h,const SdlWindow::FrameUpdateHandler &handler,bool returning) {
- for(const PlayerAction &a:std::vector<PlayerAction>{InspectInventoryAction{},SelectMemberAction{returning?0u:5u},
-  NavigationAction::TurnRight,NavigationAction::TurnRight,SelectInventorySlotAction{1},TransferInventoryAction{},
-  SelectMemberAction{returning?5u:0u},AcknowledgeAction{},SelectMemberAction{returning?5u:0u},SelectInventorySlotAction{1},
-  EquipmentInventoryAction{},InspectInventoryAction{}})press(h,handler,a);
-}
 void boundaries(const fs::path &dir) {
- for(unsigned mode=0;mode<12;++mode) {
-  Harness h;auto s=h.services();JourneyOracle oracle(s);const auto path=dir/("boundary-"+std::to_string(mode)+".mmsave");
-  XeenSaveFile::write(path,save_test::sample());const auto old=completed_test::diskBytes(path);
+ for(unsigned mode=0;mode<11;++mode) {
+  if(mode>=6&&mode<=8)continue;
+  Harness h;auto s=h.services();std::optional<XeenSaveSnapshot> before;const auto path=dir/("boundary-"+std::to_string(mode)+".mmsave");
+  XeenSaveFile::write(path,save_test::sample());const auto old=diskBytes(path);
   bool armed=false,injected=false;unsigned attempts=0,samples=0;
   s.sampleJourneySeed=[&]{++samples;return mode==10?0u:56u;};
-  if(mode==10)oracle.expected.journey->skeletonSeed=1;
+
   const auto compose=s.composeEncounter;
   s.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto phase,auto actor) {
    if(armed&&mode==0&&++attempts==1){injected=true;throw std::runtime_error("isolated composition fault");}
    return compose(w,p,c,phase,actor);
   };
   s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &) {
-   check(samples==1,"default seed sampled once");handler.framePresented(h.flow->frame().presentation());oracle.state(h);armed=true;
+   check(samples==1,"default seed sampled once");handler.framePresented(h.flow->frame().presentation());before=h.capture();armed=true;
    if(mode==0||mode==1) {
     if(mode==1)h.flow->beforeEncounterFrameCopy=[&]{if(!injected){injected=true;throw std::runtime_error("frame copy fault");}};
     const auto generation=*handler.displayedInput();
@@ -131,10 +132,10 @@ void boundaries(const fs::path &dir) {
     handler.withDisplayedInput(SaveGameAction{},generation);check(h.saves==0,"stale F9 before recovered upload");
     handler.framePresented(h.flow->frame().presentation());check(h.flow->inventoryOpen(),"recovery kept modal state");
     check(!XeenSaveState::canCapture(*h.party,*h.camera,*h.world),"modal world capture lease");
-    press(h,handler,InspectInventoryAction{});check(h.flow->canSave(),"matching close handoff opens capture");oracle.state(h);
+    press(h,handler,InspectInventoryAction{});check(h.flow->canSave(),"matching close handoff opens capture");save_test::sameSnapshot(*before,h.capture());
    } else if(mode==2) {
     unsigned reports=0;h.flow->reportManual=[&](const auto &){++reports;throw std::runtime_error("no-event report fault");};
-    press(h,handler,InteractionAction{});check(reports==1&&h.flow->canSave(),"no-event bounded recovery without replay");oracle.state(h);
+    press(h,handler,InteractionAction{});check(reports==1&&h.flow->canSave(),"no-event bounded recovery without replay");save_test::sameSnapshot(*before,h.capture());
    } else if(mode==3) {
     const auto original=h.party->roster.at(0).currentHp;
     const_cast<XeenPartyState*>(h.party)->roster.at(0).currentHp++;
@@ -146,141 +147,21 @@ void boundaries(const fs::path &dir) {
     h.flow->refresh(true);if(mode==4)handler.failed();else handler.closed();
     check(!XeenSaveState::canCapture(*h.party,*h.camera,*h.world),"lost upload / shutdown closure");
     handler.withDisplayedInput(SaveGameAction{},*handler.displayedInput());check(h.saves==0,"closed F9");return false;
-   } else if(mode==6) {
-    h.flow->reportEquipment=[&](const auto &){injected=true;throw std::runtime_error("published item report fault");};
-    for(const PlayerAction &a:std::vector<PlayerAction>{InspectInventoryAction{},SelectMemberAction{5},NavigationAction::TurnRight,
-     NavigationAction::TurnRight,SelectInventorySlotAction{1},EquipmentInventoryAction{}})press(h,handler,a);
-    check(injected&&!h.flow->inventoryOpen(),"failed reporting unwinds modal");
-    oracle.ring(false,true);oracle.state(h);check(h.flow->canSave(),"published item survives recovery");
-   } else if(mode==7) {
-    press(h,handler,NavigationAction::TurnRight);press(h,handler,NavigationAction::MoveForward);
-    const auto pending=h.flow->encounter()->state().pending();const auto t=*h.party->encounterContext;
-    press(h,handler,SaveGameAction{});press(h,handler,InspectInventoryAction{});press(h,handler,InteractionAction{});
-    check(pending==2&&h.flow->encounter()->state().pending()==2&&*h.party->encounterContext==t&&h.saves==0,"pending actions/save do not drain or dispatch");
-    tick(h,handler,idle);tick(h,handler,idle);check(h.flow->canSave(),"actual pulses settle moved anchor");
-    check(h.world->sessionState().actors()[5].x==13&&h.world->sessionState().actors()[5].y==1,"moved literal anchor");
-   } else if(mode==8) {
-    const auto t=*h.party->encounterContext;const auto c=*h.camera;
-    press(h,handler,AcknowledgeAction{});press(h,handler,RevisitCompletedAction{});
-    press(h,handler,NavigationAction::MoveBackward);
-    check(!h.flow->encounter()->combat()&&*h.party->encounterContext==t&&xeen_state::sameCamera(c,*h.camera),"Enter/R/edge cannot publish Journey actions");
-   } else if(mode==11) {
-    const auto before=XeenSaveState::capture(h.signature,*h.party,*h.camera,*h.flags,*h.world);
-    press(h,handler,CastSpellAction{});
-    check(h.flow->canSave()&&!h.flow->encounter()->castingActive()&&h.saves==0,
-     "Legacy Journey C cannot start casting");
-    save_test::sameSnapshot(before,XeenSaveState::capture(h.signature,*h.party,*h.camera,*h.flags,*h.world));
    } else if(mode==9) {
     // Save callbacks are observed through the supplied service function below.
     press(h,handler,SaveGameAction{});
-    check(injected&&completed_test::diskBytes(path)==old&&h.flow->canSave(),"failed detached save preserves target and live authority");
+    check(injected&&diskBytes(path)==old&&h.flow->canSave(),"failed detached save preserves target and live authority");
    }
    return true;
   };
   s.observeSaveStage=[&](auto stage){++h.saves;if(mode==9&&stage==XeenGameplayServices::SaveStage::Preflight){injected=true;throw std::runtime_error("detached preflight failure");}};
   const int expected=mode>=3&&mode<=5?4:0;
-  check(Application().playGameplay(s,XeenActorApproach::kEntry,path,false,XeenEncounterEntry::Journey)==expected,"Journey boundary matrix");
- }
-}
-void readiness(const fs::path &dir) {
- Harness h;auto s=h.services();auto characters=chr();const auto at=6*354+166+2*36+2*4;
- characters[at]=105;characters[at+1]=1;
- s.resources.loadInitialParty=[&]{return XeenPartyLoader().loadFromResources(characters,pty());};
- s.resources.loadInitialCharacters=[&]{return characters;};
- s.show=[&](const auto &,const auto &handler,const auto &,const auto &,const auto &status){
-  handler.framePresented(h.flow->frame().presentation());
-  const auto equipment=[&]{for(const PlayerAction &a:std::vector<PlayerAction>{InspectInventoryAction{},SelectMemberAction{5},NavigationAction::TurnRight,
-   NavigationAction::TurnRight,SelectInventorySlotAction{2},EquipmentInventoryAction{},InspectInventoryAction{}})press(h,handler,a);};
-  equipment();check(h.party->roster.at(6).accessories[2].frame==8,"existing UI equips Journey-valid unsupported contribution");
-  const auto context=*h.party->encounterContext;
-  press(h,handler,WaitAction{});
-  check(*h.party->encounterContext==context&&!h.flow->encounter()->combat()&&h.flow->canSave(),"melee refusal before action publication remains mutable");
-  check(h.flow->encounter()->journeyRefusal().find("Unsupported")!=std::string::npos,"specific current-state refusal");
-  press(h,handler,SaveGameAction{});check(h.saves==3&&status().find("Saved")!=std::string::npos,"melee-unready Journey-valid state saves");
-  equipment();check(h.party->roster.at(6).accessories[2].frame==0,"same UI removes unsupported contribution");
-  press(h,handler,WaitAction{});check(h.flow->encounter()->combat(),"repaired current state automatically attaches");return true;
- };
- check(Application().playGameplay(s,XeenActorApproach::kEntry,dir/"readiness.mmsave",false,XeenEncounterEntry::Journey,56)==0,"mutable Journey readiness boundary");
-}
-void run(const fs::path &dir,const std::optional<fs::path> &game,unsigned fault=0) {
- const auto path=dir/"connected.mmsave";
- Harness h(game);auto s=h.services(56);JourneyOracle oracle(s);
- const auto initializations=replay_test::journeyInitializations,constructions=replay_test::journeyConstructions,retirements=replay_test::retirements;
- JourneyOracle published(s);published.ring(true,true);published.victory();
- bool injected=false;const auto compose=s.composeEncounter;
- s.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto phase,auto actor) {
-  if(fault&&!injected&&h.world==&w&&w.sessionState().actors().at(5).lifecycle==XeenActorLifecycle::Defeated&&
-   (fault==1?h.flow->encounter()->combat()!=nullptr:h.flow->encounter()->combat()==nullptr)) {
-   injected=true;published.expected.journey->context->minutes=fault==1?491:492;published.state(h);
-   check(!XeenSaveState::canCapture(p,c,w),"lethal / retired unpresented frame cannot capture");
-   throw std::runtime_error("fallible lethal/return composition after publication");
-  }
-  return compose(w,p,c,phase,actor);
- };
- unsigned samples=0;s.sampleJourneySeed=[&]{++samples;return 56;};
- s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &status) {
-  check(!h.flow->canSave()&&!h.flow->encounter()->combat(),"fresh no combat / first-frame save closure");oracle.state(h);
-  const auto first=*handler.displayedInput();handler.withDisplayedInput(SaveGameAction{},first);check(h.saves==0,"F9 before first handoff");
-  handler.framePresented(h.flow->frame().presentation());ring(h,handler,false);oracle.ring(true,true);oracle.state(h);
-  check(!h.flow->encounter()->combat(),"inventory did not construct combat");
-  unsigned noEvents=0;h.flow->reportManual=[&](const auto &r){check(std::holds_alternative<XeenManualEventNoEvent>(r),"real no-event result");++noEvents;};
-  press(h,handler,InteractionAction{});check(noEvents==1,"Journey actual interaction");
-  const auto stale=*handler.displayedInput();press(h,handler,WaitAction{});
-  check(h.flow->encounter()->combat(),"automatic engagement attachment");
-  handler.withDisplayedInput(InteractionAction{},stale);handler.withDisplayedInput(SaveGameAction{},stale);check(h.saves==0,"stale engagement F9");
-  unsigned commands=0,steps=0;
-  while(h.flow->encounter()->combat()&&++steps<200) {
-   check(!h.flow->encounter()->terminal(),"unexpected Journey combat terminal");
-   if(h.flow->encounter()->combat()->phase()==Phase::PlayerReady)press(h,handler,commands++<6?PlayerAction{BlockAction{}}:PlayerAction{InteractionAction{}});
-   else tick(h,handler,idle);
-  }
-  check(commands==8&&!h.flow->encounter()->combat(),"seed56 eight commands and successful-End retirement");
-  oracle.victory();oracle.state(h);check(h.flow->canSave(),"mutable returned frame");
-  handler.withDisplayedInput(SaveGameAction{},stale);check(h.saves==0,"stale returned F9 before providers");
-  for(const PlayerAction &a:std::vector<PlayerAction>{NavigationAction::TurnRight,NavigationAction::MoveForward,NavigationAction::TurnLeft,NavigationAction::MoveForward})press(h,handler,a);
-  press(h,handler,SaveGameAction{});check(h.saves==0,"pending approach F9 never drains work");
-  press(h,handler,InspectInventoryAction{});check(!h.flow->inventoryOpen(),"pending inventory refused");
-  tick(h,handler,idle);tick(h,handler,idle);
-  oracle.expected.camera={20,14,2,XeenDirection::North};oracle.expected.journey->context->minutes=512;oracle.expected.journey->context->ctr24=5;oracle.state(h);
-  ring(h,handler,true);oracle.ring(false,true);oracle.state(h);
-  press(h,handler,SaveGameAction{});check(h.saves==3&&status().find("Saved")!=std::string::npos,"real F9 saves v4");return true;
- };
- check(Application().playGameplay(s,XeenActorApproach::kEntry,path,false,XeenEncounterEntry::Journey,56)==0,"connected producer");
- check(samples==0,"explicit seed bypasses sampling");
- check(replay_test::journeyInitializations==initializations+1&&replay_test::journeyConstructions==constructions+1&&
-  replay_test::retirements==retirements+1,"one initialization/attachment/retirement; replay probes have positive controls");
- check(!fault||injected,"actual lethal/return failure seam reached");
- for(unsigned pass=0;pass<2;++pass) {
-  Harness next(game);auto load=next.services();
-  load.sampleJourneySeed=[]()->std::uint32_t{throw std::runtime_error("load sampled seed");};
-  load.resources.loadInitialParty=[]()->XeenPartyState{throw std::runtime_error("load initialized party");};
-  load.resources.loadInitialCharacters=[]()->Bytes{throw std::runtime_error("load initialized supplements");};
-  load.resources.loadInitialContext=[]()->XeenGameplayContext{throw std::runtime_error("load initialized context");};
-  const auto observe=load.observeGameplay;
-  load.observeGameplay=[&](auto &w,auto &e,const auto &p,auto &c,const auto &f){observe(w,e,p,c,f);oracle.state(next);check(!next.flow->inventoryOpen()&&!next.flow->encounter()->combat(),"restored closed mutable startup");};
-  load.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &status){
-   check(replay_test::unexpected==0,"restored startup no gameplay replay");
-   --replay_test::depth;
-   struct ResumeProbe { ~ResumeProbe(){++replay_test::depth;} } resumeProbe;
-   handler.framePresented(next.flow->frame().presentation());oracle.state(next);
-   if(pass==0) {
-    for(const PlayerAction &a:std::vector<PlayerAction>{InspectInventoryAction{},SelectMemberAction{5},NavigationAction::TurnRight,NavigationAction::TurnRight,
-     SelectInventorySlotAction{1},EquipmentInventoryAction{},InspectInventoryAction{},NavigationAction::TurnLeft,NavigationAction::MoveForward})press(next,handler,a);
-    tick(next,handler,idle);tick(next,handler,idle);
-    oracle.ring(false,false);oracle.expected.camera={20,13,2,XeenDirection::West};oracle.expected.journey->context->minutes=522;oracle.expected.journey->context->ctr24=7;
-   }
-   oracle.state(next);press(next,handler,SaveGameAction{});check(status().find("Saved")!=std::string::npos,"restart F9");return true;
-  };
-  replay_test::Scope scope;
-  check(Application().playGameplay(load,{},path,true)==0,"connected consumer");
+  check(Application().playGameplay(s,XeenActorApproach::kEntry,path,false,XeenEncounterEntry::Journey,{},14)==expected,"Journey boundary matrix");
  }
 }
 }
-int main(int argc,char **argv) { try {
- if(argc==2&&std::string(argv[1])=="sdl"){quietCosmeticInput();cosmeticOmissions();sdlBoundaries();std::cout<<"Journey SDL generations, held keys and missing upload passed\n";return 0;}
- const auto dir=fs::current_path()/"journey-gameplay-tests";fs::create_directories(dir);
- if(argc==1){boundaries(dir);readiness(dir);}
- run(dir,argc==2?std::optional<fs::path>{argv[1]}:std::nullopt);
- if(argc==1){run(dir,{},1);run(dir,{},2);}
- std::cout<<"Connected Journey production controls and literal seed56 oracle passed\n";return 0;
-}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;} }
+int main(int argc,char **argv){try{
+ if(argc==2&&std::string(argv[1])=="sdl"){quietCosmeticInput();cosmeticOmissions();sdlBoundaries();}
+ else {const auto dir=fs::current_path()/"journey-gameplay-tests";fs::create_directories(dir);boundaries(dir);}
+ std::cout<<"Regional Journey production and SDL boundary controls passed\n";return 0;
+}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

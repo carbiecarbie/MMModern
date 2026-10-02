@@ -131,7 +131,10 @@ XeenSaveSnapshot XeenSaveFile::read(const Path &path) {
 }
 void XeenSaveFile::write(const Path &path, const XeenSaveSnapshot &snapshot, const Fault &fault) {
  const auto bytes = XeenSaveFormat::encode(snapshot); // Before any destination I/O.
- if (ordinary(path, true)) static_cast<void>(read(path));
+ if (ordinary(path, true)) {
+  try { static_cast<void>(read(path)); }
+  catch (const XeenUnsupportedSave &error) { if (!error.recognizableOlder) throw; }
+ }
  const auto fails = [&](Operation op) { return fault && fault(op); };
  const auto require = [&](Operation op, const char *message) { if (fails(op)) throw std::runtime_error(message); };
  static std::atomic<unsigned long long> sequence{0};

@@ -80,7 +80,6 @@ struct Fixture {
 		++mapLoads; if(failMap) throw std::runtime_error("injected resource preparation failure");
 		auto m=terrain;m.geometry.id=id.number;return m;
 	},[&](XeenMapIdentity id) { ++mobLoads; auto m=objects;m.mapId=id;return m; }};
-	XeenEncounterResult start() { return XeenActorApproach::initialize(world,p,camera,state,statistics,context,evt); }
 	XeenEncounterResult action(XeenEncounterAction a) { return XeenActorApproach::action(world,p,camera,state,a,evt); }
 	XeenEncounterResult pulse() { return XeenActorApproach::pulse(world,p,camera,state,evt); }
 	XeenEncounterResult input(XeenEncounterAction a) { action(a);return pulse(); }

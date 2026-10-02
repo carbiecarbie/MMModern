@@ -28,30 +28,7 @@ inline std::vector<XeenMonsterRecord> statistics() {
 	for(unsigned i=34;i<38;++i)r.raw[i]=50;r.raw[40]=50;r.raw[47]=8;return values;
 }
 inline XeenObjectFile objects() {auto m=mob();while(m.entities.monsters.size()<27)m.entities.monsters.push_back({-128,0,0,0,8});return m;}
-struct CombatFixture {
-	Bytes bytes=chr();XeenPartyState p=XeenPartyLoader().loadFromResources(bytes,pty());
-	XeenCamera camera=XeenActorApproach::kEntry;
-	XeenObjectFile objectResources=objects();
-	XeenWorld w{[](XeenMapIdentity){return map();},[this](XeenMapIdentity){return objectResources;}};
-	XeenCombatBoundary boundary{w,p,camera};std::unique_ptr<XeenCombat> combat;
-	explicit CombatFixture(XeenCombatRandom rng=XeenCombatRandom(1), XeenObjectFile resources=objects()) : objectResources(std::move(resources)) {
-		combat=std::make_unique<XeenCombat>(w,p,camera,boundary,bytes,XeenGameplayContextFormat::parse(pty()),statistics(),events(),std::move(rng));
-	}
-	void enter(bool delayed=false) {
-		check(combat->beginApproach(combat->ticket()).status==Status::Accepted,"begin approach");
-		if(delayed){for(auto a:{XeenEncounterAction::Right,XeenEncounterAction::Forward}){combat->approachAction(combat->ticket(),a);combat->approachPulse(combat->ticket());}
-			combat->approachPulse(combat->ticket());combat->approachPulse(combat->ticket());}
-		combat->approachAction(combat->ticket(),XeenEncounterAction::Wait);
-		check(combat->phase()==Phase::Engaged,"real M26 engagement");
-		check(combat->beginCombat(combat->ticket()).status==Status::Advanced,"one-time combat handoff");
-	}
-	XeenCombatResult action(Command a) {
-		auto r=combat->command(combat->ticket(),a);
-		while(combat->pending()==Work::Action)r=combat->service(combat->ticket());return r;
-	}
-	XeenCombatResult service(){return combat->service(combat->ticket());}
-	void blockRound(){while(combat->phase()==Phase::PlayerReady)action(Command::Block);check(combat->pending()==Work::Enemy,"mandatory enemy");}
-};
+
 inline std::vector<Draw> mixedTape(){return {{1,2,1},{1,2,1},{1,2,1},{1,2,1},{1,20,10},
 	{1,3,1},{1,3,1},{1,20,10},{1,2,1},{1,2,1},{1,20,1},{1,20,15},{1,4,4},
 	{1,2,2},{1,2,2},{1,2,2},{1,2,2},{1,20,10}};}

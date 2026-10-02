@@ -1,6 +1,7 @@
 #include "XeenChildProcessTestSupport.h"
 #include "XeenSaveGameplayTestSupport.h"
 #include "SyntheticXeenArchive.h"
+#include "XeenRegionalTestSupport.h"
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -39,7 +40,7 @@ int main(int argc,char **argv){try{
  {L"--render-map",game.wstring(),L"1",L"16",L"0",L"north"},
  {L"--render-map",game.wstring(),L"--save-file",L"--load-game"}};
  for(const auto &args:bad)check(launch(exe,args,log).exit==1,"invalid CLI syntax accepted");
- for(const auto *entry:{L"--journey-expedition",L"--journey-skeleton",L"--encounter-27"}) {
+ for(const auto *entry:{L"--journey-region"}) {
   for(const auto *seed:{L"0",L"-1",L"+1",L"1x",L"4294967296",L"",L" 56",L"99999999999"})
    check(launch(exe,{entry,L"--combat-seed",seed,game.wstring()},log).exit==1,"strict seed syntax");
   for(const auto &args:std::vector<std::vector<std::wstring>>{
@@ -60,36 +61,38 @@ int main(int argc,char **argv){try{
  for(std::size_t i=2+3*8;i<inner.size();++i)inner[i]^=0x35; // Initial archive payload is plaintext.
  sprite_test::archive(game/"xeen.cc",{{"fnt",fontBytes()},{"2a0c",inner}});
  GameInstallation installation{game,game/"xeen.cc",{},GameEdition::CloudsOfXeen};
- const auto encounter = launch(exe,{L"--encounter-26",game.wstring()},log);
- check(encounter.exit==3&&encounter.output.find("World of Xeen")!=std::string::npos,
-  "valid encounter syntax did not reach edition admission");
  for(const auto &args:std::vector<std::vector<std::wstring>>{
-  {L"--journey-expedition",game.wstring()},
-  {L"--journey-expedition",L"--combat-seed",L"4294967295",game.wstring()},
-  {L"--journey-skeleton",game.wstring()},
-  {L"--journey-skeleton",L"--combat-seed",L"56",game.wstring(),L"--save-file",path.wstring()},
-  {L"--journey-skeleton",L"--combat-seed",L"4294967295",game.wstring()},
-  {L"--encounter-27",L"--combat-seed",L"56",game.wstring(),L"--save-file",path.wstring()}}) {
-  const auto result=launch(exe,args,log);check(result.exit==3&&result.output.find("World of Xeen")!=std::string::npos,"valid bounded entry parsing");
+  {L"--journey-region",game.wstring()},
+  {L"--journey-region",L"--combat-seed",L"4294967295",game.wstring()},
+  {L"--journey-region",L"--combat-seed",L"56",game.wstring(),L"--save-file",path.wstring()}}) {
+  const auto result=launch(exe,args,log);check(result.exit==3&&result.output.find("World of Xeen")!=std::string::npos,"valid regional entry parsing");
  }
- auto s=fixture.saved();s.resources=XeenSaveFile::fingerprint(installation);
+ for(const auto *entry:{L"--encounter-26",L"--encounter-27",L"--journey-skeleton",L"--journey-expedition"}) {
+  const auto result=launch(exe,{entry,game.wstring()},log);
+  check(result.exit==1&&result.output.find("Usage:")!=std::string::npos,"Removed mode must print usage");
+ }
+ for(const auto &args:std::vector<std::vector<std::wstring>>{
+  {L"--render-map",game.wstring(),L"--save-file",path.wstring()},
+  {L"--render-map",game.wstring(),L"1",L"0",L"0",L"north",L"--save-file",path.wstring()}})
+  check(launch(exe,args,log).exit==1,"Map explorer cannot accept a save target");
+ sprite_test::archive(game/"dark.cc",{{"synthetic",Bytes{0}}});
+ installation.darkArchive=game/"dark.cc";installation.edition=GameEdition::WorldOfXeen;
+ auto s=regional_test::snapshot();s.resources=XeenSaveFile::fingerprint(installation);
  const auto run=[&](const char *message){const auto r=launch(exe,{L"--load-game",game.wstring(),path.wstring()},log);check(r.exit==3&&r.output.find(message)!=std::string::npos&&r.output.find("Resumed ")==std::string::npos,"CLI startup failure/fallback contract");};
  run("Inspect save file");
- for(int kind=0;kind<5;++kind){
+ for(int kind=0;kind<6;++kind){
   auto saved=s;if(kind==0)saved.resources.clouds.crc32++;if(kind==1)saved.activeRosterIds={24};
   XeenSaveFile::write(path,saved);
   if(kind==2){std::ofstream out(path,std::ios::binary|std::ios::trunc);out<<"bad";}
-  if(kind==3){auto b=XeenSaveFormat::encode(s);b[8]=5;std::ofstream out(path,std::ios::binary|std::ios::trunc);out.write(reinterpret_cast<const char*>(b.data()),b.size());}
-  run(kind==0?"incompatible":kind==1?"portrait":kind==2?"format":kind==3?"version":"mm4.pal");
+  if(kind==3 || kind==5){auto b=XeenSaveFormat::encode(s);b[8]=kind==3?5:3;std::ofstream out(path,std::ios::binary|std::ios::trunc);out.write(reinterpret_cast<const char*>(b.data()),b.size());}
+  run(kind==0?"incompatible":kind==1?"Journey membership":kind==2?"format":kind==3?"newer or unsupported MMModern build":kind==5?"older MMModern build":"maze0023.dat");
   fs::remove(path);
  }
  XeenSaveFile::write(path,s);HANDLE lock=CreateFileW(path.c_str(),GENERIC_READ,0,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
  check(lock!=INVALID_HANDLE_VALUE,"CLI save lock");run("Open save file");CloseHandle(lock);
- // Valid old/new render syntax reaches Application rather than syntax rejection.
+ // Unsaveable map exploration still reaches initial-owner loading.
  for(const auto &args:std::vector<std::vector<std::wstring>>{{L"--render-map",game.wstring()},
-  {L"--render-map",game.wstring(),L"1",L"0",L"0",L"north"},
-  {L"--render-map",game.wstring(),L"--save-file",path.wstring()},
-  {L"--render-map",game.wstring(),L"1",L"0",L"0",L"north",L"--save-file",path.wstring()}})
+  {L"--render-map",game.wstring(),L"1",L"0",L"0",L"north"}})
   check(launch(exe,args,log).exit==3,"valid render syntax rejected");
  std::cout<<"CLI syntax, Unicode paths and production startup failure matrix passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

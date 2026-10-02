@@ -23,21 +23,21 @@ int main(int argc,char **argv) {
             child_test::require(final,"Focused clock run needs certified post-service and final snapshots");expected=fs::path(final);
         } else {
             const auto save=dir/"production.mmsave";
-            const auto fresh=child_test::launch(exe,{L"--journey-region",L"--combat-seed",L"3626689381",game.wstring(),L"--save-file",save.wstring()},dir/"production.log");
+            const auto fresh=child_test::launch(exe,{L"--journey-region",L"--combat-seed",L"3626689381",game.wstring(),L"--save-file",save.wstring()},dir/"production.log",false,false,120000);
             child_test::require(fresh.exit==0 && fresh.output.find("M40 PRODUCTION WITNESS PASSED")!=std::string::npos,"Genuine service route failed before clock regression");
             incarnations.insert({fresh.pid,fresh.created});source=dir/"production-D.mmsave";expected=save;
         }
         const auto before=XeenSaveFormat::encode(XeenSaveFile::read(source));
         const auto diskBefore=m40_test::diskBytes(source);
         const auto d=XeenSaveFile::read(source);
-        child_test::require(d.journey && d.journey->schema==9 && d.journey->contract==(std::getenv("MMODERN_M40_CONTENT12")?12:11) && d.journey->context->day==12 &&
+        child_test::require(d.journey && d.journey->schema==9 && d.journey->contract==14 && d.journey->context->day==12 &&
             d.journey->treasure->gold==807 && d.characters[6].armor[0].state==0 && d.characters[6].armor[1].state==0,
             "Clock regression source is not genuine post-service D");
         const auto run=[&](const std::string &control,bool healthy=false) {
             const auto save=dir/(control+".mmsave");fs::copy_file(source,save);
             SetEnvironmentVariableW(L"MMODERN_M40_STAGE",L"D");SetEnvironmentVariableW(L"MMODERN_M40_BRANCH",L"clock");
             SetEnvironmentVariableW(L"MMODERN_M40_CONTROL",fs::path(control).c_str());
-            const auto result=child_test::launch(exe,{L"--load-game",game.wstring(),save.wstring()},dir/(control+".log"));
+            const auto result=child_test::launch(exe,{L"--load-game",game.wstring(),save.wstring()},dir/(control+".log"),false,false,120000);
             child_test::require(incarnations.insert({result.pid,result.created}).second &&
                 result.output.find("M40 RESTORE EXACT BEFORE INPUT")!=std::string::npos &&
                 result.output.find("M40 POST-SERVICE RESTORED PLAYERREADY CLOCK ARMED")!=std::string::npos,

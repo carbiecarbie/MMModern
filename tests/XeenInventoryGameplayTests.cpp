@@ -1,4 +1,5 @@
 #include "XeenSaveGameplayTestSupport.h"
+#include "XeenRegionalSaveGameplayTestSupport.h"
 #include "XeenChildProcessTestSupport.h"
 #include "XeenCheckpointTestSupport.h"
 #include "games/xeen/CloudsUiComposer.h"
@@ -252,40 +253,35 @@ void beforePublicationFailure() {
 	};Quiet quiet;check(Application().playGameplay(services,start,{},false)==0,"pre-publication failure recovery");
 }
 int child(const fs::path &path,bool resume) {
-	Fixture f;seed(f);auto services=f.services();auto expected=f.saved();
-	SdlWindow::FrameUpdateHandler nested;
-	SdlWindow::IdleFrameHandler nestedIdle;
-	bool preflightReentered=false;
-	auto compose=services.compose;
-	services.compose=[&](auto &w,const auto &p,const auto &c,std::uint64_t phase){
-		if(nested && &w!=f.world) {
-			const auto count=f.compositions;
-			nested(InspectInventoryAction{});nested(SaveGameAction{});nestedIdle();
-			check(!f.flow->inventoryOpen()&&f.compositions==count,"save preflight allowed reentrancy");preflightReentered=true;
-		}
-		return compose(w,p,c,phase);
-	};
-	for(auto *items:{&expected.characters[0].weapons,&expected.characters[0].armor,&expected.characters[0].accessories,&expected.characters[0].miscellaneous})
-		*items={{{10,37,1,0},{},{},{},{},{},{},{},{}}};
-	for(auto *items:{&expected.characters[1].weapons,&expected.characters[1].armor,&expected.characters[1].accessories,&expected.characters[1].miscellaneous})
-		*items={{{10,37,1,0},{},{},{},{},{},{},{},{}}};
-	const XeenPartyState *live=nullptr;XeenCamera *camera=nullptr;const XeenGameFlags *flags=nullptr;
-	services.observeGameplay=[&](auto &w,auto &,const auto &p,auto &c,const auto &g){f.world=&w;live=&p;camera=&c;flags=&g;};
-	services.show=[&](const auto &,const auto &handle,const auto &,const auto &idle,const auto &status){
-		nested=handle;nestedIdle=idle;
-		check(!f.flow->inventoryOpen(),"startup inventory persisted");handle(InspectInventoryAction{});
-		for(unsigned category=0;category<4;++category){
-			if(!resume){arm(handle);handle(SaveGameAction{});check(!fs::exists(path),"open F9 wrote");handle(AcknowledgeAction{});f.flow->refresh(true);}
-			else for(unsigned owner=0;owner<2;++owner){handle(SelectMemberAction{owner});handle(SelectInventorySlotAction{0});check(f.flow->inventorySelection().record.id==37,"restored UI did not inspect owner");}
-			if(category!=3)handle(NavigationAction::TurnRight);
-		}
-		sameSnapshot(expected,XeenSaveState::capture(f.signature,*live,*camera,*flags,*f.world));
-		handle(CancelInteractionAction{});
-		if(!resume){check(!fs::exists(path),"deferred save");handle(SaveGameAction{});check(status().find("Saved")!=std::string::npos&&preflightReentered,"production F9/preflight guard failed");}
-		sameSnapshot(expected,XeenSaveFile::read(path));return true;
-	};
-	Quiet quiet;const int result=Application().playGameplay(services,start,path,resume);
-	if(result)std::cerr<<quiet.out.str();return result;
+ regional_save_test::Fixture f;
+ for(auto *items:{&f.saved.characters[0].weapons,&f.saved.characters[0].armor,&f.saved.characters[0].accessories,&f.saved.characters[0].miscellaneous})
+  *items={{{10,37,1,0},{10,37,1,0},{},{},{},{},{},{},{}}};
+ for(auto *items:{&f.saved.characters[18].weapons,&f.saved.characters[18].armor,&f.saved.characters[18].accessories,&f.saved.characters[18].miscellaneous}) *items={};
+ auto expected=f.saved;
+ for(auto owner:{0,18})for(auto *items:{&expected.characters[owner].weapons,&expected.characters[owner].armor,&expected.characters[owner].accessories,&expected.characters[owner].miscellaneous})
+  *items={{{10,37,1,0},{},{},{},{},{},{},{},{}}};
+ if(!resume)XeenSaveFile::write(path,f.saved);
+ auto services=f.services();SdlWindow::FrameUpdateHandler nested;SdlWindow::IdleFrameHandler nestedIdle;bool preflightReentered=false;
+ auto compose=services.composeEncounter;
+ services.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto phase,auto actor){
+  if(nested&&&w!=f.world){const auto count=f.compositions;nested(InspectInventoryAction{});nested(SaveGameAction{});nestedIdle();check(!f.flow->inventoryOpen()&&f.compositions==count,"save preflight allowed reentrancy");preflightReentered=true;}
+  return compose(w,p,c,phase,actor);
+ };
+ services.show=[&](const auto &,const auto &raw,const auto &,const auto &idle,const auto &status){
+  f.present(raw);nested=raw;nestedIdle=idle;
+  const auto original=XeenSaveFormat::encode(XeenSaveFile::read(path));
+  const auto handle=[&](const PlayerAction &a){f.send(raw,a);};
+  check(!f.flow->inventoryOpen(),"startup inventory persisted");handle(InspectInventoryAction{});
+  for(unsigned category=0;category<4;++category){
+   if(!resume){handle(SelectInventorySlotAction{0});handle(TransferInventoryAction{});handle(SelectMemberAction{1});handle(SaveGameAction{});check(XeenSaveFormat::encode(XeenSaveFile::read(path))==original,"open F9 wrote");handle(AcknowledgeAction{});f.flow->refresh(true);f.present(raw);}
+   else for(unsigned owner=0;owner<2;++owner){handle(SelectMemberAction{owner});handle(SelectInventorySlotAction{0});check(f.flow->inventorySelection().record.id==37,"restored UI did not inspect owner");}
+   if(category!=3){handle(SelectMemberAction{0});handle(NavigationAction::TurnRight);}
+  }
+  handle(CancelInteractionAction{});sameSnapshot(expected,f.capture());
+  if(!resume){check(XeenSaveFormat::encode(XeenSaveFile::read(path))==original,"deferred save");handle(SaveGameAction{});check(status().find("Saved")!=std::string::npos&&preflightReentered,"production F9/preflight guard failed");}
+  sameSnapshot(expected,XeenSaveFile::read(path));return true;
+ };
+ Quiet quiet;const int result=Application().playGameplay(services,{},path,true);if(result)std::cerr<<quiet.out.str();return result;
 }
 void restart(const fs::path &exe) {
 	const auto dir=fs::current_path()/("inventory-restart-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));fs::create_directory(dir);

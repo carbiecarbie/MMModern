@@ -68,7 +68,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,std::optional<std::uint32_t> seed,std::optional<std::uint16_t> content) {
     // This historical probe explicitly exercises legacy 9/13. The production
     // --journey-region default advances to 9/14 in M43.
-    if(!resume)content=std::getenv("MMODERN_M42_CONTENT14")?14:13;
+    if(!resume)content=14;
     const std::string stage=std::getenv("MMODERN_M42_STAGE")?std::getenv("MMODERN_M42_STAGE"):"fresh";
     const std::string control=std::getenv("MMODERN_M42_CONTROL")?std::getenv("MMODERN_M42_CONTROL"):"";
     auto services=original;XeenEventFlow *flow=nullptr;XeenWorld *world=nullptr;
@@ -82,7 +82,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     M42_COUNT(resources.loadEvents);M42_COUNT(resources.loadMonsterStatistics);M42_COUNT(resources.regionalManifest);M42_COUNT(resources.vertigoManifest);
     M42_COUNT(resources.loadInitialPurse);M42_COUNT(resources.loadInitialRegionalRecovery);M42_COUNT(resources.loadRegionalText);M42_COUNT(resources.loadLearnedSpellNames);
     M42_COUNT(resources.loadInitialBankBalances);M42_COUNT(maps);M42_COUNT(objects);M42_COUNT(texts);M42_COUNT(compose);M42_COUNT(npcDraw);
-    M42_COUNT(initializeEncounter);M42_COUNT(validateEncounterSprite);M42_COUNT(validateCombatSprite);M42_COUNT(prepareCombat);M42_COUNT(sampleJourneySeed);M42_COUNT(composeEncounter);
+    M42_COUNT(validateEncounterSprite);M42_COUNT(validateCombatSprite);M42_COUNT(sampleJourneySeed);M42_COUNT(composeEncounter);
 #undef M42_COUNT
     const auto composeEncounter=services.composeEncounter;
     services.composeEncounter=[&,composeEncounter](auto &w,const auto &p,const auto &c,auto phase,auto appearance) {
@@ -121,7 +121,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     };
     services.show=[&](const IndexedFrame &first,const auto &handler,const auto &escape,const auto &idle,const auto &status) {
         check(flow && world && party && position && flags && target,"M42 production owners absent");
-        check(world->sessionState().journeyContract()==(std::getenv("MMODERN_M42_CONTENT14")?14:13),
+        check(world->sessionState().journeyContract()==(14),
             "M42/M43 fresh successor content not selected");
         std::deque<std::function<bool()>> steps;std::optional<IndexedFrame> next;bool shown=false,acted=false,cityFight=false;
         IndexedFrame::Presentation presented;unsigned iterations=0,nativeActions=0;

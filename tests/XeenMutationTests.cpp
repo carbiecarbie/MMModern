@@ -1,15 +1,15 @@
 #include "games/xeen/XeenRestoreGuard.h"
-#include "XeenEncounterTestSupport.h"
+#include "XeenRegionalTestSupport.h"
 #include <functional>
 #include <iostream>
 #include <stdexcept>
 using namespace mmodern;
 namespace {
-struct Fixture:encounter_test::Fixture {
+struct Fixture:regional_test::Fixture {
  XeenPartyState &party=p;
- XeenGameFlags flags;
+ XeenWorld &world=w;
  Fixture() {
-  start();camera={28,15,0,XeenDirection::North};
+  camera={28,15,0,XeenDirection::North};
   party.encounterContext.emplace();party.monsterTreasure.emplace();party.regionalRecovery.emplace();
   party.roster.at(0).learnedSpells.emplace();party.roster.at(0).name="Before";
   auto &actor=const_cast<XeenActor&>(world.sessionState().actors()[0]);

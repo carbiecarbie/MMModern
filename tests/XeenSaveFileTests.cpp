@@ -180,42 +180,35 @@ void extendedIdentityTests(const fs::path &directory) {
  std::cout<<"Distinct protected/protected. junction identity, creation, replacement and failure cleanup passed\n";
 }
 void legacyReplacement(const fs::path &path) {
- const auto oldBytes=nonzeroLegacy();put(path,oldBytes);
- const auto legacy=XeenSaveFile::read(path);
- check(legacy.itemState==XeenSaveItemState::LegacyV1MissingFields&&raw(path)==oldBytes,"v1 read mutated disk or lost presence");
- XeenSaveFormat::validate(legacy);
- unsigned io=0;
- rejects([&]{XeenSaveFile::write(path,legacy,[&](auto){++io;return false;});},"unresolved legacy");
- check(io==0&&raw(path)==oldBytes,"unresolved new input reached write I/O");
- using Op=XeenSaveFile::Operation;
- for(auto failure:{Op::Open,Op::Write,Op::ShortWrite,Op::Flush,Op::Close,Op::Replace}){
-  rejects([&]{XeenSaveFile::write(path,sample(),[&](auto op){return op==failure;});});
-  check(raw(path)==oldBytes,"failed v1 replacement changed old bytes");sameSnapshot(legacy,XeenSaveFile::read(path));
+ const auto current=sample(); const auto wire=XeenSaveFormat::encode(current);
+ std::vector<Bytes> older{nonzeroLegacy()};
+ for(unsigned version:{2u,3u}){auto bytes=wire;bytes[8]=version;older.push_back(bytes);}
+ const auto suffix=wire.size()-4278;
+ for(unsigned content=1;content<14;++content){auto bytes=wire;bytes[suffix+1]=xeenJourneyContent(content).schema();bytes[suffix+3]=content;fixIndependentEnvelope(bytes);older.push_back(bytes);}
+ for(const auto &old:older) {
+  put(path,old);rejects([&]{XeenSaveFile::read(path);},"no longer supported");check(raw(path)==old,"older read mutated disk");
+  using Op=XeenSaveFile::Operation;
+  for(auto failure:{Op::Open,Op::Write,Op::ShortWrite,Op::Flush,Op::Close,Op::Replace}) {
+   rejects([&]{XeenSaveFile::write(path,current,[&](auto op){return op==failure;});});
+   check(raw(path)==old,"failed older replacement changed bytes");
+  }
+  XeenSaveFile::write(path,current);check(raw(path)==wire,"older target not replaced with current save");
  }
- XeenSaveFile::write(path,sample());
- check(raw(path)[8]==2,"valid v1 target was not replaced with v2");sameSnapshot(sample(),XeenSaveFile::read(path));
- for(bool unsupported:{false,true}){
-  auto bad=oldBytes;if(unsupported)bad[8]=4;else bad[16]^=1;put(path,bad);
-  rejects([&]{XeenSaveFile::write(path,sample());});check(raw(path)==bad,"invalid legacy target overwritten");
+ for(unsigned mode=0;mode<6;++mode) {
+  auto bad=wire;
+  switch(mode){case 0:bad[8]=5;break;case 1:bad[0]^=1;break;case 2:bad[8]=1;bad[16]^=1;break;
+   case 3:bad[suffix+3]=255;fixIndependentEnvelope(bad);break;case 4:bad[8]=2;bad.pop_back();break;
+   case 5:bad[suffix+1]=8;bad[suffix+3]=14;fixIndependentEnvelope(bad);break;}
+  put(path,bad);
+  // Future/unknown envelopes and pairs say so and stay protected; corrupt files fail differently.
+  if(mode==0 || mode==3 || mode==5)rejects([&]{XeenSaveFile::read(path);},"newer or unsupported");
+  unsigned io=0;rejects([&]{XeenSaveFile::write(path,current,[&](auto){++io;return false;});});
+  check(io==0 && raw(path)==bad,"unknown/corrupt target changed or reached write I/O");
  }
- put(path,oldBytes);
- std::cout<<"Independent v1 read, encoding rejection, safe v2 replacement and fault preservation passed\n";
+ put(path,wire);
 }
-void v3Replacement(const fs::path &path) {
-	const auto completed=completedSample(),ordinary=sample();
-	XeenSaveFile::write(path,completed);check(raw(path)[8]==3,"completed file writer did not select v3");
-	sameSnapshot(completed,XeenSaveFile::read(path));const auto prior=raw(path);
-	using Op=XeenSaveFile::Operation;
-	for(auto failure:{Op::Open,Op::Write,Op::ShortWrite,Op::Flush,Op::Close,Op::Replace}) {
-		rejects([&]{XeenSaveFile::write(path,ordinary,[&](auto op){return op==failure;});});
-		check(raw(path)==prior,"failed replacement damaged valid v3 target");
-		sameSnapshot(completed,XeenSaveFile::read(path));
-	}
-	XeenSaveFile::write(path,ordinary);check(raw(path)[8]==2,"valid v3 target was not replaced with v2");
-	sameSnapshot(ordinary,XeenSaveFile::read(path));
-	XeenSaveFile::write(path,completed);check(raw(path)[8]==3,"valid v2 target was not replaced with v3");
-	sameSnapshot(completed,XeenSaveFile::read(path));
-}
+
+
 int main(int argc,char **argv) {
  try {
   const auto directory=fs::current_path()/"save-file-tests";
@@ -228,7 +221,7 @@ int main(int argc,char **argv) {
   rejects([&]{XeenSaveFile::resolve(directory/"CON.mmsave",directory/"commercial");},"device");
   fs::remove(path);
   legacyReplacement(path);
-  v3Replacement(path);
+
   auto old=sample(), next=old; next.questItems[17]=34;
   XeenSaveFile::write(path,old); sameSnapshot(XeenSaveFile::read(path),old);
   XeenSaveFile::write(path,next); sameSnapshot(XeenSaveFile::read(path),next);
@@ -253,7 +246,7 @@ int main(int argc,char **argv) {
   check(locked!=INVALID_HANDLE_VALUE,"could not exclusively lock target");
   rejects([&]{XeenSaveFile::read(path);}); CloseHandle(locked);
   for(auto bad:std::vector<Bytes>{{1,2,3},Bytes(XeenSaveFormat::kMaximumSize+1),prior}) {
-   if(bad==prior) bad[8]=4;
+   if(bad==prior) bad[8]=5;
    put(path,bad); rejects([&]{XeenSaveFile::write(path,old);});check(raw(path)==bad,"unknown file overwritten");
   }
   put(path,prior);

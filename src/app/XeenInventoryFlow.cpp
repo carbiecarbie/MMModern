@@ -28,7 +28,6 @@ void XeenEventFlow::advanceInventoryEpoch() noexcept {
 	else _inventory = {}; // Exhausted generations can never arm again.
 }
 void XeenEventFlow::armEquipmentSelection() {
-	if (completed()) return;
 	const auto &ids = _party.party.activeRosterIds();
 	if (_inventory.mode != XeenInventoryMode::Browse || !_inventory.slot ||
 			ids.size() > XeenParty::kMaximumVisibleMembers || _inventory.source >= ids.size() ||
@@ -104,7 +103,6 @@ void XeenEventFlow::invalidateInventory() {
 	if (_encounter) {
 		if (journey()) { closeGameplay(); return; }
 		if (_encounter->combat()) _encounter->combat()->invalidate();
-		if (completed()) { _encounter->closeCompleted(); _fatal = true; }
 		return;
 	}
 	// Notification remains effective inside an observer, but never draws/reenters.
@@ -138,7 +136,7 @@ void XeenEventFlow::recoverInventory() {
 		closeInventory();
 		return; // The retained outer dispatcher performs the guarded rebuild.
 	}
-	if (_encounter && (_encounter->combat() || completed())) {
+	if (_encounter && (_encounter->combat())) {
 		const auto entry = _encounter->ticket();
 		_encounter->fail(entry);
 		closeInventory();
@@ -152,8 +150,7 @@ void XeenEventFlow::recoverInventory() {
 }
 void XeenEventFlow::drawInventory() {
 	if (journey()) return; // One composition under the Journey presentation guard.
-	if (completed()) return; // The completed dispatcher performs one guarded render.
-	if (_encounter && (_encounter->combat() || completed())) { syncCombatInventory(); renderEncounter(); return; }
+	if (_encounter && (_encounter->combat())) { syncCombatInventory(); renderEncounter(); return; }
 	try { _frame = drawXeenInventory(_inventoryUnderlay,_inventoryFont,_catalog,_party,_inventory,_inventoryFeedback,
 		_equipmentResult ? &*_equipmentResult : nullptr); }
 	catch (...) { recoverInventory(); }
@@ -169,7 +166,6 @@ IndexedFrame XeenEventFlow::refuseInventorySave() {
 	return _frame;
 }
 void XeenEventFlow::handleEquipment() {
-	if (completed()) return;
 	const auto certificate = _equipmentSelection;
 	const bool currentCertificate = certificate && validEquipmentSelection(*certificate);
 	advanceInventoryEpoch(); // Every E is consumed before preparation or callbacks.
@@ -192,8 +188,6 @@ void XeenEventFlow::handleEquipment() {
 		XeenEquipmentOperation::Equip : XeenEquipmentOperation::Remove;
 	const auto result = journey() ? _encounter->journeyEquipment(_encounter->ticket(),
 		certificate->sourceActiveIndex,certificate->category,certificate->physicalSlot,operation) :
-		_encounter && _encounter->combat() ? _encounter->combat()->equipment(_encounter->combat()->ticket(),
-		certificate->sourceActiveIndex,certificate->category,certificate->physicalSlot,operation) :
 		xeenSetEquipment(_party, certificate->sourceActiveIndex, certificate->category, certificate->physicalSlot, operation);
 	_equipmentResult = result;
 	_inventory.slot.reset(); _inventory.record = {};
@@ -208,7 +202,6 @@ void XeenEventFlow::handleEquipment() {
 	else drawInventory();
 }
 void XeenEventFlow::confirmInventory() {
-	if (completed()) return;
 	if (!_inventoryConfirmation || _inventory.mode != XeenInventoryMode::Confirm) return;
 	const auto token = *_inventoryConfirmation;
 	const bool current = token.epoch == _inventoryEpoch;
@@ -230,8 +223,7 @@ void XeenEventFlow::confirmInventory() {
 		else if (_inventory.category == s.category && _inventory.slot == s.slot && s.slot &&
 			validInventorySource(true) && xeenSameItem(_inventory.record,s.record))
 			_transferResult = journey() ? _encounter->journeyTransfer(_encounter->ticket(),s.source,*s.destination,s.category,*s.slot) :
-				_encounter && _encounter->combat() ? _encounter->combat()->transfer(_encounter->combat()->ticket(),
-				s.source,*s.destination,s.category,*s.slot) : xeenTransferItem(_party,s.source,*s.destination,s.category,*s.slot);
+				xeenTransferItem(_party,s.source,*s.destination,s.category,*s.slot);
 	}
 	const bool success = _transferResult.status == XeenTransferStatus::Success;
 	invalidateInventorySelection();
@@ -247,9 +239,6 @@ void XeenEventFlow::confirmInventory() {
 IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
 	using Mode = XeenInventoryMode;
 	try {
-	if (completed() && (std::holds_alternative<TransferInventoryAction>(action) ||
-		std::holds_alternative<EquipmentInventoryAction>(action) || std::holds_alternative<AcknowledgeAction>(action) ||
-		std::holds_alternative<RevisitCompletedAction>(action))) return _frame;
 	if (_inventoryEpoch >= std::numeric_limits<std::uint64_t>::max()-2) {
 		closeInventory(); _frame=_inventoryUnderlay; return _frame;
 	}
@@ -265,9 +254,9 @@ IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
 		_equipmentResult.reset();
 		_inventoryFeedback = "";
 		_presenter.clear();
-		if (!completed()) refreshScene(true,OrdinaryCause::None);
+		refreshScene(true,OrdinaryCause::None);
 		if (!inventoryOpen()) return _frame;
-		if (!journey()) std::cout << (completed() ? XeenEncounterFlow::completedInspection(_world, _party, _camera) : xeenInventoryInspection(_party));
+		if (!journey()) std::cout << xeenInventoryInspection(_party);
 		return _frame;
 	}
 	if (_inventory.mode==Mode::UseConfirm) {
@@ -307,7 +296,6 @@ IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
 		_inventoryFeedback="F1-F6 target; Esc cancels after charge spent";drawInventory();return _frame;
 	}
 	if (std::holds_alternative<CancelInteractionAction>(action) ||
-		(combatPreparation() && _inventory.mode != Mode::Browse && std::holds_alternative<InspectInventoryAction>(action)) ||
 		(_inventory.mode == Mode::Confirm && std::holds_alternative<NoAction>(action))) {
 		if (_inventory.mode == Mode::Browse) { closeInventory(); _frame = _inventoryUnderlay; return _frame; }
 		invalidateInventorySelection(); _inventoryFeedback = "Transfer cancelled";
@@ -339,7 +327,7 @@ IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
 	} else if (_inventory.mode == Mode::Confirm && std::holds_alternative<AcknowledgeAction>(action)) {
 		confirmInventory();
 	} else if (_inventory.mode != Mode::Browse) {
-		_inventoryFeedback = combatPreparation() ? "I to cancel; Esc exits session" : "Escape to cancel";
+		_inventoryFeedback = "Escape to cancel";
 	} else if (std::holds_alternative<EquipmentInventoryAction>(action)) {
 		handleEquipment();
 		return _frame;
@@ -384,7 +372,6 @@ IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
 	if (inventoryOpen()) drawInventory();
 	return _frame;
 	} catch (...) {
-		if (completed()) throw; // Recovery belongs to the retained completed dispatcher.
 		if (_fatal) throw; // A failed clean-base recovery is already terminal.
 		recoverInventory(); return _frame;
 	}

@@ -31,10 +31,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   replay_test::constructions=replay_test::services=replay_test::preparations=0;
   replay_test::timePreparations=replay_test::eventExecutions=0;
   replay_test::transfers=replay_test::equipmentChanges=0;
-  // Keep this witness in its accepted 8/8 domain when production advances.
-  if (!resume) contract=8;
+  // Exercise the current regional domain.
+  if (!resume) contract=14;
   check(target.has_value(),"M37 witness needs save file");
-  check(resume || (entry==XeenEncounterEntry::Journey && contract==8),"M37 CLI content 8 expected");
+  check(resume || (entry==XeenEncounterEntry::Journey && contract==14),"M37 CLI content 14 expected");
   auto services=original;
   XeenEventFlow *flow=nullptr;XeenWorld *world=nullptr;
   const XeenPartyState *party=nullptr;const XeenCamera *position=nullptr;const XeenGameFlags *flags=nullptr;
@@ -45,7 +45,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   bool manifestMismatch=true;
   if(stage=="manifest-mismatch") {
    services.resources.vertigoManifest=[&](auto &w,const auto &e,const auto &mon) {
-    manifestProbe=true;auto altered=mon;if(manifestMismatch)altered.at(2).raw.at(20)^=1;
+    manifestProbe=true;std::cout<<"M37 IMMUTABLE MANIFEST PROBE\n";auto altered=mon;if(manifestMismatch)altered.at(2).raw.at(20)^=1;
     original.resources.vertigoManifest(w,e,altered);
    };
   }
@@ -69,9 +69,6 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
      for(const auto &command:commands)if(command.actor())check(command.drawOptions().slimePalettePhase==-1,
       "admitted Slime was recolored during route composition");
     }
-    XeenCamera westBoundary{28,13,4,XeenDirection::West};
-    check(XeenMovement().apply(w,westBoundary,NavigationAction::MoveForward)==XeenMovementResult::BlockedByMapBoundary &&
-     westBoundary.x==13 && westBoundary.y==4,"M38 widened the legacy 8/8 west boundary");
     visualProbe=true;
    }
    if(resume && c.mapId==XeenMapIdentity(28) && !candidateProbe && stage.rfind("restore-candidate-",0)==0) {

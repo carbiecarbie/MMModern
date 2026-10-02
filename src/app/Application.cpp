@@ -373,26 +373,20 @@ int Application::inspectEvents(const std::filesystem::path &gameDirectory,
 }
 
 int Application::renderMap(const std::filesystem::path &gameDirectory,
-        std::uint16_t mapId, int x, int y, XeenDirection direction,
-        std::optional<std::filesystem::path> savePath) const {
-    return gameplay(gameDirectory, {mapId, x, y, direction}, savePath, false);
+        std::uint16_t mapId, int x, int y, XeenDirection direction) const {
+    return gameplay(gameDirectory, {mapId, x, y, direction}, {}, false);
 }
 int Application::loadGame(const std::filesystem::path &gameDirectory,
         const std::filesystem::path &savePath) const {
     return gameplay(gameDirectory, {}, savePath, true);
 }
-int Application::encounter26(const std::filesystem::path &gameDirectory) const {
-    return gameplay(gameDirectory, XeenActorApproach::kEntry, {}, false, XeenEncounterEntry::Diagnostic26);
-}
-int Application::encounter27(const std::filesystem::path &gameDirectory, std::optional<std::uint32_t> seed,
-        std::optional<std::filesystem::path> savePath) const {
-    return gameplay(gameDirectory,XeenActorApproach::kEntry,savePath,false,XeenEncounterEntry::Diagnostic27,seed);
-}
+
+
 int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera camera,
         const std::optional<std::filesystem::path> &savePath, bool resume, XeenEncounterEntry entry, std::optional<std::uint32_t> seed,
         std::optional<std::uint16_t> journeyContract) const {
     try {
-        if ((entry != XeenEncounterEntry::Ordinary && resume) || (entry == XeenEncounterEntry::Diagnostic26 && savePath))
+        if (entry != XeenEncounterEntry::Ordinary && resume)
             throw std::invalid_argument("Encounter entry cannot load or configure a save");
         const auto installation = XeenInstallationDetector().detect(gameDirectory);
         if (!installation) {
@@ -426,7 +420,6 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
         if (!assets.hasArchiveResource("fnt")) throw std::runtime_error("Missing Xeen font resource 'fnt'");
         const XeenFontFormat font(assets.readArchiveResource("fnt"));
         const CloudsMapComposer composer;
-        bool diagnosticControls = entry == XeenEncounterEntry::Diagnostic27;
         bool journeyControls = entry == XeenEncounterEntry::Journey;
         const auto catalog = loadXeenItemCatalog(assets);
         if (!catalog.diagnostic.empty()) std::cerr << "Item catalog: " << catalog.diagnostic << '\n';
@@ -445,7 +438,6 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
             },
             [&](IndexedFrame &frame, std::uint8_t portrait, std::size_t index) { assets.drawNpc(frame, portrait, index); },
             [&](XeenEventFlow &flow, const XeenCamera &position) {
-                diagnosticControls = diagnosticControls || flow.completed();
                 journeyControls = journeyControls || flow.journey();
                 flow.rebuildEncounterPresentation = [&] { assets.discardSpriteCache(); };
 				flow.drawSmithArt = [&](IndexedFrame &frame) { assets.drawSmith(frame); };
@@ -462,14 +454,9 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
             },
             [&](const IndexedFrame &first, const auto &handler, const auto &escape, const auto &idle, const auto &status) {
                 if (journeyControls) {} // The shared startup prints the bounded Journey controls.
-                else if (diagnosticControls)
-                    std::cout << "M27: I prepares inventory; Enter begins with inventory closed. "
-                        "I cancels a transfer or closes Browse; N cancels confirmation. "
-                        "Arrows and period control approach; Space attacks and B blocks in combat. "
-                        "Enemy work is automatic. Completed Victory: F9 saves, I inspects, R revisits; Escape exits.\n";
                 else std::cout << "Controls: W/S move, A/D turn, Space interacts, Enter acknowledges, "
                     "Y/N answers, F1-F6 selects, I opens inventory, 1-9 selects a slot, T transfers, "
-                    "F9 saves with inventory closed, Escape closes/cancels or exits.\n";
+                    "Escape closes/cancels or exits. Map exploration cannot save.\n";
                 return SdlWindow().showInteractive(first, status(), handler, escape, idle, status);
             }
         };
@@ -498,21 +485,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
 			if (!bytes) throw std::runtime_error("Missing DARK.CC/spells.xen");
 			return XeenLearnedSpellNames::parse(*bytes);
 		};
-        if (entry == XeenEncounterEntry::Diagnostic27) {
-            std::uint32_t value = seed ? *seed : std::random_device{}();
-            if (!seed && !value) value = 1;
-            if (!value) throw std::invalid_argument("Combat seed must be nonzero");
-            services.prepareCombat = [&,value](XeenWorld &w,XeenPartyState &p,XeenCamera &c,XeenCombatBoundary &b) {
-                const auto chr = assets.readInitialResource("maze.chr");
-                const auto context = XeenGameplayContextFormat::parse(assets.readInitialResource("maze.pty"));
-                const auto bytes = assets.readCloudsMonsterStatisticsFromDarkArchive();
-                if (!bytes) throw std::runtime_error("Missing DARK.CC/xeen.mon");
-                return std::make_unique<XeenCombat>(w,p,c,b,chr,context,XeenMonsterFormat::parse(*bytes),events.load(20),XeenCombatRandom(value));
-            };
-        }
-        services.initializeEncounter = [&](XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s) {
-            return XeenActorApproach::initializeFromResources(assets, w, p, c, s);
-        };
+
         services.validateEncounterSprite = [&](std::uint8_t image) { assets.validateNormalMonster(image); };
         services.validateCombatSprite = [&](std::uint8_t image) { assets.validateAttackMonster(image); };
         services.composeEncounter = [&](XeenWorld &w, const XeenPartyState &p, const XeenCamera &c,

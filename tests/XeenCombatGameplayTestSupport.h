@@ -67,15 +67,7 @@ struct Harness {
   s.resources.loadInitialContext=[&]{return XeenGameplayContextFormat::parse(assets?assets->readInitialResource("maze.pty"):pty());};
   s.resources.loadMonsterStatistics=[&]{return assets?XeenMonsterFormat::parse(*assets->readCloudsMonsterStatisticsFromDarkArchive()):statistics();};
   s.clock=[&]{return now;};
-  s.prepareCombat=[&,seed](XeenWorld &w,XeenPartyState &p,XeenCamera &c,XeenCombatBoundary &b){
-   check(w.sessionState().encounterEntry()==XeenEncounterEntry::Diagnostic27,"typed reservation precedes providers");
-   const auto bytes=assets?assets->readInitialResource("maze.chr"):chr();
-   const auto context=XeenGameplayContextFormat::parse(assets?assets->readInitialResource("maze.pty"):pty());
-   const auto stats=assets?XeenMonsterFormat::parse(*assets->readCloudsMonsterStatisticsFromDarkArchive()):statistics();
-   auto value=std::make_unique<XeenCombat>(w,p,c,b,bytes,context,stats,assets?eventLoader->load(20):events(),random.value_or(XeenCombatRandom(seed)));
-   combat=value.get();combatBoundary=&b;
-   return value;
-  };
+
   s.validateEncounterSprite=[&](std::uint8_t image){if(assets)assets->validateNormalMonster(image);};
   s.validateCombatSprite=[&](std::uint8_t image){if(assets)assets->validateAttackMonster(image);};
   s.composeEncounter=[&](XeenWorld &w,const XeenPartyState &p,const XeenCamera &c,std::uint64_t ordinary,XeenMonsterAppearance actor){
@@ -93,11 +85,11 @@ struct Harness {
   s.observeSaveStage=[&](auto){++saves;};
   return s;
  }
- Phase phase() const {return flow&&flow->completed()?Phase::Victory:fight().phase();}
+ Phase phase() const {return flow&&!flow->encounter()->combat()?Phase::Victory:fight().phase();}
  XeenCombatResult result() const {return flow?flow->encounter()->combatResult():fight().result();}
- std::size_t randomPosition() const {return flow&&flow->completed()?retainedRng:fight().random().position();}
- const XeenCombat &fight() const {check(!flow||!flow->completed(),"retired combat pointer access");return *combat;}
- XeenCombat &fight() {check(!flow||!flow->completed(),"retired combat pointer access");return *combat;}
+ std::size_t randomPosition() const {return flow&&!flow->encounter()->combat()?retainedRng:fight().random().position();}
+ const XeenCombat &fight() const {check(flow&&flow->encounter()->combat(),"retired combat pointer access");return *flow->encounter()->combat();}
+ XeenCombat &fight() {check(flow&&flow->encounter()->combat(),"retired combat pointer access");return *const_cast<XeenCombat *>(flow->encounter()->combat());}
  void visibleScene() {
   if(flow->inventoryOpen())return;
   const auto &f=flow->frame();
@@ -114,7 +106,7 @@ struct Harness {
   visibleScene();
  }
  void tick(const SdlWindow::FrameUpdateHandler &handler,const SdlWindow::IdleFrameHandler &idle) {
-  if(!flow->completed())retainedRng=fight().random().position();
+  if(flow->encounter()->combat())retainedRng=fight().random().position();
   now+=100;handler.beginCycle(++cycle);idle();check(handler.frameCurrent(),"current idle frame");
   if(handler.framePresented)handler.framePresented(flow->frame().presentation());
   visibleScene();

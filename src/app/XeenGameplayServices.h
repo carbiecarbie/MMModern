@@ -28,14 +28,12 @@ struct XeenGameplayServices {
    XeenCamera &, const XeenGameFlags &)> observeGameplay;
  XeenEventPresenter::Clock clock = {};
  const XeenItemCatalog *catalog = nullptr;
- decltype(XeenEncounterSetup::initialize) initializeEncounter;
- decltype(XeenEncounterSetup::validateNormalSprite) validateEncounterSprite;
- decltype(XeenEncounterSetup::validateAttackSprite) validateCombatSprite;
+ std::function<void(std::uint8_t)> validateEncounterSprite;
+ std::function<void(std::uint8_t)> validateCombatSprite;
  std::function<XeenEventFlow::Composition(XeenWorld &, const XeenPartyState &, const XeenCamera &,
    std::uint64_t, XeenMonsterAppearance)> composeEncounter;
  enum class SaveStage { Capture, Preflight, Write };
  std::function<void(SaveStage)> observeSaveStage;
- decltype(XeenEncounterSetup::prepareCombat) prepareCombat;
  // Optional deterministic sampling seam; called once only for an unseeded fresh Journey.
  std::function<std::uint32_t()> sampleJourneySeed;
 };

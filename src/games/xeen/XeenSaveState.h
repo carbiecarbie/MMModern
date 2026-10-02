@@ -52,8 +52,6 @@ private:
 	static void validateJourneyValues(const XeenSaveSnapshot &);
 	static void restoreJourney(const XeenSaveSnapshot &, const Resources &,
 		XeenPartyState &, XeenCamera &, XeenGameFlags &, XeenWorld &, const Preflight &);
-	static void restoreCompleted(const XeenSaveSnapshot &, const Resources &,
-		XeenPartyState &, XeenCamera &, XeenGameFlags &, XeenWorld &, const Preflight &);
 };
 
 } // namespace mmodern

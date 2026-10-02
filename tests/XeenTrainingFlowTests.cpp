@@ -77,7 +77,7 @@ int main(int argc,char **argv) {
         // Armor deletion and physical delivered record. It must never be
         // classified under legacy generated-only semantics during Training.
         {
-            auto s=source;s.journey->contract=13;s.journey->context->day=9;
+            auto s=source;s.journey->contract=14;s.journey->context->day=9;
             auto &stock=s.journey->serviceEconomy->wares[0][0][1];
             for(unsigned slot=3;slot<8;++slot)stock[slot]=stock[slot+1];stock[8]={};
             s.characters[0].armor[4]={0,3,0,0};s.journey->treasure->gold=670;
@@ -98,7 +98,7 @@ int main(int argc,char **argv) {
                 fixture.p.serviceEconomy->bank==before.bank && fixture.p.monsterTreasure->gold==580 &&
                 xeenSameItem(fixture.p.roster.at(0).armor[4],{0,3,0,0}),"successor Training trigger missed restock or changed bought inventory");
             xeenValidateServiceEconomy(*fixture.p.serviceEconomy);
-            const auto settled=fixture.snapshot();check(settled.journey->schema==9 && settled.journey->contract==13,"Training silently remapped successor content");
+            const auto settled=fixture.snapshot();check(settled.journey->schema==9 && settled.journey->contract==14,"Training silently remapped successor content");
             Fixture restarted(inputs,settled);save_test::sameSnapshot(settled,restarted.snapshot());
             restarted.enter();restarted.train(4);restarted.act(CancelInteractionAction{});
             check(restarted.p.encounterContext->day==13 && restarted.p.serviceEconomy->wares==settled.journey->serviceEconomy->wares &&
@@ -108,7 +108,7 @@ int main(int argc,char **argv) {
         // candidates. Both new-member days and the restock publish through
         // actual Training, followed by actual Smith Buy on that exact stock.
         {
-            auto s=source;s.journey->contract=13;s.journey->context->day=9;
+            auto s=source;s.journey->contract=14;s.journey->context->day=9;
             auto &stock=s.journey->serviceEconomy->wares[0][0][1];
             for(unsigned slot=3;slot<8;++slot)stock[slot]=stock[slot+1];stock[8]={};
             s.characters[0].armor[4]={0,3,0,0};s.journey->treasure->gold=670;

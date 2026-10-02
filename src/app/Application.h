@@ -25,16 +25,8 @@ public:
 		bool allOnly = false) const;
 	int renderMap(const std::filesystem::path &gameDirectory,
 		std::uint16_t mapId = 1, int x = 9, int y = 6,
-		XeenDirection direction = XeenDirection::South,
-		std::optional<std::filesystem::path> savePath = std::nullopt) const;
+		XeenDirection direction = XeenDirection::South) const;
 	int loadGame(const std::filesystem::path &gameDirectory, const std::filesystem::path &savePath) const;
-	int encounter26(const std::filesystem::path &gameDirectory) const;
-	int encounter27(const std::filesystem::path &gameDirectory, std::optional<std::uint32_t> seed = {},
-		std::optional<std::filesystem::path> savePath = {}) const;
-	int journeySkeleton(const std::filesystem::path &, std::optional<std::uint32_t> seed = {},
-		std::optional<std::filesystem::path> savePath = {}) const;
-	int journeyExpedition(const std::filesystem::path &, std::optional<std::uint32_t> seed = {},
-		std::optional<std::filesystem::path> savePath = {}) const;
 	int journeyRegion(const std::filesystem::path &, std::optional<std::uint32_t> seed = {},
 		std::optional<std::filesystem::path> savePath = {}) const;
 	// Shared production construction; providers outlive this call. Target has

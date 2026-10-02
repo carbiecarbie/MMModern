@@ -7,7 +7,7 @@ namespace journey_resources_test {
 using namespace mmodern;
 inline void require(bool value,const char *message) {if(!value)throw std::runtime_error(message);}
 inline void run(const std::function<XeenPartyState()> &initial,const XeenJourneySetup &setup,
- const XeenWorld::MapLoader &maps,const XeenWorld::ObjectLoader &objects,XeenSaveResourceSignature signature) {
+ const XeenWorld::MapLoader &maps,const XeenWorld::ObjectLoader &objects,XeenSaveResourceSignature signature, XeenSaveState::Resources resources = {}) {
  const auto home=xeenJourneyContent(setup.contract).entry.mapId;
  const XeenMapIdentity neighbor{XeenSide::Clouds,static_cast<std::uint16_t>(home.number-1)};
  XeenEventPresenter::Clock clock=[]{return 0;};
@@ -37,7 +37,7 @@ inline void run(const std::function<XeenPartyState()> &initial,const XeenJourney
   XeenPartyState p;auto c=xeenJourneyContent(setup.contract).entry;XeenGameFlags f;
   std::unique_ptr<XeenEncounterFlow> flow;
   if(restored) {
-   XeenSaveState::Resources resources{signature,{},[&](auto){return setup.events;},{},{},[&]{return setup.statistics;},setup.regionalManifest};
+   resources.signature=signature; resources.loadMonsterStatistics=[&]{return setup.statistics;};
    XeenSaveState::restoreBeforeGameplay(source,resources,p,c,f,w,[](auto &,const auto &,const auto &,const auto &){});
    flow=std::make_unique<XeenEncounterFlow>(w,p,c,f,clock,XeenJourneyRestoreTag{});
   } else {p=initial();flow=std::make_unique<XeenEncounterFlow>(w,p,c,f,clock,setup);}
@@ -51,6 +51,7 @@ inline void run(const std::function<XeenPartyState()> &initial,const XeenJourney
   if(operation==1)require(flow->journeyTransfer(flow->ticket(),5,0,XeenInventoryCategory::Accessories,1).status==XeenTransferStatus::Success,"Authorized transfer publication");
   if(operation==2)require(flow->journeyAction(flow->ticket(),XeenEncounterAction::Right).outcome==XeenEncounterOutcome::Accepted,"Authorized navigation publication");
   if(operation==3)require(flow->journeyPulse(flow->ticket()).outcome==XeenEncounterOutcome::Pulsed,"Authorized actor pulse publication");
+  if(w.sessionState().journeyActivity()==XeenJourneyActivity::Presentation)require(flow->prepareJourneyFrame(flow->ticket(),[]{}) && flow->presentJourney(flow->ticket()),"Publish operation frame");
   const auto camera=c;const auto context=p.encounterContext;const std::vector<XeenActor> actors=w.sessionState().actors();
   const auto characters=p.roster.characters();const auto random=w.sessionState().journeyRandom();
   // Isolate entries forgotten at renewal even when that publication reloaded home.

@@ -32,7 +32,8 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
  const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract) {
  try {
   if(std::getenv("MMODERN_M35_STAGE")) {
-   const auto m35Contract=resume?contract:std::optional<std::uint16_t>{6};
+   const auto m35Contract=resume?contract:std::optional<std::uint16_t>{14};
+   if(!resume)seed=3626689381u;
    return runM35CliWitness(original,target,resume,seed,m35Contract,[&](const XeenGameplayServices &services) {
     return realPlay(app,services,camera,target,resume,entry,seed,m35Contract);
    });
@@ -46,10 +47,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   unsigned saveCalls=0;services.observeSaveStage=[&](auto){++saveCalls;};
   std::uint64_t now=0;services.clock=[&]{return now;};
   const std::string fault=std::getenv("MMODERN_M33_FAULT")?std::getenv("MMODERN_M33_FAULT"):"";
-  bool faultFired=false;std::function<void()> verifyPublication;
+  bool faultFired=false,gameplayStarted=false;std::uint64_t initialDraws=0;std::function<void()> verifyPublication;
   const auto failDraw=std::getenv("MMODERN_M33_FAIL_DRAW")?std::strtoull(std::getenv("MMODERN_M33_FAIL_DRAW"),nullptr,10):0;
   bool drawFaultFired=false;std::function<void()> verifyFailedUnit;
-  drawFault=[&](auto count){if(!failDraw || count!=failDraw || drawFaultFired)return;
+  drawFault=[&](auto count){if(!gameplayStarted || !failDraw || count-initialDraws!=failDraw || drawFaultFired)return;
    const auto characters=party->roster.characters();const std::vector<XeenActor> actors=world->sessionState().actors();const auto rng=world->sessionState().journeyRandom();
    const auto treasure=party->monsterTreasure;const auto context=party->encounterContext;const auto camera=*position;
    std::array<std::optional<XeenCombatInputs>,30> inputs;for(unsigned i=0;i<30;++i)inputs[i]=party->roster.combatInputs(i);
@@ -65,8 +66,8 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   services.configureFlow=[&](auto &f,const auto &c){if(configure)configure(f,c);flow=&f;
    const auto report=f.reportAutomatic;f.reportAutomatic=[&,report](const auto &r){if(std::holds_alternative<XeenAutomaticEventCompleted>(r))++automatic;if(report)report(r);};
    f.beforeEncounterFrameCopy=[&]{
-    if(fault.empty() || faultFired || !world || !party)return;
-    const auto activity=world->sessionState().journeyActivity();const auto draws=world->sessionState().journeyRandom()->count;
+    if(!gameplayStarted || fault.empty() || faultFired || !world || !party)return;
+    const auto activity=world->sessionState().journeyActivity();const auto draws=world->sessionState().journeyRandom()->count-initialDraws;
     const bool eligible=(fault=="shoot" && draws==5) || (fault=="ranged" && draws==8) ||
      (fault=="lethal" && flow->encounter()->combat() && world->sessionState().actors()[9].lifecycle==XeenActorLifecycle::Defeated) ||
      (fault=="delivery" && activity==XeenJourneyActivity::Reward) || (fault=="credit" && party->monsterTreasure->gold==810);
@@ -96,7 +97,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   services.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &) {
    try {
    auto present=[&] {check(handler.frameCurrent(),"Current production frame");handler.framePresented(flow->frame().presentation());};
-   present();
+   present();initialDraws=world->sessionState().journeyRandom()->count;gameplayStarted=true;
    if(resume) {
     check(bool(target),"Resume target");const auto saved=XeenSaveFile::read(*target);
     const auto restored=XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world);
@@ -223,7 +224,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
       if(const auto oracle=std::getenv("MMODERN_M33_ORACLE")) {
        const std::string name=oracle;const auto &j=*snapshot.journey;
        const bool wound=name=="wound",contact=name=="contact";check(wound||contact||name=="ranged","Named fixed oracle");
-       check(j.schema==(m34?5:4) && j.contract==(m34?5:4) && snapshot.camera.x==(contact?7:8) && snapshot.camera.y==11 && snapshot.camera.direction==XeenDirection::West,"Fixed camera and version");
+       check(j.schema==9 && j.contract==14 && snapshot.camera.x==(contact?7:8) && snapshot.camera.y==11 && snapshot.camera.direction==XeenDirection::West,"Fixed camera and version");
        check(j.context->minutes==(wound?500:contact?511:510) && j.context->ctr24==(contact?2:1),"Fixed clock oracle");
        check(j.random->state==(wound?0x4a767d04u:contact?0x692b3851u:0xb8d3b48au) && j.random->count==(wound?8:contact?22:14),"Fixed RNG oracle");
        const std::array<int,6> hp{36,contact?43:48,36,40,21,15};
@@ -312,8 +313,8 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    throw std::runtime_error("Gameplay witness service bound");
    }catch(...){if(drawFaultFired){verifyFailedUnit();const auto before=saveCalls;handler.withDisplayedInput(SaveGameAction{},*handler.displayedInput());check(saveCalls==before,"Failed F9 entered providers");std::cout<<"ARTIFICIAL RAW-DRAW FAILURE ATOMICITY PASS "<<failDraw<<'\n';return false;}throw;}
   };
-  if(!resume)contract=m34?5:4; // Explicit retained legacy contracts, independent of the M35 CLI default.
-  check(resume || contract==(m34?5:4),"Fresh production CLI must admit selected witness contract");
+  if(!resume)contract=14;
+  check(resume || contract==14,"Fresh production CLI must admit current content");
   return realPlay(app,services,camera,target,resume,entry,seed,contract);
  } catch(const std::exception &e) {std::cerr<<"M33 witness: "<<e.what()<<'\n';return 8;}
 }

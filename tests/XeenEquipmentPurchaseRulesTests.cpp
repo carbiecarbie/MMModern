@@ -61,7 +61,7 @@ void pinnedReference(const std::filesystem::path &source) {
         dialog.find("case ITEMMODE_BUY:\r\n\t\tlevel = 0;",cost)!=std::string::npos,"pinned Buy stopped forcing divisor zero");
 }
 void preparedRules(training_test::Inputs &inputs) {
-    auto source=inputs.base();source.journey->contract=13;
+    auto source=inputs.base(14);
     training_test::Fixture fixture(inputs,source);
     auto &p=fixture.p;const auto initialEconomy=*p.serviceEconomy;
     const auto initialCharacters=p.roster.characters();const auto initialContext=*p.encounterContext;

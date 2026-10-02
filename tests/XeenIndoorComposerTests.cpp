@@ -629,13 +629,15 @@ void testCombinedIndoorRemoveLifecycle(const GameInstallation &installation) {
 		world.isObjectDisabled(target) && !world.isObjectDisabled(sibling),
 		"combined indoor cache reconstruction lost presentation or identity state");
 
-	const XeenSaveResourceSignature signature{};
-	const auto saved = XeenSaveFormat::decode(XeenSaveFormat::encode(
-		XeenSaveState::capture(signature, party, camera, flags, world)));
+	XeenSaveSnapshot saved;
+ saved.camera=camera;saved.activeRosterIds=party.party.activeRosterIds();saved.characters=party.roster.characters();
+ saved.questItems=party.questItems.counts();saved.questFlags=party.questFlags.values();saved.gameFlags=flags.values();
+ const auto &state=world.sessionState();saved.disabledObjects.assign(state.disabledObjects().begin(),state.disabledObjects().end());
+ saved.disabledEvents.assign(state.disabledEvents().begin(),state.disabledEvents().end());
 	check(saved.disabledObjects == std::vector<XeenObjectIdentity>{target} &&
 		saved.disabledEvents == std::vector<XeenEventIdentity>{
 			{33,0},{33,1},{33,2}},
-		"indoor Remove save contained the wrong authoritative identities");
+		"indoor Remove state contained the wrong authoritative identities");
 	const auto suppressedRetry = flow.handle(InteractionAction{});
 	const auto *suppressed = std::get_if<XeenManualEventCompleted>(&reports.back());
 	check(suppressed && suppressed->instructionCount == 3 &&
@@ -651,17 +653,12 @@ void testCombinedIndoorRemoveLifecycle(const GameInstallation &installation) {
 	auto freshParty = validEmptyParty();
 	XeenCamera freshCamera{33,1,1,XeenDirection::West};
 	XeenGameFlags freshFlags;
-	XeenSaveState::Resources resources{
-		signature, [] { return validEmptyParty(); },
-		[&](XeenMapIdentity id) { return freshSources.loadEvents(id); }};
-	XeenSaveState::restoreBeforeGameplay(saved, resources, freshParty, freshCamera,
-		freshFlags, freshWorld,
-		[&](XeenWorld &candidateWorld, const XeenPartyState &candidateParty,
-				const XeenCamera &candidateCamera, const XeenGameFlags &) {
-			check(composer.compose(freshAssets, candidateWorld, candidateParty,
-				candidateCamera, context).isValid(),
-				"fresh-owner indoor Remove restore failed visual preflight");
-		});
+ freshCamera=saved.camera;freshParty.party=XeenParty::fromRosterIds(saved.activeRosterIds);
+ for(unsigned i=0;i<30;++i)freshParty.roster.at(i)=saved.characters[i];
+ freshParty.questItems=XeenCloudsQuestItems(saved.questItems);freshParty.questFlags=XeenCloudsQuestFlags(saved.questFlags);
+ freshFlags=XeenGameFlags(saved.gameFlags);
+ freshWorld.restoreSessionState(saved.disabledObjects,saved.disabledEvents,[&](auto id){return freshSources.loadEvents(id);});
+ check(composer.compose(freshAssets,freshWorld,freshParty,freshCamera,context).isValid(),"reconstructed indoor state failed visual preflight");
 	check(freshCamera.mapId == initialCamera.mapId && freshCamera.x == initialCamera.x &&
 		freshCamera.y == initialCamera.y && freshCamera.direction == initialCamera.direction &&
 		freshWorld.isObjectDisabled(target) && !freshWorld.isObjectDisabled(sibling),

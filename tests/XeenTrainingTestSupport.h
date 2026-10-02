@@ -80,7 +80,7 @@ struct Inputs {
     XeenRegionalManifest regional(){return [this](const auto &m,const auto &o,const auto &e,const auto &s){
         xeenValidateRegionalManifest(m,o,e,s,assets.readInitialResource("maze0023.dat"),assets.readInitialResource("maze0023.mob"),assets.readInitialResource("maze0023.evt"));};}
     XeenVertigoManifest vertigo(){return [this](auto &w,const auto &e,const auto &s){xeenValidateVertigoManifest(w,e,s,reader());};}
-    XeenJourneySetup setup(std::uint16_t content=12){
+    XeenJourneySetup setup(std::uint16_t content=14){
         XeenJourneySetup value{chr,XeenGameplayContextFormat::parse(pty),statistics,mainland,7,content,regional()};
         value.purse=XeenCharacterFormat::parseMonsterPurse(pty);value.regionalRecovery=XeenQuestFlagFormat::parseRegionalRecovery(pty);
         value.regionalText=texts.load(23);value.learnedNames=names;value.learnedNamesProvider=[this]{return names;};
@@ -94,7 +94,7 @@ struct Inputs {
         r.regionalManifest=regional();r.vertigoManifest=vertigo();r.loadRegionalText=[this](auto id){return texts.load(id);};
         r.loadLearnedSpellNames=[this]{return names;};return r;
     }
-    XeenSaveSnapshot base(std::uint16_t content=12){
+    XeenSaveSnapshot base(std::uint16_t content=14){
         auto p=XeenPartyLoader().loadInitialCloudsParty(assets);auto c=xeenJourneyContent(content).entry;XeenGameFlags f;
         XeenWorld w(mapLoader(),objectLoader());auto value=setup(content);XeenEncounterFlow flow(w,p,c,f,[]{return 0;},value);
         check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"synthetic base frame");
@@ -121,7 +121,7 @@ struct Fixture {
         events([&in](auto id){return XeenEventScript(in.events.load(id));},[&in](auto id){return in.texts.load(id);}) {
         XeenSaveState::restoreBeforeGameplay(XeenSaveFormat::decode(XeenSaveFormat::encode(source)),in.resources(),p,c,f,w,[](auto &,const auto &,const auto &,const auto &){});
         flow=std::make_unique<XeenEventFlow>(w,events,p,c,f,in.font,[](auto){return XeenEventFlow::Composition{frame(),false};},
-            XeenEventPresenter::NpcDraw{},[this]{return now;},XeenEventPresenter::RandomFrame{},nullptr,nullptr,
+            XeenEventPresenter::NpcDraw{},[this]{return now;},XeenEventPresenter::RandomFrame{},nullptr,
             [animated](auto,auto){return XeenEventFlow::Composition{frame(),animated};});
         flow->drawTrainingArt=[&in](auto &frame){in.assets.drawTraining(frame);};
         present(flow->frame());check(flow->canSave(),"synthetic restored service checkpoint not Quiet");

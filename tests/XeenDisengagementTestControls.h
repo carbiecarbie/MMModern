@@ -1,7 +1,7 @@
 // Included by the original-resource controls executable. These are labelled
 // artificial saved arrangements and literal draws, never genuine route evidence.
 XeenSaveSnapshot disengagementFixture(Source &source) {
- Domain fresh(source,{},5);auto saved=fresh.save();
+ Domain fresh(source,{},14);auto saved=fresh.save();
  for(auto id:kXeenCombatOwners) {
   saved.characters[id].currentHp=1000;
   saved.journey->supplements[id].inputs.speed={255,0};
@@ -129,12 +129,12 @@ void disengagementOwedRound(Source &source) {
 }
 XeenGameplayServices disengagementServices(Source &source,combat_gameplay_test::Harness &h) {
  h.signature=source.signature;h.font=XeenFontFormat(source.assets.readArchiveResource("fnt"));
- auto services=h.services();services.resources.signature=source.signature;
+ auto services=currentServices(h,source);services.resources.signature=source.signature;
  services.resources.loadInitialParty=[&]{return XeenPartyLoader().loadFromResources(source.chr,source.pty);};
  services.resources.loadInitialCharacters=[&]{return source.chr;};
  services.resources.loadInitialContext=[&]{return XeenGameplayContextFormat::parse(source.pty);};
  services.resources.loadMonsterStatistics=[&]{return source.mon;};
- services.resources.loadEvents=[&](auto){return source.evt;};
+ services.resources.loadEvents=[&](auto id){return id==XeenMapIdentity(23)?source.evt:source.city;};
  services.resources.regionalManifest=source.manifest();
  services.maps=[&](auto id){return source.maps.loadGeometryMap(source.assets,id);};
  services.objects=[&](auto id){return source.maps.loadObjects(source.assets,id);};

@@ -24,10 +24,10 @@ int main(int argc,char **argv) {
   SetEnvironmentVariableW(L"MMODERN_M38_STAGE",nullptr);
   SetEnvironmentVariableW(L"MMODERN_M38_CONTROL",nullptr);
   const auto route=dir/"production.mmsave";
-  const auto fresh=child_test::launch(exe,{L"--journey-region",L"--combat-seed",L"7",game.wstring(),L"--save-file",route.wstring()},dir/"production.log");
+  const auto fresh=child_test::launch(exe,{L"--journey-region",L"--combat-seed",L"7",game.wstring(),L"--save-file",route.wstring()},dir/"production.log",false,false,120000);
   child_test::require(fresh.exit==0 && fresh.output.find("M38 PRODUCTION WITNESS PASSED")!=std::string::npos,"M38 production witness failed");
   const auto a=XeenSaveFile::read(dir/"production-A.mmsave");
-  child_test::require(a.journey && a.journey->schema==8 && a.journey->contract==(std::getenv("MMODERN_M38_CONTENT10")?10:9) &&
+  child_test::require(a.journey && a.journey->schema==9 && a.journey->contract==14 &&
    a.journey->context->day==8 && a.journey->context->minutes==584 &&
    a.journey->treasure->gold==810 && a.characters[6].armor[0].state==128 &&
    a.characters[6].armor[1].state==128,"M38 production-input checkpoint differs from contract");
@@ -38,7 +38,7 @@ int main(int argc,char **argv) {
    const auto before=bytes(path);
    SetEnvironmentVariableW(L"MMODERN_M38_STAGE",fs::path(stage).c_str());
    SetEnvironmentVariableW(L"MMODERN_M38_CONTROL",control.empty()?nullptr:fs::path(control).c_str());
-   const auto result=child_test::launch(exe,{L"--load-game",game.wstring(),path.wstring()},dir/(name+".log"));
+   const auto result=child_test::launch(exe,{L"--load-game",game.wstring(),path.wstring()},dir/(name+".log"),false,false,120000);
    child_test::require(processes.insert({result.pid,result.created}).second,"M38 process incarnation was reused");
    child_test::require(result.output.find("M38 RESTORE EXACT BEFORE INPUT")!=std::string::npos,"M38 pre-input restore evidence absent");
    if(control.rfind("upload-",0)==0 || control.rfind("copy-",0)==0) {

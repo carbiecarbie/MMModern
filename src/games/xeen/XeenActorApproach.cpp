@@ -438,59 +438,9 @@ XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenP
 	return result;
 }
 
-XeenEncounterResult XeenActorApproach::initialize(XeenWorld &world, XeenPartyState &party,
-		XeenCamera &camera, XeenEncounterState &state, const std::vector<XeenMonsterRecord> &statistics,
-		const XeenGameplayContext &context, const XeenEventFile &events) {
-	auto &session = world._sessionState;
-	require(!session.journey(), "Journey cannot reenter diagnostic initialization");
-	const auto uninitialized = [&] {
-		if (session._entry == XeenEncounterEntry::Diagnostic27 && (!world._combatCheck || session._combatApproachState != &state)) return false;
-		return !session._encounterInitialized && !session._encounterTerminal && session._actors.empty() &&
-			session._encounterRevision == 0 && !party.encounterContext &&
-			!state._world && !state._party && !state._camera && state._revision == 0 && state._pending == 0 &&
-			state._phase == XeenEncounterPhase::Exploring && state._reason == XeenEncounterStop::None;
-	};
-	require(uninitialized(),
-		"encounter initialization is one-time only");
-	world.markEncounterSession();
-	require(camera.mapId == kEntry.mapId && camera.x == 13 && camera.y == 1 &&
-		camera.direction == XeenDirection::North, "encounter requires fixed diagnostic entry");
-	require(context.minutes == 480 && context.ctr24 == 0, "encounter requires initial PTY time");
-	auto actors = actorsFromResources(world.objectFile(20), statistics);
-	validateDomain(world, party, context, actors, events);
-	XeenEncounterResult result;
-	result.outcome = XeenEncounterOutcome::Started; result.revision = 1;
-	result.view = classify(actors,camera);
-	activate(actors,result.view);
-	static_assert(std::is_nothrow_copy_assignable<decltype(party.encounterContext)>::value);
-	// A provider may have initialized these same owners reentrantly. Never replace it.
-	require(session._encounterMarked && uninitialized(),
-		"encounter initialization authority changed during preparation");
-	// Preparation ends here. Only nonthrowing stores/swaps until return.
-	if (world._combatCheck) world._combatCheck();
-	session._actors.swap(actors);
-	party.encounterContext = context;
-	session._encounterInitialized = true;
-	session._encounterRevision = 1;
-	state._world = &world; state._party = &party; state._camera = &camera; state._revision = 1;
-	return result;
-}
 
-XeenEncounterResult XeenActorApproach::initializeFromResources(XeenAssetSource &assets, XeenWorld &world,
-		XeenPartyState &party, XeenCamera &camera, XeenEncounterState &state) {
-	require(!world.sessionState().journey(), "Journey cannot reenter resource initialization");
-	require(world._sessionState._entry != XeenEncounterEntry::Diagnostic27 || bool(world._combatCheck), "Diagnostic27 initialization requires its coordinator");
-	world.markEncounterSession();
-	const auto bytes = assets.readCloudsMonsterStatisticsFromDarkArchive();
-	require(bool(bytes), "missing DARK.CC/xeen.mon");
-	const auto statistics = XeenMonsterFormat::parse(*bytes);
-	const auto context = XeenGameplayContextFormat::parse(assets.readInitialResource("maze.pty"));
-	XeenEventLoader loader([&assets](const std::string &name) -> std::optional<std::vector<std::uint8_t>> {
-		if (!assets.hasInitialResource(name)) return std::nullopt;
-		return assets.readInitialResource(name);
-	});
-	return initialize(world,party,camera,state,statistics,context,loader.load(20));
-}
+
+
 
 bool XeenActorApproach::authoritative(const XeenWorld &world, const XeenPartyState &party,
 		const XeenCamera &camera, const XeenEncounterState &state) noexcept {
@@ -507,8 +457,6 @@ XeenEncounterResult XeenActorApproach::stop(XeenWorld &world, XeenEncounterState
 	r.revision = s._encounterRevision;
 	if (s.journey() && (!world._combatCheck || !world._combatAuthorized || !world._combatAuthorized() ||
 		s._combatApproachState != &state)) { r.outcome = XeenEncounterOutcome::Refused; return r; }
-	if (s._diagnostic27 && (!world._combatCheck || s._combatApproachState != &state)) { r.outcome = XeenEncounterOutcome::Refused; return r; }
-	if (s._diagnostic27 && (!world._combatAuthorized || !world._combatAuthorized())) { r.outcome = XeenEncounterOutcome::Stale; return r; }
 	if (state._world != &world || state._revision != s._encounterRevision) {
 		r.outcome = XeenEncounterOutcome::Stale; return r;
 	}
@@ -538,7 +486,6 @@ XeenEncounterResult XeenActorApproach::transition(XeenWorld &world, XeenPartySta
 	result.revision = session._encounterRevision;
 	if (session.journey() && (!world._combatCheck || !world._combatAuthorized || !world._combatAuthorized() ||
 		session._combatApproachState != &state || session._journeyActivity != XeenJourneyActivity::Approach)) return result;
-	if (session._diagnostic27 && (!world._combatCheck || session._combatApproachState != &state)) return result;
 	if (state._world != &world || state._party != &party || state._camera != &camera ||
 		state._revision != session._encounterRevision) { result.outcome = XeenEncounterOutcome::Stale; return result; }
 	if (session._encounterTerminal) { result.outcome = XeenEncounterOutcome::Terminal; return result; }
@@ -546,7 +493,7 @@ XeenEncounterResult XeenActorApproach::transition(XeenWorld &world, XeenPartySta
 	if (state._revision == std::numeric_limits<std::uint64_t>::max()) return stop(world,state,XeenEncounterStop::Overflow);
 	const auto entry = state; // Keep authorization facts from before any provider callback.
 	const auto combatAuthorized = world._combatAuthorized;
-	const bool guardedCoordination = session._diagnostic27 || session.journey();
+	const bool guardedCoordination = session.journey();
 	const auto entryCurrent = [&] {
 		return (!guardedCoordination || (combatAuthorized && combatAuthorized())) &&
 			!session._encounterTerminal && session._encounterRevision == entry._revision &&

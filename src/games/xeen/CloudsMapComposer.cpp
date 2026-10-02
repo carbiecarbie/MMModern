@@ -74,10 +74,7 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 	if (objectDiagnostics) objectDiagnostics->clear();
 	// Revalidate the complete admitted appearance set through the same cache
 	// owner, including after a cache discard while a different frame is visible.
-	if (world.sessionState().encounterEntry() == XeenEncounterEntry::Diagnostic27) {
-		assets.validateNormalMonster(8);
-		assets.validateAttackMonster(8);
-	}
+
 	if (world.sessionState().journey()) {
 		const auto &content = xeenJourneyContent(world.sessionState().journeyContract());
 		if(content.consequences()) { assets.validateProjectile(false);assets.validateProjectile(true); }

@@ -36,6 +36,12 @@ std::vector<std::uint8_t> diskBytes(const fs::path &path) {
  std::ifstream input(path, std::ios::binary); check(bool(input), "evidence file missing");
  return {std::istreambuf_iterator<char>(input), {}};
 }
+XeenSaveSnapshot explorationState(const XeenSaveResourceSignature &signature,const XeenPartyState &party,const XeenCamera &camera,const XeenGameFlags &flags,const XeenWorld &world) {
+ XeenSaveSnapshot s;s.resources=signature;s.camera=camera;s.characters=party.roster.characters();s.activeRosterIds=party.party.activeRosterIds();
+ s.questItems=party.questItems.counts();s.questFlags=party.questFlags.values();s.gameFlags=flags.values();
+ s.disabledObjects.assign(world.sessionState().disabledObjects().begin(),world.sessionState().disabledObjects().end());
+ s.disabledEvents.assign(world.sessionState().disabledEvents().begin(),world.sessionState().disabledEvents().end());return s;
+}
 bool sameItem(XeenItem a, XeenItem b) {
  return a.material == b.material && a.id == b.id && a.state == b.state && a.frame == b.frame;
 }
@@ -257,15 +263,15 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
   return s;
  };
  std::uint64_t observedPhase=0, ordinaryNow=0;
- const auto initialDisk = resume ? diskBytes(path) : std::vector<std::uint8_t>{};
+ bool reconstructed=false;
  XeenGameplayServices services{
-  {signature, [&] { return XeenPartyLoader().loadInitialCloudsParty(assets); }, [&](XeenMapIdentity id) { ++scriptLoads; return scripts.load(id); }},
+  {signature, [&] {auto p=XeenPartyLoader().loadInitialCloudsParty(assets);if(resume){const auto saved=expectedSnapshot();for(unsigned i=0;i<30;++i)p.roster.at(i)=saved.characters[i];p.questItems=XeenCloudsQuestItems(saved.questItems);p.questFlags=XeenCloudsQuestFlags(saved.questFlags);}return p;}, [&](XeenMapIdentity id) { ++scriptLoads; return scripts.load(id); }},
   [&] { return XeenGameFlagsLoader().loadInitialCloudsFlags(assets); },
   [&](XeenMapIdentity id) { ++mapLoads; return maps.loadGeometryMap(assets, id); },
   [&](XeenMapIdentity id) { ++objectLoads; return maps.loadObjects(assets, id); },
   [&](XeenMapIdentity id) { ++textLoads; return texts.load(id); }, font,
   [&](XeenWorld &w, const XeenPartyState &p, const XeenCamera &c, std::uint64_t phase) {
-   // Includes resume preflight and constructor composition, before show().
+   if(resume&&!reconstructed){const auto saved=expectedSnapshot();w.restoreSessionState(saved.disabledObjects,saved.disabledEvents,[&](auto id){return scripts.load(id);});reconstructed=true;}
    if (!world) { partyCheck(p); worldCheck(w); check(cp::sameCamera(c, expectedCamera), "first composition used default camera"); }
    if(world==&w)observedPhase=phase;
    ++compositions; XeenEventFlow::Composition result;
@@ -290,14 +296,14 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
   [&](XeenWorld &w, XeenEventSystem &e, const XeenPartyState &p, XeenCamera &c, const XeenGameFlags &f) {
    world = &w; events = &e; party = &p; camera = &c; flags = &f;
    stateCheck();
-   save_test::sameSnapshot(expectedSnapshot(), XeenSaveState::capture(signature, p, c, f, w));
+   save_test::sameSnapshot(expectedSnapshot(), explorationState(signature, p, c, f, w));
    cleanPresentation(*flow, true);
   }
  };
  services.catalog = itemCatalog ? &*itemCatalog : nullptr;
  if(!manual)services.clock=[&]{return ordinaryNow;};
  services.show = [&](const IndexedFrame &first, const auto &handle, const auto &escape, const auto &idle, const auto &status) {
-  check(compositions >= (resume ? 2 : 1) && automatic == (resume ? 0 : 1), "startup composition/dispatch count");
+  check(compositions >= 1 && automatic == 1, "startup composition/dispatch count");
   stateCheck(); cleanPresentation(*flow, true);
   equalFrame(first, composer.compose(assets, *world, *party, *camera, {kCloudsInitialYear}, nullptr, observedPhase));
   if (!manual) visual_remove_test::save(first, dir/(name + "-" + role + "-first.bmp"));
@@ -326,13 +332,13 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
   // checks only; the independent durable oracle remains expectedSnapshot().
   auto checkedHandle = [&](const PlayerAction &a) -> std::optional<IndexedFrame> {
    if (!std::holds_alternative<SaveGameAction>(a)) return handle(a);
-   const auto before = XeenSaveState::capture(signature, *party, *camera, *flags, *world);
+   const auto before = explorationState(signature, *party, *camera, *flags, *world);
    const auto frame = flow->frame(); const auto generation = flow->presentationGeneration();
    const auto page = flow->presenter().pageIndex(), pages = flow->presenter().pageCount();
    const auto timing = flow->presenter().npcTiming(); const auto reports = presentations;
    const auto blocked = flow->blocksGameplay();
    const auto result = handle(a);
-   save_test::sameSnapshot(before, XeenSaveState::capture(signature, *party, *camera, *flags, *world));
+   save_test::sameSnapshot(before, explorationState(signature, *party, *camera, *flags, *world));
    if (!flow->inventoryOpen()) equalFrame(frame, flow->frame());
    else {
     for(int y=0;y<200;++y)for(int x=0;x<320;++x)
@@ -489,7 +495,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
      if(const auto transition=manualEquipmentTransition(stage))
       requireManualEquipmentTransition(reportsBefore,equipmentReports,lastEquipment,*party,*transition);
      if(stage==26)check(!fs::exists(path)&&status().find("Cannot save while inventory is open")!=std::string::npos,"manual open F9");
-     if(stage==28){expectedEquipment(expectedCharacters,name);stateCheck();save_test::sameSnapshot(expectedSnapshot(),XeenSaveFile::read(path));complete=true;
+     if(stage==28){expectedEquipment(expectedCharacters,name);stateCheck();save_test::sameSnapshot(expectedSnapshot(),explorationState(signature,*party,*camera,*flags,*world));complete=true;
       std::cout<<"Manual producer observations complete. Close the window normally.\n"<<std::flush;}
      return result;
     };
@@ -520,7 +526,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
     expectedEquipment(expectedCharacters,name);stateCheck();
     drive({{SDLK_F9,SaveGameAction{}}});check(!fs::exists(path),"equipment open F9 wrote");
     drive({{SDLK_ESCAPE,CancelInteractionAction{}},{SDLK_F9,SaveGameAction{}}});
-    save_test::sameSnapshot(expectedSnapshot(),XeenSaveFile::read(path));return true;
+    save_test::sameSnapshot(expectedSnapshot(),explorationState(signature,*party,*camera,*flags,*world));return true;
    }
    if(resume)inspectEquipment();
    else {
@@ -528,17 +534,17 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
      sameItem(party->roster.at(1).accessories[1],{42,5,0,8}),"fresh equipment defaults changed");
     stateCheck();
    }
-   save_test::sameSnapshot(expectedSnapshot(),XeenSaveState::capture(signature,*party,*camera,*flags,*world));return true;
+   save_test::sameSnapshot(expectedSnapshot(),explorationState(signature,*party,*camera,*flags,*world));return true;
   }
   if(transferCheckpoint && produce) {
    transferControls();expectedTransfer(expectedCharacters,name);stateCheck();
    check(flow->transferResult().status==XeenTransferStatus::Success,"equipment transfer refused");
    drive({{SDLK_RETURN,AcknowledgeAction{}}});stateCheck();flow->refresh(true);stateCheck();
    drive({{SDLK_ESCAPE,CancelInteractionAction{}}});inspectRestored();
-   drive({{SDLK_F9,SaveGameAction{}}});save_test::sameSnapshot(expectedSnapshot(),XeenSaveFile::read(path));return true;
+   drive({{SDLK_F9,SaveGameAction{}}});save_test::sameSnapshot(expectedSnapshot(),explorationState(signature,*party,*camera,*flags,*world));return true;
   }
   if((transfer || transferCheckpoint) && resume) inspectRestored();
-  if(transferCheckpoint) {stateCheck();save_test::sameSnapshot(expectedSnapshot(),XeenSaveState::capture(signature,*party,*camera,*flags,*world));return true;}
+  if(transferCheckpoint) {stateCheck();save_test::sameSnapshot(expectedSnapshot(),explorationState(signature,*party,*camera,*flags,*world));return true;}
   if (produce && exchange) {
    enum class Phase { Request, Phirna, Return, Receipt, Inventory, Save, Done };
    Phase phase = Phase::Request;
@@ -561,7 +567,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
    inputHandler = [&](const PlayerAction &a) -> std::optional<IndexedFrame> {
     if (phase == Phase::Done) {
      auto result = checkedHandle(a); stateCheck();
-     save_test::sameSnapshot(expectedSnapshot(), XeenSaveFile::read(path));
+     save_test::sameSnapshot(expectedSnapshot(), explorationState(signature,*party,*camera,*flags,*world));
      return result;
     }
     stateCheck();
@@ -646,11 +652,10 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
     }
     stateCheck();
     if (save && priorPhase == Phase::Save) {
-     check(status().find("MMModern - Saved [") == 0 && fs::exists(path), "production eligible save did not succeed");
-     const auto bytes = diskBytes(path); check(bytes.size() > 20 && bytes[8] == 2 && bytes[9] == 0, "production write is not v2");
-     save_test::sameSnapshot(expectedSnapshot(), XeenSaveFile::read(path));
+     check(status().find("Map exploration cannot save.") != std::string::npos && !fs::exists(path), "map explorer must remain unsaveable");
+     save_test::sameSnapshot(expectedSnapshot(), explorationState(signature,*party,*camera,*flags,*world));
      phase = Phase::Done;
-     std::cout << "ASSERT production F9 disk oracle PASS " << path.u8string() << '\n';
+     std::cout << "ASSERT exploration F9 restriction PASS " << path.u8string() << '\n';
      announce("Producer checks complete. Exit this window normally before starting the separate load command.");
     } else check(!fs::exists(path), "unexpected or deferred save before eligible final F9");
     return result;
@@ -685,7 +690,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
     }
    }
    cleanPresentation(*flow); stateCheck();
-   save_test::sameSnapshot(expectedSnapshot(), XeenSaveFile::read(path));
+   save_test::sameSnapshot(expectedSnapshot(), explorationState(signature,*party,*camera,*flags,*world));
    return true;
   }
   auto interact = [&](XeenCamera c, bool acquire) {
@@ -756,8 +761,8 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
    else interact(position(name), true);
    check(!flow->blocksGameplay(), "save boundary not eligible");
    drive({{SDLK_F9, SaveGameAction{}}});
-   check(status().find("MMModern - Saved [") == 0 && fs::exists(dir/(name + ".mmsave")), "production eligible save did not succeed");
-   stateCheck(); std::cout << "ASSERT production save success " << path.u8string() << '\n';
+   check(status().find("Map exploration cannot save.") != std::string::npos && !fs::exists(path), "map explorer must remain unsaveable");
+   stateCheck(); std::cout << "ASSERT exploration state verified " << path.u8string() << '\n';
   } else if (resume) {
    auto revisit = [&] {
     if (name == "cumulative") { interact(cp::phirna, false); interact(cp::whistle, false); interact(cp::myra, false); }
@@ -794,7 +799,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
    if (!manual) visual_remove_test::save(flow->frame(), dir/(name + "-rebuilt.bmp"));
    if (exchange) {
     check(!root && !request && phirnaRemoved, "pre-revisit reconstructed exchange differs");
-    save_test::sameSnapshot(expectedSnapshot(), XeenSaveFile::read(path));
+    save_test::sameSnapshot(expectedSnapshot(), explorationState(signature,*party,*camera,*flags,*world));
     cleanPresentation(*flow);
     std::cout << "ASSERT combined reconstruction before first Myra revisit; Root=0 Q2=0 five rewards and Phirna removed\n";
     revisit();
@@ -817,128 +822,20 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
   std::cout << "ASSERT live camera, ordered membership, all 30 characters/all fields, all 35 counters, all 30 quest flags, 256 game flags, exact object/event sets, base records/geometry, selection/draw, clean first scene PASS\n";
   return true;
  };
- const auto result = Application().playGameplay(services, resume ? XeenCamera{} : expectedCamera, produce || resume ? std::optional<fs::path>(path) : std::nullopt, resume);
+ const auto result = Application().playGameplay(services,expectedCamera,path,false);
  check(result == 0, "Application acceptance failed");
  if (manualInitializationOnly) {check(!fs::exists(path),"manual initialization wrote save target");return 0;}
- if (resume) check(diskBytes(path) == initialDisk, "consumer changed original save bytes");
+ check(!fs::exists(path), "map explorer wrote a save");
  std::cout << "ACCEPT " << name << ' ' << role << ' ' << (manual ? "physical-keyboard" : sdl ? "sdl" : "direct") << " PID " << GetCurrentProcessId() << '\n';
  return 0;
 }
 }
-int main(int argc, char **argv) {
- try {
-  if(argc==4&&std::string(argv[1])=="--manual-equipment-regressions") {
-   const auto game=fs::absolute(fs::u8path(argv[2])),dir=fs::absolute(fs::u8path(argv[3]));
-   check(fs::create_directory(dir),"manual regression directory must be new");
-   const auto sentinelPath=dir/"equipment-producer-first.bmp",save=dir/"manual-equipment.mmsave";
-   const std::vector<std::uint8_t> sentinel{0x4d,0x32,0x35,0x42,0,0xff,0x18};
-   {std::ofstream output(sentinelPath,std::ios::binary);check(bool(output),"manual sentinel create");
-    output.write(reinterpret_cast<const char *>(sentinel.data()),static_cast<std::streamsize>(sentinel.size()));check(bool(output),"manual sentinel write");}
-   manualEquipmentValidatorRegressions();
-   check(child(game,dir,"equipment","producer",false,save,true)==0,"manual initialization regression failed");
-   check(diskBytes(sentinelPath)==sentinel&&!fs::exists(save),"manual initialization altered sentinel or save target");
-   std::cout<<"Manual equipment non-overwrite and phase-validator regressions PASS\n";return 0;
-  }
-  if (argc == 4 && (std::string(argv[1]) == "--manual-myra-exchange" || std::string(argv[1]) == "--manual-myra-transfer" ||
-    std::string(argv[1]) == "--manual-equipment")) {
-   const auto game = fs::absolute(fs::u8path(argv[2])), save = fs::absolute(fs::u8path(argv[3]));
-   check(fs::is_directory(save.parent_path()) && !fs::exists(save), "manual target requires existing directory and absent file; nothing is deleted");
-   std::cout << "Physical keyboard mode; camera-only checkpoint positioning, one continuous SDL loop.\n"
-    << "Save: " << save.u8string() << "\nAfter this producer exits completely, run:\n& \""
-    << (fs::absolute(fs::u8path(argv[0])).parent_path()/"mmodern.exe").u8string()
-    << "\" --load-game \"" << game.u8string() << "\" \"" << save.u8string() << "\"\n" << std::flush;
-   const auto checkpoint=std::string(argv[1])=="--manual-myra-transfer"?"myra-transfer":
-    std::string(argv[1])=="--manual-equipment"?"equipment":"myra-exchange";
-   return child(game, save.parent_path(), checkpoint, "producer", false, save);
-  }
-  if (argc == 7 && std::string(argv[1]) == "--child") return child(fs::u8path(argv[2]), fs::u8path(argv[3]), argv[4], argv[5], std::string(argv[6]) == "sdl");
-  check(argc == 3 || (argc == 4 && std::string(argv[3]) == "sdl"), "Usage: mmodern_save_resume_smoke <game> <output> [sdl]");
-  const auto game = fs::absolute(fs::u8path(argv[1])), output = fs::absolute(fs::u8path(argv[2]));
-  fs::create_directories(output);
-  const auto dir = output/("run-" + std::to_string(GetCurrentProcessId()) + "-" + std::to_string(GetTickCount64()));
-  check(fs::create_directory(dir), "acceptance run directory must be new");
-  const auto exe = fs::absolute(fs::u8path(argv[0])); const std::wstring mode = argc == 4 ? L"sdl" : L"direct";
-  std::ofstream evidence(dir/"processes.log"); check(bool(evidence), "process evidence log");
-  for(const std::string name:{"equipment-badger","equipment-proficiency"}) {
-   const auto log=dir/(name+".log");const std::vector<std::wstring> args{L"--child",game.wstring(),dir.wstring(),fs::path(name).wstring(),L"fresh",mode};
-   const auto r=child_test::launch(exe,args,log);evidence<<"CONTROL PID "<<r.pid<<" exit "<<r.exit<<'\n'<<r.output<<std::flush;
-   check(r.exit==0&&r.output.find("ACCEPT "+name+" fresh")!=std::string::npos,"independent original equipment control failed");
-  }
-  for (const std::string name : {"phirna", "whistle", "myra", "cumulative", "myra-exchange", "myra-transfer", "dagger", "boots", "ring", "equipment", "equipment-rings"}) {
-   DWORD producer = 0;
-   std::vector<std::uint8_t> savedBytes;
-   for (const std::string role : {"producer", "consumer", "fresh"}) {
-    const auto log = dir/(name + "-" + role + ".log");
-    const std::vector<std::wstring> args{L"--child",game.wstring(),dir.wstring(),fs::path(name).wstring(),fs::path(role).wstring(),mode};
-    evidence << "COMMAND " << exe.u8string(); for (const auto &a : args) evidence << " \"" << fs::path(a).u8string() << '"'; evidence << '\n' << std::flush;
-    const auto r = child_test::launch(exe, args, log);
-    evidence << "PID " << r.pid << " exit " << r.exit << " save " << (dir/(name+".mmsave")).u8string() << '\n' << r.output << std::flush;
-    if (r.exit != 0) std::cerr << r.output;
-    check(r.exit == 0 && r.output.find("ACCEPT " + name + " " + role) != std::string::npos, "child assertions failed; stopped before next process");
-    if (role == "producer") { producer = r.pid; savedBytes = diskBytes(dir/(name+".mmsave")); }
-    else {
-     check(r.pid != producer, "restart must use distinct process");
-     check(diskBytes(dir/(name+".mmsave")) == savedBytes, "consumer/fresh altered producer file");
-    }
-   }
-   auto bytes = [](const fs::path &file) {
-    std::ifstream input(file, std::ios::binary); check(bool(input), "native comparison frame missing");
-    return std::vector<char>(std::istreambuf_iterator<char>(input), {});
-   };
-   const bool same = bytes(dir/(name+"-consumer-first.bmp")) == bytes(dir/(name+"-fresh-first.bmp"));
-   check(same == (name == "myra" || name == "myra-exchange" || name == "myra-transfer" || name=="dagger" || name=="boots" || name=="ring" || name=="equipment" || name=="equipment-rings"), "fresh/resumed native frame relationship");
-   evidence << "ASSERT first frames: " << name << (same ? " unchanged clean Myra scene" : " effective removal differs from fresh original") << '\n';
-   const auto cli = exe.parent_path()/"mmodern.exe";
-   evidence << "COMMAND \"" << cli.u8string() << "\" --load-game \"" << game.u8string() << "\" \"" << (dir/(name+".mmsave")).u8string() << "\"\n" << std::flush;
-   const auto r = child_test::launch(cli, {L"--load-game",game.wstring(),(dir/(name+".mmsave")).wstring()}, dir/(name+"-cli.log"), true);
-   evidence << "CLI PID " << r.pid << " exit " << r.exit << '\n' << r.output << std::flush;
-   const auto c = position(name);
-   const std::string camera = "Map " + std::to_string(c.mapId.number) + " (Clouds): camera X=" + std::to_string(c.x) + " Y=" + std::to_string(c.y) + " direction=" + std::to_string(static_cast<unsigned>(c.direction));
-   check(r.exit == 0 && r.output.find("Resumed ") != std::string::npos && r.output.find(camera) != std::string::npos, "actual CLI resume/camera/normal exit failed");
-   check(r.output.find("\nInventory:")!=std::string::npos,"actual CLI I did not reopen inventory through SDL");
-   if (name == "myra-exchange") {
-    check(r.output.find("Setup Inventory: 6 active references, 30 owners; Root=0 Q2=0") != std::string::npos &&
-     r.output.find("Active order: [0->0] [1->18] [2->14] [3->11] [4->1] [5->6]") != std::string::npos,
-     "CLI restored inventory/Root/Q2 diagnostics absent");
-    const auto firstOwner = r.output.find("Owner 0 "), nextOwner = r.output.find("Owner 1 ");
-    check(firstOwner != std::string::npos && nextOwner > firstOwner, "CLI roster diagnostics missing");
-    const auto owner = r.output.substr(firstOwner, nextOwner-firstOwner);
-    for (unsigned i=0;i<5;++i) check(owner.find(" " + std::to_string(i) + ": M=10 ID=37 S=1 F=0") != std::string::npos,
-     "CLI exact reward slot diagnostic absent");
-    evidence << "ASSERT actual CLI setup: five roster-0 rewards, Root=0 Q2=0; Windows SDL normal close\n";
-   }
-   if(name=="equipment" || name=="equipment-rings") {
-    const auto inventory=r.output.find("\nInventory:");check(inventory!=std::string::npos,"equipment CLI inventory block");
-    const auto text=r.output.substr(inventory);
-    const auto ownerBlock=[&](unsigned owner){const auto begin=text.find("Owner "+std::to_string(owner)+" ");
-     const auto end=owner==29?text.size():text.find("Owner "+std::to_string(owner+1)+" ",begin);
-     check(begin!=std::string::npos&&end!=std::string::npos,"equipment CLI owner block");return text.substr(begin,end-begin);};
-    const auto categoryBlock=[&](const std::string &owner,const std::string &category,const std::string &next){
-     const auto begin=owner.find(category+" tail=");
-     const auto end=next.empty()?owner.size():owner.find(next+" tail=",begin);
-     check(begin!=std::string::npos&&end!=std::string::npos,"equipment CLI category block");return owner.substr(begin,end-begin);
-    };
-    if(name=="equipment") {
-     const auto zippo=ownerBlock(11),arturius=ownerBlock(0);
-     const auto zippoWeapons=categoryBlock(zippo,"Weapons","Armor"),zippoAccessories=categoryBlock(zippo,"Accessories","Miscellaneous");
-     const auto arturiusArmor=categoryBlock(arturius,"Armor","Accessories");
-     check(zippoWeapons.find(" 0: M=0 ID=12 S=0 F=0")!=std::string::npos&&zippoWeapons.find(" 1: M=0 ID=12 S=0 F=1")!=std::string::npos&&
-      arturiusArmor.find(" 3: M=38 ID=10 S=0 F=0")!=std::string::npos&&
-      zippoAccessories.find(" 0: M=38 ID=2 S=0 F=12")!=std::string::npos&&zippoAccessories.find(" 1: M=42 ID=1 S=0 F=0")!=std::string::npos,
-      "equipment CLI exact owner/category/slot frames absent");
-    } else {
-     const auto rebecca=ownerBlock(1);
-     const auto accessories=categoryBlock(rebecca,"Accessories","Miscellaneous");
-     check(accessories.find(" 0: M=38 ID=2 S=0 F=12")!=std::string::npos&&accessories.find(" 1: M=42 ID=5 S=0 F=7")!=std::string::npos&&
-      accessories.find(" 2: M=42 ID=1 S=0 F=8")!=std::string::npos&&accessories.find(" 3: M=86 ID=1 S=0 F=8")!=std::string::npos,
-      "equipment-rings CLI exact Rebecca slots absent");
-    }
-    evidence<<"ASSERT actual CLI equipment owner/category/physical-slot frames\n";
-   }
-   check(diskBytes(dir/(name+".mmsave")) == savedBytes, "CLI altered producer file");
-   evidence << "ASSERT producer file unchanged after consumer/fresh/CLI\n";
-  }
-  check(bool(evidence), "process evidence write failed");
-  std::cout << "Cross-process original acceptance PASS; evidence " << dir.u8string() << '\n'; return 0;
- } catch (const std::exception &e) { std::cerr << "Save/resume acceptance failed: " << e.what() << '\n'; return 1; }
-}
+int main(int argc,char **argv){try{
+ check(argc==3||(argc==4&&std::string(argv[3])=="sdl"),"Usage: mmodern_save_resume_smoke <game> <output> [sdl]");
+ const auto game=fs::absolute(fs::u8path(argv[1])),output=fs::absolute(fs::u8path(argv[2]));fs::create_directories(output);
+ const auto dir=child_test::freshDirectory(output/"exploration-controls");manualEquipmentValidatorRegressions();
+ for(const std::string name:{"equipment-badger","equipment-proficiency"})child(game,dir,name,"fresh",argc==4);
+ for(const std::string name:{"myra","phirna","whistle","cumulative","myra-exchange","myra-transfer","dagger","boots","ring","equipment","equipment-rings"})
+  for(const std::string role:{"producer","consumer","fresh"})child(game,dir,name,role,argc==4);
+ std::cout<<"Original exploration, item, Event and cache controls passed; current persistence is covered by xeen_save_flow, xeen_inventory_gameplay and xeen_equipment_gameplay.\n";return 0;
+}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

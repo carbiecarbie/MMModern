@@ -31,7 +31,7 @@ int runM35CliWitness(const XeenGameplayServices &original,
 		check(stage=="entry" || stage=="request" || stage=="before-phirna" || stage=="collected" || stage=="return" || stage=="exchange" ||
 			stage=="well" || stage=="item" || stage=="continue" || stage=="post" || stage=="full",
 			"Unknown M35 production CLI stage");
-		check(bool(target) && (resume ? !seed && !contract : seed==7 && contract==6),
+		check(bool(target) && (resume ? !seed && !contract : seed==3626689381u && contract==14),
 			"M35 production CLI seed/contract or restore entry changed");
 		auto services=original;
 		XeenEventFlow *flow=nullptr;
@@ -190,7 +190,7 @@ int runM35CliWitness(const XeenGameplayServices &original,
 			if(stage=="exchange" || stage=="full") {
 				route("RUULURUULUUUL");
 				check(camera->x==9 && camera->y==11 && camera->direction==XeenDirection::West &&
-					party->encounterContext->minutes==848 && world->sessionState().journeyRandom()->count==281,
+					party->encounterContext->minutes==848 && world->sessionState().journeyRandom()->count==886+281,
 					"Production Myra return trace");
 				input(InteractionAction{});settle();
 				check(!party->questItems.at(17) && !party->questFlags.isSet(2),"Production Myra exchange");
@@ -203,7 +203,7 @@ int runM35CliWitness(const XeenGameplayServices &original,
 			if(stage=="well" || stage=="full") {
 				route("LUUURUULU");
 				check(camera->x==7 && camera->y==7 && camera->direction==XeenDirection::South &&
-					party->encounterContext->minutes==910 && world->sessionState().journeyRandom()->count==315,
+					party->encounterContext->minutes==910 && world->sessionState().journeyRandom()->count==886+315,
 					"Production well arrival trace");
 				const auto hp=party->roster.at(11).currentHp;
 				input(InteractionAction{});input(SelectMemberAction{3});

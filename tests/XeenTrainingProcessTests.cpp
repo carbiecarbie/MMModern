@@ -35,9 +35,9 @@ int main(int argc,char **argv) {
         check(crc32(0,bytes.data(),bytes.size())==0x79dec2de,"M41 stock literal CRC mismatch");
         // Independent detached repeated-one-day continuation from complete A,
         // compared to every byte and draw/request trace from the production path.
-        XeenServiceDayCandidate member1(*a.journey->context,*a.journey->serviceEconomy,*a.journey->random,12);
-        XeenServiceDayCandidate member2(member1.context(),member1.economy(),member1.continuation(),12);
-        XeenServiceDayCandidate departure(member2.context(),member2.economy(),member2.continuation(),12);
+        XeenServiceDayCandidate member1(*a.journey->context,*a.journey->serviceEconomy,*a.journey->random,14);
+        XeenServiceDayCandidate member2(member1.context(),member1.economy(),member1.continuation(),14);
+        XeenServiceDayCandidate departure(member2.context(),member2.economy(),member2.continuation(),14);
         while(!departure.service()){}
         check(departure.context()==*b.journey->context && departure.economy()==*b.journey->serviceEconomy &&
             departure.continuation()==*b.journey->random,"M41 full one-day chain bytes/context/RNG differ");

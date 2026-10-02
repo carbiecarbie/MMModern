@@ -8,7 +8,7 @@ void physicalPresentationControls(Source &source,const std::filesystem::path &ga
  combat_gameplay_test::Harness h(game);
  for(unsigned mode=0;mode<5;++mode){
   auto saved=fresh;if(mode){saved.camera={23,5,9,XeenDirection::North};for(auto &a:saved.journey->actors)a.activated=true;}
-  XeenSaveFile::write(path,saved);auto services=h.services();services.resources.regionalManifest=source.manifest();
+  XeenSaveFile::write(path,saved);auto services=currentServices(h,source);services.resources.regionalManifest=source.manifest();
   XeenEventTextLoader texts([&](const std::string &name)->std::optional<std::vector<std::uint8_t>>{if(!h.assets->hasArchiveResource(name))return {};return h.assets->readArchiveResource(name);});
   services.texts=[&](auto id){return texts.load(id);};
   const auto compose=services.composeEncounter;std::vector<std::pair<unsigned,unsigned>> visuals;

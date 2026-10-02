@@ -50,14 +50,13 @@ private:
 	std::shared_ptr<const std::vector<Draw>> tape;
 };
 
-enum class XeenCombatPhase { Preparation, Approach, Engaged, PlayerReady, Casting, PreparingAction,
+enum class XeenCombatPhase { Engaged, PlayerReady, Casting, PreparingAction,
 	PendingEnemy, PendingRound, DisengagementPending, Disengaged, VictoryAwaitingEnd, Victory, Defeat, SupportStopped, Failed };
 enum class XeenCombatWork { None, Action, Enemy, Round, End, FinishDisengagement, Cast };
 enum class XeenCombatCommand { Attack, Block, Run };
 enum class XeenCombatStatus { Accepted, Pending, Advanced, Refused, Stale, Failed, SupportStopped, Victory, Defeat };
 enum class XeenCombatFailure { None, Integrity, Preparation, Time, Observation, Overflow };
-enum class XeenCombatOperation { None, Equipment, Transfer, BeginApproach, ApproachAction,
-	ApproachPulse, BeginCombat, PlayerAttack, Cast, Block, PlayerRun, FinishDisengagement, EnemyAttack, Round, End, Failure };
+enum class XeenCombatOperation { None, BeginCombat, PlayerAttack, Cast, Block, PlayerRun, FinishDisengagement, EnemyAttack, Round, End, Failure };
 enum class XeenCombatAttackOutcome { NotApplicable, NoParticipants, Pending, Miss, HitZeroDamage, HitPositiveDamage };
 enum class XeenCombatExitCause { None, DirectRun, AttritionAfterEscape };
 struct XeenCombatLocation { XeenMapIdentity mapId; int x=0,y=0; XeenDirection direction=XeenDirection::North; };
@@ -88,7 +87,7 @@ struct XeenCombatResult {
 	XeenMonsterTreasureItem generatedItem;
 	bool generatedArmor=false;
 	XeenCombatStatus status=XeenCombatStatus::Refused;
-	XeenCombatPhase phase=XeenCombatPhase::Preparation;
+	XeenCombatPhase phase=XeenCombatPhase::Engaged;
 	XeenCombatFailure failure=XeenCombatFailure::None;
 	XeenCombatWork work=XeenCombatWork::None;
 	std::uint64_t oldRevision=0,revision=0,generation=0;
@@ -135,11 +134,6 @@ public:
 		XeenCombatPhase phase=XeenCombatPhase::Failed;
 		XeenCombatWork work=XeenCombatWork::None;
 	};
-	// Internal diagnostic entry only. Original immutable resources are admitted
-	// before attachment; no Application/SDL entry or copied live combat party.
-	XeenCombat(XeenWorld &,XeenPartyState &,XeenCamera &,XeenCombatBoundary &,
-		const std::vector<std::uint8_t> &chr,const XeenGameplayContext &,
-		const std::vector<XeenMonsterRecord> &,const XeenEventFile &,XeenCombatRandom random=XeenCombatRandom(1));
 	~XeenCombat();
 	XeenCombat(const XeenCombat &)=delete;
 	XeenCombat &operator=(const XeenCombat &)=delete;
@@ -149,8 +143,6 @@ public:
 	// Detached observations. No retained selection, cursor or result memory escapes.
 	std::optional<XeenCombatCastView> cast() const;
 	XeenCombatResult result() const noexcept;
-	const std::optional<XeenEquipmentResult> &preparationEquipmentResult() const noexcept;
-	const std::optional<XeenTransferResult> &preparationTransferResult() const noexcept;
 	const XeenEncounterState &approachState() const noexcept;
 	XeenCombatPhase phase() const noexcept;
 	XeenCombatWork pending() const noexcept;
@@ -158,18 +150,12 @@ public:
 	std::uint8_t participants() const noexcept;
 	XeenCombatExitCause exitCause() const noexcept;
 	XeenCombatRandom random() const noexcept;
-	XeenEquipmentResult equipment(const Ticket &,std::size_t,XeenInventoryCategory,std::size_t,XeenEquipmentOperation);
-	XeenTransferResult transfer(const Ticket &,std::size_t,std::size_t,XeenInventoryCategory,std::size_t);
-	XeenCombatResult beginApproach(const Ticket &);
-	XeenCombatResult approachAction(const Ticket &,XeenEncounterAction);
-	XeenCombatResult approachPulse(const Ticket &);
 	XeenCombatResult beginCombat(const Ticket &);
 	XeenCombatResult command(const Ticket &,XeenCombatCommand);
 	XeenCombatResult selectTarget(const Ticket &, unsigned row);
 	std::array<std::optional<XeenMonsterIdentity>,3> contacts() const noexcept;
 	std::optional<XeenMonsterIdentity> selectedTarget() const noexcept;
 	XeenCombatResult service(const Ticket &);
-	XeenCompletedEncounterTicket retireCompletedVictory(const Ticket &);
 	XeenCombatResult fail(const Ticket &,XeenCombatFailure=XeenCombatFailure::Observation) noexcept;
 	// Single-writer replacement notification, including byte-identical ABA.
 	void invalidate() noexcept;
@@ -207,7 +193,6 @@ private:
 	struct Impl;
 	std::unique_ptr<Impl> impl;
 	XeenCombatResult serviceConsequences(const Ticket &);
-	XeenCombatResult runApproach(const Ticket &,std::optional<XeenEncounterAction>);
 };
 }
 #endif
