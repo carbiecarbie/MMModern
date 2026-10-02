@@ -1,5 +1,7 @@
 # Milestone 27 - Playable Attack/Block encounter with original outcomes
 
+Historical record; not current rules or scope.
+
 **Milestone 27 is complete.** Stages 27A, 27B and 27C are accepted. This
 closed plan records the admitted domain, durable technical contracts,
 persistence boundary and final acceptance.
@@ -14,7 +16,7 @@ original monster and awards applicable XP exactly once within the session.
 The accepted foundation is the stable project status, closed M26 actor/approach
 contract, M24 transfer and M25 equipment contracts, and pinned ScummVM revision
 `6814ee9ba54582f5b5adcffab49efbbd8f589edd` recorded in
-[dependencies](dependencies.md). The implementation and
+[dependencies](../dependencies.md). The implementation and
 literal tests are authoritative for the admitted behavior below. Reference code
 and original-resource observations define the bounded compatibility target; no
 full ScummVM execution or commercial payload is part of this repository.
@@ -928,7 +930,7 @@ Milestone 27 completed its combined acceptance boundary:
 The accepted result is a bounded playable encounter, not general Xeen combat or
 map-20 traversal. It adds no save fields or version. Diagnostic27 remains
 unsaveable through Preparation, approach, combat, terminal outcomes and failures.
-[M28](roadmap.md#m28---durable-bounded-encounter-completion-and-revisit) remains
+[M28](../roadmap.md#m28---durable-bounded-encounter-completion-and-revisit) remains
 responsible for selecting a compatibility policy and persisting actor lifecycle,
 combat-derived roster/progression values and admitted context at a safe completed
 boundary. M28 planning and implementation require separate authorization.

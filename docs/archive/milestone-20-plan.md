@@ -1,5 +1,7 @@
 # Milestone 20 - Save and resume supported Clouds progress
 
+Historical record; not current rules or scope.
+
 **Status: Milestone 20 complete; 20A, 20B and 20C independently approved. M20-A01 through M20-A16 closed. Current stable milestone in the reviewed candidate, pending commit.**
 
 Prepared and approved on 2026-09-08. Final M20 approval is recorded in section 16.
@@ -25,8 +27,8 @@ Verified local checkout for this planning task:
 - Original installation: `F:/Games/gog/Might and Magic 4-5`, read-only. No
   original resources were inspected or modified for this planning task.
 
-Read [AGENTS.md](../AGENTS.md), [project status](project-status.md), the
-[approved roadmap](roadmap.md), [dependencies](dependencies.md), M19's current
+Read [AGENTS.md](../../AGENTS.md), [project status](../project-status.md), the
+[approved roadmap](../roadmap.md), [dependencies](../dependencies.md), M19's current
 specification/completion records, and relevant M17/M18 ownership, scope and
 acceptance sections. M15 ownership and M16 reconstruction contracts were
 consulted selectively. Earlier incomplete-stage statements are historical.

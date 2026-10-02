@@ -1,5 +1,7 @@
 # Milestone 43 - Bounded Vertigo Temple Heal and resurrection
 
+Historical record; not current rules or scope.
+
 ## Completed scope and acceptance boundary
 
 **M43 is completed and accepted.** Content 14 connects the existing Regional
@@ -19,7 +21,7 @@ city travel. Presentation limitations are recorded under [final acceptance](#fin
 ## Original behavior and provenance
 
 Original commercial resources remain external and unmodified. Reference
-interpretation uses the [pinned ScummVM revision](dependencies.md#pinned-scummvm-revision)
+interpretation uses the [pinned ScummVM revision](../dependencies.md#pinned-scummvm-revision)
 `6814ee9ba54582f5b5adcffab49efbbd8f589edd`:
 
 - [locations.cpp](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/locations.cpp):
@@ -333,7 +335,7 @@ cannot cancel mandatory departure. Only stock-operation overflow maps to
 
 ## Ownership, publication, input and persistence
 
-[XeenTempleHeal](../src/games/xeen/XeenTempleHeal.cpp) computes detached quote
+[XeenTempleHeal](../../src/games/xeen/XeenTempleHeal.cpp) computes detached quote
 and recovery values. Existing roster/supplement, purse, economy/context, world
 RNG/actors, camera and flags remain the sole authoritative owners.
 `XeenEncounterFlow` reuses its Smith Service continuation for Temple; `XeenEventFlow`
@@ -406,7 +408,7 @@ The connected witness starts a fresh content-14 Regional Journey with seed
 injury/death. It does not substitute HP, conditions, money or RNG. The Orc earns
 10 gold; blocking the entrance Slime until the sixth member is Dead establishes
 the recovery preimage. The executable action sequence and exact comparisons live
-in [XeenM43CliWitness](../tests/XeenM43CliWitness.cpp).
+in [XeenM43CliWitness](../../tests/XeenM43CliWitness.cpp).
 
 | Boundary | Durable witness values |
 | --- | --- |
@@ -421,14 +423,14 @@ input. Uninterrupted/restored branches return south, execute original reset and
 re-enter; the resurrected owner uses learned Magic Arrow in reset-Slime combat.
 Return Heal/visit checkpoint E is restarted in another process and continued
 through F, with exact encoded bytes and owner comparisons. See
-[XeenM43ProcessTests](../tests/XeenM43ProcessTests.cpp).
+[XeenM43ProcessTests](../../tests/XeenM43ProcessTests.cpp).
 
 A distinct fresh content-14 seed-7 production Buy witness preserves genuine
 M42 depletion, then restarts into paid Temple replacement, unpaid nontriggering
 departure and Training's separate member-day/departure branches. It compares all
 stock bytes and bounded/raw/rejection draw traces against the pinned-reference
 oracle; it never relabels a legacy save. See
-[XeenM43DepletedProcessTests](../tests/XeenM43DepletedProcessTests.cpp).
+[XeenM43DepletedProcessTests](../../tests/XeenM43DepletedProcessTests.cpp).
 
 Rule/Flow fixtures cover date and condition extremes, zero HP, Disease ordering,
 SP above the recomputed maximum, untouched owners/equipment, omitted-input proof,
@@ -438,10 +440,10 @@ These synthetic cases do not establish earned production progress. Original-data
 coverage independently enumerates route facings, both seams/forms, the exact
 4/103 actor closures, dormant identities, resources and cache reconstruction;
 compatibility tests preserve every legacy pair and reject crossed/unknown pairs.
-See [rules](../tests/XeenTempleRulesTests.cpp),
-[Flow](../tests/XeenTempleFlowTests.cpp),
-[original resources](../tests/XeenTempleOriginalTests.cpp) and
-[save-format coverage](../tests/XeenSaveFormatTests.cpp).
+See [rules](../../tests/XeenTempleRulesTests.cpp),
+[Flow](../../tests/XeenTempleFlowTests.cpp),
+[original resources](../../tests/XeenTempleOriginalTests.cpp) and
+[save-format coverage](../../tests/XeenSaveFormatTests.cpp).
 
 ## Final acceptance
 
@@ -458,12 +460,12 @@ See [rules](../tests/XeenTempleRulesTests.cpp),
   departure to day 10/minute 604, Quiet F9, complete process exit and restart.
 - **Accepted presentation limitation:** static `tmpl1.twn` frame 0 is loaded but
   fully obscured by the opaque Temple text panel in
-  [XeenSmithFlow](../src/app/XeenSmithFlow.cpp). The maintainer deferred its
-  visibility to broader [art/animation work](roadmap.md#deferred-presentation-work).
+  [XeenSmithFlow](../../src/app/XeenSmithFlow.cpp). The maintainer deferred its
+  visibility to broader [art/animation work](../roadmap.md#deferred-presentation-work).
   This is not an open acceptance defect or M43 prerequisite. Audio and animated
   service characters are likewise outside the accepted boundary.
 
-[Project status](project-status.md) owns current capabilities;
-[project history](project-history.md) owns chronology. Closure reaches the
-[roadmap broad-review boundary](roadmap.md#replanning-and-review-cadence) without
+[Project status](../project-status.md) owns current capabilities;
+[project history](../project-history.md) owns chronology. Closure reaches the
+[roadmap broad-review boundary](../roadmap.md#replanning-and-review-cadence) without
 selecting or authorizing M44.

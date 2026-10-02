@@ -1,5 +1,7 @@
 # Milestone 42 - Bounded Ironworks equipment purchase
 
+Historical record; not current rules or scope.
+
 ## Completed scope and acceptance boundary
 
 **COMPLETED AND ACCEPTED.** M42 connects actual generated Ironworks stock to
@@ -33,7 +35,7 @@ Inherited contracts retain their legacy meanings:
 
 Reference interpretation uses ScummVM
 `6814ee9ba54582f5b5adcffab49efbbd8f589edd`, as configured in
-[dependencies](dependencies.md). Decisive pinned sources are
+[dependencies](../dependencies.md). Decisive pinned sources are
 [ItemsDialog](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/dialogs/dialogs_items.cpp),
 [Party/BlacksmithWares](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/party.cpp),
 [Locations](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/locations.cpp),
@@ -407,6 +409,6 @@ expansion, generic trading infrastructure and Darkside gameplay remain excluded.
 Numeric side-1 stock is inherited generation/persistence only. M42 completion
 authorizes neither M43 implementation nor a roadmap reassessment. Commercial
 game data remains external and unmodified; original-data checks require a legally
-obtained installation. See [stable status](project-status.md),
-[history](project-history.md#m42---bounded-ironworks-equipment-purchase) and
-[future direction](roadmap.md#near-term).
+obtained installation. See [stable status](../project-status.md),
+[history](../project-history.md#m42---bounded-ironworks-equipment-purchase) and
+[future direction](../roadmap.md#near-term).

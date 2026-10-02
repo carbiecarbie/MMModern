@@ -220,7 +220,7 @@ uint8 arrays use validated ID minus one; their entries correspond to upstream
 index `id` for Weapons 1..34 and `id+35` for Armor 1..8. No other masks,
 generated catalog changes or runtime reference-table dependency are introduced.
 The bounded equipment and frame contracts belong in the
-[M25 specification](milestone-25-plan.md#equipment-domains-and-frame-contract).
+[M25 specification](archive/milestone-25-plan.md#equipment-domains-and-frame-contract).
 
 The predicates derive from `engines/mm/xeen/item.cpp`,
 `InventoryItems::passRestrictions/removeItem` and
@@ -244,7 +244,7 @@ GPL-3.0-or-later, attributed to the ScummVM developers in upstream `COPYRIGHT`,
 without warranty; preserve the corresponding source and attribution in
 redistribution. No merchant stock tables or commercial assets are embedded.
 The exact bounded dispatch, prices and separate departure operation belong in
-[M38's contract](milestone-38-plan.md).
+[M38's contract](archive/milestone-38-plan.md).
 
 `XeenEquipmentPurchase.cpp` additionally adapts the thirty-three ordinary
 weapon base costs from `LangConstants::WEAPON_BASE_COSTS` and the Buy divisor-0
@@ -255,7 +255,7 @@ ScummVM GPL-3.0-or-later-derived material attributed to the ScummVM developers
 in upstream `COPYRIGHT`; preserve their notices and corresponding source in
 redistributions. They embed no commercial resource or modifier/effect table.
 The plain-offer domain, immutable browsing adaptation, physical movement and
-content-specific stock admission belong in [M42's contract](milestone-42-plan.md).
+content-specific stock admission belong in [M42's contract](archive/milestone-42-plan.md).
 
 ## Bounded actor interpretation and approach provenance
 
@@ -282,7 +282,7 @@ availability semantics remain unchanged. The 60-byte parser enforces the CC
 65535-byte member bound separately. Missing data, malformed bytes and I/O failures
 remain distinct. The existing archive-index-construction limitation documented
 above still applies. Actor admission/context/persistence contracts belong in
-[M26](milestone-26-plan.md#final-ownership-and-lifecycle).
+[M26](archive/milestone-26-plan.md#final-ownership-and-lifecycle).
 
 ## MMModern configuration and validation
 

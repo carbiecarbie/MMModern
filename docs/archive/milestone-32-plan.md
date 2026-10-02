@@ -1,5 +1,7 @@
 # Milestone 32 - Regional Journey foundations
 
+Historical record; not current rules or scope.
+
 **Closed.** Milestone 32 established content contract 3 as the accepted Regional
 Journey foundation for the connected mainland of Clouds map 23. It retained the
 existing Application, world, party, Journey/encounter, Event, Presentation and

@@ -1,5 +1,7 @@
 # Milestone 38 - Vertigo Ironworks armor repair
 
+Historical record; not current rules or scope.
+
 ## Completed scope and acceptance boundary
 
 **COMPLETED AND ACCEPTED.** M38 connects bounded Vertigo Ironworks Armor Repair
@@ -41,7 +43,7 @@ below:
 - [M35 Event recovery/item use](milestone-35-plan.md),
   [M36 learned casting and publication](milestone-36-plan.md).
 - [M37 route, reset, retained regions and authority](milestone-37-plan.md),
-  [dependencies and resource adapters](dependencies.md).
+  [dependencies and resource adapters](../dependencies.md).
 
 ## Evidence and provenance
 
@@ -54,7 +56,7 @@ below:
    payload, extracted fixture or original file is a repository deliverable.
 2. **Pinned-reference-derived behavior:** ScummVM
    `6814ee9ba54582f5b5adcffab49efbbd8f589edd`, as configured in
-   [dependencies](dependencies.md). This is
+   [dependencies](../dependencies.md). This is
    reference interpretation, not independently observed DOS execution.
 3. **MMModern decisions:** the armor/material boundary, direct repair menu,
    static service illustration, temporal admission gate, owner/publication
@@ -733,5 +735,5 @@ that every player visits with a broken item. The original service's one-day exit
 means content 9 admits at most two visits before restocking would be required.
 Expanding that boundary needs a later specification/authorization. This is a
 completed bounded M38 slice; its closure does not authorize successor work.
-The next planning activity is the [focused post-M38 systems reassessment](roadmap.md#near-term),
+The next planning activity is the [focused post-M38 systems reassessment](../roadmap.md#near-term),
 not an already selected or authorized M39.

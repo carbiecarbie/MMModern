@@ -1,5 +1,7 @@
 # Milestone 24 - Usable party/item inspection and character-to-character transfer
 
+Historical record; not current rules or scope.
+
 ## Completion and authority
 
 **Milestone 24 complete. 24A accepted; 24B accepted.** Closure followed
@@ -13,10 +15,10 @@ identifies supported records from resources, and transfers one selected item to
 another active roster owner with visible success/refusal. Production disk saving
 and separate-process restart preserve the resulting ownership.
 
-[Project status](project-status.md) owns current capabilities and architecture;
-[roadmap](roadmap.md) owns future direction. References below use pinned ScummVM
+[Project status](../project-status.md) owns current capabilities and architecture;
+[roadmap](../roadmap.md) owns future direction. References below use pinned ScummVM
 `6814ee9ba54582f5b5adcffab49efbbd8f589edd`. The supported build configuration and
-reproduction procedure belong in [dependencies](dependencies.md).
+reproduction procedure belong in [dependencies](../dependencies.md).
 
 ## Architecture and ownership
 
@@ -124,7 +126,7 @@ do not supply catalog bytes. The pinned-blob design replaced compiler-based
 derivation because it gives a smaller deterministic provenance boundary.
 Generation uses Windows PowerShell/.NET and Git; the reproduction and atomic
 publication contract is in
-[dependencies](dependencies.md#build-generated-english-item-catalog).
+[dependencies](../dependencies.md#build-generated-english-item-catalog).
 
 At runtime, the explicit Dark-archive seam exposes **only `mae.xen` from
 `DARK.CC`** through `XeenAssetSource` and the existing `ScummVmXeenBridge` archive
@@ -762,4 +764,4 @@ normal-route certification, Darkside gameplay and localization remain outside M2
 Resetting the moved frame is its only equipment-state action.
 
 M25 planning and implementation are not authorized by M24 completion; future
-direction remains in the [roadmap](roadmap.md#current-planning-state).
+direction remains in the [roadmap](../roadmap.md#current-planning-state).

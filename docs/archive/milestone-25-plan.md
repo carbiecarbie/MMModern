@@ -1,5 +1,7 @@
 # Milestone 25 - Bounded equipment management and existing-rule feedback
 
+Historical record; not current rules or scope.
+
 ## Final status and scope
 
 **Milestone 25 is complete.** Stage 25A and stage 25B are accepted. Independent
@@ -12,10 +14,10 @@ synchronous one-byte mutation/result foundation; stage 25B integrated contextual
 input, transient authorization, feedback, recovery and production restart.
 
 Current architecture and public behavior are summarized in
-[project status](project-status.md). M24 transfer remains governed by the
+[project status](../project-status.md). M24 transfer remains governed by the
 [closed M24 plan](milestone-24-plan.md), item ownership and v2 persistence by
 [M21](milestone-21-plan.md#21a-item-ownership-and-storage), and dependency pinning
-and restriction-data provenance by [dependencies](dependencies.md).
+and restriction-data provenance by [dependencies](../dependencies.md).
 
 ## Reference provenance and bounded adaptation
 
@@ -35,7 +37,7 @@ The accepted behavior is adapted from pinned ScummVM revision
   supplies the decimal `ITEM_RESTRICTIONS` and `RESTRICTION_OFFSETS` values.
 
 The exact adapted numeric data, licensing and distribution obligations are in
-the [dependency provenance record](dependencies.md#bounded-equipment-restriction-data).
+the [dependency provenance record](../dependencies.md#bounded-equipment-restriction-data).
 Commercial game resources are not copied into these tables.
 
 ## Equipment domains and frame contract

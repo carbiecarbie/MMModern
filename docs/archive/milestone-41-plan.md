@@ -1,5 +1,7 @@
 # Milestone 41 - Vertigo Training and progression
 
+Historical record; not current rules or scope.
+
 ## Closed scope
 
 **COMPLETED AND ACCEPTED.** M41 connects a fresh Regional Journey, legitimately
@@ -18,7 +20,7 @@ numeric feedback are authored English interface text.
 
 Original rules are interpreted from the pinned ScummVM revision
 `6814ee9ba54582f5b5adcffab49efbbd8f589edd`, whose configuration/provenance belongs
-to [dependencies](dependencies.md#pinned-scummvm-revision), and bound to decoded
+to [dependencies](../dependencies.md#pinned-scummvm-revision), and bound to decoded
 original resources below. Sizes, offsets and CRC32 identify decoded resource bytes. Reference interpretation and resource/closure
 calculations are distinct from physical DOS observation. Inherited city/reset,
 repair, casting and stock contracts remain in [M37](milestone-37-plan.md),
@@ -691,5 +693,5 @@ Inherited M38/M39/M40 consumer and restart regressions remain required.
 
 M41 closes the accepted M39-M41 arc. The scheduled post-M41 broad roadmap
 reassessment is now due as a separate task; no successor milestone is selected
-or authorized here. See the [roadmap](roadmap.md#near-term),
-[stable status](project-status.md) and [concise history](project-history.md#m41---vertigo-training-and-progression).
+or authorized here. See the [roadmap](../roadmap.md#near-term),
+[stable status](../project-status.md) and [concise history](../project-history.md#m41---vertigo-training-and-progression).

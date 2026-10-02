@@ -1,9 +1,11 @@
 # Milestone 22 - Bounded ordinary outdoor object animation
 
+Historical record; not current rules or scope.
+
 **Milestone 22 is complete.** Stage 22A delivered pure explicit-phase rendering;
 22B integrated live ordinary outdoor animation through Application/Flow/SDL.
 This closed plan records the final contracts and [acceptance](#final-acceptance).
-Current capabilities are summarized in [project status](project-status.md).
+Current capabilities are summarized in [project status](../project-status.md).
 
 ## Baseline and post-M21 horizon review
 
@@ -34,13 +36,13 @@ The post-M21 horizon review selected M22 before M23 for these reasons:
   save compatibility debt blocks this work.
 
 The review retained **M22 -> M23**, with M23 provisional. M22 completion makes
-M23 the next planning candidate; [roadmap](roadmap.md) owns its scope and review
+M23 the next planning candidate; [roadmap](../roadmap.md) owns its scope and review
 cadence. The reference game counter is 20 Hz, but ordinary idle redraws use two
 counter ticks; that finding established the bounded 100 ms contract below.
 
 ## Pinned reference and exact semantics
 
-The authoritative revision from [dependencies.md](dependencies.md) is
+The authoritative revision from [dependencies.md](../dependencies.md) is
 `6814ee9ba54582f5b5adcffab49efbbd8f589edd`.
 
 Primary reference locations, all pinned to that revision:
@@ -582,7 +584,7 @@ motion, existing NPC portrait animation, coherent appearance across viewing dist
 M22 delivers bounded ordinary outdoor animation without extending indoor or
 scripted animation or persistent gameplay state. This is not full ScummVM
 host-loop timing emulation or certification of normal travel/playable regions.
-[Project status](project-status.md) owns the stable snapshot,
-[history](project-history.md#m22---ordinary-outdoor-object-animation) records the
-completed milestone, and [roadmap](roadmap.md) retains M23 as the next planning
+[Project status](../project-status.md) owns the stable snapshot,
+[history](../project-history.md#m22---ordinary-outdoor-object-animation) records the
+completed milestone, and [roadmap](../roadmap.md) retains M23 as the next planning
 candidate. Closure does not authorize M23 implementation.

@@ -1,5 +1,7 @@
 # Milestone 37 - Vertigo entry, initial traversal and return
 
+Historical record; not current rules or scope.
+
 ## Completed scope and inherited contracts
 
 **Completed and accepted.** Regional Journey contract 8 connects the admitted
@@ -7,8 +9,8 @@ Clouds mainland to the original Vertigo entrance, an eleven-cell indoor route,
 the original exit, return and revisit. Both regions support quiet save, complete
 process exit, fresh restore and continued play on one retained Journey.
 
-[Project status](project-status.md) owns the current capability snapshot and the
-[roadmap](roadmap.md) owns future direction. This contract inherits
+[Project status](../project-status.md) owns the current capability snapshot and the
+[roadmap](../roadmap.md) owns future direction. This contract inherits
 [M23](milestone-23-plan.md) indoor composition,
 [M28](milestone-28-plan.md), [M29](milestone-29-plan.md) and
 [M31](milestone-31-plan.md) ownership, publication and fresh authority;
@@ -33,7 +35,7 @@ archive assembled by the existing bridge from XEEN.CC's initial-save chunks, not
 Text and appearance resources come from XEEN.CC; shared monster statistics
 come from DARK.CC as in the accepted World-of-Xeen Clouds profile.
 
-The [documented dependency](dependencies.md) pins ScummVM revision
+The [documented dependency](../dependencies.md) pins ScummVM revision
 `6814ee9ba54582f5b5adcffab49efbbd8f589edd`. Relevant
 pinned reference sources are `engines/mm/xeen/scripts.cpp` (`cmdTeleport`,
 `cmdCallEvent`, `cmdReturn`, `cmdSpawn`, `cmdAlterEvent`, `cmdSetVar`,
@@ -712,4 +714,4 @@ M37 passed four separate acceptance classes; none substitutes for another:
 
 The accepted boundary preserves both regions' consequences, distinguishes explicit
 original reset from restore/revisit, and retains exact legacy domains. Future
-service scope and authorization belong in the [roadmap](roadmap.md#near-term).
+service scope and authorization belong in the [roadmap](../roadmap.md#near-term).

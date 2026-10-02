@@ -1,10 +1,12 @@
 # Milestone 23 - Static indoor objects and an original readable gravestone
 
+Historical record; not current rules or scope.
+
 **Milestone 23 is complete.** It delivered bounded static ordinary Clouds indoor
 objects through the existing indoor composition and certified the original
 Nightshadow gravestone interaction. This closed plan records the final rendering,
 ownership, persistence and [acceptance](#final-acceptance) contracts. Current
-capabilities are summarized in [project status](project-status.md).
+capabilities are summarized in [project status](../project-status.md).
 
 ## Goal and boundary
 
@@ -336,7 +338,7 @@ broader Nightshadow, town, dungeon, traversal or combat behavior.
 
 M23 delivers the accepted static indoor-object foundation without extending
 indoor animation, wall items, gameplay mutation categories or save state.
-[Project status](project-status.md) owns the stable snapshot,
-[history](project-history.md#m23---static-indoor-objects-and-first-visible-indoor-interaction)
-records the concise result, and [roadmap](roadmap.md#current-planning-state)
+[Project status](../project-status.md) owns the stable snapshot,
+[history](../project-history.md#m23---static-indoor-objects-and-first-visible-indoor-interaction)
+records the concise result, and [roadmap](../roadmap.md#current-planning-state)
 records that no successor milestone is currently promoted.

@@ -1,5 +1,7 @@
 # Milestone 17 - Party quest items and normal Phirna harvesting
 
+Historical record; not current rules or scope.
+
 **Status: 17A complete; 17B complete; independent final review approved.
 Milestone 17 is the latest stable milestone.**
 
@@ -31,7 +33,7 @@ the new harvesting acceptance must start at line 0.
 ## Verified baseline
 
 Planning verification on 2026-09-07 read `AGENTS.md`,
-[project-status.md](project-status.md), [the M16 plan](milestone-16-plan.md),
+[project-status.md](../project-status.md), [the M16 plan](milestone-16-plan.md),
 the relevant [M15 ownership/mutation policy](milestone-15-plan.md), current
 implementation and tests, and the pinned reference described below.
 
@@ -104,7 +106,7 @@ narrow structural case specified below.
 
 ### Pinned dependency
 
-Use the full revision from [dependencies.md](dependencies.md):
+Use the full revision from [dependencies.md](../dependencies.md):
 
 `6814ee9ba54582f5b5adcffab49efbbd8f589edd`
 

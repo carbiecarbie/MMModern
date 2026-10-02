@@ -1,5 +1,7 @@
 # Milestone 15 - Mutable session-world state and Remove
 
+Historical record; not current rules or scope.
+
 **Status: complete; 15A, 15B, and 15C complete.**
 
 **Next milestone: not defined or approved by this plan.**
@@ -91,7 +93,7 @@ result from formalizing this plan.
 
 ### Pinned reference
 
-Use the ScummVM revision documented in [dependencies.md](dependencies.md):
+Use the ScummVM revision documented in [dependencies.md](../dependencies.md):
 
 `6814ee9ba54582f5b5adcffab49efbbd8f589edd`
 
@@ -223,7 +225,7 @@ Validation: Debug build, 16/16 focused tests, 33/33 final CTest, all nine existi
 real-data smokes, all eight documented SDL runtime scenarios, and visual review
 of the five 320x200 M14 presentation frames passed. The build used the clean
 pinned ScummVM source at `6814ee9ba54582f5b5adcffab49efbbd8f589edd` and its
-existing UCRT64 artifacts. See [project-status.md](project-status.md) for exact
+existing UCRT64 artifacts. See [project-status.md](../project-status.md) for exact
 local configuration and results. The remaining subsections retain the approved
 15A requirements; completing 15A does not authorize 15B.
 
@@ -653,7 +655,7 @@ approved coverage.
 No Milestone 16 scope is defined or approved here. A later planning task must
 establish the next milestone before implementation begins.
 
-Follow [AGENTS.md](../AGENTS.md) for implementation validation and documentation
+Follow [AGENTS.md](../../AGENTS.md) for implementation validation and documentation
 updates. Do not start subsequent stages without explicit authorization. Do not
 mark a stage or milestone complete before its required validations pass; do not
 push or create milestone tags without explicit approval.

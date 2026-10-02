@@ -1,8 +1,10 @@
 # Milestone 31 - First connected Clouds vertical slice
 
+Historical record; not current rules or scope.
+
 **Status: completed and accepted.** This plan owns the M31 contract;
 [M30](milestone-30-plan.md) owns the inherited expedition, combat and schema-2
-details. [Project status](project-status.md) owns the current technical snapshot.
+details. [Project status](../project-status.md) owns the current technical snapshot.
 
 ## Objective and acceptance boundary
 
@@ -34,9 +36,9 @@ neither general map-20 exploration nor travel from Vertigo.
 The accepted original-resource evidence is the
 [M18 Bone Whistle checkpoint](milestone-18-plan.md#10-exact-original-bone-whistle-checkpoint),
 implemented in `XeenEventInterpreter`/`XeenEventSystem` and exercised by
-[`WhoWillIntegrationTest.cpp`](../tests/WhoWillIntegrationTest.cpp).
+[`WhoWillIntegrationTest.cpp`](../../tests/WhoWillIntegrationTest.cpp).
 M30 independently admits the same topology in
-[`XeenActorApproach::validateEnvironment`](../src/games/xeen/XeenActorApproach.cpp).
+[`XeenActorApproach::validateEnvironment`](../../src/games/xeen/XeenActorApproach.cpp).
 Do not extract or bundle original resources or replace their text with literals.
 
 `maze0020.evt` contains 16 original records. These five records are at Clouds
@@ -71,7 +73,7 @@ instructions, with no new prompt or grant.
 Pinned reference: ScummVM
 `6814ee9ba54582f5b5adcffab49efbbd8f589edd`, Xeen `scripts.cpp`
 (`cmdWhoWill`, `cmdRemove`, `cmdMakeNothingHere`, Action 44 and dispatcher),
-with the dependency/provenance policy in [dependencies](dependencies.md).
+with the dependency/provenance policy in [dependencies](../dependencies.md).
 M18/M15 already establish the source-to-MMModern continuation adaptation; M31
 preserves it rather than introducing another script implementation.
 
@@ -107,10 +109,10 @@ must not turn Event into Quiet. On terminal event handling, transfer authority
 to the existing Presentation boundary without a quiet gap. Only its matching
 successful SDL presentation opens mutable input and capture again.
 
-[`XeenEventPublication`](../src/games/xeen/XeenEventPublication.h) is a noncopyable,
+[`XeenEventPublication`](../../src/games/xeen/XeenEventPublication.h) is a noncopyable,
 stack-bound capability issued by the live Flow continuation. It binds the
 Journey ticket/lease and expected operation to the retained
-[`XeenRestoreGuard`](../src/games/xeen/XeenRestoreGuard.h). The existing interpreter
+[`XeenRestoreGuard`](../../src/games/xeen/XeenRestoreGuard.h). The existing interpreter
 operations and party/world publishers retain their semantics; the capability
 authorizes publication rather than reproducing those operations in Flow. It admits
 only the chain above and its effective-None/cancellation paths. Successful
@@ -223,7 +225,7 @@ Object/event additions change the variable base length, not the Journey suffix.
 Do not serialize a completion Boolean, WhoWill selection, event lease, request,
 page, instruction cursor or retained message.
 
-[`XeenSaveState`](../src/games/xeen/XeenSaveState.cpp) and `XeenActorApproach`
+[`XeenSaveState`](../../src/games/xeen/XeenSaveState.cpp) and `XeenActorApproach`
 admit mutable objective overlays independently of immutable original EVT/MOB
 topology. Original records remain validated after removal, including on restored
 navigation, survivor attachment and cache reconstruction. Effective None is an
@@ -265,7 +267,7 @@ and Journey schema-1/content-1 retain their distinct meanings and behavior.
 ## Connected acceptance boundary
 
 The main original connected witness uses schedule 1 in
-[`XeenExpeditionGameplayTests.cpp`](../tests/XeenExpeditionGameplayTests.cpp):
+[`XeenExpeditionGameplayTests.cpp`](../../tests/XeenExpeditionGameplayTests.cpp):
 seed 1, settle approach after each forward step, Attack against the first
 original-ordered contact, five eastward moves, then three Wait actions to resolve
 the Zombie pair. Existing checkpoints are End minutes 491/522/565, with Rebecca
@@ -309,9 +311,9 @@ route survives without recovery and collection has no HP/SP, time or RNG cost.
   acceptance passed along the defined route with no observed defect.
 
 The focused regression coverage lives in
-[`XeenJourneyEventTests.cpp`](../tests/XeenJourneyEventTests.cpp),
-[`XeenExpeditionTests.cpp`](../tests/XeenExpeditionTests.cpp),
-[`XeenWorldTests.cpp`](../tests/XeenWorldTests.cpp) and the connected gameplay
+[`XeenJourneyEventTests.cpp`](../../tests/XeenJourneyEventTests.cpp),
+[`XeenExpeditionTests.cpp`](../../tests/XeenExpeditionTests.cpp),
+[`XeenWorldTests.cpp`](../../tests/XeenWorldTests.cpp) and the connected gameplay
 harness linked above. Images and automated input remain distinct from the
 maintainer's physical acceptance.
 

@@ -1,5 +1,7 @@
 # Milestone 30 - Bounded expedition encounter integration
 
+Historical record; not current rules or scope.
+
 **Status: completed and accepted.** M30A established the grouped expedition
 domain and durable representation; M30B connected it to the production Journey,
 presentation, SDL controls and startup restoration. Milestone 30 extends the

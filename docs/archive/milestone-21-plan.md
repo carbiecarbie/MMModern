@@ -1,9 +1,11 @@
 # Milestone 21 - Myra's return exchange and bounded item rewards
 
+Historical record; not current rules or scope.
+
 **Milestone 21 is complete.** Stages 21A-21D are accepted. This closed record
 preserves the final specification, architectural decisions and acceptance boundary.
-See [project status](project-status.md) for the current technical snapshot,
-[history](project-history.md) for completed milestones and [roadmap](roadmap.md)
+See [project status](../project-status.md) for the current technical snapshot,
+[history](../project-history.md) for completed milestones and [roadmap](../roadmap.md)
 for future direction. Completion does not authorize another milestone.
 
 ## Goal and final scope
@@ -33,7 +35,7 @@ exchange transaction, capability toggle, Myra-specific script shortcut or gamepl
 ## Original-data and reference contracts
 
 Reference findings use the pinned ScummVM revision in
-[dependencies.md](dependencies.md): `engines/mm/xeen/scripts.cpp`
+[dependencies.md](../dependencies.md): `engines/mm/xeen/scripts.cpp`
 (`cmdTakeOrGive`, `cmdGiveEnchanted`, `checkEvents`), `party.cpp`
 (`giveTreasure`, `arePacksFull`, `giveTreasureToCharacter`, `giveTake`),
 `item.h/.cpp` and `character.cpp`. These findings explain the bounded choices;

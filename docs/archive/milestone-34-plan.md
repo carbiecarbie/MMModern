@@ -1,5 +1,7 @@
 # Milestone 34 - Original disengagement and encounter lifecycle
 
+Historical record; not current rules or scope.
+
 ## Status, objective and acceptance boundary
 
 **Completed and accepted.**
@@ -35,7 +37,7 @@ remain authoritative except for the explicit new-content changes below.
 Original-resource facts below come from read-only commercial data; reference
 algorithms come from ScummVM revision
 `6814ee9ba54582f5b5adcffab49efbbd8f589edd`, as pinned in
-[dependencies](dependencies.md). They are not physical observations of the DOS
+[dependencies](../dependencies.md). They are not physical observations of the DOS
 executable. Stable-slot participation and explicit exit causes are bounded
 integration decisions that preserve source semantics without compacted-index or
 incidental mode artifacts.
@@ -643,6 +645,6 @@ conditions/items/XP/purse, dormant or ready monster consequences and continuous
 time/RNG. It must consume those owners rather than reconstructing history from
 old encounter UI, and must revisit treasure readiness if adding a new producer.
 M34 does not execute that quest or introduce recovery. M35 is the next planned
-unit in the [approved roadmap](roadmap.md#approved-m33-m35-arc); M34 completion
+unit in the [approved roadmap](../roadmap.md#approved-m33-m35-arc); M34 completion
 does not authorize its specification or implementation. Broader roadmap
 reassessment remains associated with M35 arc closure, subject to existing triggers.

@@ -1,5 +1,7 @@
 # Milestone 39 - Bounded already-learned combat casting
 
+Historical record; not current rules or scope.
+
 ## Completion and scope
 
 **Completed and accepted.** M39 connects existing learned books and finite
@@ -10,7 +12,7 @@ process exit, fresh restore and further play. Fresh Regional Journey uses
 **envelope v4 / schema 8 / content 10**. Older content retains its behavior,
 including combat C refusal.
 
-The [roadmap](roadmap.md#near-term) retains the accepted M39-M41 sequence.
+The [roadmap](../roadmap.md#near-term) retains the accepted M39-M41 sequence.
 M40 planning/specification is next; completion does not authorize its implementation.
 
 Inherited contracts remain in their natural homes:
@@ -37,7 +39,7 @@ opportunity. Combat casting does not use that exploration continuation.
 
 Selected numerical behavior follows ScummVM revision
 `6814ee9ba54582f5b5adcffab49efbbd8f589edd`; configuration and attribution belong to
-[dependencies](dependencies.md#pinned-scummvm-revision). Decisive reference areas
+[dependencies](../dependencies.md#pinned-scummvm-revision). Decisive reference areas
 are Xeen `spells.cpp`, `dialogs/dialogs_spells.cpp`, `interface.cpp`, `combat.cpp`,
 `character.cpp`, and the spell tables in `devtools/create_mm/create_xeen/constants.cpp`.
 This is pinned-reference interpretation, not independently observed DOS behavior.

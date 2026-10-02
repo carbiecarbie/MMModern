@@ -1,5 +1,7 @@
 # Milestone 36 - Learned exploration casting
 
+Historical record; not current rules or scope.
+
 ## Final scope and acceptance boundary
 
 **Completed and accepted.** M36 adds learned First Aid and Awaken in fresh
@@ -11,7 +13,7 @@ and Awaken are distinct learned effects, not item-use shortcuts.
 Fresh `--journey-region` selects content contract 7. Contract 7 inherits the
 contract-6 prepared party, mainland, actors, events, well, antidote, Shoot, Run,
 consequences and treasure. It adds learned exploration casting and knowledge
-persistence. The [roadmap](roadmap.md#near-term) records M37 as the next planning
+persistence. The [roadmap](../roadmap.md#near-term) records M37 as the next planning
 unit; M36 completion grants no authorization to implement it.
 
 Inherited authority lives in [M28](milestone-28-plan.md#completion-authority-and-retirement),
@@ -26,7 +28,7 @@ These remain authoritative for their domains; M36 does not re-specify them.
 ## Original-data and reference provenance
 
 The pinned ScummVM revision and configuration are in
-[dependencies.md](dependencies.md#pinned-scummvm-revision). Original
+[dependencies.md](../dependencies.md#pinned-scummvm-revision). Original
 `XEEN.CC/maze.chr` contains thirty 354-byte character records. Each owner's
 39 raw learned flags occupy offsets 121..159; the class-category slot is
 separate from a global spell ID and from any miscellaneous item spell ID.

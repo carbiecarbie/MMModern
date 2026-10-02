@@ -1,5 +1,7 @@
 # Milestone 18 - WhoWill and Bone Whistle collection
 
+Historical record; not current rules or scope.
+
 **Status: 18A complete and independently approved; 18B complete on 2026-09-08.
 Milestone 18 is the latest stable milestone within the approved local scope.**
 
@@ -36,9 +38,9 @@ defensive validation where the reference has no safe behavior.
 
 ## 2. Verified baseline and authority
 
-The investigation read `AGENTS.md`, [project status](project-status.md),
-[dependencies](dependencies.md), [M17](milestone-17-plan.md) and the
-[README](../README.md), then inspected the relevant implementation/tests.
+The investigation read `AGENTS.md`, [project status](../project-status.md),
+[dependencies](../dependencies.md), [M17](milestone-17-plan.md) and the
+[README](../../README.md), then inspected the relevant implementation/tests.
 
 - Investigation branch: `main`, initially clean.
 - Investigation HEAD: `8d62700274f250448489bd90b99fc5827e15dce1`.

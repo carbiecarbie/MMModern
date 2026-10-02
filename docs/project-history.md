@@ -1,410 +1,119 @@
 # MMModern - Project History
 
-This is a concise summary of major completed milestones, not the authority for
-current state or detailed validation. Read [project status](project-status.md)
-for today's capabilities and boundaries, [roadmap](roadmap.md) for future
-direction, and the linked milestone plans for detailed decisions and evidence.
-Historical limitations in those plans describe their recorded boundaries.
-
-## M1-M12 - Pre-public foundation
-
-- By the M13 public baseline, the project had established original-resource
-  loading, outdoor/indoor rendering, navigation/collision, party loading and
-  the initial event foundation.
-- Detailed M1-M12 milestone history is not reconstructed where surviving
-  repository evidence is insufficient; these capabilities are not assigned to
-  individual early milestones without evidence.
-
-## M13 - Public baseline and event execution
-
-- Established the initial public MMModern codebase and first public repository.
-- Provided functional Xeen event decoding/execution, automatic events,
-  conditions, calls/returns, teleports and game flags alongside the existing
-  rendering, navigation and party foundation.
-- Included automated tests and manual runtime validation. No dedicated M13 plan
-  survives in the current documentation tree.
-
-## M14 - Manual interaction and original text
-
-- Added Space interaction from the current cell/facing independently of the
-  automatic-event trigger gate, plus original event-text resource lookup.
-- Added resumable display, acknowledgment and Yes/No execution with camera/flag
-  transaction semantics across suspension.
-- Integrated original fonts, labels/windows and paginated text into gameplay's
-  indexed framebuffer and SDL input loop; Castle Basenji connected original
-  dialogue choices to teleport presentation. No dedicated M14 plan survives in
-  the current documentation tree; dependency validation also records its
-  integration controls in [dependencies.md](dependencies.md).
-
-## M15 - Session-owned world mutations
-
-- Established side-aware map identity and stable original object/event record
-  identities independent of disposable caches.
-- Implemented Remove as immediate session-owned object/event overlays, retaining
-  original metadata and logical/physical execution semantics.
-- Established same-session reconstruction and fresh-session isolation. See the
-  [Milestone 15 plan](milestone-15-plan.md).
-
-## M16 - Static outdoor objects and visual Remove
-
-- Resolved supported Clouds static visuals using World of Xeen metadata and
-  integrated objects with outdoor terrain direction, scale, clipping and order.
-- Added immediate scene refresh for Remove and presentation rebasing that retains
-  valid text/response state through world changes and cache reconstruction.
-- Kept selection and session ownership independent of rendering. See the
-  [Milestone 16 plan](milestone-16-plan.md).
-
-## M17 - Quest-item counters and Phirna collection
-
-- Added party-owned Clouds quest-item counters, original loading, possession
-  comparisons and bounded immediate grants.
-- Completed original local Phirna harvesting: one Root, visible Remove, retained
-  success text and repeat prevention, with No/already-owned controls.
-- Preserved ownership/removal across same-session reconstruction and restored
-  initial state in fresh sessions. See the [Milestone 17 plan](milestone-17-plan.md).
-
-## M18 - WhoWill and Bone Whistle collection
-
-- Added resumable WhoWill selection, eligibility feedback and cancellation,
-  with temporary character context used by current-SP comparisons.
-- Completed the original local Bone Whistle selection/acknowledgment/grant/Remove
-  flow, including cancellation/retry and repeat prevention.
-- Validated collection through session reconstruction and fresh-session controls.
-  See the [Milestone 18 plan](milestone-18-plan.md).
-
-## M19 - NPC dialogue and Myra's request
-
-- Added Clouds NPC mode-1 presentation with original portraits, bounded
-  speech/rest animation, positioned titles and paginated acknowledgment.
-- Added party-owned Clouds quest flags, original loading and bounded immediate
-  set; completed Myra's no-Root request and recorded quest flag 2.
-- Established request/revisit behavior while retaining an explicit unsupported
-  return-consumption boundary. See the [Milestone 19 plan](milestone-19-plan.md).
-
-## M20 - Save and resume supported Clouds progress
-
-- Added versioned value snapshots and validated restoration into existing owners
-  for camera, modeled party/roster, independent flags/counters and world removals.
-- Added local Windows F9 saving and startup resume, stable-boundary refusal,
-  safe handled-failure replacement and resource compatibility checks.
-- Accepted Phirna, Bone Whistle, Myra request and cumulative multi-map progress
-  across process restarts, with fresh-session controls. See the
-  [Milestone 20 plan](milestone-20-plan.md) for format and acceptance evidence.
-
-## M21 - Myra's return exchange and bounded item rewards
-
-- Added complete character-held item records and save v2 persistence, with narrow
-  legacy v1 restoration that preserves saved values.
-- Completed deterministic reward production/delivery/finalization and the original
-  local Myra request -> Phirna collection -> Myra return exchange.
-- Accepted completed-exchange production F9 saving and separate-process/CLI
-  restart, preserving exact rewards without replay and with reconstruction,
-  revisit and fresh-session controls. See the [Milestone 21 plan](milestone-21-plan.md).
-
-## M22 - Ordinary outdoor object animation
-
-- Added pure explicit-phase rendering of ordinary Clouds outdoor object cycles,
-  preserving directional metadata, placement, sprite safety and static controls.
-- Integrated live stationary animation through the existing Flow/Application/SDL
-  idle path, with transient 100 ms timing independent of NPC portraits and
-  semantic presentation.
-- Preserved Remove identity, cache reconstruction and save compatibility, with
-  fresh timing on restoration. Automated and original-data validation,
-  independent review and maintainer native physical acceptance passed. See the
-  [Milestone 22 plan](milestone-22-plan.md).
-
-## M23 - Static indoor objects and first visible indoor interaction
-
-- Added bounded static ordinary indoor-object composition with original
-  directional appearances, twelve placements, scale masks, exact wall predicates
-  and ordered wall/object raster occlusion.
-- Reused existing object identity, checked visual, event/Flow/Presenter and
-  persistence owners; no new persistent state or save version was introduced.
-- Certified the original Nightshadow gravestone interaction with automated and
-  original-data validation, independent review and maintainer physical SDL
-  acceptance. See the [Milestone 23 plan](milestone-23-plan.md).
-
-## M24 - Usable party/item inspection and character-to-character transfer
-
-- Accepted a bounded read-only item catalog with reproducible source-derived
-  English names and optional external commercial material names.
-- Added active-character condition/HP/SP and nine-slot, four-category inspection,
-  plus character-to-character transfer with explicit confirmation and feedback.
-- Reused authoritative roster owners, including aliases, and existing save arrays;
-  resulting ownership survives production saving and a separate process restart.
-- Completed automated/original-data validation, independent technical review and
-  maintainer physical SDL acceptance. See the [Milestone 24 plan](milestone-24-plan.md).
-
-## M25 - Bounded equipment management and existing-rule feedback
-
-- Stage 25A added bounded source-derived equipment legality and a synchronous,
-  typed one-byte frame mutation/result foundation.
-- Stage 25B connected contextual E to the existing inventory, Flow and SDL path,
-  with explicit-reselection and stale-selection protection, truthful feedback for
-  modeled statistics, and existing save/restart behavior.
-- Equipment preserves physical slots and remains separate from M24 transfer and
-  its compaction semantics.
-- Automated and original-data validation, independent technical review and
-  maintainer physical acceptance completed. See the
-  [Milestone 25 plan](milestone-25-plan.md).
-
-## M26 - Visible original actor approach and engagement
-
-- M26A established resource-derived original monster identities, world-owned live
-  actor state and the deterministic activation/approach domain with separate
-  action/pulse publications and stale/reentrant authorization guards.
-- M26B integrated typed outdoor actor commands, independent gameplay/cosmetic
-  timing and period Wait through production Flow/SDL, ending at terminal
-  same-cell engagement before combat.
-- Accepted original forest occlusion preserves source-faithful composition;
-  approach/engagement presents an identifiable Skeleton. The diagnostic session
-  remains unsaveable, with no save-format change.
-- Automated/original-data validation, independent technical review and maintainer
-  native physical SDL acceptance completed. See the
-  [Milestone 26 plan](milestone-26-plan.md).
-
-## M27 - Playable Attack/Block encounter with original outcomes
-
-- Added a bounded playable melee exchange against the admitted map-20 Skeleton,
-  with deterministic Attack/Block turns, mandatory retaliation, injury,
-  conditions, armor breakage and terminal victory or defeat.
-- Kept combat authority in the existing world/party/roster owners and production
-  Flow coordination, with retained tickets, deterministic gameplay RNG and
-  once-only actor removal/XP publication across presentation/cache rebuilds.
-- Added original MON/ATT combat appearance in the source-ordered outdoor scene
-  and readable live roster/outcome presentation; the entire diagnostic remains
-  unsaveable pending M28.
-- Automated and original-data validation, independent technical review and
-  maintainer physical SDL victory, loss and regression acceptance completed. See
-  the [Milestone 27 plan](milestone-27-plan.md).
-
-## M28 - Durable bounded encounter completion and revisit
-
-- Added guarded retirement of a successfully ended Diagnostic27 victory into
-  world/party/roster/camera-bound quiescent completed authority.
-- Added save v3 and fresh-owner restart for the minimum completed identity,
-  context and owner supplements, reconstructing all 27 actors from compatible
-  resources with the admitted Skeleton's canonical defeated overlay.
-- Connected production F9, read-only completed inspection and bounded true R
-  revisit while preserving exact party state and preventing combat, XP, event or
-  equipment replay.
-- Automated and original-data process validation, independent implementation
-  review and maintainer physical lifecycle acceptance completed. See the
-  [Milestone 28 plan](milestone-28-plan.md).
-
-## M29 - Mutable encounter continuity and durable journey state
-
-- Established a bounded mutable Journey whose party, context, all 30 owner
-  supplements/progression and world-owned actor consequences persist across an
-  automatically attached encounter and guarded return from successful End.
-- Added Journey-only save v4 and fresh-owner production restart, preserving
-  exact mutable state and the live or defeated/accounted Skeleton without
-  replaying initialization, combat or item actions.
-- Connected `--journey-skeleton`, existing inventory/equipment, four-cell
-  navigation, Attack/Block combat and eligible F9 saving through the production
-  Application/Flow/SDL path.
-- Automated and original-data process validation, independent implementation
-  review and maintainer physical acceptance completed. See the
-  [Milestone 29 plan](milestone-29-plan.md).
-
-## M30 - Bounded expedition encounter integration
-
-- Extended the production Journey with a descriptor-admitted six-cell Bone
-  Whistle expedition, grouped Skeleton/Zombie combat, identity-bound target
-  selection, joining, Zombie multiattack/Disease and readable multi-actor
-  MON/ATT consequences.
-- Added world-owned Journey RNG continuation and v4 schema-2 current-state
-  persistence for Luck, four influencing actors and accumulated party/item/XP
-  state, with startup-only separate-process restoration and no gameplay replay.
-- Kept the objective Deferred before script dispatch, preserving the existing
-  Journey owners and quiet authority as the M31 integration seam; contract-1
-  `--journey-skeleton` behavior remains compatible.
-- Automated, original-resource and process validation, independent implementation
-  acceptance and maintainer physical SDL acceptance completed. See the
-  [Milestone 30 plan](milestone-30-plan.md#final-acceptance).
-
-## M31 - First connected Clouds vertical slice
-
-- Connected original Bone Whistle WhoWill/discovery/acknowledgment/grant/Remove
-  to the production expedition through existing Journey, party and world owners.
-- Preserved accumulated encounters, injuries, equipment, XP and surviving actors
-  through collection, return, explicit saving and separate-process continuation
-  without replay or a new save format.
-- Automated and original-resource/restart validation, independent implementation
-  review and native-frame inspection, and separate maintainer physical SDL
-  acceptance completed. See the
-  [Milestone 31 plan](milestone-31-plan.md#final-acceptance).
-
-## M32 - Regional Journey foundations
-
-- Established content contract 3 as a resource-derived, map-local Journey over
-  the connected mainland of Clouds map 23, with complete ownership and regional
-  scheduling of all 19 original actors.
-- Added reusable separation between party reachability, whole-map actor influence
-  and exact event admission, including the original automatic sign and truthful
-  terminal boundaries for regional ranged action, contact and unsupported time
-  processing before combat/consequence support.
-- Added Journey v4 schema/content 3/3 with complete regional actor/context state,
-  startup-only restoration and immutable resource-preimage/internal-identity
-  authority across disposable cache reloads while preserving legacy save/Journey
-  domains.
-- Automated and original-resource/process validation, final independent technical
-  review acceptance and maintainer physical SDL acceptance completed. See the
-  [Milestone 32 plan](milestone-32-plan.md#final-acceptance).
-
-## M33 - Faithful mainland combat and consequences
-
-- Extended the Regional Journey with Orc/Snake/Toad and inherited undead combat,
-  grouped contact/joining, enemy ranged attacks, player Shoot, Poison/Sleep,
-  consequence-aware time, XP/gold and bounded level-1 generated equipment.
-- Kept wounds, defeat accounting, conditions, purse/pending treasure and RNG on
-  authoritative world/party owners through exact 4/4 save/restart and further
-  mutation, while preserving legacy Journey contracts.
-- Separated semantic input authority from immutable presented-frame identity,
-  preserving fresh movement during cosmetic redraws and strict frame handoff.
-- Full build, 95/95 CTest and 432 process/witness cases passed; independent
-  technical review accepted the implementation. Separately, the maintainer
-  completed physical native-SDL acceptance. See the
-  [Milestone 33 plan](milestone-33-plan.md#final-acceptance).
-
-## M34 - Original disengagement and encounter lifecycle
-
-- Added individual Run and partial-party combat, guarded non-victory retirement,
-  original fixed relocation, casualty and cause-specific treasure consequences.
-- Preserved wounded survivors through return/re-engagement and exact 5/5 restart,
-  including dormant item reactivation without forfeited-gold or XP replay;
-  legacy Journey 1/1-4/4 retain their meanings.
-- Full build and 95/95 CTest, required original-resource/process witnesses and
-  exact cross-process continuation passed. Independent technical re-review
-  accepted the corrected immediate-reattachment presentation. Separately, the
-  maintainer completed all required physical native-SDL checks after correction
-  with no issues. See the [Milestone 34 plan](milestone-34-plan.md#final-acceptance).
-
-## M35 - Connected Myra quest and local recovery
-
-- Connected explicit Myra request, ordinary map-23 travel/encounters, Phirna
-  collection and return exchange on the same Regional Journey owners. Added
-  selected well recovery and exploration-only use of the delivered antidote,
-  preserving M33/M34 injuries, conditions, survivor and treasure consequences.
-- Journey v4 schema/content 6/6 preserves original world flag 16 and exact
-  quest, item and consequence continuation across fresh-process restart;
-  legacy 1/1-5/5 retain their meanings.
-- Full build and 96/96 CTest, genuine original-resource/CLI route and restart
-  comparisons passed. Independent review defects were corrected and focused
-  independent re-review returned ACCEPT with no material findings. Separately,
-  the maintainer completed physical native-SDL route and restart acceptance.
-  See the [Milestone 35 plan](milestone-35-plan.md#exclusions-and-final-acceptance).
-
-## M36 - Learned exploration casting
-
-- Added original thirty-owner learned books and resource-named, bounded
-  exploration First Aid and Awaken in Regional Journey contract 7, while
-  preserving unsupported learned spells as visible knowledge.
-- Added modal casting with concrete-frame input authority, exact SP/refund and
-  ten-minute/actor consequences, and Journey v4 schema/content 7/7 fresh-process
-  continuation without replay or legacy-domain upgrade.
-- Full build, 97/97 CTest and genuine original-resource/process routes passed.
-  Independent review accepted the corrected implementation with no remaining
-  findings. Separately, the maintainer completed physical native-SDL casting,
-  cancellation, settlement and restart acceptance. See the
-  [Milestone 36 plan](milestone-36-plan.md#exclusions-and-final-acceptance).
-
-## M37 - Vertigo entry, initial traversal and return
-
-- Connected the original mainland entrance to an eleven-cell Vertigo route,
-  logical tile seam, Ironworks outside-door label and complete exit/revisit,
-  including original flag-9 reset semantics and retained two-region state.
-- Added bounded town sky/object/actor composition and native-palette Slime
-  combat; Journey v4 schema/content 8/8 preserves both regions and exact
-  continuation without reset replay or legacy-domain upgrade.
-- Full build and 102/102 CTest, original-resource A/B/C/D distinct-process
-  continuation and independent technical review passed. Separately, the
-  maintainer completed physical native-SDL route and restart acceptance. See the
-  [Milestone 37 plan](milestone-37-plan.md#exclusions-and-final-acceptance).
-
-## M38 - Vertigo Ironworks armor repair
-
-- Extended the admitted route to original Ironworks Armor Repair, connecting
-  carried gold and broken supported armor through atomic payment/item mutation.
-- Added a separate one-day departure for every admitted visit, allowing day
-  8 to 9 and 9 to 10, with the next admission refused before excluded restocking.
-  Journey v4 schema 8/content 9 preserves exact two-region continuation;
-  legacy 8/8 and older domains retain their capabilities.
-- Full build, 104/104 CTest, five supplemental original-resource targets and
-  53 terminated child-process acceptance passed. Independent technical review
-  returned ACCEPT with no material or actionable minor findings. Separately,
-  maintainer physical native-SDL
-  repair, departure and fresh-process restart acceptance passed. See the
-  [Milestone 38 plan](milestone-38-plan.md#final-acceptance).
-
-## M39 - Bounded already-learned combat casting
-
-- Connected Magic Arrow, First Aid and Awaken to the existing combat owner,
-  with stable participant/target semantics, exact cost/refund/action behavior,
-  original Arrow RNG/damage and shared wound/lethal/XP/treasure consequences.
-- Added bounded native projectile/result presentation and retained semantic
-  input authority across same-ticket redraws while requiring each new concrete
-  frame to be presented. Journey v4 schema 8/content 10 preserves settled
-  consequences through restart; legacy 8/9 and older behavior remains isolated.
-- Build, full CTest, process validation and independent technical review passed;
-  separately, maintainer physical native-SDL acceptance passed. See the
-  [Milestone 39 plan](milestone-39-plan.md#final-acceptance).
-
-## M40 - Bounded service-day continuation
-
-- Added repeated admitted Ironworks repair across bounded same-year service
-  days, complete two-side/eight-shop merchant generation, shared party bank
-  balances and stock regeneration/interest with atomic departure and world RNG.
-- Added envelope-v4 schema 9/content 11 exact economy/service-day save/restart,
-  retaining M39 combat casting and legacy 8/9 and 8/10 behavior. Complete
-  mutation/clock guards preserve monotonic integrity failure, including ABA.
-- Build, full 114/114 CTest, original-resource/process continuation and independent
-  technical review including focused re-review passed. Separately, the maintainer
-  completed physical native-SDL repeated repair, restart and later casting
-  acceptance. See the [Milestone 40 plan](milestone-40-plan.md#final-acceptance).
-
-## M41 - Vertigo Training and progression
-
-- Connected original Vertigo Training to legitimately earned XP and carried
-  gold for permanent levels, active temporary reset and selected HP/SP refill,
-  with one day per distinct trained member per visit and a separate departure.
-- Expanded bounded route/actor admission and added exact schema-9/content-12
-  progression/service continuity, preserving later combat/casting and legacy saves.
-- Build, full 127/127 CTest, original-resource/separate-process continuation and
-  independent technical review passed, including the native input-scheduling
-  correction. Separately, maintainer physical native-SDL progression, responsive
-  input, restart and later refusal-only visit acceptance passed. See the
-  [Milestone 41 plan](milestone-41-plan.md#final-acceptance).
-
-## M42 - Bounded Ironworks equipment purchase
-
-- Connected actual generated Ironworks plain Weapons/Armor stock to carried-gold
-  payment, unequipped delivery, depletion, legal equipment and useful continued
-  combat, with repeated purchases and Repair sharing a valid once-only departure.
-- Added content-13 depleted-stock admission and exact envelope-v4/schema-9
-  continuation without wire changes or legacy upgrades, retaining Training,
-  original restock/interest/RNG and the earned production loot.
-- Build, full 135/135 serial CTest, original-reference/resource/process validation
-  and independent implementation ACCEPT passed. Separately, the maintainer
-  reported successful native-SDL walkthrough acceptance, observing permitted
-  static service illustrations and out-of-scope unanimated scenery torches.
-  See the [Milestone 42 plan](milestone-42-plan.md#final-acceptance).
-
-## M43 - Bounded Vertigo Temple Heal and resurrection
-
-- Connected a 49-cell Vertigo route to original selected Heal/resurrection,
-  preserving SP/equipment and charging original carried-gold prices with one
-  two-day departure per paid visit and one day for unpaid visits.
-- Reused existing service/owner authority and schema 9 for exact content-14
-  recovery, merchant/bank/RNG and two-region restart, retaining legacy behavior.
-- Build, full CTest, original-resource/process validation and final independent
-  review passed. Separately, maintainer physical native-SDL acceptance passed;
-  the maintainer deferred the opaque panel's Temple-art occlusion to broader
-  art/animation work. See the [Milestone 43 plan](milestone-43-plan.md#final-acceptance).
-
-## Maintaining this history
-
-Add one short section with 2-4 lasting-result bullets per completed milestone
-and link its plan for the specification, durable decisions and final acceptance.
-Keep current capabilities in project status and operational records in Git
-history or task reports. Earlier M13/M14 records remain in repository history.
+One short paragraph per completed milestone, with the closing commit. This is
+not the authority for current state: see [project status](project-status.md) and
+the [roadmap](roadmap.md). Plans of milestones 15-43 are kept in
+[docs/archive](archive/) as a historical record; their limits and entry modes
+describe their time, not the present. M44 is in progress and not listed here.
+
+**M1-M12 - Pre-public foundation.** Original-resource loading, outdoor and indoor
+rendering, navigation, collision, party loading and the first Event support.
+Surviving history does not assign these to individual milestones.
+
+**M13 - Public baseline** (`c12d04d`). First public codebase: Event decoding and
+execution, automatic Events, conditions, teleports and game flags.
+
+**M14 - Manual interaction and original text** (`275a0ca`). Space interaction,
+original Event text, resumable dialogs and Yes/No, original fonts and windows,
+and the SDL gameplay loop; Castle Basenji connected dialogue to teleport.
+
+**M15 - Session-owned world mutations** (`742b109`). Stable object and Event
+identity and Remove as session overlays that survive cache reconstruction.
+[Plan](archive/milestone-15-plan.md).
+
+**M16 - Outdoor objects and visual Remove** (`484c8ce`). Static outdoor objects
+in the scene with immediate refresh when an object is removed.
+[Plan](archive/milestone-16-plan.md).
+
+**M17 - Quest items and Phirna** (`b59f39e`). Party-owned quest-item counters and
+the original Phirna Root collection. [Plan](archive/milestone-17-plan.md).
+
+**M18 - WhoWill and Bone Whistle** (`32e6879`). Character selection and the
+Bone Whistle collection with cancel and retry. [Plan](archive/milestone-18-plan.md).
+
+**M19 - NPC dialogue and Myra's request** (`59d3016`). Original NPC portraits and
+paginated speech, quest flags and Myra's request. [Plan](archive/milestone-19-plan.md).
+
+**M20 - Save and resume** (`a449bb7`). Versioned snapshots restored into the
+existing owners, F9 on Windows and resume at startup, with resource checks.
+[Plan](archive/milestone-20-plan.md).
+
+**M21 - Myra's exchange and item rewards** (`bb524c0`). Full item records,
+deterministic rewards and the complete Myra request, Phirna and return loop with
+exact restart. [Plan](archive/milestone-21-plan.md).
+
+**M22 - Outdoor object animation** (`7f8a7d5`). Ordinary outdoor objects animate
+while stationary, with independent cosmetic timing. [Plan](archive/milestone-22-plan.md).
+
+**M23 - Indoor objects** (`a6b0826`). Static indoor objects with original
+directional art, wall occlusion and the Nightshadow gravestone interaction.
+[Plan](archive/milestone-23-plan.md).
+
+**M24 - Inventory and transfer** (`2c9ef4f`). Item catalog from original names,
+inventory inspection and character-to-character transfer.
+[Plan](archive/milestone-24-plan.md).
+
+**M25 - Equipment** (`b78398b`). Equip and remove with class, conflict and
+capacity rules and truthful feedback. [Plan](archive/milestone-25-plan.md).
+
+**M26 - Actor approach** (`49c2adf`). Original outdoor monster identities, wake-up,
+approach and engagement through the Flow and SDL path.
+[Plan](archive/milestone-26-plan.md).
+
+**M27 - Playable combat** (`f63bc3d`). Attack/Block combat with original
+appearance, injury, armor breakage, XP and once-only defeat.
+[Plan](archive/milestone-27-plan.md).
+
+**M28 - Durable encounter completion** (`d867b50`). A finished encounter becomes
+saveable and restores in a new process without replay.
+[Plan](archive/milestone-28-plan.md).
+
+**M29 - Mutable Journey** (`45efc11`). The first Journey: play continues after
+combat on the same owners, with save and restart. [Plan](archive/milestone-29-plan.md).
+
+**M30 - Expedition** (`dfacac7`). Grouped Skeleton and Zombie combat, Disease and
+world-owned random continuation. [Plan](archive/milestone-30-plan.md).
+
+**M31 - First connected slice** (`6faf45b`). Bone Whistle collection inside the
+expedition with accumulated consequences saved across restart.
+[Plan](archive/milestone-31-plan.md).
+
+**M32 - Regional Journey** (`5e15e1d`). Map-23 mainland exploration with all 19
+original actors and the automatic sign. [Plan](archive/milestone-32-plan.md).
+
+**M33 - Mainland combat** (`ac13999`). Orc, Snake and Toad combat, enemy ranged
+attacks, player Shoot, Poison, Sleep, XP, gold and generated equipment.
+[Plan](archive/milestone-33-plan.md).
+
+**M34 - Run and disengagement** (`b200171`). Per-member Run, casualties,
+relocation to `(10,12)` and re-engagement with wounded survivors.
+[Plan](archive/milestone-34-plan.md).
+
+**M35 - Myra quest and recovery** (`58356a6`). The quest loop across mainland
+travel, the selected well and the delivered antidote.
+[Plan](archive/milestone-35-plan.md).
+
+**M36 - Exploration casting** (`f8ba96e`). Learned spell books and First Aid and
+Awaken in exploration. [Plan](archive/milestone-36-plan.md).
+
+**M37 - Vertigo entry** (`891b2a0`). Entrance, first town cells, Slime combat and
+the exit with the original monster reset. [Plan](archive/milestone-37-plan.md).
+
+**M38 - Ironworks Armor Repair** (`79c31a8`). Repair for carried gold and the
+one-day visit departure. [Plan](archive/milestone-38-plan.md).
+
+**M39 - Combat casting** (`0760a6b`). Magic Arrow, First Aid and Awaken in combat.
+[Plan](archive/milestone-39-plan.md).
+
+**M40 - Service days** (`7d22ac0`). Repeated visits across days, merchant stock
+generation, bank balances and interest. [Plan](archive/milestone-40-plan.md).
+
+**M41 - Training** (`0c9877e`). Permanent levels from earned XP and gold, with
+per-member service days. [Plan](archive/milestone-41-plan.md).
+
+**M42 - Equipment purchase** (`b3b3679`). Buying plain Weapons and Armor from
+generated stock with depletion. [Plan](archive/milestone-42-plan.md).
+
+**M43 - Temple Heal and resurrection** (`c26a26b`). A 49-cell Vertigo route to the
+Temple with original prices and a two-day paid departure.
+[Plan](archive/milestone-43-plan.md).

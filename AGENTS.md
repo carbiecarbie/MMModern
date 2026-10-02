@@ -81,6 +81,7 @@ milestone explicitly.
 | `docs/project-history.md` | One short paragraph per completed milestone | Short |
 | `docs/roadmap.md` | Next milestones and longer-term direction | ~100-150 lines |
 | `docs/milestone-N-plan.md` | That milestone's plan; condensed at closure | Closed: ~30-100 lines |
+| `docs/archive/` | Plans of milestones 6 and 15-43, kept as a historical record | Exempt |
 | `AGENTS.md` | These rules | This file |
 
 - Describe capabilities in player terms ("the Temple heals and resurrects"),
@@ -89,6 +90,9 @@ milestone explicitly.
   in-progress work, review state or commit readiness in durable docs.
 - At closure, condense the plan to scope, key decisions and results. Git keeps
   everything else; a closed plan is not a transcript.
+- Agents ignore `docs/archive/` unless the maintainer explicitly asks for it.
+  Archived plans are historical, not current rules or scope, and are exempt
+  from the closed-plan size target.
 - Do not create additional workflow or work-in-progress documents.
 - For documentation-only changes, check the diff, links and `git diff --check`;
   do not build or run CTest.

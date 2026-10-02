@@ -1,5 +1,7 @@
 # Milestone 16 - Static outdoor map objects and visual Remove
 
+Historical record; not current rules or scope.
+
 **Status: 16A, 16B, and 16C complete. Milestone 16 is the stable milestone.**
 
 **No subsequent milestone is approved.**
@@ -66,7 +68,7 @@ approving this documentation.
 ### Pinned ScummVM reference
 
 The authoritative reference revision is the commit recorded in
-[dependencies.md](dependencies.md):
+[dependencies.md](../dependencies.md):
 
 `6814ee9ba54582f5b5adcffab49efbbd8f589edd`
 

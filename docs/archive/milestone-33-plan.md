@@ -1,5 +1,7 @@
 # Milestone 33 - Faithful mainland combat and consequences
 
+Historical record; not current rules or scope.
+
 ## Objective and acceptance boundary
 
 **Completed and accepted.** M33 extends the Regional Journey with faithful
@@ -44,7 +46,7 @@ establishes reference algorithms. **ORIGINAL** identifies resource observations,
 bounded integration decisions retained by this contract. Reference quirks are not
 claims of independently observed DOS executable behavior.
 
-[Dependencies](dependencies.md) owns the ScummVM pin
+[Dependencies](../dependencies.md) owns the ScummVM pin
 `6814ee9ba54582f5b5adcffab49efbbd8f589edd`, configuration and GPL attribution.
 Commercial resources remain external and unmodified.
 
@@ -63,10 +65,10 @@ All reference paths in this document are relative to that pinned source:
 
 The implementation retains the existing combat, actor approach, regional rules
 and Journey Flow owners. Shared physical consequences live in
-[`XeenCombatRules.cpp`](../src/games/xeen/XeenCombatRules.cpp), bounded treasure
-candidates in [`XeenMonsterTreasure.cpp`](../src/games/xeen/XeenMonsterTreasure.cpp),
+[`XeenCombatRules.cpp`](../../src/games/xeen/XeenCombatRules.cpp), bounded treasure
+candidates in [`XeenMonsterTreasure.cpp`](../../src/games/xeen/XeenMonsterTreasure.cpp),
 and exploration coordination in
-[`XeenJourneyConsequences.cpp`](../src/app/XeenJourneyConsequences.cpp).
+[`XeenJourneyConsequences.cpp`](../../src/app/XeenJourneyConsequences.cpp).
 These helpers create no independent gameplay owner or RNG.
 
 ### Original resource identities
@@ -1089,7 +1091,7 @@ M34 owns Run/disengagement, failed/run-outcome policy and non-victory retirement
 It must consume the same wound/accounting/treasure owners and preserve pending
 obligations; M33 grants retirement only for genuine successful End. M33 provides
 no Run action or non-victory retirement. Completion does not authorize M34
-implementation; the [roadmap](roadmap.md) retains the successor approval boundary.
+implementation; the [roadmap](../roadmap.md) retains the successor approval boundary.
 
 M35 owns connected Myra -> Phirna -> Myra authority and selected recovery/item
 use. It receives exact Poison/Sleep/Disease/injury bytes, resource-derived purse,

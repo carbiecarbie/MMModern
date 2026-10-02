@@ -1,5 +1,7 @@
 # Milestone 28 - Durable bounded encounter completion and revisit
 
+Historical record; not current rules or scope.
+
 **Status: completed and accepted.**
 
 ## Final scope

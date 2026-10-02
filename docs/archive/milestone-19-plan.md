@@ -1,5 +1,7 @@
 # Milestone 19 - NPC dialogue and Myra's quest request
 
+Historical record; not current rules or scope.
+
 **Status: approved specification; 19A, 19B and Milestone 19 complete on 2026-09-08.**
 
 The specification and historical planning evidence below are retained. Section
@@ -24,7 +26,7 @@ requests must follow the original script. With a root, present the original
 return dialogue, then stop at unsupported consumption without consuming the root,
 clearing quest state, granting rewards or implying that the exchange succeeded.
 
-The [approved roadmap](roadmap.md) remains unchanged. Investigation found no
+The [approved roadmap](../roadmap.md) remains unchanged. Investigation found no
 contradiction requiring replanning. NPC portrait timing belongs to this bounded
 presentation, independently of M22 world-object animation. M20 may later serialize
 the resulting authoritative party state; this plan designs no disk format.
@@ -36,17 +38,17 @@ Planning began with these repository facts:
 - Branch: `main`.
 - HEAD: `3dff574a466a692db2efc3b7ec2952e64c7912c2`.
 - `git status --short`: empty; no preexisting changes.
-- [Project status](project-status.md): stable M18; 18A complete and independently
+- [Project status](../project-status.md): stable M18; 18A complete and independently
   approved, 18B complete on 2026-09-08, without a claimed independent 18B review.
 - Recorded validation: successful build, **44/44 full CTest**, **31/31 focused
   regressions**, direct and SDL dummy/software Bone Whistle/Phirna smokes, inspected
   native frames, no physical-window validation. These are recorded M18 results,
   not new planning-task runs.
-- [Roadmap](roadmap.md): approved on 2026-09-08; M19 is the immediate successor.
+- [Roadmap](../roadmap.md): approved on 2026-09-08; M19 is the immediate successor.
   Current decoder has no NPC operation, party state has no quest flags, and
   interpreter mode 104 is unsupported. M19 has not been implemented.
 
-Read `AGENTS.md`, project status, roadmap, [dependencies](dependencies.md), and
+Read `AGENTS.md`, project status, roadmap, [dependencies](../dependencies.md), and
 the completed [M17](milestone-17-plan.md) and [M18](milestone-18-plan.md) plans.
 Their older baseline/status statements remain historical; current repository
 code and the current project-status heading govern this specification.

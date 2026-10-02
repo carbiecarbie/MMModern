@@ -1,5 +1,7 @@
 # Milestone 26 - Visible original actor approach and engagement
 
+Historical record; not current rules or scope.
+
 **Milestone 26 is complete. Stages 26A and 26B are accepted. Independent
 technical review and maintainer physical acceptance are complete.**
 
@@ -19,14 +21,14 @@ cheats disabled. Resource availability does not silently select another profile.
 This does not certify normal-start navigation, map-20 travel or combat.
 Commercial resources remain external and unmodified.
 
-[Project status](project-status.md) owns the technical snapshot;
-[history](project-history.md) records completed milestones and the
-[roadmap](roadmap.md) owns the provisional M27 -> M28 direction.
+[Project status](../project-status.md) owns the technical snapshot;
+[history](../project-history.md) records completed milestones and the
+[roadmap](../roadmap.md) owns the provisional M27 -> M28 direction.
 
 ## Source and reference provenance
 
 The reference is ScummVM `6814ee9ba54582f5b5adcffab49efbbd8f589edd`.
-[Dependencies](dependencies.md) owns configuration and licensing provenance.
+[Dependencies](../dependencies.md) owns configuration and licensing provenance.
 Original-resource observations and source-derived caller traces establish the
 resource, activation, timing and stopping contracts below.
 
@@ -549,6 +551,6 @@ navigation, a general calendar and encounter persistence are also excluded.
 
 M27 is the next milestone for separate planning of the existing bounded
 Attack/Block objective; M28 remains the provisional persistence boundary in the
-[roadmap](roadmap.md). M26 acceptance does not expand or authorize either stage.
+[roadmap](../roadmap.md). M26 acceptance does not expand or authorize either stage.
 Changes to isolation, terrain/events, profile/context, scheduling or modal/save
 entry points require focused contract review before widening the admitted domain.

@@ -1,5 +1,7 @@
 # Milestone 35 - Connected Myra quest and local recovery
 
+Historical record; not current rules or scope.
+
 ## Final scope and acceptance boundary
 
 M35 completes a bounded production route in fresh `--journey-region` content
@@ -14,7 +16,7 @@ durable without spending or progression consumers.
 M35 inherits [M21 endpoint/reward rules](milestone-21-plan.md),
 [M31 Event authority](milestone-31-plan.md), [M32 regional admission](milestone-32-plan.md),
 [M33 consequences](milestone-33-plan.md) and [M34 disengagement](milestone-34-plan.md).
-The original commercial installation supplied read-only data; [dependencies](dependencies.md)
+The original commercial installation supplied read-only data; [dependencies](../dependencies.md)
 records the pinned ScummVM reference revision and configuration.
 
 ## Original evidence and regional admission
@@ -207,5 +209,5 @@ The final corrected implementation passed four distinct acceptance classes:
    sparkle/glow were absent as scoped above.
 
 M35 closes the approved M33-M35 arc. The next planning activity is a separately
-authorized, evidence-based [post-M35 roadmap reassessment](roadmap.md#near-term),
+authorized, evidence-based [post-M35 roadmap reassessment](../roadmap.md#near-term),
 not an already chosen or authorized successor implementation.

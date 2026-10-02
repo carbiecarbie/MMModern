@@ -1,14 +1,16 @@
 # Milestone 40 - Bounded service-day continuation
 
+Historical record; not current rules or scope.
+
 ## Status, baseline and scope
 
 **COMPLETED AND ACCEPTED.** This closed plan is the technical home for M40's
 implemented service-day, economy, RNG and persistence contract. It builds on
 M39's completed combat casting and the implementation specification committed as
 `f39d82772783b7cd0d0c3ac3e74c4df16139dfbe`, `Define Milestone 40 service-day
-continuation`. [Project status](project-status.md) owns the stable snapshot;
-[project history](project-history.md) owns chronology. M41 Training is the next
-[roadmap unit](roadmap.md#near-term), requiring separate planning/specification
+continuation`. [Project status](../project-status.md) owns the stable snapshot;
+[project history](../project-history.md) owns chronology. M41 Training is the next
+[roadmap unit](../roadmap.md#near-term), requiring separate planning/specification
 and implementation authorization.
 
 M40 enables repeated admitted Ironworks armor repair through **daytime,
@@ -46,7 +48,7 @@ Evidence labels used below:
 - **Contract:** implemented MMModern decisions and required maintenance invariants.
 
 The authoritative dependency pin and configuration remain in
-[dependencies.md](dependencies.md); M40 adds no runtime reference-engine access.
+[dependencies.md](../dependencies.md); M40 adds no runtime reference-engine access.
 
 | Source relative to the pinned ScummVM checkout | Decisive symbols/facts |
 | --- | --- |

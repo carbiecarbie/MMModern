@@ -1,13 +1,15 @@
 # Milestone 29 - Mutable encounter continuity and durable journey state
 
+Historical record; not current rules or scope.
+
 **Status: completed and accepted.** M29A, M29B and M29C are implemented.
 Automated and original-resource/process validation passed, the independent
 implementation reviewer accepted M29C, and maintainer-performed physical
 acceptance of the connected seed-56 Journey and fresh control passed.
 
-This closed plan is the authoritative M29 contract. [Project status](project-status.md)
-owns the current stable snapshot, [project history](project-history.md) owns the
-concise chronology, and [roadmap](roadmap.md) owns future direction.
+This closed plan is the authoritative M29 contract. [Project status](../project-status.md)
+owns the current stable snapshot, [project history](../project-history.md) owns the
+concise chronology, and [roadmap](../roadmap.md) owns future direction.
 
 ## Final objective and bounded scope
 

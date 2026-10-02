@@ -1,5 +1,7 @@
 # Milestone 6: Clouds Area A1
 
+Historical record; not current rules or scope.
+
 O modo abaixo carrega o estado original do mapa 001 de `xeen.cc` e termina
 depois de imprimir o relatorio. Nao inicializa SDL, cria framebuffer ou abre janela.
 
