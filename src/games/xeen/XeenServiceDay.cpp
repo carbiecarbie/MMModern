@@ -5,14 +5,16 @@
 #include <stdexcept>
 namespace mmodern {
 XeenServiceDayCandidate::XeenServiceDayCandidate(const XeenGameplayContext &context,
-		const XeenServiceEconomy &economy,const XeenJourneyRandomState &cursor,std::uint16_t content):
+		const XeenServiceEconomy &economy,const XeenJourneyRandomState &cursor,std::uint16_t content,
+		XeenScriptServiceCharge serviceCharge):
 	originalContext(context),endingContext(context),originalEconomy(economy),endingEconomy(economy),
-	originalRandom(cursor),random(cursor),content(content) {
-	if(content!=11 && content!=12 && content!=13)throw std::invalid_argument("Service economy requires Journey content 11, 12 or 13");
-	const auto successor=xeenPrepareSmithDeparture(context,content);
-	if(!successor)throw std::invalid_argument("Unsupported one-day script service context");
+	originalRandom(cursor),random(cursor),content(content),charge(serviceCharge) {
+	if(content<11 || content>14)throw std::invalid_argument("Service economy requires Journey content 11 through 14");
+	const auto successor=charge==XeenScriptServiceCharge::OneDay ?
+		xeenPrepareSmithDeparture(context,content) : xeenPrepareTemplePaidDeparture(context,content);
+	if(!successor)throw std::invalid_argument("Unsupported script service context");
 	xeenValidateCurrentServiceEconomy(economy,content);endingContext=*successor;
-	regenerating=xeenServiceDayRegenerates(originalContext.day,endingContext.day,1440);
+	regenerating=xeenServiceDayRegenerates(originalContext.day,endingContext.day,static_cast<std::uint16_t>(charge));
 	completed=!regenerating;
 }
 bool XeenServiceDayCandidate::service(unsigned budget,const std::function<void()> &check,
@@ -30,7 +32,7 @@ bool XeenServiceDayCandidate::service(unsigned budget,const std::function<void()
 }
 XeenServiceDayCandidate XeenServiceDayCandidate::rebindPurchase(const XeenServiceEconomy &after,
 		XeenInventoryCategory category,std::size_t slot,const XeenItem &expected) const {
-	if(content!=13 || !completed)throw std::invalid_argument("Equipment Buy requires a complete content-13 departure");
+	if((content!=13 && content!=14) || !completed)throw std::invalid_argument("Equipment Buy requires a complete purchase departure");
 	validateComplete();
 	xeenValidateEquipmentPurchaseEconomyDelta(originalEconomy,after,category,slot,expected);
 	xeenValidateCurrentServiceEconomy(after,content);
@@ -42,11 +44,26 @@ XeenServiceDayCandidate XeenServiceDayCandidate::rebindPurchase(const XeenServic
 	replacement.validateComplete();
 	return replacement;
 }
+XeenServiceDayCandidate XeenServiceDayCandidate::upgradeTemplePaid() const {
+	if(content!=14 || charge!=XeenScriptServiceCharge::OneDay || !completed)
+		throw std::invalid_argument("Temple upgrade requires a complete one-day reservation");
+	validateComplete();
+	auto paid=xeenPrepareTemplePaidDeparture(originalContext,content);
+	if(!paid)throw std::invalid_argument("Temple two-day departure exceeds the supported year");
+	if(!regenerating)return {originalContext,originalEconomy,originalRandom,content,
+		XeenScriptServiceCharge::TemplePaid};
+	auto replacement=*this;
+	replacement.charge=XeenScriptServiceCharge::TemplePaid;
+	replacement.endingContext=*paid;
+	replacement.validateComplete();
+	return replacement;
+}
 void XeenServiceDayCandidate::validateComplete() const {
 	if(!completed)throw std::invalid_argument("Service-day departure is incomplete");
-	const auto expected=xeenPrepareSmithDeparture(originalContext,content);
+	const auto expected=charge==XeenScriptServiceCharge::OneDay ?
+		xeenPrepareSmithDeparture(originalContext,content) : xeenPrepareTemplePaidDeparture(originalContext,content);
 	if(!expected || !(endingContext==*expected) ||
-		regenerating!=xeenServiceDayRegenerates(originalContext.day,endingContext.day,1440))
+		regenerating!=xeenServiceDayRegenerates(originalContext.day,endingContext.day,static_cast<std::uint16_t>(charge)))
 		throw std::invalid_argument("Service-day context successor changed");
 	xeenValidateCurrentServiceEconomy(originalEconomy,content);
 	const auto ending=random.continuation();

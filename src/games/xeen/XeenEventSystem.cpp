@@ -3,6 +3,7 @@
 
 #include "games/xeen/XeenEventTrigger.h"
 #include "games/xeen/XeenWorld.h"
+#include "games/xeen/XeenJourneyContent.h"
 
 #include <stdexcept>
 #include <string>
@@ -22,6 +23,13 @@ bool validDirection(XeenDirection direction) {
 		return true;
 	}
 	return false;
+}
+
+bool eventCameraAdmitted(const XeenWorld &world,const XeenCamera &camera) {
+	if(!camera.mapId || camera.x<0 || camera.y<0 || !validDirection(camera.direction))return false;
+	if(world.sessionState().journey() && camera.mapId==XeenMapIdentity(28))
+		return xeenJourneyContent(world.sessionState().journeyContract()).eventCameraCell(camera.x,camera.y);
+	return camera.x<16 && camera.y<16;
 }
 
 bool sameCamera(const XeenCamera &left, const XeenCamera &right) {
@@ -82,22 +90,22 @@ XeenAutomaticEventResult XeenEventSystem::runAutomaticEvent(
 		XeenGameFlags &gameFlags, const XeenEventPublication *publication) {
 	if (world.sessionState().journey() && !publication) throw std::logic_error("Journey dispatch requires live event authority");
 	if (publication) publication->check();
-	if (!camera.mapId || camera.x < 0 || camera.x > 15 || camera.y < 0 ||
-			camera.y > 15 || !validDirection(camera.direction)) {
+	if (!eventCameraAdmitted(world,camera)) {
 		return systemError(XeenEventExecutionErrorKind::InvalidInitialCamera,
 			"automatic event camera is outside the supported Xeen map domain",
 			camera);
 	}
 
-	const XeenMap *map = nullptr;
+	std::optional<XeenCellSample> sampled;
 	try {
-		map = &world.map(camera.mapId);
+		sampled=world.sampleCell(camera.mapId,camera.x,camera.y);
+		if(!sampled)throw std::invalid_argument("Event camera cell is absent");
 	} catch (const std::exception &exception) {
 		return systemError(XeenEventExecutionErrorKind::MapLoadFailed,
 			std::string("failed to load automatic-event map: ") + exception.what(),
 			camera);
 	}
-	if (!hasAutomaticTrigger(map->geometry, camera.x, camera.y))
+	if (!hasAutomaticTrigger(*sampled->geometry, camera.x%16, camera.y%16))
 		return XeenAutomaticEventNoTrigger{};
 
 	const XeenCamera beforeCamera = camera;
@@ -133,21 +141,21 @@ XeenManualEventResult XeenEventSystem::runManualEvent(
 		XeenGameFlags &gameFlags, const XeenEventPublication *publication) {
 	if (world.sessionState().journey() && !publication) throw std::logic_error("Journey dispatch requires live event authority");
 	if (publication) publication->check();
-	if (!camera.mapId || camera.x < 0 || camera.x > 15 || camera.y < 0 ||
-			camera.y > 15 || !validDirection(camera.direction)) {
+	if (!eventCameraAdmitted(world,camera)) {
 		return systemError(XeenEventExecutionErrorKind::InvalidInitialCamera,
 			"manual event camera is outside the supported Xeen map domain", camera);
 	}
 
-	const XeenMap *map = nullptr;
+	std::optional<XeenCellSample> sampled;
 	try {
-		map = &world.map(camera.mapId);
+		sampled=world.sampleCell(camera.mapId,camera.x,camera.y);
+		if(!sampled)throw std::invalid_argument("Event camera cell is absent");
 	} catch (const std::exception &exception) {
 		return systemError(XeenEventExecutionErrorKind::MapLoadFailed,
 			std::string("failed to load manual-event map: ") + exception.what(), camera);
 	}
-	if (const auto wall = unsupportedManualSpecialInteraction(map->geometry,
-			camera.x, camera.y, camera.direction))
+	if (const auto wall = unsupportedManualSpecialInteraction(*sampled->geometry,
+			camera.x%16, camera.y%16, camera.direction))
 		return XeenManualSpecialInteractionUnsupported{*wall};
 
 	std::optional<XeenEventScript> script;

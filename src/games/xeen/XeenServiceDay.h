@@ -3,6 +3,7 @@
 #include "games/xeen/XeenMerchantGeneration.h"
 #include "games/xeen/XeenItemCatalog.h"
 namespace mmodern {
+enum class XeenScriptServiceCharge : std::uint16_t { OneDay=1440, TemplePaid=2880 };
 // The reference changed-day/charge predicate is arithmetic only. This grants
 // no admission to multi-day calls, other modes or calendar advancement.
 inline bool xeenServiceDayRegenerates(unsigned oldDay,unsigned destinationDay,std::uint64_t charge) noexcept {
@@ -11,7 +12,8 @@ inline bool xeenServiceDayRegenerates(unsigned oldDay,unsigned destinationDay,st
 class XeenServiceDayCandidate {
 public:
 	XeenServiceDayCandidate(const XeenGameplayContext &,const XeenServiceEconomy &,
-		const XeenJourneyRandomState &,std::uint16_t content=11);
+		const XeenJourneyRandomState &,std::uint16_t content=11,
+		XeenScriptServiceCharge charge=XeenScriptServiceCharge::OneDay);
 	bool service(unsigned budget=64,const std::function<void()> &check={},
 		const std::function<void()> &afterStock={});
 	bool complete() const noexcept { return completed; }
@@ -28,6 +30,9 @@ public:
 	// the Flow supplies and atomically publishes its checked identity increment.
 	XeenServiceDayCandidate rebindPurchase(const XeenServiceEconomy &after,
 		XeenInventoryCategory,std::size_t slot,const XeenItem &expected) const;
+	// Copy an already generated triggering reservation; otherwise start a fresh
+	// private generation from the same live entry preimage.
+	XeenServiceDayCandidate upgradeTemplePaid() const;
 private:
 	XeenGameplayContext originalContext,endingContext;
 	XeenServiceEconomy originalEconomy,endingEconomy;
@@ -35,6 +40,7 @@ private:
 	XeenCombatRandom random;
 	XeenMerchantStockCandidate stock;
 	std::uint16_t content;
+	XeenScriptServiceCharge charge;
 	bool regenerating=false,completed=false;
 };
 }

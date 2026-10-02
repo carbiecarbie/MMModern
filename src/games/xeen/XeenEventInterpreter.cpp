@@ -143,9 +143,10 @@ XeenEventExecutionStepResult XeenEventInterpreter::begin(
 		return error(XeenEventExecutionErrorKind::ScriptLoadFailed,
 			"script provider is absent", 0, state.logicalAddress);
 	}
-	if (!initialCamera.mapId || initialCamera.x < 0 || initialCamera.x > 15 ||
-			initialCamera.y < 0 || initialCamera.y > 15 ||
-			!validDirection(initialCamera.direction)) {
+	const bool city=world.sessionState().journey() && initialCamera.mapId==XeenMapIdentity(28);
+	if (!initialCamera.mapId || initialCamera.x < 0 || initialCamera.y < 0 ||
+			!(city ? xeenJourneyContent(world.sessionState().journeyContract()).eventCameraCell(initialCamera.x,initialCamera.y) :
+				(initialCamera.x<16 && initialCamera.y<16)) || !validDirection(initialCamera.direction)) {
 		return error(XeenEventExecutionErrorKind::InvalidInitialCamera,
 			"initial camera is outside the supported Xeen map domain", 0,
 			state.logicalAddress);
@@ -363,7 +364,9 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 		const XeenEventRecord effective = world.effectiveEvent(
 			{logical.mapId, *recordIndex}, script->records()[*recordIndex]);
 		const XeenEventDecodeResult decodedResult = XeenEventDecoder::decode(effective,
-			{logical.mapId, script->file().resourceName, *recordIndex});
+			{logical.mapId, script->file().resourceName, *recordIndex,
+				world.sessionState().journey() &&
+				xeenJourneyContent(world.sessionState().journeyContract()).templeRecovery()});
 		// Older domains keep their original refusal and zero dispatched instructions,
         // even though the shared decoder now knows the bounded town operand.
         if (effective.opcode==0x11 && (!publication || !xeenJourneyContent(world.sessionState().journeyContract()).armorRepair())) {
@@ -389,12 +392,14 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			const auto &content=xeenJourneyContent(world.sessionState().journeyContract());
 			const bool smith=content.armorRepair() && service->action==1 && logical.x==8 && logical.y==4 && *recordIndex==0;
 			const bool training=content.training() && service->action==5 && logical.x==10 && logical.y==11 && *recordIndex==3;
-			if (!publication || (!smith && !training) || logical.mapId!=XeenMapIdentity(28) || logical.line!=0 ||
+			const bool temple=content.templeRecovery() && service->action==4 && logical.x==15 && logical.y==28 && *recordIndex==6;
+			if (!publication || (!smith && !training && !temple) || logical.mapId!=XeenMapIdentity(28) || logical.line!=0 ||
 				!state.callStack.empty() || instructionCount!=1)
 				return error(XeenEventExecutionErrorKind::UnsupportedOperand,
 					"Town service is outside the admitted service Event",instructionCount,logical,decoded.source);
 			XeenPresentationRequest request;
-			request.kind=training?XeenPresentationKind::TrainingService:XeenPresentationKind::ArmorRepairService;
+			request.kind=temple?XeenPresentationKind::TempleService:
+				training?XeenPresentationKind::TrainingService:XeenPresentationKind::ArmorRepairService;
 			request.response=XeenPresentationResponseRequirement::Acknowledgment;
 			request.mapId=logical.mapId;request.source=decoded.source;
 			state.pendingPresentation=XeenEventPendingPresentation{request,XeenEventPendingContinuation::Terminate,{}};

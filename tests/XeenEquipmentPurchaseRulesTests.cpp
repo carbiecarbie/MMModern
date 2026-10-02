@@ -93,7 +93,9 @@ void preparedRules(training_test::Inputs &inputs) {
     check(xeenQuoteEquipmentPurchase(p,6,XeenInventoryCategory::Weapons,0).outcome==Outcome::InvalidParticipant,"inactive recipient admitted");
     check(xeenQuoteEquipmentPurchase(p,0,static_cast<XeenInventoryCategory>(255),0).outcome==Outcome::InvalidCategory,"invalid category admitted");
     check(xeenQuoteEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,9).outcome==Outcome::InvalidSlot,"invalid physical slot admitted");
-    for(unsigned content:{1u,9u,11u,12u,14u})rejects([&]{xeenQuoteEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,1,content);});
+    for(unsigned content:{1u,9u,11u,12u})rejects([&]{xeenQuoteEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,1,content);});
+    check(xeenQuoteEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,1,14).outcome==Outcome::Quoted,
+        "content-14 physical Buy offer refused");
     for(unsigned price:{60u,200u})for(int delta:{-1,0,1}) {
         p.monsterTreasure->gold=price+delta;
         const auto category=price==60?XeenInventoryCategory::Weapons:XeenInventoryCategory::Armor;

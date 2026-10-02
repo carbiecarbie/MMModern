@@ -124,7 +124,7 @@ void xeenValidateMerchantWares(const XeenMerchantWares &wares) {
 }
 void xeenValidateCurrentServiceEconomy(const XeenServiceEconomy &economy,std::uint16_t content) {
 	if(content==11 || content==12) { xeenValidateServiceEconomy(economy);return; }
-	if(content!=13)throw std::invalid_argument("Unsupported current merchant economy content");
+	if(content!=13 && content!=14)throw std::invalid_argument("Unsupported current merchant economy content");
 	for(unsigned side=0;side<2;++side)for(unsigned shop=0;shop<4;++shop) {
 		const bool valid=side==0 && shop==0 ? purchaseDepletedShop(economy.wares[side][shop]) :
 			completeShop(economy.wares[side][shop],side,shop);

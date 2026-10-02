@@ -249,7 +249,10 @@ bool XeenWorld::isObjectDisabled(XeenObjectIdentity id) {
 }
 
 std::optional<XeenObjectIdentity> XeenWorld::selectObject(const XeenCamera &camera) {
-	if (!camera.mapId || camera.x < 0 || camera.x > 15 || camera.y < 0 || camera.y > 15)
+	const bool city=camera.mapId==XeenMapIdentity(28) && regionalContract8() &&
+		xeenJourneyContent(_sessionState.journeyContract()).templeRecovery();
+	if (!camera.mapId || camera.x < 0 || camera.x >= (city?32:16) ||
+		camera.y < 0 || camera.y >= (city?32:16))
 		throw std::invalid_argument("invalid physical object-selection cell");
 	const auto &file = objectFile(camera.mapId);
 	if (!file.resourcePresent) return std::nullopt;

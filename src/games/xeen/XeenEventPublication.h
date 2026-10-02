@@ -26,15 +26,32 @@ public:
 		check();
 		if (guard.s.journeyContract()>=3) {
 			const auto interaction=xeenRegionalInteraction(original,guard.cameraValue,guard.s.journeyContract());
-			if (interaction==XeenRegionalInteraction::Ironworks || interaction==XeenRegionalInteraction::Training) {
-				const bool training=interaction==XeenRegionalInteraction::Training;
+			if (interaction==XeenRegionalInteraction::TempleLabel) {
 				if (!xeen_state::sameCamera(state.workingCamera,guard.cameraValue) ||
 					state.workingGameFlags.values()!=guard.flagValues || state.logicalAddress.mapId!=XeenMapIdentity(28) ||
-					state.logicalAddress.x!=(training?10:8) || state.logicalAddress.y!=(training?11:4) || state.logicalAddress.line!=0 ||
+					state.logicalAddress.x!=15 || state.logicalAddress.y!=21 || state.logicalAddress.line<0 ||
+					state.logicalAddress.line>1 || state.lookupDirection!=XeenDirection::North ||
+					state.instructionCount>1 || !state.callStack.empty() || state.pendingRewards.hasWork() ||
+					state.selectedObject || !state.currentScript)
+					integrity("Temple label continuation changed");
+				script(state.currentScript->file());
+				const auto site=state.currentScript->findInstructionIndex(15,21,XeenDirection::North,
+					static_cast<std::uint8_t>(state.logicalAddress.line));
+				if ((site && *site!=543) || (!site && state.logicalAddress.line!=1))
+					integrity("Temple label escaped original record");
+				currentSite=site;return;
+			}
+			if (interaction==XeenRegionalInteraction::Ironworks || interaction==XeenRegionalInteraction::Training ||
+				interaction==XeenRegionalInteraction::Temple) {
+				const bool training=interaction==XeenRegionalInteraction::Training;
+				const bool temple=interaction==XeenRegionalInteraction::Temple;
+				if (!xeen_state::sameCamera(state.workingCamera,guard.cameraValue) ||
+					state.workingGameFlags.values()!=guard.flagValues || state.logicalAddress.mapId!=XeenMapIdentity(28) ||
+					state.logicalAddress.x!=(temple?15:training?10:8) || state.logicalAddress.y!=(temple?28:training?11:4) || state.logicalAddress.line!=0 ||
 					state.lookupDirection!=guard.cameraValue.direction || state.instructionCount>1 ||
 					!state.callStack.empty() || state.pendingRewards.hasWork() || !state.currentScript)
 					integrity("Service terminal continuation changed");
-				script(state.currentScript->file());currentSite=training?3:0;return;
+				script(state.currentScript->file());currentSite=temple?6:training?3:0;return;
 			}
 			const int end=interaction==XeenRegionalInteraction::Myra ? 15 : interaction==XeenRegionalInteraction::Phirna ? 11 :
 				interaction==XeenRegionalInteraction::Well ? 10 : 1;

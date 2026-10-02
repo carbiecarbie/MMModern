@@ -6,7 +6,7 @@ Might and Magic V: Darkside of Xeen / World of Xeen.
 
 ## Status
 
-**M42 is the latest completed and accepted milestone.**
+**M43 is the latest completed and accepted milestone.**
 
 The engine supports a bounded Clouds quest loop: request a quest, collect an
 item, return it for character-held rewards, and save/resume the resulting progress.
@@ -51,17 +51,17 @@ Casualties and dormant or ready treasure survive restart. Fresh Regional Journey
 also connects explicit Myra request, Phirna collection and Myra exchange across
 ordinary mainland travel, with selected well recovery and narrow exploration
 use of Myra's delivered antidote. It now connects the original Vertigo entrance,
-a bounded twenty-eight-cell town route with Slime combat, Ironworks Armor Repair
-and original Training, plus exit/reset/revisit behavior. Training consumes earned
-XP and carried gold for permanent levels, resets active temporary bonuses and
+a bounded forty-nine-cell town route with Slime combat, Ironworks Armor Repair,
+original Training and selected Temple Heal/resurrection, plus exit/reset/revisit
+behavior. Training consumes earned XP and carried gold for permanent levels, resets active temporary bonuses and
 refills the selected member's HP/SP. Each distinct trainee costs one day per
 visit, with a separate departure day. Both regions retain consequences through
-exact save/restart. Fresh content 13 supports repeated purchase/repair/Training visits
-across bounded same-year service days, with durable merchant wares, shared bank
+exact save/restart. Fresh content 14 supports repeated purchase/repair/Training/
+Temple visits across bounded same-year service days, with durable merchant wares, shared bank
 balances and exact RNG continuation. Already-learned Magic Arrow, First Aid and
 Awaken remain usable after progression. Actual generated Ironworks stock supports
 bounded ordinary Weapons/Armor purchases with carried-gold payment, unequipped delivery and durable depletion. Full Vertigo
-and services beyond bounded purchase/repair/Training remain unsupported.
+and services beyond bounded purchase/repair/Training/Temple Heal remain unsupported.
 
 The Diagnostic26 entry presents an original outdoor Skeleton, supports its
 activation and approach, and stops at terminal same-cell engagement. Diagnostic27
@@ -114,7 +114,8 @@ See the [technical snapshot](docs/project-status.md),
   bounded antidote use, learned First Aid/Awaken exploration casting,
   bounded mainland/Vertigo travel, repeated Ironworks Armor Repair across service
   days, bounded Ironworks Weapons/Armor purchase, original Training/permanent
-  progression and combat Magic Arrow/First Aid/Awaken, with exact 9/13 continuation of both regions,
+  progression, selected Temple Heal/resurrection and combat Magic Arrow/First Aid/Awaken,
+  with exact 9/14 continuation of both regions,
   progression, merchant/bank state and RNG at quiet boundaries.
 
 ## Running and controls
@@ -188,7 +189,7 @@ F9 may save at the presented quiet boundary. Turn West and return to `(0,14)`;
 the Journey remains mutable after return and restart. There is no autosave or
 healing requirement for the accepted seed-1 route.
 
-`--journey-region` starts a content-13 Regional Journey at Clouds map 23 `(9,11)` West,
+`--journey-region` starts a content-14 Regional Journey at Clouds map 23 `(9,11)` West,
 minute 480, with the prepared party and all 19 original actors. Movement follows
 the resource-derived mainland. Contact opens Attack/Block/Run combat; 1-3 selects a
 live contact. R attempts Run for the displayed member and consumes that turn,
@@ -233,7 +234,7 @@ while Escape at target choice still spends the charge. A chosen target loses
 Poison only. The item action then services one ordinary actor opportunity,
 which can lead to an encounter. General and combat-time item use remain unavailable.
 
-At a presented quiet contract-7/8/9/10/11/12/13 boundary, C opens learned exploration casting.
+At a presented quiet contract-7/8/9/10/11/12/13/14 boundary, C opens learned exploration casting.
 Choose an eligible caster with F1-F6, browse that character's learned spells with
 Up/Down, press Enter to review the cost and Enter again to cast. First Aid heals
 one active member selected with a fresh F1-F6; Awaken clears Sleep across the
@@ -245,7 +246,7 @@ settle. Learned unsupported spells such as Light remain visible but unusable.
 Exploration casting is unavailable during combat, events, open inventory and
 other pending work; C cannot queue a cast for later.
 
-In content-10/11/12/13 combat, C opens the **acting member's** learned book. Up/Down
+In content-10/11/12/13/14 combat, C opens the **acting member's** learned book. Up/Down
 select a spell and Enter reviews/confirms it. Magic Arrow costs 2 SP and targets
 one admitted same-cell contact: select with 1-3, Enter to review, then a fresh
 Enter to commit. First Aid and Awaken cost 1 SP each; First Aid uses F1-F6 for
@@ -261,12 +262,13 @@ exploration or against distant/off-contact enemies. Older content, including
 Save files include living actor wounds, casualties, conditions and dormant/ready
 treasure, without storing combat, projectiles or UI work. Loaded legacy Journeys
 retain their original rules and controls, including their existing support stops;
-Run is available in contract-5/6/7/8/9/10/11/12/13 mainland combat.
+Run is available in contract-5/6/7/8/9/10/11/12/13/14 mainland combat.
 
-In contracts 8/9/10/11/12/13, approach mainland `(10,13)` facing North, press Space and answer
+In contracts 8/9/10/11/12/13/14, approach mainland `(10,13)` facing North, press Space and answer
 Yes to enter Vertigo at `(15,0)`. The admitted town route is `x=15,y=0..4`,
-`x=16,y=1..4`, and `x=8..14,y=4` in contents 9/10/11/12/13; legacy 8/8 stops at `(13,4)`.
-Contents 12/13 add the original Training approach described below.
+`x=16,y=1..4`, and `x=8..14,y=4` in contents 9/10/11/12/13/14; legacy 8/8 stops at `(13,4)`.
+Contents 12/13/14 add the original Training approach described below;
+content 14 extends the northbound corridor to the Temple at `(15,28)`.
 Resolve the entrance Slime through normal combat; face West at `(13,4)` to see the automatic Ironworks outside-door label.
 Return to `(15,0)`, face South and use Space. No stays in town after the original
 flag prelude; Yes returns to mainland `(10,12)` South and runs the original
@@ -276,22 +278,22 @@ state on either side; loading never repeats that reset. Movement/Wait cost one
 minute indoors; Shoot, Run, cells outside the bounded route and other services
 remain unavailable.
 
-In content-9/10/11/12/13 Regional Journey, continue west five cells from `(13,4)` to
+In content-9/10/11/12/13/14 Regional Journey, continue west five cells from `(13,4)` to
 `(8,4)` and press Space to enter Ironworks Armor Repair. Choose an owner with
 F1-F6, Enter to browse armor, 1-9 to select a slot and Enter to quote/confirm;
 N or Escape cancels a quote. Supported Armor IDs 1..13, materials 0 and 38,
 use original repair prices. Escape backs out to the lobby and then departs.
 Every admitted visit costs one day on departure, even without a repair:
-fresh content 13 and legacy contents 11/12 permit entry on days 8..98 in year 610 and departure to
+fresh content 14 and legacy contents 11/12/13 permit entry on days 8..98 in year 610 and departure to
 days 9..99. Entry on day 99 refuses; daytime play and quiet saving still work.
 Departures to days 11,21,...,91 replace generated merchant wares and apply bank
 interest without healing or replaying skipped actor work. Legacy contents 9/10
 permit day 8 to 9 and day 9 to 10 only; a new day-10 visit still refuses. F9 is
 available after departure and return to quiet exploration. Generated wares and
-shared bank balances persist, with Buy admitted only for content 13. Sell,
+shared bank balances persist, with Buy admitted for contents 13/14. Sell,
 Identify and bank menus remain unavailable; numeric side-1 stock does not enable Darkside gameplay.
 
-In fresh content 13, from `(15,4)` face North, move three cells, turn left,
+In fresh content 14, from `(15,4)` face North, move three cells, turn left,
 move five, turn right and move four to original Training at `(10,11)`.
 Acknowledge the original label on the approach, then press Space from any facing.
 F1-F6 selects an active member; Enter opens a one-level quote, a fresh Enter
@@ -305,7 +307,7 @@ levels for that same member add no member-day. Departure always costs its own
 day, including refusal-only visits. F9 remains unavailable until settlement
 returns to quiet presented exploration.
 
-In fresh content 13, Space at Ironworks opens the shared service lobby. B opens
+In fresh content 14, Space at Ironworks opens the shared service lobby. B opens
 Buy and R/Enter opens Armor Repair. In Buy, Left/Right selects a category,
 F1-F6 selects the recipient and 1-9 selects an actual physical stock row.
 Enter quotes; a fresh Enter/Yes confirms and Escape/No cancels. Supported offers
@@ -319,6 +321,27 @@ settlement returns to a presented Quiet frame. Smith and Training illustrations
 are static; broader terrain/wall-item/indoor scenery animation remains outside
 scope, while admitted object, portrait and combat animations remain supported.
 
+In fresh content 14, from `(15,4)` face North and move 24 cells to the Temple
+at logical `(28,15,28)`, crossing the northern tile seam and original outside-door
+label at `(15,21)`. Space enters from any facing with a surviving party. F1-F6
+selects a member, including one who is Unconscious or Dead; Enter quotes Heal,
+a fresh Enter confirms and Enter acknowledges the result/refusal. Escape cancels
+the quote or unpublished Heal preparation; menu Escape departs. Original prices
+use level, missing HP and supported conditions, paid from carried gold. Heal
+resets only the selected member's temporary bonuses, assigns HP before clearing
+supported conditions and preserves SP and equipment. Zero-price quotes are
+no-ops; Disease can leave HP below the final healthy maximum.
+
+Any paid Heal makes the visit owe one two-day departure, regardless of how many
+members are healed; unpaid visits owe one day. Paid departure replaces all
+merchant stock and applies bank interest once with exact RNG continuation.
+Paid visits can depart from days 8..97 to 10..99; day-98 entry permits only the
+one-day refusal/cancellation visit. Quiet F9 and a fresh-process restart preserve
+exact recovery, purse, date, stock and RNG without replay. The static Temple
+illustration is fully obscured by its opaque text panel; presentation work is
+deferred with broader art/animation improvements. Audio and animated service
+characters are outside this boundary.
+
 General recovery/Rest, other quests and travel outside the admitted mainland
 and bounded Vertigo route are unavailable.
 Defeat and unsupported time processing close further gameplay/save admission.
@@ -330,26 +353,27 @@ in [M37](docs/milestone-37-plan.md). Armor Repair is bounded by
 [M39](docs/milestone-39-plan.md); service-day continuation is bounded by
 [M40](docs/milestone-40-plan.md); Training/progression is bounded by
 [M41](docs/milestone-41-plan.md); equipment purchase is bounded by
-[M42](docs/milestone-42-plan.md).
+[M42](docs/milestone-42-plan.md); Temple Heal/resurrection is bounded by
+[M43](docs/milestone-43-plan.md).
 
 | Key | Action |
 | --- | --- |
 | W/Up, S/Down | Move forward/backward; browse physical slots in inventory |
 | A/Left, D/Right | Turn left/right; browse categories in inventory |
-| Space, Enter | Interact (Space) or advance/acknowledge text; Enter confirms transfer, antidote use, a learned cast, purchase or one quoted Training level in its current phase |
+| Space, Enter | Interact (Space) or advance/acknowledge text; Enter confirms transfer, antidote use, a learned cast, purchase, Temple Heal or one quoted Training level in its current phase |
 | Y / N | Answer Yes/No; N cancels a transfer confirmation |
-| F1-F6 | Select inventory owner or transfer recipient, an eligible member during WhoWill, an antidote target, a learned caster/First Aid target, the Training member, or the Smith recipient |
+| F1-F6 | Select inventory owner or transfer recipient, an eligible member during WhoWill, an antidote target, a learned caster/First Aid target, the Training member, the Temple recipient, or the Smith recipient |
 | 1-9 | Select a physical inventory or Buy stock slot while browsing; 1-3 select a displayed target during a ready expedition or regional combat turn |
-| F | Shoot in contract-4/5/6/7/8/9/10/11/12/13 mainland exploration; unavailable during contact combat |
-| C | Open learned exploration casting at a presented quiet contract-7/8/9/10/11/12/13 boundary, or the acting member's book during a presented content-10/11/12/13 combat turn |
-| U | Use a selected eligible antidote from inventory in quiet contract-6/7/8/9/10/11/12/13 exploration; confirm with Enter, then choose a target with a fresh F1-F6 |
+| F | Shoot in contract-4/5/6/7/8/9/10/11/12/13/14 mainland exploration; unavailable during contact combat |
+| C | Open learned exploration casting at a presented quiet contract-7/8/9/10/11/12/13/14 boundary, or the acting member's book during a presented content-10/11/12/13/14 combat turn |
+| U | Use a selected eligible antidote from inventory in quiet contract-6/7/8/9/10/11/12/13/14 exploration; confirm with Enter, then choose a target with a fresh F1-F6 |
 | T | Begin transfer of the selected occupied slot |
 | E | Equip or remove the explicitly selected occupied weapon, armor or accessory |
 | . | Wait during the bounded encounter diagnostics and Journey; no action in ordinary gameplay |
 | F9 | Save an eligible idle ordinary session, completed Diagnostic27 or quiet presented Journey; refused while blocking work/UI is active |
 | I | Open inventory while idle; in completed Diagnostic27 open read-only inspection; close while browsing and print live diagnostics on opening |
-| R | Run for the displayed member in contract-5/6/7/8/9/10/11/12/13 mainland combat; revisit the completed Diagnostic27 checkpoint in that separate mode |
-| Escape | Exit either diagnostic session; otherwise back/cancel transfer or close inventory, cancel WhoWill or antidote selection, back out of precommit casting for free or refund First Aid at target choice while settlement remains owed, acknowledge NPC/reward pages, cancel a Training quote/request service departure, or exit |
+| R | Run for the displayed member in contract-5/6/7/8/9/10/11/12/13/14 mainland combat; revisit the completed Diagnostic27 checkpoint in that separate mode |
+| Escape | Exit either diagnostic session; otherwise back/cancel transfer or close inventory, cancel WhoWill or antidote selection, back out of precommit casting for free or refund First Aid at target choice while settlement remains owed, acknowledge NPC/reward pages, cancel a Training/Temple quote or unpublished Temple preparation/request service departure, or exit |
 
 Movement and ordinary interaction are blocked while a response is required;
 repeated keydown events are ignored. NPC dialogue and reward pages accept
@@ -357,7 +381,7 @@ Space/Enter/Escape, including final acknowledgment with Escape.
 Inventory navigation applies while browsing; during transfer selection/confirmation,
 Escape returns to browsing before changing category or slot. Each equipment
 attempt consumes its selection; select the slot again before another E action.
-Only the bounded contract-6/7/8/9/10/11/12/13 antidote has inventory use; general item effects are unavailable.
+Only the bounded contract-6/7/8/9/10/11/12/13/14 antidote has inventory use; general item effects are unavailable.
 
 F9 refuses during a response-requiring interaction, open inventory/inspection,
 pending Journey approach, combat/End/retirement, unresolved frame handoff or an unsafe session,
@@ -366,13 +390,13 @@ work, then issue a new F9. Without a configured path, it writes nothing. Save
 results appear in the console and window title. Existing supported valid MMModern
 saves can be replaced; there is no autosave, save-on-exit or in-session load.
 Ordinary eligible saves write v2, completed Diagnostic27 writes v3, and Journey
-saves write v4. Fresh Regional Journey saves use schema 9/content 13 and preserve
+saves write v4. Fresh Regional Journey saves use schema 9/content 14 and preserve
 all 19 mainland actors, optional retained Vertigo actors and explicit reset
 results, purchased items/depleted stock, repaired items, progressed levels/XP,
-exact reset/current HP/SP, individual service dates, merchant wares/shared bank balances and
+exact reset/current HP/SP and Temple recovery, individual service dates, merchant wares/shared bank balances and
 world RNG continuation, living wounds, casualties, conditions,
 purse/treasure, flags, quest/item consequences, and exact learned books and poison inputs for all thirty owners.
-Continuation does not replay purchases, Events, Training, refill, payment or time, reset
+Continuation does not replay purchases, Events, Training, Heal/resurrection, refill, payment or time, reset
 actors or relearn spells. Legacy
 7/7 and earlier Journeys retain their original domains and controls; loading
 does not upgrade them or grant Vertigo entry. Legacy 8/8 retains its shorter
@@ -381,7 +405,9 @@ and does not gain combat casting. Legacy 8/10 retains M39 combat casting;
 both 8/9 and 8/10 keep their day-10 service limit without economy state or upgrade.
 Legacy 9/11 retains M40's route and service behavior without Training or an
 expanded route. Legacy 9/12 retains Training and complete-generation stock
-semantics without Buy or purchase depletion. The reader accepts supported v1/v2/v3/v4 in their
+semantics without Buy or purchase depletion. Legacy 9/13 retains its twenty-eight-cell
+route and Buy/repair/Training services without Temple recovery or two-day departure.
+The reader accepts supported v1/v2/v3/v4 in their
 distinct domains. `--load-game` selects Journey directly from v4 and restores fresh owners
 without replaying fresh Journey initialization, approach, combat, objective
 grant/removal or item actions. Existing expedition saves remain readable
@@ -405,6 +431,8 @@ SDL backend. The exact pin and configuration live in
 
 ## Documentation
 
+- [Milestone 43 plan](docs/milestone-43-plan.md): closed bounded Temple Heal/resurrection,
+  forty-nine-cell route, two-day departure, exact 9/14 continuation and acceptance.
 - [Milestone 42 plan](docs/milestone-42-plan.md): closed bounded equipment purchase,
   depleted-stock admission, exact 9/13 continuation and acceptance.
 - [Milestone 41 plan](docs/milestone-41-plan.md): closed bounded Training,

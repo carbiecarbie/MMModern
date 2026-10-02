@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M42 is the latest completed and accepted milestone.**
+**M43 is the latest completed and accepted milestone.**
 [Project status](project-status.md) owns implemented capabilities and acceptance
 boundaries; [project history](project-history.md) owns completed chronology.
 Reference provenance belongs to [dependencies](dependencies.md).
@@ -28,59 +28,44 @@ combat-owned learned casting, repeated service days with merchant/bank state,
 and earned Training progression ([M39](milestone-39-plan.md),
 [M40](milestone-40-plan.md), [M41](milestone-41-plan.md)).
 
-The maintainer accepted the post-M41 roadmap direction. M42 bounded Ironworks
-equipment purchase is now **COMPLETED AND ACCEPTED**; its scope, depleted-stock
-proof, exact 9/13 continuation and separate automated/reviewer/maintainer evidence
-belong in the [closed plan](milestone-42-plan.md). It is removed from future scope.
+The maintainer accepted the post-M41 roadmap direction. M42 equipment purchase
+and M43 bounded Temple Heal/resurrection are completed and accepted. Their
+durable boundaries and separate automated, independent-review and maintainer
+acceptance belong in the [M42](milestone-42-plan.md) and
+[M43](milestone-43-plan.md) closed plans; both are removed from future scope.
 
-The prepared Journey still covers the map-23 mainland and twenty-eight Vertigo
-cells. Ordinary generated Weapons/Armor now have a purchase consumer. Normal
-original startup, unrestricted town services and general calendar/recovery remain
-outside support. Learned books have no Guild acquisition; Training refill is
-selected and XP-dependent and preserves conditions. See
-[current boundaries](project-status.md#current-boundaries).
+The prepared Journey covers the map-23 mainland and 49 Vertigo cells. It has
+ordinary equipment purchase and selected paid recovery, including supported Dead
+members with survivors, but Heal preserves SP. Normal original startup,
+unrestricted services, recurring SP/food/rest and ordinary calendar processing
+remain outside support. See [current boundaries](project-status.md#current-boundaries).
 
 ## Near term
 
-### Remaining short arc - recover, then test wider admission
+### Provisional successor - test wider admission
 
-The near-term objective is to improve the current connected Journey's capacity
-to venture further, rather than accumulate a fixed list of town menus.
+The near-term objective is to improve the connected Journey's capacity to
+venture further using established systems.
 
 | Unit | Purpose and independently acceptable boundary | Dependency and confidence |
 | --- | --- | --- |
-| **M43 candidate: bounded Vertigo Temple Heal and resurrection** | Bring an injured/conditioned member, or a supported Dead member with a surviving party, through an admitted approach; pay for selected recovery, depart, resume useful play and retain consequences through restart. | Provisional; medium confidence in the recovery value and reuse, lower confidence in the exact route/actor boundary. Reuse M42's mutated-stock compatibility and existing service/publication owners. M42 completion does not settle its unresolved scope or authorize implementation. |
-| **Following unit: connected Clouds content expansion** | Add a useful connected area with original encounters or an interaction, retained consequences, return to the established hub and exact restart. | Direction only; no M44/map/dungeon is selected. Recovery, time, actor profiles and region representation must support the chosen witness. |
+| **Default provisional successor: connected Clouds content expansion** | Add a useful connected area with original encounters or an interaction, retained consequences, return to the established hub and exact restart. | Direction only; no M44/map/dungeon is selected or authorized. Reuse confidence is medium; a complete area boundary remains unproved. The broad review below must establish whether recovery, time, actor profiles and retained-region representation support the chosen witness. |
 
-Temple Heal supplies a recovery path for admitted Disease and Dead states.
-Poison already has the quest antidote, and living HP/unconsciousness have bounded
-well/spell/Training consumers; their availability has distinct limits. Restrict
-the first recovery scope to supported conditions and selected Heal/resurrection; Uncurse
-and donations are separate choices. Heal resets the selected character's
-reference temporary attributes/resistances and restores HP, **not SP**. A paid
-Heal makes departure **one two-day service operation**. It needs a complete
-supported successor and exact stock/interest/RNG consequences, not two copies
-of M40's one-day operation: it regenerates stock/applies interest even on an
-8->10 departure. A refusal-only visit retains the original one-day departure.
-Training's separate member-days and departure must also remain separate calls.
-This is a bounded service extension, not general overnight processing.
+M43 establishes bounded HP/condition recovery and a certified approach; it does
+not establish a sustainable SP loop. At the required review, prefer connected
+content that composes existing systems. If repeatable SP/food/rest or ordinary
+time processing is necessary for an honest exploration witness, select that
+narrowly justified foundation first. This closure does not choose between them
+or authorize another milestone.
 
-The original Temple dispatch is at logical `(28,15,28)` on the northern city
-tile, well outside current admission. Its approach, relevant Events/art,
-initial and reset actor influence, surviving-party access and return must be
-certified before committing M43's scope. Existing HP/conditions and modeled
-reset inputs suggest no new settled character owner; route/actor/content and
-two-day time admission still change. Donations would introduce nonzero party
-effects and lighting, while Uncurse would require admitted curse/equipment
-semantics; neither is a free addition to Heal.
+### Deferred presentation work
 
-Do not promise a sustainable SP loop from these two milestones. After M42 and
-the recovery candidate, reassess the next unit before selecting its plan. Prefer
-connected content that mostly composes established systems. If lack of repeatable
-SP/food/rest or ordinary time processing prevents an honest exploration witness,
-select that narrowly justified foundation first. The recovery candidate remains
-provisional; the following unit is determined
-by play and focused route evidence under the accepted review cadence.
+The maintainer deferred the Temple's fully obscured static illustration: its
+opaque text panel covers the art in `XeenSmithFlow.cpp`. Revisit the panel/art
+composition with the broader service-character and scenery animation/art work.
+This is a known presentation limitation, not an M43 acceptance prerequisite or
+a reopened defect. Audio and animated service characters remain outside the
+accepted M43 boundary; this item selects no successor milestone.
 
 ## Decision evidence and alternatives
 
@@ -89,7 +74,7 @@ accepted scope. Original-resource inspection confirms the service addresses,
 not reachability or new gameplay acceptance. Reference interpretation uses only
 ScummVM [6814ee9b](https://github.com/scummvm/scummvm/tree/6814ee9ba54582f5b5adcffab49efbbd8f589edd).
 The post-M41 assessment below added no DOS observation or physical acceptance;
-M42's later acceptance is recorded in its closed plan.
+M42/M43 acceptance is recorded separately in their closed plans.
 
 - **Buy:** [merchant generation](../src/games/xeen/XeenMerchantGeneration.cpp)
   and [initialization coverage](../tests/XeenServiceDayInitializationTests.cpp)
@@ -101,7 +86,7 @@ M42's later acceptance is recorded in its closed plan.
   [ItemsDialog::calcItemCost/doItemOptions](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/dialogs/dialogs_items.cpp)
   establishes Buy price, capacity, unequipped transfer and stock removal.
   [Stock validation](../src/games/xeen/XeenServiceEconomy.cpp) now admits bounded
-  purchase depletion only under content 13, separately from strict generation.
+  purchase depletion only under contents 13/14, separately from strict generation.
   The [closed M42 contract](milestone-42-plan.md) owns that completed boundary.
 - **Broader equipment/item use:** modified weapons/armor and miscellaneous
   effects would make more loot and stock useful. Physical item bytes, catalog,
@@ -141,8 +126,8 @@ M42's later acceptance is recorded in its closed plan.
   [Character::guildMember](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/character.cpp),
   [SpellsDialog::setSpellText](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/dialogs/dialogs_spells.cpp)
   and `LangConstants::CLOUDS_GUILD_SPELLS` at the same pin.
-- **Temple versus Rest:** Temple's recovery boundary above has existing condition
-  consumers and an explicit original service. General Rest/SP replenishment
+- **Temple versus Rest:** [M43's accepted recovery boundary](milestone-43-plan.md#selected-recovery-rules)
+  has existing condition consumers and an explicit original service. General Rest/SP replenishment
   would solve a different bottleneck, but food, sleeping/rested state, ordinary
   dawn/daily processing and their condition consequences are not admitted.
   These can require new party state and schema coverage. Select them when
@@ -165,7 +150,7 @@ M42's later acceptance is recorded in its closed plan.
   enter from supported play, accomplish an original purpose and return with
   actors/flags/rewards exact, including initial/reset paths. Confidence in reuse
   is medium, in a complete area boundary low. It is the preferred subsequent
-  proof of leverage, but no area has been certified to precede M42. A quest alone
+  proof of leverage, but no successor area has been certified. A quest alone
   is not the default successor; select it when it tests reusable semantics or
   supplies a necessary gameplay purpose.
 - **Wider town gameplay:** extending Vertigo can reuse its retained region and
@@ -194,7 +179,7 @@ indoor projection, ordinary object ordering, world-owned actor scheduling and
 lifecycle, supported combat/reward rules, original Event selection/resumption,
 flags/quest counters, roster inventory/equipment, learned casting, derived
 progression, service coordination, merchant generation and guarded exact restart.
-The M39-M41 arc and M42 demonstrate cross-system reuse, not unrestricted admission.
+The M39-M41 arc and M42/M43 demonstrate cross-system reuse, not unrestricted admission.
 
 **Intentional gates:**
 [XeenJourneyContent](../src/games/xeen/XeenJourneyContent.h) explicitly selects
@@ -301,12 +286,13 @@ same systems, rather than merely increasing the feature inventory.
 ## Replanning and review cadence
 
 Review each proposed specification against verified Git state, current code/tests
-and the pinned reference. The next broad review is **after M42 and the proposed
-recovery unit, before choosing a connected-area or recurring-SP foundation**.
-Two milestones are appropriate here because recovery's longer route and the
-remaining SP/time limits can materially decide which expansion is playable.
-If recovery is replaced or split, hold that review at the first independently
-accepted recovery boundary; do not mechanically wait for a milestone number.
+and the pinned reference. **M43 closure reaches the required broad-review
+boundary: perform that review before selecting any connected-area or recurring-SP
+foundation.** This documentary closure records the trigger; it does not constitute
+that architectural review or select M44. Evaluate the accepted longer route and
+recovery loop against remaining SP/time limits, sustained funding, useful return
+visits and the cost of adding another retained region. Keep the connected-content
+entry as the provisional default successor until that evidence supports a choice.
 
 Replan earlier when:
 
@@ -322,9 +308,9 @@ Replan earlier when:
   or maintainer priorities change.
 
 Resolve a trigger with the smallest decision-changing investigation. Reconsider
-M43 and the unselected following unit first; reopen M42's boundary if its own
-useful consumer or persistence feasibility is contradicted. Pricing details,
-menu design and exact acceptance matrices belong in an authorized specification,
+the provisional successor and its necessary foundations first; revisit an
+accepted boundary only when new evidence contradicts its own behavior or
+persistence contract. Pricing details, menu design and exact acceptance matrices belong in an authorized specification,
 not this roadmap. Ordinary implementation difficulty alone is not a replan.
 
 Roadmap approval, milestone-specification authorization and implementation

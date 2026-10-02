@@ -390,6 +390,18 @@ Historical limitations in those plans describe their recorded boundaries.
   static service illustrations and out-of-scope unanimated scenery torches.
   See the [Milestone 42 plan](milestone-42-plan.md#final-acceptance).
 
+## M43 - Bounded Vertigo Temple Heal and resurrection
+
+- Connected a 49-cell Vertigo route to original selected Heal/resurrection,
+  preserving SP/equipment and charging original carried-gold prices with one
+  two-day departure per paid visit and one day for unpaid visits.
+- Reused existing service/owner authority and schema 9 for exact content-14
+  recovery, merchant/bank/RNG and two-region restart, retaining legacy behavior.
+- Build, full CTest, original-resource/process validation and final independent
+  review passed. Separately, maintainer physical native-SDL acceptance passed;
+  the maintainer deferred the opaque panel's Temple-art occlusion to broader
+  art/animation work. See the [Milestone 43 plan](milestone-43-plan.md#final-acceptance).
+
 ## Maintaining this history
 
 Add one short section with 2-4 lasting-result bullets per completed milestone

@@ -54,6 +54,7 @@ public:
 	std::function<void(IndexedFrame &)> drawSmithArt;
 	std::function<void(XeenSmithBoundary)> smithBoundary;
 	std::function<void(IndexedFrame &)> drawTrainingArt;
+	std::function<void(IndexedFrame &)> drawTempleArt;
 	std::function<void(XeenTrainingBoundary)> trainingBoundary;
 	bool completed() const noexcept { return _encounter && _encounter->completed(); }
 	bool canSave() const noexcept;
@@ -137,9 +138,9 @@ private:
 	std::optional<IndexedFrame> updateTraining();
 	struct SmithUi {
 		XeenItemCatalog catalog;
-		enum class Mode { Repair, Buy };
+		enum class Mode { Repair, Buy, Heal };
 		Mode mode=Mode::Repair;
-		enum class Phase { Preparation, Lobby, Browse, Quote, Result, Departure };
+		enum class Phase { Preparation, Lobby, Browse, Quote, Upgrade, Result, Departure };
 		Phase phase=Phase::Lobby;
 		std::size_t member=0, slot=0;
 		XeenInventoryCategory category=XeenInventoryCategory::Weapons;
@@ -157,6 +158,7 @@ private:
 	IndexedFrame drawSmith(const IndexedFrame &) const;
 	std::string smithText() const;
 	IndexedFrame handleSmith(const PlayerAction &,std::uint64_t,const IndexedFrame::Presentation &);
+	IndexedFrame handleTemple(const PlayerAction &,std::uint64_t,const IndexedFrame::Presentation &);
 	const XeenEventPublication *_eventPublication = nullptr;
 	bool _monsterReceiptPresented=false;
 	bool _journeyEventLayers = false;

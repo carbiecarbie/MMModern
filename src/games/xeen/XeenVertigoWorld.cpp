@@ -126,8 +126,24 @@ void xeenValidateVertigoActors(XeenWorld &world,const std::vector<XeenActor> &ac
 	// spawn under every admitted player cell and facing. Keep every other original
 	// slot in the simulation; a newly influencing actor invalidates admission.
 	const auto &content=xeenJourneyContent(world.sessionState().journeyContract());
-	auto &closure=world._vertigoClosure[(content.training()?4:content.armorRepair()?2:0)+(reset?1:0)];
-	if(training && !closure) {
+	auto &closure=world._vertigoClosure[(content.templeRecovery()?6:content.training()?4:content.armorRepair()?2:0)+(reset?1:0)];
+	if(content.templeRecovery() && !closure) {
+		// M43 fixed point over every admitted camera/facing and both city forms.
+		std::bitset<2048> reachable;
+		reachable.set(4*32+15);
+		const auto row=[&](int y,std::initializer_list<int> xs) {
+			for(int x:xs)reachable.set(1024+y*32+x);
+		};
+		row(0,{15});row(1,{9,10,11,12,13,14,15,16});row(2,{13,14,15,16});
+		row(3,{14,15,16});row(4,{8,9,10,11,12,13,14,15,16});
+		row(5,{9,10,11,14,15,16});row(6,{13,14,15,16});
+		row(7,{9,10,11,12,13,14,15,16});row(8,{10,14,15,16});
+		row(9,{10,12,14,15,16});
+		for(int y=10;y<=12;++y)row(y,{10,11,12,14,15,16});
+		for(int y=13;y<=20;++y)row(y,{14,15,16});
+		for(int y=21;y<=28;++y)row(y,{15});
+		closure=reachable;
+	} else if(training && !closure) {
 		// Certified M41 fixed point, including off-route positions. Independent
 		// resource-driven enumeration in tests binds this policy to both city forms.
 		std::bitset<2048> reachable;

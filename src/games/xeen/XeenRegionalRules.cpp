@@ -210,6 +210,11 @@ void xeenValidateVertigoManifest(XeenWorld &world, const XeenEventFile &events,
 		checked("008.obj",18331,0xff9b7e6d);checked("009.obj",12450,0x3deef973);
 		checked("010.obj",4340,0xbc3a2ad6);checked("011.obj",7355,0x9eea738b);
 	}
+	if(xeenJourneyContent(world.sessionState().journeyContract()).templeRecovery()) {
+		checked("tmpl1.twn",21187,0xb9ffe574);
+		checked("002.obj",6771,0xe75e3929);
+		checked("012.obj",24366,0xdd0c8515);
+	}
 	constexpr unsigned types[]{0,2,73};
 	constexpr std::uint32_t checksums[]{0x4743814e,0xf9c6fa54,0xd14e5e01};
 	for (unsigned i=0;i<3;++i)
@@ -274,6 +279,12 @@ XeenRegionalInteraction xeenRegionalInteraction(const XeenEventFile &events,cons
 	const auto first=xeenRegionalEvent(events,camera);
 	if (!first) return XeenRegionalInteraction::None;
 	if (xeenJourneyContent(contract).vertigo()) {
+		if (xeenJourneyContent(contract).templeRecovery() && camera.mapId==XeenMapIdentity(28) &&
+			*first==543 && camera.x==15 && camera.y==21 && camera.direction==XeenDirection::North)
+			return XeenRegionalInteraction::TempleLabel;
+		if (xeenJourneyContent(contract).templeRecovery() && camera.mapId==XeenMapIdentity(28) &&
+			*first==6 && camera.x==15 && camera.y==28)
+			return XeenRegionalInteraction::Temple;
 		if (xeenJourneyContent(contract).training() && camera.mapId==XeenMapIdentity(28)) {
 			if (*first==3 && camera.x==10 && camera.y==11)return XeenRegionalInteraction::Training;
 			if (*first==538 && camera.x==10 && camera.y==8 && camera.direction==XeenDirection::North)

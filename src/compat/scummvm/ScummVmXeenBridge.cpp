@@ -440,6 +440,23 @@ void ScummVmXeenBridge::drawSmith(IndexedFrame &frame) {
 	for(int y=8;y<140;++y)std::copy_n(static_cast<const std::uint8_t *>(surface.getBasePtr(8,y)),215,
 		frame.pixels.data()+y*320+8);
 }
+void ScummVmXeenBridge::drawTemple(IndexedFrame &frame) {
+	if (!frame.isValid() || frame.width!=320 || frame.height!=200)
+		throw std::invalid_argument("Invalid Temple draw context");
+	const auto bytes=readArchiveResource("tmpl1.twn");
+	if (bytes.size()!=21187 || crc32(0,bytes.data(),static_cast<uInt>(bytes.size()))!=0xb9ffe574)
+		throw std::invalid_argument("Temple original artwork identity changed");
+	const auto escape=readArchiveResource("esc.icn");
+	if (escape.size()!=792 || crc32(0,escape.data(),static_cast<uInt>(escape.size()))!=0x096b68b7)
+		throw std::invalid_argument("Temple original escape artwork identity changed");
+	XSurface surface;surface.create(320,200);
+	for(int y=0;y<200;++y)std::copy_n(frame.pixels.data()+y*320,320,
+		static_cast<std::uint8_t *>(surface.getBasePtr(0,y)));
+	_impl->sprite("tmpl1.twn",0,8).draw(surface,0,Common::Point(8,8));
+	_impl->sprite("esc.icn",0,2).draw(surface,0,Common::Point(86,140));
+	for(int y=8;y<160;++y)std::copy_n(static_cast<const std::uint8_t *>(surface.getBasePtr(8,y)),215,
+		frame.pixels.data()+y*320+8);
+}
 
 void ScummVmXeenBridge::drawNpc(IndexedFrame &frame, std::uint8_t portraitId,
 		std::size_t portraitFrame) {

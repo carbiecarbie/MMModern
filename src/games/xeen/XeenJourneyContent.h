@@ -8,7 +8,7 @@
 namespace mmodern {
 inline bool xeenSupportedJourneyPair(std::uint16_t schema, std::uint16_t contract) noexcept {
 	return (schema >= 1 && schema <= 8 && schema == contract) ||
-		(schema == 8 && (contract == 9 || contract == 10)) || (schema == 9 && (contract == 11 || contract == 12 || contract == 13));
+		(schema == 8 && (contract == 9 || contract == 10)) || (schema == 9 && (contract >= 11 && contract <= 14));
 }
 struct XeenJourneyActorAdmission {
 	unsigned record, resourceId, profileImage;
@@ -31,7 +31,8 @@ struct XeenJourneyContent {
 	std::uint16_t day;
 	bool manualObjective;
 	XeenMovement::Capabilities traversal{};
-	bool equipmentPurchase() const noexcept { return contract == 13; }
+	bool templeRecovery() const noexcept { return contract == 14; }
+	bool equipmentPurchase() const noexcept { return contract == 13 || templeRecovery(); }
 	bool training() const noexcept { return contract == 12 || equipmentPurchase(); }
 	bool serviceDays() const noexcept { return contract == 11 || training(); }
 	bool combatCasting() const noexcept { return contract == 10 || serviceDays(); }
@@ -43,10 +44,15 @@ struct XeenJourneyContent {
 	bool vertigo() const noexcept { return contract == 8 || armorRepair(); }
 	std::uint16_t schema() const noexcept { return serviceDays() ? 9 : armorRepair() ? 8 : contract; }
 	bool vertigoCell(int x, int y) const noexcept {
-		return vertigo() && ((training() && ((x == 15 && y >= 5 && y <= 7) ||
+		return vertigo() && ((templeRecovery() && x == 15 && y >= 8 && y <= 28) ||
+			(training() && ((x == 15 && y >= 5 && y <= 7) ||
 			(y == 7 && x >= 10 && x <= 14) || (x == 10 && y >= 8 && y <= 11))) ||
 			(x == 15 && y >= 0 && y <= 4) ||
 			(x == 16 && y >= 1 && y <= 4) || (y == 4 && x >= (armorRepair() ? 8 : 13) && x <= 14));
+	}
+	// Event dispatch keeps the legacy 16-by-16 camera bound before Temple recovery.
+	bool eventCameraCell(int x, int y) const noexcept {
+		return templeRecovery() ? vertigoCell(x, y) : x >= 0 && y >= 0 && x < 16 && y < 16;
 	}
 	bool contains(int x, int y) const noexcept {
 		if (contract >= 3) return false; // Regional admission requires checked geometry.
@@ -99,6 +105,8 @@ inline const XeenJourneyContent &xeenJourneyContent(std::uint16_t contract) {
 	if (contract == 12) return training;
 	static const XeenJourneyContent equipmentPurchase{13,regional.entry,regional.records,19,8,false};
 	if (contract == 13) return equipmentPurchase;
+	static const XeenJourneyContent templeRecovery{14,regional.entry,regional.records,19,8,false};
+	if (contract == 14) return templeRecovery;
 	throw std::invalid_argument("Unsupported Journey content contract");
 }
 struct XeenJourneyRandomState {

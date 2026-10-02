@@ -433,7 +433,7 @@ XeenSaveSnapshot journeyWire(std::uint16_t contract) {
 	}
 	if (contract >= 4) j.treasure.emplace();
 	if (contract >= 6) j.regionalRecovery.emplace();
-	if (contract == 11 || contract == 12 || contract == 13) j.serviceEconomy=literalMerchantEconomy();
+	if (contract >= 11 && contract <= 14) j.serviceEconomy=literalMerchantEconomy();
 	return s;
 }
 
@@ -466,7 +466,7 @@ void ironworksWireContract() {
 		check(restored.journey->treasure->gold == 0xffffffffU && restored.journey->treasure->dormant() &&
 			XeenSaveFormat::encode(restored) == bytes, "Ironworks full-u32 purse/dormant treasure changed");
 	}
-	for (unsigned contract=1; contract<=13; ++contract) {
+	for (unsigned contract=1; contract<=14; ++contract) {
 		const auto bytes = XeenSaveFormat::encode(journeyWire(contract));
 		const auto decoded = XeenSaveFormat::decode(bytes);
 		check(decoded.journey->contract == contract && decoded.journey->schema == xeenJourneyContent(contract).schema(),
@@ -474,7 +474,7 @@ void ironworksWireContract() {
 		check(XeenSaveFormat::encode(decoded) == bytes, "legacy/successor bytes changed on recapture");
 	}
 	for (unsigned schema=0; schema<=11; ++schema) for (unsigned contract=0; contract<=14; ++contract) {
-		const bool supported = (schema >= 1 && schema <= 8 && schema == contract) || (schema == 8 && (contract == 9 || contract == 10)) || (schema == 9 && (contract == 11 || contract == 12 || contract == 13));
+		const bool supported = (schema >= 1 && schema <= 8 && schema == contract) || (schema == 8 && (contract == 9 || contract == 10)) || (schema == 9 && (contract >= 11 && contract <= 14));
 		if (supported) continue;
 		auto invalid = journeyWire(9);
 		invalid.journey->schema = schema; invalid.journey->contract = contract;
@@ -536,7 +536,7 @@ void ironworksWireContract() {
 }
 
 void serviceEconomyWireContract() {
-	for(unsigned content:{11u,12u,13u}) {
+	for(unsigned content:{11u,12u,13u,14u}) {
 	auto s=journeyWire(content);
 	for(unsigned owner=0;owner<30;++owner) {
 		(*s.characters[owner].learnedSpells)[owner%39]=255-owner;
@@ -662,11 +662,32 @@ void purchaseDepletedWireContract() {
 	}
 }
 
+void templeWireContract() {
+	auto state=journeyWire(14);
+	state.journey->vertigoActors.emplace();
+	for(unsigned owner=0;owner<46;++owner) {
+		XeenSaveJourneyActor actor;actor.id={28,owner};
+		state.journey->vertigoActors->push_back(actor);
+	}
+	for(unsigned y=8;y<=28;++y) {
+		state.camera={28,15,static_cast<int>(y),XeenDirection::North};
+		const auto bytes=XeenSaveFormat::encode(state);
+		const auto decoded=XeenSaveFormat::decode(bytes);
+		check(decoded.journey->schema==9 && decoded.journey->contract==14 &&
+			decoded.camera.mapId==state.camera.mapId && decoded.camera.x==state.camera.x &&
+			decoded.camera.y==state.camera.y && decoded.camera.direction==state.camera.direction &&
+			XeenSaveFormat::encode(decoded)==bytes,
+			"M43 Temple corridor did not round-trip as schema 9/content 14");
+		auto legacy=state;legacy.journey->contract=13;
+		rejects([&]{XeenSaveFormat::encode(legacy);});
+	}
+}
+
 } // namespace
 
 int main() {
 	try {
-		wireContract(); asymmetricV2(); v3WireContract(); completeRoundTrips(); numericDomains(); malformedBytes(); invalidValuesAndLimits(); fingerprints(); ironworksWireContract(); serviceEconomyWireContract(); purchaseDepletedWireContract();
+		wireContract(); asymmetricV2(); v3WireContract(); completeRoundTrips(); numericDomains(); malformedBytes(); invalidValuesAndLimits(); fingerprints(); ironworksWireContract(); serviceEconomyWireContract(); purchaseDepletedWireContract(); templeWireContract();
 		std::cout << "M20A save format: wire contract, all modeled values, domains, malformed input and fingerprints passed\n";
 		return 0;
 	} catch (const std::exception &error) {

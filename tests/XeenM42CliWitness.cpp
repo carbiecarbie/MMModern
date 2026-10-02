@@ -66,6 +66,9 @@ extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCam
 extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>,std::optional<std::uint16_t>) asm("__wrap_" PLAY_SYMBOL);
 extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &original,XeenCamera camera,
     const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,std::optional<std::uint32_t> seed,std::optional<std::uint16_t> content) {
+    // This historical probe explicitly exercises legacy 9/13. The production
+    // --journey-region default advances to 9/14 in M43.
+    if(!resume)content=std::getenv("MMODERN_M42_CONTENT14")?14:13;
     const std::string stage=std::getenv("MMODERN_M42_STAGE")?std::getenv("MMODERN_M42_STAGE"):"fresh";
     const std::string control=std::getenv("MMODERN_M42_CONTROL")?std::getenv("MMODERN_M42_CONTROL"):"";
     auto services=original;XeenEventFlow *flow=nullptr;XeenWorld *world=nullptr;
@@ -118,7 +121,8 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     };
     services.show=[&](const IndexedFrame &first,const auto &handler,const auto &escape,const auto &idle,const auto &status) {
         check(flow && world && party && position && flags && target,"M42 production owners absent");
-        check(world->sessionState().journeyContract()==13,"M42 fresh successor content not selected");
+        check(world->sessionState().journeyContract()==(std::getenv("MMODERN_M42_CONTENT14")?14:13),
+            "M42/M43 fresh successor content not selected");
         std::deque<std::function<bool()>> steps;std::optional<IndexedFrame> next;bool shown=false,acted=false,cityFight=false;
         IndexedFrame::Presentation presented;unsigned iterations=0,nativeActions=0;
         const auto snapshot=[&]{return XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world);};
@@ -298,7 +302,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 inspect([&]{expect(9,803,670,799325555,1101);check(!interestCalls,"M42 nontrigger departure applied interest");});checkpoint("B");
             }
         }
-        if(stage!="weapons" && (!resume || stage=="A" || stage=="B")) {
+        if(stage!="depleted" && stage!="weapons" && (!resume || stage=="A" || stage=="B")) {
             action(InspectInventoryAction{});action(NavigationAction::TurnRight);action(SelectInventorySlotAction{5});action(TransferInventoryAction{});action(SelectMemberAction{1});action(AcknowledgeAction{});
             action(SelectMemberAction{1});action(SelectInventorySlotAction{4});action(EquipmentInventoryAction{});
             inspect([&]{check(xeenSameItem(party->roster.at(18).armor[0],{0,2,0,3}) && xeenSameItem(party->roster.at(18).armor[4],{0,3,0,0}) && ac()==10,"M42 conflicting body equip was accepted");});
@@ -306,6 +310,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             inspect([&]{check(xeenSameItem(party->roster.at(18).armor[0],{0,2,0,0}) && xeenSameItem(party->roster.at(18).armor[4],{0,3,0,3}) && ac()==11 && party->roster.at(18).currentHp==67 && party->roster.at(18).currentSp==0,"M42 legal remove/equip +1AC changed HP/SP or failed");std::cout<<"UPGRADE Armor strength 4->5 AC 10->11; nonblocked threshold 20->21\n";});
             action(InspectInventoryAction{});settle();checkpoint("B1");
         }
+        if(stage!="depleted") {
         if(stage!="weapons" && (!resume || stage=="A" || stage=="B" || stage=="B1")) {
             action(InteractionAction{});waitService();action(BlockAction{},true);action(NavigationAction::TurnRight,true);action(SelectInventorySlotAction{0},true);
             action(AcknowledgeAction{},true);action(CancelInteractionAction{},true);action(CancelInteractionAction{},true);
@@ -335,13 +340,15 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         });
         inspect([&,contact,consumer]{check(*contact && *consumer && enemyConsumers,"M42 actual enemy constructor consumer evidence absent");if(stage=="weapons")check(weaponConsumers,"M42 actual weapon6 melee consumer not reached");else check(intactArmorConsumer,"M42 actual enemy constructor never consumed intact upgraded Armor3 AC11 nonblocked threshold21");check(flow->canSave(),"M42 continued combat not settled");});checkpoint(stage=="weapons"?"WE":"E");
         }
-        inspect([&]{std::cout<<"M42 PRODUCTION WITNESS PASSED; native modal actions "<<nativeActions<<'\n';SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);});
+        }
+        inspect([&]{std::cout<<(stage=="depleted"?"M43 DEPLETED BUY PREFIX PASSED; native modal actions ":
+            "M42 PRODUCTION WITNESS PASSED; native modal actions ")<<nativeActions<<'\n';SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);});
         auto native=handler;native.closed={};native.beginCycle=[&](std::uint64_t){handler.beginCycle(++cycle);};unsigned evidenceFrame=0;
         native.framePresented=[&](const auto &frame) {
             check(!nativeFailed,"M42 failed native frame acquired authority");
             if(frame!=presented && !flow->canSave()){const auto p=providers,s=saves;handler.withPresentedInput(SaveGameAction{},handler.displayedInput().value_or(0),frame);check(p==providers && s==saves,"M42 unacquired handoff F9 reached provider/I/O");}
             handler.framePresented(frame);presented=frame;shown=true;
-            if(world->sessionState().journeyActivity()==XeenJourneyActivity::Service || flow->inventoryOpen()) {
+            if(stage!="depleted" && (world->sessionState().journeyActivity()==XeenJourneyActivity::Service || flow->inventoryOpen())) {
                 std::vector<std::uint32_t> pixels;pixels.reserve(frame->pixels.size());for(auto i:frame->pixels){const auto n=i*3;pixels.push_back(0xff000000u|(frame->palette[n]<<16)|(frame->palette[n+1]<<8)|frame->palette[n+2]);}
                 auto *surface=SDL_CreateRGBSurfaceFrom(pixels.data(),320,200,32,1280,0xff0000,0xff00,0xff,0xff000000);check(surface,"M42 evidence surface absent");
                 const auto suffix=flow->inventoryOpen() && flow->inventorySelection().sourceOwner==18 && flow->inventorySelection().category==XeenInventoryCategory::Armor && ac()==11?

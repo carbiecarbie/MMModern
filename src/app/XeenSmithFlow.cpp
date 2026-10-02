@@ -52,9 +52,11 @@ void XeenEncounterFlow::checkSmithReservation() {
  }
 }
 bool XeenEncounterFlow::beginSmith(const std::function<void()> &preflight) {
+	const bool temple=xeenJourneyContent(_world.sessionState().journeyContract()).templeRecovery() &&
+		_camera.mapId==XeenMapIdentity(28) && _camera.x==15 && _camera.y==28;
 	if (!journeyEvent() || _smith || _smithPreparation || _busy || !current(ticket()) || !journeyCapacity() ||
 		!xeenJourneyContent(_world.sessionState().journeyContract()).armorRepair() || _camera.mapId!=XeenMapIdentity(28) ||
-		_camera.x!=8 || _camera.y!=4 || !_party.encounterContext) return false;
+		!((temple) || (_camera.x==8 && _camera.y==4)) || !_party.encounterContext) return false;
 	SmithBusy busy(_busy);
 	_journeyPreimage->check();
 	// Reserve preparation/admission, two service frames, departure, Event
@@ -65,6 +67,7 @@ bool XeenEncounterFlow::beginSmith(const std::function<void()> &preflight) {
 	xeenValidateJourneyParty(_party,_world.sessionState().journeyContract());
 	checkSmithBoundary(XeenSmithBoundary::BeforeReservation);
 	auto next=std::make_unique<SmithContinuation>();
+	next->temple=temple;
     next->legacyDeparture=xeenPrepareSmithDeparture(*_party.encounterContext,_world.sessionState().journeyContract());
     if (xeenJourneyContent(_world.sessionState().journeyContract()).serviceDays()) {
         if (!_party.serviceEconomy || !_world.sessionState().journeyRandom())
@@ -267,6 +270,138 @@ void XeenEncounterFlow::confirmSmithBuy() {
  prepared->adoptJourneyCoordination();_journeyPreimage.swap(prepared);
  checkSmithBoundary(XeenSmithBoundary::AfterPurchase);
 }
+void XeenEncounterFlow::quoteTempleHeal(std::size_t member) {
+	if(!_smith || !_smith->temple || _smith->departed || _busy || _smith->frame ||
+		member>=_party.party.size() || !smithCapacity(18,4) ||
+		!xeenSmithAuthorityRoom(_smith->operation,1))
+		throw std::logic_error("Temple selection authority unavailable");
+	SmithBusy busy(_busy);_journeyPreimage->check();checkSmithReservation();
+	xeenValidateJourneyParty(_party,_world.sessionState().journeyContract());
+	const auto owner=_party.party.activeRosterIds()[member];
+	auto quote=xeenQuoteTempleHeal(_party.roster.at(owner),_party.monsterTreasure->gold,
+		*_party.encounterContext);
+	if(quote.outcome==XeenTempleHealOutcome::Quoted) {
+		quote=xeenPrepareTempleHeal(_party,owner,*_party.encounterContext,14).result;
+		quote.outcome=XeenTempleHealOutcome::Quoted;quote.goldAfter=quote.goldBefore;
+	}
+	_smith->owner=owner;_smith->healResult=quote;
+	_smith->quoted=quote.outcome==XeenTempleHealOutcome::Quoted;
+	_smith->published=false;++_smith->operation;
+	_smith->quoteOperation=_smith->operation;_smith->quoteReservation=_smith->reservation;
+	advanceSmith();checkSmithBoundary(XeenSmithBoundary::Quote);
+}
+bool XeenEncounterFlow::confirmTempleHeal() {
+	if(!_smith || !_smith->temple || !_smith->quoted || _smith->published || _smith->healPending ||
+		_busy || _smith->frame || _smith->departed || !smithCapacity(19,4))
+		throw std::logic_error("Temple Heal confirmation authority unavailable");
+	SmithBusy busy(_busy);_journeyPreimage->check();checkSmithReservation();
+	const auto &quoted=_smith->healResult;
+	const auto current=xeenQuoteTempleHeal(_party.roster.at(_smith->owner),
+		_party.monsterTreasure->gold,*_party.encounterContext);
+	if(_smith->quoteOperation!=_smith->operation || _smith->quoteReservation!=_smith->reservation ||
+		quoted.owner!=current.owner || quoted.price!=current.price ||
+		quoted.goldBefore!=current.goldBefore || quoted.hpBefore!=current.hpBefore ||
+		quoted.spBefore!=current.spBefore || quoted.maxHpBefore!=current.maxHpBefore ||
+		current.outcome!=XeenTempleHealOutcome::Quoted) {
+		_journeyPreimage->failed=true;
+		throw std::logic_error("Temple Heal quote preimage changed");
+	}
+	if(!_smith->paid && !xeenPrepareTemplePaidDeparture(*_party.encounterContext,14)) {
+		_smith->healResult.outcome=XeenTempleHealOutcome::SupportLimit;
+		_smith->quoted=false;advanceSmith();return true;
+	}
+	auto delta=std::make_unique<XeenTempleHealCandidate>(
+		xeenPrepareTempleHeal(_party,_smith->owner,*_party.encounterContext,14));
+	if(delta->result.outcome!=XeenTempleHealOutcome::Healed ||
+		delta->result.price!=quoted.price) {
+		_journeyPreimage->failed=true;
+		throw std::logic_error("Temple Heal candidate differs from its quote");
+	}
+	// Assigned maximum HP zero with cleared conditions is unrepresentable in a
+	// Journey party; refuse before any debit instead of failing after publication.
+	if(delta->result.hpAfter<=0) {
+		_smith->healResult.outcome=XeenTempleHealOutcome::HpSupportLimit;
+		_smith->quoted=false;advanceSmith();return true;
+	}
+	std::unique_ptr<XeenServiceDayCandidate> upgrade;
+	if(!_smith->paid) {
+		checkSmithBoundary(XeenSmithBoundary::BeforeHealUpgrade);
+		upgrade=std::make_unique<XeenServiceDayCandidate>(_smith->departure->upgradeTemplePaid());
+		checkSmithBoundary(XeenSmithBoundary::AfterHealUpgrade);
+	}
+	_journeyPreimage->check();checkSmithReservation();
+	_smith->healPending.swap(delta);_smith->templeUpgrade.swap(upgrade);
+	_smith->quoted=false;advanceSmith();
+	return false; // Private preparation and publication run in idle slices.
+}
+bool XeenEncounterFlow::serviceTempleHeal() {
+	if(!_smith || !_smith->temple || !_smith->healPending || _busy || !current(ticket()))return false;
+	SmithBusy busy(_busy);_journeyPreimage->check();checkSmithReservation();
+	auto &visit=*_smith;
+	if(visit.templeUpgrade) {
+		bool callbackOverflow=false;
+		try {
+			if(!visit.templeUpgrade->service(64,[&]{
+				try {_journeyPreimage->check();}
+				catch(const std::overflow_error &) {callbackOverflow=true;throw;}
+			},[&]{
+				try {checkSmithBoundary(XeenSmithBoundary::StockComplete);}
+				catch(const std::overflow_error &) {callbackOverflow=true;throw;}
+			}))return false;
+		} catch(const std::overflow_error &) {
+			if(callbackOverflow)throw;
+			_journeyPreimage->check();visit.healPending.reset();visit.templeUpgrade.reset();
+			visit.healResult.outcome=XeenTempleHealOutcome::SupportLimit;advanceSmith();return true;
+		}
+		checkSmithBoundary(XeenSmithBoundary::BankPrepared);
+		if(!(visit.templeUpgrade->beforeContext()==visit.departure->beforeContext()) ||
+			visit.templeUpgrade->beforeEconomy()!=visit.departure->beforeEconomy() ||
+			visit.templeUpgrade->beforeRandom()!=visit.departure->beforeRandom()) {
+			_journeyPreimage->failed=true;
+			throw std::logic_error("Temple replacement departure changed");
+		}
+		visit.templeUpgrade->validateComplete();
+	}
+	if(!smithCapacity(19,4))throw std::overflow_error("Temple publication would consume departure authority");
+	const auto &delta=*visit.healPending;
+	const SmithDepartureBinding binding(visit.templeUpgrade?*visit.templeUpgrade:*visit.departure);
+	auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
+	prepared->retainResources(*_journeyPreimage);
+	prepared->characters[visit.owner]=delta.character;
+	prepared->inputs[visit.owner]=delta.inputs;
+	prepared->treasure->gold=delta.result.goldAfter;
+	static_assert(std::is_nothrow_copy_assignable_v<XeenTempleHealResult> &&
+		std::is_nothrow_copy_assignable_v<SmithDepartureBinding>);
+	_journeyPreimage->check();checkSmithBoundary(XeenSmithBoundary::BeforeHeal);checkSmithReservation();
+	_journeyPreimage->check();
+	// The publication writes only the selected modeled fields and carried purse.
+	auto &c=_party.roster.at(visit.owner);auto &i=*_party.roster._combatInputs[visit.owner];
+	c.intellect.temporary=0;c.personality.temporary=0;c.endurance.temporary=0;c.temporaryLevel=0;
+	i.might.temporary=0;i.speed.temporary=0;i.accuracy.temporary=0;i.temporaryAc=0;
+	i.luck->temporary=0;i.resistances->coldTemporary=0;i.resistances->electricalTemporary=0;
+	i.poisonResistance->temporary=0;
+	c.currentHp=delta.result.hpAfter;
+	for(unsigned condition=1;condition<=15;++condition)c.conditions[condition]=0;
+	_party.monsterTreasure->gold=delta.result.goldAfter;
+	if(visit.templeUpgrade) {
+		visit.departure.swap(visit.templeUpgrade);
+		*visit.binding=binding;++visit.reservation;visit.paid=true;
+	}
+	visit.healResult=delta.result;visit.published=true;
+	visit.healPending.reset();visit.templeUpgrade.reset();
+	++_world._sessionState._journeyGeneration;++_generation;
+	prepared->adoptJourneyCoordination();_journeyPreimage.swap(prepared);
+	checkSmithBoundary(XeenSmithBoundary::AfterHeal);
+	return true;
+}
+void XeenEncounterFlow::cancelTempleHeal() {
+	if(!_smith || !_smith->temple || !_smith->healPending || _smith->published ||
+		_busy || _smith->frame || !current(ticket()))
+		throw std::logic_error("Unpublished Temple Heal cancellation unavailable");
+	SmithBusy busy(_busy);_journeyPreimage->check();checkSmithReservation();
+	_smith->healPending.reset();_smith->templeUpgrade.reset();
+	_smith->quoted=false;advanceSmith();
+}
 void XeenEncounterFlow::departSmith() {
 	if (!_smith || _busy || _smith->frame || !journeyCapacity())
 		throw std::logic_error("Smith departure authority unavailable");
@@ -328,21 +463,25 @@ void XeenEncounterFlow::departSmith() {
 
 void XeenEventFlow::prepareSmith() {
 	try {
+		const bool temple=xeenJourneyContent(_world.sessionState().journeyContract()).templeRecovery() &&
+			_camera.mapId==XeenMapIdentity(28) && _camera.x==15 && _camera.y==28;
 		const unsigned inputFrames=xeenJourneyContent(_world.sessionState().journeyContract()).equipmentPurchase()?10:
 			xeenJourneyContent(_world.sessionState().journeyContract()).serviceDays()?4:3;
 		if (!xeenSmithAuthorityRoom(_inputGeneration,inputFrames))
 			throw std::overflow_error("Smith input authority exhausted before admission");
 		_encounter->_smithBoundary=[this](XeenSmithBoundary stage) { if(smithBoundary)smithBoundary(stage); };
   const bool admitted=_encounter->beginSmith([&] {
-			if (!drawSmithArt) throw std::runtime_error("Ironworks artwork provider is unavailable");
+			if (temple ? !drawTempleArt : !drawSmithArt)
+				throw std::runtime_error("Service artwork provider is unavailable");
 			const auto events=_events.scriptForMap(28).file();
 			const auto mainland=_events.scriptForMap(23).file();
 			try { xeenValidateVertigoRoute(mainland,events,_world.sessionState().journeyContract()); }
             catch (const std::invalid_argument &) { _encounter->journeySavePreimage().failed=true;throw; }
 			const auto text=_events.textForMap(28);
 			_encounter->journeySavePreimage().admitVertigoText(text);
-			SmithUi ui;ui.catalog=_catalog;ui.title=text.strings.at(33);ui.art=_frame;
-			try { drawSmithArt(ui.art); }
+			SmithUi ui;ui.catalog=_catalog;ui.title=text.strings.at(temple?37:33);ui.art=_frame;
+			if(temple)ui.mode=SmithUi::Mode::Heal;
+			try { if(temple)drawTempleArt(ui.art);else drawSmithArt(ui.art); }
             catch (const std::invalid_argument &) { _encounter->journeySavePreimage().failed=true;throw; }
 			_encounter->journeySavePreimage().check();
 			if (!ui.art.isValid() || ui.art.width!=320 || ui.art.height!=200)
@@ -353,8 +492,9 @@ void XeenEventFlow::prepareSmith() {
 		});
 		if (!admitted) {
 			_smithUi.reset();_pending.reset();_journeyEventLayers=false;
-			_encounter->_journeyRefusal=xeenJourneyContent(_world.sessionState().journeyContract()).serviceDays() ?
-                "Ironworks unavailable: departure exceeds the supported year." :
+			_encounter->_journeyRefusal=temple ? "Temple unavailable: departure exceeds the supported year." :
+				xeenJourneyContent(_world.sessionState().journeyContract()).serviceDays() ?
+				"Ironworks unavailable: departure exceeds the supported year." :
                 "Ironworks unavailable: departure would require unsupported restocking.";
 		} else {
             if (_encounter->_smithPreparation) _smithUi->phase=SmithUi::Phase::Preparation;
@@ -365,7 +505,7 @@ void XeenEventFlow::prepareSmith() {
 		if (!_encounter->_smith) {
 		 _encounter->_smithPreparation.reset();
    _smithUi.reset();_pending.reset();_journeyEventLayers=false;
-   _encounter->_journeyRefusal="Ironworks preparation failed. Try entry again.";
+		 _encounter->_journeyRefusal="Service preparation failed. Try entry again.";
   } else {
    _presenter.clear();_journeyEventLayers=false;
    _smithUi->feedback="Retry; one-day departure still owed.";
@@ -377,6 +517,57 @@ std::string XeenEventFlow::smithText() const {
 	const auto owner=_party.party.activeRosterIds().at(ui.member);
 	const auto &character=_party.roster.at(owner);
 	const auto gold=_party.monsterTreasure->gold;
+	if(ui.mode==SmithUi::Mode::Heal) {
+		std::ostringstream text;
+		text<<ui.title<<"\n"<<character.name<<"  Gold "<<gold<<"\n";
+		if(ui.phase==SmithUi::Phase::Preparation)
+			text<<"Preparing complete departure. Please wait.";
+		else if(ui.phase==SmithUi::Phase::Upgrade)
+			text<<"Preparing paid departure. Escape: cancel Heal and keep one-day exit.";
+		else if(ui.phase==SmithUi::Phase::Departure)
+			text<<"Departure settlement pending.\nEnter: retry departure";
+		else if(ui.phase==SmithUi::Phase::Lobby) {
+			const auto quote=xeenQuoteTempleHeal(character,gold,*_party.encounterContext);
+			text<<"HP "<<character.currentHp<<" / "<<quote.maxHpBefore<<"  SP "<<character.currentSp<<"\n";
+			text<<"Conditions: ";
+			bool any=false;
+			for(unsigned i=1;i<=15;++i)if(character.conditions[i]) {
+				if(any)text<<", ";any=true;
+				text<<xeenConditionName(static_cast<XeenCondition>(i))<<' '<<unsigned(character.conditions[i]);
+			}
+			if(!any)text<<"Good";
+			text<<"\nQuote "<<quote.price<<" gold  Exit "<<(_encounter->_smith && _encounter->_smith->paid?2:1)<<" day(s)"
+				<<"\nF1-F6: recipient  Enter: Heal quote\nEscape: depart";
+		} else {
+			auto r=_encounter->_smith->healResult;
+			const bool refused=ui.phase==SmithUi::Phase::Result && !_encounter->_smith->published;
+			if(refused) {
+				// A refused Result reports no applied change, not the quote's projection.
+				r.hpAfter=r.hpBefore;r.maxHpAfter=r.maxHpBefore;r.spAfter=r.spBefore;
+				r.goldAfter=r.goldBefore;r.price=0;
+			}
+			text<<"HP "<<r.hpBefore<<" -> "<<r.hpAfter
+				<<(refused?" (max ":" (healthy max ")<<r.maxHpAfter<<")"
+				<<"\nSP "<<r.spBefore<<" -> "<<r.spAfter<<"  Gold "<<r.goldBefore;
+			if(ui.phase==SmithUi::Phase::Quote)
+				text<<"\nHeal price "<<r.price<<"  After "<<r.goldBefore-r.price
+					<<"\nPaid exit: two days\nEnter: confirm  Escape: cancel";
+			else {
+				switch(r.outcome) {
+				case XeenTempleHealOutcome::Healed:text<<"\nHealed. Paid "<<r.price<<" gold.";break;
+				case XeenTempleHealOutcome::NoCharge:text<<"\nNo Heal charge; no change.";break;
+				case XeenTempleHealOutcome::InsufficientGold:text<<"\nInsufficient carried gold.";break;
+				case XeenTempleHealOutcome::SupportLimit:text<<"\nPaid departure outside supported date or capacity.";break;
+				case XeenTempleHealOutcome::HpSupportLimit:text<<"\nHeal HP outside supported range; no change.";break;
+				default:text<<"\nHeal unavailable.";break;
+				}
+				text<<"\nGold now "<<r.goldAfter<<"  Exit "<<(_encounter->_smith->paid?2:1)<<" day(s)"
+					<<"\nEnter: return to Temple menu";
+			}
+		}
+		if(!ui.feedback.empty())text<<"\n"<<ui.feedback;
+		return text.str();
+	}
 	std::ostringstream text;
 	text<<ui.title<<"\n"<<character.name<<"  Gold "<<gold;
 	if (ui.mode==SmithUi::Mode::Buy && ui.phase==SmithUi::Phase::Browse) {
@@ -470,10 +661,12 @@ IndexedFrame XeenEventFlow::drawSmith(const IndexedFrame &world) const {
 	options.bounds={9,9,222,157};options.windowBounds={8,8,223,159};
 	options.x=10;options.y=10;options.size=XeenFontSize::Reduced;
 	options.paginate=true;options.drawWindow=true;
-	if (ui.phase==SmithUi::Phase::Lobby) {
+	if (ui.phase==SmithUi::Phase::Lobby && ui.mode!=SmithUi::Mode::Heal) {
 		options.bounds={9,93,222,157};options.windowBounds={8,91,223,159};options.y=93;
 	}
-	if (ui.mode==SmithUi::Mode::Buy && ui.phase!=SmithUi::Phase::Lobby) {
+	if (ui.mode==SmithUi::Mode::Heal) {
+		options.bounds={9,9,309,190};options.windowBounds={8,8,311,192};options.y=10;
+	} else if (ui.mode==SmithUi::Mode::Buy && ui.phase!=SmithUi::Phase::Lobby) {
 		options.bounds={9,9,309,157};options.windowBounds={8,8,311,159};
 	}
 	auto background=world;
@@ -508,6 +701,7 @@ IndexedFrame XeenEventFlow::settleSmithEvent() {
 	});
 }
 IndexedFrame XeenEventFlow::handleSmith(const PlayerAction &action,std::uint64_t input,const IndexedFrame::Presentation &inputFrame) {
+	if(_smithUi->mode==SmithUi::Mode::Heal)return handleTemple(action,input,inputFrame);
 	if (_smithUi->phase==SmithUi::Phase::Preparation) return frameCopy();
 	const bool successor=xeenJourneyContent(_world.sessionState().journeyContract()).equipmentPurchase();
 	if (successor) {
@@ -658,5 +852,69 @@ IndexedFrame XeenEventFlow::handleSmith(const PlayerAction &action,std::uint64_t
   ui.feedback=ui.phase==SmithUi::Phase::Browse?"Quote failed; Enter retries.":"Preparation failed; retry this phase.";
  }
  return renderEncounter();
+}
+IndexedFrame XeenEventFlow::handleTemple(const PlayerAction &action,std::uint64_t input,
+		const IndexedFrame::Presentation &inputFrame) {
+	auto &ui=*_smithUi;
+	if(ui.phase==SmithUi::Phase::Preparation)return frameCopy();
+	const bool confirm=std::holds_alternative<AcknowledgeAction>(action) || std::holds_alternative<YesAction>(action);
+	const bool cancel=std::holds_alternative<CancelInteractionAction>(action) || std::holds_alternative<NoAction>(action);
+	const auto *member=std::get_if<SelectMemberAction>(&action);
+	const bool chooseMember=member && ui.phase==SmithUi::Phase::Lobby &&
+		member->partyIndex<_party.party.size() && member->partyIndex!=ui.member;
+	const bool allowed=chooseMember ||
+		(ui.phase==SmithUi::Phase::Lobby && (confirm || cancel)) ||
+		(ui.phase==SmithUi::Phase::Quote && (confirm || cancel)) ||
+		(ui.phase==SmithUi::Phase::Upgrade && cancel) ||
+		(ui.phase==SmithUi::Phase::Result && confirm) ||
+		(ui.phase==SmithUi::Phase::Departure && (confirm || cancel));
+	if(!allowed)return frameCopy();
+	if(_smithSettlement) {_handoffPending=true;return settleSmithEvent();}
+	if(!_encounter->consumeSmithFrame(input,inputFrame))return frameCopy();
+	const unsigned revisions=ui.phase==SmithUi::Phase::Quote && confirm?2:1;
+	if(ui.phase!=SmithUi::Phase::Departure && !(cancel &&
+		(ui.phase==SmithUi::Phase::Lobby || ui.phase==SmithUi::Phase::Upgrade)) &&
+		(!_encounter->smithCapacity(19,4) || !xeenSmithAuthorityRoom(_inputGeneration,10) ||
+		 !xeenSmithAuthorityRoom(ui.revision,revisions) ||
+		 (ui.phase==SmithUi::Phase::Lobby && confirm && !xeenSmithAuthorityRoom(_encounter->_smith->operation,1)) ||
+		 (ui.phase==SmithUi::Phase::Quote && confirm && !_encounter->_smith->paid &&
+		  !xeenSmithAuthorityRoom(_encounter->_smith->reservation,1)))) {
+		ui.phase=SmithUi::Phase::Departure;
+		ui.feedback="Further Heal actions unavailable. Departure remains reserved.";
+		if(ui.revision!=UINT64_MAX)++ui.revision;
+		return renderEncounter();
+	}
+	ui.feedback.clear();
+	const auto originalPhase=ui.phase;
+	bool failed=false,revisionAdvanced=false;
+	try {
+		if(ui.phase==SmithUi::Phase::Lobby) {
+			if(chooseMember) {ui.member=member->partyIndex;_encounter->advanceSmith();}
+			else if(confirm) {
+				_encounter->quoteTempleHeal(ui.member);
+				ui.phase=_encounter->_smith->quoted?SmithUi::Phase::Quote:SmithUi::Phase::Result;
+			} else if(cancel)ui.phase=SmithUi::Phase::Departure;
+		} else if(ui.phase==SmithUi::Phase::Quote) {
+			if(cancel) {_encounter->_smith->quoted=false;ui.phase=SmithUi::Phase::Lobby;_encounter->advanceSmith();}
+			else ui.phase=_encounter->confirmTempleHeal()?SmithUi::Phase::Result:SmithUi::Phase::Upgrade;
+		} else if(ui.phase==SmithUi::Phase::Upgrade) {
+			_encounter->cancelTempleHeal();ui.phase=SmithUi::Phase::Lobby;
+		} else if(ui.phase==SmithUi::Phase::Result) {
+			ui.phase=SmithUi::Phase::Lobby;_encounter->advanceSmith();
+		}
+		if(ui.phase==SmithUi::Phase::Departure && (confirm || cancel)) {
+			if(originalPhase!=ui.phase && ui.revision!=UINT64_MAX) {++ui.revision;revisionAdvanced=true;}
+			_encounter->departSmith();_smithSettlement=true;return settleSmithEvent();
+		}
+	} catch(const std::exception &) {
+		failed=true;
+		_encounter->journeySavePreimage().check();
+		if(!_encounter->_smith)throw;
+		if(_encounter->_smith->healPending)ui.phase=SmithUi::Phase::Upgrade;
+		else if(ui.phase==SmithUi::Phase::Quote && !_encounter->_smith->quoted)ui.phase=SmithUi::Phase::Result;
+		ui.feedback="Temple preparation failed; retry or depart.";
+	}
+	if(!revisionAdvanced && (!failed || originalPhase!=ui.phase) && ui.revision!=UINT64_MAX)++ui.revision;
+	return renderEncounter();
 }
 }

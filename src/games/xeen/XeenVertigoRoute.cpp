@@ -21,7 +21,7 @@ void exact(const XeenEventFile &file,const Site &s) {
 }
 }
 void xeenValidateVertigoRoute(const XeenEventFile &mainland,const XeenEventFile &city,std::uint16_t content) {
-	if (content!=8 && content!=9 && content!=10 && content!=11 && content!=12 && content!=13) throw std::invalid_argument("Unsupported Vertigo route content");
+	if (content<8 || content>14) throw std::invalid_argument("Unsupported Vertigo route content");
 	if(!mainland.resourcePresent || mainland.mapId!=XeenMapIdentity(23) || mainland.records.size()!=170 ||
 		!city.resourcePresent || city.mapId!=XeenMapIdentity(28) || city.records.size()!=847)
 		throw std::invalid_argument("Vertigo Event catalog changed");
@@ -29,6 +29,10 @@ void xeenValidateVertigoRoute(const XeenEventFile &mainland,const XeenEventFile 
 	if (xeenJourneyContent(content).training()) {
 		exact(city,{3,23,10,11,4,0,0x11,{5}});
 		exact(city,{538,4464,10,8,0,0,0x02,{32}});
+	}
+	if (xeenJourneyContent(content).templeRecovery()) {
+		exact(city,{543,4499,15,21,0,0,0x02,{37}});
+		exact(city,{6,44,15,28,4,0,0x11,{4}});
 	}
 	for(const Site &s:{
 		Site{136,1141,10,13,4,0,0x01,{33}},Site{137,1148,10,13,4,1,0x09,{44,0,3}},

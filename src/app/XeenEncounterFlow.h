@@ -14,6 +14,7 @@
 #include "games/xeen/XeenArmorRepair.h"
 #include "games/xeen/XeenServiceDay.h"
 #include "games/xeen/XeenTraining.h"
+#include "games/xeen/XeenTempleHeal.h"
 #include "games/xeen/XeenEquipmentPurchase.h"
 
 namespace mmodern {
@@ -182,8 +183,11 @@ private:
 		IndexedFrame::Presentation frame;
 		std::uint8_t owner=0, slot=0;
 		static constexpr auto category=XeenInventoryCategory::Armor;
-		bool quoted=false, departed=false, published=false, buy=false;
+		bool quoted=false, departed=false, published=false, buy=false,temple=false,paid=false;
 		XeenArmorRepairCandidate result;
+		XeenTempleHealResult healResult;
+		std::unique_ptr<XeenTempleHealCandidate> healPending;
+		std::unique_ptr<XeenServiceDayCandidate> templeUpgrade;
 		std::unique_ptr<XeenEquipmentPurchaseCandidate> purchase;
 		std::uint64_t quoteOperation=0, quoteReservation=0;
 		std::optional<XeenGameplayContext> legacyDeparture;
@@ -224,6 +228,10 @@ private:
 	void quoteSmithBuy(std::size_t,XeenInventoryCategory,std::size_t);
 	void confirmSmith();
 	void confirmSmithBuy();
+	void quoteTempleHeal(std::size_t);
+	bool confirmTempleHeal();
+	bool serviceTempleHeal();
+	void cancelTempleHeal();
 	void advanceSmith() noexcept;
 	void checkSmithReservation();
 	void departSmith();

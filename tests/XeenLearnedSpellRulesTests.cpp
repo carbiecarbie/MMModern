@@ -56,7 +56,9 @@ void mapping() {
 	for(unsigned id=0;id<77;++id)for(bool combat:{false,true}) {
 		check(XeenLearnedSpellRules::supportedIn(id,13,combat)==XeenLearnedSpellRules::supportedIn(id,12,combat),
 			"successor spell dispatch changed inherited capability");
-		check(!XeenLearnedSpellRules::supportedIn(id,14,combat),"unknown content gained casting");
+		check(XeenLearnedSpellRules::supportedIn(id,14,combat)==XeenLearnedSpellRules::supportedIn(id,13,combat),
+			"content-14 casting changed inherited capability");
+		check(!XeenLearnedSpellRules::supportedIn(id,15,combat),"unknown content gained casting");
 	}
 	rejects([&]{(void)XeenLearnedSpellNames::parse(std::vector<std::uint8_t>{});});
 }

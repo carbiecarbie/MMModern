@@ -144,6 +144,9 @@ void XeenAssetSource::drawSmith(IndexedFrame &frame) {
 void XeenAssetSource::drawTraining(IndexedFrame &frame) {
 	_impl->bridge.drawTraining(frame);
 }
+void XeenAssetSource::drawTemple(IndexedFrame &frame) {
+	_impl->bridge.drawTemple(frame);
+}
 
 void XeenAssetSource::drawNpc(IndexedFrame &frame, std::uint8_t portraitId,
 		std::size_t portraitFrame) {

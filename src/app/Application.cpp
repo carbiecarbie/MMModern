@@ -450,6 +450,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                 flow.rebuildEncounterPresentation = [&] { assets.discardSpriteCache(); };
 				flow.drawSmithArt = [&](IndexedFrame &frame) { assets.drawSmith(frame); };
 				flow.drawTrainingArt = [&](IndexedFrame &frame) { assets.drawTraining(frame); };
+				flow.drawTempleArt = [&](IndexedFrame &frame) { assets.drawTemple(frame); };
                 flow.reportManual = printManualEventResult;
                 flow.reportAutomatic = requireAutomaticEventSuccess;
                 flow.reportText = [](const std::string &message) { std::cerr << "Text warning: " << message << '\n'; };

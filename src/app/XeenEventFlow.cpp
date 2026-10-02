@@ -555,10 +555,13 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 		// Adopt ownership before composition, reporting or presentation can fail.
 		auto *suspended = std::get_if<XeenEventExecutionSuspended>(&result);
 		if (suspended && journey() && xeenJourneyContent(_world.sessionState().journeyContract()).equipmentPurchase() &&
-			suspended->request.kind==XeenPresentationKind::ArmorRepairService && !xeenSmithAuthorityRoom(_generation,1))
+			(suspended->request.kind==XeenPresentationKind::ArmorRepairService ||
+			 suspended->request.kind==XeenPresentationKind::TempleService) && !xeenSmithAuthorityRoom(_generation,1))
 			throw std::overflow_error("Smith Event ticket generation exhausted before preparation");
 		if (suspended) _pending.emplace(Pending{std::move(suspended->state), automatic, ++_generation});
-		if (suspended && (suspended->request.kind==XeenPresentationKind::ArmorRepairService || suspended->request.kind==XeenPresentationKind::TrainingService))
+		if (suspended && (suspended->request.kind==XeenPresentationKind::ArmorRepairService ||
+			suspended->request.kind==XeenPresentationKind::TrainingService ||
+			suspended->request.kind==XeenPresentationKind::TempleService))
 			return frameCopy(); // Exclusive Event transfers to Service after its final guard check.
 		try {
 		refreshScene(reconstruct, cause, committedTransition);
@@ -822,6 +825,9 @@ IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operat
 		_pending->state.pendingPresentation->request.kind==XeenPresentationKind::ArmorRepairService && !_smithUi)
 		prepareSmith();
 	if (_pending && _pending->state.pendingPresentation &&
+		_pending->state.pendingPresentation->request.kind==XeenPresentationKind::TempleService && !_smithUi)
+		prepareSmith();
+	if (_pending && _pending->state.pendingPresentation &&
 		_pending->state.pendingPresentation->request.kind==XeenPresentationKind::TrainingService && !_trainingUi)
 		prepareTraining();
 	if (!_pending) {
@@ -918,6 +924,26 @@ IndexedFrame XeenEventFlow::presentationFailed(const std::exception &exception) 
 std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 	requireCurrentOwners();
 	if(_trainingUi)return updateTraining();
+	if (_smithUi && _smithUi->phase==SmithUi::Phase::Upgrade && !_dispatching && !_fatal && !_saving) {
+		DispatchScope dispatch(_dispatching);
+		try {
+			if(!xeenSmithAuthorityRoom(_smithUi->revision,1))
+				throw std::overflow_error("Temple Result UI revision exhausted before Heal publication");
+			if(!_encounter->serviceTempleHeal())return std::nullopt;
+			_smithUi->phase=SmithUi::Phase::Result;
+		} catch(const std::exception &) {
+			_encounter->journeySavePreimage().check();
+			if(_encounter->_smith && _encounter->_smith->published) {
+				_smithUi->phase=SmithUi::Phase::Result;
+				++_smithUi->revision;
+				return renderEncounter();
+			}
+			_smithUi->feedback="Temple preparation failed; retrying reserved operation.";
+			return std::nullopt;
+		}
+		++_smithUi->revision;
+		return renderEncounter();
+	}
 	if (_smithUi && _smithUi->phase==SmithUi::Phase::Preparation && !_dispatching && !_fatal && !_saving) {
 		DispatchScope dispatch(_dispatching);
 		try {

@@ -18,6 +18,23 @@
 namespace mmodern {
 // Synthetic authority-limit controls; never used by an earned/process witness.
 struct XeenTrainingTestAccess {
+    static bool templeLobby(const XeenEventFlow &flow) {
+        return flow._smithUi && flow._smithUi->mode==XeenEventFlow::SmithUi::Mode::Heal &&
+            flow._smithUi->phase==XeenEventFlow::SmithUi::Phase::Lobby;
+    }
+    static bool templePending(const XeenEventFlow &flow) {
+        return flow._encounter->_smith && flow._encounter->_smith->healPending &&
+            flow._encounter->_smith->templeUpgrade;
+    }
+    static bool templeOneDayReserved(const XeenEventFlow &flow) {
+        return flow._encounter->_smith && flow._encounter->_smith->departure &&
+            flow._encounter->_smith->departure->complete() && !flow._encounter->_smith->paid;
+    }
+    static std::string templeText(const XeenEventFlow &flow) {return flow.smithText();}
+    static std::uint64_t templeRevision(const XeenEventFlow &flow) {return flow._smithUi->revision;}
+    static void templeRevision(XeenEventFlow &flow,std::uint64_t value) {
+        flow._smithUi->revision=value;flow._smithRenderedRevision=value;
+    }
     static std::string text(const XeenEventFlow &flow) {return flow.trainingText();}
     static bool quote(const XeenEventFlow &flow) {return flow._trainingUi && flow._trainingUi->phase==XeenEventFlow::TrainingUi::Phase::Quote;}
     static bool menu(const XeenEventFlow &flow) {return flow._trainingUi && flow._trainingUi->phase==XeenEventFlow::TrainingUi::Phase::Menu;}
@@ -26,7 +43,8 @@ struct XeenTrainingTestAccess {
         auto &encounter=*flow._encounter;
         switch(counter){case 0:encounter._generation=value;break;
         case 1:encounter._world._sessionState._journeyGeneration=value;break;
-        case 2:flow._inputGeneration=value;if(encounter._training)encounter._training->input=value;break;
+        case 2:flow._inputGeneration=value;if(encounter._training)encounter._training->input=value;
+            if(encounter._smith)encounter._smith->input=value;break;
         case 3:encounter._boundary.epoch=value;break;
         case 4:encounter._training->operation=value;break;}
         encounter._journeyPreimage->adoptJourneyCoordination();flow._encounterFrame=encounter.ticket();
@@ -66,7 +84,9 @@ struct Inputs {
         XeenJourneySetup value{chr,XeenGameplayContextFormat::parse(pty),statistics,mainland,7,content,regional()};
         value.purse=XeenCharacterFormat::parseMonsterPurse(pty);value.regionalRecovery=XeenQuestFlagFormat::parseRegionalRecovery(pty);
         value.regionalText=texts.load(23);value.learnedNames=names;value.learnedNamesProvider=[this]{return names;};
-        value.vertigoManifest=vertigo();value.bank=XeenCharacterFormat::parseBankBalances(pty);value.cityEventsProvider=[this]{return city;};return value;
+        value.vertigoManifest=vertigo();
+        if(xeenJourneyContent(content).serviceDays())value.bank=XeenCharacterFormat::parseBankBalances(pty);
+        value.cityEventsProvider=[this]{return city;};return value;
     }
     XeenSaveState::Resources resources(){
         XeenSaveState::Resources r;r.signature=signature;r.loadInitialCharacters=[this]{return chr;};

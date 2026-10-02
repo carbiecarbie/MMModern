@@ -30,7 +30,7 @@ std::optional<std::uint32_t> xeenEquipmentPurchasePrice(XeenInventoryCategory ca
 }
 XeenEquipmentPurchaseResult xeenQuoteEquipmentPurchase(const XeenPartyState &party,std::size_t member,
         XeenInventoryCategory category,std::size_t slot,std::uint16_t content,unsigned side,unsigned shop) {
-    if(content!=13)throw std::invalid_argument("Equipment Buy requires Journey content 13");
+    if(content!=13 && content!=14)throw std::invalid_argument("Equipment Buy requires Journey content 13 or 14");
     xeenValidateJourneyParty(party,content);
     XeenEquipmentPurchaseResult r;r.category=category;
     r.goldBefore=r.goldAfter=party.monsterTreasure->gold;

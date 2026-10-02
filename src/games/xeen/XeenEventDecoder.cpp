@@ -299,9 +299,10 @@ XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 		return decodeEmpty(record, context, XeenEventExit{});
 	case 0x11:
 		if (record.parameters.size()!=1) return wrongSize(record,context,1);
-		if (record.parameters[0]!=1 && record.parameters[0]!=5)
+		if (record.parameters[0]!=1 && record.parameters[0]!=5 &&
+			!(record.parameters[0]==4 && context.templeRecovery))
 			return makeError(record,context,XeenEventDecodeErrorKind::UnsupportedOperand,
-				"Only the bounded Ironworks and Training operands are supported");
+				"Only the bounded Ironworks, Temple and Training operands are supported");
 		return instruction(record,context,XeenEventTownService{record.parameters[0]});
 	case 0x19:
 		return decodeCallEvent(record, context);

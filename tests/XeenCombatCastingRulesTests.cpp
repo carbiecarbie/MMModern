@@ -61,23 +61,23 @@ void arrow() {
 void domainsAndBooks() {
     using Rules=XeenLearnedSpellRules;
     for(unsigned schema=0;schema<=14;++schema)for(unsigned content=0;content<=14;++content) {
-        const bool accepted=(schema>=1 && schema<=8 && schema==content) || (schema==8 && (content==9 || content==10)) || (schema==9 && (content==11 || content==12 || content==13));
+        const bool accepted=(schema>=1 && schema<=8 && schema==content) || (schema==8 && (content==9 || content==10)) || (schema==9 && (content==11 || content==12 || content==13 || content==14));
         check(xeenSupportedJourneyPair(schema,content)==accepted,"Journey admitted an unknown/crossed pair");
     }
-    for(unsigned content=1;content<=13;++content) {
+    for(unsigned content=1;content<=14;++content) {
         const auto &policy=xeenJourneyContent(content);
-        check(policy.combatCasting()==(content==10 || content==11 || content==12 || content==13),"Combat capability differs from explicit admitted domains");
-        check(policy.armorRepair()==(content==9 || content==10 || content==11 || content==12 || content==13),"Inherited Armor Repair capability differs");
-        check(policy.serviceDays()==(content==11 || content==12 || content==13),"Legacy content gained service-day continuation");
-        check(policy.training()==(content==12 || content==13),"Training capability leaked into a legacy domain");
-        check(policy.equipmentPurchase()==(content==13),"Equipment purchase capability leaked into a legacy domain");
+        check(policy.combatCasting()==(content>=10),"Combat capability differs from explicit admitted domains");
+        check(policy.armorRepair()==(content>=9),"Inherited Armor Repair capability differs");
+        check(policy.serviceDays()==(content>=11),"Service-day continuation differs");
+        check(policy.training()==(content>=12),"Training capability differs");
+        check(policy.equipmentPurchase()==(content>=13),"Equipment purchase capability differs");
         for(unsigned id=0;id<256;++id)for(bool combat:{false,true}) {
-            const bool accepted=combat ? (content==10 || content==11 || content==12 || content==13) && (id==1 || id==26 || id==45) : content>=7 && (id==1 || id==26);
+            const bool accepted=combat ? content>=10 && (id==1 || id==26 || id==45) : content>=7 && (id==1 || id==26);
             check(bool(Rules::supportedIn(id,content,combat))==accepted,"Context support admission widened");
         }
     }
     for(unsigned id=0;id<256;++id)for(bool combat:{false,true})
-        check(!Rules::supportedIn(id,14,combat),"Unknown content gained casting support");
+        check(!Rules::supportedIn(id,15,combat),"Unknown content gained casting support");
     for(unsigned id=0;id<256;++id)check(bool(Rules::supported(id))==(id==1 || id==26 || id==45),"Effect recognition changed");
     check(Rules::cost(XeenLearnedSpell::Awaken)==1 && Rules::cost(XeenLearnedSpell::FirstAid)==1 && Rules::cost(XeenLearnedSpell::MagicArrow)==2,"Fixed costs differ");
     check(Rules::spellForSlot(XeenSpellCategory::Wizardry,25)==45 && Rules::spellForSlot(XeenSpellCategory::Druidic,23)==45,"Magic Arrow class slots differ");

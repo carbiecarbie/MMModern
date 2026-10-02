@@ -34,6 +34,7 @@ add_library(mmodern_xeen STATIC
 	src/games/xeen/XeenMerchantGeneration.cpp
 	src/games/xeen/XeenServiceDay.cpp
 	src/games/xeen/XeenTraining.cpp
+	src/games/xeen/XeenTempleHeal.cpp
 	src/games/xeen/XeenEquipmentPurchase.cpp
 	src/games/xeen/XeenJourneyRules.cpp
 	src/games/xeen/XeenGameplayContext.cpp
@@ -183,6 +184,34 @@ if(BUILD_TESTING)
 		set_tests_properties(xeen_purchase_input_${mode} PROPERTIES TIMEOUT 120)
 	endforeach()
 	add_executable(mmodern_training_rules_tests tests/XeenTrainingRulesTests.cpp)
+	add_executable(mmodern_temple_flow_tests tests/XeenTempleFlowTests.cpp)
+	add_executable(mmodern_temple_rules_tests tests/XeenTempleRulesTests.cpp)
+	target_link_libraries(mmodern_temple_rules_tests PRIVATE mmodern_xeen)
+	add_test(NAME xeen_temple_rules COMMAND mmodern_temple_rules_tests)
+	target_link_libraries(mmodern_temple_flow_tests PRIVATE mmodern_app mmodern_xeen)
+	add_test(NAME xeen_temple_flow COMMAND mmodern_temple_flow_tests "F:/Games/gog/Might and Magic 4-5")
+	add_executable(mmodern_temple_original_tests tests/XeenTempleOriginalTests.cpp)
+	target_link_libraries(mmodern_temple_original_tests PRIVATE mmodern_app mmodern_xeen)
+	add_test(NAME xeen_temple_original COMMAND mmodern_temple_original_tests "F:/Games/gog/Might and Magic 4-5")
+	set_tests_properties(xeen_temple_original PROPERTIES TIMEOUT 600)
+	add_executable(mmodern_m43_cli_witness src/main.cpp tests/XeenM43CliWitness.cpp)
+	target_link_libraries(mmodern_m43_cli_witness PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2 shell32 bcrypt)
+	target_link_options(mmodern_m43_cli_witness PRIVATE
+		"LINKER:--wrap,_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjES5_ItE"
+		"LINKER:--wrap,_ZN7mmodern16XeenCombatRandom4drawEjj")
+	add_test(NAME xeen_temple_production COMMAND mmodern_m43_cli_witness --journey-region --combat-seed 3626689381 "F:/Games/gog/Might and Magic 4-5" --save-file "${CMAKE_CURRENT_BINARY_DIR}/m43-production.mmsave")
+	set_tests_properties(xeen_temple_production PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software" TIMEOUT 600)
+	add_executable(mmodern_m43_process_tests tests/XeenM43ProcessTests.cpp)
+	target_link_libraries(mmodern_m43_process_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl bcrypt)
+	add_dependencies(mmodern_m43_process_tests mmodern_m43_cli_witness)
+	add_test(NAME xeen_temple_process COMMAND mmodern_m43_process_tests $<TARGET_FILE:mmodern_m43_cli_witness> "F:/Games/gog/Might and Magic 4-5")
+	set_tests_properties(xeen_temple_process PROPERTIES TIMEOUT 600)
+	add_executable(mmodern_m43_depleted_process_tests tests/XeenM43DepletedProcessTests.cpp)
+	target_link_libraries(mmodern_m43_depleted_process_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl bcrypt)
+	add_dependencies(mmodern_m43_depleted_process_tests mmodern_m42_cli_witness mmodern_m43_cli_witness)
+	add_test(NAME xeen_temple_depleted_process COMMAND mmodern_m43_depleted_process_tests
+		$<TARGET_FILE:mmodern_m42_cli_witness> $<TARGET_FILE:mmodern_m43_cli_witness> "F:/Games/gog/Might and Magic 4-5")
+	set_tests_properties(xeen_temple_depleted_process PROPERTIES TIMEOUT 600)
 	target_link_libraries(mmodern_training_rules_tests PRIVATE mmodern_xeen)
 	add_test(NAME xeen_training_rules COMMAND mmodern_training_rules_tests)
 	add_executable(mmodern_training_flow_tests tests/XeenTrainingFlowTests.cpp)

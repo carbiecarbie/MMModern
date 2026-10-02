@@ -18,6 +18,7 @@ struct XeenEventDecodeContext {
 	std::optional<XeenMapIdentity> mapId;
 	std::optional<std::string> resourceName;
 	std::optional<std::size_t> recordIndex;
+	bool templeRecovery = false;
 };
 
 struct XeenEventSourceLocation {

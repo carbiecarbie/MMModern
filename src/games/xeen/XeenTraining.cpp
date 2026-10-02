@@ -40,7 +40,7 @@ XeenTrainingResult xeenQuoteTraining(const XeenCharacter &c,const XeenCombatInpu
 }
 XeenTrainingCandidate xeenPrepareTraining(const XeenPartyState &party,std::uint8_t owner,const XeenGameplayContext &context,
         std::uint16_t content) {
-    if(content!=12 && content!=13)throw std::invalid_argument("Unsupported Training content");
+    if(content!=12 && content!=13 && content!=14)throw std::invalid_argument("Unsupported Training content");
     xeenValidateJourneyParty(party,content);
     if(owner>=30 || !party.roster.combatInputs(owner) || !party.monsterTreasure)
         throw std::invalid_argument("Missing Training owner");
