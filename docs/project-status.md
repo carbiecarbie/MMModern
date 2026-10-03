@@ -1,8 +1,10 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M44 is the latest completed
-milestone** ([plan](milestone-44-plan.md)): one save format, one Journey
-configuration, legacy entry modes removed. Direction is in the
+This describes what can be played and done now. **M45 is the latest completed
+milestone** ([plan](milestone-45-plan.md)): reliable buffered keyboard input and
+no integrity failures from on-demand resource loading. M44
+([plan](milestone-44-plan.md)) left one save format and one Journey
+configuration. Direction is in the
 [roadmap](roadmap.md); completed work is in [project history](project-history.md).
 Build and dependency setup is in [dependencies](dependencies.md).
 
@@ -99,8 +101,12 @@ time or combat.
 | F9 | Save |
 | Escape | Back, cancel or acknowledge; quit when nothing is open |
 
-The mouse is not used yet. Repeated key presses and keys for stale screens are
-ignored by design.
+The mouse is not used yet. In exploration and combat, keys pressed while the
+game is still busy (redraws, animations, enemy turns) are buffered, up to five,
+and applied in order when the game is ready, as in the original; holding a
+movement key walks and adds at most one step after release. The buffer is
+cleared when the context changes (combat ends, a panel or dialog opens, map
+changes). Services, dialogs, inventory and casting accept only fresh presses.
 
 ## Entry modes
 
@@ -182,13 +188,6 @@ instructions are in [dependencies](dependencies.md).
 
 ## Known gaps
 
-- **Occupied destination after Run.** When Run relocates the party to `(10,12)`
-  and another monster is already there, the encounter is re-attached on the
-  same actors in one step. The original-data check `mmodern_consequence_original`
-  fails on this path with "Stale encounter frame", both before and after M44.
-  It is likely a real defect and is not yet fixed.
-- **Flaky `xeen_save_sdl`.** Under heavy parallel test load it can fail because
-  it sends keys after fixed sleeps instead of waiting for a presented frame.
 - **Not a new game.** The party is prepared and injured or leveled only through
   the services above. There is no original new-game start, no Rest, no food and
   no general calendar.

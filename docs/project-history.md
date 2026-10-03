@@ -123,3 +123,9 @@ configuration; legacy contracts, save versions and diagnostic modes removed;
 tests labelled `fast`/`process` with digest-checked original-data scenarios;
 closed plans archived and docs rewritten. Game behavior unchanged.
 [Plan](milestone-44-plan.md).
+
+**M45 - Reliable input and play stability**. Buffered keyboard input in
+exploration and combat (up to five presses, applied when the game is ready,
+flushed on context changes), replacing silent dropping; integrity guards
+admit maps and object files loaded on demand, ending "Stale encounter frame"
+crashes near map edges. [Plan](milestone-45-plan.md).
