@@ -22,14 +22,12 @@ int main(int argc,char **argv){try{
     const auto source=child_test::launch(fs::absolute(argv[1]),{L"--journey-region",L"--combat-seed",L"1",fs::absolute(argv[2]).wstring(),L"--save-file",(dir/"city-source.mmsave").wstring()},dir/"city-source.log");
     child_test::require(source.exit==0,"M39 city fixture original source failed");
     SetEnvironmentVariableW(L"MMODERN_M39_BRANCH",L"fault");SetEnvironmentVariableW(L"MMODERN_M39_STAGE",L"fresh");
-    const bool authorityOnly=std::getenv("MMODERN_M39_ONLY_AUTHORITY")!=nullptr;
     for(const std::string control:{"aba-hp","aba-inactive","aba-sp","aba-book","aba-presence","aba-class","aba-item","aba-supplement",
         "aba-membership","aba-purse","aba-context","aba-flags","aba-rng","aba-mainland","aba-city","aba-statistics","aba-map","aba-mob","aba-event",
         "names","reservation-retry","before-debit","target-fail","refund-fail","arrow-fail-1","arrow-fail-2","arrow-fail-3","arrow-yield","arrow-xp-overflow","arrow-drop-overflow","arrow-successor-fail","partial",
         "recursive","target-retry","result-retry","projectile-retry",
         "observation-payer","observation-selection","observation-target","observation-hp","observation-refund",
         "observation-recovery","observation-awaken","observation-yield","observation-successor","observation-guard"}) {
-        if(authorityOnly && control.rfind("observation-",0)!=0)continue;
         SetEnvironmentVariableW(L"MMODERN_M39_CONTROL",fs::path(control).c_str());
         const auto save=dir/(control+".mmsave");
         std::vector<std::wstring> args{L"--journey-region",L"--combat-seed",L"1",fs::absolute(argv[2]).wstring(),L"--save-file",save.wstring()};
@@ -48,7 +46,6 @@ int main(int argc,char **argv){try{
     SetEnvironmentVariableW(L"SDL_VIDEODRIVER",L"dummy");SetEnvironmentVariableW(L"SDL_RENDER_DRIVER",L"software");
     SetEnvironmentVariableW(L"MMODERN_M39_BRANCH",L"native-fault");
     for(const std::string control:{"upload-target","copy-target","upload-result","copy-result","upload-projectile","copy-projectile"}) {
-        if(authorityOnly)continue;
         SetEnvironmentVariableW(L"MMODERN_M39_CONTROL",fs::path(control).c_str());
         const auto result=child_test::launch(fs::absolute(argv[1]),{L"--journey-region",L"--combat-seed",L"1",fs::absolute(argv[2]).wstring(),L"--save-file",(dir/(control+".mmsave")).wstring()},dir/(control+".log"));
         if(result.exit!=0)std::cerr<<result.output;

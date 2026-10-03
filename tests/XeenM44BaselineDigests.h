@@ -21,8 +21,7 @@
 //       --combat-seed 7 <game> --save-file <out>/services-paid.mmsave
 //                                                -> services-paid.mmsave-final.mmsave
 //   mmodern_m43_cli_witness --journey-region --combat-seed 3626689381 <game>
-//       --save-file <out>/temple.mmsave          -> temple.mmsave (the ctest
-//                                                   xeen_temple_production run)
+//       --save-file <out>/temple.mmsave          -> temple.mmsave
 // The M44 witness drives the production application through presented-frame
 // input and saves with the native F9 key at the end ("final" checkpoint);
 // mmodern_m44_baseline_restart additionally reloads that save, saves again and

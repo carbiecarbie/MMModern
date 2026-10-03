@@ -136,13 +136,6 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                         party->monsterTreasure->gold==670 && world->sessionState().journeyRandom()->state==799325555u &&
                         world->sessionState().journeyRandom()->count==1101,
                         "M43 restored depleted Buy baseline differs");
-                else if(stage=="E")check(position->mapId==XeenMapIdentity(28) && position->x==15 &&
-                    position->y==28 && position->direction==XeenDirection::North &&
-                    party->encounterContext->day==12 && party->roster.at(6).currentHp==15,
-                    "M43 restored E baseline differs");
-                else check(position->mapId==XeenMapIdentity(28) && position->x==15 && position->y==28 &&
-                    party->encounterContext->day==10 && party->monsterTreasure->gold==340,
-                    "M43 restored B baseline differs");
                 std::cerr<<"M43 RESTORE EXACT BEFORE INPUT\n";
             }else{
                 check(seed==3626689381u && position->mapId==XeenMapIdentity(23),
@@ -341,7 +334,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 }
             });
             checkpoint("D");
-        }else if(stage!="E"){
+        }else{
         route("DDUU");
         inspect([&]{check(position->mapId==XeenMapIdentity(28) && position->x==15 && position->y==28 &&
             party->encounterContext->day==10 && party->encounterContext->minutes==608 &&
@@ -440,8 +433,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             std::cerr<<"M43 RETURN TEMPLE PAID DAY12\n";});
         checkpoint("E");
         }
-        if(stage=="main" || stage=="E") {
-            if(stage=="E")checkpoint("E-restored");
+        if(stage=="main") {
             auto before=std::make_shared<XeenSaveSnapshot>();
             inspect([&,before]{*before=XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world);});
             route("DDUU");

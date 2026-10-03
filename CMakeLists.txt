@@ -187,8 +187,6 @@ if(BUILD_TESTING)
 	target_link_options(mmodern_m43_cli_witness PRIVATE
 		"LINKER:--wrap,_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjES5_ItE"
 		"LINKER:--wrap,_ZN7mmodern16XeenCombatRandom4drawEjj")
-	add_test(NAME xeen_temple_production COMMAND mmodern_m43_cli_witness --journey-region --combat-seed 3626689381 "F:/Games/gog/Might and Magic 4-5" --save-file "${CMAKE_CURRENT_BINARY_DIR}/m43-production.mmsave")
-	set_tests_properties(xeen_temple_production PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software" TIMEOUT 600)
 	add_executable(mmodern_m43_process_tests tests/XeenM43ProcessTests.cpp)
 	target_link_libraries(mmodern_m43_process_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl bcrypt)
 	add_dependencies(mmodern_m43_process_tests mmodern_m43_cli_witness)
@@ -352,8 +350,6 @@ if(BUILD_TESTING)
     add_dependencies(mmodern_combat_casting_control_tests mmodern_m39_cli_witness)
     add_test(NAME xeen_combat_casting_controls COMMAND mmodern_combat_casting_control_tests $<TARGET_FILE:mmodern_m39_cli_witness> "F:/Games/gog/Might and Magic 4-5")
     set_tests_properties(xeen_combat_casting_controls PROPERTIES TIMEOUT 180)
-    add_test(NAME xeen_combat_casting_publication_authority COMMAND mmodern_combat_casting_control_tests $<TARGET_FILE:mmodern_m39_cli_witness> "F:/Games/gog/Might and Magic 4-5")
-    set_tests_properties(xeen_combat_casting_publication_authority PROPERTIES TIMEOUT 180 ENVIRONMENT "MMODERN_M39_ONLY_AUTHORITY=1")
     add_test(NAME xeen_combat_player_ready_input COMMAND mmodern_combat_casting_control_tests $<TARGET_FILE:mmodern_m39_cli_witness> "F:/Games/gog/Might and Magic 4-5")
     set_tests_properties(xeen_combat_player_ready_input PROPERTIES TIMEOUT 60 ENVIRONMENT "MMODERN_M39_ONLY_INPUT=1")
 	add_executable(mmodern_m38_cli_witness src/main.cpp tests/XeenM38CliWitness.cpp tests/XeenRestoreReplayProbe.cpp)
@@ -867,12 +863,12 @@ if(BUILD_TESTING)
 	# processes / drives a CLI witness executable.
 	set(xeen_process_tests
 		xeen_purchase_flow xeen_purchase_allocation xeen_purchase_process
-		xeen_temple_flow xeen_temple_production xeen_temple_process xeen_temple_depleted_process
+		xeen_temple_flow xeen_temple_process xeen_temple_depleted_process
 		xeen_training_flow xeen_training_allocation xeen_training_original xeen_training_process
 		xeen_input_scheduling xeen_service_day_process xeen_combat_clock_process
 		xeen_journey_resources xeen_journey_persistence xeen_regional_persistence
 		xeen_combat_casting_process xeen_combat_casting_controls
-		xeen_combat_casting_publication_authority xeen_combat_player_ready_input
+		xeen_combat_player_ready_input
 		xeen_smith_process xeen_vertigo_process xeen_save_format xeen_save_cli
 		xeen_combat_gameplay xeen_equipment_gameplay xeen_inventory_gameplay
 		xeen_m44_scenario_mainland xeen_m44_scenario_services xeen_m44_scenario_temple)

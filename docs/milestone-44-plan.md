@@ -159,8 +159,11 @@ original data.
    every CTest entry (`ctest -L fast` for iteration, plain `ctest` for full
    runs, both in README), the three scenarios as CTest tests checked against the
    Step-0 digests with reload/re-save (this is also the generic round-trip
-   test), and probe-fired assertions. **5b** (deferred, not authorized): removal
-   of the old M35-M43 witnesses and legacy process tests.
+   test), and probe-fired assertions. **5b** (authorized after 5a; runs before
+   step 6 so step 6 does not adapt tests it would delete): remove the old
+   M35-M43 witnesses and legacy process tests whose content-14 behavior is
+   evidently covered by the scenarios or an existing current test; report,
+   without deleting, any case where coverage is unclear.
 6. D2: collapse the configuration, protected by the step-5 scenarios.
 
 Every step leaves the build and remaining tests green. The maintainer may accept
