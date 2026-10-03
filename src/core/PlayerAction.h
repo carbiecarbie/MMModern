@@ -29,11 +29,13 @@ struct YesAction {};
 struct NoAction {};
 struct SelectMemberAction { std::size_t partyIndex; };
 struct CancelInteractionAction {};
+// UI-only refusal; the label is a static main-screen feature name.
+struct UnsupportedMainScreenAction { const char *label; };
 
 using PlayerAction = std::variant<NavigationAction, InteractionAction,
 	AcknowledgeAction, YesAction, NoAction, SelectMemberAction, CancelInteractionAction, SaveGameAction, InspectInventoryAction,
 	SelectInventorySlotAction, TransferInventoryAction, EquipmentInventoryAction, UseItemAction, WaitAction,
-	AttackAction, ShootAction, CastSpellAction, BlockAction, RunAction, SelectCombatTargetAction, BeginEncounterAction, RevisitCompletedAction>;
+	AttackAction, ShootAction, CastSpellAction, BlockAction, RunAction, SelectCombatTargetAction, BeginEncounterAction, RevisitCompletedAction, UnsupportedMainScreenAction>;
 
 } // namespace mmodern
 

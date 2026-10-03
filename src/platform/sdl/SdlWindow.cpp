@@ -1,4 +1,5 @@
 #include "platform/sdl/SdlWindow.h"
+#include "platform/sdl/XeenMainScreenInput.h"
 
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
@@ -260,23 +261,33 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             if (event.key.keysym.sym == SDLK_b) blockDown = false;
             if (event.key.keysym.sym == SDLK_r) revisitDown = false;
             if (event.key.keysym.sym == SDLK_i) inspectDown = false;
-        } else if (event.type == SDL_KEYDOWN) {
-            const auto action = playerAction(event.key);
+        } else if (event.type == SDL_KEYDOWN || event.type == SDL_MOUSEBUTTONDOWN) {
+            const bool mouse = event.type == SDL_MOUSEBUTTONDOWN;
             const auto context = contextFor(batchFrame);
             synchronizeQueue(context);
-            if (event.key.keysym.sym == SDLK_ESCAPE && !event.key.repeat) pendingActions.clear();
+            if (mouse && (event.button.button != SDL_BUTTON_LEFT || context.mainScreen == MainScreen::None ||
+                initialFrame.width != 320 || initialFrame.height != 200)) return;
+            // SDL_RenderSetLogicalSize transforms native mouse events to framebuffer
+            // coordinates, including integer scaling, letterboxing and high DPI.
+            // Do not scale a second time. Out-of-viewport coordinates are rejected.
+            const auto action = mouse ? xeenMainScreenClick(event.button.x,event.button.y,context.mainScreen) : playerAction(event.key);
+            if (!mouse && event.key.keysym.sym == SDLK_ESCAPE && !event.key.repeat) pendingActions.clear();
             const bool movement = action && std::holds_alternative<NavigationAction>(*action);
             const auto *slot = action ? std::get_if<SelectInventorySlotAction>(&*action) : nullptr;
             const bool queueKey = action && (movement || std::holds_alternative<InteractionAction>(*action) ||
                 std::holds_alternative<BlockAction>(*action) || std::holds_alternative<ShootAction>(*action) ||
                 std::holds_alternative<RevisitCompletedAction>(*action) || std::holds_alternative<WaitAction>(*action) ||
                 std::holds_alternative<CastSpellAction>(*action) || std::holds_alternative<SelectMemberAction>(*action) ||
-                (slot && slot->slot < 3));
+                std::holds_alternative<UnsupportedMainScreenAction>(*action) || (slot && slot->slot < 3));
             const bool queueable = context.acceptsQueuedInput && queueKey;
-            const auto scan = SDL_GetScancodeFromKey(event.key.keysym.sym);
+            const auto scan = mouse ? SDL_SCANCODE_UNKNOWN : SDL_GetScancodeFromKey(event.key.keysym.sym);
             if (queueable) {
                 // A context transition within this event batch cannot relabel old keys.
                 if (context.contextId != batchContext.contextId) return;
+                if (mouse) {
+                    if (pendingActions.size() < 5) pendingActions.push_back({*action,context.contextId,false});
+                    return;
+                }
                 if (scan <= SDL_SCANCODE_UNKNOWN || scan >= SDL_NUM_SCANCODES) return;
                 const bool held = journeyKeys[scan];
                 if (!event.key.repeat) journeyKeys[scan] = true;
@@ -287,6 +298,8 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
                 if (pendingActions.size() < 5) pendingActions.push_back({*action,context.contextId,event.key.repeat != 0});
                 return;
             }
+            // M46 menus/dialogs are keyboard-only, including their busy frames.
+            if (mouse) return;
             if (event.key.repeat != 0) return;
             if (handler.protectAllKeys && action) {
                 if (scan <= SDL_SCANCODE_UNKNOWN || scan >= SDL_NUM_SCANCODES) return;
@@ -402,8 +415,10 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         const auto nextContext = contextFor(presentedFrame);
         synchronizeQueue(nextContext);
         if (handler.inputContext && acquiredContext.contextId != nextContext.contextId) {
-            // clearEvents boundary: retain releases and non-key events in order.
-            SDL_FilterEvents([](void *, SDL_Event *queued) -> int { return queued->type != SDL_KEYDOWN; },nullptr);
+            // clearEvents boundary: retain releases and non-input events in order.
+            SDL_FilterEvents([](void *, SDL_Event *queued) -> int {
+                return queued->type != SDL_KEYDOWN && queued->type != SDL_MOUSEBUTTONDOWN;
+            },nullptr);
         }
         acquiredContext = nextContext;
         actionUsed = false;

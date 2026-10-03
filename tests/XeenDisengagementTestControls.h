@@ -316,14 +316,42 @@ void disengagementFinishPresentation(Source &source,bool injectFault=true) {
     check(h.flow->encounter()->appearance().kind==XeenMonsterSpriteKind::Normal &&
      !h.flow->encounter()->appearance().projectile,"Destination presentation does not inherit old ATT or projectile state");
     const auto replacementTicket=replacement?std::optional<XeenCombat::Ticket>{replacement->ticket()}:std::nullopt;
-    // The real rendered frame must contain exactly the checked notice, not just a diagnostic string.
-    XeenTextRenderOptions options;options.bounds={3,107,229,200};options.windowBounds={1,105,231,200};options.x=3;options.y=107;
-    options.size=XeenFontSize::Reduced;options.paginate=true;options.drawWindow=true;
-    const auto split=notice.find("\n\n");auto rendered=XeenTextRenderer(h.font).render(base,notice.substr(0,split),options);
-    check(rendered.pages.size()==1,"Destination consequence panel fits original font");
-    options.bounds={235,3,318,198};options.windowBounds={233,1,320,200};options.x=235;options.y=3;
-    rendered=XeenTextRenderer(h.font).render(rendered.pages.front(),notice.substr(split+2),options);
-    check(rendered.pages.size()==1 && rendered.pages.front().pixels==h.flow->frame().pixels,"Concrete destination frame renders all matching consequence feedback");
+    // M46 confines feedback to the scene, leaving buttons/portraits visible.
+    // Find the actual resource-font glyphs, without duplicating the layout's
+    // filtering, window position or height calculation in this test.
+    const auto visible=[&](const std::string &text) {
+     XeenTextRenderOptions options;options.bounds={0,0,212,126};options.size=XeenFontSize::Reduced;
+     auto light=base,dark=base;
+     std::fill(light.pixels.begin(),light.pixels.end(),254);
+     std::fill(dark.pixels.begin(),dark.pixels.end(),253);
+     light=XeenTextRenderer(h.font).render(light,text,options).pages.front();
+     dark=XeenTextRenderer(h.font).render(dark,text,options).pages.front();
+     struct Pixel {int x,y;std::uint8_t color;};std::vector<Pixel> glyphs;
+     int width=0,height=0;
+     for(int y=0;y<126;++y)for(int x=0;x<212;++x) {
+      const auto offset=y*base.width+x;
+      if(light.pixels[offset]==dark.pixels[offset]) {
+       glyphs.push_back({x,y,light.pixels[offset]});width=std::max(width,x+1);height=std::max(height,y+1);
+      }
+     }
+     check(!glyphs.empty(),"Feedback glyph fixture is nonempty");
+     const auto &frame=h.flow->frame();
+     for(int y=8;y+height<=135;++y)for(int x=8;x+width<=223;++x) {
+      if(std::all_of(glyphs.begin(),glyphs.end(),[&](const auto &pixel){
+       return frame.pixels[(y+pixel.y)*frame.width+x+pixel.x]==pixel.color;
+      }))return true;
+     }
+     return false;
+    };
+    check(visible("Disengaged; gold forfeited "+std::to_string(forfeited)),"Concrete destination frame renders forfeiture");
+    check(!visible("Disengaged; gold forfeited 999"),"Feedback glyph check distinguishes a wrong amount");
+    check(visible(ready?"Ready treasure: +10 gold":"Dormant items; no gold owed"),"Concrete destination frame renders treasure feedback");
+    if(!exit) {
+     const auto begin=notice.find("Abandoned:");const auto end=notice.find('\n',begin);
+     check(visible(notice.substr(begin,end-begin)),"Concrete destination frame renders casualty names");
+    }
+    for(int y=137;y<200;++y)for(int x=0;x<231;++x)
+     check(base.pixels[y*base.width+x]==h.flow->frame().pixels[y*base.width+x],"Consequence feedback leaves portraits and Tab unobscured");
     bool rejected=false;try{handler.framePresented(oldFrame);}catch(const std::exception &){rejected=true;}
     check(rejected,"Prior incarnation frame cannot authorize destination input");
     handler.beginCycle(++h.cycle);handler.withDisplayedInput(RunAction{},oldInput);handler.withDisplayedInput(NavigationAction::MoveForward,oldInput);

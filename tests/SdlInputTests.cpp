@@ -1,5 +1,6 @@
 #include "XeenProbeFired.h"
 #include "platform/sdl/SdlWindow.h"
+#include "platform/sdl/XeenMainScreenInput.h"
 
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
@@ -51,6 +52,7 @@ void semanticBoundaryKeys() {
 
 // Fake readiness/clock, real production event queue and presentation loop.
 struct QueueHarness {
+ MainScreen screen=MainScreen::None;
  bool redraw=false,ready=false,queueable=true;std::uint64_t context=1,epoch=1,presented=0;
  unsigned stage=0,presentations=0,lastDelivery=0;std::vector<char> delivered;
  std::function<void()> duringPresentation;
@@ -59,13 +61,17 @@ struct QueueHarness {
   if(SDL_PeepEvents(&event,1,SDL_ADDEVENT,0,0)!=1)throw std::runtime_error("queue fixture key");
  }
  static void tap(SDL_Keycode code,Uint32 stamp=99){key(code,SDL_KEYDOWN,0,stamp);key(code,SDL_KEYUP,0,stamp);}
+ static void click(int x,int y,Uint8 button=SDL_BUTTON_LEFT){
+  SDL_Event event{};event.type=SDL_MOUSEBUTTONDOWN;event.button.button=button;event.button.x=x;event.button.y=y;
+  if(SDL_PeepEvents(&event,1,SDL_ADDEVENT,0,0)!=1)throw std::runtime_error("queue fixture logical click");
+ }
  static void quit(){SDL_Event event{};event.type=SDL_QUIT;SDL_PushEvent(&event);}
  void check(bool value,const char *message){if(!value)throw std::runtime_error(std::string(message)+" stage="+std::to_string(stage));}
  void run(const char *name,const std::function<void(QueueHarness &)> &script){
-  IndexedFrame frame{1,1,{0}};
+  IndexedFrame frame;frame.width=320;frame.height=200;frame.pixels.resize(64000);
   SdlWindow::FrameUpdateHandler handler=[](const auto &)->std::optional<IndexedFrame>{throw std::runtime_error("unversioned queued action");};
   handler.protectAllKeys=true;handler.displayedInput=[&]{return std::optional<std::uint64_t>{epoch};};
-  handler.inputContext=[&](const auto &){return InputContext{context,queueable,ready && presented==epoch};};
+  handler.inputContext=[&](const auto &){return InputContext{context,queueable,ready && presented==epoch,screen};};
   handler.framePresented=[&](const auto &){presented=epoch;++presentations;const auto hook=duringPresentation;if(hook)hook();};
   handler.withPresentedInput=[&](const PlayerAction &action,auto token,const auto &)->std::optional<IndexedFrame>{
    if(token!=epoch){check(!queueable,"queued key reached a stale frame");return {};}
@@ -78,6 +84,7 @@ struct QueueHarness {
    else if(std::holds_alternative<RevisitCompletedAction>(action))kind='R';
    else if(std::holds_alternative<SaveGameAction>(action))kind='9';
    else if(std::holds_alternative<CancelInteractionAction>(action))kind='E';
+   else if(std::holds_alternative<UnsupportedMainScreenAction>(action))kind='U';
    delivered.push_back(kind);++epoch;return frame;
   };
   fixedTicks=true;
@@ -87,6 +94,100 @@ struct QueueHarness {
   fixedTicks=false;check(ok,"queue show failed");std::cout<<name<<" passed\n";
  }
 };
+void mouseQueuePolicies(){
+ QueueHarness h;h.screen=MainScreen::Combat;
+ h.run("mouse-key-shared-FIFO-five/enemy-turn-once",[](auto &h){
+  if(h.stage==0){h.click(290,80);h.tap(SDLK_b);h.click(261,149);h.tap(SDLK_r);h.click(12,151);h.click(290,80);}
+  else if(h.stage<4)h.check(h.delivered.empty(),"busy mouse action drained");
+  else if(h.stage==4)h.ready=true;
+  else if(h.stage==11){h.check(h.delivered==std::vector<char>{' ','B','W','R','U'},"mixed FIFO/overflow/unsupported action");h.quit();}
+ });
+ for(const bool panel:{false,true}){
+  QueueHarness h;h.screen=MainScreen::Exploration;
+  h.run(panel?"mouse-panel-flush":"mouse-combat-transition-flush",[panel](auto &h){
+   if(h.stage==0){h.click(261,149);h.tap(SDLK_SPACE);}
+   else if(h.stage==1){++h.context;h.ready=true;if(panel){h.queueable=false;h.screen=MainScreen::None;}}
+   else if(h.stage==5){h.check(h.delivered.empty(),"mouse context flush");h.quit();}
+  });
+ }
+ for(const auto *name:{"mouse-inventory-ignored","mouse-services-ignored","mouse-dialog-ignored","mouse-casting-ignored"}){
+  QueueHarness h;h.ready=true;h.queueable=false;
+  h.run(name,[](auto &h){if(h.stage==0){h.click(270,80);h.click(12,151);h.click(100,50,SDL_BUTTON_RIGHT);}
+   else if(h.stage==3){h.check(h.delivered.empty(),"strict mouse action");h.quit();}});
+ }
+ QueueHarness ignore;ignore.screen=MainScreen::Exploration;ignore.ready=true;
+ ignore.run("right-click-and-letterbox-ignored",[](auto &h){if(h.stage==0){h.click(100,50,SDL_BUTTON_RIGHT);h.click(-1,75);h.click(320,75);}
+  else if(h.stage==3){h.check(h.delivered.empty(),"right/outside click action");h.quit();}});
+}
+
+void mouseHitAreas(){
+ struct Area {int l,t,r,b;PlayerAction exploration,combat;};
+ const auto u=[](const char *s)->PlayerAction{return UnsupportedMainScreenAction{s};};
+ const std::vector<Area> areas={
+  {235,75,259,95,ShootAction{},u("Quick Fight")},{260,75,284,95,CastSpellAction{},CastSpellAction{}},
+  {286,75,310,95,u("Rest"),InteractionAction{}},{235,96,259,116,u("Bash"),u("Use")},
+  {260,96,284,116,u("Dismiss"),RevisitCompletedAction{}},{286,96,310,116,u("View Quests"),BlockAction{}},
+  {235,117,259,137,u("Map"),u("Quick Fight Options")},{260,117,284,137,u("Info"),u("Info")},
+  {286,117,310,137,u("Quick Ref"),u("Quick Ref")},{109,137,122,147,u("Control panel"),u("Control panel")},
+  {235,148,259,168,NavigationAction::TurnLeft,NavigationAction::TurnLeft},
+  {260,148,284,168,NavigationAction::MoveForward,NavigationAction::MoveForward},
+  {286,148,310,168,NavigationAction::TurnRight,NavigationAction::TurnRight},
+  {235,169,259,189,u("Strafe"),u("Strafe")},{260,169,284,189,NavigationAction::MoveBackward,NavigationAction::MoveBackward},
+  {286,169,310,189,u("Strafe"),u("Strafe")},
+  {10,150,42,182,u("Character sheet"),u("Character sheet")},{45,150,77,182,u("Character sheet"),u("Character sheet")},
+  {81,150,113,182,u("Character sheet"),u("Character sheet")},{117,150,149,182,u("Character sheet"),u("Character sheet")},
+  {153,150,185,182,u("Character sheet"),u("Character sheet")},{189,150,221,182,u("Character sheet"),u("Character sheet")}
+ };
+ const auto equal=[](const std::optional<PlayerAction> &actual,const PlayerAction &expected){
+  if(!actual || actual->index()!=expected.index())return false;
+  if(const auto *v=std::get_if<NavigationAction>(&expected))return *v==std::get<NavigationAction>(*actual);
+  if(const auto *v=std::get_if<UnsupportedMainScreenAction>(&expected))return std::string(v->label)==std::get<UnsupportedMainScreenAction>(*actual).label;
+  return true;
+ };
+ const auto check=[](bool value){if(!value)throw std::runtime_error("main-screen hit area/SDL scaling");};
+ // Exercise SDL's real event filter at several scales, with centered letterboxes.
+ for(const auto size:std::vector<std::pair<int,int>>{{320,200},{640,400},{960,600},{1000,700},{500,350}}){
+  check(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_EVENTS)==0);
+  auto *window=SDL_CreateWindow("mouse scales",0,0,size.first,size.second,0);check(window);
+  auto *renderer=SDL_CreateRenderer(window,-1,SDL_RENDERER_SOFTWARE);check(renderer);
+  check(SDL_RenderSetLogicalSize(renderer,320,200)==0 && SDL_RenderSetIntegerScale(renderer,SDL_TRUE)==0);
+  const int scale=std::min(size.first/320,size.second/200),ox=(size.first-320*scale)/2,oy=(size.second-200*scale)/2;
+  const auto logical=[&](int x,int y){
+   SDL_Event event{};event.type=SDL_MOUSEBUTTONDOWN;event.button.windowID=SDL_GetWindowID(window);event.button.button=SDL_BUTTON_LEFT;
+   event.button.x=ox+x*scale;event.button.y=oy+y*scale;check(SDL_PushEvent(&event)==1);
+   if(SDL_PeepEvents(&event,1,SDL_GETEVENT,SDL_MOUSEBUTTONDOWN,SDL_MOUSEBUTTONDOWN)==1)
+    return std::pair<int,int>{event.button.x,event.button.y};
+   throw std::runtime_error("SDL scaled click absent");
+  };
+  for(const auto &area:areas)for(auto screen:{MainScreen::Exploration,MainScreen::Combat}){
+   const auto &expected=screen==MainScreen::Combat?area.combat:area.exploration;
+   for(const auto point:std::vector<std::pair<int,int>>{{area.l,area.t},{area.r-1,area.t},{area.l,area.b-1},{area.r-1,area.b-1}}){
+    const auto p=logical(point.first,point.second);check(p==point);check(equal(xeenMainScreenClick(p.first,p.second,screen),expected));
+    check(!xeenMainScreenClick(p.first,p.second,MainScreen::None));
+   }
+   for(const auto point:std::vector<std::pair<int,int>>{{area.l-1,area.t},{area.r,area.t},{area.l,area.t-1},{area.l,area.b}}){
+    const auto p=logical(point.first,point.second);check(p==point);
+    check(!equal(xeenMainScreenClick(p.first,p.second,screen),expected));
+   }
+  }
+  for(unsigned row=0;row<3;++row)for(const int x:{239,311})for(const int y:{27+int(row)*10,36+int(row)*10}){
+   const auto p=logical(x,y);const auto action=xeenMainScreenClick(p.first,p.second,MainScreen::Combat);
+   check(action && std::get<SelectInventorySlotAction>(*action).slot==row);
+   check(!xeenMainScreenClick(p.first,p.second,MainScreen::Exploration));
+  }
+  for(const auto point:std::vector<std::pair<int,int>>{{238,27},{312,27},{239,26},{239,57}}){
+   const auto p=logical(point.first,point.second);check(!xeenMainScreenClick(p.first,p.second,MainScreen::Combat));
+  }
+  for(const auto point:std::vector<std::pair<int,int>>{{8,8},{223,8},{8,139},{223,139}}){
+   const auto p=logical(point.first,point.second);check(equal(xeenMainScreenClick(p.first,p.second,MainScreen::Exploration),InteractionAction{}));
+  }
+  for(const auto point:std::vector<std::pair<int,int>>{{7,8},{8,7},{224,139},{8,140}}){
+   const auto p=logical(point.first,point.second);check(!xeenMainScreenClick(p.first,p.second,MainScreen::Exploration));
+  }
+  SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();
+ }
+ std::cout<<"Main-screen hit areas and SDL native scaling passed\n";
+}
 void boundedQueuePolicies(){
  QueueHarness{}.run("FIFO/bound-five/overflow/one-per-ready-frame",[](auto &h){
   if(h.stage==0){for(auto code:{SDLK_w,SDLK_a,SDLK_s,SDLK_d,SDLK_SPACE,SDLK_b})h.tap(code);}
@@ -161,8 +262,9 @@ void pushKey(std::atomic<bool> &finished, SDL_Keycode key, std::uint8_t repeat,
 
 } // namespace
 
-int main() {
+int main(int argc,char **) {
 	probe_fired::expect("SDL_GetTicks");
+ if(argc>1){mouseHitAreas();mouseQueuePolicies();return 0;}
  semanticBoundaryKeys();
  boundedQueuePolicies();
 	std::atomic<bool> finished{false};

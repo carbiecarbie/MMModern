@@ -3,6 +3,8 @@
 #include "formats/xeen/XeenAssetSource.h"
 
 #include <cstddef>
+#include <algorithm>
+#include <stdexcept>
 
 namespace mmodern {
 namespace {
@@ -36,6 +38,27 @@ constexpr SpritePlacement kInterfaceButtons[] = {
 };
 
 } // namespace
+
+void CloudsUiComposer::drawCombatButtons(XeenAssetSource &assets, IndexedFrame &frame) const {
+    // Interface::setMainButtons(ICONS_COMBAT), pinned ScummVM
+    // 6814ee9ba54582f5b5adcffab49efbbd8f589edd. GPL-3.0-or-later,
+    // attributed to the ScummVM developers listed in upstream COPYRIGHT.
+    if (!frame.isValid() || frame.width!=320 || frame.height!=200)
+        throw std::runtime_error("Invalid combat interface framebuffer");
+    for (const auto &placement : kInterfaceButtons)
+        assets.drawSprite("combat.icn",placement.frame,placement.x,placement.y);
+    const auto buttons=assets.snapshot();
+    // The asset surface retains the current composition. Copy just controls,
+    // preserving Flow's text layers and the rest of the supplied framebuffer.
+    for (const auto &placement : kInterfaceButtons) {
+        const int width=placement.frame==18 ? 13 : 24;
+        const int height=placement.frame==18 ? 10 : 20;
+        for(int y=placement.y;y<placement.y+height;++y) {
+            const auto offset=static_cast<std::size_t>(y)*320+placement.x;
+            std::copy_n(buttons.pixels.begin()+offset,width,frame.pixels.begin()+offset);
+        }
+    }
+}
 
 void CloudsUiComposer::loadBackground(XeenAssetSource &assets) const {
 	assets.loadPalette("mm4.pal");

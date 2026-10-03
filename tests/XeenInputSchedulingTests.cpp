@@ -5,12 +5,15 @@
 #include "app/Application.h"
 #include "app/XeenGameplayServices.h"
 #include "games/xeen/CloudsMapComposer.h"
+#include "games/xeen/CloudsUiComposer.h"
+#include "platform/sdl/XeenMainScreenInput.h"
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 #include <thread>
 #include <atomic>
 #include <chrono>
 #include <iostream>
+#include <cstdlib>
 using namespace training_test;
 namespace {
 std::function<void()> uploadHook,copyHook;
@@ -19,7 +22,22 @@ void key(SDL_Keycode code,Uint32 type=SDL_KEYDOWN,Uint8 repeat=0) {
  check(SDL_PushEvent(&e)==1,"scheduling key enqueue");
 }
 void tap(SDL_Keycode code) {key(code);key(code,SDL_KEYUP);}
+// Native window coordinates; SDL's renderer filters these to logical pixels.
+void click(int x,int y,Uint8 button=SDL_BUTTON_LEFT) {
+ SDL_Event e{};e.type=SDL_MOUSEBUTTONDOWN;e.button.button=button;e.button.windowID=SDL_GetWindowID(SDL_GetWindowFromID(1));
+ e.button.x=x*3;e.button.y=y*3;
+ check(SDL_PushEvent(&e)==1,"scheduling mouse enqueue");
+}
 void quit(){SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);}
+void preview(const IndexedFrame &frame,const char *name) {
+ const auto *directory=std::getenv("MMODERN_MOUSE_PREVIEW");if(!directory)return;
+ auto *surface=SDL_CreateRGBSurfaceWithFormat(0,320,200,32,SDL_PIXELFORMAT_ARGB8888);check(surface,"preview surface");
+ for(unsigned y=0;y<200;++y)for(unsigned x=0;x<320;++x){const auto p=frame.pixels[y*320+x]*3;
+  reinterpret_cast<Uint32 *>(static_cast<Uint8 *>(surface->pixels)+y*surface->pitch)[x]=
+   SDL_MapRGB(surface->format,frame.palette[p],frame.palette[p+1],frame.palette[p+2]);}
+ const auto path=std::filesystem::path(directory)/(std::string(name)+".bmp");
+ const int result=SDL_SaveBMP(surface,path.string().c_str());SDL_FreeSurface(surface);check(result==0,"preview output");
+}
 }
 extern "C" int __real_SDL_UpdateTexture(SDL_Texture *,const SDL_Rect *,const void *,int);
 extern "C" int __wrap_SDL_UpdateTexture(SDL_Texture *t,const SDL_Rect *r,const void *p,int pitch){probe_fired::hit("SDL_UpdateTexture");if(uploadHook)uploadHook();return __real_SDL_UpdateTexture(t,r,p,pitch);}
@@ -35,7 +53,8 @@ struct Harness {
  XeenGameplayServices services() {
   XeenGameplayServices s{in.resources(),[]{return XeenGameFlags{};},in.mapLoader(),in.objectLoader(),[&](auto id){return in.texts.load(id);},in.font,
    [](auto &,const auto &,const auto &,auto){return XeenEventFlow::Composition{frame(),false};},{},
-   [&](auto &f,const auto &){flow=&f;f.drawTrainingArt=[&](auto &b){in.assets.drawTraining(b);};},{},
+   [&](auto &f,const auto &){flow=&f;f.drawTrainingArt=[&](auto &b){in.assets.drawTraining(b);};
+    f.drawCombatButtons=[&](auto &b){CloudsUiComposer().drawCombatButtons(in.assets,b);};},{},
    [&](auto &w,auto &,const auto &p,auto &c,const auto &){world=&w;party=&p;camera=&c;}};
   s.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto phase,auto actor){
    const bool live=flow && observedOrigin && flow->acceptsInputFrame(observedOrigin);
@@ -130,7 +149,7 @@ void contextAuthority(Inputs &in) {
  check(!service.acceptsQueuedInput && service.contextId!=canceled.contextId,"Training/dialog context accepts queue");
  std::cout<<"FLOW CONTEXT movement/handoff/inventory/casting/Training PASS\n";
 }
-void combatQueue(Inputs &in) {
+void combatQueue(Inputs &in,bool mouse=false) {
  Harness h(in);auto s=h.services();const auto source=in.base();std::uint64_t now=0,cycles=0;unsigned loops=0,dispatches=0,busyFrames=0;bool sent=false;
  s.clock=[&]{return now;};
  s.show=[&](const auto &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
@@ -147,23 +166,72 @@ void combatQueue(Inputs &in) {
   check(h.flow->encounter()->combat() && h.flow->encounter()->combat()->phase()==XeenCombatPhase::PendingEnemy,"enemy-turn queue prefix absent");
   const auto context=handler.inputContext(h.flow->frame().presentation());check(context.acceptsQueuedInput && !context.readyForAction,"enemy turn marked ready/strict");
   auto native=handler;native.beginCycle=[&](auto){handler.beginCycle(++cycles);};
+  if(mouse)native.framePresented=[&](const auto &frame){handler.framePresented(frame);preview(*frame,"combat");};
   native.withPresentedInput=[&](const auto &action,auto input,const auto &origin){
    const auto ready=handler.inputContext(origin);check(ready.contextId==context.contextId && ready.readyForAction,"Space lost combat context or drained busy");
    check(std::holds_alternative<InteractionAction>(action),"combat queue action changed");
    const auto generation=h.flow->encounter()->combat()->result().generation;
+   if(mouse) {
+    const auto ticket=h.flow->encounter()->combat()->ticket();
+    // Refusal is presentation only, including in combat: no turn or RNG work.
+    auto refusal=handler.withPresentedInput(UnsupportedMainScreenAction{"Quick Fight"},input,origin);
+    check(refusal && h.flow->encounter()->combat()->current(ticket),"unsupported combat button consumed turn");
+    present(*refusal);
+    ++dispatches;auto next=handler.withPresentedInput(action,*handler.displayedInput(),h.flow->frame().presentation());
+    check(h.flow->encounter()->combat()->result().generation!=generation,"ready click silently refused");return next;
+   }
    ++dispatches;auto next=handler.withPresentedInput(action,input,origin);
    check(h.flow->encounter()->combat()->result().generation!=generation,"ready Space silently refused");return next;
   };
   return SdlWindow().showInteractive(h.flow->frame(),"Space during enemy turns",native,escape,[&]()->std::optional<IndexedFrame>{
    check(++loops<200,"enemy-turn Space never drained");
    if(dispatches){check(dispatches==1 && busyFrames>=2,"Space duplicated or busy witness missing");quit();return {};}
-   if(!sent){sent=true;tap(SDLK_SPACE);}
+   if(!sent){sent=true;if(mouse)click(290,80);else tap(SDLK_SPACE);}
    if(!handler.inputContext(h.flow->frame().presentation()).readyForAction)++busyFrames;
    now+=100;return idle();
   },status);
  };
  check(h.run(s,source,"combat-queue")==0,"combat queue Application failed");
- std::cout<<"COMBAT QUEUE Space=1 attacks=1 busy-frames="<<busyFrames<<" PASS\n";
+ std::cout<<"COMBAT QUEUE "<<(mouse?"mouse":"Space")<<"=1 attacks=1 busy-frames="<<busyFrames<<" PASS\n";
+}
+
+void mouseJourney(Inputs &in) {
+ Harness h(in);auto s=h.services();auto source=in.service();source.camera={28,10,9,XeenDirection::North};
+ std::uint64_t now=0;unsigned loops=0,dispatches=0;s.clock=[&]{return now;};
+ s.show=[&](const auto &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
+  auto native=handler;
+  native.framePresented=[&](const auto &frame){handler.framePresented(frame);preview(*frame,"exploration");};
+  native.withPresentedInput=[&](const auto &action,auto input,const auto &origin){
+   ++dispatches;check(handler.inputContext(origin).readyForAction,"mouse navigation drained while busy");
+   return handler.withPresentedInput(action,input,origin);
+  };
+  return SdlWindow().showInteractive(first,"Main-screen mouse walk",native,escape,[&]()->std::optional<IndexedFrame>{
+   check(++loops<100,"mouse walk timeout");now+=100;
+   if(loops==1){click(290,80);click(12,151);click(261,149);click(290,149);click(100,50);}
+   if(dispatches==5){check(h.camera->x==10 && h.camera->y==10 && h.camera->direction==XeenDirection::East,"mouse walk result");quit();return {};}
+   return idle();
+  },status);
+ };
+ check(h.run(s,source,"mouse-walk")==0 && dispatches==5,"mouse Journey failed");
+ std::cout<<"MOUSE WALK unsupported/portrait/forward/turn/viewport delivered exactly once PASS\n";
+}
+
+void mouseNotices(Inputs &in) {
+ auto source=in.service();source.camera={28,10,9,XeenDirection::North};Fixture f(in,source,true);
+ std::string reported;f.flow->reportText=[&](const auto &text){reported=text;};
+ const auto before=XeenSaveFormat::encode(f.snapshot());
+ for(const auto label:{"Rest","Bash","Dismiss","View Quests","Map","Info","Quick Ref","Control panel","Strafe","Character sheet"}) {
+  const auto pixels=f.flow->frame().pixels;
+  f.act(UnsupportedMainScreenAction{label});
+  check(reported==std::string(label)+": not supported yet","unsupported notice missing");
+  check(f.flow->frame().pixels!=pixels,"unsupported notice invisible");
+  check(XeenSaveFormat::encode(f.snapshot())==before,"unsupported button changed saved gameplay/RNG/time");
+ }
+ // Actual Flow context classification, rather than only SDL's fake contexts.
+ f.act(InspectInventoryAction{});check(f.flow->inputContext(f.flow->frame().presentation()).mainScreen==MainScreen::None,"inventory exposes main screen");
+ f.act(CancelInteractionAction{});f.act(CastSpellAction{});
+ check(f.flow->inputContext(f.flow->frame().presentation()).mainScreen==MainScreen::None,"casting exposes main screen");
+ std::cout<<"MAIN SCREEN unsupported notices visible; saved gameplay byte-identical PASS\n";
 }
 
 void stress(Inputs &in) {
@@ -304,7 +372,8 @@ void boundaries(Inputs &in) {
 }
 }
 int main(int argc,char **argv){probe_fired::expect("SDL_UpdateTexture");probe_fired::expect("SDL_RenderCopy");try{
- check(argc==2,"usage: input-scheduling <installation>");SDL_setenv("SDL_VIDEODRIVER","dummy",1);SDL_setenv("SDL_RENDER_DRIVER","software",1);
+ check(argc==2 || argc==3,"usage: input-scheduling <installation> [mouse]");SDL_setenv("SDL_VIDEODRIVER","dummy",1);SDL_setenv("SDL_RENDER_DRIVER","software",1);
  const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"original installation absent");Inputs in(*installation);
+ if(argc==3){mouseNotices(in);combatQueue(in,true);mouseJourney(in);return 0;}
  contextAuthority(in);wallRefusal(in);combatQueue(in);movementRedraw(in);boundaries(in);services(in);stress(in);return 0;
 }catch(const std::exception &e){uploadHook={};copyHook={};std::cerr<<e.what()<<'\n';return 1;}}

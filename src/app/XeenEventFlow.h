@@ -57,6 +57,7 @@ public:
 	std::function<void(XeenSmithBoundary)> smithBoundary;
 	std::function<void(IndexedFrame &)> drawTrainingArt;
 	std::function<void(IndexedFrame &)> drawTempleArt;
+	std::function<void(IndexedFrame &)> drawCombatButtons;
 	std::function<void(XeenTrainingBoundary)> trainingBoundary;
 	bool canSave() const noexcept;
 	bool serviceSaveBlocked() const noexcept { return _smithUi.has_value() || _trainingUi.has_value() || _dispatching || _handoffPending || _saving || _fatal; }
@@ -302,6 +303,8 @@ private:
 	Compose _compose;
 	std::optional<Pending> _pending;
 	IndexedFrame _frame;
+	std::string _mainScreenNotice;
+	IndexedFrame drawMainScreenNotice(const IndexedFrame &, const std::string &) const;
 	XeenCamera _renderedCamera;
 	std::size_t _disabledObjects = 0;
 };

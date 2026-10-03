@@ -217,6 +217,8 @@ if(BUILD_TESTING)
 	target_link_libraries(mmodern_input_scheduling_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2)
 	target_link_options(mmodern_input_scheduling_tests PRIVATE "LINKER:--wrap,SDL_UpdateTexture" "LINKER:--wrap,SDL_RenderCopy")
 	add_test(NAME xeen_input_scheduling COMMAND mmodern_input_scheduling_tests "F:/Games/gog/Might and Magic 4-5")
+	add_test(NAME xeen_main_screen COMMAND mmodern_input_scheduling_tests "F:/Games/gog/Might and Magic 4-5" mouse)
+	set_tests_properties(xeen_main_screen PROPERTIES TIMEOUT 120)
 	set_tests_properties(xeen_input_scheduling PROPERTIES TIMEOUT 120)
 	target_link_libraries(mmodern_training_input_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2)
 	target_link_options(mmodern_training_input_tests PRIVATE "LINKER:--wrap,SDL_GetTicks")
@@ -654,7 +656,8 @@ if(BUILD_TESTING)
 		mmodern_platform_sdl SDL2::SDL2)
 	target_link_options(mmodern_sdl_input_tests PRIVATE "-Wl,--wrap=SDL_GetTicks")
 	add_test(NAME sdl_input COMMAND mmodern_sdl_input_tests)
-	set_tests_properties(sdl_input PROPERTIES ENVIRONMENT
+	add_test(NAME sdl_main_screen COMMAND mmodern_sdl_input_tests mouse)
+	set_tests_properties(sdl_input sdl_main_screen PROPERTIES ENVIRONMENT
 		"SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software")
 	add_executable(mmodern_game_flags_tests
 		tests/XeenGameFlagsTests.cpp

@@ -7,6 +7,7 @@
 #include <chrono>
 #include <limits>
 #include <sstream>
+#include <algorithm>
 
 namespace mmodern {
 namespace {
@@ -93,6 +94,7 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
         if (_queueContextId == std::numeric_limits<std::uint64_t>::max()) throw std::overflow_error("Input context exhausted");
         ++_queueContextId;
         _queueContext = context;
+        _mainScreenNotice.clear();
     }
     const bool queueable = panel == 0 && (!_encounter || journey() || combat);
     bool ready = !_dispatching && !_fatal && !_saving && !_handoffPending && !_arrivalPending &&
@@ -106,7 +108,61 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
             _displayedCombat && combat->current(*_displayedCombat) && !_encounter->_scheduleAfterFrame;
         else ready = ready && _encounter->journeyMutable();
     }
-    return {_queueContextId, queueable, ready};
+    return {_queueContextId, queueable, ready, journey() && queueable ?
+        (combat ? MainScreen::Combat : MainScreen::Exploration) : MainScreen::None};
+}
+
+IndexedFrame XeenEventFlow::drawMainScreenNotice(const IndexedFrame &base, const std::string &notice) const {
+    // M46 keeps the existing temporary status text, but confines it to the
+    // scene so the original buttons, Tab and portraits remain visible.
+    XeenTextRenderOptions options;
+    options.bounds={9,70,222,135}; options.windowBounds={8,68,223,136};
+    options.x=10; options.y=70; options.size=XeenFontSize::Reduced;
+    options.drawWindow=true; options.paginate=true;
+    std::istringstream lines(notice.substr(0,notice.find("\n\n")));
+    std::string text,line;
+    while(std::getline(lines,line)) {
+        // Keyboard help is already in the title/controls; target rows are drawn
+        // in their original hit areas below. Keep actual gameplay feedback.
+        if(line.rfind("Arrows move/turn",0)==0 || line.rfind("I inventory;",0)==0) continue;
+        const auto start=!line.empty() && line.front()=='>' ? 1u : 0u;
+        if(_encounter->combat() && line.size()>start+1 && line[start]>='1' && line[start]<='3' && line[start+1]==' ') continue;
+        const auto controls=line.find(": Space/B;");
+        if(controls!=std::string::npos) line=line.substr(0,controls)+": ready";
+        if(!text.empty()) text+='\n';
+        text+=line;
+    }
+    if (!_mainScreenNotice.empty()) text=_mainScreenNotice+"\n"+text;
+    options.y=std::max(9,125-10*static_cast<int>(std::count(text.begin(),text.end(),'\n')));
+    options.bounds.top=options.y; options.windowBounds.top=std::max(8,options.y-2);
+    auto result=XeenTextRenderer(_inventoryFont).render(base,text,options);
+    while(result.pages.size()!=1 && options.y>9) {
+        // Allow wrapped feedback more room, keeping ordinary short notices
+        // at the bottom of the scene and every control visible.
+        options.y=std::max(9,options.y-10);
+        options.bounds.top=options.y; options.windowBounds.top=std::max(8,options.y-2);
+        result=XeenTextRenderer(_inventoryFont).render(base,text,options);
+    }
+    if(result.pages.size()!=1) throw std::runtime_error("Main screen notice overflow");
+    auto frame=std::move(result.pages.front());
+    if (const auto *combat=_encounter->combat()) {
+        if (drawCombatButtons) drawCombatButtons(frame);
+        // Original target rows are in window 2, above the action icons.
+        options.bounds={235,11,318,69}; options.windowBounds={233,9,320,71};
+        options.x=239; options.y=13;
+        frame=XeenTextRenderer(_inventoryFont).render(frame,"Combat",options).pages.front();
+        const auto rows=combat->contacts();
+        for(unsigned row=0;row<rows.size();++row) if(rows[row]) {
+            const auto &actor=_world.sessionState().regionalActors(rows[row]->mapId).at(rows[row]->recordIndex);
+            auto label=std::string(rows[row]==combat->selectedTarget()?">":" ")+std::to_string(row+1)+" "+actor.statistics->name();
+            const XeenTextRenderer renderer(_inventoryFont);
+            while(renderer.textWidth(label,XeenFontSize::Reduced)>73) label.pop_back();
+            options.bounds={239,27+int(row)*10,312,37+int(row)*10};
+            options.x=239; options.y=options.bounds.top; options.drawWindow=false;
+            frame=renderer.render(frame,label,options).pages.front();
+        }
+    }
+    return frame;
 }
 
 bool XeenEventFlow::journeyInputCurrent(std::optional<std::uint64_t> input) const noexcept {
@@ -331,8 +387,9 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 				auto composed = _encounterCompose(_ordinary.phase,_encounter->appearance());
 				if (!_encounter->current(t)) throw std::logic_error("Stale Journey composition");
 				if (!composed.frame.isValid()) throw std::runtime_error("Invalid Journey frame");
-				auto rendered = _journeyEventLayers ? _presenter.rebase(composed.frame) : noticeFrame(composed.frame,_inventoryFont,
-					_castingUi ? castingText() : _encounter->notice(),true,true);
+				auto rendered = _journeyEventLayers ? _presenter.rebase(composed.frame) :
+                    _castingUi ? noticeFrame(composed.frame,_inventoryFont,castingText(),true,true) :
+                    drawMainScreenNotice(composed.frame,_encounter->notice());
 				if(_encounter->monsterReward()) {
 					if(!_monsterReceiptPresented) {
 						_presenter.clear();XeenPresentationRequest request;
@@ -387,7 +444,9 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter frame");
 			if (!composed.frame.isValid()) throw std::runtime_error("Invalid encounter frame");
 			const auto notice = _encounter->combat() && _encounter->combat()->cast() ? combatCastingText() : _encounter->notice();
-			auto rendered = noticeFrame(composed.frame, _inventoryFont, notice, _encounter->combat(),journey());
+			auto rendered = journey() && _encounter->combat() && !_encounter->combat()->cast() ?
+                drawMainScreenNotice(composed.frame,notice) :
+                noticeFrame(composed.frame, _inventoryFont, notice, _encounter->combat(),journey());
 			if (report && !attempt && reportText) reportText(notice);
 			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter report");
 			// Complete the fallible return copy before installing the frame.
@@ -1040,6 +1099,15 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 	if (!_encounter && (std::holds_alternative<AttackAction>(action) || std::holds_alternative<BlockAction>(action) || std::holds_alternative<RunAction>(action) ||
 		std::holds_alternative<BeginEncounterAction>(action) || std::holds_alternative<RevisitCompletedAction>(action))) return frameCopy();
 	if (journey() && _encounter->combat() && std::holds_alternative<RevisitCompletedAction>(action)) action=RunAction{};
+    if (const auto *unsupported=std::get_if<UnsupportedMainScreenAction>(&action)) {
+        const auto context=inputContext(inputFrame);
+        if (context.mainScreen==MainScreen::None || !context.readyForAction) return frameCopy();
+        _mainScreenNotice=std::string(unsupported->label)+": not supported yet";
+        DispatchScope dispatch(_dispatching);
+        if (reportText) reportText(_mainScreenNotice);
+        return renderEncounter();
+    }
+    _mainScreenNotice.clear();
 	DispatchScope dispatch(_dispatching);
     if(journey() && _encounter->combat() && (_encounter->combat()->cast() || std::holds_alternative<CastSpellAction>(action)))
         return handleCombatCasting(action,*displayedInput);

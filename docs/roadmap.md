@@ -5,6 +5,10 @@
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
 
+The project's goal is a **faithful reimplementation** of the original games
+(see [AGENTS.md](../AGENTS.md)). Every milestone below reproduces original
+behavior; quality-of-life options are a later, opt-in decision.
+
 ## Where we are
 
 <a id="current-planning-state"></a><a id="m28---durable-bounded-encounter-completion-and-revisit"></a><a id="approved-m33-m35-arc"></a>
@@ -30,18 +34,19 @@ machinery: the code now has one save format and one Journey configuration, and
 
 | Milestone | Tier | Goal | Accepted when |
 | --- | --- | --- | --- |
-| **M46 - Clickable original interface** | B | Mouse input mapped to the 320x200 framebuffer; main-screen buttons and party portraits trigger existing actions (unsupported buttons refuse visibly); original-style dialogs replace project menus for inventory, Smith, Training and Temple, including the deferred Temple panel/art composition. | The maintainer can play the current Journey with the mouse alone, and keyboard shortcuts still work. |
-| **M47 - Normal start in Vertigo** | A | New game from original initialization: the six level-1 `maze.pty` characters at Vertigo `(18,4)` facing West, without injected levels/XP. Admit the whole Vertigo map and its actors and Events from resources, with unsupported Events refusing visibly. Add Rest with food and HP/SP recovery plus the ordinary daily processing it needs. | A new game starts in Vertigo; the party can walk the whole town, fight, Rest, use the services and save/restore exactly. |
+| **M46 - Clickable main screen** | B | Mouse input mapped to the 320x200 framebuffer; main-screen buttons, combat buttons, targets and party portraits trigger existing actions through the M45 input path; unsupported buttons refuse visibly. See the [M46 plan](milestone-46-plan.md). | The maintainer can play exploration and combat with the mouse, and keyboard shortcuts still work. |
+| **M47 - Original dialogs** | B | Original-style dialogs replace the project menus for inventory, Smith, Training and Temple, operable by mouse and keyboard, including the deferred Temple panel/art composition. | The maintainer uses inventory and all current services through the original dialogs. |
+| **M48 - Normal start in Vertigo** | A | New game from original initialization: the six level-1 `maze.pty` characters at Vertigo `(18,4)` facing West, without injected levels/XP. Admit the whole Vertigo map and its actors and Events from resources, with unsupported Events refusing visibly. Add Rest with food and HP/SP recovery plus the ordinary daily processing it needs. | A new game starts in Vertigo; the party can walk the whole town, fight, Rest, use the services and save/restore exactly. |
 
 The order matters. M44 lowered the cost of every later change, and M45 made
 keyboard input reliable; M46's mouse input builds on the same buffered input
-path. M46 avoids building more project-specific menus that would be
-discarded. M47 is the first test of whole-map admission and ends the
-prepared-party era. If M47 proves too large,
+path, and M47's original dialogs avoid building more project-specific menus
+that would be discarded. M48 is the first test of whole-map admission and ends
+the prepared-party era. If M48 proves too large,
 split Rest/daily processing into its own milestone rather than narrowing the
 whole-map admission.
 
-After M47, choose the next milestone from play-testing evidence. Likely candidates:
+After M48, choose the next milestone from play-testing evidence. Likely candidates:
 
 - **Leaving Vertigo:** connect normal start to the mainland and further areas,
   adding Event opcodes as they are reached. Map 22 (north of map 23) needs

@@ -40,6 +40,8 @@ public:
 		const XeenPartyState &partyState,
 		const XeenCharacterRulesContext &context);
 	void loadBackground(XeenAssetSource &assets) const;
+	// Replace the already composed main-screen controls with ICONS_COMBAT.
+	void drawCombatButtons(XeenAssetSource &assets, IndexedFrame &frame) const;
 	void drawInterface(XeenAssetSource &assets, const XeenPartyState &partyState,
 		const XeenCharacterRulesContext &context) const;
 	IndexedFrame compose(XeenAssetSource &assets, const XeenPartyState &partyState,
