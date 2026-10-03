@@ -251,13 +251,29 @@ void blockReset(Source &source) {
  attack(combat,toadTape(d.party,true,roll,parameter,false));check(d.party.roster.at(0).currentHp==hp-3,"Ordinary round clears Block; identical threshold hits");
  std::cout<<"ARTIFICIAL Block -> Sleep -> inner reset -> wake retained Block; ordinary-round clearing PASS AC="<<ac<<" roll="<<roll<<" parameter=8\n";
 }
+// Reuse the original archive owner: nested asset runtimes share SearchMan.
+XeenGameplayServices disengagementServices(Source &,combat_gameplay_test::Harness &);
 #include "XeenConsequenceReviewControls.h"
 #include "XeenConsequencePhysicalControls.h"
 #include "XeenDisengagementTestControls.h"
+#ifdef MMODERN_M45_COLD_CACHE
+#include "XeenResourceColdOriginalControls.h"
+#endif
 }
 using namespace consequence_controls;
+#ifdef MMODERN_M45_COLD_CACHE
+int main(int argc,char **argv){try{
+ check(argc==2,"usage: mmodern_resource_cold_original <installation>");
+ const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"Original installation");
+ Source source(*installation);source.signature=XeenSaveFile::fingerprint(*installation);
+ disengagementFinishPresentation(source,false);disengagementFinishPresentation(source,true);coldVertigo(source);
+ std::cout<<"Cold north-edge combat, occupied Run and Vertigo PASS\n";return 0;
+}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+#else
 int main(int argc,char **argv){try{check(argc==2 || argc==3,"usage: mmodern_consequence_original <installation> [artificial-pending-item-save]");const auto i=XeenInstallationDetector().detect(argv[1]);check(bool(i),"Original installation");Source source(*i);source.signature=XeenSaveFile::fingerprint(*i);if(std::getenv("MMODERN_M34_FINISH_PRESENTATION_ONLY")){disengagementFinishPresentation(source);return 0;}reviewControls(source);disengagementControls(source);appearanceResources(source);shootOrder(source);blockReset(source);combatPublicationFaults(source);restoreConsequences(source,argc==3?std::optional<std::filesystem::path>{XeenSaveFile::resolve(argv[2],argv[1])}:std::nullopt);
  journey_resources_test::run([&]{return XeenPartyLoader().loadFromResources(source.chr,source.pty);},
  source.setup(),
  [&](auto id){return source.maps.loadGeometryMap(source.assets,id);},[&](auto id){return source.maps.loadObjects(source.assets,id);},source.signature,source.resources());
- std::cout<<"312 content-14 fresh/restored retained-resource controls PASS\n";shootRevalidation(source,std::filesystem::path(argv[1]));physicalPresentationControls(source,std::filesystem::path(argv[1]));return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+ std::cout<<"312 content-14 fresh/restored retained-resource controls PASS\n";shootRevalidation(source);physicalPresentationControls(source,std::filesystem::path(argv[1]));return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+
+#endif

@@ -238,14 +238,19 @@ void disengagementNativeInput(Source &source) {
  std::filesystem::remove(path);
  std::cout<<"M34 ARTIFICIAL automated SDL R held/repeat/same-batch and retirement R/Space/F9 fences; fresh F9 provider path PASS\n";
 }
-void disengagementFinishPresentation(Source &source) {
+void disengagementFinishPresentation(Source &source,bool injectFault=true) {
  for(bool occupied:{false,true})for(bool attrition:{false,true}) {
   auto saved=runAuthorityFixture(source,occupied);
   if(attrition) {saved.characters[kXeenCombatOwners[1]].currentHp=1;saved.characters[kXeenCombatOwners[1]].conditions[12]=0;}
   const auto path=std::filesystem::temp_directory_path()/"mmodern-m34-finish-presentation.mms";
   XeenSaveFile::write(path,saved);combat_gameplay_test::Harness h;auto services=disengagementServices(source,h);
   const auto compose=services.composeEncounter;IndexedFrame base;
-  services.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto phase,auto appearance){auto result=compose(w,p,c,phase,appearance);base=result.frame;return result;};
+  bool combatComposition=false,coldNorth=false;unsigned northLoads=0;
+  const auto maps=services.maps;
+  services.maps=[&](auto id){if(id==XeenMapIdentity(22)){++northLoads;if(combatComposition)coldNorth=true;}return maps(id);};
+  services.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto phase,auto appearance){
+   combatComposition=w.sessionState().journeyActivity()==XeenJourneyActivity::Combat;
+   auto result=compose(w,p,c,phase,appearance);combatComposition=false;base=result.frame;return result;};
   bool completed=false;
   services.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){
    const auto present=[&]{handler.framePresented(h.flow->frame().presentation());};
@@ -258,9 +263,11 @@ void disengagementFinishPresentation(Source &source) {
     for(unsigned i=0;i<19;++i){const auto &a=h.world->sessionState().actors()[i];auto &b=value.journey->actors[i];b.x=a.x;b.y=a.y;b.hp=a.hp;b.activated=a.activated;b.lifecycle=a.lifecycle;b.status=a.status;b.accounted=h.world->sessionState().accountedMonsters().count(a.id);}
     return value;
    };
+   if(occupied)check(northLoads==0,"North neighbor must remain cold before contact");
    present();press(NavigationAction::MoveForward);
    for(unsigned n=0;n<80 && (!h.flow->encounter()->combat() || h.flow->encounter()->combat()->phase()!=XeenCombatPhase::PlayerReady);++n){tick();present();}
    check(h.flow->encounter()->combat() && h.flow->encounter()->combat()->participant()==0,"Finish presentation fixture reaches original combat");
+   if(occupied)check(coldNorth,"Cold map 22 must load during real combat composition");
    for(unsigned exit=0;exit<(occupied?2u:1u);++exit) {
     const auto oldFrame=h.flow->frame().presentation();const auto oldInput=*handler.displayedInput();
     const auto oldTicket=h.flow->encounter()->combat()->ticket();
@@ -268,7 +275,7 @@ void disengagementFinishPresentation(Source &source) {
     h.flow->beforeEncounterFrameCopy=[&]{
      if(!retried && h.flow->encounter()->notice().find("Disengaged; gold forfeited ")!=std::string::npos) {
       publication=std::make_unique<XeenRestoreGuard>(*h.world,*h.party,*h.camera,*h.flags);
-      retried=true;throw std::runtime_error("Artificial destination frame-copy retry");
+      retried=true;if(injectFault)throw std::runtime_error("Artificial destination frame-copy retry");
      }
     };
     press(RunAction{});

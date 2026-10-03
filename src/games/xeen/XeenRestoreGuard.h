@@ -4,6 +4,7 @@
 #include "games/xeen/XeenGameFlags.h"
 #include "games/xeen/XeenEventTextLoader.h"
 #include "games/xeen/XeenLearnedSpellRules.h"
+#include <mutex>
 namespace mmodern {
 // Retained callback preimages, never a gameplay owner or a publication capability.
 class XeenRestoreGuard {
@@ -31,7 +32,34 @@ public:
 		}
 		prepareMutationRanges();
 		adoptMutationBoundary();
+		std::lock_guard<std::mutex> lock(resourceMutex());
+		resourceObservers().push_back(this);
 	}
+	~XeenRestoreGuard() {
+		std::lock_guard<std::mutex> lock(resourceMutex());
+		auto &observers=resourceObservers();
+		observers.erase(std::find(observers.begin(),observers.end(),this));
+	}
+	XeenRestoreGuard(XeenRestoreGuard &&other) :
+		w(other.w), p(other.p), c(other.c),
+		f(other.f), worldId(std::move(other.worldId)), worldRevision(std::move(other.worldRevision)),
+		partyId(std::move(other.partyId)), rosterId(std::move(other.rosterId)), partyReplacement(std::move(other.partyReplacement)),
+		rosterReplacement(std::move(other.rosterReplacement)), s(std::move(other.s)), characters(std::move(other.characters)),
+		inputs(std::move(other.inputs)), marked(std::move(other.marked)), membership(std::move(other.membership)),
+		quests(std::move(other.quests)), questFlags(std::move(other.questFlags)), recovery(std::move(other.recovery)),
+		context(std::move(other.context)), treasure(std::move(other.treasure)), economy(std::move(other.economy)),
+		first(std::move(other.first)), effective(std::move(other.effective)), diagnostics(std::move(other.diagnostics)),
+		cameraValue(std::move(other.cameraValue)), flagValues(std::move(other.flagValues)), combatCheck(std::move(other.combatCheck)),
+		combatAuthorized(std::move(other.combatAuthorized)), maps(std::move(other.maps)), objects(std::move(other.objects)),
+		spawnSlime(std::move(other.spawnSlime)), regionalText(std::move(other.regionalText)), vertigoText(std::move(other.vertigoText)),
+		learnedNames(std::move(other.learnedNames)), cacheRevision(std::move(other.cacheRevision)), exactCaches(std::move(other.exactCaches)),
+		borrowOwners(std::move(other.borrowOwners)), borrowStates(other.borrowStates), borrowRevisions(std::move(other.borrowRevisions)),
+		failed(std::move(other.failed)), mutations(std::move(other.mutations)) {
+		std::lock_guard<std::mutex> lock(resourceMutex());
+		resourceObservers().push_back(this);
+	}
+	XeenRestoreGuard(const XeenRestoreGuard &)=delete;
+	XeenRestoreGuard &operator=(const XeenRestoreGuard &)=delete;
 	bool current() const noexcept {
 		using namespace xeen_state;
 		if (failed || !mutations.current()) return false;
@@ -178,6 +206,44 @@ public:
 		}
 	}
 private:
+	friend class XeenWorld;
+	// World calls this only for detached provider results. Validate identity
+	// and retained contents after callback authorization, before insertion. Never learn a
+	// preimage from a cache hit. Retained combat guards use this same path.
+	template<class Value, class Select, class Equal>
+	static void admitLoadedResource(const XeenWorld &world, XeenMapIdentity id,
+			const Value &value, bool identityMatches, Select select, Equal equal) {
+		std::lock_guard<std::mutex> lock(resourceMutex());
+		bool mismatch=false;
+		for (auto *guard:resourceObservers()) {
+			if (&guard->w!=&world || guard->worldId!=world._incarnation || !guard->worldAlive()) continue;
+			auto &values=select(*guard);
+			const auto found=values.find(id);
+			if (found!=values.end() && !equal(found->second,value)) {
+				guard->failed=true;
+				mismatch=true;
+			}
+		}
+		if (mismatch) throw std::logic_error("immutable resource changed during cache admission");
+		if (!identityMatches) throw std::runtime_error("resource identity differs from requested map");
+		for (auto *guard:resourceObservers()) {
+			if (&guard->w!=&world || guard->worldId!=world._incarnation || !guard->worldAlive()) continue;
+			select(*guard).emplace(id,value);
+			guard->prepareMutationRanges();
+		}
+	}
+	// Advance only the revision for this successful insertion. An earlier
+	// eviction/replacement still invalidates an exact-cache destination guard.
+	static void loadedResourceInserted(const XeenWorld &world) noexcept {
+		std::lock_guard<std::mutex> lock(resourceMutex());
+		for (auto *guard:resourceObservers())
+			if (&guard->w==&world && guard->worldId==world._incarnation && guard->worldAlive() &&
+				guard->cacheRevision==world._cacheRevision-1) ++guard->cacheRevision;
+	}
+	static std::mutex &resourceMutex() { static std::mutex mutex;return mutex; }
+	static std::vector<XeenRestoreGuard *> &resourceObservers() {
+		static std::vector<XeenRestoreGuard *> observers;return observers;
+	}
 	friend class XeenEventPublication;
 	friend class XeenEncounterFlow;
 	friend struct XeenTrainingTestAccess;

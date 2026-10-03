@@ -111,12 +111,12 @@ void zeroHitVolley(Source &s) {
  check(d.world.sessionState().actors()[9].hp==25 && d.world.sessionState().actors()[8].hp==25,"Zero hit does not wound either target");
  std::cout<<"REVIEW ARTIFICIAL pure-resolver100% resistance operand: production volley spends hit at5 draws, charge then pending3 PASS\n";
 }
-void shootRevalidation(Source &source,const std::filesystem::path &game) {
+void shootRevalidation(Source &source) {
  Domain original(source);auto saved=original.save();saved.characters[14].currentHp=1;
  auto &a=saved.journey->actors[9];a.x=5;a.y=11;a.activated=true;
  const auto path=std::filesystem::temp_directory_path()/"mmodern-m33-review-revalidation.mms";
  XeenSaveFile::write(path,saved);
- combat_gameplay_test::Harness h(game);auto services=currentServices(h,source);services.resources.regionalManifest=source.manifest();
+ combat_gameplay_test::Harness h;auto services=disengagementServices(source,h);
  bool shown=false;
  services.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){
   shown=true;handler.framePresented(h.flow->frame().presentation());

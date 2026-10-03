@@ -1,14 +1,18 @@
-# Milestone 45 - Reliable input (Tier A)
+# Milestone 45 - Reliable input and play stability (Tier A)
 
-Status: **approved by the maintainer on 2026-10-03; implementation not yet authorized.** Baseline: `main` at `83ef18a`.
+Status: **approved by the maintainer on 2026-10-03, amended after step 1 the same day; step 1 done, later steps not yet authorized.** Baseline: `main` at `83ef18a`.
 Tier A: independent review of this plan and of the implementation is required.
 
 ## Goal
 
-Keys pressed during redraws, animations, enemy turns or result screens are not
-lost. They are buffered in order and applied one per valid frame, as the original
-does, while duplicate-action and stale-screen protection stays. Also fix the
-flaky `xeen_save_sdl` test and settle the Run "Stale encounter frame" defect.
+First, stop integrity guards from ending play when a map or other immutable
+resource is loaded into a cache on demand (the step-1 finding behind "Stale
+encounter frame" and "preparation owner preimage changed"). Then, keys pressed
+during redraws, animations and enemy turns in exploration and combat are not
+lost: they are buffered in order and applied one per ready frame, as the
+original does, while duplicate-action and stale-screen protection stays.
+Result/reward panels, services, dialogs, inventory and casting keep today's
+strict rule (M46 replaces those menus). Also fix the flaky `xeen_save_sdl` test.
 
 Non-goals: mouse/UI work (M46), new gameplay, save-format change, a second input
 system beside SdlWindow/Flow.
@@ -63,23 +67,44 @@ DOSBox adds its own buffer and is not modeled.
 (`XeenSaveSdlTests.cpp:19-20`); `SDL_PushEvent` stamps `SDL_GetTicks()`, so a key
 landing before the next `readyAt` is dropped under load. Not a product bug.
 
-**Run "Stale encounter frame".** Reproduced on `83ef18a`, and diagnosed in a
-throwaway worktree (discarded). It fails in `disengagementFinishPresentation`
-only for `occupied=true, attrition=false`. The message reads "Gameplay startup
-failed" only because the test's `services.show` runs inside `playGameplay`'s try
-block. Mechanism: the test injects a frame-copy fault
-(`beforeEncounterFrameCopy`, test lines 268-273) into the first composition of
-the destination frame; the **replacement combat** then fails with
-`XeenCombatFailure::Integrity` (operation `End`, phase `Failed`) during the
-guarded retry (`XeenCombat::guardCallback`, `XeenCombat.cpp:459-479`: the
-post-throw `check()` fails and the combat is failed), so `renderEncounter`'s
-retry sees a non-current ticket and throws at `XeenEventFlow.cpp:350`. This is
-not an input defect. The normal first-attempt render of an occupied destination
-passes (other controls pass), so it is reachable in normal play only if the
-frame composition/copy itself throws. Which owner's snapshot the guard sees
-changed is still to be pinned (step 1).
+**Step-1 results (measured).**
+- Lost keys: of 321 human-paced presses (180 s walking, two fights, Shoot), about
+  150 were dropped: 86 by the `readyAt` discard in exploration, 34 by
+  encounter-busy refusals (25 in combat animation/enemy turns), 20 by a
+  non-current batch frame, 3 on result panels. Protective filters (repeat,
+  held, Escape, F9, Flow ticket/handoff/save gates) dropped nothing. The policy
+  below addresses the dominant causes.
+- **Guard false positives on lazy cache growth (product defect).** With a cold
+  cache, combat near the north edge loads neighbor map 22 during composition.
+  `XeenCombat::Impl::lifetime`'s retained resource snapshot lacks it; the
+  temporary guard admits it, but `current()` compares against the older
+  lifetime snapshot and fails `Integrity`, ending the combat and the session
+  ("Stale encounter frame"). The failure occurs before the test's injected
+  fault and also with it disabled; prewarming map 22 makes all four
+  occupied/attrition cases pass; a normal Journey run reproduced it.
+  `XeenRestoreGuard::cachesCurrent()` (`XeenRestoreGuard.h:86-98`) similarly
+  rejects any map/object cache entry absent from its snapshot, throwing
+  "preparation owner preimage changed" (`:108`). The maintainer hit both
+  messages in physical play (terminal captures, 2026-10-03), so this is the
+  same class of defect, not a harness issue.
 
 ## Design decisions
+
+### Guards and lazily loaded immutable resources
+
+- A map, object file or other immutable resource that enters a cache during
+  play, loaded from the original archives, is **admitted** into every retained
+  guard snapshot that checks caches (`XeenRestoreGuard`, the combat lifetime
+  snapshot and any other owner-preimage guard), using the same identity and
+  content checks the guards already apply to admitted entries. Admission is
+  monotonic: an admitted entry whose content later differs still fails
+  integrity, and gameplay-state changes are still detected exactly as today.
+- Cache growth alone never fails integrity; cache *mutation* or *reversion* of
+  an admitted entry still does. Prefer one shared admission helper over
+  per-guard special cases; no special case for map 22 or `(10,12)`.
+- Stop and re-plan if admission requires changing what the guards protect
+  (party/world/combat owners, RNG, save state) rather than how they treat
+  immutable cache entries.
 
 ### Policy: bounded pending-action queue (owner: `showLoop`; authority: Flow)
 
@@ -138,19 +163,20 @@ authority on readiness and whether an action runs; `FrameUpdateHandler` gains
 one callback returning `{contextId, acceptsQueuedInput, readyForAction}`. No
 change to save format, RNG or time.
 
-### Flake and Run defect
+### Flake
 
 - `xeen_save_sdl`: wait for a presented, input-ready frame before pushing each
   key instead of fixed sleeps; repeat 20 times under parallel load.
-- Run defect, step 1 pins which owner snapshot makes the guarded retry fail, then:
-  - **if reachable only through the injected frame-copy fault** (the retry path of
-    a replacement incarnation after an artificial throw): fix the test/harness,
-    stating that the production first-attempt path is already covered;
-  - **if reachable in normal play** (a real composition/copy failure, or any path
-    without the fault): fix the guarded retry for replacement incarnations in M45
-    scope, generically, with no special case for `(10,12)`.
 
 ## Tests
+
+- Cold-cache stability (original data, no prewarming): walk and fight near the
+  map-23 north edge so map 22 loads during combat composition; enter and leave
+  Vertigo; Run to an occupied destination. No integrity failure, and the M44
+  scenario digests still match. Unit tests: a guard admits a newly loaded
+  immutable entry, still fails when an admitted entry changes or reverts, and
+  still detects owner-state changes. `mmodern_consequence_original` passes
+  without prewarming.
 
 - Queue policy (headless, `SdlInputTests`): bound 5 and overflow ignored; FIFO;
   one action per ready frame; Escape/F9 never queued and Escape clears; repeat
@@ -183,18 +209,21 @@ change to save format, RNG or time.
 - A missed flush point could apply a key in the wrong context; mitigated by
   enumerating the original flush sites, tests per class, and `handle()` revalidation.
 - Existing tests that encode drop semantics need rewording.
-- **Stop point:** after step 1, report measured drop counts and the Run owner. If
-  the fix needs ownership changes beyond one context id and one callback, or the
-  Run fix touches combat/save semantics, stop and re-plan with the maintainer.
+- Guard admission could weaken integrity checks; mitigated by admitting only
+  entries loaded from the original archives with existing identity/content
+  checks, keeping mutation/reversion detection, and independent review.
+- **Stop points:** step 1 is done. Stop and re-plan if the guard fix needs to
+  change what guards protect, or the input fix needs ownership changes beyond
+  one context callback.
 
 ## Work order
 
-1. Temporary counters/probe in a separate worktree and build directory (discarded
-   afterwards): measure drop reasons under human-paced input; pin the Run owner.
-   **Stop and report.**
-2. Queue, drain and context id in `SdlWindow`/handler; remove `readyAt` retirement.
-3. Tests; adapt existing input tests.
-4. Fix `xeen_save_sdl` and the Run defect or harness.
+1. Done: measurement and diagnosis (results above).
+2. Guard admission of lazily loaded immutable resources, with cold-cache tests.
+   Commit separately after its own review (Tier A).
+3. Queue, drain and context callback in `SdlWindow`/handler; readyAt/restamp no
+   longer discard keys in queueable contexts.
+4. Input tests; adapt existing input tests; fix `xeen_save_sdl`.
 5. Full CTest, independent review, maintainer play-test.
 
 ## Acceptance
@@ -202,5 +231,7 @@ change to save format, RNG or time.
 - Maintainer play-test: no lost keys in movement (including holding W), Space and
   combat keys, including presses during animations and enemy turns; nothing
   carries across combat end, dialogs or map changes.
-- `xeen_save_sdl` stable over repeated parallel runs; `mmodern_consequence_original`
-  passes (or its harness is corrected with justification); complete CTest passes.
+- No integrity failure from on-demand map/resource loading in cold-cache play
+  (near the north edge, Run to an occupied destination, Vertigo entry/exit);
+  `mmodern_consequence_original` passes without prewarming.
+- `xeen_save_sdl` stable over repeated parallel runs; complete CTest passes.

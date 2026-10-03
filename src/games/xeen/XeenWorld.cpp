@@ -1,4 +1,5 @@
 #include "games/xeen/XeenWorld.h"
+#include "games/xeen/XeenRestoreGuard.h"
 #include "games/xeen/XeenActorApproach.h"
 #include "games/xeen/XeenEventPublication.h"
 #include "games/xeen/XeenStateEquality.h"
@@ -48,7 +49,7 @@ XeenWorld::XeenWorld(MapLoader loader, ObjectLoader objectLoader) :
 	_incarnation(nextWorldIncarnation()), _baseLoader(loader), _baseObjectLoader(objectLoader),
 	_loader(std::move(loader)), _objectLoader(std::move(objectLoader)) {
 	if (!_loader)
-		throw std::invalid_argument("XeenWorld requer um carregador de mapas");
+		throw std::invalid_argument("XeenWorld requires a map loader");
 }
 
 void XeenWorld::restoreSessionState(const std::vector<XeenObjectIdentity> &objects,
@@ -102,11 +103,12 @@ const XeenObjectFile &XeenWorld::objectFile(XeenMapIdentity mapId) {
 	XeenObjectFile loaded = _objectLoader ? _objectLoader(mapId) :
 		XeenObjectFile{mapId, {}, false, {}};
 	if (_combatCheck) _combatCheck();
-	if (loaded.mapId != mapId)
-		throw std::runtime_error("object file identity differs from requested map");
+	XeenRestoreGuard::admitLoadedResource(*this,mapId,loaded,loaded.mapId==mapId,
+		[](XeenRestoreGuard &g)->auto & {return g.objects;},xeen_state::sameObjectFile);
 	XeenMutationWatch::prepareOwned(this,4);
 	const auto result = _objects.emplace(mapId, std::move(loaded));
 	++_cacheRevision;
+	XeenRestoreGuard::loadedResourceInserted(*this);
 	resourceRanges(result.first->second,[this](const void *p,std::size_t n) { XeenMutationWatch::addOwned(this,p,n); });
 	return result.first->second;
 }
@@ -199,18 +201,19 @@ void XeenWorld::applyRemove(const XeenCamera &physical,
 
 const XeenMap &XeenWorld::map(XeenMapIdentity mapId) {
 	if (!mapId)
-		throw std::invalid_argument("ID zero nao representa um mapa de Xeen");
+		throw std::invalid_argument("ID zero does not represent a Xeen map");
 	const auto cached = _maps.find(mapId);
 	if (cached != _maps.end())
 		return cached->second;
 
 	XeenMap loaded = _loader(mapId);
 	if (_combatCheck) _combatCheck();
-	if (loaded.identity() != mapId)
-		throw std::runtime_error("ID interno do mapa nao corresponde ao recurso solicitado");
+	XeenRestoreGuard::admitLoadedResource(*this,mapId,loaded,loaded.identity()==mapId,
+		[](XeenRestoreGuard &g)->auto & {return g.maps;},xeen_state::sameMap);
 	XeenMutationWatch::prepareOwned(this,5+loaded.instructions.size());
 	const auto result = _maps.emplace(mapId, std::move(loaded));
 	++_cacheRevision;
+	XeenRestoreGuard::loadedResourceInserted(*this);
 	resourceRanges(result.first->second,[this](const void *p,std::size_t n) { XeenMutationWatch::addOwned(this,p,n); });
 	return result.first->second;
 }

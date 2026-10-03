@@ -294,6 +294,13 @@ if(BUILD_TESTING)
 	target_link_libraries(mmodern_consequence_original PRIVATE mmodern_app SDL2::SDL2)
 	target_link_options(mmodern_consequence_original PRIVATE "-Wl,--wrap=_ZN7mmodern16XeenCombatRandom4drawEjj"
         "-Wl,--wrap=_ZN7mmodern27XeenPhysicalPlayerCandidateC1ERKNS_13XeenCharacterERKNS_16XeenCombatInputsERKNS_17XeenMonsterRecordEjjb")
+	add_executable(mmodern_resource_cold_original tests/XeenConsequenceOriginal.cpp)
+	target_compile_definitions(mmodern_resource_cold_original PRIVATE MMODERN_M45_COLD_CACHE)
+	target_link_libraries(mmodern_resource_cold_original PRIVATE mmodern_app SDL2::SDL2)
+	target_link_options(mmodern_resource_cold_original PRIVATE "-Wl,--wrap=_ZN7mmodern16XeenCombatRandom4drawEjj"
+        "-Wl,--wrap=_ZN7mmodern27XeenPhysicalPlayerCandidateC1ERKNS_13XeenCharacterERKNS_16XeenCombatInputsERKNS_17XeenMonsterRecordEjjb")
+	add_test(NAME xeen_resource_cold_original COMMAND mmodern_resource_cold_original "F:/Games/gog/Might and Magic 4-5")
+	set_tests_properties(xeen_resource_cold_original PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software")
     add_executable(mmodern_consequence_sprite_tests tests/XeenConsequenceSpriteTests.cpp)
     target_link_libraries(mmodern_consequence_sprite_tests PRIVATE mmodern_xeen)
     add_test(NAME xeen_consequence_sprites COMMAND mmodern_consequence_sprite_tests)
@@ -398,6 +405,9 @@ if(BUILD_TESTING)
 	target_link_libraries(mmodern_combat_persistence_tests PRIVATE mmodern_app mmodern_xeen)
 	target_link_options(mmodern_combat_persistence_tests PRIVATE "LINKER:--wrap,_ZN7mmodern16XeenCombatRandom4drawEjj")
 	add_test(NAME xeen_combat_persistence COMMAND mmodern_combat_persistence_tests)
+	add_executable(mmodern_resource_admission_tests tests/XeenResourceAdmissionTests.cpp)
+	target_link_libraries(mmodern_resource_admission_tests PRIVATE mmodern_app mmodern_xeen)
+	add_test(NAME xeen_resource_admission COMMAND mmodern_resource_admission_tests)
 	add_executable(mmodern_completed_restore_tests tests/XeenCompletedRestoreTests.cpp tests/XeenRestoreReplayProbe.cpp)
 	add_executable(mmodern_journey_persistence_tests tests/XeenJourneyPersistenceTests.cpp tests/XeenRestoreReplayProbe.cpp)
 	target_link_libraries(mmodern_journey_persistence_tests PRIVATE mmodern_app mmodern_xeen)
@@ -862,6 +872,7 @@ if(BUILD_TESTING)
 	# (full run: plain ctest). `process` = runs 30 s or more, or spawns child
 	# processes / drives a CLI witness executable.
 	set(xeen_process_tests
+		xeen_resource_cold_original
 		xeen_purchase_flow xeen_purchase_allocation xeen_purchase_process
 		xeen_temple_flow xeen_temple_process xeen_temple_depleted_process
 		xeen_training_flow xeen_training_allocation xeen_training_original xeen_training_process
