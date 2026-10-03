@@ -8,11 +8,11 @@ using namespace mmodern;
 inline void require(bool value,const char *message) {if(!value)throw std::runtime_error(message);}
 inline void run(const std::function<XeenPartyState()> &initial,const XeenJourneySetup &setup,
  const XeenWorld::MapLoader &maps,const XeenWorld::ObjectLoader &objects,XeenSaveResourceSignature signature, XeenSaveState::Resources resources = {}) {
- const auto home=xeenJourneyContent(setup.contract).entry.mapId;
+ const auto home=xeenJourneyContent().entry.mapId;
  const XeenMapIdentity neighbor{XeenSide::Clouds,static_cast<std::uint16_t>(home.number-1)};
  XeenEventPresenter::Clock clock=[]{return 0;};
  XeenSaveSnapshot source;
- {auto p=initial();auto c=xeenJourneyContent(setup.contract).entry;XeenGameFlags f;XeenWorld w(maps,objects);
+ {auto p=initial();auto c=xeenJourneyContent().entry;XeenGameFlags f;XeenWorld w(maps,objects);
   XeenEncounterFlow flow(w,p,c,f,clock,setup);
   require(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"Source frame");
   source=XeenSaveState::capture(signature,p,c,f,w);
@@ -34,7 +34,7 @@ inline void run(const std::function<XeenPartyState()> &initial,const XeenJourney
     if(change>=5){++o.mapId.number;return o;}
     o.entities.monsterTable[0]^=1;
    }return o;});
-  XeenPartyState p;auto c=xeenJourneyContent(setup.contract).entry;XeenGameFlags f;
+  XeenPartyState p;auto c=xeenJourneyContent().entry;XeenGameFlags f;
   std::unique_ptr<XeenEncounterFlow> flow;
   if(restored) {
    resources.signature=signature; resources.loadMonsterStatistics=[&]{return setup.statistics;};

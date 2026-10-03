@@ -7,7 +7,7 @@ using namespace combat_test;
 struct Fixture {
 	Bytes bytes;
 	XeenPartyState p;
-	XeenCamera camera = XeenActorApproach::kEntry;
+	XeenCamera camera = xeenJourneyContent().entry;
 	XeenGameFlags flags;
 	XeenEventFile event = events();
 	std::vector<XeenMonsterRecord> monsters = statistics();

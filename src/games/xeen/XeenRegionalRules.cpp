@@ -202,7 +202,7 @@ void xeenValidateVertigoManifest(XeenWorld &world, const XeenEventFile &events,
 			throw std::invalid_argument("Vertigo typed Event differs from immutable resource");
 	}
 	checked("aaze0028.txt",3014,0x8dc60e26);
-	if(xeenJourneyContent(world.sessionState().journeyContract()).training()) {
+	{
 		xeenValidateTrainingSource(checked("maze.chr",10620,0x81a2dd16));
 		checked("trng1.twn",27998,0xa4e3bbdb);checked("train.icn",1614,0x76c6ac78);
 		checked("esc.icn",792,0x096b68b7);
@@ -210,7 +210,7 @@ void xeenValidateVertigoManifest(XeenWorld &world, const XeenEventFile &events,
 		checked("008.obj",18331,0xff9b7e6d);checked("009.obj",12450,0x3deef973);
 		checked("010.obj",4340,0xbc3a2ad6);checked("011.obj",7355,0x9eea738b);
 	}
-	if(xeenJourneyContent(world.sessionState().journeyContract()).templeRecovery()) {
+	{
 		checked("tmpl1.twn",21187,0xb9ffe574);
 		checked("002.obj",6771,0xe75e3929);
 		checked("012.obj",24366,0xdd0c8515);
@@ -275,22 +275,22 @@ std::optional<std::int16_t> xeenWellHpAfter(std::int16_t before) noexcept {
 	if(after>std::numeric_limits<std::int16_t>::max())return {};
 	return static_cast<std::int16_t>(after);
 }
-XeenRegionalInteraction xeenRegionalInteraction(const XeenEventFile &events,const XeenCamera &camera,std::uint16_t contract) {
+XeenRegionalInteraction xeenRegionalInteraction(const XeenEventFile &events,const XeenCamera &camera) {
 	const auto first=xeenRegionalEvent(events,camera);
 	if (!first) return XeenRegionalInteraction::None;
-	if (xeenJourneyContent(contract).vertigo()) {
-		if (xeenJourneyContent(contract).templeRecovery() && camera.mapId==XeenMapIdentity(28) &&
+	{
+		if (camera.mapId==XeenMapIdentity(28) &&
 			*first==543 && camera.x==15 && camera.y==21 && camera.direction==XeenDirection::North)
 			return XeenRegionalInteraction::TempleLabel;
-		if (xeenJourneyContent(contract).templeRecovery() && camera.mapId==XeenMapIdentity(28) &&
+		if (camera.mapId==XeenMapIdentity(28) &&
 			*first==6 && camera.x==15 && camera.y==28)
 			return XeenRegionalInteraction::Temple;
-		if (xeenJourneyContent(contract).training() && camera.mapId==XeenMapIdentity(28)) {
+		if (camera.mapId==XeenMapIdentity(28)) {
 			if (*first==3 && camera.x==10 && camera.y==11)return XeenRegionalInteraction::Training;
 			if (*first==538 && camera.x==10 && camera.y==8 && camera.direction==XeenDirection::North)
 				return XeenRegionalInteraction::VertigoDoor;
 		}
-		if (xeenJourneyContent(contract).armorRepair() && camera.mapId==XeenMapIdentity(28) && *first==0 && camera.x==8 && camera.y==4)
+		if (camera.mapId==XeenMapIdentity(28) && *first==0 && camera.x==8 && camera.y==4)
 			return XeenRegionalInteraction::Ironworks;
 		if (camera.mapId==XeenMapIdentity(23) && *first==136 && camera.x==10 && camera.y==13)
 			return XeenRegionalInteraction::VertigoEntrance;
@@ -300,7 +300,7 @@ XeenRegionalInteraction xeenRegionalInteraction(const XeenEventFile &events,cons
 			return XeenRegionalInteraction::VertigoExit;
 	}
 	if (xeenRegionalSign(events,camera)) return XeenRegionalInteraction::Sign;
-	if (contract!=6 && contract!=7 && !xeenJourneyContent(contract).vertigo()) return XeenRegionalInteraction::None;
+
 	if (*first==21 && camera.x==9 && camera.y==11 && camera.direction==XeenDirection::West)
 		return XeenRegionalInteraction::Myra;
 	if (*first==125 && camera.x==8 && camera.y==2)

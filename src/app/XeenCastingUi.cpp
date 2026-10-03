@@ -14,7 +14,6 @@ std::vector<std::size_t> learnedRows(const XeenCharacter &character) {
 }
 }
 
-
 std::string XeenEventFlow::combatCastingText() const {
     const auto observed=_encounter->combat()->cast();
     const auto &v=*observed;
@@ -31,7 +30,7 @@ std::string XeenEventFlow::combatCastingText() const {
         const auto position=unsigned(selected-rows.begin());const auto start=position<6 ? 0 : position-5;
         for(unsigned i=start;i<rows.size() && i<start+6;++i) {
             const auto global=XeenLearnedSpellRules::spellForSlot(*category,rows[i]);
-            const auto effect=global ? XeenLearnedSpellRules::supportedIn(*global,_world.sessionState().journeyContract(),true) : std::nullopt;
+            const auto effect=global ? XeenLearnedSpellRules::supportedIn(*global,true) : std::nullopt;
             out<<(rows[i]==v.slot?"> ":"  ")<<names[*global];
             if(!effect)out<<" Unsupported";
             else {out<<" "<<XeenLearnedSpellRules::cost(*effect)<<" SP";if(ch.currentSp<int(XeenLearnedSpellRules::cost(*effect)))out<<" No SP";}
@@ -164,7 +163,7 @@ std::string XeenEventFlow::castingText() const {
 			if (id && _encounter->journeySavePreimage().learnedNames)
 				out<<_encounter->journeySavePreimage().learnedNames->names[*id];
 			else out<<"Unknown";
-			if (!id || !XeenLearnedSpellRules::supportedIn(*id,_world.sessionState().journeyContract(),false)) out<<" Not supported";
+			if (!id || !XeenLearnedSpellRules::supportedIn(*id,false)) out<<" Not supported";
 			out<<'\n';
 		}
 		out<<"Enter confirms; F1-F6 switch; Esc";

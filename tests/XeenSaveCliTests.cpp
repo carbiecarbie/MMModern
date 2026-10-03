@@ -78,7 +78,7 @@ int main(int argc,char **argv){try{
  sprite_test::archive(game/"dark.cc",{{"synthetic",Bytes{0}}});
  installation.darkArchive=game/"dark.cc";installation.edition=GameEdition::WorldOfXeen;
  auto s=regional_test::snapshot();s.resources=XeenSaveFile::fingerprint(installation);
- const auto run=[&](const char *message){const auto r=launch(exe,{L"--load-game",game.wstring(),path.wstring()},log);check(r.exit==3&&r.output.find(message)!=std::string::npos&&r.output.find("Resumed ")==std::string::npos,"CLI startup failure/fallback contract");};
+ const auto run=[&](const char *message){const auto r=launch(exe,{L"--load-game",game.wstring(),path.wstring()},log);check(r.exit==3&&r.output.find(message)!=std::string::npos&&r.output.find("Resumed ")==std::string::npos,"CLI startup failure/fallback content");};
  run("Inspect save file");
  for(int kind=0;kind<6;++kind){
   auto saved=s;if(kind==0)saved.resources.clouds.crc32++;if(kind==1)saved.activeRosterIds={24};

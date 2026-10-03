@@ -6,7 +6,7 @@
 namespace mmodern {
 int runM35CliWitness(const XeenGameplayServices &original,
 	const std::optional<std::filesystem::path> &target, bool resume,
-	std::optional<std::uint32_t> seed, std::optional<std::uint16_t> contract,
+	std::optional<std::uint32_t> seed,
 	const std::function<int(const XeenGameplayServices &)> &launch);
 }
 #endif

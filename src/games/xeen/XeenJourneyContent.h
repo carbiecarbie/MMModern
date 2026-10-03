@@ -1,113 +1,31 @@
 #ifndef MMODERN_XEEN_JOURNEY_CONTENT_H
 #define MMODERN_XEEN_JOURNEY_CONTENT_H
-#include "formats/xeen/XeenMonsterFormat.h"
 #include "games/xeen/XeenNavigation.h"
 #include "games/xeen/XeenMovement.h"
 #include <array>
-#include <stdexcept>
 namespace mmodern {
-inline bool xeenSupportedJourneyPair(std::uint16_t schema, std::uint16_t contract) noexcept {
-	return (schema >= 1 && schema <= 8 && schema == contract) ||
-		(schema == 8 && (contract == 9 || contract == 10)) || (schema == 9 && (contract >= 11 && contract <= 14));
-}
-struct XeenJourneyActorAdmission {
-	unsigned record, resourceId, profileImage;
-	int spawnX, spawnY, minX, maxX, minY, maxY, hp;
-	bool contains(int x, int y) const noexcept {
-		return x >= minX && x <= maxX && y >= minY && y <= maxY;
-	}
-	void validateStatistics(const XeenMonsterRecord &statistics) const {
-		statistics.validateCombat();
-		if (statistics.image() != profileImage)
-			throw std::invalid_argument("Journey monster statistics do not match the content descriptor");
-	}
-};
-// Immutable admission policy, never a gameplay owner. Legacy selection is explicit.
+// Immutable admission policy, never a gameplay owner.
 struct XeenJourneyContent {
-	std::uint16_t contract;
 	XeenCamera entry;
 	std::array<unsigned,19> records;
 	unsigned count;
 	std::uint16_t day;
-	bool manualObjective;
 	XeenMovement::Capabilities traversal{};
-	bool templeRecovery() const noexcept { return contract == 14; }
-	bool equipmentPurchase() const noexcept { return contract == 13 || templeRecovery(); }
-	bool training() const noexcept { return contract == 12 || equipmentPurchase(); }
-	bool serviceDays() const noexcept { return contract == 11 || training(); }
-	bool combatCasting() const noexcept { return contract == 10 || serviceDays(); }
-	bool armorRepair() const noexcept { return contract == 9 || combatCasting(); }
-	bool consequences() const noexcept { return (contract >= 4 && contract <= 8) || armorRepair(); }
-	bool disengagement() const noexcept { return (contract >= 5 && contract <= 8) || armorRepair(); }
-	bool connectedRecovery() const noexcept { return contract == 6 || learnedCasting(); }
-	bool learnedCasting() const noexcept { return contract == 7 || vertigo(); }
-	bool vertigo() const noexcept { return contract == 8 || armorRepair(); }
-	std::uint16_t schema() const noexcept { return serviceDays() ? 9 : armorRepair() ? 8 : contract; }
 	bool vertigoCell(int x, int y) const noexcept {
-		return vertigo() && ((templeRecovery() && x == 15 && y >= 8 && y <= 28) ||
-			(training() && ((x == 15 && y >= 5 && y <= 7) ||
-			(y == 7 && x >= 10 && x <= 14) || (x == 10 && y >= 8 && y <= 11))) ||
-			(x == 15 && y >= 0 && y <= 4) ||
-			(x == 16 && y >= 1 && y <= 4) || (y == 4 && x >= (armorRepair() ? 8 : 13) && x <= 14));
+		return (x == 15 && y >= 0 && y <= 28) ||
+			(x == 16 && y >= 1 && y <= 4) || (y == 4 && x >= 8 && x <= 14) ||
+			(y == 7 && x >= 10 && x <= 14) || (x == 10 && y >= 8 && y <= 11);
 	}
-	// Event dispatch keeps the legacy 16-by-16 camera bound before Temple recovery.
-	bool eventCameraCell(int x, int y) const noexcept {
-		return templeRecovery() ? vertigoCell(x, y) : x >= 0 && y >= 0 && x < 16 && y < 16;
-	}
-	bool contains(int x, int y) const noexcept {
-		if (contract >= 3) return false; // Regional admission requires checked geometry.
-		return contract == 1 ? x >= 13 && x <= 14 && y >= 1 && y <= 2 : x >= 0 && x <= 5 && y == 14;
-	}
+	bool eventCameraCell(int x, int y) const noexcept { return vertigoCell(x,y); }
 	bool influences(unsigned record) const noexcept {
 		for (unsigned i=0;i<count;++i) if (records[i]==record) return true;
 		return false;
 	}
-	bool movementContains(int x, int y) const noexcept {
-		if (contract >= 3) return x >= 0 && x < 16 && y >= 0 && y < 16;
-		return contract == 1 ? contains(x,y) : x >= 0 && x <= 8 && y >= 13 && y <= 15;
-	}
-	XeenJourneyActorAdmission actor(unsigned record) const {
-		if (contract >= 3) throw std::invalid_argument("Regional actor admission requires original resources");
-		if (!influences(record)) throw std::invalid_argument("Unadmitted Journey actor identity");
-		if (contract == 1) return {5,8,8,13,2,13,14,1,2,20};
-		if (record == 9) return {9,8,8,6,14,0,6,14,14,20};
-		if (record == 25) return {25,9,9,1,13,0,5,13,14,30};
-		return {record,9,9,8,15,0,8,14,15,30};
-	}
-	bool blockedTerrain(int x, int y) const noexcept {
-		return contract == 2 && y == 15 && (x == 5 || x == 7);
-	}
 };
-inline const XeenJourneyContent &xeenJourneyContent(std::uint16_t contract) {
-	static const XeenJourneyContent skeleton{1,{20,13,1,XeenDirection::North},{5,0,0,0},1,1,false};
-	static const XeenJourneyContent expedition{2,{20,0,14,XeenDirection::East},{9,17,18,25},4,8,true};
-	static const XeenJourneyContent regional{3,{23,9,11,XeenDirection::West},{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18},19,8,false};
-	if (contract == 1) return skeleton;
-	if (contract == 2) return expedition;
-	static const XeenJourneyContent consequences{4,regional.entry,regional.records,19,8,false};
-	if (contract == 3) return regional;
-	if (contract == 4) return consequences;
-	static const XeenJourneyContent disengagement{5,regional.entry,regional.records,19,8,false};
-	if (contract == 5) return disengagement;
-	static const XeenJourneyContent connectedRecovery{6,regional.entry,regional.records,19,8,false};
-	if (contract == 6) return connectedRecovery;
-	static const XeenJourneyContent learnedCasting{7,regional.entry,regional.records,19,8,false};
-	if (contract == 7) return learnedCasting;
-	static const XeenJourneyContent vertigo{8,regional.entry,regional.records,19,8,false};
-	if (contract == 8) return vertigo;
-	static const XeenJourneyContent ironworks{9,regional.entry,regional.records,19,8,false};
-	if (contract == 9) return ironworks;
-	static const XeenJourneyContent combatCasting{10,regional.entry,regional.records,19,8,false};
-	if (contract == 10) return combatCasting;
-	static const XeenJourneyContent serviceDays{11,regional.entry,regional.records,19,8,false};
-	if (contract == 11) return serviceDays;
-	static const XeenJourneyContent training{12,regional.entry,regional.records,19,8,false};
-	if (contract == 12) return training;
-	static const XeenJourneyContent equipmentPurchase{13,regional.entry,regional.records,19,8,false};
-	if (contract == 13) return equipmentPurchase;
-	static const XeenJourneyContent templeRecovery{14,regional.entry,regional.records,19,8,false};
-	if (contract == 14) return templeRecovery;
-	throw std::invalid_argument("Unsupported Journey content contract");
+inline const XeenJourneyContent &xeenJourneyContent() {
+	static const XeenJourneyContent regional{{23,9,11,XeenDirection::West},
+		{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18},19,8};
+	return regional;
 }
 struct XeenJourneyRandomState {
 	XeenMutable<std::uint8_t> algorithm=1;

@@ -215,9 +215,10 @@ void projections() {
 		rejects([&]{XeenOutdoorScene::actorCommands(actors,c,{XeenMonsterSpriteKind::Attack,4});});
 	}
 	actors[0]=actors[5];actors[0].id={20,0};actors[0].x=13;actors[0].y=2;
-	const auto multiple=XeenOutdoorScene::actorCommands(actors,XeenActorApproach::kEntry,0);
+	const XeenCamera projectionCamera{20,13,1,XeenDirection::North};
+	const auto multiple=XeenOutdoorScene::actorCommands(actors,projectionCamera,0);
 	check(std::any_of(multiple.begin(),multiple.end(),[](const auto &c){return c.actor()->identity.recordIndex==0;}),"selected-slot renderer admits additional original identities");
-	actors[0].statistics.reset();rejects([&]{XeenOutdoorScene::actorCommands(actors,XeenActorApproach::kEntry,0);});
+	actors[0].statistics.reset();rejects([&]{XeenOutdoorScene::actorCommands(actors,projectionCamera,0);});
 }
 }
 int main(){try{ordinaryNavigation();timing();collisionFeedback();failures();projections();ordinaryWait();std::cout<<"Regional Flow timing and detached projections passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

@@ -70,7 +70,7 @@ inline void sameParty(const XeenPartyState &a,const XeenPartyState &b) {
 }
 struct Fixture {
 	XeenMap terrain=map(); XeenObjectFile objects=mob(); XeenEventFile evt=events();
-	XeenPartyState p=party(); XeenCamera camera=XeenActorApproach::kEntry;
+	XeenPartyState p=party(); XeenCamera camera=xeenJourneyContent().entry;
 	std::vector<XeenMonsterRecord> statistics=stats();
 	XeenGameplayContext context=XeenGameplayContextFormat::parse(pty());
 	XeenEncounterState state;

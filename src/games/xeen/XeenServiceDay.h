@@ -12,7 +12,7 @@ inline bool xeenServiceDayRegenerates(unsigned oldDay,unsigned destinationDay,st
 class XeenServiceDayCandidate {
 public:
 	XeenServiceDayCandidate(const XeenGameplayContext &,const XeenServiceEconomy &,
-		const XeenJourneyRandomState &,std::uint16_t content=11,
+		const XeenJourneyRandomState &,
 		XeenScriptServiceCharge charge=XeenScriptServiceCharge::OneDay);
 	bool service(unsigned budget=64,const std::function<void()> &check={},
 		const std::function<void()> &afterStock={});
@@ -25,7 +25,7 @@ public:
 	const XeenServiceEconomy &economy() const noexcept { return endingEconomy; }
 	XeenJourneyRandomState continuation() const { return random.continuation(); }
 	void validateComplete() const;
-	// Narrow relation for an already complete content-13 Smith departure. It
+	// Narrow relation for an already complete Smith departure. It
 	// preserves the existing reservation while copying/validating a replacement;
 	// the Flow supplies and atomically publishes its checked identity increment.
 	XeenServiceDayCandidate rebindPurchase(const XeenServiceEconomy &after,
@@ -39,7 +39,6 @@ private:
 	XeenJourneyRandomState originalRandom;
 	XeenCombatRandom random;
 	XeenMerchantStockCandidate stock;
-	std::uint16_t content;
 	XeenScriptServiceCharge charge;
 	bool regenerating=false,completed=false;
 };

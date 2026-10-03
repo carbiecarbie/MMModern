@@ -45,35 +45,32 @@ void XeenEncounterFlow::checkSmithReservation() {
   _journeyPreimage->failed=true;
   throw std::logic_error("Complete Smith departure reservation changed");
  }
- if (xeenJourneyContent(_world.sessionState().journeyContract()).equipmentPurchase() &&
-     (!_smith->binding || !_smith->binding->matches(*day))) {
+ if ((!_smith->binding || !_smith->binding->matches(*day))) {
   _journeyPreimage->failed=true;
   throw std::logic_error("Complete Smith departure candidate changed");
  }
 }
 bool XeenEncounterFlow::beginSmith(const std::function<void()> &preflight) {
-	const bool temple=xeenJourneyContent(_world.sessionState().journeyContract()).templeRecovery() &&
-		_camera.mapId==XeenMapIdentity(28) && _camera.x==15 && _camera.y==28;
+	const bool temple=_camera.mapId==XeenMapIdentity(28) && _camera.x==15 && _camera.y==28;
 	if (!journeyEvent() || _smith || _smithPreparation || _busy || !current(ticket()) || !journeyCapacity() ||
-		!xeenJourneyContent(_world.sessionState().journeyContract()).armorRepair() || _camera.mapId!=XeenMapIdentity(28) ||
+		_camera.mapId!=XeenMapIdentity(28) ||
 		!((temple) || (_camera.x==8 && _camera.y==4)) || !_party.encounterContext) return false;
 	SmithBusy busy(_busy);
 	_journeyPreimage->check();
 	// Reserve preparation/admission, two service frames, departure, Event
 	// retirement and final presentation, including the inherited guard margin.
-	const bool buy=xeenJourneyContent(_world.sessionState().journeyContract()).equipmentPurchase();
-	if (!smithCapacity(buy?20:xeenJourneyContent(_world.sessionState().journeyContract()).serviceDays()?10:9,buy?5:3)) return false;
-	if (!xeenPrepareSmithDeparture(*_party.encounterContext,_world.sessionState().journeyContract())) return false;
-	xeenValidateJourneyParty(_party,_world.sessionState().journeyContract());
+
+	if (!smithCapacity(20,5)) return false;
+	if (!xeenPrepareSmithDeparture(*_party.encounterContext)) return false;
+	xeenValidateJourneyParty(_party);
 	checkSmithBoundary(XeenSmithBoundary::BeforeReservation);
 	auto next=std::make_unique<SmithContinuation>();
 	next->temple=temple;
-    next->legacyDeparture=xeenPrepareSmithDeparture(*_party.encounterContext,_world.sessionState().journeyContract());
-    if (xeenJourneyContent(_world.sessionState().journeyContract()).serviceDays()) {
+    {
         if (!_party.serviceEconomy || !_world.sessionState().journeyRandom())
             throw std::logic_error("Missing service-day owners");
         next->departure=std::make_unique<XeenServiceDayCandidate>(*_party.encounterContext,
-            *_party.serviceEconomy,*_world.sessionState().journeyRandom(),_world.sessionState().journeyContract());
+            *_party.serviceEconomy,*_world.sessionState().journeyRandom());
 		next->reservation=1;
     }
 	checkSmithBoundary(XeenSmithBoundary::AfterReservation);
@@ -81,26 +78,16 @@ bool XeenEncounterFlow::beginSmith(const std::function<void()> &preflight) {
 	// Event remains exclusive throughout resource and first-frame preparation.
 	try { XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);preflight();_journeyPreimage->check(); }
 	catch (...) { _journeyPreimage->check();throw; }
-    if (next->departure) {
-        // Retain exclusive Event work with no service debt until all draws finish.
-        _smithPreparation=std::move(next);
-        return true;
-    }
-	next->lease=_boundary.hold(XeenCombatBoundary::Work::Service);
-	_smith=std::move(next);
-	_world._sessionState._journeyActivity=XeenJourneyActivity::Service;
-	++_world._sessionState._journeyGeneration;++_generation;
-	_journeyPreimage->adoptJourneyCoordination();
- checkSmithBoundary(XeenSmithBoundary::AfterAdmission);
-	return true;
+    _smithPreparation=std::move(next);
+    return true;
 }
 bool XeenEncounterFlow::serviceSmithPreparation() {
     if (!_smithPreparation || _smith || _busy || !journeyEvent() ||
         !current(ticket()) || !journeyCapacity()) return false;
     SmithBusy busy(_busy);
     _journeyPreimage->check();
-    const bool buy=xeenJourneyContent(_world.sessionState().journeyContract()).equipmentPurchase();
-    if (!smithCapacity(buy?17:9,buy?5:3)) throw std::overflow_error("Smith admission authority exhausted");
+
+    if (!smithCapacity(17,5)) throw std::overflow_error("Smith admission authority exhausted");
     auto &day=*_smithPreparation->departure;
     if (!day.service(64,[&] { _journeyPreimage->check(); },
         [&] { checkSmithBoundary(XeenSmithBoundary::StockComplete); })) return false;
@@ -109,7 +96,7 @@ bool XeenEncounterFlow::serviceSmithPreparation() {
         day.beforeEconomy()!=*_party.serviceEconomy ||
         day.beforeRandom()!=*_world.sessionState().journeyRandom())
         throw std::logic_error("Service-day reservation changed");
-    xeenValidateCurrentServiceEconomy(day.economy(),_world.sessionState().journeyContract());
+    xeenValidateCurrentServiceEconomy(day.economy());
     _smithPreparation->binding.emplace(day);
     _journeyPreimage->check();
     _smithPreparation->lease=_boundary.hold(XeenCombatBoundary::Work::Service);
@@ -139,8 +126,8 @@ void XeenEncounterFlow::quoteSmith(std::size_t member,std::size_t slot) {
 	if (!_smith || _busy || _smith->frame || member>=_party.party.size() || slot>=9)
 		throw std::logic_error("Smith selection authority unavailable");
 	SmithBusy busy(_busy);_journeyPreimage->check();
-	xeenValidateJourneyParty(_party,_world.sessionState().journeyContract());
-	if (xeenJourneyContent(_world.sessionState().journeyContract()).equipmentPurchase()) {
+	xeenValidateJourneyParty(_party);
+	{
 		if (!smithCapacity(18,4)) throw std::overflow_error("Smith quote would consume mandatory departure authority");
 		checkSmithReservation();
 	}
@@ -153,16 +140,16 @@ void XeenEncounterFlow::quoteSmith(std::size_t member,std::size_t slot) {
 		_party.roster.at(_smith->owner).armor[slot],_party.monsterTreasure->gold);
 	_smith->quoted=_smith->result.outcome==XeenArmorRepairOutcome::Quoted;
 	_smith->quoteOperation=_smith->operation;_smith->quoteReservation=_smith->reservation;
-	if (xeenJourneyContent(_world.sessionState().journeyContract()).equipmentPurchase()) advanceSmith();
+	advanceSmith();
  checkSmithBoundary(XeenSmithBoundary::Quote);
 }
 void XeenEncounterFlow::confirmSmith() {
 	if (!_smith || !_smith->quoted || _busy || _smith->frame || !journeyCapacity())
 		throw std::logic_error("Smith quote authority unavailable");
 	SmithBusy busy(_busy);_journeyPreimage->check();
-	const bool buy=xeenJourneyContent(_world.sessionState().journeyContract()).equipmentPurchase();
-	if (!smithCapacity(buy?19:10,buy?4:2)) throw std::overflow_error("Repair would consume its result and owed departure authority");
-	if (buy) {
+
+	if (!smithCapacity(19,4)) throw std::overflow_error("Repair would consume its result and owed departure authority");
+	{
 		checkSmithReservation();
 		if (_smith->buy || _smith->published || _smith->quoteOperation!=_smith->operation || _smith->quoteReservation!=_smith->reservation)
 			throw std::logic_error("Smith repair operation changed");
@@ -179,7 +166,7 @@ void XeenEncounterFlow::confirmSmith() {
 	prepared->treasure->gold=result.goldAfter;
 	_journeyPreimage->check();
 	checkSmithBoundary(XeenSmithBoundary::BeforeRepair);
-	if (buy) checkSmithReservation();
+	checkSmithReservation();
  // One callback-free nonthrowing commit: purse, physical item and fixed result.
 	_party.monsterTreasure->gold=result.goldAfter;
 	_party.roster.at(_smith->owner).armor[_smith->slot]=result.after;
@@ -190,12 +177,11 @@ void XeenEncounterFlow::confirmSmith() {
 }
 void XeenEncounterFlow::quoteSmithBuy(std::size_t member,XeenInventoryCategory category,std::size_t slot) {
  if (!_smith || _busy || _smith->frame || _smith->departed ||
-     !xeenJourneyContent(_world.sessionState().journeyContract()).equipmentPurchase() ||
      !smithCapacity(18,4) || !xeenSmithAuthorityRoom(_smith->operation,1))
   throw std::logic_error("Smith Buy selection authority unavailable");
  SmithBusy busy(_busy);_journeyPreimage->check();checkSmithReservation();
  auto quote=std::make_unique<XeenEquipmentPurchaseCandidate>();
- quote->result=xeenQuoteEquipmentPurchase(_party,member,category,slot,_world.sessionState().journeyContract());
+ quote->result=xeenQuoteEquipmentPurchase(_party,member,category,slot);
  quote->economyBefore=quote->economyAfter=*_party.serviceEconomy;
  quote->result.quotedOperation=_smith->operation+1;
  quote->result.quotedReservation=_smith->reservation;
@@ -218,8 +204,7 @@ void XeenEncounterFlow::confirmSmithBuy() {
   throw std::logic_error("Smith Buy confirmation authority unavailable");
  SmithBusy busy(_busy);_journeyPreimage->check();checkSmithReservation();
  const auto &quoted=_smith->purchase->result;
- const auto currentQuote=xeenQuoteEquipmentPurchase(_party,quoted.member,quoted.category,quoted.offerSlot,
-     _world.sessionState().journeyContract(),quoted.side,quoted.shop);
+ const auto currentQuote=xeenQuoteEquipmentPurchase(_party,quoted.member,quoted.category,quoted.offerSlot,quoted.side,quoted.shop);
  if (_smith->quoteOperation!=_smith->operation || _smith->quoteReservation!=_smith->reservation ||
      quoted.quotedOperation!=_smith->operation || quoted.quotedReservation!=_smith->reservation ||
      !samePurchaseQuote(quoted,currentQuote) || _smith->purchase->economyBefore!=*_party.serviceEconomy ||
@@ -228,7 +213,7 @@ void XeenEncounterFlow::confirmSmithBuy() {
   throw std::logic_error("Smith Buy quote preimage changed");
  }
  auto candidate=std::make_unique<XeenEquipmentPurchaseCandidate>(xeenPrepareEquipmentPurchase(_party,
-     quoted.member,quoted.category,quoted.offerSlot,_world.sessionState().journeyContract(),quoted.side,quoted.shop));
+     quoted.member,quoted.category,quoted.offerSlot,quoted.side,quoted.shop));
  candidate->result.quotedOperation=quoted.quotedOperation;
  candidate->result.quotedReservation=quoted.quotedReservation;
  candidate->result.publishedReservation=_smith->reservation+
@@ -276,12 +261,12 @@ void XeenEncounterFlow::quoteTempleHeal(std::size_t member) {
 		!xeenSmithAuthorityRoom(_smith->operation,1))
 		throw std::logic_error("Temple selection authority unavailable");
 	SmithBusy busy(_busy);_journeyPreimage->check();checkSmithReservation();
-	xeenValidateJourneyParty(_party,_world.sessionState().journeyContract());
+	xeenValidateJourneyParty(_party);
 	const auto owner=_party.party.activeRosterIds()[member];
 	auto quote=xeenQuoteTempleHeal(_party.roster.at(owner),_party.monsterTreasure->gold,
 		*_party.encounterContext);
 	if(quote.outcome==XeenTempleHealOutcome::Quoted) {
-		quote=xeenPrepareTempleHeal(_party,owner,*_party.encounterContext,14).result;
+		quote=xeenPrepareTempleHeal(_party,owner,*_party.encounterContext).result;
 		quote.outcome=XeenTempleHealOutcome::Quoted;quote.goldAfter=quote.goldBefore;
 	}
 	_smith->owner=owner;_smith->healResult=quote;
@@ -306,12 +291,12 @@ bool XeenEncounterFlow::confirmTempleHeal() {
 		_journeyPreimage->failed=true;
 		throw std::logic_error("Temple Heal quote preimage changed");
 	}
-	if(!_smith->paid && !xeenPrepareTemplePaidDeparture(*_party.encounterContext,14)) {
+	if(!_smith->paid && !xeenPrepareTemplePaidDeparture(*_party.encounterContext)) {
 		_smith->healResult.outcome=XeenTempleHealOutcome::SupportLimit;
 		_smith->quoted=false;advanceSmith();return true;
 	}
 	auto delta=std::make_unique<XeenTempleHealCandidate>(
-		xeenPrepareTempleHeal(_party,_smith->owner,*_party.encounterContext,14));
+		xeenPrepareTempleHeal(_party,_smith->owner,*_party.encounterContext));
 	if(delta->result.outcome!=XeenTempleHealOutcome::Healed ||
 		delta->result.price!=quoted.price) {
 		_journeyPreimage->failed=true;
@@ -409,38 +394,25 @@ void XeenEncounterFlow::departSmith() {
 	if (!smithCapacity(_smith->departed?5:6,2))
 		throw std::overflow_error("Reserved smith departure authority exhausted");
 	if (!_smith->departed) {
-		if (xeenJourneyContent(_world.sessionState().journeyContract()).equipmentPurchase()) checkSmithReservation();
-		const auto after=_smith->legacyDeparture;
-		if (!after) throw std::logic_error("Owed smith departure is no longer canonical");
-		const auto *day=_smith->departure.get();
-		if (day && (!day->complete() || !(day->beforeContext()==*_party.encounterContext) ||
-			day->beforeEconomy()!=*_party.serviceEconomy || day->beforeRandom()!=*_world.sessionState().journeyRandom())) {
-			_journeyPreimage->failed=true;
-			throw std::logic_error("Owed service-day preimage changed");
-		}
-		const XeenMutableOptional<XeenGameplayContext> endingContext(day?day->context():*after);
-		const XeenMutableOptional<XeenServiceEconomy> endingEconomy=day?
-			XeenMutableOptional<XeenServiceEconomy>(day->economy()):_party.serviceEconomy;
-		const XeenMutableOptional<XeenJourneyRandomState> endingRandom=day?
-			XeenMutableOptional<XeenJourneyRandomState>(day->continuation()):_world._sessionState._journeyRandom;
+		checkSmithReservation();
+		const auto &day=*_smith->departure;
+		const XeenMutableOptional<XeenGameplayContext> endingContext(day.context());
+		const XeenMutableOptional<XeenServiceEconomy> endingEconomy(day.economy());
+		const XeenMutableOptional<XeenJourneyRandomState> endingRandom(day.continuation());
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
-		prepared->retainResources(*_journeyPreimage);prepared->context=*after;
-		if (day) {
-			prepared->context=day->context();prepared->economy=day->economy();
-			prepared->s._journeyRandom=day->continuation();
-			xeenValidateCurrentServiceEconomy(day->economy(),_world.sessionState().journeyContract());
-		}
+		prepared->retainResources(*_journeyPreimage);
+		prepared->context=day.context();prepared->economy=day.economy();
+		prepared->s._journeyRandom=day.continuation();
+		xeenValidateCurrentServiceEconomy(day.economy());
 		_journeyPreimage->check();
 		checkSmithBoundary(XeenSmithBoundary::BeforeDeparture);
-		if (xeenJourneyContent(_world.sessionState().journeyContract()).equipmentPurchase()) checkSmithReservation();
+		checkSmithReservation();
 		static_assert(std::is_nothrow_copy_assignable_v<decltype(_party.encounterContext)> &&
 			std::is_nothrow_copy_assignable_v<decltype(_party.serviceEconomy)> &&
 			std::is_nothrow_copy_assignable_v<decltype(_world._sessionState._journeyRandom)>);
         _party.encounterContext=endingContext;
-        if (day) {
-            _party.serviceEconomy=endingEconomy;
-            _world._sessionState._journeyRandom=endingRandom;
-        }
+        _party.serviceEconomy=endingEconomy;
+        _world._sessionState._journeyRandom=endingRandom;
         _smith->departed=true;
 		++_world._sessionState._journeyGeneration;++_generation;
 		prepared->adoptJourneyCoordination();_journeyPreimage.swap(prepared);
@@ -463,10 +435,8 @@ void XeenEncounterFlow::departSmith() {
 
 void XeenEventFlow::prepareSmith() {
 	try {
-		const bool temple=xeenJourneyContent(_world.sessionState().journeyContract()).templeRecovery() &&
-			_camera.mapId==XeenMapIdentity(28) && _camera.x==15 && _camera.y==28;
-		const unsigned inputFrames=xeenJourneyContent(_world.sessionState().journeyContract()).equipmentPurchase()?10:
-			xeenJourneyContent(_world.sessionState().journeyContract()).serviceDays()?4:3;
+		const bool temple=_camera.mapId==XeenMapIdentity(28) && _camera.x==15 && _camera.y==28;
+		const unsigned inputFrames=10;
 		if (!xeenSmithAuthorityRoom(_inputGeneration,inputFrames))
 			throw std::overflow_error("Smith input authority exhausted before admission");
 		_encounter->_smithBoundary=[this](XeenSmithBoundary stage) { if(smithBoundary)smithBoundary(stage); };
@@ -475,7 +445,7 @@ void XeenEventFlow::prepareSmith() {
 				throw std::runtime_error("Service artwork provider is unavailable");
 			const auto events=_events.scriptForMap(28).file();
 			const auto mainland=_events.scriptForMap(23).file();
-			try { xeenValidateVertigoRoute(mainland,events,_world.sessionState().journeyContract()); }
+			try { xeenValidateVertigoRoute(mainland,events); }
             catch (const std::invalid_argument &) { _encounter->journeySavePreimage().failed=true;throw; }
 			const auto text=_events.textForMap(28);
 			_encounter->journeySavePreimage().admitVertigoText(text);
@@ -493,9 +463,7 @@ void XeenEventFlow::prepareSmith() {
 		if (!admitted) {
 			_smithUi.reset();_pending.reset();_journeyEventLayers=false;
 			_encounter->_journeyRefusal=temple ? "Temple unavailable: departure exceeds the supported year." :
-				xeenJourneyContent(_world.sessionState().journeyContract()).serviceDays() ?
-				"Ironworks unavailable: departure exceeds the supported year." :
-                "Ironworks unavailable: departure would require unsupported restocking.";
+				"Ironworks unavailable: departure exceeds the supported year.";
 		} else {
             if (_encounter->_smithPreparation) _smithUi->phase=SmithUi::Phase::Preparation;
             _presenter.clear();_journeyEventLayers=false;
@@ -578,9 +546,7 @@ std::string XeenEventFlow::smithText() const {
 	if (ui.phase==SmithUi::Phase::Preparation) {
 		text<<"Preparing one-day departure.\nPlease wait.";
 	} else if (ui.phase==SmithUi::Phase::Lobby) {
-		if (xeenJourneyContent(_world.sessionState().journeyContract()).equipmentPurchase())
-			text<<"B: Buy  R/Enter: Armor repair\nF1-F6: recipient\nEscape: depart (costs one day)";
-		else text<<"Armor repair only\nEnter: Repair armor   F1-F6: owner\nEscape: depart (costs one day)";
+		text<<"B: Buy  R/Enter: Armor repair\nF1-F6: recipient\nEscape: depart (costs one day)";
 	} else if (ui.mode==SmithUi::Mode::Buy && ui.phase==SmithUi::Phase::Browse) {
 		const auto &stock=_party.serviceEconomy->wares[0][0][static_cast<unsigned>(ui.category)];
 		for (unsigned i=0;i<9;++i) {
@@ -703,8 +669,8 @@ IndexedFrame XeenEventFlow::settleSmithEvent() {
 IndexedFrame XeenEventFlow::handleSmith(const PlayerAction &action,std::uint64_t input,const IndexedFrame::Presentation &inputFrame) {
 	if(_smithUi->mode==SmithUi::Mode::Heal)return handleTemple(action,input,inputFrame);
 	if (_smithUi->phase==SmithUi::Phase::Preparation) return frameCopy();
-	const bool successor=xeenJourneyContent(_world.sessionState().journeyContract()).equipmentPurchase();
-	if (successor) {
+
+	{
 		auto &ui=*_smithUi;
 		const bool confirm=std::holds_alternative<AcknowledgeAction>(action) || std::holds_alternative<YesAction>(action);
 		const bool cancel=std::holds_alternative<CancelInteractionAction>(action) || std::holds_alternative<NoAction>(action);
@@ -794,64 +760,6 @@ IndexedFrame XeenEventFlow::handleSmith(const PlayerAction &action,std::uint64_t
 		if (!revisionAdvanced && (!failed || originalPhase!=ui.phase) && ui.revision!=UINT64_MAX) ++ui.revision;
 		return renderEncounter();
 	}
-	if (_smithSettlement) {
-		if (std::holds_alternative<AcknowledgeAction>(action) || std::holds_alternative<YesAction>(action) ||
-			std::holds_alternative<CancelInteractionAction>(action) || std::holds_alternative<NoAction>(action))
-			return settleSmithEvent();
-		return renderEncounter();
-	}
-	const bool confirmation=std::holds_alternative<AcknowledgeAction>(action) || std::holds_alternative<YesAction>(action);
-	const bool cancellation=std::holds_alternative<CancelInteractionAction>(action) || std::holds_alternative<NoAction>(action);
-	// A wrong key cannot consume the last reserved departure frame and force
-	// another presentation merely to repeat the same settlement instruction.
-	if (_smithUi->phase==SmithUi::Phase::Departure && !confirmation && !cancellation) return frameCopy();
-	if (!_encounter->consumeSmithFrame(input,responseFrame())) return frameCopy();
-	auto &ui=*_smithUi;
- ui.feedback.clear();
-	const unsigned remaining=ui.phase==SmithUi::Phase::Quote && confirmation?10:9;
-	if (ui.phase!=SmithUi::Phase::Departure &&
-		(!_encounter->smithCapacity(remaining,2) || !xeenSmithAuthorityRoom(_inputGeneration,3))) {
-		ui.phase=SmithUi::Phase::Departure;
-		ui.feedback="Further repairs unavailable. Departure remains reserved.";
-		return renderEncounter();
-	}
- try {
-	const bool confirm=std::holds_alternative<AcknowledgeAction>(action) || std::holds_alternative<YesAction>(action);
-	const bool cancel=std::holds_alternative<CancelInteractionAction>(action) || std::holds_alternative<NoAction>(action);
-	if (ui.phase==SmithUi::Phase::Lobby || ui.phase==SmithUi::Phase::Browse) {
-		if (const auto *member=std::get_if<SelectMemberAction>(&action)) {
-			if (member->partyIndex<_party.party.size()) ui.member=member->partyIndex;
-		}
-	}
-	if (ui.phase==SmithUi::Phase::Lobby) {
-		if (confirm) ui.phase=SmithUi::Phase::Browse;
-		else if (cancel) ui.phase=SmithUi::Phase::Departure;
-	} else if (ui.phase==SmithUi::Phase::Browse) {
-		if (const auto *slot=std::get_if<SelectInventorySlotAction>(&action)) {if(slot->slot<9)ui.slot=slot->slot;}
-		if (cancel) ui.phase=SmithUi::Phase::Lobby;
-		else if (confirm) {
-			_encounter->quoteSmith(ui.member,ui.slot);
-			ui.phase=_encounter->_smith->quoted?SmithUi::Phase::Quote:SmithUi::Phase::Result;
-		}
-	} else if (ui.phase==SmithUi::Phase::Quote) {
-		if (cancel) {_encounter->_smith->quoted=false;_encounter->_smith->result.outcome=XeenArmorRepairOutcome::Cancelled;ui.phase=SmithUi::Phase::Browse;}
-		else if (confirm) {_encounter->confirmSmith();ui.phase=SmithUi::Phase::Result;}
-	} else if (ui.phase==SmithUi::Phase::Result) {
-		if(confirm || cancel)ui.phase=SmithUi::Phase::Browse;
-	}
-	if (ui.phase==SmithUi::Phase::Departure && (confirm || cancel)) {
-		_encounter->departSmith();
-		_smithSettlement=true;
-		return settleSmithEvent();
-	}
- } catch (const std::exception &) {
-  _encounter->journeySavePreimage().check();
-  if (!_encounter->_smith) throw;
-  if (ui.phase==SmithUi::Phase::Quote && !_encounter->_smith->quoted)
-   ui.phase=SmithUi::Phase::Result;
-  ui.feedback=ui.phase==SmithUi::Phase::Browse?"Quote failed; Enter retries.":"Preparation failed; retry this phase.";
- }
- return renderEncounter();
 }
 IndexedFrame XeenEventFlow::handleTemple(const PlayerAction &action,std::uint64_t input,
 		const IndexedFrame::Presentation &inputFrame) {

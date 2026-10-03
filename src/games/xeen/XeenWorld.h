@@ -46,7 +46,6 @@ public:
 	bool journey() const noexcept { return _entry == XeenEncounterEntry::Journey; }
 	XeenJourneyActivity journeyActivity() const noexcept { return _journeyActivity; }
 	std::uint32_t skeletonSeed() const noexcept { return _skeletonSeed; }
-	std::uint16_t journeyContract() const noexcept { return _journeyContract; }
 	const XeenMutableOptional<XeenJourneyRandomState> &journeyRandom() const noexcept { return _journeyRandom; }
 	XeenReadOnlySet<XeenMonsterIdentity> accountedMonsters() const noexcept { return XeenReadOnlySet<XeenMonsterIdentity>(_accountedMonsters); }
 	bool isObjectDisabled(XeenObjectIdentity id) const { return _objects.count(id) != 0; }
@@ -78,7 +77,6 @@ private:
 	const void *_journeyOwner = nullptr;
 	std::uint64_t _journeyGeneration = 0;
 	std::uint32_t _skeletonSeed = 0;
-	std::uint16_t _journeyContract = 1;
 	XeenMutableOptional<XeenJourneyRandomState> _journeyRandom;
 	std::set<XeenMonsterIdentity> _accountedMonsters;
 	friend class XeenWorld;
@@ -94,7 +92,7 @@ private:
 	bool _encounterMarked = false, _encounterInitialized = false, _encounterTerminal = false;
 	mutable std::uint64_t _encounterRevision = 0;
 	std::vector<XeenActor> _actors;
-	// Content-8 second regional collection. Absence is distinct from an empty city.
+	// Optional Vertigo actor collection. Absence is distinct from an empty city.
 	std::optional<std::vector<XeenActor>> _vertigoActors;
 	std::set<XeenObjectIdentity> _objects;
 	std::set<XeenEventIdentity> _events;
@@ -135,8 +133,8 @@ public:
 	XeenWorld(const XeenWorld &) = delete;
 	XeenWorld &operator=(const XeenWorld &) = delete;
 	const XeenSessionWorldState &sessionState() const { return _sessionState; }
-	bool regionalContract8() const noexcept {
-		return (_sessionState._journeyContract>=8 && _sessionState._journeyContract<=14) && (_sessionState.journey() || _detachedEventCandidate);
+	bool regionalJourney() const noexcept {
+		return (_sessionState.journey() || _detachedEventCandidate);
 	}
 	// Irreversible safety marker, including failed preparation. No clear/reset API.
 	void markEncounterSession() noexcept { XeenMutationWatch::write(this);_sessionState._encounterMarked = true; }
@@ -164,7 +162,7 @@ public:
 	const XeenMap &map(XeenMapIdentity mapId);
 	std::optional<XeenCellSample> sampleCell(XeenMapIdentity mapId, int x, int y);
 	std::size_t cachedMapCount() const { return _maps.size(); }
-	// Unpublished content-8 Event candidate; callers retain a live owner guard.
+	// Unpublished Vertigo Event candidate; callers retain a live owner guard.
 	std::unique_ptr<XeenWorld> transitionCandidate() const;
 	void stageVertigoActors(const XeenObjectFile &, const std::vector<XeenMonsterRecord> &);
 	void applySpawn(std::uint8_t slot, int x, int y, std::uint8_t unused);
@@ -197,7 +195,7 @@ private:
 	XeenSessionWorldState _sessionState;
 	std::optional<XeenMonsterRecord> _vertigoSpawnSlime;
 	// Derived from checked immutable city resources; never gameplay authority.
-	std::array<std::optional<std::bitset<2048>>,8> _vertigoClosure;
+	std::array<std::optional<std::bitset<2048>>,2> _vertigoClosure;
 	bool _detachedEventCandidate = false;
 	// Stable dependencies never contain a scoped RestoreGuard::Providers wrapper.
 	const MapLoader _baseLoader;

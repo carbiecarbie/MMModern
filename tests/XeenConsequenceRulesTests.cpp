@@ -193,8 +193,6 @@ void additionalTapes() {
  const auto delivered=xeenPrepareMonsterDelivery(purse,c);check(!delivered.globallyFull && delivered.records[0].recipient==c[1].rosterId,"First eligible recipient skips sleeping owner");
 }
 
-
-
 void missileClassAndZeroDamage() {
  constexpr unsigned divisors[]{1,2,2,3,4,2,2,1,3,2};
  for(unsigned type=0;type<10;++type)for(bool hit:{false,true}) {
@@ -285,23 +283,21 @@ void dormantTreasure() {
  // Artificial semantic fixture: no production witness or actor accounting claim.
  XeenMonsterTreasure ready;ready.gold=800;ready.gems=10;ready.pendingMask=1;ready.pendingGold=10;
  ready.weapons[0]={0,{0,30,0,0}};
- const auto dormant=xeenPrepareMonsterGoldForfeiture(ready,5);
+ const auto dormant=xeenPrepareMonsterGoldForfeiture(ready);
  check(dormant.dormant() && !dormant.ready() && dormant.storedItems() && dormant.gold==800 && dormant.gems==10 && dormant.weapons==ready.weapons,"Direct forfeiture preserves stored items and purse");
- xeenValidateMonsterTreasure(dormant,5);
- rejects([&]{xeenValidateMonsterTreasure(dormant,4);});
- rejects([&]{xeenPrepareMonsterGoldForfeiture(ready,4);});
- rejects([&]{xeenPrepareMonsterDelivery(dormant,characters(),5);});
- rejects([&]{XeenMonsterDropCandidate duplicate(dormant,0,5);});
- check(xeenPrepareMonsterGoldForfeiture(dormant,5)==dormant,"Repeated forfeiture is idempotent");
- XeenMonsterDropCandidate later(dormant,1,5);
+ xeenValidateMonsterTreasure(dormant);
+ rejects([&]{xeenPrepareMonsterDelivery(dormant,characters());});
+ rejects([&]{XeenMonsterDropCandidate duplicate(dormant,0);});
+ check(xeenPrepareMonsterGoldForfeiture(dormant)==dormant,"Repeated forfeiture is idempotent");
+ XeenMonsterDropCandidate later(dormant,1);
  XeenCombatRandom tape(std::vector<XeenCombatRandom::Draw>{{1,100,11}});finish(later,tape,1);
  check(later.treasure.ready() && later.treasure.pendingMask==2 && later.treasure.pendingGold==10 && later.treasure.weapons==dormant.weapons,"No-item Orc reactivates older items without old gold");
- const auto delivered=xeenPrepareMonsterDelivery(later.treasure,characters(),5);
+ const auto delivered=xeenPrepareMonsterDelivery(later.treasure,characters());
  check(delivered.count==1 && delivered.records[0].production.source==0 && !delivered.treasure.storedItems(),"Dormant source delivers in original order");
- const auto credited=xeenPrepareMonsterGoldCredit(delivered.treasure,5);
+ const auto credited=xeenPrepareMonsterGoldCredit(delivered.treasure);
  check(credited.gold==810 && !credited.ready(),"Only later Orc gold credits");
- auto invalid=dormant;invalid.armor[0]=invalid.weapons[0];rejects([&]{xeenValidateMonsterTreasure(invalid,5);});
- invalid=dormant;invalid.weapons[1]=invalid.weapons[0];invalid.weapons[0]={};rejects([&]{xeenValidateMonsterTreasure(invalid,5);});
+ auto invalid=dormant;invalid.armor[0]=invalid.weapons[0];rejects([&]{xeenValidateMonsterTreasure(invalid);});
+ invalid=dormant;invalid.weapons[1]=invalid.weapons[0];invalid.weapons[0]={};rejects([&]{xeenValidateMonsterTreasure(invalid);});
 }
 void timeAndInputs() {
 	auto c=characters();auto i=inputs();XeenGameplayContext context;context.year=610;context.day=8;context.minutes=950;

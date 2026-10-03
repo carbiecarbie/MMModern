@@ -76,14 +76,14 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 	// owner, including after a cache discard while a different frame is visible.
 
 	if (world.sessionState().journey()) {
-		const auto &content = xeenJourneyContent(world.sessionState().journeyContract());
-		if(content.consequences()) { assets.validateProjectile(false);assets.validateProjectile(true); }
+		const auto &content = xeenJourneyContent();
+		{ assets.validateProjectile(false);assets.validateProjectile(true); }
 		for (unsigned i=0;i<content.count;++i) {
-			const auto image = content.contract>=3 ? world.sessionState().actors().at(content.records[i]).statistics->image() : content.actor(content.records[i]).profileImage;
+			const auto image = world.sessionState().actors().at(content.records[i]).statistics->image();
 			assets.validateNormalMonster(image);
-			if (content.contract!=3) assets.validateAttackMonster(image);
+			assets.validateAttackMonster(image);
 		}
-		if (content.vertigo() && world.sessionState().hasRegionalActors(28)) {
+		if (world.sessionState().hasRegionalActors(28)) {
 			assets.validateNormalMonster(0);assets.validateAttackMonster(0);
 		}
 	}
@@ -101,7 +101,7 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 		// Indoor darkness is deliberately ignored in Milestone 12D: the scene is
 		// rendered illuminated so its geometry can be validated without gameplay.
 		const auto resolver = XeenObjectVisualResolver::load(assets);
-		const bool vertigo=world.regionalContract8() &&
+		const bool vertigo=world.regionalJourney() &&
 			camera.mapId==XeenMapIdentity(28);
 		const bool night = partyState.encounterContext &&
 			(partyState.encounterContext->minutes < 5 * 60 ||

@@ -67,9 +67,9 @@ std::optional<XeenLearnedSpell> XeenLearnedSpellRules::supported(std::uint8_t id
 	return std::nullopt;
 }
 
-std::optional<XeenLearnedSpell> XeenLearnedSpellRules::supportedIn(std::uint8_t id, std::uint16_t content, bool combat) noexcept {
-    if (combat) return (content>=10 && content<=14) ? supported(id) : std::nullopt;
-    if ((content>=7 && content<=14) && (id==1 || id==26)) return supported(id);
+std::optional<XeenLearnedSpell> XeenLearnedSpellRules::supportedIn(std::uint8_t id, bool combat) noexcept {
+    if (combat) return (true) ? supported(id) : std::nullopt;
+    if ((id==1 || id==26)) return supported(id);
     return std::nullopt;
 }
 unsigned XeenLearnedSpellRules::cost(XeenLearnedSpell spell) noexcept {
@@ -81,14 +81,14 @@ bool XeenLearnedSpellRules::known(const XeenCharacter &character, std::size_t sl
 }
 
 bool XeenLearnedSpellRules::eligible(const XeenPartyState &party, std::size_t activeIndex,
-		std::size_t slot, std::uint16_t content, bool combat) noexcept {
+		std::size_t slot, bool combat) noexcept {
 	if (activeIndex >= party.party.size()) return false;
 	const auto owner = party.party.activeRosterIds()[activeIndex];
 	if (owner >= XeenRoster::kCharacterCount) return false;
 	const auto &character = party.roster.at(owner);
 	const auto category = categoryForClass(character.characterClass);
 	const auto spell = category ? spellForSlot(*category, slot) : std::nullopt;
-	const auto effect=spell ? supportedIn(*spell,content,combat) : std::nullopt;
+	const auto effect=spell ? supportedIn(*spell,combat) : std::nullopt;
 	return character.hasSpells && character.canAct() && effect &&
 		character.currentSp >= int(cost(*effect)) && known(character, slot);
 }

@@ -55,8 +55,8 @@ auto currentServices(combat_gameplay_test::Harness &h,Source &source){
 struct Domain {
  Source &source;XeenWorld world;XeenPartyState party;XeenCamera camera{23,9,11,XeenDirection::West};XeenGameFlags flags;
  std::uint64_t now=0;XeenEventPresenter::Clock clock=[this]{return now;};std::unique_ptr<XeenEncounterFlow> flow;
- Domain(Source &s,const std::optional<XeenSaveSnapshot> &saved={},std::uint16_t contract=14):source(s),world([&](auto id){return s.maps.loadGeometryMap(s.assets,id);},[&](auto id){return s.maps.loadObjects(s.assets,id);}) {
-  auto state=saved?*saved:s.base(14);
+ Domain(Source &s,const std::optional<XeenSaveSnapshot> &saved={}):source(s),world([&](auto id){return s.maps.loadGeometryMap(s.assets,id);},[&](auto id){return s.maps.loadObjects(s.assets,id);}) {
+  auto state=saved?*saved:s.base();
   if(!saved)state.journey->random=XeenJourneyRandomState{1,1,0};
   XeenSaveState::restoreBeforeGameplay(state,s.resources(),party,camera,flags,world,[](auto &,const auto &,const auto &,const auto &){});
   flow=std::make_unique<XeenEncounterFlow>(world,party,camera,flags,clock,XeenJourneyRestoreTag{});
@@ -258,6 +258,6 @@ void blockReset(Source &source) {
 using namespace consequence_controls;
 int main(int argc,char **argv){try{check(argc==2 || argc==3,"usage: mmodern_consequence_original <installation> [artificial-pending-item-save]");const auto i=XeenInstallationDetector().detect(argv[1]);check(bool(i),"Original installation");Source source(*i);source.signature=XeenSaveFile::fingerprint(*i);if(std::getenv("MMODERN_M34_FINISH_PRESENTATION_ONLY")){disengagementFinishPresentation(source);return 0;}reviewControls(source);disengagementControls(source);appearanceResources(source);shootOrder(source);blockReset(source);combatPublicationFaults(source);restoreConsequences(source,argc==3?std::optional<std::filesystem::path>{XeenSaveFile::resolve(argv[2],argv[1])}:std::nullopt);
  journey_resources_test::run([&]{return XeenPartyLoader().loadFromResources(source.chr,source.pty);},
- source.setup(14),
+ source.setup(),
  [&](auto id){return source.maps.loadGeometryMap(source.assets,id);},[&](auto id){return source.maps.loadObjects(source.assets,id);},source.signature,source.resources());
  std::cout<<"312 content-14 fresh/restored retained-resource controls PASS\n";shootRevalidation(source,std::filesystem::path(argv[1]));physicalPresentationControls(source,std::filesystem::path(argv[1]));return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

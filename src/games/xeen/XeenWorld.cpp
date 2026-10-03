@@ -124,8 +124,7 @@ bool XeenWorld::isObjectDisabled(XeenObjectIdentity id) {
 }
 
 std::optional<XeenObjectIdentity> XeenWorld::selectObject(const XeenCamera &camera) {
-	const bool city=camera.mapId==XeenMapIdentity(28) && regionalContract8() &&
-		xeenJourneyContent(_sessionState.journeyContract()).templeRecovery();
+	const bool city=camera.mapId==XeenMapIdentity(28) && regionalJourney();
 	if (!camera.mapId || camera.x < 0 || camera.x >= (city?32:16) ||
 		camera.y < 0 || camera.y >= (city?32:16))
 		throw std::invalid_argument("invalid physical object-selection cell");
@@ -233,7 +232,7 @@ std::optional<XeenCellSample> XeenWorld::sampleCell(
 
 	const XeenMap *current = &map(mapId);
 	if (!current->geometry.isOutdoors()) {
-		if (mapId == XeenMapIdentity(28) && regionalContract8()) {
+		if (mapId == XeenMapIdentity(28) && regionalJourney()) {
 			if (x < 0 || x >= 32 || y < 0 || y >= 32) return std::nullopt;
 			const unsigned tile = y >= 16 ? (x >= 16 ? 111 : 110) : (x >= 16 ? 109 : 28);
 			current = &map({mapId.side, static_cast<std::uint16_t>(tile)});
@@ -295,7 +294,7 @@ std::optional<XeenCellSample> XeenWorld::sampleCell(
 }
 
 std::unique_ptr<XeenWorld> XeenWorld::transitionCandidate() const {
-	if (!regionalContract8())
+	if (!regionalJourney())
 		throw std::logic_error("Vertigo candidate requires admitted city content");
 	auto candidate=std::make_unique<XeenWorld>(_baseLoader,_baseObjectLoader);
 	candidate->_sessionState=_sessionState;
@@ -312,7 +311,7 @@ std::unique_ptr<XeenWorld> XeenWorld::transitionCandidate() const {
 void XeenWorld::applyAlterEvent(const XeenCamera &physical, std::uint8_t line,
 		std::uint8_t replacement, const XeenEventFile &events) {
 	XeenMutationWatch::write(this);
-	if (!regionalContract8() || _sessionState._entry!=XeenEncounterEntry::Ordinary ||
+	if (!regionalJourney() || _sessionState._entry!=XeenEncounterEntry::Ordinary ||
 		physical.mapId!=events.mapId || replacement!=0)
 		throw std::invalid_argument("AlterEvent replacement is unsupported");
 	bool found=false;

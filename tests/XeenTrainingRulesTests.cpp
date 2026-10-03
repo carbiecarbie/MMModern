@@ -54,29 +54,18 @@ int main() {
             rejects([&]{xeenValidateTrainingSource(bytes);});
         }
         xeenValidateTrainingSource(std::vector<std::uint8_t>(10620));
-        check(xeenSupportedJourneyPair(9,12) && xeenSupportedJourneyPair(9,13) &&
-            !xeenSupportedJourneyPair(8,12) && !xeenSupportedJourneyPair(8,13) && !xeenSupportedJourneyPair(10,13),"content pair differs");
-        unsigned cells=0;
-        for(int y=0;y<32;++y)for(int x=0;x<32;++x)cells+=xeenJourneyContent(12).vertigoCell(x,y);
-        check(cells==28 && !xeenJourneyContent(11).vertigoCell(10,11) && !xeenJourneyContent(11).training(),"Training route/capability leaked");
-        for(int y=0;y<32;++y)for(int x=0;x<32;++x)
-            check(xeenJourneyContent(13).vertigoCell(x,y)==xeenJourneyContent(12).vertigoCell(x,y),"purchase route differs from Training route");
-        check(xeenJourneyContent(13).equipmentPurchase() && xeenJourneyContent(13).training() &&
-            xeenJourneyContent(13).serviceDays() && xeenJourneyContent(13).armorRepair() &&
-            xeenJourneyContent(13).combatCasting() && !xeenJourneyContent(12).equipmentPurchase(),"purchase capability selection differs");
-        for(unsigned content:{9u,10u,11u,12u,13u})for(unsigned day:{9u,10u,97u,98u,99u}) {
-            context.day=day;const auto next=xeenPrepareSmithDeparture(context,content);
-            check(bool(next)==(day<=((content==11 || content==12 || content==13)?98u:9u)),"legacy service date semantics changed");
+        for(unsigned day:{9u,10u,97u,98u,99u}) {
+            context.day=day;check(bool(xeenPrepareSmithDeparture(context))==(day<=98),"service date admission changed");
         }
         context.day=97;XeenServiceEconomy economy;XeenJourneyRandomState rng{1,7,0};
         XeenCombatRandom generation(rng);XeenMerchantStockCandidate stock;
         while(!stock.complete()){XeenConsequenceDraw draw{generation,64,{}};stock.service(draw);}
         economy.wares=stock.wares();rng=generation.continuation();
-        XeenServiceDayCandidate departure(context,economy,rng,12);
+        XeenServiceDayCandidate departure(context,economy,rng);
         check(departure.complete() && departure.context().day==98,"day97 departure missing");
-        XeenServiceDayCandidate replacement(departure.context(),departure.economy(),departure.continuation(),12);
+        XeenServiceDayCandidate replacement(departure.context(),departure.economy(),departure.continuation());
         check(replacement.complete() && replacement.context().day==99,"day98 replacement missing");
-        rejects([&]{XeenServiceDayCandidate invalid(replacement.context(),replacement.economy(),replacement.continuation(),12);});
+        rejects([&]{XeenServiceDayCandidate invalid(replacement.context(),replacement.economy(),replacement.continuation());});
         std::cout<<"Training arithmetic, refusal, source zero-domain, route and date rules passed\n";return 0;
     } catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}
 }

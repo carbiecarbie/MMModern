@@ -60,17 +60,16 @@ public:
 	// Internal fresh-domain initialization. The caller retains destination/provider guards.
 	static XeenEncounterResult initializeJourney(XeenWorld &, XeenPartyState &, XeenCamera &,
 		XeenEncounterState &, const std::vector<std::uint8_t> &, const XeenGameplayContext &,
-		const std::vector<XeenMonsterRecord> &, const XeenEventFile &, std::uint32_t seed, std::uint16_t contract = 1);
+		const std::vector<XeenMonsterRecord> &, const XeenEventFile &, std::uint32_t seed);
 	static XeenEncounterResult initializeJourney(XeenWorld &, XeenPartyState &, XeenCamera &,
 		XeenEncounterState &, const std::vector<std::uint8_t> &, const XeenGameplayContext &,
-		const std::vector<XeenMonsterRecord> &, const XeenEventFile &, std::uint32_t, std::uint16_t,
+		const std::vector<XeenMonsterRecord> &, const XeenEventFile &, std::uint32_t,
 		const std::optional<XeenMonsterTreasure> &);
 	static XeenEncounterResult initializeJourney(XeenWorld &, XeenPartyState &, XeenCamera &,
 		XeenEncounterState &, const std::vector<std::uint8_t> &, const XeenGameplayContext &,
-		const std::vector<XeenMonsterRecord> &, const XeenEventFile &, std::uint32_t, std::uint16_t,
+		const std::vector<XeenMonsterRecord> &, const XeenEventFile &, std::uint32_t,
 		const std::optional<XeenMonsterTreasure> &, const std::optional<XeenBankBalances> &);
 	static constexpr std::size_t kCapacity = 107;
-	inline static const XeenCamera kEntry{20, 13, 1, XeenDirection::North};
 	// Read-only authorization, including terminal states. Never adopts a revision.
 	static bool authoritative(const XeenWorld &, const XeenPartyState &, const XeenCamera &,
 		const XeenEncounterState &) noexcept;
@@ -91,7 +90,7 @@ public:
 		const XeenEventFile &events);
 	// Immutable environment admission, independent of the party's injury state.
 	static void validateEnvironment(XeenWorld &world, const std::vector<XeenActor> &actors,
-		const XeenEventFile &events, std::uint16_t contract = 1);
+		const XeenEventFile &events);
 	// Explicit startup only; leaves an irreversible marker on preparation failure.
 	// Reads context/statistics explicitly; ordinary party loading remains unchanged.
 	// Actions do NOT supply a pulse. Caller supplies exactly one post-action pulse,
@@ -109,7 +108,7 @@ private:
 		const std::vector<XeenActor> &, const std::optional<XeenJourneyRandomState> &)>;
 	static XeenEncounterResult initializeJourney(XeenWorld &, XeenPartyState &, XeenCamera &,
 		XeenEncounterState &, const std::vector<std::uint8_t> &, const XeenGameplayContext &,
-		const std::vector<XeenMonsterRecord> &, const XeenEventFile &, std::uint32_t, std::uint16_t,
+		const std::vector<XeenMonsterRecord> &, const XeenEventFile &, std::uint32_t,
 		const std::optional<XeenMonsterTreasure> &, const std::optional<XeenBankBalances> &,
 		const FreshPublicationPreparation &);
 	static XeenEncounterResult regionalTransition(XeenWorld &, XeenPartyState &, XeenCamera &, XeenEncounterState &,

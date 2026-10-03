@@ -84,7 +84,7 @@ int main(int argc,char **argv) {
         const auto uninterrupted=run("production","fresh");
         const auto a=XeenSaveFile::read(dir/"production-A.mmsave"),b=XeenSaveFile::read(dir/"production-B.mmsave"),
             c=XeenSaveFile::read(dir/"production-C.mmsave"),d=XeenSaveFile::read(dir/"production-D.mmsave"),e=XeenSaveFile::read(dir/"production-E.mmsave");
-        child_test::require(a.journey && a.journey->schema==9 && a.journey->contract==14 && a.journey->serviceEconomy &&
+        child_test::require(a.journey && a.journey->schema==9 && a.journey->content==14 && a.journey->serviceEconomy &&
             a.journey->context->day==8 && a.journey->context->minutes==584 && a.journey->context->ctr24==2 &&
             a.journey->treasure->gold==810 && a.characters[6].armor[0].state==128 && a.characters[6].armor[1].state==128 &&
             a.journey->random->state==2732157854u && a.journey->random->count==1203,"M40 A original-resource checkpoint differs");

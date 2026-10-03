@@ -145,7 +145,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::begin(
 	}
 	const bool city=world.sessionState().journey() && initialCamera.mapId==XeenMapIdentity(28);
 	if (!initialCamera.mapId || initialCamera.x < 0 || initialCamera.y < 0 ||
-			!(city ? xeenJourneyContent(world.sessionState().journeyContract()).eventCameraCell(initialCamera.x,initialCamera.y) :
+			!(city ? xeenJourneyContent().eventCameraCell(initialCamera.x,initialCamera.y) :
 				(initialCamera.x<16 && initialCamera.y<16)) || !validDirection(initialCamera.direction)) {
 		return error(XeenEventExecutionErrorKind::InvalidInitialCamera,
 			"initial camera is outside the supported Xeen map domain", 0,
@@ -365,11 +365,9 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			{logical.mapId, *recordIndex}, script->records()[*recordIndex]);
 		const XeenEventDecodeResult decodedResult = XeenEventDecoder::decode(effective,
 			{logical.mapId, script->file().resourceName, *recordIndex,
-				world.sessionState().journey() &&
-				xeenJourneyContent(world.sessionState().journeyContract()).templeRecovery()});
-		// Older domains keep their original refusal and zero dispatched instructions,
-        // even though the shared decoder now knows the bounded town operand.
-        if (effective.opcode==0x11 && (!publication || !xeenJourneyContent(world.sessionState().journeyContract()).armorRepair())) {
+				world.sessionState().journey()});
+		// Town dispatch requires the Journey publication boundary.
+        if (effective.opcode==0x11 && !publication) {
             const auto source=std::visit([](const auto &value){return value.source;},decodedResult);
             return error(XeenEventExecutionErrorKind::UnsupportedOpcode,
                 "opcode 17 is outside the supported decoder subset",instructionCount,logical,source);
@@ -389,10 +387,9 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 		if (std::holds_alternative<XeenEventExit>(decoded.operation))
 			return finalize();
 		if (const auto *service=std::get_if<XeenEventTownService>(&decoded.operation)) {
-			const auto &content=xeenJourneyContent(world.sessionState().journeyContract());
-			const bool smith=content.armorRepair() && service->action==1 && logical.x==8 && logical.y==4 && *recordIndex==0;
-			const bool training=content.training() && service->action==5 && logical.x==10 && logical.y==11 && *recordIndex==3;
-			const bool temple=content.templeRecovery() && service->action==4 && logical.x==15 && logical.y==28 && *recordIndex==6;
+			const bool smith=service->action==1 && logical.x==8 && logical.y==4 && *recordIndex==0;
+			const bool training=service->action==5 && logical.x==10 && logical.y==11 && *recordIndex==3;
+			const bool temple=service->action==4 && logical.x==15 && logical.y==28 && *recordIndex==6;
 			if (!publication || (!smith && !training && !temple) || logical.mapId!=XeenMapIdentity(28) || logical.line!=0 ||
 				!state.callStack.empty() || instructionCount!=1)
 				return error(XeenEventExecutionErrorKind::UnsupportedOperand,

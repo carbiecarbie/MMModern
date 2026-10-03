@@ -15,7 +15,7 @@ int main(int argc,char **argv) {
             s.characters[18].weapons={};s.characters[18].armor={};s.characters[18].accessories={};s.characters[18].miscellaneous={};
             const unsigned debit=bases[cls]*(1u<<(level==1?0:level-2));
             s.journey->supplements[18].inputs.experience=debit+1;s.journey->treasure->gold=10*level*level;
-            Fixture fixture(inputs,s);const auto delta=xeenPrepareTraining(fixture.p,18,*fixture.p.encounterContext,fixture.w.sessionState().journeyContract());
+            Fixture fixture(inputs,s);const auto delta=xeenPrepareTraining(fixture.p,18,*fixture.p.encounterContext);
             check(delta.result.outcome==XeenTrainingOutcome::Trained && delta.result.levelAfter==level+1 &&
                 delta.result.xpAfter==1 && delta.result.goldAfter==0 && delta.result.maxHpAfter==delta.result.hpAfter &&
                 delta.result.maxSpAfter==delta.result.spAfter,"class/level progression debit/remainder/exact funds/derived refill differs");
@@ -77,16 +77,14 @@ int main(int argc,char **argv) {
         // Armor deletion and physical delivered record. It must never be
         // classified under legacy generated-only semantics during Training.
         {
-            auto s=source;s.journey->contract=14;s.journey->context->day=9;
+            auto s=source;s.journey->content=14;s.journey->context->day=9;
             auto &stock=s.journey->serviceEconomy->wares[0][0][1];
             for(unsigned slot=3;slot<8;++slot)stock[slot]=stock[slot+1];stock[8]={};
             s.characters[0].armor[4]={0,3,0,0};s.journey->treasure->gold=670;
             const XeenItem literal[6]={{0,6,0,0},{0,4,0,0},{0,6,0,0},{0,5,0,0},{40,8,0,0},{48,6,0,0}};
             for(unsigned slot=0;slot<6;++slot)check(xeenSameItem(stock[slot],literal[slot]),"Training depleted literal differs");
             Fixture fixture(inputs,s);save_test::sameSnapshot(s,fixture.snapshot());
-            rejects([&]{xeenPrepareTraining(fixture.p,18,*fixture.p.encounterContext,12);});
-            rejects([&]{xeenPrepareTraining(fixture.p,18,*fixture.p.encounterContext,11);});
-            check(xeenPrepareTraining(fixture.p,18,*fixture.p.encounterContext,13).result.outcome==XeenTrainingOutcome::Trained,
+            check(xeenPrepareTraining(fixture.p,18,*fixture.p.encounterContext).result.outcome==XeenTrainingOutcome::Trained,
                 "actual successor Training candidate rejected depleted economy");
             const auto before=*fixture.p.serviceEconomy;const auto cursor=*fixture.w.sessionState().journeyRandom();
             fixture.enter();fixture.train(1);
@@ -98,7 +96,7 @@ int main(int argc,char **argv) {
                 fixture.p.serviceEconomy->bank==before.bank && fixture.p.monsterTreasure->gold==580 &&
                 xeenSameItem(fixture.p.roster.at(0).armor[4],{0,3,0,0}),"successor Training trigger missed restock or changed bought inventory");
             xeenValidateServiceEconomy(*fixture.p.serviceEconomy);
-            const auto settled=fixture.snapshot();check(settled.journey->schema==9 && settled.journey->contract==14,"Training silently remapped successor content");
+            const auto settled=fixture.snapshot();check(settled.journey->schema==9 && settled.journey->content==14,"Training silently remapped successor content");
             Fixture restarted(inputs,settled);save_test::sameSnapshot(settled,restarted.snapshot());
             restarted.enter();restarted.train(4);restarted.act(CancelInteractionAction{});
             check(restarted.p.encounterContext->day==13 && restarted.p.serviceEconomy->wares==settled.journey->serviceEconomy->wares &&
@@ -108,7 +106,7 @@ int main(int argc,char **argv) {
         // candidates. Both new-member days and the restock publish through
         // actual Training, followed by actual Smith Buy on that exact stock.
         {
-            auto s=source;s.journey->contract=14;s.journey->context->day=9;
+            auto s=source;s.journey->content=14;s.journey->context->day=9;
             auto &stock=s.journey->serviceEconomy->wares[0][0][1];
             for(unsigned slot=3;slot<8;++slot)stock[slot]=stock[slot+1];stock[8]={};
             s.characters[0].armor[4]={0,3,0,0};s.journey->treasure->gold=670;

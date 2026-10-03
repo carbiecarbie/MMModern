@@ -19,7 +19,7 @@ XeenActorView XeenWorld::prepareTransitionArrival(const XeenCamera &camera) {
 void XeenWorld::stageVertigoActors(const XeenObjectFile &mob,
 		const std::vector<XeenMonsterRecord> &statistics) {
 	XeenMutationWatch::write(this);
-	if (!xeenJourneyContent(_sessionState._journeyContract).vertigo() || _sessionState._entry!=XeenEncounterEntry::Ordinary ||
+	if (_sessionState._entry!=XeenEncounterEntry::Ordinary ||
 		_sessionState._vertigoActors || mob.mapId!=XeenMapIdentity(28))
 		throw std::logic_error("Vertigo actor staging is unavailable");
 	auto actors=XeenActorApproach::actorsFromResources(mob,statistics);
@@ -35,7 +35,7 @@ void XeenWorld::stageVertigoActors(const XeenObjectFile &mob,
 
 void XeenWorld::applySpawn(std::uint8_t slot, int x, int y, std::uint8_t) {
 	XeenMutationWatch::write(this);
-	if (!xeenJourneyContent(_sessionState._journeyContract).vertigo() || _sessionState._entry!=XeenEncounterEntry::Ordinary ||
+	if (_sessionState._entry!=XeenEncounterEntry::Ordinary ||
 		!_sessionState._vertigoActors || x<0 || x>=32 || y<0 || y>=32 ||
 		!(slot<=40 || slot==50 || slot==51))
 		throw std::invalid_argument("Spawn is outside the admitted city reset");
@@ -59,8 +59,8 @@ void XeenWorld::applySpawn(std::uint8_t slot, int x, int y, std::uint8_t) {
 }
 
 void xeenValidateVertigoActors(XeenWorld &world,const std::vector<XeenActor> &actors) {
-	if(!world.regionalContract8() || (actors.size()!=46 && actors.size()!=52))
-		throw std::invalid_argument("Vertigo actor collection has an invalid shape: "+std::to_string(actors.size())+" contract "+std::to_string(world.sessionState().journeyContract()));
+	if(!world.regionalJourney() || (actors.size()!=46 && actors.size()!=52))
+		throw std::invalid_argument("Vertigo actor collection has an invalid shape: "+std::to_string(actors.size())+"");
 	const bool reset=actors.size()==52;
 	if(reset && !world.isEventDisabled({28,764}))
 		throw std::invalid_argument("Reset actors require the original protection overlay");
@@ -76,7 +76,7 @@ void xeenValidateVertigoActors(XeenWorld &world,const std::vector<XeenActor> &ac
 		{{30,1}},{{7,24}},{{6,27}}
 	}};
 	const unsigned selected=reset?36:35;
-	const bool training=xeenJourneyContent(world.sessionState().journeyContract()).training();
+
 	const unsigned small=reset?35:34;
 	for(unsigned i=0;i<actors.size();++i) {
 		const auto &a=actors[i];
@@ -108,7 +108,7 @@ void xeenValidateVertigoActors(XeenWorld &world,const std::vector<XeenActor> &ac
 				accounted || a.x<0 || a.x>=32 || a.y<0 || a.y>=32 ||
 				(!a.activated && (a.x!=x || a.y!=y)))
 				throw std::invalid_argument("Live Vertigo Slime is noncanonical");
-		} else if(training && i==small) {
+		} else if(i==small) {
 			a.statistics->validateSlime();
 			if(a.hp!=2 || accounted || a.lifecycle!=XeenActorLifecycle::Present ||
 				(a.activated ? !((a.x==7 && (a.y==6 || a.y==7)) || (a.x==8 && a.y==7)) : (a.x!=7 || a.y!=7)))
@@ -125,9 +125,8 @@ void xeenValidateVertigoActors(XeenWorld &world,const std::vector<XeenActor> &ac
 	// A saved activated Slime must be reachable from the checked original/reset
 	// spawn under every admitted player cell and facing. Keep every other original
 	// slot in the simulation; a newly influencing actor invalidates admission.
-	const auto &content=xeenJourneyContent(world.sessionState().journeyContract());
-	auto &closure=world._vertigoClosure[(content.templeRecovery()?6:content.training()?4:content.armorRepair()?2:0)+(reset?1:0)];
-	if(content.templeRecovery() && !closure) {
+	auto &closure=world._vertigoClosure[reset?1:0];
+	if(!closure) {
 		// M43 fixed point over every admitted camera/facing and both city forms.
 		std::bitset<2048> reachable;
 		reachable.set(4*32+15);
@@ -143,59 +142,6 @@ void xeenValidateVertigoActors(XeenWorld &world,const std::vector<XeenActor> &ac
 		for(int y=13;y<=20;++y)row(y,{14,15,16});
 		for(int y=21;y<=28;++y)row(y,{15});
 		closure=reachable;
-	} else if(training && !closure) {
-		// Certified M41 fixed point, including off-route positions. Independent
-		// resource-driven enumeration in tests binds this policy to both city forms.
-		std::bitset<2048> reachable;
-		reachable.set(4*32+15);
-		const auto row=[&](int y,std::initializer_list<int> xs) {
-			for(int x:xs)reachable.set(1024+y*32+x);
-		};
-		row(0,{15});row(1,{9,10,11,12,13,14,15,16});row(2,{13,14,15,16});
-		row(3,{14,15,16});row(4,{8,9,10,11,12,13,14,15,16});
-		row(5,{9,10,11,14,15,16});row(6,{13,14,15,16});
-		row(7,{9,10,11,12,13,14,15,16});row(8,{10});row(9,{10,12});
-		row(10,{10,11,12});row(11,{10,11,12});closure=reachable;
-	}
-	if(!closure) {
-	std::vector<XeenCamera> cameras;
-	for(int y=0;y<=4;++y)for(int x=8;x<=16;++x)if(content.vertigoCell(x,y))
-		for(unsigned facing=0;facing<4;++facing)
-			cameras.push_back({28,x,y,static_cast<XeenDirection>(facing)});
-	std::bitset<2048> reachable;
-	std::vector<unsigned> queue;
-	auto enqueue=[&](int px,int py,bool activated) {
-		if(px<0 || px>=32 || py<0 || py>=32)
-			throw std::invalid_argument("Vertigo Slime left the original map");
-		const unsigned index=unsigned(py*32+px)+(activated?1024:0);
-		if(!reachable.test(index)){reachable.set(index);queue.push_back(index);}
-	};
-	enqueue(reset?resetAt[36][0]:int(actors[35].original.x),
-		reset?resetAt[36][1]:int(actors[35].original.y),false);
-	auto simulated=actors;
-	auto &slime=simulated[selected];
-	slime.lifecycle=XeenActorLifecycle::Present;
-	slime.hp=slime.statistics->baseHp();
-	for(std::size_t q=0;q<queue.size();++q) {
-		const unsigned state=queue[q];
-		slime.x=int(state%1024%32);slime.y=int(state%1024/32);
-		slime.activated=state>=1024;
-		for(const auto &camera:cameras) {
-			const auto view=XeenIndoorScene().classifyActors(world,camera,simulated);
-			for(unsigned i=0;i<simulated.size();++i)if(i!=selected && view.activation[i])
-				throw std::invalid_argument("Unsupported Vertigo actor influences the route");
-			if(view.activation[selected])enqueue(slime.x,slime.y,true);
-			if(slime.activated || view.activation[selected]) {
-				auto active=simulated;
-				active[selected].activated=true;
-				const auto moved=XeenActorApproach::move(active,camera,[&](const XeenActor &a,int mx,int my) {
-					return xeenIndoorActorTerrain(world,a,mx,my);
-				});
-				enqueue(moved[selected].x,moved[selected].y,true);
-			}
-		}
-	}
-	closure=reachable;
 	}
 	if(actors[selected].lifecycle==XeenActorLifecycle::Present &&
 		!closure->test(unsigned(actors[selected].y*32+actors[selected].x)+(actors[selected].activated?1024:0)))

@@ -19,7 +19,7 @@ std::bitset<2048> independentClosure(XeenWorld &world,std::vector<XeenActor> act
         const unsigned state=queue[cursor];
         actors[selected].x=state%32;actors[selected].y=state%1024/32;
         actors[selected].activated=state>=1024;
-        for(int y=0;y<32;++y)for(int x=0;x<32;++x)if(xeenJourneyContent(14).vertigoCell(x,y))
+        for(int y=0;y<32;++y)for(int x=0;x<32;++x)if(xeenJourneyContent().vertigoCell(x,y))
             for(unsigned d=0;d<4;++d) {
                 const XeenCamera camera{28,x,y,static_cast<XeenDirection>(d)};
                 const auto view=XeenIndoorScene().classifyActors(world,camera,actors);
@@ -44,22 +44,19 @@ int main(int argc,char **argv) {
         check(argc==2,"usage: temple-original <original-installation>");
         const auto installation=XeenInstallationDetector().detect(argv[1]);
         check(bool(installation),"original installation unavailable");Inputs in(*installation);
-        const auto &policy=xeenJourneyContent(14);
-        check(policy.schema()==9 && policy.templeRecovery() && policy.training() && policy.equipmentPurchase() &&
-            xeenSupportedJourneyPair(9,14) && !xeenSupportedJourneyPair(8,14) &&
-            !xeenJourneyContent(13).templeRecovery(),"M43 capability/schema leaked to legacy content");
+        const auto &policy=xeenJourneyContent();
         unsigned cells=0;
         for(int y=0;y<32;++y)for(int x=0;x<32;++x)if(policy.vertigoCell(x,y)) {
             ++cells;check(y<=28 && (y<=11 || x==15),"M43 route has an extra cell");
         }
-        check(cells==49 && !xeenJourneyContent(13).vertigoCell(15,8) &&
+        check(cells==49 && policy.vertigoCell(15,8) &&
             policy.vertigoCell(15,28),"exact 49-cell route differs");
         for(unsigned legacy=8;legacy<=13;++legacy) {
-            auto rejected=in.base();rejected.journey->schema=xeenJourneyContent(legacy).schema();rejected.journey->contract=legacy;
+            auto rejected=in.base();rejected.journey->schema=save_test::legacyJourneySchema(legacy);rejected.journey->content=legacy;
             rejects([&]{Fixture old(in,rejected);},"no longer supported");
         }
 		auto selectionSave=in.service();
-		selectionSave.journey->contract=14;
+		selectionSave.journey->content=14;
 		Fixture templeSelection(in,selectionSave);
 		templeSelection.w.selectObject({28,16,4,XeenDirection::North});
 		XeenWorld ordinary(in.mapLoader(),in.objectLoader());
@@ -71,22 +68,22 @@ int main(int argc,char **argv) {
 			auto &slime=slimeSave.journey->vertigoActors->at(35);
 			slime.x=15;slime.y=21;slime.hp=2;slime.activated=true;
 			slime.lifecycle=XeenActorLifecycle::Present;slime.accounted=false;
-			slimeSave.journey->contract=14;
+			slimeSave.journey->content=14;
 			Fixture admitted(in,slimeSave);
 			check(admitted.snapshot().journey->vertigoActors->at(35).y==21,
 				"M43 Temple-closure Slime save was not restored");
-			slimeSave.journey->contract=13;
+			slimeSave.journey->content=13;
 			rejects([&]{Fixture legacy(in,slimeSave);});
 		}
-        xeenValidateVertigoRoute(in.mainland,in.city,14);
+        xeenValidateVertigoRoute(in.mainland,in.city);
         for(unsigned index:{6u,543u})for(unsigned field=0;field<8;++field) {
             auto changed=in.city;auto &r=changed.records[index];
             switch(field){case 0:++r.fileOffset;break;case 1:++r.x;break;case 2:++r.y;break;
                 case 3:r.direction^=1;break;case 4:++r.line;break;case 5:r.opcode^=1;break;
                 case 6:++r.lengthField;break;case 7:r.parameters.push_back(1);break;}
-            rejects([&]{xeenValidateVertigoRoute(in.mainland,changed,14);});
+            rejects([&]{xeenValidateVertigoRoute(in.mainland,changed);});
         }
-        auto base=in.service();base.journey->contract=14;base.camera={28,15,28,XeenDirection::North};
+        auto base=in.service();base.journey->content=14;base.camera={28,15,28,XeenDirection::North};
         const auto original=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,28),in.statistics);
         for(bool reset:{false,true}) {
             auto actors=original;auto source=base;

@@ -29,20 +29,18 @@ bool XeenWorld::journeyCaptureEligible(const XeenPartyState &party, const XeenCa
 void XeenSaveState::validateJourneyValues(const XeenSaveSnapshot &s) {
 	const auto &j = *s.journey;
 	const auto require = [](bool ok) { if (!ok) throw std::invalid_argument("Unsupported Journey durable state"); };
-	const auto &policy=xeenJourneyContent(j.contract);
-	require(xeenSupportedJourneyPair(j.schema,j.contract));
-	if (policy.armorRepair()) require(j.context && j.context->year==610 &&
-		j.context->day>=8 && j.context->day<=(policy.serviceDays() ? 99 : 10) && (j.context->day==8 || j.vertigoActors));
-	require(bool(j.serviceEconomy)==policy.serviceDays());
+	require(j.schema==XeenSaveFormat::kJourneySchema && j.content==XeenSaveFormat::kJourneyContent);
+	require(j.context && j.context->year==610 &&
+		j.context->day>=8 && j.context->day<=99 && (j.context->day==8 || j.vertigoActors));
+	require(bool(j.serviceEconomy));
 	if (j.serviceEconomy) {
-		xeenValidateCurrentServiceEconomy(*j.serviceEconomy,j.contract);
+		xeenValidateCurrentServiceEconomy(*j.serviceEconomy);
 		if(j.context && j.context->day==8)xeenValidateServiceEconomy(*j.serviceEconomy);
 	}
-	if (j.contract>=3) {
+	{
 		require(s.resources.darkside && j.initializedMap==XeenMapIdentity(23) && j.originalActorCount==19 && j.actors.size()==19 &&
 			((s.camera.mapId==XeenMapIdentity(23) && s.camera.x>=0 && s.camera.x<16 && s.camera.y>=0 && s.camera.y<16) ||
-			 (xeenJourneyContent(j.contract).vertigo() && s.camera.mapId==XeenMapIdentity(28) && xeenJourneyContent(j.contract).vertigoCell(s.camera.x,s.camera.y) && j.vertigoActors)));
-		require(xeenJourneyContent(j.contract).vertigo() || !j.vertigoActors);
+			 (s.camera.mapId==XeenMapIdentity(28) && xeenJourneyContent().vertigoCell(s.camera.x,s.camera.y) && j.vertigoActors)));
 		if (j.vertigoActors) {
 			require(j.vertigoActors->size()==46 || j.vertigoActors->size()==52);
 			for (unsigned i=0;i<j.vertigoActors->size();++i) {
@@ -52,7 +50,7 @@ void XeenSaveState::validateJourneyValues(const XeenSaveSnapshot &s) {
 					a.x!=s.camera.x || a.y!=s.camera.y);
 			}
 		}
-		if (xeenJourneyContent(j.contract).vertigo()) {
+		{
 			for (const auto &id:s.disabledObjects) require(id.mapId!=XeenMapIdentity(28));
 			for (const auto &id:s.disabledEvents)
 				require(id.mapId!=XeenMapIdentity(28) || (j.vertigoActors && id.recordIndex==764));
@@ -65,22 +63,6 @@ void XeenSaveState::validateJourneyValues(const XeenSaveSnapshot &s) {
 		}
 		return; // Topology/profile/closure validation needs the installation during restore.
 	}
-	require(s.resources.darkside.has_value() && j.initializedMap==XeenMapIdentity(20) && j.originalActorCount==27 && j.actors.size()==policy.count && s.camera.mapId==XeenMapIdentity(20) && policy.contains(s.camera.x,s.camera.y));
-	for (unsigned i=0;i<policy.count;++i) {
-		const auto &a=j.actors[i]; const auto id=policy.records[i]; const auto admission=policy.actor(id);
-		require(a.id==XeenMonsterIdentity{20,id} && a.status==XeenActorStatus::Physical);
-		if (a.lifecycle==XeenActorLifecycle::Present) {
-			require(a.hp==admission.hp && !a.accounted && policy.movementContains(a.x,a.y) && (a.x!=s.camera.x || a.y!=s.camera.y));
-			if (j.contract==1) require(a.activated);
-			else {
-				require(!policy.blockedTerrain(a.x,a.y) && admission.contains(a.x,a.y));
-				if (!a.activated) require(a.x==admission.spawnX && a.y==admission.spawnY);
-			}
-		} else require(a.lifecycle==XeenActorLifecycle::Defeated && a.hp==0 && !a.activated && a.accounted && a.x==-128 && a.y==-128);
-	}
-	// Quest counters and disabled identities are independent base-save values.
-	// Restoration validates their resource identities and immutable topology;
-	// neither possession nor any subset of the overlay implies the other.
 }
 
 void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resources &resources,
@@ -117,7 +99,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	p.roster._combatMarked = true;
 	for (const auto &r : snapshot.journey->supplements) p.roster._combatInputs[r.owner] = r.inputs;
 	w._sessionState._skeletonSeed = snapshot.journey->skeletonSeed;
-	xeenValidateJourneyParty(p,snapshot.journey->contract);
+	xeenValidateJourneyParty(p);
 	std::optional<XeenRestoreGuard> prepared;
 	const auto adopt = [&] {
 		XeenRestoreGuard next(w,p,c,f);
@@ -144,42 +126,35 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	w.restoreSessionState(snapshot.disabledObjects,snapshot.disabledEvents,events);
 	adopt(); // Only checked overlay preparation changed candidate gameplay values.
 	auto statistics = callback(monsters);
-	const auto &policy=xeenJourneyContent(snapshot.journey->contract);
+	const auto &policy=xeenJourneyContent();
 	auto evt = events(policy.entry.mapId);
-	if(policy.training()) {
+	{
 		if(!resources.loadInitialCharacters || !resources.vertigoManifest)
 			throw std::invalid_argument("Missing Training restoration resources");
 		xeenValidateTrainingSource(callback(resources.loadInitialCharacters));
 		// Bind resources even when the saved Journey has never entered the city.
-		w._sessionState._journeyContract=policy.contract;adopt();
+		adopt();
 		const auto cityEvents=events(28);
 		callback([&] {resources.vertigoManifest(w,cityEvents,statistics);return true;});
-		xeenValidateVertigoRoute(evt,cityEvents,policy.contract);
+		xeenValidateVertigoRoute(evt,cityEvents);
 	}
 	auto actors = XeenActorApproach::actorsFromResources(w.objectFile(policy.entry.mapId),statistics);
-	if (policy.connectedRecovery()) {
+	{
 		if (!resources.loadRegionalText) throw std::invalid_argument("Missing regional text restoration provider");
 		prepared->admitRegionalText(callback([&] { return resources.loadRegionalText(23); }));
 	}
-	if (policy.learnedCasting()) {
+	{
 		if (!resources.loadLearnedSpellNames) throw std::invalid_argument("Missing learned spell names restoration provider");
 		prepared->admitLearnedSpellNames(callback(resources.loadLearnedSpellNames));
 	}
-	if (policy.contract>=3) {
+	{
 		if (!regionalManifest) throw std::invalid_argument("Missing regional restoration manifest");
 		callback([&] { regionalManifest(w.map(23),w.objectFile(23),evt,statistics);return true; });
 		if (c.mapId==XeenMapIdentity(23) &&
 			!XeenMovement::component(w.map(23),9,11,policy.traversal)[c.y*16+c.x])
 			throw std::invalid_argument("Regional camera outside mainland");
 	}
-	if (actors.size()!=(policy.contract>=3 ? 19u : 27u)) throw std::invalid_argument("Journey requires complete original actor collection");
-	for (unsigned i=0;policy.contract<3 && i<policy.count;++i) {
-		const auto &a=actors.at(policy.records[i]);
-		const auto admission=policy.actor(policy.records[i]);
-		if (!a.statistics || a.original.resourceId!=admission.resourceId) throw std::invalid_argument("Journey original species mismatch");
-		if (snapshot.journey->contract==2) admission.validateStatistics(*a.statistics);
-		else a.statistics->validateCombat();
-	}
+	if (actors.size()!=(19u)) throw std::invalid_argument("Journey requires complete original actor collection");
 	for (const auto &live:snapshot.journey->actors) {
 		auto &a=actors.at(live.id.recordIndex);
 		a.x=live.x; a.y=live.y; a.hp=live.hp; a.activated=live.activated; a.lifecycle=live.lifecycle; a.status=live.status;
@@ -189,14 +164,14 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	s._actors.swap(actors); s._entry = XeenEncounterEntry::Journey;
 	s._encounterMarked = s._encounterInitialized = true; s._encounterRevision = 1;
 	s._skeletonSeed = snapshot.journey->skeletonSeed;
-	s._journeyContract=snapshot.journey->contract; s._journeyRandom=snapshot.journey->random;
+	 s._journeyRandom=snapshot.journey->random;
 	for (const auto &live:snapshot.journey->actors) if (live.accounted) s._accountedMonsters.insert(live.id);
 	adopt(); // Base Journey values are complete before optional regional resources.
 	if (snapshot.journey->vertigoActors) {
 		const auto cityEvents=events(28);
 		if (!resources.vertigoManifest) throw std::invalid_argument("Missing Vertigo restoration manifest");
 		callback([&] { resources.vertigoManifest(w,cityEvents,statistics);return true; });
-		xeenValidateVertigoRoute(evt,cityEvents,snapshot.journey->contract);
+		xeenValidateVertigoRoute(evt,cityEvents);
 		const auto cityMob=callback([&] { return w.objectFile(28); });
 		auto city=XeenActorApproach::actorsFromResources(cityMob,statistics);
 		if (city.size()!=46 || statistics.empty() || statistics[0].image()!=0 || statistics[0].baseHp()!=2)
@@ -218,12 +193,12 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 		adopt();
 	}
 	adopt(); // Complete saved domain, deliberately unbound and unavailable.
-	XeenActorApproach::validateEnvironment(w,s._actors,evt,s._journeyContract);
+	XeenActorApproach::validateEnvironment(w,s._actors,evt);
 	const bool cityActive=c.mapId==XeenMapIdentity(28);
 	std::optional<XeenEventFile> activeCityEvents;
 	if(cityActive) {
 		activeCityEvents=events(28);
-		xeenValidateVertigoRoute(evt,*activeCityEvents,snapshot.journey->contract);
+		xeenValidateVertigoRoute(evt,*activeCityEvents);
 	}
 	const auto &active=cityActive ? s._vertigoActors.value() : s._actors;
 	const auto view=cityActive ? XeenIndoorScene().classifyActors(w,c,active) : XeenActorApproach::classify(active,c);
@@ -254,16 +229,14 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	world._vertigoSpawnSlime.swap(w._vertigoSpawnSlime);
 	out._entry = XeenEncounterEntry::Journey; out._encounterMarked = out._encounterInitialized = true;
 	out._encounterRevision = 1; out._skeletonSeed = snapshot.journey->skeletonSeed;
-	out._journeyContract=snapshot.journey->contract; out._journeyRandom=snapshot.journey->random;
+	 out._journeyRandom=snapshot.journey->random;
 	world._journeyRestoration.swap(binding);
 	world._journeyRestoration->guard->adoptMutationBoundary();
 }
 
-
-
 bool XeenSaveState::canCapture(const XeenPartyState &party, const XeenCamera &camera,
         const XeenWorld &world) noexcept {
-    return world.sessionState().journeyContract() == 14 && world.journeyCaptureEligible(party,camera);
+    return world.journeyCaptureEligible(party,camera);
 }
 
 XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resources,
@@ -290,18 +263,18 @@ XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resourc
 	snapshot.disabledEvents.assign(state.disabledEvents().begin(), state.disabledEvents().end());
 
 	if (state.journey()) {
-		xeenValidateJourneyParty(party,state.journeyContract());
+		xeenValidateJourneyParty(party);
 		XeenSaveJourney j;
 		j.context = party.encounterContext; j.skeletonSeed = state.skeletonSeed();
-		j.contract=state.journeyContract(); j.schema=xeenJourneyContent(j.contract).schema(); j.random=state.journeyRandom();j.treasure=party.monsterTreasure;j.regionalRecovery=party.regionalRecovery;
+		j.content=XeenSaveFormat::kJourneyContent; j.schema=XeenSaveFormat::kJourneySchema; j.random=state.journeyRandom();j.treasure=party.monsterTreasure;j.regionalRecovery=party.regionalRecovery;
 		j.serviceEconomy=party.serviceEconomy;
 		for (unsigned i = 0; i < 30; ++i) j.supplements[i] = {static_cast<std::uint8_t>(i), *party.roster.combatInputs(i)};
-		j.initializedMap=xeenJourneyContent(j.contract).entry.mapId;
-		j.originalActorCount=j.contract>=3 ? 19 : 27;
+		j.initializedMap=xeenJourneyContent().entry.mapId;
+		j.originalActorCount=19;
 		if (state.actors().size() != j.originalActorCount) throw std::logic_error("Journey actor collection changed");
-		for (const auto &a:state.actors()) if (xeenJourneyContent(j.contract).influences(a.id.recordIndex))
+		for (const auto &a:state.actors()) if (xeenJourneyContent().influences(a.id.recordIndex))
 			j.actors.push_back({a.id,a.x,a.y,a.hp,a.activated,a.lifecycle,a.status,state.accountedMonsters().count(a.id) != 0});
-		if (xeenJourneyContent(j.contract).vertigo() && state._vertigoActors) {
+		if (state._vertigoActors) {
 			std::vector<XeenSaveJourneyActor> city;city.reserve(state._vertigoActors->size());
 			for (const auto &a:*state._vertigoActors)
 				city.push_back({a.id,a.x,a.y,a.hp,a.activated,a.lifecycle,a.status,state.accountedMonsters().count(a.id)!=0});

@@ -35,13 +35,12 @@ XeenConsequenceInputs activeInputs(const XeenPartyState &party) {
 }
 
 bool XeenEncounterFlow::beginCasting(const Ticket &entry) {
-	if (!current(entry) || !journeyMutable() || _world.sessionState().journeyContract()!=7 && !xeenJourneyContent(_world.sessionState().journeyContract()).vertigo() ||
-			_casting || !_boundary.quiet() || _castingGeneration==std::numeric_limits<std::uint64_t>::max() ||
+	if (!current(entry) || !journeyMutable() || _casting || !_boundary.quiet() || _castingGeneration==std::numeric_limits<std::uint64_t>::max() ||
 			!journeyCapacity()) return false;
 	BusyCast busy(_busy);
 	try {
 		_journeyPreimage->check();
-		xeenValidateJourneyParty(_party,_world.sessionState().journeyContract());
+		xeenValidateJourneyParty(_party);
 		auto next=std::make_unique<CastingContinuation>();
 		next->generation=++_castingGeneration;
 		next->lease=_boundary.hold(XeenCombatBoundary::Work::Casting);
@@ -93,14 +92,14 @@ bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIn
 	BusyCast busy(_busy);
 	try {
 		_journeyPreimage->check();
-		xeenValidateJourneyParty(_party,_world.sessionState().journeyContract());
+		xeenValidateJourneyParty(_party);
 		if (!XeenLearnedSpellRules::eligible(_party,casterIndex,slot) ||
 			unsupportedCharge(*_party.encounterContext,_camera)) return false;
 		const auto owner=_party.party.activeRosterIds()[casterIndex];
 		const auto &caster=_party.roster.at(owner);
 		const auto category=XeenLearnedSpellRules::categoryForClass(caster.characterClass);
 		const auto id=category ? XeenLearnedSpellRules::spellForSlot(*category,slot) : std::nullopt;
-		const auto spell=id ? XeenLearnedSpellRules::supportedIn(*id,_world.sessionState().journeyContract(),false) : std::nullopt;
+		const auto spell=id ? XeenLearnedSpellRules::supportedIn(*id,false) : std::nullopt;
 		if (!spell) return false;
 		const auto after=static_cast<std::int16_t>(caster.currentSp-1);
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);

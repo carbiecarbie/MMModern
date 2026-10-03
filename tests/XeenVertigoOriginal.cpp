@@ -1,4 +1,4 @@
-// Read-only original-resource contract witness. Process traversal is separate.
+// Read-only original-resource content witness. Process traversal is separate.
 #include "formats/xeen/XeenAssetSource.h"
 #include "formats/xeen/XeenCharacterFormat.h"
 #include "games/xeen/XeenInstallationDetector.h"
@@ -31,7 +31,7 @@ int main(int argc,char **argv) {
   const auto statistics=XeenMonsterFormat::parse(*assets.readCloudsMonsterStatisticsFromDarkArchive());
   const auto &slime=statistics.at(0);
   const auto resource=[&](const std::string &name) {
-   return name.rfind("aaze",0)==0?assets.readArchiveResource(name):assets.readInitialResource(name);
+   return name.rfind("maze",0)==0?assets.readInitialResource(name):assets.readArchiveResource(name);
   };
   XeenWorld manifestWorld([&](auto id){return maps.loadGeometryMap(assets,id);},
    [&](auto id){return maps.loadObjects(assets,id);});

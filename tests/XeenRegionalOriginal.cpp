@@ -88,7 +88,7 @@ int main(int argc,char **argv) {
 		};
 
         training_test::Inputs current(*installation);
-        journey_resources_test::run([&]{return XeenPartyLoader().loadInitialCloudsParty(current.assets);},current.setup(14),current.mapLoader(),current.objectLoader(),current.signature,current.resources());
+        journey_resources_test::run([&]{return XeenPartyLoader().loadInitialCloudsParty(current.assets);},current.setup(),current.mapLoader(),current.objectLoader(),current.signature,current.resources());
         std::cout<<"Original regional terrain, profile and current resource renewal controls passed\n";
         return 0;
     }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}

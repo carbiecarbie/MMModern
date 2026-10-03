@@ -28,7 +28,7 @@ bool validDirection(XeenDirection direction) {
 bool eventCameraAdmitted(const XeenWorld &world,const XeenCamera &camera) {
 	if(!camera.mapId || camera.x<0 || camera.y<0 || !validDirection(camera.direction))return false;
 	if(world.sessionState().journey() && camera.mapId==XeenMapIdentity(28))
-		return xeenJourneyContent(world.sessionState().journeyContract()).eventCameraCell(camera.x,camera.y);
+		return xeenJourneyContent().eventCameraCell(camera.x,camera.y);
 	return camera.x<16 && camera.y<16;
 }
 

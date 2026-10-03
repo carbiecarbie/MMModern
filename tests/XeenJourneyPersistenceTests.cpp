@@ -1,6 +1,5 @@
 #include "games/xeen/XeenJourneyRules.h"
 #include "XeenRegionalJourneyTestSupport.h"
-#include "XeenJourneyTestSupport.h"
 #include "XeenProbeFired.h"
 #include "XeenRestoreReplayProbe.h"
 #include "XeenSaveGameplayTestSupport.h"
@@ -130,7 +129,7 @@ void repair(Bytes &b) {
 	put(12,static_cast<std::uint32_t>(b.size()-20));
 	put(16,static_cast<std::uint32_t>(crc32(0,b.data()+20,static_cast<uInt>(b.size()-20))));
 }
-void wire(){auto old=moved();old.journey->schema=1;old.journey->contract=1;rejects([&]{XeenSaveFormat::encode(old);},"no longer supported");}
+void wire(){auto old=moved();old.journey->schema=1;old.journey->content=1;rejects([&]{XeenSaveFormat::encode(old);},"no longer supported");}
 
 void captureIntegrity() {
 	Fixture f;
@@ -377,8 +376,9 @@ int main(int argc,char **argv) {
 			}
 		}
 		check(replay_test::unexpected==0,"restore replay observed gameplay");
-		{journey_test::Fixture probeControl;probeControl.action(XeenEncounterAction::Right);probeControl.pulse();}
-		check(replay_test::journeyInitializations && replay_test::journeyConstructions && replay_test::actions && replay_test::pulses &&
+		{regional_test::Fixture probeControl;probeControl.action(XeenEncounterAction::Right);probeControl.pulse();}
+		check(replay_test::journeyInitializations && replay_test::journeyConstructions &&
+			probe_fired::registry().hits.count("XEEN_REPLAY_REGIONAL_MOVE") &&
 			replay_test::retirements && replay_test::commands && replay_test::services,"positive controls reached Journey probes");
 		// The active scope must detect genuine calls, not merely expose counters.
 		const auto before=replay_test::unexpected;

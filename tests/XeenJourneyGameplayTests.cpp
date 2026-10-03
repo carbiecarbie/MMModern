@@ -52,7 +52,7 @@ void quietCosmeticInput() {
   };
   return SdlWindow().showInteractive(first,"Quiet cosmetic input",handler,escape,driver,status);
  };
- check(Application().playGameplay(services,XeenActorApproach::kEntry,{},false,XeenEncounterEntry::Journey,56,14)==0 && settled==3,"Three consecutive fresh Quiet commands through real SDL");
+ check(Application().playGameplay(services,xeenJourneyContent().entry,{},false,XeenEncounterEntry::Journey,56)==0 && settled==3,"Three consecutive fresh Quiet commands through real SDL");
 }
 void cosmeticOmissions() {
  for(bool inventory:{false,true})for(unsigned mode=0;mode<6;++mode) {
@@ -65,7 +65,7 @@ void cosmeticOmissions() {
    const PlayerAction action=inventory?PlayerAction{InspectInventoryAction{}}:PlayerAction{NavigationAction::TurnRight};
    return cosmetic_handoff_test::exercise(h,handler,idle,escape,status,mode,inventory?SDLK_i:SDLK_RIGHT,action,unchanged,accepted);
   };
-  check(Application().playGameplay(services,XeenActorApproach::kEntry,{},false,XeenEncounterEntry::Journey,56,14)==0,"Quiet/inventory cosmetic handoff result");
+  check(Application().playGameplay(services,xeenJourneyContent().entry,{},false,XeenEncounterEntry::Journey,56)==0,"Quiet/inventory cosmetic handoff result");
  }
 }
 void sdlBoundaries() {
@@ -98,7 +98,7 @@ void sdlBoundaries() {
    check(done&&ok&&!h.flow->canSave()&&!XeenSaveState::canCapture(*h.party,*h.camera,*h.world),"SDL lost-upload/shutdown closes Journey");
    return ok;
   };
-  check(Application().playGameplay(s,XeenActorApproach::kEntry,{},false,XeenEncounterEntry::Journey,56,14)==0,"Journey SDL boundary result");
+  check(Application().playGameplay(s,xeenJourneyContent().entry,{},false,XeenEncounterEntry::Journey,56)==0,"Journey SDL boundary result");
  }
 }
 void press(Harness &h,const SdlWindow::FrameUpdateHandler &handler,const PlayerAction &a) {
@@ -156,7 +156,7 @@ void boundaries(const fs::path &dir) {
   };
   s.observeSaveStage=[&](auto stage){++h.saves;if(mode==9&&stage==XeenGameplayServices::SaveStage::Preflight){injected=true;throw std::runtime_error("detached preflight failure");}};
   const int expected=mode>=3&&mode<=5?4:0;
-  check(Application().playGameplay(s,XeenActorApproach::kEntry,path,false,XeenEncounterEntry::Journey,{},14)==expected,"Journey boundary matrix");
+  check(Application().playGameplay(s,xeenJourneyContent().entry,path,false,XeenEncounterEntry::Journey,{})==expected,"Journey boundary matrix");
  }
 }
 }

@@ -36,10 +36,10 @@ public:
 	static std::optional<XeenSpellCategory> categoryForClass(XeenCharacterClass) noexcept;
 	static std::optional<std::uint8_t> spellForSlot(XeenSpellCategory, std::size_t) noexcept;
 	static std::optional<XeenLearnedSpell> supported(std::uint8_t) noexcept;
-	static std::optional<XeenLearnedSpell> supportedIn(std::uint8_t, std::uint16_t content, bool combat) noexcept;
+	static std::optional<XeenLearnedSpell> supportedIn(std::uint8_t, bool combat) noexcept;
 	static unsigned cost(XeenLearnedSpell) noexcept;
 	static bool known(const XeenCharacter &, std::size_t) noexcept;
-	static bool eligible(const XeenPartyState &, std::size_t activeIndex, std::size_t slot, std::uint16_t content=7, bool combat=false) noexcept;
+	static bool eligible(const XeenPartyState &, std::size_t activeIndex, std::size_t slot, bool combat=false) noexcept;
 	static XeenSpellPreparation prepareFirstAid(const XeenPartyState &, std::size_t targetIndex,
 		std::uint32_t currentYear);
 	static XeenSpellPreparation prepareAwaken(const XeenPartyState &);

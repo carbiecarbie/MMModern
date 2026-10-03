@@ -81,19 +81,16 @@ void eligibilityAndRawBytes() {
 void departure() {
 	XeenGameplayContext canonical;
 	canonical.day=8;canonical.year=610;canonical.minutes=584;canonical.ctr24=17;
-	for (unsigned day : {8u,9u}) for (unsigned minute : {300u,584u,1259u}) for (unsigned ctr : {0u,17u,23u}) {
+	for (unsigned day : {8u,9u,10u,97u,98u}) for (unsigned minute : {300u,584u,1259u}) for (unsigned ctr : {0u,17u,23u}) {
 		auto before=canonical;before.day=day;before.minutes=minute;before.ctr24=ctr;
 		const auto original=before;
-		const auto after=xeenPrepareSmithDeparture(before,9);
-        check(after==xeenPrepareSmithDeparture(before,10),"content10 changed inherited day boundary");
+		const auto after=xeenPrepareSmithDeparture(before);
 		auto expected=before;expected.day=day+1;
 		check(after && *after==expected && before==original,"departure changed fields other than day or mutated input");
 	}
-	for (unsigned content=0; content<12; ++content) if (content!=9 && content!=10 && content!=11)
-		check(!xeenPrepareSmithDeparture(canonical,content),"legacy/unknown content received smith day jump");
-	for (unsigned day : {0u,1u,7u,10u,11u,99u,65535u}) {
+	for (unsigned day : {0u,1u,7u,99u,65535u}) {
 		auto before=canonical;before.day=day;
-		check(!xeenPrepareSmithDeparture(before,9),"unsupported day admitted");
+		check(!xeenPrepareSmithDeparture(before),"unsupported day admitted");
 	}
 	for (unsigned mode=0; mode<24; ++mode) {
 		auto before=canonical;
@@ -109,7 +106,7 @@ void departure() {
 		else if (mode<18) before.effects[mode-9]=1;
 		else before.lightAndResistances[mode-18]=1;
 		const auto original=before;
-		check(!xeenPrepareSmithDeparture(before,9) && before==original,"invalid context accepted or modified");
+		check(!xeenPrepareSmithDeparture(before) && before==original,"invalid context accepted or modified");
 	}
 }
 }

@@ -18,9 +18,9 @@
 
 using namespace mmodern;
 namespace fs=std::filesystem;
-#define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjES5_ItE"
-extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>,std::optional<std::uint16_t>) asm("__real_" PLAY_SYMBOL);
-extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>,std::optional<std::uint16_t>) asm("__wrap_" PLAY_SYMBOL);
+#define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjE"
+extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__real_" PLAY_SYMBOL);
+extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__wrap_" PLAY_SYMBOL);
 
 #define M36_CONFIRM "_ZN7mmodern17XeenEncounterFlow14confirmCastingERKNS0_6TicketEyyyRKSt10shared_ptrIKNS_12IndexedFrameEE"
 #define M36_TARGET "_ZN7mmodern17XeenEncounterFlow20respondCastingTargetERKNS0_6TicketESt8optionalIyEyRKSt10shared_ptrIKNS_12IndexedFrameEE"
@@ -59,7 +59,7 @@ void check(bool value,const char *message) { if (!value) throw std::runtime_erro
 }
 extern "C" int wrappedPlay(const Application *application,const XeenGameplayServices &original,XeenCamera camera,
 		const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,
-		std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract) {
+		std::optional<std::uint32_t> seed) {
 	try {
 		replay_test::journeyInitializations=replay_test::journeyConstructions=0;
 		replay_test::actions=replay_test::pulses=replay_test::retirements=0;
@@ -97,15 +97,15 @@ extern "C" int wrappedPlay(const Application *application,const XeenGameplayServ
 			  stage=="fault-after-time") && route=="firstaid" && !resume),
 			"M36 witness stage invalid");
 		check(target &&
-			(resume ? !seed && !contract : entry==XeenEncounterEntry::Journey &&
-				seed==std::optional<std::uint32_t>{route=="firstaid"?1u:7u} && contract==14),
-			"M36 witness production entry/contract mismatch");
+			(resume ? !seed : entry==XeenEncounterEntry::Journey &&
+				seed==std::optional<std::uint32_t>{route=="firstaid"?1u:7u}),
+			"M36 witness production entry mismatch");
 		if (stage=="synthetic-tick" || stage=="synthetic-tick-refund" || stage=="synthetic-dusk" ||
 			stage=="synthetic-gems-zero" || stage=="synthetic-gems-max" ||
 			stage=="synthetic-terminal-target" || stage=="synthetic-rng-overflow" ||
 			stage=="synthetic-report-reentry" || stage=="correction-sign" || stage=="correction-well" || contactCorrection) {
 			auto fixture=XeenSaveFile::read(*target);
-			check(fixture.journey && fixture.journey->schema==9 && fixture.journey->contract==14 &&
+			check(fixture.journey && fixture.journey->schema==9 && fixture.journey->content==14 &&
 				fixture.journey->context && fixture.journey->context->minutes==521,
 				"M36 synthetic calendar fixture requires genuine checkpoint");
 			if (stage=="synthetic-dusk") fixture.journey->context->minutes=1250;
@@ -333,7 +333,6 @@ extern "C" int wrappedPlay(const Application *application,const XeenGameplayServ
 				check(flow->encounter()->castingCommitted() && party->roster.at(1).currentSp==19 &&
 					party->encounterContext->minutes==521,"M36 authority fixture did not debit exactly once");
 			};
-
 
 			if (stage=="correction-sdl") {
 				const auto sp=party->roster.at(1).currentSp;
@@ -814,7 +813,7 @@ extern "C" int wrappedPlay(const Application *application,const XeenGameplayServ
 				save();std::cout<<"M36 SYNTHETIC TERMINAL PASS\n";return true;
 			}
 			if (!resume) {
-				check(world->sessionState().journeyContract()==14,"M36 fresh content not 14");
+				check(world->sessionState().journey(),"M36 fresh content not 14");
 			for (unsigned owner=0;owner<30;++owner) check(bool(party->roster.at(owner).learnedSpells),"M36 missing original book");
 			prefix(route=="firstaid"?"UFU":"LUUURUULURUULUUU");
 			if (stage=="fault-before-debit") {
@@ -953,13 +952,13 @@ extern "C" int wrappedPlay(const Application *application,const XeenGameplayServ
                 XeenSaveFile::write(*target,fixture);
                 return true;
             };
-            check(realPlay(application,setup,camera,target,false,entry,7,14)==0,"M36 current cursor fixture preparation failed");
+            check(realPlay(application,setup,camera,target,false,entry,7)==0,"M36 current cursor fixture preparation failed");
             drawTrace.clear();
             std::cout<<"M36 CURRENT-FORMAT SYNTHETIC CURSOR CONTROL\n";
-            return realPlay(application,services,camera,target,true,XeenEncounterEntry::Ordinary,std::nullopt,std::nullopt);
+            return realPlay(application,services,camera,target,true,XeenEncounterEntry::Ordinary,std::nullopt);
         }
         if(!resume)seed=3626689381u;
-		return realPlay(application,services,camera,target,resume,entry,seed,contract);
+		return realPlay(application,services,camera,target,resume,entry,seed);
 	} catch (const std::exception &error) {
 		std::cerr<<"M36 CLI witness: "<<error.what()<<'\n';return 8;
 	}

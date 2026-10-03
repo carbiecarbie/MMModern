@@ -16,16 +16,16 @@
 
 using namespace mmodern;
 namespace fs=std::filesystem;
-#define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjES5_ItE"
-extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>,std::optional<std::uint16_t>) asm("__real_" PLAY_SYMBOL);
-extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>,std::optional<std::uint16_t>) asm("__wrap_" PLAY_SYMBOL);
+#define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjE"
+extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__real_" PLAY_SYMBOL);
+extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__wrap_" PLAY_SYMBOL);
 namespace {
 void check(bool ok,const char *message){if(!ok)throw std::runtime_error(message);}
 }
 static const probe_fired::Expect playProbe{"Application::playGameplay"};
 extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &original,XeenCamera camera,
  const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,
- std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract) {probe_fired::hit("Application::playGameplay");
+ std::optional<std::uint32_t> seed) {probe_fired::hit("Application::playGameplay");
  try {
   replay_test::journeyInitializations=replay_test::journeyConstructions=0;
   replay_test::actions=replay_test::pulses=replay_test::retirements=0;
@@ -34,9 +34,8 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   replay_test::timePreparations=replay_test::eventExecutions=0;
   replay_test::transfers=replay_test::equipmentChanges=0;
   // Exercise the current regional domain.
-  if (!resume) contract=14;
   check(target.has_value(),"M37 witness needs save file");
-  check(resume || (entry==XeenEncounterEntry::Journey && contract==14),"M37 CLI content 14 expected");
+  check(resume || entry==XeenEncounterEntry::Journey,"M37 CLI Journey expected");
   auto services=original;
   XeenEventFlow *flow=nullptr;XeenWorld *world=nullptr;
   const XeenPartyState *party=nullptr;const XeenCamera *position=nullptr;const XeenGameFlags *flags=nullptr;
@@ -343,6 +342,6 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    std::cout<<"M37 CLI SMOKE "<<position->mapId.number<<','<<position->x<<','<<position->y<<" passed\n";
    return true;
   };
-  return realPlay(app,services,camera,target,resume,entry,seed,contract);
+  return realPlay(app,services,camera,target,resume,entry,seed);
  } catch(const std::exception &e){std::cerr<<"M37 CLI witness: "<<e.what()<<'\n';return 8;}
 }

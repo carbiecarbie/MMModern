@@ -164,8 +164,7 @@ Ownership, from state outward:
   starts. `XeenRestoreGuard` and `XeenMutation` detect state that changed
   while work was prepared, so stale work cannot publish.
 - **Journey content** (`XeenJourneyContent`): an immutable description of the
-  admitted region. It still carries the older numbered contracts; collapsing it
-  to the single current configuration is M44 step 6.
+  single Regional Journey: the map-23 mainland and the 49 admitted Vertigo cells.
 
 Presentation draws into a 320x200 indexed frame that SDL scales. Presented
 frames carry an identity so input from a stale frame is dropped.

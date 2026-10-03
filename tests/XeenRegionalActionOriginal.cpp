@@ -49,7 +49,7 @@ XeenSaveSnapshot baseline(const fs::path &game) {
   check(h.flow->canSave(),"Initial content-14 source must be Quiet");
   saved=XeenSaveState::capture(h.signature,*h.party,*h.camera,*h.flags,*h.world);return true;
  };
- check(Application().playGameplay(s,{}, {},false,XeenEncounterEntry::Journey,56,14)==0,"Original content-14 startup");
+ check(Application().playGameplay(s,{}, {},false,XeenEncounterEntry::Journey,56)==0,"Original content-14 startup");
  // Eliminate incidental outdoor battles in these action-only controls. The
  // twelve mainland Orc identities remain canonical defeated/accounted actors.
  for(unsigned i=0;i<12;++i) {

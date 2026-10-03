@@ -13,7 +13,7 @@ void end(RegionalCombatFixture &f){
 }
 void captureBoundaries(){
     RegionalCombatFixture f{XeenCombatRandom(victoryTape())};
-    const auto initial=f.snapshot();check(initial.journey&&initial.journey->schema==9&&initial.journey->contract==14,"current quiet snapshot");
+    const auto initial=f.snapshot();check(initial.journey&&initial.journey->schema==9&&initial.journey->content==14,"current quiet snapshot");
     f.actionBefore(XeenEncounterAction::Wait);refused(f);
 
     auto prior=tape;tape=&f.rng;

@@ -126,9 +126,9 @@ void staleProvider(bool throws){
 }
 void nestedInitialization(){for(bool mutation:{false,true}){
     auto bytes=regional_test::characterBytes();auto p=XeenPartyLoader().loadFromResources(bytes,regional_test::partyBytes());
-    auto camera=xeenJourneyContent(14).entry;XeenGameFlags flags;
+    auto camera=xeenJourneyContent().entry;XeenGameFlags flags;
     const auto resources=regional_test::resources();auto monsters=regional_test::statistics();auto event=regional_test::events(23);
-    XeenJourneySetup setup{bytes,XeenGameplayContextFormat::parse(regional_test::partyBytes()),monsters,event,1,14,resources.regionalManifest};
+    XeenJourneySetup setup{bytes,XeenGameplayContextFormat::parse(regional_test::partyBytes()),monsters,event,1,resources.regionalManifest};
     setup.purse=XeenMonsterTreasure{};setup.regionalRecovery=XeenRegionalRecoveryState{};setup.regionalText=regional_test::texts(23);
     setup.learnedNames=XeenLearnedSpellNames{};setup.learnedNamesProvider=resources.loadLearnedSpellNames;setup.vertigoManifest=resources.vertigoManifest;
     setup.bank=XeenBankBalances{};setup.cityEventsProvider=[]{return regional_test::events(28);};

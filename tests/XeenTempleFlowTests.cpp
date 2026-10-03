@@ -6,7 +6,7 @@ using save_test::sameSnapshot;
 namespace {
 XeenSaveSnapshot injured(Inputs &in,unsigned day=8) {
     auto s=in.service(day);
-    s.journey->contract=14;
+    s.journey->content=14;
     s.camera={28,15,28,XeenDirection::North};
     s.journey->treasure->gold=810;
     auto &seymour=s.characters[6];
@@ -113,7 +113,7 @@ void quotePreview(Inputs &in) {
         if(scenario==2){c.currentHp=-15;c.conditions[12]=c.conditions[13]=1;}
         if(scenario==3){c.conditions[3]=2;c.conditions[8]=1;}
         TempleFixture fixture(in,source);
-        const auto expected=xeenPrepareTempleHeal(fixture.p,6,*fixture.p.encounterContext,14);
+        const auto expected=xeenPrepareTempleHeal(fixture.p,6,*fixture.p.encounterContext);
         check(expected.result.outcome==XeenTempleHealOutcome::Healed,"Temple preview fixture is not payable");
         if(!scenario)check(expected.result.hpAfter==6 && expected.result.maxHpAfter==9,
             "Disease temporary-bonus preview fixture differs from independent HP 6/9");
@@ -193,7 +193,7 @@ int main(int argc,char **argv) {
         TempleFixture f(in,source);
         const auto quote=xeenQuoteTempleHeal(f.p.roster.at(6),f.p.monsterTreasure->gold,*f.p.encounterContext);
         check(quote.outcome==XeenTempleHealOutcome::Quoted && quote.price==410,"Dead/Unconscious quote differs");
-        const auto selected=xeenPrepareTempleHeal(f.p,6,*f.p.encounterContext,14);
+        const auto selected=xeenPrepareTempleHeal(f.p,6,*f.p.encounterContext);
         check(selected.result.outcome==XeenTempleHealOutcome::Healed && selected.result.hpAfter==15 &&
             selected.result.spAfter==27 && selected.result.goldAfter==400 &&
             !selected.character.conditions[12] && !selected.character.conditions[13],
@@ -277,7 +277,7 @@ int main(int argc,char **argv) {
             check(threshold,"Disease Endurance threshold fixture unavailable");
             TempleFixture fixture(in,diseased);
             const auto before=fixture.snapshot();
-            const auto candidate=xeenPrepareTempleHeal(fixture.p,6,*fixture.p.encounterContext,14);
+            const auto candidate=xeenPrepareTempleHeal(fixture.p,6,*fixture.p.encounterContext);
             check(candidate.result.outcome==XeenTempleHealOutcome::Healed &&
                 candidate.result.maxHpAtAssignment<candidate.result.maxHpAfter &&
                 candidate.character.currentHp==candidate.result.maxHpAtAssignment &&
@@ -300,7 +300,7 @@ int main(int argc,char **argv) {
             character.currentHp=XeenCharacterRules::maxHp(character,{610});
             character.currentSp=0;character.endurance.temporary=1;
             TempleFixture fixture(in,healthy);
-            const auto result=xeenPrepareTempleHeal(fixture.p,6,*fixture.p.encounterContext,14);
+            const auto result=xeenPrepareTempleHeal(fixture.p,6,*fixture.p.encounterContext);
             check(result.result.outcome==XeenTempleHealOutcome::NoCharge &&
                 xeen_state::sameCharacter(result.character,fixture.p.roster.at(6)) &&
                 fixture.p.roster.at(6).endurance.temporary==1,

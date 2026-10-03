@@ -19,7 +19,7 @@ void durableCheckpoints(const fs::path &route) {
  const auto file=[&](char label){return XeenSaveFile::read(route.parent_path()/(route.stem().string()+"-"+label+".mmsave"));};
  const auto a=file('A'),b=file('B'),c=file('C'),d=file('D');
  child_test::require(a.journey && b.journey && c.journey && d.journey &&
-  a.journey->schema==9 && a.journey->contract==14 && !a.journey->vertigoActors &&
+  a.journey->schema==9 && a.journey->content==14 && !a.journey->vertigoActors &&
   a.camera.mapId==XeenMapIdentity(23) && a.camera.x==10 && a.camera.y==12,
   "M37 A is not the admitted unvisited mainland");
  child_test::require(b.camera.mapId==XeenMapIdentity(28) && b.camera.x==16 && b.camera.y==2 &&

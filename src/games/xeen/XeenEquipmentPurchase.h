@@ -33,9 +33,9 @@ static_assert(std::is_nothrow_copy_assignable_v<XeenEquipmentPurchaseResult> &&
 bool xeenSupportedEquipmentOffer(unsigned side,unsigned shop,XeenInventoryCategory,const XeenItem &) noexcept;
 std::optional<std::uint32_t> xeenEquipmentPurchasePrice(XeenInventoryCategory,const XeenItem &) noexcept;
 XeenEquipmentPurchaseResult xeenQuoteEquipmentPurchase(const XeenPartyState &,std::size_t member,
-    XeenInventoryCategory,std::size_t slot,std::uint16_t content=13,unsigned side=0,unsigned shop=0);
+    XeenInventoryCategory,std::size_t slot,unsigned side=0,unsigned shop=0);
 XeenEquipmentPurchaseCandidate xeenPrepareEquipmentPurchase(const XeenPartyState &,std::size_t member,
-    XeenInventoryCategory,std::size_t slot,std::uint16_t content=13,unsigned side=0,unsigned shop=0);
+    XeenInventoryCategory,std::size_t slot,unsigned side=0,unsigned shop=0);
 // Exact authorized economy delta, independent of snapshot existence proof.
 // Neither bank nor any other shop/category/side may change. expected binds the
 // selected physical source; an identical item elsewhere is not a substitute.

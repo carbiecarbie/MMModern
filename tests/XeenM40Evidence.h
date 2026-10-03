@@ -59,7 +59,7 @@ inline void equalFields(const XeenSaveSnapshot &a,const XeenSaveSnapshot &b) {
         a.camera.x==b.camera.x && a.camera.y==b.camera.y && a.camera.direction==b.camera.direction &&
         a.questItems==b.questItems && a.questFlags==b.questFlags && a.gameFlags==b.gameFlags &&
         a.disabledEvents==b.disabledEvents && a.disabledObjects==b.disabledObjects &&
-        x.entry==y.entry && x.schema==y.schema && x.contract==y.contract && x.initializedMap==y.initializedMap &&
+        x.entry==y.entry && x.schema==y.schema && x.content==y.content && x.initializedMap==y.initializedMap &&
         x.originalActorCount==y.originalActorCount && x.skeletonSeed==y.skeletonSeed && x.context==y.context &&
         x.random==y.random && x.treasure==y.treasure && x.regionalRecovery==y.regionalRecovery,"M40 domain/context/purse/recovery/flags differs");
     check(x.serviceEconomy.has_value()==y.serviceEconomy.has_value(),"M40 economy presence differs");

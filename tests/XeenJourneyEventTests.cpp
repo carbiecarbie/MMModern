@@ -41,7 +41,7 @@ void acknowledgment(Harness &h,const Handler &handler){send(h,handler,Interactio
 XeenSaveSnapshot objective(const fs::path &path) {
  Harness h;auto s=services(h);std::optional<XeenSaveSnapshot> saved;
  s.show=[&](const auto &,const auto &handler,const auto &,const auto &,const auto &){handler.framePresented(h.flow->frame().presentation());saved=snapshot(h);return true;};
- check(Application().playGameplay(s,{},path,false,XeenEncounterEntry::Journey,1,14)==0&&saved.has_value(),"production fresh fixture source");
+ check(Application().playGameplay(s,{},path,false,XeenEncounterEntry::Journey,1)==0&&saved.has_value(),"production fresh fixture source");
  saved->camera={23,8,2,XeenDirection::North};
  for(auto &a:saved->journey->actors){a.hp=0;a.x=a.y=-128;a.activated=false;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
  return *saved;

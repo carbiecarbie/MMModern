@@ -9,6 +9,10 @@
 #include <limits>
 
 namespace save_test {
+inline std::uint16_t legacyJourneySchema(unsigned content) {
+    return static_cast<std::uint16_t>(content<=8 ? content : content<=10 ? 8 : 9);
+}
+
 using namespace mmodern;
 using Bytes = std::vector<std::uint8_t>;
 
@@ -40,8 +44,6 @@ inline bool sameInputs(const XeenCombatInputs &a, const XeenCombatInputs &b) {
 		(a.poisonResistance->permanent==b.poisonResistance->permanent && a.poisonResistance->temporary==b.poisonResistance->temporary));
 }
 
-
-
 inline void sameSnapshot(const XeenSaveSnapshot &a, const XeenSaveSnapshot &b) {
 	check(a.resources == b.resources && sameCamera(a.camera, b.camera), "signature/camera changed");
 	check(a.activeRosterIds == b.activeRosterIds, "membership order changed");
@@ -54,7 +56,7 @@ inline void sameSnapshot(const XeenSaveSnapshot &a, const XeenSaveSnapshot &b) {
 	check(bool(a.journey)==bool(b.journey),"Journey presence changed");
 	if(a.journey) {
 		const auto &x=*a.journey,&y=*b.journey;
-		check(x.entry==y.entry&&x.schema==y.schema&&x.contract==y.contract&&x.context==y.context&&
+		check(x.entry==y.entry&&x.schema==y.schema&&x.content==y.content&&x.context==y.context&&
 			x.skeletonSeed==y.skeletonSeed&&x.initializedMap==y.initializedMap&&x.originalActorCount==y.originalActorCount&&
 			x.actors.size()==y.actors.size() && x.random==y.random && x.treasure==y.treasure &&
 			x.regionalRecovery==y.regionalRecovery && x.serviceEconomy==y.serviceEconomy &&
@@ -93,7 +95,7 @@ inline XeenServiceEconomy literalMerchantEconomy() {
 
 inline XeenSaveSnapshot currentWireSnapshot() {
  XeenSaveSnapshot s;s.camera={23,9,11,XeenDirection::West};s.journey.emplace();
- auto &j=*s.journey;j.schema=9;j.contract=14;j.context.emplace();
+ auto &j=*s.journey;j.schema=XeenSaveFormat::kJourneySchema;j.content=XeenSaveFormat::kJourneyContent;j.context.emplace();
  j.context->day=8;j.context->year=610;j.context->minutes=577;
  for(unsigned i=0;i<30;++i){j.supplements[i].owner=i;auto &v=j.supplements[i].inputs;
   v.luck.emplace();v.resistances.emplace();v.poisonResistance.emplace();s.characters[i].learnedSpells.emplace();}
@@ -147,8 +149,6 @@ inline XeenSaveSnapshot sample() {
 	s.disabledEvents = {{2, 0}, {3, 1}, {9999, 0xffffffffU}};
 	return s;
 }
-
-
 
 inline void put32(Bytes &bytes, std::size_t offset, std::uint32_t value) {
 	for (unsigned i = 0; i < 4; ++i) bytes.at(offset + i) = static_cast<std::uint8_t>(value >> (i * 8));
@@ -218,8 +218,6 @@ inline void distinctiveInitialItems(XeenRoster &roster) {
 		}
 	}
 }
-
-
 
 } // namespace save_test
 #endif

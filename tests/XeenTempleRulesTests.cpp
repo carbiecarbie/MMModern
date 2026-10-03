@@ -31,16 +31,8 @@ int main() {
 			zeroHp.outcome==XeenTempleHealOutcome::Quoted,
 			"original zero-maximum-HP quote was rejected");
 		c.conditions[13]=0;
-		for(unsigned legacy=8;legacy<=13;++legacy) {
-			const auto &content=xeenJourneyContent(legacy);
-			for(int y=1;y<=4;++y)
-				check(content.vertigoCell(16,y) && !content.eventCameraCell(16,y),
-					"legacy Event camera admitted a cell outside 16-by-16");
-			check(content.eventCameraCell(15,15) && !content.eventCameraCell(15,16) &&
-				!content.eventCameraCell(15,28),"legacy Event camera bound changed");
-		}
 		for(int y=0;y<32;++y)for(int x=0;x<32;++x)
-			check(xeenJourneyContent(14).eventCameraCell(x,y)==xeenJourneyContent(14).vertigoCell(x,y),
+			check(xeenJourneyContent().eventCameraCell(x,y)==xeenJourneyContent().vertigoCell(x,y),
 				"Temple Event camera differs from its route");
         for(unsigned cls=0;cls<10;++cls)for(unsigned permanent:{1u,3u,9u,255u})
             for(unsigned temporary:{0u,1u,255u}) {
@@ -70,12 +62,12 @@ int main() {
         const auto economy=completeEconomy();const XeenJourneyRandomState random{1,7,886};
         for(unsigned day:{8u,9u,10u,11u,19u,20u,97u,98u}) {
             context.day=day;
-            XeenServiceDayCandidate unpaid(context,economy,random,14);finish(unpaid);
+            XeenServiceDayCandidate unpaid(context,economy,random);finish(unpaid);
             check(unpaid.context().day==day+1 &&
                 unpaid.triggered()==((day+1)%10==1),"unpaid Temple date/trigger differs");
             if(day==98){rejects([&]{unpaid.upgradeTemplePaid();});continue;}
             XeenServiceDayCandidate paid=unpaid.upgradeTemplePaid();finish(paid);
-            XeenServiceDayCandidate direct(context,economy,random,14,XeenScriptServiceCharge::TemplePaid);
+            XeenServiceDayCandidate direct(context,economy,random,XeenScriptServiceCharge::TemplePaid);
             finish(direct);
             check(paid.context().day==day+2 && paid.triggered() &&
                 paid.context()==direct.context() && paid.economy()==direct.economy() &&
@@ -84,9 +76,7 @@ int main() {
             if(unpaid.triggered())check(paid.continuation()==unpaid.continuation(),
                 "already-generated reservation was redrawn");
         }
-        context.day=99;rejects([&]{XeenServiceDayCandidate unsupported(context,economy,random,14);});
-        context.day=8;rejects([&]{XeenServiceDayCandidate legacy(context,economy,random,13,
-            XeenScriptServiceCharge::TemplePaid);});
+        context.day=99;rejects([&]{XeenServiceDayCandidate unsupported(context,economy,random);});
         std::cout<<"Temple quote and one/two-day complete-reservation matrix passed\n";return 0;
     } catch(const std::exception &error){std::cerr<<error.what()<<'\n';return 1;}
 }

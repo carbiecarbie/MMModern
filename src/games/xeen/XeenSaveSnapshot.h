@@ -41,8 +41,6 @@ struct XeenSaveCombatSupplement {
 	XeenCombatInputs inputs;
 };
 
-
-
 struct XeenSaveJourneyActor {
 	XeenMonsterIdentity id;
 	int x = 0, y = 0;
@@ -55,7 +53,7 @@ struct XeenSaveJourneyActor {
 
 struct XeenSaveJourney {
 	XeenEncounterEntry entry = XeenEncounterEntry::Journey;
-	std::uint16_t schema = 1, contract = 1;
+	std::uint16_t schema = 1, content = 1;
 	std::optional<XeenGameplayContext> context;
 	std::array<XeenSaveCombatSupplement, 30> supplements{};
 	std::uint32_t skeletonSeed = 0;
@@ -63,7 +61,7 @@ struct XeenSaveJourney {
 	XeenMapIdentity initializedMap{XeenSide::Clouds, 20};
 	std::uint16_t originalActorCount = 27;
 	std::vector<XeenSaveJourneyActor> actors;
-	// Content 8 retains the optional second region independently of the camera.
+	// The optional Vertigo region is retained independently of the camera.
 	std::optional<std::vector<XeenSaveJourneyActor>> vertigoActors;
 	std::optional<XeenMonsterTreasure> treasure;
 	std::optional<XeenRegionalRecoveryState> regionalRecovery;

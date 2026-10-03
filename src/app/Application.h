@@ -33,13 +33,11 @@ public:
 	// already been resolved/checked against the installation by gameplay().
 	int playGameplay(const XeenGameplayServices &, XeenCamera,
 		const std::optional<std::filesystem::path> &target, bool resume,
-		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary, std::optional<std::uint32_t> seed = {},
-		std::optional<std::uint16_t> journeyContract = {}) const;
+		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary, std::optional<std::uint32_t> seed = {}) const;
 private:
 	int gameplay(const std::filesystem::path &, XeenCamera,
 		const std::optional<std::filesystem::path> &, bool resume,
-		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary, std::optional<std::uint32_t> seed = {},
-		std::optional<std::uint16_t> journeyContract = {}) const;
+		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary, std::optional<std::uint32_t> seed = {}) const;
 };
 
 } // namespace mmodern

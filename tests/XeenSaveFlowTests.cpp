@@ -13,7 +13,7 @@ void olderPolicy(const fs::path &path){
  services.show=[&](const auto&,const auto&,const auto&,const auto&,const auto&){shown=true;return true;};
  check(Application().playGameplay(services,{},path,true)==3&&!shown&&diskBytes(path)==old,"older startup published or rewrote file");
  services.show=[&](const auto&,const auto &handle,const auto&,const auto&,const auto &status){f.present(handle);f.send(handle,SaveGameAction{});check(status().find("Saved")!=std::string::npos,"F9 older overwrite failed");sameSnapshot(f.capture(),XeenSaveFile::read(path));return true;};
- check(Application().playGameplay(services,{},path,false,XeenEncounterEntry::Journey,1,14)==0,"fresh Journey older overwrite");
+ check(Application().playGameplay(services,{},path,false,XeenEncounterEntry::Journey,1)==0,"fresh Journey older overwrite");
 }
 void startup(const fs::path &path){
  std::vector<Bytes> frames;
@@ -56,7 +56,7 @@ void failures(const fs::path &path){
  }
  fs::remove(path);regional_save_test::Fixture f;auto services=f.services();
  services.show=[&](const auto&,const auto &h,const auto&,const auto&,const auto &status){f.present(h);writeBytes(path,{'u','n','k','n','o','w','n'});const auto old=diskBytes(path);f.send(h,SaveGameAction{});check(status().find("Save failed")!=std::string::npos&&diskBytes(path)==old,"unknown destination protection");f.send(h,NavigationAction::TurnRight);fs::remove(path);f.send(h,SaveGameAction{});check(XeenSaveFile::read(path).camera.direction==XeenDirection::North,"write failure stopped current gameplay");return true;};
- check(Application().playGameplay(services,{},path,false,XeenEncounterEntry::Journey,1,14)==0,"recoverable current write failure");
+ check(Application().playGameplay(services,{},path,false,XeenEncounterEntry::Journey,1)==0,"recoverable current write failure");
 }
 void pending(const fs::path &path){
  for(int kind=0;kind<7;++kind){
@@ -130,7 +130,7 @@ void currentSaveBoundary(const fs::path &path){
   check(diskBytes(path)==initial&&f.flow->frame().pixels==pixels,"F9 changed current durable or presentation state");
   const auto n=f.phases.size();idle();check(f.phases.size()==n,"F9 moved deadline earlier");f.now=200;idle();f.present(h);check(f.phases.back()==2&&XeenSaveFormat::encode(f.capture())==initial,"F9 rearmed deadline");return true;
  };
- check(Application().playGameplay(services,{},path,false,XeenEncounterEntry::Journey,1,14)==0,"current save animation boundary");
+ check(Application().playGameplay(services,{},path,false,XeenEncounterEntry::Journey,1)==0,"current save animation boundary");
  regional_save_test::Fixture restored;restored.now=500;auto resumed=restored.services();
  resumed.show=[&](const auto &first,const auto &h,const auto&,const auto &idle,const auto&){restored.present(h);check(first.pixels[20]==0&&restored.phases==std::vector<std::uint64_t>({0,0}),"restored phase/preflight");idle();restored.present(h);check(restored.phases.back()==1,"restored first idle tick");restored.now=599;const auto n=restored.phases.size();idle();check(restored.phases.size()==n,"restored early deadline");restored.now=600;idle();restored.present(h);check(restored.phases.back()==2,"restored scheduled tick");return true;};
  check(Application().playGameplay(resumed,{},path,true)==0&&diskBytes(path)==initial,"current restored startup changed file");

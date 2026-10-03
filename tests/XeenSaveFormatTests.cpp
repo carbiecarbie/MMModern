@@ -132,8 +132,6 @@ void asymmetricBase() {
 	}
 }
 
-
-
 void completeRoundTrips() {
 	auto s = sample();
 	for (const auto &ids : std::vector<std::vector<std::uint8_t>>{
@@ -318,9 +316,6 @@ void fingerprints() {
 
 // Synthetic wire-only owners: no original resources or gameplay injection.
 
-
-
-
 void rejectedVersions() {
  for(unsigned version:{0u,1u,2u,3u,5u,65535u}) {
   auto bytes=golden();bytes[8]=version;bytes[9]=version>>8;
@@ -332,8 +327,8 @@ void rejectedVersions() {
  const auto good=currentWireSnapshot();const auto wire=XeenSaveFormat::encode(good);const auto start=wire.size()-4278;
  for(unsigned schema=0;schema<=11;++schema)for(unsigned content=0;content<=15;++content) {
   if(schema==9 && content==14)continue;
-  auto s=good;s.journey->schema=schema;s.journey->contract=content;
-  const char *message=xeenSupportedJourneyPair(schema,content)?"no longer supported":"newer or unsupported";
+  auto s=good;s.journey->schema=schema;s.journey->content=content;
+  const char *message=((schema>=1 && schema<=8 && schema==content) || (schema==8 && (content==9 || content==10)) || (schema==9 && content>=11 && content<=13))?"no longer supported":"newer or unsupported";
   rejects([&]{XeenSaveFormat::validate(s);},message);
   rejects([&]{XeenSaveFormat::encode(s);},message);
   auto bytes=wire;bytes[start+1]=schema;bytes[start+3]=content;fixIndependentEnvelope(bytes);
@@ -345,7 +340,7 @@ void regionalCityWire() {
  for(unsigned i=0;i<46;++i){XeenSaveJourneyActor a;a.id={28,i};city.journey->vertigoActors->push_back(a);}
  for(unsigned y=0;y<32;++y)for(unsigned x=0;x<32;++x) {
   city.camera={28,static_cast<int>(x),static_cast<int>(y),XeenDirection::North};
-  if(xeenJourneyContent(14).vertigoCell(x,y)) roundTrip(city);
+  if(xeenJourneyContent().vertigoCell(x,y)) roundTrip(city);
   else rejects([&]{XeenSaveFormat::encode(city);});
  }
  city.camera={28,8,4,XeenDirection::West};
@@ -472,7 +467,7 @@ void purchaseDepletedWireContract() {
 		const auto bytes=XeenSaveFormat::encode(state);sameSnapshot(state,XeenSaveFormat::decode(bytes));
 	}
 	for(unsigned legacy:{11u,12u}) {
-		auto rejected=state;rejected.journey->contract=legacy;
+		auto rejected=state;rejected.journey->content=legacy;
 		rejects([&]{XeenSaveFormat::encode(rejected);});
 		auto bytes=depleted;bytes[start+3]=legacy;fixIndependentEnvelope(bytes);
 		rejects([&]{XeenSaveFormat::decode(bytes);});
@@ -496,12 +491,12 @@ void templeWireContract() {
 		state.camera={28,15,static_cast<int>(y),XeenDirection::North};
 		const auto bytes=XeenSaveFormat::encode(state);
 		const auto decoded=XeenSaveFormat::decode(bytes);
-		check(decoded.journey->schema==9 && decoded.journey->contract==14 &&
+		check(decoded.journey->schema==9 && decoded.journey->content==14 &&
 			decoded.camera.mapId==state.camera.mapId && decoded.camera.x==state.camera.x &&
 			decoded.camera.y==state.camera.y && decoded.camera.direction==state.camera.direction &&
 			XeenSaveFormat::encode(decoded)==bytes,
 			"M43 Temple corridor did not round-trip as schema 9/content 14");
-		auto legacy=state;legacy.journey->contract=13;
+		auto legacy=state;legacy.journey->content=13;
 		rejects([&]{XeenSaveFormat::encode(legacy);});
 	}
 }
@@ -511,7 +506,7 @@ void templeWireContract() {
 int main() {
 	try {
 		wireContract(); asymmetricBase();  completeRoundTrips(); numericDomains(); malformedBytes(); invalidValuesAndLimits(); fingerprints(); rejectedVersions(); regionalCityWire(); serviceEconomyWireContract(); purchaseDepletedWireContract(); templeWireContract();
-		std::cout << "Current save format: wire contract, all modeled values, domains, malformed input and fingerprints passed\n";
+		std::cout << "Current save format: wire content, all modeled values, domains, malformed input and fingerprints passed\n";
 		return 0;
 	} catch (const std::exception &error) {
 		std::cerr << error.what() << '\n'; return 1;

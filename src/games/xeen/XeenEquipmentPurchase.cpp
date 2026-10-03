@@ -29,9 +29,9 @@ std::optional<std::uint32_t> xeenEquipmentPurchasePrice(XeenInventoryCategory ca
     return static_cast<std::uint32_t>(std::max<std::uint64_t>(1,base/1));
 }
 XeenEquipmentPurchaseResult xeenQuoteEquipmentPurchase(const XeenPartyState &party,std::size_t member,
-        XeenInventoryCategory category,std::size_t slot,std::uint16_t content,unsigned side,unsigned shop) {
-    if(content!=13 && content!=14)throw std::invalid_argument("Equipment Buy requires Journey content 13 or 14");
-    xeenValidateJourneyParty(party,content);
+        XeenInventoryCategory category,std::size_t slot,unsigned side,unsigned shop) {
+
+    xeenValidateJourneyParty(party);
     XeenEquipmentPurchaseResult r;r.category=category;
     r.goldBefore=r.goldAfter=party.monsterTreasure->gold;
     if(member>=party.party.size()){r.outcome=XeenEquipmentPurchaseOutcome::InvalidParticipant;return r;}
@@ -56,9 +56,9 @@ XeenEquipmentPurchaseResult xeenQuoteEquipmentPurchase(const XeenPartyState &par
     return r;
 }
 XeenEquipmentPurchaseCandidate xeenPrepareEquipmentPurchase(const XeenPartyState &party,std::size_t member,
-        XeenInventoryCategory category,std::size_t slot,std::uint16_t content,unsigned side,unsigned shop) {
+        XeenInventoryCategory category,std::size_t slot,unsigned side,unsigned shop) {
     XeenEquipmentPurchaseCandidate candidate;
-    auto &r=candidate.result;r=xeenQuoteEquipmentPurchase(party,member,category,slot,content,side,shop);
+    auto &r=candidate.result;r=xeenQuoteEquipmentPurchase(party,member,category,slot,side,shop);
     candidate.economyBefore=candidate.economyAfter=*party.serviceEconomy;
     if(r.outcome!=XeenEquipmentPurchaseOutcome::Quoted)return candidate;
     if(r.goldBefore<r.price){r.outcome=XeenEquipmentPurchaseOutcome::InsufficientGold;return candidate;}
@@ -70,7 +70,7 @@ XeenEquipmentPurchaseCandidate xeenPrepareEquipmentPurchase(const XeenPartyState
     r.stockAfter[slot]={};xeenCompactItems(r.stockAfter);
     candidate.economyAfter.wares[side][shop][static_cast<unsigned>(category)]=r.stockAfter;
     xeenValidateEquipmentPurchaseEconomyDelta(candidate.economyBefore,candidate.economyAfter,category,slot,r.offer);
-    xeenValidateCurrentServiceEconomy(candidate.economyAfter,content);
+    xeenValidateCurrentServiceEconomy(candidate.economyAfter);
     // All other party fields are unchanged and the original party passed full
     // admission. Validate the only changed character without copying a marked
     // roster or obtaining whole-owner replacement authority.

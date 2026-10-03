@@ -20,17 +20,16 @@ void exact(const XeenEventFile &file,const Site &s) {
 	}
 }
 }
-void xeenValidateVertigoRoute(const XeenEventFile &mainland,const XeenEventFile &city,std::uint16_t content) {
-	if (content<8 || content>14) throw std::invalid_argument("Unsupported Vertigo route content");
+void xeenValidateVertigoRoute(const XeenEventFile &mainland,const XeenEventFile &city) {
 	if(!mainland.resourcePresent || mainland.mapId!=XeenMapIdentity(23) || mainland.records.size()!=170 ||
 		!city.resourcePresent || city.mapId!=XeenMapIdentity(28) || city.records.size()!=847)
 		throw std::invalid_argument("Vertigo Event catalog changed");
-	if (xeenJourneyContent(content).armorRepair()) exact(city,{0,0,8,4,4,0,0x11,{1}});
-	if (xeenJourneyContent(content).training()) {
+	exact(city,{0,0,8,4,4,0,0x11,{1}});
+	{
 		exact(city,{3,23,10,11,4,0,0x11,{5}});
 		exact(city,{538,4464,10,8,0,0,0x02,{32}});
 	}
-	if (xeenJourneyContent(content).templeRecovery()) {
+	{
 		exact(city,{543,4499,15,21,0,0,0x02,{37}});
 		exact(city,{6,44,15,28,4,0,0x11,{4}});
 	}

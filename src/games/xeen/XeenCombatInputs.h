@@ -20,7 +20,7 @@ struct XeenCombatInputs {
 	// Explicit successor input; legacy supplement presence does not supply Luck.
 	XeenMutableOptional<XeenAttributeValue> luck;
 	XeenMutableOptional<XeenCombatResistances> resistances;
-	// Original CHR bytes 317/318. Presence is specific to Journey content 8.
+	// Original CHR bytes 317/318. Required by the current Journey.
 	XeenMutableOptional<XeenAttributeValue> poisonResistance;
 };
 inline constexpr std::array<std::uint8_t,6> kXeenCombatOwners{0,18,14,11,1,6};

@@ -35,7 +35,7 @@ int main(int argc,char **argv) {
         child_test::require(scenario,"Unknown M44 scenario");
         const auto &expected=m44_baseline::scenarios[scenario->digest];
         const auto generator=fs::absolute(argv[2]),witness=fs::absolute(argv[3]),restart=fs::absolute(argv[4]),game=fs::absolute(argv[5]);
-        dir=child_test::freshDirectory(fs::temp_directory_path()/"mmodern-m44-scenario");
+        dir=child_test::freshDirectory(fs::temp_directory_path()/(std::string("mmodern-m44-scenario-")+scenario->key));
         SetEnvironmentVariableW(L"SDL_VIDEODRIVER",L"dummy");
         SetEnvironmentVariableW(L"SDL_RENDER_DRIVER",L"software");
         SetEnvironmentVariableW(L"MMODERN_M44_SCENARIO",scenario->environment);

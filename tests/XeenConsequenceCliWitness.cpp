@@ -21,21 +21,20 @@
 #include "games/xeen/XeenRestoreGuard.h"
 using namespace mmodern;
 namespace fs=std::filesystem;
-#define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjES5_ItE"
-extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>,std::optional<std::uint16_t>) asm("__real_" PLAY_SYMBOL);
-extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>,std::optional<std::uint16_t>) asm("__wrap_" PLAY_SYMBOL);
+#define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjE"
+extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__real_" PLAY_SYMBOL);
+extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__wrap_" PLAY_SYMBOL);
 
 namespace {
 void check(bool v,const char *m) { if(!v) throw std::runtime_error(m); }
 }
 extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &original,XeenCamera camera,
- const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract) {
+ const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,std::optional<std::uint32_t> seed) {
  try {
   if(std::getenv("MMODERN_M35_STAGE")) {
-   const auto m35Contract=resume?contract:std::optional<std::uint16_t>{14};
    if(!resume)seed=3626689381u;
-   return runM35CliWitness(original,target,resume,seed,m35Contract,[&](const XeenGameplayServices &services) {
-    return realPlay(app,services,camera,target,resume,entry,seed,m35Contract);
+   return runM35CliWitness(original,target,resume,seed,[&](const XeenGameplayServices &services) {
+    return realPlay(app,services,camera,target,resume,entry,seed);
    });
   }
   std::function<void(std::uint64_t)> drawFault;
@@ -211,7 +210,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
      }
      if(cursor==route.size()) {
       check(!checkpointFile||checkpointObserved,"Uninterrupted checkpoint marker was reached");
-      if(route=="LUUURUUUURU")check(automatic==1 && position->x==5 && position->y==9,"Production contract-4 automatic sign");
+      if(route=="LUUURUUUURU")check(automatic==1 && position->x==5 && position->y==9,"Production content-4 automatic sign");
       if(resume && route.empty())check(automatic==0,"Restart must not replay automatic event");
       std::cout<<"AUTOMATIC EVENTS "<<automatic<<'\n';
       if(target) {const auto before=saveCalls;input(SaveGameAction{});check(saveCalls>before&&fs::exists(*target),"F9 entered production provider and wrote save");}
@@ -224,7 +223,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
       if(const auto oracle=std::getenv("MMODERN_M33_ORACLE")) {
        const std::string name=oracle;const auto &j=*snapshot.journey;
        const bool wound=name=="wound",contact=name=="contact";check(wound||contact||name=="ranged","Named fixed oracle");
-       check(j.schema==9 && j.contract==14 && snapshot.camera.x==(contact?7:8) && snapshot.camera.y==11 && snapshot.camera.direction==XeenDirection::West,"Fixed camera and version");
+       check(j.schema==9 && j.content==14 && snapshot.camera.x==(contact?7:8) && snapshot.camera.y==11 && snapshot.camera.direction==XeenDirection::West,"Fixed camera and version");
        check(j.context->minutes==(wound?500:contact?511:510) && j.context->ctr24==(contact?2:1),"Fixed clock oracle");
        check(j.random->state==(wound?0x4a767d04u:contact?0x692b3851u:0xb8d3b48au) && j.random->count==(wound?8:contact?22:14),"Fixed RNG oracle");
        const std::array<int,6> hp{36,contact?43:48,36,40,21,15};
@@ -313,8 +312,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    throw std::runtime_error("Gameplay witness service bound");
    }catch(...){if(drawFaultFired){verifyFailedUnit();const auto before=saveCalls;handler.withDisplayedInput(SaveGameAction{},*handler.displayedInput());check(saveCalls==before,"Failed F9 entered providers");std::cout<<"ARTIFICIAL RAW-DRAW FAILURE ATOMICITY PASS "<<failDraw<<'\n';return false;}throw;}
   };
-  if(!resume)contract=14;
-  check(resume || contract==14,"Fresh production CLI must admit current content");
-  return realPlay(app,services,camera,target,resume,entry,seed,contract);
+  check(resume || entry==XeenEncounterEntry::Journey,"Fresh production CLI must admit the Journey");
+  return realPlay(app,services,camera,target,resume,entry,seed);
  } catch(const std::exception &e) {std::cerr<<"M33 witness: "<<e.what()<<'\n';return 8;}
 }

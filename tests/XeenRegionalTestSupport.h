@@ -75,13 +75,12 @@ inline std::pair<XeenEventFile,XeenEventFile> eventFiles(){
     for(auto *f:{&mainland,&city})for(unsigned i=0;i<f->records.size();++i){
         auto &r=f->records[i];r.fileOffset=i*6;r.lengthField=5;r.x=200;r.y=200;r.direction=4;r.line=i%256;r.opcode=0x12;
     }
-    constexpr unsigned content=14;
-	if (xeenJourneyContent(content).armorRepair()) exact(city,{0,0,8,4,4,0,0x11,{1}});
-	if (xeenJourneyContent(content).training()) {
+	exact(city,{0,0,8,4,4,0,0x11,{1}});
+	{
 		exact(city,{3,23,10,11,4,0,0x11,{5}});
 		exact(city,{538,4464,10,8,0,0,0x02,{32}});
 	}
-	if (xeenJourneyContent(content).templeRecovery()) {
+	{
 		exact(city,{543,4499,15,21,0,0,0x02,{37}});
 		exact(city,{6,44,15,28,4,0,0x11,{4}});
 	}
@@ -147,7 +146,7 @@ struct Fixture{
     std::vector<XeenMonsterRecord> monsters=statistics();
     XeenEventFile event=events(23);
     XeenPartyState p;
-    XeenCamera camera=xeenJourneyContent(14).entry;
+    XeenCamera camera=xeenJourneyContent().entry;
     XeenGameFlags flags;
     std::function<void()> onMap,onObjects;
     std::function<void(XeenMap &)> transformMap;
@@ -161,7 +160,7 @@ struct Fixture{
         }else{
             p=XeenPartyLoader().loadFromResources(bytes,partyBytes());
             const auto r=resources();
-            XeenJourneySetup setup{bytes,XeenGameplayContextFormat::parse(partyBytes()),monsters,event,1,14,r.regionalManifest};
+            XeenJourneySetup setup{bytes,XeenGameplayContextFormat::parse(partyBytes()),monsters,event,1,r.regionalManifest};
             setup.purse=XeenMonsterTreasure{};setup.regionalRecovery=XeenRegionalRecoveryState{};
             setup.regionalText=texts(23);setup.learnedNames=XeenLearnedSpellNames{};
             setup.learnedNamesProvider=r.loadLearnedSpellNames;setup.vertigoManifest=r.vertigoManifest;

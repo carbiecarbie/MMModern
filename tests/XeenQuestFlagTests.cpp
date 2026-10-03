@@ -72,7 +72,7 @@ void valuesAndLoading() {
 	const auto loaded=XeenPartyLoader().loadFromResources(roster,full);
 	check(loaded.questFlags.values()==flags.values() && loaded.questItems.at(17)==7 && loaded.party.size()==2 && loaded.diagnostics.size()>=2,
 		"party loading lost flags/counters/membership diagnostics");
-	check(XeenCharacterFormat::parsePartyHeader(Bytes(full.begin(),full.begin()+10)).effectiveCount==2,"header-only contract");
+	check(XeenCharacterFormat::parsePartyHeader(Bytes(full.begin(),full.begin()+10)).effectiveCount==2,"header-only content");
 	for(int n:{10,746,747,781})rejects([&]{XeenPartyLoader().loadFromResources(roster,Bytes(full.begin(),full.begin()+n));});
 	auto copied=loaded;copied.questFlags.set(1);check(!loaded.questFlags.isSet(1),"party copy aliases flags");
 	check(!party().questFlags.isSet(2),"fresh resource loading inherited flags");

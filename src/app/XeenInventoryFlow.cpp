@@ -220,8 +220,7 @@ void XeenEventFlow::confirmInventory() {
 			_party.roster.at(*s.destinationOwner).rosterId == *s.destinationOwner;
 		if (!ownersValid) _transferResult.status = XeenTransferStatus::InvalidOwner;
 		else if (s.sourceOwner == s.destinationOwner) _transferResult.status = XeenTransferStatus::SameOwner;
-		else if (_inventory.category == s.category && _inventory.slot == s.slot && s.slot &&
-			validInventorySource(true) && xeenSameItem(_inventory.record,s.record))
+		else if (_inventory.category == s.category && _inventory.slot == s.slot && s.slot && validInventorySource(true) && xeenSameItem(_inventory.record,s.record))
 			_transferResult = journey() ? _encounter->journeyTransfer(_encounter->ticket(),s.source,*s.destination,s.category,*s.slot) :
 				xeenTransferItem(_party,s.source,*s.destination,s.category,*s.slot);
 	}
@@ -333,7 +332,6 @@ IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
 		return _frame;
 	} else if (std::holds_alternative<UseItemAction>(action)) {
 		if (!journey() || !_encounter->journeyMutable() ||
-			(_world.sessionState().journeyContract()!=6 && _world.sessionState().journeyContract()!=7 && !xeenJourneyContent(_world.sessionState().journeyContract()).vertigo()) ||
 			!_equipmentSelection || !validEquipmentSelection(*_equipmentSelection) ||
 			_inventory.category!=XeenInventoryCategory::Miscellaneous || !_inventory.sourceOwner ||
 			!_party.roster.at(*_inventory.sourceOwner).canAct() ||

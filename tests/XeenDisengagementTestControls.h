@@ -1,7 +1,7 @@
 // Included by the original-resource controls executable. These are labelled
 // artificial saved arrangements and literal draws, never genuine route evidence.
 XeenSaveSnapshot disengagementFixture(Source &source) {
- Domain fresh(source,{},14);auto saved=fresh.save();
+ Domain fresh(source);auto saved=fresh.save();
  for(auto id:kXeenCombatOwners) {
   saved.characters[id].currentHp=1000;
   saved.journey->supplements[id].inputs.speed={255,0};

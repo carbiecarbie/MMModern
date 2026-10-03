@@ -42,15 +42,15 @@ class XeenJourneyCapture {
 		// guard before any later publication; equal bytes cannot revive its ticket.
 		try { (*preimage)->check(); } catch (...) { return false; }
 		const auto &actors = w->sessionState().actors();
-		const auto expected=w->sessionState().journeyContract()>=3 ? 19u : 27u;
+		const auto expected=19u;
 		if (actors.size() != expected || admittedActors.size() != expected) return false;
 		for (unsigned i = 0; i < expected; ++i)
-			if (!xeenJourneyContent(w->sessionState().journeyContract()).influences(i) && !xeen_state::sameActor(actors[i],admittedActors[i])) return false;
+			if (!xeenJourneyContent().influences(i) && !xeen_state::sameActor(actors[i],admittedActors[i])) return false;
 		for (auto id:w->sessionState().accountedMonsters())
-			if (id.mapId!=xeenJourneyContent(w->sessionState().journeyContract()).entry.mapId &&
-				!(xeenJourneyContent(w->sessionState().journeyContract()).vertigo() && id.mapId==XeenMapIdentity(28) &&
+			if (id.mapId!=xeenJourneyContent().entry.mapId &&
+				!(id.mapId==XeenMapIdentity(28) &&
 					(id.recordIndex==35 || id.recordIndex==36))) return false;
-		if (xeenJourneyContent(w->sessionState().journeyContract()).vertigo() && c->mapId==XeenMapIdentity(28)) {
+		if (c->mapId==XeenMapIdentity(28)) {
 			if (!w->sessionState().hasRegionalActors(28)) return false;
 			try {
 				const auto &city=w->sessionState().regionalActors(28);

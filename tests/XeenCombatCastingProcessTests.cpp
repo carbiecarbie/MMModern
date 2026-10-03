@@ -30,7 +30,7 @@ void equal(const fs::path &a,const fs::path &b) {
     if(left.journey->vertigoActors)equalActors(*left.journey->vertigoActors,*right.journey->vertigoActors);
     child_test::require(left.camera.mapId==right.camera.mapId && left.camera.x==right.camera.x && left.camera.y==right.camera.y &&
         left.camera.direction==right.camera.direction && left.questItems==right.questItems && left.questFlags==right.questFlags &&
-        left.journey->schema==right.journey->schema && left.journey->contract==right.journey->contract &&
+        left.journey->schema==right.journey->schema && left.journey->content==right.journey->content &&
         left.journey->initializedMap==right.journey->initializedMap && left.journey->originalActorCount==right.journey->originalActorCount &&
         left.journey->regionalRecovery==right.journey->regionalRecovery,"M39 camera/domain/recovery/quest comparison differs");
     child_test::require(left.journey->random==right.journey->random && left.journey->context==right.journey->context &&
@@ -62,7 +62,7 @@ int main(int argc,char **argv) {
         };
         const auto a=run("A","A","fresh");
         const auto orc=XeenSaveFile::read(dir/"A-A.mmsave");
-        child_test::require(orc.journey && orc.journey->schema==schema && orc.journey->contract==content && orc.characters[1].currentSp==20 &&
+        child_test::require(orc.journey && orc.journey->schema==schema && orc.journey->content==content && orc.characters[1].currentSp==20 &&
             orc.characters[6].currentSp==25 && orc.journey->actors[9].accounted && orc.journey->actors[9].hp==0 &&
             orc.journey->treasure->gold==810 && orc.journey->context->minutes==511 && orc.journey->context->ctr24==2 &&
             orc.journey->random->state==82049198u && orc.journey->random->count==14,"M39 genuine Orc Quiet checkpoint differs");
@@ -81,7 +81,7 @@ int main(int argc,char **argv) {
             const auto fresh=run(branch,branch,"fresh");
             const bool waking=std::string(branch)=="B";
             const auto settled=XeenSaveFile::read(dir/(std::string(branch)+"-"+branch+".mmsave"));
-            child_test::require(settled.journey->schema==schema && settled.journey->contract==content &&
+            child_test::require(settled.journey->schema==schema && settled.journey->content==content &&
                 settled.camera.mapId==XeenMapIdentity(23) && settled.camera.x==10 && settled.camera.y==12 &&
                 settled.journey->context->minutes==(waking?592:591) && settled.journey->context->ctr24==16 &&
                 settled.characters[1].currentSp==(waking?20:21) && settled.characters[6].currentSp==(waking?26:25) &&

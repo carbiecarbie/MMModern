@@ -37,16 +37,14 @@ extern "C" int __wrap_SDL_RenderCopy(SDL_Renderer *renderer,SDL_Texture *texture
 XeenBankBalances realInterest(const XeenBankBalances &) asm("__real_" M40_INTEREST_SYMBOL);
 XeenBankBalances wrappedInterest(const XeenBankBalances &) asm("__wrap_" M40_INTEREST_SYMBOL);
 XeenBankBalances wrappedInterest(const XeenBankBalances &bank) {probe_fired::hit("xeenPrepareBankInterest");++interestOperations;return realInterest(bank);}
-#define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjES5_ItE"
-extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>,std::optional<std::uint16_t>) asm("__real_" PLAY_SYMBOL);
-extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>,std::optional<std::uint16_t>) asm("__wrap_" PLAY_SYMBOL);
+#define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjE"
+extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__real_" PLAY_SYMBOL);
+extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__wrap_" PLAY_SYMBOL);
 static const probe_fired::Expect playProbe{"Application::playGameplay","SDL_RenderCopy","SDL_UpdateTexture"};
 extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &original,XeenCamera camera,
  const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,
- std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract) {probe_fired::hit("Application::playGameplay");if(!resume)for(const char *probe:{"XEEN_REPLAY_COMMAND","XEEN_REPLAY_DRAW","XEEN_REPLAY_JOURNEY_CONSTRUCT","XEEN_REPLAY_REGIONAL_MOVE","XEEN_REPLAY_SERVICE","XEEN_REPLAY_TIME","XEEN_REPLAY_RETIRE","XEEN_REPLAY_MOVE","XEEN_REPLAY_EVENT_BEGIN","XEEN_REPLAY_FRESH_PUBLICATION_INITIALIZE","xeenPrepareBankInterest"})probe_fired::expect(probe);
+ std::optional<std::uint32_t> seed) {probe_fired::hit("Application::playGameplay");if(!resume)for(const char *probe:{"XEEN_REPLAY_COMMAND","XEEN_REPLAY_DRAW","XEEN_REPLAY_JOURNEY_CONSTRUCT","XEEN_REPLAY_REGIONAL_MOVE","XEEN_REPLAY_SERVICE","XEEN_REPLAY_TIME","XEEN_REPLAY_RETIRE","XEEN_REPLAY_MOVE","XEEN_REPLAY_EVENT_BEGIN","XEEN_REPLAY_FRESH_PUBLICATION_INITIALIZE","xeenPrepareBankInterest"})probe_fired::expect(probe);
     const auto stage=env("MMODERN_M40_STAGE","fresh"),branch=env("MMODERN_M40_BRANCH","production"),control=env("MMODERN_M40_CONTROL");
-    const unsigned content=14;
-    if(!resume)contract=content;
     if(resume) {
         replay_test::journeyInitializations=replay_test::journeyConstructions=0;
         replay_test::actions=replay_test::pulses=replay_test::retirements=0;
@@ -148,7 +146,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     };
     services.show=[&](const IndexedFrame &first,const auto &handler,const auto &escape,const auto &idle,const auto &status) {
         check(flow && world && party && position && flags && target,"M40 production owners absent");
-        check(world->sessionState().journeyContract()==content && party->serviceEconomy,"M40 witness content/economy differs");
+        check(world->sessionState().journey() && party->serviceEconomy,"M40 witness content/economy differs");
         std::deque<std::function<bool()>> steps;std::optional<IndexedFrame> next;IndexedFrame::Presentation presented;
         bool shown=false,acted=false,breakArmor=false;unsigned blocks=0,iterations=0;
         const auto snapshot=[&]{return XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world);};
@@ -453,5 +451,5 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         }
         return ok;
     };
-    return realPlay(app,services,camera,target,resume,entry,seed,contract);
+    return realPlay(app,services,camera,target,resume,entry,seed);
 }

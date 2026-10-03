@@ -64,7 +64,7 @@ void valueAndLoading() {
 		"full party loader lost counters or member order");
 	rejects([&] { XeenPartyLoader().loadFromResources(roster, Bytes(bytes.begin(), bytes.begin() + 781)); });
 	check(XeenCharacterFormat::parsePartyHeader(Bytes(bytes.begin(), bytes.begin() + 10)).effectiveCount == 1,
-		"header-only parser contract changed");
+		"header-only parser content changed");
 }
 
 struct Fixture {

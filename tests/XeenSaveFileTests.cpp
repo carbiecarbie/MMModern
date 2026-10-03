@@ -184,7 +184,7 @@ void legacyReplacement(const fs::path &path) {
  std::vector<Bytes> older{nonzeroLegacy()};
  for(unsigned version:{2u,3u}){auto bytes=wire;bytes[8]=version;older.push_back(bytes);}
  const auto suffix=wire.size()-4278;
- for(unsigned content=1;content<14;++content){auto bytes=wire;bytes[suffix+1]=xeenJourneyContent(content).schema();bytes[suffix+3]=content;fixIndependentEnvelope(bytes);older.push_back(bytes);}
+ for(unsigned content=1;content<14;++content){auto bytes=wire;bytes[suffix+1]=legacyJourneySchema(content);bytes[suffix+3]=content;fixIndependentEnvelope(bytes);older.push_back(bytes);}
  for(const auto &old:older) {
   put(path,old);rejects([&]{XeenSaveFile::read(path);},"no longer supported");check(raw(path)==old,"older read mutated disk");
   using Op=XeenSaveFile::Operation;
@@ -207,7 +207,6 @@ void legacyReplacement(const fs::path &path) {
  }
  put(path,wire);
 }
-
 
 int main(int argc,char **argv) {
  try {

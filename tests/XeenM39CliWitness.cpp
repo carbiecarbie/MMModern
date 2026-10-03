@@ -57,9 +57,9 @@ extern "C" XeenCombatResult realService(XeenCombat *,const XeenCombat::Ticket &,
 extern "C" XeenCombatResult wrapService(XeenCombat *,const XeenCombat::Ticket &,std::uint64_t) asm("__wrap_" CAST_SERVICE);
 extern "C" XeenCombatResult wrapService(XeenCombat *c,const XeenCombat::Ticket &t,std::uint64_t n){probe_fired::hit("XeenCombat::serviceCast");++castServices;return realService(c,t,n);}
 
-#define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjES5_ItE"
-extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>,std::optional<std::uint16_t>) asm("__real_" PLAY_SYMBOL);
-extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>,std::optional<std::uint16_t>) asm("__wrap_" PLAY_SYMBOL);
+#define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjE"
+extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__real_" PLAY_SYMBOL);
+extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__wrap_" PLAY_SYMBOL);
 namespace {
 void check(bool v,const char *m){if(!v)throw std::runtime_error(m);}
 std::string env(const char *key,const char *fallback=""){const auto p=std::getenv(key);return p?p:fallback;}
@@ -84,7 +84,7 @@ void checkRestoredFields(const XeenSaveSnapshot &disk,const XeenSaveSnapshot &li
         disk.camera.mapId==live.camera.mapId && disk.camera.x==live.camera.x && disk.camera.y==live.camera.y &&
         disk.camera.direction==live.camera.direction && disk.questItems==live.questItems && disk.questFlags==live.questFlags &&
         disk.gameFlags==live.gameFlags && disk.disabledEvents==live.disabledEvents && disk.disabledObjects==live.disabledObjects &&
-        a.schema==b.schema && a.contract==b.contract && a.initializedMap==b.initializedMap && a.originalActorCount==b.originalActorCount &&
+        a.schema==b.schema && a.content==b.content && a.initializedMap==b.initializedMap && a.originalActorCount==b.originalActorCount &&
         a.context==b.context && a.random==b.random && a.treasure==b.treasure && a.regionalRecovery==b.regionalRecovery,
         "M39 pre-input domain/camera/context/flags/treasure/RNG mismatch");
 }
@@ -94,9 +94,8 @@ void checkRestoredFields(const XeenSaveSnapshot &disk,const XeenSaveSnapshot &li
 static const probe_fired::Expect playProbe{"Application::playGameplay"};
 extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &original,XeenCamera camera,
     const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,
-    std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract) {probe_fired::hit("Application::playGameplay");if(!resume && !(std::getenv("MMODERN_M39_CONTROL") && *std::getenv("MMODERN_M39_CONTROL")))for(const char *probe:{"XEEN_REPLAY_COMMAND","XEEN_REPLAY_DRAW","XEEN_REPLAY_JOURNEY_CONSTRUCT","XEEN_REPLAY_REGIONAL_MOVE","XEEN_REPLAY_SERVICE","XEEN_REPLAY_TIME","SDL_RenderCopy","SDL_UpdateTexture","SDL_PollEvent","SDL_WaitEventTimeout","SDL_FilterEvents","XeenCombat::beginCast","XeenCombat::respondCast","XeenCombat::serviceCast"})probe_fired::expect(probe);
+    std::optional<std::uint32_t> seed) {probe_fired::hit("Application::playGameplay");if(!resume && !(std::getenv("MMODERN_M39_CONTROL") && *std::getenv("MMODERN_M39_CONTROL")))for(const char *probe:{"XEEN_REPLAY_COMMAND","XEEN_REPLAY_DRAW","XEEN_REPLAY_JOURNEY_CONSTRUCT","XEEN_REPLAY_REGIONAL_MOVE","XEEN_REPLAY_SERVICE","XEEN_REPLAY_TIME","SDL_RenderCopy","SDL_UpdateTexture","SDL_PollEvent","SDL_WaitEventTimeout","SDL_FilterEvents","XeenCombat::beginCast","XeenCombat::respondCast","XeenCombat::serviceCast"})probe_fired::expect(probe);
     const auto branch=env("MMODERN_M39_BRANCH","A"),stage=env("MMODERN_M39_STAGE","fresh"),control=env("MMODERN_M39_CONTROL");
-    if(!resume)contract=14;
     const bool seededControl=branch!="B" && branch!="C";
     const unsigned rngOffset=seededControl?0:886;
     if(!resume && !seededControl)seed=3626689381u;
@@ -158,7 +157,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             };
             return m39CastControls(control,first,handler,idle,*flow,*world,*party,*position,*flags,*target,now,cycle,providers,saves,resourceFault,renderFault,mutate);
         }
-        check(world->sessionState().journeyContract()==14,"M39 content selection mismatch");
+        check(world->sessionState().journey(),"M39 content selection mismatch");
         std::deque<std::function<bool()>> steps;std::optional<IndexedFrame> next;
         bool shown=false,acted=false;unsigned iterations=0,arrowProjectiles=0;
         const auto act=[&](PlayerAction a) {
@@ -451,10 +450,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             XeenSaveFile::write(*target,fixture);
             return true;
         };
-        const auto prepared=realPlay(app,setup,camera,target,false,entry,7,14);
+        const auto prepared=realPlay(app,setup,camera,target,false,entry,7);
         check(prepared==0,"M39 current synthetic cursor fixture preparation failed");
         std::cout<<"M39 CURRENT-FORMAT SYNTHETIC CURSOR CONTROL\n";
-        return realPlay(app,services,camera,target,true,XeenEncounterEntry::Ordinary,std::nullopt,std::nullopt);
+        return realPlay(app,services,camera,target,true,XeenEncounterEntry::Ordinary,std::nullopt);
     }
-    return realPlay(app,services,camera,target,resume,entry,seed,contract);
+    return realPlay(app,services,camera,target,resume,entry,seed);
 }

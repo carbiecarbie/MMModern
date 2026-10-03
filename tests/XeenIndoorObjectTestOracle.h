@@ -7,7 +7,7 @@
 
 namespace indoor_object_test {
 
-// Test-owned transcription of the Milestone 23 placement contract. This table
+// Test-owned transcription of the Milestone 23 placement content. This table
 // deliberately has no dependency on XeenIndoorSceneTables.h.
 struct PlacementSpec {
 	int query;

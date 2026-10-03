@@ -177,7 +177,7 @@ void playerRayControls(Source &s) {
 // M34 fixtures below deliberately alter saved representations for rare authority
 // boundaries. They never stand in for the genuine production Run witnesses.
 XeenSaveSnapshot runAuthorityFixture(Source &s,bool occupied=false) {
- Domain initial(s);auto saved=initial.save();saved.journey->schema=9;saved.journey->contract=14;
+ Domain initial(s);auto saved=initial.save();saved.journey->schema=9;saved.journey->content=14;
  for(unsigned slot=0;slot<6;++slot) {
   const auto id=kXeenCombatOwners[slot];saved.journey->supplements[id].inputs.speed={slot?1:255,0};
   if(slot) {saved.characters[id].currentHp=0;saved.characters[id].conditions[12]=1;}

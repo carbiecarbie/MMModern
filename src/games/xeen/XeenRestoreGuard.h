@@ -52,7 +52,7 @@ public:
 		const auto &live = w._sessionState;
 		if (live._journeyActivity != s._journeyActivity || live._journeyOwner != s._journeyOwner ||
 			live._journeyGeneration != s._journeyGeneration || live._skeletonSeed != s._skeletonSeed ||
-			live._journeyContract != s._journeyContract || live._journeyRandom != s._journeyRandom ||
+			live._journeyRandom != s._journeyRandom ||
 			live._accountedMonsters != s._accountedMonsters) return false;
 		if (live._combatOwner != s._combatOwner || live._combatApproachState != s._combatApproachState ||
 			live._combatEntered != s._combatEntered ||
@@ -218,7 +218,7 @@ private:
 	// revisions. Copy its exact detached successor before irreversible stores;
 	// resource retention and all range allocation already precede this method.
 	void prepareFreshJourneyPublication(const XeenPartyState &candidate,
-		const std::vector<XeenActor> &actors, std::uint16_t contract, std::uint32_t seed,
+		const std::vector<XeenActor> &actors,
 		const std::optional<XeenJourneyRandomState> &random) {
 		check();
 		characters=candidate.roster.characters();
@@ -230,7 +230,7 @@ private:
 		first=candidate.firstSerializedCount;effective=candidate.effectiveSerializedCount;diagnostics=candidate.diagnostics;
 		s._actors=actors;s._entry=XeenEncounterEntry::Journey;
 		s._encounterMarked=s._encounterInitialized=true;s._encounterRevision=1;
-		s._journeyContract=contract;s._skeletonSeed=contract==1?seed:0;s._journeyRandom=random;
+		s._skeletonSeed=0;s._journeyRandom=random;
 		prepareMutationRanges();
 	}
 	// Prepare a final-destination preimage before publication. Only the private

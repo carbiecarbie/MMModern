@@ -117,7 +117,7 @@ private:
 	XeenMutableArray<bool,kCount> _values{};
 };
 
-// The one original world bit admitted by the connected regional recovery contract.
+// The one original world bit admitted by the connected regional recovery path.
 struct XeenRegionalRecoveryState {
 	XeenMutable<bool> worldFlag16 = false;
 	friend bool operator==(XeenRegionalRecoveryState a, XeenRegionalRecoveryState b) noexcept {
@@ -137,7 +137,7 @@ struct XeenPartyState {
 	// Only explicit encounter preparation installs this; ordinary loading/restoration does not.
 	XeenMutableOptional<XeenGameplayContext> encounterContext;
 	XeenMutableOptional<XeenMonsterTreasure> monsterTreasure;
-	// Only the explicit content-11 lifecycle installs merchant stock/shared bank.
+	// The fresh Journey lifecycle installs merchant stock/shared bank.
 	XeenMutableOptional<XeenServiceEconomy> serviceEconomy;
 	XeenRoster roster;
 	XeenParty party;

@@ -144,7 +144,7 @@ XeenIndoorScene::sampleWalls(XeenWorld &world, const XeenCamera &camera) const {
 		throw std::runtime_error("XeenIndoorScene requires an indoor map");
 	if (map.identity() != camera.mapId)
 		throw std::runtime_error("camera and map identities differ");
-	const bool city=world.regionalContract8() && camera.mapId==XeenMapIdentity(28);
+	const bool city=world.regionalJourney() && camera.mapId==XeenMapIdentity(28);
 	if (camera.x < 0 || camera.x >= (city?32:16) || camera.y < 0 || camera.y >= (city?32:16))
 		throw std::runtime_error("camera is outside the indoor map");
 
@@ -453,7 +453,7 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 					xeen_indoor_scene_tables::kScreenPositioningX[direction][placement.query];
 				const int sourceY = camera.y +
 					xeen_indoor_scene_tables::kScreenPositioningY[direction][placement.query];
-				const bool city=world.regionalContract8() && camera.mapId==XeenMapIdentity(28);
+				const bool city=world.regionalJourney() && camera.mapId==XeenMapIdentity(28);
 				if (sourceX < 0 || sourceX >= (city?32:16) || sourceY < 0 || sourceY >= (city?32:16))
 					continue;
 				for (std::size_t recordIndex = 0;
@@ -488,7 +488,7 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 			}
 		}
 	}
-	if (camera.mapId==XeenMapIdentity(28) && world.regionalContract8() &&
+	if (camera.mapId==XeenMapIdentity(28) && world.regionalJourney() &&
 		world.sessionState().hasRegionalActors(28)) {
 		auto actorCommands=buildActors(world,camera,world.sessionState().regionalActors(28),ordinaryPhase,actorFrame);
 		commands.insert(commands.end(),actorCommands.begin(),actorCommands.end());
@@ -496,7 +496,7 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 
     if(actorFrame && actorFrame->projectile) {
         const auto &p=*actorFrame->projectile;
-        if(!world.sessionState().journey() || !xeenJourneyContent(world.sessionState().journeyContract()).combatCasting() || camera.mapId!=XeenMapIdentity(28) || p.enemy || p.row || p.lane || p.distance)
+        if(!world.sessionState().journey() || camera.mapId!=XeenMapIdentity(28) || p.enemy || p.row || p.lane || p.distance)
             throw std::invalid_argument("Unsupported indoor projectile");
         XeenIndoorDrawCommand command;command.originalOrder=162;command.x=72;command.y=43;
         command.sourceMapId=camera.mapId;command.content=XeenIndoorProjectileDraw{};commands.push_back(command);
@@ -537,9 +537,7 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::buildActors(
 				// Queries 29 and 31 share slots 23/25 and draw orders 63/64.
 				if (a.x!=camera.x+xeen_indoor_scene_tables::kScreenPositioningX[direction][g.query] ||
 					a.y!=camera.y+xeen_indoor_scene_tables::kScreenPositioningY[direction][g.query]) continue;
-				if (!(a.id==*id) || !a.statistics ||
-					!(a.original.resourceId==0 ? (a.statistics->validateSlime(),true) : a.statistics->supportsRendering()) ||
-					a.lifecycle!=XeenActorLifecycle::Present || a.status!=XeenActorStatus::Physical)
+				if (!(a.id==*id) || !a.statistics || !(a.original.resourceId==0 ? (a.statistics->validateSlime(),true) : a.statistics->supportsRendering()) || a.lifecycle!=XeenActorLifecycle::Present || a.status!=XeenActorStatus::Physical)
 					throw std::runtime_error("Unsupported selected indoor actor");
 				const bool attacking=appearance.kind==XeenMonsterSpriteKind::Attack &&
 					appearance.identity && *appearance.identity==a.id;

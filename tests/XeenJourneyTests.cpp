@@ -125,8 +125,8 @@ void readinessAndHistory() {
 		XeenEquipmentStatus::Success, "unsupported combat contribution remains equipable Journey data");
 	f.present();
 	check(XeenCharacterRules::maxHp(f.p.roster.at(0),{610}) == 16, "independent +4 maximum HP");
-	xeenValidateJourneyParty(f.p,14);
-	rejects([&] { xeenValidateJourneyMelee(f.p,14); }, "accessory");
+	xeenValidateJourneyParty(f.p);
+	rejects([&] { xeenValidateJourneyMelee(f.p); }, "accessory");
 	const std::vector<XeenActor> actors = f.w.sessionState().actors();
 	check(f.action(XeenEncounterAction::Wait).outcome == XeenEncounterOutcome::Refused && f.flow->journeyQuiet() &&
 		f.p.encounterContext->minutes == 480, "unready action refuses before publication");
@@ -139,24 +139,24 @@ void readinessAndHistory() {
 	const auto &c = f.p.roster.at(0);
 	check(XeenCharacterRules::maxHp(c,{610}) == 12 && c.currentHp == -13 && c.currentSp == -7 &&
 		c.conditions[12] == 1 && c.conditions[13] == 0, "historical injury never reclassified against reduced maximum");
-	xeenValidateJourneyMelee(f.p,14); f.engage();
+	xeenValidateJourneyMelee(f.p); f.engage();
 	check(f.p.roster.at(0).currentHp == -13 && f.p.roster.at(0).currentSp == -7, "attachment retains current HP/SP");
 	Fixture raw;
 	auto &owner = raw.p.roster.at(0);
 	owner.miscellaneous[5] = {255,255,255,255}; owner.weapons[8] = {255,254,255,0};
-	xeenValidateJourneyMelee(raw.p,14);
+	xeenValidateJourneyMelee(raw.p);
 	owner.weapons[8] = {0,0,0,1};
-	xeenValidateJourneyParty(raw.p,14); rejects([&] { xeenValidateJourneyMelee(raw.p,14); }, "weapon");
+	xeenValidateJourneyParty(raw.p); rejects([&] { xeenValidateJourneyMelee(raw.p); }, "weapon");
 	owner.weapons[8] = {}; owner.armor[8] = {38,0,0,9}; owner.accessories[8] = {86,0,0,8};
-	xeenValidateJourneyMelee(raw.p,14);
-	owner.conditions[3] = 1; xeenValidateJourneyParty(raw.p,14);
-	owner.conditions[3] = 0; owner.conditions[12] = 2; rejects([&] { xeenValidateJourneyParty(raw.p,14); }, "condition");
-	owner.conditions[12] = 1; rejects([&] { xeenValidateJourneyParty(raw.p,14); }, "signs");
+	xeenValidateJourneyMelee(raw.p);
+	owner.conditions[3] = 1; xeenValidateJourneyParty(raw.p);
+	owner.conditions[3] = 0; owner.conditions[12] = 2; rejects([&] { xeenValidateJourneyParty(raw.p); }, "condition");
+	owner.conditions[12] = 1; rejects([&] { xeenValidateJourneyParty(raw.p); }, "signs");
 	for (auto id : kXeenCombatOwners) { raw.p.roster.at(id).currentHp = 0; raw.p.roster.at(id).conditions[12] = 1; }
-	rejects([&] { xeenValidateJourneyParty(raw.p,14); }, "acting");
+	rejects([&] { xeenValidateJourneyParty(raw.p); }, "acting");
 	Fixture partial;
 	const_cast<XeenMutableOptional<XeenCombatInputs> &>(partial.p.roster.combatInputs(29)).reset();
-	rejects([&] { xeenValidateJourneyParty(partial.p,14); }, "supplement");
+	rejects([&] { xeenValidateJourneyParty(partial.p); }, "supplement");
 	check(!partial.flow->journeyQuiet(), "partial supplement presence cannot be replenished");
 }
 void progression() {
@@ -325,10 +325,10 @@ void retainedCombatCaches() {
 }
 void initializationAliases() {
     auto bytes=regional_test::characterBytes();auto party=XeenPartyLoader().loadFromResources(bytes,regional_test::partyBytes());
-    auto camera=xeenJourneyContent(14).entry;XeenGameFlags flags;
+    auto camera=xeenJourneyContent().entry;XeenGameFlags flags;
     auto monsters=regional_test::statistics();auto event=regional_test::events(23);
     const auto r=regional_test::resources();
-    XeenJourneySetup setup{bytes,XeenGameplayContextFormat::parse(regional_test::partyBytes()),monsters,event,56,14,r.regionalManifest};
+    XeenJourneySetup setup{bytes,XeenGameplayContextFormat::parse(regional_test::partyBytes()),monsters,event,56,r.regionalManifest};
     setup.purse=XeenMonsterTreasure{};setup.regionalRecovery=XeenRegionalRecoveryState{};setup.regionalText=regional_test::texts(23);
     setup.learnedNames=XeenLearnedSpellNames{};setup.learnedNamesProvider=r.loadLearnedSpellNames;
     setup.vertigoManifest=r.vertigoManifest;setup.bank=XeenBankBalances{};setup.cityEventsProvider=[]{return regional_test::events(28);};

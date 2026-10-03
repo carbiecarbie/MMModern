@@ -90,9 +90,9 @@ XeenMovementResult applyIndoor(XeenWorld &world, XeenCamera &camera,
 	const auto delta = directionDelta(effectiveDirection);
 	const int targetX = camera.x + delta.first;
 	const int targetY = camera.y + delta.second;
-	const bool vertigo = camera.mapId == XeenMapIdentity(28) && world.regionalContract8();
+	const bool vertigo = camera.mapId == XeenMapIdentity(28) && world.regionalJourney();
 	if (vertigo) {
-		if (!xeenJourneyContent(world.sessionState().journeyContract()).vertigoCell(targetX,targetY))
+		if (!xeenJourneyContent().vertigoCell(targetX,targetY))
 			return XeenMovementResult::BlockedByMapBoundary;
 		const auto source = world.sampleCell(camera.mapId,camera.x,camera.y);
 		const auto target = world.sampleCell(camera.mapId,targetX,targetY);
@@ -181,7 +181,7 @@ XeenMovementResult XeenMovement::apply(XeenWorld &world, XeenCamera &camera,
 	const XeenMap &currentMap = world.map(camera.mapId);
 	if (camera.mapId != currentMap.identity())
 		throw std::runtime_error("camera e mapa possuem IDs diferentes");
-	const bool vertigo = camera.mapId == XeenMapIdentity(28) && world.regionalContract8();
+	const bool vertigo = camera.mapId == XeenMapIdentity(28) && world.regionalJourney();
 	if (camera.x < 0 || camera.x >= (vertigo ? 32 : 16) || camera.y < 0 || camera.y >= (vertigo ? 32 : 16))
 		throw std::runtime_error("camera invalida antes do movimento");
 

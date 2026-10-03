@@ -27,10 +27,10 @@ int main(int argc,char **argv) {
   const auto fresh=child_test::launch(exe,{L"--journey-region",L"--combat-seed",L"7",game.wstring(),L"--save-file",route.wstring()},dir/"production.log",false,false,120000);
   child_test::require(fresh.exit==0 && fresh.output.find("M38 PRODUCTION WITNESS PASSED")!=std::string::npos,"M38 production witness failed");
   const auto a=XeenSaveFile::read(dir/"production-A.mmsave");
-  child_test::require(a.journey && a.journey->schema==9 && a.journey->contract==14 &&
+  child_test::require(a.journey && a.journey->schema==9 && a.journey->content==14 &&
    a.journey->context->day==8 && a.journey->context->minutes==584 &&
    a.journey->treasure->gold==810 && a.characters[6].armor[0].state==128 &&
-   a.characters[6].armor[1].state==128,"M38 production-input checkpoint differs from contract");
+   a.characters[6].armor[1].state==128,"M38 production-input checkpoint differs from content");
   // Windows may recycle a terminated process PID; creation time identifies its incarnation.
   std::set<std::pair<DWORD,std::uint64_t>> processes{{fresh.pid,fresh.created}};
   const auto run=[&](const std::string &name,const std::string &stage,const fs::path &source,const std::string &control="") {

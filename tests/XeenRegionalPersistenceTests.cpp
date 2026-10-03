@@ -49,11 +49,11 @@ int main(){try{
  auto s=sampleCurrent();verify(s);auto populated=s;auto &t=*populated.journey->treasure;t.pendingMask=(1u<<3)|(1u<<9);t.pendingGold=20;t.weapons[0]={9,{0,30,0,0}};t.armor[0]={3,{0,2,0,0}};
  for(unsigned id:{3u,9u}){auto &a=populated.journey->actors[id];a.x=a.y=-128;a.hp=0;a.activated=false;a.accounted=true;a.lifecycle=XeenActorLifecycle::Defeated;}
  populated.characters[0].conditions[3]=2;populated.characters[1].conditions[8]=1;verify(populated);
- auto dormant=populated;dormant.journey->treasure=xeenPrepareMonsterGoldForfeiture(*dormant.journey->treasure,14);verify(dormant);
+ auto dormant=populated;dormant.journey->treasure=xeenPrepareMonsterGoldForfeiture(*dormant.journey->treasure);verify(dormant);
  auto later=dormant;later.journey->treasure->pendingMask=1u<<3;later.journey->treasure->pendingGold=10;verify(later);
  auto maximum=populated;auto &mt=*maximum.journey->treasure;mt.pendingMask=4095;mt.pendingGold=120;mt.weapons={};mt.armor={};
  for(unsigned id=0;id<12;++id){auto &a=maximum.journey->actors[id];a.x=a.y=-128;a.hp=0;a.activated=false;a.accounted=true;a.lifecycle=XeenActorLifecycle::Defeated;if(id<10)mt.weapons[id]={std::uint8_t(id),{0,30,0,0}};else mt.armor[id-10]={std::uint8_t(id),{0,2,0,0}};}
- verify(maximum);maximum.journey->treasure=xeenPrepareMonsterGoldForfeiture(mt,14);verify(maximum);
+ verify(maximum);maximum.journey->treasure=xeenPrepareMonsterGoldForfeiture(mt);verify(maximum);
  auto city=populated;city.camera={28,16,2,XeenDirection::North};city.journey->vertigoActors.emplace();
  for(unsigned i=0;i<46;++i)city.journey->vertigoActors->push_back({{28,i},int(i%16),int(i/16),2,false,XeenActorLifecycle::Present,XeenActorStatus::Physical,false});verify(city);
  auto reset=city;reset.disabledEvents={{28,764}};for(unsigned i=46;i<52;++i)reset.journey->vertigoActors->push_back({{28,i},0,0,i<50?0:2,false,i<50?XeenActorLifecycle::Unresolved:XeenActorLifecycle::Present,XeenActorStatus::Physical,false});verify(reset);

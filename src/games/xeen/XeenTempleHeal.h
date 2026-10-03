@@ -19,6 +19,6 @@ struct XeenTempleHealCandidate {
 XeenTempleHealResult xeenQuoteTempleHeal(const XeenCharacter &,std::uint32_t gold,
     const XeenGameplayContext &);
 XeenTempleHealCandidate xeenPrepareTempleHeal(const XeenPartyState &,std::uint8_t owner,
-    const XeenGameplayContext &,std::uint16_t content);
+    const XeenGameplayContext &);
 }
 #endif

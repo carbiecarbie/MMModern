@@ -25,9 +25,9 @@ XeenTempleHealResult xeenQuoteTempleHeal(const XeenCharacter &c,std::uint32_t go
     return r;
 }
 XeenTempleHealCandidate xeenPrepareTempleHeal(const XeenPartyState &party,std::uint8_t owner,
-        const XeenGameplayContext &context,std::uint16_t content) {
-    if(content!=14)throw std::invalid_argument("Temple Heal requires Journey content 14");
-    xeenValidateJourneyParty(party,content);
+        const XeenGameplayContext &context) {
+
+    xeenValidateJourneyParty(party);
     if(owner>=30 || !party.roster.combatInputs(owner) || !party.monsterTreasure)
         throw std::invalid_argument("Missing Temple Heal owner");
     bool active=false;

@@ -61,7 +61,7 @@ void pinnedReference(const std::filesystem::path &source) {
         dialog.find("case ITEMMODE_BUY:\r\n\t\tlevel = 0;",cost)!=std::string::npos,"pinned Buy stopped forcing divisor zero");
 }
 void preparedRules(training_test::Inputs &inputs) {
-    auto source=inputs.base(14);
+    auto source=inputs.base();
     training_test::Fixture fixture(inputs,source);
     auto &p=fixture.p;const auto initialEconomy=*p.serviceEconomy;
     const auto initialCharacters=p.roster.characters();const auto initialContext=*p.encounterContext;
@@ -93,8 +93,7 @@ void preparedRules(training_test::Inputs &inputs) {
     check(xeenQuoteEquipmentPurchase(p,6,XeenInventoryCategory::Weapons,0).outcome==Outcome::InvalidParticipant,"inactive recipient admitted");
     check(xeenQuoteEquipmentPurchase(p,0,static_cast<XeenInventoryCategory>(255),0).outcome==Outcome::InvalidCategory,"invalid category admitted");
     check(xeenQuoteEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,9).outcome==Outcome::InvalidSlot,"invalid physical slot admitted");
-    for(unsigned content:{1u,9u,11u,12u})rejects([&]{xeenQuoteEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,1,content);});
-    check(xeenQuoteEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,1,14).outcome==Outcome::Quoted,
+    check(xeenQuoteEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,1).outcome==Outcome::Quoted,
         "content-14 physical Buy offer refused");
     for(unsigned price:{60u,200u})for(int delta:{-1,0,1}) {
         p.monsterTreasure->gold=price+delta;
@@ -160,7 +159,7 @@ void rebinds() {
     const XeenItemCategory expectedArmor{{{0,6,0,0},{0,4,0,0},{0,6,0,0},{0,5,0,0},{40,8,0,0},{48,6,0,0},{},{},{}}};
     sameCategory(after.wares[0][0][1],expectedArmor,"literal seed-7 armor depletion differs");
     for(unsigned day:{8u,9u,10u,97u,98u}) {
-        context.day=day;XeenServiceDayCandidate old(context,economy,cursor,13);
+        context.day=day;XeenServiceDayCandidate old(context,economy,cursor);
         const bool trigger=day==10;
         if(trigger)rejects([&]{old.rebindPurchase(after,XeenInventoryCategory::Armor,3,offer);});
         while(!old.complete())old.service(64);
@@ -178,13 +177,8 @@ void rebinds() {
         check(twice.beforeEconomy()==afterTwice && twice.economy()==(trigger?reservedEconomy:afterTwice) && twice.continuation()==reservedCursor,"repeated purchase rebind changed reserved work");
         const auto retained=twice.economy();check(twice.service(0) && twice.economy()==retained && twice.continuation()==reservedCursor,"completed rebound repeated RNG/interest");
     }
-    context.day=8;for(unsigned content:{11u,12u}) {
-        XeenServiceDayCandidate legacy(context,economy,cursor,content);
-        rejects([&]{legacy.rebindPurchase(after,XeenInventoryCategory::Armor,3,offer);});
-        rejects([&]{XeenServiceDayCandidate depleted(context,after,cursor,content);});
-    }
-    context.day=99;rejects([&]{XeenServiceDayCandidate invalid(context,economy,cursor,13);});
-    context.day=8;XeenServiceDayCandidate old(context,economy,cursor,13);
+    context.day=99;rejects([&]{XeenServiceDayCandidate invalid(context,economy,cursor);});
+    context.day=8;XeenServiceDayCandidate old(context,economy,cursor);
     for(unsigned s=0;s<2;++s)for(unsigned p=0;p<4;++p)for(unsigned c=0;c<4;++c)for(unsigned slot=0;slot<9;++slot)for(unsigned field=0;field<4;++field) {
         auto tampered=after;auto &item=tampered.wares[s][p][c][slot];
         auto &value=field==0?item.material:field==1?item.id:field==2?item.state:item.frame;value^=1;
@@ -194,7 +188,7 @@ void rebinds() {
     auto unchanged=economy;rejects([&]{old.rebindPurchase(unchanged,XeenInventoryCategory::Armor,3,offer);});
     rejects([&]{old.rebindPurchase(after,XeenInventoryCategory::Armor,2,offer);});
     for(unsigned day:{8u,10u})for(unsigned fault=0;fault<4;++fault) {
-        context.day=day;XeenServiceDayCandidate tampered(context,economy,cursor,13);
+        context.day=day;XeenServiceDayCandidate tampered(context,economy,cursor);
         while(!tampered.complete())tampered.service(64);
         if(fault==0)++const_cast<XeenGameplayContext &>(tampered.context()).day;
         if(fault==1)++const_cast<XeenServiceEconomy &>(tampered.economy()).bank.gold;

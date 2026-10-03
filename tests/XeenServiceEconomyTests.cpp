@@ -241,7 +241,7 @@ void independentDepletionOracle(const XeenServiceEconomy &baseline) {
 				category==1?XeenItem{37,8,0,0}:category==2?XeenItem{37,1,0,0}:XeenItem{1,16,1,0};
 		}
 		const bool expected=literalBandOracle(plain,modified);bool actual=true;
-		try{xeenValidateCurrentServiceEconomy(current,13);}catch(const std::invalid_argument &){actual=false;}
+		try{xeenValidateCurrentServiceEconomy(current);}catch(const std::invalid_argument &){actual=false;}
 		check(actual==expected,"depletion per-call proof differs from independent literal band/capacity oracle");
 		accepted+=expected;rejected+=!expected;
 	}
@@ -250,31 +250,29 @@ void independentDepletionOracle(const XeenServiceEconomy &baseline) {
 void currentDepletion() {
 	XeenServiceEconomy literal;literal.wares=literalValid();
 	independentDepletionOracle(literal);
-	for(unsigned content:{11u,12u,13u,14u})xeenValidateCurrentServiceEconomy(literal,content);
-	for(unsigned content:{0u,8u,9u,10u,65535u})rejects([&]{xeenValidateCurrentServiceEconomy(literal,content);});
+	xeenValidateCurrentServiceEconomy(literal);
 	// Independent twenty-Armor-call schedule: eight L1 entries inserted,
 	// seven remaining L1 and five L2 entries discarded at original capacity.
 	// Every deletion subset, including all eight, has a literal complete source.
 	for(unsigned mask=0;mask<256;++mask) {
 		auto current=literal;auto &armor=current.wares[0][0][1];armor={};unsigned retained=0;
 		for(unsigned slot=0;slot<8;++slot)if(!(mask&(1u<<slot)))armor[retained++]={0,1,0,0};
-		xeenValidateCurrentServiceEconomy(current,13);
-		if(mask)for(unsigned legacy:{11u,12u})rejects([&]{xeenValidateCurrentServiceEconomy(current,legacy);});
+		xeenValidateCurrentServiceEconomy(current);
 	}
 	// Independent source: eight Weapons followed by seven Armor at L1,
 	// then five Weapons discarded at original full capacity at L2. Purchasing
 	// all fifteen inserted plain records gives one completely empty shop.
-	auto emptyShop=literal;emptyShop.wares[0][0]={};xeenValidateCurrentServiceEconomy(emptyShop,13);
+	auto emptyShop=literal;emptyShop.wares[0][0]={};xeenValidateCurrentServiceEconomy(emptyShop);
 	rejects([&]{xeenValidateServiceEconomy(emptyShop);});
-	XeenServiceEconomy allEmpty;rejects([&]{xeenValidateCurrentServiceEconomy(allEmpty,13);});
+	XeenServiceEconomy allEmpty;rejects([&]{xeenValidateCurrentServiceEconomy(allEmpty);});
 	// A full modified Weapon category requires eight L2 insertions, but shop
 	// 0/0 has only five L2 calls. Deleted L1 capacity cannot be reused to refill.
 	auto refill=emptyShop;for(unsigned i=0;i<8;++i)refill.wares[0][0][0][i]={37,1,0,0};
-	rejects([&]{xeenValidateCurrentServiceEconomy(refill,13);});
+	rejects([&]{xeenValidateCurrentServiceEconomy(refill);});
 	for(unsigned side=0;side<2;++side)for(unsigned shop=0;shop<4;++shop) {
 		if(!side && !shop)continue;
 		auto depleted=literal;depleted.wares[side][shop][1][7]={};
-		rejects([&]{xeenValidateCurrentServiceEconomy(depleted,13);});
+		rejects([&]{xeenValidateCurrentServiceEconomy(depleted);});
 	}
 	for(unsigned category:{2u,3u}) {
 		// Fifteen L1 Armor calls fill A to eight. Five L2 calls each insert
@@ -282,26 +280,26 @@ void currentDepletion() {
 		// only W/A omissions exist and the other four L2 entries consume calls.
 		auto stock=literal;for(unsigned i=0;i<5;++i)stock.wares[0][0][category][i]=
 			category==2?XeenItem{37,1,0,0}:XeenItem{1,16,1,0};
-		xeenValidateServiceEconomy(stock);xeenValidateCurrentServiceEconomy(stock,13);
+		xeenValidateServiceEconomy(stock);xeenValidateCurrentServiceEconomy(stock);
 		// Make four L2 entries plus a retained L2 Weapon. This different
 		// complete schedule is valid; exact runtime deletion is tested by Buy.
 		stock.wares[0][0][category][4]={};stock.wares[0][0][0][0]={37,1,0,0};
-		xeenValidateCurrentServiceEconomy(stock,13);
+		xeenValidateCurrentServiceEconomy(stock);
 		for(unsigned i=0;i<6;++i)stock.wares[0][0][category][i]=
 			category==2?XeenItem{37,1,0,0}:XeenItem{1,16,1,0};
-		rejects([&]{xeenValidateCurrentServiceEconomy(stock,13);});
+		rejects([&]{xeenValidateCurrentServiceEconomy(stock);});
 	}
 	for(unsigned field=0;field<4;++field) {
 		auto broken=emptyShop;auto &tail=broken.wares[0][0][0][8];
 		if(field==0)tail.material=1;else if(field==1)tail.id=1;else if(field==2)tail.state=1;else tail.frame=1;
-		rejects([&]{xeenValidateCurrentServiceEconomy(broken,13);});
+		rejects([&]{xeenValidateCurrentServiceEconomy(broken);});
 	}
 	for(unsigned mutation=0;mutation<7;++mutation) {
 		auto broken=literal;auto &item=broken.wares[0][0][1][0];
 		if(mutation==0)item={};else if(mutation==1)item.frame=1;else if(mutation==2)item.state=64;
 		else if(mutation==3)item.state=128;else if(mutation==4)item.material=255;
 		else if(mutation==5)item.id=14;else {item.material=37;broken.wares[0][0][1][1].material=0;}
-		rejects([&]{xeenValidateCurrentServiceEconomy(broken,13);});
+		rejects([&]{xeenValidateCurrentServiceEconomy(broken);});
 	}
 	// Production seed-7 stock has independently recorded literal identity/order.
 	const auto original=seeded(7,64,1652828136u,901,"4abf1666f71af84fbdd0a8acb10749dcf78350b8b746d946a7cf3f5b88253b65");
@@ -312,7 +310,7 @@ void currentDepletion() {
 		if(!offer.id || offer.material || offer.state || offer.frame)continue;
 		auto depleted=original;auto &records=depleted.wares[0][0][category];
 		for(unsigned i=slot;i<8;++i)records[i]=records[i+1];records[8]={};
-		xeenValidateCurrentServiceEconomy(depleted,13);
+		xeenValidateCurrentServiceEconomy(depleted);
 	}
 	auto depleted=original;
 	for(unsigned category=0;category<2;++category) {
@@ -320,11 +318,10 @@ void currentDepletion() {
 		for(const auto &item:records)if(item.id && (item.material || item.state || item.frame))retained[n++]=item;
 		records=retained;
 	}
-	xeenValidateCurrentServiceEconomy(depleted,13);
-	for(unsigned legacy:{11u,12u})rejects([&]{xeenValidateCurrentServiceEconomy(depleted,legacy);});
+	xeenValidateCurrentServiceEconomy(depleted);
 	// Snapshots prove possible current values, never actual historical deletion.
 	// These unsupported bytes cannot even participate in any permitted source.
-	depleted.wares[0][0][0][0].state=7;rejects([&]{xeenValidateCurrentServiceEconomy(depleted,13);});
+	depleted.wares[0][0][0][0].state=7;rejects([&]{xeenValidateCurrentServiceEconomy(depleted);});
 }
 void interestAndDates() {
 	const auto maximum=std::numeric_limits<std::uint64_t>::max();
@@ -351,9 +348,9 @@ void interestAndDates() {
 	}
 	check(xeenBankInterest(xeenBankInterest(199))==202,"repeated bank interest wrong");
 	XeenServiceEconomy economy;economy.wares=literalValid();economy.bank={199,4252442868u};
-	for(unsigned content:{11u,12u,13u,14u})for(unsigned day=8;day<=98;++day)for(unsigned minute:{300u,1259u})for(unsigned ctr:{0u,23u}) {
+	for(unsigned day=8;day<=98;++day)for(unsigned minute:{300u,1259u})for(unsigned ctr:{0u,23u}) {
 		XeenGameplayContext before;before.day=day;before.year=610;before.minutes=minute;before.ctr24=ctr;
-		const XeenJourneyRandomState cursor{1,2732157854u,1203};XeenServiceDayCandidate candidate(before,economy,cursor,content);
+		const XeenJourneyRandomState cursor{1,2732157854u,1203};XeenServiceDayCandidate candidate(before,economy,cursor);
 		const bool trigger=(day+1)%10==1;check(candidate.triggered()==trigger,"incorrect destination regeneration trigger");
 		while(!candidate.complete())candidate.service(64);
 		auto expected=before;expected.day=day+1;check(candidate.context()==expected && before.day==day,"service changed ordinary time/context");
@@ -365,7 +362,6 @@ void interestAndDates() {
 		const auto final=candidate.continuation();const auto end=candidate.economy();check(candidate.service() && candidate.continuation()==final && candidate.economy()==end,"completed day repeated stock/interest/RNG");
 	}
 	XeenGameplayContext c;c.year=610;c.day=99;c.minutes=300;rejects([&]{XeenServiceDayCandidate candidate(c,economy,{1,7,0});});
-	c.day=8;for(unsigned content:{1u,8u,9u,10u})rejects([&]{XeenServiceDayCandidate candidate(c,economy,{1,7,0},content);});
 	for(unsigned day:{0u,7u,100u,65535u}){c.day=day;rejects([&]{XeenServiceDayCandidate candidate(c,economy,{1,7,0});});}
 	c.day=10;XeenServiceDayCandidate yielded(c,economy,{1,2732157854u,1203});check(!yielded.service(0) && yielded.continuation()==XeenJourneyRandomState{1,2732157854u,1203},"zero service budget changed detached cursor");
 	while(!yielded.complete())yielded.service(1);check(yielded.continuation()==XeenJourneyRandomState{1,3686439625u,2109},"one-raw service cadence changed result");
@@ -379,12 +375,12 @@ void interestAndDates() {
 void legacyDropInterleaving() {
 	XeenCombatRandom random(XeenJourneyRandomState{1,3686439625u,2109});XeenConsequenceDraw draw{random,64,{}};
 	XeenMagicArrowCandidate arrow(6,0,0,6);check(arrow.service(draw) && arrow.damage==8 && random.continuation()==XeenJourneyRandomState{1,2493262264u,2110},"synthetic stock->Arrow continuation mismatch");
-	XeenMonsterDropCandidate drop({},9,11);check(drop.service(draw) && drop.outcome==XeenMonsterDropOutcome::Item && drop.armor &&
+	XeenMonsterDropCandidate drop({},9);check(drop.service(draw) && drop.outcome==XeenMonsterDropOutcome::Item && drop.armor &&
 		same(drop.generated.item,{0,3,0,0}) && drop.treasure.pendingGold==10 && drop.treasure.pendingMask==(1u<<9) &&
 		random.continuation()==XeenJourneyRandomState{1,1051044860u,2115},"synthetic stock->Arrow->legacy Orc drop semantics changed");
 	XeenCombatRandom raw(std::vector<D>{{1,56,2493262264u,true},{1,100,617549005u,true},
 		{0,100,1871643302u,true},{0,100,1957375019u,true},{1,7,887542588u,true},{1,100,1051044860u,true}});
-	XeenConsequenceDraw trace{raw,64,{}};XeenMagicArrowCandidate tracedArrow(6,0,0,6);XeenMonsterDropCandidate tracedDrop({},9,11);
+	XeenConsequenceDraw trace{raw,64,{}};XeenMagicArrowCandidate tracedArrow(6,0,0,6);XeenMonsterDropCandidate tracedDrop({},9);
 	check(tracedArrow.service(trace) && tracedDrop.service(trace) && raw.position()==6 && tracedDrop.armor &&
 		same(tracedDrop.generated.item,{0,3,0,0}),"independent interleaved exact request/raw tape mismatch");
 }

@@ -24,7 +24,7 @@ int main(int argc,char **argv) {
         const auto b=dir/"bought-B.mmsave";
         const auto original=XeenSaveFile::read(b);
         child_test::require(original.journey && original.journey->schema==9 &&
-            original.journey->contract==14 && original.journey->context->day==9 &&
+            original.journey->content==14 && original.journey->context->day==9 &&
             original.journey->treasure->gold==670 && original.journey->random->state==799325555u &&
             original.journey->random->count==1101,
             "real bought checkpoint is not the exact content-14 depleted preimage");

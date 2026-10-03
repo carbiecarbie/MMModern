@@ -25,7 +25,7 @@ public:
 		std::function<XeenRegionalRecoveryState()> loadInitialRegionalRecovery;
 		std::function<XeenEventTextFile(XeenMapIdentity)> loadRegionalText;
 		std::function<XeenLearnedSpellNames()> loadLearnedSpellNames;
-		// Fresh content 11 only; restoration never replaces serialized bank balances.
+		// Fresh Journey only; restoration never replaces serialized bank balances.
 		std::function<XeenBankBalances()> loadInitialBankBalances;
 	};
 	// Must check needed disposable presentation resources on the candidate.

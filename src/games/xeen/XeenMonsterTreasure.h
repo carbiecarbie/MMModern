@@ -31,7 +31,7 @@ struct XeenMonsterTreasure {
 };
 // Structural validation only; the caller separately binds gold AND item sources to
 // canonical world-owned defeated/accounted Orcs.
-void xeenValidateMonsterTreasure(const XeenMonsterTreasure &, std::uint16_t contract = 4);
+void xeenValidateMonsterTreasure(const XeenMonsterTreasure &);
 struct XeenConsequenceDraw;
 enum class XeenMonsterDropOutcome { None, Item, ReferenceMiscellaneousDropLoss, CategoryCapacityLoss };
 struct XeenMonsterDropCandidate {
@@ -39,7 +39,7 @@ struct XeenMonsterDropCandidate {
 	XeenMonsterDropOutcome outcome = XeenMonsterDropOutcome::None;
 	XeenMonsterTreasureItem generated;
 	XeenMutable<bool> armor = false;
-	XeenMonsterDropCandidate(const XeenMonsterTreasure &, unsigned source, std::uint16_t contract = 4);
+	XeenMonsterDropCandidate(const XeenMonsterTreasure &, unsigned source);
 	bool service(XeenConsequenceDraw &);
 private:
 	enum class Step { Drop, Category, Subcategory, Id, Enchantment, Special, Charges, Store, Done };
@@ -61,8 +61,8 @@ struct XeenMonsterDeliveryCandidate {
 	XeenMutable<bool> globallyFull = false;
 };
 XeenMonsterDeliveryCandidate xeenPrepareMonsterDelivery(const XeenMonsterTreasure &,
-	const std::array<XeenCharacter,6> &, std::uint16_t contract = 4);
-XeenMonsterTreasure xeenPrepareMonsterGoldCredit(const XeenMonsterTreasure &, std::uint16_t contract = 4);
-XeenMonsterTreasure xeenPrepareMonsterGoldForfeiture(const XeenMonsterTreasure &, std::uint16_t contract);
+	const std::array<XeenCharacter,6> &);
+XeenMonsterTreasure xeenPrepareMonsterGoldCredit(const XeenMonsterTreasure &);
+XeenMonsterTreasure xeenPrepareMonsterGoldForfeiture(const XeenMonsterTreasure &);
 }
 #endif

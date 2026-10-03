@@ -30,9 +30,9 @@ extern "C" int __wrap_SDL_RenderCopy(SDL_Renderer *renderer,SDL_Texture *texture
 namespace mmodern { struct XeenTrainingTestAccess {static bool admitted(const XeenEventFlow &f){return f._smithUi && f._smithUi->phase!=XeenEventFlow::SmithUi::Phase::Preparation;} static std::string text(const XeenEventFlow &f){return f._smithUi?f.smithText():"none";}}; }
 using namespace mmodern;
 namespace fs=std::filesystem;
-#define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjES5_ItE"
-extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>,std::optional<std::uint16_t>) asm("__real_" PLAY_SYMBOL);
-extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>,std::optional<std::uint16_t>) asm("__wrap_" PLAY_SYMBOL);
+#define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjE"
+extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__real_" PLAY_SYMBOL);
+extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__wrap_" PLAY_SYMBOL);
 namespace {
 void check(bool v,const char *m){if(!v)throw std::runtime_error(m);}
 template<class F> auto countProvider(F fn,unsigned &calls) {
@@ -44,9 +44,8 @@ template<class F> auto countProvider(F fn,unsigned &calls) {
 static const probe_fired::Expect playProbe{"Application::playGameplay","SDL_RenderCopy","SDL_UpdateTexture"};
 extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &original,XeenCamera camera,
  const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,
- std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract) {probe_fired::hit("Application::playGameplay");if(!resume)for(const char *probe:{"XEEN_REPLAY_COMMAND","XEEN_REPLAY_DRAW","XEEN_REPLAY_JOURNEY_CONSTRUCT","XEEN_REPLAY_REGIONAL_MOVE","XEEN_REPLAY_SERVICE","XEEN_REPLAY_TIME","XEEN_REPLAY_RETIRE","XEEN_REPLAY_MOVE","XEEN_REPLAY_EVENT_BEGIN","XEEN_REPLAY_FRESH_PUBLICATION_INITIALIZE"})probe_fired::expect(probe);
- const std::uint16_t content=14;
- if(!resume){contract=content;seed=3626689381u;}
+ std::optional<std::uint32_t> seed) {probe_fired::hit("Application::playGameplay");if(!resume)for(const char *probe:{"XEEN_REPLAY_COMMAND","XEEN_REPLAY_DRAW","XEEN_REPLAY_JOURNEY_CONSTRUCT","XEEN_REPLAY_REGIONAL_MOVE","XEEN_REPLAY_SERVICE","XEEN_REPLAY_TIME","XEEN_REPLAY_RETIRE","XEEN_REPLAY_MOVE","XEEN_REPLAY_EVENT_BEGIN","XEEN_REPLAY_FRESH_PUBLICATION_INITIALIZE"})probe_fired::expect(probe);
+ if(!resume){seed=3626689381u;}
  if(resume) {
   replay_test::journeyInitializations=replay_test::journeyConstructions=0;
   replay_test::actions=replay_test::pulses=replay_test::retirements=0;
@@ -126,7 +125,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
  };
  services.show=[&](const IndexedFrame &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
   check(target && flow && world && party && position && flags,"M38 production owners absent");
-  check(world->sessionState().journeyContract()==content,"M38 inherited content mismatch");
+  check(world->sessionState().journey(),"M38 inherited content mismatch");
   recursiveProbe=[&] {
    const auto calls=providerCalls,saves=saveCalls;
    const auto gold=std::uint32_t(party->monsterTreasure->gold);
@@ -456,5 +455,5 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   }
   return ok;
  };
- return realPlay(app,services,camera,target,resume,entry,seed,contract);
+ return realPlay(app,services,camera,target,resume,entry,seed);
 }

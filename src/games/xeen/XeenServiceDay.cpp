@@ -5,15 +5,15 @@
 #include <stdexcept>
 namespace mmodern {
 XeenServiceDayCandidate::XeenServiceDayCandidate(const XeenGameplayContext &context,
-		const XeenServiceEconomy &economy,const XeenJourneyRandomState &cursor,std::uint16_t content,
+		const XeenServiceEconomy &economy,const XeenJourneyRandomState &cursor,
 		XeenScriptServiceCharge serviceCharge):
 	originalContext(context),endingContext(context),originalEconomy(economy),endingEconomy(economy),
-	originalRandom(cursor),random(cursor),content(content),charge(serviceCharge) {
-	if(content<11 || content>14)throw std::invalid_argument("Service economy requires Journey content 11 through 14");
+	originalRandom(cursor),random(cursor),charge(serviceCharge) {
+
 	const auto successor=charge==XeenScriptServiceCharge::OneDay ?
-		xeenPrepareSmithDeparture(context,content) : xeenPrepareTemplePaidDeparture(context,content);
+		xeenPrepareSmithDeparture(context) : xeenPrepareTemplePaidDeparture(context);
 	if(!successor)throw std::invalid_argument("Unsupported script service context");
-	xeenValidateCurrentServiceEconomy(economy,content);endingContext=*successor;
+	xeenValidateCurrentServiceEconomy(economy);endingContext=*successor;
 	regenerating=xeenServiceDayRegenerates(originalContext.day,endingContext.day,static_cast<std::uint16_t>(charge));
 	completed=!regenerating;
 }
@@ -32,10 +32,10 @@ bool XeenServiceDayCandidate::service(unsigned budget,const std::function<void()
 }
 XeenServiceDayCandidate XeenServiceDayCandidate::rebindPurchase(const XeenServiceEconomy &after,
 		XeenInventoryCategory category,std::size_t slot,const XeenItem &expected) const {
-	if((content!=13 && content!=14) || !completed)throw std::invalid_argument("Equipment Buy requires a complete purchase departure");
+	if(!completed)throw std::invalid_argument("Equipment Buy requires a complete purchase departure");
 	validateComplete();
 	xeenValidateEquipmentPurchaseEconomyDelta(originalEconomy,after,category,slot,expected);
-	xeenValidateCurrentServiceEconomy(after,content);
+	xeenValidateCurrentServiceEconomy(after);
 	// Copy the completed random/generation state; never construct/service another
 	// generation or recalculate interest. Triggered ending stock remains exact.
 	auto replacement=*this;
@@ -45,12 +45,12 @@ XeenServiceDayCandidate XeenServiceDayCandidate::rebindPurchase(const XeenServic
 	return replacement;
 }
 XeenServiceDayCandidate XeenServiceDayCandidate::upgradeTemplePaid() const {
-	if(content!=14 || charge!=XeenScriptServiceCharge::OneDay || !completed)
+	if(charge!=XeenScriptServiceCharge::OneDay || !completed)
 		throw std::invalid_argument("Temple upgrade requires a complete one-day reservation");
 	validateComplete();
-	auto paid=xeenPrepareTemplePaidDeparture(originalContext,content);
+	auto paid=xeenPrepareTemplePaidDeparture(originalContext);
 	if(!paid)throw std::invalid_argument("Temple two-day departure exceeds the supported year");
-	if(!regenerating)return {originalContext,originalEconomy,originalRandom,content,
+	if(!regenerating)return {originalContext,originalEconomy,originalRandom,
 		XeenScriptServiceCharge::TemplePaid};
 	auto replacement=*this;
 	replacement.charge=XeenScriptServiceCharge::TemplePaid;
@@ -61,11 +61,11 @@ XeenServiceDayCandidate XeenServiceDayCandidate::upgradeTemplePaid() const {
 void XeenServiceDayCandidate::validateComplete() const {
 	if(!completed)throw std::invalid_argument("Service-day departure is incomplete");
 	const auto expected=charge==XeenScriptServiceCharge::OneDay ?
-		xeenPrepareSmithDeparture(originalContext,content) : xeenPrepareTemplePaidDeparture(originalContext,content);
+		xeenPrepareSmithDeparture(originalContext) : xeenPrepareTemplePaidDeparture(originalContext);
 	if(!expected || !(endingContext==*expected) ||
 		regenerating!=xeenServiceDayRegenerates(originalContext.day,endingContext.day,static_cast<std::uint16_t>(charge)))
 		throw std::invalid_argument("Service-day context successor changed");
-	xeenValidateCurrentServiceEconomy(originalEconomy,content);
+	xeenValidateCurrentServiceEconomy(originalEconomy);
 	const auto ending=random.continuation();
 	if(!regenerating) {
 		if(endingEconomy!=originalEconomy || ending!=originalRandom)

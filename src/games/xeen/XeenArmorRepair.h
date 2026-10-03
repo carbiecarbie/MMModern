@@ -22,7 +22,7 @@ struct XeenArmorRepairCandidate {
 	std::uint32_t price=0, goldBefore=0, goldAfter=0;
 };
 // ScummVM GPL-3.0-or-later armor base costs, in physical ID order. Repair
-// applies its divisor separately; the content-13 plain Buy rule uses divisor 1.
+// applies its divisor separately; the plain Buy rule uses divisor 1.
 inline constexpr std::array<std::uint32_t,13> kXeenArmorBaseCosts{{20,100,200,400,600,1000,2000,100,60,40,250,200,100}};
 // Pure detached values. Publication and owner/frame authority belong to Flow.
 // Armor costs and divisor adapted from ScummVM developers' GPL-3.0-or-later
@@ -50,16 +50,14 @@ inline XeenArmorRepairCandidate xeenPrepareArmorRepair(const XeenItem &item,std:
 	return result;
 }
 inline std::optional<XeenGameplayContext> xeenPrepareSmithDeparture(
-		const XeenGameplayContext &before,std::uint16_t content) {
-	if ((content<9 || content>14) || !xeenRegionalContext(before) || before.year!=610 ||
-		before.day<8 || before.day>((content>=11) ? 98 : 9)) return {};
+		const XeenGameplayContext &before) {
+	if (!xeenRegionalContext(before) || before.year!=610 || before.day<8 || before.day>((true) ? 98 : 9)) return {};
 	auto after=before;after.day=static_cast<std::uint16_t>(before.day+1);
 	return after;
 }
 inline std::optional<XeenGameplayContext> xeenPrepareTemplePaidDeparture(
-		const XeenGameplayContext &before,std::uint16_t content) {
-	if(content!=14 || !xeenRegionalContext(before) || before.year!=610 ||
-		before.day<8 || before.day>97)return {};
+		const XeenGameplayContext &before) {
+	if(!xeenRegionalContext(before) || before.year!=610 || before.day<8 || before.day>97)return {};
 	auto after=before;after.day=static_cast<std::uint16_t>(before.day+2);
 	return after;
 }

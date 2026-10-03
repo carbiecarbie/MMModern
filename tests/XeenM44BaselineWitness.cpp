@@ -51,13 +51,13 @@ std::optional<std::uint32_t> ProbeRandom::draw(std::uint32_t lo,std::uint32_t hi
     }
     return result;
 }
-#define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjES5_ItE"
-extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>,std::optional<std::uint16_t>) asm("__real_" PLAY_SYMBOL);
-extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>,std::optional<std::uint16_t>) asm("__wrap_" PLAY_SYMBOL);
+#define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjE"
+extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__real_" PLAY_SYMBOL);
+extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__wrap_" PLAY_SYMBOL);
 static const probe_fired::Expect playProbe{"Application::playGameplay"};
 extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &original,XeenCamera camera,
     const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,
-    std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract) {probe_fired::hit("Application::playGameplay");
+    std::optional<std::uint32_t> seed) {probe_fired::hit("Application::playGameplay");
     QuietCliOutput quietOutput;
     const std::string scenario=std::getenv("MMODERN_M44_SCENARIO")?std::getenv("MMODERN_M44_SCENARIO"):"mainland";
     const std::string stage=std::getenv("MMODERN_M43_STAGE")?std::getenv("MMODERN_M43_STAGE"):"main";
@@ -70,7 +70,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         f.reportText=[](const std::string &){};};
     services.show=[&](const IndexedFrame &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
         check(flow && world && party && position && flags && target,"M43 production owners absent");
-        check(world->sessionState().journeyContract()==14,"M43 fresh content is not 14");
+        check(world->sessionState().journey(),"M43 fresh content is not 14");
         std::deque<std::function<bool()>> steps;std::optional<IndexedFrame> next;
         IndexedFrame::Presentation presented;
         bool shown=false,acted=false,cityFight=false;unsigned blocks=0,iterations=0;
@@ -188,5 +188,5 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         check(ok && steps.empty(),"M43 witnessed actions did not complete");
         return ok;
     };
-    return realPlay(app,services,camera,target,resume,entry,seed,contract);
+    return realPlay(app,services,camera,target,resume,entry,seed);
 }

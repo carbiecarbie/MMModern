@@ -52,8 +52,6 @@ IndexedFrame noticeFrame(const IndexedFrame &base, const XeenFontFormat &font, c
 }
 }
 
-
-
 void XeenEventFlow::requireCurrentOwners() const {
 	if (!_gameplayBorrow->current()) throw std::runtime_error("Stale Flow borrowed owner lifetime");
 	if (_eventPublication) _eventPublication->check();
@@ -64,8 +62,6 @@ bool XeenEventFlow::canSave() const noexcept {
 		!inventoryOpen() && !_pending && !_equipmentSelection && !_inventoryConfirmation &&
 		(!_encounter || (_encounter->canSave() && encounterFrameCurrent()));
 }
-
-
 
 XeenEventFlow::SaveBoundary XeenEventFlow::beginSave() {
 	if (!canSave()) throw std::logic_error("Save boundary is unavailable");
@@ -99,8 +95,7 @@ void XeenEventFlow::prepareJourneyTransition() {
   !_encounter->monsterReward() && !_encounter->state().pending() && _encounter->state().phase()==XeenEncounterPhase::Exploring) {
   _encounter->beginJourneyEvent();_journeyEventLayers=true;
   journeyEventWork([&] {
-   if(xeenJourneyContent(_world.sessionState().journeyContract()).vertigo() &&
-      xeenRegionalInteraction(_encounter->_journeyEvents,_camera,_world.sessionState().journeyContract())==XeenRegionalInteraction::VertigoDoor)
+   if(xeenRegionalInteraction(_encounter->_journeyEvents,_camera)==XeenRegionalInteraction::VertigoDoor)
     drive(beginVertigoEvent(XeenRegionalInteraction::VertigoDoor),false);
    else drive(_events.runAutomaticEvent(_world,_party,_camera,_flags,_eventPublication),true);
   },true);
@@ -192,8 +187,6 @@ void XeenEventFlow::closeGameplay() noexcept {
 	_fatal = true;
 }
 
-
-
 void XeenEventFlow::beginCycle(std::uint64_t cycle) {
 	requireCurrentOwners();
 	if (!_encounter) return;
@@ -263,7 +256,7 @@ void XeenEventFlow::sealFrame(IndexedFrame &returned) {
 }
 
 IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
-	if (_smithUi && xeenJourneyContent(_world.sessionState().journeyContract()).equipmentPurchase()) {
+	if (_smithUi) {
 		cosmeticInput=_smithRenderedRevision && *_smithRenderedRevision==_smithUi->revision;
 		if (_encounter->_smith && _encounter->_smith->frame &&
 			(!xeenSmithAuthorityRoom(_inputGeneration,8) || !_encounter->smithCapacity(16,4))) return frameCopy();
@@ -273,19 +266,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 		if(_encounter->_training && _encounter->_training->frame &&
 			(!xeenSmithAuthorityRoom(_inputGeneration,8) || !_encounter->smithCapacity(16,4)))return frameCopy();
 	}
-	if (_smithUi && _encounter && _encounter->_smith && !_smithSettlement && !_encounter->_smith->departed &&
-		!xeenJourneyContent(_world.sessionState().journeyContract()).equipmentPurchase()) {
-		// Resize/expose and other redraws consume the same presented Journey
-		// revision as menu input. Preserve the concrete last departure frame
-		// rather than allowing cosmetics to exhaust its reserved suffix.
-		if (_encounter->_smith->frame &&
-			(!_encounter->smithCapacity(7,2) || !xeenSmithAuthorityRoom(_inputGeneration,2))) return frameCopy();
-		if (_smithUi->phase!=SmithUi::Phase::Departure &&
-			(!_encounter->smithCapacity(9,2) || !xeenSmithAuthorityRoom(_inputGeneration,3))) {
-			_smithUi->phase=SmithUi::Phase::Departure;
-			_smithUi->feedback="Further repairs unavailable. Departure remains reserved.";
-		}
-	}
+
 	// A consumed Training frame is a strict retry even if its phase/revision
 	// survived an exception. Only an unconsumed, acquired origin can overlap B.
 	const bool cosmetic = (journey() || _encounter->combat()) && cosmeticInput && _actionableFrame &&
@@ -314,7 +295,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 				if (!_encounter->current(t)) throw std::logic_error("Stale Journey composition");
 				if (!composed.frame.isValid()) throw std::runtime_error("Invalid Journey frame");
 				auto rendered = _journeyEventLayers ? _presenter.rebase(composed.frame) : noticeFrame(composed.frame,_inventoryFont,
-					_castingUi ? castingText() : _encounter->notice(),true,xeenJourneyContent(_world.sessionState().journeyContract()).consequences());
+					_castingUi ? castingText() : _encounter->notice(),true,true);
 				if(_encounter->monsterReward()) {
 					if(!_monsterReceiptPresented) {
 						_presenter.clear();XeenPresentationRequest request;
@@ -326,7 +307,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 				_inventoryUnderlay = rendered;
 				if (inventoryOpen()) rendered = drawXeenInventory(rendered,_inventoryFont,_catalog,_party,_inventory,_inventoryFeedback,
 					_equipmentResult ? &*_equipmentResult : nullptr,false,false,
-					_world.sessionState().journeyContract()==6 || _world.sessionState().journeyContract()==7 || xeenJourneyContent(_world.sessionState().journeyContract()).vertigo());
+					true);
 				if (_smithUi) rendered=drawSmith(composed.frame);
 				if (_trainingUi) rendered=drawTraining(composed.frame);
 				if (report && !attempt) {
@@ -369,7 +350,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter frame");
 			if (!composed.frame.isValid()) throw std::runtime_error("Invalid encounter frame");
 			const auto notice = _encounter->combat() && _encounter->combat()->cast() ? combatCastingText() : _encounter->notice();
-			auto rendered = noticeFrame(composed.frame, _inventoryFont, notice, _encounter->combat(),journey() && xeenJourneyContent(_world.sessionState().journeyContract()).consequences());
+			auto rendered = noticeFrame(composed.frame, _inventoryFont, notice, _encounter->combat(),journey());
 			if (report && !attempt && reportText) reportText(notice);
 			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter report");
 			// Complete the fallible return copy before installing the frame.
@@ -506,8 +487,7 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 			if (_transition) prepareVertigoResult(result);
 		// Adopt ownership before composition, reporting or presentation can fail.
 		auto *suspended = std::get_if<XeenEventExecutionSuspended>(&result);
-		if (suspended && journey() && xeenJourneyContent(_world.sessionState().journeyContract()).equipmentPurchase() &&
-			(suspended->request.kind==XeenPresentationKind::ArmorRepairService ||
+		if (suspended && journey() && (suspended->request.kind==XeenPresentationKind::ArmorRepairService ||
 			 suspended->request.kind==XeenPresentationKind::TempleService) && !xeenSmithAuthorityRoom(_generation,1))
 			throw std::overflow_error("Smith Event ticket generation exhausted before preparation");
 		if (suspended) _pending.emplace(Pending{std::move(suspended->state), automatic, ++_generation});
@@ -566,13 +546,13 @@ void XeenEventFlow::checkTransitionCandidate() {
 
 XeenManualEventResult XeenEventFlow::beginVertigoEvent(XeenRegionalInteraction kind) try {
 	if (_transition || !_eventPublication || !_encounter->journeyEvent() ||
-		!xeenJourneyContent(_world.sessionState().journeyContract()).vertigo() || !_transitionCompose)
+		!_transitionCompose)
 		throw std::logic_error("Vertigo Event candidate is unavailable");
 	auto work=std::make_unique<TransitionCandidate>();
 	const auto mainland=_events.scriptForMap(23).file();
 	const auto city=_events.scriptForMap(28).file();
 	_eventPublication->check();
-	try { xeenValidateVertigoRoute(mainland,city,_world.sessionState().journeyContract()); }
+	try { xeenValidateVertigoRoute(mainland,city); }
 	catch (const std::invalid_argument &) { _encounter->journeySavePreimage().failed=true; throw; }
 	const auto mainText=_events.textForMap(23),cityText=_events.textForMap(28);
 	_eventPublication->check();
@@ -726,12 +706,12 @@ void XeenEventFlow::prepareVertigoResult(const XeenManualEventResult &result) tr
 }
 
 void XeenEventFlow::validateRegionalEvents() {
-	if (!journey() || _world.sessionState().journeyContract()<3) return;
+	if (!journey()) return;
 	const auto entry=_encounter->ticket();
 	XeenRestoreGuard currentCombat(_world,_party,_camera,_flags);
 	currentCombat.retainResources(_encounter->journeySavePreimage());
 	auto &guard=_encounter->combat()?currentCombat:_encounter->journeySavePreimage();
-	if (_world.sessionState().journeyContract()==7 || xeenJourneyContent(_world.sessionState().journeyContract()).vertigo()) {
+	{
 		if (!_encounter->_learnedNamesProvider) throw std::logic_error("Learned spell name provider unavailable");
 		guard.check();
 		const auto value=_encounter->_learnedNamesProvider();
@@ -743,7 +723,7 @@ void XeenEventFlow::validateRegionalEvents() {
 	});
 	XeenRestoreGuard::Providers providers(guard,_world,[&] {validation.check();});
 	validation.script(_events.scriptForMap(_camera.mapId).file());
-	if (_world.sessionState().journeyContract()==6 || _world.sessionState().journeyContract()==7 || xeenJourneyContent(_world.sessionState().journeyContract()).vertigo()) validation.text(_events.textForMap(_camera.mapId));
+	validation.text(_events.textForMap(_camera.mapId));
 }
 IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operation, bool automatic) {
 	automatic=automatic || (_pending && _pending->automatic);
@@ -899,8 +879,7 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 	if (_smithUi && _smithUi->phase==SmithUi::Phase::Preparation && !_dispatching && !_fatal && !_saving) {
 		DispatchScope dispatch(_dispatching);
 		try {
-			if (xeenJourneyContent(_world.sessionState().journeyContract()).equipmentPurchase() &&
-				!xeenSmithAuthorityRoom(_inputGeneration,9))
+			if (!xeenSmithAuthorityRoom(_inputGeneration,9))
 				throw std::overflow_error("Smith admission would consume mandatory input authority");
 			if (!_encounter->serviceSmithPreparation()) return std::nullopt;
 			_smithUi->phase=SmithUi::Phase::Lobby;
@@ -1007,7 +986,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 	// Concrete origin is independent of semantic meaning. A retry/redraw may
 	// retain the generation, but input from its retired frame cannot authorize it.
 	if ((inputFrame && !acceptsInputFrame(inputFrame)) || (_trainingUi && !inputFrame) ||
-		(_smithUi && xeenJourneyContent(_world.sessionState().journeyContract()).equipmentPurchase() && !inputFrame)) return frameCopy();
+		(_smithUi && !inputFrame)) return frameCopy();
 	if (journey() && !journeyInputCurrent(displayedInput)) return frameCopy();
 	if (std::holds_alternative<SaveGameAction>(action) || _dispatching || _fatal || _saving) return frameCopy();
 	if(_trainingUi) {
@@ -1023,8 +1002,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 	if (!_encounter && std::holds_alternative<WaitAction>(action)) return frameCopy();
 	if (!_encounter && (std::holds_alternative<AttackAction>(action) || std::holds_alternative<BlockAction>(action) || std::holds_alternative<RunAction>(action) ||
 		std::holds_alternative<BeginEncounterAction>(action) || std::holds_alternative<RevisitCompletedAction>(action))) return frameCopy();
-	if (journey() && _encounter->combat() && xeenJourneyContent(_world.sessionState().journeyContract()).disengagement() &&
-		std::holds_alternative<RevisitCompletedAction>(action)) action=RunAction{};
+	if (journey() && _encounter->combat() && std::holds_alternative<RevisitCompletedAction>(action)) action=RunAction{};
 	DispatchScope dispatch(_dispatching);
     if(journey() && _encounter->combat() && (_encounter->combat()->cast() || std::holds_alternative<CastSpellAction>(action)))
         return handleCombatCasting(action,*displayedInput);
@@ -1034,7 +1012,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 			if (_castingUi) return handleCasting(action,*displayedInput);
 			if (_encounter->castingSettlement() && !_encounter->monsterReward() && !_encounter->journeyEvent()) return frameCopy();
 			if (std::holds_alternative<CastSpellAction>(action)) {
-				if (_world.sessionState().journeyContract()!=7 && !xeenJourneyContent(_world.sessionState().journeyContract()).vertigo() || !_encounter->beginCasting(_encounter->ticket())) return frameCopy();
+				if (!_encounter->beginCasting(_encounter->ticket())) return frameCopy();
 				// beginCasting acquired its lease; only completed Event layers may be retired here.
 				if (_journeyEventLayers) { _presenter.clear(); _journeyEventLayers=false; }
 				_castingUi.emplace();
@@ -1047,8 +1025,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 				}
 				return renderEncounter();
 			}
-			if (_world.sessionState().journeyContract()>=3 &&
-				(std::holds_alternative<AttackAction>(action) || std::holds_alternative<BlockAction>(action) || std::holds_alternative<RunAction>(action) ||
+			if ((std::holds_alternative<AttackAction>(action) || std::holds_alternative<BlockAction>(action) || std::holds_alternative<RunAction>(action) ||
 				 std::holds_alternative<BeginEncounterAction>(action) || std::holds_alternative<RevisitCompletedAction>(action))) {
 				if (_encounter->journeyMutable()) {
 					_encounter->_journeyRefusal="Unsupported regional action: combat/Run/Begin/Revisit";
@@ -1074,10 +1051,10 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 			}
 			if (std::holds_alternative<InteractionAction>(action)) {
 				if (!_encounter->journeyQuiet()) return frameCopy();
-				if (_world.sessionState().journeyContract()>=3) {
-					if (xeenRegionalInteraction(_encounter->_journeyEvents,_camera,_world.sessionState().journeyContract())!=XeenRegionalInteraction::None) {
+				{
+					if (xeenRegionalInteraction(_encounter->_journeyEvents,_camera)!=XeenRegionalInteraction::None) {
 						_encounter->beginJourneyEvent();_journeyEventLayers=true;
-						const auto interaction=xeenRegionalInteraction(_encounter->_journeyEvents,_camera,_world.sessionState().journeyContract());
+						const auto interaction=xeenRegionalInteraction(_encounter->_journeyEvents,_camera);
 						return journeyEventWork([&] {
 							if(interaction==XeenRegionalInteraction::VertigoEntrance ||
 								interaction==XeenRegionalInteraction::VertigoDoor ||
@@ -1100,10 +1077,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 					}
 					return renderEncounter();
 				}
-				if (_world.sessionState().journeyContract()==2 && _camera.mapId==XeenMapIdentity(20) && _camera.x==5 && _camera.y==14) {
-					_encounter->beginJourneyEvent(); _journeyEventLayers=true;
-					return journeyEventWork([&] { drive(_events.runManualEvent(_world,_party,_camera,_flags,_eventPublication),false); });
-				}
+
 				try { _encounter->journeyRead([&] {
 					const XeenManualEventResult result = XeenManualEventNoEvent{};
 					if (!std::holds_alternative<XeenManualEventNoEvent>(result)) throw std::runtime_error("Journey requires the admitted event-free footprint");
@@ -1116,7 +1090,6 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 				return renderEncounter();
 			}
 		}
-
 
 		const auto entry = _encounter->ticket();
 		const bool changed = _encounter->handle(action, _cycle, _displayedCombat);

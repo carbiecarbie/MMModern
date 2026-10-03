@@ -78,12 +78,8 @@ void testTownService() {
  check(operation<XeenEventTownService>(XeenEventDecoder::decode(record(0x11,{5}))).action==5,
   "Training action decode");
  check(operation<XeenEventTownService>(XeenEventDecoder::decode(record(0x11,{4}),
-  {{}, {}, {}, xeenJourneyContent(14).templeRecovery()})).action==4,
+  {{}, {}, {}, true})).action==4,
   "Temple action decode");
-	for(unsigned content=8;content<=13;++content)
-	 failure(XeenEventDecoder::decode(record(0x11,{4}),
-	  {{}, {}, {}, xeenJourneyContent(content).templeRecovery()}),
-	  XeenEventDecodeErrorKind::UnsupportedOperand);
  for(const auto &payload:std::vector<std::vector<std::uint8_t>>{{},{1,0},{4,0},{5,0}})
   failure(XeenEventDecoder::decode(record(0x11,payload)),XeenEventDecodeErrorKind::MalformedInstruction);
  for(unsigned action=0;action<256;++action)if(action!=1 && action!=5)

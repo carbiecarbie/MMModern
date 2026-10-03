@@ -50,13 +50,13 @@ std::optional<std::uint32_t> ProbeRandom::draw(std::uint32_t lo,std::uint32_t hi
     }
     return result;
 }
-#define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjES5_ItE"
-extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>,std::optional<std::uint16_t>) asm("__real_" PLAY_SYMBOL);
-extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>,std::optional<std::uint16_t>) asm("__wrap_" PLAY_SYMBOL);
+#define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjE"
+extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__real_" PLAY_SYMBOL);
+extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__wrap_" PLAY_SYMBOL);
 static const probe_fired::Expect playProbe{"Application::playGameplay"};
 extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &original,XeenCamera camera,
     const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,
-    std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract) {probe_fired::hit("Application::playGameplay");if(!resume && std::string(std::getenv("MMODERN_M43_STAGE")?std::getenv("MMODERN_M43_STAGE"):"main")=="main")for(const char *probe:{"XeenCombatRandom::draw"})probe_fired::expect(probe);
+    std::optional<std::uint32_t> seed) {probe_fired::hit("Application::playGameplay");if(!resume && std::string(std::getenv("MMODERN_M43_STAGE")?std::getenv("MMODERN_M43_STAGE"):"main")=="main")for(const char *probe:{"XeenCombatRandom::draw"})probe_fired::expect(probe);
     QuietCliOutput quietOutput;
     const std::string stage=std::getenv("MMODERN_M43_STAGE")?std::getenv("MMODERN_M43_STAGE"):"main";
     auto services=original;XeenEventFlow *flow=nullptr;XeenWorld *world=nullptr;
@@ -68,7 +68,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         f.reportText=[](const std::string &){};};
     services.show=[&](const IndexedFrame &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
         check(flow && world && party && position && flags && target,"M43 production owners absent");
-        check(world->sessionState().journeyContract()==14,"M43 fresh content is not 14");
+        check(world->sessionState().journey(),"M43 fresh content is not 14");
         std::deque<std::function<bool()>> steps;std::optional<IndexedFrame> next;
         IndexedFrame::Presentation presented;
         bool shown=false,acted=false;unsigned blocks=0,iterations=0;
@@ -285,7 +285,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     const auto owner=party->party.activeRosterIds()[index];
                     const auto candidate=xeenQuoteTempleHeal(party->roster.at(owner),670,*party->encounterContext);
                     if(candidate.outcome==XeenTempleHealOutcome::Quoted){
-                        *selected=index;*quote=candidate;*expectedHeal=xeenPrepareTempleHeal(*party,owner,*party->encounterContext,14);
+                        *selected=index;*quote=candidate;*expectedHeal=xeenPrepareTempleHeal(*party,owner,*party->encounterContext);
                         found=true;break;
                     }
                 }
@@ -409,7 +409,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         action(SelectMemberAction{5});action(AcknowledgeAction{});
         auto returnHeal=std::make_shared<XeenTempleHealCandidate>();
         inspect([&,returnHeal]{
-            *returnHeal=xeenPrepareTempleHeal(*party,6,*party->encounterContext,14);
+            *returnHeal=xeenPrepareTempleHeal(*party,6,*party->encounterContext);
             check(returnHeal->result.outcome==XeenTempleHealOutcome::Healed,
                 "M43 return visit did not offer the wounded Seymour another selected Heal");
             std::cerr<<"M43 RETURN QUOTE "<<returnHeal->result.price<<" GOLD "
@@ -459,5 +459,5 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         check(ok && steps.empty(),"M43 witnessed actions did not complete");
         return ok;
     };
-    return realPlay(app,services,camera,target,resume,entry,seed,contract);
+    return realPlay(app,services,camera,target,resume,entry,seed);
 }

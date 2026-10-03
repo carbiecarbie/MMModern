@@ -75,13 +75,12 @@ struct Inputs {
 		return [&](auto &w,const auto &e,const auto &s) {xeenValidateVertigoManifest(w,e,s,[&](const auto &name) {
 			return name.rfind("maze",0)==0?assets.readInitialResource(name):assets.readArchiveResource(name);});};
 	}
-	XeenJourneySetup setup(unsigned content=14) {
-		XeenJourneySetup out{chr,XeenGameplayContextFormat::parse(pty),statistics,mainlandEvents,3626689381u,
-			static_cast<std::uint16_t>(content),regional()};
+	XeenJourneySetup setup() {
+		XeenJourneySetup out{chr,XeenGameplayContextFormat::parse(pty),statistics,mainlandEvents,3626689381u,regional()};
 		out.purse=XeenCharacterFormat::parseMonsterPurse(pty);
 		out.regionalRecovery=XeenQuestFlagFormat::parseRegionalRecovery(pty);out.regionalText=texts.load(23);
 		out.learnedNames=names;out.learnedNamesProvider=[&]{return names;};out.vertigoManifest=vertigo();
-		if(content==14)out.bank=XeenCharacterFormat::parseBankBalances(pty);
+		out.bank=XeenCharacterFormat::parseBankBalances(pty);
 		out.cityEventsProvider=[&]{return events.load(28);};
 		return out;
 	}
@@ -132,7 +131,7 @@ void parserAndFresh(Inputs &i) {
 		auto changed=i.pty;changed[offset]^=1;rejects([&]{XeenCharacterFormat::parseBankBalances(changed);});
 	}
 	Graph source(i);source.fresh(i.setup());const auto s=source.capture(i);
-	check(s.journey->schema==9 && s.journey->contract==14 && s.journey->serviceEconomy &&
+	check(s.journey->schema==9 && s.journey->content==14 && s.journey->serviceEconomy &&
 		s.journey->random==std::optional<XeenJourneyRandomState>{{1,7,886}},"fresh post-generation world cursor differs from independent vector");
 	check(s.journey->context->year==610 && s.journey->context->day==8 && s.journey->context->minutes==480 &&
 		!s.journey->context->ctr24 && !s.journey->serviceEconomy->bank.gold && !s.journey->serviceEconomy->bank.gems,"fresh bank/calendar mismatch");

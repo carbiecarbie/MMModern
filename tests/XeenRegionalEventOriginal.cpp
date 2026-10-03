@@ -117,7 +117,7 @@ int main(int argc,char **argv) {
   }
   if(treasureMyra || treasureWell){
    auto fixture=XeenSaveFile::read(path);
-   check(fixture.journey && fixture.journey->treasure,"Treasure fixture requires contract-6 Journey");
+   check(fixture.journey && fixture.journey->treasure,"Treasure fixture requires content-6 Journey");
    fixture.camera=treasureMyra?XeenCamera{23,9,11,XeenDirection::West}:
     XeenCamera{23,7,7,treasureReady?XeenDirection::North:XeenDirection::South};
    if(treasureMyra){fixture.questItems[17]=1;fixture.questFlags[2]=true;}
@@ -153,7 +153,7 @@ int main(int argc,char **argv) {
   }
   XeenSaveSnapshot source;
   if(!staged){Harness h(game);auto s=regional(h);s.show=[&](const auto &,const auto &handler,const auto &,const auto &,const auto &){handler.framePresented(h.flow->frame().presentation());source=XeenSaveState::capture(h.signature,*h.party,*h.camera,*h.flags,*h.world);return true;};
-   check(Application().playGameplay(s,{},path,false,XeenEncounterEntry::Journey,3626689381u,14)==0,"Regional source preparation");}
+   check(Application().playGameplay(s,{},path,false,XeenEncounterEntry::Journey,3626689381u)==0,"Regional source preparation");}
   {
    Harness h(game);auto s=regional(h);
    bool corruptText=false;
@@ -329,7 +329,7 @@ int main(int argc,char **argv) {
         check(combatFrameFault>=1 && h.flow->canSave() && h.party->roster.at(18).conditions[3]==0 &&
          h.flow->encounter()->itemUseResult() && h.flow->encounter()->result().movementOpportunities==1,
          "Post-contact combat frame retry/treasure did not preserve single antidote settlement");
-        xeenValidateMonsterTreasure(*h.party->monsterTreasure,14);
+        xeenValidateMonsterTreasure(*h.party->monsterTreasure);
         input(SaveGameAction{});check(h.saves>0,"Post-contact treasure F9 save");
         std::cout<<"M35 item contact followed by original combat/treasure/presentation PASS\n";return true;
        }
@@ -445,7 +445,7 @@ int main(int argc,char **argv) {
       input(NavigationAction::MoveForward);settle();
       check(h.camera->x==10 && h.camera->y==12 && h.camera->direction==XeenDirection::West &&
        h.world->sessionState().actors().at(9).hp==16 && h.party->monsterTreasure->gold==800,
-       "Genuine contract-6 wounded Run/disengagement");
+       "Genuine content-6 wounded Run/disengagement");
       for(const PlayerAction action:std::vector<PlayerAction>{NavigationAction::MoveForward,NavigationAction::TurnLeft,
         NavigationAction::MoveForward,NavigationAction::TurnRight}) {input(action);settle();}
       check(h.camera->x==9 && h.camera->y==11 && h.camera->direction==XeenDirection::West,
@@ -798,8 +798,7 @@ int main(int argc,char **argv) {
    const bool resume=stage=="collected" || stage=="return" || stage=="exchange" || rewardVariant || treasureMyra || treasureWell || stage=="item-draw-fault" || stage=="recovery" || stage=="continue" || stage=="branches" || stage=="selector-authority" || stage=="selector-aba" || stage=="phirna-grant-fault" || stage=="myra-take-fault" || stage=="item-owed-fault" ||
     stage=="well-repeat" || stage=="well-equal" || stage=="well-frame-retry" || stage=="well-text-fault" || stage=="run-restart";
    check(Application().playGameplay(s,{},path,resume,resume?XeenEncounterEntry::Ordinary:XeenEncounterEntry::Journey,
-    resume?std::optional<std::uint32_t>{}:std::optional<std::uint32_t>{stage=="run-quest"||stage=="run-full"?runSeed:3626689381u},
-    resume?std::optional<std::uint16_t>{}:std::optional<std::uint16_t>{14})==0,"Connected regional stage");
+    resume?std::optional<std::uint32_t>{}:std::optional<std::uint32_t>{stage=="run-quest"||stage=="run-full"?runSeed:3626689381u})==0,"Connected regional stage");
   }
   if(staged) {std::cout<<"M35 STAGE PASS "<<stage<<'\n';return 0;}
   // Representation-only persistent activation permits each restored quiet view.

@@ -6,7 +6,7 @@ using namespace combat_test;
 int main(){try {
  const auto bytes=chr();const auto mon=regional_test::statistics();const auto evt=regional_test::events(23);
  auto r=regional_test::resources();
- XeenJourneySetup setup{bytes,XeenGameplayContextFormat::parse(pty()),mon,evt,56,14,r.regionalManifest};
+ XeenJourneySetup setup{bytes,XeenGameplayContextFormat::parse(pty()),mon,evt,56,r.regionalManifest};
  setup.purse=XeenMonsterTreasure{};setup.regionalRecovery=XeenRegionalRecoveryState{};
  setup.regionalText=regional_test::texts(23);setup.learnedNames=XeenLearnedSpellNames{};
  setup.learnedNamesProvider=r.loadLearnedSpellNames;setup.vertigoManifest=r.vertigoManifest;

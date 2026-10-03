@@ -27,7 +27,6 @@ struct XeenJourneySetup {
 	const std::vector<XeenMonsterRecord> &statistics;
 	const XeenEventFile &events;
 	std::uint32_t seed;
-	std::uint16_t contract = 1;
 	XeenRegionalManifest regionalManifest;
 	std::optional<XeenMonsterTreasure> purse;
 	std::optional<XeenRegionalRecoveryState> regionalRecovery;
@@ -168,7 +167,6 @@ private:
 		std::unique_ptr<XeenServiceDayCandidate> templeUpgrade;
 		std::unique_ptr<XeenEquipmentPurchaseCandidate> purchase;
 		std::uint64_t quoteOperation=0, quoteReservation=0;
-		std::optional<XeenGameplayContext> legacyDeparture;
 		std::unique_ptr<XeenServiceDayCandidate> departure;
 		std::optional<SmithDepartureBinding> binding;
 	};
@@ -306,7 +304,6 @@ private:
 	bool handoffCombat();
 	std::string combatNotice() const;
 	std::string consequenceNotice() const;
-	std::string expeditionNotice() const;
 	bool observeCombat() noexcept;
 	void advanceAppearance() noexcept;
 	XeenCombatResult _combatObservation, _combatAward, _retiredCombatResult;

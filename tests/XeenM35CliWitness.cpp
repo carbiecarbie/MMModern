@@ -24,15 +24,15 @@ void check(bool value,const char *message) { if(!value) throw std::runtime_error
 }
 int runM35CliWitness(const XeenGameplayServices &original,
 		const std::optional<std::filesystem::path> &target,bool resume,
-		std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract,
+		std::optional<std::uint32_t> seed,
 		const std::function<int(const XeenGameplayServices &)> &launch) {
 	try {
 		const std::string stage=std::getenv("MMODERN_M35_STAGE")?std::getenv("MMODERN_M35_STAGE"):"";
 		check(stage=="entry" || stage=="request" || stage=="before-phirna" || stage=="collected" || stage=="return" || stage=="exchange" ||
 			stage=="well" || stage=="item" || stage=="continue" || stage=="post" || stage=="full",
 			"Unknown M35 production CLI stage");
-		check(bool(target) && (resume ? !seed && !contract : seed==3626689381u && contract==14),
-			"M35 production CLI seed/contract or restore entry changed");
+		check(bool(target) && (resume ? !seed : seed==3626689381u),
+			"M35 production CLI seed or restore entry changed");
 		auto services=original;
 		XeenEventFlow *flow=nullptr;
 		XeenWorld *world=nullptr;

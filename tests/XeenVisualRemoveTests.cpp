@@ -231,7 +231,7 @@ void errorsAndSuspendedMutation(XeenAssetSource &assets,const std::filesystem::p
 	const auto source=suspended.flow.frame();suspended.flow.handle(InteractionAction{});
 	check(physicalLogical && suspended.flow.blocksGameplay() && suspended.camera.mapId==23 && !suspended.flags.isSet(5),"suspension committed working camera/flags");
 	pages=0;while(suspended.flow.blocksGameplay() && ++pages<100)suspended.flow.handle(AcknowledgeAction{});
-	check(failed && suspended.camera.mapId==23 && !suspended.flags.isSet(5) && suspended.world.isObjectDisabled({24,0}),"resumed failure rollback/world contract");
+	check(failed && suspended.camera.mapId==23 && !suspended.flags.isSet(5) && suspended.world.isObjectDisabled({24,0}),"resumed failure rollback/world content");
 	for(int y=8;y<140;++y)for(int x=8;x<223;++x)check(suspended.flow.frame().pixels[y*320+x]==source.pixels[y*320+x],"suspended/resumed result previewed uncommitted teleport");
 }
 }
