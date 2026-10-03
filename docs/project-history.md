@@ -4,7 +4,7 @@ One short paragraph per completed milestone, with the closing commit. This is
 not the authority for current state: see [project status](project-status.md) and
 the [roadmap](roadmap.md). Plans of milestones 15-43 are kept in
 [docs/archive](archive/) as a historical record; their limits and entry modes
-describe their time, not the present. M44 is in progress and not listed here.
+describe their time, not the present.
 
 **M1-M12 - Pre-public foundation.** Original-resource loading, outdoor and indoor
 rendering, navigation, collision, party loading and the first Event support.
@@ -117,3 +117,9 @@ generated stock with depletion. [Plan](archive/milestone-42-plan.md).
 **M43 - Temple Heal and resurrection** (`c26a26b`). A 49-cell Vertigo route to the
 Temple with original prices and a two-day paid departure.
 [Plan](archive/milestone-43-plan.md).
+
+**M44 - Simplification** (`830af7e`). One save format and one Journey
+configuration; legacy contracts, save versions and diagnostic modes removed;
+tests labelled `fast`/`process` with digest-checked original-data scenarios;
+closed plans archived and docs rewritten. Game behavior unchanged.
+[Plan](milestone-44-plan.md).

@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M43 is the latest completed and accepted milestone.**
+**M44 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -20,7 +20,9 @@ actors, Event addresses, a new content/save contract and legacy isolation).
 That proved the systems, but the cost per piece of content did not fall: M43
 needed 55 files and ~2,400 added lines for one service. The process in
 [AGENTS.md](../AGENTS.md) (playable-by-default admission, one current save
-format, Tier A/B milestones) applies from M44 onward.
+format, Tier A/B milestones) applies from M44 onward. M44 removed the legacy
+machinery: the code now has one save format and one Journey configuration, and
+`ctest -L fast` gives a quick iteration loop.
 
 ## Next milestones
 
@@ -28,11 +30,15 @@ format, Tier A/B milestones) applies from M44 onward.
 
 | Milestone | Tier | Goal | Accepted when |
 | --- | --- | --- | --- |
-| **M44 - Simplification** | A | Remove legacy save/content contracts 1-13 and the diagnostics built on them (`--encounter-26/27`, `--journey-skeleton`, `--journey-expedition`); replace contract numbers with one current save format and capability flags; shrink status/history/closed plans to the new size targets; replace per-contract process witnesses with a generic save round-trip test. | The current Regional Journey plays exactly as after M43; full CTest passes; code, tests and docs are measurably smaller. |
 | **M45 - Clickable original interface** | B | Mouse input mapped to the 320x200 framebuffer; main-screen buttons and party portraits trigger existing actions (unsupported buttons refuse visibly); original-style dialogs replace project menus for inventory, Smith, Training and Temple, including the deferred Temple panel/art composition. | The maintainer can play the current Journey with the mouse alone, and keyboard shortcuts still work. |
 | **M46 - Normal start in Vertigo** | A | New game from original initialization: the six level-1 `maze.pty` characters at Vertigo `(18,4)` facing West, without injected levels/XP. Admit the whole Vertigo map and its actors and Events from resources, with unsupported Events refusing visibly. Add Rest with food and HP/SP recovery plus the ordinary daily processing it needs. | A new game starts in Vertigo; the party can walk the whole town, fight, Rest, use the services and save/restore exactly. |
 
-The order matters. M44 lowers the cost of every later change. M45 avoids building
+Before or alongside M45, fix two known issues found during M44: Run to an
+occupied destination fails with "Stale encounter frame" (likely a real defect),
+and `xeen_save_sdl` is flaky under parallel load (fixed sleeps instead of
+waiting for frame readiness). Both are small and independent of M45's scope.
+
+The order matters. M44 lowered the cost of every later change. M45 avoids building
 more project-specific menus that would be discarded. M46 is the first test of
 whole-map admission and ends the prepared-party era. If M46 proves too large,
 split Rest/daily processing into its own milestone rather than narrowing the

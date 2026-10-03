@@ -1,9 +1,9 @@
 # MMModern - Project Status
 
-This describes what can be played and done now, after M44 Stage A (single
-save format, legacy entry modes removed). M44 itself is not complete; its
-remaining steps are in the [M44 plan](milestone-44-plan.md). Direction is in
-the [roadmap](roadmap.md); completed work is in [project history](project-history.md).
+This describes what can be played and done now. **M44 is the latest completed
+milestone** ([plan](milestone-44-plan.md)): one save format, one Journey
+configuration, legacy entry modes removed. Direction is in the
+[roadmap](roadmap.md); completed work is in [project history](project-history.md).
 Build and dependency setup is in [dependencies](dependencies.md).
 
 MMModern is not yet a general replacement for the original games. The playable
@@ -116,7 +116,7 @@ copied or modified, and saves must not be written inside the installation.
 | `mmodern <game-dir>` | Static party screen. |
 
 The earlier `--encounter-26`, `--encounter-27`, `--journey-skeleton` and
-`--journey-expedition` modes were removed in M44 Stage A and print usage.
+`--journey-expedition` modes were removed in M44 and print usage.
 
 ## Save format
 
@@ -173,15 +173,22 @@ frames carry an identity so input from a stale frame is dropped.
 
 CTest covers rules and synthetic fixtures without original data, and
 original-data integration and process tests that need a legally obtained
-installation. Build and run instructions are in [dependencies](dependencies.md).
+installation. Every test is labelled `fast` or `process`: use `ctest -L fast`
+while iterating and plain `ctest` before closing a milestone. Three
+original-data scenarios (mainland, Vertigo services, Temple) compare their final
+saves with digests recorded before M44 and re-save byte-identically after a
+reload, guarding against unintended behavior changes. Build and run
+instructions are in [dependencies](dependencies.md).
 
 ## Known gaps
 
 - **Occupied destination after Run.** When Run relocates the party to `(10,12)`
   and another monster is already there, the encounter is re-attached on the
   same actors in one step. The original-data check `mmodern_consequence_original`
-  is reported to fail on this path with "Stale encounter frame". This was
-  not re-run for this document; a fix is not yet scheduled.
+  fails on this path with "Stale encounter frame", both before and after M44.
+  It is likely a real defect and is not yet fixed.
+- **Flaky `xeen_save_sdl`.** Under heavy parallel test load it can fail because
+  it sends keys after fixed sleeps instead of waiting for a presented frame.
 - **Not a new game.** The party is prepared and injured or leveled only through
   the services above. There is no original new-game start, no Rest, no food and
   no general calendar.
