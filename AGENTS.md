@@ -126,15 +126,30 @@ Priorities, in order: correctness, then credit/resource efficiency, then speed.
 
 ### Long-running commands
 
-- Run long builds and test suites as one blocking command with a generous
-  timeout, writing output to a log file. Read only the summary and failures
-  when it finishes.
-- Do not poll logs or report progress while a command runs. If a tool timeout
-  forces a check, wait at least 10 minutes between checks.
-- During iteration, run only affected test targets. Run the complete CTest
-  suite once, at the end, unless a failure requires a rerun.
-- Do not start subagents, mid-task reviews or parallel worktrees unless the
-  maintainer asks for them.
+- While iterating, run affected tests and `ctest -L fast`. Run the complete
+  suite once after the final build, unless failures require a rerun.
+- Delegate the complete suite to one test-runner subagent (in Codex:
+  `gpt-6-luna`, low reasoning effort, `fork_turns: none`). It runs
+  `tools/run-full-ctest.ps1` on the current checkout and build directory,
+  including uncommitted changes; this is an exception to the
+  separate-worktree rule, and the main agent must not modify either while
+  tests run. The runner waits on the process using the longest wait per call
+  its tools allow (for example 300 s), not short polls. It does not edit,
+  diagnose, fix or rerun anything, and returns only exit code, duration,
+  summary, failed test names and result paths.
+- The main agent waits through the native agent-completion mechanism with
+  the longest wait allowed, without reading logs, polling status or sending
+  progress messages, then reads the result once.
+- If that model, the script or delegation is unavailable, report it and leave
+  full-suite validation pending; never run the complete suite on the main
+  model instead. A passing complete suite is still required before declaring
+  production changes complete.
+- In the handoff, state how the complete suite was run: runner model and
+  effort, the command, and how the main agent waited (including any
+  intermediate checks).
+- Write long build output to a log and read the summary and failures after
+  completion. Do not start other subagents, mid-task reviews or parallel
+  worktrees unless the maintainer asks.
 
 ## Dependencies
 
