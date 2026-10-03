@@ -130,7 +130,9 @@ Priorities, in order: correctness, then credit/resource efficiency, then speed.
   suite once after the final build, unless failures require a rerun.
 - Delegate the complete suite to one test-runner subagent (in Codex:
   `gpt-6-luna`, low reasoning effort, `fork_turns: none`). It runs
-  `tools/run-full-ctest.ps1` on the current checkout and build directory,
+  `tools/run-full-ctest.ps1` with its default single job (do not pass
+  `-Jobs`; process tests have timeouts that parallel load breaks) on the
+  current checkout and build directory,
   including uncommitted changes; this is an exception to the
   separate-worktree rule, and the main agent must not modify either while
   tests run. The runner waits on the process using the longest wait per call
