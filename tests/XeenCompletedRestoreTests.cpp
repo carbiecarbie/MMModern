@@ -2,6 +2,7 @@
 #include "XeenRegionalJourneyTestSupport.h"
 #include "XeenSaveGameplayTestSupport.h"
 #include <iostream>
+#include "XeenProbeFired.h"
 #include "XeenRestoreReplayProbe.h"
 #include <new>
 using namespace mmodern;
@@ -208,7 +209,7 @@ void newlyPopulatedCachePreimages() {
 	}
 }
 }
-int main(){try{
+int main(){for(const char *probe:{"XEEN_REPLAY_COMMAND","XEEN_REPLAY_DRAW","XEEN_REPLAY_FRESH_PUBLICATION_INITIALIZE","XEEN_REPLAY_JOURNEY_CONSTRUCT","XEEN_REPLAY_REGIONAL_MOVE","XEEN_REPLAY_SERVICE","XEEN_REPLAY_TIME"})probe_fired::expect(probe);try{
  {regional_journey_test::Fixture producer;producer.engage();
   auto *combat=producer.flow->combat();while(combat->phase()==XeenCombatPhase::PlayerReady)producer.command(XeenCombatCommand::Block);
   combat->service(combat->ticket());}

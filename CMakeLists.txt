@@ -844,9 +844,49 @@ if(BUILD_TESTING)
 	if(MINGW)
 		target_link_options(mmodern_navigation_flow_smoke PRIVATE -Wl,--gc-sections)
 	endif()
-	# M44 baseline digest generator; see tests/XeenM44BaselineDigests.h. Not in CTest.
+	# M44 original-data scenarios; digests and regeneration are in tests/XeenM44BaselineDigests.h.
 	add_executable(mmodern_m44_baseline_witness EXCLUDE_FROM_ALL src/main.cpp tests/XeenM44BaselineWitness.cpp)
 	target_link_libraries(mmodern_m44_baseline_witness PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2 shell32 bcrypt)
 	target_link_options(mmodern_m44_baseline_witness PRIVATE "LINKER:--wrap,_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjES5_ItE" "LINKER:--wrap,_ZN7mmodern16XeenCombatRandom4drawEjj")
 	add_executable(mmodern_m44_baseline_restart EXCLUDE_FROM_ALL tests/XeenM44BaselineRestart.cpp)
+	add_executable(mmodern_m44_scenario_tests tests/XeenM44ScenarioTests.cpp)
+	target_link_libraries(mmodern_m44_scenario_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl bcrypt)
+	add_dependencies(mmodern_m44_scenario_tests mmodern_m44_baseline_witness mmodern_m44_baseline_restart mmodern_m43_cli_witness)
+	foreach(scenario mainland services temple)
+		if(scenario STREQUAL "temple")
+			set(m44_generator $<TARGET_FILE:mmodern_m43_cli_witness>)
+		else()
+			set(m44_generator $<TARGET_FILE:mmodern_m44_baseline_witness>)
+		endif()
+		add_test(NAME xeen_m44_scenario_${scenario} COMMAND mmodern_m44_scenario_tests ${scenario} ${m44_generator}
+			$<TARGET_FILE:mmodern_m44_baseline_witness> $<TARGET_FILE:mmodern_m44_baseline_restart> "F:/Games/gog/Might and Magic 4-5")
+		set_tests_properties(xeen_m44_scenario_${scenario} PROPERTIES TIMEOUT 1800)
+	endforeach()
+	# Every test is labelled `fast` (default iteration: ctest -L fast) or `process`
+	# (full run: plain ctest). `process` = runs 30 s or more, or spawns child
+	# processes / drives a CLI witness executable.
+	set(xeen_process_tests
+		xeen_purchase_flow xeen_purchase_allocation xeen_purchase_process
+		xeen_temple_flow xeen_temple_production xeen_temple_process xeen_temple_depleted_process
+		xeen_training_flow xeen_training_allocation xeen_training_original xeen_training_process
+		xeen_input_scheduling xeen_service_day_process xeen_combat_clock_process
+		xeen_journey_resources xeen_journey_persistence xeen_regional_persistence
+		xeen_combat_casting_process xeen_combat_casting_controls
+		xeen_combat_casting_publication_authority xeen_combat_player_ready_input
+		xeen_smith_process xeen_vertigo_process xeen_save_format xeen_save_cli
+		xeen_combat_gameplay xeen_equipment_gameplay xeen_inventory_gameplay
+		xeen_m44_scenario_mainland xeen_m44_scenario_services xeen_m44_scenario_temple)
+	get_property(xeen_all_tests DIRECTORY PROPERTY TESTS)
+	foreach(xeen_test IN LISTS xeen_process_tests)
+		if(NOT xeen_test IN_LIST xeen_all_tests)
+			message(FATAL_ERROR "Process-labelled test does not exist: ${xeen_test}")
+		endif()
+	endforeach()
+	foreach(xeen_test IN LISTS xeen_all_tests)
+		if(xeen_test IN_LIST xeen_process_tests)
+			set_tests_properties(${xeen_test} PROPERTIES LABELS process)
+		else()
+			set_tests_properties(${xeen_test} PROPERTIES LABELS fast)
+		endif()
+	endforeach()
 endif()

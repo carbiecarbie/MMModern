@@ -1,3 +1,4 @@
+#include "XeenProbeFired.h"
 #include "XeenPurchaseTestSupport.h"
 #include "platform/sdl/SdlWindow.h"
 #define SDL_MAIN_HANDLED
@@ -15,7 +16,7 @@ void operator delete(void *p,std::size_t) noexcept{std::free(p);}
 void *operator new[](std::size_t size){return ::operator new(size);}
 void operator delete[](void *p) noexcept{::operator delete(p);}
 void operator delete[](void *p,std::size_t) noexcept{::operator delete(p);}
-extern "C" Uint32 __wrap_SDL_GetTicks(){return 100;}
+extern "C" Uint32 __wrap_SDL_GetTicks(){probe_fired::hit("SDL_GetTicks");return 100;}
 using namespace purchase_test;
 namespace {
 void quote(Fixture &f){f.enter();f.quote(XeenInventoryCategory::Armor,3);}
@@ -167,6 +168,7 @@ void native(Inputs &in) {
 }
 }
 int main(int argc,char **argv){
+    if(argc==3 && std::string(argv[2])=="native")probe_fired::expect("SDL_GetTicks");
     try {
         check(argc==3,"usage: purchase-input <installation> <authority|native|controls>");const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"installation unavailable");Inputs in(*installation);
         const std::string mode=argv[2];if(mode=="authority")authority(in);else if(mode=="native")native(in);else if(mode=="controls")controls(in);else throw std::runtime_error("unknown input test mode");

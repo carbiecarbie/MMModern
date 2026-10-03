@@ -1,5 +1,6 @@
 // Original initialization, ordinary owners, concrete SDL frames and actual F9.
 // Seed, typed input, native injection and fault controls are test-only evidence.
+#include "XeenProbeFired.h"
 #include "app/Application.h"
 #include "app/XeenGameplayServices.h"
 #include "platform/XeenSaveFile.h"
@@ -19,11 +20,11 @@ std::function<void(const SDL_Event &)> nativeInputReceived;
 std::function<void(const SDL_KeyboardEvent &)> nativeInputRetired;
 }
 extern "C" int __real_SDL_PollEvent(SDL_Event *);
-extern "C" int __wrap_SDL_PollEvent(SDL_Event *e){const auto result=__real_SDL_PollEvent(e);if(result && e && nativeInputReceived)nativeInputReceived(*e);return result;}
+extern "C" int __wrap_SDL_PollEvent(SDL_Event *e){probe_fired::hit("SDL_PollEvent");const auto result=__real_SDL_PollEvent(e);if(result && e && nativeInputReceived)nativeInputReceived(*e);return result;}
 extern "C" int __real_SDL_WaitEventTimeout(SDL_Event *,int);
-extern "C" int __wrap_SDL_WaitEventTimeout(SDL_Event *e,int timeout){const auto result=__real_SDL_WaitEventTimeout(e,timeout);if(result && e && nativeInputReceived)nativeInputReceived(*e);return result;}
+extern "C" int __wrap_SDL_WaitEventTimeout(SDL_Event *e,int timeout){probe_fired::hit("SDL_WaitEventTimeout");const auto result=__real_SDL_WaitEventTimeout(e,timeout);if(result && e && nativeInputReceived)nativeInputReceived(*e);return result;}
 extern "C" void __real_SDL_FilterEvents(SDL_EventFilter,void *);
-extern "C" void __wrap_SDL_FilterEvents(SDL_EventFilter filter,void *context){
+extern "C" void __wrap_SDL_FilterEvents(SDL_EventFilter filter,void *context){probe_fired::hit("SDL_FilterEvents");
     if(!nativeInputRetired){__real_SDL_FilterEvents(filter,context);return;}
     struct Forward {SDL_EventFilter filter;void *context;} forward{filter,context};
     __real_SDL_FilterEvents([](void *p,SDL_Event *e)->int{
@@ -35,9 +36,9 @@ extern "C" void __wrap_SDL_FilterEvents(SDL_EventFilter filter,void *context){
     },&forward);
 }
 extern "C" int __real_SDL_UpdateTexture(SDL_Texture *,const SDL_Rect *,const void *,int);
-extern "C" int __wrap_SDL_UpdateTexture(SDL_Texture *t,const SDL_Rect *r,const void *p,int pitch){if(nativeUpload){nativeUpload=false;nativeFailed=true;return SDL_SetError("M39 injected upload failure");}return __real_SDL_UpdateTexture(t,r,p,pitch);}
+extern "C" int __wrap_SDL_UpdateTexture(SDL_Texture *t,const SDL_Rect *r,const void *p,int pitch){probe_fired::hit("SDL_UpdateTexture");if(nativeUpload){nativeUpload=false;nativeFailed=true;return SDL_SetError("M39 injected upload failure");}return __real_SDL_UpdateTexture(t,r,p,pitch);}
 extern "C" int __real_SDL_RenderCopy(SDL_Renderer *,SDL_Texture *,const SDL_Rect *,const SDL_Rect *);
-extern "C" int __wrap_SDL_RenderCopy(SDL_Renderer *r,SDL_Texture *t,const SDL_Rect *s,const SDL_Rect *d){if(nativeCopy){nativeCopy=false;nativeFailed=true;return SDL_SetError("M39 injected copy failure");}return __real_SDL_RenderCopy(r,t,s,d);}
+extern "C" int __wrap_SDL_RenderCopy(SDL_Renderer *r,SDL_Texture *t,const SDL_Rect *s,const SDL_Rect *d){probe_fired::hit("SDL_RenderCopy");if(nativeCopy){nativeCopy=false;nativeFailed=true;return SDL_SetError("M39 injected copy failure");}return __real_SDL_RenderCopy(r,t,s,d);}
 using namespace mmodern;
 namespace fs=std::filesystem;
 // Transparent executable-only probes: the opaque private response is merely
@@ -48,13 +49,13 @@ static unsigned castBegins=0,castResponses=0,castServices=0;
 #define CAST_SERVICE "_ZN7mmodern10XeenCombat11serviceCastERKNS0_6TicketEy"
 extern "C" XeenCombatResult realBegin(XeenCombat *,void *,const std::function<XeenLearnedSpellNames()> &) asm("__real_" CAST_BEGIN);
 extern "C" XeenCombatResult wrapBegin(XeenCombat *,void *,const std::function<XeenLearnedSpellNames()> &) asm("__wrap_" CAST_BEGIN);
-extern "C" XeenCombatResult wrapBegin(XeenCombat *c,void *r,const std::function<XeenLearnedSpellNames()> &p){++castBegins;return realBegin(c,r,p);}
+extern "C" XeenCombatResult wrapBegin(XeenCombat *c,void *r,const std::function<XeenLearnedSpellNames()> &p){probe_fired::hit("XeenCombat::beginCast");++castBegins;return realBegin(c,r,p);}
 extern "C" XeenCombatResult realRespond(XeenCombat *,void *,XeenCombatCastInput,unsigned,const std::function<XeenLearnedSpellNames()> &) asm("__real_" CAST_RESPOND);
 extern "C" XeenCombatResult wrapRespond(XeenCombat *,void *,XeenCombatCastInput,unsigned,const std::function<XeenLearnedSpellNames()> &) asm("__wrap_" CAST_RESPOND);
-extern "C" XeenCombatResult wrapRespond(XeenCombat *c,void *r,XeenCombatCastInput a,unsigned i,const std::function<XeenLearnedSpellNames()> &p){++castResponses;return realRespond(c,r,a,i,p);}
+extern "C" XeenCombatResult wrapRespond(XeenCombat *c,void *r,XeenCombatCastInput a,unsigned i,const std::function<XeenLearnedSpellNames()> &p){probe_fired::hit("XeenCombat::respondCast");++castResponses;return realRespond(c,r,a,i,p);}
 extern "C" XeenCombatResult realService(XeenCombat *,const XeenCombat::Ticket &,std::uint64_t) asm("__real_" CAST_SERVICE);
 extern "C" XeenCombatResult wrapService(XeenCombat *,const XeenCombat::Ticket &,std::uint64_t) asm("__wrap_" CAST_SERVICE);
-extern "C" XeenCombatResult wrapService(XeenCombat *c,const XeenCombat::Ticket &t,std::uint64_t n){++castServices;return realService(c,t,n);}
+extern "C" XeenCombatResult wrapService(XeenCombat *c,const XeenCombat::Ticket &t,std::uint64_t n){probe_fired::hit("XeenCombat::serviceCast");++castServices;return realService(c,t,n);}
 
 #define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjES5_ItE"
 extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>,std::optional<std::uint16_t>) asm("__real_" PLAY_SYMBOL);
@@ -90,9 +91,10 @@ void checkRestoredFields(const XeenSaveSnapshot &disk,const XeenSaveSnapshot &li
 }
 #include "XeenM39CastingControls.h"
 #include "XeenM39InputControls.h"
+static const probe_fired::Expect playProbe{"Application::playGameplay"};
 extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &original,XeenCamera camera,
     const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,
-    std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract) {
+    std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract) {probe_fired::hit("Application::playGameplay");if(!resume && !(std::getenv("MMODERN_M39_CONTROL") && *std::getenv("MMODERN_M39_CONTROL")))for(const char *probe:{"XEEN_REPLAY_COMMAND","XEEN_REPLAY_DRAW","XEEN_REPLAY_JOURNEY_CONSTRUCT","XEEN_REPLAY_REGIONAL_MOVE","XEEN_REPLAY_SERVICE","XEEN_REPLAY_TIME","SDL_RenderCopy","SDL_UpdateTexture","SDL_PollEvent","SDL_WaitEventTimeout","SDL_FilterEvents","XeenCombat::beginCast","XeenCombat::respondCast","XeenCombat::serviceCast"})probe_fired::expect(probe);
     const auto branch=env("MMODERN_M39_BRANCH","A"),stage=env("MMODERN_M39_STAGE","fresh"),control=env("MMODERN_M39_CONTROL");
     if(!resume)contract=14;
     const bool seededControl=branch!="B" && branch!="C";

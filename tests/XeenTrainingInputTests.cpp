@@ -1,3 +1,4 @@
+#include "XeenProbeFired.h"
 #include "XeenTrainingTestSupport.h"
 #include "platform/sdl/SdlWindow.h"
 #define SDL_MAIN_HANDLED
@@ -17,7 +18,7 @@ void operator delete(void *p,std::size_t) noexcept {std::free(p);}
 void *operator new[](std::size_t size){return ::operator new(size);}
 void operator delete[](void *p) noexcept {::operator delete(p);}
 void operator delete[](void *p,std::size_t) noexcept {::operator delete(p);}
-extern "C" Uint32 __wrap_SDL_GetTicks(){return 100;}
+extern "C" Uint32 __wrap_SDL_GetTicks(){probe_fired::hit("SDL_GetTicks");return 100;}
 using namespace training_test;
 namespace {
 struct Owners {
@@ -181,6 +182,7 @@ void controls(Inputs &in) {
 }
 }
 int main(int argc,char **argv) {
+    if(argc==3 && std::string(argv[2])=="native")probe_fired::expect("SDL_GetTicks");
     try {
         check(argc==3,"usage: training-input <installation> <authority|native|controls>");
         const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"original installation absent");Inputs in(*installation);

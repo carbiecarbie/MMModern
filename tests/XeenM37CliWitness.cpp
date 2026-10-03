@@ -1,4 +1,5 @@
 // Instrumented child of the real Application/CLI, driven through its SDL input handler.
+#include "XeenProbeFired.h"
 #include "app/Application.h"
 #include "app/XeenGameplayServices.h"
 #include "app/XeenEventFlow.h"
@@ -21,9 +22,10 @@ extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,Xeen
 namespace {
 void check(bool ok,const char *message){if(!ok)throw std::runtime_error(message);}
 }
+static const probe_fired::Expect playProbe{"Application::playGameplay"};
 extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &original,XeenCamera camera,
  const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,
- std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract) {
+ std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract) {probe_fired::hit("Application::playGameplay");
  try {
   replay_test::journeyInitializations=replay_test::journeyConstructions=0;
   replay_test::actions=replay_test::pulses=replay_test::retirements=0;

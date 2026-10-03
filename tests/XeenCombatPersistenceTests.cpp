@@ -78,4 +78,4 @@ void overlayCallbackGuards(){
     check(calls==0,"detached destination marker refuses before providers");
 }
 }
-int main(){try{captureBoundaries();retirementAndIntegrity();overlayCallbackGuards();std::cout<<"Regional combat capture and restore guards passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(){probe_fired::expect("XeenCombatRandom::draw");try{captureBoundaries();retirementAndIntegrity();overlayCallbackGuards();std::cout<<"Regional combat capture and restore guards passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

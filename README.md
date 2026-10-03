@@ -79,6 +79,16 @@ original games or ScummVM.
 In Vertigo, enter from mainland `(10,13)` facing North with Space. The
 [status](docs/project-status.md#vertigo) page lists the services and where they are.
 
+## Tests
+
+Every CTest entry is labelled `fast` or `process`. `process` tests run original-data
+scenarios in child processes and take much longer; they need the original installation.
+
+```text
+ctest -L fast    # iteration: everything except process tests
+ctest            # full suite, including process tests
+```
+
 ## Documentation
 
 - [Project status](docs/project-status.md): what can be played, architecture, gaps.

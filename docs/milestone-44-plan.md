@@ -155,11 +155,12 @@ original data.
    describe removed modes, contracts and save versions, so they mislead agents.
    Status and README describe the post-Stage-A state; step 6 updates any line
    it invalidates.
-5. D4 remainder: three process scenarios checked against Step-0 digests,
-   round-trip test, probe updates, removal of old witnesses. Also label every
-   CTest entry `fast` or `process` (`set_tests_properties(... LABELS ...)`) so
-   iteration can run `ctest -L fast` and full runs remain unchanged; document
-   both commands in README.
+5. D4 remainder, split by maintainer decision. **5a:** `fast`/`process` labels on
+   every CTest entry (`ctest -L fast` for iteration, plain `ctest` for full
+   runs, both in README), the three scenarios as CTest tests checked against the
+   Step-0 digests with reload/re-save (this is also the generic round-trip
+   test), and probe-fired assertions. **5b** (deferred, not authorized): removal
+   of the old M35-M43 witnesses and legacy process tests.
 6. D2: collapse the configuration, protected by the step-5 scenarios.
 
 Every step leaves the build and remaining tests green. The maintainer may accept

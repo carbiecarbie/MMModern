@@ -1,5 +1,6 @@
 // Original-resource M43 witness: all party, combat, route and Temple mutations
 // arise from the production application after concrete presented-frame input.
+#include "XeenProbeFired.h"
 #include "app/Application.h"
 #include "app/XeenGameplayServices.h"
 #include "platform/XeenSaveFile.h"
@@ -39,7 +40,7 @@ struct RealRandom {
 struct ProbeRandom {
     std::optional<std::uint32_t> draw(std::uint32_t,std::uint32_t) asm("__wrap__ZN7mmodern16XeenCombatRandom4drawEjj");
 };
-std::optional<std::uint32_t> ProbeRandom::draw(std::uint32_t lo,std::uint32_t hi) {
+std::optional<std::uint32_t> ProbeRandom::draw(std::uint32_t lo,std::uint32_t hi) {probe_fired::hit("XeenCombatRandom::draw");
     auto result=reinterpret_cast<RealRandom *>(this)->draw(lo,hi);
     if(observeStockDraws) {
         const auto cursor=reinterpret_cast<XeenCombatRandom *>(this)->continuation();
@@ -52,9 +53,10 @@ std::optional<std::uint32_t> ProbeRandom::draw(std::uint32_t lo,std::uint32_t hi
 #define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjES5_ItE"
 extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>,std::optional<std::uint16_t>) asm("__real_" PLAY_SYMBOL);
 extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>,std::optional<std::uint16_t>) asm("__wrap_" PLAY_SYMBOL);
+static const probe_fired::Expect playProbe{"Application::playGameplay"};
 extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &original,XeenCamera camera,
     const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,
-    std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract) {
+    std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract) {probe_fired::hit("Application::playGameplay");if(!resume && std::string(std::getenv("MMODERN_M43_STAGE")?std::getenv("MMODERN_M43_STAGE"):"main")=="main")for(const char *probe:{"XeenCombatRandom::draw"})probe_fired::expect(probe);
     QuietCliOutput quietOutput;
     const std::string stage=std::getenv("MMODERN_M43_STAGE")?std::getenv("MMODERN_M43_STAGE"):"main";
     auto services=original;XeenEventFlow *flow=nullptr;XeenWorld *world=nullptr;

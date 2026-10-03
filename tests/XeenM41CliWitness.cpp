@@ -1,5 +1,6 @@
 // Earned original-resource witness: only presented-frame gameplay input changes
 // owners. Synthetic fault and arithmetic fixtures live in separate test targets.
+#include "XeenProbeFired.h"
 #include "app/Application.h"
 #include "app/XeenGameplayServices.h"
 #include "platform/XeenSaveFile.h"
@@ -18,26 +19,27 @@ namespace fs=std::filesystem;
 using m40_test::check;
 namespace {unsigned interestCalls=0;bool failUpload=false,failCopy=false,nativeFailed=false;}
 extern "C" int __real_SDL_UpdateTexture(SDL_Texture *,const SDL_Rect *,const void *,int);
-extern "C" int __wrap_SDL_UpdateTexture(SDL_Texture *texture,const SDL_Rect *rect,const void *pixels,int pitch) {
+extern "C" int __wrap_SDL_UpdateTexture(SDL_Texture *texture,const SDL_Rect *rect,const void *pixels,int pitch) {probe_fired::hit("SDL_UpdateTexture");
     if(failUpload){failUpload=false;nativeFailed=true;return SDL_SetError("M41 injected upload failure");}
     return __real_SDL_UpdateTexture(texture,rect,pixels,pitch);
 }
 extern "C" int __real_SDL_RenderCopy(SDL_Renderer *,SDL_Texture *,const SDL_Rect *,const SDL_Rect *);
-extern "C" int __wrap_SDL_RenderCopy(SDL_Renderer *renderer,SDL_Texture *texture,const SDL_Rect *source,const SDL_Rect *destination) {
+extern "C" int __wrap_SDL_RenderCopy(SDL_Renderer *renderer,SDL_Texture *texture,const SDL_Rect *source,const SDL_Rect *destination) {probe_fired::hit("SDL_RenderCopy");
     if(failCopy){failCopy=false;nativeFailed=true;return SDL_SetError("M41 injected render failure");}
     return __real_SDL_RenderCopy(renderer,texture,source,destination);
 }
 #define INTEREST_SYMBOL "_ZN7mmodern23xeenPrepareBankInterestERKNS_16XeenBankBalancesE"
 XeenBankBalances realInterest(const XeenBankBalances &) asm("__real_" INTEREST_SYMBOL);
 XeenBankBalances wrappedInterest(const XeenBankBalances &) asm("__wrap_" INTEREST_SYMBOL);
-XeenBankBalances wrappedInterest(const XeenBankBalances &bank) {
+XeenBankBalances wrappedInterest(const XeenBankBalances &bank) {probe_fired::hit("xeenPrepareBankInterest");
     ++interestCalls;std::cout<<"INTEREST "<<bank.gold<<':'<<bank.gems<<'\n';return realInterest(bank);
 }
 #define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjES5_ItE"
 extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>,std::optional<std::uint16_t>) asm("__real_" PLAY_SYMBOL);
 extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>,std::optional<std::uint16_t>) asm("__wrap_" PLAY_SYMBOL);
+static const probe_fired::Expect playProbe{"Application::playGameplay","SDL_RenderCopy","SDL_UpdateTexture"};
 extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &original,XeenCamera camera,
-    const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,std::optional<std::uint32_t> seed,std::optional<std::uint16_t>) {
+    const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,std::optional<std::uint32_t> seed,std::optional<std::uint16_t>) {probe_fired::hit("Application::playGameplay");if(!resume)for(const char *probe:{"XEEN_REPLAY_COMMAND","XEEN_REPLAY_DRAW","XEEN_REPLAY_JOURNEY_CONSTRUCT","XEEN_REPLAY_REGIONAL_MOVE","XEEN_REPLAY_SERVICE","XEEN_REPLAY_TIME","XEEN_REPLAY_RETIRE","XEEN_REPLAY_MOVE","XEEN_REPLAY_EVENT_BEGIN","XEEN_REPLAY_FRESH_PUBLICATION_INITIALIZE","xeenPrepareBankInterest"})probe_fired::expect(probe);
     const char *stageEnv=std::getenv("MMODERN_M41_STAGE");const std::string stage=stageEnv?stageEnv:"fresh";
     const char *controlEnv=std::getenv("MMODERN_M41_CONTROL");const std::string control=controlEnv?controlEnv:"";
     auto services=original;XeenEventFlow *flow=nullptr;XeenWorld *world=nullptr;

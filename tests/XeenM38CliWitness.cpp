@@ -1,5 +1,6 @@
 // Actual CLI/Application with deterministic typed input. Every response follows a
 // successful native SDL presentation; F9 is injected as an SDL keyboard event.
+#include "XeenProbeFired.h"
 #include "app/Application.h"
 #include "XeenRestoreReplayProbe.h"
 #include "app/XeenGameplayServices.h"
@@ -17,12 +18,12 @@
 #include <stdexcept>
 namespace { bool failNativeUpload=false,failNativeCopy=false,nativeFailed=false; }
 extern "C" int __real_SDL_UpdateTexture(SDL_Texture *,const SDL_Rect *,const void *,int);
-extern "C" int __wrap_SDL_UpdateTexture(SDL_Texture *texture,const SDL_Rect *rect,const void *pixels,int pitch) {
+extern "C" int __wrap_SDL_UpdateTexture(SDL_Texture *texture,const SDL_Rect *rect,const void *pixels,int pitch) {probe_fired::hit("SDL_UpdateTexture");
  if(failNativeUpload){failNativeUpload=false;nativeFailed=true;return SDL_SetError("Injected M38 native upload failure");}
  return __real_SDL_UpdateTexture(texture,rect,pixels,pitch);
 }
 extern "C" int __real_SDL_RenderCopy(SDL_Renderer *,SDL_Texture *,const SDL_Rect *,const SDL_Rect *);
-extern "C" int __wrap_SDL_RenderCopy(SDL_Renderer *renderer,SDL_Texture *texture,const SDL_Rect *source,const SDL_Rect *destination) {
+extern "C" int __wrap_SDL_RenderCopy(SDL_Renderer *renderer,SDL_Texture *texture,const SDL_Rect *source,const SDL_Rect *destination) {probe_fired::hit("SDL_RenderCopy");
  if(failNativeCopy){failNativeCopy=false;nativeFailed=true;return SDL_SetError("Injected M38 native render failure");}
  return __real_SDL_RenderCopy(renderer,texture,source,destination);
 }
@@ -40,9 +41,10 @@ template<class F> auto countProvider(F fn,unsigned &calls) {
  };
 }
 }
+static const probe_fired::Expect playProbe{"Application::playGameplay","SDL_RenderCopy","SDL_UpdateTexture"};
 extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &original,XeenCamera camera,
  const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,
- std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract) {
+ std::optional<std::uint32_t> seed,std::optional<std::uint16_t> contract) {probe_fired::hit("Application::playGameplay");if(!resume)for(const char *probe:{"XEEN_REPLAY_COMMAND","XEEN_REPLAY_DRAW","XEEN_REPLAY_JOURNEY_CONSTRUCT","XEEN_REPLAY_REGIONAL_MOVE","XEEN_REPLAY_SERVICE","XEEN_REPLAY_TIME","XEEN_REPLAY_RETIRE","XEEN_REPLAY_MOVE","XEEN_REPLAY_EVENT_BEGIN","XEEN_REPLAY_FRESH_PUBLICATION_INITIALIZE"})probe_fired::expect(probe);
  const std::uint16_t content=14;
  if(!resume){contract=content;seed=3626689381u;}
  if(resume) {

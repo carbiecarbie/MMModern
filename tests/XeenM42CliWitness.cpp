@@ -1,5 +1,6 @@
 // Earned original-resource application witness. Every mutation comes from a
 // successfully presented gameplay response; no live owner is rewritten.
+#include "XeenProbeFired.h"
 #include "app/Application.h"
 #include "app/XeenGameplayServices.h"
 #include "platform/XeenSaveFile.h"
@@ -19,11 +20,11 @@ namespace fs=std::filesystem;
 using m42_test::check;
 namespace {unsigned interestCalls=0,enemyConsumers=0,weaponConsumers=0,shootConsumers=0;bool observeConsumers=false,intactArmorConsumer=false,failUpload=false,failCopy=false,nativeFailed=false;}
 extern "C" int __real_SDL_UpdateTexture(SDL_Texture *,const SDL_Rect *,const void *,int);
-extern "C" int __wrap_SDL_UpdateTexture(SDL_Texture *t,const SDL_Rect *r,const void *p,int pitch) {
+extern "C" int __wrap_SDL_UpdateTexture(SDL_Texture *t,const SDL_Rect *r,const void *p,int pitch) {probe_fired::hit("SDL_UpdateTexture");
     if(failUpload){failUpload=false;nativeFailed=true;return SDL_SetError("M42 injected native upload failure");}return __real_SDL_UpdateTexture(t,r,p,pitch);
 }
 extern "C" int __real_SDL_RenderCopy(SDL_Renderer *,SDL_Texture *,const SDL_Rect *,const SDL_Rect *);
-extern "C" int __wrap_SDL_RenderCopy(SDL_Renderer *r,SDL_Texture *t,const SDL_Rect *s,const SDL_Rect *d) {
+extern "C" int __wrap_SDL_RenderCopy(SDL_Renderer *r,SDL_Texture *t,const SDL_Rect *s,const SDL_Rect *d) {probe_fired::hit("SDL_RenderCopy");
     if(failCopy){failCopy=false;nativeFailed=true;return SDL_SetError("M42 injected native copy failure");}return __real_SDL_RenderCopy(r,t,s,d);
 }
 #define ENEMY_SYMBOL "_ZN7mmodern24XeenEnemyAttackCandidateC1ERKSt5arrayINS_13XeenCharacterELy6EERKS1_INS_16XeenCombatInputsELy6EERKNS_17XeenMonsterRecordEjjRKS1_IbLy6EE"
@@ -38,7 +39,7 @@ struct ProbeConsumers {
     void enemy(const XeenConsequenceCharacters &,const XeenConsequenceInputs &,const XeenMonsterRecord &,unsigned,unsigned,const std::array<bool,6> &) asm("__wrap_" ENEMY_SYMBOL);
     void player(const XeenCharacter &,const XeenCombatInputs &,const XeenMonsterRecord &,unsigned,unsigned,bool) asm("__wrap_" PLAYER_SYMBOL);
 };
-void ProbeConsumers::enemy(const XeenConsequenceCharacters &c,const XeenConsequenceInputs &i,const XeenMonsterRecord &m,unsigned year,unsigned mask,const std::array<bool,6> &blocked) {
+void ProbeConsumers::enemy(const XeenConsequenceCharacters &c,const XeenConsequenceInputs &i,const XeenMonsterRecord &m,unsigned year,unsigned mask,const std::array<bool,6> &blocked) {probe_fired::hit("XeenEnemyAttackCandidate");
     if(observeConsumers) {
         ++enemyConsumers;const auto ac=XeenCharacterRules::combatArmorClass(c[1],i[1],{year});
         if(xeenSameItem(c[1].armor[4],{0,3,0,3}) && ac==11 && !blocked[1] && ac+10==21)intactArmorConsumer=true;
@@ -47,7 +48,7 @@ void ProbeConsumers::enemy(const XeenConsequenceCharacters &c,const XeenConseque
     }
     reinterpret_cast<RealConsumers *>(this)->enemy(c,i,m,year,mask,blocked);
 }
-void ProbeConsumers::player(const XeenCharacter &c,const XeenCombatInputs &i,const XeenMonsterRecord &m,unsigned type,unsigned year,bool shoot) {
+void ProbeConsumers::player(const XeenCharacter &c,const XeenCombatInputs &i,const XeenMonsterRecord &m,unsigned type,unsigned year,bool shoot) {probe_fired::hit("XeenPhysicalPlayerCandidate");
     if(observeConsumers && c.rosterId==18) {
         if(c.weapons[1].id==6 && c.weapons[1].frame==1)++weaponConsumers;
         if(shoot && xeenSameItem(c.weapons[1],{0,32,0,4}))++shootConsumers;
@@ -58,19 +59,22 @@ void ProbeConsumers::player(const XeenCharacter &c,const XeenCombatInputs &i,con
 #define INTEREST_SYMBOL "_ZN7mmodern23xeenPrepareBankInterestERKNS_16XeenBankBalancesE"
 XeenBankBalances realInterest(const XeenBankBalances &) asm("__real_" INTEREST_SYMBOL);
 XeenBankBalances wrappedInterest(const XeenBankBalances &) asm("__wrap_" INTEREST_SYMBOL);
-XeenBankBalances wrappedInterest(const XeenBankBalances &bank) {
+XeenBankBalances wrappedInterest(const XeenBankBalances &bank) {probe_fired::hit("xeenPrepareBankInterest");
     ++interestCalls;std::cout<<"INTEREST "<<bank.gold<<':'<<bank.gems<<'\n';return realInterest(bank);
 }
 #define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjES5_ItE"
 extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>,std::optional<std::uint16_t>) asm("__real_" PLAY_SYMBOL);
 extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>,std::optional<std::uint16_t>) asm("__wrap_" PLAY_SYMBOL);
+static const probe_fired::Expect playProbe{"Application::playGameplay","SDL_RenderCopy","SDL_UpdateTexture"};
 extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &original,XeenCamera camera,
-    const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,std::optional<std::uint32_t> seed,std::optional<std::uint16_t> content) {
+    const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,std::optional<std::uint32_t> seed,std::optional<std::uint16_t> content) {probe_fired::hit("Application::playGameplay");
     // This historical probe explicitly exercises legacy 9/13. The production
     // --journey-region default advances to 9/14 in M43.
     if(!resume)content=14;
     const std::string stage=std::getenv("MMODERN_M42_STAGE")?std::getenv("MMODERN_M42_STAGE"):"fresh";
     const std::string control=std::getenv("MMODERN_M42_CONTROL")?std::getenv("MMODERN_M42_CONTROL"):"";
+    if(!resume && stage=="fresh")for(const char *probe:{"XEEN_REPLAY_COMMAND","XEEN_REPLAY_DRAW","XEEN_REPLAY_JOURNEY_CONSTRUCT","XEEN_REPLAY_REGIONAL_MOVE","XEEN_REPLAY_SERVICE","XEEN_REPLAY_TIME","XEEN_REPLAY_RETIRE","XEEN_REPLAY_MOVE","XEEN_REPLAY_EVENT_BEGIN","XEEN_REPLAY_FRESH_PUBLICATION_INITIALIZE","xeenPrepareBankInterest","XEEN_REPLAY_EQUIPMENT","XEEN_REPLAY_TRANSFER","XeenEnemyAttackCandidate","XeenPhysicalPlayerCandidate"})probe_fired::expect(probe);
+    if(!resume && stage=="depleted")for(const char *probe:{"XEEN_REPLAY_COMMAND","XEEN_REPLAY_DRAW","XEEN_REPLAY_JOURNEY_CONSTRUCT","XEEN_REPLAY_REGIONAL_MOVE","XEEN_REPLAY_SERVICE","XEEN_REPLAY_TIME","XEEN_REPLAY_RETIRE","XEEN_REPLAY_MOVE","XEEN_REPLAY_EVENT_BEGIN","XEEN_REPLAY_FRESH_PUBLICATION_INITIALIZE","XeenEnemyAttackCandidate","XeenPhysicalPlayerCandidate"})probe_fired::expect(probe);
     auto services=original;XeenEventFlow *flow=nullptr;XeenWorld *world=nullptr;
     const XeenPartyState *party=nullptr;const XeenCamera *position=nullptr;const XeenGameFlags *flags=nullptr;
     unsigned providers=0,saves=0;std::uint64_t now=0,cycle=0;

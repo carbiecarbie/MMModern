@@ -1,3 +1,4 @@
+#include "XeenProbeFired.h"
 #include "XeenRestoreReplayProbe.h"
 #include "games/xeen/XeenCombat.h"
 #include "games/xeen/XeenEventInterpreter.h"
@@ -11,7 +12,7 @@ unsigned journeyInitializations=0, journeyConstructions=0, actions=0, pulses=0, 
 unsigned timePreparations=0, eventExecutions=0, transfers=0, equipmentChanges=0;
 XeenEncounterResult real_journeyInitialize(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s, const std::vector<std::uint8_t> &chr, const XeenGameplayContext &ctx, const std::vector<XeenMonsterRecord> &mon, const XeenEventFile &evt, std::uint32_t seed, std::uint16_t contract) asm("__real_" XEEN_REPLAY_JOURNEY_INITIALIZE);
 XeenEncounterResult probe_journeyInitialize(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s, const std::vector<std::uint8_t> &chr, const XeenGameplayContext &ctx, const std::vector<XeenMonsterRecord> &mon, const XeenEventFile &evt, std::uint32_t seed, std::uint16_t contract) asm("__wrap_" XEEN_REPLAY_JOURNEY_INITIALIZE);
-XeenEncounterResult probe_journeyInitialize(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s, const std::vector<std::uint8_t> &chr, const XeenGameplayContext &ctx, const std::vector<XeenMonsterRecord> &mon, const XeenEventFile &evt, std::uint32_t seed, std::uint16_t contract) { observe(); ++journeyInitializations; return real_journeyInitialize(w,p,c,s,chr,ctx,mon,evt,seed,contract); }
+XeenEncounterResult probe_journeyInitialize(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s, const std::vector<std::uint8_t> &chr, const XeenGameplayContext &ctx, const std::vector<XeenMonsterRecord> &mon, const XeenEventFile &evt, std::uint32_t seed, std::uint16_t contract) { probe_fired::hit("XEEN_REPLAY_JOURNEY_INITIALIZE");observe(); ++journeyInitializations; return real_journeyInitialize(w,p,c,s,chr,ctx,mon,evt,seed,contract); }
 // Every fresh Flow domain shares this publication initializer, including
 // consequence/economy paths omitted by the old ten-argument probe.
 using FreshPreparation=std::function<void(const XeenPartyState &,const std::vector<XeenActor> &,
@@ -28,14 +29,14 @@ XeenEncounterResult probe_freshPublicationInitialize(XeenWorld &w,XeenPartyState
 	const std::vector<std::uint8_t> &chr,const XeenGameplayContext &ctx,const std::vector<XeenMonsterRecord> &mon,
 	const XeenEventFile &evt,std::uint32_t seed,std::uint16_t contract,const std::optional<XeenMonsterTreasure> &purse,
 	const std::optional<XeenBankBalances> &bank,const FreshPreparation &prepare) {
-	observe();++journeyInitializations;return real_freshPublicationInitialize(w,p,c,s,chr,ctx,mon,evt,seed,contract,purse,bank,prepare);
+	probe_fired::hit("XEEN_REPLAY_FRESH_PUBLICATION_INITIALIZE");observe();++journeyInitializations;return real_freshPublicationInitialize(w,p,c,s,chr,ctx,mon,evt,seed,contract,purse,bank,prepare);
 }
 XeenEncounterResult real_approachAction(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s, XeenEncounterAction a, const XeenEventFile &evt) asm("__real_" XEEN_REPLAY_ACTION);
 XeenEncounterResult probe_approachAction(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s, XeenEncounterAction a, const XeenEventFile &evt) asm("__wrap_" XEEN_REPLAY_ACTION);
-XeenEncounterResult probe_approachAction(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s, XeenEncounterAction a, const XeenEventFile &evt) { observe(); ++actions; return real_approachAction(w,p,c,s,a,evt); }
+XeenEncounterResult probe_approachAction(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s, XeenEncounterAction a, const XeenEventFile &evt) { probe_fired::hit("XEEN_REPLAY_ACTION");observe(); ++actions; return real_approachAction(w,p,c,s,a,evt); }
 XeenEncounterResult real_approachPulse(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s, const XeenEventFile &evt) asm("__real_" XEEN_REPLAY_PULSE);
 XeenEncounterResult probe_approachPulse(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s, const XeenEventFile &evt) asm("__wrap_" XEEN_REPLAY_PULSE);
-XeenEncounterResult probe_approachPulse(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s, const XeenEventFile &evt) { observe(); ++pulses; return real_approachPulse(w,p,c,s,evt); }
+XeenEncounterResult probe_approachPulse(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenEncounterState &s, const XeenEventFile &evt) { probe_fired::hit("XEEN_REPLAY_PULSE");observe(); ++pulses; return real_approachPulse(w,p,c,s,evt); }
 struct JourneyReal {
 	void construct(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenCombatBoundary &b, const XeenGameFlags &f, const XeenEncounterState &s, const std::vector<XeenMonsterRecord> &mon, const XeenEventFile &evt) asm("__real_" XEEN_REPLAY_JOURNEY_CONSTRUCT);
 	void retire(const XeenCombat::Ticket &t, XeenEncounterState &s) asm("__real_" XEEN_REPLAY_RETIRE);
@@ -48,10 +49,10 @@ struct JourneyProbe {
 	XeenCombatResult command(const XeenCombat::Ticket &t, XeenCombatCommand c) asm("__wrap_" XEEN_REPLAY_COMMAND);
 	std::optional<std::uint32_t> draw(std::uint32_t lo, std::uint32_t hi) asm("__wrap_" XEEN_REPLAY_DRAW);
 };
-void JourneyProbe::construct(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenCombatBoundary &b, const XeenGameFlags &f, const XeenEncounterState &s, const std::vector<XeenMonsterRecord> &mon, const XeenEventFile &evt) { observe(); ++journeyConstructions; return reinterpret_cast<JourneyReal *>(this)->construct(w,p,c,b,f,s,mon,evt); }
-void JourneyProbe::retire(const XeenCombat::Ticket &t, XeenEncounterState &s) { observe(); ++retirements; return reinterpret_cast<JourneyReal *>(this)->retire(t,s); }
-XeenCombatResult JourneyProbe::command(const XeenCombat::Ticket &t, XeenCombatCommand c) { observe(); ++commands; return reinterpret_cast<JourneyReal *>(this)->command(t,c); }
-std::optional<std::uint32_t> JourneyProbe::draw(std::uint32_t lo, std::uint32_t hi) { observe(); ++draws; auto result=reinterpret_cast<JourneyReal *>(this)->draw(lo,hi); if(filterDraw)result=filterDraw(result); if(observeDraw)observeDraw(lo,hi,result,reinterpret_cast<XeenCombatRandom *>(this)->continuation()); return result; }
+void JourneyProbe::construct(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenCombatBoundary &b, const XeenGameFlags &f, const XeenEncounterState &s, const std::vector<XeenMonsterRecord> &mon, const XeenEventFile &evt) { probe_fired::hit("XEEN_REPLAY_JOURNEY_CONSTRUCT");observe(); ++journeyConstructions; return reinterpret_cast<JourneyReal *>(this)->construct(w,p,c,b,f,s,mon,evt); }
+void JourneyProbe::retire(const XeenCombat::Ticket &t, XeenEncounterState &s) { probe_fired::hit("XEEN_REPLAY_RETIRE");observe(); ++retirements; return reinterpret_cast<JourneyReal *>(this)->retire(t,s); }
+XeenCombatResult JourneyProbe::command(const XeenCombat::Ticket &t, XeenCombatCommand c) { probe_fired::hit("XEEN_REPLAY_COMMAND");observe(); ++commands; return reinterpret_cast<JourneyReal *>(this)->command(t,c); }
+std::optional<std::uint32_t> JourneyProbe::draw(std::uint32_t lo, std::uint32_t hi) { probe_fired::hit("XEEN_REPLAY_DRAW");observe(); ++draws; auto result=reinterpret_cast<JourneyReal *>(this)->draw(lo,hi); if(filterDraw)result=filterDraw(result); if(observeDraw)observeDraw(lo,hi,result,reinterpret_cast<XeenCombatRandom *>(this)->continuation()); return result; }
 }
 
 using namespace mmodern;
@@ -60,10 +61,10 @@ unsigned depth = 0, unexpected = 0, constructions = 0, services = 0, preparation
 void observe() { if (depth) ++unexpected; }
 XeenTimePreparation realTime(const XeenGameplayContext &,std::uint64_t) asm("__real_" XEEN_REPLAY_TIME);
 XeenTimePreparation probeTime(const XeenGameplayContext &,std::uint64_t) asm("__wrap_" XEEN_REPLAY_TIME);
-XeenTimePreparation probeTime(const XeenGameplayContext &context,std::uint64_t minutes) {observe();++timePreparations;return realTime(context,minutes);}
+XeenTimePreparation probeTime(const XeenGameplayContext &context,std::uint64_t minutes) {probe_fired::hit("XEEN_REPLAY_TIME");observe();++timePreparations;return realTime(context,minutes);}
 std::vector<XeenActor> realRegionalMove(const std::vector<XeenActor> &,const XeenCamera &,const XeenActorApproach::Terrain &,bool,const XeenActorApproach::BeforeMovement &) asm("__real_" XEEN_REPLAY_REGIONAL_MOVE);
 std::vector<XeenActor> probeRegionalMove(const std::vector<XeenActor> &,const XeenCamera &,const XeenActorApproach::Terrain &,bool,const XeenActorApproach::BeforeMovement &) asm("__wrap_" XEEN_REPLAY_REGIONAL_MOVE);
-std::vector<XeenActor> probeRegionalMove(const std::vector<XeenActor> &a,const XeenCamera &c,const XeenActorApproach::Terrain &t,bool enabled,const XeenActorApproach::BeforeMovement &before) {observe();return realRegionalMove(a,c,t,enabled,before);}
+std::vector<XeenActor> probeRegionalMove(const std::vector<XeenActor> &a,const XeenCamera &c,const XeenActorApproach::Terrain &t,bool enabled,const XeenActorApproach::BeforeMovement &before) {probe_fired::hit("XEEN_REPLAY_REGIONAL_MOVE");observe();return realRegionalMove(a,c,t,enabled,before);}
 // Member thunks preserve the target ABI's hidden result/this argument ordering.
 struct RealCombat {
 	XeenCombatResult service(const XeenCombat::Ticket &) asm("__real_" XEEN_REPLAY_SERVICE);
@@ -73,22 +74,22 @@ struct ProbeCombat {
 };
 
 XeenCombatResult ProbeCombat::service(const XeenCombat::Ticket &ticket) {
-	observe(); ++services; return reinterpret_cast<RealCombat *>(this)->service(ticket);
+	probe_fired::hit("XEEN_REPLAY_SERVICE");observe(); ++services; return reinterpret_cast<RealCombat *>(this)->service(ticket);
 }
 std::vector<XeenActor> realMove(const std::vector<XeenActor> &, const XeenCamera &, const XeenActorApproach::Terrain &, bool) asm("__real_" XEEN_REPLAY_MOVE);
 std::vector<XeenActor> probeMove(const std::vector<XeenActor> &, const XeenCamera &, const XeenActorApproach::Terrain &, bool) asm("__wrap_" XEEN_REPLAY_MOVE);
 std::vector<XeenActor> probeMove(const std::vector<XeenActor> &a, const XeenCamera &c, const XeenActorApproach::Terrain &t, bool enabled) {
-	observe(); return realMove(a, c, t, enabled);
+	probe_fired::hit("XEEN_REPLAY_MOVE");observe(); return realMove(a, c, t, enabled);
 }
 XeenTransferResult realTransfer(XeenPartyState &, std::size_t, std::size_t, XeenInventoryCategory, std::size_t) asm("__real_" XEEN_REPLAY_TRANSFER);
 XeenTransferResult probeTransfer(XeenPartyState &, std::size_t, std::size_t, XeenInventoryCategory, std::size_t) asm("__wrap_" XEEN_REPLAY_TRANSFER);
 XeenTransferResult probeTransfer(XeenPartyState &p, std::size_t from, std::size_t to, XeenInventoryCategory c, std::size_t slot) {
-	observe(); ++transfers; return realTransfer(p, from, to, c, slot);
+	probe_fired::hit("XEEN_REPLAY_TRANSFER");observe(); ++transfers; return realTransfer(p, from, to, c, slot);
 }
 XeenEquipmentResult realEquipment(XeenPartyState &, std::size_t, XeenInventoryCategory, std::size_t, XeenEquipmentOperation) asm("__real_" XEEN_REPLAY_EQUIPMENT);
 XeenEquipmentResult probeEquipment(XeenPartyState &, std::size_t, XeenInventoryCategory, std::size_t, XeenEquipmentOperation) asm("__wrap_" XEEN_REPLAY_EQUIPMENT);
 XeenEquipmentResult probeEquipment(XeenPartyState &p, std::size_t who, XeenInventoryCategory c, std::size_t slot, XeenEquipmentOperation op) {
-	observe(); ++equipmentChanges; return realEquipment(p, who, c, slot, op);
+	probe_fired::hit("XEEN_REPLAY_EQUIPMENT");observe(); ++equipmentChanges; return realEquipment(p, who, c, slot, op);
 }
 struct RealEvent {
 	XeenEventExecutionResult execute(const XeenCamera &, XeenPartyState &, const XeenGameFlags &, XeenWorld &,
@@ -104,10 +105,10 @@ struct ProbeEvent {
 };
 XeenEventExecutionResult ProbeEvent::execute(const XeenCamera &c, XeenPartyState &p, const XeenGameFlags &f,
 		XeenWorld &w, const XeenEventInterpreter::ScriptProvider &scripts) const {
-	observe(); ++eventExecutions; return reinterpret_cast<const RealEvent *>(this)->execute(c, p, f, w, scripts);
+	probe_fired::hit("XEEN_REPLAY_EVENT");observe(); ++eventExecutions; return reinterpret_cast<const RealEvent *>(this)->execute(c, p, f, w, scripts);
 }
 XeenEventExecutionStepResult ProbeEvent::begin(const XeenCamera &c, XeenPartyState &p, const XeenGameFlags &f,
 		XeenWorld &w, const XeenEventInterpreter::ScriptProvider &scripts, const XeenEventInterpreter::TextProvider &text, std::uint8_t line, const XeenEventPublication *publication) const {
-	observe(); ++eventExecutions; return reinterpret_cast<const RealEvent *>(this)->begin(c, p, f, w, scripts, text, line, publication);
+	probe_fired::hit("XEEN_REPLAY_EVENT_BEGIN");observe(); ++eventExecutions; return reinterpret_cast<const RealEvent *>(this)->begin(c, p, f, w, scripts, text, line, publication);
 }
 }

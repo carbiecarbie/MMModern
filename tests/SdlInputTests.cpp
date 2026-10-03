@@ -1,3 +1,4 @@
+#include "XeenProbeFired.h"
 #include "platform/sdl/SdlWindow.h"
 
 #define SDL_MAIN_HANDLED
@@ -15,7 +16,7 @@ using namespace mmodern;
 // Deterministic millisecond collision at the production SDL boundary.
 static bool fixedTicks=false;
 extern "C" Uint32 __real_SDL_GetTicks();
-extern "C" Uint32 __wrap_SDL_GetTicks(){return fixedTicks?100:__real_SDL_GetTicks();}
+extern "C" Uint32 __wrap_SDL_GetTicks(){if(fixedTicks)probe_fired::hit("SDL_GetTicks");return fixedTicks?100:__real_SDL_GetTicks();}
 
 namespace {
 
@@ -66,6 +67,7 @@ void pushKey(std::atomic<bool> &finished, SDL_Keycode key, std::uint8_t repeat,
 } // namespace
 
 int main() {
+	probe_fired::expect("SDL_GetTicks");
  semanticBoundaryKeys();
 	std::atomic<bool> finished{false};
 	std::atomic<int> interactions{0};

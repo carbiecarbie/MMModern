@@ -1,3 +1,4 @@
+#include "XeenProbeFired.h"
 #include "XeenTrainingTestSupport.h"
 #include "platform/sdl/SdlWindow.h"
 #define SDL_MAIN_HANDLED
@@ -23,11 +24,11 @@ void sample() {
     key(code);key(code,SDL_KEYDOWN,1);key(code,SDL_KEYUP);
 }
 }
-extern "C" Uint32 __wrap_SDL_GetTicks(){return 100;}
+extern "C" Uint32 __wrap_SDL_GetTicks(){probe_fired::hit("SDL_GetTicks");return 100;}
 extern "C" void __real_SDL_PumpEvents();
-extern "C" void __wrap_SDL_PumpEvents(){__real_SDL_PumpEvents();sample();}
+extern "C" void __wrap_SDL_PumpEvents(){probe_fired::hit("SDL_PumpEvents");__real_SDL_PumpEvents();sample();}
 extern "C" int __real_SDL_WaitEventTimeout(SDL_Event *,int);
-extern "C" int __wrap_SDL_WaitEventTimeout(SDL_Event *e,int timeout){sample();return __real_SDL_WaitEventTimeout(e,timeout);}
+extern "C" int __wrap_SDL_WaitEventTimeout(SDL_Event *e,int timeout){probe_fired::hit("SDL_WaitEventTimeout");sample();return __real_SDL_WaitEventTimeout(e,timeout);}
 namespace {
 // Uses real Flow owners, SDL queue/held-key filtering, concrete binding and
 // dispatch. No retry press: one down/repeat/up per acquired target frame.
@@ -105,6 +106,7 @@ void training(Inputs &in) {
 }
 }
 int main(int argc,char **argv) {
+    probe_fired::expect("SDL_GetTicks");probe_fired::expect("SDL_PumpEvents");probe_fired::expect("SDL_WaitEventTimeout");
     try {
         check(argc==2,"usage: native-responsiveness <installation>");
         SDL_setenv("SDL_VIDEODRIVER","dummy",1);SDL_setenv("SDL_RENDER_DRIVER","software",1);

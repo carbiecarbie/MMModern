@@ -1,5 +1,6 @@
 // Synthetic restored checkpoints, original resources, production Application/SDL.
 // The earned M41 process witness remains a separate test.
+#include "XeenProbeFired.h"
 #include "XeenTrainingTestSupport.h"
 #include "app/Application.h"
 #include "app/XeenGameplayServices.h"
@@ -21,9 +22,9 @@ void tap(SDL_Keycode code) {key(code);key(code,SDL_KEYUP);}
 void quit(){SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);}
 }
 extern "C" int __real_SDL_UpdateTexture(SDL_Texture *,const SDL_Rect *,const void *,int);
-extern "C" int __wrap_SDL_UpdateTexture(SDL_Texture *t,const SDL_Rect *r,const void *p,int pitch){if(uploadHook)uploadHook();return __real_SDL_UpdateTexture(t,r,p,pitch);}
+extern "C" int __wrap_SDL_UpdateTexture(SDL_Texture *t,const SDL_Rect *r,const void *p,int pitch){probe_fired::hit("SDL_UpdateTexture");if(uploadHook)uploadHook();return __real_SDL_UpdateTexture(t,r,p,pitch);}
 extern "C" int __real_SDL_RenderCopy(SDL_Renderer *,SDL_Texture *,const SDL_Rect *,const SDL_Rect *);
-extern "C" int __wrap_SDL_RenderCopy(SDL_Renderer *r,SDL_Texture *t,const SDL_Rect *s,const SDL_Rect *d){if(copyHook)copyHook();return __real_SDL_RenderCopy(r,t,s,d);}
+extern "C" int __wrap_SDL_RenderCopy(SDL_Renderer *r,SDL_Texture *t,const SDL_Rect *s,const SDL_Rect *d){probe_fired::hit("SDL_RenderCopy");if(copyHook)copyHook();return __real_SDL_RenderCopy(r,t,s,d);}
 namespace {
 struct Harness {
  Inputs &in;XeenEventFlow *flow=nullptr;XeenWorld *world=nullptr;const XeenPartyState *party=nullptr;XeenCamera *camera=nullptr;
@@ -192,7 +193,7 @@ void boundaries(Inputs &in) {
  }
 }
 }
-int main(int argc,char **argv){try{
+int main(int argc,char **argv){probe_fired::expect("SDL_UpdateTexture");probe_fired::expect("SDL_RenderCopy");try{
  check(argc==2,"usage: input-scheduling <installation>");SDL_setenv("SDL_VIDEODRIVER","dummy",1);SDL_setenv("SDL_RENDER_DRIVER","software",1);
  const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"original installation absent");Inputs in(*installation);
  boundaries(in);services(in);stress(in);return 0;

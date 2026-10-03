@@ -4,7 +4,12 @@
 // recorded at the baseline revision below. The hash is over the raw .mmsave
 // bytes; never commit the .mmsave files (they contain original-data bytes).
 //
-// Regenerate (Windows, ucrt64 on PATH for SDL2.dll; env SDL_VIDEODRIVER=dummy,
+// CTest runs them as xeen_m44_scenario_mainland, xeen_m44_scenario_services and
+// xeen_m44_scenario_temple (tests/XeenM44ScenarioTests.cpp, label `process`): each
+// generates the final save in a temporary directory, compares its SHA-256 with
+// the table below, then reloads it, saves again and requires identical bytes.
+//
+// Regenerate by hand (Windows, ucrt64 on PATH for SDL2.dll; env SDL_VIDEODRIVER=dummy,
 // SDL_RENDER_DRIVER=software; <game> is the original installation, <out> a
 // scratch directory). Build with
 //   cmake --build <build> --target mmodern_m44_baseline_witness mmodern_m43_cli_witness

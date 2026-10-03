@@ -1,6 +1,7 @@
 #include "games/xeen/XeenJourneyRules.h"
 #include "XeenRegionalJourneyTestSupport.h"
 #include "XeenJourneyTestSupport.h"
+#include "XeenProbeFired.h"
 #include "XeenRestoreReplayProbe.h"
 #include "XeenSaveGameplayTestSupport.h"
 #include "games/xeen/XeenOutdoorScene.h"
@@ -353,6 +354,7 @@ void application(const std::filesystem::path &directory) {
 }
 }
 int main(int argc,char **argv) {
+    if(!(argc>1 && std::string(argv[1])=="consume"))for(const char *probe:{"XEEN_REPLAY_COMMAND","XEEN_REPLAY_DRAW","XEEN_REPLAY_EQUIPMENT","XEEN_REPLAY_FRESH_PUBLICATION_INITIALIZE","XEEN_REPLAY_JOURNEY_CONSTRUCT","XEEN_REPLAY_REGIONAL_MOVE","XEEN_REPLAY_RETIRE","XEEN_REPLAY_SERVICE","XEEN_REPLAY_TIME","XEEN_REPLAY_TRANSFER"})probe_fired::expect(probe);
 	try {
 		if(argc==4 && std::string(argv[1])=="consume") {
 			const auto s=XeenSaveFile::read(std::filesystem::absolute(argv[2]));
