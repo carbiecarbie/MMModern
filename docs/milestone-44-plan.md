@@ -23,7 +23,7 @@ what the game does. Applies the pre-release policy in
   parameters are gone.
 - **Entry modes (D3).** Kept: `--journey-region [--combat-seed]`,
   `--load-game`, inspection tools, the static party screen and `--render-map`
-  as an unsaveable explorer (revisit in M46). Removed: `--encounter-26/27`,
+  as an unsaveable explorer (revisit with the normal-start milestone, now M47). Removed: `--encounter-26/27`,
   `--journey-skeleton`, `--journey-expedition` and the Completed/Diagnostic27
   flow.
 - **Tests (D4).** Synthetic regional fixtures replaced the map-20 ones. Legacy

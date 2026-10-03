@@ -72,6 +72,12 @@ Steps:
 Roadmap approval does not authorize implementation; the maintainer starts each
 milestone explicitly.
 
+**Maintenance tasks.** Small fixes (a defect, a flaky test, a doc correction)
+may be done without a milestone plan: a scoped prompt, tests for the fix, the
+complete CTest suite if production code changes, and an independent review
+only when the fix touches Tier A areas. If a fix turns out to be larger or
+recurring, stop and propose a milestone instead.
+
 ## Documentation
 
 | Document | Responsibility | Target size |

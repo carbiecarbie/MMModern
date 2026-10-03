@@ -30,21 +30,20 @@ machinery: the code now has one save format and one Journey configuration, and
 
 | Milestone | Tier | Goal | Accepted when |
 | --- | --- | --- | --- |
-| **M45 - Clickable original interface** | B | Mouse input mapped to the 320x200 framebuffer; main-screen buttons and party portraits trigger existing actions (unsupported buttons refuse visibly); original-style dialogs replace project menus for inventory, Smith, Training and Temple, including the deferred Temple panel/art composition. | The maintainer can play the current Journey with the mouse alone, and keyboard shortcuts still work. |
-| **M46 - Normal start in Vertigo** | A | New game from original initialization: the six level-1 `maze.pty` characters at Vertigo `(18,4)` facing West, without injected levels/XP. Admit the whole Vertigo map and its actors and Events from resources, with unsupported Events refusing visibly. Add Rest with food and HP/SP recovery plus the ordinary daily processing it needs. | A new game starts in Vertigo; the party can walk the whole town, fight, Rest, use the services and save/restore exactly. |
+| **M45 - Reliable input** | A | Keys pressed during animations or before a frame is ready are silently dropped by the presented-frame input gate (`SdlWindow.cpp`), so movement, Space and combat keys often fail in physical play. Investigate drop causes with counters and human-paced reproduction; replace silent dropping with a bounded pending-input policy that applies keys to the correct frame while keeping duplicate/stale-action protection. Include the flaky `xeen_save_sdl` test (same mechanism) and the Run occupied-destination "Stale encounter frame" defect. | Maintainer play-test with no lost keys in movement, Space and combat; tests that press keys during animations and frame changes; full CTest passes. |
+| **M46 - Clickable original interface** | B | Mouse input mapped to the 320x200 framebuffer; main-screen buttons and party portraits trigger existing actions (unsupported buttons refuse visibly); original-style dialogs replace project menus for inventory, Smith, Training and Temple, including the deferred Temple panel/art composition. | The maintainer can play the current Journey with the mouse alone, and keyboard shortcuts still work. |
+| **M47 - Normal start in Vertigo** | A | New game from original initialization: the six level-1 `maze.pty` characters at Vertigo `(18,4)` facing West, without injected levels/XP. Admit the whole Vertigo map and its actors and Events from resources, with unsupported Events refusing visibly. Add Rest with food and HP/SP recovery plus the ordinary daily processing it needs. | A new game starts in Vertigo; the party can walk the whole town, fight, Rest, use the services and save/restore exactly. |
 
-Before or alongside M45, fix two known issues found during M44: Run to an
-occupied destination fails with "Stale encounter frame" (likely a real defect),
-and `xeen_save_sdl` is flaky under parallel load (fixed sleeps instead of
-waiting for frame readiness). Both are small and independent of M45's scope.
-
-The order matters. M44 lowered the cost of every later change. M45 avoids building
-more project-specific menus that would be discarded. M46 is the first test of
-whole-map admission and ends the prepared-party era. If M46 proves too large,
+The order matters. M44 lowered the cost of every later change. M45 fixes the
+input path that keyboard play and M46's mouse input both depend on; earlier
+fixes adjusted individual cases inside the dropping policy and the problem kept
+returning. M46 avoids building more project-specific menus that would be
+discarded. M47 is the first test of whole-map admission and ends the
+prepared-party era. If M47 proves too large,
 split Rest/daily processing into its own milestone rather than narrowing the
 whole-map admission.
 
-After M46, choose the next milestone from play-testing evidence. Likely candidates:
+After M47, choose the next milestone from play-testing evidence. Likely candidates:
 
 - **Leaving Vertigo:** connect normal start to the mainland and further areas,
   adding Event opcodes as they are reached. Map 22 (north of map 23) needs
