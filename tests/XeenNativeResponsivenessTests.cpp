@@ -11,7 +11,7 @@ namespace {
 // the next SDL sampling call. Idle-callback injection misses the late pump bug.
 std::optional<SDL_Keycode> fresh;
 unsigned sampled=0;
-bool releaseBeforeFresh=false;
+bool releaseBeforeFresh=false,movementSample=false;
 void key(SDL_Keycode code,Uint32 type=SDL_KEYDOWN,Uint8 repeat=0) {
     SDL_Event e{};e.type=type;e.key.timestamp=100;e.key.repeat=repeat;
     e.key.keysym.sym=code;e.key.keysym.scancode=SDL_GetScancodeFromKey(code);
@@ -21,7 +21,7 @@ void sample() {
     if(!fresh)return;
     const auto code=*fresh;fresh.reset();++sampled;
     if(releaseBeforeFresh)key(code,SDL_KEYUP);
-    key(code);key(code,SDL_KEYDOWN,1);key(code,SDL_KEYUP);
+    key(code);key(code,SDL_KEYDOWN,movementSample?0:1);key(code,SDL_KEYUP);
 }
 }
 extern "C" Uint32 __wrap_SDL_GetTicks(){probe_fired::hit("SDL_GetTicks");return 100;}
@@ -31,22 +31,27 @@ extern "C" int __real_SDL_WaitEventTimeout(SDL_Event *,int);
 extern "C" int __wrap_SDL_WaitEventTimeout(SDL_Event *e,int timeout){probe_fired::hit("SDL_WaitEventTimeout");sample();return __real_SDL_WaitEventTimeout(e,timeout);}
 namespace {
 // Uses real Flow owners, SDL queue/held-key filtering, concrete binding and
-// dispatch. No retry press: one down/repeat/up per acquired target frame.
+// dispatch. No retry press: one edge plus a held duplicate per acquired frame.
 void press(Fixture &f,SDL_Keycode code,bool cosmetic=false,bool held=false,bool deferred=false) {
     const auto old=f.flow->frame().presentation();
     const auto semantic=f.flow->displayedInput();
     auto target=old;
     unsigned dispatches=0,cycles=0;bool armed=false,redrawn=false,allowInitial=!deferred;
+    const bool queueable=f.flow->inputContext(old).acceptsQueuedInput;
+    movementSample=queueable;
     releaseBeforeFresh=held;
     const auto before=sampled;
     SdlWindow::FrameUpdateHandler handler=[](const PlayerAction &)->std::optional<IndexedFrame>{throw std::runtime_error("missing concrete input");};
     handler.protectAllKeys=true;
+    handler.inputContext=[&](const auto &origin){return f.flow->inputContext(origin);};
+    handler.acceptsInputFrame=[&](const auto &origin){return f.flow->acceptsInputFrame(origin);};
+    handler.completeInputHandoff=[&](const auto &origin){f.flow->completeInputHandoff(origin);};
     handler.displayedInput=[&]{return f.flow->displayedInput();};
     handler.acceptsFrame=[&](const auto &frame){return allowInitial && f.flow->acceptsFrame(frame);};
     handler.framePresented=[&](const auto &frame){
         // Keys queued during acquisition are still pre-frame, even when their
         // timestamp equals the first real post-acquisition edge's timestamp.
-        if(!armed && (!cosmetic || redrawn)) {key(code);if(!held)key(code,SDL_KEYUP);}
+        if(!queueable && !armed && (!cosmetic || redrawn)) {key(code);if(!held)key(code,SDL_KEYUP);}
         f.flow->framePresented(frame);
         if(!armed && (!cosmetic || redrawn)) {target=frame;armed=true;fresh=code;}
     };
@@ -58,7 +63,7 @@ void press(Fixture &f,SDL_Keycode code,bool cosmetic=false,bool held=false,bool 
     const bool ok=SdlWindow().showInteractive(f.flow->frame(),"First native press",handler,[]{return true;},[&]()->std::optional<IndexedFrame>{
         if(!allowInitial) {
             check(dispatches==0,"failed acquisition authorized a key");
-            key(code);key(code,SDL_KEYUP);allowInitial=true;return f.flow->frame();
+            if(!queueable){key(code);key(code,SDL_KEYUP);}allowInitial=true;return f.flow->frame();
         }
         if(cosmetic && !redrawn) {
             redrawn=true;
@@ -67,7 +72,7 @@ void press(Fixture &f,SDL_Keycode code,bool cosmetic=false,bool held=false,bool 
             check(bool(replacement),"cosmetic frame missing");target=replacement->presentation();
             check(target!=old && f.flow->displayedInput()==semantic,"cosmetic must retain semantic authority");
             // Equal-tick pre-acquisition pair must not become input for B.
-            key(code);if(!held)key(code,SDL_KEYUP);return replacement;
+            if(!queueable){key(code);if(!held)key(code,SDL_KEYUP);}return replacement;
         }
         if(dispatches) {SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);}
         return {};

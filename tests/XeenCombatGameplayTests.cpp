@@ -278,9 +278,9 @@ void sdl() {
     case 2:check(h.phase()==Phase::PlayerReady,"SDL handoff");break;
     case 3:key(SDLK_b);key(SDLK_b,SDL_KEYDOWN,1);key(SDLK_b,SDL_KEYUP);key(SDLK_b);break;
     case 4:check(accepted==1,"one owner per poll batch");key(SDLK_b);break;
-    case 5:check(accepted==1,"held B requires release");key(SDLK_b,SDL_KEYUP);break;
+    case 5:check(accepted==2,"two physical B edges queued; held B adds no action");key(SDLK_b,SDL_KEYUP);break;
     case 6:key(SDLK_b);break;
-    case 7:check(accepted==2,"fresh B accepts next displayed owner");key(SDLK_b,SDL_KEYUP);key(SDLK_SPACE);break;
+    case 7:check(accepted==3,"fresh B accepts next displayed owner");key(SDLK_b,SDL_KEYUP);key(SDLK_SPACE);break;
     case 8:key(SDLK_SPACE,SDL_KEYUP);break;
     case 9:break;
     case 10:key(SDLK_SPACE);break;
@@ -295,7 +295,7 @@ void sdl() {
   return SdlWindow().showInteractive(first,"Regional combat input",wrapped,escape,scriptedIdle,status);
  };
  check(h.run(s)==0,"real SDL production route");
- check(stage>=11&&accepted==2,"SDL sequence completed");
+ check(stage>=11&&accepted==3,"SDL sequence completed");
 }
 
 void inventory() {

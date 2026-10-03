@@ -188,18 +188,27 @@ void disengagementSemanticInput(Source &source) {
 void disengagementNativeInput(Source &source) {
  const auto path=std::filesystem::temp_directory_path()/"mmodern-m34-artificial-native.mms";
  XeenSaveFile::write(path,disengagementFixture(source));combat_gameplay_test::Harness h;
- auto services=disengagementServices(source,h);unsigned accepted=0,stage=0,cycles=0;
+ auto services=disengagementServices(source,h);unsigned accepted=0,stage=0,cycles=0,delivered=0,attacks=0,blocks=0;
+ unsigned presentationSerial=0,lastDeliverySerial=0;
  services.show=[&](const auto &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
   auto wrapped=handler;
+  wrapped.framePresented=[&](const auto &frame){handler.framePresented(frame);++presentationSerial;};
   wrapped.withPresentedInput=[&](const PlayerAction &a,std::uint64_t input,const auto &origin){
    const auto *combat=h.flow->encounter()->combat();const auto generation=combat?combat->result().generation:0;
+   if(!std::holds_alternative<SaveGameAction>(a)){check(handler.inputContext(origin).readyForAction,"M34 queued input drained during busy work");
+   check(presentationSerial!=lastDeliverySerial,"M34 two queued actions shared a ready frame");lastDeliverySerial=presentationSerial;}
+   if(!std::holds_alternative<SaveGameAction>(a)){++delivered;if(std::holds_alternative<InteractionAction>(a))++attacks;if(std::holds_alternative<BlockAction>(a))++blocks;}
    auto frame=handler.withPresentedInput(a,input,origin);combat=h.flow->encounter()->combat();
    if(std::holds_alternative<RevisitCompletedAction>(a) && combat && combat->result().generation!=generation && combat->phase()==XeenCombatPhase::PreparingAction && combat->result().operation==XeenCombatOperation::PlayerRun)++accepted;
    return frame;
   };
   const auto key=[](SDL_Keycode code,Uint32 type=SDL_KEYDOWN,Uint8 repeat=0){SDL_Event event{};event.type=type;event.key.keysym.sym=code;event.key.repeat=repeat;check(SDL_PushEvent(&event)==1,"M34 native queued key");};
   const auto scripted=[&]()->std::optional<IndexedFrame>{
-   h.now+=20;auto frame=idle();check(++cycles<300,"M34 automated native input bounded cycles");
+   const auto *beforeIdle=h.flow->encounter()->combat();
+   // The six literal Run successes stay isolated from the newly queued attack,
+   // Block and enemy work, which use the normal deterministic random stream.
+   taped=beforeIdle && beforeIdle->phase()==XeenCombatPhase::PreparingAction && beforeIdle->result().operation==XeenCombatOperation::PlayerRun;
+   h.now+=20;auto frame=idle();check(++cycles<600,"M34 automated native input bounded cycles");
    // Queue fresh keys only after a stable presented iteration. A frame returned
    // by idle is uploaded later by SDL and correctly fences already queued keys.
    if(frame)return frame;
@@ -210,11 +219,11 @@ void disengagementNativeInput(Source &source) {
     case 2:
      tape.assign(6,{1,100,1});cursor=0;taped=true;
      key(SDLK_r);key(SDLK_r,SDL_KEYDOWN,1);key(SDLK_r,SDL_KEYUP);key(SDLK_r);key(SDLK_F9);key(SDLK_SPACE);key(SDLK_b);stage=3;break;
-    case 3:if(ready){check(accepted==1 && combat->participants()==0x3e && !h.saves,("Native same-batch R/repeat/Space/B/F9 accepts exactly one Run accepted="+std::to_string(accepted)+" mask="+std::to_string(combat->participants())+" saves="+std::to_string(h.saves)+" cursor="+std::to_string(cursor)).c_str());stage=4;}break;
+    case 3:if(ready && delivered>=5){check(accepted==2 && attacks==1 && blocks==1 && combat->participants()==0x3c && !h.saves,("Native queued R edges/Space/B, ignored repeat, immediate refused F9 accepted="+std::to_string(accepted)+" mask="+std::to_string(combat->participants())+" saves="+std::to_string(h.saves)+" cursor="+std::to_string(cursor)).c_str());stage=4;}break;
     case 4:key(SDLK_r);stage=5;break;
-    case 5:check(accepted==1,"Held native R cannot act for next owner");key(SDLK_r,SDL_KEYUP);stage=6;break;
+    case 5:check(accepted==2,"Held native R cannot act for next owner");key(SDLK_r,SDL_KEYUP);stage=6;break;
     case 6:key(SDLK_r);stage=7;break;
-    case 7:if(ready){check(accepted==2,"Released fresh native R accepts second owner");stage=8;}break;
+    case 7:if(ready){check(accepted==3,"Released fresh native R accepts next owner");stage=8;}break;
     case 8:key(SDLK_r,SDL_KEYUP);stage=9;break;
     case 9:key(SDLK_r);stage=10;break;
     case 10:if(ready)stage=8;else if(!combat)stage=11;break;

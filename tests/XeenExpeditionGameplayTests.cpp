@@ -83,21 +83,30 @@ void controls(const fs::path &path) {
   check(h.saves==stages&&*h.world->sessionState().journeyRandom()==after,"failed frame cannot save or replay");return true;};
  check(Application().playGameplay(s,{},path,true)==0,"production fatal frame closure");}
  // Real SDL poll batches and held keys at a two-target contact.
- {Harness h;auto s=services(h);unsigned stage=0,loops=0,stable=0;std::uint64_t rng=0;int participant=0;
+ {Harness h;auto s=services(h);unsigned stage=0,loops=0,stable=0,queuedAttacks=0;std::uint64_t rng=0;int participant=0;
  const auto key=[](SDL_Keycode code,Uint32 type=SDL_KEYDOWN,Uint8 repeat=0){SDL_Event e{};e.type=type;e.key.keysym.sym=code;e.key.timestamp=SDL_GetTicks()+1;e.key.repeat=repeat;check(SDL_PushEvent(&e)==1,"SDL target key queue");};
  s.show=[&](const auto &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
+  auto native=handler;
+  native.withPresentedInput=[&](const auto &action,auto token,const auto &origin){
+   const auto generation=h.flow->encounter()->combat()?h.flow->encounter()->combat()->result().generation:0;
+   auto frame=handler.withPresentedInput(action,token,origin);
+   if(std::holds_alternative<InteractionAction>(action) && h.flow->encounter()->combat()->result().generation!=generation)++queuedAttacks;
+   return frame;
+  };
   auto driver=[&]()->std::optional<IndexedFrame>{check(++loops<100,"bounded SDL target controls");if(h.flow->encounter()->combat()&&h.flow->encounter()->combat()->pending()!=Work::None)h.now+=100;auto frame=idle();if(frame){stable=0;return frame;}if(++stable<2)return frame;stable=0;
    auto *c=h.flow->encounter()->combat();
    switch(stage++){
    case 0:key(SDLK_w);key(SDLK_w,SDL_KEYUP);break;
    case 1:check(c&&c->phase()==Phase::PlayerReady,"SDL automatic attachment");rng=h.world->sessionState().journeyRandom()->count;participant=c->participant();key(SDLK_2);key(SDLK_SPACE);key(SDLK_SPACE,SDL_KEYUP);key(SDLK_F9);key(SDLK_F9,SDL_KEYUP);break;
-   case 2:check(c->selectedTarget()==XeenMonsterIdentity{23,16}&&h.world->sessionState().journeyRandom()->count==rng&&c->participant()==participant&&h.saves==0,"SDL fixed selection batch rejects Space/F9");key(SDLK_1);key(SDLK_1,SDL_KEYUP);break;
+   case 2:if(queuedAttacks!=1 || c->phase()!=Phase::PlayerReady){--stage;break;}
+    check(c->selectedTarget()==XeenMonsterIdentity{23,16}&&h.world->sessionState().journeyRandom()->count>rng&&h.saves==0,"SDL selection queues Space once and refuses F9");
+    rng=h.world->sessionState().journeyRandom()->count;participant=c->participant();key(SDLK_1);key(SDLK_1,SDL_KEYUP);break;
    case 3:check(c->selectedTarget()==XeenMonsterIdentity{23,9},"SDL fresh target row");key(SDLK_2);key(SDLK_2,SDL_KEYDOWN,1);break;
    case 4:check(c->selectedTarget()==XeenMonsterIdentity{23,9}&&h.world->sessionState().journeyRandom()->count==rng,"SDL held/repeated target cannot select replacement");key(SDLK_2,SDL_KEYUP);break;
    case 5:key(SDLK_2);key(SDLK_2,SDL_KEYUP);break;
    default:check(c->selectedTarget()==XeenMonsterIdentity{23,16}&&c->participant()==participant,"released fresh target accepted without turn");{SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);}break;
    }return frame;};
-  return SdlWindow().showInteractive(first,"M30B target controls",handler,escape,driver,status);};
+  return SdlWindow().showInteractive(first,"M30B target controls",native,escape,driver,status);};
  check(Application().playGameplay(s,{},path,true)==0&&stage>=7,"real SDL target generation safety");}
 }
 void deathControl(const fs::path &path) {

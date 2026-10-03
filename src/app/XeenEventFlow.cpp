@@ -75,6 +75,40 @@ XeenEventFlow::SaveBoundary XeenEventFlow::beginSave() {
 	_saveBoundary = boundary;
 	return boundary;
 }
+InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origin) {
+    const auto *combat = _encounter ? _encounter->combat() : nullptr;
+    // Panels are strict throughout their lifetime, including preparation/result work.
+    const unsigned panel = _fatal ? 1 : _trainingUi ? 2 : _smithUi ? 3 : inventoryOpen() ? 4 :
+        (_castingUi || (combat && combat->cast())) ? 5 :
+        (_pending || _transition || (_encounter && _encounter->journeyEvent())) ? 6 :
+        (_encounter && _encounter->monsterReward()) ? 7 :
+        (combat && (combat->phase() == XeenCombatPhase::VictoryAwaitingEnd ||
+            combat->phase() == XeenCombatPhase::Victory || combat->phase() == XeenCombatPhase::Disengaged ||
+            combat->phase() == XeenCombatPhase::Defeat || combat->phase() == XeenCombatPhase::SupportStopped ||
+            combat->phase() == XeenCombatPhase::Failed)) ? 8 :
+        (_encounter && !_encounter->combat() && _encounter->state().phase() != XeenEncounterPhase::Exploring) ? 9 : 0;
+    const QueueContext context{_camera.mapId, panel, combat,
+        _pending ? _pending->generation : 0};
+    if (!_queueContext || !(*_queueContext == context)) {
+        if (_queueContextId == std::numeric_limits<std::uint64_t>::max()) throw std::overflow_error("Input context exhausted");
+        ++_queueContextId;
+        _queueContext = context;
+    }
+    const bool queueable = panel == 0 && (!_encounter || journey() || combat);
+    bool ready = !_dispatching && !_fatal && !_saving && !_handoffPending && !_arrivalPending &&
+        acceptsInputFrame(origin) && (!journey() || journeyInputCurrent(displayedInput()));
+    if (queueable && _encounter) {
+        ready = ready && !_encounter->_busy && !_encounter->projectilesPending() &&
+            !_encounter->_shootIntent && !_encounter->_shoot && !_encounter->_castingSettlement &&
+            !_encounter->_regionalAutomatic && !_encounter->_regionalWork &&
+            _encounter->boundary().quiet();
+        if (combat) ready = ready && combat->phase() == XeenCombatPhase::PlayerReady &&
+            _displayedCombat && combat->current(*_displayedCombat) && !_encounter->_scheduleAfterFrame;
+        else ready = ready && _encounter->journeyMutable();
+    }
+    return {_queueContextId, queueable, ready};
+}
+
 bool XeenEventFlow::journeyInputCurrent(std::optional<std::uint64_t> input) const noexcept {
 	return journey() && input && *input == _inputGeneration && !_handoffPending && !_fatal && !_dispatching && !_saving && encounterFrameCurrent();
 }
@@ -84,9 +118,11 @@ void XeenEventFlow::prepareJourneyTransition() {
   _encounter->combat()->phase()==XeenCombatPhase::Disengaged)) {
   if(_encounter->projectilesPending()) return;
   if(!_encounter->retireJourney(_encounter->ticket())) throw std::runtime_error("Journey retirement failed");
+  _queueContext.reset(); // Combat retirement, even if the next attachment reuses storage.
   _displayedCombat.reset();
  }
  if(!_encounter->combat() && _world.sessionState().journeyActivity()==XeenJourneyActivity::Attachment) {
+  _queueContext.reset(); // New combat incarnation.
   closeInventory();
   if(!_encounter->attachJourney(_encounter->ticket(),prepareJourneySprites)) throw std::runtime_error("Journey attachment failed");
  }
@@ -247,6 +283,7 @@ bool XeenEventFlow::advanceEncounterOrdinary(OrdinaryCause cause) {
 }
 
 void XeenEventFlow::sealFrame(IndexedFrame &returned) {
+	inputContext({}); // Observe every published context, including intermediate panels.
 	// Keeping old snapshots alive prevents pointer reuse/ABA; another Flow
 	// (even at the same address) cannot issue this identity.
 	auto snapshot = std::make_shared<IndexedFrame>(_frame);

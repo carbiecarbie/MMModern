@@ -81,10 +81,10 @@ void sdlBoundaries() {
     auto frame=idle();if(frame){stable=0;return frame;}if(++stable<2)return frame;stable=0;
     switch(stage++) {
     case 0:key(SDLK_RIGHT);key(SDLK_RIGHT,SDL_KEYDOWN,1);key(SDLK_F9);key(SDLK_F9,SDL_KEYUP);key(SDLK_SPACE);key(SDLK_SPACE,SDL_KEYUP);key(SDLK_i);key(SDLK_i,SDL_KEYUP);break;
-    case 1:check(h.camera->direction==XeenDirection::North&&h.party->encounterContext->ctr24==1&&!h.flow->inventoryOpen()&&h.saves==0&&noEvents==0,"fixed poll batch protects whole Journey");key(SDLK_RIGHT);break;
-    case 2:check(h.camera->direction==XeenDirection::North,"held navigation cannot repeat");key(SDLK_RIGHT,SDL_KEYUP);break;
+    case 1:check(h.camera->direction==XeenDirection::West&&h.party->encounterContext->ctr24==0&&h.flow->inventoryOpen()&&h.saves==0&&noEvents==0,"strict inventory opening flushes queued navigation/Space");key(SDLK_i);key(SDLK_i,SDL_KEYUP);key(SDLK_RIGHT);break;
+    case 2:check(h.camera->direction==XeenDirection::West && !h.flow->inventoryOpen(),"held navigation cannot repeat across inventory context");key(SDLK_RIGHT,SDL_KEYUP);break;
     case 3:key(SDLK_RIGHT);key(SDLK_RIGHT,SDL_KEYUP);break;
-    case 4:check(h.camera->direction==XeenDirection::East&&h.party->encounterContext->ctr24==2,"released fresh navigation accepted");key(SDLK_i);break;
+    case 4:check(h.camera->direction==XeenDirection::North&&h.party->encounterContext->ctr24==1,"released fresh navigation accepted");key(SDLK_i);break;
     case 5:check(h.flow->inventoryOpen()&&!XeenSaveState::canCapture(*h.party,*h.camera,*h.world),"SDL modal capture lease");key(SDLK_i);break;
     case 6:check(h.flow->inventoryOpen(),"held I cannot cross inventory boundary");key(SDLK_i,SDL_KEYUP);break;
     case 7:key(SDLK_i);key(SDLK_i,SDL_KEYUP);break;

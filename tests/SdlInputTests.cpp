@@ -49,6 +49,101 @@ void semanticBoundaryKeys() {
  fixedTicks=false;check(ok&&accepted==3&&queuedOld);
 }
 
+// Fake readiness/clock, real production event queue and presentation loop.
+struct QueueHarness {
+ bool redraw=false,ready=false,queueable=true;std::uint64_t context=1,epoch=1,presented=0;
+ unsigned stage=0,presentations=0,lastDelivery=0;std::vector<char> delivered;
+ std::function<void()> duringPresentation;
+ static void key(SDL_Keycode code,Uint32 type=SDL_KEYDOWN,Uint8 repeat=0,Uint32 stamp=99){
+  SDL_Event event{};event.type=type;event.key.keysym.sym=code;event.key.repeat=repeat;event.key.timestamp=stamp;
+  if(SDL_PeepEvents(&event,1,SDL_ADDEVENT,0,0)!=1)throw std::runtime_error("queue fixture key");
+ }
+ static void tap(SDL_Keycode code,Uint32 stamp=99){key(code,SDL_KEYDOWN,0,stamp);key(code,SDL_KEYUP,0,stamp);}
+ static void quit(){SDL_Event event{};event.type=SDL_QUIT;SDL_PushEvent(&event);}
+ void check(bool value,const char *message){if(!value)throw std::runtime_error(std::string(message)+" stage="+std::to_string(stage));}
+ void run(const char *name,const std::function<void(QueueHarness &)> &script){
+  IndexedFrame frame{1,1,{0}};
+  SdlWindow::FrameUpdateHandler handler=[](const auto &)->std::optional<IndexedFrame>{throw std::runtime_error("unversioned queued action");};
+  handler.protectAllKeys=true;handler.displayedInput=[&]{return std::optional<std::uint64_t>{epoch};};
+  handler.inputContext=[&](const auto &){return InputContext{context,queueable,ready && presented==epoch};};
+  handler.framePresented=[&](const auto &){presented=epoch;++presentations;const auto hook=duringPresentation;if(hook)hook();};
+  handler.withPresentedInput=[&](const PlayerAction &action,auto token,const auto &)->std::optional<IndexedFrame>{
+   if(token!=epoch){check(!queueable,"queued key reached a stale frame");return {};}
+   const bool immediate=std::holds_alternative<SaveGameAction>(action) || std::holds_alternative<CancelInteractionAction>(action);
+   check(!queueable || immediate || (ready && lastDelivery!=presentations),"drained twice or while busy");lastDelivery=presentations;
+   char kind='?';if(const auto *nav=std::get_if<NavigationAction>(&action))kind=*nav==NavigationAction::MoveForward?'W':*nav==NavigationAction::MoveBackward?'S':*nav==NavigationAction::TurnLeft?'A':'D';
+   else if(std::holds_alternative<InteractionAction>(action))kind=' ';
+   else if(std::holds_alternative<BlockAction>(action))kind='B';
+   else if(std::holds_alternative<ShootAction>(action))kind='F';
+   else if(std::holds_alternative<RevisitCompletedAction>(action))kind='R';
+   else if(std::holds_alternative<SaveGameAction>(action))kind='9';
+   else if(std::holds_alternative<CancelInteractionAction>(action))kind='E';
+   delivered.push_back(kind);++epoch;return frame;
+  };
+  fixedTicks=true;
+  const bool ok=SdlWindow().showInteractive(frame,name,handler,[]{return true;},[&]()->std::optional<IndexedFrame>{
+   check(stage<60,"queue test timeout");redraw=false;script(*this);++stage;return redraw?std::optional<IndexedFrame>{frame}:std::nullopt;
+  });
+  fixedTicks=false;check(ok,"queue show failed");std::cout<<name<<" passed\n";
+ }
+};
+void boundedQueuePolicies(){
+ QueueHarness{}.run("FIFO/bound-five/overflow/one-per-ready-frame",[](auto &h){
+  if(h.stage==0){for(auto code:{SDLK_w,SDLK_a,SDLK_s,SDLK_d,SDLK_SPACE,SDLK_b})h.tap(code);}
+  else if(h.stage==1){h.check(h.delivered.empty(),"busy consumed queue");h.ready=true;}
+  else if(h.stage<=6){h.check(h.delivered.size()==h.stage-1,"FIFO drain count");if(h.stage==6){h.check(h.delivered==std::vector<char>{'W','A','S','D',' '},"FIFO or overflow");h.quit();}}
+ });
+ QueueHarness{}.run("five-physical-W-edges",[](auto &h){
+  if(h.stage==0){for(unsigned n=0;n<6;++n)h.tap(SDLK_w);}
+  else if(h.stage==1)h.ready=true;
+  else if(h.stage==7){h.check(h.delivered==std::vector<char>(5,'W'),"fresh physical edges were coalesced or overflow accepted");h.quit();}
+ });
+ QueueHarness{}.run("movement-repeat/single-pending-repeat/physical-edges/held-release",[](auto &h){
+  if(h.stage==0){h.key(SDLK_w);for(unsigned n=0;n<20;++n)h.key(SDLK_w,SDL_KEYDOWN,1);h.key(SDLK_w);h.key(SDLK_w,SDL_KEYUP);h.tap(SDLK_a);h.tap(SDLK_s);h.tap(SDLK_d);h.tap(SDLK_b);}
+  else if(h.stage==1)h.ready=true;
+  else if(h.stage==7){h.check(h.delivered==std::vector<char>{'W','W','A','S','D'},"repeat backlog or physical bound");h.quit();}
+ });
+ QueueHarness{}.run("Space-B-F-R-repeat-ignored",[](auto &h){
+  if(h.stage==0){for(auto code:{SDLK_SPACE,SDLK_b,SDLK_f,SDLK_r}){h.key(code);h.key(code,SDL_KEYDOWN,1);h.key(code,SDL_KEYUP);}}
+  else if(h.stage==1)h.ready=true;
+  else if(h.stage==6){h.check(h.delivered==std::vector<char>{' ','B','F','R'},"command auto repeat");h.quit();}
+ });
+ for(const auto *name:{"enemy-turn-Space-survives","ATT-projectile-animation-survives","automatic-work-survives","handoff-survives"})QueueHarness{}.run(name,[](auto &h){
+  h.redraw=true;
+  if(h.stage==0)h.tap(SDLK_SPACE);
+  else if(h.stage<6)h.check(h.delivered.empty(),"busy frame consumed Space");
+  else if(h.stage==6)h.ready=true;
+  else if(h.stage==10){h.check(h.delivered==std::vector<char>{' '},"Space lost/retried after ready refusal");h.quit();}
+ });
+ QueueHarness{}.run("Escape-clears/F9-immediate-never-replayed",[](auto &h){
+  if(h.stage==0){h.tap(SDLK_w);h.tap(SDLK_F9,100);}
+  else if(h.stage==1){h.check(h.delivered==std::vector<char>{'9'},"F9 buffered");h.tap(SDLK_ESCAPE,100);}
+  else if(h.stage==2){h.ready=true;h.tap(SDLK_w);h.key(SDLK_ESCAPE,SDL_KEYDOWN,1,100);}
+  else if(h.stage==5){h.check(h.delivered==std::vector<char>{'9','E','W'},"Escape flush/F9 replay");h.quit();}
+ });
+ QueueHarness{}.run("focus-loss-clears-held-and-queue",[](auto &h){
+  if(h.stage==0){h.key(SDLK_w);SDL_Event event{};event.type=SDL_WINDOWEVENT;event.window.event=SDL_WINDOWEVENT_FOCUS_LOST;SDL_PushEvent(&event);h.key(SDLK_w,SDL_KEYDOWN,1);h.tap(SDLK_w);}
+  else if(h.stage==1)h.ready=true;
+  else if(h.stage==4){h.check(h.delivered==std::vector<char>{'W'},"focus loss stranded held or replayed action");h.quit();}
+ });
+ for(const auto *name:{"combat-end-flush","dialog-open-flush","map-transition-flush","save-failure-flush"})QueueHarness{}.run(name,[](auto &h){
+  if(h.stage==0)h.tap(SDLK_SPACE);
+  else if(h.stage==1){++h.context;h.ready=true;}
+  else if(h.stage==4){h.check(h.delivered.empty(),"old context replay");h.quit();}
+ });
+ for(const auto *name:{"service-strict","dialog-strict","reward-strict","inventory-strict","casting-strict"}){
+  QueueHarness h;h.queueable=false;h.ready=true;h.run(name,[](auto &h){
+   if(h.stage==0)h.tap(SDLK_SPACE); // Pre-ready timestamp stays discarded.
+   else if(h.stage==1){h.check(h.delivered.empty(),"strict timestamp bypass");h.tap(SDLK_SPACE,100);}
+   else if(h.stage==4){h.check(h.delivered==std::vector<char>{' '},"strict edge changed");h.quit();}
+  });
+ }
+ QueueHarness{}.run("movement-redraw/same-generation-input-buffered",[](auto &h){
+  if(h.stage==0){h.duringPresentation=[&h]{h.duringPresentation={};h.tap(SDLK_w);};h.tap(SDLK_w);h.ready=true;}
+  else if(h.stage==5){h.check(h.delivered==std::vector<char>{'W','W'},"redraw key lost");h.quit();}
+ });
+}
+
 void pushKey(std::atomic<bool> &finished, SDL_Keycode key, std::uint8_t repeat,
 		std::uint32_t type = SDL_KEYDOWN) {
 	for (int attempt = 0; attempt < 100 && !finished; ++attempt) {
@@ -69,6 +164,7 @@ void pushKey(std::atomic<bool> &finished, SDL_Keycode key, std::uint8_t repeat,
 int main() {
 	probe_fired::expect("SDL_GetTicks");
  semanticBoundaryKeys();
+ boundedQueuePolicies();
 	std::atomic<bool> finished{false};
 	std::atomic<int> interactions{0};
 	std::atomic<int> navigation{0};

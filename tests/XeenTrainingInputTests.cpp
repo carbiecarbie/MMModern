@@ -111,7 +111,8 @@ void native(Inputs &in) {
         const Owners before(f);const auto a=f.flow->frame().presentation();const auto semantic=*f.flow->displayedInput();
         IndexedFrame::Presentation shown=a,b;unsigned stage=0,dispatches=0,cycles=0;bool failed=false;
         SdlWindow::FrameUpdateHandler handler=[](const PlayerAction &)->std::optional<IndexedFrame>{throw std::runtime_error("unbound native input");};
-        handler.protectAllKeys=true;handler.displayedInput=[&]{return f.flow->displayedInput();};
+        handler.protectAllKeys=true;
+        handler.inputContext=[&](const auto &origin){return f.flow->inputContext(origin);};handler.displayedInput=[&]{return f.flow->displayedInput();};
         handler.acceptsFrame=[&](const auto &frame){return f.flow->acceptsFrame(frame);};
         handler.framePresented=[&](const auto &frame){f.flow->framePresented(frame);shown=frame;};
         handler.beginCycle=[&](auto){check(++cycles<1000,"native retry loop bound");f.flow->beginCycle(++f.cycle);};

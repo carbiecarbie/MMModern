@@ -274,7 +274,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
     else try {
      xeenSaveGameplay(services,world,party,camera,flags,flow,*target,preflight,&sourceCheck);
      success = true; message = "Saved";
-    } catch (const std::exception &e) { message = std::string("Save failed: ") + e.what(); }
+    } catch (const std::exception &e) { flow._queueContext.reset(); message = std::string("Save failed: ") + e.what(); }
 
     handoff.retain();
     if (target) message += " [" + target->u8string() + "]";
@@ -299,6 +299,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   };
   SdlWindow::FrameUpdateHandler handler = [&](const PlayerAction &action) { return dispatch(action,{}); };
   handler.displayedInput = [&] { return flow.displayedInput(); };
+  handler.inputContext = [&](const auto &origin) { return flow.inputContext(origin); };
   handler.acceptsFrame = [&](const auto &frame) { return flow.acceptsFrame(frame); };
   handler.acceptsInputFrame = [&](const auto &frame) { return flow.acceptsInputFrame(frame); };
   handler.completeInputHandoff = [&](const auto &frame) { flow.completeInputHandoff(frame); handoff.retain(); };

@@ -10,6 +10,7 @@
 #include "games/xeen/XeenEquipment.h"
 #include "app/XeenEncounterFlow.h"
 #include <memory>
+#include "core/InputContext.h"
 
 namespace mmodern {
 
@@ -49,6 +50,7 @@ public:
 		return !_fatal && !_handoffPending && encounterFrameCurrent() &&
 			frame == _actionableFrame && (!_encounter || frame);
 	}
+	InputContext inputContext(const IndexedFrame::Presentation &);
 	bool journeyInputCurrent(std::optional<std::uint64_t>) const noexcept;
 	std::function<void()> prepareJourneySprites;
 	std::function<void(IndexedFrame &)> drawSmithArt;
@@ -198,6 +200,19 @@ private:
 	std::optional<XeenEncounterFlow::Ticket> _encounterFrame;
 	std::optional<std::uint64_t> _cycle;
 	std::uint64_t _inputGeneration = 0;
+    // Separate from the per-step input generation. Busy frames stay in context.
+    struct QueueContext {
+        XeenMapIdentity map;
+        unsigned panel = 0;
+        const XeenCombat *combat = nullptr;
+        std::uint64_t dialog = 0;
+        bool operator==(const QueueContext &b) const {
+            return map == b.map && panel == b.panel && combat == b.combat && dialog == b.dialog;
+        }
+    };
+    std::optional<QueueContext> _queueContext;
+    std::uint64_t _queueContextId = 0;
+
 	std::optional<XeenCombat::Ticket> _displayedCombat;
 	void prepareJourneyTransition();
 	std::uint64_t _inventoryLease = 0, _certificateLease = 0;

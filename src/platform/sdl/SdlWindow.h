@@ -3,6 +3,7 @@
 
 #include "core/IndexedFrame.h"
 #include "core/PlayerAction.h"
+#include "core/InputContext.h"
 
 #include <functional>
 #include <optional>
@@ -32,6 +33,8 @@ public:
 		std::function<void(const IndexedFrame::Presentation &)> framePresented;
 		std::function<void()> failed;
 		std::function<void()> closed;
+		// Readiness of the supplied presented origin, never of an unacquired upload.
+		std::function<InputContext(const IndexedFrame::Presentation &)> inputContext;
 		bool protectAllKeys = false;
 		std::function<std::optional<std::uint64_t>()> displayedInput;
 		std::function<std::optional<IndexedFrame>(const PlayerAction &,std::uint64_t)> withDisplayedInput;
