@@ -1,8 +1,9 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M45 is the latest completed
-milestone** ([plan](milestone-45-plan.md)): reliable buffered keyboard input and
-no integrity failures from on-demand resource loading. M44
+This describes what can be played and done now. **M46 is the latest completed
+milestone** ([plan](milestone-46-plan.md)): the original main screen is
+clickable. M45 ([plan](milestone-45-plan.md)) made keyboard input reliable and
+removed integrity failures from on-demand resource loading. M44
 ([plan](milestone-44-plan.md)) left one save format and one Journey
 configuration. Direction is in the
 [roadmap](roadmap.md); completed work is in [project history](project-history.md).
@@ -103,7 +104,16 @@ time or combat.
 | F9 | Save |
 | Escape | Back, cancel or acknowledge; quit when nothing is open |
 
-The mouse is not used yet. In exploration and combat, keys pressed while the
+**Mouse.** On the main screen, left clicks work as in the original: the
+action and movement buttons, the combat buttons and targets 1-3, and the 3D
+view (Interact in exploration, Attack in combat). Buttons whose action is not
+implemented yet (Rest, Bash, Dismiss, View Quests, Map, Info, Quick Ref, Quick
+Fight, the control panel, strafing and the portraits' character sheet) show
+"not supported yet". The right button does nothing; inventory, services,
+dialogs and casting still use the keyboard. Clicks follow the same buffering
+as keys.
+
+In exploration and combat, keys pressed while the
 game is still busy (redraws, animations, enemy turns) are buffered, up to five,
 and applied in order when the game is ready, as in the original; holding a
 movement key walks and adds at most one step after release. The buffer is
@@ -204,7 +214,8 @@ instructions are in [dependencies](dependencies.md).
   visible but cannot be cast. No doors, locks or traps are admitted.
 - **Presentation.** The Smith and Training art is static and the Temple art is
   fully covered by its text panel. Scenery torches and other wall art do not
-  animate. There is no audio and no mouse interface.
+  animate. There is no audio. Inventory, services and dialogs are
+  keyboard-only project menus until the original dialogs replace them.
 - **Darkside** gameplay is not supported.
 
 Next steps are in the [roadmap](roadmap.md).

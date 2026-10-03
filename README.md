@@ -17,8 +17,9 @@ What can be played today is one prepared Journey in Clouds: the connected
 mainland of map 23 and a bounded route through Vertigo. You can fight, run,
 cast learned spells, finish Myra's quest, and use the Ironworks (Buy and Armor
 Repair), Training and the Temple. Progress can be saved and continued exactly.
-General exploration, a normal new-game start, Rest, most spells and items, a
-mouse interface and Darkside gameplay are not available yet.
+The original main screen works with mouse or keyboard. General exploration, a
+normal new-game start, Rest, most spells and items, the original item and
+service dialogs and Darkside gameplay are not available yet.
 
 [Project status](docs/project-status.md) describes the current state and gaps,
 [project history](docs/project-history.md) lists completed milestones and the

@@ -1,6 +1,6 @@
 # Milestone 46 plan - Clickable main screen
 
-**Tier B. Status: approved by the maintainer on 2026-10-03.** Baseline: `main` at `8d0daa0`.
+**Tier B. Status: completed and accepted.** Implemented in `646ea1e`.
 
 ## Goal
 
@@ -63,3 +63,15 @@ art beyond the system cursor, save-format or rule changes.
 - Maintainer plays a mainland walk, a fight and a Vertigo visit using only the
   mouse on the main screen (keyboard for menus), and keyboard play still works.
 - Complete CTest passes.
+
+## Results
+
+- Hit areas follow ScummVM `setMainButtons`, `ICONS_COMBAT` (Quick Fight
+  replaces Shoot; Attack, Use, Run, Block; original `combat.icn`),
+  `addPartyButtons` and the wait bounds for the 3D view (Interact; Attack in
+  combat). Buttons win over the view where they overlap.
+- Unsupported buttons and portraits (character sheet) show "not supported
+  yet"; the right button and clicks in strict menus are ignored. The pressed
+  highlight was skipped.
+- Tests `sdl_main_screen` and `xeen_main_screen` (fast); full CTest 140/140;
+  M44 digests unchanged; maintainer mouse play-test passed.

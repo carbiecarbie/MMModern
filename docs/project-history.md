@@ -129,3 +129,8 @@ exploration and combat (up to five presses, applied when the game is ready,
 flushed on context changes), replacing silent dropping; integrity guards
 admit maps and object files loaded on demand, ending "Stale encounter frame"
 crashes near map edges. [Plan](milestone-45-plan.md).
+
+**M46 - Clickable main screen** (`646ea1e`). Left clicks on the original
+main-screen buttons, combat buttons, targets and 3D view drive the existing
+actions through the M45 input path; unimplemented buttons say so.
+[Plan](milestone-46-plan.md).
