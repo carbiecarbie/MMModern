@@ -8,7 +8,9 @@ configuration. Direction is in the
 [roadmap](roadmap.md); completed work is in [project history](project-history.md).
 Build and dependency setup is in [dependencies](dependencies.md).
 
-MMModern is not yet a general replacement for the original games. The playable
+MMModern aims to be a faithful reimplementation of the original games; any
+approved deviation is noted where it applies. It is not yet a general
+replacement for them. The playable
 scope is one **prepared Journey** in Might and Magic IV: Clouds of Xeen (read
 from a World of Xeen installation): the connected mainland of map 23 and a
 bounded route through the town of Vertigo. Darkside gameplay is not supported.

@@ -4,9 +4,17 @@ MMModern is an open-source reimplementation of the engine used by
 Might and Magic IV: Clouds of Xeen and
 Might and Magic V: Darkside of Xeen / World of Xeen.
 
-The goal is a game people can actually play. Judge every task by whether more
-of the original game becomes continuously playable, or whether the next piece
-of content becomes cheaper to add.
+**The goal is a faithful reimplementation**: the game must behave, look and
+feel like the original - rules, formulas, timing, input, interface, text and
+presentation - using the original resources and the pinned ScummVM reference
+as the authority. Within that goal, judge every task by whether more of the
+original game becomes continuously playable, or whether the next piece of
+content becomes cheaper to add.
+
+Deviations from the original are allowed only when the maintainer explicitly
+approves them, and must be documented where they live. Quality-of-life options
+may come later, but only as opt-in additions that leave faithful behavior as
+the default; they are not part of current work.
 
 ## Source of truth
 
@@ -20,6 +28,11 @@ of content becomes cheaper to add.
 
 ## Development principles
 
+- **Fidelity first.** When a plan, prompt or code is unclear about a
+  behavior, reproduce the original from the pinned ScummVM reference without
+  asking. Ask the maintainer only when the original itself is ambiguous or
+  reproducing it would leave the milestone scope. Never invent behavior the
+  original does not have.
 - **Playable by default.** Load whole original maps, actors and events from the
   original resources. When play reaches something not yet implemented (an Event
   opcode, monster ability, service, spell or item effect), show a clear

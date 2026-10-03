@@ -4,6 +4,10 @@ MMModern is an open-source reimplementation of the engine used by
 Might and Magic IV: Clouds of Xeen and
 Might and Magic V: Darkside of Xeen / World of Xeen.
 
+The aim is a **faithful reimplementation**: the game should play, look and
+behave like the original, using your own copy of the original game data.
+Optional quality-of-life features may come later, always off by default.
+
 ## Status
 
 MMModern is incomplete and experimental. It is not yet a replacement for the
