@@ -1,8 +1,9 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M46 is the latest completed
-milestone** ([plan](milestone-46-plan.md)): the original main screen is
-clickable. M45 ([plan](milestone-45-plan.md)) made keyboard input reliable and
+This describes what can be played and done now. **M47 is the latest completed
+milestone** ([plan](milestone-47-plan.md)): the original character sheet, items
+dialog and Ironworks/Training/Temple dialogs replace the project menus. M46
+([plan](milestone-46-plan.md)) made the original main screen clickable. M45 ([plan](milestone-45-plan.md)) made keyboard input reliable and
 removed integrity failures from on-demand resource loading. M44
 ([plan](milestone-44-plan.md)) left one save format and one Journey
 configuration. Direction is in the
@@ -59,6 +60,9 @@ leave; the mainland monsters are reset on exit under the original flag rule.
 Cells outside the route are refused.
 
 - **Slime** at the entrance and the town's sky and objects are shown.
+Services use the original location screens: the town art stays visible with
+the original text panel, and buttons work by mouse or key.
+
 - **Ironworks** (Space at `(8,4)`): *Buy* plain Weapons and Armor from the
   generated stock, paid from carried gold and delivered unequipped, with stock
   depletion; *Armor Repair* at original prices. Stock stays visible even when it
@@ -112,7 +116,7 @@ implemented yet (Rest, Bash, Dismiss, View Quests, Map, Info, Quick Ref, Quick
 Fight, the control panel and strafing) show "not supported yet"; portraits
 open the original character sheet, whose Items dialog is also clickable.
 Buttons briefly show their original pressed frame. The right button does
-nothing; services, other dialogs and casting still use the keyboard. Clicks
+nothing; casting still uses the keyboard. Clicks
 follow the same buffering as keys.
 
 **Character sheet and items.** The original character sheet and Items dialog
@@ -221,10 +225,10 @@ instructions are in [dependencies](dependencies.md).
 - **Items and magic.** There is no general item use. Item effects, most spells
   and most monster abilities are missing; Light and other learned spells are
   visible but cannot be cast. No doors, locks or traps are admitted.
-- **Presentation.** The Smith and Training art is static and the Temple art is
-  fully covered by its text panel. Scenery torches and other wall art do not
-  animate. There is no audio. Services (Ironworks, Training, Temple) still use
-  keyboard-only project menus until the original location dialogs replace them.
+- **Presentation.** Service art is static (no animated shopkeepers). Scenery
+  torches and other wall art do not animate. There is no audio.
+- **Services.** Sell, Identify, buying Accessories/Misc, Fix of non-armor
+  items, Temple Donation and Uncurse show "not supported yet".
 - **Combat items.** Equipping during combat and the combat Use button are not
   supported yet (the original allows both).
 - **Darkside** gameplay is not supported.

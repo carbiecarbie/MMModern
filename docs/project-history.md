@@ -134,3 +134,9 @@ crashes near map edges. [Plan](milestone-45-plan.md).
 main-screen buttons, combat buttons, targets and 3D view drive the existing
 actions through the M45 input path; unimplemented buttons say so.
 [Plan](milestone-46-plan.md).
+
+**M47 - Original dialogs** (`02214e1` and the Part B commit). The original
+character sheet and items dialog replace the project inventory, and the
+Ironworks, Training and Temple use the original location screens and
+dialogs, by mouse or key; dialog text comes from a pinned build-time
+generator. [Plan](milestone-47-plan.md).
