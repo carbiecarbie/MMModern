@@ -67,7 +67,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
      const auto commands=XeenIndoorScene().build(w,view,nullptr,nullptr,phase,{},night);
      for(unsigned i=0;i<2;++i)check(commands[i].geometry().resourceName==(night?"night.sky":"sky.sky") &&
       commands[i].geometry().frame==i,"logical Vertigo route sky mismatch across seam/facings");
-     for(const auto &command:commands)if(command.actor())check(command.drawOptions().slimePalettePhase==-1,
+     for(const auto &command:commands)if(command.actor())check(command.drawOptions().monsterEffectFlags==0,
       "admitted Slime was recolored during route composition");
     }
     visualProbe=true;

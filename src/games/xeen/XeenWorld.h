@@ -8,6 +8,7 @@
 #include "games/xeen/XeenEncounterEntry.h"
 #include "games/xeen/XeenParty.h"
 #include "games/xeen/XeenJourneyContent.h"
+#include "games/xeen/XeenScenePresentation.h"
 #include <stdexcept>
 #include <set>
 #include <array>
@@ -121,6 +122,12 @@ public:
 	using EventLoader = std::function<XeenEventFile(XeenMapIdentity)>;
 	explicit XeenWorld(MapLoader loader, ObjectLoader objectLoader = {});
 	const XeenObjectFile &objectFile(XeenMapIdentity mapId);
+	// Resource observations for presentation. Live session actors take precedence;
+	// fallback collections never enter combat/session state or simulation.
+	std::vector<XeenActor> sceneActors(XeenMapIdentity,
+		const std::function<std::vector<XeenMonsterRecord>()> &loadStatistics = {});
+	XeenScenePresentation &scenePresentation() { return _scenePresentation; }
+	const XeenScenePresentation &scenePresentation() const { return _scenePresentation; }
 	bool isObjectDisabled(XeenObjectIdentity id);
 	bool isEventDisabled(XeenEventIdentity id) const { return _sessionState.isEventDisabled(id); }
 	std::optional<XeenObjectIdentity> selectObject(const XeenCamera &camera);
@@ -161,6 +168,9 @@ public:
 
 	const XeenMap &map(XeenMapIdentity mapId);
 	std::optional<XeenCellSample> sampleCell(XeenMapIdentity mapId, int x, int y);
+	// Original Map::getCell neighbor queries, for scene observation only.
+	// Movement and mechanic admission continue to use sampleCell.
+	std::optional<XeenCellSample> sceneCell(XeenMapIdentity mapId, int x, int y);
 	std::size_t cachedMapCount() const { return _maps.size(); }
 	// Unpublished Vertigo Event candidate; callers retain a live owner guard.
 	std::unique_ptr<XeenWorld> transitionCandidate() const;
@@ -203,6 +213,9 @@ private:
 	MapLoader _loader;
 	ObjectLoader _objectLoader;
 	std::map<XeenMapIdentity, XeenObjectFile> _objects;
+	std::map<XeenMapIdentity, std::vector<XeenActor>> _sceneActors;
+	std::optional<std::vector<XeenMonsterRecord>> _sceneStatistics;
+	XeenScenePresentation _scenePresentation;
 	void validateObject(XeenObjectIdentity id);
 	void validateEventCell(const XeenCamera &physical, const XeenEventFile &events);
 	std::map<XeenMapIdentity, XeenMap> _maps;

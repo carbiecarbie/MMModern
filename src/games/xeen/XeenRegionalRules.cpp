@@ -151,7 +151,7 @@ void xeenValidateRegionalActors(const XeenMap &map, const XeenObjectFile &mob, c
 		const auto &a=actors[i];const auto &original=mob.entities.monsters[i];
 		if (!(a.id==XeenMonsterIdentity{23,i}) || a.original.x!=original.x || a.original.y!=original.y ||
 			a.original.tableIndex!=original.tableIndex || a.original.direction!=original.direction || a.original.resourceId!=original.resourceId ||
-			!a.statistics || !a.statistics->supportsGroundMovement() || !a.statistics->supportsRendering() || a.status!=XeenActorStatus::Physical)
+			!a.statistics || !a.statistics->supportsGroundMovement() || !a.statistics->supportsAdmittedMechanicsRendering() || a.status!=XeenActorStatus::Physical)
 			throw std::invalid_argument("Regional actor immutable identity/profile changed");
 		const auto type=a.original.resourceId;
 		std::uint32_t expected=0;

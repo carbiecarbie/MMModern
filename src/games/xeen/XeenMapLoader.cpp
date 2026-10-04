@@ -23,7 +23,7 @@ XeenObjectFile XeenMapLoader::loadObjects(const ResourceReader &reader,
 	if (!mapId || mapId.number > 9999 || !reader)
 		throw std::invalid_argument("invalid Clouds object loader context");
 	char name[13];
-	std::snprintf(name, sizeof(name), "maze%04u.mob", static_cast<unsigned>(mapId.number));
+	std::snprintf(name, sizeof(name), mapId.number>=100?"mazex%03u.mob":"maze%04u.mob", static_cast<unsigned>(mapId.number));
 	XeenObjectFile file{mapId, name, false, {}};
 	const auto bytes = reader(file.resourceName);
 	if (!bytes) return file;
@@ -40,9 +40,9 @@ XeenMap XeenMapLoader::loadGeometryMap(XeenAssetSource &assets,
 		XeenMapIdentity mapId) const {
 	requireCloudsMap(mapId);
 	if (!mapId || mapId.number > 9999)
-		throw std::invalid_argument("ID de mapa fora do formato Clouds de quatro digitos");
+		throw std::invalid_argument("Map ID outside the four-digit Clouds format");
 	char resourceName[13];
-	if (mapId.number >= 109 && mapId.number <= 111)
+	if (mapId.number >= 100)
 		std::snprintf(resourceName, sizeof(resourceName), "mazex%03u.dat",
 			static_cast<unsigned>(mapId.number));
 	else
@@ -52,7 +52,7 @@ XeenMap XeenMapLoader::loadGeometryMap(XeenAssetSource &assets,
 	map.geometry = XeenMapFormat::parseDat(assets.readInitialResource(resourceName));
 	map.side = mapId.side;
 	if (map.identity() != mapId)
-		throw std::runtime_error(std::string(resourceName) + " possui ID interno inesperado");
+		throw std::runtime_error(std::string(resourceName) + " has an unexpected internal ID");
 	return map;
 }
 
@@ -60,7 +60,7 @@ XeenMap XeenMapLoader::loadOutdoorMap(XeenAssetSource &assets,
 		XeenMapIdentity mapId) const {
 	XeenMap map = loadGeometryMap(assets, mapId);
 	if (!map.geometry.isOutdoors())
-		throw std::runtime_error("mapa solicitado nao e exterior");
+		throw std::runtime_error("Requested map is not outdoors");
 	return map;
 }
 

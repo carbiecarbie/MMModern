@@ -29,6 +29,7 @@ mmodern::XeenMap makeAreaA1ViewFixture() {
 	map.geometry.id = 1;
 	map.geometry.flags2 = 0x8000;
 	map.geometry.surfaceTypes[6] = 6; // Local 6 -> global desert surface.
+	map.geometry.surfaceTypes[15] = 15; // Original explicit space slot.
 	map.geometry.wallTypes[1] = 1;    // Local 1 -> global mountain terrain.
 	for (auto &cell : map.geometry.cells) {
 		mmodern::XeenOutdoorLayers layers;

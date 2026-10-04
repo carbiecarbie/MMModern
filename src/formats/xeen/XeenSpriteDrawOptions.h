@@ -1,5 +1,6 @@
 #ifndef MMODERN_FORMATS_XEEN_SPRITE_DRAW_OPTIONS_H
 #define MMODERN_FORMATS_XEEN_SPRITE_DRAW_OPTIONS_H
+#include <cstdint>
 
 namespace mmodern {
 
@@ -10,8 +11,9 @@ struct XeenSpriteDrawOptions {
 	bool sceneClipped = false;
 	bool bottomClipped = false;
 	bool enlarge = false;
-	// -1 disables effects; 0..7 selects Slime effect-1 palette phase.
-	int slimePalettePhase = -1;
+	// Original low twelve-bit monster effect flags, selected from metadata.
+	unsigned monsterEffectFlags = 0;
+	std::uint32_t monsterEffectSeed = 0;
 };
 
 } // namespace mmodern

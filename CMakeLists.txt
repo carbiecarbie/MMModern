@@ -81,6 +81,7 @@ add_library(mmodern_xeen STATIC
 	src/games/xeen/CloudsUiComposer.cpp
 	src/games/xeen/CloudsUiLayout.cpp
 	src/games/xeen/CloudsMapComposer.cpp
+	src/games/xeen/XeenWorldPresentation.cpp
 	src/games/xeen/XeenOutdoorScene.cpp
 	src/games/xeen/XeenIndoorScene.cpp
 	src/games/xeen/XeenMovement.cpp
@@ -900,10 +901,17 @@ if(BUILD_TESTING)
 			$<TARGET_FILE:mmodern_m44_baseline_witness> $<TARGET_FILE:mmodern_m44_baseline_restart> "F:/Games/gog/Might and Magic 4-5")
 		set_tests_properties(xeen_m44_scenario_${scenario} PROPERTIES TIMEOUT 1800)
 	endforeach()
+	add_executable(mmodern_scene_presentation_tests tests/XeenScenePresentationTests.cpp)
+	target_link_libraries(mmodern_scene_presentation_tests PRIVATE mmodern_app mmodern_xeen)
+	add_test(NAME xeen_scene_presentation COMMAND mmodern_scene_presentation_tests)
+	add_executable(mmodern_scene_inventory_original tests/XeenSceneInventoryOriginal.cpp)
+	target_link_libraries(mmodern_scene_inventory_original PRIVATE mmodern_xeen)
+	add_test(NAME xeen_scene_inventory_original COMMAND mmodern_scene_inventory_original "F:/Games/gog/Might and Magic 4-5")
 	# Every test is labelled `fast` (default iteration: ctest -L fast) or `process`
 	# (full run: plain ctest). `process` = runs 30 s or more, or spawns child
 	# processes / drives a CLI witness executable.
 	set(xeen_process_tests
+		xeen_scene_inventory_original
 		xeen_resource_cold_original
 		xeen_purchase_flow xeen_purchase_allocation xeen_purchase_process
 		xeen_temple_flow xeen_temple_process xeen_temple_depleted_process

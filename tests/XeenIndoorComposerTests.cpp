@@ -475,12 +475,9 @@ void testCompositionLifecycleAndStaticPhase(const GameInstallation &installation
 	animation = true;
 	const auto animated = composer.compose(animatedAssets, animatedWorld, {}, north, {},
 		&diagnostics, 2, &animation);
-	check(!animation && diagnostics.size() == 1 &&
-		diagnostics[0].status == XeenObjectVisualStatus::UnsupportedAnimation &&
-		std::count(animated.pixels.begin(), animated.pixels.end(), 17) == 0 &&
-		std::count(animated.pixels.begin(), animated.pixels.end(), 18) == 0 &&
-		std::count(animated.pixels.begin(), animated.pixels.end(), 19) == 0,
-		"indoor animated appearance froze or activated");
+	check(animation && diagnostics.empty() &&
+		std::count(animated.pixels.begin(), animated.pixels.end(), 19) > 0,
+		"resource-backed indoor object animation did not draw its selected frame");
 }
 
 void testSelectedFrameFailuresAndRecovery(const GameInstallation &installation) {

@@ -318,6 +318,7 @@ bool XeenEventFlow::updateOrdinaryPhase(OrdinaryCause cause, bool reset, std::ui
 		throw std::overflow_error("Ordinary animation overflow");
 	// One shared M22 policy: committed facing/map reset wins over the action step.
 	_ordinary.phase = reset ? 0 : _ordinary.phase + 1;
+	if (cause!=OrdinaryCause::None) _world.scenePresentation().advance(_camera.mapId);
 	_ordinary.deadline = now + 100;
 	if (reset) {
 		_ordinary.mapId = _camera.mapId;
@@ -387,6 +388,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 					validation.script(_events.scriptForMap(_camera.mapId).file());
 					_events.textForMap(_camera.mapId); validation.check();
 				}
+				_world.scenePresentation().appearance(_encounter->appearance());
 				auto composed = _encounterCompose(_ordinary.phase,_encounter->appearance());
 				if (!_encounter->current(t)) throw std::logic_error("Stale Journey composition");
 				if (!composed.frame.isValid()) throw std::runtime_error("Invalid Journey frame");
@@ -441,6 +443,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 				if (rebuildEncounterPresentation) rebuildEncounterPresentation();
 				if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter rebuild");
 			}
+			_world.scenePresentation().appearance(_encounter->appearance());
 			const auto composed=_encounterCompose(_ordinary.phase,_encounter->appearance());
 			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter frame");
 			if (!composed.frame.isValid()) throw std::runtime_error("Invalid encounter frame");
@@ -544,7 +547,7 @@ bool XeenEventFlow::refreshScene(bool reconstruct, OrdinaryCause cause, bool com
 	const bool reset = committedTransition || _ordinary.mapId != _camera.mapId ||
 		_ordinary.direction != _camera.direction;
 	bool stepped = false;
-	if (reset || (cause != OrdinaryCause::None && _world.map(_camera.mapId).geometry.isOutdoors()))
+	if (reset || cause != OrdinaryCause::None)
 		stepped = updateOrdinaryPhase(cause, reset, _clock());
 	const bool cameraChanged = !sameCamera(_camera, _renderedCamera);
 	// M15's disabled set only grows during a session. Its size is an exact,
@@ -1226,6 +1229,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 		}
 
 		const auto entry = _encounter->ticket();
+		const auto cameraBeforeAction=_camera;
 		const bool changed = _encounter->handle(action, _cycle, _displayedCombat);
 		prepareJourneyTransition();
 		if (_encounter->combatOperationStale()) {
@@ -1241,7 +1245,11 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 				((_encounter->combat() && _encounter->state().revision() > entry.state.revision()) ||
 				(accepted.revision > entry.state.revision() &&
 				(accepted.outcome == XeenEncounterOutcome::Accepted || accepted.outcome == XeenEncounterOutcome::Blocked))))
+			{
+				_world.scenePresentation().navigation(std::get<NavigationAction>(action),
+					cameraBeforeAction.x!=_camera.x || cameraBeforeAction.y!=_camera.y || cameraBeforeAction.mapId!=_camera.mapId, bool(entry.combat));
 				advanceEncounterOrdinary(OrdinaryCause::Action);
+			}
 			return renderEncounter(true);
 		}
 		return frameCopy();
@@ -1274,6 +1282,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 		const auto beforeMovement = _camera;
 		auto result = _navigation.processNavigationAction(_world, _party, _camera,
 			_flags, *navigation);
+		_world.scenePresentation().navigation(*navigation,result.movementResult==XeenMovementResult::Moved);
 		// Recompose cleared labels even after blocked movement, but only after
 		// drive adopts any suspension before refresh/report callbacks.
 		const bool transition = beforeMovement.mapId != result.cameraAfterMovement.mapId ||

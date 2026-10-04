@@ -38,6 +38,11 @@ public:
 	std::size_t cachedSpriteCount() const;
 	// Successful resource reads + SpriteResource constructions, not draw calls.
 	std::size_t spriteLoadCount() const;
+	std::size_t spriteFrameCount(const std::string &resourceName);
+	// Scene-only archive resolution; gameplay archive reads remain Clouds-only.
+	bool hasSceneResource(const std::string &resourceName);
+	void drawSceneSprite(const std::string &resourceName, std::size_t frame,
+		int x, int y, const XeenSpriteDrawOptions &options);
 	void validateProjectile(const std::string &resourceName);
 	void validateNormalMonster(const std::string &resourceName);
 	void validateAttackMonster(const std::string &resourceName);
@@ -53,6 +58,8 @@ public:
 	std::vector<std::uint8_t> readInitialResource(const std::string &resourceName);
 
 private:
+	void drawSpriteImpl(const std::string &resourceName, std::size_t frame,
+		int x, int y, const XeenSpriteDrawOptions &options, bool sceneLookup);
 	struct Impl;
 	std::unique_ptr<Impl> _impl;
 };

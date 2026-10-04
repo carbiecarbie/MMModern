@@ -18,7 +18,7 @@ void CloudsMapComposer::drawOutdoorCommands(XeenAssetSource &assets,
 		else if(const auto *p=command.projectile())
 			assets.drawProjectile(p->enemy,p->row,command.x,command.y,command.drawOptions());
 		else
-			assets.drawSprite(command.terrain().resourceName, command.terrain().frame,
+			assets.drawSceneSprite(command.terrain().resourceName, command.terrain().frame,
 				command.x, command.y, command.drawOptions());
 	}
 }
@@ -32,8 +32,10 @@ void CloudsMapComposer::drawIndoorCommands(XeenAssetSource &assets,
 		else if (const auto *actor=command.actor())
 			assets.drawMonster(actor->image,{actor->kind,actor->frame},command.x,command.y,command.drawOptions());
 		else if(command.projectile())assets.drawProjectile(false,0,command.x,command.y,command.drawOptions());
+		else if (const auto *wall=command.wallItem())
+			assets.drawSceneSprite(wall->resourceName,wall->frame,command.x,command.y,command.drawOptions());
 		else
-			assets.drawSprite(command.geometry().resourceName, command.geometry().frame,
+			assets.drawSceneSprite(command.geometry().resourceName, command.geometry().frame,
 				command.x, command.y, command.drawOptions());
 	}
 }
@@ -72,44 +74,39 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 	if (containsOrdinaryAnimation) *containsOrdinaryAnimation = false;
 	bool emittedAnimation = false;
 	if (objectDiagnostics) objectDiagnostics->clear();
-	// Revalidate the complete admitted appearance set through the same cache
-	// owner, including after a cache discard while a different frame is visible.
-
-	if (world.sessionState().journey()) {
-		const auto &content = xeenJourneyContent();
-		{ assets.validateProjectile(false);assets.validateProjectile(true); }
-		for (unsigned i=0;i<content.count;++i) {
-			const auto image = world.sessionState().actors().at(content.records[i]).statistics->image();
-			assets.validateNormalMonster(image);
-			assets.validateAttackMonster(image);
-		}
-		if (world.sessionState().hasRegionalActors(28)) {
-			assets.validateNormalMonster(0);assets.validateAttackMonster(0);
-		}
+	const auto actors=world.sceneActors(camera.mapId,[&] {
+		const auto bytes=assets.readCloudsMonsterStatisticsFromDarkArchive();
+		if (!bytes) throw std::runtime_error("Missing DARK.CC/xeen.mon for scene actors");
+		return XeenMonsterFormat::parse(*bytes);
+	});
+	for (const auto &actor:actors) if (actor.statistics) {
+		actor.statistics->validatePresentation();
+		assets.validateNormalMonster(actor.statistics->image());
+		assets.validateAttackMonster(actor.statistics->image());
 	}
 	CloudsUiComposer().loadBackground(assets);
 
 	const XeenMap &map = world.map(camera.mapId);
+	const bool night = partyState.encounterContext &&
+		(partyState.encounterContext->minutes < 5 * 60 ||
+		 partyState.encounterContext->minutes >= 21 * 60);
 	if (map.geometry.isOutdoors()) {
 		const auto resolver = XeenObjectVisualResolver::load(assets);
-		const auto commands = XeenOutdoorScene().build(world, camera, &resolver, objectDiagnostics, ordinaryPhase, actorFrame);
-		emittedAnimation = std::any_of(commands.begin(), commands.end(), [](const auto &command) {
-			return command.object() && command.object()->visual.status == XeenObjectVisualStatus::SupportedAnimated;
-		});
+		const auto commands = XeenOutdoorScene().build(world, camera, &resolver, objectDiagnostics, ordinaryPhase, actorFrame,night);
+		emittedAnimation = true; // The default outdoor water layer always animates.
 		drawOutdoorCommands(assets, commands);
 	} else {
 		// Indoor darkness is deliberately ignored in Milestone 12D: the scene is
 		// rendered illuminated so its geometry can be validated without gameplay.
 		const auto resolver = XeenObjectVisualResolver::load(assets);
-		const bool vertigo=world.regionalJourney() &&
-			camera.mapId==XeenMapIdentity(28);
-		const bool night = partyState.encounterContext &&
-			(partyState.encounterContext->minutes < 5 * 60 ||
-			 partyState.encounterContext->minutes >= 21 * 60);
 		const auto commands = XeenIndoorScene().build(
-			world, camera, &resolver, objectDiagnostics,vertigo?ordinaryPhase:std::nullopt,actorFrame,night);
+			world, camera, &resolver, objectDiagnostics,ordinaryPhase,actorFrame,night,
+			[&](const auto &name) {return assets.spriteFrameCount(name);});
 		emittedAnimation=std::any_of(commands.begin(),commands.end(),[](const auto &command) {
-			return command.object() && command.object()->visual.status==XeenObjectVisualStatus::SupportedAnimated;
+			if(command.actor()) return true;
+			if(const auto *wall=command.wallItem()) return wall->animated;
+			if(const auto *object=command.object()) return object->visual.status==XeenObjectVisualStatus::SupportedAnimated;
+			return !command.projectile() && command.geometry().animated;
 		});
 		drawIndoorCommands(assets, commands);
 	}

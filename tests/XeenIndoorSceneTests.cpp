@@ -682,8 +682,10 @@ void testObjectIdentityPrecedenceAndBoundaries() {
 		auto world = makeWorld({{outsideX,outsideY,0,0,111},{15,15,0,0,111}});
 		const auto commands = XeenIndoorScene().build(
 			world, edgeCamera, &resolver);
-		require(objectCommands(commands).empty(),
-			"out-of-domain or unrelated indoor record wrapped into view");
+		const auto selected=objectCommands(commands);
+		require(selected.size()==1 && selected[0]->sourceX==outsideX && selected[0]->sourceY==outsideY &&
+			selected[0]->object()->visual.identity.recordIndex==0,
+			"raw indoor MOB coordinates were wrapped or restricted to one tile");
 	}
 }
 

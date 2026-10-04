@@ -21,13 +21,13 @@ std::pair<int, int> sampleOffset(XeenDirection direction, int sampleIndex) {
 	case XeenDirection::South: return {southX, southY};
 	case XeenDirection::West:  return {southY, -southX};
 	}
-	throw std::runtime_error("direcao de camera invalida");
+	throw std::runtime_error("Invalid camera direction");
 }
 
 std::optional<XeenCellSample> sample(XeenWorld &world,
 		const XeenCamera &camera, int sampleIndex) {
 	if (sampleIndex < 0 || sampleIndex >= static_cast<int>(kSouthX.size()))
-		throw std::runtime_error("indice de consulta exterior invalido");
+		throw std::runtime_error("Invalid outdoor query index");
 	const auto offset = sampleOffset(camera.direction, sampleIndex);
 	const int x = camera.x + offset.first;
 	const int y = camera.y + offset.second;
@@ -37,7 +37,7 @@ std::optional<XeenCellSample> sample(XeenWorld &world,
 const XeenOutdoorLayers &layers(const XeenMapCell &cell) {
 	const auto *result = xeenGetIf<XeenOutdoorLayers>(&cell.geometry);
 	if (!result)
-		throw std::runtime_error("celula interior encontrada em mapa exterior");
+		throw std::runtime_error("Indoor cell found in outdoor map");
 	return *result;
 }
 
@@ -56,18 +56,18 @@ XeenSpriteDrawOptions optionsFor(const Placement &placement) {
 std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::build(
 		XeenWorld &world, const XeenCamera &camera,
 		const XeenObjectVisualResolver *resolver, std::vector<XeenObjectVisual> *diagnostics,
-		std::optional<std::uint64_t> ordinaryPhase, std::optional<XeenMonsterAppearance> actorFrame) const {
+		std::optional<std::uint64_t> ordinaryPhase, std::optional<XeenMonsterAppearance> actorFrame, bool night) const {
 	// Retain values before terrain/resource providers can publish or discard caches.
-	const auto actors = actorFrame ? actorCommands(world.sessionState().actors(), camera, *actorFrame) :
-		std::vector<XeenOutdoorDrawCommand>{};
+	const auto actors = actorCommands(world.sceneActors(camera.mapId), camera,
+		actorFrame.value_or(XeenMonsterAppearance{0}), &world.scenePresentation());
 	if (diagnostics) diagnostics->clear();
 	const XeenMap &map = world.map(camera.mapId);
 	if (!map.geometry.isOutdoors())
-		throw std::runtime_error("XeenOutdoorScene requer um mapa exterior");
+		throw std::runtime_error("XeenOutdoorScene requires an outdoor map");
 	if (camera.mapId != map.identity())
-		throw std::runtime_error("camera e mapa possuem IDs diferentes");
+		throw std::runtime_error("Camera and map IDs differ");
 	if (camera.x < 0 || camera.y < 0 || camera.x >= 16 || camera.y >= 16)
-		throw std::runtime_error("camera fora dos limites do mapa");
+		throw std::runtime_error("Camera outside map bounds");
 
 	std::vector<XeenOutdoorDrawCommand> commands;
 	commands.reserve(32);
@@ -81,16 +81,28 @@ std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::build(
 		command.terrain().options.sceneClipped = true;
 		commands.push_back(std::move(command));
 	};
-	addFixed(0, "sky.sky", 0, 8, 8);
-	addFixed(1, "sky.sky", 1, 8, 25);
+	// Map::loadSky's original permanently daylight resource exceptions.
+	const auto root=camera.mapId.number;
+	const bool alwaysDay=(root>=89 && root<=112) || root==128 || root==129;
+	const char *sky=night && !alwaysDay ? "night.sky" : "sky.sky";
+	addFixed(0, sky, 0, 8, 8);
+	addFixed(1, sky, 1, 8, 25);
 	addFixed(2, "water.out", 0, 8, 67);
+	const auto &presentation=world.scenePresentation();
+	commands[0].terrain().options.horizontalFlip=presentation.sky;
+	commands[1].terrain().options.horizontalFlip=presentation.sky;
+	commands[2].terrain().options.horizontalFlip=presentation.water;
 
 	for (std::size_t i = 0; i < kGroundPlacements.size(); ++i) {
 		const int sampleIndex = i == 24 ? 2 : kDrawNumbers[i];
 		const auto sampled = sample(world, camera, sampleIndex);
 		// Map::getCell represents the exterior beyond a missing neighbor as SPACE.
-		const std::uint8_t surfaceType = sampled ?
-			sampled->geometry->surfaceTypes[layers(*sampled->cell).surface] : 15;
+		const unsigned slot=sampled?unsigned(layers(*sampled->cell).surface):15;
+		const std::uint8_t surfaceType=map.geometry.surfaceTypes[slot];
+		// Map::load clears slot 0 and empty root slots. getCell selects the
+		// local slot; it does not load a neighboring map's sprite table.
+		if(!slot || !surfaceType) continue;
+		if (surfaceType>=16) throw std::invalid_argument("Invalid outdoor surface type");
 		const char *resource = kSurfaceNames[surfaceType];
 		if (!resource || !*resource)
 			continue;
@@ -98,7 +110,8 @@ std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::build(
 		XeenOutdoorDrawCommand command;
 		command.originalOrder = placement.order;
 		command.terrain().resourceName = resource;
-		command.terrain().frame = static_cast<std::size_t>(kGroundFrames[i]);
+		const bool flip=(surfaceType==8 || surfaceType==5)?presentation.water:presentation.ground;
+		command.terrain().frame = static_cast<std::size_t>(flip?kGroundAlternateFrames[i]:kGroundFrames[i]);
 		command.x = placement.x;
 		command.y = placement.y;
 		if (sampled) {
@@ -107,6 +120,7 @@ std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::build(
 			command.sourceY = sampled->y;
 		}
 		command.terrain().options = optionsFor(placement);
+		command.terrain().options.horizontalFlip=flip;
 		commands.push_back(std::move(command));
 	}
 
@@ -115,7 +129,7 @@ std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::build(
 		if (!sampled)
 			continue;
 		const auto &outdoor = layers(*sampled->cell);
-		const std::uint8_t terrainType = sampled->geometry->wallTypes[outdoor.middle];
+		const std::uint8_t terrainType = map.geometry.wallTypes[outdoor.middle];
 		const char *baseName = kOutdoorWallNames[terrainType];
 		if (!baseName || !*baseName)
 			continue;
@@ -178,9 +192,14 @@ std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::build(
 }
 
 std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::actorCommands(
-		const std::vector<XeenActor> &actors, const XeenCamera &camera, XeenMonsterAppearance appearance) {
+		const std::vector<XeenActor> &actors, const XeenCamera &camera, XeenMonsterAppearance appearance,
+		const XeenScenePresentation *presentation) {
 	if (!appearance.valid()) throw std::invalid_argument("Unsupported actor appearance");
-	const auto view = XeenActorApproach::classify(actors, camera);
+	auto visibleActors=actors;
+	for (auto &a:visibleActors) if (a.lifecycle!=XeenActorLifecycle::Present) a.x=a.y=-128;
+	const auto view = XeenActorApproach::classify(visibleActors, camera);
+	if (appearance.kind==XeenMonsterSpriteKind::Attack && !appearance.identity && !view.slots[0])
+		throw std::invalid_argument("Attack appearance requires same-cell placement");
 	std::vector<XeenOutdoorDrawCommand> commands;
 	// Selected-slot projection from pinned ScummVM; M30 MON/ATT table.
 	struct Group { int query, count; int slots[3], orders[3], xs[3]; int y, scale; int pair[2]; };
@@ -203,11 +222,11 @@ std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::actorCommands(
 			const auto id=view.slots[g.slots[i]]; if (!id) continue;
 			const auto found=std::find_if(actors.begin(),actors.end(),[&](const auto &actor){return actor.id==*id;});
 			if (found==actors.end() || !found->statistics || !found->statistics->supportsRendering() ||
-				found->lifecycle!=XeenActorLifecycle::Present || found->status!=XeenActorStatus::Physical)
+				found->lifecycle!=XeenActorLifecycle::Present)
 				throw std::runtime_error("Unsupported selected encounter actor");
 			const auto &actor=*found;
 			const bool special=appearance.kind==XeenMonsterSpriteKind::Attack &&
-				(appearance.identity ? *appearance.identity==actor.id : actor.id==XeenMonsterIdentity{20,5});
+				(appearance.identity ? *appearance.identity==actor.id : view.slots[0]==actor.id);
 			if (special && g.query!=2) throw std::invalid_argument("Attack appearance requires same-cell placement");
 			XeenOutdoorDrawCommand c;
 			c.sampleIndex=g.query; c.originalOrder=special ? 121 : g.orders[i];
@@ -217,6 +236,14 @@ std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::actorCommands(
 				static_cast<std::uint8_t>(special || appearance.kind==XeenMonsterSpriteKind::Normal ? appearance.frame : 0),
 				special ? XeenMonsterSpriteKind::Attack : XeenMonsterSpriteKind::Normal};
 			draw.selectedSlot=g.slots[i]; draw.scaleIndex=g.scale; draw.bottomClipped=g.query==2;
+			if (presentation) {
+				if (const auto *animation=presentation->animation(actor.id)) {
+					if (!special) {draw.kind=animation->frame>=8?XeenMonsterSpriteKind::Attack:XeenMonsterSpriteKind::Normal;draw.frame=animation->frame%8;}
+					draw.effectFlags=animation->flags();
+					draw.effectSeed=std::uint32_t(presentation->wallPhase)*0x9e3779b9u ^ std::uint32_t(actor.id.recordIndex)*0x85ebca6bu ^ std::uint32_t(actor.id.mapId.number);
+				}
+				if (actor.statistics->flying()) {c.x+=XeenScenePresentation::floatX(presentation->floatPhase);c.y+=XeenScenePresentation::floatY(presentation->floatPhase);}
+			}
 			c.content=draw; commands.push_back(std::move(c));
 		}
 	}

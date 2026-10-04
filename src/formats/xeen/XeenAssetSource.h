@@ -42,6 +42,11 @@ public:
 	std::size_t cachedSpriteCount() const;
 	// Successful resource reads + SpriteResource constructions, not draw calls.
 	std::size_t spriteLoadCount() const;
+	std::size_t spriteFrameCount(const std::string &resourceName);
+	// Presentation lookup across installed CC archives, independent of gameplay reads.
+	bool hasSceneResource(const std::string &resourceName);
+	void drawSceneSprite(const std::string &resourceName, std::size_t frame,
+		int x, int y, const XeenSpriteDrawOptions &options = {});
 	static std::string normalMonsterResource(std::uint8_t image);
 	void validateProjectile(bool enemy);
 	void drawProjectile(bool enemy,unsigned row,int x,int y,const XeenSpriteDrawOptions &);

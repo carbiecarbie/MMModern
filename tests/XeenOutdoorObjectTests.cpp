@@ -110,7 +110,9 @@ void stateAndPrecedence() {
 }
 void boundary() {
 	const auto r=resolver();std::map<XeenMapIdentity,int> mapLoads,mobLoads;
-	XeenWorld world([&](auto id){++mapLoads[id];auto m=flat(id);if(id==23)m.geometry.neighbors[0]=24;return m;},
+	XeenWorld world([&](auto id){++mapLoads[id];auto m=flat(id);if(id==23)m.geometry.neighbors[0]=24;
+		// A loaded root surface slot proves that neighboring geometry is drawn.
+		m.geometry.surfaceTypes[1]=1;for(auto &cell:m.geometry.cells)xeenGet<XeenOutdoorLayers>(cell.geometry).surface=1;return m;},
 		[&](auto id){++mobLoads[id];return objects(id,id==23?std::vector<XeenMapEntity>{{8,16,0,0,111}}:std::vector<XeenMapEntity>{{8,0,0,0,111}});});
 	const auto all=XeenOutdoorScene().build(world,{23,8,15,XeenDirection::North},&r);
 	const auto c=objectCommands(all);

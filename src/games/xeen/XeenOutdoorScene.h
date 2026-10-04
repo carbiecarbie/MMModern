@@ -17,6 +17,7 @@
 namespace mmodern {
 
 class XeenWorld;
+class XeenScenePresentation;
 
 struct XeenOutdoorTerrainDraw {
 	std::string resourceName;
@@ -36,6 +37,8 @@ struct XeenOutdoorActorDraw {
 	XeenMonsterSpriteKind kind = XeenMonsterSpriteKind::Normal;
 	int selectedSlot = 0, scaleIndex = 0;
 	bool bottomClipped = false;
+	unsigned effectFlags = 0;
+	std::uint32_t effectSeed = 0;
 };
 
 struct XeenOutdoorProjectileDraw { bool enemy=false; unsigned row=0,lane=0; };
@@ -61,6 +64,8 @@ struct XeenOutdoorDrawCommand {
 			result.scaleIndex = a->scaleIndex;
 			result.sceneClipped = true;
 			result.bottomClipped = a->bottomClipped;
+			result.monsterEffectFlags = a->effectFlags;
+			result.monsterEffectSeed = a->effectSeed;
 			return result;
 		}
 		if (const auto *o = object()) {
@@ -86,10 +91,12 @@ public:
 		const XeenObjectVisualResolver *resolver = nullptr,
 		std::vector<XeenObjectVisual> *diagnostics = nullptr,
 		std::optional<std::uint64_t> ordinaryPhase = std::nullopt,
-		std::optional<XeenMonsterAppearance> actorFrame = std::nullopt) const;
+		std::optional<XeenMonsterAppearance> actorFrame = std::nullopt,
+		bool night = false) const;
 	// Pure projection over owned observations; no activation or movement.
 	static std::vector<XeenOutdoorDrawCommand> actorCommands(const std::vector<XeenActor> &,
-		const XeenCamera &, XeenMonsterAppearance appearance);
+		const XeenCamera &, XeenMonsterAppearance appearance,
+		const XeenScenePresentation *presentation = nullptr);
 };
 
 } // namespace mmodern

@@ -224,7 +224,7 @@ void XeenWorld::discardMapCache() {
 	const auto retire=[](const void *p,std::size_t n) { XeenMutationWatch::retire(p,n); };
 	for(const auto &entry:_maps) resourceRanges(entry.second,retire);
 	for(const auto &entry:_objects) resourceRanges(entry.second,retire);
-	_maps.clear();_objects.clear();++_cacheRevision;
+	_maps.clear();_objects.clear();_sceneActors.clear();++_cacheRevision;
 }
 
 std::optional<XeenCellSample> XeenWorld::sampleCell(

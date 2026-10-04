@@ -79,7 +79,7 @@ XeenEnemyAttackCandidate::XeenEnemyAttackCandidate(const XeenConsequenceCharacte
 		const XeenConsequenceInputs &i, const XeenMonsterRecord &m, unsigned y, unsigned mask, const std::array<bool,6> &b) :
 		characters(c), inputs(i), monster(m), year(y), blocked(b), allParty(m.preferredClass()==16) {
 	poison=m.raw[29]==5;
-	if(poison) m.validateSlime();
+	if(poison) m.validateAdmittedPoisonCombat();
 	else ruleRequire(m.strikes() && m.damageDie() && m.hitParameter() && m.raw[29]==0 &&
 		(m.raw[30]==0 || m.raw[30]==5 || m.raw[30]==7 || m.raw[30]==9),"Unsupported physical attack profile");
 	ruleRequire(mask<=0x3f,"Invalid combat participation mask");

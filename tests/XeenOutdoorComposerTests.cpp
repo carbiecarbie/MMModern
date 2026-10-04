@@ -68,7 +68,7 @@ int main(){try {
 		const auto full=composer.compose(assets,world,{},camera,{},&diagnostics);
 		bool presence=true;
 		for(std::uint64_t phase:{0,1,999}) {
-			presence=true;check(composer.compose(assets,world,{},camera,{},nullptr,phase,&presence).pixels==full.pixels && !presence,"static scene phase invariance/presence");
+			presence=true;check(composer.compose(assets,world,{},camera,{},nullptr,phase,&presence).pixels==full.pixels && presence,"static scene phase invariance/presence");
 		}
 		check(diagnostics.empty() && full.pixels[8*320+8]==55,"composer border or diagnostics");
 		for(int y=8;y<141;++y)for(int x=8;x<223;++x)if(x!=8 || y!=8)
@@ -96,7 +96,7 @@ int main(){try {
 		XeenWorld world([&](auto id){++maps;return geometry(id);},[&](auto id){++mobs;auto f=objectFile(id);f.entities.objects=records;return f;});
 		const CloudsMapComposer composer;bool presence=true;
 		const auto omitted=composer.compose(assets,world,{},camera,{},nullptr,std::nullopt,&presence);
-		check(!presence,"omitted phase presence");
+		check(presence,"water animation presence");
 		std::vector<IndexedFrame> rendered;
 		for(std::uint64_t phase:{0,1,2,3}) {
 			presence=false;rendered.push_back(composer.compose(assets,world,{},camera,{},nullptr,phase,&presence));
@@ -117,16 +117,16 @@ int main(){try {
 		check(composer.compose(assets,world,{},camera,{},nullptr,1).pixels==rendered[1].pixels && maps==oldMaps+1 && mobs==oldMobs+1 && assets.spriteLoadCount()>loads,"same phase cache reconstruction");
 		world.disableObject({23,0});presence=true;
 		const auto removed=composer.compose(assets,world,{},camera,{},nullptr,2,&presence);
-		check(!presence && removed.pixels==omitted.pixels,"removed animation presence/underlay");
+		check(presence && removed.pixels==omitted.pixels,"removed animation presence/underlay");
 		world.discardMapCache();assets.discardSpriteCache();presence=true;
-		check(composer.compose(assets,world,{},camera,{},nullptr,2,&presence).pixels==removed.pixels && !presence,"removed cache reconstruction");
+		check(composer.compose(assets,world,{},camera,{},nullptr,2,&presence).pixels==removed.pixels && presence,"removed cache reconstruction");
 		// First static or invalid record suppresses a later animated overlap.
 		for(int first:{111,121}) {
 			XeenWorld overlap(geometry,[&](auto id){auto f=objectFile(id);f.entities.objects=std::vector<XeenMapEntity>{{8,9,0,0,first},{8,9,0,0,110}};return f;});
-			presence=true;composer.compose(assets,overlap,{},camera,{},nullptr,1,&presence);check(!presence,"suppressed animation presence");
+			presence=true;composer.compose(assets,overlap,{},camera,{},nullptr,1,&presence);check(presence,"suppressed object retains water animation presence");
 		}
 		XeenWorld offscreen(geometry,[&](auto id){auto f=objectFile(id);f.entities.objects=std::vector<XeenMapEntity>{{1,1,0,0,110}};return f;});
-		presence=true;composer.compose(assets,offscreen,{},camera,{},nullptr,1,&presence);check(!presence,"offscreen animation presence");
+		presence=true;composer.compose(assets,offscreen,{},camera,{},nullptr,1,&presence);check(presence,"offscreen object retains water animation presence");
 		XeenWorld covered(geometry,[&](auto id){auto f=objectFile(id);f.entities.objects=std::vector<XeenMapEntity>{{8,9,0,0,109}};return f;});
 		assets.loadRawFramebuffer("back.raw");
 		const auto coveredCommands=XeenOutdoorScene().build(covered,camera,&resolver,nullptr,1);
@@ -147,7 +147,7 @@ int main(){try {
 		check(full.isValid() && full.pixels[8*320+8]==55 && std::count(full.pixels.begin(),full.pixels.end(),42)>0,"metadata absence broke terrain/interface");
 		check(diagnostics.size()==1 && diagnostics[0].status==XeenObjectVisualStatus::MetadataUnavailable && diagnostics[0].identity==XeenObjectIdentity{23,0},"missing metadata precedence/diagnostic");
 		check(std::count(full.pixels.begin(),full.pixels.end(),7)==0,"fabricated object metadata");
-		bool presence=true;check(CloudsMapComposer().compose(assets,world,{},camera,{},nullptr,1,&presence).pixels==full.pixels && !presence,"missing metadata explicit phase/presence");
+		bool presence=true;check(CloudsMapComposer().compose(assets,world,{},camera,{},nullptr,1,&presence).pixels==full.pixels && presence,"missing metadata explicit phase/presence");
 	}
 	installation.darkArchive=directory/"dark.cc";archive(installation.darkArchive,{{"clouds.dat",Bytes(12)}});
 	{

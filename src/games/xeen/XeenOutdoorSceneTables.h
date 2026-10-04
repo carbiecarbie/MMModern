@@ -35,6 +35,9 @@ inline constexpr std::array<int, 25> kDrawNumbers = {
 inline constexpr std::array<int, 25> kGroundFrames = {
 	18,19,20,24,23,22,21,11,12,13,17,16,15,14,6,7,10,9,8,3,5,4,0,2,1
 };
+inline constexpr std::array<int,25> kGroundAlternateFrames = {
+	24,23,22,18,19,20,21,17,16,15,11,12,13,14,10,9,6,7,8,5,3,4,2,0,1
+};
 
 struct Placement {
 	int order;

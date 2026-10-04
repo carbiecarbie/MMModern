@@ -27,6 +27,19 @@ XeenAssetSource::XeenAssetSource(const GameInstallation &installation,
 
 XeenAssetSource::~XeenAssetSource() = default;
 
+std::size_t XeenAssetSource::spriteFrameCount(const std::string &name) {
+	return _impl->bridge.spriteFrameCount(name);
+}
+
+bool XeenAssetSource::hasSceneResource(const std::string &name) {
+	return _impl->bridge.hasSceneResource(name);
+}
+
+void XeenAssetSource::drawSceneSprite(const std::string &name, std::size_t frame,
+		int x, int y, const XeenSpriteDrawOptions &options) {
+	_impl->bridge.drawSceneSprite(name, frame, x, y, options);
+}
+
 std::string XeenAssetSource::normalMonsterResource(std::uint8_t image) {
 	const auto number = std::to_string(image);
 	return std::string(3 - number.size(), '0') + number + ".mon";
@@ -52,9 +65,6 @@ void XeenAssetSource::drawMonster(std::uint8_t image, XeenMonsterAppearance appe
 		const XeenSpriteDrawOptions &options) {
 	if (!appearance.valid() || options.horizontalFlip || options.enlarge || !options.sceneClipped)
 		throw std::invalid_argument("Unsupported monster drawing");
-	if (options.slimePalettePhase < -1 || options.slimePalettePhase > 7 ||
-		(options.slimePalettePhase >= 0 && image != 0))
-		throw std::invalid_argument("Unsupported monster palette effect");
 	const bool attack = appearance.kind == XeenMonsterSpriteKind::Attack;
 	if (attack) validateAttackMonster(image); else validateNormalMonster(image);
 	_impl->bridge.drawObjectSprite(attack ? attackMonsterResource(image) : normalMonsterResource(image),

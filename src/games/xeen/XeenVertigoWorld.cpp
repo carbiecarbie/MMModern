@@ -27,7 +27,7 @@ void XeenWorld::stageVertigoActors(const XeenObjectFile &mob,
 		actors[35].original.x!=15 || actors[35].original.y!=4 ||
 		statistics[0].image()!=0 || statistics[0].baseHp()!=2)
 		throw std::invalid_argument("Original Vertigo actor catalog changed");
-	statistics[0].validateSlime();
+	statistics[0].validateAdmittedPoisonCombat();
 	_vertigoSpawnSlime=statistics[0];
 	xeenValidateVertigoActors(*this,actors);
 	_sessionState._vertigoActors.emplace(std::move(actors));
@@ -95,12 +95,12 @@ void xeenValidateVertigoActors(XeenWorld &world,const std::vector<XeenActor> &ac
 				a.original.direction!=original.direction || a.original.tableIndex!=original.tableIndex ||
 				a.original.resourceId!=original.resourceId)
 				throw std::invalid_argument("Original Vertigo actor identity changed");
-		} else if(i>=50) a.statistics->validateSlime();
+		} else if(i>=50) a.statistics->validateAdmittedPoisonCombat();
 		const int x=reset && (i<=40 || i>=50) ? resetAt[i>=50 ? i-9 : i][0] : int(a.original.x);
 		const int y=reset && (i<=40 || i>=50) ? resetAt[i>=50 ? i-9 : i][1] : int(a.original.y);
 		const bool accounted=world.sessionState().accountedMonsters().count(a.id)!=0;
 		if(i==selected) {
-			a.statistics->validateSlime();
+			a.statistics->validateAdmittedPoisonCombat();
 			if(a.lifecycle==XeenActorLifecycle::Defeated) {
 				if(a.x!=-128 || a.y!=-128 || a.hp || a.activated || !accounted)
 					throw std::invalid_argument("Defeated Vertigo Slime is noncanonical");
@@ -109,7 +109,7 @@ void xeenValidateVertigoActors(XeenWorld &world,const std::vector<XeenActor> &ac
 				(!a.activated && (a.x!=x || a.y!=y)))
 				throw std::invalid_argument("Live Vertigo Slime is noncanonical");
 		} else if(i==small) {
-			a.statistics->validateSlime();
+			a.statistics->validateAdmittedPoisonCombat();
 			if(a.hp!=2 || accounted || a.lifecycle!=XeenActorLifecycle::Present ||
 				(a.activated ? !((a.x==7 && (a.y==6 || a.y==7)) || (a.x==8 && a.y==7)) : (a.x!=7 || a.y!=7)))
 				throw std::invalid_argument("Blocked Training Slime is noncanonical");

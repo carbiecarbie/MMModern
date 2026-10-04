@@ -22,8 +22,16 @@ struct XeenMonsterRecord {
 	bool supportsMovement() const;
 	bool supportsGroundMovement() const;
 	bool supportsRendering() const;
+	// The legacy presentation restriction remains a mechanic admission predicate.
+	bool supportsAdmittedMechanicsRendering() const;
+	void validatePresentation() const;
+	bool loopAnimation() const { return raw[48] != 0; }
+	unsigned animationEffect() const { return raw[49]; }
+	bool flying() const { return raw[46] != 0; }
 	void validateCombat() const;
-	void validateSlime() const;
+	// Existing poison combat admission is intentionally unchanged. Presentation
+	// uses validatePresentation and sprite validation, never this fingerprint.
+	void validateAdmittedPoisonCombat() const;
 	std::uint32_t fingerprint() const;
 	unsigned armorClass() const { return raw[22]; }
 	unsigned speed() const { return raw[23]; }

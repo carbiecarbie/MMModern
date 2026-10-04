@@ -21,6 +21,8 @@
 #include <stdexcept>
 #include <unordered_map>
 #include <utility>
+#include <random>
+#include <fstream>
 
 namespace mmodern {
 namespace {
@@ -85,6 +87,66 @@ public:
 		SpriteResource::load(stream);
 		return !empty() && !stream.err();
 	}
+	// Adapted from the pinned sprites.cpp drawPixel2/3/5 helpers (ScummVM
+	// developers, GPL-3.0-or-later). Those upstream modes require g_engine or
+	// g_system. Reuse the native decoder/scaler for each component and apply
+	// the same pixel operations with the bridge palette and cosmetic sampler.
+	void drawEngineFreeEffect(XSurface &dest,int frame,const Common::Point &position,
+			uint flags,int scale,const std::array<std::uint8_t,768> &palette,std::uint32_t seed) {
+		const unsigned mode=flags&0xf00, index=flags&0x1f;
+		if(index>3 || (mode!=0x200&&mode!=0x300&&mode!=0x500))
+			throw std::invalid_argument("Invalid engine-free monster effect");
+		XSurface black(dest.w,dest.h),white(dest.w,dest.h);
+		std::mt19937 random(seed);
+		const auto original1=_index[frame]._offset1,original2=_index[frame]._offset2;
+		struct Restore {IndexEntry &entry;uint16 first,second;~Restore(){entry._offset1=first;entry._offset2=second;}} restore{_index[frame],original1,original2};
+		const bool hasPalette=std::any_of(palette.begin(),palette.end(),[](auto c){return c!=0;});
+		const unsigned components=original2&&_index[frame]._override.empty()?2:1;
+		for(unsigned component=0;component<components;++component) {
+			_index[frame]._offset1=component?original2:original1;_index[frame]._offset2=0;
+			for(int y=0;y<dest.h;++y) {
+				std::fill_n(static_cast<byte *>(black.getBasePtr(0,y)),dest.w,0);
+				std::fill_n(static_cast<byte *>(white.getBasePtr(0,y)),dest.w,255);
+			}
+			SpriteResource::draw(black,frame,position,flags&~0xfff,scale);
+			SpriteResource::draw(white,frame,position,flags&~0xfff,scale);
+			for(int y=0;y<dest.h;++y)for(int x=0;x<dest.w;++x) {
+				const auto pixel=*static_cast<byte *>(black.getBasePtr(x,y));
+				if(pixel!=*static_cast<byte *>(white.getBasePtr(x,y)))continue;
+				auto *target=static_cast<byte *>(dest.getBasePtr(x,y));
+				if(mode==0x300) {
+					if(!hasPalette)continue;
+					constexpr unsigned masks[]{1,3,7,15},offsets[]{1,2,4,8};
+					const byte level=(pixel&masks[index])-offsets[index]+(*target&15);
+					if(level>=0x80)*target&=0xf0;
+					else if(level<=15)*target=(*target&0xf0)|level;
+					else *target|=15;
+					while(*target<255&&!palette[*target*3]&&!palette[*target*3+1]&&!palette[*target*3+2])++*target;
+					continue;
+				}
+				uint16 r1=std::uniform_int_distribution<unsigned>(0,65535)(random),r2=std::uniform_int_distribution<unsigned>(0,65535)(random);
+				bool carry=(r1&0x8000)!=0;
+				r1=std::uint16_t((std::uint16_t(r1<<1))-r2-(carry?1:0));
+				bool next=r2&1;r2=(r2>>1)|(carry?0x8000:0);carry=next;
+				r2=(r2>>1)|(carry?0x8000:0);r2^=r1;
+				if(mode==0x500) {
+					constexpr unsigned thresholds[]{0x3333,0x6666,0x999a,0xcccd};
+					if(r2>thresholds[index])*target=pixel;
+				} else {
+					constexpr int delta[]{-3,3,0,0,0,0,0,0,-5,5,0,0,0,0,0,0,-7,7,0,0,0,0,0,0,-9,9,0,0,0,0,0,0,
+						-7,7,0,0,0,0,0,0,-9,9,0,0,0,0,0,0,-11,11,0,0,0,0,0,0,-13,13,0,0,0,0,0,0};
+					constexpr unsigned masks1[]{3,0,3,0},masks2[]{0x7e,0x7e,0x7e,0x7e};
+					const int shiftedX=x+delta[(r2&masks1[index]&masks2[index])/2];
+					const int left=(flags&MM::Shared::Xeen::SPRFLAG_SCENE_CLIPPED)?8:0;
+					const int right=(flags&MM::Shared::Xeen::SPRFLAG_SCENE_CLIPPED)?223:dest.w;
+					if(shiftedX<left||shiftedX>=right)continue;
+					const int shiftedY=y+delta[((r2>>8)&masks1[index]&masks2[index])/2];
+					const int bottom=(flags&MM::Shared::Xeen::SPRFLAG_BOTTOM_CLIPPED)?140:dest.h;
+					if(shiftedY>=0&&shiftedY<bottom)*static_cast<byte *>(dest.getBasePtr(shiftedX,shiftedY))=pixel;
+				}
+			}
+		}
+	}
 };
 
 // CCArchive's ordinary member reader terminates the process when an indexed
@@ -145,12 +207,68 @@ private:
 	}
 };
 
+// Presentation-only companion archive. Use the pinned BaseCCArchive index and
+// name hashing, and reopen members for every cache reconstruction so the same
+// admitted-byte integrity checks apply to all physical archives.
+class SceneInstalledArchive final : public MM::Shared::Xeen::BaseCCArchive {
+public:
+	explicit SceneInstalledArchive(std::filesystem::path path) : _path(std::move(path)) {
+		std::ifstream file(_path, std::ios::binary);
+		std::vector<std::uint8_t> index(2);
+		if (!file.read(reinterpret_cast<char *>(index.data()), 2))
+			throw std::runtime_error("Truncated scene archive index: " + _path.string());
+		const unsigned count = index[0] | (unsigned(index[1]) << 8);
+		index.resize(2 + count * 8);
+		if (!file.read(reinterpret_cast<char *>(index.data() + 2), count * 8))
+			throw std::runtime_error("Truncated scene archive index: " + _path.string());
+		for (std::size_t i = 7; i < count * 8; i += 8) {
+			const unsigned b = index[2 + i];
+			if ((((b << 2) | (b >> 6)) + 0xac + i * 0x67) % 256 != 0)
+				throw std::runtime_error("Invalid scene archive index: " + _path.string());
+		}
+		Common::MemoryReadStream stream(index.data(), static_cast<uint32>(index.size()));
+		loadIndex(stream);
+	}
+
+	Common::SeekableReadStream *createReadStreamForMember(const Common::Path &path) const override {
+		MM::Shared::Xeen::CCEntry entry;
+		if (!getHeaderEntry(path, entry)) return nullptr;
+		std::ifstream file(_path, std::ios::binary | std::ios::ate);
+		const auto length = file.tellg();
+		if (!file || length < 0 || entry._offset < 2 + 8 * static_cast<int64>(_index.size()) ||
+			static_cast<int64>(entry._offset) + entry._size > length)
+			throw std::runtime_error("Invalid scene archive member extent: " + _path.string());
+		file.seekg(entry._offset);
+		std::vector<std::uint8_t> bytes(entry._size);
+		if (!file.read(reinterpret_cast<char *>(bytes.data()), bytes.size()))
+			throw std::runtime_error("Incomplete scene archive member read: " + _path.string());
+		for (auto &byte : bytes) byte ^= 0x35;
+		Common::MemoryReadStream input(bytes.data(), static_cast<uint32>(bytes.size()));
+		return input.readStream(bytes.size());
+	}
+
+private:
+	std::filesystem::path _path;
+};
+
+std::filesystem::path introArchivePath(const GameInstallation &installation) {
+	const auto root = installation.root.empty() ? installation.xeenArchive.parent_path() : installation.root;
+	std::error_code error;
+	for (const auto &entry : std::filesystem::directory_iterator(root, error)) {
+		if (error) break;
+		auto name = entry.path().filename().string();
+		for (auto &c : name) if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
+		if (name == "intro.cc" && entry.is_regular_file(error)) return entry.path();
+	}
+	return {};
+}
+
 std::unique_ptr<Common::SeekableReadStream> openResource(
-		CCArchive &archive, const std::string &resourceName) {
+		Common::Archive &archive, const std::string &resourceName, const std::string &origin = "xeen.cc") {
 	std::unique_ptr<Common::SeekableReadStream> stream(
 		archive.createReadStreamForMember(Common::Path(resourceName.c_str(), Common::Path::kNoSeparator)));
 	if (!stream)
-		throw std::runtime_error("recurso ausente em xeen.cc: " + resourceName);
+		throw std::runtime_error("Missing resource in " + origin + ": " + resourceName);
 	return stream;
 }
 
@@ -161,6 +279,8 @@ struct ScummVmXeenBridge::Impl {
 	CCArchive archive;
 	bool darkAvailable = false;
 	std::unique_ptr<DarkMetadataArchive> darkMetadataArchive;
+	std::filesystem::path sceneIntroPath, sceneDarkPath;
+	std::unique_ptr<SceneInstalledArchive> sceneIntro, sceneDark;
 	XSurface surface;
 	std::array<std::uint8_t, IndexedFrame::kPaletteSize> palette{};
 	struct CachedSprite {
@@ -177,6 +297,8 @@ struct ScummVmXeenBridge::Impl {
 		runtime(installation),
 		archive(Common::Path("xeen.cc", Common::Path::kNoSeparator), true) {
 		darkAvailable = installation.hasDarkside();
+		sceneIntroPath = introArchivePath(installation);
+		sceneDarkPath = installation.darkArchive;
 	}
 
 	Impl(const GameInstallation &installation, int width, int height) : Impl(installation) {
@@ -204,11 +326,38 @@ struct ScummVmXeenBridge::Impl {
 		return *initialArchive;
 	}
 
+	struct SceneResource {
+		Common::Archive *archive;
+		std::string origin;
+	};
+	SceneResource sceneResource(const std::string &name) {
+		const Common::Path path(name.c_str(), Common::Path::kNoSeparator);
+		// Pinned File::open/exists: current archive first, then FileManager's
+		// registered INTRO fallback. The installed World of Xeen companion DARK
+		// is searched last for shared presentation assets, as authorized in M48.
+		if (archive.hasFile(path)) return {&archive, "xeen.cc"};
+		if (!sceneIntroPath.empty()) {
+			if (!sceneIntro) sceneIntro.reset(new SceneInstalledArchive(sceneIntroPath));
+			if (sceneIntro->hasFile(path)) return {sceneIntro.get(), "intro.cc"};
+		}
+		if (!sceneDarkPath.empty()) {
+			if (!sceneDark) sceneDark.reset(new SceneInstalledArchive(sceneDarkPath));
+			if (sceneDark->hasFile(path)) return {sceneDark.get(), "dark.cc"};
+		}
+		return {nullptr, {}};
+	}
+
 	StreamSpriteResource &sprite(const std::string &resourceName,
-			std::optional<std::size_t> checkedFrame = std::nullopt, unsigned monsterFrames = 0) {
+			std::optional<std::size_t> checkedFrame = std::nullopt, unsigned monsterFrames = 0,
+			bool sceneLookup = false) {
 		if(spriteIntegrityFailed) throw std::runtime_error("Sprite resource integrity previously failed");
+		const auto source = sceneLookup ? sceneResource(resourceName) : SceneResource{&archive, "xeen.cc"};
+		if (!source.archive) throw std::runtime_error("Missing scene resource in installed CC archives: " + resourceName);
+		// Clouds retains its existing identity; other archives have separate
+		// cache/admission identities even when resource names collide.
+		const auto key = source.origin == "xeen.cc" ? resourceName : source.origin + "|" + resourceName;
 		const auto validate = [&](const std::vector<std::uint8_t> &bytes) {
-			const auto known=admittedSprites.find(resourceName);
+			const auto known=admittedSprites.find(key);
 			if(known!=admittedSprites.end() && known->second!=bytes) {
 				spriteIntegrityFailed=true;throw std::runtime_error("Admitted sprite resource changed: "+resourceName);
 			}
@@ -218,24 +367,24 @@ struct ScummVmXeenBridge::Impl {
 				for (std::size_t i = 0; i < monsterFrames; ++i) validateXeenObjectSprite(bytes, i);
 			} else if (checkedFrame) validateXeenObjectSprite(bytes, *checkedFrame);
 		};
-		const auto existing = sprites.find(resourceName);
+		const auto existing = sprites.find(key);
 		if (existing != sprites.end()) {
 			validate(existing->second.bytes);
 			return *existing->second.decoded;
 		}
 
-		std::unique_ptr<Common::SeekableReadStream> stream = openResource(archive, resourceName);
+		std::unique_ptr<Common::SeekableReadStream> stream = openResource(*source.archive, resourceName, source.origin);
 		auto bytes = readBytes(*stream, resourceName);
 		validate(bytes);
 		Common::MemoryReadStream input(bytes.data(), static_cast<uint32>(bytes.size()));
 		std::unique_ptr<StreamSpriteResource> resource(new StreamSpriteResource());
 		const Common::Path path(resourceName.c_str(), Common::Path::kNoSeparator);
 		if (!resource->loadFromStream(path, input))
-			throw std::runtime_error("nao foi possivel decodificar: " + resourceName);
+			throw std::runtime_error("Unable to decode sprite: " + resourceName);
 
-		admittedSprites.emplace(resourceName,bytes);
+		admittedSprites.emplace(key,bytes);
 		StreamSpriteResource &result = *resource;
-		sprites.emplace(resourceName, CachedSprite{std::move(bytes), std::move(resource)});
+		sprites.emplace(key, CachedSprite{std::move(bytes), std::move(resource)});
 		++spriteLoads;
 		return result;
 	}
@@ -254,6 +403,22 @@ ScummVmXeenBridge::~ScummVmXeenBridge() = default;
 void ScummVmXeenBridge::discardSpriteCache() { _impl->sprites.clear(); }
 std::size_t ScummVmXeenBridge::cachedSpriteCount() const { return _impl->sprites.size(); }
 std::size_t ScummVmXeenBridge::spriteLoadCount() const { return _impl->spriteLoads; }
+
+std::size_t ScummVmXeenBridge::spriteFrameCount(const std::string &name) {
+	const auto count=_impl->sprite(name,std::nullopt,0,true).size();
+	if (!count) throw std::runtime_error("Empty sprite: "+name);
+	for (std::size_t frame=0;frame<count;++frame) _impl->sprite(name,frame,0,true);
+	return count;
+}
+
+bool ScummVmXeenBridge::hasSceneResource(const std::string &name) {
+	return _impl->sceneResource(name).archive != nullptr;
+}
+
+void ScummVmXeenBridge::drawSceneSprite(const std::string &name, std::size_t frame,
+		int x, int y, const XeenSpriteDrawOptions &options) {
+	drawSpriteImpl(name, frame, x, y, options, true);
+}
 
 void ScummVmXeenBridge::validateProjectile(const std::string &name) { _impl->sprite(name,std::nullopt,3); }
 
@@ -368,18 +533,22 @@ void ScummVmXeenBridge::drawSprite(const std::string &resourceName,
 
 void ScummVmXeenBridge::drawSprite(const std::string &resourceName,
 		std::size_t frame, int x, int y, const XeenSpriteDrawOptions &options) {
-	StreamSpriteResource &sprite = _impl->sprite(resourceName);
+	drawSpriteImpl(resourceName, frame, x, y, options, false);
+}
+
+void ScummVmXeenBridge::drawSpriteImpl(const std::string &resourceName,
+		std::size_t frame, int x, int y, const XeenSpriteDrawOptions &options, bool sceneLookup) {
+	StreamSpriteResource &sprite = _impl->sprite(resourceName, std::nullopt, 0, sceneLookup);
 	if (frame >= sprite.size())
-		throw std::runtime_error("quadro inexistente em " + resourceName);
+		throw std::runtime_error("Missing sprite frame in " + resourceName);
 
 	if (options.scaleIndex < 0 || options.scaleIndex > 15)
-		throw std::runtime_error("indice de reducao de sprite invalido");
-	if (options.slimePalettePhase < -1 || options.slimePalettePhase > 7 ||
-		(options.slimePalettePhase >= 0 && resourceName != "000.mon" && resourceName != "000.att"))
-		throw std::runtime_error("unsupported monster palette effect");
-	uint flags = 0;
-	if (options.slimePalettePhase >= 0)
-		flags |= static_cast<uint>(0x104 + options.slimePalettePhase);
+		throw std::runtime_error("Invalid sprite scale index");
+	const unsigned effect=options.monsterEffectFlags, drawer=effect>>8, index=effect&255;
+	if (drawer>6 || (drawer==0 && index!=0) ||
+		(drawer==1 && index>23) || (drawer>=2 && drawer<=5 && index>3) || (drawer==6 && index>15))
+		throw std::runtime_error("Invalid monster effect flags");
+	uint flags = options.monsterEffectFlags;
 	if (options.horizontalFlip)
 		flags |= MM::Shared::Xeen::SPRFLAG_HORIZ_FLIPPED;
 	if (options.sceneClipped)
@@ -389,7 +558,12 @@ void ScummVmXeenBridge::drawSprite(const std::string &resourceName,
 		flags |= MM::Shared::Xeen::SPRFLAG_BOTTOM_CLIPPED;
 	}
 	const int scale = options.enlarge ? MM::Shared::Xeen::SCALE_ENLARGE : options.scaleIndex;
-	sprite.draw(_impl->surface, static_cast<int>(frame), Common::Point(x, y), flags, scale);
+	const auto mode=flags&0xf00;
+	if(mode==0x200 || mode==0x300 || mode==0x500) {
+		if(options.enlarge || _impl->surface.w!=320 || _impl->surface.h!=200)
+			throw std::invalid_argument("Monster effect requires the native scene surface");
+		sprite.drawEngineFreeEffect(_impl->surface,static_cast<int>(frame),Common::Point(x,y),flags,scale,_impl->palette,options.monsterEffectSeed);
+	} else sprite.draw(_impl->surface, static_cast<int>(frame), Common::Point(x, y), flags, scale);
 }
 
 IndexedFrame ScummVmXeenBridge::snapshot() const {

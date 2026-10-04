@@ -58,7 +58,7 @@ void staticIndoorAndFailures(){
  f.at(100);f.at(200);check(f.phases.size()==n,"static-only view recomposed on tick");
  f.animated=true;f.camera.x=2;f.flow.refresh();check(f.phases.back()==2,"offscreen phase did not continue");
  f.indoor=true;f.camera.mapId=3;f.flow.refresh();n=f.phases.size();f.at(9999);
- check(f.phases.size()==n,"indoor timed redraw");f.flow.handle(InteractionAction{});f.phase(0);
+ check(f.phases.size()==n+1,"indoor timed redraw");f.flow.handle(InteractionAction{});f.phase(2);
  f.camera.mapId=1;f.flow.refresh();f.phase(0);f.at(10098);f.phase(0);f.at(10099);f.phase(1);
  f.fail=true;bool threw=false;try{f.at(10199);}catch(const std::runtime_error&){threw=true;}
  check(threw && f.phases.back()==2,"no-pending animation failure swallowed");

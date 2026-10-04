@@ -54,7 +54,7 @@ int main(int argc,char **argv) {
   XeenWorld alteredGeometry([&](auto id){auto map=maps.loadGeometryMap(assets,id);if(id==XeenMapIdentity(28))map.geometry.cells[0].rawAttributes^=1;return map;},
    [&](auto id){return maps.loadObjects(assets,id);});
   reject([&]{xeenValidateVertigoManifest(alteredGeometry,city,statistics,resource);});
-  slime.validateSlime();
+  slime.validateAdmittedPoisonCombat();
   assets.validateNormalMonster(0);assets.validateAttackMonster(0);
   const auto mob=maps.loadObjects(assets,28);
   const auto actors=XeenActorApproach::actorsFromResources(mob,statistics);
@@ -79,7 +79,7 @@ int main(int argc,char **argv) {
     phase<0?std::nullopt:std::optional<std::uint64_t>(phase),appearance);
    check(commands.size()==1 && commands[0].actor()->identity==visualActors[35].id &&
     commands[0].actor()->kind==kind && commands[0].actor()->frame==frame &&
-    commands[0].drawOptions().slimePalettePhase==-1,"Slime must retain native palette at every cosmetic phase");
+    commands[0].drawOptions().monsterEffectFlags==0,"Slime must retain native palette at every cosmetic phase");
    assets.loadRawFramebuffer("back.raw");const auto background=assets.snapshot();
    CloudsMapComposer().drawIndoorCommands(assets,commands);const auto actual=assets.snapshot();
    assets.loadRawFramebuffer("back.raw");

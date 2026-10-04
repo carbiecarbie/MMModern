@@ -32,6 +32,7 @@ struct XeenIndoorGeometryDraw {
 	std::string resourceName;
 	std::size_t frame = 0;
 	XeenSpriteDrawOptions options;
+	bool animated=false;
 };
 
 struct XeenIndoorObjectDraw {
@@ -44,11 +45,19 @@ struct XeenIndoorActorDraw {
 	XeenMonsterIdentity identity;
 	std::uint8_t image=0,frame=0;
 	XeenMonsterSpriteKind kind=XeenMonsterSpriteKind::Normal;
-	int selectedSlot=0,scaleIndex=0,palettePhase=-1;
+	int selectedSlot=0,scaleIndex=0;
+	unsigned effectFlags=0;
+	std::uint32_t effectSeed=0;
 	bool bottomClipped=false;
 };
 
 struct XeenIndoorProjectileDraw {};
+struct XeenWallItemDraw {
+	std::size_t recordIndex=0, frame=0;
+	std::string resourceName;
+	int scaleIndex=0;
+	bool animated=false;
+};
 
 struct XeenIndoorDrawCommand {
 	int originalOrder = 0;
@@ -59,7 +68,7 @@ struct XeenIndoorDrawCommand {
 	int sourceY = -1;
 	XeenDirection sourceFace = XeenDirection::North;
 	int queryIndex = -1;
-	std::variant<XeenIndoorGeometryDraw, XeenIndoorObjectDraw, XeenIndoorActorDraw, XeenIndoorProjectileDraw> content;
+	std::variant<XeenIndoorGeometryDraw, XeenIndoorObjectDraw, XeenIndoorActorDraw, XeenIndoorProjectileDraw, XeenWallItemDraw> content;
 	XeenIndoorGeometryDraw &geometry() { return std::get<XeenIndoorGeometryDraw>(content); }
 	const XeenIndoorGeometryDraw &geometry() const {
 		return std::get<XeenIndoorGeometryDraw>(content);
@@ -69,12 +78,15 @@ struct XeenIndoorDrawCommand {
 	}
 	const XeenIndoorActorDraw *actor() const { return std::get_if<XeenIndoorActorDraw>(&content); }
 	const XeenIndoorProjectileDraw *projectile() const { return std::get_if<XeenIndoorProjectileDraw>(&content); }
+	const XeenWallItemDraw *wallItem() const { return std::get_if<XeenWallItemDraw>(&content); }
 	XeenSpriteDrawOptions drawOptions() const {
+		if (const auto *wall=wallItem()) {XeenSpriteDrawOptions result;result.scaleIndex=wall->scaleIndex;result.sceneClipped=true;return result;}
         if(projectile()){XeenSpriteDrawOptions result;result.sceneClipped=true;return result;}
 		if (const auto *draw=actor()) {
 			XeenSpriteDrawOptions result;
 			result.scaleIndex=draw->scaleIndex;result.sceneClipped=true;
-			result.bottomClipped=draw->bottomClipped;result.slimePalettePhase=draw->palettePhase;
+			result.bottomClipped=draw->bottomClipped;result.monsterEffectFlags=draw->effectFlags;
+			result.monsterEffectSeed=draw->effectSeed;
 			return result;
 		}
 		if (const auto *draw = object()) {
@@ -94,7 +106,7 @@ public:
 	static constexpr std::size_t kWallSampleCount = 44;
 
 	std::array<XeenIndoorWallSample, kWallSampleCount> sampleWalls(
-		XeenWorld &world, const XeenCamera &camera) const;
+		XeenWorld &world, const XeenCamera &camera, bool sceneView = false) const;
 	XeenActorView classifyActors(XeenWorld &world, const XeenCamera &camera,
 		const std::vector<XeenActor> &actors) const;
 	std::vector<XeenIndoorDrawCommand> buildActors(XeenWorld &world,
@@ -107,7 +119,11 @@ public:
 		std::vector<XeenObjectVisual> *diagnostics = nullptr,
 		std::optional<std::uint64_t> ordinaryPhase = std::nullopt,
 		std::optional<XeenMonsterAppearance> actorFrame = std::nullopt,
-		bool night = false) const;
+		bool night = false,
+		std::function<std::size_t(const std::string &)> wallFrames = {}) const;
+private:
+	XeenActorView classifySceneActors(XeenWorld &,const XeenCamera &,
+		const std::vector<XeenActor> &,bool sceneView) const;
 };
 
 } // namespace mmodern
