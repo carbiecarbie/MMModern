@@ -115,7 +115,7 @@ try {
  Check ((Get-Sha256 ([IO.File]::ReadAllBytes($output))) -eq $first) 'Dialog output nondeterministic'
  Check ([IO.File]::GetLastWriteTimeUtc($output) -eq $timestamp) 'Unchanged output replaced'
  $text=[IO.File]::ReadAllText($output)
- Check ($text.Contains('CHARACTER_DETAILS') -and $text.Contains('ON_WHO') -and $text.Contains('kWindowSymbols')) 'Required generated fields missing'
+ Check ($text.Contains('CHARACTER_DETAILS') -and $text.Contains('ON_WHO') -and $text.Contains('COST') -and $text.Contains('GOLDS') -and $text.Contains('kWindowSymbols')) 'Required generated fields missing'
  Check ($text.Contains('\003\162\011\060\060\060') -and !$text.Contains('\003\162\162\011')) 'Charges field kept the redundant literal glyph'
  [IO.File]::WriteAllBytes($valid.Input,(New-Object byte[] 35065))
  Invoke-Generator $valid $output $true

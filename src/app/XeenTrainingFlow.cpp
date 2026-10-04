@@ -14,17 +14,7 @@ bool matches(const XeenServiceDayCandidate &day,const XeenPartyState &p,const Xe
     return day.complete() && day.beforeContext()==*p.encounterContext && day.beforeEconomy()==*p.serviceEconomy &&
         day.beforeRandom()==*w.sessionState().journeyRandom();
 }
-const char *trainingOutcome(XeenTrainingOutcome outcome) {
-    switch(outcome) {
-    case XeenTrainingOutcome::Cap:return "Trainer limit: permanent level 10.";
-    case XeenTrainingOutcome::MissingExperience:return "Not enough experience.";
-    case XeenTrainingOutcome::CannotAct:return "This member cannot act.";
-    case XeenTrainingOutcome::InsufficientGold:return "Not enough carried gold.";
-    case XeenTrainingOutcome::Trained:return "Training paid. Active temporary bonuses reset.";
-    case XeenTrainingOutcome::Quoted:return "One level per quote.";
-    default:return "Training capacity unavailable. Departure remains reserved.";
-    }
-}
+
 }
 void XeenEncounterFlow::checkTrainingBoundary(XeenTrainingBoundary boundary) {
     _journeyPreimage->check();
@@ -203,7 +193,7 @@ void XeenEventFlow::prepareTraining() {
             if(!drawTrainingArt)throw std::runtime_error("Training artwork provider unavailable");
             xeenValidateVertigoRoute(_events.scriptForMap(23).file(),_events.scriptForMap(28).file());
             const auto text=_events.textForMap(28);_encounter->journeySavePreimage().admitVertigoText(text);
-            TrainingUi ui;ui.title=text.strings.at(32);ui.art=_frame;
+            TrainingUi ui;ui.art=_frame;
             try {drawTrainingArt(ui.art);}catch(const std::invalid_argument &){_encounter->journeySavePreimage().failed=true;throw;}
             _encounter->journeySavePreimage().check();
             if(!ui.art.isValid() || ui.art.width!=320 || ui.art.height!=200)throw std::runtime_error("Invalid Training art frame");
@@ -222,42 +212,13 @@ void XeenEventFlow::prepareTraining() {
     }
 }
 std::string XeenEventFlow::trainingText() const {
-    const auto &ui=*_trainingUi;const auto owner=_party.party.activeRosterIds().at(ui.member);
-    const auto &c=_party.roster.at(owner);const auto &i=*_party.roster.combatInputs(owner);
-    const auto r=xeenQuoteTraining(c,i,_party.monsterTreasure->gold,*_party.encounterContext);
-    std::ostringstream text;text<<ui.title<<"  "<<c.name<<"\nLevel "<<c.permanentLevel<<"  Stored XP "<<i.experience<<"\n";
-    text<<"HP "<<c.currentHp<<'/'<<r.maxHpBefore<<"  SP "<<c.currentSp<<'/'<<r.maxSpBefore<<"\n";
-    text<<"Gold "<<_party.monsterTreasure->gold<<"  Day "<<_party.encounterContext->day<<"\n";
-    if(ui.phase==TrainingUi::Phase::Preparation || ui.phase==TrainingUi::Phase::Candidate)text<<"Preparing complete departure. Please wait.";
-    else if(ui.phase==TrainingUi::Phase::Menu) {
-        text<<"Missing XP "<<r.missing<<"  Cost "<<r.cost<<"\n"<<trainingOutcome(r.outcome)<<"\n";
-        const bool first=_encounter->_training && !_encounter->_training->trained.test(owner);
-        text<<"Days: "<<(first?"1 on first training + ":"")<<"1 departure\nF1-F6: member  Enter: quote\nEscape: depart (one day)";
-    } else if(ui.phase==TrainingUi::Phase::Departure)text<<"Departure settlement pending.\nEnter/Escape: retry";
-    else {
-        const auto &result=_encounter->_training->result;text<<trainingOutcome(result.outcome)<<"\n";
-        if(result.outcome==XeenTrainingOutcome::Trained) {
-            text<<"Level "<<result.levelBefore<<" -> "<<result.levelAfter<<"  XP "<<result.xpBefore<<" -> "<<result.xpAfter<<"\n";
-            text<<"Paid "<<result.cost<<"  Gold "<<result.goldBefore<<" -> "<<result.goldAfter<<"\n";
-            text<<"Max HP "<<result.maxHpBefore<<" -> "<<result.maxHpAfter<<" SP "<<result.maxSpBefore<<" -> "<<result.maxSpAfter<<"\n";
-            text<<"Refill HP "<<result.hpBefore<<" -> "<<result.hpAfter<<" SP "<<result.spBefore<<" -> "<<result.spAfter;
-        } else text<<"Missing XP "<<result.missing<<"  Cost "<<result.cost;
-        text<<"\n"<<(ui.phase==TrainingUi::Phase::Quote?"Enter: confirm  Escape: cancel":"Enter: acknowledge");
-    }
-    if(!ui.feedback.empty())text<<"\n"<<ui.feedback;
-    return text.str();
+    return _trainingUi->feedback.empty()?xeenLocationText(XeenLocationDialog::Training,_party,_trainingUi->member):_trainingUi->feedback;
 }
 IndexedFrame XeenEventFlow::drawTraining(const IndexedFrame &world) const {
     const auto &ui=*_trainingUi;
-    XeenTextRenderOptions options;options.bounds={130,9,309,157};options.windowBounds={128,8,311,159};
-    options.x=131;options.y=10;options.size=XeenFontSize::Reduced;options.paginate=true;options.drawWindow=true;
-    auto background=world;
-    for(int y=8;y<159;++y)std::copy_n(ui.art.pixels.data()+y*320+8,120,background.pixels.data()+y*320+8);
-    auto rendered=XeenTextRenderer(_inventoryFont).render(background,trainingText(),options);
-    if(rendered.pages.size()!=1)throw std::runtime_error("Training panel did not fit");
-    // Original Training artwork and controls remain visible beside the panel;
-    // the six native member portraits remain below it.
-    return std::move(rendered.pages.front());
+    auto frame=drawXeenLocation(world,ui.art,_inventoryFont,XeenLocationDialog::Training,_party,ui.member,drawDialogSprite);
+    if(!ui.feedback.empty()) frame=drawXeenErrorScroll(frame,_inventoryFont,ui.feedback);
+    return frame;
 }
 IndexedFrame XeenEventFlow::settleTrainingEvent() {
     return journeyEventWork([&] {
@@ -277,49 +238,57 @@ IndexedFrame XeenEventFlow::settleTrainingEvent() {
 }
 IndexedFrame XeenEventFlow::handleTraining(const PlayerAction &action,std::uint64_t input,const IndexedFrame::Presentation &inputFrame) {
     auto &ui=*_trainingUi;
-    if(ui.phase==TrainingUi::Phase::Preparation || ui.phase==TrainingUi::Phase::Candidate)return frameCopy();
-    const bool confirm=std::holds_alternative<AcknowledgeAction>(action);
-    const bool cancel=std::holds_alternative<CancelInteractionAction>(action);
-    const auto *selection=std::get_if<SelectMemberAction>(&action);
-    const bool allowed=(ui.phase==TrainingUi::Phase::Menu && (confirm || cancel || (selection && selection->partyIndex<_party.party.size()))) ||
-        (ui.phase==TrainingUi::Phase::Quote && (confirm || cancel)) || (ui.phase==TrainingUi::Phase::Result && confirm) ||
-        (ui.phase==TrainingUi::Phase::Departure && (confirm || cancel));
-    if(!allowed)return frameCopy();
-    if(_trainingSettlement){_handoffPending=true;return settleTrainingEvent();}
-    if(!_encounter->consumeTrainingFrame(input,inputFrame))return frameCopy();
-    const unsigned revisions=ui.phase==TrainingUi::Phase::Quote && confirm?2:1;
-    if(ui.phase!=TrainingUi::Phase::Departure && (!xeenSmithAuthorityRoom(_inputGeneration,8+revisions) || !_encounter->smithCapacity(16+revisions,4) ||
-        !_encounter->_training || !xeenSmithAuthorityRoom(_encounter->_training->operation,1))) {
-        ui.phase=TrainingUi::Phase::Departure;ui.feedback="Further training unavailable.";++ui.revision;return renderEncounter();
+    if(ui.phase==TrainingUi::Phase::Preparation || ui.phase==TrainingUi::Phase::Candidate) return frameCopy();
+    unsigned key=0;
+    if(const auto *dialog=std::get_if<DialogKeyAction>(&action)) key=dialog->key;
+    else if(const auto *member=std::get_if<SelectMemberAction>(&action)) key=InputKey::F1+member->partyIndex;
+    else if(std::holds_alternative<CancelInteractionAction>(action)) key=InputKey::Escape;
+    else if(std::holds_alternative<AcknowledgeAction>(action)) key=InputKey::Enter;
+    const bool member=key>=InputKey::F1 && key<InputKey::F1+_party.party.size();
+    const bool allowed=ui.phase==TrainingUi::Phase::Departure?(key==InputKey::Escape || key==InputKey::Enter):
+        (member || key==InputKey::Escape || key=='t');
+    if((ui.feedback.empty() || ui.phase==TrainingUi::Phase::Departure) && (!allowed || (member && key-InputKey::F1==ui.member))) return frameCopy();
+    if(_trainingSettlement) {_handoffPending=true;return settleTrainingEvent();}
+    if(!_encounter->consumeTrainingFrame(input,inputFrame)) return frameCopy();
+    const bool cancel=key==InputKey::Escape;
+    if(ui.phase!=TrainingUi::Phase::Departure && !cancel &&
+        (!xeenSmithAuthorityRoom(_inputGeneration,10) || !_encounter->smithCapacity(20,4) ||
+        !xeenSmithAuthorityRoom(ui.revision,key=='t'?2:1) || !xeenSmithAuthorityRoom(_encounter->_training->operation,1))) {
+        ui.phase=TrainingUi::Phase::Departure;ui.feedback="Further training unavailable. Escape: depart.";
+        if(ui.revision!=UINT64_MAX) ++ui.revision;return renderEncounter();
     }
-    ui.feedback.clear();
     const auto originalPhase=ui.phase;
     bool failed=false,revisionAdvanced=false;
     try {
-        if(ui.phase==TrainingUi::Phase::Menu) {
-            if(selection){ui.member=selection->partyIndex;_encounter->_training->quoted=false;_encounter->advanceTraining();}
-            if(confirm){_encounter->quoteTraining(ui.member);ui.phase=_encounter->_training->quoted?TrainingUi::Phase::Quote:TrainingUi::Phase::Result;}
-            if(cancel)ui.phase=TrainingUi::Phase::Departure;
-        } else if(ui.phase==TrainingUi::Phase::Quote) {
-            if(cancel){_encounter->_training->quoted=false;ui.phase=TrainingUi::Phase::Menu;_encounter->advanceTraining();}
-            else {_encounter->confirmTraining();ui.phase=_encounter->_training->pending?TrainingUi::Phase::Candidate:TrainingUi::Phase::Result;}
-        } else if(ui.phase==TrainingUi::Phase::Result){ui.phase=TrainingUi::Phase::Menu;_encounter->advanceTraining();}
-        if(ui.phase==TrainingUi::Phase::Departure && (confirm || cancel)) {
-            if(originalPhase!=ui.phase){++ui.revision;revisionAdvanced=true;}
+        if(ui.phase!=TrainingUi::Phase::Departure && !ui.feedback.empty()) {ui.feedback.clear();_encounter->advanceTraining();}
+        else if(ui.phase==TrainingUi::Phase::Menu) {
+            if(key>=InputKey::F1 && key<InputKey::F1+_party.party.size()) {
+                ui.member=key-InputKey::F1;_encounter->_training->quoted=false;_encounter->advanceTraining();
+            } else if(key=='t') {
+                const auto &c=_party.party.member(_party.roster,ui.member);
+                const auto quote=xeenQuoteTraining(c,*_party.roster.combatInputs(c.rosterId),_party.monsterTreasure->gold,*_party.encounterContext);
+                if(quote.outcome==XeenTrainingOutcome::InsufficientGold) ui.feedback=xeenNotEnoughGold();
+                else if(quote.outcome==XeenTrainingOutcome::Quoted) {
+                    if(!_encounter->_training->quoted) _encounter->quoteTraining(ui.member);
+                    if(_encounter->_training->quoted) {
+                        _encounter->confirmTraining();
+                        if(_encounter->_training->pending) ui.phase=TrainingUi::Phase::Candidate;
+                    } else ui.feedback="Training: not supported yet at this date or capacity";
+                }
+            } else if(cancel) ui.phase=TrainingUi::Phase::Departure;
+        }
+        if(ui.phase==TrainingUi::Phase::Departure && (cancel || key==InputKey::Enter)) {
+            if(originalPhase!=ui.phase && ui.revision!=UINT64_MAX) {++ui.revision;revisionAdvanced=true;}
             _encounter->departTraining();_trainingSettlement=true;return settleTrainingEvent();
         }
     } catch(const std::exception &) {
-        failed=true;
-        _encounter->journeySavePreimage().check();
-        if(!_encounter->_training)throw;
-        if(ui.phase==TrainingUi::Phase::Menu && _encounter->_training->quoted)
-            ui.phase=TrainingUi::Phase::Quote;
-        if(((ui.phase==TrainingUi::Phase::Quote || ui.phase==TrainingUi::Phase::Candidate) && _encounter->_training->published) ||
-            (!_encounter->_training->quoted && !_encounter->_training->pending && ui.phase==TrainingUi::Phase::Quote))
-            ui.phase=TrainingUi::Phase::Result;
-        ui.feedback="Preparation failed. Enter retries.";
+        failed=true;_encounter->journeySavePreimage().check();if(!_encounter->_training) throw;
+        if(_encounter->_training->pending) ui.phase=TrainingUi::Phase::Candidate;
+        else if(_encounter->_training->published && ui.phase!=TrainingUi::Phase::Departure) ui.phase=TrainingUi::Phase::Menu;
+        else if(ui.phase==TrainingUi::Phase::Departure) ui.feedback="Training departure failed. Escape: retry.";
     }
-    if(!revisionAdvanced && (!failed || originalPhase!=ui.phase))++ui.revision;
+    if(!revisionAdvanced && (!failed || originalPhase!=ui.phase) && ui.revision!=UINT64_MAX) ++ui.revision;
+    if(reportText && !ui.feedback.empty()) reportText(ui.feedback);
     return renderEncounter();
 }
 std::optional<IndexedFrame> XeenEventFlow::updateTraining() {
@@ -333,17 +302,19 @@ std::optional<IndexedFrame> XeenEventFlow::updateTraining() {
             throw std::overflow_error("Training admission would consume mandatory input authority");
         const bool complete=phase==TrainingUi::Phase::Preparation?_encounter->serviceTrainingPreparation():_encounter->serviceTrainingLevel();
         if(!complete)return std::nullopt;
-        _trainingUi->phase=phase==TrainingUi::Phase::Preparation?TrainingUi::Phase::Menu:TrainingUi::Phase::Result;
+        _trainingUi->phase=TrainingUi::Phase::Menu;
+        if(phase==TrainingUi::Phase::Candidate && !_encounter->_training->published)
+            _trainingUi->feedback="Training: not supported yet at this date or capacity";
     } catch(const std::exception &error) {
         _encounter->journeySavePreimage().check();
         if(!_encounter->_training) {
             _encounter->_trainingPreparation.reset();_trainingUi.reset();_pending.reset();_journeyEventLayers=false;
             _encounter->_journeyRefusal=std::string("Training admission refused: ")+error.what();_encounter->endJourneyEvent();
-        } else if(_encounter->_training->published) _trainingUi->phase=TrainingUi::Phase::Result;
+        } else if(_encounter->_training->published) _trainingUi->phase=TrainingUi::Phase::Menu;
         else {
             _encounter->_training->pending.reset();_encounter->_training->nextDeparture.reset();
             _encounter->_training->quoted=false;_trainingUi->phase=TrainingUi::Phase::Menu;
-            _trainingUi->feedback="Purchase preparation failed. Departure remains owed.";
+            _trainingUi->feedback="Training preparation failed. Departure remains owed.";
         }
     }
     if(_trainingUi)++_trainingUi->revision;

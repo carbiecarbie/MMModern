@@ -291,6 +291,8 @@ X_FOR_THE_Y 26369 26428 1
 X_FOR_Y 26428 26488 1
 FMT_CHARGES 26555 26572 1
 AVAILABLE_GOLD_COST 26572 26650 1
+COST 26658 26663 1
+GOLDS 27402 27412 2
 ITEM_ACTIONS 26663 26714 7
 WHICH_ITEM 26714 26737 1
 WHATS_YOUR_HURRY 26737 26791 1
@@ -335,7 +337,7 @@ FIX_IDENTIFY_GOLD 27568 27597 1
 		for ($index = 0; $index -lt $count; ++$index) {
 			$token = Read-CatalogToken $Bytes ([ref]$position) "$name[$index]"
 			# Plural arrays deliberately contain unused empty English forms.
-			if (!$token.Length -and $name -notin @('DAYS','BORN','FOOD_ON_HAND') -and !($name -eq 'CLASS_NAMES' -and $index -eq 10)) { throw "Missing dialog template: $name" }
+			if (!$token.Length -and $name -notin @('DAYS','BORN','FOOD_ON_HAND','GOLDS') -and !($name -eq 'CLASS_NAMES' -and $index -eq 10)) { throw "Missing dialog template: $name" }
 			Test-DialogControls $token $name
 			# The pinned FMT_CHARGES contains a second literal alignment letter.
 			# The maintainer's DOSBox reference shows no extra title glyph; see the
@@ -351,7 +353,7 @@ FIX_IDENTIFY_GOLD 27568 27597 1
 		if ($position -ne $end) { throw "Dialog block end mismatch: $name" }
 		if ($count -gt 1) { Add-Line $builder '}};' }
 	}
-	if ($names.Count -ne 76) { throw 'Dialog template name count mismatch' }
+	if ($names.Count -ne 78) { throw 'Dialog template name count mismatch' }
 	# The original window border and four-shade font palettes are numeric drawing
 	# inputs from the same verified stream, not strings or commercial assets.
 	foreach ($table in @(@('WindowSymbols',2891,20,64), @('TextColors',4175,40,4))) {

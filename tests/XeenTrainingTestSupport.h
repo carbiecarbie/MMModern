@@ -36,7 +36,7 @@ struct XeenTrainingTestAccess {
         flow._smithUi->revision=value;flow._smithRenderedRevision=value;
     }
     static std::string text(const XeenEventFlow &flow) {return flow.trainingText();}
-    static bool quote(const XeenEventFlow &flow) {return flow._trainingUi && flow._trainingUi->phase==XeenEventFlow::TrainingUi::Phase::Quote;}
+    static bool quote(const XeenEventFlow &flow) {return flow._trainingUi && flow._encounter->_training && flow._encounter->_training->quoted;}
     static bool menu(const XeenEventFlow &flow) {return flow._trainingUi && flow._trainingUi->phase==XeenEventFlow::TrainingUi::Phase::Menu;}
     static std::size_t selected(const XeenEventFlow &flow) {return flow._trainingUi->member;}
     static void limit(XeenEventFlow &flow,unsigned counter,std::uint64_t value) {
@@ -53,6 +53,7 @@ struct XeenTrainingTestAccess {
     static void consume(XeenEventFlow &flow) {
         if(!flow._encounter->consumeTrainingFrame(flow._inputGeneration,flow._frame.presentation()))throw std::logic_error("Synthetic Training authority absent");
     }
+    static void directQuote(XeenEventFlow &flow,std::size_t member) {flow._encounter->quoteTraining(member);}
     static void confirm(XeenEventFlow &flow) {flow._encounter->confirmTraining();}
     static bool level(XeenEventFlow &flow) {return flow._encounter->serviceTrainingLevel();}
     static void depart(XeenEventFlow &flow) {flow._encounter->departTraining();}
@@ -124,6 +125,7 @@ struct Fixture {
         flow=std::make_unique<XeenEventFlow>(w,events,p,c,f,in.font,[](auto){return XeenEventFlow::Composition{frame(),false};},
             XeenEventPresenter::NpcDraw{},[this]{return now;},XeenEventPresenter::RandomFrame{},nullptr,
             [animated](auto,auto){return XeenEventFlow::Composition{frame(),animated};});
+        flow->drawDialogSprite=[&in](auto &frame,const char *resource,unsigned id,int x,int y){in.assets.drawDialogSprite(frame,resource,id,x,y);};
         flow->drawTrainingArt=[&in](auto &frame){in.assets.drawTraining(frame);};
         present(flow->frame());check(flow->canSave(),"synthetic restored service checkpoint not Quiet");
     }
@@ -135,11 +137,16 @@ struct Fixture {
         const auto owner=p.party.activeRosterIds()[member];const int before=p.roster.at(owner).permanentLevel;
         const auto quote=xeenQuoteTraining(p.roster.at(owner),*p.roster.combatInputs(owner),p.monsterTreasure->gold,*p.encounterContext);
         const bool eligible=quote.outcome==XeenTrainingOutcome::Quoted && (trained.test(owner) || p.encounterContext->day<=97);
-        act(SelectMemberAction{member});act(AcknowledgeAction{});
-        if(eligible) {
-            act(AcknowledgeAction{});prepare();
-            if(p.roster.at(owner).permanentLevel>before){trained.set(owner);act(AcknowledgeAction{});}
-        } else act(AcknowledgeAction{});
+        act(SelectMemberAction{member});act(DialogKeyAction{'t'});
+        if(eligible && p.roster.at(owner).permanentLevel==before) {
+            // A pre-publication fault may retain the quote; retry T without
+            // issuing another operation, or finish private candidate slices.
+            if(XeenTrainingTestAccess::quote(*flow)) act(DialogKeyAction{'t'});
+            if(!XeenTrainingTestAccess::menu(*flow)) prepare();
+        }
+        if(p.roster.at(owner).permanentLevel>before) trained.set(owner);
+        if(flow->inputContext(flow->frame().presentation()).dialog->anyKey) act(AcknowledgeAction{});
+
     }
     XeenSaveSnapshot snapshot(){return XeenSaveState::capture(in.signature,p,c,f,w);}
 };

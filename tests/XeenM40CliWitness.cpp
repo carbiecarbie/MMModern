@@ -221,6 +221,11 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             check(party->encounterContext->year==610 && party->encounterContext->day==day && party->encounterContext->minutes==minute && party->encounterContext->ctr24==ctr &&
                 world->sessionState().journeyRandom()->state==state && world->sessionState().journeyRandom()->count==count && party->monsterTreasure->gold==gold,"M40 literal checkpoint date/purse/RNG differs");
         };
+        const auto dismissServiceNotice=[&] {steps.push_back([&] {
+            const auto context=handler.inputContext(presented);
+            if(context.dialog && context.dialog->anyKey)act(AcknowledgeAction{});
+            return true;
+        });};
         const auto waitService=[&] {
             steps.push_back([&] {
                 if(XeenTrainingTestAccess::admitted(*flow))return true;
@@ -234,6 +239,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 check(providers==providerCalls && saves==saveCalls,"M40 preparation F9 reached capture/provider/path/I/O");
                 return false;
             });
+            dismissServiceNotice();
         };
         const auto emptyVisit=[&] {
             auto before=std::make_shared<XeenSaveSnapshot>();inspect([&,before]{*before=snapshot();});
@@ -246,14 +252,16 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             action(InteractionAction{});
             if(control=="fail-before-admission" && slot==0)action(InteractionAction{});
             waitService();
-            deny();action(SelectMemberAction{5});action(AcknowledgeAction{});deny();
-            action(SelectInventorySlotAction{slot});action(AcknowledgeAction{});deny();action(AcknowledgeAction{});
+            deny();action(SelectMemberAction{5});action(DialogKeyAction{'b'});action(DialogKeyAction{'a'});action(DialogKeyAction{'f'});deny();
+            action(SelectInventorySlotAction{slot});deny();action(YesAction{});
+            if(control=="fail-before-repair" && slot==0)action(YesAction{});
+            dismissServiceNotice();
             inspect([&,slot,goldAfter,ac] {
                 check(party->monsterTreasure->gold==goldAfter && party->roster.at(6).armor[slot].state==0 &&
                     XeenCharacterRules::combatArmorClass(party->roster.at(6),*party->roster.combatInputs(6),{610})==*ac+(slot?1:2),"M40 real repair payment/item/AC differs");
                 if(control=="fail-after-repair" && slot==0)check(party->encounterContext->day==10,"M40 later failure refunded/settled repair");
             });
-            deny();action(AcknowledgeAction{});action(CancelInteractionAction{});action(CancelInteractionAction{});
+            deny();action(CancelInteractionAction{});action(CancelInteractionAction{});
             if(slot==0 && (control=="fail-before-departure" || control=="fail-after-departure" || control=="fail-return" ||
                 control=="fail-departure-published" || control=="fail-before-event-settlement" || control=="fail-after-event-settlement"))action(AcknowledgeAction{});
             settle();

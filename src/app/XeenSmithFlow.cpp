@@ -449,7 +449,7 @@ void XeenEventFlow::prepareSmith() {
             catch (const std::invalid_argument &) { _encounter->journeySavePreimage().failed=true;throw; }
 			const auto text=_events.textForMap(28);
 			_encounter->journeySavePreimage().admitVertigoText(text);
-			SmithUi ui;ui.catalog=_catalog;ui.title=text.strings.at(temple?37:33);ui.art=_frame;
+			SmithUi ui;ui.catalog=_catalog;ui.art=_frame;
 			if(temple)ui.mode=SmithUi::Mode::Heal;
 			try { if(temple)drawTempleArt(ui.art);else drawSmithArt(ui.art); }
             catch (const std::invalid_argument &) { _encounter->journeySavePreimage().failed=true;throw; }
@@ -480,168 +480,62 @@ void XeenEventFlow::prepareSmith() {
   }
  }
 }
+namespace {
+unsigned serviceKey(const PlayerAction &action) {
+    if(const auto *key=std::get_if<DialogKeyAction>(&action)) return key->key;
+    if(const auto *member=std::get_if<SelectMemberAction>(&action)) return InputKey::F1+member->partyIndex;
+    if(const auto *slot=std::get_if<SelectInventorySlotAction>(&action)) return '1'+slot->slot;
+    if(std::holds_alternative<CancelInteractionAction>(action)) return InputKey::Escape;
+    if(std::holds_alternative<YesAction>(action)) return 'y';
+    if(std::holds_alternative<NoAction>(action)) return 'n';
+    if(std::holds_alternative<AcknowledgeAction>(action)) return InputKey::Enter;
+    return 0;
+}
+}
+std::shared_ptr<const DialogInput> XeenEventFlow::serviceDialogInput() const {
+    DialogInput input;
+    if(_trainingUi) {
+        const auto &ui=*_trainingUi;
+        if(ui.phase==TrainingUi::Phase::Preparation || ui.phase==TrainingUi::Phase::Candidate) return std::make_shared<const DialogInput>();
+        if(ui.phase==TrainingUi::Phase::Departure) input.keys={InputKey::Escape,InputKey::Enter};
+        else input=xeenLocationInput(XeenLocationDialog::Training);
+        if(!ui.feedback.empty()) {input={};input.anyKey=input.anyClick=true;}
+    } else if(_smithUi) {
+        const auto &ui=*_smithUi;
+        if(ui.phase==SmithUi::Phase::Preparation) return std::make_shared<const DialogInput>();
+        if(ui.phase==SmithUi::Phase::Departure) input.keys={InputKey::Escape,InputKey::Enter};
+        else if(ui.phase==SmithUi::Phase::Upgrade) input.keys={InputKey::Escape};
+        else if(ui.phase==SmithUi::Phase::Confirm) input=xeenConfirmInput();
+        else if(ui.phase==SmithUi::Phase::Browse) input=xeenBuyInput(ui.mode==SmithUi::Mode::Repair);
+        else input=xeenLocationInput(ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith);
+        if(!ui.feedback.empty() && ui.phase!=SmithUi::Phase::Departure) {input={};input.anyKey=input.anyClick=true;}
+    } else return {};
+    return std::make_shared<const DialogInput>(std::move(input));
+}
 std::string XeenEventFlow::smithText() const {
-	const auto &ui=*_smithUi;
-	const auto owner=_party.party.activeRosterIds().at(ui.member);
-	const auto &character=_party.roster.at(owner);
-	const auto gold=_party.monsterTreasure->gold;
-	if(ui.mode==SmithUi::Mode::Heal) {
-		std::ostringstream text;
-		text<<ui.title<<"\n"<<character.name<<"  Gold "<<gold<<"\n";
-		if(ui.phase==SmithUi::Phase::Preparation)
-			text<<"Preparing complete departure. Please wait.";
-		else if(ui.phase==SmithUi::Phase::Upgrade)
-			text<<"Preparing paid departure. Escape: cancel Heal and keep one-day exit.";
-		else if(ui.phase==SmithUi::Phase::Departure)
-			text<<"Departure settlement pending.\nEnter: retry departure";
-		else if(ui.phase==SmithUi::Phase::Lobby) {
-			const auto quote=xeenQuoteTempleHeal(character,gold,*_party.encounterContext);
-			text<<"HP "<<character.currentHp<<" / "<<quote.maxHpBefore<<"  SP "<<character.currentSp<<"\n";
-			text<<"Conditions: ";
-			bool any=false;
-			for(unsigned i=1;i<=15;++i)if(character.conditions[i]) {
-				if(any)text<<", ";any=true;
-				text<<xeenConditionName(static_cast<XeenCondition>(i))<<' '<<unsigned(character.conditions[i]);
-			}
-			if(!any)text<<"Good";
-			text<<"\nQuote "<<quote.price<<" gold  Exit "<<(_encounter->_smith && _encounter->_smith->paid?2:1)<<" day(s)"
-				<<"\nF1-F6: recipient  Enter: Heal quote\nEscape: depart";
-		} else {
-			auto r=_encounter->_smith->healResult;
-			const bool refused=ui.phase==SmithUi::Phase::Result && !_encounter->_smith->published;
-			if(refused) {
-				// A refused Result reports no applied change, not the quote's projection.
-				r.hpAfter=r.hpBefore;r.maxHpAfter=r.maxHpBefore;r.spAfter=r.spBefore;
-				r.goldAfter=r.goldBefore;r.price=0;
-			}
-			text<<"HP "<<r.hpBefore<<" -> "<<r.hpAfter
-				<<(refused?" (max ":" (healthy max ")<<r.maxHpAfter<<")"
-				<<"\nSP "<<r.spBefore<<" -> "<<r.spAfter<<"  Gold "<<r.goldBefore;
-			if(ui.phase==SmithUi::Phase::Quote)
-				text<<"\nHeal price "<<r.price<<"  After "<<r.goldBefore-r.price
-					<<"\nPaid exit: two days\nEnter: confirm  Escape: cancel";
-			else {
-				switch(r.outcome) {
-				case XeenTempleHealOutcome::Healed:text<<"\nHealed. Paid "<<r.price<<" gold.";break;
-				case XeenTempleHealOutcome::NoCharge:text<<"\nNo Heal charge; no change.";break;
-				case XeenTempleHealOutcome::InsufficientGold:text<<"\nInsufficient carried gold.";break;
-				case XeenTempleHealOutcome::SupportLimit:text<<"\nPaid departure outside supported date or capacity.";break;
-				case XeenTempleHealOutcome::HpSupportLimit:text<<"\nHeal HP outside supported range; no change.";break;
-				default:text<<"\nHeal unavailable.";break;
-				}
-				text<<"\nGold now "<<r.goldAfter<<"  Exit "<<(_encounter->_smith->paid?2:1)<<" day(s)"
-					<<"\nEnter: return to Temple menu";
-			}
-		}
-		if(!ui.feedback.empty())text<<"\n"<<ui.feedback;
-		return text.str();
-	}
-	std::ostringstream text;
-	text<<ui.title<<"\n"<<character.name<<"  Gold "<<gold;
-	if (ui.mode==SmithUi::Mode::Buy && ui.phase==SmithUi::Phase::Browse) {
-		static constexpr const char *categories[]={"Weapons","Armor","Accessories","Miscellaneous"};
-		text<<"  Buy "<<categories[static_cast<unsigned>(ui.category)];
-	}
-	text<<"\n";
-	if (ui.phase==SmithUi::Phase::Preparation) {
-		text<<"Preparing one-day departure.\nPlease wait.";
-	} else if (ui.phase==SmithUi::Phase::Lobby) {
-		text<<"B: Buy  R/Enter: Armor repair\nF1-F6: recipient\nEscape: depart (costs one day)";
-	} else if (ui.mode==SmithUi::Mode::Buy && ui.phase==SmithUi::Phase::Browse) {
-		const auto &stock=_party.serviceEconomy->wares[0][0][static_cast<unsigned>(ui.category)];
-		for (unsigned i=0;i<9;++i) {
-			const auto &item=stock[i];
-			text<<(ui.selected && i==ui.slot?">":" ")<<(i+1)<<" ";
-			if (!item.id) text<<"Empty";
-			else {
-				text<<ui.catalog.describe(ui.category,item).displayName.substr(0,22);
-				if (const auto price=xeenEquipmentPurchasePrice(ui.category,item)) text<<"  "<<*price<<" gold";
-				else text<<"  unsupported";
-			}
-			text<<"\n";
-		}
-		if (ui.selected) {
-			const auto &item=stock[ui.slot];
-			text<<"Row "<<(ui.slot+1)<<" M/ID/S/F "<<unsigned(item.material)<<'/'<<unsigned(item.id)<<'/'<<unsigned(item.state)<<'/'<<unsigned(item.frame);
-			if (item.id && !xeenSupportedEquipmentOffer(0,0,ui.category,item)) text<<" Purchase unsupported";
-			text<<"\n";
-		} else text<<"Choose a physical row.\n";
-		text<<"Left/Right: category  F1-F6: recipient\n1-9: row  Enter: quote  Escape: lobby";
-	} else if (ui.phase==SmithUi::Phase::Browse) {
-		for (unsigned i=0;i<9;++i) {
-			const auto d=ui.catalog.describe(XeenInventoryCategory::Armor,character.armor[i]);
-			text<<(i==ui.slot?">":" ")<<(i+1)<<" "<<d.displayName.substr(0,24)
-				<<(d.broken?" B":"")<<(d.cursed?" C":"")<<(d.equipped?" E":"")<<"\n";
-		}
-		text<<(ui.feedback.empty()?"B broken C cursed E equipped":ui.feedback)
-			<<"\n1-9: slot  F1-F6: owner\nEnter: quote  Escape: lobby";
-	} else if (ui.phase==SmithUi::Phase::Departure) {
-		text<<"Departure settlement pending.\nEnter: retry departure";
-	} else if (ui.mode==SmithUi::Mode::Buy) {
-		const auto &r=_encounter->_smith->purchase->result;
-		static constexpr const char *categories[]={"Weapons","Armor","Accessories","Miscellaneous"};
-		text<<categories[static_cast<unsigned>(r.category)]<<" row "<<unsigned(r.offerSlot+1)<<": "
-			<<ui.catalog.describe(r.category,r.offer).displayName.substr(0,35)<<"\n";
-		text<<"M/ID/S/F "<<unsigned(r.offer.material)<<'/'<<unsigned(r.offer.id)<<'/'<<unsigned(r.offer.state)<<'/'<<unsigned(r.offer.frame)<<"\n";
-		if (ui.phase==SmithUi::Phase::Quote) {
-			text<<"Buy price: "<<r.price<<" gold\nCarried gold: "<<r.goldBefore<<"\n";
-			if (r.shortfall) text<<"Shortfall: "<<r.shortfall<<" gold\n";
-			else text<<"Gold after: "<<r.goldAfter<<"\n";
-			text<<"Enter/Yes: buy  Escape/No: cancel";
-		} else {
-			switch (r.outcome) {
-			case XeenEquipmentPurchaseOutcome::Purchased:
-				text<<"Purchased unequipped. Paid "<<r.price<<" gold.\nRecipient slot "<<unsigned(r.recipientSlot+1)<<"; stock row removed.";break;
-			case XeenEquipmentPurchaseOutcome::Empty:text<<"Empty stock row. No purchase.";break;
-			case XeenEquipmentPurchaseOutcome::DestinationFull:text<<"Recipient category tail is occupied. No purchase.";break;
-			case XeenEquipmentPurchaseOutcome::InsufficientGold:text<<"Not enough carried gold. No purchase.";break;
-			default:text<<"Purchase unsupported. No purchase.";break;
-			}
-			text<<"\nGold: "<<r.goldBefore<<" -> "<<r.goldAfter<<"\nEnter/Escape: return to Buy";
-		}
-	} else {
-		const auto &r=_encounter->_smith->result;
-		text<<"Armor slot "<<(ui.slot+1)<<": "<<ui.catalog.describe(XeenInventoryCategory::Armor,r.before).displayName<<"\n";
-		if (ui.phase==SmithUi::Phase::Quote) {
-			text<<"Repair price: "<<r.price<<" gold\n";
-			if (gold>=r.price) text<<"Gold after: "<<(gold-r.price)<<"\n";
-			else text<<"Shortfall: "<<(r.price-gold)<<" gold\n";
-			text<<"Enter/Yes: confirm  Escape/No: cancel";
-		} else {
-			switch (r.outcome) {
-			case XeenArmorRepairOutcome::Repaired: text<<"Repaired. Paid "<<r.price<<" gold.";break;
-			case XeenArmorRepairOutcome::Empty: text<<"Empty armor slot.";break;
-			case XeenArmorRepairOutcome::Intact: text<<"Armor is not broken.";break;
-			case XeenArmorRepairOutcome::InsufficientGold: text<<"Not enough carried gold. No repair.";break;
-			default: text<<"Unsupported armor. No repair.";break;
-			}
-			text<<"\nGold: "<<r.goldBefore<<" -> "<<r.goldAfter<<"\nEnter: return to armor";
-		}
-	}
-	if (!ui.feedback.empty() && ui.phase!=SmithUi::Phase::Browse) text<<"\n"<<ui.feedback;
- return text.str();
+    const auto &ui=*_smithUi;
+    if(!ui.feedback.empty()) return ui.feedback;
+    if(ui.phase==SmithUi::Phase::Confirm) {
+        const auto &visit=*_encounter->_smith;
+        const auto &item=ui.mode==SmithUi::Mode::Buy?visit.purchase->result.offer:visit.result.before;
+        return xeenServiceConfirm(ui.mode==SmithUi::Mode::Repair,
+            ui.catalog.describe(ui.category,item).displayName,
+            ui.mode==SmithUi::Mode::Buy?visit.purchase->result.price:visit.result.price);
+    }
+    return xeenLocationText(ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith,_party,ui.member);
 }
 IndexedFrame XeenEventFlow::drawSmith(const IndexedFrame &world) const {
-	const auto &ui=*_smithUi;
- XeenTextRenderOptions options;
-	options.bounds={9,9,222,157};options.windowBounds={8,8,223,159};
-	options.x=10;options.y=10;options.size=XeenFontSize::Reduced;
-	options.paginate=true;options.drawWindow=true;
-	if (ui.phase==SmithUi::Phase::Lobby && ui.mode!=SmithUi::Mode::Heal) {
-		options.bounds={9,93,222,157};options.windowBounds={8,91,223,159};options.y=93;
-	}
-	if (ui.mode==SmithUi::Mode::Heal) {
-		options.bounds={9,9,309,190};options.windowBounds={8,8,311,192};options.y=10;
-	} else if (ui.mode==SmithUi::Mode::Buy && ui.phase!=SmithUi::Phase::Lobby) {
-		options.bounds={9,9,309,157};options.windowBounds={8,8,311,159};
-	}
-	auto background=world;
- if (ui.phase==SmithUi::Phase::Lobby)
-  for(int y=8;y<140;++y)
-   std::copy_n(ui.art.pixels.data()+y*320+8,215,background.pixels.data()+y*320+8);
- auto rendered=XeenTextRenderer(_inventoryFont).render(background,smithText(),options);
-	if (rendered.pages.size()!=1) throw std::runtime_error("Ironworks panel did not fit");
-	return std::move(rendered.pages.front());
+    const auto &ui=*_smithUi;
+    auto frame=drawXeenLocation(world,ui.art,_inventoryFont,
+        ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith,_party,ui.member,drawDialogSprite);
+    if(ui.phase==SmithUi::Phase::Browse || ui.phase==SmithUi::Phase::Confirm) {
+        XeenInventorySelection selection;selection.source=ui.member;selection.category=ui.category;
+        if(ui.selected) selection.slot=ui.slot;
+        frame=drawXeenBuy(frame,_inventoryFont,ui.catalog,_party,selection,ui.mode==SmithUi::Mode::Repair,drawDialogSprite);
+        if(ui.phase==SmithUi::Phase::Confirm) frame=drawXeenConfirm(frame,_inventoryFont,smithText(),false,drawDialogSprite);
+    }
+    if(!ui.feedback.empty()) frame=drawXeenErrorScroll(frame,_inventoryFont,ui.feedback);
+    return frame;
 }
 IndexedFrame XeenEventFlow::settleSmithEvent() {
 	return journeyEventWork([&] {
@@ -667,162 +561,147 @@ IndexedFrame XeenEventFlow::settleSmithEvent() {
 	});
 }
 IndexedFrame XeenEventFlow::handleSmith(const PlayerAction &action,std::uint64_t input,const IndexedFrame::Presentation &inputFrame) {
-	if(_smithUi->mode==SmithUi::Mode::Heal)return handleTemple(action,input,inputFrame);
-	if (_smithUi->phase==SmithUi::Phase::Preparation) return frameCopy();
-
-	{
-		auto &ui=*_smithUi;
-		const bool confirm=std::holds_alternative<AcknowledgeAction>(action) || std::holds_alternative<YesAction>(action);
-		const bool cancel=std::holds_alternative<CancelInteractionAction>(action) || std::holds_alternative<NoAction>(action);
-		const bool buy=std::holds_alternative<BlockAction>(action),repair=std::holds_alternative<RevisitCompletedAction>(action);
-		const auto *member=std::get_if<SelectMemberAction>(&action);
-		const auto *slot=std::get_if<SelectInventorySlotAction>(&action);
-		const auto *navigation=std::get_if<NavigationAction>(&action);
-		const bool chooseMember=member && member->partyIndex<_party.party.size() && member->partyIndex!=ui.member;
-		const bool chooseSlot=slot && slot->slot<9 && (slot->slot!=ui.slot || (ui.mode==SmithUi::Mode::Buy && !ui.selected));
-		const bool category=navigation && (*navigation==NavigationAction::TurnLeft || *navigation==NavigationAction::TurnRight);
-		const bool allowed=(ui.phase==SmithUi::Phase::Lobby && (confirm || cancel || buy || repair || chooseMember)) ||
-			(ui.phase==SmithUi::Phase::Browse && (cancel || chooseMember || chooseSlot ||
-				(ui.mode==SmithUi::Mode::Buy && category) || (confirm && (ui.mode==SmithUi::Mode::Repair || ui.selected)))) ||
-			((ui.phase==SmithUi::Phase::Quote || ui.phase==SmithUi::Phase::Result || ui.phase==SmithUi::Phase::Departure) && (confirm || cancel));
-		if (!allowed) return frameCopy();
-		if (_smithSettlement) {_handoffPending=true;return settleSmithEvent();}
-		if (!_encounter->consumeSmithFrame(input,inputFrame)) return frameCopy();
-		const bool confirming=ui.phase==SmithUi::Phase::Quote && confirm;
-		const bool quoting=ui.phase==SmithUi::Phase::Browse && confirm;
-		const unsigned additional=confirming?3:2;
-		if (ui.phase!=SmithUi::Phase::Departure && !cancel &&
-			(!_encounter->smithCapacity(16+additional,4) || !xeenSmithAuthorityRoom(_inputGeneration,10) ||
-			 !xeenSmithAuthorityRoom(ui.revision,1) ||
-			 (quoting && !xeenSmithAuthorityRoom(_encounter->_smith->operation,1)) ||
-			 (confirming && ui.mode==SmithUi::Mode::Buy && !xeenSmithAuthorityRoom(_encounter->_smith->reservation,1)))) {
-			ui.phase=SmithUi::Phase::Departure;
-			ui.feedback="Further service actions unavailable. Departure remains reserved.";
-			if (ui.revision!=UINT64_MAX) ++ui.revision;
-			return renderEncounter();
-		}
-		// Cancellation/result acknowledgment also preserve the full suffix; only
-		// a lobby departure may use the already reserved mandatory authority.
-		if (ui.phase!=SmithUi::Phase::Departure && !(ui.phase==SmithUi::Phase::Lobby && cancel) &&
-			(!_encounter->smithCapacity(16+additional,4) || !xeenSmithAuthorityRoom(_inputGeneration,10) || !xeenSmithAuthorityRoom(ui.revision,1))) {
-			ui.phase=SmithUi::Phase::Departure;
-			ui.feedback="Departure remains reserved.";
-			if (ui.revision!=UINT64_MAX) ++ui.revision;
-			return renderEncounter();
-		}
-		ui.feedback.clear();
-		const auto originalPhase=ui.phase;
-		const auto originalOperation=_encounter->_smith->operation;
-		bool failed=false,revisionAdvanced=false;
-		try {
-			if (ui.phase==SmithUi::Phase::Lobby) {
-				if (chooseMember) {ui.member=member->partyIndex;_encounter->advanceSmith();}
-				else if (buy || repair || confirm) {
-					ui.mode=buy?SmithUi::Mode::Buy:SmithUi::Mode::Repair;
-					ui.category=XeenInventoryCategory::Weapons;ui.slot=0;ui.selected=false;
-					ui.phase=SmithUi::Phase::Browse;_encounter->_smith->quoted=false;_encounter->advanceSmith();
-				} else if (cancel) ui.phase=SmithUi::Phase::Departure;
-			} else if (ui.phase==SmithUi::Phase::Browse) {
-				if (chooseMember) {ui.member=member->partyIndex;_encounter->_smith->quoted=false;_encounter->advanceSmith();}
-				else if (chooseSlot) {ui.slot=slot->slot;ui.selected=true;_encounter->_smith->quoted=false;_encounter->advanceSmith();}
-				else if (category && ui.mode==SmithUi::Mode::Buy) {
-					const unsigned next=(static_cast<unsigned>(ui.category)+(*navigation==NavigationAction::TurnLeft?3:1))%4;
-					ui.category=static_cast<XeenInventoryCategory>(next);ui.selected=false;
-					_encounter->_smith->quoted=false;_encounter->advanceSmith();
-				} else if (cancel) {ui.phase=SmithUi::Phase::Lobby;_encounter->_smith->quoted=false;_encounter->advanceSmith();}
-				else if (confirm) {
-					if (ui.mode==SmithUi::Mode::Buy) _encounter->quoteSmithBuy(ui.member,ui.category,ui.slot);
-					else _encounter->quoteSmith(ui.member,ui.slot);
-					ui.phase=_encounter->_smith->quoted?SmithUi::Phase::Quote:SmithUi::Phase::Result;
-				}
-			} else if (ui.phase==SmithUi::Phase::Quote) {
-				if (cancel) {ui.phase=SmithUi::Phase::Browse;_encounter->_smith->quoted=false;_encounter->advanceSmith();}
-				else {
-					if (ui.mode==SmithUi::Mode::Buy) _encounter->confirmSmithBuy();else _encounter->confirmSmith();
-					ui.phase=SmithUi::Phase::Result;
-				}
-			} else if (ui.phase==SmithUi::Phase::Result) {
-				if (ui.mode==SmithUi::Mode::Buy && _encounter->_smith->published) ui.selected=false;
-				ui.phase=SmithUi::Phase::Browse;_encounter->advanceSmith();
-			}
-			if (ui.phase==SmithUi::Phase::Departure && (confirm || cancel)) {
-				if (originalPhase!=ui.phase && ui.revision!=UINT64_MAX) {++ui.revision;revisionAdvanced=true;}
-				_encounter->departSmith();_smithSettlement=true;return settleSmithEvent();
-			}
-		} catch (const std::exception &) {
-			failed=true;_encounter->journeySavePreimage().check();
-			if (!_encounter->_smith) throw;
-			if (ui.phase==SmithUi::Phase::Browse && _encounter->_smith->operation!=originalOperation)
-				ui.phase=_encounter->_smith->quoted?SmithUi::Phase::Quote:SmithUi::Phase::Result;
-			if (ui.phase==SmithUi::Phase::Quote && _encounter->_smith->published) ui.phase=SmithUi::Phase::Result;
-			ui.feedback="Preparation failed. Enter retries.";
-		}
-		if (!revisionAdvanced && (!failed || originalPhase!=ui.phase) && ui.revision!=UINT64_MAX) ++ui.revision;
-		return renderEncounter();
-	}
+    if(_smithUi->mode==SmithUi::Mode::Heal) return handleTemple(action,input,inputFrame);
+    auto &ui=*_smithUi;const auto key=serviceKey(action);
+    if(ui.phase==SmithUi::Phase::Preparation) return frameCopy();
+    const bool member=key>=InputKey::F1 && key<InputKey::F1+_party.party.size();
+    const bool allowed=ui.phase==SmithUi::Phase::Departure?(key==InputKey::Escape || key==InputKey::Enter):
+        ui.phase==SmithUi::Phase::Confirm?xeenConfirmAnswer(key).has_value():
+        ui.phase==SmithUi::Phase::Lobby?(key=='b' || key==InputKey::Escape || member):
+        (key==InputKey::Escape || member || (key>='1' && key<='9') || key=='w' || key=='a' || key=='c' || key=='m' || key=='b' || key=='s' || key=='i' || key=='f');
+    if((ui.feedback.empty() || ui.phase==SmithUi::Phase::Departure) && (!allowed || (member && key-InputKey::F1==ui.member))) return frameCopy();
+    if(_smithSettlement) {_handoffPending=true;return settleSmithEvent();}
+    if(!_encounter->consumeSmithFrame(input,inputFrame)) return frameCopy();
+    const bool cancel=key==InputKey::Escape;
+    const bool confirming=ui.phase==SmithUi::Phase::Confirm && key=='y';
+    const bool row=ui.phase==SmithUi::Phase::Browse && key>='1' && key<='9';
+    const unsigned additional=confirming?3:2;
+    if(ui.phase!=SmithUi::Phase::Departure && !(ui.phase==SmithUi::Phase::Lobby && cancel) &&
+        (!_encounter->smithCapacity(16+additional,4) || !xeenSmithAuthorityRoom(_inputGeneration,10) ||
+        !xeenSmithAuthorityRoom(ui.revision,1) || (row && !xeenSmithAuthorityRoom(_encounter->_smith->operation,1)) ||
+        (confirming && ui.mode==SmithUi::Mode::Buy && !xeenSmithAuthorityRoom(_encounter->_smith->reservation,1)))) {
+        ui.phase=SmithUi::Phase::Departure;ui.feedback="Further service actions unavailable. Escape: depart.";
+        if(ui.revision!=UINT64_MAX) ++ui.revision;return renderEncounter();
+    }
+    const auto originalPhase=ui.phase;
+    bool failed=false,revisionAdvanced=false;
+    try {
+        if(ui.phase!=SmithUi::Phase::Departure && !ui.feedback.empty()) {ui.feedback.clear();_encounter->advanceSmith();}
+        else if(ui.phase==SmithUi::Phase::Lobby) {
+            if(key>=InputKey::F1 && key<InputKey::F1+_party.party.size()) {
+                ui.member=key-InputKey::F1;_encounter->advanceSmith();
+            } else if(key=='b') {
+                ui.mode=SmithUi::Mode::Buy;ui.category=XeenInventoryCategory::Weapons;ui.selected=false;
+                ui.phase=SmithUi::Phase::Browse;_encounter->_smith->quoted=false;_encounter->advanceSmith();
+            } else if(cancel) ui.phase=SmithUi::Phase::Departure;
+            else return renderEncounter(false,true);
+        } else if(ui.phase==SmithUi::Phase::Browse) {
+            if(key>=InputKey::F1 && key<InputKey::F1+_party.party.size()) {
+                ui.member=key-InputKey::F1;ui.selected=false;_encounter->_smith->quoted=false;_encounter->advanceSmith();
+            } else if(key=='w' || key=='a' || key=='c' || key=='m') {
+                ui.category=key=='w'?XeenInventoryCategory::Weapons:key=='a'?XeenInventoryCategory::Armor:
+                    key=='c'?XeenInventoryCategory::Accessories:XeenInventoryCategory::Miscellaneous;
+                ui.selected=false;_encounter->_smith->quoted=false;_encounter->advanceSmith();
+            } else if(key=='b' || key=='f') {
+                ui.mode=key=='b'?SmithUi::Mode::Buy:SmithUi::Mode::Repair;ui.selected=false;
+                _encounter->_smith->quoted=false;_encounter->advanceSmith();
+            } else if(key=='s' || key=='i') ui.feedback=key=='s'?"Sell: not supported yet":"Identify: not supported yet";
+            else if(cancel) {ui.phase=SmithUi::Phase::Lobby;ui.selected=false;_encounter->_smith->quoted=false;_encounter->advanceSmith();}
+            else if(row) {
+                ui.slot=key-'1';ui.selected=true;
+                const auto &c=_party.party.member(_party.roster,ui.member);
+                const auto &item=ui.mode==SmithUi::Mode::Buy?_party.serviceEconomy->wares[0][0][static_cast<unsigned>(ui.category)][ui.slot]:
+                    (*xeenInventoryItems(c,ui.category))[ui.slot];
+                if(!item.id) {ui.selected=false;_encounter->advanceSmith();}
+                else if(ui.mode==SmithUi::Mode::Buy) {
+                    _encounter->quoteSmithBuy(ui.member,ui.category,ui.slot);
+                    const auto outcome=_encounter->_smith->purchase->result.outcome;
+                    if(_encounter->_smith->quoted) ui.phase=SmithUi::Phase::Confirm;
+                    else if(outcome==XeenEquipmentPurchaseOutcome::DestinationFull) ui.feedback=xeenBackpackFull(ui.category,c.name);
+                    else ui.feedback="Buy: not supported yet";
+                } else if(!(item.state&0x80)) ui.feedback=std::string(xeenDialogText(XeenDialogText::ItemNotBroken));
+                else if(ui.category!=XeenInventoryCategory::Armor) ui.feedback="Fix: not supported yet";
+                else {
+                    _encounter->quoteSmith(ui.member,ui.slot);
+                    if(_encounter->_smith->quoted) ui.phase=SmithUi::Phase::Confirm;
+                    else ui.feedback="Fix: not supported yet";
+                }
+            }
+        } else if(ui.phase==SmithUi::Phase::Confirm) {
+            if(confirming) {
+                if(ui.mode==SmithUi::Mode::Buy) _encounter->confirmSmithBuy();else _encounter->confirmSmith();
+                const bool shortfall=ui.mode==SmithUi::Mode::Buy?
+                    _encounter->_smith->purchase->result.outcome==XeenEquipmentPurchaseOutcome::InsufficientGold:
+                    _encounter->_smith->result.outcome==XeenArmorRepairOutcome::InsufficientGold;
+                if(shortfall) ui.feedback=xeenNotEnoughGold();
+            } else {_encounter->_smith->quoted=false;_encounter->advanceSmith();}
+            ui.phase=SmithUi::Phase::Browse;ui.selected=false;
+        }
+        if(ui.phase==SmithUi::Phase::Departure && (cancel || key==InputKey::Enter)) {
+            if(originalPhase!=ui.phase && ui.revision!=UINT64_MAX) {++ui.revision;revisionAdvanced=true;}
+            _encounter->departSmith();_smithSettlement=true;return settleSmithEvent();
+        }
+    } catch(const std::exception &) {
+        failed=true;_encounter->journeySavePreimage().check();if(!_encounter->_smith) throw;
+        if(_encounter->_smith->quoted) ui.phase=SmithUi::Phase::Confirm;
+        if(_encounter->_smith->published && ui.phase!=SmithUi::Phase::Departure) {ui.phase=SmithUi::Phase::Browse;ui.selected=false;}
+        // A retained Confirm can be retried with a fresh Y. A published action
+        // is never repeated, including a failure in a post-publication hook.
+        if(ui.phase!=SmithUi::Phase::Confirm) ui.feedback="Service preparation failed. Escape: depart.";
+    }
+    if(!revisionAdvanced && (!failed || originalPhase!=ui.phase) && ui.revision!=UINT64_MAX) ++ui.revision;
+    if(reportText && !ui.feedback.empty()) reportText(ui.feedback);
+    return renderEncounter();
 }
-IndexedFrame XeenEventFlow::handleTemple(const PlayerAction &action,std::uint64_t input,
-		const IndexedFrame::Presentation &inputFrame) {
-	auto &ui=*_smithUi;
-	if(ui.phase==SmithUi::Phase::Preparation)return frameCopy();
-	const bool confirm=std::holds_alternative<AcknowledgeAction>(action) || std::holds_alternative<YesAction>(action);
-	const bool cancel=std::holds_alternative<CancelInteractionAction>(action) || std::holds_alternative<NoAction>(action);
-	const auto *member=std::get_if<SelectMemberAction>(&action);
-	const bool chooseMember=member && ui.phase==SmithUi::Phase::Lobby &&
-		member->partyIndex<_party.party.size() && member->partyIndex!=ui.member;
-	const bool allowed=chooseMember ||
-		(ui.phase==SmithUi::Phase::Lobby && (confirm || cancel)) ||
-		(ui.phase==SmithUi::Phase::Quote && (confirm || cancel)) ||
-		(ui.phase==SmithUi::Phase::Upgrade && cancel) ||
-		(ui.phase==SmithUi::Phase::Result && confirm) ||
-		(ui.phase==SmithUi::Phase::Departure && (confirm || cancel));
-	if(!allowed)return frameCopy();
-	if(_smithSettlement) {_handoffPending=true;return settleSmithEvent();}
-	if(!_encounter->consumeSmithFrame(input,inputFrame))return frameCopy();
-	const unsigned revisions=ui.phase==SmithUi::Phase::Quote && confirm?2:1;
-	if(ui.phase!=SmithUi::Phase::Departure && !(cancel &&
-		(ui.phase==SmithUi::Phase::Lobby || ui.phase==SmithUi::Phase::Upgrade)) &&
-		(!_encounter->smithCapacity(19,4) || !xeenSmithAuthorityRoom(_inputGeneration,10) ||
-		 !xeenSmithAuthorityRoom(ui.revision,revisions) ||
-		 (ui.phase==SmithUi::Phase::Lobby && confirm && !xeenSmithAuthorityRoom(_encounter->_smith->operation,1)) ||
-		 (ui.phase==SmithUi::Phase::Quote && confirm && !_encounter->_smith->paid &&
-		  !xeenSmithAuthorityRoom(_encounter->_smith->reservation,1)))) {
-		ui.phase=SmithUi::Phase::Departure;
-		ui.feedback="Further Heal actions unavailable. Departure remains reserved.";
-		if(ui.revision!=UINT64_MAX)++ui.revision;
-		return renderEncounter();
-	}
-	ui.feedback.clear();
-	const auto originalPhase=ui.phase;
-	bool failed=false,revisionAdvanced=false;
-	try {
-		if(ui.phase==SmithUi::Phase::Lobby) {
-			if(chooseMember) {ui.member=member->partyIndex;_encounter->advanceSmith();}
-			else if(confirm) {
-				_encounter->quoteTempleHeal(ui.member);
-				ui.phase=_encounter->_smith->quoted?SmithUi::Phase::Quote:SmithUi::Phase::Result;
-			} else if(cancel)ui.phase=SmithUi::Phase::Departure;
-		} else if(ui.phase==SmithUi::Phase::Quote) {
-			if(cancel) {_encounter->_smith->quoted=false;ui.phase=SmithUi::Phase::Lobby;_encounter->advanceSmith();}
-			else ui.phase=_encounter->confirmTempleHeal()?SmithUi::Phase::Result:SmithUi::Phase::Upgrade;
-		} else if(ui.phase==SmithUi::Phase::Upgrade) {
-			_encounter->cancelTempleHeal();ui.phase=SmithUi::Phase::Lobby;
-		} else if(ui.phase==SmithUi::Phase::Result) {
-			ui.phase=SmithUi::Phase::Lobby;_encounter->advanceSmith();
-		}
-		if(ui.phase==SmithUi::Phase::Departure && (confirm || cancel)) {
-			if(originalPhase!=ui.phase && ui.revision!=UINT64_MAX) {++ui.revision;revisionAdvanced=true;}
-			_encounter->departSmith();_smithSettlement=true;return settleSmithEvent();
-		}
-	} catch(const std::exception &) {
-		failed=true;
-		_encounter->journeySavePreimage().check();
-		if(!_encounter->_smith)throw;
-		if(_encounter->_smith->healPending)ui.phase=SmithUi::Phase::Upgrade;
-		else if(ui.phase==SmithUi::Phase::Quote && !_encounter->_smith->quoted)ui.phase=SmithUi::Phase::Result;
-		ui.feedback="Temple preparation failed; retry or depart.";
-	}
-	if(!revisionAdvanced && (!failed || originalPhase!=ui.phase) && ui.revision!=UINT64_MAX)++ui.revision;
-	return renderEncounter();
+IndexedFrame XeenEventFlow::handleTemple(const PlayerAction &action,std::uint64_t input,const IndexedFrame::Presentation &inputFrame) {
+    auto &ui=*_smithUi;const auto key=serviceKey(action);
+    if(ui.phase==SmithUi::Phase::Preparation) return frameCopy();
+    const bool member=key>=InputKey::F1 && key<InputKey::F1+_party.party.size();
+    const bool allowed=ui.phase==SmithUi::Phase::Departure?(key==InputKey::Escape || key==InputKey::Enter):
+        ui.phase==SmithUi::Phase::Upgrade?key==InputKey::Escape:(member || key==InputKey::Escape || key=='h' || key=='d' || key=='u');
+    if((ui.feedback.empty() || ui.phase==SmithUi::Phase::Departure) && (!allowed || (member && key-InputKey::F1==ui.member))) return frameCopy();
+    if(_smithSettlement) {_handoffPending=true;return settleSmithEvent();}
+    if(!_encounter->consumeSmithFrame(input,inputFrame)) return frameCopy();
+    const bool cancel=key==InputKey::Escape;
+    const unsigned revisions=key=='h'?2:1;
+    if(ui.phase!=SmithUi::Phase::Departure && !(cancel && (ui.phase==SmithUi::Phase::Lobby || ui.phase==SmithUi::Phase::Upgrade)) &&
+        (!_encounter->smithCapacity(20,4) || !xeenSmithAuthorityRoom(_inputGeneration,10) || !xeenSmithAuthorityRoom(ui.revision,revisions) ||
+        (key=='h' && (!xeenSmithAuthorityRoom(_encounter->_smith->operation,1) ||
+        (!_encounter->_smith->paid && !xeenSmithAuthorityRoom(_encounter->_smith->reservation,1)))))) {
+        ui.phase=SmithUi::Phase::Departure;ui.feedback="Further Heal actions unavailable. Escape: depart.";
+        if(ui.revision!=UINT64_MAX) ++ui.revision;return renderEncounter();
+    }
+    const auto originalPhase=ui.phase;
+    bool failed=false,revisionAdvanced=false;
+    try {
+        if(ui.phase!=SmithUi::Phase::Departure && !ui.feedback.empty()) {ui.feedback.clear();_encounter->advanceSmith();}
+        else if(ui.phase==SmithUi::Phase::Lobby) {
+            if(key>=InputKey::F1 && key<InputKey::F1+_party.party.size()) {
+                ui.member=key-InputKey::F1;_encounter->_smith->quoted=false;_encounter->advanceSmith();
+            } else if(key=='d') ui.feedback="Donation: not supported yet";
+            else if(key=='u') {
+                if(xeenTempleUncurseCost(_party.party.member(_party.roster,ui.member))) ui.feedback="Uncurse: not supported yet";
+            } else if(key=='h') {
+                if(!_encounter->_smith->quoted) _encounter->quoteTempleHeal(ui.member);
+                if(_encounter->_smith->quoted) ui.phase=_encounter->confirmTempleHeal()?SmithUi::Phase::Lobby:SmithUi::Phase::Upgrade;
+                const auto outcome=_encounter->_smith->healResult.outcome;
+                if(outcome==XeenTempleHealOutcome::InsufficientGold) ui.feedback=xeenNotEnoughGold();
+                else if(outcome==XeenTempleHealOutcome::SupportLimit || outcome==XeenTempleHealOutcome::HpSupportLimit)
+                    ui.feedback="Heal: not supported yet at this date or capacity";
+            } else if(cancel) ui.phase=SmithUi::Phase::Departure;
+        } else if(ui.phase==SmithUi::Phase::Upgrade && cancel) {_encounter->cancelTempleHeal();ui.phase=SmithUi::Phase::Lobby;}
+        if(ui.phase==SmithUi::Phase::Departure && (cancel || key==InputKey::Enter)) {
+            if(originalPhase!=ui.phase && ui.revision!=UINT64_MAX) {++ui.revision;revisionAdvanced=true;}
+            _encounter->departSmith();_smithSettlement=true;return settleSmithEvent();
+        }
+    } catch(const std::exception &) {
+        failed=true;_encounter->journeySavePreimage().check();if(!_encounter->_smith) throw;
+        if(_encounter->_smith->healPending) ui.phase=SmithUi::Phase::Upgrade;
+        else if(_encounter->_smith->published && ui.phase!=SmithUi::Phase::Departure) ui.phase=SmithUi::Phase::Lobby;
+        else if(ui.phase==SmithUi::Phase::Departure) ui.feedback="Temple departure failed. Escape: retry.";
+    }
+    if(!revisionAdvanced && (!failed || originalPhase!=ui.phase) && ui.revision!=UINT64_MAX) ++ui.revision;
+    if(reportText && !ui.feedback.empty()) reportText(ui.feedback);
+    return renderEncounter();
 }
 }

@@ -348,7 +348,7 @@ void services(Inputs &in) {
  for(unsigned mode=0;mode<5;++mode)for(unsigned timing:{1u,3u,4u}) {
   Harness h(in);auto s=h.services();auto source=in.service();std::uint64_t now=0;unsigned cycles=0,dispatches=0,loops=0;
   s.clock=[&]{return now;};bool armed=false,injected=false;IndexedFrame::Presentation a,b;
-  const auto code=mode==0?SDLK_SPACE:mode==1?SDLK_F2:SDLK_RETURN;
+  const auto code=mode==0?SDLK_SPACE:mode==1?SDLK_F2:mode==2?SDLK_t:mode==3?SDLK_F3:SDLK_ESCAPE;
   const auto inject=[&]{if(armed && !injected){injected=true;tap(code);}};
   h.composeHook=[&]{if(timing==1)inject();};copyHook=[&]{if(timing==3)inject();};
   s.show=[&](const auto &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
@@ -358,8 +358,7 @@ void services(Inputs &in) {
    present();
    if(mode){act(InteractionAction{});prepare();check(XeenTrainingTestAccess::menu(*h.flow),"service menu setup");}
    if(mode>=2)act(SelectMemberAction{1});
-   if(mode>=3){act(AcknowledgeAction{});check(XeenTrainingTestAccess::quote(*h.flow),"quote setup");}
-   if(mode==4){act(AcknowledgeAction{});prepare();}
+   if(mode>=3){act(DialogKeyAction{'t'});prepare();}
    check(handler.inputContext(h.flow->frame().presentation()).acceptsQueuedInput==(mode==0),"service context queue acceptance");
    auto native=handler;native.beginCycle=[&](auto){handler.beginCycle(++cycles);};
    native.completeInputHandoff=[&](const auto &f){handler.completeInputHandoff(f);if(armed && f==b && timing==4)inject();};
@@ -372,9 +371,10 @@ void services(Inputs &in) {
    if(mode==0 && !XeenTrainingTestAccess::menu(*h.flow))return idle();
    if(mode==0)check(h.world->sessionState().journeyActivity()==XeenJourneyActivity::Service,"Space not accepted");
    if(mode==1)check(XeenTrainingTestAccess::selected(*h.flow)==1,"F2 selection not accepted");
-   if(mode==2)check(XeenTrainingTestAccess::quote(*h.flow),"menu Enter not accepted");
-   if(mode==3)check(!XeenTrainingTestAccess::quote(*h.flow),"quote Enter not accepted");
-   if(mode==4)check(XeenTrainingTestAccess::menu(*h.flow),"result Enter not accepted");
+   if(mode==2 && !XeenTrainingTestAccess::menu(*h.flow))return idle();
+   if(mode==2)check(h.party->roster.at(18).permanentLevel==4,"T not accepted");
+   if(mode==3)check(XeenTrainingTestAccess::selected(*h.flow)==2,"F3 not accepted");
+   if(mode==4 && !h.flow->canSave())return idle();
 quit();return {};}
     if(!armed){armed=true;a=h.flow->frame().presentation();now+=100;
      auto frame=mode?h.flow->refresh(true):*idle();b=frame.presentation();check(a!=b && handler.acceptsInputFrame(a),"service cosmetic lost A");return frame;}

@@ -11,7 +11,7 @@ using namespace mmodern;
 namespace {
 void check(bool ok,const char *message){if(!ok)throw std::runtime_error(message);}
 void hits(){
- for(const auto &input:{xeenSheetInput(),xeenItemsInput(false),xeenItemsInput(true),xeenItemsInput(false,true),xeenConfirmInput(false),xeenConfirmInput(true)}){
+ for(const auto &input:{xeenSheetInput(),xeenItemsInput(false),xeenItemsInput(true),xeenItemsInput(false,true),xeenBuyInput(),xeenBuyInput(true),xeenLocationInput(XeenLocationDialog::Smith),xeenLocationInput(XeenLocationDialog::Training),xeenLocationInput(XeenLocationDialog::Temple),xeenConfirmInput(false),xeenConfirmInput(true)}){
   for(const auto &hit:input.hits){
    for(const int x:{hit.left,hit.right-1})for(const int y:{hit.top,hit.bottom-1}){
     const auto action=input.click(x,y);check(action && std::get<DialogKeyAction>(*action).key==hit.key,"dialog rectangle corner");
@@ -29,6 +29,16 @@ void hits(){
  }
  check(!xeenSheetInput().click(250,50) && !xeenItemsInput(false).click(270,50),"outside dialog accepted");
  check(xeenConfirmInput().key(InputKey::Escape).has_value(),"Confirm Escape absent");
+ check(xeenLocationInput(XeenLocationDialog::Training).button('t')->pressedFrame()==1 &&
+  xeenLocationInput(XeenLocationDialog::Training).button(InputKey::Escape)->pressedFrame()==3 &&
+  xeenBuyInput().button('b')->frame==9 && xeenBuyInput(true).button('f')->frame==15,
+  "original service persistent mode/pressed glyphs");
+ check(!xeenLocationInput(XeenLocationDialog::Smith).key('r') && !xeenLocationInput(XeenLocationDialog::Training).key(InputKey::Enter) &&
+  !xeenLocationInput(XeenLocationDialog::Temple).key(InputKey::Enter) && !xeenBuyInput().key(InputKey::Right),"project service keys survived");
+ check(xeenBuyDisplayCost(XeenInventoryCategory::Weapons,{0,3,0,0})==100 &&
+  xeenBuyDisplayCost(XeenInventoryCategory::Armor,{38,3,0,0})==50 &&
+  xeenBuyDisplayCost(XeenInventoryCategory::Accessories,{48,1,0,0})==500 &&
+  xeenBuyDisplayCost(XeenInventoryCategory::Miscellaneous,{2,16,7,0})==1200,"original stock display arithmetic");
  check(xeenConfirmAnswer('y')==true && xeenConfirmAnswer('n')==false &&
   xeenConfirmAnswer(InputKey::Escape)==false && !xeenConfirmAnswer(InputKey::Enter),"Confirm Y/N/Escape behavior");
  check(xeenItemsInput(true).button('u')->pressedFrame()==19 &&

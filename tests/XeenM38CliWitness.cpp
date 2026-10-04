@@ -162,6 +162,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   const auto action=[&](PlayerAction a){
    if(!nativeControls){steps.push_back([&,a]{act(a);return true;});return;}
    SDL_Keycode key=SDLK_UNKNOWN;
+   if(const auto *d=std::get_if<DialogKeyAction>(&a))key=SDL_Keycode(d->key);
    if(std::holds_alternative<InteractionAction>(a))key=SDLK_SPACE;
    if(std::holds_alternative<AcknowledgeAction>(a))key=SDLK_RETURN;
    if(std::holds_alternative<CancelInteractionAction>(a))key=SDLK_ESCAPE;
@@ -195,7 +196,13 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    });
   };
   const auto inspect=[&](std::function<void()> f){steps.push_back([f]{f();return true;});};
-  const auto waitService=[&]{steps.push_back([&]{return XeenTrainingTestAccess::admitted(*flow);});};
+  const auto dismissServiceNotice=[&]{steps.push_back([&]{
+   const auto context=handler.inputContext(presented);
+   if(context.dialog && context.dialog->anyKey)act(AcknowledgeAction{});
+   return true;
+  });};
+  const auto waitService=[&]{steps.push_back([&]{return XeenTrainingTestAccess::admitted(*flow);});dismissServiceNotice();};
+  const auto browseRepair=[&]{action(DialogKeyAction{'b'});action(DialogKeyAction{'a'});action(DialogKeyAction{'f'});};
   const auto settle=[&]{steps.push_back([&]{
    if(flow->canSave())return true;
    if(const auto *combat=flow->encounter()->combat()) {
@@ -235,13 +242,15 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    });
   };
   const auto deniedSave=[&]{
-   auto count=std::make_shared<unsigned>();auto responses=std::make_shared<unsigned>();auto prior=std::make_shared<std::vector<std::uint8_t>>();
-   inspect([&,count,responses,prior]{check(!flow->canSave(),"M38 service exposed Quiet");*count=saveCalls;*responses=nativeSaveResponses;
-    *prior=XeenSaveFormat::encode(XeenSaveFile::read(*target));pushKey(SDLK_F9);});
-   steps.push_back([&,count,responses,prior]{
-    if(nativeSaveResponses==*responses)return false;
-    check(nativeSaveResponses==*responses+1 && status().find("Cannot save")!=std::string::npos,"M38 native F9 refusal response missing");
-    check(saveCalls==*count && *prior==XeenSaveFormat::encode(XeenSaveFile::read(*target)),"M38 refused F9 performed work or changed disk");
+   auto count=std::make_shared<unsigned>();auto responses=std::make_shared<unsigned>();
+   auto cycles=std::make_shared<unsigned>(0);auto input=std::make_shared<std::uint64_t>();
+   auto prior=std::make_shared<std::vector<std::uint8_t>>();
+   inspect([&,count,responses,prior,input]{check(!flow->canSave(),"M38 service exposed Quiet");*count=saveCalls;*responses=nativeSaveResponses;
+    *input=*handler.displayedInput();*prior=XeenSaveFormat::encode(XeenSaveFile::read(*target));pushKey(SDLK_F9);});
+   steps.push_back([&,count,responses,prior,input,cycles]{
+    if(++*cycles<3)return false;
+    check(nativeSaveResponses==*responses && *handler.displayedInput()==*input,"M38 strict service dialog dispatched F9 or consumed input");
+    check(saveCalls==*count && *prior==XeenSaveFormat::encode(XeenSaveFile::read(*target)),"M38 ignored F9 performed work or changed disk");
     pushKey(SDLK_F9,false);return true;
    });
   };
@@ -288,17 +297,23 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     inspect([&]{if(party->encounterContext->day==8)check(flow->canSave(),"Pre-admission failure retained obligation");});
     action(InteractionAction{});
    }
-   waitService();deniedSave();action(SelectMemberAction{5});action(AcknowledgeAction{});deniedSave();
-   action(SelectInventorySlotAction{slot});action(AcknowledgeAction{});
-   action(SelectMemberAction{0});action(SelectInventorySlotAction{8}); // Quote remains bound to the selected physical item.
-   action(NoAction{}); // Free quote cancellation; visit remains owed.
-      action(AcknowledgeAction{});deniedSave();action(AcknowledgeAction{});
-   if(control=="fail-before-repair" && slot==0) action(AcknowledgeAction{});
+   waitService();deniedSave();action(SelectMemberAction{5});browseRepair();deniedSave();
+   action(SelectInventorySlotAction{slot});
+   inspect([&]{
+    const auto input=handler.displayedInput();
+    handler.withPresentedInput(SelectMemberAction{0},*input,presented);
+    handler.withPresentedInput(SelectInventorySlotAction{8},*input,presented);
+    check(input==handler.displayedInput(),"M38 ignored Confirm controls consumed authority");
+   }); // Confirm remains bound to the selected physical item.
+   action(NoAction{}); // Free cancellation; visit remains owed.
+   action(SelectInventorySlotAction{slot});deniedSave();action(YesAction{});
+   if(control=="fail-before-repair" && slot==0)action(YesAction{});
+   dismissServiceNotice();
    inspect([&,slot,goldAfter,ac]{check(XeenCharacterRules::combatArmorClass(party->roster.at(6),*party->roster.combatInputs(6),{party->encounterContext->year})==*ac+(slot==0?2:1),"M38 repaired AC contribution");check(party->monsterTreasure->gold==goldAfter && party->roster.at(6).armor[slot].state==0,
     "M38 payment/item publication mismatch");});
-   deniedSave();action(AcknowledgeAction{});action(AcknowledgeAction{}); // Intact refusal.
+   deniedSave();action(SelectInventorySlotAction{slot}); // Original intact refusal.
    inspect([&,goldAfter]{check(party->monsterTreasure->gold==goldAfter,"M38 intact repeat charged gold");});
-      action(AcknowledgeAction{});action(CancelInteractionAction{});action(CancelInteractionAction{});
+   action(AcknowledgeAction{});action(CancelInteractionAction{});action(CancelInteractionAction{});
    if(slot==0 && (control=="fail-before-departure" || control=="fail-after-departure" || control=="fail-return")) {deniedSave();action(AcknowledgeAction{});}
    settle();
    inspect([&,before,slot,goldAfter]{
@@ -311,12 +326,11 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   if(stage=="multi") {
    auto expected=std::make_shared<XeenSaveSnapshot>();
    inspect([&,expected]{*expected=XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world);});
-   action(InteractionAction{});waitService();action(SelectMemberAction{5});action(AcknowledgeAction{});
+   action(InteractionAction{});waitService();action(SelectMemberAction{5});browseRepair();
    for(unsigned slot=0;slot<2;++slot) {
-    action(SelectInventorySlotAction{slot});action(AcknowledgeAction{});action(AcknowledgeAction{});deniedSave();
+    action(SelectInventorySlotAction{slot});action(YesAction{});deniedSave();
     inspect([&,slot]{check(party->encounterContext->day==8 && party->monsterTreasure->gold==(slot?807u:808u),
      "M38 multiple repairs settled early or rolled back earlier payment");});
-    action(AcknowledgeAction{});
    }
    action(CancelInteractionAction{});action(CancelInteractionAction{});settle();
    inspect([&,expected]{expected->characters[6].armor[0].state=0;expected->characters[6].armor[1].state=0;
@@ -352,8 +366,8 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    // Explicit artificial funds/inventory fixture, never the production witness.
    auto expected=std::make_shared<XeenSaveSnapshot>();
    inspect([&,expected]{*expected=XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world);});
-   action(InteractionAction{});waitService();deniedSave();action(SelectMemberAction{5});action(AcknowledgeAction{});deniedSave();
-   action(SelectInventorySlotAction{8});action(AcknowledgeAction{});deniedSave();action(AcknowledgeAction{});
+   action(InteractionAction{});waitService();deniedSave();action(SelectMemberAction{5});browseRepair();deniedSave();
+   action(SelectInventorySlotAction{8});deniedSave();action(YesAction{});
    inspect([&,expected]{
     if(expected->journey->treasure->gold) {
      --expected->journey->treasure->gold;expected->characters[6].armor[8].state=0x45;
@@ -362,7 +376,8 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
      party->roster.at(6).armor[8].state==expected->characters[6].armor[8].state,
      "M38 artificial exact/insufficient/full-u32 payment");
    });
-   action(AcknowledgeAction{});action(CancelInteractionAction{});action(CancelInteractionAction{});settle();
+   if(nativeControls)action(AcknowledgeAction{});else dismissServiceNotice();
+   action(CancelInteractionAction{});action(CancelInteractionAction{});settle();
    inspect([&,expected]{++expected->journey->context->day;
     check(XeenSaveFormat::encode(*expected)==XeenSaveFormat::encode(
      XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world)),

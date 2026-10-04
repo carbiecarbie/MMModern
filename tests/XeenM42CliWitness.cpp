@@ -152,6 +152,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         const auto action=[&](PlayerAction a,bool native=false) {
             if(!native){steps.push_back([&,a]{act(a);return true;});return;}
             SDL_Keycode key=SDLK_UNKNOWN;
+            if(const auto d=std::get_if<DialogKeyAction>(&a))key=SDL_Keycode(d->key);
             if(std::holds_alternative<InteractionAction>(a))key=SDLK_SPACE;
             if(std::holds_alternative<AcknowledgeAction>(a))key=SDLK_RETURN;
             if(std::holds_alternative<CancelInteractionAction>(a))key=SDLK_ESCAPE;
@@ -223,13 +224,13 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         });
         if(stage=="shoot") {
             inspect([&,beforePurchase]{*beforePurchase=snapshot();expect(11,803,670,2959920300u,2009);check(xeenSameItem(party->serviceEconomy->wares[0][0][0][5],{0,32,0,0}),"M42 actual D stock has no literal missile32 offer");});
-            action(InteractionAction{});waitService();action(BlockAction{},true);action(SelectInventorySlotAction{5},true);action(AcknowledgeAction{},true);action(AcknowledgeAction{},true);
+            action(InteractionAction{});waitService();action(DialogKeyAction{'b'},true);action(SelectInventorySlotAction{5},true);action(YesAction{},true);
             inspect([&,beforePurchase]{deny();expect(11,803,620,2959920300u,2009);check(xeenSameItem(party->roster.at(0).weapons[1],{0,32,0,0}),"M42 actual missile purchase physical delivery differs");
                 auto expected=*beforePurchase->journey->serviceEconomy;expected.wares[0][0][0]=m42_test::restockedWeaponsAfterMissile();check(expected==*party->serviceEconomy,"M42 missile purchase changed untouched stock/bank or depleted wrong quantity");
                 for(unsigned owner=0;owner<30;++owner){auto c=beforePurchase->characters[owner];if(owner==0)c.weapons[1]={0,32,0,0};check(xeen_state::sameCharacter(c,party->roster.at(owner)) && xeen_state::sameInputs(beforePurchase->journey->supplements[owner].inputs,*party->roster.combatInputs(owner)),"M42 missile purchase changed other owner fields");}
                 std::cout<<"PREPARATION purchase committed Weapons physical5 expected-price50\nOPERATION Buy Weapons physical5 price50 payment "<<beforePurchase->journey->treasure->gold<<"->"<<party->monsterTreasure->gold<<" delivery0:1 raw0:32:0:0 depletion8->7 stable\n";
             });
-            action(AcknowledgeAction{},true);action(CancelInteractionAction{},true);action(CancelInteractionAction{},true);settle();
+            action(CancelInteractionAction{},true);action(CancelInteractionAction{},true);settle();
             inspect([&]{expect(12,803,620,2959920300u,2009);check(!interestCalls,"M42 missile visit repeated restock interest");});checkpoint("S");
             action(InspectInventoryAction{});action(SelectInventorySlotAction{1});action(SelectMemberAction{1});
             action(SelectMemberAction{1});action(SelectInventorySlotAction{1});action(EquipmentInventoryAction{});
@@ -265,7 +266,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         }
         if(!resume || stage=="A" || stage=="weapons") {
             inspect([&,beforePurchase]{*beforePurchase=snapshot();m42_test::sameCategory(party->serviceEconomy->wares[0][0][0],m42_test::weaponsBefore());m42_test::sameCategory(party->serviceEconomy->wares[0][0][1],m42_test::armorBefore());});
-            action(InteractionAction{});waitService();action(SelectMemberAction{1},true);action(SelectMemberAction{0},true);action(BlockAction{},true);
+            action(InteractionAction{});waitService();action(SelectMemberAction{1},true);action(SelectMemberAction{0},true);action(DialogKeyAction{'b'},true);
             if(stage=="weapons") {
                 const auto paidWeapon=[&,beforePurchase](unsigned ordinal,unsigned physical) {
                     deny();expect(8,803,870-60*ordinal,799325555,1101);
@@ -274,9 +275,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                         <<" price60 payment "<<beforePurchase->journey->treasure->gold-60*(ordinal-1)<<"->"<<party->monsterTreasure->gold
                         <<" delivery0:"<<ordinal<<" raw0:6:0:0 depletion"<<9-ordinal<<"->"<<8-ordinal<<" stable\n";
                 };
-                action(SelectInventorySlotAction{1},true);action(AcknowledgeAction{},true);action(AcknowledgeAction{},true);inspect([paidWeapon]{paidWeapon(1,1);});action(AcknowledgeAction{},true);
+                action(SelectInventorySlotAction{1},true);action(YesAction{},true);inspect([paidWeapon]{paidWeapon(1,1);});
                 // The second byte-identical weapon-6 quantity shifted from 4 to 3.
-                action(SelectInventorySlotAction{3},true);action(AcknowledgeAction{},true);action(AcknowledgeAction{},true);inspect([paidWeapon]{paidWeapon(2,3);});action(AcknowledgeAction{},true);
+                action(SelectInventorySlotAction{3},true);action(YesAction{},true);inspect([paidWeapon]{paidWeapon(2,3);});
                 action(CancelInteractionAction{},true);action(CancelInteractionAction{},true);settle();
                 inspect([&,beforePurchase]{expect(9,803,750,799325555,1101);check(xeenSameItem(party->roster.at(0).weapons[1],{0,6,0,0}) && xeenSameItem(party->roster.at(0).weapons[2],{0,6,0,0}),"M42 repeated weapon purchase delivery differs");
                     auto expected=*beforePurchase->journey->serviceEconomy;expected.wares[0][0][0]=m42_test::weaponsAfterTwo();check(expected==*party->serviceEconomy,"M42 duplicate weapon purchases changed untouched stock/bank");
@@ -288,16 +289,16 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 action(AcknowledgeAction{});action(SelectInventorySlotAction{0});action(DialogKeyAction{'r'});action(SelectInventorySlotAction{1});action(EquipmentInventoryAction{});action(CancelInteractionAction{});settle();
                 inspect([&]{check(xeenSameItem(party->roster.at(18).weapons[1],{0,6,0,1}),"M42 weapon legal equip differs");const auto d=xeenOrdinaryWeaponDice(6);check(d.count==4 && d.sides==2,"M42 weapon-6 independent 4d2 differs");});checkpoint("W1");
             } else {
-                action(NavigationAction::TurnRight,true);action(SelectInventorySlotAction{3},true);action(AcknowledgeAction{},true);inspect(deny);action(CancelInteractionAction{},true);
+                action(DialogKeyAction{'a'},true);action(SelectInventorySlotAction{3},true);inspect(deny);action(CancelInteractionAction{},true);
                 inspect([&,beforePurchase]{for(unsigned owner=0;owner<30;++owner)check(xeen_state::sameCharacter(beforePurchase->characters[owner],party->roster.at(owner)) && xeen_state::sameInputs(beforePurchase->journey->supplements[owner].inputs,*party->roster.combatInputs(owner)),"M42 cancelled quote changed owner");check(*party->serviceEconomy==*beforePurchase->journey->serviceEconomy,"M42 cancelled quote changed wares");expect(8,803,870,799325555,1101);std::cout<<"PREPARATION purchase discarded Armor physical3 expected-price200\nOPERATION Cancel Armor physical3 payment "<<beforePurchase->journey->treasure->gold<<"->"<<party->monsterTreasure->gold<<" delivery-none depletion-none\n";});
-                action(SelectInventorySlotAction{4},true);action(SelectInventorySlotAction{3},true);action(AcknowledgeAction{},true);action(AcknowledgeAction{},true);inspect(deny);
+                action(SelectInventorySlotAction{4},true);action(CancelInteractionAction{},true);action(SelectInventorySlotAction{3},true);action(YesAction{},true);inspect(deny);
                 inspect([&,beforePurchase]{expect(8,803,670,799325555,1101);m42_test::sameCategory(party->serviceEconomy->wares[0][0][1],m42_test::armorAfter());
                     check(xeenSameItem(party->roster.at(0).armor[5],{0,3,0,0}),"M42 unequipped physical Armor delivery differs");
                     auto expected=*beforePurchase->journey->serviceEconomy;expected.wares[0][0][1]=m42_test::armorAfter();check(expected==*party->serviceEconomy,"M42 purchase changed untouched economy");
                     for(unsigned owner=0;owner<30;++owner){auto c=beforePurchase->characters[owner];if(owner==0)c.armor[5]={0,3,0,0};check(xeen_state::sameCharacter(c,party->roster.at(owner)) && xeen_state::sameInputs(beforePurchase->journey->supplements[owner].inputs,*party->roster.combatInputs(owner)),"M42 purchase changed other owner fields");}
                     std::cout<<"PREPARATION purchase committed Armor physical3 expected-price200\nOPERATION Buy Armor physical3 price200 payment "<<beforePurchase->journey->treasure->gold<<"->"<<party->monsterTreasure->gold<<" delivery0:5 raw0:3:0:0 depletion7->6 stable\n";
                 });
-                action(AcknowledgeAction{},true);action(SelectInventorySlotAction{0},true);action(AcknowledgeAction{},true);action(AcknowledgeAction{},true);
+                action(SelectInventorySlotAction{0},true);action(YesAction{},true);
                 inspect([&]{expect(8,803,670,799325555,1101);m42_test::sameCategory(party->serviceEconomy->wares[0][0][1],m42_test::armorAfter());});action(AcknowledgeAction{},true);
                 action(CancelInteractionAction{},true);action(CancelInteractionAction{},true);settle();
                 inspect([&]{expect(9,803,670,799325555,1101);check(!interestCalls,"M42 nontrigger departure applied interest");});checkpoint("B");
@@ -313,10 +314,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         }
         if(stage!="depleted") {
         if(stage!="weapons" && (!resume || stage=="A" || stage=="B" || stage=="B1")) {
-            action(InteractionAction{});waitService();action(BlockAction{},true);action(NavigationAction::TurnRight,true);action(SelectInventorySlotAction{0},true);
-            action(AcknowledgeAction{},true);action(CancelInteractionAction{},true);action(CancelInteractionAction{},true);
+            action(InteractionAction{});waitService();action(DialogKeyAction{'b'},true);action(DialogKeyAction{'a'},true);action(SelectInventorySlotAction{0},true);
+            action(CancelInteractionAction{},true);
             // Existing repair mode coexists without admitting another departure.
-            action(RevisitCompletedAction{},true);action(CancelInteractionAction{},true);action(CancelInteractionAction{},true);settle();
+            action(DialogKeyAction{'f'},true);action(CancelInteractionAction{},true);action(CancelInteractionAction{},true);settle();
             inspect([&]{expect(10,803,670,799325555,1101);m42_test::sameCategory(party->serviceEconomy->wares[0][0][1],m42_test::armorAfter());});checkpoint("C");
         }
         if(stage!="weapons" && stage!="D") {

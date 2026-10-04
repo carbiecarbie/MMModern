@@ -185,7 +185,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             auto beforeCharacters=std::make_shared<std::array<XeenCharacter,30>>();
             auto beforeInputs=std::make_shared<std::array<XeenCombatInputs,30>>();
             inspect([&,beforeCharacters,beforeInputs]{for(unsigned id=0;id<30;++id){(*beforeCharacters)[id]=party->roster.at(id);(*beforeInputs)[id]=*party->roster.combatInputs(id);}});
-            action(SelectMemberAction{member},true);inspect(deny);action(AcknowledgeAction{},true);inspect(deny);action(AcknowledgeAction{});
+            action(SelectMemberAction{member},true);inspect(deny);action(DialogKeyAction{'t'});inspect(deny);
             steps.push_back([&,owner,day,gold,hp,sp,beforeCharacters,beforeInputs]{deny();if(party->roster.at(owner).permanentLevel!=4)return false;
                 check(party->roster.combatInputs(owner)->experience==280 && party->monsterTreasure->gold==gold &&
                     party->roster.at(owner).currentHp==hp && party->roster.at(owner).currentSp==sp && party->encounterContext->day==day,
@@ -232,8 +232,8 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         }
         if(!resume || stage=="A") {
             action(InteractionAction{});waitService();paid(1,18,9,780,64,0);paid(4,1,10,690,28,28);
-            action(SelectMemberAction{1});action(AcknowledgeAction{});inspect([&]{deny();expect(10,808,690,799325555,1101);});
-            action(AcknowledgeAction{});action(CancelInteractionAction{});settle();
+            action(SelectMemberAction{1});inspect([&]{deny();expect(10,808,690,799325555,1101);});
+            action(CancelInteractionAction{});settle();
             inspect([&]{expect(11,808,690,2959920300u,2009);check(interestCalls==1,"M41 stock/interest duplicated");});checkpoint("B");
         }
         // B -> C: reset exit, useful First Aid, lethal Magic Arrow, empty visit.
@@ -272,8 +272,8 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             act(NavigationAction::MoveForward);return false;
         });
         route("UUULUUUUURUUUU");action(InteractionAction{});waitService();
-        action(SelectMemberAction{1});action(AcknowledgeAction{});action(AcknowledgeAction{});
-        action(SelectMemberAction{4});action(AcknowledgeAction{});action(AcknowledgeAction{});
+        action(SelectMemberAction{1});action(DialogKeyAction{'t'});
+        action(SelectMemberAction{4});action(DialogKeyAction{'t'});
         action(CancelInteractionAction{});settle();inspect([&]{check(party->encounterContext->day==12 && party->monsterTreasure->gold==690,
             "M41 later empty service added training/debit");});checkpoint("C");
         inspect([&]{std::cout<<"M41 PRODUCTION WITNESS PASSED\n";SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);});

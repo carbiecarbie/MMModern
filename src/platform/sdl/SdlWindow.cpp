@@ -50,7 +50,6 @@ std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key) {
 	case SDLK_F9: return SaveGameAction{};
 	case SDLK_i: return UnsupportedMainScreenAction{"Info"};
 	case SDLK_u: return UseItemAction{};
-	case SDLK_t: return TransferInventoryAction{}; // Existing Training dialog until Part B.
 	case SDLK_1: case SDLK_2: case SDLK_3: case SDLK_4: case SDLK_5:
 	case SDLK_6: case SDLK_7: case SDLK_8: case SDLK_9:
 		return SelectInventorySlotAction{static_cast<std::size_t>(key.keysym.sym - SDLK_1)};

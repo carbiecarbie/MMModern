@@ -25,8 +25,8 @@ struct TempleFixture:Fixture {
         check(!flow->canSave(),"Temple entry did not retain service debt");
     }
     void heal(unsigned member) {
-        act(SelectMemberAction{member});act(AcknowledgeAction{});act(AcknowledgeAction{});
-        prepare();act(AcknowledgeAction{});
+        act(SelectMemberAction{member});act(DialogKeyAction{'h'});
+        prepare();
     }
     void leave(){act(CancelInteractionAction{});check(flow->canSave(),"Temple departure did not return Quiet");}
 };
@@ -63,7 +63,7 @@ void departureRetries(Inputs &in) {
 void revisionLimits(Inputs &in) {
     for(bool alreadyPaid:{false,true})for(bool afterFault:{false,true})for(unsigned room:{1u,2u,3u}) {
         TempleFixture fixture(in,injured(in));fixture.enter();if(alreadyPaid)fixture.heal(5);
-        fixture.act(SelectMemberAction{alreadyPaid?4u:5u});fixture.act(AcknowledgeAction{});
+        fixture.act(SelectMemberAction{alreadyPaid?4u:5u});
         const auto gold=fixture.p.monsterTreasure->gold;
         const auto owner=alreadyPaid?1u:6u;
         const auto before=fixture.p.roster.at(owner);
@@ -71,7 +71,7 @@ void revisionLimits(Inputs &in) {
         unsigned faults=0;
         fixture.flow->smithBoundary=[&](auto here){if(afterFault && here==XeenSmithBoundary::AfterHeal && ++faults==1)
             throw std::runtime_error("post-publication Temple revision fault");};
-        fixture.act(AcknowledgeAction{});
+        fixture.act(DialogKeyAction{'h'});
         if(room==1) {
             check(fixture.p.monsterTreasure->gold==gold &&
                 xeen_state::sameCharacter(before,fixture.p.roster.at(owner)) &&
@@ -94,7 +94,7 @@ void revisionLimits(Inputs &in) {
     }
     // Independently exercise the final check while a detached Heal is pending.
     TempleFixture pending(in,injured(in));pending.enter();pending.act(SelectMemberAction{5});
-    pending.act(AcknowledgeAction{});pending.act(AcknowledgeAction{});
+    pending.act(DialogKeyAction{'h'});
     XeenTrainingTestAccess::templeRevision(*pending.flow,UINT64_MAX);
     pending.flow->beginCycle(++pending.cycle);
     check(!pending.flow->updatePresentation() && pending.p.monsterTreasure->gold==810 &&
@@ -117,22 +117,16 @@ void quotePreview(Inputs &in) {
         check(expected.result.outcome==XeenTempleHealOutcome::Healed,"Temple preview fixture is not payable");
         if(!scenario)check(expected.result.hpAfter==6 && expected.result.maxHpAfter==9,
             "Disease temporary-bonus preview fixture differs from independent HP 6/9");
-        fixture.enter();fixture.act(SelectMemberAction{5});fixture.act(AcknowledgeAction{});
-        const auto hp="HP "+std::to_string(expected.result.hpBefore)+" -> "+
-            std::to_string(expected.result.hpAfter)+" (healthy max "+std::to_string(expected.result.maxHpAfter)+")";
-        check(XeenTrainingTestAccess::templeText(*fixture.flow).find(hp)!=std::string::npos,
-            "Temple quote HP preview differs from reset/assignment/condition-clear Heal result");
-        fixture.act(AcknowledgeAction{});fixture.prepare();
-        const auto resultText=XeenTrainingTestAccess::templeText(*fixture.flow);
-        check(resultText.find(hp)!=std::string::npos &&
-            resultText.find("SP "+std::to_string(expected.result.spBefore)+" -> "+
-                std::to_string(expected.result.spAfter))!=std::string::npos &&
-            resultText.find("Healed. Paid "+std::to_string(expected.result.price)+" gold.")!=std::string::npos &&
-            resultText.find("Gold now "+std::to_string(expected.result.goldAfter))!=std::string::npos &&
-            fixture.p.roster.at(6).currentHp==expected.result.hpAfter &&
-            XeenCharacterRules::maxHp(fixture.p.roster.at(6),{610})==expected.result.maxHpAfter,
-            "Temple displayed preview differs from published selected Heal");
-        fixture.act(AcknowledgeAction{});fixture.leave();
+        fixture.enter();fixture.act(SelectMemberAction{5});
+        check(XeenTrainingTestAccess::templeText(*fixture.flow).find(std::to_string(expected.result.price))!=std::string::npos,
+            "Temple original panel omits Heal price");
+        fixture.act(DialogKeyAction{'h'});fixture.prepare();
+        check(fixture.p.roster.at(6).currentHp==expected.result.hpAfter &&
+            fixture.p.roster.at(6).currentSp==expected.result.spAfter &&
+            fixture.p.monsterTreasure->gold==expected.result.goldAfter &&
+            XeenTrainingTestAccess::templeLobby(*fixture.flow),
+            "one-step Temple Heal differs from independent candidate or retains result phase");
+        fixture.leave();
     }
 }
 void refusedResult(Inputs &in,bool exhaustedRandom) {
@@ -143,10 +137,7 @@ void refusedResult(Inputs &in,bool exhaustedRandom) {
     const auto inputs=*fixture.p.roster.combatInputs(6);
     const auto gold=fixture.p.monsterTreasure->gold;
     const auto maximum=XeenCharacterRules::maxHp(before,{610});
-    fixture.enter();fixture.act(SelectMemberAction{5});fixture.act(AcknowledgeAction{});
-    check(XeenTrainingTestAccess::templeText(*fixture.flow).find("HP -15 -> 15 (healthy max 15)")!=std::string::npos,
-        "Temple refusal fixture lost its projected quote");
-    fixture.act(AcknowledgeAction{});
+    fixture.enter();fixture.act(SelectMemberAction{5});fixture.act(DialogKeyAction{'h'});
     if(exhaustedRandom)fixture.prepare();
     const auto text=XeenTrainingTestAccess::templeText(*fixture.flow);
     check(xeen_state::sameCharacter(before,fixture.p.roster.at(6)) &&
@@ -155,16 +146,8 @@ void refusedResult(Inputs &in,bool exhaustedRandom) {
         fixture.w.sessionState().journeyRandom()==source.journey->random &&
         *fixture.p.encounterContext==*source.journey->context,
         "Temple refusal changed live owners before departure");
-    check(text.find("Paid departure outside supported date or capacity.")!=std::string::npos &&
-        text.find("Enter: return to Temple menu")!=std::string::npos,
-        "Temple refusal did not reach the support-limit Result");
-    check(text.find("HP -15 -> -15 (max "+std::to_string(maximum)+")")!=std::string::npos &&
-        text.find("SP "+std::to_string(before.currentSp)+" -> "+std::to_string(before.currentSp)+
-            "  Gold "+std::to_string(gold))!=std::string::npos &&
-        text.find("Gold now "+std::to_string(gold)+"  Exit 1 day(s)")!=std::string::npos &&
-        text.find("Healed")==std::string::npos && text.find("Paid 410")==std::string::npos &&
-        text.find("Heal price")==std::string::npos,
-        exhaustedRandom?"RNG-refused Result displays projected Heal values":"Day-98 refused Result displays projected Heal values");
+    check(text.find("not supported yet")!=std::string::npos,
+        "Temple date/RNG refusal lacks a visible notice");
     fixture.act(AcknowledgeAction{});fixture.leave();
     check(xeen_state::sameCharacter(before,fixture.p.roster.at(6)) &&
         fixture.p.monsterTreasure->gold==gold &&
@@ -230,9 +213,8 @@ int main(int argc,char **argv) {
 						throw std::runtime_error("persistent synthetic Heal fault");
 					}
 				};
-				retry.act(SelectMemberAction{5});retry.act(AcknowledgeAction{});
-				retry.act(AcknowledgeAction{});
-				check(XeenTrainingTestAccess::templeText(*retry.flow).find("Escape: cancel Heal")!=std::string::npos,
+				retry.act(SelectMemberAction{5});retry.act(DialogKeyAction{'h'});
+				check(retry.flow->inputContext(retry.flow->frame().presentation()).dialog->key(InputKey::Escape).has_value(),
 					"Temple Upgrade did not expose its cancellation control");
 				for(unsigned slice=0;slice<1000 && faults<2;++slice) {
 					retry.flow->beginCycle(++retry.cycle);
@@ -254,7 +236,7 @@ int main(int argc,char **argv) {
 		}
         {
             auto near=injured(in,98);TempleFixture refused(in,near);
-            refused.enter();refused.act(SelectMemberAction{5});refused.act(AcknowledgeAction{});
+            refused.enter();refused.act(SelectMemberAction{5});refused.act(DialogKeyAction{'h'});
             refused.act(AcknowledgeAction{});refused.act(AcknowledgeAction{});refused.leave();
             check(refused.p.encounterContext->day==99 && refused.p.monsterTreasure->gold==810 &&
                 refused.p.roster.at(6).conditions[13],"day-98 paid Heal escaped date refusal");
@@ -328,8 +310,7 @@ int main(int argc,char **argv) {
                 ++calls;auto &hp=fixture.p.roster.at(1).currentHp;
                 const auto original=std::int16_t(hp);hp=original+1;hp=original;
             }};
-            fixture.act(SelectMemberAction{5});fixture.act(AcknowledgeAction{});
-            fixture.act(AcknowledgeAction{});
+            fixture.act(SelectMemberAction{5});fixture.act(DialogKeyAction{'h'});
             save_test::rejects([&]{fixture.prepare();});
             check(calls==1 && !fixture.flow->canSave() && fixture.p.monsterTreasure->gold==810 &&
                 fixture.p.roster.at(6).currentHp==-15 && fixture.p.roster.at(1).currentHp==0,
@@ -337,7 +318,7 @@ int main(int argc,char **argv) {
         }
         {
             auto stale=injured(in);TempleFixture fixture(in,stale);
-            fixture.enter();fixture.act(SelectMemberAction{5});fixture.act(AcknowledgeAction{});
+            fixture.enter();fixture.act(SelectMemberAction{5});
             const auto old=fixture.flow->frame().presentation();
             const auto semantic=*fixture.flow->displayedInput();
             fixture.present(fixture.flow->refresh(true));
@@ -345,11 +326,11 @@ int main(int argc,char **argv) {
             check(old!=current && semantic==fixture.flow->displayedInput(),
                 "Temple cosmetic redraw did not preserve semantic input authority");
             fixture.flow->beginCycle(++fixture.cycle);
-            fixture.present(fixture.flow->handle(AcknowledgeAction{},semantic,old));
+            fixture.present(fixture.flow->handle(DialogKeyAction{'h'},semantic,old));
             check(fixture.p.monsterTreasure->gold==810 && !fixture.flow->canSave(),
                 "stale Temple confirmation paid or exposed Quiet");
             fixture.flow->beginCycle(++fixture.cycle);
-            fixture.present(fixture.flow->handle(AcknowledgeAction{},semantic,current));
+            fixture.present(fixture.flow->handle(DialogKeyAction{'h'},semantic,current));
             fixture.prepare();
             check(fixture.p.monsterTreasure->gold==400,
                 "current concrete Temple confirmation did not publish Heal");

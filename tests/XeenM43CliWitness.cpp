@@ -172,21 +172,21 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         steps.push_back([&]{return flow->serviceSaveBlocked() &&
             XeenTrainingTestAccess::templeLobby(*flow) &&
             world->sessionState().journeyActivity()==XeenJourneyActivity::Service;});
-        action(SelectMemberAction{5});action(AcknowledgeAction{});
+        action(SelectMemberAction{5});
         inspect([&]{check(!flow->canSave(),"M43 Temple quote exposed Quiet");});
         inspect([&]{observedStockDraws.clear();observeStockDraws=true;});
-        action(AcknowledgeAction{});
+        action(DialogKeyAction{'h'});
         steps.push_back([&]{return party->monsterTreasure->gold==400;});
         inspect([&]{observeStockDraws=false;
             check(party->roster.at(6).currentHp==15 && party->roster.at(6).currentSp==27 &&
             !party->roster.at(6).conditions[13] && party->encounterContext->day==8,"M43 Seymour recovery differs");
             std::cerr<<"M43 PAID SEYMOUR 410 HP15 SP27 GOLD400\n";});
-        action(AcknowledgeAction{});action(SelectMemberAction{4});action(AcknowledgeAction{});action(AcknowledgeAction{});
+        action(SelectMemberAction{4});action(DialogKeyAction{'h'});
         steps.push_back([&]{return party->monsterTreasure->gold==340;});
         inspect([&]{check(party->roster.at(1).currentHp==21 && party->roster.at(1).currentSp==21 &&
             !party->roster.at(1).conditions[12],"M43 Rebecca recovery differs");
             std::cerr<<"M43 PAID REBECCA 60 HP21 SP21 GOLD340\n";});
-        action(AcknowledgeAction{});action(CancelInteractionAction{});
+        action(CancelInteractionAction{});
         steps.push_back([&]{return flow->canSave();});
         inspect([&]{
             m42_test::StockOracle oracle{mainStockCursor->state,mainStockCursor->count,{}};
@@ -211,7 +211,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             auto rebecca=std::make_shared<XeenCharacter>(party->roster.at(1));
             action(InteractionAction{});
             steps.push_back([&]{return flow->serviceSaveBlocked() && XeenTrainingTestAccess::templeLobby(*flow);});
-            action(SelectMemberAction{5});action(AcknowledgeAction{});
+            action(SelectMemberAction{5});
             inspect([&]{check(!flow->canSave(),"M43 refusal quote exposed Quiet");});
             action(CancelInteractionAction{});action(CancelInteractionAction{});
             steps.push_back([&]{return flow->canSave();});
@@ -240,9 +240,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             steps.push_back([&]{return flow->serviceSaveBlocked() && XeenTrainingTestAccess::menu(*flow);});
             for(unsigned member:{1u,4u}) {
                 const auto owner=member==1?18u:1u;
-                action(SelectMemberAction{member});action(AcknowledgeAction{});
-                inspect([&]{check(XeenTrainingTestAccess::quote(*flow),"M43 earned depleted Training quote unavailable");});
-                action(AcknowledgeAction{});
+                action(SelectMemberAction{member});action(DialogKeyAction{'t'});
                 steps.push_back([&,owner]{return party->roster.at(owner).permanentLevel==4;});
                 inspect([&,member,economy,cursor]{
                     check(party->encounterContext->day==(member==1?10:11) &&
@@ -252,7 +250,6 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                         *world->sessionState().journeyRandom()==*cursor,
                         "M43 Training 9->10 changed depleted stock or live RNG");
                 });
-                action(AcknowledgeAction{});
             }
             action(CancelInteractionAction{});steps.push_back([&]{return flow->canSave();});
             inspect([&,economy,cursor]{observeStockDraws=false;
@@ -297,9 +294,8 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 world->sessionState().journeyActivity()==XeenJourneyActivity::Service;});
             if(stage=="depleted"){
                 steps.push_back([&,selected]{act(SelectMemberAction{*selected});return true;});
-                action(AcknowledgeAction{});
                 inspect([&]{observedStockDraws.clear();observeStockDraws=true;});
-                action(AcknowledgeAction{});
+                action(DialogKeyAction{'h'});
                 steps.push_back([&,expectedHeal]{return party->monsterTreasure->gold==expectedHeal->result.goldAfter;});
                 inspect([&,quote,expectedHeal]{observeStockDraws=false;const auto owner=quote->owner;
                     std::cerr<<"M43 DEPLETED HEAL OBSERVED owner "<<unsigned(owner)<<" expectedHP "
@@ -310,7 +306,6 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                         xeen_state::sameInputs(*party->roster.combatInputs(owner),expectedHeal->inputs),
                         "M43 depleted branch selected Heal differed from detached original rule");
                     std::cerr<<"M43 DEPLETED HEAL OWNER "<<unsigned(owner)<<" PRICE "<<quote->price<<'\n';});
-                action(AcknowledgeAction{});
             }
             action(CancelInteractionAction{});
             steps.push_back([&]{return flow->canSave();});
@@ -406,7 +401,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         });
         action(InteractionAction{});
         steps.push_back([&]{return flow->serviceSaveBlocked() && XeenTrainingTestAccess::templeLobby(*flow);});
-        action(SelectMemberAction{5});action(AcknowledgeAction{});
+        action(SelectMemberAction{5});
         auto returnHeal=std::make_shared<XeenTempleHealCandidate>();
         inspect([&,returnHeal]{
             *returnHeal=xeenPrepareTempleHeal(*party,6,*party->encounterContext);
@@ -415,7 +410,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             std::cerr<<"M43 RETURN QUOTE "<<returnHeal->result.price<<" GOLD "
                 <<returnHeal->result.goldBefore<<"->"<<returnHeal->result.goldAfter<<'\n';
         });
-        action(AcknowledgeAction{});
+        action(DialogKeyAction{'h'});
         auto returnWait=std::make_shared<unsigned>(0);
         steps.push_back([&,returnHeal,returnWait]{check(++*returnWait<1000,
             "M43 return Heal did not publish after bounded idle work");
@@ -425,7 +420,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             "M43 return visit selected Heal differed from detached rules");
             std::cerr<<"M43 RETURN HEAL PRICE "<<returnHeal->result.price<<" SP "
                 <<party->roster.at(6).currentSp<<'\n';});
-        action(AcknowledgeAction{});action(CancelInteractionAction{});
+        action(CancelInteractionAction{});
         steps.push_back([&]{return flow->canSave();});
         inspect([&,returnHeal]{check(party->encounterContext->day==12 &&
             party->monsterTreasure->gold==returnHeal->result.goldAfter,

@@ -70,17 +70,21 @@ original games or ScummVM.
 | A/Left, D/Right | Turn |
 | Arrows in the sheet | Select a stat |
 | Space | Interact; attack in combat; acknowledge text |
-| Enter | Open the selected stat; confirm a cast, purchase, Training or Temple step |
+| Enter | Open the selected stat; confirm a cast |
 | Y / N | Yes / No |
 | F1-F6 | Open the character sheet; choose a party member in dialogs |
 | 1-9 | Select an inventory or stock slot; 1-3 pick a combat target |
 | . | Wait |
 | F | Shoot in mainland exploration |
-| R / B | Run / Block in combat; Repair / Buy in the Ironworks lobby |
+| R / B | Run / Block in combat |
 | C | Learned spells |
 | I | Info (not supported yet); Items from the character sheet |
 | W/A/C/M in Items | Weapons, Armor, Accessories, Misc |
 | E / R / U in Items | Equip / Remove / Use; select a row then F1-F6 to move it |
+| B in the Ironworks | Browse stock and inventory services |
+| B / S / I / F in the Smith Items dialog | Buy / Sell / Identify / Fix; rows open Y/N Confirm |
+| T in Training | Train the selected member immediately |
+| H / D / U in the Temple | Heal / Donation / Uncurse |
 | F9 | Save at a quiet moment |
 | Escape | Back, cancel or acknowledge; quit when nothing is open |
 

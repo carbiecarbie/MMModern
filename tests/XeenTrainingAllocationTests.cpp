@@ -20,8 +20,8 @@ int main(int argc,char **argv) {
         for(unsigned stage=0;stage<3;++stage) {
             bool finished=false;
             for(unsigned skipped=0;skipped<1000;++skipped) {
-                Fixture fixture(in,source);fixture.enter();fixture.act(SelectMemberAction{1});fixture.act(AcknowledgeAction{});
-                XeenTrainingTestAccess::consume(*fixture.flow);
+                Fixture fixture(in,source);fixture.enter();fixture.act(SelectMemberAction{1});
+                XeenTrainingTestAccess::consume(*fixture.flow);XeenTrainingTestAccess::directQuote(*fixture.flow,1);
                 if(stage>0)XeenTrainingTestAccess::confirm(*fixture.flow);
                 if(stage==2)while(!XeenTrainingTestAccess::level(*fixture.flow)){}
                 allocation_test::triggered=false;allocation_test::countdown=skipped;

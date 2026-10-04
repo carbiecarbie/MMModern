@@ -456,7 +456,7 @@ int main(int argc,char **) {
 	if (senderError)
 		std::rethrow_exception(senderError);
 	if (!result || interactions != 2 || navigation != 2 || acknowledgments != 1 ||
-			yes != 1 || no != 1 || selections != 6 || cancellations != 1 || inspections != 1 || slots != 9 || transfers != 1 || equipment != 0 || uses != 1 || shots != 1 || casts != 1) {
+			yes != 1 || no != 1 || selections != 6 || cancellations != 1 || inspections != 1 || slots != 9 || transfers != 0 || equipment != 0 || uses != 1 || shots != 1 || casts != 1) {
 		std::cerr << "Space dispatch/repeat filtering failed: interactions="
 			<< interactions << " navigation=" << navigation
 			<< " acknowledgments=" << acknowledgments << " yes=" << yes

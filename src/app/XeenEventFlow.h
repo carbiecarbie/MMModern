@@ -116,11 +116,11 @@ public:
 	std::function<void(XeenMovementResult)> reportMovement;
 private:
 	struct TrainingUi {
-		enum class Phase { Preparation, Menu, Quote, Candidate, Result, Departure };
+		enum class Phase { Preparation, Menu, Candidate, Departure };
 		Phase phase=Phase::Preparation;
 		std::size_t member=0;
 		std::uint64_t revision=0;
-		std::string title,feedback;
+		std::string feedback;
 		IndexedFrame art;
 	};
 	std::optional<TrainingUi> _trainingUi;
@@ -137,13 +137,13 @@ private:
 		XeenItemCatalog catalog;
 		enum class Mode { Repair, Buy, Heal };
 		Mode mode=Mode::Repair;
-		enum class Phase { Preparation, Lobby, Browse, Quote, Upgrade, Result, Departure };
+		enum class Phase { Preparation, Lobby, Browse, Confirm, Upgrade, Departure };
 		Phase phase=Phase::Lobby;
 		std::size_t member=0, slot=0;
 		XeenInventoryCategory category=XeenInventoryCategory::Weapons;
 		bool selected=false;
 		std::uint64_t revision=0;
-		std::string title, feedback;
+		std::string feedback;
 		IndexedFrame art;
 	};
 	std::optional<SmithUi> _smithUi;
@@ -156,6 +156,7 @@ private:
 	std::string smithText() const;
 	IndexedFrame handleSmith(const PlayerAction &,std::uint64_t,const IndexedFrame::Presentation &);
 	IndexedFrame handleTemple(const PlayerAction &,std::uint64_t,const IndexedFrame::Presentation &);
+	std::shared_ptr<const DialogInput> serviceDialogInput() const;
 	const XeenEventPublication *_eventPublication = nullptr;
 	bool _monsterReceiptPresented=false;
 	bool _journeyEventLayers = false;

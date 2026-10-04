@@ -7,8 +7,8 @@ namespace mmodern {
 struct XeenPurchaseTestAccess {
     static std::string text(const XeenEventFlow &f){return f.smithText();}
     static unsigned phase(const XeenEventFlow &f){return f._smithUi?unsigned(f._smithUi->phase):99;}
-    static bool quote(const XeenEventFlow &f){return f._smithUi && f._smithUi->phase==XeenEventFlow::SmithUi::Phase::Quote;}
-    static bool result(const XeenEventFlow &f){return f._smithUi && f._smithUi->phase==XeenEventFlow::SmithUi::Phase::Result;}
+    static bool quote(const XeenEventFlow &f){return f._smithUi && f._smithUi->phase==XeenEventFlow::SmithUi::Phase::Confirm;}
+    static bool result(const XeenEventFlow &f){return f._smithUi && f._smithUi->phase==XeenEventFlow::SmithUi::Phase::Browse && f._encounter->_smith->published;}
     static bool browse(const XeenEventFlow &f){return f._smithUi && f._smithUi->phase==XeenEventFlow::SmithUi::Phase::Browse;}
     static bool lobby(const XeenEventFlow &f){return f._smithUi && f._smithUi->phase==XeenEventFlow::SmithUi::Phase::Lobby;}
     static bool departure(const XeenEventFlow &f){return f._smithUi && f._smithUi->phase==XeenEventFlow::SmithUi::Phase::Departure;}
@@ -76,21 +76,19 @@ struct Fixture:training_test::Fixture {
         flow->drawSmithArt=[&in](auto &frame){in.assets.drawSmith(frame);};
     }
     void enter(){act(InteractionAction{});if(!flow->canSave())prepare();check(XeenPurchaseTestAccess::lobby(*flow),"synthetic Smith lobby absent");}
-    void buy(){act(BlockAction{});check(XeenPurchaseTestAccess::browse(*flow),"Buy browser absent");}
+    void buy(){if(flow->inputContext(flow->frame().presentation()).dialog->anyKey)act(AcknowledgeAction{});act(DialogKeyAction{'b'});check(XeenPurchaseTestAccess::browse(*flow),"Buy browser absent");}
     void choose(XeenInventoryCategory category,unsigned slot,std::size_t member=0) {
         act(SelectMemberAction{member});
-        for(unsigned n=0;n<unsigned(category);++n)act(NavigationAction::TurnRight);
+        constexpr unsigned keys[]={'w','a','c','m'};act(DialogKeyAction{keys[unsigned(category)]});
         act(SelectInventorySlotAction{slot});
     }
     void quote(XeenInventoryCategory category,unsigned slot,std::size_t member=0) {
-        buy();choose(category,slot,member);act(AcknowledgeAction{});check(XeenPurchaseTestAccess::quote(*flow),"Buy quote absent");
+        buy();choose(category,slot,member);check(XeenPurchaseTestAccess::quote(*flow),"Buy quote absent");
     }
-    void purchaseArmor(){quote(XeenInventoryCategory::Armor,3);act(AcknowledgeAction{});check(XeenPurchaseTestAccess::result(*flow),"Buy result absent");}
+    void purchaseArmor(){quote(XeenInventoryCategory::Armor,3);act(YesAction{});check(XeenPurchaseTestAccess::result(*flow),"Buy result absent");}
     void leave(){
         for(unsigned n=0;n<40 && !flow->canSave();++n) {
-            if(XeenPurchaseTestAccess::quote(*flow))act(CancelInteractionAction{});
-            else if(XeenPurchaseTestAccess::result(*flow))act(AcknowledgeAction{});
-            else act(CancelInteractionAction{});
+            act(CancelInteractionAction{});
         }
         check(flow->canSave(),"reserved Smith departure did not settle");
     }
@@ -100,11 +98,11 @@ struct Owners {
     std::array<XeenCombatInputs,30> inputs;
     XeenMonsterTreasure treasure;XeenGameplayContext context;XeenServiceEconomy economy;XeenJourneyRandomState random;
     XeenCamera camera;
-    explicit Owners(const Fixture &f):treasure(*f.p.monsterTreasure),context(*f.p.encounterContext),
+    explicit Owners(const training_test::Fixture &f):treasure(*f.p.monsterTreasure),context(*f.p.encounterContext),
         economy(*f.p.serviceEconomy),random(*f.w.sessionState().journeyRandom()),camera(f.c) {
         for(unsigned n=0;n<30;++n){characters[n]=f.p.roster.at(n);inputs[n]=*f.p.roster.combatInputs(n);}
     }
-    void unchanged(const Fixture &f) const {
+    void unchanged(const training_test::Fixture &f) const {
         for(unsigned n=0;n<30;++n)check(xeen_state::sameCharacter(characters[n],f.p.roster.at(n)) &&
             xeen_state::sameInputs(inputs[n],*f.p.roster.combatInputs(n)),"modal action changed character/supplement without publication");
         check(treasure==*f.p.monsterTreasure && context==*f.p.encounterContext && economy==*f.p.serviceEconomy &&

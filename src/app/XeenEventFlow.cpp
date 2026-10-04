@@ -90,6 +90,8 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
         (_encounter && !_encounter->combat() && _encounter->state().phase() != XeenEncounterPhase::Exploring) ? 9 : 0;
     const QueueContext context{_camera.mapId, panel, combat,
         inventoryOpen() ? (_dialogError ? 5 : _statPopup ? 4 : _itemOption ? 3 : _sheet && !_itemsVisible ? 2 : 1) :
+        _smithUi ? 100+unsigned(_smithUi->phase)*4+unsigned(_smithUi->mode)+(!_smithUi->feedback.empty()?1000:0) :
+        _trainingUi ? 200+unsigned(_trainingUi->phase)+(!_trainingUi->feedback.empty()?1000:0) :
         _pending ? _pending->generation : 0};
     if (!_queueContext || !(*_queueContext == context)) {
         if (_queueContextId == std::numeric_limits<std::uint64_t>::max()) throw std::overflow_error("Input context exhausted");
@@ -110,7 +112,7 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
         else ready = ready && _encounter->journeyMutable();
     }
     return {_queueContextId, queueable, ready, journey() && queueable ?
-        (combat ? MainScreen::Combat : MainScreen::Exploration) : MainScreen::None,characterDialogInput()};
+        (combat ? MainScreen::Combat : MainScreen::Exploration) : MainScreen::None,_smithUi || _trainingUi ? serviceDialogInput() : characterDialogInput()};
 }
 
 IndexedFrame XeenEventFlow::drawMainScreenNotice(const IndexedFrame &base, const std::string &notice) const {
@@ -954,17 +956,17 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 		DispatchScope dispatch(_dispatching);
 		try {
 			if(!xeenSmithAuthorityRoom(_smithUi->revision,1))
-				throw std::overflow_error("Temple Result UI revision exhausted before Heal publication");
+				throw std::overflow_error("Temple UI revision exhausted before Heal publication");
 			if(!_encounter->serviceTempleHeal())return std::nullopt;
-			_smithUi->phase=SmithUi::Phase::Result;
+			_smithUi->phase=SmithUi::Phase::Lobby;
+            if(!_encounter->_smith->published) _smithUi->feedback="Heal: not supported yet at this date or capacity";
 		} catch(const std::exception &) {
 			_encounter->journeySavePreimage().check();
 			if(_encounter->_smith && _encounter->_smith->published) {
-				_smithUi->phase=SmithUi::Phase::Result;
+				_smithUi->phase=SmithUi::Phase::Lobby;
 				++_smithUi->revision;
 				return renderEncounter();
 			}
-			_smithUi->feedback="Temple preparation failed; retrying reserved operation.";
 			return std::nullopt;
 		}
 		++_smithUi->revision;

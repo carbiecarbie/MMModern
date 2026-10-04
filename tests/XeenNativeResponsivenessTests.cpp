@@ -100,14 +100,11 @@ void training(Inputs &in) {
     press(f,SDLK_SPACE);f.prepare();
     check(XeenTrainingTestAccess::menu(*f.flow),"first Space did not open service");
     press(f,SDLK_F2);
-    press(f,SDLK_RETURN);
-    check(XeenTrainingTestAccess::quote(*f.flow),"first menu Enter did not open quote");
-    press(f,SDLK_RETURN,true);f.prepare();
+    press(f,SDLK_t,true);f.prepare();
     check(f.p.roster.at(18).permanentLevel==4 && f.p.roster.combatInputs(18)->experience==6000 &&
-        f.p.monsterTreasure->gold==710 && f.p.encounterContext->day==9,"fresh quote Enter did not purchase exactly once");
-    press(f,SDLK_RETURN);
-    check(XeenTrainingTestAccess::menu(*f.flow),"first result Enter did not acknowledge");
-    std::cout<<"First Space/F2/menu Enter/quote Enter/result Enter passed\n";
+        f.p.monsterTreasure->gold==710 && f.p.encounterContext->day==9 &&
+        XeenTrainingTestAccess::menu(*f.flow),"fresh T did not train exactly once and return to the location");
+    std::cout<<"First Space/F2/T passed\n";
 }
 }
 int main(int argc,char **argv) {

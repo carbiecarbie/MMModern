@@ -153,22 +153,20 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             action(InteractionAction{});action(YesAction{});settle();route("UUUULUUUUUUU");
             inspect([&]{check(position->mapId==28 && position->x==8 && position->y==4 && party->monsterTreasure->gold==870,"M44 Smith arrival");});
             inspect([&]{check((party->roster.at(6).armor[0].state&128),"M44 earned broken armor");});
-            action(InteractionAction{});steps.push_back([&]{return XeenPurchaseTestAccess::lobby(*flow);});action(BlockAction{});action(NavigationAction::TurnRight);
-            action(SelectInventorySlotAction{3});action(AcknowledgeAction{});action(AcknowledgeAction{});action(AcknowledgeAction{});
+            action(InteractionAction{});steps.push_back([&]{return XeenPurchaseTestAccess::lobby(*flow);});action(DialogKeyAction{'b'});action(DialogKeyAction{'a'});
+            action(SelectInventorySlotAction{3});action(YesAction{});
             action(CancelInteractionAction{});action(CancelInteractionAction{});settle();
             inspect([&]{check(party->monsterTreasure->gold==670 && party->roster.at(0).armor[5].id==3,"M44 Buy delivery");});
-            action(InteractionAction{});steps.push_back([&]{return XeenPurchaseTestAccess::lobby(*flow);});action(SelectMemberAction{5});action(RevisitCompletedAction{});
-            action(SelectInventorySlotAction{0});action(AcknowledgeAction{});inspect([&]{check(XeenPurchaseTestAccess::quote(*flow),"M44 Repair quote absent");});action(AcknowledgeAction{});action(AcknowledgeAction{});
+            action(InteractionAction{});steps.push_back([&]{return XeenPurchaseTestAccess::lobby(*flow);});action(SelectMemberAction{5});action(DialogKeyAction{'b'});action(DialogKeyAction{'a'});action(DialogKeyAction{'f'});
+            action(SelectInventorySlotAction{0});inspect([&]{check(XeenPurchaseTestAccess::quote(*flow),"M44 Repair quote absent");});action(YesAction{});
             action(CancelInteractionAction{});action(CancelInteractionAction{});settle();
             inspect([&]{check(party->monsterTreasure->gold==668 && party->roster.at(6).armor[0].state==0,"M44 paid Repair");});
             route("RRUUUUUUULUUULUUUUURUUUU");
             action(InteractionAction{});
             steps.push_back([&]{return XeenTrainingTestAccess::menu(*flow);});
             for(unsigned member:{1u}) {
-                action(SelectMemberAction{member});action(AcknowledgeAction{});
-                inspect([&]{check(XeenTrainingTestAccess::quote(*flow),"M44 Training quote absent");});action(AcknowledgeAction{});
+                action(SelectMemberAction{member});action(DialogKeyAction{'t'});
                 steps.push_back([&,member]{return party->roster.at(kXeenCombatOwners[member]).permanentLevel==4;});
-                action(AcknowledgeAction{});
             }
             action(CancelInteractionAction{});settle();
             inspect([&]{check(party->roster.at(18).permanentLevel==4 && party->monsterTreasure->gold==578,"M44 paid Training");});
