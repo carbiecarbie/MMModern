@@ -83,15 +83,15 @@ void press(Fixture &f,SDL_Keycode code,bool cosmetic=false,bool held=false,bool 
     check(ok && armed && sampled==before+1 && dispatches==1,"first post-acquisition key must dispatch exactly once");
 }
 void movement(Inputs &in) {
-    for(unsigned timing=0;timing<4;++timing)for(const auto code:{SDLK_w,SDLK_a,SDLK_s,SDLK_d}) {
+    for(unsigned timing=0;timing<4;++timing)for(const auto code:{SDLK_UP,SDLK_LEFT,SDLK_DOWN,SDLK_RIGHT}) {
         const bool redraw=timing==1 || timing==2;
         auto source=in.service();source.camera={28,10,10,XeenDirection::North};
         Fixture f(in,source,redraw);const auto minute=f.p.encounterContext->minutes;
         press(f,code,redraw,timing==2,timing==3);
-        const auto expectedY=code==SDLK_w?11:code==SDLK_s?9:10;
-        const auto expectedDirection=code==SDLK_a?XeenDirection::West:code==SDLK_d?XeenDirection::East:XeenDirection::North;
+        const auto expectedY=code==SDLK_UP?11:code==SDLK_DOWN?9:10;
+        const auto expectedDirection=code==SDLK_LEFT?XeenDirection::West:code==SDLK_RIGHT?XeenDirection::East:XeenDirection::North;
         check(f.c.x==10 && f.c.y==expectedY && f.c.direction==expectedDirection,"one WASD edge did not produce exactly one navigation action");
-        check(f.p.encounterContext->minutes==minute+(code==SDLK_w || code==SDLK_s?1:0),"navigation time duplicated");
+        check(f.p.encounterContext->minutes==minute+(code==SDLK_UP || code==SDLK_DOWN?1:0),"navigation time duplicated");
         std::cout<<"First press "<<SDL_GetKeyName(code)<<" cosmetic="<<redraw<<" passed\n";
     }
 }

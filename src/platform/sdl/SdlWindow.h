@@ -37,6 +37,7 @@ public:
 		std::function<InputContext(const IndexedFrame::Presentation &)> inputContext;
 		// Draws on a temporary native-display copy; never acquires a gameplay frame.
 		std::function<void(IndexedFrame &,const InputButton &)> drawButton;
+        std::function<IndexedFrame()> cursorImage;
 		bool protectAllKeys = false;
 		std::function<std::optional<std::uint64_t>()> displayedInput;
 		std::function<std::optional<IndexedFrame>(const PlayerAction &,std::uint64_t)> withDisplayedInput;

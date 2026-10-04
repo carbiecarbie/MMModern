@@ -16,7 +16,8 @@ void CloudsMapComposer::drawOutdoorCommands(XeenAssetSource &assets,
 		else if (const auto *actor = command.actor())
 			assets.drawMonster(actor->image, {actor->kind, actor->frame}, command.x, command.y, command.drawOptions());
 		else if(const auto *p=command.projectile())
-			assets.drawProjectile(p->enemy,p->row,command.x,command.y,command.drawOptions());
+			assets.drawProjectile(p->pow,p->enemy,p->row,command.x,command.y,command.drawOptions());
+		else if(const auto *s=command.splat())assets.drawSceneSprite("charpow.icn",s->frame,command.x,command.y,command.drawOptions());
 		else
 			assets.drawSceneSprite(command.terrain().resourceName, command.terrain().frame,
 				command.x, command.y, command.drawOptions());
@@ -31,9 +32,10 @@ void CloudsMapComposer::drawIndoorCommands(XeenAssetSource &assets,
 				command.drawOptions());
 		else if (const auto *actor=command.actor())
 			assets.drawMonster(actor->image,{actor->kind,actor->frame},command.x,command.y,command.drawOptions());
-		else if(command.projectile())assets.drawProjectile(false,0,command.x,command.y,command.drawOptions());
+		else if(const auto *p=command.projectile())assets.drawProjectile(p->pow,p->enemy,p->row,command.x,command.y,command.drawOptions());
 		else if (const auto *wall=command.wallItem())
 			assets.drawSceneSprite(wall->resourceName,wall->frame,command.x,command.y,command.drawOptions());
+		else if(const auto *s=command.splat())assets.drawSceneSprite("charpow.icn",s->frame,command.x,command.y,command.drawOptions());
 		else
 			assets.drawSceneSprite(command.geometry().resourceName, command.geometry().frame,
 				command.x, command.y, command.drawOptions());
@@ -106,7 +108,7 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 			if(command.actor()) return true;
 			if(const auto *wall=command.wallItem()) return wall->animated;
 			if(const auto *object=command.object()) return object->visual.status==XeenObjectVisualStatus::SupportedAnimated;
-			return !command.projectile() && command.geometry().animated;
+			return !command.projectile() && !command.splat() && command.geometry().animated;
 		});
 		drawIndoorCommands(assets, commands);
 	}

@@ -22,17 +22,18 @@ constexpr int kHpY = 182;
 } // namespace
 
 std::vector<CloudsUiComposer::PortraitPlacement> CloudsUiComposer::buildPortraitPlacements(
-		const XeenPartyState &partyState) {
+		const XeenPartyState &partyState, unsigned memberMask) {
 	static constexpr std::array<std::size_t, 17> kConditionFrames = {
 		2, 2, 2, 1, 1, 4, 4, 4, 3, 2, 4, 3, 3, 5, 6, 7, 0
 	};
 
 	if (partyState.party.size() > kFaceX.size())
-		throw std::runtime_error("a interface de Clouds suporta no maximo seis membros");
+		throw std::runtime_error("Clouds interface supports at most six members");
 
 	std::vector<PortraitPlacement> placements;
 	placements.reserve(partyState.party.size());
 	for (std::size_t i = 0; i < partyState.party.size(); ++i) {
+		if(!(memberMask&(1u<<i)))continue;
 		const XeenCharacter &character = partyState.party.member(partyState.roster, i);
 		const auto portrait = character.portraitResourceName();
 		if (!portrait) {
@@ -44,7 +45,7 @@ std::vector<CloudsUiComposer::PortraitPlacement> CloudsUiComposer::buildPortrait
 		PortraitPlacement placement;
 		placement.resourceName = visualFrame > 4 ? "dse.fac" : *portrait;
 		placement.frame = visualFrame > 4 ? visualFrame - 5 : visualFrame;
-		placement.x = kFaceX[i];
+		placement.x = kFaceX[placements.size()];
 		placement.y = kPortraitY;
 		placements.push_back(std::move(placement));
 	}
@@ -53,19 +54,20 @@ std::vector<CloudsUiComposer::PortraitPlacement> CloudsUiComposer::buildPortrait
 
 std::vector<CloudsUiComposer::HpPlacement> CloudsUiComposer::buildHpPlacements(
 		const XeenPartyState &partyState,
-		const XeenCharacterRulesContext &context) {
+		const XeenCharacterRulesContext &context, unsigned memberMask) {
 	if (partyState.party.size() > kHpX.size())
-		throw std::runtime_error("a interface de Clouds suporta no maximo seis membros");
+		throw std::runtime_error("Clouds interface supports at most six members");
 
 	std::vector<HpPlacement> placements;
 	placements.reserve(partyState.party.size());
 	for (std::size_t i = 0; i < partyState.party.size(); ++i) {
+		if(!(memberMask&(1u<<i)))continue;
 		const XeenCharacter &character = partyState.party.member(partyState.roster, i);
 		HpPlacement placement;
-		placement.partySlot = i;
+		placement.partySlot = placements.size();
 		placement.rosterId = character.rosterId;
 		placement.frame = XeenPartyVisualState::hpFrame(character, context);
-		placement.x = kHpX[i];
+		placement.x = kHpX[placements.size()];
 		placement.y = kHpY;
 		placements.push_back(placement);
 	}

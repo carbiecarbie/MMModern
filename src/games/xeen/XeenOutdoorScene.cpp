@@ -177,15 +177,26 @@ std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::build(
 	}
 
 	commands.insert(commands.end(), actors.begin(), actors.end());
-	if(actorFrame && actorFrame->projectile) {
-		const auto &p=*actorFrame->projectile;
+    if(actorFrame) {
+      auto projectiles=actorFrame->projectiles;
+      if(projectiles.empty() && actorFrame->projectile)projectiles.push_back(*actorFrame->projectile);
+      for(const auto &p:projectiles) {
+		if(!p.active)continue;
 		if(p.row>3 || p.lane>5) throw std::invalid_argument("Invalid projectile placement");
 		constexpr int order[]{124,95,76,53};
 		constexpr int x[4][6]{{72,72,93,51,97,47},{72,72,85,59,89,55},{72,72,77,67,81,63},{72,72,69,75,73,71}};
 		constexpr int y[4][6]{{43,43,48,48,36,36},{48,48,53,53,41,41},{53,53,58,58,47,47},{58,58,63,63,53,53}};
 		XeenOutdoorDrawCommand command;command.originalOrder=order[p.row]+p.lane;command.x=x[p.row][p.lane];command.y=y[p.row][p.lane];
-		command.sourceMapId=camera.mapId;command.content=XeenOutdoorProjectileDraw{p.enemy,p.row,p.lane};commands.push_back(command);
+		command.sourceMapId=camera.mapId;command.content=XeenOutdoorProjectileDraw{p.enemy,p.row,p.lane,p.pow};commands.push_back(command);
+	  }
 	}
+    for(unsigned row=0;row<3;++row) {
+        const auto &s=world.scenePresentation().splats[row];if(!s.duration)continue;
+        constexpr int order[]{119,113,116},x[3][2]{{102,134},{36,67},{161,161}},offset[]{8,6,4};
+        XeenOutdoorDrawCommand c;c.originalOrder=order[row]+(s.frame?1:0);c.sourceMapId=camera.mapId;
+        c.x=x[row][s.alternatePosition]+(s.frame?offset[row]:0);if(s.damage>=100)c.x/=3;
+        c.y=!s.frame && s.damage>=100?60:73;c.content=XeenHitSplatDraw{s.frame,s.damage};commands.push_back(c);
+    }
 	std::stable_sort(commands.begin(), commands.end(),
 		[](const auto &left, const auto &right) { return left.originalOrder < right.originalOrder; });
 	return commands;

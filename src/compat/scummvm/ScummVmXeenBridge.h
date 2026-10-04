@@ -29,6 +29,7 @@ public:
 	void drawSprite(const std::string &resourceName, std::size_t frame, int x, int y,
 		const XeenSpriteDrawOptions &options);
 	IndexedFrame snapshot() const;
+ IndexedFrame cursorImage();
 	void drawNpc(IndexedFrame &frame, std::uint8_t portraitId, std::size_t portraitFrame);
 	void drawDialogSprite(IndexedFrame &,const char *,unsigned,int,int);
 	void drawSmith(IndexedFrame &frame);

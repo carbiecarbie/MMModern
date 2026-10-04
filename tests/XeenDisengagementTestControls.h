@@ -197,7 +197,7 @@ void disengagementNativeInput(Source &source) {
    const auto *combat=h.flow->encounter()->combat();const auto generation=combat?combat->result().generation:0;
    if(!std::holds_alternative<SaveGameAction>(a)){check(handler.inputContext(origin).readyForAction,"M34 queued input drained during busy work");
    check(presentationSerial!=lastDeliverySerial,"M34 two queued actions shared a ready frame");lastDeliverySerial=presentationSerial;}
-   if(!std::holds_alternative<SaveGameAction>(a)){++delivered;if(std::holds_alternative<InteractionAction>(a))++attacks;if(std::holds_alternative<BlockAction>(a))++blocks;}
+   if(!std::holds_alternative<SaveGameAction>(a)){++delivered;if(std::holds_alternative<AttackAction>(a))++attacks;if(std::holds_alternative<BlockAction>(a))++blocks;}
    auto frame=handler.withPresentedInput(a,input,origin);combat=h.flow->encounter()->combat();
    if(std::holds_alternative<RevisitCompletedAction>(a) && combat && combat->result().generation!=generation && combat->phase()==XeenCombatPhase::PreparingAction && combat->result().operation==XeenCombatOperation::PlayerRun)++accepted;
    return frame;
@@ -218,8 +218,8 @@ void disengagementNativeInput(Source &source) {
     case 1:if(ready)stage=2;break;
     case 2:
      tape.assign(6,{1,100,1});cursor=0;taped=true;
-     key(SDLK_r);key(SDLK_r,SDL_KEYDOWN,1);key(SDLK_r,SDL_KEYUP);key(SDLK_r);key(SDLK_F9);key(SDLK_SPACE);key(SDLK_b);stage=3;break;
-    case 3:if(ready && delivered>=5){check(accepted==2 && attacks==1 && blocks==1 && combat->participants()==0x3c && !h.saves,("Native queued R edges/Space/B, ignored repeat, immediate refused F9 accepted="+std::to_string(accepted)+" mask="+std::to_string(combat->participants())+" saves="+std::to_string(h.saves)+" cursor="+std::to_string(cursor)).c_str());stage=4;}break;
+     key(SDLK_r);key(SDLK_r,SDL_KEYDOWN,1);key(SDLK_r,SDL_KEYUP);key(SDLK_r);key(SDLK_F9);key(SDLK_a);key(SDLK_b);stage=3;break;
+    case 3:if(ready && delivered>=5){check(accepted==2 && attacks==1 && blocks==1 && combat->participants()==0x3c && !h.saves,("Native queued R edges/A/B, ignored repeat, immediate refused F9 accepted="+std::to_string(accepted)+" mask="+std::to_string(combat->participants())+" saves="+std::to_string(h.saves)+" cursor="+std::to_string(cursor)).c_str());stage=4;}break;
     case 4:key(SDLK_r);stage=5;break;
     case 5:check(accepted==2,"Held native R cannot act for next owner");key(SDLK_r,SDL_KEYUP);stage=6;break;
     case 6:key(SDLK_r);stage=7;break;
@@ -228,8 +228,8 @@ void disengagementNativeInput(Source &source) {
     case 9:key(SDLK_r);stage=10;break;
     case 10:if(ready)stage=8;else if(!combat)stage=11;break;
     case 11:if(h.flow->canSave()){check(accepted==6 && cursor==6 && !h.saves,"Exactly six native Runs finish and retire without stale F9");stage=12;}break;
-    case 12:key(SDLK_r);key(SDLK_SPACE);key(SDLK_F9);stage=13;break;
-    case 13:check(accepted==6 && !h.saves,"Held R/Space/F9 crossing retirement has no action or save");key(SDLK_r,SDL_KEYUP);key(SDLK_SPACE,SDL_KEYUP);key(SDLK_F9,SDL_KEYUP);stage=14;break;
+    case 12:key(SDLK_r);key(SDLK_a);key(SDLK_F9);stage=13;break;
+    case 13:check(accepted==6 && !h.saves,"Held R/A/F9 crossing retirement has no action or save");key(SDLK_r,SDL_KEYUP);key(SDLK_a,SDL_KEYUP);key(SDLK_F9,SDL_KEYUP);stage=14;break;
     case 14:key(SDLK_F9);stage=15;break;
     case 15:check(h.saves==3,"Fresh native F9 after handoff calls capture/preflight/write exactly once");key(SDLK_ESCAPE);stage=16;break;
     default:break;
@@ -245,7 +245,7 @@ void disengagementNativeInput(Source &source) {
  SDL_setenv("SDL_VIDEODRIVER",oldVideo.c_str(),1);SDL_setenv("SDL_RENDER_DRIVER",oldRenderer.c_str(),1);
  check(result==0 && stage==16,"M34 native input sequence completed");
  std::filesystem::remove(path);
- std::cout<<"M34 ARTIFICIAL automated SDL R held/repeat/same-batch and retirement R/Space/F9 fences; fresh F9 provider path PASS\n";
+ std::cout<<"M34 ARTIFICIAL automated SDL R held/repeat/same-batch and retirement R/A/F9 fences; fresh F9 provider path PASS\n";
 }
 void disengagementFinishPresentation(Source &source,bool injectFault=true) {
  for(bool occupied:{false,true})for(bool attrition:{false,true}) {

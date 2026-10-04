@@ -119,7 +119,7 @@ bool XeenEncounterFlow::serviceShoot() {
    std::vector<XeenProjectileAppearance> projectile;
    for(unsigned i=0;i<6;++i) if(work.eligible[i]) projectile.push_back({false,0,i,work.projectileEnd[i],{}});
    check();
-   _projectiles.swap(projectile);_projectileCursor=0;_projectileDeadline=_lastTime+100;
+   _projectiles.swap(projectile);_projectileDeadline=_lastTime+100;
    if(work.blockedRow<4)_journeyRefusal="Shoot stopped at terrain row "+std::to_string(work.blockedRow);
    else if(_journeyRefusal.empty())_journeyRefusal="Shoot: empty center rows";
    work.volleyDone=true;return true;
@@ -177,21 +177,44 @@ void XeenEncounterFlow::acknowledgeMonsterReward() {
 }
 void XeenEncounterFlow::observeRanged(std::shared_ptr<const XeenRegionalObservation> observation) {
  std::vector<XeenProjectileAppearance> prepared;
+ unsigned pow=12;
+ // Original monstersAttack chooses the first non-physical projectile resource
+ // for the simultaneous volley; this lookup admits no new damage mechanics.
  for(unsigned i=0;i<observation->count;++i) {
   const auto &shot=observation->shots[i];
-  if(shot.direction==_camera.direction && shot.distance>=1 && shot.distance<=3)
-   prepared.push_back({true,shot.distance-1,unsigned(prepared.size()%6),shot.distance,shot.source});
+  const auto &actor=_world.sessionState().regionalActors(shot.source.mapId).at(shot.source.recordIndex);
+  const auto type=actor.statistics->raw[29];pow=xeenMonsterProjectile(type);
+  if(pow!=12)break;
  }
- _rangedObservation=std::move(observation);_projectiles.swap(prepared);_projectileCursor=0;_projectileDeadline=_lastTime+100;
+ for(unsigned i=0;i<observation->count;++i) {
+  const auto &shot=observation->shots[i];
+  if(shot.direction==_camera.direction && shot.distance>=1 && shot.distance<=3 && prepared.size()<6)
+   prepared.push_back({true,shot.distance-1,unsigned(prepared.size()%6),shot.distance,shot.source,pow});
+ }
+ _rangedObservation=std::move(observation);_projectiles.swap(prepared);_projectileDeadline=_lastTime+100;
+ for(const auto &p:_projectiles)if(!p.row) {
+  const auto &actor=_world.sessionState().regionalActors(p.source->mapId).at(p.source->recordIndex);
+  for(unsigned i=0;i<_rangedObservation->count;++i)if(_rangedObservation->shots[i].source==*p.source) {
+   const auto &attack=_rangedObservation->shots[i].attack;
+   for(unsigned j=0;j<attack.injuryCount;++j)_world.scenePresentation().portraitDamage(attack.injuries[j].owner,xeenPortraitDamageFrame(actor.statistics->raw[29]),_lastTime);
+  }
+ }
 }
 bool XeenEncounterFlow::animateProjectiles() {
  if(_busy || !projectilesPending() || !current(ticket())) return false;
  std::uint64_t now;if(!prepareTime(ticket(),now)) return false;
  if(now<_projectileDeadline) return false;
  _lastTime=now;_projectileDeadline=now+100;
- auto &p=_projectiles[_projectileCursor];
- if(p.enemy ? p.row==0 : p.row>=p.distance) ++_projectileCursor;
- else if(p.enemy) --p.row;else ++p.row;
+ for(auto &p:_projectiles) {
+  const auto row=p.row;p.advance();
+  if(p.active && p.enemy && row && !p.row && p.source && _rangedObservation) {
+   const auto &actor=_world.sessionState().regionalActors(p.source->mapId).at(p.source->recordIndex);
+   for(unsigned i=0;i<_rangedObservation->count;++i)if(_rangedObservation->shots[i].source==*p.source) {
+    const auto &attack=_rangedObservation->shots[i].attack;
+    for(unsigned j=0;j<attack.injuryCount;++j)_world.scenePresentation().portraitDamage(attack.injuries[j].owner,xeenPortraitDamageFrame(actor.statistics->raw[29]),now);
+   }
+  }
+ }
  return true;
 }
 
@@ -232,7 +255,7 @@ std::string XeenEncounterFlow::consequenceNotice() const {
  if(stopped)out<<"Gameplay unavailable. Esc exits; restart last save.\n";
  if(_combat) {
    if(!_combatCastRefusal.empty())out<<_combatCastRefusal<<'\n';
-  if(!stopped && _combat->phase()==XeenCombatPhase::PlayerReady) out<<_party.roster.at(kXeenCombatOwners[_combat->participant()]).name<<(": Space/B; C Cast; R Run; 1-3 target\n");
+  if(!stopped && _combat->phase()==XeenCombatPhase::PlayerReady) out<<_party.roster.at(kXeenCombatOwners[_combat->participant()]).name<<(": A/B; C Cast; R Run; 1-3 target\n");
   else if(!stopped)out<<"Automatic combat / End\n";
   const auto rows=_combat->contacts();
   for(unsigned i=0;i<rows.size();++i)if(rows[i]) {const auto &a=_world.sessionState().regionalActors(rows[i]->mapId).at(rows[i]->recordIndex);out<<(rows[i]==_combat->selectedTarget()?">":"")<<i+1<<' '<<a.statistics->name()<<" #"<<a.id.recordIndex<<" HP"<<a.hp<<'\n';}
@@ -244,7 +267,7 @@ std::string XeenEncounterFlow::consequenceNotice() const {
 
  } else if(!stopped) {
   const bool city=_camera.mapId==XeenMapIdentity(28);
-  out<<"Arrows move/turn; . Wait; F Shoot:";
+  out<<"Arrows move/turn; . Wait; S Shoot:";
   bool eligible=false;
   for(unsigned i=0;i<6;++i){const auto &c=_party.roster.at(kXeenCombatOwners[i]);if(c.canAct())for(const auto &w:c.weapons)if(w.frame==4){out<<' '<<i+1;eligible=true;break;}}
   if(!eligible)out<<" none";

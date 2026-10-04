@@ -575,14 +575,27 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 		commands.insert(commands.end(),actorCommands.begin(),actorCommands.end());
 	}
 
-    if(actorFrame && actorFrame->projectile) {
-        const auto &p=*actorFrame->projectile;
-        if(p.enemy || p.row || p.lane || p.distance)
-            throw std::invalid_argument("Unsupported indoor projectile");
-        XeenIndoorDrawCommand command;command.originalOrder=162;command.x=72;command.y=43;
-        command.sourceMapId=camera.mapId;command.content=XeenIndoorProjectileDraw{};commands.push_back(command);
+    if(actorFrame) {
+      auto projectiles=actorFrame->projectiles;
+      if(projectiles.empty() && actorFrame->projectile)projectiles.push_back(*actorFrame->projectile);
+      for(const auto &p:projectiles) {
+        if(!p.active)continue;
+        if(p.row>3 || p.lane>5)throw std::invalid_argument("Invalid indoor projectile placement");
+        constexpr int order[]{162,135,111,79};
+        constexpr int x[4][6]{{72,72,93,51,97,47},{72,72,85,59,89,55},{72,72,77,67,81,63},{72,72,69,75,73,71}};
+        constexpr int y[4][6]{{43,43,48,48,36,36},{48,48,53,53,41,41},{53,53,58,58,47,47},{58,58,63,63,53,53}};
+        XeenIndoorDrawCommand command;command.originalOrder=order[p.row]+p.lane;command.x=x[p.row][p.lane];command.y=y[p.row][p.lane];
+        command.sourceMapId=camera.mapId;command.content=XeenIndoorProjectileDraw{p.enemy,p.row,p.lane,p.pow};commands.push_back(command);
+      }
     }
-	std::stable_sort(commands.begin(), commands.end(), [](const auto &left, const auto &right) {
+    for(unsigned row=0;row<3;++row) {
+        const auto &s=world.scenePresentation().splats[row];if(!s.duration)continue;
+        constexpr int order[]{157,151,154},x[3][2]{{102,134},{36,67},{161,161}},offset[]{8,6,4};
+        XeenIndoorDrawCommand c;c.originalOrder=order[row]+(s.frame?1:0);c.sourceMapId=camera.mapId;
+        c.x=x[row][s.alternatePosition]+(s.frame?offset[row]:0);if(s.damage>=100)c.x/=3;
+        c.y=!s.frame && s.damage>=100?60:73;c.content=XeenHitSplatDraw{s.frame,s.damage};commands.push_back(c);
+    }
+    std::stable_sort(commands.begin(), commands.end(), [](const auto &left, const auto &right) {
 		return left.originalOrder < right.originalOrder;
 	});
 	return commands;

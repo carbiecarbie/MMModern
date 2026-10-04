@@ -35,6 +35,7 @@ public:
 	// Transient NPC composition uses the existing cache, never the world surface.
 	void drawNpc(IndexedFrame &frame, std::uint8_t portraitId, std::size_t portraitFrame);
 	void drawDialogSprite(IndexedFrame &,const char *,unsigned,int,int);
+ IndexedFrame cursorImage();
 	void drawSmith(IndexedFrame &frame);
 	void drawTraining(IndexedFrame &frame);
 	void drawTemple(IndexedFrame &frame);
@@ -50,6 +51,7 @@ public:
 	static std::string normalMonsterResource(std::uint8_t image);
 	void validateProjectile(bool enemy);
 	void drawProjectile(bool enemy,unsigned row,int x,int y,const XeenSpriteDrawOptions &);
+ void drawProjectile(unsigned pow,bool enemy,unsigned row,int x,int y,const XeenSpriteDrawOptions &);
 	void validateNormalMonster(std::uint8_t image);
 	void validateAttackMonster(std::uint8_t image);
 	static std::string attackMonsterResource(std::uint8_t image);

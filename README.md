@@ -66,16 +66,17 @@ original games or ScummVM.
 
 | Key | Action |
 | --- | --- |
-| W/Up, S/Down | Move forward/back |
-| A/Left, D/Right | Turn |
+| Up / Down | Move forward/back outside combat |
+| Left / Right | Turn outside combat; combat movement shows "not supported yet" |
 | Arrows in the sheet | Select a stat |
-| Space | Interact; attack in combat; acknowledge text |
+| Space | Interact outside combat; acknowledge text |
+| A | Attack in combat |
 | Enter | Open the selected stat; confirm a cast |
 | Y / N | Yes / No |
 | F1-F6 | Open the character sheet; choose a party member in dialogs |
 | 1-9 | Select an inventory or stock slot; 1-3 pick a combat target |
 | . | Wait |
-| F | Shoot in mainland exploration |
+| S | Shoot in mainland exploration |
 | R / B | Run / Block in combat |
 | C | Learned spells |
 | I | Info (not supported yet); Items from the character sheet |
@@ -90,6 +91,12 @@ original games or ScummVM.
 
 In Vertigo, enter from mainland `(10,13)` facing North with Space. The
 [status](docs/project-status.md#vertigo) page lists the services and where they are.
+
+Main-screen buttons and portraits also work by mouse. Combat portraits show the
+remaining members after Run; click a portrait or press its corresponding F key
+to view that member. The acting member and selected enemy use the original icons.
+WASD movement and F Shoot shortcuts have been removed. Combat movement remains
+unsupported until Milestone 48 Part C; the arrow buttons and keys show a notice.
 
 ## Tests
 

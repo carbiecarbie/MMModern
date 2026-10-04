@@ -664,4 +664,14 @@ void ScummVmXeenBridge::drawDialogSprite(IndexedFrame &frame,const char *name,un
 	for(int row=0;row<200;++row) std::copy_n(static_cast<const std::uint8_t *>(surface.getBasePtr(0,row)),320,frame.pixels.data()+row*320);
 }
 
+IndexedFrame ScummVmXeenBridge::cursorImage() {
+ // EventsManager::setCursor(0): resize, transparent palette index 0, hotspot 0,0.
+ auto &sprite=_impl->sprite("mouse.icn",0);
+ XSurface surface;sprite.draw(surface,0,Common::Point(0,0),MM::Shared::Xeen::SPRFLAG_RESIZE);
+ auto frame=snapshot();frame.width=surface.w;frame.height=surface.h;
+ frame.pixels.resize(std::size_t(surface.w)*surface.h);
+ for(int row=0;row<surface.h;++row)std::copy_n(static_cast<const std::uint8_t *>(surface.getBasePtr(0,row)),surface.w,frame.pixels.data()+row*surface.w);
+ return frame;
+}
+
 } // namespace mmodern

@@ -31,7 +31,7 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
     if(control=="partial") {
         respond(RunAction{});ready(4);check(!(fight().participants()&1u),"M39 partial control needs legitimate earlier escape");
         respond(CastSpellAction{});respond(NavigationAction::MoveBackward);respond(AcknowledgeAction{});respond(AcknowledgeAction{});
-        respond(SelectMemberAction{0});check(view().phase==XeenCombatCastPhase::PartyTarget && party.roster.at(1).currentSp==20,"M39 First Aid accepted escaped slot/refunded");
+        respond(SelectMemberAction{5});check(view().phase==XeenCombatCastPhase::PartyTarget && party.roster.at(1).currentSp==20,"M39 First Aid accepted unused compact slot/refunded");
         respond(CancelInteractionAction{});check(view().result.refunded && party.roster.at(1).currentSp==21,"M39 partial explicit refund");
         respond(AcknowledgeAction{});ready(5);respond(CastSpellAction{});respond(AcknowledgeAction{});respond(AcknowledgeAction{});tick();
         check(view().phase==XeenCombatCastPhase::Result && view().result.count==6 && party.roster.at(6).currentSp==26 && !(fight().participants()&1u),"M39 Awaken lost full active scope/restored escape");
@@ -122,8 +122,12 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
                 fight().setProbe({});const auto settled=*world.sessionState().journeyRandom();
                 auto projectile=fight().cast();auto &&projectileResult=fight().result();poison(projectile,projectileResult);
                 check(flow.encounter()->appearance().projectile.has_value(),"M39 corrupted public phase hid retained projectile");
+                const auto visuals=flow.encounter()->appearance().projectiles;
+                check(visuals.size()==1 && visuals[0].lane==0 && visuals[0].row==0 && visuals[0].pow==11 &&
+                    visuals[0].target==std::optional<XeenMonsterIdentity>{{23,9}},"Magic Arrow shared single lane/selected target");
                 tick();check(view().phase==XeenCombatCastPhase::Result && world.sessionState().journeyRandom()==settled,
                     "M39 detached projectile/result repeated RNG/effect");
+                check(flow.encounter()->appearance().projectiles.empty(),"Magic Arrow lane did not terminate at its existing phase boundary");
                 auto receipt=fight().cast();auto &&receiptResult=fight().result();poison(receipt,receiptResult);
                 respond(AcknowledgeAction{});
                 check(!fight().cast() && fight().phase()==XeenCombatPhase::VictoryAwaitingEnd && fight().pending()==XeenCombatWork::End &&

@@ -9,6 +9,7 @@ namespace mmodern {
 // It anticipates known effects in retained guard storage, never adopts callback state.
 class XeenEventPublication {
 public:
+ mutable std::uint32_t portraitEffectOwners=0; // Published giveTake(8) recipients, presentation only.
 	XeenEventPublication(const XeenEventPublication &) = delete;
 	XeenEventPublication &operator=(const XeenEventPublication &) = delete;
 	void check() const { authority(); guard.check(); }
@@ -120,7 +121,7 @@ public:
 			guard.characters[owner].currentHp!=before || std::int32_t(before)+25!=after)
 			integrity("Regional well HP site or preimage changed");
 	}
-	void wellHpWritten(std::uint8_t owner,std::int16_t after) const noexcept { guard.characters[owner].currentHp=after;guard.adoptMutationBoundary(); }
+	void wellHpWritten(std::uint8_t owner,std::int16_t after) const noexcept { guard.characters[owner].currentHp=after;guard.adoptMutationBoundary();portraitEffectOwners|=1u<<owner; }
 	void prepareWellFlag() const {
 		check();
 		if (currentSite!=63 || !guard.recovery)

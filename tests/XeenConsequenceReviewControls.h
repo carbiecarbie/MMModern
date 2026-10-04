@@ -88,7 +88,7 @@ void poisonInitiative(Source &s) {
 }
 void terminalNotices(Source &s) {
  const auto verify=[](Domain &d,const char *status,const char *reason){const auto text=d.flow->notice();check(text.find(status)!=std::string::npos && text.find(reason)!=std::string::npos,"Terminal notice lacks actual status/reason");
-  for(const char *control:{"Quiet/approach","Automatic combat","/ End","Arrows move","F Shoot","I inventory","F9 quiet","Space/B"})check(text.find(control)==std::string::npos,"Terminal advertises unavailable controls");
+  for(const char *control:{"Quiet/approach","Automatic combat","/ End","Arrows move","S Shoot","I inventory","F9 quiet","A/B"})check(text.find(control)==std::string::npos,"Terminal advertises unavailable controls");
   check(text.find("Esc exits")!=std::string::npos && !d.flow->canSave(),"Terminal exit feedback/save exclusion");};
  Domain original(s);auto saved=original.save();saved.journey->context->minutes=1250;
  {Domain d(s,saved);d.flow->handle(WaitAction{});verify(d,"SUPPORT STOP","time boundary");}

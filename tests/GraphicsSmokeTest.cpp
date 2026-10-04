@@ -205,10 +205,10 @@ int main(int argc, char *argv[]) {
 			const std::array<KeyEvent, 6> events{{
 				{SDL_KEYDOWN, SDLK_SPACE, 0},
 				{SDL_KEYDOWN, SDLK_SPACE, 1},
-				{SDL_KEYDOWN, SDLK_w, 0},
+				{SDL_KEYDOWN, SDLK_UP, 0},
 				{SDL_KEYDOWN, mode == "manual-yes" ? SDLK_y :
 					mode == "manual-no" ? SDLK_n : SDLK_SPACE, 0},
-				{SDL_KEYDOWN, SDLK_w, 0},
+				{SDL_KEYDOWN, SDLK_UP, 0},
 				{SDL_KEYDOWN, SDLK_ESCAPE, 0}
 			}};
 			for (const auto &key : events) {
@@ -228,10 +228,10 @@ int main(int argc, char *argv[]) {
 			return;
 		}
 		const std::vector<SDL_Keycode> keys = mode == "map" ?
-			std::vector<SDL_Keycode>{SDLK_w, SDLK_s, SDLK_LEFT, SDLK_RIGHT, SDLK_ESCAPE} :
+			std::vector<SDL_Keycode>{SDLK_UP, SDLK_DOWN, SDLK_LEFT, SDLK_RIGHT, SDLK_ESCAPE} :
 			mode == "indoor" ?
-			std::vector<SDL_Keycode>{SDLK_LEFT, SDLK_RIGHT, SDLK_w, SDLK_s,
-				SDLK_w, SDLK_w, SDLK_w, SDLK_ESCAPE} :
+			std::vector<SDL_Keycode>{SDLK_LEFT, SDLK_RIGHT, SDLK_UP, SDLK_DOWN,
+				SDLK_UP, SDLK_UP, SDLK_UP, SDLK_ESCAPE} :
 			std::vector<SDL_Keycode>{SDLK_ESCAPE};
 		if (!escape) {
 			std::this_thread::sleep_for(std::chrono::milliseconds(500));

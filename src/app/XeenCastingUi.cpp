@@ -54,11 +54,12 @@ std::string XeenEventFlow::combatCastingText() const {
         out<<"Enter casts; Esc returns";
     }else if(v.phase==CP::PartyTarget) {
         out<<"First Aid: "<<ch.name<<" SP "<<v.result.spBefore<<"->"<<v.result.spAfter<<"\nF1-F6 choose target\n";
+        unsigned slot=0;
         for(unsigned i=0;i<6;++i) {
+            if(!(_encounter->combat()->participants()&(1u<<i)))continue;
             const auto &target=_party.party.member(_party.roster,i);
-            details<<"F"<<i+1<<' '<<target.name<<" HP "<<target.currentHp<<'/'<<XeenCharacterRules::maxHp(target,{_party.encounterContext->year});
-            if(!(_encounter->combat()->participants()&(1u<<i)))details<<" Escaped";
-            else if(target.conditions[13] || target.conditions[14] || target.conditions[15])details<<" Fails";
+            details<<"F"<<++slot<<' '<<target.name<<" HP "<<target.currentHp<<'/'<<XeenCharacterRules::maxHp(target,{_party.encounterContext->year});
+            if(target.conditions[13] || target.conditions[14] || target.conditions[15])details<<" Fails";
             else if(target.worstCondition()!=XeenCondition::Good)details<<' '<<xeenConditionName(target.worstCondition());
             details<<'\n';
         }
@@ -111,6 +112,7 @@ IndexedFrame XeenEventFlow::handleCombatCasting(const PlayerAction &action,std::
         if(const auto cast=_encounter->combat()->cast(); cast && cast->phase==XeenCombatCastPhase::Confirm && cast->enemy) {
             XeenMonsterAppearance appearance;
             appearance.projectile=XeenProjectileAppearance{false,0,0,0,{}};
+            appearance.projectile->target=cast->enemy;
             const auto frame=_encounterCompose(_ordinary.phase,appearance);
             if(!frame.frame.isValid())throw std::runtime_error("Combat Arrow preflight frame invalid");
         }

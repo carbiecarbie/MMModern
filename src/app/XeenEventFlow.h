@@ -316,6 +316,7 @@ private:
 	IndexedFrame _frame;
 	std::string _mainScreenNotice;
 	IndexedFrame drawMainScreenNotice(const IndexedFrame &, const std::string &) const;
+ void drawPartyPresentation(IndexedFrame &) const;
 	XeenCamera _renderedCamera;
 	std::size_t _disabledObjects = 0;
 };

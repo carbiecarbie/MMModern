@@ -222,6 +222,7 @@ void run(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &initi
    check(h.flow->inventorySelection().mode==XeenInventoryMode::UseTarget,"Antidote did not reach debited target selector");
    deniedSave();
    if(action==Action::Antidote)input(SelectMemberAction{1});else input(CancelInteractionAction{});
+   check(h.world->scenePresentation().portraits[18].spellFrame==(action==Action::Antidote?0u:4u),"Antidote explicit recipient/cancel portrait effect");
    settle();
    check(h.party->encounterContext->minutes==minute,"Antidote charged time");
    check(h.party->roster.at(18).conditions[3]==(action==Action::Antidote?0:1),"Antidote cure/cancel consequence");
@@ -242,6 +243,7 @@ void run(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &initi
     deniedSave();
     if(action!=Action::Awaken) {
      if(action==Action::FirstAidCancel)input(CancelInteractionAction{});else input(SelectMemberAction{1});
+     check(h.world->scenePresentation().portraits[18].spellFrame==(action==Action::FirstAidCancel?4u:0u),"First Aid explicit recipient/cancel portrait effect");
     }
     settle();
     check(h.party->encounterContext->minutes==minute+(indoor?1:10),"Casting regional minute charge");

@@ -454,10 +454,12 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
             },
             [&](const IndexedFrame &first, const auto &handler, const auto &escape, const auto &idle, const auto &status) {
                 if (journeyControls) {} // The shared startup prints the bounded Journey controls.
-                else std::cout << "Controls: W/S move, A/D turn, Space interacts, Enter acknowledges, "
+                else std::cout << "Controls: Up/Down move, Left/Right turn, Space interacts, Enter acknowledges, "
                     "Y/N answers, F1-F6 selects, I opens inventory, 1-9 selects a slot, T transfers, "
                     "Escape closes/cancels or exits. Map exploration cannot save.\n";
-                return SdlWindow().showInteractive(first, status(), handler, escape, idle, status);
+                auto nativeHandler=handler;
+                nativeHandler.cursorImage=[&] {return assets.cursorImage();};
+                return SdlWindow().showInteractive(first, status(), nativeHandler, escape, idle, status);
             }
         };
         services.catalog = &catalog.catalog;

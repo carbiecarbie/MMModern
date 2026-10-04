@@ -204,8 +204,8 @@ void shootOrder(Source &source) {
  const auto finishVisuals=[](Domain &v,unsigned distance){
   std::vector<std::pair<unsigned,unsigned>> seen;
   for(unsigned n=0;n<50 && v.party.encounterContext->minutes==480;++n){v.now+=100;v.flow->idle();v.flow->holdJourneyFrame();v.present();
-   if(const auto p=v.flow->appearance().projectile){check(!p->enemy&&!p->source,"Player projectile never fabricates monster identity");const auto item=std::make_pair(p->lane,p->row);if(seen.empty()||seen.back()!=item)seen.push_back(item);}}
-  std::vector<std::pair<unsigned,unsigned>> expected;for(unsigned lane:{0u,2u})for(unsigned row=0;row<=distance;++row)expected.emplace_back(lane,row);
+   for(const auto &p:v.flow->appearance().projectiles){check(!p.enemy&&!p.source,"Player projectile never fabricates monster identity");const auto item=std::make_pair(p.lane,p.row);if(std::find(seen.begin(),seen.end(),item)==seen.end())seen.push_back(item);}}
+  std::vector<std::pair<unsigned,unsigned>> expected;for(unsigned row=0;row<=distance;++row)for(unsigned lane:{0u,2u})expected.emplace_back(lane,row);
   check(seen==expected,"Exactly one outward projectile per shooter, independent of miss attempts");
   check(v.party.encounterContext->minutes==490&&v.flow->state().pending()==3,"Visuals preserve charge and owed opportunity");
  };

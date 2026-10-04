@@ -40,11 +40,18 @@ bool uploadFrame(SDL_Texture *texture, const IndexedFrame &frame,
 	return true;
 }
 
-std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key) {
+std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key, MainScreen screen) {
+    if((key.keysym.mod & KMOD_CTRL) && (key.keysym.sym==SDLK_LEFT || key.keysym.sym==SDLK_RIGHT))
+        return UnsupportedMainScreenAction{"Strafe"};
+    if((key.keysym.mod & KMOD_CTRL) && key.keysym.sym==SDLK_DOWN)
+        return UnsupportedMainScreenAction{"Turn around"};
+    if((key.keysym.mod & KMOD_CTRL) && key.keysym.sym==SDLK_UP)return std::nullopt;
 	switch (key.keysym.sym) {
 	case SDLK_PERIOD: return WaitAction{};
 	case SDLK_b: return BlockAction{};
-	case SDLK_f: return ShootAction{};
+	case SDLK_f: return screen==MainScreen::Combat ? std::optional<PlayerAction>{UnsupportedMainScreenAction{"Quick Fight"}} : std::nullopt;
+	case SDLK_s: return screen==MainScreen::Combat ? std::nullopt : std::optional<PlayerAction>{ShootAction{}};
+	case SDLK_a: return screen==MainScreen::Combat ? std::optional<PlayerAction>{AttackAction{}} : std::nullopt;
 	case SDLK_c: return CastSpellAction{};
 	case SDLK_r: return RevisitCompletedAction{};
 	case SDLK_F9: return SaveGameAction{};
@@ -62,23 +69,19 @@ std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key) {
 	case SDLK_F5:
 	case SDLK_F6:
 		return SelectMemberAction{static_cast<std::size_t>(key.keysym.sym - SDLK_F1)};
-	case SDLK_a:
 	case SDLK_LEFT:
 		return NavigationAction::TurnLeft;
-	case SDLK_d:
 	case SDLK_RIGHT:
 		return NavigationAction::TurnRight;
-	case SDLK_w:
 	case SDLK_UP:
 		return NavigationAction::MoveForward;
-	case SDLK_s:
 	case SDLK_DOWN:
 		return NavigationAction::MoveBackward;
 	case SDLK_SPACE:
-		return InteractionAction{};
+		return screen==MainScreen::Combat ? std::nullopt : std::optional<PlayerAction>{InteractionAction{}};
 	case SDLK_RETURN:
 	case SDLK_KP_ENTER:
-		return AcknowledgeAction{};
+		return screen==MainScreen::Combat ? std::nullopt : std::optional<PlayerAction>{AcknowledgeAction{}};
 	case SDLK_y:
 		return YesAction{};
 	case SDLK_n:
@@ -132,7 +135,10 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 		SDL_Window *window = nullptr;
 		SDL_Renderer *renderer = nullptr;
 		SDL_Texture *texture = nullptr;
+        SDL_Texture *cursor = nullptr;
+        int priorCursor=SDL_ENABLE;
 		~Resources() {
+            if(cursor) { SDL_DestroyTexture(cursor); SDL_ShowCursor(priorCursor); }
 			if (texture) SDL_DestroyTexture(texture);
 			if (renderer) SDL_DestroyRenderer(renderer);
 			if (window) SDL_DestroyWindow(window);
@@ -175,6 +181,29 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 	SDL_SetTextureScaleMode(texture, SDL_ScaleModeNearest);
 #endif
 	SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_NONE);
+    int cursorWidth=0,cursorHeight=0;
+    if(handler.cursorImage) {
+        const auto cursor=handler.cursorImage();
+        if(!cursor.isValid())throw std::runtime_error("Invalid original cursor");
+        cursorWidth=cursor.width;cursorHeight=cursor.height;
+        resources.cursor=SDL_CreateTexture(renderer,SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_STATIC,cursorWidth,cursorHeight);
+        if(!resources.cursor)throw std::runtime_error("Cannot create original cursor texture");
+        std::vector<std::uint32_t> cursorPixels(cursor.pixels.size());
+        for(std::size_t i=0;i<cursorPixels.size();++i) {
+            const auto c=cursor.pixels[i];cursorPixels[i]=c ? 0xff000000u | (std::uint32_t(cursor.palette[3*c])<<16) | (std::uint32_t(cursor.palette[3*c+1])<<8) | cursor.palette[3*c+2] : 0;
+        }
+        if(SDL_UpdateTexture(resources.cursor,nullptr,cursorPixels.data(),cursorWidth*4)!=0)throw std::runtime_error("Cannot upload original cursor");
+        SDL_SetTextureBlendMode(resources.cursor,SDL_BLENDMODE_BLEND);
+        resources.priorCursor=SDL_ShowCursor(SDL_QUERY);SDL_ShowCursor(SDL_DISABLE);
+    }
+    const auto drawCursor=[&] {
+        if(!resources.cursor || SDL_GetMouseFocus()!=window)return;
+        int x,y;SDL_GetMouseState(&x,&y);float logicalX,logicalY;
+        SDL_RenderWindowToLogical(renderer,x,y,&logicalX,&logicalY);
+        if(logicalX<0 || logicalY<0 || logicalX>=initialFrame.width || logicalY>=initialFrame.height)return;
+        SDL_Rect destination{int(logicalX),int(logicalY),cursorWidth,cursorHeight};
+        if(SDL_RenderCopy(renderer,resources.cursor,nullptr,&destination)!=0)throw std::runtime_error("Original cursor presentation failed");
+    };
 	std::vector<std::uint32_t> pixels;
 	if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale initial frame handoff");
 	IndexedFrame::Presentation uploadedFrame, presentedFrame;
@@ -203,7 +232,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 		SDL_SetRenderDrawColor(renderer,0,0,0,255);
 		SDL_RenderClear(renderer);
 		if (SDL_RenderCopy(renderer,texture,nullptr,nullptr) != 0) { success=false; return false; }
-		SDL_RenderPresent(renderer);
+		drawCursor();SDL_RenderPresent(renderer);
 		if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale initial upload");
 		// Sample pending OS input while this handoff is still unacquired. Never
 		// pump between successful acquisition and the queue fence below: that
@@ -262,7 +291,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
                 SDL_SetRenderDrawColor(renderer,0,0,0,255);SDL_RenderClear(renderer);
                 if(SDL_RenderCopy(renderer,texture,nullptr,nullptr)!=0)
                     throw std::runtime_error("Button feedback presentation failed");
-                SDL_RenderPresent(renderer);
+                drawCursor();SDL_RenderPresent(renderer);
             };
             presentButton(pressed);
             SDL_Delay(kButtonFeedbackMilliseconds);
@@ -312,15 +341,19 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             // Do not scale a second time. Out-of-viewport coordinates are rejected.
             const auto action = context.dialog ? (mouse ? context.dialog->click(event.button.x,event.button.y) :
                 context.dialog->key(inputKey(event.key.keysym.sym))) :
-                mouse ? xeenMainScreenClick(event.button.x,event.button.y,context.mainScreen) : playerAction(event.key);
-            const auto button=context.dialog ?
+                mouse ? xeenMainScreenClick(event.button.x,event.button.y,context.mainScreen) : playerAction(event.key,context.mainScreen);
+            auto button=context.dialog ?
                 (action && std::get_if<DialogKeyAction>(&*action) ? context.dialog->button(std::get<DialogKeyAction>(*action).key) : std::nullopt) :
                 mouse ? xeenMainScreenButtonAt(event.button.x,event.button.y,context.mainScreen) :
                     xeenMainScreenKeyButton(action,inputKey(event.key.keysym.sym),context.mainScreen);
+            if(!mouse && !context.dialog && (event.key.keysym.mod & KMOD_CTRL)) {
+                button=event.key.keysym.sym==SDLK_LEFT ? xeenMainScreenButtonAt(235,169,context.mainScreen) :
+                    event.key.keysym.sym==SDLK_RIGHT ? xeenMainScreenButtonAt(286,169,context.mainScreen) : std::nullopt;
+            }
             if (!mouse && event.key.keysym.sym == SDLK_ESCAPE && !event.key.repeat) pendingActions.clear();
             const bool movement = action && std::holds_alternative<NavigationAction>(*action);
             const auto *slot = action ? std::get_if<SelectInventorySlotAction>(&*action) : nullptr;
-            const bool queueKey = action && (movement || std::holds_alternative<InteractionAction>(*action) ||
+            const bool queueKey = action && (movement || std::holds_alternative<AttackAction>(*action) || std::holds_alternative<InteractionAction>(*action) ||
                 std::holds_alternative<BlockAction>(*action) || std::holds_alternative<ShootAction>(*action) ||
                 std::holds_alternative<RevisitCompletedAction>(*action) || std::holds_alternative<WaitAction>(*action) ||
                 std::holds_alternative<CastSpellAction>(*action) || std::holds_alternative<SelectMemberAction>(*action) ||
@@ -434,7 +467,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 			success = false;
 			break;
 		}
-		SDL_RenderPresent(renderer);
+		drawCursor();SDL_RenderPresent(renderer);
 		if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale presented frame");
 		if (uploadedInput != (handler.displayedInput ? handler.displayedInput() : std::nullopt))
 			throw std::runtime_error("Current frame was not uploaded");

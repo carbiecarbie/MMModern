@@ -152,6 +152,7 @@ bool XeenEncounterFlow::respondCastingTarget(const Ticket &entry,
 		if (!targetIndex) _party.roster.at(_casting->casterOwner).currentSp=_casting->originalSp;
 		else for (const auto &effect:preparedEffect.effects) {
 			auto &live=_party.roster.at(effect.owner);
+            if(live.currentHp<=XeenCharacterRules::maxHp(live,{_party.encounterContext->year}))_world.scenePresentation().spellEffect(effect.owner,_lastTime,true);
 			live.currentHp=effect.hp;live.conditions=effect.conditions;
 		}
 		_castingResult.swap(result);

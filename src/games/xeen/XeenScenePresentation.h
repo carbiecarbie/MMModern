@@ -55,6 +55,35 @@ struct XeenMonsterAnimation {
 
 class XeenScenePresentation {
 public:
+ struct PortraitEffect {unsigned spellFrame=4, damageFrame=0, damageTicks=0;std::uint64_t spellDeadline=0,damageDeadline=0;};
+ struct Splat {unsigned frame=0, duration=0;int damage=0;bool alternatePosition=false;std::uint64_t deadline=0;};
+ std::array<PortraitEffect,30> portraits{};
+ std::array<Splat,3> splats{};
+ bool feedbackActive() const noexcept {
+  for(const auto &p:portraits)if(p.spellFrame<4 || p.damageTicks)return true;
+  for(const auto &s:splats)if(s.duration)return true;
+  return false;
+ }
+ void spellEffect(unsigned owner,std::uint64_t now=0,bool reset=false) noexcept {
+  // Character::addHitPoints clears _charFX for each invocation, including
+  // zero-HP Cure Poison; giveTake's duplicate recipients remain suppressed.
+  if(owner<portraits.size() && (reset || portraits[owner].spellFrame==4)) {portraits[owner].spellFrame=0;portraits[owner].spellDeadline=now+100;}
+ }
+ void portraitDamage(unsigned owner,unsigned frame,std::uint64_t now=0) noexcept {
+  if(owner<portraits.size()) {portraits[owner].damageFrame=frame;portraits[owner].damageTicks=1;portraits[owner].damageDeadline=now+100;}
+ }
+ void hitSplat(unsigned row,int damage,unsigned frame,bool alternatePosition,std::uint64_t now=0) noexcept {
+  if(row<3 && damage>0)splats[row]={frame,3,damage,alternatePosition,now+100};
+ }
+ bool advanceFeedback(std::uint64_t now) noexcept {
+  bool changed=false;
+  for(auto &p:portraits) {
+   if(p.spellFrame<4 && now>=p.spellDeadline) {++p.spellFrame;p.spellDeadline=now+100;changed=true;}
+   if(p.damageTicks && now>=p.damageDeadline) {--p.damageTicks;changed=true;}
+  }
+  for(auto &s:splats)if(s.duration && now>=s.deadline) {--s.duration;s.deadline=now+100;changed=true;}
+  return changed;
+ }
 	explicit XeenScenePresentation(std::uint32_t seed=std::random_device{}()) : _random(seed) {}
 	bool ground=false, defaultGround=false, sky=false, water=false;
 	unsigned overallFrame=0, floatPhase=0;

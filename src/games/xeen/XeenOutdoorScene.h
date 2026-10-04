@@ -41,7 +41,7 @@ struct XeenOutdoorActorDraw {
 	std::uint32_t effectSeed = 0;
 };
 
-struct XeenOutdoorProjectileDraw { bool enemy=false; unsigned row=0,lane=0; };
+struct XeenOutdoorProjectileDraw { bool enemy=false; unsigned row=0,lane=0,pow=11; };
 
 struct XeenOutdoorDrawCommand {
 	int originalOrder = 0;
@@ -51,13 +51,15 @@ struct XeenOutdoorDrawCommand {
 	int sourceX = -1;
 	int sourceY = -1;
 	int sampleIndex = -1;
-	std::variant<XeenOutdoorTerrainDraw, XeenOutdoorObjectDraw, XeenOutdoorActorDraw, XeenOutdoorProjectileDraw> content;
+	std::variant<XeenOutdoorTerrainDraw, XeenOutdoorObjectDraw, XeenOutdoorActorDraw, XeenOutdoorProjectileDraw, XeenHitSplatDraw> content;
 	XeenOutdoorTerrainDraw &terrain() { return std::get<XeenOutdoorTerrainDraw>(content); }
 	const XeenOutdoorTerrainDraw &terrain() const { return std::get<XeenOutdoorTerrainDraw>(content); }
 	const XeenOutdoorObjectDraw *object() const { return std::get_if<XeenOutdoorObjectDraw>(&content); }
 	const XeenOutdoorActorDraw *actor() const { return std::get_if<XeenOutdoorActorDraw>(&content); }
 	const XeenOutdoorProjectileDraw *projectile() const { return std::get_if<XeenOutdoorProjectileDraw>(&content); }
+ const XeenHitSplatDraw *splat() const {return std::get_if<XeenHitSplatDraw>(&content);}
 	XeenSpriteDrawOptions drawOptions() const {
+        if(const auto *s=splat()) {XeenSpriteDrawOptions r;r.scaleIndex=s->damage<10?5:0;r.enlarge=s->damage>=100;r.sceneClipped=r.bottomClipped=true;return r;}
 		if(const auto *p=projectile()) { XeenSpriteDrawOptions r;r.scaleIndex=4*p->row+(p->enemy?3:0);r.sceneClipped=true;r.horizontalFlip=p->lane%2;return r; }
 		if (const auto *a = actor()) {
 			XeenSpriteDrawOptions result;

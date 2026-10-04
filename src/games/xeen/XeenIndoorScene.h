@@ -51,7 +51,7 @@ struct XeenIndoorActorDraw {
 	bool bottomClipped=false;
 };
 
-struct XeenIndoorProjectileDraw {};
+struct XeenIndoorProjectileDraw { bool enemy=false;unsigned row=0,lane=0,pow=11; };
 struct XeenWallItemDraw {
 	std::size_t recordIndex=0, frame=0;
 	std::string resourceName;
@@ -68,7 +68,7 @@ struct XeenIndoorDrawCommand {
 	int sourceY = -1;
 	XeenDirection sourceFace = XeenDirection::North;
 	int queryIndex = -1;
-	std::variant<XeenIndoorGeometryDraw, XeenIndoorObjectDraw, XeenIndoorActorDraw, XeenIndoorProjectileDraw, XeenWallItemDraw> content;
+	std::variant<XeenIndoorGeometryDraw, XeenIndoorObjectDraw, XeenIndoorActorDraw, XeenIndoorProjectileDraw, XeenWallItemDraw, XeenHitSplatDraw> content;
 	XeenIndoorGeometryDraw &geometry() { return std::get<XeenIndoorGeometryDraw>(content); }
 	const XeenIndoorGeometryDraw &geometry() const {
 		return std::get<XeenIndoorGeometryDraw>(content);
@@ -78,10 +78,12 @@ struct XeenIndoorDrawCommand {
 	}
 	const XeenIndoorActorDraw *actor() const { return std::get_if<XeenIndoorActorDraw>(&content); }
 	const XeenIndoorProjectileDraw *projectile() const { return std::get_if<XeenIndoorProjectileDraw>(&content); }
+ const XeenHitSplatDraw *splat() const {return std::get_if<XeenHitSplatDraw>(&content);}
 	const XeenWallItemDraw *wallItem() const { return std::get_if<XeenWallItemDraw>(&content); }
 	XeenSpriteDrawOptions drawOptions() const {
+        if(const auto *s=splat()) {XeenSpriteDrawOptions r;r.scaleIndex=s->damage<10?5:0;r.enlarge=s->damage>=100;r.sceneClipped=r.bottomClipped=true;return r;}
 		if (const auto *wall=wallItem()) {XeenSpriteDrawOptions result;result.scaleIndex=wall->scaleIndex;result.sceneClipped=true;return result;}
-        if(projectile()){XeenSpriteDrawOptions result;result.sceneClipped=true;return result;}
+        if(const auto *p=projectile()){XeenSpriteDrawOptions result;result.sceneClipped=true;result.scaleIndex=4*p->row+(p->enemy?3:0);result.horizontalFlip=p->lane%2;return result;}
 		if (const auto *draw=actor()) {
 			XeenSpriteDrawOptions result;
 			result.scaleIndex=draw->scaleIndex;result.sceneClipped=true;

@@ -902,6 +902,9 @@ if(BUILD_TESTING)
 		set_tests_properties(xeen_m44_scenario_${scenario} PROPERTIES TIMEOUT 1800)
 	endforeach()
 	add_executable(mmodern_scene_presentation_tests tests/XeenScenePresentationTests.cpp)
+ add_executable(mmodern_combat_presentation_tests tests/XeenCombatPresentationTests.cpp)
+ target_link_libraries(mmodern_combat_presentation_tests PRIVATE mmodern_app mmodern_xeen)
+ add_test(NAME xeen_combat_presentation COMMAND mmodern_combat_presentation_tests "F:/Games/gog/Might and Magic 4-5")
 	target_link_libraries(mmodern_scene_presentation_tests PRIVATE mmodern_app mmodern_xeen)
 	add_test(NAME xeen_scene_presentation COMMAND mmodern_scene_presentation_tests)
 	add_executable(mmodern_scene_inventory_original tests/XeenSceneInventoryOriginal.cpp)
@@ -917,6 +920,7 @@ if(BUILD_TESTING)
 		xeen_temple_flow xeen_temple_process xeen_temple_depleted_process
 		xeen_training_flow xeen_training_allocation xeen_training_original xeen_training_process
 		xeen_input_scheduling xeen_service_day_process xeen_combat_clock_process
+		xeen_main_screen
 		xeen_journey_resources xeen_journey_persistence xeen_regional_persistence
 		xeen_combat_casting_process xeen_combat_casting_controls
 		xeen_combat_player_ready_input

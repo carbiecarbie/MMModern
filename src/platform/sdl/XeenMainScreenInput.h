@@ -21,8 +21,8 @@ inline std::optional<PlayerAction> xeenMainScreenClick(int x, int y, MainScreen 
         if (!contains(columns[col],75+21*row,columns[col]+24,95+21*row)) continue;
         const unsigned index=row*3+col;
         if (index==1) return CastSpellAction{}; // C
-        if (!combat && index==0) return ShootAction{}; // MMModern F
-        if (combat && index==2) return InteractionAction{}; // MMModern Space -> Attack
+        if (!combat && index==0) return ShootAction{}; // S
+        if (combat && index==2) return AttackAction{}; // A
         if (combat && index==4) return RevisitCompletedAction{}; // R -> Run
         if (combat && index==5) return BlockAction{}; // B
         if (combat && index==3) return UseItemAction{}; // U
@@ -46,7 +46,7 @@ inline std::optional<PlayerAction> xeenMainScreenClick(int x, int y, MainScreen 
     constexpr int faces[] = {10,45,81,117,153,189};
     for (unsigned index=0;index<6;++index) if (contains(faces[index],150,faces[index]+32,182))
         return SelectMemberAction{index};
-    if (contains(8,8,224,140)) return InteractionAction{}; // Space, after buttons (Tab overlaps).
+    if (contains(8,8,224,140)) return combat ? PlayerAction{AttackAction{}} : PlayerAction{InteractionAction{}};
     return {};
 }
 inline std::optional<InputButton> xeenMainScreenButtonAt(int x,int y,MainScreen screen) {

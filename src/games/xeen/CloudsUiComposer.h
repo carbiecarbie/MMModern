@@ -35,10 +35,10 @@ public:
 	static constexpr int kHeight = 200;
 
 	static std::vector<PortraitPlacement> buildPortraitPlacements(
-		const XeenPartyState &partyState);
+		const XeenPartyState &partyState, unsigned memberMask=0x3f);
 	static std::vector<HpPlacement> buildHpPlacements(
 		const XeenPartyState &partyState,
-		const XeenCharacterRulesContext &context);
+		const XeenCharacterRulesContext &context, unsigned memberMask=0x3f);
 	void loadBackground(XeenAssetSource &assets) const;
 	// Replace the already composed main-screen controls with ICONS_COMBAT.
 	void drawCombatButtons(XeenAssetSource &assets, IndexedFrame &frame) const;

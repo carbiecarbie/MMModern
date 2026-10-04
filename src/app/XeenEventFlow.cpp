@@ -1,6 +1,8 @@
 #include "app/XeenEventFlow.h"
 #include "games/xeen/XeenEventPublication.h"
 #include "games/xeen/XeenVertigoRoute.h"
+#include "games/xeen/CloudsUiComposer.h"
+#include "games/xeen/XeenCharacterRules.h"
 #include <type_traits>
 #include <utility>
 #include <iostream>
@@ -130,7 +132,7 @@ IndexedFrame XeenEventFlow::drawMainScreenNotice(const IndexedFrame &base, const
         if(line.rfind("Arrows move/turn",0)==0 || line.rfind("I inventory;",0)==0) continue;
         const auto start=!line.empty() && line.front()=='>' ? 1u : 0u;
         if(_encounter->combat() && line.size()>start+1 && line[start]>='1' && line[start]<='3' && line[start+1]==' ') continue;
-        const auto controls=line.find(": Space/B;");
+        const auto controls=line.find(": A/B;");
         if(controls!=std::string::npos) line=line.substr(0,controls)+": ready";
         if(!text.empty()) text+='\n';
         text+=line;
@@ -157,15 +159,41 @@ IndexedFrame XeenEventFlow::drawMainScreenNotice(const IndexedFrame &base, const
         const auto rows=combat->contacts();
         for(unsigned row=0;row<rows.size();++row) if(rows[row]) {
             const auto &actor=_world.sessionState().regionalActors(rows[row]->mapId).at(rows[row]->recordIndex);
-            auto label=std::string(rows[row]==combat->selectedTarget()?">":" ")+std::to_string(row+1)+" "+actor.statistics->name();
+            auto label=std::to_string(row+1)+" "+actor.statistics->name();
             const XeenTextRenderer renderer(_inventoryFont);
             while(renderer.textWidth(label,XeenFontSize::Reduced)>73) label.pop_back();
             options.bounds={239,27+int(row)*10,312,37+int(row)*10};
             options.x=239; options.y=options.bounds.top; options.drawWindow=false;
             frame=renderer.render(frame,label,options).pages.front();
+            if(rows[row]==combat->selectedTarget() && drawDialogSprite)
+                drawDialogSprite(frame,"combat.icn",32,233,27+int(row)*10);
         }
     }
     return frame;
+}
+
+void XeenEventFlow::drawPartyPresentation(IndexedFrame &frame) const {
+ if(!drawDialogSprite || !_encounter)return;
+ const auto *combat=_encounter->combat();
+ const unsigned mask=combat?combat->participants():0x3f;
+ drawDialogSprite(frame,"restorex.icn",0,8,149);
+ for(const auto &p:CloudsUiComposer::buildPortraitPlacements(_party,mask))
+  drawDialogSprite(frame,p.resourceName.c_str(),unsigned(p.frame),p.x,p.y);
+ for(const auto &p:CloudsUiComposer::buildHpPlacements(_party,{_party.encounterContext->year},mask))
+  drawDialogSprite(frame,"hpbars.icn",unsigned(p.frame),p.x,p.y);
+ if(combat && combat->participant()>=0 && combat->participant()<6) {
+  unsigned slot=0;const auto member=unsigned(combat->participant());
+  for(unsigned i=0;i<member;++i)if(mask&(1u<<i))++slot;
+  constexpr int x[]{10,45,81,117,153,189};
+  if(mask&(1u<<member))drawDialogSprite(frame,"global.icn",8,x[slot]-1,149);
+ }
+ unsigned slot=0;constexpr int faces[]{10,45,81,117,153,189};
+ for(unsigned member=0;member<_party.party.size();++member)if(mask&(1u<<member)) {
+  const auto owner=_party.party.activeRosterIds()[member];const auto &effect=_world.scenePresentation().portraits[owner];
+  if(effect.damageTicks)drawDialogSprite(frame,"charpow.icn",effect.damageFrame,faces[slot],150);
+  if(effect.spellFrame<4)drawDialogSprite(frame,"spellfx.icn",effect.spellFrame,faces[slot],150);
+  ++slot;
+ }
 }
 
 bool XeenEventFlow::journeyInputCurrent(std::optional<std::uint64_t> input) const noexcept {
@@ -319,6 +347,7 @@ bool XeenEventFlow::updateOrdinaryPhase(OrdinaryCause cause, bool reset, std::ui
 	// One shared M22 policy: committed facing/map reset wins over the action step.
 	_ordinary.phase = reset ? 0 : _ordinary.phase + 1;
 	if (cause!=OrdinaryCause::None) _world.scenePresentation().advance(_camera.mapId);
+    _world.scenePresentation().advanceFeedback(now);
 	_ordinary.deadline = now + 100;
 	if (reset) {
 		_ordinary.mapId = _camera.mapId;
@@ -403,6 +432,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 						rendered=_presenter.present(composed.frame,request).frame;_monsterReceiptPresented=true;
 					} else rendered=_presenter.rebase(composed.frame);
 				}
+                drawPartyPresentation(rendered);
 				_inventoryUnderlay = rendered;
 				if (inventoryOpen()) rendered = drawCharacterDialog(rendered);
 				if (_smithUi) rendered=drawSmith(composed.frame);
@@ -452,6 +482,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
                 drawMainScreenNotice(composed.frame,notice) :
                 noticeFrame(composed.frame, _inventoryFont, notice, _encounter->combat(),journey());
 			if (report && !attempt && reportText) reportText(notice);
+            drawPartyPresentation(rendered);
 			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter report");
 			// Complete the fallible return copy before installing the frame.
 			if (!attempt && beforeEncounterFrameCopy) beforeEncounterFrameCopy();
@@ -834,7 +865,9 @@ IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operat
 		},beforeRewardEnqueue);
 		XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world,[&] { publication.check(); });
 		_eventPublication=&publication;
-		try { operation(); publication.check(); }
+		try { operation(); publication.check();
+            for(unsigned owner=0;owner<30;++owner)if(publication.portraitEffectOwners&(1u<<owner))_world.scenePresentation().spellEffect(owner,_encounter->_lastTime);
+        }
 		catch (...) { _eventPublication=nullptr; throw; }
 		_eventPublication=nullptr;
 	} catch (const std::exception &error) {
@@ -999,6 +1032,11 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 	if (_dispatching || _fatal || _saving || _smithUi || (journey() && _handoffPending)) return std::nullopt;
 	DispatchScope dispatch(_dispatching);
 	if(inventoryOpen()) {
+        if(_encounter && _world.scenePresentation().feedbackActive()) {
+            std::uint64_t now;_encounter->guardCallback(_encounter->ticket(),[&] {now=_clock();});
+            if(now>std::numeric_limits<std::uint64_t>::max()-100)throw std::overflow_error("Portrait effect clock exhausted");
+            if(_world.scenePresentation().advanceFeedback(now))return renderEncounter(false,true);
+        }
 		if(_sheet && !_itemsVisible && !_statPopup && !_dialogError && _clock()>=_sheet->deadline) {
 			_sheet->deadline=_clock()+200;_sheet->blink=!_sheet->blink;
 			if(_encounter) return renderEncounter(false,true);
@@ -1110,6 +1148,8 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 	if (!_encounter && (std::holds_alternative<AttackAction>(action) || std::holds_alternative<BlockAction>(action) || std::holds_alternative<RunAction>(action) ||
 		std::holds_alternative<BeginEncounterAction>(action) || std::holds_alternative<RevisitCompletedAction>(action))) return frameCopy();
 	if (journey() && _encounter->combat() && std::holds_alternative<RevisitCompletedAction>(action)) action=RunAction{};
+    if (journey() && _encounter->combat() && !_encounter->combat()->cast() && !inventoryOpen() && std::holds_alternative<NavigationAction>(action))
+        action=UnsupportedMainScreenAction{"Combat movement"};
     if (const auto *unsupported=std::get_if<UnsupportedMainScreenAction>(&action)) {
         const auto context=inputContext(inputFrame);
         if (context.mainScreen==MainScreen::None || !context.readyForAction) return frameCopy();

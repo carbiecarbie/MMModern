@@ -748,6 +748,7 @@ int main(int argc,char **argv) {
     check(h.party->roster.at(11).currentHp==hp+25 && !h.party->regionalRecovery->worldFlag16 &&
      h.party->encounterContext->minutes==beforeWellMinutes && h.world->sessionState().journeyRandom()->count==beforeWellDraws,
      "Well HP publication precedes acknowledgment/flag without time or RNG");
+    check(h.world->scenePresentation().portraits[11].spellFrame==0,"Well giveTake portrait recipient missing");
     const auto savesBeforeWellAck=h.saves;
     check(!h.flow->canSave(),"Well acknowledgment blocks capture");
     input(SaveGameAction{});

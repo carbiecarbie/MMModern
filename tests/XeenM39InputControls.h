@@ -19,7 +19,7 @@ bool m39InputControls(const std::string &control,const IndexedFrame &first,const
         }else tick();
     }
     check(combat().phase()==XeenCombatPhase::PlayerReady && combat().participant()==4,"M39 input original Orc prefix");
-    const SDL_Keycode code=control=="attack"?SDLK_SPACE:control=="block"?SDLK_b:control=="run"?SDLK_r:control=="cast"?SDLK_c:SDLK_1;
+    const SDL_Keycode code=control=="attack"?SDLK_a:control=="block"?SDLK_b:control=="run"?SDLK_r:control=="cast"?SDLK_c:SDLK_1;
     const auto key=[](SDL_Keycode code,Uint32 type=SDL_KEYDOWN,Uint8 repeat=0){
         SDL_Event e{};e.type=type;e.key.state=type==SDL_KEYUP?SDL_RELEASED:SDL_PRESSED;
         e.key.keysym.sym=code;e.key.keysym.scancode=SDL_GetScancodeFromKey(code);e.key.repeat=repeat;e.key.timestamp=SDL_GetTicks();
@@ -31,7 +31,7 @@ bool m39InputControls(const std::string &control,const IndexedFrame &first,const
     const auto baselineCommands=replay_test::commands;
     unsigned stage=0,iterations=0,accepted=0,dispatched=0,received=0,retired=0,total=0;
     bool cosmetic=false,transition=false,shown=false;
-    const auto matches=[&](const PlayerAction &a){return control=="attack"?std::holds_alternative<InteractionAction>(a):
+    const auto matches=[&](const PlayerAction &a){return control=="attack"?std::holds_alternative<AttackAction>(a):
         control=="block"?std::holds_alternative<BlockAction>(a):control=="run"?std::holds_alternative<RevisitCompletedAction>(a):
         control=="cast"?std::holds_alternative<CastSpellAction>(a):std::holds_alternative<SelectInventorySlotAction>(a);};
     nativeInputReceived=[&](const SDL_Event &e){if(transition && e.type==SDL_KEYDOWN && e.key.keysym.sym==code && !e.key.repeat)++received;};

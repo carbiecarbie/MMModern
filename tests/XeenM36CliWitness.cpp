@@ -352,7 +352,7 @@ extern "C" int wrappedPlay(const Application *application,const XeenGameplayServ
 					case 4:key(SDLK_RETURN);break;
 					case 5:key(SDLK_RETURN);key(SDLK_ESCAPE);break;
 					case 6:key(SDLK_ESCAPE);key(SDLK_ESCAPE,1);break;
-					default:key(SDLK_ESCAPE);if(loops<11){key(SDLK_UP);key(SDLK_PERIOD);key(SDLK_F9);key(SDLK_i);key(SDLK_f);key(SDLK_c);}break;
+					default:key(SDLK_ESCAPE);if(loops<11){key(SDLK_UP);key(SDLK_PERIOD);key(SDLK_F9);key(SDLK_i);key(SDLK_s);key(SDLK_c);}break;
 					}
 				};
 				const bool ok=SdlWindow().showInteractive(flow->frame(),"M36 settlement Escape fence",windowHandler,escape,
@@ -492,7 +492,7 @@ extern "C" int wrappedPlay(const Application *application,const XeenGameplayServ
 						else if(loops==2) {key(SDLK_ESCAPE,SDL_KEYDOWN,1);key(SDLK_ESCAPE);}
 						else {
 							key(SDLK_ESCAPE,SDL_KEYUP);key(SDLK_ESCAPE);key(SDLK_ESCAPE,SDL_KEYUP);
-							if(!completionPresented)for(auto code:{SDLK_UP,SDLK_PERIOD,SDLK_SPACE,SDLK_b,SDLK_r,SDLK_i,SDLK_f,SDLK_c,SDLK_F9}) {
+							if(!completionPresented)for(auto code:{SDLK_UP,SDLK_PERIOD,SDLK_SPACE,SDLK_b,SDLK_r,SDLK_i,SDLK_s,SDLK_c,SDLK_F9}) {
 								key(code);key(code,SDL_KEYUP);
 							}
 						}

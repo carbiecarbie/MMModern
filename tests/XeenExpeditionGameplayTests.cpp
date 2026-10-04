@@ -90,14 +90,14 @@ void controls(const fs::path &path) {
   native.withPresentedInput=[&](const auto &action,auto token,const auto &origin){
    const auto generation=h.flow->encounter()->combat()?h.flow->encounter()->combat()->result().generation:0;
    auto frame=handler.withPresentedInput(action,token,origin);
-   if(std::holds_alternative<InteractionAction>(action) && h.flow->encounter()->combat()->result().generation!=generation)++queuedAttacks;
+   if(std::holds_alternative<AttackAction>(action) && h.flow->encounter()->combat()->result().generation!=generation)++queuedAttacks;
    return frame;
   };
   auto driver=[&]()->std::optional<IndexedFrame>{check(++loops<100,"bounded SDL target controls");if(h.flow->encounter()->combat()&&h.flow->encounter()->combat()->pending()!=Work::None)h.now+=100;auto frame=idle();if(frame){stable=0;return frame;}if(++stable<2)return frame;stable=0;
    auto *c=h.flow->encounter()->combat();
    switch(stage++){
-   case 0:key(SDLK_w);key(SDLK_w,SDL_KEYUP);break;
-   case 1:check(c&&c->phase()==Phase::PlayerReady,"SDL automatic attachment");rng=h.world->sessionState().journeyRandom()->count;participant=c->participant();key(SDLK_2);key(SDLK_SPACE);key(SDLK_SPACE,SDL_KEYUP);key(SDLK_F9);key(SDLK_F9,SDL_KEYUP);break;
+   case 0:key(SDLK_UP);key(SDLK_UP,SDL_KEYUP);break;
+   case 1:check(c&&c->phase()==Phase::PlayerReady,"SDL automatic attachment");rng=h.world->sessionState().journeyRandom()->count;participant=c->participant();key(SDLK_2);key(SDLK_a);key(SDLK_a,SDL_KEYUP);key(SDLK_F9);key(SDLK_F9,SDL_KEYUP);break;
    case 2:if(queuedAttacks!=1 || c->phase()!=Phase::PlayerReady){--stage;break;}
     check(c->selectedTarget()==XeenMonsterIdentity{23,16}&&h.world->sessionState().journeyRandom()->count>rng&&h.saves==0,"SDL selection queues Space once and refuses F9");
     rng=h.world->sessionState().journeyRandom()->count;participant=c->participant();key(SDLK_1);key(SDLK_1,SDL_KEYUP);break;

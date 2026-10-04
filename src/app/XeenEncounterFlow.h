@@ -117,9 +117,10 @@ public:
 		auto result = _frame < 8 ? XeenMonsterAppearance{_frame} :
 			XeenMonsterAppearance{XeenMonsterSpriteKind::Attack, static_cast<std::uint8_t>(_frame - 8)};
 		if (_frame >= 8) result.identity = _appearanceIdentity;
-        if(_combat && _combat->cast() && _combat->cast()->phase==XeenCombatCastPhase::Projectile)
-            result.projectile=XeenProjectileAppearance{false,0,0,0,{}};
-		if(_projectileCursor<_projectiles.size()) result.projectile=_projectiles[_projectileCursor];
+        if(_combat && _combat->cast() && _combat->cast()->phase==XeenCombatCastPhase::Projectile && _castProjectile && _castProjectile->active)
+            result.projectiles.push_back(*_castProjectile);
+        for(const auto &p:_projectiles) if(p.active) result.projectiles.push_back(p);
+        if(!result.projectiles.empty()) result.projectile=result.projectiles.front();
 		return result;
 	}
 	std::optional<std::uint64_t> deadline() const noexcept { return _deadline; }
@@ -268,12 +269,12 @@ private:
 		std::optional<std::size_t> targetIndex);
 	std::unique_ptr<XeenShootCandidate> _shoot;
 	std::vector<XeenProjectileAppearance> _projectiles;
-	unsigned _projectileCursor=0;
+ std::optional<XeenProjectileAppearance> _castProjectile;
 	std::uint64_t _projectileDeadline=0;
 	std::shared_ptr<const XeenRegionalObservation> _rangedObservation;
 	void observeRanged(std::shared_ptr<const XeenRegionalObservation>);
 	bool animateProjectiles();
-	bool projectilesPending() const noexcept { return _projectileCursor<_projectiles.size(); }
+	bool projectilesPending() const noexcept { for(const auto &p:_projectiles)if(p.active)return true;return false; }
 	std::optional<XeenMonsterDeliveryCandidate> _monsterReceipt;
 	std::string _monsterReceiptText;
 	std::uint64_t _rewardLease=0;
@@ -304,7 +305,10 @@ private:
 	bool handoffCombat();
 	std::string combatNotice() const;
 	std::string consequenceNotice() const;
-	bool observeCombat() noexcept;
+	bool observeCombat();
+ unsigned _hitRow=0;
+ bool _hitAlternatePosition=false;
+ std::optional<std::uint64_t> _feedbackGeneration;
 	void advanceAppearance() noexcept;
 	XeenCombatResult _combatObservation, _combatAward, _retiredCombatResult;
 	// Presentation-only binding for the already published finish. Never retirement authority.

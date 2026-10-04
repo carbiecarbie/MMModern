@@ -26,6 +26,7 @@ XeenAssetSource::XeenAssetSource(const GameInstallation &installation,
 }
 
 XeenAssetSource::~XeenAssetSource() = default;
+IndexedFrame XeenAssetSource::cursorImage() { return _impl->bridge.cursorImage(); }
 
 std::size_t XeenAssetSource::spriteFrameCount(const std::string &name) {
 	return _impl->bridge.spriteFrameCount(name);
@@ -46,9 +47,14 @@ std::string XeenAssetSource::normalMonsterResource(std::uint8_t image) {
 }
 void XeenAssetSource::validateProjectile(bool enemy) { _impl->bridge.validateProjectile(enemy?"pow12.icn":"pow11.icn"); }
 void XeenAssetSource::drawProjectile(bool enemy,unsigned row,int x,int y,const XeenSpriteDrawOptions &options) {
+ drawProjectile(enemy?12u:11u,enemy,row,x,y,options);
+}
+void XeenAssetSource::drawProjectile(unsigned pow,bool enemy,unsigned row,int x,int y,const XeenSpriteDrawOptions &options) {
  if(row>3) throw std::invalid_argument("Invalid projectile row");
- validateProjectile(enemy);constexpr unsigned frames[2][4]{{0,1,2,0},{0,2,1,0}};
- _impl->bridge.drawObjectSprite(enemy?"pow12.icn":"pow11.icn",frames[enemy][row],x,y,options);
+ if(pow>15)throw std::invalid_argument("Invalid projectile resource");
+ const auto name="pow"+std::to_string(pow)+".icn";
+ _impl->bridge.validateProjectile(name);constexpr unsigned frames[2][4]{{0,1,2,0},{0,2,1,0}};
+ _impl->bridge.drawObjectSprite(name,frames[enemy][row],x,y,options);
 }
 void XeenAssetSource::validateNormalMonster(std::uint8_t image) {
 	_impl->bridge.validateNormalMonster(normalMonsterResource(image));

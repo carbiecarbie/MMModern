@@ -280,10 +280,10 @@ void sdl() {
     case 4:check(accepted==1,"one owner per poll batch");key(SDLK_b);break;
     case 5:check(accepted==2,"two physical B edges queued; held B adds no action");key(SDLK_b,SDL_KEYUP);break;
     case 6:key(SDLK_b);break;
-    case 7:check(accepted==3,"fresh B accepts next displayed owner");key(SDLK_b,SDL_KEYUP);key(SDLK_SPACE);break;
-    case 8:key(SDLK_SPACE,SDL_KEYUP);break;
+    case 7:check(accepted==3,"fresh B accepts next displayed owner");key(SDLK_b,SDL_KEYUP);key(SDLK_a);break;
+    case 8:key(SDLK_a,SDL_KEYUP);break;
     case 9:break;
-    case 10:key(SDLK_SPACE);break;
+    case 10:key(SDLK_a);break;
     default:
      if(h.phase()==Phase::PlayerReady){
       check(h.randomPosition()>0,"automatic attack runs without another key");

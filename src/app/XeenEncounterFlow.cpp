@@ -175,7 +175,8 @@ bool XeenEncounterFlow::respondCombatCast(const PlayerAction &action,std::uint64
             if(*nav==NavigationAction::MoveBackward)response=CI::Down;
         }
         if(phase==XeenCombatCastPhase::PartyTarget)if(const auto *member=std::get_if<SelectMemberAction>(&action)) {
-            if(member->partyIndex<6){response=CI::PartyTarget;index=unsigned(member->partyIndex);}
+            unsigned slot=unsigned(member->partyIndex);const auto mask=_combat->participants();
+            for(unsigned i=0;i<6;++i)if(mask&(1u<<i)) {if(!slot) {response=CI::PartyTarget;index=i;break;}--slot;}
         }
         if(phase==XeenCombatCastPhase::Enemy) {
             if(const auto *row=std::get_if<SelectInventorySlotAction>(&action)){response=CI::EnemyTarget;index=unsigned(row->slot);}
@@ -237,11 +238,15 @@ bool XeenEncounterFlow::acceptCombatResult(const XeenCombatResult &result) {
 bool XeenEncounterFlow::handoffCombat() {
 	if (_combat->phase() == XeenCombatPhase::Engaged) {
 		if (!acceptCombatResult(_combat->beginCombat(_combat->ticket()))) return false;
+        // Result generations belong to one Combat instance. A new episode
+        // must not inherit a previous episode's duplicate-feedback binding.
+        _feedbackGeneration.reset();_castProjectile.reset();
+        _world.scenePresentation().splats={};
 		_deadline.reset();
 	}
 	return true;
 }
-bool XeenEncounterFlow::observeCombat() noexcept {
+bool XeenEncounterFlow::observeCombat() {
 	const auto &r = _combat->result();
 	if (r.xpCount) _combatAward = r;
 	if (r.operation == XeenCombatOperation::PlayerAttack || r.operation == XeenCombatOperation::Cast || r.operation == XeenCombatOperation::Block ||
@@ -250,6 +255,29 @@ bool XeenEncounterFlow::observeCombat() noexcept {
 	// Only a published attack starts an effect. Pending RNG prefixes, retained
 	// feedback, round work and redraws cannot restart it.
 	if (r.attackOutcome == XeenCombatAttackOutcome::Pending) return false;
+    if(!_feedbackGeneration || *_feedbackGeneration!=r.generation) {
+        _feedbackGeneration=r.generation;
+        auto &presentation=_world.scenePresentation();
+        if(r.operation==XeenCombatOperation::EnemyAttack && r.actingMonster) {
+            const auto &actor=_world.sessionState().regionalActors(r.actingMonster->mapId).at(r.actingMonster->recordIndex);
+            const auto frame=xeenPortraitDamageFrame(actor.statistics->raw[29]);
+            for(unsigned i=0;i<r.injuryCount;++i)presentation.portraitDamage(r.injuries[i].owner,frame,_lastTime);
+        }
+        if(r.operation==XeenCombatOperation::PlayerAttack && r.damage>0)
+            presentation.hitSplat(_hitRow,r.damage,0,_hitAlternatePosition,_lastTime);
+        if(r.operation==XeenCombatOperation::Cast && _combat->cast()) {
+            const auto &cast=_combat->cast()->result;
+            if(cast.spell==45 && _combat->cast()->phase==XeenCombatCastPhase::Projectile) {
+                _castProjectile=XeenProjectileAppearance{false,0,0,0,{}};
+                _castProjectile->target=r.targetMonster;
+            }
+            if(cast.spell==26 && !cast.failed && !cast.refunded)
+                for(unsigned i=0;i<cast.count;++i) {
+                    const auto &e=cast.effects[i];
+                    if(e.beforeHp<=XeenCharacterRules::maxHp(_party.roster.at(e.owner),{_party.encounterContext->year}))presentation.spellEffect(e.owner,_lastTime,true);
+                }
+        }
+    }
 	if (r.operation == XeenCombatOperation::EnemyAttack) {
 		_appearanceIdentity = r.actingMonster;
 		_frame = 8; _appearanceStep = 0; _appearanceAfterFrame = true; return true;
@@ -292,6 +320,10 @@ bool XeenEncounterFlow::handleCombat(const PlayerAction &input, std::optional<st
 	if (target) {
 		if (!acceptCombatResult(_combat->selectTarget(*entry.combat,target->row))) return false;
 	} else if (command) {
+        if(std::holds_alternative<AttackAction>(input)) {
+            const auto rows=_combat->contacts();_hitAlternatePosition=xeenSplatAlternatePosition(rows);
+            for(unsigned i=0;i<3;++i)if(rows[i]==_combat->selectedTarget())_hitRow=i;
+        }
 		if (!acceptCombatResult(_combat->command(*entry.combat,
 			std::holds_alternative<AttackAction>(input) ? XeenCombatCommand::Attack : std::holds_alternative<RunAction>(input) ? XeenCombatCommand::Run : XeenCombatCommand::Block))) return false;
 	}
@@ -322,6 +354,7 @@ bool XeenEncounterFlow::idleCombat(std::optional<std::uint64_t> cycle) {
         if(_scheduleAfterFrame || (phase!=XeenCombatCastPhase::Preparing && phase!=XeenCombatCastPhase::Projectile))return false;
         const auto result=_combat->serviceCast(*entry.combat,now);
         if(!acceptCombatResult(result))return false;
+        if(phase==XeenCombatCastPhase::Projectile && _combat->cast() && _combat->cast()->phase!=phase && _castProjectile)_castProjectile->advance();
         if(phase==XeenCombatCastPhase::Preparing && _combat->cast() && _combat->cast()->phase==XeenCombatCastPhase::Projectile && observeCombat())_cosmeticDeadline=now+100;
         scheduleCombat(now);return true;
     }

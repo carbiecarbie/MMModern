@@ -237,6 +237,9 @@ bool XeenEncounterFlow::settleItemUse(const Ticket &entry,std::uint64_t generati
 		auto sourceItems=_party.roster.at(_itemUse->sourceOwner).miscellaneous;
 		XeenAntidoteUse::settle(sourceItems,_itemUse->slot,_itemUse->exhausted);
 		if (target) {
+            const auto &c=_party.roster.at(*target);
+            if(!c.conditions[13] && !c.conditions[14] && !c.conditions[15] && c.currentHp<=XeenCharacterRules::maxHp(c,{_party.encounterContext->year}))
+                _world.scenePresentation().spellEffect(*target,_lastTime,true);
 			_party.roster.at(*target).conditions=targetCandidate->conditions;
 			for(auto &c:_itemUse->opportunity->characters) if(c.rosterId==*target) c.conditions=targetCandidate->conditions;
 		}

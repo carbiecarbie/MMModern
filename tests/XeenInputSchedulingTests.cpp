@@ -83,7 +83,7 @@ void movementRedraw(Inputs &in) {
  Harness h(in);auto s=h.services();auto source=in.service();source.camera={28,10,9,XeenDirection::North};
  std::uint64_t now=0;unsigned dispatches=0,loops=0;bool sent=false,injected=false;
  s.clock=[&]{return now;};
- h.composeHook=[&]{if(dispatches==1 && !injected){injected=true;tap(SDLK_w);}};
+ h.composeHook=[&]{if(dispatches==1 && !injected){injected=true;tap(SDLK_UP);}};
  s.show=[&](const auto &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
   auto native=handler;
   native.withPresentedInput=[&](const auto &action,auto input,const auto &origin){
@@ -96,7 +96,7 @@ void movementRedraw(Inputs &in) {
   };
   return SdlWindow().showInteractive(first,"W during movement redraw",native,escape,[&]()->std::optional<IndexedFrame>{
    check(++loops<100,"movement redraw key did not drain");now+=100;
-   if(!sent){sent=true;tap(SDLK_w);}
+   if(!sent){sent=true;tap(SDLK_UP);}
    if(dispatches==2){check(injected && h.camera->y==11,"movement redraw final position");quit();return {};}
    return idle();
   },status);
@@ -114,7 +114,7 @@ void wallRefusal(Inputs &in) {
    check(h.camera->x==before.x && h.camera->y==before.y,"wall refusal moved party");return next;
   };
   return SdlWindow().showInteractive(first,"Ready wall refusal",native,escape,[&]()->std::optional<IndexedFrame>{
-   now+=100;if(++loops==1)tap(SDLK_w);
+   now+=100;if(++loops==1)tap(SDLK_UP);
    if(loops==8){check(dispatches==1,"wall refusal was lost or retried");quit();return {};}
    return idle();
   },status);
@@ -160,7 +160,16 @@ void combatQueue(Inputs &in,bool mouse=false) {
   present(first);act(NavigationAction::MoveForward);quiet();act(ShootAction{});quiet();act(NavigationAction::MoveForward);
   for(unsigned n=0;n<500;++n){
    const auto *combat=h.flow->encounter()->combat();
-   if(combat && combat->phase()==XeenCombatPhase::PlayerReady){act(BlockAction{});if(h.flow->encounter()->combat()->phase()==XeenCombatPhase::PendingEnemy)break;}
+   if(combat && combat->phase()==XeenCombatPhase::PlayerReady){
+    const auto ticket=combat->ticket();XeenRestoreGuard guard(*h.world,*h.party,*h.camera,*h.flags);
+    const auto sky=h.world->scenePresentation().sky;std::string notice;
+    h.flow->reportText=[&](const auto &text){notice=text;};
+    for(auto movement:{NavigationAction::TurnLeft,NavigationAction::TurnRight,NavigationAction::MoveForward,NavigationAction::MoveBackward}) {
+     act(movement);check(notice=="Combat movement: not supported yet"&&combat->current(ticket)&&guard.current()&&h.world->scenePresentation().sky==sky,"Combat movement notice changed state");
+    }
+    h.flow->reportText={};
+    act(BlockAction{});if(h.flow->encounter()->combat()->phase()==XeenCombatPhase::PendingEnemy)break;
+   }
    else tick();
   }
   check(h.flow->encounter()->combat() && h.flow->encounter()->combat()->phase()==XeenCombatPhase::PendingEnemy,"enemy-turn queue prefix absent");
@@ -168,8 +177,8 @@ void combatQueue(Inputs &in,bool mouse=false) {
   auto native=handler;native.beginCycle=[&](auto){handler.beginCycle(++cycles);};
   if(mouse)native.framePresented=[&](const auto &frame){handler.framePresented(frame);preview(*frame,"combat");};
   native.withPresentedInput=[&](const auto &action,auto input,const auto &origin){
-   const auto ready=handler.inputContext(origin);check(ready.contextId==context.contextId && ready.readyForAction,"Space lost combat context or drained busy");
-   check(std::holds_alternative<InteractionAction>(action),"combat queue action changed");
+   const auto ready=handler.inputContext(origin);check(ready.contextId==context.contextId && ready.readyForAction,"A lost combat context or drained busy");
+   check(std::holds_alternative<AttackAction>(action),"combat queue action changed");
    const auto generation=h.flow->encounter()->combat()->result().generation;
    if(mouse) {
     const auto ticket=h.flow->encounter()->combat()->ticket();
@@ -181,18 +190,18 @@ void combatQueue(Inputs &in,bool mouse=false) {
     check(h.flow->encounter()->combat()->result().generation!=generation,"ready click silently refused");return next;
    }
    ++dispatches;auto next=handler.withPresentedInput(action,input,origin);
-   check(h.flow->encounter()->combat()->result().generation!=generation,"ready Space silently refused");return next;
+   check(h.flow->encounter()->combat()->result().generation!=generation,"ready A silently refused");return next;
   };
-  return SdlWindow().showInteractive(h.flow->frame(),"Space during enemy turns",native,escape,[&]()->std::optional<IndexedFrame>{
-   check(++loops<200,"enemy-turn Space never drained");
-   if(dispatches){check(dispatches==1 && busyFrames>=2,"Space duplicated or busy witness missing");quit();return {};}
-   if(!sent){sent=true;if(mouse)click(290,80);else tap(SDLK_SPACE);}
+  return SdlWindow().showInteractive(h.flow->frame(),"A during enemy turns",native,escape,[&]()->std::optional<IndexedFrame>{
+   check(++loops<200,"enemy-turn A never drained");
+   if(dispatches){check(dispatches==1 && busyFrames>=2,"A duplicated or busy witness missing");quit();return {};}
+   if(!sent){sent=true;if(mouse)click(290,80);else tap(SDLK_a);}
    if(!handler.inputContext(h.flow->frame().presentation()).readyForAction)++busyFrames;
    now+=100;return idle();
   },status);
  };
  check(h.run(s,source,"combat-queue")==0,"combat queue Application failed");
- std::cout<<"COMBAT QUEUE "<<(mouse?"mouse":"Space")<<"=1 attacks=1 busy-frames="<<busyFrames<<" PASS\n";
+ std::cout<<"COMBAT QUEUE "<<(mouse?"mouse":"A")<<"=1 attacks=1 busy-frames="<<busyFrames<<" PASS\n";
 }
 
 void originalDialogs(Inputs &in) {
@@ -313,7 +322,7 @@ void stress(Inputs &in) {
      // Cosmetic composition/acquisition never clears this readiness flag.
      while(!settled && !stop)std::this_thread::sleep_for(std::chrono::milliseconds(1));
      if(stop)break;
-     const auto code=n<40?(n%2?SDLK_s:SDLK_w):n<60?SDLK_a:SDLK_d;
+     const auto code=n<40?(n%2?SDLK_DOWN:SDLK_UP):n<60?SDLK_LEFT:SDLK_RIGHT;
      tap(code);++sent;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(600));done=true;
@@ -392,7 +401,7 @@ void boundaries(Inputs &in) {
   Harness h(in);auto s=h.services();auto source=in.service();source.camera={28,10,10,XeenDirection::North};
   bool armed=false,injected=false,acquired=false;unsigned dispatches=0,loops=0,cosmetics=0;std::uint64_t now=0;
   s.clock=[&]{return now;};IndexedFrame::Presentation a,b;std::optional<std::uint64_t> epoch;std::optional<XeenEncounterFlow::Ticket> ticket;
-  const auto inject=[&]{if(!armed || injected)return;injected=true;key(SDLK_d);key(SDLK_d,SDL_KEYDOWN,1);key(SDLK_d);key(SDLK_d,SDL_KEYUP);};
+  const auto inject=[&]{if(!armed || injected)return;injected=true;key(SDLK_RIGHT);key(SDLK_RIGHT,SDL_KEYDOWN,1);key(SDLK_RIGHT);key(SDLK_RIGHT,SDL_KEYUP);};
   h.composeHook=[&]{if(armed && !injected && timing==1){check(h.flow->acceptsInputFrame(a),"A unavailable during composition");inject();}};
   copyHook=[&]{if(armed && timing==2)inject();};
   s.show=[&](const auto &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
