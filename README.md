@@ -101,6 +101,26 @@ ctest -L fast    # iteration: everything except process tests
 ctest            # full suite, including process tests
 ```
 
+## Developer test saves
+
+Build the opt-in tool with `cmake --build build-m44 --target mmodern_test_save`.
+It starts from the normal fresh Regional Journey and writes a validated current
+save for `broken-armor`, `train-ready`, `injured-dead` or `poisoned`. The party
+stays at map 23 `(9,11)` facing West; world, calendar and RNG retain fresh
+Journey values (explicit seed 7). The presets provide equipped broken armor,
+enough XP/gold for one Training, an Unconscious member and a Dead member with
+four survivors, or Poison and a usable Misc antidote, respectively.
+
+```powershell
+.\build-m44\mmodern_test_save.exe train-ready "F:/Games/gog/Might and Magic 4-5" "C:/Playtest/train-ready.mmsave"
+.\build-m44\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "C:/Playtest/train-ready.mmsave"
+```
+
+Choose your own output path in an existing directory outside both this repository
+and the game installation. The tool refuses existing files. Generated `.mmsave`
+files are local play-test artifacts; never commit them. The game and save format
+are unchanged.
+
 ## Documentation
 
 - [Project status](docs/project-status.md): what can be played, architecture, gaps.
