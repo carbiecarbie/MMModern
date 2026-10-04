@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -13,6 +14,7 @@ namespace mmodern {
 
 class XeenAssetSource;
 struct XeenCharacterRulesContext;
+class XeenScenePresentation;
 
 class CloudsUiComposer {
 public:
@@ -39,6 +41,9 @@ public:
 	static std::vector<HpPlacement> buildHpPlacements(
 		const XeenPartyState &partyState,
 		const XeenCharacterRulesContext &context, unsigned memberMask=0x3f);
+	static std::optional<std::size_t> partyMemberAtSlot(const XeenPartyState &, unsigned memberMask, std::size_t slot);
+	static std::vector<PortraitPlacement> buildPartyFeedbackPlacements(const XeenPartyState &,
+		const XeenScenePresentation &, unsigned memberMask, int actingMember);
 	void loadBackground(XeenAssetSource &assets) const;
 	// Replace the already composed main-screen controls with ICONS_COMBAT.
 	void drawCombatButtons(XeenAssetSource &assets, IndexedFrame &frame) const;

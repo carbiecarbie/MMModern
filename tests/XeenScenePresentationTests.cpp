@@ -19,28 +19,36 @@ void archiveResolution() {
 	struct Cleanup {std::filesystem::path path;~Cleanup() {std::error_code error;std::filesystem::remove_all(path,error);}} cleanup{root};
 	const auto image=[](unsigned color) {return sprite(cell(0,1,0,1,{3,0,0,std::uint8_t(color)}));};
 	GameInstallation installation;installation.root=root;installation.xeenArchive=root/"XEEN.CC";installation.darkArchive=root/"DARK.CC";installation.edition=GameEdition::WorldOfXeen;
-	archive(installation.xeenArchive,{{"shared.srf",image(3)},{"broken.srf",{0}}});
+	archive(installation.xeenArchive,{{"shared.srf",image(3)},{"broken.srf",{0}},{"cloudsonly.srf",image(12)}});
 	archive(root/"INTRO.CC",{{"shared.srf",image(4)},{"fallback.srf",image(5)},{"intro.srf",image(6)}});
 	std::map<std::string,Bytes> dark{{"shared.srf",image(7)},{"fallback.srf",image(8)},{"companion.srf",image(9)},{"broken.srf",image(10)}};
 	archive(installation.darkArchive,dark);
 	{
 		XeenAssetSource assets(installation,320,200);
 		CloudsMapComposer composer;
-		const auto draw=[&](const char *name,unsigned color) {
-			check(assets.hasSceneResource(name),"Installed scene resource was reported absent");
-			check(assets.spriteFrameCount(name)==1,"Scene frame validation did not use archive resolution");
+		const auto draw=[&](const char *name,unsigned color,XeenSceneArchive selection=XeenSceneArchive::Current) {
+			check(assets.hasSceneResource(name,selection),"Installed scene resource was reported absent");
+			check(assets.spriteFrameCount(name,selection)==1,"Scene frame validation did not use archive resolution");
 			XeenIndoorDrawCommand command;command.x=100;command.y=100;command.content=XeenIndoorGeometryDraw{name,0};
+			command.geometry().options.archive=selection;
 			composer.drawIndoorCommands(assets,{command});
-			check(assets.snapshot().pixels[32100]==color,"Scene archive precedence differs from current/INTRO/companion order");
+			check(assets.snapshot().pixels[32100]==color,"Scene archive precedence differs from selected/current then INTRO order");
 			XeenOutdoorDrawCommand outdoor;outdoor.x=101;outdoor.y=100;outdoor.content=XeenOutdoorTerrainDraw{name,0};
+			outdoor.terrain().options.archive=selection;
 			composer.drawOutdoorCommands(assets,{outdoor});
 			check(assets.snapshot().pixels[32101]==color,"Outdoor scene bypassed archive resolution");
-			command.x=102;command.content=XeenWallItemDraw{0,0,name,0};
+			command.x=102;command.content=XeenWallItemDraw{0,0,name,0,false,selection};
 			composer.drawIndoorCommands(assets,{command});
 			check(assets.snapshot().pixels[32102]==color,"Wall item bypassed archive resolution");
 		};
-		draw("shared.srf",3);draw("fallback.srf",5);draw("intro.srf",6);draw("companion.srf",9);
-		assets.discardSpriteCache();draw("companion.srf",9);
+		draw("shared.srf",3);draw("fallback.srf",5);draw("intro.srf",6);
+		check(!assets.hasSceneResource("companion.srf"),"DARK was searched without explicit archive selection");
+		rejects([&] {assets.spriteFrameCount("companion.srf");});
+		draw("shared.srf",7,XeenSceneArchive::Darkside);draw("shared.srf",3,XeenSceneArchive::Clouds);
+		check(!assets.hasSceneResource("cloudsonly.srf",XeenSceneArchive::Darkside),"Explicit DARK selection fell back to opposite-side archive");
+		draw("fallback.srf",8,XeenSceneArchive::Darkside);draw("intro.srf",6,XeenSceneArchive::Darkside);
+		draw("companion.srf",9,XeenSceneArchive::Darkside);
+		assets.discardSpriteCache();draw("companion.srf",9,XeenSceneArchive::Darkside);
 		check(!assets.hasArchiveResource("companion.srf"),"Presentation lookup broadened Clouds gameplay resources");
 		rejects([&] {assets.readArchiveResource("companion.srf");});
 		rejects([&] {assets.drawSprite("companion.srf",0,100,100);});
@@ -49,9 +57,9 @@ void archiveResolution() {
 		// Presence in a higher-priority archive must not be bypassed when invalid.
 		rejects([&] {assets.spriteFrameCount("broken.srf");});
 		assets.discardSpriteCache();dark["companion.srf"]=image(11);archive(installation.darkArchive,dark);
-		rejects([&] {assets.spriteFrameCount("companion.srf");});
+		rejects([&] {assets.spriteFrameCount("companion.srf",XeenSceneArchive::Darkside);});
 		dark["companion.srf"]=image(9);archive(installation.darkArchive,dark);assets.discardSpriteCache();
-		rejects([&] {assets.spriteFrameCount("companion.srf");});
+		rejects([&] {assets.spriteFrameCount("companion.srf",XeenSceneArchive::Darkside);});
 	}
 	// The same scene API also works with no optional companion archives installed.
 	std::filesystem::remove(root/"INTRO.CC");installation.darkArchive.clear();

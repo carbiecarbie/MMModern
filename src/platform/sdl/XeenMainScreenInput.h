@@ -7,6 +7,10 @@
 #include <cstring>
 
 namespace mmodern {
+inline std::optional<PlayerAction> xeenMainScreenMemberKey(unsigned key) {
+    if(key>=InputKey::F1 && key<InputKey::F1+6)return SelectMemberAction{key-InputKey::F1};
+    return {};
+}
 // Rectangles and meanings adapted from ScummVM 6814ee9ba54582f5b5adcffab49efbbd8f589edd:
 // engines/mm/xeen/interface.cpp Interface::setMainButtons/doCombat, and
 // dialogs/dialogs.cpp ButtonContainer::addPartyButtons/setWaitBounds.

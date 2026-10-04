@@ -303,7 +303,7 @@ struct ScummVmXeenBridge::Impl {
 
 	Impl(const GameInstallation &installation, int width, int height) : Impl(installation) {
 		if (width <= 0 || height <= 0)
-			throw std::runtime_error("dimensoes invalidas para o framebuffer");
+			throw std::runtime_error("Invalid framebuffer dimensions");
 		surface.create(width, height);
 		surface.clear(0);
 	}
@@ -330,28 +330,28 @@ struct ScummVmXeenBridge::Impl {
 		Common::Archive *archive;
 		std::string origin;
 	};
-	SceneResource sceneResource(const std::string &name) {
+	SceneResource sceneResource(const std::string &name, XeenSceneArchive selection = XeenSceneArchive::Current) {
 		const Common::Path path(name.c_str(), Common::Path::kNoSeparator);
-		// Pinned File::open/exists: current archive first, then FileManager's
-		// registered INTRO fallback. The installed World of Xeen companion DARK
-		// is searched last for shared presentation assets, as authorized in M48.
-		if (archive.hasFile(path)) return {&archive, "xeen.cc"};
+		// Pinned File::open: selected/current archive, then registered search
+		// sources (INTRO). DARK is an archive selection, never a search source.
+		if (selection == XeenSceneArchive::Darkside) {
+			if (!sceneDarkPath.empty()) {
+				if (!sceneDark) sceneDark.reset(new SceneInstalledArchive(sceneDarkPath));
+				if (sceneDark->hasFile(path)) return {sceneDark.get(), "dark.cc"};
+			}
+		} else if (archive.hasFile(path)) return {&archive, "xeen.cc"};
 		if (!sceneIntroPath.empty()) {
 			if (!sceneIntro) sceneIntro.reset(new SceneInstalledArchive(sceneIntroPath));
 			if (sceneIntro->hasFile(path)) return {sceneIntro.get(), "intro.cc"};
-		}
-		if (!sceneDarkPath.empty()) {
-			if (!sceneDark) sceneDark.reset(new SceneInstalledArchive(sceneDarkPath));
-			if (sceneDark->hasFile(path)) return {sceneDark.get(), "dark.cc"};
 		}
 		return {nullptr, {}};
 	}
 
 	StreamSpriteResource &sprite(const std::string &resourceName,
 			std::optional<std::size_t> checkedFrame = std::nullopt, unsigned monsterFrames = 0,
-			bool sceneLookup = false) {
+			bool sceneLookup = false, XeenSceneArchive selection = XeenSceneArchive::Current) {
 		if(spriteIntegrityFailed) throw std::runtime_error("Sprite resource integrity previously failed");
-		const auto source = sceneLookup ? sceneResource(resourceName) : SceneResource{&archive, "xeen.cc"};
+		const auto source = sceneLookup ? sceneResource(resourceName,selection) : SceneResource{&archive, "xeen.cc"};
 		if (!source.archive) throw std::runtime_error("Missing scene resource in installed CC archives: " + resourceName);
 		// Clouds retains its existing identity; other archives have separate
 		// cache/admission identities even when resource names collide.
@@ -404,15 +404,15 @@ void ScummVmXeenBridge::discardSpriteCache() { _impl->sprites.clear(); }
 std::size_t ScummVmXeenBridge::cachedSpriteCount() const { return _impl->sprites.size(); }
 std::size_t ScummVmXeenBridge::spriteLoadCount() const { return _impl->spriteLoads; }
 
-std::size_t ScummVmXeenBridge::spriteFrameCount(const std::string &name) {
-	const auto count=_impl->sprite(name,std::nullopt,0,true).size();
+std::size_t ScummVmXeenBridge::spriteFrameCount(const std::string &name, XeenSceneArchive selection) {
+	const auto count=_impl->sprite(name,std::nullopt,0,true,selection).size();
 	if (!count) throw std::runtime_error("Empty sprite: "+name);
-	for (std::size_t frame=0;frame<count;++frame) _impl->sprite(name,frame,0,true);
+	for (std::size_t frame=0;frame<count;++frame) _impl->sprite(name,frame,0,true,selection);
 	return count;
 }
 
-bool ScummVmXeenBridge::hasSceneResource(const std::string &name) {
-	return _impl->sceneResource(name).archive != nullptr;
+bool ScummVmXeenBridge::hasSceneResource(const std::string &name, XeenSceneArchive selection) {
+	return _impl->sceneResource(name,selection).archive != nullptr;
 }
 
 void ScummVmXeenBridge::drawSceneSprite(const std::string &name, std::size_t frame,
@@ -538,7 +538,7 @@ void ScummVmXeenBridge::drawSprite(const std::string &resourceName,
 
 void ScummVmXeenBridge::drawSpriteImpl(const std::string &resourceName,
 		std::size_t frame, int x, int y, const XeenSpriteDrawOptions &options, bool sceneLookup) {
-	StreamSpriteResource &sprite = _impl->sprite(resourceName, std::nullopt, 0, sceneLookup);
+	StreamSpriteResource &sprite = _impl->sprite(resourceName, std::nullopt, 0, sceneLookup, options.archive);
 	if (frame >= sprite.size())
 		throw std::runtime_error("Missing sprite frame in " + resourceName);
 

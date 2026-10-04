@@ -188,33 +188,23 @@ void XeenEncounterFlow::observeRanged(std::shared_ptr<const XeenRegionalObservat
  }
  for(unsigned i=0;i<observation->count;++i) {
   const auto &shot=observation->shots[i];
+  const auto &actor=_world.sessionState().regionalActors(shot.source.mapId).at(shot.source.recordIndex);
+  // Portrait impacts belong to published injuries, including sources behind
+  // the party and sources outside the visible six-lane volley.
+  const auto frame=xeenPortraitDamageFrame(actor.statistics->raw[29]);
+  for(unsigned j=0;j<shot.attack.injuryCount;++j)
+   _world.scenePresentation().portraitDamage(shot.attack.injuries[j].owner,frame,_lastTime);
   if(shot.direction==_camera.direction && shot.distance>=1 && shot.distance<=3 && prepared.size()<6)
    prepared.push_back({true,shot.distance-1,unsigned(prepared.size()%6),shot.distance,shot.source,pow});
  }
  _rangedObservation=std::move(observation);_projectiles.swap(prepared);_projectileDeadline=_lastTime+100;
- for(const auto &p:_projectiles)if(!p.row) {
-  const auto &actor=_world.sessionState().regionalActors(p.source->mapId).at(p.source->recordIndex);
-  for(unsigned i=0;i<_rangedObservation->count;++i)if(_rangedObservation->shots[i].source==*p.source) {
-   const auto &attack=_rangedObservation->shots[i].attack;
-   for(unsigned j=0;j<attack.injuryCount;++j)_world.scenePresentation().portraitDamage(attack.injuries[j].owner,xeenPortraitDamageFrame(actor.statistics->raw[29]),_lastTime);
-  }
- }
 }
 bool XeenEncounterFlow::animateProjectiles() {
  if(_busy || !projectilesPending() || !current(ticket())) return false;
  std::uint64_t now;if(!prepareTime(ticket(),now)) return false;
  if(now<_projectileDeadline) return false;
  _lastTime=now;_projectileDeadline=now+100;
- for(auto &p:_projectiles) {
-  const auto row=p.row;p.advance();
-  if(p.active && p.enemy && row && !p.row && p.source && _rangedObservation) {
-   const auto &actor=_world.sessionState().regionalActors(p.source->mapId).at(p.source->recordIndex);
-   for(unsigned i=0;i<_rangedObservation->count;++i)if(_rangedObservation->shots[i].source==*p.source) {
-    const auto &attack=_rangedObservation->shots[i].attack;
-    for(unsigned j=0;j<attack.injuryCount;++j)_world.scenePresentation().portraitDamage(attack.injuries[j].owner,xeenPortraitDamageFrame(actor.statistics->raw[29]),now);
-   }
-  }
- }
+ for(auto &p:_projectiles)p.advance();
  return true;
 }
 

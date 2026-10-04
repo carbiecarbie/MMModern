@@ -1,15 +1,11 @@
 #include "app/XeenEventFlow.h"
+#include "games/xeen/CloudsUiComposer.h"
 #include <algorithm>
 namespace mmodern {
 std::optional<std::size_t> XeenEventFlow::dialogMember(std::size_t index) const {
     const auto *combat=_encounter?_encounter->combat():nullptr;
     if(!combat) return index<_party.party.size()?std::optional<std::size_t>{index}:std::nullopt;
-    const auto participants=combat->participants();
-    for(std::size_t member=0;member<_party.party.size();++member) if(participants&(1u<<member)) {
-        if(!index) return member;
-        --index;
-    }
-    return {};
+    return CloudsUiComposer::partyMemberAtSlot(_party,combat->participants(),index);
 }
 void XeenEventFlow::dialogError(std::string message) {
     _dialogError=std::move(message);

@@ -291,6 +291,8 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 		command.geometry().options.horizontalFlip = flip;
 		command.geometry().options.sceneClipped = true;
 		command.geometry().options.bottomClipped = false;
+		if(resource==fwl1 || resource==fwl2 || resource==fwl3 || resource==fwl4 || resource==swl)
+			command.geometry().options.archive=xeenPictureArchive(camera.mapId);
 		if (sampleIndex) {
 			const auto &source = samples.at(*sampleIndex);
 			command.sourceMapId = source.sourceMapId;
@@ -564,7 +566,7 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 				if (!count) throw std::invalid_argument("Empty wall-item sprite: "+resource);
 				XeenIndoorDrawCommand c;c.originalOrder=p.order;c.x=p.x;c.y=p.y;
 				c.sourceMapId=camera.mapId;c.sourceX=item.x;c.sourceY=item.y;c.queryIndex=p.query;c.sourceFace=camera.direction;
-				c.content=XeenWallItemDraw{i,presentation.wallFrame(count),resource,p.scale,count>1};chosen=std::move(c);
+				c.content=XeenWallItemDraw{i,presentation.wallFrame(count),resource,p.scale,count>1,xeenPictureArchive(camera.mapId)};chosen=std::move(c);
 				if (!p.last) break;
 			}
 			if (chosen) commands.push_back(std::move(*chosen));

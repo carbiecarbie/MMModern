@@ -103,7 +103,7 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 		const auto resolver = XeenObjectVisualResolver::load(assets);
 		const auto commands = XeenIndoorScene().build(
 			world, camera, &resolver, objectDiagnostics,ordinaryPhase,actorFrame,night,
-			[&](const auto &name) {return assets.spriteFrameCount(name);});
+			[&](const auto &name) {return assets.spriteFrameCount(name,xeenPictureArchive(camera.mapId));});
 		emittedAnimation=std::any_of(commands.begin(),commands.end(),[](const auto &command) {
 			if(command.actor()) return true;
 			if(const auto *wall=command.wallItem()) return wall->animated;

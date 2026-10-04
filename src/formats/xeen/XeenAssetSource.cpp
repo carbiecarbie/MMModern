@@ -28,12 +28,12 @@ XeenAssetSource::XeenAssetSource(const GameInstallation &installation,
 XeenAssetSource::~XeenAssetSource() = default;
 IndexedFrame XeenAssetSource::cursorImage() { return _impl->bridge.cursorImage(); }
 
-std::size_t XeenAssetSource::spriteFrameCount(const std::string &name) {
-	return _impl->bridge.spriteFrameCount(name);
+std::size_t XeenAssetSource::spriteFrameCount(const std::string &name, XeenSceneArchive selection) {
+	return _impl->bridge.spriteFrameCount(name,selection);
 }
 
-bool XeenAssetSource::hasSceneResource(const std::string &name) {
-	return _impl->bridge.hasSceneResource(name);
+bool XeenAssetSource::hasSceneResource(const std::string &name, XeenSceneArchive selection) {
+	return _impl->bridge.hasSceneResource(name,selection);
 }
 
 void XeenAssetSource::drawSceneSprite(const std::string &name, std::size_t frame,

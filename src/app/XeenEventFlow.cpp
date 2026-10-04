@@ -181,19 +181,8 @@ void XeenEventFlow::drawPartyPresentation(IndexedFrame &frame) const {
   drawDialogSprite(frame,p.resourceName.c_str(),unsigned(p.frame),p.x,p.y);
  for(const auto &p:CloudsUiComposer::buildHpPlacements(_party,{_party.encounterContext->year},mask))
   drawDialogSprite(frame,"hpbars.icn",unsigned(p.frame),p.x,p.y);
- if(combat && combat->participant()>=0 && combat->participant()<6) {
-  unsigned slot=0;const auto member=unsigned(combat->participant());
-  for(unsigned i=0;i<member;++i)if(mask&(1u<<i))++slot;
-  constexpr int x[]{10,45,81,117,153,189};
-  if(mask&(1u<<member))drawDialogSprite(frame,"global.icn",8,x[slot]-1,149);
- }
- unsigned slot=0;constexpr int faces[]{10,45,81,117,153,189};
- for(unsigned member=0;member<_party.party.size();++member)if(mask&(1u<<member)) {
-  const auto owner=_party.party.activeRosterIds()[member];const auto &effect=_world.scenePresentation().portraits[owner];
-  if(effect.damageTicks)drawDialogSprite(frame,"charpow.icn",effect.damageFrame,faces[slot],150);
-  if(effect.spellFrame<4)drawDialogSprite(frame,"spellfx.icn",effect.spellFrame,faces[slot],150);
-  ++slot;
- }
+ for(const auto &p:CloudsUiComposer::buildPartyFeedbackPlacements(_party,_world.scenePresentation(),mask,combat?combat->participant():-1))
+  drawDialogSprite(frame,p.resourceName.c_str(),unsigned(p.frame),p.x,p.y);
 }
 
 bool XeenEventFlow::journeyInputCurrent(std::optional<std::uint64_t> input) const noexcept {
@@ -253,6 +242,8 @@ void XeenEventFlow::framePresented(const IndexedFrame::Presentation &presented, 
 	if (_dispatching || _saving) throw std::logic_error("Frame handoff during dispatch");
 	if (!encounterFrameCurrent()) throw std::logic_error("Stale successful frame handoff");
 	if (_cosmeticPending) {
+		// A successfully acquired travel row arms only its cosmetic successor.
+		if(_encounter) _encounter->castProjectilePresented();
 		// A remains actionable through composition, upload and successful B
 		// acquisition. Native SDL drains its last A-origin batch before switching.
 		_acquiredCosmeticFrame = presented;

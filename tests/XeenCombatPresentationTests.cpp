@@ -5,9 +5,16 @@
 #include "games/xeen/CloudsUiComposer.h"
 #include "games/xeen/XeenIndoorScene.h"
 #include "games/xeen/XeenOutdoorScene.h"
+#include "platform/sdl/XeenMainScreenInput.h"
 #include <iostream>
 #include <set>
 using namespace regional_test;
+namespace mmodern {
+struct XeenCombatPresentationTestAccess {
+ static void observe(XeenEncounterFlow &flow,std::shared_ptr<const XeenRegionalObservation> shots) {flow.observeRanged(std::move(shots));}
+ static bool animate(XeenEncounterFlow &flow) {return flow.animateProjectiles();}
+};
+}
 namespace {
 XeenMap projectionMap(XeenMapIdentity id,bool outdoor) {
  auto m=map(id);if(!outdoor) {m.geometry.flags2=0;for(auto &cell:m.geometry.cells)cell.geometry=XeenIndoorWalls{};}
@@ -70,17 +77,83 @@ int main(int argc,char **argv) {try {
  XeenProjectileAppearance enemyNear{true,0,0,1,{}},enemyFar{true,2,1,3,{}};
  enemyNear.advance();enemyFar.advance();check(!enemyNear.active&&enemyFar.row==1&&enemyFar.active,"Mixed-distance enemy batch advanced sequentially");
  Fixture fixture;const auto before=XeenSaveFormat::encode(fixture.snapshot());auto &fx=fixture.w.scenePresentation();
+ // Published injury receipts drive feedback even for off-camera sources and
+ // attacks beyond the six visible lanes. A miss has no injury receipt; a
+ // zero-damage injury still has one. No damage calculation is part of this seam.
+ std::uint64_t now=0;fixture.clock=[&]{return now;};
+ for(unsigned facing=0;facing<4;++facing) {
+  fx.portraits={};auto shots=std::make_shared<XeenRegionalObservation>();shots->count=8;
+  for(unsigned i=0;i<shots->count;++i) {
+   auto &shot=shots->shots[i];shot.source={23,i};shot.direction=static_cast<XeenDirection>(facing);shot.distance=3;
+   if(i<6) {shot.attack.injuryCount=1;shot.attack.injuries[0].owner=kXeenCombatOwners[i];}
+  }
+  XeenCombatPresentationTestAccess::observe(*fixture.flow,shots);
+  const auto lanes=fixture.flow->appearance().projectiles;
+  check(lanes.size()==(fixture.camera.direction==static_cast<XeenDirection>(facing)?6u:0u),"Off-camera source emitted a visible lane");
+  for(unsigned owner=0;owner<30;++owner) {
+   const bool injured=std::find(kXeenCombatOwners.begin(),kXeenCombatOwners.end(),owner)!=kXeenCombatOwners.end();
+   check(fx.portraits[owner].damageTicks==unsigned(injured),"Published off-camera/zero-damage injury lost portrait feedback or miss flashed");
+  }
+  // The seventh/eighth front-facing shots are omitted visually, but still
+  // consume their own published injury receipts (distinct roster recipients).
+  shots=std::make_shared<XeenRegionalObservation>(*shots);
+  shots->shots[6].attack.injuryCount=1;shots->shots[6].attack.injuries[0].owner=29;
+  XeenCombatPresentationTestAccess::observe(*fixture.flow,shots);
+  check(fx.portraits[29].damageTicks==1,"Lane-cap omission suppressed published injury");
+  now+=100;fx.advanceFeedback(now);XeenCombatPresentationTestAccess::animate(*fixture.flow);
+  for(const auto &p:fx.portraits)check(!p.damageTicks,"Projectile animation restarted published injury feedback");
+ }
  for(unsigned owner=0;owner<30;++owner) {
   fx.spellEffect(owner);fx.spellEffect(owner);check(fx.portraits[owner].spellFrame==0,"Duplicate restarted/advanced effect");
   for(unsigned frame=0;frame<4;++frame) {check(fx.portraits[owner].spellFrame==frame,"Four-frame spell sequence");fx.advanceFeedback((frame+1)*100);}
   check(fx.portraits[owner].spellFrame==4,"Spell effect did not retire");
   for(unsigned type=0;type<7;++type) {fx.portraitDamage(owner,xeenPortraitDamageFrame(type));check(fx.portraits[owner].damageTicks==1,"Zero-damage hit missing feedback");fx.advanceFeedback(100);check(!fx.portraits[owner].damageTicks,"Damage feedback did not retire");}
  }
- for(unsigned mask:{0x3fu,0x3eu,0x2au,0u}) {
-  const auto faces=CloudsUiComposer::buildPortraitPlacements(fixture.p,mask),all=CloudsUiComposer::buildPortraitPlacements(fixture.p);
-  const auto hp=CloudsUiComposer::buildHpPlacements(fixture.p,{610},mask);unsigned slot=0;
-  for(unsigned member=0;member<6;++member)if(mask&(1u<<member)) {check(faces[slot].resourceName==all[member].resourceName&&hp[slot].rosterId==fixture.p.party.activeRosterIds()[member]&&hp[slot].partySlot==slot,"Departed portrait/HP/member mapping");++slot;}
+ for(unsigned member=0;member<6;++member) {
+  const auto owner=fixture.p.party.activeRosterIds()[member];
+  fx.portraits[owner]={member%4,member,1};
+ }
+ auto stripBytes=characterBytes();constexpr std::int16_t health[]{-1,0,1,2,8,120};
+ for(unsigned member=0;member<6;++member) {
+  const auto offset=kXeenCombatOwners[member]*354+342;
+  const auto hp=std::uint16_t(health[member]);stripBytes[offset]=hp&255;stripBytes[offset+1]=hp>>8;
+ }
+ const auto stripParty=XeenPartyLoader().loadFromResources(stripBytes,partyBytes());
+ constexpr int faceX[]{10,45,81,117,153,189},hpX[]{13,50,86,122,158,194};
+ for(unsigned mask=0;mask<64;++mask) {
+  const auto faces=CloudsUiComposer::buildPortraitPlacements(stripParty,mask),all=CloudsUiComposer::buildPortraitPlacements(stripParty);
+  const auto hp=CloudsUiComposer::buildHpPlacements(stripParty,{610},mask),allHp=CloudsUiComposer::buildHpPlacements(stripParty,{610});unsigned slot=0;
+  std::vector<unsigned> expectedMembers;
+  for(unsigned member=0;member<6;++member)if(mask&(1u<<member)) {
+   check(faces[slot].resourceName==all[member].resourceName&&faces[slot].x==faceX[slot]&&hp[slot].x==hpX[slot]&&hp[slot].frame==allHp[member].frame&&hp[slot].rosterId==stripParty.party.activeRosterIds()[member]&&hp[slot].partySlot==slot,"Departed portrait/HP/member mapping");
+   expectedMembers.push_back(member);++slot;
+  }
   check(faces.size()==slot&&hp.size()==slot,"Empty combat slots not restored");
+  for(unsigned key=InputKey::F1;key<InputKey::F1+6;++key) {
+   const auto compact=key-InputKey::F1;
+   const auto click=xeenMainScreenClick(faceX[compact]+1,160,MainScreen::Combat);
+   check(click&&std::holds_alternative<SelectMemberAction>(*click),"Portrait click lost native member action");
+   const auto action=xeenMainScreenMemberKey(key);
+   check(action&&std::holds_alternative<SelectMemberAction>(*action),"F1-F6 lost native member action");
+   const auto keyboard=CloudsUiComposer::partyMemberAtSlot(stripParty,mask,std::get<SelectMemberAction>(*action).partyIndex);
+   const auto mouse=CloudsUiComposer::partyMemberAtSlot(stripParty,mask,std::get<SelectMemberAction>(*click).partyIndex);
+   const std::optional<std::size_t> expected=compact<expectedMembers.size()?std::optional<std::size_t>{expectedMembers[compact]}:std::nullopt;
+   check(keyboard==expected&&mouse==expected,"F1-F6/click mapping includes departed or unused member");
+  }
+  for(int acting=-1;acting<6;++acting) {
+   const auto overlays=CloudsUiComposer::buildPartyFeedbackPlacements(stripParty,fx,mask,acting);
+   const bool highlighted=acting>=0&&(mask&(1u<<acting));
+   check(overlays.size()==2*slot+unsigned(highlighted),"Departed highlight/effect or missing overlay");
+   unsigned index=0;
+   if(highlighted) {
+    const auto position=std::find(expectedMembers.begin(),expectedMembers.end(),unsigned(acting))-expectedMembers.begin();
+    const auto &p=overlays[index++];check(p.resourceName=="global.icn"&&p.frame==8&&p.x==faceX[position]-1&&p.y==149,"Acting highlight moved to wrong compact portrait");
+   }
+   for(unsigned n=0;n<slot;++n) {
+    const auto &damage=overlays[index++],&spell=overlays[index++];const auto member=expectedMembers[n];
+    check(damage.resourceName=="charpow.icn"&&damage.frame==member&&damage.x==faceX[n]&&damage.y==150&&spell.resourceName=="spellfx.icn"&&spell.frame==member%4&&spell.x==faceX[n]&&spell.y==150,"Roster effect remapped to departed member");
+   }
+  }
  }
  check(before==XeenSaveFormat::encode(fixture.snapshot()),"Feedback altered gameplay/RNG/save bytes");
  fx.spellEffect(0,1000);fx.advanceFeedback(1100);check(fx.portraits[0].spellFrame==1,"Independent healing prefix");

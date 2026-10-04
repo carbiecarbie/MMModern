@@ -3,6 +3,7 @@
 #ifndef MMODERN_M39_CAST_CONTROLS_H
 #define MMODERN_M39_CAST_CONTROLS_H
 #include "games/xeen/XeenRestoreGuard.h"
+#include "games/xeen/XeenOutdoorScene.h"
 template<class Handler,class Idle,class Fault>
 bool m39CastControls(const std::string &control,const IndexedFrame &first,const Handler &handler,const Idle &idle,
     XeenEventFlow &flow,XeenWorld &world,const XeenPartyState &party,const XeenCamera &camera,
@@ -127,7 +128,20 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
                     visuals[0].target==std::optional<XeenMonsterIdentity>{{23,9}},"Magic Arrow shared single lane/selected target");
                 tick();check(view().phase==XeenCombatCastPhase::Result && world.sessionState().journeyRandom()==settled,
                     "M39 detached projectile/result repeated RNG/effect");
-                check(flow.encounter()->appearance().projectiles.empty(),"Magic Arrow lane did not terminate at its existing phase boundary");
+                const auto resultInput=flow.displayedInput();
+                for(unsigned row=1;row<=3;++row) {
+                    const auto appearance=flow.encounter()->appearance();
+                    check(appearance.projectiles.size()==1 && appearance.projectiles[0].row==row && flow.frame().isValid(),"Magic Arrow did not display successive travel rows");
+                    const auto commands=XeenOutdoorScene().build(world,camera,nullptr,nullptr,{},appearance);
+                    const auto lane=std::find_if(commands.begin(),commands.end(),[](const auto &c){return c.projectile()!=nullptr;});
+                    check(lane!=commands.end() && lane->projectile()->row==row && lane->projectile()->pow==11 && lane->drawOptions().scaleIndex==4*row,
+                        "Magic Arrow rendered row/depth/resource differs from retained cosmetic lane");
+                    check(view().phase==XeenCombatCastPhase::Result && world.sessionState().actors()[9].hp==0 &&
+                        world.sessionState().journeyRandom()==settled && party.roster.at(6).currentSp==25,"Cosmetic Arrow travel changed settled result/SP/RNG");
+                    check(flow.displayedInput()==resultInput,"Cosmetic Arrow row renewed semantic input generation");
+                    tick();
+                }
+                check(flow.encounter()->appearance().projectiles.empty(),"Magic Arrow lane did not retire after visible row three");
                 auto receipt=fight().cast();auto &&receiptResult=fight().result();poison(receipt,receiptResult);
                 respond(AcknowledgeAction{});
                 check(!fight().cast() && fight().phase()==XeenCombatPhase::VictoryAwaitingEnd && fight().pending()==XeenCombatWork::End &&

@@ -19,6 +19,12 @@ namespace mmodern {
 
 class XeenWorld;
 
+// Map::_sidePictures: Clouds art is also used by these World of Xeen mazes.
+inline XeenSceneArchive xeenPictureArchive(XeenMapIdentity map) {
+	return map.side==XeenSide::Clouds || (map.number>=125 && map.number<=127)
+		? XeenSceneArchive::Clouds : XeenSceneArchive::Darkside;
+}
+
 struct XeenIndoorWallSample {
 	std::size_t queryIndex = 0;
 	XeenMapIdentity sourceMapId = 0;
@@ -57,6 +63,7 @@ struct XeenWallItemDraw {
 	std::string resourceName;
 	int scaleIndex=0;
 	bool animated=false;
+	XeenSceneArchive archive=XeenSceneArchive::Current;
 };
 
 struct XeenIndoorDrawCommand {
@@ -82,7 +89,7 @@ struct XeenIndoorDrawCommand {
 	const XeenWallItemDraw *wallItem() const { return std::get_if<XeenWallItemDraw>(&content); }
 	XeenSpriteDrawOptions drawOptions() const {
         if(const auto *s=splat()) {XeenSpriteDrawOptions r;r.scaleIndex=s->damage<10?5:0;r.enlarge=s->damage>=100;r.sceneClipped=r.bottomClipped=true;return r;}
-		if (const auto *wall=wallItem()) {XeenSpriteDrawOptions result;result.scaleIndex=wall->scaleIndex;result.sceneClipped=true;return result;}
+		if (const auto *wall=wallItem()) {XeenSpriteDrawOptions result;result.scaleIndex=wall->scaleIndex;result.sceneClipped=true;result.archive=wall->archive;return result;}
         if(const auto *p=projectile()){XeenSpriteDrawOptions result;result.sceneClipped=true;result.scaleIndex=4*p->row+(p->enemy?3:0);result.horizontalFlip=p->lane%2;return result;}
 		if (const auto *draw=actor()) {
 			XeenSpriteDrawOptions result;

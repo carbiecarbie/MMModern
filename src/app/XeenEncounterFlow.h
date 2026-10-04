@@ -117,7 +117,7 @@ public:
 		auto result = _frame < 8 ? XeenMonsterAppearance{_frame} :
 			XeenMonsterAppearance{XeenMonsterSpriteKind::Attack, static_cast<std::uint8_t>(_frame - 8)};
 		if (_frame >= 8) result.identity = _appearanceIdentity;
-        if(_combat && _combat->cast() && _combat->cast()->phase==XeenCombatCastPhase::Projectile && _castProjectile && _castProjectile->active)
+        if(_combat && _combat->cast() && _castProjectile && _castProjectile->active)
             result.projectiles.push_back(*_castProjectile);
         for(const auto &p:_projectiles) if(p.active) result.projectiles.push_back(p);
         if(!result.projectiles.empty()) result.projectile=result.projectiles.front();
@@ -130,6 +130,7 @@ private:
 	friend class XeenEventFlow;
 	friend struct XeenTrainingTestAccess;
 	friend struct XeenPurchaseTestAccess;
+	friend struct XeenCombatPresentationTestAccess;
 	bool _trainingEventSettlement=false;
 	bool _smithEventSettlement=false;
     std::optional<Ticket> _castFrameTicket;
@@ -270,6 +271,11 @@ private:
 	std::unique_ptr<XeenShootCandidate> _shoot;
 	std::vector<XeenProjectileAppearance> _projectiles;
  std::optional<XeenProjectileAppearance> _castProjectile;
+ std::optional<std::uint64_t> _castProjectileDeadline;
+ void castProjectilePresented() noexcept {
+  if(_combat && _combat->cast() && _castProjectile && _castProjectile->active && !_castProjectileDeadline)
+   _castProjectileDeadline=_lastTime+100;
+ }
 	std::uint64_t _projectileDeadline=0;
 	std::shared_ptr<const XeenRegionalObservation> _rangedObservation;
 	void observeRanged(std::shared_ptr<const XeenRegionalObservation>);

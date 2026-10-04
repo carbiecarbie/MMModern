@@ -196,6 +196,7 @@ bool XeenEncounterFlow::respondCombatCast(const PlayerAction &action,std::uint64
     }
     _combatCastRefusal.clear();
     if(!acceptCombatResult(result))return false;
+    if(begin || !_combat->cast()) {_castProjectile.reset();_castProjectileDeadline.reset();}
     if(_combat->cast() && (_combat->cast()->phase==XeenCombatCastPhase::Projectile ||
         _combat->cast()->phase==XeenCombatCastPhase::Result))observeCombat();
     scheduleCombat(_lastTime);return true;
@@ -215,6 +216,7 @@ void XeenEncounterFlow::presented(const Ticket &entry) {
 	}
 	_lastTime=now;
 	_combat->castPresented(*entry.combat,now);
+	castProjectilePresented();
 	scheduleCombat(now);
 	if (_appearanceAfterFrame) {
 		_cosmeticDeadline = now + 100;
@@ -240,7 +242,7 @@ bool XeenEncounterFlow::handoffCombat() {
 		if (!acceptCombatResult(_combat->beginCombat(_combat->ticket()))) return false;
         // Result generations belong to one Combat instance. A new episode
         // must not inherit a previous episode's duplicate-feedback binding.
-        _feedbackGeneration.reset();_castProjectile.reset();
+        _feedbackGeneration.reset();_castProjectile.reset();_castProjectileDeadline.reset();
         _world.scenePresentation().splats={};
 		_deadline.reset();
 	}
@@ -268,7 +270,8 @@ bool XeenEncounterFlow::observeCombat() {
         if(r.operation==XeenCombatOperation::Cast && _combat->cast()) {
             const auto &cast=_combat->cast()->result;
             if(cast.spell==45 && _combat->cast()->phase==XeenCombatCastPhase::Projectile) {
-                _castProjectile=XeenProjectileAppearance{false,0,0,0,{}};
+                _castProjectile=XeenProjectileAppearance{false,0,0,3,{}};
+                _castProjectileDeadline.reset();
                 _castProjectile->target=r.targetMonster;
             }
             if(cast.spell==26 && !cast.failed && !cast.refunded)
@@ -350,11 +353,17 @@ bool XeenEncounterFlow::idleCombat(std::optional<std::uint64_t> cycle) {
 	bool startedAppearance = false;
 	_lastTime = now;
 	if (_combat->cast()) {
+        // The rule result is already published. Travel remains cosmetic across
+        // the existing Projectile/Result boundary; only a displayed row arms
+        // its next step, so failed rendering cannot skip visible travel rows.
+        bool travel=false;
+        if(_castProjectileDeadline && now>=*_castProjectileDeadline) {
+            _castProjectile->advance();_castProjectileDeadline.reset();travel=true;
+        }
         const auto phase=_combat->cast()->phase;
-        if(_scheduleAfterFrame || (phase!=XeenCombatCastPhase::Preparing && phase!=XeenCombatCastPhase::Projectile))return false;
+        if(_scheduleAfterFrame || (phase!=XeenCombatCastPhase::Preparing && phase!=XeenCombatCastPhase::Projectile))return travel;
         const auto result=_combat->serviceCast(*entry.combat,now);
         if(!acceptCombatResult(result))return false;
-        if(phase==XeenCombatCastPhase::Projectile && _combat->cast() && _combat->cast()->phase!=phase && _castProjectile)_castProjectile->advance();
         if(phase==XeenCombatCastPhase::Preparing && _combat->cast() && _combat->cast()->phase==XeenCombatCastPhase::Projectile && observeCombat())_cosmeticDeadline=now+100;
         scheduleCombat(now);return true;
     }

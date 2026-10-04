@@ -68,7 +68,7 @@ std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key, MainScree
 	case SDLK_F4:
 	case SDLK_F5:
 	case SDLK_F6:
-		return SelectMemberAction{static_cast<std::size_t>(key.keysym.sym - SDLK_F1)};
+		return xeenMainScreenMemberKey(InputKey::F1+key.keysym.sym-SDLK_F1);
 	case SDLK_LEFT:
 		return NavigationAction::TurnLeft;
 	case SDLK_RIGHT:
