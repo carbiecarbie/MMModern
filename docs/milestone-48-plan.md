@@ -1,71 +1,71 @@
 # Milestone 48 plan - Generic presentation systems
 
-**Status: approved by the maintainer on 2026-10-04; Part A completed (`6387a0e`); Part B authorized; Part C not yet.** Part A Scene and Part B Combat visuals and controls are Tier B; Part C Combat impact timing and rotation is Tier A, with independent plan and implementation reviews covering both timing and rotation. Implementation requires the maintainer's explicit start.
+**Tier B. Status: completed and accepted.** Part A `6387a0e`, Part B
+`b0e4919`, review fixes `4d953c6`. The planned Part C (combat impact timing
+and rotation, Tier A) moved to M49.
 
-## Goal and boundaries
+## Goal
 
-Make scene, combat feedback and controls faithful, reusable engine systems for **all Clouds content**: every original map, monster, wall item and projectile user. New areas must inherit presentation from resources without per-map/per-monster code or admission lists. Follow the [roadmap](roadmap.md#near-term) and [AGENTS.md](../AGENTS.md); this does not admit new gameplay areas or implement missing abilities.
+Make scene, combat feedback and controls faithful, reusable engine systems
+for **all Clouds content**, driven by original data, so new areas inherit
+them without per-map or per-monster work. Presentation only: rules,
+damage publication order, gameplay RNG, time, input-queue rules and the save
+format are unchanged.
 
-Baseline verified: clean `main`, HEAD = origin/main = remote main = `18e544c2a0676865c2fd6141ffbda6400e1bb987`. All ScummVM citations below refer to the clean local reference at `6814ee9ba54582f5b5adcffab49efbbd8f589edd`, as pinned in [dependencies](dependencies.md). Original data at `F:/Games/gog/Might and Magic 4-5` remains read-only and external.
+## Final scope
 
-Reuse the existing World/resource caches, scene command streams, party/roster, Combat, Event, Service and Flow owners. Keep transient presentation state outside saves and advance it through existing presentation callbacks; composing a frame must not mutate gameplay, draw gameplay RNG, advance time or replay effects. No new gameplay coordinator or ScummVM engine linkage is planned.
+- **Scene (Part A).** Action-driven ground/sky flips and periodic water
+  phase in both scene builders; MOB wall items and torches with their own
+  frame cycles, direction, depth and occlusion; monster normal, looped
+  (back-and-forth), attack/recovery, flying and effect presentation from
+  each monster's data (ScummVM `Interface::perform/draw3d`,
+  `InterfaceScene::animate3d/setIndoorsWallPics/setMonsterSprite`,
+  `MonsterObjectData::synchronize`). `--render-map` shows actors and wall
+  items for any map through World without starting combat. Generic
+  presentation validation replaced `validateSlime`; combat admission
+  (`validateAdmittedPoisonCombat`) is unchanged.
+- **Combat visuals and controls (Part B).** Simultaneous data-driven
+  projectiles in both projections with per-lane termination; original hit
+  splats; portrait damage effects for every published injury, including
+  off-camera attacks; four-frame healing effects for First Aid, the well and
+  antidotes; Magic Arrow travel on the shared lane; the remaining combat
+  party strip after Run with original highlight and target icon; original
+  keys (S Shoot, A Attack, arrows move/turn; combat movement says "not
+  supported yet"); the original `mouse.icn` cursor.
 
-Excluded: audio; original event, casting and treasure dialogs/sequences; animated shopkeepers; combat-time equipping/Use; broader gameplay admission. Existing unsupported mechanics retain clear notices. Presentation coverage must not be filtered by those gameplay restrictions.
+## Decisions
 
-Parts A and B must preserve the existing damage/death/XP/drop publication order. Only Part C moves publication to impact; earlier visual improvements do not claim to correct that timing.
+- **Presentation RNG.** Initial monster effect phases use a separate,
+  unsaved presentation RNG instead of ScummVM's shared `getRandomNumber(7)`.
+  It reproduces the observable random starting phases without touching the
+  gameplay RNG; MMModern does not reproduce the original RNG sequence.
+- **Archive resolution.** Scene resources follow the pinned `File::open`:
+  the current or explicitly selected archive, then the registered INTRO
+  search; DARK.CC is only ever an explicit selection (cross-side pictures),
+  never a fallback.
+- **Original-data gaps.** Clouds maps 106-108 reference `sewer.srf`, which
+  exists only in DARK.CC while the pinned `Map::load` loads surfaces from the
+  current archive. These three entries are the only allowed missing
+  references; rendering those maps keeps an explicit missing-resource error.
+- **Moved to M49 (Tier A):** applying damage/death/XP/drops at projectile
+  impact instead of before the volley, and turning the party in combat
+  (`Interface::doCombat`), both requiring combat authority changes.
 
-## Part A - Scene (Tier B)
+## Results
 
-- [ ] **Terrain, sky and water:** supply action-driven ground/default-ground/sky flips and periodic water phase to both scene builders, preserving resource selection, alternate frames, mirroring and draw order. Follow the exact action cases, including blocked movement/turns, rather than flipping on every redraw. Source: [Interface::perform, stepTime, doStepCode, draw3d][interface]; [InterfaceScene::drawIndoors, drawOutdoors][scene] and `DRAW_FRAMES` in [reference constants][constants].
-- [ ] **Wall items and torches:** resolve each MOB wall-item table entry to its original sprite, direction and position; animate by that sprite's frame count and implement all reference visibility, depth, scale, clipping and occlusion cases. No torch IDs or map-specific positions. Source: [MonsterObjectData::synchronize and Map loading][map]; [InterfaceScene::setIndoorsWallPics, animate3d][scene].
-- [ ] **Monster presentation:** decode image, `_loopAnimation`, `_animationEffect` and flying metadata independently of combat support. Implement per-actor normal cycles (0..7) or back-and-forth (0..7..0), attack/hit recovery, effect flags and floating offsets from data. Replace Slime-only rendering/palette paths and rejection of nonzero bytes 48/49 with generic metadata/resource validation. Source: [MonsterStruct::synchronize, MonsterObjectData::synchronize][map]; [InterfaceScene::animate3d, setMonsterSprite, setIndoorsMonsters, setOutdoorsMonsters][scene].
-- **Approved maintainer decision:** initialize monster effect phases with a separate presentation-only RNG, never saved and never consuming or changing gameplay RNG or M44 digests. This preserves observable random starting phases; MMModern does not reproduce the original RNG sequence. This replaces ScummVM's shared `getRandomNumber(7)` initialization in [MonsterObjectData::synchronize][map], and is not an unresolved Tier A gate.
-- [ ] **One path for every map:** remove Journey/map-28 conditions from presentation and provide resource-backed actor/wall-item views for `--render-map` through the existing World owner. Reuse live actors where available; render-only views must not initialize combat or advance simulation. Remove `validateSlime` in favor of generic field/resource validation, auditing its combat/world callers under the gate below. Source: [Map loading and MonsterObjectData::synchronize][map]; [InterfaceScene::drawScene and scene population routines][scene].
-- [ ] **Part A tests:** iterate every Clouds monster and map/MOB independently of `XeenJourneyContent`, exercising every resolved image/effect and wall-item resource through production drawing. Cover loop reversals, attack recovery, floating/effects, wall direction/occlusion, water/action flips and cache reloads. Inject a presentation RNG seed to check initial phase range/variation and unchanged gameplay RNG/save bytes. Report inventory counts and fail on silently skipped valid content; use synthetic malformed/sentinel fixtures. Sources: [map][map], [scene][scene], [interface][interface].
-
-### Part A results
-
-Scene resource lookup follows the pinned `File::open`: current/explicitly selected archive, then registered INTRO search; DARK is never an unconditional fallback. Wall pictures and indoor wall sets use Map's explicit picture-side selection.
-
-**Maintainer-approved original-data gaps:** the all-map inventory permits exactly `(106, sewer.srf)`, `(107, sewer.srf)` and `(108, sewer.srf)` in Clouds. Those DATs reference a surface absent from XEEN.CC and INTRO.CC, present only in DARK.CC; pinned `Map::load` loads surfaces from the current archive without selecting DARK. Rendering retains its explicit missing-resource error. Require zero missing references except this exact documented allowlist; every other missing reference fails. This exception admits no replacement resource or gameplay content.
-
-## Part B - Combat visuals and controls (Tier B)
-
-- [ ] **Generic simultaneous projectiles:** replace the single `_projectileCursor` progression and fixed player/enemy `pow11`/`pow12` selection with resource/type-driven batches. Initialize all eligible lanes together and advance every active lane on each original animation step; preserve direction, starting row, depth, scale, obstruction, miss continuation and per-lane termination indoors/outdoors. Cover every Clouds projectile-using monster from its attack metadata, without enabling unsupported damage mechanics. Source: [Combat::rangedAttack, monstersAttack, setupMonsterAttack and MONSTER_SHOOT_POW][combat]; [InterfaceScene::animate3d, drawIndoors, drawOutdoors][scene].
-- [ ] **Scene hit splats and portrait damage:** draw original physical/elemental splats with reference scaling, duration, front-rank placement and clipping; draw `charpow.icn` on the affected portrait using attack damage type, including hit/zero-damage/miss distinctions. Feedback consumes rule results; it does not recalculate damage or saving throws. Source: [Combat::attack2, getDamageScale, giveCharDamage, doCharDamage][combat]; [InterfaceScene::drawIndoorsScene, drawOutdoorsScene][scene].
-- [ ] **Healing/reward portrait effects:** share the original four-frame spell effect and recipient mapping across existing First Aid, well, antidote and other supported reward/healing paths where the reference invokes it. Respect no-op/dead-target and duplicate-effect behavior rather than inferring an effect from any HP change; keep deferred dialogs as they are. Source: [Interface::spellFX][interface], [Character::addHitPoints][character], [Party::giveTake][party], [Spells::firstAid, curePoison][spells].
-- [ ] **Magic Arrow travel visuals:** use the shared projectile presentation with original single-projectile lane semantics, selected target and `POW_ARROW`, replacing the static display. Keep existing SP payment, damage/reward publication and turn rules; impact-before-publication belongs only to Part C. Source: [Spells::magicArrow][spells]; [Combat::rangedAttack, attack, attack2][combat].
-- [ ] **Combat strip and target marker:** draw the remaining combat party in its reference order, restore unused slots, map portraits/HP/effects/clicks to the same roster members after Run, highlight the acting member with original art and replace the text `>` target label with the combat icon. Do not derive membership from “can act” or change initiative. Source: [PartyDrawer::drawParty, highlightChar and Interface::doCombat][interface]; [Combat::run][combat].
-- [ ] **Original keys and cursor:** contextually bind S to Shoot outside combat, A to Attack in combat and arrows to original exploration movement/turning; remove conflicting WASD/F shortcuts and audit Space/Enter against the original action context. Preserve item/service dialog keys and mouse/keyboard equivalence. Load `mouse.icn` with the reference frame, transparent color and hotspot, matching visibility and 320x200 scaling. Source: [Interface::perform, doCombat][interface]; [EventsManager::setCursor and event polling][events]. **Maintainer decision:** combat movement keys/buttons show "not supported yet" and change no gameplay state; combat rotation is deferred to Part C.
-- [ ] **Part B tests:** exercise every data-derived projectile type in both projections, concurrent lanes, misses, blocked/empty rays, lethal outcomes, mixed-distance enemies and Magic Arrow travel. Cover portrait damage/healing, departed members, icons, keys and cursor scaling. Assert unchanged publication order; hit-before-HP/death assertions belong to Part C. Reuse consequence, casting, input-scheduling and SDL tests with a few original-data integrations. Sources: [combat][combat], [scene][scene], [interface][interface], [events][events].
-
-## Part C - Combat impact timing and rotation (Tier A; unauthorized)
-
-- [ ] **Plan review:** independently review the staging/publication design before implementation. Today `XeenEncounterFlow::serviceShoot` publishes damage/death/XP/drops/RNG before travel, and `XeenCombat::serviceCast` settles Magic Arrow before its Projectile phase. Trace enemy batch publication too; specify retained outcomes, impact callbacks and guard/retry behavior in existing owners. Source: [Combat::rangedAttack, attack, attack2, monstersAttack, doCharDamage][combat].
-- [ ] **Combat rotation:** plan and independently review rotation together with impact timing. Follow [Interface::doCombat][interface]: Left/Right turn the party, flip the sky, conditionally move monsters and set `_stepped`, keeping the acting member unchanged. Specify the guarded combat state transition and scheduling consequences in existing owners; Part B does not add a rotation operation.
-- [ ] **Impact settlement:** move damage/death/XP/drop publication for Shoot, Magic Arrow and enemy batches to their reference impact step, after the hit frame. Preserve target/shooter evaluation, RNG draw order/count, damage rules, guards, action serialization and quiet save boundaries. Publish each outcome once before dependent successor work; keep killed monsters present until impact. Cosmetic retention of an already-dead sprite alone is insufficient. Source: [Combat::attack2, rangedAttack, monstersAttack, doCharDamage][combat]; [InterfaceScene::animate3d][scene].
-- [ ] **Tests and implementation review:** assert travel/hit-before-HP/death and exactly-once XP/drop settlement, including misses, lethal hits, mixed-distance batches, interruptions, stale frames, failed rendering and retries. Verify no early successors, changed RNG continuation or changed M44 digests; independently review the implementation before Part C acceptance. Sources: [combat][combat], [scene][scene].
-
-## Remaining boundaries and risks
-
-- **Shared validators (maintainer agreed):** `validateSlime` also guards `XeenCombat`, `XeenCombatRules` and `XeenVertigoWorld`; `supportsRendering` participates in regional rules. Separate structural/presentation validity from mechanic support. Preserve combat admission, movement, mutation checks and serialized meaning; stop and seek a scoped Tier A amendment if a rule or ownership change is needed. Renaming a Slime fingerprint check is not generic completion.
-- **Scheduling and saves:** Parts A/B preserve gameplay timers, input queue/repeat/context rules and save semantics. Changes to gameplay scheduling, action dispatch order or save state require a separate scoped Tier A decision; Part C covers only its stated impact-publication and combat-rotation work once explicitly approved. The approved cosmetic RNG remains separate. Keep effects transient; stop and re-scope if fidelity requires broader changes.
-- **Coverage risk:** existing scene actor/animation gates and sprite validation can hide non-playable content; all-map tests must assert actual emitted commands and decoded frames, not merely successful loads. Preserve original resource distinctions and reference exceptions; require zero missing references except the three explicitly documented original-data gaps in Part A results. Do not whitelist passing maps. No original assets or extracted fixtures enter Git.
-
-## Validation and acceptance
-
-- [ ] During implementation run affected tests and `ctest --test-dir <build> -L fast --output-on-failure`. Keep all three [M44 scenario digests](../tests/XeenM44BaselineDigests.h) unchanged and require byte-identical reload/re-save; do not regenerate baselines. Compare gameplay state/RNG before and after cosmetic-only ticks and cache reloads.
-- [ ] After the final build, run the complete suite once (rerun only after failures/fixes) via the [AGENTS.md test runner](../AGENTS.md#long-running-commands): `gpt-6-luna`, low effort, `fork_turns: none`, `tools/run-full-ctest.ps1 -BuildDir <build>`, default single job, no `-Jobs`. Freeze the checkout/build while it runs; runner waits using the longest supported process wait and returns only exit, duration, summary, failures and result paths. Main agent waits for native completion with the longest allowed wait, without log/status polling, reads the result once and reports the exact command/wait method. If unavailable, leave full validation pending; never substitute the main model.
-- [ ] Maintainer compares DOSBox with mainland/Vertigo: Part A terrain/water, wall art and monster animation; Part B volleys, splats, portrait damage/healing, First Aid/well/antidote, Magic Arrow travel, Run/strip/highlight/target, keys and cursor; Part C damage/death timing at impact and combat rotation, including its monster movement and unchanged acting member. Compare cadence, order, positions, scale and visibility, including permitted dialog-time effects. Until Part C, existing publication timing and unsupported combat rotation remain explicit limitations.
-- [ ] Spot-check non-playable content with `--render-map <game-dir> <map> <x> <y> <dir>`: an outdoor water/coast view beyond map 23, another town, and a torch/wall-art dungeon, including looped, effect-bearing and flying monsters. Select actual coordinates from the all-map test inventory and record them at acceptance; these samples supplement exhaustive data-driven tests, never define admission. Do not claim these maps are gameplay-supported.
-- [ ] Accept M48 after all three parts, required reviews, tests and maintainer play-test pass; A/B acceptance does not imply impact timing is fixed. At closure update status/history and condense the plan. For this planning-only change, check diff, links and `git diff --check`; do not build or run CTest.
-
-[interface]: https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/interface.cpp
-[scene]: https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/interface_scene.cpp
-[map]: https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/map.cpp
-[combat]: https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/combat.cpp
-[character]: https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/character.cpp
-[party]: https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/party.cpp
-[spells]: https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/spells.cpp
-[events]: https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/events.cpp
-[constants]: https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/devtools/create_mm/create_xeen/constants.cpp
+- Data-driven tests over all Clouds content: 128 maps composed, every one
+  of 1,422 expected MOB actors drawn, 464 wall records and 862 scenery frames
+  exercised, zero missing references outside the allowlist; 29 ranged
+  monsters and 7 projectile resources in concurrent lanes; all 64 combat
+  strip masks through portraits, HP, effects, highlight, F-keys and clicks.
+- Full CTest 152/152 (single job, lightweight runner); M44 scenario digests
+  unchanged throughout.
+- Independent review of Parts A and B (REVISE) found Magic Arrow without
+  travel, missing off-camera portrait damage and a non-reference DARK.CC
+  fallback; all fixed in `4d953c6`, with stronger inventory and strip tests.
+- Maintainer play-test: scene animation, `--render-map` samples, volleys
+  with several shooters, splats, portrait effects, Magic Arrow travel, the
+  combat strip, keys and cursor passed. Known pre-existing gaps confirmed in
+  play and moved to M49: monsters can vanish before the arrow arrives, and
+  the Slime hits the whole party where the original (DOSBox) hits two
+  members.

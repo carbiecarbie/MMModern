@@ -1,8 +1,10 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M47 is the latest completed
-milestone** ([plan](milestone-47-plan.md)): the original character sheet, items
-dialog and Ironworks/Training/Temple dialogs replace the project menus. M46
+This describes what can be played and done now. **M48 is the latest completed
+milestone** ([plan](milestone-48-plan.md)): scene and combat presentation follow
+the original as generic systems for all Clouds content, with the original keys
+and cursor. M47 ([plan](milestone-47-plan.md)) brought the original character
+sheet, items dialog and service dialogs. M46
 ([plan](milestone-46-plan.md)) made the original main screen clickable. M45 ([plan](milestone-45-plan.md)) made keyboard input reliable and
 removed integrity failures from on-demand resource loading. M44
 ([plan](milestone-44-plan.md)) left one save format and one Journey
@@ -91,15 +93,16 @@ time or combat.
 
 | Key | Action |
 | --- | --- |
-| W/Up, S/Down | Move forward/back; browse slots in stock |
-| A/Left, D/Right | Turn; browse categories |
-| Space | Interact; attack in combat; acknowledge text |
+| Up / Down | Move forward/back outside combat |
+| Left / Right | Turn outside combat; combat movement says "not supported yet" |
+| Space | Interact outside combat; acknowledge text |
+| A | Attack in combat |
 | Enter | Confirm (transfer, cast, purchase, Training, Temple); acknowledge |
 | Y / N | Yes / No |
 | F1-F6 | Open the character sheet; in dialogs choose a member (item recipient, WhoWill, spell or healing target) |
 | 1-9 | Select an item or stock row; 1-3 pick a combat target |
 | . | Wait |
-| F | Shoot in mainland exploration |
+| S | Shoot in mainland exploration |
 | R | Run in mainland combat; Armor Repair in the Ironworks lobby |
 | B | Block in combat; Buy in the Ironworks lobby |
 | C | Open learned spells (exploration or the acting member's book in combat) |
@@ -118,6 +121,13 @@ open the original character sheet, whose Items dialog is also clickable.
 Buttons briefly show their original pressed frame. The right button does
 nothing; casting still uses the keyboard. Clicks
 follow the same buffering as keys.
+
+**Presentation.** Terrain, sky and water alternate, wall items and torches
+animate, and monsters animate from their own data, on every Clouds map
+(`--render-map` shows any map's monsters and wall art). In combat, missiles
+fly together, hits show the original splats, portraits show damage and
+healing effects, the strip shrinks when members run, and the acting member
+is highlighted. The original mouse cursor is used.
 
 **Character sheet and items.** The original character sheet and Items dialog
 replace the project's inventory: stats with their popups, equip, remove,
@@ -219,14 +229,18 @@ instructions are in [dependencies](dependencies.md).
 - **Areas.** Only the map-23 mainland and the 49 Vertigo cells are playable.
   Other maps appear only through `--render-map`, without save support. Indoor
   Shoot and Run refuse.
-- **Services.** Sell, Identify, the bank menu, Inn, Tavern, Guild spell
-  purchase and Uncurse do not exist. Temple has no donations and handles only
-  the modeled conditions.
+- **Missing services.** The bank menu, Inn, Tavern and Guild spell purchase do
+  not exist; the Temple handles only the modeled conditions.
 - **Items and magic.** There is no general item use. Item effects, most spells
   and most monster abilities are missing; Light and other learned spells are
   visible but cannot be cast. No doors, locks or traps are admitted.
-- **Presentation.** Service art is static (no animated shopkeepers). Scenery
-  torches and other wall art do not animate. There is no audio.
+- **Presentation.** Service art is static (no animated shopkeepers). There is
+  no audio. Event, casting and treasure screens still use project layouts.
+- **Combat rules.** Damage, death and rewards are applied before a missile
+  reaches its target, so a killed monster can vanish before the arrow
+  arrives; the party cannot turn during combat; monster attack targeting
+  differs from the original (the Slime hits the whole party instead of two
+  members). All are planned for M49.
 - **Services.** Sell, Identify, buying Accessories/Misc, Fix of non-armor
   items, Temple Donation and Uncurse show "not supported yet".
 - **Combat items.** Equipping during combat and the combat Use button are not

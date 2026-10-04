@@ -140,3 +140,10 @@ character sheet and items dialog replace the project inventory, and the
 Ironworks, Training and Temple use the original location screens and
 dialogs, by mouse or key; dialog text comes from a pinned build-time
 generator. [Plan](milestone-47-plan.md).
+
+**M48 - Generic presentation systems** (`6387a0e`, `b0e4919`, `4d953c6`).
+Terrain, sky, water, wall items and monster animation from original data on
+every Clouds map; simultaneous missiles, splats, portrait damage/healing
+effects, Magic Arrow travel, the combat strip, original keys and cursor.
+Presentation only; combat impact timing and rotation moved to M49.
+[Plan](milestone-48-plan.md).
