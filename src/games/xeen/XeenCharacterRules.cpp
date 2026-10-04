@@ -259,6 +259,98 @@ int maximumSp(const XeenCharacter &character,
 
 } // namespace
 
+// Character::getStat/conditionMod/itemScan at the documented ScummVM pin;
+// GPL-3.0-or-later, ScummVM developers (COPYRIGHT).
+int XeenCharacterRules::sheetStat(const XeenCharacter &c,const XeenCombatInputs *input,
+		unsigned attribute,const XeenCharacterRulesContext &context,bool baseOnly) {
+	if (attribute>=7) throw std::invalid_argument("Invalid sheet attribute");
+	std::array<int,2> value{};
+	if (c.originalDetails()) value=c.originalDetails()->attributes[attribute];
+	const XeenAttributeValue *v=attribute==1?&c.intellect:attribute==2?&c.personality:attribute==3?&c.endurance:nullptr;
+	if (input) {
+		if(attribute==0) v=&input->might;
+		else if(attribute==4) v=&input->speed;
+		else if(attribute==5) v=&input->accuracy;
+		else if(attribute==6 && input->luck) v=&*input->luck;
+	}
+	if(v) value={v->permanent,v->temporary};
+	int result=value[0]+itemBonus(c,attribute);
+	if(attribute<6) result+=ageAdjustment<true>(c,context,attribute==1 || attribute==2);
+	if(!baseOnly) {
+		result+=value[1];
+		if(!c.conditions[13] && !c.conditions[14] && !c.conditions[15]) {
+			for(unsigned index:{1u,2u,6u,7u}) result-=c.conditions[index];
+			if(attribute==6) result-=c.conditions[0];
+			if(attribute==0 || attribute==1 || attribute==2 || attribute==4 || attribute==5) result-=c.conditions[5];
+			if(attribute==0 || attribute==4 || attribute==5) result-=c.conditions[3];
+			if(attribute==1 || attribute==2 || attribute==3) result-=c.conditions[4];
+		}
+	}
+	return std::max(result,0);
+}
+int XeenCharacterRules::sheetAge(const XeenCharacter &c,const XeenCharacterRulesContext &context,bool baseOnly) {
+	return std::min(context.currentYear-c.birthYear,254u)+(baseOnly?0:int(c.temporaryAge));
+}
+int XeenCharacterRules::sheetArmorClass(const XeenCharacter &c,const XeenCombatInputs *input,
+		const XeenCharacterRulesContext &context,bool baseOnly) {
+	constexpr int strengths[]{0,2,4,5,6,7,8,10,4,2,1,1,1,1};
+	constexpr int metal[]{-3,0,-2,-1,1,2,4,6,8,0,1,1,2,2,3,4,5,10,12,14,16,20};
+	int result=statBonus(sheetStat(c,input,4,context))+itemBonus(c,9);
+	for(const auto &item:c.armor) if(item.frame && !(item.state&0xc0)) {
+		if(item.id>=14) throw std::invalid_argument("Invalid sheet armor id");
+		result+=strengths[item.id];
+		if(item.material>=37 && item.material<=58) result+=metal[item.material-37];
+	}
+	if(!baseOnly) result+=input?int(input->temporaryAc):c.originalDetails()?c.originalDetails()->temporaryAc:0;
+	return std::max(result,0);
+}
+int XeenCharacterRules::sheetResistance(const XeenCharacter &c,const XeenCombatInputs *input,unsigned resistance) {
+	if(resistance>=6) throw std::invalid_argument("Invalid sheet resistance");
+	std::array<int,2> value{};
+	if(c.originalDetails()) value=c.originalDetails()->resistances[resistance];
+	if(input && input->resistances) {
+		if(resistance==1) value={input->resistances->coldPermanent,input->resistances->coldTemporary};
+		if(resistance==2) value={input->resistances->electricalPermanent,input->resistances->electricalTemporary};
+	}
+	if(input && input->poisonResistance && resistance==3) value={input->poisonResistance->permanent,input->poisonResistance->temporary};
+	constexpr int categories[]{8,15,20,25,33,36};
+	constexpr int bonuses[]{0,5,7,9,12,15,20,25,30,5,7,9,12,15,20,25,5,10,15,20,25,10,15,20,25,40,5,7,9,11,13,15,20,25,5,10,20};
+	constexpr unsigned elements[]{0,2,1,3,4,5};
+	int result=value[0]+value[1];
+	for(const auto *items:{&c.armor,&c.accessories}) for(const auto &item:*items)
+		if(item.frame && !(item.state&0xc0) && item.material<37) {
+			unsigned index=0; while(categories[index]<item.material) ++index;
+			if(index==elements[resistance]) result+=bonuses[item.material];
+		}
+	return result;
+}
+int XeenCharacterRules::statColor(int amount,int threshold) {
+	return amount<1?6:amount>threshold?2:amount==threshold?15:amount>=threshold/4?9:32;
+}
+unsigned XeenCharacterRules::skillCount(const XeenCharacter &c) {
+	return c.originalDetails()?std::count_if(c.originalDetails()->skills.begin(),c.originalDetails()->skills.end(),[](auto n){return n!=0;}):0;
+}
+unsigned XeenCharacterRules::awardCount(const XeenCharacter &c) {
+	unsigned count=0;
+	if(c.originalDetails()) for(unsigned i=0;i<88;++i) if(c.originalDetails()->awards[i==73?126:i==81?127:i]) ++count;
+	return count;
+}
+std::uint32_t XeenCharacterRules::currentExperience(const XeenCharacter &c,const XeenCombatInputs *input) {
+	constexpr std::uint32_t bases[]{1500,2000,2000,1500,2000,1000,1500,1500,1500,2000};
+	const auto xp=input?std::uint32_t(input->experience):c.originalDetails()?c.originalDetails()->experience:0u;
+	const int level=c.permanentLevel-1;
+	if(level<=0) return xp;
+	return xp+(level>=12?std::uint32_t(level-12)*1024000u:0u)+(bases[static_cast<unsigned>(c.characterClass)]<<(level>=12?10:level-1));
+}
+std::uint32_t XeenCharacterRules::experienceToNextLevel(const XeenCharacter &c,const XeenCombatInputs *input) {
+	constexpr std::uint32_t bases[]{1500,2000,2000,1500,2000,1000,1500,1500,1500,2000};
+	const int level=c.permanentLevel;
+	if(level<1) return 0;
+	const auto next=(level>=12?std::uint32_t(level-12)*1024000u:0u)+(bases[static_cast<unsigned>(c.characterClass)]<<(level>=12?10:level-1));
+	const auto current=currentExperience(c,input);
+	return current>=next?0u:next-current;
+}
+
 int XeenCharacterRules::physicalBonus(int value) { return statBonus(value); }
 int XeenCharacterRules::effectiveLuck(const XeenCharacter &c, const XeenCombatInputs &input) {
 	if (!input.luck) throw std::invalid_argument("Missing physical saving throw Luck");

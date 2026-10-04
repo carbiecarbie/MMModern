@@ -34,6 +34,7 @@ public:
 	IndexedFrame snapshot() const;
 	// Transient NPC composition uses the existing cache, never the world surface.
 	void drawNpc(IndexedFrame &frame, std::uint8_t portraitId, std::size_t portraitFrame);
+	void drawDialogSprite(IndexedFrame &,const char *,unsigned,int,int);
 	void drawSmith(IndexedFrame &frame);
 	void drawTraining(IndexedFrame &frame);
 	void drawTemple(IndexedFrame &frame);

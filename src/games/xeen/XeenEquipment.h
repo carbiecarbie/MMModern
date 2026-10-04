@@ -49,6 +49,7 @@ XeenEquipmentResult xeenSetEquipment(XeenPartyState &, std::size_t activeIndex,
 
 // Read-only completed-domain admission; performs no equipment operation.
 void xeenValidateCompletedEquipment(const XeenCharacter &);
+bool xeenItemProficient(const XeenCharacter &,XeenInventoryCategory,unsigned id);
 
 } // namespace mmodern
 #endif

@@ -310,10 +310,16 @@ void fullRestoration(){
 void explicitItems(){
  auto empty=currentSnapshot();for(auto &c:empty.characters){c.weapons={};c.armor={};c.accessories={};c.miscellaneous={};}
  CurrentDestination f;distinctiveInitialItems(f.party.roster);
- unsigned initialReads=0;f.resources.loadInitialParty=[&]{++initialReads;throw std::runtime_error("restore replayed initial owners");return XeenPartyState{};};
+ std::vector<std::uint8_t> displayRoster(30*354),displayParty(812);
+ displayRoster[311]=17;displayRoster[37]=23;displayRoster[56]=1;displayParty[620]=36;
+ unsigned initialReads=0;f.resources.loadInitialParty=[&]{++initialReads;return XeenPartyLoader().loadFromResources(displayRoster,displayParty);};
  f.restore(XeenSaveFormat::decode(XeenSaveFormat::encode(empty)),[&](auto &,const auto &p,const auto &,const auto &){
   for(unsigned i=0;i<30;++i)remove_test::checkSameCharacter(p.roster.at(i),empty.characters[i]);});
- f.bind();check(initialReads==0,"saved empty items inherited initial items");sameSnapshot(f.capture(),empty);
+ f.bind();check(initialReads==1,"display data not reloaded exactly once");
+ check(f.party.originalFood()==36 && f.party.roster.at(0).originalDetails() &&
+  f.party.roster.at(0).originalDetails()->resistances[0][0]==17 &&
+  f.party.roster.at(0).originalDetails()->birthDay==23 && f.party.roster.at(0).originalDetails()->skills[17]==1,
+  "restored display fields do not come from original resources");sameSnapshot(f.capture(),empty);
 }
 void invalidResourceAndState(){
  for(unsigned mode=0;mode<28;++mode){

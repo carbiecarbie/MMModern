@@ -231,10 +231,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             });
             action(AcknowledgeAction{},true);action(CancelInteractionAction{},true);action(CancelInteractionAction{},true);settle();
             inspect([&]{expect(12,803,620,2959920300u,2009);check(!interestCalls,"M42 missile visit repeated restock interest");});checkpoint("S");
-            action(InspectInventoryAction{});action(SelectInventorySlotAction{1});action(TransferInventoryAction{});action(SelectMemberAction{1});action(AcknowledgeAction{});
+            action(InspectInventoryAction{});action(SelectInventorySlotAction{1});action(SelectMemberAction{1});
             action(SelectMemberAction{1});action(SelectInventorySlotAction{1});action(EquipmentInventoryAction{});
             inspect([&]{check(xeenSameItem(party->roster.at(18).weapons[0],{0,2,0,1}) && xeenSameItem(party->roster.at(18).weapons[1],{0,32,0,4}),"M42 ordinary missile equip altered melee weapon or failed");});
-            action(InspectInventoryAction{});settle();checkpoint("S1");
+            action(CancelInteractionAction{});settle();checkpoint("S1");
             route("RRUUUUUUURUUUU");action(InteractionAction{});action(YesAction{});settle();
             inspect([&]{const auto &map=world->map(23);for(unsigned y=3;y<=8;++y){const auto &cell=map.geometry.cells[y*16+5];const auto *l=xeenGetIf<XeenOutdoorLayers>(&cell.geometry);check(cell.rawWord==7 && cell.rawAttributes==0 && l && l->surface==7 && l->middle==0 && map.geometry.surfaceTypes[7]==7,"M42 original road/automatic-free Shoot approach differs");}
                 const auto &a=world->sessionState().actors()[15];check(a.x==7 && a.y==3 && a.hp==90 && a.lifecycle==XeenActorLifecycle::Present && !a.activated,"M42 admitted original Giant Toad15 pre-approach differs");});
@@ -281,11 +281,11 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 inspect([&,beforePurchase]{expect(9,803,750,799325555,1101);check(xeenSameItem(party->roster.at(0).weapons[1],{0,6,0,0}) && xeenSameItem(party->roster.at(0).weapons[2],{0,6,0,0}),"M42 repeated weapon purchase delivery differs");
                     auto expected=*beforePurchase->journey->serviceEconomy;expected.wares[0][0][0]=m42_test::weaponsAfterTwo();check(expected==*party->serviceEconomy,"M42 duplicate weapon purchases changed untouched stock/bank");
                 });checkpoint("W");
-                action(InspectInventoryAction{});action(NavigationAction::TurnRight);action(NavigationAction::TurnLeft);action(SelectInventorySlotAction{1});
-                action(TransferInventoryAction{});action(SelectMemberAction{1});action(AcknowledgeAction{});
+                action(InspectInventoryAction{});action(DialogKeyAction{'a'});action(DialogKeyAction{'w'});action(SelectInventorySlotAction{1});
+                action(SelectMemberAction{1});
                 action(SelectMemberAction{1});action(SelectInventorySlotAction{1});action(EquipmentInventoryAction{});
                 inspect([&]{check(xeenSameItem(party->roster.at(18).weapons[0],{0,2,0,1}) && xeenSameItem(party->roster.at(18).weapons[1],{0,6,0,0}),"M42 conflicting melee equip was accepted");});
-                action(SelectInventorySlotAction{0});action(EquipmentInventoryAction{});action(SelectInventorySlotAction{1});action(EquipmentInventoryAction{});action(InspectInventoryAction{});settle();
+                action(AcknowledgeAction{});action(SelectInventorySlotAction{0});action(DialogKeyAction{'r'});action(SelectInventorySlotAction{1});action(EquipmentInventoryAction{});action(CancelInteractionAction{});settle();
                 inspect([&]{check(xeenSameItem(party->roster.at(18).weapons[1],{0,6,0,1}),"M42 weapon legal equip differs");const auto d=xeenOrdinaryWeaponDice(6);check(d.count==4 && d.sides==2,"M42 weapon-6 independent 4d2 differs");});checkpoint("W1");
             } else {
                 action(NavigationAction::TurnRight,true);action(SelectInventorySlotAction{3},true);action(AcknowledgeAction{},true);inspect(deny);action(CancelInteractionAction{},true);
@@ -304,12 +304,12 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             }
         }
         if(stage!="depleted" && stage!="weapons" && (!resume || stage=="A" || stage=="B")) {
-            action(InspectInventoryAction{});action(NavigationAction::TurnRight);action(SelectInventorySlotAction{5});action(TransferInventoryAction{});action(SelectMemberAction{1});action(AcknowledgeAction{});
+            action(InspectInventoryAction{});action(DialogKeyAction{'a'});action(SelectInventorySlotAction{5});action(SelectMemberAction{1});
             action(SelectMemberAction{1});action(SelectInventorySlotAction{4});action(EquipmentInventoryAction{});
             inspect([&]{check(xeenSameItem(party->roster.at(18).armor[0],{0,2,0,3}) && xeenSameItem(party->roster.at(18).armor[4],{0,3,0,0}) && ac()==10,"M42 conflicting body equip was accepted");});
-            action(SelectInventorySlotAction{0});action(EquipmentInventoryAction{});action(SelectInventorySlotAction{4});action(EquipmentInventoryAction{});
+            action(AcknowledgeAction{});action(SelectInventorySlotAction{0});action(DialogKeyAction{'r'});action(SelectInventorySlotAction{4});action(EquipmentInventoryAction{});
             inspect([&]{check(xeenSameItem(party->roster.at(18).armor[0],{0,2,0,0}) && xeenSameItem(party->roster.at(18).armor[4],{0,3,0,3}) && ac()==11 && party->roster.at(18).currentHp==67 && party->roster.at(18).currentSp==0,"M42 legal remove/equip +1AC changed HP/SP or failed");std::cout<<"UPGRADE Armor strength 4->5 AC 10->11; nonblocked threshold 20->21\n";});
-            action(InspectInventoryAction{});settle();checkpoint("B1");
+            action(CancelInteractionAction{});settle();checkpoint("B1");
         }
         if(stage!="depleted") {
         if(stage!="weapons" && (!resume || stage=="A" || stage=="B" || stage=="B1")) {

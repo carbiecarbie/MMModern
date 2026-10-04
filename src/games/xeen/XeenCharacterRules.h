@@ -14,6 +14,18 @@ struct XeenCharacterRulesContext {
 
 class XeenCharacterRules {
 public:
+	// Full original read-only sheet queries. The optional supplement contains
+	// current Journey values; ordinary inspection uses the loaded CHR values.
+	static int sheetStat(const XeenCharacter &, const XeenCombatInputs *, unsigned attribute,
+		const XeenCharacterRulesContext &, bool baseOnly = false);
+	static int sheetAge(const XeenCharacter &, const XeenCharacterRulesContext &, bool baseOnly = false);
+	static int sheetArmorClass(const XeenCharacter &, const XeenCombatInputs *, const XeenCharacterRulesContext &, bool baseOnly = false);
+	static int sheetResistance(const XeenCharacter &, const XeenCombatInputs *, unsigned resistance);
+	static int statColor(int amount, int threshold);
+	static unsigned skillCount(const XeenCharacter &);
+	static unsigned awardCount(const XeenCharacter &);
+	static std::uint32_t currentExperience(const XeenCharacter &, const XeenCombatInputs *);
+	static std::uint32_t experienceToNextLevel(const XeenCharacter &, const XeenCombatInputs *);
 	enum class PhysicalAttribute { Might = 0, Speed = 4, Accuracy = 5 };
 	static int effectivePhysical(const XeenCharacter &, const XeenCombatInputs &, PhysicalAttribute,
 		const XeenCharacterRulesContext &);

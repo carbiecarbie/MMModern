@@ -251,8 +251,8 @@ int main(int argc,char **argv) {
       if(item.material==10 && item.id==37 && item.state==1){slot=i;break;}}
      check(slot<9 && h.party->roster.at(18).conditions[3]==1,"Draw fault uses delivered antidote");
      const auto sourceBefore=h.party->roster.at(0).miscellaneous;
-     input(InspectInventoryAction{});for(int i=0;i<3;++i)input(NavigationAction::TurnRight);
-     input(SelectInventorySlotAction{slot});input(UseItemAction{});input(AcknowledgeAction{});
+     input(InspectInventoryAction{});input(DialogKeyAction{'m'});
+     input(SelectInventorySlotAction{slot});input(UseItemAction{});
      input(SelectMemberAction{1});
      auto sourceExpected=sourceBefore;sourceExpected[slot]=XeenAntidoteUse::debit(sourceExpected[slot]);
      XeenAntidoteUse::settle(sourceExpected,slot,true);
@@ -306,8 +306,8 @@ int main(int argc,char **argv) {
       std::size_t slot=9;for(std::size_t i=0;i<9;++i){const auto &item=h.party->roster.at(0).miscellaneous[i];
        if(item.material==10 && item.id==37 && item.state==1){slot=i;break;}}
       check(slot<9,"Treasure recovery fixture retains delivered antidote");
-      input(InspectInventoryAction{});for(int i=0;i<3;++i)input(NavigationAction::TurnRight);
-      input(SelectInventorySlotAction{slot});input(UseItemAction{});input(AcknowledgeAction{});
+      input(InspectInventoryAction{});input(DialogKeyAction{'m'});
+      input(SelectInventorySlotAction{slot});input(UseItemAction{});
       input(SelectMemberAction{1});
       check(h.party->roster.at(18).conditions[3]==0 && *h.party->monsterTreasure==retained,
        "Antidote effect changed monster treasure before owed work");
@@ -484,8 +484,8 @@ int main(int argc,char **argv) {
      std::size_t slot=9;for(std::size_t i=0;i<9;++i){const auto &item=h.party->roster.at(0).miscellaneous[i];
       if(item.material==10 && item.id==37 && item.state==1){slot=i;break;}}
      check(slot<9,"ABA uses delivered antidote");
-     input(InspectInventoryAction{});for(int i=0;i<3;++i)input(NavigationAction::TurnRight);
-     input(SelectInventorySlotAction{slot});input(UseItemAction{});input(AcknowledgeAction{});
+     input(InspectInventoryAction{});input(DialogKeyAction{'m'});
+     input(SelectInventorySlotAction{slot});input(UseItemAction{});
      check(h.flow->inventorySelection().mode==XeenInventoryMode::UseTarget,"ABA target selector presented");
      const auto oldTicket=h.flow->encounter()->ticket();
      const auto oldUse=XeenInventoryTestAccess::use(*h.flow),
@@ -505,8 +505,8 @@ int main(int argc,char **argv) {
      std::size_t slot=9;for(std::size_t i=0;i<9;++i){const auto &item=h.party->roster.at(0).miscellaneous[i];
       if(item.material==10 && item.id==37 && item.state==1){slot=i;break;}}
      check(slot<9 && before.characters[18].conditions[3]==1,"Owed fault uses delivered antidote and real Poison");
-     input(InspectInventoryAction{});for(int i=0;i<3;++i)input(NavigationAction::TurnRight);
-     input(SelectInventorySlotAction{slot});input(UseItemAction{});input(AcknowledgeAction{});
+     input(InspectInventoryAction{});input(DialogKeyAction{'m'});
+     input(SelectInventorySlotAction{slot});input(UseItemAction{});
      input(SelectMemberAction{1});
      check(h.flow->encounter()->itemUseReady() && h.party->roster.at(18).conditions[3]==0,
       "Antidote effect published before owed opportunity");
@@ -561,19 +561,8 @@ int main(int argc,char **argv) {
      const auto poison=h.party->roster.at(18).conditions[3];
      const auto minutes=h.party->encounterContext->minutes;
      const auto random=*h.world->sessionState().journeyRandom();
-     input(InspectInventoryAction{});for(int i=0;i<3;++i)input(NavigationAction::TurnRight);
-     input(SelectInventorySlotAction{slot});input(UseItemAction{});
-     const auto confirmLines=xeenInventoryLayout(h.font,XeenItemCatalog{},*h.party,
-      h.flow->inventorySelection(),"",nullptr,false,false,true);
-     bool warning=false,freeCancel=false;
-     for(const auto &line:confirmLines){
-      if(line.bounds.top==126)warning=line.text.find("Target Esc after Enter still spends 1 charge")!=std::string::npos;
-      if(line.bounds.top==137)freeCancel=line.text.find("Esc now is free")!=std::string::npos;
-     }
-     check(warning && freeCancel &&
-      drawXeenInventory(h.flow->frame(),h.font,XeenItemCatalog{},*h.party,
-       h.flow->inventorySelection(),"",nullptr,false,false,true).isValid(),
-      "Original-font confirmation renders full post-debit cancellation warning");
+     input(InspectInventoryAction{});input(DialogKeyAction{'m'});
+     input(SelectInventorySlotAction{slot});
      const auto oldConfirmationInput=XeenInventoryTestAccess::input(*h.flow);
      const auto priorFrame=h.flow->frame().presentation();
      unsigned attempts=0;
@@ -588,7 +577,7 @@ int main(int argc,char **argv) {
        "Reentrant unpresented target cannot publish or alter authority");
       if(attempts==1)throw std::runtime_error("Artificial target frame copy failure");
      };
-     input(AcknowledgeAction{});
+     input(UseItemAction{});
      h.flow->beforeEncounterFrameCopy={};
      check(attempts==1 && h.flow->inventorySelection().mode==XeenInventoryMode::UseTarget &&
       h.party->roster.at(0).miscellaneous[slot].state==0 &&
@@ -631,10 +620,9 @@ int main(int argc,char **argv) {
      std::size_t freeSlot=9;for(std::size_t i=0;i<9;++i){const auto &item=h.party->roster.at(0).miscellaneous[i];
       if(item.material==10 && item.id==37 && item.state==1){freeSlot=i;break;}}
      check(freeSlot<9,"Free cancel has selected delivered antidote");
-     input(InspectInventoryAction{});for(int i=0;i<3;++i)input(NavigationAction::TurnRight);
-     input(SelectInventorySlotAction{freeSlot});input(UseItemAction{});
-     check(h.flow->inventorySelection().mode==XeenInventoryMode::UseConfirm,"Pre-use confirmation");
-     input(CancelInteractionAction{});input(CancelInteractionAction{});
+     input(InspectInventoryAction{});input(DialogKeyAction{'m'});
+     input(SelectInventorySlotAction{freeSlot});
+     input(CancelInteractionAction{});
      check(h.flow->canSave() && freeBefore==XeenSaveFormat::encode(XeenSaveState::capture(h.signature,*h.party,*h.camera,*h.flags,*h.world)),
       "Pre-use Escape is free and owes no actor opportunity");
      input(InteractionAction{});settle();
@@ -644,10 +632,9 @@ int main(int argc,char **argv) {
        if(item.material==10 && item.id==37 && item.state==1){slot=i;break;}}
       check(slot<9,"Genuine branch delivered antidote");
       const auto minutes=h.party->encounterContext->minutes,ctr=h.party->encounterContext->ctr24;
-      input(InspectInventoryAction{});for(int i=0;i<3;++i)input(NavigationAction::TurnRight);
+      input(InspectInventoryAction{});input(DialogKeyAction{'m'});
       input(SelectInventorySlotAction{slot});input(UseItemAction{});
-      check(h.flow->inventorySelection().mode==XeenInventoryMode::UseConfirm,"Branch use confirmation");
-      input(AcknowledgeAction{});
+
       check(h.flow->inventorySelection().mode==XeenInventoryMode::UseTarget,"Branch debit frame");
       const auto savesBeforeTarget=h.saves;
       check(!h.flow->canSave(),"Debited target selector blocks capture");
@@ -772,10 +759,9 @@ int main(int argc,char **argv) {
     std::size_t slot=9;for(std::size_t i=0;i<9;++i){const auto &item=h.party->roster.at(0).miscellaneous[i];
      if(item.material==10 && item.id==37 && item.state==1)slot=i;}
     check(slot<9,"Delivered source antidote");
-    input(InspectInventoryAction{});for(int i=0;i<3;++i)input(NavigationAction::TurnRight);
+    input(InspectInventoryAction{});input(DialogKeyAction{'m'});
     input(SelectInventorySlotAction{slot});input(UseItemAction{});
-    check(h.flow->inventorySelection().mode==XeenInventoryMode::UseConfirm,"Antidote confirmation");
-    input(AcknowledgeAction{});check(h.flow->inventorySelection().mode==XeenInventoryMode::UseTarget,"Antidote debit target phase");
+check(h.flow->inventorySelection().mode==XeenInventoryMode::UseTarget,"Antidote debit target phase");
     const auto savesBeforeCureTarget=h.saves;
     check(!h.flow->canSave(),"Cure target selector blocks capture");
     input(SaveGameAction{});

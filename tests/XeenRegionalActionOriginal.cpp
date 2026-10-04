@@ -217,8 +217,8 @@ void run(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &initi
    const auto n=h.saves;input(SaveGameAction{});check(n==h.saves,"F9 saved unfinished action");
   };
   if(action==Action::Antidote || action==Action::AntidoteCancel) {
-   input(InspectInventoryAction{});for(unsigned i=0;i<3;++i)input(NavigationAction::TurnRight);
-   input(SelectInventorySlotAction{0});input(UseItemAction{});input(AcknowledgeAction{});
+   input(InspectInventoryAction{});input(DialogKeyAction{'m'});
+   input(SelectInventorySlotAction{0});input(UseItemAction{});
    check(h.flow->inventorySelection().mode==XeenInventoryMode::UseTarget,"Antidote did not reach debited target selector");
    deniedSave();
    if(action==Action::Antidote)input(SelectMemberAction{1});else input(CancelInteractionAction{});

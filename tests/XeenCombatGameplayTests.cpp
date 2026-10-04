@@ -131,7 +131,7 @@ void failures() {
   };
   s.show=[&](const IndexedFrame &,const auto &handler,const auto &,const auto &idle,const auto &){
    if(fault==3){
-    h.press(handler,InspectInventoryAction{});h.press(handler,SelectInventorySlotAction{0});h.press(handler,EquipmentInventoryAction{});
+    h.press(handler,InspectInventoryAction{});h.press(handler,SelectInventorySlotAction{0});h.press(handler,DialogKeyAction{'r'});
     check(h.party->roster.at(0).weapons[0].frame==0,"published equipment survives reporting failure");
    }else{
     h.press(handler,WaitAction{});
@@ -172,10 +172,10 @@ void publicationFailures() {
   };
   s.show=[&](const IndexedFrame &,const auto &handler,const auto &,const auto &idle,const auto &){
    if(fault==3){
-    h.press(handler,InspectInventoryAction{});h.press(handler,NavigationAction::TurnRight);
+    h.press(handler,InspectInventoryAction{});h.press(handler,DialogKeyAction{'a'});
     for(unsigned i=0;i<6;++i){h.press(handler,SelectMemberAction{i});for(unsigned j=0;j<9;++j)
-     if(h.party->roster.at(kXeenCombatOwners[i]).armor[j].id){h.press(handler,SelectInventorySlotAction{j});h.press(handler,EquipmentInventoryAction{});}}
-    h.press(handler,InspectInventoryAction{});
+     if(h.party->roster.at(kXeenCombatOwners[i]).armor[j].frame){h.press(handler,SelectInventorySlotAction{j});h.press(handler,DialogKeyAction{'r'});}}
+    h.press(handler,CancelInteractionAction{});
    }
    h.press(handler,WaitAction{});
    for(unsigned n=0;n<500&&!injected;++n){
@@ -226,8 +226,8 @@ void callbacks() {
    try {
     if(fault==4){
      h.press(handler,InspectInventoryAction{});h.press(handler,SelectMemberAction{5});
-     h.press(handler,NavigationAction::TurnRight);h.press(handler,NavigationAction::TurnRight);
-     h.press(handler,SelectInventorySlotAction{1});h.press(handler,TransferInventoryAction{});
+     h.press(handler,DialogKeyAction{'c'});
+     h.press(handler,SelectInventorySlotAction{1});
      h.press(handler,SelectMemberAction{0});h.press(handler,AcknowledgeAction{});
      check(h.party->roster.at(0).accessories[1].material==86,"transfer survives reporter failure");
     }else{
@@ -301,29 +301,29 @@ void sdl() {
 void inventory() {
  Harness h;auto s=h.services();
  s.show=[&](const auto &,const auto &handler,const auto &,const auto &,const auto &){
-  h.press(handler,InspectInventoryAction{});h.press(handler,SelectMemberAction{5});
-  h.press(handler,NavigationAction::TurnRight);h.press(handler,NavigationAction::TurnRight);
-  h.press(handler,SelectInventorySlotAction{1});h.press(handler,TransferInventoryAction{});
-  check(h.flow->inventorySelection().mode==XeenInventoryMode::ChooseDestination,"Transfer selection");
-  h.press(handler,CancelInteractionAction{});
-  check(h.flow->inventorySelection().mode==XeenInventoryMode::Browse,"Escape cancels to Browse");
-  h.press(handler,TransferInventoryAction{});h.press(handler,SelectMemberAction{0});
-  check(h.flow->inventoryConfirmation().has_value(),"Confirmation armed");
-  h.press(handler,NoAction{});check(!h.flow->inventoryConfirmation(),"N consumes confirmation");
-  h.press(handler,SelectInventorySlotAction{1});h.press(handler,TransferInventoryAction{});h.press(handler,SelectMemberAction{0});
-  h.press(handler,CancelInteractionAction{});
-  check(h.flow->inventoryOpen()&&!h.flow->inventoryConfirmation(),"Escape cancels confirmation and keeps inventory open");
-  h.press(handler,SelectInventorySlotAction{1});h.press(handler,TransferInventoryAction{});h.press(handler,SelectMemberAction{0});
-  h.press(handler,AcknowledgeAction{});
-  check(h.flow->transferResult().status==XeenTransferStatus::Success,"Enter transfers");
+  h.press(handler,InspectInventoryAction{});h.press(handler,SelectMemberAction{5});h.press(handler,DialogKeyAction{'c'});
+  h.press(handler,SelectInventorySlotAction{1});h.press(handler,SelectMemberAction{0});
+  check(h.flow->transferResult().status==XeenTransferStatus::Success,"F1 transfers immediately");
   h.press(handler,SelectMemberAction{0});h.press(handler,SelectInventorySlotAction{1});h.press(handler,EquipmentInventoryAction{});
-  check(h.party->roster.at(0).accessories[1].frame!=0,"Equipment publication");
-  h.press(handler,InspectInventoryAction{});check(!h.flow->inventoryOpen(),"I closes Browse");
-  h.press(handler,WaitAction{});const auto ready=*handler.displayedInput();h.press(handler,BlockAction{});
+  check(h.party->roster.at(0).accessories[1].frame!=0,"equipment publication");
+  h.press(handler,CancelInteractionAction{});check(!h.flow->inventoryOpen(),"Esc closes items");
+  h.press(handler,WaitAction{});
+  const auto before=h.party->roster.characters();const auto revision=h.result().revision;const auto random=h.randomPosition();
+  h.press(handler,SelectMemberAction{0});check(h.flow->inventoryOpen(),"combat sheet opens");
+  h.press(handler,DialogKeyAction{'e'});h.press(handler,AcknowledgeAction{});
+  h.press(handler,DialogKeyAction{'i'});h.press(handler,SelectInventorySlotAction{0});
+  h.press(handler,DialogKeyAction{'e'});h.press(handler,AcknowledgeAction{});
+  h.press(handler,DialogKeyAction{'r'});h.press(handler,AcknowledgeAction{});
+  h.press(handler,SelectMemberAction{1});h.press(handler,AcknowledgeAction{});
+  h.press(handler,DialogKeyAction{'m'});h.press(handler,DialogKeyAction{'u'});h.press(handler,AcknowledgeAction{});
+  for(unsigned i=0;i<30;++i) check(xeen_state::sameCharacter(before[i],h.party->roster.at(i)),"combat view mutated character");
+  check(h.result().revision==revision && h.randomPosition()==random,"combat view advanced authority/RNG");
+  h.press(handler,CancelInteractionAction{});h.press(handler,CancelInteractionAction{});
+  const auto ready=*handler.displayedInput();h.press(handler,BlockAction{});
   const auto after=h.result().generation;handler.withDisplayedInput(BlockAction{},ready);
-  check(h.result().generation==after,"Buffered old owner cannot block again");return true;
+  check(h.result().generation==after,"buffered old owner cannot block again");return true;
  };
- check(h.run(s)==0,"Regional inventory production route");
+ check(h.run(s)==0,"Regional inventory and combat viewing");
 }
 void staleService() {
  Harness h;auto s=h.services();bool fired=false;

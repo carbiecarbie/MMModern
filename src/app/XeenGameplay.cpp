@@ -300,6 +300,9 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   SdlWindow::FrameUpdateHandler handler = [&](const PlayerAction &action) { return dispatch(action,{}); };
   handler.displayedInput = [&] { return flow.displayedInput(); };
   handler.inputContext = [&](const auto &origin) { return flow.inputContext(origin); };
+  if(flow.drawDialogSprite) handler.drawButton = [&](IndexedFrame &frame,const InputButton &button) {
+   if(flow.drawDialogSprite) flow.drawDialogSprite(frame,button.resource,button.pressedFrame(),button.x,button.y);
+  };
   handler.acceptsFrame = [&](const auto &frame) { return flow.acceptsFrame(frame); };
   handler.acceptsInputFrame = [&](const auto &frame) { return flow.acceptsInputFrame(frame); };
   handler.completeInputHandoff = [&](const auto &frame) { flow.completeInputHandoff(frame); handoff.retain(); };

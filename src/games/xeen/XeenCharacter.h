@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <memory>
 #include <string>
 #include "games/xeen/XeenMutation.h"
 
@@ -84,6 +85,17 @@ bool xeenItemHasTailCapacity(const XeenItemCategory &items);
 // Explicit stable compaction clears empty-slot metadata. Never implicit in I/O.
 void xeenCompactItems(XeenItemCategory &items);
 
+// Original CHR-only display data. Immutable after loading; deliberately absent
+// from the current save. A milestone that mutates these must first persist them.
+struct XeenCharacterOriginalDetails {
+	std::array<std::array<int, 2>, 7> attributes{};
+	std::array<std::array<int, 2>, 6> resistances{};
+	std::array<std::uint8_t, 18> skills{};
+	std::array<std::uint8_t, 128> awards{};
+	std::uint8_t birthDay = 0, temporaryAc = 0;
+	std::uint32_t experience = 0;
+};
+
 struct XeenCharacter {
 	static constexpr std::size_t kSerializedSize = 354;
 	static constexpr std::size_t kConditionCount = 16;
@@ -114,11 +126,16 @@ struct XeenCharacter {
 	XeenMutable<std::int16_t> currentSp = 0;
 	XeenMutableArray<std::uint8_t, kConditionCount> conditions{};
 	XeenMutable<std::uint16_t> birthYear = 0;
+	const XeenCharacterOriginalDetails *originalDetails() const noexcept { return _originalDetails.get(); }
 
 	unsigned currentLevel() const;
 	XeenCondition worstCondition() const;
 	bool canAct() const;
 	std::optional<std::string> portraitResourceName() const;
+private:
+	friend class XeenCharacterFormat;
+	friend class XeenSaveState;
+	std::shared_ptr<const XeenCharacterOriginalDetails> _originalDetails;
 };
 
 const char *xeenClassName(XeenCharacterClass characterClass);

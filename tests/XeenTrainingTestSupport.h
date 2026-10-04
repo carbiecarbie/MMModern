@@ -90,6 +90,7 @@ struct Inputs {
     }
     XeenSaveState::Resources resources(){
         XeenSaveState::Resources r;r.signature=signature;r.loadInitialCharacters=[this]{return chr;};
+        r.loadInitialParty=[this]{return XeenPartyLoader().loadFromResources(chr,pty);};
         r.loadEvents=[this](auto id){return events.load(id);};r.loadMonsterStatistics=[this]{return statistics;};
         r.regionalManifest=regional();r.vertigoManifest=vertigo();r.loadRegionalText=[this](auto id){return texts.load(id);};
         r.loadLearnedSpellNames=[this]{return names;};return r;

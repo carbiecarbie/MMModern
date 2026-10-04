@@ -45,7 +45,7 @@ extern "C" int __real_SDL_RenderCopy(SDL_Renderer *,SDL_Texture *,const SDL_Rect
 extern "C" int __wrap_SDL_RenderCopy(SDL_Renderer *r,SDL_Texture *t,const SDL_Rect *s,const SDL_Rect *d){probe_fired::hit("SDL_RenderCopy");if(copyHook)copyHook();return __real_SDL_RenderCopy(r,t,s,d);}
 namespace {
 struct Harness {
- Inputs &in;XeenEventFlow *flow=nullptr;XeenWorld *world=nullptr;const XeenPartyState *party=nullptr;XeenCamera *camera=nullptr;
+ Inputs &in;XeenEventFlow *flow=nullptr;XeenWorld *world=nullptr;const XeenPartyState *party=nullptr;const XeenGameFlags *flags=nullptr;XeenCamera *camera=nullptr;
  std::function<void()> composeHook;
  IndexedFrame::Presentation observedOrigin;
  std::uint64_t liveCompositionMicros=0,maxLiveCompositionMicros=0;
@@ -55,7 +55,7 @@ struct Harness {
    [](auto &,const auto &,const auto &,auto){return XeenEventFlow::Composition{frame(),false};},{},
    [&](auto &f,const auto &){flow=&f;f.drawTrainingArt=[&](auto &b){in.assets.drawTraining(b);};
     f.drawCombatButtons=[&](auto &b){CloudsUiComposer().drawCombatButtons(in.assets,b);};},{},
-   [&](auto &w,auto &,const auto &p,auto &c,const auto &){world=&w;party=&p;camera=&c;}};
+   [&](auto &w,auto &,const auto &p,auto &c,const auto &g){world=&w;party=&p;camera=&c;flags=&g;}};
   s.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto phase,auto actor){
    const bool live=flow && observedOrigin && flow->acceptsInputFrame(observedOrigin);
    const auto started=std::chrono::steady_clock::now();
@@ -195,11 +195,69 @@ void combatQueue(Inputs &in,bool mouse=false) {
  std::cout<<"COMBAT QUEUE "<<(mouse?"mouse":"Space")<<"=1 attacks=1 busy-frames="<<busyFrames<<" PASS\n";
 }
 
+void originalDialogs(Inputs &in) {
+ Harness h(in);auto s=h.services();auto source=in.service();source.camera={28,10,9,XeenDirection::North};
+ const auto catalog=loadXeenItemCatalog(in.assets).catalog;s.catalog=&catalog;
+ unsigned delivered=0,loops=0;bool queued=false;std::uint64_t now=0;s.clock=[&]{return now;};
+ const auto configure=s.configureFlow;
+ s.configureFlow=[&](auto &flow,const auto &camera){configure(flow,camera);flow.drawDialogSprite=[&](auto &frame,const char *name,unsigned id,int x,int y){in.assets.drawDialogSprite(frame,name,id,x,y);};};
+ s.show=[&](const auto &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
+  auto native=handler;
+  std::function<void()> pending;
+  const auto buttonDraw=native.drawButton;
+  native.drawButton=[&](auto &frame,const InputButton &button){
+   check(bool(buttonDraw),"original dialog pressed sprite callback absent");buttonDraw(frame,button);
+   if(std::string(button.resource)=="view.icn" && button.frame==40)preview(frame,"sheet-button-pressed");
+   if(std::string(button.resource)=="items.icn" && button.frame==6)preview(frame,"items-button-pressed");
+  };
+  native.beginCycle=[&](auto cycle){handler.beginCycle(cycle);if(pending){auto send=std::move(pending);pending={};try{send();}catch(const std::exception &e){std::cerr<<e.what()<<'\n';throw;}}};
+  native.withPresentedInput=[&](const auto &action,auto input,const auto &origin){
+   check(handler.inputContext(origin).readyForAction,"original dialog input while unready");
+   ++delivered;queued=false;return handler.withPresentedInput(action,input,origin);
+  };
+  native.framePresented=[&](const auto &frame){handler.framePresented(frame);if(delivered==1)preview(*frame,"character-sheet");if(delivered==5)preview(*frame,"original-items");if(delivered==19)preview(*frame,"misc-title");};
+  return SdlWindow().showInteractive(first,"Original sheet and items",native,escape,[&]()->std::optional<IndexedFrame>{
+   check(++loops<200,("original dialogs timeout at input "+std::to_string(delivered)).c_str());now+=25;
+   if(!queued){queued=true;pending=[&]{switch(delivered){
+    case 0:tap(SDLK_F1);break;
+    case 1:click(10,24);break; // Might popup.
+    case 2:click(0,0);break; // Any click closes the stat popup.
+    case 3:tap(SDLK_F2);break;
+    case 4:click(286,12);break; // Items button.
+    case 5:click(8,20);break; // Select equipped first weapon.
+    case 6:click(182,109);break; // Remove.
+    case 7:tap(SDLK_1);break;
+    case 8:tap(SDLK_e);break; // Equip in one step.
+    case 9:tap(SDLK_1);break;
+    case 10:click(10,150);break; // Immediate transfer to Arturius.
+    case 11:tap(SDLK_F1);break; // Switch after the selection is consumed.
+    case 12:tap(SDLK_2);break;
+    case 13:tap(SDLK_F2);break; // Transfer back.
+    case 14:tap(SDLK_F2);break;
+    case 15:tap(SDLK_1);break;
+    case 16:tap(SDLK_e);break;
+    case 17:tap(SDLK_F3);break;
+    case 18:click(114,109);break; // Misc title for Badger.
+    case 19:click(284,109);break; // Back to sheet.
+    case 20:tap(SDLK_ESCAPE);break;
+    default:check(!h.flow->inventoryOpen(),"original dialogs failed to close");
+     check(h.flow->canSave(),"dialog close did not release save boundary");
+     save_test::sameSnapshot(source,XeenSaveState::capture(in.signature,*h.party,*h.camera,*h.flags,*h.world));quit();return;
+   }};}
+   return idle();
+  },status);
+ };
+ check(h.run(s,source,"original-dialogs")==0 && delivered==21,"original sheet/item native cycle");
+ std::cout<<"ORIGINAL DIALOGS mouse/key sheet, popup, equip/remove and immediate transfer PASS\n";
+}
+
 void mouseJourney(Inputs &in) {
  Harness h(in);auto s=h.services();auto source=in.service();source.camera={28,10,9,XeenDirection::North};
  std::uint64_t now=0;unsigned loops=0,dispatches=0;s.clock=[&]{return now;};
  s.show=[&](const auto &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
   auto native=handler;
+  std::function<void()> pending;unsigned scripted=0;
+  native.beginCycle=[&](auto cycle){handler.beginCycle(cycle);if(pending){auto send=std::move(pending);pending={};send();}};
   native.framePresented=[&](const auto &frame){handler.framePresented(frame);preview(*frame,"exploration");};
   native.withPresentedInput=[&](const auto &action,auto input,const auto &origin){
    ++dispatches;check(handler.inputContext(origin).readyForAction,"mouse navigation drained while busy");
@@ -207,12 +265,14 @@ void mouseJourney(Inputs &in) {
   };
   return SdlWindow().showInteractive(first,"Main-screen mouse walk",native,escape,[&]()->std::optional<IndexedFrame>{
    check(++loops<100,"mouse walk timeout");now+=100;
-   if(loops==1){click(290,80);click(12,151);click(261,149);click(290,149);click(100,50);}
-   if(dispatches==5){check(h.camera->x==10 && h.camera->y==10 && h.camera->direction==XeenDirection::East,"mouse walk result");quit();return {};}
+   if(scripted==0){++scripted;pending=[&]{click(290,80);click(12,151);};}
+   if(dispatches==2 && scripted==1){++scripted;check(h.flow->inventoryOpen(),"portrait sheet absent");pending=[&]{tap(SDLK_ESCAPE);};}
+   if(dispatches==3 && scripted==2){++scripted;pending=[&]{click(261,149);click(290,149);click(100,50);};}
+   if(dispatches==6){check(h.camera->x==10 && h.camera->y==10 && h.camera->direction==XeenDirection::East,"mouse walk result");quit();return {};}
    return idle();
   },status);
  };
- check(h.run(s,source,"mouse-walk")==0 && dispatches==5,"mouse Journey failed");
+ check(h.run(s,source,"mouse-walk")==0 && dispatches==6,"mouse Journey failed");
  std::cout<<"MOUSE WALK unsupported/portrait/forward/turn/viewport delivered exactly once PASS\n";
 }
 
@@ -220,7 +280,7 @@ void mouseNotices(Inputs &in) {
  auto source=in.service();source.camera={28,10,9,XeenDirection::North};Fixture f(in,source,true);
  std::string reported;f.flow->reportText=[&](const auto &text){reported=text;};
  const auto before=XeenSaveFormat::encode(f.snapshot());
- for(const auto label:{"Rest","Bash","Dismiss","View Quests","Map","Info","Quick Ref","Control panel","Strafe","Character sheet"}) {
+ for(const auto label:{"Rest","Bash","Dismiss","View Quests","Map","Info","Quick Ref","Control panel","Strafe"}) {
   const auto pixels=f.flow->frame().pixels;
   f.act(UnsupportedMainScreenAction{label});
   check(reported==std::string(label)+": not supported yet","unsupported notice missing");
@@ -374,6 +434,6 @@ void boundaries(Inputs &in) {
 int main(int argc,char **argv){probe_fired::expect("SDL_UpdateTexture");probe_fired::expect("SDL_RenderCopy");try{
  check(argc==2 || argc==3,"usage: input-scheduling <installation> [mouse]");SDL_setenv("SDL_VIDEODRIVER","dummy",1);SDL_setenv("SDL_RENDER_DRIVER","software",1);
  const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"original installation absent");Inputs in(*installation);
- if(argc==3){mouseNotices(in);combatQueue(in,true);mouseJourney(in);return 0;}
+ if(argc==3){mouseNotices(in);combatQueue(in,true);originalDialogs(in);mouseJourney(in);return 0;}
  contextAuthority(in);wallRefusal(in);combatQueue(in);movementRedraw(in);boundaries(in);services(in);stress(in);return 0;
 }catch(const std::exception &e){uploadHook={};copyHook={};std::cerr<<e.what()<<'\n';return 1;}}

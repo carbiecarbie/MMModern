@@ -220,10 +220,9 @@ int runM35CliWitness(const XeenGameplayServices &original,
 				check(slot<9 && party->roster.at(18).conditions[3]==1,"Production delivered antidote and Poison target");
 				const auto minute=party->encounterContext->minutes;
 				const auto draws=world->sessionState().journeyRandom()->count;
-				input(InspectInventoryAction{});for(int i=0;i<3;++i)input(NavigationAction::TurnRight);
+				input(InspectInventoryAction{});input(DialogKeyAction{'m'});
 				input(SelectInventorySlotAction{slot});input(UseItemAction{});
-				check(flow->inventorySelection().mode==XeenInventoryMode::UseConfirm,"Production antidote confirmation");
-				input(AcknowledgeAction{});
+
 				check(flow->inventorySelection().mode==XeenInventoryMode::UseTarget,"Production antidote target selector");
 				input(SelectMemberAction{1});settle();
 				check(!party->roster.at(18).conditions[3] && flow->encounter()->itemUseResult() &&

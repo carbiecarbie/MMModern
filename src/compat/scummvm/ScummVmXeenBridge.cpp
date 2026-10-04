@@ -481,4 +481,13 @@ void ScummVmXeenBridge::drawNpc(IndexedFrame &frame, std::uint8_t portraitId,
 			frame.pixels.data() + y * 320);
 }
 
+void ScummVmXeenBridge::drawDialogSprite(IndexedFrame &frame,const char *name,unsigned index,int x,int y) {
+	if(!frame.isValid() || frame.width!=320 || frame.height!=200) throw std::invalid_argument("Invalid dialog sprite frame");
+	auto &sprite=_impl->sprite(name,index);
+	XSurface surface;surface.create(320,200);
+	for(int row=0;row<200;++row) std::copy_n(frame.pixels.data()+row*320,320,static_cast<std::uint8_t *>(surface.getBasePtr(0,row)));
+	sprite.draw(surface,index,Common::Point(x,y));
+	for(int row=0;row<200;++row) std::copy_n(static_cast<const std::uint8_t *>(surface.getBasePtr(0,row)),320,frame.pixels.data()+row*320);
+}
+
 } // namespace mmodern

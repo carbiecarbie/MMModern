@@ -89,8 +89,8 @@ struct Inputs {
 		r.signature=signature;r.loadEvents=[&](auto id){return events.load(id);};
 		r.loadMonsterStatistics=[&]{return statistics;};r.regionalManifest=regional();r.vertigoManifest=vertigo();
 		r.loadRegionalText=[&](auto id){return texts.load(id);};r.loadLearnedSpellNames=[&]{return names;};
-		// A restored graph may read immutable resources, never any fresh inputs.
-		r.loadInitialParty=[&]{++freshCalls;throw std::runtime_error("restore called fresh party");return XeenPartyState{};};
+		// Reload original display metadata; durable context, purse and bank remain saved.
+		r.loadInitialParty=[&]{return XeenPartyLoader().loadFromResources(chr,pty);};
 		r.loadInitialCharacters=[&]{return chr;};
 		r.loadInitialContext=[&]{++freshCalls;throw std::runtime_error("restore called fresh context");return XeenGameplayContext{};};
 		r.loadInitialPurse=[&]{++freshCalls;throw std::runtime_error("restore called fresh purse");return XeenMonsterTreasure{};};

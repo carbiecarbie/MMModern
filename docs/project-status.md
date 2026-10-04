@@ -87,20 +87,21 @@ time or combat.
 
 | Key | Action |
 | --- | --- |
-| W/Up, S/Down | Move forward/back; browse slots in inventory and stock |
+| W/Up, S/Down | Move forward/back; browse slots in stock |
 | A/Left, D/Right | Turn; browse categories |
 | Space | Interact; attack in combat; acknowledge text |
 | Enter | Confirm (transfer, cast, purchase, Training, Temple); acknowledge |
 | Y / N | Yes / No |
-| F1-F6 | Choose a party member (owner, recipient, WhoWill, spell or healing target) |
-| 1-9 | Select an inventory or stock slot; 1-3 pick a combat target |
+| F1-F6 | Open the character sheet; in dialogs choose a member (item recipient, WhoWill, spell or healing target) |
+| 1-9 | Select an item or stock row; 1-3 pick a combat target |
 | . | Wait |
 | F | Shoot in mainland exploration |
 | R | Run in mainland combat; Armor Repair in the Ironworks lobby |
 | B | Block in combat; Buy in the Ironworks lobby |
 | C | Open learned spells (exploration or the acting member's book in combat) |
-| I | Open or close inventory |
-| T / E / U | Transfer, equip/remove, use the selected item |
+| I | Info (not supported yet); in the character sheet, open Items |
+| W/A/C/M in Items | Weapons, Armor, Accessories, Misc |
+| E / R / U in Items | Equip / Remove / Use; select a row, then F1-F6 to move it to another member |
 | F9 | Save |
 | Escape | Back, cancel or acknowledge; quit when nothing is open |
 
@@ -108,10 +109,18 @@ time or combat.
 action and movement buttons, the combat buttons and targets 1-3, and the 3D
 view (Interact in exploration, Attack in combat). Buttons whose action is not
 implemented yet (Rest, Bash, Dismiss, View Quests, Map, Info, Quick Ref, Quick
-Fight, the control panel, strafing and the portraits' character sheet) show
-"not supported yet". The right button does nothing; inventory, services,
-dialogs and casting still use the keyboard. Clicks follow the same buffering
-as keys.
+Fight, the control panel and strafing) show "not supported yet"; portraits
+open the original character sheet, whose Items dialog is also clickable.
+Buttons briefly show their original pressed frame. The right button does
+nothing; services, other dialogs and casting still use the keyboard. Clicks
+follow the same buffering as keys.
+
+**Character sheet and items.** The original character sheet and Items dialog
+replace the project's inventory: stats with their popups, equip, remove,
+transfer and antidote use. In combat they open for viewing only; equipping
+and transferring say "not supported yet", and Use and Exchange give the
+original refusals. Discard, Quest, Quick Reference, Awards and Exchange are
+not supported yet.
 
 In exploration and combat, keys pressed while the
 game is still busy (redraws, animations, enemy turns) are buffered, up to five,
@@ -214,8 +223,10 @@ instructions are in [dependencies](dependencies.md).
   visible but cannot be cast. No doors, locks or traps are admitted.
 - **Presentation.** The Smith and Training art is static and the Temple art is
   fully covered by its text panel. Scenery torches and other wall art do not
-  animate. There is no audio. Inventory, services and dialogs are
-  keyboard-only project menus until the original dialogs replace them.
+  animate. There is no audio. Services (Ironworks, Training, Temple) still use
+  keyboard-only project menus until the original location dialogs replace them.
+- **Combat items.** Equipping during combat and the combat Use button are not
+  supported yet (the original allows both).
 - **Darkside** gameplay is not supported.
 
 Next steps are in the [roadmap](roadmap.md).

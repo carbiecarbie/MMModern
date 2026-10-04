@@ -147,7 +147,10 @@ struct XeenPartyState {
 	XeenMutable<std::uint8_t> firstSerializedCount = 0;
 	XeenMutable<std::uint8_t> effectiveSerializedCount = 0;
 	XeenMutableDiagnostics diagnostics;
+	std::uint16_t originalFood() const noexcept { return _originalFood; }
 private:
+	friend class XeenPartyLoader;
+	std::uint16_t _originalFood = 0;
 	friend class XeenSaveState;
 	friend class XeenRestoreGuard;
 	friend class XeenWorld;

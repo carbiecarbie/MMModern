@@ -153,4 +153,8 @@ void XeenAssetSource::drawNpc(IndexedFrame &frame, std::uint8_t portraitId,
 	_impl->bridge.drawNpc(frame, portraitId, portraitFrame);
 }
 
+void XeenAssetSource::drawDialogSprite(IndexedFrame &frame,const char *name,unsigned index,int x,int y) {
+	_impl->bridge.drawDialogSprite(frame,name,index,x,y);
+}
+
 } // namespace mmodern

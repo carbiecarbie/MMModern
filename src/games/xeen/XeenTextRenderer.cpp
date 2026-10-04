@@ -4,6 +4,9 @@
 #include <iomanip>
 #include <sstream>
 #include <stdexcept>
+#include <array>
+#include <string_view>
+#include "XeenDialogEnglish.inc"
 
 namespace mmodern {
 namespace {
@@ -47,7 +50,7 @@ bool parseDigits(const std::string &text, std::size_t &offset, int count, int &v
 
 std::string controlDiagnostic(unsigned value) {
 	std::ostringstream output;
-	output << "controle de texto Xeen nao suportado: 0x" << std::hex
+	output << "Unsupported Xeen text control: 0x" << std::hex
 		<< std::setw(2) << std::setfill('0') << value;
 	return output.str();
 }
@@ -85,6 +88,126 @@ void drawWindow(IndexedFrame &frame, const XeenTextRect &bounds) {
 	}
 }
 
+// ScummVM developers, GPL-3.0-or-later, pinned window.cpp/font.cpp.
+void originalWindow(IndexedFrame &frame, const XeenTextRect &b) {
+	const auto symbol = [&](unsigned id, int x, int y) {
+		for (int gy=0; gy<8; ++gy) for (int gx=0; gx<8; ++gx)
+			if(const auto color=generated_dialog_text::kWindowSymbols[id][gy*8+gx]) setPixel(frame,x+gx,y+gy,color,b);
+	};
+	symbol(0,b.left,b.top); symbol(5,b.right-8,b.top);
+	symbol(14,b.left,b.bottom-8); symbol(19,b.right-8,b.bottom-8);
+	for (int i=0; i<(b.right-b.left-9)/8; ++i) {
+		symbol(1+i%4,b.left+8+i*8,b.top); symbol(15+i%4,b.left+8+i*8,b.bottom-8);
+	}
+	for (int i=0; i<(b.bottom-b.top-9)/8; ++i) {
+		symbol(6+i%4,b.left,b.top+8+i*8); symbol(10+i%4,b.right-8,b.top+8+i*8);
+	}
+	fillRect(frame,{b.left+8,b.top+8,b.right-8,b.bottom-8},0x99);
+}
+
+XeenTextRenderResult renderOriginal(const IndexedFrame &base, const std::string &text,
+        const XeenTextRenderOptions &o, const XeenFontFormat &font) {
+    XeenTextRenderResult result;
+    IndexedFrame frame=base;
+    if(o.drawWindow) originalWindow(frame,o.windowBounds);
+    int x=o.x,y=o.y; unsigned color=o.colorIndex,bg=0x99;
+    auto size=o.size; auto alignment=o.alignment;
+    std::size_t i=0;
+    const auto number=[&](int digits) {
+        int value=0;
+        // FontSurface::fontAtoi consumes spaces as zero and stops immediately
+        // after the first non-digit (including the default-color 'd').
+        for(int n=0;n<digits;++n) {
+            if(i==text.size()) return -1;
+            const unsigned char c=text[i++]&0x7f;
+            const int digit=c==' '?0:int(c)-'0';
+            if(digit<0 || digit>9) return -1;
+            value=value*10+digit;
+        }
+        return value;
+    };
+    const auto glyph=[&](unsigned char c,bool outline=false) {
+        const auto pixels=font.glyph(c,size);
+        const int dy=(c=='g'||c=='p'||c=='q'||c=='y')?1:0;
+        for(int gy=0;gy<8;++gy) for(int gx=0;gx<8;++gx) {
+            const auto shade=pixels.pixels[gy*8+gx];
+            if(shade) setPixel(frame,x+gx,y+gy+dy,outline?bg:generated_dialog_text::kTextColors.at(color)[shade],o.bounds);
+        }
+        if(y+8>o.bounds.bottom) result.diagnostics.push_back("Original dialog text clipped vertically");
+        x+=font.advance(c,size);
+    };
+    const auto newline=[&] {
+        while(i<text.size() && (text[i]&0x7f)==' ') ++i;
+        x=o.bounds.left;y+=size==XeenFontSize::Reduced?9:10;
+    };
+    // FontSurface::writeString scans a run through palette changes, but stops
+    // at each other command. Commands alter the next run's cursor/font state.
+    while(i<text.size()) {
+        const auto start=i;std::size_t end=i;
+        int xp=alignment==XeenTextAlignment::Center?o.bounds.left:x;
+        bool wraps=false;
+        for(;end<text.size();) {
+            const auto c=static_cast<unsigned char>(text[end])&0x7f;
+            if(c>=32) {xp+=c==' '?4:font.advance(c,size);++end;}
+            else if(c==12) {end+=end+1<text.size() && text[end+1]=='d'?2:3;continue;}
+            else if(c==8 && end+1<text.size() && text[end+1]==' ') {xp-=2;end+=2;continue;}
+            else break;
+            if(xp>=o.bounds.right) {--end;wraps=true;break;}
+        }
+        if(wraps && alignment!=XeenTextAlignment::Right) {
+            auto space=end;while(space>start && (text[space]&0x7f)!=' ') --space;
+            if(space>start) end=space;
+            else if(alignment==XeenTextAlignment::Left && x!=o.bounds.left) {newline();continue;}
+            else if(end>start) --end;
+        }
+        if(alignment!=XeenTextAlignment::Left) {
+            int width=0;
+            for(auto scan=start;scan<text.size() && scan<=end;) {
+                const auto c=static_cast<unsigned char>(text[scan++])&0x7f;
+                if(c>=32) width+=c==' '?4:font.advance(c,size);
+                else if(c==12) {scan+=scan<text.size() && text[scan]=='d'?1:2;}
+                else if(c==8 && scan<text.size() && text[scan]==' ') {--width;++scan;}
+                else break;
+            }
+            if(end<text.size() && text[end]==' ') width-=size==XeenFontSize::Reduced?4:5;
+            if(alignment==XeenTextAlignment::Right) x=(x==o.bounds.left?o.bounds.right:x)-width-1;
+            else x=x==o.bounds.left?(o.bounds.left+o.bounds.right+1-width)/2:(x*2-width)/2;
+        }
+        while(i<text.size() && i<=end) {
+            const unsigned char c=text[i++]&0x7f;
+            if(c>=32) {if(c==' ') x+=font.advance(c,size);else glyph(c);continue;}
+            switch(c) {
+            case 1:size=XeenFontSize::Normal;break;
+            case 2:size=XeenFontSize::Reduced;break;
+            case 3:
+                if(i==text.size()) throw std::invalid_argument("Truncated original alignment");
+                alignment=text[i]=='c'?XeenTextAlignment::Center:text[i]=='r'?XeenTextAlignment::Right:XeenTextAlignment::Left;++i;break;
+            case 4:{const int width=number(3);const int left=x-(alignment==XeenTextAlignment::Right?width:0);fillRect(frame,{left,y,left+width,y+(size==XeenFontSize::Reduced?9:10)},bg);break;}
+            case 5:break;
+            case 6:glyph(' ');break;
+            case 7:bg=number(3);if(bg>255)bg=0x99;break;
+            case 8:{
+                if(i==text.size()) throw std::invalid_argument("Truncated original outline");
+                unsigned char ch=text[i++]&0x7f;
+                if(ch==' ') x=std::max(o.bounds.left,x-3);
+                else {if(ch==6)ch=' ';x=std::max(o.bounds.left,x-font.advance(ch,size));const int old=x;glyph(ch,true);x=old;}
+                break;
+            }
+            case 9:x=std::min(o.bounds.left+number(3),o.bounds.right);break;
+            case 10:newline();break;
+            case 11:y=std::min(o.bounds.top+number(3),o.bounds.bottom);break;
+            case 12:
+                {const int index=number(2);color=index<0?0:unsigned(index);}
+                if(color>=40)throw std::invalid_argument("Invalid original text palette");break;
+            case 13:fillRect(frame,o.bounds,bg);x=o.bounds.left;y=o.bounds.top;break;
+            default:throw std::invalid_argument("Unsupported original dialog control");
+            }
+        }
+        if(wraps && alignment!=XeenTextAlignment::Right) newline();
+    }
+    result.pages.push_back(std::move(frame));result.pageSourceEnds.push_back(text.size());return result;
+}
+
 std::vector<GlyphAtom> parseText(const std::string &text,
 		const XeenTextRenderOptions &options, std::vector<std::string> &diagnostics,
 		std::vector<std::size_t> &breaks, std::vector<XeenTextAlignment> &alignments) {
@@ -105,7 +228,7 @@ std::vector<GlyphAtom> parseText(const std::string &text,
 		case 2: size = XeenFontSize::Reduced; break;
 		case 3:
 			if (i >= text.size()) {
-				diagnostics.push_back("controle de alinhamento Xeen truncado");
+				diagnostics.push_back("Truncated Xeen alignment control");
 				break;
 			}
 			switch (text[i++] & 0x7f) {
@@ -120,13 +243,13 @@ std::vector<GlyphAtom> parseText(const std::string &text,
 		case 7: {
 			int ignored = 0;
 			if (!parseDigits(text, i, 3, ignored))
-				diagnostics.push_back("controle de fundo Xeen invalido");
+				diagnostics.push_back("Invalid Xeen background control");
 			break;
 		}
 		case 9: {
 			int ignored = 0;
 			if (!parseDigits(text, i, 3, ignored))
-				diagnostics.push_back("controle de posicao X Xeen invalido");
+				diagnostics.push_back("Invalid Xeen X-position control");
 			break;
 		}
 		case 10:
@@ -136,7 +259,7 @@ std::vector<GlyphAtom> parseText(const std::string &text,
 		case 11: {
 			int ignored = 0;
 			if (!parseDigits(text, i, 3, ignored))
-				diagnostics.push_back("controle de posicao Y Xeen invalido");
+				diagnostics.push_back("Invalid Xeen Y-position control");
 			break;
 		}
 		case 12:
@@ -148,7 +271,7 @@ std::vector<GlyphAtom> parseText(const std::string &text,
 				if (parseDigits(text, i, 2, value) && value < 40)
 					color = static_cast<std::uint8_t>(value);
 				else
-					diagnostics.push_back("controle de cor Xeen invalido");
+					diagnostics.push_back("Invalid Xeen color control");
 			}
 			break;
 		case 13:
@@ -204,13 +327,14 @@ int XeenTextRenderer::textWidth(const std::string &text, XeenFontSize size,
 XeenTextRenderResult XeenTextRenderer::render(const IndexedFrame &base,
 		const std::string &text, const XeenTextRenderOptions &options) const {
 	if (!base.isValid())
-		throw std::invalid_argument("framebuffer invalido para texto Xeen");
+		throw std::invalid_argument("Invalid framebuffer for Xeen text");
 	if (options.bounds.left < 0 || options.bounds.top < 0 ||
 			options.bounds.right > base.width || options.bounds.bottom > base.height ||
 			options.bounds.left >= options.bounds.right ||
 			options.bounds.top >= options.bounds.bottom)
-		throw std::invalid_argument("limites invalidos para texto Xeen");
+		throw std::invalid_argument("Invalid Xeen text bounds");
 
+	if (options.originalControls) return renderOriginal(base,text,options,_font);
 	XeenTextRenderResult result;
 	std::vector<std::size_t> explicitBreaks;
 	std::vector<XeenTextAlignment> alignments;

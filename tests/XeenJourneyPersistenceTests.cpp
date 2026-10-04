@@ -81,7 +81,7 @@ struct Destination {
 };
 void same(const XeenSaveSnapshot &s, Destination &d) {
 	save_test::sameSnapshot(s,d.capture());
-	check(d.p.firstSerializedCount==6 && d.p.effectiveSerializedCount==6 && d.legacy==0,"fixed counts, no CHR/PTY reinitialization");
+	check(d.p.firstSerializedCount==6 && d.p.effectiveSerializedCount==6 && d.legacy==1,"fixed counts, original display metadata reloaded");
 	for(unsigned i=0;i<30;++i) check(xeen_state::sameInputs(s.journey->supplements[i].inputs,*d.p.roster.combatInputs(i)),"all owner supplements");
 	check(d.p.encounterContext==s.journey->context && d.w.sessionState().skeletonSeed()==s.journey->skeletonSeed,"context/seed exact");
     const auto mob=regional_journey_test::regionalObjects();const auto mon=regional_test::statistics();
@@ -294,7 +294,7 @@ struct ApplicationFixture {
 	XeenGameplayServices services() {
 		auto s=presentation.services();
 		s.resources=regional_test::resources();
-		s.resources.loadInitialParty=[]()->XeenPartyState{throw std::runtime_error("unexpected Journey CHR/PTY read");};
+		s.resources.loadInitialParty=[] {return XeenPartyLoader().loadFromResources(regional_test::characterBytes(),regional_test::partyBytes());};
 		s.resources.loadInitialCharacters=regional_test::characterBytes;
 		s.resources.loadInitialContext=[]()->XeenGameplayContext{throw std::runtime_error("unexpected Journey PTY read");};
 		s.resources.loadMonsterStatistics=[&]{observe(3);return regional_test::statistics();};

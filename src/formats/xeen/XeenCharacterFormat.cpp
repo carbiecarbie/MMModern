@@ -128,8 +128,8 @@ XeenBankBalances XeenCharacterFormat::parseBankBalances(const std::vector<std::u
 XeenRoster XeenCharacterFormat::parseRoster(const std::vector<std::uint8_t> &bytes) {
 	const std::size_t expectedSize = XeenRoster::kCharacterCount * XeenCharacter::kSerializedSize;
 	if (bytes.size() != expectedSize) {
-		throw std::runtime_error("maze.chr possui " + std::to_string(bytes.size()) +
-			" bytes; esperado: " + std::to_string(expectedSize));
+		throw std::runtime_error("maze.chr has " + std::to_string(bytes.size()) +
+			" bytes; expected: " + std::to_string(expectedSize));
 	}
 
 	XeenRoster roster;
@@ -164,6 +164,19 @@ XeenRoster XeenCharacterFormat::parseRoster(const std::vector<std::uint8_t> &byt
 		character.currentHp = readSint16LE(record + kCurrentHpOffset);
 		character.currentSp = readSint16LE(record + kCurrentSpOffset);
 		character.birthYear = readUint16LE(record + kBirthYearOffset);
+		auto details = std::make_shared<XeenCharacterOriginalDetails>();
+		for (unsigned i = 0; i < 7; ++i) details->attributes[i] = {record[20+i*2], record[21+i*2]};
+		for (unsigned i = 0; i < 6; ++i) details->resistances[i] = {record[311+i*2], record[312+i*2]};
+		std::copy_n(record + 39, 18, details->skills.begin());
+		for (unsigned i = 0; i < 64; ++i) {
+			const auto award = record[57+i];
+			details->awards[i] = i == 9 ? award : award & 15;
+			details->awards[i+64] = i == 9 ? 0 : award >> 4;
+		}
+		details->birthDay = record[37]; details->temporaryAc = record[34];
+		details->experience = std::uint32_t(record[348]) | (std::uint32_t(record[349])<<8) |
+			(std::uint32_t(record[350])<<16) | (std::uint32_t(record[351])<<24);
+		character._originalDetails = std::move(details);
 	}
 	return roster;
 }
@@ -172,7 +185,7 @@ XeenCharacterFormat::PartyHeader XeenCharacterFormat::parsePartyHeader(
 		const std::vector<std::uint8_t> &bytes) {
 	constexpr std::size_t kRequiredSize = 2 + XeenParty::kSerializedMemberSlots;
 	if (bytes.size() < kRequiredSize)
-		throw std::runtime_error("maze.pty truncado antes da lista da Party");
+		throw std::runtime_error("maze.pty truncated before party member list");
 
 	PartyHeader result;
 	result.firstCount = bytes[0];

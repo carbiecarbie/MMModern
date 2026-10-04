@@ -84,11 +84,17 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	for (unsigned i = 0; i < 30; ++i)
 		if (party.roster.combatInputs(i)) throw std::logic_error("Journey destination has detached supplements");
 	XeenRestoreGuard destination(world,party,camera,flags,true);
-	XeenPartyState p;
+	if (!resources.loadInitialParty) throw std::invalid_argument("Restoration requires original character display data");
+	XeenPartyState p = resources.loadInitialParty();
+	destination.check();
 	XeenCamera c = snapshot.camera;
 	XeenGameFlags f(snapshot.gameFlags);
 	XeenWorld w(world._baseLoader,world._baseObjectLoader);
-	for (unsigned i = 0; i < 30; ++i) p.roster.at(i) = snapshot.characters[i];
+	for (unsigned i = 0; i < 30; ++i) {
+		const auto details = p.roster.at(i)._originalDetails;
+		p.roster.at(i) = snapshot.characters[i];
+		p.roster.at(i)._originalDetails = details;
+	}
 	p.party = XeenParty::fromRosterIds(snapshot.activeRosterIds);
 	p.questItems = XeenCloudsQuestItems(snapshot.questItems); p.questFlags = XeenCloudsQuestFlags(snapshot.questFlags);
 	p.regionalRecovery = snapshot.journey->regionalRecovery;

@@ -1,6 +1,8 @@
 #ifndef MMODERN_CORE_INPUT_CONTEXT_H
 #define MMODERN_CORE_INPUT_CONTEXT_H
 #include <cstdint>
+#include "core/DialogInput.h"
+#include <memory>
 namespace mmodern {
 enum class MainScreen { None, Exploration, Combat };
 // Flow supplies authority; SDL retains only actions and this context incarnation.
@@ -9,6 +11,7 @@ struct InputContext {
     bool acceptsQueuedInput = false;
     bool readyForAction = false;
     MainScreen mainScreen = MainScreen::None;
+    std::shared_ptr<const DialogInput> dialog;
 };
 }
 #endif

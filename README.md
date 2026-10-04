@@ -66,18 +66,21 @@ original games or ScummVM.
 
 | Key | Action |
 | --- | --- |
-| W/Up, S/Down | Move forward/back; browse slots |
-| A/Left, D/Right | Turn; browse categories |
+| W/Up, S/Down | Move forward/back |
+| A/Left, D/Right | Turn |
+| Arrows in the sheet | Select a stat |
 | Space | Interact; attack in combat; acknowledge text |
-| Enter | Confirm a transfer, cast, purchase, Training or Temple step |
+| Enter | Open the selected stat; confirm a cast, purchase, Training or Temple step |
 | Y / N | Yes / No |
-| F1-F6 | Choose a party member |
+| F1-F6 | Open the character sheet; choose a party member in dialogs |
 | 1-9 | Select an inventory or stock slot; 1-3 pick a combat target |
 | . | Wait |
 | F | Shoot in mainland exploration |
 | R / B | Run / Block in combat; Repair / Buy in the Ironworks lobby |
 | C | Learned spells |
-| I, T, E, U | Inventory, transfer, equip/remove, use item |
+| I | Info (not supported yet); Items from the character sheet |
+| W/A/C/M in Items | Weapons, Armor, Accessories, Misc |
+| E / R / U in Items | Equip / Remove / Use; select a row then F1-F6 to move it |
 | F9 | Save at a quiet moment |
 | Escape | Back, cancel or acknowledge; quit when nothing is open |
 

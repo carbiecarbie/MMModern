@@ -62,6 +62,12 @@ XeenEquipmentValues modeledValues(const XeenCharacter &character, unsigned year)
 }
 } // namespace
 
+bool xeenItemProficient(const XeenCharacter &c,XeenInventoryCategory category,unsigned id) {
+	if(!id || (category==Category::Weapons && id>34) || (category==Category::Armor && id>13) ||
+		(category==Category::Accessories && id>10)) return false;
+	return proficient(c,category,id);
+}
+
 XeenEquipmentResult xeenSetEquipment(XeenPartyState &party, std::size_t activeIndex,
 		Category category, std::size_t physicalSlot, XeenEquipmentOperation operation) {
 	XeenEquipmentResult result;

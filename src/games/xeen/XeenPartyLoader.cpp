@@ -27,26 +27,28 @@ XeenPartyState XeenPartyLoader::loadFromResources(
 	state.questFlags = XeenQuestFlagFormat::parseClouds(partyBytes);
 	state.firstSerializedCount = header.firstCount;
 	state.effectiveSerializedCount = header.effectiveCount;
+	if (partyBytes.size() < 622) throw std::runtime_error("maze.pty truncated before food");
+	state._originalFood = std::uint16_t(partyBytes[620]) | (std::uint16_t(partyBytes[621])<<8);
 
 	if (header.firstCount != header.effectiveCount) {
-		state.diagnostics.push_back("maze.pty: quantidades divergentes (" +
-			std::to_string(header.firstCount) + " e " +
-			std::to_string(header.effectiveCount) + "); usando a segunda");
+		state.diagnostics.push_back("maze.pty: different member counts (" +
+			std::to_string(header.firstCount) + " and " +
+			std::to_string(header.effectiveCount) + "); using the second");
 	}
 	if (header.effectiveCount > XeenParty::kMaximumVisibleMembers)
-		throw std::runtime_error("maze.pty declara mais de seis membros ativos");
+		throw std::runtime_error("maze.pty declares more than six active members");
 
 	std::array<bool, XeenRoster::kCharacterCount> seen{};
 	for (std::size_t i = 0; i < header.rosterIds.size(); ++i) {
 		const int rosterId = header.rosterIds[i];
 		if (rosterId < -1 || rosterId >= static_cast<int>(XeenRoster::kCharacterCount))
-			throw std::runtime_error("maze.pty contem ID de roster invalido no slot " +
+			throw std::runtime_error("maze.pty contains invalid roster ID at slot " +
 				std::to_string(i));
 		if (i >= header.effectiveCount || rosterId == -1)
 			continue;
 
 		if (seen[static_cast<std::size_t>(rosterId)]) {
-			state.diagnostics.push_back("maze.pty: membro ativo duplicado no roster " +
+			state.diagnostics.push_back("maze.pty: duplicate active member at roster " +
 				std::to_string(rosterId));
 		}
 		seen[static_cast<std::size_t>(rosterId)] = true;
@@ -54,12 +56,12 @@ XeenPartyState XeenPartyLoader::loadFromResources(
 
 		const XeenCharacter &character = state.roster.at(static_cast<std::size_t>(rosterId));
 		if (character.name.empty()) {
-			state.diagnostics.push_back("maze.pty: membro ativo referencia slot vazio " +
+			state.diagnostics.push_back("maze.pty: active member references empty slot " +
 				std::to_string(rosterId));
 		}
 		if (!character.portraitResourceName()) {
-			state.diagnostics.push_back("membro ativo do roster " + std::to_string(rosterId) +
-				" nao possui retrato individual suportado");
+			state.diagnostics.push_back("active member at roster " + std::to_string(rosterId) +
+				" has no supported individual portrait");
 		}
 	}
 	return state;

@@ -60,7 +60,7 @@ void XeenEventFlow::requireCurrentOwners() const {
 
 bool XeenEventFlow::canSave() const noexcept {
 	return _gameplayBorrow->current() && !_fatal && !_dispatching && !_saving && !_handoffPending && !_transition && !_arrivalPending &&
-		!inventoryOpen() && !_pending && !_equipmentSelection && !_inventoryConfirmation &&
+		!inventoryOpen() && !_pending && !_equipmentSelection &&
 		(!_encounter || (_encounter->canSave() && encounterFrameCurrent()));
 }
 
@@ -89,6 +89,7 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
             combat->phase() == XeenCombatPhase::Failed)) ? 8 :
         (_encounter && !_encounter->combat() && _encounter->state().phase() != XeenEncounterPhase::Exploring) ? 9 : 0;
     const QueueContext context{_camera.mapId, panel, combat,
+        inventoryOpen() ? (_dialogError ? 5 : _statPopup ? 4 : _itemOption ? 3 : _sheet && !_itemsVisible ? 2 : 1) :
         _pending ? _pending->generation : 0};
     if (!_queueContext || !(*_queueContext == context)) {
         if (_queueContextId == std::numeric_limits<std::uint64_t>::max()) throw std::overflow_error("Input context exhausted");
@@ -109,7 +110,7 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
         else ready = ready && _encounter->journeyMutable();
     }
     return {_queueContextId, queueable, ready, journey() && queueable ?
-        (combat ? MainScreen::Combat : MainScreen::Exploration) : MainScreen::None};
+        (combat ? MainScreen::Combat : MainScreen::Exploration) : MainScreen::None,characterDialogInput()};
 }
 
 IndexedFrame XeenEventFlow::drawMainScreenNotice(const IndexedFrame &base, const std::string &notice) const {
@@ -199,7 +200,7 @@ bool XeenEventFlow::saveCurrent(const SaveBoundary &b) const noexcept {
 	return b.owner == this && _saving && !_fatal && !_dispatching && _gameplayBorrow->current() &&
 		b.operation == _saveOperation && (!b.journey || _encounter->journeySaveCurrent(*b.journey)) &&
 		b.generation == _generation && b.inventory == _inventoryEpoch && b.input == _inputGeneration &&
-		!inventoryOpen() && !_pending && !_equipmentSelection && !_inventoryConfirmation;
+		!inventoryOpen() && !_pending && !_equipmentSelection;
 }
 
 void XeenEventFlow::endSave() {
@@ -399,9 +400,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 					} else rendered=_presenter.rebase(composed.frame);
 				}
 				_inventoryUnderlay = rendered;
-				if (inventoryOpen()) rendered = drawXeenInventory(rendered,_inventoryFont,_catalog,_party,_inventory,_inventoryFeedback,
-					_equipmentResult ? &*_equipmentResult : nullptr,false,false,
-					true);
+				if (inventoryOpen()) rendered = drawCharacterDialog(rendered);
 				if (_smithUi) rendered=drawSmith(composed.frame);
 				if (_trainingUi) rendered=drawTraining(composed.frame);
 				if (report && !attempt) {
@@ -457,8 +456,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 			if (_encounter->combat()) {
 				_inventoryUnderlay = _frame;
 				if (inventoryOpen()) {
-					_frame = drawXeenInventory(_inventoryUnderlay,_inventoryFont,_catalog,_party,_inventory,_inventoryFeedback,
-						_equipmentResult ? &*_equipmentResult : nullptr, true, false);
+					_frame = drawCharacterDialog(_inventoryUnderlay);
 					returned = _frame;
 				}
 				if (_encounter->combat() && ((journey() && !cosmeticInput) || !_displayedCombat || !_encounter->combat()->current(*_displayedCombat))) {
@@ -995,6 +993,14 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 	}
 	if (_dispatching || _fatal || _saving || _smithUi || (journey() && _handoffPending)) return std::nullopt;
 	DispatchScope dispatch(_dispatching);
+	if(inventoryOpen()) {
+		if(_sheet && !_itemsVisible && !_statPopup && !_dialogError && _clock()>=_sheet->deadline) {
+			_sheet->deadline=_clock()+200;_sheet->blink=!_sheet->blink;
+			if(_encounter) return renderEncounter(false,true);
+			drawInventory();return _frame;
+		}
+		return std::nullopt;
+	}
 	validateRegionalEvents();
 	if (_encounter) {
 		if (journey() && _encounter->journeyEvent()) {
@@ -1109,6 +1115,27 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
     }
     _mainScreenNotice.clear();
 	DispatchScope dispatch(_dispatching);
+    if(inventoryOpen()) {
+        handleCharacterDialog(action);
+        return _encounter?renderEncounter(true):_frame;
+    }
+    if(std::holds_alternative<SelectMemberAction>(action) ||
+        (_encounter && _encounter->combat() && std::holds_alternative<UseItemAction>(action))) {
+        const bool quiet=!_pending && !_castingUi && (!_encounter || (_encounter->combat() ?
+            _encounter->combat()->phase()==XeenCombatPhase::PlayerReady && !_encounter->combat()->cast():_encounter->journeyMutable()));
+        if(quiet) {
+            const auto *selected=std::get_if<SelectMemberAction>(&action);
+            const auto member=selected?dialogMember(selected->partyIndex):std::optional<std::size_t>{std::size_t(_encounter->combat()->participant())};
+            if(member) {
+                handleInventory(InspectInventoryAction{});
+                _inventory.source=*member;_inventory.sourceOwner=_party.party.activeRosterIds()[*member];
+                if(selected) {_sheet.emplace();_sheet->deadline=_clock()+200;_itemsVisible=false;}
+                else {_combatItems=true;_inventory.category=XeenInventoryCategory::Miscellaneous;}
+                drawInventory();return _encounter?renderEncounter():_frame;
+            }
+        }
+        if(!_pending && !_castingUi && !(_encounter && _encounter->combat() && _encounter->combat()->cast())) return frameCopy();
+    }
     if(journey() && _encounter->combat() && (_encounter->combat()->cast() || std::holds_alternative<CastSpellAction>(action)))
         return handleCombatCasting(action,*displayedInput);
 	validateRegionalEvents();

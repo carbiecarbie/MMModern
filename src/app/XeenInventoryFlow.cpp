@@ -12,7 +12,7 @@ struct Scope {
 };
 }
 void XeenEventFlow::advanceInventoryEpoch() noexcept {
-	if (_certificateLease && journey()) {
+	if (_certificateLease && journey() && !_encounter->combat()) {
 		try { _encounter->releaseJourneyWork(XeenCombatBoundary::Work::Certificate,_certificateLease); }
 		catch (...) { closeGameplay(); }
 		_certificateLease = 0;
@@ -22,7 +22,6 @@ void XeenEventFlow::advanceInventoryEpoch() noexcept {
 		catch (...) { _encounter->combat()->invalidate(); _fatal=true; }
 		_certificateLease = 0;
 	}
-	_inventoryConfirmation.reset();
 	_equipmentSelection.reset();
 	if (_inventoryEpoch != std::numeric_limits<std::uint64_t>::max()) ++_inventoryEpoch;
 	else _inventory = {}; // Exhausted generations can never arm again.
@@ -67,9 +66,6 @@ bool XeenEventFlow::validEquipmentSelection(const EquipmentSelection &certificat
 	const auto *items = xeenInventoryItems(character, certificate.category);
 	return items && xeenSameItem((*items)[certificate.physicalSlot], certificate.selectedRecord);
 }
-std::optional<std::uint64_t> XeenEventFlow::inventoryConfirmation() const {
-	return _inventoryConfirmation ? std::optional<std::uint64_t>{_inventoryConfirmation->epoch} : std::nullopt;
-}
 bool XeenEventFlow::validInventorySource(bool record) const {
 	const auto &ids = _party.party.activeRosterIds();
 	if (_inventory.source >= ids.size() || _inventory.sourceOwner != ids[_inventory.source]) return false;
@@ -90,7 +86,6 @@ void XeenEventFlow::invalidateInventorySelection() {
 	_equipmentResult.reset();
 	if (!inventoryOpen()) return;
 	_inventory.mode = XeenInventoryMode::Browse;
-	_inventory.destination.reset(); _inventory.destinationOwner.reset();
 	if (!validInventorySource(false)) {
 		_inventory.source = 0;
 		_inventory.sourceOwner.reset();
@@ -116,7 +111,7 @@ void XeenEventFlow::closeInventory() noexcept {
 	}
 	_itemUseGeneration.reset();
 	advanceInventoryEpoch();
-	if (_inventoryLease && journey()) {
+	if (_inventoryLease && journey() && !_encounter->combat()) {
 		try { _encounter->releaseJourneyWork(XeenCombatBoundary::Work::Inventory,_inventoryLease); }
 		catch (...) { closeGameplay(); }
 		_inventoryLease = 0;
@@ -127,6 +122,7 @@ void XeenEventFlow::closeInventory() noexcept {
 		_inventoryLease = 0;
 	}
 	_inventory = {};
+	_sheet.reset();_itemsVisible=false;_combatItems=false;_statPopup.reset();_dialogError.reset();_itemOption.reset();
 	_inventoryFeedback = "";
 	_equipmentResult.reset();
 }
@@ -151,8 +147,7 @@ void XeenEventFlow::recoverInventory() {
 void XeenEventFlow::drawInventory() {
 	if (journey()) return; // One composition under the Journey presentation guard.
 	if (_encounter && (_encounter->combat())) { syncCombatInventory(); renderEncounter(); return; }
-	try { _frame = drawXeenInventory(_inventoryUnderlay,_inventoryFont,_catalog,_party,_inventory,_inventoryFeedback,
-		_equipmentResult ? &*_equipmentResult : nullptr); }
+	try { _frame = drawCharacterDialog(_inventoryUnderlay); }
 	catch (...) { recoverInventory(); }
 }
 IndexedFrame XeenEventFlow::refuseInventorySave() {
@@ -165,7 +160,7 @@ IndexedFrame XeenEventFlow::refuseInventorySave() {
 	drawInventory();
 	return _frame;
 }
-void XeenEventFlow::handleEquipment() {
+void XeenEventFlow::handleEquipment(XeenEquipmentOperation operation) {
 	const auto certificate = _equipmentSelection;
 	const bool currentCertificate = certificate && validEquipmentSelection(*certificate);
 	advanceInventoryEpoch(); // Every E is consumed before preparation or callbacks.
@@ -184,8 +179,7 @@ void XeenEventFlow::handleEquipment() {
 		_inventory.slot.reset(); _inventory.record = {};
 		_inventoryFeedback = "Selection changed; select again"; drawInventory(); return;
 	}
-	const auto operation = certificate->selectedRecord.frame == 0 ?
-		XeenEquipmentOperation::Equip : XeenEquipmentOperation::Remove;
+
 	const auto result = journey() ? _encounter->journeyEquipment(_encounter->ticket(),
 		certificate->sourceActiveIndex,certificate->category,certificate->physicalSlot,operation) :
 		xeenSetEquipment(_party, certificate->sourceActiveIndex, certificate->category, certificate->physicalSlot, operation);
@@ -199,192 +193,118 @@ void XeenEventFlow::handleEquipment() {
 	if (authority && !_encounter->current(*authority)) { _fatal=true; throw std::runtime_error("Stale equipment reporting"); }
 	if (result.status == XeenEquipmentStatus::Success)
 		refreshScene(true, OrdinaryCause::None);
-	else drawInventory();
-}
-void XeenEventFlow::confirmInventory() {
-	if (!_inventoryConfirmation || _inventory.mode != XeenInventoryMode::Confirm) return;
-	const auto token = *_inventoryConfirmation;
-	const bool current = token.epoch == _inventoryEpoch;
-	advanceInventoryEpoch(); // Consume before any helper or fallible preparation.
-	const auto &ids = _party.party.activeRosterIds();
-	const auto &s = token.selection;
-	bool participants = current && ids.size() == token.size &&
-		std::equal(ids.begin(),ids.end(),token.membership.begin()) &&
-		_inventory.source == s.source && _inventory.sourceOwner == s.sourceOwner &&
-		s.source < ids.size() && s.sourceOwner == ids[s.source] &&
-		s.destination && *s.destination < ids.size() && s.destinationOwner == ids[*s.destination] &&
-		_inventory.destination == s.destination && _inventory.destinationOwner == s.destinationOwner;
-	_transferResult = {XeenTransferStatus::StaleSelection};
-	if (participants) {
-		const bool ownersValid = _party.roster.at(*s.sourceOwner).rosterId == *s.sourceOwner &&
-			_party.roster.at(*s.destinationOwner).rosterId == *s.destinationOwner;
-		if (!ownersValid) _transferResult.status = XeenTransferStatus::InvalidOwner;
-		else if (s.sourceOwner == s.destinationOwner) _transferResult.status = XeenTransferStatus::SameOwner;
-		else if (_inventory.category == s.category && _inventory.slot == s.slot && s.slot && validInventorySource(true) && xeenSameItem(_inventory.record,s.record))
-			_transferResult = journey() ? _encounter->journeyTransfer(_encounter->ticket(),s.source,*s.destination,s.category,*s.slot) :
-				xeenTransferItem(_party,s.source,*s.destination,s.category,*s.slot);
+	else {
+		using S=XeenEquipmentStatus;
+		const auto &c=_party.roster.at(certificate->resolvedOwner);
+		const auto description=_catalog.describe(certificate->category,certificate->selectedRecord).displayName;
+		if(result.status==S::Cursed) dialogError(std::string(xeenDialogText(XeenDialogText::CursedItem)));
+		else if(result.status==S::NotProficient) dialogError(xeenDialogFormat(xeenDialogText(XeenDialogText::NotProficient),{xeenClassName(c.characterClass),description}));
+		else if(result.status==S::RingLimit || result.status==S::MedalLimit)
+			dialogError(xeenDialogFormat(xeenDialogText(XeenDialogText::EquippedAll),{std::string(xeenDialogText(result.status==S::RingLimit?XeenDialogText::Ring:XeenDialogText::Medal))}));
+		else if(result.status==S::Conflict && result.conflict) {
+			const auto &item=(*xeenInventoryItems(c,result.conflict->category))[result.conflict->physicalSlot];
+			dialogError(xeenDialogFormat(xeenDialogText(XeenDialogText::RemoveToEquip),{_catalog.describe(result.conflict->category,item).displayName,description}));
+		} else if(result.status!=S::NoChange) dialogError("Equipment: not supported yet");
+		drawInventory();
 	}
-	const bool success = _transferResult.status == XeenTransferStatus::Success;
-	invalidateInventorySelection();
-	if (success) { _inventory.slot.reset(); _inventory.record = {}; }
-	_inventoryFeedback = xeenTransferMessage(_transferResult.status);
-	// Result and disarming precede every callback, formatting operation and draw.
-	const auto authority = _encounter ? std::optional<XeenEncounterFlow::Ticket>{_encounter->ticket()} : std::nullopt;
-	try { if (reportInventory) reportInventory(_transferResult); }
-	catch (...) { if (authority && !journey() && !_encounter->fail(*authority)) _fatal=true; throw; }
-	if (authority && !_encounter->current(*authority)) { _fatal=true; throw std::runtime_error("Stale transfer reporting"); }
-	if (success) refreshScene(true,OrdinaryCause::None);
+}
+void XeenEventFlow::transferInventory(std::size_t destination) {
+ // M47 Part A approved combat limit; never bypass the combat preimage.
+ if(_encounter && _encounter->combat()) {dialogError("Transfer in combat: not supported yet");return;}
+ const auto certificate=_equipmentSelection;
+ const bool valid=certificate && validEquipmentSelection(*certificate);
+ advanceInventoryEpoch();
+ _transferResult={XeenTransferStatus::StaleSelection};
+ if(valid) _transferResult=journey()?_encounter->journeyTransfer(_encounter->ticket(),certificate->sourceActiveIndex,
+  destination,certificate->category,certificate->physicalSlot):xeenTransferItem(_party,certificate->sourceActiveIndex,
+  destination,certificate->category,certificate->physicalSlot);
+ invalidateInventorySelection();_inventory.slot.reset();_inventory.record={};
+ const auto authority=_encounter?std::optional<XeenEncounterFlow::Ticket>{_encounter->ticket()}:std::nullopt;
+ try {if(reportInventory) reportInventory(_transferResult);} catch(...) {if(authority && !journey() && !_encounter->fail(*authority)) _fatal=true;throw;}
+ if(authority && !_encounter->current(*authority)) {_fatal=true;throw std::runtime_error("Stale transfer reporting");}
+ if(_transferResult.status==XeenTransferStatus::Cursed) dialogError(std::string(xeenDialogText(XeenDialogText::CursedItem)));
+ else if(_transferResult.status==XeenTransferStatus::DestinationFull)
+  dialogError(xeenBackpackFull(certificate->category,_party.party.member(_party.roster,destination).name));
+ if(_transferResult.status==XeenTransferStatus::Success) refreshScene(true,OrdinaryCause::None);
 }
 IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
-	using Mode = XeenInventoryMode;
-	try {
-	if (_inventoryEpoch >= std::numeric_limits<std::uint64_t>::max()-2) {
-		closeInventory(); _frame=_inventoryUnderlay; return _frame;
-	}
-	if (inventoryOpen() && !std::holds_alternative<EquipmentInventoryAction>(action))
-		_equipmentResult.reset();
-	if (!inventoryOpen()) {
-		if (_inventoryEpoch == std::numeric_limits<std::uint64_t>::max()) return _frame;
-		advanceInventoryEpoch();
-		_inventory.mode = Mode::Browse;
-		syncCombatInventory();
-		if (_party.party.size()) _inventory.sourceOwner = _party.party.activeRosterIds()[0];
-		_transferResult = {};
-		_equipmentResult.reset();
-		_inventoryFeedback = "";
-		_presenter.clear();
-		refreshScene(true,OrdinaryCause::None);
-		if (!inventoryOpen()) return _frame;
-		if (!journey()) std::cout << xeenInventoryInspection(_party);
-		return _frame;
-	}
-	if (_inventory.mode==Mode::UseConfirm) {
-		if (std::holds_alternative<CancelInteractionAction>(action) || std::holds_alternative<NoAction>(action)) {
-			invalidateInventorySelection();_inventoryFeedback="Use cancelled without spending";
-		} else if (std::holds_alternative<AcknowledgeAction>(action)) {
-			const auto certificate=_equipmentSelection;
-			if (!journey() || !certificate || !validEquipmentSelection(*certificate)) {
-				invalidateInventorySelection();_inventoryFeedback="Selection changed; select again";
-			} else {
-				XeenEncounterFlow::ItemUseSelection selection;
-				selection.epoch=certificate->epoch;selection.membership=certificate->membership;
-				selection.membershipSize=certificate->membershipSize;selection.sourceIndex=certificate->sourceActiveIndex;
-				selection.sourceOwner=certificate->resolvedOwner;selection.category=certificate->category;
-				selection.slot=certificate->physicalSlot;selection.record=certificate->selectedRecord;
-				const auto generation=_encounter->beginItemUse(_encounter->ticket(),selection,_inventoryLease,_certificateLease);
-				if (!generation) { invalidateInventorySelection();_inventoryFeedback="Antidote use is unavailable"; }
-				else {
-					advanceInventoryEpoch();_itemUseGeneration=*generation;
-					_inventory.mode=Mode::UseTarget;_inventoryFeedback="F1-F6 target; Esc cancels after charge spent";
-				}
-			}
-		}
-		drawInventory();return _frame;
-	}
-	if (_inventory.mode==Mode::UseTarget) {
-		const auto *member=std::get_if<SelectMemberAction>(&action);
-		if (member && member->partyIndex>=_party.party.size()) { _inventoryFeedback="No active member at that F-key";drawInventory();return _frame; }
-		if (member || std::holds_alternative<CancelInteractionAction>(action)) {
-			if (!_itemUseGeneration || !_encounter->finishItemUse(_encounter->ticket(),*_itemUseGeneration,_inventoryEpoch,
-				member ? std::optional<std::size_t>{member->partyIndex} : std::nullopt,
-				_inputGeneration,responseFrame())) {
-				closeGameplay();return _frame;
-			}
-			closeInventory();_frame=_inventoryUnderlay;return _frame;
-		}
-		_inventoryFeedback="F1-F6 target; Esc cancels after charge spent";drawInventory();return _frame;
-	}
-	if (std::holds_alternative<CancelInteractionAction>(action) ||
-		(_inventory.mode == Mode::Confirm && std::holds_alternative<NoAction>(action))) {
-		if (_inventory.mode == Mode::Browse) { closeInventory(); _frame = _inventoryUnderlay; return _frame; }
-		invalidateInventorySelection(); _inventoryFeedback = "Transfer cancelled";
-	} else if (_inventory.mode == Mode::Browse && std::holds_alternative<InspectInventoryAction>(action)) {
-		closeInventory(); _frame = _inventoryUnderlay; return _frame;
-	} else if (const auto *member = std::get_if<SelectMemberAction>(&action)) {
-		advanceInventoryEpoch();
-		if (member->partyIndex >= _party.party.size()) {
-			_inventoryFeedback = "No active member at that F-key";
-			if (_inventory.mode != Mode::Browse) {
-				_inventory.mode = Mode::ChooseDestination;
-				_inventory.destination.reset(); _inventory.destinationOwner.reset();
-			}
-		} else if (_inventory.mode == Mode::Browse) {
-			_inventory.source = member->partyIndex;
-			_inventory.sourceOwner = _party.party.activeRosterIds()[member->partyIndex];
-			_inventory.slot.reset(); _inventory.record = {}; _inventoryFeedback = "";
-		} else {
-			_inventory.destination = member->partyIndex;
-			_inventory.destinationOwner = _party.party.activeRosterIds()[member->partyIndex];
-			_inventory.mode = Mode::Confirm;
-			InventoryConfirmation token{_inventoryEpoch,_inventory};
-			const auto &ids = _party.party.activeRosterIds();
-			token.size = ids.size(); std::copy(ids.begin(),ids.end(),token.membership.begin());
-			_inventoryConfirmation = token;
-			syncCombatInventory();
-			_inventoryFeedback = "Enter to confirm one transfer";
-		}
-	} else if (_inventory.mode == Mode::Confirm && std::holds_alternative<AcknowledgeAction>(action)) {
-		confirmInventory();
-	} else if (_inventory.mode != Mode::Browse) {
-		_inventoryFeedback = "Escape to cancel";
-	} else if (std::holds_alternative<EquipmentInventoryAction>(action)) {
-		handleEquipment();
-		return _frame;
-	} else if (std::holds_alternative<UseItemAction>(action)) {
-		if (!journey() || !_encounter->journeyMutable() ||
-			!_equipmentSelection || !validEquipmentSelection(*_equipmentSelection) ||
-			_inventory.category!=XeenInventoryCategory::Miscellaneous || !_inventory.sourceOwner ||
-			!_party.roster.at(*_inventory.sourceOwner).canAct() ||
-			!XeenAntidoteUse::eligible(_inventory.record))
-			_inventoryFeedback="Use requires an able source and charged M10 antidote";
-		else {
-			_inventory.mode=Mode::UseConfirm;
-			_inventoryFeedback="Target Esc after Enter still spends 1 charge";
-		}
-	} else if (const auto *nav = std::get_if<NavigationAction>(&action)) {
-		advanceInventoryEpoch(); _inventoryFeedback = "";
-		if (*nav == NavigationAction::TurnLeft || *nav == NavigationAction::TurnRight) {
-			_inventory.category = static_cast<XeenInventoryCategory>((static_cast<unsigned>(_inventory.category)+
-				(*nav == NavigationAction::TurnLeft ? 3 : 1))%4);
-			_inventory.slot.reset(); _inventory.record = {};
-		} else if (validInventorySource(false)) {
-			const bool up = *nav == NavigationAction::MoveForward;
-			_inventory.slot = _inventory.slot ? (*_inventory.slot + (up ? 8 : 1))%9 : up ? 8 : 0;
-			_inventory.record = (*xeenInventoryItems(_party.roster.at(*_inventory.sourceOwner),_inventory.category))[*_inventory.slot];
-			armEquipmentSelection();
-		}
-	} else if (const auto *slot = std::get_if<SelectInventorySlotAction>(&action)) {
-		advanceInventoryEpoch();
-		if (slot->slot < 9 && validInventorySource(false)) {
-			_inventory.slot = slot->slot;
-			_inventory.record = (*xeenInventoryItems(_party.roster.at(*_inventory.sourceOwner),_inventory.category))[slot->slot];
-			_inventoryFeedback = "";
-			armEquipmentSelection();
-		}
-	} else if (std::holds_alternative<TransferInventoryAction>(action)) {
-		advanceInventoryEpoch();
-		if (!_party.party.size()) _inventoryFeedback = "No active characters";
-		else if (!validInventorySource(true) || !_inventory.record.id) _inventoryFeedback = "Select an occupied item";
-		else { _inventory.mode = Mode::ChooseDestination; _inventoryFeedback = "Choose recipient F1-F6"; }
-	}
-	if (inventoryOpen()) drawInventory();
-	return _frame;
-	} catch (...) {
-		if (_fatal) throw; // A failed clean-base recovery is already terminal.
-		recoverInventory(); return _frame;
-	}
+ using Mode=XeenInventoryMode;
+ try {
+  if(_inventoryEpoch>=std::numeric_limits<std::uint64_t>::max()-2) {closeInventory();_frame=_inventoryUnderlay;return _frame;}
+  if(!inventoryOpen()) {
+   advanceInventoryEpoch();_inventory.mode=Mode::Browse;_itemsVisible=true;
+   _inventory.source=0;if(_party.party.size()) _inventory.sourceOwner=_party.party.activeRosterIds()[0];
+   syncCombatInventory();_transferResult={};_equipmentResult.reset();_inventoryFeedback="";
+   _presenter.clear();refreshScene(true,OrdinaryCause::None);return _frame;
+  }
+  unsigned key=0;
+  if(const auto *dialog=std::get_if<DialogKeyAction>(&action)) key=dialog->key;
+  else if(const auto *member=std::get_if<SelectMemberAction>(&action)) key=InputKey::F1+member->partyIndex;
+  else if(const auto *slot=std::get_if<SelectInventorySlotAction>(&action)) key='1'+slot->slot;
+  else if(std::holds_alternative<CancelInteractionAction>(action)) key=InputKey::Escape;
+  else if(std::holds_alternative<EquipmentInventoryAction>(action)) key='e';
+  else if(std::holds_alternative<UseItemAction>(action)) key='u';
+  if(_inventory.mode==Mode::UseTarget) {
+   if(key>=InputKey::F1 && key<InputKey::F1+6 && key-InputKey::F1>=_party.party.size()) return _frame;
+   if((key>=InputKey::F1 && key<InputKey::F1+6) || key==InputKey::Escape) {
+    if(!_itemUseGeneration || !_encounter->finishItemUse(_encounter->ticket(),*_itemUseGeneration,_inventoryEpoch,
+     key==InputKey::Escape?std::nullopt:std::optional<std::size_t>{key-InputKey::F1},_inputGeneration,responseFrame())) {closeGameplay();return _frame;}
+    closeInventory();_frame=_inventoryUnderlay;return _frame;
+   }
+   return _frame;
+  }
+  if(key==InputKey::Escape) {
+   if(_itemOption) _itemOption.reset();
+   else if(_sheet) {_itemsVisible=false;invalidateInventorySelection();_inventory.slot.reset();_inventory.record={};}
+   else {closeInventory();_frame=_inventoryUnderlay;return _frame;}
+  } else if(key>='1' && key<='9' && validInventorySource(false)) {
+   const std::size_t slot=key-'1';
+   const auto &item=(*xeenInventoryItems(_party.roster.at(*_inventory.sourceOwner),_inventory.category))[slot];
+   const bool occupied=_inventory.category==XeenInventoryCategory::Miscellaneous?item.material!=0:item.id!=0;
+   if(occupied) {
+    const auto option=_itemOption;_itemOption.reset();
+    const bool selected=_inventory.slot==slot;
+    advanceInventoryEpoch();
+    if(selected && !option) {_inventory.slot.reset();_inventory.record={};}
+    else {_inventory.slot=slot;_inventory.record=item;armEquipmentSelection();if(option) performItemOption(*option);}
+   }
+  } else if(!_itemOption && key>=InputKey::F1 && key<InputKey::F1+6 && !_combatItems) {
+   if(const auto member=dialogMember(key-InputKey::F1)) {
+    if(_inventory.slot) transferInventory(*member);
+    else {advanceInventoryEpoch();_inventory.source=*member;_inventory.sourceOwner=_party.party.activeRosterIds()[*member];_inventory.record={};}
+   }
+  } else if(!_itemOption && (key=='w' || key=='a' || key=='c' || key=='m')) {
+   advanceInventoryEpoch();_inventory.slot.reset();_inventory.record={};
+   _inventory.category=key=='w'?XeenInventoryCategory::Weapons:key=='a'?XeenInventoryCategory::Armor:key=='c'?XeenInventoryCategory::Accessories:XeenInventoryCategory::Miscellaneous;
+  } else if(!_itemOption && key=='q') dialogError("Quest: not supported yet");
+  else if(!_itemOption && (key=='e' || key=='r' || key=='u' || key=='d')) {
+   const bool misc=_inventory.category==XeenInventoryCategory::Miscellaneous;
+   if((key=='e' && misc) || (key=='u' && !misc)) return _frame;
+   const unsigned option=key=='e'?0:key=='r'?1:key=='u'?2:3;
+   if(_encounter && _encounter->combat() && option<3) {
+    dialogError(option==2?std::string(xeenDialogText(XeenDialogText::UseInCombat)):"Equipment in combat: not supported yet");
+    drawInventory();return _frame;
+   }
+   const auto &items=*xeenInventoryItems(_party.roster.at(*_inventory.sourceOwner),_inventory.category);
+   const bool empty=misc?items[0].material==0:items[0].id==0;
+   if(empty) {if(!misc) {if(_sheet) _itemsVisible=false;else closeInventory();}}
+   else if(_inventory.slot) performItemOption(option);
+   else _itemOption=option;
+  }
+  if(inventoryOpen()) drawInventory();return _frame;
+ } catch(...) {if(_fatal) throw;recoverInventory();return _frame;}
 }
 void XeenEventFlow::syncCombatInventory() {
-	if (journey()) {
+	if (journey() && !_encounter->combat()) {
 		if (inventoryOpen() && !_inventoryLease) _inventoryLease = _encounter->holdJourneyWork(XeenCombatBoundary::Work::Inventory);
-		if ((_equipmentSelection || _inventoryConfirmation) && !_certificateLease)
+		if (_equipmentSelection && !_certificateLease)
 			_certificateLease = _encounter->holdJourneyWork(XeenCombatBoundary::Work::Certificate);
 		return;
 	}
 	if (!_encounter || !_encounter->combat()) return;
 	auto &boundary = _encounter->boundary();
 	if (inventoryOpen() && !_inventoryLease) _inventoryLease = boundary.hold(XeenCombatBoundary::Work::Inventory);
-	if ((_equipmentSelection || _inventoryConfirmation) && !_certificateLease)
+	if (_equipmentSelection && !_certificateLease)
 		_certificateLease = boundary.hold(XeenCombatBoundary::Work::Certificate);
 }
 }

@@ -31,11 +31,13 @@ struct SelectMemberAction { std::size_t partyIndex; };
 struct CancelInteractionAction {};
 // UI-only refusal; the label is a static main-screen feature name.
 struct UnsupportedMainScreenAction { const char *label; };
+// Dialog intent on the existing action path; no rules live in SDL.
+struct DialogKeyAction { unsigned key; };
 
 using PlayerAction = std::variant<NavigationAction, InteractionAction,
 	AcknowledgeAction, YesAction, NoAction, SelectMemberAction, CancelInteractionAction, SaveGameAction, InspectInventoryAction,
 	SelectInventorySlotAction, TransferInventoryAction, EquipmentInventoryAction, UseItemAction, WaitAction,
-	AttackAction, ShootAction, CastSpellAction, BlockAction, RunAction, SelectCombatTargetAction, BeginEncounterAction, RevisitCompletedAction, UnsupportedMainScreenAction>;
+	AttackAction, ShootAction, CastSpellAction, BlockAction, RunAction, SelectCombatTargetAction, BeginEncounterAction, RevisitCompletedAction, UnsupportedMainScreenAction, DialogKeyAction>;
 
 } // namespace mmodern
 

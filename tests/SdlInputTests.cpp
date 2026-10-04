@@ -18,6 +18,21 @@ using namespace mmodern;
 static bool fixedTicks=false;
 extern "C" Uint32 __real_SDL_GetTicks();
 extern "C" Uint32 __wrap_SDL_GetTicks(){if(fixedTicks)probe_fired::hit("SDL_GetTicks");return fixedTicks?100:__real_SDL_GetTicks();}
+static bool recordFeedback=false;
+static std::uint32_t nativePixel=0;
+static std::vector<unsigned> nativePresentSamples,feedbackDelays;
+extern "C" void __real_SDL_Delay(Uint32);
+extern "C" void __wrap_SDL_Delay(Uint32 ms){if(recordFeedback)feedbackDelays.push_back(ms);else __real_SDL_Delay(ms);}
+extern "C" int __real_SDL_UpdateTexture(SDL_Texture *,const SDL_Rect *,const void *,int);
+extern "C" int __wrap_SDL_UpdateTexture(SDL_Texture *texture,const SDL_Rect *rect,const void *pixels,int pitch){
+ if(recordFeedback)nativePixel=*static_cast<const std::uint32_t *>(pixels);
+ return __real_SDL_UpdateTexture(texture,rect,pixels,pitch);
+}
+extern "C" void __real_SDL_RenderPresent(SDL_Renderer *);
+extern "C" void __wrap_SDL_RenderPresent(SDL_Renderer *renderer){
+ if(recordFeedback)nativePresentSamples.push_back(nativePixel&255);
+ __real_SDL_RenderPresent(renderer);
+}
 
 namespace {
 
@@ -53,6 +68,8 @@ void semanticBoundaryKeys() {
 // Fake readiness/clock, real production event queue and presentation loop.
 struct QueueHarness {
  MainScreen screen=MainScreen::None;
+ std::shared_ptr<const DialogInput> dialog;
+ bool feedbackEnabled=false;std::vector<unsigned> pressedFrames;
  bool redraw=false,ready=false,queueable=true;std::uint64_t context=1,epoch=1,presented=0;
  unsigned stage=0,presentations=0,lastDelivery=0;std::vector<char> delivered;
  std::function<void()> duringPresentation;
@@ -61,22 +78,28 @@ struct QueueHarness {
   if(SDL_PeepEvents(&event,1,SDL_ADDEVENT,0,0)!=1)throw std::runtime_error("queue fixture key");
  }
  static void tap(SDL_Keycode code,Uint32 stamp=99){key(code,SDL_KEYDOWN,0,stamp);key(code,SDL_KEYUP,0,stamp);}
- static void click(int x,int y,Uint8 button=SDL_BUTTON_LEFT){
+ static void click(int x,int y,Uint8 button=SDL_BUTTON_LEFT,Uint32 stamp=99){
   SDL_Event event{};event.type=SDL_MOUSEBUTTONDOWN;event.button.button=button;event.button.x=x;event.button.y=y;
+  event.button.timestamp=stamp;
   if(SDL_PeepEvents(&event,1,SDL_ADDEVENT,0,0)!=1)throw std::runtime_error("queue fixture logical click");
  }
  static void quit(){SDL_Event event{};event.type=SDL_QUIT;SDL_PushEvent(&event);}
  void check(bool value,const char *message){if(!value)throw std::runtime_error(std::string(message)+" stage="+std::to_string(stage));}
  void run(const char *name,const std::function<void(QueueHarness &)> &script){
   IndexedFrame frame;frame.width=320;frame.height=200;frame.pixels.resize(64000);
+  for(unsigned i=0;i<256;++i)frame.palette[i*3+2]=i;
   SdlWindow::FrameUpdateHandler handler=[](const auto &)->std::optional<IndexedFrame>{throw std::runtime_error("unversioned queued action");};
   handler.protectAllKeys=true;handler.displayedInput=[&]{return std::optional<std::uint64_t>{epoch};};
-  handler.inputContext=[&](const auto &){return InputContext{context,queueable,ready && presented==epoch,screen};};
+  handler.inputContext=[&](const auto &){return InputContext{context,queueable,ready && presented==epoch,screen,dialog};};
   handler.framePresented=[&](const auto &){presented=epoch;++presentations;const auto hook=duringPresentation;if(hook)hook();};
+  if(feedbackEnabled)handler.drawButton=[&](auto &pressed,const InputButton &button){
+   pressedFrames.push_back(button.pressedFrame());pressed.pixels[0]=button.pressedFrame();
+  };
   handler.withPresentedInput=[&](const PlayerAction &action,auto token,const auto &)->std::optional<IndexedFrame>{
    if(token!=epoch){check(!queueable,"queued key reached a stale frame");return {};}
    const bool immediate=std::holds_alternative<SaveGameAction>(action) || std::holds_alternative<CancelInteractionAction>(action);
    check(!queueable || immediate || (ready && lastDelivery!=presentations),"drained twice or while busy");lastDelivery=presentations;
+   if(feedbackEnabled)check(!nativePresentSamples.empty() && nativePresentSamples.back()==0,"button not restored before action dispatch");
    char kind='?';if(const auto *nav=std::get_if<NavigationAction>(&action))kind=*nav==NavigationAction::MoveForward?'W':*nav==NavigationAction::MoveBackward?'S':*nav==NavigationAction::TurnLeft?'A':'D';
    else if(std::holds_alternative<InteractionAction>(action))kind=' ';
    else if(std::holds_alternative<BlockAction>(action))kind='B';
@@ -85,6 +108,8 @@ struct QueueHarness {
    else if(std::holds_alternative<SaveGameAction>(action))kind='9';
    else if(std::holds_alternative<CancelInteractionAction>(action))kind='E';
    else if(std::holds_alternative<UnsupportedMainScreenAction>(action))kind='U';
+   else if(std::holds_alternative<SelectMemberAction>(action))kind='P';
+   else if(const auto *key=std::get_if<DialogKeyAction>(&action))kind=key->key==InputKey::Escape?'E':char(key->key);
    delivered.push_back(kind);++epoch;return frame;
   };
   fixedTicks=true;
@@ -94,13 +119,77 @@ struct QueueHarness {
   fixedTicks=false;check(ok,"queue show failed");std::cout<<name<<" passed\n";
  }
 };
+void pressedButtonFeedback(){
+ const auto verify=[](const QueueHarness &h,const std::vector<unsigned> &expected){
+  if(h.pressedFrames!=expected || feedbackDelays!=std::vector<unsigned>(expected.size(),100))
+   throw std::runtime_error("pressed sprite/two-tick hold mismatch");
+  std::vector<unsigned> seen;
+  for(std::size_t i=0;i<nativePresentSamples.size();++i)if(nativePresentSamples[i]){
+   seen.push_back(nativePresentSamples[i]);
+   if(i+1==nativePresentSamples.size() || nativePresentSamples[i+1]!=0)throw std::runtime_error("native pressed pixels not restored");
+  }
+  if(seen!=expected || h.presentations+2*expected.size()!=nativePresentSamples.size())
+   throw std::runtime_error("feedback acquired a semantic frame or failed native display");
+ };
+ QueueHarness main;main.screen=MainScreen::Exploration;main.ready=true;main.feedbackEnabled=true;
+ recordFeedback=true;nativePresentSamples.clear();feedbackDelays.clear();
+ main.run("main-key-mouse-pressed/restore/FIFO-unchanged",[](auto &h){
+  if(h.stage==0)h.tap(SDLK_w,100);
+  else if(h.stage==1)h.click(235,75,SDL_BUTTON_LEFT,100);
+  else if(h.stage==2)h.click(8,8,SDL_BUTTON_LEFT,100); // Viewport Space has no sprite.
+  else if(h.stage==3)h.tap(SDLK_q,100); // Cosmetic-only original shortcut.
+  else if(h.stage==4){h.check(h.delivered==std::vector<char>{'W','F',' '},"cosmetic shortcut created an action");h.click(235,169,SDL_BUTTON_LEFT,100);}
+  else if(h.stage==5)h.tap(SDLK_i,100);
+  else if(h.stage==6){h.check(h.delivered==std::vector<char>{'W','F',' ','U','U'},"feedback changed command trace");h.quit();}
+ });
+ recordFeedback=false;verify(main,{23,1,17,27,15});
+ QueueHarness dialog;dialog.queueable=false;dialog.ready=true;dialog.feedbackEnabled=true;
+ DialogInput input;input.hits.push_back({10,10,30,30,'e',InputButton{"items.icn",0,10,10}});input.keys={'e'};
+ dialog.dialog=std::make_shared<const DialogInput>(std::move(input));
+ recordFeedback=true;nativePresentSamples.clear();feedbackDelays.clear();
+ dialog.run("dialog-key-mouse-pressed/ignored-input-no-feedback",[](auto &h){
+  if(h.stage==0)h.tap(SDLK_e,100);
+  else if(h.stage==1)h.check(h.delivered==std::vector<char>{'e'},"keyboard feedback action"); // Successor awaits acquisition.
+  else if(h.stage==2)h.click(10,10,SDL_BUTTON_LEFT,100);
+  else if(h.stage==3)h.check(h.delivered==std::vector<char>{'e','e'},"mouse feedback action");
+  else if(h.stage==4){h.tap(SDLK_e,99);h.key(SDLK_e,SDL_KEYDOWN,1,100);h.click(10,10,SDL_BUTTON_RIGHT,100);h.click(30,10,SDL_BUTTON_LEFT,100);}
+  else if(h.stage==5){h.check(h.delivered==std::vector<char>{'e','e'},"ignored dialog input flashed/dispatched");h.quit();}
+ });
+ recordFeedback=false;verify(dialog,{1,1});
+ for(auto screen:{MainScreen::Exploration,MainScreen::Combat}){
+  for(unsigned index=0;index<16;++index){
+   constexpr int columns[]{235,260,286};const int x=index==9?109:columns[index<9?index%3:(index-10)%3];
+   const int y=index<9?75+21*(index/3):index==9?137:index<13?148:169;
+   const auto button=xeenMainScreenButtonAt(x,y,screen);
+   if(!button || button->frame!=index*2 || button->pressedFrame()!=index*2+1 ||
+    std::string(button->resource)!=(screen==MainScreen::Combat?"combat.icn":"main.icn"))throw std::runtime_error("main button sprite table");
+  }
+ }
+}
+void strictDialogPolicies(){
+ QueueHarness h;h.queueable=false;h.ready=true;
+ DialogInput input;input.hits.push_back({10,10,30,30,'e'});input.keys={'e',InputKey::Escape};
+ h.dialog=std::make_shared<const DialogInput>(std::move(input));
+ h.run("dialog-fresh-key-mouse/no-queue/stale-frame/right-outside",[](auto &h){
+  if(h.stage==0){h.click(15,15,SDL_BUTTON_RIGHT,100);h.click(30,15,SDL_BUTTON_LEFT,100);h.tap(SDLK_e,99);h.tap(SDLK_w,100);}
+  else if(h.stage==1){h.check(h.delivered.empty(),"stale/right/outside dialog input");h.key(SDLK_e,SDL_KEYDOWN,0,100);h.key(SDLK_e,SDL_KEYDOWN,1,100);h.key(SDLK_e,SDL_KEYDOWN,0,100);}
+  else if(h.stage==2){h.check(h.delivered==std::vector<char>{'e'},"dialog repeat or duplicate");h.key(SDLK_e,SDL_KEYDOWN,0,100);}
+  else if(h.stage==3){h.check(h.delivered.size()==1,"held dialog key");h.key(SDLK_e,SDL_KEYUP,0,100);h.ready=false;h.tap(SDLK_e,100);h.click(15,15,SDL_BUTTON_LEFT,100);}
+  else if(h.stage==4){h.check(h.delivered.size()==1,"busy dialog consumed input");h.ready=true;}
+  else if(h.stage==5){h.check(h.delivered.size()==1,"busy dialog queued input");h.click(15,15,SDL_BUTTON_LEFT,100);}
+  else if(h.stage==6){h.check(h.delivered==std::vector<char>{'e','e'},"fresh mouse differs from key");++h.context;h.redraw=true;h.duringPresentation=[] {QueueHarness::tap(SDLK_e,100);QueueHarness::click(15,15,SDL_BUTTON_LEFT,100);};}
+  else if(h.stage==7){h.duringPresentation={};h.check(h.delivered.size()==2,"input from superseded dialog frame");}
+  else if(h.stage==8){h.check(h.delivered.size()==2,"stale dialog input replayed");h.tap(SDLK_ESCAPE,100);}
+  else if(h.stage==9){h.check(h.delivered==std::vector<char>{'e','e','E'},"dialog Escape response");h.quit();}
+ });
+}
 void mouseQueuePolicies(){
  QueueHarness h;h.screen=MainScreen::Combat;
  h.run("mouse-key-shared-FIFO-five/enemy-turn-once",[](auto &h){
   if(h.stage==0){h.click(290,80);h.tap(SDLK_b);h.click(261,149);h.tap(SDLK_r);h.click(12,151);h.click(290,80);}
   else if(h.stage<4)h.check(h.delivered.empty(),"busy mouse action drained");
   else if(h.stage==4)h.ready=true;
-  else if(h.stage==11){h.check(h.delivered==std::vector<char>{' ','B','W','R','U'},"mixed FIFO/overflow/unsupported action");h.quit();}
+  else if(h.stage==11){h.check(h.delivered==std::vector<char>{' ','B','W','R','P'},"mixed FIFO/overflow/unsupported action");h.quit();}
  });
  for(const bool panel:{false,true}){
   QueueHarness h;h.screen=MainScreen::Exploration;
@@ -125,7 +214,7 @@ void mouseHitAreas(){
  const auto u=[](const char *s)->PlayerAction{return UnsupportedMainScreenAction{s};};
  const std::vector<Area> areas={
   {235,75,259,95,ShootAction{},u("Quick Fight")},{260,75,284,95,CastSpellAction{},CastSpellAction{}},
-  {286,75,310,95,u("Rest"),InteractionAction{}},{235,96,259,116,u("Bash"),u("Use")},
+  {286,75,310,95,u("Rest"),InteractionAction{}},{235,96,259,116,u("Bash"),UseItemAction{}},
   {260,96,284,116,u("Dismiss"),RevisitCompletedAction{}},{286,96,310,116,u("View Quests"),BlockAction{}},
   {235,117,259,137,u("Map"),u("Quick Fight Options")},{260,117,284,137,u("Info"),u("Info")},
   {286,117,310,137,u("Quick Ref"),u("Quick Ref")},{109,137,122,147,u("Control panel"),u("Control panel")},
@@ -134,9 +223,9 @@ void mouseHitAreas(){
   {286,148,310,168,NavigationAction::TurnRight,NavigationAction::TurnRight},
   {235,169,259,189,u("Strafe"),u("Strafe")},{260,169,284,189,NavigationAction::MoveBackward,NavigationAction::MoveBackward},
   {286,169,310,189,u("Strafe"),u("Strafe")},
-  {10,150,42,182,u("Character sheet"),u("Character sheet")},{45,150,77,182,u("Character sheet"),u("Character sheet")},
-  {81,150,113,182,u("Character sheet"),u("Character sheet")},{117,150,149,182,u("Character sheet"),u("Character sheet")},
-  {153,150,185,182,u("Character sheet"),u("Character sheet")},{189,150,221,182,u("Character sheet"),u("Character sheet")}
+  {10,150,42,182,SelectMemberAction{0},SelectMemberAction{0}},{45,150,77,182,SelectMemberAction{1},SelectMemberAction{1}},
+  {81,150,113,182,SelectMemberAction{2},SelectMemberAction{2}},{117,150,149,182,SelectMemberAction{3},SelectMemberAction{3}},
+  {153,150,185,182,SelectMemberAction{4},SelectMemberAction{4}},{189,150,221,182,SelectMemberAction{5},SelectMemberAction{5}}
  };
  const auto equal=[](const std::optional<PlayerAction> &actual,const PlayerAction &expected){
   if(!actual || actual->index()!=expected.index())return false;
@@ -264,7 +353,7 @@ void pushKey(std::atomic<bool> &finished, SDL_Keycode key, std::uint8_t repeat,
 
 int main(int argc,char **) {
 	probe_fired::expect("SDL_GetTicks");
- if(argc>1){mouseHitAreas();mouseQueuePolicies();return 0;}
+ if(argc>1){mouseHitAreas();mouseQueuePolicies();strictDialogPolicies();pressedButtonFeedback();return 0;}
  semanticBoundaryKeys();
  boundedQueuePolicies();
 	std::atomic<bool> finished{false};
@@ -344,7 +433,7 @@ int main(int argc,char **) {
 				++yes;
 			else if (std::holds_alternative<NoAction>(action))
 				++no;
-			else if (std::holds_alternative<InspectInventoryAction>(action))
+			else if (std::holds_alternative<UnsupportedMainScreenAction>(action))
 				++inspections;
 			else if (std::holds_alternative<TransferInventoryAction>(action)) ++transfers;
 			else if (std::holds_alternative<EquipmentInventoryAction>(action)) ++equipment;
@@ -367,7 +456,7 @@ int main(int argc,char **) {
 	if (senderError)
 		std::rethrow_exception(senderError);
 	if (!result || interactions != 2 || navigation != 2 || acknowledgments != 1 ||
-			yes != 1 || no != 1 || selections != 6 || cancellations != 1 || inspections != 1 || slots != 9 || transfers != 1 || equipment != 1 || uses != 1 || shots != 1 || casts != 1) {
+			yes != 1 || no != 1 || selections != 6 || cancellations != 1 || inspections != 1 || slots != 9 || transfers != 1 || equipment != 0 || uses != 1 || shots != 1 || casts != 1) {
 		std::cerr << "Space dispatch/repeat filtering failed: interactions="
 			<< interactions << " navigation=" << navigation
 			<< " acknowledgments=" << acknowledgments << " yes=" << yes

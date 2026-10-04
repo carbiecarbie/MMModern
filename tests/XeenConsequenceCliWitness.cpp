@@ -267,9 +267,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
       std::size_t slot=9;unsigned generated=0;
       for(std::size_t i=0;i<9;++i){const auto &v=party->roster.at(0).weapons[i];if(v.id && !v.frame && !v.material && !v.state){slot=i;generated=v.id;}}
       check(slot<9,"Actual generated weapon in delivered pack");
-      input(InspectInventoryAction{});input(SelectInventorySlotAction{slot});input(TransferInventoryAction{});input(SelectMemberAction{1});input(AcknowledgeAction{});
+      input(InspectInventoryAction{});input(SelectInventorySlotAction{slot});input(SelectMemberAction{1});input(AcknowledgeAction{});
       input(SelectMemberAction{1});slot=9;for(std::size_t i=0;i<9;++i)if(party->roster.at(18).weapons[i].id==generated && !party->roster.at(18).weapons[i].frame)slot=i;
-      check(slot<9,"Generated transfer to Tyro");input(SelectInventorySlotAction{slot});input(TransferInventoryAction{});input(SelectMemberAction{0});input(AcknowledgeAction{});
+      check(slot<9,"Generated transfer to Tyro");input(SelectInventorySlotAction{slot});input(SelectMemberAction{0});input(AcknowledgeAction{});
       input(SelectMemberAction{0});slot=9;for(std::size_t i=0;i<9;++i)if(party->roster.at(0).weapons[i].id==generated && !party->roster.at(0).weapons[i].frame)slot=i;
       check(slot<9,"Generated transfer back to Arturius");
       // The retained first weapon witness is missile ID32, so no melee/shield conflict.
@@ -282,20 +282,20 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
      else if(key=='A' || key=='E') {
       const auto before=XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world);
       input(InspectInventoryAction{});check(flow->inventoryOpen(),"Production inventory opens");
-      input(NavigationAction::TurnRight);check(flow->inventorySelection().category==XeenInventoryCategory::Armor,"Armor category");
+      input(DialogKeyAction{'a'});check(flow->inventorySelection().category==XeenInventoryCategory::Armor,"Armor category");
       std::size_t received=9;
       if(key=='A') {
        for(std::size_t i=0;i<9;++i){const auto &v=party->roster.at(0).armor[i];if(v.id==2 && !v.material && !v.state && !v.frame)received=i;}
        check(received<9,"Actual delivered armor in Arturius pack");
-       input(SelectInventorySlotAction{received});input(TransferInventoryAction{});input(SelectMemberAction{1});input(AcknowledgeAction{});
+       input(SelectInventorySlotAction{received});input(SelectMemberAction{1});input(AcknowledgeAction{});
        check(flow->inventorySelection().mode==XeenInventoryMode::Browse,"Transfer acknowledged");
        input(SelectMemberAction{1});received=9;std::size_t original=9;
        for(std::size_t i=0;i<9;++i){const auto &v=party->roster.at(18).armor[i];if(v.id==2 && v.frame==3)original=i;if(v.id==2 && !v.frame)received=i;}
        check(original<9 && received<9 && original!=received,"Distinct original and transferred slots");
-       input(SelectInventorySlotAction{original});input(EquipmentInventoryAction{});check(!party->roster.at(18).armor[original].frame,"Original armor removed");
+       input(SelectInventorySlotAction{original});input(DialogKeyAction{'r'});check(!party->roster.at(18).armor[original].frame,"Original armor removed");
       } else {
        input(SelectMemberAction{1});for(std::size_t i=0;i<9;++i)if(party->roster.at(18).armor[i].id==2 && party->roster.at(18).armor[i].frame==3)received=i;
-       check(received<9,"Retained received armor");input(SelectInventorySlotAction{received});input(EquipmentInventoryAction{});
+       check(received<9,"Retained received armor");input(SelectInventorySlotAction{received});input(DialogKeyAction{'r'});
       }
       input(SelectInventorySlotAction{received});input(EquipmentInventoryAction{});check(party->roster.at(18).armor[received].frame==3,"Received armor legally equipped");
       input(CancelInteractionAction{});check(!flow->inventoryOpen(),"Inventory closes");

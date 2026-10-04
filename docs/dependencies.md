@@ -132,6 +132,27 @@ references remain; successful compilation alone is not sufficient.
 
 No file in the pinned ScummVM source checkout is modified by this process.
 
+## Build-generated English dialog text
+
+M47 uses the item catalog's verified Git-blob reader for the original dialog
+text, with `-DialogText`. Its input is the same pinned `CONSTANTS_7` blob:
+revision `6814ee9ba54582f5b5adcffab49efbbd8f589edd`, tree object
+`455b2eb3900a60be910e4d045d103a73586e73b0`, 35,065 bytes, SHA-256
+`a3022d378e7570a56332f30128942afe02ae2bfdef70c307b2de997eb07a9e77`.
+The named manifest extracts 76 templates/tables with exact extent and array
+count checks, bounded tokens/output, plus the original window symbols and
+four-shade text palettes. Every template's control stream is audited against
+the pinned font handler. Missing or malformed fields fail generation. The
+output omits the redundant literal alignment letter in `FMT_CHARGES`, matching
+the maintainer's DOSBox reference (recorded in the M47 plan); the verified blob
+is never modified.
+`generated/XeenDialogEnglish.inc` is deterministic, private to the build tree,
+and generated at configure time and on every build. It is never installed,
+committed, or loaded from companion data. The reader consumes verified
+`git cat-file` bytes rather than worktree files or compiler inputs.
+`xeen_dialog_generation` checks determinism and rejects identity, hash,
+count, missing-template, oversized/truncated-input failures.
+
 ## Build-generated English item catalog
 
 Milestone 24A derives the embedded English catalog directly from one immutable

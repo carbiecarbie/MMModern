@@ -48,10 +48,9 @@ std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key) {
 	case SDLK_c: return CastSpellAction{};
 	case SDLK_r: return RevisitCompletedAction{};
 	case SDLK_F9: return SaveGameAction{};
-	case SDLK_i: return InspectInventoryAction{};
-	case SDLK_t: return TransferInventoryAction{};
-	case SDLK_e: return EquipmentInventoryAction{};
+	case SDLK_i: return UnsupportedMainScreenAction{"Info"};
 	case SDLK_u: return UseItemAction{};
+	case SDLK_t: return TransferInventoryAction{}; // Existing Training dialog until Part B.
 	case SDLK_1: case SDLK_2: case SDLK_3: case SDLK_4: case SDLK_5:
 	case SDLK_6: case SDLK_7: case SDLK_8: case SDLK_9:
 		return SelectInventorySlotAction{static_cast<std::size_t>(key.keysym.sym - SDLK_1)};
@@ -88,6 +87,18 @@ std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key) {
 	default:
 		return std::nullopt;
 	}
+}
+
+unsigned inputKey(SDL_Keycode key) {
+    if(key>=SDLK_F1 && key<=SDLK_F6) return InputKey::F1+key-SDLK_F1;
+    switch(key) {
+    case SDLK_UP: case SDLK_KP_8: return InputKey::Up;
+    case SDLK_DOWN: case SDLK_KP_2: return InputKey::Down;
+    case SDLK_LEFT: case SDLK_KP_4: return InputKey::Left;
+    case SDLK_RIGHT: case SDLK_KP_6: return InputKey::Right;
+    case SDLK_KP_ENTER: return InputKey::Enter;
+    default: return static_cast<unsigned>(key);
+    }
 }
 
 bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
@@ -170,6 +181,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 	IndexedFrame::Presentation uploadedFrame, presentedFrame;
 	std::optional<std::uint64_t> uploadedInput;
 	bool uploaded = false;
+	IndexedFrame displayContent;
 	const auto accepts = [&](const IndexedFrame::Presentation &frame) {
 		return !handler.acceptsFrame || handler.acceptsFrame(frame);
 	};
@@ -180,6 +192,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 		if (!accepts(bound)) return true;
 		const auto &content = bound ? *bound : supplied;
 		if (!uploadFrame(texture, content, initialFrame.width, initialFrame.height, pixels)) return false;
+		displayContent=content;
 		uploadedFrame = bound;
 		uploaded = true;
 		uploadedInput = handler.displayedInput ? handler.displayedInput() : std::nullopt;
@@ -206,7 +219,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 	bool spaceDown = false, blockDown = false, revisitDown = false, inspectDown = false;
 	std::array<bool,SDL_NUM_SCANCODES> journeyKeys{};
 	std::uint32_t readyAt = SDL_GetTicks();
-    struct PendingAction { PlayerAction action; std::uint64_t context; bool repeat; };
+    struct PendingAction { PlayerAction action; std::uint64_t context; bool repeat; std::optional<InputButton> button; };
     std::deque<PendingAction> pendingActions;
     bool actionUsed = false;
     const auto contextFor = [&](const IndexedFrame::Presentation &origin) {
@@ -223,6 +236,8 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         SDL_FilterEvents([](void *context, SDL_Event *queued) -> int {
             if (queued->type == SDL_KEYDOWN)
                 queued->key.timestamp = *static_cast<std::uint32_t *>(context) - 1;
+            if (queued->type == SDL_MOUSEBUTTONDOWN)
+                queued->button.timestamp = *static_cast<std::uint32_t *>(context) - 1;
             return 1;
         }, &readyAt);
     };
@@ -232,10 +247,36 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         return handler.acceptsInputFrame ? handler.acceptsInputFrame(origin) :
             uploaded && uploadedFrame == origin && accepts(origin);
     };
+    const auto feedback = [&](const InputButton &button,const IndexedFrame::Presentation &origin) {
+        if(handler.drawButton && inputCurrent(origin)) {
+            // ButtonContainer::checkEvents shows frame | 1, waits two
+            // presentation ticks, then restores before returning the key.
+            // No gameplay callback, idle update, input pump, semantic upload or
+            // frame acquisition occurs during this native display effect.
+            auto pressed=displayContent;
+            handler.drawButton(pressed,button);
+            if(!inputCurrent(origin) || (handler.frameCurrent && !handler.frameCurrent()))
+                throw std::runtime_error("Stale button feedback origin");
+            const auto presentButton=[&](const IndexedFrame &frame) {
+                if(!uploadFrame(texture,frame,initialFrame.width,initialFrame.height,pixels))
+                    throw std::runtime_error("Button feedback upload failed");
+                SDL_SetRenderDrawColor(renderer,0,0,0,255);SDL_RenderClear(renderer);
+                if(SDL_RenderCopy(renderer,texture,nullptr,nullptr)!=0)
+                    throw std::runtime_error("Button feedback presentation failed");
+                SDL_RenderPresent(renderer);
+            };
+            presentButton(pressed);
+            SDL_Delay(kButtonFeedbackMilliseconds);
+            presentButton(displayContent);
+            if(!inputCurrent(origin) || (handler.frameCurrent && !handler.frameCurrent()))
+                throw std::runtime_error("Stale button feedback restoration");
+        }
+    };
     const auto deliver = [&](const PlayerAction &action, const std::optional<std::uint64_t> &input,
-            const IndexedFrame::Presentation &origin) {
+            const IndexedFrame::Presentation &origin,const std::optional<InputButton> &button=std::nullopt) {
         try {
             actionUsed = true;
+            if(button) feedback(*button,origin);
             const auto nextFrame = input && handler.withPresentedInput ?
                 handler.withPresentedInput(action,*input,origin) :
                 input && handler.withDisplayedInput ? handler.withDisplayedInput(action,*input) : handler(action);
@@ -265,12 +306,18 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             const bool mouse = event.type == SDL_MOUSEBUTTONDOWN;
             const auto context = contextFor(batchFrame);
             synchronizeQueue(context);
-            if (mouse && (event.button.button != SDL_BUTTON_LEFT || context.mainScreen == MainScreen::None ||
+            if (mouse && (event.button.button != SDL_BUTTON_LEFT || (!context.dialog && context.mainScreen == MainScreen::None) ||
                 initialFrame.width != 320 || initialFrame.height != 200)) return;
             // SDL_RenderSetLogicalSize transforms native mouse events to framebuffer
             // coordinates, including integer scaling, letterboxing and high DPI.
             // Do not scale a second time. Out-of-viewport coordinates are rejected.
-            const auto action = mouse ? xeenMainScreenClick(event.button.x,event.button.y,context.mainScreen) : playerAction(event.key);
+            const auto action = context.dialog ? (mouse ? context.dialog->click(event.button.x,event.button.y) :
+                context.dialog->key(inputKey(event.key.keysym.sym))) :
+                mouse ? xeenMainScreenClick(event.button.x,event.button.y,context.mainScreen) : playerAction(event.key);
+            const auto button=context.dialog ?
+                (action && std::get_if<DialogKeyAction>(&*action) ? context.dialog->button(std::get<DialogKeyAction>(*action).key) : std::nullopt) :
+                mouse ? xeenMainScreenButtonAt(event.button.x,event.button.y,context.mainScreen) :
+                    xeenMainScreenKeyButton(action,inputKey(event.key.keysym.sym),context.mainScreen);
             if (!mouse && event.key.keysym.sym == SDLK_ESCAPE && !event.key.repeat) pendingActions.clear();
             const bool movement = action && std::holds_alternative<NavigationAction>(*action);
             const auto *slot = action ? std::get_if<SelectInventorySlotAction>(&*action) : nullptr;
@@ -285,7 +332,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
                 // A context transition within this event batch cannot relabel old keys.
                 if (context.contextId != batchContext.contextId) return;
                 if (mouse) {
-                    if (pendingActions.size() < 5) pendingActions.push_back({*action,context.contextId,false});
+                    if (pendingActions.size() < 5) pendingActions.push_back({*action,context.contextId,false,button});
                     return;
                 }
                 if (scan <= SDL_SCANCODE_UNKNOWN || scan >= SDL_NUM_SCANCODES) return;
@@ -295,13 +342,18 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
                     if (!movement || !held || std::any_of(pendingActions.begin(),pendingActions.end(),
                         [](const auto &entry) { return entry.repeat; })) return;
                 } else if (held) return;
-                if (pendingActions.size() < 5) pendingActions.push_back({*action,context.contextId,event.key.repeat != 0});
+                if (pendingActions.size() < 5) pendingActions.push_back({*action,context.contextId,event.key.repeat != 0,button});
                 return;
             }
-            // M46 menus/dialogs are keyboard-only, including their busy frames.
-            if (mouse) return;
+            if(context.dialog && (!context.readyForAction || !inputCurrent(batchFrame) || context.contextId!=batchContext.contextId)) return;
+            if(mouse) {
+                if(context.dialog && context.readyForAction && inputCurrent(batchFrame) &&
+                    context.contextId==batchContext.contextId && static_cast<std::int32_t>(event.button.timestamp-readyAt)>=0 && action)
+                    deliver(*action,batchInput,batchFrame,button);
+                return;
+            }
             if (event.key.repeat != 0) return;
-            if (handler.protectAllKeys && action) {
+            if ((handler.protectAllKeys || context.dialog) && (action || (button && handler.drawButton))) {
                 if (scan <= SDL_SCANCODE_UNKNOWN || scan >= SDL_NUM_SCANCODES) return;
                 const bool held = journeyKeys[scan]; journeyKeys[scan] = true;
                 if (held || static_cast<std::int32_t>(event.key.timestamp-readyAt) < 0) return;
@@ -318,7 +370,13 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             if (event.key.keysym.sym == SDLK_ESCAPE && !(handler && canCancelInteraction && canCancelInteraction())) {
                 running = false;
             } else if (handler && action && ((!handler.acceptsFrame && !handler.withPresentedInput) || inputCurrent(batchFrame))) {
-                deliver(*action,batchInput,batchFrame);
+                deliver(*action,batchInput,batchFrame,button);
+            } else if(!action && button && handler.drawButton && context.readyForAction && inputCurrent(batchFrame)) {
+                // Cosmetic response only: no PlayerAction is created or queued.
+                try {feedback(*button,batchFrame);}
+                catch(const std::exception &error) {
+                    std::cerr<<"Button feedback failed: "<<error.what()<<'\n';success=false;running=false;
+                }
             }
         }
     };
@@ -343,8 +401,9 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         if (!actionUsed && handler && !pendingActions.empty() && drainContext.acceptsQueuedInput &&
             drainContext.readyForAction && inputCurrent(presentedFrame)) {
             const auto action = pendingActions.front().action;
+            const auto button = pendingActions.front().button;
             pendingActions.pop_front(); // A ready refusal is consumed, never retried.
-            deliver(action,displayedInput,presentedFrame);
+            deliver(action,displayedInput,presentedFrame,button);
         }
         if (!running) break;
 		if (idle) {

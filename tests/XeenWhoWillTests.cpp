@@ -279,10 +279,12 @@ void passiveSelectionInputs() {
 	flow.handle(InteractionAction{});const auto frame=flow.frame();const auto count=compositions;
 	check(!flow.blocksGameplay() && frame.pixels!=f.base.pixels,"passive fixture missing label");
 	for(std::size_t index=0;index<6;++index) {
-		check(flow.handle(SelectMemberAction{index}).pixels==frame.pixels && compositions==count &&
-			!flow.presentationGeneration(),"F1-F6 mutated passive presentation");
-	}
-	check(flow.refresh(true).pixels==frame.pixels,"F1-F6 lost retained label");
+        flow.handle(SelectMemberAction{index});
+        check(flow.inventoryOpen() && !flow.presentationGeneration(),"F1-F6 failed to open passive sheet");
+        flow.handle(CancelInteractionAction{});
+        check(!flow.inventoryOpen(),"passive sheet did not close");
+    }
+    check(flow.refresh(true).pixels==f.base.pixels,"sheet close did not redraw original scene");
 }
 
 void productionFlow() {

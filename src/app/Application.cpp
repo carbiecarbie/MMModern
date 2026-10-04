@@ -442,6 +442,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
 				flow.drawTrainingArt = [&](IndexedFrame &frame) { assets.drawTraining(frame); };
 				flow.drawTempleArt = [&](IndexedFrame &frame) { assets.drawTemple(frame); };
                 flow.drawCombatButtons = [&](IndexedFrame &frame) { CloudsUiComposer().drawCombatButtons(assets,frame); };
+                flow.drawDialogSprite = [&](IndexedFrame &frame,const char *name,unsigned index,int x,int y) { assets.drawDialogSprite(frame,name,index,x,y); };
                 flow.reportManual = printManualEventResult;
                 flow.reportAutomatic = requireAutomaticEventSuccess;
                 flow.reportText = [](const std::string &message) { std::cerr << "Text warning: " << message << '\n'; };

@@ -59,42 +59,43 @@ void cosmeticOmissions() {
   Harness h;auto services=h.services();cosmetic_handoff_test::changingPixels(services);
   services.show=[&](const auto &,const auto &handler,const auto &escape,const auto &idle,const auto &status){
    handler.framePresented(h.flow->frame().presentation());
-   if(inventory){handler.beginCycle(++h.cycle);handler.withDisplayedInput(InspectInventoryAction{},*handler.displayedInput());handler.framePresented(h.flow->frame().presentation());}
+   if(inventory){h.flow->drawDialogSprite=[](auto &frame,const char *,unsigned id,int x,int y){frame.pixels[y*320+x]=id;};handler.beginCycle(++h.cycle);handler.withDisplayedInput(SelectMemberAction{0},*handler.displayedInput());handler.framePresented(h.flow->frame().presentation());}
    const auto unchanged=[&]{check(h.flow->inventoryOpen()==inventory && h.camera->direction==XeenDirection::West,"Omission preserves inventory lease and navigation");};
    const auto accepted=[&]{check(inventory?!h.flow->inventoryOpen():h.camera->direction==XeenDirection::North,"Fresh input accepted once after correct cosmetic upload");};
-   const PlayerAction action=inventory?PlayerAction{InspectInventoryAction{}}:PlayerAction{NavigationAction::TurnRight};
-   return cosmetic_handoff_test::exercise(h,handler,idle,escape,status,mode,inventory?SDLK_i:SDLK_RIGHT,action,unchanged,accepted);
+   const PlayerAction action=inventory?PlayerAction{DialogKeyAction{InputKey::Escape}}:PlayerAction{NavigationAction::TurnRight};
+   return cosmetic_handoff_test::exercise(h,handler,idle,escape,status,mode,inventory?SDLK_ESCAPE:SDLK_RIGHT,action,unchanged,accepted);
   };
   check(Application().playGameplay(services,xeenJourneyContent().entry,{},false,XeenEncounterEntry::Journey,56)==0,"Quiet/inventory cosmetic handoff result");
  }
 }
 void sdlBoundaries() {
  for(bool lost:{false,true}) {
-  Harness h;auto s=h.services();unsigned stage=0,stable=0,loops=0,noEvents=0;bool done=false,omitted=false;
+  Harness h;auto s=h.services();unsigned stage=0,stable=0,loops=0,noEvents=0;bool done=false,omitted=false;std::vector<SDL_Event> pendingKeys;
   s.show=[&](const auto &first,const auto &handler,const auto &escape,const auto &idle,const auto &status) {
-   const auto key=[](SDL_Keycode code,Uint32 type=SDL_KEYDOWN,Uint8 repeat=0){SDL_Event e{};e.type=type;e.key.keysym.sym=code;e.key.repeat=repeat;
-    check(SDL_PushEvent(&e)==1,"Journey SDL queued key");};
+   const auto key=[&](SDL_Keycode code,Uint32 type=SDL_KEYDOWN,Uint8 repeat=0){SDL_Event e{};e.type=type;e.key.keysym.sym=code;e.key.repeat=repeat;pendingKeys.push_back(e);};
+   auto native=handler;
+   native.beginCycle=[&](auto cycle){handler.beginCycle(cycle);for(auto &event:pendingKeys)check(SDL_PushEvent(&event)==1,"fresh Journey key");pendingKeys.clear();};
    h.flow->reportManual=[&](const auto &){++noEvents;};
    const auto driver=[&]()->std::optional<IndexedFrame>{
     check(++loops<150,"bounded Journey SDL input test");
     if(omitted){check(!h.flow->canSave()&&!XeenSaveState::canCapture(*h.party,*h.camera,*h.world),"Unpresented forced refresh remains closed");SDL_Event quit{};quit.type=SDL_QUIT;SDL_PushEvent(&quit);return {};}
     auto frame=idle();if(frame){stable=0;return frame;}if(++stable<2)return frame;stable=0;
     switch(stage++) {
-    case 0:key(SDLK_RIGHT);key(SDLK_RIGHT,SDL_KEYDOWN,1);key(SDLK_F9);key(SDLK_F9,SDL_KEYUP);key(SDLK_SPACE);key(SDLK_SPACE,SDL_KEYUP);key(SDLK_i);key(SDLK_i,SDL_KEYUP);break;
-    case 1:check(h.camera->direction==XeenDirection::West&&h.party->encounterContext->ctr24==0&&h.flow->inventoryOpen()&&h.saves==0&&noEvents==0,"strict inventory opening flushes queued navigation/Space");key(SDLK_i);key(SDLK_i,SDL_KEYUP);key(SDLK_RIGHT);break;
+    case 0:key(SDLK_F1);key(SDLK_F1,SDL_KEYUP);key(SDLK_RIGHT);key(SDLK_RIGHT,SDL_KEYDOWN,1);key(SDLK_F9);key(SDLK_F9,SDL_KEYUP);key(SDLK_SPACE);key(SDLK_SPACE,SDL_KEYUP);break;
+    case 1:check(h.camera->direction==XeenDirection::West&&h.party->encounterContext->ctr24==0&&h.flow->inventoryOpen()&&h.saves==0&&noEvents==0,"strict inventory opening flushes queued navigation/Space");key(SDLK_ESCAPE);key(SDLK_ESCAPE,SDL_KEYUP);key(SDLK_RIGHT);break;
     case 2:check(h.camera->direction==XeenDirection::West && !h.flow->inventoryOpen(),"held navigation cannot repeat across inventory context");key(SDLK_RIGHT,SDL_KEYUP);break;
     case 3:key(SDLK_RIGHT);key(SDLK_RIGHT,SDL_KEYUP);break;
-    case 4:check(h.camera->direction==XeenDirection::North&&h.party->encounterContext->ctr24==1,"released fresh navigation accepted");key(SDLK_i);break;
-    case 5:check(h.flow->inventoryOpen()&&!XeenSaveState::canCapture(*h.party,*h.camera,*h.world),"SDL modal capture lease");key(SDLK_i);break;
-    case 6:check(h.flow->inventoryOpen(),"held I cannot cross inventory boundary");key(SDLK_i,SDL_KEYUP);break;
-    case 7:key(SDLK_i);key(SDLK_i,SDL_KEYUP);break;
+    case 4:check(h.camera->direction==XeenDirection::North&&h.party->encounterContext->ctr24==1,"released fresh navigation accepted");key(SDLK_F1);break;
+    case 5:check(h.flow->inventoryOpen()&&!XeenSaveState::canCapture(*h.party,*h.camera,*h.world),"SDL modal capture lease");key(SDLK_F1);break;
+    case 6:check(h.flow->inventoryOpen(),"held F1 cannot cross sheet boundary");key(SDLK_F1,SDL_KEYUP);break;
+    case 7:key(SDLK_ESCAPE);key(SDLK_ESCAPE,SDL_KEYUP);break;
     default:check(!h.flow->inventoryOpen()&&h.flow->canSave(),"matching closed inventory handoff");done=true;
      if(lost){h.flow->refresh(true);omitted=true;return std::nullopt;}
      {SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);}break;
     }
     return frame;
    };
-   const bool ok=SdlWindow().showInteractive(first,"Journey SDL boundary",handler,escape,driver,status);
+   const bool ok=SdlWindow().showInteractive(first,"Journey SDL boundary",native,escape,driver,status);
    check(done&&ok&&!h.flow->canSave()&&!XeenSaveState::canCapture(*h.party,*h.camera,*h.world),"SDL lost-upload/shutdown closes Journey");
    return ok;
   };
@@ -132,7 +133,7 @@ void boundaries(const fs::path &dir) {
     handler.withDisplayedInput(SaveGameAction{},generation);check(h.saves==0,"stale F9 before recovered upload");
     handler.framePresented(h.flow->frame().presentation());check(h.flow->inventoryOpen(),"recovery kept modal state");
     check(!XeenSaveState::canCapture(*h.party,*h.camera,*h.world),"modal world capture lease");
-    press(h,handler,InspectInventoryAction{});check(h.flow->canSave(),"matching close handoff opens capture");save_test::sameSnapshot(*before,h.capture());
+    press(h,handler,CancelInteractionAction{});check(h.flow->canSave(),"matching close handoff opens capture");save_test::sameSnapshot(*before,h.capture());
    } else if(mode==2) {
     unsigned reports=0;h.flow->reportManual=[&](const auto &){++reports;throw std::runtime_error("no-event report fault");};
     press(h,handler,InteractionAction{});check(reports==1&&h.flow->canSave(),"no-event bounded recovery without replay");save_test::sameSnapshot(*before,h.capture());

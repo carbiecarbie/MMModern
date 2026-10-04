@@ -1,7 +1,7 @@
 #include "app/XeenEncounterFlow.h"
 #include "games/xeen/XeenJourneyRules.h"
 #include "games/xeen/XeenJourneyCapture.h"
-#include "games/xeen/XeenInventoryView.h"
+#include "games/xeen/XeenInventoryState.h"
 #include "games/xeen/XeenJourneyProgression.h"
 #include "games/xeen/XeenTraining.h"
 #include "games/xeen/XeenVertigoRoute.h"

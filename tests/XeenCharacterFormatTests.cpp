@@ -160,7 +160,7 @@ void testPartyHeaderAndReferences() {
 	const auto state = loader.loadFromResources(roster,
 		partyFixture(5, 3, {0, 0xff, 18}));
 	check(state.firstSerializedCount == 5 && state.effectiveSerializedCount == 3 &&
-		hasDiagnostic(state, "quantidades divergentes"), "second party count must prevail with diagnostic");
+		hasDiagnostic(state, "different member counts"), "second party count must prevail with diagnostic");
 	check(state.party.activeRosterIds() == std::vector<std::uint8_t>({0, 18}),
 		"active order / absent 0xff entry");
 	check(&state.party.member(state.roster, 0) == &state.roster.at(0) &&
@@ -168,7 +168,7 @@ void testPartyHeaderAndReferences() {
 		"active characters must reference roster storage");
 
 	auto duplicate = loader.loadFromResources(roster, partyFixture(2, 2, {0, 0}));
-	check(duplicate.party.size() == 2 && hasDiagnostic(duplicate, "duplicado"),
+	check(duplicate.party.size() == 2 && hasDiagnostic(duplicate, "duplicate"),
 		"original duplicate semantics must be preserved and diagnosed");
 
 	Bytes invalid = partyFixture(1, 1, {0});
@@ -295,7 +295,7 @@ void testPortraitLayoutAndConditions() {
 
 	setName(roster, 24, "Unsupported");
 	state = XeenPartyLoader().loadFromResources(roster, partyFixture(1, 1, {24}));
-	check(hasDiagnostic(state, "nao possui retrato"), "unsupported portrait diagnostic");
+	check(hasDiagnostic(state, "has no supported individual portrait"), "unsupported portrait diagnostic");
 	rejects([&] { CloudsUiComposer::buildPortraitPlacements(state); });
 }
 

@@ -70,7 +70,7 @@ void actualProducerGuards(){
 		check(live->questItems.at(17)==0 && !live->questFlags.isSet(2) && live->roster.at(0).miscellaneous[0].id==37,"actual production delivery");
 		unsigned acks=0;while(f.flow->blocksGameplay()){check(++acks<100,"actual receipt bound");handle(AcknowledgeAction{});}
 		const auto before=output.text.str().size();handle(InspectInventoryAction{});
-		check(output.text.str().substr(before).find("Root=0 Q2=0")!=std::string::npos,"actual post-cleanup I");
+		check(f.flow->inventoryOpen() && live->questItems.at(17)==0 && !live->questFlags.isSet(2),"actual post-cleanup items");
 		handle(CancelInteractionAction{});handle(SaveGameAction{});check(status().find("Map exploration cannot save.")!=std::string::npos,"actual post-cleanup F9 guard");
 		return true;
 	};
@@ -82,7 +82,7 @@ void setupOrder(){
 	services.show=[&](const auto&,const auto &handle,const auto&,const auto&,const auto&){
 		check(out.text.str().find("Root=0 Q2=0")!=std::string::npos&&f.eventReads==1,"setup snapshot after initial dispatch");
 		const auto count=f.eventReads;handle(InspectInventoryAction{});
-		check(out.text.str().find("Root=1 Q2=0")!=std::string::npos&&f.eventReads==count,"I not live/read-only");return true;};
+		check(f.flow->inventoryOpen() && f.eventReads==count,"items not live/read-only");return true;};
 	check(Application().playGameplay(services,start,{},false)==0,"setup ordering");
 }
 void cleanupSaving(const fs::path &path){

@@ -34,6 +34,9 @@ struct XeenTextRenderOptions {
 	bool drawWindow = false;
 	XeenTextRect windowBounds;
 	bool paginate = false;
+	// Original dialog templates use absolute cursor controls and four-shade font
+	// colors. Existing flowing Event/service text retains its established layout.
+	bool originalControls = false;
 };
 
 struct XeenTextRenderResult {

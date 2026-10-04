@@ -6,7 +6,8 @@
 #include "games/xeen/XeenWorld.h"
 #include "games/xeen/XeenGameFlags.h"
 #include "games/xeen/XeenRegionalRules.h"
-#include "games/xeen/XeenInventoryView.h"
+#include "games/xeen/XeenInventoryState.h"
+#include "games/xeen/XeenDialogView.h"
 #include "games/xeen/XeenEquipment.h"
 #include "app/XeenEncounterFlow.h"
 #include <memory>
@@ -58,6 +59,7 @@ public:
 	std::function<void(IndexedFrame &)> drawTrainingArt;
 	std::function<void(IndexedFrame &)> drawTempleArt;
 	std::function<void(IndexedFrame &)> drawCombatButtons;
+	XeenDialogSpriteDraw drawDialogSprite;
 	std::function<void(XeenTrainingBoundary)> trainingBoundary;
 	bool canSave() const noexcept;
 	bool serviceSaveBlocked() const noexcept { return _smithUi.has_value() || _trainingUi.has_value() || _dispatching || _handoffPending || _saving || _fatal; }
@@ -95,7 +97,6 @@ public:
 	const XeenInventorySelection &inventorySelection() const { return _inventory; }
 	const XeenTransferResult &transferResult() const { return _transferResult; }
 	const XeenMutableOptional<XeenEquipmentResult> &equipmentResult() const { return _equipmentResult; }
-	std::optional<std::uint64_t> inventoryConfirmation() const;
 	// Explicit single-writer notification, including byte-identical owner replacement.
 	void invalidateInventory();
 	IndexedFrame refuseInventorySave();
@@ -224,6 +225,22 @@ private:
 	const XeenFontFormat &_inventoryFont;
 	const XeenItemCatalog &_catalog;
 	XeenInventorySelection _inventory;
+	struct CharacterSheetUi {
+		unsigned cursor=0;
+		bool blink=false;
+		std::uint64_t deadline=0;
+	};
+	std::optional<CharacterSheetUi> _sheet;
+	bool _itemsVisible=false, _combatItems=false;
+	std::optional<XeenDialogPopup> _statPopup;
+	std::optional<std::string> _dialogError;
+	std::optional<unsigned> _itemOption;
+	IndexedFrame drawCharacterDialog(const IndexedFrame &) const;
+	IndexedFrame handleCharacterDialog(const PlayerAction &);
+	std::shared_ptr<const DialogInput> characterDialogInput() const;
+	std::optional<std::size_t> dialogMember(std::size_t) const;
+	void dialogError(std::string);
+	void performItemOption(unsigned);
 	IndexedFrame _inventoryUnderlay;
 	const char *_inventoryFeedback = "";
 	XeenTransferResult _transferResult;
@@ -253,24 +270,17 @@ private:
 	IndexedFrame handleCombatCasting(const PlayerAction &,std::uint64_t);
 	std::string castingText() const;
 	IndexedFrame handleCasting(const PlayerAction &, std::uint64_t);
-	struct InventoryConfirmation {
-		std::uint64_t epoch;
-		XeenInventorySelection selection;
-		std::array<std::uint8_t, XeenParty::kMaximumVisibleMembers> membership{};
-		std::size_t size = 0;
-	};
-	std::optional<InventoryConfirmation> _inventoryConfirmation;
 	void advanceInventoryEpoch() noexcept;
 	void armEquipmentSelection();
 	bool validEquipmentSelection(const EquipmentSelection &) const;
-	void handleEquipment();
+	void handleEquipment(XeenEquipmentOperation);
 	bool validInventorySource(bool record) const;
 	void invalidateInventorySelection();
 	void closeInventory() noexcept;
 	void drawInventory();
 	void recoverInventory();
 	IndexedFrame handleInventory(const PlayerAction &);
-	void confirmInventory();
+	void transferInventory(std::size_t);
 	XeenRewardReceipt cleanup(XeenRewardDiscard reason) noexcept;
 	bool resumePending(std::uint64_t generation, XeenPresentationResponse response);
 	enum class OrdinaryCause { None, Action, Idle };

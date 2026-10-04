@@ -35,6 +35,8 @@ public:
 		std::function<void()> closed;
 		// Readiness of the supplied presented origin, never of an unacquired upload.
 		std::function<InputContext(const IndexedFrame::Presentation &)> inputContext;
+		// Draws on a temporary native-display copy; never acquires a gameplay frame.
+		std::function<void(IndexedFrame &,const InputButton &)> drawButton;
 		bool protectAllKeys = false;
 		std::function<std::optional<std::uint64_t>()> displayedInput;
 		std::function<std::optional<IndexedFrame>(const PlayerAction &,std::uint64_t)> withDisplayedInput;

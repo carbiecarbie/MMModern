@@ -32,7 +32,7 @@ inline bool exercise(Harness &h,const SdlWindow::FrameUpdateHandler &handler,
   unchanged();check(acknowledged==0,"Wrong/missing frame acknowledged the current frame");
  };
  const auto cosmetic=[&] {
-  h.now+=100;handler.beginCycle(++h.cycle);correct=idle();pending=true;
+  h.now+=inventory?200:100;handler.beginCycle(++h.cycle);correct=idle();pending=true;
   check(correct && correct->pixels!=old.pixels && correct->presentation()!=old.presentation(),"Changed pixels carry distinct immutable identity");
   check(handler.displayedInput()==epoch,"Cosmetic substitution must preserve semantic epoch");
   check(correct->presentation()->pixels==correct->pixels,"Identity binds the exact composed content");
