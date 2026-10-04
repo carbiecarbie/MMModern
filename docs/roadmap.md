@@ -32,19 +32,31 @@ machinery: the code now has one save format and one Journey configuration, and
 
 <a id="near-term"></a><a id="deferred-presentation-work"></a>
 
+Before M48, a small maintenance task adds a local **test-save generator** for
+play-testing hard-to-reach states (e.g. broken armor, enough XP to train),
+writing saves outside the repository.
+
 | Milestone | Tier | Goal | Accepted when |
 | --- | --- | --- | --- |
-| **M48 - Normal start in Vertigo** | A | New game from original initialization: the six level-1 `maze.pty` characters at Vertigo `(18,4)` facing West, without injected levels/XP. Admit the whole Vertigo map and its actors and Events from resources, with unsupported Events refusing visibly. Add Rest with food and HP/SP recovery plus the ordinary daily processing it needs. | A new game starts in Vertigo; the party can walk the whole town, fight, Rest, use the services and save/restore exactly. |
+| **M48 - Generic presentation systems** | B | Faithful scene, combat and control presentation implemented as engine systems for **all** original content, not only the playable area: terrain/sky/water flips, animated wall items and torches, monster idle animation from each monster's data (loop or back-and-forth), simultaneous generic projectiles with damage applied on arrival, enemy hit splats, portrait damage/healing effects, combat-party strip and active-member highlight, original keys (S Shoot, A Attack, arrows move) and the original mouse cursor. May be split into scene and combat parts. | Data-driven tests over every Clouds monster and map pass; maintainer compares the playable area with DOSBox and spot-checks other maps with `--render-map`. |
+| **M49 - Whole Vertigo** | A | Admit the whole Vertigo map, its actors and Events from resources with the prepared party; unsupported Events refuse visibly. | The party walks the whole town, fights and uses services; save/restore exact. |
+| **M50 - Rest, food and daily time** | A | Original Rest with food, HP/SP recovery, encounter interruption and the daily processing it needs; food enters the save. | The party can rest repeatedly with correct time, food and recovery; save/restore exact. |
+| **M51 - Normal start in Vertigo** | A | New game from original initialization: the six level-1 `maze.pty` characters at Vertigo `(18,4)` facing West, without injected levels/XP; the prepared Journey becomes a test mode. | A new game starts in Vertigo and is playable with Rest, services and save/restore. |
 
-The order matters. M44 lowered the cost of every later change, and M45 made
-keyboard input reliable; M46 made the main screen clickable on the same input
-path, and M47's original dialogs avoid building more project-specific menus
-that would be discarded. M48 is the first test of whole-map admission and ends
-the prepared-party era. If M48 proves too large,
-split Rest/daily processing into its own milestone rather than narrowing the
-whole-map admission.
+The order matters. M44-M47 lowered the cost of change and replaced input and
+menus with the original ones. M48 makes presentation correct as reusable engine
+systems before more content arrives, so new areas inherit it instead of
+spreading the gaps. M49-M51 then turn the prepared Journey into normal play:
+whole-map admission first, survival through Rest second, and the original new
+game last.
 
-After M48, choose the next milestone from play-testing evidence. Likely candidates:
+Deferred because they add no rework later: **audio** (sounds, music, voices;
+a separate additive system), the original **event dialogs, casting dialog and
+treasure sequence** (better redone once more events are playable), and
+**animated location shopkeepers**. Combat-time equipping and the combat Use
+button remain Tier A future work.
+
+After M51, choose the next milestone from play-testing evidence. Likely candidates:
 
 - **Leaving Vertigo:** connect normal start to the mainland and further areas,
   adding Event opcodes as they are reached. Map 22 (north of map 23) needs
@@ -52,8 +64,8 @@ After M48, choose the next milestone from play-testing evidence. Likely candidat
 - **Missing town services:** Inn/party management, Tavern (food, tips), Guild
   spell purchase (Vertigo Guild at `(28,20,13)`; needs membership state), Sell
   (needs the Merchant skill input), Bank.
-- **Mechanic gaps found in play:** item/weapon effects, more monster abilities,
-  doors/locks/traps, lighting, audio.
+- **The deferred presentation work above**, and mechanic gaps found in play:
+  item/weapon effects, more monster abilities, doors/locks/traps, lighting.
 
 ## Medium-term objective
 
