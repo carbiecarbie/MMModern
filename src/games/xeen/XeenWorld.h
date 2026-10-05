@@ -179,6 +179,7 @@ public:
 	void applyAlterEvent(const XeenCamera &physical, std::uint8_t line, std::uint8_t replacement,
 		const XeenEventFile &);
 	void publishTransition(XeenWorld &candidate) noexcept;
+	XeenScenePresentation prepareSpawnPresentation(const XeenWorld &candidate) const;
 	XeenActorView prepareTransitionArrival(const XeenCamera &);
 
 private:
@@ -208,6 +209,8 @@ private:
 	XeenMutable<std::uint16_t> _cityOriginalActorCount=0;
 	// Derived from checked immutable city resources; never gameplay authority.
 	bool _detachedEventCandidate = false;
+	// Detached Event presentation only; no additional gameplay slot ownership.
+	std::set<std::size_t> _spawnedPresentationSlots;
 	// Stable dependencies never contain a scoped RestoreGuard::Providers wrapper.
 	const MapLoader _baseLoader;
 	const ObjectLoader _baseObjectLoader;

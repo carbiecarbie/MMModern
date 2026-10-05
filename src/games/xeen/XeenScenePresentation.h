@@ -125,6 +125,18 @@ public:
 	const XeenMonsterAnimation *animation(XeenMonsterIdentity id) const {
 		const auto i=_actors.find(id);return i==_actors.end()?nullptr:&i->second.animation;
 	}
+	void spawn(const XeenActor &actor) {
+		const bool present=_actors.count(actor.id)!=0;
+		include({actor});
+		auto &animation=_actors.at(actor.id).animation;
+		if(present)animation.frame=std::uniform_int_distribution<unsigned>(0,7)(_random);
+		animation.postAttackDelay=0;animation.reverse=false;
+	}
+	void copySpawn(const XeenActor &actor,const XeenScenePresentation &candidate) {
+		const auto found=candidate._actors.find(actor.id);
+		if(found==candidate._actors.end())throw std::logic_error("Spawn animation is absent");
+		_actors.insert_or_assign(actor.id,found->second);
+	}
 	void appearance(const XeenMonsterAppearance &value) {
 		if (!value.identity || value.kind!=XeenMonsterSpriteKind::Attack) {_lastAttack.reset();return;}
 		const auto key=std::make_tuple(value.identity->mapId.side,

@@ -50,10 +50,11 @@ void XeenEncounterFlow::checkSmithReservation() {
  }
 }
 bool XeenEncounterFlow::beginSmith(const std::function<void()> &preflight) {
-	const bool temple=_camera.mapId==XeenMapIdentity(28) && _camera.x==15 && _camera.y==28;
+	const auto service=xeenRegionalService(_journeyEvents,_camera);
+	const bool temple=service==4;
 	if (!journeyEvent() || _smith || _smithPreparation || _busy || !current(ticket()) || !journeyCapacity() ||
 		_camera.mapId!=XeenMapIdentity(28) ||
-		!((temple) || (_camera.x==8 && _camera.y==4)) || !_party.encounterContext) return false;
+		!(temple || service==1) || !_party.encounterContext) return false;
 	SmithBusy busy(_busy);
 	_journeyPreimage->check();
 	// Reserve preparation/admission, two service frames, departure, Event

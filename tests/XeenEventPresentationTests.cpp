@@ -115,11 +115,12 @@ XeenEventExecutionError failed(const XeenEventExecutionStepResult &result,
 
 void testDisplayDecoding() {
 	struct Case { std::uint8_t opcode; XeenEventDisplayKind kind; };
-	const std::array<Case, 7> cases{{
+	const std::array<Case, 8> cases{{
 		{0x01, XeenEventDisplayKind::Centered},
 		{0x02, XeenEventDisplayKind::DoorLabelReduced},
 		{0x03, XeenEventDisplayKind::DoorLabelNormal},
 		{0x04, XeenEventDisplayKind::SignLabel},
+		{0x27, XeenEventDisplayKind::SignLabelReduced},
 		{0x29, XeenEventDisplayKind::BottomWindow},
 		{0x31, XeenEventDisplayKind::BottomWindowTwoLines},
 		{0x35, XeenEventDisplayKind::MainWindow}

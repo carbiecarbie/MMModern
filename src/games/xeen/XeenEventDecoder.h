@@ -51,6 +51,7 @@ enum class XeenEventDisplayKind {
 	DoorLabelReduced,
 	DoorLabelNormal,
 	SignLabel,
+	SignLabelReduced,
 	BottomWindow,
 	BottomWindowTwoLines,
 	MainWindow

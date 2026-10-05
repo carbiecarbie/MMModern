@@ -800,12 +800,15 @@ void XeenEventFlow::prepareVertigoResult(const XeenManualEventResult &result) tr
 		} catch (...) { candidateGuard.check();throw; }
 	}();
 	if(!composed.frame.isValid())throw std::runtime_error("Vertigo destination frame is invalid");
+	// Finish cosmetic allocation before the existing guarded owner stores.
+	auto presentation=_world.prepareSpawnPresentation(*work.world);
 	_eventPublication->check();
 	if(!_encounter->current(before))throw std::logic_error("Stale Vertigo preparation");
 	// Storage and the destination frame are ready. No provider or callback follows
 	// until all owner writes and the new frame authority have been installed.
 	_encounter->journeySavePreimage().prepareVertigoPublication(candidateGuard);
 	_world.publishTransition(*work.world);
+	_world.scenePresentation()=std::move(presentation);
 	_camera=work.camera;_flags=work.flags;
 	// Retain the classified destination under the Event lease. Keep the Event's
 	// concrete ticket intact until its final provider/publication checks finish;

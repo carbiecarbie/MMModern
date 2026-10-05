@@ -50,6 +50,16 @@ void XeenWorld::applySpawn(std::uint8_t slot, int x, int y, std::uint8_t) {
 	a.x=x;a.y=y;a.hp=a.statistics->baseHp();a.activated=false;
 	a.lifecycle=XeenActorLifecycle::Present;a.status=XeenActorStatus::Physical;
 	_sessionState._accountedMonsters.erase(a.id);
+	// Approved M48/M50 policy: cmdSpawn's random frame uses cosmetic RNG.
+	_scenePresentation.spawn(a);
+	_spawnedPresentationSlots.insert(slot);
+}
+
+XeenScenePresentation XeenWorld::prepareSpawnPresentation(const XeenWorld &candidate) const {
+	auto prepared=_scenePresentation;
+	for(const auto slot:candidate._spawnedPresentationSlots)
+		prepared.copySpawn(candidate._sessionState._vertigoActors->at(slot),candidate._scenePresentation);
+	return prepared;
 }
 
 void xeenValidateVertigoActors(XeenWorld &world,const std::vector<XeenActor> &actors) {

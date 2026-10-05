@@ -26,7 +26,7 @@ void XeenEncounterFlow::advanceTraining() noexcept {
 }
 bool XeenEncounterFlow::beginTraining(const std::function<void()> &preflight) {
     if(!journeyEvent() || _busy || _training || _trainingPreparation || _smith || !current(ticket()) ||
-        _camera.mapId!=XeenMapIdentity(28) || _camera.x!=10 || _camera.y!=11 || !smithCapacity(17,4))return false;
+        _camera.mapId!=XeenMapIdentity(28) || xeenRegionalService(_journeyEvents,_camera)!=5 || !smithCapacity(17,4))return false;
     TrainingBusy busy(_busy);_journeyPreimage->check();
     if(!xeenPrepareSmithDeparture(*_party.encounterContext))return false;
     xeenValidateJourneyParty(_party);

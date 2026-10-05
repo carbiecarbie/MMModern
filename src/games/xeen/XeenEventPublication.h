@@ -44,15 +44,16 @@ public:
 			}
 			if (interaction==XeenRegionalInteraction::Ironworks || interaction==XeenRegionalInteraction::Training ||
 				interaction==XeenRegionalInteraction::Temple) {
-				const bool training=interaction==XeenRegionalInteraction::Training;
-				const bool temple=interaction==XeenRegionalInteraction::Temple;
+				const auto service=xeenRegionalService(original,guard.cameraValue);
+				const auto site=xeenRegionalEvent(original,guard.cameraValue);
 				if (!xeen_state::sameCamera(state.workingCamera,guard.cameraValue) ||
 					state.workingGameFlags.values()!=guard.flagValues || state.logicalAddress.mapId!=XeenMapIdentity(28) ||
-					state.logicalAddress.x!=(temple?15:training?10:8) || state.logicalAddress.y!=(temple?28:training?11:4) || state.logicalAddress.line!=0 ||
+					!service || !site || state.logicalAddress.x!=guard.cameraValue.x || state.logicalAddress.y!=guard.cameraValue.y || state.logicalAddress.line!=0 ||
 					state.lookupDirection!=guard.cameraValue.direction || state.instructionCount>1 ||
-					!state.callStack.empty() || state.pendingRewards.hasWork() || !state.currentScript)
+					!state.callStack.empty() || state.pendingRewards.hasWork() || !state.currentScript ||
+					(state.pendingPresentation && state.pendingPresentation->continuation!=XeenEventPendingContinuation::Terminate))
 					integrity("Service terminal continuation changed");
-				script(state.currentScript->file());currentSite=temple?6:training?3:0;return;
+				script(state.currentScript->file());currentSite=site;return;
 			}
 			const int end=interaction==XeenRegionalInteraction::Myra ? 15 : interaction==XeenRegionalInteraction::Phirna ? 11 :
 				interaction==XeenRegionalInteraction::Well ? 10 : 1;

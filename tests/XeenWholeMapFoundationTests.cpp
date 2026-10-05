@@ -3,10 +3,16 @@
 #include "games/xeen/XeenRegionalRules.h"
 #include "games/xeen/XeenIndoorSceneTables.h"
 #include "games/xeen/XeenCombatRules.h"
+#include "games/xeen/XeenEventSystem.h"
 #include <iostream>
 #include <stdexcept>
 
 using namespace mmodern;
+namespace mmodern {
+struct XeenTrainingTestAccess {
+	static void seed(XeenWorld &world) {world._sessionState._journeyRandom=XeenJourneyRandomState{77,12};}
+};
+}
 namespace {
 void check(bool value,const char *message) {if (!value) throw std::runtime_error(message);}
 template<class F> void rejects(F operation) {
@@ -89,8 +95,85 @@ void capabilities() {
 	for(unsigned special:{0u,5u,7u,9u}) {m.raw[30]=special;m.validateAttackCapabilities();}
 	m.raw[30]=1;rejects([&]{m.validateAttackCapabilities();});
 }
+
+void cityEvents() {
+	XeenObjectFile mob{28,"maze0028.mob",true,{}};
+	for(unsigned slot=0;slot<46;++slot)mob.entities.monsters.push_back({int(slot%15),int(slot/15+1),0,0,slot==1?2:slot==2?73:0});
+	std::vector<XeenMonsterRecord> statistics(74);
+	for(auto &m:statistics){m.raw[20]=10;m.raw[24]=1;m.raw[25]=16;m.raw[26]=1;m.raw[28]=2;m.raw[29]=5;}
+	const auto geometry=[](auto id) {
+		auto m=tile(id);
+		if(id==XeenMapIdentity(28))m.geometry.neighbors=std::array<std::uint16_t,4>{110,109,0,0};
+		if(id==XeenMapIdentity(109))m.geometry.neighbors=std::array<std::uint16_t,4>{111,0,0,28};
+		if(id==XeenMapIdentity(110))m.geometry.neighbors=std::array<std::uint16_t,4>{0,111,28,0};
+		if(id==XeenMapIdentity(111))m.geometry.neighbors=std::array<std::uint16_t,4>{0,0,109,110};
+		return m;
+	};
+	XeenWorld source(geometry,[&](auto){return mob;});source.markEncounterSession(XeenEncounterEntry::Journey);
+	XeenTrainingTestAccess::seed(source);
+	auto world=source.transitionCandidate();world->stageVertigoActors(mob,statistics);
+	XeenPartyState party;XeenGameFlags flags;
+	XeenCamera camera{28,24,10,XeenDirection::North};
+	const auto record=[&](unsigned line,unsigned opcode,std::vector<std::uint8_t> operands) {
+		XeenEventRecord r;r.x=24;r.y=10;r.direction=4;r.line=line;r.opcode=opcode;r.parameters=std::move(operands);
+		r.lengthField=5+r.parameters.size();return r;
+	};
+	XeenEventFile file{28,"maze0028.evt",true,{record(0,0x27,{3}),record(1,0x12,{})}};
+	XeenEventSystem system([&](auto){return XeenEventScript(file);},[&](auto){
+		XeenEventTextFile text{28,"aaze0028.txt",true,std::vector<std::string>(64)};text.strings[3]="Small seat sign";return text;
+	});
+	auto label=system.runManualEvent(*world,party,camera,flags);
+	const auto *pending=std::get_if<XeenEventExecutionSuspended>(&label);
+	check(pending && pending->request.kind==XeenPresentationKind::SceneLabelSignReduced &&
+		pending->request.text=="Small seat sign" && pending->request.response==XeenPresentationResponseRequirement::Presented,
+		"Off-route small sign must suspend for one scene draw with resource text");
+	check(std::holds_alternative<XeenManualEventCompleted>(system.resumeManualEvent(pending->state,
+		XeenPresentationResponse::Presented,*world,party,camera,flags)),"Small sign must continue after its draw");
+
+	// No prefix of an incomplete effect group may change detached values.
+	file.records={record(0,0x0c,{0,0,20,12}),record(1,0x10,{50,7,6,0}),record(2,0x18,{0,0}),record(3,0x14,{})};
+	XeenEventSystem unsupported([&](auto){return XeenEventScript(file);});
+	const auto random=world->sessionState().journeyRandom();
+	const auto refused=unsupported.runManualEvent(*world,party,camera,flags);
+	check(std::holds_alternative<XeenEventExecutionError>(refused) && !flags.isSet(12) &&
+		world->sessionState().regionalActors(28).size()==46 && !world->sessionState().disabledEventCount() &&
+		world->sessionState().journeyRandom()==random,"Unsupported suffix must refuse before Spawn/flags/AfterEvent/RNG");
+
+	file.records.pop_back();file.records.push_back(record(3,0x12,{}));
+	XeenEventSystem supported([&](auto){return XeenEventScript(file);});
+	check(std::holds_alternative<XeenManualEventCompleted>(supported.runManualEvent(*world,party,camera,flags)),
+		"Generic flag/Spawn/AfterEvent group must execute in a detached city candidate");
+	check(flags.isSet(12) && world->sessionState().disabledEvents().count({28,0})==1 &&
+		world->sessionState().regionalActors(28).size()==51 && world->sessionState().journeyRandom()==random,
+		"Spawn/AfterEvent must retain generic effect identities without gameplay RNG draws");
+	for(unsigned slot=46;slot<50;++slot) {
+		const auto &gap=world->sessionState().regionalActors(28)[slot];
+		check(gap.lifecycle==XeenActorLifecycle::Unresolved && !gap.statistics && !gap.original.hasResource(),
+			"Resize gap slots 46-49 must stay unresolved");
+	}
+	const auto &spawned=world->sessionState().regionalActors(28)[50];
+	check(spawned.original.resourceId==0 && spawned.x==7 && spawned.y==6 && spawned.hp==10 && !spawned.activated,
+		"Explicit new Spawn slot must use the reference default type and full HP");
+	world->applySpawn(1,9,8,0);
+	check(world->sessionState().regionalActors(28)[1].original.resourceId==2,
+		"Spawn must reuse an original slot's sprite type");
+	xeenValidateVertigoActors(*world,world->sessionState().regionalActors(28));
+	const auto presentation=source.prepareSpawnPresentation(*world);
+	check(presentation.animation({28,50}) && presentation.animation({28,50})->frame<8 &&
+		presentation.animation({28,1}) && presentation.animation({28,1})->frame<8,
+		"Prepared Spawn presentation must carry cosmetic frames for new and reused slots");
+	check(source.sessionState().journeyRandom()==random,"Spawn preparation must leave live gameplay RNG untouched");
+
+	file.records={record(0,0x11,{5})};
+	check(xeenRegionalService(file,camera)==5 && xeenRegionalInteraction(file,camera)==XeenRegionalInteraction::Training,
+		"Terminal service identity must come from its opcode at an arbitrary resource cell");
+	file.records[0].parameters={3};
+	check(!xeenRegionalService(file,camera),"Unsupported service action must not acquire service authority");
+	file.records[0].parameters={5,0};
+	check(!xeenRegionalService(file,camera),"Malformed service operands must not acquire service authority");
+}
 }
 int main() {
-	try {geometry();capabilities();std::cout<<"Whole-map geometry and generic attack foundations passed\n";return 0;}
+	try {geometry();capabilities();cityEvents();std::cout<<"Whole-map geometry, generic attacks and detached city Event capabilities passed\n";return 0;}
 	catch(const std::exception &e) {std::cerr<<e.what()<<'\n';return 1;}
 }

@@ -5,6 +5,8 @@
 #include "games/xeen/XeenCharacterRules.h"
 
 #include <limits>
+#include <set>
+#include <tuple>
 #include <stdexcept>
 #include <utility>
 #include <vector>
@@ -92,6 +94,8 @@ XeenPresentationKind presentationKind(XeenEventDisplayKind kind) {
 		return XeenPresentationKind::SceneLabelNormal;
 	case XeenEventDisplayKind::SignLabel:
 		return XeenPresentationKind::SceneLabelSign;
+	case XeenEventDisplayKind::SignLabelReduced:
+		return XeenPresentationKind::SceneLabelSignReduced;
 	case XeenEventDisplayKind::BottomWindow:
 		return XeenPresentationKind::BottomWindowMessage;
 	case XeenEventDisplayKind::BottomWindowTwoLines:
@@ -100,6 +104,84 @@ XeenPresentationKind presentationKind(XeenEventDisplayKind kind) {
 		return XeenPresentationKind::MainWindowMessage;
 	}
 	return XeenPresentationKind::CenteredMessage;
+}
+
+// Detached city interactions publish only complete supported effect groups.
+// Inspect every reachable suffix (including both answers and call returns)
+// before a prefix can Spawn, disable an Event or change a flag. This is a
+// capability query over resource instructions, never a list of admitted cells.
+std::optional<XeenEventExecutionError> preflightCityEvent(XeenWorld &world,
+		const XeenEventScript &script, const XeenCamera &camera) {
+	std::vector<std::tuple<int,int,int>> pending{{camera.x,camera.y,0}};
+	std::set<std::tuple<int,int,int>> visited;
+	while(!pending.empty()) {
+		const auto address=pending.back();pending.pop_back();
+		if(!visited.insert(address).second)continue;
+		const auto [x,y,line]=address;
+		if(x<0 || x>255 || y<0 || y>255 || line<0 || line>255)
+			return error(XeenEventExecutionErrorKind::InvalidJumpTarget,
+				"Event preflight address is outside the lookup domain",0,{camera.mapId,x,y,line});
+		const auto site=script.findInstructionIndex(x,y,camera.direction,line);
+		if(!site)continue; // Runtime distinguishes natural closure from bad jumps.
+		const auto effective=world.effectiveEvent({camera.mapId,*site},script.records()[*site]);
+		const auto decoded=XeenEventDecoder::decode(effective,
+			{camera.mapId,script.file().resourceName,*site,true});
+		const XeenEventExecutionAddress logical{camera.mapId,x,y,line};
+		if(const auto *bad=std::get_if<XeenEventDecodeError>(&decoded))
+			return error(executionKind(bad->kind),bad->message,0,logical,bad->source);
+		const auto &instruction=std::get<XeenDecodedEventInstruction>(decoded);
+		const auto &op=instruction.operation;
+		const auto unsupported=[&](const char *message) {
+			return error(XeenEventExecutionErrorKind::UnsupportedOperand,message,0,logical,instruction.source);
+		};
+		if(std::holds_alternative<XeenEventExit>(op) || std::holds_alternative<XeenEventReturn>(op))continue;
+		if(const auto *service=std::get_if<XeenEventTownService>(&op)) {
+			if(line!=0 || x!=camera.x || y!=camera.y || xeenRegionalService(script.file(),camera)!=service->action)
+				return unsupported("Dependent service effects are not supported yet");
+			continue;
+		}
+		if(const auto *teleport=std::get_if<XeenEventTeleportAndExit>(&op)) {
+			if(teleport->mapId!=23 || teleport->x<0 || teleport->x>15 || teleport->y<0 || teleport->y>15)
+				return unsupported("Teleport destination is not supported yet");
+			continue;
+		}
+		if(std::holds_alternative<XeenEventTeleportAndContinue>(op))
+			return unsupported("Trap teleport effects are not supported yet");
+		if(std::holds_alternative<XeenEventVoiceCue>(op) || std::holds_alternative<XeenEventGiveEnchanted>(op) ||
+			std::holds_alternative<XeenEventRemove>(op))
+			return unsupported("Event effect is not supported yet in this context");
+		if(const auto *npc=std::get_if<XeenEventNpc>(&op)) {
+			if(npc->confirmationMode!=1)return unsupported("NPC mode is not supported yet");
+			pending.emplace_back(x,y,npc->targetLine);
+		}
+		if(const auto *condition=std::get_if<XeenEventConditional>(&op)) {
+			if(condition->action!=9 && condition->action!=20 && condition->action!=44)
+				return unsupported("Event condition is not supported yet");
+			if((condition->action==20 && condition->value>255) || (condition->action==44 && condition->value>1))
+				return unsupported("Event condition operand is not supported yet");
+			pending.emplace_back(x,y,condition->targetLine);
+		}
+		if(const auto *call=std::get_if<XeenEventCallEvent>(&op))pending.emplace_back(call->x,call->y,call->line);
+		if(const auto *give=std::get_if<XeenEventTakeOrGive>(&op)) {
+			const auto neutral=[](const auto &p){return p.mode==0 && p.value==0;};
+			const auto flag=[](const auto &p){return (p.mode==20 && p.value<256) || (p.mode==104 && XeenCloudsQuestFlags::validIndex(p.value));};
+			if(!neutral(give->third) || !((neutral(give->first) && flag(give->second)) ||
+				(flag(give->first) && neutral(give->second))))
+				return unsupported("Dependent TakeOrGive effects are not supported yet");
+		}
+		if(const auto *spawn=std::get_if<XeenEventSpawn>(&op)) {
+			if(spawn->slot>=XeenActorApproach::kCapacity || !xeenIndoorCoordinate(spawn->x,spawn->y))
+				return unsupported("Spawn operands are not supported yet");
+		}
+		if(const auto *alter=std::get_if<XeenEventAlterEvent>(&op)) {
+			if(alter->replacement!=0)return unsupported("AfterEvent replacement is not supported yet");
+		}
+		if(const auto *set=std::get_if<XeenEventSetVar>(&op)) {
+			if(set->mode!=84 || set->value>3)return unsupported("SetVar mode is not supported yet");
+		}
+		pending.emplace_back(x,y,line+1);
+	}
+	return {};
 }
 
 } // namespace
@@ -143,7 +225,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::begin(
 		return error(XeenEventExecutionErrorKind::ScriptLoadFailed,
 			"script provider is absent", 0, state.logicalAddress);
 	}
-	const bool city=world.sessionState().journey() && initialCamera.mapId==XeenMapIdentity(28);
+	const bool city=world.regionalJourney() && initialCamera.mapId==XeenMapIdentity(28);
 	if (!initialCamera.mapId || initialCamera.x < 0 || initialCamera.y < 0 ||
 			!(city ? xeenIndoorCoordinate(initialCamera.x,initialCamera.y) :
 				(initialCamera.x<16 && initialCamera.y<16)) || !validDirection(initialCamera.direction)) {
@@ -179,6 +261,9 @@ XeenEventExecutionStepResult XeenEventInterpreter::begin(
 		return error(XeenEventExecutionErrorKind::ObjectLoadFailed,
 			std::string("failed to resolve interaction object: ") + exception.what(),
 			0, state.logicalAddress);
+	}
+	if(city) {
+		if(const auto refused=preflightCityEvent(world,*state.currentScript,initialCamera))return *refused;
 	}
 	return run(std::move(state), std::nullopt, partyState, world,
 		scriptProvider, textProvider, publication);
@@ -387,11 +472,13 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 		if (std::holds_alternative<XeenEventExit>(decoded.operation))
 			return finalize();
 		if (const auto *service=std::get_if<XeenEventTownService>(&decoded.operation)) {
-			const bool smith=service->action==1 && logical.x==8 && logical.y==4 && *recordIndex==0;
-			const bool training=service->action==5 && logical.x==10 && logical.y==11 && *recordIndex==3;
-			const bool temple=service->action==4 && logical.x==15 && logical.y==28 && *recordIndex==6;
+			const auto boundService=xeenRegionalService(script->file(),workingCamera);
+			const bool smith=boundService==1 && service->action==1;
+			const bool training=boundService==5 && service->action==5;
+			const bool temple=boundService==4 && service->action==4;
 			if (!publication || (!smith && !training && !temple) || logical.mapId!=XeenMapIdentity(28) || logical.line!=0 ||
-				!state.callStack.empty() || instructionCount!=1)
+				logical.x!=workingCamera.x || logical.y!=workingCamera.y ||
+				!state.callStack.empty() || instructionCount!=1 || state.pendingRewards.hasWork())
 				return error(XeenEventExecutionErrorKind::UnsupportedOperand,
 					"Town service is outside the admitted service Event",instructionCount,logical,decoded.source);
 			XeenPresentationRequest request;

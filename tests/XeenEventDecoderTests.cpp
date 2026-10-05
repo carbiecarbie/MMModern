@@ -348,6 +348,11 @@ int main() {
 		testErrorsMetadataAndPurity();
 		testOwnedResultLifetime();
 		testGiveEnchanted();
+		check(operation<XeenEventDisplay>(XeenEventDecoder::decode(record(0x27,{3}))).kind==
+			XeenEventDisplayKind::SignLabelReduced,"Small sign decoder kind");
+		failure(XeenEventDecoder::decode(record(0x27,{})),XeenEventDecodeErrorKind::MalformedInstruction);
+		failure(XeenEventDecoder::decode(record(0x27,{3,4})),XeenEventDecodeErrorKind::MalformedInstruction);
+		failure(XeenEventDecoder::decode(record(0x05,{1,2,3,2})),XeenEventDecodeErrorKind::UnsupportedOperand);
 		std::cout << "Typed EVT decoder and strict validation OK\n";
 		return 0;
 	} catch (const std::exception &error) {

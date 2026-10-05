@@ -152,6 +152,12 @@ void testPresentationComposition() {
 		XeenPresentationKind::SceneLabelSign,
 		XeenPresentationResponseRequirement::Presented));
 	check(pixel(sign.frame, 114, 88) == 0x31, "sign label placement failed");
+	const auto smallSign = presenter.present(base, request(
+		XeenPresentationKind::SceneLabelSignReduced,
+		XeenPresentationResponseRequirement::Presented));
+	check(smallSign.response==XeenPresentationResponse::Presented &&
+		pixel(smallSign.frame,113,90)==0x31 && pixel(smallSign.frame,113,25)==0x44,
+		"small sign must use reduced font/color 8 at reference anchor 116 and Y 90");
 
 	const auto centered = presenter.present(base, request(
 		XeenPresentationKind::CenteredMessage,

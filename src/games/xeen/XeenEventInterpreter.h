@@ -40,6 +40,7 @@ enum class XeenPresentationKind {
 	SceneLabelReduced,
 	SceneLabelNormal,
 	SceneLabelSign,
+	SceneLabelSignReduced,
 	BottomWindowMessage,
 	BottomWindowTwoLines,
 	MainWindowMessage,

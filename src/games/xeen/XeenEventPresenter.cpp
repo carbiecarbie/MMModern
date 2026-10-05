@@ -87,6 +87,15 @@ XeenTextRenderOptions XeenEventPresenter::optionsFor(
 		options.colorIndex = 8;
 		options.alignment = XeenTextAlignment::Center;
 		break;
+	case XeenPresentationKind::SceneLabelSignReduced:
+		options.bounds = {0, 0, 230, 149};
+		options.x = 0;
+		options.y = 90;
+		options.alignmentAnchor = 116;
+		options.size = XeenFontSize::Reduced;
+		options.colorIndex = 8;
+		options.alignment = XeenTextAlignment::Center;
+		break;
 	case XeenPresentationKind::BottomWindowMessage:
 	case XeenPresentationKind::BottomWindowTwoLines:
 		options.bounds = {0, 143, 320, 199};

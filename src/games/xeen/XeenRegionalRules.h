@@ -17,6 +17,9 @@ bool xeenOutdoorRangedRay(const XeenMap &, const XeenCamera &, const XeenActor &
 std::optional<std::size_t> xeenRegionalEvent(const XeenEventFile &, const XeenCamera &);
 bool xeenRegionalSign(const XeenEventFile &, const XeenCamera &);
 enum class XeenRegionalInteraction { None, Sign, Myra, Phirna, Well, VertigoEntrance, VertigoDoor, VertigoExit, Ironworks, Training, Temple, TempleLabel };
+// A terminal service request must be the original first instruction at the
+// physical camera. Unsupported actions never acquire a Service continuation.
+std::optional<std::uint8_t> xeenRegionalService(const XeenEventFile &, const XeenCamera &);
 XeenRegionalInteraction xeenRegionalInteraction(const XeenEventFile &, const XeenCamera &);
 std::optional<std::int16_t> xeenWellHpAfter(std::int16_t before) noexcept;
 void xeenValidateRegionalActors(const XeenMap &, const XeenObjectFile &, const std::vector<XeenActor> &,

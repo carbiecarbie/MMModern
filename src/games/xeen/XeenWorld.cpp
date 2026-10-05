@@ -259,6 +259,7 @@ std::unique_ptr<XeenWorld> XeenWorld::transitionCandidate() const {
 	candidate->_maps=_maps;candidate->_objects=_objects;
 	candidate->_cityStatistics=_cityStatistics;
 	candidate->_cityOriginalActorCount=_cityOriginalActorCount;
+	candidate->_scenePresentation=_scenePresentation;
 	return candidate;
 }
 

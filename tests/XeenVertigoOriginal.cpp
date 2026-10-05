@@ -8,6 +8,7 @@
 #include "games/xeen/XeenCombatRules.h"
 #include "games/xeen/XeenRegionalRules.h"
 #include "games/xeen/XeenIndoorScene.h"
+#include "games/xeen/XeenEventSystem.h"
 #include "games/xeen/CloudsMapComposer.h"
 #include "platform/XeenSaveFile.h"
 #include "games/xeen/XeenCharacterRules.h"
@@ -134,6 +135,54 @@ int main(int argc,char **argv) {
   const auto mob=maps.loadObjects(assets,28);
   const auto actors=XeenActorApproach::actorsFromResources(mob,statistics);
   check(actors.size()==46 && mob.entities.objects.size()==143,"original city MOB count");
+  // Exercise the original exit reset in the existing detached owner, including
+  // resource-bound slot reuse and default construction beyond the original MOB.
+  manifestWorld.markEncounterSession(XeenEncounterEntry::Journey);
+  auto eventWorld=manifestWorld.transitionCandidate();eventWorld->stageVertigoActors(mob,statistics);
+  XeenEventTextLoader eventTexts([&](const std::string &name)->std::optional<std::vector<std::uint8_t>> {
+   if(!assets.hasArchiveResource(name))return {};return assets.readArchiveResource(name);
+  });
+  XeenEventSystem eventSystem([&](auto id){return XeenEventScript(events.load(id));},
+   [&](auto id){return eventTexts.load(id);});
+  XeenPartyState eventParty;eventParty.party=XeenParty::fromRosterIds({0});
+  XeenGameFlags eventFlags;XeenCamera exitCamera{28,15,0,XeenDirection::South};
+  auto exit=eventSystem.runManualEvent(*eventWorld,eventParty,exitCamera,eventFlags);
+  if(const auto *failure=std::get_if<XeenEventExecutionError>(&exit))
+   std::cerr<<"Original exit error at "<<failure->logicalAddress.x<<','<<failure->logicalAddress.y<<','
+    <<failure->logicalAddress.line<<": "<<failure->message<<'\n';
+  const auto *exitText=std::get_if<XeenEventExecutionSuspended>(&exit);
+  check(exitText && exitText->request.kind==XeenPresentationKind::CenteredMessage,
+   "Original exit preflight must reach the exit text after its valid flag prelude");
+  exit=eventSystem.resumeManualEvent(exitText->state,XeenPresentationResponse::Presented,
+   *eventWorld,eventParty,exitCamera,eventFlags);
+  const auto *confirmation=std::get_if<XeenEventExecutionSuspended>(&exit);
+  check(confirmation && confirmation->request.response==XeenPresentationResponseRequirement::YesNo,
+   "Original exit must retain its confirmation boundary");
+  const auto randomBefore=eventWorld->sessionState().journeyRandom();
+  exit=eventSystem.resumeManualEvent(confirmation->state,XeenPresentationResponse::Yes,
+   *eventWorld,eventParty,exitCamera,eventFlags);
+  check(std::holds_alternative<XeenManualEventCompleted>(exit) && exitCamera.mapId==23 &&
+   exitCamera.x==10 && exitCamera.y==12 && exitCamera.direction==XeenDirection::South &&
+   eventWorld->sessionState().regionalActors(28).size()==52 &&
+   eventWorld->sessionState().journeyRandom()==randomBefore,
+   "Original reset must finish at the mainland with 52 city slots and unchanged gameplay RNG");
+  for(unsigned slot=46;slot<50;++slot) {
+   const auto &gap=eventWorld->sessionState().regionalActors(28)[slot];
+   check(gap.lifecycle==XeenActorLifecycle::Unresolved && !gap.statistics,
+    "Original exit must not invent gap actors in slots 46-49");
+  }
+  unsigned resets=0;
+  for(const auto &record:city.records)if(record.x==100 && record.y==100 && record.opcode==0x10) {
+   const auto decoded=XeenEventDecoder::decode(record);
+   const auto &spawn=std::get<XeenEventSpawn>(std::get<XeenDecodedEventInstruction>(decoded).operation);
+   const auto &actor=eventWorld->sessionState().regionalActors(28)[spawn.slot];
+   check(actor.x==spawn.x && actor.y==spawn.y && actor.hp==actor.statistics->baseHp() && !actor.activated,
+    "Original reset slot/coordinates/HP/activation differ from Spawn resource operands");
+   ++resets;
+  }
+  check(resets==43,"Original exit reset inventory changed");
+  xeenValidateVertigoActors(*eventWorld,eventWorld->sessionState().regionalActors(28));
+  std::cout<<"Original exit prelude, confirmation, 43 Spawn resets, AfterEvent and unresolved gaps passed\n";
   check(actors.at(35).original.x==15 && actors.at(35).original.y==4 &&
    actors.at(35).original.resourceId==0,"original entrance Slime slot");
   check(actors.at(36).original.resourceId==0,"original reset target Slime type");
