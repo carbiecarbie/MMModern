@@ -46,18 +46,18 @@ int main(int argc,char **argv) {
         check(fresh.exit==0 && fresh.output.find("M42 PRODUCTION WITNESS PASSED")!=std::string::npos,"M42 fresh application witness failed; inspect fresh.log");
         const auto a=XeenSaveFile::read(directory/"fresh-A.mmsave"),b=XeenSaveFile::read(directory/"fresh-B.mmsave"),
             b1=XeenSaveFile::read(directory/"fresh-B1.mmsave"),c=XeenSaveFile::read(directory/"fresh-C.mmsave"),d=XeenSaveFile::read(directory/"fresh-D.mmsave");
-        context(a,8,799325555,1101);context(b,9,799325555,1101);context(b1,9,799325555,1101);context(c,10,799325555,1101);context(d,11,2959920300u,2009);
+        context(a,8,4226505513u,1073);context(b,9,4226505513u,1073);context(b1,9,4226505513u,1073);context(c,10,4226505513u,1073);context(d,11,2201558150u,1963);
         check(a.journey->treasure->gold==870 && b.journey->treasure->gold==670 && b1.journey->treasure->gold==670 && c.journey->treasure->gold==670 && d.journey->treasure->gold==670,"M42 earned/debited purse literal differs");
         m42_test::sameCategory(a.journey->serviceEconomy->wares[0][0][0],m42_test::weaponsBefore());
         m42_test::sameCategory(a.journey->serviceEconomy->wares[0][0][1],m42_test::armorBefore());
         for(const auto *s:{&b,&b1,&c})m42_test::sameCategory(s->journey->serviceEconomy->wares[0][0][1],m42_test::armorAfter());
         m42_test::StockOracle initial{7,0,{}};const auto initialStock=initial.generate();
         check(initial.state==1652828136 && initial.count==901 && m40_test::stockBytes(initialStock)==m40_test::stockBytes(*a.journey->serviceEconomy),"M42 full original stock differs from independent oracle");
-        m42_test::StockOracle restock{799325555,1101,{}};const auto expectedStock=restock.generate();
+        m42_test::StockOracle restock{4226505513u,1073,{}};const auto expectedStock=restock.generate();
         const auto stock=m40_test::stockBytes(*d.journey->serviceEconomy);
-        check(stock==m40_test::stockBytes(expectedStock) && restock.state==2959920300u && restock.count==2009,"M42 restock bytes/RNG differ from independent oracle");
+        check(stock==m40_test::stockBytes(expectedStock) && restock.state==2201558150u && restock.count==1963,"M42 restock bytes/RNG differ from independent oracle");
         check(drawsBetween(fresh.output,"C","D")==restock.trace,"M42 complete prepared-and-committed restock request/raw/rejection trace differs from independent oracle");
-        check(crc32(0,stock.data(),stock.size())==0x79dec2de,"M42 secondary stock CRC differs");
+        check(crc32(0,stock.data(),stock.size())==0x7b58546c,"M42 secondary stock CRC differs");
         check(xeenSameItem(b.characters[0].armor[5],{0,3,0,0}) && xeenSameItem(b1.characters[18].armor[4],{0,3,0,3}) &&
             xeenSameItem(b1.characters[18].armor[0],{0,2,0,0}) && xeenSameItem(d.characters[18].armor[4],{0,3,0,3}),"M42 physical delivery/transfer/remove/equip/restock retention differs");
         std::set<std::pair<DWORD,std::uint64_t>> processes{{fresh.pid,fresh.created}};

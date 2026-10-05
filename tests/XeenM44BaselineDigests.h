@@ -25,16 +25,24 @@
 // The M44 witness drives the production application through presented-frame
 // input and saves with the native F9 key at the end ("final" checkpoint);
 // mmodern_m44_baseline_restart additionally reloads that save, saves again and
-// compares bytes. Reproduced on the Stage A tree: all three digests match.
+// compares bytes. M49 item 1, based on cf62bf6fc5e9fa98c7c6be79cec2ca93492710fa:
+// maintainer approved the trace/byte evidence and replacements on 2026-10-04.
+// Correct hatred/count semantics change mainland combat with unchanged inputs;
+// services/Temple now earn broken armor/death in ordinary Ogre combat while
+// retaining paid Fix/Training and Heal/resurrection. Old digests, respectively:
+// bfae8220526671fb046a939e06b13553a34631a9183bc74b24473ac03e1a26f3,
+// b1462449b8d12953a26d6e4edfcb264353c71bbb965b64ce3dc8f4d14fb74402,
+// 813cf5e7fcfa8d87ba90cfc8c5a6c4471488ffbcebd0c63440afde4098f90ac0.
+// All three replacements were repeated and reload/re-save remained byte exact.
 #include <array>
 #include <cstdint>
 namespace m44_baseline {
-inline constexpr const char *revision = "a72a09916758c57b51a9a2590a9aac6eedb7c442";
+inline constexpr const char *revision = "cf62bf6fc5e9fa98c7c6be79cec2ca93492710fa + M49 item 1";
 struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 inline constexpr std::array<Scenario,3> scenarios{{
-    {"mainland-combat-myra-phirna",3626689381u,"bfae8220526671fb046a939e06b13553a34631a9183bc74b24473ac03e1a26f3"},
-    {"vertigo-buy-repair-training",7u,"b1462449b8d12953a26d6e4edfcb264353c71bbb965b64ce3dc8f4d14fb74402"},
-    {"temple-recovery",3626689381u,"813cf5e7fcfa8d87ba90cfc8c5a6c4471488ffbcebd0c63440afde4098f90ac0"}
+    {"mainland-combat-myra-phirna",3626689381u,"d70e358e232c9a4587137630bc54b73ce22bc41d226c3c46fc5685aac02c681d"},
+    {"vertigo-buy-repair-training",7u,"6cf28764f2d261858fef8e7bae04806213e7a8580e0adda0d922ad996b90df42"},
+    {"temple-recovery",3626689381u,"b621a290e10b91028419b58e05297d56b916ce42ed0b62dec60ff98ddd59f75e"}
 }};
 }
 #endif

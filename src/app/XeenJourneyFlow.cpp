@@ -433,7 +433,9 @@ bool XeenEncounterFlow::presentJourney(const Ticket &entry) {
 	if (!_journey || _busy || _combat || !_journeyFramePrepared || !current(entry) ||
 		(_world.sessionState().journeyActivity() != XeenJourneyActivity::Presentation && !journeyEvent() && !_shoot && !monsterReward() && !_itemUse && !_casting && !_smith && !_training)) return false;
 	if (!journeyCapacity()) return false;
+    projectilesPresented();
 	auto &s = _world._sessionState;
+	if(_shoot && !_shoot->presented) {_shoot->presented=true;_shoot->deadline=_lastTime+100;}
 	if (!journeyEvent() && !_shoot && !monsterReward() && !_itemUse && !_casting && !_smith && !_training) s._journeyActivity = _state.phase()==XeenEncounterPhase::SupportStopped ? XeenJourneyActivity::SupportStopped : (_state.pending() || _regionalWork || projectilesPending() || _shootIntent || _regionalAutomatic) ? XeenJourneyActivity::Approach : XeenJourneyActivity::Quiet;
 	if (_castingSettlement && (s._journeyActivity==XeenJourneyActivity::Quiet ||
 		s._journeyActivity==XeenJourneyActivity::SupportStopped || journeyEvent() || monsterReward()))
@@ -478,8 +480,13 @@ XeenEncounterResult XeenEncounterFlow::advanceJourney(const Ticket &entry, std::
 		!(s._journeyActivity == XeenJourneyActivity::Presentation && !action && !_journeyFramePrepared && !_journeyFrameRetry)) return refused;
 	if (!journeyCapacity()) return refused;
 	try {
-		xeenValidateJourneyParty(_party);
-		if (std::any_of(s._actors.begin(),s._actors.end(),[&](const XeenActor &a) { return xeenJourneyContent().influences(a.id.recordIndex) && a.lifecycle == XeenActorLifecycle::Present; })) xeenValidateJourneyMelee(_party);
+        // A retained, guarded opportunity may have published the last able
+        // member's injury. Its suffix must still finish before normal defeat;
+        // quiet admission applies only when starting new work.
+        if(!_regionalWork) {
+		    xeenValidateJourneyParty(_party);
+		    if (std::any_of(s._actors.begin(),s._actors.end(),[&](const XeenActor &a) { return xeenJourneyContent().influences(a.id.recordIndex) && a.lifecycle == XeenActorLifecycle::Present; })) xeenValidateJourneyMelee(_party);
+        }
 	} catch (const std::invalid_argument &e) { _journeyRefusal = e.what(); refused.reason = XeenEncounterStop::Domain; return refused; }
 	_journeyRefusal.clear();
 	const auto boundaryGeneration = _boundary.generation();

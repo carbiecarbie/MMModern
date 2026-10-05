@@ -17,19 +17,20 @@ void equal(const fs::path &left,const fs::path &right) {
     m40_test::equalFields(a,b);
 }
 void independentTrace(const std::vector<std::string> &actual) {
-    // Literal request/value oracle from the accepted plan, independent of
+    // Literal request/value oracle from the pinned single-target poison rule, independent of
     // production draw conversion/generation. Algorithm-1 steps reconstruct raw.
-    const unsigned hi[]{2,47,47,2,40,40,2,42,42,2,60,2,47,47,2,40,40,2,47,47,2,40,40,2,42,42,2,60,2,47,47,2,40,40,2,47,47,2,40,40,2,42,42,2,60,60,2,47,47,2,40,40,2,47,47,2,40,40,2,42,42,2,60,60,2,47,47,2,40,40,50};
-    const unsigned value[]{1,26,44,2,29,21,2,34,23,1,2,1,29,47,2,29,2,1,18,35,1,13,7,2,11,24,1,5,2,11,39,1,20,2,2,19,31,1,7,25,1,7,18,2,52,38,2,45,36,1,24,34,1,11,24,2,34,22,1,5,40,1,50,30,1,29,37,1,15,6,21};
-    static_assert(sizeof(hi)/sizeof(*hi)==71 && sizeof(value)/sizeof(*value)==71);
-    child_test::require(actual.size()==71,"M40 post-stock trace raw-attempt count differs");
-    std::uint32_t raw=3686439625u;std::string canonical;
-    for(unsigned i=0;i<71;++i) {
+    const unsigned lo[]{0,1,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1};
+    const unsigned hi[]{5,2,47,47,47,5,2,40,40,5,2,40,40,5,2,60,50};
+    const unsigned value[]{0,2,42,1,37,1,1,27,23,1,1,5,9,3,1,6,3};
+    static_assert(sizeof(hi)/sizeof(*hi)==17 && sizeof(value)/sizeof(*value)==17 && sizeof(lo)/sizeof(*lo)==17);
+    child_test::require(actual.size()==17,"M40 post-stock trace raw-attempt count differs");
+    std::uint32_t raw=209451284u;std::string canonical;
+    for(unsigned i=0;i<17;++i) {
         raw^=raw<<13;raw^=raw>>17;raw^=raw<<5;
-        const auto line="DRAW 1:"+std::to_string(hi[i])+":"+std::to_string(value[i])+":"+std::to_string(raw)+":"+std::to_string(2110+i);
+        const auto line="DRAW "+std::to_string(lo[i])+":"+std::to_string(hi[i])+":"+std::to_string(value[i])+":"+std::to_string(raw)+":"+std::to_string(2002+i);
         child_test::require(actual[i]==line,"M40 independent request/raw/value trace differs");canonical+=line+'\n';
     }
-    child_test::require(m40_test::sha256({canonical.begin(),canonical.end()})=="cf2803fc50d6165d49bc92c942c1ca77abbc7489707821af72340ec9d8c0f6a1","M40 accepted independent trace digest differs");
+    child_test::require(m40_test::sha256({canonical.begin(),canonical.end()})=="9bf7c1d3a75e17986a0cf37db1c2bb8d0818c609de1c01fdc24d4bf383bb8bed","M40 independent trace digest differs");
 }
 }
 int main(int argc,char **argv) {
@@ -46,7 +47,7 @@ int main(int argc,char **argv) {
             SetEnvironmentVariableW(L"MMODERN_M40_CONTROL",control.empty()?nullptr:fs::path(control).c_str());
             SetEnvironmentVariableW(L"MMODERN_M40_BRANCH",fs::path(branch).c_str());
             std::vector<std::wstring> args;
-            if(source.empty())args={L"--journey-region",L"--combat-seed",L"3626689381",game.wstring(),L"--save-file",save.wstring()};
+            if(source.empty())args={L"--journey-region",L"--combat-seed",L"1114",game.wstring(),L"--save-file",save.wstring()};
             else {fs::copy_file(source,save);args={L"--load-game",game.wstring(),save.wstring()};}
             const auto before=source.empty()?std::vector<std::uint8_t>{}:XeenSaveFormat::encode(XeenSaveFile::read(save));
             const auto result=child_test::launch(exe,args,dir/(name+".log"),false,false,120000);
@@ -85,20 +86,20 @@ int main(int argc,char **argv) {
         const auto a=XeenSaveFile::read(dir/"production-A.mmsave"),b=XeenSaveFile::read(dir/"production-B.mmsave"),
             c=XeenSaveFile::read(dir/"production-C.mmsave"),d=XeenSaveFile::read(dir/"production-D.mmsave"),e=XeenSaveFile::read(dir/"production-E.mmsave");
         child_test::require(a.journey && a.journey->schema==9 && a.journey->content==14 && a.journey->serviceEconomy &&
-            a.journey->context->day==8 && a.journey->context->minutes==584 && a.journey->context->ctr24==2 &&
-            a.journey->treasure->gold==810 && a.characters[6].armor[0].state==128 && a.characters[6].armor[1].state==128 &&
-            a.journey->random->state==2732157854u && a.journey->random->count==1203,"M40 A original-resource checkpoint differs");
-        child_test::require(b.journey->context->day==11 && b.journey->context->minutes==584 && b.journey->treasure->gold==808 &&
-            b.characters[6].armor[0].state==0 && b.characters[6].armor[1].state==128 && b.journey->random->state==3686439625u && b.journey->random->count==2109,"M40 B generating departure checkpoint differs");
-        child_test::require(c.journey->context->day==11 && c.journey->context->minutes==598 && c.journey->context->ctr24==16 &&
-            d.journey->context->day==12 && d.journey->context->minutes==598 && d.journey->treasure->gold==807 && d.characters[6].armor[1].state==0 &&
+            a.journey->context->day==8 && a.journey->context->minutes==805 && a.journey->context->ctr24==14 &&
+            a.journey->treasure->gold==840 && a.characters[6].armor[0].state==128 && a.characters[6].armor[1].state==128 &&
+            a.journey->random->state==1554357486u && a.journey->random->count==1098,"M40 A original-resource checkpoint differs");
+        child_test::require(b.journey->context->day==11 && b.journey->context->minutes==805 && b.journey->treasure->gold==838 &&
+            b.characters[6].armor[0].state==0 && b.characters[6].armor[1].state==128 && b.journey->random->state==209451284u && b.journey->random->count==2001,"M40 B generating departure checkpoint differs");
+        child_test::require(c.journey->context->day==11 && c.journey->context->minutes==819 && c.journey->context->ctr24==4 &&
+            d.journey->context->day==12 && d.journey->context->minutes==819 && d.journey->treasure->gold==837 && d.characters[6].armor[1].state==0 &&
             c.journey->random==d.journey->random,"M40 C/D later navigation/repair checkpoint differs");
-        child_test::require(e.journey->context->day==12 && e.journey->context->minutes==628 && e.journey->context->ctr24==12 &&
-            e.journey->treasure->gold==807 && e.characters[1].currentSp==14 && e.characters[6].currentSp==24 &&
-            e.journey->random->state==2018868320u && e.journey->random->count==2180 && e.journey->vertigoActors->size()==52 &&
+        child_test::require(e.journey->context->day==12 && e.journey->context->minutes==849 && e.journey->context->ctr24==0 &&
+            e.journey->treasure->gold==837 && e.characters[1].currentSp==13 && e.characters[6].currentSp==24 &&
+            e.journey->random->state==1872837752u && e.journey->random->count==2018 && e.journey->vertigoActors->size()==52 &&
             e.journey->vertigoActors->at(36).lifecycle==XeenActorLifecycle::Defeated,"M40 E reset-Slime combat/casting checkpoint differs");
-        child_test::require(m40_test::sha256(m40_test::stockBytes(*a.journey->serviceEconomy))=="39cbe3234d1701fc7859afbb31a5e48f7d41407c75b4fa2364f3ee87c9143b18" &&
-            m40_test::sha256(m40_test::stockBytes(*b.journey->serviceEconomy))=="b2d744b92079134a10dc16c73ef4ec90e738a5b7d46b8e90229c5f240b9d6cc9" &&
+        child_test::require(m40_test::sha256(m40_test::stockBytes(*a.journey->serviceEconomy))=="fa7ccbf983b0bd8ef1ecce7cd09b301cbbfe431996ee921f72d67d2546f260de" &&
+            m40_test::sha256(m40_test::stockBytes(*b.journey->serviceEconomy))=="29dc85d364a0c9c0fe1d8c496b51690a66215ae9672c0d104b71ed0fe987bb50" &&
             b.journey->serviceEconomy==e.journey->serviceEconomy,"M40 independent stock hash/retention differs");
         independentTrace(drawsAfter(dir/"production.log","M40 CHECKPOINT D "));
         for(const std::string label:{"A","B","C","D","E"}) {

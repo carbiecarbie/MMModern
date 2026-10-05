@@ -2,6 +2,7 @@
 #define MMODERN_FORMATS_XEEN_MONSTER_APPEARANCE_H
 #include <cstdint>
 #include "games/xeen/XeenRecordIdentity.h"
+#include "games/xeen/XeenActor.h"
 #include <optional>
 #include <array>
 #include <vector>
@@ -51,6 +52,8 @@ struct XeenMonsterAppearance {
 	std::optional<XeenMonsterIdentity> identity;
 	std::optional<XeenProjectileAppearance> projectile;
  std::vector<XeenProjectileAppearance> projectiles;
+ // Disposable bound image for the acknowledged post-HP, pre-removal frame.
+ std::optional<XeenActor> impactSnapshot;
 	XeenMonsterAppearance(std::uint8_t normalFrame = 0) : frame(normalFrame) {}
 	XeenMonsterAppearance(XeenMonsterSpriteKind k, std::uint8_t f) : kind(k), frame(f) {}
 	constexpr bool valid() const {

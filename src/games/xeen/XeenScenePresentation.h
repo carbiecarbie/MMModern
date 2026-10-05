@@ -132,7 +132,7 @@ public:
 		if (_lastAttack && *_lastAttack==key) return;
 		_lastAttack=key;
 		const auto i=_actors.find(*value.identity);
-		if (i!=_actors.end()) {i->second.animation.frame=8+value.frame;i->second.animation.postAttackDelay=1;}
+		if (i!=_actors.end()) {i->second.animation.frame=8+value.frame;i->second.animation.postAttackDelay=value.frame==3?5:1;}
 	}
 	void advance(XeenMapIdentity map) {
 		overallFrame=(overallFrame+1)%5;floatPhase=(floatPhase+1)%8;++wallPhase;

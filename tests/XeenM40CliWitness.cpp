@@ -8,6 +8,8 @@
 #include "games/xeen/XeenCharacterRules.h"
 #include "XeenRestoreReplayProbe.h"
 #include "XeenM40Evidence.h"
+#include "XeenM42Evidence.h"
+#include "XeenM49CombatSupport.h"
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 #include <cstdlib>
@@ -148,7 +150,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         check(flow && world && party && position && flags && target,"M40 production owners absent");
         check(world->sessionState().journey() && party->serviceEconomy,"M40 witness content/economy differs");
         std::deque<std::function<bool()>> steps;std::optional<IndexedFrame> next;IndexedFrame::Presentation presented;
-        bool shown=false,acted=false,breakArmor=false;unsigned blocks=0,iterations=0;
+        bool shown=false,acted=false,breakArmor=false;unsigned blocks=0,openingAttacks=0,iterations=0;
         const auto snapshot=[&]{return XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world);};
         const auto exact=[&](const XeenSaveSnapshot &expected) {
             const auto actual=snapshot();m40_test::equalFields(expected,actual);
@@ -176,18 +178,20 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         const auto action=[&](PlayerAction a) {steps.push_back([&,a]{act(a);return true;});};
         const auto inspect=[&](std::function<void()> fn){steps.push_back([fn]{fn();return true;});};
         const auto combat=[&]()->const XeenCombat *{return flow->encounter()->combat();};
-        const auto settle=[&]{steps.push_back([&] {
+        const auto settleStep=[&] {
             if(flow->canSave())return true;
             if(const auto c=combat()) {
                 check(c->phase()!=XeenCombatPhase::Failed && c->phase()!=XeenCombatPhase::Defeat && c->phase()!=XeenCombatPhase::SupportStopped,"M40 combat support stop");
-                if(const auto casting=c->cast()){if(casting->phase==XeenCombatCastPhase::Result)act(AcknowledgeAction{});}
+                if(const auto casting=c->cast()){if(const auto input=m49_combat::finishAwaken(*casting,*party))act(*input);}
                 else if(c->phase()==XeenCombatPhase::PlayerReady) {
-                    if(breakArmor && !(party->roster.at(6).armor[0].state&128)){++blocks;act(BlockAction{});}else act(AttackAction{});
+                    if(m49_combat::canAwaken(*party,c->participant()))act(CastSpellAction{});
+                    else if(breakArmor && !(party->roster.at(6).armor[0].state&128) && openingAttacks++>=1){++blocks;act(BlockAction{});}else act(AttackAction{});
                 }
             } else if(world->sessionState().journeyActivity()==XeenJourneyActivity::Event || world->sessionState().journeyActivity()==XeenJourneyActivity::Reward)act(AcknowledgeAction{});
             check(flow->encounter()->state().phase()!=XeenEncounterPhase::SupportStopped,"M40 exploration/service support stop");
             return false;
-        });};
+        };
+        const auto settle=[&]{steps.push_back(settleStep);};
         const auto route=[&](const std::string &path,bool drainLast=true) {
             for(unsigned i=0;i<path.size();++i) {
                 switch(path[i]) {
@@ -218,6 +222,8 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             });
         };
         const auto expectDate=[&](unsigned day,unsigned minute,unsigned ctr,std::uint32_t state,std::uint64_t count,std::uint32_t gold) {
+            std::cout<<"M49 CHECK actual "<<party->encounterContext->year<<":"<<party->encounterContext->day<<":"<<party->encounterContext->minutes<<":"<<party->encounterContext->ctr24<<" "<<world->sessionState().journeyRandom()->state<<":"<<world->sessionState().journeyRandom()->count<<" "<<party->monsterTreasure->gold
+                <<" expected "<<day<<":"<<minute<<":"<<ctr<<" "<<state<<":"<<count<<" "<<gold<<'\n';
             check(party->encounterContext->year==610 && party->encounterContext->day==day && party->encounterContext->minutes==minute && party->encounterContext->ctr24==ctr &&
                 world->sessionState().journeyRandom()->state==state && world->sessionState().journeyRandom()->count==count && party->monsterTreasure->gold==gold,"M40 literal checkpoint date/purse/RNG differs");
         };
@@ -267,7 +273,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             settle();
             inspect([&,before,slot,goldAfter] {
                 before->characters[6].armor[slot].state=0;before->journey->treasure->gold=goldAfter;++before->journey->context->day;
-                if(slot==0){before->journey->serviceEconomy=snapshot().journey->serviceEconomy;before->journey->random=XeenJourneyRandomState{1,3686439625u,2109};}
+                if(slot==0){before->journey->serviceEconomy=snapshot().journey->serviceEconomy;before->journey->random=XeenJourneyRandomState{1,209451284u,2001};}
                 exact(*before);
             });
         };
@@ -278,22 +284,39 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     !replay_test::timePreparations && !replay_test::eventExecutions && !replay_test::transfers && !replay_test::equipmentChanges && !interestOperations && !bankInputCalls,"M40 pre-input restore replayed initialization/time/service/spell/RNG");
                 exact(XeenSaveFile::read(*target));std::cout<<"M40 RESTORE EXACT BEFORE INPUT\n";
             }else {
-                check(seed==3626689381u,"M40 witness requires normal fresh chosen seed");
-                expectDate(8,480,0,7,886,800);
+                check(seed==1114u,"M40 witness requires normal fresh chosen seed");
+                expectDate(8,480,0,2973719345u,875,800);
                 check(party->monsterTreasure->gems==10 && party->serviceEconomy->bank.gold==0 && party->serviceEconomy->bank.gems==0 && !interestOperations && bankInputCalls==1 &&
-                    m40_test::sha256(m40_test::stockBytes(*party->serviceEconomy))=="39cbe3234d1701fc7859afbb31a5e48f7d41407c75b4fa2364f3ee87c9143b18","M40 fresh economy literal oracle differs");
+                    m40_test::sha256(m40_test::stockBytes(*party->serviceEconomy))=="fa7ccbf983b0bd8ef1ecce7cd09b301cbbfe431996ee921f72d67d2546f260de","M40 fresh economy literal oracle differs");
                 std::cout<<"M40 FRESH GENERATED ECONOMY EXACT\n";
             }
         });
-        if(!resume) {
-            route("UFUDD");inspect([&]{check(party->monsterTreasure->gold==810 && world->sessionState().actors().at(9).lifecycle==XeenActorLifecycle::Defeated,"M40 earned Orc gold absent");});
-            route("LLULUU");action(InteractionAction{});action(YesAction{});settle();
-            inspect([&]{breakArmor=true;});route("URULUUULUUU");
-            inspect([&]{breakArmor=false;check(blocks==39 && party->roster.at(6).currentHp==-11 && party->roster.at(6).armor[0].state==128 &&
-                party->roster.at(6).armor[1].state==128 && party->encounterContext->minutes==577,"M40 natural armor-break input route differs");});
-            for(unsigned i=0;i<2;++i){action(CastSpellAction{});action(SelectMemberAction{4});action(NavigationAction::MoveBackward);action(AcknowledgeAction{});action(AcknowledgeAction{});action(SelectMemberAction{5});settle();}
-            route("UUUUU");inspect([&]{expectDate(8,584,2,2732157854u,1203,810);check(party->roster.at(6).currentHp==1 && party->roster.at(1).currentSp==19,"M40 genuine First Aid preparation differs");});checkpoint("A");
-        }
+  if(!resume) {
+   // Earn physical critical injury on the reachable mainland, with the
+   // original well and learned Awaken, instead of the old party-wide Slime bug.
+   route("RRRUUURUURRRU");
+   for(unsigned member=0;member<5;++member){action(InteractionAction{});action(SelectMemberAction{member});settle();}
+   inspect([&]{breakArmor=true;});route("RUULUUU");
+   inspect([&]{breakArmor=false;
+    std::cout<<"M49 ARMOR HP="<<party->roster.at(6).currentHp<<" states="<<unsigned(party->roster.at(6).armor[0].state)<<":"<<unsigned(party->roster.at(6).armor[1].state)<<" dead="<<unsigned(party->roster.at(6).conditions[13])<<" blocks="<<blocks<<'\n';
+    check(blocks==0 && party->roster.at(6).currentHp==-11 && party->roster.at(6).armor[0].state==128 && party->roster.at(6).armor[1].state==128 &&
+      !party->roster.at(6).conditions[13],"M49 ordinary combat did not earn recoverable Seymour armor injury");});
+   steps.push_back([&]{if(!flow->canSave()){settleStep();return false;}
+    if(const auto input=m49_combat::toward(*world,*position,9,11,XeenDirection::West)){act(*input);return false;}return true;});
+   route("UFUDD");
+   inspect([&]{std::cout<<"M49 EARNED PURSE "<<party->monsterTreasure->gold<<'\n';check(party->monsterTreasure->gold==840,"M40 production earned gold mismatch");});
+   route("LLULUU");action(InteractionAction{});action(YesAction{});settle();
+   route("URULUUULUUU");
+   for(unsigned i=0;i<2;++i) {
+    action(CastSpellAction{});action(SelectMemberAction{4});action(NavigationAction::MoveBackward);
+    action(AcknowledgeAction{});action(AcknowledgeAction{});action(SelectMemberAction{5});settle();
+   }
+   inspect([&]{std::cout<<"M49 FIRST AID HP="<<party->roster.at(6).currentHp<<" SP="<<party->roster.at(1).currentSp<<" minute="<<party->encounterContext->minutes<<" RNG="<<world->sessionState().journeyRandom()->state<<":"<<world->sessionState().journeyRandom()->count<<'\n';
+    check(party->roster.at(6).currentHp==1 && party->roster.at(1).currentSp==18 &&
+    party->encounterContext->minutes==800,"M40 First Aid witness mismatch");});
+   route("UUUUU");inspect([&]{check(position->x==8 && position->y==4 && party->encounterContext->minutes==805,"M40 five-cell corridor endpoint/time");
+    expectDate(8,805,14,1554357486u,1098,840);});checkpoint("A");
+  }
         if(branch=="empty") {
             const auto generatingEmpty=[&](bool firstGeneration) {
                 auto before=std::make_shared<XeenSaveSnapshot>();auto operations=std::make_shared<unsigned>();auto publications=std::make_shared<unsigned>();
@@ -329,9 +352,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                         m40_test::stockBytes(*after.journey->serviceEconomy)!=m40_test::stockBytes(*before->journey->serviceEconomy),"M40 later trigger did not regenerate stock/RNG");
                     ++before->journey->context->day;before->journey->random=after.journey->random;before->journey->serviceEconomy=after.journey->serviceEconomy;
                     exact(*before);
-                    if(firstGeneration) {expectDate(11,584,2,3686439625u,2109,810);check(m40_test::sha256(m40_test::stockBytes(*party->serviceEconomy))==
-                        "b2d744b92079134a10dc16c73ef4ec90e738a5b7d46b8e90229c5f240b9d6cc9","M40 empty10->11 stock literal oracle differs");}
-                    check(party->roster.at(6).armor[0].state==128 && party->roster.at(6).armor[1].state==128 && party->monsterTreasure->gold==810,
+                    if(firstGeneration) {expectDate(11,805,14,209451284u,2001,840);check(m40_test::sha256(m40_test::stockBytes(*party->serviceEconomy))==
+                        "29dc85d364a0c9c0fe1d8c496b51690a66215ae9672c0d104b71ed0fe987bb50","M40 empty10->11 stock literal oracle differs");}
+                    check(party->roster.at(6).armor[0].state==128 && party->roster.at(6).armor[1].state==128 && party->monsterTreasure->gold==840,
                         "M40 zero-transaction service repaired/debited carried purse");
                 });
             };
@@ -340,16 +363,16 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             if(stage!="empty21") {generatingEmpty(false);checkpoint("empty21");}
             route("LR");checkpoint("continued");
         } else {
-        if(!resume || stage=="A") {emptyVisit();emptyVisit();repair(0,808);
-            inspect([&]{expectDate(11,584,2,3686439625u,2109,808);check(interestOperations==(control=="fail-bank-prepared"?2u:1u) && committedInterestOperations==1 &&
-                m40_test::sha256(m40_test::stockBytes(*party->serviceEconomy))=="b2d744b92079134a10dc16c73ef4ec90e738a5b7d46b8e90229c5f240b9d6cc9" &&
+        if(!resume || stage=="A") {emptyVisit();emptyVisit();repair(0,838);
+            inspect([&]{expectDate(11,805,14,209451284u,2001,838);check(interestOperations==(control=="fail-bank-prepared"?2u:1u) && committedInterestOperations==1 &&
+                m40_test::sha256(m40_test::stockBytes(*party->serviceEconomy))=="29dc85d364a0c9c0fe1d8c496b51690a66215ae9672c0d104b71ed0fe987bb50" &&
                 party->serviceEconomy->bank.gold==0 && party->serviceEconomy->bank.gems==0 && party->roster.at(6).armor[1].state==128,"M40 10->11 restock/interest literal oracle differs");
                 });checkpoint("B");}
-        if(!resume || stage=="A" || stage=="B") {route("DDDDDDDUUUUUUU");inspect([&]{expectDate(11,598,16,3686439625u,2109,808);});checkpoint("C");}
-        if(!resume || stage=="A" || stage=="B" || stage=="C") {repair(1,807);inspect([&]{expectDate(12,598,16,3686439625u,2109,807);});checkpoint("D");}
+        if(!resume || stage=="A" || stage=="B") {route("DDDDDDDUUUUUUU");inspect([&]{expectDate(11,819,4,209451284u,2001,838);});checkpoint("C");}
+        if(!resume || stage=="A" || stage=="B" || stage=="C") {repair(1,837);inspect([&]{expectDate(12,819,4,209451284u,2001,837);});checkpoint("D");}
         if(stage!="E") {
             for(unsigned i=0;i<4;++i){action(CastSpellAction{});action(SelectMemberAction{4});action(NavigationAction::MoveBackward);action(AcknowledgeAction{});action(AcknowledgeAction{});action(SelectMemberAction{i<3?5u:4u});settle();}
-            inspect([&]{expectDate(12,602,16,3686439625u,2109,807);check(party->roster.at(1).currentSp==15 && party->roster.at(6).currentSp==27,"M40 post-service exploration First Aid differs");});
+            inspect([&]{expectDate(12,823,4,209451284u,2001,837);check(party->roster.at(1).currentSp==14 && party->roster.at(6).currentSp==27,"M40 post-service exploration First Aid differs");});
             route("DDDDDDDLUUUU");action(InteractionAction{});action(YesAction{});settle();route("LLU");action(InteractionAction{});action(YesAction{});settle();route("URULU",false);
             if(branch=="clock") steps.push_back([&] {
                 if(clockArmed && faultFired)return true;
@@ -392,13 +415,13 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 return false;
             });
             inspect([&] {
-                expectDate(12,628,12,2018868320u,2180,807);
+                expectDate(12,849,0,1872837752u,2018,837);
                 check(position->mapId==XeenMapIdentity(28) && position->x==16 && position->y==2 && position->direction==XeenDirection::North &&
-                    party->roster.at(1).currentSp==14 && party->roster.at(6).currentSp==24 && world->sessionState().regionalActors(28).size()==52 &&
+                    party->roster.at(1).currentSp==13 && party->roster.at(6).currentSp==24 && world->sessionState().regionalActors(28).size()==52 &&
                     world->sessionState().regionalActors(28).at(36).lifecycle==XeenActorLifecycle::Defeated && world->sessionState().disabledEvents().count({28,764}),"M40 E actor/reset/SP/camera differs");
-                const int hp[]{10,11,4,29,3,13};const unsigned owners[]{0,18,14,11,1,6};
+                const int hp[]{48,55,29,60,46,15};const unsigned owners[]{0,18,14,11,1,6};
                 for(unsigned i=0;i<6;++i){check(party->roster.at(owners[i]).currentHp==hp[i],"M40 E survival HP differs");for(const auto &condition:party->roster.at(owners[i]).conditions)check(condition==0,"M40 E condition differs");}
-                check(m40_test::sha256(m40_test::stockBytes(*party->serviceEconomy))=="b2d744b92079134a10dc16c73ef4ec90e738a5b7d46b8e90229c5f240b9d6cc9" && party->serviceEconomy->bank.gold==0 && party->serviceEconomy->bank.gems==0,"M40 E retained economy differs");
+                check(m40_test::sha256(m40_test::stockBytes(*party->serviceEconomy))=="29dc85d364a0c9c0fe1d8c496b51690a66215ae9672c0d104b71ed0fe987bb50" && party->serviceEconomy->bank.gold==0 && party->serviceEconomy->bank.gems==0,"M40 E retained economy differs");
             });checkpoint("E");
         }
         route("LR");checkpoint("continued");
@@ -449,10 +472,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         }
         if(control.rfind("upload-",0)==0 || control.rfind("copy-",0)==0) {
             check(faultFired && nativeFailed && !ok && !flow->canSave(),"M40 native failure exposed Quiet");
-            check(party->monsterTreasure->gold==(control.find("admission")!=std::string::npos?810u:808u) &&
+            check(party->monsterTreasure->gold==(control.find("admission")!=std::string::npos?840u:838u) &&
                 party->encounterContext->day==(control.find("departure")!=std::string::npos?11:10),"M40 native failure refunded/replayed repair/departure prefix");
-            if(control.find("departure")!=std::string::npos)check(world->sessionState().journeyRandom()->count==2109 &&
-                m40_test::sha256(m40_test::stockBytes(*party->serviceEconomy))=="b2d744b92079134a10dc16c73ef4ec90e738a5b7d46b8e90229c5f240b9d6cc9","M40 native failure repeated/dropped stock/RNG prefix");
+            if(control.find("departure")!=std::string::npos)check(world->sessionState().journeyRandom()->count==2001 &&
+                m40_test::sha256(m40_test::stockBytes(*party->serviceEconomy))=="29dc85d364a0c9c0fe1d8c496b51690a66215ae9672c0d104b71ed0fe987bb50","M40 native failure repeated/dropped stock/RNG prefix");
             const auto providers=providerCalls,saves=saveCalls;handler.withDisplayedInput(SaveGameAction{},handler.displayedInput().value_or(0));
             check(providers==providerCalls && saves==saveCalls,"M40 failed native-state F9 reached provider/path/I/O");
             std::cout<<"M40 NATIVE FAILURE PRESERVATION PASSED\n";

@@ -238,9 +238,8 @@ std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::actorCommands(
 			const auto &actor=*found;
 			const bool special=appearance.kind==XeenMonsterSpriteKind::Attack &&
 				(appearance.identity ? *appearance.identity==actor.id : view.slots[0]==actor.id);
-			if (special && g.query!=2) throw std::invalid_argument("Attack appearance requires same-cell placement");
 			XeenOutdoorDrawCommand c;
-			c.sampleIndex=g.query; c.originalOrder=special ? 121 : g.orders[i];
+			c.sampleIndex=g.query; c.originalOrder=special && g.query==2 ? 121 : g.orders[i];
 			c.x=count==2 && i<2 ? g.pair[i] : g.xs[i]; c.y=g.y;
 			c.sourceMapId=actor.id.mapId; c.sourceX=actor.x; c.sourceY=actor.y;
 			XeenOutdoorActorDraw draw{actor.id,actor.statistics->image(),

@@ -13,6 +13,7 @@ namespace mmodern {
 struct XeenCombatPresentationTestAccess {
  static void observe(XeenEncounterFlow &flow,std::shared_ptr<const XeenRegionalObservation> shots) {flow.observeRanged(std::move(shots));}
  static bool animate(XeenEncounterFlow &flow) {return flow.animateProjectiles();}
+ static void presented(XeenEncounterFlow &flow) {flow.projectilesPresented();}
 };
 }
 namespace {
@@ -77,12 +78,12 @@ int main(int argc,char **argv) {try {
  XeenProjectileAppearance enemyNear{true,0,0,1,{}},enemyFar{true,2,1,3,{}};
  enemyNear.advance();enemyFar.advance();check(!enemyNear.active&&enemyFar.row==1&&enemyFar.active,"Mixed-distance enemy batch advanced sequentially");
  Fixture fixture;const auto before=XeenSaveFormat::encode(fixture.snapshot());auto &fx=fixture.w.scenePresentation();
- // Published injury receipts drive feedback even for off-camera sources and
- // attacks beyond the six visible lanes. A miss has no injury receipt; a
- // zero-damage injury still has one. No damage calculation is part of this seam.
+ // Travel never publishes or flashes an injury. Each prepared injury has its
+ // own portrait phase, including off-camera sources and omitted visible lanes.
  std::uint64_t now=0;fixture.clock=[&]{return now;};
  for(unsigned facing=0;facing<4;++facing) {
   fx.portraits={};auto shots=std::make_shared<XeenRegionalObservation>();shots->count=8;
+  shots->stage=XeenRegionalObservation::Stage::Travel;
   for(unsigned i=0;i<shots->count;++i) {
    auto &shot=shots->shots[i];shot.source={23,i};shot.direction=static_cast<XeenDirection>(facing);shot.distance=3;
    if(i<6) {shot.attack.injuryCount=1;shot.attack.injuries[0].owner=kXeenCombatOwners[i];}
@@ -91,15 +92,15 @@ int main(int argc,char **argv) {try {
   const auto lanes=fixture.flow->appearance().projectiles;
   check(lanes.size()==(fixture.camera.direction==static_cast<XeenDirection>(facing)?6u:0u),"Off-camera source emitted a visible lane");
   for(unsigned owner=0;owner<30;++owner) {
-   const bool injured=std::find(kXeenCombatOwners.begin(),kXeenCombatOwners.end(),owner)!=kXeenCombatOwners.end();
-   check(fx.portraits[owner].damageTicks==unsigned(injured),"Published off-camera/zero-damage injury lost portrait feedback or miss flashed");
+   check(!fx.portraits[owner].damageTicks,"Travel flashed damage before portrait phase");
   }
   // The seventh/eighth front-facing shots are omitted visually, but still
   // consume their own published injury receipts (distinct roster recipients).
-  shots=std::make_shared<XeenRegionalObservation>(*shots);
-  shots->shots[6].attack.injuryCount=1;shots->shots[6].attack.injuries[0].owner=29;
-  XeenCombatPresentationTestAccess::observe(*fixture.flow,shots);
+  auto impact=std::make_shared<XeenRegionalObservation>();impact->stage=XeenRegionalObservation::Stage::Portrait;
+  impact->impactSource=XeenMonsterIdentity{23,6};impact->impactOwner=29;
+  XeenCombatPresentationTestAccess::observe(*fixture.flow,impact);
   check(fx.portraits[29].damageTicks==1,"Lane-cap omission suppressed published injury");
+  XeenCombatPresentationTestAccess::presented(*fixture.flow);
   now+=100;fx.advanceFeedback(now);XeenCombatPresentationTestAccess::animate(*fixture.flow);
   for(const auto &p:fx.portraits)check(!p.damageTicks,"Projectile animation restarted published injury feedback");
  }

@@ -4,6 +4,62 @@
 #include <iostream>
 using namespace regional_combat_test;
 using regional_combat_test::RegionalCombatFixture;
+namespace mmodern {
+struct XeenCombatRotationTestAccess {
+    // Artificial clock arrangement; no party, actor, RNG or save-state injection.
+    static void arm(XeenCombat &c,unsigned n=3) {c.countdownForScheduling().arm(n);}
+    static XeenCombatResult beat(XeenCombat &c,std::uint64_t now) {return c.drawBeat(c.ticket(),now);}
+};
+}
+void rotations() {
+    XeenMovementCountdown clock;clock.arm();
+    check(!clock.advance(0,false,false) && !clock.advance(0,true,true) && clock.remaining()==3,"Suspended draw decremented movement countdown");
+    check(!clock.advance(0,true,false) && clock.remaining()==2,"First qualifying beat");
+    check(!clock.advance(0,true,false) && !clock.advance(99,true,false) && clock.remaining()==2,"Duplicate/early beat decremented countdown");
+    check(!clock.advance(100,true,false) && clock.remaining()==1 && clock.advance(200,true,false) && !clock.remaining(),"Three qualifying beats owe exactly one movement");
+    check(!clock.advance(300,true,false),"Completed countdown repeated movement");
+    for(unsigned facing=0;facing<4;++facing)for(auto direction:{NavigationAction::TurnLeft,NavigationAction::TurnRight}) {
+        RegionalCombatFixture f;f.enter();
+        while(unsigned(f.camera.direction)!=facing)check(f.combat->rotate(f.combat->ticket(),NavigationAction::TurnRight).status==Status::Advanced,"Initial guarded facing");
+        const auto member=f.combat->participant();const auto context=f.p.encounterContext;
+        const auto cursor=f.combat->random().continuation();const auto original=f.combat->selectedTarget();
+        const auto hp=f.p.roster.at(kXeenCombatOwners[member]).currentHp;
+        auto old=f.combat->ticket();
+        for(unsigned repeat=0;repeat<8;++repeat) {
+            const auto before=unsigned(f.camera.direction);
+            const auto result=f.combat->rotate(f.combat->ticket(),direction);
+            check(result.status==Status::Advanced && unsigned(f.camera.direction)==(before+(direction==NavigationAction::TurnLeft?3:1))%4,"Guarded left/right modulo four");
+            check(f.combat->participant()==member && f.combat->phase()==Phase::PlayerReady && f.combat->selectedTarget()==original && f.combat->stepped(),"Rotation consumed acting member/target or omitted party-stepped");
+            check(f.p.encounterContext==context && f.combat->random().continuation()==cursor && f.p.roster.at(kXeenCombatOwners[member]).currentHp==hp,"No-countdown rotation charged time, RNG or HP");
+        }
+        check(f.combat->rotate(old,direction).status==Status::Stale,"Old rotation ticket replayed");
+        check(f.combat->rotate(f.combat->ticket(),NavigationAction::MoveForward).status==Status::Refused,"Combat translation admitted as rotation");
+        f.action(Command::Block);check(f.combat->participant()==1,"Rotation altered acted/initiative state");
+    }
+    RegionalCombatFixture timer;timer.enter();const auto time=timer.p.encounterContext;
+    const auto rng=timer.combat->random().continuation();const auto member=timer.combat->participant();
+    XeenCombatRotationTestAccess::arm(*timer.combat);
+    check(timer.combat->phase()==Phase::PlayerReady && timer.combat->movementCountdown()==3,"PlayerReady must permit nonzero countdown");
+    XeenCombatRotationTestAccess::beat(*timer.combat,0);XeenCombatRotationTestAccess::beat(*timer.combat,0);
+    check(timer.combat->movementCountdown()==2,"Same owner beat advanced twice");
+    const auto lease=timer.flow->boundary().hold(XeenCombatBoundary::Work::Inventory);
+    check(XeenCombatRotationTestAccess::beat(*timer.combat,100).status==Status::Refused && timer.combat->movementCountdown()==2,"Dialog mode advanced movement countdown");
+    timer.flow->boundary().release(XeenCombatBoundary::Work::Inventory,lease);
+    XeenCombatRotationTestAccess::beat(*timer.combat,100);const auto beforeDue=timer.combat->ticket();
+    check(XeenCombatRotationTestAccess::beat(*timer.combat,200).status==Status::Advanced && !timer.combat->movementCountdown() && timer.combat->participant()==member,"Draw countdown lost acting member or repeated movement");
+    check(timer.p.encounterContext==time && timer.combat->random().continuation()==rng && !timer.combat->current(beforeDue),"Countdown mixed round charge/RNG or retained consumed authority");
+    RegionalCombatFixture flush;flush.enter();XeenCombatRotationTestAccess::arm(*flush.combat);
+    const auto participant=flush.combat->participant();const auto minutes=flush.p.encounterContext;
+    check(flush.combat->rotate(flush.combat->ticket(),NavigationAction::TurnLeft).status==Status::Pending && flush.combat->pending()==Work::Movement && !flush.combat->stepped(),"Rotation did not serialize owed movement");
+    check(flush.service().status==Status::Advanced && flush.combat->stepped() && flush.combat->participant()==participant && flush.p.encounterContext==minutes,"Rotation flush consumed member/time or omitted stepped");
+    const auto settled=flush.combat->ticket();check(flush.combat->service(settled).status==Status::Refused,"Blocked same-cell mover replayed flush");
+    RegionalCombatFixture tampered;tampered.enter();const auto ticket=tampered.combat->ticket();
+    tampered.camera.direction=XeenDirection::North;
+    check(tampered.combat->rotate(ticket,NavigationAction::TurnRight).status==Status::Stale && tampered.combat->phase()==Phase::Failed,"Unauthorized camera change adopted by rotation");
+    RegionalCombatFixture reentrant;reentrant.enter();unsigned calls=0;
+    reentrant.combat->setProbe([&]{++calls;check(reentrant.combat->rotate(reentrant.combat->ticket(),NavigationAction::TurnRight).status==Status::Refused,"Reentrant rotation published");});
+    check(reentrant.combat->rotate(reentrant.combat->ticket(),NavigationAction::TurnRight).status==Status::Advanced && calls,"Outer guarded rotation failed");
+}
 void inputsAndOwnership() {
 	auto b=chr();const auto base=29*354;
 	for(auto offset:{20,21,28,29,30,31,34})b[base+offset]=255;
@@ -147,4 +203,4 @@ void handoffAndObservation() {
 			check(f.combat->phase()==Phase::Failed&&f.w.sessionState().actors()[5].hp==0&&f.p.roster.combatInputs(0)->experience==82,"PendingEnd failure retains accounting without false Victory");}
 	}
 }
-int main(){try{inputsAndOwnership();preparation();randomAndFailures();timeBoundary();resourceContinuation();handoffAndObservation();std::cout<<"Combat ownership, preparation, continuations, failures and time boundaries passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(){try{rotations();inputsAndOwnership();preparation();randomAndFailures();timeBoundary();resourceContinuation();handoffAndObservation();std::cout<<"Combat rotation, ownership, preparation, continuations, failures and time boundaries passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

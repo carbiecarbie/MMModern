@@ -32,7 +32,7 @@ int main(int argc,char **argv) {
         check(fresh.exit==0 && fresh.output.find("M41 PRODUCTION WITNESS PASSED")!=std::string::npos,"M41 fresh witness failed");
         const auto a=XeenSaveFile::read(directory/"fresh-A.mmsave"),b=XeenSaveFile::read(directory/"fresh-B.mmsave");
         const auto bytes=m40_test::stockBytes(*b.journey->serviceEconomy);
-        check(crc32(0,bytes.data(),bytes.size())==0x79dec2de,"M41 stock literal CRC mismatch");
+        check(crc32(0,bytes.data(),bytes.size())==0x7b58546c,"M41 stock literal CRC mismatch");
         // Independent detached repeated-one-day continuation from complete A,
         // compared to every byte and draw/request trace from the production path.
         XeenServiceDayCandidate member1(*a.journey->context,*a.journey->serviceEconomy,*a.journey->random);

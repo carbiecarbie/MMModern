@@ -164,7 +164,8 @@ void combatQueue(Inputs &in,bool mouse=false) {
     const auto ticket=combat->ticket();XeenRestoreGuard guard(*h.world,*h.party,*h.camera,*h.flags);
     const auto sky=h.world->scenePresentation().sky;std::string notice;
     h.flow->reportText=[&](const auto &text){notice=text;};
-    for(auto movement:{NavigationAction::TurnLeft,NavigationAction::TurnRight,NavigationAction::MoveForward,NavigationAction::MoveBackward}) {
+    // M49 admits combat rotation; translations retain their refusal contract.
+    for(auto movement:{NavigationAction::MoveForward,NavigationAction::MoveBackward}) {
      act(movement);check(notice=="Combat movement: not supported yet"&&combat->current(ticket)&&guard.current()&&h.world->scenePresentation().sky==sky,"Combat movement notice changed state");
     }
     h.flow->reportText={};

@@ -120,6 +120,8 @@ public:
         if(_combat && _combat->cast() && _castProjectile && _castProjectile->active)
             result.projectiles.push_back(*_castProjectile);
         for(const auto &p:_projectiles) if(p.active) result.projectiles.push_back(p);
+        if(_combat)result.impactSnapshot=_combat->castImpactSnapshot();
+        if(_shoot && _shoot->stage==XeenShootCandidate::Stage::PostImpact)result.impactSnapshot=_shoot->bound;
         if(!result.projectiles.empty()) result.projectile=result.projectiles.front();
 		return result;
 	}
@@ -279,6 +281,7 @@ private:
 	std::uint64_t _projectileDeadline=0;
 	std::shared_ptr<const XeenRegionalObservation> _rangedObservation;
 	void observeRanged(std::shared_ptr<const XeenRegionalObservation>);
+    void projectilesPresented();
 	bool animateProjectiles();
 	bool projectilesPending() const noexcept { for(const auto &p:_projectiles)if(p.active)return true;return false; }
 	std::optional<XeenMonsterDeliveryCandidate> _monsterReceipt;

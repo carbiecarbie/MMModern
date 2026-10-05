@@ -1,5 +1,5 @@
 // Adapted from ScummVM developers (upstream COPYRIGHT), GPL-3.0-or-later.
-// Pin 6814ee9ba54582f5b5adcffab49efbbd8f589edd, character.cpp and constants.cpp.
+// Pin 6814ee9ba54582f5b5adcffab49efbbd8f589edd, combat.cpp, character.cpp and constants.cpp.
 #include "games/xeen/XeenCombatRules.h"
 #include "games/xeen/XeenCharacterRules.h"
 #include <limits>
@@ -75,9 +75,39 @@ bool XeenRunCandidate::service(XeenConsequenceDraw &draw) {
 	}
 	return roll!=0;
 }
+XeenMonsterTargetCandidate::XeenMonsterTargetCandidate(const XeenConsequenceCharacters &characters,
+        unsigned hatred,unsigned participantMask) {
+    ruleRequire(participantMask<=0x3f,"Invalid combat participation mask");
+    for(unsigned i=0;i<6;++i)if(participantMask&(1u<<i)) {
+        participants[count++]=i;
+        if(xeenCombatTargetable(characters[i])) {
+            eligible[eligibleCount++]=i;
+            const bool hated=(hatred<10 && hatred!=1 && unsigned(characters[i].characterClass)==hatred) ||
+                (hatred==unsigned(XeenMonsterHatred::Dwarf) && characters[i].race==XeenRace::Dwarf);
+            if(preferred==6 && hated)preferred=i;
+        }
+    }
+    if(hatred==unsigned(XeenMonsterHatred::Party)) {mask=participantMask;step=Step::Done;}
+    else if(!count)step=Step::Done;
+}
+bool XeenMonsterTargetCandidate::service(XeenConsequenceDraw &draw) {
+    while(step!=Step::Done && draw.remaining) {
+        if(step==Step::Target) {
+            unsigned target=preferred;
+            if(target==6) {const auto n=draw.draw(0,count-1);if(!n)continue;target=participants[*n];}
+            if(std::find(eligible.begin(),eligible.begin()+eligibleCount,target)!=eligible.begin()+eligibleCount) {
+                mask=1u<<target;step=Step::Done;
+            } else step=Step::Fallback;
+        } else {
+            if(!eligibleCount) {step=Step::Done;continue;}
+            const auto n=draw.draw(0,eligibleCount-1);if(n){mask=1u<<eligible[*n];step=Step::Done;}
+        }
+    }
+    return step==Step::Done;
+}
 XeenEnemyAttackCandidate::XeenEnemyAttackCandidate(const XeenConsequenceCharacters &c,
 		const XeenConsequenceInputs &i, const XeenMonsterRecord &m, unsigned y, unsigned mask, const std::array<bool,6> &b) :
-		characters(c), inputs(i), monster(m), year(y), blocked(b), allParty(m.preferredClass()==16) {
+		characters(c), inputs(i), monster(m), year(y), blocked(b), allParty(m.hatred()==unsigned(XeenMonsterHatred::Party)) {
 	poison=m.raw[29]==5;
 	if(poison) m.validateAdmittedPoisonCombat();
 	else ruleRequire(m.strikes() && m.damageDie() && m.hitParameter() && m.raw[29]==0 &&
@@ -85,25 +115,22 @@ XeenEnemyAttackCandidate::XeenEnemyAttackCandidate(const XeenConsequenceCharacte
 	ruleRequire(mask<=0x3f,"Invalid combat participation mask");
 	for (unsigned owner=0;owner<6;++owner) if (mask&(1u<<owner)) participants[participantCount++]=owner;
 	result.operation = XeenCombatOperation::EnemyAttack;
-	if (!participantCount) step=Step::Done;
-	else if (allParty) { target=participants[0]; step=Step::Begin; }
+	if (!participantCount || !monster.attacks()) step=Step::Done;
 }
 bool XeenEnemyAttackCandidate::service(XeenConsequenceDraw &draw) {
 	while (step!=Step::Done && draw.remaining) {
 		switch (step) {
 		case Step::Target: {
-			if (monster.preferredClass()!=1) for (unsigned p=0;p<participantCount;++p) {
-				const auto i=participants[p];
-				if (xeenCombatTargetable(characters[i]) && unsigned(characters[i].characterClass)==monster.preferredClass()) { target=i; break; }
-			}
-			if (target<0) { const auto n=draw.draw(0,participantCount-1); if (!n) break; target=participants[*n]; }
-			step=xeenCombatTargetable(characters[target]) ? Step::Begin : Step::Fallback; break;
-		}
-		case Step::Fallback: {
-			std::array<unsigned,6> eligible{}; unsigned count=0;
-			for (unsigned p=0;p<participantCount;++p) { const auto i=participants[p]; if (xeenCombatTargetable(characters[i])) eligible[count++]=i; }
-			if (!count) { step=Step::Done; break; }
-			const auto n=draw.draw(0,count-1); if (n) { target=eligible[*n]; step=Step::Begin; } break;
+			if(!selection) {
+                unsigned mask=0;for(unsigned p=0;p<participantCount;++p)mask|=1u<<participants[p];
+                selection.emplace(characters,monster.hatred(),mask);
+            }
+            if(!selection->service(draw))break;
+            if(!selection->mask){noTarget=true;step=Step::Done;break;}
+            for(unsigned p=0;p<participantCount;++p)if(selection->mask&(1u<<participants[p])) {
+                participantCursor=p;target=participants[p];break;
+            }
+            selection.reset();step=Step::Begin;break;
 		}
 		case Step::Begin:
             result.targetedMembers|=std::uint8_t(1u<<target);
@@ -165,7 +192,10 @@ bool XeenEnemyAttackCandidate::service(XeenConsequenceDraw &draw) {
 		}
 		case Step::Injury: {
 			auto &c=characters[target];
+            if(deferInjury && !injuryAcknowledged) {impactOwner=c.rosterId;injuryReady=true;return false;}
+            injuryReady=injuryAcknowledged=false;
 			XeenCombatDamage injury; injury.owner=c.rosterId; injury.amount=damage;
+			injury.attackOrdinal=attackOrdinal;
 			injury.beforeHp=c.currentHp; injury.beforeAc=beforeDamageAc;
 			const auto armor=c.armor;
 			xeenApplyPhysicalInjury(c,damage,year);
@@ -177,10 +207,13 @@ bool XeenEnemyAttackCandidate::service(XeenConsequenceDraw &draw) {
 				if (!found) result.armor.at(result.armorCount++)={c.rosterId,static_cast<std::uint8_t>(slot),armor[slot],c.armor[slot]};
 			}
 			result.damage=physicalChecked(std::int64_t(result.damage)+damage);
-			damage=0; dice=0; step=afterInjury; break;
+			damage=0; dice=0; step=afterInjury;
+            if(deferInjury) {injuryApplied=true;return false;}
+            break;
 		}
 		case Step::Next:
-			if (allParty && ++participantCursor<participantCount) { target=participants[participantCursor]; step=Step::Begin; } else step=Step::Done;
+			if (allParty && ++participantCursor<participantCount) { target=participants[participantCursor]; step=Step::Begin; }
+            else step=Step::Done;
 			break;
 		case Step::Done: break;
 		}
@@ -189,6 +222,12 @@ bool XeenEnemyAttackCandidate::service(XeenConsequenceDraw &draw) {
 	result.attackOutcome=!participantCount ? XeenCombatAttackOutcome::NoParticipants : !result.injuryCount ? XeenCombatAttackOutcome::Miss : result.damage ?
 		XeenCombatAttackOutcome::HitPositiveDamage : XeenCombatAttackOutcome::HitZeroDamage;
 	return true;
+}
+bool XeenEnemyAttackCandidate::nextAttack() {
+    ruleRequire(step==Step::Done,"Cannot advance an unfinished monster attack");
+    if(noTarget || ++attackOrdinal>=monster.attacks())return false;
+    result=XeenCombatResult{};result.operation=XeenCombatOperation::EnemyAttack;
+    target=-1;participantCursor=0;step=Step::Target;return true;
 }
 XeenPhysicalPlayerCandidate::XeenPhysicalPlayerCandidate(const XeenCharacter &c,
 		const XeenCombatInputs &i,const XeenMonsterRecord &m,unsigned type,unsigned year,bool missile) :

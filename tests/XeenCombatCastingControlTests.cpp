@@ -8,7 +8,7 @@ int main(int argc,char **argv){try{
     if(std::getenv("MMODERN_M39_ONLY_INPUT")) {
         SetEnvironmentVariableW(L"SDL_VIDEODRIVER",L"dummy");SetEnvironmentVariableW(L"SDL_RENDER_DRIVER",L"software");
         SetEnvironmentVariableW(L"MMODERN_M39_BRANCH",L"input");
-        for(const std::string control:{"attack","block","run","cast","target"}) {
+        for(const std::string control:{"attack","block","run","cast","target","left","right"}) {
             SetEnvironmentVariableW(L"MMODERN_M39_CONTROL",fs::path(control).c_str());
             const auto result=child_test::launch(fs::absolute(argv[1]),{L"--journey-region",L"--combat-seed",L"1",fs::absolute(argv[2]).wstring(),L"--save-file",(dir/(control+".mmsave")).wstring()},dir/(control+".log"));
             if(result.exit!=0)std::cerr<<result.output;
@@ -25,7 +25,7 @@ int main(int argc,char **argv){try{
     for(const std::string control:{"aba-hp","aba-inactive","aba-sp","aba-book","aba-presence","aba-class","aba-item","aba-supplement",
         "aba-membership","aba-purse","aba-context","aba-flags","aba-rng","aba-mainland","aba-city","aba-statistics","aba-map","aba-mob","aba-event",
         "names","reservation-retry","before-debit","target-fail","refund-fail","arrow-fail-1","arrow-fail-2","arrow-fail-3","arrow-yield","arrow-xp-overflow","arrow-drop-overflow","arrow-successor-fail","partial",
-        "recursive","target-retry","result-retry","projectile-retry",
+        "recursive","target-retry","result-retry","projectile-retry","arrow-quit-travel",
         "observation-payer","observation-selection","observation-target","observation-hp","observation-refund",
         "observation-recovery","observation-awaken","observation-yield","observation-successor","observation-guard"}) {
         SetEnvironmentVariableW(L"MMODERN_M39_CONTROL",fs::path(control).c_str());

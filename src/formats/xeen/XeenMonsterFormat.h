@@ -9,6 +9,9 @@
 
 namespace mmodern {
 
+// ScummVM character.h, pinned 6814ee9b: record hatred is not damage breadth.
+enum class XeenMonsterHatred : unsigned { Dwarf=12, Party=15, Nobody=16 };
+
 // Opaque combat fields remain bytes, never unchecked enum/table indexes.
 struct XeenMonsterRecord {
 	XeenMutableArray<std::uint8_t, 60> raw{};
@@ -37,6 +40,8 @@ struct XeenMonsterRecord {
 	unsigned speed() const { return raw[23]; }
 	unsigned attacks() const { return raw[24]; }
 	unsigned preferredClass() const { return raw[25]; }
+	unsigned hatred() const { return raw[25]; }
+	unsigned damageType() const { return raw[29]; }
 	unsigned damageDie() const { return raw[28]; }
 	unsigned hitParameter() const { return raw[31]; }
 	unsigned magicResistance() const { return raw[39]; }

@@ -44,6 +44,9 @@ bool XeenEncounterFlow::beginShoot() {
   const auto &map=_world.map(23);const auto view=XeenActorApproach::classify(_world.sessionState().actors(),_camera);
   const auto rows=xeenPlayerRayRows(map,_camera);
   candidate->projectileEnd.fill(rows-1);
+  candidate->rows=rows;
+  std::vector<XeenProjectileAppearance> projectile;
+  for(unsigned i=0;i<6;++i)if(candidate->eligible[i])projectile.push_back({false,0,i,3,{}});
   // Preserve the existing notice distinction: reaching the map edge is empty,
   // while an in-map obstruction identifies its blocked row.
   if(rows<4) {
@@ -55,6 +58,7 @@ bool XeenEncounterFlow::beginShoot() {
    for(unsigned slot=0;slot<3;++slot) candidate->targets[row*3+slot]=view.slots[row*3+slot];
   candidate->random=XeenCombatRandom(*_world.sessionState().journeyRandom());_journeyPreimage->check();
   retireCastingFeedback();_shoot.swap(candidate);_world._sessionState._journeyActivity=XeenJourneyActivity::Shoot;
+  _projectiles.swap(projectile);_projectileDeadline=0;
   ++_world._sessionState._journeyGeneration;++_generation;_journeyPreimage->adoptJourneyCoordination();
   _journeyRefusal.clear();return true;
  } catch(const std::invalid_argument &e) {
@@ -68,58 +72,95 @@ bool XeenEncounterFlow::serviceShoot() {
   auto &work=*_shoot;auto &session=_world._sessionState;
   const auto heldPreimage=_journeyPreimage;
   XeenRestoreGuard::Providers providers(*heldPreimage,_world);
-  XeenActorApproach::validateEnvironment(_world,session.actors(),_events);
+  std::vector<XeenActor> admission(session.actors().begin(),session.actors().end());
+  if(work.stage==XeenShootCandidate::Stage::PostImpact && work.bound)admission.at(work.bound->id.recordIndex)=*work.bound;
+  XeenActorApproach::validateEnvironment(_world,admission,_events);
   const auto check=[&] { _journeyPreimage->check(); };
   XeenConsequenceDraw draw{work.random,64,check};
   if(!work.volleyDone) {
+   using Stage=XeenShootCandidate::Stage;
+   if(!work.presented)return false;
+   if(work.stage==Stage::Travel && _lastTime<work.deadline)return false;
+   // drawScene renders the current lanes, then animate3d advances every lane.
+   // Consume that acknowledged draw once, independently of target traversal.
+   if(work.advanceDraw) {for(auto &p:_projectiles)p.advance();work.advanceDraw=false;}
+   if(work.retireLane) {for(auto &p:_projectiles)if(p.lane==*work.retireLane)p.active=false;work.retireLane.reset();}
    while(work.target<12) {
+    bool shooting=false;for(unsigned i=0;i<6;++i)shooting=shooting || (work.eligible[i] && !work.spent[i]);
+    if(!shooting) {work.target=12;work.row=work.rows-1;break;}
+    if(work.target/3>work.row) {
+     if(work.row+1>=work.rows) {work.target=12;break;}
+     ++work.row;work.presented=false;return true;
+    }
     const auto id=work.targets[work.target];
     if(!id || session.actors().at(id->recordIndex).lifecycle!=XeenActorLifecycle::Present) { ++work.target;work.shooter=0;continue; }
     while(work.shooter<6 && (!work.eligible[work.shooter] || work.spent[work.shooter])) ++work.shooter;
     if(work.shooter==6) { ++work.target;work.shooter=0;continue; }
-    const auto &actor=session.actors().at(id->recordIndex);
+    const auto &actor=work.bound ? *work.bound : session.actors().at(id->recordIndex);
     if(!(actor.id==*id)) throw std::logic_error("Shoot retained identity mismatch");
     const auto owner=kXeenCombatOwners[work.shooter];
-    if(!work.attack) work.attack.emplace(_party.roster.at(owner),*_party.roster.combatInputs(owner),*actor.statistics,actor.original.resourceId,_party.encounterContext->year,true);
+    if(!work.attack) {work.bound=actor;work.attack.emplace(_party.roster.at(owner),*_party.roster.combatInputs(owner),*actor.statistics,actor.original.resourceId,_party.encounterContext->year,true);}
     if(!work.attackDone) {
      if(!work.attack->service(draw)) return true;
+     work.impactRandom=work.random.continuation();
      if(work.attack->damage>=actor.hp && actor.original.resourceId==6) work.drop.emplace(*_party.monsterTreasure,id->recordIndex);
      work.attackDone=true;
     }
     if(work.drop && !work.drop->service(draw)) return true;
-    std::optional<XeenJourneyLethal> lethal;
-    if(work.attack->damage>=actor.hp) {
-     std::array<const XeenCharacter *,6> owners{};
-     for(unsigned i=0;i<6;++i) owners[i]=&_party.roster.at(kXeenCombatOwners[i]);
-     lethal=xeenPrepareJourneyLethal(actor,owners,activeInputs(_party),session.accountedMonsters(),0x3f);
+    if(!work.suffixPrepared) {
+     if(work.attack->damage>=actor.hp) {
+      std::array<const XeenCharacter *,6> owners{};
+      for(unsigned i=0;i<6;++i) owners[i]=&_party.roster.at(kXeenCombatOwners[i]);
+      work.lethal=xeenPrepareJourneyLethal(actor,owners,activeInputs(_party),session.accountedMonsters(),0x3f);
+     }
+     work.feedback="Shoot owner "+std::to_string(owner)+" -> actor "+std::to_string(id->recordIndex)+
+      (work.attack->hit?" hit ":" miss ")+std::to_string(work.attack->damage)+(work.lethal?" defeated":"");
+     if(work.drop) {
+      work.feedback+="; gold +10 pending";
+      if(work.drop->outcome==XeenMonsterDropOutcome::ReferenceMiscellaneousDropLoss)work.feedback+="; misc drop lost";
+      if(work.drop->outcome==XeenMonsterDropOutcome::CategoryCapacityLoss)work.feedback+="; full category: drop lost";
+     }
+     if(session._encounterRevision>=std::numeric_limits<std::uint64_t>::max()-1 || !journeyCapacity()) throw std::overflow_error("Shoot generation exhausted");
+     check();work.suffixPrepared=true;
     }
-    auto feedback="Shoot owner "+std::to_string(owner)+" -> actor "+std::to_string(id->recordIndex)+
-     (work.attack->hit?" hit ":" miss ")+std::to_string(work.attack->damage)+(lethal?" defeated":"");
-    if(work.drop) {
-     feedback+="; gold +10 pending";
-     if(work.drop->outcome==XeenMonsterDropOutcome::ReferenceMiscellaneousDropLoss)feedback+="; misc drop lost";
-     if(work.drop->outcome==XeenMonsterDropOutcome::CategoryCapacityLoss)feedback+="; full category: drop lost";
+    if(work.stage==Stage::Travel) {
+     work.stage=work.attack->damage ? Stage::Impact : Stage::PostImpact;
+     _appearanceIdentity=id;_frame=work.attack->damage?11:0;
+     if(work.attack->hit) {work.presented=false;++_generation;return true;}
     }
+    if(work.stage==Stage::Impact) {
+     check();session._actors.at(id->recordIndex).hp=std::max(actor.hp-work.attack->damage,0);
+     session._journeyRandom=work.impactRandom;
+     work.stage=Stage::PostImpact;work.presented=false;
+     ++session._encounterRevision;_state._revision=session._encounterRevision;++session._journeyGeneration;++_generation;
+     retainJourney();return true;
+    }
+    const bool removed=bool(work.lethal);
     if(session._encounterRevision==std::numeric_limits<std::uint64_t>::max() || !journeyCapacity()) throw std::overflow_error("Shoot generation exhausted");
     check();
     auto &live=session._actors.at(id->recordIndex);
-    if(lethal) {
-     live=lethal->actor;session._accountedMonsters.swap(lethal->accounted);
-     for(unsigned i=0;i<6;++i) _party.roster._combatInputs[kXeenCombatOwners[i]]->experience=lethal->experience[i];
+    if(work.lethal) {
+     live=work.lethal->actor;session._accountedMonsters.swap(work.lethal->accounted);
+     for(unsigned i=0;i<6;++i) _party.roster._combatInputs[kXeenCombatOwners[i]]->experience=work.lethal->experience[i];
      if(work.drop) _party.monsterTreasure=work.drop->treasure;
-    } else live.hp-=work.attack->damage;
+    } else live.hp=actor.hp-work.attack->damage;
     if(work.attack->hit) work.projectileEnd[work.shooter]=work.target/3;
     work.spent[work.shooter]=work.attack->hit;session._journeyRandom=work.random.continuation();
+    if(work.attack->hit) {
+     if(removed)work.retireLane=work.shooter;
+     else for(auto &p:_projectiles)if(p.lane==work.shooter)p.active=false;
+    }
     ++session._encounterRevision;_state._revision=session._encounterRevision;++session._journeyGeneration;++_generation;
-    ++work.shooter;work.attack.reset();work.drop.reset();work.attackDone=false;
-    _journeyRefusal.swap(feedback);retainJourney();return true;
+    ++work.shooter;work.attack.reset();work.drop.reset();work.bound.reset();work.lethal.reset();work.attackDone=work.suffixPrepared=false;work.stage=Stage::Travel;
+    _frame=0;_appearanceIdentity.reset();
+    _journeyRefusal.swap(work.feedback);retainJourney();
+    if(removed) {work.presented=false;return true;}
    }
-   // One fired visual per admitted shooter, including an empty/blocked ray.
-   // Miss continuation across targets does not launch additional missiles.
-   std::vector<XeenProjectileAppearance> projectile;
-   for(unsigned i=0;i<6;++i) if(work.eligible[i]) projectile.push_back({false,0,i,work.projectileEnd[i],{}});
+   if(work.row+1<work.rows) {
+    ++work.row;work.presented=false;return true;
+   }
    check();
-   _projectiles.swap(projectile);_projectileDeadline=_lastTime+100;
+   _projectiles.clear();
    if(work.blockedRow<4)_journeyRefusal="Shoot stopped at terrain row "+std::to_string(work.blockedRow);
    else if(_journeyRefusal.empty())_journeyRefusal="Shoot: empty center rows";
    work.volleyDone=true;return true;
@@ -176,6 +217,14 @@ void XeenEncounterFlow::acknowledgeMonsterReward() {
  } catch(...) { closeJourney();throw; }
 }
 void XeenEncounterFlow::observeRanged(std::shared_ptr<const XeenRegionalObservation> observation) {
+ if(observation->stage==XeenRegionalObservation::Stage::Portrait) {
+  if(observation->impactSource && observation->impactOwner) {
+   const auto &a=_world.sessionState().regionalActors(observation->impactSource->mapId).at(observation->impactSource->recordIndex);
+   _world.scenePresentation().portraitDamage(*observation->impactOwner,xeenPortraitDamageFrame(a.statistics->raw[29]),_lastTime);
+  }
+  _rangedObservation=std::move(observation);return;
+ }
+ if(observation->stage==XeenRegionalObservation::Stage::Published) {_rangedObservation=std::move(observation);return;}
  std::vector<XeenProjectileAppearance> prepared;
  unsigned pow=12;
  // Original monstersAttack chooses the first non-physical projectile resource
@@ -189,21 +238,35 @@ void XeenEncounterFlow::observeRanged(std::shared_ptr<const XeenRegionalObservat
  for(unsigned i=0;i<observation->count;++i) {
   const auto &shot=observation->shots[i];
   const auto &actor=_world.sessionState().regionalActors(shot.source.mapId).at(shot.source.recordIndex);
-  // Portrait impacts belong to published injuries, including sources behind
-  // the party and sources outside the visible six-lane volley.
-  const auto frame=xeenPortraitDamageFrame(actor.statistics->raw[29]);
-  for(unsigned j=0;j<shot.attack.injuryCount;++j)
-   _world.scenePresentation().portraitDamage(shot.attack.injuries[j].owner,frame,_lastTime);
   if(shot.direction==_camera.direction && shot.distance>=1 && shot.distance<=3 && prepared.size()<6)
    prepared.push_back({true,shot.distance-1,unsigned(prepared.size()%6),shot.distance,shot.source,pow});
  }
- _rangedObservation=std::move(observation);_projectiles.swap(prepared);_projectileDeadline=_lastTime+100;
+ _rangedObservation=std::move(observation);_projectiles.swap(prepared);_projectileDeadline=0;
+}
+void XeenEncounterFlow::projectilesPresented() {
+ const auto entry=ticket();if(!current(entry))throw std::logic_error("Stale projectile acquisition");
+ if(projectilesPending() && !_projectileDeadline)_projectileDeadline=_lastTime+100;
+ if(_shoot && !_shoot->presented) {
+  auto &shot=*_shoot;shot.presented=true;shot.advanceDraw=false;shot.deadline=_lastTime+100;
+  // hitMonster clears this shooter's logical row before attack2. drawScene
+  // then derives _charsShooting from remaining shooters, before animate3d.
+  // Visible lanes can outlive the last logical shooter through HP/removal.
+  for(unsigned i=0;i<6;++i)if(shot.eligible[i] && !shot.spent[i] &&
+    !(shot.attack && shot.attack->hit && i==shot.shooter))shot.advanceDraw=true;
+ }
+ if(_combat) {_combat->rangedPresented(*entry.combat,!projectilesPending());return;}
+ if(_regionalWork && _regionalWork->opportunity) {
+  _journeyPreimage->check();auto &op=*_regionalWork->opportunity;
+  if(op.travelStarted && !projectilesPending())op.travelPresented=true;
+  if(op.impactOwner)op.impactPresented=true;
+ }
 }
 bool XeenEncounterFlow::animateProjectiles() {
  if(_busy || !projectilesPending() || !current(ticket())) return false;
+ if(!_projectileDeadline)return false;
  std::uint64_t now;if(!prepareTime(ticket(),now)) return false;
  if(now<_projectileDeadline) return false;
- _lastTime=now;_projectileDeadline=now+100;
+ _lastTime=now;_projectileDeadline=0;
  for(auto &p:_projectiles)p.advance();
  return true;
 }
@@ -270,7 +333,7 @@ std::string XeenEncounterFlow::consequenceNotice() const {
   if(_party.monsterTreasure->dormant())out<<"Dormant items; no gold owed\n";
  if(_party.monsterTreasure->pending())out<<"Ready treasure: +"<<_party.monsterTreasure->pendingGold<<" gold\n";
   if(!_journeyRefusal.empty())out<<_journeyRefusal<<'\n';
-  if(_rangedObservation && _rangedObservation->count) {const auto &v=_rangedObservation->shots[(_lastTime/500)%_rangedObservation->count];out<<"Enemy shot #"<<v.source.recordIndex<<" from "<<"NESW"[unsigned(v.direction)]<<" damage "<<v.attack.damage<<'\n';}
+  if(_rangedObservation && _rangedObservation->stage==XeenRegionalObservation::Stage::Published && _rangedObservation->count) {const auto &v=_rangedObservation->shots[(_lastTime/500)%_rangedObservation->count];out<<"Enemy shot #"<<v.source.recordIndex<<" from "<<"NESW"[unsigned(v.direction)]<<" damage "<<v.attack.damage<<'\n';}
  }
  if(!stopped && _itemUseResult) {
   const auto &use=*_itemUseResult;

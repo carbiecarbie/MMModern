@@ -223,18 +223,18 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             inspect([&]{check(party->roster.at(1).currentHp==15 && party->roster.at(1).currentSp==20,"M41 genuine First Aid mismatch");cityFight=true;});
             action(InteractionAction{});action(YesAction{});settle();route("UUUU");
             inspect([&] {
-                expect(8,796,870,799325555,1101);
-                constexpr int hp[]{58,67,58,62,11,35},sp[]{6,0,6,0,20,27};
+                expect(8,796,870,4226505513u,1073);
+                constexpr int hp[]{61,69,61,65,15,36},sp[]{6,0,6,0,20,27};
                 constexpr unsigned xp[]{1016,3280,1016,1016,3280,1280};
                 for(unsigned n=0;n<6;++n){const auto owner=kXeenCombatOwners[n];check(party->roster.at(owner).currentHp==hp[n] &&
                     party->roster.at(owner).currentSp==sp[n] && party->roster.combatInputs(owner)->experience==xp[n],"M41 Slime checkpoint mismatch");}
-            });route("UUULUUUUURUUUU");inspect([&]{expect(8,808,870,799325555,1101);});checkpoint("A");
+            });route("UUULUUUUURUUUU");inspect([&]{expect(8,808,870,4226505513u,1073);});checkpoint("A");
         }
         if(!resume || stage=="A") {
             action(InteractionAction{});waitService();paid(1,18,9,780,64,0);paid(4,1,10,690,28,28);
-            action(SelectMemberAction{1});inspect([&]{deny();expect(10,808,690,799325555,1101);});
+            action(SelectMemberAction{1});inspect([&]{deny();expect(10,808,690,4226505513u,1073);});
             action(CancelInteractionAction{});settle();
-            inspect([&]{expect(11,808,690,2959920300u,2009);check(interestCalls==1,"M41 stock/interest duplicated");});checkpoint("B");
+            inspect([&]{expect(11,808,690,2201558150u,1963);check(interestCalls==1,"M41 stock/interest duplicated");});checkpoint("B");
         }
         // B -> C: reset exit, useful First Aid, lethal Magic Arrow, empty visit.
         route("DDDDRUUUUURUUUUUUU");action(InteractionAction{});action(YesAction{});settle();

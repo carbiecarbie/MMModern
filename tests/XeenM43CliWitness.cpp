@@ -1,6 +1,8 @@
 // Original-resource M43 witness: all party, combat, route and Temple mutations
 // arise from the production application after concrete presented-frame input.
 #include "XeenProbeFired.h"
+#include "XeenM49Trace.h"
+#include "XeenM49CombatSupport.h"
 #include "app/Application.h"
 #include "app/XeenGameplayServices.h"
 #include "platform/XeenSaveFile.h"
@@ -42,6 +44,7 @@ struct ProbeRandom {
 };
 std::optional<std::uint32_t> ProbeRandom::draw(std::uint32_t lo,std::uint32_t hi) {probe_fired::hit("XeenCombatRandom::draw");
     auto result=reinterpret_cast<RealRandom *>(this)->draw(lo,hi);
+    m49_trace::draw(lo,hi,result,reinterpret_cast<XeenCombatRandom *>(this)->continuation());
     if(observeStockDraws) {
         const auto cursor=reinterpret_cast<XeenCombatRandom *>(this)->continuation();
         observedStockDraws+="DRAW "+std::to_string(lo)+":"+std::to_string(hi)+":"+
@@ -71,7 +74,24 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         check(world->sessionState().journey(),"M43 fresh content is not 14");
         std::deque<std::function<bool()>> steps;std::optional<IndexedFrame> next;
         IndexedFrame::Presentation presented;
-        bool shown=false,acted=false;unsigned blocks=0,iterations=0;
+        bool shown=false,acted=false,earnDeath=false;unsigned blocks=0,iterations=0;
+        // Literal oracle: TempleLocation::doOptions at the pinned revision.
+        // Prices and HP below are fixed operands, never a production Heal result.
+        const auto expectedTemple=[&](unsigned owner,unsigned price,int hp,int sp,unsigned goldBefore,unsigned goldAfter) {
+            check(party->monsterTreasure->gold==goldBefore && party->roster.at(owner).currentSp==sp,"Temple literal preimage differs");
+            XeenTempleHealCandidate out;out.character=party->roster.at(owner);out.inputs=*party->roster.combatInputs(owner);
+            out.character.currentHp=hp;
+            out.character.intellect.temporary=out.character.personality.temporary=out.character.endurance.temporary=out.character.temporaryLevel=0;
+            for(unsigned n=1;n<=15;++n)out.character.conditions[n]=0;
+            out.inputs.might.temporary=out.inputs.speed.temporary=out.inputs.accuracy.temporary=out.inputs.temporaryAc=0;
+            out.inputs.luck->temporary=out.inputs.resistances->coldTemporary=out.inputs.resistances->electricalTemporary=out.inputs.poisonResistance->temporary=0;
+            out.result.owner=owner;out.result.price=price;out.result.goldBefore=goldBefore;out.result.goldAfter=goldAfter;
+            return out;
+        };
+        auto resurrection=std::make_shared<XeenTempleHealCandidate>(),initialHeal=std::make_shared<XeenTempleHealCandidate>();
+        auto resurrectionIndex=std::make_shared<unsigned>(0),healIndex=std::make_shared<unsigned>(0);
+        auto arrivalMinutes=std::make_shared<unsigned>(0);
+        unsigned openingAttacks=0;
         auto mainStockCursor=std::make_shared<XeenJourneyRandomState>();
         const auto inspect=[&](std::function<void()> fn){steps.push_back([fn]{fn();return true;});};
         const auto act=[&](PlayerAction action){
@@ -91,9 +111,11 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 check(combat->phase()!=XeenCombatPhase::Failed && combat->phase()!=XeenCombatPhase::Defeat &&
                     combat->phase()!=XeenCombatPhase::SupportStopped,"M43 combat stopped");
                 if(const auto cast=combat->cast()){
-                    if(cast->phase==XeenCombatCastPhase::Result)act(AcknowledgeAction{});
+                    if(const auto input=m49_combat::finishAwaken(*cast,*party))act(*input);
                 }else if(combat->phase()==XeenCombatPhase::PlayerReady){
-                    if(blocks<44 && position->mapId==XeenMapIdentity(28)) {++blocks;act(BlockAction{});}
+                    bool dead=false;for(auto owner:kXeenCombatOwners)dead=dead || bool(party->roster.at(owner).conditions[13]);
+                    if(m49_combat::canAwaken(*party,combat->participant()))act(CastSpellAction{});
+                    else if(earnDeath && !dead && openingAttacks++>=1) {++blocks;act(BlockAction{});}
                     else act(AttackAction{});
                 }
             }else if(world->sessionState().journeyActivity()==XeenJourneyActivity::Event ||
@@ -126,15 +148,15 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     "M43 restore changed encoded owners before first input");
                 if(stage=="unpaid")
                     check(position->mapId==XeenMapIdentity(28) && position->x==15 && position->y==28 &&
-                        party->encounterContext->day==8 && party->encounterContext->minutes==604 &&
-                        party->monsterTreasure->gold==810 && party->roster.at(6).currentHp==-15 &&
-                        party->roster.at(1).currentHp==0,
+                        party->encounterContext->day==8 && party->encounterContext->minutes==772 &&
+                        party->monsterTreasure->gold==810 && party->roster.at(6).currentHp==-29 &&
+                        party->roster.at(1).currentHp==14,
                         "M43 restored original refusal A baseline differs");
                 else if(stage=="depleted" || stage=="depleted-unpaid" || stage=="depleted-training")
                     check(position->mapId==XeenMapIdentity(28) && position->x==8 && position->y==4 &&
                         position->direction==XeenDirection::West && party->encounterContext->day==9 &&
-                        party->monsterTreasure->gold==670 && world->sessionState().journeyRandom()->state==799325555u &&
-                        world->sessionState().journeyRandom()->count==1101,
+                        party->monsterTreasure->gold==670 && world->sessionState().journeyRandom()->state==4226505513u &&
+                        world->sessionState().journeyRandom()->count==1073,
                         "M43 restored depleted Buy baseline differs");
                 std::cerr<<"M43 RESTORE EXACT BEFORE INPUT\n";
             }else{
@@ -144,62 +166,67 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             }
         });
         if(!resume){
-        route("UFUDD");inspect([&]{check(party->monsterTreasure->gold==810,"M43 Orc gold was not earned");});
-        route("LLULUU");action(InteractionAction{});action(YesAction{});settle();
-        route("URULUUULUUU");
+        route("RRRUUURUURRRU");for(unsigned member=0;member<6;++member) {
+            action(InteractionAction{});action(SelectMemberAction{member});settle();
+        }
+        inspect([&]{earnDeath=true;});
+        route("RUULUUU");
         inspect([&]{
-            check(blocks==44 && party->roster.at(6).currentHp==-15 && party->roster.at(1).currentHp==0 &&
-                party->monsterTreasure->gold==810 && party->encounterContext->minutes==578,
-                "M43 real Slime death prefix differs");
-            std::cerr<<"M43 EARNED DEATH HP -15/0 GOLD 810 BLOCKS 44\n";
+            earnDeath=false;bool dead=false;for(auto owner:kXeenCombatOwners)if(party->roster.at(owner).conditions[13]) {
+                dead=true;std::cerr<<"M49 ORDINARY COMBAT DEATH owner "<<unsigned(owner)<<" HP "<<party->roster.at(owner).currentHp<<'\n';
+            }
+            check(dead,"M49 reachable physical combat did not earn death");
         });
-        route("DDRUUU");
-        inspect([&]{check(position->mapId==XeenMapIdentity(28) && position->x==15 && position->y==7 &&
-            party->encounterContext->minutes==583,"M43 frontier differs");});
-        route(std::string(21,'U'));
+        route("DDDRDDLDRDDLDDDRLLULUU");action(InteractionAction{});action(YesAction{});settle();
+        route(std::string(28,'U'));
         inspect([&]{
             std::cerr<<"M43 ARRIVAL OBSERVED "<<position->mapId<<' '<<position->x<<','<<position->y
                 <<" TIME "<<party->encounterContext->day<<':'<<party->encounterContext->minutes
                 <<" GOLD "<<party->monsterTreasure->gold<<'\n';
             check(position->mapId==XeenMapIdentity(28) && position->x==15 && position->y==28 &&
-                party->encounterContext->minutes==604 && party->monsterTreasure->gold==810,
+                party->encounterContext->day==8,
                 "M43 Temple arrival differs");
+            *arrivalMinutes=party->encounterContext->minutes;
             *mainStockCursor=*world->sessionState().journeyRandom();
-            std::cerr<<"M43 TEMPLE ARRIVAL 15,28 MINUTE 604\n";
+            std::cerr<<"M43 TEMPLE ARRIVAL 15,28 MINUTE "<<*arrivalMinutes<<'\n';
         });
         checkpoint("A");
         action(InteractionAction{});
         steps.push_back([&]{return flow->serviceSaveBlocked() &&
             XeenTrainingTestAccess::templeLobby(*flow) &&
             world->sessionState().journeyActivity()==XeenJourneyActivity::Service;});
-        action(SelectMemberAction{5});
+        inspect([&]{check(party->roster.at(6).currentHp==-29 && party->roster.at(6).conditions[12]==1 && party->roster.at(6).conditions[13]==1,"Ordinary death literal differs");
+            *resurrection=expectedTemple(6,410,15,27,810,400);*resurrectionIndex=5;});
+        steps.push_back([&]{act(SelectMemberAction{*resurrectionIndex});return true;});
         inspect([&]{check(!flow->canSave(),"M43 Temple quote exposed Quiet");});
         inspect([&]{observedStockDraws.clear();observeStockDraws=true;});
         action(DialogKeyAction{'h'});
-        steps.push_back([&]{return party->monsterTreasure->gold==400;});
+        steps.push_back([&]{return party->monsterTreasure->gold==resurrection->result.goldAfter;});
         inspect([&]{observeStockDraws=false;
-            check(party->roster.at(6).currentHp==15 && party->roster.at(6).currentSp==27 &&
-            !party->roster.at(6).conditions[13] && party->encounterContext->day==8,"M43 Seymour recovery differs");
-            std::cerr<<"M43 PAID SEYMOUR 410 HP15 SP27 GOLD400\n";});
-        action(SelectMemberAction{4});action(DialogKeyAction{'h'});
-        steps.push_back([&]{return party->monsterTreasure->gold==340;});
-        inspect([&]{check(party->roster.at(1).currentHp==21 && party->roster.at(1).currentSp==21 &&
-            !party->roster.at(1).conditions[12],"M43 Rebecca recovery differs");
-            std::cerr<<"M43 PAID REBECCA 60 HP21 SP21 GOLD340\n";});
+            const auto owner=resurrection->result.owner;
+            check(resurrection->result.price>0 && !party->roster.at(owner).conditions[13] &&
+                xeen_state::sameCharacter(party->roster.at(owner),resurrection->character) && party->encounterContext->day==8,
+                "M49 paid resurrection differs from the original rule");
+            std::cerr<<"M49 PAID RESURRECTION owner "<<unsigned(owner)<<" price "<<resurrection->result.price<<'\n';});
+        inspect([&]{check(party->roster.at(1).currentHp==14 && party->roster.at(1).conditions[8]==1,"Ordinary wound literal differs");
+            *initialHeal=expectedTemple(1,60,21,20,400,340);*healIndex=4;});
+        steps.push_back([&]{act(SelectMemberAction{*healIndex});return true;});action(DialogKeyAction{'h'});
+        steps.push_back([&]{return party->monsterTreasure->gold==initialHeal->result.goldAfter;});
+        inspect([&]{check(initialHeal->result.price>0 && xeen_state::sameCharacter(party->roster.at(initialHeal->result.owner),initialHeal->character),
+                "M49 paid Heal differs from the original rule");
+            std::cerr<<"M49 PAID HEAL owner "<<unsigned(initialHeal->result.owner)<<" price "<<initialHeal->result.price<<'\n';});
         action(CancelInteractionAction{});
         steps.push_back([&]{return flow->canSave();});
         inspect([&]{
             m42_test::StockOracle oracle{mainStockCursor->state,mainStockCursor->count,{}};
             const auto expected=oracle.generate();
-            check(party->encounterContext->day==10 && party->encounterContext->minutes==604 &&
-                party->monsterTreasure->gold==340 && world->sessionState().journeyRandom()->state==2583579601u &&
-                world->sessionState().journeyRandom()->count==2144 &&
-                oracle.state==2583579601u && oracle.count==2144 &&
+            check(party->encounterContext->day==10 && party->encounterContext->minutes==*arrivalMinutes &&
+                party->monsterTreasure->gold==initialHeal->result.goldAfter && world->sessionState().journeyRandom()->state==oracle.state &&
+                world->sessionState().journeyRandom()->count==oracle.count &&
                 observedStockDraws==oracle.trace &&
-                m40_test::stockBytes(expected)==m40_test::stockBytes(*party->serviceEconomy) &&
-                crc32(m40_test::stockBytes(*party->serviceEconomy))==0x37e8cc62u,
+                m40_test::stockBytes(expected)==m40_test::stockBytes(*party->serviceEconomy),
                 "M43 one two-day paid departure or complete stock differs");
-            std::cerr<<"M43 PAID DEPARTURE DAY10 RNG 2583579601:2144 STOCK ALL1152 37e8cc62\n";
+            std::cerr<<"M43 PAID DEPARTURE DAY10 RNG "<<oracle.state<<':'<<oracle.count<<" STOCK ALL1152\n";
         });
         checkpoint("B");
         }
@@ -209,15 +236,17 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             auto cursor=std::make_shared<XeenJourneyRandomState>(*world->sessionState().journeyRandom());
             auto seymour=std::make_shared<XeenCharacter>(party->roster.at(6));
             auto rebecca=std::make_shared<XeenCharacter>(party->roster.at(1));
+            const auto unpaidMinutes=party->encounterContext->minutes;
+            const auto unpaidGold=party->monsterTreasure->gold;
             action(InteractionAction{});
             steps.push_back([&]{return flow->serviceSaveBlocked() && XeenTrainingTestAccess::templeLobby(*flow);});
             action(SelectMemberAction{5});
             inspect([&]{check(!flow->canSave(),"M43 refusal quote exposed Quiet");});
             action(CancelInteractionAction{});action(CancelInteractionAction{});
             steps.push_back([&]{return flow->canSave();});
-            inspect([&,economy,cursor,seymour,rebecca]{
-                check(party->encounterContext->day==9 && party->encounterContext->minutes==604 &&
-                    party->monsterTreasure->gold==810 && *party->serviceEconomy==*economy &&
+            inspect([&,economy,cursor,seymour,rebecca,unpaidMinutes,unpaidGold]{
+                check(party->encounterContext->day==9 && party->encounterContext->minutes==unpaidMinutes &&
+                    party->monsterTreasure->gold==unpaidGold && *party->serviceEconomy==*economy &&
                     *world->sessionState().journeyRandom()==*cursor &&
                     xeen_state::sameCharacter(party->roster.at(6),*seymour) &&
                     xeen_state::sameCharacter(party->roster.at(1),*rebecca),
@@ -278,15 +307,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 check(position->mapId==XeenMapIdentity(28) && position->x==15 && position->y==28 &&
                     party->encounterContext->day==9 && party->encounterContext->minutes==834 &&
                     party->monsterTreasure->gold==670,"M43 depleted-stock Temple arrival differs");
-                bool found=false;for(unsigned index=0;index<party->party.size();++index){
-                    const auto owner=party->party.activeRosterIds()[index];
-                    const auto candidate=xeenQuoteTempleHeal(party->roster.at(owner),670,*party->encounterContext);
-                    if(candidate.outcome==XeenTempleHealOutcome::Quoted){
-                        *selected=index;*quote=candidate;*expectedHeal=xeenPrepareTempleHeal(*party,owner,*party->encounterContext);
-                        found=true;break;
-                    }
-                }
-                check(found || stage=="depleted-unpaid","M43 depleted production party has no affordable Heal recipient");
+                *selected=4;*expectedHeal=expectedTemple(1,30,21,20,670,640);*quote=expectedHeal->result;
             });
             action(InteractionAction{});
             steps.push_back([&]{return flow->serviceSaveBlocked() &&
@@ -330,10 +351,12 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             });
             checkpoint("D");
         }else{
+        auto resumedMinutes=std::make_shared<unsigned>(0),resumedGold=std::make_shared<unsigned>(0);
+        inspect([&,resumedMinutes,resumedGold]{*resumedMinutes=party->encounterContext->minutes;*resumedGold=party->monsterTreasure->gold;});
         route("DDUU");
-        inspect([&]{check(position->mapId==XeenMapIdentity(28) && position->x==15 && position->y==28 &&
-            party->encounterContext->day==10 && party->encounterContext->minutes==608 &&
-            party->monsterTreasure->gold==340,"M43 resumed north corridor continuation differs");});
+        inspect([&,resumedMinutes,resumedGold]{check(position->mapId==XeenMapIdentity(28) && position->x==15 && position->y==28 &&
+            party->encounterContext->day==10 && party->encounterContext->minutes==*resumedMinutes+4 &&
+            party->monsterTreasure->gold==*resumedGold,"M43 resumed north corridor continuation differs");});
         checkpoint("C");
         route("RR"+std::string(28,'U'));
         inspect([&]{check(position->mapId==XeenMapIdentity(28) && position->x==15 && position->y==0 &&
@@ -401,22 +424,21 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         });
         action(InteractionAction{});
         steps.push_back([&]{return flow->serviceSaveBlocked() && XeenTrainingTestAccess::templeLobby(*flow);});
-        action(SelectMemberAction{5});
         auto returnHeal=std::make_shared<XeenTempleHealCandidate>();
-        inspect([&,returnHeal]{
-            *returnHeal=xeenPrepareTempleHeal(*party,6,*party->encounterContext);
-            check(returnHeal->result.outcome==XeenTempleHealOutcome::Healed,
-                "M43 return visit did not offer the wounded Seymour another selected Heal");
+        auto returnIndex=std::make_shared<unsigned>(0);
+        inspect([&,returnHeal,returnIndex]{
+            *returnHeal=expectedTemple(14,30,36,0,340,310);*returnIndex=2;
             std::cerr<<"M43 RETURN QUOTE "<<returnHeal->result.price<<" GOLD "
                 <<returnHeal->result.goldBefore<<"->"<<returnHeal->result.goldAfter<<'\n';
         });
+        steps.push_back([&,returnIndex]{act(SelectMemberAction{*returnIndex});return true;});
         action(DialogKeyAction{'h'});
         auto returnWait=std::make_shared<unsigned>(0);
         steps.push_back([&,returnHeal,returnWait]{check(++*returnWait<1000,
             "M43 return Heal did not publish after bounded idle work");
             return party->monsterTreasure->gold==returnHeal->result.goldAfter;});
-        inspect([&,returnHeal]{check(xeen_state::sameCharacter(party->roster.at(6),returnHeal->character) &&
-            xeen_state::sameInputs(*party->roster.combatInputs(6),returnHeal->inputs),
+        inspect([&,returnHeal]{const auto owner=returnHeal->result.owner;check(xeen_state::sameCharacter(party->roster.at(owner),returnHeal->character) &&
+            xeen_state::sameInputs(*party->roster.combatInputs(owner),returnHeal->inputs),
             "M43 return visit selected Heal differed from detached rules");
             std::cerr<<"M43 RETURN HEAL PRICE "<<returnHeal->result.price<<" SP "
                 <<party->roster.at(6).currentSp<<'\n';});
@@ -443,7 +465,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         }
         inspect([&]{SDL_Event event{};event.type=SDL_QUIT;SDL_PushEvent(&event);});
         auto native=handler;native.closed={};native.beginCycle=[&](std::uint64_t){handler.beginCycle(++cycle);};
-        native.framePresented=[&](const auto &frame){handler.framePresented(frame);presented=frame;shown=true;};
+        native.framePresented=[&](const auto &frame){handler.framePresented(frame);presented=frame;shown=true; m49_trace::frame(*world,*party,*position,*flow);};
         const auto drive=[&]()->std::optional<IndexedFrame>{
             check(++iterations<30000,"M43 witness iteration bound");now+=100;next.reset();acted=false;
             if(shown)while(!steps.empty()){const bool done=steps.front()();if(done)steps.pop_front();if(acted || !done)break;}

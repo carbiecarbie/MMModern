@@ -113,17 +113,17 @@ void quotePreview(Inputs &in) {
         if(scenario==2){c.currentHp=-15;c.conditions[12]=c.conditions[13]=1;}
         if(scenario==3){c.conditions[3]=2;c.conditions[8]=1;}
         TempleFixture fixture(in,source);
-        const auto expected=xeenPrepareTempleHeal(fixture.p,6,*fixture.p.encounterContext);
-        check(expected.result.outcome==XeenTempleHealOutcome::Healed,"Temple preview fixture is not payable");
-        if(!scenario)check(expected.result.hpAfter==6 && expected.result.maxHpAfter==9,
-            "Disease temporary-bonus preview fixture differs from independent HP 6/9");
+        // Quote uses level4 before temporary reset. HP assignment uses level3:
+        // Endurance13/Disease1 gives 6; Dead suppresses that modifier, giving9.
+        constexpr unsigned prices[]{80,40,570,160};
+        constexpr int hp[]{6,6,9,6};
         fixture.enter();fixture.act(SelectMemberAction{5});
-        check(XeenTrainingTestAccess::templeText(*fixture.flow).find(std::to_string(expected.result.price))!=std::string::npos,
+        check(XeenTrainingTestAccess::templeText(*fixture.flow).find(std::to_string(prices[scenario]))!=std::string::npos,
             "Temple original panel omits Heal price");
         fixture.act(DialogKeyAction{'h'});fixture.prepare();
-        check(fixture.p.roster.at(6).currentHp==expected.result.hpAfter &&
-            fixture.p.roster.at(6).currentSp==expected.result.spAfter &&
-            fixture.p.monsterTreasure->gold==expected.result.goldAfter &&
+        check(fixture.p.roster.at(6).currentHp==hp[scenario] &&
+            fixture.p.roster.at(6).currentSp==27 &&
+            fixture.p.monsterTreasure->gold==810-prices[scenario] &&
             XeenTrainingTestAccess::templeLobby(*fixture.flow),
             "one-step Temple Heal differs from independent candidate or retains result phase");
         fixture.leave();
@@ -245,35 +245,19 @@ int main(int argc,char **argv) {
             auto diseased=injured(in);auto &character=diseased.characters[6];
             character.conditions[12]=character.conditions[13]=0;
             character.currentHp=1;
-            bool threshold=false;
-            for(int endurance=1;endurance<=30 && !threshold;++endurance)
-                for(unsigned severity=1;severity<=20 && !threshold;++severity) {
-                    auto trial=character;
-                    trial.endurance.permanent=endurance;trial.endurance.temporary=0;
-                    trial.conditions[4]=static_cast<std::uint8_t>(severity);
-                    auto healthy=trial;healthy.conditions[4]=0;
-                    if(XeenCharacterRules::maxHp(trial,{610})<XeenCharacterRules::maxHp(healthy,{610})) {
-                        character=trial;threshold=true;
-                    }
-                }
-            check(threshold,"Disease Endurance threshold fixture unavailable");
+            character.endurance.permanent=13;character.endurance.temporary=0;
+            character.conditions[4]=1;
             TempleFixture fixture(in,diseased);
             const auto before=fixture.snapshot();
-            const auto candidate=xeenPrepareTempleHeal(fixture.p,6,*fixture.p.encounterContext);
-            check(candidate.result.outcome==XeenTempleHealOutcome::Healed &&
-                candidate.result.maxHpAtAssignment<candidate.result.maxHpAfter &&
-                candidate.character.currentHp==candidate.result.maxHpAtAssignment &&
-                candidate.character.currentSp==before.characters[6].currentSp,
-                "Disease cure assigned HP after clearing the original condition or changed SP");
             for(unsigned owner=0;owner<30;++owner)if(owner!=6)
                 check(xeen_state::sameCharacter(before.characters[owner],fixture.p.roster.at(owner)) &&
                     xeen_state::sameInputs(before.journey->supplements[owner].inputs,
                         *fixture.p.roster.combatInputs(owner)),
                     "detached Heal changed another owner");
             fixture.enter();fixture.heal(5);fixture.leave();
-            check(fixture.p.roster.at(6).currentHp==candidate.result.maxHpAtAssignment &&
-                XeenCharacterRules::maxHp(fixture.p.roster.at(6),{610})==candidate.result.maxHpAfter &&
-                fixture.p.roster.at(6).currentSp==before.characters[6].currentSp,
+            check(fixture.p.roster.at(6).currentHp==6 &&
+                XeenCharacterRules::maxHp(fixture.p.roster.at(6),{610})==9 &&
+                fixture.p.roster.at(6).currentSp==27 && fixture.p.monsterTreasure->gold==750,
                 "published Disease Heal changed the required HP order or SP");
         }
         {

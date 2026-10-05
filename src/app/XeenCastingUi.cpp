@@ -73,7 +73,10 @@ std::string XeenEventFlow::combatCastingText() const {
         else {
             if(v.enemy) {
                 const auto &result=_encounter->combat()->result();
-                out<<"Contact #"<<v.enemy->recordIndex<<" HP "<<result.actorHpBefore<<"->"<<result.actorHpAfter<<'\n';
+                out<<"Contact #"<<v.enemy->recordIndex<<" HP ";
+                if(v.phase==CP::Result)out<<result.actorHpBefore<<"->"<<result.actorHpAfter;
+                else out<<_world.sessionState().regionalActors(v.enemy->mapId).at(v.enemy->recordIndex).hp;
+                out<<'\n';
                 if(r.resisted)out<<"Resisted\n";
             }
             for(unsigned i=0;i<r.count;++i) {
@@ -85,10 +88,12 @@ std::string XeenEventFlow::combatCastingText() const {
                 if(found!=members.end() && !(_encounter->combat()->participants()&(1u<<unsigned(found-members.begin()))))details<<" Escaped";
                 details<<'\n';
             }
-            if(r.refunded)out<<"SP refunded; action spent\n";
+            if(v.phase!=CP::Result){}
+            else if(r.refunded)out<<"SP refunded; action spent\n";
             else if(r.failed)out<<"Spell failed; action spent\n";
             else if(r.noop && !r.refunded)out<<"No change; action spent\n";
-            if(v.phase==CP::Projectile)out<<"Arrow settled; projectile; Esc waits";
+            if(v.phase==CP::Projectile)out<<"Arrow in flight; Esc waits";
+            else if(v.phase==CP::Impact || v.phase==CP::PostImpact)out<<"Arrow impact; Esc waits";
             else {
                 out<<"Next: ";
                 if(v.successorWork==XeenCombatWork::Enemy)out<<"enemy attack";

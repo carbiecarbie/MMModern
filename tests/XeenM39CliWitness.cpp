@@ -130,7 +130,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     };
     services.show=[&](const IndexedFrame &first,const auto &handler,const auto &escape,const auto &idle,const auto &status) {
         check(flow && world && party && position && flags && target,"M39 owners absent");
-        if(branch=="input")return m39InputControls(control,first,handler,idle,original.show,escape,status,*flow,now,cycle,resourceFault);
+        if(branch=="input")return m39InputControls(control,first,handler,idle,original.show,escape,status,*flow,*world,*party,*position,now,cycle,resourceFault);
         if(branch=="fault") {
             const auto mutate=[&](const std::string &which) {
                 auto &p=const_cast<XeenPartyState &>(*party);auto &c=p.roster.at(which=="aba-hp"?1:29);
@@ -335,20 +335,25 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 }
             }else {
                 route("LUUURUULURUULUUU",false);untilActor(5,true);
-                inspect([&]{check(party->encounterContext->minutes==590 && world->sessionState().journeyRandom()->count==rngOffset+29 &&
-                    world->sessionState().actors()[15].hp==54,"M39 seed7 first-cycle prefix");});
+                inspect([&]{std::cout<<"M49 MONSTER PREFIX HP="<<world->sessionState().actors()[15].hp<<" RNG="<<world->sessionState().journeyRandom()->count<<" minute="<<party->encounterContext->minutes<<'\n';
+                    check(party->encounterContext->minutes==590 && world->sessionState().journeyRandom()->count==rngOffset+20 &&
+                    world->sessionState().actors()[15].hp==33,"M49 corrected single-target monster first-cycle prefix");});
                 if(branch=="C") {
-                    arrow(15);inspect([&]{check(world->sessionState().actors()[15].hp==46 && party->roster.at(6).currentSp==25,"M39 C wound");std::cout<<"M39 C WOUND HP54->46 SP27->25\n";});
+                    arrow(15);inspect([&]{check(world->sessionState().actors()[15].hp==25 && party->roster.at(6).currentSp==25,"M39 C wound");std::cout<<"M49 C WOUND HP33->25 SP27->25\n";});
                     action(AcknowledgeAction{});settle();checkpoint("C");
                 }else {
                     action(AttackAction{});untilActor(5,false);
-                    inspect([&]{check(party->encounterContext->minutes==591 && world->sessionState().journeyRandom()->count==rngOffset+51 &&
-                        world->sessionState().actors()[15].hp==50 && party->roster.at(14).conditions[8]==1 && party->roster.at(1).conditions[8]==1 && party->roster.at(1).currentHp==4,"M39 B prefix");});
+                    inspect([&]{std::cout<<"M49 B PREFIX HP="<<world->sessionState().actors()[15].hp<<" RNG="<<world->sessionState().journeyRandom()->count<<" minute="<<party->encounterContext->minutes<<" Rebecca="<<party->roster.at(1).currentHp<<" sleep="<<unsigned(party->roster.at(1).conditions[8])<<","<<unsigned(party->roster.at(14).conditions[8])<<","<<unsigned(party->roster.at(11).conditions[8])<<'\n';
+                        check(party->encounterContext->minutes==591 && world->sessionState().journeyRandom()->count==rngOffset+27 &&
+                        world->sessionState().actors()[15].hp==33 && party->roster.at(11).conditions[8]==1 && party->roster.at(11).currentHp==9 &&
+                        !party->roster.at(14).conditions[8] && !party->roster.at(1).conditions[8] && party->roster.at(1).currentHp==21,"M49 B single-target Sleep prefix");});
                     action(CastSpellAction{});action(AcknowledgeAction{});action(AcknowledgeAction{});result();
-                    inspect([&]{check(party->roster.at(6).currentSp==26 && !party->roster.at(14).conditions[8] && !party->roster.at(1).conditions[8] &&
-                        party->encounterContext->minutes==591 && world->sessionState().journeyRandom()->count==rngOffset+51,"M39 B Awaken");std::cout<<"M39 B AWAKEN Sleep1->0 unchanged RNG/time\n";});
+                    inspect([&]{check(party->roster.at(6).currentSp==26 && !party->roster.at(11).conditions[8] && party->roster.at(11).currentHp==9 &&
+                        !party->roster.at(14).conditions[8] && !party->roster.at(1).conditions[8] &&
+                        party->encounterContext->minutes==591 && world->sessionState().journeyRandom()->count==rngOffset+27,"M39 B Awaken");std::cout<<"M39 B AWAKEN Sleep1->0 unchanged RNG/time\n";});
                     action(AcknowledgeAction{});untilActor(2,false);action(BlockAction{});untilActor(4,false);firstAid(4);
-                    inspect([&]{check(party->roster.at(1).currentHp==10 && party->roster.at(1).currentSp==20,"M39 B self-target SP preservation");std::cout<<"M39 B FIRST AID HP4->10 SP21->20\n";});
+                    inspect([&]{check(party->roster.at(1).currentHp==21 && party->roster.at(1).currentSp==20 && cast()->result.noop,
+                        "M39 B healthy self-target SP preservation");std::cout<<"M49 B FIRST AID HP21->21 SP21->20\n";});
                     action(AcknowledgeAction{});settle();checkpoint("B");
                 }
             }
@@ -425,7 +430,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             check(!ok && nativeFailed && saves==3 && !flow->canSave(),"M39 native failed frame manufactured authority/save");
             const auto prior=XeenSaveFile::read(*target);
             check(prior.characters[1].currentSp==21 && prior.characters[6].currentSp==27 && prior.journey->random->count==rngOffset,"M39 native failure overwrote previous disk save");
-            if(control.find("projectile")!=std::string::npos)check(party->roster.at(6).currentSp==25 && world->sessionState().actors()[9].hp==0 && world->sessionState().accountedMonsters().count({23,9}),"M39 failed projectile replayed/refunded lethal prefix");
+            if(control.find("projectile")!=std::string::npos)check(party->roster.at(6).currentSp==25 && world->sessionState().actors()[9].hp==7 && !world->sessionState().accountedMonsters().count({23,9}) && world->sessionState().journeyRandom()->count==rngOffset+12,"M49 failed projectile published HP/reward/RNG or refunded reservation");
             else check(party->roster.at(1).currentSp==20 && party->roster.at(6).currentHp==(control.find("result")!=std::string::npos?15:11),"M39 native failure changed committed cost/effect prefix");
             std::cout<<"M39 NATIVE FAILURE PREFIX PASSED "<<control<<'\n';return true;
         }

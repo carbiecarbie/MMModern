@@ -424,7 +424,9 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		const bool indoor=camera.mapId==XeenMapIdentity(28);
 		if(indoor && !session._vertigoActors)throw std::invalid_argument("Vertigo actors are absent");
 		auto &regionalActors=indoor ? *session._vertigoActors : session._actors;
-		check();validateDomain(world,party,*party.encounterContext,regionalActors,events);
+		check();
+        if(!work)validateDomain(world,party,*party.encounterContext,regionalActors,events);
+        else validateEnvironment(world,regionalActors,events);
 		require(state._revision<std::numeric_limits<std::uint64_t>::max(),"Regional revision exhausted");
 		const auto map=world.map(camera.mapId);check();
 		if(!work) {
@@ -495,8 +497,25 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 			if(!c.opportunity) {
 				if(indoor)c.opportunity.emplace(world,c.actors,c.camera,c.characters,c.inputs,c.context.year,0x3f);
 				else c.opportunity.emplace(map,c.actors,c.camera,c.characters,c.inputs,c.context.year,0x3f);
+				c.opportunity->staged=true;
 			}
-			if(!c.opportunity->service(draw)) return pending();
+			if(!c.opportunity->service(draw)) {
+                auto &op=*c.opportunity;
+                c.result.consequences.reset();
+                if((!op.travelPresented && !op.travelPublished) || (op.impactOwner && !op.portraitPublished))c.result.consequences=op.presentation();
+                if((!op.travelPresented && !op.travelPublished) || op.impactApplied) {
+                    // Movement precedes travel; each injury follows its acquired portrait.
+                    auto visibleActors=op.actors;check();
+                    regionalActors.swap(visibleActors);camera=c.camera;party.encounterContext=c.context;
+                    const auto &values=op.impactApplied ? op.characters : c.characters;
+                    for(const auto &v:values) {auto &live=party.roster.at(v.rosterId);live.currentHp=v.currentHp;live.conditions=v.conditions;live.armor=v.armor;}
+                    session._journeyRandom=c.random.continuation();
+                    state._revision=session._encounterRevision=++c.revision;
+                    if(!op.travelPresented)op.travelPublished=true;
+                }
+                if(op.impactOwner && c.result.consequences)op.portraitPublished=true;
+                auto result=pending();result.revision=state._revision;return result;
+            }
 			for(unsigned i=0;i<c.opportunity->shotCount;++i) c.shots.at(c.shotCount++)=c.opportunity->shots[i];
 			c.actors.swap(c.opportunity->actors);c.characters.swap(c.opportunity->characters);c.opportunity.reset();
 			--c.remaining;++c.result.movementOpportunities;

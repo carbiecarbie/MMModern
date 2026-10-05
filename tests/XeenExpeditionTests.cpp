@@ -61,7 +61,10 @@ std::vector<Draw> critical(){return {{1,20,20},{1,4,4},{1,4,4},{1,24,24},{1,5,5}
 void disease(){
  auto s=group({16});s.characters[1].armor={};s.characters[1].accessories={};
  Domain d(s);auto &c=d.engage();block(c);auto values=critical();auto twice=values;twice.insert(twice.end(),values.begin(),values.end());Tape t(twice);
- const auto before=*d.w.sessionState().journeyRandom();auto r=c.service(c.ticket());check(r.damage==16&&r.injuryCount==2&&d.p.roster.at(1).conditions[4]==2&&c.pending()==Work::Enemy,"first Zombie resource attack");check(d.w.sessionState().journeyRandom()->count==before.count+8,"first attack cursor publication");r=c.service(c.ticket());check(r.damage==16&&d.p.roster.at(1).conditions[4]==4&&cursor==16,"two literal Zombie attacks");check(d.p.roster.at(1).currentHp==168,"four applications on same awake target");
+ const auto before=*d.w.sessionState().journeyRandom();auto r=c.service(c.ticket());check(r.damage==16&&r.injuryCount==2&&d.p.roster.at(1).conditions[4]==2&&c.pending()==Work::Enemy,"first Zombie resource attack");check(d.w.sessionState().journeyRandom()->count==before.count+8,"first attack cursor publication");
+ const auto firstRevision=r.revision;r=c.service(c.ticket());
+ check(r.oldRevision==firstRevision && r.revision==firstRevision+1,"Each attack binds its own publication revision");
+ check(r.damage==16&&d.p.roster.at(1).conditions[4]==4&&cursor==16,"two literal Zombie attacks");check(d.p.roster.at(1).currentHp==168,"four applications on same awake target");
  for(auto save:{4u,5u}){auto highAc=s;highAc.journey->supplements[1].inputs.temporaryAc=10;Domain d2(highAc);auto &c2=d2.engage();block(c2);Tape equality({{1,20,20},{1,4,1},{1,4,1},{1,24,save},{1,5,1}});auto r2=c2.service(c2.ticket());check(r2.status!=Status::Failed&&d2.p.roster.at(1).conditions[4]==(save==4?0:1),"physical save equality");}
  s.characters[1].conditions[4]=255;Domain overflow(s);auto &co=overflow.engage();block(co);const auto state=*overflow.w.sessionState().journeyRandom();Tape excess(critical());check(co.service(co.ticket()).status==Status::Failed,"Disease 256 refusal");check(overflow.p.roster.at(1).currentHp==200&&overflow.p.roster.at(1).conditions[4]==255&&*overflow.w.sessionState().journeyRandom()==state,"entire resource attack rejected");
 }
@@ -85,7 +88,14 @@ void injuriesAndDefeat(){
  for(auto id:kXeenCombatOwners)if(id!=0&&id!=1){s.characters[id].currentHp=-1;s.characters[id].conditions[12]=1;}
  Domain d(s);auto &c=d.engage();block(c);auto values=critical();values.insert(values.end(),{{0,5,4},{0,0,0},{1,20,1}});Tape t(values);
  auto first=c.service(c.ticket());check(first.status!=Status::Failed&&first.injuryCount==2&&d.p.roster.at(1).currentHp==-15&&!d.p.roster.at(1).canAct(),"critical keeps target through incapacitation");check(first.armorCount>0,"ordered armor breakage at negative HP");auto second=c.service(c.ticket());check(second.status!=Status::Failed&&second.targetOwner==0&&cursor==11,"second attack reselects with singleton fallback request");
- auto only=s;only.characters[0].currentHp=-1;only.characters[0].conditions[12]=1;Domain defeated(only);auto &enemy=defeated.engage();block(enemy);Tape loss(critical());auto before=defeated.p.encounterContext->minutes;check(enemy.service(enemy.ticket()).status==Status::Defeat&&cursor==8&&defeated.p.encounterContext->minutes==before&&!defeated.flow->journeyQuiet(),"defeat suppresses second resource attack and time");
+ auto only=s;only.characters[0].currentHp=-1;only.characters[0].conditions[12]=1;Domain defeated(only);auto &enemy=defeated.engage();block(enemy);
+ auto lossTape=critical();lossTape.push_back({0,5,0});Tape loss(lossTape);auto before=defeated.p.encounterContext->minutes;
+ check(enemy.service(enemy.ticket()).status==Status::Advanced && cursor==8 && enemy.pending()==Work::Enemy,
+  "First lethal injury retains the source's second target-selection obligation");
+ const auto lossResult=enemy.service(enemy.ticket());
+ check(lossResult.status==Status::Defeat && !lossResult.injuryCount && cursor==9 &&
+  defeated.p.encounterContext->minutes==before && !defeated.flow->journeyQuiet(),
+  "Reference defeat follows the second initial target draw, without fallback injury or time");
  for(unsigned field=0;field<3;++field){Domain changed(group({16}));auto &combat=changed.engage();auto beforeRandom=*changed.w.sessionState().journeyRandom();combat.setProbe([&]{auto &r=const_cast<XeenMutableOptional<XeenJourneyRandomState>&>(changed.w.sessionState().journeyRandom());if(field==0)++r->state;else if(field==1)++r->count;else r->algorithm=2;});taped=false;check(action(combat,Command::Attack).status==Status::Failed&&changed.w.sessionState().actors()[16].hp==30,"world random fields participate in preimage");}
 }
 void scheduler(){

@@ -10,12 +10,60 @@
 #include "games/xeen/XeenRegionalRules.h"
 #include "games/xeen/XeenIndoorScene.h"
 #include "games/xeen/CloudsMapComposer.h"
+#include "platform/XeenSaveFile.h"
+#include "games/xeen/XeenCharacterRules.h"
 #include <iostream>
 #include <stdexcept>
+#include <cstdlib>
+#include <fstream>
 
 using namespace mmodern;
 namespace {
 void check(bool ok,const char *message) { if(!ok)throw std::runtime_error(message); }
+void targetingOracle(const std::vector<XeenMonsterRecord> &records) {
+ // Independent translation of pinned doMonsterTurn's selector. Include all
+ // Clouds records even when their damage/ability is not admitted for gameplay.
+ for(const auto &record:records)for(unsigned mask=0;mask<64;++mask)for(unsigned disabled:{0u,21u,63u}) {
+  XeenConsequenceCharacters party;
+  std::vector<unsigned> participating,able;
+  for(unsigned i=0;i<6;++i) {
+   party[i].characterClass=static_cast<XeenCharacterClass>(i);
+   party[i].race=i%2?XeenRace::Dwarf:XeenRace::Human;
+   if(disabled&(1u<<i))party[i].conditions[12+i%4]=1;
+   else if(i==2)party[i].conditions[8]=1;
+   if(mask&(1u<<i)){participating.push_back(i);if(!(disabled&(1u<<i)))able.push_back(i);}
+  }
+  unsigned expected=0;std::vector<XeenCombatRandom::Draw> tape;
+  const unsigned hates=record.raw[25];
+  if(hates==15)expected=mask;
+  else if(!participating.empty()) {
+   unsigned selected=6;
+   if(hates!=1)for(auto i:able) {
+    bool match=false;
+    switch(hates) {
+     case 0:case 2:case 3:case 4:case 5:case 6:case 7:case 8:case 9:
+      match=unsigned(party[i].characterClass)==hates;break;
+     case 12:match=party[i].race==XeenRace::Dwarf;break;
+    }
+    if(match){selected=i;break;}
+   }
+   if(selected==6) {tape.push_back({0,unsigned(participating.size()-1),0});selected=participating.front();}
+   if(disabled&(1u<<selected)) {
+    if(able.empty())selected=6;
+    else {tape.push_back({0,unsigned(able.size()-1),unsigned(able.size()-1)});selected=able.back();}
+   }
+   if(selected<6)expected=1u<<selected;
+  }
+  // Count is decoded independently from byte 24; selector-only coverage does
+  // not require or silently admit a record's unsupported damage ability.
+  check(record.attacks()==record.raw[24],"Original attack-count field differs");
+  for(unsigned attack=0;attack<std::max(1u,unsigned(record.raw[24]));++attack) {
+   XeenCombatRandom rng(tape);XeenMonsterTargetCandidate selector(party,record.hatred(),mask);
+   bool done=false;for(unsigned chunk=0;chunk<5 && !done;++chunk){XeenConsequenceDraw draw{rng,1,{}};done=selector.service(draw);}
+   check(done && selector.mask==expected && rng.position()==tape.size(),"Original selector differs from independent oracle");
+  }
+ }
+}
 }
 int main(int argc,char **argv) {
  try {
@@ -29,6 +77,26 @@ int main(int argc,char **argv) {
   const auto mainland=events.load(23),city=events.load(28);
   xeenValidateVertigoRoute(mainland,city);
   const auto statistics=XeenMonsterFormat::parse(*assets.readCloudsMonsterStatisticsFromDarkArchive());
+  targetingOracle(statistics);
+  if(const auto path=std::getenv("MMODERN_M49_READ_SAVE")) {
+   // Read-only evidence of the saved equipment/stat inputs used by a volley.
+   const auto saved=XeenSaveFile::read(path);check(bool(saved.journey),"Evidence save lacks Journey inputs");
+   for(auto owner:kXeenCombatOwners) {
+    std::cout<<"EVIDENCE_AC "<<unsigned(owner)<<' '<<XeenCharacterRules::combatArmorClass(saved.characters[owner],
+        saved.journey->supplements[owner].inputs,{saved.journey->context->year})<<'\n';
+    std::cout<<"EVIDENCE_MAXHP "<<unsigned(owner)<<' '<<XeenCharacterRules::maxHp(saved.characters[owner],
+        {saved.journey->context->year})<<'\n';
+   }
+  }
+  if(const auto path=std::getenv("MMODERN_M49_MONSTERS")) {
+   std::ofstream out(path);check(bool(out),"Cannot create local monster-rule evidence");
+   const auto mainlandActors=XeenActorApproach::actorsFromResources(maps.loadObjects(assets,23),statistics);
+   for(const auto &a:mainlandActors) {
+    const auto &m=*a.statistics;
+    out<<a.id.recordIndex<<' '<<a.original.resourceId<<' '<<m.experience()<<' '<<m.attacks()<<' '<<m.hatred()
+       <<' '<<m.strikes()<<' '<<m.damageDie()<<' '<<m.damageType()<<' '<<m.hitParameter()<<' '<<unsigned(m.raw[30])<<'\n';
+   }
+  }
   const auto &slime=statistics.at(0);
   const auto resource=[&](const std::string &name) {
    return name.rfind("maze",0)==0?assets.readInitialResource(name):assets.readArchiveResource(name);
@@ -116,7 +184,8 @@ int main(int argc,char **argv) {
   }
   characters[5].conditions[13]=1;
   std::vector<XeenCombatRandom::Draw> tape;
-  for(unsigned owner=0;owner<6;++owner) {
+  for(unsigned owner=0;owner<2;++owner) {
+   tape.push_back({0,5,owner});
    tape.push_back({1,2,2});
    tape.push_back({1,owner==0?120u:40u,1});
    tape.push_back({1,owner==0?120u:40u,owner==0?1u:40u});
@@ -124,16 +193,25 @@ int main(int argc,char **argv) {
   XeenCombatRandom rng(tape);
   XeenEnemyAttackCandidate attack(characters,inputs,slime,610,0x3f);
   bool done=false;
-  for(unsigned step=0;step<30 && !done;++step){XeenConsequenceDraw budget{rng,1,{}};done=attack.service(budget);}
-  check(done && rng.position()==18 && attack.result.injuryCount==6,
-   "Slime two-save per-owner draw trace and bounded continuation");
-  check(attack.result.damage==10 && attack.result.injuries[0].amount==0,
+  std::vector<XeenCombatDamage> injuries;
+  for(unsigned step=0;step<30 && !done;++step){XeenConsequenceDraw budget{rng,1,{}};
+   if(attack.service(budget)) {
+    for(unsigned i=0;i<attack.result.injuryCount;++i)injuries.push_back(attack.result.injury(i));
+    done=!attack.nextAttack();
+   }
+  }
+  check(done && rng.position()==8 && injuries.size()==2,
+   "Slime two random attacks and per-target saves with bounded continuation");
+  check(injuries[1].amount==2 && injuries[0].amount==0,
    "Successful repeated poison saves yield zero HP damage");
-  for(unsigned owner=0;owner<6;++owner)
+  for(unsigned owner=0;owner<2;++owner)
    check(!attack.characters[owner].conditions[8] && !attack.characters[owner].conditions[3] &&
-    attack.result.injuries[owner].owner==kXeenCombatOwners[owner] &&
-    attack.result.injuries[owner].amount==(owner==0?0:2),
-    "Slime wakes and strikes all owners including a dead owner, without Poison condition");
+    injuries[owner].owner==kXeenCombatOwners[owner] &&
+    injuries[owner].amount==(owner==0?0:2),
+    "Slime wakes and strikes only its two selected targets without Poison condition");
+  for(unsigned owner=2;owner<6;++owner)
+   check(attack.characters[owner].conditions==characters[owner].conditions && attack.characters[owner].currentHp==50,
+    "Slime leaves unselected and dead members untouched");
   std::cout<<"Original M37 route, Slime, 46 city records, sprites and 30 poison inputs passed\n";
   return 0;
  } catch(const std::exception &e) {std::cerr<<e.what()<<'\n';return 1;}

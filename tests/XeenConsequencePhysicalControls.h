@@ -24,7 +24,7 @@ void physicalPresentationControls(Source &source,const std::filesystem::path &ga
     bool ink=false;for(unsigned y=80;y<110;++y)for(unsigned x=8;x<222;++x)ink|=h.flow->frame().pixels[y*320+x]!=h.base.pixels[y*320+x];check(ink,"Original sign label rendered");
     const auto bytes=XeenSaveFormat::encode(XeenSaveState::capture(h.signature,*h.party,*h.camera,*h.flags,*h.world));
     if(mode==1){press(SaveGameAction{});check(XeenSaveFormat::encode(XeenSaveFile::read(path))==bytes,"F9 with passive sign preserves exact state");}
-    if(mode==2){press(InspectInventoryAction{});check(h.flow->inventoryOpen(),"Passive sign permits inventory");press(InspectInventoryAction{});check(h.flow->canSave(),"Inventory returns to Quiet");}
+    if(mode==2){press(InspectInventoryAction{});check(h.flow->inventoryOpen(),"Passive sign permits inventory");press(CancelInteractionAction{});check(!h.flow->inventoryOpen() && h.flow->canSave(),"Esc closes inventory and returns to Quiet");}
     if(mode==3){press(NavigationAction::TurnRight);check(h.camera->direction==XeenDirection::East,"Passive sign permits fresh movement");}
     if(mode<4)return true;
    }

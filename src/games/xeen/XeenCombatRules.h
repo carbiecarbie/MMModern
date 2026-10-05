@@ -41,6 +41,18 @@ struct XeenConsequenceDraw {
 };
 using XeenConsequenceCharacters = std::array<XeenCharacter,6>;
 using XeenConsequenceInputs = std::array<XeenCombatInputs,6>;
+// One reference targeting pass, independent of damage/ability admission.
+// A zero mask means the reference defeat path has no able target.
+struct XeenMonsterTargetCandidate {
+    unsigned mask=0;
+    XeenMonsterTargetCandidate(const XeenConsequenceCharacters &,unsigned hatred,unsigned participants);
+    bool service(XeenConsequenceDraw &);
+private:
+    std::array<unsigned,6> participants{},eligible{};
+    unsigned count=0,eligibleCount=0;
+    unsigned preferred=6;
+    enum class Step { Target, Fallback, Done } step=Step::Target;
+};
 // Detached learned Magic Arrow. Same world-owned cursor and bounded draw service.
 struct XeenMagicArrowCandidate {
     int damage=0;
@@ -64,23 +76,31 @@ private:
 struct XeenEnemyAttackCandidate {
 	XeenConsequenceCharacters characters;
 	XeenCombatResult result;
+ // Live opportunity owners opt into one acknowledged portrait per injury.
+ bool deferInjury=false, injuryReady=false, injuryAcknowledged=false, injuryApplied=false;
+ std::uint8_t impactOwner=0;
 	XeenEnemyAttackCandidate(const XeenConsequenceCharacters &, const XeenConsequenceInputs &,
 		const XeenMonsterRecord &, unsigned year, unsigned participantMask, const std::array<bool,6> &blocked = {});
 	bool service(XeenConsequenceDraw &);
+	// Call only after publishing/retaining the completed attack. Both melee and
+	// ranged sources use this same reference count loop and updated characters.
+	bool nextAttack();
 private:
-	enum class Step { Target, Fallback, Begin, Roll, Dice, Special, Injury, Parameter,
+	enum class Step { Target, Begin, Roll, Dice, Special, Injury, Parameter,
 		PoisonSaveInitial, PoisonSaveRepeat, Next, Done };
 	Step step = Step::Target, afterInjury = Step::Next;
 	XeenConsequenceInputs inputs;
 	XeenMonsterRecord monster;
 	unsigned year;
 	std::array<unsigned,6> participants{};
-	unsigned participantCount = 0, participantCursor = 0;
+	unsigned participantCount = 0, participantCursor = 0, attackOrdinal=0;
+	std::optional<XeenMonsterTargetCandidate> selection;
 	std::array<bool,6> blocked;
 	int target = -1, roll = 0, damage = 0, beforeDamageAc = 0;
 	unsigned dice = 0;
 	bool allParty;
 	bool poison=false;
+	bool noTarget=false;
 };
 struct XeenPhysicalPlayerCandidate {
 	int damage = 0;

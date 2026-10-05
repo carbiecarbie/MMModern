@@ -10,6 +10,7 @@
 #include "games/xeen/XeenInstallationDetector.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "games/xeen/XeenIndoorScene.h"
+#include "XeenM49CombatSupport.h"
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 #include <cstdlib>
@@ -45,7 +46,8 @@ static const probe_fired::Expect playProbe{"Application::playGameplay","SDL_Rend
 extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &original,XeenCamera camera,
  const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,
  std::optional<std::uint32_t> seed) {probe_fired::hit("Application::playGameplay");if(!resume)for(const char *probe:{"XEEN_REPLAY_COMMAND","XEEN_REPLAY_DRAW","XEEN_REPLAY_JOURNEY_CONSTRUCT","XEEN_REPLAY_REGIONAL_MOVE","XEEN_REPLAY_SERVICE","XEEN_REPLAY_TIME","XEEN_REPLAY_RETIRE","XEEN_REPLAY_MOVE","XEEN_REPLAY_EVENT_BEGIN","XEEN_REPLAY_FRESH_PUBLICATION_INITIALIZE"})probe_fired::expect(probe);
- if(!resume){seed=3626689381u;}
+ // Keep the caller's real fixed seed (1114); do not replace it with the former
+ // Slime whole-party witness's hidden seed override.
  if(resume) {
   replay_test::journeyInitializations=replay_test::journeyConstructions=0;
   replay_test::actions=replay_test::pulses=replay_test::retirements=0;
@@ -138,7 +140,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   };
   std::deque<std::function<bool()>> steps;
   std::optional<IndexedFrame> next;IndexedFrame::Presentation presented;
-  bool shown=false,acted=false,breakArmor=false;unsigned blocks=0,iterations=0,nativeSaveResponses=0;
+  bool shown=false,acted=false,breakArmor=false;unsigned blocks=0,openingAttacks=0,iterations=0,nativeSaveResponses=0;
   const auto act=[&](PlayerAction action){
    check(shown,"M38 input preceded successful presentation");
    const auto token=handler.displayedInput();check(bool(token),"M38 displayed token absent");
@@ -203,19 +205,23 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   });};
   const auto waitService=[&]{steps.push_back([&]{return XeenTrainingTestAccess::admitted(*flow);});dismissServiceNotice();};
   const auto browseRepair=[&]{action(DialogKeyAction{'b'});action(DialogKeyAction{'a'});action(DialogKeyAction{'f'});};
-  const auto settle=[&]{steps.push_back([&]{
+  const auto settleStep=[&]{
    if(flow->canSave())return true;
    if(const auto *combat=flow->encounter()->combat()) {
     check(combat->phase()!=XeenCombatPhase::Failed && combat->phase()!=XeenCombatPhase::Defeat &&
      combat->phase()!=XeenCombatPhase::SupportStopped,"M38 combat support stop");
-    if(combat->phase()==XeenCombatPhase::PlayerReady) {
-     if(breakArmor && !(party->roster.at(6).armor[0].state&128)){++blocks;act(BlockAction{});}
+    if(const auto cast=combat->cast()) {
+     if(const auto input=m49_combat::finishAwaken(*cast,*party))act(*input);
+    }else if(combat->phase()==XeenCombatPhase::PlayerReady) {
+     if(m49_combat::canAwaken(*party,combat->participant()))act(CastSpellAction{});
+     else if(breakArmor && !(party->roster.at(6).armor[0].state&128) && openingAttacks++>=1){++blocks;act(BlockAction{});}
      else act(AttackAction{});
     }
    } else if(world->sessionState().journeyActivity()==XeenJourneyActivity::Event || world->sessionState().journeyActivity()==XeenJourneyActivity::Reward) act(AcknowledgeAction{});
    check(flow->encounter()->state().phase()!=XeenEncounterPhase::SupportStopped,"M38 exploration support stop");
    return false;
-  });};
+  };
+  const auto settle=[&]{steps.push_back(settleStep);};
   const auto nav=[&](NavigationAction a){action(a);settle();};
   const auto route=[&](const char *s){for(;*s;++s)switch(*s){
    case 'U':nav(NavigationAction::MoveForward);break;
@@ -269,24 +275,30 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    std::cout<<"M38 RESTORE EXACT BEFORE INPUT\n";
   }});
   if(!resume) {
-   route("UFUDD");
-   inspect([&]{check(party->monsterTreasure->gold==810,"M38 production earned gold mismatch");});
-   route("LLULUU");action(InteractionAction{});action(YesAction{});settle();
-   inspect([&]{breakArmor=true;});route("URULUUULUUU");
+   check(seed==1114u,"M49 repair witness requires its explicit ordinary critical-injury seed");
+   // Earn physical critical injury on the reachable mainland, with the
+   // original well and learned Awaken, instead of the old party-wide Slime bug.
+   route("RRRUUURUURRRU");
+   for(unsigned member=0;member<5;++member){action(InteractionAction{});action(SelectMemberAction{member});settle();}
+   inspect([&]{breakArmor=true;});route("RUULUUU");
    inspect([&]{breakArmor=false;
-    check(blocks==39 && position->mapId==XeenMapIdentity(28) && position->x==13 && position->y==4,
-     "M38 original broken-armor route mismatch");
-    check(party->roster.at(6).currentHp==-11 && party->roster.at(6).armor[0].state==128 &&
-     party->roster.at(6).armor[1].state==128 && party->encounterContext->minutes==577 &&
-     world->sessionState().journeyRandom()->count==1203,"M38 natural injury witness mismatch");
-   });
+    std::cout<<"M49 ARMOR HP="<<party->roster.at(6).currentHp<<" states="<<unsigned(party->roster.at(6).armor[0].state)<<":"<<unsigned(party->roster.at(6).armor[1].state)<<" dead="<<unsigned(party->roster.at(6).conditions[13])<<" blocks="<<blocks<<'\n';
+    check(blocks==0 && party->roster.at(6).currentHp==-11 && party->roster.at(6).armor[0].state==128 && party->roster.at(6).armor[1].state==128 &&
+      !party->roster.at(6).conditions[13],"M49 ordinary combat did not earn recoverable Seymour armor injury");});
+   steps.push_back([&]{if(!flow->canSave()){settleStep();return false;}
+    if(const auto input=m49_combat::toward(*world,*position,9,11,XeenDirection::West)){act(*input);return false;}return true;});
+   route("UFUDD");
+   inspect([&]{std::cout<<"M49 EARNED PURSE "<<party->monsterTreasure->gold<<'\n';check(party->monsterTreasure->gold==840,"M38 production earned gold mismatch");});
+   route("LLULUU");action(InteractionAction{});action(YesAction{});settle();
+   route("URULUUULUUU");
    for(unsigned i=0;i<2;++i) {
     action(CastSpellAction{});action(SelectMemberAction{4});action(NavigationAction::MoveBackward);
     action(AcknowledgeAction{});action(AcknowledgeAction{});action(SelectMemberAction{5});settle();
    }
-   inspect([&]{check(party->roster.at(6).currentHp==1 && party->roster.at(1).currentSp==19 &&
-    party->encounterContext->minutes==579,"M38 First Aid witness mismatch");});
-   route("UUUUU");inspect([&]{check(position->x==8 && position->y==4 && party->encounterContext->minutes==584,"M38 five-cell corridor endpoint/time");});checkpoint('A');
+   inspect([&]{std::cout<<"M49 FIRST AID HP="<<party->roster.at(6).currentHp<<" SP="<<party->roster.at(1).currentSp<<" minute="<<party->encounterContext->minutes<<" RNG="<<world->sessionState().journeyRandom()->state<<":"<<world->sessionState().journeyRandom()->count<<'\n';
+    check(party->roster.at(6).currentHp==1 && party->roster.at(1).currentSp==18 &&
+    party->encounterContext->minutes==800,"M38 First Aid witness mismatch");});
+   route("UUUUU");inspect([&]{check(position->x==8 && position->y==4 && party->encounterContext->minutes==805,"M38 five-cell corridor endpoint/time");});checkpoint('A');
   }
   const auto visit=[&](unsigned slot,std::uint32_t goldAfter){
    auto before=std::make_shared<XeenSaveSnapshot>();auto ac=std::make_shared<int>();
@@ -329,12 +341,12 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    action(InteractionAction{});waitService();action(SelectMemberAction{5});browseRepair();
    for(unsigned slot=0;slot<2;++slot) {
     action(SelectInventorySlotAction{slot});action(YesAction{});deniedSave();
-    inspect([&,slot]{check(party->encounterContext->day==8 && party->monsterTreasure->gold==(slot?807u:808u),
+    inspect([&,slot]{check(party->encounterContext->day==8 && party->monsterTreasure->gold==(slot?837u:838u),
      "M38 multiple repairs settled early or rolled back earlier payment");});
    }
    action(CancelInteractionAction{});action(CancelInteractionAction{});settle();
    inspect([&,expected]{expected->characters[6].armor[0].state=0;expected->characters[6].armor[1].state=0;
-    expected->journey->treasure->gold=807;expected->journey->context->day=9;
+    expected->journey->treasure->gold=837;expected->journey->context->day=9;
     check(XeenSaveFormat::encode(*expected)==XeenSaveFormat::encode(XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world)),
      "M38 multiple repairs did not preserve unrelated durable state");});checkpoint('M');
   } else if(stage=="views") {
@@ -390,14 +402,14 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   if(empty) {
    if(stage=="empty") {
    action(InteractionAction{});waitService();deniedSave();action(CancelInteractionAction{});settle();
-   inspect([&]{check(party->encounterContext->day==9 && party->encounterContext->minutes==584 &&
-    party->monsterTreasure->gold==810 && party->roster.at(6).armor[0].state==128 &&
+   inspect([&]{check(party->encounterContext->day==9 && party->encounterContext->minutes==805 &&
+    party->monsterTreasure->gold==840 && party->roster.at(6).armor[0].state==128 &&
     party->roster.at(6).armor[1].state==128,"M38 transaction-free departure mismatch");});
    checkpoint('E');
    }
-   if(stage!="empty-F") {visit(0,808);checkpoint('F');}
+   if(stage!="empty-F") {visit(0,838);checkpoint('F');}
   } else if(detour) {
-   if(!resume || stage=="detour-A") {visit(0,808);checkpoint('B');}
+   if(!resume || stage=="detour-A") {visit(0,838);checkpoint('B');}
    if(stage!="detour-E" && stage!="detour-F" && stage!="detour-G") {
     route("DDDDDDDLUUUU");
     inspect([&]{check(position->x==15 && position->y==0 && position->direction==XeenDirection::South,"M38 city exit route");});
@@ -412,13 +424,13 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
      world->sessionState().regionalActors(28).at(36).lifecycle==XeenActorLifecycle::Defeated,
      "M38 reset/revisit route absent");});checkpoint('F');
    }
-   if(stage!="detour-G") {visit(1,807);checkpoint('G');}
+   if(stage!="detour-G") {visit(1,837);checkpoint('G');}
    inspect([&]{check(party->encounterContext->day==10,"M38 detour second departure absent");});
   } else {
-   if(!resume || (stage=="A" || stage=="native")) {visit(0,808);checkpoint('B');}
-   if(!resume || stage=="A" || stage=="B" || stage=="native") {visit(1,807);checkpoint('C');}
-   inspect([&]{check(party->encounterContext->day==10 && party->encounterContext->minutes==584 &&
-    party->monsterTreasure->gold==807 && world->sessionState().journeyRandom()->count==1203,
+   if(!resume || (stage=="A" || stage=="native")) {visit(0,838);checkpoint('B');}
+   if(!resume || stage=="A" || stage=="B" || stage=="native") {visit(1,837);checkpoint('C');}
+   inspect([&]{check(party->encounterContext->day==10 && party->encounterContext->minutes==805 &&
+    party->monsterTreasure->gold==837 && world->sessionState().journeyRandom()->count==1098,
     "M38 two-visit date/purse/RNG witness mismatch");});
   }
   checkpoint('D');
@@ -454,7 +466,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     const bool ok=original.show(first,native,escape,drive,status);
   if(control.rfind("upload-",0)==0 || control.rfind("copy-",0)==0) {
    check(faultFired && nativeFailed && !ok && !flow->canSave(),"M38 native failure exposed Quiet");
-   check(party->monsterTreasure->gold==(control.find("admission")!=std::string::npos?810u:808u) &&
+   check(party->monsterTreasure->gold==(control.find("admission")!=std::string::npos?840u:838u) &&
     party->encounterContext->day==(control.find("departure")!=std::string::npos?9:8),
     "M38 native failure rolled back or repeated publication");
    const auto calls=providerCalls,saves=saveCalls;
@@ -464,7 +476,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   }
   if(control.rfind("aba-",0)==0 || control=="immutable-art") {
    check(faultFired && !ok && !flow->canSave(),"M38 ABA did not fail monotonically");
-   check(party->monsterTreasure->gold==(control=="aba-after-repair" || control=="aba-departure"?808u:810u),"M38 ABA crossed payment boundary");
+   check(party->monsterTreasure->gold==(control=="aba-after-repair" || control=="aba-departure"?838u:840u),"M38 ABA crossed payment boundary");
    check(party->encounterContext->day==8,"M38 ABA incorrectly settled departure");
    std::cout<<"M38 ABA UNSAVEABLE PRESERVATION PASSED\n";
   }

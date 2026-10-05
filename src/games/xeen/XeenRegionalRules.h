@@ -2,6 +2,7 @@
 #define MMODERN_XEEN_REGIONAL_RULES_H
 #include "games/xeen/XeenActorApproach.h"
 #include "games/xeen/XeenCombatRules.h"
+#include "games/xeen/XeenJourneyProgression.h"
 #include <bitset>
 
 namespace mmodern {
@@ -39,12 +40,20 @@ struct XeenRegionalRangedShot {
 	XeenCombatResult attack;
 };
 struct XeenRegionalObservation {
+ enum class Stage { Published, Travel, Portrait };
+ Stage stage=Stage::Published;
+ std::optional<XeenMonsterIdentity> impactSource;
+ std::optional<std::uint8_t> impactOwner;
  std::array<XeenRegionalRangedShot,24> shots{};
  unsigned count=0;
  XeenConsequenceCharacters after;
 };
 // Complete detached movement opportunity. No live owner or publication authority.
 struct XeenRegionalOpportunityCandidate {
+ bool staged=false,travelStarted=false,travelPublished=false,travelPresented=false,
+     portraitPublished=false,impactPresented=false,impactApplied=false;
+ std::optional<XeenMonsterIdentity> impactSource;
+ std::optional<std::uint8_t> impactOwner;
 	std::vector<XeenActor> actors;
 	XeenConsequenceCharacters characters;
 	std::array<XeenRegionalRangedShot,19> shots{};
@@ -57,6 +66,7 @@ struct XeenRegionalOpportunityCandidate {
 		const XeenCamera &, const XeenConsequenceCharacters &, const XeenConsequenceInputs &,
 		unsigned year, unsigned participantMask, const std::array<bool,6> &blocked = {});
 	bool service(XeenConsequenceDraw &);
+ std::shared_ptr<const XeenRegionalObservation> presentation() const;
 private:
 	XeenCamera camera;
 	XeenConsequenceInputs inputs;
@@ -84,6 +94,17 @@ struct XeenRegionalActionCandidate {
 };
 
 struct XeenShootCandidate {
+	 enum class Stage { Travel, Impact, PostImpact };
+	 Stage stage=Stage::Travel;
+	 bool presented=false;
+	 bool advanceDraw=false, suffixPrepared=false;
+	 unsigned row=0,rows=4;
+	 std::uint64_t deadline=0;
+	 std::optional<XeenActor> bound;
+	 std::optional<XeenJourneyRandomState> impactRandom;
+	 std::optional<XeenJourneyLethal> lethal;
+	 std::string feedback;
+	 std::optional<unsigned> retireLane;
 	std::array<std::optional<XeenMonsterIdentity>,12> targets{};
 	std::array<bool,6> eligible{},spent{};
 	std::array<unsigned,6> projectileEnd{};

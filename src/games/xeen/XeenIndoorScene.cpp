@@ -608,8 +608,10 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::buildActors(
 		std::optional<std::uint64_t> ordinaryPhase,
 		std::optional<XeenMonsterAppearance> actorFrame) const {
 	std::vector<XeenIndoorDrawCommand> commands;
-		const auto view=classifySceneActors(world,camera,actors,true);
 		const auto appearance=actorFrame.value_or(XeenMonsterAppearance{0});
+		auto visibleActors=actors;
+		if(appearance.impactSnapshot)visibleActors.at(appearance.impactSnapshot->id.recordIndex)=*appearance.impactSnapshot;
+		const auto view=classifySceneActors(world,camera,visibleActors,true);
 		if (!appearance.valid()) throw std::invalid_argument("Invalid indoor actor appearance");
 		struct Group {int query,count;int slots[3],orders[3],xs[3];int y,scale,pair[2];};
 		static constexpr Group groups[]{
@@ -637,7 +639,6 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::buildActors(
 					throw std::runtime_error("Unsupported selected indoor actor");
 				const bool attacking=appearance.kind==XeenMonsterSpriteKind::Attack &&
 					appearance.identity && *appearance.identity==a.id;
-				if(attacking && g.query!=2)throw std::invalid_argument("Indoor attack sprite requires same-cell actor");
 				XeenIndoorDrawCommand command;
 				command.originalOrder=g.orders[i];command.x=g.xs[i];command.y=g.y;
 				// Preserve the reference's individual neighboring-slot predicates.

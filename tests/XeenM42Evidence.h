@@ -88,6 +88,6 @@ inline XeenItemCategory armorBefore() {return {{{0,6,0,0},{0,4,0,0},{0,6,0,0},{0
 inline XeenItemCategory armorAfter() {return {{{0,6,0,0},{0,4,0,0},{0,6,0,0},{0,5,0,0},{40,8,0,0},{48,6,0,0},{},{},{}}};}
 inline XeenItemCategory weaponsBefore() {return {{{0,10,0,0},{0,6,0,0},{0,15,0,0},{0,10,0,0},{0,6,0,0},{0,4,0,0},{37,20,0,0},{40,16,0,0},{}}};}
 inline XeenItemCategory weaponsAfterTwo() {return {{{0,10,0,0},{0,15,0,0},{0,10,0,0},{0,4,0,0},{37,20,0,0},{40,16,0,0},{},{},{}}};}
-inline XeenItemCategory restockedWeaponsAfterMissile() {return {{{0,19,0,0},{0,13,0,0},{0,3,0,0},{0,8,0,0},{0,8,0,0},{0,13,0,0},{39,22,0,0},{},{}}};}
+inline XeenItemCategory restockedWeaponsAfterMissile() {return {{{0,4,0,0},{0,32,0,0},{0,29,0,0},{0,25,0,0},{27,7,0,0},{40,33,0,0},{},{},{}}};}
 }
 #endif

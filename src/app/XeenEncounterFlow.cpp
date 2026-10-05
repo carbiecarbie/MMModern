@@ -119,9 +119,12 @@ bool XeenEncounterFlow::handle(const PlayerAction &input, std::optional<std::uin
 }
 
 bool XeenEncounterFlow::idle(std::optional<std::uint64_t> cycle) {
+	if(_shoot && !monsterReward()) {
+        std::uint64_t now;if(!prepareTime(ticket(),now))return false;_lastTime=now;
+        const bool changed=serviceShoot();schedule(now);return changed;
+    }
 	if(projectilesPending()) return animateProjectiles();
 	if (_combat) return idleCombat(cycle);
-	if (_shoot && !monsterReward()) { const bool changed=serviceShoot();schedule(_lastTime);return changed; }
 	if (_casting && _casting->effectDone) { const bool changed=serviceCasting();schedule(_lastTime);return changed; }
 	if (_busy || _state.phase() != XeenEncounterPhase::Exploring) return false;
 
@@ -215,6 +218,7 @@ void XeenEncounterFlow::presented(const Ticket &entry) {
 		throw std::runtime_error("Combat frame scheduling failed");
 	}
 	_lastTime=now;
+	projectilesPresented();
 	_combat->castPresented(*entry.combat,now);
 	castProjectilePresented();
 	scheduleCombat(now);
@@ -234,7 +238,7 @@ bool XeenEncounterFlow::acceptCombatResult(const XeenCombatResult &result) {
 	if (result.status != adopted.status || result.phase != adopted.phase || result.work != adopted.work ||
 		result.revision != adopted.revision || result.generation != adopted.generation)
 		throw std::logic_error("Combat operation result was not adopted");
-	if(result.ranged && result.status!=XeenCombatStatus::Pending) observeRanged(result.ranged);
+	if(result.ranged) observeRanged(result.ranged);
 	return true;
 }
 bool XeenEncounterFlow::handoffCombat() {
@@ -263,7 +267,7 @@ bool XeenEncounterFlow::observeCombat() {
         if(r.operation==XeenCombatOperation::EnemyAttack && r.actingMonster) {
             const auto &actor=_world.sessionState().regionalActors(r.actingMonster->mapId).at(r.actingMonster->recordIndex);
             const auto frame=xeenPortraitDamageFrame(actor.statistics->raw[29]);
-            for(unsigned i=0;i<r.injuryCount;++i)presentation.portraitDamage(r.injuries[i].owner,frame,_lastTime);
+            for(unsigned i=0;i<r.injuryCount;++i)presentation.portraitDamage(r.injury(i).owner,frame,_lastTime);
         }
         if(r.operation==XeenCombatOperation::PlayerAttack && r.damage>0)
             presentation.hitSplat(_hitRow,r.damage,0,_hitAlternatePosition,_lastTime);
@@ -285,7 +289,15 @@ bool XeenEncounterFlow::observeCombat() {
 		_appearanceIdentity = r.actingMonster;
 		_frame = 8; _appearanceStep = 0; _appearanceAfterFrame = true; return true;
 	}
-	if ((r.operation == XeenCombatOperation::PlayerAttack || r.operation == XeenCombatOperation::Cast) && r.damage > 0) {
+	if (r.operation==XeenCombatOperation::Cast && _combat->cast()) {
+        const auto phase=_combat->cast()->phase;
+        if(phase==XeenCombatCastPhase::Projectile || phase==XeenCombatCastPhase::Preparing)return false;
+        if(phase==XeenCombatCastPhase::Impact || phase==XeenCombatCastPhase::PostImpact) {
+            _appearanceIdentity=r.targetMonster;_frame=r.damage?11:0;
+            _appearanceStep=0;_appearanceAfterFrame=true;return true;
+        }
+    }
+	if (r.operation == XeenCombatOperation::PlayerAttack && r.damage > 0) {
 		_appearanceIdentity = r.targetMonster;
 		_frame = r.actorHpAfter > 0 ? 11 : 0;
 		_appearanceStep = 0; _appearanceAfterFrame = true; return true;
@@ -311,7 +323,9 @@ bool XeenEncounterFlow::handleCombat(const PlayerAction &input, std::optional<st
 	const bool command = phase == P::PlayerReady &&
 		(std::holds_alternative<AttackAction>(input) || std::holds_alternative<BlockAction>(input) || std::holds_alternative<RunAction>(input));
 	const auto *target = phase == P::PlayerReady ? std::get_if<SelectCombatTargetAction>(&input) : nullptr;
-	if (!command && !target) return false;
+    const auto *rotation=phase==P::PlayerReady ? std::get_if<NavigationAction>(&input) : nullptr;
+    if(rotation && *rotation!=NavigationAction::TurnLeft && *rotation!=NavigationAction::TurnRight)rotation=nullptr;
+	if (!command && !target && !rotation) return false;
 	Busy busy(_busy);
 	const auto entry = ticket();
 	std::uint64_t now;
@@ -320,7 +334,10 @@ bool XeenEncounterFlow::handleCombat(const PlayerAction &input, std::optional<st
 		return !current(entry);
 	}
 	_lastTime = now;
-	if (target) {
+	if(rotation) {
+        if(!acceptCombatResult(_combat->rotate(*entry.combat,*rotation)))return false;
+        if(_regionalAutomaticAddress)_regionalAutomaticAddress->direction=_camera.direction;
+    } else if (target) {
 		if (!acceptCombatResult(_combat->selectTarget(*entry.combat,target->row))) return false;
 	} else if (command) {
         if(std::holds_alternative<AttackAction>(input)) {
@@ -352,19 +369,34 @@ bool XeenEncounterFlow::idleCombat(std::optional<std::uint64_t> cycle) {
 	const bool cosmetic = now >= _cosmeticDeadline;
 	bool startedAppearance = false;
 	_lastTime = now;
-	if (_combat->cast()) {
-        // The rule result is already published. Travel remains cosmetic across
-        // the existing Projectile/Result boundary; only a displayed row arms
-        // its next step, so failed rendering cannot skip visible travel rows.
-        bool travel=false;
-        if(_castProjectileDeadline && now>=*_castProjectileDeadline) {
-            _castProjectile->advance();_castProjectileDeadline.reset();travel=true;
+    if(cosmetic && !(cycle && _inputCycle==cycle) && _combat->movementCountdown() && _combat->phase()==XeenCombatPhase::PlayerReady) {
+        const auto result=_combat->drawBeat(*entry.combat,now);
+        if(result.status!=XeenCombatStatus::Refused) {
+            if(!acceptCombatResult(result))return false;
+            _cosmeticDeadline=now+100;scheduleCombat(now);return true;
         }
+    }
+	if (_combat->cast()) {
         const auto phase=_combat->cast()->phase;
-        if(_scheduleAfterFrame || (phase!=XeenCombatCastPhase::Preparing && phase!=XeenCombatCastPhase::Projectile))return travel;
+        if(_scheduleAfterFrame)return false;
+        if(phase!=XeenCombatCastPhase::Preparing &&
+            (!_castProjectileDeadline || now<*_castProjectileDeadline))return false;
+        if(phase!=XeenCombatCastPhase::Preparing && phase!=XeenCombatCastPhase::Projectile &&
+            phase!=XeenCombatCastPhase::Impact && phase!=XeenCombatCastPhase::PostImpact) {
+            _castProjectile->advance();_castProjectileDeadline.reset();return true;
+        }
         const auto result=_combat->serviceCast(*entry.combat,now);
         if(!acceptCombatResult(result))return false;
-        if(phase==XeenCombatCastPhase::Preparing && _combat->cast() && _combat->cast()->phase==XeenCombatCastPhase::Projectile && observeCombat())_cosmeticDeadline=now+100;
+        // Pinned rangedAttack/attack2 draw row 0, pre-HP row 1, post-HP
+        // row 2, and lethal removal row 3. RT_SINGLE then ends the lane.
+        // Advance only after its acquired stage successfully publishes.
+        if(phase!=XeenCombatCastPhase::Preparing && _castProjectile) {
+            if(_combat->cast()->phase==XeenCombatCastPhase::Result &&
+                (!result.damage || result.actorHpAfter>0))_castProjectile.reset();
+            else _castProjectile->advance();
+            _castProjectileDeadline.reset();
+        }
+        if(observeCombat())_cosmeticDeadline=now+100;
         scheduleCombat(now);return true;
     }
 	if (due) {
@@ -413,7 +445,7 @@ std::string XeenEncounterFlow::combatNotice() const {
 	}
 	if (r.critical) text += "Critical: ";
 	for (unsigned i=0;i<r.injuryCount;++i) {
-		const auto &d=r.injuries[i];
+		const auto &d=r.injury(i);
 		if (i) text += "; ";
 		text += "-" + std::to_string(d.amount) + " HP " + std::to_string(d.afterHp);
 	}

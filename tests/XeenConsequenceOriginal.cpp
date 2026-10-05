@@ -21,6 +21,12 @@
 #include "games/xeen/XeenOutdoorScene.h"
 using namespace mmodern;
 using save_test::check;
+namespace mmodern {
+struct XeenCombatRotationTestAccess {
+ static void arm(XeenCombat &c) {c.countdownForScheduling().arm();}
+ static void acquired(XeenCombat &c) {c.rangedPresented(c.ticket(),true);}
+};
+}
 namespace consequence_controls {
 std::vector<XeenCombatRandom::Draw> tape;unsigned cursor=0;bool taped=false;
 std::optional<std::uint32_t> realDraw(XeenCombatRandom *,std::uint32_t,std::uint32_t) asm("__real__ZN7mmodern16XeenCombatRandom4drawEjj");
@@ -74,15 +80,14 @@ void attack(XeenCombat &combat,std::vector<XeenCombatRandom::Draw> draws) {
  check(combat.random().continuation()==expected.continuation(),"Exact attack RNG continuation publication");
 }
 std::vector<XeenCombatRandom::Draw> toadTape(const XeenPartyState &p,bool awake,unsigned roll,unsigned parameter,bool sleepFirst) {
- std::vector<XeenCombatRandom::Draw> draws;
- for(unsigned i=0;i<6;++i){const auto id=kXeenCombatOwners[i];
-  if(i==0 && awake){draws.push_back({1,20,roll});if(roll==1)continue;draws.push_back({1,8,parameter});}
+ std::vector<XeenCombatRandom::Draw> draws{{0,5,0}};
+ const unsigned i=0;const auto id=kXeenCombatOwners[i];
+  if(awake){draws.push_back({1,20,roll});if(roll==1)return draws;draws.push_back({1,8,parameter});}
   for(unsigned n=0;n<3;++n)draws.push_back({1,8,1});
   const auto &c=p.roster.at(id);const auto &in=*p.roster.combatInputs(id);
   const auto v=XeenCharacterRules::physicalBonus(XeenCharacterRules::effectiveLuck(c,in))+c.currentLevel();
   constexpr unsigned intervals[]{23,24,22,27,24,25};if(unsigned(v+20)!=intervals[i])throw std::runtime_error("Original save interval owner "+std::to_string(i)+" value "+std::to_string(v+20));
   draws.push_back({1,intervals[i],i==0 && !sleepFirst?1:intervals[i]});
- }
  return draws;
 }
 
@@ -199,31 +204,92 @@ void shootOrder(Source &source) {
  Domain d(source,saved);
  tape.clear();for(unsigned shot=0;shot<4;++shot){for(unsigned die=0;die<3;++die)tape.push_back({1,2,1});tape.push_back({1,20,shot<2?1u:19u});if(shot>=2)tape.push_back({1,56,56});}
  cursor=0;taped=true;check(d.flow->handle(ShootAction{}),"Artificial mixed-target Shoot starts through typed action");d.present();
- for(unsigned service=0;cursor<tape.size() && service<100;++service){d.now+=100;d.flow->idle();d.present();}
- taped=false;
  const auto finishVisuals=[](Domain &v,unsigned distance){
-  std::vector<std::pair<unsigned,unsigned>> seen;
-  for(unsigned n=0;n<50 && v.party.encounterContext->minutes==480;++n){v.now+=100;v.flow->idle();v.flow->holdJourneyFrame();v.present();
-   for(const auto &p:v.flow->appearance().projectiles){check(!p.enemy&&!p.source,"Player projectile never fabricates monster identity");const auto item=std::make_pair(p.lane,p.row);if(std::find(seen.begin(),seen.end(),item)==seen.end())seen.push_back(item);}}
-  std::vector<std::pair<unsigned,unsigned>> expected;for(unsigned row=0;row<=distance;++row)for(unsigned lane:{0u,2u})expected.emplace_back(lane,row);
-  check(seen==expected,"Exactly one outward projectile per shooter, independent of miss attempts");
+  std::vector<std::vector<std::pair<unsigned,unsigned>>> seen;
+  for(unsigned n=0;n<100 && v.party.encounterContext->minutes==480;++n){
+   std::vector<std::pair<unsigned,unsigned>> frame;
+   for(const auto &p:v.flow->appearance().projectiles){check(!p.enemy&&!p.source,"Player projectile never fabricates monster identity");frame.emplace_back(p.lane,p.row);}
+   seen.push_back(frame);
+   check(!v.flow->canSave(),"In-flight/impact Shoot exposed save boundary");
+   v.now+=100;v.flow->idle();
+   if(v.flow->appearance().kind==XeenMonsterSpriteKind::Attack) {
+    XeenRestoreGuard held(v.world,v.party,v.camera,v.flags);
+    check(!v.flow->idle() && held.current(),"Unacknowledged Shoot impact replayed RNG/HP/reward");
+    check(v.flow->journeyAction(v.flow->ticket(),XeenEncounterAction::Left).outcome==XeenEncounterOutcome::Refused && held.current(),"Unacknowledged Shoot impact accepted another action");
+   }
+   v.flow->holdJourneyFrame();v.present();}
+  // combat.cpp:1916/1963/2017/2071 draw each depth; misses do not
+  // call attack2. Both hit draws advance *all* remaining visual lanes.
+  const std::vector<std::vector<std::pair<unsigned,unsigned>>> expected=distance==3 ?
+   std::vector<std::vector<std::pair<unsigned,unsigned>>>{{{0,0},{2,0}},{{0,1},{2,1}},{{0,2},{2,2}},{{0,3},{2,3}},{}} :
+   std::vector<std::vector<std::pair<unsigned,unsigned>>>{{{0,0},{2,0}},{{0,1},{2,1}},{{0,2},{2,2}},{{0,3},{2,3}},{},{},{},{}};
+  if(seen!=expected) {std::cerr<<"Ordered frames:";for(const auto &f:seen){std::cerr<<" [";for(const auto &p:f)std::cerr<<p.first<<':'<<p.second<<',';std::cerr<<']';}std::cerr<<'\n';}
+  check(seen==expected,"Ordered multi-shooter reference draw/lane oracle differs");
   check(v.party.encounterContext->minutes==490&&v.flow->state().pending()==3,"Visuals preserve charge and owed opportunity");
  };
+ finishVisuals(d,2);taped=false;
  check(cursor==18 && d.world.sessionState().journeyRandom()->count==18,"Two misses then two hits in active-member order");
  check(d.world.sessionState().actors()[9].hp==25 && d.world.sessionState().actors()[8].hp==7 && d.world.sessionState().actors()[7].hp==25,"Miss advances original target order; each successful shooter spends once");
- check(d.party.encounterContext->minutes==480 && !d.flow->canSave(),"Volley publishes attempts before owed charge; capture remains excluded");
- finishVisuals(d,2);
+ check(d.party.encounterContext->minutes==490 && !d.flow->canSave(),"Volley charges after every impact; capture remains excluded for owed movement");
  Domain misses(source,saved);tape.clear();for(unsigned shot=0;shot<6;++shot){for(unsigned die=0;die<3;++die)tape.push_back({1,2,1});tape.push_back({1,20,1});}
  cursor=0;taped=true;check(misses.flow->handle(ShootAction{}),"All-miss volley begins");misses.present();
- for(unsigned service=0;cursor<tape.size() && service<100;++service){misses.now+=100;misses.flow->idle();misses.present();}
- taped=false;check(cursor==24 && misses.world.sessionState().journeyRandom()->count==24,"Both shooters traverse all three rows on misses");
+ finishVisuals(misses,3);taped=false;check(cursor==24 && misses.world.sessionState().journeyRandom()->count==24,"Both shooters traverse all three rows on misses");
  for(unsigned id:{7u,8u,9u})check(misses.world.sessionState().actors()[id].hp==25,"All-miss volley leaves actor wounds unchanged");
- finishVisuals(misses,3);
  check(misses.world.sessionState().journeyRandom()->count==24,"All-miss visuals consume no RNG");
  std::cout<<"ARTIFICIAL two-shooter miss continuation, all-miss rows and spent-hit target ordering PASS\n";
 }
+void shootLethalPreparation(Source &source) {
+ Domain original(source);auto saved=original.save();
+ for(auto &other:saved.journey->actors)if(other.id.recordIndex!=9 && xeenJourneyContent().influences(other.id.recordIndex)) {
+  other.x=other.y=-128;other.hp=0;other.activated=false;other.lifecycle=XeenActorLifecycle::Defeated;other.accounted=true;
+ }
+ auto &a=saved.journey->actors[9];a.x=8;a.y=11;a.activated=true;a.hp=1;
+ for(unsigned mode=0;mode<3;++mode) {
+  const bool overflow=mode==2,lethal=mode!=0;
+  auto input=saved;if(!lethal)input.journey->actors[9].hp=25;
+  if(overflow)input.journey->supplements[0].inputs.experience=UINT32_MAX;
+  Domain d(source,input);const auto rng=d.world.sessionState().journeyRandom();
+  const auto chars=d.party.roster.characters();const auto purse=d.party.monsterTreasure;
+  tape={{1,2,1},{1,2,1},{1,2,1},{1,20,19},{1,56,56},{1,100,100}};
+  cursor=0;taped=true;check(d.flow->handle(ShootAction{}),"Lethal Shoot starts");d.present();
+  d.now+=100;d.flow->idle();
+  check(d.flow->appearance().projectiles.size()==1 && d.flow->appearance().projectiles[0].row==1 && cursor==0,"Ordered depth1 arrival must precede damage draws");
+  d.flow->holdJourneyFrame();d.present();d.now+=100;
+  bool failed=false;try{d.flow->idle();}catch(const std::overflow_error &){failed=true;}
+  if(overflow) {
+   check(failed && d.world.sessionState().actors()[9].hp==1 &&
+    d.world.sessionState().journeyRandom()==rng && d.party.monsterTreasure==purse &&
+    !d.world.sessionState().accountedMonsters().count({23,9}),"Failed lethal preparation published HP/RNG/reward");
+   for(unsigned n=0;n<30;++n)check(xeen_state::sameCharacter(chars[n],d.party.roster.at(n)),"Failed Shoot lethal preparation changed party");
+  }else {
+   check(!failed,"Lethal Shoot preparation failed");
+   // Last shooter: depth1 arrival advances to row2, then drawScene clears
+   // _charsShooting before animate3d. Repeated row2 frames are intentional.
+   for(unsigned frame=0;frame<(lethal?3u:2u);++frame) {
+    auto appearance=d.flow->appearance();check(appearance.projectiles.size()==1 && appearance.projectiles[0].lane==2 && appearance.projectiles[0].row==2,"Ordered last-shooter lane frame differs");
+    const auto &actor=d.world.sessionState().actors()[9];
+    check(frame==0 ? actor.hp==(lethal?1:25) : frame==1 ? actor.hp==(lethal?0:16) && actor.lifecycle==XeenActorLifecycle::Present : actor.lifecycle==XeenActorLifecycle::Defeated,"Shoot HP/frame/removal ordering differs");
+    for(unsigned n=0;n<6;++n)check(d.party.roster.combatInputs(kXeenCombatOwners[n])->experience==
+      input.journey->supplements[kXeenCombatOwners[n]].inputs.experience+(frame==2?66u:0u),"Shoot frame credited XP before removal");
+    const auto before=d.world.sessionState().journeyRandom();
+    check(!d.flow->idle() && d.world.sessionState().journeyRandom()==before,"Unacknowledged lethal frame advanced");
+    d.flow->holdJourneyFrame();bool rejected=false;
+    rejected=!d.flow->prepareJourneyFrame(d.flow->ticket(),[]{throw std::bad_alloc();});
+    check(rejected && d.flow->appearance().projectiles.size()==appearance.projectiles.size() && d.world.sessionState().journeyRandom()==before,"Failed Shoot composition advanced lanes/RNG");
+    d.flow->holdJourneyFrame();d.present();d.now+=100;d.flow->idle();
+   }
+  }
+  check(cursor==(lethal?6u:5u),"Ordered Shoot frame sequence introduced random draws");taped=false;
+ }
+ std::cout<<"ARTIFICIAL Shoot lethal preparation overflow preserves HP/RNG; ordered lethal frames PASS\n";
+}
 void blockReset(Source &source) {
  Domain original(source);auto saved=original.save();
+ // Isolate the two original Ogres for Block/turn bookkeeping; these are
+ // explicitly artificial rule arrangements, never paid-route evidence.
+ for(auto &a:saved.journey->actors)if(xeenJourneyContent().influences(a.id.recordIndex) && a.id.recordIndex!=14 && a.id.recordIndex!=15) {
+  a.x=a.y=-128;a.hp=0;a.activated=false;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;
+ }
  for(auto id:kXeenCombatOwners){saved.characters[id].currentHp=1000;saved.characters[id].conditions[8]=id!=0;}
  auto &a=saved.journey->actors[14],&b=saved.journey->actors[15];a.x=8;a.y=11;a.activated=true;b.x=7;b.y=11;b.activated=true;
  Domain d(source,saved);
@@ -244,9 +310,16 @@ void blockReset(Source &source) {
  check(!d.party.roster.at(0).conditions[8] && combat.pending()==XeenCombatWork::Enemy,"Wake before following enemy");
  const auto ac=XeenCharacterRules::combatArmorClass(d.party.roster.at(0),*d.party.roster.combatInputs(0),{610});
  const unsigned parameter=8,roll=13;check(ac==13,"Literal original AC discriminator");
- auto miss=toadTape(d.party,true,roll,parameter,true);miss.erase(miss.begin()+2,miss.begin()+6);
+ auto miss=toadTape(d.party,true,roll,parameter,true);miss.resize(3);
  const auto hp=d.party.roster.at(0).currentHp;attack(combat,miss);check(d.party.roster.at(0).currentHp==hp,"Block survives Sleep/inner reset/wake");
- check(combat.phase()==XeenCombatPhase::PlayerReady,"Awake player resumes");combat.command(combat.ticket(),XeenCombatCommand::Block);
+ check(combat.phase()==XeenCombatPhase::PlayerReady,"Awake player resumes");
+ const auto turnTime=d.party.encounterContext;const auto turnRandom=combat.random().continuation();
+ XeenCombatRotationTestAccess::arm(combat);
+ check(combat.rotate(combat.ticket(),NavigationAction::TurnLeft).status==XeenCombatStatus::Pending,"Blocked player's turn flush starts");
+ check(combat.service(combat.ticket()).status==XeenCombatStatus::Advanced && combat.participant()==0 && d.party.encounterContext==turnTime && combat.random().continuation()==turnRandom,"Turn flush charged or consumed blocked player");
+ check(combat.rotate(combat.ticket(),NavigationAction::TurnRight).status==XeenCombatStatus::Advanced,"Blocked player's facing returns");
+ check(combat.result().blockedMembers==1,"Combat rotations cleared the retained Block flag");
+ combat.command(combat.ticket(),XeenCombatCommand::Block);
  combat.service(combat.ticket()); // ordinary reset clears Block before fast enemy
  attack(combat,toadTape(d.party,true,roll,parameter,false));check(d.party.roster.at(0).currentHp==hp-3,"Ordinary round clears Block; identical threshold hits");
  std::cout<<"ARTIFICIAL Block -> Sleep -> inner reset -> wake retained Block; ordinary-round clearing PASS AC="<<ac<<" roll="<<roll<<" parameter=8\n";
@@ -270,7 +343,18 @@ int main(int argc,char **argv){try{
  std::cout<<"Cold north-edge combat, occupied Run and Vertigo PASS\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
 #else
-int main(int argc,char **argv){try{check(argc==2 || argc==3,"usage: mmodern_consequence_original <installation> [artificial-pending-item-save]");const auto i=XeenInstallationDetector().detect(argv[1]);check(bool(i),"Original installation");Source source(*i);source.signature=XeenSaveFile::fingerprint(*i);if(std::getenv("MMODERN_M34_FINISH_PRESENTATION_ONLY")){disengagementFinishPresentation(source);return 0;}reviewControls(source);disengagementControls(source);appearanceResources(source);shootOrder(source);blockReset(source);combatPublicationFaults(source);restoreConsequences(source,argc==3?std::optional<std::filesystem::path>{XeenSaveFile::resolve(argv[2],argv[1])}:std::nullopt);
+int main(int argc,char **argv){try{
+ check(argc==2 || argc==3,"usage: mmodern_consequence_original <installation> [artificial-pending-item-save]");
+ const auto i=XeenInstallationDetector().detect(argv[1]);check(bool(i),"Original installation");
+ Source source(*i);source.signature=XeenSaveFile::fingerprint(*i);
+ if(std::getenv("MMODERN_M49_IMPACT_ONLY")) {
+  chargedWait(source);stagedVolleyDefeat(source);stagedRotationVolley(source);
+  zeroHitVolley(source);shootOrder(source);shootLethalPreparation(source);blockReset(source);
+  std::cout<<"M49 original-resource impact/rotation controls PASS\n";return 0;
+ }
+ if(std::getenv("MMODERN_M34_FINISH_PRESENTATION_ONLY")){disengagementFinishPresentation(source);return 0;}
+ reviewControls(source);disengagementControls(source);appearanceResources(source);shootOrder(source);shootLethalPreparation(source);blockReset(source);
+ combatPublicationFaults(source);restoreConsequences(source,argc==3?std::optional<std::filesystem::path>{XeenSaveFile::resolve(argv[2],argv[1])}:std::nullopt);
  journey_resources_test::run([&]{return XeenPartyLoader().loadFromResources(source.chr,source.pty);},
  source.setup(),
  [&](auto id){return source.maps.loadGeometryMap(source.assets,id);},[&](auto id){return source.maps.loadObjects(source.assets,id);},source.signature,source.resources());

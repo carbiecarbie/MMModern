@@ -22,7 +22,7 @@ XeenConsequenceInputs inputs() {
 	return result;
 }
 XeenMonsterRecord profile(unsigned hates=1,unsigned special=0) {
-	XeenMonsterRecord m;m.raw[22]=5;m.raw[25]=hates;m.raw[26]=1;m.raw[28]=10;m.raw[30]=special;m.raw[31]=5;return m;
+	XeenMonsterRecord m;m.raw[24]=1;m.raw[22]=5;m.raw[25]=hates;m.raw[26]=1;m.raw[28]=10;m.raw[30]=special;m.raw[31]=5;return m;
 }
 template<class C> void finish(C &c,XeenCombatRandom &rng,unsigned budget=64) {
 	for (unsigned service=0;service<1000;++service) { XeenConsequenceDraw draw{rng,budget,{}};if (c.service(draw)) return; }
@@ -42,7 +42,7 @@ void physical() {
 	c[5].conditions[13]=1;
 	std::vector<XeenCombatRandom::Draw> tape;
 	for (unsigned n=0;n<6;++n) { tape.push_back({1,10,2});tape.push_back({1,25,25}); }
-	XeenCombatRandom partyTape(tape);XeenEnemyAttackCandidate all(c,i,profile(16,9),610,0x3f);finish(all,partyTape,1);
+	XeenCombatRandom partyTape(tape);XeenEnemyAttackCandidate all(c,i,profile(15,9),610,0x3f);finish(all,partyTape,1);
 	check(all.result.injuryCount==6 && partyTape.position()==12,"Hates party includes dead targets without selection draws");
 	for (const auto &owner:all.characters) check(owner.currentHp==48 && owner.conditions[8]==1,"Wake precedes Sleep reapplication");
 	c=characters();c[0].characterClass=XeenCharacterClass::Cleric;
@@ -58,6 +58,59 @@ void physical() {
 	XeenCombatRandom overflowTape(std::vector<XeenCombatRandom::Draw>{{1,10,1},{1,25,25}});
 	XeenEnemyAttackCandidate overflow(c,i,profile(3,5),610,0x3f);rejects([&] { finish(overflow,overflowTape); });
 	check(c[0].currentHp==50 && c[0].conditions[3]==255,"Pure overflow does not mutate source");
+}
+void targetingAndCounts() {
+ auto c=characters();auto in=inputs();
+ // Each source owns its whole attack loop, including ranged callers.
+ for(unsigned count=0;count<256;++count) {
+  auto monster=profile(16);monster.raw[24]=count;
+  std::vector<XeenCombatRandom::Draw> tape;
+  for(unsigned n=0;n<count;++n){tape.push_back({0,5,2});tape.push_back({1,20,1});}
+  XeenCombatRandom rng(tape);XeenEnemyAttackCandidate attack(c,in,monster,610,63);
+  unsigned completed=0;do{finish(attack,rng,1);++completed;}while(attack.nextAttack());
+  check(completed==std::max(count,1u),"Source loop count differs from record");
+  check(rng.position()==2*count && !attack.result.injuryCount,"Source attack count, zero count or repeated target differs");
+ }
+ c[1].race=XeenRace::Dwarf;c[3].race=XeenRace::Dwarf;c[1].conditions[12]=1;
+ XeenCombatRandom none(std::vector<XeenCombatRandom::Draw>{});
+ XeenMonsterTargetCandidate dwarf(c,12,63);finish(dwarf,none,1);
+ check(dwarf.mask==8 && !none.position(),"First eligible dwarf requires no selection draw");
+ XeenMonsterTargetCandidate absent(c,12,5);XeenCombatRandom absentRng(std::vector<XeenCombatRandom::Draw>{{0,1,1}});finish(absent,absentRng,1);
+ check(absent.mask==4 && absentRng.position()==1,"Absent dwarf falls back over participating party");
+ for(unsigned hated=0;hated<10;++hated) {
+  auto matching=characters();for(auto &member:matching)member.characterClass=static_cast<XeenCharacterClass>((hated+1)%10);
+  matching[4].characterClass=matching[5].characterClass=static_cast<XeenCharacterClass>(hated);
+  matching[4].conditions[12]=1;matching[5].conditions[8]=1;
+  std::vector<XeenCombatRandom::Draw> tape;if(hated==1)tape.push_back({0,5,0});
+  XeenCombatRandom rng(tape);XeenMonsterTargetCandidate selector(matching,hated,63);finish(selector,rng,1);
+  check(selector.mask==(hated==1?1u:32u) && rng.position()==tape.size(),
+   "Every recognized class selects its first eligible match; Paladin hatred remains random");
+ }
+ // First injury disables the preferred member; second attack reselects.
+ c=characters();c[0].characterClass=c[1].characterClass=XeenCharacterClass::Cleric;c[0].currentHp=1;
+ auto monster=profile(3);monster.raw[24]=2;
+ XeenCombatRandom lethalRng(std::vector<XeenCombatRandom::Draw>{{1,20,19},{1,5,5},{1,10,10},{1,20,1}});
+ XeenEnemyAttackCandidate lethal(c,in,monster,610,63);finish(lethal,lethalRng,1);
+ check(lethal.result.targetedMembers==1 && lethal.result.injuryCount==1 && lethal.nextAttack(),"First source attack observation missing");
+ finish(lethal,lethalRng,1);
+ check(lethal.result.targetedMembers==2 && !lethal.result.injuryCount && lethal.characters[0].currentHp==-9,
+  "Lethal first attack must re-evaluate eligible preferred targets");
+ // Party hatred includes disabled members on every pass in original order.
+ c=characters();for(auto &ch:c)ch.conditions[8]=1;
+ monster=profile(15);monster.raw[24]=3;
+ std::vector<XeenCombatRandom::Draw> allTape;
+ for(unsigned n=0;n<18;++n) {
+  if(n>=6){allTape.push_back({1,20,19});allTape.push_back({1,5,5});}
+  allTape.push_back({1,10,1});
+ }
+ XeenCombatRandom allRng(allTape);XeenEnemyAttackCandidate all(c,in,monster,610,63);
+ for(unsigned ordinal=0;ordinal<3;++ordinal) {
+  finish(all,allRng,1);check(all.result.injuryCount==6,"Whole-party pass lost injuries");
+  for(unsigned n=0;n<6;++n)check(all.result.injury(n).owner==kXeenCombatOwners[n] && all.result.injury(n).attackOrdinal==ordinal,
+   "Source attack ordinal/party order changed");
+  check(all.nextAttack()==(ordinal<2),"Whole-party source count differs");
+ }
+ const auto before=allRng.position();finish(all,allRng);check(allRng.position()==before,"Completed source replays RNG");
 }
 void runAndParticipation() {
  // Artificial signed-threshold and every six-owner subset controls.
@@ -82,7 +135,7 @@ void runAndParticipation() {
   auto c=characters();std::vector<unsigned> slots;std::vector<XeenCombatRandom::Draw> tape;
   for (unsigned owner=0;owner<6;++owner) { c[owner].conditions[8]=1;if(mask&(1u<<owner)){slots.push_back(owner);tape.push_back({1,10,2});} }
   c[5].conditions[13]=1;
-  XeenCombatRandom allTape(tape);XeenEnemyAttackCandidate all(c,in,profile(16),610,mask);finish(all,allTape,1);
+  XeenCombatRandom allTape(tape);XeenEnemyAttackCandidate all(c,in,profile(15),610,mask);finish(all,allTape,1);
   check(all.result.injuryCount==slots.size() && all.result.targetedMembers==mask && allTape.position()==slots.size(),"All-party visits only participants including dead in fixed order");
   for(unsigned owner=0;owner<6;++owner) check(all.characters[owner].currentHp==((mask&(1u<<owner))?48:50) && all.characters[owner].conditions[8]==((mask&(1u<<owner))?0:1),"Escaped HP and Sleep bytes are untouched");
   for(unsigned n=0;n<slots.size();++n)check(all.result.injuries[n].owner==c[slots[n]].rosterId,"Participant injuries retain stable owner order");
@@ -278,6 +331,24 @@ void rangedOpportunity() {
  for(unsigned n=0;n<12;++n){singles.push_back({0,0,0});singles.push_back({1,20,1});}
  XeenCombatRandom singleTape(singles);finish(singleton,singleTape,1);
  for(unsigned n=0;n<12;++n)check(singleton.shots[n].attack.targetOwner==c[5].rosterId,"Every owed shot targets the remaining stable owner");
+ // One ranged source runs all original attacks, including whole-party passes.
+ auto group=characters();for(auto &member:group)member.conditions[8]=1;
+ auto multiActors=std::vector<XeenActor>{actors.front()};
+ multiActors[0].statistics->raw[24]=2;multiActors[0].statistics->raw[25]=15;
+ XeenRegionalOpportunityCandidate multi(map,multiActors,camera,group,i,610,63);
+ std::vector<XeenCombatRandom::Draw> multiTape(6,{1,10,1});
+ for(unsigned target=0;target<6;++target)multiTape.insert(multiTape.end(),{{1,20,20},{1,10,1},{1,5,5},{1,10,1}});
+ XeenCombatRandom multiRng(multiTape);finish(multi,multiRng,1);
+ const auto &result=multi.shots[0].attack;
+ check(multi.shotCount==1 && result.injuryCount==18 && result.additionalInjuries && result.critical &&
+       result.damage==18 && multiRng.position()==30,"Ranged source multiplicity, criticals or overflow observations lost");
+ for(unsigned injury=0;injury<18;++injury)check(result.injury(injury).attackOrdinal==(injury<6?0u:1u),
+  "Ranged attack ordinals did not survive source aggregation");
+ multiActors[0].statistics->raw[24]=0;
+ XeenRegionalOpportunityCandidate zero(map,multiActors,camera,group,i,610,63);
+ XeenCombatRandom noAttacks(std::vector<XeenCombatRandom::Draw>{});finish(zero,noAttacks,1);
+ check(zero.shotCount==1 && !zero.shots[0].attack.injuryCount && !noAttacks.position(),
+  "Zero-attack ranged source invented an injury or RNG draw");
 }
 void dormantTreasure() {
  // Artificial semantic fixture: no production witness or actor accounting claim.
@@ -319,4 +390,4 @@ void timeAndInputs() {
 	pty.pop_back();rejects([&] { XeenCharacterFormat::parseMonsterPurse(pty); });
 }
 }
-int main() { try { dormantTreasure();physical();runAndParticipation();shootAndLoot();additionalTapes();completeWeaponRules();missileClassAndZeroDamage();rejectionBudgets();rangedOpportunity();timeAndInputs();std::cout<<"M33/M34 artificial pure-rule controls passed\n";return 0; } catch (const std::exception &e) { std::cerr<<e.what()<<'\n';return 1; } }
+int main() { try { dormantTreasure();physical();targetingAndCounts();runAndParticipation();shootAndLoot();additionalTapes();completeWeaponRules();missileClassAndZeroDamage();rejectionBudgets();rangedOpportunity();timeAndInputs();std::cout<<"M33/M34 artificial pure-rule controls passed\n";return 0; } catch (const std::exception &e) { std::cerr<<e.what()<<'\n';return 1; } }

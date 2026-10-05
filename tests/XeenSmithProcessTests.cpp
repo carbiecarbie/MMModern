@@ -24,12 +24,12 @@ int main(int argc,char **argv) {
   SetEnvironmentVariableW(L"MMODERN_M38_STAGE",nullptr);
   SetEnvironmentVariableW(L"MMODERN_M38_CONTROL",nullptr);
   const auto route=dir/"production.mmsave";
-  const auto fresh=child_test::launch(exe,{L"--journey-region",L"--combat-seed",L"7",game.wstring(),L"--save-file",route.wstring()},dir/"production.log",false,false,120000);
+  const auto fresh=child_test::launch(exe,{L"--journey-region",L"--combat-seed",L"1114",game.wstring(),L"--save-file",route.wstring()},dir/"production.log",false,false,120000);
   child_test::require(fresh.exit==0 && fresh.output.find("M38 PRODUCTION WITNESS PASSED")!=std::string::npos,"M38 production witness failed");
   const auto a=XeenSaveFile::read(dir/"production-A.mmsave");
   child_test::require(a.journey && a.journey->schema==9 && a.journey->content==14 &&
-   a.journey->context->day==8 && a.journey->context->minutes==584 &&
-   a.journey->treasure->gold==810 && a.characters[6].armor[0].state==128 &&
+   a.journey->context->day==8 && a.journey->context->minutes==805 &&
+   a.journey->treasure->gold==840 && a.characters[6].armor[0].state==128 &&
    a.characters[6].armor[1].state==128,"M38 production-input checkpoint differs from content");
   // Windows may recycle a terminated process PID; creation time identifies its incarnation.
   std::set<std::pair<DWORD,std::uint64_t>> processes{{fresh.pid,fresh.created}};

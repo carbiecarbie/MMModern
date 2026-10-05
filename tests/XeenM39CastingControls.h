@@ -111,37 +111,44 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
                     tick();
                 }
                 check(callbacks>0 && view().phase==XeenCombatCastPhase::Projectile && fight().result().actorHpBefore==7 &&
-                    fight().result().actorHpAfter==0 && fight().result().damage==8 && world.sessionState().actors()[9].hp==0 &&
-                    world.sessionState().accountedMonsters().count({23,9}) &&
+                    fight().result().actorHpAfter==0 && fight().result().damage==8 && world.sessionState().actors()[9].hp==7 &&
+                    !world.sessionState().accountedMonsters().count({23,9}) && world.sessionState().journeyRandom()==cursor &&
                     world.sessionState().actors()[15].hp==other.hp && world.sessionState().actors()[15].id==other.id,
-                    "M39 observation corrupted Arrow identity/HP/eight-damage/lethal publication");
+                    "M49 Arrow preparation published HP/reward/RNG before arrival");
                 check(requests.at(0)==std::pair<unsigned,unsigned>{1,56} &&
                     requests.at(control=="observation-yield"?65:1)==std::pair<unsigned,unsigned>{1,100},
                     "M39 Arrow statistics identity split from damage/drop target");
-                for(unsigned i=0;i<6;++i)check(party.roster.combatInputs(kXeenCombatOwners[i])->experience==(i==1 || i==4?2066u:1066u),
-                    "M39 detached XP observation redirected lethal credit");
-                fight().setProbe({});const auto settled=*world.sessionState().journeyRandom();
+                for(unsigned i=0;i<6;++i)check(party.roster.combatInputs(kXeenCombatOwners[i])->experience==(i==1 || i==4?2000u:1000u),
+                    "M49 Arrow credited XP during preparation");
+                fight().setProbe({});
                 auto projectile=fight().cast();auto &&projectileResult=fight().result();poison(projectile,projectileResult);
                 check(flow.encounter()->appearance().projectile.has_value(),"M39 corrupted public phase hid retained projectile");
                 const auto visuals=flow.encounter()->appearance().projectiles;
                 check(visuals.size()==1 && visuals[0].lane==0 && visuals[0].row==0 && visuals[0].pow==11 &&
                     visuals[0].target==std::optional<XeenMonsterIdentity>{{23,9}},"Magic Arrow shared single lane/selected target");
-                tick();check(view().phase==XeenCombatCastPhase::Result && world.sessionState().journeyRandom()==settled,
-                    "M39 detached projectile/result repeated RNG/effect");
-                const auto resultInput=flow.displayedInput();
-                for(unsigned row=1;row<=3;++row) {
+                const auto laneAt=[&](unsigned row) {
                     const auto appearance=flow.encounter()->appearance();
-                    check(appearance.projectiles.size()==1 && appearance.projectiles[0].row==row && flow.frame().isValid(),"Magic Arrow did not display successive travel rows");
+                    check(appearance.projectiles.size()==1 && appearance.projectiles[0].row==row && flow.frame().isValid(),"Magic Arrow lane did not advance with its acquired impact stage");
                     const auto commands=XeenOutdoorScene().build(world,camera,nullptr,nullptr,{},appearance);
                     const auto lane=std::find_if(commands.begin(),commands.end(),[](const auto &c){return c.projectile()!=nullptr;});
                     check(lane!=commands.end() && lane->projectile()->row==row && lane->projectile()->pow==11 && lane->drawOptions().scaleIndex==4*row,
                         "Magic Arrow rendered row/depth/resource differs from retained cosmetic lane");
-                    check(view().phase==XeenCombatCastPhase::Result && world.sessionState().actors()[9].hp==0 &&
-                        world.sessionState().journeyRandom()==settled && party.roster.at(6).currentSp==25,"Cosmetic Arrow travel changed settled result/SP/RNG");
-                    check(flow.displayedInput()==resultInput,"Cosmetic Arrow row renewed semantic input generation");
-                    tick();
-                }
-                check(flow.encounter()->appearance().projectiles.empty(),"Magic Arrow lane did not retire after visible row three");
+                };
+                tick();laneAt(1);
+                check(view().phase==XeenCombatCastPhase::Impact && world.sessionState().actors()[9].hp==7 &&
+                    flow.encounter()->appearance().frame==3 && world.sessionState().journeyRandom()==cursor &&
+                    !world.sessionState().accountedMonsters().count({23,9}),"M49 hit frame missing before HP publication");
+                deny();tick();laneAt(2);
+                check(view().phase==XeenCombatCastPhase::PostImpact && world.sessionState().actors()[9].hp==0 &&
+                    world.sessionState().actors()[9].lifecycle==XeenActorLifecycle::Present &&
+                    flow.encounter()->appearance().impactSnapshot && !world.sessionState().accountedMonsters().count({23,9}) &&
+                    party.monsterTreasure->pendingGold==0,"M49 post-HP frame removed/rewarded lethal actor");
+                for(unsigned i=0;i<6;++i)check(party.roster.combatInputs(kXeenCombatOwners[i])->experience==(i==1 || i==4?2000u:1000u),"M49 post-HP frame credited XP");
+                deny();tick();laneAt(3);const auto settled=*world.sessionState().journeyRandom();
+                check(view().phase==XeenCombatCastPhase::Result && world.sessionState().accountedMonsters().count({23,9}) &&
+                    world.sessionState().actors()[9].lifecycle==XeenActorLifecycle::Defeated && party.monsterTreasure->pendingGold==10,"M49 lethal accounting/removal did not settle once");
+                for(unsigned i=0;i<6;++i)check(party.roster.combatInputs(kXeenCombatOwners[i])->experience==(i==1 || i==4?2066u:1066u),"M49 final Arrow XP recipients changed");
+                tick();check(flow.encounter()->appearance().projectiles.empty(),"Magic Arrow endAttack did not clear the acquired lethal removal lane");
                 auto receipt=fight().cast();auto &&receiptResult=fight().result();poison(receipt,receiptResult);
                 respond(AcknowledgeAction{});
                 check(!fight().cast() && fight().phase()==XeenCombatPhase::VictoryAwaitingEnd && fight().pending()==XeenCombatWork::End &&
@@ -209,8 +216,14 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
                     party.roster.at(6).currentSp==25 && world.sessionState().actors()[9].hp==7,"M39 raw rejection yield published live prefix");
             }
             if(control=="projectile-retry")renderFault=true;
-            tick();check(view().phase==XeenCombatCastPhase::Projectile && party.roster.at(6).currentSp==25 && world.sessionState().actors()[9].hp==0 && world.sessionState().accountedMonsters().count({23,9}),"M39 retry replayed complete lethal unit");
-            const auto settled=*world.sessionState().journeyRandom();deny();tick();check(view().phase==XeenCombatCastPhase::Result && *world.sessionState().journeyRandom()==settled,"M39 projectile/result replayed RNG");
+            tick();check(view().phase==XeenCombatCastPhase::Projectile && party.roster.at(6).currentSp==25 && world.sessionState().actors()[9].hp==7 && !world.sessionState().accountedMonsters().count({23,9}) && world.sessionState().journeyRandom()==cursor,"M49 retry published before arrival");
+            if(control=="arrow-quit-travel") {deny();std::cout<<"M39 ARTIFICIAL CONTROL PASSED "<<control<<'\n';return true;}
+            deny();tick();
+            check(view().phase==XeenCombatCastPhase::Impact && world.sessionState().actors()[9].hp==7,"M49 impact before HP boundary");
+            deny();if(control=="projectile-retry")renderFault=true;
+            tick();check(view().phase==XeenCombatCastPhase::PostImpact && world.sessionState().actors()[9].hp==0 && !world.sessionState().accountedMonsters().count({23,9}),"M49 HP/removal boundary");
+            deny();if(control=="projectile-retry")renderFault=true;
+            tick();const auto settled=*world.sessionState().journeyRandom();check(view().phase==XeenCombatCastPhase::Result && world.sessionState().accountedMonsters().count({23,9}),"M49 final lethal result missing");
             renderFault=true;respond(AcknowledgeAction{});
             if(control=="arrow-successor-fail") {
                 fight().setProbe([]{throw std::runtime_error("M39 independent owed End failure");});

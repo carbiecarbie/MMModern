@@ -252,14 +252,46 @@ XeenRegionalOpportunityCandidate::XeenRegionalOpportunityCandidate(const XeenMap
 	});
 }
 bool XeenRegionalOpportunityCandidate::service(XeenConsequenceDraw &draw) {
+	if(staged && shotCount && !travelPresented) {travelStarted=true;return false;}
+	impactSource.reset();impactOwner.reset();impactApplied=false;
 	while (cursor<shotCount && draw.remaining) {
 		auto &shot=shots[cursor];
 		const auto &source=actors.at(shot.source.recordIndex);
 		if (!(source.id==shot.source) || !source.statistics) throw std::invalid_argument("Ranged source identity changed");
 		if (!attack) attack.emplace(characters,inputs,*source.statistics,year,participantMask,blocked);
-		if (!attack->service(draw)) return false;
-		characters.swap(attack->characters);
-		shot.attack=attack->result;shot.attack.actingMonster=shot.source;shot.attack.monster=shot.source;
+		attack->deferInjury=staged;
+        if(staged && impactPresented) {attack->injuryAcknowledged=true;impactPresented=false;}
+        if (!attack->service(draw)) {
+            if(attack->injuryReady) {impactSource=shot.source;impactOwner=attack->impactOwner;}
+            if(attack->injuryApplied) {characters=attack->characters;attack->injuryApplied=false;impactApplied=true;portraitPublished=false;}
+            return false;
+        }
+        const auto &part=attack->result;
+        std::vector<XeenCombatDamage> overflow;
+        if(shot.attack.additionalInjuries)overflow=*shot.attack.additionalInjuries;
+        for(unsigned i=0;i<part.injuryCount;++i) {
+            if(shot.attack.injuryCount<shot.attack.injuries.size())shot.attack.injuries[shot.attack.injuryCount]=part.injury(i);
+            else overflow.push_back(part.injury(i));
+            ++shot.attack.injuryCount;
+        }
+        if(!overflow.empty())shot.attack.additionalInjuries=std::make_shared<const std::vector<XeenCombatDamage>>(std::move(overflow));
+        const auto damage=std::int64_t(shot.attack.damage)+part.damage;
+        if(damage>std::numeric_limits<int>::max())throw std::overflow_error("Ranged source damage overflow");
+        shot.attack.damage=static_cast<int>(damage);
+        shot.attack.targetedMembers|=part.targetedMembers;shot.attack.targetOwner=part.targetOwner;
+        shot.attack.critical=shot.attack.critical || part.critical;
+        shot.attack.actingMonster=shot.source;shot.attack.monster=shot.source;
+        shot.attack.operation=part.operation;shot.attack.attackOutcome=part.attackOutcome;
+        for(unsigned i=0;i<part.armorCount;++i) {
+            const auto &change=part.armor[i];bool found=false;
+            for(unsigned j=0;j<shot.attack.armorCount;++j)if(shot.attack.armor[j].owner==change.owner && shot.attack.armor[j].slot==change.slot) {shot.attack.armor[j].after=change.after;found=true;break;}
+            if(!found)shot.attack.armor.at(shot.attack.armorCount++)=change;
+        }
+        characters=attack->characters;
+        if(attack->nextAttack())continue;
+		shot.attack.attackOutcome=!participantMask ? XeenCombatAttackOutcome::NoParticipants :
+            !shot.attack.injuryCount ? XeenCombatAttackOutcome::Miss : shot.attack.damage ?
+            XeenCombatAttackOutcome::HitPositiveDamage : XeenCombatAttackOutcome::HitZeroDamage;
 		attack.reset();++cursor;
 	}
 	if (cursor<shotCount) return false;
@@ -267,6 +299,14 @@ bool XeenRegionalOpportunityCandidate::service(XeenConsequenceDraw &draw) {
 		XeenActorApproach::classify(actors,camera);
 	for (unsigned i=0;i<actors.size();++i) actors[i].activated=actors[i].activated || view.activation[i];
 	return true;
+}
+std::shared_ptr<const XeenRegionalObservation> XeenRegionalOpportunityCandidate::presentation() const {
+    auto result=std::make_shared<XeenRegionalObservation>();
+    if(!travelPresented) {
+        result->stage=XeenRegionalObservation::Stage::Travel;result->count=shotCount;
+        for(unsigned i=0;i<shotCount;++i)result->shots[i]=shots[i];
+    }else {result->stage=XeenRegionalObservation::Stage::Portrait;result->impactSource=impactSource;result->impactOwner=impactOwner;}
+    return result;
 }
 }
 namespace mmodern {

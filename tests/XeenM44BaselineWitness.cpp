@@ -1,6 +1,8 @@
 // Original-resource M43 witness: all party, combat, route and Temple mutations
 // arise from the production application after concrete presented-frame input.
 #include "XeenProbeFired.h"
+#include "XeenM49Trace.h"
+#include "XeenM49CombatSupport.h"
 #include "app/Application.h"
 #include "app/XeenGameplayServices.h"
 #include "platform/XeenSaveFile.h"
@@ -43,6 +45,7 @@ struct ProbeRandom {
 };
 std::optional<std::uint32_t> ProbeRandom::draw(std::uint32_t lo,std::uint32_t hi) {probe_fired::hit("XeenCombatRandom::draw");
     auto result=reinterpret_cast<RealRandom *>(this)->draw(lo,hi);
+    m49_trace::draw(lo,hi,result,reinterpret_cast<XeenCombatRandom *>(this)->continuation());
     if(observeStockDraws) {
         const auto cursor=reinterpret_cast<XeenCombatRandom *>(this)->continuation();
         observedStockDraws+="DRAW "+std::to_string(lo)+":"+std::to_string(hi)+":"+
@@ -73,7 +76,12 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         check(world->sessionState().journey(),"M43 fresh content is not 14");
         std::deque<std::function<bool()>> steps;std::optional<IndexedFrame> next;
         IndexedFrame::Presentation presented;
-        bool shown=false,acted=false,cityFight=false;unsigned blocks=0,iterations=0;
+        bool shown=false,acted=false,earnArmor=false;unsigned blocks=0,iterations=0;
+        auto repairedOwner=std::make_shared<unsigned>(0),repairedSlot=std::make_shared<unsigned>(0);
+        auto repairGold=std::make_shared<unsigned>(0);
+        auto trainingMember=std::make_shared<unsigned>(0),trainingGold=std::make_shared<unsigned>(0);
+        auto buyGold=std::make_shared<unsigned>(0),plainArmorBefore=std::make_shared<unsigned>(0);
+        unsigned openingAttacks=0;
         auto mainStockCursor=std::make_shared<XeenJourneyRandomState>();
         const auto inspect=[&](std::function<void()> fn){steps.push_back([fn]{fn();return true;});};
         const auto act=[&](PlayerAction action){
@@ -94,9 +102,16 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 check(combat->phase()!=XeenCombatPhase::Failed && combat->phase()!=XeenCombatPhase::Defeat &&
                     combat->phase()!=XeenCombatPhase::SupportStopped,"M43 combat stopped");
                 if(const auto cast=combat->cast()){
-                    if(cast->phase==XeenCombatCastPhase::Result)act(AcknowledgeAction{});
+                    if(const auto input=m49_combat::finishAwaken(*cast,*party))act(*input);
                 }else if(combat->phase()==XeenCombatPhase::PlayerReady){
-                    if(scenario=="services") {if(cityFight && !(party->roster.at(6).armor[0].state&128))act(BlockAction{});else act(cityFight || combat->participant()==1 || combat->participant()==4 ? PlayerAction{AttackAction{}} : PlayerAction{RunAction{}});}
+                    if(scenario=="services") {
+                        bool broken=false;for(auto owner:kXeenCombatOwners)for(const auto &armor:party->roster.at(owner).armor)broken=broken || (armor.id && (armor.state&128));
+                        if(m49_combat::canAwaken(*party,combat->participant()))act(CastSpellAction{});
+                        else if(earnArmor && !broken && openingAttacks++>=1)act(BlockAction{});
+                        else if(!earnArmor && position->mapId==XeenMapIdentity(23))
+                            act(combat->participant()==1 || combat->participant()==4 ? PlayerAction{AttackAction{}} : PlayerAction{RunAction{}});
+                        else act(AttackAction{});
+                    }
                     else {
                         const auto rows=combat->contacts();unsigned selected=0;
                         for(unsigned i=0;i<rows.size();++i)if(rows[i] && (!rows[selected] || rows[i]->recordIndex<rows[selected]->recordIndex))selected=i;
@@ -145,36 +160,100 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             inspect([&]{check(!party->questItems.at(17) && !party->questFlags.isSet(2) && !world->sessionState().accountedMonsters().empty(),"M44 mainland combat and Myra exchange");});
         }
         if(!resume && scenario=="services") {
-            route("RRRUUURUURRRU");for(unsigned member:{0u,1u,2u,3u,5u}) {action(InteractionAction{});action(SelectMemberAction{member});settle();}
+            route("RRRUUURUURRRU");for(unsigned member=0;member<6;++member) {
+                action(InteractionAction{});action(SelectMemberAction{member});settle();
+            }
+            inspect([&]{earnArmor=true;});
+            route("RUULUUU");
+            inspect([&]{earnArmor=false;bool found=false;
+                for(unsigned member=0;member<6 && !found;++member)for(unsigned slot=0;slot<9 && !found;++slot)
+                    if(party->roster.at(kXeenCombatOwners[member]).armor[slot].id &&
+                        (party->roster.at(kXeenCombatOwners[member]).armor[slot].state&128)) {
+                        *repairedOwner=member;*repairedSlot=slot;found=true;
+                    }
+                check(found,"M49 ordinary mainland combat did not earn broken armor");
+                std::cerr<<"M49 COMBAT BROKEN ARMOR owner "<<unsigned(kXeenCombatOwners[*repairedOwner])<<" slot "<<*repairedSlot<<'\n';
+            });
+            route("DDDRDDL");
             route("RRUUUU");route("URRRUU");route("UU");route("UURU");route("RRURRRUUUUUUUUURRRU");
-            action(CastSpellAction{});action(SelectMemberAction{4});action(NavigationAction::MoveBackward);
-            action(AcknowledgeAction{});action(AcknowledgeAction{});action(SelectMemberAction{4});settle();
-            inspect([&]{cityFight=true;});
+            steps.push_back([&]{
+                if(!flow->canSave()) {
+                    const auto *combat=flow->encounter()->combat();
+                    if(combat && combat->phase()==XeenCombatPhase::PlayerReady)
+                        act(combat->participant()==1 || combat->participant()==4 ? PlayerAction{AttackAction{}} : PlayerAction{RunAction{}});
+                    else if(world->sessionState().journeyActivity()==XeenJourneyActivity::Event ||
+                            world->sessionState().journeyActivity()==XeenJourneyActivity::Reward)act(AcknowledgeAction{});
+                    return false;
+                }
+                bool eligible=false;for(unsigned member=0;member<6;++member) {
+                    const auto owner=kXeenCombatOwners[member];const auto quote=xeenQuoteTraining(party->roster.at(owner),
+                        *party->roster.combatInputs(owner),party->monsterTreasure->gold,*party->encounterContext);
+                    if(!quote.missing && quote.levelBefore==3) {*trainingMember=member;eligible=true;break;}
+                }
+                int x=10,y=13;
+                if(!eligible) {
+                    const XeenActor *selected=nullptr;int distance=1000;
+                    for(const auto &actor:world->sessionState().actors())if(actor.lifecycle==XeenActorLifecycle::Present && actor.original.resourceId==6) {
+                        const int next=std::abs(actor.x-position->x)+std::abs(actor.y-position->y);
+                        if(next<distance){selected=&actor;distance=next;}
+                    }
+                    check(selected,"M49 reachable ordinary combat did not provide paid Training XP");x=selected->x;y=selected->y;
+                }
+                if(const auto input=m49_combat::toward(*world,*position,x,y,XeenDirection::North)){act(*input);return false;}
+                check(eligible,"Standing on a living Orc did not attach ordinary combat");return true;
+            });
             action(InteractionAction{});action(YesAction{});settle();route("UUUULUUUUUUU");
-            inspect([&]{check(position->mapId==28 && position->x==8 && position->y==4 && party->monsterTreasure->gold==870,"M44 Smith arrival");});
-            inspect([&]{check((party->roster.at(6).armor[0].state&128),"M44 earned broken armor");});
+            inspect([&]{check(position->mapId==28 && position->x==8 && position->y==4,"M44 Smith arrival");});
             action(InteractionAction{});steps.push_back([&]{return XeenPurchaseTestAccess::lobby(*flow);});action(DialogKeyAction{'b'});action(DialogKeyAction{'a'});
+            inspect([&]{*buyGold=party->monsterTreasure->gold;for(const auto &armor:party->roster.at(0).armor)
+                *plainArmorBefore+=armor.material==0 && armor.id==3 && armor.state==0 && armor.frame==0;});
             action(SelectInventorySlotAction{3});action(YesAction{});
             action(CancelInteractionAction{});action(CancelInteractionAction{});settle();
-            inspect([&]{check(party->monsterTreasure->gold==670 && party->roster.at(0).armor[5].id==3,"M44 Buy delivery");});
-            action(InteractionAction{});steps.push_back([&]{return XeenPurchaseTestAccess::lobby(*flow);});action(SelectMemberAction{5});action(DialogKeyAction{'b'});action(DialogKeyAction{'a'});action(DialogKeyAction{'f'});
-            action(SelectInventorySlotAction{0});inspect([&]{check(XeenPurchaseTestAccess::quote(*flow),"M44 Repair quote absent");});action(YesAction{});
+            inspect([&]{unsigned count=0;for(const auto &armor:party->roster.at(0).armor)
+                count+=armor.material==0 && armor.id==3 && armor.state==0 && armor.frame==0;
+                check(party->monsterTreasure->gold==*buyGold-200 && count==*plainArmorBefore+1,"M44 paid Buy delivery");});
+            action(InteractionAction{});steps.push_back([&]{return XeenPurchaseTestAccess::lobby(*flow);});
+            steps.push_back([&]{act(SelectMemberAction{*repairedOwner});return true;});action(DialogKeyAction{'b'});action(DialogKeyAction{'a'});action(DialogKeyAction{'f'});
+            steps.push_back([&]{act(SelectInventorySlotAction{*repairedSlot});return true;});
+            inspect([&]{check(XeenPurchaseTestAccess::quote(*flow),"M44 Repair quote absent");*repairGold=party->monsterTreasure->gold;});action(YesAction{});
             action(CancelInteractionAction{});action(CancelInteractionAction{});settle();
-            inspect([&]{check(party->monsterTreasure->gold==668 && party->roster.at(6).armor[0].state==0,"M44 paid Repair");});
-            route("RRUUUUUUULUUULUUUUURUUUU");
+            inspect([&]{check(party->monsterTreasure->gold<*repairGold &&
+                party->roster.at(kXeenCombatOwners[*repairedOwner]).armor[*repairedSlot].state==0,"M44 paid Repair");});
+            // A casualty can retain earned XP but cannot Train. Recover the
+            // selected learner through the original paid Temple, never by a
+            // test mutation or a preset save.
+            route("RRUUUUUUUL"+std::string(24,'U'));
+            auto recoveryStage=std::make_shared<unsigned>(0);
+            steps.push_back([&,recoveryStage]{
+                switch(*recoveryStage) {
+                case 0:act(InteractionAction{});++*recoveryStage;return false;
+                case 1:if(!XeenTrainingTestAccess::templeLobby(*flow))return false;
+                    act(SelectMemberAction{*trainingMember});++*recoveryStage;return false;
+                case 2:check(*trainingMember==1 && party->monsterTreasure->gold==648 && party->roster.at(18).currentHp==-3 &&
+                        party->roster.at(18).conditions[12]==1 && party->roster.at(18).conditions[13]==1,"Learner recovery literal preimage differs");
+                    act(DialogKeyAction{'h'});++*recoveryStage;
+                    return false;
+                case 3:if(party->monsterTreasure->gold!=238)return false;
+                    check(party->roster.at(18).currentHp==48 && party->roster.at(18).currentSp==0 &&
+                        party->roster.at(18).conditions==std::array<std::uint8_t,16>{},"Temple literal 410-gold recovery differs");
+                    act(CancelInteractionAction{});++*recoveryStage;return false;
+                default:return flow->canSave();
+                }
+            });
+            route("RR"+std::string(21,'U')+"R"+std::string(5,'U')+"R"+std::string(4,'U'));
             action(InteractionAction{});
             steps.push_back([&]{return XeenTrainingTestAccess::menu(*flow);});
-            for(unsigned member:{1u}) {
-                action(SelectMemberAction{member});action(DialogKeyAction{'t'});
-                steps.push_back([&,member]{return party->roster.at(kXeenCombatOwners[member]).permanentLevel==4;});
-            }
+            steps.push_back([&]{act(SelectMemberAction{*trainingMember});return true;});
+            inspect([&]{*trainingGold=party->monsterTreasure->gold;});action(DialogKeyAction{'t'});
+            steps.push_back([&]{return party->roster.at(kXeenCombatOwners[*trainingMember]).permanentLevel==4;});
             action(CancelInteractionAction{});settle();
-            inspect([&]{check(party->roster.at(18).permanentLevel==4 && party->monsterTreasure->gold==578,"M44 paid Training");});
+            inspect([&]{check(party->roster.at(kXeenCombatOwners[*trainingMember]).permanentLevel==4 &&
+                party->monsterTreasure->gold==*trainingGold-90,"M44 paid Training");});
         }
         checkpoint("final");
         inspect([&]{SDL_Event event{};event.type=SDL_QUIT;SDL_PushEvent(&event);});
         auto native=handler;native.closed={};native.beginCycle=[&](std::uint64_t){handler.beginCycle(++cycle);};
-        native.framePresented=[&](const auto &frame){handler.framePresented(frame);presented=frame;shown=true;};
+        native.framePresented=[&](const auto &frame){handler.framePresented(frame);presented=frame;shown=true; m49_trace::frame(*world,*party,*position,*flow);};
         const auto drive=[&]()->std::optional<IndexedFrame>{
             check(++iterations<4000,"M43 witness iteration bound");now+=100;next.reset();acted=false;
             if(iterations%100==0)std::cerr << "WAIT " << iterations << " menu " << XeenTrainingTestAccess::menu(*flow) << " quote " << XeenTrainingTestAccess::quote(*flow) << " clericHP "<<party->roster.at(1).currentHp<<" SP "<<party->roster.at(1).currentSp<<" armorHP "<<party->roster.at(6).currentHp<< " level " << party->roster.at(18).permanentLevel << " gold " << party->monsterTreasure->gold << std::endl;

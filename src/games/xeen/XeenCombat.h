@@ -1,5 +1,7 @@
 #ifndef MMODERN_XEEN_COMBAT_H
 #define MMODERN_XEEN_COMBAT_H
+#include "core/NavigationAction.h"
+#include <stdexcept>
 #include "games/xeen/XeenActorApproach.h"
 #include "games/xeen/XeenEquipment.h"
 #include "games/xeen/XeenLearnedSpellRules.h"
@@ -52,16 +54,35 @@ private:
 
 enum class XeenCombatPhase { Engaged, PlayerReady, Casting, PreparingAction,
 	PendingEnemy, PendingRound, DisengagementPending, Disengaged, VictoryAwaitingEnd, Victory, Defeat, SupportStopped, Failed };
-enum class XeenCombatWork { None, Action, Enemy, Round, End, FinishDisengagement, Cast };
+enum class XeenCombatWork { None, Action, Enemy, Round, End, FinishDisengagement, Cast, Movement };
 enum class XeenCombatCommand { Attack, Block, Run };
 enum class XeenCombatStatus { Accepted, Pending, Advanced, Refused, Stale, Failed, SupportStopped, Victory, Defeat };
 enum class XeenCombatFailure { None, Integrity, Preparation, Time, Observation, Overflow };
-enum class XeenCombatOperation { None, BeginCombat, PlayerAttack, Cast, Block, PlayerRun, FinishDisengagement, EnemyAttack, Round, End, Failure };
+enum class XeenCombatOperation { None, BeginCombat, PlayerAttack, Cast, Block, PlayerRun, FinishDisengagement, EnemyAttack, Round, End, Failure, Rotate, Movement };
+// Interface::_tillMove, separate from combat's already owed round movement.
+// One qualifying normalized draw beat; suspended modes never accumulate debt.
+class XeenMovementCountdown {
+public:
+    void arm(unsigned count=3) {
+        if(count>3)throw std::invalid_argument("Invalid movement countdown");
+        value=count;beat.reset();
+    }
+    unsigned remaining() const noexcept {return value;}
+    void clear() noexcept {value=0;beat.reset();}
+    bool advance(std::uint64_t now,bool enabled,bool monstersAttacking) noexcept {
+        if(!value || !enabled || monstersAttacking || (beat && (now<*beat || now-*beat<100)))return false;
+        beat=now;return --value==0;
+    }
+private:
+    unsigned value=0;
+    std::optional<std::uint64_t> beat;
+};
 enum class XeenCombatAttackOutcome { NotApplicable, NoParticipants, Pending, Miss, HitZeroDamage, HitPositiveDamage };
 enum class XeenCombatExitCause { None, DirectRun, AttritionAfterEscape };
 struct XeenCombatLocation { XeenMapIdentity mapId; int x=0,y=0; XeenDirection direction=XeenDirection::North; };
 struct XeenCombatDamage {
 	std::uint8_t owner=0;
+	unsigned attackOrdinal=0;
 	int amount=0, beforeHp=0, afterHp=0, beforeAc=0, afterAc=0;
 	std::array<std::uint8_t,16> conditions{};
 };
@@ -83,6 +104,7 @@ struct XeenCombatResult {
 	std::uint32_t forfeitedGold=0, forfeitedMask=0;
 	bool originAutomaticSuperseded=false;
 	std::uint8_t targetedMembers=0; // Published physical target mask, including misses.
+    std::uint8_t blockedMembers=0; // Detached current Block observation.
 	std::optional<XeenMonsterDropOutcome> monsterDrop;
 	XeenMonsterTreasureItem generatedItem;
 	bool generatedArmor=false;
@@ -95,12 +117,17 @@ struct XeenCombatResult {
 	XeenMonsterIdentity monster{20,5};
 	std::uint16_t minutes=480;
 	std::array<XeenCombatDamage,12> injuries{}; unsigned injuryCount=0;
+	// Prepared immutable overflow retains noexcept observation publication.
+	std::shared_ptr<const std::vector<XeenCombatDamage>> additionalInjuries;
+	const XeenCombatDamage &injury(unsigned i) const {
+		return i<injuries.size() ? injuries.at(i) : additionalInjuries->at(i-injuries.size());
+	}
 	std::array<XeenCombatArmorChange,54> armor{}; unsigned armorCount=0;
 	std::array<XeenCombatXp,6> xp{}; unsigned xpCount=0;
 	std::shared_ptr<const XeenRegionalObservation> ranged;
 };
 
-enum class XeenCombatCastPhase { Learned, Enemy, Confirm, PartyTarget, Preparing, Projectile, Result };
+enum class XeenCombatCastPhase { Learned, Enemy, Confirm, PartyTarget, Preparing, Projectile, Impact, PostImpact, Result };
 enum class XeenCombatCastInput { Up, Down, Enter, Escape, PartyTarget, EnemyTarget };
 struct XeenCombatCastResult {
     unsigned spell=0, count=0;
@@ -153,6 +180,9 @@ public:
 	XeenCombatResult beginCombat(const Ticket &);
 	XeenCombatResult command(const Ticket &,XeenCombatCommand);
 	XeenCombatResult selectTarget(const Ticket &, unsigned row);
+    XeenCombatResult rotate(const Ticket &,NavigationAction);
+    unsigned movementCountdown() const noexcept;
+    bool stepped() const noexcept;
 	std::array<std::optional<XeenMonsterIdentity>,3> contacts() const noexcept;
 	std::optional<XeenMonsterIdentity> selectedTarget() const noexcept;
 	XeenCombatResult service(const Ticket &);
@@ -165,6 +195,9 @@ public:
 	void preparePresentation(const Ticket &, const std::function<void()> &);
 private:
 	friend class XeenEncounterFlow;
+    friend struct XeenCombatRotationTestAccess;
+    XeenMovementCountdown &countdownForScheduling() noexcept;
+    XeenCombatResult drawBeat(const Ticket &,std::uint64_t);
 	bool ticketCurrent(const Ticket &) const noexcept;
 	void guardCallback(const Ticket &, const std::function<void()> &);
     // Only the coordinator can mint this consumed concrete-frame response.
@@ -181,6 +214,8 @@ private:
         const std::function<XeenLearnedSpellNames()> &);
     XeenCombatResult serviceCast(const Ticket &, std::uint64_t);
     void castPresented(const Ticket &, std::uint64_t);
+    std::optional<XeenActor> castImpactSnapshot() const;
+    void rangedPresented(const Ticket &, bool travelComplete);
     bool consumeCast(CastResponse &);
     XeenCombatResult settleCast(const Ticket &, std::optional<unsigned>);
 	XeenCombat(XeenWorld &, XeenPartyState &, XeenCamera &, XeenCombatBoundary &, const XeenGameFlags &,

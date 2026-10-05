@@ -241,6 +241,7 @@ void XeenEventFlow::framePresented(const IndexedFrame::Presentation &presented, 
 	requireCurrentOwners();
 	if (_dispatching || _saving) throw std::logic_error("Frame handoff during dispatch");
 	if (!encounterFrameCurrent()) throw std::logic_error("Stale successful frame handoff");
+    if(_encounter)_encounter->projectilesPresented();
 	if (_cosmeticPending) {
 		// A successfully acquired travel row arms only its cosmetic successor.
 		if(_encounter) _encounter->castProjectilePresented();
@@ -1139,8 +1140,9 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 	if (!_encounter && (std::holds_alternative<AttackAction>(action) || std::holds_alternative<BlockAction>(action) || std::holds_alternative<RunAction>(action) ||
 		std::holds_alternative<BeginEncounterAction>(action) || std::holds_alternative<RevisitCompletedAction>(action))) return frameCopy();
 	if (journey() && _encounter->combat() && std::holds_alternative<RevisitCompletedAction>(action)) action=RunAction{};
-    if (journey() && _encounter->combat() && !_encounter->combat()->cast() && !inventoryOpen() && std::holds_alternative<NavigationAction>(action))
-        action=UnsupportedMainScreenAction{"Combat movement"};
+    if (journey() && _encounter->combat() && !_encounter->combat()->cast() && !inventoryOpen())
+        if(const auto *nav=std::get_if<NavigationAction>(&action);nav && *nav!=NavigationAction::TurnLeft && *nav!=NavigationAction::TurnRight)
+            action=UnsupportedMainScreenAction{"Combat movement"};
     if (const auto *unsupported=std::get_if<UnsupportedMainScreenAction>(&action)) {
         const auto context=inputContext(inputFrame);
         if (context.mainScreen==MainScreen::None || !context.readyForAction) return frameCopy();
@@ -1261,6 +1263,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 
 		const auto entry = _encounter->ticket();
 		const auto cameraBeforeAction=_camera;
+        const auto combatRevisionBeforeAction=entry.combat ? _encounter->combatResult().revision : 0;
 		const bool changed = _encounter->handle(action, _cycle, _displayedCombat);
 		prepareJourneyTransition();
 		if (_encounter->combatOperationStale()) {
@@ -1273,7 +1276,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 			// this physical navigation's visual cause once, never during recovery.
 			const auto &accepted = _encounter->actionResult();
 			if (std::holds_alternative<NavigationAction>(action) &&
-				((_encounter->combat() && _encounter->state().revision() > entry.state.revision()) ||
+				((entry.combat && _encounter->combat() && _encounter->combatResult().operation==XeenCombatOperation::Rotate && _encounter->combatResult().revision > combatRevisionBeforeAction) ||
 				(accepted.revision > entry.state.revision() &&
 				(accepted.outcome == XeenEncounterOutcome::Accepted || accepted.outcome == XeenEncounterOutcome::Blocked))))
 			{
