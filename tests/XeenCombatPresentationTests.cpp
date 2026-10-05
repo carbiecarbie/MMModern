@@ -56,7 +56,14 @@ int main(int argc,char **argv) {try {
     }
    };
    if(outdoor) {const auto stream=XeenOutdoorScene().build(world,camera,nullptr,nullptr,{},appearance);verify(stream);composer.drawOutdoorCommands(assets,stream);}
-   else {const auto stream=XeenIndoorScene().build(world,camera,nullptr,nullptr,{},appearance);verify(stream);composer.drawIndoorCommands(assets,stream);}
+   else {const auto stream=XeenIndoorScene().build(world,camera,nullptr,nullptr,{},appearance);verify(stream);
+    constexpr int order[]{162,135,111,79};
+    constexpr int x[4][6]{{72,72,93,51,97,47},{72,72,85,59,89,55},{72,72,77,67,81,63},{72,72,69,75,73,71}};
+    constexpr int y[4][6]{{43,43,48,48,36,36},{48,48,53,53,41,41},{53,53,58,58,47,47},{58,58,63,63,53,53}};
+    for(const auto &c:stream)if(const auto *p=c.projectile())
+     check(c.originalOrder==order[row]+p->lane && c.x==x[row][p->lane] && c.y==y[row][p->lane],
+      "Original indoor projectile draw order/anchors differ");
+    composer.drawIndoorCommands(assets,stream);}
    check(found==6,"Concurrent lanes silently skipped");
   }
   for(unsigned frame=0;frame<7;++frame)for(int damage:{0,1,9,10,99,100}) {
@@ -78,6 +85,23 @@ int main(int argc,char **argv) {try {
  XeenProjectileAppearance enemyNear{true,0,0,1,{}},enemyFar{true,2,1,3,{}};
  enemyNear.advance();enemyFar.advance();check(!enemyNear.active&&enemyFar.row==1&&enemyFar.active,"Mixed-distance enemy batch advanced sequentially");
  Fixture fixture;const auto before=XeenSaveFormat::encode(fixture.snapshot());auto &fx=fixture.w.scenePresentation();
+ // A real supported ranged MON record in synthetic indoor geometry. Vertigo's
+ // original monsters have no ranged capability, so none is fabricated there.
+ XeenWorld indoor([](auto id){auto m=projectionMap(id,false);m.geometry.difficulties[0]=7;
+  for(auto &cell:m.geometry.cells)cell.rawWord=0;return m;});
+ XeenConsequenceCharacters rangedParty;XeenConsequenceInputs rangedInputs;
+ for(unsigned i=0;i<6;++i) {rangedParty[i]=fixture.p.roster.at(kXeenCombatOwners[i]);
+  rangedInputs[i]=*fixture.p.roster.combatInputs(kXeenCombatOwners[i]);}
+ for(unsigned facing=0;facing<4;++facing)for(unsigned distance=1;distance<=3;++distance) {
+  XeenActor source;source.id={99,0};source.original.resourceId=6;source.x=8;source.y=8+distance;
+  source.hp=statistics[6].baseHp();source.statistics=statistics[6];source.activated=true;source.lifecycle=XeenActorLifecycle::Present;
+  XeenRegionalOpportunityCandidate candidate(indoor,{source},{99,8,8,XeenDirection(facing)},rangedParty,rangedInputs,610,63);
+  check(candidate.shotCount==1 && candidate.shots[0].source==source.id && candidate.shots[0].distance==distance &&
+   candidate.shots[0].direction==XeenDirection::North,"Original ranged record refused/scheduled incorrectly indoors");
+  candidate.staged=true;XeenCombatRandom random(1);XeenConsequenceDraw draw{random};
+  check(!candidate.service(draw) && candidate.travelStarted && random.position()==0,
+   "Original indoor enemy consumed RNG before its travel frame");
+ }
  // Travel never publishes or flashes an injury. Each prepared injury has its
  // own portrait phase, including off-camera sources and omitted visible lanes.
  std::uint64_t now=0;fixture.clock=[&]{return now;};

@@ -75,6 +75,40 @@ unsigned xeenPlayerRayRows(const XeenMap &map,const XeenCamera &camera) {
  }
  return 4;
 }
+unsigned xeenPlayerRayRows(XeenWorld &world,const XeenCamera &camera) {
+ const auto &map=world.map(camera.mapId);
+ if(map.geometry.isOutdoors())return xeenPlayerRayRows(map,camera);
+ const auto samples=XeenIndoorScene().sampleWalls(world,camera);
+ constexpr unsigned queries[]{2,7,14};
+ for(unsigned row=0;row<3;++row) {
+  const auto &wall=samples[queries[row]];
+  if(!wall.wallValue)return row+1;
+  // mazeData() is the primary active map; getCell only resolves the wall tile.
+  if(*wall.wallValue>=map.geometry.difficulties[0])return row+1;
+ }
+ return 4;
+}
+bool xeenIndoorRangedRay(XeenWorld &world,const XeenCamera &camera,const XeenActor &actor) {
+ if(camera.mapId!=actor.id.mapId || world.map(camera.mapId).geometry.isOutdoors() ||
+    unsigned(camera.direction)>3 || camera.x<0 || camera.x>=32 || camera.y<0 || camera.y>=32 ||
+    !world.sampleCell(camera.mapId,camera.x,camera.y) ||
+    actor.x<0 || actor.x>=32 || actor.y<0 || actor.y>=32)
+  throw std::invalid_argument("Invalid indoor ranged geometry");
+ if(actor.x!=camera.x && actor.y!=camera.y)return false;
+ const int dx=(actor.x>camera.x)-(actor.x<camera.x),dy=(actor.y>camera.y)-(actor.y<camera.y);
+ // stopAttack samples destination cells, with asymmetric directional masks.
+ const unsigned mask=dx>0?0x8:dx<0?0x800:dy<0?0x8000:0x80;
+ int x=camera.x,y=camera.y;
+ while(x!=actor.x || y!=actor.y) {
+  x+=dx;y+=dy;
+  const auto cell=world.sampleCell(camera.mapId,x,y);
+  if(!cell)return false;
+  if(cell->geometry->isOutdoors() || !xeenHolds<XeenIndoorWalls>(cell->cell->geometry))
+   throw std::invalid_argument("Invalid indoor ray cell");
+  if(cell->cell->rawWord&mask)return false;
+ }
+ return true;
+}
 XeenMonsterTerrain xeenRegionalActorTerrain(const XeenMap &map, const XeenActor &a, int x, int y) {
 	if (!local(x,y) || map.side!=XeenSide::Clouds || !map.geometry.isOutdoors() ||
 		map.identity()!=a.id.mapId || !a.statistics || !a.statistics->supportsGroundMovement() || a.original.resourceId==59)
@@ -91,8 +125,12 @@ XeenMonsterTerrain xeenRegionalActorTerrain(const XeenMap &map, const XeenActor 
 	}
 }
 XeenMonsterTerrain xeenIndoorActorTerrain(XeenWorld &world,const XeenActor &a,int x,int y) {
-	if(!a.statistics || !a.statistics->supportsMovement() ||
+	if(!a.statistics || !a.statistics->supportsGroundMovement() ||
 		a.original.resourceId==59)return XeenMonsterTerrain::Unsupported;
+	if(a.statistics->raw[32]) {
+		try {a.statistics->validateAttackCapabilities();}
+		catch(const std::invalid_argument &) {return XeenMonsterTerrain::Unsupported;}
+	}
 	if(x<0 || x>=32 || y<0 || y>=32)return XeenMonsterTerrain::Blocked;
 	const int dx=x-a.x,dy=y-a.y;
 	if(std::abs(dx)+std::abs(dy)>1)return XeenMonsterTerrain::Unsupported;
@@ -177,8 +215,24 @@ XeenRegionalOpportunityCandidate::XeenRegionalOpportunityCandidate(XeenWorld &wo
 		characters(p),camera(c),inputs(i),year(y),participantMask(mask),blocked(b),indoorWorld(&world) {
 	if(world.map(c.mapId).geometry.isOutdoors() || mask>0x3f)
 		throw std::invalid_argument("Invalid indoor opportunity");
+	std::array<bool,107> tested{};
 	actors=XeenActorApproach::move(before,c,[&](const XeenActor &a,int x,int z) {
 		return xeenIndoorActorTerrain(world,a,x,z);
+	},true,[&](const std::vector<XeenActor> &current,std::size_t index) {
+		const auto &a=current[index];
+		if(tested[index] || !a.statistics || !a.statistics->raw[32])return;
+		tested[index]=true;
+		a.statistics->validateAttackCapabilities();
+		if(a.lifecycle!=XeenActorLifecycle::Present || a.status!=XeenActorStatus::Physical ||
+			(a.x==c.x && a.y==c.y) || (a.x!=c.x && a.y!=c.y))return;
+		const auto contacts=XeenIndoorScene().classifyActors(world,c,current);
+		for(unsigned i=0;i<3;++i)if(contacts.slots[i]==a.id)return;
+		if(!xeenIndoorRangedRay(world,c,a))return;
+		if(shotCount==shots.size())return; // Original _gmonHit has 36 entries.
+		auto &shot=shots[shotCount++];shot.source=a.id;shot.x=a.x;shot.y=a.y;
+		shot.distance=unsigned(std::abs(a.x-c.x)+std::abs(a.y-c.y));
+		shot.direction=a.x>c.x?XeenDirection::East:a.x<c.x?XeenDirection::West:
+			a.y>c.y?XeenDirection::North:XeenDirection::South;
 	});
 }
 XeenRegionalOpportunityCandidate::XeenRegionalOpportunityCandidate(const XeenMap &map,
@@ -192,9 +246,10 @@ XeenRegionalOpportunityCandidate::XeenRegionalOpportunityCandidate(const XeenMap
 	},true,[&](const std::vector<XeenActor> &current,std::size_t index) {
 		const auto &a=current[index];
 		if (tested[index] || !a.activated || a.lifecycle!=XeenActorLifecycle::Present ||
-			a.status!=XeenActorStatus::Physical || a.original.resourceId!=6 || !a.statistics || a.statistics->raw[32]!=1 ||
+			a.status!=XeenActorStatus::Physical || !a.statistics || !a.statistics->raw[32] ||
 			(a.x==c.x && a.y==c.y) || (a.x!=c.x && a.y!=c.y)) return;
 		tested[index]=true;
+		a.statistics->validateAttackCapabilities();
 		if (!xeenOutdoorRangedRay(map,c,a)) return;
 		auto &shot=shots.at(shotCount++);shot.source=a.id;shot.x=a.x;shot.y=a.y;
 		shot.distance=unsigned(std::abs(a.x-c.x)+std::abs(a.y-c.y));

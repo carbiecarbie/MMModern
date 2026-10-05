@@ -68,7 +68,9 @@ void geometry() {
 	check(view.engaged()&&view.activation[0],"Generic indoor actor classification must support a second logical map");
 	check(xeenIndoorActorTerrain(world,a,16,15)==XeenMonsterTerrain::Allowed,"Indoor actor must cross a resource tile seam");
 	a.statistics->raw[32]=1;
-	check(xeenIndoorActorTerrain(world,a,16,15)==XeenMonsterTerrain::Unsupported,"Part A must refuse unsupported indoor ranged movement");
+	check(xeenIndoorActorTerrain(world,a,16,15)==XeenMonsterTerrain::Allowed,"Supported ranged actor must cross indoor tile seams");
+	a.statistics->raw[29]=2;
+	check(xeenIndoorActorTerrain(world,a,16,15)==XeenMonsterTerrain::Unsupported,"Unsupported indoor attack type must retain movement refusal");
 }
 void capabilities() {
 	XeenConsequenceCharacters chars;XeenConsequenceInputs inputs;

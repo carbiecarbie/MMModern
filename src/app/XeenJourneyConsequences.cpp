@@ -14,8 +14,8 @@ XeenConsequenceCharacters activeCharacters(const XeenPartyState &p) {
 XeenConsequenceInputs activeInputs(const XeenPartyState &p) {
  XeenConsequenceInputs c;for(unsigned i=0;i<6;++i)c[i]=*p.roster.combatInputs(kXeenCombatOwners[i]);return c;
 }
-bool unsupportedTime(const XeenGameplayContext &c) {
- const auto t=xeenPrepareTime(c,10);return t.dusks || t.dawns || t.midnights || t.yearRollovers || t.dailyProcessing;
+bool unsupportedTime(const XeenGameplayContext &c,unsigned charge) {
+ const auto t=xeenPrepareTime(c,charge);return t.dusks || t.dawns || t.midnights || t.yearRollovers || t.dailyProcessing;
 }
 }
 bool XeenEncounterFlow::beginShoot() {
@@ -24,13 +24,13 @@ bool XeenEncounterFlow::beginShoot() {
  const bool continuation=_shootIntent && !_regionalWork && !_regionalAutomatic && !projectilesPending() && !monsterReward();
  if((!_state.pending() && !journeyMutable() && !continuation) || !journeyCapacity()) return false;
  _shootIntent=false;
- if(_camera.mapId==XeenMapIdentity(28)) {
-  _journeyRefusal="Shoot refused indoors";return true;
- }
  try {
+  const bool indoor=!_world.map(_camera.mapId).geometry.isOutdoors();
+  const unsigned charge=indoor?1:10;
   xeenValidateJourneyMelee(_party);
-  if(unsupportedTime(*_party.encounterContext)) { _journeyRefusal="Shoot refused: charge crosses the supported time boundary";return true; }
+  if(unsupportedTime(*_party.encounterContext,charge)) { _journeyRefusal="Shoot refused: charge crosses the supported time boundary";return true; }
   auto candidate=std::make_unique<XeenShootCandidate>();bool eligible=false;
+  candidate->charge=charge;
   for(unsigned i=0;i<6;++i) {
    const auto &c=_party.roster.at(kXeenCombatOwners[i]);
    if(c.canAct()) for(const auto &w:c.weapons) if(w.frame==4) candidate->eligible[i]=eligible=true;
@@ -41,8 +41,9 @@ bool XeenEncounterFlow::beginShoot() {
   if(_state.pending()) { retireCastingFeedback();_shootIntent=true;journeyPulse(ticket());return true; }
   const auto heldPreimage=_journeyPreimage;
   XeenRestoreGuard::Providers providers(*heldPreimage,_world);
-  const auto &map=_world.map(23);const auto view=XeenActorApproach::classify(_world.sessionState().actors(),_camera);
-  const auto rows=xeenPlayerRayRows(map,_camera);
+  const auto &active=_world.sessionState().regionalActors(_camera.mapId);
+  const auto view=indoor?XeenIndoorScene().classifyActors(_world,_camera,active):XeenActorApproach::classify(active,_camera);
+  const auto rows=xeenPlayerRayRows(_world,_camera);
   candidate->projectileEnd.fill(rows-1);
   candidate->rows=rows;
   std::vector<XeenProjectileAppearance> projectile;
@@ -52,7 +53,7 @@ bool XeenEncounterFlow::beginShoot() {
   if(rows<4) {
    constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};const auto d=unsigned(_camera.direction);
    const int x=_camera.x+dx[d]*int(rows),y=_camera.y+dy[d]*int(rows);
-   if(x>=0 && x<16 && y>=0 && y<16) candidate->blockedRow=rows;
+   if(indoor ? bool(_world.sampleCell(_camera.mapId,x,y)) : x>=0 && x<16 && y>=0 && y<16) candidate->blockedRow=rows;
   }
   for(unsigned row=0;row<rows;++row)
    for(unsigned slot=0;slot<3;++slot) candidate->targets[row*3+slot]=view.slots[row*3+slot];
@@ -72,7 +73,10 @@ bool XeenEncounterFlow::serviceShoot() {
   auto &work=*_shoot;auto &session=_world._sessionState;
   const auto heldPreimage=_journeyPreimage;
   XeenRestoreGuard::Providers providers(*heldPreimage,_world);
-  std::vector<XeenActor> admission(session.actors().begin(),session.actors().end());
+  const auto active=session.regionalActors(_camera.mapId);
+  auto &liveActors=!session._actors.empty() && session._actors.front().id.mapId==_camera.mapId?
+   session._actors:session._vertigoActors.value();
+  std::vector<XeenActor> admission(active.begin(),active.end());
   if(work.stage==XeenShootCandidate::Stage::PostImpact && work.bound)admission.at(work.bound->id.recordIndex)=*work.bound;
   XeenActorApproach::validateEnvironment(_world,admission,_events);
   const auto check=[&] { _journeyPreimage->check(); };
@@ -93,10 +97,10 @@ bool XeenEncounterFlow::serviceShoot() {
      ++work.row;work.presented=false;return true;
     }
     const auto id=work.targets[work.target];
-    if(!id || session.actors().at(id->recordIndex).lifecycle!=XeenActorLifecycle::Present) { ++work.target;work.shooter=0;continue; }
+    if(!id || liveActors.at(id->recordIndex).lifecycle!=XeenActorLifecycle::Present) { ++work.target;work.shooter=0;continue; }
     while(work.shooter<6 && (!work.eligible[work.shooter] || work.spent[work.shooter])) ++work.shooter;
     if(work.shooter==6) { ++work.target;work.shooter=0;continue; }
-    const auto &actor=work.bound ? *work.bound : session.actors().at(id->recordIndex);
+    const auto &actor=work.bound ? *work.bound : liveActors.at(id->recordIndex);
     if(!(actor.id==*id)) throw std::logic_error("Shoot retained identity mismatch");
     const auto owner=kXeenCombatOwners[work.shooter];
     if(!work.attack) {work.bound=actor;work.attack.emplace(_party.roster.at(owner),*_party.roster.combatInputs(owner),*actor.statistics,actor.original.resourceId,_party.encounterContext->year,true);}
@@ -129,7 +133,7 @@ bool XeenEncounterFlow::serviceShoot() {
      if(work.attack->hit) {work.presented=false;++_generation;return true;}
     }
     if(work.stage==Stage::Impact) {
-     check();session._actors.at(id->recordIndex).hp=std::max(actor.hp-work.attack->damage,0);
+     check();liveActors.at(id->recordIndex).hp=std::max(actor.hp-work.attack->damage,0);
      session._journeyRandom=work.impactRandom;
      work.stage=Stage::PostImpact;work.presented=false;
      ++session._encounterRevision;_state._revision=session._encounterRevision;++session._journeyGeneration;++_generation;
@@ -138,7 +142,7 @@ bool XeenEncounterFlow::serviceShoot() {
     const bool removed=bool(work.lethal);
     if(session._encounterRevision==std::numeric_limits<std::uint64_t>::max() || !journeyCapacity()) throw std::overflow_error("Shoot generation exhausted");
     check();
-    auto &live=session._actors.at(id->recordIndex);
+    auto &live=liveActors.at(id->recordIndex);
     if(work.lethal) {
      live=work.lethal->actor;session._accountedMonsters.swap(work.lethal->accounted);
      for(unsigned i=0;i<6;++i) _party.roster._combatInputs[kXeenCombatOwners[i]]->experience=work.lethal->experience[i];
@@ -165,7 +169,7 @@ bool XeenEncounterFlow::serviceShoot() {
    else if(_journeyRefusal.empty())_journeyRefusal="Shoot: empty center rows";
    work.volleyDone=true;return true;
   }
-  if(!work.time) work.time.emplace(*_party.encounterContext,10,activeCharacters(_party),activeInputs(_party));
+  if(!work.time) work.time.emplace(*_party.encounterContext,work.charge,activeCharacters(_party),activeInputs(_party));
   if(!work.time->service(draw)) return true;
   if(session._encounterRevision==std::numeric_limits<std::uint64_t>::max() || !journeyCapacity())throw std::overflow_error("Shoot charge generation exhausted");
   check();bool living=false;
@@ -184,7 +188,7 @@ bool XeenEncounterFlow::beginMonsterReward(const XeenItemCatalog &catalog) {
   _state.pending() || _state.phase()!=XeenEncounterPhase::Exploring || (_shoot && !_shoot->volleyDone) || !_boundary.quiet()) return false;
  if(!_party.monsterTreasure || !_party.monsterTreasure->pending()) return false;
  const auto &actors=_world.sessionState().regionalActors(_camera.mapId);
- const auto view=_camera.mapId==XeenMapIdentity(28)
+ const auto view=!_world.map(_camera.mapId).geometry.isOutdoors()
   ? XeenIndoorScene().classifyActors(_world,_camera,actors) : XeenActorApproach::classify(actors,_camera);
  for(const auto &slot:view.slots) if(slot) return false;
  if(!current(ticket()) || !journeyCapacity()) throw std::logic_error("Stale monster delivery");
@@ -319,7 +323,7 @@ std::string XeenEncounterFlow::consequenceNotice() const {
   else if(!r.monsterDrop && r.targetMonster && r.attackOutcome!=XeenCombatAttackOutcome::NotApplicable)out<<"Actor "<<r.targetMonster->recordIndex<<(r.attackOutcome==XeenCombatAttackOutcome::Miss?" missed":" damage ")<<r.damage<<'\n';
 
  } else if(!stopped) {
-  const bool city=_camera.mapId==XeenMapIdentity(28);
+  const bool city=!const_cast<XeenWorld &>(_world).map(_camera.mapId).geometry.isOutdoors();
   out<<"Arrows move/turn; . Wait; S Shoot:";
   bool eligible=false;
   for(unsigned i=0;i<6;++i){const auto &c=_party.roster.at(kXeenCombatOwners[i]);if(c.canAct())for(const auto &w:c.weapons)if(w.frame==4){out<<' '<<i+1;eligible=true;break;}}

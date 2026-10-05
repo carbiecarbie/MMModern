@@ -1,6 +1,8 @@
 #include "games/xeen/XeenMovement.h"
 #include "games/xeen/XeenGameplayContext.h"
 #include "games/xeen/XeenRegionalRules.h"
+#include "games/xeen/XeenIndoorScene.h"
+#include <map>
 #include <iostream>
 #include <limits>
 #include <stdexcept>
@@ -134,8 +136,76 @@ void events() {
 	sign.opcode=4;sign.parameters={17};
 	check(!xeenRegionalSign(file,{23,5,9,XeenDirection::North}),"Sign text index exact");
 }
+// Artificial geometry on two logical indoor maps, each with four physical tiles.
+// No production destination or original resource is changed by these controls.
+void indoorRays() {
+ constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};
+ for(unsigned logical:{28u,33u})for(unsigned facing=0;facing<4;++facing)
+ for(const auto origin:{std::pair<int,int>{8,8},{15,15},{16,16},{0,0},{31,31}}) {
+  const XeenMapIdentity home{static_cast<std::uint16_t>(logical)};
+  const XeenCamera camera{home,origin.first,origin.second,static_cast<XeenDirection>(facing)};
+  const auto tiles=[&] {
+   std::map<XeenMapIdentity,XeenMap> result;
+   for(unsigned tile=0;tile<4;++tile) {
+    const unsigned id=tile?200+tile:logical;XeenMap m;m.geometry.id=id;
+    // mazeData() retains the primary map's no-pass threshold at seams.
+    m.geometry.difficulties[0]=tile?1:7;
+    m.geometry.neighbors=std::array<std::uint16_t,4>{
+     static_cast<std::uint16_t>(tile<2?202+tile:0u),static_cast<std::uint16_t>(tile%2==0?201+tile:0u),
+     static_cast<std::uint16_t>(tile>=2?(tile==2?logical:201u):0u),static_cast<std::uint16_t>(tile%2?(tile==1?logical:202u):0u)};
+    for(auto &cell:m.geometry.cells)cell.geometry=XeenIndoorWalls{};
+    result.emplace(XeenMapIdentity{static_cast<std::uint16_t>(id)},m);
+   }
+   return result;
+  };
+  const auto cellAt=[&](auto &maps,int x,int y)->XeenMapCell & {
+   const unsigned tile=unsigned(y/16)*2+unsigned(x/16);
+   return maps.at(XeenMapIdentity{static_cast<std::uint16_t>(tile?200+tile:logical)}).geometry.cells[(y%16)*16+x%16];
+  };
+  auto open=tiles();XeenWorld world([&](auto id){return open.at(id);});
+  unsigned expected=4;
+  for(unsigned row=0;row<3;++row) {
+   const int x=camera.x+dx[facing]*int(row),y=camera.y+dy[facing]*int(row);
+   if(x<0 || x>=32 || y<0 || y>=32){expected=row+1;break;}
+  }
+  check(xeenPlayerRayRows(world,camera)==expected,"Indoor empty ray/seam/edge differs");
+  for(unsigned row=0;row<3;++row)for(unsigned wall:{6u,7u,8u,9u,13u}) {
+   const int x=camera.x+dx[facing]*int(row),y=camera.y+dy[facing]*int(row);
+   if(x<0 || x>=32 || y<0 || y>=32)continue;
+   auto maps=tiles();auto &cell=cellAt(maps,x,y);
+   xeenGet<XeenIndoorWalls>(cell.geometry).walls[facing]=wall;
+   cell.rawWord=wall<<(12-4*facing);
+   XeenWorld blocked([&](auto id){return maps.at(id);});
+   check(xeenPlayerRayRows(blocked,camera)==(wall>=7?std::min(expected,row+1):expected),
+    "Indoor player ray must compare each intervening query against no-pass");
+  }
+  std::vector<XeenActor> actors;
+  for(unsigned row=0;row<4;++row)for(unsigned slot=0;slot<3;++slot) {
+   const int x=camera.x+dx[facing]*int(row),y=camera.y+dy[facing]*int(row);
+   if(x<0 || x>=32 || y<0 || y>=32)continue;
+   XeenActor a;a.id={home,actors.size()};a.x=x;a.y=y;a.hp=5;
+   a.lifecycle=XeenActorLifecycle::Present;a.statistics=XeenMonsterRecord{};
+   actors.push_back(a);
+  }
+  const auto view=XeenIndoorScene().classifyActors(world,camera,actors);
+  for(unsigned i=0;i<actors.size();++i)check(i==5?!view.slots[i]:view.slots[i]==actors[i].id,
+   "Indoor row/record/slot order (including reference slot-5 predicate) differs");
+  for(unsigned direction=0;direction<4;++direction)for(unsigned distance=1;distance<=3;++distance) {
+   XeenActor a;a.id={home,0};a.x=camera.x+dx[direction]*int(distance);a.y=camera.y+dy[direction]*int(distance);
+   if(a.x<0 || a.x>=32 || a.y<0 || a.y>=32)continue;
+   check(xeenIndoorRangedRay(world,camera,a),"Clear enemy ray depends on party facing");
+   constexpr unsigned masks[]{0x80,0x8,0x8000,0x800};
+   for(unsigned step=1;step<=distance;++step)for(unsigned bit=0;bit<16;++bit) {
+    auto maps=tiles();auto &cell=cellAt(maps,camera.x+dx[direction]*int(step),camera.y+dy[direction]*int(step));
+    cell.rawWord=1u<<bit;XeenWorld blocked([&](auto id){return maps.at(id);});
+    check(xeenIndoorRangedRay(blocked,camera,a)==!(masks[direction]&(1u<<bit)),
+     "Enemy ray must use directional raw wall bits at every cell");
+   }
+  }
+ }
+}
 }
 int main() {
-	try { geometry();calendar();actors();events();std::cout << "Regional geometry, time, actor and event rules passed\n";return 0; }
+	try { geometry();calendar();actors();events();indoorRays();std::cout << "Regional geometry, time, actor and event rules passed\n";return 0; }
 	catch (const std::exception &e) { std::cerr << e.what() << '\n';return 1; }
 }

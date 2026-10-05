@@ -35,7 +35,9 @@ void coverage(Inputs &in) {
 		XeenCombatRandom tape(std::vector<XeenCombatRandom::Draw>{{1,4,4},{1,20,20}});
 		for(unsigned n=0;n<10;++n){XeenConsequenceDraw draw{tape,1,{}};if(rule.service(draw))break;}
 		check(rule.done && rule.opened,"Lawful reference Thievery did not open a grate for geometry coverage");
+		check(xeenPlayerRayRows(*world,camera)==1,"Original closed grate did not block indoor Shoot");
 		world->setBarrier(camera,rule.targetWall,true);
+		check(xeenPlayerRayRows(*world,camera)>=2,"Lawfully unlocked grate still blocked indoor Shoot");
 	}
 	check(component(*world)==622,"Lawfully opened-grate geometry component changed");
 	std::cout<<"Original geometry components: 424 closed, 622 after lawful grate unlocking\n";

@@ -1,4 +1,5 @@
 #include "games/xeen/XeenBarrierRules.h"
+#include "games/xeen/XeenRegionalRules.h"
 #include "games/xeen/XeenMovement.h"
 #include "games/xeen/XeenEventTrigger.h"
 #include "games/xeen/XeenRestoreGuard.h"
@@ -107,6 +108,10 @@ void overrides() {
 		XeenBarrierCandidate reopen(*world,camera,p.characters,p.inputs,{1,77,0},p.context,false);
 		check(reopen.handled && !reopen.selection,"Unlocked grate does not repeat trap/unlock");
 		world->setBarrier(camera,3,false);
+		check(xeenPlayerRayRows(*world,camera)>=2,"Bashed wall override still blocks player ray");
+		constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};
+		XeenActor enemy;enemy.id={28,0};enemy.x=15+dx[direction];enemy.y=15+dy[direction];
+		check(xeenIndoorRangedRay(*world,camera,enemy),"Bashed wall override still blocks enemy wall-bit ray");
 		check(!unsupportedManualSpecialInteraction(*world->sampleCell(28,15,15)->cell,camera.direction),"Post-Bash Event lookup must use effective wall rather than original closed grate");
 	}
 }

@@ -14,6 +14,8 @@ std::bitset<256> xeenActorClosure(const XeenMap &, const XeenActor &);
 // Player missiles admit middle 15; non-east enemy rays do not.
 unsigned xeenPlayerRayRows(const XeenMap &, const XeenCamera &);
 bool xeenOutdoorRangedRay(const XeenMap &, const XeenCamera &, const XeenActor &);
+unsigned xeenPlayerRayRows(XeenWorld &, const XeenCamera &);
+bool xeenIndoorRangedRay(XeenWorld &, const XeenCamera &, const XeenActor &);
 std::optional<std::size_t> xeenRegionalEvent(const XeenEventFile &, const XeenCamera &);
 bool xeenRegionalSign(const XeenEventFile &, const XeenCamera &);
 enum class XeenRegionalInteraction { None, Sign, Myra, Phirna, Well, VertigoEntrance, VertigoDoor, VertigoExit, Ironworks, Training, Temple, TempleLabel, Event };
@@ -42,7 +44,8 @@ struct XeenRegionalObservation {
  Stage stage=Stage::Published;
  std::optional<XeenMonsterIdentity> impactSource;
  std::optional<std::uint8_t> impactOwner;
- std::array<XeenRegionalRangedShot,24> shots{};
+ // At most three owed opportunities, each with the reference's 36 sources.
+ std::array<XeenRegionalRangedShot,108> shots{};
  unsigned count=0;
  XeenConsequenceCharacters after;
 };
@@ -54,7 +57,7 @@ struct XeenRegionalOpportunityCandidate {
  std::optional<std::uint8_t> impactOwner;
 	std::vector<XeenActor> actors;
 	XeenConsequenceCharacters characters;
-	std::array<XeenRegionalRangedShot,19> shots{};
+	std::array<XeenRegionalRangedShot,36> shots{};
 	unsigned shotCount=0;
 	XeenActorView view;
 	XeenRegionalOpportunityCandidate(const XeenMap &, const std::vector<XeenActor> &,
@@ -85,7 +88,7 @@ struct XeenRegionalActionCandidate {
 	XeenEncounterResult result;
 	std::optional<XeenConditionTimeCandidate> time;
 	std::optional<XeenRegionalOpportunityCandidate> opportunity;
-	std::array<XeenRegionalRangedShot,24> shots{};
+	std::array<XeenRegionalRangedShot,108> shots{};
 	unsigned shotCount=0, remaining=0, pending=0;
 	bool classify=false, timeDone=false;
 	std::uint64_t revision=0;
@@ -96,7 +99,7 @@ struct XeenShootCandidate {
 	 Stage stage=Stage::Travel;
 	 bool presented=false;
 	 bool advanceDraw=false, suffixPrepared=false;
-	 unsigned row=0,rows=4;
+	 unsigned row=0,rows=4,charge=10;
 	 std::uint64_t deadline=0;
 	 std::optional<XeenActor> bound;
 	 std::optional<XeenJourneyRandomState> impactRandom;

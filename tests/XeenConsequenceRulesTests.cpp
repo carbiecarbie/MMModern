@@ -370,6 +370,37 @@ void dormantTreasure() {
  auto invalid=dormant;invalid.armor[0]=invalid.weapons[0];rejects([&]{xeenValidateMonsterTreasure(invalid);});
  invalid=dormant;invalid.weapons[1]=invalid.weapons[0];invalid.weapons[0]={};rejects([&]{xeenValidateMonsterTreasure(invalid);});
 }
+void indoorOpportunity() {
+ XeenWorld world([](auto id) {XeenMap m;m.geometry.id=id.number;m.geometry.difficulties[0]=7;
+  for(auto &cell:m.geometry.cells)cell.geometry=XeenIndoorWalls{};return m;});
+ const XeenCamera camera{33,8,8,XeenDirection::North};
+ auto c=characters();auto in=inputs();c[0].characterClass=XeenCharacterClass::Cleric;
+ XeenActor a;a.id={33,0};a.original.resourceId=42;a.x=8;a.y=11;a.hp=25;
+ a.lifecycle=XeenActorLifecycle::Present;a.activated=true;a.statistics=profile(3);
+ a.statistics->raw[20]=25;a.statistics->raw[32]=1;
+ const std::vector<XeenActor> before{a};
+ XeenRegionalOpportunityCandidate op(world,before,camera,c,in,610,63);op.staged=true;
+ check(op.shotCount==1 && op.shots[0].distance==3 && op.shots[0].direction==XeenDirection::North &&
+  op.actors[0].y==10 && before[0].y==11,"Indoor supported ranged source schedules before detached movement");
+ XeenCombatRandom rng(std::vector<XeenCombatRandom::Draw>{{1,20,19},{1,5,5},{1,10,3}});
+ XeenConsequenceDraw draw{rng};
+ check(!op.service(draw) && op.travelStarted && !rng.position() && op.characters[0].currentHp==50,
+  "Indoor ranged travel must precede attack RNG and injury");
+ op.travelPresented=true;
+ check(!op.service(draw) && op.impactOwner==c[0].rosterId && rng.position()==3 &&
+  op.characters[0].currentHp==50,"Indoor enemy hit must wait on live-target portrait acknowledgment");
+ check(!op.service(draw) && rng.position()==3 && op.characters[0].currentHp==50,
+  "Unacknowledged enemy impact repeated draws or injury");
+ op.impactPresented=true;
+ check(!op.service(draw) && op.impactApplied && op.characters[0].currentHp==47,
+  "Indoor enemy impact did not publish prepared HP after acknowledgment");
+ check(op.service(draw) && rng.position()==3 && op.shots[0].attack.damage==3,
+  "Indoor enemy settled injury was repeated or lost");
+ auto bad=before;bad[0].statistics->raw[29]=2;
+ rejects([&]{XeenRegionalOpportunityCandidate unsupported(world,bad,camera,c,in,610,63);});
+ check(before[0].y==11 && c[0].currentHp==50 && rng.position()==3,
+  "Unsupported indoor enemy attack mutated inputs or consumed RNG");
+}
 void timeAndInputs() {
 	auto c=characters();auto i=inputs();XeenGameplayContext context;context.year=610;context.day=8;context.minutes=950;
 	std::vector<XeenCombatRandom::Draw> tape;
@@ -390,4 +421,4 @@ void timeAndInputs() {
 	pty.pop_back();rejects([&] { XeenCharacterFormat::parseMonsterPurse(pty); });
 }
 }
-int main() { try { dormantTreasure();physical();targetingAndCounts();runAndParticipation();shootAndLoot();additionalTapes();completeWeaponRules();missileClassAndZeroDamage();rejectionBudgets();rangedOpportunity();timeAndInputs();std::cout<<"M33/M34 artificial pure-rule controls passed\n";return 0; } catch (const std::exception &e) { std::cerr<<e.what()<<'\n';return 1; } }
+int main() { try { dormantTreasure();physical();targetingAndCounts();runAndParticipation();shootAndLoot();additionalTapes();completeWeaponRules();missileClassAndZeroDamage();rejectionBudgets();rangedOpportunity();indoorOpportunity();timeAndInputs();std::cout<<"M33/M34 artificial pure-rule controls passed\n";return 0; } catch (const std::exception &e) { std::cerr<<e.what()<<'\n';return 1; } }

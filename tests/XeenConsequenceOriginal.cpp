@@ -61,7 +61,7 @@ auto currentServices(combat_gameplay_test::Harness &h,Source &source){
 struct Domain {
  Source &source;XeenWorld world;XeenPartyState party;XeenCamera camera{23,9,11,XeenDirection::West};XeenGameFlags flags;
  std::uint64_t now=0;XeenEventPresenter::Clock clock=[this]{return now;};std::unique_ptr<XeenEncounterFlow> flow;
- Domain(Source &s,const std::optional<XeenSaveSnapshot> &saved={}):source(s),world([&](auto id){return s.maps.loadGeometryMap(s.assets,id);},[&](auto id){return s.maps.loadObjects(s.assets,id);}) {
+ Domain(Source &s,const std::optional<XeenSaveSnapshot> &saved={},XeenWorld::MapLoader fixture={}):source(s),world(fixture?fixture:[&](auto id){return s.maps.loadGeometryMap(s.assets,id);},[&](auto id){return s.maps.loadObjects(s.assets,id);}) {
   auto state=saved?*saved:s.base();
   if(!saved)state.journey->random=XeenJourneyRandomState{1,1,0};
   XeenSaveState::restoreBeforeGameplay(state,s.resources(),party,camera,flags,world,[](auto &,const auto &,const auto &,const auto &){});
@@ -283,6 +283,130 @@ void shootLethalPreparation(Source &source) {
  }
  std::cout<<"ARTIFICIAL Shoot lethal preparation overflow preserves HP/RNG; ordered lethal frames PASS\n";
 }
+void indoorShoot(Source &source) {
+ constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};
+ for(bool original:{false,true})for(unsigned facing=0;facing<(original?1u:4u);++facing)
+ for(unsigned depth=1;depth<=3;++depth)for(unsigned mode=0;mode<5;++mode) {
+  // Real CHR/MON/MOB owners with explicitly artificial actor arrangements.
+  // Original north entrance geometry is also exercised without substitution.
+  auto saved=source.service();saved.camera={28,15,original?0:15,XeenDirection(facing)};
+  saved.journey->random=XeenJourneyRandomState{1,1,0};
+  for(auto &a:*saved.journey->vertigoActors) {
+   a.x=a.y=-128;a.hp=0;a.activated=false;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;
+  }
+  const bool empty=mode==0,miss=mode==1,lethal=mode==2 || mode==3,overflow=mode==3;
+  const unsigned targetId=mode==4?44:35;
+  auto &target=saved.journey->vertigoActors->at(targetId);
+  if(!empty) {
+   target.x=saved.camera.x+dx[facing]*int(depth);target.y=saved.camera.y+dy[facing]*int(depth);
+   target.hp=mode==4?20:1;target.activated=true;target.lifecycle=XeenActorLifecycle::Present;target.accounted=false;
+  }
+  // Two simultaneous lanes must travel even when all their attacks miss.
+  saved.characters[0].weapons[8]={0,30,0,4};
+  if(overflow)saved.journey->supplements[0].inputs.experience=UINT32_MAX;
+  const XeenWorld::MapLoader maps=original?XeenWorld::MapLoader{}:XeenWorld::MapLoader{[&](auto id) {
+   auto m=source.maps.loadGeometryMap(source.assets,id);
+   if(!m.geometry.isOutdoors())for(auto &cell:m.geometry.cells){cell.geometry=XeenIndoorWalls{};cell.rawWord=0;}
+   return m;
+  }};
+  Domain d(source,saved,maps);const auto before=d.world.sessionState().journeyRandom();
+  const auto mainland=std::vector<XeenActor>(d.world.sessionState().actors());
+  const auto chars=d.party.roster.characters();
+  tape.clear();
+  if(!empty)for(unsigned shooter=0;shooter<(miss || mode==4?2u:1u);++shooter) {
+   for(unsigned die=0;die<3;++die)tape.push_back({1,2,1});
+   tape.push_back({1,20,miss?1u:19u});if(!miss)tape.push_back({1,mode==4?123u:50u,mode==4?123u:50u});
+  }
+  cursor=0;taped=true;check(d.flow->handle(ShootAction{}),"Indoor typed Shoot starts");d.present();
+  unsigned hitFrames=0,hpFrames=0,removedFrames=0;bool failed=false;
+  for(unsigned n=0;n<50 && d.party.encounterContext->minutes==saved.journey->context->minutes;++n) {
+   check(!d.flow->canSave(),"Indoor volley exposed a quiet save boundary");
+   d.now+=100;
+   try{d.flow->idle();}catch(const std::overflow_error &){failed=true;break;}
+   const auto &live=d.world.sessionState().regionalActors(28).at(targetId);
+   if(!empty && lethal && live.lifecycle==XeenActorLifecycle::Present && live.hp==1 &&
+      d.flow->appearance().kind==XeenMonsterSpriteKind::Attack)++hitFrames;
+   if(!empty && live.lifecycle==XeenActorLifecycle::Present && live.hp==0) {
+    ++hpFrames;check(!d.world.sessionState().accountedMonsters().count({28,targetId}),"Indoor HP frame credited XP/removal early");
+   }
+   if(!empty && live.lifecycle==XeenActorLifecycle::Defeated)++removedFrames;
+   if(!overflow)for(auto owner:kXeenCombatOwners) {
+    // Slime awards 50 / six eligible owners, doubled below level 15.
+    const unsigned award=lethal && live.lifecycle==XeenActorLifecycle::Defeated?
+     (chars[owner].permanentLevel<15?16u:8u):0u;
+    check(d.party.roster.combatInputs(owner)->experience==saved.journey->supplements[owner].inputs.experience+award,
+     "Indoor hit/HP frames awarded XP early, or removal awarded it more than once");
+   }
+   const auto rng=d.world.sessionState().journeyRandom();
+   const auto appearance=d.flow->appearance();
+   if(!appearance.projectiles.empty() || appearance.impactSnapshot || appearance.kind==XeenMonsterSpriteKind::Attack)
+    check(!d.flow->idle() && rng==d.world.sessionState().journeyRandom(),"Unacknowledged indoor draw advanced RNG");
+   d.flow->holdJourneyFrame();
+   check(!d.flow->prepareJourneyFrame(d.flow->ticket(),[]{throw std::bad_alloc();}) &&
+     rng==d.world.sessionState().journeyRandom(),"Indoor composition failure published RNG");
+   d.flow->holdJourneyFrame();d.present();
+  }
+  taped=false;
+  if(overflow) {
+   check(failed && d.world.sessionState().regionalActors(28).at(35).hp==1 &&
+    before==d.world.sessionState().journeyRandom() && !d.world.sessionState().accountedMonsters().count({28,35}),
+    "Indoor lethal preparation failure published HP/RNG/accounting");
+   for(unsigned n=0;n<30;++n)check(xeen_state::sameCharacter(chars[n],d.party.roster.at(n)),"Indoor failed preparation changed party");
+  }else {
+   check(!failed && d.party.encounterContext->minutes==saved.journey->context->minutes+1 &&
+    d.flow->state().pending()==3,"Indoor Shoot must charge exactly one minute after settlement");
+   check(cursor==(empty?0u:miss?8u:mode==4?10u:5u) && d.world.sessionState().journeyRandom()->count==cursor,
+    "Indoor visual/impact work added RNG draws");
+   if(!empty && lethal)check(hitFrames==1 && hpFrames==1 && removedFrames>=1 &&
+     d.world.sessionState().accountedMonsters().count({28,35}),"Indoor lethal hit/HP/removal sequence differs");
+   if(miss)check(d.world.sessionState().regionalActors(28).at(35).hp==1,"Indoor miss damaged target");
+   if(mode==4)check(d.world.sessionState().regionalActors(28).at(targetId).hp<20 &&
+    d.world.sessionState().regionalActors(28).at(targetId).hp>0 && !d.world.sessionState().accountedMonsters().count({28,targetId}),
+    "Indoor nonlethal hit changed lifecycle/accounting");
+  }
+  for(unsigned n=0;n<mainland.size();++n)check(xeen_state::sameActor(mainland[n],d.world.sessionState().actors()[n]),
+   "Indoor Shoot published into mainland collection");
+ }
+ std::cout<<"Indoor Shoot original/artificial geometry, four facings, every distant row, miss/empty, lethal/failure and one-minute charge PASS\n";
+}
+void indoorChangedShoot(Source &source) {
+ constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};
+ XeenWorld original(source.mapLoader());original.markEncounterSession(XeenEncounterEntry::Journey);
+ std::optional<XeenCamera> gate;
+ for(int y=1;y<31 && !gate;++y)for(int x=1;x<31 && !gate;++x)for(unsigned direction=0;direction<4;++direction) {
+  const XeenCamera c{28,x,y,XeenDirection(direction)};const auto cell=original.sampleCell(28,x,y);
+  if(wallAt(*cell->cell,c.direction)==9) {gate=c;break;}
+ }
+ check(bool(gate),"Original Shoot gate fixture absent");
+ for(unsigned wall:{9u,3u,6u}) {
+  auto saved=source.service();saved.camera=*gate;saved.journey->random=XeenJourneyRandomState{1,1,0};
+  for(auto &a:*saved.journey->vertigoActors) {
+   a.x=a.y=-128;a.hp=0;a.activated=false;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;
+  }
+  auto &a=saved.journey->vertigoActors->at(35);a.x=gate->x+dx[unsigned(gate->direction)];
+  a.y=gate->y+dy[unsigned(gate->direction)];a.hp=1;a.activated=true;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;
+  if(wall!=9) {auto candidate=original.transitionCandidate();candidate->setBarrier(*gate,wall,wall==6);
+   saved.barriers=candidate->sessionState().barriers();}
+  Domain d(source,saved);tape={{1,2,1},{1,2,1},{1,2,1},{1,20,19},{1,50,50}};cursor=0;taped=true;
+  check(d.flow->handle(ShootAction{}),"Original changed-wall Shoot begins");d.present();
+  for(unsigned n=0;n<50 && d.party.encounterContext->minutes==saved.journey->context->minutes;++n) {
+   d.now+=100;d.flow->idle();d.flow->holdJourneyFrame();d.present();
+  }
+  taped=false;
+  check(d.party.encounterContext->minutes==saved.journey->context->minutes+1 && cursor==(wall==9?0u:5u),
+   "Original closed/Bashed/unlocked Shoot charge or RNG differs");
+  check(d.world.sessionState().regionalActors(28).at(35).hp==(wall==9?1:0),
+   "Original Shoot ignored effective barrier geometry");
+  if(wall!=9) {
+   for(unsigned n=0;n<50 && !d.flow->canSave();++n) {d.now+=100;d.flow->idle();d.flow->holdJourneyFrame();d.present();}
+   check(d.flow->canSave(),"Settled indoor lethal volley did not return to quiet save");
+   const auto settled=d.save();Domain restored(source,settled);
+   check(XeenSaveFormat::encode(settled)==XeenSaveFormat::encode(restored.save()),
+    "Settled indoor ranged save/load replayed HP, XP, barriers, time or RNG");
+  }
+ }
+ std::cout<<"Original closed/Bashed/unlocked geometry Shoot and settled save round-trip PASS\n";
+}
 void blockReset(Source &source) {
  Domain original(source);auto saved=original.save();
  // Isolate the two original Ogres for Block/turn bookkeeping; these are
@@ -349,7 +473,7 @@ int main(int argc,char **argv){try{
  Source source(*i);source.signature=XeenSaveFile::fingerprint(*i);
  if(std::getenv("MMODERN_M49_IMPACT_ONLY")) {
   chargedWait(source);stagedVolleyDefeat(source);stagedRotationVolley(source);
-  zeroHitVolley(source);shootOrder(source);shootLethalPreparation(source);blockReset(source);
+  zeroHitVolley(source);shootOrder(source);shootLethalPreparation(source);indoorShoot(source);indoorChangedShoot(source);blockReset(source);
   std::cout<<"M49 original-resource impact/rotation controls PASS\n";return 0;
  }
  if(std::getenv("MMODERN_M34_FINISH_PRESENTATION_ONLY")){disengagementFinishPresentation(source);return 0;}

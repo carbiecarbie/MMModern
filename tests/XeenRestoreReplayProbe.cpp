@@ -64,7 +64,14 @@ XeenTimePreparation probeTime(const XeenGameplayContext &,std::uint64_t) asm("__
 XeenTimePreparation probeTime(const XeenGameplayContext &context,std::uint64_t minutes) {probe_fired::hit("XEEN_REPLAY_TIME");observe();++timePreparations;return realTime(context,minutes);}
 std::vector<XeenActor> realRegionalMove(const std::vector<XeenActor> &,const XeenCamera &,const XeenActorApproach::Terrain &,bool,const XeenActorApproach::BeforeMovement &) asm("__real_" XEEN_REPLAY_REGIONAL_MOVE);
 std::vector<XeenActor> probeRegionalMove(const std::vector<XeenActor> &,const XeenCamera &,const XeenActorApproach::Terrain &,bool,const XeenActorApproach::BeforeMovement &) asm("__wrap_" XEEN_REPLAY_REGIONAL_MOVE);
-std::vector<XeenActor> probeRegionalMove(const std::vector<XeenActor> &a,const XeenCamera &c,const XeenActorApproach::Terrain &t,bool enabled,const XeenActorApproach::BeforeMovement &before) {probe_fired::hit("XEEN_REPLAY_REGIONAL_MOVE");observe();return realRegionalMove(a,c,t,enabled,before);}
+std::vector<XeenActor> probeRegionalMove(const std::vector<XeenActor> &a,const XeenCamera &c,const XeenActorApproach::Terrain &t,bool enabled,const XeenActorApproach::BeforeMovement &before) {
+	probe_fired::hit("XEEN_REPLAY_REGIONAL_MOVE");
+	// These original-resource Journey witnesses use map 28 as their indoor
+	// fixture. Keep evidence of indoor interception when scheduling adds the
+	// BeforeMovement callback; both overloads still run the same restore guard.
+	if(c.mapId==XeenMapIdentity(28))probe_fired::hit("XEEN_REPLAY_INDOOR_MOVE");
+	observe();return realRegionalMove(a,c,t,enabled,before);
+}
 // Member thunks preserve the target ABI's hidden result/this argument ordering.
 struct RealCombat {
 	XeenCombatResult service(const XeenCombat::Ticket &) asm("__real_" XEEN_REPLAY_SERVICE);
@@ -79,7 +86,9 @@ XeenCombatResult ProbeCombat::service(const XeenCombat::Ticket &ticket) {
 std::vector<XeenActor> realMove(const std::vector<XeenActor> &, const XeenCamera &, const XeenActorApproach::Terrain &, bool) asm("__real_" XEEN_REPLAY_MOVE);
 std::vector<XeenActor> probeMove(const std::vector<XeenActor> &, const XeenCamera &, const XeenActorApproach::Terrain &, bool) asm("__wrap_" XEEN_REPLAY_MOVE);
 std::vector<XeenActor> probeMove(const std::vector<XeenActor> &a, const XeenCamera &c, const XeenActorApproach::Terrain &t, bool enabled) {
-	probe_fired::hit("XEEN_REPLAY_MOVE");observe(); return realMove(a, c, t, enabled);
+	probe_fired::hit("XEEN_REPLAY_MOVE");
+	if(c.mapId==XeenMapIdentity(28))probe_fired::hit("XEEN_REPLAY_INDOOR_MOVE");
+	observe(); return realMove(a, c, t, enabled);
 }
 XeenTransferResult realTransfer(XeenPartyState &, std::size_t, std::size_t, XeenInventoryCategory, std::size_t) asm("__real_" XEEN_REPLAY_TRANSFER);
 XeenTransferResult probeTransfer(XeenPartyState &, std::size_t, std::size_t, XeenInventoryCategory, std::size_t) asm("__wrap_" XEEN_REPLAY_TRANSFER);
