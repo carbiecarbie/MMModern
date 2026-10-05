@@ -107,6 +107,9 @@ void movementRedraw(Inputs &in) {
 
 void wallRefusal(Inputs &in) {
  Harness h(in);auto s=h.services();auto source=in.service();unsigned dispatches=0,loops=0;std::uint64_t now=0;s.clock=[&]{return now;};
+ source.camera={28,7,14,XeenDirection::East};
+ XeenWorld geometry(in.mapLoader());const auto cell=geometry.sampleCell(28,7,14);
+ check(cell && wallAt(*cell->cell,XeenDirection::East)==9,"wall-refusal fixture must face an original closed grate");
  s.show=[&](const auto &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
   auto native=handler;native.withPresentedInput=[&](const auto &action,auto input,const auto &origin){
    check(handler.inputContext(origin).readyForAction,"wall action drained before ready");
@@ -290,7 +293,7 @@ void mouseNotices(Inputs &in) {
  auto source=in.service();source.camera={28,10,9,XeenDirection::North};Fixture f(in,source,true);
  std::string reported;f.flow->reportText=[&](const auto &text){reported=text;};
  const auto before=XeenSaveFormat::encode(f.snapshot());
- for(const auto label:{"Rest","Bash","Dismiss","View Quests","Map","Info","Quick Ref","Control panel","Strafe"}) {
+ for(const auto label:{"Rest","Dismiss","View Quests","Map","Info","Quick Ref","Control panel","Strafe"}) {
   const auto pixels=f.flow->frame().pixels;
   f.act(UnsupportedMainScreenAction{label});
   check(reported==std::string(label)+": not supported yet","unsupported notice missing");

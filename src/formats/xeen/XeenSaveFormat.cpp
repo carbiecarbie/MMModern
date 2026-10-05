@@ -200,8 +200,17 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 	}
 	validateIdentities(s.disabledObjects, kMaximumObjects);
 	validateIdentities(s.disabledEvents, kMaximumEvents);
+	require(s.barriers.size()<=1024,"too many barrier cells");
+	for(unsigned n=0;n<s.barriers.size();++n) {
+		const auto &v=s.barriers[n];
+		require(v.tile && v.tile.side==XeenSide::Clouds && v.mask && v.mask<=15,"invalid barrier identity/mask");
+		if(n) {const auto &a=s.barriers[n-1];require(a.tile<v.tile || (a.tile==v.tile && a.cell<v.cell),"noncanonical barrier order");}
+		for(unsigned d=0;d<4;++d)require((v.mask&(1u<<d))?
+			(v.walls[d]==1 || v.walls[d]==3 || v.walls[d]==6 || v.walls[d]==9 || v.walls[d]==13):v.walls[d]==0,"invalid barrier wall");
+	}
 
 	const auto &j = *s.journey;
+	require(s.barriers.empty() || j.vertigoActors.has_value(),"barrier overrides require retained city actors");
 	require(j.entry == XeenEncounterEntry::Journey,
 		"unsupported Journey domain/schema/content");
 	require(j.serviceEconomy.has_value(), "Journey economy presence mismatch");
@@ -315,6 +324,11 @@ std::vector<std::uint8_t> XeenSaveFormat::encode(const XeenSaveSnapshot &s) {
 	for (const bool value : s.gameFlags) out.u8(value);
 	writeIdentities(out, s.disabledObjects);
 	writeIdentities(out, s.disabledEvents);
+	out.u16(static_cast<std::uint16_t>(s.barriers.size()));
+	for(const auto &v:s.barriers) {
+		out.map(v.tile);out.u8(v.cell);out.u8(v.mask);out.u16(v.originalWord);out.u8(v.originalAttributes);
+		for(auto wall:v.walls)out.u8(wall);out.u8(v.unlocked);
+	}
 
 	const auto &j = *s.journey;
 	out.u8(3); out.u16(j.schema); out.u16(j.content); out.u8(1);
@@ -430,6 +444,11 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	for (auto &value : s.gameFlags) value = in.boolean();
 	s.disabledObjects = readIdentities<XeenObjectIdentity>(in, kMaximumObjects);
 	s.disabledEvents = readIdentities<XeenEventIdentity>(in, kMaximumEvents);
+	const auto barrierCount=in.u16();require(barrierCount<=1024,"too many barrier cells");
+	for(unsigned n=0;n<barrierCount;++n) {
+		XeenBarrierOverride v;v.tile=in.map();v.cell=in.u8();v.mask=in.u8();v.originalWord=in.u16();v.originalAttributes=in.u8();
+		for(auto &wall:v.walls)wall=in.u8();v.unlocked=in.boolean();s.barriers.push_back(v);
+	}
 
 	const auto suffixSize = in.remaining();
 	XeenSaveJourney j;

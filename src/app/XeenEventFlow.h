@@ -7,6 +7,7 @@
 #include "games/xeen/XeenWorld.h"
 #include "games/xeen/XeenGameFlags.h"
 #include "games/xeen/XeenRegionalRules.h"
+#include "games/xeen/XeenBarrierRules.h"
 #include "games/xeen/XeenInventoryState.h"
 #include "games/xeen/XeenDialogView.h"
 #include "games/xeen/XeenEquipment.h"
@@ -182,6 +183,25 @@ private:
 	bool _candidateResultRefused=false;
 	TransitionCompose _transitionCompose;
 	bool _arrivalPending = false;
+	struct BarrierWork {
+		std::unique_ptr<XeenWorld> world;
+		XeenPartyState party;
+		XeenCamera camera;
+		XeenGameFlags flags;
+		std::unique_ptr<XeenRestoreGuard> guard;
+		std::optional<XeenBarrierCandidate> rule;
+		std::optional<XeenConditionTimeCandidate> time;
+		XeenConsequenceCharacters characters;
+		XeenConsequenceInputs inputs;
+		XeenGameplayContext context;
+		XeenCombatRandom random;
+		bool bash=false, secondCharge=false, published=false, portraitWaiting=false, portraitPresented=false;
+		std::uint64_t deadline=0;
+	};
+	std::unique_ptr<BarrierWork> _barrier;
+	bool beginBarrier(bool bash);
+	bool serviceBarrier();
+	IndexedFrame handleBarrier(const PlayerAction &);
 	void checkTransitionCandidate();
 	XeenManualEventResult beginVertigoEvent(XeenRegionalInteraction, bool automatic=false);
 	XeenManualEventResult resumeVertigoEvent(XeenEventExecutionState, XeenPresentationResponse);

@@ -4,7 +4,8 @@ using namespace save_test;
 namespace {
 void put(Bytes &b,std::uint64_t v,unsigned n){for(unsigned i=0;i<n;++i)b.push_back(v>>(8*i));}
 std::size_t baseSize(const XeenSaveSnapshot &s){
- std::size_t n=20+25+6+2+s.activeRosterIds.size()+4*s.questItems.size()+s.questFlags.size()+s.gameFlags.size()+8+7*(s.disabledObjects.size()+s.disabledEvents.size());
+ check(s.barriers.empty(),"Independent suffix fixture requires an empty v5 barrier list");
+ std::size_t n=20+25+6+2+s.activeRosterIds.size()+4*s.questItems.size()+s.questFlags.size()+s.gameFlags.size()+8+7*(s.disabledObjects.size()+s.disabledEvents.size())+2;
  for(const auto &c:s.characters)n+=212+c.name.size();return n;
 }
 Bytes suffix(const XeenSaveSnapshot &s){

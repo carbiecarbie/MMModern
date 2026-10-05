@@ -9,6 +9,7 @@
 #include "games/xeen/XeenParty.h"
 #include "games/xeen/XeenJourneyContent.h"
 #include "games/xeen/XeenScenePresentation.h"
+#include "games/xeen/XeenBarrierState.h"
 #include <stdexcept>
 #include <set>
 #include <array>
@@ -36,6 +37,7 @@ struct XeenCellSample {
 	int y = 0;
 	const XeenMapGeometry *geometry = nullptr;
 	const XeenMapCell *cell = nullptr;
+	std::shared_ptr<const XeenMapCell> effectiveCell;
 };
 
 // Session-owned overlays and explicit encounter authority. Original records remain untouched.
@@ -55,6 +57,7 @@ public:
 	std::size_t disabledEventCount() const { return _events.size(); }
 	XeenReadOnlySet<XeenObjectIdentity> disabledObjects() const noexcept { return XeenReadOnlySet<XeenObjectIdentity>(_objects); }
 	XeenReadOnlySet<XeenEventIdentity> disabledEvents() const noexcept { return XeenReadOnlySet<XeenEventIdentity>(_events); }
+	const std::vector<XeenBarrierOverride> &barriers() const noexcept { return _barriers; }
 	bool encounterMarked() const { return _encounterMarked; }
 	XeenEncounterEntry encounterEntry() const noexcept { return _entry; }
 	bool encounterInitialized() const { return _encounterInitialized; }
@@ -97,6 +100,7 @@ private:
 	std::optional<std::vector<XeenActor>> _vertigoActors;
 	std::set<XeenObjectIdentity> _objects;
 	std::set<XeenEventIdentity> _events;
+	std::vector<XeenBarrierOverride> _barriers;
 };
 
 class XeenWorld {
@@ -171,6 +175,9 @@ public:
 
 	const XeenMap &map(XeenMapIdentity mapId);
 	std::optional<XeenCellSample> sampleCell(XeenMapIdentity mapId, int x, int y);
+	// Detached work/startup only. Live publication belongs to Encounter/Save.
+	void setBarrier(const XeenCamera &, std::uint8_t wall, bool unlock);
+	void restoreBarriers(const std::vector<XeenBarrierOverride> &);
 	// Original Map::getCell neighbor queries, for scene observation only.
 	// Movement and mechanic admission continue to use sampleCell.
 	std::optional<XeenCellSample> sceneCell(XeenMapIdentity mapId, int x, int y);

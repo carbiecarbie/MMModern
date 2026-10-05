@@ -24,6 +24,12 @@ std::optional<std::uint8_t> unsupportedManualSpecialInteraction(
 		return std::nullopt;
 	const XeenMapCell &cell = geometry.cells[static_cast<std::size_t>(y) *
 		XeenMapGeometry::kWidth + static_cast<std::size_t>(x)];
+	return unsupportedManualSpecialInteraction(cell,direction);
+}
+
+std::optional<std::uint8_t> unsupportedManualSpecialInteraction(const XeenMapCell &cell,
+		XeenDirection direction) {
+	if(unsigned(direction)>3 || !xeenHolds<XeenIndoorWalls>(cell.geometry))return std::nullopt;
 	const std::uint8_t wall = wallAt(cell, direction);
 	if (wall == 1 || wall == 6 || wall == 9 ||
 			(wall == 13 && (cell.rawAttributes & kXeenGrateUnlockedFlag) != 0))

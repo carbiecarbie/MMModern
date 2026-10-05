@@ -215,7 +215,7 @@ void mouseHitAreas(){
  const auto u=[](const char *s)->PlayerAction{return UnsupportedMainScreenAction{s};};
  const std::vector<Area> areas={
   {235,75,259,95,ShootAction{},u("Quick Fight")},{260,75,284,95,CastSpellAction{},CastSpellAction{}},
-  {286,75,310,95,u("Rest"),AttackAction{}},{235,96,259,116,u("Bash"),UseItemAction{}},
+  {286,75,310,95,u("Rest"),AttackAction{}},{235,96,259,116,BashAction{},UseItemAction{}},
   {260,96,284,116,u("Dismiss"),RevisitCompletedAction{}},{286,96,310,116,u("View Quests"),BlockAction{}},
   {235,117,259,137,u("Map"),u("Quick Fight Options")},{260,117,284,137,u("Info"),u("Info")},
   {286,117,310,137,u("Quick Ref"),u("Quick Ref")},{109,137,122,147,u("Control panel"),u("Control panel")},

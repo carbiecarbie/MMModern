@@ -87,7 +87,7 @@ public:
 			live._entry != s._entry || live._encounterMarked != s._encounterMarked ||
 			live._encounterInitialized != s._encounterInitialized || live._encounterTerminal != s._encounterTerminal ||
 			live._encounterRevision != s._encounterRevision || live._objects != s._objects || live._events != s._events ||
-			live._actors.size() != s._actors.size() ||
+			live._actors.size() != s._actors.size() || live._barriers != s._barriers ||
 			bool(live._vertigoActors) != bool(s._vertigoActors)) return false;
 		for (std::size_t i = 0; i < characters.size(); ++i) {
 			if (!sameCharacter(p.roster.characters()[i], characters[i]) ||
@@ -341,6 +341,7 @@ private:
 		// Event capabilities currently permit quest flags, camera/game flags and
 		// World overlays/Spawn. Every other party input must remain its preimage.
 		if(candidate.membership!=membership || candidate.quests!=quests || candidate.marked!=marked ||
+			candidate.s._barriers!=s._barriers ||
 			candidate.recovery!=recovery || !(candidate.context==context) || candidate.treasure!=treasure ||
 			candidate.economy!=economy || candidate.first!=first || candidate.effective!=effective ||
 			candidate.diagnostics!=diagnostics || candidate.s._journeyRandom!=s._journeyRandom) {
@@ -403,7 +404,7 @@ private:
 	}
 	static std::size_t mutationRangeCapacity(const std::map<XeenMapIdentity,XeenMap> &mapValues,
 			const std::map<XeenMapIdentity,XeenObjectFile> &objectValues) {
-		std::size_t count=8+4*objectValues.size();
+		std::size_t count=9+4*objectValues.size();
 		for(const auto &entry:mapValues) count+=5+entry.second.instructions.size();
 		return count;
 	}
@@ -417,6 +418,7 @@ private:
 		mutations.add(w._sessionState._actors.data(),w._sessionState._actors.size()*sizeof(XeenActor));
 		if(w._sessionState._vertigoActors) mutations.add(w._sessionState._vertigoActors->data(),w._sessionState._vertigoActors->size()*sizeof(XeenActor));
 		mutations.add(w._cityStatistics.data(),w._cityStatistics.size()*sizeof(XeenMonsterRecord));
+		mutations.add(w._sessionState._barriers.data(),w._sessionState._barriers.size()*sizeof(XeenBarrierOverride));
 		watchResourceMutations();
 	}
 	void watchResourceMutations() const noexcept {

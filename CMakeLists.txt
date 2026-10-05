@@ -103,6 +103,7 @@ add_library(mmodern_app STATIC
 	src/app/XeenGameplay.cpp
 	src/app/XeenEncounterFlow.cpp
 	src/app/XeenJourneyFlow.cpp
+	src/app/XeenBarrierFlow.cpp
 	src/app/XeenJourneyConsequences.cpp
 	src/app/XeenCastingFlow.cpp
 	src/app/XeenSmithFlow.cpp
@@ -329,6 +330,12 @@ if(BUILD_TESTING)
 	target_link_libraries(mmodern_typed_damage_tests PRIVATE mmodern_xeen)
 	add_test(NAME xeen_typed_damage COMMAND mmodern_typed_damage_tests)
 	add_executable(mmodern_whole_map_foundation_tests tests/XeenWholeMapFoundationTests.cpp)
+	add_executable(mmodern_barrier_tests tests/XeenBarrierTests.cpp)
+	target_link_libraries(mmodern_barrier_tests PRIVATE mmodern_xeen)
+	add_test(NAME xeen_barriers COMMAND mmodern_barrier_tests)
+	add_executable(mmodern_barrier_original_tests tests/XeenBarrierOriginalTests.cpp)
+	target_link_libraries(mmodern_barrier_original_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2)
+	add_test(NAME xeen_barriers_original COMMAND mmodern_barrier_original_tests "F:/Games/gog/Might and Magic 4-5")
 	target_link_libraries(mmodern_whole_map_foundation_tests PRIVATE mmodern_xeen)
 	add_test(NAME xeen_whole_map_foundations COMMAND mmodern_whole_map_foundation_tests)
 	add_executable(mmodern_service_continuation_tests tests/XeenServiceContinuationTests.cpp)

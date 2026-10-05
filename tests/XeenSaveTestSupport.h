@@ -47,6 +47,7 @@ inline bool sameInputs(const XeenCombatInputs &a, const XeenCombatInputs &b) {
 inline void sameSnapshot(const XeenSaveSnapshot &a, const XeenSaveSnapshot &b) {
 	check(a.resources == b.resources && sameCamera(a.camera, b.camera), "signature/camera changed");
 	check(a.activeRosterIds == b.activeRosterIds, "membership order changed");
+	check(a.barriers==b.barriers,"barrier overrides changed");
 	for (std::size_t i = 0; i < a.characters.size(); ++i)
 		remove_test::checkSameCharacter(a.characters[i], b.characters[i]);
 	check(a.questItems == b.questItems && a.questFlags == b.questFlags && a.gameFlags == b.gameFlags,

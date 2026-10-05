@@ -28,6 +28,7 @@ bool XeenWorld::journeyCaptureEligible(const XeenPartyState &party, const XeenCa
 void XeenSaveState::validateJourneyValues(const XeenSaveSnapshot &s) {
 	const auto &j = *s.journey;
 	const auto require = [](bool ok) { if (!ok) throw std::invalid_argument("Unsupported Journey durable state"); };
+	require(s.barriers.empty() || j.vertigoActors.has_value());
 	require(j.schema==XeenSaveFormat::kJourneySchema && j.content==XeenSaveFormat::kJourneyContent);
 	require(j.context && j.context->year==610 &&
 		j.context->day>=8 && j.context->day<=99 && (j.context->day==8 || j.vertigoActors));
@@ -130,6 +131,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	static_cast<void>(w.map(c.mapId));
 	w.restoreSessionState(snapshot.disabledObjects,snapshot.disabledEvents,events);
 	adopt(); // Only checked overlay preparation changed candidate gameplay values.
+	if(!snapshot.barriers.empty()) {w.restoreBarriers(snapshot.barriers);adopt();}
 	auto statistics = callback(monsters);
 	const auto &policy=xeenJourneyContent();
 	auto evt = events(policy.entry.mapId);
@@ -270,6 +272,7 @@ XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resourc
 	const auto &state = world.sessionState();
 	snapshot.disabledObjects.assign(state.disabledObjects().begin(), state.disabledObjects().end());
 	snapshot.disabledEvents.assign(state.disabledEvents().begin(), state.disabledEvents().end());
+	snapshot.barriers=state.barriers();
 
 	if (state.journey()) {
 		xeenValidateJourneyParty(party);

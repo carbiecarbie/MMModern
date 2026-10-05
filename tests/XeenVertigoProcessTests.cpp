@@ -131,32 +131,38 @@ int main(int argc,char **argv) {
    child_test::require(result.exit!=0 && result.output.find("M37 RESTORE BEFORE INPUT")==std::string::npos &&
     bytes(path)==before,"M37 malformed city save was published or changed on disk");
   };
-  auto forged=originalB;forged.journey->vertigoActors->at(36).activated=true;
-  rejectRestore("distant-active",forged);
+  // Whole-map admission permits distant activation and every in-bounds cell.
+  // Keep malformed-state refusal controls on structural/resource invariants.
+  auto forged=originalB;forged.journey->vertigoActors->at(36).id.recordIndex=35;
+  rejectRestore("duplicate-actor-identity",forged);
   forged=originalB;auto &slime=forged.journey->vertigoActors->at(35);
-  slime.lifecycle=XeenActorLifecycle::Present;slime.x=31;slime.y=31;slime.hp=2;slime.activated=true;slime.accounted=false;
-  rejectRestore("outside-closure",forged);
+  slime.lifecycle=XeenActorLifecycle::Present;slime.x=32;slime.y=31;slime.hp=2;slime.activated=true;slime.accounted=false;
+  rejectRestore("out-of-map-actor",forged);
   forged=originalB;auto &contact=forged.journey->vertigoActors->at(35);
   contact.lifecycle=XeenActorLifecycle::Present;contact.x=forged.camera.x;contact.y=forged.camera.y;
   contact.hp=2;contact.activated=true;contact.accounted=false;
   rejectRestore("city-contact",forged);
   forged=originalC;forged.journey->vertigoActors->at(46).hp=1;
   rejectRestore("materialized-gap",forged);
-  forged=originalC;forged.disabledEvents.erase(std::remove(forged.disabledEvents.begin(),forged.disabledEvents.end(),XeenEventIdentity{28,764}),forged.disabledEvents.end());
-  rejectRestore("missing-protection",forged);
-  forged=originalB;forged.camera.x=31;forged.camera.y=31;
+  // Generic Spawn can retain extra slots independently of the exit label;
+  // bind their original-record boundary to MOB instead of exit-only history.
+  forged=originalC;forged.journey->cityOriginalActorCount=47;
+  rejectRestore("original-count-resource-mismatch",forged);
+  forged=originalB;forged.camera.x=32;forged.camera.y=31;
   bool refusedCamera=false;
-  try {XeenSaveFile::write(dir/"reject-off-route-camera.mmsave",forged);}
+  try {XeenSaveFile::write(dir/"reject-out-of-map-camera.mmsave",forged);}
   catch(const std::exception &) {refusedCamera=true;}
-  child_test::require(refusedCamera,"M37 off-route city camera was admitted by the wire validator");
+  child_test::require(refusedCamera,"M37 out-of-map city camera was admitted by the wire validator");
   for(unsigned mode=0;mode<4;++mode) {
    forged=originalB;
-   if(mode==0)forged.disabledEvents.push_back({28,539});
-   if(mode==1)forged.disabledEvents.push_back({28,761});
+   if(mode==0){forged.disabledEvents.push_back({28,764});forged.disabledEvents.push_back({28,764});}
+   if(mode==1){forged.disabledEvents.push_back({28,539});forged.disabledEvents.push_back({28,539});}
    if(mode==2)forged.disabledObjects.push_back({28,0});
    if(mode==3){forged=originalC;forged.journey->vertigoActors.reset();}
+   // Generic Event protection may name any record, while duplicate identities,
+   // city object mutation and missing retained actors remain invalid.
    bool rejected=false;try {XeenSaveFormat::encode(forged);}catch(const std::exception &){rejected=true;}
-   child_test::require(rejected,"M37 forged city overlay admitted by codec");
+   child_test::require(rejected,"M37 malformed city overlay admitted by codec");
   }
   SetEnvironmentVariableW(L"MMODERN_M37_STAGE",L"fail-city-compose");
   const auto failedTransition=child_test::launch(witness,

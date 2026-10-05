@@ -236,7 +236,7 @@ void malformedBytes() {
 	// Original identity arrays end the payload and must reject duplicates/order.
 	for (bool events : {false, true}) {
 		bad = XeenSaveFormat::encode(s);
-		const auto first = events ? bad.size() - 4278 - 21 : bad.size() - 4278 - 46;
+		const auto first = events ? bad.size() - 4278 - 2 - 21 : bad.size() - 4278 - 2 - 46;
 		std::copy_n(bad.begin() + first, 7, bad.begin() + first + 7);
 		fixEnvelope(bad); rejects([&] { XeenSaveFormat::decode(bad); }, "ordered");
 	}

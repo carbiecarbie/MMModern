@@ -29,6 +29,7 @@ inline std::optional<PlayerAction> xeenMainScreenClick(int x, int y, MainScreen 
         if (combat && index==2) return AttackAction{}; // A
         if (combat && index==4) return RevisitCompletedAction{}; // R -> Run
         if (combat && index==5) return BlockAction{}; // B
+        if (!combat && index==3) return BashAction{};
         if (combat && index==3) return UseItemAction{}; // U
         constexpr const char *exploration[] = {"Shoot","Cast","Rest","Bash","Dismiss","View Quests","Map","Info","Quick Ref"};
         constexpr const char *fighting[] = {"Quick Fight","Cast","Attack","Use","Run","Block","Quick Fight Options","Info","Quick Ref"};

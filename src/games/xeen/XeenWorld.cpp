@@ -90,6 +90,7 @@ void XeenWorld::swapPreparedState(XeenWorld &candidate) noexcept {
 	// Private to guarded save publication. Never swaps/clears encounter authority.
 	_sessionState._objects.swap(candidate._sessionState._objects);
 	_sessionState._events.swap(candidate._sessionState._events);
+	_sessionState._barriers.swap(candidate._sessionState._barriers);
 	_maps.swap(candidate._maps);
 	_objects.swap(candidate._objects);
 	++_ownerRevision; ++candidate._ownerRevision;
@@ -244,7 +245,74 @@ std::optional<XeenCellSample> XeenWorld::sampleCell(
 		if(!next) return std::nullopt;
 		x+=x<0?16:-16;current=&map({mapId.side,next});
 	}
-	return XeenCellSample{current->identity(),x,y,&current->geometry,&current->geometry.cells[y*16+x]};
+	XeenCellSample result{current->identity(),x,y,&current->geometry,&current->geometry.cells[y*16+x],{}};
+	for(const auto &v:_sessionState._barriers) if(v.tile==result.mapId && v.cell==y*16+x) {
+		auto cell=std::make_shared<XeenMapCell>(*result.cell);
+		if(cell->rawWord!=v.originalWord || cell->rawAttributes!=v.originalAttributes)
+			throw std::logic_error("Barrier original resource preimage changed");
+		auto &walls=xeenGet<XeenIndoorWalls>(cell->geometry).walls;
+		for(unsigned d=0;d<4;++d)if(v.mask&(1u<<d)) {
+			walls[d]=v.walls[d];const auto shift=12-4*d;
+			cell->rawWord=(cell->rawWord&~(15u<<shift))|(unsigned(v.walls[d])<<shift);
+		}
+		if(v.unlocked) {cell->rawAttributes|=0x80;cell->flags|=0x80;}
+		result.effectiveCell=std::move(cell);result.cell=result.effectiveCell.get();break;
+	}
+	return result;
+}
+
+void XeenWorld::setBarrier(const XeenCamera &camera,std::uint8_t wall,bool unlock) {
+	if(!detachedEventCandidate() || unsigned(camera.direction)>3 || wall>15)
+		throw std::logic_error("Barrier changes require detached capability");
+	constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};const unsigned direction=unsigned(camera.direction);
+	const auto a=sampleCell(camera.mapId,camera.x,camera.y);
+	const auto b=sampleCell(camera.mapId,camera.x+dx[direction],camera.y+dy[direction]);
+	if(!a || !b || a->geometry->isOutdoors() || b->geometry->isOutdoors())
+		throw std::invalid_argument("Barrier has no two indoor faces");
+	auto values=_sessionState._barriers;
+	const auto set=[&](const XeenCellSample &s,unsigned d) {
+		auto i=std::find_if(values.begin(),values.end(),[&](const auto &v){return v.tile==s.mapId && v.cell==s.y*16+s.x;});
+		if(i==values.end()) {
+			const auto &base=map(s.mapId).geometry.cells[s.y*16+s.x];
+			XeenBarrierOverride v;v.tile=s.mapId;v.cell=s.y*16+s.x;
+			v.originalWord=base.rawWord;v.originalAttributes=base.rawAttributes;
+			values.push_back(v);i=std::prev(values.end());
+		}
+		i->mask|=1u<<d;i->walls[d]=wall;i->unlocked=i->unlocked || unlock;
+	};
+	set(*a,direction);set(*b,direction^2);
+	std::sort(values.begin(),values.end(),[](const auto &a,const auto &b){return a.tile<b.tile || (a.tile==b.tile && a.cell<b.cell);});
+	XeenMutationWatch::write(this);_sessionState._barriers.swap(values);
+}
+
+void XeenWorld::restoreBarriers(const std::vector<XeenBarrierOverride> &values) {
+	if(_sessionState._journeyOwner || _sessionState.journey())throw std::logic_error("Barrier restore requires unpublished World");
+	std::set<std::pair<XeenMapIdentity,unsigned>> admitted;
+	// Bind the playable logical town's complete physical tile identities.
+	for(int y=0;y<32;++y)for(int x=0;x<32;++x) {
+		const auto s=sampleCell(28,x,y);if(!s)throw std::invalid_argument("Missing barrier geometry tile");
+		admitted.emplace(s->mapId,s->y*16+s->x);
+	}
+	for(unsigned n=0;n<values.size();++n) {
+		const auto &v=values[n];
+		if(!admitted.count({v.tile,v.cell}) || !v.mask || v.mask>15 ||
+			(n && !(values[n-1].tile<v.tile || (values[n-1].tile==v.tile && values[n-1].cell<v.cell))))
+			throw std::invalid_argument("Invalid barrier tile/cell/order");
+		const auto &base=map(v.tile).geometry.cells[v.cell];
+		if(map(v.tile).geometry.isOutdoors() || base.rawWord!=v.originalWord || base.rawAttributes!=v.originalAttributes)
+			throw std::invalid_argument("Saved barrier original resource mismatch");
+		constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};
+		for(unsigned d=0;d<4;++d) {
+			if(!(v.mask&(1u<<d))) {if(v.walls[d])throw std::invalid_argument("Noncanonical unused barrier face");continue;}
+			if(v.walls[d]!=1 && v.walls[d]!=3 && v.walls[d]!=6 && v.walls[d]!=9 && v.walls[d]!=13)
+				throw std::invalid_argument("Unsupported saved barrier wall");
+			const auto other=sampleCell(v.tile,v.cell%16+dx[d],v.cell/16+dy[d]);
+			const auto match=other?std::find_if(values.begin(),values.end(),[&](const auto &b){return b.tile==other->mapId && b.cell==other->y*16+other->x;}):values.end();
+			if(match==values.end() || !(match->mask&(1u<<(d^2))) || match->walls[d^2]!=v.walls[d])
+				throw std::invalid_argument("Saved barrier lacks matching opposite face");
+		}
+	}
+	auto prepared=values;XeenMutationWatch::write(this);_sessionState._barriers.swap(prepared);
 }
 
 std::unique_ptr<XeenWorld> XeenWorld::transitionCandidate() const {
@@ -305,6 +373,7 @@ void XeenWorld::publishTransition(XeenWorld &candidate) noexcept {
 	_sessionState._vertigoActors.swap(candidate._sessionState._vertigoActors);
 	_sessionState._accountedMonsters.swap(candidate._sessionState._accountedMonsters);
 	_sessionState._events.swap(candidate._sessionState._events);
+	_sessionState._barriers.swap(candidate._sessionState._barriers);
 	_sessionState._objects.swap(candidate._sessionState._objects);
 	_cityStatistics.swap(candidate._cityStatistics);
 	std::swap(_cityOriginalActorCount,candidate._cityOriginalActorCount);

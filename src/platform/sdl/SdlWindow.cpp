@@ -48,7 +48,7 @@ std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key, MainScree
     if((key.keysym.mod & KMOD_CTRL) && key.keysym.sym==SDLK_UP)return std::nullopt;
 	switch (key.keysym.sym) {
 	case SDLK_PERIOD: return WaitAction{};
-	case SDLK_b: return BlockAction{};
+	case SDLK_b: return screen==MainScreen::Exploration ? PlayerAction{BashAction{}} : PlayerAction{BlockAction{}};
 	case SDLK_f: return screen==MainScreen::Combat ? std::optional<PlayerAction>{UnsupportedMainScreenAction{"Quick Fight"}} : std::nullopt;
 	case SDLK_s: return screen==MainScreen::Combat ? std::nullopt : std::optional<PlayerAction>{ShootAction{}};
 	case SDLK_a: return screen==MainScreen::Combat ? std::optional<PlayerAction>{AttackAction{}} : std::nullopt;
@@ -354,7 +354,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             const bool movement = action && std::holds_alternative<NavigationAction>(*action);
             const auto *slot = action ? std::get_if<SelectInventorySlotAction>(&*action) : nullptr;
             const bool queueKey = action && (movement || std::holds_alternative<AttackAction>(*action) || std::holds_alternative<InteractionAction>(*action) ||
-                std::holds_alternative<BlockAction>(*action) || std::holds_alternative<ShootAction>(*action) ||
+                std::holds_alternative<BlockAction>(*action) || std::holds_alternative<BashAction>(*action) || std::holds_alternative<ShootAction>(*action) ||
                 std::holds_alternative<RevisitCompletedAction>(*action) || std::holds_alternative<WaitAction>(*action) ||
                 std::holds_alternative<CastSpellAction>(*action) || std::holds_alternative<SelectMemberAction>(*action) ||
                 std::holds_alternative<UnsupportedMainScreenAction>(*action) || (slot && slot->slot < 3));

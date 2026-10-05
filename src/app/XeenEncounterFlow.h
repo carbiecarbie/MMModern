@@ -18,6 +18,7 @@
 #include "games/xeen/XeenEquipmentPurchase.h"
 
 namespace mmodern {
+struct XeenBarrierCandidate;
 class XeenItemCatalog;
 
 // Borrowed original values for one fresh Journey initialization, never restoration.
@@ -224,7 +225,8 @@ private:
 		std::uint64_t, const IndexedFrame::Presentation &);
 	bool publishAwaken(const Ticket &);
 	void adoptJourneyFlowBorrow();
-	void beginJourneyEvent();
+	void beginJourneyEvent(bool barrier=false);
+	void publishBarrier(const Ticket &, XeenWorld &, const XeenRestoreGuard &, const XeenBarrierCandidate &, const XeenGameplayContext &, std::uint64_t now);
 	void endJourneyEvent();
 	void publishArrival(const XeenActorView &) noexcept;
 	bool journeyEvent() const noexcept { return _journey && _world.sessionState().journeyActivity() == XeenJourneyActivity::Event; }

@@ -154,9 +154,12 @@ XeenManualEventResult XeenEventSystem::runManualEvent(
 		return systemError(XeenEventExecutionErrorKind::MapLoadFailed,
 			std::string("failed to load manual-event map: ") + exception.what(), camera);
 	}
-	if (const auto wall = unsupportedManualSpecialInteraction(*sampled->geometry,
-			camera.x%16, camera.y%16, camera.direction))
-		return XeenManualSpecialInteractionUnsupported{*wall};
+	if (const auto wall = unsupportedManualSpecialInteraction(*sampled->cell,camera.direction)) {
+		// openGrate(13,1) returns false on a locked wall-1 face; reference
+		// dispatch then runs its Event rather than swallowing the interaction.
+		if(!(world.regionalJourney() && *wall==1 && !(sampled->cell->rawAttributes&0x80)))
+			return XeenManualSpecialInteractionUnsupported{*wall};
+	}
 
 	std::optional<XeenEventScript> script;
 	try {

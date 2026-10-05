@@ -112,8 +112,17 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
             _displayedCombat && combat->current(*_displayedCombat) && !_encounter->_scheduleAfterFrame;
         else ready = ready && _encounter->journeyMutable();
     }
+    auto dialog=_smithUi || _trainingUi ? serviceDialogInput() : characterDialogInput();
+    if(_barrier && _barrier->rule && _barrier->rule->selection) {
+        DialogInput input;constexpr int x[]{10,45,81,117,153,189};
+        for(unsigned member=0;member<6;++member) {
+            input.hits.push_back({x[member],150,x[member]+32,182,InputKey::F1+member});
+            input.keys.push_back(InputKey::F1+member);
+        }
+        input.keys.push_back(InputKey::Escape);dialog=std::make_shared<const DialogInput>(std::move(input));
+    }
     return {_queueContextId, queueable, ready, journey() && queueable ?
-        (combat ? MainScreen::Combat : MainScreen::Exploration) : MainScreen::None,_smithUi || _trainingUi ? serviceDialogInput() : characterDialogInput()};
+        (combat ? MainScreen::Combat : MainScreen::Exploration) : MainScreen::None,std::move(dialog)};
 }
 
 IndexedFrame XeenEventFlow::drawMainScreenNotice(const IndexedFrame &base, const std::string &notice) const {
@@ -175,12 +184,22 @@ void XeenEventFlow::drawPartyPresentation(IndexedFrame &frame) const {
  if(!drawDialogSprite || !_encounter)return;
  const auto *combat=_encounter->combat();
  const unsigned mask=combat?combat->participants():0x3f;
+ XeenPartyState beforeBash;
+ const XeenPartyState *visible=&_party;
+ if(_barrier && _barrier->published && _barrier->bash && !_barrier->rule->moved) {
+  _barrier->world->copyEventParty(_party,beforeBash);
+  for(const auto &c:_barrier->characters)beforeBash.roster.at(c.rosterId)=c;
+  visible=&beforeBash;
+ }
  drawDialogSprite(frame,"restorex.icn",0,8,149);
- for(const auto &p:CloudsUiComposer::buildPortraitPlacements(_party,mask))
+ for(const auto &p:CloudsUiComposer::buildPortraitPlacements(*visible,mask))
   drawDialogSprite(frame,p.resourceName.c_str(),unsigned(p.frame),p.x,p.y);
- for(const auto &p:CloudsUiComposer::buildHpPlacements(_party,{_party.encounterContext->year},mask))
+ for(const auto &p:CloudsUiComposer::buildHpPlacements(*visible,{_party.encounterContext->year},mask))
   drawDialogSprite(frame,"hpbars.icn",unsigned(p.frame),p.x,p.y);
- for(const auto &p:CloudsUiComposer::buildPartyFeedbackPlacements(_party,_world.scenePresentation(),mask,combat?combat->participant():-1))
+ auto feedback=_world.scenePresentation();
+ if(_barrier && _barrier->portraitWaiting && _barrier->rule && _barrier->rule->injury)
+  feedback.portraitDamage(_barrier->rule->injury->impactOwner,_barrier->rule->injury->portraitFrame);
+ for(const auto &p:CloudsUiComposer::buildPartyFeedbackPlacements(_party,feedback,mask,combat?combat->participant():-1))
   drawDialogSprite(frame,p.resourceName.c_str(),unsigned(p.frame),p.x,p.y);
 }
 
@@ -264,6 +283,7 @@ void XeenEventFlow::framePresented(const IndexedFrame::Presentation &presented, 
 	}
 
 	_actionableFrame = presented;
+	if(_barrier && _barrier->portraitWaiting)_barrier->portraitPresented=true;
 }
 
 void XeenEventFlow::completeInputHandoff(const IndexedFrame::Presentation &presented) {
@@ -954,6 +974,7 @@ IndexedFrame XeenEventFlow::initial() {
 	return drive(_navigation.processInitialEvent(_world, _party, _camera, _flags), true);
 }
 bool XeenEventFlow::canCancelInteraction() const {
+	if(_barrier && _barrier->rule && _barrier->rule->selection)return true;
 	if (_smithUi || _trainingUi) return true;
 	if ((_encounter && _encounter->combat() && _encounter->combat()->cast()) || _castingUi || (journey() && _encounter->castingSettlement())) return true;
 	return _pending && _pending->state.pendingPresentation &&
@@ -965,6 +986,7 @@ bool XeenEventFlow::pendingNpc() const {
 		_pending->state.pendingPresentation->request.kind == XeenPresentationKind::NpcAcknowledgment;
 }
 bool XeenEventFlow::handlesEscape() const {
+	if(_barrier)return !_fatal;
 	// This is routing, not response authority: handle() still requires the exact
 	// presented frame. An unpresented modal must never turn Escape into exit.
 	if (journey()) return !_fatal && (_handoffPending || inventoryOpen() || canCancelInteraction() || _encounter->monsterReward());
@@ -1021,6 +1043,16 @@ IndexedFrame XeenEventFlow::presentationFailed(const std::exception &exception) 
 }
 std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 	requireCurrentOwners();
+	if(_barrier && !_dispatching && !_fatal && !_saving) {
+		DispatchScope dispatch(_dispatching);
+		if(_barrier->published && !_handoffPending && _clock()>=_barrier->deadline) {
+			_barrier.reset();_encounter->endJourneyEvent();
+			_encounter->journeyPulse(_encounter->ticket());prepareJourneyTransition();return renderEncounter();
+		}
+		if(!_barrier->published && (!_barrier->rule || !_barrier->rule->selection) && !_handoffPending) {
+			serviceBarrier();return renderEncounter();
+		}
+	}
 	if(_trainingUi)return updateTraining();
 	if (_smithUi && _smithUi->phase==SmithUi::Phase::Upgrade && !_dispatching && !_fatal && !_saving) {
 		DispatchScope dispatch(_dispatching);
@@ -1232,6 +1264,12 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
     }
     _mainScreenNotice.clear();
 	DispatchScope dispatch(_dispatching);
+    if(_barrier)return handleBarrier(action);
+    if(journey() && !_encounter->combat() && std::holds_alternative<BashAction>(action)) {
+        if(beginBarrier(true))return renderEncounter();
+        _encounter->_journeyRefusal="Bash is unavailable at this boundary";
+        return renderEncounter();
+    }
     if(inventoryOpen()) {
         handleCharacterDialog(action);
         return _encounter?renderEncounter(true):_frame;
@@ -1300,6 +1338,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 			}
 			if (std::holds_alternative<InteractionAction>(action)) {
 				if (!_encounter->journeyQuiet()) return frameCopy();
+				if(beginBarrier(false))return renderEncounter();
 				{
 					if (xeenRegionalInteraction(_encounter->_journeyEvents,_camera)!=XeenRegionalInteraction::None) {
 						_encounter->beginJourneyEvent();_journeyEventLayers=true;

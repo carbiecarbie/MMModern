@@ -307,7 +307,7 @@ void XeenEncounterFlow::holdJourneyFrame() {
 	_journeyFramePrepared = false;
 	_journeyPreimage->adoptJourneyCoordination();
 }
-void XeenEncounterFlow::beginJourneyEvent() {
+void XeenEncounterFlow::beginJourneyEvent(bool barrier) {
 
 	if(_regionalAutomatic && (!_regionalAutomaticAddress || _regionalAutomaticAddress->mapId!=_camera.mapId ||
 		_regionalAutomaticAddress->x!=_camera.x || _regionalAutomaticAddress->y!=_camera.y || _regionalAutomaticAddress->direction!=_camera.direction))
@@ -316,7 +316,8 @@ void XeenEncounterFlow::beginJourneyEvent() {
 		_state.pending()==0 && _state.phase()==XeenEncounterPhase::Exploring : journeyQuiet();
 	const auto interaction = xeenRegionalInteraction(_events,_camera);
 	const bool city=_camera.mapId==XeenMapIdentity(28) && xeenRegionalEvent(_events,_camera).has_value();
-	if (!ready || !journeyCapacity() || interaction==XeenRegionalInteraction::None ||
+	if (!ready || !journeyCapacity() || (interaction==XeenRegionalInteraction::None && !barrier) ||
+		(barrier && (_regionalAutomatic || (_camera.mapId!=XeenMapIdentity(28) && _camera.mapId!=XeenMapIdentity(23)))) ||
 		(_regionalAutomatic && !city && interaction!=XeenRegionalInteraction::Sign))
 		throw std::logic_error("Journey objective admission unavailable");
 	if (!_regionalAutomatic) retireCastingFeedback();
