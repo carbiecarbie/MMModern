@@ -1,9 +1,10 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M48 is the latest completed
-milestone** ([plan](milestone-48-plan.md)): scene and combat presentation follow
-the original as generic systems for all Clouds content, with the original keys
-and cursor. M47 ([plan](milestone-47-plan.md)) brought the original character
+This describes what can be played and done now. **M49 is the latest completed
+milestone** ([plan](milestone-49-plan.md)): monster targeting, damage at
+missile impact and turning in combat follow the original. M48
+([plan](milestone-48-plan.md)) made scene and combat presentation generic for
+all Clouds content, with the original keys and cursor. M47 ([plan](milestone-47-plan.md)) brought the original character
 sheet, items dialog and service dialogs. M46
 ([plan](milestone-46-plan.md)) made the original main screen clickable. M45 ([plan](milestone-45-plan.md)) made keyboard input reliable and
 removed integrity failures from on-demand resource loading. M44
@@ -35,7 +36,9 @@ balances rather than the original new-game state.
   approach and attack on the original rules. The five monster kinds present are
   admitted, and some monsters also attack at range.
 - **Combat** starts on contact and is turn-based per party member: Attack, Block,
-  Run, Shoot (exploration only), and learned spells. Wounds, Poison, Sleep,
+  Run, Shoot (exploration only), and learned spells. Monsters choose their
+  targets and number of attacks from their original data, and the party can
+  turn left and right during combat. Wounds, Poison, Sleep,
   Disease, broken armor, XP, gold and generated equipment are kept on the
   characters, party and world. Monster treasure appears when the fight is over
   and must be acknowledged page by page.
@@ -94,7 +97,7 @@ time or combat.
 | Key | Action |
 | --- | --- |
 | Up / Down | Move forward/back outside combat |
-| Left / Right | Turn outside combat; combat movement says "not supported yet" |
+| Left / Right | Turn, also during combat |
 | Space | Interact outside combat; acknowledge text |
 | A | Attack in combat |
 | Enter | Confirm (transfer, cast, purchase, Training, Temple); acknowledge |
@@ -125,7 +128,8 @@ follow the same buffering as keys.
 **Presentation.** Terrain, sky and water alternate, wall items and torches
 animate, and monsters animate from their own data, on every Clouds map
 (`--render-map` shows any map's monsters and wall art). In combat, missiles
-fly together, hits show the original splats, portraits show damage and
+fly together and damage, death and rewards apply when they arrive, hits
+show the original splats, portraits show damage and
 healing effects, the strip shrinks when members run, and the acting member
 is highlighted. The original mouse cursor is used.
 
@@ -236,11 +240,6 @@ instructions are in [dependencies](dependencies.md).
   visible but cannot be cast. No doors, locks or traps are admitted.
 - **Presentation.** Service art is static (no animated shopkeepers). There is
   no audio. Event, casting and treasure screens still use project layouts.
-- **Combat rules.** Damage, death and rewards are applied before a missile
-  reaches its target, so a killed monster can vanish before the arrow
-  arrives; the party cannot turn during combat; monster attack targeting
-  differs from the original (the Slime hits the whole party instead of two
-  members). All are planned for M49.
 - **Services.** Sell, Identify, buying Accessories/Misc, Fix of non-armor
   items, Temple Donation and Uncurse show "not supported yet".
 - **Combat items.** Equipping during combat and the combat Use button are not

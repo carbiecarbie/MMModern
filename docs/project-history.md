@@ -147,3 +147,10 @@ every Clouds map; simultaneous missiles, splats, portrait damage/healing
 effects, Magic Arrow travel, the combat strip, original keys and cursor.
 Presentation only; combat impact timing and rotation moved to M49.
 [Plan](milestone-48-plan.md).
+
+**M49 - Combat rules fidelity** (`804fc5a`). Monsters choose targets and attack counts
+from their original data for every record (the Slime now hits two members,
+not the whole party); missile damage, death and rewards apply on arrival;
+the party can turn during combat. Two M44 scenarios were re-routed off the
+old defect and all three digests regenerated with every changed byte
+explained. [Plan](milestone-49-plan.md).

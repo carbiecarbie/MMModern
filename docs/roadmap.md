@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M48 is the latest completed and accepted milestone.**
+**M49 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -34,14 +34,13 @@ machinery: the code now has one save format and one Journey configuration, and
 
 | Milestone | Tier | Goal | Accepted when |
 | --- | --- | --- | --- |
-| **M49 - Combat rules fidelity** | A | Generic monster attack targeting and attack count from original data (today the Slime hits the whole party; the original hits two members); damage/death/XP/drops published at projectile impact for Shoot, Magic Arrow and enemy volleys; party rotation during combat per `Interface::doCombat`. Expected M44 digest changes must be shown to come only from these rule fixes before baselines are regenerated. | Original-behavior tests pass, independent plan and implementation reviews, maintainer DOSBox comparison of Slime attacks, arrival timing and combat turning. |
 | **M50 - Whole Vertigo** | A | Admit the whole Vertigo map, its actors and Events from resources with the prepared party; unsupported Events refuse visibly. Replace the Slime-specific combat admission (`validateAdmittedPoisonCombat`) with generic monster combat rules. | The party walks the whole town, fights and uses services; save/restore exact. |
 | **M51 - Rest, food and daily time** | A | Original Rest with food, HP/SP recovery, encounter interruption and the daily processing it needs; food enters the save. | The party can rest repeatedly with correct time, food and recovery; save/restore exact. |
 | **M52 - Normal start in Vertigo** | A | New game from original initialization: the six level-1 `maze.pty` characters at Vertigo `(18,4)` facing West, without injected levels/XP; the prepared Journey becomes a test mode. | A new game starts in Vertigo and is playable with Rest, services and save/restore. |
 
 The order matters. M44-M48 lowered the cost of change and made input, menus
-and presentation original and generic. M49 corrects combat rules before more
-monsters arrive, so new areas inherit correct combat. M50-M52 then turn the
+and presentation original and generic, and M49 corrected combat rules, so new
+areas inherit correct combat. M50-M52 now turn the
 prepared Journey into normal play: whole-map admission first, survival
 through Rest second, and the original new game last.
 
