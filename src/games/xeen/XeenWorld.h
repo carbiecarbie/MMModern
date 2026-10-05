@@ -143,6 +143,9 @@ public:
 	bool regionalJourney() const noexcept {
 		return (_sessionState.journey() || _detachedEventCandidate);
 	}
+	bool detachedEventCandidate() const noexcept {
+		return _detachedEventCandidate && _sessionState._entry==XeenEncounterEntry::Ordinary;
+	}
 	// Irreversible safety marker, including failed preparation. No clear/reset API.
 	void markEncounterSession() noexcept { XeenMutationWatch::write(this);_sessionState._encounterMarked = true; }
 	void markEncounterSession(XeenEncounterEntry entry) {
@@ -174,6 +177,7 @@ public:
 	std::size_t cachedMapCount() const { return _maps.size(); }
 	// Unpublished Vertigo Event candidate; callers retain a live owner guard.
 	std::unique_ptr<XeenWorld> transitionCandidate() const;
+	void copyEventParty(const XeenPartyState &source, XeenPartyState &candidate) const;
 	void stageVertigoActors(const XeenObjectFile &, const std::vector<XeenMonsterRecord> &);
 	void applySpawn(std::uint8_t slot, int x, int y, std::uint8_t unused);
 	void applyAlterEvent(const XeenCamera &physical, std::uint8_t line, std::uint8_t replacement,
@@ -184,6 +188,7 @@ public:
 
 private:
 	friend class XeenSaveState;
+	friend class XeenEventPublication;
 	friend class XeenEncounterFlow;
 	friend struct XeenTrainingTestAccess;
 	friend class XeenRestoreGuard;

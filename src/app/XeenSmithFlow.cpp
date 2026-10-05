@@ -435,7 +435,7 @@ void XeenEncounterFlow::departSmith() {
 
 void XeenEventFlow::prepareSmith() {
 	try {
-		const bool temple=_camera.mapId==XeenMapIdentity(28) && _camera.x==15 && _camera.y==28;
+		const bool temple=xeenRegionalService(_encounter->_journeyEvents,_camera)==4;
 		const unsigned inputFrames=10;
 		if (!xeenSmithAuthorityRoom(_inputGeneration,inputFrames))
 			throw std::overflow_error("Smith input authority exhausted before admission");
@@ -463,6 +463,7 @@ void XeenEventFlow::prepareSmith() {
 			_encounter->_journeyRefusal=temple ? "Temple unavailable: departure exceeds the supported year." :
 				"Ironworks unavailable: departure exceeds the supported year.";
 		} else {
+			claimServiceContinuation(&*_smithUi);
             if (_encounter->_smithPreparation) _smithUi->phase=SmithUi::Phase::Preparation;
             _presenter.clear();_journeyEventLayers=false;
         }
@@ -536,14 +537,14 @@ IndexedFrame XeenEventFlow::drawSmith(const IndexedFrame &world) const {
     return frame;
 }
 IndexedFrame XeenEventFlow::settleSmithEvent() {
+	requireServiceSettlementEntry(_smithUi?static_cast<const void *>(&*_smithUi):nullptr);
+	if(!_smithSettlement)throw std::logic_error("Service has not reached its settlement boundary");
 	return journeyEventWork([&] {
 		_encounter->checkSmithBoundary(XeenSmithBoundary::BeforeEventSettlement);
 		if (!_smithTerminalResult) {
 			// Retain the admitted terminal suffix until execution succeeds. A failed
 			// provider must not consume the pending state or admit another visit.
-			auto state=_pending->state;
-			auto result=_events.resumeManualEvent(std::move(state),XeenPresentationResponse::Acknowledged,
-				_world,_party,_camera,_flags,_eventPublication);
+			auto result=resumeOwnedServiceEvent(&*_smithUi);
 			if (!std::holds_alternative<XeenManualEventCompleted>(result)) {
 				_fatal=true;throw std::runtime_error("Ironworks mandatory Event settlement failed");
 			}

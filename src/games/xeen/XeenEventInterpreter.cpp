@@ -450,9 +450,9 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			{logical.mapId, *recordIndex}, script->records()[*recordIndex]);
 		const XeenEventDecodeResult decodedResult = XeenEventDecoder::decode(effective,
 			{logical.mapId, script->file().resourceName, *recordIndex,
-				world.sessionState().journey()});
+				world.regionalJourney()});
 		// Town dispatch requires the Journey publication boundary.
-        if (effective.opcode==0x11 && !publication) {
+		if (effective.opcode==0x11 && !publication && !world.detachedEventCandidate()) {
             const auto source=std::visit([](const auto &value){return value.source;},decodedResult);
             return error(XeenEventExecutionErrorKind::UnsupportedOpcode,
                 "opcode 17 is outside the supported decoder subset",instructionCount,logical,source);
@@ -476,7 +476,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			const bool smith=boundService==1 && service->action==1;
 			const bool training=boundService==5 && service->action==5;
 			const bool temple=boundService==4 && service->action==4;
-			if (!publication || (!smith && !training && !temple) || logical.mapId!=XeenMapIdentity(28) || logical.line!=0 ||
+			if ((!publication && !world.detachedEventCandidate()) || (!smith && !training && !temple) || logical.mapId!=XeenMapIdentity(28) || logical.line!=0 ||
 				logical.x!=workingCamera.x || logical.y!=workingCamera.y ||
 				!state.callStack.empty() || instructionCount!=1 || state.pendingRewards.hasWork())
 				return error(XeenEventExecutionErrorKind::UnsupportedOperand,

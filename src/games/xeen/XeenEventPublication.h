@@ -3,6 +3,7 @@
 #include "games/xeen/XeenRestoreGuard.h"
 #include "games/xeen/XeenEventInterpreter.h"
 #include "games/xeen/XeenRegionalRules.h"
+#include "games/xeen/XeenEventContinuation.h"
 #include <limits>
 namespace mmodern {
 // A stack-bound publication capability, issued only to the live Journey continuation.
@@ -13,9 +14,34 @@ public:
 	XeenEventPublication(const XeenEventPublication &) = delete;
 	XeenEventPublication &operator=(const XeenEventPublication &) = delete;
 	void check() const { authority(); guard.check(); }
+	void publishCandidate(XeenWorld &world,XeenPartyState &party,XeenCamera &camera,XeenGameFlags &flags,
+			XeenWorld &candidateWorld,const XeenRestoreGuard &candidate) const {
+		check();candidate.check();
+		if(&world!=&guard.w || &party!=&guard.p || &camera!=&guard.c || &flags!=&guard.f ||
+			&candidateWorld!=&candidate.w || !candidateWorld._detachedEventCandidate ||
+			candidateWorld._sessionState._entry!=XeenEncounterEntry::Ordinary)
+			integrity("Event publication owner identity changed");
+		// All allocation and provider work precede the callback-free stores.
+		auto presentation=world.prepareSpawnPresentation(candidateWorld);
+		const XeenCloudsQuestFlags questFlags(candidate.questFlags);
+		check();candidate.check();
+		guard.prepareVertigoPublication(candidate);
+		world.publishTransition(candidateWorld);
+		party.questFlags=questFlags;
+		camera=candidate.cameraValue;flags=XeenGameFlags(candidate.flagValues);
+		world.scenePresentation()=std::move(presentation);
+		guard.adoptMutationBoundary();
+	}
+	void publishPrelude(XeenGameFlags &flags,const XeenEventExecutionState &state,
+			const XeenEventContinuation &continuation) const {
+		check();continuation.check(state);script(state.currentScript->file());
+		if(&flags!=&guard.f)integrity("Event prelude flag owner changed");
+		guard.prepareVertigoPrelude(state.workingGameFlags);
+		flags=state.workingGameFlags;guard.adoptMutationBoundary();
+	}
 	void script(const XeenEventFile &file) const {
 		check();
-		if (file.mapId != original.mapId || file.resourcePresent != original.resourcePresent || file.records.size() != original.records.size())
+		if (file.mapId != original.mapId || file.resourceName!=original.resourceName || file.resourcePresent != original.resourcePresent || file.records.size() != original.records.size())
 			integrity("Journey event topology changed");
 		for (std::size_t i=0;i<file.records.size();++i) {
 			const auto &a=file.records[i]; const auto &b=original.records[i];
@@ -23,25 +49,15 @@ public:
 				integrity("Journey event record changed");
 		}
 	}
+	void continuation(const XeenEventExecutionState &state,const XeenEventContinuation &retained) const {
+		check();
+		try {retained.check(state);script(state.currentScript->file());}
+		catch(const std::logic_error &) {integrity("Event continuation or resource preimage changed");}
+	}
 	void execution(const XeenEventExecutionState &state) const {
 		check();
 		{
 			const auto interaction=xeenRegionalInteraction(original,guard.cameraValue);
-			if (interaction==XeenRegionalInteraction::TempleLabel) {
-				if (!xeen_state::sameCamera(state.workingCamera,guard.cameraValue) ||
-					state.workingGameFlags.values()!=guard.flagValues || state.logicalAddress.mapId!=XeenMapIdentity(28) ||
-					state.logicalAddress.x!=15 || state.logicalAddress.y!=21 || state.logicalAddress.line<0 ||
-					state.logicalAddress.line>1 || state.lookupDirection!=XeenDirection::North ||
-					state.instructionCount>1 || !state.callStack.empty() || state.pendingRewards.hasWork() ||
-					state.selectedObject || !state.currentScript)
-					integrity("Temple label continuation changed");
-				script(state.currentScript->file());
-				const auto site=state.currentScript->findInstructionIndex(15,21,XeenDirection::North,
-					static_cast<std::uint8_t>(state.logicalAddress.line));
-				if ((site && *site!=543) || (!site && state.logicalAddress.line!=1))
-					integrity("Temple label escaped original record");
-				currentSite=site;return;
-			}
 			if (interaction==XeenRegionalInteraction::Ironworks || interaction==XeenRegionalInteraction::Training ||
 				interaction==XeenRegionalInteraction::Temple) {
 				const auto service=xeenRegionalService(original,guard.cameraValue);

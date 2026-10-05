@@ -263,6 +263,25 @@ std::unique_ptr<XeenWorld> XeenWorld::transitionCandidate() const {
 	return candidate;
 }
 
+void XeenWorld::copyEventParty(const XeenPartyState &source, XeenPartyState &candidate) const {
+	if(!_detachedEventCandidate || &source==&candidate || candidate._gameplayBorrow.borrowed() ||
+		candidate.roster._gameplayBorrow.borrowed() || candidate.roster._combatMarked || candidate.party.size())
+		throw std::logic_error("Event party preparation requires fresh detached storage");
+	for(unsigned owner=0;owner<XeenRoster::kCharacterCount;++owner) {
+		if(candidate.roster._combatInputs[owner])throw std::logic_error("Event party supplements already exist");
+		candidate.roster._characters[owner]=source.roster._characters[owner];
+		candidate.roster._combatInputs[owner]=source.roster._combatInputs[owner];
+	}
+	candidate.roster._combatMarked=source.roster._combatMarked;
+	candidate.party=source.party;
+	candidate.encounterContext=source.encounterContext;candidate.monsterTreasure=source.monsterTreasure;
+	candidate.serviceEconomy=source.serviceEconomy;candidate.questItems=source.questItems;
+	candidate.questFlags=source.questFlags;candidate.regionalRecovery=source.regionalRecovery;
+	candidate._originalFood=source._originalFood;
+	candidate.firstSerializedCount=source.firstSerializedCount;candidate.effectiveSerializedCount=source.effectiveSerializedCount;
+	candidate.diagnostics=source.diagnostics;
+}
+
 void XeenWorld::applyAlterEvent(const XeenCamera &physical, std::uint8_t line,
 		std::uint8_t replacement, const XeenEventFile &events) {
 	XeenMutationWatch::write(this);

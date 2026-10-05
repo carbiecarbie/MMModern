@@ -4,6 +4,7 @@
 #include "games/xeen/XeenIndoorSceneTables.h"
 #include "games/xeen/XeenCombatRules.h"
 #include "games/xeen/XeenEventSystem.h"
+#include "games/xeen/XeenEventContinuation.h"
 #include <iostream>
 #include <stdexcept>
 
@@ -127,6 +128,43 @@ void cityEvents() {
 	check(pending && pending->request.kind==XeenPresentationKind::SceneLabelSignReduced &&
 		pending->request.text=="Small seat sign" && pending->request.response==XeenPresentationResponseRequirement::Presented,
 		"Off-route small sign must suspend for one scene draw with resource text");
+	{
+		auto state=pending->state;
+		state.callStack.push_back({{28,75,76,4}});
+		state.pendingTransferSource=state.pendingPresentation->request.source;
+		state.pendingPresentation->conditional=XeenEventConditional{XeenEventComparison::Equal,44,0,7};
+		state.pendingPresentation->request.members.push_back({0,0,"Witness",true});
+		state.pendingPresentation->request.npc=XeenEventNpc{1,2,3,1,5};
+		const XeenEventContinuation continuation(state);continuation.check(state);
+		const std::vector<std::function<void(XeenEventExecutionState &)>> tamper{
+			[](auto &s){++s.logicalAddress.x;},[](auto &s){++s.logicalAddress.y;},
+			[](auto &s){++s.logicalAddress.line;},[](auto &s){s.logicalAddress.mapId=23;},
+			[](auto &s){s.lookupDirection=XeenDirection::West;},[](auto &s){++s.workingCamera.x;},
+			[](auto &s){s.workingGameFlags.set(12);},[](auto &s){++s.instructionCount;},
+			[](auto &s){++s.callStack[0].returnAddress.line;},[](auto &s){s.callStack.clear();},
+			[](auto &s){s.selectedObject=XeenObjectIdentity{28,1};},[](auto &s){s.activeCharacterIndex=3;},
+			[](auto &s){s.preferredRewardRecipient=2;},[](auto &s){s.rewardReceipt.delivered=1;},
+			[](auto &s){s.rewardReceipt.entries[0].item.id=1;},[](auto &s){s.pendingRewards.enqueue({1,1,0,0});},
+			[](auto &s){s.missingInstructionPolicy=XeenEventMissingInstructionPolicy::ExplicitCall;},
+			[](auto &s){++s.pendingTransferSource->fileOffset;},
+			[](auto &s){auto f=s.currentScript->file();f.records[0].opcode=0x12;s.currentScript=XeenEventScript(f);},
+			[](auto &s){auto f=s.currentScript->file();f.resourceName="replacement.evt";s.currentScript=XeenEventScript(f);},
+			[](auto &s){s.currentScript.reset();},[](auto &s){s.pendingPresentation.reset();},
+			[](auto &s){s.pendingPresentation->request.kind=XeenPresentationKind::TempleService;},
+			[](auto &s){s.pendingPresentation->request.response=XeenPresentationResponseRequirement::YesNo;},
+			[](auto &s){++s.pendingPresentation->request.source.fileOffset;},
+			[](auto &s){s.pendingPresentation->request.text="Changed";},
+			[](auto &s){s.pendingPresentation->request.members[0].eligible=false;},
+			[](auto &s){s.pendingPresentation->request.npc->targetLine=6;},
+			[](auto &s){s.pendingPresentation->conditional->targetLine=8;},
+			[](auto &s){s.pendingPresentation->continuation=XeenEventPendingContinuation::Terminate;}
+		};
+		for(const auto &mutation:tamper) {
+			auto changed=state;mutation(changed);bool rejected=false;
+			try {continuation.check(changed);}catch(const std::logic_error &){rejected=true;}
+			check(rejected,"Detached continuation tampering escaped its exact value preimage");
+		}
+	}
 	check(std::holds_alternative<XeenManualEventCompleted>(system.resumeManualEvent(pending->state,
 		XeenPresentationResponse::Presented,*world,party,camera,flags)),"Small sign must continue after its draw");
 

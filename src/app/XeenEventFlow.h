@@ -3,6 +3,7 @@
 
 #include "app/XeenNavigationFlow.h"
 #include "games/xeen/XeenEventPresenter.h"
+#include "games/xeen/XeenEventContinuation.h"
 #include "games/xeen/XeenWorld.h"
 #include "games/xeen/XeenGameFlags.h"
 #include "games/xeen/XeenRegionalRules.h"
@@ -166,24 +167,36 @@ private:
 		XeenPartyState party;
 		XeenCamera camera;
 		XeenGameFlags flags;
+		XeenCamera initialCamera;
+		XeenGameFlags initialFlags;
 		XeenEventFile destinationEvents;
 		std::unique_ptr<XeenRestoreGuard> guard;
+		std::optional<XeenEventContinuation> continuation;
 		bool preludePublished = false;
 		bool refused = false;
+		bool preludeRequired = false;
 	};
 	std::unique_ptr<TransitionCandidate> _transition;
+	std::optional<XeenEventContinuation> _serviceEventContinuation;
+	const void *_serviceEventOwner=nullptr;
+	bool _candidateResultRefused=false;
 	TransitionCompose _transitionCompose;
 	bool _arrivalPending = false;
 	void checkTransitionCandidate();
-	XeenManualEventResult beginVertigoEvent(XeenRegionalInteraction);
+	XeenManualEventResult beginVertigoEvent(XeenRegionalInteraction, bool automatic=false);
 	XeenManualEventResult resumeVertigoEvent(XeenEventExecutionState, XeenPresentationResponse);
 	void prepareVertigoResult(const XeenManualEventResult &);
+	void claimServiceContinuation(const void *owner);
+	void requireServiceSettlementOwner(const void *owner) const;
+	void requireServiceSettlementEntry(const void *owner) const;
+	XeenManualEventResult resumeOwnedServiceEvent(const void *owner);
 	void validateRegionalEvents();
 	IndexedFrame journeyEventWork(const std::function<void()> &, bool automatic = false);
 	std::uint64_t _saveOperation = 0;
 	std::optional<SaveBoundary> _saveBoundary;
 	friend class Application;
 	friend struct XeenTrainingTestAccess;
+	friend struct XeenCityEventTestAccess;
 	friend struct XeenPurchaseTestAccess;
 	void requireCurrentOwners() const;
 	friend struct XeenRewardTestAccess;

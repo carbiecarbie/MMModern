@@ -338,6 +338,21 @@ private:
 	}
 	void prepareVertigoPublication(const XeenRestoreGuard &candidate) {
 		check();candidate.check();
+		// Event capabilities currently permit quest flags, camera/game flags and
+		// World overlays/Spawn. Every other party input must remain its preimage.
+		if(candidate.membership!=membership || candidate.quests!=quests || candidate.marked!=marked ||
+			candidate.recovery!=recovery || !(candidate.context==context) || candidate.treasure!=treasure ||
+			candidate.economy!=economy || candidate.first!=first || candidate.effective!=effective ||
+			candidate.diagnostics!=diagnostics || candidate.s._journeyRandom!=s._journeyRandom) {
+			failed=true;throw std::logic_error("Event candidate changed an unowned party or RNG field");
+		}
+		for(unsigned owner=0;owner<characters.size();++owner) {
+			if(!xeen_state::sameCharacter(candidate.characters[owner],characters[owner]) ||
+				bool(candidate.inputs[owner])!=bool(inputs[owner]) ||
+				(inputs[owner] && !xeen_state::sameInputs(*candidate.inputs[owner],*inputs[owner]))) {
+				failed=true;throw std::logic_error("Event candidate changed character inputs without a capability");
+			}
+		}
 		// Allocate every anticipated value before changing the retained source
 		// preimage. Allocation failure remains a recoverable pre-commit failure.
 		auto nextMaps=maps;auto nextObjects=objects;
@@ -367,6 +382,7 @@ private:
 		maps.swap(nextMaps);objects.swap(nextObjects);cityStatistics.swap(statistics);
 		cityOriginalCount=candidate.cityOriginalCount;
 		cameraValue=candidate.cameraValue;flagValues=candidate.flagValues;++worldRevision;
+		questFlags=candidate.questFlags;
 	}
 	// Only the coordinator's checked, callback-free authority transitions may adopt these fields.
 	// Gameplay values, identity controls and cache preimages remain retained.

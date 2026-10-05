@@ -315,7 +315,9 @@ void XeenEncounterFlow::beginJourneyEvent() {
 	const bool ready=_regionalAutomatic ? !_busy && !_combat && !_failure && _boundary.quiet() && current(ticket()) &&
 		_state.pending()==0 && _state.phase()==XeenEncounterPhase::Exploring : journeyQuiet();
 	const auto interaction = xeenRegionalInteraction(_events,_camera);
-	if (!ready || !journeyCapacity() || (interaction==XeenRegionalInteraction::None || (_regionalAutomatic && interaction!=XeenRegionalInteraction::Sign && interaction!=XeenRegionalInteraction::VertigoDoor && interaction!=XeenRegionalInteraction::TempleLabel)))
+	const bool city=_camera.mapId==XeenMapIdentity(28) && xeenRegionalEvent(_events,_camera).has_value();
+	if (!ready || !journeyCapacity() || interaction==XeenRegionalInteraction::None ||
+		(_regionalAutomatic && !city && interaction!=XeenRegionalInteraction::Sign))
 		throw std::logic_error("Journey objective admission unavailable");
 	if (!_regionalAutomatic) retireCastingFeedback();
 	_eventLease = _boundary.hold(XeenCombatBoundary::Work::Event);

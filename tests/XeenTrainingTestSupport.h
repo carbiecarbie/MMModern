@@ -56,6 +56,21 @@ struct XeenTrainingTestAccess {
     static void confirm(XeenEventFlow &flow) {flow._encounter->confirmTraining();}
     static bool level(XeenEventFlow &flow) {return flow._encounter->serviceTrainingLevel();}
     static void depart(XeenEventFlow &flow) {flow._encounter->departTraining();}
+    static void genericServiceResume(XeenEventFlow &flow) {
+        if(!flow._pending)throw std::logic_error("Synthetic service pending state is absent");
+        flow.resumePending(flow._pending->generation,XeenPresentationResponse::Acknowledged);
+    }
+    static void repeatServiceResume(XeenEventFlow &flow) {flow.resumeOwnedServiceEvent(flow._serviceEventOwner);}
+    static void wrongServiceOwner(XeenEventFlow &flow,const void *owner) {flow.resumeOwnedServiceEvent(owner);}
+    static void repeatServiceSettlement(XeenEventFlow &flow,bool training) {
+        if(training)flow.settleTrainingEvent();else flow.settleSmithEvent();
+    }
+    static bool serviceContinuationRetained(const XeenEventFlow &flow) {return flow._serviceEventContinuation.has_value();}
+    static void checkPendingService(const XeenEventFlow &flow,const XeenEventContinuation &before) {
+        if(!flow._pending)throw std::logic_error("Service pending state was discarded");
+        before.check(flow._pending->state);
+    }
+    static XeenEventExecutionState serviceState(const XeenEventFlow &flow) {return flow._pending->state;}
 };
 }
 namespace training_test {
@@ -117,12 +132,15 @@ struct Fixture {
     Inputs &in;XeenWorld w;XeenPartyState p;XeenCamera c;XeenGameFlags f;XeenEventSystem events;
     std::unique_ptr<XeenEventFlow> flow;std::uint64_t cycle=0,now=0;
     std::bitset<30> trained;
-    Fixture(Inputs &in,const XeenSaveSnapshot &source,bool animated=false):in(in),w(in.mapLoader(),in.objectLoader()),
-        events([&in](auto id){return XeenEventScript(in.events.load(id));},[&in](auto id){return in.texts.load(id);}) {
-        XeenSaveState::restoreBeforeGameplay(XeenSaveFormat::decode(XeenSaveFormat::encode(source)),in.resources(),p,c,f,w,[](auto &,const auto &,const auto &,const auto &){});
+    Fixture(Inputs &in,const XeenSaveSnapshot &source,bool animated=false,const XeenEventFile *city=nullptr,XeenWorld::MapLoader mapFixture={}):in(in),w(mapFixture?mapFixture:in.mapLoader(),in.objectLoader()),
+        events([&in,city](auto id){return XeenEventScript(city && id==XeenMapIdentity(28)?*city:in.events.load(id));},[&in](auto id){return in.texts.load(id);}) {
+        auto resources=in.resources();
+        if(city)resources.loadEvents=[&in,city](auto id){return id==XeenMapIdentity(28)?*city:in.events.load(id);};
+        XeenSaveState::restoreBeforeGameplay(XeenSaveFormat::decode(XeenSaveFormat::encode(source)),resources,p,c,f,w,[](auto &,const auto &,const auto &,const auto &){});
         flow=std::make_unique<XeenEventFlow>(w,events,p,c,f,in.font,[](auto){return XeenEventFlow::Composition{frame(),false};},
             XeenEventPresenter::NpcDraw{},[this]{return now;},XeenEventPresenter::RandomFrame{},nullptr,
-            [animated](auto,auto){return XeenEventFlow::Composition{frame(),animated};});
+            [animated](auto,auto){return XeenEventFlow::Composition{frame(),animated};},nullptr,
+            [animated](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{frame(),animated};});
         flow->drawDialogSprite=[&in](auto &frame,const char *resource,unsigned id,int x,int y){in.assets.drawDialogSprite(frame,resource,id,x,y);};
         flow->drawTrainingArt=[&in](auto &frame){in.assets.drawTraining(frame);};
         present(flow->frame());check(flow->canSave(),"synthetic restored service checkpoint not Quiet");

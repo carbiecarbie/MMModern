@@ -281,27 +281,16 @@ XeenRegionalInteraction xeenRegionalInteraction(const XeenEventFile &events,cons
 		return *service==1?XeenRegionalInteraction::Ironworks:
 			*service==4?XeenRegionalInteraction::Temple:XeenRegionalInteraction::Training;
 	}
-	{
-		if (camera.mapId==XeenMapIdentity(28) &&
-			*first==543 && camera.x==15 && camera.y==21 && camera.direction==XeenDirection::North)
-			return XeenRegionalInteraction::TempleLabel;
-		if (camera.mapId==XeenMapIdentity(28) &&
-			*first==6 && camera.x==15 && camera.y==28)
-			return XeenRegionalInteraction::Temple;
-		if (camera.mapId==XeenMapIdentity(28)) {
-			if (*first==3 && camera.x==10 && camera.y==11)return XeenRegionalInteraction::Training;
-			if (*first==538 && camera.x==10 && camera.y==8 && camera.direction==XeenDirection::North)
-				return XeenRegionalInteraction::VertigoDoor;
-		}
-		if (camera.mapId==XeenMapIdentity(28) && *first==0 && camera.x==8 && camera.y==4)
-			return XeenRegionalInteraction::Ironworks;
-		if (camera.mapId==XeenMapIdentity(23) && *first==136 && camera.x==10 && camera.y==13)
-			return XeenRegionalInteraction::VertigoEntrance;
-		if (camera.mapId==XeenMapIdentity(28) && *first==539 && camera.x==13 && camera.y==4 && camera.direction==XeenDirection::West)
-			return XeenRegionalInteraction::VertigoDoor;
-		if (camera.mapId==XeenMapIdentity(28) && *first==760 && camera.x==15 && camera.y==0 && camera.direction==XeenDirection::South)
-			return XeenRegionalInteraction::VertigoExit;
-	}
+	// Classify supported region transitions from original operands at this
+	// physical interaction. Neighbor geometry tiles are never destinations.
+	const auto teleportsTo=[&](unsigned map) {
+		for(const auto &r:events.records)
+			if(r.x==camera.x && r.y==camera.y && (r.direction==4 || r.direction==unsigned(camera.direction)) &&
+				r.opcode==0x07 && r.parameters.size()==3 && r.parameters[0]==map)return true;
+		return false;
+	};
+	if(camera.mapId==XeenMapIdentity(28))return teleportsTo(23)?XeenRegionalInteraction::VertigoExit:XeenRegionalInteraction::Event;
+	if(camera.mapId==XeenMapIdentity(23) && teleportsTo(28))return XeenRegionalInteraction::VertigoEntrance;
 	if (xeenRegionalSign(events,camera)) return XeenRegionalInteraction::Sign;
 
 	if (*first==21 && camera.x==9 && camera.y==11 && camera.direction==XeenDirection::West)
