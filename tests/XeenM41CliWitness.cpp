@@ -64,7 +64,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     const auto count=[&](auto fn){return [fn=std::move(fn),&providers](auto &&...args)->decltype(auto){++providers;return fn(std::forward<decltype(args)>(args)...);};};
 #define M41_COUNT(field) if(services.field)services.field=count(services.field)
     M41_COUNT(resources.loadInitialParty);M41_COUNT(resources.loadInitialCharacters);M41_COUNT(resources.loadInitialContext);
-    M41_COUNT(resources.loadEvents);M41_COUNT(resources.loadMonsterStatistics);M41_COUNT(resources.regionalManifest);M41_COUNT(resources.vertigoManifest);
+    M41_COUNT(resources.loadEvents);M41_COUNT(resources.loadMonsterStatistics);M41_COUNT(resources.regionalManifest);
     M41_COUNT(resources.loadInitialPurse);M41_COUNT(resources.loadInitialRegionalRecovery);M41_COUNT(resources.loadRegionalText);M41_COUNT(resources.loadLearnedSpellNames);
     M41_COUNT(resources.loadInitialBankBalances);M41_COUNT(maps);M41_COUNT(objects);M41_COUNT(texts);M41_COUNT(compose);M41_COUNT(npcDraw);
     M41_COUNT(validateEncounterSprite);M41_COUNT(validateCombatSprite);M41_COUNT(sampleJourneySeed);

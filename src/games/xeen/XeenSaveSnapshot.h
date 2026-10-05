@@ -49,6 +49,9 @@ struct XeenSaveJourneyActor {
 	XeenActorLifecycle lifecycle = XeenActorLifecycle::Present;
 	XeenActorStatus status = XeenActorStatus::Physical;
 	bool accounted = false;
+	// -1 binds an original MOB record or an unresolved default slot. A
+	// materialized script slot stores its MON type explicitly in save v5.
+	std::int16_t spawnedType = -1;
 };
 
 struct XeenSaveJourney {
@@ -63,6 +66,7 @@ struct XeenSaveJourney {
 	std::vector<XeenSaveJourneyActor> actors;
 	// The optional Vertigo region is retained independently of the camera.
 	std::optional<std::vector<XeenSaveJourneyActor>> vertigoActors;
+	std::uint16_t cityOriginalActorCount = 46;
 	std::optional<XeenMonsterTreasure> treasure;
 	std::optional<XeenRegionalRecoveryState> regionalRecovery;
 	std::optional<XeenServiceEconomy> serviceEconomy;

@@ -42,6 +42,71 @@ std::optional<unsigned> XeenConsequenceDraw::draw(unsigned lo, unsigned hi) {
 	if (check) check();
 	return result;
 }
+XeenTypedDamageCandidate::XeenTypedDamageCandidate(const XeenConsequenceCharacters &c,
+		const XeenConsequenceInputs &i,int amount,XeenDamageType t,unsigned y,unsigned memberMask,
+		const XeenDamageProtection &p) : characters(c),inputs(i),protection(p),type(t),year(y),mask(memberMask),damage(amount) {
+	ruleRequire(unsigned(type)<=6 && mask<=0x3f,"Invalid typed damage operands");
+	ruleRequire(p.powerShield>=0 && p.powerShield<=65535,"Invalid power shield");
+	for (int value:p.resistances) ruleRequire(value>=0 && value<=65535,"Invalid party damage resistance");
+	constexpr unsigned frames[]{0,6,1,2,3,4,5};portraitFrame=frames[unsigned(type)];
+	for (unsigned n=0;n<6;++n) if (mask&(1u<<n)) {
+		Rules::validateForUse(characters[n],{year});
+		(void)Rules::sheetArmorClass(characters[n],&inputs[n],{year});
+		if (type!=XeenDamageType::Physical) {
+			const auto v=Rules::damageSaveValue(characters[n],inputs[n],type,{year});
+			ruleRequire(v>=0 && v<=std::numeric_limits<int>::max()-40,"Invalid typed saving interval");
+		}
+	}
+}
+bool XeenTypedDamageCandidate::service(XeenConsequenceDraw &draw) {
+	injuryApplied=false;
+	while (step!=Step::Done) {
+		switch (step) {
+		case Step::Begin:
+			while (target<6 && !(mask&(1u<<target))) ++target;
+			if (target==6) {step=Step::Done;break;}
+			beforeAc=Rules::sheetArmorClass(characters[target],&inputs[target],{year});
+			characters[target].conditions[8]=0;
+			if (unsigned(type)>=2 && unsigned(type)<=5)
+				damage=physicalChecked(std::int64_t(damage)-protection.resistances[unsigned(type)-2]);
+			step=type==XeenDamageType::Physical ? Step::Injury : Step::Save;
+			break;
+		case Step::Save: {
+			if (!draw.remaining) return false;
+			const auto v=Rules::damageSaveValue(characters[target],inputs[target],type,{year});
+			const auto n=draw.draw(1,unsigned(v+40));if (!n) break;
+			// Reference evaluates the save before testing damage, including the
+			// final zero/negative-damage iteration after a successful save.
+			if (*n<=unsigned(v) && damage>0) damage/=2;
+			else step=Step::Injury;
+			break;
+		}
+		case Step::Injury: {
+			auto &c=characters[target];
+			if (deferInjury && !injuryAcknowledged) {impactOwner=c.rosterId;injuryReady=true;return false;}
+			injuryReady=injuryAcknowledged=false;
+			damage=std::max(physicalChecked(std::int64_t(damage)-protection.powerShield),0);
+			const auto armor=c.armor;
+			XeenCombatDamage injury;injury.owner=c.rosterId;injury.amount=damage;
+			injury.beforeHp=c.currentHp;injury.beforeAc=beforeAc;
+			xeenApplyPhysicalInjury(c,damage,year);
+			injury.afterHp=c.currentHp;injury.afterAc=Rules::sheetArmorClass(c,&inputs[target],{year});injury.conditions=c.conditions;
+			result.injuries.at(result.injuryCount++)=injury;result.targetedMembers|=std::uint8_t(1u<<target);result.targetOwner=c.rosterId;
+			result.damage=physicalChecked(std::int64_t(result.damage)+damage);
+			for (unsigned slot=0;slot<9;++slot) if (armor[slot].state!=c.armor[slot].state)
+				result.armor.at(result.armorCount++)={c.rosterId,static_cast<std::uint8_t>(slot),armor[slot],c.armor[slot]};
+			step=Step::Next;
+			if (deferInjury) {injuryApplied=true;return false;}
+			break;
+		}
+		case Step::Next: ++target;step=Step::Begin;break;
+		case Step::Done: break;
+		}
+	}
+	result.attackOutcome=!mask ? XeenCombatAttackOutcome::NoParticipants : result.damage ?
+		XeenCombatAttackOutcome::HitPositiveDamage : XeenCombatAttackOutcome::HitZeroDamage;
+	return true;
+}
 // ScummVM spells.cpp magicArrow / combat.cpp RT_GROUP, DT_MAGIC_ARROW.
 // The saving throw is required even though it cannot change this spell's damage.
 XeenMagicArrowCandidate::XeenMagicArrowCandidate(std::int64_t permanent, std::int64_t temporary,
@@ -109,9 +174,7 @@ XeenEnemyAttackCandidate::XeenEnemyAttackCandidate(const XeenConsequenceCharacte
 		const XeenConsequenceInputs &i, const XeenMonsterRecord &m, unsigned y, unsigned mask, const std::array<bool,6> &b) :
 		characters(c), inputs(i), monster(m), year(y), blocked(b), allParty(m.hatred()==unsigned(XeenMonsterHatred::Party)) {
 	poison=m.raw[29]==5;
-	if(poison) m.validateAdmittedPoisonCombat();
-	else ruleRequire(m.strikes() && m.damageDie() && m.hitParameter() && m.raw[29]==0 &&
-		(m.raw[30]==0 || m.raw[30]==5 || m.raw[30]==7 || m.raw[30]==9),"Unsupported physical attack profile");
+	m.validateAttackCapabilities();
 	ruleRequire(mask<=0x3f,"Invalid combat participation mask");
 	for (unsigned owner=0;owner<6;++owner) if (mask&(1u<<owner)) participants[participantCount++]=owner;
 	result.operation = XeenCombatOperation::EnemyAttack;

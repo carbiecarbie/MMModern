@@ -54,13 +54,11 @@ std::uint32_t XeenMonsterRecord::fingerprint() const {
 	const std::array<std::uint8_t,60> bytes=raw;
 	return static_cast<std::uint32_t>(crc32(0,bytes.data(),static_cast<uInt>(bytes.size())));
 }
-void XeenMonsterRecord::validateAdmittedPoisonCombat() const {
-	if(fingerprint()!=0x4743814e ||
-		!supportsMovement() || image()!=0 || raw[48]!=1 || raw[49]!=0 || baseHp()!=2 ||
-		experience()!=50 || armorClass()!=0 || speed()!=25 || attacks()!=2 ||
-		preferredClass()!=16 || strikes()!=1 || damageDie()!=2 || raw[29]!=5 ||
-		raw[30]!=0 || raw[32]!=0 || physicalResistance()!=0 || gold()!=0 ||
-		raw[44]!=0 || raw[45]!=0)
-		throw std::invalid_argument("Original Slime combat profile changed");
+void XeenMonsterRecord::validateAttackCapabilities() const {
+	const bool physical=damageType()==0 && (raw[30]==0 || raw[30]==5 || raw[30]==7 || raw[30]==9);
+	const bool poison=damageType()==5 && raw[30]==0;
+	if ((!physical && !poison) || (attacks() && (!strikes() || !damageDie())) ||
+		(physical && attacks() && !hitParameter()) || raw[32]>1 || (poison && raw[32]))
+		throw std::invalid_argument("Monster attack capability not supported yet");
 }
 } // namespace mmodern

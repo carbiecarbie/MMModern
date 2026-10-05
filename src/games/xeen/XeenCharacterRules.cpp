@@ -167,6 +167,19 @@ int itemBonus(const XeenCharacter &character, int category) {
 		itemBonusFrom(character.accessories, category);
 }
 
+int elementalBonus(const XeenCharacter &character, unsigned element) {
+	constexpr unsigned categories[]{8,15,20,25,33,36};
+	constexpr int bonuses[]{0,5,7,9,12,15,20,25,30,5,7,9,12,15,20,25,5,10,15,20,25,10,15,20,25,40,5,7,9,11,13,15,20,25,5,10,20};
+	int result=0;
+	for (const auto *items:{&character.armor,&character.accessories})
+		for (const auto &item:*items) if (item.frame && !(item.state&kCursedOrBrokenMask) && item.material<37) {
+			unsigned index=0;
+			while (categories[index]<item.material) ++index;
+			if (index==element) result+=bonuses[item.material];
+		}
+	return result;
+}
+
 int statBonus(int value) {
 	std::size_t index = 0;
 	while (index + 1 < kStatValues.size() && kStatValues[index] <= value)
@@ -313,16 +326,8 @@ int XeenCharacterRules::sheetResistance(const XeenCharacter &c,const XeenCombatI
 		if(resistance==2) value={input->resistances->electricalPermanent,input->resistances->electricalTemporary};
 	}
 	if(input && input->poisonResistance && resistance==3) value={input->poisonResistance->permanent,input->poisonResistance->temporary};
-	constexpr int categories[]{8,15,20,25,33,36};
-	constexpr int bonuses[]{0,5,7,9,12,15,20,25,30,5,7,9,12,15,20,25,5,10,15,20,25,10,15,20,25,40,5,7,9,11,13,15,20,25,5,10,20};
 	constexpr unsigned elements[]{0,2,1,3,4,5};
-	int result=value[0]+value[1];
-	for(const auto *items:{&c.armor,&c.accessories}) for(const auto &item:*items)
-		if(item.frame && !(item.state&0xc0) && item.material<37) {
-			unsigned index=0; while(categories[index]<item.material) ++index;
-			if(index==elements[resistance]) result+=bonuses[item.material];
-		}
-	return result;
+	return add<true>(add<true>(value[0],value[1]),elementalBonus(c,elements[resistance]));
 }
 int XeenCharacterRules::statColor(int amount,int threshold) {
 	return amount<1?6:amount>threshold?2:amount==threshold?15:amount>=threshold/4?9:32;
@@ -364,6 +369,34 @@ int XeenCharacterRules::poisonSaveValue(const XeenCharacter &c,const XeenCombatI
 	if(!input.poisonResistance)throw std::invalid_argument("Missing poison resistance input");
 	return std::max(add<true>(add<true>(input.poisonResistance->permanent,
 		input.poisonResistance->temporary),equipmentBonus(c,14)),0);
+}
+// Character::charSavingThrow/getThievery at the pinned ScummVM revision.
+int XeenCharacterRules::damageSaveValue(const XeenCharacter &c,const XeenCombatInputs &input,
+		XeenDamageType type,const XeenCharacterRulesContext &context) {
+	if (type==XeenDamageType::Physical) {
+		if (!input.luck) throw std::invalid_argument("Missing physical saving throw Luck");
+		return add<true>(statBonus(sheetStat(c,&input,6,context)),currentLevel<true>(c));
+	}
+	const auto index=static_cast<unsigned>(type);
+	if (index>6) throw std::invalid_argument("Unsupported character damage type");
+	// Immutable original resistance pairs remain authoritative for elements
+	// without a live supplement. Missing input is never an implicit zero.
+	const unsigned resistance=index==1 ? 5 : index==2 ? 0 : index==3 ? 2 : index==4 ? 1 : index==5 ? 3 : 4;
+	const bool live=(resistance==1 || resistance==2) ? input.resistances.has_value() :
+		resistance==3 && input.poisonResistance.has_value();
+	if (!live && !c.originalDetails()) throw std::invalid_argument("Missing character damage resistance");
+	return sheetResistance(c,&input,resistance);
+}
+int XeenCharacterRules::thievery(const XeenCharacter &c) {
+	if (!c.originalDetails()) throw std::invalid_argument("Missing original Thievery skill");
+	if (enumIndex(c.race)>=5 || enumIndex(c.characterClass)>=10)
+		throw std::invalid_argument("Invalid Thievery race or class");
+	int result=multiply<true>(currentLevel<true>(c),2);
+	if (c.characterClass==XeenCharacterClass::Ninja) result=add<true>(result,15);
+	else if (c.characterClass==XeenCharacterClass::Robber) result=add<true>(result,30);
+	constexpr int racial[]{0,10,5,10,-10};
+	result=add<true>(add<true>(result,racial[enumIndex(c.race)]),itemBonus(c,10));
+	return c.originalDetails()->skills[0] ? std::max(result,0) : 0;
 }
 int XeenCharacterRules::effectivePhysical(const XeenCharacter &c, const XeenCombatInputs &input,
 		PhysicalAttribute attribute, const XeenCharacterRulesContext &context) {

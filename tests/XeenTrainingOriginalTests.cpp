@@ -16,18 +16,7 @@ int main(int argc,char **argv) {
             successor.journey->treasure->gold==800 && successor.journey->treasure->gems==10 &&
             successor.journey->serviceEconomy->bank==XeenBankBalances{0,0},"fresh successor changed independently recorded seed-7 initialization");
         const auto original=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,28),in.statistics);
-        xeenValidateVertigoRoute(in.mainland,in.city);xeenValidateTrainingSource(in.chr);
-        std::vector<unsigned> sites{0,3,538,539};
-        for(unsigned n=760;n<=813;++n)sites.push_back(n);
-        for(unsigned n=816;n<=846;++n)sites.push_back(n);
-        for(unsigned site:sites)for(unsigned field=0;field<8;++field) {
-            auto altered=in.city;auto &r=altered.records[site];
-            switch(field){case 0:++r.fileOffset;break;case 1:++r.x;break;case 2:++r.y;break;case 3:r.direction^=1;break;
-                case 4:++r.line;break;case 5:r.opcode^=1;break;case 6:++r.lengthField;break;case 7:r.parameters.push_back(1);break;}
-            rejects([&]{xeenValidateVertigoRoute(in.mainland,altered);});
-        }
-        for(unsigned n=136;n<=139;++n){auto altered=in.mainland;altered.records[n].parameters.push_back(0);
-            rejects([&]{xeenValidateVertigoRoute(altered,in.city);});}
+        xeenValidateTrainingSource(in.chr);
         for(bool reset:{false,true}) {
             auto actors=original;auto source=base;
             if(reset) {
@@ -39,7 +28,8 @@ int main(int argc,char **argv) {
                 source.disabledEvents.push_back({28,764});
             }
             source.journey->vertigoActors.emplace();
-            for(const auto &a:actors)source.journey->vertigoActors->push_back({a.id,a.x,a.y,a.hp,a.activated,a.lifecycle,a.status,false});
+            for(const auto &a:actors)source.journey->vertigoActors->push_back({a.id,a.x,a.y,a.hp,a.activated,a.lifecycle,a.status,false,
+                a.id.recordIndex>=original.size() && a.original.hasResource()?std::int16_t(0):std::int16_t(-1)});
             Fixture fixture(in,source);const unsigned large=reset?36:35,small=reset?35:34;
             for(unsigned actor=0;actor<actors.size();++actor)for(unsigned field=0;field<5;++field) {
                 auto changed=actors;auto &a=changed[actor];
@@ -47,17 +37,15 @@ int main(int argc,char **argv) {
                     case 3:a.lifecycle=XeenActorLifecycle::Defeated;break;case 4:a.x=-128;break;}
                 rejects([&]{xeenValidateVertigoActors(fixture.w,changed);});
             }
-            // Required immutable union is checked even without a city camera.
-            for(const char *resource:{"maze0028.dat","mazex109.dat","mazex110.dat","mazex111.dat","maze0028.mob","maze0028.evt","aaze0028.txt",
-                "trng1.twn","train.icn","esc.icn","004.obj","006.obj","008.obj","009.obj","010.obj","011.obj","maze.chr"})
-                rejects([&]{xeenValidateVertigoManifest(fixture.w,in.city,in.statistics,[&](const auto &name){auto b=in.reader()(name);
-                    if(name==resource)b[b.size()/2]^=1;return b;});});
-            for(unsigned type:{0u,2u,73u}){auto statistics=in.statistics;statistics[type].raw[20]^=1;
-                rejects([&]{xeenValidateVertigoManifest(fixture.w,in.city,statistics,in.reader());});}
-            auto changed=actors;changed[small].hp=1;rejects([&]{xeenValidateVertigoActors(fixture.w,changed);});
+            auto changed=actors;changed[small].hp=changed[small].statistics->baseHp()+1;
+            rejects([&]{xeenValidateVertigoActors(fixture.w,changed);});
             auto atWall=actors[small];atWall.x=8;atWall.y=7;atWall.activated=true;
             check(xeenIndoorActorTerrain(fixture.w,atWall,9,7)==XeenMonsterTerrain::Blocked,"small Slime crossed wall 9");
-            for(int y=0;y<32;++y)for(int x=0;x<32;++x)if(xeenJourneyContent().vertigoCell(x,y))
+            // All cells/facings have an independent geometry oracle in
+            // XeenVertigoOriginal. Raster every resource-defined Event site
+            // through all existing animation phases without a route list.
+            for(int y=0;y<32;++y)for(int x=0;x<32;++x)
+                if(std::any_of(in.city.records.begin(),in.city.records.end(),[&](const auto &r){return r.x==x && r.y==y;}))
                 for(unsigned d=0;d<4;++d)for(unsigned phase=0;phase<8;++phase) {
                     const auto image=CloudsMapComposer().compose(in.assets,fixture.w,fixture.p,{28,x,y,static_cast<XeenDirection>(d)},
                         {610},nullptr,phase);

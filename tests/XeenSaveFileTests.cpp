@@ -182,7 +182,7 @@ void extendedIdentityTests(const fs::path &directory) {
 void legacyReplacement(const fs::path &path) {
  const auto current=sample(); const auto wire=XeenSaveFormat::encode(current);
  std::vector<Bytes> older{nonzeroLegacy()};
- for(unsigned version:{2u,3u}){auto bytes=wire;bytes[8]=version;older.push_back(bytes);}
+ for(unsigned version:{2u,3u,4u}){auto bytes=wire;bytes[8]=version;older.push_back(bytes);}
  const auto suffix=wire.size()-4278;
  for(unsigned content=1;content<14;++content){auto bytes=wire;bytes[suffix+1]=legacyJourneySchema(content);bytes[suffix+3]=content;fixIndependentEnvelope(bytes);older.push_back(bytes);}
  for(const auto &old:older) {
@@ -196,7 +196,7 @@ void legacyReplacement(const fs::path &path) {
  }
  for(unsigned mode=0;mode<6;++mode) {
   auto bad=wire;
-  switch(mode){case 0:bad[8]=5;break;case 1:bad[0]^=1;break;case 2:bad[8]=1;bad[16]^=1;break;
+  switch(mode){case 0:bad[8]=6;break;case 1:bad[0]^=1;break;case 2:bad[8]=1;bad[16]^=1;break;
    case 3:bad[suffix+3]=255;fixIndependentEnvelope(bad);break;case 4:bad[8]=2;bad.pop_back();break;
    case 5:bad[suffix+1]=8;bad[suffix+3]=14;fixIndependentEnvelope(bad);break;}
   put(path,bad);
@@ -245,7 +245,7 @@ int main(int argc,char **argv) {
   check(locked!=INVALID_HANDLE_VALUE,"could not exclusively lock target");
   rejects([&]{XeenSaveFile::read(path);}); CloseHandle(locked);
   for(auto bad:std::vector<Bytes>{{1,2,3},Bytes(XeenSaveFormat::kMaximumSize+1),prior}) {
-   if(bad==prior) bad[8]=5;
+   if(bad==prior) bad[8]=6;
    put(path,bad); rejects([&]{XeenSaveFile::write(path,old);});check(raw(path)==bad,"unknown file overwritten");
   }
   put(path,prior);

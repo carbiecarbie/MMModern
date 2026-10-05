@@ -203,9 +203,10 @@ private:
 	// Retained combat authorization, separate from domain validity.
 	std::function<bool()> _combatAuthorized;
 	XeenSessionWorldState _sessionState;
-	std::optional<XeenMonsterRecord> _vertigoSpawnSlime;
+	// Immutable loaded catalog for original and script-created city slots.
+	std::vector<XeenMonsterRecord> _cityStatistics;
+	XeenMutable<std::uint16_t> _cityOriginalActorCount=0;
 	// Derived from checked immutable city resources; never gameplay authority.
-	std::array<std::optional<std::bitset<2048>>,2> _vertigoClosure;
 	bool _detachedEventCandidate = false;
 	// Stable dependencies never contain a scoped RestoreGuard::Providers wrapper.
 	const MapLoader _baseLoader;

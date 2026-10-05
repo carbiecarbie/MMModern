@@ -12,7 +12,6 @@
 #include "games/xeen/XeenMapLoader.h"
 #include "games/xeen/XeenPartyLoader.h"
 #include "games/xeen/XeenSaveState.h"
-#include "games/xeen/XeenVertigoRoute.h"
 #include "platform/XeenSaveFile.h"
 #include <algorithm>
 #include <limits>
@@ -61,11 +60,6 @@ struct Inputs {
             xeenValidateRegionalManifest(map,mob,evt,mon,assets.readInitialResource("maze0023.dat"),
                 assets.readInitialResource("maze0023.mob"),assets.readInitialResource("maze0023.evt"));
         };
-        resources.vertigoManifest=[this](auto &world,const auto &evt,const auto &mon) {
-            xeenValidateVertigoManifest(world,evt,mon,[this](const std::string &name) {
-                return name.rfind("maze",0)==0 ? assets.readInitialResource(name) : assets.readArchiveResource(name);
-            });
-        };
     }
     auto mapLoader() {return [this](auto id) {return maps.loadGeometryMap(assets,id);};}
     auto objectLoader() {return [this](auto id) {return maps.loadObjects(assets,id);};}
@@ -92,7 +86,6 @@ struct Inputs {
         setup.regionalText=resources.loadRegionalText(23);
         setup.learnedNames=resources.loadLearnedSpellNames();
         setup.learnedNamesProvider=resources.loadLearnedSpellNames;
-        setup.vertigoManifest=resources.vertigoManifest;
         setup.cityEventsProvider=[this] {return resources.loadEvents(28);};
         XeenEncounterFlow flow(world,party,camera,flags,[]{return 0;},setup);
         present(flow);

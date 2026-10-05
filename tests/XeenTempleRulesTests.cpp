@@ -32,8 +32,8 @@ int main() {
 			"original zero-maximum-HP quote was rejected");
 		c.conditions[13]=0;
 		for(int y=0;y<32;++y)for(int x=0;x<32;++x)
-			check(xeenJourneyContent().eventCameraCell(x,y)==xeenJourneyContent().vertigoCell(x,y),
-				"Temple Event camera differs from its route");
+			check(xeenIndoorCoordinate(x,y),"Indoor coordinate capacity excludes a map cell");
+		check(!xeenIndoorCoordinate(-1,0)&&!xeenIndoorCoordinate(32,0),"Indoor coordinate capacity admits an invalid cell");
         for(unsigned cls=0;cls<10;++cls)for(unsigned permanent:{1u,3u,9u,255u})
             for(unsigned temporary:{0u,1u,255u}) {
                 c.characterClass=static_cast<XeenCharacterClass>(cls);

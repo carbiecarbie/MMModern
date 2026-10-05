@@ -3,7 +3,6 @@
 #include "games/xeen/XeenJourneyCapture.h"
 #include "games/xeen/XeenJourneyRules.h"
 #include "games/xeen/XeenIndoorScene.h"
-#include "games/xeen/XeenVertigoRoute.h"
 #include "games/xeen/XeenEventPublication.h"
 #include <sstream>
 #include <stdexcept>
@@ -191,7 +190,6 @@ void XeenEventFlow::prepareTraining() {
         _encounter->_trainingBoundary=[this](XeenTrainingBoundary stage){if(trainingBoundary)trainingBoundary(stage);};
         const bool admitted=_encounter->beginTraining([&] {
             if(!drawTrainingArt)throw std::runtime_error("Training artwork provider unavailable");
-            xeenValidateVertigoRoute(_events.scriptForMap(23).file(),_events.scriptForMap(28).file());
             const auto text=_events.textForMap(28);_encounter->journeySavePreimage().admitVertigoText(text);
             TrainingUi ui;ui.art=_frame;
             try {drawTrainingArt(ui.art);}catch(const std::invalid_argument &){_encounter->journeySavePreimage().failed=true;throw;}

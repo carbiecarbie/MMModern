@@ -8,6 +8,11 @@
 
 namespace mmodern {
 
+// Original DamageType values used by traps and giveCharDamage.
+enum class XeenDamageType : std::uint8_t {
+	Physical, Magical, Fire, Electrical, Cold, Poison, Energy
+};
+
 struct XeenCharacterRulesContext {
 	std::uint32_t currentYear = 0;
 };
@@ -33,6 +38,9 @@ public:
 	static int effectiveLuck(const XeenCharacter &, const XeenCombatInputs &);
 	static int equipmentBonus(const XeenCharacter &, int category);
 	static int poisonSaveValue(const XeenCharacter &, const XeenCombatInputs &);
+	static int damageSaveValue(const XeenCharacter &, const XeenCombatInputs &,
+		XeenDamageType, const XeenCharacterRulesContext &);
+	static int thievery(const XeenCharacter &);
 	static int combatArmorClass(const XeenCharacter &, const XeenCombatInputs &, const XeenCharacterRulesContext &);
 	// Preflight untrusted active-character values using the same calculations,
 	// with checked intermediates. Does not normalize or mutate the character.

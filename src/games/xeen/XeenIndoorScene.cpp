@@ -145,8 +145,8 @@ XeenIndoorScene::sampleWalls(XeenWorld &world, const XeenCamera &camera, bool sc
 		throw std::runtime_error("XeenIndoorScene requires an indoor map");
 	if (map.identity() != camera.mapId)
 		throw std::runtime_error("camera and map identities differ");
-	const int extent=sceneView || (world.regionalJourney() && camera.mapId==XeenMapIdentity(28)) ? 32 : 16;
-	if (camera.x < 0 || camera.x >= extent || camera.y < 0 || camera.y >= extent)
+	if (camera.x < 0 || camera.x >= 32 || camera.y < 0 || camera.y >= 32 ||
+		!world.sampleCell(camera.mapId,camera.x,camera.y))
 		throw std::runtime_error("camera is outside the indoor map");
 
 	const auto directionIndex = static_cast<std::size_t>(camera.direction);
@@ -177,9 +177,6 @@ XeenIndoorScene::sampleWalls(XeenWorld &world, const XeenCamera &camera, bool sc
 
 XeenActorView XeenIndoorScene::classifyActors(XeenWorld &world, const XeenCamera &camera,
 		const std::vector<XeenActor> &actors) const {
-	// Preserve existing city mechanic admission; scene projection is generic.
-	if(camera.mapId!=XeenMapIdentity(28))
-		throw std::invalid_argument("Indoor actor classification requires a bounded city collection");
 	return classifySceneActors(world,camera,actors,false);
 }
 XeenActorView XeenIndoorScene::classifySceneActors(XeenWorld &world,const XeenCamera &camera,

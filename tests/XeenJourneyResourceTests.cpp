@@ -9,7 +9,7 @@ int main(){try {
  XeenJourneySetup setup{bytes,XeenGameplayContextFormat::parse(pty()),mon,evt,56,r.regionalManifest};
  setup.purse=XeenMonsterTreasure{};setup.regionalRecovery=XeenRegionalRecoveryState{};
  setup.regionalText=regional_test::texts(23);setup.learnedNames=XeenLearnedSpellNames{};
- setup.learnedNamesProvider=r.loadLearnedSpellNames;setup.vertigoManifest=r.vertigoManifest;
+ setup.learnedNamesProvider=r.loadLearnedSpellNames;
  setup.bank=XeenBankBalances{};setup.cityEventsProvider=[]{return regional_test::events(28);};
  journey_resources_test::run([&]{return XeenPartyLoader().loadFromResources(bytes,pty());},setup,
   regional_test::map,regional_test::objects,regional_test::signature(),r);

@@ -113,24 +113,25 @@ void testIndoorCacheAndLocalSampling() {
 	std::map<mmodern::XeenMapIdentity, int> loads;
 	mmodern::XeenWorld world([&](mmodern::XeenMapIdentity id) {
 		++loads[id];
-		if (id == 33)
-			return indoorMapFixture(id);
-		throw std::runtime_error("vizinho interior nao deveria ser carregado");
+		auto map=indoorMapFixture(id);
+		if(id!=33)map.geometry.neighbors=std::array<std::uint16_t,4>{0,0,0,0};
+		return map;
 	});
 
 	const auto local = world.sampleCell(33, 4, 8);
-	requireSample(local, 33, 4, 8, "celula interior local nao foi retornada");
+	requireSample(local, 33, 4, 8, "Local indoor cell was not returned");
 	require(mmodern::wallAt(*local->cell, mmodern::XeenDirection::North) == 1 &&
 		mmodern::wallAt(*local->cell, mmodern::XeenDirection::East) == 2 &&
 		mmodern::wallAt(*local->cell, mmodern::XeenDirection::South) == 3 &&
 		mmodern::wallAt(*local->cell, mmodern::XeenDirection::West) == 4,
-		"wallAt nao selecionou as quatro direcoes");
-	require(!world.sampleCell(33, -1, 8) && !world.sampleCell(33, 16, 8) &&
-		!world.sampleCell(33, 4, -1) && !world.sampleCell(33, 4, 16),
-		"consulta interior fora de 0..15 deveria retornar vazio");
-	require(loads[33] == 1 && loads.find(115) == loads.end() &&
-		world.cachedMapCount() == 1,
-		"cache interior recarregou o mapa ou seguiu vizinho declarado");
+		"wallAt did not select all four faces");
+	requireSample(world.sampleCell(33,-1,8),4,15,8,"Indoor west neighbor differs");
+	requireSample(world.sampleCell(33,16,8),2,0,8,"Indoor east neighbor differs");
+	requireSample(world.sampleCell(33,4,-1),3,4,15,"Indoor south neighbor differs");
+	requireSample(world.sampleCell(33,4,16),115,4,0,"Indoor north neighbor differs");
+	require(!world.sampleCell(33,16,16),"Missing diagonal neighbor must return no cell");
+	require(loads[33]==1&&loads[115]==1&&loads[2]==1&&loads[3]==1&&loads[4]==1&&
+		world.cachedMapCount()==5,"Shared indoor sampling reloaded a cached resource");
 }
 
 void testRemovePreparationPublication() {

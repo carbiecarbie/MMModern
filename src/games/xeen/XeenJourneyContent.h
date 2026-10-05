@@ -4,19 +4,15 @@
 #include "games/xeen/XeenMovement.h"
 #include <array>
 namespace mmodern {
-// Immutable admission policy, never a gameplay owner.
+// Reference coordinate capacity. World resolves tile presence and passage.
+inline bool xeenIndoorCoordinate(int x,int y) noexcept { return x>=0 && x<32 && y>=0 && y<32; }
+// Immutable Journey setup, never a gameplay owner.
 struct XeenJourneyContent {
 	XeenCamera entry;
 	std::array<unsigned,19> records;
 	unsigned count;
 	std::uint16_t day;
 	XeenMovement::Capabilities traversal{};
-	bool vertigoCell(int x, int y) const noexcept {
-		return (x == 15 && y >= 0 && y <= 28) ||
-			(x == 16 && y >= 1 && y <= 4) || (y == 4 && x >= 8 && x <= 14) ||
-			(y == 7 && x >= 10 && x <= 14) || (x == 10 && y >= 8 && y <= 11);
-	}
-	bool eventCameraCell(int x, int y) const noexcept { return vertigoCell(x,y); }
 	bool influences(unsigned record) const noexcept {
 		for (unsigned i=0;i<count;++i) if (records[i]==record) return true;
 		return false;

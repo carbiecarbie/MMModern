@@ -91,13 +91,13 @@ XeenMonsterTerrain xeenRegionalActorTerrain(const XeenMap &map, const XeenActor 
 	}
 }
 XeenMonsterTerrain xeenIndoorActorTerrain(XeenWorld &world,const XeenActor &a,int x,int y) {
-	if(a.id.mapId!=XeenMapIdentity(28) || !a.statistics || !a.statistics->supportsGroundMovement() ||
+	if(!a.statistics || !a.statistics->supportsMovement() ||
 		a.original.resourceId==59)return XeenMonsterTerrain::Unsupported;
 	if(x<0 || x>=32 || y<0 || y>=32)return XeenMonsterTerrain::Blocked;
 	const int dx=x-a.x,dy=y-a.y;
 	if(std::abs(dx)+std::abs(dy)>1)return XeenMonsterTerrain::Unsupported;
 	if(!dx && !dy)return XeenMonsterTerrain::Allowed;
-	const auto cell=world.sampleCell(28,a.x,a.y);
+	const auto cell=world.sampleCell(a.id.mapId,a.x,a.y);
 	if(!cell || !cell->geometry || !xeenHolds<XeenIndoorWalls>(cell->cell->geometry))
 		return XeenMonsterTerrain::Unsupported;
 	const auto direction=dx>0?XeenDirection::East:dx<0?XeenDirection::West:
@@ -171,61 +171,11 @@ void xeenValidateRegionalActors(const XeenMap &map, const XeenObjectFile &mob, c
 }
 
 namespace mmodern {
-void xeenValidateVertigoManifest(XeenWorld &world, const XeenEventFile &events,
-		const std::vector<XeenMonsterRecord> &statistics,
-		const std::function<std::vector<std::uint8_t>(const std::string &)> &read) {
-	const auto checked=[&](const char *name, std::size_t size, std::uint32_t crc) {
-		auto bytes=read(name);
-		if (bytes.size()!=size || crc32(0,bytes.data(),static_cast<uInt>(bytes.size()))!=crc)
-			throw std::invalid_argument(std::string("Vertigo immutable resource mismatch: ")+name);
-		return bytes;
-	};
-	struct Tile {unsigned id;const char *name;std::uint32_t crc;};
-	constexpr Tile tiles[]={{28,"maze0028.dat",0x1399bb82},{109,"mazex109.dat",0xdec2f1e2},
-		{110,"mazex110.dat",0x7bd43d60},{111,"mazex111.dat",0xb5351545}};
-	for (const auto &tile:tiles) {
-		XeenMap expected;expected.geometry=XeenMapFormat::parseDat(checked(tile.name,892,tile.crc));
-		if (!xeen_state::sameMap(world.map(tile.id),expected))
-			throw std::invalid_argument("Vertigo typed geometry differs from immutable resource");
-	}
-	const auto &mob=world.objectFile(28);
-	if (mob.mapId!=XeenMapIdentity(28) || mob.resourceName!="maze0028.mob" || !mob.resourcePresent ||
-		!xeen_state::sameEntities(mob.entities,XeenMapFormat::parseMob(checked("maze0028.mob",820,0xd2612605))))
-		throw std::invalid_argument("Vertigo typed MOB differs from immutable resource");
-	const auto records=XeenEventFormat::parse(checked("maze0028.evt",7298,0x28b6c20b));
-	if (events.mapId!=XeenMapIdentity(28) || events.resourceName!="maze0028.evt" || !events.resourcePresent || records.size()!=events.records.size())
-		throw std::invalid_argument("Vertigo Event identity differs from immutable resource");
-	for (unsigned i=0;i<records.size();++i) {
-		const auto &a=records[i],&b=events.records[i];
-		if (a.fileOffset!=b.fileOffset || a.lengthField!=b.lengthField || a.x!=b.x || a.y!=b.y ||
-			a.direction!=b.direction || a.line!=b.line || a.opcode!=b.opcode || a.parameters!=b.parameters)
-			throw std::invalid_argument("Vertigo typed Event differs from immutable resource");
-	}
-	checked("aaze0028.txt",3014,0x8dc60e26);
-	{
-		xeenValidateTrainingSource(checked("maze.chr",10620,0x81a2dd16));
-		checked("trng1.twn",27998,0xa4e3bbdb);checked("train.icn",1614,0x76c6ac78);
-		checked("esc.icn",792,0x096b68b7);
-		checked("004.obj",3159,0xbf5e5f91);checked("006.obj",5534,0x4eb51842);
-		checked("008.obj",18331,0xff9b7e6d);checked("009.obj",12450,0x3deef973);
-		checked("010.obj",4340,0xbc3a2ad6);checked("011.obj",7355,0x9eea738b);
-	}
-	{
-		checked("tmpl1.twn",21187,0xb9ffe574);
-		checked("002.obj",6771,0xe75e3929);
-		checked("012.obj",24366,0xdd0c8515);
-	}
-	constexpr unsigned types[]{0,2,73};
-	constexpr std::uint32_t checksums[]{0x4743814e,0xf9c6fa54,0xd14e5e01};
-	for (unsigned i=0;i<3;++i)
-		if (statistics.size()<=types[i] || statistics[types[i]].fingerprint()!=checksums[i])
-			throw std::invalid_argument("Vertigo monster statistics manifest mismatch");
-}
 XeenRegionalOpportunityCandidate::XeenRegionalOpportunityCandidate(XeenWorld &world,
 		const std::vector<XeenActor> &before,const XeenCamera &c,const XeenConsequenceCharacters &p,
 		const XeenConsequenceInputs &i,unsigned y,unsigned mask,const std::array<bool,6> &b) :
 		characters(p),camera(c),inputs(i),year(y),participantMask(mask),blocked(b),indoorWorld(&world) {
-	if(c.mapId!=XeenMapIdentity(28) || mask>0x3f)
+	if(world.map(c.mapId).geometry.isOutdoors() || mask>0x3f)
 		throw std::invalid_argument("Invalid indoor opportunity");
 	actors=XeenActorApproach::move(before,c,[&](const XeenActor &a,int x,int z) {
 		return xeenIndoorActorTerrain(world,a,x,z);

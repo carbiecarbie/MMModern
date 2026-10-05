@@ -68,10 +68,10 @@ inline void sameSnapshot(const XeenSaveSnapshot &a, const XeenSaveSnapshot &b) {
 				p.lifecycle==q.lifecycle&&p.status==q.status&&p.accounted==q.accounted,"Journey actor record changed");
 		}
 		if (x.vertigoActors) {
-			check(x.vertigoActors->size()==y.vertigoActors->size(),"Journey city actor count changed");
+			check(x.vertigoActors->size()==y.vertigoActors->size()&&x.cityOriginalActorCount==y.cityOriginalActorCount,"Journey city actor count changed");
 			for(std::size_t i=0;i<x.vertigoActors->size();++i) {const auto &p=(*x.vertigoActors)[i],&q=(*y.vertigoActors)[i];
 				check(p.id==q.id&&p.x==q.x&&p.y==q.y&&p.hp==q.hp&&p.activated==q.activated&&
-					p.lifecycle==q.lifecycle&&p.status==q.status&&p.accounted==q.accounted,"Journey city actor record changed");
+					p.lifecycle==q.lifecycle&&p.status==q.status&&p.accounted==q.accounted&&p.spawnedType==q.spawnedType,"Journey city actor record changed");
 			}
 		}
 	}

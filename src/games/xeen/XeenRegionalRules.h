@@ -22,11 +22,6 @@ std::optional<std::int16_t> xeenWellHpAfter(std::int16_t before) noexcept;
 void xeenValidateRegionalActors(const XeenMap &, const XeenObjectFile &, const std::vector<XeenActor> &,
 	const std::set<XeenMonsterIdentity> &accounted);
 void xeenValidateVertigoActors(XeenWorld &, const std::vector<XeenActor> &);
-using XeenVertigoManifest = std::function<void(XeenWorld &, const XeenEventFile &,
-	const std::vector<XeenMonsterRecord> &)>;
-void xeenValidateVertigoManifest(XeenWorld &, const XeenEventFile &,
-	const std::vector<XeenMonsterRecord> &,
-	const std::function<std::vector<std::uint8_t>(const std::string &)> &);
 using XeenRegionalManifest = std::function<void(const XeenMap &, const XeenObjectFile &,
 	const XeenEventFile &, const std::vector<XeenMonsterRecord> &)>;
 void xeenValidateRegionalManifest(const XeenMap &, const XeenObjectFile &, const XeenEventFile &,

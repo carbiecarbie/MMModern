@@ -153,7 +153,6 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    if (!value) value = 1;
    journeySetup.emplace(XeenJourneySetup{journeyCharacters,services.resources.loadInitialContext(),journeyStatistics,encounterEvents,value});
    journeySetup->regionalManifest=services.resources.regionalManifest;
-   journeySetup->vertigoManifest=services.resources.vertigoManifest;
 	journeySetup->cityEventsProvider=[&] { return services.resources.loadEvents(28); };
    {
     if (!services.resources.loadInitialBankBalances) throw std::invalid_argument("Missing original bank provider");

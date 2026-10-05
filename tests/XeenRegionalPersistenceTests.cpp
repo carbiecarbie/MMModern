@@ -24,7 +24,7 @@ Bytes suffix(const XeenSaveSnapshot &s){
  b.push_back(j.regionalRecovery->worldFlag16);b.push_back(30);
  for(unsigned owner=0;owner<30;++owner){b.push_back(owner);for(unsigned slot=0;slot<39;++slot)b.push_back(owner==2?0:owner==29&&slot==38?255:std::uint8_t(owner*7+slot*3));}
  b.push_back(30);for(unsigned owner=0;owner<30;++owner)b.insert(b.end(),{std::uint8_t(owner),std::uint8_t(owner),std::uint8_t(255-owner)});
- b.push_back(j.vertigoActors.has_value());if(j.vertigoActors){put(b,46,2);put(b,j.vertigoActors->size(),2);for(const auto &a:*j.vertigoActors)actor(a);}
+ b.push_back(j.vertigoActors.has_value());if(j.vertigoActors){put(b,j.cityOriginalActorCount,2);put(b,j.vertigoActors->size(),2);for(const auto &a:*j.vertigoActors){actor(a);put(b,std::uint16_t(a.spawnedType),2);}}
  b.insert(b.end(),{2,4,4,9});for(const auto &side:j.serviceEconomy->wares.records)for(const auto &shop:side)for(const auto &category:shop)for(const auto &item:category)b.insert(b.end(),{item.material,item.id,item.state,item.frame});
  put(b,0xfedcba98u,4);put(b,0xffffffffu,4);return b;
 }
@@ -56,7 +56,11 @@ int main(){try{
  verify(maximum);maximum.journey->treasure=xeenPrepareMonsterGoldForfeiture(mt);verify(maximum);
  auto city=populated;city.camera={28,16,2,XeenDirection::North};city.journey->vertigoActors.emplace();
  for(unsigned i=0;i<46;++i)city.journey->vertigoActors->push_back({{28,i},int(i%16),int(i/16),2,false,XeenActorLifecycle::Present,XeenActorStatus::Physical,false});verify(city);
- auto reset=city;reset.disabledEvents={{28,764}};for(unsigned i=46;i<52;++i)reset.journey->vertigoActors->push_back({{28,i},0,0,i<50?0:2,false,i<50?XeenActorLifecycle::Unresolved:XeenActorLifecycle::Present,XeenActorStatus::Physical,false});verify(reset);
+ auto reset=city;reset.disabledEvents={{28,764}};for(unsigned i=46;i<52;++i)reset.journey->vertigoActors->push_back({{28,i},0,0,i<50?0:2,false,i<50?XeenActorLifecycle::Unresolved:XeenActorLifecycle::Present,XeenActorStatus::Physical,false,i<50?std::int16_t(-1):std::int16_t(0)});verify(reset);
+ for(unsigned slot:{50u,51u}) {
+  auto bad=reset;bad.journey->vertigoActors->at(slot).spawnedType=1;
+  rejects([&]{XeenSaveFormat::encode(bad);});
+ }
  auto flagged=populated;flagged.journey->regionalRecovery->worldFlag16=true;verify(flagged);
  const auto bytes=XeenSaveFormat::encode(populated);const auto offset=baseSize(populated);
  const auto badByte=[&](unsigned at,unsigned value){auto b=bytes;b[offset+at]=value;fixIndependentEnvelope(b);rejects([&]{XeenSaveFormat::decode(b);});};
@@ -73,7 +77,7 @@ int main(){try{
   rejects([&]{XeenSaveFormat::encode(bad);});}
  for(const auto &source:{s,city,reset})for(unsigned record:{0u,539u,761u,764u}){
   auto bad=source;if(record==0)bad.disabledObjects={{28,0}};else bad.disabledEvents={{28,record}};
-  if(record==764&&source.journey->vertigoActors)verify(bad);else rejects([&]{XeenSaveFormat::encode(bad);});
+  if(record!=0&&source.journey->vertigoActors)verify(bad);else rejects([&]{XeenSaveFormat::encode(bad);});
  }
  std::cout<<"Current regional literal wire, all city variants, treasure, learned fields and malformed controls passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

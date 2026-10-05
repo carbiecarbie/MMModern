@@ -3,7 +3,6 @@
 #include "games/xeen/XeenJourneyCapture.h"
 #include "games/xeen/XeenJourneyRules.h"
 #include "games/xeen/XeenIndoorScene.h"
-#include "games/xeen/XeenVertigoRoute.h"
 #include "games/xeen/XeenEventPublication.h"
 #include <stdexcept>
 #include <sstream>
@@ -445,8 +444,6 @@ void XeenEventFlow::prepareSmith() {
 				throw std::runtime_error("Service artwork provider is unavailable");
 			const auto events=_events.scriptForMap(28).file();
 			const auto mainland=_events.scriptForMap(23).file();
-			try { xeenValidateVertigoRoute(mainland,events); }
-            catch (const std::invalid_argument &) { _encounter->journeySavePreimage().failed=true;throw; }
 			const auto text=_events.textForMap(28);
 			_encounter->journeySavePreimage().admitVertigoText(text);
 			SmithUi ui;ui.catalog=_catalog;ui.art=_frame;

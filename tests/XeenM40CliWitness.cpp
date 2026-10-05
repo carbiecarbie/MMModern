@@ -76,7 +76,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     const auto count=[&](auto fn){return [fn=std::move(fn),&providerCalls](auto &&...args)->decltype(auto){++providerCalls;return fn(std::forward<decltype(args)>(args)...);};};
 #define M40_COUNT(field) if(services.field)services.field=count(services.field)
     M40_COUNT(resources.loadInitialParty);M40_COUNT(resources.loadInitialCharacters);M40_COUNT(resources.loadInitialContext);
-    M40_COUNT(resources.loadEvents);M40_COUNT(resources.loadMonsterStatistics);M40_COUNT(resources.regionalManifest);M40_COUNT(resources.vertigoManifest);
+    M40_COUNT(resources.loadEvents);M40_COUNT(resources.loadMonsterStatistics);M40_COUNT(resources.regionalManifest);
     M40_COUNT(resources.loadInitialPurse);M40_COUNT(resources.loadInitialRegionalRecovery);M40_COUNT(resources.loadRegionalText);M40_COUNT(resources.loadLearnedSpellNames);
     M40_COUNT(maps);M40_COUNT(objects);M40_COUNT(texts);M40_COUNT(compose);M40_COUNT(npcDraw);
     M40_COUNT(validateEncounterSprite);M40_COUNT(validateCombatSprite);M40_COUNT(sampleJourneySeed);

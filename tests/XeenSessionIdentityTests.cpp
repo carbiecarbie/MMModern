@@ -77,8 +77,10 @@ void worldLifetimeAndNavigation() {
 		for (auto &cell : result.geometry.cells) cell.geometry = XeenIndoorWalls{};
 		return result;
 	});
-	check(indoor.sampleCell(dark, 4, 4)->mapId == dark && !indoor.sampleCell(dark, -1, 4) &&
-		indoorLoads == 1, "indoor sampling lost side or followed neighbors");
+	const auto west=indoor.sampleCell(dark,-1,4);
+	check(indoor.sampleCell(dark,4,4)->mapId==dark&&west&&
+		west->mapId==XeenMapIdentity{XeenSide::Darkside,5}&&west->x==15&&west->y==4&&
+		indoorLoads==2,"Indoor neighbor sampling lost side, tile identity or local coordinates");
 	XeenWorld wrong([](XeenMapIdentity id) { return map(XeenMapIdentity{id.number}); });
 	bool rejected = false;
 	try { wrong.map(dark); } catch (const std::runtime_error &) { rejected = true; }

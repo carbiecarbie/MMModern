@@ -331,7 +331,7 @@ void initializationAliases() {
     XeenJourneySetup setup{bytes,XeenGameplayContextFormat::parse(regional_test::partyBytes()),monsters,event,56,r.regionalManifest};
     setup.purse=XeenMonsterTreasure{};setup.regionalRecovery=XeenRegionalRecoveryState{};setup.regionalText=regional_test::texts(23);
     setup.learnedNames=XeenLearnedSpellNames{};setup.learnedNamesProvider=r.loadLearnedSpellNames;
-    setup.vertigoManifest=r.vertigoManifest;setup.bank=XeenBankBalances{};setup.cityEventsProvider=[]{return regional_test::events(28);};
+    setup.bank=XeenBankBalances{};setup.cityEventsProvider=[]{return regional_test::events(28);};
     XeenWorld world([&](auto id){setup.context.minutes=960;bytes[348]=99;monsters.clear();return regional_test::map(id);},regional_test::objects);
     XeenEventPresenter::Clock clock=[]{return 0;};
     XeenEncounterFlow flow(world,party,camera,flags,clock,setup);

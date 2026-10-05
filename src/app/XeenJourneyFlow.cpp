@@ -4,7 +4,6 @@
 #include "games/xeen/XeenInventoryState.h"
 #include "games/xeen/XeenJourneyProgression.h"
 #include "games/xeen/XeenTraining.h"
-#include "games/xeen/XeenVertigoRoute.h"
 #include "games/xeen/XeenCombatRules.h"
 #include <limits>
 #include <algorithm>
@@ -31,7 +30,6 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 	const auto learnedNames=setup.learnedNames;
 	const auto bank=setup.bank;
 	_journeyEvents = setup.events;
-	_vertigoManifest = setup.vertigoManifest;
 	_journeyCapture.reset(new XeenJourneyCapture(w,p,c,_state,_boundary,_busy,_journeyPreimage));
 	if (w.hasEncounterState() || p.roster.combatMarked() || p.encounterContext || w._combatCheck || w._combatAuthorized)
 		throw std::invalid_argument("Journey requires fresh uncoordinated owners");
@@ -84,10 +82,9 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 		_journeyPreimage->adoptJourneyCoordination();
 		{
 			XeenRestoreGuard::Providers providers(*_journeyPreimage,w);
-			if(!_vertigoManifest)throw std::invalid_argument("Missing Training resource manifest");
 			const auto cityEvents=setup.cityEventsProvider ? setup.cityEventsProvider() : XeenEventFile{};
-			_vertigoManifest(w,cityEvents,_journeyStatistics);
-			xeenValidateVertigoRoute(_events,cityEvents);
+			if(!cityEvents.resourcePresent || cityEvents.mapId!=XeenMapIdentity(28))
+				throw std::invalid_argument("Missing city Event resource");
 			_journeyPreimage->check();
 		}
 		_journeyCapture->generation=_boundary.generation();
@@ -111,7 +108,6 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 	_journeyCapture->bind(w,p,c,_state,_boundary,_busy,_journeyPreimage);
 	_journeyStatistics.swap(binding->statistics); std::swap(_journeyEvents,binding->events);
 	_learnedNamesProvider.swap(binding->learnedNamesProvider);
-	_vertigoManifest.swap(binding->vertigoManifest);
 	_journeyPreimage.swap(binding->guard);
 	_state._world = &w; _state._party = &p; _state._camera = &c; _state._revision = 1;
 	w._sessionState._journeyOwner = this; w._sessionState._combatApproachState = &_state;

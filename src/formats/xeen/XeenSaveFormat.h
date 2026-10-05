@@ -22,7 +22,8 @@ public:
 
 class XeenSaveFormat {
 public:
-	static constexpr std::uint16_t kJourneyVersion = 4;
+	// M50 Part A widens actor/overlay semantics; wall overrides also use v5.
+	static constexpr std::uint16_t kJourneyVersion = 5;
 	static constexpr std::uint16_t kJourneySchema = 9;
 	static constexpr std::uint16_t kJourneyContent = 14;
 	static constexpr std::size_t kHeaderSize = 20;

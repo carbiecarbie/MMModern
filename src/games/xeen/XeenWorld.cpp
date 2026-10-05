@@ -229,71 +229,22 @@ void XeenWorld::discardMapCache() {
 
 std::optional<XeenCellSample> XeenWorld::sampleCell(
 		XeenMapIdentity mapId, int x, int y) {
-	// The original outdoor view only resolves the 3x3 map neighborhood.
-	if (x < -16 || x >= 32 || y < -16 || y >= 32)
-		return std::nullopt;
-
-	const XeenMap *current = &map(mapId);
-	if (!current->geometry.isOutdoors()) {
-		if (mapId == XeenMapIdentity(28) && regionalJourney()) {
-			if (x < 0 || x >= 32 || y < 0 || y >= 32) return std::nullopt;
-			const unsigned tile = y >= 16 ? (x >= 16 ? 111 : 110) : (x >= 16 ? 109 : 28);
-			current = &map({mapId.side, static_cast<std::uint16_t>(tile)});
-			const auto &g = current->geometry;
-			const std::array<std::uint16_t,4> expected = tile == 28 ?
-				std::array<std::uint16_t,4>{110,109,0,0} : tile == 109 ?
-				std::array<std::uint16_t,4>{111,0,0,28} : tile == 110 ?
-				std::array<std::uint16_t,4>{0,111,28,0} :
-				std::array<std::uint16_t,4>{0,0,109,110};
-			if (g.isOutdoors() || g.neighbors != expected)
-				throw std::runtime_error("Vertigo logical tile topology changed");
-			const auto index = static_cast<std::size_t>(y % 16) * 16 + static_cast<std::size_t>(x % 16);
-			return XeenCellSample{mapId, x, y, &g, &g.cells[index]};
-		}
-		// Interior exits are event-driven. Declared neighbors deliberately do not
-		// extend the coordinate plane until that behavior has its own milestone.
-		if (x < 0 || x >= 16 || y < 0 || y >= 16)
-			return std::nullopt;
-		const auto index = static_cast<std::size_t>(y) * XeenMapGeometry::kWidth +
-			static_cast<std::size_t>(x);
-		return XeenCellSample{current->identity(), x, y,
-			&current->geometry, &current->geometry.cells[index]};
+	// Gameplay, scene projection and rays share Map::getCell's Y-before-X
+	// neighbor resolution. The sample retains its physical tile identity; the
+	// caller's logical camera/actor map is never changed by this lookup.
+	if(x < -16 || x >=32 || y < -16 || y>=32) return std::nullopt;
+	const auto *current=&map(mapId);
+	if(y<0 || y>=16) {
+		const auto next=current->geometry.neighbors[y<0?2:0];
+		if(!next) return std::nullopt;
+		y+=y<0?16:-16;current=&map({mapId.side,next});
 	}
-	if (y < 0) {
-		const std::uint16_t neighbor = current->geometry.neighbors[2]; // South.
-		if (!neighbor)
-			return std::nullopt;
-		y += 16;
-		current = &map({mapId.side, neighbor});
-	} else if (y >= 16) {
-		const std::uint16_t neighbor = current->geometry.neighbors[0]; // North.
-		if (!neighbor)
-			return std::nullopt;
-		y -= 16;
-		current = &map({mapId.side, neighbor});
+	if(x<0 || x>=16) {
+		const auto next=current->geometry.neighbors[x<0?3:1];
+		if(!next) return std::nullopt;
+		x+=x<0?16:-16;current=&map({mapId.side,next});
 	}
-
-	// Match Map::getCell(): resolve Y before resolving X, including diagonals.
-	if (x < 0) {
-		const std::uint16_t neighbor = current->geometry.neighbors[3]; // West.
-		if (!neighbor)
-			return std::nullopt;
-		x += 16;
-		current = &map({mapId.side, neighbor});
-	} else if (x >= 16) {
-		const std::uint16_t neighbor = current->geometry.neighbors[1]; // East.
-		if (!neighbor)
-			return std::nullopt;
-		x -= 16;
-		current = &map({mapId.side, neighbor});
-	}
-
-	if (x < 0 || x >= 16 || y < 0 || y >= 16)
-		return std::nullopt;
-	const auto index = static_cast<std::size_t>(y) * XeenMapGeometry::kWidth +
-		static_cast<std::size_t>(x);
-	return XeenCellSample{current->identity(), x, y,
-		&current->geometry, &current->geometry.cells[index]};
+	return XeenCellSample{current->identity(),x,y,&current->geometry,&current->geometry.cells[y*16+x]};
 }
 
 std::unique_ptr<XeenWorld> XeenWorld::transitionCandidate() const {
@@ -306,8 +257,8 @@ std::unique_ptr<XeenWorld> XeenWorld::transitionCandidate() const {
 	candidate->_sessionState._entry=XeenEncounterEntry::Ordinary;
 	candidate->_detachedEventCandidate=true;
 	candidate->_maps=_maps;candidate->_objects=_objects;
-	candidate->_vertigoSpawnSlime=_vertigoSpawnSlime;
-	candidate->_vertigoClosure=_vertigoClosure;
+	candidate->_cityStatistics=_cityStatistics;
+	candidate->_cityOriginalActorCount=_cityOriginalActorCount;
 	return candidate;
 }
 
@@ -335,8 +286,8 @@ void XeenWorld::publishTransition(XeenWorld &candidate) noexcept {
 	_sessionState._accountedMonsters.swap(candidate._sessionState._accountedMonsters);
 	_sessionState._events.swap(candidate._sessionState._events);
 	_sessionState._objects.swap(candidate._sessionState._objects);
-	_vertigoSpawnSlime.swap(candidate._vertigoSpawnSlime);
-	_vertigoClosure.swap(candidate._vertigoClosure);
+	_cityStatistics.swap(candidate._cityStatistics);
+	std::swap(_cityOriginalActorCount,candidate._cityOriginalActorCount);
 	_maps.swap(candidate._maps);_objects.swap(candidate._objects);
 	++_ownerRevision;
 }

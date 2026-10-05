@@ -59,7 +59,7 @@ std::pair<int, int> directionDelta(XeenDirection direction) {
 	case XeenDirection::South: return {0, -1};
 	case XeenDirection::West:  return {-1, 0};
 	}
-	throw std::runtime_error("direcao de camera invalida");
+	throw std::runtime_error("Invalid camera direction");
 }
 
 XeenDirection opposite(XeenDirection direction) {
@@ -86,45 +86,24 @@ XeenMovementResult applyOutdoor(XeenWorld &world, XeenCamera &camera,
 }
 
 XeenMovementResult applyIndoor(XeenWorld &world, XeenCamera &camera,
-		const XeenMapGeometry &geometry, XeenDirection effectiveDirection) {
+		XeenDirection effectiveDirection) {
 	const auto delta = directionDelta(effectiveDirection);
 	const int targetX = camera.x + delta.first;
 	const int targetY = camera.y + delta.second;
-	const bool vertigo = camera.mapId == XeenMapIdentity(28) && world.regionalJourney();
-	if (vertigo) {
-		if (!xeenJourneyContent().vertigoCell(targetX,targetY))
-			return XeenMovementResult::BlockedByMapBoundary;
-		const auto source = world.sampleCell(camera.mapId,camera.x,camera.y);
-		const auto target = world.sampleCell(camera.mapId,targetX,targetY);
-		if (!source || !target) return XeenMovementResult::BlockedByMapBoundary;
-		if (wallAt(*source->cell,effectiveDirection) >= source->geometry->difficulties[0])
-			return XeenMovementResult::BlockedByWall;
-		if (target->cell->surfaceIndex == 4) return XeenMovementResult::BlockedBySurface;
-		camera.x=targetX;camera.y=targetY;
-		return XeenMovementResult::Moved;
-	}
-	// Interior exits are event-driven. They do not use the neighbor plane here.
-	if (targetX < 0 || targetX >= 16 || targetY < 0 || targetY >= 16)
+	// Indoor neighbors extend the logical coordinate plane; only Events may
+	// change its gameplay map identity. Geometry lookups retain physical tiles.
+	if (targetX < 0 || targetX >= 32 || targetY < 0 || targetY >= 32)
 		return XeenMovementResult::BlockedByMapBoundary;
-
-	const std::size_t currentIndex = static_cast<std::size_t>(camera.y) *
-		XeenMapGeometry::kWidth + static_cast<std::size_t>(camera.x);
-	const std::uint8_t wall = wallAt(geometry.cells[currentIndex], effectiveDirection);
-	if (wall >= geometry.difficulties[0])
+	const auto source = world.sampleCell(camera.mapId,camera.x,camera.y);
+	const auto target = world.sampleCell(camera.mapId,targetX,targetY);
+	if (!source || !target) return XeenMovementResult::BlockedByMapBoundary;
+	if (!xeenHolds<XeenIndoorWalls>(source->cell->geometry) ||
+		!xeenHolds<XeenIndoorWalls>(target->cell->geometry))
+		throw std::runtime_error("Outdoor cell found in an indoor logical map");
+	if (wallAt(*source->cell,effectiveDirection) >= source->geometry->difficulties[0])
 		return XeenMovementResult::BlockedByWall;
-
-	const auto target = world.sampleCell(camera.mapId, targetX, targetY);
-	if (!target)
-		return XeenMovementResult::BlockedByMapBoundary;
-	if (!xeenHolds<XeenIndoorWalls>(target->cell->geometry))
-		throw std::runtime_error("celula exterior encontrada em mapa interior");
-	if (target->cell->surfaceIndex == 4)
-		return XeenMovementResult::BlockedBySurface;
-
-	XeenCamera destination = camera;
-	destination.x = targetX;
-	destination.y = targetY;
-	camera = destination;
+	if (target->cell->surfaceIndex == 4) return XeenMovementResult::BlockedBySurface;
+	camera.x=targetX;camera.y=targetY;
 	return XeenMovementResult::Moved;
 }
 
@@ -180,10 +159,10 @@ XeenMovementResult XeenMovement::apply(XeenWorld &world, XeenCamera &camera,
 		NavigationAction action) const {
 	const XeenMap &currentMap = world.map(camera.mapId);
 	if (camera.mapId != currentMap.identity())
-		throw std::runtime_error("camera e mapa possuem IDs diferentes");
-	const bool vertigo = camera.mapId == XeenMapIdentity(28) && world.regionalJourney();
-	if (camera.x < 0 || camera.x >= (vertigo ? 32 : 16) || camera.y < 0 || camera.y >= (vertigo ? 32 : 16))
-		throw std::runtime_error("camera invalida antes do movimento");
+		throw std::runtime_error("Camera and map identities differ");
+	const bool indoor = !currentMap.geometry.isOutdoors();
+	if (camera.x < 0 || camera.x >= (indoor ? 32 : 16) || camera.y < 0 || camera.y >= (indoor ? 32 : 16))
+		throw std::runtime_error("Invalid camera before movement");
 
 	if (action == NavigationAction::TurnLeft) {
 		camera.direction = turnLeft(camera.direction);
@@ -198,7 +177,7 @@ XeenMovementResult XeenMovement::apply(XeenWorld &world, XeenCamera &camera,
 		action == NavigationAction::MoveBackward ? opposite(camera.direction) : XeenDirection(camera.direction);
 	if (currentMap.geometry.isOutdoors())
 		return applyOutdoor(world, camera, effectiveDirection);
-	return applyIndoor(world, camera, currentMap.geometry, effectiveDirection);
+	return applyIndoor(world, camera, effectiveDirection);
 }
 
 } // namespace mmodern

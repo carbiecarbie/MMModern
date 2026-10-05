@@ -32,9 +32,9 @@ struct XeenMonsterRecord {
 	unsigned animationEffect() const { return raw[49]; }
 	bool flying() const { return raw[46] != 0; }
 	void validateCombat() const;
-	// Existing poison combat admission is intentionally unchanged. Presentation
-	// uses validatePresentation and sprite validation, never this fingerprint.
-	void validateAdmittedPoisonCombat() const;
+	// Supported attack semantics, independent of species/resource identity and
+	// animation metadata. Call before selecting targets or consuming RNG.
+	void validateAttackCapabilities() const;
 	std::uint32_t fingerprint() const;
 	unsigned armorClass() const { return raw[22]; }
 	unsigned speed() const { return raw[23]; }

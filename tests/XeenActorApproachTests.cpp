@@ -130,7 +130,7 @@ void nestedInitialization(){for(bool mutation:{false,true}){
     const auto resources=regional_test::resources();auto monsters=regional_test::statistics();auto event=regional_test::events(23);
     XeenJourneySetup setup{bytes,XeenGameplayContextFormat::parse(regional_test::partyBytes()),monsters,event,1,resources.regionalManifest};
     setup.purse=XeenMonsterTreasure{};setup.regionalRecovery=XeenRegionalRecoveryState{};setup.regionalText=regional_test::texts(23);
-    setup.learnedNames=XeenLearnedSpellNames{};setup.learnedNamesProvider=resources.loadLearnedSpellNames;setup.vertigoManifest=resources.vertigoManifest;
+    setup.learnedNames=XeenLearnedSpellNames{};setup.learnedNamesProvider=resources.loadLearnedSpellNames;
     setup.bank=XeenBankBalances{};setup.cityEventsProvider=[]{return regional_test::events(28);};
     XeenEventPresenter::Clock clock=[]{return 0;};bool fired=false;XeenWorld *world=nullptr;
     XeenWorld w([&](auto id){if(!fired){fired=true;if(mutation)++p.roster.at(0).currentHp;else rejects([&]{XeenEncounterFlow nested(*world,p,camera,flags,clock,setup);},"fresh");}return regional_test::map(id);},regional_test::objects);world=&w;

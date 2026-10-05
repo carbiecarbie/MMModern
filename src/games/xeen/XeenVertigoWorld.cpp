@@ -23,12 +23,8 @@ void XeenWorld::stageVertigoActors(const XeenObjectFile &mob,
 		_sessionState._vertigoActors || mob.mapId!=XeenMapIdentity(28))
 		throw std::logic_error("Vertigo actor staging is unavailable");
 	auto actors=XeenActorApproach::actorsFromResources(mob,statistics);
-	if (actors.size()!=46 || statistics.empty() || actors[35].original.resourceId!=0 ||
-		actors[35].original.x!=15 || actors[35].original.y!=4 ||
-		statistics[0].image()!=0 || statistics[0].baseHp()!=2)
-		throw std::invalid_argument("Original Vertigo actor catalog changed");
-	statistics[0].validateAdmittedPoisonCombat();
-	_vertigoSpawnSlime=statistics[0];
+	_cityStatistics=statistics;
+	_cityOriginalActorCount=static_cast<std::uint16_t>(mob.entities.monsters.size());
 	xeenValidateVertigoActors(*this,actors);
 	_sessionState._vertigoActors.emplace(std::move(actors));
 }
@@ -36,116 +32,72 @@ void XeenWorld::stageVertigoActors(const XeenObjectFile &mob,
 void XeenWorld::applySpawn(std::uint8_t slot, int x, int y, std::uint8_t) {
 	XeenMutationWatch::write(this);
 	if (_sessionState._entry!=XeenEncounterEntry::Ordinary ||
-		!_sessionState._vertigoActors || x<0 || x>=32 || y<0 || y>=32 ||
-		!(slot<=40 || slot==50 || slot==51))
-		throw std::invalid_argument("Spawn is outside the admitted city reset");
+		!_sessionState._vertigoActors || !xeenIndoorCoordinate(x,y) ||
+		slot>=XeenActorApproach::kCapacity || _cityStatistics.empty())
+		throw std::invalid_argument("Invalid Spawn operands or owner");
 	auto &actors=*_sessionState._vertigoActors;
-	if (slot>=50 && actors.size()==46) {
-		if (!_vertigoSpawnSlime) throw std::logic_error("Script-created Slime descriptor is absent");
-		actors.reserve(52);
-		for (unsigned i=46;i<52;++i) {
-			XeenActor a;a.id={28,i};a.original={};a.original.x=a.original.y=0;
-			a.x=a.y=0;
-			if (i>=50) {a.original.resourceId=0;a.statistics=*_vertigoSpawnSlime;}
-			actors.push_back(std::move(a));
-		}
+	while(actors.size()<=slot) {
+		XeenActor a;a.id={28,actors.size()};a.original={};
+		actors.push_back(std::move(a));
 	}
-	if (slot>=actors.size()) throw std::invalid_argument("Spawn slot is unavailable");
 	auto &a=actors[slot];
-	if (!a.statistics) throw std::invalid_argument("Spawn has no original monster type");
+	// cmdSpawn reuses the sprite ID; newly constructed slots use type zero.
+	// Intermediate resize slots remain unresolved until explicitly spawned.
+	const auto type=a.original.hasResource()?int(a.original.resourceId):0;
+	if(unsigned(type)>=_cityStatistics.size()) throw std::invalid_argument("Spawn monster type is absent");
+	if(!a.original.hasResource()) a.original.resourceId=type;
+	a.statistics=_cityStatistics[type];
 	a.x=x;a.y=y;a.hp=a.statistics->baseHp();a.activated=false;
 	a.lifecycle=XeenActorLifecycle::Present;a.status=XeenActorStatus::Physical;
 	_sessionState._accountedMonsters.erase(a.id);
 }
 
 void xeenValidateVertigoActors(XeenWorld &world,const std::vector<XeenActor> &actors) {
-	if(!world.regionalJourney() || (actors.size()!=46 && actors.size()!=52))
-		throw std::invalid_argument("Vertigo actor collection has an invalid shape: "+std::to_string(actors.size())+"");
-	const bool reset=actors.size()==52;
-	if(reset && !world.isEventDisabled({28,764}))
-		throw std::invalid_argument("Reset actors require the original protection overlay");
 	const auto &mob=world.objectFile(28);
-	if(!mob.resourcePresent || mob.entities.monsters.size()!=46 || mob.entities.objects.size()!=143)
-		throw std::invalid_argument("Original Vertigo MOB catalog changed");
-	static constexpr std::array<std::array<int,2>,43> resetAt{{
-		{{1,11}},{{1,11}},{{2,9}},{{3,10}},{{3,11}},{{3,11}},{{3,13}},{{3,13}},
-		{{3,27}},{{4,27}},{{4,26}},{{4,25}},{{4,12}},{{4,7}},{{4,7}},{{4,3}},
-		{{4,3}},{{4,3}},{{5,12}},{{9,18}},{{25,14}},{{28,9}},{{30,9}},{{30,6}},
-		{{29,15}},{{8,24}},{{8,24}},{{7,23}},{{7,23}},{{8,27}},{{8,27}},{{9,18}},
-		{{6,2}},{{7,1}},{{6,6}},{{7,7}},{{15,4}},{{22,9}},{{21,1}},{{22,1}},
-		{{30,1}},{{7,24}},{{6,27}}
-	}};
-	const unsigned selected=reset?36:35;
-
-	const unsigned small=reset?35:34;
+	if(!world.regionalJourney() || !mob.resourcePresent || mob.mapId!=XeenMapIdentity(28) ||
+		actors.size()<mob.entities.monsters.size() || actors.size()>XeenActorApproach::kCapacity ||
+		world._cityStatistics.empty()) throw std::invalid_argument("Invalid resource-bound city actor collection");
 	for(unsigned i=0;i<actors.size();++i) {
 		const auto &a=actors[i];
 		if(!(a.id==XeenMonsterIdentity{28,i}) || a.status!=XeenActorStatus::Physical)
 			throw std::invalid_argument("Vertigo actor identity/status changed");
-		if(i>=46 && i<=49) {
-			if(a.statistics || a.x || a.y || a.hp || a.activated ||
-				a.lifecycle!=XeenActorLifecycle::Unresolved || world.sessionState().accountedMonsters().count(a.id))
-				throw std::invalid_argument("Vertigo gap slot is materialized");
-			continue;
-		}
-		if(!a.statistics)throw std::invalid_argument("Vertigo actor statistics are absent");
-		if(i<46) {
+		if(i<mob.entities.monsters.size()) {
 			const auto &original=mob.entities.monsters[i];
 			if(a.original.x!=original.x || a.original.y!=original.y ||
 				a.original.direction!=original.direction || a.original.tableIndex!=original.tableIndex ||
 				a.original.resourceId!=original.resourceId)
 				throw std::invalid_argument("Original Vertigo actor identity changed");
-		} else if(i>=50) a.statistics->validateAdmittedPoisonCombat();
-		const int x=reset && (i<=40 || i>=50) ? resetAt[i>=50 ? i-9 : i][0] : int(a.original.x);
-		const int y=reset && (i<=40 || i>=50) ? resetAt[i>=50 ? i-9 : i][1] : int(a.original.y);
+		} else if(a.original.x || a.original.y || a.original.direction || a.original.tableIndex ||
+			(a.original.resourceId!=-1 && a.original.resourceId!=0))
+			throw std::invalid_argument("Script-created city identity changed");
+		if(a.lifecycle==XeenActorLifecycle::Unresolved) {
+			if(a.statistics || a.x || a.y || a.hp || a.activated ||
+				a.original.hasResource() || world.sessionState().accountedMonsters().count(a.id))
+				throw std::invalid_argument("Vertigo gap slot is materialized");
+			continue;
+		}
+		if(!a.statistics)throw std::invalid_argument("Vertigo actor statistics are absent");
+		if(!a.original.hasResource() || unsigned(a.original.resourceId)>=world._cityStatistics.size() ||
+			a.statistics->raw!=world._cityStatistics[a.original.resourceId].raw)
+			throw std::invalid_argument("City actor MON resource binding changed");
 		const bool accounted=world.sessionState().accountedMonsters().count(a.id)!=0;
-		if(i==selected) {
-			a.statistics->validateAdmittedPoisonCombat();
-			if(a.lifecycle==XeenActorLifecycle::Defeated) {
+		if(a.lifecycle==XeenActorLifecycle::Defeated) {
 				if(a.x!=-128 || a.y!=-128 || a.hp || a.activated || !accounted)
-					throw std::invalid_argument("Defeated Vertigo Slime is noncanonical");
-			} else if(a.lifecycle!=XeenActorLifecycle::Present || a.hp<1 || a.hp>a.statistics->baseHp() ||
-				accounted || a.x<0 || a.x>=32 || a.y<0 || a.y>=32 ||
-				(!a.activated && (a.x!=x || a.y!=y)))
-				throw std::invalid_argument("Live Vertigo Slime is noncanonical");
-		} else if(i==small) {
-			a.statistics->validateAdmittedPoisonCombat();
-			if(a.hp!=2 || accounted || a.lifecycle!=XeenActorLifecycle::Present ||
-				(a.activated ? !((a.x==7 && (a.y==6 || a.y==7)) || (a.x==8 && a.y==7)) : (a.x!=7 || a.y!=7)))
-				throw std::invalid_argument("Blocked Training Slime is noncanonical");
-		} else if(a.x!=x || a.y!=y || a.hp!=a.statistics->baseHp() || a.activated || accounted ||
-			a.lifecycle!=XeenActorLifecycle::Present)
-			throw std::invalid_argument("Dormant Vertigo actor changed");
+					throw std::invalid_argument("Defeated city actor is noncanonical");
+		} else if(a.lifecycle==XeenActorLifecycle::Disabled) {
+			if(!a.original.isDisabled() || a.x!=a.original.x || a.y!=a.original.y ||
+				a.hp!=a.statistics->baseHp() || a.activated || accounted)
+				throw std::invalid_argument("Disabled city actor is noncanonical");
+		} else if(a.lifecycle!=XeenActorLifecycle::Present || a.hp<1 || a.hp>a.statistics->baseHp() ||
+			accounted || !xeenIndoorCoordinate(a.x,a.y) || !world.sampleCell(28,a.x,a.y))
+			throw std::invalid_argument("Invalid live city actor value");
 	}
 	for(const auto id:world.sessionState().accountedMonsters())
-		if(id.mapId==XeenMapIdentity(28) && id.recordIndex!=selected)
+		if(id.mapId==XeenMapIdentity(28) && (id.recordIndex>=actors.size() ||
+			actors[id.recordIndex].lifecycle!=XeenActorLifecycle::Defeated))
 			throw std::invalid_argument("Vertigo accounting source changed");
 	for(const auto count:XeenActorApproach::occupancy(actors))if(count>3)
 		throw std::invalid_argument("Vertigo occupancy exceeded");
-	// A saved activated Slime must be reachable from the checked original/reset
-	// spawn under every admitted player cell and facing. Keep every other original
-	// slot in the simulation; a newly influencing actor invalidates admission.
-	auto &closure=world._vertigoClosure[reset?1:0];
-	if(!closure) {
-		// M43 fixed point over every admitted camera/facing and both city forms.
-		std::bitset<2048> reachable;
-		reachable.set(4*32+15);
-		const auto row=[&](int y,std::initializer_list<int> xs) {
-			for(int x:xs)reachable.set(1024+y*32+x);
-		};
-		row(0,{15});row(1,{9,10,11,12,13,14,15,16});row(2,{13,14,15,16});
-		row(3,{14,15,16});row(4,{8,9,10,11,12,13,14,15,16});
-		row(5,{9,10,11,14,15,16});row(6,{13,14,15,16});
-		row(7,{9,10,11,12,13,14,15,16});row(8,{10,14,15,16});
-		row(9,{10,12,14,15,16});
-		for(int y=10;y<=12;++y)row(y,{10,11,12,14,15,16});
-		for(int y=13;y<=20;++y)row(y,{14,15,16});
-		for(int y=21;y<=28;++y)row(y,{15});
-		closure=reachable;
-	}
-	if(actors[selected].lifecycle==XeenActorLifecycle::Present &&
-		!closure->test(unsigned(actors[selected].y*32+actors[selected].x)+(actors[selected].activated?1024:0)))
-		throw std::invalid_argument("Vertigo Slime position is outside its movement closure");
 }
 
 } // namespace mmodern

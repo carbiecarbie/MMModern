@@ -4,7 +4,6 @@
 #include "games/xeen/XeenInstallationDetector.h"
 #include "games/xeen/XeenMapLoader.h"
 #include "games/xeen/XeenEventLoader.h"
-#include "games/xeen/XeenVertigoRoute.h"
 #include "games/xeen/XeenActorApproach.h"
 #include "games/xeen/XeenCombatRules.h"
 #include "games/xeen/XeenRegionalRules.h"
@@ -75,7 +74,6 @@ int main(int argc,char **argv) {
    if(!assets.hasInitialResource(name))return {};return assets.readInitialResource(name);
   });
   const auto mainland=events.load(23),city=events.load(28);
-  xeenValidateVertigoRoute(mainland,city);
   const auto statistics=XeenMonsterFormat::parse(*assets.readCloudsMonsterStatisticsFromDarkArchive());
   targetingOracle(statistics);
   if(const auto path=std::getenv("MMODERN_M49_READ_SAVE")) {
@@ -103,26 +101,35 @@ int main(int argc,char **argv) {
   };
   XeenWorld manifestWorld([&](auto id){return maps.loadGeometryMap(assets,id);},
    [&](auto id){return maps.loadObjects(assets,id);});
-  xeenValidateVertigoManifest(manifestWorld,city,statistics,resource);
-  const auto reject=[&](auto &&operation) {bool failed=false;try {operation();}catch(const std::invalid_argument &){failed=true;}
-   check(failed,"altered Vertigo immutable resource admitted");};
-  for(const char *name:{"maze0028.dat","mazex109.dat","mazex110.dat","mazex111.dat","maze0028.mob","maze0028.evt","aaze0028.txt"}) {
-   reject([&]{xeenValidateVertigoManifest(manifestWorld,city,statistics,[&](const std::string &requested){
-    auto bytes=resource(requested);if(requested==name)bytes.at(bytes.size()/2)^=1;return bytes;
-   });});
+  // Geometry oracle uses the original decoded tiles directly, independently
+  // of World sampling. Enumerate every cell/facing, including tile seams.
+  const auto originalCell=[&](int x,int y)->const XeenMapCell & {
+   const unsigned tile=y>=16?(x>=16?111:110):(x>=16?109:28);
+   return manifestWorld.map(tile).geometry.cells[(y%16)*16+x%16];
+  };
+  constexpr int deltaX[]{0,1,0,-1},deltaY[]{1,0,-1,0};
+  for(int y=0;y<32;++y)for(int x=0;x<32;++x)for(unsigned facing=0;facing<4;++facing) {
+   const int nx=x+deltaX[facing],ny=y+deltaY[facing];
+   const unsigned tile=y>=16?(x>=16?111:110):(x>=16?109:28);
+   const auto &source=originalCell(x,y);
+   const auto wall=(source.rawWord>>(12-4*facing))&15;
+   const auto expected=nx<0||nx>=32||ny<0||ny>=32?XeenMovementResult::BlockedByMapBoundary:
+    wall>=manifestWorld.map(tile).geometry.difficulties[0]?XeenMovementResult::BlockedByWall:
+    originalCell(nx,ny).surfaceIndex==4?XeenMovementResult::BlockedBySurface:XeenMovementResult::Moved;
+   XeenCamera c{28,x,y,XeenDirection(facing)};
+   check(XeenMovement().apply(manifestWorld,c,NavigationAction::MoveForward)==expected&&c.mapId==28&&
+    c.x==(expected==XeenMovementResult::Moved?nx:x)&&c.y==(expected==XeenMovementResult::Moved?ny:y),
+    "Whole Vertigo navigation differs from original tile wall/surface/boundary oracle");
   }
-  for(unsigned type:{0u,2u,73u}) {
-   auto altered=statistics;altered.at(type).raw.at(20)^=1;
-   reject([&]{xeenValidateVertigoManifest(manifestWorld,city,altered,resource);});
+  std::bitset<1024> reached;std::vector<unsigned> queue{15};reached.set(15);
+  for(unsigned cursor=0;cursor<queue.size();++cursor)for(unsigned facing=0;facing<4;++facing) {
+   XeenCamera c{28,int(queue[cursor]%32),int(queue[cursor]/32),XeenDirection(facing)};
+   if(XeenMovement().apply(manifestWorld,c,NavigationAction::MoveForward)!=XeenMovementResult::Moved)continue;
+   const unsigned cell=c.y*32+c.x;if(!reached[cell]) {reached.set(cell);queue.push_back(cell);}
   }
-  auto wrongCity=city;wrongCity.resourceName="maze0023.evt";
-  reject([&]{xeenValidateVertigoManifest(manifestWorld,wrongCity,statistics,resource);});
-  wrongCity=city;wrongCity.records.at(539).opcode=0;
-  reject([&]{xeenValidateVertigoManifest(manifestWorld,wrongCity,statistics,resource);});
-  XeenWorld alteredGeometry([&](auto id){auto map=maps.loadGeometryMap(assets,id);if(id==XeenMapIdentity(28))map.geometry.cells[0].rawAttributes^=1;return map;},
-   [&](auto id){return maps.loadObjects(assets,id);});
-  reject([&]{xeenValidateVertigoManifest(alteredGeometry,city,statistics,resource);});
-  slime.validateAdmittedPoisonCombat();
+  check(reached.count()==424,"Original closed-barrier geometry component differs");
+  std::cout<<"Original 1024 cells/four facings, seams and 424-cell closed-barrier component passed\n";
+  slime.validateAttackCapabilities();
   assets.validateNormalMonster(0);assets.validateAttackMonster(0);
   const auto mob=maps.loadObjects(assets,28);
   const auto actors=XeenActorApproach::actorsFromResources(mob,statistics);
@@ -212,6 +219,46 @@ int main(int argc,char **argv) {
   for(unsigned owner=2;owner<6;++owner)
    check(attack.characters[owner].conditions==characters[owner].conditions && attack.characters[owner].currentHp==50,
     "Slime leaves unselected and dead members untouched");
+  // The same detached poison path must execute each resource-defined city
+  // profile, without a species fingerprint or an animation admission gate.
+  for(unsigned type:{0u,2u,73u})for(bool save:{false,true}) {
+   const auto &record=statistics.at(type);record.validateAttackCapabilities();
+   auto party=characters;
+   for(auto &member:party)member.currentHp=100;
+   std::vector<XeenCombatRandom::Draw> draws;
+   int expected=0;
+   for(unsigned ordinal=0;ordinal<record.attacks();++ordinal) {
+    draws.push_back({0,5,0});
+    for(unsigned strike=0;strike<record.strikes();++strike)
+     draws.push_back({1,record.damageDie(),record.damageDie()});
+    int damage=record.strikes()*record.damageDie();
+    draws.push_back({1,120,save?1u:120u});
+    if(save)damage/=2;
+    while(damage>0) {
+     draws.push_back({1,120,save?1u:120u});
+     if(!save)break;
+     damage/=2;
+    }
+    expected+=damage;
+   }
+   XeenCombatRandom random(draws);
+   XeenEnemyAttackCandidate candidate(party,inputs,record,610,63);
+   unsigned completed=0;
+   do {
+    bool finished=false;
+    for(unsigned chunk=0;chunk<100&&!finished;++chunk) {
+     XeenConsequenceDraw draw{random,1,{}};finished=candidate.service(draw);
+    }
+    check(finished,"Original poison attack did not finish bounded work");++completed;
+   }while(candidate.nextAttack());
+   check(completed==record.attacks()&&random.position()==draws.size()&&
+    candidate.characters[0].currentHp==100-expected&&!candidate.characters[0].conditions[8]&&
+    !candidate.characters[0].conditions[3],"Original city poison dice/targets/saves/wake/HP differ");
+   for(unsigned owner=1;owner<6;++owner)
+    check(candidate.characters[owner].currentHp==100&&candidate.characters[owner].conditions==party[owner].conditions,
+     "Original poison profile changed an unselected member");
+  }
+  std::cout<<"Original Slime, Doom Bug and Breeder Slime poison attacks passed\n";
   std::cout<<"Original M37 route, Slime, 46 city records, sprites and 30 poison inputs passed\n";
   return 0;
  } catch(const std::exception &e) {std::cerr<<e.what()<<'\n';return 1;}

@@ -200,7 +200,7 @@ void testFourDirectionsAndRotatedOffsets() {
 	}
 }
 
-void testBordersDoNotReadOrLoadNeighbors() {
+void testMissingIndoorNeighbors() {
 	const std::array<mmodern::XeenCamera, 4> cameras = {{
 		{33, 8, 15, mmodern::XeenDirection::North},
 		{33, 15, 8, mmodern::XeenDirection::East},
@@ -212,8 +212,8 @@ void testBordersDoNotReadOrLoadNeighbors() {
 		mmodern::XeenWorld world([&](mmodern::XeenMapIdentity id) {
 			++loads[id];
 			if (id != 33)
-				throw std::runtime_error("borda interior carregou mapa vizinho");
-			return indoorFixture();
+				throw std::runtime_error("Indoor border loaded a missing neighbor");
+			auto map=indoorFixture();map.geometry.neighbors=std::array<std::uint16_t,4>{0,0,0,0};return map;
 		});
 		const auto samples = mmodern::XeenIndoorScene().sampleWalls(world, camera);
 		std::size_t absent = 0;
@@ -222,12 +222,12 @@ void testBordersDoNotReadOrLoadNeighbors() {
 				++absent;
 				require(sample.sourceX < 0 || sample.sourceX > 15 ||
 					sample.sourceY < 0 || sample.sourceY > 15,
-					"consulta local valida perdeu a parede");
+					"Valid local query lost its wall");
 			}
 		}
-		require(absent > 0, "camera na borda deveria produzir consultas ausentes");
+		require(absent > 0, "Missing border neighbors must produce absent queries");
 		require(loads.size() == 1 && loads[33] == 1 && world.cachedMapCount() == 1,
-			"camera na borda carregou vizinho declarado");
+			"Border camera loaded a missing neighbor");
 	}
 }
 
@@ -817,7 +817,7 @@ void testCompleteMonsterPlacements() {
 int main() {
 	try {
 		testFourDirectionsAndRotatedOffsets();
-		testBordersDoNotReadOrLoadNeighbors();
+		testMissingIndoorNeighbors();
 		testRejectsOutdoorAndInvalidCamera();
 		testFixedSceneAndTerrainResources();
 		testCellSelectedSky();

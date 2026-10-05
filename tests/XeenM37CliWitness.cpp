@@ -42,14 +42,6 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   std::uint64_t cycle=0,now=0;
   unsigned saveStages=0;
   const std::string stage=std::getenv("MMODERN_M37_STAGE")?std::getenv("MMODERN_M37_STAGE"):"fresh";
-  bool manifestProbe=false;
-  bool manifestMismatch=true;
-  if(stage=="manifest-mismatch") {
-   services.resources.vertigoManifest=[&](auto &w,const auto &e,const auto &mon) {
-    manifestProbe=true;std::cout<<"M37 IMMUTABLE MANIFEST PROBE\n";auto altered=mon;if(manifestMismatch)altered.at(2).raw.at(20)^=1;
-    original.resources.vertigoManifest(w,e,altered);
-   };
-  }
   services.clock=[&]{return now;};
   bool cityComposeFailed=false;
   bool candidateProbe=false;
@@ -250,18 +242,6 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     nav(NavigationAction::TurnLeft);nav(NavigationAction::MoveForward);
     check(position->x==10 && position->y==12 && position->direction==XeenDirection::North,"M37 checkpoint A camera");
     checkpoint('A');
-    if(stage=="manifest-mismatch") {
-     nav(NavigationAction::MoveForward);
-     try {input(InteractionAction{});}catch(const std::exception &){}
-     check(manifestProbe && position->mapId==XeenMapIdentity(23) &&
-      !world->sessionState().hasRegionalActors(28) && !flow->canSave(),
-      "M37 immutable admission mismatch did not latch integrity failure");
-     manifestMismatch=false;
-     try {input(InteractionAction{});}catch(const std::exception &){}
-     check(!flow->canSave() && !world->sessionState().hasRegionalActors(28),"M37 matching retry cleared integrity latch");
-     std::cout<<"M37 IMMUTABLE INTEGRITY REJECTION passed\n";
-     return true;
-    }
     if(stage.rfind("candidate-",0)==0 && stage!="candidate-cache-rebuild") {
      nav(NavigationAction::MoveForward);
      const auto before=XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world);

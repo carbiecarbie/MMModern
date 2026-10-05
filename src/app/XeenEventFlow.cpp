@@ -1,6 +1,5 @@
 #include "app/XeenEventFlow.h"
 #include "games/xeen/XeenEventPublication.h"
-#include "games/xeen/XeenVertigoRoute.h"
 #include "games/xeen/CloudsUiComposer.h"
 #include "games/xeen/XeenCharacterRules.h"
 #include <type_traits>
@@ -674,8 +673,6 @@ XeenManualEventResult XeenEventFlow::beginVertigoEvent(XeenRegionalInteraction k
 	const auto mainland=_events.scriptForMap(23).file();
 	const auto city=_events.scriptForMap(28).file();
 	_eventPublication->check();
-	try { xeenValidateVertigoRoute(mainland,city); }
-	catch (const std::invalid_argument &) { _encounter->journeySavePreimage().failed=true; throw; }
 	const auto mainText=_events.textForMap(23),cityText=_events.textForMap(28);
 	_eventPublication->check();
 	if(mainText.mapId!=XeenMapIdentity(23) || mainText.strings.size()!=44 ||
@@ -698,9 +695,6 @@ XeenManualEventResult XeenEventFlow::beginVertigoEvent(XeenRegionalInteraction k
 	{
 		XeenRestoreGuard guard(*work->world,work->party,work->camera,work->flags);
 		XeenRestoreGuard::Providers providers(guard,*work->world,[&] {_eventPublication->check();});
-		if (!_encounter->_vertigoManifest) throw std::invalid_argument("Vertigo immutable manifest provider missing");
-		try { _encounter->_vertigoManifest(*work->world,city,_encounter->_journeyStatistics); }
-		catch (...) { guard.check();_eventPublication->check();throw; }
 		guard.check();_eventPublication->check();
 		work->guard=std::make_unique<XeenRestoreGuard>(*work->world,work->party,work->camera,work->flags);
 		work->guard->retainResources(guard);
@@ -716,8 +710,9 @@ XeenManualEventResult XeenEventFlow::beginVertigoEvent(XeenRegionalInteraction k
 		for(int y=0;y<32;++y)for(int x=0;x<32;++x)
 			if(!work->world->sampleCell(28,x,y))throw std::invalid_argument("Vertigo geometry tile is missing");
 		const auto &cityMob=work->world->objectFile(28);
-		if(cityMob.entities.objects.size()!=143 || cityMob.entities.monsters.size()!=46)
-			throw std::invalid_argument("Vertigo original MOB catalog changed");
+		if(!cityMob.resourcePresent || cityMob.mapId!=XeenMapIdentity(28) ||
+			cityMob.entities.monsters.size()>XeenActorApproach::kCapacity)
+			throw std::invalid_argument("Invalid city MOB resource identity or capacity");
 		if(kind==XeenRegionalInteraction::VertigoEntrance && !work->world->sessionState().hasRegionalActors(28))
 			work->world->stageVertigoActors(cityMob,_encounter->_journeyStatistics);
 	}

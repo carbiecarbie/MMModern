@@ -404,7 +404,7 @@ void testIndoorSurfaceBoundariesAndAtomicity() {
 			++loads;
 			if (id != 33)
 				throw std::runtime_error("movimento interior tentou carregar vizinho");
-			return freeIndoorMap();
+			auto map=freeIndoorMap();map.geometry.neighbors=std::array<std::uint16_t,4>{0,0,0,0};return map;
 		});
 		camera = boundary.camera;
 		const auto initial = camera;
@@ -417,6 +417,7 @@ void testIndoorSurfaceBoundariesAndAtomicity() {
 
 	// Boundary has priority over a blocking wall on the current cell.
 	auto priorityMap = freeIndoorMap();
+	priorityMap.geometry.neighbors=std::array<std::uint16_t,4>{0,0,0,0};
 	setIndoorWall(priorityMap, 8, 15, mmodern::XeenDirection::North, 13);
 	auto priorityWorld = worldWith({{33, priorityMap}});
 	camera = {33, 8, 15, mmodern::XeenDirection::North};

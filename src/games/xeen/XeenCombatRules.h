@@ -1,6 +1,7 @@
 #ifndef MMODERN_XEEN_COMBAT_RULES_H
 #define MMODERN_XEEN_COMBAT_RULES_H
 #include "games/xeen/XeenCombat.h"
+#include "games/xeen/XeenCharacterRules.h"
 #include <limits>
 #include <stdexcept>
 namespace mmodern {
@@ -41,6 +42,31 @@ struct XeenConsequenceDraw {
 };
 using XeenConsequenceCharacters = std::array<XeenCharacter,6>;
 using XeenConsequenceInputs = std::array<XeenCombatInputs,6>;
+// Explicit value inputs from the party owner, never inferred from a missing
+// field. Order is fire, electrical, cold, poison as in giveCharDamage.
+struct XeenDamageProtection {
+	std::array<int,4> resistances{};
+	int powerShield=0;
+};
+// Detached giveCharDamage continuation. Damage carries between selected
+// members exactly as in the reference; publication remains with the caller.
+struct XeenTypedDamageCandidate {
+	XeenConsequenceCharacters characters;
+	XeenCombatResult result;
+	bool deferInjury=false, injuryReady=false, injuryAcknowledged=false, injuryApplied=false;
+	std::uint8_t impactOwner=0;
+	unsigned portraitFrame=0;
+	XeenTypedDamageCandidate(const XeenConsequenceCharacters &,const XeenConsequenceInputs &,
+		int damage,XeenDamageType,unsigned year,unsigned memberMask,const XeenDamageProtection &);
+	bool service(XeenConsequenceDraw &);
+private:
+	enum class Step { Begin, Save, Injury, Next, Done } step=Step::Begin;
+	XeenConsequenceInputs inputs;
+	XeenDamageProtection protection;
+	XeenDamageType type;
+	unsigned year,mask,target=0;
+	int damage,beforeAc=0;
+};
 // One reference targeting pass, independent of damage/ability admission.
 // A zero mask means the reference defeat path has no able target.
 struct XeenMonsterTargetCandidate {

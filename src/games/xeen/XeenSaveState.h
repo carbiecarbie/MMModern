@@ -20,7 +20,6 @@ public:
 		std::function<XeenGameplayContext()> loadInitialContext = {};
 		std::function<std::vector<XeenMonsterRecord>()> loadMonsterStatistics = {};
 		XeenRegionalManifest regionalManifest;
-		XeenVertigoManifest vertigoManifest;
 		std::function<XeenMonsterTreasure()> loadInitialPurse;
 		std::function<XeenRegionalRecoveryState()> loadInitialRegionalRecovery;
 		std::function<XeenEventTextFile(XeenMapIdentity)> loadRegionalText;

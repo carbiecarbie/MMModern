@@ -187,7 +187,7 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 	if (s.journey->schema != kJourneySchema || s.journey->content != kJourneyContent) throw unsupportedPair(s.journey->schema, s.journey->content);
 	validateMap(s.camera.mapId);
 	const bool cityCamera =
-		s.camera.mapId == XeenMapIdentity(28) && xeenJourneyContent().vertigoCell(s.camera.x,s.camera.y);
+		s.camera.mapId == XeenMapIdentity(28) && xeenIndoorCoordinate(s.camera.x,s.camera.y);
 	require((cityCamera || (s.camera.x >= 0 && s.camera.x <= 15 && s.camera.y >= 0 && s.camera.y <= 15)) &&
 		static_cast<unsigned>(s.camera.direction) <= 3, "invalid committed camera");
 	require(s.activeRosterIds.size() <= XeenParty::kMaximumVisibleMembers, "too many active members");
@@ -220,9 +220,6 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 		require(j.context->day == 8 || j.vertigoActors.has_value(), "Ironworks departure requires retained city");
 		require(s.camera.mapId != XeenMapIdentity(28) || cityCamera, "camera outside Ironworks city domain");
 		require(j.vertigoActors || s.camera.mapId == XeenMapIdentity(23), "absent city requires mainland camera");
-		if (j.vertigoActors && j.vertigoActors->size() == 52)
-			require(std::find(s.disabledEvents.begin(), s.disabledEvents.end(), XeenEventIdentity{28,764}) !=
-				s.disabledEvents.end(), "reset city requires protection overlay");
 	}
 	for (std::size_t i = 0; i < j.supplements.size(); ++i) {
 		const auto &r = j.supplements[i];
@@ -270,15 +267,25 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 
 	for (const auto &id:s.disabledObjects) require(id.mapId!=XeenMapIdentity(28), "city object overlay is unsupported");
 	for (const auto &id:s.disabledEvents) require(id.mapId!=XeenMapIdentity(28) ||
-		(j.vertigoActors && id.recordIndex==764), "city Event overlay is unsupported");
+		j.vertigoActors.has_value(), "city Event overlay requires retained city actors");
 
 	if (j.vertigoActors) {
-		require(j.vertigoActors->size() == 46 || j.vertigoActors->size() == 52, "invalid city actor count");
+		require(j.vertigoActors->size() <= 107, "invalid city actor count");
+		require(j.cityOriginalActorCount<=j.vertigoActors->size(),"city save loses original actor records");
 		for (std::size_t i=0; i<j.vertigoActors->size(); ++i) {
 			const auto &a=(*j.vertigoActors)[i];
+			if(i<j.cityOriginalActorCount) require(a.spawnedType==-1,"Original city type must bind to MOB");
+			else require(a.spawnedType==(a.lifecycle==XeenActorLifecycle::Unresolved?-1:0),"Invalid script-slot MON type");
 			require(a.id == XeenMonsterIdentity{28,i} && a.x >= -128 && a.x <= 31 && a.y >= -128 && a.y <= 31 &&
 				a.hp >= 0 && a.hp <= 65535 && static_cast<unsigned>(a.lifecycle) <= 3 &&
 				a.status == XeenActorStatus::Physical, "invalid city actor wire");
+			if(a.lifecycle==XeenActorLifecycle::Present)
+				require(a.hp>0 && !a.accounted && xeenIndoorCoordinate(a.x,a.y),"invalid live city actor");
+			else if(a.lifecycle==XeenActorLifecycle::Defeated)
+				require(!a.hp && !a.activated && a.accounted && a.x==-128 && a.y==-128,"invalid defeated city actor");
+			else if(a.lifecycle==XeenActorLifecycle::Unresolved)
+				require(!a.hp && !a.activated && !a.accounted && !a.x && !a.y,"invalid unresolved city slot");
+			else require(!a.accounted && !a.activated,"invalid disabled city actor");
 		}
 	}
 
@@ -366,11 +373,12 @@ std::vector<std::uint8_t> XeenSaveFormat::encode(const XeenSaveSnapshot &s) {
 	}
 	out.u8(j.vertigoActors.has_value());
 	if (j.vertigoActors) {
-		out.u16(46);out.u16(static_cast<std::uint16_t>(j.vertigoActors->size()));
+		out.u16(j.cityOriginalActorCount);out.u16(static_cast<std::uint16_t>(j.vertigoActors->size()));
 		for (const auto &a:*j.vertigoActors) {
 			out.u8(0);out.u16(28);out.u32(static_cast<std::uint32_t>(a.id.recordIndex));
 			out.i16(static_cast<std::int16_t>(a.x));out.i16(static_cast<std::int16_t>(a.y));out.i32(a.hp);
 			out.u8(a.activated);out.u8(static_cast<std::uint8_t>(a.lifecycle));out.u8(static_cast<std::uint8_t>(a.status));out.u8(a.accounted);
+			out.i16(a.spawnedType);
 		}
 	}
 
@@ -402,7 +410,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	require(length == in.remaining(), "payload length does not match file length");
 	require(crc == checksum(bytes.data() + kHeaderSize, length), "payload checksum mismatch");
 	if (version != kJourneyVersion)
-		throw XeenUnsupportedSave(version >= 1 && version <= 3 ? XeenUnsupportedSave::Kind::Older : XeenUnsupportedSave::Kind::Newer);
+		throw XeenUnsupportedSave(version >= 1 && version < kJourneyVersion ? XeenUnsupportedSave::Kind::Older : XeenUnsupportedSave::Kind::Newer);
 	XeenSaveSnapshot s;
 	s.resources.clouds = in.fingerprint();
 	const bool hasDarkside = in.boolean();
@@ -428,7 +436,9 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	require(in.u8() == 3, "invalid v4 domain");
 	j.schema = in.u16(); j.content = in.u16();
 	if (j.schema != kJourneySchema || j.content != kJourneyContent) throw unsupportedPair(j.schema, j.content);
-	require(suffixSize >= 4278 && suffixSize <= 5330, "Journey schema-9 size mismatch");
+	// Bound allocation before parsing; the exact dynamic extent is verified
+	// after the actor and treasure counts are decoded.
+	require(suffixSize >= 4278 && suffixSize <= 4278+4+21*107+5*12, "Journey schema-9 size mismatch");
 	require(in.u8() == 1, "missing Journey context");
 	XeenGameplayContext c;
 	require(in.u8() == 0, "invalid Journey profile");
@@ -501,8 +511,8 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 		j.supplements[owner].inputs.poisonResistance=XeenAttributeValue{in.u8(),in.u8()};
 	}
 	if (in.boolean()) {
-		require(in.u16()==46,"Invalid city original count");
-		const unsigned cityCount=in.u16();require(cityCount==46 || cityCount==52,"Invalid city runtime count");
+		j.cityOriginalActorCount=in.u16();
+		const unsigned cityCount=in.u16();require(cityCount<=107 && cityCount>=j.cityOriginalActorCount,"Invalid city runtime count");
 		std::vector<XeenSaveJourneyActor> city;city.reserve(cityCount);
 		for (unsigned i=0;i<cityCount;++i) {
 			XeenSaveJourneyActor a;
@@ -510,12 +520,13 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 			a.id={28,i};a.x=in.i16();a.y=in.i16();a.hp=in.i32();a.activated=in.boolean();
 			const auto life=in.u8(),status=in.u8();
 			require(life<=3 && status==0,"Invalid city lifecycle/status");
-			a.lifecycle=static_cast<XeenActorLifecycle>(life);a.status=XeenActorStatus::Physical;a.accounted=in.boolean();city.push_back(a);
+			a.lifecycle=static_cast<XeenActorLifecycle>(life);a.status=XeenActorStatus::Physical;a.accounted=in.boolean();
+			a.spawnedType=in.i16();city.push_back(a);
 		}
 		j.vertigoActors=std::move(city);
 	}
 	const unsigned n=weapons+armor;
-	const unsigned expected=(j.vertigoActors ? (j.vertigoActors->size()==46 ? 3992 : 4106) : 3114) + 1164;
+	const unsigned expected=3114+1164+(j.vertigoActors ? 4+21*j.vertigoActors->size() : 0);
 	require(suffixSize==expected+5u*n,"Invalid city/economy suffix length");
 
 	require(in.u8()==2 && in.u8()==4 && in.u8()==4 && in.u8()==9,"Invalid merchant stock shape");

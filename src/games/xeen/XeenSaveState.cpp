@@ -11,7 +11,6 @@
 #include "games/xeen/XeenJourneyCapture.h"
 #include "games/xeen/XeenMovement.h"
 #include "games/xeen/XeenIndoorScene.h"
-#include "games/xeen/XeenVertigoRoute.h"
 #include "games/xeen/XeenTraining.h"
 
 #include <stdexcept>
@@ -40,9 +39,9 @@ void XeenSaveState::validateJourneyValues(const XeenSaveSnapshot &s) {
 	{
 		require(s.resources.darkside && j.initializedMap==XeenMapIdentity(23) && j.originalActorCount==19 && j.actors.size()==19 &&
 			((s.camera.mapId==XeenMapIdentity(23) && s.camera.x>=0 && s.camera.x<16 && s.camera.y>=0 && s.camera.y<16) ||
-			 (s.camera.mapId==XeenMapIdentity(28) && xeenJourneyContent().vertigoCell(s.camera.x,s.camera.y) && j.vertigoActors)));
+			 (s.camera.mapId==XeenMapIdentity(28) && xeenIndoorCoordinate(s.camera.x,s.camera.y) && j.vertigoActors)));
 		if (j.vertigoActors) {
-			require(j.vertigoActors->size()==46 || j.vertigoActors->size()==52);
+			require(j.vertigoActors->size()<=XeenActorApproach::kCapacity && j.cityOriginalActorCount<=j.vertigoActors->size());
 			for (unsigned i=0;i<j.vertigoActors->size();++i) {
 				const auto &a=(*j.vertigoActors)[i];
 				require(a.id==XeenMonsterIdentity{28,i});
@@ -53,7 +52,7 @@ void XeenSaveState::validateJourneyValues(const XeenSaveSnapshot &s) {
 		{
 			for (const auto &id:s.disabledObjects) require(id.mapId!=XeenMapIdentity(28));
 			for (const auto &id:s.disabledEvents)
-				require(id.mapId!=XeenMapIdentity(28) || (j.vertigoActors && id.recordIndex==764));
+				require(id.mapId!=XeenMapIdentity(28) || j.vertigoActors.has_value());
 		}
 		for (unsigned i=0;i<19;++i) {
 			const auto &a=j.actors[i];require(a.id==XeenMonsterIdentity{23,i} && a.status==XeenActorStatus::Physical);
@@ -135,14 +134,14 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	const auto &policy=xeenJourneyContent();
 	auto evt = events(policy.entry.mapId);
 	{
-		if(!resources.loadInitialCharacters || !resources.vertigoManifest)
+		if(!resources.loadInitialCharacters)
 			throw std::invalid_argument("Missing Training restoration resources");
 		xeenValidateTrainingSource(callback(resources.loadInitialCharacters));
 		// Bind resources even when the saved Journey has never entered the city.
 		adopt();
 		const auto cityEvents=events(28);
-		callback([&] {resources.vertigoManifest(w,cityEvents,statistics);return true;});
-		xeenValidateVertigoRoute(evt,cityEvents);
+		if(!cityEvents.resourcePresent || cityEvents.mapId!=XeenMapIdentity(28))
+			throw std::invalid_argument("Missing city Event resource");
 	}
 	auto actors = XeenActorApproach::actorsFromResources(w.objectFile(policy.entry.mapId),statistics);
 	{
@@ -175,18 +174,23 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	adopt(); // Base Journey values are complete before optional regional resources.
 	if (snapshot.journey->vertigoActors) {
 		const auto cityEvents=events(28);
-		if (!resources.vertigoManifest) throw std::invalid_argument("Missing Vertigo restoration manifest");
-		callback([&] { resources.vertigoManifest(w,cityEvents,statistics);return true; });
-		xeenValidateVertigoRoute(evt,cityEvents);
 		const auto cityMob=callback([&] { return w.objectFile(28); });
 		auto city=XeenActorApproach::actorsFromResources(cityMob,statistics);
-		if (city.size()!=46 || statistics.empty() || statistics[0].image()!=0 || statistics[0].baseHp()!=2)
-			throw std::invalid_argument("Vertigo actor catalog changed on restore");
-		w._vertigoSpawnSlime=statistics[0];
-		if (snapshot.journey->vertigoActors->size()==52) {
-			city.reserve(52);
-			for (unsigned i=46;i<52;++i) {XeenActor a;a.id={28,i};a.original={};a.original.x=a.original.y=0;a.x=a.y=0;
-				if(i>=50){a.original.resourceId=0;a.statistics=statistics[0];}city.push_back(std::move(a));}
+		if(city.size()!=snapshot.journey->cityOriginalActorCount)
+			throw std::invalid_argument("Saved city original actor count differs from MOB");
+		w._cityStatistics=statistics;
+		w._cityOriginalActorCount=snapshot.journey->cityOriginalActorCount;
+		const auto savedCount=snapshot.journey->vertigoActors->size();
+		if(savedCount<city.size() || savedCount>XeenActorApproach::kCapacity)
+			throw std::invalid_argument("Saved city actor collection loses original records");
+		while(city.size()<savedCount) {
+			XeenActor a;a.id={28,city.size()};a.original={};
+			const auto type=(*snapshot.journey->vertigoActors)[city.size()].spawnedType;
+			if(type!=-1) {
+				if(type!=0 || statistics.empty()) throw std::invalid_argument("Invalid saved script-slot MON binding");
+				a.original.resourceId=type;a.statistics=statistics.at(type);
+			}
+			city.push_back(std::move(a));
 		}
 		for (const auto &live:*snapshot.journey->vertigoActors) {
 			auto &a=city.at(live.id.recordIndex);
@@ -204,7 +208,6 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	std::optional<XeenEventFile> activeCityEvents;
 	if(cityActive) {
 		activeCityEvents=events(28);
-		xeenValidateVertigoRoute(evt,*activeCityEvents);
 	}
 	const auto &active=cityActive ? s._vertigoActors.value() : s._actors;
 	const auto view=cityActive ? XeenIndoorScene().classifyActors(w,c,active) : XeenActorApproach::classify(active,c);
@@ -222,7 +225,6 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	binding->capture->admittedActors = s._actors;
 	binding->statistics = std::move(statistics); binding->events = cityActive ? std::move(*activeCityEvents) : std::move(evt);
 	binding->learnedNamesProvider=resources.loadLearnedSpellNames;
-	binding->vertigoManifest=resources.vertigoManifest;
 	binding->guard = std::make_shared<XeenRestoreGuard>(world,party,camera,flags);
 	binding->guard->prepareJourneyPublication(*prepared);
 	destination.check(); prepared->check();
@@ -232,7 +234,8 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	auto &out = world._sessionState;
 	out._actors.swap(s._actors); out._vertigoActors.swap(s._vertigoActors);
 	out._accountedMonsters.swap(s._accountedMonsters);
-	world._vertigoSpawnSlime.swap(w._vertigoSpawnSlime);
+	world._cityStatistics.swap(w._cityStatistics);
+	std::swap(world._cityOriginalActorCount,w._cityOriginalActorCount);
 	out._entry = XeenEncounterEntry::Journey; out._encounterMarked = out._encounterInitialized = true;
 	out._encounterRevision = 1; out._skeletonSeed = snapshot.journey->skeletonSeed;
 	 out._journeyRandom=snapshot.journey->random;
@@ -281,9 +284,14 @@ XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resourc
 		for (const auto &a:state.actors()) if (xeenJourneyContent().influences(a.id.recordIndex))
 			j.actors.push_back({a.id,a.x,a.y,a.hp,a.activated,a.lifecycle,a.status,state.accountedMonsters().count(a.id) != 0});
 		if (state._vertigoActors) {
+			j.cityOriginalActorCount=world._cityOriginalActorCount;
 			std::vector<XeenSaveJourneyActor> city;city.reserve(state._vertigoActors->size());
-			for (const auto &a:*state._vertigoActors)
-				city.push_back({a.id,a.x,a.y,a.hp,a.activated,a.lifecycle,a.status,state.accountedMonsters().count(a.id)!=0});
+			for (const auto &a:*state._vertigoActors) {
+				XeenSaveJourneyActor saved{a.id,a.x,a.y,a.hp,a.activated,a.lifecycle,a.status,state.accountedMonsters().count(a.id)!=0};
+				if(a.id.recordIndex>=j.cityOriginalActorCount && a.original.hasResource())
+					saved.spawnedType=static_cast<std::int16_t>(a.original.resourceId);
+				city.push_back(saved);
+			}
 			j.vertigoActors=std::move(city);
 		}
 		snapshot.journey = std::move(j);

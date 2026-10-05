@@ -87,7 +87,6 @@ add_library(mmodern_xeen STATIC
 	src/games/xeen/XeenMovement.cpp
 	src/games/xeen/XeenWorld.cpp
 	src/games/xeen/XeenVertigoWorld.cpp
-	src/games/xeen/XeenVertigoRoute.cpp
 	src/games/xeen/XeenInstallationDetector.cpp
 )
 target_include_directories(mmodern_xeen PRIVATE "${MMODERN_ITEM_CATALOG_GENERATED_DIR}")
@@ -326,6 +325,12 @@ if(BUILD_TESTING)
 	add_executable(mmodern_consequence_rules_tests tests/XeenConsequenceRulesTests.cpp)
 	target_link_libraries(mmodern_consequence_rules_tests PRIVATE mmodern_xeen)
 	add_test(NAME xeen_consequence_rules COMMAND mmodern_consequence_rules_tests)
+	add_executable(mmodern_typed_damage_tests tests/XeenTypedDamageTests.cpp)
+	target_link_libraries(mmodern_typed_damage_tests PRIVATE mmodern_xeen)
+	add_test(NAME xeen_typed_damage COMMAND mmodern_typed_damage_tests)
+	add_executable(mmodern_whole_map_foundation_tests tests/XeenWholeMapFoundationTests.cpp)
+	target_link_libraries(mmodern_whole_map_foundation_tests PRIVATE mmodern_xeen)
+	add_test(NAME xeen_whole_map_foundations COMMAND mmodern_whole_map_foundation_tests)
 	add_executable(mmodern_regional_rules_tests tests/XeenRegionalRulesTests.cpp)
 	target_link_libraries(mmodern_regional_rules_tests PRIVATE mmodern_xeen)
 	add_test(NAME xeen_regional_rules COMMAND mmodern_regional_rules_tests)

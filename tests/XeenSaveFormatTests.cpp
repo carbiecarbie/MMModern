@@ -46,7 +46,7 @@ void wireContract() {
 	const auto expected = legacyGolden();
 	Bytes v2(6847, 0);
 	std::copy_n(expected.begin(), 53, v2.begin());
-	v2[8] = 4;
+	v2[8] = 5;
 	for (unsigned i = 0; i < 30; ++i) v2[53 + 212 * i] = i;
 	const auto current=XeenSaveFormat::encode(s);
 	v2.insert(v2.end(),current.begin()+6847,current.end());
@@ -70,7 +70,7 @@ void wireContract() {
 void asymmetricBase() {
 	// Independent offsets: three members, 14 name bytes, 212 fixed bytes/character.
 	Bytes bytes(6847 + 3 + 14, 0);
-	const Bytes prefix{'M','M','M','S','A','V','E',0,4,0,0,0};
+	const Bytes prefix{'M','M','M','S','A','V','E',0,5,0,0,0};
 	std::copy(prefix.begin(), prefix.end(), bytes.begin());
 	bytes[20] = 99; bytes[28] = 88; bytes[46] = 23;
 	bytes[51] = 3; bytes[52] = 18; bytes[53] = 0; bytes[54] = 18; bytes[55] = 30;
@@ -202,7 +202,7 @@ void malformedBytes() {
 	}
 	auto bad = good;
 	bad[0] ^= 1; rejects([&] { XeenSaveFormat::decode(bad); }, "unrecognized format");
-	bad = good; bad[8] = 5; rejects([&] { XeenSaveFormat::decode(bad); }, "newer or unsupported");
+	bad = good; bad[8] = 6; rejects([&] { XeenSaveFormat::decode(bad); }, "newer or unsupported");
 	bad = good; bad[8] = 3; rejects([&] { XeenSaveFormat::decode(bad); }); // v1 payload is not v3.
 	bad = good; bad[8] = 2; rejects([&] { XeenSaveFormat::decode(bad); }); // v1 payload is not v2.
 	bad = good; bad[8] = 0; rejects([&] { XeenSaveFormat::decode(bad); }, "newer or unsupported");
@@ -317,10 +317,10 @@ void fingerprints() {
 // Synthetic wire-only owners: no original resources or gameplay injection.
 
 void rejectedVersions() {
- for(unsigned version:{0u,1u,2u,3u,5u,65535u}) {
+ for(unsigned version:{0u,1u,2u,3u,4u,6u,65535u}) {
   auto bytes=golden();bytes[8]=version;bytes[9]=version>>8;
   // Only recognizable earlier envelopes are "older"; others may be newer builds.
-  rejects([&]{XeenSaveFormat::decode(bytes);},version>=1 && version<=3?"no longer supported":"newer or unsupported");
+  rejects([&]{XeenSaveFormat::decode(bytes);},version>=1 && version<=4?"no longer supported":"newer or unsupported");
  }
  rejects([&]{XeenSaveFormat::decode(legacyGolden());},"no longer supported");
  rejects([&]{XeenSaveFormat::encode(XeenSaveSnapshot{});},"no longer supported");
@@ -337,11 +337,10 @@ void rejectedVersions() {
 }
 void regionalCityWire() {
  auto city=currentWireSnapshot();city.journey->vertigoActors.emplace();
- for(unsigned i=0;i<46;++i){XeenSaveJourneyActor a;a.id={28,i};city.journey->vertigoActors->push_back(a);}
+ for(unsigned i=0;i<46;++i){XeenSaveJourneyActor a;a.id={28,i};a.hp=1;a.x=i%32;a.y=i/32;city.journey->vertigoActors->push_back(a);}
  for(unsigned y=0;y<32;++y)for(unsigned x=0;x<32;++x) {
   city.camera={28,static_cast<int>(x),static_cast<int>(y),XeenDirection::North};
-  if(xeenJourneyContent().vertigoCell(x,y)) roundTrip(city);
-  else rejects([&]{XeenSaveFormat::encode(city);});
+  roundTrip(city);
  }
  city.camera={28,8,4,XeenDirection::West};
  for(unsigned mode=0;mode<7;++mode) {
@@ -352,8 +351,13 @@ void regionalCityWire() {
    case 6:invalid.journey->context->difficulty=XeenDifficulty::Warrior;break;}
   rejects([&]{XeenSaveFormat::encode(invalid);},"calendar");
  }
- for(unsigned i=46;i<52;++i){XeenSaveJourneyActor a;a.id={28,i};city.journey->vertigoActors->push_back(a);}
- rejects([&]{XeenSaveFormat::encode(city);},"protection overlay");
+ for(unsigned i=46;i<52;++i){XeenSaveJourneyActor a;a.id={28,i};
+  if(i<50)a.lifecycle=XeenActorLifecycle::Unresolved;
+  else {a.hp=1;a.spawnedType=0;}
+  city.journey->vertigoActors->push_back(a);}
+ roundTrip(city);
+ auto corruptType=city;corruptType.journey->vertigoActors->at(50).spawnedType=1;
+ rejects([&]{XeenSaveFormat::encode(corruptType);},"script-slot MON type");
  city.disabledEvents.push_back({28,764});roundTrip(city);
 }
 
@@ -365,7 +369,7 @@ void serviceEconomyWireContract() {
 		s.journey->supplements[owner].inputs.poisonResistance=XeenAttributeValue{int(owner),int(255-owner)};
 	}
 	const auto bytes=XeenSaveFormat::encode(s);const auto start=bytes.size()-4278;
-	check(bytes[8]==4 && bytes[start+1]==9 && bytes[start+3]==content,"exact v4/schema9/content selectors");
+	check(bytes[8]==5 && bytes[start+1]==9 && bytes[start+3]==content,"exact v5/schema9/content selectors");
 	auto expected=bytes;expected.resize(expected.size()-1164);
 	expected.insert(expected.end(),{2,4,4,9});
 	// Literal wire recipe is independent of the production encoder and validator.
@@ -418,7 +422,7 @@ void serviceEconomyWireContract() {
 		auto state=s;
 		if(cityCount) {
 			state.journey->vertigoActors.emplace();
-			for(unsigned owner=0;owner<cityCount;++owner) {XeenSaveJourneyActor a;a.id={28,owner};state.journey->vertigoActors->push_back(a);}
+			for(unsigned owner=0;owner<cityCount;++owner) {XeenSaveJourneyActor a;a.id={28,owner};a.hp=1;a.x=owner%32;a.y=owner/32;if(owner>=46)a.spawnedType=0;state.journey->vertigoActors->push_back(a);}
 			state.camera={28,8,4,XeenDirection::West};
 			if(cityCount==52)state.disabledEvents.push_back({28,764});
 		}
@@ -427,12 +431,12 @@ void serviceEconomyWireContract() {
 			auto &entry=source<10?state.journey->treasure->weapons[source]:state.journey->treasure->armor[source-10];entry.source=source;entry.item.id=1;
 		}
 		const auto wire=XeenSaveFormat::encode(state);
-		check(wire.size()==start+(cityCount==0?4278:cityCount==46?5156:5270)+5*pending+(cityCount==52?7:0),"M40 exact city/pending suffix extent");
+		check(wire.size()==start+4278+(cityCount?4+21*cityCount:0)+5*pending+(cityCount==52?7:0),"v5 exact city/pending suffix extent");
 		sameSnapshot(state,XeenSaveFormat::decode(wire));
 	}
 	for(unsigned day=8;day<=99;++day) {
 		auto state=s;state.journey->context->day=day;
-		if(day>8) {state.journey->vertigoActors.emplace();for(unsigned owner=0;owner<46;++owner){XeenSaveJourneyActor a;a.id={28,owner};state.journey->vertigoActors->push_back(a);}}
+		if(day>8) {state.journey->vertigoActors.emplace();for(unsigned owner=0;owner<46;++owner){XeenSaveJourneyActor a;a.id={28,owner};a.hp=1;state.journey->vertigoActors->push_back(a);}}
 		const auto wire=XeenSaveFormat::encode(state);sameSnapshot(state,XeenSaveFormat::decode(wire));
 	}
 	for(unsigned day:{0u,7u,100u,65535u}) {auto state=s;state.journey->context->day=day;rejects([&]{XeenSaveFormat::encode(state);},"calendar");}
@@ -441,10 +445,10 @@ void serviceEconomyWireContract() {
 }
 void purchaseDepletedWireContract() {
 	auto state=currentWireSnapshot();state.camera={28,8,4,XeenDirection::West};state.journey->vertigoActors.emplace();
-	for(unsigned owner=0;owner<46;++owner){XeenSaveJourneyActor a;a.id={28,owner};state.journey->vertigoActors->push_back(a);}
+	for(unsigned owner=0;owner<46;++owner){XeenSaveJourneyActor a;a.id={28,owner};a.hp=1;state.journey->vertigoActors->push_back(a);}
 	const auto complete=XeenSaveFormat::encode(state);
-	const auto economyOffset=complete.size()-1164,start=complete.size()-5156;
-	check(complete[8]==4 && complete[start+1]==9 && complete[start+3]==14,"purchase selector/extent differs");
+	const auto economyOffset=complete.size()-1164,start=complete.size()-(4278+4+21*46);
+	check(complete[8]==5 && complete[start+1]==9 && complete[start+3]==14,"purchase selector/extent differs");
 	// Literal eight L1 Weapon source from twenty Weapon calls. Removing one
 	// inserted plain record leaves seven; old generated-only meaning rejects it.
 	state.journey->serviceEconomy->wares[0][0][0][7]={};
@@ -484,7 +488,7 @@ void templeWireContract() {
 	auto state=currentWireSnapshot();
 	state.journey->vertigoActors.emplace();
 	for(unsigned owner=0;owner<46;++owner) {
-		XeenSaveJourneyActor actor;actor.id={28,owner};
+		XeenSaveJourneyActor actor;actor.id={28,owner};actor.hp=1;
 		state.journey->vertigoActors->push_back(actor);
 	}
 	for(unsigned y=8;y<=28;++y) {

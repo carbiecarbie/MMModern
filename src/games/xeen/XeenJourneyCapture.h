@@ -46,10 +46,11 @@ class XeenJourneyCapture {
 		if (actors.size() != expected || admittedActors.size() != expected) return false;
 		for (unsigned i = 0; i < expected; ++i)
 			if (!xeenJourneyContent().influences(i) && !xeen_state::sameActor(actors[i],admittedActors[i])) return false;
-		for (auto id:w->sessionState().accountedMonsters())
-			if (id.mapId!=xeenJourneyContent().entry.mapId &&
-				!(id.mapId==XeenMapIdentity(28) &&
-					(id.recordIndex==35 || id.recordIndex==36))) return false;
+		for (auto id:w->sessionState().accountedMonsters()) {
+			if(!w->sessionState().hasRegionalActors(id.mapId)) return false;
+			const auto owned=w->sessionState().regionalActors(id.mapId);
+			if(id.recordIndex>=owned.size() || owned[id.recordIndex].lifecycle!=XeenActorLifecycle::Defeated) return false;
+		}
 		if (c->mapId==XeenMapIdentity(28)) {
 			if (!w->sessionState().hasRegionalActors(28)) return false;
 			try {
@@ -80,7 +81,6 @@ struct XeenJourneyRestoration {
 	std::vector<XeenMonsterRecord> statistics;
 	XeenEventFile events;
 	std::function<XeenLearnedSpellNames()> learnedNamesProvider;
-	XeenVertigoManifest vertigoManifest;
 };
 }
 #endif

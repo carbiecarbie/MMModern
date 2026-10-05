@@ -477,11 +477,6 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
             if (!bytes) throw std::runtime_error("Missing DARK.CC/xeen.mon");
             return XeenMonsterFormat::parse(*bytes);
         };
-        services.resources.vertigoManifest = [&](XeenWorld &world,const XeenEventFile &evt,const std::vector<XeenMonsterRecord> &mon) {
-            xeenValidateVertigoManifest(world,evt,mon,[&](const std::string &name) {
-                return name.rfind("maze",0)==0 ? assets.readInitialResource(name) : assets.readArchiveResource(name);
-            });
-        };
 		services.resources.loadLearnedSpellNames = [&] {
 			const auto bytes=assets.readLearnedSpellNamesFromDarkArchive();
 			if (!bytes) throw std::runtime_error("Missing DARK.CC/spells.xen");

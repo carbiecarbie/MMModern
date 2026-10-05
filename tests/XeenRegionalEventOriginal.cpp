@@ -25,11 +25,7 @@ XeenGameplayServices regional(Harness &h) {
   xeenValidateRegionalManifest(m,o,e,mon,h.assets->readInitialResource("maze0023.dat"),
    h.assets->readInitialResource("maze0023.mob"),h.assets->readInitialResource("maze0023.evt"));
  };
- s.resources.vertigoManifest=[&](auto &w,const auto &evt,const auto &mon) {
-  xeenValidateVertigoManifest(w,evt,mon,[&](const std::string &name) {
-   return name.rfind("maze",0)==0?h.assets->readInitialResource(name):h.assets->readArchiveResource(name);
-  });
- };
+
  s.resources.loadInitialBankBalances=[&]{return XeenCharacterFormat::parseBankBalances(h.assets->readInitialResource("maze.pty"));};
  s.resources.loadInitialPurse=[&]{return XeenCharacterFormat::parseMonsterPurse(h.assets->readInitialResource("maze.pty"));};
  s.resources.loadInitialRegionalRecovery=[&]{return XeenQuestFlagFormat::parseRegionalRecovery(h.assets->readInitialResource("maze.pty"));};

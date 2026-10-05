@@ -215,9 +215,11 @@ int main() {try {
 		rejects([&] {XeenIndoorScene().build(wallWorld,c,nullptr,nullptr,{}, {},false,[](auto) {return 3;});});
 	}
 	XeenWorld neighbors([](auto id) {auto m=indoor(id);if(id==99)m.geometry.neighbors[0]=100;return m;});
-	check(!neighbors.sampleCell(99,8,16),"Presentation broadened mechanic sampling");
+	const auto gameplayNorth=neighbors.sampleCell(99,8,16);
 	const auto north=neighbors.sceneCell(99,8,16);
 	check(north&&north->mapId==100&&north->x==8&&north->y==0,"Generic indoor scene neighbor sampling");
+	check(gameplayNorth&&gameplayNorth->cell==north->cell&&gameplayNorth->mapId==north->mapId,
+		"Gameplay and presentation must resolve the same indoor tile");
 	XeenWorld tables([](auto id) {auto m=indoor(id);m.geometry.surfaceTypes[4]=id==33?1:12;
 		if(id==33)m.geometry.neighbors[0]=34;for(auto &cell:m.geometry.cells)cell.surfaceIndex=4;return m;});
 	const auto rootTables=XeenIndoorScene().build(tables,{33,8,15,XeenDirection::North});

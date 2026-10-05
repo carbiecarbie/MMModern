@@ -177,7 +177,7 @@ void XeenActorApproach::validateDomain(XeenWorld &world, const XeenPartyState &p
 void XeenActorApproach::validateEnvironment(XeenWorld &world,
 		const std::vector<XeenActor> &actors, const XeenEventFile &events) {
 	if(events.mapId==XeenMapIdentity(28)) {
-		require(events.resourcePresent && events.records.size()==847,"Vertigo Event topology changed");
+		require(events.resourcePresent,"Vertigo Event resource is absent");
 		xeenValidateVertigoActors(world,actors);
 		return;
 	}
@@ -445,7 +445,6 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 						const unsigned d=unsigned(camera.direction)^(*action==XeenEncounterAction::Backward?2u:0u);
 						constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};const int x=camera.x+dx[d],y=camera.y+dy[d];
 						if(indoor) {
-							if(!xeenJourneyContent().vertigoCell(x,y)) {refused.reason=XeenEncounterStop::Envelope;return refused;}
 							result=XeenMovement().apply(world,c.camera,*action==XeenEncounterAction::Forward?
 								NavigationAction::MoveForward:NavigationAction::MoveBackward);
 						} else {
@@ -455,7 +454,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 					} else result=XeenMovement().apply(world,c.camera,*action==XeenEncounterAction::Left?NavigationAction::TurnLeft:NavigationAction::TurnRight);
 					charge=result==XeenMovementResult::Moved;stepTime=charge || result==XeenMovementResult::Turned;
 					if(!stepTime) c.result.outcome=XeenEncounterOutcome::Blocked;
-					if(indoor ? !xeenJourneyContent().vertigoCell(c.camera.x,c.camera.y) :
+					if(indoor ? !xeenIndoorCoordinate(c.camera.x,c.camera.y) :
 						(c.camera.mapId!=XeenMapIdentity(23) || c.camera.x<0 || c.camera.x>=16 || c.camera.y<0 || c.camera.y>=16 ||
 						 !XeenMovement::component(map,9,11,xeenJourneyContent().traversal)[c.camera.y*16+c.camera.x]))
 						{ refused.reason=XeenEncounterStop::Envelope;return refused; }
@@ -463,9 +462,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 					if(indoor ? (sampled && (sampled->cell->rawAttributes & kXeenAutomaticEventFlag)!=0) :
 						hasAutomaticTrigger(map.geometry,c.camera.x,c.camera.y)) {
 						const auto event=xeenRegionalEvent(events,c.camera);
-						const auto interaction=indoor ? xeenRegionalInteraction(events,c.camera) : XeenRegionalInteraction::None;
-						if(event && !(indoor ? (interaction==XeenRegionalInteraction::VertigoDoor ||
-							interaction==XeenRegionalInteraction::TempleLabel) : xeenRegionalSign(events,c.camera)))
+						if(!indoor && event && !xeenRegionalSign(events,c.camera))
 							{ refused.reason=XeenEncounterStop::Domain;return refused; }
 						c.result.automaticEvent=event.has_value();
 					}

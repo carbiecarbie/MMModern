@@ -167,19 +167,13 @@ int main(int argc,char **argv) {
    "M37 destination preparation failure published partial state");
   for(const auto stage:{L"candidate-mutation",L"candidate-aba",L"candidate-aba-container",L"candidate-aba-party",
     L"candidate-aba-camera",L"candidate-aba-flags",L"candidate-aba-overlay",L"candidate-aba-rng",
-    L"candidate-aba-treasure",L"candidate-cache-rebuild",L"manifest-mismatch"}) {
+    L"candidate-aba-treasure",L"candidate-cache-rebuild"}) {
    SetEnvironmentVariableW(L"MMODERN_M37_STAGE",stage);
    const auto result=child_test::launch(witness,
     {L"--journey-region",L"--combat-seed",L"56",game.wstring(),L"--save-file",(dir/(std::wstring(stage)+L".mmsave")).wstring()},
     dir/(std::wstring(stage)+L".log"),false,false,120000);
-   if(std::wstring(stage)==L"manifest-mismatch") {
-    child_test::require(result.exit!=0 && result.output.find("M37 IMMUTABLE MANIFEST PROBE")!=std::string::npos &&
-     !fs::exists(dir/(std::wstring(stage)+L".mmsave")),"M37 immutable mismatch was not rejected during current startup admission");
-    continue;
-   }
    const bool cache=std::wstring(stage)==L"candidate-cache-rebuild";
-   const auto expected=cache?"M37 CLI SMOKE":std::wstring(stage)==L"manifest-mismatch"?
-    "M37 IMMUTABLE INTEGRITY REJECTION passed":"M37 CANDIDATE INTEGRITY REJECTION passed";
+   const auto expected=cache?"M37 CLI SMOKE":"M37 CANDIDATE INTEGRITY REJECTION passed";
    child_test::require(result.exit==0 && result.output.find(expected)!=std::string::npos,
     "M37 retained provider/candidate guard regression failed");
   }

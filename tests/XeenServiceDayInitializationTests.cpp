@@ -71,15 +71,11 @@ struct Inputs {
 			xeenValidateRegionalManifest(m,o,e,s,assets.readInitialResource("maze0023.dat"),
 				assets.readInitialResource("maze0023.mob"),assets.readInitialResource("maze0023.evt"));};
 	}
-	XeenVertigoManifest vertigo() {
-		return [&](auto &w,const auto &e,const auto &s) {xeenValidateVertigoManifest(w,e,s,[&](const auto &name) {
-			return name.rfind("maze",0)==0?assets.readInitialResource(name):assets.readArchiveResource(name);});};
-	}
 	XeenJourneySetup setup() {
 		XeenJourneySetup out{chr,XeenGameplayContextFormat::parse(pty),statistics,mainlandEvents,3626689381u,regional()};
 		out.purse=XeenCharacterFormat::parseMonsterPurse(pty);
 		out.regionalRecovery=XeenQuestFlagFormat::parseRegionalRecovery(pty);out.regionalText=texts.load(23);
-		out.learnedNames=names;out.learnedNamesProvider=[&]{return names;};out.vertigoManifest=vertigo();
+		out.learnedNames=names;out.learnedNamesProvider=[&]{return names;};
 		out.bank=XeenCharacterFormat::parseBankBalances(pty);
 		out.cityEventsProvider=[&]{return events.load(28);};
 		return out;
@@ -87,7 +83,7 @@ struct Inputs {
 	XeenSaveState::Resources restoreResources(unsigned &freshCalls) {
 		XeenSaveState::Resources r;
 		r.signature=signature;r.loadEvents=[&](auto id){return events.load(id);};
-		r.loadMonsterStatistics=[&]{return statistics;};r.regionalManifest=regional();r.vertigoManifest=vertigo();
+		r.loadMonsterStatistics=[&]{return statistics;};r.regionalManifest=regional();
 		r.loadRegionalText=[&](auto id){return texts.load(id);};r.loadLearnedSpellNames=[&]{return names;};
 		// Reload original display metadata; durable context, purse and bank remain saved.
 		r.loadInitialParty=[&]{return XeenPartyLoader().loadFromResources(chr,pty);};
@@ -220,11 +216,10 @@ void restoreAndFinalOwners(Inputs &i) {
 	std::cout<<"M40 SYNTHETIC exact nonzero bank restore, no fresh-provider replay, exceptional preflight ABA and final-owner stock/bank guards passed\n";
 }
 void postPublicationFailure(Inputs &i) {
- for(bool manifest:{false,true}) {
+ {
   Graph g(i);auto setup=i.setup();bool fired=false;
   const auto fail=[&]{fired=true;check(g.p.serviceEconomy && g.p.encounterContext && g.p.roster.combatMarked(),"Training validation did not follow fresh publication");throw std::bad_alloc();};
-  if(manifest)setup.vertigoManifest=[&](auto &,const auto &,const auto &){fail();};
-  else setup.cityEventsProvider=[&]()->XeenEventFile{fail();return {};};
+  setup.cityEventsProvider=[&]()->XeenEventFile{fail();return {};};
   rejects([&]{g.fresh(setup);});
   check(fired && g.p.serviceEconomy && g.p.encounterContext && !XeenSaveState::canCapture(g.p,g.c,g.world),"failed Training admission left save authority");
   check(g.world.sessionState().journeyRandom()==std::optional<XeenJourneyRandomState>{{1,7,886}},"failed Training admission replayed fresh RNG");

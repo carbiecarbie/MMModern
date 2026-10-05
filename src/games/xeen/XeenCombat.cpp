@@ -543,8 +543,10 @@ XeenCombatResult XeenCombat::beginCombat(const Ticket &t) {
 		require(view.engaged(),"combat requires contact");
 		for (unsigned i=0;i<3;++i) if (view.slots[i]) {
 			const auto &a=d.activeActors().at(view.slots[i]->recordIndex);
-			require((d.indoor() ? a.id==XeenMonsterIdentity{28,d.activeActors().size()==52?36u:35u} : xeenJourneyContent().influences(a.id.recordIndex)) && a.hp>0 && a.lifecycle==XeenActorLifecycle::Present && a.status==XeenActorStatus::Physical,"Invalid contact actor");
-			if(d.indoor()) a.statistics->validateAdmittedPoisonCombat();
+			require(a.id==XeenMonsterIdentity{d.camera.mapId,view.slots[i]->recordIndex} &&
+				a.statistics && a.hp>0 && a.lifecycle==XeenActorLifecycle::Present &&
+				a.status==XeenActorStatus::Physical && a.statistics->supportsGroundMovement(),"Invalid contact actor");
+			a.statistics->validateAttackCapabilities();
 
 		}
 		for (unsigned i=0;i<6;++i) { d.playerSpeeds[i]=Rules::effectivePhysical(d.character(i),d.inputs[i],Rules::PhysicalAttribute::Speed,{d.party.encounterContext->year});  }

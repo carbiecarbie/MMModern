@@ -1,20 +1,7 @@
 #include "games/xeen/XeenWorld.h"
 namespace mmodern {
 std::optional<XeenCellSample> XeenWorld::sceneCell(XeenMapIdentity mapId,int x,int y) {
-	// Map::getCell resolves vertical neighbors before horizontal neighbors.
-	if(x < -16 || x >=32 || y < -16 || y>=32) return std::nullopt;
-	const auto *current=&map(mapId);
-	if(y<0 || y>=16) {
-		const auto next=current->geometry.neighbors[y<0?2:0];
-		if(!next) return std::nullopt;
-		y+=y<0?16:-16;current=&map({mapId.side,next});
-	}
-	if(x<0 || x>=16) {
-		const auto next=current->geometry.neighbors[x<0?3:1];
-		if(!next) return std::nullopt;
-		x+=x<0?16:-16;current=&map({mapId.side,next});
-	}
-	return XeenCellSample{current->identity(),x,y,&current->geometry,&current->geometry.cells[y*16+x]};
+	return sampleCell(mapId,x,y);
 }
 std::vector<XeenActor> XeenWorld::sceneActors(XeenMapIdentity mapId,
 		const std::function<std::vector<XeenMonsterRecord>()> &loadStatistics) {

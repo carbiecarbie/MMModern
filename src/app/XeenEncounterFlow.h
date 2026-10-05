@@ -33,7 +33,6 @@ struct XeenJourneySetup {
 	std::optional<XeenEventTextFile> regionalText;
 	std::optional<XeenLearnedSpellNames> learnedNames;
 	std::function<XeenLearnedSpellNames()> learnedNamesProvider;
-	XeenVertigoManifest vertigoManifest;
 	std::optional<XeenBankBalances> bank;
 	std::function<XeenEventFile()> cityEventsProvider;
 };
@@ -299,7 +298,6 @@ private:
 	std::shared_ptr<XeenJourneyCapture> _journeyCapture;
 	XeenEventFile _journeyEvents;
 	std::vector<XeenMonsterRecord> _journeyStatistics;
-	XeenVertigoManifest _vertigoManifest;
 	std::function<XeenLearnedSpellNames()> _learnedNamesProvider;
 	void retainJourney();
 	bool journeyCapacity() noexcept;

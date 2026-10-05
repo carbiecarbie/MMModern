@@ -24,7 +24,7 @@ public:
 		quests(p.questItems.counts()), questFlags(p.questFlags.values()), recovery(p.regionalRecovery), context(p.encounterContext), treasure(p.monsterTreasure), economy(p.serviceEconomy),
 		first(p.firstSerializedCount), effective(p.effectiveSerializedCount), diagnostics(p.diagnostics),
 		cameraValue(c), flagValues(f.values()), combatCheck(bool(w._combatCheck)), combatAuthorized(bool(w._combatAuthorized)),
-		maps(w._maps), objects(w._objects), spawnSlime(w._vertigoSpawnSlime), cacheRevision(w._cacheRevision), exactCaches(exactCaches),
+		maps(w._maps), objects(w._objects), cityStatistics(w._cityStatistics), cityOriginalCount(w._cityOriginalActorCount), cacheRevision(w._cacheRevision), exactCaches(exactCaches),
 		borrowOwners{&w._gameplayBorrow, &p._gameplayBorrow, &p.roster._gameplayBorrow, &c.gameplayBorrow, &f._gameplayBorrow} {
 		for (unsigned i = 0; i < borrowOwners.size(); ++i) {
 			borrowStates[i] = borrowOwners[i]->retain();
@@ -51,7 +51,7 @@ public:
 		first(std::move(other.first)), effective(std::move(other.effective)), diagnostics(std::move(other.diagnostics)),
 		cameraValue(std::move(other.cameraValue)), flagValues(std::move(other.flagValues)), combatCheck(std::move(other.combatCheck)),
 		combatAuthorized(std::move(other.combatAuthorized)), maps(std::move(other.maps)), objects(std::move(other.objects)),
-		spawnSlime(std::move(other.spawnSlime)), regionalText(std::move(other.regionalText)), vertigoText(std::move(other.vertigoText)),
+		cityStatistics(std::move(other.cityStatistics)), cityOriginalCount(other.cityOriginalCount), regionalText(std::move(other.regionalText)), vertigoText(std::move(other.vertigoText)),
 		learnedNames(std::move(other.learnedNames)), cacheRevision(std::move(other.cacheRevision)), exactCaches(std::move(other.exactCaches)),
 		borrowOwners(std::move(other.borrowOwners)), borrowStates(other.borrowStates), borrowRevisions(std::move(other.borrowRevisions)),
 		failed(std::move(other.failed)), mutations(std::move(other.mutations)) {
@@ -75,8 +75,8 @@ public:
 			p.effectiveSerializedCount != effective || p.diagnostics != diagnostics ||
 			!sameCamera(c, cameraValue) || f.values() != flagValues ||
 			bool(w._combatCheck) != combatCheck || bool(w._combatAuthorized) != combatAuthorized ||
-			bool(w._vertigoSpawnSlime) != bool(spawnSlime) ||
-			(w._vertigoSpawnSlime && w._vertigoSpawnSlime->raw != spawnSlime->raw)) return false;
+			w._cityStatistics.size()!=cityStatistics.size() || w._cityOriginalActorCount!=cityOriginalCount) return false;
+		for(unsigned i=0;i<cityStatistics.size();++i) if(w._cityStatistics[i].raw!=cityStatistics[i].raw) return false;
 		const auto &live = w._sessionState;
 		if (live._journeyActivity != s._journeyActivity || live._journeyOwner != s._journeyOwner ||
 			live._journeyGeneration != s._journeyGeneration || live._skeletonSeed != s._skeletonSeed ||
@@ -309,7 +309,8 @@ private:
 		first = candidate.first; effective = candidate.effective; diagnostics = candidate.diagnostics;
 		cameraValue = candidate.cameraValue; flagValues = candidate.flagValues;
 		maps = candidate.maps; objects = candidate.objects;
-		spawnSlime = candidate.spawnSlime;
+		cityStatistics = candidate.cityStatistics;
+		cityOriginalCount = candidate.cityOriginalCount;
 		if (regionalText && candidate.regionalText &&
 			(regionalText->mapId!=candidate.regionalText->mapId ||
 			 regionalText->resourceName!=candidate.regionalText->resourceName ||
@@ -343,7 +344,7 @@ private:
 		auto actors=candidate.s._actors;auto city=candidate.s._vertigoActors;
 		auto accounted=candidate.s._accountedMonsters;
 		auto events=candidate.s._events;auto disabledObjects=candidate.s._objects;
-		auto slime=candidate.spawnSlime;
+		auto statistics=candidate.cityStatistics;
 		for (const auto &entry:candidate.maps) {
 			const auto found=maps.find(entry.first);
 			if (found!=maps.end() && !xeen_state::sameMap(entry.second,found->second)) {
@@ -363,7 +364,8 @@ private:
 		s._actors.swap(actors);s._vertigoActors.swap(city);
 		s._accountedMonsters.swap(accounted);
 		s._events.swap(events);s._objects.swap(disabledObjects);
-		maps.swap(nextMaps);objects.swap(nextObjects);spawnSlime.swap(slime);
+		maps.swap(nextMaps);objects.swap(nextObjects);cityStatistics.swap(statistics);
+		cityOriginalCount=candidate.cityOriginalCount;
 		cameraValue=candidate.cameraValue;flagValues=candidate.flagValues;++worldRevision;
 	}
 	// Only the coordinator's checked, callback-free authority transitions may adopt these fields.
@@ -398,6 +400,7 @@ private:
 		mutations.add(members.data(),members.size()*sizeof(XeenMutable<std::uint8_t>));
 		mutations.add(w._sessionState._actors.data(),w._sessionState._actors.size()*sizeof(XeenActor));
 		if(w._sessionState._vertigoActors) mutations.add(w._sessionState._vertigoActors->data(),w._sessionState._vertigoActors->size()*sizeof(XeenActor));
+		mutations.add(w._cityStatistics.data(),w._cityStatistics.size()*sizeof(XeenMonsterRecord));
 		watchResourceMutations();
 	}
 	void watchResourceMutations() const noexcept {
@@ -436,7 +439,8 @@ private:
 	bool combatCheck, combatAuthorized;
 	std::map<XeenMapIdentity, XeenMap> maps;
 	std::map<XeenMapIdentity, XeenObjectFile> objects;
-	std::optional<XeenMonsterRecord> spawnSlime;
+	std::vector<XeenMonsterRecord> cityStatistics;
+	std::uint16_t cityOriginalCount=0;
 	std::optional<XeenEventTextFile> regionalText;
 	std::optional<XeenEventTextFile> vertigoText;
 	std::optional<XeenLearnedSpellNames> learnedNames;

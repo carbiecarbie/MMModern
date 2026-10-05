@@ -132,7 +132,7 @@ inline XeenSaveState::Resources resources(){
     XeenSaveState::Resources r;r.signature=signature();r.loadInitialCharacters=characterBytes;
     r.loadEvents=events;r.loadMonsterStatistics=statistics;
     r.regionalManifest=[](const auto &,const auto &,const auto &,const auto &){};
-    r.vertigoManifest=[](auto &,const auto &,const auto &){};
+
     r.loadRegionalText=texts;r.loadLearnedSpellNames=[]{return XeenLearnedSpellNames{};};
     r.loadInitialParty=[]{return XeenPartyLoader().loadFromResources(characterBytes(),partyBytes());};
     r.loadInitialContext=[]{return XeenGameplayContextFormat::parse(partyBytes());};
@@ -163,7 +163,7 @@ struct Fixture{
             XeenJourneySetup setup{bytes,XeenGameplayContextFormat::parse(partyBytes()),monsters,event,1,r.regionalManifest};
             setup.purse=XeenMonsterTreasure{};setup.regionalRecovery=XeenRegionalRecoveryState{};
             setup.regionalText=texts(23);setup.learnedNames=XeenLearnedSpellNames{};
-            setup.learnedNamesProvider=r.loadLearnedSpellNames;setup.vertigoManifest=r.vertigoManifest;
+            setup.learnedNamesProvider=r.loadLearnedSpellNames;
             setup.bank=XeenBankBalances{};setup.cityEventsProvider=[]{return events(28);};
             flow=std::make_unique<XeenEncounterFlow>(w,p,camera,flags,clock,setup);
         }

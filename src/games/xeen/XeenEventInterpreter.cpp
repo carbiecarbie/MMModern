@@ -145,7 +145,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::begin(
 	}
 	const bool city=world.sessionState().journey() && initialCamera.mapId==XeenMapIdentity(28);
 	if (!initialCamera.mapId || initialCamera.x < 0 || initialCamera.y < 0 ||
-			!(city ? xeenJourneyContent().eventCameraCell(initialCamera.x,initialCamera.y) :
+			!(city ? xeenIndoorCoordinate(initialCamera.x,initialCamera.y) :
 				(initialCamera.x<16 && initialCamera.y<16)) || !validDirection(initialCamera.direction)) {
 		return error(XeenEventExecutionErrorKind::InvalidInitialCamera,
 			"initial camera is outside the supported Xeen map domain", 0,
