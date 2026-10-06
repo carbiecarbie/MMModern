@@ -19,6 +19,7 @@ struct XeenTrainingResult {
 // Detached values only; Flow retains all preimages and publication authority.
 struct XeenTrainingCandidate {
     XeenTrainingResult result;
+    XeenGameplayContext context;
     std::array<XeenCharacter,6> characters;
     std::array<XeenCombatInputs,6> inputs;
     unsigned count=0;

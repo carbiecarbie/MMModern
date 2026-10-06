@@ -166,7 +166,7 @@ void characterPreflight() {
 		case 2: c.temporaryAge = maximum; break;
 		case 3: c.intellect = {maximum, 1}; break;
 		case 4: c.intellect = {minimum, 0}; c.birthYear = 610; break;
-		case 5: c.personality = {minimum + 1, 0}; c.conditions[4] = 255; break;
+		case 5: c.personality = {minimum + 1, 0}; c.conditions[4] = 254; break; // Positive Disease underflows; FF/-1 adds one.
 		case 6: c.permanentLevel = maximum; break; // HP product.
 		case 7: c.characterClass = XeenCharacterClass::Cleric; c.hasSpells = true;
 			c.personality.permanent = 70000; c.permanentLevel = 100000000; break; // SP product.

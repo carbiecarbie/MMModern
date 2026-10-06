@@ -2,6 +2,10 @@
 #include <limits>
 #include <stdexcept>
 namespace mmodern {
+std::optional<unsigned> xeenRestTerrain(unsigned surface,bool outdoor,bool navigator,bool levitating) {
+ if(surface==5 || surface==10 || surface==15 || (surface==13 && !levitating))return {};
+ return surface==6 && outdoor && !navigator ? 170u : 0u;
+}
 // Adapted from Interface::rest at ScummVM 6814ee9b, interface.cpp:1144-1238;
 // GPL-3.0-or-later, ScummVM developers (COPYRIGHT). Weak/Drunk follows the
 // maintainer's approved original-behavior decision in the M51 plan.

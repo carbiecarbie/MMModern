@@ -9,7 +9,16 @@ struct XeenRestTestAccess {
  static bool confirm(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Confirm;}
  static bool refused(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Refused;}
  static unsigned dream(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Dream?f._encounter->_rest->dreamBeat+1:0;}
+ static unsigned charges(const XeenEventFlow &f){return f._encounter->_rest->charges;}
  static void pending(XeenEventFlow &f,unsigned value){auto &e=*f._encounter;e._state._pending=value;f._encounterFrame=e.ticket();}
+ static void scene(XeenEventFlow &f,const XeenGameplayContext &context) {
+  f._encounterCompose=[&context](auto,auto) {
+   auto image=training_test::frame();image.pixels[0]=(context.minutes<300 || context.minutes>=1260)?2:1;
+   for(unsigned n=0;n<image.palette.size();++n)image.palette[n]=(n%64)<<2;
+   return XeenEventFlow::Composition{image,false};
+  };
+ }
+ static IndexedFrame background(const XeenEventFlow &f){return f._encounter->_rest->background;}
 };
 }
 namespace {
@@ -105,6 +114,8 @@ void entry(Inputs &in) {
 }
 void interruption(Inputs &in,bool ranged,unsigned pending,bool indoor=false) {
  auto start=source(in,indoor,true,ranged);start.journey->random=XeenCombatRandom(ranged?17:23).continuation();
+ check(start.camera.x==(indoor?6:ranged?3:2) && start.camera.y==(ranged?8:1) && start.camera.direction==XeenDirection::North,
+  "Fixed interruption camera changed");
  for(auto owner:start.activeRosterIds)start.characters[owner].currentHp=1000;
  Fixture f(in,start);wire(f);XeenRestTestAccess::pending(*f.flow,pending);
  if(pending) {const auto context=f.flow->inputContext(f.flow->frame().presentation());
@@ -116,7 +127,32 @@ void interruption(Inputs &in,bool ranged,unsigned pending,bool indoor=false) {
   !f.p.encounterContext->rested,"Interrupted Rest has only elapsed charges, no food/recovery/dream");
  bool asleep=false;for(auto owner:start.activeRosterIds)asleep=asleep || f.p.roster.at(owner).conditions[8];
  check(asleep,"Unhit interrupted members remain asleep");
- std::cout<<"Interruption contact="<<contact<<" minutes="<<f.p.encounterContext->minutes<<" draws="<<f.w.sessionState().journeyRandom()->count<<'\n';
+ const unsigned interruptingCharge=ranged?1:2;
+ check(f.p.encounterContext->minutes==480+interruptingCharge*(indoor?1:10) &&
+  f.w.sessionState().journeyRandom()->count==(ranged?4:0),"Fixed interrupting charge/RNG count changed");
+ check(contact==!ranged && (f.flow->encounter()->state().phase()==XeenEncounterPhase::Engaged)==!ranged,
+  "Fixed wake reason must distinguish contact from ranged-only return");
+ for(unsigned n=0;n<6;++n) {
+  const auto &member=f.p.roster.at(start.activeRosterIds[n]);
+  check(member.conditions[8]==(ranged && n<2?0:1),"Fixed awake/asleep member mask changed");
+  check(member.currentHp==(ranged && n<2?int(n==0?993:994):1000),"Fixed interruption injuries changed");
+ }
+ XeenConsequenceCharacters observed;for(unsigned n=0;n<6;++n)observed[n]=f.p.roster.at(start.activeRosterIds[n]);
+ check(xeenRestRangedWake(observed)==ranged,"Literal Depressed/Confused/Good ranged wake reason changed");
+ const auto beforeActors=actors(in,start);const auto live=f.w.sessionState().regionalActors(f.c.mapId);
+ for(unsigned n=0;n<live.size();++n) {
+  int x=beforeActors[n].x,y=beforeActors[n].y;
+  if(indoor) {if(n>=14 && n<=16){x=5;y=3;}if(n==31 || n==32){x=6;y=1;}}
+  else if(ranged) {if(n==7 || n==8){x=3;y=9;}}
+  else {if(n==12){x=4;y=0;}if(n==17){x=2;y=2;}if(n==18){x=2;y=1;}}
+  check(live[n].x==x && live[n].y==y,"Fixed interruption actor positions changed");
+ }
+ if(ranged) {
+  const auto &shots=*f.flow->encounter()->result().consequences;
+  check(shots.count==2 && shots.shots[0].source.recordIndex==7 && shots.shots[1].source.recordIndex==8 &&
+   shots.shots[0].attack.targetedMembers==1 && shots.shots[1].attack.targetedMembers==2,"Fixed ranged source/target order changed");
+ }
+ std::cout<<"Fixed interruption charge="<<interruptingCharge<<" reason="<<(ranged?"ranged-only":"contact")<<" passed\n";
  {
  struct QuietOutput {std::ostringstream output;std::streambuf *before;QuietOutput():before(std::cout.rdbuf(output.rdbuf())){}~QuietOutput(){std::cout.rdbuf(before);}} quiet;
  for(unsigned n=0;n<3000 && !f.flow->canSave();++n) {
@@ -129,6 +165,7 @@ void interruption(Inputs &in,bool ranged,unsigned pending,bool indoor=false) {
  check(f.flow->canSave() && f.p.food==start.food && !XeenRestTestAccess::active(*f.flow),"Combat returns to ordinary quiet without resuming Rest");
  const auto aftermath=f.snapshot();Fixture loaded(in,aftermath);wire(loaded);save_test::sameSnapshot(aftermath,loaded.snapshot());
  bool stillAsleep=false;for(auto owner:start.activeRosterIds)stillAsleep=stillAsleep || loaded.p.roster.at(owner).conditions[8];
+ check(stillAsleep,"Combat/save restoration cleared unhit members' persistent sleep");
  std::cout<<"Interrupted-rest aftermath asleep="<<stillAsleep<<" exact round-trip\n";
 }
 void reentrant(Inputs &in) {
@@ -164,7 +201,7 @@ void combatOutcomes(Inputs &in,bool run) {
 }
 void conditionDeath(Inputs &in) {
  auto start=source(in,true);start.journey->context->minutes=1439;
- for(auto owner:start.activeRosterIds)start.characters[owner].conditions[2]=255;
+ for(auto owner:start.activeRosterIds)start.characters[owner].conditions[2]=254; // FF is -1 in conditionMod, not lethal weakness.
  Fixture f(in,start);wire(f);f.act(RestAction{});check(XeenRestTestAccess::confirm(*f.flow),"All-member stat danger confirmation missing");
  f.act(DialogKeyAction{'y'});
  for(unsigned n=0;n<500 && !XeenRestTestAccess::complete(*f.flow);++n)pulse(f);
@@ -173,6 +210,122 @@ void conditionDeath(Inputs &in) {
  for(auto owner:start.activeRosterIds)check(f.p.roster.at(owner).conditions[13] && !f.p.roster.at(owner).conditions[8],"Condition-dead member recovery order");
  f.act(AcknowledgeAction{});check(f.flow->encounter()->state().reason()==XeenEncounterStop::Defeat && !f.flow->canSave(),"Rest's final party-death check missing");
 }
+void noTargets(Inputs &in) {
+ auto start=source(in,false,true,true);start.journey->context->minutes=479;
+ start.journey->random=XeenCombatRandom(17).continuation();
+ for(auto owner:start.activeRosterIds)start.characters[owner].conditions[2]=254;
+ Fixture f(in,start);wire(f);XeenRestTestAccess::pending(*f.flow,3);
+ f.act(RestAction{});check(XeenRestTestAccess::confirm(*f.flow),"noTargets danger confirmation");f.act(DialogKeyAction{'y'});
+ for(unsigned n=0;n<500 && XeenRestTestAccess::active(*f.flow);++n)pulse(f);
+ const auto &result=f.flow->encounter()->result();
+ check(!XeenRestTestAccess::active(*f.flow) && !f.flow->encounter()->combat() &&
+  f.flow->encounter()->state().reason()==XeenEncounterStop::Defeat,"Ranged noTargets did not end Rest in ordinary defeat");
+ check(result.consequences && result.consequences->count && !result.view.engaged(),"noTargets must be ranged-only, not contact");
+ for(unsigned n=0;n<result.consequences->count;++n)
+  check(!result.consequences->shots[n].attack.targetedMembers && !result.consequences->shots[n].attack.injuryCount,"noTargets unexpectedly selected/injured a member");
+ check(f.p.food==start.food && f.p.encounterContext->minutes==489 && !f.p.encounterContext->rested && !f.flow->canSave(),"noTargets published recovery/completion or remaining hours");
+ for(auto owner:start.activeRosterIds)check(f.p.roster.at(owner).conditions[13] && f.p.roster.at(owner).conditions[8],"noTargets cleared unhit sleep");
+ check(f.w.sessionState().journeyRandom()->count==15,"noTargets fixed RNG count changed");
+ const auto original=actors(in,start);const auto live=f.w.sessionState().regionalActors(23);
+ for(unsigned n=0;n<live.size();++n)check(live[n].x==(n==7 || n==8?3:int(original[n].x)) &&
+  live[n].y==(n==7 || n==8?9:int(original[n].y)),"noTargets fixed actor positions changed");
+ std::cout<<"noTargets charge=1 draws=15 passed\n";
+}
+void sleepingHit(Inputs &in) {
+ // Synthetic supported Sleep/ranged MON profile on a city-only species.
+ // Restoration binds both actors and the city's immutable statistics to this
+ // same fixture; every production geometry/identity/publication guard runs.
+ auto start=in.service();start.camera={28,11,1,XeenDirection::South};
+ start.journey->random=XeenCombatRandom(1).continuation();
+ for(auto owner:start.activeRosterIds)start.characters[owner].currentHp=1000;
+ start.characters[0].characterClass=XeenCharacterClass::Knight;
+ start.characters[0].permanentLevel=1;start.journey->supplements[0].inputs.luck->permanent=0;
+ for(unsigned n=0;n<start.journey->vertigoActors->size();++n) {
+  auto &a=start.journey->vertigoActors->at(n);if(a.lifecycle!=XeenActorLifecycle::Present)continue;
+  if(n==0){a.x=11;a.y=4;a.activated=false;}
+  else {a.x=a.y=-128;a.hp=0;a.activated=false;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
+ }
+ const auto previous=in.statistics[2];auto &monster=in.statistics[2];
+ monster.raw[24]=1;monster.raw[25]=unsigned(start.characters[0].characterClass);monster.raw[26]=1;monster.raw[27]=0;
+ monster.raw[28]=1;monster.raw[29]=0;monster.raw[30]=9;monster.raw[31]=5;monster.raw[32]=1;
+ const auto loader=[&](auto id){auto map=in.maps.loadGeometryMap(in.assets,id);
+  if(id!=XeenMapIdentity(23))for(auto &cell:map.geometry.cells){cell.rawWord=0;xeenGet<XeenIndoorWalls>(cell.geometry).walls.fill(0);}return map;};
+ Fixture f(in,start,false,nullptr,loader);in.statistics[2]=previous;wire(f);XeenRestTestAccess::pending(*f.flow,3);
+ f.act(RestAction{});if(XeenRestTestAccess::confirm(*f.flow))f.act(DialogKeyAction{'y'});
+ for(unsigned n=0;n<500 && XeenRestTestAccess::active(*f.flow) && !XeenRestTestAccess::charges(*f.flow);++n)pulse(f);
+ check(XeenRestTestAccess::active(*f.flow) && XeenRestTestAccess::charges(*f.flow)==1 && !f.flow->encounter()->combat(),"Sleeping ranged hit incorrectly ended Rest");
+ check(f.p.roster.at(0).currentHp==999 && f.p.roster.at(0).worstCondition()==XeenCondition::Asleep &&
+  f.p.encounterContext->minutes==481 && f.p.food==start.food,"Sleep ability must leave the hit member Asleep without recovery");
+ const auto live=f.w.sessionState().regionalActors(28);
+ check(live[0].x==11 && live[0].y==3 && f.w.sessionState().journeyRandom()->count==2,"Sleeping hit movement/RNG auto-hit oracle changed");
+ for(auto owner:start.activeRosterIds)check(f.p.roster.at(owner).conditions[8],"Sleeping hit unexpectedly woke a member");
+ for(unsigned n=0;n<500 && XeenRestTestAccess::active(*f.flow);++n)pulse(f);
+ check(!XeenRestTestAccess::active(*f.flow) && f.flow->encounter()->combat() && f.p.encounterContext->minutes==483 &&
+  f.p.food==start.food,"Rest must continue after sleepy hit until later contact");
+ std::cout<<"Sleeping hit continues after charge 1; contact interrupts charge 3\n";
+}
+void terrain(Inputs &in) {
+ const auto manifest=[&](unsigned surface) -> XeenRegionalManifest {
+  // Explicit synthetic surface table, checked in addition to every original
+  // manifest invariant. Restore only that fixture field in a detached copy
+  // for the original validator; no production guard or source file changes.
+  return [&,surface](const auto &m,const auto &o,const auto &e,const auto &s) {
+   for(auto value:m.geometry.surfaceTypes)check(value==surface,"Synthetic terrain table changed");
+   auto original=m;original.geometry.surfaceTypes=in.maps.loadGeometryMap(in.assets,23).geometry.surfaceTypes;
+   xeenValidateRegionalManifest(original,o,e,s,in.assets.readInitialResource("maze0023.dat"),in.assets.readInitialResource("maze0023.mob"),in.assets.readInitialResource("maze0023.evt"));
+  };
+ };
+ // Scan a superset of Vertigo's reachable cells, including all neighbor tiles,
+ // and the mainland traversal component. Use the primary map's surface table.
+ XeenWorld world(in.mapLoader(),in.objectLoader());
+ const auto mainland=XeenMovement::component(world.map(23),9,11,{});
+ for(bool indoor:{false,true}) {
+  std::array<unsigned,16> count{};unsigned cells=0;
+  const auto primary=indoor?28u:23u;
+  for(int y=0;y<(indoor?32:16);++y)for(int x=0;x<(indoor?32:16);++x) {
+   if(!indoor && !mainland[y*16+x])continue;
+   const auto sampled=world.sampleCell(primary,x,y);if(!sampled)continue;
+   ++cells;++count[world.map(primary).geometry.surfaceTypes[sampled->cell->surfaceIndex]];
+  }
+  std::cout<<"Surface audit map="<<primary<<" cells="<<cells;
+  for(unsigned s:{5u,6u,10u,13u,15u}){std::cout<<" surface"<<s<<'='<<count[s];check(!count[s],"Original reachable hazardous Rest surface found");}
+  std::cout<<'\n';
+ }
+ for(bool indoor:{false,true})for(unsigned surface:{5u,6u,10u,13u,15u}) {
+  if(!indoor && surface==15)continue; // Space cannot restore an outdoor traversal anchor; covered indoors and by the rules oracle.
+  auto start=source(in,indoor);if(surface==13)start.journey->context->effects[2]=1;
+  const auto loader=[&](auto id) {
+   auto map=in.maps.loadGeometryMap(in.assets,id);if(id==start.camera.mapId)map.geometry.surfaceTypes.fill(surface);return map;
+  };
+  Fixture f(in,start,false,nullptr,loader,indoor?XeenRegionalManifest{}:manifest(surface));wire(f);unsigned providers=0;
+  f.flow->loadRestDream=[&]{++providers;return in.assets.restDreamImage();};
+  const auto before=XeenSaveFormat::encode(f.snapshot());f.act(RestAction{});
+  if(surface!=6) {
+   check(XeenRestTestAccess::refused(*f.flow) && !providers,"Unsupported surface was not preflighted before dream/sleep");
+   f.act(AcknowledgeAction{});finish(f);check(XeenSaveFormat::encode(f.snapshot())==before,"Unsupported terrain changed state/time/RNG");
+  } else {
+   finish(f);check(f.p.encounterContext->minutes==start.journey->context->minutes+480+(indoor?0:170),"Desert Rest addTime/indoor suffix");
+  }
+ }
+ {
+  // Synthetic immutable Navigator skill in the decoded CHR fixture only.
+  // Commercial resources remain read-only, and all production owners/guards run.
+  const auto start=source(in,false);const auto slot=start.activeRosterIds[0]*XeenCharacter::kSerializedSize+49;
+  const auto previous=in.chr[slot];in.chr[slot]=1;
+  const auto loader=[&](auto id){auto map=in.maps.loadGeometryMap(in.assets,id);if(id==start.camera.mapId)map.geometry.surfaceTypes.fill(6);return map;};
+  Fixture f(in,start,false,nullptr,loader,manifest(6));in.chr[slot]=previous;wire(f);f.act(RestAction{});finish(f);
+  check(f.p.encounterContext->minutes==start.journey->context->minutes+480,"Navigator did not suppress desert addTime");
+ }
+ const auto seam=source(in,true,false,false,true);
+ for(bool primaryUnsupported:{false,true}) {
+  const auto loader=[&](auto id) {auto map=in.maps.loadGeometryMap(in.assets,id);
+   if(id!=XeenMapIdentity(23))map.geometry.surfaceTypes.fill((id==seam.camera.mapId)==primaryUnsupported?5:0);return map;};
+  Fixture f(in,seam,false,nullptr,loader);wire(f);const auto before=XeenSaveFormat::encode(f.snapshot());f.act(RestAction{});
+  check(XeenRestTestAccess::refused(*f.flow)==primaryUnsupported,"Rest surface table came from physical neighbor");
+  if(primaryUnsupported){f.act(AcknowledgeAction{});finish(f);check(XeenSaveFormat::encode(f.snapshot())==before,"Primary terrain refusal mutated state");}
+  else finish(f);
+ }
+}
 void rolloverAndDream(Inputs &in) {
  auto start=source(in,true);start.food=3;start.journey->context->day=99;start.journey->context->minutes=1439;
  start.journey->context->effects[2]=1;start.journey->context->lightAndResistances[0]=4;
@@ -180,23 +333,26 @@ void rolloverAndDream(Inputs &in) {
  Fixture f(in,start);wire(f);f.act(RestAction{});finish(f);
  check(f.p.encounterContext->day==0 && f.p.encounterContext->year==611 && f.p.encounterContext->minutes==479 &&
   !f.p.encounterContext->newDay && f.p.roster.at(start.activeRosterIds[0]).conditions[2]==255,"Rest year rollover, sleeping dawn and provisional Weak sentinel");
+ check(!f.p.roster.at(start.activeRosterIds[0]).conditions[13] && f.p.food==0,"FF sentinel boosts stats and remains food-eligible");
  const auto save=f.snapshot();Fixture loaded(in,save);wire(loaded);f.act(RestAction{});loaded.act(RestAction{});finish(f);finish(loaded);
  f.act(NavigationAction::TurnLeft);loaded.act(NavigationAction::TurnLeft);finish(f);finish(loaded);
  save_test::sameSnapshot(f.snapshot(),loaded.snapshot());
- auto dreamStart=source(in,true);unsigned chosen=0;
- for(unsigned seed=1;seed<100 && !chosen;++seed) {
+ auto dreamStart=source(in,true);dreamStart.journey->context->minutes=1000;
+ constexpr unsigned chosen=4;
+ {
   auto context=*dreamStart.journey->context;XeenConsequenceCharacters c;XeenConsequenceInputs inputs;
   for(unsigned n=0;n<6;++n) {c[n]=dreamStart.characters[kXeenCombatOwners[n]];c[n].conditions[8]=1;inputs[n]=dreamStart.journey->supplements[kXeenCombatOwners[n]].inputs;}
-  XeenCombatRandom random(seed);
+  XeenCombatRandom random(chosen);
   for(unsigned step=0;step<11;++step) {
    XeenConditionTimeCandidate time(context,step<10?1:470,c,inputs,&*dreamStart.journey->serviceEconomy,XeenTimeMode::Sleeping);
    for(unsigned n=0;;++n) {check(n<1000,"Dream oracle bounded");XeenConsequenceDraw draw{random,64,{}};if(time.service(draw))break;}
    context=time.context;c=time.characters;inputs=time.inputs;
   }
-  if(random.draw(1,20)==1)chosen=seed;
+  check(random.draw(1,20)==1,"Fixed dream seed oracle differs");
  }
  check(chosen,"Fixed dream seed absent");dreamStart.journey->random=XeenCombatRandom(chosen).continuation();
- Fixture dream(in,dreamStart);wire(dream);dream.act(RestAction{});unsigned beats=0,hidden=0;
+ Fixture dream(in,dreamStart);wire(dream);XeenRestTestAccess::scene(*dream.flow,*dream.p.encounterContext);
+ dream.act(RestAction{});unsigned beats=0,hidden=0;
  std::optional<XeenJourneyRandomState> cursor;unsigned minutes=0;std::optional<unsigned> overall;
  for(unsigned n=0;n<500 && !XeenRestTestAccess::complete(*dream.flow);++n) {
   if(XeenRestTestAccess::dream(*dream.flow)) {
@@ -205,6 +361,12 @@ void rolloverAndDream(Inputs &in) {
    if(!overall)overall=dream.w.scenePresentation().overallFrame;
    check(dream.w.scenePresentation().overallFrame==*overall,"Dream advanced ordinary scene animation");
    check(dream.w.sessionState().journeyRandom()==cursor && dream.p.encounterContext->minutes==minutes,"Dream consumes no gameplay RNG or time");
+   const auto background=XeenRestTestAccess::background(*dream.flow);
+   check(background.pixels[0]==2 && minutes==40,"Dream captured pre-changeTime day background instead of redrawn night");
+   const unsigned beat=XeenRestTestAccess::dream(*dream.flow)-1;
+   const unsigned val=beat<33?128-4*beat:beat<66?4*(beat-33):beat<80?128:beat<113?128-4*(beat-80):4*(beat-113);
+   for(unsigned n=0;n<background.palette.size();++n)
+    check(dream.flow->frame().palette[n]==(((n%64)<<2)*val*2>>8),"Dream fade differs from pin's p8 formula");
    dream.act(RestAction{});check(!dream.flow->canSave(),"Dream reentrant input escaped boundary");
   }
   pulse(dream);
@@ -215,6 +377,6 @@ void rolloverAndDream(Inputs &in) {
 }
 int main(int argc,char **argv) {try {
  check(argc==2,"Rest original usage: installation");const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"Original installation absent");
- Inputs in(*installation);success(in,false);success(in,true);entry(in);interruption(in,false,0);interruption(in,true,3);interruption(in,false,0,true);rolloverAndDream(in);reentrant(in);combatOutcomes(in,true);combatOutcomes(in,false);conditionDeath(in);
+ Inputs in(*installation);sleepingHit(in);terrain(in);success(in,false);success(in,true);entry(in);interruption(in,false,0);interruption(in,true,3);interruption(in,false,0,true);rolloverAndDream(in);reentrant(in);combatOutcomes(in,true);combatOutcomes(in,false);conditionDeath(in);noTargets(in);
  std::cout<<"Original-resource Rest, interruption, food, UI path and mid-sequence save tests passed\n";return 0;
  }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

@@ -147,18 +147,17 @@ IndexedFrame XeenEventFlow::drawRest(const IndexedFrame &base) {
     if(!_encounter->_rest)return base;
     using P=XeenEncounterFlow::RestContinuation::Phase;auto &rest=*_encounter->_rest;
     if(rest.phase==P::Confirm)return drawXeenConfirm(base,_inventoryFont,std::string(xeenDialogText(XeenDialogText::SomeCharsMayDie)),false,drawDialogSprite);
-    if(rest.phase==P::Refused)return drawXeenErrorScroll(base,_inventoryFont,std::string(xeenDialogText(XeenDialogText::TooDangerousToRest)));
+    if(rest.phase==P::Refused)return drawXeenErrorScroll(base,_inventoryFont,rest.refusal.empty()?std::string(xeenDialogText(XeenDialogText::TooDangerousToRest)):rest.refusal);
     if(rest.phase==P::Complete)return drawXeenErrorScroll(base,_inventoryFont,xeenDialogFormat(xeenDialogText(XeenDialogText::RestComplete),{
         std::string(xeenDialogText(rest.starving?XeenDialogText::PartyIsStarving:XeenDialogText::HitSpellPointsRestored)),std::to_string(rest.consumed)}));
-    if(rest.phase==P::Remainder && !rest.background.isValid())rest.background=base;
     if(rest.phase!=P::Dream)return base;
     if(!rest.background.isValid())rest.background=base;
     const auto beat=rest.dreamBeat;
     auto frame=beat<33 || beat>=113?rest.background:rest.dream;
     const unsigned scale=beat<33?128-4*beat:beat<66?4*(beat-33):beat<80?128:beat<113?128-4*(beat-80):4*(beat-113);
-    // Screen::fadeInner scales the original six-bit palette before expanding
-    // it for SDL. Preserve that rounding at every intermediate fade frame.
-    for(unsigned n=0;n<frame.palette.size();++n)frame.palette[n]=std::uint8_t((((unsigned(rest.background.palette[n])>>2)*scale)>>7)<<2);
+    // Screen::loadPalette expands p6 to p8 first; fadeInner uses
+    // (p8 * val * 2) >> 8, preserving eight-bit intermediate shades.
+    for(unsigned n=0;n<frame.palette.size();++n)frame.palette[n]=std::uint8_t((unsigned(rest.background.palette[n])*scale*2)>>8);
     return frame;
 }
 

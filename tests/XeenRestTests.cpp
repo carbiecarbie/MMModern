@@ -75,5 +75,10 @@ void movement() {
  c[0].conditions[2]=0;check(xeenRestRangedWake(c),"Good member wakes mode");
 }
 }
-int main() {try {recovery();time();movement();std::cout<<"Rest recovery/time/movement reference oracles passed\n";return 0;}
+int main() {try {recovery();time();movement();
+ check(xeenRestTerrain(6,true,false,false)==170 && xeenRestTerrain(6,true,true,false)==0 &&
+  xeenRestTerrain(6,false,false,false)==0,"Desert addTime/Navigator/indoor oracle");
+ check(xeenRestTerrain(13,true,false,true)==0 && !xeenRestTerrain(13,true,false,false),"Cloud levitation oracle");
+ for(unsigned surface:{5u,10u,15u})check(!xeenRestTerrain(surface,true,false,true),"Unsupported terrain oracle");
+ std::cout<<"Rest recovery/time/movement reference oracles passed\n";return 0;}
  catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

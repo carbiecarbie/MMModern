@@ -333,7 +333,7 @@ bool XeenPhysicalPlayerCandidate::service(XeenConsequenceDraw &draw) {
 	}
 	return step==Step::Done;
 }
-// Party::resetTemps, shared with Training's character-only reset.
+// Party::resetTemps, shared with Rest and Training.
 void xeenResetCharacterTemps(XeenCharacter &c,XeenCombatInputs &i) {
  c.temporaryLevel=0;c.intellect.temporary=c.personality.temporary=c.endurance.temporary=0;
  i.might.temporary=i.speed.temporary=i.accuracy.temporary=i.temporaryAc=0;

@@ -428,6 +428,24 @@ void testSpRacesAndSkills() {
 		"serialized skill values one and two must have identical boolean effect");
 }
 
+void testConditionSentinels() {
+ constexpr std::array<unsigned,8> terms{0,1,2,3,4,5,6,7};
+ for(auto term:terms)for(unsigned byte:{0x80u,0xfeu,0xffu}) {
+  auto c=basicCharacter();XeenCombatInputs input;
+  c.intellect.permanent=c.personality.permanent=c.endurance.permanent=255;
+  input.might=input.speed=input.accuracy={255,0};input.luck=XeenAttributeValue{255,0};
+  c.conditions[term]=byte;
+  for(unsigned attribute=0;attribute<7;++attribute) {
+   const bool affects=term==0?attribute==6:term==3?(attribute==0 || attribute==4 || attribute==5):
+    term==4?(attribute==1 || attribute==2 || attribute==3):term==5?attribute!=3 && attribute!=6:true;
+   const int expected=255-(affects?(byte==255?-1:int(byte)):0);
+   checkEqual(XeenCharacterRules::sheetStat(c,&input,attribute,kContext),expected,"conditionMod sentinel/positive byte arithmetic");
+   if(attribute==1)checkEqual(XeenCharacterRules::effectiveIntellect(c,kContext),expected,"derived Intellect sentinel");
+   if(attribute==2)checkEqual(XeenCharacterRules::effectivePersonality(c,kContext),expected,"derived Personality sentinel");
+   if(attribute==3)checkEqual(XeenCharacterRules::effectiveEndurance(c,kContext),expected,"derived Endurance sentinel");
+  }
+ }
+}
 } // namespace
 
 int main() {
@@ -436,6 +454,7 @@ int main() {
 		testStatBonusBoundaries();
 		testAgeAndTemporaryAttributes();
 		testConditions();
+		testConditionSentinels();
 		testEquipmentAttributeRules();
 		testDirectEquipmentBonuses();
 		testSpClassesSkillsAndRounding();

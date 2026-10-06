@@ -59,17 +59,27 @@ int main(int argc,char **argv) {
             c.armor[8]={255,0,255,0};
         }
         matrix.characters[0].conditions[8]=1;
+        matrix.journey->context->effects.fill(1);matrix.journey->context->lightAndResistances.fill(3);
+        for(unsigned id:{18u,0u,2u}) {
+            auto &r=*matrix.journey->supplements[id].inputs.resistances;
+            r.fireTemporary=15;r.energyTemporary=16;r.magicTemporary=17;
+        }
         matrix.journey->supplements[18].inputs.experience=3000;
         {
             Fixture fixture(inputs,matrix);const auto inactive=fixture.p.roster.at(2);const auto inactiveInputs=*fixture.p.roster.combatInputs(2);
             fixture.enter();fixture.train(1);
+            check(!fixture.p.encounterContext->effects[0] && fixture.p.encounterContext->effects[1]==1 &&
+                fixture.p.encounterContext->lightAndResistances[1]==3,"Training reset preserves automap/torches");
+            for(unsigned n=2;n<9;++n)check(!fixture.p.encounterContext->effects[n],"Training party effect survived");
+            for(unsigned n:{0u,2u,3u,4u,5u})check(!fixture.p.encounterContext->lightAndResistances[n],"Training party light/resistance survived");
             check(fixture.p.roster.at(18).permanentLevel==4 && fixture.p.roster.at(18).currentHp==64 && fixture.p.roster.at(18).currentSp==0 &&
                 fixture.p.roster.combatInputs(18)->experience==0 && fixture.p.monsterTreasure->gold==0 && fixture.p.encounterContext->day==9,"exact funds/reset/refill/progression mismatch");
             for(auto id:kXeenCombatOwners) {
                 const auto &c=fixture.p.roster.at(id);const auto &i=*fixture.p.roster.combatInputs(id);
                 check(!c.temporaryLevel && !c.intellect.temporary && !c.personality.temporary && !c.endurance.temporary && !i.might.temporary &&
                     !i.speed.temporary && !i.accuracy.temporary && !i.temporaryAc && !i.luck->temporary && !i.resistances->coldTemporary &&
-                    !i.resistances->electricalTemporary && !i.poisonResistance->temporary,"active reset matrix mismatch");
+                    !i.resistances->electricalTemporary && !i.resistances->fireTemporary && !i.resistances->energyTemporary &&
+                    !i.resistances->magicTemporary && !i.poisonResistance->temporary,"active reset matrix mismatch");
                 check(c.temporaryAge==matrix.characters[id].temporaryAge && c.conditions==matrix.characters[id].conditions &&
                     c.learnedSpells==matrix.characters[id].learnedSpells,"reset changed age/conditions/book");
                 check(xeen_state::sameItemCategory(c.weapons,matrix.characters[id].weapons) &&

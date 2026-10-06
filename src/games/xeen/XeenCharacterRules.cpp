@@ -119,6 +119,9 @@ int ageAdjustment(const XeenCharacter &character,
 	return kAgeAdjustments[mental ? 1 : 0][index];
 }
 
+// conditionMod arithmetic: FF represents the pin's -1, while 80..FE remain
+// positive counters. follows ScummVM; not confirmed in DOS.
+int conditionStatCounter(std::uint8_t value) { return value==0xff ? -1 : int(value); }
 int conditionModifier(const XeenCharacter &character, DerivedAttribute attribute) {
 	if (condition(character, XeenCondition::Dead) ||
 			condition(character, XeenCondition::Stoned) ||
@@ -127,15 +130,15 @@ int conditionModifier(const XeenCharacter &character, DerivedAttribute attribute
 
 	int result = 0;
 	if (attribute == DerivedAttribute::Intellect || attribute == DerivedAttribute::Personality) {
-		result -= condition(character, XeenCondition::Insane);
-		result -= condition(character, XeenCondition::Diseased);
+		result -= conditionStatCounter(condition(character, XeenCondition::Insane));
+		result -= conditionStatCounter(condition(character, XeenCondition::Diseased));
 	} else {
-		result -= condition(character, XeenCondition::Diseased);
+		result -= conditionStatCounter(condition(character, XeenCondition::Diseased));
 	}
-	result -= condition(character, XeenCondition::HeartBroken);
-	result -= condition(character, XeenCondition::InLove);
-	result -= condition(character, XeenCondition::Weak);
-	result -= condition(character, XeenCondition::Drunk);
+	result -= conditionStatCounter(condition(character, XeenCondition::HeartBroken));
+	result -= conditionStatCounter(condition(character, XeenCondition::InLove));
+	result -= conditionStatCounter(condition(character, XeenCondition::Weak));
+	result -= conditionStatCounter(condition(character, XeenCondition::Drunk));
 	return result;
 }
 
@@ -292,11 +295,11 @@ int XeenCharacterRules::sheetStat(const XeenCharacter &c,const XeenCombatInputs 
 	if(!baseOnly) {
 		result=add<true>(result,value[1]);
 		if(!c.conditions[13] && !c.conditions[14] && !c.conditions[15]) {
-			for(unsigned index:{1u,2u,6u,7u}) result=add<true>(result,-int(c.conditions[index]));
-			if(attribute==6) result=add<true>(result,-int(c.conditions[0]));
-			if(attribute==0 || attribute==1 || attribute==2 || attribute==4 || attribute==5) result=add<true>(result,-int(c.conditions[5]));
-			if(attribute==0 || attribute==4 || attribute==5) result=add<true>(result,-int(c.conditions[3]));
-			if(attribute==1 || attribute==2 || attribute==3) result=add<true>(result,-int(c.conditions[4]));
+			for(unsigned index:{1u,2u,6u,7u}) result=add<true>(result,-conditionStatCounter(c.conditions[index]));
+			if(attribute==6) result=add<true>(result,-conditionStatCounter(c.conditions[0]));
+			if(attribute==0 || attribute==1 || attribute==2 || attribute==4 || attribute==5) result=add<true>(result,-conditionStatCounter(c.conditions[5]));
+			if(attribute==0 || attribute==4 || attribute==5) result=add<true>(result,-conditionStatCounter(c.conditions[3]));
+			if(attribute==1 || attribute==2 || attribute==3) result=add<true>(result,-conditionStatCounter(c.conditions[4]));
 		}
 	}
 	return std::max(result,0);

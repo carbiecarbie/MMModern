@@ -146,10 +146,13 @@ private:
 	 enum class Phase { Confirm, Refused, Charges, Remainder, Dream, Recovery, Complete };
 	 Phase phase=Phase::Charges;
 	 unsigned charges=0, consumed=0, dreamBeat=0;
+	 unsigned terrainMinutes=0;
+	 std::string refusal;
 	 bool starving=false, presented=false;
 	 std::uint64_t deadline=0;
 	 XeenCombatRandom random;
 	 std::optional<XeenConditionTimeCandidate> time;
+	 std::optional<XeenRestRecovery> recovery;
 	 IndexedFrame dream, background;
 	};
 	std::unique_ptr<RestContinuation> _rest;

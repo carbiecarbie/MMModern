@@ -93,7 +93,7 @@ void XeenEncounterFlow::confirmTraining() {
         if(!xeenPrepareSmithDeparture(context)) {
             _training->result.outcome=XeenTrainingOutcome::Capacity;_training->quoted=false;advanceTraining();return;
         }
-        replacement=std::make_unique<XeenServiceDayCandidate>(context,_training->departure->economy(),
+        replacement=std::make_unique<XeenServiceDayCandidate>(delta->context,_training->departure->economy(),
             _training->departure->continuation());
     }
     _journeyPreimage->check();_training->pending=std::move(delta);_training->nextDeparture=std::move(replacement);
@@ -113,7 +113,8 @@ bool XeenEncounterFlow::serviceTrainingLevel() {
             visit.result.outcome=XeenTrainingOutcome::Capacity;advanceTraining();return true;
         }
         checkTrainingBoundary(XeenTrainingBoundary::BankPrepared);
-        if(!(visit.nextDeparture->beforeContext()==visit.departure->context()) ||
+        auto resetContext=visit.departure->context();xeenResetPartyTemps(resetContext);
+        if(!(visit.nextDeparture->beforeContext()==resetContext) ||
             visit.nextDeparture->beforeEconomy()!=visit.departure->economy() ||
             visit.nextDeparture->beforeRandom()!=visit.departure->continuation()) {
             _journeyPreimage->failed=true;throw std::logic_error("Replacement Training departure changed");
@@ -131,25 +132,26 @@ bool XeenEncounterFlow::serviceTrainingLevel() {
     prepared->treasure->gold=delta.result.goldAfter;
     const bool memberDay=bool(visit.nextDeparture);
     if(memberDay) {
-        prepared->context=visit.departure->context();prepared->economy=visit.departure->economy();
+        prepared->economy=visit.departure->economy();
         prepared->s._journeyRandom=visit.departure->continuation();
     }
+    prepared->context=delta.context;
     // Every allocation and validation precedes the callback-free publication.
     const XeenMutableOptional<XeenGameplayContext> endingContext=prepared->context;
     const XeenMutableOptional<XeenServiceEconomy> endingEconomy=prepared->economy;
     const XeenMutableOptional<XeenJourneyRandomState> endingRandom=prepared->s._journeyRandom;
     _journeyPreimage->check();checkTrainingBoundary(XeenTrainingBoundary::BeforeLevel);
     _party.monsterTreasure->gold=delta.result.goldAfter;
+    _party.encounterContext=endingContext;
     if(memberDay) {
-        _party.encounterContext=endingContext;_party.serviceEconomy=endingEconomy;
+        _party.serviceEconomy=endingEconomy;
         _world._sessionState._journeyRandom=endingRandom;
     }
     for(unsigned n=0;n<delta.count;++n) {
-        const auto id=delta.characters[n].rosterId;auto &c=_party.roster.at(id);auto &i=*_party.roster._combatInputs[id];
-        c.permanentLevel=delta.characters[n].permanentLevel;c.temporaryLevel=0;
-        c.intellect.temporary=0;c.personality.temporary=0;c.endurance.temporary=0;
-        i.experience=delta.inputs[n].experience;i.might.temporary=0;i.speed.temporary=0;i.accuracy.temporary=0;i.temporaryAc=0;
-        i.luck->temporary=0;i.resistances->coldTemporary=0;i.resistances->electricalTemporary=0;i.poisonResistance->temporary=0;
+        const auto id=delta.characters[n].rosterId;
+        auto &c=_party.roster.at(id);auto &i=*_party.roster._combatInputs[id];
+        c.permanentLevel=delta.characters[n].permanentLevel;i.experience=delta.inputs[n].experience;
+        xeenResetCharacterTemps(c,i);
         if(id==visit.owner){c.currentHp=delta.result.hpAfter;c.currentSp=delta.result.spAfter;}
     }
     visit.result=delta.result;visit.published=true;visit.trained.set(visit.owner);

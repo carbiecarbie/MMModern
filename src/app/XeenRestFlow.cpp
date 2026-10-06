@@ -26,10 +26,26 @@ bool XeenEncounterFlow::beginRest(const std::function<IndexedFrame()> &dream) {
   xeenValidateJourneyMelee(_party);
   // Sample seams, but RESTRICTION_REST belongs to the primary map. The pin's
   // byte cell flags can never contain 0x4000.
-  if(!_world.sampleCell(_camera.mapId,_camera.x,_camera.y))throw std::invalid_argument("Rest cell is absent");
+  const auto cell=_world.sampleCell(_camera.mapId,_camera.x,_camera.y);
+  if(!cell)throw std::invalid_argument("Rest cell is absent");
+  const auto &primary=_world.map(_camera.mapId).geometry;
+  const auto surface=primary.surfaceTypes[cell->cell->surfaceIndex];
+  bool navigator=false;for(auto owner:_party.party.activeRosterIds()) {
+   const auto details=_party.roster.at(owner).originalDetails();
+   navigator=navigator || (details && details->skills[10]);
+  }
+  // doStepCode follows resetTemps, which clears levitation. Evaluate that
+  // foreseeable suffix before publishing sleep, charges, food or RNG.
+  auto ending=*_party.encounterContext;xeenResetPartyTemps(ending);
+  const auto terrain=xeenRestTerrain(surface,primary.isOutdoors(),navigator,ending.effects[2]!=0);
   auto candidate=std::make_unique<RestContinuation>();
-  if(_world.map(_camera.mapId).geometry.flags&0x4000)candidate->phase=RestContinuation::Phase::Refused;
+  if(primary.flags&0x4000)candidate->phase=RestContinuation::Phase::Refused;
+  else if(!terrain) {
+   candidate->phase=RestContinuation::Phase::Refused;
+   candidate->refusal="Rest terrain is not supported yet";
+  }
   else {
+   candidate->terrainMinutes=*terrain;
    candidate->phase=xeenRestDanger(members(_party),supplements(_party),_party.encounterContext->year)?
     RestContinuation::Phase::Confirm:RestContinuation::Phase::Charges;
    if(_party.encounterContext->profile==XeenBehaviorProfile::WorldOfXeenClouds) {
@@ -85,17 +101,24 @@ bool XeenEncounterFlow::serviceRest() {
    rest.deadline=now+50;restPublication();return true;
   }
   if(rest.phase==P::Recovery) {
-   XeenRestRecovery recovery(members(_party),supplements(_party),*_party.encounterContext,_party.food);
-   const auto cell=_world.sampleCell(_camera.mapId,_camera.x,_camera.y);
-   const auto surface=cell->geometry->surfaceTypes[cell->cell->surfaceIndex];
-   if(surface==5 || surface==6 || surface==10 || surface==13 || surface==15)
-    throw std::invalid_argument("Reachable Rest terrain requires a milestone scope amendment");
+   if(!rest.recovery)rest.recovery.emplace(members(_party),supplements(_party),*_party.encounterContext,_party.food);
+   auto &recovery=*rest.recovery;
+   if(rest.terrainMinutes) {
+    if(!rest.time)rest.time.emplace(recovery.context,rest.terrainMinutes,recovery.characters,recovery.inputs,
+     &*_party.serviceEconomy,XeenTimeMode::Interactive,XeenTimeCall::Add);
+    XeenConsequenceDraw draw{rest.random,64,check};if(!rest.time->service(draw))return true;
+    recovery.context=rest.time->context;recovery.characters=rest.time->characters;recovery.inputs=rest.time->inputs;
+   }
    check();
    for(unsigned n=0;n<6;++n) {
     _party.roster.at(kXeenCombatOwners[n])=recovery.characters[n];
     _party.roster._combatInputs[kXeenCombatOwners[n]]=recovery.inputs[n];
    }
    _party.food=recovery.food;_party.encounterContext=recovery.context;
+   if(rest.time) {
+    _party.serviceEconomy=rest.time->economy;session._journeyRandom=rest.random.continuation();
+    _needsRestNotice=rest.time->needsRest;rest.time.reset();
+   }
    rest.consumed=recovery.consumed;rest.starving=recovery.starving;rest.phase=P::Complete;
    restPublication();return true;
   }
