@@ -154,3 +154,10 @@ not the whole party); missile damage, death and rewards apply on arrival;
 the party can turn during combat. Two M44 scenarios were re-routed off the
 old defect and all three digests regenerated with every changed byte
 explained. [Plan](milestone-49-plan.md).
+
+**M50 - Whole Vertigo** (`2cabd9a`, `ff91d0a`, `73739e7`). The whole town is
+loaded from the original resources: certification and actor freezes removed,
+all 46 monsters active, Events dispatched generically through guarded
+publication, original Bash and grate/door unlocking with typed trap damage
+and Thievery, indoor Shoot and enemy ranged attacks; save v5.
+[Plan](milestone-50-plan.md).

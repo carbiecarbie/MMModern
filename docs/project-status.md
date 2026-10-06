@@ -1,8 +1,10 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M49 is the latest completed
-milestone** ([plan](milestone-49-plan.md)): monster targeting, damage at
-missile impact and turning in combat follow the original. M48
+This describes what can be played and done now. **M50 is the latest completed
+milestone** ([plan](milestone-50-plan.md)): the whole town of Vertigo is
+playable from the original resources, with Bash, unlocking and indoor Shoot.
+M49 ([plan](milestone-49-plan.md)) made monster targeting, damage at missile
+impact and turning in combat follow the original. M48
 ([plan](milestone-48-plan.md)) made scene and combat presentation generic for
 all Clouds content, with the original keys and cursor. M47 ([plan](milestone-47-plan.md)) brought the original character
 sheet, items dialog and service dialogs. M46
@@ -17,8 +19,8 @@ MMModern aims to be a faithful reimplementation of the original games; any
 approved deviation is noted where it applies. It is not yet a general
 replacement for them. The playable
 scope is one **prepared Journey** in Might and Magic IV: Clouds of Xeen (read
-from a World of Xeen installation): the connected mainland of map 23 and a
-bounded route through the town of Vertigo. Darkside gameplay is not supported.
+from a World of Xeen installation): the connected mainland of map 23 and the
+whole town of Vertigo. Darkside gameplay is not supported.
 
 ## What can be played
 
@@ -36,7 +38,7 @@ balances rather than the original new-game state.
   approach and attack on the original rules. The five monster kinds present are
   admitted, and some monsters also attack at range.
 - **Combat** starts on contact and is turn-based per party member: Attack, Block,
-  Run, Shoot (exploration only), and learned spells. Monsters choose their
+  Run (outdoors), Shoot (exploration only), and learned spells. Monsters choose their
   targets and number of attacks from their original data, and the party can
   turn left and right during combat. Wounds, Poison, Sleep,
   Disease, broken armor, XP, gold and generated equipment are kept on the
@@ -58,13 +60,20 @@ balances rather than the original new-game state.
 
 ### Vertigo
 
-Enter from mainland `(10,13)` facing North with Space and Yes. The admitted
-route has 49 cells: the entrance street, the Ironworks and Training branches and
-the northern road to the Temple. Face South at the entrance and use Space to
-leave; the mainland monsters are reset on exit under the original flag rule.
-Cells outside the route are refused.
+Enter from mainland `(10,13)` facing North with Space and Yes. The whole town
+is loaded from the original resources. Face South at the entrance and use
+Space to leave; the mainland monsters and the town's actors are reset on exit
+under the original rules.
 
-- **Slime** at the entrance and the town's sky and objects are shown.
+- **Monsters.** All Doom Bugs, Slimes and Breeder Slimes are active and fight
+  under the original combat rules. Shoot works indoors, and so do enemy
+  ranged attacks where a monster has them.
+- **Grates and doors.** Bash (B) breaks walls and grates; Space at a locked
+  grate or door asks who will pick the lock, with the original trap, Thievery
+  roll and XP. Opened barriers stay open across saves.
+- **Events.** Signs, NPC conversations and other supported Events work
+  anywhere in town. Treasure (chests), moving objects, fountains, the magic
+  mirror and trap teleports show "not supported yet".
 Services use the original location screens: the town art stays visible with
 the original text panel, and buttons work by mouse or key.
 
@@ -105,9 +114,9 @@ time or combat.
 | F1-F6 | Open the character sheet; in dialogs choose a member (item recipient, WhoWill, spell or healing target) |
 | 1-9 | Select an item or stock row; 1-3 pick a combat target |
 | . | Wait |
-| S | Shoot in mainland exploration |
+| S | Shoot in exploration |
+| B | Bash in exploration; Block in combat; Buy in the Ironworks lobby |
 | R | Run in mainland combat; Armor Repair in the Ironworks lobby |
-| B | Block in combat; Buy in the Ironworks lobby |
 | C | Open learned spells (exploration or the acting member's book in combat) |
 | I | Info (not supported yet); in the character sheet, open Items |
 | W/A/C/M in Items | Weapons, Armor, Accessories, Misc |
@@ -118,7 +127,7 @@ time or combat.
 **Mouse.** On the main screen, left clicks work as in the original: the
 action and movement buttons, the combat buttons and targets 1-3, and the 3D
 view (Interact in exploration, Attack in combat). Buttons whose action is not
-implemented yet (Rest, Bash, Dismiss, View Quests, Map, Info, Quick Ref, Quick
+implemented yet (Rest, Dismiss, View Quests, Map, Info, Quick Ref, Quick
 Fight, the control panel and strafing) show "not supported yet"; portraits
 open the original character sheet, whose Items dialog is also clickable.
 Buttons briefly show their original pressed frame. The right button does
@@ -165,7 +174,7 @@ The earlier `--encounter-26`, `--encounter-27`, `--journey-skeleton` and
 
 ## Save format
 
-There is **one current save format**: envelope v4, schema 9, content 14, written
+There is **one current save format**: envelope v5, schema 9, content 14, written
 by the Regional Journey. Until a public release, older formats are not read:
 - A save from an older build is rejected before anything is restored, with "This
   save was created by an older MMModern build and is no longer supported."
@@ -209,7 +218,7 @@ Ownership, from state outward:
   starts. `XeenRestoreGuard` and `XeenMutation` detect state that changed
   while work was prepared, so stale work cannot publish.
 - **Journey content** (`XeenJourneyContent`): an immutable description of the
-  single Regional Journey: the map-23 mainland and the 49 admitted Vertigo cells.
+  single Regional Journey: the map-23 mainland and the whole of Vertigo.
 
 Presentation draws into a 320x200 indexed frame that SDL scales. Presented
 frames carry an identity so input from a stale frame is dropped.
@@ -230,20 +239,24 @@ instructions are in [dependencies](dependencies.md).
 - **Not a new game.** The party is prepared and injured or leveled only through
   the services above. There is no original new-game start, no Rest, no food and
   no general calendar.
-- **Areas.** Only the map-23 mainland and the 49 Vertigo cells are playable.
-  Other maps appear only through `--render-map`, without save support. Indoor
-  Shoot and Run refuse.
+- **Areas.** Only the map-23 mainland and Vertigo are playable. Other maps
+  appear only through `--render-map`, without save support. Run refuses
+  indoors.
 - **Missing services.** The bank menu, Inn, Tavern and Guild spell purchase do
   not exist; the Temple handles only the modeled conditions.
 - **Items and magic.** There is no general item use. Item effects, most spells
   and most monster abilities are missing; Light and other learned spells are
-  visible but cannot be cast. No doors, locks or traps are admitted.
+  visible but cannot be cast. Treasure Events (GiveMulti, chests), moving
+  objects, fountains, the mirror, trap teleports and Thievery Event checks
+  show "not supported yet".
 - **Presentation.** Service art is static (no animated shopkeepers). There is
   no audio. Event, casting and treasure screens still use project layouts.
 - **Services.** Sell, Identify, buying Accessories/Misc, Fix of non-armor
   items, Temple Donation and Uncurse show "not supported yet".
 - **Combat items.** Equipping during combat and the combat Use button are not
   supported yet (the original allows both).
+- **Performance.** Moving while moving the mouse can stutter (seen in the
+  Debug build since before M50).
 - **Darkside** gameplay is not supported.
 
 Next steps are in the [roadmap](roadmap.md).
