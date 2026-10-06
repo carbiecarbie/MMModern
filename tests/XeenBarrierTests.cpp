@@ -55,7 +55,10 @@ void unlocks() {
 	XeenBarrierCandidate staged(w,{28,2,2,XeenDirection::East},p.characters,p.inputs,{1,77,0},p.context,false);staged.deferInjury=true;staged.choose(0);
 	XeenCombatRandom traps(std::vector<XeenCombatRandom::Draw>{{1,4,1},{0,6,0},{1,20,20}});
 	XeenConsequenceDraw draw{traps};check(!staged.service(draw) && staged.injury->injuryReady && traps.position()==2 && staged.characters[0].currentHp==100,"Portrait must precede HP and Thievery draw");
-	staged.injury->injuryAcknowledged=true;finish(staged,traps);
+	staged.injury->injuryAcknowledged=true;
+	for(unsigned n=0;n<10 && !staged.damagePauseReady;++n) {XeenConsequenceDraw next{traps};check(!staged.service(next),"Trap must hold before the unlock roll");}
+	check(staged.damagePauseReady && traps.position()==2 && staged.characters[0].currentHp==89,"Trap pause must retain injury without drawing unlock");
+	staged.damagePauseAcknowledged=true;finish(staged,traps);
 	check(staged.opened && traps.position()==3,"Acknowledged trap must not replay draws");
 }
 void bash() {
@@ -81,7 +84,11 @@ void overrides() {
 	XeenWorld distinct([](auto id){auto m=tile(id);if(id==110){m.geometry.difficulties[2]=70;m.geometry.difficulties[5]=90;m.geometry.trapDamage=19;}return m;});
 	XeenBarrierCandidate seam(distinct,{28,15,16,XeenDirection::North},p.characters,p.inputs,{1,77,0},p.context,false);
 	XeenBarrierCandidate seamBash(distinct,{28,15,16,XeenDirection::North},p.characters,p.inputs,{1,77,0},p.context,true);
-	check(seam.threshold==70 && seam.trapDamage==19 && seamBash.threshold==90,"Barrier difficulty/trap damage must follow physical source tile");
+	check(seam.threshold==20 && seam.trapDamage==11 && seamBash.threshold==40,"Barrier difficulty/trap damage must follow primary map at tile seams");
+	XeenWorld dark([](auto id){auto m=tile(XeenMapIdentity{std::uint16_t(id.number)});m.side=id.side;m.geometry.wallKind=id.number==28?2:0;
+		for(auto &cell:m.geometry.cells)cell.geometry=XeenIndoorWalls{{6,6,6,6}};return m;});
+	XeenBarrierCandidate blocked(dark,{{XeenSide::Darkside,28},15,16,XeenDirection::North},p.characters,p.inputs,{1,77,0},p.context,false);
+	check(!blocked.handled,"Darkside wall-kind predicate must use the primary map, not the physical tile");
 	for(unsigned direction=0;direction<4;++direction) {
 		auto world=source.transitionCandidate();const XeenCamera camera{28,15,15,XeenDirection(direction)};
 		world->setBarrier(camera,6,true);

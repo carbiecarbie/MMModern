@@ -100,7 +100,7 @@ XeenMovementResult applyIndoor(XeenWorld &world, XeenCamera &camera,
 	if (!xeenHolds<XeenIndoorWalls>(source->cell->geometry) ||
 		!xeenHolds<XeenIndoorWalls>(target->cell->geometry))
 		throw std::runtime_error("Outdoor cell found in an indoor logical map");
-	if (wallAt(*source->cell,effectiveDirection) >= source->geometry->difficulties[0])
+	if (wallAt(*source->cell,effectiveDirection) >= world.map(camera.mapId).geometry.difficulties[0])
 		return XeenMovementResult::BlockedByWall;
 	if (target->cell->surfaceIndex == 4) return XeenMovementResult::BlockedBySurface;
 	camera.x=targetX;camera.y=targetY;

@@ -5,6 +5,10 @@ using namespace training_test;
 namespace mmodern {
 struct XeenCityEventTestAccess {
 	static void composer(XeenEventFlow &flow,XeenEventFlow::TransitionCompose compose) {flow._transitionCompose=std::move(compose);}
+	static bool trapWaiting(const XeenEventFlow &f) {return f._barrier && f._barrier->trapWaiting;}
+	static bool published(const XeenEventFlow &f) {return f._barrier && f._barrier->published;}
+	static std::uint64_t deadline(const XeenEventFlow &f) {return f._barrier->deadline;}
+	static auto cursor(const XeenEventFlow &f) {return f._barrier->random.continuation();}
 };
 }
 namespace {
@@ -27,6 +31,27 @@ void coverage(Inputs &in) {
 		inputs[n]=XeenCharacterFormat::parseCombatInputs(in.chr,kXeenCombatOwners[n],true,true,true);}
 	unsigned thief=0;for(unsigned n=1;n<6;++n)if(XeenCharacterRules::thievery(chars[n])>XeenCharacterRules::thievery(chars[thief]))thief=n;
 	const auto context=*in.base().journey->context;
+	for(unsigned id:{28u,109u,110u,111u}) {
+		const auto &g=world->map(id).geometry;
+		std::cout<<"METADATA "<<id<<" difficulties";for(auto value:g.difficulties)std::cout<<' '<<value;
+		std::cout<<" trap "<<unsigned(g.trapDamage)<<" wallKind "<<unsigned(g.wallKind)<<'\n';
+		check(g.difficulties[0]==7 && g.wallKind==0,"Metadata audit changed movement or terrain values: stop for M44 evidence");
+	}
+	const XeenCamera seam{28,20,1,XeenDirection::East};
+	check(world->sampleCell(28,20,1)->mapId==109,"Original seam fixture must use physical tile 109");
+	unsigned novice=0;for(unsigned n=1;n<6;++n)if(XeenCharacterRules::thievery(chars[n])<XeenCharacterRules::thievery(chars[novice]))novice=n;
+	for(bool success:{false,true}) {
+		XeenBarrierCandidate rule(*world,seam,chars,inputs,{1,77,0},context,false);
+		check(rule.selection && rule.threshold==10 && rule.trapDamage==10,"Original seam grate must retain primary difficulty/trap base 10");rule.choose(novice);
+		XeenCombatRandom tape(std::vector<XeenCombatRandom::Draw>{{1,4,4},{1,20,success?20u:1u}});
+		XeenConsequenceDraw draw{tape};check(rule.service(draw) && rule.opened==success &&
+			rule.inputs[novice].experience==inputs[novice].experience+(success?10*chars[novice].currentLevel():0),
+			"Original seam unlock must allow failure and grant 10 x level XP only on success");
+	}
+	XeenBarrierCandidate trapped(*world,seam,chars,inputs,{1,77,0},context,false);trapped.choose(novice);
+	XeenCombatRandom trap(std::vector<XeenCombatRandom::Draw>{{1,4,1},{0,6,0},{1,20,20}});
+	XeenConsequenceDraw trapDraw{trap};check(trapped.service(trapDraw) && trapped.characters[novice].currentHp==chars[novice].currentHp-10,
+		"Original seam trap must apply primary-map base damage 10 before unlock");
 	for(int y=0;y<32;++y)for(int x=0;x<32;++x)for(unsigned d=0;d<4;++d) {
 		const XeenCamera camera{28,x,y,XeenDirection(d)};const auto sample=world->sampleCell(28,x,y);
 		if(wallAt(*sample->cell,camera.direction)!=9)continue;
@@ -65,6 +90,42 @@ void settle(Fixture &f) {
 	if(!f.flow->canSave())throw std::runtime_error("Barrier did not return to quiet input: activity="+
 		std::to_string(unsigned(f.w.sessionState().journeyActivity()))+" selector="+std::to_string(f.flow->canCancelInteraction())+" "+f.flow->encounter()->notice());
 }
+void pulse(Fixture &f,unsigned elapsed=0) {
+	f.now+=elapsed;f.flow->beginCycle(++f.cycle);if(const auto frame=f.flow->updatePresentation())f.present(*frame);
+}
+void pauses(Inputs &in,const XeenSaveSnapshot &initial) {
+	auto start=initial;
+	// Select a real cursor whose first two draws take the physical trap branch.
+	unsigned seed=1;for(;seed<10000;++seed) {XeenCombatRandom rng(seed);if(rng.draw(1,4)==1 && rng.draw(0,6)==0)break;}
+	check(seed<10000,"No deterministic trap seed");start.journey->random=XeenCombatRandom(seed).continuation();
+	Fixture trap(in,start,true);const auto liveRng=trap.w.sessionState().journeyRandom();
+	const auto hp=trap.p.roster.at(kXeenCombatOwners[0]).currentHp;
+	trap.act(InteractionAction{});trap.act(SelectMemberAction{0});
+	for(unsigned n=0;n<20 && !XeenCityEventTestAccess::trapWaiting(*trap.flow);++n)pulse(trap);
+	check(XeenCityEventTestAccess::trapWaiting(*trap.flow),"Trap continuation did not enter animated pause");
+	const auto cursor=XeenCityEventTestAccess::cursor(*trap.flow);const auto deadline=XeenCityEventTestAccess::deadline(*trap.flow);
+	check(deadline==trap.now+250,"giveCharDamage pause must be five 50-ms reference ticks");
+	const auto animation=trap.w.scenePresentation().overallFrame;
+	for(unsigned elapsed:{49u,51u,149u}) {
+		pulse(trap,elapsed);
+		check(XeenCityEventTestAccess::trapWaiting(*trap.flow) && XeenCityEventTestAccess::cursor(*trap.flow)==cursor &&
+			trap.w.sessionState().journeyRandom()==liveRng && trap.w.sessionState().barriers().empty() &&
+			trap.p.roster.at(kXeenCombatOwners[0]).currentHp==hp && !trap.flow->canSave() && !trap.flow->canCancelInteraction(),
+			"Sub-deadline trap advances must not unlock, publish or release input");
+	}
+	check(trap.w.scenePresentation().overallFrame!=animation,"Trap pause must keep scene animation running");
+	pulse(trap,1);settle(trap);const auto settled=XeenSaveFormat::encode(trap.snapshot());
+	pulse(trap);check(XeenSaveFormat::encode(trap.snapshot())==settled,"Trap settlement published twice");
+	Fixture bash(in,initial,true);bash.act(BashAction{});
+	for(unsigned n=0;n<20 && !XeenCityEventTestAccess::published(*bash.flow);++n)pulse(bash);
+	check(XeenCityEventTestAccess::published(*bash.flow) && XeenCityEventTestAccess::deadline(*bash.flow)==bash.now+100,
+		"Bash pause must be two 50-ms reference ticks");
+	const auto bashRng=bash.w.sessionState().journeyRandom();const auto bashHp=bash.p.roster.at(kXeenCombatOwners[0]).currentHp;
+	for(unsigned elapsed:{49u,50u}) {pulse(bash,elapsed);check(XeenCityEventTestAccess::published(*bash.flow) && !bash.flow->canSave() &&
+		bash.w.sessionState().journeyRandom()==bashRng && bash.p.roster.at(kXeenCombatOwners[0]).currentHp==bashHp,
+		"Sub-deadline Bash advances must retain input without replaying publication");}
+	pulse(bash,1);check(!XeenCityEventTestAccess::published(*bash.flow),"Bash must release pause at its deadline");settle(bash);
+}
 XeenSaveSnapshot source(Inputs &in) {
 	auto s=in.service();XeenWorld world(in.mapLoader());
 	auto actors=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,28),in.statistics);
@@ -94,6 +155,7 @@ int main(int argc,char **argv) {
 		check(argc==2,"usage: barrier-original <installation>");const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"Installation unavailable");
 		Inputs in(*installation);const auto initial=source(in);Fixture f(in,initial);
 		coverage(in);
+		pauses(in,initial);
 		automaticBash(in,initial);
 		Fixture outdoors(in,in.base());const auto outdoorContext=*outdoors.p.encounterContext;
 		const auto outdoorHp=outdoors.p.roster.at(kXeenCombatOwners[0]).currentHp;

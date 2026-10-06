@@ -140,7 +140,7 @@ XeenMonsterTerrain xeenIndoorActorTerrain(XeenWorld &world,const XeenActor &a,in
 		return XeenMonsterTerrain::Unsupported;
 	const auto direction=dx>0?XeenDirection::East:dx<0?XeenDirection::West:
 		dy>0?XeenDirection::North:XeenDirection::South;
-	return wallAt(*cell->cell,direction)<=cell->geometry->difficulties[0] ?
+	return wallAt(*cell->cell,direction)<=world.map(a.id.mapId).geometry.difficulties[0] ?
 		XeenMonsterTerrain::Allowed:XeenMonsterTerrain::Blocked;
 }
 std::bitset<256> xeenActorClosure(const XeenMap &map, const XeenActor &a) {

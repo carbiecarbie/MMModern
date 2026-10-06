@@ -137,6 +137,10 @@ public:
 		if(found==candidate._actors.end())throw std::logic_error("Spawn animation is absent");
 		_actors.insert_or_assign(actor.id,found->second);
 	}
+	void copySpawnRandom(const XeenScenePresentation &candidate) {
+		// Publish the consumed cosmetic cursor without replacing live animation phases.
+		_random=candidate._random;
+	}
 	void appearance(const XeenMonsterAppearance &value) {
 		if (!value.identity || value.kind!=XeenMonsterSpriteKind::Attack) {_lastAttack.reset();return;}
 		const auto key=std::make_tuple(value.identity->mapId.side,

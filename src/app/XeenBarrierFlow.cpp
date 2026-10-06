@@ -62,6 +62,11 @@ bool XeenEventFlow::serviceBarrier() {
 		}
 	}
 	auto &rule=*work.rule;
+	if(work.trapWaiting) {
+		std::uint64_t now=0;_encounter->guardCallback(entry,[&]{now=_clock();});check();
+		if(now<work.deadline)return false;
+		rule.damagePauseAcknowledged=true;work.trapWaiting=false;
+	}
 	if(work.portraitWaiting) {
 		if(!work.portraitPresented)return false;
 		rule.injury->injuryAcknowledged=true;work.portraitWaiting=false;
@@ -70,6 +75,11 @@ bool XeenEventFlow::serviceBarrier() {
 	// bounded budget and resume at the retained rule stage on the next pulse.
 	if(!rule.service(draw)) {
 		if(rule.injury && rule.injury->injuryReady)work.portraitWaiting=true;
+		if(rule.injury && (rule.injury->injuryApplied || rule.damagePauseReady)) {
+			std::uint64_t now=0;_encounter->guardCallback(entry,[&]{now=_clock();});check();
+			if(now>std::numeric_limits<std::uint64_t>::max()-250)throw std::overflow_error("Trap animation clock exhausted");
+			work.trapWaiting=true;work.deadline=now+250;
+		}
 		return true;
 	}
 	rule.random=work.random;
@@ -113,10 +123,10 @@ bool XeenEventFlow::serviceBarrier() {
 	check();
 	std::uint64_t now=0;
 	_encounter->guardCallback(entry,[&]{now=_clock();});check();
-	if(now>std::numeric_limits<std::uint64_t>::max()-200)throw std::overflow_error("Barrier animation clock exhausted");
+	if(now>std::numeric_limits<std::uint64_t>::max()-100)throw std::overflow_error("Barrier animation clock exhausted");
 	_encounter->publishBarrier(entry,*work.world,*work.guard,rule,work.context,now);
 	const bool pause=work.bash && !rule.moved && rule.portraitMask;
-	work.published=true;work.deadline=now+(pause?200:0);
+	work.published=true;work.deadline=now+(pause?100:0);
 	_presenter.clear();_journeyEventLayers=false;
 	if(rule.moved)_world.scenePresentation().navigation(NavigationAction::MoveForward,true);
 	if(!pause) {
@@ -234,9 +244,9 @@ void XeenEncounterFlow::publishBarrier(const Ticket &entry,XeenWorld &candidate,
 		auto &live=_party.roster.at(kXeenCombatOwners[n]);const auto &value=rule.characters[n];
 		live.currentHp=value.currentHp;live.conditions=value.conditions;live.armor=value.armor;
 		_party.roster._combatInputs[kXeenCombatOwners[n]]->experience=rule.inputs[n].experience;
-		if(rule.portraitMask&(1u<<n)) {
+		if((rule.portraitMask&(1u<<n)) && !rule.damagePauseAcknowledged) {
 			_world.scenePresentation().portraitDamage(live.rosterId,rule.portraitFrame,_lastTime);
-			if(rule.bash)_world.scenePresentation().portraits[live.rosterId].damageDeadline=_lastTime+200;
+			if(rule.bash)_world.scenePresentation().portraits[live.rosterId].damageDeadline=_lastTime+100;
 		}
 	}
 	_camera=rule.camera;_party.encounterContext=context;

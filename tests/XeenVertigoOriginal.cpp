@@ -111,11 +111,10 @@ int main(int argc,char **argv) {
   constexpr int deltaX[]{0,1,0,-1},deltaY[]{1,0,-1,0};
   for(int y=0;y<32;++y)for(int x=0;x<32;++x)for(unsigned facing=0;facing<4;++facing) {
    const int nx=x+deltaX[facing],ny=y+deltaY[facing];
-   const unsigned tile=y>=16?(x>=16?111:110):(x>=16?109:28);
    const auto &source=originalCell(x,y);
    const auto wall=(source.rawWord>>(12-4*facing))&15;
    const auto expected=nx<0||nx>=32||ny<0||ny>=32?XeenMovementResult::BlockedByMapBoundary:
-    wall>=manifestWorld.map(tile).geometry.difficulties[0]?XeenMovementResult::BlockedByWall:
+    wall>=manifestWorld.map(28).geometry.difficulties[0]?XeenMovementResult::BlockedByWall:
     originalCell(nx,ny).surfaceIndex==4?XeenMovementResult::BlockedBySurface:XeenMovementResult::Moved;
    XeenCamera c{28,x,y,XeenDirection(facing)};
    check(XeenMovement().apply(manifestWorld,c,NavigationAction::MoveForward)==expected&&c.mapId==28&&

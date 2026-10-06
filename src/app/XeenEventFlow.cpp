@@ -197,7 +197,7 @@ void XeenEventFlow::drawPartyPresentation(IndexedFrame &frame) const {
  for(const auto &p:CloudsUiComposer::buildHpPlacements(*visible,{_party.encounterContext->year},mask))
   drawDialogSprite(frame,"hpbars.icn",unsigned(p.frame),p.x,p.y);
  auto feedback=_world.scenePresentation();
- if(_barrier && _barrier->portraitWaiting && _barrier->rule && _barrier->rule->injury)
+ if(_barrier && (_barrier->portraitWaiting || _barrier->trapWaiting) && _barrier->rule && _barrier->rule->injury)
   feedback.portraitDamage(_barrier->rule->injury->impactOwner,_barrier->rule->injury->portraitFrame);
  for(const auto &p:CloudsUiComposer::buildPartyFeedbackPlacements(_party,feedback,mask,combat?combat->participant():-1))
   drawDialogSprite(frame,p.resourceName.c_str(),unsigned(p.frame),p.x,p.y);
@@ -1045,6 +1045,8 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 	requireCurrentOwners();
 	if(_barrier && !_dispatching && !_fatal && !_saving) {
 		DispatchScope dispatch(_dispatching);
+		// ipause keeps draw3d animation running while the barrier owns input.
+		if(!_handoffPending && (_barrier->published || _barrier->trapWaiting))advanceEncounterOrdinary();
 		if(_barrier->published && !_handoffPending && _clock()>=_barrier->deadline) {
 			_barrier.reset();_encounter->endJourneyEvent();
 			_encounter->journeyPulse(_encounter->ticket());prepareJourneyTransition();return renderEncounter();

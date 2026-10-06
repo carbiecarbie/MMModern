@@ -59,6 +59,7 @@ XeenScenePresentation XeenWorld::prepareSpawnPresentation(const XeenWorld &candi
 	auto prepared=_scenePresentation;
 	for(const auto slot:candidate._spawnedPresentationSlots)
 		prepared.copySpawn(candidate._sessionState._vertigoActors->at(slot),candidate._scenePresentation);
+	if(!candidate._spawnedPresentationSlots.empty())prepared.copySpawnRandom(candidate._scenePresentation);
 	return prepared;
 }
 

@@ -15,18 +15,21 @@ struct XeenBarrierCandidate {
 	unsigned year=610,wall=0,targetWall=0,target=0,portraitMask=0,portraitFrame=0,animation=0;
 	int threshold=0,trapDamage=0;
 	bool bash=false,selection=false,handled=false,opened=false,moved=false,done=false,deferInjury=false;
-	enum class Step { Select, Trap, Type, Damage, Unlock, BashRoll, Done } step=Step::Done;
+	bool damagePauseReady=false,damagePauseAcknowledged=false;
+	enum class Step { Select, Trap, Type, Damage, DamagePause, Unlock, BashRoll, Done } step=Step::Done;
 	XeenBarrierCandidate(XeenWorld &world,const XeenCamera &c,const XeenConsequenceCharacters &chars,
 		const XeenConsequenceInputs &in,const XeenJourneyRandomState &rng,const XeenGameplayContext &context,bool b) :
 		characters(chars),inputs(in),random(rng),camera(c),year(context.year),bash(b) {
 		if(unsigned(c.direction)>3)throw std::invalid_argument("Invalid barrier facing");
 		const auto sample=world.sampleCell(c.mapId,c.x,c.y);
 		if(!sample)throw std::invalid_argument("Barrier camera cell is absent");
+		// mazeData() always retains the primary map; getCell resolves only geometry.
+		const auto &map=world.map(c.mapId).geometry;
 		// perform(B) charges outdoors before Interface::bash returns immediately.
-		if(sample->geometry->isOutdoors()) {handled=bash;done=true;return;}
+		if(map.isOutdoors()) {handled=bash;done=true;return;}
 		wall=wallAt(*sample->cell,c.direction);
 		const bool unlocked=(sample->cell->rawAttributes&0x80)!=0;
-		const auto &difficulty=sample->geometry->difficulties;
+		const auto &difficulty=map.difficulties;
 		if(bash) {
 			handled=true;
 			if(wall<unsigned(difficulty[0])) {
@@ -52,8 +55,9 @@ struct XeenBarrierCandidate {
 			threshold=difficulty[wall==9?5:6];targetWall=3;step=Step::BashRoll;
 		} else {
 			targetWall=wall==1?13:wall==6?9:wall==9?6:wall==13?1:0;
-			if(!targetWall || (targetWall==13 && !unlocked)) {done=true;return;}
-			handled=true;threshold=difficulty[2];trapDamage=sample->geometry->trapDamage;
+			if(!targetWall || (targetWall==13 && !unlocked) ||
+				(c.mapId.side==XeenSide::Darkside && targetWall==9 && map.wallKind==2)) {done=true;return;}
+			handled=true;threshold=difficulty[2];trapDamage=map.trapDamage;
 			selection=targetWall!=9 && !unlocked;step=selection?Step::Select:Step::Done;
 			if(!selection) {opened=true;done=true;}
 		}
@@ -72,7 +76,11 @@ struct XeenBarrierCandidate {
 			case Step::Type: {const auto n=draw.draw(0,6);if(n) {injury.emplace(characters,inputs,trapDamage,XeenDamageType(*n),year,1u<<target,protection);injury->deferInjury=deferInjury;step=Step::Damage;}break;}
 			case Step::Damage:
 				if(!injury->service(draw))return false;
-				characters=injury->characters;portraitMask=1u<<target;portraitFrame=injury->portraitFrame;step=Step::Unlock;break;
+				characters=injury->characters;portraitMask=1u<<target;portraitFrame=injury->portraitFrame;step=Step::DamagePause;break;
+			case Step::DamagePause:
+				// giveCharDamage's ipause(5) returns before the unlock roll.
+				if(deferInjury && !damagePauseAcknowledged) {damagePauseReady=true;return false;}
+				damagePauseReady=false;step=Step::Unlock;break;
 			case Step::Unlock: {
 				const auto n=draw.draw(1,20);if(!n)break;
 				opened=XeenCharacterRules::thievery(characters[target])+int(*n)>=threshold;

@@ -21,7 +21,7 @@ template<class F> void rejects(F operation) {
 	check(refused,"Unsupported capability must refuse before work");
 }
 XeenMap tile(XeenMapIdentity id) {
-	XeenMap m;m.geometry.id=id.number;m.side=id.side;m.geometry.difficulties[0]=7;
+	XeenMap m;m.geometry.id=id.number;m.side=id.side;m.geometry.difficulties[0]=id.number==60?7:0;
 	// A second indoor logical map with arbitrary resource IDs, deliberately
 	// independent of Vertigo's tile IDs. N before E is observable diagonally.
 	if(id.number==60)m.geometry.neighbors=std::array<std::uint16_t,4>{62,61,0,0};
@@ -67,6 +67,9 @@ void geometry() {
 	const auto view=XeenIndoorScene().classifyActors(world,{60,15,15,XeenDirection::North},{a});
 	check(view.engaged()&&view.activation[0],"Generic indoor actor classification must support a second logical map");
 	check(xeenIndoorActorTerrain(world,a,16,15)==XeenMonsterTerrain::Allowed,"Indoor actor must cross a resource tile seam");
+	a.x=16;
+	check(xeenIndoorActorTerrain(world,a,17,15)==XeenMonsterTerrain::Allowed,"Monster no-pass threshold must come from its primary map on a physical tile");
+	a.x=15;
 	a.statistics->raw[32]=1;
 	check(xeenIndoorActorTerrain(world,a,16,15)==XeenMonsterTerrain::Allowed,"Supported ranged actor must cross indoor tile seams");
 	a.statistics->raw[29]=2;
@@ -203,6 +206,30 @@ void cityEvents() {
 		presentation.animation({28,1}) && presentation.animation({28,1})->frame<8,
 		"Prepared Spawn presentation must carry cosmetic frames for new and reused slots");
 	check(source.sessionState().journeyRandom()==random,"Spawn preparation must leave live gameplay RNG untouched");
+	// Known cosmetic cursor: one live initialization, then reference-ordered
+	// Spawn frame draws, including repeated writes to the same slot.
+	source.scenePresentation()=XeenScenePresentation(7);
+	source.scenePresentation().include({world->sessionState().regionalActors(28)[2]});
+	std::mt19937 oracle(7);std::uniform_int_distribution<unsigned> frame(0,7);
+	frame(oracle);
+	auto first=source.transitionCandidate();first->stageVertigoActors(mob,statistics);
+	first->applySpawn(1,9,8,0);frame(oracle);
+	first->applySpawn(50,7,6,0);const auto expectedNew=frame(oracle);
+	first->applySpawn(1,9,8,0);const auto expectedFirst=frame(oracle);
+	source.scenePresentation().advance(28);
+	const auto liveFrame=source.scenePresentation().animation({28,2})->frame;
+	source.scenePresentation()=source.prepareSpawnPresentation(*first);
+	check(source.scenePresentation().animation({28,1})->frame==expectedFirst &&
+		source.scenePresentation().animation({28,50})->frame==expectedNew &&
+		source.scenePresentation().animation({28,2})->frame==liveFrame,
+		"Spawn publication must preserve live animation and reference-ordered frames");
+	auto second=source.transitionCandidate();second->stageVertigoActors(mob,statistics);
+	second->applySpawn(1,9,8,0);const auto expectedSecond=frame(oracle);
+	const auto nextPresentation=source.prepareSpawnPresentation(*second);
+	check(expectedSecond!=expectedFirst && nextPresentation.animation({28,1})->frame==expectedSecond &&
+		nextPresentation.animation({28,2})->frame==liveFrame && source.sessionState().journeyRandom()==random &&
+		first->sessionState().journeyRandom()==random && second->sessionState().journeyRandom()==random,
+		"Successive Spawn publications must continue cosmetic RNG without touching gameplay RNG");
 
 	file.records={record(0,0x11,{5})};
 	check(xeenRegionalService(file,camera)==5 && xeenRegionalInteraction(file,camera)==XeenRegionalInteraction::Training,
