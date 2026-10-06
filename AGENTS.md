@@ -33,6 +33,14 @@ the default; they are not part of current work.
   asking. Ask the maintainer only when the original itself is ambiguous or
   reproducing it would leave the milestone scope. Never invent behavior the
   original does not have.
+- **Condition counter edge cases follow ScummVM.** For status-effect
+  (condition) counters only, when the original's behavior cannot be observed
+  in normal play and could only be checked by inspecting or editing DOSBox
+  memory (for example a byte 0xFF read as the -1 sentinel, or values
+  unreachable in ordinary play), follow the pinned ScummVM reference without
+  asking and mark the site "follows ScummVM; not confirmed in DOS". Evidence
+  from normal DOSBox play still overrides ScummVM. Any other unverifiable
+  case goes to the maintainer.
 - **Playable by default.** Load whole original maps, actors and events from the
   original resources. When play reaches something not yet implemented (an Event
   opcode, monster ability, service, spell or item effect), show a clear
