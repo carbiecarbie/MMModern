@@ -255,8 +255,6 @@ instructions are in [dependencies](dependencies.md).
   items, Temple Donation and Uncurse show "not supported yet".
 - **Combat items.** Equipping during combat and the combat Use button are not
   supported yet (the original allows both).
-- **Performance.** Moving while moving the mouse can stutter (seen in the
-  Debug build since before M50).
 - **Darkside** gameplay is not supported.
 
 Next steps are in the [roadmap](roadmap.md).
