@@ -5,7 +5,7 @@
 #
 # Example:
 #   $env:PATH = "C:\msys64\ucrt64\bin;$env:PATH"
-#   .\tools\run-full-ctest.ps1 -BuildDir build-m44
+#   .\tools\run-full-ctest.ps1 -BuildDir build-rel
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$BuildDir,

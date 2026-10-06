@@ -147,10 +147,16 @@ Priorities, in order: correctness, then credit/resource efficiency, then speed.
 
 ### Long-running commands
 
+- Tests run on `build-rel` (RelWithDebInfo, `-O2 -g` without `-DNDEBUG`):
+  iteration (`ctest -L fast`) and the complete suite. `build-m44` (Debug,
+  `-O0`) stays for debugging and the maintainer's play-tests. At milestone
+  closure, the complete suite also runs once on `build-m44` through the same
+  runner, as a check against optimization-dependent behavior.
 - While iterating, run affected tests and `ctest -L fast`. Run the complete
   suite once after the final build, unless failures require a rerun.
 - Delegate the complete suite to one test-runner subagent (in Codex:
-  `gpt-6-luna`, low reasoning effort, `fork_turns: none`). It runs
+  `gpt-6-luna`, low reasoning effort, `fork_turns: none`; in Claude Code:
+  Haiku, low effort, no conversation context). It runs
   `tools/run-full-ctest.ps1` with its default single job (do not pass
   `-Jobs`; process tests have timeouts that parallel load breaks) on the
   current checkout and build directory,
