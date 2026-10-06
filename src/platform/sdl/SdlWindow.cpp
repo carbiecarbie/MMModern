@@ -53,7 +53,7 @@ std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key, MainScree
 	case SDLK_s: return screen==MainScreen::Combat ? std::nullopt : std::optional<PlayerAction>{ShootAction{}};
 	case SDLK_a: return screen==MainScreen::Combat ? std::optional<PlayerAction>{AttackAction{}} : std::nullopt;
 	case SDLK_c: return CastSpellAction{};
-	case SDLK_r: return RevisitCompletedAction{};
+	case SDLK_r: return screen==MainScreen::Exploration ? PlayerAction{RestAction{}} : PlayerAction{RevisitCompletedAction{}};
 	case SDLK_F9: return SaveGameAction{};
 	case SDLK_i: return UnsupportedMainScreenAction{"Info"};
 	case SDLK_u: return UseItemAction{};
@@ -197,6 +197,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         resources.priorCursor=SDL_ShowCursor(SDL_QUERY);SDL_ShowCursor(SDL_DISABLE);
     }
     const auto drawCursor=[&] {
+        if(handler.inputContext && handler.inputContext({}).hideCursor)return;
         if(!resources.cursor || SDL_GetMouseFocus()!=window)return;
         int x,y;SDL_GetMouseState(&x,&y);float logicalX,logicalY;
         SDL_RenderWindowToLogical(renderer,x,y,&logicalX,&logicalY);
@@ -371,6 +372,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             const auto *slot = action ? std::get_if<SelectInventorySlotAction>(&*action) : nullptr;
             const bool queueKey = action && (movement || std::holds_alternative<AttackAction>(*action) || std::holds_alternative<InteractionAction>(*action) ||
                 std::holds_alternative<BlockAction>(*action) || std::holds_alternative<BashAction>(*action) || std::holds_alternative<ShootAction>(*action) ||
+                std::holds_alternative<RestAction>(*action) ||
                 std::holds_alternative<RevisitCompletedAction>(*action) || std::holds_alternative<WaitAction>(*action) ||
                 std::holds_alternative<CastSpellAction>(*action) || std::holds_alternative<SelectMemberAction>(*action) ||
                 std::holds_alternative<UnsupportedMainScreenAction>(*action) || (slot && slot->slot < 3));
@@ -447,7 +449,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         const auto drainContext = contextFor(presentedFrame);
         synchronizeQueue(drainContext);
         if (!actionUsed && handler && !pendingActions.empty() && drainContext.acceptsQueuedInput &&
-            drainContext.readyForAction && inputCurrent(presentedFrame)) {
+            (drainContext.readyForAction || (drainContext.restAvailable && std::holds_alternative<RestAction>(pendingActions.front().action))) && inputCurrent(presentedFrame)) {
             const auto action = pendingActions.front().action;
             const auto button = pendingActions.front().button;
             pendingActions.pop_front(); // A ready refusal is consumed, never retried.

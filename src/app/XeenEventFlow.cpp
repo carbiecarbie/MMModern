@@ -80,7 +80,7 @@ XeenEventFlow::SaveBoundary XeenEventFlow::beginSave() {
 InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origin) {
     const auto *combat = _encounter ? _encounter->combat() : nullptr;
     // Panels are strict throughout their lifetime, including preparation/result work.
-    const unsigned panel = _encounter && _encounter->_needsRestNotice ? 10 : _fatal ? 1 : _trainingUi ? 2 : _smithUi ? 3 : inventoryOpen() ? 4 :
+    const unsigned panel = _encounter && _encounter->_rest ? 11 : _encounter && _encounter->_needsRestNotice ? 10 : _fatal ? 1 : _trainingUi ? 2 : _smithUi ? 3 : inventoryOpen() ? 4 :
         (_castingUi || (combat && combat->cast())) ? 5 :
         (_pending || _transition || (_encounter && _encounter->journeyEvent())) ? 6 :
         (_encounter && _encounter->monsterReward()) ? 7 :
@@ -93,7 +93,7 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
         inventoryOpen() ? (_dialogError ? 5 : _statPopup ? 4 : _itemOption ? 3 : _sheet && !_itemsVisible ? 2 : 1) :
         _smithUi ? 100+unsigned(_smithUi->phase)*4+unsigned(_smithUi->mode)+(!_smithUi->feedback.empty()?1000:0) :
         _trainingUi ? 200+unsigned(_trainingUi->phase)+(!_trainingUi->feedback.empty()?1000:0) :
-        _pending ? _pending->generation : 0};
+        _encounter && _encounter->_rest ? 300+unsigned(_encounter->_rest->phase) : _pending ? _pending->generation : 0};
     if (!_queueContext || !(*_queueContext == context)) {
         if (_queueContextId == std::numeric_limits<std::uint64_t>::max()) throw std::overflow_error("Input context exhausted");
         ++_queueContextId;
@@ -103,6 +103,13 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
     const bool queueable = panel == 0 && (!_encounter || journey() || combat);
     bool ready = !_dispatching && !_fatal && !_saving && !_handoffPending && !_arrivalPending &&
         acceptsInputFrame(origin) && (!journey() || journeyInputCurrent(displayedInput()));
+    // Rest consumes an already armed countdown through sleeping chargeStep.
+    // It cannot enter around a retained opportunity or an unacquired frame.
+    const bool restReady=ready && queueable && journey() && !combat && _encounter->state().pending() &&
+        _encounter->state().phase()==XeenEncounterPhase::Exploring && !_encounter->_busy &&
+        !_encounter->_regionalWork && !_encounter->_regionalAutomatic && !_encounter->_shoot &&
+        !_encounter->_shootIntent && !_encounter->projectilesPending() && !_encounter->_casting &&
+        !_encounter->_castingSettlement && _encounter->boundary().quiet();
     if (queueable && _encounter) {
         ready = ready && !_encounter->_busy && !_encounter->projectilesPending() &&
             !_encounter->_shootIntent && !_encounter->_shoot && !_encounter->_castingSettlement &&
@@ -122,8 +129,37 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
         input.keys.push_back(InputKey::Escape);dialog=std::make_shared<const DialogInput>(std::move(input));
     }
     if(_encounter && _encounter->_needsRestNotice) {DialogInput input;input.anyKey=true;input.anyClick=true;dialog=std::make_shared<const DialogInput>(std::move(input));}
+    bool hideCursor=false;
+    if(_encounter && _encounter->_rest) {
+        using P=XeenEncounterFlow::RestContinuation::Phase;const auto &rest=*_encounter->_rest;
+        ready=ready && (rest.phase==P::Confirm || rest.phase==P::Refused || rest.phase==P::Complete);
+        DialogInput input;
+        if(rest.phase==P::Confirm)input=xeenConfirmInput();
+        else if(rest.phase==P::Refused || rest.phase==P::Complete)input.anyKey=input.anyClick=true;
+        dialog=std::make_shared<const DialogInput>(std::move(input));
+        hideCursor=rest.phase==P::Dream && rest.dreamBeat>=33 && rest.dreamBeat<113;
+    }
     return {_queueContextId, queueable, ready, journey() && queueable ?
-        (combat ? MainScreen::Combat : MainScreen::Exploration) : MainScreen::None,std::move(dialog)};
+        (combat ? MainScreen::Combat : MainScreen::Exploration) : MainScreen::None,std::move(dialog),hideCursor,restReady};
+}
+
+IndexedFrame XeenEventFlow::drawRest(const IndexedFrame &base) {
+    if(!_encounter->_rest)return base;
+    using P=XeenEncounterFlow::RestContinuation::Phase;auto &rest=*_encounter->_rest;
+    if(rest.phase==P::Confirm)return drawXeenConfirm(base,_inventoryFont,std::string(xeenDialogText(XeenDialogText::SomeCharsMayDie)),false,drawDialogSprite);
+    if(rest.phase==P::Refused)return drawXeenErrorScroll(base,_inventoryFont,std::string(xeenDialogText(XeenDialogText::TooDangerousToRest)));
+    if(rest.phase==P::Complete)return drawXeenErrorScroll(base,_inventoryFont,xeenDialogFormat(xeenDialogText(XeenDialogText::RestComplete),{
+        std::string(xeenDialogText(rest.starving?XeenDialogText::PartyIsStarving:XeenDialogText::HitSpellPointsRestored)),std::to_string(rest.consumed)}));
+    if(rest.phase==P::Remainder && !rest.background.isValid())rest.background=base;
+    if(rest.phase!=P::Dream)return base;
+    if(!rest.background.isValid())rest.background=base;
+    const auto beat=rest.dreamBeat;
+    auto frame=beat<33 || beat>=113?rest.background:rest.dream;
+    const unsigned scale=beat<33?128-4*beat:beat<66?4*(beat-33):beat<80?128:beat<113?128-4*(beat-80):4*(beat-113);
+    // Screen::fadeInner scales the original six-bit palette before expanding
+    // it for SDL. Preserve that rounding at every intermediate fade frame.
+    for(unsigned n=0;n<frame.palette.size();++n)frame.palette[n]=std::uint8_t((((unsigned(rest.background.palette[n])>>2)*scale)>>7)<<2);
+    return frame;
 }
 
 IndexedFrame XeenEventFlow::drawMainScreenNotice(const IndexedFrame &base, const std::string &notice) const {
@@ -435,7 +471,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 				if (!composed.frame.isValid()) throw std::runtime_error("Invalid Journey frame");
 				auto rendered = _journeyEventLayers ? _presenter.rebase(composed.frame) :
                     _castingUi ? noticeFrame(composed.frame,_inventoryFont,castingText(),true,true) :
-                    drawMainScreenNotice(composed.frame,_encounter->notice());
+                    _encounter->_rest ? composed.frame : drawMainScreenNotice(composed.frame,_encounter->notice());
 				if(_encounter->monsterReward()) {
 					if(!_monsterReceiptPresented) {
 						_presenter.clear();XeenPresentationRequest request;
@@ -445,6 +481,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 					} else rendered=_presenter.rebase(composed.frame);
 				}
                 drawPartyPresentation(rendered);
+                if(_encounter->_rest)rendered=drawRest(rendered);
                 if(_encounter->_needsRestNotice)rendered=drawXeenErrorScroll(rendered,_inventoryFont,std::string(xeenDialogText(XeenDialogText::PartyNeedsRest)));
 				_inventoryUnderlay = rendered;
 				if (inventoryOpen()) rendered = drawCharacterDialog(rendered);
@@ -989,6 +1026,7 @@ bool XeenEventFlow::pendingNpc() const {
 		_pending->state.pendingPresentation->request.kind == XeenPresentationKind::NpcAcknowledgment;
 }
 bool XeenEventFlow::handlesEscape() const {
+	if(_encounter && _encounter->_rest)return !_fatal;
 	if(_barrier)return !_fatal;
 	// This is routing, not response authority: handle() still requires the exact
 	// presented frame. An unpresented modal must never turn Escape into exit.
@@ -1134,7 +1172,10 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 			throw std::runtime_error("Stale automatic combat operation");
 		}
 		if (!_encounter->current(_encounter->ticket())) { _fatal = true; throw std::runtime_error("Stale encounter idle"); }
-		const bool ordinary = advanceEncounterOrdinary();
+		// dream() polls Events without drawing gameplay. Freeze ordinary scene
+		// counters until the saved background has been restored by the fades.
+		const bool dreaming=_encounter->_rest && _encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Dream;
+		const bool ordinary = !dreaming && advanceEncounterOrdinary();
 		// Combat appearance/ordinary animation can replace the concrete frame while
 		// retaining the exact semantic ticket. Do not retire fresh keys for that redraw.
 		const bool combatCosmetic = _encounter->combat() && beforeIdle.combat &&
@@ -1254,6 +1295,11 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 		DispatchScope dispatch(_dispatching);
 		return handleSmith(action,*displayedInput,inputFrame);
 	}
+    if(_encounter && _encounter->_rest) {
+        DispatchScope dispatch(_dispatching);
+        if(!_encounter->respondRest(action))return frameCopy();
+        return renderEncounter();
+    }
 	if (_encounter && _encounter->combat() && (!displayedInput || *displayedInput != _inputGeneration ||
 		!_displayedCombat || !_encounter->combat()->current(*_displayedCombat))) return frameCopy();
 	if (!_encounter && std::holds_alternative<WaitAction>(action)) return frameCopy();
@@ -1306,6 +1352,13 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 	if (_encounter) {
 		if (journey() && !_encounter->combat()) {
 			if (_castingUi) return handleCasting(action,*displayedInput);
+            if(std::holds_alternative<RestAction>(action) && !_pending && !inventoryOpen()) {
+                if(_encounter->beginRest(loadRestDream)) {
+                    if(_journeyEventLayers) {_presenter.clear();_journeyEventLayers=false;}
+                    return renderEncounter();
+                }
+                return frameCopy();
+            }
 			if (_encounter->castingSettlement() && !_encounter->monsterReward() && !_encounter->journeyEvent()) return frameCopy();
 			if (std::holds_alternative<CastSpellAction>(action)) {
 				if (!_encounter->beginCasting(_encounter->ticket())) return frameCopy();

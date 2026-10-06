@@ -93,6 +93,7 @@ void XeenEncounterFlow::schedule(std::uint64_t now) noexcept {
 }
 
 bool XeenEncounterFlow::handle(const PlayerAction &input, std::optional<std::uint64_t> cycle, std::optional<XeenCombat::Ticket> displayed) {
+	if(_rest)return false;
 	if (projectilesPending() || _shootIntent || _castingSettlement) return false;
 	if (_journey && !_combat && std::holds_alternative<ShootAction>(input)) { const bool accepted=beginShoot();schedule(_lastTime);return accepted; }
 	if (_combat) return displayed && _combat->current(*displayed) && handleCombat(input, cycle);
@@ -125,6 +126,7 @@ bool XeenEncounterFlow::idle(std::optional<std::uint64_t> cycle) {
     }
 	if(projectilesPending()) return animateProjectiles();
 	if (_combat) return idleCombat(cycle);
+	if (_rest) return serviceRest();
 	if (_casting && _casting->effectDone) { const bool changed=serviceCasting();schedule(_lastTime);return changed; }
 	if (_busy || _state.phase() != XeenEncounterPhase::Exploring) return false;
 

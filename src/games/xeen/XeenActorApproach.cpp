@@ -114,10 +114,20 @@ std::vector<XeenActor> XeenActorApproach::move(const std::vector<XeenActor> &act
 
 std::vector<XeenActor> XeenActorApproach::move(const std::vector<XeenActor> &actors,
 		const XeenCamera &camera, const Terrain &terrain, bool movementEnabled,
-		const BeforeMovement &beforeMovement) {
+		const BeforeMovement &beforeMovement, XeenActorOpportunityContext context) {
+	if(!context.sleeping && context.movementEnabled && !context.charactersShooting)
+		return move(actors,camera,terrain,movementEnabled,beforeMovement);
+	return moveWithContext(actors,camera,terrain,movementEnabled,beforeMovement,context);
+}
+std::vector<XeenActor> XeenActorApproach::move(const std::vector<XeenActor> &actors,
+		const XeenCamera &camera,const Terrain &terrain,bool movementEnabled,const BeforeMovement &beforeMovement) {
+	return moveWithContext(actors,camera,terrain,movementEnabled,beforeMovement,{});
+}
+std::vector<XeenActor> XeenActorApproach::moveWithContext(const std::vector<XeenActor> &actors,
+		const XeenCamera &camera,const Terrain &terrain,bool movementEnabled,const BeforeMovement &beforeMovement,XeenActorOpportunityContext context) {
 	bounded(actors, camera);
 	auto result = actors;
-	if (!movementEnabled) return result;
+	if (!movementEnabled || !context.movementEnabled || context.charactersShooting) return result;
 	require(bool(terrain), "missing monster terrain predicate");
 	auto counts = occupancy(actors);
 	std::array<bool, kCapacity> moved{};
@@ -125,7 +135,9 @@ std::vector<XeenActor> XeenActorApproach::move(const std::vector<XeenActor> &act
 		for (int dy = 3; dy >= -3; --dy) for (int dx = -3; dx <= 3; ++dx) {
 			for (std::size_t i = 0; i < result.size(); ++i) {
 				auto &a = result[i];
-				if (a.x != camera.x + dx || a.y != camera.y + dy || !a.activated || moved[i]) continue;
+				if(context.sleeping && a.lifecycle!=XeenActorLifecycle::Present)continue;
+				if (a.x != camera.x + dx || a.y != camera.y + dy ||
+					(!a.activated && !context.sleeping) || moved[i]) continue;
 				if (beforeMovement) beforeMovement(result,i);
 				require(coordinate(a.x, a.y) && a.lifecycle == XeenActorLifecycle::Present &&
 					a.status == XeenActorStatus::Physical && a.statistics &&
@@ -487,12 +499,12 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 			if(!c.time->service(draw)) return pending();
 			c.inputs=c.time->inputs;c.characters.swap(c.time->characters);const auto ctr=c.context.ctr24;c.context=c.time->context;c.context.ctr24=ctr;c.timeDone=true;
 			bool living=false;for(const auto &owner:c.characters) living=living || xeenCombatTargetable(owner);
-			if(!living) c.remaining=0;
+			if(!living && !c.sleeping) c.remaining=0;
 		}
 		while(c.remaining) {
 			if(!c.opportunity) {
-				if(indoor)c.opportunity.emplace(world,c.actors,c.camera,c.characters,c.inputs,c.context.year,0x3f);
-				else c.opportunity.emplace(map,c.actors,c.camera,c.characters,c.inputs,c.context.year,0x3f);
+				if(indoor)c.opportunity.emplace(world,c.actors,c.camera,c.characters,c.inputs,c.context.year,0x3f,std::array<bool,6>{},XeenActorOpportunityContext{c.sleeping});
+				else c.opportunity.emplace(map,c.actors,c.camera,c.characters,c.inputs,c.context.year,0x3f,std::array<bool,6>{},XeenActorOpportunityContext{c.sleeping});
 				c.opportunity->staged=true;
 			}
 			if(!c.opportunity->service(draw)) {
@@ -518,6 +530,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
                 auto result=pending();result.revision=state._revision;return result;
             }
 			for(unsigned i=0;i<c.opportunity->shotCount;++i) c.shots.at(c.shotCount++)=c.opportunity->shots[i];
+			c.noTargets=c.noTargets || c.opportunity->noTargets;
 			c.actors.swap(c.opportunity->actors);c.characters.swap(c.opportunity->characters);c.opportunity.reset();
 			--c.remaining;++c.result.movementOpportunities;
 		}
@@ -525,7 +538,11 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		bool living=false;for(const auto &owner:c.characters) living=living || xeenCombatTargetable(owner);
 		const bool engaged=living && c.classify && c.result.view.engaged();
 		if(engaged) c.result.outcome=XeenEncounterOutcome::Engaged;
-		if(!living) { c.result.outcome=XeenEncounterOutcome::Stopped;c.result.reason=XeenEncounterStop::Defeat;c.pending=0; }
+		// Rest's condition deaths are checked after its completion scroll.
+		// Preserve early defeat for ordinary play, contact, or a ranged source
+		// that actually returns control because no target remains.
+		const bool defeat=!living && (!c.sleeping || c.result.view.engaged() || c.noTargets);
+		if(defeat) { c.result.outcome=XeenEncounterOutcome::Stopped;c.result.reason=XeenEncounterStop::Defeat;c.pending=0; }
 		validateEnvironment(world,c.actors,events);
 		auto observation=std::make_shared<XeenRegionalObservation>();observation->shots=c.shots;observation->count=c.shotCount;observation->after=c.characters;
 		c.result.consequences=std::move(observation);check();
@@ -538,7 +555,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		for(const auto &value:c.characters) { auto &owner=party.roster.at(value.rosterId);owner.currentHp=value.currentHp;owner.conditions=value.conditions;owner.armor=value.armor;
          if(c.time && c.timeDone && c.time->resetTemps)xeenResetCharacterTemps(owner,*party.roster._combatInputs[value.rosterId]); }
 		state._pending=c.pending;state._revision=session._encounterRevision=c.result.revision;
-		if(engaged || !living) { state._phase=engaged?XeenEncounterPhase::Engaged:XeenEncounterPhase::SupportStopped;state._reason=c.result.reason;session._encounterTerminal=true; }
+		if(engaged || defeat) { state._phase=engaged?XeenEncounterPhase::Engaged:XeenEncounterPhase::SupportStopped;state._reason=c.result.reason;session._encounterTerminal=true; }
 		c.result.needsRest=c.time && c.timeDone && !c.timeNoticePublished && c.time->needsRest;auto result=c.result;work.reset();return result;
 	} catch(...) {
 		if(!authorized() || state._revision!=entry._revision) { refused.outcome=XeenEncounterOutcome::Stale;return refused; }

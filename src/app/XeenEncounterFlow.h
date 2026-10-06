@@ -16,6 +16,7 @@
 #include "games/xeen/XeenTraining.h"
 #include "games/xeen/XeenTempleHeal.h"
 #include "games/xeen/XeenEquipmentPurchase.h"
+#include "games/xeen/XeenRestRules.h"
 
 namespace mmodern {
 struct XeenBarrierCandidate;
@@ -130,6 +131,7 @@ public:
 	std::string notice() const;
 private:
 	friend class XeenEventFlow;
+	friend struct XeenRestTestAccess;
 	friend struct XeenTrainingTestAccess;
 	friend struct XeenPurchaseTestAccess;
 	friend struct XeenCombatPresentationTestAccess;
@@ -140,6 +142,21 @@ private:
     std::uint64_t _castInput=0;
     std::string _combatCastRefusal;
 	bool _needsRestNotice=false;
+	struct RestContinuation {
+	 enum class Phase { Confirm, Refused, Charges, Remainder, Dream, Recovery, Complete };
+	 Phase phase=Phase::Charges;
+	 unsigned charges=0, consumed=0, dreamBeat=0;
+	 bool starving=false, presented=false;
+	 std::uint64_t deadline=0;
+	 XeenCombatRandom random;
+	 std::optional<XeenConditionTimeCandidate> time;
+	 IndexedFrame dream, background;
+	};
+	std::unique_ptr<RestContinuation> _rest;
+	bool beginRest(const std::function<IndexedFrame()> &);
+	bool respondRest(const PlayerAction &);
+	bool serviceRest();
+	void restPublication();
     void authorizeCombatCastFrame(const Ticket &,std::uint64_t,const IndexedFrame::Presentation &);
     bool respondCombatCast(const PlayerAction &,std::uint64_t,const IndexedFrame::Presentation &,
         const std::function<XeenLearnedSpellNames()> &);

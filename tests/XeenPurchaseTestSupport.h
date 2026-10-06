@@ -10,6 +10,7 @@ struct XeenPurchaseTestAccess {
     static bool quote(const XeenEventFlow &f){return f._smithUi && f._smithUi->phase==XeenEventFlow::SmithUi::Phase::Confirm;}
     static bool result(const XeenEventFlow &f){return f._smithUi && f._smithUi->phase==XeenEventFlow::SmithUi::Phase::Browse && f._encounter->_smith->published;}
     static bool browse(const XeenEventFlow &f){return f._smithUi && f._smithUi->phase==XeenEventFlow::SmithUi::Phase::Browse;}
+    static bool repairArmor(const XeenEventFlow &f){return browse(f) && f._smithUi->mode==XeenEventFlow::SmithUi::Mode::Repair && f._smithUi->category==XeenInventoryCategory::Armor;}
     static bool lobby(const XeenEventFlow &f){return f._smithUi && f._smithUi->phase==XeenEventFlow::SmithUi::Phase::Lobby;}
     static bool departure(const XeenEventFlow &f){return f._smithUi && f._smithUi->phase==XeenEventFlow::SmithUi::Phase::Departure;}
     static bool selected(const XeenEventFlow &f){return f._smithUi && f._smithUi->selected;}

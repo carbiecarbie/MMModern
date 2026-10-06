@@ -12,6 +12,8 @@ struct InputContext {
     bool readyForAction = false;
     MainScreen mainScreen = MainScreen::None;
     std::shared_ptr<const DialogInput> dialog;
+    bool hideCursor=false;
+    bool restAvailable=false;
 };
 }
 #endif

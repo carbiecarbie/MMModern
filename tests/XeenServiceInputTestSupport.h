@@ -130,7 +130,9 @@ void controls(Inputs &in,bool smith) {
     before.unchanged(f);
     const auto context=f.flow->inputContext(f.flow->frame().presentation());check(!context.acceptsQueuedInput && context.dialog,"service queue policy differs");
     if(smith) {
-        check(context.dialog->key('b') && !context.dialog->key('r'),"original Browse lobby keys differ");
+        check(context.dialog->key('b') && context.dialog->key('r'),"Browse/Repair lobby keys differ");
+        f.act(DialogKeyAction{'r'});check(XeenPurchaseTestAccess::repairArmor(*f.flow),"Lobby R did not open Armor Repair");before.unchanged(f);
+        f.act(DialogKeyAction{InputKey::Escape});before.unchanged(f);
         f.act(DialogKeyAction{'b'});f.act(DialogKeyAction{'a'});f.act(DialogKeyAction{'4'});
         check(XeenPurchaseTestAccess::quote(*f.flow),"original row Confirm absent");
         f.act(AcknowledgeAction{});before.unchanged(f);f.act(DialogKeyAction{'n'});before.unchanged(f);

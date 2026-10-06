@@ -11,6 +11,17 @@
 // Adapted from the ScummVM developers' GPL-3.0-or-later Xeen combat.cpp
 // at 6814ee9ba54582f5b5adcffab49efbbd8f589edd: canMonsterMove/stopAttack.
 namespace mmodern {
+namespace {
+std::vector<XeenActor> regionalMove(const std::vector<XeenActor> &before,const XeenCamera &camera,
+ const XeenActorApproach::Terrain &terrain,const XeenActorApproach::BeforeMovement &observe,
+ XeenActorOpportunityContext context) {
+ // Keep ordinary movement's existing external entry and replay probe. An
+ // intra-translation-unit call from the new overload cannot be linker-wrapped.
+ if(!context.sleeping && context.movementEnabled && !context.charactersShooting)
+  return XeenActorApproach::move(before,camera,terrain,true,observe);
+ return XeenActorApproach::move(before,camera,terrain,true,observe,context);
+}
+}
 std::optional<std::size_t> xeenRegionalEvent(const XeenEventFile &events,const XeenCamera &camera) {
 	if (!events.resourcePresent || (events.mapId!=XeenMapIdentity(23) && events.mapId!=XeenMapIdentity(28)) || camera.mapId!=events.mapId || static_cast<unsigned>(camera.direction)>3)
 		throw std::invalid_argument("Invalid regional event lookup");
@@ -200,7 +211,10 @@ void xeenValidateRegionalActors(const XeenMap &map, const XeenObjectFile &mob, c
 			if (a.hp || a.x!=-128 || a.y!=-128 || a.activated || !accounted.count(a.id))
 				throw std::invalid_argument("Noncanonical regional defeated actor");
 		} else if (a.lifecycle!=XeenActorLifecycle::Present || a.hp<1 || a.hp>a.statistics->baseHp() ||
-			accounted.count(a.id) || !local(a.x,a.y) || (!a.activated && (a.x!=original.x || a.y!=original.y)) ||
+			// Sleeping movement can leave an unseen actor away from its spawn.
+			// Immutable identity, HP, accounting, occupancy and terrain closure
+			// still validate it at every publication and restore boundary.
+			accounted.count(a.id) || !local(a.x,a.y) ||
 			!xeenActorClosure(map,a)[a.y*16+a.x]) throw std::invalid_argument("Invalid regional live actor value");
 	}
 	for (auto count:XeenActorApproach::occupancy(actors)) if (count>3)
@@ -211,14 +225,14 @@ void xeenValidateRegionalActors(const XeenMap &map, const XeenObjectFile &mob, c
 namespace mmodern {
 XeenRegionalOpportunityCandidate::XeenRegionalOpportunityCandidate(XeenWorld &world,
 		const std::vector<XeenActor> &before,const XeenCamera &c,const XeenConsequenceCharacters &p,
-		const XeenConsequenceInputs &i,unsigned y,unsigned mask,const std::array<bool,6> &b) :
+		const XeenConsequenceInputs &i,unsigned y,unsigned mask,const std::array<bool,6> &b,XeenActorOpportunityContext context) :
 		characters(p),camera(c),inputs(i),year(y),participantMask(mask),blocked(b),indoorWorld(&world) {
 	if(world.map(c.mapId).geometry.isOutdoors() || mask>0x3f)
 		throw std::invalid_argument("Invalid indoor opportunity");
 	std::array<bool,107> tested{};
-	actors=XeenActorApproach::move(before,c,[&](const XeenActor &a,int x,int z) {
+	actors=regionalMove(before,c,[&](const XeenActor &a,int x,int z) {
 		return xeenIndoorActorTerrain(world,a,x,z);
-	},true,[&](const std::vector<XeenActor> &current,std::size_t index) {
+	},[&](const std::vector<XeenActor> &current,std::size_t index) {
 		const auto &a=current[index];
 		if(tested[index] || !a.statistics || !a.statistics->raw[32])return;
 		tested[index]=true;
@@ -233,19 +247,19 @@ XeenRegionalOpportunityCandidate::XeenRegionalOpportunityCandidate(XeenWorld &wo
 		shot.distance=unsigned(std::abs(a.x-c.x)+std::abs(a.y-c.y));
 		shot.direction=a.x>c.x?XeenDirection::East:a.x<c.x?XeenDirection::West:
 			a.y>c.y?XeenDirection::North:XeenDirection::South;
-	});
+	},context);
 }
 XeenRegionalOpportunityCandidate::XeenRegionalOpportunityCandidate(const XeenMap &map,
 		const std::vector<XeenActor> &before,const XeenCamera &c,const XeenConsequenceCharacters &p,
-		const XeenConsequenceInputs &i,unsigned y,unsigned mask,const std::array<bool,6> &b) :
+		const XeenConsequenceInputs &i,unsigned y,unsigned mask,const std::array<bool,6> &b,XeenActorOpportunityContext context) :
 		characters(p),camera(c),inputs(i),year(y),participantMask(mask),blocked(b) {
 	if (mask>0x3f) throw std::invalid_argument("Invalid regional participation mask");
 	std::array<bool,107> tested{};
-	actors=XeenActorApproach::move(before,c,[&](const XeenActor &a,int x,int z) {
+	actors=regionalMove(before,c,[&](const XeenActor &a,int x,int z) {
 		return xeenRegionalActorTerrain(map,a,x,z);
-	},true,[&](const std::vector<XeenActor> &current,std::size_t index) {
+	},[&](const std::vector<XeenActor> &current,std::size_t index) {
 		const auto &a=current[index];
-		if (tested[index] || !a.activated || a.lifecycle!=XeenActorLifecycle::Present ||
+		if (tested[index] || (!a.activated && !context.sleeping) || a.lifecycle!=XeenActorLifecycle::Present ||
 			a.status!=XeenActorStatus::Physical || !a.statistics || !a.statistics->raw[32] ||
 			(a.x==c.x && a.y==c.y) || (a.x!=c.x && a.y!=c.y)) return;
 		tested[index]=true;
@@ -254,7 +268,7 @@ XeenRegionalOpportunityCandidate::XeenRegionalOpportunityCandidate(const XeenMap
 		auto &shot=shots.at(shotCount++);shot.source=a.id;shot.x=a.x;shot.y=a.y;
 		shot.distance=unsigned(std::abs(a.x-c.x)+std::abs(a.y-c.y));
 		shot.direction=a.x>c.x ? XeenDirection::East : a.x<c.x ? XeenDirection::West : a.y>c.y ? XeenDirection::North : XeenDirection::South;
-	});
+	},context);
 }
 bool XeenRegionalOpportunityCandidate::service(XeenConsequenceDraw &draw) {
 	if(staged && shotCount && !travelPresented) {travelStarted=true;return false;}
@@ -272,6 +286,9 @@ bool XeenRegionalOpportunityCandidate::service(XeenConsequenceDraw &draw) {
             return false;
         }
         const auto &part=attack->result;
+        // doMonsterTurn returns MODE_INTERACTIVE when a non-party attack has
+        // no able target. A completed injury alone does not change sleeping.
+        noTargets=noTargets || (source.statistics->attacks() && !part.targetedMembers);
         std::vector<XeenCombatDamage> overflow;
         if(shot.attack.additionalInjuries)overflow=*shot.attack.additionalInjuries;
         for(unsigned i=0;i<part.injuryCount;++i) {

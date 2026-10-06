@@ -237,6 +237,11 @@ function New-DialogInclude([byte[]]$Bytes, [string]$SourceRevision) {
 ON_WHO 30462 30476 1
 IN_NO_CONDITION 2282 2333 1
 THE_PARTY_NEEDS_REST 1943 1969 1
+REST_COMPLETE 28427 28486 1
+PARTY_IS_STARVING 28486 28514 1
+HIT_SPELL_POINTS_RESTORED 28514 28546 1
+TOO_DANGEROUS_TO_REST 28546 28574 1
+SOME_CHARS_MAY_DIE 28574 28607 1
 RACE_NAMES 4555 4587 5
 CLASS_NAMES 4655 4734 11
 SEX_NAMES 4800 4816 2
@@ -354,7 +359,7 @@ FIX_IDENTIFY_GOLD 27568 27597 1
 		if ($position -ne $end) { throw "Dialog block end mismatch: $name" }
 		if ($count -gt 1) { Add-Line $builder '}};' }
 	}
-	if ($names.Count -ne 79) { throw 'Dialog template name count mismatch' }
+	if ($names.Count -ne 84) { throw 'Dialog template name count mismatch' }
 	# The original window border and four-shade font palettes are numeric drawing
 	# inputs from the same verified stream, not strings or commercial assets.
 	foreach ($table in @(@('WindowSymbols',2891,20,64), @('TextColors',4175,40,4))) {

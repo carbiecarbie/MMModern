@@ -26,6 +26,7 @@ inline std::optional<PlayerAction> xeenMainScreenClick(int x, int y, MainScreen 
         const unsigned index=row*3+col;
         if (index==1) return CastSpellAction{}; // C
         if (!combat && index==0) return ShootAction{}; // S
+        if (!combat && index==2) return RestAction{}; // R
         if (combat && index==2) return AttackAction{}; // A
         if (combat && index==4) return RevisitCompletedAction{}; // R -> Run
         if (combat && index==5) return BlockAction{}; // B

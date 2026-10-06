@@ -33,7 +33,7 @@ void hits(){
   xeenLocationInput(XeenLocationDialog::Training).button(InputKey::Escape)->pressedFrame()==3 &&
   xeenBuyInput().button('b')->frame==9 && xeenBuyInput(true).button('f')->frame==15,
   "original service persistent mode/pressed glyphs");
- check(!xeenLocationInput(XeenLocationDialog::Smith).key('r') && !xeenLocationInput(XeenLocationDialog::Training).key(InputKey::Enter) &&
+ check(xeenLocationInput(XeenLocationDialog::Smith).key('r').has_value() && !xeenLocationInput(XeenLocationDialog::Training).key(InputKey::Enter) &&
   !xeenLocationInput(XeenLocationDialog::Temple).key(InputKey::Enter) && !xeenBuyInput().key(InputKey::Right),"project service keys survived");
  check(xeenBuyDisplayCost(XeenInventoryCategory::Weapons,{0,3,0,0})==100 &&
   xeenBuyDisplayCost(XeenInventoryCategory::Armor,{38,3,0,0})==50 &&

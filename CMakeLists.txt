@@ -29,6 +29,7 @@ add_library(mmodern_xeen STATIC
     src/games/xeen/XeenCombat.cpp
     src/games/xeen/XeenCombatRandom.cpp
 	src/games/xeen/XeenCombatRules.cpp
+	src/games/xeen/XeenRestRules.cpp
 	src/games/xeen/XeenMonsterTreasure.cpp
 	src/games/xeen/XeenServiceEconomy.cpp
 	src/games/xeen/XeenMerchantGeneration.cpp
@@ -105,6 +106,7 @@ add_library(mmodern_app STATIC
 	src/app/XeenJourneyFlow.cpp
 	src/app/XeenBarrierFlow.cpp
 	src/app/XeenJourneyConsequences.cpp
+	src/app/XeenRestFlow.cpp
 	src/app/XeenCastingFlow.cpp
 	src/app/XeenSmithFlow.cpp
 	src/app/XeenTrainingFlow.cpp
@@ -326,6 +328,12 @@ if(BUILD_TESTING)
 	add_executable(mmodern_consequence_rules_tests tests/XeenConsequenceRulesTests.cpp)
 	target_link_libraries(mmodern_consequence_rules_tests PRIVATE mmodern_xeen)
 	add_test(NAME xeen_consequence_rules COMMAND mmodern_consequence_rules_tests)
+	add_executable(mmodern_rest_tests tests/XeenRestTests.cpp)
+	target_link_libraries(mmodern_rest_tests PRIVATE mmodern_xeen)
+	add_test(NAME xeen_rest_rules COMMAND mmodern_rest_tests)
+	add_executable(mmodern_rest_original_tests tests/XeenRestOriginalTests.cpp)
+	target_link_libraries(mmodern_rest_original_tests PRIVATE mmodern_app mmodern_xeen)
+	add_test(NAME xeen_rest_original COMMAND mmodern_rest_original_tests "F:/Games/gog/Might and Magic 4-5")
 	add_executable(mmodern_typed_damage_tests tests/XeenTypedDamageTests.cpp)
 	target_link_libraries(mmodern_typed_damage_tests PRIVATE mmodern_xeen)
 	add_test(NAME xeen_typed_damage COMMAND mmodern_typed_damage_tests)
@@ -942,6 +950,7 @@ if(BUILD_TESTING)
 	# (full run: plain ctest). `process` = runs 30 s or more, or spawns child
 	# processes / drives a CLI witness executable.
 	set(xeen_process_tests
+		xeen_rest_original
 		xeen_scene_inventory_original
 		xeen_resource_cold_original
 		xeen_purchase_flow xeen_purchase_allocation xeen_purchase_process

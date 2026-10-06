@@ -70,7 +70,7 @@ struct QueueHarness {
  MainScreen screen=MainScreen::None;
  std::shared_ptr<const DialogInput> dialog;
  bool feedbackEnabled=false;std::vector<unsigned> pressedFrames;
- bool redraw=false,ready=false,queueable=true;std::uint64_t context=1,epoch=1,presented=0;
+ bool redraw=false,ready=false,queueable=true,restAvailable=false;std::uint64_t context=1,epoch=1,presented=0;
  unsigned stage=0,presentations=0,lastDelivery=0;std::vector<char> delivered;
  std::function<void()> duringPresentation;
  static void key(SDL_Keycode code,Uint32 type=SDL_KEYDOWN,Uint8 repeat=0,Uint32 stamp=99,Uint16 modifiers=0){
@@ -90,7 +90,7 @@ struct QueueHarness {
   for(unsigned i=0;i<256;++i)frame.palette[i*3+2]=i;
   SdlWindow::FrameUpdateHandler handler=[](const auto &)->std::optional<IndexedFrame>{throw std::runtime_error("unversioned queued action");};
   handler.protectAllKeys=true;handler.displayedInput=[&]{return std::optional<std::uint64_t>{epoch};};
-  handler.inputContext=[&](const auto &){return InputContext{context,queueable,ready && presented==epoch,screen,dialog};};
+  handler.inputContext=[&](const auto &){return InputContext{context,queueable,ready && presented==epoch,screen,dialog,false,restAvailable && presented==epoch};};
   handler.framePresented=[&](const auto &){presented=epoch;++presentations;const auto hook=duringPresentation;if(hook)hook();};
   if(feedbackEnabled)handler.drawButton=[&](auto &pressed,const InputButton &button){
    pressedFrames.push_back(button.pressedFrame());pressed.pixels[0]=button.pressedFrame();
@@ -98,7 +98,7 @@ struct QueueHarness {
   handler.withPresentedInput=[&](const PlayerAction &action,auto token,const auto &)->std::optional<IndexedFrame>{
    if(token!=epoch){check(!queueable,"queued key reached a stale frame");return {};}
    const bool immediate=std::holds_alternative<SaveGameAction>(action) || std::holds_alternative<CancelInteractionAction>(action);
-   check(!queueable || immediate || (ready && lastDelivery!=presentations),"drained twice or while busy");lastDelivery=presentations;
+   check(!queueable || immediate || ((ready || (restAvailable && std::holds_alternative<RestAction>(action))) && lastDelivery!=presentations),"drained twice or while busy");lastDelivery=presentations;
    if(feedbackEnabled)check(!nativePresentSamples.empty() && nativePresentSamples.back()==0,"button not restored before action dispatch");
    char kind='?';if(const auto *nav=std::get_if<NavigationAction>(&action))kind=*nav==NavigationAction::MoveForward?'W':*nav==NavigationAction::MoveBackward?'S':*nav==NavigationAction::TurnLeft?'A':'D';
    else if(std::holds_alternative<InteractionAction>(action))kind=' ';
@@ -106,6 +106,7 @@ struct QueueHarness {
    else if(std::holds_alternative<BlockAction>(action))kind='B';
    else if(std::holds_alternative<ShootAction>(action))kind='F';
    else if(std::holds_alternative<RevisitCompletedAction>(action))kind='R';
+   else if(std::holds_alternative<RestAction>(action))kind='R';
    else if(std::holds_alternative<SaveGameAction>(action))kind='9';
    else if(std::holds_alternative<CancelInteractionAction>(action))kind='E';
    else if(std::holds_alternative<UnsupportedMainScreenAction>(action))kind='U';
@@ -185,6 +186,14 @@ void strictDialogPolicies(){
  });
 }
 void mouseQueuePolicies(){
+ for(bool mouse:{false,true}) {
+  QueueHarness rest;rest.screen=MainScreen::Exploration;rest.restAvailable=true;
+  rest.run(mouse?"pending-countdown-mouse-Rest":"pending-countdown-key-Rest",[mouse](auto &h){
+   if(h.stage==0){if(mouse)h.click(290,80);else h.tap(SDLK_r);h.tap(SDLK_UP);}
+   else if(h.stage==1){h.check(h.delivered==std::vector<char>{'R'},"Rest waited for ordinary countdown readiness");h.queueable=false;h.restAvailable=false;++h.context;}
+   else if(h.stage==3){h.check(h.delivered==std::vector<char>{'R'},"Countdown Rest leaked a queued movement");h.quit();}
+  });
+ }
  QueueHarness h;h.screen=MainScreen::Combat;
  h.run("mouse-key-shared-FIFO-five/enemy-turn-once",[](auto &h){
   if(h.stage==0){h.click(290,80);h.tap(SDLK_b);h.click(261,149);h.tap(SDLK_r);h.click(12,151);h.click(290,80);}
@@ -215,7 +224,7 @@ void mouseHitAreas(){
  const auto u=[](const char *s)->PlayerAction{return UnsupportedMainScreenAction{s};};
  const std::vector<Area> areas={
   {235,75,259,95,ShootAction{},u("Quick Fight")},{260,75,284,95,CastSpellAction{},CastSpellAction{}},
-  {286,75,310,95,u("Rest"),AttackAction{}},{235,96,259,116,BashAction{},UseItemAction{}},
+  {286,75,310,95,RestAction{},AttackAction{}},{235,96,259,116,BashAction{},UseItemAction{}},
   {260,96,284,116,u("Dismiss"),RevisitCompletedAction{}},{286,96,310,116,u("View Quests"),BlockAction{}},
   {235,117,259,137,u("Map"),u("Quick Fight Options")},{260,117,284,137,u("Info"),u("Info")},
   {286,117,310,137,u("Quick Ref"),u("Quick Ref")},{109,137,122,147,u("Control panel"),u("Control panel")},

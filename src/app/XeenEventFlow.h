@@ -62,6 +62,7 @@ public:
 	std::function<void(IndexedFrame &)> drawTempleArt;
 	std::function<void(IndexedFrame &)> drawCombatButtons;
 	XeenDialogSpriteDraw drawDialogSprite;
+	std::function<IndexedFrame()> loadRestDream;
 	std::function<void(XeenTrainingBoundary)> trainingBoundary;
 	bool canSave() const noexcept;
 	bool serviceSaveBlocked() const noexcept { return _smithUi.has_value() || _trainingUi.has_value() || _dispatching || _handoffPending || _saving || _fatal; }
@@ -117,6 +118,8 @@ public:
 	std::function<void(const XeenEquipmentResult &)> reportEquipment;
 	std::function<void(XeenMovementResult)> reportMovement;
 private:
+	friend struct XeenRestTestAccess;
+	IndexedFrame drawRest(const IndexedFrame &);
 	struct TrainingUi {
 		enum class Phase { Preparation, Menu, Candidate, Departure };
 		Phase phase=Phase::Preparation;

@@ -27,6 +27,7 @@ XeenAssetSource::XeenAssetSource(const GameInstallation &installation,
 
 XeenAssetSource::~XeenAssetSource() = default;
 IndexedFrame XeenAssetSource::cursorImage() { return _impl->bridge.cursorImage(); }
+IndexedFrame XeenAssetSource::restDreamImage() { return _impl->bridge.restDreamImage(); }
 
 std::size_t XeenAssetSource::spriteFrameCount(const std::string &name, XeenSceneArchive selection) {
 	return _impl->bridge.spriteFrameCount(name,selection);

@@ -53,6 +53,7 @@ struct XeenRegionalObservation {
 struct XeenRegionalOpportunityCandidate {
  bool staged=false,travelStarted=false,travelPublished=false,travelPresented=false,
      portraitPublished=false,impactPresented=false,impactApplied=false;
+ bool noTargets=false;
  std::optional<XeenMonsterIdentity> impactSource;
  std::optional<std::uint8_t> impactOwner;
 	std::vector<XeenActor> actors;
@@ -62,10 +63,10 @@ struct XeenRegionalOpportunityCandidate {
 	XeenActorView view;
 	XeenRegionalOpportunityCandidate(const XeenMap &, const std::vector<XeenActor> &,
 		const XeenCamera &, const XeenConsequenceCharacters &, const XeenConsequenceInputs &,
-		unsigned year, unsigned participantMask, const std::array<bool,6> &blocked = {});
+		unsigned year, unsigned participantMask, const std::array<bool,6> &blocked = {}, XeenActorOpportunityContext context = {});
 	XeenRegionalOpportunityCandidate(XeenWorld &, const std::vector<XeenActor> &,
 		const XeenCamera &, const XeenConsequenceCharacters &, const XeenConsequenceInputs &,
-		unsigned year, unsigned participantMask, const std::array<bool,6> &blocked = {});
+		unsigned year, unsigned participantMask, const std::array<bool,6> &blocked = {}, XeenActorOpportunityContext context = {});
 	bool service(XeenConsequenceDraw &);
  std::shared_ptr<const XeenRegionalObservation> presentation() const;
 private:
@@ -90,7 +91,7 @@ struct XeenRegionalActionCandidate {
 	std::optional<XeenRegionalOpportunityCandidate> opportunity;
 	std::array<XeenRegionalRangedShot,108> shots{};
 	unsigned shotCount=0, remaining=0, pending=0;
-	bool classify=false, timeDone=false, timeNoticePublished=false;
+	bool classify=false, timeDone=false, timeNoticePublished=false, sleeping=false, noTargets=false;
 	std::uint64_t revision=0;
 };
 

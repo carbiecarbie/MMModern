@@ -36,6 +36,7 @@ public:
 	void drawNpc(IndexedFrame &frame, std::uint8_t portraitId, std::size_t portraitFrame);
 	void drawDialogSprite(IndexedFrame &,const char *,unsigned,int,int);
  IndexedFrame cursorImage();
+ IndexedFrame restDreamImage();
 	void drawSmith(IndexedFrame &frame);
 	void drawTraining(IndexedFrame &frame);
 	void drawTemple(IndexedFrame &frame);

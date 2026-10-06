@@ -414,6 +414,14 @@ std::size_t ScummVmXeenBridge::spriteFrameCount(const std::string &name, XeenSce
 bool ScummVmXeenBridge::hasSceneResource(const std::string &name, XeenSceneArchive selection) {
 	return _impl->sceneResource(name,selection).archive != nullptr;
 }
+IndexedFrame ScummVmXeenBridge::restDreamImage() {
+ const auto source=_impl->sceneResource("scene1.raw",XeenSceneArchive::Current);
+ if(!source.archive)throw std::runtime_error("Original Rest dream image is absent");
+ const auto stream=openResource(*source.archive,"scene1.raw",source.origin);
+ auto bytes=readBytes(*stream,"scene1.raw");
+ if(bytes.size()!=64000)throw std::runtime_error("Invalid original Rest dream image size");
+ IndexedFrame frame{320,200,std::move(bytes)};frame.palette=_impl->palette;return frame;
+}
 
 void ScummVmXeenBridge::drawSceneSprite(const std::string &name, std::size_t frame,
 		int x, int y, const XeenSpriteDrawOptions &options) {

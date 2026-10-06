@@ -566,7 +566,7 @@ IndexedFrame XeenEventFlow::handleSmith(const PlayerAction &action,std::uint64_t
     const bool member=key>=InputKey::F1 && key<InputKey::F1+_party.party.size();
     const bool allowed=ui.phase==SmithUi::Phase::Departure?(key==InputKey::Escape || key==InputKey::Enter):
         ui.phase==SmithUi::Phase::Confirm?xeenConfirmAnswer(key).has_value():
-        ui.phase==SmithUi::Phase::Lobby?(key=='b' || key==InputKey::Escape || member):
+        ui.phase==SmithUi::Phase::Lobby?(key=='b' || key=='r' || key==InputKey::Escape || member):
         (key==InputKey::Escape || member || (key>='1' && key<='9') || key=='w' || key=='a' || key=='c' || key=='m' || key=='b' || key=='s' || key=='i' || key=='f');
     if((ui.feedback.empty() || ui.phase==SmithUi::Phase::Departure) && (!allowed || (member && key-InputKey::F1==ui.member))) return frameCopy();
     if(_smithSettlement) {_handoffPending=true;return settleSmithEvent();}
@@ -589,8 +589,10 @@ IndexedFrame XeenEventFlow::handleSmith(const PlayerAction &action,std::uint64_t
         else if(ui.phase==SmithUi::Phase::Lobby) {
             if(key>=InputKey::F1 && key<InputKey::F1+_party.party.size()) {
                 ui.member=key-InputKey::F1;_encounter->advanceSmith();
-            } else if(key=='b') {
-                ui.mode=SmithUi::Mode::Buy;ui.category=XeenInventoryCategory::Weapons;ui.selected=false;
+            } else if(key=='b' || key=='r') {
+                // R retains the maintainer-authorized Armor Repair lobby path.
+                ui.mode=key=='r'?SmithUi::Mode::Repair:SmithUi::Mode::Buy;
+                ui.category=key=='r'?XeenInventoryCategory::Armor:XeenInventoryCategory::Weapons;ui.selected=false;
                 ui.phase=SmithUi::Phase::Browse;_encounter->_smith->quoted=false;_encounter->advanceSmith();
             } else if(cancel) ui.phase=SmithUi::Phase::Departure;
             else return renderEncounter(false,true);

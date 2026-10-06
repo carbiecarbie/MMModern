@@ -144,11 +144,11 @@ void XeenEncounterFlow::closeJourney() noexcept {
 	// Keep the failed binding: destruction is never a new quiet boundary.
 }
 bool XeenEncounterFlow::journeyQuiet() const noexcept {
-	return _journey && !_castingSettlement && !_regionalAutomatic && !_shootIntent && !projectilesPending() && !_busy && !_combat && !_failure && _boundary.quiet() && current(ticket()) &&
+	return _journey && !_rest && !_castingSettlement && !_regionalAutomatic && !_shootIntent && !projectilesPending() && !_busy && !_combat && !_failure && _boundary.quiet() && current(ticket()) &&
 		_world.journeyCaptureEligible(_party,_camera);
 }
 bool XeenEncounterFlow::journeyMutable() const noexcept {
-	return _journey && !_castingSettlement && !_regionalAutomatic && !_shootIntent && !projectilesPending() && !_busy && !_combat && !_failure && current(ticket()) &&
+	return _journey && !_rest && !_castingSettlement && !_regionalAutomatic && !_shootIntent && !projectilesPending() && !_busy && !_combat && !_failure && current(ticket()) &&
 		_state.pending() == 0 && _state.phase() == XeenEncounterPhase::Exploring &&
 		_world.sessionState().journeyActivity() == XeenJourneyActivity::Quiet;
 }
@@ -434,9 +434,10 @@ bool XeenEncounterFlow::presentJourney(const Ticket &entry) {
 		(_world.sessionState().journeyActivity() != XeenJourneyActivity::Presentation && !journeyEvent() && !_shoot && !monsterReward() && !_itemUse && !_casting && !_smith && !_training)) return false;
 	if (!journeyCapacity()) return false;
     projectilesPresented();
+	if(_rest) {_rest->presented=true;_rest->deadline=_lastTime+(_rest->phase==RestContinuation::Phase::Dream?50:100);}
 	auto &s = _world._sessionState;
 	if(_shoot && !_shoot->presented) {_shoot->presented=true;_shoot->deadline=_lastTime+100;}
-	if (!journeyEvent() && !_shoot && !monsterReward() && !_itemUse && !_casting && !_smith && !_training) s._journeyActivity = _state.phase()==XeenEncounterPhase::SupportStopped ? XeenJourneyActivity::SupportStopped : (_state.pending() || _regionalWork || projectilesPending() || _shootIntent || _regionalAutomatic) ? XeenJourneyActivity::Approach : XeenJourneyActivity::Quiet;
+	if (!journeyEvent() && !_rest && !_shoot && !monsterReward() && !_itemUse && !_casting && !_smith && !_training) s._journeyActivity = _state.phase()==XeenEncounterPhase::SupportStopped ? XeenJourneyActivity::SupportStopped : (_state.pending() || _regionalWork || projectilesPending() || _shootIntent || _regionalAutomatic) ? XeenJourneyActivity::Approach : XeenJourneyActivity::Quiet;
 	if (_castingSettlement && (s._journeyActivity==XeenJourneyActivity::Quiet ||
 		s._journeyActivity==XeenJourneyActivity::SupportStopped || journeyEvent() || monsterReward()))
 		_castingSettlement=false;
@@ -472,7 +473,7 @@ XeenEncounterResult XeenEncounterFlow::journeyAction(const Ticket &entry, XeenEn
 XeenEncounterResult XeenEncounterFlow::journeyPulse(const Ticket &entry) { return advanceJourney(entry,{}); }
 XeenEncounterResult XeenEncounterFlow::advanceJourney(const Ticket &entry, std::optional<XeenEncounterAction> action) {
 	XeenEncounterResult refused;
-	if (action && (_castingSettlement || _regionalAutomatic || _regionalWork)) return refused;
+	if (_rest || (action && (_castingSettlement || _regionalAutomatic || _regionalWork))) return refused;
 	if (!_journey || _busy || _combat || !current(entry) || !_boundary.quiet() ||
 		_state.phase() != XeenEncounterPhase::Exploring) return refused;
 	auto &s = _world._sessionState;

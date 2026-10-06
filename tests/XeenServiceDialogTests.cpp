@@ -62,6 +62,8 @@ void dialogs(Inputs &in,bool mouse) {
     Fixture smith(in,source);smith.enter();
     const auto before=Owners(smith);
     keyboard(smith,'r');keyboard(smith,InputKey::Enter);before.unchanged(smith);
+    check(XeenPurchaseTestAccess::repairArmor(*smith.flow),"Lobby R did not retain Armor Repair");
+    keyboard(smith,InputKey::Escape);before.unchanged(smith);
     if(mouse)click(smith,235,65);else keyboard(smith,'b');
     for(const auto key:{'s','i'}) {
         std::string notice;smith.flow->reportText=[&](const auto &text){notice=text;};

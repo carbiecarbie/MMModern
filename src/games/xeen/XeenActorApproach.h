@@ -18,6 +18,10 @@ struct XeenActorView {
 	bool engaged() const { return slots[0] || slots[1] || slots[2]; }
 };
 enum class XeenMonsterTerrain { Allowed, Blocked, Unsupported };
+// MODE_SLEEPING permits an opportunity without permanently activating actors.
+struct XeenActorOpportunityContext {
+	bool sleeping=false, movementEnabled=true, charactersShooting=false;
+};
 enum class XeenEncounterAction { Forward, Backward, Left, Right, Wait, Unsupported };
 enum class XeenEncounterPhase { Exploring, Engaged, SupportStopped };
 enum class XeenEncounterOutcome { Started, Accepted, Blocked, Pulsed, Pending, Engaged, Refused, Stale, Terminal, Stopped };
@@ -35,6 +39,7 @@ private:
 	friend class XeenActorApproach;
 	friend class XeenCombat;
 	friend class XeenEncounterFlow;
+	friend struct XeenRestTestAccess;
 	const XeenWorld *_world = nullptr;
 	const XeenPartyState *_party = nullptr;
 	const XeenCamera *_camera = nullptr;
@@ -85,6 +90,9 @@ public:
 	static std::vector<XeenActor> move(const std::vector<XeenActor> &actors,
 		const XeenCamera &camera, const Terrain &terrain, bool movementEnabled,
 		const BeforeMovement &beforeMovement);
+	static std::vector<XeenActor> move(const std::vector<XeenActor> &actors,
+		const XeenCamera &camera, const Terrain &terrain, bool movementEnabled,
+		const BeforeMovement &beforeMovement, XeenActorOpportunityContext context);
 	static void validateDomain(XeenWorld &world, const XeenPartyState &party,
 		const XeenGameplayContext &context, const std::vector<XeenActor> &actors,
 		const XeenEventFile &events);
@@ -102,6 +110,8 @@ public:
 	static XeenEncounterResult stop(XeenWorld &world, XeenEncounterState &state,
 		XeenEncounterStop reason) noexcept;
 private:
+	static std::vector<XeenActor> moveWithContext(const std::vector<XeenActor> &,const XeenCamera &,
+		const Terrain &,bool,const BeforeMovement &,XeenActorOpportunityContext);
 	friend class XeenEncounterFlow;
 	// Flow prepares final-owner guard/capture storage from detached values.
 	using FreshPublicationPreparation = std::function<void(const XeenPartyState &,

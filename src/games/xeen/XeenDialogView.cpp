@@ -85,6 +85,11 @@ std::string_view xeenDialogText(XeenDialogText text) {
     case XeenDialogText::Charges:return T::FMT_CHARGES;
     case XeenDialogText::ItemNotBroken:return T::ITEM_NOT_BROKEN;
     case XeenDialogText::PartyNeedsRest:return T::THE_PARTY_NEEDS_REST;
+    case XeenDialogText::RestComplete:return T::REST_COMPLETE;
+    case XeenDialogText::PartyIsStarving:return T::PARTY_IS_STARVING;
+    case XeenDialogText::HitSpellPointsRestored:return T::HIT_SPELL_POINTS_RESTORED;
+    case XeenDialogText::TooDangerousToRest:return T::TOO_DANGEROUS_TO_REST;
+    case XeenDialogText::SomeCharsMayDie:return T::SOME_CHARS_MAY_DIE;
     }
     throw std::invalid_argument("Unknown dialog text");
 }
@@ -126,7 +131,11 @@ DialogInput xeenLocationInput(XeenLocationDialog location) {
         button(input,242,108,266,128,'t',"train.icn",0);
     } else {
         button(input,261,108,285,128,InputKey::Escape,"esc.icn");
-        if(location==XeenLocationDialog::Smith) button(input,234,64,308,72,'b');
+        if(location==XeenLocationDialog::Smith) {
+            button(input,234,64,308,72,'b');
+            // Maintainer's M51 entry contract retains the lobby R shortcut.
+            input.keys.push_back('r');
+        }
         else {
             button(input,234,54,308,62,'h');button(input,234,64,308,72,'d');button(input,234,74,308,82,'u');
         }

@@ -278,7 +278,7 @@ void mouseJourney(Inputs &in) {
   };
   return SdlWindow().showInteractive(first,"Main-screen mouse walk",native,escape,[&]()->std::optional<IndexedFrame>{
    check(++loops<100,"mouse walk timeout");now+=100;
-   if(scripted==0){++scripted;pending=[&]{click(290,80);click(12,151);};}
+   if(scripted==0){++scripted;pending=[&]{click(261,100);click(12,151);};}
    if(dispatches==2 && scripted==1){++scripted;check(h.flow->inventoryOpen(),"portrait sheet absent");pending=[&]{tap(SDLK_ESCAPE);};}
    if(dispatches==3 && scripted==2){++scripted;pending=[&]{click(261,149);click(290,149);click(100,50);};}
    if(dispatches==6){check(h.camera->x==10 && h.camera->y==10 && h.camera->direction==XeenDirection::East,"mouse walk result");quit();return {};}
@@ -293,7 +293,7 @@ void mouseNotices(Inputs &in) {
  auto source=in.service();source.camera={28,10,9,XeenDirection::North};Fixture f(in,source,true);
  std::string reported;f.flow->reportText=[&](const auto &text){reported=text;};
  const auto before=XeenSaveFormat::encode(f.snapshot());
- for(const auto label:{"Rest","Dismiss","View Quests","Map","Info","Quick Ref","Control panel","Strafe"}) {
+ for(const auto label:{"Dismiss","View Quests","Map","Info","Quick Ref","Control panel","Strafe"}) {
   const auto pixels=f.flow->frame().pixels;
   f.act(UnsupportedMainScreenAction{label});
   check(reported==std::string(label)+": not supported yet","unsupported notice missing");

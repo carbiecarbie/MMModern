@@ -15,6 +15,7 @@ struct ShootAction {};
 struct CastSpellAction {};
 struct BlockAction {};
 struct BashAction {};
+struct RestAction {};
 struct RunAction {};
 struct SelectCombatTargetAction { unsigned row; };
 struct BeginEncounterAction {};
@@ -38,7 +39,7 @@ struct DialogKeyAction { unsigned key; };
 using PlayerAction = std::variant<NavigationAction, InteractionAction,
 	AcknowledgeAction, YesAction, NoAction, SelectMemberAction, CancelInteractionAction, SaveGameAction, InspectInventoryAction,
 	SelectInventorySlotAction, TransferInventoryAction, EquipmentInventoryAction, UseItemAction, WaitAction,
-	AttackAction, ShootAction, CastSpellAction, BlockAction, RunAction, SelectCombatTargetAction, BeginEncounterAction, RevisitCompletedAction, UnsupportedMainScreenAction, DialogKeyAction, BashAction>;
+	AttackAction, ShootAction, CastSpellAction, BlockAction, RunAction, SelectCombatTargetAction, BeginEncounterAction, RevisitCompletedAction, UnsupportedMainScreenAction, DialogKeyAction, BashAction, RestAction>;
 
 } // namespace mmodern
 
