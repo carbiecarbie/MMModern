@@ -164,9 +164,10 @@ Priorities, in order: correctness, then credit/resource efficiency, then speed.
   the longest wait allowed, without reading logs, polling status or sending
   progress messages, then reads the result once.
 - If the complete suite fails only because of stale test expectations and the
-  fix changes test code only, rerun the failed tests and `ctest -L fast`
-  instead of the complete suite. Any production-code change requires another
-  complete run.
+  fix changes test code only, the same runner reruns just the failed tests
+  (`ctest --test-dir <build> --rerun-failed --output-on-failure`, single
+  job) and the main agent runs `ctest -L fast`, instead of another complete
+  run. Any production-code change requires another complete run.
 - If that model, the script or delegation is unavailable, report it and leave
   full-suite validation pending; never run the complete suite on the main
   model instead. A passing complete suite is still required before declaring
