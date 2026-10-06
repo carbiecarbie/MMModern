@@ -217,16 +217,13 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 	if (j.serviceEconomy) xeenValidateCurrentServiceEconomy(*j.serviceEconomy);
 	require(j.regionalRecovery.has_value(), "Journey recovery presence mismatch");
 	require(j.context.has_value(), "missing Journey context");
-	// No admitted Smith visit settles on its entry day. Day-8 Quiet state
-	// therefore still requires a complete generation, despite purchase depletion.
-	if(j.serviceEconomy && j.context->day==8)xeenValidateServiceEconomy(*j.serviceEconomy);
+	// Stock may be depleted on any canonical day, including after year rollover.
+	// All dates use the current stock validator, including depletion.
 	require(j.context->profile == XeenBehaviorProfile::WorldOfXeenClouds &&
 		(j.context->difficulty == XeenDifficulty::Adventurer || j.context->difficulty == XeenDifficulty::Warrior),
 		"invalid Journey context enum");
 	{
-		require(xeenRegionalContext(*j.context) && j.context->year == 610 &&
-			j.context->day >= 8 && j.context->day <= 99, "invalid Ironworks calendar context");
-		require(j.context->day == 8 || j.vertigoActors.has_value(), "Ironworks departure requires retained city");
+		require(xeenRegionalContext(*j.context), "invalid Journey calendar context");
 		require(s.camera.mapId != XeenMapIdentity(28) || cityCamera, "camera outside Ironworks city domain");
 		require(j.vertigoActors || s.camera.mapId == XeenMapIdentity(23), "absent city requires mainland camera");
 	}
@@ -337,7 +334,7 @@ std::vector<std::uint8_t> XeenSaveFormat::encode(const XeenSaveSnapshot &s) {
 	out.u16(c.ctr24); out.u16(c.day); out.u16(c.year); out.u16(c.minutes);
 	for (auto v : c.effects) out.u8(v);
 	for (auto v : c.lightAndResistances) out.u16(v);
-	out.u8(c.rested); out.u8(c.newDay); out.u8(30);
+	out.u8(c.rested); out.u8(c.newDay); out.u16(s.food); out.u8(30);
 	for (const auto &r : j.supplements) {
 		out.u8(r.owner);
 		for (int v : {r.inputs.might.permanent, r.inputs.might.temporary, r.inputs.speed.permanent,
@@ -365,6 +362,7 @@ std::vector<std::uint8_t> XeenSaveFormat::encode(const XeenSaveSnapshot &s) {
 	for(const auto &r:j.supplements) {
 		const auto &v=*r.inputs.resistances;out.u8(r.owner);
 		out.u8(v.coldPermanent);out.u8(v.coldTemporary);out.u8(v.electricalPermanent);out.u8(v.electricalTemporary);
+		out.u8(v.firePermanent);out.u8(v.fireTemporary);out.u8(v.energyPermanent);out.u8(v.energyTemporary);out.u8(v.magicPermanent);out.u8(v.magicTemporary);
 	}
 	const auto &v=*j.treasure;out.u32(v.gold);out.u32(v.gems);out.u32(v.pendingMask);out.u32(v.pendingGold);
 	unsigned weapons=0,armor=0;for(const auto &r:v.weapons) weapons+=r.item.id!=0;for(const auto &r:v.armor) armor+=r.item.id!=0;
@@ -457,7 +455,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	if (j.schema != kJourneySchema || j.content != kJourneyContent) throw unsupportedPair(j.schema, j.content);
 	// Bound allocation before parsing; the exact dynamic extent is verified
 	// after the actor and treasure counts are decoded.
-	require(suffixSize >= 4278 && suffixSize <= 4278+4+21*107+5*12, "Journey schema-9 size mismatch");
+	require(suffixSize >= 4460 && suffixSize <= 4460+4+21*107+5*12, "Journey schema-9 size mismatch");
 	require(in.u8() == 1, "missing Journey context");
 	XeenGameplayContext c;
 	require(in.u8() == 0, "invalid Journey profile");
@@ -466,7 +464,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	c.ctr24 = in.u16(); c.day = in.u16(); c.year = in.u16(); c.minutes = in.u16();
 	for (auto &v : c.effects) v = in.u8();
 	for (auto &v : c.lightAndResistances) v = in.u16();
-	c.rested = in.boolean(); c.newDay = in.boolean(); j.context = c;
+	c.rested = in.boolean(); c.newDay = in.boolean(); j.context = c; s.food=in.u16();
 	require(in.u8() == 30, "invalid Journey supplement count");
 	for (unsigned i = 0; i < 30; ++i) {
 		auto &r = j.supplements[i]; r.owner = in.u8();
@@ -504,7 +502,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	require(in.u8()==30,"Invalid resistance count");
 	for(unsigned owner=0;owner<30;++owner) {
 		require(in.u8()==owner,"Invalid resistance owner order");
-		j.supplements[owner].inputs.resistances=XeenCombatResistances{in.u8(),in.u8(),in.u8(),in.u8()};
+		j.supplements[owner].inputs.resistances=XeenCombatResistances{in.u8(),in.u8(),in.u8(),in.u8(),in.u8(),in.u8(),in.u8(),in.u8(),in.u8(),in.u8()};
 	}
 	XeenMonsterTreasure v;v.gold=in.u32();v.gems=in.u32();v.pendingMask=in.u32();v.pendingGold=in.u32();
 	const unsigned weapons=in.u8(),armor=in.u8();
@@ -545,7 +543,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 		j.vertigoActors=std::move(city);
 	}
 	const unsigned n=weapons+armor;
-	const unsigned expected=3114+1164+(j.vertigoActors ? 4+21*j.vertigoActors->size() : 0);
+	const unsigned expected=3114+1164+182+(j.vertigoActors ? 4+21*j.vertigoActors->size() : 0);
 	require(suffixSize==expected+5u*n,"Invalid city/economy suffix length");
 
 	require(in.u8()==2 && in.u8()==4 && in.u8()==4 && in.u8()==9,"Invalid merchant stock shape");

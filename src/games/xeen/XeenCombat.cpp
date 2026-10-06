@@ -96,11 +96,12 @@ struct XeenCombat::Impl {
 		std::optional<XeenGameplayContext> encounterContext;
 		std::optional<XeenMonsterTreasure> treasure;
 		std::optional<XeenServiceEconomy> serviceEconomy;
+		std::uint16_t food=0;
 		std::uint8_t firstSerializedCount, effectiveSerializedCount;
 		std::vector<std::string> diagnostics;
 		explicit PartyPreimage(const XeenPartyState &p) : roster{p.roster.characters()}, party(p.party),
 			questItems(p.questItems), questFlags(p.questFlags), recovery(p.regionalRecovery), encounterContext(p.encounterContext), treasure(p.monsterTreasure),
-			serviceEconomy(p.serviceEconomy),
+			serviceEconomy(p.serviceEconomy),food(p.food),
 			firstSerializedCount(p.firstSerializedCount), effectiveSerializedCount(p.effectiveSerializedCount), diagnostics(p.diagnostics) {}
 	} expected;
 	bool journey = false, ended = false, episodeLethal = false;
@@ -275,7 +276,7 @@ struct XeenCombat::Impl {
 			!world._sessionState._encounterTerminal || world._sessionState._combatApproachState != &approach ||
 			world._sessionState._combatEntered != (phase != Phase::Engaged) ||
 			world.sessionState().accountedMonsters() != accounted || world.sessionState().journeyActivity() != XeenJourneyActivity::Combat)) return false;
-		if(!same(camera,expectedCamera)||party.monsterTreasure!=expected.treasure||party.serviceEconomy!=expected.serviceEconomy||party.party.activeRosterIds()!=expected.party.activeRosterIds()||
+		if(!same(camera,expectedCamera)||party.food!=expected.food||party.monsterTreasure!=expected.treasure||party.serviceEconomy!=expected.serviceEconomy||party.party.activeRosterIds()!=expected.party.activeRosterIds()||
 			party.questItems.counts()!=expected.questItems.counts()||party.questFlags.values()!=expected.questFlags.values()||party.regionalRecovery!=expected.recovery||
 			party.firstSerializedCount!=expected.firstSerializedCount||party.effectiveSerializedCount!=expected.effectiveSerializedCount||
 			party.diagnostics!=expected.diagnostics||bool(party.encounterContext)!=bool(expected.encounterContext)) return false;
@@ -995,7 +996,7 @@ XeenCombatResult XeenCombat::serviceConsequences(const Ticket &t) {
 			if(end) require(!d.contact[0] && !d.moveDue && d.episodeLethal,"End requires an actual lethal and no owed work");
 			if(end || d.chargeRound) {
 				const auto time=xeenPrepareTime(*d.party.encounterContext,1);
-				if(time.dusks || time.dawns || time.dailyProcessing || time.midnights || time.yearRollovers) return fail(t,Failure::Time);
+				static_cast<void>(time); // Canonical range and overflow preflight; shared processing follows.
 			}
 			d.consequences.emplace();auto &c=*d.consequences;c.rng=d.rng;
 			c.result=d.observation(Status::Pending);c.result.oldRevision=d.revision();c.result.operation=end?Operation::End:Operation::Round;
@@ -1004,7 +1005,7 @@ XeenCombatResult XeenCombat::serviceConsequences(const Ticket &t) {
 				else {const auto map=d.world.map(23);c.movement.emplace(map,d.actors,d.camera,d.characters(),d.inputs,d.party.encounterContext->year,d.participants,d.blocked);}
 				c.movement->staged=true;
 				d.probeFor(t);
-			} else c.time.emplace(*d.party.encounterContext,1,d.characters(),d.inputs);
+			} else c.time.emplace(*d.party.encounterContext,1,d.characters(),d.inputs,&*d.party.serviceEconomy);
 		}
 		if(!d.consequences) {
 			require(d.work==Work::Enemy,"Missing physical continuation");
@@ -1033,7 +1034,7 @@ XeenCombatResult XeenCombat::serviceConsequences(const Ticket &t) {
                     return d.adopt(r,Status::Pending);
                 }
 				c.physicalDone=true;
-				if(d.chargeRound) c.time.emplace(*d.party.encounterContext,1,c.movement->characters,d.inputs);
+				if(d.chargeRound) c.time.emplace(*d.party.encounterContext,1,c.movement->characters,d.inputs,&*d.party.serviceEconomy);
 			}
 		}
 		if(c.run && !c.run->service(draw)) return pending();
@@ -1090,7 +1091,14 @@ XeenCombatResult XeenCombat::serviceConsequences(const Ticket &t) {
 		}
 		if(c.enemy) d.publishCharacters(c.enemy->characters);
 		if(c.movement) { d.activeActors().swap(c.movement->actors);d.actors.swap(expectedActors);d.publishCharacters(c.movement->characters); }
-		if(c.time) { d.publishCharacters(c.time->characters);d.party.encounterContext=d.expected.encounterContext=c.time->context; }
+		if(c.time) {
+   for(unsigned n=0;n<6;++n) {
+    const auto id=kXeenCombatOwners[n];d.party.roster.at(id)=d.expected.roster.at(id)=c.time->characters[n];
+    d.inputs[n]=c.time->inputs[n];d.party.roster._combatInputs[id]=d.allInputs[id]=c.time->inputs[n];
+   }
+   r.needsRest=c.time->needsRest;d.party.serviceEconomy=d.expected.serviceEconomy=c.time->economy;
+   d.party.encounterContext=d.expected.encounterContext=c.time->context;
+  }
 		d.rng=c.rng;d.expectedRandom=d.session()._journeyRandom=d.rng.continuation();
 		const auto operation=r.operation;
 		const int selected=d.turn;

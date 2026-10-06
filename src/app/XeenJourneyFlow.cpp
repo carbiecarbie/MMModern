@@ -30,7 +30,7 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 	const auto learnedNames=setup.learnedNames;
 	const auto bank=setup.bank;
 	_journeyEvents = setup.events;
-	_journeyCapture.reset(new XeenJourneyCapture(w,p,c,_state,_boundary,_busy,_journeyPreimage));
+	_journeyCapture.reset(new XeenJourneyCapture(w,p,c,_state,_boundary,_busy,_journeyPreimage,&_needsRestNotice));
 	if (w.hasEncounterState() || p.roster.combatMarked() || p.encounterContext || w._combatCheck || w._combatAuthorized)
 		throw std::invalid_argument("Journey requires fresh uncoordinated owners");
 	if (!recovery || p.regionalRecovery)
@@ -105,7 +105,7 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 	// fresh final-owner coordination; it performs no allocation or resource work.
 	binding->guard->check();
 	_journeyCapture.swap(binding->capture);
-	_journeyCapture->bind(w,p,c,_state,_boundary,_busy,_journeyPreimage);
+	_journeyCapture->bind(w,p,c,_state,_boundary,_busy,_journeyPreimage,&_needsRestNotice);
 	_journeyStatistics.swap(binding->statistics); std::swap(_journeyEvents,binding->events);
 	_learnedNamesProvider.swap(binding->learnedNamesProvider);
 	_journeyPreimage.swap(binding->guard);
@@ -277,6 +277,7 @@ bool XeenEncounterFlow::serviceItemUse() {
 			_journeyPreimage->adoptJourneyCoordination();return true;
 		}
 		_result=result;++_generation;_journeyFramePrepared=false;
+		if(result.needsRest)_needsRestNotice=true;
 		if(result.consequences) observeRanged(result.consequences);
 		s._journeyActivity=_state.phase()==XeenEncounterPhase::Engaged ? XeenJourneyActivity::Attachment : XeenJourneyActivity::Presentation;
 		++s._journeyGeneration;
@@ -522,6 +523,7 @@ XeenEncounterResult XeenEncounterFlow::advanceJourney(const Ticket &entry, std::
 		}
 		_result = result; ++_generation; _journeyFramePrepared = false;
 		if(action) { _itemUseResult.reset(); retireCastingFeedback(); }
+		if(result.needsRest)_needsRestNotice=true;
 		if(result.consequences) observeRanged(result.consequences);
 		if(result.automaticEvent) _regionalAutomaticAddress=XeenCombatLocation{_camera.mapId,_camera.x,_camera.y,_camera.direction};
 		_regionalAutomatic = _regionalAutomatic || result.automaticEvent;

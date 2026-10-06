@@ -76,8 +76,8 @@ void connectedSynthetic(Inputs &in) {
         const auto saved=f.snapshot();Fixture restored(in,saved);save_test::sameSnapshot(saved,restored.snapshot());
     }
     {
-        auto source=service(in,99);Fixture f(in,source);const Owners before(f);f.act(InteractionAction{});
-        check(f.flow->canSave(),"day99 admitted service debt");before.unchanged(f);
+        auto source=service(in,99);Fixture f(in,source);const Owners before(f);f.enter();check(!f.flow->canSave(),"Smith retains service debt across rollover");before.unchanged(f);f.leave();
+        check(f.flow->canSave() && f.p.encounterContext->day==0 && f.p.encounterContext->year==611,"Smith rollover departure");
     }
     // Buy and inherited repair use one lobby/lease/departure. Distinct units
     // retain prior payments/items even through later cancelled operations.

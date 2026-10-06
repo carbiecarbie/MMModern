@@ -22,7 +22,7 @@ public:
 		s(w._sessionState), characters(p.roster.characters()), inputs(p.roster._combatInputs),
 		marked(p.roster.combatMarked()), membership(p.party.activeRosterIds()),
 		quests(p.questItems.counts()), questFlags(p.questFlags.values()), recovery(p.regionalRecovery), context(p.encounterContext), treasure(p.monsterTreasure), economy(p.serviceEconomy),
-		first(p.firstSerializedCount), effective(p.effectiveSerializedCount), diagnostics(p.diagnostics),
+		food(p.food), first(p.firstSerializedCount), effective(p.effectiveSerializedCount), diagnostics(p.diagnostics),
 		cameraValue(c), flagValues(f.values()), combatCheck(bool(w._combatCheck)), combatAuthorized(bool(w._combatAuthorized)),
 		maps(w._maps), objects(w._objects), cityStatistics(w._cityStatistics), cityOriginalCount(w._cityOriginalActorCount), cacheRevision(w._cacheRevision), exactCaches(exactCaches),
 		borrowOwners{&w._gameplayBorrow, &p._gameplayBorrow, &p.roster._gameplayBorrow, &c.gameplayBorrow, &f._gameplayBorrow} {
@@ -48,7 +48,7 @@ public:
 		inputs(std::move(other.inputs)), marked(std::move(other.marked)), membership(std::move(other.membership)),
 		quests(std::move(other.quests)), questFlags(std::move(other.questFlags)), recovery(std::move(other.recovery)),
 		context(std::move(other.context)), treasure(std::move(other.treasure)), economy(std::move(other.economy)),
-		first(std::move(other.first)), effective(std::move(other.effective)), diagnostics(std::move(other.diagnostics)),
+		food(other.food), first(std::move(other.first)), effective(std::move(other.effective)), diagnostics(std::move(other.diagnostics)),
 		cameraValue(std::move(other.cameraValue)), flagValues(std::move(other.flagValues)), combatCheck(std::move(other.combatCheck)),
 		combatAuthorized(std::move(other.combatAuthorized)), maps(std::move(other.maps)), objects(std::move(other.objects)),
 		cityStatistics(std::move(other.cityStatistics)), cityOriginalCount(other.cityOriginalCount), regionalText(std::move(other.regionalText)), vertigoText(std::move(other.vertigoText)),
@@ -72,7 +72,7 @@ public:
 			p.roster.combatMarked() != marked || p.party.activeRosterIds() != membership ||
 			p.questItems.counts() != quests || p.questFlags.values() != questFlags || p.regionalRecovery != recovery ||
 			!(p.encounterContext == context) || p.monsterTreasure != treasure || p.serviceEconomy != economy || p.firstSerializedCount != first ||
-			p.effectiveSerializedCount != effective || p.diagnostics != diagnostics ||
+			p.food!=food || p.effectiveSerializedCount != effective || p.diagnostics != diagnostics ||
 			!sameCamera(c, cameraValue) || f.values() != flagValues ||
 			bool(w._combatCheck) != combatCheck || bool(w._combatAuthorized) != combatAuthorized ||
 			w._cityStatistics.size()!=cityStatistics.size() || w._cityOriginalActorCount!=cityOriginalCount) return false;
@@ -293,7 +293,7 @@ private:
 		quests=candidate.questItems.counts();questFlags=candidate.questFlags.values();
 		recovery=candidate.regionalRecovery;context=candidate.encounterContext;
 		treasure=candidate.monsterTreasure;economy=candidate.serviceEconomy;
-		first=candidate.firstSerializedCount;effective=candidate.effectiveSerializedCount;diagnostics=candidate.diagnostics;
+		food=candidate.food;first=candidate.firstSerializedCount;effective=candidate.effectiveSerializedCount;diagnostics=candidate.diagnostics;
 		s._actors=actors;s._entry=XeenEncounterEntry::Journey;
 		s._encounterMarked=s._encounterInitialized=true;s._encounterRevision=1;
 		s._skeletonSeed=0;s._journeyRandom=random;
@@ -306,7 +306,7 @@ private:
 		marked = candidate.marked; membership = candidate.membership;
 		quests = candidate.quests; questFlags = candidate.questFlags; recovery = candidate.recovery; context = candidate.context; treasure = candidate.treasure;
 		economy = candidate.economy;
-		first = candidate.first; effective = candidate.effective; diagnostics = candidate.diagnostics;
+		food=candidate.food;first = candidate.first; effective = candidate.effective; diagnostics = candidate.diagnostics;
 		cameraValue = candidate.cameraValue; flagValues = candidate.flagValues;
 		maps = candidate.maps; objects = candidate.objects;
 		cityStatistics = candidate.cityStatistics;
@@ -343,7 +343,7 @@ private:
 		if(candidate.membership!=membership || candidate.quests!=quests || candidate.marked!=marked ||
 			candidate.s._barriers!=s._barriers ||
 			candidate.recovery!=recovery || !(candidate.context==context) || candidate.treasure!=treasure ||
-			candidate.economy!=economy || candidate.first!=first || candidate.effective!=effective ||
+			candidate.food!=food || candidate.economy!=economy || candidate.first!=first || candidate.effective!=effective ||
 			candidate.diagnostics!=diagnostics || candidate.s._journeyRandom!=s._journeyRandom) {
 			failed=true;throw std::logic_error("Event candidate changed an unowned party or RNG field");
 		}
@@ -450,6 +450,7 @@ private:
 	std::optional<XeenGameplayContext> context;
 	std::optional<XeenMonsterTreasure> treasure;
 	std::optional<XeenServiceEconomy> economy;
+	std::uint16_t food=0;
 	std::uint8_t first, effective;
 	std::vector<std::string> diagnostics;
 	XeenCamera cameraValue;

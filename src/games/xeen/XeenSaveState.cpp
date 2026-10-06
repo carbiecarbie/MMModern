@@ -30,12 +30,10 @@ void XeenSaveState::validateJourneyValues(const XeenSaveSnapshot &s) {
 	const auto require = [](bool ok) { if (!ok) throw std::invalid_argument("Unsupported Journey durable state"); };
 	require(s.barriers.empty() || j.vertigoActors.has_value());
 	require(j.schema==XeenSaveFormat::kJourneySchema && j.content==XeenSaveFormat::kJourneyContent);
-	require(j.context && j.context->year==610 &&
-		j.context->day>=8 && j.context->day<=99 && (j.context->day==8 || j.vertigoActors));
+	require(j.context && xeenRegionalContext(*j.context));
 	require(bool(j.serviceEconomy));
 	if (j.serviceEconomy) {
 		xeenValidateCurrentServiceEconomy(*j.serviceEconomy);
-		if(j.context && j.context->day==8)xeenValidateServiceEconomy(*j.serviceEconomy);
 	}
 	{
 		require(s.resources.darkside && j.initializedMap==XeenMapIdentity(23) && j.originalActorCount==19 && j.actors.size()==19 &&
@@ -96,6 +94,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 		p.roster.at(i)._originalDetails = details;
 	}
 	p.party = XeenParty::fromRosterIds(snapshot.activeRosterIds);
+	p.food=snapshot.food;
 	p.questItems = XeenCloudsQuestItems(snapshot.questItems); p.questFlags = XeenCloudsQuestFlags(snapshot.questFlags);
 	p.regionalRecovery = snapshot.journey->regionalRecovery;
 	p.firstSerializedCount = p.effectiveSerializedCount = 6;
@@ -266,6 +265,7 @@ XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resourc
 	snapshot.camera = camera;
 	snapshot.activeRosterIds = party.party.activeRosterIds();
 	snapshot.characters = party.roster.characters();
+	snapshot.food=party.food;
 	snapshot.questItems = party.questItems.counts();
 	snapshot.questFlags = party.questFlags.values();
 	snapshot.gameFlags = flags.values();

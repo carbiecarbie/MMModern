@@ -469,9 +469,8 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 				}
 			}
 			if(charge) {
-				const auto time=xeenPrepareTime(c.context,indoor?1:10);
-				if(time.dawns || time.dusks || time.midnights || time.yearRollovers || time.dailyProcessing) return stop(world,state,XeenEncounterStop::Time);
-				c.time.emplace(c.context,indoor?1:10,c.characters,c.inputs);
+				static_cast<void>(xeenPrepareTime(c.context,indoor?1:10));
+				c.time.emplace(c.context,indoor?1:10,c.characters,c.inputs,&*party.serviceEconomy);
 				if(c.pending) ++c.remaining;
 				c.pending=3;
 				if(*action==XeenEncounterAction::Wait) { ++c.remaining;c.pending=0; }
@@ -483,10 +482,10 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		}
 		auto &c=*work;require(c.revision==entry._revision,"Stale regional continuation");
 		XeenConsequenceDraw draw{c.random,64,check};
-		const auto pending=[&] { auto r=c.result;r.outcome=XeenEncounterOutcome::Pending;r.revision=entry._revision;return r; };
+		const auto pending=[&] { auto r=c.result;r.outcome=XeenEncounterOutcome::Pending;r.revision=entry._revision;c.result.needsRest=false;return r; };
 		if(c.time && !c.timeDone) {
 			if(!c.time->service(draw)) return pending();
-			c.characters.swap(c.time->characters);const auto ctr=c.context.ctr24;c.context=c.time->context;c.context.ctr24=ctr;c.timeDone=true;
+			c.inputs=c.time->inputs;c.characters.swap(c.time->characters);const auto ctr=c.context.ctr24;c.context=c.time->context;c.context.ctr24=ctr;c.timeDone=true;
 			bool living=false;for(const auto &owner:c.characters) living=living || xeenCombatTargetable(owner);
 			if(!living) c.remaining=0;
 		}
@@ -504,9 +503,14 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
                     // Movement precedes travel; each injury follows its acquired portrait.
                     auto visibleActors=op.actors;check();
                     regionalActors.swap(visibleActors);camera=c.camera;party.encounterContext=c.context;
+                    if(c.time && c.timeDone)party.serviceEconomy=c.time->economy;
+                    if(c.time && c.timeDone)for(unsigned n=0;n<6;++n)party.roster._combatInputs[kXeenCombatOwners[n]]=c.inputs[n];
                     const auto &values=op.impactApplied ? op.characters : c.characters;
-                    for(const auto &v:values) {auto &live=party.roster.at(v.rosterId);live.currentHp=v.currentHp;live.conditions=v.conditions;live.armor=v.armor;}
+                    for(const auto &v:values) {auto &live=party.roster.at(v.rosterId);live.currentHp=v.currentHp;live.conditions=v.conditions;live.armor=v.armor;
+                     if(c.time && c.timeDone && c.time->resetTemps)xeenResetCharacterTemps(live,*party.roster._combatInputs[v.rosterId]);}
                     session._journeyRandom=c.random.continuation();
+                    c.result.needsRest=c.time && c.timeDone && !c.timeNoticePublished && c.time->needsRest;
+                    c.timeNoticePublished=true;
                     state._revision=session._encounterRevision=++c.revision;
                     if(!op.travelPresented)op.travelPublished=true;
                 }
@@ -529,10 +533,13 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		// One nonthrowing publication spans both opportunities and the full tick.
 		regionalActors.swap(c.actors);session._journeyRandom=c.random.continuation();
 		camera=c.camera;party.encounterContext=c.context;
-		for(const auto &value:c.characters) { auto &owner=party.roster.at(value.rosterId);owner.currentHp=value.currentHp;owner.conditions=value.conditions;owner.armor=value.armor; }
+                    if(c.time && c.timeDone)party.serviceEconomy=c.time->economy;
+                    if(c.time && c.timeDone)for(unsigned n=0;n<6;++n)party.roster._combatInputs[kXeenCombatOwners[n]]=c.inputs[n];
+		for(const auto &value:c.characters) { auto &owner=party.roster.at(value.rosterId);owner.currentHp=value.currentHp;owner.conditions=value.conditions;owner.armor=value.armor;
+         if(c.time && c.timeDone && c.time->resetTemps)xeenResetCharacterTemps(owner,*party.roster._combatInputs[value.rosterId]); }
 		state._pending=c.pending;state._revision=session._encounterRevision=c.result.revision;
 		if(engaged || !living) { state._phase=engaged?XeenEncounterPhase::Engaged:XeenEncounterPhase::SupportStopped;state._reason=c.result.reason;session._encounterTerminal=true; }
-		auto result=c.result;work.reset();return result;
+		c.result.needsRest=c.time && c.timeDone && !c.timeNoticePublished && c.time->needsRest;auto result=c.result;work.reset();return result;
 	} catch(...) {
 		if(!authorized() || state._revision!=entry._revision) { refused.outcome=XeenEncounterOutcome::Stale;return refused; }
 		work.reset();return stop(world,state,XeenEncounterStop::Preparation);

@@ -39,6 +39,7 @@ private:
 	friend class XeenCombat;
 	friend class XeenActorApproach;
 	friend class XeenEncounterFlow;
+	friend class XeenEventFlow;
 	friend class XeenSaveState;
 	friend class XeenRestoreGuard;
 	friend class XeenWorld;
@@ -147,10 +148,9 @@ struct XeenPartyState {
 	XeenMutable<std::uint8_t> firstSerializedCount = 0;
 	XeenMutable<std::uint8_t> effectiveSerializedCount = 0;
 	XeenMutableDiagnostics diagnostics;
-	std::uint16_t originalFood() const noexcept { return _originalFood; }
+	XeenMutable<std::uint16_t> food = 0;
 private:
 	friend class XeenPartyLoader;
-	std::uint16_t _originalFood = 0;
 	friend class XeenSaveState;
 	friend class XeenRestoreGuard;
 	friend class XeenWorld;

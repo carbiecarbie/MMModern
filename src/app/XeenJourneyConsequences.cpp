@@ -14,9 +14,7 @@ XeenConsequenceCharacters activeCharacters(const XeenPartyState &p) {
 XeenConsequenceInputs activeInputs(const XeenPartyState &p) {
  XeenConsequenceInputs c;for(unsigned i=0;i<6;++i)c[i]=*p.roster.combatInputs(kXeenCombatOwners[i]);return c;
 }
-bool unsupportedTime(const XeenGameplayContext &c,unsigned charge) {
- const auto t=xeenPrepareTime(c,charge);return t.dusks || t.dawns || t.midnights || t.yearRollovers || t.dailyProcessing;
-}
+
 }
 bool XeenEncounterFlow::beginShoot() {
  if(_castingSettlement || !_journey || _combat || _busy || _shoot || _regionalWork ||
@@ -28,7 +26,6 @@ bool XeenEncounterFlow::beginShoot() {
   const bool indoor=!_world.map(_camera.mapId).geometry.isOutdoors();
   const unsigned charge=indoor?1:10;
   xeenValidateJourneyMelee(_party);
-  if(unsupportedTime(*_party.encounterContext,charge)) { _journeyRefusal="Shoot refused: charge crosses the supported time boundary";return true; }
   auto candidate=std::make_unique<XeenShootCandidate>();bool eligible=false;
   candidate->charge=charge;
   for(unsigned i=0;i<6;++i) {
@@ -169,14 +166,16 @@ bool XeenEncounterFlow::serviceShoot() {
    else if(_journeyRefusal.empty())_journeyRefusal="Shoot: empty center rows";
    work.volleyDone=true;return true;
   }
-  if(!work.time) work.time.emplace(*_party.encounterContext,work.charge,activeCharacters(_party),activeInputs(_party));
+  if(!work.time) work.time.emplace(*_party.encounterContext,work.charge,activeCharacters(_party),activeInputs(_party),&*_party.serviceEconomy);
   if(!work.time->service(draw)) return true;
   if(session._encounterRevision==std::numeric_limits<std::uint64_t>::max() || !journeyCapacity())throw std::overflow_error("Shoot charge generation exhausted");
   check();bool living=false;
   for(const auto &v:work.time->characters) {
-   auto &c=_party.roster.at(v.rosterId);c.currentHp=v.currentHp;c.conditions=v.conditions;
+   auto &c=_party.roster.at(v.rosterId);c=v;
    living=living || xeenCombatTargetable(c);
   }
+  if(work.time->needsRest)_needsRestNotice=true;
+  _party.serviceEconomy=work.time->economy;for(unsigned n=0;n<6;++n)_party.roster._combatInputs[kXeenCombatOwners[n]]=work.time->inputs[n];
   _party.encounterContext=work.time->context;session._journeyRandom=work.random.continuation();_state._pending=living?3:0;
   if(!living) { _state._phase=XeenEncounterPhase::SupportStopped;_state._reason=XeenEncounterStop::Defeat;session._encounterTerminal=true; }
   ++session._encounterRevision;_state._revision=session._encounterRevision;++session._journeyGeneration;++_generation;

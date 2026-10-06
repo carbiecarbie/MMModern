@@ -86,7 +86,7 @@ XeenCombatInputs XeenCharacterFormat::parseCombatInputs(const std::vector<std::u
 	XeenCombatInputs result{{p[20],p[21]}, {p[28],p[29]}, {p[30],p[31]}, p[34],
 		std::uint32_t(p[348]) | (std::uint32_t(p[349])<<8) | (std::uint32_t(p[350])<<16) | (std::uint32_t(p[351])<<24)};
 	if (includeLuck) result.luck = XeenAttributeValue{p[32],p[33]};
-	if (includeResistances) result.resistances = XeenCombatResistances{p[313],p[314],p[315],p[316]};
+	if (includeResistances) result.resistances = XeenCombatResistances{p[313],p[314],p[315],p[316],p[311],p[312],p[319],p[320],p[321],p[322]};
 	if (includePoison) result.poisonResistance = XeenAttributeValue{p[317],p[318]};
 	return result;
 }

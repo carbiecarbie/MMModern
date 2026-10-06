@@ -17,6 +17,7 @@ class XeenJourneyCapture {
 	const XeenEncounterState *state = nullptr;
 	const XeenCombatBoundary *boundary = nullptr;
 	const bool *busy = nullptr;
+	const bool *needsRestNotice = nullptr;
 	const std::shared_ptr<XeenRestoreGuard> *preimage = nullptr;
 	std::uint64_t generation = 0;
 	bool closed = false;
@@ -24,17 +25,17 @@ class XeenJourneyCapture {
 	XeenJourneyCapture() = default;
 	XeenJourneyCapture(const XeenWorld &w, const XeenPartyState &p, const XeenCamera &c,
 		const XeenEncounterState &state, const XeenCombatBoundary &boundary, const bool &busy,
-		const std::shared_ptr<XeenRestoreGuard> &preimage) { bind(w,p,c,state,boundary,busy,preimage); }
+		const std::shared_ptr<XeenRestoreGuard> &preimage,const bool *notice=nullptr) { bind(w,p,c,state,boundary,busy,preimage,notice); }
 	void bind(const XeenWorld &world, const XeenPartyState &party, const XeenCamera &camera,
 		const XeenEncounterState &coordination, const XeenCombatBoundary &external, const bool &work,
-		const std::shared_ptr<XeenRestoreGuard> &guard) noexcept {
-		w=&world; p=&party; c=&camera; state=&coordination; boundary=&external; busy=&work; preimage=&guard;
+		const std::shared_ptr<XeenRestoreGuard> &guard,const bool *notice=nullptr) noexcept {
+		w=&world; p=&party; c=&camera; state=&coordination; boundary=&external; busy=&work; preimage=&guard;needsRestNotice=notice;
 	}
 	bool current(const XeenPartyState &party, const XeenCamera &camera) const noexcept {
 		if (closed || &party != p || &camera != c || !preimage || !*preimage || !(*preimage)->ownersAlive()) return false;
 		// Unavailable coordination is not an integrity observation. In particular,
 		// combat publications and legitimate leases need not match the quiet preimage.
-		if (*busy || generation != boundary->generation() || !boundary->quiet() ||
+		if (*busy || (needsRestNotice && *needsRestNotice) || generation != boundary->generation() || !boundary->quiet() ||
 			w->sessionState().journeyActivity() != XeenJourneyActivity::Quiet ||
 			state->pending() != 0 || state->phase() != XeenEncounterPhase::Exploring ||
 			state->reason() != XeenEncounterStop::None || !XeenActorApproach::authoritative(*w,*p,*c,*state)) return false;

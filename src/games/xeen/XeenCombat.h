@@ -95,7 +95,7 @@ struct XeenCombatResult {
 	std::optional<std::uint8_t> actingOwner, targetOwner;
 	XeenMutableOptional<XeenMonsterIdentity> actingMonster, targetMonster;
 	std::optional<XeenEncounterAction> approachAction;
-	bool critical=false;
+	bool critical=false, needsRest=false;
 	unsigned runRoll=0;
 	bool runSuccess=false;
 	std::uint8_t participantsBefore=0x3f, participantsAfter=0x3f, casualties=0;

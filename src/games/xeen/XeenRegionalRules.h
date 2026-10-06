@@ -90,7 +90,7 @@ struct XeenRegionalActionCandidate {
 	std::optional<XeenRegionalOpportunityCandidate> opportunity;
 	std::array<XeenRegionalRangedShot,108> shots{};
 	unsigned shotCount=0, remaining=0, pending=0;
-	bool classify=false, timeDone=false;
+	bool classify=false, timeDone=false, timeNoticePublished=false;
 	std::uint64_t revision=0;
 };
 

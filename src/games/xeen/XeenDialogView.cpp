@@ -84,6 +84,7 @@ std::string_view xeenDialogText(XeenDialogText text) {
     case XeenDialogText::MiscCategory:return T::CATEGORY_NAMES[3];
     case XeenDialogText::Charges:return T::FMT_CHARGES;
     case XeenDialogText::ItemNotBroken:return T::ITEM_NOT_BROKEN;
+    case XeenDialogText::PartyNeedsRest:return T::THE_PARTY_NEEDS_REST;
     }
     throw std::invalid_argument("Unknown dialog text");
 }
@@ -247,7 +248,7 @@ IndexedFrame drawXeenSheet(const IndexedFrame &base,const XeenFontFormat &font,c
     const int maxHp=R::maxHp(c,ctx),maxSp=R::maxSp(c,ctx);
     int totalResistance=0;for(unsigned i=0;i<6;++i) totalResistance+=R::sheetResistance(c,in,i);
     const auto condition=static_cast<unsigned>(c.worstCondition());
-    const auto food=p.party.size()?p.originalFood()/p.party.size()/3:0;
+    const auto food=p.party.size()?std::uint16_t(p.food)/p.party.size()/3:0;
     const auto details=xeenDialogFormat(T::CHARACTER_DETAILS,{
         str(T::PARTY_GOLD),c.name,str(T::SEX_NAMES.at(static_cast<unsigned>(c.sex))),str(T::RACE_NAMES.at(static_cast<unsigned>(c.race))),str(T::CLASS_NAMES.at(static_cast<unsigned>(c.characterClass))),
         n(color(0)),n(stat(0)),n(color(5)),n(stat(5)),n(R::statColor(c.currentHp,maxHp)),n(int(c.currentHp)),n(R::currentExperience(c,in)),
@@ -306,8 +307,8 @@ XeenDialogPopup xeenSheetPopup(const XeenPartyState &p,std::size_t member,unsign
     } else if(cell==16 || cell==17) {
         const auto bank=p.serviceEconomy?(cell==16?std::uint32_t(p.serviceEconomy->bank.gold):std::uint32_t(p.serviceEconomy->bank.gems)):0u;
         popup.text=xeenDialogFormat(T::IN_PARTY_IN_BANK,{name,n(cell==16?gold(p):gems(p)),n(bank)});popup.bounds.bottom=popup.bounds.top+43;
-    } else if(cell==18) { const auto days=p.party.size()?p.originalFood()/p.party.size()/3:0;
-        popup.text=xeenDialogFormat(T::FOOD_TEXT,{name,n(p.originalFood()),str(T::FOOD_ON_HAND[0]),n(days),str(T::DAYS[days==1?0:1])}); }
+    } else if(cell==18) { const auto days=p.party.size()?std::uint16_t(p.food)/p.party.size()/3:0;
+        popup.text=xeenDialogFormat(T::FOOD_TEXT,{name,n(std::uint16_t(p.food)),str(T::FOOD_ON_HAND[0]),n(days),str(T::DAYS[days==1?0:1])}); }
     return popup;
 }
 IndexedFrame drawXeenPopup(const IndexedFrame &base,const XeenFontFormat &font,const XeenDialogPopup &popup) {

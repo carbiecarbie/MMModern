@@ -13,10 +13,7 @@ std::uint32_t nextXp(const XeenCharacter &c) {
 void xeenValidateTrainingSource(const std::vector<std::uint8_t> &bytes) {
     if(bytes.size()!=30*XeenCharacter::kSerializedSize)
         throw std::invalid_argument("Training requires thirty complete original characters");
-    for(unsigned owner=0;owner<30;++owner)
-        for(unsigned offset:{312u,320u,322u})
-            if(bytes[owner*XeenCharacter::kSerializedSize+offset])
-                throw std::invalid_argument("Unsupported omitted temporary resistance in Training source");
+    // Every resistance pair is now a saved live supplement.
 }
 XeenTrainingResult xeenQuoteTraining(const XeenCharacter &c,const XeenCombatInputs &i,std::uint32_t gold,
         const XeenGameplayContext &context) {
@@ -55,10 +52,7 @@ XeenTrainingCandidate xeenPrepareTraining(const XeenPartyState &party,std::uint8
         auto &c=candidate.characters[candidate.count];c=party.roster.at(id);
         auto &i=candidate.inputs[candidate.count++];i=*party.roster.combatInputs(id);
         if(r.outcome!=XeenTrainingOutcome::Quoted)continue;
-        c.temporaryLevel=0;c.intellect.temporary=0;c.personality.temporary=0;c.endurance.temporary=0;
-        i.might.temporary=0;i.speed.temporary=0;i.accuracy.temporary=0;i.temporaryAc=0;
-        i.luck->temporary=0;i.resistances->coldTemporary=0;i.resistances->electricalTemporary=0;
-        i.poisonResistance->temporary=0;
+        xeenResetCharacterTemps(c,i);
         if(id==owner) {
             const auto next=nextXp(c);
             const auto debit=r.levelBefore==1?next:next/2;

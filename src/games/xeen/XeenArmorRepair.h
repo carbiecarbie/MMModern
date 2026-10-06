@@ -51,14 +51,17 @@ inline XeenArmorRepairCandidate xeenPrepareArmorRepair(const XeenItem &item,std:
 }
 inline std::optional<XeenGameplayContext> xeenPrepareSmithDeparture(
 		const XeenGameplayContext &before) {
-	if (!xeenRegionalContext(before) || before.year!=610 || before.day<8 || before.day>((true) ? 98 : 9)) return {};
-	auto after=before;after.day=static_cast<std::uint16_t>(before.day+1);
+	if (!xeenRegionalContext(before)) return {};
+	auto after=xeenPrepareTime(before,1440).context;
+	// Script addTime consumes pending dawn without resets or weakness.
+	if(after.minutes>=300)after.newDay=false;
 	return after;
 }
 inline std::optional<XeenGameplayContext> xeenPrepareTemplePaidDeparture(
 		const XeenGameplayContext &before) {
-	if(!xeenRegionalContext(before) || before.year!=610 || before.day<8 || before.day>97)return {};
-	auto after=before;after.day=static_cast<std::uint16_t>(before.day+2);
+	if(!xeenRegionalContext(before))return {};
+	auto after=xeenPrepareTime(before,2880).context;
+	if(after.minutes>=300)after.newDay=false;
 	return after;
 }
 }

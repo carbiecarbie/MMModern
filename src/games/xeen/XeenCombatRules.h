@@ -143,16 +143,29 @@ private:
 	int baseHit, hitTotal, might, weapon = 0, accumulated = 0;
 	bool shoot;
 };
+enum class XeenTimeMode { Interactive, Sleeping, Script, Interactive7 };
+enum class XeenTimeCall { Change, Add };
+class XeenMerchantStockCandidate;
+void xeenResetCharacterTemps(XeenCharacter &,XeenCombatInputs &);
+void xeenResetPartyTemps(XeenGameplayContext &);
 struct XeenConditionTimeCandidate {
 	XeenGameplayContext context;
 	XeenConsequenceCharacters characters;
-	XeenConditionTimeCandidate(const XeenGameplayContext &, unsigned charge,
-		const XeenConsequenceCharacters &, const XeenConsequenceInputs &);
+	XeenConsequenceInputs inputs;
+	std::optional<XeenServiceEconomy> economy;
+	bool needsRest=false, resetTemps=false;
+	XeenConditionTimeCandidate(const XeenGameplayContext &, std::uint64_t charge,
+		const XeenConsequenceCharacters &, const XeenConsequenceInputs &,
+		const XeenServiceEconomy *economy=nullptr,XeenTimeMode mode=XeenTimeMode::Interactive,
+		XeenTimeCall call=XeenTimeCall::Change);
 	bool service(XeenConsequenceDraw &);
 private:
-	enum class Step { Stats, Poison, Electrical, Disease, Cold, Death, Done };
-	Step step = Step::Done;
-	XeenConsequenceInputs inputs;
+	enum class Step { Stats, Poison, Electrical, Disease, Cold, Remaining, Economy, Dawn, Confused, Physical, Paralyzed, Done };
+	Step step;
+	XeenGameplayContext ending;
+	XeenTimeMode mode;
+	XeenTimeCall call;
+	std::shared_ptr<XeenMerchantStockCandidate> stock;
 	unsigned owner = 0;
 };
 }

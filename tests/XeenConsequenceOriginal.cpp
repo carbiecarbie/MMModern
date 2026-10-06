@@ -183,7 +183,9 @@ void restoreConsequences(Source &source,const std::optional<std::filesystem::pat
   if(mode==5)for(auto id:kXeenCombatOwners)bad.characters[id].conditions[13]=2;
   if(mode==6)bad.journey->context->minutes=1260;
   if(mode==7){auto &a=bad.journey->actors[9];a.x=a.y=-128;a.hp=0;a.lifecycle=XeenActorLifecycle::Defeated;a.activated=false;a.accounted=true;bad.journey->treasure->pendingMask=512;bad.journey->treasure->pendingGold=10;}
-  bool failed=false;try{Domain d(source,bad);}catch(const std::exception &){failed=true;}check(failed,"Malformed/currently collectable consequence restore refused");
+  const bool canonical=mode==0 || mode==3 || mode==6;
+  bool failed=false;try{Domain d(source,bad);if(canonical)save_test::sameSnapshot(bad,d.save());}catch(const std::exception &){failed=true;}
+  check(failed!=canonical,"Canonical conditions/night restore; malformed/currently collectable state refused");
  }
  auto sleep=saved;for(auto id:kXeenCombatOwners)sleep.characters[id].conditions[8]=1;
  Domain sleeping(source,sleep);save_test::sameSnapshot(sleep,sleeping.save());

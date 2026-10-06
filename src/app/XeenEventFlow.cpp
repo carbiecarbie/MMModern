@@ -62,7 +62,7 @@ void XeenEventFlow::requireCurrentOwners() const {
 bool XeenEventFlow::canSave() const noexcept {
 	return _gameplayBorrow->current() && !_fatal && !_dispatching && !_saving && !_handoffPending && !_transition && !_arrivalPending &&
 		!inventoryOpen() && !_pending && !_equipmentSelection &&
-		(!_encounter || (_encounter->canSave() && encounterFrameCurrent()));
+		(!_encounter || (!_encounter->_needsRestNotice && _encounter->canSave() && encounterFrameCurrent()));
 }
 
 XeenEventFlow::SaveBoundary XeenEventFlow::beginSave() {
@@ -80,7 +80,7 @@ XeenEventFlow::SaveBoundary XeenEventFlow::beginSave() {
 InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origin) {
     const auto *combat = _encounter ? _encounter->combat() : nullptr;
     // Panels are strict throughout their lifetime, including preparation/result work.
-    const unsigned panel = _fatal ? 1 : _trainingUi ? 2 : _smithUi ? 3 : inventoryOpen() ? 4 :
+    const unsigned panel = _encounter && _encounter->_needsRestNotice ? 10 : _fatal ? 1 : _trainingUi ? 2 : _smithUi ? 3 : inventoryOpen() ? 4 :
         (_castingUi || (combat && combat->cast())) ? 5 :
         (_pending || _transition || (_encounter && _encounter->journeyEvent())) ? 6 :
         (_encounter && _encounter->monsterReward()) ? 7 :
@@ -121,6 +121,7 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
         }
         input.keys.push_back(InputKey::Escape);dialog=std::make_shared<const DialogInput>(std::move(input));
     }
+    if(_encounter && _encounter->_needsRestNotice) {DialogInput input;input.anyKey=true;input.anyClick=true;dialog=std::make_shared<const DialogInput>(std::move(input));}
     return {_queueContextId, queueable, ready, journey() && queueable ?
         (combat ? MainScreen::Combat : MainScreen::Exploration) : MainScreen::None,std::move(dialog)};
 }
@@ -444,6 +445,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 					} else rendered=_presenter.rebase(composed.frame);
 				}
                 drawPartyPresentation(rendered);
+                if(_encounter->_needsRestNotice)rendered=drawXeenErrorScroll(rendered,_inventoryFont,std::string(xeenDialogText(XeenDialogText::PartyNeedsRest)));
 				_inventoryUnderlay = rendered;
 				if (inventoryOpen()) rendered = drawCharacterDialog(rendered);
 				if (_smithUi) rendered=drawSmith(composed.frame);
@@ -494,6 +496,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
                 noticeFrame(composed.frame, _inventoryFont, notice, _encounter->combat(),journey());
 			if (report && !attempt && reportText) reportText(notice);
             drawPartyPresentation(rendered);
+                if(_encounter->_needsRestNotice)rendered=drawXeenErrorScroll(rendered,_inventoryFont,std::string(xeenDialogText(XeenDialogText::PartyNeedsRest)));
 			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter report");
 			// Complete the fallible return copy before installing the frame.
 			if (!attempt && beforeEncounterFrameCopy) beforeEncounterFrameCopy();
@@ -1239,8 +1242,12 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 		(_smithUi && !inputFrame)) return frameCopy();
 	if (journey() && !journeyInputCurrent(displayedInput)) return frameCopy();
 	if (std::holds_alternative<SaveGameAction>(action) || _dispatching || _fatal || _saving) return frameCopy();
-	if(_trainingUi) {
-		DispatchScope dispatch(_dispatching);
+	if(_encounter && _encounter->_needsRestNotice) {
+  _encounter->_needsRestNotice=false;
+  DispatchScope dispatch(_dispatching);return renderEncounter(); // Consume acknowledgment without leaking an action.
+ }
+ if(_trainingUi) {
+  DispatchScope dispatch(_dispatching);
 		return handleTraining(action,*displayedInput,inputFrame);
 	}
 	if (_smithUi) {

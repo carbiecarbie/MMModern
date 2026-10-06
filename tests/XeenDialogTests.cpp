@@ -110,8 +110,9 @@ void original(const char *path){
  XeenTextRenderOptions controls;controls.originalControls=true;controls.bounds={8,8,312,100};controls.x=8;controls.y=8;
  const auto controlFrame=[&](const std::string &text){return XeenTextRenderer(font).render(base,text,controls).pages.front().pixels;};
  check(controlFrame("\t  4\f dZ")==controlFrame("\t004\f00Z"),"fontAtoi space/default-color parameter consumption");
- check(p.originalFood()==(pty[620]|(pty[621]<<8)),"original food bytes");
- for(const auto text:{XeenDialogText::ExchangingInCombat,XeenDialogText::CursedItem,XeenDialogText::Hurry,XeenDialogText::UseInCombat,XeenDialogText::CannotCastEngaged})
+ check(p.food==(pty[618]|(pty[619]<<8)),"original food bytes");
+ check(p.food==90,"Supplied original initial food is 90");
+ for(const auto text:{XeenDialogText::ExchangingInCombat,XeenDialogText::CursedItem,XeenDialogText::Hurry,XeenDialogText::UseInCombat,XeenDialogText::CannotCastEngaged,XeenDialogText::PartyNeedsRest})
   check(drawXeenErrorScroll(base,font,std::string(xeenDialogText(text))).isValid(),"original error scroll layout");
  for(unsigned action=0;action<4;++action)check(drawXeenItemSelection(base,font,action,draw).isValid(),"original Which item layout");
  check(drawXeenItemTarget(base,font).isValid(),"original On Who layout");

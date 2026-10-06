@@ -288,6 +288,14 @@ struct CurrentDestination {
 XeenSaveSnapshot currentSnapshot(){static const auto value=regional_test::snapshot();return value;}
 void fullRestoration(){
  auto s=currentSnapshot();s.questItems[17]=3;s.questFlags[2]=true;s.gameFlags[7]=true;
+ s.food=27;s.journey->context->year=611;s.journey->context->day=0;
+ s.journey->context->minutes=299;s.journey->context->newDay=true;s.journey->context->rested=true;
+ s.journey->context->effects[0]=3;s.journey->context->lightAndResistances[1]=9;
+ for(auto &pair:s.journey->supplements) {
+  pair.inputs.resistances->fireTemporary=7;pair.inputs.resistances->energyTemporary=8;
+  pair.inputs.resistances->magicTemporary=9;
+ }
+ s.characters[29].conditions[2]=255;s.characters[29].conditions[7]=128;
  s.disabledObjects={{23,0}};s.disabledEvents={{23,0},{23,1}};
  s.characters[29].currentSp=-50;s.characters[29].miscellaneous[8]={231,12,255,7};
  const auto expected=s;
@@ -311,12 +319,12 @@ void explicitItems(){
  auto empty=currentSnapshot();for(auto &c:empty.characters){c.weapons={};c.armor={};c.accessories={};c.miscellaneous={};}
  CurrentDestination f;distinctiveInitialItems(f.party.roster);
  std::vector<std::uint8_t> displayRoster(30*354),displayParty(812);
- displayRoster[311]=17;displayRoster[37]=23;displayRoster[56]=1;displayParty[620]=36;
+ displayRoster[311]=17;displayRoster[37]=23;displayRoster[56]=1;displayParty[618]=36;
  unsigned initialReads=0;f.resources.loadInitialParty=[&]{++initialReads;return XeenPartyLoader().loadFromResources(displayRoster,displayParty);};
  f.restore(XeenSaveFormat::decode(XeenSaveFormat::encode(empty)),[&](auto &,const auto &p,const auto &,const auto &){
   for(unsigned i=0;i<30;++i)remove_test::checkSameCharacter(p.roster.at(i),empty.characters[i]);});
  f.bind();check(initialReads==1,"display data not reloaded exactly once");
- check(f.party.originalFood()==36 && f.party.roster.at(0).originalDetails() &&
+ check(f.party.food==empty.food && f.party.roster.at(0).originalDetails() &&
   f.party.roster.at(0).originalDetails()->resistances[0][0]==17 &&
   f.party.roster.at(0).originalDetails()->birthDay==23 && f.party.roster.at(0).originalDetails()->skills[17]==1,
   "restored display fields do not come from original resources");sameSnapshot(f.capture(),empty);

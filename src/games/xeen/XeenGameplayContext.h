@@ -23,8 +23,8 @@ struct XeenGameplayContext {
 };
 
 // Preparation only: the caller must admit and consume required work before
-// publishing this candidate. Counts retain every crossing, including multi-day
-// charges; ctr24 is separately charged by the action scheduler.
+// publishing this candidate. processing480 and dailyProcessing are per-call
+// predicates; crossing counts are diagnostics only. ctr24 is charged separately.
 struct XeenTimePreparation {
 	XeenGameplayContext context;
 	XeenMutable<std::uint64_t> processing480 = 0, midnights = 0, yearRollovers = 0;

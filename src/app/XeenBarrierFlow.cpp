@@ -20,13 +20,10 @@ bool XeenEventFlow::beginBarrier(bool bash) {
 	if(!work->rule->handled)return false;
 	if(bash) {
 		const unsigned charge=work->world->map(_camera.mapId).geometry.isOutdoors()?10:1;
-		const auto time=xeenPrepareTime(work->context,charge);
-		if(time.dawns || time.dusks || time.midnights || time.yearRollovers || time.dailyProcessing) {
-			_encounter->_journeyRefusal="Bash: not supported yet at this calendar boundary";return false;
-		}
+		static_cast<void>(xeenPrepareTime(work->context,charge));
 		// chargeStep precedes HP costs and the Might roll. Recreate the rule only
 		// after that bounded time continuation, before any gameplay publication.
-		work->rule.reset();work->time.emplace(work->context,charge,work->characters,work->inputs);
+		work->rule.reset();work->time.emplace(work->context,charge,work->characters,work->inputs,&*work->party.serviceEconomy);
 	}
 	_encounter->beginJourneyEvent(true);
 	_presenter.clear();_journeyEventLayers=false;
@@ -55,7 +52,8 @@ bool XeenEventFlow::serviceBarrier() {
 	XeenConsequenceDraw draw{work.random,64,check};
 	if(work.time) {
 		if(!work.time->service(draw))return true;
-		work.characters=work.time->characters;work.context=work.time->context;work.time.reset();
+		work.characters=work.time->characters;work.inputs=work.time->inputs;work.context=work.time->context;
+		work.economy=work.time->economy;work.dailyReset=work.dailyReset || work.time->resetTemps;work.needsRest=work.needsRest || work.time->needsRest;work.time.reset();
 		if(!work.rule) {
 			XeenRestoreGuard::Providers providers(*work.guard,*work.world,check);
 			work.rule.emplace(*work.world,work.camera,work.characters,work.inputs,work.random.continuation(),work.context,true);
@@ -85,14 +83,13 @@ bool XeenEventFlow::serviceBarrier() {
 	rule.random=work.random;
 	if(rule.moved && !work.secondCharge) {
 		work.secondCharge=true;
-		const auto time=xeenPrepareTime(work.context,1);
-		if(time.dawns || time.dusks || time.midnights || time.yearRollovers || time.dailyProcessing)
-			throw std::invalid_argument("Bash second charge crosses unsupported calendar boundary");
-		work.time.emplace(work.context,1,rule.characters,rule.inputs);
+		static_cast<void>(xeenPrepareTime(work.context,1));
+		work.time.emplace(work.context,1,rule.characters,rule.inputs,work.economy?&*work.economy:&*work.party.serviceEconomy);
 		if(!work.time->service(draw))return true;
-		work.characters=work.time->characters;work.context=work.time->context;work.time.reset();rule.random=work.random;
+		work.characters=work.time->characters;work.inputs=work.time->inputs;work.context=work.time->context;
+		work.economy=work.time->economy;work.dailyReset=work.dailyReset || work.time->resetTemps;work.needsRest=work.needsRest || work.time->needsRest;work.time.reset();rule.random=work.random;
 	}
-	if(work.secondCharge)rule.characters=work.characters;
+	if(work.secondCharge){rule.characters=work.characters;rule.inputs=work.inputs;}
 	{
 		XeenRestoreGuard::Providers providers(*work.guard,*work.world,check);
 		if(rule.opened)work.world->setBarrier(work.camera,rule.targetWall,!work.bash);
@@ -103,6 +100,8 @@ bool XeenEventFlow::serviceBarrier() {
 	next->retainResources(*work.guard);work.guard.swap(next);
 	for(const auto &c:rule.characters)work.party.roster.at(c.rosterId)=c;
 	work.party.encounterContext=work.context;
+	if(work.economy)work.party.serviceEconomy=work.economy;
+	for(unsigned n=0;n<6;++n)work.party.roster._combatInputs[kXeenCombatOwners[n]]=rule.inputs[n];
 	work.camera=rule.camera;
 	next=std::make_unique<XeenRestoreGuard>(*work.world,work.party,work.camera,work.flags);
 	next->retainResources(*work.guard);work.guard.swap(next);
@@ -124,8 +123,9 @@ bool XeenEventFlow::serviceBarrier() {
 	std::uint64_t now=0;
 	_encounter->guardCallback(entry,[&]{now=_clock();});check();
 	if(now>std::numeric_limits<std::uint64_t>::max()-100)throw std::overflow_error("Barrier animation clock exhausted");
-	_encounter->publishBarrier(entry,*work.world,*work.guard,rule,work.context,now);
+	_encounter->publishBarrier(entry,*work.world,*work.guard,rule,work.context,now,work.dailyReset);
 	const bool pause=work.bash && !rule.moved && rule.portraitMask;
+	if(work.needsRest)_encounter->_needsRestNotice=true;
 	work.published=true;work.deadline=now+(pause?100:0);
 	_presenter.clear();_journeyEventLayers=false;
 	if(rule.moved)_world.scenePresentation().navigation(NavigationAction::MoveForward,true);
@@ -166,10 +166,32 @@ IndexedFrame XeenEventFlow::handleBarrier(const PlayerAction &action) {
 }
 
 void XeenEncounterFlow::publishBarrier(const Ticket &entry,XeenWorld &candidate,const XeenRestoreGuard &prepared,
-		const XeenBarrierCandidate &rule,const XeenGameplayContext &context,std::uint64_t now) {
+		const XeenBarrierCandidate &rule,const XeenGameplayContext &context,std::uint64_t now,bool dailyReset) {
 	if(!current(entry) || !journeyEvent() || _busy || !rule.done || !rule.handled || &candidate!=&prepared.w ||
 		!candidate.detachedEventCandidate() || now<_lastTime)throw std::logic_error("Barrier publication authority is absent or stale");
 	_journeyPreimage->check();prepared.check();
+	// Retain a narrow time/economy capability. Canonical rollover replaces the
+	// old boundary bans; it does not grant arbitrary party/economy mutation.
+	auto expectedContext=*_party.encounterContext;bool expectedReset=false, regeneration=false;
+	const auto chargeTime=[&](unsigned charge) {
+		const auto before=expectedContext;const auto time=xeenPrepareTime(before,charge);
+		expectedContext=time.context;
+		regeneration=regeneration || xeenServiceDayRegenerates(before.day,expectedContext.day,charge);
+		if(time.dailyProcessing) {
+			expectedReset=true;xeenResetPartyTemps(expectedContext);expectedContext.rested=false;expectedContext.newDay=false;
+		}
+	};
+	if(rule.bash)chargeTime(_camera.mapId==XeenMapIdentity(28)?1:10);
+	if(rule.moved)chargeTime(1);
+	if(!(context==expectedContext) || dailyReset!=expectedReset || prepared.food!=_party.food || !prepared.economy)
+		throw std::logic_error("Barrier time/food capability mismatch");
+	if(!regeneration) {
+		if(prepared.economy!=_party.serviceEconomy)throw std::logic_error("Barrier changed economy without restocking time");
+	} else {
+		xeenValidateServiceEconomy(*prepared.economy);
+		if(prepared.economy->bank!=xeenPrepareBankInterest(_party.serviceEconomy->bank))
+			throw std::logic_error("Barrier restocking interest mismatch");
+	}
 	// Only these two barrier paths own injuries, unlock XP, charged time and
 	// sparse walls. Ordinary Event publication retains its stricter capability.
 	for(unsigned n=0;n<6;++n) {
@@ -177,6 +199,9 @@ void XeenEncounterFlow::publishBarrier(const Ticket &entry,XeenWorld &candidate,
 		auto expected=_party.roster.at(owner);expected.currentHp=rule.characters[n].currentHp;
 		expected.conditions=rule.characters[n].conditions;expected.armor=rule.characters[n].armor;
 		auto input=*_party.roster.combatInputs(owner);input.experience=rule.inputs[n].experience;
+  if(dailyReset) {
+   xeenResetCharacterTemps(expected,input);
+  }
 		if(!xeen_state::sameCharacter(expected,rule.characters[n]) || !xeen_state::sameInputs(input,rule.inputs[n]))
 			throw std::logic_error("Barrier candidate changed an unowned character field");
 	}
@@ -229,7 +254,7 @@ void XeenEncounterFlow::publishBarrier(const Ticket &entry,XeenWorld &candidate,
 	retained->s._barriers=barriers;
 	if(indoor)retained->s._vertigoActors=actors;else retained->s._actors=actors;
 	retained->s._journeyRandom=rule.random.continuation();
-	retained->context=context;retained->cameraValue=rule.camera;
+	retained->context=context;retained->cameraValue=rule.camera;retained->economy=prepared.economy;
 	for(unsigned n=0;n<6;++n) {
 		retained->characters[kXeenCombatOwners[n]]=rule.characters[n];
 		retained->inputs[kXeenCombatOwners[n]]=rule.inputs[n];
@@ -242,14 +267,14 @@ void XeenEncounterFlow::publishBarrier(const Ticket &entry,XeenWorld &candidate,
 	_lastTime=now;
 	for(unsigned n=0;n<6;++n) {
 		auto &live=_party.roster.at(kXeenCombatOwners[n]);const auto &value=rule.characters[n];
-		live.currentHp=value.currentHp;live.conditions=value.conditions;live.armor=value.armor;
-		_party.roster._combatInputs[kXeenCombatOwners[n]]->experience=rule.inputs[n].experience;
+		live=value;
+		_party.roster._combatInputs[kXeenCombatOwners[n]]=rule.inputs[n];
 		if((rule.portraitMask&(1u<<n)) && !rule.damagePauseAcknowledged) {
 			_world.scenePresentation().portraitDamage(live.rosterId,rule.portraitFrame,_lastTime);
 			if(rule.bash)_world.scenePresentation().portraits[live.rosterId].damageDeadline=_lastTime+100;
 		}
 	}
-	_camera=rule.camera;_party.encounterContext=context;
+	_camera=rule.camera;_party.encounterContext=context;_party.serviceEconomy=prepared.economy;
 	if(opportunity) {_regionalWork.swap(opportunity);_castingSettlement=true;schedule(_lastTime);}
 	_journeyPreimage.swap(retained);_journeyPreimage->adoptMutationBoundary();
 	if(!rule.bash) {_result.view=arrival;publishArrival(arrival);}

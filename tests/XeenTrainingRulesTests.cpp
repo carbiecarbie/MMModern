@@ -1,4 +1,5 @@
 #include "games/xeen/XeenTraining.h"
+#include "formats/xeen/XeenCharacterFormat.h"
 #include "games/xeen/XeenServiceDay.h"
 #include "games/xeen/XeenArmorRepair.h"
 #include "XeenSaveTestSupport.h"
@@ -51,11 +52,12 @@ int main() {
         c.characterClass=XeenCharacterClass::Knight;
         for(unsigned owner=0;owner<30;++owner)for(unsigned offset:{312u,320u,322u}) {
             std::vector<std::uint8_t> bytes(10620);bytes[owner*354+offset]=1;
-            rejects([&]{xeenValidateTrainingSource(bytes);});
+            xeenValidateTrainingSource(bytes);const auto parsed=XeenCharacterFormat::parseCombatInputs(bytes,owner,true,true,true);
+            check(parsed.resistances && (offset==312?parsed.resistances->fireTemporary:offset==320?parsed.resistances->energyTemporary:parsed.resistances->magicTemporary)==1,"Formerly omitted resistance is live");
         }
         xeenValidateTrainingSource(std::vector<std::uint8_t>(10620));
         for(unsigned day:{9u,10u,97u,98u,99u}) {
-            context.day=day;check(bool(xeenPrepareSmithDeparture(context))==(day<=98),"service date admission changed");
+            context.day=day;check(bool(xeenPrepareSmithDeparture(context)),"service date admission changed");
         }
         context.day=97;XeenServiceEconomy economy;XeenJourneyRandomState rng{1,7,0};
         XeenCombatRandom generation(rng);XeenMerchantStockCandidate stock;
@@ -65,7 +67,7 @@ int main() {
         check(departure.complete() && departure.context().day==98,"day97 departure missing");
         XeenServiceDayCandidate replacement(departure.context(),departure.economy(),departure.continuation());
         check(replacement.complete() && replacement.context().day==99,"day98 replacement missing");
-        rejects([&]{XeenServiceDayCandidate invalid(replacement.context(),replacement.economy(),replacement.continuation());});
+        XeenServiceDayCandidate rollover(replacement.context(),replacement.economy(),replacement.continuation());check(rollover.context().day==0 && rollover.context().year==611,"Training rollover reservation");
         std::cout<<"Training arithmetic, refusal, source zero-domain, route and date rules passed\n";return 0;
     } catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}
 }

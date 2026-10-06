@@ -10,7 +10,6 @@ XeenTimePreparation xeenPrepareTime(const XeenGameplayContext &current, std::uin
 		throw std::invalid_argument("Noncanonical gameplay calendar");
 	XeenTimePreparation result;
 	result.context = current;
-	if (!charge) return result; // No changeTime call, processing or RNG.
 	constexpr std::uint64_t daysPerYear = 100, minutesPerDay = 1440;
 	const std::uint64_t start = (std::uint64_t(current.year)*daysPerYear+current.day)*minutesPerDay+current.minutes;
 	const std::uint64_t limit = (std::uint64_t(std::numeric_limits<std::uint16_t>::max())+1)*daysPerYear*minutesPerDay;
@@ -20,26 +19,22 @@ XeenTimePreparation xeenPrepareTime(const XeenGameplayContext &current, std::uin
 		const auto through = [&](std::uint64_t t) { return t < offset ? std::uint64_t(0) : (t-offset)/period+1; };
 		return through(end)-through(start);
 	};
-	result.processing480 = end/480-start/480;
+	result.processing480 = charge/480 + (current.minutes%480+charge%480)/480 != 0;
 	result.midnights = end/minutesPerDay-start/minutesPerDay;
 	result.yearRollovers = end/(minutesPerDay*daysPerYear)-start/(minutesPerDay*daysPerYear);
 	result.dawns = crossings(minutesPerDay,300);
 	result.dusks = crossings(minutesPerDay,1260);
-	// Each dawn after midnight requires daily work; an already pending newDay
-	// at/after dawn is also work, independent of a newly crossed boundary.
-	result.dailyProcessing = result.dawns;
-	if (!current.newDay && current.minutes<300 && result.dailyProcessing) --result.dailyProcessing;
-	if (current.newDay && current.minutes >= 300) ++result.dailyProcessing;
 	result.context.minutes = static_cast<std::uint16_t>(end%minutesPerDay);
 	result.context.day = static_cast<std::uint16_t>((end/minutesPerDay)%daysPerYear);
 	result.context.year = static_cast<std::uint16_t>(end/(minutesPerDay*daysPerYear));
-	if (result.midnights) result.context.newDay = true;
+	// Party::addTime compares ending day numbers, even after whole years.
+	if (result.context.day != current.day) result.context.newDay = true;
+	result.dailyProcessing = result.context.newDay && result.context.minutes >= 300;
 	return result;
 }
 
 bool xeenRegionalContext(const XeenGameplayContext &c) noexcept {
 	return c.profile == XeenBehaviorProfile::WorldOfXeenClouds && c.difficulty == XeenDifficulty::Adventurer &&
-		c.day < 100 && c.ctr24 < 24 && c.minutes >= 300 && c.minutes < 1260 && !c.newDay && !c.rested &&
-		c.effects == std::array<std::uint8_t,9>{} && c.lightAndResistances == std::array<std::uint16_t,6>{};
+		c.day < 100 && c.ctr24 < 24 && c.minutes < 1440 && c.effects[1]<=1 && c.effects[2]<=1 && c.effects[3]<=1 && c.effects[4]<=1;
 }
 }

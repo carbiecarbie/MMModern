@@ -413,9 +413,10 @@ void approachTimeLimit(){
     Fixture f(chr(),{},1240);f.action(XeenEncounterAction::Right);f.action(XeenEncounterAction::Forward);
     check(f.p.encounterContext->minutes==1250&&f.flow->state().pending()==3,"current approach dusk prestate");
     const auto actors=f.w.sessionState().actors();const auto camera=f.camera;const auto context=f.p.encounterContext;
-    check(f.action(XeenEncounterAction::Backward).outcome==XeenEncounterOutcome::Stopped&&!f.flow->journeyQuiet(),"dusk charge refuses before dependent work");
-    check(f.p.encounterContext==context&&xeen_state::sameCamera(camera,f.camera),"approach time stop preserves camera and clock");
-    sameActors(actors,f.w.sessionState().actors());
+    const auto result=f.action(XeenEncounterAction::Backward);
+    check(result.outcome!=XeenEncounterOutcome::Stopped && result.outcome!=XeenEncounterOutcome::Refused,
+        "Dusk travel remains playable");
+    check(f.p.encounterContext->minutes==1260,"Dusk travel charges ordinary time");
 }
 void frameFailure() {
 	Fixture f;

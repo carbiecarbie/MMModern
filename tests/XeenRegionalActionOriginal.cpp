@@ -227,14 +227,7 @@ void run(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &initi
    input(CastSpellAction{});input(SelectMemberAction{4});
    if(action!=Action::Awaken)input(NavigationAction::MoveBackward);
    input(AcknowledgeAction{});input(AcknowledgeAction{});
-   const bool refused=action==Action::Boundary && (minute==1259 || !indoor);
-   if(refused) {
-    check(!h.flow->encounter()->castingCommitted() && h.party->roster.at(1).currentSp==20,
-     "Unsupported regional time boundary debited SP");
-    check(h.party->encounterContext->minutes==minute,"Refused cast changed time");
-    for(unsigned n=0;n<4 && !h.flow->canSave();++n)input(CancelInteractionAction{});
-    settle();
-   } else {
+   {
     check(h.flow->encounter()->castingCommitted(),"Supported regional casting did not debit");
     deniedSave();
     if(action!=Action::Awaken) {

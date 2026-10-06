@@ -41,15 +41,29 @@
 // Services new: 8fc12cb33c7f85a973f6231f1a4c9ab90153ff84f0d63040941f54f3ffa16ae4
 // Temple old: b621a290e10b91028419b58e05297d56b916ce42ed0b62dec60ff98ddd59f75e
 // Temple new: d7dd4f5ebf5b4bd6632b1fd50b88a5d2c3430f559fc5202e9ff733734a690b4d
+//
+// M51 Part A: maintainer approved the audit and replacements on 2026-10-06.
+// Reason: save v6 format-only changes; food and fire/energy/magic resistances
+// added, with zero gameplay divergence in these scenarios. Each save gains
+// 182 bytes (2 food + 180 resistance bytes); version, payload length and CRC
+// change. Every retained field and all three complete traces are identical.
+// Independent format-only projections match; native reload/re-save is exact.
+// Local evidence (not committed): build-m44/m51-evidence/approval-report.txt.
+// Mainland old: aa76a877a74183799490f17b184b281cfa027f3459353b384ea97cd245eee095
+// Mainland new: aae06cee1c21accbdf1869d894b469878ea435f0616ee995738ef800ed97e6a9
+// Services old: 8fc12cb33c7f85a973f6231f1a4c9ab90153ff84f0d63040941f54f3ffa16ae4
+// Services new: 9a5ca4d79747fe15e70e0c805ebf1c04d06be2141fb531c5fa4b557f916687e1
+// Temple old: d7dd4f5ebf5b4bd6632b1fd50b88a5d2c3430f559fc5202e9ff733734a690b4d
+// Temple new: 1e231689a02bef951e0e39d370de39ceff674d24ca5c33fbb5f3ea85d05945bd
 #include <array>
 #include <cstdint>
 namespace m44_baseline {
-inline constexpr const char *revision = "26390b3516e646d68d548f04692f86f0bb60d771 + M50 Part A steps 4-5";
+inline constexpr const char *revision = "0f0947337f68d9bd4ae2dfbf0e308a79da73f4f7 + M51 Part A";
 struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 inline constexpr std::array<Scenario,3> scenarios{{
-    {"mainland-combat-myra-phirna",3626689381u,"aa76a877a74183799490f17b184b281cfa027f3459353b384ea97cd245eee095"},
-    {"vertigo-buy-repair-training",7u,"8fc12cb33c7f85a973f6231f1a4c9ab90153ff84f0d63040941f54f3ffa16ae4"},
-    {"temple-recovery",3626689381u,"d7dd4f5ebf5b4bd6632b1fd50b88a5d2c3430f559fc5202e9ff733734a690b4d"}
+    {"mainland-combat-myra-phirna",3626689381u,"aae06cee1c21accbdf1869d894b469878ea435f0616ee995738ef800ed97e6a9"},
+    {"vertigo-buy-repair-training",7u,"9a5ca4d79747fe15e70e0c805ebf1c04d06be2141fb531c5fa4b557f916687e1"},
+    {"temple-recovery",3626689381u,"1e231689a02bef951e0e39d370de39ceff674d24ca5c33fbb5f3ea85d05945bd"}
 }};
 }
 #endif

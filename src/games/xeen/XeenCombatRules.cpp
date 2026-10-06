@@ -2,6 +2,7 @@
 // Pin 6814ee9ba54582f5b5adcffab49efbbd8f589edd, combat.cpp, character.cpp and constants.cpp.
 #include "games/xeen/XeenCombatRules.h"
 #include "games/xeen/XeenCharacterRules.h"
+#include "games/xeen/XeenServiceDay.h"
 #include <limits>
 #include <stdexcept>
 namespace mmodern {
@@ -249,7 +250,7 @@ bool XeenEnemyAttackCandidate::service(XeenConsequenceDraw &draw) {
 			const auto n=draw.draw(1,unsigned(v+20)); if (!n) break;
 			if (std::int64_t(*n)>v) {
 				const unsigned condition=monster.raw[30]==5 ? 3 : monster.raw[30]==7 ? 4 : 8;
-				ruleRequire(c.conditions[condition]<255,"Physical special condition overflow"); ++c.conditions[condition];
+				if(c.conditions[condition]!=255)++c.conditions[condition]; // Original increment-to-zero/-1 saturates a byte.
 			}
 			step=Step::Injury; break;
 		}
@@ -332,51 +333,118 @@ bool XeenPhysicalPlayerCandidate::service(XeenConsequenceDraw &draw) {
 	}
 	return step==Step::Done;
 }
-XeenConditionTimeCandidate::XeenConditionTimeCandidate(const XeenGameplayContext &before,unsigned charge,
-		const XeenConsequenceCharacters &c,const XeenConsequenceInputs &i) : characters(c),inputs(i) {
-	ruleRequire(xeenRegionalContext(before) && (charge==1 || charge==10),"Unsupported consequence time charge");
-	const auto prepared=xeenPrepareTime(before,charge);
-	ruleRequire(!prepared.midnights && !prepared.yearRollovers && !prepared.dawns && !prepared.dusks && !prepared.dailyProcessing && prepared.processing480<=1,"Unsupported consequence time boundary");
-	context=prepared.context;
-	if (prepared.processing480) step=Step::Stats;
-	for (const auto &input:inputs) ruleRequire(input.resistances.has_value(),"Missing condition-tick resistances");
+// Party::resetTemps, shared with Training's character-only reset.
+void xeenResetCharacterTemps(XeenCharacter &c,XeenCombatInputs &i) {
+ c.temporaryLevel=0;c.intellect.temporary=c.personality.temporary=c.endurance.temporary=0;
+ i.might.temporary=i.speed.temporary=i.accuracy.temporary=i.temporaryAc=0;
+ if(i.luck)i.luck->temporary=0;
+ if(i.poisonResistance)i.poisonResistance->temporary=0;
+ if(i.resistances) {
+  auto &r=*i.resistances;r.fireTemporary=r.coldTemporary=r.electricalTemporary=0;
+  r.energyTemporary=r.magicTemporary=0;
+ }
+}
+void xeenResetPartyTemps(XeenGameplayContext &c) {
+ // automapOn and torchCount survive; temporary age and conditions also survive.
+ c.effects[0]=0;for(unsigned n=2;n<9;++n)c.effects[n]=0;
+ c.lightAndResistances[0]=0;for(unsigned n=2;n<6;++n)c.lightAndResistances[n]=0;
+}
+XeenConditionTimeCandidate::XeenConditionTimeCandidate(const XeenGameplayContext &before,std::uint64_t charge,
+ const XeenConsequenceCharacters &c,const XeenConsequenceInputs &i,const XeenServiceEconomy *e,
+ XeenTimeMode m,XeenTimeCall operation):context(before),characters(c),inputs(i),mode(m),call(operation) {
+ ruleRequire(xeenRegionalContext(before),"Noncanonical consequence time context");
+ ruleRequire(static_cast<unsigned>(mode)<=3 && static_cast<unsigned>(call)<=1,"Invalid time call mode");
+ const auto prepared=xeenPrepareTime(before,charge);ending=prepared.context;
+ if(e){xeenValidateCurrentServiceEconomy(*e);economy=*e;}
+ if(xeenServiceDayRegenerates(before.day,ending.day,charge)) {
+  ruleRequire(e,"Missing daily economy");stock=std::make_shared<XeenMerchantStockCandidate>();
+ }
+ step=call==XeenTimeCall::Change && prepared.processing480 ? Step::Stats : Step::Economy;
+ for(const auto &input:inputs)ruleRequire(input.resistances.has_value(),"Missing condition-tick resistances");
 }
 bool XeenConditionTimeCandidate::service(XeenConsequenceDraw &draw) {
-	while (step!=Step::Done && draw.remaining) {
-		auto &c=characters[owner]; const auto &i=inputs[owner];
-		switch (step) {
-		case Step::Stats:
-			if (!c.conditions[13]) {
-				const auto kill=[&](int value) { if (value<1) c.conditions[13]=1; };
-				kill(Rules::effectivePhysical(c,i,Rules::PhysicalAttribute::Might,{context.year}));
-				kill(Rules::effectiveIntellect(c,{context.year}));kill(Rules::effectivePersonality(c,{context.year}));
-				kill(Rules::effectiveEndurance(c,{context.year}));
-				kill(Rules::effectivePhysical(c,i,Rules::PhysicalAttribute::Speed,{context.year}));
-				kill(Rules::effectivePhysical(c,i,Rules::PhysicalAttribute::Accuracy,{context.year}));kill(Rules::effectiveLuck(c,i));
-			}
-			step=Step::Poison;break;
-		case Step::Poison: {
-			if (c.conditions[3]) { step=Step::Disease;break; }
-			const auto n=draw.draw(1,10);if (n) step=*n==1 ? Step::Electrical : Step::Disease;break;
-		}
-		case Step::Electrical: {
-			const auto &r=*i.resistances; const auto n=draw.draw(1,unsigned(r.electricalPermanent)+r.electricalTemporary+40);
-			if (n) step=Step::Disease;break; // Both outcomes leave zero Poison unchanged.
-		}
-		case Step::Disease: {
-			if (c.conditions[4]) { step=Step::Death;break; }
-			const auto n=draw.draw(0,9);if (n) step=*n==1 ? Step::Cold : Step::Death;break;
-		}
-		case Step::Cold: {
-			const auto &r=*i.resistances; const auto n=draw.draw(1,unsigned(r.coldPermanent)+r.coldTemporary+40);
-			if (n) step=Step::Death;break;
-		}
-		case Step::Death:
-			if (c.conditions[13]) { ruleRequire(c.conditions[13]<255,"Time Dead byte overflow"); ++c.conditions[13]; }
-			step=++owner==6 ? Step::Done : Step::Stats;break;
-		case Step::Done: break;
-		}
-	}
-	return step==Step::Done;
+ if(draw.check)draw.check();
+ while(step!=Step::Done && draw.remaining) {
+  auto &c=characters[owner];auto &i=inputs[owner];
+  switch(step) {
+  case Step::Stats:
+   if(!c.conditions[13] && !c.conditions[14] && !c.conditions[15]) {
+    for(unsigned stat=0;stat<7;++stat)
+     if(Rules::sheetStat(c,&i,stat,{context.year})<1)c.conditions[13]=1;
+   }
+   if(c.conditions[1]) {c.conditions[1]=std::uint8_t(unsigned(c.conditions[1])+1);
+    if(c.conditions[1]>10){c.conditions[1]=0;c.conditions[9]=1;}}
+   step=Step::Poison;break;
+  case Step::Poison: {
+   if(c.conditions[3]){step=Step::Disease;break;}
+   const auto n=draw.draw(1,10);if(n)step=*n==1?Step::Electrical:Step::Disease;break;
+  }
+  case Step::Electrical: {
+   const int v=Rules::damageSaveValue(c,i,XeenDamageType::Electrical,{context.year});
+   const auto n=draw.draw(1,unsigned(v)+40);if(n)step=Step::Disease;break;
+  }
+  case Step::Disease: {
+   if(c.conditions[4]){step=Step::Remaining;break;}
+   const auto n=draw.draw(0,9);if(n)step=*n==1?Step::Cold:Step::Remaining;break;
+  }
+  case Step::Cold: {
+   const int v=Rules::damageSaveValue(c,i,XeenDamageType::Cold,{context.year});
+   const auto n=draw.draw(1,unsigned(v)+40);if(n)step=Step::Remaining;break;
+  }
+  case Step::Remaining:
+   if(c.conditions[5])c.conditions[5]=std::uint8_t(unsigned(c.conditions[5])+1);
+   for(unsigned n=13;n<16;++n)if(c.conditions[n] && c.conditions[n]!=255)++c.conditions[n];
+   if(c.conditions[6]) {c.conditions[6]=std::uint8_t(unsigned(c.conditions[6])+1);
+    if(c.conditions[6]>10){c.conditions[6]=0;c.conditions[1]=1;}}
+   // Provisional ScummVM -1 guard mapped to byte FF, maintainer-authorized
+   // 2026-10-06, NOT confirmed in DOS. 80..FE are positive. Save/load does not
+   // change interpretation. Approved original replacement replaces the pin's
+   // addition workaround; Drunk clearing shares its explicit guard.
+   if(c.conditions[2]!=255){c.conditions[2]=c.conditions[7];c.conditions[7]=0;}
+   if(c.conditions[9])c.conditions[9]=(unsigned(c.conditions[9])+1)%4;
+   if(++owner==6){owner=0;step=Step::Economy;}else step=Step::Stats;break;
+  case Step::Economy:
+   if(stock) {
+    // Copies are independent detached continuations, including partial stock.
+    if(!stock.unique())stock=std::make_shared<XeenMerchantStockCandidate>(*stock);
+    if(!stock->service(draw))return false;
+    xeenValidateMerchantWares(stock->wares());economy->wares=stock->wares();
+    economy->bank=xeenPrepareBankInterest(economy->bank);stock.reset();
+   }
+   context=ending;step=Step::Dawn;break;
+  case Step::Dawn:
+   if(context.newDay && context.minutes>=300) {
+    if(mode!=XeenTimeMode::Script && mode!=XeenTimeMode::Interactive7) {
+     resetTemps=true;xeenResetPartyTemps(context);
+     for(unsigned n=0;n<6;++n)xeenResetCharacterTemps(characters[n],inputs[n]);
+     if(context.rested || mode==XeenTimeMode::Sleeping)context.rested=false;
+     else {
+      needsRest=true;
+      // Same provisional FF/-1 mapping as the eight-hour guard. No signed-byte
+      // reinterpretation: FE increments to FF, FF stays FF, including on reload.
+      for(auto &v:characters)if(v.conditions[2]!=255)v.conditions[2]=std::uint8_t(unsigned(v.conditions[2])+1);
+     }
+    }
+    context.newDay=false;
+   }
+   step=call==XeenTimeCall::Change?Step::Confused:Step::Done;break;
+  case Step::Confused: {
+   if(!c.conditions[10]){step=Step::Paralyzed;break;}
+   const auto n=draw.draw(0,2);if(n)step=*n==1?Step::Physical:Step::Paralyzed;break;
+  }
+  case Step::Physical: {
+   const int v=Rules::damageSaveValue(c,i,XeenDamageType::Physical,{context.year});
+   ruleRequire(v>-20 && v<=std::numeric_limits<int>::max()-20,"Invalid Confused physical save interval");
+   const auto n=draw.draw(1,unsigned(v+20));
+   if(n){if(int(*n)<=v)c.conditions[10]=0;else --c.conditions[10];step=Step::Paralyzed;}break;
+  }
+  case Step::Paralyzed: {
+   if(c.conditions[11]) {const auto n=draw.draw(0,4);if(!n)break;if(*n==1)--c.conditions[11];}
+   if(++owner==6){owner=0;step=Step::Done;}else step=Step::Confused;break;
+  }
+  case Step::Done:break;
+  }
+ }
+ return step==Step::Done;
 }
 }

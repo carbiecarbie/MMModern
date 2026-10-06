@@ -238,6 +238,7 @@ bool XeenEncounterFlow::acceptCombatResult(const XeenCombatResult &result) {
 	if (result.status != adopted.status || result.phase != adopted.phase || result.work != adopted.work ||
 		result.revision != adopted.revision || result.generation != adopted.generation)
 		throw std::logic_error("Combat operation result was not adopted");
+	if(result.needsRest)_needsRestNotice=true;
 	if(result.ranged) observeRanged(result.ranged);
 	return true;
 }

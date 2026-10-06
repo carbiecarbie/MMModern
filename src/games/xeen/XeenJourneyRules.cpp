@@ -26,12 +26,9 @@ void xeenValidateJourneyParty(const XeenPartyState &party) {
 	if (party.serviceEconomy) xeenValidateCurrentServiceEconomy(*party.serviceEconomy);
 	if (party.monsterTreasure) xeenValidateMonsterTreasure(*party.monsterTreasure);
 	const auto &context = *party.encounterContext;
-	require(context.year == 610 && context.day >= 8 && context.day <= 99,
-			"Unsupported Ironworks calendar");
+	require(xeenRegionalContext(context),"Noncanonical Journey calendar");
 	require(context.profile == XeenBehaviorProfile::WorldOfXeenClouds && context.difficulty == XeenDifficulty::Adventurer &&
-		(xeenRegionalContext(context)) &&
-		!context.rested && !context.newDay && context.effects == std::array<std::uint8_t,9>{} &&
-		context.lightAndResistances == std::array<std::uint16_t,6>{}, "Unsupported Journey context");
+		xeenRegionalContext(context), "Unsupported Journey context");
 	require(party.party.activeRosterIds() == std::vector<std::uint8_t>(kXeenCombatOwners.begin(), kXeenCombatOwners.end()) &&
 		party.firstSerializedCount == 6 && party.effectiveSerializedCount == 6, "Unsupported Journey membership");
 	for (unsigned id = 0; id < 30; ++id) {
@@ -55,8 +52,7 @@ void xeenValidateJourneyParty(const XeenPartyState &party) {
 			byte(c.temporaryLevel) && byte(c.temporaryAge), "Journey active character outside byte range");
 		require(static_cast<unsigned>(c.sex) <= 2 && static_cast<unsigned>(c.race) <= 4 &&
 			static_cast<unsigned>(c.characterClass) <= 9 && c.permanentLevel > 0, "Unsupported Journey active rules");
-		for (unsigned i = 0; i < c.conditions.size(); ++i)
-			require(c.conditions[i] <= ((i == 4) || ((i == 3 || i == 13)) ? 255 : (i == 12 || i == 13 || (i == 8)) ? 1 : 0), "Unsupported Journey condition");
+		// All sixteen conditions have canonical unsigned-byte storage.
 		require((!c.conditions[12] || c.currentHp <= 0) && (c.conditions[12] || c.conditions[13] || c.currentHp > 0),
 			"Journey HP and condition signs disagree");
 		XeenCharacterRules::validateForUse(c, {context.year});

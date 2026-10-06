@@ -66,20 +66,27 @@ void disease(){
  check(r.oldRevision==firstRevision && r.revision==firstRevision+1,"Each attack binds its own publication revision");
  check(r.damage==16&&d.p.roster.at(1).conditions[4]==4&&cursor==16,"two literal Zombie attacks");check(d.p.roster.at(1).currentHp==168,"four applications on same awake target");
  for(auto save:{4u,5u}){auto highAc=s;highAc.journey->supplements[1].inputs.temporaryAc=10;Domain d2(highAc);auto &c2=d2.engage();block(c2);Tape equality({{1,20,20},{1,4,1},{1,4,1},{1,24,save},{1,5,1}});auto r2=c2.service(c2.ticket());check(r2.status!=Status::Failed&&d2.p.roster.at(1).conditions[4]==(save==4?0:1),"physical save equality");}
- s.characters[1].conditions[4]=255;Domain overflow(s);auto &co=overflow.engage();block(co);const auto state=*overflow.w.sessionState().journeyRandom();Tape excess(critical());check(co.service(co.ticket()).status==Status::Failed,"Disease 256 refusal");check(overflow.p.roster.at(1).currentHp==200&&overflow.p.roster.at(1).conditions[4]==255&&*overflow.w.sessionState().journeyRandom()==state,"entire resource attack rejected");
+ s.characters[1].conditions[4]=255;Domain overflow(s);auto &co=overflow.engage();block(co);const auto state=*overflow.w.sessionState().journeyRandom();Tape excess(critical());check(co.service(co.ticket()).status!=Status::Failed,"Disease byte saturates");check(overflow.p.roster.at(1).currentHp==184&&overflow.p.roster.at(1).conditions[4]==255&&overflow.w.sessionState().journeyRandom()->count>state.count,"Saturated Disease still applies the ordered injury and RNG");
 }
 void failure(){auto s=group({16});s.characters[1].armor={};s.characters[1].accessories={};Domain d(s);auto &c=d.engage();block(c);Tape t(critical());check(c.service(c.ticket()).status!=Status::Failed,"attack1 publishes");auto state=*d.w.sessionState().journeyRandom();check(c.service(c.ticket()).status==Status::Failed,"attack2 fails");check(d.p.roster.at(1).currentHp==184&&*d.w.sessionState().journeyRandom()==state&&!d.flow->journeyQuiet(),"attack1 retained through attack2 failure");
- for(unsigned field=0;field<3;++field){Domain altered(group({16}));auto &combat=altered.engage();combat.setProbe([&]{auto &v=const_cast<XeenCombatInputs &>(*altered.p.roster.combatInputs(29));if(field==0)v.luck.reset();else if(field==1)++v.luck->permanent;else ++v.luck->temporary;});check(action(combat,Command::Attack).status==Status::Failed,"inactive Luck guarded on callbacks");}
+ for(unsigned field=0;field<9;++field){Domain altered(group({16}));auto &combat=altered.engage();combat.setProbe([&]{
+  auto &v=const_cast<XeenCombatInputs &>(*altered.p.roster.combatInputs(29));
+  if(field==0)v.luck.reset();else if(field==1)++v.luck->permanent;else if(field==2)++v.luck->temporary;
+  else if(field==3)++v.resistances->firePermanent;else if(field==4)++v.resistances->fireTemporary;
+  else if(field==5)++v.resistances->energyPermanent;else if(field==6)++v.resistances->energyTemporary;
+  else if(field==7)++v.resistances->magicPermanent;else ++v.resistances->magicTemporary;
+ });check(action(combat,Command::Attack).status==Status::Failed,"inactive live supplement guarded on callbacks");}
 }
 void injuriesAndDefeat(){
 	// The combat publication callback uses the same owner write boundary even
 	// when the visible preimage is restored before the callback returns.
-	for(unsigned field=0;field<3;++field) {
+	for(unsigned field=0;field<4;++field) {
 		Domain changed(group({16}));auto &combat=changed.engage();
 		combat.setProbe([&] {
 			if(field==0){auto &hp=changed.p.roster.at(0).currentHp;++hp;--hp;}
 			else if(field==1){auto &r=const_cast<XeenMutableOptional<XeenJourneyRandomState>&>(changed.w.sessionState().journeyRandom());++r->count;--r->count;}
-			else {auto &s=const_cast<XeenSessionWorldState&>(changed.w.sessionState());const auto before=s;s=XeenSessionWorldState{};s=before;}
+			else if(field==2) {auto &s=const_cast<XeenSessionWorldState&>(changed.w.sessionState());const auto before=s;s=XeenSessionWorldState{};s=before;}
+			else {++changed.p.food;--changed.p.food;}
 		});
 		taped=false;
 		check(action(combat,Command::Attack).status==Status::Failed && !changed.flow->journeyQuiet(),"combat callback ABA rejected");

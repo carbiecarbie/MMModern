@@ -61,14 +61,14 @@ void calendar() {
 		year.midnights==1 && year.yearRollovers==1,"Calendar rollover");
 	c.day=8;c.minutes=480;
 	const auto days=xeenPrepareTime(c,3*1440);
-	check(days.processing480==9 && days.midnights==3 && days.dawns==3 && days.dusks==3,"All multi-day crossings retained");
+	check(days.processing480==1 && days.midnights==3 && days.dawns==3 && days.dusks==3,"All multi-day crossings retained");
 	c.year=65535;c.day=99;c.minutes=1439;
 	rejects([&]{ xeenPrepareTime(c,1); });
 	rejects([&]{ xeenPrepareTime(c,std::numeric_limits<std::uint64_t>::max()); });
 	c.year=611;c.day=42;c.minutes=1000;
 	check(xeenRegionalContext(c),"Noninitial daytime value");
 	check(!xeenPrepareTime(c,10).requiresEffects(),"Other processing interval");
-	c.newDay=true;check(!xeenRegionalContext(c),"Pending daily state rejected");
+	c.newDay=true;check(xeenRegionalContext(c),"Pending daily state is canonical");
 	check(xeenPrepareTime(c,1).dailyProcessing==1,"Pending daily work retained");
 }
 void actors() {

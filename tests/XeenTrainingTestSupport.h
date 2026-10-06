@@ -152,7 +152,7 @@ struct Fixture {
     void train(unsigned member){
         const auto owner=p.party.activeRosterIds()[member];const int before=p.roster.at(owner).permanentLevel;
         const auto quote=xeenQuoteTraining(p.roster.at(owner),*p.roster.combatInputs(owner),p.monsterTreasure->gold,*p.encounterContext);
-        const bool eligible=quote.outcome==XeenTrainingOutcome::Quoted && (trained.test(owner) || p.encounterContext->day<=97);
+        const bool eligible=quote.outcome==XeenTrainingOutcome::Quoted;
         act(SelectMemberAction{member});act(DialogKeyAction{'t'});
         if(eligible && p.roster.at(owner).permanentLevel==before) {
             // A pre-publication fault may retain the quote; retry T without

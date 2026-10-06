@@ -81,14 +81,14 @@ void eligibilityAndRawBytes() {
 void departure() {
 	XeenGameplayContext canonical;
 	canonical.day=8;canonical.year=610;canonical.minutes=584;canonical.ctr24=17;
-	for (unsigned day : {8u,9u,10u,97u,98u}) for (unsigned minute : {300u,584u,1259u}) for (unsigned ctr : {0u,17u,23u}) {
+	for (unsigned day : {0u,7u,8u,9u,10u,97u,98u,99u}) for (unsigned minute : {300u,584u,1259u}) for (unsigned ctr : {0u,17u,23u}) {
 		auto before=canonical;before.day=day;before.minutes=minute;before.ctr24=ctr;
 		const auto original=before;
 		const auto after=xeenPrepareSmithDeparture(before);
-		auto expected=before;expected.day=day+1;
+		auto expected=before;expected.day=(day+1)%100;expected.year=610+(day==99);
 		check(after && *after==expected && before==original,"departure changed fields other than day or mutated input");
 	}
-	for (unsigned day : {0u,1u,7u,99u,65535u}) {
+	for (unsigned day : {100u,65535u}) {
 		auto before=canonical;before.day=day;
 		check(!xeenPrepareSmithDeparture(before),"unsupported day admitted");
 	}
@@ -106,7 +106,9 @@ void departure() {
 		else if (mode<18) before.effects[mode-9]=1;
 		else before.lightAndResistances[mode-18]=1;
 		const auto original=before;
-		check(!xeenPrepareSmithDeparture(before) && before==original,"invalid context accepted or modified");
+		if(mode==4 || mode==7 || mode==8)check(!xeenPrepareSmithDeparture(before),"Noncanonical context admitted");
+  else {const auto next=xeenPrepareSmithDeparture(before);check(bool(next),"Canonical context refused");}
+  check(before==original,"Departure mutated input");
 	}
 }
 }

@@ -11,7 +11,7 @@ enum class XeenDialogText {
     ExchangingInCombat, CursedItem, BackpackFull, NotProficient,
     EquippedAll, RemoveToEquip, Ring, Medal, InNoCondition,
     Hurry, UseInCombat, NoSpecialAbilities, CannotCastEngaged, WhichItem,
-    PermanentlyDiscard, BuyForGold, ItemsTitle, MiscCategory, Charges, ItemNotBroken
+    PermanentlyDiscard, BuyForGold, ItemsTitle, MiscCategory, Charges, ItemNotBroken, PartyNeedsRest
 };
 std::string_view xeenDialogText(XeenDialogText);
 std::string xeenDialogFormat(std::string_view,const std::vector<std::string> &);

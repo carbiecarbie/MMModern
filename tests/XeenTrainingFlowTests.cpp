@@ -9,6 +9,33 @@ int main(int argc,char **argv) {
     try {
         check(argc==2,"usage: training-flow <original-installation>");const auto installation=XeenInstallationDetector().detect(argv[1]);
         check(bool(installation),"installation unavailable");Inputs inputs(*installation);const auto source=inputs.service();
+        // Original resources with explicitly injected boundary dates: ordinary
+        // Wait and the shared dawn notice, followed by quiet save/reload.
+        for(unsigned minute:{299u,1439u}) {
+            auto start=source;auto &time=*start.journey->context;
+            time.day=99;time.year=610;time.minutes=minute;time.newDay=minute==299;
+            start.food=27;start.journey->supplements[0].inputs.resistances->fireTemporary=7;
+            Fixture f(inputs,start,true);const auto camera=f.c;f.act(WaitAction{});
+            bool sawNotice=false;
+            for(unsigned n=0;n<1000 && !f.flow->canSave();++n) {
+                f.now+=125;f.flow->beginCycle(++f.cycle);
+                if(const auto frame=f.flow->updatePresentation())f.present(*frame);
+                const auto context=f.flow->inputContext(f.flow->frame().presentation());
+                if(context.dialog && context.dialog->anyKey) {
+                    check(!XeenSaveState::canCapture(f.p,f.c,f.w),"Dawn notice must block quiet capture");
+                    sawNotice=true;f.act(NavigationAction::MoveForward);
+                    check(save_test::sameCamera(camera,f.c),"Notice acknowledgment leaked movement");
+                }
+                check(!f.flow->encounter()->combat(),"Boundary fixture unexpectedly engaged actors");
+            }
+            check(f.flow->canSave() && f.p.food==27,"Boundary Wait failed quiet settlement or changed food");
+            check(f.p.encounterContext->minutes==(minute==299?300:0) &&
+                f.p.encounterContext->day==(minute==299?99:0) &&
+                f.p.encounterContext->year==(minute==299?610:611),"Ordinary boundary charge/calendar");
+            check(sawNotice==(minute==299) && f.p.encounterContext->newDay==(minute==1439),"Dawn notice/pending flag");
+            check(f.p.roster.combatInputs(0)->resistances->fireTemporary==(minute==299?0:7),"Daily live resistance reset");
+            const auto saved=f.snapshot();Fixture restored(inputs,saved);save_test::sameSnapshot(saved,restored.snapshot());
+        }
         constexpr std::array<std::uint32_t,10> bases{1500,2000,2000,1500,2000,1000,1500,1500,1500,2000};
         for(unsigned cls=0;cls<10;++cls)for(unsigned level:{1u,3u,4u,9u}) {
             auto s=source;s.characters[18].characterClass=static_cast<XeenCharacterClass>(cls);s.characters[18].permanentLevel=level;
@@ -56,21 +83,17 @@ int main(int argc,char **argv) {
         for(unsigned day:{8u,9u,97u,98u,99u}) {
             std::cout<<"Day fixture "<<day<<'\n';
             auto s=source;s.journey->context->day=day;Fixture fixture(inputs,s);
-            if(day==99){fixture.act(InteractionAction{});check(fixture.flow->canSave() && fixture.p.encounterContext->day==99,"day99 acquired debt");continue;}
             fixture.enter();check(!fixture.flow->canSave() && !XeenSaveState::canCapture(fixture.p,fixture.c,fixture.w),"admitted visit save permitted");
-            const auto before=fixture.p.monsterTreasure->gold;
             fixture.train(1);
-            if(day==98) {
-                check(fixture.p.roster.at(18).permanentLevel==3 && fixture.p.encounterContext->day==98 && fixture.p.monsterTreasure->gold==before,"day98 trained new member");
-            } else {
-                check(fixture.p.roster.at(18).permanentLevel==4 && fixture.p.encounterContext->day==day+1,"first member day missing");
-                fixture.act(SelectMemberAction{0});fixture.train(1);
-                check(fixture.p.roster.at(18).permanentLevel==5 && fixture.p.roster.combatInputs(18)->experience==0 &&
-                    fixture.p.encounterContext->day==day+1,"same-member repeat/switch charged day or XP incorrectly");
-                fixture.train(4);
-                check(fixture.p.encounterContext->day==(day==97?98:day+2) && fixture.p.roster.at(1).permanentLevel==(day==97?3:4),"new-member replacement capacity incorrect");
-            }
-            fixture.act(CancelInteractionAction{});check(fixture.flow->canSave() && fixture.p.encounterContext->day==(day>=97?99:day+3),"mandatory departure charged wrong day");
+            check(fixture.p.roster.at(18).permanentLevel==4 && fixture.p.encounterContext->day==(day+1)%100,"first member day missing");
+            fixture.act(SelectMemberAction{0});fixture.train(1);
+            check(fixture.p.roster.at(18).permanentLevel==5 && fixture.p.roster.combatInputs(18)->experience==0 &&
+                fixture.p.encounterContext->day==(day+1)%100,"same-member repeat charged time or XP incorrectly");
+            fixture.train(4);
+            check(fixture.p.encounterContext->day==(day+2)%100 && fixture.p.roster.at(1).permanentLevel==4,"new-member day lost at rollover");
+            fixture.act(CancelInteractionAction{});
+            check(fixture.flow->canSave() && fixture.p.encounterContext->day==(day+3)%100 &&
+                fixture.p.encounterContext->year==610+(day+3>=100),"mandatory departure rollover");
             const auto after=fixture.snapshot();Fixture restart(inputs,after);check(XeenSaveFormat::encode(after)==XeenSaveFormat::encode(restart.snapshot()),"post-training restore changed durable state");
         }
         // Synthetic successor checkpoint contains an actual seed-7 supported

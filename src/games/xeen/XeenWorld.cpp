@@ -345,7 +345,7 @@ void XeenWorld::copyEventParty(const XeenPartyState &source, XeenPartyState &can
 	candidate.encounterContext=source.encounterContext;candidate.monsterTreasure=source.monsterTreasure;
 	candidate.serviceEconomy=source.serviceEconomy;candidate.questItems=source.questItems;
 	candidate.questFlags=source.questFlags;candidate.regionalRecovery=source.regionalRecovery;
-	candidate._originalFood=source._originalFood;
+	candidate.food=source.food;
 	candidate.firstSerializedCount=source.firstSerializedCount;candidate.effectiveSerializedCount=source.effectiveSerializedCount;
 	candidate.diagnostics=source.diagnostics;
 }

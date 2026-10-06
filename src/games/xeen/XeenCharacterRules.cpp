@@ -287,16 +287,16 @@ int XeenCharacterRules::sheetStat(const XeenCharacter &c,const XeenCombatInputs 
 		else if(attribute==6 && input->luck) v=&*input->luck;
 	}
 	if(v) value={v->permanent,v->temporary};
-	int result=value[0]+itemBonus(c,attribute);
-	if(attribute<6) result+=ageAdjustment<true>(c,context,attribute==1 || attribute==2);
+	int result=add<true>(value[0],itemBonus(c,attribute));
+	if(attribute<6) result=add<true>(result,ageAdjustment<true>(c,context,attribute==1 || attribute==2));
 	if(!baseOnly) {
-		result+=value[1];
+		result=add<true>(result,value[1]);
 		if(!c.conditions[13] && !c.conditions[14] && !c.conditions[15]) {
-			for(unsigned index:{1u,2u,6u,7u}) result-=c.conditions[index];
-			if(attribute==6) result-=c.conditions[0];
-			if(attribute==0 || attribute==1 || attribute==2 || attribute==4 || attribute==5) result-=c.conditions[5];
-			if(attribute==0 || attribute==4 || attribute==5) result-=c.conditions[3];
-			if(attribute==1 || attribute==2 || attribute==3) result-=c.conditions[4];
+			for(unsigned index:{1u,2u,6u,7u}) result=add<true>(result,-int(c.conditions[index]));
+			if(attribute==6) result=add<true>(result,-int(c.conditions[0]));
+			if(attribute==0 || attribute==1 || attribute==2 || attribute==4 || attribute==5) result=add<true>(result,-int(c.conditions[5]));
+			if(attribute==0 || attribute==4 || attribute==5) result=add<true>(result,-int(c.conditions[3]));
+			if(attribute==1 || attribute==2 || attribute==3) result=add<true>(result,-int(c.conditions[4]));
 		}
 	}
 	return std::max(result,0);
@@ -324,6 +324,9 @@ int XeenCharacterRules::sheetResistance(const XeenCharacter &c,const XeenCombatI
 	if(input && input->resistances) {
 		if(resistance==1) value={input->resistances->coldPermanent,input->resistances->coldTemporary};
 		if(resistance==2) value={input->resistances->electricalPermanent,input->resistances->electricalTemporary};
+		if(resistance==0) value={input->resistances->firePermanent,input->resistances->fireTemporary};
+		if(resistance==4) value={input->resistances->energyPermanent,input->resistances->energyTemporary};
+		if(resistance==5) value={input->resistances->magicPermanent,input->resistances->magicTemporary};
 	}
 	if(input && input->poisonResistance && resistance==3) value={input->poisonResistance->permanent,input->poisonResistance->temporary};
 	constexpr unsigned elements[]{0,2,1,3,4,5};
@@ -359,7 +362,7 @@ std::uint32_t XeenCharacterRules::experienceToNextLevel(const XeenCharacter &c,c
 int XeenCharacterRules::physicalBonus(int value) { return statBonus(value); }
 int XeenCharacterRules::effectiveLuck(const XeenCharacter &c, const XeenCombatInputs &input) {
 	if (!input.luck) throw std::invalid_argument("Missing physical saving throw Luck");
-	return std::max(add<true>(add<true>(input.luck->permanent,input.luck->temporary),itemBonus(c,6)),0);
+	return sheetStat(c,&input,6,{0});
 }
 int XeenCharacterRules::equipmentBonus(const XeenCharacter &c,int category) {
 	if(category<0 || category>14)throw std::invalid_argument("Unsupported equipment attribute query");
@@ -382,7 +385,7 @@ int XeenCharacterRules::damageSaveValue(const XeenCharacter &c,const XeenCombatI
 	// Immutable original resistance pairs remain authoritative for elements
 	// without a live supplement. Missing input is never an implicit zero.
 	const unsigned resistance=index==1 ? 5 : index==2 ? 0 : index==3 ? 2 : index==4 ? 1 : index==5 ? 3 : 4;
-	const bool live=(resistance==1 || resistance==2) ? input.resistances.has_value() :
+	const bool live=resistance!=3 ? input.resistances.has_value() :
 		resistance==3 && input.poisonResistance.has_value();
 	if (!live && !c.originalDetails()) throw std::invalid_argument("Missing character damage resistance");
 	return sheetResistance(c,&input,resistance);
@@ -400,17 +403,7 @@ int XeenCharacterRules::thievery(const XeenCharacter &c) {
 }
 int XeenCharacterRules::effectivePhysical(const XeenCharacter &c, const XeenCombatInputs &input,
 		PhysicalAttribute attribute, const XeenCharacterRulesContext &context) {
-	for (unsigned i=0;i<c.conditions.size();++i)
-		if (i!=3 && i!=4 && i!=8 && i!=12 && i!=13 && c.conditions[i]) throw std::invalid_argument("unsupported physical combat condition");
-	const XeenAttributeValue *v = nullptr;
-	switch (attribute) {
-	case PhysicalAttribute::Might: v=&input.might; break;
-	case PhysicalAttribute::Speed: v=&input.speed; break;
-	case PhysicalAttribute::Accuracy: v=&input.accuracy; break;
-	default: throw std::invalid_argument("invalid physical attribute");
-	}
-	return std::max(add<true>(add<true>(add<true>(v->permanent,v->temporary),
-		ageAdjustment<true>(c,context,false)),itemBonus(c,static_cast<int>(attribute))) - (c.conditions[13] ? 0 : c.conditions[3]),0);
+ return sheetStat(c,&input,static_cast<unsigned>(attribute),context);
 }
 int XeenCharacterRules::combatArmorClass(const XeenCharacter &c, const XeenCombatInputs &input,
 		const XeenCharacterRulesContext &context) {

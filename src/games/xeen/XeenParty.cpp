@@ -31,7 +31,7 @@ XeenPartyState::XeenPartyState(const XeenPartyState &p) {
 	roster = p.roster; encounterContext = p.encounterContext; party = p.party;
 	questItems = p.questItems; questFlags = p.questFlags; regionalRecovery = p.regionalRecovery; monsterTreasure = p.monsterTreasure;
 	serviceEconomy = p.serviceEconomy;
-	_originalFood = p._originalFood;
+	food = p.food;
 	firstSerializedCount = p.firstSerializedCount; effectiveSerializedCount = p.effectiveSerializedCount;
 	diagnostics = p.diagnostics;
 }
@@ -44,7 +44,7 @@ void XeenPartyState::swapOrdinary(XeenPartyState &p) noexcept {
 	roster.swapOrdinary(p.roster); swap(encounterContext,p.encounterContext); swap(party,p.party);
 	swap(questItems,p.questItems); swap(questFlags,p.questFlags); swap(regionalRecovery,p.regionalRecovery); swap(monsterTreasure,p.monsterTreasure);
 	swap(serviceEconomy,p.serviceEconomy);
-	swap(_originalFood,p._originalFood);
+	swap(food,p.food);
 	swap(firstSerializedCount,p.firstSerializedCount); swap(effectiveSerializedCount,p.effectiveSerializedCount);
 	diagnostics.swap(p.diagnostics);
 	++_replacement; ++p._replacement;

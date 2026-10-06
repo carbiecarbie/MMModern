@@ -177,7 +177,7 @@ void rebinds() {
         check(twice.beforeEconomy()==afterTwice && twice.economy()==(trigger?reservedEconomy:afterTwice) && twice.continuation()==reservedCursor,"repeated purchase rebind changed reserved work");
         const auto retained=twice.economy();check(twice.service(0) && twice.economy()==retained && twice.continuation()==reservedCursor,"completed rebound repeated RNG/interest");
     }
-    context.day=99;rejects([&]{XeenServiceDayCandidate invalid(context,economy,cursor);});
+    context.day=99;XeenServiceDayCandidate rollover(context,economy,cursor);check(rollover.context().day==0 && rollover.context().year==611,"Purchase reservation rolls year");
     context.day=8;XeenServiceDayCandidate old(context,economy,cursor);
     for(unsigned s=0;s<2;++s)for(unsigned p=0;p<4;++p)for(unsigned c=0;c<4;++c)for(unsigned slot=0;slot<9;++slot)for(unsigned field=0;field<4;++field) {
         auto tampered=after;auto &item=tampered.wares[s][p][c][slot];

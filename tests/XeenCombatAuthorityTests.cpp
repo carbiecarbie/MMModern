@@ -155,9 +155,9 @@ void timeBoundary(){
         if(lethal){f.action(Command::Attack);check(f.combat->phase()==Phase::VictoryAwaitingEnd&&f.p.roster.combatInputs(0)->experience==82,"lethal accounting precedes dusk refusal");}
         else{f.blockRound();f.service();check(f.combat->pending()==Work::Round&&f.w.sessionState().actors()[5].hp==13&&f.p.roster.at(1).currentHp==-17,"earlier injuries precede round refusal");}
         const auto actors=f.w.sessionState().actors();const auto characters=f.p.roster.characters();const auto rng=f.combat->random().position();
-        const auto r=f.service();check(r.status==Status::SupportStopped&&r.failure==XeenCombatFailure::Time,"dusk refuses unsupported Round or End");
-        check(f.p.encounterContext->minutes==1259&&f.combat->random().position()==rng,"time refusal consumes neither minute nor RNG");
-        sameActors(actors,f.w.sessionState().actors());
+        const auto r=f.service();check(r.status!=Status::SupportStopped && r.status!=Status::Failed,"Dusk Round/End is supported");
+        check(f.p.encounterContext->minutes==1260&&f.combat->random().position()==rng,"Dusk charges one minute without condition draws");
+        if(lethal)sameActors(actors,f.w.sessionState().actors());
         for(unsigned i=0;i<30;++i)remove_test::checkSameCharacter(characters[i],f.p.roster.at(i));
         rejects([&]{f.snapshot();},"encounter");
     }

@@ -27,8 +27,8 @@ XeenPartyState XeenPartyLoader::loadFromResources(
 	state.questFlags = XeenQuestFlagFormat::parseClouds(partyBytes);
 	state.firstSerializedCount = header.firstCount;
 	state.effectiveSerializedCount = header.effectiveCount;
-	if (partyBytes.size() < 622) throw std::runtime_error("maze.pty truncated before food");
-	state._originalFood = std::uint16_t(partyBytes[620]) | (std::uint16_t(partyBytes[621])<<8);
+	if (partyBytes.size() < 620) throw std::runtime_error("maze.pty truncated before food");
+	state.food = std::uint16_t(partyBytes[618]) | (std::uint16_t(partyBytes[619])<<8);
 
 	if (header.firstCount != header.effectiveCount) {
 		state.diagnostics.push_back("maze.pty: different member counts (" +

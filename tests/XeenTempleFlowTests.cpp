@@ -137,8 +137,15 @@ void refusedResult(Inputs &in,bool exhaustedRandom) {
     const auto inputs=*fixture.p.roster.combatInputs(6);
     const auto gold=fixture.p.monsterTreasure->gold;
     const auto maximum=XeenCharacterRules::maxHp(before,{610});
+    const auto expected=xeenPrepareTempleHeal(fixture.p,6,*fixture.p.encounterContext);
     fixture.enter();fixture.act(SelectMemberAction{5});fixture.act(DialogKeyAction{'h'});
-    if(exhaustedRandom)fixture.prepare();
+    fixture.prepare();
+    if(!exhaustedRandom) {
+        fixture.leave();check(fixture.p.encounterContext->day==0 && fixture.p.encounterContext->year==611 &&
+            fixture.p.monsterTreasure->gold==expected.result.goldAfter &&
+            xeen_state::sameCharacter(expected.character,fixture.p.roster.at(6)),"Paid Temple Heal year rollover");
+        const auto saved=fixture.snapshot();TempleFixture restored(in,saved);sameSnapshot(saved,restored.snapshot());return;
+    }
     const auto text=XeenTrainingTestAccess::templeText(*fixture.flow);
     check(xeen_state::sameCharacter(before,fixture.p.roster.at(6)) &&
         xeen_state::sameInputs(inputs,*fixture.p.roster.combatInputs(6)) &&
@@ -237,9 +244,9 @@ int main(int argc,char **argv) {
         {
             auto near=injured(in,98);TempleFixture refused(in,near);
             refused.enter();refused.act(SelectMemberAction{5});refused.act(DialogKeyAction{'h'});
-            refused.act(AcknowledgeAction{});refused.act(AcknowledgeAction{});refused.leave();
-            check(refused.p.encounterContext->day==99 && refused.p.monsterTreasure->gold==810 &&
-                refused.p.roster.at(6).conditions[13],"day-98 paid Heal escaped date refusal");
+            refused.prepare();refused.leave();
+            check(refused.p.encounterContext->day==0 && refused.p.encounterContext->year==611 && refused.p.monsterTreasure->gold<810 &&
+                !refused.p.roster.at(6).conditions[13],"Paid Heal failed at year rollover");
         }
         {
             auto diseased=injured(in);auto &character=diseased.characters[6];

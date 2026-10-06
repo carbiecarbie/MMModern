@@ -18,10 +18,7 @@ struct BusyCast {
 unsigned explorationCharge(const XeenCamera &camera) {
 	return camera.mapId == XeenMapIdentity(28) ? 1 : 10;
 }
-bool unsupportedCharge(const XeenGameplayContext &context, const XeenCamera &camera) {
-	const auto t=xeenPrepareTime(context,explorationCharge(camera));
-	return t.dusks || t.dawns || t.midnights || t.yearRollovers || t.dailyProcessing;
-}
+
 XeenConsequenceCharacters activeCharacters(const XeenPartyState &party) {
 	XeenConsequenceCharacters characters;
 	for (unsigned i=0;i<6;++i) characters[i]=party.roster.at(kXeenCombatOwners[i]);
@@ -94,7 +91,7 @@ bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIn
 		_journeyPreimage->check();
 		xeenValidateJourneyParty(_party);
 		if (!XeenLearnedSpellRules::eligible(_party,casterIndex,slot) ||
-			unsupportedCharge(*_party.encounterContext,_camera)) return false;
+			!xeenRegionalContext(xeenPrepareTime(*_party.encounterContext,explorationCharge(_camera)).context)) return false;
 		const auto owner=_party.party.activeRosterIds()[casterIndex];
 		const auto &caster=_party.roster.at(owner);
 		const auto category=XeenLearnedSpellRules::categoryForClass(caster.characterClass);
@@ -201,7 +198,7 @@ bool XeenEncounterFlow::serviceCasting() {
 	try {
 		_journeyPreimage->check();
 		auto &work=*_casting;
-		if (!work.time) work.time.emplace(*_party.encounterContext,explorationCharge(_camera),activeCharacters(_party),activeInputs(_party));
+		if (!work.time) work.time.emplace(*_party.encounterContext,explorationCharge(_camera),activeCharacters(_party),activeInputs(_party),&*_party.serviceEconomy);
 		XeenConsequenceDraw draw{work.random,64,[&] { _journeyPreimage->check(); }};
 		if (!work.time->service(draw)) return true;
 		if (_world._sessionState._encounterRevision==std::numeric_limits<std::uint64_t>::max())
@@ -211,18 +208,21 @@ bool XeenEncounterFlow::serviceCasting() {
 		bool living=false;
 		for (const auto &value:work.time->characters) {
 			auto &owner=prepared->characters[value.rosterId];
-			owner.currentHp=value.currentHp;owner.conditions=value.conditions;
+			owner=value;
 			living=living || xeenCombatTargetable(owner);
 		}
-		prepared->context=work.time->context;
+		prepared->context=work.time->context;prepared->economy=work.time->economy;
+		for(unsigned n=0;n<6;++n)prepared->inputs[kXeenCombatOwners[n]]=work.time->inputs[n];
 		const auto continuation=work.random.continuation();
 		prepared->s._journeyRandom=continuation;
 		_journeyPreimage->check();
 		for (const auto &value:work.time->characters) {
 			auto &owner=_party.roster.at(value.rosterId);
-			owner.currentHp=value.currentHp;owner.conditions=value.conditions;
+			owner=value;
 		}
-		_party.encounterContext=work.time->context;
+		if(work.time->needsRest)_needsRestNotice=true;
+		_party.encounterContext=work.time->context;_party.serviceEconomy=work.time->economy;
+		for(unsigned n=0;n<6;++n)_party.roster._combatInputs[kXeenCombatOwners[n]]=work.time->inputs[n];
 		auto &session=_world._sessionState;
 		session._journeyRandom=continuation;
 		_state._pending=living?3:0;

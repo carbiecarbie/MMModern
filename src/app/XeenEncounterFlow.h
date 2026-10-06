@@ -139,6 +139,7 @@ private:
     IndexedFrame::Presentation _castFrame;
     std::uint64_t _castInput=0;
     std::string _combatCastRefusal;
+	bool _needsRestNotice=false;
     void authorizeCombatCastFrame(const Ticket &,std::uint64_t,const IndexedFrame::Presentation &);
     bool respondCombatCast(const PlayerAction &,std::uint64_t,const IndexedFrame::Presentation &,
         const std::function<XeenLearnedSpellNames()> &);
@@ -226,7 +227,7 @@ private:
 	bool publishAwaken(const Ticket &);
 	void adoptJourneyFlowBorrow();
 	void beginJourneyEvent(bool barrier=false);
-	void publishBarrier(const Ticket &, XeenWorld &, const XeenRestoreGuard &, const XeenBarrierCandidate &, const XeenGameplayContext &, std::uint64_t now);
+	void publishBarrier(const Ticket &, XeenWorld &, const XeenRestoreGuard &, const XeenBarrierCandidate &, const XeenGameplayContext &, std::uint64_t now, bool dailyReset);
 	void endJourneyEvent();
 	void publishArrival(const XeenActorView &) noexcept;
 	bool journeyEvent() const noexcept { return _journey && _world.sessionState().journeyActivity() == XeenJourneyActivity::Event; }

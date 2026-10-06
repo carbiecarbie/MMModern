@@ -196,7 +196,8 @@ private:
 		XeenGameplayContext context;
 		XeenCombatRandom random;
 		bool bash=false, secondCharge=false, published=false, portraitWaiting=false, portraitPresented=false;
-		bool trapWaiting=false;
+		bool trapWaiting=false, dailyReset=false, needsRest=false;
+		std::optional<XeenServiceEconomy> economy;
 		std::uint64_t deadline=0;
 	};
 	std::unique_ptr<BarrierWork> _barrier;

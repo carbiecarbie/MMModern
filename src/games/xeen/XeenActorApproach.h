@@ -48,7 +48,7 @@ struct XeenEncounterResult {
 	XeenEncounterStop reason = XeenEncounterStop::None;
 	std::uint64_t revision = 0;
 	unsigned movementOpportunities = 0;
-	bool automaticEvent = false;
+	bool automaticEvent = false, needsRest=false;
 	XeenMutableOptional<XeenMonsterIdentity> stoppedActor;
 	int stoppedX = 0, stoppedY = 0;
 	XeenActorView view;

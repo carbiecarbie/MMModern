@@ -237,12 +237,16 @@ void failures() {
 		case 1:bad.journey->actors[5].accounted=true;break;
 		case 2:bad.journey->actors[5].hp=21;break;
 		case 3:bad.journey->actors[5].x=16;break;
-		case 4:bad.journey->context->minutes=1260;break;
+		case 4:bad.journey->context->minutes=1440;break;
 		case 5:bad.journey->actors[5].id.recordIndex=6;break;
 		case 6:bad.journey->originalActorCount=18;break;
 		case 7:bad.characters[0].learnedSpells.reset();break;
 		}Destination d;rejects([&]{d.restore(bad);});check(!d.w.hasEncounterState(),"invalid domain not published");
 	}
+	// Night is canonical daily time; restore must preserve it without processing
+	// time, conditions or RNG. The malformed-minute case above still rejects 1440.
+	auto night=s;night.journey->context->minutes=1260;
+	Destination nightOwner;nightOwner.restore(night);nightOwner.bind();same(night,nightOwner);
 	for(bool throws:{false,true})for(unsigned seam:{0u,1u}) {
 		Destination d;XeenPartyState *candidate=nullptr;bool hit=false;
 		d.observer=[&](unsigned at){if(!candidate||at!=seam)return;hit=true;candidate->roster.at(29).currentSp=-71;

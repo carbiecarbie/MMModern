@@ -75,6 +75,7 @@ struct XeenSaveJourney {
 
 struct XeenSaveSnapshot {
 	XeenSaveResourceSignature resources;
+	std::uint16_t food=0;
 	XeenCamera camera;
 	std::vector<std::uint8_t> activeRosterIds;
 	std::array<XeenCharacter, XeenRoster::kCharacterCount> characters{};

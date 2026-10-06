@@ -65,18 +65,18 @@ int main() {
             XeenServiceDayCandidate unpaid(context,economy,random);finish(unpaid);
             check(unpaid.context().day==day+1 &&
                 unpaid.triggered()==((day+1)%10==1),"unpaid Temple date/trigger differs");
-            if(day==98){rejects([&]{unpaid.upgradeTemplePaid();});continue;}
+            // The paid reservation may cross the year boundary.
             XeenServiceDayCandidate paid=unpaid.upgradeTemplePaid();finish(paid);
             XeenServiceDayCandidate direct(context,economy,random,XeenScriptServiceCharge::TemplePaid);
             finish(direct);
-            check(paid.context().day==day+2 && paid.triggered() &&
+            check(paid.context().day==(day+2)%100 && paid.context().year==610+(day>=98) && paid.triggered() &&
                 paid.context()==direct.context() && paid.economy()==direct.economy() &&
                 paid.continuation()==direct.continuation(),
                 "two-day reservation differed from one reference operation");
             if(unpaid.triggered())check(paid.continuation()==unpaid.continuation(),
                 "already-generated reservation was redrawn");
         }
-        context.day=99;rejects([&]{XeenServiceDayCandidate unsupported(context,economy,random);});
+        context.day=99;XeenServiceDayCandidate rollover(context,economy,random);check(rollover.context().day==0 && rollover.context().year==611,"Temple rollover");
         std::cout<<"Temple quote and one/two-day complete-reservation matrix passed\n";return 0;
     } catch(const std::exception &error){std::cerr<<error.what()<<'\n';return 1;}
 }

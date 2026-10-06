@@ -4,20 +4,20 @@ using namespace save_test;
 namespace {
 void put(Bytes &b,std::uint64_t v,unsigned n){for(unsigned i=0;i<n;++i)b.push_back(v>>(8*i));}
 std::size_t baseSize(const XeenSaveSnapshot &s){
- check(s.barriers.empty(),"Independent suffix fixture requires an empty v5 barrier list");
+ check(s.barriers.empty(),"Independent suffix fixture requires an empty v6 barrier list");
  std::size_t n=20+25+6+2+s.activeRosterIds.size()+4*s.questItems.size()+s.questFlags.size()+s.gameFlags.size()+8+7*(s.disabledObjects.size()+s.disabledEvents.size())+2;
  for(const auto &c:s.characters)n+=212+c.name.size();return n;
 }
 Bytes suffix(const XeenSaveSnapshot &s){
  const auto &j=*s.journey;Bytes b{3,9,0,14,0,1,0,0};
  for(unsigned value:{23u,8u,610u,1000u})put(b,value,2);
- b.resize(39);b.push_back(30);
+ b.resize(39);put(b,0xbeef,2);b.push_back(30);
  for(unsigned owner=0;owner<30;++owner){b.push_back(owner);for(unsigned i=0;i<8;++i)put(b,0,4);put(b,17,4);put(b,3,4);}
  b.push_back(1);put(b,0xf1234567,4);put(b,0x123456789ULL,8);
  b.push_back(0);put(b,23,2);put(b,19,2);put(b,19,2);
  const auto actor=[&](const XeenSaveJourneyActor &a){b.push_back(0);put(b,a.id.mapId.number,2);put(b,a.id.recordIndex,4);put(b,std::uint16_t(a.x),2);put(b,std::uint16_t(a.y),2);put(b,std::uint32_t(a.hp),4);b.push_back(a.activated);b.push_back(static_cast<unsigned>(a.lifecycle));b.push_back(static_cast<unsigned>(a.status));b.push_back(a.accounted);};
  for(const auto &a:j.actors)actor(a);
- b.push_back(30);for(unsigned i=0;i<30;++i)for(unsigned v:{i,i,i+30,i+60,i+90})b.push_back(v);
+ b.push_back(30);for(unsigned i=0;i<30;++i)for(unsigned v:{i,i,i+30,i+60,i+90,i+120,i+150,i+180,i+210,255-i,254-i})b.push_back(v);
  const auto &t=*j.treasure;for(auto v:{t.gold,t.gems,t.pendingMask,t.pendingGold})put(b,v,4);
  unsigned weapons=0,armor=0;for(const auto &v:t.weapons)weapons+=v.item.id!=0;for(const auto &v:t.armor)armor+=v.item.id!=0;
  b.push_back(weapons);b.push_back(armor);
@@ -30,10 +30,10 @@ Bytes suffix(const XeenSaveSnapshot &s){
  put(b,0xfedcba98u,4);put(b,0xffffffffu,4);return b;
 }
 XeenSaveSnapshot sampleCurrent(){
- auto s=currentWireSnapshot();auto &j=*s.journey;s.resources={{1,2},XeenArchiveFingerprint{3,4}};s.camera={23,8,11,XeenDirection::West};
+ auto s=currentWireSnapshot();auto &j=*s.journey;s.resources={{1,2},XeenArchiveFingerprint{3,4}};s.camera={23,8,11,XeenDirection::West};s.food=0xbeef;
  j.context->minutes=1000;j.context->ctr24=23;j.random=XeenJourneyRandomState{1,0xf1234567,0x123456789ULL};
  j.treasure->gold=0x12345678;j.treasure->gems=0x87654321;
- for(unsigned i=0;i<30;++i){j.supplements[i].inputs.luck=XeenAttributeValue{17,3};j.supplements[i].inputs.resistances=XeenCombatResistances{std::uint8_t(i),std::uint8_t(i+30),std::uint8_t(i+60),std::uint8_t(i+90)};j.supplements[i].inputs.poisonResistance=XeenAttributeValue{int(i),int(255-i)};
+ for(unsigned i=0;i<30;++i){j.supplements[i].inputs.luck=XeenAttributeValue{17,3};j.supplements[i].inputs.resistances=XeenCombatResistances{std::uint8_t(i),std::uint8_t(i+30),std::uint8_t(i+60),std::uint8_t(i+90),std::uint8_t(i+120),std::uint8_t(i+150),std::uint8_t(i+180),std::uint8_t(i+210),std::uint8_t(255-i),std::uint8_t(254-i)};j.supplements[i].inputs.poisonResistance=XeenAttributeValue{int(i),int(255-i)};
   for(unsigned slot=0;slot<39;++slot)s.characters[i].learnedSpells->at(slot)=i==2?0:std::uint8_t(i*7+slot*3);}
  s.characters[29].learnedSpells->at(38)=255;
  for(unsigned i=0;i<19;++i)j.actors[i]={{23,i},int(i%16),int(i/16),int(i+1),bool(i%2),XeenActorLifecycle::Present,XeenActorStatus::Physical,false};return s;
@@ -65,14 +65,16 @@ int main(){try{
  auto flagged=populated;flagged.journey->regionalRecovery->worldFlag16=true;verify(flagged);
  const auto bytes=XeenSaveFormat::encode(populated);const auto offset=baseSize(populated);
  const auto badByte=[&](unsigned at,unsigned value){auto b=bytes;b[offset+at]=value;fixIndependentEnvelope(b);rejects([&]{XeenSaveFormat::decode(b);});};
- for(unsigned at:{5u,37u,38u})badByte(at,2);badByte(6,1);badByte(7,2);badByte(39,29);badByte(1270,2);badByte(1283,1);badByte(1284,20);
- for(unsigned value:{0u,1u,18u,20u,107u,108u,255u}){badByte(1286,value);badByte(1288,value);}
- for(unsigned i=0;i<30;++i){badByte(40+41*i,31);badByte(40+41*i+34,1);}
- for(unsigned i=0;i<19;++i){const auto at=1290+19*i;badByte(at,1);badByte(at+1,20);badByte(at+3,19);badByte(at+15,2);badByte(at+16,4);badByte(at+17,2);badByte(at+18,2);}
- for(unsigned at:{1651u,1652u,1818u,1819u})badByte(at,31);
- for(unsigned at:{1821u,1823u,1824u,1826u,1828u,1829u})badByte(at,1);
- badByte(1820,3);badByte(1822,34);badByte(1827,8);badByte(1810,0);badByte(1814,10);
- badByte(1830,2);badByte(1831,29);badByte(1832,1);badByte(1872,0);badByte(3032,29);badByte(3033,1);badByte(3036,0);badByte(3123,2);
+ // Literal v6 offsets include the two food bytes after newDay and six added
+ // resistance bytes per owner. Keep all malformed-control checks in place.
+ for(unsigned at:{5u,37u,38u})badByte(at,2);badByte(6,1);badByte(7,2);badByte(41,29);badByte(1272,2);badByte(1285,1);badByte(1286,20);
+ for(unsigned value:{0u,1u,18u,20u,107u,108u,255u}){badByte(1288,value);badByte(1290,value);}
+ for(unsigned i=0;i<30;++i){badByte(42+41*i,31);badByte(42+41*i+34,1);}
+ for(unsigned i=0;i<19;++i){const auto at=1292+19*i;badByte(at,1);badByte(at+1,20);badByte(at+3,19);badByte(at+15,2);badByte(at+16,4);badByte(at+17,2);badByte(at+18,2);}
+ for(unsigned at:{1653u,1654u,2000u,2001u})badByte(at,31);
+ for(unsigned at:{2003u,2005u,2006u,2008u,2010u,2011u})badByte(at,1);
+ badByte(2002,3);badByte(2004,34);badByte(2009,8);badByte(1992,0);badByte(1996,10);
+ badByte(2012,2);badByte(2013,29);badByte(2014,1);badByte(2054,0);badByte(3214,29);badByte(3215,1);badByte(3218,0);badByte(3305,2);
  for(unsigned mode=0;mode<15;++mode){auto bad=dormant;auto &j=*bad.journey;
   switch(mode){case 0:j.skeletonSeed=1;break;case 1:j.supplements[0].inputs.luck.reset();break;case 2:j.treasure.reset();break;case 3:j.supplements[29].inputs.resistances.reset();break;case 4:j.actors[9].accounted=false;break;case 5:j.actors[9].hp=1;break;case 6:j.treasure->pendingGold=10;break;case 7:j.treasure->armor[0].source=9;break;case 8:j.treasure->weapons[0].item.frame=1;break;case 9:j.treasure->weapons[0].source=12;break;case 10:j.regionalRecovery.reset();break;case 11:bad.characters[29].learnedSpells.reset();break;case 12:j.supplements[29].inputs.poisonResistance.reset();break;case 13:j.serviceEconomy.reset();break;case 14:j.random.reset();break;}
   rejects([&]{XeenSaveFormat::encode(bad);});}

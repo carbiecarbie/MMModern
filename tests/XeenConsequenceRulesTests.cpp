@@ -3,6 +3,8 @@
 #include "games/xeen/XeenJourneyProgression.h"
 #include "games/xeen/XeenCharacterRules.h"
 #include "formats/xeen/XeenCharacterFormat.h"
+#include "games/xeen/XeenServiceDay.h"
+#include "XeenSaveTestSupport.h"
 #include <iostream>
 #include <limits>
 #include <stdexcept>
@@ -56,7 +58,7 @@ void physical() {
 	check(ordinary.characters[0].currentHp==47,"Ordinary threshold");
 	c[0].conditions[3]=255;c[0].conditions[8]=1;
 	XeenCombatRandom overflowTape(std::vector<XeenCombatRandom::Draw>{{1,10,1},{1,25,25}});
-	XeenEnemyAttackCandidate overflow(c,i,profile(3,5),610,0x3f);rejects([&] { finish(overflow,overflowTape); });
+	XeenEnemyAttackCandidate overflow(c,i,profile(3,5),610,0x3f);finish(overflow,overflowTape);check(overflow.characters[0].conditions[3]==255,"Combat Poison saturates");
 	check(c[0].currentHp==50 && c[0].conditions[3]==255,"Pure overflow does not mutate source");
 }
 void targetingAndCounts() {
@@ -231,7 +233,7 @@ void additionalTapes() {
  for(unsigned n=0;n<6;++n){tape.push_back({1,10,1});tape.push_back({1,40,40});tape.push_back({0,9,1});tape.push_back({1,40,1});}
  XeenCombatRandom tick(tape);XeenConditionTimeCandidate minute(context,1,c,i);finish(minute,tick,1);
  check(minute.context.minutes==960 && tick.position()==24,"Round/End crossing and zero-resistance [1,40] branch draws");
- c[0].conditions[13]=255;XeenCombatRandom overflow(tape);XeenConditionTimeCandidate death(context,1,c,i);rejects([&]{finish(death,overflow,1);});check(c[0].conditions[13]==255,"Dead255 tick is unpublished");
+ c[0].conditions[13]=255;XeenCombatRandom overflow(tape);XeenConditionTimeCandidate death(context,1,c,i);finish(death,overflow,1);check(death.characters[0].conditions[13]==255,"Time Dead saturates");check(c[0].conditions[13]==255,"Dead255 tick is unpublished");
  XeenMonsterTreasure purse;purse.gold=800;
  XeenCombatRandom noDrop(std::vector<XeenCombatRandom::Draw>{{1,100,11}});XeenMonsterDropCandidate eleven(purse,0);finish(eleven,noDrop,1);check(eleven.outcome==XeenMonsterDropOutcome::None && noDrop.position()==1,"Drop11 boundary");
  const std::array<unsigned,6> sub{30,31,60,61,85,86};
@@ -411,7 +413,7 @@ void timeAndInputs() {
 	i[0].might.permanent=1;
 	XeenCombatRandom noDraws(std::vector<XeenCombatRandom::Draw>{});XeenConditionTimeCandidate death(context,10,c,i);finish(death,noDraws);
 	check(death.characters[0].conditions[13]==2 && death.characters[0].currentHp==50 && death.characters[0].conditions[8]==1 && noDraws.position()==0,"Stat death retains HP and Sleep, nonzero conditions skip draws");
-	context.minutes=1250;rejects([&] { XeenConditionTimeCandidate dusk(context,10,c,i); });
+	context.minutes=1250;XeenConditionTimeCandidate dusk(context,10,c,i);finish(dusk,noDraws);check(dusk.context.minutes==1260,"Dusk is playable");
 	std::vector<std::uint8_t> chr(30*354);chr[313]=7;chr[314]=2;chr[315]=9;chr[316]=3;
 	check(!XeenCharacterFormat::parseCombatInputs(chr,0,true).resistances,"Legacy optional absence");
 	const auto r=XeenCharacterFormat::parseCombatInputs(chr,0,true,true).resistances;
@@ -421,4 +423,5 @@ void timeAndInputs() {
 	pty.pop_back();rejects([&] { XeenCharacterFormat::parseMonsterPurse(pty); });
 }
 }
-int main() { try { dormantTreasure();physical();targetingAndCounts();runAndParticipation();shootAndLoot();additionalTapes();completeWeaponRules();missileClassAndZeroDamage();rejectionBudgets();rangedOpportunity();indoorOpportunity();timeAndInputs();std::cout<<"M33/M34 artificial pure-rule controls passed\n";return 0; } catch (const std::exception &e) { std::cerr<<e.what()<<'\n';return 1; } }
+#include "XeenDailyTimeOracles.h"
+int main() { try { dailyTimeOracles();dormantTreasure();physical();targetingAndCounts();runAndParticipation();shootAndLoot();additionalTapes();completeWeaponRules();missileClassAndZeroDamage();rejectionBudgets();rangedOpportunity();indoorOpportunity();timeAndInputs();std::cout<<"Shared consequence pure-rule controls passed\n";return 0; } catch (const std::exception &e) { std::cerr<<e.what()<<'\n';return 1; } }
