@@ -163,6 +163,10 @@ Priorities, in order: correctness, then credit/resource efficiency, then speed.
 - The main agent waits through the native agent-completion mechanism with
   the longest wait allowed, without reading logs, polling status or sending
   progress messages, then reads the result once.
+- If the complete suite fails only because of stale test expectations and the
+  fix changes test code only, rerun the failed tests and `ctest -L fast`
+  instead of the complete suite. Any production-code change requires another
+  complete run.
 - If that model, the script or delegation is unavailable, report it and leave
   full-suite validation pending; never run the complete suite on the main
   model instead. A passing complete suite is still required before declaring
