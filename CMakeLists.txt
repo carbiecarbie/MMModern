@@ -707,6 +707,14 @@ if(BUILD_TESTING)
 		"-Wl,--wrap=SDL_Delay" "-Wl,--wrap=SDL_UpdateTexture" "-Wl,--wrap=SDL_RenderPresent")
 	add_test(NAME sdl_input COMMAND mmodern_sdl_input_tests)
 	add_test(NAME sdl_main_screen COMMAND mmodern_sdl_input_tests mouse)
+	add_executable(mmodern_sdl_motion_tests tests/SdlMotionTests.cpp)
+	target_link_libraries(mmodern_sdl_motion_tests PRIVATE mmodern_platform_sdl SDL2::SDL2)
+	target_link_options(mmodern_sdl_motion_tests PRIVATE "-Wl,--wrap=SDL_GetTicks"
+		"-Wl,--wrap=SDL_Delay" "-Wl,--wrap=SDL_PumpEvents"
+		"-Wl,--wrap=SDL_UpdateTexture" "-Wl,--wrap=SDL_RenderPresent")
+	add_test(NAME sdl_motion COMMAND mmodern_sdl_motion_tests)
+	set_tests_properties(sdl_motion PROPERTIES TIMEOUT 10 ENVIRONMENT
+		"SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software")
 	set_tests_properties(sdl_input sdl_main_screen PROPERTIES ENVIRONMENT
 		"SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software")
 	add_executable(mmodern_game_flags_tests

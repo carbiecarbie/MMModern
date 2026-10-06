@@ -279,22 +279,38 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         if(handler.drawButton && inputCurrent(origin)) {
             // ButtonContainer::checkEvents shows frame | 1, waits two
             // presentation ticks, then restores before returning the key.
-            // No gameplay callback, idle update, input pump, semantic upload or
-            // frame acquisition occurs during this native display effect.
+            // No gameplay callback, idle update, semantic upload or frame
+            // acquisition occurs during this native display effect.
             auto pressed=displayContent;
             handler.drawButton(pressed,button);
             if(!inputCurrent(origin) || (handler.frameCurrent && !handler.frameCurrent()))
                 throw std::runtime_error("Stale button feedback origin");
-            const auto presentButton=[&](const IndexedFrame &frame) {
-                if(!uploadFrame(texture,frame,initialFrame.width,initialFrame.height,pixels))
-                    throw std::runtime_error("Button feedback upload failed");
+            const auto presentButtonTexture=[&] {
                 SDL_SetRenderDrawColor(renderer,0,0,0,255);SDL_RenderClear(renderer);
                 if(SDL_RenderCopy(renderer,texture,nullptr,nullptr)!=0)
                     throw std::runtime_error("Button feedback presentation failed");
                 drawCursor();SDL_RenderPresent(renderer);
             };
+            const auto presentButton=[&](const IndexedFrame &frame) {
+                if(!uploadFrame(texture,frame,initialFrame.width,initialFrame.height,pixels))
+                    throw std::runtime_error("Button feedback upload failed");
+                presentButtonTexture();
+            };
             presentButton(pressed);
-            SDL_Delay(kButtonFeedbackMilliseconds);
+            if(resources.cursor) {
+                // Pinned Xeen EventsManager::wait/pollEvents keeps the cursor
+                // responsive at SCREEN_UPDATE_TIME (10 ms) during button holds.
+                // Pump without consuming input: the existing batch/FIFO/fences
+                // still own every key, click, focus and close event afterward.
+                const auto started=SDL_GetTicks();
+                for(;;) {
+                    const auto elapsed=SDL_GetTicks()-started;
+                    if(elapsed>=kButtonFeedbackMilliseconds)break;
+                    SDL_Delay(std::min<Uint32>(10,kButtonFeedbackMilliseconds-elapsed));
+                    SDL_PumpEvents();
+                    if(SDL_GetTicks()-started<kButtonFeedbackMilliseconds)presentButtonTexture();
+                }
+            } else SDL_Delay(kButtonFeedbackMilliseconds);
             presentButton(displayContent);
             if(!inputCurrent(origin) || (handler.frameCurrent && !handler.frameCurrent()))
                 throw std::runtime_error("Stale button feedback restoration");
