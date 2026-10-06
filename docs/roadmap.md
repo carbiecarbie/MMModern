@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M50 is the latest completed and accepted milestone.**
+**M51 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -34,14 +34,13 @@ machinery: the code now has one save format and one Journey configuration, and
 
 | Milestone | Tier | Goal | Accepted when |
 | --- | --- | --- | --- |
-| **M51 - Rest, food and daily time** | A | Original Rest with food, HP/SP recovery, encounter interruption and the daily processing it needs; food enters the save. | The party can rest repeatedly with correct time, food and recovery; save/restore exact. |
 | **M52 - Normal start in Vertigo** | A | New game from original initialization: the six level-1 `maze.pty` characters at Vertigo `(18,4)` facing West, without injected levels/XP; the prepared Journey becomes a test mode. | A new game starts in Vertigo and is playable with Rest, services and save/restore. |
 
 The order matters. M44-M48 lowered the cost of change and made input, menus
 and presentation original and generic, M49 corrected combat rules and M50
-admitted the whole of Vertigo from resources. M51-M52 now turn the prepared
-Journey into normal play: survival through Rest first, and the original new
-game last.
+admitted the whole of Vertigo from resources, and M51 added Rest, food and
+daily time. M52 turns the prepared Journey into normal play with the original
+new game.
 
 Deferred because they add no rework later: **audio** (sounds, music, voices;
 a separate additive system), the original **event dialogs, casting dialog and

@@ -1,106 +1,65 @@
 # Milestone 51 plan - Rest, food and daily time
 
-**Tier A. Status: approved (2026-10-06).** Independent plan review completed; the maintainer approved original Weak/Drunk behavior and byte condition counters. Implementation requires explicit authorization.
+**Tier A. Status: completed and accepted.** Plan `0f09473`; Part A `b8856c1`;
+Part B `55633c1`; review fixes `cffb2c3`.
 
-## Goal and baseline
+## Goal
 
-The prepared party can repeatedly Rest through the original exploration button and R key, wherever the original permits it in the playable mainland and Vertigo, with food, recovery, interruption and faithful time processing. No camp whitelist or parallel Rest coordinator; no new areas or normal-start work (M52).
-Baseline: clean `main`, HEAD = origin/main = `git ls-remote origin refs/heads/main` = `dd90fa678c21d7dcee5f43786a08f45563cf1284`, verified 2026-10-06.
-Authority: clean `D:/Projetos/MModern/scummvm-known-good-candidate` at `6814ee9ba54582f5b5adcffab49efbbd8f589edd`; below, `R/` means its `engines/mm/xeen/`, and `C/` its `devtools/create_mm/create_xeen/`. MMModern references are repository-relative, at the baseline.
-Read with [roadmap](roadmap.md), [current status](project-status.md), [M47 decision 2](milestone-47-plan.md#decisions), [M49](milestone-49-plan.md) and [M50](milestone-50-plan.md). Original data at `F:/Games/gog/Might and Magic 4-5` stays external and read-only.
+The prepared party can Rest as in the original, repeatedly, from the
+exploration button or R, with food, HP/SP recovery, time advance, monster
+interruption and the daily processing that resting crosses, and play
+continues normally across days and years.
 
-## Reference findings and implementation decisions
+## Final scope
 
-### 1. Rest entry, refusal and original presentation
+- **Daily time (Part A).** Shared `changeTime`/`addTime` processing
+  (`Party::changeTime/addTime`): the eight-hour condition block runs once per
+  call; dawn and `newDay` with the needs-rest message and Weak; Confused and
+  Paralyzed checks; day 100 rolls into the next year; merchant restock and
+  bank interest on the original conditions; night sky. The old day-8..99 /
+  year-610 limits were replaced by this processing in travel, combat, Shoot,
+  casting, Bash/unlock and services. Age follows the current year.
+- **Food and state.** Food is read from the correct party offset (618..619;
+  the earlier loader read the light byte) and starts at the original 90.
+  Food and fire/energy/magic resistances became saved live state; `resetTemps`
+  clears the original temporary fields.
+- **Rest (Part B).** Original entry (button and R; R stays Run in combat and
+  Repair in the Ironworks lobby), primary-map rest restriction, the "some
+  characters may die" confirmation, ten charge opportunities and 480 minutes,
+  the dream roll and visual sequence, `resetTemps`, active-order food and
+  recovery (starving per member), the original Weak/Drunk order, terrain
+  consequences (desert +170 minutes unless indoors or with a Navigator) and
+  the completion message. Nearby monsters move and attack while the party
+  sleeps; an interrupted Rest keeps its elapsed time and skips completion,
+  food and recovery, and members who were not hit stay asleep.
 
-- `R/interface.cpp:337,673,1144`: Rest is the exploration main-screen button and R. Combat installs different controls (`:1605`, R is Run); do not add an invented combat Rest dialog. Busy dialogs/services cannot dispatch exploration Rest.
-- `R/interface.cpp:1148-1166`: sample current cell; refuse when `_currentCantRest` or primary-map `RESTRICTION_REST` is set, except `MODE_INTERACTIVE2`. Then inspect all seven effective attributes of every active member; any value below 1 asks `SOME_CHARS_MAY_DIE`. Choosing No leaves state/time/RNG unchanged.
-- `R/map.cpp:1256-1263`, `R/map.h:153`: the pin tests `RESTRICTION_REST` (`0x4000`) against cell flags loaded as `byte & 0xf8` (`R/map.cpp:257`), so `_currentCantRest` is always false; this looks like a port defect, not an original rule. Effective behavior: only the primary-map maze flag refuses Rest. Implement that lookup (primary-map versus physical-cell ownership), add no per-cell Rest path, do not reinterpret another cell bit as a ban, and test that cell flags never refuse Rest.
-- There is **no nearby-monster refusal and no food precheck** in `R/interface.cpp:1144-1238`. Danger from actors is resolved by the sleeping movement/combat path below; zero food still permits Rest.
-- MMModern already loads both flag representations (`src/formats/xeen/XeenMapFormat.cpp:94-110`); use World sampling for tile seams. Replace the Rest placeholder in `src/platform/sdl/XeenMainScreenInput.h:34` and exploration R's old Revisit mapping (`src/platform/sdl/SdlWindow.cpp:56`, `src/app/XeenEventFlow.cpp:1255`), retaining combat Run and service Repair.
-- Reuse Confirm/ErrorScroll (`src/games/xeen/XeenDialogView.cpp:316-321`) and the M47 verified text generator. Add named original templates, not checked-in commercial text or a project menu: `C/en_constants.h:1449-1468` has `REST_COMPLETE`, `PARTY_IS_STARVING`, `HIT_SPELL_POINTS_RESTORED`, `TOO_DANGEROUS_TO_REST`, `SOME_CHARS_MAY_DIE`; `:155` has `THE_PARTY_NEEDS_REST`.
-- Preserve the asleep portraits, button feedback, danger confirmation, refusal wait mode, completion scroll with actual food count, and ordinary death handling (`R/interface.cpp:1172,1229-1237`). Input must not leak through confirmation, animation, combat or completion.
+## Decisions
 
-### 2. Successful Rest, food and recovery order
+1. **Weak/Drunk** follows the original (replacement, no post-refill cure).
+2. **Condition counters** are unsigned bytes with explicit wrap and
+   saturation. For byte `0xFF` the pinned ScummVM `-1` sentinel is followed
+   in comparisons, dawn increments and stat modifications; this is not
+   confirmed in DOS and is covered by the AGENTS.md rule for condition
+   counter edge cases (added during this milestone).
+3. **Poison/Disease** eight-hour branch follows the pin, which only draws
+   for members without the condition; a DOSBox check remains open.
+4. **Save v6** adds food and the three resistance pairs (182 bytes); the
+   M44 digests changed by these format bytes only, with complete traces
+   identical.
+5. Unsupported terrain (lava, sky, cloud fall, space) refuses Rest before
+   any change; none is reachable in the current mainland or Vertigo.
 
-- `R/interface.cpp:1168-1191`: set Asleep = 1 for every active member, remember prior mode, enter sleeping. Ordinary exploration performs ten `chargeStep(); draw3d(true)` iterations, then `changeTime(380)` outdoors or `changeTime(470)` indoors.
-- `R/interface.cpp:712-720`: each charge is 10 minutes outdoors or 1 indoors, so an uninterrupted ordinary Rest totals **480 minutes** before post-Rest terrain effects. It does not call `stepTime` or increment `ctr24` ten times. Preserve the existing pending-monster countdown: move if already pending, then arm 3; sleeping draws do not use the ordinary countdown decrement (`:1346`). `moveMonsters` keeps its own guards (`R/combat.cpp:469-475`): it returns without moving when `combat._moveMonsters` is false, zeroes `_tillMove` before the `_charsShooting` early return, and only then clears its per-call maps.
-- `MODE_INTERACTIVE2` skips the ten opportunities and calls `changeTime(480)` directly. Record this reference branch without adding a new exploration mode or unsupported service to M51.
-- After time, draw gameplay RNG `1..20`; on 1 invoke dream (`R/interface.cpp:1193`, `R/worldofxeen/worldofxeen.cpp:121-158`). It is not an encounter roll. Pure Clouds returns immediately; the current World-of-Xeen-Clouds profile needs the original dream image/fades/cursor restoration and two seven-tick holds. Audio remains the roadmap's explicit deferred work; dream adds no gameplay draws/time. The original visual hold also waits for `dreams2.voc` and `laff1.voc` to finish, so without audio the dream is shorter than the original: a recorded known gap until audio lands.
-- Then `resetTemps`, then active-order wake/recovery (`R/interface.cpp:1196-1227`). Clear Asleep even without food. If food is zero, mark the completion message starving and do not refill that member. Otherwise set `rested = true`, even before testing whether that member is Dead/Stoned/Eradicated.
-- A member whose worst condition is outside Dead..Eradicated consumes **one unit**, clears Unconscious and receives max HP/SP. Follow the original Weak/Drunk behavior described by the pin's workaround comments (`R/party.cpp:470-475`, `R/interface.cpp:1222-1224`): weakness conversion occurs during time processing, before recovery and independently of food; do not add the pin's explicit post-refill Weak clear. Other conditions remain subject to their own rules; dead/stoned/eradicated members consume nothing and receive no refill.
-- Partial food goes to eligible members in active order; starvation reporting is checked per member before eligibility, not inferred from final food = 0. No damage or substitute recovery is invented for starvation. Repeated Rest without food still advances time and resets temporary effects.
-- Restore prior mode, run `doStepCode`, redraw, show completion, then check party death (`R/interface.cpp:1229-1237`). `doStepCode` includes terrain consequences, e.g. desert without Navigator adds 170 minutes via `addTime` (`:741-813`), so “eight hours” is not an unconditional final-calendar delta. Reuse existing terrain/damage owners; unsupported terrain/falling outside current playable geography is recorded, not grounds for a camp manifest.
+## Results
 
-### 3. Encounters and RNG ownership
-
-- `R/combat.cpp:464-532`: movement is deterministic: two passes, y delta 3 down to -3, x delta -3 up to 3, original monster order. Sleeping permits movement/eligible ranged attacks even for actors not previously attacking. It neither spawns a random encounter nor makes a rest-specific encounter draw.
-- Time consequences run before any owed monster move on each charge; movement queues ranged attacks in reference order. Scene classification/contact then enters `doCombat` (`R/interface.cpp:1383-1389,1597-1639`). Use M49 targeting/attack-count and M50 indoor/ranged geometry without a second combat engine.
-- MMModern extension points: `src/games/xeen/XeenActorApproach.cpp:115-153,471-499`, `src/games/xeen/XeenRegionalRules.cpp:212-259`, `src/app/XeenJourneyConsequences.cpp:229-274`. Add sleeping as an explicit movement/opportunity context, not by permanently marking all actors activated; update the “unactivated actors stay at original position” guard (`XeenRegionalRules.cpp:203`) to allow valid sleeping movement with equivalent structural checks.
-- A sleeping target bypasses the physical hit roll and wakes when damage processing begins (`R/combat.cpp:299,942-954`; current `src/games/xeen/XeenCombatRules.cpp:202-221`). Keep target-selection, damage/save/ability draws and M49 projectile impact publication in the same order; no RNG draw for a mere opportunity or movement.
-- Ranged resolution can change sleeping to interactive when a member's worst condition is Depressed, Confused or Good (`R/combat.cpp:663-672`); preserve this exact test, including continued sleep after attacks that do not satisfy it. Contact combat finishes through the ordinary combat mode/treasure/death path (`R/interface.cpp:1866-1919`).
-- If an iteration returns to interactive, Rest immediately returns (`R/interface.cpp:1184-1186`): retain elapsed charges, wounds, surviving sleep conditions, actor positions and combat RNG. Do not spend the remaining hours, draw the dream roll, reset bonuses, eat, refill, clear everyone's sleep, resume automatically or show Rest-complete. Combat itself may add its normal time. Only damage (`R/combat.cpp:197,299`), Awaken (`R/spells.cpp:273`) or a later completed Rest clears Asleep, so members not hit stay asleep after the combat; that is original. Exploration, combat turn order and portraits must stay usable with persistently asleep members.
-- Event/Encounter Flow owns the transient Rest phase and return continuation. World retains actors, scheduling and the shared gameplay cursor; Party retains members/food. Publish each reference-visible step through existing guarded candidates, retaining fallible preflight and M49 impact guarantees. Never roll back a completed visible charge when a later step interrupts.
-
-### 4. Time, daily effects and calendar: in scope
-
-- Generalize existing `XeenConditionTimeCandidate` (`src/games/xeen/XeenCombatRules.cpp:335-380`) and `XeenGameplayContext` (`src/games/xeen/XeenGameplayContext.h:11-37`) for shared time processing in the existing World/Party ownership. `encounterContext` currently resides in Party state (`src/games/xeen/XeenParty.h:137-141`); no ownership migration is needed merely because documentation calls it the World calendar.
-- Preserve **call semantics**, not a scheduler that replays every mathematical crossing: `R/party.cpp:403` performs its eight-hour condition block once if integer division changes during that `changeTime` call; `addTime` alone never invokes it. `src/games/xeen/XeenGameplayContext.cpp:19-32` currently reports crossing counts, which must not become repeated effects for a long call.
-- At that block, in active order: effective-stat death check (skip Dead/Stoned/Eradicated); HeartBroken increments and becomes Depressed after 10; Poison and Disease branches; Insane increments; Dead/Stoned/Eradicated counters increment with byte saturation; InLove increments and becomes HeartBroken after 10; original Weak/Drunk conversion below; Depressed cycles modulo 4 (`R/party.cpp:403-480`). Preserve same-call transition ordering.
-- **Approved Weak/Drunk decision:** for ordinary nonsentinel values, replace Weak with Drunk and clear Drunk, rather than adding them. Sober weakness therefore clears at an eight-hour block even without Rest or food; dawn's needs-rest weakness can disappear at 08:00. Reject the pin's paired workarounds (addition plus explicit post-refill cure) together. The comments establish replacement but not the original sentinel guard, whether assignment was unconditional, or whether Drunk clearing shared that guard; use the provisional sentinel mapping authorized below; no DOS confirmation is claimed.
-- The pin's Poison/Disease tests are inverted: they run only when the condition is **zero**, draw `1..10` / `0..9`, and conditionally draw an electrical/cold saving throw; nonzero conditions do not worsen or cure there (`R/party.cpp:426-442`). Current MMModern already preserves those zero-condition draws (`XeenCombatRules.cpp:358-372`). Follow the pin; any DOSBox contradiction requires an explicit fidelity decision, not a silent fix.
-- After `addTime`, each `changeTime` checks nonzero Confused (draw `0..2`; on 1, physical saving throw clears it or decrements) and Paralyzed (draw `0..4`; on 1 decrement), then updates night sky (`R/party.cpp:484-505`, `R/character.cpp:431-465`). Implement missing branches and use the shared cursor, including saving-throw item/resistance inputs.
-- `addTime` normalizes minutes at 1440 and days at **100**, incrementing year; canonical day values are 0..99 (`R/party.cpp:508-519`). At changed ending day, restock and interest once if ending day % 10 = 1 **or charge > 1440**. Do not substitute one restock per crossed ten-day boundary; preserve the same-day-after-whole-years comparison quirk.
-- Preserve stock-before-interest-before-daily-effects order (`R/party.cpp:521-548,1630-1636`). Reuse `src/games/xeen/XeenServiceDay.cpp:7-31` and `XeenServiceEconomy.cpp:133-135`, with guarded shared RNG preparation, and no replay of prepared stock on publication/load.
-- On a changed ending day set `newDay`; when pending and ending minutes >= 300, process once. In script mode or interactive7, skip resets/weakness/message but still clear `newDay`. Otherwise reset temps; if `rested` or sleeping, clear `rested`; else apply the original Weak increment guard and show the original needs-rest scroll (`R/party.cpp:528-548`). The pin spells the guard `WEAK >= 0`; its original byte signedness remains uncertain; use the provisional mapping below. Before 05:00 keep the pending flag. Test skipped dawns and long-call ending-time behavior literally.
-- `resetTemps` clears active members' six temporary resistances, temporary AC/level and seven temporary attributes; clears party resistances, light, levitation, Walk on Water, Wizard Eye, Clairvoyance, Heroism, Holy Bonus, Power Shield and Blessed (`R/party.cpp:552-585`). It does **not** clear temporary age, torch count or all conditions. Share this operation with Training's partial reset (`src/games/xeen/XeenTraining.cpp:49-61`) and route live resistance reads through saved state.
-- Age is derived from current year minus birthYear, capped at 254, plus temporary age; attribute age brackets then apply (`R/character.cpp:279-282,390-395`; `src/games/xeen/XeenCharacterRules.cpp:24-29,105-119`). No birthday increment, birthYear rewrite, automatic HP refill/clamp or invented yearly death roll. Evaluate pre-addTime condition checks with the old year and post-time recovery with the new one.
-- Remove the day-8..99/year-610, daytime-only, `!rested/!newDay` gates and the dependency that later days require Vertigo actors: `src/games/xeen/XeenJourneyRules.cpp:29-34`, `XeenGameplayContext.cpp:40-43`, `XeenSaveState.cpp:33-34`, `src/formats/xeen/XeenSaveFormat.cpp:227-228`. Retain canonical ranges, resource identities, ownership and explicit numeric-overflow checks; no new arbitrary play-date cutoff.
-- Replace boundary refusals in travel, combat, Shoot, casting and Bash/unlock with the same implemented processing (`XeenActorApproach.cpp:472-474`, `XeenCombat.cpp:997-998`, `src/app/XeenJourneyConsequences.cpp:17-18`, `XeenCastingFlow.cpp:22-23`, `XeenBarrierFlow.cpp:23-24,88-89`). Repeated Rest must leave ordinary play usable after midnight/dawn/year change.
-- Services retain `addTime` semantics and mode suppression, not synthetic `changeTime` condition ticks (`R/locations.cpp:173,1414-1420`; script entry `R/scripts.cpp:189`). Generalize departure arithmetic in `src/games/xeen/XeenArmorRepair.h:52-63` and Training/Temple reservations across rollover while preserving their original call boundaries and one-consumer continuation.
-- Wire actual night state (<05:00 or >=21:00) into existing scene support (`src/games/xeen/XeenOutdoorScene.cpp:87`, `XeenIndoorScene.cpp:261-262`); preserve resource-driven always-day exceptions. Day change must not reset actors, replay Events or grant rewards.
-
-### 5. Recorded but deferred
-
-- Tavern food purchase, Inn/party management, Create Food and food-granting/taking Event opcodes remain later capability work. Reference paths are `R/locations.cpp:839-874`, `R/spells.cpp:322`, `R/party.cpp:1099-1100,1387,1594`, `R/character.cpp:827`. Unsupported interactions retain clear notices; no refill cheat or automatic food replenishment.
-- No new spells, monster abilities, map connections, new-game initialization, lighting system or general terrain/falling system. Their time/reset contracts are recorded above; state resets needed by Rest are in scope even when a producer remains unsupported. If current reachable terrain requires missing effects, stop and rescope instead of declaring that cell non-restable.
-- Reference `MODE_INTERACTIVE2`/interactive7 callers outside existing gameplay are recorded, not newly exposed. Audio remains deferred as in the roadmap; the Rest UI and applicable visual dream are not deferred.
-
-### 6. Food, mutable fields and save v6
-
-- Food belongs to Party (`R/party.cpp:315`; `src/games/xeen/XeenParty.h:150-153`). **Found loader defect:** `XeenPartyLoader.cpp:30-31` reads 620..621, which is light (`src/formats/xeen/XeenGameplayContextFormat.cpp:19`). Food is unsigned LE16 at **618..619**, immediately after minutes (`R/party.cpp:314-316`).
-- Read-only decoding of the supplied XEEN.CC initial blocks verified day 1, year 610, minutes 480, **food 90**, light 0. The prepared Journey copies that initial Party then changes levels/day, not food (`src/compat/scummvm/ScummVmXeenBridge.cpp:311-324`; `src/games/xeen/XeenActorApproach.cpp:235-263`). Start M51 with those original 90 units; no invented supply. Correct the loader and its offset-mirroring test (`tests/XeenDialogTests.cpp:113`).
-- Replace read-only `_originalFood` with guarded mutable food used by Rest, the sheet and future producers. Save it as LE16; do not reload it from initial resources. Include it in copy/swap, detached candidates, equality, capture/restore and mutation guards (`src/games/xeen/XeenWorld.cpp:348`, `XeenParty.cpp:34,47`).
-- Promote missing fire/energy/magic resistance pairs from immutable display data to roster-owned live supplements; cold/electrical/poison already have saved live inputs (`src/games/xeen/XeenCombatInputs.h:7-24`; `src/formats/xeen/XeenSaveFormat.cpp:364-367`). Persist every newly reset temporary value and use it for display, saves and damage. Birth day, skills and awards remain immutable; birthYear is already saved.
-- **Approved counter decision:** retain unsigned-byte condition storage in live state and save v6 (`src/games/xeen/XeenCharacter.h:127`, `src/formats/xeen/XeenSaveFormat.cpp:119,148`). Use explicit modulo-256 arithmetic for unguarded byte updates and saturation at 255 where increment-to-zero is followed by -1, including Dead/Stoned/Eradicated (`R/party.cpp:444-479`) and the corresponding implemented combat effects (`R/combat.cpp:356-373`). Remove the Time Dead byte overflow refusal (`XeenCombatRules.cpp:375`) and audit the analogous combat refusal (`:252`); do not widen counters or silently saturate every condition.
-- Original `0xFF` remains 255 in storage. Interpret sentinel comparisons explicitly, never through a blanket signed conversion. The pin's live `int` (`R/character.h:149`) and byte serializer (`R/character.cpp:238-239`, `common/serializer.h:42-52` in the reference checkout) make -1 reload as 255; do not reproduce that save-dependent behavior. The maintainer waived DOS verification and authorized the provisional mapping below for these boundary cases. Round-trip all condition bytes exactly and audit numeric consumers and admission checks.
-- Bump envelope **v5 -> v6** (`src/formats/xeen/XeenSaveFormat.h:26`), with one current reader and the established older-build rejection. Extend `src/games/xeen/XeenSaveSnapshot.h:76-87`, capture/restore and validation; do not add legacy schemas/content versions. Existing saved calendar/effects/rested/newDay/RNG (`XeenSaveFormat.cpp:335-348`) become usable rather than being reconstructed or defaulted.
-- Saves remain at quiet boundaries between Rest attempts, after interruption/combat resolves, and after completion acknowledgement. No save inside a Rest animation/dialog/combat; transient phase is not serialized. Restore exact food, counters, bonuses, time, pending dawn, rested flag, actors and cursor without calling Rest/resetTemps/addTime/changeTime or drawing RNG.
-
-## Work order, risks and stop points
-
-1. **Plan gate satisfied:** independent review completed and the maintainer approved the two policy decisions on 2026-10-06. Weak sentinel/guard details use the later provisional authorization below; approval does not claim DOSBox confirmation. Await explicit implementation start; plan approval does not authorize code changes or digest regeneration.
-2. **Part A - shared daily time and persistence:** oracle tests; food-offset correction; complete mutable state/reset and v6; shared call-aware condition/calendar/economy processing; remove calendar gates across all current consumers. Keep the prepared entry unchanged except corrected original food; prove quiet round-trips before exposing Rest.
-   Part A ends with a maintainer play-test checkpoint of ordinary play across midnight, dawn and services before Part B starts.
-3. **Part B - original Rest and interruption:** original button/key/dialogs; sleeping actor opportunities on existing owners; ordered completion and dream; original-data gameplay and DOSBox comparison. Both parts are required for M51; Part A alone is not acceptance of Rest.
-4. Risks: mode-dependent daily suppression; old versus new year for aging; initial movement countdown; partial food and original weakness conversion before refill; range-only interruption; per-operation byte arithmetic and unresolved sentinel signedness; resource-derived flags; stock preparation affecting RNG; late-night service reservations. Test each at its owning boundary.
-5. Stop on evidence contradicting the approved original-behavior interpretation, a new ownership requirement, reachable unsupported terrain needed for Rest, unsafe year or other non-byte arithmetic overflow, unexplained digest divergence, or scope expansion into deferred mechanics. Present the concrete discrepancy and proposed amendment; never silently repair the reference, narrow admission or add a second time/Rest coordinator. Expected byte wrap/saturation is gameplay, not an overflow refusal.
-
-**Provisional Weak sentinel authority (maintainer authorization, 2026-10-06):** the DOS executable experiment is waived and is not an implementation gate. Use the pinned ScummVM comparisons as provisional authority: byte `0xFF` represents its `-1` sentinel, suppressing both Weak replacement and Drunk clearing at the eight-hour block, and suppressing dawn's Weak increment. Bytes `0x80..0xFE` are positive counters. Other Weak values are replaced by Drunk (the approved original-behavior decision), then Drunk clears; dawn increments eligible bytes with explicit modulo-256 arithmetic. This interpretation is identical before and after save/load; all bytes round-trip exactly. It is **not confirmed in the DOS original**. Earlier references to mandatory sentinel confirmation or an unresolved-sentinel stop point are superseded by this authorization.
-
-## M44 digest protocol
-
-- Expect **no gameplay change on existing routes unless they cross newly implemented time processing**; correct food display is a separate loader correction. Raw final-save hashes must change for v6/new fields even when common semantic state is identical; condition counters retain their byte layout. Before relying on "existing routes contain no Rest", verify that no M44 scenario or input test sends R or the Rest button outside combat: exploration R currently maps to the refused `RevisitCompletedAction` (`tests/XeenM42CliWitness.cpp:162`, `tests/XeenM39InputControls.h:40`). Preserve inputs and witnesses first (`tests/XeenM44BaselineDigests.h:6-39`).
-- Follow M49/M50: preserve pre-change executables/results, compare complete route traces, identify the first gameplay divergence, and map every changed byte/offset (version, lengths, added food/resistances and CRC separately from HP/conditions/time/actors/RNG/economy). Condition-byte value changes are gameplay differences, not counter-format changes. Explain each new field's value and every retained-field difference.
-- Obtain explicit maintainer approval **before any digest regeneration**. If services unexpectedly acquire condition ticks, investigate call/mode handling rather than accepting new hashes. No scenario reroute or blanket rebaseline without its own justified approval; final reload/re-save must remain byte-identical.
-
-## Tests and acceptance
-
-- Rules oracles against the cited reference, with the approved original Weak/Drunk and byte-counter decisions: zero/exact/partial food, active-order allocation including dead/stoned/eradicated members, weakness conversion before maxima and no explicit post-refill cure, all temp resets, refusal and declined confirmation with unchanged state/RNG, 480-minute completion and partial interruption charges, no ctr24 drift.
-- Calendar/conditions: every ordered eight-hour branch and draw interval; Confused/Paralyzed on each changeTime; zero-condition Poison/Disease quirk; 04:59/05:00, 20:59/21:00, midnight, day 99 -> day 0/year+1, age-bracket changes, long-call versus repeated-call differences, pending dawn/rested/mode suppression, 254 -> 255, unguarded 255 -> 0, saturating 255 -> 255, provisional Weak sentinel guards and exact boundary-byte save/load, stock/interest call order and no duplicate draws.
-- Original-behavior verification: in DOSBox, let a sober member become Weak from missed rest, save before 08:00 and cross that boundary without Rest; compare with reloading and resting, with/without food and with Drunk. Check weakness and HP/SP maxima, including interrupted Rest after a condition tick. High-byte/sentinel behavior is not DOS-confirmed; its executable experiment is waived as an implementation gate, and tests prove the documented provisional mapping only. Keep original files read-only and record the evidence in the owning tests/code when resolved.
-- Fixed-seed interruption cases: pre-existing countdown 0/positive, `_moveMonsters` false and shooting guards, previously inactive nearby actors, walls blocking approach, melee and ranged attacks, sleeping auto-hit, attack wake/no-wake, unhit members still asleep after combat until a completed Rest, victory/run/death, no completion/food/recovery/dream after interruption; compare actor order, cursor/count and impact frames.
-- A few original-data scenarios: repeated Rest in Vertigo and on the mainland (no cell certification), injuries/SP recovery, food exhaustion, nearby-actor interruption and travel/services after day/year rollover. Mouse and R must share the same path; original refusals/messages must match their templates.
-- Extend the generic save round-trip mid-sequence: Rest, quiet save/load, more Rest and ordinary play versus uninterrupted execution; include partial food, pending dawn, nonzero temp fields/counters and interrupted-rest aftermath. Verify stale-candidate and reentrant input cannot double-charge, replay combat or publish food/time/RNG early.
-- Iteration and the complete suite follow AGENTS.md "Long-running commands", including all M44 scenarios.
-- Acceptance requires independent plan **and implementation** reviews, passing complete CTest, approved byte-level digest audit before replacements, and maintainer DOSBox play-test of repeated Rest, food, recovery, interruption, refusal, original UI and day change. Record acceptance and update status/history only at closure; condense this plan then.
+- Rules oracles for food, recovery, time, daily effects, byte counters and
+  calendar boundaries; fixed-seed interruption tests (interrupting charge,
+  actor positions, RNG count, wake reasons); original-data Rest in Vertigo
+  and on the mainland; mid-sequence save round-trips.
+- Full CTest 160/160 (Part A) and 162/162 (Part B and review fixes), single
+  job, lightweight runner; fast suite 129/129.
+- Independent implementation review (REVISE): terrain checked only after
+  time was published, `0xFF` subtracted as 255 in stat modifications, weak
+  interruption tests, dream fade rounding and background timing, and
+  Training's partial reset; all fixed. Physical saving throws now use
+  effective Luck including condition penalties, as in the pin.
+- Maintainer play-tests of Part A (days, dawn, services) and of Rest.

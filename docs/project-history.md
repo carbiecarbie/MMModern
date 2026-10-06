@@ -161,3 +161,9 @@ all 46 monsters active, Events dispatched generically through guarded
 publication, original Bash and grate/door unlocking with typed trap damage
 and Thievery, indoor Shoot and enemy ranged attacks; save v5.
 [Plan](milestone-50-plan.md).
+
+**M51 - Rest, food and daily time** (`b8856c1`, `55633c1`, `cffb2c3`).
+Original Rest from the button or R with food, recovery, the dream and monster
+interruption; shared daily time with the original eight-hour condition
+schedule, dawn, night sky and year rollover replaced the old calendar limits;
+food read from the correct offset; save v6. [Plan](milestone-51-plan.md).

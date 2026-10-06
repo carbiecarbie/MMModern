@@ -1,9 +1,10 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M50 is the latest completed
-milestone** ([plan](milestone-50-plan.md)): the whole town of Vertigo is
-playable from the original resources, with Bash, unlocking and indoor Shoot.
-M49 ([plan](milestone-49-plan.md)) made monster targeting, damage at missile
+This describes what can be played and done now. **M51 is the latest completed
+milestone** ([plan](milestone-51-plan.md)): the party can Rest as in the
+original, with food, recovery and monster interruption, and play continues
+across days and years. M50 ([plan](milestone-50-plan.md)) made the whole town
+of Vertigo playable, with Bash, unlocking and indoor Shoot. M49 ([plan](milestone-49-plan.md)) made monster targeting, damage at missile
 impact and turning in combat follow the original. M48
 ([plan](milestone-48-plan.md)) made scene and combat presentation generic for
 all Clouds content, with the original keys and cursor. M47 ([plan](milestone-47-plan.md)) brought the original character
@@ -88,10 +89,26 @@ the original text panel, and buttons work by mouse or key.
   selected member, including Unconscious or Dead ones. Conditions are cleared
   and HP restored; SP and equipment are not touched.
 - **Time.** Each service visit costs a departure day (two after a paid Temple
-  Heal). Training adds a day per newly trained member. Play is admitted
-  only on days 8-99 of year 610; services that would pass day 99 are refused. Merchant stock regenerates and bank
-  interest is applied on the original schedule, with exact random-number
-  continuation.
+  Heal). Training adds a day per newly trained member. Merchant stock
+  regenerates and bank interest is applied on the original schedule, with
+  exact random-number continuation.
+
+### Rest, food and time
+
+- **Rest** (Rest button or R, outside combat): the party sleeps for eight
+  hours, eats one food per member who can recover, and recovers HP and SP;
+  temporary bonuses end. The original warning appears when a member may die,
+  and the original dream can appear. Without food, time still passes but
+  nobody recovers.
+- **Interruption.** Nearby monsters approach and attack while the party
+  sleeps; the Rest stops without recovery, and members who were not hit stay
+  asleep until a completed Rest or Awaken.
+- **Food** starts at the original 90 and is shown on the character sheet.
+  There is no way to buy more yet.
+- **Days and years.** Time runs without limit: conditions change on the
+  original eight-hour schedule, each dawn without rest shows the original
+  message and can make members Weak, the sky darkens at night, and ages
+  follow the year.
 
 ### Saving
 
@@ -116,7 +133,7 @@ time or combat.
 | . | Wait |
 | S | Shoot in exploration |
 | B | Bash in exploration; Block in combat; Buy in the Ironworks lobby |
-| R | Run in mainland combat; Armor Repair in the Ironworks lobby |
+| R | Rest in exploration; Run in mainland combat; Armor Repair in the Ironworks lobby |
 | C | Open learned spells (exploration or the acting member's book in combat) |
 | I | Info (not supported yet); in the character sheet, open Items |
 | W/A/C/M in Items | Weapons, Armor, Accessories, Misc |
@@ -127,7 +144,7 @@ time or combat.
 **Mouse.** On the main screen, left clicks work as in the original: the
 action and movement buttons, the combat buttons and targets 1-3, and the 3D
 view (Interact in exploration, Attack in combat). Buttons whose action is not
-implemented yet (Rest, Dismiss, View Quests, Map, Info, Quick Ref, Quick
+implemented yet (Dismiss, View Quests, Map, Info, Quick Ref, Quick
 Fight, the control panel and strafing) show "not supported yet"; portraits
 open the original character sheet, whose Items dialog is also clickable.
 Buttons briefly show their original pressed frame. The right button does
@@ -174,7 +191,7 @@ The earlier `--encounter-26`, `--encounter-27`, `--journey-skeleton` and
 
 ## Save format
 
-There is **one current save format**: envelope v5, schema 9, content 14, written
+There is **one current save format**: envelope v6, schema 9, content 14, written
 by the Regional Journey. Until a public release, older formats are not read:
 - A save from an older build is rejected before anything is restored, with "This
   save was created by an older MMModern build and is no longer supported."
@@ -237,8 +254,8 @@ instructions are in [dependencies](dependencies.md).
 ## Known gaps
 
 - **Not a new game.** The party is prepared and injured or leveled only through
-  the services above. There is no original new-game start, no Rest, no food and
-  no general calendar.
+  the services above and Rest. There is no original new-game start, and food
+  cannot be bought (Tavern) yet.
 - **Areas.** Only the map-23 mainland and Vertigo are playable. Other maps
   appear only through `--render-map`, without save support. Run refuses
   indoors.
@@ -255,6 +272,13 @@ instructions are in [dependencies](dependencies.md).
   items, Temple Donation and Uncurse show "not supported yet".
 - **Combat items.** Equipping during combat and the combat Use button are not
   supported yet (the original allows both).
+- **Rest details.** Resting on unsupported terrain (lava, sky, cloud, space)
+  refuses; none is reachable today. The dream has no audio, so it is shorter
+  than the original.
+- **Unconfirmed rules.** The condition byte `0xFF` follows ScummVM's `-1`
+  sentinel (Weak/Drunk, dawn and stat modifications); the eight-hour
+  Poison/Disease branch follows ScummVM, which only draws for members without
+  the condition. Neither is confirmed in the DOS original.
 - **Darkside** gameplay is not supported.
 
 Next steps are in the [roadmap](roadmap.md).
