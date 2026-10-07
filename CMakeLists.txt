@@ -271,6 +271,8 @@ if(BUILD_TESTING)
 	add_dependencies(mmodern_purchase_process_tests mmodern_m42_cli_witness)
 	add_test(NAME xeen_purchase_process COMMAND mmodern_purchase_process_tests $<TARGET_FILE:mmodern_m42_cli_witness> "F:/Games/gog/Might and Magic 4-5")
 	set_tests_properties(xeen_purchase_process PROPERTIES TIMEOUT 1200)
+	add_test(NAME xeen_new_game_process COMMAND mmodern_purchase_process_tests $<TARGET_FILE:mmodern_m42_cli_witness> "F:/Games/gog/Might and Magic 4-5" new-game)
+	set_tests_properties(xeen_new_game_process PROPERTIES TIMEOUT 1200)
 	add_executable(mmodern_service_economy_tests tests/XeenServiceEconomyTests.cpp)
 	target_link_libraries(mmodern_service_economy_tests PRIVATE mmodern_xeen bcrypt)
 	add_test(NAME xeen_service_economy COMMAND mmodern_service_economy_tests)
@@ -950,6 +952,7 @@ if(BUILD_TESTING)
 	# (full run: plain ctest). `process` = runs 30 s or more, or spawns child
 	# processes / drives a CLI witness executable.
 	set(xeen_process_tests
+		xeen_new_game_process
 		xeen_rest_original
 		xeen_scene_inventory_original
 		xeen_resource_cold_original

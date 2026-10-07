@@ -14,6 +14,9 @@ struct XeenGameplayServices;
 class Application {
 public:
 	int run(const std::filesystem::path &gameDirectory) const;
+	int newGame(const std::filesystem::path &gameDirectory,
+		XeenDifficulty difficulty = XeenDifficulty::Adventurer,
+		std::optional<std::filesystem::path> savePath = {}) const;
 	int inspectMap(const std::filesystem::path &gameDirectory,
 		std::uint16_t mapId = 1) const;
 	int inspectParty(const std::filesystem::path &gameDirectory) const;
@@ -37,7 +40,8 @@ public:
 private:
 	int gameplay(const std::filesystem::path &, XeenCamera,
 		const std::optional<std::filesystem::path> &, bool resume,
-		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary, std::optional<std::uint32_t> seed = {}) const;
+		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary, std::optional<std::uint32_t> seed = {},
+		std::optional<XeenDifficulty> originalStart = {}) const;
 };
 
 } // namespace mmodern

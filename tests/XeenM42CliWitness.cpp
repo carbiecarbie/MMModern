@@ -66,9 +66,11 @@ XeenBankBalances wrappedInterest(const XeenBankBalances &bank) {probe_fired::hit
 extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__real_" PLAY_SYMBOL);
 extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__wrap_" PLAY_SYMBOL);
 static const probe_fired::Expect playProbe{"Application::playGameplay","SDL_RenderCopy","SDL_UpdateTexture"};
+#include "XeenFreshStartGameplayControls.h"
 extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &original,XeenCamera camera,
     const std::optional<fs::path> &target,bool resume,XeenEncounterEntry entry,std::optional<std::uint32_t> seed) {probe_fired::hit("Application::playGameplay");
     const std::string stage=std::getenv("MMODERN_M42_STAGE")?std::getenv("MMODERN_M42_STAGE"):"fresh";
+    if(stage.rfind("m52-",0)==0) return freshStartGameplay(app,original,camera,target,resume,entry,seed,stage);
     const std::string control=std::getenv("MMODERN_M42_CONTROL")?std::getenv("MMODERN_M42_CONTROL"):"";
     if(!resume && stage=="fresh")for(const char *probe:{"XEEN_REPLAY_COMMAND","XEEN_REPLAY_DRAW","XEEN_REPLAY_JOURNEY_CONSTRUCT","XEEN_REPLAY_REGIONAL_MOVE","XEEN_REPLAY_SERVICE","XEEN_REPLAY_TIME","XEEN_REPLAY_RETIRE","XEEN_REPLAY_INDOOR_MOVE","XEEN_REPLAY_EVENT_BEGIN","XEEN_REPLAY_FRESH_PUBLICATION_INITIALIZE","xeenPrepareBankInterest","XEEN_REPLAY_EQUIPMENT","XEEN_REPLAY_TRANSFER","XeenEnemyAttackCandidate","XeenPhysicalPlayerCandidate"})probe_fired::expect(probe);
     if(!resume && stage=="depleted")for(const char *probe:{"XEEN_REPLAY_COMMAND","XEEN_REPLAY_DRAW","XEEN_REPLAY_JOURNEY_CONSTRUCT","XEEN_REPLAY_REGIONAL_MOVE","XEEN_REPLAY_SERVICE","XEEN_REPLAY_TIME","XEEN_REPLAY_RETIRE","XEEN_REPLAY_INDOOR_MOVE","XEEN_REPLAY_EVENT_BEGIN","XEEN_REPLAY_FRESH_PUBLICATION_INITIALIZE","XeenEnemyAttackCandidate","XeenPhysicalPlayerCandidate"})probe_fired::expect(probe);

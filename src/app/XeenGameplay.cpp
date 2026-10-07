@@ -117,7 +117,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   const bool original=services.originalStart.has_value();
   if(original && (resume || entry!=XeenEncounterEntry::Journey || seed ||
       static_cast<unsigned>(*services.originalStart)>1 || !services.loadInitialCamera))
-   throw std::invalid_argument("Invalid original start hook");
+   throw std::invalid_argument("Invalid original start configuration");
   if (encounter && resume) throw std::invalid_argument("Encounter entry cannot resume");
   if (seed && (resume || entry != XeenEncounterEntry::Journey || !*seed)) throw std::invalid_argument("Invalid Journey seed override");
   if (entry == XeenEncounterEntry::Journey) camera = original ? callback(services.loadInitialCamera) : xeenJourneyContent().entry;

@@ -175,36 +175,12 @@ void printPartyDiagnostics(const XeenPartyState &state) {
 } // namespace
 
 int Application::run(const std::filesystem::path &gameDirectory) const {
-	const XeenInstallationDetector detector;
-	const std::optional<GameInstallation> installation = detector.detect(gameDirectory);
-	if (!installation) {
-		std::cerr << "Nenhuma instalacao de Xeen encontrada em: "
-			<< gameDirectory.string() << '\n';
-		return 2;
-	}
+	return newGame(gameDirectory);
+}
 
-	std::cout << "Instalacao detectada: " << editionName(installation->edition) << '\n';
-	if (!installation->hasXeen()) {
-		std::cerr << "A composicao inicial do MMModern requer xeen.cc.\n";
-		return 3;
-	}
-
-	try {
-		XeenAssetSource assets(*installation, CloudsUiComposer::kWidth,
-			CloudsUiComposer::kHeight);
-		const XeenPartyState partyState = XeenPartyLoader().loadInitialCloudsParty(assets);
-		printPartyDiagnostics(partyState);
-		const XeenCharacterRulesContext rulesContext{kCloudsInitialYear};
-		const CloudsUiComposer composer;
-		const IndexedFrame frame = composer.compose(assets, partyState, rulesContext);
-
-		std::cout << "Interface estatica de Clouds of Xeen composta com sucesso.\n";
-		SdlWindow window;
-		return window.show(frame, "MMModern - Clouds of Xeen") ? 0 : 4;
-	} catch (const std::exception &error) {
-		std::cerr << "Falha ao iniciar MMModern: " << error.what() << '\n';
-		return 3;
-	}
+int Application::newGame(const std::filesystem::path &gameDirectory,
+        XeenDifficulty difficulty, std::optional<std::filesystem::path> savePath) const {
+    return gameplay(gameDirectory, {}, savePath, false, XeenEncounterEntry::Journey, {}, difficulty);
 }
 
 int Application::inspectParty(const std::filesystem::path &gameDirectory) const {
@@ -382,8 +358,12 @@ int Application::loadGame(const std::filesystem::path &gameDirectory,
 }
 
 int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera camera,
-        const std::optional<std::filesystem::path> &savePath, bool resume, XeenEncounterEntry entry, std::optional<std::uint32_t> seed) const {
+        const std::optional<std::filesystem::path> &savePath, bool resume, XeenEncounterEntry entry,
+        std::optional<std::uint32_t> seed, std::optional<XeenDifficulty> originalStart) const {
     try {
+        if (originalStart && (resume || entry != XeenEncounterEntry::Journey || seed ||
+                static_cast<unsigned>(*originalStart) > 1))
+            throw std::invalid_argument("Invalid new-game configuration");
         if (entry != XeenEncounterEntry::Ordinary && resume)
             throw std::invalid_argument("Encounter entry cannot load or configure a save");
         const auto installation = XeenInstallationDetector().detect(gameDirectory);
@@ -464,6 +444,8 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
             }
         };
         services.catalog = &catalog.catalog;
+        services.originalStart = originalStart;
+        services.loadInitialCamera = [&] { return XeenCharacterFormat::parsePartyLocation(assets.readInitialResource("maze.pty")); };
         services.resources.loadInitialCharacters = [&] { return assets.readInitialResource("maze.chr"); };
         services.resources.regionalManifest = [&](const XeenMap &map,const XeenObjectFile &mob,const XeenEventFile &evt,const std::vector<XeenMonsterRecord> &mon) {
             xeenValidateRegionalManifest(map,mob,evt,mon,assets.readInitialResource("maze0023.dat"),

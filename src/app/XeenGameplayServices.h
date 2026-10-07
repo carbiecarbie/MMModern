@@ -34,9 +34,9 @@ struct XeenGameplayServices {
    std::uint64_t, XeenMonsterAppearance)> composeEncounter;
  enum class SaveStage { Capture, Preflight, Write };
  std::function<void(SaveStage)> observeSaveStage;
- // Optional deterministic sampling seam; called once only for an unseeded fresh Journey.
+ // Optional deterministic sampling seam; called once for an unseeded fresh game or prepared Journey.
  std::function<std::uint32_t()> sampleJourneySeed;
- // Internal Part A hook. Public entry selection belongs to Part B.
+ // Select original initialization; absent for prepared Journey and restore.
  std::optional<XeenDifficulty> originalStart;
  std::function<XeenCamera()> loadInitialCamera;
 };

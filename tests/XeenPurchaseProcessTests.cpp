@@ -33,14 +33,16 @@ void context(const XeenSaveSnapshot &s,unsigned day,std::uint32_t state,std::uin
         s.journey->serviceEconomy->bank.gems==0,"M42 independent literal checkpoint fields differ");
 }
 }
+#include "XeenFreshStartProcessControls.h"
 int main(int argc,char **argv) {
     try {
-        check(argc==3,"usage: purchase-process <witness> <installation>");
+        check(argc==3 || (argc==4 && std::string(argv[3])=="new-game"),"usage: purchase-process <witness> <installation> [new-game]");
         const fs::path executable=fs::absolute(argv[1]),installation=argv[2];
         const auto directory=child_test::freshDirectory(executable.parent_path()/"m42-process");
         SetEnvironmentVariableW(L"SDL_VIDEODRIVER",L"dummy");SetEnvironmentVariableW(L"SDL_RENDER_DRIVER",L"software");
         SetEnvironmentVariableW(L"MMODERN_M42_STAGE",L"fresh");
         SetEnvironmentVariableW(L"MMODERN_M42_CONTROL",nullptr);
+        if(argc==4) { freshStartProcesses(executable,installation,directory); return 0; }
         const auto save=directory/"fresh.mmsave";
         const auto fresh=child_test::launch(executable,{L"--journey-region",L"--combat-seed",L"7",installation.wstring(),L"--save-file",save.wstring()},directory/"fresh.log",false,false,180000);
         check(fresh.exit==0 && fresh.output.find("M42 PRODUCTION WITNESS PASSED")!=std::string::npos,"M42 fresh application witness failed; inspect fresh.log");
