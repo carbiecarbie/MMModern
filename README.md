@@ -14,12 +14,13 @@ MMModern is incomplete and experimental. It is not yet a replacement for the
 original games.
 
 What can be played today is one prepared Journey in Clouds: the connected
-mainland of map 23 and a bounded route through Vertigo. You can fight, run,
-cast learned spells, finish Myra's quest, and use the Ironworks (Buy and Armor
-Repair), Training and the Temple. Progress can be saved and continued exactly.
-The original main screen works with mouse or keyboard. General exploration, a
-normal new-game start, Rest, most spells and items, the original item and
-service dialogs and Darkside gameplay are not available yet.
+mainland of map 23 and the whole town of Vertigo. You can fight, run, bash and
+unlock grates and doors, cast learned spells, finish Myra's quest, rest with
+food and recovery, and use the Ironworks (Buy and Armor Repair), Training and
+the Temple. Progress can be saved and continued exactly. The original main
+screen, character sheet, Items dialog and service screens work with mouse or
+keyboard. Other areas, a normal new-game start, buying food, most spells and
+items, and Darkside gameplay are not available yet.
 
 [Project status](docs/project-status.md) describes the current state and gaps,
 [project history](docs/project-history.md) lists completed milestones and the
@@ -66,8 +67,8 @@ original games or ScummVM.
 
 | Key | Action |
 | --- | --- |
-| Up / Down | Move forward/back outside combat |
-| Left / Right | Turn outside combat; combat movement shows "not supported yet" |
+| Up / Down | Move forward/back outside combat; in combat they show "not supported yet" |
+| Left / Right | Turn, also during combat |
 | Arrows in the sheet | Select a stat |
 | Space | Interact outside combat; acknowledge text |
 | A | Attack in combat |
@@ -76,13 +77,14 @@ original games or ScummVM.
 | F1-F6 | Open the character sheet; choose a party member in dialogs |
 | 1-9 | Select an inventory or stock slot; 1-3 pick a combat target |
 | . | Wait |
-| S | Shoot in mainland exploration |
-| R / B | Run / Block in combat |
+| S | Shoot in exploration |
+| R | Rest in exploration; Run in mainland combat |
+| B | Bash in exploration; Block in combat |
 | C | Learned spells |
 | I | Info (not supported yet); Items from the character sheet |
 | W/A/C/M in Items | Weapons, Armor, Accessories, Misc |
 | E / R / U in Items | Equip / Remove / Use; select a row then F1-F6 to move it |
-| B in the Ironworks | Browse stock and inventory services |
+| B / R in the Ironworks | Buy (browse stock and inventory services) / Armor Repair |
 | B / S / I / F in the Smith Items dialog | Buy / Sell / Identify / Fix; rows open Y/N Confirm |
 | T in Training | Train the selected member immediately |
 | H / D / U in the Temple | Heal / Donation / Uncurse |
@@ -95,8 +97,8 @@ In Vertigo, enter from mainland `(10,13)` facing North with Space. The
 Main-screen buttons and portraits also work by mouse. Combat portraits show the
 remaining members after Run; click a portrait or press its corresponding F key
 to view that member. The acting member and selected enemy use the original icons.
-WASD movement and F Shoot shortcuts have been removed. Combat movement remains
-unsupported until Milestone 48 Part C; the arrow buttons and keys show a notice.
+WASD movement and F Shoot shortcuts have been removed. In combat the party can
+turn; moving forward or back shows a "not supported yet" notice.
 
 ## Tests
 
@@ -107,6 +109,9 @@ scenarios in child processes and take much longer; they need the original instal
 ctest -L fast    # iteration: everything except process tests
 ctest            # full suite, including process tests
 ```
+
+Tests run on the optimized `build-rel` build (assertions kept); its setup is in
+[docs/dependencies.md](docs/dependencies.md#optimized-test-build-build-rel).
 
 ## Developer test saves
 

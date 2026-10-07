@@ -320,6 +320,30 @@ cmake --build <mmodern-build> --parallel 4
 ctest --test-dir <mmodern-build> --output-on-failure
 ```
 
+### Optimized test build (`build-rel`)
+
+`AGENTS.md` runs iteration (`ctest -L fast`) and the complete suite on
+`build-rel`, an optimized build with debug information and assertions kept.
+CMake's default RelWithDebInfo flags add `-DNDEBUG`, so override them. From the
+MMModern source directory, with `C:\msys64\ucrt64\bin` on `PATH` (it provides
+the compiler, Ninja, `objcopy` and `SDL2.dll`):
+
+```sh
+cmake -S . -B build-rel -G Ninja \
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+  "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=-O2 -g" \
+  -DSCUMMVM_SOURCE_DIR=<scummvm-source> \
+  -DSCUMMVM_BUILD_DIR=<scummvm-build>
+cmake --build build-rel
+cmake --build build-rel --target mmodern_test_save   # optional tool, not built by default
+ctest --test-dir build-rel -L fast --output-on-failure
+```
+
+`build-rel/build.ninja` must not contain `NDEBUG`. The complete suite runs
+single-job through `tools/run-full-ctest.ps1 -BuildDir build-rel`, as described
+in `tools/AGENTS.md`. The Debug build above (the maintainer's `build-m44`)
+remains for debugging, play-tests and the milestone-closure run.
+
 Build and run the real-data integration targets explicitly:
 
 ```sh
