@@ -2,6 +2,7 @@
 #define MMODERN_FORMATS_XEEN_XEEN_CHARACTER_FORMAT_H
 
 #include "games/xeen/XeenParty.h"
+#include "games/xeen/XeenNavigation.h"
 
 #include <array>
 #include <cstdint>
@@ -24,9 +25,10 @@ public:
 	static XeenCharacter::XeenLearnedSpells parseLearnedSpells(const std::vector<std::uint8_t> &bytes,
 		std::size_t owner);
 	static XeenMonsterTreasure parseMonsterPurse(const std::vector<std::uint8_t> &bytes);
-	// Only the checked original fresh Regional Journey PTY supplies bank input.
+	// Only the checked original fresh Clouds PTY supplies bank input.
 	static XeenBankBalances parseBankBalances(const std::vector<std::uint8_t> &bytes);
 	static PartyHeader parsePartyHeader(const std::vector<std::uint8_t> &bytes);
+	static XeenCamera parsePartyLocation(const std::vector<std::uint8_t> &bytes);
 };
 
 } // namespace mmodern

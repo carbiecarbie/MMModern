@@ -100,7 +100,7 @@ bool XeenEncounterFlow::serviceShoot() {
     const auto &actor=work.bound ? *work.bound : liveActors.at(id->recordIndex);
     if(!(actor.id==*id)) throw std::logic_error("Shoot retained identity mismatch");
     const auto owner=kXeenCombatOwners[work.shooter];
-    if(!work.attack) {work.bound=actor;work.attack.emplace(_party.roster.at(owner),*_party.roster.combatInputs(owner),*actor.statistics,actor.original.resourceId,_party.encounterContext->year,true);}
+    if(!work.attack) {work.bound=actor;work.attack.emplace(_party.roster.at(owner),*_party.roster.combatInputs(owner),*actor.statistics,actor.original.resourceId,_party.encounterContext->year,true,_party.encounterContext->difficulty);}
     if(!work.attackDone) {
      if(!work.attack->service(draw)) return true;
      work.impactRandom=work.random.continuation();

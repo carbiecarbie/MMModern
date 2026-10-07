@@ -152,6 +152,18 @@ void testCharacterOffsetsAndBounds() {
 	rejects([&] { XeenCharacterFormat::parseRoster(bytes); });
 }
 
+void testPartyLocation() {
+	Bytes bytes(18);bytes[10]=3;bytes[11]=18;bytes[12]=4;bytes[13]=28;
+	const auto c=XeenCharacterFormat::parsePartyLocation(bytes);
+	check(c.mapId==28 && c.x==18 && c.y==4 && c.direction==XeenDirection::West,"Typed PTY camera offsets");
+	for(unsigned fault=0;fault<5;++fault) {
+		auto bad=bytes;if(fault==0)bad.resize(17);if(fault==1)bad[10]=4;
+		if(fault==2)bad[11]=32;if(fault==3)bad[12]=32;if(fault==4)bad[13]=0;
+		bool refused=false;try{XeenCharacterFormat::parsePartyLocation(bad);}catch(const std::invalid_argument &){refused=true;}
+		check(refused,"Malformed PTY location accepted");
+	}
+}
+
 void testPartyHeaderAndReferences() {
 	Bytes roster = rosterFixture();
 	setName(roster, 0, "Alpha");
@@ -370,6 +382,7 @@ void testHpLayout() {
 int main() {
 	try {
 		testCharacterOffsetsAndBounds();
+		testPartyLocation();
 		testLearnedSpells();
 		testPartyHeaderAndReferences();
 		testItemStorage();

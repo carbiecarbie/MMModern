@@ -114,9 +114,13 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    return callback([&] { return supplied.composeEncounter(w,p,c,phase,actor); });
   };
   bool encounter = entry != XeenEncounterEntry::Ordinary;
+  const bool original=services.originalStart.has_value();
+  if(original && (resume || entry!=XeenEncounterEntry::Journey || seed ||
+      static_cast<unsigned>(*services.originalStart)>1 || !services.loadInitialCamera))
+   throw std::invalid_argument("Invalid original start hook");
   if (encounter && resume) throw std::invalid_argument("Encounter entry cannot resume");
   if (seed && (resume || entry != XeenEncounterEntry::Journey || !*seed)) throw std::invalid_argument("Invalid Journey seed override");
-  if (entry == XeenEncounterEntry::Journey) camera = xeenJourneyContent().entry;
+  if (entry == XeenEncounterEntry::Journey) camera = original ? callback(services.loadInitialCamera) : xeenJourneyContent().entry;
   XeenWorld world(services.maps, services.objects);
   XeenPartyState party;
   XeenGameFlags flags;
@@ -153,6 +157,11 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    if (!value) value = 1;
    journeySetup.emplace(XeenJourneySetup{journeyCharacters,services.resources.loadInitialContext(),journeyStatistics,encounterEvents,value});
    journeySetup->regionalManifest=services.resources.regionalManifest;
+	journeySetup->prepared=!original;
+	if(original) {
+	 journeySetup->context.difficulty=*services.originalStart;
+	 journeySetup->mainlandEventsProvider=[&] {return services.resources.loadEvents(23);};
+	}
 	journeySetup->cityEventsProvider=[&] { return services.resources.loadEvents(28); };
    {
     if (!services.resources.loadInitialBankBalances) throw std::invalid_argument("Missing original bank provider");
@@ -197,10 +206,16 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   EncounterHandoff handoff(flow);
   flow.prepareJourneySprites = [&] {
    const auto ticket = flow.encounter()->ticket();
-   const auto &content = xeenJourneyContent();
    if (!services.validateEncounterSprite || (!services.validateCombatSprite)) throw std::invalid_argument("Missing Journey sprite providers");
-   for (unsigned i=0;i<content.count;++i) {
-    const auto image = world.sessionState().actors().at(content.records[i]).statistics->image();
+   const auto actors=world.sessionState().regionalActors(camera.mapId);
+   for (unsigned i=0;i<actors.size();++i) {
+    if(camera.mapId==XeenMapIdentity(23) && !xeenJourneyContent().influences(i))continue;
+    if(!actors[i].statistics) {
+     if(actors[i].lifecycle!=XeenActorLifecycle::Unresolved)
+      throw std::invalid_argument("Missing Journey sprite statistics");
+     continue;
+    }
+    const auto image = actors[i].statistics->image();
     services.validateEncounterSprite(image);
     if (!flow.encounter()->current(ticket)) throw std::logic_error("Stale Journey normal sprite preparation");
     services.validateCombatSprite(image);

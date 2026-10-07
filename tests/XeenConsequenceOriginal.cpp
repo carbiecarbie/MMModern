@@ -19,6 +19,8 @@
 #include <iostream>
 #include "platform/XeenSaveFile.h"
 #include "games/xeen/XeenOutdoorScene.h"
+#include "XeenInitialResourceOracle.h"
+#include "XeenM40Evidence.h"
 using namespace mmodern;
 using save_test::check;
 namespace mmodern {
@@ -40,11 +42,11 @@ std::optional<std::uint32_t> wrappedDraw(XeenCombatRandom *r,std::uint32_t lo,st
 // Artificial zero-damage operand at the pure resolver boundary only. World
 // profiles/resources remain original; no genuine route uses this wrapper mode.
 bool zeroResistanceFixture=false;
-#define PLAYER_CTOR "_ZN7mmodern27XeenPhysicalPlayerCandidateC1ERKNS_13XeenCharacterERKNS_16XeenCombatInputsERKNS_17XeenMonsterRecordEjjb"
-void realPlayer(XeenPhysicalPlayerCandidate *,const XeenCharacter &,const XeenCombatInputs &,const XeenMonsterRecord &,unsigned,unsigned,bool) asm("__real_" PLAYER_CTOR);
-void wrappedPlayer(XeenPhysicalPlayerCandidate *,const XeenCharacter &,const XeenCombatInputs &,const XeenMonsterRecord &,unsigned,unsigned,bool) asm("__wrap_" PLAYER_CTOR);
-void wrappedPlayer(XeenPhysicalPlayerCandidate *self,const XeenCharacter &c,const XeenCombatInputs &i,const XeenMonsterRecord &m,unsigned type,unsigned year,bool shoot){
- auto operand=m;if(zeroResistanceFixture && shoot)operand.raw[40]=100;realPlayer(self,c,i,operand,type,year,shoot);
+#define PLAYER_CTOR "_ZN7mmodern27XeenPhysicalPlayerCandidateC1ERKNS_13XeenCharacterERKNS_16XeenCombatInputsERKNS_17XeenMonsterRecordEjjbNS_14XeenDifficultyE"
+void realPlayer(XeenPhysicalPlayerCandidate *,const XeenCharacter &,const XeenCombatInputs &,const XeenMonsterRecord &,unsigned,unsigned,bool,XeenDifficulty) asm("__real_" PLAYER_CTOR);
+void wrappedPlayer(XeenPhysicalPlayerCandidate *,const XeenCharacter &,const XeenCombatInputs &,const XeenMonsterRecord &,unsigned,unsigned,bool,XeenDifficulty) asm("__wrap_" PLAYER_CTOR);
+void wrappedPlayer(XeenPhysicalPlayerCandidate *self,const XeenCharacter &c,const XeenCombatInputs &i,const XeenMonsterRecord &m,unsigned type,unsigned year,bool shoot,XeenDifficulty difficulty){
+ auto operand=m;if(zeroResistanceFixture && shoot)operand.raw[40]=100;realPlayer(self,c,i,operand,type,year,shoot,difficulty);
 }
 struct Source:training_test::Inputs {
  std::vector<XeenMonsterRecord> &mon=statistics;XeenEventFile &evt=mainland;
@@ -455,6 +457,9 @@ XeenGameplayServices disengagementServices(Source &,combat_gameplay_test::Harnes
 #include "XeenConsequenceReviewControls.h"
 #include "XeenConsequencePhysicalControls.h"
 #include "XeenDisengagementTestControls.h"
+#ifndef MMODERN_M45_COLD_CACHE
+#include "XeenFreshStartControls.h"
+#endif
 #ifdef MMODERN_M45_COLD_CACHE
 #include "XeenResourceColdOriginalControls.h"
 #endif
@@ -473,6 +478,7 @@ int main(int argc,char **argv){try{
  check(argc==2 || argc==3,"usage: mmodern_consequence_original <installation> [artificial-pending-item-save]");
  const auto i=XeenInstallationDetector().detect(argv[1]);check(bool(i),"Original installation");
  Source source(*i);source.signature=XeenSaveFile::fingerprint(*i);
+ freshSaveControls(source);freshFailureControls(source);freshDifficultyHits(source);
  if(std::getenv("MMODERN_M49_IMPACT_ONLY")) {
   chargedWait(source);stagedVolleyDefeat(source);stagedRotationVolley(source);
   zeroHitVolley(source);shootOrder(source);shootLethalPreparation(source);indoorShoot(source);indoorChangedShoot(source);blockReset(source);

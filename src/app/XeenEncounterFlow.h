@@ -37,6 +37,9 @@ struct XeenJourneySetup {
 	std::function<XeenLearnedSpellNames()> learnedNamesProvider;
 	std::optional<XeenBankBalances> bank;
 	std::function<XeenEventFile()> cityEventsProvider;
+	// Transient construction choice; never saved. Default retains prepared Journey.
+	bool prepared = true;
+	std::function<XeenEventFile()> mainlandEventsProvider;
 };
 struct XeenJourneyRestoreTag {};
 

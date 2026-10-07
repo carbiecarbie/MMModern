@@ -36,6 +36,9 @@ struct XeenGameplayServices {
  std::function<void(SaveStage)> observeSaveStage;
  // Optional deterministic sampling seam; called once only for an unseeded fresh Journey.
  std::function<std::uint32_t()> sampleJourneySeed;
+ // Internal Part A hook. Public entry selection belongs to Part B.
+ std::optional<XeenDifficulty> originalStart;
+ std::function<XeenCamera()> loadInitialCamera;
 };
 // Application's persistence transaction, also usable by internal domain tests.
 // The target is already installation-checked by the caller. Refusal precedes

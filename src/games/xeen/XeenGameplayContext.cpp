@@ -34,7 +34,7 @@ XeenTimePreparation xeenPrepareTime(const XeenGameplayContext &current, std::uin
 }
 
 bool xeenRegionalContext(const XeenGameplayContext &c) noexcept {
-	return c.profile == XeenBehaviorProfile::WorldOfXeenClouds && c.difficulty == XeenDifficulty::Adventurer &&
+	return c.profile == XeenBehaviorProfile::WorldOfXeenClouds && static_cast<unsigned>(c.difficulty)<=1 &&
 		c.day < 100 && c.ctr24 < 24 && c.minutes < 1440 && c.effects[1]<=1 && c.effects[2]<=1 && c.effects[3]<=1 && c.effects[4]<=1;
 }
 }

@@ -27,7 +27,7 @@ void xeenValidateJourneyParty(const XeenPartyState &party) {
 	if (party.monsterTreasure) xeenValidateMonsterTreasure(*party.monsterTreasure);
 	const auto &context = *party.encounterContext;
 	require(xeenRegionalContext(context),"Noncanonical Journey calendar");
-	require(context.profile == XeenBehaviorProfile::WorldOfXeenClouds && context.difficulty == XeenDifficulty::Adventurer &&
+	require(context.profile == XeenBehaviorProfile::WorldOfXeenClouds && static_cast<unsigned>(context.difficulty)<=1 &&
 		xeenRegionalContext(context), "Unsupported Journey context");
 	require(party.party.activeRosterIds() == std::vector<std::uint8_t>(kXeenCombatOwners.begin(), kXeenCombatOwners.end()) &&
 		party.firstSerializedCount == 6 && party.effectiveSerializedCount == 6, "Unsupported Journey membership");

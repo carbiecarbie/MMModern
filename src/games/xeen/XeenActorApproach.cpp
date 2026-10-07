@@ -231,6 +231,17 @@ XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenP
 		const XeenEventFile &events, std::uint32_t seed,
 		const std::optional<XeenMonsterTreasure> &purse, const std::optional<XeenBankBalances> &bankInput,
 		const FreshPublicationPreparation &beforePublication) {
+	return initializeStart(world,party,camera,state,chr,context,statistics,events,events,seed,purse,bankInput,true,party.regionalRecovery,
+		[&](const auto &candidate,const auto &actors,const auto &random,const auto &,const auto &) {
+			if(beforePublication)beforePublication(candidate,actors,random);
+		});
+}
+XeenEncounterResult XeenActorApproach::initializeStart(XeenWorld &world, XeenPartyState &party,
+		XeenCamera &camera, XeenEncounterState &state, const std::vector<std::uint8_t> &chr,
+		const XeenGameplayContext &context, const std::vector<XeenMonsterRecord> &statistics,
+		const XeenEventFile &events, const XeenEventFile &mainlandEvents, std::uint32_t seed,
+		const std::optional<XeenMonsterTreasure> &purse, const std::optional<XeenBankBalances> &bankInput,
+		bool prepared, const std::optional<XeenRegionalRecoveryState> &recovery, const StartPublicationPreparation &beforePublication) {
 	const auto bank=bankInput; // Detach before all further compatibility callbacks.
 	const auto preparePublication=beforePublication;
 	const auto &policy=xeenJourneyContent();
@@ -242,9 +253,15 @@ XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenP
 		!state._world && seed && world._combatCheck, "Journey requires guarded fresh owners");
 	require(!party.serviceEconomy && bool(bank), "Fresh service economy input mismatch");
 	if (bank) require(!bank->gold && !bank->gems,"Unsupported original bank balances");
-	require(camera.mapId == policy.entry.mapId && camera.x == policy.entry.x && camera.y == policy.entry.y && camera.direction == policy.entry.direction &&
+	const XeenCamera entry=prepared ? policy.entry : XeenCamera{28,18,4,XeenDirection::West};
+	require(camera.mapId == entry.mapId && camera.x == entry.x && camera.y == entry.y && camera.direction == entry.direction &&
 		context.minutes == 480 && context.ctr24 == 0, "Journey requires fresh entry context");
+	require(xeenRegionalContext(context) && (!prepared || context.difficulty==XeenDifficulty::Adventurer),"Invalid start difficulty");
+	require(events.resourcePresent && events.mapId==camera.mapId,"Start Event binding mismatch");
+	if(!prepared)require(reservation._objects.empty() && reservation._events.empty() && reservation._barriers.empty() &&
+		reservation._accountedMonsters.empty() && !reservation._vertigoActors && world._cityStatistics.empty(),"Original start requires clean resource state");
 	XeenPartyState candidate(party);
+	if(!prepared) {require(bool(recovery) && !party.regionalRecovery,"Original recovery preparation mismatch");candidate.regionalRecovery=recovery;}
 	require(bool(purse),"Fresh consequence purse presence mismatch");
 	candidate.monsterTreasure=purse;
 	{
@@ -262,7 +279,7 @@ XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenP
 		candidate.roster.at(id).learnedSpells = XeenCharacterFormat::parseLearnedSpells(chr, id);
 	candidate.roster._combatMarked = true;
 	candidate.encounterContext = context;
-	{
+	if(prepared) {
 		candidate.encounterContext->day=8;
 		constexpr int levels[]{3,3,3,4,3,3},xp[]{1000,2000,1000,1000,2000,1000};
 		for (unsigned i=0;i<6;++i) {
@@ -296,14 +313,28 @@ XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenP
 		require(bool(a.statistics),"Missing influencing statistics");
 
 	}
-	validateEnvironment(world, actors, detachedEvents);
+	validateEnvironment(world, actors, mainlandEvents);
+	std::optional<std::vector<XeenActor>> cityActors;
+	std::vector<XeenMonsterRecord> cityStatistics;
 	XeenEncounterResult result;
 	result.outcome = XeenEncounterOutcome::Started; result.revision = 1;
-	result.view = classify(actors, camera); activate(actors, result.view);
+	if(prepared) {result.view = classify(actors, camera); activate(actors, result.view);}
+	else {
+		// Detached resource validation uses the existing city's World owner.
+		// No candidate gameplay values are installed in the destination yet.
+		XeenWorld staged(world._loader,world._objectLoader);staged._detachedEventCandidate=true;
+		staged.stageVertigoActors(world.objectFile(28),detachedStatistics);
+		cityActors=staged._sessionState._vertigoActors;cityStatistics=staged._cityStatistics;
+		require(cityActors->size()==46,"Original start requires all Vertigo records");
+		validateEnvironment(staged,*cityActors,detachedEvents);
+		result.view=XeenIndoorScene().classifyActors(world,camera,*cityActors);
+		activate(*cityActors,result.view);
+		require(!result.view.engaged(),"Original start has immediate contact");
+	}
 	std::optional<XeenJourneyRandomState> finalRandom;
 	finalRandom=preparedRandom.continuation();
 	world._combatCheck();
-	try { if (preparePublication) preparePublication(candidate,actors,finalRandom); }
+	try { if (preparePublication) preparePublication(candidate,actors,finalRandom,cityActors,cityStatistics); }
 	catch (...) {world._combatCheck();throw;}
 	world._combatCheck();
 	static_assert(std::is_nothrow_copy_assignable_v<decltype(party.serviceEconomy)> &&
@@ -312,7 +343,7 @@ XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenP
 		std::is_nothrow_copy_assignable_v<decltype(party.monsterTreasure)> &&
 		std::is_nothrow_copy_assignable_v<decltype(world._sessionState._journeyRandom)>);
 	auto &s = world._sessionState;
-	for (auto id:kXeenCombatOwners) {
+	if(prepared)for (auto id:kXeenCombatOwners) {
 		auto &to=party.roster.at(id); const auto &from=candidate.roster.at(id);
 		to.permanentLevel=from.permanentLevel; to.temporaryLevel=to.temporaryAge=0; to.conditions=from.conditions;
 		to.intellect.temporary=to.personality.temporary=to.endurance.temporary=0; to.currentHp=from.currentHp; to.currentSp=from.currentSp;
@@ -323,7 +354,12 @@ XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenP
 	party.roster._combatMarked = true; party.encounterContext = candidate.encounterContext;
 	party.monsterTreasure=candidate.monsterTreasure;
 	party.serviceEconomy=candidate.serviceEconomy;
+	if(!prepared)party.regionalRecovery=candidate.regionalRecovery;
 	s._actors.swap(actors); s._entry = XeenEncounterEntry::Journey;
+	if(cityActors) {
+		s._vertigoActors.swap(cityActors);world._cityStatistics.swap(cityStatistics);
+		world._cityOriginalActorCount=46;
+	}
 	s._encounterMarked = s._encounterInitialized = true; s._encounterRevision = 1;
 
 	s._skeletonSeed = 0;

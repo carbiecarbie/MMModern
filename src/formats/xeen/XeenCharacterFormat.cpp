@@ -174,6 +174,11 @@ XeenRoster XeenCharacterFormat::parseRoster(const std::vector<std::uint8_t> &byt
 			details->awards[i+64] = i == 9 ? 0 : award >> 4;
 		}
 		details->birthDay = record[37]; details->temporaryAc = record[34];
+		details->xeenSide=record[18];details->lloydMap=record[160];
+		details->lloydX=record[161];details->lloydY=record[162];details->lloydSide=record[310];
+		details->currentSpell=record[164];details->quickOption=record[165];
+		details->townUnknown=readUint16LE(record+339);details->savedMaze=record[341];
+		details->adventuringSpell=record[352];details->combatSpell=record[353];
 		details->experience = std::uint32_t(record[348]) | (std::uint32_t(record[349])<<8) |
 			(std::uint32_t(record[350])<<16) | (std::uint32_t(record[351])<<24);
 		character._originalDetails = std::move(details);
@@ -195,6 +200,12 @@ XeenCharacterFormat::PartyHeader XeenCharacterFormat::parsePartyHeader(
 		result.rosterIds[i] = value == 0xff ? -1 : value;
 	}
 	return result;
+}
+
+XeenCamera XeenCharacterFormat::parsePartyLocation(const std::vector<std::uint8_t> &bytes) {
+	if (bytes.size()<18 || bytes[10]>3 || bytes[11]>=32 || bytes[12]>=32 || !bytes[13])
+		throw std::invalid_argument("Invalid or truncated PTY location");
+	return {bytes[13],bytes[11],bytes[12],static_cast<XeenDirection>(bytes[10])};
 }
 
 } // namespace mmodern

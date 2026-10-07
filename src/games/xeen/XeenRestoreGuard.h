@@ -285,7 +285,9 @@ private:
 	// resource retention and all range allocation already precede this method.
 	void prepareFreshJourneyPublication(const XeenPartyState &candidate,
 		const std::vector<XeenActor> &actors,
-		const std::optional<XeenJourneyRandomState> &random) {
+		const std::optional<XeenJourneyRandomState> &random,
+		const std::optional<std::vector<XeenActor>> &city={},
+		const std::vector<XeenMonsterRecord> &statistics={}) {
 		check();
 		characters=candidate.roster.characters();
 		for(unsigned owner=0;owner<inputs.size();++owner)inputs[owner]=candidate.roster.combatInputs(owner);
@@ -297,6 +299,7 @@ private:
 		s._actors=actors;s._entry=XeenEncounterEntry::Journey;
 		s._encounterMarked=s._encounterInitialized=true;s._encounterRevision=1;
 		s._skeletonSeed=0;s._journeyRandom=random;
+		if(city) {s._vertigoActors=city;cityStatistics=statistics;cityOriginalCount=46;}
 		prepareMutationRanges();
 	}
 	// Prepare a final-destination preimage before publication. Only the private
