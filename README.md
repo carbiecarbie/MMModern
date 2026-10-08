@@ -42,19 +42,23 @@ Build and dependency setup, including the pinned ScummVM revision, is in
 Run from a terminal to see diagnostics, and quote paths containing spaces:
 
 ```text
+mmodern <game-directory> [--difficulty adventurer|warrior] [--save-file <path.mmsave>]
+mmodern --new-game <game-directory> [--difficulty adventurer|warrior] [--save-file <path.mmsave>]
 mmodern --journey-region [--combat-seed <nonzero-u32>] <game-directory> [--save-file <path.mmsave>]
 mmodern --load-game <game-directory> <path.mmsave>
 mmodern --render-map <game-directory> [<map> <x> <y> <north|east|south|west>]
 mmodern --inspect-map|--inspect-party|--inspect-events <game-directory> ...
-mmodern <game-directory>
 ```
 
-- `--journey-region` starts the playable Journey at Clouds map 23 `(9,11)` facing
-  West. `--combat-seed` fixes combat randomness. Without `--save-file`, F9 writes
-  nothing.
+- `mmodern <game-directory>` (or `--new-game`) starts a new game in Vertigo as
+  in the original. The original title menu and difficulty dialog are not there
+  yet: `--difficulty` chooses, and Adventurer is the default. Without
+  `--save-file`, F9 writes nothing.
+- `--journey-region` is a test mode with a prepared party at Clouds map 23
+  `(9,11)`. `--combat-seed` fixes combat randomness.
 - `--load-game` continues a save and keeps using that file for F9.
 - `--render-map` explores a map for inspection. It cannot save.
-- `--inspect-*` and the plain run are developer tools.
+- `--inspect-*` are developer tools.
 
 Save outside the original installation. Relative paths use the working directory.
 There is one current save format; saves from older builds are rejected with a

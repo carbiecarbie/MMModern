@@ -1,9 +1,9 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M51 is the latest completed
-milestone** ([plan](milestone-51-plan.md)): the party can Rest as in the
-original, with food, recovery and monster interruption, and play continues
-across days and years. M50 ([plan](milestone-50-plan.md)) made the whole town
+This describes what can be played and done now. **M52 is the latest completed
+milestone** ([plan](milestone-52-plan.md)): a new game starts from the
+original initialization in Vertigo, in either difficulty. M51
+([plan](milestone-51-plan.md)) added Rest, food and daily time. M50 ([plan](milestone-50-plan.md)) made the whole town
 of Vertigo playable, with Bash, unlocking and indoor Shoot. M49 ([plan](milestone-49-plan.md)) made monster targeting, damage at missile
 impact and turning in combat follow the original. M48
 ([plan](milestone-48-plan.md)) made scene and combat presentation generic for
@@ -18,17 +18,26 @@ Build and dependency setup is in [dependencies](dependencies.md).
 
 MMModern aims to be a faithful reimplementation of the original games; any
 approved deviation is noted where it applies. It is not yet a general
-replacement for them. The playable
-scope is one **prepared Journey** in Might and Magic IV: Clouds of Xeen (read
-from a World of Xeen installation): the connected mainland of map 23 and the
-whole town of Vertigo. Darkside gameplay is not supported.
+replacement for them. A **new game** of Might and Magic IV: Clouds of Xeen
+(read from a World of Xeen installation) starts as in the original, and the
+playable area is the whole town of Vertigo and the connected mainland of
+map 23. Darkside gameplay is not supported.
 
 ## What can be played
 
-Start it with `--journey-region` (see [Entry modes](#entry-modes)). The party is
-the prepared six-character Clouds party standing at map 23 `(9,11)` facing West.
-It starts at minute 480 of day 8, year 610, with prepared levels, gold and bank
-balances rather than the original new-game state.
+Start a new game with `mmodern <game-dir>` or `--new-game` (see
+[Entry modes](#entry-modes)). As in the original, the six level-1 Clouds
+characters stand in Vertigo at `(18,4)` facing West at 08:00 on day 1 of year
+610, with 800 gold, 10 gems, 90 food and an empty bank. `--difficulty`
+chooses Adventurer (the default; weapons hit harder) or Warrior.
+
+**Temporary deviation:** the original title menu and difficulty dialog are not
+implemented yet; the command line replaces them, and Adventurer is used when no
+difficulty is given (the original asks).
+
+The **prepared Journey** (`--journey-region`) remains as a test mode: the same
+party with prepared levels and XP at map 23 `(9,11)` on day 8, in Adventurer;
+the automated scenarios use it.
 
 ### Mainland, map 23
 
@@ -180,11 +189,11 @@ copied or modified, and saves must not be written inside the installation.
 
 | Command | Purpose |
 | --- | --- |
-| `mmodern --journey-region [--combat-seed <u32>] <game-dir> [--save-file <path>]` | Play the Regional Journey. The optional nonzero seed fixes combat randomness. Without `--save-file`, F9 writes nothing. |
+| `mmodern <game-dir>` or `mmodern --new-game <game-dir>`, with `[--difficulty adventurer\|warrior] [--save-file <path>]` | Start a new game in Vertigo (default Adventurer). Without `--save-file`, F9 writes nothing. |
+| `mmodern --journey-region [--combat-seed <u32>] <game-dir> [--save-file <path>]` | Prepared Journey test mode. The optional nonzero seed fixes combat randomness. |
 | `mmodern --load-game <game-dir> <save>` | Continue a save; the loaded file becomes the F9 target. |
 | `mmodern --render-map <game-dir> [<map> <x> <y> <dir>]` | Explore any Clouds map the loader can render. Unsaveable: F9 refuses. Not a supported gameplay mode. |
 | `mmodern --inspect-map\|--inspect-party\|--inspect-events <game-dir> ...` | Developer inspection output. |
-| `mmodern <game-dir>` | Static party screen. |
 
 The earlier `--encounter-26`, `--encounter-27`, `--journey-skeleton` and
 `--journey-expedition` modes were removed in M44 and print usage.
@@ -253,9 +262,8 @@ instructions are in [dependencies](dependencies.md).
 
 ## Known gaps
 
-- **Not a new game.** The party is prepared and injured or leveled only through
-  the services above and Rest. There is no original new-game start, and food
-  cannot be bought (Tavern) yet.
+- **Start and saves.** There is no title menu, difficulty dialog or in-game
+  load yet (command line instead), and food cannot be bought (Tavern) yet.
 - **Areas.** Only the map-23 mainland and Vertigo are playable. Other maps
   appear only through `--render-map`, without save support. Run refuses
   indoors.

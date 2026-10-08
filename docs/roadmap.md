@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M51 is the latest completed and accepted milestone.**
+**M52 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -34,13 +34,13 @@ machinery: the code now has one save format and one Journey configuration, and
 
 | Milestone | Tier | Goal | Accepted when |
 | --- | --- | --- | --- |
-| **M52 - Normal start in Vertigo** | A | New game from original initialization: the six level-1 `maze.pty` characters at Vertigo `(18,4)` facing West, without injected levels/XP; the prepared Journey becomes a test mode. | A new game starts in Vertigo and is playable with Rest, services and save/restore. |
+| **M53 - Original title menu and saves** | A | The original title screen (New, Load, Credits), the difficulty dialog and the original save/load dialogs with in-game loading, replacing the temporary command-line entry. | A new game and a saved game start from the original menus by mouse and keyboard; save/restore exact. |
 
 The order matters. M44-M48 lowered the cost of change and made input, menus
 and presentation original and generic, M49 corrected combat rules and M50
 admitted the whole of Vertigo from resources, and M51 added Rest, food and
-daily time. M52 turns the prepared Journey into normal play with the original
-new game.
+daily time. M52 started the original new game, and M53 replaces its temporary
+command-line entry with the original menus.
 
 Deferred because they add no rework later: **audio** (sounds, music, voices;
 a separate additive system), the original **event dialogs, casting dialog and
@@ -48,9 +48,9 @@ treasure sequence** (better redone once more events are playable), and
 **animated location shopkeepers**. Combat-time equipping and the combat Use
 button remain Tier A future work.
 
-After M52, choose the next milestone from play-testing evidence. Likely candidates:
+After M53, choose the next milestone from play-testing evidence. Likely candidates:
 
-- **Leaving Vertigo:** connect normal start to the mainland and further areas,
+- **Leaving Vertigo:** connect the mainland to further areas,
   adding Event opcodes as they are reached. Map 22 (north of map 23) needs
   SetChar, GiveMulti and MakeNothingHere.
 - **Missing town services:** Inn/party management, Tavern (food, tips), Guild
