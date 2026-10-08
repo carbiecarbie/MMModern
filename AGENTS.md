@@ -150,8 +150,10 @@ Priorities, in order: correctness, then credit/resource efficiency, then speed.
 - Tests run on `build-rel` (RelWithDebInfo, `-O2 -g` without `-DNDEBUG`):
   iteration (`ctest -L fast`) and the complete suite. `build-m44` (Debug,
   `-O0`) stays for debugging and the maintainer's play-tests. At milestone
-  closure, the complete suite also runs once on `build-m44` through the same
-  runner, as a check against optimization-dependent behavior.
+  closure, also run `ctest -L fast` and the three M44 scenarios on `build-m44`,
+  as a cheap check against optimization-dependent behavior. Run the complete
+  suite on `build-m44` (through the runner) only before a public release or
+  when a test behaves differently between the two builds.
 - While iterating, run affected tests and `ctest -L fast`. Run the complete
   suite once after the final build, unless failures require a rerun.
 - Delegate the complete suite to one test-runner subagent (in Codex:
