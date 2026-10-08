@@ -13,6 +13,15 @@
 namespace mmodern {
 namespace {
 struct BusyJourney { bool &value; explicit BusyJourney(bool &v) : value(v) { value = true; } ~BusyJourney() { value = false; } };
+bool sameEvents(const XeenEventFile &a,const XeenEventFile &b) {
+	if(a.mapId!=b.mapId || a.resourceName!=b.resourceName || a.resourcePresent!=b.resourcePresent || a.records.size()!=b.records.size())return false;
+	for(unsigned n=0;n<a.records.size();++n) {
+		const auto &x=a.records[n],&y=b.records[n];
+		if(x.fileOffset!=y.fileOffset || x.lengthField!=y.lengthField || x.x!=y.x || x.y!=y.y ||
+			x.direction!=y.direction || x.line!=y.line || x.opcode!=y.opcode || x.parameters!=y.parameters)return false;
+	}
+	return true;
+}
 }
 XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera &c, const XeenGameFlags &flags,
 		const XeenEventPresenter::Clock &clock, const XeenJourneySetup &setup) :
@@ -29,13 +38,16 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 	const auto regionalText=setup.regionalText;
 	const auto learnedNames=setup.learnedNames;
 	const auto bank=setup.bank;
+	const auto preparedStart=setup.prepared;
+	const auto mainlandProvider=setup.mainlandEventsProvider;
+	const auto cityProvider=setup.cityEventsProvider;
 	_journeyEvents = setup.events;
 	_journeyCapture.reset(new XeenJourneyCapture(w,p,c,_state,_boundary,_busy,_journeyPreimage,&_needsRestNotice));
 	if (w.hasEncounterState() || p.roster.combatMarked() || p.encounterContext || w._combatCheck || w._combatAuthorized)
 		throw std::invalid_argument("Journey requires fresh uncoordinated owners");
 	if (!recovery || p.regionalRecovery)
 		throw std::invalid_argument("Journey recovery preparation mismatch");
-	p.regionalRecovery = recovery;
+	if(preparedStart)p.regionalRecovery = recovery;
 	try {
 		// Retain lifetime controls before installing callbacks, including allocation failure paths.
 		retainJourney();
@@ -53,25 +65,39 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 		w._combatCheck = [this] { _journeyPreimage->check(); };
 		retainJourney();
 		std::shared_ptr<XeenRestoreGuard> publishedPreimage;
-		const XeenActorApproach::FreshPublicationPreparation preparePublication=[&](const XeenPartyState &candidate,
-			const std::vector<XeenActor> &actors,const std::optional<XeenJourneyRandomState> &random) {
+		const XeenActorApproach::StartPublicationPreparation prepareStartPublication=[&](const XeenPartyState &candidate,
+			const std::vector<XeenActor> &actors,const std::optional<XeenJourneyRandomState> &random,
+			const std::optional<std::vector<XeenActor>> &city,const std::vector<XeenMonsterRecord> &statistics) {
 			_journeyPreimage->check();
 			auto prepared=std::make_shared<XeenRestoreGuard>(w,p,c,flags);
 			prepared->retainResources(*_journeyPreimage);
-			prepared->prepareFreshJourneyPublication(candidate,actors,random);
+			prepared->prepareFreshJourneyPublication(candidate,actors,random,city,statistics);
 			_journeyCapture->admittedActors=actors;
 			_journeyPreimage->check();
 			publishedPreimage.swap(prepared);
 		};
 		{
 			XeenRestoreGuard::Providers providers(*_journeyPreimage,w);
+			const auto mainland=preparedStart ? _events : (mainlandProvider ? mainlandProvider() : XeenEventFile{});
+			_journeyPreimage->check();
 			{
 				if (!manifest) throw std::invalid_argument("Missing regional compatibility manifest");
-				manifest(w.map(23),w.objectFile(23),_events,_journeyStatistics);
+				manifest(w.map(23),w.objectFile(23),mainland,_journeyStatistics);
 				_journeyPreimage->check();
 			}
-			_result = XeenActorApproach::initializeJourney(w,p,c,_state,characters,context,
-				_journeyStatistics,_events,seed,purse,bank,preparePublication);
+			if(preparedStart) {
+				_result = XeenActorApproach::initializeJourney(w,p,c,_state,characters,context,
+					_journeyStatistics,_events,seed,purse,bank,[&](const auto &party,const auto &actors,const auto &random) {
+						prepareStartPublication(party,actors,random,{},{});
+					});
+			} else {
+				const auto city=cityProvider ? cityProvider() : XeenEventFile{};
+				_journeyPreimage->check();
+				if(!city.resourcePresent || city.mapId!=XeenMapIdentity(28) ||
+					!sameEvents(city,_events))throw std::invalid_argument("Original start city Event binding changed");
+				_result=XeenActorApproach::initializeStart(w,p,c,_state,characters,context,
+					_journeyStatistics,_events,mainland,seed,purse,bank,false,recovery,prepareStartPublication);
+			}
 		}
 		w._combatCheck = {};
 		_journeyPreimage.swap(publishedPreimage);
@@ -80,7 +106,7 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 		s._journeyActivity = XeenJourneyActivity::Presentation;
 		++s._journeyGeneration; ++_generation;
 		_journeyPreimage->adoptJourneyCoordination();
-		{
+		if(preparedStart) {
 			XeenRestoreGuard::Providers providers(*_journeyPreimage,w);
 			const auto cityEvents=setup.cityEventsProvider ? setup.cityEventsProvider() : XeenEventFile{};
 			if(!cityEvents.resourcePresent || cityEvents.mapId!=XeenMapIdentity(28))

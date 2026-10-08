@@ -106,10 +106,12 @@ void departure() {
 		else if (mode<18) before.effects[mode-9]=1;
 		else before.lightAndResistances[mode-18]=1;
 		const auto original=before;
-		if(mode==4 || mode==7 || mode==8)check(!xeenPrepareSmithDeparture(before),"Noncanonical context admitted");
+		if(mode==4 || mode==8)check(!xeenPrepareSmithDeparture(before),"Noncanonical context admitted");
   else {const auto next=xeenPrepareSmithDeparture(before);check(bool(next),"Canonical context refused");}
-  check(before==original,"Departure mutated input");
+		check(before==original,"Departure mutated input");
 	}
+	auto invalid=canonical;invalid.difficulty=static_cast<XeenDifficulty>(2);
+	check(!xeenPrepareSmithDeparture(invalid),"Invalid difficulty admitted");
 }
 }
 int main() {

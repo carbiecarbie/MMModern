@@ -134,7 +134,7 @@ recurring, stop and propose a milestone instead.
   in `tools/AGENTS.md` (which also says when and on which builds).
 - Tests run on `build-rel` (RelWithDebInfo, `-O2 -g` without `-DNDEBUG`).
   `build-m44` (Debug, `-O0`) stays for debugging, the maintainer's play-tests
-  and the closure run. Setup is in `docs/dependencies.md`.
+  and the closure check (`tools/AGENTS.md`). Setup is in `docs/dependencies.md`.
 - While iterating, run the affected tests and `ctest -L fast` on `build-rel`.
 - Write long build output to a log and read the summary and failures after
   completion.

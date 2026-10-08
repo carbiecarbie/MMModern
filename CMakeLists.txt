@@ -263,7 +263,7 @@ if(BUILD_TESTING)
 	target_link_options(mmodern_m42_cli_witness PRIVATE "LINKER:--wrap,_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjE"
 		"LINKER:--wrap,_ZN7mmodern23xeenPrepareBankInterestERKNS_16XeenBankBalancesE"
 		"LINKER:--wrap,_ZN7mmodern24XeenEnemyAttackCandidateC1ERKSt5arrayINS_13XeenCharacterELy6EERKS1_INS_16XeenCombatInputsELy6EERKNS_17XeenMonsterRecordEjjRKS1_IbLy6EE"
-		"LINKER:--wrap,_ZN7mmodern27XeenPhysicalPlayerCandidateC1ERKNS_13XeenCharacterERKNS_16XeenCombatInputsERKNS_17XeenMonsterRecordEjjb")
+		"LINKER:--wrap,_ZN7mmodern27XeenPhysicalPlayerCandidateC1ERKNS_13XeenCharacterERKNS_16XeenCombatInputsERKNS_17XeenMonsterRecordEjjbNS_14XeenDifficultyE")
 	xeen_restore_replay(mmodern_m42_cli_witness)
 	target_link_options(mmodern_m42_cli_witness PRIVATE "LINKER:--wrap,SDL_UpdateTexture" "LINKER:--wrap,SDL_RenderCopy")
 	add_executable(mmodern_purchase_process_tests tests/XeenPurchaseProcessTests.cpp)
@@ -271,6 +271,8 @@ if(BUILD_TESTING)
 	add_dependencies(mmodern_purchase_process_tests mmodern_m42_cli_witness)
 	add_test(NAME xeen_purchase_process COMMAND mmodern_purchase_process_tests $<TARGET_FILE:mmodern_m42_cli_witness> "F:/Games/gog/Might and Magic 4-5")
 	set_tests_properties(xeen_purchase_process PROPERTIES TIMEOUT 1200)
+	add_test(NAME xeen_new_game_process COMMAND mmodern_purchase_process_tests $<TARGET_FILE:mmodern_m42_cli_witness> "F:/Games/gog/Might and Magic 4-5" new-game)
+	set_tests_properties(xeen_new_game_process PROPERTIES TIMEOUT 1200)
 	add_executable(mmodern_service_economy_tests tests/XeenServiceEconomyTests.cpp)
 	target_link_libraries(mmodern_service_economy_tests PRIVATE mmodern_xeen bcrypt)
 	add_test(NAME xeen_service_economy COMMAND mmodern_service_economy_tests)
@@ -310,16 +312,16 @@ if(BUILD_TESTING)
 	target_link_libraries(mmodern_antidote_rules_tests PRIVATE mmodern_xeen)
 	add_test(NAME xeen_antidote_rules COMMAND mmodern_antidote_rules_tests)
 	add_executable(mmodern_consequence_original tests/XeenConsequenceOriginal.cpp)
-	target_link_libraries(mmodern_consequence_original PRIVATE mmodern_app SDL2::SDL2)
+	target_link_libraries(mmodern_consequence_original PRIVATE mmodern_app SDL2::SDL2 bcrypt)
 	target_link_options(mmodern_consequence_original PRIVATE "-Wl,--wrap=_ZN7mmodern16XeenCombatRandom4drawEjj"
-        "-Wl,--wrap=_ZN7mmodern27XeenPhysicalPlayerCandidateC1ERKNS_13XeenCharacterERKNS_16XeenCombatInputsERKNS_17XeenMonsterRecordEjjb")
+        "-Wl,--wrap=_ZN7mmodern27XeenPhysicalPlayerCandidateC1ERKNS_13XeenCharacterERKNS_16XeenCombatInputsERKNS_17XeenMonsterRecordEjjbNS_14XeenDifficultyE")
     add_test(NAME xeen_combat_impact_original COMMAND mmodern_consequence_original "F:/Games/gog/Might and Magic 4-5")
     set_tests_properties(xeen_combat_impact_original PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software;MMODERN_M49_IMPACT_ONLY=1")
 	add_executable(mmodern_resource_cold_original tests/XeenConsequenceOriginal.cpp)
 	target_compile_definitions(mmodern_resource_cold_original PRIVATE MMODERN_M45_COLD_CACHE)
 	target_link_libraries(mmodern_resource_cold_original PRIVATE mmodern_app SDL2::SDL2)
 	target_link_options(mmodern_resource_cold_original PRIVATE "-Wl,--wrap=_ZN7mmodern16XeenCombatRandom4drawEjj"
-        "-Wl,--wrap=_ZN7mmodern27XeenPhysicalPlayerCandidateC1ERKNS_13XeenCharacterERKNS_16XeenCombatInputsERKNS_17XeenMonsterRecordEjjb")
+        "-Wl,--wrap=_ZN7mmodern27XeenPhysicalPlayerCandidateC1ERKNS_13XeenCharacterERKNS_16XeenCombatInputsERKNS_17XeenMonsterRecordEjjbNS_14XeenDifficultyE")
 	add_test(NAME xeen_resource_cold_original COMMAND mmodern_resource_cold_original "F:/Games/gog/Might and Magic 4-5")
 	set_tests_properties(xeen_resource_cold_original PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software")
     add_executable(mmodern_consequence_sprite_tests tests/XeenConsequenceSpriteTests.cpp)
@@ -950,6 +952,7 @@ if(BUILD_TESTING)
 	# (full run: plain ctest). `process` = runs 30 s or more, or spawns child
 	# processes / drives a CLI witness executable.
 	set(xeen_process_tests
+		xeen_new_game_process
 		xeen_rest_original
 		xeen_scene_inventory_original
 		xeen_resource_cold_original

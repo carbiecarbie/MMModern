@@ -132,7 +132,8 @@ struct XeenPhysicalPlayerCandidate {
 	int damage = 0;
 	bool hit = false;
 	XeenPhysicalPlayerCandidate(const XeenCharacter &, const XeenCombatInputs &,
-		const XeenMonsterRecord &, unsigned monsterType, unsigned year, bool shoot);
+		const XeenMonsterRecord &, unsigned monsterType, unsigned year, bool shoot,
+		XeenDifficulty difficulty = XeenDifficulty::Adventurer);
 	bool service(XeenConsequenceDraw &);
 private:
 	enum class Step { Weapon, Hit, Save, Done };
@@ -141,7 +142,7 @@ private:
 	XeenMonsterRecord monster;
 	unsigned monsterType, attacks, slot = 0, dice = 0, sides = 0;
 	int baseHit, hitTotal, might, weapon = 0, accumulated = 0;
-	bool shoot;
+	bool shoot, adventurer;
 };
 enum class XeenTimeMode { Interactive, Sleeping, Script, Interactive7 };
 enum class XeenTimeCall { Change, Add };

@@ -657,7 +657,7 @@ XeenCombatResult XeenCombat::command(const Ticket &t,XeenCombatCommand action) {
 			c.result.actingOwner=kXeenCombatOwners[d.turn];c.result.targetMonster=d.selected;c.result.monster=*d.selected;
 			const auto &actor=d.actors.at(d.selected->recordIndex);
 			c.result.actorHpBefore=c.result.actorHpAfter=actor.hp;
-			c.player.emplace(d.character(d.turn),d.inputs[d.turn],*actor.statistics,actor.original.resourceId,d.party.encounterContext->year,false);
+			c.player.emplace(d.character(d.turn),d.inputs[d.turn],*actor.statistics,actor.original.resourceId,d.party.encounterContext->year,false,d.party.encounterContext->difficulty);
 			return d.adopt(c.result,Status::Pending);
 		}
 	}catch(...){return fail(entry,d.journey && !d.exact() ? Failure::Integrity : Failure::Preparation);}

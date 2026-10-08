@@ -364,8 +364,10 @@ void regionalCityWire() {
    case 2:invalid.journey->context->minutes=1260;break;case 3:invalid.journey->context->effects[0]=1;break;
    case 4:invalid.journey->context->rested=true;break;case 5:invalid.journey->context->newDay=true;break;
    case 6:invalid.journey->context->difficulty=XeenDifficulty::Warrior;break;}
-  if(mode==6)rejects([&]{XeenSaveFormat::encode(invalid);},"calendar");else roundTrip(invalid);
+  roundTrip(invalid);
  }
+ auto invalidDifficulty=city;invalidDifficulty.journey->context->difficulty=static_cast<XeenDifficulty>(2);
+ rejects([&]{XeenSaveFormat::encode(invalidDifficulty);},"context enum");
  for(unsigned i=46;i<52;++i){XeenSaveJourneyActor a;a.id={28,i};
   if(i<50)a.lifecycle=XeenActorLifecycle::Unresolved;
   else {a.hp=1;a.spawnedType=0;}

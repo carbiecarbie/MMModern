@@ -293,6 +293,28 @@ void completeWeaponRules() {
  check(XeenCharacterRules::effectiveIntellect(c[0],{610})==XeenCharacterRules::effectiveIntellect(old,{610})-4 && XeenCharacterRules::effectivePersonality(c[0],{610})==XeenCharacterRules::effectivePersonality(old,{610})-4 && XeenCharacterRules::effectiveEndurance(c[0],{610})==XeenCharacterRules::effectiveEndurance(old,{610})-4,"Disease changes mental/endurance stats");
  check(c[0].currentHp==old.currentHp && c[0].currentSp==old.currentSp,"Derived changes never clamp HP/SP");
 }
+void difficultyOracles() {
+ // combat.cpp:1725: weapon multiplication precedes Might and resistance;
+ // difficulty changes the base hit without consuming any additional draws.
+ for(auto difficulty:{XeenDifficulty::Adventurer,XeenDifficulty::Warrior})
+ for(bool shoot:{false,true})for(bool armed:{false,true})for(unsigned roll:{8u,9u,13u,14u,19u}) {
+  auto c=characters();auto in=inputs();auto m=profile();
+  c[0].permanentLevel=1;c[0].characterClass=XeenCharacterClass::Knight;
+  in[0].accuracy={12,0};in[0].might={17,0};m.raw[22]=5;m.raw[40]=25;
+  if(armed)c[0].weapons[0]={0,std::uint8_t(shoot?30:1),0,std::uint8_t(shoot?4:1)};
+  std::vector<XeenCombatRandom::Draw> tape;
+  if(armed)for(unsigned n=0;n<3;++n)tape.push_back({1,shoot?2u:3u,2});
+  tape.push_back({1,20,roll});
+  const bool hit=int(roll)+1+(difficulty==XeenDifficulty::Adventurer?5:0)>=15;
+  const int weapon=armed?6*(difficulty==XeenDifficulty::Adventurer?3:1):0;
+  const int expected=hit?(shoot?weapon:std::max(weapon+3,1))*75/100:0;
+  if(shoot && hit && weapon)tape.push_back({1,56,56});
+  XeenCombatRandom rng(tape);
+  XeenPhysicalPlayerCandidate attack(c[0],in[0],m,6,610,shoot,difficulty);finish(attack,rng,1);
+  check(attack.hit==hit && attack.damage==expected && rng.position()==tape.size(),"Difficulty hit/damage/draw oracle");
+ }
+ auto c=characters();auto i=inputs();rejects([&]{XeenPhysicalPlayerCandidate bad(c[0],i[0],profile(),6,610,false,static_cast<XeenDifficulty>(2));});
+}
 void rangedOpportunity() {
 	// Artificial multi-shot capacity/continuation control, not a route witness.
 	XeenMap map;map.geometry.id=23;map.geometry.flags2=0x8000;
@@ -424,4 +446,4 @@ void timeAndInputs() {
 }
 }
 #include "XeenDailyTimeOracles.h"
-int main() { try { dailyTimeOracles();dormantTreasure();physical();targetingAndCounts();runAndParticipation();shootAndLoot();additionalTapes();completeWeaponRules();missileClassAndZeroDamage();rejectionBudgets();rangedOpportunity();indoorOpportunity();timeAndInputs();std::cout<<"Shared consequence pure-rule controls passed\n";return 0; } catch (const std::exception &e) { std::cerr<<e.what()<<'\n';return 1; } }
+int main() { try { dailyTimeOracles();difficultyOracles();dormantTreasure();physical();targetingAndCounts();runAndParticipation();shootAndLoot();additionalTapes();completeWeaponRules();missileClassAndZeroDamage();rejectionBudgets();rangedOpportunity();indoorOpportunity();timeAndInputs();std::cout<<"Shared consequence pure-rule controls passed\n";return 0; } catch (const std::exception &e) { std::cerr<<e.what()<<'\n';return 1; } }

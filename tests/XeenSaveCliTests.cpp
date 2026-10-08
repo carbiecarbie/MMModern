@@ -40,6 +40,30 @@ int main(int argc,char **argv){try{
  {L"--render-map",game.wstring(),L"1",L"16",L"0",L"north"},
  {L"--render-map",game.wstring(),L"--save-file",L"--load-game"}};
  for(const auto &args:bad)check(launch(exe,args,log).exit==1,"invalid CLI syntax accepted");
+ for(bool explicitEntry:{false,true}) {
+  const auto arguments=[&](std::vector<std::wstring> tail) {
+   std::vector<std::wstring> args;if(explicitEntry)args.push_back(L"--new-game");
+   args.push_back(game.wstring());args.insert(args.end(),tail.begin(),tail.end());return args;
+  };
+  for(const auto &tail:std::vector<std::vector<std::wstring>>{
+   {L"--difficulty"},{L"--difficulty",L""},{L"--difficulty",L"Warrior"},{L"--difficulty",L"easy"},
+   {L"--difficulty",L"warrior",L"--difficulty",L"adventurer"},
+   {L"--save-file"},{L"--save-file",L""},{L"--save-file",L"--difficulty"},
+   {L"--save-file",path.wstring(),L"--save-file",path.wstring()},
+   {L"--combat-seed",L"1"},{L"--combat-seed",L"0"},
+   {L"--difficulty",L"warrior",L"--combat-seed",L"1"},
+   {L"--journey-region"},{L"--load-game",path.wstring()},{L"--new-game"},{L"extra"}}) {
+   const auto result=launch(exe,arguments(tail),log);
+   check(result.exit==1 && result.output.find("--new-game <game-dir> [--difficulty adventurer|warrior] [--save-file <path>]")!=std::string::npos,
+    "new-game invalid/duplicate/conflicting options must print exact usage");
+  }
+ }
+ for(const auto &args:std::vector<std::vector<std::wstring>>{
+  {L"--new-game"},{L"--new-game",L""},{L""},
+  {L"--journey-region",game.wstring(),L"--difficulty",L"warrior"},
+  {L"--journey-region",L"--difficulty",L"adventurer",game.wstring()},
+  {L"--load-game",game.wstring(),path.wstring(),L"--difficulty",L"warrior"}})
+  check(launch(exe,args,log).exit==1,"new-game missing path/difficulty override on Journey or load");
  for(const auto *entry:{L"--journey-region"}) {
   for(const auto *seed:{L"0",L"-1",L"+1",L"1x",L"4294967296",L"",L" 56",L"99999999999"})
    check(launch(exe,{entry,L"--combat-seed",seed,game.wstring()},log).exit==1,"strict seed syntax");
@@ -61,6 +85,15 @@ int main(int argc,char **argv){try{
  for(std::size_t i=2+3*8;i<inner.size();++i)inner[i]^=0x35; // Initial archive payload is plaintext.
  sprite_test::archive(game/"xeen.cc",{{"fnt",fontBytes()},{"2a0c",inner}});
  GameInstallation installation{game,game/"xeen.cc",{},GameEdition::CloudsOfXeen};
+ for(bool explicitEntry:{false,true})for(const auto &tail:std::vector<std::vector<std::wstring>>{
+  {},{L"--difficulty",L"adventurer"},{L"--difficulty",L"warrior"},
+  {L"--save-file",path.wstring()},
+  {L"--difficulty",L"warrior",L"--save-file",path.wstring()},
+  {L"--save-file",path.wstring(),L"--difficulty",L"adventurer"}}) {
+  std::vector<std::wstring> args;if(explicitEntry)args.push_back(L"--new-game");args.push_back(game.wstring());
+  args.insert(args.end(),tail.begin(),tail.end());const auto result=launch(exe,args,log);
+  check(result.exit==3 && result.output.find("World of Xeen")!=std::string::npos,"valid public new-game syntax reaches production");
+ }
  for(const auto &args:std::vector<std::vector<std::wstring>>{
   {L"--journey-region",game.wstring()},
   {L"--journey-region",L"--combat-seed",L"4294967295",game.wstring()},

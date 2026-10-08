@@ -294,11 +294,11 @@ bool XeenEnemyAttackCandidate::nextAttack() {
     target=-1;participantCursor=0;step=Step::Target;return true;
 }
 XeenPhysicalPlayerCandidate::XeenPhysicalPlayerCandidate(const XeenCharacter &c,
-		const XeenCombatInputs &i,const XeenMonsterRecord &m,unsigned type,unsigned year,bool missile) :
-		character(c),monster(m),monsterType(type),shoot(missile) {
+		const XeenCombatInputs &i,const XeenMonsterRecord &m,unsigned type,unsigned year,bool missile,XeenDifficulty difficulty) :
+		character(c),monster(m),monsterType(type),shoot(missile),adventurer(difficulty==XeenDifficulty::Adventurer) {
 	constexpr unsigned divisors[]{1,2,2,3,4,2,2,1,3,2};
-	ruleRequire(unsigned(c.characterClass)<10 && m.physicalResistance()<=100,"Invalid physical player operands");
-	baseHit=physicalChecked(std::int64_t(Rules::physicalBonus(Rules::effectivePhysical(c,i,Rules::PhysicalAttribute::Accuracy,{year})))+5+c.currentLevel()/divisors[unsigned(c.characterClass)]);
+	ruleRequire(unsigned(c.characterClass)<10 && m.physicalResistance()<=100 && unsigned(difficulty)<=1,"Invalid physical player operands");
+	baseHit=physicalChecked(std::int64_t(Rules::physicalBonus(Rules::effectivePhysical(c,i,Rules::PhysicalAttribute::Accuracy,{year})))+(adventurer?5:0)+c.currentLevel()/divisors[unsigned(c.characterClass)]);
 	hitTotal=baseHit;
 	might=shoot ? 0 : Rules::physicalBonus(Rules::effectivePhysical(c,i,Rules::PhysicalAttribute::Might,{year}));
 	attacks=shoot ? 1 : xeenCombatAttackCount(c.characterClass,c.currentLevel());
@@ -307,7 +307,7 @@ bool XeenPhysicalPlayerCandidate::service(XeenConsequenceDraw &draw) {
 	while (step!=Step::Done && draw.remaining) switch (step) {
 	case Step::Weapon: {
 		if (dice) { const auto n=draw.draw(1,sides); if (n) { weapon=physicalChecked(std::int64_t(weapon)+*n); --dice; } break; }
-		if (slot==9) { weapon=physicalChecked(std::int64_t(weapon)*3);step=Step::Hit;break; }
+		if (slot==9) { weapon=physicalChecked(std::int64_t(weapon)*(adventurer?3:1));step=Step::Hit;break; }
 		const auto &item=character.weapons[slot++];
 		if (shoot ? item.frame!=4 : item.frame!=1 && item.frame!=13) break;
 		ruleRequire(item.material==0 && (item.state&0x3f)==0 && item.id && item.id<=34 &&

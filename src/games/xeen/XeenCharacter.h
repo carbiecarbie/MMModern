@@ -85,7 +85,7 @@ bool xeenItemHasTailCapacity(const XeenItemCategory &items);
 // Explicit stable compaction clears empty-slot metadata. Never implicit in I/O.
 void xeenCompactItems(XeenItemCategory &items);
 
-// Original CHR-only display data. Immutable after loading; deliberately absent
+// Original CHR display data and unsupported-mechanic defaults. Immutable after loading; deliberately absent
 // from the current save. A milestone that mutates these must first persist them.
 struct XeenCharacterOriginalDetails {
 	std::array<std::array<int, 2>, 7> attributes{};
@@ -94,6 +94,11 @@ struct XeenCharacterOriginalDetails {
 	std::array<std::uint8_t, 128> awards{};
 	std::uint8_t birthDay = 0, temporaryAc = 0;
 	std::uint32_t experience = 0;
+	// Source-backed defaults only, until these mechanics acquire mutable owners.
+	std::uint8_t xeenSide=0, lloydMap=0, lloydX=0, lloydY=0, lloydSide=0;
+	std::uint8_t currentSpell=0, quickOption=0, savedMaze=0;
+	std::uint8_t adventuringSpell=0, combatSpell=0;
+	std::uint16_t townUnknown=0;
 };
 
 struct XeenCharacter {

@@ -13,6 +13,14 @@
 
 namespace {
 
+void newGameUsage() {
+	std::cerr << "Usage: mmodern --new-game <game-dir> [--difficulty adventurer|warrior] [--save-file <path>]\n"
+		"       mmodern <game-dir> [--difficulty adventurer|warrior] [--save-file <path>]\n"
+		"Direct launch temporarily replaces the original title/difficulty dialogs.\n"
+		"Difficulty defaults to Adventurer. F9 requires an explicit save target.\n"
+		"--combat-seed is accepted only by --journey-region.\n";
+}
+
 bool parseMapId(const char *text, std::uint16_t &mapId) {
 	try {
 		std::size_t consumed = 0;
@@ -86,6 +94,31 @@ int main(int argc, char *argv[]) {
 	std::vector<char *> pointers;
 	for (auto &argument : arguments) pointers.push_back(argument.data());
 	argc = wideCount; argv = pointers.data();
+	// Approved temporary direct entry/default (M52 plan, 2026-10-06).
+	// The original title and mandatory difficulty choice remain the next milestone.
+	if (argc >= 2 && (std::string(argv[1]) == "--new-game" ||
+			std::string(argv[1]).rfind("--", 0) != 0)) {
+		const int path = std::string(argv[1]) == "--new-game" ? 2 : 1;
+		bool valid = path < argc && std::string(argv[path]).size() &&
+			std::string(argv[path]).rfind("--", 0) != 0;
+		auto difficulty = mmodern::XeenDifficulty::Adventurer;
+		bool difficultySeen = false;
+		std::optional<std::filesystem::path> save;
+		for (int i = path + 1; valid && i < argc; i += 2) {
+			const std::string option = argv[i];
+			if (i + 1 >= argc) { valid = false; break; }
+			const std::string value = argv[i + 1];
+			if (option == "--difficulty" && !difficultySeen) {
+				difficultySeen = true;
+				if (value == "warrior") difficulty = mmodern::XeenDifficulty::Warrior;
+				else if (value != "adventurer") valid = false;
+			} else if (option == "--save-file" && !save && !value.empty() && value.rfind("--", 0) != 0) {
+				save = std::filesystem::u8path(value);
+			} else valid = false;
+		}
+		if (!valid) { newGameUsage(); return 1; }
+		return mmodern::Application().newGame(std::filesystem::u8path(argv[path]), difficulty, save);
+	}
 	for (int i=1;i<argc;++i) if (std::string(argv[i]) == "--combat-seed" || std::string(argv[i]) == "--journey-region") {
 		const bool regional = argc >= 2 && std::string(argv[1]) == "--journey-region";
 		std::optional<std::uint32_t> seed;
@@ -184,7 +217,7 @@ int main(int argc, char *argv[]) {
         return mmodern::Application().renderMap(std::filesystem::u8path(argv[2]), mapId, x, y, direction);
     }
 	if (argc != 2 || std::string(argv[1]).rfind("--", 0) == 0) {
-		std::cerr << "Usage: " << argv[0] << " <game-directory>\n";
+		newGameUsage();
 		std::cerr << "     " << argv[0] << " --inspect-map <game-directory>\n";
 		std::cerr << "     " << argv[0] << " --inspect-map <game-directory> <map-id>\n";
 		std::cerr << "     " << argv[0] << " --inspect-party <game-directory>\n";
@@ -197,5 +230,5 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	return mmodern::Application().run(argv[1]);
+	return 1;
 }

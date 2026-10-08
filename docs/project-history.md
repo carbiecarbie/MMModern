@@ -167,3 +167,10 @@ Original Rest from the button or R with food, recovery, the dream and monster
 interruption; shared daily time with the original eight-hour condition
 schedule, dawn, night sky and year rollover replaced the old calendar limits;
 food read from the correct offset; save v6. [Plan](milestone-51-plan.md).
+
+**M52 - Normal start in Vertigo** (`08178fe`, `a830248`). A new game starts
+from the original initialization: the six level-1 characters in Vertigo at
+`(18,4)`, day 1, 800 gold and 90 food, with all town actors in their original
+state. Adventurer and Warrior both work. The command line temporarily replaces
+the original title menu and difficulty dialog; the prepared Journey remains a
+test mode. [Plan](milestone-52-plan.md).

@@ -16,6 +16,7 @@
 #include <stdexcept>
 #include <cstdlib>
 #include <fstream>
+#include "XeenInitialResourceOracle.h"
 
 using namespace mmodern;
 namespace {
@@ -133,6 +134,10 @@ int main(int argc,char **argv) {
   assets.validateNormalMonster(0);assets.validateAttackMonster(0);
   const auto mob=maps.loadObjects(assets,28);
   const auto actors=XeenActorApproach::actorsFromResources(mob,statistics);
+  const auto initialChr=assets.readInitialResource("maze.chr"),initialPty=assets.readInitialResource("maze.pty");
+  initial_oracle::pty(initialPty);
+  initial_oracle::roster(XeenPartyLoader().loadFromResources(initialChr,initialPty),initialChr,false);
+  initial_oracle::view(XeenIndoorScene().classifyActors(manifestWorld,{28,18,4,XeenDirection::West},actors));
   check(actors.size()==46 && mob.entities.objects.size()==143,"original city MOB count");
   // Exercise the original exit reset in the existing detached owner, including
   // resource-bound slot reuse and default construction beyond the original MOB.

@@ -6,10 +6,12 @@ rerunning its failed tests, and when acting as its test runner. The root
 
 ## When
 
-- The complete suite runs once per required configuration after the relevant
-  final changes, not once for the whole milestone: on `build-rel` after the
-  final production build and, at milestone closure, also on `build-m44` as a
-  check against optimization-dependent behavior.
+- The complete suite runs on `build-rel` once after the final production
+  build of each task, not once for the whole milestone.
+- At milestone closure, also run `ctest -L fast` and the three M44 scenarios
+  on `build-m44`, as a cheap check against optimization-dependent behavior.
+  Run the complete suite on `build-m44` (through the runner) only before a
+  public release or when a test behaves differently between the two builds.
 - Do not run redundant complete suites. Run it again only when a later
   production-code change invalidates the previous result, or failures require
   it (see Failures and reruns).
