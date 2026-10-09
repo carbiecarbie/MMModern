@@ -1,7 +1,9 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M52 is the latest completed
-milestone** ([plan](milestone-52-plan.md)): a new game starts from the
+This describes what can be played and done now. **M53 is the latest completed
+milestone** ([plan](milestone-53-plan.md)): MMModern reads the World of Xeen
+CD talkie edition, the project's only reference edition, and its DOS
+interface text. M52 ([plan](milestone-52-plan.md)) started a new game from the
 original initialization in Vertigo, in either difficulty. M51
 ([plan](milestone-51-plan.md)) added Rest, food and daily time. M50 ([plan](milestone-50-plan.md)) made the whole town
 of Vertigo playable, with Bash, unlocking and indoor Shoot. M49 ([plan](milestone-49-plan.md)) made monster targeting, damage at missile
@@ -18,8 +20,8 @@ Build and dependency setup is in [dependencies](dependencies.md).
 
 MMModern aims to be a faithful reimplementation of the original games; any
 approved deviation is noted where it applies. It is not yet a general
-replacement for them. A **new game** of Might and Magic IV: Clouds of Xeen
-(read from a World of Xeen installation) starts as in the original, and the
+replacement for them. A **new game** of Might and Magic IV: Clouds of Xeen,
+read from the World of Xeen two-CD talkie edition, starts as in the original, and the
 playable area is the whole town of Vertigo and the connected mainland of
 map 23. Darkside gameplay is not supported.
 
@@ -184,8 +186,12 @@ changes). Services, dialogs, inventory and casting accept only fresh presses.
 
 ## Entry modes
 
-All modes need the path to a World of Xeen installation. Original data is never
-copied or modified, and saves must not be written inside the installation.
+All modes need the path to a World of Xeen CD installation: at a GOG root,
+MMModern reads the CD archives inside the disc images and the installed
+`WORLD/XEEN.DAT` for the DOS interface text. A copy of the CD's `GAME` folder
+also works, with `--ui-data <path-to-XEEN.DAT>`. The floppy archives are not
+used, and saves made with them are rejected. Original data is never copied or
+modified, and saves must not be written inside any of these directories.
 
 | Command | Purpose |
 | --- | --- |
@@ -275,7 +281,8 @@ instructions are in [dependencies](dependencies.md).
   objects, fountains, the mirror, trap teleports and Thievery Event checks
   show "not supported yet".
 - **Presentation.** Service art is static (no animated shopkeepers). There is
-  no audio. Event, casting and treasure screens still use project layouts.
+  no audio: where the CD plays speech, a short notice appears and the scene
+  continues. Event, casting and treasure screens still use project layouts.
 - **Services.** Sell, Identify, buying Accessories/Misc, Fix of non-armor
   items, Temple Donation and Uncurse show "not supported yet".
 - **Combat items.** Equipping during combat and the combat Use button are not

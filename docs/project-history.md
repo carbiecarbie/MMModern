@@ -174,3 +174,10 @@ from the original initialization: the six level-1 characters in Vertigo at
 state. Adventurer and Warrior both work. The command line temporarily replaces
 the original title menu and difficulty dialog; the prepared Journey remains a
 test mode. [Plan](milestone-52-plan.md).
+
+**M53 - CD edition data** (`69b82d0`, `2bbe975`, `37101c4`). The World of
+Xeen CD talkie edition became the only reference data: archives read from the
+GOG disc images or a CD copy, DOS interface text from `WORLD/XEEN.DAT`, floppy
+fixed checks replaced by structural ones, and CD speech handled as deferred
+audio. All accepted behavior was revalidated: the three M44 routes play
+identically on CD data. [Plan](milestone-53-plan.md).
