@@ -253,13 +253,23 @@ bool XeenSaveState::canCapture(const XeenPartyState &party, const XeenCamera &ca
 XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resources,
 		const XeenPartyState &party, const XeenCamera &camera,
 		const XeenGameFlags &flags, const XeenWorld &world) {
+	return captureImpl(resources,party,camera,flags,world,false);
+}
+XeenSaveSnapshot XeenSaveState::captureInitialized(const XeenSaveResourceSignature &resources,
+		const XeenPartyState &party, const XeenCamera &camera,
+		const XeenGameFlags &flags, const XeenWorld &world) {
+	return captureImpl(resources,party,camera,flags,world,true);
+}
+XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &resources,
+		const XeenPartyState &party, const XeenCamera &camera,
+		const XeenGameFlags &flags, const XeenWorld &world, bool initializing) {
 	// Reject an unrelated flag owner before observing the bound graph's integrity.
 	const auto authority = world._journeyCapture.lock();
 	if (world.sessionState().journey()) {
 		if (!authority || !authority->preimage || &(**authority->preimage).f != &flags)
 			throw std::logic_error("Journey capture requires the bound game-flag owner");
 	}
-	if (!canCapture(party, camera, world))
+	if (initializing ? (!authority || !authority->current(party,camera,true)) : !canCapture(party, camera, world))
 		throw std::logic_error("MMModern save: encounter sessions cannot be captured");
 	XeenSaveSnapshot snapshot;
 	snapshot.resources = resources;

@@ -208,7 +208,7 @@ function New-DialogDrawingInclude([byte[]]$Bytes, [string]$SourceRevision) {
     $builder = New-Object Text.StringBuilder
     Add-Line $builder "/* ScummVM $SourceRevision; GPL-3.0-or-later; ScummVM developers (COPYRIGHT). Numeric drawing data only. */"
     Add-Line $builder 'namespace mmodern::generated_dialog_drawing {'
-	foreach ($table in @(@('WindowSymbols',2891,20,64), @('TextColors',4175,40,4))) {
+	foreach ($table in @(@('WindowSymbols',2891,20,64), @('TextColors',4175,40,4), @('StartupTextColors',4339,40,4))) {
 		$position = [int]$table[1]; $rows = [int]$table[2]; $columns = [int]$table[3]
 		if ($Bytes[$position] -ne 0 -or $Bytes[$position+1] -ne 0 -or $Bytes[$position+2] -ne $columns -or $Bytes[$position+3] -ne $rows) {
 			throw 'Dialog drawing array tag mismatch'

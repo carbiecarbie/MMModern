@@ -4,12 +4,15 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <shlobj.h>
 #include <algorithm>
 #include <atomic>
 #include <fstream>
 #include <stdexcept>
 #include <cwctype>
 #include <array>
+#include <sstream>
+#include <iomanip>
 #include <zlib.h>
 namespace mmodern {
 namespace {
@@ -131,12 +134,26 @@ XeenSaveSnapshot XeenSaveFile::read(const Path &path) {
  file.close();
  return XeenSaveFormat::decode(bytes);
 }
-void XeenSaveFile::write(const Path &path, const XeenSaveSnapshot &snapshot, const Fault &fault) {
+void XeenSaveFile::write(const Path &path, const XeenSaveSnapshot &snapshot, const Fault &fault, bool managed) {
  const auto bytes = XeenSaveFormat::encode(snapshot); // Before any destination I/O.
- if (ordinary(path, true)) {
-  try { static_cast<void>(read(path)); }
-  catch (const XeenUnsupportedSave &error) { if (!error.recognizableOlder) throw; }
- }
+ if(managed && !snapshot.name)throw std::runtime_error("Managed save requires a name");
+ // Serialize our publications across threads and MMModern processes. External
+ // replacements after the final check and before rename remain outside scope.
+ Handle mutex{CreateMutexW(nullptr,FALSE,L"Local\\MMModern-XeenSaveWriter")};
+ if(mutex.value==nullptr) {mutex.value=INVALID_HANDLE_VALUE;throw error("Create save writer mutex");}
+ const auto waited=WaitForSingleObject(mutex.value,INFINITE);
+ if(waited!=WAIT_OBJECT_0 && waited!=WAIT_ABANDONED)throw error("Acquire save writer mutex");
+ struct Unlock {HANDLE value;~Unlock(){ReleaseMutex(value);}} unlock{mutex.value};
+ const auto validateTarget=[&] {
+  if(ordinary(path,true)) {
+   try {
+    const auto previous=read(path);
+    if(!(previous.resources==snapshot.resources))throw std::runtime_error("Save target belongs to different game data");
+    if(managed && !previous.name)throw std::runtime_error("Managed target has no validated name");
+   } catch(const XeenUnsupportedSave &e) {if(!e.recognizableOlder)throw;}
+  }
+ };
+ validateTarget();
  const auto fails = [&](Operation op) { return fault && fault(op); };
  const auto require = [&](Operation op, const char *message) { if (fails(op)) throw std::runtime_error(message); };
  static std::atomic<unsigned long long> sequence{0};
@@ -168,6 +185,8 @@ void XeenSaveFile::write(const Path &path, const XeenSaveSnapshot &snapshot, con
   file.close();
   require(Operation::Close, "Injected close failure");
   require(Operation::Replace, "Injected replacement failure");
+  require(Operation::Revalidate, "Injected re-validation failure");
+  validateTarget();
   if (!MoveFileExW(temporary.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
    throw error("Publish save file");
  } catch (const std::exception &failure) {
@@ -199,5 +218,74 @@ XeenSaveResourceSignature XeenSaveFile::fingerprint(const GameInstallation &inst
  };
  XeenSaveResourceSignature result;result.clouds=hash(archiveDataFile(installation,XeenArchiveRole::Clouds));
  if(installation.hasDarkside())result.darkside=hash(archiveDataFile(installation,XeenArchiveRole::Darkside));return result;
+}
+std::filesystem::path XeenSaveFile::slotPath(const Path &directory,unsigned slot) {
+ if(slot>=10)throw std::out_of_range("Save slot must be in 0..9");
+ return directory/("slot-"+std::to_string(slot)+".mmsave");
+}
+XeenSaveFile::Slot XeenSaveFile::inspectSlot(const Path &path,const XeenSaveResourceSignature &signature) {
+ Slot result;
+ try {
+  if(!ordinary(path,true))return result;
+  auto snapshot=read(path);
+  if(!(snapshot.resources==signature))throw std::runtime_error("Save belongs to different game data");
+  if(!snapshot.name)throw std::runtime_error("Managed save has no validated name");
+  result.snapshot=std::move(snapshot);result.state=Slot::State::Available;
+ } catch(const XeenUnsupportedSave &e) {
+  result.state=e.recognizableOlder ? Slot::State::Older : Slot::State::Protected;result.reason=e.what();
+ } catch(const std::exception &e) {result.state=Slot::State::Protected;result.reason=e.what();}
+ return result;
+}
+void XeenSaveFile::writeSlot(const Path &directory,unsigned slot,const XeenSaveSnapshot &snapshot,
+ const GameInstallation &installation,const Path &repository,const Fault &fault,const std::function<void()> &check) {
+ if(check)check();
+ const auto target=resolve(resolve(slotPath(directory,slot),installation),repository);
+ if(check)check();
+ write(target,snapshot,[&](Operation op) {
+  if(check)check();const bool fail=fault && fault(op);if(check)check();
+  if(op==Operation::Revalidate && resolve(resolve(target,installation),repository)!=target)
+   throw std::runtime_error("Managed save directory identity changed");
+  return fail;
+ },true);
+ if(check)check();
+}
+std::filesystem::path XeenSaveFile::createSlotDirectory(const GameInstallation &installation,
+ const Path &repository,const std::optional<Path> &override) {
+ Path base;
+ if(override)base=*override;
+ else {
+  PWSTR value=nullptr;
+  const auto status=SHGetKnownFolderPath(FOLDERID_LocalAppData,0,nullptr,&value);
+  if(FAILED(status))throw std::runtime_error("Resolve Local AppData failed (HRESULT "+std::to_string(status)+")");
+  struct Free {PWSTR value;~Free(){CoTaskMemFree(value);}} free{value};
+  base=value;
+ }
+ if(base.empty() || !base.is_absolute())throw std::runtime_error("Local AppData must be an absolute existing directory");
+ // Reuse the path owner for every source, alias and link check. A synthetic
+ // leaf performs no I/O and also checks the resolved repository boundary.
+ const auto check=[&](const Path &directory) {
+  auto probe=resolve(directory/"slot-directory-check.mmsave",installation);
+  probe=resolve(probe,repository);
+  return probe.parent_path();
+ };
+ base=check(base);
+ const auto signature=fingerprint(installation);
+ std::ostringstream key;key<<std::hex<<std::setfill('0')<<std::setw(16)<<signature.clouds.size
+  <<'-'<<std::setw(8)<<signature.clouds.crc32;
+ if(signature.darkside)key<<'-'<<std::setw(16)<<signature.darkside->size<<'-'<<std::setw(8)<<signature.darkside->crc32;
+ else key<<"-no-darkside";
+ for(const auto &component:std::vector<Path>{"MMModern","Saves",key.str()}) {
+  const auto child=base/component;
+  // The parent is resolved and protected before creation. Resolve an existing
+  // child first so a junction into source data can never receive a new child.
+  const auto attributes=GetFileAttributesW(child.c_str());
+  if(attributes!=INVALID_FILE_ATTRIBUTES)base=check(child);
+  else {
+   if(GetLastError()!=ERROR_FILE_NOT_FOUND && GetLastError()!=ERROR_PATH_NOT_FOUND)throw error("Inspect managed save directory");
+   if(!CreateDirectoryW(child.c_str(),nullptr) && GetLastError()!=ERROR_ALREADY_EXISTS)throw error("Create managed save directory");
+   base=check(child);
+  }
+ }
+ return base;
 }
 }

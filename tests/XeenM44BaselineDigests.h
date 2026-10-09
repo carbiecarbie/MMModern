@@ -67,15 +67,23 @@
 // Ten saves/checkpoints reconstructed from only these deltas equal the CD
 // candidates byte for byte. Full per-byte and record mapping/raw evidence:
 // build-rel/m53-evidence/part-b/digest-audit.txt and digest-audit.json.
+// M54 Part A: maintainer approved the v7 format-only audit on 2026-10-09.
+// Preserved baseline executables reproduced all three M53 CD hashes.
+// Every common gameplay byte and decoded field matches, as do complete traces
+// (7,855 / 36,316 / 30,800 lines). All ten checkpoints append only a zero
+// absent-name byte; version, payload length and CRC change. Schema 9/content 14
+// remain unchanged. First divergence: envelope offset 8. Each final v7 save
+// reloads and re-saves exactly. Full byte mapping, CRCs, hashes and evidence:
+// build-rel/m54-evidence/digest-audit.json (local, never committed saves).
 #include <array>
 #include <cstdint>
 namespace m44_baseline {
-inline constexpr const char *revision = "52b8760c08b6369c76ab82b1c4093e42bb326db5 + M53 Part B CD";
+inline constexpr const char *revision = "abcda8c7ecfd6d3f8339b3ce2c38d6d06fa0326f + M54 Part A v7";
 struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 inline constexpr std::array<Scenario,3> scenarios{{
-    {"mainland-combat-myra-phirna",3626689381u,"141fe55681717513cec78e3890889dda18ef9dbdd1e5cfe534cac1b4be85eeb6"},
-    {"vertigo-buy-repair-training",7u,"a500e62568e74d14ad64e58a0fac11f99c3d6d3349fe05e16da3de1243e2b8a2"},
-    {"temple-recovery",3626689381u,"9d635feb99a50304839301aaeefd1a6798585c123ed26236d25dd143aa2a8ae7"}
+    {"mainland-combat-myra-phirna",3626689381u,"d2a39dc6144d5e015b540e674a837aa7a606fa8e83587c326e284087d098cf3a"},
+    {"vertigo-buy-repair-training",7u,"f159bfcf4e1da54907a8e3ccd296d47c9fcb931fb225344c3fd739853f889773"},
+    {"temple-recovery",3626689381u,"11eaaa12a3e0b134371dcfb42dabf410dd226a96bff82c2ab5d26937f47bdf6f"}
 }};
 }
 #endif

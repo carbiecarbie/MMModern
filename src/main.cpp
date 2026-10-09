@@ -15,9 +15,9 @@ namespace {
 
 void newGameUsage() {
 	std::cerr << "Usage: mmodern --new-game <game-dir> [--difficulty adventurer|warrior] [--save-file <path>] [--ui-data <XEEN.DAT>]\n"
-		"       mmodern <game-dir> [--difficulty adventurer|warrior] [--save-file <path>] [--ui-data <XEEN.DAT>]\n"
-		"Direct launch temporarily replaces the original title/difficulty dialogs.\n"
-		"Difficulty defaults to Adventurer. F9 requires an explicit save target.\n"
+		"       mmodern <game-dir> [--ui-data <XEEN.DAT>]\n"
+		"Plain launch opens the original title menu.\n"
+		"Developer --new-game defaults to Adventurer. F9 requires an explicit save target.\n"
 		"--combat-seed is accepted only by --journey-region.\n";
 }
 
@@ -106,11 +106,14 @@ int main(int argc, char *argv[]) {
  pointers.clear();for(auto &argument:arguments)pointers.push_back(argument.data());
  argc=static_cast<int>(pointers.size());argv=pointers.data();
  const mmodern::Application application(uiData.value_or(std::filesystem::path{}));
-	// Approved temporary direct entry/default (M52 plan, 2026-10-06).
-	// The original title and mandatory difficulty choice remain the next milestone.
+	// Plain launch enters the original title. Overrides require developer entry.
 	if (argc >= 2 && (std::string(argv[1]) == "--new-game" ||
 			std::string(argv[1]).rfind("--", 0) != 0)) {
 		const int path = std::string(argv[1]) == "--new-game" ? 2 : 1;
+		if(path==1) {
+			if(argc!=2 || std::string(argv[1]).empty()){newGameUsage();return 1;}
+			return application.run(std::filesystem::u8path(argv[1]));
+		}
 		bool valid = path < argc && std::string(argv[path]).size() &&
 			std::string(argv[path]).rfind("--", 0) != 0;
 		auto difficulty = mmodern::XeenDifficulty::Adventurer;

@@ -45,6 +45,7 @@ inline bool sameInputs(const XeenCombatInputs &a, const XeenCombatInputs &b) {
 }
 
 inline void sameSnapshot(const XeenSaveSnapshot &a, const XeenSaveSnapshot &b) {
+	check(a.name == b.name, "save name changed");
 	check(a.resources == b.resources && sameCamera(a.camera, b.camera), "signature/camera changed");
 	check(a.food==b.food,"food changed");
 	check(a.activeRosterIds == b.activeRosterIds, "membership order changed");

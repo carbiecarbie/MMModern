@@ -56,20 +56,20 @@ const char *editionName(GameEdition edition) {
 
 const char *directionName(XeenDirection direction) {
 	switch (direction) {
-	case XeenDirection::North: return "Norte";
-	case XeenDirection::East: return "Leste";
-	case XeenDirection::South: return "Sul";
-	case XeenDirection::West: return "Oeste";
+	case XeenDirection::North: return "North";
+	case XeenDirection::East: return "East";
+	case XeenDirection::South: return "South";
+	case XeenDirection::West: return "West";
 	}
 	return "?";
 }
 
 const char *blockedReason(XeenMovementResult result) {
 	switch (result) {
-	case XeenMovementResult::BlockedByMapBoundary: return "limite do mapa";
-	case XeenMovementResult::BlockedByWall: return "parede intransponivel";
-	case XeenMovementResult::BlockedByTerrain: return "terreno intransponivel";
-	case XeenMovementResult::BlockedBySurface: return "superficie intransponivel";
+	case XeenMovementResult::BlockedByMapBoundary: return "map boundary";
+	case XeenMovementResult::BlockedByWall: return "impassable wall";
+	case XeenMovementResult::BlockedByTerrain: return "impassable terrain";
+	case XeenMovementResult::BlockedBySurface: return "impassable surface";
 	default: return nullptr;
 	}
 }
@@ -140,43 +140,39 @@ std::string formatEventError(const XeenEventExecutionError &error) {
 
 void requireAutomaticEventSuccess(const XeenAutomaticEventResult &result) {
 	if (const auto *error = std::get_if<XeenEventExecutionError>(&result))
-		throw std::runtime_error("evento automatico: " + formatEventError(*error));
+		throw std::runtime_error("Automatic event: " + formatEventError(*error));
 }
 
 void printManualEventResult(const XeenManualEventResult &result) {
 	if (std::holds_alternative<XeenManualEventNoEvent>(result)) {
-		std::cout << "Interacao: nenhum evento nesta posicao e direcao.\n";
+		std::cout << "Interaction: nenhum evento nesta posicao e direcao.\n";
 	} else if (const auto *completed =
 			std::get_if<XeenManualEventCompleted>(&result)) {
-		std::cout << "Interacao: evento concluido ("
-			<< completed->instructionCount << " instrucoes).\n";
+		std::cout << "Interaction: event completed ("
+			<< completed->instructionCount << " instructions).\n";
 	} else if (const auto *special =
 			std::get_if<XeenManualSpecialInteractionUnsupported>(&result)) {
-		std::cout << "Interacao especial ainda nao suportada (parede "
+		std::cout << "Special interaction not supported yet (wall "
 			<< static_cast<unsigned>(special->wallValue) << ").\n";
 	} else if (const auto *pending =
 			std::get_if<XeenEventExecutionSuspended>(&result)) {
-		std::cout << "Interacao: apresentacao semantica pendente (texto ";
+		std::cout << "Interaction: apresentacao semantica pendente (texto ";
 		if (pending->request.textIndex)
 			std::cout << static_cast<unsigned>(*pending->request.textIndex);
 		else
-			std::cout << "sem indice";
+			std::cout << "no index";
 		std::cout << ").\n";
 	} else if (const auto *error = std::get_if<XeenEventExecutionError>(&result)) {
-		std::cout << "Interacao: " << formatEventError(*error) << '\n';
+		std::cout << "Interaction: " << formatEventError(*error) << '\n';
 	}
 }
 
 void printPartyDiagnostics(const XeenPartyState &state) {
 	for (const std::string &diagnostic : state.diagnostics)
-		std::cerr << "Aviso: " << diagnostic << '\n';
+		std::cerr << "Warning: " << diagnostic << '\n';
 }
 
 } // namespace
-
-int Application::run(const std::filesystem::path &gameDirectory) const {
-	return newGame(gameDirectory);
-}
 
 int Application::newGame(const std::filesystem::path &gameDirectory,
         XeenDifficulty difficulty, std::optional<std::filesystem::path> savePath) const {
@@ -362,7 +358,8 @@ int Application::loadGame(const std::filesystem::path &gameDirectory,
 
 int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera camera,
         const std::optional<std::filesystem::path> &savePath, bool resume, XeenEncounterEntry entry,
-        std::optional<std::uint32_t> seed, std::optional<XeenDifficulty> originalStart) const {
+        std::optional<std::uint32_t> seed, std::optional<XeenDifficulty> originalStart,
+        const XeenSessionEntry *managed, XeenAssetSource *sharedAssets,InitialPublication publication) const {
     try {
         if (originalStart && (resume || entry != XeenEncounterEntry::Journey || seed ||
                 static_cast<unsigned>(*originalStart) > 1))
@@ -389,7 +386,9 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                 << " ms\n";
         }
         std::cout << "Data source: " << installation->sourceOrigin << '\n';
-        XeenAssetSource assets(*installation, CloudsUiComposer::kWidth, CloudsUiComposer::kHeight);
+        std::unique_ptr<XeenAssetSource> ownedAssets;
+        if(!sharedAssets)ownedAssets=std::make_unique<XeenAssetSource>(*installation,CloudsUiComposer::kWidth,CloudsUiComposer::kHeight);
+        auto &assets=sharedAssets?*sharedAssets:*ownedAssets;
         const XeenMapLoader maps;
         const XeenEventLoader events([&](const std::string &name) -> std::optional<std::vector<std::uint8_t>> {
             if (!assets.hasInitialResource(name)) return std::nullopt;
@@ -444,12 +443,22 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                     "Y/N answers, F1-F6 selects, I opens inventory, 1-9 selects a slot, T transfers, "
                     "Escape closes/cancels or exits. Map exploration cannot save.\n";
                 auto nativeHandler=handler;
-                nativeHandler.cursorImage=[&] {return assets.cursorImage();};
+                nativeHandler.cursorImage=[&] {
+                    auto cursor=assets.cursorImage();
+                    cursor.palette=first.palette; // Title retry UI may have used the shared asset surface.
+                    return cursor;
+                };
                 return SdlWindow().showInteractive(first, status(), nativeHandler, escape, idle, status);
             }
         };
         services.catalog = &catalog.catalog;
         services.originalStart = originalStart;
+        if(managed) {
+            services.restoreSnapshot=managed->snapshot;
+            services.saveName=managed->name;
+            services.initialSlot=managed->slot;
+            services.publishInitial=std::move(publication);
+        }
         services.loadInitialCamera = [&] { return XeenCharacterFormat::parsePartyLocation(assets.readInitialResource("maze.pty")); };
         services.resources.loadInitialCharacters = [&] { return assets.readInitialResource("maze.chr"); };
         services.resources.regionalManifest = [&](const XeenMap &map,const XeenObjectFile &mob,const XeenEventFile &evt,const std::vector<XeenMonsterRecord> &mon) {

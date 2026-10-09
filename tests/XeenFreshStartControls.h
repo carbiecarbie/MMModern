@@ -80,6 +80,49 @@ void freshSaveControls(Source &source) {
   std::filesystem::remove(path);
  }
 }
+void titlePublicationControls(Source &source) {
+ for(auto difficulty:{XeenDifficulty::Adventurer,XeenDifficulty::Warrior}) {
+  for(bool cancel:{false,true}) {
+   combat_gameplay_test::Harness h;auto services=disengagementServices(source,h);
+   services.originalStart=difficulty;services.loadInitialCamera=[&]{return XeenCharacterFormat::parsePartyLocation(source.pty);};
+   unsigned seeds=0,publications=0,presentations=0;services.sampleJourneySeed=[&]{++seeds;return 1;};
+   services.saveName=" Case ~ ! ";std::optional<XeenSaveSnapshot> initialized;
+   const auto path=std::filesystem::temp_directory_path()/"mmodern-m54-initial.mmsave";std::filesystem::remove(path);
+   services.publishInitial=[&](const XeenSaveSnapshot &snapshot,const std::function<void()> &checkSource) {
+    ++publications;check(!presentations && snapshot.name==services.saveName,"New metadata/publication order");
+    checkSource();initialized=snapshot;
+    if(cancel)return false;
+    using Op=XeenSaveFile::Operation;
+    bool failed=false;
+    try {XeenSaveFile::write(path,snapshot,[](auto op){return op==Op::Replace;},true);}catch(const std::exception &){failed=true;}
+    check(failed && !std::filesystem::exists(path),"failed New published a slot");checkSource();
+    // Retry the retained immutable candidate, with no new seed or stock draws.
+    XeenSaveFile::write(path,snapshot,[&](auto){checkSource();return false;},true);return true;
+   };
+   services.show=[&](const auto &,const auto &handler,const auto &,const auto &,const auto &) {
+    ++presentations;check(initialized.has_value() && publications==1,"first presentation preceded publication");
+    handler.framePresented(h.flow->frame().presentation());handler.completeInputHandoff(h.flow->frame().presentation());
+    auto shown=XeenSaveState::capture(source.signature,*h.party,*h.camera,*h.flags,*h.world);shown.name=services.saveName;
+    check(XeenSaveFormat::encode(shown)==XeenSaveFormat::encode(*initialized) &&
+     XeenSaveFormat::encode(XeenSaveFile::read(path))==XeenSaveFormat::encode(shown),"New initial save differs from first presented state");
+    freshState(source,*h.party,*h.camera,*h.flags,*h.world,difficulty);return true;
+   };
+   check(Application().playGameplay(services,{},path,false,XeenEncounterEntry::Journey)==(cancel?5:0),"New publication/cancel outcome");
+   check(seeds==1 && presentations==(cancel?0u:1u),"New repeated initialization or exposed cancelled candidate");
+   if(!cancel) {
+    services.originalStart.reset();services.publishInitial={};services.restoreSnapshot=std::make_shared<const XeenSaveSnapshot>(*initialized);
+    std::filesystem::remove(path); // Title Load must use its retained value, never reread.
+    services.show=[&](const auto &,const auto &handler,const auto &,const auto &,const auto &) {
+     handler.framePresented(h.flow->frame().presentation());handler.completeInputHandoff(h.flow->frame().presentation());
+     auto restored=XeenSaveState::capture(source.signature,*h.party,*h.camera,*h.flags,*h.world);restored.name=initialized->name;
+     check(XeenSaveFormat::encode(restored)==XeenSaveFormat::encode(*initialized),"Title snapshot restore changed gameplay");return true;
+    };
+    check(Application().playGameplay(services,{},path,true)==0 && seeds==1,"Title Load reopened path or sampled RNG");
+   }
+   std::filesystem::remove(path);
+  }
+ }
+}
 void freshFailureControls(Source &s) {
  for(unsigned fault=0;fault<5;++fault) {
   auto p=XeenPartyLoader().loadFromResources(s.chr,s.pty);const auto before=p.roster.characters();

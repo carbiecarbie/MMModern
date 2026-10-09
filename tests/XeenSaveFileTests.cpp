@@ -182,8 +182,8 @@ void extendedIdentityTests(const fs::path &directory) {
 void legacyReplacement(const fs::path &path) {
  const auto current=sample(); const auto wire=XeenSaveFormat::encode(current);
  std::vector<Bytes> older{nonzeroLegacy()};
- for(unsigned version:{2u,3u,4u,5u}){auto bytes=wire;bytes[8]=version;older.push_back(bytes);}
- const auto suffix=wire.size()-4460;
+ for(unsigned version:{2u,3u,4u,5u,6u}){auto bytes=wire;bytes[8]=version;older.push_back(bytes);}
+ const auto suffix=wire.size()-4461;
  for(unsigned content=1;content<14;++content){auto bytes=wire;bytes[suffix+1]=legacyJourneySchema(content);bytes[suffix+3]=content;fixIndependentEnvelope(bytes);older.push_back(bytes);}
  for(const auto &old:older) {
   put(path,old);rejects([&]{XeenSaveFile::read(path);},"no longer supported");check(raw(path)==old,"older read mutated disk");
@@ -196,7 +196,7 @@ void legacyReplacement(const fs::path &path) {
  }
  for(unsigned mode=0;mode<6;++mode) {
   auto bad=wire;
-  switch(mode){case 0:bad[8]=7;break;case 1:bad[0]^=1;break;case 2:bad[8]=1;bad[16]^=1;break;
+  switch(mode){case 0:bad[8]=8;break;case 1:bad[0]^=1;break;case 2:bad[8]=1;bad[16]^=1;break;
    case 3:bad[suffix+3]=255;fixIndependentEnvelope(bad);break;case 4:bad[8]=2;bad.pop_back();break;
    case 5:bad[suffix+1]=8;bad[suffix+3]=14;fixIndependentEnvelope(bad);break;}
   put(path,bad);
@@ -208,6 +208,56 @@ void legacyReplacement(const fs::path &path) {
  put(path,wire);
 }
 
+void managedStorage(const fs::path &directory) {
+ const auto fixture=directory/("managed-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));
+ const auto commercial=fixture/"commercial",repository=fixture/"repository",local=fixture/"local";
+ fs::create_directories(commercial);fs::create_directories(repository);fs::create_directories(local);
+ put(commercial/"xeen.cc",Bytes{1,2,3});put(commercial/"dark.cc",Bytes{4,5,6});
+ GameInstallation install{commercial,commercial/"xeen.cc",commercial/"dark.cc",GameEdition::WorldOfXeen};
+ const auto signature=XeenSaveFile::fingerprint(install);
+ for(const auto &base:{commercial,repository}) {
+  rejects([&]{XeenSaveFile::createSlotDirectory(install,repository,base);},"Cannot save inside");
+  check(!fs::exists(base/"MMModern"),"protected directory creation");
+ }
+ TestJunction alias(fixture/"source-alias",commercial);
+ rejects([&]{XeenSaveFile::createSlotDirectory(install,repository,alias.path);},"Cannot save inside");
+ const auto slots=XeenSaveFile::createSlotDirectory(install,repository,local);
+ check(slots==XeenSaveFile::createSlotDirectory(install,repository,local),"managed directory key changed");
+ auto named=sample();named.name=" My Game ~ ";named.resources=signature;
+ for(unsigned i=0;i<10;++i) {
+  const auto target=XeenSaveFile::slotPath(slots,i);
+  check(XeenSaveFile::inspectSlot(target,signature).state==XeenSaveFile::Slot::State::Empty,"new slot occupied");
+  XeenSaveFile::writeSlot(slots,i,named,install,repository);
+  const auto row=XeenSaveFile::inspectSlot(target,signature);
+  check(row.state==XeenSaveFile::Slot::State::Available && row.snapshot->name==named.name,"managed slot name");
+ }
+ rejects([&]{XeenSaveFile::slotPath(slots,10);});
+ const auto target=XeenSaveFile::slotPath(slots,0);const auto wire=XeenSaveFormat::encode(named);
+ auto foreign=named;foreign.resources.clouds.crc32^=1;
+ for(unsigned fault=0;fault<4;++fault) {
+  auto swapped=wire;
+  if(fault==0)swapped=XeenSaveFormat::encode(foreign);
+  if(fault==1)swapped[8]=8;
+  if(fault==2)swapped.back()^=1;
+  if(fault==3) {auto absent=named;absent.name.reset();swapped=XeenSaveFormat::encode(absent);}
+  put(target,wire);
+  rejects([&]{XeenSaveFile::write(target,named,[&](auto op) {
+   if(op==XeenSaveFile::Operation::Revalidate)put(target,swapped);return false;
+  },true);});
+  check(raw(target)==swapped,"final re-validation overwrote protected replacement");
+  auto row=XeenSaveFile::inspectSlot(target,signature);
+  check(row.state==XeenSaveFile::Slot::State::Protected && !row.snapshot,"protected row exposed metadata");
+  unsigned io=0;rejects([&]{XeenSaveFile::write(target,named,[&](auto){++io;return false;},true);});
+  check(!io && raw(target)==swapped,"initial validation reached temporary I/O");
+ }
+ put(target,wire);auto older=wire;older[8]=6;put(target,older);
+ check(XeenSaveFile::inspectSlot(target,signature).state==XeenSaveFile::Slot::State::Older,"older replacement policy");
+ XeenSaveFile::write(target,named,{},true);check(raw(target)==wire,"explicit older replacement");
+ for(const auto &entry:fs::directory_iterator(slots))check(entry.path().extension()==".mmsave","managed temporary leaked");
+ alias.remove();
+ fs::remove_all(fixture);
+}
+
 int main(int argc,char **argv) {
  try {
   const auto directory=fs::current_path()/"save-file-tests";
@@ -215,6 +265,7 @@ int main(int argc,char **argv) {
   extendedIdentityTests(directory);
   if(argc==2 && std::string(argv[1])=="--identity-only")return 0;
   directoryAliasTests(directory);
+  managedStorage(directory);
   const auto path=XeenSaveFile::resolve(directory/fs::path(L"space \u00e7 \u6e38.mmsave"),directory/"commercial");
   check(XeenSaveFile::resolve(fs::path("save-file-tests")/fs::path(L"space \u00e7 \u6e38.mmsave"),directory/"commercial")==path,"relative save path resolution");
   rejects([&]{XeenSaveFile::resolve(directory/"CON.mmsave",directory/"commercial");},"device");
@@ -245,7 +296,7 @@ int main(int argc,char **argv) {
   check(locked!=INVALID_HANDLE_VALUE,"could not exclusively lock target");
   rejects([&]{XeenSaveFile::read(path);}); CloseHandle(locked);
   for(auto bad:std::vector<Bytes>{{1,2,3},Bytes(XeenSaveFormat::kMaximumSize+1),prior}) {
-   if(bad==prior) bad[8]=7;
+   if(bad==prior) bad[8]=8;
    put(path,bad); rejects([&]{XeenSaveFile::write(path,old);});check(raw(path)==bad,"unknown file overwritten");
   }
   put(path,prior);

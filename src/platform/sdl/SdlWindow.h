@@ -33,6 +33,9 @@ public:
 		std::function<void(const IndexedFrame::Presentation &)> framePresented;
 		std::function<void()> failed;
 		std::function<void()> closed;
+		// Successful title/session handoff; unlike a stale-frame failure this
+		// ends the native loop without delivering another queued action.
+		std::function<bool()> finished;
 		// Readiness of the supplied presented origin, never of an unacquired upload.
 		std::function<InputContext(const IndexedFrame::Presentation &)> inputContext;
 		// Draws on a temporary native-display copy; never acquires a gameplay frame.

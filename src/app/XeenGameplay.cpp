@@ -37,7 +37,8 @@ void xeenSaveGameplay(const XeenGameplayServices &services, XeenWorld &world, Xe
 	if (!flow.canSave() || !XeenSaveState::canCapture(party,camera,world))
 		throw std::logic_error("Save boundary is unavailable");
 	XeenRestoreGuard before(world,party,camera,flags);
-	const auto snapshot = XeenSaveState::capture(services.resources.signature,party,camera,flags,world);
+	auto snapshot = XeenSaveState::capture(services.resources.signature,party,camera,flags,world);
+	snapshot.name=services.saveName;
 	before.check();
 	const auto boundary = flow.beginSave();
 	struct Lease {
@@ -90,6 +91,7 @@ int Application::journeyRegion(const std::filesystem::path &directory, std::opti
 }
 int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera camera,
   const std::optional<std::filesystem::path> &target, bool resume, XeenEncounterEntry entry, std::optional<std::uint32_t> seed) const {
+ bool exposed=false;
  try {
   XeenGameplayServices services = supplied;
   std::function<void()> sourceCheck;
@@ -115,6 +117,8 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   };
   bool encounter = entry != XeenEncounterEntry::Ordinary;
   const bool original=services.originalStart.has_value();
+  if((services.restoreSnapshot && !resume) || (services.publishInitial && (!original || resume)))
+   throw std::invalid_argument("Invalid title session configuration");
   if(original && (resume || entry!=XeenEncounterEntry::Journey || seed ||
       static_cast<unsigned>(*services.originalStart)>1 || !services.loadInitialCamera))
    throw std::invalid_argument("Invalid original start configuration");
@@ -134,8 +138,10 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   };
   if (resume) {
    if (!target) throw std::runtime_error("Resume requires a save path");
-   const auto saved = XeenSaveFile::read(*target);
+   const auto saved = services.restoreSnapshot ? *services.restoreSnapshot : XeenSaveFile::read(*target);
+   services.saveName=saved.name;
    XeenSaveState::restoreBeforeGameplay(saved, services.resources, party, camera, flags, world, preflight);
+   services.currentSlot=services.initialSlot;
    entry = world.sessionState().encounterEntry();
    encounter = entry != XeenEncounterEntry::Ordinary;
   } else {
@@ -229,6 +235,26 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   // This is the only production new-session/resume initialization choice.
   const auto first = resume || encounter ? flow.frame() : flow.initial();
   if (!first.isValid()) throw std::runtime_error("Invalid first gameplay frame");
+  if(services.publishInitial) {
+   if(!original || resume || !services.saveName)throw std::logic_error("Invalid New publication request");
+   auto snapshot=XeenSaveState::captureInitialized(services.resources.signature,party,camera,flags,world);
+   snapshot.name=services.saveName;
+   auto &guard=flow._encounter->journeySavePreimage();
+   XeenRestoreGuard::Providers providers(guard,world);
+   struct SourceCheck {
+    std::function<void()> &slot;std::function<void()> previous;
+    ~SourceCheck(){slot=std::move(previous);}
+   } held{sourceCheck,std::move(sourceCheck)};
+   sourceCheck=[&]{guard.check();handoff.verify();};
+   XeenWorld scratch(services.maps,services.objects);XeenPartyState p;XeenCamera c;XeenGameFlags f;
+   XeenSaveState::restoreBeforeGameplay(snapshot,services.resources,p,c,f,scratch,preflight);
+   sourceCheck();
+   bool published=false;
+   try {published=services.publishInitial(snapshot,sourceCheck);sourceCheck();}
+   catch(...) {sourceCheck();throw;}
+   if(!published)return 5; // Cancellation discards only this unpublished session.
+   services.currentSlot=services.initialSlot;
+  }
   if (services.observeGameplay) services.observeGameplay(world, events, party, camera, flags);
   handoff.verify();
   std::cout << "Map " << camera.mapId << ": camera X=" << camera.x << " Y=" << camera.y
@@ -239,11 +265,11 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    std::cout << "Warning: dark indoor map is rendered illuminated for diagnostics.\n";
   std::string status = "MMModern - Map " + std::to_string(camera.mapId.number);
   status += " - " + xeenInventorySummary(party);
-  if (target) {
+  if (target && !services.currentSlot) {
    status += " - F9 saves and replaces " + target->u8string();
    std::cout << "F9 saves and replaces " << target->u8string() << '\n';
   }
-  if (resume) std::cout << "Resumed " << target->u8string() << '\n';
+  if (resume) std::cout << "Resumed " << (services.currentSlot?services.saveName.value_or(""):target->u8string()) << '\n';
   bool dispatching = false;
   bool active = true;
   const auto dispatch = [&](const PlayerAction &action, std::optional<std::uint64_t> input,
@@ -283,6 +309,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
     if (flow.inventoryOpen()) message = "Cannot save while inventory is open. Close it and press F9 again.";
     else if (!flow.canSave()) message = "Cannot save while an interaction is pending.";
     else if (!flow.journey()) message = "Map exploration cannot save.";
+    else if(services.currentSlot)message="F9 is available only with an explicit developer --save-file target.";
     else if (!target) message = "No save target configured. Use --save-file <path>.";
     else try {
      xeenSaveGameplay(services,world,party,camera,flags,flow,*target,preflight,&sourceCheck);
@@ -337,6 +364,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    catch (...) { handoff.fail(); active = false; throw; }
   };
   handoff.verify();
+  exposed=true;
   const bool ok = services.show(first, handler, [&] { return flow.handlesEscape(); }, idle, [&] {
    try { return status; } catch (...) { handoff.fail(); active = false; throw; }
   });
@@ -349,7 +377,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   std::cerr << "Gameplay startup failed";
   if (target) std::cerr << " [" << target->u8string() << ']';
   std::cerr << ": " << e.what() << '\n';
-  return 3;
+  return exposed && (supplied.restoreSnapshot || supplied.publishInitial)?4:3;
  }
 }
 }

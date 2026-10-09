@@ -29,6 +29,7 @@ struct IndexedFrame {
 	}
 private:
 	friend class XeenEventFlow;
+	friend class XeenTitleFlow;
 	Presentation _presentation;
 };
 

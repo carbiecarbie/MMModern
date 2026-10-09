@@ -273,12 +273,13 @@ struct ScummVmXeenBridge::Impl {
 		const Common::Path path(name.c_str(), Common::Path::kNoSeparator);
 		// Pinned File::open: selected/current archive, then registered search
 		// sources (INTRO). DARK is an archive selection, never a search source.
-		if (selection == XeenSceneArchive::Darkside) {
+		if (selection == XeenSceneArchive::Darkside || selection == XeenSceneArchive::DarksideOnly) {
 			if (sceneDarkPath.has_value()) {
 				if (!sceneDark) sceneDark.reset(new SceneInstalledArchive(*sceneDarkPath));
 				if (sceneDark->hasFile(path)) return {sceneDark.get(), "dark.cc"};
 			}
 		} else if (archive.hasFile(path)) return {&archive, "xeen.cc"};
+		if (selection == XeenSceneArchive::DarksideOnly) return {nullptr, {}};
 		if (sceneIntroPath.has_value()) {
 			if (!sceneIntro) sceneIntro.reset(new SceneInstalledArchive(*sceneIntroPath));
 			if (sceneIntro->hasFile(path)) return {sceneIntro.get(), "intro.cc"};
@@ -429,8 +430,10 @@ bool ScummVmXeenBridge::hasArchiveResource(const std::string &resourceName) {
 		Common::Path(resourceName.c_str(), Common::Path::kNoSeparator));
 }
 
-std::vector<std::uint8_t> ScummVmXeenBridge::readArchiveResource(const std::string &resourceName) {
-	auto stream = openResource(_impl->archive, resourceName);
+std::vector<std::uint8_t> ScummVmXeenBridge::readArchiveResource(const std::string &resourceName, XeenSceneArchive selection) {
+	const auto source=(selection==XeenSceneArchive::Current || selection==XeenSceneArchive::Clouds) ? Impl::SceneResource{&_impl->archive,"xeen.cc"} : _impl->sceneResource(resourceName,selection);
+	if(!source.archive)throw std::runtime_error("Missing resource in selected archive: "+resourceName);
+	auto stream = openResource(*source.archive, resourceName, source.origin);
 	return readBytes(*stream, resourceName);
 }
 
@@ -447,8 +450,10 @@ std::vector<std::uint8_t> ScummVmXeenBridge::readInitialResource(const std::stri
 	return readBytes(*stream, resourceName);
 }
 
-void ScummVmXeenBridge::loadPalette(const std::string &resourceName) {
-	std::unique_ptr<Common::SeekableReadStream> stream = openResource(_impl->archive, resourceName);
+void ScummVmXeenBridge::loadPalette(const std::string &resourceName, XeenSceneArchive selection) {
+	const auto source=(selection==XeenSceneArchive::Current || selection==XeenSceneArchive::Clouds) ? Impl::SceneResource{&_impl->archive,"xeen.cc"} : _impl->sceneResource(resourceName,selection);
+	if(!source.archive)throw std::runtime_error("Missing palette in selected archive: "+resourceName);
+	std::unique_ptr<Common::SeekableReadStream> stream = openResource(*source.archive, resourceName, source.origin);
 	if (stream->size() != static_cast<int64>(IndexedFrame::kPaletteSize))
 		throw std::runtime_error("paleta com tamanho invalido: " + resourceName);
 
@@ -460,8 +465,10 @@ void ScummVmXeenBridge::loadPalette(const std::string &resourceName) {
 		component = static_cast<std::uint8_t>(component << 2);
 }
 
-void ScummVmXeenBridge::loadRawFramebuffer(const std::string &resourceName) {
-	std::unique_ptr<Common::SeekableReadStream> stream = openResource(_impl->archive, resourceName);
+void ScummVmXeenBridge::loadRawFramebuffer(const std::string &resourceName, XeenSceneArchive selection) {
+	const auto source=(selection==XeenSceneArchive::Current || selection==XeenSceneArchive::Clouds) ? Impl::SceneResource{&_impl->archive,"xeen.cc"} : _impl->sceneResource(resourceName,selection);
+	if(!source.archive)throw std::runtime_error("Missing RAW in selected archive: "+resourceName);
+	std::unique_ptr<Common::SeekableReadStream> stream = openResource(*source.archive, resourceName, source.origin);
 	const uint32 expectedSize = static_cast<uint32>(_impl->surface.w * _impl->surface.h);
 	if (stream->size() != expectedSize)
 		throw std::runtime_error("framebuffer RAW com tamanho invalido: " + resourceName);
@@ -590,9 +597,9 @@ void ScummVmXeenBridge::drawNpc(IndexedFrame &frame, std::uint8_t portraitId,
 			frame.pixels.data() + y * 320);
 }
 
-void ScummVmXeenBridge::drawDialogSprite(IndexedFrame &frame,const char *name,unsigned index,int x,int y) {
+void ScummVmXeenBridge::drawDialogSprite(IndexedFrame &frame,const char *name,unsigned index,int x,int y,XeenSceneArchive selection) {
 	if(!frame.isValid() || frame.width!=320 || frame.height!=200) throw std::invalid_argument("Invalid dialog sprite frame");
-	auto &sprite=_impl->sprite(name,index);
+	auto &sprite=_impl->sprite(name,index,0,selection!=XeenSceneArchive::Current,selection);
 	XSurface surface;surface.create(320,200);
 	for(int row=0;row<200;++row) std::copy_n(frame.pixels.data()+row*320,320,static_cast<std::uint8_t *>(surface.getBasePtr(0,row)));
 	sprite.draw(surface,index,Common::Point(x,y));
@@ -600,8 +607,11 @@ void ScummVmXeenBridge::drawDialogSprite(IndexedFrame &frame,const char *name,un
 }
 
 IndexedFrame ScummVmXeenBridge::cursorImage() {
+ return cursorImage(XeenSceneArchive::Current);
+}
+IndexedFrame ScummVmXeenBridge::cursorImage(XeenSceneArchive selection) {
  // EventsManager::setCursor(0): resize, transparent palette index 0, hotspot 0,0.
- auto &sprite=_impl->sprite("mouse.icn",0);
+ auto &sprite=_impl->sprite("mouse.icn",0,0,selection!=XeenSceneArchive::Current,selection);
  XSurface surface;sprite.draw(surface,0,Common::Point(0,0),MM::Shared::Xeen::SPRFLAG_RESIZE);
  auto frame=snapshot();frame.width=surface.w;frame.height=surface.h;
  frame.pixels.resize(std::size_t(surface.w)*surface.h);

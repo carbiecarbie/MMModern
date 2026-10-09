@@ -37,6 +37,8 @@ struct XeenTextRenderOptions {
 	// Original dialog templates use absolute cursor controls and four-shade font
 	// colors. Existing flowing Event/service text retains its established layout.
 	bool originalControls = false;
+	// FontSurface::setTextColor uses the original startup table at the title.
+	bool startupColors = false;
 };
 
 struct XeenTextRenderResult {

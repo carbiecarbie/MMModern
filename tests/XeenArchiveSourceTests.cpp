@@ -30,6 +30,12 @@ int main(int argc,char **argv){try{
   bridge.drawSceneSprite("shared.srf",0,10,10,{});check(bridge.snapshot().pixels[3210]==3,"current archive selection");
   XeenSpriteDrawOptions options;options.archive=XeenSceneArchive::Darkside;bridge.drawSceneSprite("shared.srf",0,11,10,options);check(bridge.snapshot().pixels[3211]==4,"selected DARK isolation");
   bridge.drawSceneSprite("fallback.srf",0,12,10,options);check(bridge.snapshot().pixels[3212]==5,"INTRO fallback");
+  options.archive=XeenSceneArchive::DarksideOnly;
+  check(!bridge.hasSceneResource("fallback.srf",options.archive),"strict DARK selection fell back to INTRO");
+  refuses([&]{bridge.drawSceneSprite("fallback.srf",0,12,10,options);},"strict DARK sprite fallback");
+  refuses([&]{bridge.readArchiveResource("binary",options.archive);},"strict DARK bytes fell back to Clouds");
+  refuses([&]{bridge.loadPalette("binary",options.archive);},"strict DARK palette fallback");
+  refuses([&]{bridge.loadRawFramebuffer("binary",options.archive);},"strict DARK RAW fallback");
   check(bridge.readLearnedSpellNamesFromDarkArchive()->size()==77*64,"spell format ceiling replaces exact floppy size");
   bridge.discardSpriteCache();bridge.drawSceneSprite("SHARED.SRF",0,10,10,{});check(bridge.cachedSpriteCount()==1,"pinned resource ID key");
   auto changed=bytes(installation.xeenArchive);changed.back()^=1;write(installation.xeenArchive,changed);

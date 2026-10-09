@@ -48,6 +48,12 @@ public:
 		const Resources &resources, XeenPartyState &party, XeenCamera &camera,
 		XeenGameFlags &flags, XeenWorld &world, const Preflight &preflight);
 private:
+	friend class Application;
+	// Initialization has its own authority; ordinary Save remains presented-only.
+	static XeenSaveSnapshot captureInitialized(const XeenSaveResourceSignature &,
+		const XeenPartyState &, const XeenCamera &, const XeenGameFlags &, const XeenWorld &);
+	static XeenSaveSnapshot captureImpl(const XeenSaveResourceSignature &,
+		const XeenPartyState &, const XeenCamera &, const XeenGameFlags &, const XeenWorld &, bool initializing);
 	static void validateJourneyValues(const XeenSaveSnapshot &);
 	static void restoreJourney(const XeenSaveSnapshot &, const Resources &,
 		XeenPartyState &, XeenCamera &, XeenGameFlags &, XeenWorld &, const Preflight &);

@@ -1,0 +1,99 @@
+#include "app/XeenTitleFlow.h"
+#include "formats/xeen/XeenAssetSource.h"
+#include "games/xeen/XeenInstallationDetector.h"
+#include "XeenSaveTestSupport.h"
+#include <iostream>
+using namespace mmodern;
+using save_test::check;
+void titleApplicationControls(const char *);
+void titlePreview(const IndexedFrame &,const std::string &);
+namespace {
+using Screen=XeenTitleFlow::Screen;
+struct Driver {
+ XeenTitleFlow flow;std::uint64_t now=1;
+ explicit Driver(XeenTitleFlow::Services services):flow(std::move(services)){present();fade();}
+ void present(){flow.presented(flow.frame().presentation());flow.completeInput(flow.frame().presentation());}
+ void fade(){flow.animate(now);now+=1000;flow.animate(now);present();}
+ void key(unsigned value) {
+  const auto action=flow.inputContext(flow.frame().presentation()).dialog->key(value);
+  check(bool(action),"missing title key mapping");flow.handle(*action,flow.frame().presentation());present();
+ }
+ void click(int x,int y) {
+  const auto action=flow.inputContext(flow.frame().presentation()).dialog->click(x,y);
+  check(bool(action),"missing title hit mapping");flow.handle(*action,flow.frame().presentation());present();
+ }
+ void type(std::string value){flow.handle(TextInputAction{std::move(value)},flow.frame().presentation());present();}
+};
+}
+int main(int argc,char **argv){try {
+ check(argc==2,"Title flow test requires original CD source");
+ {
+ const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"missing CD installation");
+ XeenAssetSource assets(*installation,320,200);const XeenFontFormat font(assets.readArchiveResource("fnt",XeenSceneArchive::DarksideOnly));
+ std::array<XeenSaveFile::Slot,10> slots;
+ auto saved=save_test::currentWireSnapshot();saved.name="Retained Game";
+ slots[0].state=XeenSaveFile::Slot::State::Available;slots[0].snapshot=saved;
+ slots[5].state=XeenSaveFile::Slot::State::Protected;slots[5].reason="Synthetic protected target";
+ const auto services=[&]{return XeenTitleFlow::original(assets,font,[&]{return slots;},[](unsigned slot){return std::filesystem::path("test-slots")/(std::to_string(slot)+".mmsave");});};
+ Driver d(services());
+ check(d.flow.screen()==Screen::Background,"plain title starts with animated background");d.key(27);
+ const auto menu=d.flow.frame().pixels;const auto old=d.flow.frame().presentation();
+ d.flow.animate(d.now);d.now+=200;d.flow.animate(d.now);d.present();check(d.flow.frame().pixels!=menu,"title animation phase did not advance");
+ d.key(27);check(d.flow.screen()==Screen::Background,"title Escape hid menu");
+ check(!d.flow.handle(DialogKeyAction{'s'},old),"stale title frame opened New");
+ d.key(27);check(d.flow.screen()==Screen::Menu,"background Escape must reopen menu");
+ const auto input=d.flow.inputContext(d.flow.frame().presentation()).dialog;
+ const auto &start=input->hits.at(0);
+ check(!input->click(start.left-1,start.top) && input->click(start.left,start.top) &&
+  input->click(start.right-1,start.bottom-1) && !input->click(start.right,start.bottom),"title hit edges");
+ d.key('c');check(d.flow.screen()==Screen::Credits,"credits entry");
+ for(unsigned page=0;page<4;++page) {
+  titlePreview(d.flow.frame(),"credits-"+std::to_string(page+1));
+  const auto before=d.flow.frame().pixels;d.now+=10000;check(!d.flow.animate(d.now) && d.flow.frame().pixels==before,"credits advanced automatically");
+  d.key('x');check(d.flow.screen()==(page==3?Screen::Menu:Screen::Credits),"credits ordered four-page return");
+ }
+ d.fade();d.key('c');d.key(27);check(d.flow.screen()==Screen::Menu,"credits Escape did not return immediately");d.fade();
+ d.key('o');check(d.flow.screen()==Screen::Other,"Other Options");
+ check(d.flow.inputContext(d.flow.frame().presentation()).dialog->hits.size()==2,"locked endings exposed buttons");
+ d.key('d');check(d.flow.screen()==Screen::Notice,"deferred intro did not report refusal");d.key(27);d.key(27);
+ d.click(start.left,start.top);check(d.flow.screen()==Screen::NewSlots,"New mouse/key parity");
+ const auto chooser=d.flow.inputContext(d.flow.frame().presentation()).dialog;
+ for(unsigned i=0;i<10;++i)check(chooser->key(i==9?'0':'1'+i).has_value(),"ten numbered slots");
+ const auto &up=chooser->hits[0],&bar=chooser->hits[13];
+ check(up.button && up.button->pressedFrame()==1 && !bar.button,"DOS arrow/bar feedback mapping");
+ const auto unchanged=d.flow.frame().presentation();
+ check(!d.flow.handle(*chooser->click(up.left,up.top),unchanged) && !d.flow.handle(*chooser->click(bar.left,bar.top),unchanged),"arrow/bar changed selection");
+ d.key('6');check(d.flow.screen()==Screen::Notice && !d.flow.entry(),"protected row not explained/disabled");d.key(27);
+ d.key('3');check(d.flow.screen()==Screen::NewSlots && !d.flow.entry(),"number key confirmed slot prematurely");
+ const auto &row=assets.uiText().buttons("CHOOSER")[4];bool green=false;
+ for(unsigned y=row.y;y<row.y+row.height;++y)for(unsigned x=row.x;x<row.x+row.width;++x) {
+  const auto p=d.flow.frame().pixels[y*320+x]*3;const auto &palette=d.flow.frame().palette;
+  green=green || (palette[p+1]>palette[p] && palette[p+1]>palette[p+2]);
+ }
+ check(green,"DOS selected slot must be green");
+ d.key(13);check(d.flow.screen()==Screen::Name,"empty New slot must precede name");
+ d.key(13);check(d.flow.screen()==Screen::Name,"empty name confirmed");
+ d.type(std::string(1,char(127)));check(d.flow.screen()==Screen::Name,"invalid code changed name screen");
+ d.type("Case !~ ");d.key(8);d.key(13);check(d.flow.screen()==Screen::Difficulty,"name before difficulty");
+ d.key(27);check(d.flow.screen()==Screen::NewSlots,"difficulty cancel must return to slots");
+ d.key('1');d.key(13);check(d.flow.screen()==Screen::Overwrite,"occupied New requires overwrite before name");
+ d.key('n');check(d.flow.screen()==Screen::NewSlots,"overwrite decline route");d.key(13);d.key('y');
+ check(d.flow.screen()==Screen::Name,"overwrite acceptance route");d.key(27);check(d.flow.screen()==Screen::NewSlots,"name cancel route");
+ d.key('3');d.key(13);d.type("X");d.key(13);d.key('w');
+ check(d.flow.entry() && d.flow.entry()->kind==XeenSessionEntry::Kind::New &&
+  d.flow.entry()->slot==2 && d.flow.entry()->difficulty==XeenDifficulty::Warrior,"New entry values");
+ d.flow.publicationFailure("Synthetic write failure");d.present();d.key(27);
+ check(d.flow.entry()->kind==XeenSessionEntry::Kind::CancelNew,"failed New cancel route");
+ Driver load(services());load.key(27);load.key('l');load.key('1');check(!load.flow.entry(),"title number key loaded prematurely");load.key(13);
+ check(load.flow.entry() && load.flow.entry()->kind==XeenSessionEntry::Kind::Load &&
+  load.flow.entry()->snapshot->name==saved.name,"title Load immutable candidate");
+ slots[0].snapshot->name="Changed disk row";check(load.flow.entry()->snapshot->name==saved.name,"Load candidate borrowed mutable chooser row");
+ slots={};Driver empty(services());empty.key(27);empty.key('l');check(empty.flow.screen()==Screen::Notice,"no-saves notice");empty.key(27);
+ empty.key('s');empty.key('0');empty.key(13);empty.type(std::string(20,' '));empty.type("ignored");empty.key(13);empty.key('a');
+ check(empty.flow.entry()->name==std::string(20,' ') && empty.flow.entry()->slot==9,"name byte limit/case-preserving round trip");
+ const auto retired=empty.flow.frame().presentation();empty.flow.close();
+ check(!empty.flow.current() && !empty.flow.acceptsFrame(retired) && !empty.flow.handle(DialogKeyAction{'s'},retired),"closed title callbacks retained authority");
+ }
+ titleApplicationControls(argv[1]);
+ std::cout<<"Original title, four credits pages, chooser, New/Load, mouse/key/cancel and stale frames passed\n";return 0;
+}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

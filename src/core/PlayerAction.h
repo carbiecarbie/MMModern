@@ -5,6 +5,7 @@
 
 #include <variant>
 #include <cstddef>
+#include <string>
 
 namespace mmodern {
 
@@ -35,11 +36,12 @@ struct CancelInteractionAction {};
 struct UnsupportedMainScreenAction { const char *label; };
 // Dialog intent on the existing action path; no rules live in SDL.
 struct DialogKeyAction { unsigned key; };
+struct TextInputAction { std::string text; };
 
 using PlayerAction = std::variant<NavigationAction, InteractionAction,
 	AcknowledgeAction, YesAction, NoAction, SelectMemberAction, CancelInteractionAction, SaveGameAction, InspectInventoryAction,
 	SelectInventorySlotAction, TransferInventoryAction, EquipmentInventoryAction, UseItemAction, WaitAction,
-	AttackAction, ShootAction, CastSpellAction, BlockAction, RunAction, SelectCombatTargetAction, BeginEncounterAction, RevisitCompletedAction, UnsupportedMainScreenAction, DialogKeyAction, BashAction, RestAction>;
+	AttackAction, ShootAction, CastSpellAction, BlockAction, RunAction, SelectCombatTargetAction, BeginEncounterAction, RevisitCompletedAction, UnsupportedMainScreenAction, DialogKeyAction, BashAction, RestAction, TextInputAction>;
 
 } // namespace mmodern
 

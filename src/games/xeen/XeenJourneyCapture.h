@@ -21,6 +21,7 @@ class XeenJourneyCapture {
 	const std::shared_ptr<XeenRestoreGuard> *preimage = nullptr;
 	std::uint64_t generation = 0;
 	bool closed = false;
+	bool initializationPending = false;
 	std::vector<XeenActor> admittedActors;
 	XeenJourneyCapture() = default;
 	XeenJourneyCapture(const XeenWorld &w, const XeenPartyState &p, const XeenCamera &c,
@@ -31,12 +32,13 @@ class XeenJourneyCapture {
 		const std::shared_ptr<XeenRestoreGuard> &guard,const bool *notice=nullptr) noexcept {
 		w=&world; p=&party; c=&camera; state=&coordination; boundary=&external; busy=&work; preimage=&guard;needsRestNotice=notice;
 	}
-	bool current(const XeenPartyState &party, const XeenCamera &camera) const noexcept {
+	bool current(const XeenPartyState &party, const XeenCamera &camera, bool initializing=false) const noexcept {
 		if (closed || &party != p || &camera != c || !preimage || !*preimage || !(*preimage)->ownersAlive()) return false;
 		// Unavailable coordination is not an integrity observation. In particular,
 		// combat publications and legitimate leases need not match the quiet preimage.
 		if (*busy || (needsRestNotice && *needsRestNotice) || generation != boundary->generation() || !boundary->quiet() ||
-			w->sessionState().journeyActivity() != XeenJourneyActivity::Quiet ||
+			(initializing ? (!initializationPending || w->sessionState().journeyActivity()!=XeenJourneyActivity::Presentation) :
+			 w->sessionState().journeyActivity()!=XeenJourneyActivity::Quiet) ||
 			state->pending() != 0 || state->phase() != XeenEncounterPhase::Exploring ||
 			state->reason() != XeenEncounterStop::None || !XeenActorApproach::authoritative(*w,*p,*c,*state)) return false;
 		// Reuse the retained guard's monotonic failure latch. Flow checks this same

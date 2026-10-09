@@ -43,6 +43,7 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 	const auto cityProvider=setup.cityEventsProvider;
 	_journeyEvents = setup.events;
 	_journeyCapture.reset(new XeenJourneyCapture(w,p,c,_state,_boundary,_busy,_journeyPreimage,&_needsRestNotice));
+	_journeyCapture->initializationPending=!setup.prepared;
 	if (w.hasEncounterState() || p.roster.combatMarked() || p.encounterContext || w._combatCheck || w._combatAuthorized)
 		throw std::invalid_argument("Journey requires fresh uncoordinated owners");
 	if (!recovery || p.regionalRecovery)
@@ -459,6 +460,7 @@ bool XeenEncounterFlow::presentJourney(const Ticket &entry) {
 	if (!_journey || _busy || _combat || !_journeyFramePrepared || !current(entry) ||
 		(_world.sessionState().journeyActivity() != XeenJourneyActivity::Presentation && !journeyEvent() && !_shoot && !monsterReward() && !_itemUse && !_casting && !_smith && !_training)) return false;
 	if (!journeyCapacity()) return false;
+	_journeyCapture->initializationPending=false;
     projectilesPresented();
 	if(_rest) {_rest->presented=true;_rest->deadline=_lastTime+(_rest->phase==RestContinuation::Phase::Dream?50:100);}
 	auto &s = _world._sessionState;

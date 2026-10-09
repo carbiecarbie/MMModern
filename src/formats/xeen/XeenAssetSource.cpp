@@ -43,6 +43,7 @@ const XeenDosText &XeenAssetSource::uiText() {
  return *_impl->text;
 }
 IndexedFrame XeenAssetSource::cursorImage() { return _impl->bridge.cursorImage(); }
+IndexedFrame XeenAssetSource::cursorImage(XeenSceneArchive selection) { return _impl->bridge.cursorImage(selection); }
 IndexedFrame XeenAssetSource::restDreamImage() { return _impl->bridge.restDreamImage(); }
 
 std::size_t XeenAssetSource::spriteFrameCount(const std::string &name, XeenSceneArchive selection) {
@@ -137,8 +138,8 @@ bool XeenAssetSource::hasArchiveResource(const std::string &resourceName) {
 	return _impl->bridge.hasArchiveResource(resourceName);
 }
 
-std::vector<std::uint8_t> XeenAssetSource::readArchiveResource(const std::string &resourceName) {
-	return _impl->bridge.readArchiveResource(resourceName);
+std::vector<std::uint8_t> XeenAssetSource::readArchiveResource(const std::string &resourceName, XeenSceneArchive selection) {
+	return _impl->bridge.readArchiveResource(resourceName,selection);
 }
 
 bool XeenAssetSource::hasInitialResource(const std::string &resourceName) {
@@ -149,12 +150,12 @@ std::vector<std::uint8_t> XeenAssetSource::readInitialResource(const std::string
 	return _impl->bridge.readInitialResource(resourceName);
 }
 
-void XeenAssetSource::loadPalette(const std::string &resourceName) {
-	_impl->bridge.loadPalette(resourceName);
+void XeenAssetSource::loadPalette(const std::string &resourceName, XeenSceneArchive selection) {
+	_impl->bridge.loadPalette(resourceName,selection);
 }
 
-void XeenAssetSource::loadRawFramebuffer(const std::string &resourceName) {
-	_impl->bridge.loadRawFramebuffer(resourceName);
+void XeenAssetSource::loadRawFramebuffer(const std::string &resourceName, XeenSceneArchive selection) {
+	_impl->bridge.loadRawFramebuffer(resourceName,selection);
 }
 
 void XeenAssetSource::drawSprite(const std::string &resourceName,
@@ -186,8 +187,8 @@ void XeenAssetSource::drawNpc(IndexedFrame &frame, std::uint8_t portraitId,
 	_impl->bridge.drawNpc(frame, portraitId, portraitFrame);
 }
 
-void XeenAssetSource::drawDialogSprite(IndexedFrame &frame,const char *name,unsigned index,int x,int y) {
-	_impl->bridge.drawDialogSprite(frame,name,index,x,y);
+void XeenAssetSource::drawDialogSprite(IndexedFrame &frame,const char *name,unsigned index,int x,int y,XeenSceneArchive selection) {
+	_impl->bridge.drawDialogSprite(frame,name,index,x,y,selection);
 }
 
 } // namespace mmodern

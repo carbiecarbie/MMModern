@@ -50,7 +50,8 @@ describes the panel and Save As but not Text.
   Endings remain locked; no new unlock state or cinematic implementation.
 - Ten slots, numbered keys 1-9 then 0: green selection, empty rows, file field, Select/Exit and arrows. Copying DOS slot pairs
   to index 11 exposed no extra row. A slot is selected only by its number key or by clicking its row; Select confirms the
-  selection, like the keyboard confirmation. The arrows and the bar between them show their pressed frame but do nothing.
+  selection, like the keyboard confirmation. The arrows show their pressed frame but do nothing. Clicking the bar between
+  them does nothing (maintainer DOS clarification, 2026-10-09); it has no pressed feedback.
   Title and panel Load share this chooser and load without confirmation; Escape in title Load returns to the main menu. DOS paired filenames
   are display-only patterns from DAT; MMModern never reads/writes native saves. Derive difficulty/highest party level from payload.
 - New: slot -> occupied-slot overwrite confirmation with thumbs -> name -> difficulty. Before selecting a slot, Escape returns

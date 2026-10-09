@@ -5,6 +5,7 @@
 
 #include <istream>
 #include <stdexcept>
+#include <string_view>
 
 namespace mmodern {
 
@@ -22,8 +23,8 @@ public:
 
 class XeenSaveFormat {
 public:
-	// M51 Part A persists food, all live resistances and shared daily semantics.
-	static constexpr std::uint16_t kJourneyVersion = 6;
+	// M54 adds CRC-covered, bounded display-name metadata.
+	static constexpr std::uint16_t kJourneyVersion = 7;
 	static constexpr std::uint16_t kJourneySchema = 9;
 	static constexpr std::uint16_t kJourneyContent = 14;
 	static constexpr std::size_t kHeaderSize = 20;
@@ -36,6 +37,7 @@ public:
 	static std::vector<std::uint8_t> encode(const XeenSaveSnapshot &snapshot);
 	// Resource identity, active-character safety and composition are separate.
 	static void validate(const XeenSaveSnapshot &snapshot);
+	static bool validName(std::string_view name) noexcept;
 
 	// Reads from the caller's current position to EOF in bounded chunks. The
 	// caller supplies a newly opened binary archive stream; no file is opened here.

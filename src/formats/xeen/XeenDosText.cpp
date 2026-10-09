@@ -123,9 +123,40 @@ const std::vector<XeenDosText::Field> &XeenDosText::layout() {
   {"MENU_SPRITE",0x520a7,0x520b2,1,false,""},
   {"LOAD_LABEL",0x537ab,0x537b0,1,false,""},
   {"SAVE_LABEL",0x537b6,0x537bb,1,false,""},
-  {"OVERWRITE_CONFIRM",0x537c1,0x537d5,1,false,"s"}
+  {"OVERWRITE_CONFIRM",0x537c1,0x537d5,1,false,"s"},
+  {"NAME_PROMPT",0x52002,0x52023,1,false,""},
+  {"CREDITS_BACKGROUND",0x52086,0x5208f,1,false,""},
+  {"OTHER_BUTTONS",0x5209b,0x520a7,1,false,""},
+  {"TITLE_ANIMATIONS",0x520a7,0x520c8,3,false,""},
+  {"TITLE_BUTTONS",0x520c8,0x520d2,1,false,""},
+  {"TITLE_PALETTE",0x520f6,0x520ff,1,false,""},
+  {"TITLE_BACKGROUND",0x520ff,0x52109,1,false,""},
+  {"NO_SAVES",0x52135,0x52159,1,false,""},
+  {"OPTIONS_TEMPLATE",0x52159,0x521ba,1,false,"s,03d"},
+  {"WORLD_LABEL",0x521ba,0x521c0,1,false,""},
+  {"SAVED_NOTICE",0x532cf,0x53305,1,false,"s"},
+  {"SAVE_AS_SPACE",0x5346a,0x534b2,1,false,""},
+  {"DOS_SLOT_PATTERN",0x536a2,0x536af,1,false,"02d"},
+  {"SLOT_DETAILS",0x536af,0x536c7,1,false,"c,u"},
+  {"DOS_FILE_PATTERN",0x536c7,0x536d4,1,false,"02d"},
+  {"CHOOSER",0x536d4,0x537ab,1,false,"s,2u,s,s,2u,s,s,2u,s,s,2u,s,s,2u,s,s,2u,s,s,2u,s,s,2u,s,s,2u,s,s,2u,s,s,s"},
+  {"START_LABEL",0x537b0,0x537b6,1,false,""},
+  {"EMPTY_SLOT",0x537bb,0x537c1,1,false,""},
+  {"NEW_SPACE",0x537eb,0x53833,1,false,""},
+  {"DIFFICULTY_BUTTONS",0x53833,0x5383e,1,false,""},
+  {"DIFFICULTY_TEXT",0x5383e,0x5385f,1,false,""},
+  {"CHOOSER_SPRITES",0x53697,0x536a2,1,false,""}
  };
  return fields;
+}
+const std::vector<XeenDosText::ButtonLayout> &XeenDosText::buttonLayouts() {
+ // Verified against the installed DOS call sites: title 0xbad7..0xbb22,
+ // chooser 0x20459..0x2048f, difficulty 0x20a5e..0x20a94 (file offsets).
+ static const std::vector<ButtonLayout> layouts{
+  {"TITLE",0x4f162,0x4f176,0x4f17e,0x4f186,0x4f18e,0x4f192,4},
+  {"CHOOSER",0x4f19a,0x4f1bc,0x4f1cc,0x4f1dc,0x4f1ec,0x4f1fc,16},
+  {"DIFFICULTY",0x4f690,0x4f696,0x4f698,0x4f69a,0x4f69c,0x4f69e,2}
+ };return layouts;
 }
 void XeenDosText::validateControls(std::string_view text) {
  for(std::size_t i=0;i<text.size();) {
@@ -209,6 +240,24 @@ XeenDosText::XeenDosText(const std::vector<std::uint8_t> &bytes) {
   if(at!=field.end)malformed(std::string(field.name)+" ambiguous/trailing field bytes");
   if(!_fields.emplace(field.name,std::move(values)).second)malformed("duplicate named field");
  }
+ for(const auto &layout:buttonLayouts()) {
+  std::vector<Button> buttons;
+  for(unsigned i=0;i<layout.count;++i) {
+   for(const auto at:{layout.y,layout.width,layout.height,layout.key,layout.painted})
+    if(at+i>=image)malformed("button table extent");
+   Button button{word(bytes,layout.x+i*2),bytes[layout.y+i],bytes[layout.width+i],bytes[layout.height+i],bytes[layout.key+i],bytes[layout.painted+i]!=0};
+   if(button.x>=320 || button.y>=200 || !button.width || !button.height || button.x+button.width>320 || button.y+button.height>200 || !button.key || bytes[layout.painted+i]>1)
+    malformed(std::string(layout.name)+" button bounds/key/paint");
+   buttons.push_back(button);
+  }
+  // Title has a second non-World table following its terminator; the other
+  // admitted tables end exactly at their sentinel.
+  if(word(bytes,layout.x+layout.count*2)!=65535)malformed("button table sentinel");
+  _buttons.emplace(layout.name,std::move(buttons));
+ }
+}
+const std::vector<XeenDosText::Button> &XeenDosText::buttons(std::string_view name) const {
+ const auto it=_buttons.find(std::string(name));if(it==_buttons.end())throw std::out_of_range("Unknown DOS button table");return it->second;
 }
 const std::vector<std::string> &XeenDosText::table(std::string_view name) const {
  const auto it=_fields.find(std::string(name));if(it==_fields.end())throw std::out_of_range("Unknown DOS UI field");

@@ -21,6 +21,13 @@ void synthetic() {
  for(const auto &f:XeenDosText::layout())check(a.table(f.name)==again.table(f.name),"deterministic fields");
  check(a.table("CLASS_NAMES").at(10).empty(),"intentional empty class");
  check(a.scalar("DAY_SINGULAR").empty(),"interior empty day suffix");
+ for(const auto &layout:XeenDosText::buttonLayouts())check(a.buttons(layout.name).size()==layout.count,"button table count");
+ rejects([](auto &b){u16(b,0x4f162,320);});
+ rejects([](auto &b){b[0x4f1bc]=199;});
+ rejects([](auto &b){b[0x4f1cc]=0;});
+ rejects([](auto &b){b[0x4f1ec]=0;});
+ rejects([](auto &b){b[0x4f1fc]=2;});
+ rejects([](auto &b){u16(b,0x4f162+8,0);});
  rejects([](auto &b){b[0]=0;});
  rejects([](auto &b){u16(b,8,2);}); // Packed/root load layout.
  rejects([](auto &b){b.resize(0x55000);});

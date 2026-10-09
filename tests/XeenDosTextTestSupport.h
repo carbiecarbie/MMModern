@@ -25,6 +25,13 @@ inline std::vector<std::uint8_t> fixture() {
   }
  }
  std::set<std::size_t> patches;
+ for(const auto &layout:XeenDosText::buttonLayouts()) {
+  for(unsigned i=0;i<layout.count;++i) {
+   u16(b,layout.x+i*2,10);b[layout.y+i]=10;b[layout.width+i]=10;b[layout.height+i]=10;
+   b[layout.key+i]='a'+i;b[layout.painted+i]=1;
+  }
+  u16(b,layout.x+layout.count*2,65535);
+ }
  for(const auto &f:XeenDosText::layout())if(f.pointers) {
   unsigned i=0;
   for(const auto bounds:XeenDosText::targets(f.name)) {

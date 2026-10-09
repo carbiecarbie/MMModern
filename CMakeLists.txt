@@ -103,6 +103,8 @@ add_library(mmodern_platform_sdl STATIC
 target_link_libraries(mmodern_platform_sdl PUBLIC mmodern_core PRIVATE SDL2::SDL2)
 
 add_library(mmodern_app STATIC
+	src/app/XeenTitle.cpp
+	src/app/XeenTitleFlow.cpp
 	src/platform/XeenSaveFile.cpp
 	src/app/XeenGameplay.cpp
 	src/app/XeenEncounterFlow.cpp
@@ -120,7 +122,10 @@ add_library(mmodern_app STATIC
 	src/app/XeenCharacterDialogFlow.cpp
 	src/app/XeenNavigationFlow.cpp
 )
+set_source_files_properties(src/app/XeenTitle.cpp PROPERTIES COMPILE_DEFINITIONS
+    "MMODERN_REPOSITORY_ROOT=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
 target_link_libraries(mmodern_app PUBLIC mmodern_core PRIVATE
+	shell32 ole32 uuid
 	mmodern_xeen
 	mmodern_platform_sdl
 )
@@ -509,6 +514,19 @@ if(BUILD_TESTING)
 	add_test(NAME xeen_dialogs_original COMMAND mmodern_dialog_tests "${MMODERN_XEEN_DATA_DIR}")
 	set_tests_properties(xeen_dialogs xeen_dialogs_original PROPERTIES LABELS "fast")
     add_executable(mmodern_dos_text_tests tests/XeenDosTextTests.cpp)
+    add_executable(mmodern_title_resource_tests tests/XeenTitleResourceTests.cpp)
+    add_executable(mmodern_title_flow_tests tests/XeenTitleFlowTests.cpp tests/XeenTitleApplicationControls.cpp)
+    target_link_libraries(mmodern_title_flow_tests PRIVATE mmodern_app mmodern_xeen SDL2::SDL2)
+    target_link_options(mmodern_title_flow_tests PRIVATE
+      "LINKER:--wrap,_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjE"
+      "LINKER:--wrap,_ZNK7mmodern9SdlWindow15showInteractiveERKNS_12IndexedFrameERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEERKNS0_18FrameUpdateHandlerERKSt8functionIFbvEERKSF_IFSt8optionalIS1_EvEERKSF_IFS9_vEE"
+      "LINKER:--wrap,_ZN7mmodern12XeenSaveFile19createSlotDirectoryERKNS_16GameInstallationERKNSt10filesystem7__cxx114pathERKSt8optionalIS6_E")
+    add_test(NAME xeen_title_flow COMMAND mmodern_title_flow_tests "${MMODERN_XEEN_DATA_DIR}")
+    set_tests_properties(xeen_title_flow PROPERTIES LABELS "fast")
+    set_tests_properties(xeen_title_flow PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software" TIMEOUT 90)
+    target_link_libraries(mmodern_title_resource_tests PRIVATE mmodern_xeen)
+    add_test(NAME xeen_title_resources COMMAND mmodern_title_resource_tests "${MMODERN_XEEN_DATA_DIR}")
+    set_tests_properties(xeen_title_resources PROPERTIES LABELS "fast")
     target_link_libraries(mmodern_dos_text_tests PRIVATE mmodern_xeen)
     add_test(NAME xeen_dos_text COMMAND mmodern_dos_text_tests)
     add_test(NAME xeen_dos_text_original COMMAND mmodern_dos_text_tests "${MMODERN_XEEN_DATA_DIR}" "${MMODERN_XEEN_UI_DATA}")

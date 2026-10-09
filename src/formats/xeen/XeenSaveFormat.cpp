@@ -183,6 +183,7 @@ XeenUnsupportedSave unsupportedPair(std::uint16_t schema, std::uint16_t content)
 } // namespace
 
 void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
+	require(!s.name || validName(*s.name), "invalid save name");
 	if (!s.journey) throw XeenUnsupportedSave(XeenUnsupportedSave::Kind::Older);
 	if (s.journey->schema != kJourneySchema || s.journey->content != kJourneyContent) throw unsupportedPair(s.journey->schema, s.journey->content);
 	validateMap(s.camera.mapId);
@@ -303,6 +304,7 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 
 std::vector<std::uint8_t> XeenSaveFormat::encode(const XeenSaveSnapshot &s) {
 	validate(s);
+	require(!s.name || validName(*s.name), "invalid save name");
 	const auto version = kJourneyVersion;
 	Writer out;
 	out.bytes.resize(kHeaderSize);
@@ -400,6 +402,9 @@ std::vector<std::uint8_t> XeenSaveFormat::encode(const XeenSaveSnapshot &s) {
 			out.u8(item.material);out.u8(item.id);out.u8(item.state);out.u8(item.frame);
 		}
 	out.u32(j.serviceEconomy->bank.gold);out.u32(j.serviceEconomy->bank.gems);
+	// Zero is the explicit absent-name encoding for developer loose saves.
+	out.u8(s.name ? static_cast<std::uint8_t>(s.name->size()) : 0);
+	if (s.name) for (unsigned char byte : *s.name) out.u8(byte);
 
 	Writer header;
 	for (const auto byte : kMagic) header.u8(byte);
@@ -455,7 +460,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	if (j.schema != kJourneySchema || j.content != kJourneyContent) throw unsupportedPair(j.schema, j.content);
 	// Bound allocation before parsing; the exact dynamic extent is verified
 	// after the actor and treasure counts are decoded.
-	require(suffixSize >= 4099+19 && suffixSize <= 4099+19*107+4+21*107+5*12, "Journey schema-9 size mismatch");
+	require(suffixSize >= 4099+19+1 && suffixSize <= 4099+19*107+4+21*107+5*12+21, "Journey schema-9 size mismatch");
 	require(in.u8() == 1, "missing Journey context");
 	XeenGameplayContext c;
 	require(in.u8() == 0, "invalid Journey profile");
@@ -544,7 +549,6 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	}
 	const unsigned n=weapons+armor;
 	const unsigned expected=2753+19*count+1164+182+(j.vertigoActors ? 4+21*j.vertigoActors->size() : 0);
-	require(suffixSize==expected+5u*n,"Invalid city/economy suffix length");
 
 	require(in.u8()==2 && in.u8()==4 && in.u8()==4 && in.u8()==9,"Invalid merchant stock shape");
 	XeenServiceEconomy economy;
@@ -553,12 +557,26 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 			item={in.u8(),in.u8(),in.u8(),in.u8()};
 	economy.bank.gold=in.u32();economy.bank.gems=in.u32();
 	j.serviceEconomy=std::move(economy);
+	const auto nameLength=in.u8();
+	require(nameLength<=20 && nameLength<=in.remaining(), "invalid save name length");
+	if(nameLength) {
+		s.name.emplace(reinterpret_cast<const char *>(bytes.data()+in.position),nameLength);
+		in.position+=nameLength;
+		require(validName(*s.name), "invalid save name");
+	}
+	require(suffixSize==expected+5u*n+1+nameLength,"Invalid city/economy suffix length");
 
 	s.journey = std::move(j);
 
 	require(in.remaining() == 0, "trailing payload data");
 	validate(s);
 	return s;
+}
+
+bool XeenSaveFormat::validName(std::string_view name) noexcept {
+	return !name.empty() && name.size()<=20 && std::all_of(name.begin(),name.end(),[](unsigned char c) {
+		return c>=0x20 && c<=0x7e;
+	});
 }
 
 XeenArchiveFingerprint XeenSaveFormat::fingerprint(std::istream &stream) {

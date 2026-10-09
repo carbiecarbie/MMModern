@@ -39,6 +39,13 @@ struct XeenGameplayServices {
  // Select original initialization; absent for prepared Journey and restore.
  std::optional<XeenDifficulty> originalStart;
  std::function<XeenCamera()> loadInitialCamera;
+ // Title Load retains the validated value; it never reopens the selected path.
+ std::shared_ptr<const XeenSaveSnapshot> restoreSnapshot;
+ std::optional<std::string> saveName;
+ std::optional<unsigned> currentSlot,initialSlot;
+ // Called with a scratch-validated New candidate before any presented frame.
+ // Retry/cancel UI retains this candidate and performs no new initialization.
+ std::function<bool(const XeenSaveSnapshot &,const std::function<void()> &)> publishInitial;
 };
 // Application's persistence transaction, also usable by internal domain tests.
 // The target is already installation-checked by the caller. Refusal precedes

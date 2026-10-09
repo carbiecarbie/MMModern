@@ -23,16 +23,17 @@ public:
 	ScummVmXeenBridge(const ScummVmXeenBridge &) = delete;
 	ScummVmXeenBridge &operator=(const ScummVmXeenBridge &) = delete;
 
-	void loadPalette(const std::string &resourceName);
-	void loadRawFramebuffer(const std::string &resourceName);
+	void loadPalette(const std::string &resourceName, XeenSceneArchive selection = XeenSceneArchive::Current);
+	void loadRawFramebuffer(const std::string &resourceName, XeenSceneArchive selection = XeenSceneArchive::Current);
 	void drawSprite(const std::string &resourceName, std::size_t frame, int x, int y);
 	void drawSprite(const std::string &resourceName, std::size_t frame, int x, int y,
 		const XeenSpriteDrawOptions &options);
 	IndexedFrame snapshot() const;
  IndexedFrame cursorImage();
+ IndexedFrame cursorImage(XeenSceneArchive selection);
  IndexedFrame restDreamImage();
 	void drawNpc(IndexedFrame &frame, std::uint8_t portraitId, std::size_t portraitFrame);
-	void drawDialogSprite(IndexedFrame &,const char *,unsigned,int,int);
+	void drawDialogSprite(IndexedFrame &,const char *,unsigned,int,int, XeenSceneArchive selection = XeenSceneArchive::Current);
 	void drawSmith(IndexedFrame &frame);
 	void drawTraining(IndexedFrame &frame);
 	void drawTemple(IndexedFrame &frame);
@@ -55,7 +56,7 @@ public:
 	void drawObjectSprite(const std::string &resourceName, std::size_t frame,
 		int x, int y, const XeenSpriteDrawOptions &options);
 	bool hasArchiveResource(const std::string &resourceName);
-	std::vector<std::uint8_t> readArchiveResource(const std::string &resourceName);
+	std::vector<std::uint8_t> readArchiveResource(const std::string &resourceName, XeenSceneArchive selection = XeenSceneArchive::Current);
 	bool hasInitialResource(const std::string &resourceName);
 	std::vector<std::uint8_t> readInitialResource(const std::string &resourceName);
 

@@ -479,7 +479,7 @@ int main(int argc,char **argv){try{
  check(argc==2 || argc==3,"usage: mmodern_consequence_original <installation> [artificial-pending-item-save]");
  const auto i=xeenTestInstallationDetector().detect(argv[1]);check(bool(i),"Original installation");
  Source source(*i);source.signature=XeenSaveFile::fingerprint(*i);
- freshSaveControls(source);freshFailureControls(source);freshDifficultyHits(source);
+ freshSaveControls(source);titlePublicationControls(source);freshFailureControls(source);freshDifficultyHits(source);
  if(std::getenv("MMODERN_M49_IMPACT_ONLY")) {
   chargedWait(source);stagedVolleyDefeat(source);stagedRotationVolley(source);
   zeroHitVolley(source);shootOrder(source);shootLethalPreparation(source);indoorShoot(source);indoorChangedShoot(source);blockReset(source);

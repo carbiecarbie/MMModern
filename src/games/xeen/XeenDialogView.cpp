@@ -29,8 +29,8 @@ void button(DialogInput &input,int l,int t,int r,int b,unsigned key,const char *
     input.hits.push_back({l,t,r,b,key,resource?std::optional<InputButton>{{resource,frame,l,t}}:std::nullopt});input.keys.push_back(key);
 }
 IndexedFrame render(const IndexedFrame &base,const XeenFontFormat &font,const std::string &text,
-        XeenTextRect outer,XeenTextRect inner,bool border=true) {
-    XeenTextRenderOptions options;options.originalControls=true;
+        XeenTextRect outer,XeenTextRect inner,bool border=true,bool startupColors=false) {
+    XeenTextRenderOptions options;options.originalControls=true;options.startupColors=startupColors;
     options.drawWindow=border;options.windowBounds=outer;options.bounds=inner;options.x=inner.left;options.y=inner.top;
     auto result=XeenTextRenderer(font).render(base,text,options);
     if(result.pages.size()!=1 || !result.diagnostics.empty()) throw std::runtime_error("Original dialog layout overflow");
@@ -327,11 +327,11 @@ XeenDialogPopup xeenSheetPopup(const XeenDosText &text,const XeenPartyState &p,s
 IndexedFrame drawXeenPopup(const IndexedFrame &base,const XeenFontFormat &font,const XeenDialogPopup &popup) {
     const auto b=popup.bounds;return render(base,font,popup.text,b,{b.left+8,b.top+8,b.right-8,b.bottom-8});
 }
-IndexedFrame drawXeenErrorScroll(const IndexedFrame &base,const XeenFontFormat &font,const std::string &message) {
-    return render(base,font,"\x03" "c\v010\t000"+message,{52,149,268,198},{60,157,260,190});
+IndexedFrame drawXeenErrorScroll(const IndexedFrame &base,const XeenFontFormat &font,const std::string &message,bool startupColors) {
+    return render(base,font,"\x03" "c\v010\t000"+message,{52,149,268,198},{60,157,260,190},true,startupColors);
 }
-IndexedFrame drawXeenConfirm(const IndexedFrame &base,const XeenFontFormat &font,const std::string &message,bool large,const XeenDialogSpriteDraw &draw) {
-    auto frame=render(base,font,message,large?XeenTextRect{65,23,250,163}:XeenTextRect{99,59,237,141},large?XeenTextRect{73,31,242,155}:XeenTextRect{107,67,229,133});
+IndexedFrame drawXeenConfirm(const IndexedFrame &base,const XeenFontFormat &font,const std::string &message,bool large,const XeenDialogSpriteDraw &draw,bool startupColors) {
+    auto frame=render(base,font,message,large?XeenTextRect{65,23,250,163}:XeenTextRect{99,59,237,141},large?XeenTextRect{73,31,242,155}:XeenTextRect{107,67,229,133},true,startupColors);
     if(draw) {draw(frame,"confirm.icn",0,large?120:129,large?133:112);draw(frame,"confirm.icn",2,large?176:185,large?133:112);}
     return frame;
 }

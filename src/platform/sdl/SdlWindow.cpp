@@ -267,6 +267,8 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
                 queued->key.timestamp = *static_cast<std::uint32_t *>(context) - 1;
             if (queued->type == SDL_MOUSEBUTTONDOWN)
                 queued->button.timestamp = *static_cast<std::uint32_t *>(context) - 1;
+            if (queued->type == SDL_TEXTINPUT)
+                queued->text.timestamp = *static_cast<std::uint32_t *>(context) - 1;
             return 1;
         }, &readyAt);
     };
@@ -334,6 +336,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
     };
     const auto dispatchEvent = [&](const SDL_Event &event, const std::optional<std::uint64_t> &batchInput,
             const IndexedFrame::Presentation &batchFrame, const InputContext &batchContext) {
+        if(handler.finished && handler.finished())return;
         if (event.type == SDL_QUIT) {
             pendingActions.clear(); running = false;
         } else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
@@ -347,6 +350,11 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             if (event.key.keysym.sym == SDLK_b) blockDown = false;
             if (event.key.keysym.sym == SDLK_r) revisitDown = false;
             if (event.key.keysym.sym == SDLK_i) inspectDown = false;
+        } else if(event.type==SDL_TEXTINPUT) {
+            const auto context=contextFor(batchFrame);
+            if(context.dialog && context.dialog->textEntry && context.readyForAction && inputCurrent(batchFrame) &&
+                context.contextId==batchContext.contextId && static_cast<std::int32_t>(event.text.timestamp-readyAt)>=0)
+                deliver(TextInputAction{event.text.text},batchInput,batchFrame,{});
         } else if (event.type == SDL_KEYDOWN || event.type == SDL_MOUSEBUTTONDOWN) {
             const bool mouse = event.type == SDL_MOUSEBUTTONDOWN;
             const auto context = contextFor(batchFrame);
@@ -402,11 +410,12 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
                     deliver(*action,batchInput,batchFrame,button);
                 return;
             }
-            if (event.key.repeat != 0) return;
+            const bool textBackspace=context.dialog && context.dialog->textEntry && event.key.keysym.sym==SDLK_BACKSPACE;
+            if (event.key.repeat != 0 && !textBackspace) return;
             if ((handler.protectAllKeys || context.dialog) && (action || (button && handler.drawButton))) {
                 if (scan <= SDL_SCANCODE_UNKNOWN || scan >= SDL_NUM_SCANCODES) return;
                 const bool held = journeyKeys[scan]; journeyKeys[scan] = true;
-                if (held || static_cast<std::int32_t>(event.key.timestamp-readyAt) < 0) return;
+                if ((held && !textBackspace) || (!held && event.key.repeat) || static_cast<std::int32_t>(event.key.timestamp-readyAt) < 0) return;
             } else if (batchInput && (event.key.keysym.sym == SDLK_SPACE || event.key.keysym.sym == SDLK_b ||
                 event.key.keysym.sym == SDLK_r || event.key.keysym.sym == SDLK_i)) {
                 auto &down = event.key.keysym.sym == SDLK_SPACE ? spaceDown : event.key.keysym.sym == SDLK_b ? blockDown :
@@ -439,6 +448,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 		const auto batchInput = displayedInput;
 		const auto batchFrame = presentedFrame;
 		const auto batchContext = contextFor(batchFrame);
+		if(batchContext.dialog && batchContext.dialog->textEntry)SDL_StartTextInput();else SDL_StopTextInput();
 		synchronizeQueue(batchContext);
 		if (SDL_WaitEventTimeout(&event, 16)) {
 			do {
@@ -446,6 +456,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 			} while (running && SDL_PollEvent(&event));
 		}
 		if (!running) break;
+        if(handler.finished && handler.finished())break;
         const auto drainContext = contextFor(presentedFrame);
         synchronizeQueue(drainContext);
         if (!actionUsed && handler && !pendingActions.empty() && drainContext.acceptsQueuedInput &&

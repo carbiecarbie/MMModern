@@ -3,6 +3,7 @@
 
 #include "games/xeen/XeenNavigation.h"
 #include "app/XeenEncounterFlow.h"
+#include "app/XeenSession.h"
 
 #include <filesystem>
 #include <cstdint>
@@ -12,6 +13,7 @@
 namespace mmodern {
 
 struct XeenGameplayServices;
+class XeenAssetSource;
 class Application {
 public:
  explicit Application(std::filesystem::path uiData = {}) : _uiData(std::move(uiData)) {}
@@ -40,11 +42,13 @@ public:
 		const std::optional<std::filesystem::path> &target, bool resume,
 		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary, std::optional<std::uint32_t> seed = {}) const;
 private:
+ using InitialPublication=std::function<bool(const XeenSaveSnapshot &,const std::function<void()> &)>;
  std::filesystem::path _uiData;
 	int gameplay(const std::filesystem::path &, XeenCamera,
 		const std::optional<std::filesystem::path> &, bool resume,
 		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary, std::optional<std::uint32_t> seed = {},
-		std::optional<XeenDifficulty> originalStart = {}) const;
+		std::optional<XeenDifficulty> originalStart = {},const XeenSessionEntry *managed = nullptr,
+		XeenAssetSource *sharedAssets = nullptr,InitialPublication publication = {}) const;
 };
 
 } // namespace mmodern

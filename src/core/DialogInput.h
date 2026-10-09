@@ -28,13 +28,14 @@ struct DialogInput {
     std::vector<DialogHit> hits;
     std::vector<unsigned> keys;
     bool anyKey=false, anyClick=false;
+    bool textEntry=false;
     std::optional<InputButton> button(unsigned key) const {
         for(const auto &hit:hits) if(hit.key==key) return hit.button;
         return {};
     }
     std::optional<PlayerAction> key(unsigned key) const {
-        if(anyKey) return AcknowledgeAction{};
         for(auto allowed:keys) if(key==allowed) return DialogKeyAction{key};
+        if(anyKey) return AcknowledgeAction{};
         return {};
     }
     std::optional<PlayerAction> click(int x,int y) const {

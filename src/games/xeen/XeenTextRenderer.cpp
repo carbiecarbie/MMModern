@@ -131,7 +131,8 @@ XeenTextRenderResult renderOriginal(const IndexedFrame &base, const std::string 
         const int dy=(c=='g'||c=='p'||c=='q'||c=='y')?1:0;
         for(int gy=0;gy<8;++gy) for(int gx=0;gx<8;++gx) {
             const auto shade=pixels.pixels[gy*8+gx];
-            if(shade) setPixel(frame,x+gx,y+gy+dy,outline?bg:generated_dialog_drawing::kTextColors.at(color)[shade],o.bounds);
+            if(shade) setPixel(frame,x+gx,y+gy+dy,outline?bg:
+                (o.startupColors?generated_dialog_drawing::kStartupTextColors:generated_dialog_drawing::kTextColors).at(color)[shade],o.bounds);
         }
         if(y+8>o.bounds.bottom) result.diagnostics.push_back("Original dialog text clipped vertically");
         x+=font.advance(c,size);

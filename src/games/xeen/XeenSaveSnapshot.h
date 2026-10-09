@@ -13,6 +13,7 @@
 #include "games/xeen/XeenBarrierState.h"
 
 #include <optional>
+#include <string>
 #include <vector>
 
 namespace mmodern {
@@ -75,6 +76,8 @@ struct XeenSaveJourney {
 
 struct XeenSaveSnapshot {
 	XeenSaveResourceSignature resources;
+	// v7: absent only for explicit developer loose saves. Never a filesystem name.
+	std::optional<std::string> name;
 	std::uint16_t food=0;
 	XeenCamera camera;
 	std::vector<std::uint8_t> activeRosterIds;
