@@ -1,4 +1,5 @@
 #include "XeenTestInstallation.h"
+#include "XeenCdMyraTestSupport.h"
 #include "XeenCheckpointTestSupport.h"
 #include "XeenChildProcessTestSupport.h"
 #include "XeenVisualRemoveTestSupport.h"
@@ -148,7 +149,8 @@ void cleanPresentation(const XeenEventFlow &flow, bool startup = false) {
 }
 void exactReceipt(const XeenEventExecutionSuspended &s) {
  const auto &r = s.state.rewardReceipt;
- check(s.request.kind == XeenPresentationKind::RewardReceipt && s.state.instructionCount == 9 &&
+ // CD Myra PlayCD (9,11,West,9), offset 299, adds one dispatch to the exchange.
+ check(s.request.kind == XeenPresentationKind::RewardReceipt && s.state.instructionCount == cd_myra_test::returnCount &&
   s.state.rewardPhase == XeenRewardPhase::Receipt && !s.state.pendingRewards.hasWork() &&
   r.count == 5 && r.delivered == 5 && !r.lost && !r.overflow && !r.invalid && !r.discarded &&
   r.discardReason == XeenRewardDiscard::None, "exchange finalization/accounting differs");
@@ -213,6 +215,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
  XeenWorld *world = nullptr; XeenEventSystem *events = nullptr; const XeenPartyState *party = nullptr;
  XeenCamera *camera = nullptr; const XeenGameFlags *flags = nullptr; XeenEventFlow *flow = nullptr;
  std::optional<XeenManualEventResult> terminal; int presentations = 0, receiptReports = 0;
+ unsigned audioReports=0;
  std::optional<XeenEventExecutionSuspended> pending;
  std::optional<XeenEquipmentResult> lastEquipment; unsigned equipmentReports = 0;
  auto partyCheck = [&](const XeenPartyState &p) {
@@ -264,6 +267,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
   return s;
  };
  std::uint64_t observedPhase=0, ordinaryNow=0;
+ std::uint64_t audioTime=0;
  bool reconstructed=false;
  XeenGameplayServices services{
   {signature, [&] {auto p=XeenPartyLoader().loadInitialCloudsParty(assets);if(resume){const auto saved=expectedSnapshot();for(unsigned i=0;i<30;++i)p.roster.at(i)=saved.characters[i];p.questItems=XeenCloudsQuestItems(saved.questItems);p.questFlags=XeenCloudsQuestFlags(saved.questFlags);}return p;}, [&](XeenMapIdentity id) { ++scriptLoads; return scripts.load(id); }},
@@ -289,6 +293,13 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
     check(f.blocksGameplay(), "reporting boundary exposed an idle/save-safe gap");
     if (const auto *s = std::get_if<XeenEventExecutionSuspended>(&r)) {
      ++presentations; pending = *s;
+     if (s->request.kind == XeenPresentationKind::DeferredAudio) {
+      check(cp::sameCamera(*camera,cp::myra),"unexpected CD speech checkpoint");
+      cd_myra_test::checkAudio(*s,root);++audioReports;audioTime=ordinaryNow;
+      stateCheck(); // Speech precedes every quest/reward mutation.
+     }
+     if(s->request.kind==XeenPresentationKind::NpcAcknowledgment && cp::sameCamera(*camera,cp::myra))
+      check(audioReports && ordinaryNow==audioTime,"CD speech continuation added time before NPC");
      if (s->request.kind == XeenPresentationKind::RewardReceipt) ++receiptReports;
     }
     else terminal = r;
@@ -602,7 +613,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
      if (phase == Phase::Receipt) receiptF9 = true;
     }
     if (phase == Phase::Request && terminal) {
-     completed(5); request = true; stateCheck(); cleanPresentation(*flow);
+     completed(cd_myra_test::requestCount); request = true; stateCheck(); cleanPresentation(*flow);
      phase = Phase::Phirna; move(cp::phirna); terminal.reset(); pending.reset();
      announce("Phirna positioned (camera only): Space, Y, then acknowledge the harvest.");
      result = flow->frame();
@@ -639,7 +650,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
        flow->presentationGeneration() == generation, "nonfinal receipt acknowledgment advanced execution");
      } else {
       check(receiptF9 && ack && page + 1 == pages, "receipt skipped required F9 or final acknowledgment");
-      completed(9); cleanPresentation(*flow); pending.reset();
+      completed(cd_myra_test::returnCount); cleanPresentation(*flow); pending.reset();
       phase = transfer ? Phase::Inventory : Phase::Save;
       announce(transfer ? "Receipt complete. I, Right three times, 1, T, F2, F9 (refused), Enter. Inspect four/one, Escape closes, NEW F9 saves." : "Receipt complete. Press a NEW F9 to save; earlier refused saves must not run later.");
      }
@@ -696,6 +707,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
   }
   auto interact = [&](XeenCamera c, bool acquire) {
    move(c); terminal.reset(); pending.reset(); presentations = 0;
+   const auto priorAudio=audioReports;
    const bool returning = cp::sameCamera(c, cp::myra) && root;
    auto inputs = cp::collection(c);
    std::size_t selected = 0;
@@ -712,6 +724,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
      check(pending->state.activeCharacterIndex == 0, "new WhoWill inherited temporary selection");
     }
     if (cp::sameCamera(c, cp::myra)) {
+     check(audioReports==priorAudio+1,"CD Myra speech did not continue once without input");
      check(flow->presenter().pageCount() == (root ? 1U : 2U), "original Myra page count");
      check(pending->request.kind == XeenPresentationKind::NpcAcknowledgment && pending->request.source.line == (root ? 10 : 6) && pending->request.source.fileOffset == (root ? 310 : 272), "original Myra suspension source");
     }
@@ -735,7 +748,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
        kind==XeenPresentationKind::RewardWarning,"unexpected Myra phase");
       drive({{SDLK_RETURN,AcknowledgeAction{}}});
       if(returning && !expectedExchange && pending->request.kind==XeenPresentationKind::RewardReceipt) {
-       check(pending->state.instructionCount==9 && pending->state.rewardReceipt.delivered==5 &&
+       check(pending->state.instructionCount==cd_myra_test::returnCount && pending->state.rewardReceipt.delivered==5 &&
         pending->state.rewardReceipt.lost==0 && pending->state.rewardReceipt.overflow==0,"restored Root exchange receipt");
        root=false;request=false;expectedExchange=true;
        // This restored pre-exchange fixture has empty misc packs and an eligible first owner.
@@ -752,9 +765,14 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
    if (cp::sameCamera(c, cp::phirna)) { completed(acquire ? 18 : 11); if (acquire) { root = true; phirnaRemoved = true; } else check(presentations == 0, "removed plant replayed dialogue"); }
    else if (cp::sameCamera(c, cp::whistle)) { completed(acquire ? 10 : 5); if (acquire) bone = true; else check(presentations == 0, "removed bones replayed dialogue"); }
    else if (returning) {
-    completed(9);check(!root && !request,"restored Root was not consumed/Q2 cleared");
+    completed(cd_myra_test::returnCount);check(!root && !request,"restored Root was not consumed/Q2 cleared");
     std::cout << "ASSERT restored pre-exchange Root consumed in-process; five deterministic items; no post-exchange save\n";
-   } else { completed(5); request = true; }
+   } else { completed(cd_myra_test::requestCount); request = true; }
+   if(cp::sameCamera(c,cp::myra)) {
+    check(audioReports==priorAudio+1 && presentations==(returning?3:2),"CD speech/NPC/receipt sequence changed");
+    // CD PlayCD offset 261/299 retains only its passive strip after the NPC/receipt.
+    equalFrame(flow->frame(),cd_myra_test::withNotice(font,cleanBase()));
+   }
    stateCheck();
   };
   if (produce) {
@@ -806,7 +824,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
     revisit();
     check(!root && request && phirnaRemoved, "resumed no-Root request did not set Q2");
     cleanPresentation(*flow);
-    std::cout << "ASSERT first resumed Myra request: five instructions, Q2=1, no new item or removal\n";
+    std::cout << "ASSERT first resumed Myra request: six instructions, Q2=1, no new item or removal\n";
    }
   } else {
    // A distinct no-load process checks original defaults, records and presence.

@@ -606,8 +606,14 @@ if(BUILD_TESTING)
 	target_link_libraries(mmodern_quest_item_tests PRIVATE mmodern_xeen)
 	add_test(NAME xeen_quest_items COMMAND mmodern_quest_item_tests)
 	add_executable(mmodern_phirna_smoke EXCLUDE_FROM_ALL tests/PhirnaIntegrationTest.cpp)
-	add_executable(mmodern_myra_smoke EXCLUDE_FROM_ALL tests/MyraIntegrationTest.cpp)
+	add_executable(mmodern_myra_smoke tests/MyraIntegrationTest.cpp)
 	target_link_libraries(mmodern_myra_smoke PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2)
+	add_test(NAME xeen_myra_original COMMAND mmodern_myra_smoke
+		"${MMODERN_XEEN_DATA_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/myra-original-direct")
+	add_test(NAME xeen_myra_original_sdl COMMAND mmodern_myra_smoke
+		"${MMODERN_XEEN_DATA_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/myra-original-sdl" sdl)
+	set_tests_properties(xeen_myra_original xeen_myra_original_sdl PROPERTIES
+		LABELS "fast" ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software" TIMEOUT 120)
 	add_executable(mmodern_who_will_smoke EXCLUDE_FROM_ALL tests/WhoWillIntegrationTest.cpp)
 	target_link_libraries(mmodern_who_will_smoke PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2)
 	target_link_libraries(mmodern_phirna_smoke PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2)
