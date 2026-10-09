@@ -28,9 +28,16 @@ food, most spells and items, and Darkside gameplay are not available yet.
 
 ## Requirements and original game data
 
-A legally obtained World of Xeen installation is required. No commercial game
-data is included or modified. Reading Darkside metadata does not enable Darkside
+A legally obtained English World of Xeen two-CD installation is required. No commercial game
+data is included, copied or modified. Reading Darkside metadata does not enable Darkside
 gameplay.
+
+At a GOG root, MMModern reads the cue-located ISO archives and the installed
+`WORLD/XEEN.DAT`, ahead of any co-located floppy archives. One complete disc
+suffices. A pre-existing CD `GAME` folder (or its parent) is also accepted with
+all three archives and an uncompressed English DOS UI module: supply
+`--ui-data <path-to-XEEN.DAT>` or an unambiguous `WORLD` sibling. A bare `GAME`
+copy has no UI text. Conflicting or ambiguous sources and packed DATs fail clearly.
 
 The validated development setup is Windows x86-64 with MSYS2 UCRT64, CMake, SDL2,
 zlib and a separate ScummVM source/build tree. MMModern reuses selected ScummVM
@@ -41,6 +48,7 @@ Build and dependency setup, including the pinned ScummVM revision, is in
 ## Running
 
 Run from a terminal to see diagnostics, and quote paths containing spaces:
+`--ui-data <path>` can be supplied with every entry mode.
 
 ```text
 mmodern <game-directory> [--difficulty adventurer|warrior] [--save-file <path.mmsave>]
@@ -61,11 +69,13 @@ mmodern --inspect-map|--inspect-party|--inspect-events <game-directory> ...
 - `--render-map` explores a map for inspection. It cannot save.
 - `--inspect-*` are developer tools.
 
-Save outside the original installation. Relative paths use the working directory.
+Save outside all original source directories, including separately supplied
+disc-image and DAT directories. Relative paths use the working directory.
 There is one current save format; saves from older builds are rejected with a
 clear message (and may be overwritten by F9), and saves from newer builds are
 protected. Saves need the same original archives and are not compatible with the
 original games or ScummVM.
+Floppy-bound saves are rejected before restoration with a data-edition diagnostic.
 
 ## Controls
 
@@ -116,6 +126,8 @@ ctest            # full suite, including process tests
 
 Tests run on the optimized `build-rel` build (assertions kept); its setup is in
 [docs/dependencies.md](docs/dependencies.md#optimized-test-build-build-rel).
+Configure `MMODERN_XEEN_DATA_DIR` explicitly for required CD validation and,
+when needed, `MMODERN_XEEN_UI_DATA` for its installed UI module.
 
 ## Developer test saves
 
