@@ -34,13 +34,15 @@ machinery: the code now has one save format and one Journey configuration, and
 
 | Milestone | Tier | Goal | Accepted when |
 | --- | --- | --- | --- |
-| **M53 - Original title menu and saves** | A | The original title screen (New, Load, Credits), the difficulty dialog and the original save/load dialogs with in-game loading, replacing the temporary command-line entry. | A new game and a saved game start from the original menus by mouse and keyboard; save/restore exact. |
+| **M53 - CD edition data** | A | Read the original data from the World of Xeen CD talkie edition, the project's only reference edition (the maintainer's DOSBox reference and the edition GOG sells): the CD archives from the GOG disc images or a CD copy, read-only, and `WORLD/XEEN.DAT` for the DOS interface text. Remove floppy-specific fixed checks; explain every Event-script difference and revalidate M44-M52 behavior and digests on CD data. Speech stays deferred with audio. | Everything accepted in M44-M52 plays the same on CD data, differences are explained, and save/restore stays exact. |
+| **M54 - Original title menu and saves** | A | The original title screen (New, Load, Credits), the difficulty dialog and the original save/load dialogs with in-game loading, replacing the temporary command-line entry. | A new game and a saved game start from the original menus by mouse and keyboard; save/restore exact. |
 
 The order matters. M44-M48 lowered the cost of change and made input, menus
 and presentation original and generic, M49 corrected combat rules and M50
 admitted the whole of Vertigo from resources, and M51 added Rest, food and
-daily time. M52 started the original new game, and M53 replaces its temporary
-command-line entry with the original menus.
+daily time. M52 started the original new game. M53 moves to the CD edition's
+data, the single reference edition, and M54 then replaces the temporary
+command-line entry with the original DOS menus, which come from that edition.
 
 Deferred because they add no rework later: **audio** (sounds, music, voices;
 a separate additive system), the original **event dialogs, casting dialog and
@@ -48,7 +50,7 @@ treasure sequence** (better redone once more events are playable), and
 **animated location shopkeepers**. Combat-time equipping and the combat Use
 button remain Tier A future work.
 
-After M53, choose the next milestone from play-testing evidence. Likely candidates:
+After M54, choose the next milestone from play-testing evidence. Likely candidates:
 
 - **Leaving Vertigo:** connect the mainland to further areas,
   adding Event opcodes as they are reached. Map 22 (north of map 23) needs
