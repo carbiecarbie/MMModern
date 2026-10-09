@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "app/XeenEventFlow.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "formats/xeen/XeenFontFormat.h"
@@ -84,7 +85,7 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 	try {
-		const auto installation = XeenInstallationDetector().detect(argv[1]);
+		const auto installation = xeenTestInstallationDetector().detect(argv[1]);
 		check(installation && installation->hasXeen(), "Clouds installation unavailable");
 		XeenAssetSource assets(*installation, 320, 200);
 		const XeenMapLoader mapLoader;
@@ -207,14 +208,15 @@ int main(int argc, char *argv[]) {
 
 		const auto eventFile = eventLoader.load(mapId);
 		check(eventFile.resourcePresent && eventFile.resourceName == "maze0029.evt" &&
-			eventFile.records.size() == 524, "Nightshadow event file identity mismatch");
-		const auto &display = eventFile.records.at(65);
-		const auto &acknowledgment = eventFile.records.at(66);
-		check(display.fileOffset == 583 && display.x == 4 && display.y == 6 &&
+			eventFile.records.size() == 525, "Nightshadow event file identity mismatch");
+		const XeenEventScript retainedScript(eventFile);
+		const auto *displaySource=retainedScript.findInstruction(4,6,XeenDirection::North,0);check(displaySource,"CD Nightshadow display absent");const auto &display=*displaySource;
+		const auto *ackSource=retainedScript.findInstruction(4,6,XeenDirection::North,1);check(ackSource,"CD Nightshadow acknowledgment absent");const auto &acknowledgment=*ackSource;
+		check(display.fileOffset == 594 && display.x == 4 && display.y == 6 &&
 			display.direction == kXeenEventDirectionAll && display.line == 0 &&
 			display.opcode == 0x29 && display.parameters == std::vector<std::uint8_t>{6},
 			"Nightshadow DisplayBottom record bytes mismatch");
-		check(acknowledgment.fileOffset == 590 && acknowledgment.x == 4 &&
+		check(acknowledgment.fileOffset == 601 && acknowledgment.x == 4 &&
 			acknowledgment.y == 6 && acknowledgment.direction == kXeenEventDirectionAll &&
 			acknowledgment.line == 1 && acknowledgment.opcode == 0x09 &&
 			acknowledgment.parameters == std::vector<std::uint8_t>({44,1,2}),

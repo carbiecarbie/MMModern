@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "XeenPurchaseTestSupport.h"
 #include <iostream>
 using namespace purchase_test;
@@ -253,7 +254,7 @@ void integrity(Inputs &in) {
 }
 int main(int argc,char **argv) {
     try {
-        check(argc==2,"usage: purchase-flow <installation>");const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"installation unavailable");
+        check(argc==2,"usage: purchase-flow <installation>");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"installation unavailable");
         Inputs in(*installation);limits(in);connectedSynthetic(in);faults(in);feedbackRetries(in);integrity(in);
         std::cout<<"M42 synthetic Flow, independent counter bounds, failures, rebind and mutation-history checks passed\n";return 0;
     }catch(const std::exception &e){std::cerr<<context<<": "<<e.what()<<'\n';return 1;}

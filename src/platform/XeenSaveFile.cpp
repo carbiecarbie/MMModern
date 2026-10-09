@@ -9,6 +9,8 @@
 #include <fstream>
 #include <stdexcept>
 #include <cwctype>
+#include <array>
+#include <zlib.h>
 namespace mmodern {
 namespace {
 using Path = std::filesystem::path;
@@ -178,15 +180,24 @@ void XeenSaveFile::write(const Path &path, const XeenSaveSnapshot &snapshot, con
   throw std::runtime_error(message);
  }
 }
-XeenSaveResourceSignature XeenSaveFile::fingerprint(const GameInstallation &installation) {
- const auto hash = [](const Path &path) {
-  std::ifstream stream(path, std::ios::binary);
-  if (!stream) throw std::runtime_error("Cannot open original archive: " + path.u8string());
-  return XeenSaveFormat::fingerprint(stream);
- };
- XeenSaveResourceSignature result;
- result.clouds = hash(installation.xeenArchive);
- if (installation.hasDarkside()) result.darkside = hash(installation.darkArchive);
+std::filesystem::path XeenSaveFile::resolve(const Path &path,const GameInstallation &installation) {
+ auto result=resolve(path,installation.root);
+ for(const auto &directory:installation.protectedDirectories)result=resolve(result,directory);
+ // Manually assembled fixtures still protect all explicit archive paths.
+ for(const auto &file:{installation.xeenArchive,installation.darkArchive})if(!file.empty())result=resolve(result,file.parent_path());
+ if(installation.uiModule)result=resolve(result,installation.uiModule->physicalPath.parent_path());
+ for(const auto &file:{installation.cloudsData,installation.darksideData,installation.introData})
+  if(file)result=resolve(result,file->physicalPath.parent_path());
  return result;
+}
+XeenSaveResourceSignature XeenSaveFile::fingerprint(const GameInstallation &installation) {
+ const auto hash=[](const ReadOnlyDataFile &file) {
+  auto stream=file.open();std::array<std::uint8_t,65536> bytes{};XeenArchiveFingerprint result{};
+  result.size=stream->size();uLong crc=crc32(0,nullptr,0);
+  while(stream->pos()<stream->size()) { const auto count=stream->read(bytes.data(),bytes.size());crc=crc32(crc,bytes.data(),static_cast<uInt>(count)); }
+  result.crc32=static_cast<std::uint32_t>(crc);return result;
+ };
+ XeenSaveResourceSignature result;result.clouds=hash(archiveDataFile(installation,XeenArchiveRole::Clouds));
+ if(installation.hasDarkside())result.darkside=hash(archiveDataFile(installation,XeenArchiveRole::Darkside));return result;
 }
 }

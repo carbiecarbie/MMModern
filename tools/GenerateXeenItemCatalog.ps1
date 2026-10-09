@@ -5,7 +5,7 @@ param(
 	[Parameter(Mandatory = $true)][string]$ExpectedBlobOid,
 	[Parameter(Mandatory = $true)][string]$ExpectedBlobSha256,
 	[Parameter(Mandatory = $true)][string]$Output,
-	[switch]$DialogText
+	[switch]$DialogDrawing
 )
 
 $ErrorActionPreference = 'Stop'
@@ -203,165 +203,11 @@ function Test-BytesEqual([byte[]]$First, [byte[]]$Second) {
 	return $true
 }
 
-# Named bounded fields in LangConstants::writeConstants at the pinned revision.
-# Offsets include array count tags; no source text or worktree file is consumed.
-function Test-DialogControls([byte[]]$Token, [string]$Name) {
-	# FontSurface::writeString/getNextCharWidth at the pin. Inspect every token,
-	# including templates reserved for Part B, without checking strings into source.
-	for ($at = 0; $at -lt $Token.Length;) {
-		$code = $Token[$at++] -band 127
-		if ($code -ge 32) { continue }
-		if ($code -in @(1,2,5,6,10,13)) { continue }
-		if ($code -in @(3,8)) {
-			if ($at -ge $Token.Length) { throw "Truncated dialog control: $Name" }
-			++$at; continue
-		}
-		if ($code -notin @(4,7,9,11,12)) { throw "Unhandled dialog control $code in $Name" }
-		$digits = if ($code -eq 12) { 2 } else { 3 }
-		if ($at -lt $Token.Length -and $Token[$at] -eq 37) {
-			$remaining = [Text.Encoding]::ASCII.GetString($Token,$at,$Token.Length-$at)
-			$placeholder = [regex]::Match($remaining,'^%0?([1-3])[dui]')
-			if (!$placeholder.Success -or [int]$placeholder.Groups[1].Value -ne $digits) { throw "Invalid dialog control placeholder: $Name" }
-			$at += $placeholder.Length; continue
-		}
-		for ($digit = 0; $digit -lt $digits; ++$digit) {
-			if ($at -ge $Token.Length) { throw "Truncated dialog control parameter: $Name" }
-			$value = $Token[$at++]
-			if ($code -eq 12 -and $digit -eq 0 -and $value -eq 100) { break }
-			if ($value -ne 32 -and ($value -lt 48 -or $value -gt 57)) { throw "Invalid dialog control parameter: $Name" }
-		}
-	}
-}
-function New-DialogInclude([byte[]]$Bytes, [string]$SourceRevision) {
-	$manifest = @'
-ON_WHO 30462 30476 1
-IN_NO_CONDITION 2282 2333 1
-THE_PARTY_NEEDS_REST 1943 1969 1
-REST_COMPLETE 28427 28486 1
-PARTY_IS_STARVING 28486 28514 1
-HIT_SPELL_POINTS_RESTORED 28514 28546 1
-TOO_DANGEROUS_TO_REST 28546 28574 1
-SOME_CHARS_MAY_DIE 28574 28607 1
-RACE_NAMES 4555 4587 5
-CLASS_NAMES 4655 4734 11
-SEX_NAMES 4800 4816 2
-SKILL_NAMES 4816 5035 18
-CONDITION_NAMES_M 5035 5178 17
-CONDITION_NAMES_F 5178 5321 17
-GOOD 5393 5398 1
-BLACKSMITH_TEXT 13906 14004 1
-TEMPLE_TEXT 14825 14976 1
-EXPERIENCE_FOR_LEVEL 14976 15013 1
-TRAINING_LEARNED_ALL 15013 15046 1
-ELIGIBLE_FOR_LEVEL 15046 15094 1
-TRAINING_TEXT 15094 15169 1
-GOLD_GEMS 15169 15254 1
-NOT_ENOUGH_X_IN_THE_Y 15347 15380 1
-STAT_NAMES 15405 15550 16
-CONSUMABLE_NAMES 15550 15579 4
-WHERE_NAMES 15589 15604 2
-CHARACTER_DETAILS 18594 18934 1
-DAYS 18934 18942 3
-PARTY_GOLD 18942 18953 1
-CHARACTER_TEMPLATE 18958 19224 1
-EXCHANGING_IN_COMBAT 19224 19271 1
-CURRENT_MAXIMUM_RATING_TEXT 19271 19327 1
-CURRENT_MAXIMUM_TEXT 19327 19370 1
-RATING_TEXT 19370 19586 24
-BORN 19586 19596 2
-AGE_TEXT 19596 19654 1
-LEVEL_TEXT 19654 19718 1
-RESISTENCES_TEXT 19718 19828 1
-NONE 19828 19838 1
-EXPERIENCE_TEXT 19838 19888 1
-ELIGIBLE 19888 19902 1
-IN_PARTY_IN_BANK 19902 19939 1
-FOOD_ON_HAND 19939 19953 3
-FOOD_TEXT 19953 19993 1
-ITEMS_DIALOG_TEXT1 20329 20424 1
-ITEMS_DIALOG_LINE1 20504 20529 1
-ITEMS_DIALOG_LINE2 20529 20562 1
-BTN_BUY 20562 20571 1
-BTN_SELL 20571 20581 1
-BTN_IDENTIFY 20581 20595 1
-BTN_FIX 20595 20604 1
-BTN_USE 20604 20613 1
-BTN_EQUIP 20613 20624 1
-BTN_REMOVE 20624 20633 1
-BTN_DISCARD 20633 20643 1
-BTN_QUEST 20643 20654 1
-NOT_PROFICIENT 26254 26298 1
-NO_ITEMS_AVAILABLE 26298 26325 1
-CATEGORY_NAMES 26325 26369 4
-X_FOR_THE_Y 26369 26428 1
-X_FOR_Y 26428 26488 1
-FMT_CHARGES 26555 26572 1
-AVAILABLE_GOLD_COST 26572 26650 1
-COST 26658 26663 1
-GOLDS 27402 27412 2
-ITEM_ACTIONS 26663 26714 7
-WHICH_ITEM 26714 26737 1
-WHATS_YOUR_HURRY 26737 26791 1
-USE_ITEM_IN_COMBAT 26791 26858 1
-NO_SPECIAL_ABILITIES 26858 26894 1
-CANT_CAST_WHILE_ENGAGED 26894 26929 1
-EQUIPPED_ALL_YOU_CAN 26929 26974 1
-REMOVE_X_TO_EQUIP_Y 26974 27012 1
-RING 27012 27017 1
-MEDAL 27017 27023 1
-CANNOT_REMOVE_CURSED_ITEM 27023 27057 1
-PERMANENTLY_DISCARD 27094 27130 1
-BACKPACK_IS_FULL 27130 27161 1
-CATEGORY_BACKPACK_IS_FULL 27161 27337 4
-BUY_X_FOR_Y_GOLD 27337 27369 1
-SELL_X_FOR_Y_GOLD 27369 27402 1
-ITEM_NOT_BROKEN 27524 27551 1
-FIX_IDENTIFY 27551 27568 2
-FIX_IDENTIFY_GOLD 27568 27597 1
-'@
-	$builder = New-Object Text.StringBuilder
-	Add-Line $builder "/* ScummVM $SourceRevision; GPL-3.0-or-later; ScummVM developers (COPYRIGHT). Generated privately; see docs/dependencies.md. */"
-	Add-Line $builder 'namespace mmodern::generated_dialog_text {'
-	Add-Line $builder 'inline constexpr unsigned kSchema = 1, kLanguage = 7;'
-	$names = @{}
-	$script:TokenLimit = 512
-	foreach ($line in ($manifest -split "`n")) {
-		$fields = $line.Trim() -split ' '
-		$name = $fields[0]; $position = [int]$fields[1]; $end = [int]$fields[2]; $count = [int]$fields[3]
-		if ($name -notmatch '^[A-Z_][A-Z_0-9]+$' -or $names.ContainsKey($name) -or $count -lt 1 -or $count -gt 24 -or $end -gt $Bytes.Length) {
-			throw 'Invalid dialog manifest name/count/bounds'
-		}
-		$names[$name] = $true
-		$script:CatalogEnd = $end
-		if ($count -gt 1) {
-			if ($Bytes[$position] -ne 0 -or $Bytes[$position+1] -ne 0 -or $Bytes[$position+2] -ne 0 -or $Bytes[$position+3] -ne $count) {
-				throw "Dialog array count mismatch: $name"
-			}
-			$position += 4
-			Add-Line $builder "inline constexpr std::array<std::string_view, $count> $name{{"
-		}
-		for ($index = 0; $index -lt $count; ++$index) {
-			$token = Read-CatalogToken $Bytes ([ref]$position) "$name[$index]"
-			# Plural arrays deliberately contain unused empty English forms.
-			if (!$token.Length -and $name -notin @('DAYS','BORN','FOOD_ON_HAND','GOLDS') -and !($name -eq 'CLASS_NAMES' -and $index -eq 10)) { throw "Missing dialog template: $name" }
-			Test-DialogControls $token $name
-			# The pinned FMT_CHARGES contains a second literal alignment letter.
-			# The maintainer's DOSBox reference shows no extra title glyph; see the
-			# recorded M47 deviation. Preserve verified input, correct only output.
-			if ($name -eq 'FMT_CHARGES' -and $token.Length -gt 3 -and
-				$token[0] -eq 3 -and $token[1] -eq 114 -and $token[2] -eq 114 -and $token[3] -eq 9) {
-				$token = [byte[]]($token[0..1] + $token[3..($token.Length-1)])
-			}
-			$literal = ConvertTo-OctalLiteral $token
-			if ($count -eq 1) { Add-Line $builder "inline constexpr std::string_view $name = $literal;" }
-			else { Add-Line $builder ("`t" + $literal + ',') }
-		}
-		if ($position -ne $end) { throw "Dialog block end mismatch: $name" }
-		if ($count -gt 1) { Add-Line $builder '}};' }
-	}
-	if ($names.Count -ne 84) { throw 'Dialog template name count mismatch' }
-	# The original window border and four-shade font palettes are numeric drawing
-	# inputs from the same verified stream, not strings or commercial assets.
+# Numeric original window symbols and font palettes retain pinned provenance.
+function New-DialogDrawingInclude([byte[]]$Bytes, [string]$SourceRevision) {
+    $builder = New-Object Text.StringBuilder
+    Add-Line $builder "/* ScummVM $SourceRevision; GPL-3.0-or-later; ScummVM developers (COPYRIGHT). Numeric drawing data only. */"
+    Add-Line $builder 'namespace mmodern::generated_dialog_drawing {'
 	foreach ($table in @(@('WindowSymbols',2891,20,64), @('TextColors',4175,40,4))) {
 		$position = [int]$table[1]; $rows = [int]$table[2]; $columns = [int]$table[3]
 		if ($Bytes[$position] -ne 0 -or $Bytes[$position+1] -ne 0 -or $Bytes[$position+2] -ne $columns -or $Bytes[$position+3] -ne $rows) {
@@ -376,11 +222,10 @@ FIX_IDENTIFY_GOLD 27568 27597 1
 		}
 		Add-Line $builder '}};'
 	}
-	Add-Line $builder '} // namespace mmodern::generated_dialog_text'
-	if ($builder.Length -gt 65536) { throw 'Dialog include exceeds 65,536 bytes' }
-	return $builder.ToString()
+    Add-Line $builder '} // namespace mmodern::generated_dialog_drawing'
+    if ($builder.Length -gt 65536) { throw 'Dialog drawing include exceeds 65,536 bytes' }
+    return $builder.ToString()
 }
-
 function Publish-Atomically([string]$Path, [string]$Contents) {
 	$fullPath = [IO.Path]::GetFullPath($Path)
 	$directory = [IO.Path]::GetDirectoryName($fullPath)
@@ -429,7 +274,7 @@ try {
 	if ($blob.Length -ne $CatalogBlobSize -or (Get-Sha256 $blob) -ne $ExpectedBlobSha256) {
 		throw 'Pinned CONSTANTS_7 content identity differs'
 	}
-	if ($DialogText) { $contents = New-DialogInclude $blob $Revision }
+	if ($DialogDrawing) { $contents = New-DialogDrawingInclude $blob $Revision }
 	else {
 		$catalog = Read-Catalog $blob
 		$contents = New-GeneratedInclude $catalog $Revision

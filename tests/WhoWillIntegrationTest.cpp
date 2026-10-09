@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "XeenCheckpointTestSupport.h"
 #include "XeenVisualRemoveTestSupport.h"
 #include "XeenPartySnapshotTestSupport.h"
@@ -270,7 +271,7 @@ int main(int argc,char **argv) {
 	try {
 		check(argc==3 || (argc==4 && std::string(argv[3])=="sdl"),"usage: mmodern_who_will_smoke <game-directory> <output-directory> [sdl]");
 		std::filesystem::create_directories(argv[2]);
-		const auto installation=XeenInstallationDetector().detect(argv[1]);
+		const auto installation=xeenTestInstallationDetector().detect(argv[1]);
 		check(installation && installation->hasXeen(),"Clouds installation unavailable");
 		XeenAssetSource assets(*installation,320,200);
 		std::vector<std::vector<std::uint8_t>> original;

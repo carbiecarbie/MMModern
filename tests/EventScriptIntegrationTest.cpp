@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "games/xeen/XeenEventDecoder.h"
 #include "games/xeen/XeenEventLoader.h"
@@ -87,7 +88,7 @@ int main(int argc, char *argv[]) {
 	try {
 		if (argc != 2)
 			throw std::runtime_error("usage: mmodern_event_script_smoke <game-directory>");
-		const auto installation = XeenInstallationDetector().detect(argv[1]);
+		const auto installation = xeenTestInstallationDetector().detect(argv[1]);
 		check(installation && installation->hasXeen(), "Clouds installation unavailable");
 		XeenAssetSource assets(*installation);
 		const XeenMapLoader mapLoader;
@@ -101,7 +102,7 @@ int main(int argc, char *argv[]) {
 		check(hasAutomaticTrigger(geometry31.geometry, 2, 9),
 			"map 31 automatic trigger");
 		for (const XeenDirection direction : directions) {
-			checkRecord(map31.findInstruction(2, 9, direction, 0), 1934, 0x07,
+			checkRecord(map31.findInstruction(2, 9, direction, 0), 1989, 0x07,
 				{0x1f, 0x04, 0x09}, "map 31 line zero lookup");
 		}
 

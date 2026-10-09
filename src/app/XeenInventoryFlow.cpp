@@ -197,13 +197,13 @@ void XeenEventFlow::handleEquipment(XeenEquipmentOperation operation) {
 		using S=XeenEquipmentStatus;
 		const auto &c=_party.roster.at(certificate->resolvedOwner);
 		const auto description=_catalog.describe(certificate->category,certificate->selectedRecord).displayName;
-		if(result.status==S::Cursed) dialogError(std::string(xeenDialogText(XeenDialogText::CursedItem)));
-		else if(result.status==S::NotProficient) dialogError(xeenDialogFormat(xeenDialogText(XeenDialogText::NotProficient),{xeenClassName(c.characterClass),description}));
+		if(result.status==S::Cursed) dialogError(std::string(xeenDialogText(dosText(),XeenDialogText::CursedItem)));
+		else if(result.status==S::NotProficient) dialogError(xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::NotProficient),{std::string(dosText().table("CLASS_NAMES").at(static_cast<unsigned>(c.characterClass))),description}));
 		else if(result.status==S::RingLimit || result.status==S::MedalLimit)
-			dialogError(xeenDialogFormat(xeenDialogText(XeenDialogText::EquippedAll),{std::string(xeenDialogText(result.status==S::RingLimit?XeenDialogText::Ring:XeenDialogText::Medal))}));
+			dialogError(xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::EquippedAll),{std::string(xeenDialogText(dosText(),result.status==S::RingLimit?XeenDialogText::Ring:XeenDialogText::Medal))}));
 		else if(result.status==S::Conflict && result.conflict) {
 			const auto &item=(*xeenInventoryItems(c,result.conflict->category))[result.conflict->physicalSlot];
-			dialogError(xeenDialogFormat(xeenDialogText(XeenDialogText::RemoveToEquip),{_catalog.describe(result.conflict->category,item).displayName,description}));
+			dialogError(xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::RemoveToEquip),{_catalog.describe(result.conflict->category,item).displayName,description}));
 		} else if(result.status!=S::NoChange) dialogError("Equipment: not supported yet");
 		drawInventory();
 	}
@@ -222,9 +222,9 @@ void XeenEventFlow::transferInventory(std::size_t destination) {
  const auto authority=_encounter?std::optional<XeenEncounterFlow::Ticket>{_encounter->ticket()}:std::nullopt;
  try {if(reportInventory) reportInventory(_transferResult);} catch(...) {if(authority && !journey() && !_encounter->fail(*authority)) _fatal=true;throw;}
  if(authority && !_encounter->current(*authority)) {_fatal=true;throw std::runtime_error("Stale transfer reporting");}
- if(_transferResult.status==XeenTransferStatus::Cursed) dialogError(std::string(xeenDialogText(XeenDialogText::CursedItem)));
+ if(_transferResult.status==XeenTransferStatus::Cursed) dialogError(std::string(xeenDialogText(dosText(),XeenDialogText::CursedItem)));
  else if(_transferResult.status==XeenTransferStatus::DestinationFull)
-  dialogError(xeenBackpackFull(certificate->category,_party.party.member(_party.roster,destination).name));
+  dialogError(xeenBackpackFull(dosText(),certificate->category,_party.party.member(_party.roster,destination).name));
  if(_transferResult.status==XeenTransferStatus::Success) refreshScene(true,OrdinaryCause::None);
 }
 IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
@@ -282,7 +282,7 @@ IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
    if((key=='e' && misc) || (key=='u' && !misc)) return _frame;
    const unsigned option=key=='e'?0:key=='r'?1:key=='u'?2:3;
    if(_encounter && _encounter->combat() && option<3) {
-    dialogError(option==2?std::string(xeenDialogText(XeenDialogText::UseInCombat)):"Equipment in combat: not supported yet");
+    dialogError(option==2?std::string(xeenDialogText(dosText(),XeenDialogText::UseInCombat)):"Equipment in combat: not supported yet");
     drawInventory();return _frame;
    }
    const auto &items=*xeenInventoryItems(_party.roster.at(*_inventory.sourceOwner),_inventory.category);

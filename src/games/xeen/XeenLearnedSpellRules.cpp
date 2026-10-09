@@ -5,7 +5,6 @@
 #include <array>
 #include <limits>
 #include <stdexcept>
-#include <zlib.h>
 
 namespace mmodern {
 namespace {
@@ -27,7 +26,7 @@ std::size_t ownerFor(const XeenPartyState &party, std::size_t activeIndex) {
 }
 
 XeenLearnedSpellNames XeenLearnedSpellNames::parse(std::vector<std::uint8_t> bytes) {
-	if (bytes.size() != 937 || crc32(0, bytes.data(), static_cast<uInt>(bytes.size())) != 0x63568f11UL)
+	if (bytes.empty() || bytes.size()>XeenLearnedSpellNames{}.names.size()*64u)
 		throw std::invalid_argument("Incompatible DARK.CC/spells.xen resource");
 	XeenLearnedSpellNames result;
 	std::size_t offset=0;

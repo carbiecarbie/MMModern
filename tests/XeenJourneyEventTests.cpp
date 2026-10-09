@@ -10,19 +10,21 @@ using namespace combat_gameplay_test;
 namespace fs=std::filesystem;
 namespace {
 using Handler=SdlWindow::FrameUpdateHandler;
-XeenGameplayServices services(Harness &h) {
+XeenGameplayServices services(Harness &h,unsigned shift=0) {
  auto s=h.services();
  s.maps=regional_test::map;
  s.objects=[](auto id){auto o=regional_test::objects(id);o.entities.objects.clear();
   for(unsigned i=0;i<13;++i)o.entities.objects.push_back({1,1,0,0,7});o.entities.objects.push_back({8,2,0,0,26});return o;};
  s.resources=regional_test::resources();s.resources.signature=h.signature;
- s.resources.loadEvents=[](auto id){auto e=regional_test::events(id);if(id==XeenMapIdentity(23)){
+ s.resources.loadEvents=[shift](auto id){auto e=regional_test::events(id);if(id==XeenMapIdentity(23)){
   const unsigned sites[]{125,126,130,131,132,133,127,128,129,134,135};
   const unsigned op[]{0x20,0x29,0x09,0x0c,0x0e,0x12,0x12,0x12,0x12,0x12,0x12};
   const std::vector<Bytes> args{{0,3},{0},{0x2c,1,3},{0,0,0x15,0x63},{},{},{},{},{},{},{}};
   for(unsigned i=0;i<11;++i){auto &v=e.records[sites[i]];v.x=8;v.y=2;v.direction=4;v.line=i;v.opcode=op[i];v.parameters=args[i];v.lengthField=5+v.parameters.size();}
 
- }return e;};
+ }
+ if(id==XeenMapIdentity(23))e.records.insert(e.records.begin(),shift,XeenEventRecord{0,5,201,201,4,0,0x12,{}});
+ return e;};
  s.texts=[](auto id){auto t=regional_test::texts(id);t.strings[0]="Synthetic discovery";t.strings[3]="Synthetic bones";return t;};
  s.resources.loadRegionalText=s.texts;
  return s;
@@ -149,6 +151,27 @@ void pages(const fs::path &path,const XeenSaveSnapshot &saved){
    check((*loads)[3]>0,"original text provider was used");return true;};
  });
 }
+void shiftedSourceAuthority(const fs::path &path,const XeenSaveSnapshot &saved) {
+	for(unsigned shift:{1u,9u,37u})for(bool changed:{false,true}) {
+		XeenSaveFile::write(path,saved);Harness h;auto s=services(h,shift);bool armed=false;
+		const auto original=s.resources.loadEvents;
+		s.resources.loadEvents=[&](auto id){auto file=original(id);if(armed && changed && id==XeenMapIdentity(23))file.records[131+shift].parameters={0,0,21,100};return file;};
+		s.show=[&](const auto &,const auto &handler,const auto &,const auto &,const auto &){
+			handler.framePresented(h.flow->frame().presentation());acknowledgment(h,handler);
+			armed=true;h.eventSystem->discardScriptCache();
+			try{send(h,handler,AcknowledgeAction{});}catch(const std::exception &){}
+			if(changed){effects(h,0,0,0);check(!h.flow->canSave(),"shifted source mutation loses publication authority");}
+			else {
+				effects(h,1,1,11);
+				for(unsigned i=125;i<=135;++i)check(h.world->sessionState().isEventDisabled({23,i+shift}),"Remove uses shifted physical-cell source records");
+				check(!h.world->sessionState().isEventDisabled({23,124+shift}),"Remove does not include neighboring source record");
+			}
+			return true;
+		};
+		check(Application().playGameplay(s,{},path,true)==0,"shifted source Application controls");
+	}
+}
+
 void integrity(const fs::path &path,const XeenSaveSnapshot &saved){
  for(unsigned seam=0;seam<6;++seam)for(bool replace:{false,true})run(path,saved,[&](Harness &h,XeenGameplayServices &s){
 
@@ -174,4 +197,4 @@ void integrity(const fs::path &path,const XeenSaveSnapshot &saved){
   };
  },replace?3:0);
 }
-int main(){try{const auto directory=fs::temp_directory_path()/("mmodern-m31-events-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));fs::create_directory(directory);const auto path=directory/"objective.mmsave";const auto saved=objective(path);authority(path,saved);modalSdlReturn(path,saved);modalCosmeticOmissions(path,saved);failures(path,saved);pages(path,saved);integrity(path,saved);std::cout<<"Journey objective authority and failure controls passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(){try{const auto directory=fs::temp_directory_path()/("mmodern-m31-events-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));fs::create_directory(directory);const auto path=directory/"objective.mmsave";const auto saved=objective(path);authority(path,saved);modalSdlReturn(path,saved);modalCosmeticOmissions(path,saved);failures(path,saved);pages(path,saved);shiftedSourceAuthority(path,saved);integrity(path,saved);std::cout<<"Journey objective authority and failure controls passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

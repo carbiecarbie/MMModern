@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "games/xeen/XeenEquipmentPurchase.h"
 #include "games/xeen/XeenServiceDay.h"
 #include "XeenTrainingTestSupport.h"
@@ -201,7 +202,7 @@ void rebinds() {
 int main(int argc,char **argv) {
     try {
         check(argc==2 || (argc==4 && std::string(argv[2])=="--reference"),"usage: equipment-purchase-rules <original-installation> [--reference <clean-pinned-source>]");
-        const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"installation unavailable");
+        const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"installation unavailable");
         prices();if(argc==4)pinnedReference(argv[3]);
         else {training_test::Inputs inputs(*installation);preparedRules(inputs);rebinds();}
         std::cout<<"M42 literal prices, funds, physical delivery/depletion and checked departure rebind passed\n";return 0;

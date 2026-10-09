@@ -55,6 +55,20 @@ void mapping() {
 	check(!XeenLearnedSpellRules::supported(42) && !XeenLearnedSpellRules::supported(76),"unsupported identity rejected");
 	rejects([&]{(void)XeenLearnedSpellNames::parse(std::vector<std::uint8_t>{});});
 }
+void structuralNames() {
+	for(unsigned length:{1u,13u,63u}) {
+		std::vector<std::uint8_t> bytes;
+		for(unsigned i=0;i<77;++i){bytes.insert(bytes.end(),length,'A'+i%26);bytes.push_back(0);}
+		const auto names=XeenLearnedSpellNames::parse(bytes);
+		check(names.raw==bytes && names.names[75].size()==length,"bounded spell name structure accepts nonfingerprinted bytes");
+		auto truncated=bytes;truncated.pop_back();rejects([&]{XeenLearnedSpellNames::parse(truncated);});
+		auto trailing=bytes;trailing.push_back(0);rejects([&]{XeenLearnedSpellNames::parse(trailing);});
+		auto empty=bytes;empty[0]=0;rejects([&]{XeenLearnedSpellNames::parse(empty);});
+	}
+	std::vector<std::uint8_t> longNames(77*65,'A');for(unsigned i=0;i<77;++i)longNames[i*65+64]=0;
+	rejects([&]{XeenLearnedSpellNames::parse(longNames);});
+}
+
 void eligibilityAndEffects() {
 	auto p=fixture();
 	check(XeenLearnedSpellRules::eligible(p,0,14) && XeenLearnedSpellRules::eligible(p,1,0) &&
@@ -174,5 +188,5 @@ void ownerIdentityAndLifetime() {
 	}
 }
 }
-int main() {try {mapping();eligibilityAndEffects();resourcePreimage();ownerIdentityAndLifetime();std::cout<<"Learned spell mapping and pure effects passed\n";return 0;}
+int main() {try {mapping();structuralNames();eligibilityAndEffects();resourcePreimage();ownerIdentityAndLifetime();std::cout<<"Learned spell mapping and pure effects passed\n";return 0;}
 catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

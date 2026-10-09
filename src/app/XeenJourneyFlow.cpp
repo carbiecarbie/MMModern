@@ -88,7 +88,7 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 			if(preparedStart) {
 				_result = XeenActorApproach::initializeJourney(w,p,c,_state,characters,context,
 					_journeyStatistics,_events,seed,purse,bank,[&](const auto &party,const auto &actors,const auto &random) {
-						prepareStartPublication(party,actors,random,{},{});
+						prepareStartPublication(party,actors,random,{},_journeyStatistics);
 					});
 			} else {
 				const auto city=cityProvider ? cityProvider() : XeenEventFile{};
@@ -512,7 +512,7 @@ XeenEncounterResult XeenEncounterFlow::advanceJourney(const Ticket &entry, std::
         // quiet admission applies only when starting new work.
         if(!_regionalWork) {
 		    xeenValidateJourneyParty(_party);
-		    if (std::any_of(s._actors.begin(),s._actors.end(),[&](const XeenActor &a) { return xeenJourneyContent().influences(a.id.recordIndex) && a.lifecycle == XeenActorLifecycle::Present; })) xeenValidateJourneyMelee(_party);
+		    if (std::any_of(s._actors.begin(),s._actors.end(),[&](const XeenActor &a) { return a.lifecycle == XeenActorLifecycle::Present; })) xeenValidateJourneyMelee(_party);
         }
 	} catch (const std::invalid_argument &e) { _journeyRefusal = e.what(); refused.reason = XeenEncounterStop::Domain; return refused; }
 	_journeyRefusal.clear();

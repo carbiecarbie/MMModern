@@ -468,6 +468,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				instructionCount, logical, decoded.source);
 		}
 		++instructionCount;
+		if(publication)publication->dispatched(state,decoded);
 
 		if (std::holds_alternative<XeenEventExit>(decoded.operation))
 			return finalize();
@@ -860,8 +861,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 						detail + " requires an active party member", instructionCount, logical, decoded.source);
 				actual = partyState.questItems.at(*index) != 0 ? conditional->value :
 					std::numeric_limits<std::uint32_t>::max();
-			} else if (conditional->action == 78 && publication && partyState.regionalRecovery &&
-				logical.mapId==XeenMapIdentity(23) && decoded.source.recordIndex==59) {
+			} else if (conditional->action == 78 && publication && partyState.regionalRecovery && partyState.encounterContext) {
 				if (!state.activeCharacterIndex || *state.activeCharacterIndex>=partyState.party.size())
 					return error(XeenEventExecutionErrorKind::InvalidPresentationResponse,
 						"well recipient is unavailable",instructionCount,logical,decoded.source);

@@ -36,7 +36,7 @@ void XeenSaveState::validateJourneyValues(const XeenSaveSnapshot &s) {
 		xeenValidateCurrentServiceEconomy(*j.serviceEconomy);
 	}
 	{
-		require(s.resources.darkside && j.initializedMap==XeenMapIdentity(23) && j.originalActorCount==19 && j.actors.size()==19 &&
+		require(s.resources.darkside && j.initializedMap==XeenMapIdentity(23) && j.originalActorCount>=1 && j.originalActorCount<=XeenActorApproach::kCapacity && j.actors.size()==j.originalActorCount &&
 			((s.camera.mapId==XeenMapIdentity(23) && s.camera.x>=0 && s.camera.x<16 && s.camera.y>=0 && s.camera.y<16) ||
 			 (s.camera.mapId==XeenMapIdentity(28) && xeenIndoorCoordinate(s.camera.x,s.camera.y) && j.vertigoActors)));
 		if (j.vertigoActors) {
@@ -53,7 +53,7 @@ void XeenSaveState::validateJourneyValues(const XeenSaveSnapshot &s) {
 			for (const auto &id:s.disabledEvents)
 				require(id.mapId!=XeenMapIdentity(28) || j.vertigoActors.has_value());
 		}
-		for (unsigned i=0;i<19;++i) {
+		for (unsigned i=0;i<j.actors.size();++i) {
 			const auto &a=j.actors[i];require(a.id==XeenMonsterIdentity{23,i} && a.status==XeenActorStatus::Physical);
 			if (a.lifecycle==XeenActorLifecycle::Present) require(a.hp>0 && !a.accounted && a.x>=0 && a.x<16 && a.y>=0 && a.y<16 &&
 				(s.camera.mapId!=XeenMapIdentity(23) || a.x!=s.camera.x || a.y!=s.camera.y));
@@ -160,13 +160,14 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 			!XeenMovement::component(w.map(23),9,11,policy.traversal)[c.y*16+c.x])
 			throw std::invalid_argument("Regional camera outside mainland");
 	}
-	if (actors.size()!=(19u)) throw std::invalid_argument("Journey requires complete original actor collection");
+	if (actors.size()!=snapshot.journey->originalActorCount || actors.size()!=snapshot.journey->actors.size()) throw std::invalid_argument("Journey requires complete original actor collection");
 	for (const auto &live:snapshot.journey->actors) {
 		auto &a=actors.at(live.id.recordIndex);
 		a.x=live.x; a.y=live.y; a.hp=live.hp; a.activated=live.activated; a.lifecycle=live.lifecycle; a.status=live.status;
 	}
 	static_cast<void>(CloudsUiComposer::buildPortraitPlacements(p));
 	auto &s = w._sessionState;
+	w._cityStatistics=statistics;
 	s._actors.swap(actors); s._entry = XeenEncounterEntry::Journey;
 	s._encounterMarked = s._encounterInitialized = true; s._encounterRevision = 1;
 	s._skeletonSeed = snapshot.journey->skeletonSeed;
@@ -253,8 +254,8 @@ XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resourc
 		const XeenPartyState &party, const XeenCamera &camera,
 		const XeenGameFlags &flags, const XeenWorld &world) {
 	// Reject an unrelated flag owner before observing the bound graph's integrity.
+	const auto authority = world._journeyCapture.lock();
 	if (world.sessionState().journey()) {
-		const auto authority = world._journeyCapture.lock();
 		if (!authority || !authority->preimage || &(**authority->preimage).f != &flags)
 			throw std::logic_error("Journey capture requires the bound game-flag owner");
 	}
@@ -282,9 +283,10 @@ XeenSaveSnapshot XeenSaveState::capture(const XeenSaveResourceSignature &resourc
 		j.serviceEconomy=party.serviceEconomy;
 		for (unsigned i = 0; i < 30; ++i) j.supplements[i] = {static_cast<std::uint8_t>(i), *party.roster.combatInputs(i)};
 		j.initializedMap=xeenJourneyContent().entry.mapId;
-		j.originalActorCount=19;
+		// Admitted MOB topology survives authorized eviction of resource caches.
+		j.originalActorCount=authority->admittedActors.size();
 		if (state.actors().size() != j.originalActorCount) throw std::logic_error("Journey actor collection changed");
-		for (const auto &a:state.actors()) if (xeenJourneyContent().influences(a.id.recordIndex))
+		for (const auto &a:state.actors())
 			j.actors.push_back({a.id,a.x,a.y,a.hp,a.activated,a.lifecycle,a.status,state.accountedMonsters().count(a.id) != 0});
 		if (state._vertigoActors) {
 			j.cityOriginalActorCount=world._cityOriginalActorCount;
@@ -311,7 +313,7 @@ void XeenSaveState::restoreBeforeGameplay(const XeenSaveSnapshot &snapshot,
 		throw std::logic_error("MMModern save: cannot restore into encounter owners");
 	XeenSaveFormat::validate(snapshot);
 	if (!(snapshot.resources == resources.signature))
-		throw std::runtime_error("MMModern save: original archive contents are incompatible");
+		throw std::runtime_error("MMModern save: archive/data-edition incompatibility (original archive contents differ)");
 	restoreJourney(snapshot,resources,party,camera,flags,world,preflight);
 }
 

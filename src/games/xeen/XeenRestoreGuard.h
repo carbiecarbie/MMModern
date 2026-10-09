@@ -299,7 +299,8 @@ private:
 		s._actors=actors;s._entry=XeenEncounterEntry::Journey;
 		s._encounterMarked=s._encounterInitialized=true;s._encounterRevision=1;
 		s._skeletonSeed=0;s._journeyRandom=random;
-		if(city) {s._vertigoActors=city;cityStatistics=statistics;cityOriginalCount=46;}
+		cityStatistics=statistics;
+		if(city) {s._vertigoActors=city;cityOriginalCount=46;}
 		prepareMutationRanges();
 	}
 	// Prepare a final-destination preimage before publication. Only the private

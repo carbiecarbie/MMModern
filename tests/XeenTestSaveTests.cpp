@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "tools/XeenTestSave.h"
 #include "XeenTrainingTestSupport.h"
 #include "games/xeen/XeenGameFlagsLoader.h"
@@ -110,7 +111,7 @@ void preset(const GameInstallation &installation,const std::string &name,const f
 int main(int argc,char **argv) {
     try {
         check(argc==4,"usage: test <installation> <preset|paths> <repository>");
-        const auto installation=XeenInstallationDetector().detect(fs::u8path(argv[1]));
+        const auto installation=xeenTestInstallationDetector().detect(fs::u8path(argv[1]));
         check(bool(installation),"original installation missing");
         TemporaryDirectory directory;
         const std::string name=argv[2];

@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 // Read-only original-resource content witness. Process traversal is separate.
 #include "formats/xeen/XeenAssetSource.h"
 #include "formats/xeen/XeenCharacterFormat.h"
@@ -69,7 +70,7 @@ void targetingOracle(const std::vector<XeenMonsterRecord> &records) {
 int main(int argc,char **argv) {
  try {
   check(argc==2,"usage: mmodern_vertigo_original <original-installation>");
-  const auto installation=XeenInstallationDetector().detect(argv[1]);
+  const auto installation=xeenTestInstallationDetector().detect(argv[1]);
   check(installation && installation->hasDarkside(),"World of Xeen installation required");
   XeenAssetSource assets(*installation,320,200);XeenMapLoader maps;
   XeenEventLoader events([&](const std::string &name)->std::optional<std::vector<std::uint8_t>> {

@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "formats/xeen/XeenMapFormat.h"
 #include "games/xeen/CloudsMapComposer.h"
@@ -19,7 +20,7 @@ XeenMap emptyIndoor(XeenMapIdentity id) {XeenMap m;m.geometry.id=id.number;for(a
 }
 int main(int argc,char **argv) {try {
 	check(argc==2,"usage: mmodern_scene_inventory_original <original-installation>");
-	const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"Original installation missing");
+	const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Original installation missing");
 	XeenAssetSource assets(*installation,320,200);CloudsMapComposer composer;XeenMapLoader loader;
 	assets.loadPalette("mm4.pal");
 	const auto bytes=assets.readCloudsMonsterStatisticsFromDarkArchive();check(bool(bytes),"Missing DARK.CC/xeen.mon");

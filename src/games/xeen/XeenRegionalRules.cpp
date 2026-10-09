@@ -6,7 +6,7 @@
 #include "formats/xeen/XeenEventFormat.h"
 #include "games/xeen/XeenStateEquality.h"
 #include "games/xeen/XeenIndoorScene.h"
-#include <zlib.h>
+#include "games/xeen/XeenEventDecoder.h"
 
 // Adapted from the ScummVM developers' GPL-3.0-or-later Xeen combat.cpp
 // at 6814ee9ba54582f5b5adcffab49efbbd8f589edd: canMonsterMove/stopAttack.
@@ -33,19 +33,15 @@ std::optional<std::size_t> xeenRegionalEvent(const XeenEventFile &events,const X
 }
 bool xeenRegionalSign(const XeenEventFile &events,const XeenCamera &camera) {
 	const auto record=xeenRegionalEvent(events,camera);
-	if (!record || *record!=56 || camera.x!=5 || camera.y!=9 || camera.direction!=XeenDirection::North) return false;
-	const auto &r=events.records[56];
-	if (r.fileOffset!=495 || r.lengthField!=6 || r.direction!=0 || r.line!=0 || r.opcode!=4 || r.parameters!=std::vector<std::uint8_t>{16}) return false;
-	for (const auto &next:events.records) if (next.x==5 && next.y==9 && next.line==1 && (next.direction==0 || next.direction==4)) return false;
+	if (!record || camera.x!=5 || camera.y!=9 || camera.direction!=XeenDirection::North) return false;
+	const auto &r=events.records[*record];
+	if (r.lengthField!=6 || r.line!=0 || r.opcode!=4 || r.parameters!=std::vector<std::uint8_t>{16}) return false;
+	for (const auto &next:events.records) if (next.x==r.x && next.y==r.y && next.line==1 && (next.direction==unsigned(camera.direction) || next.direction==4)) return false;
 	return true;
 }
 void xeenValidateRegionalManifest(const XeenMap &map, const XeenObjectFile &objects, const XeenEventFile &events,
 		const std::vector<XeenMonsterRecord> &statistics, const std::vector<std::uint8_t> &dat,
 		const std::vector<std::uint8_t> &mob, const std::vector<std::uint8_t> &evt) {
-	const auto crc=[](const auto &bytes) { return crc32(0,bytes.data(),static_cast<uInt>(bytes.size())); };
-	if (dat.size()!=892 || crc(dat)!=0x8f3e28ee || mob.size()!=220 || crc(mob)!=0xce08a8c8 ||
-		evt.size()!=1440 || crc(evt)!=0xe3128711)
-		throw std::invalid_argument("Regional DAT/MOB/EVT manifest mismatch");
 	XeenMap expected;expected.geometry=XeenMapFormat::parseDat(dat);
 	if (!xeen_state::sameMap(map,expected) || objects.mapId!=XeenMapIdentity(23) || !objects.resourcePresent ||
 		!xeen_state::sameEntities(objects.entities,XeenMapFormat::parseMob(mob)) || events.mapId!=XeenMapIdentity(23) || !events.resourcePresent)
@@ -58,11 +54,19 @@ void xeenValidateRegionalManifest(const XeenMap &map, const XeenObjectFile &obje
 			a.direction!=b.direction || a.line!=b.line || a.opcode!=b.opcode || a.parameters!=b.parameters)
 			throw std::invalid_argument("Regional typed event changed");
 	}
-	constexpr unsigned types[]{3,6,8,9,13};
-	constexpr std::uint32_t checksums[]{0x7f7e3f71,0xeb3b54b1,0xe36833c6,0x5002c318,0x5636ae25};
-	for (unsigned i=0;i<5;++i)
-		if (statistics.size()<=types[i] || statistics[types[i]].fingerprint()!=checksums[i])
-			throw std::invalid_argument("Regional monster statistics manifest mismatch");
+	if (map.identity()!=XeenMapIdentity(23) || objects.entities.monsters.empty() ||
+		objects.entities.monsters.size()>XeenActorApproach::kCapacity)
+		throw std::invalid_argument("Regional resource topology is unsupported");
+	for (const auto &monster:objects.entities.monsters) {
+		if (!monster.hasResource() || unsigned(monster.resourceId)>=statistics.size() ||
+			!statistics[monster.resourceId].supportsGroundMovement() ||
+			!statistics[monster.resourceId].supportsAdmittedMechanicsRendering())
+			throw std::invalid_argument("Regional monster mechanics are unsupported");
+		statistics[monster.resourceId].validateAttackCapabilities();
+	}
+	for(const auto &r:events.records) if(r.direction>4)
+		throw std::invalid_argument("Regional event direction is unsupported");
+
 }
 namespace {
 bool local(int x, int y) { return x>=0 && x<16 && y>=0 && y<16; }
@@ -191,10 +195,10 @@ bool xeenOutdoorRangedRay(const XeenMap &map, const XeenCamera &camera, const Xe
 	return true;
 }
 void xeenValidateRegionalActors(const XeenMap &map, const XeenObjectFile &mob, const std::vector<XeenActor> &actors,
-		const std::set<XeenMonsterIdentity> &accounted) {
+		const std::set<XeenMonsterIdentity> &accounted, const std::vector<XeenMonsterRecord> &statistics) {
 	if (map.identity()!=XeenMapIdentity(23) || mob.mapId!=map.identity() || !mob.resourcePresent ||
-		actors.size()!=19 || mob.entities.monsters.size()!=19) throw std::invalid_argument("Incomplete regional actor collection");
-	for (auto id:accounted) if (id.mapId!=map.identity() || id.recordIndex>=19)
+		actors.empty() || actors.size()>XeenActorApproach::kCapacity || actors.size()!=mob.entities.monsters.size()) throw std::invalid_argument("Incomplete regional actor collection");
+	for (auto id:accounted) if (id.mapId!=map.identity() || id.recordIndex>=actors.size())
 		throw std::invalid_argument("Invalid regional accounting identity");
 	for (unsigned i=0;i<actors.size();++i) {
 		const auto &a=actors[i];const auto &original=mob.entities.monsters[i];
@@ -203,10 +207,8 @@ void xeenValidateRegionalActors(const XeenMap &map, const XeenObjectFile &mob, c
 			!a.statistics || !a.statistics->supportsGroundMovement() || !a.statistics->supportsAdmittedMechanicsRendering() || a.status!=XeenActorStatus::Physical)
 			throw std::invalid_argument("Regional actor immutable identity/profile changed");
 		const auto type=a.original.resourceId;
-		std::uint32_t expected=0;
-		switch (type) { case 3:expected=0x7f7e3f71;break;case 6:expected=0xeb3b54b1;break;case 8:expected=0xe36833c6;break;
-		case 9:expected=0x5002c318;break;case 13:expected=0x5636ae25;break;default:throw std::invalid_argument("Unknown regional species"); }
-		if (a.statistics->fingerprint()!=expected) throw std::invalid_argument("Changed regional statistics");
+		if (!a.original.hasResource() || unsigned(type)>=statistics.size() || a.statistics->raw!=statistics[type].raw)
+			throw std::invalid_argument("Changed regional statistics source");
 		if (a.lifecycle==XeenActorLifecycle::Defeated) {
 			if (a.hp || a.x!=-128 || a.y!=-128 || a.activated || !accounted.count(a.id))
 				throw std::invalid_argument("Noncanonical regional defeated actor");
@@ -365,12 +367,25 @@ XeenRegionalInteraction xeenRegionalInteraction(const XeenEventFile &events,cons
 	if(camera.mapId==XeenMapIdentity(23) && teleportsTo(28))return XeenRegionalInteraction::VertigoEntrance;
 	if (xeenRegionalSign(events,camera)) return XeenRegionalInteraction::Sign;
 
-	if (*first==21 && camera.x==9 && camera.y==11 && camera.direction==XeenDirection::West)
-		return XeenRegionalInteraction::Myra;
-	if (*first==125 && camera.x==8 && camera.y==2)
-		return XeenRegionalInteraction::Phirna;
-	if (*first==57 && camera.x==7 && camera.y==7)
-		return XeenRegionalInteraction::Well;
+	// Coordinates are the logical interaction identity; record ordering is transport data.
+	// Validate semantic operations at that address, allowing presentation records before them.
+	bool npc=false, grant=false, remove=false, hp=false, selection=false;
+	for (std::size_t i=0;i<events.records.size();++i) {
+		const auto &r=events.records[i];
+		if(r.x!=camera.x || r.y!=camera.y || (r.direction!=4 && r.direction!=unsigned(camera.direction)))continue;
+		const auto decoded=XeenEventDecoder::decode(r,{events.mapId,events.resourceName,i,true});
+		const auto *instruction=std::get_if<XeenDecodedEventInstruction>(&decoded);if(!instruction)continue;
+		npc=npc || std::holds_alternative<XeenEventNpc>(instruction->operation);
+		remove=remove || std::holds_alternative<XeenEventRemove>(instruction->operation);
+		selection=selection || std::holds_alternative<XeenEventWhoWill>(instruction->operation);
+		if(const auto *effect=std::get_if<XeenEventTakeOrGive>(&instruction->operation)) {
+			grant=grant || effect->second.mode==21;
+			hp=hp || effect->second.mode==8;
+		}
+	}
+	if(camera.x==9 && camera.y==11 && npc)return XeenRegionalInteraction::Myra;
+	if(camera.x==8 && camera.y==2 && grant && remove)return XeenRegionalInteraction::Phirna;
+	if(camera.x==7 && camera.y==7 && hp && selection)return XeenRegionalInteraction::Well;
 	return XeenRegionalInteraction::None;
 }
 }

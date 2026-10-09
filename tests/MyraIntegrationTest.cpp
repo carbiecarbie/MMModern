@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "XeenCheckpointTestSupport.h"
 #include "XeenVisualRemoveTestSupport.h"
 #include "XeenPartySnapshotTestSupport.h"
@@ -65,17 +66,17 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 	auto textProvider=[&](XeenMapIdentity id){++strings;return texts.load(id);};
 	XeenEventSystem events(scriptProvider,textProvider);
 	const auto original=loader.load(23);const auto text=texts.load(23);
-	check(original.records.size()==170,"original map-23 record count");
-	const std::vector<int> offsets{182,191,200,211,217,228,238,244,255,265,275,285,295,305,315};
-	const std::vector<int> opcodes{9,8,5,0x12,5,0x0c,0x12,5,0x0c,0x0c,0x2c,0x2c,0x2c,0x2c,0x2c};
-	const std::vector<std::vector<std::uint8_t>> operands{{21,99,7},{9,0,4},{1,2,17,1,3},{},
-		{1,0,17,1,5},{0,0,104,2},{},{1,3,17,1,8},{21,99,0,0},{104,2,0,0},
+	check(original.records.size()==179,"CD map-23 record count");
+	const std::vector<int> offsets{215,224,233,244,255,261,272,283,293,299,310,321,331,341,351,361,371,381};
+	const std::vector<int> opcodes{9,8,0x3c,5,0x12,0x3c,5,0x0c,0x12,0x3c,5,0x0c,0x0c,0x2c,0x2c,0x2c,0x2c,0x2c};
+	const std::vector<std::vector<std::uint8_t>> operands{{21,99,9},{9,0,5},{6,94,4,38,6},{1,2,17,1,4},{},
+		{6,110,6,60,12},{1,0,17,1,7},{0,0,104,2},{},{6,81,12,181,13},{1,3,17,1,11},{21,99,0,0},{104,2,0,0},
 		{70,37,0,1},{70,37,0,1},{70,37,0,1},{70,37,0,1},{70,37,0,1}};
-	for(std::size_t i=0;i<offsets.size();++i){const auto&r=original.records.at(21+i);
-		check(r.x==9 && r.y==11 && r.line==i && r.fileOffset==offsets[i] && r.opcode==opcodes[i] &&
-			r.parameters==operands[i],"original Myra records changed");}
-	check(!XeenEventScript(original).findInstructionIndex(9,11,XeenDirection::West,15),"original sequential successor must be absent");
-	check(text.strings.at(0).size()==259 && text.strings.at(1).size()==22 && text.strings.at(3).size()==58,"original text characteristics");
+	const XeenEventScript sourceScript(original);
+	for(std::size_t i=0;i<offsets.size();++i){const auto *r=sourceScript.findInstruction(9,11,XeenDirection::West,i);
+		check(r && r->fileOffset==offsets[i] && r->opcode==opcodes[i] && r->parameters==operands[i],"CD Myra source instructions changed");}
+	check(!sourceScript.findInstructionIndex(9,11,XeenDirection::West,18),"CD sequential successor must be absent");
+	check(text.strings.at(0).size()==267 && text.strings.at(1).size()==22 && text.strings.at(3).size()==58,"CD text characteristics");
 	const auto geometry=geometrySnapshot(world.map(23).geometry);const auto objectFile=world.objectFile(23);
 	const XeenFontFormat font(assets.readArchiveResource("fnt"));const CloudsMapComposer composer;
 	const XeenCharacterRulesContext rules{kCloudsInitialYear};std::uint64_t time=0;unsigned random=0;
@@ -141,8 +142,8 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 			pending=*p;++presentations;const auto&q=p->request;
 			if(q.kind==XeenPresentationKind::NpcAcknowledgment) {
 				++npcs;
-				check(q.source.line==(returning?7:4) && q.source.fileOffset==(returning?244:217) &&
-					p->state.instructionCount==(returning?2:3) && q.title==text.strings.at(1) &&
+				check(q.source.line==(returning?10:6) && q.source.fileOffset==(returning?310:272) &&
+					p->state.instructionCount==(returning?3:4) && q.title==text.strings.at(1) &&
 					q.text==text.strings.at(returning?3:0) && q.npc && q.npc->portraitId==17,"ordinary line-0 NPC frontier");
 			} else if(q.kind==XeenPresentationKind::RewardReceipt) {
 				++receipts;check(returning && receipts==1 && p->state.instructionCount==9 &&
@@ -157,7 +158,7 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 			} else throw std::runtime_error("unexpected Myra presentation kind");
 		}else if(const auto*e=std::get_if<XeenEventExecutionError>(&r))terminal=*e;
 		else if(const auto*c=std::get_if<XeenManualEventCompleted>(&r)){
-			check(c->instructionCount==(returning?9U:5U) && !c->cameraChanged && !c->flagsChanged,"Myra completion count/publication");
+			check(c->instructionCount==(returning?10U:6U) && !c->cameraChanged && !c->flagsChanged,"Myra completion count/publication");
 			completed=true;if(!returning)expectedQuestFlags[2]=true;
 		}else throw std::runtime_error("unexpected Myra dispatch result");};
 	flow.reportManual=report;
@@ -186,7 +187,7 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 	// Failure and abandonment must be checked BEFORE the first successful write.
 	failDraw=true;flow.handle(InteractionAction{});
 	check(terminal && terminal->kind==XeenEventExecutionErrorKind::PresentationFailed && terminal->source &&
-		terminal->source->line==(returning?7:4) && !completed && !flow.blocksGameplay() && flow.frame().pixels==cleanBase().pixels,
+		terminal->source->line==(returning?10:6) && !completed && !flow.blocksGameplay() && flow.frame().pixels==cleanBase().pixels,
 		"original NPC failure did not clean up");unchanged();failDraw=false;resetReport();
 	if(sdl){
 		int actions=0;bool queued=false;
@@ -299,7 +300,7 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 }
 int main(int argc,char **argv){try{
 	check(argc==3 || (argc==4 && std::string(argv[3])=="sdl"),"usage: mmodern_myra_smoke <game-directory> <output-directory> [sdl]");
-	std::filesystem::create_directories(argv[2]);const auto installation=XeenInstallationDetector().detect(argv[1]);
+	std::filesystem::create_directories(argv[2]);const auto installation=xeenTestInstallationDetector().detect(argv[1]);
 	check(installation && installation->hasXeen(),"Clouds installation unavailable");XeenAssetSource assets(*installation,320,200);
 	const std::vector<std::string> names{"maze.pty","maze.chr","maze0023.evt","maze0023.mob"};
 	std::vector<std::vector<std::uint8_t>> bytes;for(const auto&name:names)bytes.push_back(assets.readInitialResource(name));

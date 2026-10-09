@@ -212,11 +212,11 @@ void XeenEventFlow::prepareTraining() {
     }
 }
 std::string XeenEventFlow::trainingText() const {
-    return _trainingUi->feedback.empty()?xeenLocationText(XeenLocationDialog::Training,_party,_trainingUi->member):_trainingUi->feedback;
+    return _trainingUi->feedback.empty()?xeenLocationText(dosText(),XeenLocationDialog::Training,_party,_trainingUi->member):_trainingUi->feedback;
 }
 IndexedFrame XeenEventFlow::drawTraining(const IndexedFrame &world) const {
     const auto &ui=*_trainingUi;
-    auto frame=drawXeenLocation(world,ui.art,_inventoryFont,XeenLocationDialog::Training,_party,ui.member,drawDialogSprite);
+    auto frame=drawXeenLocation(dosText(),world,ui.art,_inventoryFont,XeenLocationDialog::Training,_party,ui.member,drawDialogSprite);
     if(!ui.feedback.empty()) frame=drawXeenErrorScroll(frame,_inventoryFont,ui.feedback);
     return frame;
 }
@@ -267,7 +267,7 @@ IndexedFrame XeenEventFlow::handleTraining(const PlayerAction &action,std::uint6
             } else if(key=='t') {
                 const auto &c=_party.party.member(_party.roster,ui.member);
                 const auto quote=xeenQuoteTraining(c,*_party.roster.combatInputs(c.rosterId),_party.monsterTreasure->gold,*_party.encounterContext);
-                if(quote.outcome==XeenTrainingOutcome::InsufficientGold) ui.feedback=xeenNotEnoughGold();
+                if(quote.outcome==XeenTrainingOutcome::InsufficientGold) ui.feedback=xeenNotEnoughGold(dosText());
                 else if(quote.outcome==XeenTrainingOutcome::Quoted) {
                     if(!_encounter->_training->quoted) _encounter->quoteTraining(ui.member);
                     if(_encounter->_training->quoted) {

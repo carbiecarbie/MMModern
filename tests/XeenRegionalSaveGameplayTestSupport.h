@@ -1,3 +1,4 @@
+#include "XeenDosTextTestSupport.h"
 #ifndef MMODERN_REGIONAL_SAVE_GAMEPLAY_TEST_SUPPORT_H
 #define MMODERN_REGIONAL_SAVE_GAMEPLAY_TEST_SUPPORT_H
 #include "XeenSaveGameplayTestSupport.h"
@@ -15,7 +16,7 @@ struct Fixture {
  XeenGameplayServices services(){
   XeenGameplayServices s{regional_test::resources(),[]{return XeenGameFlags{};},regional_test::map,regional_test::objects,regional_test::texts,font,
    [](auto &,const auto &,const auto &,auto){return XeenEventFlow::Composition{IndexedFrame{320,200,Bytes(64000)},true};}, {},
-   [&](auto &f,const auto &){flow=&f;}, {},
+   [&](auto &f,const auto &){flow=&f;f.dialogText=&dos_test::text();}, {},
    [&](auto &w,auto &e,const auto &p,auto &c,const auto &g){events=&e;world=&w;party=&p;camera=&c;flags=&g;}};
   s.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto phase,auto){
    ++compositions;phases.push_back(phase);IndexedFrame f{320,200,Bytes(64000)};

@@ -1,3 +1,5 @@
+#include "XeenDosTextTestSupport.h"
+#include "XeenTestInstallation.h"
 #ifndef MMODERN_COMBAT_GAMEPLAY_TEST_SUPPORT_H
 #define MMODERN_COMBAT_GAMEPLAY_TEST_SUPPORT_H
 #include "XeenCombatTestSupport.h"
@@ -38,7 +40,7 @@ struct Harness {
  bool badTerrain=false;
  explicit Harness(const std::optional<std::filesystem::path> &game={}) {
   if (!game) return;
-  const auto installation=XeenInstallationDetector().detect(*game);
+  const auto installation=xeenTestInstallationDetector().detect(*game);
   check(installation&&installation->hasDarkside(),"World of Xeen required");
   signature=XeenSaveFile::fingerprint(*installation);
   assets=std::make_unique<XeenAssetSource>(*installation,320,200);
@@ -60,7 +62,7 @@ struct Harness {
    [](XeenMapIdentity){return XeenEventTextFile{};},font,
    [](XeenWorld &,const XeenPartyState &,const XeenCamera &,std::uint64_t)->XeenEventFlow::Composition{
     throw std::runtime_error("Combat routed through ordinary composition");}, {},
-   [&](XeenEventFlow &f,const XeenCamera &){flow=&f;}, {},
+   [&](XeenEventFlow &f,const XeenCamera &){flow=&f;f.dialogText=assets?&assets->uiText():&dos_test::text();}, {},
    [&](XeenWorld &w,XeenEventSystem &e,const XeenPartyState &p,XeenCamera &c,const XeenGameFlags &f){world=&w;party=&p;camera=&c;flags=&f;eventSystem=&e;}
   };
   s.resources.loadInitialCharacters=[&]{return assets?assets->readInitialResource("maze.chr"):chr();};

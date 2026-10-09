@@ -62,6 +62,12 @@ public:
 	std::function<void(IndexedFrame &)> drawTempleArt;
 	std::function<void(IndexedFrame &)> drawCombatButtons;
 	XeenDialogSpriteDraw drawDialogSprite;
+ // Borrowed from the existing asset owner, before any dialog is presented.
+ const XeenDosText *dialogText = nullptr;
+ const XeenDosText &dosText() const {
+  if(!dialogText)throw std::logic_error("DOS dialog text provider is missing");
+  return *dialogText;
+ }
 	std::function<IndexedFrame()> loadRestDream;
 	std::function<void(XeenTrainingBoundary)> trainingBoundary;
 	bool canSave() const noexcept;
@@ -351,6 +357,9 @@ private:
 	OrdinaryAnimationState _ordinary;
 	Compose _compose;
 	std::optional<Pending> _pending;
+	// Interpreter-dispatched resource identities retained independently of callback state.
+	std::vector<std::size_t> _regionalExecutedRecords;
+	std::optional<XeenEventContinuation> _regionalEventContinuation;
 	IndexedFrame _frame;
 	std::string _mainScreenNotice;
 	IndexedFrame drawMainScreenNotice(const IndexedFrame &, const std::string &) const;

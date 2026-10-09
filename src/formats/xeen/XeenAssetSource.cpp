@@ -8,24 +8,40 @@ namespace mmodern {
 
 struct XeenAssetSource::Impl {
 	ScummVmXeenBridge bridge;
+ GameInstallation installation;
+ std::unique_ptr<XeenDosText> text;
 
-	explicit Impl(const GameInstallation &installation) : bridge(installation) {}
+	explicit Impl(const GameInstallation &source) : bridge(source),installation(source) {}
 
 	Impl(const GameInstallation &installation, int width, int height) :
-		bridge(installation, width, height) {
+		bridge(installation, width, height),installation(installation) {
 	}
 };
 
 XeenAssetSource::XeenAssetSource(const GameInstallation &installation) :
 	_impl(new Impl(installation)) {
+ if(installation.uiModule)uiText();
 }
 
 XeenAssetSource::XeenAssetSource(const GameInstallation &installation,
 		int width, int height) :
 	_impl(new Impl(installation, width, height)) {
+ if(installation.uiModule)uiText();
 }
 
 XeenAssetSource::~XeenAssetSource() = default;
+const XeenDosText &XeenAssetSource::uiText() {
+ if(!_impl->text) {
+  if(!_impl->installation.uiModule)throw std::runtime_error("Missing installed uncompressed DOS UI module; supply --ui-data");
+  auto stream=_impl->installation.uiModule->open();
+  if(stream->size()>1024*1024)throw std::runtime_error("DOS UI module exceeds bounded reader capacity");
+  std::vector<std::uint8_t> bytes(static_cast<std::size_t>(stream->size()));
+  if(stream->read(bytes.data(),bytes.size())!=bytes.size())throw std::runtime_error("Incomplete DOS UI module read");
+  auto parsed=std::make_unique<XeenDosText>(bytes);
+  _impl->text=std::move(parsed);
+ }
+ return *_impl->text;
+}
 IndexedFrame XeenAssetSource::cursorImage() { return _impl->bridge.cursorImage(); }
 IndexedFrame XeenAssetSource::restDreamImage() { return _impl->bridge.restDreamImage(); }
 

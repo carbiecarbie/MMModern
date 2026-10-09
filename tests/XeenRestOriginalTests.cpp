@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "XeenTrainingTestSupport.h"
 #include "platform/sdl/XeenMainScreenInput.h"
 #include <iostream>
@@ -376,7 +377,7 @@ void rolloverAndDream(Inputs &in) {
 }
 }
 int main(int argc,char **argv) {try {
- check(argc==2,"Rest original usage: installation");const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"Original installation absent");
+ check(argc==2,"Rest original usage: installation");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Original installation absent");
  Inputs in(*installation);sleepingHit(in);terrain(in);success(in,false);success(in,true);entry(in);interruption(in,false,0);interruption(in,true,3);interruption(in,false,0,true);rolloverAndDream(in);reentrant(in);combatOutcomes(in,true);combatOutcomes(in,false);conditionDeath(in);noTargets(in);
  std::cout<<"Original-resource Rest, interruption, food, UI path and mid-sequence save tests passed\n";return 0;
  }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

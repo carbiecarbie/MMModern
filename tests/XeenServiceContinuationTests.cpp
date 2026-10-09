@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "XeenTrainingTestSupport.h"
 #include "games/xeen/XeenRestoreGuard.h"
 #include <iostream>
@@ -77,7 +78,7 @@ void service(Inputs &inputs,unsigned action,bool relocated) {
 int main(int argc,char **argv) {
 	try {
 		check(argc==2,"usage: service-continuation <original-installation>");
-		const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"Installation unavailable");
+		const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Installation unavailable");
 		Inputs inputs(*installation);
 		for(unsigned action:{1u,4u,5u})for(bool relocated:{false,true})service(inputs,action,relocated);
 		std::cout<<"Capability-dispatched service owners, generic refusals and single settlement resumes passed\n";

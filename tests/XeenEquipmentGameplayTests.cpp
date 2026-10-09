@@ -80,7 +80,7 @@ void certificateInvalidationMatrix() {
 			check(reports==0,"stale certificate invoked equipment helper");handle(EquipmentInventoryAction{});
 			check(reports==0,"consumed stale certificate replayed");return true;
 		};
-		f.flow=nullptr;services.configureFlow=[&](auto &flow,const auto &){f.flow=&flow;flow.reportEquipment=[&](const auto &){++reports;};};
+		f.flow=nullptr;services.configureFlow=[&](auto &flow,const auto &){f.flow=&flow;flow.dialogText=&dos_test::text();flow.reportEquipment=[&](const auto &){++reports;};};
 		Quiet quiet;check(Application().playGameplay(services,start,{},false)==0,name);
 	}
 	// Reconstruct, close/reopen, invalid F-key and exhaustion all disarm without
@@ -96,7 +96,7 @@ void certificateInvalidationMatrix() {
 			else XeenInventoryTestAccess::exhaust(*f.flow);
 			handle(EquipmentInventoryAction{});check(reports==0,"invalidation path replayed equipment");return true;
 		};
-		services.configureFlow=[&](auto &flow,const auto &){f.flow=&flow;flow.reportEquipment=[&](const auto &){++reports;};};
+		services.configureFlow=[&](auto &flow,const auto &){f.flow=&flow;flow.dialogText=&dos_test::text();flow.reportEquipment=[&](const auto &){++reports;};};
 		Quiet quiet;check(Application().playGameplay(services,start,{},false)==0,"certificate invalidation path");
 	}
 	// An actual ordinary-animation idle rebase preserves the certificate.
@@ -108,7 +108,7 @@ void certificateInvalidationMatrix() {
 			check(f.phases.back()==phase,"items dialog must pause ordinary composition");handle(EquipmentInventoryAction{});
 			check(reports==1&&f.flow->equipmentResult()->status==Status::Success,"ordinary rebase invalidated certificate");return true;
 		};
-		services.configureFlow=[&](auto &flow,const auto &){f.flow=&flow;flow.reportEquipment=[&](const auto &){++reports;};};
+		services.configureFlow=[&](auto &flow,const auto &){f.flow=&flow;flow.dialogText=&dos_test::text();flow.reportEquipment=[&](const auto &){++reports;};};
 		Quiet quiet;check(Application().playGameplay(services,start,{},false)==0,"timed equipment rebase");
 	}
 }
@@ -122,11 +122,13 @@ void publicationFailureAndHud() {
 		services.observeGameplay=[&](auto &,auto &,const auto &p,auto &,const auto &){party=&const_cast<XeenPartyState &>(p);};
 		services.show=[&](const auto &,const auto &handle,const auto &,const auto &,const auto &){
 			handle(InspectInventoryAction{});handle(DialogKeyAction{'a'});handle(SelectInventorySlotAction{0});
-			auto bytes=fontBytes();for(unsigned c=0;c<128;++c)bytes[0x1080+c]=255;f.font=XeenFontFormat(bytes);
+			// Neutral synthetic templates may use either font size. Force a
+			// layout failure in both, independently of any DOS template wording.
+			auto bytes=fontBytes();for(unsigned c=0;c<128;++c)bytes[0x1000+c]=bytes[0x1080+c]=255;f.font=XeenFontFormat(bytes);
 			handle(EquipmentInventoryAction{});check(reports==1&&party->roster.at(0).armor[0].frame==9&&!f.flow->inventoryOpen(),"post-publication layout recovery");
 			f.font=XeenFontFormat(fontBytes());handle(InspectInventoryAction{});check(f.flow->inventoryOpen(),"layout recovery could not reopen");return true;
 		};
-		services.configureFlow=[&](auto &flow,const auto &){f.flow=&flow;flow.reportEquipment=[&](const auto &){++reports;};};
+		services.configureFlow=[&](auto &flow,const auto &){f.flow=&flow;flow.dialogText=&dos_test::text();flow.reportEquipment=[&](const auto &){++reports;};};
 		Quiet quiet;check(Application().playGameplay(services,start,{},false)==0,"equipment layout recovery");
 	}
 	// The first clean-scene composition may fail after publication; one bounded
@@ -139,7 +141,7 @@ void publicationFailureAndHud() {
 		services.show=[&](const auto &,const auto &handle,const auto &,const auto &,const auto &){handle(InspectInventoryAction{});handle(DialogKeyAction{'a'});handle(SelectInventorySlotAction{0});f.failCompose=true;
 			handle(EquipmentInventoryAction{});check(failures==1&&reports==1&&party->roster.at(0).armor[0].frame==9&&!f.flow->inventoryOpen(),"bounded scene recovery");
 			handle(InspectInventoryAction{});check(f.flow->inventoryOpen(),"scene recovery could not reopen");return true;};
-		services.configureFlow=[&](auto &flow,const auto &){f.flow=&flow;flow.reportEquipment=[&](const auto &){++reports;};};
+		services.configureFlow=[&](auto &flow,const auto &){f.flow=&flow;flow.dialogText=&dos_test::text();flow.reportEquipment=[&](const auto &){++reports;};};
 		Quiet quiet;check(Application().playGameplay(services,start,{},false)==0,"equipment scene recovery");
 	}
 	// A failed clean-base recovery is terminal to the Application handler and a
@@ -152,7 +154,7 @@ void publicationFailureAndHud() {
 		services.show=[&](const auto &,const auto &handle,const auto &,const auto &,const auto &){handle(InspectInventoryAction{});handle(DialogKeyAction{'a'});handle(SelectInventorySlotAction{0});remaining=2;
 			try{handle(EquipmentInventoryAction{});check(false,"fatal recovery did not throw");}catch(const std::runtime_error &){}
 			check(reports==1&&published.frame==9&&!handle(SaveGameAction{})&&!std::filesystem::exists(target),"fatal equipment flow remained saveable/replayed");return true;};
-		services.configureFlow=[&](auto &flow,const auto &){f.flow=&flow;flow.reportEquipment=[&](const auto &r){++reports;published=*r.afterItem;};};
+		services.configureFlow=[&](auto &flow,const auto &){f.flow=&flow;flow.dialogText=&dos_test::text();flow.reportEquipment=[&](const auto &r){++reports;published=*r.afterItem;};};
 		Quiet quiet;check(Application().playGameplay(services,start,target,false)==0,"fatal equipment recovery harness");
 	}
 	// Recomposition exposes the changed maximum to the HUD while preserving a

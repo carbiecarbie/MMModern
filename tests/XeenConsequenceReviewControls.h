@@ -91,7 +91,7 @@ void stagedVolleyDefeat(Source &s) {
 }
 void stagedRotationVolley(Source &s) {
  Domain initial(s);auto saved=initial.save();
- for(auto &a:saved.journey->actors)if(xeenJourneyContent().influences(a.id.recordIndex) && a.id.recordIndex!=7 && a.id.recordIndex!=9) {
+ for(auto &a:saved.journey->actors)if(a.id.recordIndex!=7 && a.id.recordIndex!=9) {
   a.x=a.y=-128;a.hp=0;a.activated=false;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;
  }
  auto &contact=saved.journey->actors[9];contact.x=8;contact.y=11;contact.activated=true;

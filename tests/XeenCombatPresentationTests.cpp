@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "XeenRegionalTestSupport.h"
 #include "games/xeen/XeenInstallationDetector.h"
 #include "formats/xeen/XeenAssetSource.h"
@@ -24,7 +25,7 @@ XeenMap projectionMap(XeenMapIdentity id,bool outdoor) {
 }
 int main(int argc,char **argv) {try {
  check(argc==2,"usage: combat presentation tests <original-installation>");
- const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"Original installation missing");
+ const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Original installation missing");
  XeenAssetSource assets(*installation,320,200);assets.loadPalette("mm4.pal");
  const auto bytes=assets.readCloudsMonsterStatisticsFromDarkArchive();check(bool(bytes),"Missing original monster statistics");
  const auto statistics=XeenMonsterFormat::parse(*bytes);

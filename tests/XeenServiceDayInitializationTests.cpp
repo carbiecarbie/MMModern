@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 // Read-only original-resource initialization/restore checks and separately
 // identified synthetic callback/ownership faults; no gameplay witness injection.
 #include "app/XeenEncounterFlow.h"
@@ -124,7 +125,8 @@ void parserAndFresh(Inputs &i) {
 		auto shortInput=i.pty;shortInput.resize(size);rejects([&]{XeenCharacterFormat::parseBankBalances(shortInput);});
 	}
 	for(unsigned offset:{0u,28u,603u,638u,642u,646u,650u,811u}) {
-		auto changed=i.pty;changed[offset]^=1;rejects([&]{XeenCharacterFormat::parseBankBalances(changed);});
+		auto changed=i.pty;changed[offset]^=1;const auto parsed=XeenCharacterFormat::parseBankBalances(changed);
+		check(parsed.gold==(offset==646 ? 1u : 0u) && parsed.gems==(offset==650 ? 1u : 0u),"bank parser still gates resource identity");
 	}
 	Graph source(i);source.fresh(i.setup());const auto s=source.capture(i);
 	check(s.journey->schema==9 && s.journey->content==14 && s.journey->serviceEconomy &&
@@ -253,7 +255,7 @@ void freshPublicationAllocationSweep(Inputs &i) {
 int main(int argc,char **argv) {
 	try {
 		if(argc!=2)throw std::invalid_argument("usage: mmodern_service_day_initialization_tests <original-installation>");
-		const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"original installation absent");
+		const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"original installation absent");
 		Inputs inputs(*installation);parserAndFresh(inputs);freshFailures(inputs);restoreAndFinalOwners(inputs);freshPublicationAllocationSweep(inputs);postPublicationFailure(inputs);
 		return 0;
 	}catch(const std::exception &error){std::cerr<<error.what()<<'\n';return 1;}

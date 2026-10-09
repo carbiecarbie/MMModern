@@ -132,26 +132,45 @@ references remain; successful compilation alone is not sufficient.
 
 No file in the pinned ScummVM source checkout is modified by this process.
 
-## Build-generated English dialog text
+## Read-only CD data and DOS dialogs
 
-M47 uses the item catalog's verified Git-blob reader for the original dialog
-text, with `-DialogText`. Its input is the same pinned `CONSTANTS_7` blob:
-revision `6814ee9ba54582f5b5adcffab49efbbd8f589edd`, tree object
-`455b2eb3900a60be910e4d045d103a73586e73b0`, 35,065 bytes, SHA-256
-`a3022d378e7570a56332f30128942afe02ae2bfdef70c307b2de997eb07a9e77`.
-The named manifest extracts 79 templates/tables with exact extent and array
-count checks, bounded tokens/output, plus the original window symbols and
-four-shade text palettes. Every template's control stream is audited against
-the pinned font handler. Missing or malformed fields fail generation. The
-output omits the redundant literal alignment letter in `FMT_CHARGES`, matching
-the maintainer's DOSBox reference (recorded in the M47 plan); the verified blob
-is never modified.
-`generated/XeenDialogEnglish.inc` is deterministic, private to the build tree,
-and generated at configure time and on every build. It is never installed,
-committed, or loaded from companion data. The reader consumes verified
-`git cat-file` bytes rather than worktree files or compiler inputs.
-`xeen_dialog_generation` checks determinism and rejects identity, hash,
-count, missing-template, oversized/truncated-input failures.
+The English World of Xeen two-CD edition supplies the runtime data. Set
+`MMODERN_XEEN_DATA_DIR` to its GOG installation root, a CD `GAME` directory,
+or a parent containing `GAME`. Original-data tests are required when
+`BUILD_TESTING` is enabled: a missing configured source fails configuration,
+and an incomplete or malformed source fails validation rather than removing tests.
+`MMODERN_XEEN_UI_DATA` optionally supplies the installed uncompressed English
+`XEEN.DAT` for tests using a CD copy. The application receives that path through
+`--ui-data <path>`; build settings do not supply runtime paths.
+
+At a GOG root, cue metadata in `.INS` files locates the MODE1/2352 data track.
+MMModern reads ISO9660 `/GAME/XEEN.CC`, `DARK.CC` and `INTRO.CC` through bounded
+logical streams, with the unchanged pinned CC index/name decoding. One complete
+disc suffices; byte-identical complete candidates are selected deterministically,
+and conflicting or ambiguous candidates refuse startup. Co-located root floppy
+archives are never used. A pre-existing plain `GAME` copy must contain all three
+archives; MMModern never creates a copy, mounts an image or executes a game module.
+
+The ISO does not contain the UI module. GOG discovery uses `WORLD/XEEN.DAT`;
+a plain CD copy needs an unambiguous `WORLD` sibling or explicit `--ui-data`.
+The bounded DOS reader validates the MZ load image, relocations, named field
+bounds, far-pointer tables, terminators, format arguments and control streams.
+Packed root DATs and unsupported layouts fail clearly. Dialogs, item/service
+screens and Rest retain the DOS bytes, including the single alignment `r` in
+Charges. Title/credits and save/load fields are exposed for later screens only.
+
+`generated/XeenDialogDrawing.inc` retains only the pinned numeric window
+symbols and four-shade text palettes. `-DialogDrawing` generates this private
+build include from the verified constants blob; text is read at runtime from DAT.
+The separate item catalog keeps its existing pinned provenance below. No DOS
+strings or original-data fixtures are distributed.
+
+Save files remain envelope v6, schema 9, content 14. Archive fingerprints hash
+size and CRC32 over logical encrypted CC bytes, so both discs and equal plain
+copies have identical signatures. Floppy-bound saves fail the data-edition check
+before restoration; signatures and resource-relative overlays are never translated.
+Save paths must stay outside every resolved commercial source directory, including
+separately supplied image and UI-module directories.
 
 ## Build-generated English item catalog
 
@@ -203,14 +222,13 @@ The parser accepts exactly 131 bounded NUL-terminated entries and publishes no
 partial table on missing, malformed or failed reads. Such failures retain bounded
 base-name/numeric fallback behavior and do not prevent startup.
 
-For this optional member only, the bridge uses the existing lazy Dark archive and
-its decoded index entry, checks the indexed `mae.xen` extent against the opened
-archive size, then performs a checked read and XOR decode. It therefore does not
-invoke ScummVM's fatal member short-read path for `mae.xen`. With a valid loaded
-CC index, a missing member is `Missing`, structurally invalid readable bytes are
-`Malformed`, and an invalid extent or short read is `ReadError`. This narrow
-recovery does not change `clouds.dat`, other required-resource behavior, or claim
-recovery from a corrupt archive index that fails during ordinary CC construction.
+All archive roles use the same bounded read-only source and pinned CC decoder.
+The bridge validates the complete index and member extents before upstream
+short-read paths, rechecks the retained index on reopening, then reads and XOR
+decodes the requested outer payload exactly once. A missing optional member is
+`Missing`, structurally invalid readable bytes are `Malformed`, and invalid
+extents or read failures are `ReadError`. Sprite reconstruction compares admitted
+bytes under physical source, role and resource ID, including DARK and INTRO.
 
 The normal configure/build commands below reproduce the adapter. Its focused
 validation is:

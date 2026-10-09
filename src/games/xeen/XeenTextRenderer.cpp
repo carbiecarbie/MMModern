@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <array>
 #include <string_view>
-#include "XeenDialogEnglish.inc"
+#include "XeenDialogDrawing.inc"
 
 namespace mmodern {
 namespace {
@@ -92,7 +92,7 @@ void drawWindow(IndexedFrame &frame, const XeenTextRect &bounds) {
 void originalWindow(IndexedFrame &frame, const XeenTextRect &b) {
 	const auto symbol = [&](unsigned id, int x, int y) {
 		for (int gy=0; gy<8; ++gy) for (int gx=0; gx<8; ++gx)
-			if(const auto color=generated_dialog_text::kWindowSymbols[id][gy*8+gx]) setPixel(frame,x+gx,y+gy,color,b);
+			if(const auto color=generated_dialog_drawing::kWindowSymbols[id][gy*8+gx]) setPixel(frame,x+gx,y+gy,color,b);
 	};
 	symbol(0,b.left,b.top); symbol(5,b.right-8,b.top);
 	symbol(14,b.left,b.bottom-8); symbol(19,b.right-8,b.bottom-8);
@@ -131,7 +131,7 @@ XeenTextRenderResult renderOriginal(const IndexedFrame &base, const std::string 
         const int dy=(c=='g'||c=='p'||c=='q'||c=='y')?1:0;
         for(int gy=0;gy<8;++gy) for(int gx=0;gx<8;++gx) {
             const auto shade=pixels.pixels[gy*8+gx];
-            if(shade) setPixel(frame,x+gx,y+gy+dy,outline?bg:generated_dialog_text::kTextColors.at(color)[shade],o.bounds);
+            if(shade) setPixel(frame,x+gx,y+gy+dy,outline?bg:generated_dialog_drawing::kTextColors.at(color)[shade],o.bounds);
         }
         if(y+8>o.bounds.bottom) result.diagnostics.push_back("Original dialog text clipped vertically");
         x+=font.advance(c,size);

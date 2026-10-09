@@ -216,7 +216,7 @@ private:
 	// Retained combat authorization, separate from domain validity.
 	std::function<bool()> _combatAuthorized;
 	XeenSessionWorldState _sessionState;
-	// Immutable loaded catalog for original and script-created city slots.
+	// Immutable loaded MON catalog for mainland, original city and script-created city slots.
 	std::vector<XeenMonsterRecord> _cityStatistics;
 	XeenMutable<std::uint16_t> _cityOriginalActorCount=0;
 	// Derived from checked immutable city resources; never gameplay authority.

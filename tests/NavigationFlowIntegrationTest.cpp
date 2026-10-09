@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "app/XeenNavigationFlow.h"
 
 #include "formats/xeen/XeenAssetSource.h"
@@ -50,7 +51,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	try {
-		const auto installation = XeenInstallationDetector().detect(argv[1]);
+		const auto installation = xeenTestInstallationDetector().detect(argv[1]);
 		check(installation && installation->hasXeen(),
 			"Clouds installation unavailable");
 		XeenAssetSource assets(*installation);

@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "XeenTrainingTestSupport.h"
 #include "games/xeen/CloudsMapComposer.h"
 #include <iostream>
@@ -8,7 +9,7 @@ namespace {
 }
 int main(int argc,char **argv) {
     try {
-        check(argc==2,"usage: training-original <original-installation>");const auto installation=XeenInstallationDetector().detect(argv[1]);
+        check(argc==2,"usage: training-original <original-installation>");const auto installation=xeenTestInstallationDetector().detect(argv[1]);
         check(bool(installation),"original installation absent");Inputs in(*installation);auto base=in.base();
         const auto &successor=base;
         check(successor.journey->schema==9 && successor.journey->content==14 &&
@@ -23,7 +24,7 @@ int main(int argc,char **argv) {
                 actors.resize(52);
                 for(unsigned n=46;n<52;++n){auto &a=actors[n];a.id={28,n};a.original={};a.original.x=a.original.y=0;a.x=a.y=0;
                     if(n>=50){a.original.resourceId=0;a.statistics=in.statistics[0];}}
-                for(unsigned n=770;n<=812;++n){const auto &p=in.city.records[n].parameters;auto &a=actors[p[0]];
+                for(const auto &record:in.city.records) {if(record.x!=100 || record.y!=100 || record.opcode!=0x10)continue;check(record.parameters.size()==4,"reset Spawn operand structure");const auto &p=record.parameters;auto &a=actors[p[0]];
                     a.x=p[1];a.y=p[2];a.hp=a.statistics->baseHp();a.activated=false;a.lifecycle=XeenActorLifecycle::Present;}
                 source.disabledEvents.push_back({28,764});
             }

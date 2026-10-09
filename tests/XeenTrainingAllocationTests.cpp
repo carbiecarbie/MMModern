@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "XeenTrainingTestSupport.h"
 #include <cstdlib>
 #include <new>
@@ -15,7 +16,7 @@ void operator delete[](void *p,std::size_t) noexcept {::operator delete(p);}
 using namespace training_test;
 int main(int argc,char **argv) {
     try {
-        check(argc==2,"usage: training-allocation <installation>");const auto installation=XeenInstallationDetector().detect(argv[1]);
+        check(argc==2,"usage: training-allocation <installation>");const auto installation=xeenTestInstallationDetector().detect(argv[1]);
         check(bool(installation),"original installation absent");Inputs in(*installation);const auto source=in.service(9);
         for(unsigned stage=0;stage<3;++stage) {
             bool finished=false;

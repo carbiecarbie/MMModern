@@ -178,7 +178,7 @@ void XeenActorApproach::validateDomain(XeenWorld &world, const XeenPartyState &p
 			validateEnvironment(world,actors,events);
 			std::set<XeenMonsterIdentity> mainland;
 			for(const auto id:world.sessionState().accountedMonsters())if(id.mapId==XeenMapIdentity(23))mainland.insert(id);
-			xeenValidateRegionalActors(world.map(23),world.objectFile(23),world.sessionState().actors(),mainland);
+			xeenValidateRegionalActors(world.map(23),world.objectFile(23),world.sessionState().actors(),mainland,world._cityStatistics);
 			return;
 		}
 		validateEnvironment(world,actors,events);
@@ -187,7 +187,7 @@ void XeenActorApproach::validateDomain(XeenWorld &world, const XeenPartyState &p
 }
 
 void XeenActorApproach::validateEnvironment(XeenWorld &world,
-		const std::vector<XeenActor> &actors, const XeenEventFile &events) {
+		const std::vector<XeenActor> &actors, const XeenEventFile &events, const std::vector<XeenMonsterRecord> *statistics) {
 	if(events.mapId==XeenMapIdentity(28)) {
 		require(events.resourcePresent,"Vertigo Event resource is absent");
 		xeenValidateVertigoActors(world,actors);
@@ -195,13 +195,13 @@ void XeenActorApproach::validateEnvironment(XeenWorld &world,
 	}
 	{
 		bounded(actors,xeenJourneyContent().entry);
-		require(events.mapId==XeenMapIdentity(23) && events.resourcePresent && events.records.size()==170,"Regional event topology changed");
+		require(events.mapId==XeenMapIdentity(23) && events.resourcePresent && !events.records.empty(),"Regional event topology changed");
 		const auto &map=world.map(23);
 		require(map.geometry.flags==0 && map.geometry.isOutdoors(),"Regional geometry flags changed");
 		(void)XeenMovement::component(map,9,11,xeenJourneyContent().traversal);
 		std::set<XeenMonsterIdentity> mainland;
 		for(const auto id:world.sessionState().accountedMonsters())if(id.mapId==XeenMapIdentity(23))mainland.insert(id);
-		xeenValidateRegionalActors(map,world.objectFile(23),actors,mainland);
+		xeenValidateRegionalActors(map,world.objectFile(23),actors,mainland,statistics ? *statistics : world._cityStatistics);
 		return;
 	}
 }
@@ -307,15 +307,14 @@ XeenEncounterResult XeenActorApproach::initializeStart(XeenWorld &world, XeenPar
 	const auto detachedStatistics = statistics;
 	const auto detachedEvents = events;
 	auto actors = actorsFromResources(world.objectFile(policy.entry.mapId), detachedStatistics);
-	require(actors.size() == (19u), "Journey requires complete original actor collection");
-	for (unsigned i=0;i<policy.count;++i) {
-		const auto &a=actors.at(policy.records[i]);
+	require(!actors.empty() && actors.size()==world.objectFile(policy.entry.mapId).entities.monsters.size(), "Journey requires complete original actor collection");
+	for (const auto &a:actors) {
 		require(bool(a.statistics),"Missing influencing statistics");
 
 	}
-	validateEnvironment(world, actors, mainlandEvents);
+	validateEnvironment(world, actors, mainlandEvents,&detachedStatistics);
 	std::optional<std::vector<XeenActor>> cityActors;
-	std::vector<XeenMonsterRecord> cityStatistics;
+	std::vector<XeenMonsterRecord> cityStatistics=detachedStatistics;
 	XeenEncounterResult result;
 	result.outcome = XeenEncounterOutcome::Started; result.revision = 1;
 	if(prepared) {result.view = classify(actors, camera); activate(actors, result.view);}
@@ -355,9 +354,10 @@ XeenEncounterResult XeenActorApproach::initializeStart(XeenWorld &world, XeenPar
 	party.monsterTreasure=candidate.monsterTreasure;
 	party.serviceEconomy=candidate.serviceEconomy;
 	if(!prepared)party.regionalRecovery=candidate.regionalRecovery;
+	world._cityStatistics.swap(cityStatistics);
 	s._actors.swap(actors); s._entry = XeenEncounterEntry::Journey;
 	if(cityActors) {
-		s._vertigoActors.swap(cityActors);world._cityStatistics.swap(cityStatistics);
+		s._vertigoActors.swap(cityActors);
 		world._cityOriginalActorCount=46;
 	}
 	s._encounterMarked = s._encounterInitialized = true; s._encounterRevision = 1;

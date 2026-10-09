@@ -209,7 +209,6 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    if (!services.validateEncounterSprite || (!services.validateCombatSprite)) throw std::invalid_argument("Missing Journey sprite providers");
    const auto actors=world.sessionState().regionalActors(camera.mapId);
    for (unsigned i=0;i<actors.size();++i) {
-    if(camera.mapId==XeenMapIdentity(23) && !xeenJourneyContent().influences(i))continue;
     if(!actors[i].statistics) {
      if(actors[i].lifecycle!=XeenActorLifecycle::Unresolved)
       throw std::invalid_argument("Missing Journey sprite statistics");

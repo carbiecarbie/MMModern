@@ -255,10 +255,10 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 	}
 	validateMap(j.initializedMap);
 	require(j.originalActorCount >= 1 && j.originalActorCount <= 107 &&
-		j.actors.size() == 19u, "invalid Journey actor counts");
+		j.actors.size() == j.originalActorCount, "invalid Journey actor counts");
 	for (std::size_t i = 0; i < j.actors.size(); ++i) {
 		const auto &a = j.actors[i];
-		require(j.initializedMap==XeenMapIdentity(23) && j.originalActorCount==19 && a.id==XeenMonsterIdentity{23,i}, "invalid regional actor identity/count");
+		require(j.initializedMap==XeenMapIdentity(23) && a.id==XeenMonsterIdentity{23,i}, "invalid regional actor identity/count");
 		validateMap(a.id.mapId);
 		require(a.id.recordIndex <= std::numeric_limits<std::uint32_t>::max() &&
 			(i == 0 || j.actors[i-1].id < a.id), "invalid Journey identity order/range");
@@ -455,7 +455,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	if (j.schema != kJourneySchema || j.content != kJourneyContent) throw unsupportedPair(j.schema, j.content);
 	// Bound allocation before parsing; the exact dynamic extent is verified
 	// after the actor and treasure counts are decoded.
-	require(suffixSize >= 4460 && suffixSize <= 4460+4+21*107+5*12, "Journey schema-9 size mismatch");
+	require(suffixSize >= 4099+19 && suffixSize <= 4099+19*107+4+21*107+5*12, "Journey schema-9 size mismatch");
 	require(in.u8() == 1, "missing Journey context");
 	XeenGameplayContext c;
 	require(in.u8() == 0, "invalid Journey profile");
@@ -479,7 +479,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	require(in.u8() == 0, "invalid Journey map side"); j.initializedMap = {XeenSide::Clouds, in.u16()};
 	j.originalActorCount = in.u16();
 	const auto count = in.u16();
-	require(count >= 1 && count <= 107 && count <= in.remaining()/19 && count == 19u, "invalid Journey live record count");
+	require(count >= 1 && count <= 107 && count <= in.remaining()/19 && count == j.originalActorCount, "invalid Journey live record count");
 	for (unsigned i = 0; i < count; ++i) {
 		XeenSaveJourneyActor a;
 		require(in.u8() == 0, "invalid Journey actor side"); a.id.mapId = {XeenSide::Clouds, in.u16()};
@@ -543,7 +543,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 		j.vertigoActors=std::move(city);
 	}
 	const unsigned n=weapons+armor;
-	const unsigned expected=3114+1164+182+(j.vertigoActors ? 4+21*j.vertigoActors->size() : 0);
+	const unsigned expected=2753+19*count+1164+182+(j.vertigoActors ? 4+21*j.vertigoActors->size() : 0);
 	require(suffixSize==expected+5u*n,"Invalid city/economy suffix length");
 
 	require(in.u8()==2 && in.u8()==4 && in.u8()==4 && in.u8()==9,"Invalid merchant stock shape");

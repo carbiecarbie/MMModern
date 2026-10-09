@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #define FORBIDDEN_SYMBOL_ALLOW_ALL
 #include "formats/xeen/XeenAssetSource.h"
 #include "formats/xeen/XeenObjectSpriteSafety.h"
@@ -58,7 +59,7 @@ public:
 }
 int main(int argc,char **argv){try{
 	check(argc==3,"usage: mmodern_outdoor_object_smoke <game-directory> <ignored-output-directory>");
-	const auto install=XeenInstallationDetector().detect(argv[1]);check(install && install->hasXeen(),"Clouds unavailable");
+	const auto install=xeenTestInstallationDetector().detect(argv[1]);check(install && install->hasXeen(),"Clouds unavailable");
 	const std::filesystem::path output=argv[2];std::filesystem::create_directories(output);
 	XeenAssetSource assets(*install,320,200);const XeenMapLoader loader;
 	const auto party=XeenPartyLoader().loadInitialCloudsParty(assets);

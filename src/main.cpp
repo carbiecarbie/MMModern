@@ -14,8 +14,8 @@
 namespace {
 
 void newGameUsage() {
-	std::cerr << "Usage: mmodern --new-game <game-dir> [--difficulty adventurer|warrior] [--save-file <path>]\n"
-		"       mmodern <game-dir> [--difficulty adventurer|warrior] [--save-file <path>]\n"
+	std::cerr << "Usage: mmodern --new-game <game-dir> [--difficulty adventurer|warrior] [--save-file <path>] [--ui-data <XEEN.DAT>]\n"
+		"       mmodern <game-dir> [--difficulty adventurer|warrior] [--save-file <path>] [--ui-data <XEEN.DAT>]\n"
 		"Direct launch temporarily replaces the original title/difficulty dialogs.\n"
 		"Difficulty defaults to Adventurer. F9 requires an explicit save target.\n"
 		"--combat-seed is accepted only by --journey-region.\n";
@@ -94,6 +94,18 @@ int main(int argc, char *argv[]) {
 	std::vector<char *> pointers;
 	for (auto &argument : arguments) pointers.push_back(argument.data());
 	argc = wideCount; argv = pointers.data();
+ // UI data is a global source option, removed before entry-mode parsing.
+ std::optional<std::filesystem::path> uiData;
+ for(std::size_t i=1;i<arguments.size();) {
+  if(arguments[i]!="--ui-data") {++i;continue;}
+  if(uiData || i+1>=arguments.size() || arguments[i+1].empty() || arguments[i+1].rfind("--",0)==0) {
+   std::cerr<<"--ui-data requires one nonempty installed uncompressed English XEEN.DAT path\n";return 1;
+  }
+  uiData=std::filesystem::u8path(arguments[i+1]);arguments.erase(arguments.begin()+i,arguments.begin()+i+2);
+ }
+ pointers.clear();for(auto &argument:arguments)pointers.push_back(argument.data());
+ argc=static_cast<int>(pointers.size());argv=pointers.data();
+ const mmodern::Application application(uiData.value_or(std::filesystem::path{}));
 	// Approved temporary direct entry/default (M52 plan, 2026-10-06).
 	// The original title and mandatory difficulty choice remain the next milestone.
 	if (argc >= 2 && (std::string(argv[1]) == "--new-game" ||
@@ -117,7 +129,7 @@ int main(int argc, char *argv[]) {
 			} else valid = false;
 		}
 		if (!valid) { newGameUsage(); return 1; }
-		return mmodern::Application().newGame(std::filesystem::u8path(argv[path]), difficulty, save);
+		return application.newGame(std::filesystem::u8path(argv[path]), difficulty, save);
 	}
 	for (int i=1;i<argc;++i) if (std::string(argv[i]) == "--combat-seed" || std::string(argv[i]) == "--journey-region") {
 		const bool regional = argc >= 2 && std::string(argv[1]) == "--journey-region";
@@ -145,29 +157,29 @@ int main(int argc, char *argv[]) {
 			seed=static_cast<std::uint32_t>(value); path=4;
 		} else valid = valid && positional == 3;
 		valid = valid && path<argc && std::string(argv[path]).size() && std::string(argv[path]).rfind("--",0)!=0;
-		if (!valid) { std::cerr << "Usage: " << "--journey-region" << " [--combat-seed <nonzero-u32>] <game-directory> [--save-file <path>]\n"; return 1; }
-		return mmodern::Application().journeyRegion(std::filesystem::u8path(argv[path]),seed,save);
+		if (!valid) { std::cerr << "Usage: " << "--journey-region" << " [--combat-seed <nonzero-u32>] <game-directory> [--save-file <path>] [--ui-data <XEEN.DAT>]\n"; return 1; }
+		return application.journeyRegion(std::filesystem::u8path(argv[path]),seed,save);
 	}
 
 	if (argc == 3 && std::string(argv[1]) == "--inspect-map")
-		return mmodern::Application().inspectMap(argv[2]);
+		return application.inspectMap(argv[2]);
 	if (argc == 4 && std::string(argv[1]) == "--inspect-map") {
 		std::uint16_t mapId = 0;
 		if (!parseMapId(argv[3], mapId)) {
 			std::cerr << "Invalid map ID: " << argv[3] << '\n';
 			return 1;
 		}
-		return mmodern::Application().inspectMap(argv[2], mapId);
+		return application.inspectMap(argv[2], mapId);
 	}
 	if (argc == 3 && std::string(argv[1]) == "--inspect-party")
-		return mmodern::Application().inspectParty(argv[2]);
+		return application.inspectParty(argv[2]);
 	if (argc == 4 && std::string(argv[1]) == "--inspect-events") {
 		std::uint16_t mapId = 0;
 		if (!parseMapId(argv[3], mapId)) {
 			std::cerr << "Invalid map ID: " << argv[3] << '\n';
 			return 1;
 		}
-		return mmodern::Application().inspectEvents(argv[2], mapId);
+		return application.inspectEvents(argv[2], mapId);
 	}
 	if ((argc == 6 || argc == 7) &&
 			std::string(argv[1]) == "--inspect-events") {
@@ -196,14 +208,14 @@ int main(int argc, char *argv[]) {
 				return 1;
 			}
 		}
-		return mmodern::Application().inspectEvents(argv[2], mapId, x, y,
+		return application.inspectEvents(argv[2], mapId, x, y,
 			direction, allOnly);
 	}
     if (argc >= 2 && std::string(argv[1]) == "--load-game") {
         if (argc != 4 || std::string(argv[2]).empty() || std::string(argv[3]).empty() || std::string(argv[2]).rfind("--", 0) == 0 || std::string(argv[3]).rfind("--", 0) == 0) {
             std::cerr << "Usage: --load-game <game-directory> <save-path>\n"; return 1;
         }
-        return mmodern::Application().loadGame(std::filesystem::u8path(argv[2]), std::filesystem::u8path(argv[3]));
+        return application.loadGame(std::filesystem::u8path(argv[2]), std::filesystem::u8path(argv[3]));
     }
     if (argc >= 2 && std::string(argv[1]) == "--render-map") {
         std::uint16_t mapId = 1; int x = 9, y = 6;
@@ -214,7 +226,7 @@ int main(int argc, char *argv[]) {
             std::cerr << "Usage: --render-map <game-directory> [<map> <x> <y> <north|east|south|west>]\n";
             return 1;
         }
-        return mmodern::Application().renderMap(std::filesystem::u8path(argv[2]), mapId, x, y, direction);
+        return application.renderMap(std::filesystem::u8path(argv[2]), mapId, x, y, direction);
     }
 	if (argc != 2 || std::string(argv[1]).rfind("--", 0) == 0) {
 		newGameUsage();
@@ -225,7 +237,7 @@ int main(int argc, char *argv[]) {
 		std::cerr << "     " << argv[0] << " --inspect-events <game-directory> <map-id> <x> <y> [north|east|south|west|all]\n";
 		std::cerr << "     " << argv[0] << " --render-map <game-directory>\n";
 		std::cerr << "     " << argv[0] << " --render-map <game-directory> [<map-id> <x> <y> <north|east|south|west>]\n";
-		std::cerr << "     " << argv[0] << " --journey-region [--combat-seed <nonzero-u32>] <game-directory> [--save-file <path>]\n";
+		std::cerr << "     " << argv[0] << " --journey-region [--combat-seed <nonzero-u32>] <game-directory> [--save-file <path>] [--ui-data <XEEN.DAT>]\n";
 		std::cerr << "     " << argv[0] << " --load-game <game-directory> <save-path>\n";
 		return 1;
 	}

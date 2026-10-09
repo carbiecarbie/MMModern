@@ -10,6 +10,10 @@
 #include <iostream>
 #include <stdexcept>
 #include <vector>
+#include <algorithm>
+#ifndef MMODERN_TEST_UI_DATA
+#define MMODERN_TEST_UI_DATA ""
+#endif
 namespace child_test {
 namespace fs = std::filesystem;
 struct Result { DWORD exit; std::string output; DWORD pid; std::uint64_t created; };
@@ -35,7 +39,16 @@ inline BOOL CALLBACK findWindow(HWND window, LPARAM data) {
 inline Result launch(const fs::path &exe, const std::vector<std::wstring> &args,
  const fs::path &log, bool closeNativeWindow = false, bool escapeExits = false, DWORD timeoutMs = 30000) {
  std::wstring command = L"\"" + exe.wstring() + L"\"";
- for (const auto &arg : args) {
+ auto launchArgs=args;
+ const fs::path ui(MMODERN_TEST_UI_DATA);
+ const bool entry=!args.empty() && (args[0]==L"--new-game" || args[0]==L"--journey-region" ||
+  args[0]==L"--load-game" || args[0]==L"--render-map" || args[0]==L"--inspect-map" ||
+  args[0]==L"--inspect-party" || args[0]==L"--inspect-events" ||
+  (args[0].rfind(L"--",0)!=0 && fs::is_directory(fs::path(args[0]))));
+ if(entry && !ui.empty() && std::find(args.begin(),args.end(),L"--ui-data")==args.end()) {
+  launchArgs.push_back(L"--ui-data");launchArgs.push_back(ui.wstring());
+ }
+ for (const auto &arg : launchArgs) {
   require(arg.find(L'"') == std::wstring::npos && (arg.empty() || arg.back() != L'\\'), "unsupported test argument quoting");
   command += L" \"" + arg + L"\"";
  }

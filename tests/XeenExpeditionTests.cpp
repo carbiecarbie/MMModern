@@ -23,7 +23,7 @@ std::optional<std::uint32_t> wrappedDraw(XeenCombatRandom *r,std::uint32_t lo,st
 }
 struct Tape { explicit Tape(std::vector<Draw> values){tape=std::move(values);cursor=0;taped=true;}~Tape(){taped=false;} };
 const auto signature=regional_test::signature();
-auto monsters(){auto m=regional_test::statistics();m[9]=expedition_fixture::monsters()[9];regional_test::fingerprint(m[9],0x5002c318);return m;}
+auto monsters(){auto m=regional_test::statistics();m[9]=expedition_fixture::monsters()[9];return m;}
 auto objects(XeenMapIdentity id){auto o=regional_test::objects(id);if(id==XeenMapIdentity(23))for(unsigned i:{16u,17u,18u})o.entities.monsters[i].resourceId=9;return o;}
 auto resources(){auto r=regional_test::resources();r.loadMonsterStatistics=monsters;return r;}
 struct PauseTape {bool old=taped;PauseTape(){taped=false;}~PauseTape(){taped=old;}};

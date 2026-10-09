@@ -7,12 +7,14 @@
 #include <filesystem>
 #include <cstdint>
 #include <optional>
+#include <utility>
 
 namespace mmodern {
 
 struct XeenGameplayServices;
 class Application {
 public:
+ explicit Application(std::filesystem::path uiData = {}) : _uiData(std::move(uiData)) {}
 	int run(const std::filesystem::path &gameDirectory) const;
 	int newGame(const std::filesystem::path &gameDirectory,
 		XeenDifficulty difficulty = XeenDifficulty::Adventurer,
@@ -38,6 +40,7 @@ public:
 		const std::optional<std::filesystem::path> &target, bool resume,
 		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary, std::optional<std::uint32_t> seed = {}) const;
 private:
+ std::filesystem::path _uiData;
 	int gameplay(const std::filesystem::path &, XeenCamera,
 		const std::optional<std::filesystem::path> &, bool resume,
 		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary, std::optional<std::uint32_t> seed = {},

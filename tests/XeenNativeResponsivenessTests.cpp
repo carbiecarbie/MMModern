@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "XeenProbeFired.h"
 #include "XeenTrainingTestSupport.h"
 #include "platform/sdl/SdlWindow.h"
@@ -112,7 +113,7 @@ int main(int argc,char **argv) {
     try {
         check(argc==2,"usage: native-responsiveness <installation>");
         SDL_setenv("SDL_VIDEODRIVER","dummy",1);SDL_setenv("SDL_RENDER_DRIVER","software",1);
-        const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"original installation absent");
+        const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"original installation absent");
         Inputs in(*installation);movement(in);training(in);return 0;
     }catch(const std::exception &e){fresh.reset();std::cerr<<e.what()<<'\n';return 1;}
 }

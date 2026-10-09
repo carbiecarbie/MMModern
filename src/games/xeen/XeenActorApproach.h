@@ -98,7 +98,7 @@ public:
 		const XeenEventFile &events);
 	// Immutable environment admission, independent of the party's injury state.
 	static void validateEnvironment(XeenWorld &world, const std::vector<XeenActor> &actors,
-		const XeenEventFile &events);
+		const XeenEventFile &events, const std::vector<XeenMonsterRecord> *statistics = nullptr);
 	// Explicit startup only; leaves an irreversible marker on preparation failure.
 	// Reads context/statistics explicitly; ordinary party loading remains unchanged.
 	// Actions do NOT supply a pulse. Caller supplies exactly one post-action pulse,

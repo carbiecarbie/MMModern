@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "formats/xeen/XeenMaterialNames.h"
 #include "games/xeen/XeenInstallationDetector.h"
@@ -100,7 +101,7 @@ struct SmokeContext {
 };
 
 SmokeContext runCatalogSmoke(const fs::path &game) {
-	const auto installation = XeenInstallationDetector().detect(game);
+	const auto installation = xeenTestInstallationDetector().detect(game);
 	check(installation && installation->hasXeen(), "Clouds installation unavailable");
 	XeenAssetSource assets(*installation);
 	const auto loaded = loadXeenItemCatalog(assets);

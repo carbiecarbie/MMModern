@@ -2,6 +2,8 @@
 #include "games/xeen/XeenGameplayContext.h"
 #include "games/xeen/XeenRegionalRules.h"
 #include "games/xeen/XeenIndoorScene.h"
+#include "formats/xeen/XeenMapFormat.h"
+#include "formats/xeen/XeenEventFormat.h"
 #include <map>
 #include <iostream>
 #include <limits>
@@ -136,6 +138,38 @@ void events() {
 	sign.opcode=4;sign.parameters={17};
 	check(!xeenRegionalSign(file,{23,5,9,XeenDirection::North}),"Sign text index exact");
 }
+void structuralResources() {
+	std::vector<std::uint8_t> dat(892);dat[768]=23;dat[781]=0x80;
+	for(unsigned i=0;i<256;++i)dat[2*i]=1;
+	XeenMap map;map.geometry=XeenMapFormat::parseDat(dat);
+	std::vector<std::uint8_t> mob(48,255);mob[16]=8;
+	const auto append=[&](std::initializer_list<std::uint8_t> bytes){mob.insert(mob.end(),bytes);};
+	append({255,0,255,0});append({255,0,255,0}); // Empty objects.
+	append({2,2,0,0});append({255,0,255,0});append({255,0,255,0});
+	XeenObjectFile objects{23,"maze0023.mob",true,XeenMapFormat::parseMob(mob)};
+	std::vector<XeenMonsterRecord> statistics(9);statistics[8].raw[20]=5;
+	std::vector<std::uint8_t> evt{6,5,9,0,0,4,16};
+	XeenEventFile events{23,"maze0023.evt",true,XeenEventFormat::parse(evt)};
+	xeenValidateRegionalManifest(map,objects,events,statistics,dat,mob,evt);
+	auto bad=events;bad.records[0].parameters[0]=17;
+	rejects([&]{xeenValidateRegionalManifest(map,objects,bad,statistics,dat,mob,evt);});
+	bad=events;bad.records[0].fileOffset=100;
+	rejects([&]{xeenValidateRegionalManifest(map,objects,bad,statistics,dat,mob,evt);});
+	auto changed=objects;changed.entities.monsters[0].resourceId=7;
+	rejects([&]{xeenValidateRegionalManifest(map,changed,events,statistics,dat,mob,evt);});
+	auto actors=XeenActorApproach::actorsFromResources(objects,statistics);
+	xeenValidateRegionalActors(map,objects,actors,{},statistics);
+	actors[0].statistics->raw[0]='X';
+	rejects([&]{xeenValidateRegionalActors(map,objects,actors,{},statistics);});
+	actors=XeenActorApproach::actorsFromResources(objects,statistics);actors.push_back(actors[0]);
+	rejects([&]{xeenValidateRegionalActors(map,objects,actors,{},statistics);});
+	// Shift the sign without changing its logical address, then corrupt its semantics.
+	events.records.insert(events.records.begin(),{0,5,99,99,4,0,0x12,{}});events.records[1].fileOffset=6;
+	check(xeenRegionalSign(events,{23,5,9,XeenDirection::North}),"sign resolves shifted resource identity");
+	events.records[1].parameters={17};check(!xeenRegionalSign(events,{23,5,9,XeenDirection::North}),"shifted sign wrong operands refused");
+	bad=events;bad.records[1].x=6;check(!xeenRegionalSign(bad,{23,5,9,XeenDirection::North}),"shifted sign wrong logical address refused");
+}
+
 // Artificial geometry on two logical indoor maps, each with four physical tiles.
 // No production destination or original resource is changed by these controls.
 void indoorRays() {
@@ -206,6 +240,6 @@ void indoorRays() {
 }
 }
 int main() {
-	try { geometry();calendar();actors();events();indoorRays();std::cout << "Regional geometry, time, actor and event rules passed\n";return 0; }
+	try { geometry();calendar();actors();events();structuralResources();indoorRays();std::cout << "Regional geometry, time, actor and event rules passed\n";return 0; }
 	catch (const std::exception &e) { std::cerr << e.what() << '\n';return 1; }
 }

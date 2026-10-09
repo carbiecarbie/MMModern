@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "games/xeen/XeenInstallationDetector.h"
 #include "games/xeen/XeenIndoorScene.h"
@@ -38,7 +39,7 @@ int main(int argc, char *argv[]) {
 		return EXIT_FAILURE;
 	}
 	try {
-		const auto installation = mmodern::XeenInstallationDetector().detect(argv[1]);
+		const auto installation = mmodern::xeenTestInstallationDetector().detect(argv[1]);
 		require(installation && installation->hasXeen(), "Clouds installation unavailable");
 		mmodern::XeenAssetSource assets(*installation);
 		const auto bytes = assets.readInitialResource("maze0033.dat");

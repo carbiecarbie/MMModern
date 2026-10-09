@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "XeenPurchaseTestSupport.h"
 #include <cstdlib>
 #include <new>
@@ -15,7 +16,7 @@ void operator delete[](void *p,std::size_t) noexcept{::operator delete(p);}
 using namespace purchase_test;
 int main(int argc,char **argv) {
     try {
-        check(argc==2,"usage: purchase-allocation <installation>");const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"installation unavailable");
+        check(argc==2,"usage: purchase-allocation <installation>");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"installation unavailable");
         Inputs in(*installation);const auto source=service(in);
         for(unsigned stage=0;stage<4;++stage) {
             bool finished=false;

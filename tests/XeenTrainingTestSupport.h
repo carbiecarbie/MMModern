@@ -143,6 +143,7 @@ struct Fixture {
             [animated](auto,auto){return XeenEventFlow::Composition{frame(),animated};},nullptr,
             [animated](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{frame(),animated};});
         flow->drawDialogSprite=[&in](auto &frame,const char *resource,unsigned id,int x,int y){in.assets.drawDialogSprite(frame,resource,id,x,y);};
+        flow->dialogText=&in.assets.uiText();
         flow->drawTrainingArt=[&in](auto &frame){in.assets.drawTraining(frame);};
         present(flow->frame());check(flow->canSave(),"synthetic restored service checkpoint not Quiet");
     }

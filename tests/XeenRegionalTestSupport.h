@@ -25,31 +25,12 @@ inline Bytes characterBytes(){
     }
     return b;
 }
-inline void fingerprint(XeenMonsterRecord &r,std::uint32_t expected){
-    const auto base=r.fingerprint();
-    std::array<std::uint32_t,32> basis{},masks{};
-    for(unsigned i=0;i<32;++i){
-        r.raw[4+i/8]^=1u<<(i%8);
-        auto delta=r.fingerprint()^base;auto mask=std::uint32_t(1)<<i;
-        r.raw[4+i/8]^=1u<<(i%8);
-        for(int bit=31;bit>=0;--bit)if(delta&(std::uint32_t(1)<<bit)){
-            if(basis[bit]){delta^=basis[bit];mask^=masks[bit];}
-            else {basis[bit]=delta;masks[bit]=mask;break;}
-        }
-    }
-    auto delta=expected^base;std::uint32_t mask=0;
-    for(int bit=31;bit>=0;--bit)if(delta&(std::uint32_t(1)<<bit)){
-        check(basis[bit]!=0,"Synthetic CRC basis");delta^=basis[bit];mask^=masks[bit];
-    }
-    for(unsigned i=0;i<32;++i)if(mask&(std::uint32_t(1)<<i))r.raw[4+i/8]^=1u<<(i%8);
-    check(r.fingerprint()==expected,"Synthetic MON fingerprint");
-}
 inline std::vector<XeenMonsterRecord> statistics(){
     std::vector<XeenMonsterRecord> out(14);
     auto &r=out[8];r.raw[0]='T';r.raw[16]=250;r.raw[20]=20;r.raw[22]=5;r.raw[23]=10;
     r.raw[24]=1;r.raw[25]=3;r.raw[26]=2;r.raw[28]=6;r.raw[31]=4;r.raw[33]=4;
     for(unsigned i=34;i<38;++i)r.raw[i]=50;r.raw[40]=50;r.raw[47]=8;
-    fingerprint(r,0xe36833c6);return out;
+    return out;
 }
 inline XeenMap map(XeenMapIdentity id={23}){
     XeenMap m;m.geometry.id=id.number;m.side=id.side;m.geometry.flags2=0x8000;

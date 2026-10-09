@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "app/Application.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "games/xeen/CloudsMapComposer.h"
@@ -44,7 +45,7 @@ int main(int argc, char *argv[]) {
 	std::atomic<int> sent{0};
 	const bool escape = closeMode == "escape";
 	if (mode == "map") {
-		const auto installation = mmodern::XeenInstallationDetector().detect(argv[1]);
+		const auto installation = mmodern::xeenTestInstallationDetector().detect(argv[1]);
 		if (!installation || !installation->hasXeen()) {
 			std::cerr << "Area A1 integration fixture unavailable\n";
 			return 1;
@@ -140,7 +141,7 @@ int main(int argc, char *argv[]) {
 			return 1;
 		}
 	} else if (mode == "indoor") {
-		const auto installation = mmodern::XeenInstallationDetector().detect(argv[1]);
+		const auto installation = mmodern::xeenTestInstallationDetector().detect(argv[1]);
 		if (!installation || !installation->hasXeen()) {
 			std::cerr << "Dwarf Mine integration fixture unavailable\n";
 			return 1;
@@ -256,14 +257,14 @@ int main(int argc, char *argv[]) {
 			}
 		}
 	});
-	const int result = mode == "map" ? mmodern::Application().renderMap(argv[1]) :
-		mode == "indoor" ? mmodern::Application().renderMap(argv[1], 33, 4, 8,
+	const int result = mode == "map" ? mmodern::Application(std::filesystem::path(MMODERN_TEST_UI_DATA)).renderMap(argv[1]) :
+		mode == "indoor" ? mmodern::Application(std::filesystem::path(MMODERN_TEST_UI_DATA)).renderMap(argv[1], 33, 4, 8,
 			mmodern::XeenDirection::North) :
 		(mode == "manual" || mode == "manual-no" || mode == "manual-yes") ?
-		mmodern::Application().renderMap(argv[1], 1, 8, 8,
+		mmodern::Application(std::filesystem::path(MMODERN_TEST_UI_DATA)).renderMap(argv[1], 1, 8, 8,
 			mmodern::XeenDirection::West) :
-		mode == "event" ? mmodern::Application().renderMap(argv[1], 31, 2, 9,
-			mmodern::XeenDirection::North) : mmodern::Application().run(argv[1]);
+		mode == "event" ? mmodern::Application(std::filesystem::path(MMODERN_TEST_UI_DATA)).renderMap(argv[1], 31, 2, 9,
+			mmodern::XeenDirection::North) : mmodern::Application(std::filesystem::path(MMODERN_TEST_UI_DATA)).run(argv[1]);
 	finished = true;
 	closer.join();
 	const int expectedEvents = escape && mode == "map" ? 5 :

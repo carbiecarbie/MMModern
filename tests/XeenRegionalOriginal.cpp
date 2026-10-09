@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 // Opt-in, read-only original-resource rule evidence. Not SDL/runtime acceptance.
 #include "games/xeen/XeenRegionalRules.h"
 #include "games/xeen/XeenMovement.h"
@@ -21,7 +22,7 @@ using namespace mmodern;
 int main(int argc,char **argv) {
 	try {
 		if (argc!=2) throw std::invalid_argument("usage: mmodern_regional_original <installation> [legacy-3-save]");
-		const auto installation=XeenInstallationDetector().detect(argv[1]);
+		const auto installation=xeenTestInstallationDetector().detect(argv[1]);
 		if (!installation) throw std::runtime_error("Installation not found");
 		XeenAssetSource assets(*installation);XeenMapLoader maps;
 		const auto map=maps.loadGeometryMap(assets,23);

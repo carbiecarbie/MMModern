@@ -149,7 +149,7 @@ void generateTestSave(const GameInstallation &installation,const std::string &pr
         const std::filesystem::path &output) {
     if (preset!="broken-armor" && preset!="train-ready" && preset!="injured-dead" && preset!="poisoned")
         throw std::invalid_argument("Unknown test-save preset: "+preset);
-    const auto target=XeenSaveFile::resolve(output,installation.root);
+    const auto target=XeenSaveFile::resolve(output,installation);
     // Reuse the native alias/reparse-aware path guard for the repository too.
     try { (void)XeenSaveFile::resolve(target,std::filesystem::u8path(MMODERN_TEST_SAVE_SOURCE_DIR)); }
     catch (const std::exception &e) {throw std::runtime_error(std::string("Test saves must be outside the repository: ")+e.what());}

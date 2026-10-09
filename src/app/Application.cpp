@@ -185,18 +185,19 @@ int Application::newGame(const std::filesystem::path &gameDirectory,
 
 int Application::inspectParty(const std::filesystem::path &gameDirectory) const {
 	try {
-		const auto installation = XeenInstallationDetector().detect(gameDirectory);
+		const auto installation = XeenInstallationDetector(_uiData).detect(gameDirectory);
 		if (!installation) {
-			std::cerr << "Nenhuma instalacao de Xeen encontrada em: " << gameDirectory.string() << '\n';
+			std::cerr << "No Xeen installation found: " << gameDirectory.string() << '\n';
 			return 2;
 		}
 		if (!installation->hasXeen()) {
-			std::cerr << "A inspecao da Party inicial requer xeen.cc (Clouds).\n";
+			std::cerr << "Initial party inspection requires XEEN.CC (Clouds).\n";
 			return 3;
 		}
 
 		// Resource parsing only: this path creates no framebuffer or SDL window.
-		XeenAssetSource assets(*installation);
+		std::cout << "Data source: " << installation->sourceOrigin << '\n';
+        XeenAssetSource assets(*installation);
 		const XeenPartyState state = XeenPartyLoader().loadInitialCloudsParty(assets);
 		printPartyDiagnostics(state);
 		const XeenCharacterRulesContext rulesContext{kCloudsInitialYear};
@@ -225,17 +226,18 @@ int Application::inspectParty(const std::filesystem::path &gameDirectory) const 
 int Application::inspectMap(const std::filesystem::path &gameDirectory,
 		std::uint16_t mapId) const {
 	try {
-		const auto installation = XeenInstallationDetector().detect(gameDirectory);
+		const auto installation = XeenInstallationDetector(_uiData).detect(gameDirectory);
 		if (!installation) {
-			std::cerr << "Nenhuma instalacao de Xeen encontrada em: " << gameDirectory.string() << '\n';
+			std::cerr << "No Xeen installation found: " << gameDirectory.string() << '\n';
 			return 2;
 		}
 		if (!installation->hasXeen()) {
-			std::cerr << "A inspecao de mapas requer xeen.cc (Clouds).\n";
+			std::cerr << "Map inspection requires XEEN.CC (Clouds).\n";
 			return 3;
 		}
 		// No framebuffer, composer, SDL initialization, or window in this path.
-		XeenAssetSource assets(*installation);
+		std::cout << "Data source: " << installation->sourceOrigin << '\n';
+        XeenAssetSource assets(*installation);
 		const XeenMap map = XeenMapLoader().loadGeometryMap(assets, mapId);
 		const auto &geometry = map.geometry;
 		std::cout << "Origem: xeen.cc, conteiner inicial de Clouds\n"
@@ -300,19 +302,20 @@ int Application::inspectEvents(const std::filesystem::path &gameDirectory,
 		std::optional<std::uint8_t> y,
 		std::optional<XeenDirection> direction, bool allOnly) const {
 	try {
-		const auto installation = XeenInstallationDetector().detect(gameDirectory);
+		const auto installation = XeenInstallationDetector(_uiData).detect(gameDirectory);
 		if (!installation) {
-			std::cerr << "Nenhuma instalacao de Xeen encontrada em: "
+			std::cerr << "No Xeen installation found: "
 				<< gameDirectory.string() << '\n';
 			return 2;
 		}
 		if (!installation->hasXeen()) {
-			std::cerr << "A inspecao de eventos requer xeen.cc (Clouds).\n";
+			std::cerr << "Event inspection requires XEEN.CC (Clouds).\n";
 			return 3;
 		}
 
 		// Resource diagnostics only: no map geometry, framebuffer, or SDL window.
-		XeenAssetSource assets(*installation);
+		std::cout << "Data source: " << installation->sourceOrigin << '\n';
+        XeenAssetSource assets(*installation);
 		const XeenEventLoader loader([&assets](const std::string &resourceName)
 				-> std::optional<std::vector<std::uint8_t>> {
 			if (!assets.hasInitialResource(resourceName))
@@ -366,7 +369,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
             throw std::invalid_argument("Invalid new-game configuration");
         if (entry != XeenEncounterEntry::Ordinary && resume)
             throw std::invalid_argument("Encounter entry cannot load or configure a save");
-        const auto installation = XeenInstallationDetector().detect(gameDirectory);
+        const auto installation = XeenInstallationDetector(_uiData).detect(gameDirectory);
         if (!installation) {
             std::cerr << "No Xeen installation found: " << gameDirectory.u8string() << '\n';
             return 2;
@@ -376,7 +379,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
         if (entry != XeenEncounterEntry::Ordinary && !installation->hasDarkside())
             throw std::runtime_error("Encounter entry requires World of Xeen");
         std::optional<std::filesystem::path> target;
-        if (savePath) target = XeenSaveFile::resolve(*savePath, installation->root);
+        if (savePath) target = XeenSaveFile::resolve(*savePath, *installation);
         XeenSaveResourceSignature signature;
         if (target) {
             const auto begin = std::chrono::steady_clock::now();
@@ -385,6 +388,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                 << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - begin).count()
                 << " ms\n";
         }
+        std::cout << "Data source: " << installation->sourceOrigin << '\n';
         XeenAssetSource assets(*installation, CloudsUiComposer::kWidth, CloudsUiComposer::kHeight);
         const XeenMapLoader maps;
         const XeenEventLoader events([&](const std::string &name) -> std::optional<std::vector<std::uint8_t>> {
@@ -418,6 +422,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
             [&](XeenEventFlow &flow, const XeenCamera &position) {
                 journeyControls = journeyControls || flow.journey();
                 flow.rebuildEncounterPresentation = [&] { assets.discardSpriteCache(); };
+                flow.dialogText = &assets.uiText();
 				flow.drawSmithArt = [&](IndexedFrame &frame) { assets.drawSmith(frame); };
 				flow.drawTrainingArt = [&](IndexedFrame &frame) { assets.drawTraining(frame); };
 				flow.drawTempleArt = [&](IndexedFrame &frame) { assets.drawTemple(frame); };

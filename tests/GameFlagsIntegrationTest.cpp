@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "formats/xeen/XeenGameFlagsFormat.h"
 #include "games/xeen/XeenGameFlagsLoader.h"
@@ -28,7 +29,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	try {
-		const auto installation = XeenInstallationDetector().detect(argv[1]);
+		const auto installation = xeenTestInstallationDetector().detect(argv[1]);
 		check(installation && installation->hasXeen(),
 			"Clouds installation unavailable");
 		XeenAssetSource assets(*installation);

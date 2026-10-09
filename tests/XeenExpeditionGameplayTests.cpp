@@ -13,7 +13,7 @@ struct Harness:regional_save_test::Fixture {unsigned saves=0;auto services(){aut
 namespace fs=std::filesystem;
 namespace {
 std::vector<std::uint8_t> diskBytes(const fs::path &path){std::ifstream in(path,std::ios::binary);return {std::istreambuf_iterator<char>(in),{}};}
-auto services(Harness &h){auto s=h.services();s.objects=[](auto id){auto o=regional_test::objects(id);if(id==XeenMapIdentity(23))o.entities.monsters[16].resourceId=9;return o;};s.resources.loadMonsterStatistics=[]{auto m=regional_test::statistics();m[9]=expedition_fixture::monsters()[9];regional_test::fingerprint(m[9],0x5002c318);return m;};return s;}
+auto services(Harness &h){auto s=h.services();s.objects=[](auto id){auto o=regional_test::objects(id);if(id==XeenMapIdentity(23))o.entities.monsters[16].resourceId=9;return o;};s.resources.loadMonsterStatistics=[]{auto m=regional_test::statistics();m[9]=expedition_fixture::monsters()[9];return m;};return s;}
 void press(Harness &h,const SdlWindow::FrameUpdateHandler &handler,const PlayerAction &a) {
  handler.beginCycle(++h.cycle);handler.withDisplayedInput(a,*handler.displayedInput());
  check(handler.frameCurrent(),"current Application input frame");handler.framePresented(h.flow->frame().presentation());

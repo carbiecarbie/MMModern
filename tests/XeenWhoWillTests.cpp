@@ -1,5 +1,6 @@
 #include "XeenRemoveTestSupport.h"
 #include "app/XeenEventFlow.h"
+#include "XeenDosTextTestSupport.h"
 #include "formats/xeen/XeenQuestItemFormat.h"
 #include "games/xeen/XeenPartyLoader.h"
 #include "platform/sdl/SdlWindow.h"
@@ -276,6 +277,7 @@ void passiveSelectionInputs() {
 	Fixture f;f.set({record(1,1,0,0x04,{0}),record(1,1,1,0x12)});
 	int compositions=0;
 	XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){++compositions;return XeenEventFlow::Composition{f.base, false};});
+ flow.dialogText=&dos_test::text();
 	flow.handle(InteractionAction{});const auto frame=flow.frame();const auto count=compositions;
 	check(!flow.blocksGameplay() && frame.pixels!=f.base.pixels,"passive fixture missing label");
 	for(std::size_t index=0;index<6;++index) {

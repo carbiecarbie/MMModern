@@ -43,10 +43,8 @@ class XeenJourneyCapture {
 		// guard before any later publication; equal bytes cannot revive its ticket.
 		try { (*preimage)->check(); } catch (...) { return false; }
 		const auto &actors = w->sessionState().actors();
-		const auto expected=19u;
-		if (actors.size() != expected || admittedActors.size() != expected) return false;
-		for (unsigned i = 0; i < expected; ++i)
-			if (!xeenJourneyContent().influences(i) && !xeen_state::sameActor(actors[i],admittedActors[i])) return false;
+		const auto expected=admittedActors.size();
+		if (!expected || expected>XeenActorApproach::kCapacity || actors.size() != expected) return false;
 		for (auto id:w->sessionState().accountedMonsters()) {
 			if(!w->sessionState().hasRegionalActors(id.mapId)) return false;
 			const auto owned=w->sessionState().regionalActors(id.mapId);

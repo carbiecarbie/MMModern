@@ -8,19 +8,19 @@ namespace mmodern {
 // generation; this guard binds every continuation field before a resume.
 class XeenEventContinuation {
 public:
-	explicit XeenEventContinuation(const XeenEventExecutionState &state) : expected(state) {
-		if(!state.currentScript || !state.pendingPresentation || state.pendingRewards.hasWork() ||
+	explicit XeenEventContinuation(const XeenEventExecutionState &state,bool regionalRewards=false) : expected(state) {
+		if(!state.currentScript || !state.pendingPresentation || (!regionalRewards && (state.pendingRewards.hasWork() ||
 			state.rewardPhase!=XeenRewardPhase::Running || state.rewardReceipt.count ||
 			state.rewardReceipt.delivered || state.rewardReceipt.lost || state.rewardReceipt.overflow ||
 			state.rewardReceipt.invalid || state.rewardReceipt.discarded ||
-			state.rewardReceipt.discardReason!=XeenRewardDiscard::None ||
+			state.rewardReceipt.discardReason!=XeenRewardDiscard::None)) ||
 			state.instructionCount>XeenEventInterpreter::kMaximumInstructions ||
 			state.callStack.size()>XeenEventInterpreter::kMaximumCallDepth)
 			throw std::logic_error("Unsupported detached Event continuation");
 	}
 	void check(const XeenEventExecutionState &state) const {
 		const auto &a=state;const auto &b=expected;
-		bool same=!a.pendingRewards.hasWork() && a.rewardPhase==b.rewardPhase &&
+		bool same=queue(a.pendingRewards,b.pendingRewards) && a.rewardPhase==b.rewardPhase &&
 			a.preferredRewardRecipient==b.preferredRewardRecipient && address(a.logicalAddress,b.logicalAddress) &&
 			a.lookupDirection==b.lookupDirection && xeen_state::sameCamera(a.workingCamera,b.workingCamera) &&
 			a.selectedObject==b.selectedObject && a.activeCharacterIndex==b.activeCharacterIndex &&
@@ -52,6 +52,14 @@ public:
 	}
 private:
 	XeenEventExecutionState expected;
+	static bool queue(const XeenPendingRewards &a,const XeenPendingRewards &b) {
+		if(a.size()!=b.size() || a.overflow()!=b.overflow() || a.invalid()!=b.invalid())return false;
+		for(std::size_t i=0;i<a.size();++i) {
+			const auto &x=a.at(i),&y=b.at(i);
+			if(std::tie(x.material,x.id,x.state,x.frame)!=std::tie(y.material,y.id,y.state,y.frame))return false;
+		}
+		return true;
+	}
 	static bool address(const XeenEventExecutionAddress &a,const XeenEventExecutionAddress &b) {
 		return std::tie(a.mapId,a.x,a.y,a.line)==std::tie(b.mapId,b.x,b.y,b.line);
 	}

@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "XeenTrainingTestSupport.h"
 #include "games/xeen/XeenTempleHeal.h"
 #include <iostream>
@@ -165,7 +166,7 @@ void refusedResult(Inputs &in,bool exhaustedRandom) {
 int main(int argc,char **argv) {
     try {
         check(argc==2 || argc==3,"usage: temple-flow <original-installation> [retries|revisions|preview|refused-date|refused-rng]");
-        const auto installation=XeenInstallationDetector().detect(argv[1]);
+        const auto installation=xeenTestInstallationDetector().detect(argv[1]);
         check(bool(installation),"original installation unavailable");Inputs in(*installation);
         if(argc==3) {
             const std::string regression=argv[2];

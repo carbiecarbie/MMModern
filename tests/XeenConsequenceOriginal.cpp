@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 // Read-only original resources with explicitly artificial rare-rule arrangements.
@@ -244,7 +245,7 @@ void shootOrder(Source &source) {
 }
 void shootLethalPreparation(Source &source) {
  Domain original(source);auto saved=original.save();
- for(auto &other:saved.journey->actors)if(other.id.recordIndex!=9 && xeenJourneyContent().influences(other.id.recordIndex)) {
+ for(auto &other:saved.journey->actors)if(other.id.recordIndex!=9) {
   other.x=other.y=-128;other.hp=0;other.activated=false;other.lifecycle=XeenActorLifecycle::Defeated;other.accounted=true;
  }
  auto &a=saved.journey->actors[9];a.x=8;a.y=11;a.activated=true;a.hp=1;
@@ -415,7 +416,7 @@ void blockReset(Source &source) {
  Domain original(source);auto saved=original.save();
  // Isolate the two original Ogres for Block/turn bookkeeping; these are
  // explicitly artificial rule arrangements, never paid-route evidence.
- for(auto &a:saved.journey->actors)if(xeenJourneyContent().influences(a.id.recordIndex) && a.id.recordIndex!=14 && a.id.recordIndex!=15) {
+ for(auto &a:saved.journey->actors)if(a.id.recordIndex!=14 && a.id.recordIndex!=15) {
   a.x=a.y=-128;a.hp=0;a.activated=false;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;
  }
  for(auto id:kXeenCombatOwners){saved.characters[id].currentHp=1000;saved.characters[id].conditions[8]=id!=0;}
@@ -468,7 +469,7 @@ using namespace consequence_controls;
 #ifdef MMODERN_M45_COLD_CACHE
 int main(int argc,char **argv){try{
  check(argc==2,"usage: mmodern_resource_cold_original <installation>");
- const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"Original installation");
+ const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Original installation");
  Source source(*installation);source.signature=XeenSaveFile::fingerprint(*installation);
  disengagementFinishPresentation(source,false);disengagementFinishPresentation(source,true);coldVertigo(source);
  std::cout<<"Cold north-edge combat, occupied Run and Vertigo PASS\n";return 0;
@@ -476,7 +477,7 @@ int main(int argc,char **argv){try{
 #else
 int main(int argc,char **argv){try{
  check(argc==2 || argc==3,"usage: mmodern_consequence_original <installation> [artificial-pending-item-save]");
- const auto i=XeenInstallationDetector().detect(argv[1]);check(bool(i),"Original installation");
+ const auto i=xeenTestInstallationDetector().detect(argv[1]);check(bool(i),"Original installation");
  Source source(*i);source.signature=XeenSaveFile::fingerprint(*i);
  freshSaveControls(source);freshFailureControls(source);freshDifficultyHits(source);
  if(std::getenv("MMODERN_M49_IMPACT_ONLY")) {

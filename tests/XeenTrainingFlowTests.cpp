@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "XeenTrainingTestSupport.h"
 #include "XeenPurchaseTestSupport.h"
 #include "XeenM42Evidence.h"
@@ -7,7 +8,7 @@ using namespace training_test;
 using save_test::rejects;
 int main(int argc,char **argv) {
     try {
-        check(argc==2,"usage: training-flow <original-installation>");const auto installation=XeenInstallationDetector().detect(argv[1]);
+        check(argc==2,"usage: training-flow <original-installation>");const auto installation=xeenTestInstallationDetector().detect(argv[1]);
         check(bool(installation),"installation unavailable");Inputs inputs(*installation);const auto source=inputs.service();
         // Original resources with explicitly injected boundary dates: ordinary
         // Wait and the shared dawn notice, followed by quiet save/reload.

@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "XeenTrainingTestSupport.h"
 #include "games/xeen/XeenRestoreGuard.h"
 #include "games/xeen/XeenEventTrigger.h"
@@ -61,7 +62,7 @@ void automatic(Inputs &inputs,const XeenSaveSnapshot &initial,bool unsupported) 
 int main(int argc,char **argv) {
 	try {
 		check(argc==2,"usage: city-event-publication <original-installation>");
-		const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"Installation unavailable");
+		const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Installation unavailable");
 		Inputs inputs(*installation);const auto initial=source(inputs);
 		XeenEventFile city{28,"maze0028.evt",true,{record(0,0x20,{0,0}),record(1,0x0c,{0,0,104,3}),
 			record(2,0x10,{50,13,15,0}),record(3,0x18,{0,0}),record(4,0x12)}};

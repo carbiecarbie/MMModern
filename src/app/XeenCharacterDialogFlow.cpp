@@ -24,12 +24,12 @@ std::shared_ptr<const DialogInput> XeenEventFlow::characterDialogInput() const {
     return std::make_shared<const DialogInput>(std::move(input));
 }
 IndexedFrame XeenEventFlow::drawCharacterDialog(const IndexedFrame &base) const {
-    if(_inventory.mode==XeenInventoryMode::UseTarget) return drawXeenItemTarget(base,_inventoryFont);
+    if(_inventory.mode==XeenInventoryMode::UseTarget) return drawXeenItemTarget(dosText(),base,_inventoryFont);
     auto frame=_sheet && !_itemsVisible?
-        drawXeenSheet(base,_inventoryFont,_party,_inventory.source,_sheet->cursor,_sheet->blink,drawDialogSprite):
-        drawXeenItems(base,_inventoryFont,_catalog,_party,_inventory,drawDialogSprite);
+        drawXeenSheet(dosText(),base,_inventoryFont,_party,_inventory.source,_sheet->cursor,_sheet->blink,drawDialogSprite):
+        drawXeenItems(dosText(),base,_inventoryFont,_catalog,_party,_inventory,drawDialogSprite);
     if(_statPopup) frame=drawXeenPopup(frame,_inventoryFont,*_statPopup);
-    if(_itemOption) frame=drawXeenItemSelection(frame,_inventoryFont,*_itemOption,drawDialogSprite);
+    if(_itemOption) frame=drawXeenItemSelection(dosText(),frame,_inventoryFont,*_itemOption,drawDialogSprite);
     if(_dialogError) frame=drawXeenErrorScroll(frame,_inventoryFont,*_dialogError);
     return frame;
 }
@@ -60,13 +60,13 @@ IndexedFrame XeenEventFlow::handleCharacterDialog(const PlayerAction &action) {
         // glyph. Avoid its expandStat assertion while retaining navigation.
         if(_sheet->cursor<20) {
             if(_sheet->cursor==14) dialogError("Awards: not supported yet");
-            else _statPopup=xeenSheetPopup(_party,_inventory.source,_sheet->cursor);
+            else _statPopup=xeenSheetPopup(dosText(),_party,_inventory.source,_sheet->cursor);
         }
     } else if(key=='i') {
         _itemsVisible=true;advanceInventoryEpoch();_inventory.category=XeenInventoryCategory::Weapons;
         _inventory.slot.reset();_inventory.record={};
     } else if(key=='q') dialogError("Quick Reference: not supported yet");
-    else if(key=='e') dialogError(_encounter && _encounter->combat()?std::string(xeenDialogText(XeenDialogText::ExchangingInCombat)):"Exchange: not supported yet");
+    else if(key=='e') dialogError(_encounter && _encounter->combat()?std::string(xeenDialogText(dosText(),XeenDialogText::ExchangingInCombat)):"Exchange: not supported yet");
     drawInventory();return _frame;
 }
 void XeenEventFlow::performItemOption(unsigned option) {
@@ -81,12 +81,12 @@ void XeenEventFlow::performItemOption(unsigned option) {
     if(option!=2) return;
     const auto &c=_party.roster.at(*_inventory.sourceOwner);
     if(_encounter && _encounter->combat()) {
-        dialogError(std::string(xeenDialogText(XeenDialogText::UseInCombat)));return;
+        dialogError(std::string(xeenDialogText(dosText(),XeenDialogText::UseInCombat)));return;
     }
-    if(_camera.mapId.number==0) {dialogError(std::string(xeenDialogText(XeenDialogText::Hurry)));return;}
-    if(!c.canAct()) {dialogError(xeenDialogFormat(xeenDialogText(XeenDialogText::InNoCondition),{c.name}));return;}
+    if(_camera.mapId.number==0) {dialogError(std::string(xeenDialogText(dosText(),XeenDialogText::Hurry)));return;}
+    if(!c.canAct()) {dialogError(xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::InNoCondition),{c.name}));return;}
     if(!_inventory.record.id || (_inventory.record.state&0xc0) || !(_inventory.record.state&63)) {
-        dialogError(xeenDialogFormat(xeenDialogText(XeenDialogText::NoSpecialAbilities),{_catalog.describe(_inventory.category,_inventory.record).displayName}));return;
+        dialogError(xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::NoSpecialAbilities),{_catalog.describe(_inventory.category,_inventory.record).displayName}));return;
     }
     if(!journey() || !XeenAntidoteUse::eligible(_inventory.record)) {dialogError("Item effect: not supported yet");return;}
     const auto certificate=_equipmentSelection;

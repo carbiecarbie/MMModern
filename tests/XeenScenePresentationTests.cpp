@@ -21,6 +21,7 @@ void archiveResolution() {
 	GameInstallation installation;installation.root=root;installation.xeenArchive=root/"XEEN.CC";installation.darkArchive=root/"DARK.CC";installation.edition=GameEdition::WorldOfXeen;
 	archive(installation.xeenArchive,{{"shared.srf",image(3)},{"broken.srf",{0}},{"cloudsonly.srf",image(12)}});
 	archive(root/"INTRO.CC",{{"shared.srf",image(4)},{"fallback.srf",image(5)},{"intro.srf",image(6)}});
+ installation.introData=ReadOnlyDataFile::plain(root/"INTRO.CC");
 	std::map<std::string,Bytes> dark{{"shared.srf",image(7)},{"fallback.srf",image(8)},{"companion.srf",image(9)},{"broken.srf",image(10)}};
 	archive(installation.darkArchive,dark);
 	{
@@ -62,7 +63,7 @@ void archiveResolution() {
 		rejects([&] {assets.spriteFrameCount("companion.srf",XeenSceneArchive::Darkside);});
 	}
 	// The same scene API also works with no optional companion archives installed.
-	std::filesystem::remove(root/"INTRO.CC");installation.darkArchive.clear();
+	std::filesystem::remove(root/"INTRO.CC");installation.introData.reset();installation.darkArchive.clear();
 	XeenAssetSource clouds(installation,320,200);
 	check(clouds.hasSceneResource("shared.srf")&&!clouds.hasSceneResource("companion.srf"),"Clouds-only scene lookup failed");
 }

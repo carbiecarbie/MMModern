@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "XeenCheckpointTestSupport.h"
 #include "XeenVisualRemoveTestSupport.h"
 #include "XeenPartySnapshotTestSupport.h"
@@ -68,12 +69,13 @@ void runCase(XeenAssetSource &assets, const std::filesystem::path &output,
 	check(objects.entities.objects.at(13).resourceId==111,"original Phirna resource identity");
 	check(world.selectObject(camera)==XeenObjectIdentity{23,13},"real plant selection");
 	const auto script=loader.load(23);
-	const std::array<std::size_t,11> offsets{1056,1063,1072,1078,1087,1094,1103,1113,1119,1125,1132};
+	const std::array<std::size_t,11> offsets{1122,1129,1138,1144,1153,1160,1169,1179,1185,1191,1198};
 	const std::array<int,11> opcodes{1,9,0x12,9,1,9,0x0c,0x0e,0x12,0x29,9};
 	const std::vector<std::vector<std::uint8_t>> operands{{30},{44,0,3},{},{21,99,9},{31},{44,1,6},
 		{0,0,21,99},{},{},{32},{44,1,11}};
-	check(script.records.size()==170,"real EVT count");
-	for(std::size_t i=0;i<11;++i){const auto &r=script.records.at(125+i);
+	check(script.records.size()==179,"real EVT count");
+	const XeenEventScript retainedScript(script);
+	for(std::size_t i=0;i<11;++i){const auto *record=retainedScript.findInstruction(8,2,XeenDirection::North,i);check(record,"CD Phirna logical instruction absent");const auto &r=*record;
 		check(r.fileOffset==offsets[i] && r.x==8 && r.y==2 && r.direction==4 && r.line==i &&
 			r.opcode==opcodes[i] && r.parameters==operands[i],"real Phirna record mismatch");}
 	const XeenFontFormat font(assets.readArchiveResource("fnt"));
@@ -221,7 +223,7 @@ void runCase(XeenAssetSource &assets, const std::filesystem::path &output,
 	for(std::size_t i=0;i<script.records.size();++i){
 		const auto effective=world.effectiveEvent({23,i},script.records[i]);
 		check(sameRecord(script.records[i],effective,false) &&
-			effective.opcode==((harvested && i>=125 && i<=135)?0:script.records[i].opcode),"unrelated event changed");
+			effective.opcode==((harvested && script.records[i].x==8 && script.records[i].y==2)?0:script.records[i].opcode),"unrelated event changed");
 	}
 	// New party/world/event/presenter owners, never reusing the old continuation.
 	auto freshParty=XeenPartyLoader().loadInitialCloudsParty(assets);
@@ -234,7 +236,7 @@ void runCase(XeenAssetSource &assets, const std::filesystem::path &output,
 		[&](std::uint64_t phase){XeenEventFlow::Composition result;result.frame=composer.compose(assets,freshWorld,freshParty,freshCamera,rules,nullptr,phase,&result.containsOrdinaryAnimation);return result;});
 	check(!fresh.blocksGameplay() && freshParty.questItems.at(17)==0 && freshWorld.selectObject(start)==XeenObjectIdentity{23,13} &&
 		fresh.frame().pixels==base.pixels,"new session retained grant/removal/presentation");
-	for(std::size_t i=125;i<=135;++i)check(sameRecord(script.records[i],freshWorld.effectiveEvent({23,i},script.records[i])),"fresh event not restored");
+	for(std::size_t i=0;i<script.records.size();++i)if(script.records[i].x==8 && script.records[i].y==2)check(sameRecord(script.records[i],freshWorld.effectiveEvent({23,i},script.records[i])),"fresh event not restored");
 	visual_remove_test::save(fresh.frame(),output/(name+"-fresh.bmp"));
 	fresh.handle(InteractionAction{});check(fresh.blocksGameplay(),"fresh line-0 question missing");
 	fresh.handle(NoAction{});check(!fresh.blocksGameplay() && freshParty.questItems.at(17)==0,"fresh No path failed");
@@ -249,7 +251,7 @@ int main(int argc,char **argv) {
 	try {
 		check(argc==3 || (argc==4 && std::string(argv[3])=="sdl"),"usage: mmodern_phirna_smoke <game-directory> <output-directory> [sdl]");
 		std::filesystem::create_directories(argv[2]);
-		const auto installation=XeenInstallationDetector().detect(argv[1]);
+		const auto installation=xeenTestInstallationDetector().detect(argv[1]);
 		check(installation && installation->hasXeen(),"Clouds installation unavailable");
 		XeenAssetSource assets(*installation,320,200);
 		for(const auto *name:{"no","yes","owned"})runCase(assets,argv[2],name,argc==4);

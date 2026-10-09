@@ -517,20 +517,20 @@ std::string XeenEventFlow::smithText() const {
     if(ui.phase==SmithUi::Phase::Confirm) {
         const auto &visit=*_encounter->_smith;
         const auto &item=ui.mode==SmithUi::Mode::Buy?visit.purchase->result.offer:visit.result.before;
-        return xeenServiceConfirm(ui.mode==SmithUi::Mode::Repair,
+        return xeenServiceConfirm(dosText(),ui.mode==SmithUi::Mode::Repair,
             ui.catalog.describe(ui.category,item).displayName,
             ui.mode==SmithUi::Mode::Buy?visit.purchase->result.price:visit.result.price);
     }
-    return xeenLocationText(ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith,_party,ui.member);
+    return xeenLocationText(dosText(),ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith,_party,ui.member);
 }
 IndexedFrame XeenEventFlow::drawSmith(const IndexedFrame &world) const {
     const auto &ui=*_smithUi;
-    auto frame=drawXeenLocation(world,ui.art,_inventoryFont,
+    auto frame=drawXeenLocation(dosText(),world,ui.art,_inventoryFont,
         ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith,_party,ui.member,drawDialogSprite);
     if(ui.phase==SmithUi::Phase::Browse || ui.phase==SmithUi::Phase::Confirm) {
         XeenInventorySelection selection;selection.source=ui.member;selection.category=ui.category;
         if(ui.selected) selection.slot=ui.slot;
-        frame=drawXeenBuy(frame,_inventoryFont,ui.catalog,_party,selection,ui.mode==SmithUi::Mode::Repair,drawDialogSprite);
+        frame=drawXeenBuy(dosText(),frame,_inventoryFont,ui.catalog,_party,selection,ui.mode==SmithUi::Mode::Repair,drawDialogSprite);
         if(ui.phase==SmithUi::Phase::Confirm) frame=drawXeenConfirm(frame,_inventoryFont,smithText(),false,drawDialogSprite);
     }
     if(!ui.feedback.empty()) frame=drawXeenErrorScroll(frame,_inventoryFont,ui.feedback);
@@ -618,9 +618,9 @@ IndexedFrame XeenEventFlow::handleSmith(const PlayerAction &action,std::uint64_t
                     _encounter->quoteSmithBuy(ui.member,ui.category,ui.slot);
                     const auto outcome=_encounter->_smith->purchase->result.outcome;
                     if(_encounter->_smith->quoted) ui.phase=SmithUi::Phase::Confirm;
-                    else if(outcome==XeenEquipmentPurchaseOutcome::DestinationFull) ui.feedback=xeenBackpackFull(ui.category,c.name);
+                    else if(outcome==XeenEquipmentPurchaseOutcome::DestinationFull) ui.feedback=xeenBackpackFull(dosText(),ui.category,c.name);
                     else ui.feedback="Buy: not supported yet";
-                } else if(!(item.state&0x80)) ui.feedback=std::string(xeenDialogText(XeenDialogText::ItemNotBroken));
+                } else if(!(item.state&0x80)) ui.feedback=std::string(xeenDialogText(dosText(),XeenDialogText::ItemNotBroken));
                 else if(ui.category!=XeenInventoryCategory::Armor) ui.feedback="Fix: not supported yet";
                 else {
                     _encounter->quoteSmith(ui.member,ui.slot);
@@ -634,7 +634,7 @@ IndexedFrame XeenEventFlow::handleSmith(const PlayerAction &action,std::uint64_t
                 const bool shortfall=ui.mode==SmithUi::Mode::Buy?
                     _encounter->_smith->purchase->result.outcome==XeenEquipmentPurchaseOutcome::InsufficientGold:
                     _encounter->_smith->result.outcome==XeenArmorRepairOutcome::InsufficientGold;
-                if(shortfall) ui.feedback=xeenNotEnoughGold();
+                if(shortfall) ui.feedback=xeenNotEnoughGold(dosText());
             } else {_encounter->_smith->quoted=false;_encounter->advanceSmith();}
             ui.phase=SmithUi::Phase::Browse;ui.selected=false;
         }
@@ -686,7 +686,7 @@ IndexedFrame XeenEventFlow::handleTemple(const PlayerAction &action,std::uint64_
                 if(!_encounter->_smith->quoted) _encounter->quoteTempleHeal(ui.member);
                 if(_encounter->_smith->quoted) ui.phase=_encounter->confirmTempleHeal()?SmithUi::Phase::Lobby:SmithUi::Phase::Upgrade;
                 const auto outcome=_encounter->_smith->healResult.outcome;
-                if(outcome==XeenTempleHealOutcome::InsufficientGold) ui.feedback=xeenNotEnoughGold();
+                if(outcome==XeenTempleHealOutcome::InsufficientGold) ui.feedback=xeenNotEnoughGold(dosText());
                 else if(outcome==XeenTempleHealOutcome::SupportLimit || outcome==XeenTempleHealOutcome::HpSupportLimit)
                     ui.feedback="Heal: not supported yet at this date or capacity";
             } else if(cancel) ui.phase=SmithUi::Phase::Departure;

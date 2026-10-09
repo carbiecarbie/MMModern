@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "games/xeen/CloudsUiComposer.h"
 #include "games/xeen/XeenCharacterRules.h"
@@ -140,7 +141,7 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 	try {
-		const auto installation = XeenInstallationDetector().detect(argv[1]);
+		const auto installation = xeenTestInstallationDetector().detect(argv[1]);
 		check(installation && installation->hasXeen(), "Clouds installation unavailable");
 		XeenAssetSource assets(*installation);
 		const auto rosterBytes = assets.readInitialResource("maze.chr");

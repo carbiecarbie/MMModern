@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "formats/xeen/XeenFontFormat.h"
 #include "games/xeen/CloudsMapComposer.h"
@@ -52,7 +53,7 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 	try {
-		const auto installation = XeenInstallationDetector().detect(argv[1]);
+		const auto installation = xeenTestInstallationDetector().detect(argv[1]);
 		check(installation && installation->hasXeen(),
 			"Clouds installation unavailable");
 		XeenAssetSource assets(*installation, 320, 200);
@@ -123,7 +124,7 @@ int main(int argc, char *argv[]) {
 		check(display && display->request.kind == XeenPresentationKind::CenteredMessage &&
 			display->request.response == XeenPresentationResponseRequirement::Presented,
 			"expected Castle Basenji centered display request");
-		check(display->request.source.fileOffset == 461 &&
+		check(display->request.source.fileOffset == 505 &&
 			display->request.source.opcode == 0x01 && display->request.mapId == 1 &&
 			display->request.textIndex == 19 && !display->request.text.empty(),
 			"unexpected Castle Basenji text request");

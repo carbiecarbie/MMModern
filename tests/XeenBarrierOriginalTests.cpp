@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "XeenTrainingTestSupport.h"
 #include "games/xeen/XeenEventTrigger.h"
 #include <iostream>
@@ -152,7 +153,7 @@ XeenSaveSnapshot source(Inputs &in) {
 }
 int main(int argc,char **argv) {
 	try {
-		check(argc==2,"usage: barrier-original <installation>");const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"Installation unavailable");
+		check(argc==2,"usage: barrier-original <installation>");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Installation unavailable");
 		Inputs in(*installation);const auto initial=source(in);Fixture f(in,initial);
 		coverage(in);
 		pauses(in,initial);

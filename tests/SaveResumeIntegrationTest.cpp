@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "XeenCheckpointTestSupport.h"
 #include "XeenChildProcessTestSupport.h"
 #include "XeenVisualRemoveTestSupport.h"
@@ -169,7 +170,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
  const bool resume = role == "consumer", produce = role == "producer";
  check(!manual || (produce && (exchange || name=="equipment")), "manual role/checkpoint mismatch");
  check(resume || produce || role == "fresh", "unknown child role");
- const auto installation = XeenInstallationDetector().detect(game);
+ const auto installation = xeenTestInstallationDetector().detect(game);
  check(installation && installation->hasXeen(), "original installation unavailable");
  XeenAssetSource assets(*installation, 320, 200);
  const auto defaults = XeenPartyLoader().loadInitialCloudsParty(assets);
@@ -223,7 +224,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
  };
  auto worldCheck = [&](XeenWorld &w) {
   std::set<XeenObjectIdentity> objects; std::set<XeenEventIdentity> records;
-  if (phirnaRemoved) { objects.insert({23,13}); for (int i = 125; i <= 135; ++i) records.insert({23,static_cast<std::size_t>(i)}); }
+  if (phirnaRemoved) { objects.insert({23,13}); for (std::size_t i=0;i<base23.records.size();++i)if(base23.records[i].x==8 && base23.records[i].y==2)records.insert({23,i}); }
   if (bone) { objects.insert({20,1}); for (int i = 1; i <= 5; ++i) records.insert({20,static_cast<std::size_t>(i)}); }
   check(w.sessionState().disabledObjects() == objects && w.sessionState().disabledEvents() == records, "exact independent multi-map removal identities differ");
   for (const auto &entry : std::vector<std::pair<XeenMapIdentity, const XeenEventFile *>>{{23,&base23},{20,&base20}}) {
@@ -259,7 +260,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
   s.questItems = defaults.questItems.counts(); s.questItems[17] += root; s.questItems[18] += bone;
   s.questFlags = defaults.questFlags.values(); s.questFlags[2] = request; s.gameFlags = defaultFlags.values();
   if (bone) { s.disabledObjects.push_back({20,1}); for (unsigned i=1;i<=5;++i) s.disabledEvents.push_back({20,i}); }
-  if (phirnaRemoved) { s.disabledObjects.push_back({23,13}); for (unsigned i=125;i<=135;++i) s.disabledEvents.push_back({23,i}); }
+  if (phirnaRemoved) { s.disabledObjects.push_back({23,13}); for (std::size_t i=0;i<base23.records.size();++i)if(base23.records[i].x==8 && base23.records[i].y==2)s.disabledEvents.push_back({23,i}); }
   return s;
  };
  std::uint64_t observedPhase=0, ordinaryNow=0;
@@ -645,9 +646,9 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
     }
     if (flow->blocksGameplay() && (phase == Phase::Request || phase == Phase::Return)) {
      check(pending && !terminal && pending->request.kind == XeenPresentationKind::NpcAcknowledgment &&
-      pending->request.source.line == (phase == Phase::Return ? 7 : 4) &&
-      pending->request.source.fileOffset == (phase == Phase::Return ? 244 : 217) &&
-      pending->state.instructionCount == (phase == Phase::Return ? 2U : 3U) &&
+      pending->request.source.line == (phase == Phase::Return ? 10 : 6) &&
+      pending->request.source.fileOffset == (phase == Phase::Return ? 310 : 272) &&
+      pending->state.instructionCount == (phase == Phase::Return ? 3U : 4U) &&
       flow->presenter().pageCount() == (phase == Phase::Return ? 1U : 2U), "original Myra branch/source/pages differ");
     }
     stateCheck();
@@ -712,7 +713,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
     }
     if (cp::sameCamera(c, cp::myra)) {
      check(flow->presenter().pageCount() == (root ? 1U : 2U), "original Myra page count");
-     check(pending->request.kind == XeenPresentationKind::NpcAcknowledgment && pending->request.source.line == (root ? 7 : 4) && pending->request.source.fileOffset == (root ? 244 : 217), "original Myra suspension source");
+     check(pending->request.kind == XeenPresentationKind::NpcAcknowledgment && pending->request.source.line == (root ? 10 : 6) && pending->request.source.fileOffset == (root ? 310 : 272), "original Myra suspension source");
     }
     const auto generation = flow->presentationGeneration();
     const auto page = flow->presenter().pageIndex();

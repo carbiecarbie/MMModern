@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 // Actual CLI/Application with deterministic typed input. Every response follows a
 // successful native SDL presentation; F9 is injected as an SDL keyboard event.
 #include "XeenProbeFired.h"
@@ -353,7 +354,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    inspect([&] {
     const auto before=XeenSaveFormat::encode(XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world));
     const char *root=std::getenv("MMODERN_M38_INSTALLATION");check(root,"M38 original view installation absent");
-    const auto installation=XeenInstallationDetector().detect(root);check(bool(installation),"M38 original view installation invalid");
+    const auto installation=xeenTestInstallationDetector().detect(root);check(bool(installation),"M38 original view installation invalid");
     viewAssets=std::make_unique<XeenAssetSource>(*installation,320,200);const auto resolver=XeenObjectVisualResolver::load(*viewAssets);
     unsigned count=0;
     for(int y=0;y<=4;++y)for(int x=8;x<=16;++x) {

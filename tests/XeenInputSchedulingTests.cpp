@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 // Synthetic restored checkpoints, original resources, production Application/SDL.
 // The earned M41 process witness remains a separate test.
 #include "XeenProbeFired.h"
@@ -53,7 +54,7 @@ struct Harness {
  XeenGameplayServices services() {
   XeenGameplayServices s{in.resources(),[]{return XeenGameFlags{};},in.mapLoader(),in.objectLoader(),[&](auto id){return in.texts.load(id);},in.font,
    [](auto &,const auto &,const auto &,auto){return XeenEventFlow::Composition{frame(),false};},{},
-   [&](auto &f,const auto &){flow=&f;f.drawTrainingArt=[&](auto &b){in.assets.drawTraining(b);};
+   [&](auto &f,const auto &){flow=&f;f.dialogText=&in.assets.uiText();f.drawTrainingArt=[&](auto &b){in.assets.drawTraining(b);};
     f.drawCombatButtons=[&](auto &b){CloudsUiComposer().drawCombatButtons(in.assets,b);};},{},
    [&](auto &w,auto &,const auto &p,auto &c,const auto &g){world=&w;party=&p;camera=&c;flags=&g;}};
   s.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto phase,auto actor){
@@ -213,7 +214,7 @@ void originalDialogs(Inputs &in) {
  const auto catalog=loadXeenItemCatalog(in.assets).catalog;s.catalog=&catalog;
  unsigned delivered=0,loops=0;bool queued=false;std::uint64_t now=0;s.clock=[&]{return now;};
  const auto configure=s.configureFlow;
- s.configureFlow=[&](auto &flow,const auto &camera){configure(flow,camera);flow.drawDialogSprite=[&](auto &frame,const char *name,unsigned id,int x,int y){in.assets.drawDialogSprite(frame,name,id,x,y);};};
+ s.configureFlow=[&](auto &flow,const auto &camera){configure(flow,camera);flow.dialogText=&in.assets.uiText();flow.drawDialogSprite=[&](auto &frame,const char *name,unsigned id,int x,int y){in.assets.drawDialogSprite(frame,name,id,x,y);};};
  s.show=[&](const auto &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
   auto native=handler;
   std::function<void()> pending;
@@ -446,7 +447,7 @@ void boundaries(Inputs &in) {
 }
 int main(int argc,char **argv){probe_fired::expect("SDL_UpdateTexture");probe_fired::expect("SDL_RenderCopy");try{
  check(argc==2 || argc==3,"usage: input-scheduling <installation> [mouse]");SDL_setenv("SDL_VIDEODRIVER","dummy",1);SDL_setenv("SDL_RENDER_DRIVER","software",1);
- const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"original installation absent");Inputs in(*installation);
+ const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"original installation absent");Inputs in(*installation);
  if(argc==3){mouseNotices(in);combatQueue(in,true);originalDialogs(in);mouseJourney(in);return 0;}
  contextAuthority(in);wallRefusal(in);combatQueue(in);movementRedraw(in);boundaries(in);services(in);stress(in);return 0;
 }catch(const std::exception &e){uploadHook={};copyHook={};std::cerr<<e.what()<<'\n';return 1;}}

@@ -378,6 +378,16 @@ void regionalCityWire() {
  city.disabledEvents.push_back({28,764});roundTrip(city);
 }
 
+void mainlandTopologyCounts() {
+	for(unsigned count:{1u,18u,20u,107u}) {
+		auto save=currentWireSnapshot();auto &j=*save.journey;j.originalActorCount=count;j.actors.clear();
+		for(unsigned i=0;i<count;++i){XeenSaveJourneyActor actor;actor.id={23,i};actor.hp=1;actor.x=i%16;actor.y=i/16;j.actors.push_back(actor);}
+		roundTrip(save);
+		auto wrong=save;wrong.journey->originalActorCount=count+1;rejects([&]{XeenSaveFormat::encode(wrong);});
+		wrong=save;wrong.journey->actors.back().id.recordIndex=count;rejects([&]{XeenSaveFormat::encode(wrong);});
+	}
+}
+
 void serviceEconomyWireContract() {
 	for(unsigned content:{14u}) {
 	auto s=currentWireSnapshot();
@@ -526,7 +536,7 @@ void templeWireContract() {
 
 int main() {
 	try {
-		dailyStateRoundTrips();wireContract(); asymmetricBase();  completeRoundTrips(); numericDomains(); malformedBytes(); invalidValuesAndLimits(); fingerprints(); rejectedVersions(); regionalCityWire(); serviceEconomyWireContract(); purchaseDepletedWireContract(); templeWireContract();
+		dailyStateRoundTrips();wireContract(); asymmetricBase();  completeRoundTrips(); numericDomains(); malformedBytes(); invalidValuesAndLimits(); fingerprints(); rejectedVersions(); regionalCityWire();mainlandTopologyCounts(); serviceEconomyWireContract(); purchaseDepletedWireContract(); templeWireContract();
 		std::cout << "Current save format: wire content, all modeled values, domains, malformed input and fingerprints passed\n";
 		return 0;
 	} catch (const std::exception &error) {

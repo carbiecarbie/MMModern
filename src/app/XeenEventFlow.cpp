@@ -146,10 +146,10 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
 IndexedFrame XeenEventFlow::drawRest(const IndexedFrame &base) {
     if(!_encounter->_rest)return base;
     using P=XeenEncounterFlow::RestContinuation::Phase;auto &rest=*_encounter->_rest;
-    if(rest.phase==P::Confirm)return drawXeenConfirm(base,_inventoryFont,std::string(xeenDialogText(XeenDialogText::SomeCharsMayDie)),false,drawDialogSprite);
-    if(rest.phase==P::Refused)return drawXeenErrorScroll(base,_inventoryFont,rest.refusal.empty()?std::string(xeenDialogText(XeenDialogText::TooDangerousToRest)):rest.refusal);
-    if(rest.phase==P::Complete)return drawXeenErrorScroll(base,_inventoryFont,xeenDialogFormat(xeenDialogText(XeenDialogText::RestComplete),{
-        std::string(xeenDialogText(rest.starving?XeenDialogText::PartyIsStarving:XeenDialogText::HitSpellPointsRestored)),std::to_string(rest.consumed)}));
+    if(rest.phase==P::Confirm)return drawXeenConfirm(base,_inventoryFont,std::string(xeenDialogText(dosText(),XeenDialogText::SomeCharsMayDie)),false,drawDialogSprite);
+    if(rest.phase==P::Refused)return drawXeenErrorScroll(base,_inventoryFont,rest.refusal.empty()?std::string(xeenDialogText(dosText(),XeenDialogText::TooDangerousToRest)):rest.refusal);
+    if(rest.phase==P::Complete)return drawXeenErrorScroll(base,_inventoryFont,xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::RestComplete),{
+        std::string(xeenDialogText(dosText(),rest.starving?XeenDialogText::PartyIsStarving:XeenDialogText::HitSpellPointsRestored)),std::to_string(rest.consumed)}));
     if(rest.phase!=P::Dream)return base;
     if(!rest.background.isValid())rest.background=base;
     const auto beat=rest.dreamBeat;
@@ -481,7 +481,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 				}
                 drawPartyPresentation(rendered);
                 if(_encounter->_rest)rendered=drawRest(rendered);
-                if(_encounter->_needsRestNotice)rendered=drawXeenErrorScroll(rendered,_inventoryFont,std::string(xeenDialogText(XeenDialogText::PartyNeedsRest)));
+                if(_encounter->_needsRestNotice)rendered=drawXeenErrorScroll(rendered,_inventoryFont,std::string(xeenDialogText(dosText(),XeenDialogText::PartyNeedsRest)));
 				_inventoryUnderlay = rendered;
 				if (inventoryOpen()) rendered = drawCharacterDialog(rendered);
 				if (_smithUi) rendered=drawSmith(composed.frame);
@@ -532,7 +532,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
                 noticeFrame(composed.frame, _inventoryFont, notice, _encounter->combat(),journey());
 			if (report && !attempt && reportText) reportText(notice);
             drawPartyPresentation(rendered);
-                if(_encounter->_needsRestNotice)rendered=drawXeenErrorScroll(rendered,_inventoryFont,std::string(xeenDialogText(XeenDialogText::PartyNeedsRest)));
+                if(_encounter->_needsRestNotice)rendered=drawXeenErrorScroll(rendered,_inventoryFont,std::string(xeenDialogText(dosText(),XeenDialogText::PartyNeedsRest)));
 			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter report");
 			// Complete the fallible return copy before installing the frame.
 			if (!attempt && beforeEncounterFrameCopy) beforeEncounterFrameCopy();
@@ -670,7 +670,10 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 		if (suspended && journey() && (suspended->request.kind==XeenPresentationKind::ArmorRepairService ||
 			 suspended->request.kind==XeenPresentationKind::TempleService) && !xeenSmithAuthorityRoom(_generation,1))
 			throw std::overflow_error("Smith Event ticket generation exhausted before preparation");
-		if (suspended) _pending.emplace(Pending{std::move(suspended->state), automatic, ++_generation});
+		if (suspended) {
+			_pending.emplace(Pending{std::move(suspended->state), automatic, ++_generation});
+			if(journey())_regionalEventContinuation.emplace(_pending->state,true);
+		}
 		if (suspended && (suspended->request.kind==XeenPresentationKind::ArmorRepairService ||
 			suspended->request.kind==XeenPresentationKind::TrainingService ||
 			suspended->request.kind==XeenPresentationKind::TempleService))
@@ -951,10 +954,15 @@ IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operat
 	_candidateResultRefused=false;
 	const auto entry=_encounter->ticket();
 	try {
+		if(!_pending){_regionalExecutedRecords.clear();_regionalEventContinuation.reset();}
+		else {
+			try {if(!_regionalEventContinuation)throw std::logic_error("Regional suspension preimage absent");_regionalEventContinuation->check(_pending->state);}
+			catch(const std::logic_error &){_encounter->journeySavePreimage().failed=true;throw;}
+		}
 		XeenEventPublication publication(_encounter->journeySavePreimage(),_encounter->_journeyEvents,[&] {
 			if (!_dispatching || !_encounter->journeyEvent() || !_encounter->current(entry))
 				throw std::logic_error("Stale Journey event continuation");
-		},beforeRewardEnqueue);
+		},beforeRewardEnqueue,&_regionalExecutedRecords);
 		XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world,[&] { publication.check(); });
 		_eventPublication=&publication;
 		try { operation(); publication.check();
@@ -1225,6 +1233,10 @@ bool XeenEventFlow::resumePending(std::uint64_t generation, XeenPresentationResp
 	if (!_pending || _pending->generation != generation) return false;
 	if (!_pending->state.pendingPresentation ||
 		!xeenResponseMatches(_pending->state.pendingPresentation->request.response, response)) return false;
+	if(journey()) {
+		try {if(!_regionalEventContinuation)throw std::logic_error("Regional suspension preimage absent");_regionalEventContinuation->check(_pending->state);}
+		catch(const std::logic_error &){_encounter->journeySavePreimage().failed=true;throw;}
+	}
 	try { _frame = _presenter.finishPresentation(); }
 	catch (const std::exception &e) { presentationFailed(e); return true; }
 	requireCurrentOwners();

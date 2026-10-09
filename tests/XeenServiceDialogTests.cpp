@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "XeenPurchaseTestSupport.h"
 #include <fstream>
 #include <iostream>
@@ -18,7 +19,7 @@ void layout(Inputs &in) {
         else if(location==XeenLocationDialog::Training)in.assets.drawTraining(art);
         else in.assets.drawTemple(art);
         for(unsigned member=0;member<6;++member) {
-            auto rendered=drawXeenLocation(base,art,in.font,location,f.p,member,draw);
+            auto rendered=drawXeenLocation(in.assets.uiText(),base,art,in.font,location,f.p,member,draw);
             for(int y=8;y<140;++y)for(int x=8;x<224;++x)
                 check(rendered.pixels[y*320+x]==art.pixels[y*320+x],"location panel covers town art");
             check(rendered.pixels[155*320+230]==77,"location overwrites party strip");
@@ -33,12 +34,12 @@ void layout(Inputs &in) {
             XeenInventorySelection selection;selection.source=member;
             for(unsigned category=0;category<4;++category)for(bool repair:{false,true}) {
                 selection.category=static_cast<XeenInventoryCategory>(category);
-                check(drawXeenBuy(rendered,in.font,loadXeenItemCatalog(in.assets).catalog,f.p,selection,repair,draw).isValid(),"original Buy/Fix template overflow");
+                check(drawXeenBuy(in.assets.uiText(),rendered,in.font,loadXeenItemCatalog(in.assets).catalog,f.p,selection,repair,draw).isValid(),"original Buy/Fix template overflow");
             }
         }
     }
-    check(drawXeenErrorScroll(base,in.font,xeenNotEnoughGold()).isValid(),"gold refusal layout");
-    check(drawXeenConfirm(base,in.font,xeenServiceConfirm(true,"Plate Armor",200),false,draw).isValid(),"Fix Confirm layout");
+    check(drawXeenErrorScroll(base,in.font,xeenNotEnoughGold(in.assets.uiText())).isValid(),"gold refusal layout");
+    check(drawXeenConfirm(base,in.font,xeenServiceConfirm(in.assets.uiText(),true,"Plate Armor",200),false,draw).isValid(),"Fix Confirm layout");
 }
 void refusals(Inputs &in) {
     for(bool temple:{false,true}) {
@@ -48,7 +49,7 @@ void refusals(Inputs &in) {
         Fixture f(in,source);f.flow->drawTempleArt=[&](auto &image){in.assets.drawTemple(image);};
         f.act(InteractionAction{});f.prepare();keyboard(f,InputKey::F1+(temple?5:1));
         const Owners before(f);std::string notice;f.flow->reportText=[&](const auto &text){notice=text;};
-        keyboard(f,temple?'h':'t');check(notice==xeenNotEnoughGold(),"one-step service lacks original gold refusal");before.unchanged(f);
+        keyboard(f,temple?'h':'t');check(notice==xeenNotEnoughGold(in.assets.uiText()),"one-step service lacks original gold refusal");before.unchanged(f);
         keyboard(f,InputKey::Enter);
         if(temple) {keyboard(f,'u');check(notice.find("not supported yet")!=std::string::npos,"Uncurse lacks refusal");before.unchanged(f);keyboard(f,InputKey::Enter);}
         keyboard(f,InputKey::Escape);check(f.flow->canSave() && f.p.encounterContext->day==9,"refused service lost unpaid departure");
@@ -83,7 +84,7 @@ void dialogs(Inputs &in,bool mouse) {
     if(mouse)click(smith,130,113);else keyboard(smith,'y');
     check(smith.p.monsterTreasure->gold==650 && !smith.p.roster.at(0).armor[0].state,"Fix did not apply inherited twenty-gold repair");
     std::string notice;smith.flow->reportText=[&](const auto &text){notice=text;};
-    keyboard(smith,'1');check(notice==xeenDialogText(XeenDialogText::ItemNotBroken),"intact Fix lacks original refusal");keyboard(smith,InputKey::Enter);
+    keyboard(smith,'1');check(notice==xeenDialogText(in.assets.uiText(),XeenDialogText::ItemNotBroken),"intact Fix lacks original refusal");keyboard(smith,InputKey::Enter);
     keyboard(smith,'b');keyboard(smith,'m');const auto paid=Owners(smith);
     keyboard(smith,'1');check(notice.find("not supported yet")!=std::string::npos,"Misc Buy lacks refusal");paid.unchanged(smith);keyboard(smith,InputKey::Enter);
     smith.leave();check(smith.p.encounterContext->day==9,"Buy/Fix visit changed departure charge");
@@ -109,6 +110,6 @@ void dialogs(Inputs &in,bool mouse) {
 }
 }
 int main(int argc,char **argv){try{
-    check(argc==2,"usage: service-dialogs <installation>");const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"installation unavailable");Inputs in(*installation);
+    check(argc==2,"usage: service-dialogs <installation>");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"installation unavailable");Inputs in(*installation);
     layout(in);refusals(in);dialogs(in,false);dialogs(in,true);std::cout<<"Original service layouts, hit actions, Buy/Fix, one-step Training and Heal passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

@@ -25,7 +25,7 @@ std::optional<std::uint8_t> xeenRegionalService(const XeenEventFile &, const Xee
 XeenRegionalInteraction xeenRegionalInteraction(const XeenEventFile &, const XeenCamera &);
 std::optional<std::int16_t> xeenWellHpAfter(std::int16_t before) noexcept;
 void xeenValidateRegionalActors(const XeenMap &, const XeenObjectFile &, const std::vector<XeenActor> &,
-	const std::set<XeenMonsterIdentity> &accounted);
+	const std::set<XeenMonsterIdentity> &accounted, const std::vector<XeenMonsterRecord> &statistics);
 void xeenValidateVertigoActors(XeenWorld &, const std::vector<XeenActor> &);
 using XeenRegionalManifest = std::function<void(const XeenMap &, const XeenObjectFile &,
 	const XeenEventFile &, const std::vector<XeenMonsterRecord> &)>;

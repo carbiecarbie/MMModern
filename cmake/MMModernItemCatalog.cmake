@@ -49,14 +49,14 @@ function(add_mmodern_item_catalog_generation)
 	set(MMODERN_ITEM_CATALOG_GENERATED_DIR "${generated_dir}" PARENT_SCOPE)
 	set(MMODERN_ITEM_CATALOG_POWERSHELL "${item_catalog_powershell}" PARENT_SCOPE)
 	set(MMODERN_ITEM_CATALOG_GENERATOR "${generator}" PARENT_SCOPE)
-	set(dialog_include "${generated_dir}/XeenDialogEnglish.inc")
+	set(dialog_include "${generated_dir}/XeenDialogDrawing.inc")
 	list(POP_BACK generate_command)
-	list(APPEND generate_command "${dialog_include}" -DialogText)
+	list(APPEND generate_command "${dialog_include}" -DialogDrawing)
 	execute_process(COMMAND ${generate_command} RESULT_VARIABLE dialog_result)
 	if(NOT dialog_result EQUAL 0)
-		message(FATAL_ERROR "ScummVM dialog-text generation failed")
+		message(FATAL_ERROR "ScummVM dialog drawing generation failed")
 	endif()
-	add_custom_target(mmodern_dialog_text_data ALL
+	add_custom_target(mmodern_dialog_drawing_data ALL
 		COMMAND ${generate_command}
 		BYPRODUCTS "${dialog_include}"
 		VERBATIM)

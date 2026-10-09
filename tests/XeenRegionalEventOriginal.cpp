@@ -814,10 +814,10 @@ check(h.flow->inventorySelection().mode==XeenInventoryMode::UseTarget,"Antidote 
    check(Application().playGameplay(s,{},path,true)==0 && shown,"Regional manual event case");
   }
   for(unsigned fault=0;fault<5;++fault) {
-   auto saved=source;saved.camera={23,5,9,XeenDirection::North};if(fault==0 || fault==1)saved.disabledEvents={{23,56}};
+   auto saved=source;saved.camera={23,5,9,XeenDirection::North};if(fault==0 || fault==1){Harness locator(game);const auto file=regional(locator).resources.loadEvents(23);const auto sign=xeenRegionalEvent(file,saved.camera);check(bool(sign),"original sign source absent");saved.disabledEvents={{23,*sign}};}
    XeenSaveFile::write(path,saved);Harness h(game);auto s=regional(h);bool changed=false,shown=false;
    const auto load=s.resources.loadEvents;
-   s.resources.loadEvents=[&](auto id){auto f=load(id);if(changed)f.records[56].parameters={17};return f;};
+   s.resources.loadEvents=[&](auto id){auto f=load(id);if(changed){const auto sign=xeenRegionalEvent(f,{23,5,9,XeenDirection::North});check(bool(sign),"loaded sign source absent");f.records[*sign].parameters={17};}return f;};
    s.show=[&](const auto &,const auto &handler,const auto &,const auto &,const auto &){
     shown=true;handler.framePresented(h.flow->frame().presentation());const auto before=bytes(h);
     if(fault<=1) {

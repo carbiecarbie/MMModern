@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #define FORBIDDEN_SYMBOL_ALLOW_ALL
 #include "formats/xeen/XeenAssetSource.h"
 #include "formats/xeen/XeenObjectSpriteSafety.h"
@@ -64,7 +65,7 @@ public:
 int main(int argc,char **argv) {
 	try {
 		check(argc==3,"usage: mmodern_object_visual_smoke <game-directory> <ignored-output-directory>");
-		const auto installation=XeenInstallationDetector().detect(argv[1]);
+		const auto installation=xeenTestInstallationDetector().detect(argv[1]);
 		check(installation && installation->hasXeen(),"Clouds installation missing");
 		std::filesystem::create_directories(argv[2]);
 		const char *directions[]={"north","east","south","west"};

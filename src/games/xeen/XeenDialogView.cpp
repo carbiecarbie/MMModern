@@ -8,10 +8,10 @@
 #include <stdexcept>
 #include <algorithm>
 #include <string_view>
-#include "XeenDialogEnglish.inc"
+
 namespace mmodern {
 namespace {
-namespace T=generated_dialog_text;
+
 using R=XeenCharacterRules;
 std::string str(std::string_view text) { return std::string(text); }
 template<class V> std::string n(V value) { return std::to_string(value); }
@@ -40,56 +40,59 @@ void highlight(IndexedFrame &frame,std::size_t member,const XeenDialogSpriteDraw
     // Interface::highlightChar uses the original char-selection glyph.
     if(draw && member<6) { constexpr int x[]{10,45,81,117,153,189};draw(frame,"global.icn",8,x[member]-1,149); }
 }
-const auto &conditions(const XeenCharacter &c) { return c.sex==XeenSex::Female?T::CONDITION_NAMES_F:T::CONDITION_NAMES_M; }
+const auto &conditions(const XeenDosText &text,const XeenCharacter &) { return text.table("CONDITION_NAMES"); }
 std::uint32_t gold(const XeenPartyState &p) { return p.monsterTreasure?std::uint32_t(p.monsterTreasure->gold):0u; }
 std::uint32_t gems(const XeenPartyState &p) { return p.monsterTreasure?std::uint32_t(p.monsterTreasure->gems):0u; }
 }
 std::string xeenDialogFormat(std::string_view format,const std::vector<std::string> &args) {
+    if(format.size()>16384)throw std::length_error("Original dialog template exceeds bound");
     std::string result;std::size_t index=0;
     for(std::size_t i=0;i<format.size();) {
-        if(format[i]!='%') { result+=format[i++];continue; }
+        if(format[i]!='%') { if(result.size()==16384)throw std::length_error("Original dialog text exceeds bound");result+=format[i++];continue; }
         if(++i<format.size() && format[i]=='%') { result+='%';++i;continue; }
         const bool zero=i<format.size() && format[i]=='0';
-        unsigned width=0;while(i<format.size() && format[i]>='0' && format[i]<='9') width=width*10+format[i++]-'0';
+        unsigned width=0;while(i<format.size() && format[i]>='0' && format[i]<='9') {width=width*10+format[i++]-'0';if(width>32)throw std::invalid_argument("Original dialog format width exceeds bound");}
         if(i<format.size() && format[i]=='l') ++i;
         if(i==format.size() || std::string_view("sduic").find(format[i])==std::string_view::npos || index==args.size() || width>32)
             throw std::invalid_argument("Original dialog template argument mismatch");
-        auto value=args[index++];++i;
+        if(args[index].size()>16384)throw std::length_error("Original dialog argument exceeds bound");
+        auto value=args[index++];if(format[i]=='c' && value.size()!=1)throw std::invalid_argument("Original dialog character argument mismatch");++i;
         if(value.size()<width) value.insert(0,width-value.size(),zero?'0':' ');
         result+=value;
         if(result.size()>16384) throw std::length_error("Original dialog text exceeds bound");
     }
     if(index!=args.size()) throw std::invalid_argument("Unused original dialog template arguments: used "+n(index)+" of "+n(args.size()));
+    if(result.size()>16384)throw std::length_error("Original dialog text exceeds bound");
     return result;
 }
-std::string_view xeenDialogText(XeenDialogText text) {
-    switch(text) {
-    case XeenDialogText::ExchangingInCombat:return T::EXCHANGING_IN_COMBAT;
-    case XeenDialogText::CursedItem:return T::CANNOT_REMOVE_CURSED_ITEM;
-    case XeenDialogText::BackpackFull:return T::BACKPACK_IS_FULL;
-    case XeenDialogText::NotProficient:return T::NOT_PROFICIENT;
-    case XeenDialogText::EquippedAll:return T::EQUIPPED_ALL_YOU_CAN;
-    case XeenDialogText::RemoveToEquip:return T::REMOVE_X_TO_EQUIP_Y;
-    case XeenDialogText::Ring:return T::RING;
-    case XeenDialogText::Medal:return T::MEDAL;
-    case XeenDialogText::InNoCondition:return T::IN_NO_CONDITION;
-    case XeenDialogText::Hurry:return T::WHATS_YOUR_HURRY;
-    case XeenDialogText::UseInCombat:return T::USE_ITEM_IN_COMBAT;
-    case XeenDialogText::NoSpecialAbilities:return T::NO_SPECIAL_ABILITIES;
-    case XeenDialogText::CannotCastEngaged:return T::CANT_CAST_WHILE_ENGAGED;
-    case XeenDialogText::WhichItem:return T::WHICH_ITEM;
-    case XeenDialogText::PermanentlyDiscard:return T::PERMANENTLY_DISCARD;
-    case XeenDialogText::BuyForGold:return T::BUY_X_FOR_Y_GOLD;
-    case XeenDialogText::ItemsTitle:return T::X_FOR_THE_Y;
-    case XeenDialogText::MiscCategory:return T::CATEGORY_NAMES[3];
-    case XeenDialogText::Charges:return T::FMT_CHARGES;
-    case XeenDialogText::ItemNotBroken:return T::ITEM_NOT_BROKEN;
-    case XeenDialogText::PartyNeedsRest:return T::THE_PARTY_NEEDS_REST;
-    case XeenDialogText::RestComplete:return T::REST_COMPLETE;
-    case XeenDialogText::PartyIsStarving:return T::PARTY_IS_STARVING;
-    case XeenDialogText::HitSpellPointsRestored:return T::HIT_SPELL_POINTS_RESTORED;
-    case XeenDialogText::TooDangerousToRest:return T::TOO_DANGEROUS_TO_REST;
-    case XeenDialogText::SomeCharsMayDie:return T::SOME_CHARS_MAY_DIE;
+std::string_view xeenDialogText(const XeenDosText &text,XeenDialogText id) {
+    switch(id) {
+    case XeenDialogText::ExchangingInCombat:return text.scalar("EXCHANGING_IN_COMBAT");
+    case XeenDialogText::CursedItem:return text.scalar("CANNOT_REMOVE_CURSED_ITEM");
+    case XeenDialogText::BackpackFull:return text.scalar("BACKPACK_IS_FULL");
+    case XeenDialogText::NotProficient:return text.scalar("NOT_PROFICIENT");
+    case XeenDialogText::EquippedAll:return text.scalar("EQUIPPED_ALL_YOU_CAN");
+    case XeenDialogText::RemoveToEquip:return text.scalar("REMOVE_X_TO_EQUIP_Y");
+    case XeenDialogText::Ring:return text.scalar("RING");
+    case XeenDialogText::Medal:return text.scalar("MEDAL");
+    case XeenDialogText::InNoCondition:return text.scalar("IN_NO_CONDITION");
+    case XeenDialogText::Hurry:return text.scalar("WHATS_YOUR_HURRY");
+    case XeenDialogText::UseInCombat:return text.scalar("USE_ITEM_IN_COMBAT");
+    case XeenDialogText::NoSpecialAbilities:return text.scalar("NO_SPECIAL_ABILITIES");
+    case XeenDialogText::CannotCastEngaged:return text.scalar("CANT_CAST_WHILE_ENGAGED");
+    case XeenDialogText::WhichItem:return text.scalar("WHICH_ITEM");
+    case XeenDialogText::PermanentlyDiscard:return text.scalar("PERMANENTLY_DISCARD");
+    case XeenDialogText::BuyForGold:return text.scalar("BUY_X_FOR_Y_GOLD");
+    case XeenDialogText::ItemsTitle:return text.scalar("X_FOR_THE_Y");
+    case XeenDialogText::MiscCategory:return text.table("CATEGORY_NAMES")[3];
+    case XeenDialogText::Charges:return text.scalar("FMT_CHARGES");
+    case XeenDialogText::ItemNotBroken:return text.scalar("ITEM_NOT_BROKEN");
+    case XeenDialogText::PartyNeedsRest:return text.scalar("THE_PARTY_NEEDS_REST");
+    case XeenDialogText::RestComplete:return text.scalar("REST_COMPLETE");
+    case XeenDialogText::PartyIsStarving:return text.scalar("PARTY_IS_STARVING");
+    case XeenDialogText::HitSpellPointsRestored:return text.scalar("HIT_SPELL_POINTS_RESTORED");
+    case XeenDialogText::TooDangerousToRest:return text.scalar("TOO_DANGEROUS_TO_REST");
+    case XeenDialogText::SomeCharsMayDie:return text.scalar("SOME_CHARS_MAY_DIE");
     }
     throw std::invalid_argument("Unknown dialog text");
 }
@@ -148,35 +151,35 @@ std::uint32_t xeenTempleUncurseCost(const XeenCharacter &c) {
         for(const auto &item:*xeenInventoryItems(c,static_cast<XeenInventoryCategory>(category))) cursed|=(item.state&0x40)!=0;
     return cursed?c.currentLevel()*20:0;
 }
-std::string xeenNotEnoughGold() {
-    return xeenDialogFormat(T::NOT_ENOUGH_X_IN_THE_Y,{str(T::CONSUMABLE_NAMES[0]),str(T::WHERE_NAMES[0])});
+std::string xeenNotEnoughGold(const XeenDosText &text) {
+    return xeenDialogFormat(text.scalar("NOT_ENOUGH_X_IN_THE_Y"),{str(text.table("CONSUMABLE_NAMES")[0]),str(text.table("WHERE_NAMES")[0])});
 }
-std::string xeenServiceConfirm(bool repair,const std::string &name,std::uint32_t price) {
+std::string xeenServiceConfirm(const XeenDosText &text,bool repair,const std::string &name,std::uint32_t price) {
     // English getGoldPlurals is always the singular resource form.
-    if(repair) return xeenDialogFormat(T::FIX_IDENTIFY_GOLD,{str(T::FIX_IDENTIFY[0]),name,n(price),str(T::GOLDS[0])});
-    return xeenDialogFormat(T::BUY_X_FOR_Y_GOLD,{name,n(price),str(T::GOLDS[0])});
+    if(repair) return xeenDialogFormat(text.scalar("FIX_IDENTIFY_GOLD"),{str(text.table("FIX_IDENTIFY")[0]),name,n(price)});
+    return xeenDialogFormat(text.scalar("BUY_X_FOR_Y_GOLD"),{name,n(price)});
 }
-std::string xeenLocationText(XeenLocationDialog location,const XeenPartyState &p,std::size_t member) {
+std::string xeenLocationText(const XeenDosText &text,XeenLocationDialog location,const XeenPartyState &p,std::size_t member) {
     const auto &c=p.party.member(p.roster,member);
     const auto purse=gold(p);const auto money=purse>=1000000?n(purse/1000000)+" mil":n(purse);
-    if(location==XeenLocationDialog::Smith) return xeenDialogFormat(T::BLACKSMITH_TEXT,{c.name,money});
+    if(location==XeenLocationDialog::Smith) return xeenDialogFormat(text.scalar("BLACKSMITH_TEXT"),{c.name,money});
     if(location==XeenLocationDialog::Temple) {
         const auto heal=xeenQuoteTempleHeal(c,purse,*p.encounterContext);
         const auto uncurse=xeenTempleUncurseCost(c);
-        return xeenDialogFormat(T::TEMPLE_TEXT,{c.name,n(heal.price),"10",uncurse>9999?n(uncurse/1000)+"k":n(uncurse),money});
+        return xeenDialogFormat(text.scalar("TEMPLE_TEXT"),{c.name,n(heal.price),"10",uncurse>9999?n(uncurse/1000)+"k":n(uncurse),money});
     }
     const auto r=xeenQuoteTraining(c,*p.roster.combatInputs(c.rosterId),purse,*p.encounterContext);
     std::string message;
-    if(c.permanentLevel>=10) message=xeenDialogFormat(T::TRAINING_LEARNED_ALL,{c.name});
-    else if(r.missing) message=xeenDialogFormat(T::EXPERIENCE_FOR_LEVEL,{c.name,n(r.missing),n(c.permanentLevel+1)});
-    else message=xeenDialogFormat(T::ELIGIBLE_FOR_LEVEL,{c.name,n(c.permanentLevel+1),n(r.cost)});
-    return xeenDialogFormat(T::TRAINING_TEXT,{message,money});
+    if(c.permanentLevel>=10) message=xeenDialogFormat(text.scalar("TRAINING_LEARNED_ALL"),{c.name});
+    else if(r.missing) message=xeenDialogFormat(text.scalar("EXPERIENCE_FOR_LEVEL"),{c.name,n(r.missing),n(c.permanentLevel+1)});
+    else message=xeenDialogFormat(text.scalar("ELIGIBLE_FOR_LEVEL"),{c.name,n(c.permanentLevel+1),n(r.cost)});
+    return xeenDialogFormat(text.scalar("TRAINING_TEXT"),{message,money});
 }
-IndexedFrame drawXeenLocation(const IndexedFrame &base,const IndexedFrame &art,const XeenFontFormat &font,
+IndexedFrame drawXeenLocation(const XeenDosText &text,const IndexedFrame &base,const IndexedFrame &art,const XeenFontFormat &font,
         XeenLocationDialog location,const XeenPartyState &p,std::size_t member,const XeenDialogSpriteDraw &draw) {
     auto frame=base;
     for(int y=8;y<140;++y) std::copy_n(art.pixels.data()+y*320+8,216,frame.pixels.data()+y*320+8);
-    frame=render(frame,font,xeenLocationText(location,p,member),{226,0,320,146},{234,8,312,138});
+    frame=render(frame,font,xeenLocationText(text,location,p,member),{226,0,320,146},{234,8,312,138});
     if(draw) for(const auto &hit:xeenLocationInput(location).hits) if(hit.button) {
         const auto &b=*hit.button;draw(frame,b.resource,b.frame,b.x,b.y);
     }
@@ -209,23 +212,24 @@ std::uint32_t xeenBuyDisplayCost(XeenInventoryCategory category,const XeenItem &
     }
     return std::max(1u,base);
 }
-IndexedFrame drawXeenBuy(const IndexedFrame &base,const XeenFontFormat &font,const XeenItemCatalog &catalog,
+IndexedFrame drawXeenBuy(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,const XeenItemCatalog &catalog,
         const XeenPartyState &p,const XeenInventorySelection &selection,bool repair,const XeenDialogSpriteDraw &draw) {
-    auto frame=render(base,font,xeenDialogFormat(T::ITEMS_DIALOG_TEXT1,{str(T::BTN_BUY),str(T::BTN_SELL),str(T::BTN_IDENTIFY),str(T::BTN_FIX)}),{0,101,320,146},{8,109,312,138});
+    auto frame=render(base,font,xeenDialogFormat(text.scalar("ITEMS_DIALOG_TEXT1"),{str(text.scalar("BTN_BUY")),str(text.scalar("BTN_SELL")),str(text.scalar("BTN_IDENTIFY")),str(text.scalar("BTN_FIX"))}),{0,101,320,146},{8,109,312,138});
     const auto &c=p.party.member(p.roster,selection.source);
     const auto &items=repair?*xeenInventoryItems(c,selection.category):p.serviceEconomy->wares[0][0][static_cast<unsigned>(selection.category)];
-    std::vector<std::string> args{str(T::CATEGORY_NAMES[static_cast<unsigned>(selection.category)]),repair?std::string(c.name):n(gold(p))};
-    if(repair) args.push_back(str(T::COST));
+    std::vector<std::string> args{str(text.table("CATEGORY_NAMES")[static_cast<unsigned>(selection.category)]),repair?std::string(c.name):n(gold(p))};
+    if(repair) args.push_back(str(text.scalar("COST")));
+    else args.insert(args.begin()+1,"");
     for(unsigned i=0;i<9;++i) {
         const auto description=catalog.describe(selection.category,items[i]);
-        if(description.empty) args.push_back(i==0?str(T::NO_ITEMS_AVAILABLE):"");
+        if(description.empty) args.push_back(i==0?str(text.scalar("NO_ITEMS_AVAILABLE")):"");
         else {
             const auto quote=xeenQuoteArmorRepair(selection.category,items[i],gold(p));
             const auto cost=repair?(quote.outcome==XeenArmorRepairOutcome::Quoted?quote.price:xeenBuyDisplayCost(selection.category,items[i])/10):xeenBuyDisplayCost(selection.category,items[i]);
-            args.push_back(xeenDialogFormat(T::ITEMS_DIALOG_LINE2,{n(selection.slot==i?15:0),n(i+1),description.displayName,n(std::max(1u,cost))}));
+            args.push_back(xeenDialogFormat(text.scalar("ITEMS_DIALOG_LINE2"),{n(selection.slot==i?15:0),n(i+1),description.displayName,n(std::max(1u,cost))}));
         }
     }
-    frame=render(frame,font,xeenDialogFormat(repair?T::X_FOR_Y:T::AVAILABLE_GOLD_COST,args),{0,0,320,108},{8,8,312,100});
+    frame=render(frame,font,xeenDialogFormat(repair?text.scalar("X_FOR_Y"):text.scalar("AVAILABLE_GOLD_COST"),args),{0,0,320,108},{8,8,312,100});
     if(draw) {
         for(const auto &hit:xeenBuyInput(repair).hits) if(hit.button) {const auto &b=*hit.button;draw(frame,b.resource,b.frame,b.x,b.y);}
         if(selection.category!=XeenInventoryCategory::Miscellaneous) for(unsigned i=0;i<9;++i) if(items[i].id) {
@@ -249,7 +253,7 @@ std::optional<bool> xeenConfirmAnswer(unsigned key) {
     if(key=='n' || key==InputKey::Escape) return false;
     return {};
 }
-IndexedFrame drawXeenSheet(const IndexedFrame &base,const XeenFontFormat &font,const XeenPartyState &p,
+IndexedFrame drawXeenSheet(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,const XeenPartyState &p,
         std::size_t member,unsigned cursor,bool blink,const XeenDialogSpriteDraw &draw) {
     const auto &c=p.party.member(p.roster,member);const auto *in=inputs(p,c);const auto ctx=context(p);
     const auto stat=[&](unsigned a){return R::sheetStat(c,in,a,ctx);};
@@ -258,15 +262,15 @@ IndexedFrame drawXeenSheet(const IndexedFrame &base,const XeenFontFormat &font,c
     int totalResistance=0;for(unsigned i=0;i<6;++i) totalResistance+=R::sheetResistance(c,in,i);
     const auto condition=static_cast<unsigned>(c.worstCondition());
     const auto food=p.party.size()?std::uint16_t(p.food)/p.party.size()/3:0;
-    const auto details=xeenDialogFormat(T::CHARACTER_DETAILS,{
-        str(T::PARTY_GOLD),c.name,str(T::SEX_NAMES.at(static_cast<unsigned>(c.sex))),str(T::RACE_NAMES.at(static_cast<unsigned>(c.race))),str(T::CLASS_NAMES.at(static_cast<unsigned>(c.characterClass))),
+    const auto details=xeenDialogFormat(text.scalar("CHARACTER_DETAILS"),{
+        str(text.scalar("PARTY_GOLD")),c.name,str(text.table("SEX_NAMES").at(static_cast<unsigned>(c.sex))),str(text.table("RACE_NAMES").at(static_cast<unsigned>(c.race))),str(text.table("CLASS_NAMES").at(static_cast<unsigned>(c.characterClass))),
         n(color(0)),n(stat(0)),n(color(5)),n(stat(5)),n(R::statColor(c.currentHp,maxHp)),n(int(c.currentHp)),n(R::currentExperience(c,in)),
         n(color(1)),n(stat(1)),n(color(6)),n(stat(6)),n(R::statColor(c.currentSp,maxSp)),n(int(c.currentSp)),n(gold(p)),
         n(color(2)),n(stat(2)),n(R::statColor(R::sheetAge(c,ctx),R::sheetAge(c,ctx,true))),n(R::sheetAge(c,ctx)),n(totalResistance),n(gems(p)),
-        n(color(3)),n(stat(3)),n(R::statColor(c.currentLevel(),c.permanentLevel)),n(c.currentLevel()),n(R::skillCount(c)),n(food),str(T::DAYS[food==1?0:1]),
+        n(color(3)),n(stat(3)),n(R::statColor(c.currentLevel(),c.permanentLevel)),n(c.currentLevel()),n(R::skillCount(c)),n(food),food==1?" ":str(text.scalar("DAY_PLURAL")),
         n(color(4)),n(stat(4)),n(R::statColor(R::sheetArmorClass(c,in,ctx),R::sheetArmorClass(c,in,ctx,true))),n(R::sheetArmorClass(c,in,ctx)),n(R::awardCount(c)),
-        n(condition<8?9:condition<12?32:condition<16?6:15),str(conditions(c)[condition]),"","","",""});
-    auto frame=render(base,font,xeenDialogFormat(T::CHARACTER_TEMPLATE,{details}),{0,0,320,146},{8,8,312,138});
+        n(condition<8?9:condition<12?32:condition<16?6:15),str(conditions(text,c)[condition]),"","","",""});
+    auto frame=render(base,font,xeenDialogFormat(text.scalar("CHARACTER_TEMPLATE"),{details}),{0,0,320,146},{8,8,312,138});
     if(draw) {
         constexpr int x[]{2,53,104,169};
         for(unsigned col=0;col<4;++col) for(unsigned row=0;row<5;++row) draw(frame,"view.icn",(col*5+row)*2,x[col]+8,24+row*23);
@@ -275,49 +279,49 @@ IndexedFrame drawXeenSheet(const IndexedFrame &base,const XeenFontFormat &font,c
     }
     highlight(frame,member,draw);return frame;
 }
-XeenDialogPopup xeenSheetPopup(const XeenPartyState &p,std::size_t member,unsigned cell) {
+XeenDialogPopup xeenSheetPopup(const XeenDosText &text,const XeenPartyState &p,std::size_t member,unsigned cell) {
     if(cell>=20 || cell==14) throw std::invalid_argument("Invalid stat popup");
     const auto &c=p.party.member(p.roster,member);const auto *in=inputs(p,c);const auto ctx=context(p);
     constexpr int x[]{61,112,177,34};XeenDialogPopup popup;
     popup.bounds={x[cell/5],24+23*int(cell%5),x[cell/5]+143,76+23*int(cell%5)};
-    const auto name=cell<16?str(T::STAT_NAMES[cell]):str(T::CONSUMABLE_NAMES[cell-16]);
+    const auto name=cell<16?str(text.table("STAT_NAMES")[cell]):str(text.table("CONSUMABLE_NAMES")[cell-16]);
     if(cell<7) {
         constexpr int thresholds[]{3,5,7,9,11,13,15,17,19,21,25,30,35,40,50,75,100,125,150,175,200,225,250,65535};
         const int value=R::sheetStat(c,in,cell,ctx);unsigned rating=0;while(rating<23 && thresholds[rating]<=value)++rating;
-        popup.text=xeenDialogFormat(T::CURRENT_MAXIMUM_RATING_TEXT,{name,n(value),n(R::sheetStat(c,in,cell,ctx,true)),str(T::RATING_TEXT[rating])});
-    } else if(cell==7) popup.text=xeenDialogFormat(T::AGE_TEXT,{name,n(R::sheetAge(c,ctx)),n(R::sheetAge(c,ctx,true)),str(T::BORN[0]),n(c.originalDetails()?c.originalDetails()->birthDay:0),n(unsigned(c.birthYear))});
+        popup.text=xeenDialogFormat(text.scalar("CURRENT_MAXIMUM_RATING_TEXT"),{name,n(value),n(R::sheetStat(c,in,cell,ctx,true)),str(text.table("RATING_TEXT")[rating])});
+    } else if(cell==7) popup.text=xeenDialogFormat(text.scalar("AGE_TEXT"),{name,n(R::sheetAge(c,ctx)),n(R::sheetAge(c,ctx,true)),n(c.originalDetails()?c.originalDetails()->birthDay:0),n(unsigned(c.birthYear))});
     else if(cell==8) { constexpr unsigned gains[]{5,6,6,7,8,6,5,4,7,6};const unsigned attacks=c.currentLevel()/gains[static_cast<unsigned>(c.characterClass)]+1;
-        popup.text=xeenDialogFormat(T::LEVEL_TEXT,{name,n(c.currentLevel()),n(int(c.permanentLevel)),n(attacks),attacks>1?"s":""}); }
+        popup.text=xeenDialogFormat(text.scalar("LEVEL_TEXT"),{name,n(c.currentLevel()),n(int(c.permanentLevel)),n(attacks),attacks>1?"s":""}); }
     else if(cell<=11) {
         const int current=cell==9?R::sheetArmorClass(c,in,ctx):cell==10?int(c.currentHp):int(c.currentSp);
         const int max=cell==9?R::sheetArmorClass(c,in,ctx,true):cell==10?R::maxHp(c,ctx):R::maxSp(c,ctx);
-        popup.text=xeenDialogFormat(T::CURRENT_MAXIMUM_TEXT,{name,n(current),n(max)});popup.bounds.bottom=popup.bounds.top+42;
+        popup.text=xeenDialogFormat(text.scalar(cell==9?"CURRENT_MAXIMUM_SIGNED_TEXT":"CURRENT_MAXIMUM_TEXT"),{name,n(current),n(max)});popup.bounds.bottom=popup.bounds.top+42;
     } else if(cell==12) { std::vector<std::string> args{name};for(unsigned i=0;i<6;++i) args.push_back(n(R::sheetResistance(c,in,i)));
-        popup.text=xeenDialogFormat(T::RESISTENCES_TEXT,args);popup.bounds.bottom=popup.bounds.top+80;
+        popup.text=xeenDialogFormat(text.scalar("RESISTENCES_TEXT"),args);popup.bounds.bottom=popup.bounds.top+80;
     } else if(cell==13 || cell==19) {
         std::string lines;unsigned count=0;
         if(cell==13 && c.originalDetails()) {
             constexpr unsigned order[]{0,1,2,3,4,5,17,6,7,8,9,10,11,12,13,16,14,15};
             for(auto skill:order) if(c.originalDetails()->skills[skill]) {
-                lines+="\n\t020"+str(T::SKILL_NAMES[skill]);++count;
+                lines+="\n\t020"+str(text.table("SKILL_NAMES")[skill]);++count;
                 if(skill==0) { int bonus=2*c.currentLevel()+(c.characterClass==XeenCharacterClass::Ninja?15:c.characterClass==XeenCharacterClass::Robber?30:0);
                     bonus+=c.race==XeenRace::Elf || c.race==XeenRace::Gnome?10:c.race==XeenRace::Dwarf?5:c.race==XeenRace::HalfOrc?-10:0;
                     lines+=n(std::max(0,bonus+R::equipmentBonus(c,10))); }
             }
         } else if(cell==19) for(unsigned i=0;i<16;++i) if(c.conditions[i]) {
-            lines+="\n\t020"+str(conditions(c)[i]);if(i<12) lines+="\t095-"+n(unsigned(c.conditions[i]));++count;
+            lines+="\n\t020"+str(conditions(text,c)[i]);if(i<12) lines+="\t095-"+n(unsigned(c.conditions[i]));++count;
         }
-        if(!count) {lines=cell==13?str(T::NONE):"\n\t020"+str(T::GOOD);count=1;}
+        if(!count) {lines=cell==13?str(text.scalar("NONE")):"\n\t020"+str(text.scalar("GOOD"));count=1;}
         popup.text="\x02\x03" "c"+name+"\x03l"+lines;
         popup.bounds.top-=int((cell==13?count:count-1)/2)*8;popup.bounds.bottom=popup.bounds.top+int(count)*9+26;
         if(popup.bounds.bottom>=200) { const int delta=popup.bounds.bottom-199;popup.bounds.top-=delta;popup.bounds.bottom-=delta; }
     } else if(cell==15) { const auto missing=R::experienceToNextLevel(c,in);
-        popup.text=xeenDialogFormat(T::EXPERIENCE_TEXT,{name,n(R::currentExperience(c,in)),missing?n(missing):str(T::ELIGIBLE)});popup.bounds.bottom=popup.bounds.top+43;
+        popup.text=xeenDialogFormat(text.scalar("EXPERIENCE_TEXT"),{name,n(R::currentExperience(c,in)),missing?n(missing):str(text.scalar("ELIGIBLE"))});popup.bounds.bottom=popup.bounds.top+43;
     } else if(cell==16 || cell==17) {
         const auto bank=p.serviceEconomy?(cell==16?std::uint32_t(p.serviceEconomy->bank.gold):std::uint32_t(p.serviceEconomy->bank.gems)):0u;
-        popup.text=xeenDialogFormat(T::IN_PARTY_IN_BANK,{name,n(cell==16?gold(p):gems(p)),n(bank)});popup.bounds.bottom=popup.bounds.top+43;
+        popup.text=xeenDialogFormat(text.scalar("IN_PARTY_IN_BANK"),{name,n(cell==16?gold(p):gems(p)),n(bank)});popup.bounds.bottom=popup.bounds.top+43;
     } else if(cell==18) { const auto days=p.party.size()?std::uint16_t(p.food)/p.party.size()/3:0;
-        popup.text=xeenDialogFormat(T::FOOD_TEXT,{name,n(std::uint16_t(p.food)),str(T::FOOD_ON_HAND[0]),n(days),str(T::DAYS[days==1?0:1])}); }
+        popup.text=xeenDialogFormat(text.scalar("FOOD_TEXT"),{name,n(std::uint16_t(p.food)),n(days),str(text.scalar(days==1?"DAY_SINGULAR":"DAY_PLURAL"))}); }
     return popup;
 }
 IndexedFrame drawXeenPopup(const IndexedFrame &base,const XeenFontFormat &font,const XeenDialogPopup &popup) {
@@ -331,33 +335,33 @@ IndexedFrame drawXeenConfirm(const IndexedFrame &base,const XeenFontFormat &font
     if(draw) {draw(frame,"confirm.icn",0,large?120:129,large?133:112);draw(frame,"confirm.icn",2,large?176:185,large?133:112);}
     return frame;
 }
-IndexedFrame drawXeenItemSelection(const IndexedFrame &base,const XeenFontFormat &font,unsigned action,const XeenDialogSpriteDraw &draw) {
-    auto frame=render(base,font,xeenDialogFormat(T::WHICH_ITEM,{str(T::ITEM_ACTIONS.at(action))}),{50,103,266,139},{58,111,258,131});
+IndexedFrame drawXeenItemSelection(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,unsigned action,const XeenDialogSpriteDraw &draw) {
+    auto frame=render(base,font,xeenDialogFormat(text.scalar("WHICH_ITEM"),{str(text.table("ITEM_ACTIONS").at(action))}),{50,103,266,139},{58,111,258,131});
     if(draw) draw(frame,"esc.icn",0,235,111);return frame;
 }
-IndexedFrame drawXeenItemTarget(const IndexedFrame &base,const XeenFontFormat &font) {
-    return render(base,font,str(T::ON_WHO),{228,106,320,146},{236,114,312,138});
+IndexedFrame drawXeenItemTarget(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font) {
+    return render(base,font,str(text.scalar("ON_WHO")),{228,106,320,146},{236,114,312,138});
 }
-std::string xeenBackpackFull(XeenInventoryCategory category,const std::string &name) {
-    return xeenDialogFormat(T::CATEGORY_BACKPACK_IS_FULL.at(static_cast<unsigned>(category)),{name});
+std::string xeenBackpackFull(const XeenDosText &text,XeenInventoryCategory category,const std::string &name) {
+    return xeenDialogFormat(text.table("CATEGORY_BACKPACK_IS_FULL").at(static_cast<unsigned>(category)),{name});
 }
-IndexedFrame drawXeenItems(const IndexedFrame &base,const XeenFontFormat &font,const XeenItemCatalog &catalog,
+IndexedFrame drawXeenItems(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,const XeenItemCatalog &catalog,
         const XeenPartyState &p,const XeenInventorySelection &selection,const XeenDialogSpriteDraw &draw) {
     const bool misc=selection.category==XeenInventoryCategory::Miscellaneous;
-    auto frame=render(base,font,xeenDialogFormat(T::ITEMS_DIALOG_TEXT1,{str(misc?T::BTN_USE:T::BTN_EQUIP),str(T::BTN_REMOVE),str(T::BTN_DISCARD),str(T::BTN_QUEST)}),{0,101,320,146},{8,109,312,138});
+    auto frame=render(base,font,xeenDialogFormat(text.scalar("ITEMS_DIALOG_TEXT1"),{str(misc?text.scalar("BTN_USE"):text.scalar("BTN_EQUIP")),str(text.scalar("BTN_REMOVE")),str(text.scalar("BTN_DISCARD")),str(text.scalar("BTN_QUEST"))}),{0,101,320,146},{8,109,312,138});
     const auto &c=p.party.member(p.roster,selection.source);
     const auto &items=*xeenInventoryItems(c,selection.category);
-    std::vector<std::string> args{misc?"\x03l":"\x03" "c",str(T::CATEGORY_NAMES[static_cast<unsigned>(selection.category)]),c.name,str(T::CLASS_NAMES[static_cast<unsigned>(c.characterClass)]),misc?str(T::FMT_CHARGES):" "};
+    std::vector<std::string> args{misc?"\x03l":"\x03" "c",str(text.table("CATEGORY_NAMES")[static_cast<unsigned>(selection.category)]),c.name,str(text.table("CLASS_NAMES")[static_cast<unsigned>(c.characterClass)]),misc?str(text.scalar("FMT_CHARGES")):" "};
     for(unsigned i=0;i<9;++i) {
         const auto description=catalog.describe(selection.category,items[i]);
-        if(description.empty) args.push_back(i==0?str(T::NO_ITEMS_AVAILABLE):"");
+        if(description.empty) args.push_back(i==0?str(text.scalar("NO_ITEMS_AVAILABLE")):"");
         else {
             std::vector<std::string> line{n(selection.slot==i?15:0),n(i+1),description.displayName};
             if(misc) line.push_back(n(description.counter));
-            args.push_back(xeenDialogFormat(misc?T::ITEMS_DIALOG_LINE2:T::ITEMS_DIALOG_LINE1,line));
+            args.push_back(xeenDialogFormat(misc?text.scalar("ITEMS_DIALOG_LINE2"):text.scalar("ITEMS_DIALOG_LINE1"),line));
         }
     }
-    frame=render(frame,font,xeenDialogFormat(T::X_FOR_THE_Y,args),{0,0,320,108},{8,8,312,100});
+    frame=render(frame,font,xeenDialogFormat(text.scalar("X_FOR_THE_Y"),args),{0,0,320,108},{8,8,312,100});
     if(draw) {
         for(unsigned i=0;i<9;++i) draw(frame,"items.icn",i==4&&misc?18:i*2,12+i*34,109);
         if(!misc) for(unsigned i=0;i<9;++i) if(items[i].id) draw(frame,"equip.icn",xeenItemProficient(c,selection.category,items[i].id)?unsigned(items[i].frame):14,8,18+i*9);

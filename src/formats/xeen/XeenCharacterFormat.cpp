@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <stdexcept>
 #include <string>
-#include <zlib.h>
 
 namespace mmodern {
 namespace {
@@ -114,14 +113,16 @@ XeenMonsterTreasure XeenCharacterFormat::parseMonsterPurse(const std::vector<std
 }
 
 XeenBankBalances XeenCharacterFormat::parseBankBalances(const std::vector<std::uint8_t> &bytes) {
-	if (bytes.size()!=812 || crc32(0,bytes.data(),static_cast<uInt>(bytes.size()))!=0x866d0ff1u)
-		throw std::invalid_argument("Unsupported original maze.pty bank input");
+	// Clouds Party::synchronize layout: fixed record extent, with two LE32 bank fields.
+	constexpr std::size_t kCloudsPartyBytes=812, kBankGold=646, kBankGems=650;
+	static_assert(kBankGems+sizeof(std::uint32_t)<=kCloudsPartyBytes);
+	if (bytes.size()!=kCloudsPartyBytes)
+		throw std::invalid_argument("Invalid Clouds maze.pty field layout");
 	const auto u32 = [&](std::size_t offset) {
 		return std::uint32_t(bytes[offset]) | (std::uint32_t(bytes[offset+1])<<8) |
 			(std::uint32_t(bytes[offset+2])<<16) | (std::uint32_t(bytes[offset+3])<<24);
 	};
-	XeenBankBalances bank{u32(646),u32(650)};
-	if (bank.gold || bank.gems) throw std::invalid_argument("Original bank balances must be zero");
+	XeenBankBalances bank{u32(kBankGold),u32(kBankGems)};
 	return bank;
 }
 

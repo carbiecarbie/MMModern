@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "XeenRewardTestSupport.h"
 #include "XeenVisualRemoveTestSupport.h"
 #include "formats/xeen/XeenAssetSource.h"
@@ -171,7 +172,7 @@ void presentation(const XeenFontFormat &font,IndexedFrame b,const std::filesyste
 }
 int main(int argc,char **argv){try{
 	flows();producedFlow();failures();animatedRewardLayers();animationFailures();Fixture f;presentation(f.font,base(),{});
-	if(argc==3){const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"installation missing");XeenAssetSource assets(*installation,320,200);
+	if(argc==3){const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"installation missing");XeenAssetSource assets(*installation,320,200);
 		assets.loadPalette("mm4.pal");auto b=assets.snapshot();b.pixels.assign(64000,90);std::filesystem::create_directories(argv[2]);
 		presentation(XeenFontFormat(assets.readArchiveResource("fnt")),b,argv[2]);}
 	std::cout<<"Reward Flow/failure/presentation matrix passed\n";return 0;

@@ -11,6 +11,7 @@ public:
  using Fault = std::function<bool(Operation)>;
  static std::filesystem::path resolve(const std::filesystem::path &path,
    const std::filesystem::path &installation);
+ static std::filesystem::path resolve(const std::filesystem::path &path, const GameInstallation &installation);
  // Callers resolve once before use; these never choose a fallback/temporary path.
  static XeenSaveSnapshot read(const std::filesystem::path &absolutePath);
  static void write(const std::filesystem::path &absolutePath,

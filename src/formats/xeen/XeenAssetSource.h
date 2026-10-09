@@ -5,6 +5,7 @@
 #include "core/IndexedFrame.h"
 #include "formats/xeen/XeenSpriteDrawOptions.h"
 #include "formats/xeen/XeenMonsterAppearance.h"
+#include "formats/xeen/XeenDosText.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -73,6 +74,7 @@ public:
 	std::vector<std::uint8_t> readArchiveResource(const std::string &resourceName);
 	bool hasInitialResource(const std::string &resourceName);
 	std::vector<std::uint8_t> readInitialResource(const std::string &resourceName);
+ const XeenDosText &uiText();
 
 private:
 	struct Impl;

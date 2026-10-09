@@ -23,7 +23,7 @@ struct Harness {
   XeenGameplayServices s{regional_test::resources(),[]{return XeenGameFlags{};},regional_test::map,regional_test::objects,
    regional_test::texts,font,
    [](auto &,const auto &,const auto &,auto){return XeenEventFlow::Composition{IndexedFrame{320,200,Bytes(64000)},true};}, {},
-   [&](auto &f,const auto &){flow=&f;combatBoundary=&const_cast<XeenEncounterFlow *>(f.encounter())->boundary();}, {},
+   [&](auto &f,const auto &){flow=&f;f.dialogText=&dos_test::text();combatBoundary=&const_cast<XeenEncounterFlow *>(f.encounter())->boundary();}, {},
    [&](auto &w,auto &e,const auto &p,auto &c,const auto &f){world=&w;eventSystem=&e;party=&p;camera=&c;flags=&f;}};
   s.clock=[&]{return now;};s.validateEncounterSprite=[](auto){};s.validateCombatSprite=[](auto){};
   s.composeEncounter=[&](auto &,const auto &,const auto &,auto ordinary,auto actor){

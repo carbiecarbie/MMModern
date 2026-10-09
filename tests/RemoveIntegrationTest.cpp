@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "XeenRemoveTestSupport.h"
 #include "XeenVisualRemoveTestSupport.h"
 #include "games/xeen/CloudsMapComposer.h"
@@ -29,7 +30,7 @@ int main(int argc, char **argv) {
 		if (argc < 2 || argc > 4) throw std::runtime_error("usage: mmodern_remove_smoke <game-directory> [output-directory] [sdl]");
 		const std::filesystem::path output=argc>2?argv[2]:"build/16c/real-remove";
 		std::filesystem::create_directories(output);
-		const auto installation = XeenInstallationDetector().detect(argv[1]);
+		const auto installation = xeenTestInstallationDetector().detect(argv[1]);
 		check(installation && installation->hasXeen(), "Clouds installation unavailable");
 		XeenAssetSource assets(*installation,320,200);
 		const XeenMapIdentity mapId{XeenSide::Clouds, 23};
@@ -64,19 +65,19 @@ int main(int argc, char **argv) {
 		check(selected == XeenObjectIdentity{mapId,13}, "production resolver did not select original object 13");
 		const XeenEventScript original(loader.load(mapId));
 		check(original.file().resourcePresent && original.file().resourceName == "maze0023.evt" &&
-			original.records().size() == 170, "EVT checkpoint record count/resource mismatch");
-		const std::array<std::size_t,11> offsets{1056,1063,1072,1078,1087,1094,1103,1113,1119,1125,1132};
+			original.records().size() == 179, "EVT checkpoint record count/resource mismatch");
+		const std::array<std::size_t,11> offsets{1122,1129,1138,1144,1153,1160,1169,1179,1185,1191,1198};
 		std::size_t cellRecords=0;
 		for (std::size_t i=0;i<original.records().size();++i) {
 			const auto &r=original.records()[i];
 			if(r.x!=8 || r.y!=2) continue;
-			check(i==125+cellRecords && cellRecords<offsets.size(), "unexpected physical-cell event index");
+			check(cellRecords<offsets.size(), "unexpected physical-cell event index");
 			check(r.fileOffset==offsets[cellRecords] && r.line==cellRecords &&
 				r.direction==kXeenEventDirectionAll, "EVT offset/line/direction mismatch");
 			++cellRecords;
 		}
-		check(cellRecords==11 && original.records()[132].opcode==0x0e &&
-			original.records()[132].parameters.empty() && original.records()[131].opcode==0x0c,
+		check(cellRecords==11 && original.findInstruction(8,2,XeenDirection::North,7)->opcode==0x0e &&
+			original.findInstruction(8,2,XeenDirection::North,7)->parameters.empty() && original.findInstruction(8,2,XeenDirection::North,6)->opcode==0x0c,
 			"Remove boundary or preceding TakeOrGive mismatch");
 		const auto beforeMob=assets.readInitialResource("maze0023.mob");
 		const auto beforeEvt=assets.readInitialResource("maze0023.evt");
@@ -149,7 +150,7 @@ int main(int argc, char **argv) {
 			check(sameRecord(base,reloaded.records[i]),"original event data changed");
 			const auto effective=world.effectiveEvent({mapId,i},base);
 			check(sameRecord(base,effective,false) &&
-				effective.opcode==((i>=125 && i<=135)?0:base.opcode),"unexpected effective event change");
+				effective.opcode==((base.x==8 && base.y==2)?0:base.opcode),"unexpected effective event change");
 		}
 		check(geometry==geometrySnapshot(world.map(mapId).geometry),"map geometry/flags changed");
 		check(beforeMob==assets.readInitialResource("maze0023.mob") &&
@@ -177,7 +178,7 @@ int main(int argc, char **argv) {
 			"failed to load another real Clouds map");
 		check(world.map(mapId).identity() == mapId && sessionOwner == &world.sessionState() &&
 			world.isObjectDisabled({mapId,13}), "leave/return lost session mutation");
-		for (std::size_t i=125;i<=135;++i)
+		for (std::size_t i=0;i<original.records().size();++i)if(original.records()[i].x==8 && original.records()[i].y==2)
 			check(world.effectiveEvent({mapId,i},original.records()[i]).opcode==0,
 				"leave/return restored a cell event");
 
@@ -203,8 +204,8 @@ int main(int argc, char **argv) {
 		check(std::get<XeenManualEventCompleted>(scriptReload).instructionCount==11 &&
 			scriptLoads==scriptsBeforeReload+1, "script provider was not reloaded");
 		const auto reloadedAgain = loader.load(mapId);
-		check(reloadedAgain.records[132].opcode==0x0e &&
-			reloadedAgain.records[132].fileOffset==1113,
+		check(XeenEventScript(reloadedAgain).findInstruction(8,2,XeenDirection::North,7)->opcode==0x0e &&
+			XeenEventScript(reloadedAgain).findInstruction(8,2,XeenDirection::North,7)->fileOffset==1179,
 			"script reconstruction changed immutable Remove metadata");
 		flow.acceptManual(scriptReload);
 		check(flow.frame().pixels==afterFrame.pixels,"script reconstruction restored pixels");
@@ -292,7 +293,7 @@ int main(int argc, char **argv) {
 			freshWorld.selectObject(camera)==XeenObjectIdentity{mapId,13} &&
 			freshObjectLoads==1 && freshEvents.cachedScriptCount()==0,
 			"genuine new session did not restore original object state");
-		for(std::size_t i=125;i<=135;++i)
+		for(std::size_t i=0;i<original.records().size();++i)if(original.records()[i].x==8 && original.records()[i].y==2)
 			check(freshWorld.effectiveEvent({mapId,i},original.records()[i]).opcode==
 				original.records()[i].opcode, "new session inherited an event mutation");
 		XeenCamera freshCamera=camera;XeenGameFlags freshFlags=flags;
@@ -303,7 +304,7 @@ int main(int argc, char **argv) {
 		check(beforeMob==assets.readInitialResource("maze0023.mob") &&
 			beforeEvt==assets.readInitialResource("maze0023.evt"),
 			"lifecycle validation changed commercial resource bytes");
-		std::cout << "EVT records=170; cell indices=125..135; Remove index=132 line=7 offset=1113 operands=0\n"
+		std::cout << "CD EVT records=179; Phirna logical cell=(8,2); Remove line=7 offset=1179 operands=0\n"
 			<< "Production selection=13; disabled objects=1 events=11; dispatched=" << done.instructionCount
 			<< " (Remove + 11 None from logical line 0); base/unrelated state unchanged\n"
 			<< "Same-session leave/return, map/object/script/text/combined rebuild and fresh-session restoration OK\n"

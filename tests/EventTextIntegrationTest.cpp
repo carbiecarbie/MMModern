@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "games/xeen/XeenEventTextLoader.h"
 #include "games/xeen/XeenInstallationDetector.h"
@@ -27,7 +28,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	try {
-		const auto installation = XeenInstallationDetector().detect(argv[1]);
+		const auto installation = xeenTestInstallationDetector().detect(argv[1]);
 		check(installation && installation->hasXeen(), "Clouds installation unavailable");
 		XeenAssetSource assets(*installation);
 		const XeenEventTextLoader loader([&assets](const std::string &resourceName)

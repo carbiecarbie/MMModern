@@ -1,3 +1,4 @@
+#include "XeenTestInstallation.h"
 #ifndef MMODERN_SERVICE_INPUT_TEST_SUPPORT_H
 #define MMODERN_SERVICE_INPUT_TEST_SUPPORT_H
 #include "XeenProbeFired.h"
@@ -148,7 +149,7 @@ int run(int argc,char **argv,bool smith) {
     if(argc==3 && std::string(argv[2])=="native")probe_fired::expect("SDL_GetTicks");
     try {
         check(argc==3,"usage: service-input <installation> <authority|native|controls>");
-        const auto installation=XeenInstallationDetector().detect(argv[1]);check(bool(installation),"installation unavailable");Inputs in(*installation);
+        const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"installation unavailable");Inputs in(*installation);
         const std::string mode=argv[2];if(mode=="authority")authority(in,smith);else if(mode=="native")native(in,smith);else if(mode=="controls")controls(in,smith);else throw std::runtime_error("unknown service test mode");
         std::cout<<"Original service "<<mode<<": strict input, stale origins and one-step intent passed\n";return 0;
     } catch(const std::exception &e){input_allocation::failNext=false;std::cerr<<e.what()<<'\n';return 1;}

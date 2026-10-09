@@ -1,3 +1,4 @@
+#include "XeenDosTextTestSupport.h"
 #ifndef MMODERN_SAVE_GAMEPLAY_TEST_SUPPORT_H
 #define MMODERN_SAVE_GAMEPLAY_TEST_SUPPORT_H
 #include "XeenSaveTestSupport.h"
@@ -49,7 +50,7 @@ struct Fixture {
    if(ordinary)f.pixels[20]=phase%251;
    if(invalidFrame)f.width=0;frames.push_back(f);return XeenEventFlow::Composition{f,ordinary};
   },[](IndexedFrame &f,std::uint8_t,std::size_t){f.pixels[100]=77;},
-  [&](XeenEventFlow &f,const XeenCamera &){flow=&f;f.reportAutomatic=[](const auto &r){if(std::holds_alternative<XeenEventExecutionError>(r))throw std::runtime_error("automatic error");};},{},
+  [&](XeenEventFlow &f,const XeenCamera &){flow=&f;f.dialogText=&dos_test::text();f.reportAutomatic=[](const auto &r){if(std::holds_alternative<XeenEventExecutionError>(r))throw std::runtime_error("automatic error");};},{},
   [&](XeenWorld &w,XeenEventSystem &,const XeenPartyState &,XeenCamera &,const XeenGameFlags &){world=&w;}
  };result.catalog=&catalog;return result;}
  XeenSaveSnapshot saved(){auto s=save_test::sample();s.resources=signature;s.camera={1,1,1,XeenDirection::North};s.characters=initial.roster.characters();s.activeRosterIds={0,1};s.questItems.fill(0);s.questFlags.fill(false);s.gameFlags.fill(false);s.disabledObjects.clear();s.disabledEvents.clear();return s;}

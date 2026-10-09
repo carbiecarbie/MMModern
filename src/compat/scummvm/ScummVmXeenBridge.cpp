@@ -14,7 +14,7 @@
 #include "mm/shared/xeen/xsurface.h"
 
 #include <algorithm>
-#include <zlib.h>
+
 #include <array>
 #include <cstdint>
 #include <memory>
@@ -27,7 +27,7 @@
 namespace mmodern {
 namespace {
 
-using MM::Shared::Xeen::CCArchive;
+
 using MM::Shared::Xeen::SpriteResource;
 using MM::Shared::Xeen::XSurface;
 
@@ -37,23 +37,23 @@ class InitialCloudsArchive final : public MM::Shared::Xeen::BaseCCArchive {
 public:
 	explicit InitialCloudsArchive(std::vector<std::uint8_t> data) : _data(std::move(data)) {
 		if (_data.size() < 2)
-			throw std::runtime_error("conteiner inicial de Clouds truncado");
+			throw std::runtime_error("Truncated Clouds initial container");
 		const std::size_t count = _data[0] | (static_cast<unsigned>(_data[1]) << 8);
 		const std::size_t headerSize = 2 + count * 8;
 		if (!count || headerSize > _data.size())
-			throw std::runtime_error("indice inicial de Clouds invalido");
+			throw std::runtime_error("Invalid Clouds initial index");
 		// Validate the reserved byte before the upstream reader's assertion.
 		for (std::size_t i = 7; i < count * 8; i += 8) {
 			const unsigned b = _data[2 + i];
 			if ((((b << 2) | (b >> 6)) + 0xac + i * 0x67) % 256 != 0)
-				throw std::runtime_error("byte reservado invalido no indice inicial");
+				throw std::runtime_error("Invalid reserved Clouds initial index byte");
 		}
 		Common::MemoryReadStream stream(_data.data(), static_cast<uint32>(_data.size()));
 		loadIndex(stream);
 		for (const auto &entry : _index) {
 			const auto offset = static_cast<std::size_t>(entry._offset);
 			if (offset < headerSize || offset > _data.size() || entry._size > _data.size() - offset)
-				throw std::runtime_error("recurso fora dos limites do conteiner inicial");
+				throw std::runtime_error("Resource outside Clouds initial container");
 		}
 	}
 
@@ -73,10 +73,10 @@ std::vector<std::uint8_t> readBytes(Common::SeekableReadStream &stream,
 		const std::string &name) {
 	const auto length = stream.size();
 	if (length < 0 || length > 65535)
-		throw std::runtime_error("tamanho de recurso CC invalido: " + name);
+		throw std::runtime_error("Invalid CC resource size: " + name);
 	std::vector<std::uint8_t> bytes(static_cast<std::size_t>(length));
-	if (stream.read(bytes.data(), static_cast<uint32>(bytes.size())) != bytes.size() || stream.err())
-		throw std::runtime_error("leitura incompleta: " + name);
+	if ((!bytes.empty() && stream.read(bytes.data(), static_cast<uint32>(bytes.size())) != bytes.size()) || stream.err())
+		throw std::runtime_error("Incomplete resource read: " + name);
 	return bytes;
 }
 
@@ -149,119 +149,58 @@ public:
 	}
 };
 
-// CCArchive's ordinary member reader terminates the process when an indexed
-// payload is short. Keep its index/archive ownership, but make the one optional
-// catalog member recoverable by checking the indexed extent before reading it.
-class DarkMetadataArchive final : public CCArchive {
+// All installed archive roles use the pinned BaseCCArchive name/index decoder.
+// Validate its preconditions first, so malformed resources never reach error().
+class CheckedInstalledArchive : public MM::Shared::Xeen::BaseCCArchive {
 public:
-	DarkMetadataArchive() :
-		CCArchive(Common::Path("dark.cc", Common::Path::kNoSeparator), true) {
-	}
-
-	std::optional<std::vector<std::uint8_t>> readItemMaterialNamesChecked() const {
-		return readMetadataChecked("mae.xen", 8192);
-	}
-	std::optional<std::vector<std::uint8_t>> readLearnedSpellNamesChecked() const {
-		return readMetadataChecked("spells.xen", 937, true);
-	}
-	std::optional<std::vector<std::uint8_t>> readMonsterStatisticsChecked() const {
-		return readMetadataChecked("xeen.mon", 65535, true);
-	}
-
-private:
-	// Only the two explicit metadata reads above use this checked path.
-	std::optional<std::vector<std::uint8_t>> readMetadataChecked(const char *name,
-			std::size_t limit, bool requirePayloadOffset = false) const {
-		MM::Shared::Xeen::CCEntry entry;
-		const Common::Path member(name, Common::Path::kNoSeparator);
-		const std::string origin = std::string("DARK.CC/") + name;
-		if (!getHeaderEntry(member, entry))
-			return std::nullopt;
-		if (entry._offset < 0 || entry._size > limit)
-			throw std::runtime_error("invalid " + origin + " index bounds");
-		if (requirePayloadOffset && static_cast<std::uint64_t>(entry._offset) <
-				2 + 8 * static_cast<std::uint64_t>(_index.size()))
-			throw std::runtime_error("invalid " + origin + " payload overlaps archive index");
-
-		Common::File file;
-		const Common::Path archive("dark.cc", Common::Path::kNoSeparator);
-		if (!file.open(archive))
-			throw std::runtime_error("cannot reopen " + origin);
-		const auto archiveSize = file.size();
-		const auto offset = static_cast<std::uint64_t>(entry._offset);
-		const auto size = static_cast<std::uint64_t>(entry._size);
-		if (archiveSize < 0 || offset > static_cast<std::uint64_t>(archiveSize) ||
-				size > static_cast<std::uint64_t>(archiveSize) - offset)
-			throw std::runtime_error("truncated " + origin + " payload");
-		if (!file.seek(entry._offset))
-			throw std::runtime_error("cannot seek to " + origin + " payload");
-
-		std::vector<std::uint8_t> bytes(entry._size);
-		if (!bytes.empty() &&
-				(file.read(bytes.data(), static_cast<uint32>(bytes.size())) != bytes.size() ||
-				 file.err()))
-			throw std::runtime_error("incomplete " + origin + " payload read");
-		for (auto &byte : bytes)
-			byte ^= 0x35;
-		return bytes;
-	}
+ explicit CheckedInstalledArchive(ReadOnlyDataFile file):_file(std::move(file)) {
+  auto source=_file.open();_indexBytes.resize(2);
+  if(source->read(_indexBytes.data(),2)!=2)throw std::runtime_error("Truncated CC count: "+_file.identity());
+  const unsigned count=_indexBytes[0]|unsigned(_indexBytes[1])<<8;
+  const std::size_t size=2+count*8;
+  if(!count||size>source->size())throw std::runtime_error("Invalid CC index extent: "+_file.identity());
+  _indexBytes.resize(size);
+  if(source->read(_indexBytes.data()+2,size-2)!=size-2)throw std::runtime_error("Truncated CC index: "+_file.identity());
+  for(std::size_t i=7;i<count*8;i+=8){const unsigned b=_indexBytes[2+i];
+   if((((b<<2)|(b>>6))+0xac+i*0x67)%256!=0)throw std::runtime_error("Invalid CC reserved index byte: "+_file.identity());}
+  Common::MemoryReadStream stream(_indexBytes.data(),static_cast<uint32>(_indexBytes.size()));loadIndex(stream);
+  for(std::size_t i=0;i<_index.size();++i) {
+   const auto &entry=_index[i];
+   // Requested extents are checked below, so an unrelated truncated optional
+   // member cannot prevent reading another structurally valid resource.
+   for(std::size_t j=0;j<i;++j)if(_index[j]._id==entry._id)throw std::runtime_error("Ambiguous CC member ID: "+_file.identity());
+  }
+ }
+ std::string identity() const{return _file.identity();}
+ Common::SeekableReadStream *createReadStreamForMember(const Common::Path &path) const override {
+  MM::Shared::Xeen::CCEntry entry;if(!getHeaderEntry(path,entry))return nullptr;
+  auto source=_file.open();std::vector<std::uint8_t> index(_indexBytes.size());
+  if(source->read(index.data(),index.size())!=index.size()||index!=_indexBytes)throw std::runtime_error("Admitted CC index changed: "+_file.identity());
+  if(entry._offset<static_cast<int64>(_indexBytes.size()))throw std::runtime_error("CC member overlaps archive index: "+_file.identity());
+  if(static_cast<std::uint64_t>(entry._offset)>source->size() || entry._size>source->size()-entry._offset)throw std::runtime_error("CC member payload is truncated: "+_file.identity());
+  if(!source->seek(entry._offset))throw std::runtime_error("Cannot seek CC member: "+_file.identity());
+  std::vector<std::uint8_t> bytes(entry._size);
+  if(source->read(bytes.data(),bytes.size())!=bytes.size())throw std::runtime_error("Short CC member read: "+_file.identity());
+  for(auto &byte:bytes)byte^=0x35;
+  if(bytes.empty())return new Common::MemoryReadStream(nullptr,0);
+  Common::MemoryReadStream input(bytes.data(),static_cast<uint32>(bytes.size()));return input.readStream(bytes.size());
+ }
+ std::optional<std::vector<std::uint8_t>> readMetadataChecked(const char *name,std::size_t limit) const {
+  const Common::Path member(name,Common::Path::kNoSeparator);MM::Shared::Xeen::CCEntry entry;
+  if(!getHeaderEntry(member,entry))return std::nullopt;
+  if(entry._size>limit)throw std::runtime_error(std::string("Oversized DARK.CC/")+name);
+  std::unique_ptr<Common::SeekableReadStream> stream(createReadStreamForMember(member));return readBytes(*stream,name);
+ }
+private:ReadOnlyDataFile _file;std::vector<std::uint8_t> _indexBytes;
 };
-
-// Presentation-only companion archive. Use the pinned BaseCCArchive index and
-// name hashing, and reopen members for every cache reconstruction so the same
-// admitted-byte integrity checks apply to all physical archives.
-class SceneInstalledArchive final : public MM::Shared::Xeen::BaseCCArchive {
+class DarkMetadataArchive final:public CheckedInstalledArchive {
 public:
-	explicit SceneInstalledArchive(std::filesystem::path path) : _path(std::move(path)) {
-		std::ifstream file(_path, std::ios::binary);
-		std::vector<std::uint8_t> index(2);
-		if (!file.read(reinterpret_cast<char *>(index.data()), 2))
-			throw std::runtime_error("Truncated scene archive index: " + _path.string());
-		const unsigned count = index[0] | (unsigned(index[1]) << 8);
-		index.resize(2 + count * 8);
-		if (!file.read(reinterpret_cast<char *>(index.data() + 2), count * 8))
-			throw std::runtime_error("Truncated scene archive index: " + _path.string());
-		for (std::size_t i = 7; i < count * 8; i += 8) {
-			const unsigned b = index[2 + i];
-			if ((((b << 2) | (b >> 6)) + 0xac + i * 0x67) % 256 != 0)
-				throw std::runtime_error("Invalid scene archive index: " + _path.string());
-		}
-		Common::MemoryReadStream stream(index.data(), static_cast<uint32>(index.size()));
-		loadIndex(stream);
-	}
-
-	Common::SeekableReadStream *createReadStreamForMember(const Common::Path &path) const override {
-		MM::Shared::Xeen::CCEntry entry;
-		if (!getHeaderEntry(path, entry)) return nullptr;
-		std::ifstream file(_path, std::ios::binary | std::ios::ate);
-		const auto length = file.tellg();
-		if (!file || length < 0 || entry._offset < 2 + 8 * static_cast<int64>(_index.size()) ||
-			static_cast<int64>(entry._offset) + entry._size > length)
-			throw std::runtime_error("Invalid scene archive member extent: " + _path.string());
-		file.seekg(entry._offset);
-		std::vector<std::uint8_t> bytes(entry._size);
-		if (!file.read(reinterpret_cast<char *>(bytes.data()), bytes.size()))
-			throw std::runtime_error("Incomplete scene archive member read: " + _path.string());
-		for (auto &byte : bytes) byte ^= 0x35;
-		Common::MemoryReadStream input(bytes.data(), static_cast<uint32>(bytes.size()));
-		return input.readStream(bytes.size());
-	}
-
-private:
-	std::filesystem::path _path;
+ explicit DarkMetadataArchive(ReadOnlyDataFile file):CheckedInstalledArchive(std::move(file)){}
+ std::optional<std::vector<std::uint8_t>> readItemMaterialNamesChecked() const{return readMetadataChecked("mae.xen",8192);}
+ std::optional<std::vector<std::uint8_t>> readLearnedSpellNamesChecked() const{return readMetadataChecked("spells.xen",77*64);}
+ std::optional<std::vector<std::uint8_t>> readMonsterStatisticsChecked() const{return readMetadataChecked("xeen.mon",65535);}
 };
-
-std::filesystem::path introArchivePath(const GameInstallation &installation) {
-	const auto root = installation.root.empty() ? installation.xeenArchive.parent_path() : installation.root;
-	std::error_code error;
-	for (const auto &entry : std::filesystem::directory_iterator(root, error)) {
-		if (error) break;
-		auto name = entry.path().filename().string();
-		for (auto &c : name) if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
-		if (name == "intro.cc" && entry.is_regular_file(error)) return entry.path();
-	}
-	return {};
-}
+using SceneInstalledArchive=CheckedInstalledArchive;
 
 std::unique_ptr<Common::SeekableReadStream> openResource(
 		Common::Archive &archive, const std::string &resourceName, const std::string &origin = "xeen.cc") {
@@ -276,10 +215,10 @@ std::unique_ptr<Common::SeekableReadStream> openResource(
 
 struct ScummVmXeenBridge::Impl {
 	ScummVmRuntime runtime;
-	CCArchive archive;
+	CheckedInstalledArchive archive;
 	bool darkAvailable = false;
 	std::unique_ptr<DarkMetadataArchive> darkMetadataArchive;
-	std::filesystem::path sceneIntroPath, sceneDarkPath;
+	std::optional<ReadOnlyDataFile> sceneIntroPath, sceneDarkPath;
 	std::unique_ptr<SceneInstalledArchive> sceneIntro, sceneDark;
 	XSurface surface;
 	std::array<std::uint8_t, IndexedFrame::kPaletteSize> palette{};
@@ -295,10 +234,10 @@ struct ScummVmXeenBridge::Impl {
 
 	explicit Impl(const GameInstallation &installation) :
 		runtime(installation),
-		archive(Common::Path("xeen.cc", Common::Path::kNoSeparator), true) {
+		archive(archiveDataFile(installation,XeenArchiveRole::Clouds)) {
 		darkAvailable = installation.hasDarkside();
-		sceneIntroPath = introArchivePath(installation);
-		sceneDarkPath = installation.darkArchive;
+		sceneIntroPath = installation.introData;
+		if(installation.hasDarkside()) sceneDarkPath=archiveDataFile(installation,XeenArchiveRole::Darkside);
 	}
 
 	Impl(const GameInstallation &installation, int width, int height) : Impl(installation) {
@@ -335,13 +274,13 @@ struct ScummVmXeenBridge::Impl {
 		// Pinned File::open: selected/current archive, then registered search
 		// sources (INTRO). DARK is an archive selection, never a search source.
 		if (selection == XeenSceneArchive::Darkside) {
-			if (!sceneDarkPath.empty()) {
-				if (!sceneDark) sceneDark.reset(new SceneInstalledArchive(sceneDarkPath));
+			if (sceneDarkPath.has_value()) {
+				if (!sceneDark) sceneDark.reset(new SceneInstalledArchive(*sceneDarkPath));
 				if (sceneDark->hasFile(path)) return {sceneDark.get(), "dark.cc"};
 			}
 		} else if (archive.hasFile(path)) return {&archive, "xeen.cc"};
-		if (!sceneIntroPath.empty()) {
-			if (!sceneIntro) sceneIntro.reset(new SceneInstalledArchive(sceneIntroPath));
+		if (sceneIntroPath.has_value()) {
+			if (!sceneIntro) sceneIntro.reset(new SceneInstalledArchive(*sceneIntroPath));
 			if (sceneIntro->hasFile(path)) return {sceneIntro.get(), "intro.cc"};
 		}
 		return {nullptr, {}};
@@ -355,7 +294,7 @@ struct ScummVmXeenBridge::Impl {
 		if (!source.archive) throw std::runtime_error("Missing scene resource in installed CC archives: " + resourceName);
 		// Clouds retains its existing identity; other archives have separate
 		// cache/admission identities even when resource names collide.
-		const auto key = source.origin == "xeen.cc" ? resourceName : source.origin + "|" + resourceName;
+		const auto key = static_cast<CheckedInstalledArchive *>(source.archive)->identity()+"|"+source.origin+"|"+std::to_string(MM::Shared::Xeen::BaseCCArchive::convertNameToId(Common::Path(resourceName.c_str(),Common::Path::kNoSeparator)));
 		const auto validate = [&](const std::vector<std::uint8_t> &bytes) {
 			const auto known=admittedSprites.find(key);
 			if(known!=admittedSprites.end() && known->second!=bytes) {
@@ -440,7 +379,7 @@ void ScummVmXeenBridge::validateAttackMonster(const std::string &resourceName) {
 std::optional<std::vector<std::uint8_t>> ScummVmXeenBridge::readCloudsVisualMetadataFromDarkArchive() {
 	if (!_impl->darkAvailable) return std::nullopt;
 	if (!_impl->darkMetadataArchive)
-		_impl->darkMetadataArchive.reset(new DarkMetadataArchive());
+		_impl->darkMetadataArchive.reset(new DarkMetadataArchive(*_impl->sceneDarkPath));
 	const Common::Path path("clouds.dat", Common::Path::kNoSeparator);
 	std::unique_ptr<Common::SeekableReadStream> stream(_impl->darkMetadataArchive->createReadStreamForMember(path));
 	if (!stream) return std::nullopt;
@@ -451,21 +390,21 @@ std::optional<std::vector<std::uint8_t>> ScummVmXeenBridge::readItemMaterialName
 	if (!_impl->darkAvailable)
 		return std::nullopt;
 	if (!_impl->darkMetadataArchive)
-		_impl->darkMetadataArchive.reset(new DarkMetadataArchive());
+		_impl->darkMetadataArchive.reset(new DarkMetadataArchive(*_impl->sceneDarkPath));
 	return _impl->darkMetadataArchive->readItemMaterialNamesChecked();
 }
 
 std::optional<std::vector<std::uint8_t>> ScummVmXeenBridge::readLearnedSpellNamesFromDarkArchive() {
 	if (!_impl->darkAvailable) return std::nullopt;
 	if (!_impl->darkMetadataArchive)
-		_impl->darkMetadataArchive.reset(new DarkMetadataArchive());
+		_impl->darkMetadataArchive.reset(new DarkMetadataArchive(*_impl->sceneDarkPath));
 	return _impl->darkMetadataArchive->readLearnedSpellNamesChecked();
 }
 
 std::optional<std::vector<std::uint8_t>> ScummVmXeenBridge::readCloudsMonsterStatisticsFromDarkArchive() {
 	if (!_impl->darkAvailable) return std::nullopt;
 	if (!_impl->darkMetadataArchive)
-		_impl->darkMetadataArchive.reset(new DarkMetadataArchive());
+		_impl->darkMetadataArchive.reset(new DarkMetadataArchive(*_impl->sceneDarkPath));
 	return _impl->darkMetadataArchive->readMonsterStatisticsChecked();
 }
 
@@ -593,12 +532,9 @@ IndexedFrame ScummVmXeenBridge::snapshot() const {
 
 void ScummVmXeenBridge::drawTraining(IndexedFrame &frame) {
 	if(!frame.isValid() || frame.width!=320 || frame.height!=200)throw std::invalid_argument("Invalid Training draw context");
-	struct Resource {const char *name;std::size_t bytes;std::uint32_t crc;unsigned frames;};
-	constexpr Resource resources[]={{"trng1.twn",27998,0xa4e3bbdb,8},{"train.icn",1614,0x76c6ac78,4},{"esc.icn",792,0x096b68b7,2}};
+	struct Resource {const char *name;unsigned frames;};
+	constexpr Resource resources[]={{"trng1.twn",8},{"train.icn",4},{"esc.icn",2}};
 	for(const auto &r:resources) {
-		const auto bytes=readArchiveResource(r.name);
-		if(bytes.size()!=r.bytes || crc32(0,bytes.data(),static_cast<uInt>(bytes.size()))!=r.crc)
-			throw std::invalid_argument("Training original artwork identity changed");
 		_impl->sprite(r.name,0,r.frames);
 	}
 	XSurface surface;surface.create(320,200);
@@ -611,9 +547,6 @@ void ScummVmXeenBridge::drawTraining(IndexedFrame &frame) {
 void ScummVmXeenBridge::drawSmith(IndexedFrame &frame) {
 	if (!frame.isValid() || frame.width!=320 || frame.height!=200)
 		throw std::invalid_argument("Invalid Ironworks draw context");
-	const auto bytes=readArchiveResource("blck1.twn");
-	if (bytes.size()!=42348 || crc32(0,bytes.data(),static_cast<uInt>(bytes.size()))!=0x70459675)
-		throw std::invalid_argument("Ironworks original artwork identity changed");
 	auto &sprite=_impl->sprite("blck1.twn",0,8);
 	XSurface surface;surface.create(320,200);
 	for(int y=0;y<200;++y)std::copy_n(frame.pixels.data()+y*320,320,
@@ -625,12 +558,6 @@ void ScummVmXeenBridge::drawSmith(IndexedFrame &frame) {
 void ScummVmXeenBridge::drawTemple(IndexedFrame &frame) {
 	if (!frame.isValid() || frame.width!=320 || frame.height!=200)
 		throw std::invalid_argument("Invalid Temple draw context");
-	const auto bytes=readArchiveResource("tmpl1.twn");
-	if (bytes.size()!=21187 || crc32(0,bytes.data(),static_cast<uInt>(bytes.size()))!=0xb9ffe574)
-		throw std::invalid_argument("Temple original artwork identity changed");
-	const auto escape=readArchiveResource("esc.icn");
-	if (escape.size()!=792 || crc32(0,escape.data(),static_cast<uInt>(escape.size()))!=0x096b68b7)
-		throw std::invalid_argument("Temple original escape artwork identity changed");
 	XSurface surface;surface.create(320,200);
 	for(int y=0;y<200;++y)std::copy_n(frame.pixels.data()+y*320,320,
 		static_cast<std::uint8_t *>(surface.getBasePtr(0,y)));

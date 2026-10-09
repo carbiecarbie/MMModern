@@ -20,7 +20,7 @@ int main(int argc,char **argv){try{
  const auto root=fs::current_path()/"save-cli-tests";fs::create_directories(root);
  const auto dir=child_test::freshDirectory(root/"run");
  check(child_test::freshDirectory(root/"run")!=dir,"process evidence directories are isolated");
- const auto game=dir/"commercial";fs::create_directories(game);
+ const auto game=dir/"GAME";fs::create_directories(game);
  const auto log=dir/"cli.log";const auto path=dir/fs::path(L"space \u00e7 \u6e38.mmsave");fs::remove(path);
  const std::vector<std::vector<std::wstring>> bad{
  {L"--encounter-26"}, {L"--encounter-26",L""}, {L"--encounter-26",L"--load-game"},
@@ -92,13 +92,13 @@ int main(int argc,char **argv){try{
   {L"--save-file",path.wstring(),L"--difficulty",L"adventurer"}}) {
   std::vector<std::wstring> args;if(explicitEntry)args.push_back(L"--new-game");args.push_back(game.wstring());
   args.insert(args.end(),tail.begin(),tail.end());const auto result=launch(exe,args,log);
-  check(result.exit==3 && result.output.find("World of Xeen")!=std::string::npos,"valid public new-game syntax reaches production");
+  check(result.exit==3 && result.output.find("complete CD source")!=std::string::npos,"valid public new-game syntax reaches production");
  }
  for(const auto &args:std::vector<std::vector<std::wstring>>{
   {L"--journey-region",game.wstring()},
   {L"--journey-region",L"--combat-seed",L"4294967295",game.wstring()},
   {L"--journey-region",L"--combat-seed",L"56",game.wstring(),L"--save-file",path.wstring()}}) {
-  const auto result=launch(exe,args,log);check(result.exit==3&&result.output.find("World of Xeen")!=std::string::npos,"valid regional entry parsing");
+  const auto result=launch(exe,args,log);check(result.exit==3&&result.output.find("complete CD source")!=std::string::npos,"valid regional entry parsing");
  }
  for(const auto *entry:{L"--encounter-26",L"--encounter-27",L"--journey-skeleton",L"--journey-expedition"}) {
   const auto result=launch(exe,{entry,game.wstring()},log);
@@ -109,6 +109,9 @@ int main(int argc,char **argv){try{
   {L"--render-map",game.wstring(),L"1",L"0",L"0",L"north",L"--save-file",path.wstring()}})
   check(launch(exe,args,log).exit==1,"Map explorer cannot accept a save target");
  sprite_test::archive(game/"dark.cc",{{"synthetic",Bytes{0}}});
+ sprite_test::archive(game/"intro.cc",{{"synthetic",Bytes{0}}});
+ fs::create_directories(dir/"WORLD");
+ {const auto ui=dos_test::fixture();std::ofstream out(dir/"WORLD"/"XEEN.DAT",std::ios::binary);out.write(reinterpret_cast<const char *>(ui.data()),ui.size());}
  installation.darkArchive=game/"dark.cc";installation.edition=GameEdition::WorldOfXeen;
  auto s=regional_test::snapshot();s.resources=XeenSaveFile::fingerprint(installation);
  const auto run=[&](const char *message){const auto r=launch(exe,{L"--load-game",game.wstring(),path.wstring()},log);check(r.exit==3&&r.output.find(message)!=std::string::npos&&r.output.find("Resumed ")==std::string::npos,"CLI startup failure/fallback content");};
@@ -118,7 +121,7 @@ int main(int argc,char **argv){try{
   XeenSaveFile::write(path,saved);
   if(kind==2){std::ofstream out(path,std::ios::binary|std::ios::trunc);out<<"bad";}
   if(kind==3 || kind==5){auto b=XeenSaveFormat::encode(s);b[8]=kind==3?7:5;std::ofstream out(path,std::ios::binary|std::ios::trunc);out.write(reinterpret_cast<const char*>(b.data()),b.size());}
-  run(kind==0?"incompatible":kind==1?"Journey membership":kind==2?"format":kind==3?"newer or unsupported MMModern build":kind==5?"older MMModern build":"maze0023.dat");
+  run(kind==0?"archive/data-edition incompatibility":kind==1?"Journey membership":kind==2?"format":kind==3?"newer or unsupported MMModern build":kind==5?"older MMModern build":"maze0023.dat");
   fs::remove(path);
  }
  XeenSaveFile::write(path,s);HANDLE lock=CreateFileW(path.c_str(),GENERIC_READ,0,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
