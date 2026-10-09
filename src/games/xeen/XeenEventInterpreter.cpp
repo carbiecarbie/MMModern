@@ -147,7 +147,7 @@ std::optional<XeenEventExecutionError> preflightCityEvent(XeenWorld &world,
 		}
 		if(std::holds_alternative<XeenEventTeleportAndContinue>(op))
 			return unsupported("Trap teleport effects are not supported yet");
-		if(std::holds_alternative<XeenEventVoiceCue>(op) || std::holds_alternative<XeenEventGiveEnchanted>(op) ||
+		if(std::holds_alternative<XeenEventGiveEnchanted>(op) ||
 			std::holds_alternative<XeenEventRemove>(op))
 			return unsupported("Event effect is not supported yet in this context");
 		if(const auto *npc=std::get_if<XeenEventNpc>(&op)) {
@@ -624,13 +624,23 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			missingPolicy = MissingInstructionPolicy::NaturalCompletion;
 			continue;
 		}
-		if (const auto *voice=std::get_if<XeenEventVoiceCue>(&decoded.operation)) {
-			if (!publication) return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
-				"voice cue has no admitted gameplay context",instructionCount,logical,decoded.source);
-			publication->voiceCue(voice->index);
+		if (std::holds_alternative<XeenEventVoiceCue>(decoded.operation) ||
+			std::holds_alternative<XeenEventCdSpeech>(decoded.operation)) {
+			if (logical.line==255)
+				return error(XeenEventExecutionErrorKind::LineOverflow,
+					"audio sequential event line overflow",instructionCount,logical,decoded.source);
+			if (publication) publication->deferredAudio();
+			XeenPresentationRequest request;
+			request.kind=XeenPresentationKind::DeferredAudio;
+			request.mapId=logical.mapId;
+			request.source=decoded.source;
+			request.text=std::holds_alternative<XeenEventCdSpeech>(decoded.operation) ?
+				"CD speech not supported yet" : "Voice audio not supported yet";
+			// Existing Presented response is automatic: no input, clock or RNG.
 			++logical.line;
 			missingPolicy=MissingInstructionPolicy::NaturalCompletion;
-			continue;
+			state.pendingPresentation=XeenEventPendingPresentation{request,XeenEventPendingContinuation::Advance,{}};
+			return XeenEventExecutionSuspended{state,request};
 		}
 
 		if (const auto *enchanted = std::get_if<XeenEventGiveEnchanted>(&decoded.operation)) {

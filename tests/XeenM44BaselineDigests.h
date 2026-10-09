@@ -55,15 +55,27 @@
 // Services new: 9a5ca4d79747fe15e70e0c805ebf1c04d06be2141fb531c5fa4b557f916687e1
 // Temple old: d7dd4f5ebf5b4bd6632b1fd50b88a5d2c3430f559fc5202e9ff733734a690b4d
 // Temple new: 1e231689a02bef951e0e39d370de39ceff674d24ca5c33fbb5f3ea85d05945bd
+// M53 Part B: maintainer approved the complete CD byte/trace audit on
+// 2026-10-09, before these replacements. Same inputs/seeds and full traces
+// (7,855 / 36,316 / 30,800 lines), with zero RNG/time/reward/route divergence.
+// Save format remains v6/schema9/content14. Logical encrypted CC size+CRC
+// signatures change; Mainland Phirna disabled records 125..135 -> 131..141
+// retain identical logical addresses/opcodes/operands after six preceding
+// PlayCD insertions. CD Vertigo removes protection/self-disable at
+// (15,0,South,4/5), removing Temple's seven-byte {28,764} overlay.
+// All other bytes match; payload lengths/CRCs were explicitly recomputed.
+// Ten saves/checkpoints reconstructed from only these deltas equal the CD
+// candidates byte for byte. Full per-byte and record mapping/raw evidence:
+// build-rel/m53-evidence/part-b/digest-audit.txt and digest-audit.json.
 #include <array>
 #include <cstdint>
 namespace m44_baseline {
-inline constexpr const char *revision = "0f0947337f68d9bd4ae2dfbf0e308a79da73f4f7 + M51 Part A";
+inline constexpr const char *revision = "52b8760c08b6369c76ab82b1c4093e42bb326db5 + M53 Part B CD";
 struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 inline constexpr std::array<Scenario,3> scenarios{{
-    {"mainland-combat-myra-phirna",3626689381u,"aae06cee1c21accbdf1869d894b469878ea435f0616ee995738ef800ed97e6a9"},
-    {"vertigo-buy-repair-training",7u,"9a5ca4d79747fe15e70e0c805ebf1c04d06be2141fb531c5fa4b557f916687e1"},
-    {"temple-recovery",3626689381u,"1e231689a02bef951e0e39d370de39ceff674d24ca5c33fbb5f3ea85d05945bd"}
+    {"mainland-combat-myra-phirna",3626689381u,"141fe55681717513cec78e3890889dda18ef9dbdd1e5cfe534cac1b4be85eeb6"},
+    {"vertigo-buy-repair-training",7u,"a500e62568e74d14ad64e58a0fac11f99c3d6d3349fe05e16da3de1243e2b8a2"},
+    {"temple-recovery",3626689381u,"9d635feb99a50304839301aaeefd1a6798585c123ed26236d25dd143aa2a8ae7"}
 }};
 }
 #endif

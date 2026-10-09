@@ -313,6 +313,20 @@ XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 		return decodeEmpty(record, context, XeenEventReturn{});
 	case 0x1f:
 		return decodeTeleport(record, context, false);
+	case 0x3c: {
+		if (record.parameters.size()!=5) return wrongSize(record,context,5);
+		ParameterReader reader(record.parameters);
+		XeenEventCdSpeech speech;
+		reader.readUint8(speech.track);
+		reader.readUint16LE(speech.start);
+		reader.readUint16LE(speech.finish);
+		// Pinned cmdPlayCD applies +30 for Darkside tracks below 31 and
+		// requires a final track <=60. Audio itself is explicitly deferred.
+		if (speech.track>60)
+			return makeError(record,context,XeenEventDecodeErrorKind::UnsupportedOperand,
+				"CD speech track is outside 0..60");
+		return instruction(record,context,speech);
+	}
 	case 0x28:
 		if (record.parameters.size()!=1) return wrongSize(record,context,1);
 		return instruction(record,context,XeenEventVoiceCue{record.parameters[0]});

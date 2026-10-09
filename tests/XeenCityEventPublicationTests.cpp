@@ -100,6 +100,33 @@ int main(int argc,char **argv) {
 		check(injected && !tampered.flow->canSave() && !tampered.p.questFlags.isSet(3) &&
 			tampered.w.sessionState().regionalActors(28).size()==46 && !tampered.w.sessionState().disabledEventCount(),
 			"Candidate composer tampering published effects or reopened quiet authority");
+		// M53 CD speech and existing voice are presentation-only prefixes; city
+		// preflight must admit them while retaining all dependent-effect checks.
+		city.records={record(0,0x3c,{1,0,0,1,0}),record(1,0x28,{255}),record(2,0x20,{0,0}),
+			record(3,0x0c,{0,0,104,3}),record(4,0x10,{50,13,15,0}),record(5,0x18,{2,0}),record(6,0x12)};
+		Fixture spoken(inputs,initial,false,&city);unsigned audioNotices=0;
+		spoken.flow->reportManual=[&](const auto &result) {
+			if(const auto *pending=std::get_if<XeenEventExecutionSuspended>(&result))
+				if(pending->request.kind==XeenPresentationKind::DeferredAudio)++audioNotices;
+		};
+		const auto speechBefore=XeenSaveFormat::encode(spoken.snapshot());
+		spoken.act(InteractionAction{});
+		check(audioNotices==2 && spoken.flow->canCancelInteraction() && !spoken.p.questFlags.isSet(3),
+			"City audio did not continue exactly once to the existing WhoWill");
+		spoken.act(CancelInteractionAction{});
+		check(spoken.flow->canSave() && speechBefore==XeenSaveFormat::encode(spoken.snapshot()),
+			"Audio/cancel changed time, rewards, RNG or overlays");
+		spoken.act(InteractionAction{});select(spoken);
+		check(audioNotices==4 && spoken.flow->canSave() && spoken.p.questFlags.isSet(3) &&
+			spoken.w.sessionState().disabledEvents().count({28,2}) && spoken.w.sessionState().journeyRandom()==random,
+			"City speech prefix lost guarded effects or drew RNG");
+		for(const auto &suffix:std::vector<XeenEventRecord>{record(3,0x3c,{1,0,0}),record(3,0x14)}) {
+			city.records={record(0,0x3c,{1,0,0,1,0}),record(1,0x0c,{0,0,104,3}),record(2,0x10,{50,13,15,0}),suffix};
+			Fixture blocked(inputs,initial,false,&city);const auto preimage=XeenSaveFormat::encode(blocked.snapshot());
+			blocked.act(InteractionAction{});
+			check(blocked.flow->canSave() && preimage==XeenSaveFormat::encode(blocked.snapshot()),
+				"Malformed audio or first unsupported suffix escaped city preflight with partial effects");
+		}
 		automatic(inputs,initial,false);automatic(inputs,initial,true);
 		std::cout<<"Same-map Event publication, cancellation, refusal, round-trip and candidate tampering passed\n";
 		return 0;

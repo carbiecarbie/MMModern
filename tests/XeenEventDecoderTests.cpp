@@ -341,6 +341,11 @@ int main() {
 	try {
 		testEmptyOperationsAndStrictSizes();
 		testTownService();
+		const auto speech=operation<XeenEventCdSpeech>(XeenEventDecoder::decode(record(0x3c,{30,0x34,0x12,0x78,0x56})));
+		check(speech.track==30 && speech.start==0x1234 && speech.finish==0x5678,"PlayCD LE operands");
+		for(unsigned size=0;size<9;++size)if(size!=5)
+			failure(XeenEventDecoder::decode(record(0x3c,std::vector<std::uint8_t>(size))),XeenEventDecodeErrorKind::MalformedInstruction);
+		failure(XeenEventDecoder::decode(record(0x3c,{61,0,0,0,0})),XeenEventDecodeErrorKind::UnsupportedOperand);
         testTeleports();
 		testCallEvent();
 		testConditionals();

@@ -45,6 +45,14 @@ XeenTextRenderOptions XeenEventPresenter::optionsFor(
 		options.drawWindow = true;
 		options.paginate = true;
 		break;
+	case XeenPresentationKind::DeferredAudio:
+		// Explicit audio deferral stays visible above the Event panels, without
+		// changing the original dialog's pagination or acknowledgment.
+		options.bounds = {0, 0, 224, 8};
+		options.x = 0; options.y = 0; options.alignmentAnchor = 112;
+		options.size = XeenFontSize::Reduced;
+		options.alignment = XeenTextAlignment::Center;
+		break;
 	case XeenPresentationKind::NpcAcknowledgment:
 		break; // Its heading/body have independent bounded layout below.
 	case XeenPresentationKind::CharacterSelection:
@@ -209,7 +217,7 @@ XeenTextRenderResult XeenEventPresenter::drawSelection(const IndexedFrame &base,
 XeenPresentationUpdate XeenEventPresenter::present(const IndexedFrame &base,
 		const XeenPresentationRequest &request) {
 	if (!base.isValid())
-		throw std::invalid_argument("frame base invalido para apresentacao Xeen");
+		throw std::invalid_argument("invalid frame base for Xeen presentation");
 	_underlay = base;
 	_request = request;
 	_layers.push_back({request, 0});

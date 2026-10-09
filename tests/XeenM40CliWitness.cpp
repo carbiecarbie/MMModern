@@ -418,7 +418,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 expectDate(12,849,0,1872837752u,2018,837);
                 check(position->mapId==XeenMapIdentity(28) && position->x==16 && position->y==2 && position->direction==XeenDirection::North &&
                     party->roster.at(1).currentSp==13 && party->roster.at(6).currentSp==24 && world->sessionState().regionalActors(28).size()==52 &&
-                    world->sessionState().regionalActors(28).at(36).lifecycle==XeenActorLifecycle::Defeated && world->sessionState().disabledEvents().count({28,764}),"M40 E actor/reset/SP/camera differs");
+                    // CD maze0028.evt removes (15,0,South,4/5) protection/AlterEvent;
+                    // there is no {28,764} self-disable overlay after exit/reset.
+                    world->sessionState().regionalActors(28).at(36).lifecycle==XeenActorLifecycle::Defeated && world->sessionState().disabledEvents().empty(),"M40 E actor/reset/SP/camera differs");
                 const int hp[]{48,55,29,60,46,15};const unsigned owners[]{0,18,14,11,1,6};
                 for(unsigned i=0;i<6;++i){check(party->roster.at(owners[i]).currentHp==hp[i],"M40 E survival HP differs");for(const auto &condition:party->roster.at(owners[i]).conditions)check(condition==0,"M40 E condition differs");}
                 check(m40_test::sha256(m40_test::stockBytes(*party->serviceEconomy))=="29dc85d364a0c9c0fe1d8c496b51690a66215ae9672c0d104b71ed0fe987bb50" && party->serviceEconomy->bank.gold==0 && party->serviceEconomy->bank.gems==0,"M40 E retained economy differs");

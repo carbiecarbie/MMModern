@@ -697,6 +697,9 @@ if(BUILD_TESTING)
 	target_link_libraries(mmodern_event_interpreter_tests PRIVATE
 		mmodern_xeen mmodern_scummvm_xeen)
 	add_test(NAME xeen_event_interpreter COMMAND mmodern_event_interpreter_tests)
+ add_executable(mmodern_cd_event_original_tests tests/XeenCdEventOriginalTests.cpp)
+ target_link_libraries(mmodern_cd_event_original_tests PRIVATE mmodern_xeen)
+ add_test(NAME xeen_cd_event_original COMMAND mmodern_cd_event_original_tests "${MMODERN_XEEN_DATA_DIR}")
 	add_executable(mmodern_event_presentation_tests
 		tests/XeenEventPresentationTests.cpp
 	)

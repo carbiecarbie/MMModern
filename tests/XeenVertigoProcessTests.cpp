@@ -1,4 +1,8 @@
 #include "XeenChildProcessTestSupport.h"
+#include "XeenTestInstallation.h"
+#include "formats/xeen/XeenAssetSource.h"
+#include "games/xeen/XeenEventLoader.h"
+#include "games/xeen/XeenEventScript.h"
 #include "platform/XeenSaveFile.h"
 #include "formats/xeen/XeenSaveFormat.h"
 #include <array>
@@ -112,8 +116,10 @@ int main(int argc,char **argv) {
   child_test::require(skipped.gameFlags[9] && skipped.gameFlags[231] &&
    skipped.journey && skipped.journey->vertigoActors &&
    skipped.journey->vertigoActors->size()==46 &&
-   std::find(skipped.disabledEvents.begin(),skipped.disabledEvents.end(),XeenEventIdentity{28,764})!=skipped.disabledEvents.end(),
-   "M37 flag-9 true did not skip reset while retaining prelude/protection");
+   // CD maze0028.evt removes the exit protection and its self-disable
+   // at (15,0,South,4/5), so the flag-9 skip publishes no Event overlay.
+   skipped.disabledEvents.empty(),
+   "M37 flag-9 true did not skip reset while retaining the CD exit prelude");
   for(unsigned i=0;i<46;++i) {
    const auto &before=flag9.journey->vertigoActors->at(i),&after=skipped.journey->vertigoActors->at(i);
    child_test::require(before.id==after.id && before.x==after.x && before.y==after.y &&
@@ -153,12 +159,24 @@ int main(int argc,char **argv) {
   try {XeenSaveFile::write(dir/"reject-out-of-map-camera.mmsave",forged);}
   catch(const std::exception &) {refusedCamera=true;}
   child_test::require(refusedCamera,"M37 out-of-map city camera was admitted by the wire validator");
+  // CD removed the implicit protection overlay. Bind malformed-overlay
+  // controls to retained CD instructions, including an explicit reference for
+  // the missing-city-actors case, preserving that same integrity check.
+  const auto installation=xeenTestInstallationDetector().detect(game);
+  child_test::require(bool(installation),"CD installation for overlay controls is missing");
+  XeenAssetSource assets(*installation);
+  const XeenEventScript city(XeenEventLoader([&](const std::string &name)->std::optional<std::vector<std::uint8_t>> {
+   return assets.readInitialResource(name);
+  }).load(28));
+  const auto exitEntry=city.findInstructionIndex(15,0,XeenDirection::South,0);
+  const auto exitLabel=city.findInstructionIndex(15,0,XeenDirection::South,1);
+  child_test::require(exitEntry && exitLabel,"CD exit instructions for overlay controls are missing");
   for(unsigned mode=0;mode<4;++mode) {
    forged=originalB;
-   if(mode==0){forged.disabledEvents.push_back({28,764});forged.disabledEvents.push_back({28,764});}
-   if(mode==1){forged.disabledEvents.push_back({28,539});forged.disabledEvents.push_back({28,539});}
+   if(mode==0){forged.disabledEvents.push_back({28,*exitEntry});forged.disabledEvents.push_back({28,*exitEntry});}
+   if(mode==1){forged.disabledEvents.push_back({28,*exitLabel});forged.disabledEvents.push_back({28,*exitLabel});}
    if(mode==2)forged.disabledObjects.push_back({28,0});
-   if(mode==3){forged=originalC;forged.journey->vertigoActors.reset();}
+   if(mode==3){forged=originalC;forged.disabledEvents.push_back({28,*exitEntry});forged.journey->vertigoActors.reset();}
    // Generic Event protection may name any record, while duplicate identities,
    // city object mutation and missing retained actors remain invalid.
    bool rejected=false;try {XeenSaveFormat::encode(forged);}catch(const std::exception &){rejected=true;}

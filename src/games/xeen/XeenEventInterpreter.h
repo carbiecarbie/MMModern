@@ -51,7 +51,8 @@ enum class XeenPresentationKind {
 	RewardReceipt,
 	ArmorRepairService,
 	TrainingService,
-	TempleService
+	TempleService,
+	DeferredAudio
 };
 
 enum class XeenPresentationResponseRequirement {

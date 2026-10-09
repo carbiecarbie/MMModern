@@ -129,11 +129,13 @@ public:
 		takeIndex=index;consume();
 	}
 	void questTaken() const noexcept { --guard.quests[takeIndex];guard.adoptMutationBoundary(); }
-	void voiceCue(std::uint8_t index) const {
+	void deferredAudio() const {
 		check();
 		const auto operation=decodedOperation();
-		const auto *voice=std::get_if<XeenEventVoiceCue>(&operation);
-		if(!voice || voice->index!=index)integrity("Regional voice cue operands changed");
+		if(!std::holds_alternative<XeenEventVoiceCue>(operation) &&
+			!std::holds_alternative<XeenEventCdSpeech>(operation))
+			integrity("Deferred audio has no dispatched audio instruction");
+		consume();
 	}
 	void prepareWellHp(std::uint8_t owner,std::int16_t before,std::int16_t after) const {
 		check();

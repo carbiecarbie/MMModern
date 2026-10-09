@@ -42,7 +42,7 @@ int main(int argc,char **argv) {
                     if(n>=50){a.original.resourceId=0;a.statistics=in.statistics[0];}}
                 for(const auto &record:in.city.records) {if(record.x!=100 || record.y!=100 || record.opcode!=0x10)continue;check(record.parameters.size()==4,"reset Spawn operand structure");const auto &p=record.parameters;auto &a=actors[p[0]];
                     a.x=p[1];a.y=p[2];a.hp=a.statistics->baseHp();a.activated=false;a.lifecycle=XeenActorLifecycle::Present;}
-                source.disabledEvents.push_back({28,764});
+                // CD maze0028.evt removes exit protection/self-disable at (15,0,South,4/5); reset creates no overlay.
             }
             source.journey->vertigoActors.emplace();
             for(const auto &a:actors)source.journey->vertigoActors->push_back({a.id,a.x,a.y,a.hp,a.activated,a.lifecycle,a.status,false,
