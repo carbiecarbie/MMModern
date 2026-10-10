@@ -34,7 +34,7 @@ machinery: the code now has one save format and one Journey configuration, and
 
 | Milestone | Tier | Goal | Accepted when |
 | --- | --- | --- | --- |
-| **M55 - Interface gaps** | B | Original Strafe movement, Exchange (party order), Quick Reference, Info (date, time and active effects) and Quick Fight (its Cast option may wait for magic), replacing their "not supported yet" notices. | Each works as in DOSBox by mouse and keyboard; save/restore exact. |
+| **M55 - Interface gaps** | A | Original Strafe movement, Exchange (party order), Quick Reference, Info (date, time and active effects) and Quick Fight (its Cast option may wait for magic), replacing their "not supported yet" notices. | Each works as in DOSBox by mouse and keyboard; save/restore exact. |
 
 The order matters. M44-M48 lowered the cost of change and made input, menus
 and presentation original and generic, M49 corrected combat rules and M50
