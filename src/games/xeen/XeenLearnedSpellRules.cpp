@@ -75,6 +75,23 @@ unsigned XeenLearnedSpellRules::cost(XeenLearnedSpell spell) noexcept {
     return spell==XeenLearnedSpell::MagicArrow ? 2 : 1;
 }
 
+// Pinned Spells::subSpellCost / castSpell, LangConstants SPELL_COSTS and
+// SPELL_GEM_COST (ScummVM developers, GPL-3.0-or-later). Cost refusal precedes
+// unsupported-system admission; combat-forbidden spells refund their costs.
+XeenQuickSpellCheck XeenLearnedSpellRules::quickSpellCheck(const XeenCharacter &c,std::uint32_t gems) noexcept {
+    using Q=XeenQuickSpellCheck;if(c.currentSpell==255)return Q::NoSpell;
+    const auto category=categoryForClass(c.characterClass);
+    const auto id=category?spellForSlot(*category,c.currentSpell):std::nullopt;
+    if(!id)return Q::Unsupported;
+    constexpr int sp[]{8,1,5,-2,5,-2,20,10,12,8,3,-3,75,40,12,6,200,10,100,30,-1,30,15,25,10,-2,1,2,7,20,-2,-2,100,15,5,100,35,75,5,20,4,5,1,-2,6,2,75,40,60,6,4,25,-2,-2,60,-1,50,15,125,2,-1,3,-1,200,35,150,15,5,4,10,8,30,4,5,7,5,0};
+    constexpr unsigned gem[]{0,0,2,1,2,4,5,0,0,0,0,10,10,10,0,0,20,4,10,20,1,10,5,5,4,2,0,0,0,10,3,1,20,4,0,20,10,10,1,10,0,0,0,2,2,0,10,10,10,0,0,10,3,2,10,1,10,10,20,0,0,1,1,20,5,20,5,0,0,0,0,5,1,2,0,2,0};
+    const auto required=sp[*id]>0?unsigned(sp[*id]):c.currentLevel()*unsigned(-sp[*id]);
+    if(c.currentSp<int(required))return Q::InsufficientSp;
+    if(gems<gem[*id])return Q::InsufficientGems;
+    for(auto forbidden:{19,21,40,44,66,69,71,75})if(*id==forbidden)return Q::CombatForbidden;
+    return supportedIn(*id,true) && c.hasSpells && known(c,c.currentSpell)?Q::Supported:Q::Unsupported;
+}
+
 bool XeenLearnedSpellRules::known(const XeenCharacter &character, std::size_t slot) noexcept {
 	return slot < 39 && character.learnedSpells && (*character.learnedSpells)[slot] != 0;
 }

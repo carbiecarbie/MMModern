@@ -13,7 +13,7 @@ inline void checkSameCharacter(const XeenCharacter &a, const XeenCharacter &b) {
 			a.permanentLevel != b.permanentLevel || a.temporaryLevel != b.temporaryLevel ||
 			a.temporaryAge != b.temporaryAge || a.birthYear != b.birthYear ||
 			a.currentHp != b.currentHp || a.currentSp != b.currentSp || a.hasSpells != b.hasSpells ||
-			a.learnedSpells != b.learnedSpells ||
+			a.learnedSpells != b.learnedSpells || a.quickOption != b.quickOption || a.currentSpell != b.currentSpell ||
 			a.conditions != b.conditions ||
 			a.maxStatSkills.astrologer != b.maxStatSkills.astrologer ||
 			a.maxStatSkills.bodybuilder != b.maxStatSkills.bodybuilder ||
@@ -45,7 +45,7 @@ inline std::string partySnapshot(const XeenPartyState &p) {
 		out<<+c.rosterId<<c.name<<int(c.sex)<<int(c.race)<<int(c.characterClass);
 		for(auto a:{c.intellect,c.personality,c.endurance})out<<a.permanent<<','<<a.temporary<<',';
 		out<<c.permanentLevel<<','<<c.temporaryLevel<<','<<c.temporaryAge<<','<<c.birthYear<<','
-			<<c.currentHp<<','<<c.currentSp<<','<<c.hasSpells<<c.maxStatSkills.astrologer
+			<<c.currentHp<<','<<c.currentSp<<','<<unsigned(c.quickOption)<<','<<unsigned(c.currentSpell)<<','<<c.hasSpells<<c.maxStatSkills.astrologer
 			<<c.maxStatSkills.bodybuilder<<c.maxStatSkills.prayerMaster<<c.maxStatSkills.prestidigitation;
 		for(auto v:c.conditions)out<<+v<<',';
 		for(const auto *items:{&c.weapons,&c.armor,&c.accessories,&c.miscellaneous})

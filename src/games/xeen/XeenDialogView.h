@@ -18,6 +18,10 @@ enum class XeenDialogText {
 std::string_view xeenDialogText(const XeenDosText &text,XeenDialogText);
 std::string xeenDialogFormat(std::string_view,const std::vector<std::string> &);
 DialogInput xeenSheetInput();
+DialogInput xeenExchangeInput();
+DialogInput xeenQuickFightInput();
+IndexedFrame drawXeenExchange(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,const XeenDialogSpriteDraw &);
+IndexedFrame drawXeenQuickFight(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,const XeenCharacter &,std::size_t,const XeenDialogSpriteDraw &);
 DialogInput xeenItemsInput(bool misc,bool selection=false);
 enum class XeenLocationDialog { Smith, Training, Temple };
 DialogInput xeenLocationInput(XeenLocationDialog);

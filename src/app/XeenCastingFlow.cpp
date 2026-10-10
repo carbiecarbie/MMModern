@@ -19,14 +19,14 @@ unsigned explorationCharge(const XeenCamera &camera) {
 	return camera.mapId == XeenMapIdentity(28) ? 1 : 10;
 }
 
-XeenConsequenceCharacters activeCharacters(const XeenPartyState &party) {
+XeenConsequenceCharacters activeCharacters(const XeenPartyState &party,const XeenPartyOrder &order) {
 	XeenConsequenceCharacters characters;
-	for (unsigned i=0;i<6;++i) characters[i]=party.roster.at(kXeenCombatOwners[i]);
+	for (unsigned i=0;i<6;++i) characters[i]=party.roster.at(order[i]);
 	return characters;
 }
-XeenConsequenceInputs activeInputs(const XeenPartyState &party) {
+XeenConsequenceInputs activeInputs(const XeenPartyState &party,const XeenPartyOrder &order) {
 	XeenConsequenceInputs inputs;
-	for (unsigned i=0;i<6;++i) inputs[i]=*party.roster.combatInputs(kXeenCombatOwners[i]);
+	for (unsigned i=0;i<6;++i) inputs[i]=*party.roster.combatInputs(order[i]);
 	return inputs;
 }
 }
@@ -38,7 +38,7 @@ bool XeenEncounterFlow::beginCasting(const Ticket &entry) {
 	try {
 		_journeyPreimage->check();
 		xeenValidateJourneyParty(_party);
-		auto next=std::make_unique<CastingContinuation>();
+		auto next=std::make_unique<CastingContinuation>();next->owners=_party.party.activeOrder();
 		next->generation=++_castingGeneration;
 		next->lease=_boundary.hold(XeenCombatBoundary::Work::Casting);
 		_casting=std::move(next);
@@ -198,7 +198,7 @@ bool XeenEncounterFlow::serviceCasting() {
 	try {
 		_journeyPreimage->check();
 		auto &work=*_casting;
-		if (!work.time) work.time.emplace(*_party.encounterContext,explorationCharge(_camera),activeCharacters(_party),activeInputs(_party),&*_party.serviceEconomy);
+		if (!work.time) work.time.emplace(*_party.encounterContext,explorationCharge(_camera),activeCharacters(_party,work.owners),activeInputs(_party,work.owners),&*_party.serviceEconomy);
 		XeenConsequenceDraw draw{work.random,64,[&] { _journeyPreimage->check(); }};
 		if (!work.time->service(draw)) return true;
 		if (_world._sessionState._encounterRevision==std::numeric_limits<std::uint64_t>::max())
@@ -212,7 +212,7 @@ bool XeenEncounterFlow::serviceCasting() {
 			living=living || xeenCombatTargetable(owner);
 		}
 		prepared->context=work.time->context;prepared->economy=work.time->economy;
-		for(unsigned n=0;n<6;++n)prepared->inputs[kXeenCombatOwners[n]]=work.time->inputs[n];
+		for(unsigned n=0;n<6;++n)prepared->inputs[work.owners[n]]=work.time->inputs[n];
 		const auto continuation=work.random.continuation();
 		prepared->s._journeyRandom=continuation;
 		_journeyPreimage->check();
@@ -222,7 +222,7 @@ bool XeenEncounterFlow::serviceCasting() {
 		}
 		if(work.time->needsRest)_needsRestNotice=true;
 		_party.encounterContext=work.time->context;_party.serviceEconomy=work.time->economy;
-		for(unsigned n=0;n<6;++n)_party.roster._combatInputs[kXeenCombatOwners[n]]=work.time->inputs[n];
+		for(unsigned n=0;n<6;++n)_party.roster._combatInputs[work.owners[n]]=work.time->inputs[n];
 		auto &session=_world._sessionState;
 		session._journeyRandom=continuation;
 		_state._pending=living?3:0;

@@ -31,6 +31,7 @@ struct XeenLearnedSpellNames {
 	}
 };
 
+enum class XeenQuickSpellCheck { Supported, NoSpell, InsufficientSp, InsufficientGems, CombatForbidden, Unsupported };
 class XeenLearnedSpellRules {
 public:
 	static std::optional<XeenSpellCategory> categoryForClass(XeenCharacterClass) noexcept;
@@ -38,6 +39,7 @@ public:
 	static std::optional<XeenLearnedSpell> supported(std::uint8_t) noexcept;
 	static std::optional<XeenLearnedSpell> supportedIn(std::uint8_t, bool combat) noexcept;
 	static unsigned cost(XeenLearnedSpell) noexcept;
+	static XeenQuickSpellCheck quickSpellCheck(const XeenCharacter &,std::uint32_t gems) noexcept;
 	static bool known(const XeenCharacter &, std::size_t) noexcept;
 	static bool eligible(const XeenPartyState &, std::size_t activeIndex, std::size_t slot, bool combat=false) noexcept;
 	static XeenSpellPreparation prepareFirstAid(const XeenPartyState &, std::size_t targetIndex,

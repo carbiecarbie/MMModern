@@ -6,7 +6,7 @@ void put(Bytes &b,std::uint64_t v,unsigned n){for(unsigned i=0;i<n;++i)b.push_ba
 std::size_t baseSize(const XeenSaveSnapshot &s){
  check(s.barriers.empty(),"Independent suffix fixture requires an empty v6 barrier list");
  std::size_t n=20+25+6+2+s.activeRosterIds.size()+4*s.questItems.size()+s.questFlags.size()+s.gameFlags.size()+8+7*(s.disabledObjects.size()+s.disabledEvents.size())+2;
- for(const auto &c:s.characters)n+=212+c.name.size();return n;
+ for(const auto &c:s.characters)n+=214+c.name.size();return n;
 }
 Bytes suffix(const XeenSaveSnapshot &s){
  const auto &j=*s.journey;Bytes b{3,9,0,14,0,1,0,0};
@@ -42,7 +42,7 @@ XeenSaveSnapshot sampleCurrent(){
 }
 void verify(const XeenSaveSnapshot &s){
  const auto bytes=XeenSaveFormat::encode(s),expected=suffix(s);const auto offset=baseSize(s);
- check(bytes.size()==offset+expected.size()&&std::equal(expected.begin(),expected.end(),bytes.begin()+offset),"Independent complete v7 schema9/content14 suffix and absent name");
+ check(bytes.size()==offset+expected.size()&&std::equal(expected.begin(),expected.end(),bytes.begin()+offset),"Independent complete v8 schema9/content14 suffix and absent name");
  sameSnapshot(s,XeenSaveFormat::decode(bytes));check(XeenSaveFormat::encode(XeenSaveFormat::decode(bytes))==bytes,"Exact current byte continuation");
  for(std::size_t size=offset;size<bytes.size();++size){auto b=bytes;b.resize(size);fixIndependentEnvelope(b);rejects([&]{XeenSaveFormat::decode(b);});}
  auto extra=bytes;extra.push_back(0);fixIndependentEnvelope(extra);rejects([&]{XeenSaveFormat::decode(extra);});

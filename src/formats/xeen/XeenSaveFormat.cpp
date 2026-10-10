@@ -118,6 +118,7 @@ void writeCharacter(Writer &out, const XeenCharacter &c) {
 	out.i16(c.currentHp); out.i16(c.currentSp);
 	for (const auto value : c.conditions) out.u8(value);
 	out.u16(c.birthYear);
+	out.u8(c.quickOption);out.u8(c.currentSpell);
 }
 
 XeenCharacter readCharacter(Reader &in) {
@@ -147,6 +148,7 @@ XeenCharacter readCharacter(Reader &in) {
 	c.currentHp = in.i16(); c.currentSp = in.i16();
 	for (auto &value : c.conditions) value = in.u8();
 	c.birthYear = in.u16();
+	c.quickOption=in.u8();c.currentSpell=in.u8();
 	return c;
 }
 
@@ -296,9 +298,10 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 		}
 	}
 
-	for (const auto &character : s.characters)
-		require(character.learnedSpells.has_value(),
-			"Journey learned-spell presence mismatch");
+	for (const auto &character : s.characters) {
+		require(character.learnedSpells.has_value(), "Journey learned-spell presence mismatch");
+		require(character.quickOption<=3 && (character.currentSpell<39 || character.currentSpell==255), "invalid Quick Fight setting");
+	}
 
 }
 

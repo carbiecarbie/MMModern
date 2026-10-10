@@ -97,6 +97,28 @@ std::string_view xeenDialogText(const XeenDosText &text,XeenDialogText id) {
     }
     throw std::invalid_argument("Unknown dialog text");
 }
+// Pinned dialogs_exchange.cpp / dialogs_quick_fight.cpp; DOS Exchange cancels
+// only on the visible button, rather than the reference's y=245 extent.
+DialogInput xeenExchangeInput() {
+    DialogInput input;partyButtons(input);
+    button(input,225,120,249,140,InputKey::Escape,"esc.icn");return input;
+}
+DialogInput xeenQuickFightInput() {
+    DialogInput input;partyButtons(input);
+    button(input,242,108,266,128,'n',"train.icn",0);
+    button(input,281,108,305,128,InputKey::Escape,"train.icn",2);
+    input.keys.push_back(InputKey::Enter);return input;
+}
+IndexedFrame drawXeenExchange(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,const XeenDialogSpriteDraw &draw) {
+    auto frame=render(base,font,str(text.scalar("EXCHANGE_WITH_WHOM")),{50,112,266,148},{58,120,258,140});
+    if(draw)draw(frame,"esc.icn",0,225,120);return frame;
+}
+IndexedFrame drawXeenQuickFight(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,
+        const XeenCharacter &c,std::size_t slot,const XeenDialogSpriteDraw &draw) {
+    auto frame=render(base,font,xeenDialogFormat(text.scalar("QUICK_FIGHT_TEXT"),{c.name,str(text.table("QUICK_FIGHT_OPTIONS").at(c.quickOption))}),{226,0,320,146},{234,8,312,138});
+    if(draw) {draw(frame,"train.icn",0,242,108);draw(frame,"train.icn",2,281,108);}
+    highlight(frame,slot,draw);return frame;
+}
 DialogInput xeenSheetInput() {
     DialogInput input;constexpr int x[]{10,61,112,177};
     for(unsigned col=0;col<4;++col) for(unsigned row=0;row<5;++row)

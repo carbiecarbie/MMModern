@@ -70,6 +70,9 @@ public:
 	XeenEncounterResult journeyAction(const Ticket &, XeenEncounterAction);
 	XeenEncounterResult journeyPulse(const Ticket &);
 	XeenEquipmentResult journeyEquipment(const Ticket &, std::size_t, XeenInventoryCategory, std::size_t, XeenEquipmentOperation);
+	bool journeyExchange(const Ticket &,std::size_t,std::size_t,std::uint64_t inventoryLease);
+	bool rememberSpell(const Ticket &,std::size_t,unsigned);
+	bool configureQuickFight(const Ticket &,std::size_t);
 	XeenTransferResult journeyTransfer(const Ticket &, std::size_t, std::size_t, XeenInventoryCategory, std::size_t);
 	struct ItemUseSelection {
 		std::uint64_t epoch=0;
@@ -135,6 +138,7 @@ public:
 private:
 	friend class XeenEventFlow;
 	friend struct XeenRestTestAccess;
+	friend struct XeenPartyInterfaceTestAccess;
 	friend struct XeenTrainingTestAccess;
 	friend struct XeenPurchaseTestAccess;
 	friend struct XeenCombatPresentationTestAccess;
@@ -146,6 +150,7 @@ private:
     std::string _combatCastRefusal;
 	bool _needsRestNotice=false;
 	struct RestContinuation {
+	 XeenPartyOrder owners{};
 	 enum class Phase { Confirm, Refused, Charges, Remainder, Dream, Recovery, Complete };
 	 Phase phase=Phase::Charges;
 	 unsigned charges=0, consumed=0, dreamBeat=0;
@@ -271,6 +276,7 @@ private:
 	};
 	std::unique_ptr<ItemUseContinuation> _itemUse;
 	struct CastingContinuation {
+		XeenPartyOrder owners{};
 		std::uint64_t lease=0, generation=0, displayedInput=0;
 		IndexedFrame::Presentation displayedFrame;
 		std::uint8_t casterOwner=0, slot=0;

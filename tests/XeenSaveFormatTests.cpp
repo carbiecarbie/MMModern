@@ -1,4 +1,6 @@
 #include "XeenSaveTestSupport.h"
+#include "XeenTestInstallation.h"
+#include "formats/xeen/XeenAssetSource.h"
 
 #include <algorithm>
 #include <iostream>
@@ -88,12 +90,12 @@ void wireContract() {
 	s.resources.clouds = {0x0807060504030201ULL, 0x0c0b0a09U};
 	s.camera = {23, 0, 15, XeenDirection::West};
 	const auto expected = legacyGolden();
-	Bytes v2(6847, 0);
+	Bytes v2(6907, 0);
 	std::copy_n(expected.begin(), 53, v2.begin());
-	v2[8] = 7;
-	for (unsigned i = 0; i < 30; ++i) v2[53 + 212 * i] = i;
+	v2[8] = 8;
+	for (unsigned i = 0; i < 30; ++i) {v2[53 + 214 * i] = i;v2[53+214*i+213]=255;}
 	const auto current=XeenSaveFormat::encode(s);
-	v2.insert(v2.end(),current.begin()+6847,current.end());
+	v2.insert(v2.end(),current.begin()+6907,current.end());
 	fixIndependentEnvelope(v2);
 	check(XeenSaveFormat::encode(s) == v2, "encoder differs from independent minimal v2");
 	sameSnapshot(s, XeenSaveFormat::decode(v2));
@@ -112,9 +114,9 @@ void wireContract() {
 }
 
 void asymmetricBase() {
-	// Independent offsets: three members, 14 name bytes, 212 fixed bytes/character.
-	Bytes bytes(6847 + 3 + 14, 0);
-	const Bytes prefix{'M','M','M','S','A','V','E',0,7,0,0,0};
+	// Independent offsets: three members, 14 name bytes, 214 fixed bytes/character.
+	Bytes bytes(6907 + 3 + 14, 0);
+	const Bytes prefix{'M','M','M','S','A','V','E',0,8,0,0,0};
 	std::copy(prefix.begin(), prefix.end(), bytes.begin());
 	bytes[20] = 99; bytes[28] = 88; bytes[46] = 23;
 	bytes[51] = 3; bytes[52] = 18; bytes[53] = 0; bytes[54] = 18; bytes[55] = 30;
@@ -148,7 +150,8 @@ void asymmetricBase() {
 		bytes[after + 2] = static_cast<std::uint8_t>(c.currentSp); bytes[after + 3] = 1;
 		c.conditions[15] = 200 + i; bytes[after + 19] = c.conditions[15];
 		c.birthYear = 592 + i; bytes[after + 20] = c.birthYear & 255; bytes[after + 21] = 2;
-		base += 212 + c.name.size();
+		bytes[after+22]=c.quickOption;bytes[after+23]=c.currentSpell;
+		base += 214 + c.name.size();
 	}
 	expected.questItems[34] = 0x12345678; put32(bytes, base + 34 * 4, 0x12345678);
 	expected.questFlags[29] = true; bytes[base + 169] = 1;
@@ -168,7 +171,7 @@ void asymmetricBase() {
 		Bytes truncated(bytes.begin(), bytes.begin() + size); fixIndependentEnvelope(truncated);
 		rejects([&] { XeenSaveFormat::decode(truncated); });
 	}
-	for (const auto offset : {103U, 138U, 175U, 246U, 56U + 212U * 29U + 6U + 46U + 8U}) {
+	for (const auto offset : {103U, 138U, 175U, 246U, 56U + 214U * 29U + 6U + 46U + 8U}) {
 		auto removed = bytes; removed.erase(removed.begin() + offset); fixIndependentEnvelope(removed);
 		rejects([&] { XeenSaveFormat::decode(removed); });
 		auto inserted = bytes; inserted.insert(inserted.begin() + offset, 255); fixIndependentEnvelope(inserted);
@@ -246,7 +249,7 @@ void malformedBytes() {
 	}
 	auto bad = good;
 	bad[0] ^= 1; rejects([&] { XeenSaveFormat::decode(bad); }, "unrecognized format");
-	bad = good; bad[8] = 8; rejects([&] { XeenSaveFormat::decode(bad); }, "newer or unsupported");
+	bad = good; bad[8] = 9; rejects([&] { XeenSaveFormat::decode(bad); }, "newer or unsupported");
 	bad = good; bad[8] = 3; rejects([&] { XeenSaveFormat::decode(bad); }); // v1 payload is not v3.
 	bad = good; bad[8] = 2; rejects([&] { XeenSaveFormat::decode(bad); }); // v1 payload is not v2.
 	bad = good; bad[8] = 0; rejects([&] { XeenSaveFormat::decode(bad); }, "newer or unsupported");
@@ -257,13 +260,13 @@ void malformedBytes() {
 	bad = good; bad.push_back(0); fixEnvelope(bad);
 	rejects([&] { XeenSaveFormat::decode(bad); }, "suffix length");
 	rejects([&] { XeenSaveFormat::decode(Bytes(XeenSaveFormat::kMaximumSize + 1)); }, "oversized");
-	for (const auto offset : {32U, 94U, 95U, 96U, 97U, 98U, 6553U, 6583U}) {
+	for (const auto offset : {32U, 94U, 95U, 96U, 97U, 98U, 6613U, 6643U}) {
 		bad = good; bad[offset] = 2; fixEnvelope(bad);
 		rejects([&] { XeenSaveFormat::decode(bad); }, "boolean");
 	}
 	bad = good; bad[33] = 1; fixEnvelope(bad);
 	rejects([&] { XeenSaveFormat::decode(bad); }, "absent archive");
-	for (const auto offset : {6839U, 6843U}) {
+	for (const auto offset : {6899U, 6903U}) {
 		bad = good; put32(bad, offset, 0xffffffffU); fixEnvelope(bad);
 		rejects([&] { XeenSaveFormat::decode(bad); }, "count");
 	}
@@ -361,10 +364,10 @@ void fingerprints() {
 // Synthetic wire-only owners: no original resources or gameplay injection.
 
 void rejectedVersions() {
- for(unsigned version:{0u,1u,2u,3u,4u,5u,6u,8u,65535u}) {
+ for(unsigned version:{0u,1u,2u,3u,4u,5u,6u,7u,9u,65535u}) {
   auto bytes=golden();bytes[8]=version;bytes[9]=version>>8;
   // Only recognizable earlier envelopes are "older"; others may be newer builds.
-  rejects([&]{XeenSaveFormat::decode(bytes);},version>=1 && version<=6?"no longer supported":"newer or unsupported");
+  rejects([&]{XeenSaveFormat::decode(bytes);},version>=1 && version<=7?"no longer supported":"newer or unsupported");
  }
  rejects([&]{XeenSaveFormat::decode(legacyGolden());},"no longer supported");
  rejects([&]{XeenSaveFormat::encode(XeenSaveSnapshot{});},"no longer supported");
@@ -425,7 +428,7 @@ void serviceEconomyWireContract() {
 		s.journey->supplements[owner].inputs.poisonResistance=XeenAttributeValue{int(owner),int(255-owner)};
 	}
 	const auto bytes=XeenSaveFormat::encode(s);const auto start=bytes.size()-4461;
-	check(bytes[8]==7 && bytes[start+1]==9 && bytes[start+3]==content,"exact v5/schema9/content selectors");
+	check(bytes[8]==8 && bytes[start+1]==9 && bytes[start+3]==content,"exact v5/schema9/content selectors");
 	auto expected=bytes;expected.resize(expected.size()-1165);
 	expected.insert(expected.end(),{2,4,4,9});
 	// Literal wire recipe is independent of the production encoder and validator.
@@ -505,7 +508,7 @@ void purchaseDepletedWireContract() {
 	for(unsigned owner=0;owner<46;++owner){XeenSaveJourneyActor a;a.id={28,owner};a.hp=1;state.journey->vertigoActors->push_back(a);}
 	const auto complete=XeenSaveFormat::encode(state);
 	const auto economyOffset=complete.size()-1165,start=complete.size()-(4461+4+21*46);
-	check(complete[8]==7 && complete[start+1]==9 && complete[start+3]==14,"purchase selector/extent differs");
+	check(complete[8]==8 && complete[start+1]==9 && complete[start+3]==14,"purchase selector/extent differs");
 	// Literal eight L1 Weapon source from twenty Weapon calls. Removing one
 	// inserted plain record leaves seven; old generated-only meaning rejects it.
 	state.journey->serviceEconomy->wares[0][0][0][7]={};
@@ -566,18 +569,47 @@ void templeWireContract() {
 
 int main(int argc,char **argv) {
 	try {
-		if(argc==4 && std::string(argv[1])=="--audit-v7") {
-			const auto read=[](const char *path) {std::ifstream in(path,std::ios::binary);check(bool(in),"missing audit save");return Bytes(std::istreambuf_iterator<char>(in),{});};
-			auto old=read(argv[2]);const auto candidate=read(argv[3]);
-			check(old.size()>20 && old[8]==6 && old[9]==0 && candidate[8]==7 && candidate[9]==0,"audit versions");
-			check(candidate.size()==old.size()+1 && candidate.back()==0 && std::equal(old.begin()+20,old.end(),candidate.begin()+20),"audit common gameplay bytes");
-			// Test-only format projection; no legacy reader enters the application.
-			old[8]=7;old.push_back(0);fixIndependentEnvelope(old);
-			sameSnapshot(XeenSaveFormat::decode(old),XeenSaveFormat::decode(candidate));
-			check(old==candidate,"audit envelope projection differs");
-			std::cout<<"Every decoded gameplay field and the format-only projection match\n";return 0;
-		}
-		saveNames();dailyStateRoundTrips();wireContract(); asymmetricBase();  completeRoundTrips(); numericDomains(); malformedBytes(); invalidValuesAndLimits(); fingerprints(); rejectedVersions(); regionalCityWire();mainlandTopologyCounts(); serviceEconomyWireContract(); purchaseDepletedWireContract(); templeWireContract();
+        if(argc==5 && std::string(argv[1])=="--audit-v8") {
+            const auto read=[](const char *path) {std::ifstream in(path,std::ios::binary);check(bool(in),"missing audit save");return Bytes(std::istreambuf_iterator<char>(in),{});};
+            const auto old=read(argv[2]),candidate=read(argv[3]);
+            check(old.size()>53 && old[8]==7 && old[9]==0 && candidate[8]==8 && candidate[9]==0,"audit versions");
+            auto installation=xeenTestInstallationDetector().detect(argv[4]);check(bool(installation),"audit installation");
+            XeenAssetSource assets(*installation,320,200);const auto chr=assets.readInitialResource("maze.chr");
+            std::size_t at=53+old[51];Bytes projected(old.begin(),old.begin()+at);
+            for(unsigned owner=0;owner<30;++owner) {
+                check(old.at(at)==owner,"audit roster identity");const auto end=at+212+old.at(at+1);
+                check(end<=old.size(),"audit character extent");projected.insert(projected.end(),old.begin()+at,old.begin()+end);
+                // Only the two added v8 fields come from the candidate. Every common
+                // byte must still be reproduced from the v7 wire independently.
+                const auto newEnd=end+2*owner;
+                check(candidate.at(newEnd)==chr.at(owner*354+165),"audit baseline Quick Fight option changed");
+                if(candidate.at(newEnd+1)!=chr.at(owner*354+164))
+                    std::cout<<"Remembered spell owner "<<owner<<": CHR "<<unsigned(chr.at(owner*354+164))<<" -> selected slot "<<unsigned(candidate.at(newEnd+1))<<'\n';
+                projected.push_back(candidate.at(newEnd));projected.push_back(candidate.at(newEnd+1));at=end;
+            }
+            projected.insert(projected.end(),old.begin()+at,old.end());projected[8]=8;fixIndependentEnvelope(projected);
+            check(projected==candidate,"audit format-only projection differs");
+            sameSnapshot(XeenSaveFormat::decode(projected),XeenSaveFormat::decode(candidate));
+            check(XeenSaveFormat::encode(XeenSaveFormat::decode(candidate))==candidate,"audit canonical v8 reload/re-save differs");
+            std::cout<<"Every common decoded field and byte matches; 30 setting pairs (CHR options and remembered spell selections) account for all additions\n";return 0;
+        }
+		const auto run=[](const char *name,auto test){try{test();}catch(const std::exception &e){throw std::runtime_error(std::string(name)+": "+e.what());}};
+		run("saveNames",saveNames);
+		run("dailyStateRoundTrips",dailyStateRoundTrips);
+		run("wireContract",wireContract);
+		run("asymmetricBase",asymmetricBase);
+		run("completeRoundTrips",completeRoundTrips);
+		run("numericDomains",numericDomains);
+		run("malformedBytes",malformedBytes);
+		run("invalidValuesAndLimits",invalidValuesAndLimits);
+		run("fingerprints",fingerprints);
+		run("rejectedVersions",rejectedVersions);
+		run("regionalCityWire",regionalCityWire);
+		run("mainlandTopologyCounts",mainlandTopologyCounts);
+		run("serviceEconomyWireContract",serviceEconomyWireContract);
+		run("purchaseDepletedWireContract",purchaseDepletedWireContract);
+		run("templeWireContract",templeWireContract);
+
 		std::cout << "Current save format: wire content, all modeled values, domains, malformed input and fingerprints passed\n";
 		return 0;
 	} catch (const std::exception &error) {

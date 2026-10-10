@@ -55,7 +55,7 @@ private:
 enum class XeenCombatPhase { Engaged, PlayerReady, Casting, PreparingAction,
 	PendingEnemy, PendingRound, DisengagementPending, Disengaged, VictoryAwaitingEnd, Victory, Defeat, SupportStopped, Failed };
 enum class XeenCombatWork { None, Action, Enemy, Round, End, FinishDisengagement, Cast, Movement };
-enum class XeenCombatCommand { Attack, Block, Run };
+enum class XeenCombatCommand { Attack, Block, Run, Skip };
 enum class XeenCombatStatus { Accepted, Pending, Advanced, Refused, Stale, Failed, SupportStopped, Victory, Defeat };
 enum class XeenCombatFailure { None, Integrity, Preparation, Time, Observation, Overflow };
 enum class XeenCombatOperation { None, BeginCombat, PlayerAttack, Cast, Block, PlayerRun, FinishDisengagement, EnemyAttack, Round, End, Failure, Rotate, Movement };
@@ -141,6 +141,7 @@ struct XeenCombatCastResult {
     std::array<Effect,6> effects{};
 };
 struct XeenCombatCastView {
+    bool quick=false;
     XeenCombatCastPhase phase=XeenCombatCastPhase::Learned;
     unsigned participant=0,owner=0,slot=0;
     std::optional<XeenMonsterIdentity> enemy;
@@ -179,6 +180,7 @@ public:
 	XeenCombatRandom random() const noexcept;
 	XeenCombatResult beginCombat(const Ticket &);
 	XeenCombatResult command(const Ticket &,XeenCombatCommand);
+	XeenCombatResult configureQuickFight(const Ticket &,std::size_t);
 	XeenCombatResult selectTarget(const Ticket &, unsigned row);
     XeenCombatResult rotate(const Ticket &,NavigationAction);
     unsigned movementCountdown() const noexcept;
@@ -210,6 +212,7 @@ private:
         CastResponse(const CastResponse &)=delete;
     };
     XeenCombatResult beginCast(CastResponse &, const std::function<XeenLearnedSpellNames()> &);
+    XeenCombatResult beginCast(CastResponse &, const std::function<XeenLearnedSpellNames()> &,bool quick);
     XeenCombatResult respondCast(CastResponse &, XeenCombatCastInput, unsigned,
         const std::function<XeenLearnedSpellNames()> &);
     XeenCombatResult serviceCast(const Ticket &, std::uint64_t);
@@ -218,6 +221,7 @@ private:
     void rangedPresented(const Ticket &, bool travelComplete);
     bool consumeCast(CastResponse &);
     XeenCombatResult settleCast(const Ticket &, std::optional<unsigned>);
+    XeenCombatResult finishQuickCast(const Ticket &);
 	XeenCombat(XeenWorld &, XeenPartyState &, XeenCamera &, XeenCombatBoundary &, const XeenGameFlags &,
 		const XeenEncounterState &, const std::vector<XeenMonsterRecord> &, const XeenEventFile &);
 	void retireJourney(const Ticket &, XeenEncounterState &);

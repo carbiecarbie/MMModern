@@ -479,9 +479,9 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		const auto map=world.map(camera.mapId);check();
 		if(!work) {
 			auto candidate=std::make_unique<XeenRegionalActionCandidate>();auto &c=*candidate;
-			c.camera=camera;c.context=*party.encounterContext;c.actors=regionalActors;
+			c.owners=party.party.activeOrder();c.camera=camera;c.context=*party.encounterContext;c.actors=regionalActors;
 			c.random=XeenCombatRandom(*session._journeyRandom);c.revision=state._revision;c.pending=state._pending;
-			for(unsigned i=0;i<6;++i) { c.characters[i]=party.roster.at(kXeenCombatOwners[i]);c.inputs[i]=*party.roster.combatInputs(kXeenCombatOwners[i]); }
+			for(unsigned i=0;i<6;++i) { c.characters[i]=party.roster.at(c.owners[i]);c.inputs[i]=*party.roster.combatInputs(c.owners[i]); }
 			bool charge=false,stepTime=false;
 			c.result.outcome=action?XeenEncounterOutcome::Accepted:XeenEncounterOutcome::Pulsed;
 			if(action) {
@@ -556,7 +556,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
                     auto visibleActors=op.actors;check();
                     regionalActors.swap(visibleActors);camera=c.camera;party.encounterContext=c.context;
                     if(c.time && c.timeDone)party.serviceEconomy=c.time->economy;
-                    if(c.time && c.timeDone)for(unsigned n=0;n<6;++n)party.roster._combatInputs[kXeenCombatOwners[n]]=c.inputs[n];
+                    if(c.time && c.timeDone)for(unsigned n=0;n<6;++n)party.roster._combatInputs[c.owners[n]]=c.inputs[n];
                     const auto &values=op.impactApplied ? op.characters : c.characters;
                     for(const auto &v:values) {auto &live=party.roster.at(v.rosterId);live.currentHp=v.currentHp;live.conditions=v.conditions;live.armor=v.armor;
                      if(c.time && c.timeDone && c.time->resetTemps)xeenResetCharacterTemps(live,*party.roster._combatInputs[v.rosterId]);}
@@ -591,7 +591,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		regionalActors.swap(c.actors);session._journeyRandom=c.random.continuation();
 		camera=c.camera;party.encounterContext=c.context;
                     if(c.time && c.timeDone)party.serviceEconomy=c.time->economy;
-                    if(c.time && c.timeDone)for(unsigned n=0;n<6;++n)party.roster._combatInputs[kXeenCombatOwners[n]]=c.inputs[n];
+                    if(c.time && c.timeDone)for(unsigned n=0;n<6;++n)party.roster._combatInputs[c.owners[n]]=c.inputs[n];
 		for(const auto &value:c.characters) { auto &owner=party.roster.at(value.rosterId);owner.currentHp=value.currentHp;owner.conditions=value.conditions;owner.armor=value.armor;
          if(c.time && c.timeDone && c.time->resetTemps)xeenResetCharacterTemps(owner,*party.roster._combatInputs[value.rosterId]); }
 		state._pending=c.pending;state._revision=session._encounterRevision=c.result.revision;

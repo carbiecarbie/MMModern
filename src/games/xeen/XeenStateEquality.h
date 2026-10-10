@@ -29,7 +29,7 @@ inline bool sameCharacter(const XeenCharacter &a, const XeenCharacter &b) {
 		a.maxStatSkills.bodybuilder == b.maxStatSkills.bodybuilder &&
 		a.maxStatSkills.prayerMaster == b.maxStatSkills.prayerMaster &&
 		a.maxStatSkills.prestidigitation == b.maxStatSkills.prestidigitation &&
-		a.hasSpells == b.hasSpells && a.learnedSpells == b.learnedSpells &&
+		a.currentSpell == b.currentSpell && a.quickOption == b.quickOption && a.hasSpells == b.hasSpells && a.learnedSpells == b.learnedSpells &&
 		sameItemCategory(a.weapons, b.weapons) &&
 		sameItemCategory(a.armor, b.armor) && sameItemCategory(a.accessories, b.accessories) &&
 		sameItemCategory(a.miscellaneous, b.miscellaneous) && a.currentHp == b.currentHp &&

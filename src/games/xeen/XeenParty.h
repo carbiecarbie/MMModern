@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -69,6 +70,10 @@ public:
 
 	const XeenMutableVector<std::uint8_t> &activeRosterIds() const { return _activeRosterIds; }
 	std::size_t size() const { return _activeRosterIds.size(); }
+	XeenPartyOrder activeOrder() const {
+		if(size()!=6)throw std::invalid_argument("Journey requires six party members");
+		XeenPartyOrder order{};for(unsigned n=0;n<6;++n)order[n]=_activeRosterIds[n];return order;
+	}
 	const XeenCharacter &member(const XeenRoster &roster, std::size_t partyIndex) const;
 
 private:

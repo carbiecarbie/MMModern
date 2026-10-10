@@ -202,10 +202,10 @@ std::optional<std::uint64_t> XeenEncounterFlow::beginItemUse(const Ticket &entry
 		next->opportunity=std::make_unique<XeenRegionalActionCandidate>();
 		auto &c=*next->opportunity;
 		const auto &s=_world.sessionState();
-		c.camera=_camera;c.context=*_party.encounterContext;c.actors=s.regionalActors(_camera.mapId);
+		c.owners=_party.party.activeOrder();c.camera=_camera;c.context=*_party.encounterContext;c.actors=s.regionalActors(_camera.mapId);
 		c.random=XeenCombatRandom(*s.journeyRandom());c.revision=_state.revision();c.pending=0;
 		c.remaining=1;c.classify=true;c.result.outcome=XeenEncounterOutcome::Pulsed;
-		for(unsigned i=0;i<6;++i) { c.characters[i]=_party.roster.at(kXeenCombatOwners[i]);c.inputs[i]=*_party.roster.combatInputs(kXeenCombatOwners[i]); }
+		for(unsigned i=0;i<6;++i) { c.characters[i]=_party.roster.at(c.owners[i]);c.inputs[i]=*_party.roster.combatInputs(c.owners[i]); }
 		next->generation=++_itemUseGeneration;next->epoch=selection.epoch+1;
 		next->sourceOwner=selection.sourceOwner;next->slot=selection.slot;
 		next->spentCharge=selection.record.state&0x3f;next->exhausted=next->spentCharge==1;
@@ -563,6 +563,25 @@ XeenEncounterResult XeenEncounterFlow::advanceJourney(const Ticket &entry, std::
 		if (_boundary.generation() != boundaryGeneration) return refused;
 		closeJourney(); throw;
 	}
+}
+bool XeenEncounterFlow::journeyExchange(const Ticket &entry,std::size_t from,std::size_t to,std::uint64_t lease) {
+    if(!journeyMutable() || !current(entry) || !journeyCapacity() ||
+        !_boundary.only(XeenCombatBoundary::Work::Inventory,lease) || from>=6 || to>=6 || from==to)return false;
+    BusyJourney busy(_busy);
+    try {
+        xeenValidateJourneyParty(_party);std::vector<std::uint8_t> ids=_party.party.activeRosterIds();std::swap(ids[from],ids[to]);
+        auto next=XeenParty::fromRosterIds(ids);_journeyPreimage->check();_party.party=std::move(next);
+        ++_generation;retainJourney();return true;
+    }catch(...) {closeJourney();throw;}
+}
+bool XeenEncounterFlow::rememberSpell(const Ticket &entry,std::size_t active,unsigned slot) {
+    if(!current(entry) || _busy || _combat || !_casting || _casting->committed || active>=6 || slot>=39 || !journeyCapacity())return false;
+    const auto owner=_casting->owners[active];if(!XeenLearnedSpellRules::known(_party.roster.at(owner),slot))return false;
+    _journeyPreimage->check();_party.roster.at(owner).currentSpell=slot;++_generation;retainJourney();return true;
+}
+bool XeenEncounterFlow::configureQuickFight(const Ticket &entry,std::size_t active) {
+    if(!current(entry) || _busy || !_combat)return false;
+    const auto result=_combat->configureQuickFight(*entry.combat,active);return acceptCombatResult(result);
 }
 XeenEquipmentResult XeenEncounterFlow::journeyEquipment(const Ticket &entry, std::size_t active,
 		XeenInventoryCategory category, std::size_t slot, XeenEquipmentOperation operation) {

@@ -24,7 +24,7 @@ public:
 class XeenSaveFormat {
 public:
 	// M54 adds CRC-covered, bounded display-name metadata.
-	static constexpr std::uint16_t kJourneyVersion = 7;
+	static constexpr std::uint16_t kJourneyVersion = 8;
 	static constexpr std::uint16_t kJourneySchema = 9;
 	static constexpr std::uint16_t kJourneyContent = 14;
 	static constexpr std::size_t kHeaderSize = 20;

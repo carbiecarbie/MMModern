@@ -27,6 +27,9 @@ struct XeenCombatInputs {
 	// Original CHR bytes 317/318. Required by the current Journey.
 	XeenMutableOptional<XeenAttributeValue> poisonResistance;
 };
-inline constexpr std::array<std::uint8_t,6> kXeenCombatOwners{0,18,14,11,1,6};
+// Default roster identities for prepared initialization, membership and test witnesses.
+// Gameplay positions are captured from XeenParty::activeOrder().
+using XeenPartyOrder = std::array<std::uint8_t,6>;
+inline constexpr XeenPartyOrder kXeenCombatOwners{0,18,14,11,1,6};
 }
 #endif

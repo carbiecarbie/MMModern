@@ -2,6 +2,24 @@
 #include "games/xeen/CloudsUiComposer.h"
 #include <algorithm>
 namespace mmodern {
+IndexedFrame XeenEventFlow::drawQuickFightOptions(const IndexedFrame &base) const {
+    return drawXeenQuickFight(dosText(),base,_inventoryFont,_party.party.member(_party.roster,*_quickFightMember),*_quickFightMember,drawDialogSprite);
+}
+IndexedFrame XeenEventFlow::handleQuickFightOptions(const PlayerAction &action) {
+    unsigned key=0;if(const auto *k=std::get_if<DialogKeyAction>(&action))key=k->key;
+    if(std::holds_alternative<CancelInteractionAction>(action))key=InputKey::Escape;
+    if(std::holds_alternative<AcknowledgeAction>(action))key=InputKey::Enter;
+    if(const auto *member=std::get_if<SelectMemberAction>(&action))key=InputKey::F1+member->partyIndex;
+    if(key==InputKey::Enter || key==InputKey::Escape)_quickFightMember.reset();
+    else if(key=='n')_encounter->configureQuickFight(_encounter->ticket(),*_quickFightMember);
+    else if(key>=InputKey::F1 && key<InputKey::F1+6) {
+        unsigned count=0;for(unsigned n=0;n<6;++n)if(_encounter->combat()->participants()&(1u<<n))++count;
+        // DOS-confirmed Options-after-Run quirk: bound by combat count, then
+        // index the uncompressed active party, rather than the visible faces.
+        if(key-InputKey::F1<count)_quickFightMember=key-InputKey::F1;
+    }
+    return renderEncounter();
+}
 IndexedFrame XeenEventFlow::drawSummary(const IndexedFrame &base) const {
     if(!_summary)return base;
     if(*_summary==SummaryDialog::Info) {
@@ -26,7 +44,8 @@ void XeenEventFlow::dialogError(std::string message) {
 std::shared_ptr<const DialogInput> XeenEventFlow::characterDialogInput() const {
     if(!inventoryOpen()) return {};
     DialogInput input;
-    if(_statPopup || _dialogError) {input.anyKey=true;input.anyClick=true;}
+    if(_exchange) input=xeenExchangeInput();
+    else if(_statPopup || _dialogError) {input.anyKey=true;input.anyClick=true;}
     else if(_inventory.mode==XeenInventoryMode::UseTarget) {
         constexpr int x[]{10,45,81,117,153,189};
         for(unsigned i=0;i<6;++i) {input.hits.push_back({x[i],150,x[i]+32,182,InputKey::F1+i});input.keys.push_back(InputKey::F1+i);}
@@ -40,6 +59,7 @@ IndexedFrame XeenEventFlow::drawCharacterDialog(const IndexedFrame &base) const 
     auto frame=_sheet && !_itemsVisible?
         drawXeenSheet(dosText(),base,_inventoryFont,_party,_inventory.source,_sheet->cursor,_sheet->blink,drawDialogSprite):
         drawXeenItems(dosText(),base,_inventoryFont,_catalog,_party,_inventory,drawDialogSprite);
+    if(_exchange)frame=drawXeenExchange(dosText(),frame,_inventoryFont,drawDialogSprite);
     if(_statPopup) frame=drawXeenPopup(frame,_inventoryFont,*_statPopup);
     if(_itemOption) frame=drawXeenItemSelection(dosText(),frame,_inventoryFont,*_itemOption,drawDialogSprite);
     if(_dialogError) frame=drawXeenErrorScroll(frame,_inventoryFont,*_dialogError);
@@ -55,6 +75,17 @@ IndexedFrame XeenEventFlow::handleCharacterDialog(const PlayerAction &action) {
     else if(const auto *member=std::get_if<SelectMemberAction>(&action)) key=InputKey::F1+member->partyIndex;
     else if(std::holds_alternative<CancelInteractionAction>(action)) key=InputKey::Escape;
     else if(std::holds_alternative<AcknowledgeAction>(action)) key=InputKey::Enter;
+    if(_exchange) {
+        if(key==InputKey::Escape)_exchange=false;
+        else if(key>=InputKey::F1 && key<InputKey::F1+6 && key-InputKey::F1<_party.party.size() && key-InputKey::F1!=_inventory.source) {
+            const auto to=key-InputKey::F1;advanceInventoryEpoch();
+            if(journey() && _encounter->journeyExchange(_encounter->ticket(),_inventory.source,to,_inventoryLease)) {
+                _inventory.source=to;_inventory.sourceOwner=_party.party.activeRosterIds()[to];
+                _inventory.slot.reset();_inventory.record={};_exchange=false;
+            }
+        }
+        drawInventory();return _frame;
+    }
     if(!_sheet || _itemsVisible) return handleInventory(key?PlayerAction{DialogKeyAction{key}}:action);
     if(key>=InputKey::F1 && key<InputKey::F1+6) {
         if(const auto member=dialogMember(key-InputKey::F1)) {
@@ -78,7 +109,11 @@ IndexedFrame XeenEventFlow::handleCharacterDialog(const PlayerAction &action) {
         _itemsVisible=true;advanceInventoryEpoch();_inventory.category=XeenInventoryCategory::Weapons;
         _inventory.slot.reset();_inventory.record={};
     } else if(key=='q') {_summaryUnderlay=_frame;_summary=SummaryDialog::QuickReference;}
-    else if(key=='e') dialogError(_encounter && _encounter->combat()?std::string(xeenDialogText(dosText(),XeenDialogText::ExchangingInCombat)):"Exchange: not supported yet");
+    else if(key=='e') {
+        if(_encounter && _encounter->combat())dialogError(std::string(xeenDialogText(dosText(),XeenDialogText::ExchangingInCombat)));
+        else if(journey()) {advanceInventoryEpoch();_exchange=true;}
+        else dialogError("Exchange requires an active Journey");
+    }
     drawInventory();return _frame;
 }
 void XeenEventFlow::performItemOption(unsigned option) {

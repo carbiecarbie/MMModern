@@ -250,6 +250,7 @@ IndexedFrame XeenEventFlow::handleCasting(const PlayerAction &action, std::uint6
 			ui.refusal.clear();return renderEncounter();
 		}
 		if (enter) {
+			if(!_encounter->rememberSpell(_encounter->ticket(),ui.caster,ui.slot))return frameCopy();
 			if (!XeenLearnedSpellRules::eligible(_party,ui.caster,ui.slot)) {
 				ui.refusal="Not supported or insufficient SP";return renderEncounter();
 			}

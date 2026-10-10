@@ -170,7 +170,8 @@ bool XeenEncounterFlow::respondCombatCast(const PlayerAction &action,std::uint64
     if(_busy || !_combat || !_castFrameTicket || !_castFrame || _castFrame!=frame ||
         _castInput!=input || !current(*_castFrameTicket))return false;
     using CI=XeenCombatCastInput;
-    const bool begin=std::holds_alternative<CastSpellAction>(action) && !_combat->cast();
+    const bool quick=std::holds_alternative<QuickFightAction>(action) && !_combat->cast();
+    const bool begin=(std::holds_alternative<CastSpellAction>(action) || quick) && !_combat->cast();
     std::optional<CI> response;unsigned index=0;
     if(_combat->cast()) {
         const auto phase=_combat->cast()->phase;
@@ -195,14 +196,33 @@ bool XeenEncounterFlow::respondCombatCast(const PlayerAction &action,std::uint64
     auto source=*_castFrameTicket->combat;
     _castFrame.reset();_castFrameTicket.reset();_castInput=0; // Consume before any provider.
     XeenCombat::CastResponse authorization(source);
-    const auto result=begin ? _combat->beginCast(authorization,prepare) :
+    if(quick) {
+        const auto &c=_party.party.member(_party.roster,_combat->participant());
+        const auto check=XeenLearnedSpellRules::quickSpellCheck(c,_party.monsterTreasure->gems);
+        using Q=XeenQuickSpellCheck;
+        if(check!=Q::Supported) {
+            if(check==Q::Unsupported) {_combatCastRefusal="Quick Fight Cast: spell not supported yet";return true;}
+            auto skipped=_combat->command(source,XeenCombatCommand::Skip);
+            if(!acceptCombatResult(skipped))return false;
+            _combatCastRefusal=check==Q::InsufficientSp?"Quick Fight Cast: not enough spell points":check==Q::InsufficientGems?"Quick Fight Cast: not enough gems":check==Q::CombatForbidden?"Quick Fight Cast: cannot cast while engaged":"";
+            scheduleCombat(_lastTime);return true;
+        }
+    }
+    auto result=begin ? (quick?_combat->beginCast(authorization,prepare,true):_combat->beginCast(authorization,prepare)) :
         _combat->respondCast(authorization,*response,index,prepare);
+    if(quick && _combat->cast() && result.status!=XeenCombatStatus::Refused) {
+        XeenCombat::CastResponse confirm(_combat->ticket());
+        result=_combat->respondCast(confirm,CI::Enter,0,prepare);
+    }
     if(result.status==XeenCombatStatus::Refused) {
         _combatCastRefusal=result.failure==XeenCombatFailure::Preparation ? "Cast preparation unavailable; C retries" : "Cast unavailable for this domain or acting book";
         return true;
     }
     _combatCastRefusal.clear();
     if(!acceptCombatResult(result))return false;
+    if(_combat->cast() && _combat->cast()->quick && _combat->cast()->phase==XeenCombatCastPhase::Result) {
+        observeCombat();if(!acceptCombatResult(_combat->finishQuickCast(_combat->ticket())))return false;
+    }
     if(begin || !_combat->cast()) {_castProjectile.reset();_castProjectileDeadline.reset();}
     if(_combat->cast() && (_combat->cast()->phase==XeenCombatCastPhase::Projectile ||
         _combat->cast()->phase==XeenCombatCastPhase::Result))observeCombat();
@@ -319,7 +339,15 @@ void XeenEncounterFlow::advanceAppearance() noexcept {
 		_frame = sequence[_appearanceStep++];
 	} else _frame = (_frame + 1) % 8;
 }
-bool XeenEncounterFlow::handleCombat(const PlayerAction &input, std::optional<std::uint64_t> cycle) {
+bool XeenEncounterFlow::handleCombat(const PlayerAction &physical, std::optional<std::uint64_t> cycle) {
+    PlayerAction input=physical;
+    if(std::holds_alternative<QuickFightAction>(input)) {
+        if(!_combat || _combat->phase()!=XeenCombatPhase::PlayerReady || _combat->participant()<0)return false;
+        const auto option=_party.party.member(_party.roster,_combat->participant()).quickOption;
+        if(option==1)return false;
+        if(option==3 && _camera.mapId==XeenMapIdentity(28)) {_combatCastRefusal="Quick Fight Run: indoor escape not supported yet";return true;}
+        input=option==0?PlayerAction{AttackAction{}}:option==2?PlayerAction{BlockAction{}}:PlayerAction{RunAction{}};
+    }
 	using P = XeenCombatPhase;
 	_combatOperationStale = false;
 	if (_busy || terminal()) return false;
@@ -402,6 +430,10 @@ bool XeenEncounterFlow::idleCombat(std::optional<std::uint64_t> cycle) {
             _castProjectileDeadline.reset();
         }
         if(observeCombat())_cosmeticDeadline=now+100;
+        if(_combat->cast() && _combat->cast()->quick && _combat->cast()->phase==XeenCombatCastPhase::Result) {
+            if(!acceptCombatResult(_combat->finishQuickCast(_combat->ticket())))return false;
+            _castProjectile.reset();_castProjectileDeadline.reset();
+        }
         scheduleCombat(now);return true;
     }
 	if (due) {
@@ -433,7 +465,7 @@ std::string XeenEncounterFlow::combatNotice() const {
 	else if (phase == P::SupportStopped) text += "SUPPORT STOP - encounter cannot continue\n";
 	else if (phase == P::PlayerReady) {
 		const auto slot = _combat->participant();
-		text += "F" + std::to_string(slot+1) + " " + name(kXeenCombatOwners[slot]) + ": Space Attack / B Block / C Cast\n";
+		text += "F" + std::to_string(slot+1) + " " + name(_party.party.activeRosterIds()[slot]) + ": Space Attack / B Block / C Cast\n";
 	} else if (phase == P::PendingEnemy) text += "Enemy attack pending (automatic)\n";
 	else if (phase == P::PendingRound) text += "Next round pending (automatic)\n";
 	else if (phase == P::VictoryAwaitingEnd) text += "Enemy defeated; victory end pending\n";
@@ -457,7 +489,7 @@ std::string XeenEncounterFlow::combatNotice() const {
 	if (r.injuryCount || r.critical) text += "\n";
 	if (r.armorCount) text += "Broken armor: " + std::to_string(r.armorCount) + " slots\n";
 	text += "\n"; // Separate retained feedback from the live roster panel.
-	for (auto owner:kXeenCombatOwners) {
+	for (auto owner:_party.party.activeRosterIds()) {
 		const auto &c=_party.roster.at(owner);
 		text += name(owner) + " HP " + std::to_string(c.currentHp) + "\n";
 		bool condition = false;

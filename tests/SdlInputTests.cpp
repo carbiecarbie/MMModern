@@ -1,6 +1,7 @@
 #include "XeenProbeFired.h"
 #include "platform/sdl/SdlWindow.h"
 #include "platform/sdl/XeenMainScreenInput.h"
+#include "games/xeen/XeenDialogView.h"
 
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
@@ -109,6 +110,8 @@ struct QueueHarness {
    else if(std::holds_alternative<RestAction>(action))kind='R';
    else if(std::holds_alternative<SaveGameAction>(action))kind='9';
    else if(std::holds_alternative<CancelInteractionAction>(action))kind='E';
+   else if(std::holds_alternative<QuickFightAction>(action))kind='F';
+   else if(std::holds_alternative<QuickFightOptionsAction>(action))kind='O';
    else if(std::holds_alternative<UnsupportedMainScreenAction>(action))kind='U';
    else if(std::holds_alternative<ControlPanelAction>(action))kind='P';
    else if(std::holds_alternative<InfoAction>(action))kind='I';
@@ -227,10 +230,10 @@ void mouseHitAreas(){
  struct Area {int l,t,r,b;PlayerAction exploration,combat;};
  const auto u=[](const char *s)->PlayerAction{return UnsupportedMainScreenAction{s};};
  const std::vector<Area> areas={
-  {235,75,259,95,ShootAction{},u("Quick Fight")},{260,75,284,95,CastSpellAction{},CastSpellAction{}},
+  {235,75,259,95,ShootAction{},QuickFightAction{}},{260,75,284,95,CastSpellAction{},CastSpellAction{}},
   {286,75,310,95,RestAction{},AttackAction{}},{235,96,259,116,BashAction{},UseItemAction{}},
   {260,96,284,116,u("Dismiss"),RevisitCompletedAction{}},{286,96,310,116,u("View Quests"),BlockAction{}},
-  {235,117,259,137,u("Map"),u("Quick Fight Options")},{260,117,284,137,InfoAction{},InfoAction{}},
+  {235,117,259,137,u("Map"),QuickFightOptionsAction{}},{260,117,284,137,InfoAction{},InfoAction{}},
   {286,117,310,137,QuickReferenceAction{},QuickReferenceAction{}},{109,137,122,147,ControlPanelAction{},ControlPanelAction{}},
   {235,148,259,168,NavigationAction::TurnLeft,NavigationAction::TurnLeft},
   {260,148,284,168,NavigationAction::MoveForward,NavigationAction::MoveForward},
@@ -292,6 +295,26 @@ void mouseHitAreas(){
   SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();
  }
  std::cout<<"Main-screen hit areas and SDL native scaling passed\n";
+}
+void quickFightKeys() {
+ QueueHarness h;h.ready=true;h.screen=MainScreen::Combat;
+ h.run("Quick-Fight-and-Options-key-mouse-parity",[](auto &h){
+  if(h.stage==0)h.tap(SDLK_f,100);
+  else if(h.stage==2)h.click(236,76,SDL_BUTTON_LEFT,100);
+  else if(h.stage==4)h.tap(SDLK_o,100);
+  else if(h.stage==6)h.click(236,118,SDL_BUTTON_LEFT,100);
+  else if(h.stage==8){h.check(h.delivered==std::vector<char>{'F','F','O','O'},"Quick Fight/Options parity");h.quit();}
+ });
+ QueueHarness modal;modal.ready=true;modal.screen=MainScreen::Combat;
+ modal.run("Options-held-opener-stale-Next-fresh-Exit",[](auto &h){
+  if(h.stage==0)h.key(SDLK_o,SDL_KEYDOWN,0,100);
+  else if(h.stage==2){h.dialog=std::make_shared<const DialogInput>(xeenQuickFightInput());h.queueable=false;++h.context;h.redraw=true;}
+  else if(h.stage==3){h.key(SDLK_o,SDL_KEYDOWN,1,100);h.key(SDLK_o,SDL_KEYDOWN,0,100);}
+  else if(h.stage==4){h.check(h.delivered==std::vector<char>{'O'},"held Options leaked into dialog");h.key(SDLK_o,SDL_KEYUP,0,100);h.tap(SDLK_n,100);}
+  else if(h.stage==6)h.click(245,112,SDL_BUTTON_LEFT,100);
+  else if(h.stage==8)h.tap(SDLK_RETURN,100);
+  else if(h.stage==10){h.check(h.delivered==std::vector<char>{'O','n','n',char(InputKey::Enter)},"Options fresh Next/Return parity");h.quit();}
+ });
 }
 void strafeAndSummaryKeys() {
  QueueHarness h;h.ready=true;h.screen=MainScreen::Exploration;
@@ -420,7 +443,7 @@ void pushKey(std::atomic<bool> &finished, SDL_Keycode key, std::uint8_t repeat,
 
 int main(int argc,char **) {
 	probe_fired::expect("SDL_GetTicks");
- if(argc>1){mouseHitAreas();mouseQueuePolicies();strictDialogPolicies();pressedButtonFeedback();strafeAndSummaryKeys();return 0;}
+ if(argc>1){mouseHitAreas();mouseQueuePolicies();strictDialogPolicies();pressedButtonFeedback();strafeAndSummaryKeys();quickFightKeys();return 0;}
  semanticBoundaryKeys();
  boundedQueuePolicies();
 	std::atomic<bool> finished{false};

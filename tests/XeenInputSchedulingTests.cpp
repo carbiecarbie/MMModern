@@ -198,7 +198,7 @@ void combatQueue(Inputs &in,bool mouse=false) {
    if(mouse) {
     const auto ticket=h.flow->encounter()->combat()->ticket();
     // Refusal is presentation only, including in combat: no turn or RNG work.
-    auto refusal=handler.withPresentedInput(UnsupportedMainScreenAction{"Quick Fight"},input,origin);
+    auto refusal=handler.withPresentedInput(UnsupportedMainScreenAction{"Combat equipment"},input,origin);
     check(refusal && h.flow->encounter()->combat()->current(ticket),"unsupported combat button consumed turn");
     present(*refusal);
     ++dispatches;auto next=handler.withPresentedInput(action,*handler.displayedInput(),h.flow->frame().presentation());

@@ -129,6 +129,7 @@ inline XeenSaveSnapshot sample() {
 		c.currentSp = -static_cast<std::int16_t>(i);
 		c.maxStatSkills = {bool(i & 1), bool(i & 2), bool(i & 4), bool(i & 8)};
 		c.hasSpells = i % 2 == 0;
+		c.quickOption=i%4;c.currentSpell=i%39;
 		for (std::size_t j = 0; j < c.conditions.size(); ++j)
 			c.conditions[j] = static_cast<std::uint8_t>(i * 11 + j);
 		unsigned category = 0;

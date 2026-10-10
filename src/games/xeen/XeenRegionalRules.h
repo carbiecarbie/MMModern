@@ -80,6 +80,7 @@ private:
 // Retained preparation of one existing action/pulse publication. Flow holds the
 // continuation while Approach retains sole authority to publish world deltas.
 struct XeenRegionalActionCandidate {
+	XeenPartyOrder owners{};
 	XeenCamera camera;
 	XeenGameplayContext context;
 	XeenConsequenceCharacters characters;
@@ -96,6 +97,7 @@ struct XeenRegionalActionCandidate {
 };
 
 struct XeenShootCandidate {
+	XeenPartyOrder owners{};
 	 enum class Stage { Travel, Impact, PostImpact };
 	 Stage stage=Stage::Travel;
 	 bool presented=false;

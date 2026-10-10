@@ -5,11 +5,11 @@
 namespace mmodern {
 namespace {
 struct RestBusy {bool &value; explicit RestBusy(bool &v):value(v){value=true;} ~RestBusy(){value=false;}};
-XeenConsequenceCharacters members(const XeenPartyState &p) {
- XeenConsequenceCharacters r;for(unsigned n=0;n<6;++n)r[n]=p.roster.at(kXeenCombatOwners[n]);return r;
+XeenConsequenceCharacters members(const XeenPartyState &p,const XeenPartyOrder &order) {
+ XeenConsequenceCharacters r;for(unsigned n=0;n<6;++n)r[n]=p.roster.at(order[n]);return r;
 }
-XeenConsequenceInputs supplements(const XeenPartyState &p) {
- XeenConsequenceInputs r;for(unsigned n=0;n<6;++n)r[n]=*p.roster.combatInputs(kXeenCombatOwners[n]);return r;
+XeenConsequenceInputs supplements(const XeenPartyState &p,const XeenPartyOrder &order) {
+ XeenConsequenceInputs r;for(unsigned n=0;n<6;++n)r[n]=*p.roster.combatInputs(order[n]);return r;
 }
 }
 void XeenEncounterFlow::restPublication() {
@@ -38,7 +38,7 @@ bool XeenEncounterFlow::beginRest(const std::function<IndexedFrame()> &dream) {
   // foreseeable suffix before publishing sleep, charges, food or RNG.
   auto ending=*_party.encounterContext;xeenResetPartyTemps(ending);
   const auto terrain=xeenRestTerrain(surface,primary.isOutdoors(),navigator,ending.effects[2]!=0);
-  auto candidate=std::make_unique<RestContinuation>();
+  auto candidate=std::make_unique<RestContinuation>();candidate->owners=_party.party.activeOrder();
   if(primary.flags&0x4000)candidate->phase=RestContinuation::Phase::Refused;
   else if(!terrain) {
    candidate->phase=RestContinuation::Phase::Refused;
@@ -46,7 +46,7 @@ bool XeenEncounterFlow::beginRest(const std::function<IndexedFrame()> &dream) {
   }
   else {
    candidate->terrainMinutes=*terrain;
-   candidate->phase=xeenRestDanger(members(_party),supplements(_party),_party.encounterContext->year)?
+   candidate->phase=xeenRestDanger(members(_party,candidate->owners),supplements(_party,candidate->owners),_party.encounterContext->year)?
     RestContinuation::Phase::Confirm:RestContinuation::Phase::Charges;
    if(_party.encounterContext->profile==XeenBehaviorProfile::WorldOfXeenClouds) {
     if(!dream)throw std::invalid_argument("Original Rest dream provider is absent");
@@ -101,7 +101,7 @@ bool XeenEncounterFlow::serviceRest() {
    rest.deadline=now+50;restPublication();return true;
   }
   if(rest.phase==P::Recovery) {
-   if(!rest.recovery)rest.recovery.emplace(members(_party),supplements(_party),*_party.encounterContext,_party.food);
+   if(!rest.recovery)rest.recovery.emplace(members(_party,rest.owners),supplements(_party,rest.owners),*_party.encounterContext,_party.food);
    auto &recovery=*rest.recovery;
    if(rest.terrainMinutes) {
     if(!rest.time)rest.time.emplace(recovery.context,rest.terrainMinutes,recovery.characters,recovery.inputs,
@@ -111,8 +111,8 @@ bool XeenEncounterFlow::serviceRest() {
    }
    check();
    for(unsigned n=0;n<6;++n) {
-    _party.roster.at(kXeenCombatOwners[n])=recovery.characters[n];
-    _party.roster._combatInputs[kXeenCombatOwners[n]]=recovery.inputs[n];
+    _party.roster.at(rest.owners[n])=recovery.characters[n];
+    _party.roster._combatInputs[rest.owners[n]]=recovery.inputs[n];
    }
    _party.food=recovery.food;_party.encounterContext=recovery.context;
    if(rest.time) {
@@ -125,7 +125,7 @@ bool XeenEncounterFlow::serviceRest() {
   if(rest.phase==P::Charges && !_regionalWork) {
    auto candidate=std::make_unique<XeenRegionalActionCandidate>();auto &c=*candidate;
    c.camera=_camera;c.context=*_party.encounterContext;c.actors=session.regionalActors(_camera.mapId);
-   c.characters=members(_party);c.inputs=supplements(_party);c.random=rest.random;
+   c.owners=rest.owners;c.characters=members(_party,rest.owners);c.inputs=supplements(_party,rest.owners);c.random=rest.random;
    c.revision=_state.revision();c.pending=3;c.classify=true;c.sleeping=true;
    c.remaining=_state.pending()?1:0;c.result.outcome=XeenEncounterOutcome::Pulsed;
    c.time.emplace(c.context,outdoor?10:1,c.characters,c.inputs,&*_party.serviceEconomy,XeenTimeMode::Sleeping);
@@ -133,14 +133,14 @@ bool XeenEncounterFlow::serviceRest() {
   }
   if(rest.phase==P::Remainder) {
    if(!rest.time)rest.time.emplace(*_party.encounterContext,outdoor?380:470,
-    members(_party),supplements(_party),&*_party.serviceEconomy,XeenTimeMode::Sleeping);
+    members(_party,rest.owners),supplements(_party,rest.owners),&*_party.serviceEconomy,XeenTimeMode::Sleeping);
    XeenConsequenceDraw draw{rest.random,64,check};if(!rest.time->service(draw))return true;
    const auto dream=draw.draw(1,20);if(!dream)return true;
    rest.phase=*dream==1 && _party.encounterContext->profile==XeenBehaviorProfile::WorldOfXeenClouds?P::Dream:P::Recovery;
    check();
    for(unsigned n=0;n<6;++n) {
-    _party.roster.at(kXeenCombatOwners[n])=rest.time->characters[n];
-    _party.roster._combatInputs[kXeenCombatOwners[n]]=rest.time->inputs[n];
+    _party.roster.at(rest.owners[n])=rest.time->characters[n];
+    _party.roster._combatInputs[rest.owners[n]]=rest.time->inputs[n];
    }
    _party.encounterContext=rest.time->context;_party.serviceEconomy=rest.time->economy;
    session._journeyRandom=rest.random.continuation();rest.time.reset();
@@ -165,7 +165,7 @@ bool XeenEncounterFlow::serviceRest() {
   _world._combatCheck={};_world._combatAuthorized={};
   if(result.consequences)observeRanged(result.consequences);_result=result;
   const bool interrupted=_state.phase()!=XeenEncounterPhase::Exploring ||
-   (result.outcome!=XeenEncounterOutcome::Pending && result.consequences && result.consequences->count && xeenRestRangedWake(members(_party)));
+   (result.outcome!=XeenEncounterOutcome::Pending && result.consequences && result.consequences->count && xeenRestRangedWake(members(_party,rest.owners)));
   if(interrupted) {
    _rest.reset();session._journeyActivity=_state.phase()==XeenEncounterPhase::Engaged?XeenJourneyActivity::Attachment:XeenJourneyActivity::Presentation;
    ++session._journeyGeneration;++_generation;retainJourney();schedule(now);return true;

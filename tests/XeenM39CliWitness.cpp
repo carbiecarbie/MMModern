@@ -301,7 +301,15 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     inspect([&,snapshot]{*snapshot=std::make_unique<XeenRestoreGuard>(*world,*party,*position,*flags);});
                     action(CastSpellAction{});deny();action(CancelInteractionAction{});inspect(unchanged);
                     action(CastSpellAction{});action(NavigationAction::MoveBackward);action(AcknowledgeAction{});deny();
-                    action(CancelInteractionAction{});action(CancelInteractionAction{});inspect(unchanged);
+                    inspect([&,snapshot]{
+                        check(party->roster.at(1).currentSpell==14,"M55 accepted First Aid slot is remembered");
+                        *snapshot=std::make_unique<XeenRestoreGuard>(*world,*party,*position,*flags);
+                    });
+                    action(CancelInteractionAction{});action(CancelInteractionAction{});
+                    inspect([&,snapshot]{
+                        // Accepting First Aid then cancelling outer Cast retains only its slot in v8.
+                        check((*snapshot)->current() && party->roster.at(1).currentSpell==14 && combat()->participant()==4,"M39 outer cancellation changes only remembered First Aid slot");
+                    });
                     // Post-cost explicit Escape restores original SP, but settles this action.
                     action(CastSpellAction{});action(NavigationAction::MoveBackward);action(AcknowledgeAction{});action(AcknowledgeAction{});
                     inspect([&]{check(party->roster.at(1).currentSp==20 && cast()->phase==XeenCombatCastPhase::PartyTarget,"M39 refund prompt/debit");});deny();
@@ -314,9 +322,15 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     action(CastSpellAction{});action(NavigationAction::MoveBackward);action(AcknowledgeAction{});
                     inspect([&]{check(cast()->phase==XeenCombatCastPhase::Learned && !cast()->refusal.empty(),"M39 unsupported Light was admitted");});
                     action(NavigationAction::MoveBackward);action(AcknowledgeAction{});deny();action(CancelInteractionAction{});
-                    action(AcknowledgeAction{});action(AcknowledgeAction{});deny();action(CancelInteractionAction{});
-                    action(CancelInteractionAction{});action(CancelInteractionAction{});
-                    inspect([&,seymour]{check((*seymour)->current() && combat()->participant()==5,"M39 Light/Arrow cancellation delta");});
+                    action(AcknowledgeAction{});action(AcknowledgeAction{});deny();
+                    inspect([&,seymour]{
+                        check(party->roster.at(6).currentSpell==25,"M55 accepted Arrow slot is remembered");
+                        *seymour=std::make_unique<XeenRestoreGuard>(*world,*party,*position,*flags);
+                    });
+                    action(CancelInteractionAction{});action(CancelInteractionAction{});action(CancelInteractionAction{});
+                    inspect([&,seymour]{
+                        check((*seymour)->current() && party->roster.at(6).currentSpell==25 && combat()->participant()==5,"M39 Light/Arrow cancellation retains only remembered Arrow slot");
+                    });
                     // Healthy Awaken still spends one SP and consumes Seymour's action.
                     action(CastSpellAction{});action(AcknowledgeAction{});action(AcknowledgeAction{});result();
                     inspect([&]{check(cast()->result.noop && party->roster.at(6).currentSp==26,"M39 paid Awaken no-op");});

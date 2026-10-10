@@ -4,6 +4,7 @@
 #include "games/xeen/XeenCombatRules.h"
 #include "games/xeen/XeenEquipment.h"
 #include <stdexcept>
+#include <algorithm>
 
 namespace mmodern {
 namespace {
@@ -29,12 +30,15 @@ void xeenValidateJourneyParty(const XeenPartyState &party) {
 	require(xeenRegionalContext(context),"Noncanonical Journey calendar");
 	require(context.profile == XeenBehaviorProfile::WorldOfXeenClouds && static_cast<unsigned>(context.difficulty)<=1 &&
 		xeenRegionalContext(context), "Unsupported Journey context");
-	require(party.party.activeRosterIds() == std::vector<std::uint8_t>(kXeenCombatOwners.begin(), kXeenCombatOwners.end()) &&
+	std::vector<std::uint8_t> members=party.party.activeRosterIds();
+	auto required=kXeenCombatOwners;std::sort(members.begin(),members.end());std::sort(required.begin(),required.end());
+	require(members.size()==required.size() && std::equal(members.begin(),members.end(),required.begin()) &&
 		party.firstSerializedCount == 6 && party.effectiveSerializedCount == 6, "Unsupported Journey membership");
 	for (unsigned id = 0; id < 30; ++id) {
 		const auto &c = party.roster.at(id);
 		const auto &input = party.roster.combatInputs(id);
 		require(c.rosterId == id && input.has_value(), "Missing Journey owner supplement");
+		require(c.quickOption<=3 && (c.currentSpell<39 || c.currentSpell==255), "Journey Quick Fight setting outside range");
 		require(bool(c.learnedSpells), "Journey learned-spell presence mismatch");
 		require(bool(input->luck), "Journey Luck presence mismatch");
 		require(bool(input->resistances), "Journey resistance presence mismatch");

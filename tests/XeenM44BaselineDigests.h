@@ -75,15 +75,24 @@
 // remain unchanged. First divergence: envelope offset 8. Each final v7 save
 // reloads and re-saves exactly. Full byte mapping, CRCs, hashes and evidence:
 // build-rel/m54-evidence/digest-audit.json (local, never committed saves).
+// M55 Part B: maintainer approved the v8 audit and digest replacement on 2026-10-10.
+// Preserved Part A executables reproduced all three v7 hashes. Complete traces
+// match for 7,855 / 36,316 / 30,800 lines; every common byte and decoded field
+// matches across all ten checkpoints. Each save adds 60 bytes: quickOption and
+// currentSpell for all 30 owners, initialized from CHR and retaining accepted
+// spell selections. Only envelope version, payload length and CRC also change;
+// schema 9/content 14 remain unchanged. Native v8 reload/re-save is exact for
+// all three final saves. Full hashes, byte mappings, settings and CRCs:
+// build-rel/m55b-evidence/digest-audit.json (local, never committed saves).
 #include <array>
 #include <cstdint>
 namespace m44_baseline {
-inline constexpr const char *revision = "abcda8c7ecfd6d3f8339b3ce2c38d6d06fa0326f + M54 Part A v7";
+inline constexpr const char *revision = "9d51e42e237a2f54ef2c672a4450c88d4daa2034 + M55 Part B v8";
 struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 inline constexpr std::array<Scenario,3> scenarios{{
-    {"mainland-combat-myra-phirna",3626689381u,"d2a39dc6144d5e015b540e674a837aa7a606fa8e83587c326e284087d098cf3a"},
-    {"vertigo-buy-repair-training",7u,"f159bfcf4e1da54907a8e3ccd296d47c9fcb931fb225344c3fd739853f889773"},
-    {"temple-recovery",3626689381u,"11eaaa12a3e0b134371dcfb42dabf410dd226a96bff82c2ab5d26937f47bdf6f"}
+    {"mainland-combat-myra-phirna",3626689381u,"2e556705d235b82c550b64570a799be612c16800862c86c7a6e43edb1c087cc7"},
+    {"vertigo-buy-repair-training",7u,"03b4e5f7ea7c43f0128e5675fd24d9d5e559e9d1d5a7e12e15351352a3f8997b"},
+    {"temple-recovery",3626689381u,"6f730c7f09160c7b6ee309c5042f6120ea82501da8c874e628fb8bb39a100d1f"}
 }};
 }
 #endif

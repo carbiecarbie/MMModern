@@ -122,7 +122,7 @@ void XeenEventFlow::closeInventory() noexcept {
 		_inventoryLease = 0;
 	}
 	_inventory = {};
-	_sheet.reset();_itemsVisible=false;_combatItems=false;_statPopup.reset();_dialogError.reset();_itemOption.reset();
+	_sheet.reset();_exchange=false;_itemsVisible=false;_combatItems=false;_statPopup.reset();_dialogError.reset();_itemOption.reset();
 	_inventoryFeedback = "";
 	_equipmentResult.reset();
 }

@@ -24,6 +24,8 @@ inline std::optional<PlayerAction> xeenMainScreenClick(int x, int y, MainScreen 
     for (unsigned row=0; row<3; ++row) for (unsigned col=0; col<3; ++col) {
         if (!contains(columns[col],75+21*row,columns[col]+24,95+21*row)) continue;
         const unsigned index=row*3+col;
+        if (combat && index==0) return QuickFightAction{};
+        if (combat && index==6) return QuickFightOptionsAction{};
         if (index==1) return CastSpellAction{}; // C
         if (!combat && index==0) return ShootAction{}; // S
         if (!combat && index==2) return RestAction{}; // R

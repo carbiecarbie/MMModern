@@ -125,6 +125,7 @@ public:
 	std::function<void(XeenMovementResult)> reportMovement;
 private:
 	friend struct XeenRestTestAccess;
+	friend struct XeenPartyInterfaceTestAccess;
 	IndexedFrame drawRest(const IndexedFrame &);
 	struct TrainingUi {
 		enum class Phase { Preparation, Menu, Candidate, Departure };
@@ -278,6 +279,10 @@ private:
 	std::optional<CharacterSheetUi> _sheet;
 	enum class SummaryDialog { QuickReference, Info };
 	std::optional<SummaryDialog> _summary;
+	bool _exchange=false;
+	std::optional<std::size_t> _quickFightMember;
+	IndexedFrame drawQuickFightOptions(const IndexedFrame &) const;
+	IndexedFrame handleQuickFightOptions(const PlayerAction &);
 	IndexedFrame _summaryUnderlay;
 	IndexedFrame drawSummary(const IndexedFrame &) const;
 	bool _itemsVisible=false, _combatItems=false;

@@ -48,7 +48,7 @@ inline void roster(const XeenPartyState &party,const std::vector<std::uint8_t> &
   const auto *details=c.originalDetails();check(details,"Source-backed CHR details");
   check(details->xeenSide==r[18] && details->birthDay==r[37] && details->temporaryAc==r[34] &&
    details->lloydMap==r[160] && details->lloydX==r[161] && details->lloydY==r[162] && details->lloydSide==r[310] &&
-   details->currentSpell==r[164] && details->quickOption==r[165] && details->townUnknown==unsigned(r[339]|r[340]<<8) &&
+   c.currentSpell==r[164] && c.quickOption==r[165] && details->townUnknown==unsigned(r[339]|r[340]<<8) &&
    details->savedMaze==r[341] && details->adventuringSpell==r[352] && details->combatSpell==r[353],"Source-backed beacon/quick-spell/town defaults");
   for(unsigned n=0;n<64;++n)check(details->awards[n]==(n==9?r[57+n]:r[57+n]&15) &&
    details->awards[n+64]==(n==9?0:r[57+n]>>4),"CHR award packing");

@@ -96,7 +96,7 @@ struct XeenCharacterOriginalDetails {
 	std::uint32_t experience = 0;
 	// Source-backed defaults only, until these mechanics acquire mutable owners.
 	std::uint8_t xeenSide=0, lloydMap=0, lloydX=0, lloydY=0, lloydSide=0;
-	std::uint8_t currentSpell=0, quickOption=0, savedMaze=0;
+	std::uint8_t savedMaze=0;
 	std::uint8_t adventuringSpell=0, combatSpell=0;
 	std::uint16_t townUnknown=0;
 };
@@ -120,6 +120,8 @@ struct XeenCharacter {
 	XeenMutable<int> temporaryLevel = 0;
 	XeenMutable<int> temporaryAge = 0;
 	XeenMaxStatSkills maxStatSkills;
+	// CHR class-book slot (255 = none) and Quick Fight action; current v8 save state.
+	XeenMutable<std::uint8_t> currentSpell = 255, quickOption = 0;
 	XeenMutable<bool> hasSpells = false;
 	// Presence is distinct from an explicitly empty spellbook. Original flags are retained verbatim.
 	XeenMutableOptional<XeenLearnedSpells> learnedSpells;

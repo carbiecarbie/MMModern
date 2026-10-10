@@ -8,11 +8,11 @@
 namespace mmodern {
 namespace {
 struct ConsequenceScope { bool &busy; explicit ConsequenceScope(bool &b):busy(b){busy=true;} ~ConsequenceScope(){busy=false;} };
-XeenConsequenceCharacters activeCharacters(const XeenPartyState &p) {
- XeenConsequenceCharacters c;for(unsigned i=0;i<6;++i)c[i]=p.roster.at(kXeenCombatOwners[i]);return c;
+XeenConsequenceCharacters activeCharacters(const XeenPartyState &p,const XeenPartyOrder &order) {
+ XeenConsequenceCharacters c;for(unsigned i=0;i<6;++i)c[i]=p.roster.at(order[i]);return c;
 }
-XeenConsequenceInputs activeInputs(const XeenPartyState &p) {
- XeenConsequenceInputs c;for(unsigned i=0;i<6;++i)c[i]=*p.roster.combatInputs(kXeenCombatOwners[i]);return c;
+XeenConsequenceInputs activeInputs(const XeenPartyState &p,const XeenPartyOrder &order) {
+ XeenConsequenceInputs c;for(unsigned i=0;i<6;++i)c[i]=*p.roster.combatInputs(order[i]);return c;
 }
 
 }
@@ -27,9 +27,9 @@ bool XeenEncounterFlow::beginShoot() {
   const unsigned charge=indoor?1:10;
   xeenValidateJourneyMelee(_party);
   auto candidate=std::make_unique<XeenShootCandidate>();bool eligible=false;
-  candidate->charge=charge;
+  candidate->owners=_party.party.activeOrder();candidate->charge=charge;
   for(unsigned i=0;i<6;++i) {
-   const auto &c=_party.roster.at(kXeenCombatOwners[i]);
+   const auto &c=_party.roster.at(candidate->owners[i]);
    if(c.canAct()) for(const auto &w:c.weapons) if(w.frame==4) candidate->eligible[i]=eligible=true;
   }
   if(!eligible) { _journeyRefusal="Shoot refused: no awake eligible missile user";return true; }
@@ -99,7 +99,7 @@ bool XeenEncounterFlow::serviceShoot() {
     if(work.shooter==6) { ++work.target;work.shooter=0;continue; }
     const auto &actor=work.bound ? *work.bound : liveActors.at(id->recordIndex);
     if(!(actor.id==*id)) throw std::logic_error("Shoot retained identity mismatch");
-    const auto owner=kXeenCombatOwners[work.shooter];
+    const auto owner=work.owners[work.shooter];
     if(!work.attack) {work.bound=actor;work.attack.emplace(_party.roster.at(owner),*_party.roster.combatInputs(owner),*actor.statistics,actor.original.resourceId,_party.encounterContext->year,true,_party.encounterContext->difficulty);}
     if(!work.attackDone) {
      if(!work.attack->service(draw)) return true;
@@ -111,8 +111,8 @@ bool XeenEncounterFlow::serviceShoot() {
     if(!work.suffixPrepared) {
      if(work.attack->damage>=actor.hp) {
       std::array<const XeenCharacter *,6> owners{};
-      for(unsigned i=0;i<6;++i) owners[i]=&_party.roster.at(kXeenCombatOwners[i]);
-      work.lethal=xeenPrepareJourneyLethal(actor,owners,activeInputs(_party),session.accountedMonsters(),0x3f);
+      for(unsigned i=0;i<6;++i) owners[i]=&_party.roster.at(work.owners[i]);
+      work.lethal=xeenPrepareJourneyLethal(actor,owners,activeInputs(_party,work.owners),session.accountedMonsters(),0x3f);
      }
      work.feedback="Shoot owner "+std::to_string(owner)+" -> actor "+std::to_string(id->recordIndex)+
       (work.attack->hit?" hit ":" miss ")+std::to_string(work.attack->damage)+(work.lethal?" defeated":"");
@@ -142,7 +142,7 @@ bool XeenEncounterFlow::serviceShoot() {
     auto &live=liveActors.at(id->recordIndex);
     if(work.lethal) {
      live=work.lethal->actor;session._accountedMonsters.swap(work.lethal->accounted);
-     for(unsigned i=0;i<6;++i) _party.roster._combatInputs[kXeenCombatOwners[i]]->experience=work.lethal->experience[i];
+     for(unsigned i=0;i<6;++i) _party.roster._combatInputs[work.owners[i]]->experience=work.lethal->experience[i];
      if(work.drop) _party.monsterTreasure=work.drop->treasure;
     } else live.hp=actor.hp-work.attack->damage;
     if(work.attack->hit) work.projectileEnd[work.shooter]=work.target/3;
@@ -166,7 +166,7 @@ bool XeenEncounterFlow::serviceShoot() {
    else if(_journeyRefusal.empty())_journeyRefusal="Shoot: empty center rows";
    work.volleyDone=true;return true;
   }
-  if(!work.time) work.time.emplace(*_party.encounterContext,work.charge,activeCharacters(_party),activeInputs(_party),&*_party.serviceEconomy);
+  if(!work.time) work.time.emplace(*_party.encounterContext,work.charge,activeCharacters(_party,work.owners),activeInputs(_party,work.owners),&*_party.serviceEconomy);
   if(!work.time->service(draw)) return true;
   if(session._encounterRevision==std::numeric_limits<std::uint64_t>::max() || !journeyCapacity())throw std::overflow_error("Shoot charge generation exhausted");
   check();bool living=false;
@@ -175,7 +175,7 @@ bool XeenEncounterFlow::serviceShoot() {
    living=living || xeenCombatTargetable(c);
   }
   if(work.time->needsRest)_needsRestNotice=true;
-  _party.serviceEconomy=work.time->economy;for(unsigned n=0;n<6;++n)_party.roster._combatInputs[kXeenCombatOwners[n]]=work.time->inputs[n];
+  _party.serviceEconomy=work.time->economy;for(unsigned n=0;n<6;++n)_party.roster._combatInputs[work.owners[n]]=work.time->inputs[n];
   _party.encounterContext=work.time->context;session._journeyRandom=work.random.continuation();_state._pending=living?3:0;
   if(!living) { _state._phase=XeenEncounterPhase::SupportStopped;_state._reason=XeenEncounterStop::Defeat;session._encounterTerminal=true; }
   ++session._encounterRevision;_state._revision=session._encounterRevision;++session._journeyGeneration;++_generation;
@@ -193,7 +193,7 @@ bool XeenEncounterFlow::beginMonsterReward(const XeenItemCatalog &catalog) {
  if(!current(ticket()) || !journeyCapacity()) throw std::logic_error("Stale monster delivery");
  ConsequenceScope busy(_busy);
  try {
-  auto delivery=xeenPrepareMonsterDelivery(*_party.monsterTreasure,activeCharacters(_party));
+  auto delivery=xeenPrepareMonsterDelivery(*_party.monsterTreasure,activeCharacters(_party,_party.party.activeOrder()));
   std::ostringstream text;text<<"Monster treasure\n";
   if(delivery.globallyFull) text<<"All packs full. Items lost; gold retained.\n";
   for(unsigned i=0;i<delivery.count;++i) {
@@ -311,7 +311,7 @@ std::string XeenEncounterFlow::consequenceNotice() const {
  if(stopped)out<<"Gameplay unavailable. Esc exits; restart last save.\n";
  if(_combat) {
    if(!_combatCastRefusal.empty())out<<_combatCastRefusal<<'\n';
-  if(!stopped && _combat->phase()==XeenCombatPhase::PlayerReady) out<<_party.roster.at(kXeenCombatOwners[_combat->participant()]).name<<(": A/B; C Cast; R Run; 1-3 target\n");
+  if(!stopped && _combat->phase()==XeenCombatPhase::PlayerReady) out<<_party.roster.at(_party.party.activeRosterIds()[_combat->participant()]).name<<(": A/B; C Cast; R Run; 1-3 target\n");
   else if(!stopped)out<<"Automatic combat / End\n";
   const auto rows=_combat->contacts();
   for(unsigned i=0;i<rows.size();++i)if(rows[i]) {const auto &a=_world.sessionState().regionalActors(rows[i]->mapId).at(rows[i]->recordIndex);out<<(rows[i]==_combat->selectedTarget()?">":"")<<i+1<<' '<<a.statistics->name()<<" #"<<a.id.recordIndex<<" HP"<<a.hp<<'\n';}
@@ -325,7 +325,7 @@ std::string XeenEncounterFlow::consequenceNotice() const {
   const bool city=!const_cast<XeenWorld &>(_world).map(_camera.mapId).geometry.isOutdoors();
   out<<"Arrows move/turn; . Wait; S Shoot:";
   bool eligible=false;
-  for(unsigned i=0;i<6;++i){const auto &c=_party.roster.at(kXeenCombatOwners[i]);if(c.canAct())for(const auto &w:c.weapons)if(w.frame==4){out<<' '<<i+1;eligible=true;break;}}
+  for(unsigned i=0;i<6;++i){const auto &c=_party.roster.at(_party.party.activeRosterIds()[i]);if(c.canAct())for(const auto &w:c.weapons)if(w.frame==4){out<<' '<<i+1;eligible=true;break;}}
   if(!eligible)out<<" none";
   out<<"\nI inventory; F9 quiet save; Space interact\n";
   const auto &active=_world.sessionState().regionalActors(_camera.mapId);
@@ -359,7 +359,7 @@ std::string XeenEncounterFlow::consequenceNotice() const {
  if(!stopped && finishNotice) {
   out<<"Disengaged; gold forfeited "<<_retiredCombatResult.forfeitedGold<<'\n';
   if(_retiredCombatResult.casualties) {
-   out<<"Abandoned:";for(unsigned i=0;i<6;++i)if(_retiredCombatResult.casualties&(1u<<i))out<<' '<<_party.roster.at(kXeenCombatOwners[i]).name;
+   out<<"Abandoned:";for(unsigned i=0;i<6;++i)if(_retiredCombatResult.casualties&(1u<<i))out<<' '<<_party.roster.at(_party.party.activeRosterIds()[i]).name;
    out<<'\n';
   }
   if(_combat && _party.monsterTreasure->dormant())out<<"Dormant items; no gold owed\n";
@@ -367,7 +367,7 @@ std::string XeenEncounterFlow::consequenceNotice() const {
  }
  auto text=out.str();if(!text.empty()&&text.back()=='\n')text.pop_back();text+="\n\n";
  unsigned participantSlot=0;
- for(auto owner:kXeenCombatOwners) {
+ for(auto owner:_party.party.activeRosterIds()) {
   const auto &c=_party.roster.at(owner);text+=c.name+" HP"+std::to_string(c.currentHp)+"\n";
   text+="P"+std::to_string(c.conditions[3])+" S"+std::to_string(c.conditions[8])+" D"+std::to_string(c.conditions[4]);
   if(c.conditions[13])text+=" Dead";else if(c.conditions[12])text+=" Uncon";

@@ -27,7 +27,7 @@ void captureBoundaries(){
     auto saved=f.snapshot();tape=prior;
     check(saved.journey&&saved.journey->actors[5].accounted&&saved.journey->context==f.p.encounterContext,"current capture fields");
     for(unsigned i=0;i<30;++i)check(saved.journey->supplements[i].owner==i&&xeen_state::sameInputs(saved.journey->supplements[i].inputs,*f.p.roster.combatInputs(i)),"all supplements captured");
-    const auto bytes=XeenSaveFormat::encode(saved);check(bytes[8]==7,"current envelope");
+    const auto bytes=XeenSaveFormat::encode(saved);check(bytes[8]==8,"current envelope");
     check(XeenSaveFormat::encode(XeenSaveFormat::decode(bytes))==bytes,"current encode/decode exactness");
     auto detached=XeenPartyLoader().loadFromResources(chr(),pty());auto copied=f.camera;
     check(!XeenSaveState::canCapture(detached,f.camera,f.w)&&!XeenSaveState::canCapture(f.p,copied,f.w)&&XeenSaveState::canCapture(f.p,f.camera,f.w),"capture bound to exact owners");
