@@ -3,7 +3,7 @@
 #include <algorithm>
 namespace mmodern {
 IndexedFrame XeenEventFlow::drawQuickFightOptions(const IndexedFrame &base) const {
-    return drawXeenQuickFight(dosText(),base,_inventoryFont,_party.party.member(_party.roster,*_quickFightMember),*_quickFightMember,drawDialogSprite);
+    return drawXeenQuickFight(dosText(),base,_inventoryFont,_party.party.member(_party.roster,*_quickFightMember),_quickFightHighlight,drawDialogSprite);
 }
 IndexedFrame XeenEventFlow::handleQuickFightOptions(const PlayerAction &action) {
     unsigned key=0;if(const auto *k=std::get_if<DialogKeyAction>(&action))key=k->key;
@@ -16,7 +16,10 @@ IndexedFrame XeenEventFlow::handleQuickFightOptions(const PlayerAction &action) 
         unsigned count=0;for(unsigned n=0;n<6;++n)if(_encounter->combat()->participants()&(1u<<n))++count;
         // DOS-confirmed Options-after-Run quirk: bound by combat count, then
         // index the uncompressed active party, rather than the visible faces.
-        if(key-InputKey::F1<count)_quickFightMember=key-InputKey::F1;
+        if(key-InputKey::F1<count) {
+            _quickFightMember=key-InputKey::F1;
+            _quickFightHighlight=key-InputKey::F1;
+        }
     }
     return renderEncounter();
 }

@@ -237,7 +237,7 @@ void XeenEventFlow::drawPartyPresentation(IndexedFrame &frame) const {
  auto feedback=_world.scenePresentation();
  if(_barrier && (_barrier->portraitWaiting || _barrier->trapWaiting) && _barrier->rule && _barrier->rule->injury)
   feedback.portraitDamage(_barrier->rule->injury->impactOwner,_barrier->rule->injury->portraitFrame);
- for(const auto &p:CloudsUiComposer::buildPartyFeedbackPlacements(_party,feedback,mask,combat?combat->participant():-1))
+ for(const auto &p:CloudsUiComposer::buildPartyFeedbackPlacements(_party,feedback,mask,combat && !_quickFightMember?combat->participant():-1))
   drawDialogSprite(frame,p.resourceName.c_str(),unsigned(p.frame),p.x,p.y);
 }
 
@@ -1369,7 +1369,13 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
     }
     if(std::holds_alternative<QuickFightOptionsAction>(action)) {
         if(!journey() || inventoryOpen() || !_encounter->combat() || _encounter->combat()->phase()!=XeenCombatPhase::PlayerReady || _encounter->combat()->cast())return frameCopy();
-        _quickFightMember=std::size_t(_encounter->combat()->participant());return renderEncounter();
+        _quickFightMember=std::size_t(_encounter->combat()->participant());
+        // On entry retain the actor's compressed portrait slot. Later Options
+        // selections highlight the pressed slot, including the DOS Run quirk.
+        _quickFightHighlight=0;
+        for(std::size_t member=0;member<*_quickFightMember;++member)
+            if(_encounter->combat()->participants()&(1u<<member))++_quickFightHighlight;
+        return renderEncounter();
     }
     if(_barrier)return handleBarrier(action);
     if(journey() && !_encounter->combat() && std::holds_alternative<BashAction>(action)) {

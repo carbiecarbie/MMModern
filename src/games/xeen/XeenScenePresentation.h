@@ -104,7 +104,8 @@ public:
 	}
 	void navigation(NavigationAction action, bool moved, bool combat=false) {
 		const bool turn=action==NavigationAction::TurnLeft || action==NavigationAction::TurnRight;
-		if (turn) sky=!sky;
+		const bool strafe=action==NavigationAction::StrafeLeft || action==NavigationAction::StrafeRight;
+		if (turn || (!combat && moved && strafe)) sky=!sky;
 		if (!combat && (turn || moved)) {ground=!ground;defaultGround=!defaultGround;}
 	}
 	// perform's Wait flips cancel the flips in stepTime.

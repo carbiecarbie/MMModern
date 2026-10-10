@@ -98,6 +98,21 @@ int main() {try {
 	action.navigation(NavigationAction::MoveForward,true);check(action.ground&&action.defaultGround&&!action.sky,"Accepted movement flips");
 	action.navigation(NavigationAction::TurnLeft,false);check(!action.ground&&!action.defaultGround&&action.sky,"Exploration turn flips");
 	action.navigation(NavigationAction::TurnRight,false,true);check(!action.ground&&!action.sky,"Combat turn ground flip");
+	for(const auto strafe:{NavigationAction::StrafeLeft,NavigationAction::StrafeRight}) {
+		XeenScenePresentation sideways(77);
+		sideways.navigation(strafe,false);
+		check(!sideways.sky&&!sideways.ground&&!sideways.defaultGround,"Blocked strafe preserves animation");
+		sideways.navigation(strafe,true);
+		check(sideways.sky&&sideways.ground&&sideways.defaultGround,"Successful strafe flips sky and ground");
+		sideways.navigation(strafe,false);
+		check(sideways.sky&&sideways.ground&&sideways.defaultGround,"Blocked strafe preserves flipped animation");
+		sideways.navigation(strafe,false,true);
+		check(sideways.sky&&sideways.ground&&sideways.defaultGround,"Combat strafe preserves animation");
+		sideways.navigation(strafe,true,true);
+		check(sideways.sky&&sideways.ground&&sideways.defaultGround,"Combat strafe never flips sky");
+		sideways.navigation(strafe,true);
+		check(!sideways.sky&&!sideways.ground&&!sideways.defaultGround,"Second successful strafe restores animation");
+	}
 	action.wait();check(!action.ground,"Wait double flip cancellation");
 	for(unsigned i=0;i<3;++i) action.advance(99);check(!action.water,"Premature water flip");
 	action.advance(99);check(action.water&&action.overallFrame==4&&action.floatPhase==4,"Periodic water/overall/float phases");

@@ -105,7 +105,20 @@ void combatAndOptions(Inputs &in) {
  Fixture f(in,source);engage(f);auto combat=f.flow->encounter()->combat();
  check(combat->participant()==0,"Reordered combat speed ties use first position");
  const auto actor=f.p.party.activeRosterIds()[0];const auto time=*f.p.encounterContext;const auto rng=f.w.sessionState().journeyRandom();
- f.act(QuickFightOptionsAction{});check(XeenPartyInterfaceTestAccess::optionMember(*f.flow)==0,"Options starts on actual actor");
+ std::vector<std::pair<int,int>> highlights;
+ const auto draw=f.flow->drawDialogSprite;
+ f.flow->drawDialogSprite=[&](auto &frame,const char *resource,unsigned id,int x,int y) {
+  if(std::string_view(resource)=="global.icn" && id==8)highlights.emplace_back(x,y);
+  draw(frame,resource,id,x,y);
+ };
+ const auto highlighted=[&](PlayerAction action,unsigned slot,const char *message) {
+  highlights.clear();f.act(action);constexpr int x[]{10,45,81,117,153,189};
+  check(highlights==std::vector<std::pair<int,int>>{{x[slot]-1,149}},message);
+ };
+ highlighted(QuickFightOptionsAction{},0,"Options initially draws exactly one actor highlight");check(XeenPartyInterfaceTestAccess::optionMember(*f.flow)==0,"Options starts on actual actor");
+ highlighted(DialogKeyAction{InputKey::F1+2},2,"Changed Options selection draws only the selected highlight");
+ check(XeenPartyInterfaceTestAccess::optionMember(*f.flow)==2,"Options changed selection member");
+ highlighted(DialogKeyAction{InputKey::F1},0,"Options restores first selected highlight");
  auto option=f.p.roster.at(actor).quickOption;const auto stale=f.flow->frame().presentation();const auto token=f.flow->displayedInput();
  f.act(DialogKeyAction{'n'});check(f.p.roster.at(actor).quickOption==(unsigned(option)+1)%4,"Next immediately cycles option");
  f.flow->handle(DialogKeyAction{'n'},token,stale);check(f.p.roster.at(actor).quickOption==(unsigned(option)+1)%4,"Stale Next cannot repeat");
@@ -118,10 +131,15 @@ void combatAndOptions(Inputs &in) {
  while(f.p.roster.at(otherOwner).quickOption!=3)f.act(DialogKeyAction{'n'});
  f.act(CancelInteractionAction{});f.act(QuickFightAction{});for(unsigned n=0;n<100 && combat->phase()!=XeenCombatPhase::PlayerReady;++n)pulse(f);
  if(combat->participants()&(1u<<other))throw std::runtime_error("Deterministic Quick Run fixture did not flee");
- ready(f);f.act(QuickFightOptionsAction{});unsigned count=0;for(unsigned n=0;n<6;++n)if(combat->participants()&(1u<<n))++count;
- f.act(DialogKeyAction{InputKey::F1});check(XeenPartyInterfaceTestAccess::optionMember(*f.flow)==0,"Options-after-Run keeps active-party indexing");
- f.act(DialogKeyAction{InputKey::F1+count});check(XeenPartyInterfaceTestAccess::optionMember(*f.flow)==0,"Options-after-Run rejects empty slot");
- f.act(CancelInteractionAction{});
+ ready(f);unsigned count=0,actorSlot=0;for(unsigned n=0;n<6;++n)if(combat->participants()&(1u<<n)){++count;if(n<unsigned(combat->participant()))++actorSlot;}
+ check(actorSlot!=unsigned(combat->participant()),"Post-Run fixture distinguishes compressed actor slot");
+ highlighted(QuickFightOptionsAction{},actorSlot,"Options-after-Run initially highlights only the compressed actor portrait");
+ check(XeenPartyInterfaceTestAccess::optionMember(*f.flow)==std::size_t(combat->participant()),"Options-after-Run initially selects actual actor");
+ highlighted(DialogKeyAction{InputKey::F1+unsigned(other)},unsigned(other),"Options-after-Run highlights pressed slot when selecting fled member");
+ check(XeenPartyInterfaceTestAccess::optionMember(*f.flow)==other && !(combat->participants()&(1u<<other)),"Options-after-Run retains fled-member selection quirk");
+ highlighted(DialogKeyAction{InputKey::F1},0,"Options-after-Run selection highlights the pressed portrait only");check(XeenPartyInterfaceTestAccess::optionMember(*f.flow)==0,"Options-after-Run keeps active-party indexing");
+ highlighted(DialogKeyAction{InputKey::F1+count},0,"Options-after-Run empty slot retains single highlight");check(XeenPartyInterfaceTestAccess::optionMember(*f.flow)==0,"Options-after-Run rejects empty slot");
+ highlighted(CancelInteractionAction{},actorSlot,"Closing Options restores single combat actor highlight");
  // End this legitimately entered combat, then persist the UI settings together with Exchange and Strafe.
  for(unsigned n=0;n<1500 && f.flow->encounter()->combat();++n) {
   const auto *c=f.flow->encounter()->combat();

@@ -281,6 +281,7 @@ private:
 	std::optional<SummaryDialog> _summary;
 	bool _exchange=false;
 	std::optional<std::size_t> _quickFightMember;
+	std::size_t _quickFightHighlight=0;
 	IndexedFrame drawQuickFightOptions(const IndexedFrame &) const;
 	IndexedFrame handleQuickFightOptions(const PlayerAction &);
 	IndexedFrame _summaryUnderlay;
