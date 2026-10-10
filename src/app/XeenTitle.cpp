@@ -54,10 +54,11 @@ int Application::run(const std::filesystem::path &gameDirectory) const {
   };
   XeenTitleFlow title(XeenTitleFlow::original(assets,font,rows,path));
   XeenSessionEntry entry;
+  bool inGameLoad=false;
   for(;;) {
    if(entry.kind==XeenSessionEntry::Kind::Title) {
     const auto selected=showTitle(title,assets);
-    if(!selected)return 0;entry=*selected;
+    if(!selected)return 0;entry=*selected;inGameLoad=false;
    }
    if(entry.kind==XeenSessionEntry::Kind::Exit)return 0;
    if(entry.kind!=XeenSessionEntry::Kind::New && entry.kind!=XeenSessionEntry::Kind::Load)
@@ -80,13 +81,15 @@ int Application::run(const std::filesystem::path &gameDirectory) const {
      }
     }
    };
+   XeenSessionOutcome outcome;
    const int status=gameplay(gameDirectory,{},entry.path,!fresh,
     fresh?XeenEncounterEntry::Journey:XeenEncounterEntry::Ordinary,{},
-    fresh?std::optional<XeenDifficulty>{entry.difficulty}:std::nullopt,&entry,&assets,fresh?publish:InitialPublication{});
-   const XeenSessionOutcome outcome{status==5?XeenSessionOutcome::Kind::Title:
-    status==0?XeenSessionOutcome::Kind::Exit:XeenSessionOutcome::Kind::Failure,status};
+    fresh?std::optional<XeenDifficulty>{entry.difficulty}:std::nullopt,&entry,&assets,fresh?publish:InitialPublication{},&outcome);
+   if(status==0 && outcome.kind==XeenSessionOutcome::Kind::Load){entry=std::move(outcome.entry);inGameLoad=true;continue;}
+   outcome.kind=status==5?XeenSessionOutcome::Kind::Title:status==0?XeenSessionOutcome::Kind::Exit:XeenSessionOutcome::Kind::Failure;
+   outcome.status=status;
    if(outcome.kind==XeenSessionOutcome::Kind::Title){if(exitRequested)return 0;title.cancelPublication();entry={};continue;}
-   if(!fresh && status==3){title.startupFailure("Load validation failed; see the technical diagnostic.");entry={};continue;}
+   if(!fresh && status==3 && !inGameLoad){title.startupFailure("Load validation failed; see the technical diagnostic.");entry={};continue;}
    return outcome.status;
   }
  }catch(const std::exception &e){std::cerr<<"Title startup failed: "<<e.what()<<'\n';return 3;}

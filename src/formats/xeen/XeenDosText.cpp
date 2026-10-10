@@ -145,7 +145,17 @@ const std::vector<XeenDosText::Field> &XeenDosText::layout() {
   {"NEW_SPACE",0x537eb,0x53833,1,false,""},
   {"DIFFICULTY_BUTTONS",0x53833,0x5383e,1,false,""},
   {"DIFFICULTY_TEXT",0x5383e,0x5385f,1,false,""},
-  {"CHOOSER_SPRITES",0x53697,0x536a2,1,false,""}
+  {"CHOOSER_SPRITES",0x53697,0x536a2,1,false,""},
+  {"SAVE_RESTRICTED",0x53250,0x532b1,1,false,""},
+  {"PANEL_ON",0x53305,0x5330e,1,false,""},
+  {"PANEL_OFF",0x5330e,0x53318,1,false,""},
+  {"PANEL_BUTTON_TEXT",0x53318,0x5336e,1,false,"s,s,s,s"},
+  {"PANEL_SPRITES",0x5336e,0x53379,1,false,""},
+  {"PANEL_TEXT",0x53379,0x5344c,1,false,"s,s"},
+  {"NO_LOADING_IN_COMBAT",0x534bd,0x534db,1,false,""},
+  {"NO_SAVING_IN_COMBAT",0x534e6,0x53503,1,false,""},
+  {"CONFIRM_QUIT",0x53503,0x53522,1,false,""},
+  {"MR_WIZARD",0x53522,0x5354b,1,false,""}
  };
  return fields;
 }
@@ -155,7 +165,9 @@ const std::vector<XeenDosText::ButtonLayout> &XeenDosText::buttonLayouts() {
  static const std::vector<ButtonLayout> layouts{
   {"TITLE",0x4f162,0x4f176,0x4f17e,0x4f186,0x4f18e,0x4f192,4},
   {"CHOOSER",0x4f19a,0x4f1bc,0x4f1cc,0x4f1dc,0x4f1ec,0x4f1fc,16},
-  {"DIFFICULTY",0x4f690,0x4f696,0x4f698,0x4f69a,0x4f69c,0x4f69e,2}
+  {"DIFFICULTY",0x4f690,0x4f696,0x4f698,0x4f69a,0x4f69c,0x4f69e,2},
+  // DOS panel setup at 0x1eecb..0x1ef05, including Save As/Text/Speech.
+  {"PANEL",0x4f45e,0x4f472,0x4f47b,0x4f484,0x4f48d,0x4f496,9}
  };return layouts;
 }
 void XeenDosText::validateControls(std::string_view text) {

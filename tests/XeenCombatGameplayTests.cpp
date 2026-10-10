@@ -1,9 +1,39 @@
 #include "XeenRegionalGameplayTestSupport.h"
+#include "app/XeenTitleFlow.h"
 #include <iostream>
 #include <fstream>
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 using namespace regional_gameplay_test;
+void panelCombat() {
+ Harness h;auto services=h.services();unsigned providers=0;
+ services.panel=[&](const auto &base,bool combat,bool restricted,bool saveable,auto current,const auto &name) {
+  check(combat && saveable && !restricted,"combat panel admission");
+  XeenTitleFlow::Services s{dos_test::text(),h.font,base,{}, {},[](auto &,const char *,unsigned,int,int){},
+   [&]{++providers;return std::array<XeenSaveFile::Slot,10>{};},[](unsigned){return std::filesystem::path{};}};
+  s.panel=true;s.combat=combat;s.currentSlot=current;s.currentName=name;return std::make_unique<XeenTitleFlow>(std::move(s));
+ };
+ services.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &) {
+  h.press(handler,WaitAction{});check(h.phase()==Phase::PlayerReady,"combat panel player boundary");
+  const auto revision=h.result().revision,rng=h.randomPosition();const auto deadline=h.flow->encounter()->deadline();
+  XeenRestoreGuard guard(*h.world,*h.party,*h.camera,*h.flags);
+  IndexedFrame visible=h.flow->frame();
+  const auto send=[&](const PlayerAction &action) {
+   const auto next=handler.withPresentedInput(action,*handler.displayedInput(),visible.presentation());
+   check(bool(next),"combat panel response");visible=*next;
+   handler.framePresented(visible.presentation());handler.completeInputHandoff(visible.presentation());guard.check();
+  };
+  send(ControlPanelAction{});check(handler.inputContext(visible.presentation()).dialog->hits.size()==9,"combat panel failed to open");
+  for(unsigned key:{'s','a','l'}) {
+   send(DialogKeyAction{key});check(handler.inputContext(visible.presentation()).dialog->anyKey,"combat refusal not visible");
+   send(DialogKeyAction{27});
+  }
+  h.now+=1000;idle();guard.check();
+  check(providers==0 && h.result().revision==revision && h.randomPosition()==rng && h.flow->encounter()->deadline()==deadline,"combat panel consumed gameplay/providers");
+  send(DialogKeyAction{27});check(!handler.inputContext(visible.presentation()).dialog,"combat panel Escape");return true;
+ };
+ check(h.run(services)==0,"combat panel production dispatcher");
+}
 void appearance() {
  Harness h;auto s=h.services();
  const auto compose=s.composeEncounter;bool delayedFrame=false;
@@ -412,6 +442,6 @@ int main(int argc,char **argv){try{
    const auto result=child_test::launch(std::filesystem::absolute(argv[2]),{mode,L"missing"},root/(std::to_string(sequence++)+".log"));
    check(result.exit==1&&result.output.find("Usage:")!=std::string::npos,"Removed mode prints usage before resources");
   }
- }else{appearance();criticalPresentation();delayed();failures();publicationFailures();callbacks();inventory();staleService();startup();liveSourceGuards();}
+ }else{panelCombat();appearance();criticalPresentation();delayed();failures();publicationFailures();callbacks();inventory();staleService();startup();liveSourceGuards();}
  std::cout<<"Regional combat production tests passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

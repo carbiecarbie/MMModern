@@ -16,7 +16,7 @@ struct Driver {
  void fade(){flow.animate(now);now+=1000;flow.animate(now);present();}
  void key(unsigned value) {
   const auto action=flow.inputContext(flow.frame().presentation()).dialog->key(value);
-  check(bool(action),"missing title key mapping");flow.handle(*action,flow.frame().presentation());present();
+  check(bool(action),"missing title key mapping");flow.handle(*action,flow.frame().presentation());if(flow.current())present();
  }
  void click(int x,int y) {
   const auto action=flow.inputContext(flow.frame().presentation()).dialog->click(x,y);
@@ -24,6 +24,68 @@ struct Driver {
  }
  void type(std::string value){flow.handle(TextInputAction{std::move(value)},flow.frame().presentation());present();}
 };
+void panelControls(XeenAssetSource &assets,const XeenFontFormat &font) {
+ assets.loadPalette("dark.pal",XeenSceneArchive::DarksideOnly);
+ std::array<XeenSaveFile::Slot,10> rows;
+ auto snapshot=save_test::currentWireSnapshot();snapshot.name="Existing";
+ rows[0]={XeenSaveFile::Slot::State::Available,snapshot,{}};
+ rows[9]={XeenSaveFile::Slot::State::Protected,{},"Synthetic protected slot"};
+ const auto services=[&](bool combat=false,bool restricted=false) {
+  XeenTitleFlow::Services s{assets.uiText(),font,assets.snapshot(),{}, {},
+   [&](auto &frame,const char *name,unsigned index,int x,int y){assets.drawDialogSprite(frame,name,index,x,y);},
+   [&]{return rows;},[](unsigned slot){return std::filesystem::path("panel-test")/std::to_string(slot);}};
+  s.panel=true;s.combat=combat;s.saveRestricted=restricted;s.currentSlot=0;s.currentName="Native Case !~";return s;
+ };
+ Driver d(services());check(d.flow.screen()==Screen::Panel,"panel entry");
+ auto longName=services();longName.currentName=std::string(20,'W');Driver longest(std::move(longName));
+ check(longest.flow.screen()==Screen::Panel,"long current name must stop at original window bottom");
+ // Normal newline termination is original behavior; an absolute cursor control
+ // that tries to draw outside the window must still trip the layout guard.
+ bool overflow=false;
+ try {longest.flow.panelResult("\v999X",true);}
+ catch(const std::runtime_error &e){overflow=std::string(e.what()).find("Original dialog layout overflow")!=std::string::npos;}
+ check(overflow,"saved confirmation disabled control/glyph overflow validation");
+ titlePreview(d.flow.frame(),"panel");
+ const auto hits=d.flow.inputContext(d.flow.frame().presentation()).dialog;
+ check(hits->hits.size()==9,"DOS panel requires nine buttons");
+ for(unsigned key:{'e','m','p','t'}) {
+  const auto it=std::find_if(hits->hits.begin(),hits->hits.end(),[&](const auto &h){return h.key==key;});
+  check(it!=hits->hits.end() && it->button && it->button->pressedFrame()==1,"panel pressed frame");
+  d.click(it->left,it->top);check(d.flow.screen()==Screen::Notice && !d.flow.entry(),"deferred control must refuse");d.key(27);
+ }
+ d.key('w');check(d.flow.screen()==Screen::Wizard,"Mr Wizard confirmation first");d.key('n');
+ d.key('w');d.key('y');check(d.flow.screen()==Screen::Notice && !d.flow.entry(),"rescue must refuse after Yes");d.key(27);
+ d.key('q');d.key(27);check(d.flow.screen()==Screen::Panel,"Quit cancel");
+ d.key('a');check(d.flow.screen()==Screen::SaveSlots,"Save As chooser");
+ d.key('1');d.key(13);check(d.flow.screen()==Screen::Overwrite,"Save As overwrite before name");
+ d.key(27);check(d.flow.screen()==Screen::SaveSlots,"overwrite Escape to list");
+ d.key(13);d.key('y');d.key(27);check(d.flow.screen()==Screen::SaveSlots,"Save As name Escape to list");
+ d.key('3');d.key(13);d.type("New Name");d.key(13);
+ check(d.flow.entry() && d.flow.entry()->kind==XeenSessionEntry::Kind::Save && d.flow.entry()->slot==2 && d.flow.entry()->name=="New Name","Save As request");
+ d.flow.panelCurrent(2,"New Name");d.flow.panelResult(xeenDialogFormat(assets.uiText().scalar("SAVED_NOTICE"),{"New Name"}),true);d.present();
+ check(d.flow.screen()==Screen::SavedNotice,"saved confirmation must use its original window");d.key(27);
+ check(d.flow.screen()==Screen::SaveSlots,"success must return to list");d.key(27);d.key('s');
+ check(d.flow.entry()->slot==2 && d.flow.entry()->name=="New Name","Save As sets current direct Save slot");
+ d.flow.panelResult("Synthetic failure");d.present();d.key(27);d.key('l');d.key('0');
+ check(d.flow.screen()==Screen::Notice && !d.flow.entry(),"protected Load row");d.key(27);d.key(27);
+ d.key('q');d.key('y');check(d.flow.entry()->kind==XeenSessionEntry::Kind::Exit,"Quit confirmation outcome");
+ for(bool restricted:{false,true}) {
+  Driver refusal(services(!restricted,restricted));
+  for(unsigned code:{'s','a'}){refusal.key(code);check(refusal.flow.screen()==Screen::Notice,"save refusal");refusal.key(27);}
+  refusal.key('l');check(refusal.flow.screen()==(restricted?Screen::LoadSlots:Screen::Notice),"map restriction applies to Save only");
+ }
+ auto developer=services();developer.currentSlot.reset();developer.currentName.clear();Driver dev(std::move(developer));dev.key('s');
+ check(dev.flow.screen()==Screen::SaveSlots,"developer Save must select managed slot");dev.key(27);
+ const auto retired=dev.flow.frame().presentation();dev.key(27);check(!dev.flow.current() && !dev.flow.acceptsInput(retired),"panel Escape invalidates input");
+ XeenTextInput input;input.begin();check(input.cursor()==32 && !input.animate(100),"cursor initial wait");
+ const unsigned glyphs[]{124,126,127,126,124,32,124};
+ for(unsigned i=0;i<7;++i) {
+  check(!input.animate(149+i*50),"cursor advanced before wait tick");
+  check(input.animate(150+i*50) && input.cursor()==glyphs[i],"cursor glyph/cadence");
+ }
+ const auto glyph=input.cursor();check(input.type("Case !~ ",font) && input.cursor()==glyph && input.backspace() && input.value()=="Case !~","typing changed cursor phase/input");
+ check(input.animate(700) && input.cursor()==32,"delayed fixed-clock cursor ticks");
+}
 }
 int main(int argc,char **argv){try {
  check(argc==2,"Title flow test requires original CD source");
@@ -35,6 +97,7 @@ int main(int argc,char **argv){try {
  slots[0].state=XeenSaveFile::Slot::State::Available;slots[0].snapshot=saved;
  slots[5].state=XeenSaveFile::Slot::State::Protected;slots[5].reason="Synthetic protected target";
  const auto services=[&]{return XeenTitleFlow::original(assets,font,[&]{return slots;},[](unsigned slot){return std::filesystem::path("test-slots")/(std::to_string(slot)+".mmsave");});};
+ panelControls(assets,font);
  Driver d(services());
  check(d.flow.screen()==Screen::Background,"plain title starts with animated background");d.key(27);
  const auto menu=d.flow.frame().pixels;const auto old=d.flow.frame().presentation();

@@ -110,6 +110,7 @@ struct QueueHarness {
    else if(std::holds_alternative<SaveGameAction>(action))kind='9';
    else if(std::holds_alternative<CancelInteractionAction>(action))kind='E';
    else if(std::holds_alternative<UnsupportedMainScreenAction>(action))kind='U';
+   else if(std::holds_alternative<ControlPanelAction>(action))kind='P';
    else if(std::holds_alternative<SelectMemberAction>(action))kind='P';
    else if(const auto *key=std::get_if<DialogKeyAction>(&action))kind=key->key==InputKey::Escape?'E':char(key->key);
    delivered.push_back(kind);++epoch;return frame;
@@ -227,7 +228,7 @@ void mouseHitAreas(){
   {286,75,310,95,RestAction{},AttackAction{}},{235,96,259,116,BashAction{},UseItemAction{}},
   {260,96,284,116,u("Dismiss"),RevisitCompletedAction{}},{286,96,310,116,u("View Quests"),BlockAction{}},
   {235,117,259,137,u("Map"),u("Quick Fight Options")},{260,117,284,137,u("Info"),u("Info")},
-  {286,117,310,137,u("Quick Ref"),u("Quick Ref")},{109,137,122,147,u("Control panel"),u("Control panel")},
+  {286,117,310,137,u("Quick Ref"),u("Quick Ref")},{109,137,122,147,ControlPanelAction{},ControlPanelAction{}},
   {235,148,259,168,NavigationAction::TurnLeft,NavigationAction::TurnLeft},
   {260,148,284,168,NavigationAction::MoveForward,NavigationAction::MoveForward},
   {286,148,310,168,NavigationAction::TurnRight,NavigationAction::TurnRight},
@@ -290,6 +291,11 @@ void mouseHitAreas(){
  std::cout<<"Main-screen hit areas and SDL native scaling passed\n";
 }
 void boundedQueuePolicies(){
+ {QueueHarness h;h.screen=MainScreen::Exploration;h.run("Tab/gem queue original panel",[](auto &h){
+  if(h.stage==0){h.tap(SDLK_TAB);h.click(114,141);}
+  else if(h.stage==1)h.ready=true;
+  else if(h.stage==4){h.check(h.delivered==std::vector<char>{'P','P'},"Tab/gem panel mapping");h.quit();}
+ });}
  {QueueHarness h;h.screen=MainScreen::Exploration;h.run("modified arrows do not alias movement",[](auto &h){
   if(h.stage==0)for(auto code:{SDLK_LEFT,SDLK_RIGHT,SDLK_DOWN,SDLK_UP}){h.key(code,SDL_KEYDOWN,0,99,KMOD_CTRL);h.key(code,SDL_KEYUP);}
   else if(h.stage==1)h.ready=true;

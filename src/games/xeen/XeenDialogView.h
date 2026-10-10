@@ -42,7 +42,7 @@ IndexedFrame drawXeenItems(const XeenDosText &text,const IndexedFrame &,const Xe
 IndexedFrame drawXeenPopup(const IndexedFrame &,const XeenFontFormat &,const XeenDialogPopup &);
 IndexedFrame drawXeenErrorScroll(const IndexedFrame &,const XeenFontFormat &,const std::string &,bool startupColors=false);
 IndexedFrame drawXeenConfirm(const IndexedFrame &,const XeenFontFormat &,const std::string &,
-    bool large,const XeenDialogSpriteDraw &,bool startupColors=false);
+    bool large,const XeenDialogSpriteDraw &,bool startupColors=false,bool stopAtBottom=false);
 IndexedFrame drawXeenItemTarget(const XeenDosText &text,const IndexedFrame &,const XeenFontFormat &);
 std::string xeenBackpackFull(const XeenDosText &text,XeenInventoryCategory,const std::string &);
 IndexedFrame drawXeenItemSelection(const XeenDosText &text,const IndexedFrame &,const XeenFontFormat &,unsigned,

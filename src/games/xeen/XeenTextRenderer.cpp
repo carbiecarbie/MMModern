@@ -112,7 +112,7 @@ XeenTextRenderResult renderOriginal(const IndexedFrame &base, const std::string 
     if(o.drawWindow) originalWindow(frame,o.windowBounds);
     int x=o.x,y=o.y; unsigned color=o.colorIndex,bg=0x99;
     auto size=o.size; auto alignment=o.alignment;
-    std::size_t i=0;
+    std::size_t i=0;bool stopped=false;
     const auto number=[&](int digits) {
         int value=0;
         // FontSurface::fontAtoi consumes spaces as zero and stops immediately
@@ -140,10 +140,11 @@ XeenTextRenderResult renderOriginal(const IndexedFrame &base, const std::string 
     const auto newline=[&] {
         while(i<text.size() && (text[i]&0x7f)==' ') ++i;
         x=o.bounds.left;y+=size==XeenFontSize::Reduced?9:10;
+        if(o.stopAtBottom && y+(size==XeenFontSize::Reduced?9:10)-1>o.bounds.bottom)stopped=true;
     };
     // FontSurface::writeString scans a run through palette changes, but stops
     // at each other command. Commands alter the next run's cursor/font state.
-    while(i<text.size()) {
+    while(i<text.size() && !stopped) {
         const auto start=i;std::size_t end=i;
         int xp=alignment==XeenTextAlignment::Center?o.bounds.left:x;
         bool wraps=false;
@@ -206,6 +207,7 @@ XeenTextRenderResult renderOriginal(const IndexedFrame &base, const std::string 
         }
         if(wraps && alignment!=XeenTextAlignment::Right) newline();
     }
+    result.writeX=x;result.writeY=y;result.writeSize=size;result.writeColor=color;
     result.pages.push_back(std::move(frame));result.pageSourceEnds.push_back(text.size());return result;
 }
 

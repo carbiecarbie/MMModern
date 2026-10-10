@@ -36,7 +36,7 @@ inline std::optional<PlayerAction> xeenMainScreenClick(int x, int y, MainScreen 
         constexpr const char *fighting[] = {"Quick Fight","Cast","Attack","Use","Run","Block","Quick Fight Options","Info","Quick Ref"};
         return UnsupportedMainScreenAction{combat ? fighting[index] : exploration[index]};
     }
-    if (contains(109,137,122,147)) return UnsupportedMainScreenAction{"Control panel"};
+    if (contains(109,137,122,147)) return ControlPanelAction{};
     for (unsigned col=0; col<3; ++col) {
         if (contains(columns[col],148,columns[col]+24,168)) {
             constexpr NavigationAction movement[] = {NavigationAction::TurnLeft,NavigationAction::MoveForward,NavigationAction::TurnRight};

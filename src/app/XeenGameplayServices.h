@@ -3,7 +3,9 @@
 #include "app/XeenEventFlow.h"
 #include "games/xeen/XeenSaveState.h"
 #include "platform/sdl/SdlWindow.h"
+#include "app/XeenSession.h"
 namespace mmodern {
+class XeenTitleFlow;
 // Borrowed resource/presentation providers for Application's one startup path.
 // Production binds original assets and SDL; synthetic tests bind bounded fixtures.
 // No live gameplay owner or saved snapshot is stored here.
@@ -43,15 +45,22 @@ struct XeenGameplayServices {
  std::shared_ptr<const XeenSaveSnapshot> restoreSnapshot;
  std::optional<std::string> saveName;
  std::optional<unsigned> currentSlot,initialSlot;
+ // Explicit CLI loose target remains independent of the panel's current slot.
+ std::optional<std::filesystem::path> developerSavePath;
  // Called with a scratch-validated New candidate before any presented frame.
  // Retry/cancel UI retains this candidate and performs no new initialization.
  std::function<bool(const XeenSaveSnapshot &,const std::function<void()> &)> publishInitial;
+ std::function<std::unique_ptr<XeenTitleFlow>(const IndexedFrame &,bool,bool,bool,
+   std::optional<unsigned>,const std::string &)> panel;
+ std::function<void(unsigned,const XeenSaveSnapshot &,const std::function<void()> &)> writeManaged;
+ XeenSessionOutcome *outcome=nullptr;
 };
 // Application's persistence transaction, also usable by internal domain tests.
 // The target is already installation-checked by the caller. Refusal precedes
 // providers and file work; no public Journey entry is implied by this seam.
 void xeenSaveGameplay(const XeenGameplayServices &, XeenWorld &, XeenPartyState &,
 	XeenCamera &, XeenGameFlags &, XeenEventFlow &, const std::filesystem::path &,
-	const XeenSaveState::Preflight &, std::function<void()> *nestedSourceCheck = nullptr);
+	const XeenSaveState::Preflight &, std::function<void()> *nestedSourceCheck = nullptr,
+ const std::function<void(const XeenSaveSnapshot &,const std::function<void()> &)> &writer = {});
 }
 #endif

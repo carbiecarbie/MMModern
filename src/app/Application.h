@@ -48,7 +48,7 @@ private:
 		const std::optional<std::filesystem::path> &, bool resume,
 		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary, std::optional<std::uint32_t> seed = {},
 		std::optional<XeenDifficulty> originalStart = {},const XeenSessionEntry *managed = nullptr,
-		XeenAssetSource *sharedAssets = nullptr,InitialPublication publication = {}) const;
+		XeenAssetSource *sharedAssets = nullptr,InitialPublication publication = {},XeenSessionOutcome *outcome = nullptr) const;
 };
 
 } // namespace mmodern

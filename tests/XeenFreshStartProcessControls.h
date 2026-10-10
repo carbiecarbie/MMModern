@@ -11,8 +11,8 @@ void freshStartProcesses(const fs::path &executable, const fs::path &installatio
         const std::string name = warrior ? "warrior" : "adventurer";
         const auto save = directory/(name+".mmsave");
         std::vector<std::wstring> args;
-        // Exercise explicit and bare entry through the same whole-game route.
-        if (!warrior) args.push_back(L"--new-game");
+        // Gameplay witnesses use an explicit developer entry. Bare launch tests cover title.
+        args.push_back(L"--new-game");
         args.push_back(installation.wstring());
         if (warrior) { args.push_back(L"--difficulty"); args.push_back(L"warrior"); }
         args.push_back(L"--save-file"); args.push_back(save.wstring());
@@ -31,21 +31,21 @@ void freshStartProcesses(const fs::path &executable, const fs::path &installatio
         fs::copy_file(directory/(name+"-played.mmsave"),restorePlayed);
         run(name+"-restore-played",L"m52-after",{L"--load-game",installation.wstring(),restorePlayed.wstring()});
         equal(directory/(name+"-continued.mmsave"),directory/(name+"-restore-played-continued.mmsave"));
-        // Cover the other entry spelling with an explicit difficulty and F9 on
+        // Cover the explicit entry with an explicit difficulty and F9 on
         // the very first frame, including Unicode/space save paths.
-        const auto spellingSave = directory/fs::path(warrior ? L"explicit warrior \u6e38.mmsave" : L"bare adventurer \u00e7.mmsave");
-        args.clear(); if (warrior) args.push_back(L"--new-game");
+        const auto spellingSave = directory/fs::path(warrior ? L"explicit warrior \u6e38.mmsave" : L"explicit adventurer \u00e7.mmsave");
+        args.clear(); args.push_back(L"--new-game");
         args.push_back(installation.wstring()); args.push_back(L"--difficulty");
         args.push_back(warrior ? L"warrior" : L"adventurer");
         args.push_back(L"--save-file"); args.push_back(spellingSave.wstring());
         run(name+"-other-spelling",L"m52-initial",args);
         equal(directory/(name+"-initial.mmsave"),spellingSave);
-        args.clear(); if (warrior) args.push_back(L"--new-game");
+        args.clear(); args.push_back(L"--new-game");
         args.push_back(installation.wstring());
         if (warrior) { args.push_back(L"--difficulty"); args.push_back(L"warrior"); }
         run(name+"-no-target",L"m52-initial",args);
     }
     SetEnvironmentVariableW(L"MMODERN_M42_STAGE",nullptr);
-    std::cout << "M52 both public forms/difficulties, immediate F9, East Event, walk/combat/Rest/paid service, "
+    std::cout << "M52 explicit entry/both difficulties, immediate F9, East Event, walk/combat/Rest/paid service, "
         "refusal, mainland exit/re-entry, exact initial/played restores and continuation passed; evidence " << directory.u8string() << '\n';
 }

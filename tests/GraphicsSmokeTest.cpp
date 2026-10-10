@@ -264,7 +264,7 @@ int main(int argc, char *argv[]) {
 		mmodern::Application(std::filesystem::path(MMODERN_TEST_UI_DATA)).renderMap(argv[1], 1, 8, 8,
 			mmodern::XeenDirection::West) :
 		mode == "event" ? mmodern::Application(std::filesystem::path(MMODERN_TEST_UI_DATA)).renderMap(argv[1], 31, 2, 9,
-			mmodern::XeenDirection::North) : mmodern::Application(std::filesystem::path(MMODERN_TEST_UI_DATA)).run(argv[1]);
+			mmodern::XeenDirection::North) : mmodern::Application(std::filesystem::path(MMODERN_TEST_UI_DATA)).newGame(argv[1]);
 	finished = true;
 	closer.join();
 	const int expectedEvents = escape && mode == "map" ? 5 :

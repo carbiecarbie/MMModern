@@ -17,7 +17,7 @@ int main(int argc,char **argv) {try {
   if(!assets.snapshot().isValid())throw std::runtime_error("Invalid title/credits background");
   std::cout<<name<<" DARK.CC 320x200\n";
  }
- for(const auto *name:{"world0.int","world1.int","world2.int","start.icn","special.icn","choice.icn","scroll.icn","confirm.icn"}) {
+ for(const auto *name:{"world0.int","world1.int","world2.int","start.icn","special.icn","choice.icn","scroll.icn","confirm.icn","cpanel.icn"}) {
   const auto count=assets.spriteFrameCount(name,dark);
   if(!count)throw std::runtime_error("Empty title sprite");
   for(unsigned frame=0;frame<count;++frame) {

@@ -55,6 +55,7 @@ std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key, MainScree
 	case SDLK_c: return CastSpellAction{};
 	case SDLK_r: return screen==MainScreen::Exploration ? PlayerAction{RestAction{}} : PlayerAction{RevisitCompletedAction{}};
 	case SDLK_F9: return SaveGameAction{};
+	case SDLK_TAB: return ControlPanelAction{};
 	case SDLK_i: return UnsupportedMainScreenAction{"Info"};
 	case SDLK_u: return UseItemAction{};
 	case SDLK_1: case SDLK_2: case SDLK_3: case SDLK_4: case SDLK_5:
@@ -380,7 +381,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             const auto *slot = action ? std::get_if<SelectInventorySlotAction>(&*action) : nullptr;
             const bool queueKey = action && (movement || std::holds_alternative<AttackAction>(*action) || std::holds_alternative<InteractionAction>(*action) ||
                 std::holds_alternative<BlockAction>(*action) || std::holds_alternative<BashAction>(*action) || std::holds_alternative<ShootAction>(*action) ||
-                std::holds_alternative<RestAction>(*action) ||
+                std::holds_alternative<RestAction>(*action) || std::holds_alternative<ControlPanelAction>(*action) ||
                 std::holds_alternative<RevisitCompletedAction>(*action) || std::holds_alternative<WaitAction>(*action) ||
                 std::holds_alternative<CastSpellAction>(*action) || std::holds_alternative<SelectMemberAction>(*action) ||
                 std::holds_alternative<UnsupportedMainScreenAction>(*action) || (slot && slot->slot < 3));

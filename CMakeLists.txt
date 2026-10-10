@@ -122,7 +122,7 @@ add_library(mmodern_app STATIC
 	src/app/XeenCharacterDialogFlow.cpp
 	src/app/XeenNavigationFlow.cpp
 )
-set_source_files_properties(src/app/XeenTitle.cpp PROPERTIES COMPILE_DEFINITIONS
+set_source_files_properties(src/app/XeenTitle.cpp src/app/Application.cpp PROPERTIES COMPILE_DEFINITIONS
     "MMODERN_REPOSITORY_ROOT=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
 target_link_libraries(mmodern_app PUBLIC mmodern_core PRIVATE
 	shell32 ole32 uuid
@@ -520,6 +520,7 @@ if(BUILD_TESTING)
     target_link_options(mmodern_title_flow_tests PRIVATE
       "LINKER:--wrap,_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjE"
       "LINKER:--wrap,_ZNK7mmodern9SdlWindow15showInteractiveERKNS_12IndexedFrameERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEERKNS0_18FrameUpdateHandlerERKSt8functionIFbvEERKSF_IFSt8optionalIS1_EvEERKSF_IFS9_vEE"
+      "LINKER:--wrap,_ZNK7mmodern16XeenTextRenderer6renderERKNS_12IndexedFrameERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEERKNS_21XeenTextRenderOptionsE"
       "LINKER:--wrap,_ZN7mmodern12XeenSaveFile19createSlotDirectoryERKNS_16GameInstallationERKNSt10filesystem7__cxx114pathERKSt8optionalIS6_E")
     add_test(NAME xeen_title_flow COMMAND mmodern_title_flow_tests "${MMODERN_XEEN_DATA_DIR}")
     set_tests_properties(xeen_title_flow PROPERTIES LABELS "fast")

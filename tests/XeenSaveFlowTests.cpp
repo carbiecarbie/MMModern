@@ -135,4 +135,16 @@ void currentSaveBoundary(const fs::path &path){
  resumed.show=[&](const auto &first,const auto &h,const auto&,const auto &idle,const auto&){restored.present(h);check(first.pixels[20]==0&&restored.phases==std::vector<std::uint64_t>({0,0}),"restored phase/preflight");idle();restored.present(h);check(restored.phases.back()==1,"restored first idle tick");restored.now=599;const auto n=restored.phases.size();idle();check(restored.phases.size()==n,"restored early deadline");restored.now=600;idle();restored.present(h);check(restored.phases.back()==2,"restored scheduled tick");return true;};
  check(Application().playGameplay(resumed,{},path,true)==0&&diskBytes(path)==initial,"current restored startup changed file");
 }
-int main(){try{const auto dir=fs::current_path()/"save-flow-tests";fs::create_directories(dir);const auto path=dir/"session.mmsave";fs::remove(path);olderPolicy(path);startup(path);pending(path);failures(path);dispatchBoundaries(path);currentSaveBoundary(dir/"animation.mmsave");std::cout<<"Current Application startup, save eligibility, overwrite and failure paths passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+void developerTarget(const fs::path &path) {
+ regional_save_test::Fixture f;auto services=f.services();f.saved.name="Managed name";
+ XeenSaveFile::write(path,f.saved);const auto original=diskBytes(path);
+ const auto loose=path.parent_path()/"developer.mmsave";fs::remove(loose);
+ services.initialSlot=2;services.developerSavePath=loose;
+ services.show=[&](const auto &,const auto &h,const auto &,const auto &,const auto &status) {
+  f.present(h);f.send(h,SaveGameAction{});
+  check(status().find("Saved")!=std::string::npos && diskBytes(loose)==original && diskBytes(path)==original,
+   "managed current slot redirected/disabled explicit developer F9");return true;
+ };
+ check(Application().playGameplay(services,{},path,true)==0,"independent loose developer save path");
+}
+int main(){try{const auto dir=fs::current_path()/"save-flow-tests";fs::create_directories(dir);const auto path=dir/"session.mmsave";fs::remove(path);olderPolicy(path);startup(path);pending(path);failures(path);dispatchBoundaries(path);currentSaveBoundary(dir/"animation.mmsave");developerTarget(dir/"managed.mmsave");std::cout<<"Current Application startup, save eligibility, overwrite and failure paths passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

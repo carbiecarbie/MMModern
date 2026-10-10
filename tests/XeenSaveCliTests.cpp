@@ -85,7 +85,7 @@ int main(int argc,char **argv){try{
  for(std::size_t i=2+3*8;i<inner.size();++i)inner[i]^=0x35; // Initial archive payload is plaintext.
  sprite_test::archive(game/"xeen.cc",{{"fnt",fontBytes()},{"2a0c",inner}});
  GameInstallation installation{game,game/"xeen.cc",{},GameEdition::CloudsOfXeen};
- for(bool explicitEntry:{false,true})for(const auto &tail:std::vector<std::vector<std::wstring>>{
+ for(bool explicitEntry:{true})for(const auto &tail:std::vector<std::vector<std::wstring>>{
   {},{L"--difficulty",L"adventurer"},{L"--difficulty",L"warrior"},
   {L"--save-file",path.wstring()},
   {L"--difficulty",L"warrior",L"--save-file",path.wstring()},
@@ -120,7 +120,7 @@ int main(int argc,char **argv){try{
   auto saved=s;if(kind==0)saved.resources.clouds.crc32++;if(kind==1)saved.activeRosterIds={24};
   XeenSaveFile::write(path,saved);
   if(kind==2){std::ofstream out(path,std::ios::binary|std::ios::trunc);out<<"bad";}
-  if(kind==3 || kind==5){auto b=XeenSaveFormat::encode(s);b[8]=kind==3?7:5;std::ofstream out(path,std::ios::binary|std::ios::trunc);out.write(reinterpret_cast<const char*>(b.data()),b.size());}
+  if(kind==3 || kind==5){auto b=XeenSaveFormat::encode(s);const auto version=kind==3?XeenSaveFormat::kJourneyVersion+1:XeenSaveFormat::kJourneyVersion-1;b[8]=version;b[9]=version>>8;std::ofstream out(path,std::ios::binary|std::ios::trunc);out.write(reinterpret_cast<const char*>(b.data()),b.size());}
   run(kind==0?"archive/data-edition incompatibility":kind==1?"Journey membership":kind==2?"format":kind==3?"newer or unsupported MMModern build":kind==5?"older MMModern build":"maze0023.dat");
   fs::remove(path);
  }

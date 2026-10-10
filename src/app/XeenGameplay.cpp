@@ -1,10 +1,12 @@
 #include "app/Application.h"
 #include "app/XeenGameplayServices.h"
+#include "app/XeenTitleFlow.h"
 #include "platform/XeenSaveFile.h"
 #include <iostream>
 #include <stdexcept>
 #include <exception>
 #include <random>
+#include <chrono>
 namespace mmodern {
 namespace {
 struct GameplayScope {
@@ -33,7 +35,8 @@ struct EncounterHandoff {
 }
 void xeenSaveGameplay(const XeenGameplayServices &services, XeenWorld &world, XeenPartyState &party,
 	XeenCamera &camera, XeenGameFlags &flags, XeenEventFlow &flow, const std::filesystem::path &target,
-	const XeenSaveState::Preflight &preflight, std::function<void()> *nestedSourceCheck) {
+	const XeenSaveState::Preflight &preflight, std::function<void()> *nestedSourceCheck,
+ const std::function<void(const XeenSaveSnapshot &,const std::function<void()> &)> &writer) {
 	if (!flow.canSave() || !XeenSaveState::canCapture(party,camera,world))
 		throw std::logic_error("Save boundary is unavailable");
 	XeenRestoreGuard before(world,party,camera,flags);
@@ -82,7 +85,8 @@ void xeenSaveGameplay(const XeenGameplayServices &services, XeenWorld &world, Xe
 		check(); try { preflight(w,p,c,f); } catch (...) { check(); throw; } check();
 	});
 	stage(XeenGameplayServices::SaveStage::Write);
-	check(); XeenSaveFile::write(target,snapshot);
+	check(); if(writer)writer(snapshot,check);else XeenSaveFile::write(target,snapshot);
+ check();
 }
 
 int Application::journeyRegion(const std::filesystem::path &directory, std::optional<std::uint32_t> seed,
@@ -265,15 +269,108 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    std::cout << "Warning: dark indoor map is rendered illuminated for diagnostics.\n";
   std::string status = "MMModern - Map " + std::to_string(camera.mapId.number);
   status += " - " + xeenInventorySummary(party);
-  if (target && !services.currentSlot) {
-   status += " - F9 saves and replaces " + target->u8string();
-   std::cout << "F9 saves and replaces " << target->u8string() << '\n';
+  const auto looseTarget=services.developerSavePath?services.developerSavePath:
+   services.initialSlot?std::optional<std::filesystem::path>{}:target;
+  if (looseTarget) {
+   status += " - F9 saves and replaces " + looseTarget->u8string();
+   std::cout << "F9 saves and replaces " << looseTarget->u8string() << '\n';
   }
   if (resume) std::cout << "Resumed " << (services.currentSlot?services.saveName.value_or(""):target->u8string()) << '\n';
   bool dispatching = false;
   bool active = true;
+  bool finished=false;
+  std::unique_ptr<XeenTitleFlow> panel;
+  std::shared_ptr<XeenRestoreGuard> panelGuard;
+  IndexedFrame::Presentation panelOrigin;
+  std::optional<XeenEncounterFlow::Ticket> panelTicket;
+  const auto checkPanel=[&] {
+   if(!active || !panel || !panelGuard || !flow.acceptsInputFrame(panelOrigin) ||
+      (panelTicket && !flow.encounter()->current(*panelTicket)))
+    throw std::logic_error("Stale control panel boundary");
+   panelGuard->check();
+  };
+  const auto retainPanel=[&] {
+   panelGuard=flow.journey() && !flow.encounter()->combat()?flow.encounter()->retainSavePreimage():
+    std::make_shared<XeenRestoreGuard>(world,party,camera,flags);
+   if(flow.encounter())panelTicket=flow.encounter()->ticket();
+  };
+  const auto panelAction=[&](const PlayerAction &action,const IndexedFrame::Presentation &origin) -> std::optional<IndexedFrame> {
+   if(!panel->acceptsInput(origin))return {};
+   checkPanel();
+   {XeenRestoreGuard::Providers providers(*panelGuard,world,checkPanel);
+    try {panel->handle(action,origin);checkPanel();}
+    catch(const std::exception &e){checkPanel();panel->panelFailure(e.what());}}
+   if(!panel->current()) {
+    panel.reset();panelGuard.reset();panelTicket.reset();flow._queueContext.reset();return flow.frame();
+   }
+   if(panel->entry()) {
+    const auto request=*panel->entry();
+    if(request.kind==XeenSessionEntry::Kind::Save) {
+     if(!flow.canSave() || !flow.journey())throw std::logic_error("Panel save authorization changed");
+     bool saved=false;
+     try {
+      auto named=services;named.saveName=request.name;
+      checkPanel();
+      xeenSaveGameplay(named,world,party,camera,flags,flow,{},preflight,&sourceCheck,
+       [&](const auto &snapshot,const auto &check){services.writeManaged(request.slot,snapshot,check);});
+      saved=true;
+     }catch(const std::exception &e) {
+      handoff.retain();
+      // An owner mismatch is fatal; a file/preflight failure is recoverable.
+      if(!flow.encounterFrameCurrent())throw;
+      panelTicket=flow.encounter()->ticket();checkPanel();
+      auto message=std::string(e.what());
+      if(message.find("Windows error 112")!=std::string::npos || message.find("Windows error 39")!=std::string::npos)
+       message=std::string(flow.dosText().scalar("SAVE_AS_SPACE"));
+      panel->panelResult(message);
+     }
+     if(saved) {
+      // The file is committed. Later UI/provider failures cannot turn this
+      // completed write into a reported save failure or retry the transaction.
+      handoff.retain();panelTicket=flow.encounter()->ticket();checkPanel();
+      services.currentSlot=request.slot;services.saveName=request.name;
+      panel->panelCurrent(request.slot,request.name);
+      status="MMModern - Game saved.";
+      try {
+       XeenRestoreGuard::Providers providers(*panelGuard,world,checkPanel);
+       panel->panelResult(xeenDialogFormat(flow.dosText().scalar("SAVED_NOTICE"),{request.name}),true);
+       checkPanel();
+      }catch(const std::exception &e) {
+       checkPanel();
+       std::cerr<<"Game saved; confirmation presentation failed: "<<e.what()<<'\n';
+       status="MMModern - Game saved; confirmation unavailable.";
+       panel->panelResult("Game saved. Confirmation unavailable.");
+       checkPanel();
+      }
+     }
+    } else if(request.kind==XeenSessionEntry::Kind::Load) {
+     if(!flow.canSave() || !flow.journey())throw std::logic_error("Panel load authorization changed");
+     struct CheckScope {
+      std::function<void()> &slot,previous;
+      ~CheckScope(){slot=std::move(previous);}
+     } held{sourceCheck,std::move(sourceCheck)};
+     sourceCheck=checkPanel;
+     try {
+      checkPanel();XeenRestoreGuard::Providers providers(*panelGuard,world,checkPanel);
+      if(!request.snapshot)throw std::logic_error("Missing immutable Load candidate");
+      XeenWorld scratch(services.maps,services.objects);XeenPartyState p;XeenCamera c;XeenGameFlags f;
+      XeenSaveState::restoreBeforeGameplay(*request.snapshot,services.resources,p,c,f,scratch,preflight);
+      checkPanel();
+      if(!services.outcome)throw std::logic_error("Missing Load session outcome");
+      *services.outcome={XeenSessionOutcome::Kind::Load,0,request};finished=true;
+     }catch(const std::exception &e){checkPanel();panel->loadFailure(e.what());}
+    } else if(request.kind==XeenSessionEntry::Kind::Exit)finished=true;
+   }
+   checkPanel();return panel->frame();
+  };
   const auto dispatch = [&](const PlayerAction &action, std::optional<std::uint64_t> input,
       const IndexedFrame::Presentation &inputFrame = {}) -> std::optional<IndexedFrame> {
+   if(panel) {
+    if(!active || dispatching || finished)return {};
+    GameplayScope scope(dispatching);
+    try{return panelAction(action,inputFrame?inputFrame:panel->frame().presentation());}
+    catch(...){handoff.fail();active=false;throw;}
+   }
    // A service/handoff refusal is pure coordination: no owner/resource guard,
    // capture provider, path preparation or file operation may run here.
    if (std::holds_alternative<SaveGameAction>(action) && flow.journey() &&
@@ -303,21 +400,32 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
 
    GameplayScope scope(dispatching);
    try {
+   if(std::holds_alternative<ControlPanelAction>(action) && services.panel) {
+    const bool combat=flow.encounter() && flow.encounter()->combat();
+    const auto context=flow.inputContext(inputFrame?inputFrame:flow.frame().presentation());
+    if(!flow.canSave() && !(combat && context.readyForAction && !context.dialog &&
+       flow.encounter()->combat()->phase()==XeenCombatPhase::PlayerReady))return {};
+    panelOrigin=inputFrame?inputFrame:flow.frame().presentation();retainPanel();
+    {XeenRestoreGuard::Providers providers(*panelGuard,world);
+     panel=services.panel(flow.frame(),combat,bool(world.map(camera.mapId).geometry.flags&0x8000),
+      flow.journey(),services.currentSlot,services.saveName.value_or(""));
+     panelGuard->check();}
+    checkPanel();return panel->frame();
+   }
    if (std::holds_alternative<SaveGameAction>(action)) {
     std::string message;
     bool success = false;
     if (flow.inventoryOpen()) message = "Cannot save while inventory is open. Close it and press F9 again.";
     else if (!flow.canSave()) message = "Cannot save while an interaction is pending.";
     else if (!flow.journey()) message = "Map exploration cannot save.";
-    else if(services.currentSlot)message="F9 is available only with an explicit developer --save-file target.";
-    else if (!target) message = "No save target configured. Use --save-file <path>.";
+    else if (!looseTarget) message = "No developer save target configured. Use --save-file <path>.";
     else try {
-     xeenSaveGameplay(services,world,party,camera,flags,flow,*target,preflight,&sourceCheck);
+     xeenSaveGameplay(services,world,party,camera,flags,flow,*looseTarget,preflight,&sourceCheck);
      success = true; message = "Saved";
     } catch (const std::exception &e) { flow._queueContext.reset(); message = std::string("Save failed: ") + e.what(); }
 
     handoff.retain();
-    if (target) message += " [" + target->u8string() + "]";
+    if (looseTarget) message += " [" + looseTarget->u8string() + "]";
     status = "MMModern - " + message;
     (success ? std::cout : std::cerr) << message << '\n';
     if (flow.inventoryOpen()) return flow.refuseInventorySave();
@@ -337,35 +445,65 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    return next;
    } catch (...) { handoff.fail(); active = false; throw; }
   };
-  SdlWindow::FrameUpdateHandler handler = [&](const PlayerAction &action) { return dispatch(action,{}); };
-  handler.displayedInput = [&] { return flow.displayedInput(); };
-  handler.inputContext = [&](const auto &origin) { return flow.inputContext(origin); };
-  if(flow.drawDialogSprite) handler.drawButton = [&](IndexedFrame &frame,const InputButton &button) {
-   if(flow.drawDialogSprite) flow.drawDialogSprite(frame,button.resource,button.pressedFrame(),button.x,button.y);
+  // Copied native callbacks retain only a liveness token after this scope ends.
+  // Check it before touching any borrowed Flow/owner/dispatcher reference.
+  const auto alive=std::make_shared<bool>(true);
+  struct CallbackLifetime {std::shared_ptr<bool> alive;~CallbackLifetime(){*alive=false;}} callbackLifetime{alive};
+  SdlWindow::FrameUpdateHandler handler = [&,alive](const PlayerAction &action) -> std::optional<IndexedFrame> {
+   if(!*alive)return {};return dispatch(action,{});
   };
-  handler.acceptsFrame = [&](const auto &frame) { return flow.acceptsFrame(frame); };
-  handler.acceptsInputFrame = [&](const auto &frame) { return flow.acceptsInputFrame(frame); };
-  handler.completeInputHandoff = [&](const auto &frame) { flow.completeInputHandoff(frame); handoff.retain(); };
+  handler.displayedInput = [&,alive] { return *alive?flow.displayedInput():std::optional<std::uint64_t>{}; };
+  handler.inputContext = [&,alive](const auto &origin) {
+   if(!*alive)return InputContext{};
+   if(panel){checkPanel();auto context=panel->inputContext(origin);context.contextId|=std::uint64_t{1}<<63;return context;}
+   return flow.inputContext(origin);
+  };
+  if(flow.drawDialogSprite) handler.drawButton = [&,alive](IndexedFrame &frame,const InputButton &button) {
+   if(!*alive)return;
+   if(panel)checkPanel();
+   try {if(flow.drawDialogSprite)flow.drawDialogSprite(frame,button.resource,button.pressedFrame(),button.x,button.y);}
+   catch(...){if(panel)checkPanel();throw;}
+   if(panel)checkPanel();
+  };
+  handler.acceptsFrame = [&,alive](const auto &frame) { return *alive && (panel?panel->acceptsFrame(frame):flow.acceptsFrame(frame)); };
+  handler.acceptsInputFrame = [&,alive](const auto &frame) { return *alive && (panel?panel->acceptsInput(frame):flow.acceptsInputFrame(frame)); };
+  handler.completeInputHandoff = [&,alive](const auto &frame) {
+   if(!*alive)return;
+   if(panel){checkPanel();panel->completeInput(frame);}else {flow.completeInputHandoff(frame);handoff.retain();}
+  };
   handler.protectAllKeys = flow.journey();
-  handler.withDisplayedInput = [&](const PlayerAction &action,std::uint64_t input) { return dispatch(action,input); };
-  handler.withPresentedInput = [&](const PlayerAction &action,std::uint64_t input,const auto &frame) { return dispatch(action,input,frame); };
-  handler.beginCycle = [&](std::uint64_t cycle) {
+  handler.withDisplayedInput = [&,alive](const PlayerAction &action,std::uint64_t input) -> std::optional<IndexedFrame> { if(!*alive)return {};return dispatch(action,input); };
+  handler.withPresentedInput = [&,alive](const PlayerAction &action,std::uint64_t input,const auto &frame) -> std::optional<IndexedFrame> { if(!*alive)return {};return dispatch(action,input,frame); };
+  handler.beginCycle = [&,alive](std::uint64_t cycle) {
+   if(!*alive)return;
    if (!active) throw std::runtime_error("Gameplay session is closed");
-   flow.beginCycle(cycle);
+   if(panel)checkPanel();else flow.beginCycle(cycle);
   };
-  handler.frameCurrent = [&] { return active && flow.encounterFrameCurrent(); };
-  handler.framePresented = [&](const auto &frame) { flow.framePresented(frame,true); handoff.retain(); };
-  handler.failed = [&] { handoff.fail(); active = false; };
-  handler.closed = [&] { flow.closeGameplay(); active = false; };
-  const auto idle = [&]() -> std::optional<IndexedFrame> {
+  handler.frameCurrent = [&,alive] { if(!*alive)return false;if(panel)checkPanel();return active && flow.encounterFrameCurrent(); };
+  handler.framePresented = [&,alive](const auto &frame) {
+   if(!*alive)return;
+   if(panel){checkPanel();panel->presented(frame);}else {flow.framePresented(frame,true);handoff.retain();}
+  };
+  handler.finished=[&,alive]{return !*alive || finished;};
+  handler.failed = [&,alive] { if(!*alive)return;handoff.fail(); active = false;*alive=false; };
+  handler.closed = [&,alive] { if(!*alive)return;flow.closeGameplay(); active = false;*alive=false; };
+  const auto idle = [&,alive]() -> std::optional<IndexedFrame> {
+   if(!*alive)return {};
    if (!active || dispatching) return std::nullopt;
    GameplayScope scope(dispatching);
+   if(panel) {
+    try {
+     checkPanel();const auto now=services.clock?services.clock():static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
+     checkPanel();return panel->animate(now);
+    }catch(...){handoff.fail();active=false;throw;}
+   }
    try { auto next = flow.updatePresentation(); handoff.retain(); return next; }
    catch (...) { handoff.fail(); active = false; throw; }
   };
   handoff.verify();
   exposed=true;
-  const bool ok = services.show(first, handler, [&] { return flow.handlesEscape(); }, idle, [&] {
+  const bool ok = services.show(first, handler, [&,alive] { return *alive && (panel || flow.handlesEscape()); }, idle, [&,alive] {
+   if(!*alive)return std::string("MMModern - Session closed");
    try { return status; } catch (...) { handoff.fail(); active = false; throw; }
   });
   if (!ok) handler.failed();

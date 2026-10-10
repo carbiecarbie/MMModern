@@ -294,7 +294,7 @@ void mouseNotices(Inputs &in) {
  auto source=in.service();source.camera={28,10,9,XeenDirection::North};Fixture f(in,source,true);
  std::string reported;f.flow->reportText=[&](const auto &text){reported=text;};
  const auto before=XeenSaveFormat::encode(f.snapshot());
- for(const auto label:{"Dismiss","View Quests","Map","Info","Quick Ref","Control panel","Strafe"}) {
+ for(const auto label:{"Dismiss","View Quests","Map","Info","Quick Ref","Strafe"}) {
   const auto pixels=f.flow->frame().pixels;
   f.act(UnsupportedMainScreenAction{label});
   check(reported==std::string(label)+": not supported yet","unsupported notice missing");

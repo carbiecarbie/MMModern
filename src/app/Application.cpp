@@ -1,4 +1,5 @@
 #include "app/Application.h"
+#include "app/XeenTitleFlow.h"
 #include "formats/xeen/XeenCharacterFormat.h"
 #include "app/XeenGameplayServices.h"
 #include "platform/XeenSaveFile.h"
@@ -145,7 +146,7 @@ void requireAutomaticEventSuccess(const XeenAutomaticEventResult &result) {
 
 void printManualEventResult(const XeenManualEventResult &result) {
 	if (std::holds_alternative<XeenManualEventNoEvent>(result)) {
-		std::cout << "Interaction: nenhum evento nesta posicao e direcao.\n";
+		std::cout << "Interaction: none evento nesta posicao e direcao.\n";
 	} else if (const auto *completed =
 			std::get_if<XeenManualEventCompleted>(&result)) {
 		std::cout << "Interaction: event completed ("
@@ -197,7 +198,7 @@ int Application::inspectParty(const std::filesystem::path &gameDirectory) const 
 		const XeenPartyState state = XeenPartyLoader().loadInitialCloudsParty(assets);
 		printPartyDiagnostics(state);
 		const XeenCharacterRulesContext rulesContext{kCloudsInitialYear};
-		std::cout << "Party inicial de Clouds: " << state.party.size() << " membros\n";
+		std::cout << "Initial Clouds party: " << state.party.size() << " members\n";
 		for (std::size_t i = 0; i < state.party.size(); ++i) {
 			const XeenCharacter &character = state.party.member(state.roster, i);
 			const auto portrait = character.portraitResourceName();
@@ -205,16 +206,16 @@ int Application::inspectParty(const std::filesystem::path &gameDirectory) const 
 			const int maxSp = XeenCharacterRules::maxSp(character, rulesContext);
 			std::cout << "\n" << (i + 1) << ". " << character.name << '\n'
 				<< "   Roster: " << static_cast<unsigned>(character.rosterId) << '\n'
-				<< "   Retrato: " << (portrait ? *portrait : "sem retrato suportado") << '\n'
-				<< "   Classe: " << xeenClassName(character.characterClass) << '\n'
-				<< "   Nivel: " << character.currentLevel() << '\n'
+				<< "   Portrait: " << (portrait ? *portrait : "no supported portrait") << '\n'
+				<< "   Class: " << xeenClassName(character.characterClass) << '\n'
+				<< "   Level: " << character.currentLevel() << '\n'
 				<< "   HP: " << character.currentHp << " / " << maxHp << '\n'
 				<< "   SP: " << character.currentSp << " / " << maxSp << '\n'
-				<< "   Condicao: " << xeenConditionName(character.worstCondition()) << '\n';
+				<< "   Condition: " << xeenConditionName(character.worstCondition()) << '\n';
 		}
 		return 0;
 	} catch (const std::exception &error) {
-		std::cerr << "Falha ao inspecionar Party: " << error.what() << '\n';
+		std::cerr << "Party inspection failed: " << error.what() << '\n';
 		return 3;
 	}
 }
@@ -236,25 +237,25 @@ int Application::inspectMap(const std::filesystem::path &gameDirectory,
         XeenAssetSource assets(*installation);
 		const XeenMap map = XeenMapLoader().loadGeometryMap(assets, mapId);
 		const auto &geometry = map.geometry;
-		std::cout << "Origem: xeen.cc, conteiner inicial de Clouds\n"
-			<< "Mapa carregado: " << std::setfill('0') << std::setw(3) << geometry.id
+		std::cout << "Source: xeen.cc, initial Clouds archive\n"
+			<< "Loaded map: " << std::setfill('0') << std::setw(3) << geometry.id
 			<< std::setfill(' ') << '\n'
-			<< "Dimensoes: " << geometry.kWidth << 'x' << geometry.kHeight << '\n'
-			<< "Tipo: " << (geometry.isOutdoors() ? "exterior" : "interior") << '\n'
-			<< "Celulas: " << geometry.cells.size() << '\n'
+			<< "Dimensions: " << geometry.kWidth << 'x' << geometry.kHeight << '\n'
+			<< "Type: " << (geometry.isOutdoors() ? "outdoor" : "indoor") << '\n'
+			<< "Cells: " << geometry.cells.size() << '\n'
 			<< "Flags: 0x" << std::hex << std::setw(4) << std::setfill('0') << geometry.flags << '\n'
 			<< "Flags2: 0x" << std::setw(4) << geometry.flags2 << std::dec << std::setfill(' ') << '\n'
-			<< "Escuro: " << ((geometry.flags2 & 0x4000) ? "sim" : "nao") << '\n'
+			<< "Dark: " << ((geometry.flags2 & 0x4000) ? "yes" : "no") << '\n'
 			<< "Wall kind: " << static_cast<unsigned>(geometry.wallKind) << '\n'
 			<< "Floor type: " << static_cast<unsigned>(geometry.floorType) << '\n'
 			<< "Wall no-pass: " << static_cast<unsigned>(geometry.difficulties[0]) << '\n';
-		const char *const directions[] = {"norte", "leste", "sul", "oeste"};
+		const char *const directions[] = {"north", "east", "south", "west"};
 		for (std::size_t i = 0; i < geometry.neighbors.size(); ++i) {
-			std::cout << "Vizinho " << directions[i] << ": ";
+			std::cout << "Neighbor " << directions[i] << ": ";
 			if (geometry.neighbors[i])
 				std::cout << std::setfill('0') << std::setw(3) << geometry.neighbors[i] << std::setfill(' ');
 			else
-				std::cout << "nenhum";
+				std::cout << "none";
 			std::cout << '\n';
 		}
 		std::cout << "Wall types (indices):\n";
@@ -265,8 +266,8 @@ int Application::inspectMap(const std::filesystem::path &gameDirectory,
 			std::cout << std::hex << i << std::dec << "->" << static_cast<unsigned>(geometry.surfaceTypes[i]) << ' ';
 		std::cout << '\n';
 
-		std::cout << (geometry.isOutdoors() ? "\nSuperficies" : "\nParedes N/E/S/W")
-			<< ": hexadecimal; norte para cima\n    x:";
+		std::cout << (geometry.isOutdoors() ? "\nSurfaces" : "\nWalls N/E/S/W")
+			<< ": hexadecimal; north upward\n    x:";
 		for (std::size_t x = 0; x < geometry.kWidth; ++x)
 			std::cout << ' ' << std::hex << x;
 		std::cout << std::dec << '\n';
@@ -288,7 +289,7 @@ int Application::inspectMap(const std::filesystem::path &gameDirectory,
 		}
 		return 0;
 	} catch (const std::exception &error) {
-		std::cerr << "Falha ao inspecionar mapa: " << error.what() << '\n';
+		std::cerr << "Map inspection failed: " << error.what() << '\n';
 		return 3;
 	}
 }
@@ -321,7 +322,7 @@ int Application::inspectEvents(const std::filesystem::path &gameDirectory,
 		XeenEventScript script(loader.load(mapId));
 		if (x.has_value() != y.has_value() ||
 				(!x && (direction || allOnly)) || (direction && allOnly))
-			throw std::invalid_argument("filtro de eventos inconsistente");
+			throw std::invalid_argument("inconsistent Event filter");
 		if (!x && !y) {
 			std::cout << XeenEventDiagnostics::format(script);
 			return 0;
@@ -342,7 +343,7 @@ int Application::inspectEvents(const std::filesystem::path &gameDirectory,
 		std::cout << XeenEventDiagnostics::format(script, filter);
 		return 0;
 	} catch (const std::exception &error) {
-		std::cerr << "Falha ao inspecionar eventos: " << error.what() << '\n';
+		std::cerr << "Event inspection failed: " << error.what() << '\n';
 		return 3;
 	}
 }
@@ -359,7 +360,7 @@ int Application::loadGame(const std::filesystem::path &gameDirectory,
 int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera camera,
         const std::optional<std::filesystem::path> &savePath, bool resume, XeenEncounterEntry entry,
         std::optional<std::uint32_t> seed, std::optional<XeenDifficulty> originalStart,
-        const XeenSessionEntry *managed, XeenAssetSource *sharedAssets,InitialPublication publication) const {
+        const XeenSessionEntry *managed, XeenAssetSource *sharedAssets,InitialPublication publication,XeenSessionOutcome *outcome) const {
     try {
         if (originalStart && (resume || entry != XeenEncounterEntry::Journey || seed ||
                 static_cast<unsigned>(*originalStart) > 1))
@@ -378,7 +379,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
         std::optional<std::filesystem::path> target;
         if (savePath) target = XeenSaveFile::resolve(*savePath, *installation);
         XeenSaveResourceSignature signature;
-        if (target) {
+        {
             const auto begin = std::chrono::steady_clock::now();
             signature = XeenSaveFile::fingerprint(*installation);
             std::cout << "Archive fingerprints: "
@@ -443,9 +444,10 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                     "Y/N answers, F1-F6 selects, I opens inventory, 1-9 selects a slot, T transfers, "
                     "Escape closes/cancels or exits. Map exploration cannot save.\n";
                 auto nativeHandler=handler;
-                nativeHandler.cursorImage=[&] {
+                nativeHandler.cursorImage=[&,current=handler.frameCurrent,palette=first.palette] {
+                    if(current && !current())return IndexedFrame{};
                     auto cursor=assets.cursorImage();
-                    cursor.palette=first.palette; // Title retry UI may have used the shared asset surface.
+                    cursor.palette=palette; // Title retry UI may have used the shared asset surface.
                     return cursor;
                 };
                 return SdlWindow().showInteractive(first, status(), nativeHandler, escape, idle, status);
@@ -453,6 +455,36 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
         };
         services.catalog = &catalog.catalog;
         services.originalStart = originalStart;
+        if(!managed)services.developerSavePath=target;
+        std::optional<std::filesystem::path> slotDirectory;
+        const std::filesystem::path repository=MMODERN_REPOSITORY_ROOT;
+        const auto directory=[&]() -> const std::filesystem::path & {
+            if(!slotDirectory)slotDirectory=XeenSaveFile::createSlotDirectory(*installation,repository);
+            return *slotDirectory;
+        };
+        const auto slotPath=[&](unsigned slot) {
+            return XeenSaveFile::resolve(XeenSaveFile::resolve(XeenSaveFile::slotPath(directory(),slot),*installation),repository);
+        };
+        services.panel=[&](const IndexedFrame &base,bool combat,bool restricted,bool saveable,
+                std::optional<unsigned> current,const std::string &name) {
+            const auto &dos=assets.uiText();
+            const auto resource=std::string(dos.scalar("PANEL_SPRITES"));
+            if(assets.spriteFrameCount(resource)!=2)throw std::runtime_error("Unexpected DOS control-panel sprite frames");
+            for(unsigned i=0;i<2;++i){auto scratch=base;assets.drawDialogSprite(scratch,resource.c_str(),i,0,0);}
+            XeenTitleFlow::Services presentation{dos,font,base,{}, {},
+                [&](IndexedFrame &frame,const char *resource,unsigned index,int x,int y){assets.drawDialogSprite(frame,resource,index,x,y);},
+                [&] {
+                    std::array<XeenSaveFile::Slot,10> slots;
+                    for(unsigned i=0;i<10;++i)slots[i]=XeenSaveFile::inspectSlot(slotPath(i),signature);
+                    return slots;
+                },slotPath};
+            presentation.panel=true;presentation.combat=combat;presentation.saveRestricted=restricted;
+            presentation.saveable=saveable;presentation.currentSlot=current;presentation.currentName=name;
+            return std::make_unique<XeenTitleFlow>(std::move(presentation));
+        };
+        services.writeManaged=[&](unsigned slot,const auto &snapshot,const auto &check) {
+            check();XeenSaveFile::writeSlot(directory(),slot,snapshot,*installation,repository,{},check);check();
+        };
         if(managed) {
             services.restoreSnapshot=managed->snapshot;
             services.saveName=managed->name;
@@ -489,7 +521,17 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                 &result.containsOrdinaryAnimation, actor);
             return result;
         };
-        return playGameplay(services, camera, target, resume, entry, entry == XeenEncounterEntry::Journey ? seed : std::nullopt);
+        // Explicit developer entries also restart from the retained validated
+        // value, after playGameplay has destroyed the old Flow and owners.
+        for(;;) {
+            XeenSessionOutcome result;services.outcome=&result;
+            const int status=playGameplay(services,camera,target,resume,entry,entry==XeenEncounterEntry::Journey?seed:std::nullopt);
+            if(status || result.kind!=XeenSessionOutcome::Kind::Load)return status;
+            if(outcome){*outcome=std::move(result);return 0;}
+            services.restoreSnapshot=result.entry.snapshot;services.initialSlot=result.entry.slot;
+            services.publishInitial={};services.originalStart.reset();seed.reset();
+            target=result.entry.path;resume=true;entry=XeenEncounterEntry::Ordinary;
+        }
     } catch (const std::exception &error) {
         std::cerr << "Gameplay startup failed";
         if (savePath) std::cerr << " [" << std::filesystem::absolute(*savePath).u8string() << ']';

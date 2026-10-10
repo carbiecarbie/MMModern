@@ -4,6 +4,7 @@
 #include "core/InputContext.h"
 #include "games/xeen/XeenDialogView.h"
 #include "platform/XeenSaveFile.h"
+#include "app/XeenTextInput.h"
 namespace mmodern {
 class XeenAssetSource;
 // Title/modal presentation only. Application keeps session and resource lifetime.
@@ -18,8 +19,11 @@ public:
   XeenDialogSpriteDraw draw;
   std::function<std::array<XeenSaveFile::Slot,10>()> slots;
   std::function<std::filesystem::path(unsigned)> path;
+  bool panel=false,combat=false,saveRestricted=false,saveable=true;
+  std::optional<unsigned> currentSlot;
+  std::string currentName;
  };
- enum class Screen { Menu, Background, Other, Credits, NewSlots, LoadSlots, Overwrite, Name, Difficulty, Notice, PublicationFailure };
+ enum class Screen { Menu, Background, Other, Credits, NewSlots, LoadSlots, Overwrite, Name, Difficulty, Notice, PublicationFailure, Panel, SaveSlots, Quit, Wizard, SavedNotice };
  explicit XeenTitleFlow(Services services);
  static Services original(XeenAssetSource &,const XeenFontFormat &,
   std::function<std::array<XeenSaveFile::Slot,10>()>,std::function<std::filesystem::path(unsigned)>);
@@ -42,13 +46,19 @@ public:
  void cancelPublication();
  void publicationFailure(std::string message);
  void startupFailure(std::string message);
+ void panelResult(std::string message,bool success=false);
+ void loadFailure(std::string message);
+ void panelFailure(std::string message) {_entry.reset();notice(std::move(message),Screen::Panel);}
+ void panelCurrent(unsigned slot,std::string name);
 private:
  Services _services;
  Screen _screen=Screen::Background,_noticeReturn=Screen::Menu;
  std::optional<XeenSessionEntry> _entry;
  std::array<XeenSaveFile::Slot,10> _slots;
  std::optional<unsigned> _selected;
- std::string _name,_notice;
+ XeenTextInput _name;
+ std::string _notice;
+ bool _saveAs=false;
  unsigned _phase=1,_page=0;
  bool _firstTitle=true;
  std::uint64_t _deadline=0,_context=1;

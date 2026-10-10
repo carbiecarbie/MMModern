@@ -39,9 +39,14 @@ struct XeenTextRenderOptions {
 	bool originalControls = false;
 	// FontSurface::setTextColor uses the original startup table at the title.
 	bool startupColors = false;
+ // Original Window::writeString may return the remaining text at its bottom.
+ bool stopAtBottom = false;
 };
 
 struct XeenTextRenderResult {
+ int writeX = 0, writeY = 0;
+ XeenFontSize writeSize = XeenFontSize::Normal;
+ std::uint8_t writeColor = 0;
 	std::vector<IndexedFrame> pages;
 	std::vector<std::string> diagnostics;
 	// Exclusive raw source end for each page, including intervening whitespace.
