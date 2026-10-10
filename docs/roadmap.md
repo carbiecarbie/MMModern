@@ -16,50 +16,54 @@ behavior; quality-of-life options are a later, opt-in decision.
 M1-M43 built the foundations: original resource loading, outdoor/indoor
 rendering, navigation, Events, party/inventory/equipment, combat, casting,
 treasure, services (Armor Repair, Buy, Training, Temple), economy/calendar and
-exact save/restore. The playable scope is still a **prepared Journey**: the
-map-23 mainland and 49 certified Vertigo cells, with injected party levels.
+exact save/restore, one narrow certified slice at a time. M44 removed that
+machinery; since then whole maps load from the original resources. M44-M48
+made input, menus and presentation original and generic, M49 corrected combat
+rules, M50 admitted the whole of Vertigo, M51 added Rest, food and daily time,
+M52 started the original new game, M53 moved to the CD edition's data (the
+single reference edition), M54 brought the original title screen and saves,
+and M55 closed small interface gaps (Strafe, Exchange, Quick Reference, Info,
+Quick Fight).
 
-Each milestone admitted a narrow, individually certified slice (exact cells,
-actors, Event addresses, a new content/save contract and legacy isolation).
-That proved the systems, but the cost per piece of content did not fall: M43
-needed 55 files and ~2,400 added lines for one service. The process in
-[AGENTS.md](../AGENTS.md) (playable-by-default admission, one current save
-format, Tier A/B milestones) applies from M44 onward. M44 removed the legacy
-machinery: the code now has one save format and one Journey configuration, and
-`ctest -L fast` gives a quick iteration loop.
-
-## Next milestones
+## Next milestones: closing Vertigo for a first public release
 
 <a id="near-term"></a><a id="deferred-presentation-work"></a>
 
-No milestone is planned yet. The next step is a direction investigation that
-decides what the game's start still needs (character creation, magic,
-treasure, Tavern food, Inn, Map and Quests) and in what order.
+**Direction, not an approved plan.** A direction investigation (2026-10-10)
+inventoried everything the original offers in Vertigo and on the map-23
+mainland. The maintainer chose to close **Vertigo** (the city, logical map 28)
+and then publish: Vertigo complete or nearly so, the mainland reachable at its
+current progress and the rest of the world not yet started. The order, scope
+and split below may change with DOSBox evidence and play-testing; each step
+still needs its own plan and the maintainer's start.
 
-The order matters. M44-M48 lowered the cost of change and made input, menus
-and presentation original and generic, M49 corrected combat rules and M50
-admitted the whole of Vertigo from resources, and M51 added Rest, food and
-daily time. M52 started the original new game and M53 moved to the CD
-edition's data, the single reference edition, and M54 brought the original
-title screen and saves. M55 closed small interface gaps: Strafe, Exchange,
-Quick Reference, Info and Quick Fight.
+1. **DOSBox evidence session** (maintainer): Joe's proof and Gunther's reward,
+   trees, the well, display cases and jail, teacher prices, food and bank.
+2. **Food and bank** (Tier B): buy food at the Tavern; deposit and withdraw.
+3. **Generic Event effects and world state** (Tier A, probably split): moving
+   and turning objects, rewards to the party (XP, gold, gems, items through the
+   common treasure generation and RNG), durable awards and flags. Joe's proof
+   and Gunther's reward are the first use.
+4. **Skills and mapping** (Tier A): learning skills (Mylo, Rialdo), their
+   effects from one character state, Cartography, the automap and the Map.
+5. **Vertigo content** (Tier B): trees, chests, beds, rubbish, display cases
+   and jail, the well, guild membership (Vern), signs and talk, through the
+   systems above rather than per-cell handling.
+6. **Magic** (Tier A): the original Cast dialog by mouse and keyboard, guild
+   spell purchase with the original catalogue, and four new effects (Wizard
+   Eye, Shrapmetal, Energy Blast, Jump); unimplemented spells say "not
+   supported yet".
+7. **Items needed for the loot** (reduced): Identify, Sell and Use outside
+   combat for the items Vertigo actually yields.
+8. **Closure and release**: the whole Vertigo route from New Game with
+   save/load, then the release work (Windows binary, how to point at the GOG
+   data, licence, an honest list of what is missing).
 
-Deferred because they add no rework later: **audio** (sounds, music, voices;
-a separate additive system), the original **event dialogs, casting dialog and
-treasure sequence** (better redone once more events are playable), and
-**animated location shopkeepers**. Combat-time equipping and the combat Use
-button remain Tier A future work.
-
-After that investigation, choose the next milestone from play-testing evidence. Likely candidates:
-
-- **Leaving Vertigo:** connect the mainland to further areas,
-  adding Event opcodes as they are reached. Map 22 (north of map 23) needs
-  SetChar, GiveMulti and MakeNothingHere.
-- **Missing town services:** Inn/party management, Tavern (food, tips), Guild
-  spell purchase (Vertigo Guild at `(28,20,13)`; needs membership state), Sell
-  (needs the Merchant skill input), Bank.
-- **The deferred presentation work above**, and mechanic gaps found in play:
-  item/weapon effects, more monster abilities, doors/locks/traps, lighting.
+**Left for after the release:** the mainland's remaining content (fountains,
+bottles, outpost, statues) and other areas, character creation and the Inn,
+combat Equip/Use, Run inside Vertigo, Drink/Tip/Rumors, Donation/Uncurse, the
+mirror, full Quests/Awards screens, the remaining spells, audio, animated
+shopkeepers and the original treasure sequence.
 
 ## Medium-term objective
 
