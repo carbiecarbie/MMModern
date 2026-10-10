@@ -181,3 +181,10 @@ GOG disc images or a CD copy, DOS interface text from `WORLD/XEEN.DAT`, floppy
 fixed checks replaced by structural ones, and CD speech handled as deferred
 audio. All accepted behavior was revalidated: the three M44 routes play
 identically on CD data. [Plan](milestone-53-plan.md).
+
+**M54 - Original title menu and saves** (`4ab4762`, `11e8c81`, `a760e69`).
+The game opens on the original CD title screen with Credits and Other Options;
+New picks a slot, name and difficulty; the in-game control panel saves, saves
+as, loads and quits as in DOS, with ten slots under Local AppData and the
+original pulsing text cursor. Save v7 adds the slot name. M52's temporary
+command-line entry is retired. [Plan](milestone-54-plan.md).

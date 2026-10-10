@@ -1,9 +1,11 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M53 is the latest completed
-milestone** ([plan](milestone-53-plan.md)): MMModern reads the World of Xeen
-CD talkie edition, the project's only reference edition, and its DOS
-interface text. M52 ([plan](milestone-52-plan.md)) started a new game from the
+This describes what can be played and done now. **M54 is the latest completed
+milestone** ([plan](milestone-54-plan.md)): the game opens on the original
+title screen, and New, Load and the in-game control panel (Save, Save As,
+Load, Quit) work as in DOS, with ten save slots. M53
+([plan](milestone-53-plan.md)) moved to the World of Xeen CD talkie edition,
+the project's only reference edition, and its DOS interface text. M52 ([plan](milestone-52-plan.md)) started a new game from the
 original initialization in Vertigo, in either difficulty. M51
 ([plan](milestone-51-plan.md)) added Rest, food and daily time. M50 ([plan](milestone-50-plan.md)) made the whole town
 of Vertigo playable, with Bash, unlocking and indoor Shoot. M49 ([plan](milestone-49-plan.md)) made monster targeting, damage at missile
@@ -27,15 +29,14 @@ map 23. Darkside gameplay is not supported.
 
 ## What can be played
 
-Start a new game with `mmodern <game-dir>` or `--new-game` (see
-[Entry modes](#entry-modes)). As in the original, the six level-1 Clouds
-characters stand in Vertigo at `(18,4)` facing West at 08:00 on day 1 of year
-610, with 800 gold, 10 gems, 90 food and an empty bank. `--difficulty`
-chooses Adventurer (the default; weapons hit harder) or Warrior.
-
-**Temporary deviation:** the original title menu and difficulty dialog are not
-implemented yet; the command line replaces them, and Adventurer is used when no
-difficulty is given (the original asks).
+Launch `mmodern <game-dir>` (see [Entry modes](#entry-modes)) to reach the
+original title screen. Escape shows or hides the menu; Credits shows the four
+original pages, and Other Options lists the intros (not supported yet).
+**New** asks for a save slot (confirming before replacing an occupied one), a
+name and the difficulty: Adventurer (weapons hit harder) or Warrior. As in the
+original, the six level-1 Clouds characters then stand in Vertigo at `(18,4)`
+facing West at 08:00 on day 1 of year 610, with 800 gold, 10 gems, 90 food and
+an empty bank. **Load** continues a saved game from the same slot list.
 
 The **prepared Journey** (`--journey-region`) remains as a test mode: the same
 party with prepared levels and XP at map 23 `(9,11)` on day 8, in Adventurer;
@@ -123,8 +124,14 @@ the original text panel, and buttons work by mouse or key.
 
 ### Saving
 
-F9 saves at a quiet moment (no dialogue, combat, inventory or service open).
-Restarting with `--load-game` continues exactly: positions, wounds, casualties,
+Tab or the gem opens the original control panel when nothing else is open:
+**Save** writes the current game's slot (chosen by New, Load or the last Save
+As), **Save As** picks a slot and a new name, **Load** replaces the running
+game with a saved one, and **Quit** asks for confirmation. Saving is refused in
+combat and on maps that forbid it. Efx, Music, Speech, Text and Mr Wizard say
+"not supported yet". Slots live under Local AppData (`MMModern/Saves/`); a
+damaged or foreign slot file is shown as unavailable and never overwritten.
+Loading continues exactly: positions, wounds, casualties,
 conditions, treasure, items, levels, purchases, merchant and bank state, quest
 progress and the random sequence. Nothing is replayed: no events, rewards,
 time or combat.
@@ -149,14 +156,15 @@ time or combat.
 | I | Info (not supported yet); in the character sheet, open Items |
 | W/A/C/M in Items | Weapons, Armor, Accessories, Misc |
 | E / R / U in Items | Equip / Remove / Use; select a row, then F1-F6 to move it to another member |
-| F9 | Save |
+| Tab | Control panel (Save, Save As, Load, Quit) |
+| F9 | Save to the developer `--save-file` target |
 | Escape | Back, cancel or acknowledge; quit when nothing is open |
 
 **Mouse.** On the main screen, left clicks work as in the original: the
 action and movement buttons, the combat buttons and targets 1-3, and the 3D
 view (Interact in exploration, Attack in combat). Buttons whose action is not
 implemented yet (Dismiss, View Quests, Map, Info, Quick Ref, Quick
-Fight, the control panel and strafing) show "not supported yet"; portraits
+Fight and strafing) show "not supported yet"; the gem opens the control panel; portraits
 open the original character sheet, whose Items dialog is also clickable.
 Buttons briefly show their original pressed frame. The right button does
 nothing; casting still uses the keyboard. Clicks
@@ -195,9 +203,10 @@ modified, and saves must not be written inside any of these directories.
 
 | Command | Purpose |
 | --- | --- |
-| `mmodern <game-dir>` or `mmodern --new-game <game-dir>`, with `[--difficulty adventurer\|warrior] [--save-file <path>]` | Start a new game in Vertigo (default Adventurer). Without `--save-file`, F9 writes nothing. |
+| `mmodern <game-dir>` | Open the original title screen (New, Load, Credits, Other Options). |
+| `mmodern --new-game <game-dir> [--difficulty adventurer\|warrior] [--save-file <path>]` | Developer: start a new game directly (default Adventurer). Without `--save-file`, F9 writes nothing. |
 | `mmodern --journey-region [--combat-seed <u32>] <game-dir> [--save-file <path>]` | Prepared Journey test mode. The optional nonzero seed fixes combat randomness. |
-| `mmodern --load-game <game-dir> <save>` | Continue a save; the loaded file becomes the F9 target. |
+| `mmodern --load-game <game-dir> <save>` | Developer: continue a save file; it becomes the F9 target. |
 | `mmodern --render-map <game-dir> [<map> <x> <y> <dir>]` | Explore any Clouds map the loader can render. Unsaveable: F9 refuses. Not a supported gameplay mode. |
 | `mmodern --inspect-map\|--inspect-party\|--inspect-events <game-dir> ...` | Developer inspection output. |
 
@@ -206,7 +215,7 @@ The earlier `--encounter-26`, `--encounter-27`, `--journey-skeleton` and
 
 ## Save format
 
-There is **one current save format**: envelope v6, schema 9, content 14, written
+There is **one current save format**: envelope v7, schema 9, content 14, written
 by the Regional Journey. Until a public release, older formats are not read:
 - A save from an older build is rejected before anything is restored, with "This
   save was created by an older MMModern build and is no longer supported."
@@ -217,7 +226,7 @@ by the Regional Journey. Until a public release, older formats are not read:
 
 Saves are tied to the original archives (checked by fingerprint), are
 written atomically, and are not compatible with the original games or ScummVM.
-There is no autosave and no in-session load. Any change to the layout or
+There is no autosave. Any change to the layout or
 meaning of a save bumps the format version and rejects older saves.
 
 ## Architecture overview
@@ -268,8 +277,8 @@ instructions are in [dependencies](dependencies.md).
 
 ## Known gaps
 
-- **Start and saves.** There is no title menu, difficulty dialog or in-game
-  load yet (command line instead), and food cannot be bought (Tavern) yet.
+- **Start and saves.** Food cannot be bought (Tavern) yet. The intros, audio
+  and Mr Wizard's help are not available.
 - **Areas.** Only the map-23 mainland and Vertigo are playable. Other maps
   appear only through `--render-map`, without save support. Run refuses
   indoors.

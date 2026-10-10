@@ -19,8 +19,9 @@ unlock grates and doors, cast learned spells, finish Myra's quest, rest with
 food and recovery, and use the Ironworks (Buy and Armor Repair), Training and
 the Temple. Progress can be saved and continued exactly. The original main
 screen, character sheet, Items dialog and service screens work with mouse or
-keyboard. Other areas, the original title menu and save/load screens, buying
-food, most spells and items, and Darkside gameplay are not available yet.
+keyboard, and the game starts on the original title screen with New, Load and
+the in-game Save, Save As, Load and Quit. Other areas, buying food, most spells
+and items, audio and Darkside gameplay are not available yet.
 
 [Project status](docs/project-status.md) describes the current state and gaps,
 [project history](docs/project-history.md) lists completed milestones and the
@@ -51,7 +52,7 @@ Run from a terminal to see diagnostics, and quote paths containing spaces:
 `--ui-data <path>` can be supplied with every entry mode.
 
 ```text
-mmodern <game-directory> [--difficulty adventurer|warrior] [--save-file <path.mmsave>]
+mmodern <game-directory>
 mmodern --new-game <game-directory> [--difficulty adventurer|warrior] [--save-file <path.mmsave>]
 mmodern --journey-region [--combat-seed <nonzero-u32>] <game-directory> [--save-file <path.mmsave>]
 mmodern --load-game <game-directory> <path.mmsave>
@@ -59,13 +60,15 @@ mmodern --render-map <game-directory> [<map> <x> <y> <north|east|south|west>]
 mmodern --inspect-map|--inspect-party|--inspect-events <game-directory> ...
 ```
 
-- `mmodern <game-directory>` (or `--new-game`) starts a new game in Vertigo as
-  in the original. The original title menu and difficulty dialog are not there
-  yet: `--difficulty` chooses, and Adventurer is the default. Without
-  `--save-file`, F9 writes nothing.
+- `mmodern <game-directory>` opens the original title screen. New asks for a
+  slot, a name and the difficulty; Load continues a slot; Tab or the gem opens
+  the control panel in the game. Slots are kept under Local AppData.
+- `--new-game` is a developer shortcut that starts directly in Vertigo
+  (`--difficulty`, default Adventurer). Without `--save-file`, F9 writes
+  nothing.
 - `--journey-region` is a test mode with a prepared party at Clouds map 23
   `(9,11)`. `--combat-seed` fixes combat randomness.
-- `--load-game` continues a save and keeps using that file for F9.
+- `--load-game` continues a save file and keeps using it for F9 (developer).
 - `--render-map` explores a map for inspection. It cannot save.
 - `--inspect-*` are developer tools.
 
@@ -102,7 +105,8 @@ Floppy-bound saves are rejected before restoration with a data-edition diagnosti
 | B / S / I / F in the Smith Items dialog | Buy / Sell / Identify / Fix; rows open Y/N Confirm |
 | T in Training | Train the selected member immediately |
 | H / D / U in the Temple | Heal / Donation / Uncurse |
-| F9 | Save at a quiet moment |
+| Tab | Control panel: Save, Save As, Load, Quit |
+| F9 | Save to the developer `--save-file` target |
 | Escape | Back, cancel or acknowledge; quit when nothing is open |
 
 In Vertigo, enter from mainland `(10,13)` facing North with Space. The
