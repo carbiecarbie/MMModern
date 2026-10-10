@@ -172,6 +172,16 @@ void combatQueue(Inputs &in,bool mouse=false) {
     for(auto movement:{NavigationAction::MoveForward,NavigationAction::MoveBackward}) {
      act(movement);check(notice=="Combat movement: not supported yet"&&combat->current(ticket)&&guard.current()&&h.world->scenePresentation().sky==sky,"Combat movement notice changed state");
     }
+    for(auto movement:{NavigationAction::StrafeLeft,NavigationAction::StrafeRight}) {
+     const auto before=h.flow->frame().presentation();act(movement);
+     check(h.flow->frame().presentation()==before && combat->current(ticket) && guard.current() && h.world->scenePresentation().sky==sky,"Combat strafe must silently ignore movement without a turn");
+    }
+    for(auto summary:{PlayerAction{QuickReferenceAction{}},PlayerAction{InfoAction{}}}) {
+     act(summary);const auto context=handler.inputContext(h.flow->frame().presentation());
+     check(context.dialog && context.dialog->anyKey && context.dialog->anyClick && !context.acceptsQueuedInput,"Combat summary modal input");
+     tick();tick();check(combat->current(ticket) && guard.current(),"Combat summary spent time/RNG/turn or changed owners");
+     act(AcknowledgeAction{});check(!handler.inputContext(h.flow->frame().presentation()).dialog && combat->current(ticket) && guard.current(),"Combat summary return changed turn");
+    }
     h.flow->reportText={};
     act(BlockAction{});if(h.flow->encounter()->combat()->phase()==XeenCombatPhase::PendingEnemy)break;
    }
@@ -254,6 +264,16 @@ void originalDialogs(Inputs &in) {
     case 18:click(114,109);break; // Misc title for Badger.
     case 19:click(284,109);break; // Back to sheet.
     case 20:tap(SDLK_ESCAPE);break;
+    case 21:tap(SDLK_q);break;
+    case 22:click(0,0);break;
+    case 23:click(261,118);break;
+    case 24:tap(SDLK_q);break; // Any key dismisses Info; Q cannot reopen a dialog.
+    case 25:tap(SDLK_F2);break;
+    case 26:click(286,44);break; // Quick Reference on the character sheet.
+    case 27:tap(SDLK_ESCAPE);break;
+    case 28:check(h.flow->inventoryOpen() && h.flow->inventorySelection().source==1,"summary lost sheet selection");tap(SDLK_ESCAPE);break;
+    case 29:tap(SDLK_i);break;
+    case 30:tap(SDLK_UP);tap(SDLK_UP);break; // Same-batch dismissal cannot leak movement.
     default:check(!h.flow->inventoryOpen(),"original dialogs failed to close");
      check(h.flow->canSave(),"dialog close did not release save boundary");
      save_test::sameSnapshot(source,XeenSaveState::capture(in.signature,*h.party,*h.camera,*h.flags,*h.world));quit();return;
@@ -261,8 +281,8 @@ void originalDialogs(Inputs &in) {
    return idle();
   },status);
  };
- check(h.run(s,source,"original-dialogs")==0 && delivered==21,"original sheet/item native cycle");
- std::cout<<"ORIGINAL DIALOGS mouse/key sheet, popup, equip/remove and immediate transfer PASS\n";
+ check(h.run(s,source,"original-dialogs")==0 && delivered==31,"original sheet/item/summary native cycle");
+ std::cout<<"ORIGINAL DIALOGS mouse/key sheet, summaries, popup, equip/remove and immediate transfer PASS\n";
 }
 
 void mouseJourney(Inputs &in) {
@@ -294,7 +314,7 @@ void mouseNotices(Inputs &in) {
  auto source=in.service();source.camera={28,10,9,XeenDirection::North};Fixture f(in,source,true);
  std::string reported;f.flow->reportText=[&](const auto &text){reported=text;};
  const auto before=XeenSaveFormat::encode(f.snapshot());
- for(const auto label:{"Dismiss","View Quests","Map","Info","Quick Ref","Strafe"}) {
+ for(const auto label:{"Dismiss","View Quests","Map"}) {
   const auto pixels=f.flow->frame().pixels;
   f.act(UnsupportedMainScreenAction{label});
   check(reported==std::string(label)+": not supported yet","unsupported notice missing");

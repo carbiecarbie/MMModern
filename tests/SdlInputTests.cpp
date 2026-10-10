@@ -100,7 +100,7 @@ struct QueueHarness {
    const bool immediate=std::holds_alternative<SaveGameAction>(action) || std::holds_alternative<CancelInteractionAction>(action);
    check(!queueable || immediate || ((ready || (restAvailable && std::holds_alternative<RestAction>(action))) && lastDelivery!=presentations),"drained twice or while busy");lastDelivery=presentations;
    if(feedbackEnabled)check(!nativePresentSamples.empty() && nativePresentSamples.back()==0,"button not restored before action dispatch");
-   char kind='?';if(const auto *nav=std::get_if<NavigationAction>(&action))kind=*nav==NavigationAction::MoveForward?'W':*nav==NavigationAction::MoveBackward?'S':*nav==NavigationAction::TurnLeft?'A':'D';
+   char kind='?';if(const auto *nav=std::get_if<NavigationAction>(&action))kind=*nav==NavigationAction::MoveForward?'W':*nav==NavigationAction::MoveBackward?'S':*nav==NavigationAction::TurnLeft?'A':*nav==NavigationAction::TurnRight?'D':*nav==NavigationAction::StrafeLeft?'L':'T';
    else if(std::holds_alternative<InteractionAction>(action))kind=' ';
    else if(std::holds_alternative<AttackAction>(action))kind='X';
    else if(std::holds_alternative<BlockAction>(action))kind='B';
@@ -111,6 +111,9 @@ struct QueueHarness {
    else if(std::holds_alternative<CancelInteractionAction>(action))kind='E';
    else if(std::holds_alternative<UnsupportedMainScreenAction>(action))kind='U';
    else if(std::holds_alternative<ControlPanelAction>(action))kind='P';
+   else if(std::holds_alternative<InfoAction>(action))kind='I';
+   else if(std::holds_alternative<QuickReferenceAction>(action))kind='Q';
+   else if(std::holds_alternative<AcknowledgeAction>(action))kind='K';
    else if(std::holds_alternative<SelectMemberAction>(action))kind='P';
    else if(const auto *key=std::get_if<DialogKeyAction>(&action))kind=key->key==InputKey::Escape?'E':char(key->key);
    delivered.push_back(kind);++epoch;return frame;
@@ -140,10 +143,10 @@ void pressedButtonFeedback(){
   if(h.stage==0)h.tap(SDLK_UP,100);
   else if(h.stage==1)h.click(235,75,SDL_BUTTON_LEFT,100);
   else if(h.stage==2)h.click(8,8,SDL_BUTTON_LEFT,100); // Viewport Space has no sprite.
-  else if(h.stage==3)h.tap(SDLK_q,100); // Cosmetic-only original shortcut.
-  else if(h.stage==4){h.check(h.delivered==std::vector<char>{'W','F',' '},"cosmetic shortcut created an action");h.click(235,169,SDL_BUTTON_LEFT,100);}
+  else if(h.stage==3)h.tap(SDLK_q,100);
+  else if(h.stage==4){h.check(h.delivered==std::vector<char>{'W','F',' ','Q'},"Quick Reference shortcut missing");h.click(235,169,SDL_BUTTON_LEFT,100);}
   else if(h.stage==5)h.tap(SDLK_i,100);
-  else if(h.stage==6){h.check(h.delivered==std::vector<char>{'W','F',' ','U','U'},"feedback changed command trace");h.quit();}
+  else if(h.stage==6){h.check(h.delivered==std::vector<char>{'W','F',' ','Q','L','I'},"feedback changed command trace");h.quit();}
  });
  recordFeedback=false;verify(main,{23,1,17,27,15});
  QueueHarness dialog;dialog.queueable=false;dialog.ready=true;dialog.feedbackEnabled=true;
@@ -227,13 +230,13 @@ void mouseHitAreas(){
   {235,75,259,95,ShootAction{},u("Quick Fight")},{260,75,284,95,CastSpellAction{},CastSpellAction{}},
   {286,75,310,95,RestAction{},AttackAction{}},{235,96,259,116,BashAction{},UseItemAction{}},
   {260,96,284,116,u("Dismiss"),RevisitCompletedAction{}},{286,96,310,116,u("View Quests"),BlockAction{}},
-  {235,117,259,137,u("Map"),u("Quick Fight Options")},{260,117,284,137,u("Info"),u("Info")},
-  {286,117,310,137,u("Quick Ref"),u("Quick Ref")},{109,137,122,147,ControlPanelAction{},ControlPanelAction{}},
+  {235,117,259,137,u("Map"),u("Quick Fight Options")},{260,117,284,137,InfoAction{},InfoAction{}},
+  {286,117,310,137,QuickReferenceAction{},QuickReferenceAction{}},{109,137,122,147,ControlPanelAction{},ControlPanelAction{}},
   {235,148,259,168,NavigationAction::TurnLeft,NavigationAction::TurnLeft},
   {260,148,284,168,NavigationAction::MoveForward,NavigationAction::MoveForward},
   {286,148,310,168,NavigationAction::TurnRight,NavigationAction::TurnRight},
-  {235,169,259,189,u("Strafe"),u("Strafe")},{260,169,284,189,NavigationAction::MoveBackward,NavigationAction::MoveBackward},
-  {286,169,310,189,u("Strafe"),u("Strafe")},
+  {235,169,259,189,NavigationAction::StrafeLeft,NavigationAction::StrafeLeft},{260,169,284,189,NavigationAction::MoveBackward,NavigationAction::MoveBackward},
+  {286,169,310,189,NavigationAction::StrafeRight,NavigationAction::StrafeRight},
   {10,150,42,182,SelectMemberAction{0},SelectMemberAction{0}},{45,150,77,182,SelectMemberAction{1},SelectMemberAction{1}},
   {81,150,113,182,SelectMemberAction{2},SelectMemberAction{2}},{117,150,149,182,SelectMemberAction{3},SelectMemberAction{3}},
   {153,150,185,182,SelectMemberAction{4},SelectMemberAction{4}},{189,150,221,182,SelectMemberAction{5},SelectMemberAction{5}}
@@ -290,16 +293,47 @@ void mouseHitAreas(){
  }
  std::cout<<"Main-screen hit areas and SDL native scaling passed\n";
 }
+void strafeAndSummaryKeys() {
+ QueueHarness h;h.ready=true;h.screen=MainScreen::Exploration;
+ h.run("strafe-keypad-ctrl-mouse-and-summary-keys",[](auto &h){
+  if(h.stage==0)h.tap(SDLK_KP_4,100);
+  else if(h.stage==2)h.tap(SDLK_KP_6,100);
+  else if(h.stage==4){h.key(SDLK_LEFT,SDL_KEYDOWN,0,100,KMOD_CTRL);h.key(SDLK_LEFT,SDL_KEYUP,0,100);}
+  else if(h.stage==6){h.key(SDLK_RIGHT,SDL_KEYDOWN,0,100,KMOD_CTRL);h.key(SDLK_RIGHT,SDL_KEYUP,0,100);}
+  else if(h.stage==8)h.click(235,169,SDL_BUTTON_LEFT,100);
+  else if(h.stage==10)h.click(286,169,SDL_BUTTON_LEFT,100);
+  else if(h.stage==12)h.tap(SDLK_q,100);
+  else if(h.stage==14)h.tap(SDLK_i,100);
+  else if(h.stage==16){h.check(h.delivered==std::vector<char>{'L','T','L','T','L','T','Q','I'},("strafe and summaries keyboard/mouse parity: "+std::string(h.delivered.begin(),h.delivered.end())).c_str());h.quit();}
+ });
+ QueueHarness modal;modal.ready=true;modal.screen=MainScreen::Exploration;
+ modal.run("summary-held-opener-and-fresh-dismissal",[](auto &h){
+  if(h.stage==0)h.key(SDLK_q,SDL_KEYDOWN,0,100);
+  else if(h.stage==2) {
+   h.check(h.delivered==std::vector<char>{'Q'},"summary opener missing");
+   DialogInput input;input.anyKey=input.anyClick=input.keyMouseWait=true;h.dialog=std::make_shared<const DialogInput>(std::move(input));
+   h.queueable=false;++h.context;h.redraw=true;
+  } else if(h.stage==3){h.key(SDLK_q,SDL_KEYDOWN,1,100);h.key(SDLK_q,SDL_KEYDOWN,0,100);h.tap(SDLK_LSHIFT,100);h.tap(SDLK_CAPSLOCK,100);}
+  else if(h.stage==4){h.check(h.delivered==std::vector<char>{'Q'},"held opener dismissed summary");h.key(SDLK_q,SDL_KEYUP,0,100);h.tap(SDLK_q,100);}
+  else if(h.stage==6){h.check(h.delivered==std::vector<char>{'Q','K'},"fresh summary dismissal missing");h.quit();}
+ });
+ QueueHarness right;right.ready=true;right.queueable=false;
+ DialogInput wait;wait.anyKey=wait.anyClick=wait.keyMouseWait=true;right.dialog=std::make_shared<const DialogInput>(std::move(wait));
+ right.run("summary-right-click-dismissal",[](auto &h){
+  if(h.stage==0)h.click(0,0,SDL_BUTTON_RIGHT,100);
+  else if(h.stage==2){h.check(h.delivered==std::vector<char>{'K'},"summary right click did not dismiss");h.quit();}
+ });
+}
 void boundedQueuePolicies(){
  {QueueHarness h;h.screen=MainScreen::Exploration;h.run("Tab/gem queue original panel",[](auto &h){
   if(h.stage==0){h.tap(SDLK_TAB);h.click(114,141);}
   else if(h.stage==1)h.ready=true;
   else if(h.stage==4){h.check(h.delivered==std::vector<char>{'P','P'},"Tab/gem panel mapping");h.quit();}
  });}
- {QueueHarness h;h.screen=MainScreen::Exploration;h.run("modified arrows do not alias movement",[](auto &h){
+ {QueueHarness h;h.screen=MainScreen::Exploration;h.run("modified arrows strafe or retain their refusal",[](auto &h){
   if(h.stage==0)for(auto code:{SDLK_LEFT,SDLK_RIGHT,SDLK_DOWN,SDLK_UP}){h.key(code,SDL_KEYDOWN,0,99,KMOD_CTRL);h.key(code,SDL_KEYUP);}
   else if(h.stage==1)h.ready=true;
-  else if(h.stage==6){h.check(h.delivered==std::vector<char>{'U','U','U'},"Modified arrow silently turned/moved");h.quit();}
+  else if(h.stage==6){h.check(h.delivered==std::vector<char>{'L','T','U'},"Modified arrow strafe/refusal mapping");h.quit();}
  });}
  QueueHarness{}.run("original exploration keys/no WASD-F aliases",[](auto &h){
   if(h.stage==0)for(auto code:{SDLK_w,SDLK_a,SDLK_d,SDLK_f,SDLK_s})h.tap(code);
@@ -386,7 +420,7 @@ void pushKey(std::atomic<bool> &finished, SDL_Keycode key, std::uint8_t repeat,
 
 int main(int argc,char **) {
 	probe_fired::expect("SDL_GetTicks");
- if(argc>1){mouseHitAreas();mouseQueuePolicies();strictDialogPolicies();pressedButtonFeedback();return 0;}
+ if(argc>1){mouseHitAreas();mouseQueuePolicies();strictDialogPolicies();pressedButtonFeedback();strafeAndSummaryKeys();return 0;}
  semanticBoundaryKeys();
  boundedQueuePolicies();
 	std::atomic<bool> finished{false};
@@ -466,7 +500,7 @@ int main(int argc,char **) {
 				++yes;
 			else if (std::holds_alternative<NoAction>(action))
 				++no;
-			else if (std::holds_alternative<UnsupportedMainScreenAction>(action))
+			else if (std::holds_alternative<InfoAction>(action))
 				++inspections;
 			else if (std::holds_alternative<TransferInventoryAction>(action)) ++transfers;
 			else if (std::holds_alternative<EquipmentInventoryAction>(action)) ++equipment;

@@ -457,7 +457,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		XeenCamera &camera,XeenEncounterState &state,const XeenEventFile &events,
 		std::optional<XeenEncounterAction> action,std::unique_ptr<XeenRegionalActionCandidate> &work) {
 	auto &session=world._sessionState;XeenEncounterResult refused;
-	if(action && static_cast<unsigned>(*action)>5)return refused;
+	if(action && static_cast<unsigned>(*action)>static_cast<unsigned>(XeenEncounterAction::StrafeRight))return refused;
 	if(!world._combatCheck || !world._combatAuthorized || !world._combatAuthorized() ||
 		session._combatApproachState!=&state || session._journeyActivity!=XeenJourneyActivity::Approach ||
 		!authoritative(world,party,camera,state) || session._encounterTerminal || (work && action)) return refused;
@@ -489,12 +489,16 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 				if(*action==XeenEncounterAction::Wait) charge=stepTime=true;
 				else {
 					XeenMovementResult result;
-					if(*action==XeenEncounterAction::Forward || *action==XeenEncounterAction::Backward) {
-						const unsigned d=unsigned(camera.direction)^(*action==XeenEncounterAction::Backward?2u:0u);
+					if(*action==XeenEncounterAction::Forward || *action==XeenEncounterAction::Backward ||
+						*action==XeenEncounterAction::StrafeLeft || *action==XeenEncounterAction::StrafeRight) {
+						const auto navigation=*action==XeenEncounterAction::Forward?NavigationAction::MoveForward:
+							*action==XeenEncounterAction::Backward?NavigationAction::MoveBackward:
+							*action==XeenEncounterAction::StrafeLeft?NavigationAction::StrafeLeft:NavigationAction::StrafeRight;
+						const unsigned d=(unsigned(camera.direction)+(*action==XeenEncounterAction::Backward?2u:
+							*action==XeenEncounterAction::StrafeLeft?3u:*action==XeenEncounterAction::StrafeRight?1u:0u))&3u;
 						constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};const int x=camera.x+dx[d],y=camera.y+dy[d];
 						if(indoor) {
-							result=XeenMovement().apply(world,c.camera,*action==XeenEncounterAction::Forward?
-								NavigationAction::MoveForward:NavigationAction::MoveBackward);
+							result=XeenMovement().apply(world,c.camera,navigation);
 						} else {
 							result=XeenMovement::localOutdoor(map,camera.x,camera.y,x,y,xeenJourneyContent().traversal);
 							if(result==XeenMovementResult::Moved) { c.camera.x=x;c.camera.y=y; }

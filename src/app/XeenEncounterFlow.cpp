@@ -18,6 +18,8 @@ std::optional<XeenEncounterAction> mapped(const PlayerAction &input) {
 	case NavigationAction::MoveBackward: return XeenEncounterAction::Backward;
 	case NavigationAction::TurnLeft: return XeenEncounterAction::Left;
 	case NavigationAction::TurnRight: return XeenEncounterAction::Right;
+	case NavigationAction::StrafeLeft: return XeenEncounterAction::StrafeLeft;
+	case NavigationAction::StrafeRight: return XeenEncounterAction::StrafeRight;
 	}
 	return {};
 }

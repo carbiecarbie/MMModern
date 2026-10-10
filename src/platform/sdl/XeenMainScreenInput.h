@@ -32,6 +32,8 @@ inline std::optional<PlayerAction> xeenMainScreenClick(int x, int y, MainScreen 
         if (combat && index==5) return BlockAction{}; // B
         if (!combat && index==3) return BashAction{};
         if (combat && index==3) return UseItemAction{}; // U
+        if (index==7) return InfoAction{};
+        if (index==8) return QuickReferenceAction{};
         constexpr const char *exploration[] = {"Shoot","Cast","Rest","Bash","Dismiss","View Quests","Map","Info","Quick Ref"};
         constexpr const char *fighting[] = {"Quick Fight","Cast","Attack","Use","Run","Block","Quick Fight Options","Info","Quick Ref"};
         return UnsupportedMainScreenAction{combat ? fighting[index] : exploration[index]};
@@ -44,7 +46,7 @@ inline std::optional<PlayerAction> xeenMainScreenClick(int x, int y, MainScreen 
         }
         if (contains(columns[col],169,columns[col]+24,189)) {
             if (col==1) return NavigationAction::MoveBackward;
-            return UnsupportedMainScreenAction{"Strafe"};
+            return col==0?NavigationAction::StrafeLeft:NavigationAction::StrafeRight;
         }
     }
     if (combat) for (unsigned row=0; row<3; ++row)

@@ -7,7 +7,9 @@ enum class NavigationAction {
 	TurnLeft,
 	TurnRight,
 	MoveForward,
-	MoveBackward
+	MoveBackward,
+	StrafeLeft,
+	StrafeRight
 };
 
 } // namespace mmodern

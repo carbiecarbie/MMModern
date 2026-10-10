@@ -147,7 +147,7 @@ void XeenEventFlow::recoverInventory() {
 void XeenEventFlow::drawInventory() {
 	if (journey()) return; // One composition under the Journey presentation guard.
 	if (_encounter && (_encounter->combat())) { syncCombatInventory(); renderEncounter(); return; }
-	try { _frame = drawCharacterDialog(_inventoryUnderlay); }
+	try { _frame = drawCharacterDialog(_inventoryUnderlay);if(_summary)_frame=drawSummary(_frame); }
 	catch (...) { recoverInventory(); }
 }
 IndexedFrame XeenEventFlow::refuseInventorySave() {

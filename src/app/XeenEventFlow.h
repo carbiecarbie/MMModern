@@ -92,7 +92,7 @@ public:
 	IndexedFrame acceptAutomatic(XeenAutomaticEventResult result);
 	const IndexedFrame &frame() const { return _frame; }
 	bool blocksGameplay() const { return (_encounter && (!journey() || !_encounter->journeyQuiet())) ||
-		_pending.has_value() || _dispatching || _saving || _handoffPending || inventoryOpen() || _fatal; }
+		_pending.has_value() || _dispatching || _saving || _handoffPending || inventoryOpen() || _summary || _fatal; }
 	const XeenEncounterFlow *encounter() const noexcept { return _encounter.get(); }
 	void beginCycle(std::uint64_t cycle);
 	bool encounterFrameCurrent() const noexcept;
@@ -276,6 +276,10 @@ private:
 		std::uint64_t deadline=0;
 	};
 	std::optional<CharacterSheetUi> _sheet;
+	enum class SummaryDialog { QuickReference, Info };
+	std::optional<SummaryDialog> _summary;
+	IndexedFrame _summaryUnderlay;
+	IndexedFrame drawSummary(const IndexedFrame &) const;
 	bool _itemsVisible=false, _combatItems=false;
 	std::optional<XeenDialogPopup> _statPopup;
 	std::optional<std::string> _dialogError;

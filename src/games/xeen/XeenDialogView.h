@@ -34,6 +34,11 @@ IndexedFrame drawXeenBuy(const XeenDosText &text,const IndexedFrame &,const Xeen
 DialogInput xeenConfirmInput(bool large=false);
 std::optional<bool> xeenConfirmAnswer(unsigned key);
 struct XeenDialogPopup { std::string text; XeenTextRect bounds; };
+// Member indices are the caller's current combat participants, or active party.
+std::string xeenQuickReferenceText(const XeenDosText &,const XeenPartyState &,const std::vector<std::size_t> &members);
+XeenDialogPopup xeenInfoPopup(const XeenDosText &,const XeenGameplayContext &);
+IndexedFrame drawXeenQuickReference(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,
+    const XeenPartyState &,const std::vector<std::size_t> &members);
 XeenDialogPopup xeenSheetPopup(const XeenDosText &text,const XeenPartyState &,std::size_t,unsigned);
 IndexedFrame drawXeenSheet(const XeenDosText &text,const IndexedFrame &,const XeenFontFormat &,const XeenPartyState &,
     std::size_t member,unsigned cursor,bool blink,const XeenDialogSpriteDraw &);

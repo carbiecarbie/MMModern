@@ -22,7 +22,7 @@ enum class XeenMonsterTerrain { Allowed, Blocked, Unsupported };
 struct XeenActorOpportunityContext {
 	bool sleeping=false, movementEnabled=true, charactersShooting=false;
 };
-enum class XeenEncounterAction { Forward, Backward, Left, Right, Wait, Unsupported };
+enum class XeenEncounterAction { Forward, Backward, Left, Right, Wait, Unsupported, StrafeLeft, StrafeRight };
 enum class XeenEncounterPhase { Exploring, Engaged, SupportStopped };
 enum class XeenEncounterOutcome { Started, Accepted, Blocked, Pulsed, Pending, Engaged, Refused, Stale, Terminal, Stopped };
 enum class XeenEncounterStop { None, Envelope, Time, Domain, Preparation, Reporting, Overflow, Ranged, RegionalContact, Defeat };

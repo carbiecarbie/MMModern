@@ -42,7 +42,7 @@ bool uploadFrame(SDL_Texture *texture, const IndexedFrame &frame,
 
 std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key, MainScreen screen) {
     if((key.keysym.mod & KMOD_CTRL) && (key.keysym.sym==SDLK_LEFT || key.keysym.sym==SDLK_RIGHT))
-        return UnsupportedMainScreenAction{"Strafe"};
+        return key.keysym.sym==SDLK_LEFT?NavigationAction::StrafeLeft:NavigationAction::StrafeRight;
     if((key.keysym.mod & KMOD_CTRL) && key.keysym.sym==SDLK_DOWN)
         return UnsupportedMainScreenAction{"Turn around"};
     if((key.keysym.mod & KMOD_CTRL) && key.keysym.sym==SDLK_UP)return std::nullopt;
@@ -56,7 +56,10 @@ std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key, MainScree
 	case SDLK_r: return screen==MainScreen::Exploration ? PlayerAction{RestAction{}} : PlayerAction{RevisitCompletedAction{}};
 	case SDLK_F9: return SaveGameAction{};
 	case SDLK_TAB: return ControlPanelAction{};
-	case SDLK_i: return UnsupportedMainScreenAction{"Info"};
+	case SDLK_i: return InfoAction{};
+	case SDLK_q: return QuickReferenceAction{};
+	case SDLK_KP_4: return NavigationAction::StrafeLeft;
+	case SDLK_KP_6: return NavigationAction::StrafeRight;
 	case SDLK_u: return UseItemAction{};
 	case SDLK_1: case SDLK_2: case SDLK_3: case SDLK_4: case SDLK_5:
 	case SDLK_6: case SDLK_7: case SDLK_8: case SDLK_9:
@@ -360,7 +363,14 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             const bool mouse = event.type == SDL_MOUSEBUTTONDOWN;
             const auto context = contextFor(batchFrame);
             synchronizeQueue(context);
-            if (mouse && (event.button.button != SDL_BUTTON_LEFT || (!context.dialog && context.mainScreen == MainScreen::None) ||
+            const bool keyMouseWait=context.dialog && context.dialog->keyMouseWait;
+            if(!mouse && keyMouseWait) switch(event.key.keysym.sym) {
+            case SDLK_LCTRL: case SDLK_RCTRL: case SDLK_LALT: case SDLK_RALT:
+            case SDLK_LSHIFT: case SDLK_RSHIFT: case SDLK_LGUI: case SDLK_RGUI:
+            case SDLK_CAPSLOCK: case SDLK_NUMLOCKCLEAR: case SDLK_SCROLLLOCK:return;
+            default:break;
+            }
+            if (mouse && ((event.button.button != SDL_BUTTON_LEFT && !(keyMouseWait && event.button.button==SDL_BUTTON_RIGHT)) || (!context.dialog && context.mainScreen == MainScreen::None) ||
                 initialFrame.width != 320 || initialFrame.height != 200)) return;
             // SDL_RenderSetLogicalSize transforms native mouse events to framebuffer
             // coordinates, including integer scaling, letterboxing and high DPI.
@@ -382,6 +392,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             const bool queueKey = action && (movement || std::holds_alternative<AttackAction>(*action) || std::holds_alternative<InteractionAction>(*action) ||
                 std::holds_alternative<BlockAction>(*action) || std::holds_alternative<BashAction>(*action) || std::holds_alternative<ShootAction>(*action) ||
                 std::holds_alternative<RestAction>(*action) || std::holds_alternative<ControlPanelAction>(*action) ||
+                std::holds_alternative<QuickReferenceAction>(*action) || std::holds_alternative<InfoAction>(*action) ||
                 std::holds_alternative<RevisitCompletedAction>(*action) || std::holds_alternative<WaitAction>(*action) ||
                 std::holds_alternative<CastSpellAction>(*action) || std::holds_alternative<SelectMemberAction>(*action) ||
                 std::holds_alternative<UnsupportedMainScreenAction>(*action) || (slot && slot->slot < 3));

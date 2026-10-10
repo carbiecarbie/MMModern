@@ -2,6 +2,18 @@
 #include "games/xeen/CloudsUiComposer.h"
 #include <algorithm>
 namespace mmodern {
+IndexedFrame XeenEventFlow::drawSummary(const IndexedFrame &base) const {
+    if(!_summary)return base;
+    if(*_summary==SummaryDialog::Info) {
+        if(!_party.encounterContext)throw std::logic_error("Info requires gameplay context");
+        return drawXeenPopup(base,_inventoryFont,xeenInfoPopup(dosText(),*_party.encounterContext));
+    }
+    std::vector<std::size_t> members;
+    for(unsigned slot=0;slot<_party.party.size();++slot) {
+        const auto member=dialogMember(slot);if(member)members.push_back(*member);
+    }
+    return drawXeenQuickReference(dosText(),_summaryUnderlay,_inventoryFont,_party,members);
+}
 std::optional<std::size_t> XeenEventFlow::dialogMember(std::size_t index) const {
     const auto *combat=_encounter?_encounter->combat():nullptr;
     if(!combat) return index<_party.party.size()?std::optional<std::size_t>{index}:std::nullopt;
@@ -65,7 +77,7 @@ IndexedFrame XeenEventFlow::handleCharacterDialog(const PlayerAction &action) {
     } else if(key=='i') {
         _itemsVisible=true;advanceInventoryEpoch();_inventory.category=XeenInventoryCategory::Weapons;
         _inventory.slot.reset();_inventory.record={};
-    } else if(key=='q') dialogError("Quick Reference: not supported yet");
+    } else if(key=='q') {_summaryUnderlay=_frame;_summary=SummaryDialog::QuickReference;}
     else if(key=='e') dialogError(_encounter && _encounter->combat()?std::string(xeenDialogText(dosText(),XeenDialogText::ExchangingInCombat)):"Exchange: not supported yet");
     drawInventory();return _frame;
 }

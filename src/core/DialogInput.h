@@ -29,6 +29,9 @@ struct DialogInput {
     std::vector<unsigned> keys;
     bool anyKey=false, anyClick=false;
     bool textEntry=false;
+    // Original Events::isKeyMousePressed waits accept either mouse button
+    // and ignore modifier-only keys. Opt in for dialogs using that wait.
+    bool keyMouseWait=false;
     std::optional<InputButton> button(unsigned key) const {
         for(const auto &hit:hits) if(hit.key==key) return hit.button;
         return {};

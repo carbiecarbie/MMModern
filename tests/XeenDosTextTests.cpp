@@ -46,6 +46,8 @@ void synthetic() {
  rejects([](auto &b){b[0x54109]=0;});
  rejects([](auto &b){b[0x51bbb]=0;});
  rejects([](auto &b){b[0x50aae]='%';b[0x50aaf]='n';});
+ rejects([](auto &b){b[0x55b83]='s';}); // Quick Reference y-coordinate signature.
+ rejects([](auto &b){b[0x535d5]='u';}); // DOS Walk on Water takes c,s only.
  rejects([](auto &b){b[0x54108]=3;b[0x54109]='x';});
  rejects([](auto &b){b[0x54108]=9;b[0x54109]='x';});
  rejects([](auto &b){b[0x54108]=12;b[0x54109]='4';b[0x5410a]='0';});

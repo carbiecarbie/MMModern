@@ -280,6 +280,58 @@ IndexedFrame drawXeenSheet(const XeenDosText &text,const IndexedFrame &base,cons
     }
     highlight(frame,member,draw);return frame;
 }
+// Adapted from dialogs_quick_ref.cpp / dialogs_info.cpp at pinned ScummVM
+// 6814ee9b (ScummVM developers, GPL-3.0-or-later). DOS format signatures
+// and alignment fragments come from the bounded installed module.
+std::string xeenQuickReferenceText(const XeenDosText &text,const XeenPartyState &p,const std::vector<std::size_t> &members) {
+    if(members.size()>8)throw std::invalid_argument("Quick Reference member count exceeds window");
+    std::vector<std::string> args(8);
+    for(unsigned row=0;row<members.size();++row) {
+        const auto &c=p.party.member(p.roster,members[row]);const auto *in=inputs(p,c);const auto ctx=context(p);
+        const auto &name=text.table("CLASS_NAMES").at(unsigned(c.characterClass));
+        const auto condition=unsigned(c.worstCondition());const auto &status=conditions(text,c).at(condition);
+        if(name.size()<3 || status.size()<4)throw std::invalid_argument("Short Quick Reference abbreviation");
+        const auto ac=R::sheetArmorClass(c,in,ctx);
+        args[row]=xeenDialogFormat(text.scalar("QUICK_REF_LINE"),{
+            n(row*10+24),n(row+1),c.name,name.substr(0,1),name.substr(1,1),name.substr(2,1),
+            n(R::statColor(c.currentLevel(),c.permanentLevel)),n(unsigned(c.permanentLevel)),
+            n(R::statColor(c.currentHp,R::maxHp(c,ctx))),n(int(c.currentHp)),
+            n(R::statColor(c.currentSp,R::maxSp(c,ctx))),n(int(c.currentSp)),
+            n(R::statColor(ac,R::sheetArmorClass(c,in,ctx,true))),n(ac),
+            n(condition<8?9:condition<12?32:condition<16?6:15),
+            status.substr(0,1),status.substr(1,1),status.substr(2,1),status.substr(3,1)});
+    }
+    const auto food=p.party.size()?std::uint16_t(p.food)/p.party.size()/3:0;
+    args.insert(args.end(),{n(gold(p)),n(gems(p)),n(food),str(text.scalar(food==1?"DAY_SINGULAR":"DAY_PLURAL"))});
+    return xeenDialogFormat(text.scalar("QUICK_REFERENCE"),args);
+}
+IndexedFrame drawXeenQuickReference(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,
+        const XeenPartyState &p,const std::vector<std::size_t> &members) {
+    return render(base,font,"\1"+xeenQuickReferenceText(text,p,members),{0,0,320,146},{8,8,312,138});
+}
+XeenDialogPopup xeenInfoPopup(const XeenDosText &text,const XeenGameplayContext &ctx) {
+    std::string effects;unsigned rows=0;
+    const auto left=str(text.scalar("INFO_ALIGN_LEFT")),right=str(text.scalar("INFO_ALIGN_RIGHT"));
+    if(ctx.lightAndResistances[0]) {
+        effects=xeenDialogFormat(text.scalar("LIGHT_COUNT_TEXT"),{n(unsigned(ctx.lightAndResistances[0]))});++rows;
+    }
+    constexpr const char *resistance[]{"FIRE_RESISTANCE_TEXT","ELECTRICITY_RESISTANCE_TEXT","COLD_RESISTANCE_TEXT","POISON_RESISTANCE_TEXT"};
+    for(unsigned i=0;i<4;++i)if(ctx.lightAndResistances[i+2]) {
+        effects+=xeenDialogFormat(text.scalar(resistance[i]),{std::string(1,rows?'\1':'\n'),left,right,n(unsigned(ctx.lightAndResistances[i+2]))});++rows;
+    }
+    constexpr unsigned index[]{0,3,4};
+    constexpr const char *effect[]{"CLAIRVOYANCE_TEXT","LEVITATE_TEXT","WALK_ON_WATER_TEXT"};
+    for(unsigned i=0;i<3;++i)if(ctx.effects[index[i]]) {
+        std::vector<std::string> args{std::string(1,rows?'\1':'\n'),left};
+        if(i!=2)args.push_back(right); // DOS Walk on Water has no right-aligned value.
+        effects+=xeenDialogFormat(text.scalar(effect[i]),args);++rows;
+    }
+    const unsigned hour=ctx.minutes/60;
+    return {xeenDialogFormat(text.scalar("GAME_INFORMATION"),{str(text.scalar("WORLD_GAME_TEXT")),
+        text.table("WEEK_DAY_STRINGS").at(ctx.day%10),n(hour>12?hour-12:hour?hour:12),n(ctx.minutes%60),
+        hour>11?"p":"a",n(unsigned(ctx.day)),n(unsigned(ctx.year)),effects}),
+        {88,20,248,112+(rows?int(rows)*9+13:0)}};
+}
 XeenDialogPopup xeenSheetPopup(const XeenDosText &text,const XeenPartyState &p,std::size_t member,unsigned cell) {
     if(cell>=20 || cell==14) throw std::invalid_argument("Invalid stat popup");
     const auto &c=p.party.member(p.roster,member);const auto *in=inputs(p,c);const auto ctx=context(p);

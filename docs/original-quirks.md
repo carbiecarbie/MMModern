@@ -37,4 +37,5 @@ a port defect; MMModern follows the original instead.
 | `CharacterInfo::execute` forces combat mode after every stat popup. | Restores the caller's mode. | M47 |
 | Repair's `calcItemCost` passes `actionIndex` as the Merchant skill. | Keeps the M38 Armor Repair prices. | M47 |
 | The control panel drops Save As and rearranges the buttons; saves use ScummVM's own chooser. | DOS panel and chooser from `WORLD/XEEN.DAT` and DOSBox evidence. | M54 |
+| Info chooses its title by engine game ID, and its Walk on Water format takes three arguments. | CD Clouds Info uses the World title (maintainer DOSBox play, 2026-10-10). The bounded DOS fields at `[0x53673,0x53679)` and `[0x535d4,0x535e6)` supply that title and the two-argument Walk on Water format. | M55 Part A, `XeenDosText.cpp`, `XeenDialogView.cpp` |
 | `_currentCantRest` tests a flag that the cell loader can never set, so only the map-wide flag refuses Rest. | Same effective behavior: only the primary map's flag refuses Rest. | M51 |

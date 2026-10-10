@@ -174,7 +174,9 @@ XeenMovementResult XeenMovement::apply(XeenWorld &world, XeenCamera &camera,
 	}
 
 	const XeenDirection effectiveDirection =
-		action == NavigationAction::MoveBackward ? opposite(camera.direction) : XeenDirection(camera.direction);
+		action == NavigationAction::MoveBackward ? opposite(camera.direction) :
+		action == NavigationAction::StrafeLeft ? turnLeft(camera.direction) :
+		action == NavigationAction::StrafeRight ? turnRight(camera.direction) : XeenDirection(camera.direction);
 	if (currentMap.geometry.isOutdoors())
 		return applyOutdoor(world, camera, effectiveDirection);
 	return applyIndoor(world, camera, effectiveDirection);

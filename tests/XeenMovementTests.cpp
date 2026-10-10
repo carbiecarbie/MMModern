@@ -37,7 +37,7 @@ mmodern::XeenWorld worldWith(std::map<mmodern::XeenMapIdentity, mmodern::XeenMap
 	return mmodern::XeenWorld([maps = std::move(maps)](mmodern::XeenMapIdentity id) {
 		const auto found = maps.find(id);
 		if (found == maps.end())
-			throw std::runtime_error("fixture de mapa ausente");
+			throw std::runtime_error("Missing map fixture");
 		return found->second;
 	});
 }
@@ -436,11 +436,37 @@ void testIndoorSurfaceBoundariesAndAtomicity() {
 		"prioridade parede antes de superficie nao foi preservada");
 }
 
+void testStrafe() {
+	using namespace mmodern;
+	const XeenMovement movement;
+	constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};
+	for(bool indoor:{false,true})for(unsigned facing=0;facing<4;++facing)
+		for(auto action:{NavigationAction::StrafeLeft,NavigationAction::StrafeRight}) {
+			auto map=indoor?freeIndoorMap():freeMap();auto world=worldWith({{map.identity(),map}});
+			XeenCamera camera{map.identity(),8,8,XeenDirection(facing)};
+			const auto d=(facing+(action==NavigationAction::StrafeLeft?3:1))%4;
+			require(movement.apply(world,camera,action)==XeenMovementResult::Moved &&
+				camera.x==8+dx[d] && camera.y==8+dy[d] && camera.direction==XeenDirection(facing),
+				"Strafe delta/facing for all four facings, indoors/outdoors");
+			if(indoor) {
+				setIndoorWall(map,8,8,XeenDirection(d),7);auto blocked=worldWith({{map.identity(),map}});
+				camera={map.identity(),8,8,XeenDirection(facing)};const auto before=camera;
+				require(movement.apply(blocked,camera,action)==XeenMovementResult::BlockedByWall && sameCamera(before,camera),
+					"Strafe checks source side wall and preserves blocked camera");
+			} else {
+				layersAt(map,8+dx[d],8+dy[d]).middle=1;auto blocked=worldWith({{map.identity(),map}});
+				camera={map.identity(),8,8,XeenDirection(facing)};const auto before=camera;
+				require(movement.apply(blocked,camera,action)==XeenMovementResult::BlockedByTerrain && sameCamera(before,camera),
+					"Strafe reuses outdoor terrain admission");
+			}
+		}
+}
 } // namespace
 
 int main() {
 	try {
 		testRotations();
+		testStrafe();
 		testForwardAndBackward();
 		testNeighborTransitions();
 		testBlockedDestinationIsAtomic();

@@ -61,7 +61,7 @@ void XeenEventFlow::requireCurrentOwners() const {
 
 bool XeenEventFlow::canSave() const noexcept {
 	return _gameplayBorrow->current() && !_fatal && !_dispatching && !_saving && !_handoffPending && !_transition && !_arrivalPending &&
-		!inventoryOpen() && !_pending && !_equipmentSelection &&
+		!inventoryOpen() && !_summary && !_pending && !_equipmentSelection &&
 		(!_encounter || (!_encounter->_needsRestNotice && _encounter->canSave() && encounterFrameCurrent()));
 }
 
@@ -80,7 +80,7 @@ XeenEventFlow::SaveBoundary XeenEventFlow::beginSave() {
 InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origin) {
     const auto *combat = _encounter ? _encounter->combat() : nullptr;
     // Panels are strict throughout their lifetime, including preparation/result work.
-    const unsigned panel = _encounter && _encounter->_rest ? 11 : _encounter && _encounter->_needsRestNotice ? 10 : _fatal ? 1 : _trainingUi ? 2 : _smithUi ? 3 : inventoryOpen() ? 4 :
+    const unsigned panel = _summary ? 12 : _encounter && _encounter->_rest ? 11 : _encounter && _encounter->_needsRestNotice ? 10 : _fatal ? 1 : _trainingUi ? 2 : _smithUi ? 3 : inventoryOpen() ? 4 :
         (_castingUi || (combat && combat->cast())) ? 5 :
         (_pending || _transition || (_encounter && _encounter->journeyEvent())) ? 6 :
         (_encounter && _encounter->monsterReward()) ? 7 :
@@ -90,7 +90,7 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
             combat->phase() == XeenCombatPhase::Failed)) ? 8 :
         (_encounter && !_encounter->combat() && _encounter->state().phase() != XeenEncounterPhase::Exploring) ? 9 : 0;
     const QueueContext context{_camera.mapId, panel, combat,
-        inventoryOpen() ? (_dialogError ? 5 : _statPopup ? 4 : _itemOption ? 3 : _sheet && !_itemsVisible ? 2 : 1) :
+        _summary ? 400+unsigned(*_summary) : inventoryOpen() ? (_dialogError ? 5 : _statPopup ? 4 : _itemOption ? 3 : _sheet && !_itemsVisible ? 2 : 1) :
         _smithUi ? 100+unsigned(_smithUi->phase)*4+unsigned(_smithUi->mode)+(!_smithUi->feedback.empty()?1000:0) :
         _trainingUi ? 200+unsigned(_trainingUi->phase)+(!_trainingUi->feedback.empty()?1000:0) :
         _encounter && _encounter->_rest ? 300+unsigned(_encounter->_rest->phase) : _pending ? _pending->generation : 0};
@@ -120,6 +120,7 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
         else ready = ready && _encounter->journeyMutable();
     }
     auto dialog=_smithUi || _trainingUi ? serviceDialogInput() : characterDialogInput();
+    if(_summary) {DialogInput input;input.anyKey=input.anyClick=input.keyMouseWait=true;dialog=std::make_shared<const DialogInput>(std::move(input));}
     if(_barrier && _barrier->rule && _barrier->rule->selection) {
         DialogInput input;constexpr int x[]{10,45,81,117,153,189};
         for(unsigned member=0;member<6;++member) {
@@ -486,6 +487,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 				if (inventoryOpen()) rendered = drawCharacterDialog(rendered);
 				if (_smithUi) rendered=drawSmith(composed.frame);
 				if (_trainingUi) rendered=drawTraining(composed.frame);
+				if(_summary)rendered=drawSummary(rendered);
 				if (report && !attempt) {
 					if (reportText) reportText(_encounter->notice());
 					if (!_encounter->current(t)) throw std::logic_error("Stale Journey reporting");
@@ -545,6 +547,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 					_frame = drawCharacterDialog(_inventoryUnderlay);
 					returned = _frame;
 				}
+				if(_summary){_frame=drawSummary(_frame);returned=_frame;}
 				if (_encounter->combat() && ((journey() && !cosmeticInput) || !_displayedCombat || !_encounter->combat()->current(*_displayedCombat))) {
 					if (_inputGeneration == std::numeric_limits<std::uint64_t>::max()) throw std::overflow_error("Combat input generation exhausted");
 					++_inputGeneration;
@@ -1033,6 +1036,7 @@ bool XeenEventFlow::pendingNpc() const {
 		_pending->state.pendingPresentation->request.kind == XeenPresentationKind::NpcAcknowledgment;
 }
 bool XeenEventFlow::handlesEscape() const {
+	if(_summary)return !_fatal;
 	if(_encounter && _encounter->_rest)return !_fatal;
 	if(_barrier)return !_fatal;
 	// This is routing, not response authority: handle() still requires the exact
@@ -1147,6 +1151,12 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 	}
 	if (_dispatching || _fatal || _saving || _smithUi || (journey() && _handoffPending)) return std::nullopt;
 	DispatchScope dispatch(_dispatching);
+	if(_summary) {
+		// Info redraws the scene, never the encounter scheduler. Quick Reference
+		// waits on its retained underlay exactly as the original window does.
+		if(*_summary==SummaryDialog::Info && _encounter && advanceEncounterOrdinary())return renderEncounter(false,true);
+		return std::nullopt;
+	}
 	if(inventoryOpen()) {
         if(_encounter && _world.scenePresentation().feedbackActive()) {
             std::uint64_t now;_encounter->guardCallback(_encounter->ticket(),[&] {now=_clock();});
@@ -1293,6 +1303,13 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 	if ((inputFrame && !acceptsInputFrame(inputFrame)) || (_trainingUi && !inputFrame) ||
 		(_smithUi && !inputFrame)) return frameCopy();
 	if (journey() && !journeyInputCurrent(displayedInput)) return frameCopy();
+	if(_summary && !_dispatching && !_fatal && !_saving) {
+		_summary.reset();_summaryUnderlay={};
+		DispatchScope dispatch(_dispatching);
+		if(_encounter)return renderEncounter();
+		if(inventoryOpen())drawInventory();else refreshScene(true,OrdinaryCause::None);
+		return _frame;
+	}
 	if (std::holds_alternative<SaveGameAction>(action) || _dispatching || _fatal || _saving) return frameCopy();
 	if(_encounter && _encounter->_needsRestNotice) {
   _encounter->_needsRestNotice=false;
@@ -1317,6 +1334,8 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 	if (!_encounter && (std::holds_alternative<AttackAction>(action) || std::holds_alternative<BlockAction>(action) || std::holds_alternative<RunAction>(action) ||
 		std::holds_alternative<BeginEncounterAction>(action) || std::holds_alternative<RevisitCompletedAction>(action))) return frameCopy();
 	if (journey() && _encounter->combat() && std::holds_alternative<RevisitCompletedAction>(action)) action=RunAction{};
+    if(_encounter && _encounter->combat())if(const auto *nav=std::get_if<NavigationAction>(&action);
+        nav && (*nav==NavigationAction::StrafeLeft || *nav==NavigationAction::StrafeRight))return frameCopy();
     if (journey() && _encounter->combat() && !_encounter->combat()->cast() && !inventoryOpen())
         if(const auto *nav=std::get_if<NavigationAction>(&action);nav && *nav!=NavigationAction::TurnLeft && *nav!=NavigationAction::TurnRight)
             action=UnsupportedMainScreenAction{"Combat movement"};
@@ -1330,6 +1349,16 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
     }
     _mainScreenNotice.clear();
 	DispatchScope dispatch(_dispatching);
+    if(std::holds_alternative<QuickReferenceAction>(action) || std::holds_alternative<InfoAction>(action)) {
+        const bool quiet=!_pending && !_castingUi && !inventoryOpen() && !_barrier &&
+            (!_encounter || (_encounter->combat() ? _encounter->combat()->phase()==XeenCombatPhase::PlayerReady &&
+                !_encounter->combat()->cast() : _encounter->journeyMutable()));
+        if(!quiet)return frameCopy();
+        _summaryUnderlay=_frame;
+        _summary=std::holds_alternative<InfoAction>(action)?SummaryDialog::Info:SummaryDialog::QuickReference;
+        if(_encounter)return renderEncounter();
+        _frame=drawSummary(_frame);return _frame;
+    }
     if(_barrier)return handleBarrier(action);
     if(journey() && !_encounter->combat() && std::holds_alternative<BashAction>(action)) {
         if(beginBarrier(true))return renderEncounter();
