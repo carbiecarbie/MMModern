@@ -203,7 +203,9 @@ int main(int argc,char **argv){try {
  const auto &up=chooser->hits[0],&bar=chooser->hits[13];
  check(up.button && up.button->pressedFrame()==1 && !bar.button,"DOS arrow/bar feedback mapping");
  const auto unchanged=d.flow.frame().presentation();
- check(!d.flow.handle(*chooser->click(up.left,up.top),unchanged) && !d.flow.handle(*chooser->click(bar.left,bar.top),unchanged),"arrow/bar changed selection");
+ const auto upAction=chooser->click(up.left,up.top),barAction=chooser->click(bar.left,bar.top);
+ check(upAction && barAction,"missing chooser arrow/bar click mapping");
+ check(!d.flow.handle(*upAction,unchanged) && !d.flow.handle(*barAction,unchanged),"arrow/bar changed selection");
  d.key('6');check(d.flow.screen()==Screen::Notice && !d.flow.entry(),"protected row not explained/disabled");d.key(27);
  d.key('3');check(d.flow.screen()==Screen::NewSlots && !d.flow.entry(),"number key confirmed slot prematurely");
  const auto &row=assets.uiText().buttons("CHOOSER")[4];bool green=false;

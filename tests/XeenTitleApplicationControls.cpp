@@ -88,7 +88,8 @@ bool panelGameplay(const IndexedFrame &first,const SdlWindow::FrameUpdateHandler
   snapshot.name="Gameplay comparison";return XeenSaveFormat::encode(snapshot);
  };
  const auto send=[&](const PlayerAction &action) {
-  const auto next=handler.withPresentedInput(action,*handler.displayedInput(),visible.presentation());
+  const auto input=handler.displayedInput();check(bool(input),"panel input ticket");
+  const auto next=handler.withPresentedInput(action,*input,visible.presentation());
   if(next)visible=*next;present();
  };
  const auto key=[&](unsigned key) {
@@ -130,7 +131,8 @@ bool panelGameplay(const IndexedFrame &first,const SdlWindow::FrameUpdateHandler
  send(ControlPanelAction{});preview(visible,"native-panel");
  const auto retained=visible.presentation();
  key('e');key(27);key('w');key('n');key('w');key('y');key(27);key('q');key('n');
- check(!handler.withPresentedInput(DialogKeyAction{'q'},*handler.displayedInput(),retained),"stale panel input accepted");
+ const auto input=handler.displayedInput();check(bool(input),"panel input ticket after cancellation");
+ check(!handler.withPresentedInput(DialogKeyAction{'q'},*input,retained),"stale panel input accepted");
  for(unsigned i=0;i<10;++i)idle();check(capture()==before,"panel idle/deferred/decline changed gameplay");
  expectNotice(state.name);key('s');checkNotice();key(27);
  key('a');key('3');key(13);key(27); // Name cancel: no file.

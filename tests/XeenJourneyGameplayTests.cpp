@@ -145,9 +145,13 @@ void boundaries(const fs::path &dir) {
     check(!XeenSaveState::canCapture(*h.party,*h.camera,*h.world)&&!h.flow->canSave(),"exact restoration cannot revive authority");
     handler.withDisplayedInput(SaveGameAction{},*handler.displayedInput());check(h.saves==0,"integrity F9 before providers");return false;
    } else if(mode==4||mode==5) {
+    const auto input=handler.displayedInput();
+    check(bool(input),"live session input ticket before retirement");
     h.flow->refresh(true);if(mode==4)handler.failed();else handler.closed();
     check(!XeenSaveState::canCapture(*h.party,*h.camera,*h.world),"lost upload / shutdown closure");
-    handler.withDisplayedInput(SaveGameAction{},*handler.displayedInput());check(h.saves==0,"closed F9");return false;
+    check(!handler.displayedInput(),"retired session must not publish an input ticket");
+    check(!handler.withDisplayedInput(SaveGameAction{},*input),"retired session rejects retained F9 ticket");
+    check(h.saves==0,"closed F9");return false;
    } else if(mode==9) {
     // Save callbacks are observed through the supplied service function below.
     press(h,handler,SaveGameAction{});

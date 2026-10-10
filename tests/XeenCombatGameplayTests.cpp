@@ -19,7 +19,8 @@ void panelCombat() {
   XeenRestoreGuard guard(*h.world,*h.party,*h.camera,*h.flags);
   IndexedFrame visible=h.flow->frame();
   const auto send=[&](const PlayerAction &action) {
-   const auto next=handler.withPresentedInput(action,*handler.displayedInput(),visible.presentation());
+   const auto input=handler.displayedInput();check(bool(input),"combat panel input ticket");
+   const auto next=handler.withPresentedInput(action,*input,visible.presentation());
    check(bool(next),"combat panel response");visible=*next;
    handler.framePresented(visible.presentation());handler.completeInputHandoff(visible.presentation());guard.check();
   };
