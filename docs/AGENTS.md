@@ -14,6 +14,7 @@ workflow documents.
 | `docs/project-history.md` | One short paragraph per completed milestone | Short |
 | `docs/roadmap.md` | Next milestones and longer-term direction | ~100-150 lines |
 | `docs/milestone-N-plan.md` | That milestone's plan; condensed at closure | Closed: ~30-100 lines |
+| `docs/original-quirks.md` | Original DOS oddities kept on purpose, unconfirmed cases following the reference, and reference behavior not reproduced; QoL candidates | Grows by entry |
 | `docs/dependencies.md` | Toolchain, pinned ScummVM revision and configuration, build setup (authoritative) | - |
 | `docs/archive/` | Plans of milestones 6 and 15-43, kept as a historical record | Exempt |
 | `AGENTS.md`, `docs/AGENTS.md`, `tools/AGENTS.md` | Agent instructions: every task; documentation; complete test suite | Root under 200 lines |
