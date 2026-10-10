@@ -188,3 +188,11 @@ New picks a slot, name and difficulty; the in-game control panel saves, saves
 as, loads and quits as in DOS, with ten slots under Local AppData and the
 original pulsing text cursor. Save v7 adds the slot name. M52's temporary
 command-line entry is retired. [Plan](milestone-54-plan.md).
+
+**M55 - Interface gaps** (`9d51e42`, `9e4df22`, `ef7ec84`). The party can
+strafe, Quick Reference shows the party summary and Info the date, time and
+active effects, Exchange swaps two members and combat, Shoot, Rest, casting,
+barriers and treasure follow the new order, and Quick Fight runs each
+member's configured action with the original Options dialog, all by mouse and
+keyboard. Save v8 stores each character's quick action and remembered spell.
+[Plan](milestone-55-plan.md).

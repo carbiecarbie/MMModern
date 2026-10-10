@@ -20,8 +20,9 @@ food and recovery, and use the Ironworks (Buy and Armor Repair), Training and
 the Temple. Progress can be saved and continued exactly. The original main
 screen, character sheet, Items dialog and service screens work with mouse or
 keyboard, and the game starts on the original title screen with New, Load and
-the in-game Save, Save As, Load and Quit. Other areas, buying food, most spells
-and items, audio and Darkside gameplay are not available yet.
+the in-game Save, Save As, Load and Quit. The party can strafe, exchange
+members and use Quick Reference, Info and Quick Fight. Other areas, buying
+food, most spells and items, audio and Darkside gameplay are not available yet.
 
 [Project status](docs/project-status.md) describes the current state and gaps,
 [project history](docs/project-history.md) lists completed milestones and the
@@ -86,6 +87,7 @@ Floppy-bound saves are rejected before restoration with a data-edition diagnosti
 | --- | --- |
 | Up / Down | Move forward/back outside combat; in combat they show "not supported yet" |
 | Left / Right | Turn, also during combat |
+| Ctrl+Left / Ctrl+Right, keypad 4 / 6 | Strafe outside combat |
 | Arrows in the sheet | Select a stat |
 | Space | Interact outside combat; acknowledge text |
 | A | Attack in combat |
@@ -98,7 +100,10 @@ Floppy-bound saves are rejected before restoration with a data-edition diagnosti
 | R | Rest in exploration; Run in mainland combat |
 | B | Bash in exploration; Block in combat |
 | C | Learned spells |
-| I | Info (not supported yet); Items from the character sheet |
+| I | Info; Items from the character sheet |
+| Q | Quick Reference |
+| E in the character sheet | Exchange with another member |
+| F / O in combat | Quick Fight / Quick Fight Options |
 | W/A/C/M in Items | Weapons, Armor, Accessories, Misc |
 | E / R / U in Items | Equip / Remove / Use; select a row then F1-F6 to move it |
 | B / R in the Ironworks | Buy (browse stock and inventory services) / Armor Repair |

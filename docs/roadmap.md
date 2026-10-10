@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M54 is the latest completed and accepted milestone.**
+**M55 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -32,18 +32,17 @@ machinery: the code now has one save format and one Journey configuration, and
 
 <a id="near-term"></a><a id="deferred-presentation-work"></a>
 
-| Milestone | Tier | Goal | Accepted when |
-| --- | --- | --- | --- |
-| **M55 - Interface gaps** | A | Original Strafe movement, Exchange (party order), Quick Reference, Info (date, time and active effects) and Quick Fight (its Cast option may wait for magic), replacing their "not supported yet" notices. | Each works as in DOSBox by mouse and keyboard; save/restore exact. |
+No milestone is planned yet. The next step is a direction investigation that
+decides what the game's start still needs (character creation, magic,
+treasure, Tavern food, Inn, Map and Quests) and in what order.
 
 The order matters. M44-M48 lowered the cost of change and made input, menus
 and presentation original and generic, M49 corrected combat rules and M50
 admitted the whole of Vertigo from resources, and M51 added Rest, food and
 daily time. M52 started the original new game and M53 moved to the CD
 edition's data, the single reference edition, and M54 brought the original
-title screen and saves. M55 closes small interface gaps; then a direction
-investigation decides what the game's start still needs (character creation,
-magic, treasure, Tavern food, Inn, Map and Quests) and in what order.
+title screen and saves. M55 closed small interface gaps: Strafe, Exchange,
+Quick Reference, Info and Quick Fight.
 
 Deferred because they add no rework later: **audio** (sounds, music, voices;
 a separate additive system), the original **event dialogs, casting dialog and
@@ -51,7 +50,7 @@ treasure sequence** (better redone once more events are playable), and
 **animated location shopkeepers**. Combat-time equipping and the combat Use
 button remain Tier A future work.
 
-After M55 and that investigation, choose the next milestone from play-testing evidence. Likely candidates:
+After that investigation, choose the next milestone from play-testing evidence. Likely candidates:
 
 - **Leaving Vertigo:** connect the mainland to further areas,
   adding Event opcodes as they are reached. Map 22 (north of map 23) needs

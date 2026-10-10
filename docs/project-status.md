@@ -1,9 +1,11 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M54 is the latest completed
-milestone** ([plan](milestone-54-plan.md)): the game opens on the original
-title screen, and New, Load and the in-game control panel (Save, Save As,
-Load, Quit) work as in DOS, with ten save slots. M53
+This describes what can be played and done now. **M55 is the latest completed
+milestone** ([plan](milestone-55-plan.md)): Strafe, Exchange, Quick
+Reference, Info and Quick Fight work as in DOS, by mouse and keyboard. M54
+([plan](milestone-54-plan.md)) opened the game on the original title screen,
+with New, Load and the in-game control panel (Save, Save As, Load, Quit) and
+ten save slots. M53
 ([plan](milestone-53-plan.md)) moved to the World of Xeen CD talkie edition,
 the project's only reference edition, and its DOS interface text. M52 ([plan](milestone-52-plan.md)) started a new game from the
 original initialization in Vertigo, in either difficulty. M51
@@ -142,6 +144,7 @@ time or combat.
 | --- | --- |
 | Up / Down | Move forward/back outside combat |
 | Left / Right | Turn, also during combat |
+| Ctrl+Left / Ctrl+Right, keypad 4 / 6 | Strafe sideways with the facing unchanged; ignored in combat |
 | Space | Interact outside combat; acknowledge text |
 | A | Attack in combat |
 | Enter | Confirm (transfer, cast, purchase, Training, Temple); acknowledge |
@@ -153,7 +156,10 @@ time or combat.
 | B | Bash in exploration; Block in combat; Buy in the Ironworks lobby |
 | R | Rest in exploration; Run in mainland combat; Armor Repair in the Ironworks lobby |
 | C | Open learned spells (exploration or the acting member's book in combat) |
-| I | Info (not supported yet); in the character sheet, open Items |
+| I | Info (date, time and active effects); in the character sheet, open Items |
+| Q | Quick Reference (party summary), also from the character sheet |
+| E in the character sheet | Exchange: choose a member with F1-F6 or a portrait (refused in combat) |
+| F / O in combat | Quick Fight (the acting member's configured action) / Quick Fight Options |
 | W/A/C/M in Items | Weapons, Armor, Accessories, Misc |
 | E / R / U in Items | Equip / Remove / Use; select a row, then F1-F6 to move it to another member |
 | Tab | Control panel (Save, Save As, Load, Quit) |
@@ -163,8 +169,8 @@ time or combat.
 **Mouse.** On the main screen, left clicks work as in the original: the
 action and movement buttons, the combat buttons and targets 1-3, and the 3D
 view (Interact in exploration, Attack in combat). Buttons whose action is not
-implemented yet (Dismiss, View Quests, Map, Info, Quick Ref, Quick
-Fight and strafing) show "not supported yet"; the gem opens the control panel; portraits
+implemented yet (Dismiss, View Quests and Map) show "not supported yet"; the
+lower corner buttons strafe and the gem opens the control panel; portraits
 open the original character sheet, whose Items dialog is also clickable.
 Buttons briefly show their original pressed frame. The right button does
 nothing; casting still uses the keyboard. Clicks
@@ -182,8 +188,9 @@ is highlighted. The original mouse cursor is used.
 replace the project's inventory: stats with their popups, equip, remove,
 transfer and antidote use. In combat they open for viewing only; equipping
 and transferring say "not supported yet", and Use and Exchange give the
-original refusals. Discard, Quest, Quick Reference, Awards and Exchange are
-not supported yet.
+original refusals. Outside combat, Exchange swaps two members and Quick
+Reference opens the party summary. Discard, Quest and Awards are not
+supported yet.
 
 In exploration and combat, keys pressed while the
 game is still busy (redraws, animations, enemy turns) are buffered, up to five,
@@ -215,8 +222,9 @@ The earlier `--encounter-26`, `--encounter-27`, `--journey-skeleton` and
 
 ## Save format
 
-There is **one current save format**: envelope v7, schema 9, content 14, written
-by the Regional Journey. Until a public release, older formats are not read:
+There is **one current save format**: envelope v8, schema 9, content 14, written
+by the Regional Journey. v8 adds each character's quick action and remembered
+spell. Until a public release, older formats are not read:
 - A save from an older build is rejected before anything is restored, with "This
   save was created by an older MMModern build and is no longer supported."
 - A save from a newer or unrecognized build is rejected with a "newer or
