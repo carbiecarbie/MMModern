@@ -60,7 +60,10 @@ void panelControls(XeenAssetSource &assets,const XeenFontFormat &font) {
  d.key('1');d.key(13);check(d.flow.screen()==Screen::Overwrite,"Save As overwrite before name");
  d.key(27);check(d.flow.screen()==Screen::SaveSlots,"overwrite Escape to list");
  d.key(13);d.key('y');d.key(27);check(d.flow.screen()==Screen::SaveSlots,"Save As name Escape to list");
- d.key('3');d.key(13);d.type("New Name");d.key(13);
+ d.key('3');d.key(13);d.type("Discarded");d.key(27);
+ d.key('4');d.key(13);d.key(13);
+ check(d.flow.screen()==Screen::Name,"Save As retained a cancelled name on another slot");
+ d.key(27);d.key('3');d.key(13);d.type("New Name");d.key(13);
  check(d.flow.entry() && d.flow.entry()->kind==XeenSessionEntry::Kind::Save && d.flow.entry()->slot==2 && d.flow.entry()->name=="New Name","Save As request");
  d.flow.panelCurrent(2,"New Name");d.flow.panelResult(xeenDialogFormat(assets.uiText().scalar("SAVED_NOTICE"),{"New Name"}),true);d.present();
  check(d.flow.screen()==Screen::SavedNotice,"saved confirmation must use its original window");d.key(27);
@@ -77,14 +80,88 @@ void panelControls(XeenAssetSource &assets,const XeenFontFormat &font) {
  auto developer=services();developer.currentSlot.reset();developer.currentName.clear();Driver dev(std::move(developer));dev.key('s');
  check(dev.flow.screen()==Screen::SaveSlots,"developer Save must select managed slot");dev.key(27);
  const auto retired=dev.flow.frame().presentation();dev.key(27);check(!dev.flow.current() && !dev.flow.acceptsInput(retired),"panel Escape invalidates input");
- XeenTextInput input;input.begin();check(input.cursor()==32 && !input.animate(100),"cursor initial wait");
- const unsigned glyphs[]{124,126,127,126,124,32,124};
+ Driver cursorFlow(services());cursorFlow.key('a');cursorFlow.key('3');cursorFlow.key(13);
+ const auto cursorPixels=[&](unsigned glyph) {
+  XeenTextRenderOptions o;o.originalControls=true;o.drawWindow=true;o.windowBounds={52,149,268,198};
+  o.bounds={60,157,260,190};o.x=60;o.y=157;XeenTextRenderer renderer(font);
+  const auto prompt=renderer.render(assets.snapshot(),std::string(assets.uiText().scalar("NAME_PROMPT")),o);
+  o.drawWindow=false;o.x=prompt.writeX;o.y=prompt.writeY;o.size=prompt.writeSize;o.colorIndex=prompt.writeColor;
+  return renderer.render(prompt.pages.front(),std::string(1,char(glyph)),o).pages.front().pixels;
+ };
+ check(cursorFlow.flow.frame().pixels==cursorPixels(124),"name entry first visible cursor glyph");
+ cursorFlow.type(" ");check(cursorFlow.flow.frame().pixels==cursorPixels(126),"rejected leading space did not redraw/advance cursor");
+ cursorFlow.key(8);check(cursorFlow.flow.frame().pixels==cursorPixels(127),"empty backspace did not redraw/advance cursor");
+ XeenTextInput input;input.begin();check(input.cursor()==124 && !input.animate(100),"cursor first visible glyph/wait");
+ const unsigned glyphs[]{126,127,126,124,32,124,126};
  for(unsigned i=0;i<7;++i) {
   check(!input.animate(149+i*50),"cursor advanced before wait tick");
   check(input.animate(150+i*50) && input.cursor()==glyphs[i],"cursor glyph/cadence");
  }
- const auto glyph=input.cursor();check(input.type("Case !~ ",font) && input.cursor()==glyph && input.backspace() && input.value()=="Case !~","typing changed cursor phase/input");
- check(input.animate(700) && input.cursor()==32,"delayed fixed-clock cursor ticks");
+ check(input.animate(700) && input.cursor()==124,"delayed fixed-clock cursor ticks");
+ check(input.type("Case !~ ",font),"cursor input");input.keyRedraw();
+ check(input.cursor()==126 && input.backspace() && input.value()=="Case !~","typed key redraw cursor phase/input");
+ input.keyRedraw();check(input.cursor()==127 && !input.animate(700) && !input.animate(749),"backspace redraw did not restart wait cadence");
+ check(input.animate(750) && input.cursor()==126,"first wait tick after key redraw");
+}
+void animationResume(XeenTitleFlow::Services source) {
+ // An off-dialog pixel identifies the exact animation phase independently of
+ // fonts, menu text or palette fades, without adding a production test accessor.
+ for(unsigned i=0;i<source.animation.size();++i)source.animation[i].pixels[0]=i;
+ for(const auto screen:{Screen::NewSlots,Screen::LoadSlots,Screen::Name,Screen::Difficulty,
+   Screen::Overwrite,Screen::PublicationFailure,Screen::Credits}) {
+  Driver d(source);d.key(27);d.flow.animate(d.now);d.now+=200;d.flow.animate(d.now);d.present();
+  const auto phase=d.flow.frame().pixels[0];
+  if(screen==Screen::Credits)d.key('c');
+  else if(screen==Screen::LoadSlots)d.key('l');
+  else {
+   d.key('s');
+   if(screen==Screen::Overwrite){d.key('1');d.key(13);}
+   else if(screen!=Screen::NewSlots) {
+    d.key('3');d.key(13);
+    if(screen!=Screen::Name){d.type("Temporary");d.key(13);}
+    if(screen==Screen::PublicationFailure){d.key('a');d.flow.publicationFailure("Synthetic failure");d.present();}
+   }
+  }
+  check(d.flow.screen()==screen,"animation modal setup");
+  d.now+=10000;check(!d.flow.animate(d.now),"modal screen animated");
+  if(screen==Screen::PublicationFailure){d.flow.cancelPublication();d.present();}
+  else d.key(27);
+  if(d.flow.screen()==Screen::NewSlots)d.key(27);
+  check(d.flow.screen()==Screen::Menu && d.flow.frame().pixels[0]==phase,"modal visit changed retained phase");
+  check(!d.flow.animate(d.now),"animation resumed by consuming modal time");
+  if(screen==Screen::Credits){d.now+=1000;d.flow.animate(d.now);d.present();}
+  d.now+=200;check(bool(d.flow.animate(d.now)),"resumed animation did not tick");d.present();
+  check(d.flow.frame().pixels[0]==(phase+1)%source.animation.size(),"animation did not resume at phase+1");
+ }
+}
+void mappedHotkeys(const GameInstallation &installation,XeenAssetSource &assets,const XeenFontFormat &font) {
+ auto stream=installation.uiModule->open();std::vector<std::uint8_t> bytes(stream->size());
+ check(stream->read(bytes.data(),bytes.size())==bytes.size(),"hotkey DAT short read");
+ for(const auto &layout:XeenDosText::buttonLayouts())for(unsigned i=0;i<layout.count;++i)
+  bytes[layout.key+i]=std::string_view(layout.name)=="TITLE"?"jkuv"[i]:std::string_view(layout.name)=="DIFFICULTY"?"zx"[i]:'a'+i;
+ bytes[XeenDosText::kOtherButtonKeyOffsets[0]]='b';bytes[XeenDosText::kOtherButtonKeyOffsets[1]]='h';
+ const XeenDosText mapped(bytes);
+ std::array<XeenSaveFile::Slot,10> rows;auto snapshot=save_test::currentWireSnapshot();snapshot.name="Existing";
+ rows[0]={XeenSaveFile::Slot::State::Available,snapshot,{}};
+ const auto original=XeenTitleFlow::original(assets,font,[&]{return rows;},[](unsigned i){return std::filesystem::path(std::to_string(i));});
+ const auto services=[&](bool panel=false) {
+  XeenTitleFlow::Services s{mapped,font,original.background,original.animation,original.credits,original.draw,original.slots,original.path};
+  s.panel=panel;s.currentSlot=0;s.currentName="Existing";return s;
+ };
+ Driver d(services());d.key(27);d.key('j');d.key('e');d.key('p');d.type("Mapped");d.key(13);d.key('x');
+ check(d.flow.entry() && d.flow.entry()->slot==2 && d.flow.entry()->difficulty==XeenDifficulty::Warrior,"DAT-index New/chooser/difficulty mapping");
+ Driver load(services());load.key(27);load.key('v');load.key('b');
+ check(load.flow.screen()==Screen::Notice,"DAT-index Other Options mapping");load.key(27);load.key(27);load.key('u');
+ check(load.flow.screen()==Screen::Credits,"DAT-index Credits mapping");load.key(27);load.fade();load.key('k');load.key('c');load.key(13);
+ check(load.flow.entry() && load.flow.entry()->kind==XeenSessionEntry::Kind::Load,"DAT-index title Load mapping");
+ Driver p(services(true));
+ for(unsigned key:{'a','b','g','h'}){p.key(key);check(p.flow.screen()==Screen::Notice,"DAT-index deferred panel mapping");p.key(27);}
+ p.key('f');check(p.flow.screen()==Screen::Quit,"DAT-index Quit mapping");p.key('n');
+ p.key('i');check(p.flow.screen()==Screen::Wizard,"DAT-index Wizard mapping");p.key('n');
+ p.key('d');check(p.flow.entry() && p.flow.entry()->kind==XeenSessionEntry::Kind::Save,"DAT-index direct Save mapping");
+ p.flow.panelResult("Synthetic failure");p.present();p.key(27);p.key('e');
+ check(p.flow.screen()==Screen::SaveSlots,"DAT-index Save As mapping");p.key('m');p.key('c');
+ check(p.flow.screen()==Screen::LoadSlots,"DAT-index chooser Exit/panel Load mapping");
 }
 }
 int main(int argc,char **argv){try {
@@ -98,6 +175,7 @@ int main(int argc,char **argv){try {
  slots[5].state=XeenSaveFile::Slot::State::Protected;slots[5].reason="Synthetic protected target";
  const auto services=[&]{return XeenTitleFlow::original(assets,font,[&]{return slots;},[](unsigned slot){return std::filesystem::path("test-slots")/(std::to_string(slot)+".mmsave");});};
  panelControls(assets,font);
+ animationResume(services());mappedHotkeys(*installation,assets,font);
  Driver d(services());
  check(d.flow.screen()==Screen::Background,"plain title starts with animated background");d.key(27);
  const auto menu=d.flow.frame().pixels;const auto old=d.flow.frame().presentation();
@@ -137,13 +215,16 @@ int main(int argc,char **argv){try {
  d.key(13);check(d.flow.screen()==Screen::Name,"empty New slot must precede name");
  d.key(13);check(d.flow.screen()==Screen::Name,"empty name confirmed");
  d.type(std::string(1,char(127)));check(d.flow.screen()==Screen::Name,"invalid code changed name screen");
+ d.type("Discarded");d.key(27);d.key('4');d.key(13);d.key(13);
+ check(d.flow.screen()==Screen::Name && !d.flow.entry(),"New retained a cancelled name on another slot");
+ d.key(27);d.key('3');d.key(13);
  d.type("Case !~ ");d.key(8);d.key(13);check(d.flow.screen()==Screen::Difficulty,"name before difficulty");
  d.key(27);check(d.flow.screen()==Screen::NewSlots,"difficulty cancel must return to slots");
  d.key('1');d.key(13);check(d.flow.screen()==Screen::Overwrite,"occupied New requires overwrite before name");
  d.key('n');check(d.flow.screen()==Screen::NewSlots,"overwrite decline route");d.key(13);d.key('y');
  check(d.flow.screen()==Screen::Name,"overwrite acceptance route");d.key(27);check(d.flow.screen()==Screen::NewSlots,"name cancel route");
  d.key('3');d.key(13);d.type("X");d.key(13);d.key('w');
- check(d.flow.entry() && d.flow.entry()->kind==XeenSessionEntry::Kind::New &&
+ check(d.flow.entry() && d.flow.entry()->name=="X" && d.flow.entry()->kind==XeenSessionEntry::Kind::New &&
   d.flow.entry()->slot==2 && d.flow.entry()->difficulty==XeenDifficulty::Warrior,"New entry values");
  d.flow.publicationFailure("Synthetic write failure");d.present();d.key(27);
  check(d.flow.entry()->kind==XeenSessionEntry::Kind::CancelNew,"failed New cancel route");
@@ -152,8 +233,10 @@ int main(int argc,char **argv){try {
   load.flow.entry()->snapshot->name==saved.name,"title Load immutable candidate");
  slots[0].snapshot->name="Changed disk row";check(load.flow.entry()->snapshot->name==saved.name,"Load candidate borrowed mutable chooser row");
  slots={};Driver empty(services());empty.key(27);empty.key('l');check(empty.flow.screen()==Screen::Notice,"no-saves notice");empty.key(27);
- empty.key('s');empty.key('0');empty.key(13);empty.type(std::string(20,' '));empty.type("ignored");empty.key(13);empty.key('a');
- check(empty.flow.entry()->name==std::string(20,' ') && empty.flow.entry()->slot==9,"name byte limit/case-preserving round trip");
+ empty.key('s');empty.key('0');empty.key(13);empty.type(std::string(20,' '));empty.key(13);
+ check(empty.flow.screen()==Screen::Name && !empty.flow.entry(),"all-space name was accepted");
+ empty.type("  Case");empty.type(" + internal spaces  ");empty.type("ignored");empty.key(13);empty.key('a');
+ check(empty.flow.entry()->name=="Case + internal spac" && empty.flow.entry()->slot==9,"leading space rejection/name byte limit/case-preserving round trip");
  const auto retired=empty.flow.frame().presentation();empty.flow.close();
  check(!empty.flow.current() && !empty.flow.acceptsFrame(retired) && !empty.flow.handle(DialogKeyAction{'s'},retired),"closed title callbacks retained authority");
  }

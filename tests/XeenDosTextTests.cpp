@@ -22,6 +22,9 @@ void synthetic() {
  check(a.table("CLASS_NAMES").at(10).empty(),"intentional empty class");
  check(a.scalar("DAY_SINGULAR").empty(),"interior empty day suffix");
  for(const auto &layout:XeenDosText::buttonLayouts())check(a.buttons(layout.name).size()==layout.count,"button table count");
+ check(a.buttons("OTHER").size()==2 && a.buttons("OTHER")[0].key=='j' && a.buttons("OTHER")[1].key=='k',"Other Options script hotkeys");
+ rejects([](auto &b){b[XeenDosText::kOtherButtonKeyOffsets[0]-1]=0;});
+ rejects([](auto &b){b[XeenDosText::kOtherButtonKeyOffsets[1]]=0;});
  rejects([](auto &b){u16(b,0x4f162,320);});
  rejects([](auto &b){b[0x4f1bc]=199;});
  rejects([](auto &b){b[0x4f1cc]=0;});

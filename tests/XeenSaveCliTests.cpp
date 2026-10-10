@@ -40,6 +40,12 @@ int main(int argc,char **argv){try{
  {L"--render-map",game.wstring(),L"1",L"16",L"0",L"north"},
  {L"--render-map",game.wstring(),L"--save-file",L"--load-game"}};
  for(const auto &args:bad)check(launch(exe,args,log).exit==1,"invalid CLI syntax accepted");
+ for(const auto &args:std::vector<std::vector<std::wstring>>{
+  {game.wstring(),L"--difficulty",L"warrior"},{game.wstring(),L"--save-file",path.wstring()}}) {
+  const auto result=launch(exe,args,log);
+  check(result.exit==1 && result.output.find("Usage:")!=std::string::npos && !fs::exists(path),
+   "bare launch developer override must print usage without writing");
+ }
  for(bool explicitEntry:{false,true}) {
   const auto arguments=[&](std::vector<std::wstring> tail) {
    std::vector<std::wstring> args;if(explicitEntry)args.push_back(L"--new-game");

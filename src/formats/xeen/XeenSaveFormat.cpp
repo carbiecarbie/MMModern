@@ -574,7 +574,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 }
 
 bool XeenSaveFormat::validName(std::string_view name) noexcept {
-	return !name.empty() && name.size()<=20 && std::all_of(name.begin(),name.end(),[](unsigned char c) {
+	return !name.empty() && name.front()!=' ' && name.size()<=20 && std::all_of(name.begin(),name.end(),[](unsigned char c) {
 		return c>=0x20 && c<=0x7e;
 	});
 }

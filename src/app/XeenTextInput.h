@@ -13,18 +13,22 @@ class XeenTextInput {
 public:
  const std::string &value() const {return _value;}
  void clear() {_value.clear();}
- void begin() {_phase=0;_deadline.reset();}
+ void begin() {_phase=0;keyRedraw();}
+ void keyRedraw() {_phase=_phase?_phase-1:5;_deadline.reset();}
  unsigned cursor() const {static constexpr unsigned glyphs[]{32,124,126,127,126,124};return glyphs[_phase];}
  bool animate(std::uint64_t now) {
   if(!_deadline){_deadline=now+50;return false;}
   if(now<*_deadline)return false;
   const auto ticks=1+(now-*_deadline)/50;*_deadline+=ticks*50;
-  _phase=(_phase+ticks)%6;return true;
+  _phase=(_phase+6-ticks%6)%6;return true;
  }
  bool type(const std::string &packet,const XeenFontFormat &font) {
-  if(!XeenSaveFormat::validName(packet))return false;
+  if(packet.empty() || packet.size()>20 || !std::all_of(packet.begin(),packet.end(),[](unsigned char c){return c>=0x20 && c<=0x7e;}))return false;
   for(unsigned char c:packet)if(!font.advance(c,XeenFontSize::Normal))return false;
-  _value+=packet.substr(0,20-_value.size());return true;
+  // getString ignores spaces while the line is empty, including batched keys.
+  const auto first=_value.empty()?packet.find_first_not_of(' '):0;
+  if(first==std::string::npos)return false;
+  _value+=packet.substr(first,20-_value.size());return true;
  }
  bool backspace() {if(_value.empty())return false;_value.pop_back();return true;}
  IndexedFrame render(const IndexedFrame &base,const XeenFontFormat &font,

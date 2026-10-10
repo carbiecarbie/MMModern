@@ -267,6 +267,16 @@ XeenDosText::XeenDosText(const std::vector<std::uint8_t> &bytes) {
   if(word(bytes,layout.x+layout.count*2)!=65535)malformed("button table sentinel");
   _buttons.emplace(layout.name,std::move(buttons));
  }
+ // DOS Other Options reuses the title's first two positions, but constructs
+ // its hotkey array on the stack at 0xc2ce/0xc2e7 rather than in a data table.
+ auto other=_buttons.at("TITLE");other.resize(2);
+ for(unsigned i=0;i<other.size();++i) {
+  const auto at=kOtherButtonKeyOffsets[i];
+  if(at>=image || bytes[at-3]!=0xc6 || bytes[at-2]!=0x46 || bytes[at-1]!=0xf0+i || !bytes[at])
+   malformed("Other Options button key script");
+  other[i].key=bytes[at];
+ }
+ _buttons.emplace("OTHER",std::move(other));
 }
 const std::vector<XeenDosText::Button> &XeenDosText::buttons(std::string_view name) const {
  const auto it=_buttons.find(std::string(name));if(it==_buttons.end())throw std::out_of_range("Unknown DOS button table");return it->second;

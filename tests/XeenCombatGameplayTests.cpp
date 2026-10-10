@@ -24,8 +24,11 @@ void panelCombat() {
    handler.framePresented(visible.presentation());handler.completeInputHandoff(visible.presentation());guard.check();
   };
   send(ControlPanelAction{});check(handler.inputContext(visible.presentation()).dialog->hits.size()==9,"combat panel failed to open");
-  for(unsigned key:{'s','a','l'}) {
-   send(DialogKeyAction{key});check(handler.inputContext(visible.presentation()).dialog->anyKey,"combat refusal not visible");
+  for(unsigned button:{3u,4u,2u}) {
+   const auto key=dos_test::text().buttons("PANEL").at(button).key;
+   const auto action=handler.inputContext(visible.presentation()).dialog->key(key);
+   check(bool(action),"synthetic DAT combat panel hotkey");
+   send(*action);check(handler.inputContext(visible.presentation()).dialog->anyKey,"combat refusal not visible");
    send(DialogKeyAction{27});
   }
   h.now+=1000;idle();guard.check();

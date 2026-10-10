@@ -44,7 +44,8 @@ describes the panel and Save As but not Text.
   and Other Options use original buttons/hotkeys. Intro/logo movies and all audio are deferred; M54 starts at the title.
 - **Approved (maintainer):** title animation cadence (four 50-ms ticks, `R/worldofxeen/worldofxeen_menu.cpp`, `R/events.h`)
   and fade transitions (`R/screen.cpp`) follow the pinned reference unless the final DOSBox comparison shows a visible
-  difference. Preserve animation phase and input responsiveness.
+  difference. Preserve animation phase and input responsiveness; returning from a modal screen resumes at the next phase
+  with a fresh animation deadline.
 - Credits advance on click/any key, with Escape returning immediately to the menu; after page four return to the menu,
   never automatically advance. Other Options shows the two intro buttons; deferred movies report "not supported yet".
   Endings remain locked; no new unlock state or cinematic implementation.
@@ -56,10 +57,13 @@ describes the panel and Save As but not Text.
   are display-only patterns from DAT; MMModern never reads/writes native saves. Derive difficulty/highest party level from payload.
 - New: slot -> occupied-slot overwrite confirmation with thumbs -> name -> difficulty. Before selecting a slot, Escape returns
   to the main menu; from any later New screen, Escape returns to slot selection. Selection/name remain provisional until
-  difficulty is chosen. No cancellation writes a file; only successful publication makes the slot occupied/current.
+  difficulty is chosen. Every slot choice starts with an empty name in New and Save As, including after cancellation.
+  No cancellation writes a file; only successful publication makes the slot occupied/current.
 - Names: the DOS entry accepted every printable key and preserved case (observed). Store names as single-byte codes in the
   printable ASCII range 0x20-0x7E, exactly as entered, at most 20 bytes (one byte per character); reject other codes and any
-  code the original font cannot display, at entry and at save decode. Backspace deletes, Enter confirms only nonempty input,
+  code the original font cannot display, at entry and at save decode. Names cannot start with a space; an all-space name is
+  impossible. The reference cursor first displays glyph 124 and advances on each wait tick and key redraw.
+  Backspace deletes, Enter confirms only nonempty input,
   Escape cancels. Test the round trip of every accepted code. Never use a display name as a filesystem path.
 - Save As: occupied-slot confirmation -> name -> write -> success notice; dismissing success returns to the list. Escape during
   name entry or the overwrite confirmation returns to slot selection; Escape on slot selection returns to the control panel.
@@ -84,6 +88,7 @@ describes the panel and Save As but not Text.
 3. Reuse `XeenSaveFile::write` temporary-file, flush and atomic-replace path; failure leaves the previous slot intact.
    Validate CRC, resource signature and name before offering Load or overwrite. Reject corrupt, foreign-data, unknown and newer
    targets without mutation; recognizable older MMModern files retain the existing explicit replacement policy.
+   Loose developer saves also refuse to overwrite a current-format save from different game data.
    Serialize MMModern's own managed writes and re-validate the target immediately before the atomic replace. Guarantee scope:
    a foreign, corrupt or newer target present when Save starts, or swapped in before that final re-validation, is refused; an
    external replacement in the instant between re-validation and the OS rename is not defended (the slots live in an

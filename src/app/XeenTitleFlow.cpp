@@ -7,6 +7,15 @@ namespace mmodern {
 namespace {
 std::string str(std::string_view value){return std::string(value);}
 unsigned lower(unsigned key){return key>='A' && key<='Z'?key+('a'-'A'):key;}
+bool animating(XeenTitleFlow::Screen screen) {
+ using Screen=XeenTitleFlow::Screen;
+ return screen==Screen::Menu || screen==Screen::Background || screen==Screen::Other || screen==Screen::Notice;
+}
+std::optional<unsigned> buttonIndex(const XeenDosText &text,const char *table,unsigned key) {
+ const auto &buttons=text.buttons(table);
+ for(unsigned i=0;i<buttons.size();++i)if(lower(buttons[i].key)==key)return i;
+ return {};
+}
 IndexedFrame text(const IndexedFrame &base,const XeenFontFormat &font,const std::string &value,
  XeenTextRect outer,XeenTextRect inner,bool border,bool startup=true,bool stopAtBottom=false) {
  XeenTextRenderOptions options;options.originalControls=true;options.startupColors=startup;options.bounds=inner;
@@ -74,6 +83,8 @@ XeenTitleFlow::XeenTitleFlow(Services services):_services(std::move(services)) {
  render();
 }
 void XeenTitleFlow::setScreen(Screen screen) {
+ // Modal time is not animation debt. MainMenuContainer resumes with one draw.
+ if(!animating(_screen) && animating(screen))_deadline=0;
  if(_screen==Screen::Credits && screen==Screen::Menu){_fadeLevel=0;_fadeDeadline=0;_deadline=0;}
  if(screen==Screen::Name)_name.begin();
  _screen=screen;render();
@@ -112,9 +123,9 @@ DialogInput XeenTitleFlow::dialog() const {
    resource?std::optional<InputButton>{{resource,frame,int(button.x),int(button.y)}}:std::nullopt});
  };
  if(_screen==Screen::Menu || _screen==Screen::Other) {
-  const bool other=_screen==Screen::Other;const auto &buttons=_services.text.buttons("TITLE");
+  const bool other=_screen==Screen::Other;const auto &buttons=_services.text.buttons(other?"OTHER":"TITLE");
   const char *resource=_services.text.scalar(other?"OTHER_BUTTONS":"TITLE_BUTTONS").data();
-  for(unsigned i=0;i<(other?2u:4u);++i)add(buttons[i],other?(i?'c':'d'):lower(buttons[i].key),resource,i*2);
+  for(unsigned i=0;i<buttons.size();++i)add(buttons[i],lower(buttons[i].key),resource,i*2);
  } else if(_screen==Screen::Panel) {
   for(const auto &button:_services.text.buttons("PANEL"))
    add(button,lower(button.key),_services.text.scalar("PANEL_SPRITES").data(),0);
@@ -225,7 +236,7 @@ void XeenTitleFlow::choose() {
   entry.path=_services.path(*_selected);entry.snapshot=std::make_shared<const XeenSaveSnapshot>(*slot.snapshot);entry.name=*slot.snapshot->name;
   _entry=std::move(entry);return;
  }
- if(_services.panel)_name.clear();
+ _name.clear();
  setScreen(slot.state==XeenSaveFile::Slot::State::Empty?Screen::Name:Screen::Overwrite);
 }
 std::optional<IndexedFrame> XeenTitleFlow::handle(const PlayerAction &action,const IndexedFrame::Presentation &origin) {
@@ -233,52 +244,57 @@ std::optional<IndexedFrame> XeenTitleFlow::handle(const PlayerAction &action,con
  if(const auto *typed=std::get_if<TextInputAction>(&action)) {
   if(_screen!=Screen::Name || typed->text.empty())return {};
   // Reject the whole input packet on unsupported codes; preserve accepted case.
-  if(!_name.type(typed->text,_services.font))return {};
+  _name.type(typed->text,_services.font);_name.keyRedraw();
   render();return _frame;
  }
  const auto *keyAction=std::get_if<DialogKeyAction>(&action);
  const unsigned key=keyAction?lower(keyAction->key):std::holds_alternative<CancelInteractionAction>(action)?27:0;
  const bool escape=key==27;
  switch(_screen) {
- case Screen::Menu:
+ case Screen::Menu: {
+  const auto button=buttonIndex(_services.text,"TITLE",key);
   if(escape)setScreen(Screen::Background);
-  else if(key=='s')newSlots();
-  else if(key=='l') {
+  else if(button==0)newSlots();
+  else if(button==1) {
    _slots=_services.slots();_selected.reset();
    const bool any=std::any_of(_slots.begin(),_slots.end(),[](const auto &s){return s.state!=XeenSaveFile::Slot::State::Empty;});
    if(!any)notice(str(_services.text.scalar("NO_SAVES")),Screen::Menu);else setScreen(Screen::LoadSlots);
-  } else if(key=='c'){_page=0;setScreen(Screen::Credits);}
-  else if(key=='o')setScreen(Screen::Other);
+  } else if(button==2){_page=0;setScreen(Screen::Credits);}
+  else if(button==3)setScreen(Screen::Other);
   else return {};
   break;
+ }
  case Screen::Background:
   if(_firstTitle){_firstTitle=false;_phase=(_phase+1)%_services.animation.size();_deadline=0;}
   setScreen(Screen::Menu);break;
  case Screen::Other:
   if(escape)setScreen(Screen::Menu);
-  else if(key=='c' || key=='d')notice("not supported yet",Screen::Other);else return {};
+  else if(buttonIndex(_services.text,"OTHER",key))notice("not supported yet",Screen::Other);else return {};
   break;
  case Screen::Credits:
   if(escape || _page==3)setScreen(Screen::Menu);else {++_page;render();}break;
- case Screen::Panel:
+ case Screen::Panel: {
+  const auto button=buttonIndex(_services.text,"PANEL",key);
   if(escape){_closed=true;_inputFrame.reset();return {};}
-  if(key=='q'){setScreen(Screen::Quit);break;}
-  if(key=='w'){setScreen(Screen::Wizard);break;}
-  if(key=='e' || key=='m' || key=='p' || key=='t'){notice("not supported yet",Screen::Panel);break;}
-  if(key!='s' && key!='a' && key!='l')return {};
-  if(_services.combat){notice(str(_services.text.scalar(key=='l'?"NO_LOADING_IN_COMBAT":"NO_SAVING_IN_COMBAT")),Screen::Panel);break;}
+  if(button==5){setScreen(Screen::Quit);break;}
+  if(button==8){setScreen(Screen::Wizard);break;}
+  if(button==0 || button==1 || button==6 || button==7){notice("not supported yet",Screen::Panel);break;}
+  if(button!=2 && button!=3 && button!=4)return {};
+  const bool load=button==2;
+  if(_services.combat){notice(str(_services.text.scalar(load?"NO_LOADING_IN_COMBAT":"NO_SAVING_IN_COMBAT")),Screen::Panel);break;}
   if(!_services.saveable){notice("not supported yet",Screen::Panel);break;}
-  if(key!='l' && _services.saveRestricted){notice(str(_services.text.scalar("SAVE_RESTRICTED")),Screen::Panel);break;}
-  _saveAs=key!='l' && (key=='a' || !_services.currentSlot);
-  if(key=='s' && !_saveAs) {
+  if(!load && _services.saveRestricted){notice(str(_services.text.scalar("SAVE_RESTRICTED")),Screen::Panel);break;}
+  _saveAs=!load && (button==4 || !_services.currentSlot);
+  if(button==3 && !_saveAs) {
    XeenSessionEntry entry;entry.kind=XeenSessionEntry::Kind::Save;entry.slot=*_services.currentSlot;
    entry.name=_services.currentName;_entry=std::move(entry);break;
   }
   _slots=_services.slots();_selected.reset();_name.clear();
-  if(key=='l' && std::none_of(_slots.begin(),_slots.end(),[](const auto &s){return s.state!=XeenSaveFile::Slot::State::Empty;}))
+  if(load && std::none_of(_slots.begin(),_slots.end(),[](const auto &s){return s.state!=XeenSaveFile::Slot::State::Empty;}))
    notice(str(_services.text.scalar("NO_SAVES")),Screen::Panel);
-  else setScreen(key=='l'?Screen::LoadSlots:Screen::SaveSlots);
+  else setScreen(load?Screen::LoadSlots:Screen::SaveSlots);
   break;
+ }
  case Screen::Quit:case Screen::Wizard:
   if(escape){setScreen(Screen::Panel);break;}
   if(const auto answer=xeenConfirmAnswer(key)) {
@@ -287,33 +303,37 @@ std::optional<IndexedFrame> XeenTitleFlow::handle(const PlayerAction &action,con
    else {XeenSessionEntry entry;entry.kind=XeenSessionEntry::Kind::Exit;_entry=std::move(entry);}
   } else return {};
   break;
- case Screen::NewSlots:case Screen::LoadSlots:case Screen::SaveSlots:
-  if(escape)setScreen(_services.panel?Screen::Panel:Screen::Menu);
-  else if(key>='0' && key<='9') {
-   _selected=key=='0'?9:key-'1';
+ case Screen::NewSlots:case Screen::LoadSlots:case Screen::SaveSlots: {
+  const auto button=buttonIndex(_services.text,"CHOOSER",key);
+  if(escape || button==12)setScreen(_services.panel?Screen::Panel:Screen::Menu);
+  else if(button && *button>=2 && *button<=11) {
+   _selected=*button-2;
    if(_slots[*_selected].state==XeenSaveFile::Slot::State::Protected)notice(_slots[*_selected].reason,_screen);else render();
   }
-  else if(key==InputKey::Enter || key=='s')choose();else return {};
+  else if(key==InputKey::Enter || button==15)choose();else return {};
   break;
+ }
  case Screen::Overwrite:
   if(escape){setScreen(_services.panel?Screen::SaveSlots:Screen::NewSlots);break;}
   if(const auto answer=xeenConfirmAnswer(key)) {if(*answer)setScreen(Screen::Name);else setScreen(_services.panel?Screen::SaveSlots:Screen::NewSlots);}else return {};
   break;
  case Screen::Name:
+  if(!keyAction && !escape)return {};
   if(escape)setScreen(_services.panel?Screen::SaveSlots:Screen::NewSlots);
-  else if(key==8 && _name.backspace())render();
   else if(key==InputKey::Enter && !_name.value().empty()) {
    if(_services.panel){XeenSessionEntry entry;entry.kind=XeenSessionEntry::Kind::Save;entry.slot=*_selected;entry.name=_name.value();_entry=std::move(entry);}
    else setScreen(Screen::Difficulty);
-  }else return {};
+  }else {if(key==8)_name.backspace();_name.keyRedraw();render();}
   break;
- case Screen::Difficulty:
+ case Screen::Difficulty: {
+  const auto button=buttonIndex(_services.text,"DIFFICULTY",key);
   if(escape){setScreen(Screen::NewSlots);break;}
-  if(key=='a' || key=='w') {
+  if(button) {
    XeenSessionEntry entry;entry.kind=XeenSessionEntry::Kind::New;entry.slot=*_selected;entry.path=_services.path(*_selected);
-   entry.name=_name.value();entry.difficulty=key=='a'?XeenDifficulty::Adventurer:XeenDifficulty::Warrior;_entry=std::move(entry);
+   entry.name=_name.value();entry.difficulty=*button==0?XeenDifficulty::Adventurer:XeenDifficulty::Warrior;_entry=std::move(entry);
   }else return {};
   break;
+ }
  case Screen::Notice:case Screen::SavedNotice:setScreen(_noticeReturn);break;
  case Screen::PublicationFailure: {
   XeenSessionEntry entry;entry.kind=escape?XeenSessionEntry::Kind::CancelNew:XeenSessionEntry::Kind::Retry;_entry=std::move(entry);break;
@@ -335,8 +355,7 @@ std::optional<IndexedFrame> XeenTitleFlow::animate(std::uint64_t milliseconds) {
   _fadeLevel=static_cast<unsigned>(std::min<std::uint64_t>(128,_fadeLevel+ticks*2));
   render(false);if(_fadeLevel==128)_deadline=milliseconds+200;return _frame;
  }
- if(_closed || _entry || _screen==Screen::Credits || _screen==Screen::NewSlots || _screen==Screen::LoadSlots ||
-  _screen==Screen::Name || _screen==Screen::Difficulty || _screen==Screen::Overwrite || _screen==Screen::PublicationFailure)return {};
+ if(_closed || _entry || !animating(_screen))return {};
  if(!_deadline){_deadline=milliseconds+200;return {};}
  if(milliseconds<_deadline)return {};
  const auto steps=1+(milliseconds-_deadline)/200;_deadline+=steps*200;

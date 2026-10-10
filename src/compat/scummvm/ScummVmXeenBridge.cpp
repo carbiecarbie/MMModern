@@ -455,11 +455,11 @@ void ScummVmXeenBridge::loadPalette(const std::string &resourceName, XeenSceneAr
 	if(!source.archive)throw std::runtime_error("Missing palette in selected archive: "+resourceName);
 	std::unique_ptr<Common::SeekableReadStream> stream = openResource(*source.archive, resourceName, source.origin);
 	if (stream->size() != static_cast<int64>(IndexedFrame::kPaletteSize))
-		throw std::runtime_error("paleta com tamanho invalido: " + resourceName);
+		throw std::runtime_error("Invalid palette size: " + resourceName);
 
 	if (stream->read(_impl->palette.data(), static_cast<uint32>(_impl->palette.size())) !=
 			_impl->palette.size())
-		throw std::runtime_error("leitura incompleta da paleta: " + resourceName);
+		throw std::runtime_error("Incomplete palette read: " + resourceName);
 
 	for (std::uint8_t &component : _impl->palette)
 		component = static_cast<std::uint8_t>(component << 2);
@@ -471,12 +471,12 @@ void ScummVmXeenBridge::loadRawFramebuffer(const std::string &resourceName, Xeen
 	std::unique_ptr<Common::SeekableReadStream> stream = openResource(*source.archive, resourceName, source.origin);
 	const uint32 expectedSize = static_cast<uint32>(_impl->surface.w * _impl->surface.h);
 	if (stream->size() != expectedSize)
-		throw std::runtime_error("framebuffer RAW com tamanho invalido: " + resourceName);
+		throw std::runtime_error("Invalid RAW framebuffer size: " + resourceName);
 
 	for (int y = 0; y < _impl->surface.h; ++y) {
 		if (stream->read(_impl->surface.getBasePtr(0, y), _impl->surface.w) !=
 				static_cast<uint32>(_impl->surface.w))
-			throw std::runtime_error("leitura incompleta do framebuffer: " + resourceName);
+			throw std::runtime_error("Incomplete framebuffer read: " + resourceName);
 	}
 }
 

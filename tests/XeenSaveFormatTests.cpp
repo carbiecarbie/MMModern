@@ -37,18 +37,22 @@ void saveNames() {
  auto s=currentWireSnapshot();roundTrip(s);
  for(unsigned c=0;c<256;++c) {
   s.name=std::string(1,char(c));
-  if(c>=0x20 && c<=0x7e)roundTrip(s);
+  if(c>=0x21 && c<=0x7e)roundTrip(s);
   else rejects([&]{XeenSaveFormat::encode(s);},"name");
  }
- for(const auto &name:std::vector<std::string>{"",std::string(21,'a')}) {
+ for(const auto &name:std::vector<std::string>{""," leading",std::string(20,' '),std::string(21,'a')}) {
   s.name=name;rejects([&]{XeenSaveFormat::encode(s);},"name");
  }
- s.name=" Case + spaces ! ~  ";roundTrip(s);
+ s.name="Case + spaces ! ~  ";roundTrip(s);
  s.name=std::string(20,'a');auto wire=XeenSaveFormat::encode(s);roundTrip(s);
  for(unsigned c:{0u,31u,127u,128u,255u}) {
   auto bad=wire;bad.back()=c;fixIndependentEnvelope(bad);
   rejects([&]{XeenSaveFormat::decode(bad);},"name");
  }
+ auto leading=wire;leading[leading.size()-20]=' ';fixIndependentEnvelope(leading);
+ rejects([&]{XeenSaveFormat::decode(leading);},"name");
+ std::fill(leading.end()-20,leading.end(),' ');fixIndependentEnvelope(leading);
+ rejects([&]{XeenSaveFormat::decode(leading);},"name");
  auto bad=wire;bad[bad.size()-21]=21;fixIndependentEnvelope(bad);
  rejects([&]{XeenSaveFormat::decode(bad);},"name length");
  bad=wire;bad.pop_back();fixIndependentEnvelope(bad);

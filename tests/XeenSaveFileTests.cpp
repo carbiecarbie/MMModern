@@ -5,6 +5,7 @@
 #endif
 #include <windows.h>
 #include <winioctl.h>
+#include <shlobj.h>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -153,7 +154,7 @@ void extendedIdentityTests(const fs::path &directory) {
  rejects([&]{XeenSaveFile::write(resolved,first);});
  check(raw(actual)==Bytes({1,2,3}),"malformed save in literal directory was overwritten");noTemps();
  put(actual,oldBytes);
- for(auto failure:{XeenSaveFile::Operation::Write,XeenSaveFile::Operation::Replace}) {
+ for(auto failure:{XeenSaveFile::Operation::Write,XeenSaveFile::Operation::Replace,XeenSaveFile::Operation::Revalidate}) {
   bool sawTemporary=false;
   rejects([&]{XeenSaveFile::write(resolved,first,[&](auto op){
    if(op!=failure)return false;
@@ -188,7 +189,7 @@ void legacyReplacement(const fs::path &path) {
  for(const auto &old:older) {
   put(path,old);rejects([&]{XeenSaveFile::read(path);},"no longer supported");check(raw(path)==old,"older read mutated disk");
   using Op=XeenSaveFile::Operation;
-  for(auto failure:{Op::Open,Op::Write,Op::ShortWrite,Op::Flush,Op::Close,Op::Replace}) {
+  for(auto failure:{Op::Open,Op::Write,Op::ShortWrite,Op::Flush,Op::Close,Op::Replace,Op::Revalidate}) {
    rejects([&]{XeenSaveFile::write(path,current,[&](auto op){return op==failure;});});
    check(raw(path)==old,"failed older replacement changed bytes");
   }
@@ -215,15 +216,25 @@ void managedStorage(const fs::path &directory) {
  put(commercial/"xeen.cc",Bytes{1,2,3});put(commercial/"dark.cc",Bytes{4,5,6});
  GameInstallation install{commercial,commercial/"xeen.cc",commercial/"dark.cc",GameEdition::WorldOfXeen};
  const auto signature=XeenSaveFile::fingerprint(install);
+ // Execute the real default-path branch without creating anything there:
+ // protect that resolved folder as the repository, so validation stops before
+ // the first creation. All successful writes below use the temporary override.
+ PWSTR value=nullptr;
+ check(SUCCEEDED(SHGetKnownFolderPath(FOLDERID_LocalAppData,0,nullptr,&value)),"default Local AppData resolution");
+ const fs::path defaultLocal(value);CoTaskMemFree(value);
+ rejects([&]{XeenSaveFile::createSlotDirectory(install,defaultLocal);},"Cannot save inside");
  for(const auto &base:{commercial,repository}) {
   rejects([&]{XeenSaveFile::createSlotDirectory(install,repository,base);},"Cannot save inside");
   check(!fs::exists(base/"MMModern"),"protected directory creation");
  }
  TestJunction alias(fixture/"source-alias",commercial);
  rejects([&]{XeenSaveFile::createSlotDirectory(install,repository,alias.path);},"Cannot save inside");
+ TestJunction repositoryAlias(fixture/"repository-alias",repository);
+ rejects([&]{XeenSaveFile::createSlotDirectory(install,repository,repositoryAlias.path);},"Cannot save inside");
+ check(!fs::exists(repository/"MMModern"),"repository alias received a managed directory");
  const auto slots=XeenSaveFile::createSlotDirectory(install,repository,local);
  check(slots==XeenSaveFile::createSlotDirectory(install,repository,local),"managed directory key changed");
- auto named=sample();named.name=" My Game ~ ";named.resources=signature;
+ auto named=sample();named.name="My Game ~ ";named.resources=signature;
  for(unsigned i=0;i<10;++i) {
   const auto target=XeenSaveFile::slotPath(slots,i);
   check(XeenSaveFile::inspectSlot(target,signature).state==XeenSaveFile::Slot::State::Empty,"new slot occupied");
@@ -255,6 +266,7 @@ void managedStorage(const fs::path &directory) {
  XeenSaveFile::write(target,named,{},true);check(raw(target)==wire,"explicit older replacement");
  for(const auto &entry:fs::directory_iterator(slots))check(entry.path().extension()==".mmsave","managed temporary leaked");
  alias.remove();
+ repositoryAlias.remove();
  fs::remove_all(fixture);
 }
 
@@ -277,7 +289,7 @@ int main(int argc,char **argv) {
   XeenSaveFile::write(path,next); sameSnapshot(XeenSaveFile::read(path),next);
   const auto prior=raw(path);
   using Op=XeenSaveFile::Operation;
-  for (auto op:{Op::Open,Op::Write,Op::ShortWrite,Op::Flush,Op::Close,Op::Replace}) {
+  for (auto op:{Op::Open,Op::Write,Op::ShortWrite,Op::Flush,Op::Close,Op::Replace,Op::Revalidate}) {
    rejects([&]{XeenSaveFile::write(path,old,[&](Op current){return current==op;});});
    check(raw(path)==prior,"failed save damaged old bytes"); sameSnapshot(XeenSaveFile::read(path),next);
   }

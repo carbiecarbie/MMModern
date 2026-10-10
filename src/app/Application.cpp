@@ -146,7 +146,7 @@ void requireAutomaticEventSuccess(const XeenAutomaticEventResult &result) {
 
 void printManualEventResult(const XeenManualEventResult &result) {
 	if (std::holds_alternative<XeenManualEventNoEvent>(result)) {
-		std::cout << "Interaction: none evento nesta posicao e direcao.\n";
+		std::cout << "Interaction: no event at this position and direction.\n";
 	} else if (const auto *completed =
 			std::get_if<XeenManualEventCompleted>(&result)) {
 		std::cout << "Interaction: event completed ("
@@ -157,7 +157,7 @@ void printManualEventResult(const XeenManualEventResult &result) {
 			<< static_cast<unsigned>(special->wallValue) << ").\n";
 	} else if (const auto *pending =
 			std::get_if<XeenEventExecutionSuspended>(&result)) {
-		std::cout << "Interaction: apresentacao semantica pendente (texto ";
+		std::cout << "Interaction: semantic presentation pending (text ";
 		if (pending->request.textIndex)
 			std::cout << static_cast<unsigned>(*pending->request.textIndex);
 		else

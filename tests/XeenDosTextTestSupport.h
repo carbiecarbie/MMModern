@@ -25,6 +25,10 @@ inline std::vector<std::uint8_t> fixture() {
   }
  }
  std::set<std::size_t> patches;
+ for(unsigned i=0;i<XeenDosText::kOtherButtonKeyOffsets.size();++i) {
+  const auto at=XeenDosText::kOtherButtonKeyOffsets[i];
+  b[at-3]=0xc6;b[at-2]=0x46;b[at-1]=0xf0+i;b[at]='j'+i;
+ }
  for(const auto &layout:XeenDosText::buttonLayouts()) {
   for(unsigned i=0;i<layout.count;++i) {
    u16(b,layout.x+i*2,10);b[layout.y+i]=10;b[layout.width+i]=10;b[layout.height+i]=10;

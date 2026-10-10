@@ -86,7 +86,7 @@ void titlePublicationControls(Source &source) {
    combat_gameplay_test::Harness h;auto services=disengagementServices(source,h);
    services.originalStart=difficulty;services.loadInitialCamera=[&]{return XeenCharacterFormat::parsePartyLocation(source.pty);};
    unsigned seeds=0,publications=0,presentations=0;services.sampleJourneySeed=[&]{++seeds;return 1;};
-   services.saveName=" Case ~ ! ";std::optional<XeenSaveSnapshot> initialized;
+   services.saveName="Case ~ ! ";std::optional<XeenSaveSnapshot> initialized;
    const auto path=std::filesystem::temp_directory_path()/"mmodern-m54-initial.mmsave";std::filesystem::remove(path);
    services.publishInitial=[&](const XeenSaveSnapshot &snapshot,const std::function<void()> &checkSource) {
     ++publications;check(!presentations && snapshot.name==services.saveName,"New metadata/publication order");
