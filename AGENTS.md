@@ -149,6 +149,13 @@ closure rules. Do not create additional workflow or work-in-progress documents
 instructions). The only exception is the two specialized `AGENTS.md` files
 listed above.
 
+**Original quirks.** Whenever a task observes an oddity of the original game
+or of the pinned ScummVM reference and deliberately leaves it as is - an
+original bug reproduced on purpose, a case following the reference because DOS
+cannot be checked, or a reference behavior not followed - add an entry to
+`docs/original-quirks.md` in the same change, with its evidence and where it
+lives. This applies to observations made outside milestone scope too.
+
 ## Git
 
 - `main` is the stable branch. Prefer focused commits with clear messages.

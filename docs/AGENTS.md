@@ -43,3 +43,6 @@ Tier scope, reviews and acceptance are defined in the root `AGENTS.md`.
 - Do not record in-progress work, review transcripts, temporary review state or
   commit readiness in durable docs.
 - Archived plans in `docs/archive/` are historical, not current rules or scope.
+- `docs/original-quirks.md` is updated in the same change that keeps or
+  rejects an original or reference oddity (see the root `AGENTS.md`); it is
+  durable, not a work-in-progress list, and is not condensed at closure.
