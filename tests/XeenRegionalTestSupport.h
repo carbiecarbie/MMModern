@@ -118,7 +118,7 @@ inline XeenSaveState::Resources resources(){
     r.loadInitialParty=[]{return XeenPartyLoader().loadFromResources(characterBytes(),partyBytes());};
     r.loadInitialContext=[]{return XeenGameplayContextFormat::parse(partyBytes());};
     r.loadInitialPurse=[]{return XeenMonsterTreasure{};};
-    r.loadInitialRegionalRecovery=[]{return XeenRegionalRecoveryState{};};
+    r.loadInitialWorldFlags=[]{return XeenWorldFlags{};};
     r.loadInitialBankBalances=[]{return XeenBankBalances{};};
     return r;
 }
@@ -142,7 +142,7 @@ struct Fixture{
             p=XeenPartyLoader().loadFromResources(bytes,partyBytes());
             const auto r=resources();
             XeenJourneySetup setup{bytes,XeenGameplayContextFormat::parse(partyBytes()),monsters,event,1,r.regionalManifest};
-            setup.purse=XeenMonsterTreasure{};setup.regionalRecovery=XeenRegionalRecoveryState{};
+            setup.purse=XeenMonsterTreasure{};setup.worldFlags=XeenWorldFlags{};
             setup.regionalText=texts(23);setup.learnedNames=XeenLearnedSpellNames{};
             setup.learnedNamesProvider=r.loadLearnedSpellNames;
             setup.bank=XeenBankBalances{};setup.cityEventsProvider=[]{return events(28);};

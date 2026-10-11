@@ -61,7 +61,7 @@ inline void equalFields(const XeenSaveSnapshot &a,const XeenSaveSnapshot &b) {
         a.disabledEvents==b.disabledEvents && a.disabledObjects==b.disabledObjects &&
         x.entry==y.entry && x.schema==y.schema && x.content==y.content && x.initializedMap==y.initializedMap &&
         x.originalActorCount==y.originalActorCount && x.skeletonSeed==y.skeletonSeed && x.context==y.context &&
-        x.random==y.random && x.treasure==y.treasure && x.regionalRecovery==y.regionalRecovery,"M40 domain/context/purse/recovery/flags differs");
+        x.random==y.random && x.treasure==y.treasure && x.worldFlags==y.worldFlags,"M40 domain/context/purse/recovery/flags differs");
     check(x.serviceEconomy.has_value()==y.serviceEconomy.has_value(),"M40 economy presence differs");
     if(x.serviceEconomy)check(stockBytes(*x.serviceEconomy)==stockBytes(*y.serviceEconomy) &&
         x.serviceEconomy->bank.gold==y.serviceEconomy->bank.gold && x.serviceEconomy->bank.gems==y.serviceEconomy->bank.gems,"M40 stock/bank field differs");

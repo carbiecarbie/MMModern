@@ -2,6 +2,7 @@
 #define MMODERN_GAMES_XEEN_MAP_H
 
 #include "games/xeen/XeenNavigation.h"
+#include "games/xeen/XeenHeadState.h"
 
 #include <array>
 #include <cstddef>
@@ -73,6 +74,7 @@ struct XeenEventInstruction {
 struct XeenMap {
 	XeenMutable<XeenSide> side = XeenSide::Clouds; // Loading context, not serialized geometry.
 	XeenMapGeometry geometry;
+	XeenMutableOptional<std::array<XeenHeadIndicators,256>> heads;
 	XeenMapEntities entities;
 	XeenMutableVector<XeenEventInstruction> instructions;
 	XeenMapIdentity identity() const { return {side, geometry.id}; }

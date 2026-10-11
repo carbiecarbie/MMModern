@@ -206,6 +206,7 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 		validateMap(s.exploredTiles[i].mapId);
 		require(i==0 || s.exploredTiles[i-1].mapId<s.exploredTiles[i].mapId,"explored tile identities must be strictly ordered");
 	}
+	if(s.headCache)require(s.headCache->mapId==s.camera.mapId,"head cache must belong to the primary map");
 	validateIdentities(s.disabledObjects, kMaximumObjects);
 	validateIdentities(s.disabledEvents, kMaximumEvents);
 	require(s.objectOverrides.size()<=kMaximumObjects,"too many object overrides");
@@ -231,7 +232,7 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 		"unsupported Journey domain/schema/content");
 	require(j.serviceEconomy.has_value(), "Journey economy presence mismatch");
 	if (j.serviceEconomy) xeenValidateCurrentServiceEconomy(*j.serviceEconomy);
-	require(j.regionalRecovery.has_value(), "Journey recovery presence mismatch");
+	require(j.worldFlags.has_value(), "Journey recovery presence mismatch");
 	require(j.context.has_value(), "missing Journey context");
 	// Stock may be depleted on any canonical day, including after year rollover.
 	// All dates use the current stock validator, including depletion.
@@ -388,7 +389,7 @@ std::vector<std::uint8_t> XeenSaveFormat::encode(const XeenSaveSnapshot &s) {
 	for(unsigned category=0;category<2;++category) for(const auto &r:category?v.armor:v.weapons) if(r.item.id) {
 		out.u8(r.source);out.u8(r.item.material);out.u8(r.item.id);out.u8(r.item.state);out.u8(r.item.frame);
 	}
-	out.u8(j.regionalRecovery->worldFlag16);
+	for (bool flag:j.worldFlags->values) out.u8(flag);
 
 	out.u8(30);
 	for (std::size_t owner=0; owner<s.characters.size(); ++owner) {
@@ -433,7 +434,15 @@ std::vector<std::uint8_t> XeenSaveFormat::encode(const XeenSaveSnapshot &s) {
 	for(const auto &tile:s.exploredTiles) {
 		out.map(tile.mapId);for(auto byte:tile.cells)out.u8(byte);
 	}
-	// Zero is the explicit absent-name encoding for developer loose saves.
+	// v11: bounded primary-map cache overrides; original HED remains resource driven.
+ out.u8(s.headCache.has_value());
+ if(s.headCache) {
+  out.map(s.headCache->mapId);
+  unsigned count=0;for(const auto &head:s.headCache->overrides)count+=head.has_value();
+  out.u16(count);
+  for(unsigned i=0;i<256;++i)if(const auto &head=s.headCache->overrides[i]) {out.u8(i);out.u8(head->left);out.u8(head->right);}
+ }
+ // Zero is the explicit absent-name encoding for developer loose saves.
 	out.u8(s.name ? static_cast<std::uint8_t>(s.name->size()) : 0);
 	if (s.name) for (unsigned char byte : *s.name) out.u8(byte);
 
@@ -491,7 +500,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	if (j.schema != kJourneySchema || j.content != kJourneyContent) throw unsupportedPair(j.schema, j.content);
 	// Bound allocation before parsing; the exact dynamic extent is verified
 	// after the actor and treasure counts are decoded.
-	require(suffixSize >= 4099+19+1+3875+2 && suffixSize <= 4099+19*107+4+21*107+5*12+21+3875+10*kMaximumObjects+2+35*kMaximumExploredTiles, "Journey schema-9 size mismatch");
+	require(suffixSize >= 4099+127+19+1+3875+2+1 && suffixSize <= 4099+127+19*107+4+21*107+5*12+21+3875+10*kMaximumObjects+2+35*kMaximumExploredTiles+774, "Journey schema-9 size mismatch");
 	require(in.u8() == 1, "missing Journey context");
 	XeenGameplayContext c;
 	require(in.u8() == 0, "invalid Journey profile");
@@ -548,7 +557,8 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 		require(r.item.id!=0,"Empty wire treasure");
 	}
 	j.treasure=v;
-	j.regionalRecovery=XeenRegionalRecoveryState{in.boolean()};
+	j.worldFlags.emplace();
+	for (auto &flag:j.worldFlags->values) flag=in.boolean();
 
 	require(in.u8()==30,"Invalid learned-spell owner count");
 	for (unsigned owner=0; owner<30; ++owner) {
@@ -606,14 +616,22 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 		XeenExploredTile tile;tile.mapId=in.map();for(auto &byte:tile.cells)byte=in.u8();
 		s.exploredTiles.push_back(tile);
 	}
-	const auto nameLength=in.u8();
+	unsigned headSize=1;
+ if(in.boolean()) {
+  s.headCache=XeenHeadCache{in.map(),{}};const unsigned headCount=in.u16();
+  require(headCount<=256 && headCount<=in.remaining()/3,"invalid head override count");
+  int previous=-1;
+  for(unsigned i=0;i<headCount;++i) {const auto cell=in.u8();require(cell>previous,"unordered head overrides");previous=cell;s.headCache->overrides[cell]=XeenHeadIndicators{in.u8(),in.u8()};}
+  headSize+=5+3*headCount;
+ }
+ const auto nameLength=in.u8();
 	require(nameLength<=20 && nameLength<=in.remaining(), "invalid save name length");
 	if(nameLength) {
 		s.name.emplace(reinterpret_cast<const char *>(bytes.data()+in.position),nameLength);
 		in.position+=nameLength;
 		require(validName(*s.name), "invalid save name");
 	}
-	require(suffixSize==expected+5u*n+3875+10*objectCount+2+35*exploredCount+1+nameLength,"Invalid city/economy suffix length");
+	require(suffixSize==expected+127+5u*n+3875+10*objectCount+2+35*exploredCount+headSize+1+nameLength,"Invalid city/economy suffix length");
 
 	s.journey = std::move(j);
 

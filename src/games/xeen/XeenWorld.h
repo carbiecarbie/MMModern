@@ -27,6 +27,7 @@
 
 namespace mmodern {
 
+enum class XeenDamageType : std::uint8_t;
 class XeenEventPublication;
 enum class XeenJourneyActivity { Unbound, Quiet, Event, Approach, Attachment, Combat, Presentation, Saving, Shoot, Reward, ItemUse, Casting, Failed, SupportStopped, Service };
 class XeenGameFlags;
@@ -61,6 +62,7 @@ public:
 	XeenReadOnlySet<XeenEventIdentity> disabledEvents() const noexcept { return XeenReadOnlySet<XeenEventIdentity>(_events); }
 	const std::vector<XeenBarrierOverride> &barriers() const noexcept { return _barriers; }
 	const std::vector<XeenObjectOverride> &objectOverrides() const noexcept {return _objectOverrides;}
+	const XeenMutableOptional<XeenHeadCache> &headCache() const noexcept { return _headCache; }
 	const std::vector<XeenExploredTile> &exploredTiles() const noexcept {return _exploredTiles;}
 	bool encounterMarked() const { return _encounterMarked; }
 	XeenEncounterEntry encounterEntry() const noexcept { return _entry; }
@@ -107,6 +109,7 @@ private:
 	std::vector<XeenBarrierOverride> _barriers;
 	std::vector<XeenObjectOverride> _objectOverrides;
 	std::vector<XeenExploredTile> _exploredTiles;
+	XeenMutableOptional<XeenHeadCache> _headCache;
 };
 
 class XeenWorld {
@@ -147,6 +150,12 @@ public:
 	void objectFlipDrawn(XeenObjectIdentity id,bool flipped) {_scenePresentation.objectFlips[id]=flipped;}
 	void applyEventGrant(XeenPartyState &,std::uint8_t mode,std::uint32_t value,
 		std::optional<std::size_t> member,bool entireParty,bool give);
+	XeenHeadIndicators headIndicators(const XeenCamera &);
+	void alterHeads(const XeenCamera &,XeenHeadIndicators);
+	void reloadHeads(XeenMapIdentity);
+	void restoreHeads(const std::optional<XeenHeadCache> &,const XeenCamera &);
+	void applyEventDamage(XeenPartyState &,unsigned,XeenDamageType,std::optional<std::size_t>,bool);
+	void applyEventYear(XeenPartyState &,XeenGameFlags &,unsigned);
 	void retainEventRandom(const XeenJourneyRandomState &);
 	void publishEventParty(XeenPartyState &,const XeenPartyState &) noexcept;
 	bool isEventDisabled(XeenEventIdentity id) const { return _sessionState.isEventDisabled(id); }

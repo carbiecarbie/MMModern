@@ -13,6 +13,7 @@
 #include "games/xeen/XeenBarrierState.h"
 #include "games/xeen/XeenObjectState.h"
 #include "games/xeen/XeenExploration.h"
+#include "games/xeen/XeenHeadState.h"
 
 #include <optional>
 #include <string>
@@ -72,7 +73,7 @@ struct XeenSaveJourney {
 	std::optional<std::vector<XeenSaveJourneyActor>> vertigoActors;
 	std::uint16_t cityOriginalActorCount = 46;
 	std::optional<XeenMonsterTreasure> treasure;
-	std::optional<XeenRegionalRecoveryState> regionalRecovery;
+	std::optional<XeenWorldFlags> worldFlags;
 	std::optional<XeenServiceEconomy> serviceEconomy;
 };
 
@@ -92,6 +93,7 @@ struct XeenSaveSnapshot {
 	std::vector<XeenBarrierOverride> barriers;
 	std::vector<XeenObjectOverride> objectOverrides;
 	std::vector<XeenExploredTile> exploredTiles;
+	std::optional<XeenHeadCache> headCache;
 	std::optional<XeenSaveJourney> journey;
 
 	XeenSaveSnapshot() {

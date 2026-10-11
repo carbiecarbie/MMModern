@@ -485,6 +485,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 				}
                 if(_encounter->_rest)rendered=drawRest(rendered);
                 if(_encounter->_needsRestNotice)rendered=drawXeenErrorScroll(rendered,_inventoryFont,std::string(xeenDialogText(dosText(),XeenDialogText::PartyNeedsRest)));
+    const bool heads=drawPendingHeads(rendered);
 				_inventoryUnderlay = rendered;
 				if (inventoryOpen()) rendered = drawCharacterDialog(rendered);
 				if (_smithUi) rendered=drawSmith(composed.frame);
@@ -499,7 +500,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 				if (!attempt && beforeEncounterFrameCopy) beforeEncounterFrameCopy();
 				if (!_encounter->current(t)) throw std::logic_error("Stale Journey frame copy");
 				returned = rendered; _frame = std::move(rendered);
-				_ordinary.containsOrdinaryAnimation = composed.containsOrdinaryAnimation;
+				_ordinary.containsOrdinaryAnimation = composed.containsOrdinaryAnimation || heads;
 				sealFrame(returned);
 			}, cosmetic)) {
 				if (_inputGeneration == std::numeric_limits<std::uint64_t>::max()) throw std::overflow_error("Journey input generation exhausted");
@@ -626,8 +627,9 @@ bool XeenEventFlow::refreshScene(bool reconstruct, OrdinaryCause cause, bool com
 		auto composition=_encounterCompose(_ordinary.phase,_encounter->appearance());
 		requireCurrentOwners();
 		_frame=_presenter.rebase(composition.frame);
+  const bool heads=drawPendingHeads(_frame);
 		requireCurrentOwners();
-		_ordinary.containsOrdinaryAnimation=composition.containsOrdinaryAnimation;
+		_ordinary.containsOrdinaryAnimation=composition.containsOrdinaryAnimation || heads;
 		return true;
 	}
 	if (_encounter && (journey() || _encounter->combat())) { if (!journey()) renderEncounter(); return true; }
@@ -649,6 +651,7 @@ bool XeenEventFlow::refreshScene(bool reconstruct, OrdinaryCause cause, bool com
 		_ordinary.containsOrdinaryAnimation = composition.containsOrdinaryAnimation;
 		if (cameraChanged && !_pending) _presenter.clear();
 		_frame = _presenter.rebase(composition.frame);
+  _ordinary.containsOrdinaryAnimation=drawPendingHeads(_frame) || _ordinary.containsOrdinaryAnimation;
 		_inventoryUnderlay = _frame;
 		_renderedCamera = _camera;
 		_disabledObjects = count;
@@ -906,7 +909,7 @@ void XeenEventFlow::prepareVertigoResult(const XeenManualEventResult &result) tr
 		(work.preludeRequired && !work.preludePublished))
 		throw std::logic_error("Event completion metadata or prelude boundary changed");
 	if(sameMap) {
-		if(!xeen_state::sameCamera(work.camera,work.initialCamera) ||
+		if(!work.world->sampleCell(work.camera.mapId,work.camera.x,work.camera.y) ||
 			((work.kind==XeenRegionalInteraction::VertigoEntrance || work.kind==XeenRegionalInteraction::VertigoExit) && !work.refused))
 			throw std::logic_error("Same-map Event escaped its physical continuation capability");
 		work.destinationEvents=_encounter->_journeyEvents;
@@ -1000,7 +1003,10 @@ IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operat
 		XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world,[&] { publication.check(); });
 		_eventPublication=&publication;
 		try { operation(); publication.check();
-            for(unsigned owner=0;owner<30;++owner)if(publication.portraitEffectOwners&(1u<<owner))_world.scenePresentation().spellEffect(owner,_encounter->_lastTime);
+            for(unsigned owner=0;owner<30;++owner) {
+             if(publication.portraitEffectOwners&(1u<<owner))_world.scenePresentation().spellEffect(owner,_encounter->_lastTime);
+             if(publication.damageEffects[owner])_world.scenePresentation().portraitDamage(owner,*publication.damageEffects[owner],_encounter->_lastTime);
+            }
         }
 		catch (...) { _eventPublication=nullptr; throw; }
 		_eventPublication=nullptr;
@@ -1154,7 +1160,21 @@ XeenPresentationUpdate XeenEventFlow::presentPendingEvent() {
 	}
 	if(request.kind==XeenPresentationKind::CenteredMessage && request.source.opcode==0x0c && request.text.empty())
 		request.text=xeenNotEnoughGold(dosText());
-	return _presenter.present(_frame,request);
+	auto presented=_presenter.present(_frame,request);
+ if(drawPendingHeads(presented.frame))_ordinary.containsOrdinaryAnimation=true;
+ return presented;
+}
+bool XeenEventFlow::drawPendingHeads(IndexedFrame &frame) {
+ if(!_pending || !_pending->state.pendingPresentation || !_presenter.blocksGameplay())return false;
+ const auto &request=_pending->state.pendingPresentation->request;
+ const auto &party=_transition?_transition->party:_party;
+ if(!drawDialogSprite || (request.kind!=XeenPresentationKind::CharacterSelection && request.response!=XeenPresentationResponseRequirement::YesNo) || !party.encounterContext || !party.encounterContext->effects[0])return false;
+ auto &world=_transition?*_transition->world:_world;
+ const auto &camera=_transition?_transition->camera:_camera;
+ const auto heads=world.headIndicators(camera);const unsigned phase=_ordinary.phase%4;
+ drawDialogSprite(frame,"border.icn",heads.left==2?0:phase+(heads.left==0?4:0),0,32);
+ drawDialogSprite(frame,"border.icn",heads.right==2?8:phase+(heads.right==0?9:12),215,32);
+ return true;
 }
 std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 	requireCurrentOwners();

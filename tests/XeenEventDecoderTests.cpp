@@ -352,6 +352,14 @@ int main() {
 			failure(XeenEventDecoder::decode(record(0x3c,std::vector<std::uint8_t>(size))),XeenEventDecodeErrorKind::MalformedInstruction);
 		failure(XeenEventDecoder::decode(record(0x3c,{61,0,0,0,0})),XeenEventDecodeErrorKind::UnsupportedOperand);
         testTeleports();
+  const auto heads=operation<XeenEventAlterHeads>(XeenEventDecoder::decode(record(0x24,{0,1})));
+  check(heads.left==0 && heads.right==1,"AlterHed byte operands");
+  const auto damage=operation<XeenEventDamage>(XeenEventDecoder::decode(record(0x16,{0x34,0x12,5})));
+  check(damage.amount==0x1234 && damage.type==5,"Typed damage little-endian amount/type");
+  for(unsigned size:{0u,1u,3u})failure(XeenEventDecoder::decode(record(0x24,std::vector<std::uint8_t>(size))),XeenEventDecodeErrorKind::MalformedInstruction);
+  for(unsigned size:{0u,1u,2u,4u})failure(XeenEventDecoder::decode(record(0x16,std::vector<std::uint8_t>(size))),XeenEventDecodeErrorKind::MalformedInstruction);
+  failure(XeenEventDecoder::decode(record(0x16,{5,0,7})),XeenEventDecodeErrorKind::UnsupportedOperand);
+
 		testCallEvent();
 		testConditionals();
 		testTakeOrGive();

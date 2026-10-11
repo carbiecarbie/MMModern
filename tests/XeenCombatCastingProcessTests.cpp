@@ -32,7 +32,7 @@ void equal(const fs::path &a,const fs::path &b) {
         left.camera.direction==right.camera.direction && left.questItems==right.questItems && left.questFlags==right.questFlags &&
         left.journey->schema==right.journey->schema && left.journey->content==right.journey->content &&
         left.journey->initializedMap==right.journey->initializedMap && left.journey->originalActorCount==right.journey->originalActorCount &&
-        left.journey->regionalRecovery==right.journey->regionalRecovery,"M39 camera/domain/recovery/quest comparison differs");
+        left.journey->worldFlags==right.journey->worldFlags,"M39 camera/domain/recovery/quest comparison differs");
     child_test::require(left.journey->random==right.journey->random && left.journey->context==right.journey->context &&
         left.activeRosterIds==right.activeRosterIds && left.gameFlags==right.gameFlags && left.disabledEvents==right.disabledEvents &&
         left.disabledObjects==right.disabledObjects && left.journey->treasure==right.journey->treasure,"M39 context/flags/RNG/treasure differs");

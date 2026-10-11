@@ -51,6 +51,13 @@ void error(const XeenEventExecutionStepResult&r,Kind kind){const auto*e=std::get
 void complete(const XeenEventExecutionStepResult&r){check(std::holds_alternative<XeenEventExecutionCompleted>(r),"set did not complete");}
 
 void valuesAndLoading() {
+ // Generic world flags occupy the separate packed block before Clouds quests.
+ for(unsigned bit=0;bit<128;++bit) {Bytes packed(747);packed[723+bit/8]=1u<<(bit%8);const auto before=packed;
+  const auto world=XeenQuestFlagFormat::parseWorldFlags(packed);
+  for(unsigned i=0;i<128;++i)check(bool(world.values[i])==(i==bit),"world-flag offset/bit/domain isolation");
+  check(packed==before,"world-flag parser wrote original bytes");
+ }
+ for(unsigned size:{0u,722u,723u,738u})rejects([&]{XeenQuestFlagFormat::parseWorldFlags(Bytes(size));});
 	XeenCloudsQuestFlags empty;
 	for(int i=0;i<30;++i){check(!empty.isSet(i) && XeenCloudsQuestFlags::validIndex(i),"default/domain");
 		auto copy=empty;copy.set(i);copy.set(i);for(int j=0;j<30;++j)check(copy.isSet(j)==(i==j) && !empty.isSet(j),"independent/idempotent flags");}

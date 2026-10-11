@@ -231,7 +231,7 @@ XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenP
 		const XeenEventFile &events, std::uint32_t seed,
 		const std::optional<XeenMonsterTreasure> &purse, const std::optional<XeenBankBalances> &bankInput,
 		const FreshPublicationPreparation &beforePublication) {
-	return initializeStart(world,party,camera,state,chr,context,statistics,events,events,seed,purse,bankInput,true,party.regionalRecovery,
+	return initializeStart(world,party,camera,state,chr,context,statistics,events,events,seed,purse,bankInput,true,party.worldFlags,
 		[&](const auto &candidate,const auto &actors,const auto &random,const auto &,const auto &) {
 			if(beforePublication)beforePublication(candidate,actors,random);
 		});
@@ -241,7 +241,7 @@ XeenEncounterResult XeenActorApproach::initializeStart(XeenWorld &world, XeenPar
 		const XeenGameplayContext &context, const std::vector<XeenMonsterRecord> &statistics,
 		const XeenEventFile &events, const XeenEventFile &mainlandEvents, std::uint32_t seed,
 		const std::optional<XeenMonsterTreasure> &purse, const std::optional<XeenBankBalances> &bankInput,
-		bool prepared, const std::optional<XeenRegionalRecoveryState> &recovery, const StartPublicationPreparation &beforePublication) {
+		bool prepared, const std::optional<XeenWorldFlags> &recovery, const StartPublicationPreparation &beforePublication) {
 	const auto bank=bankInput; // Detach before all further compatibility callbacks.
 	const auto preparePublication=beforePublication;
 	const auto &policy=xeenJourneyContent();
@@ -261,7 +261,7 @@ XeenEncounterResult XeenActorApproach::initializeStart(XeenWorld &world, XeenPar
 	if(!prepared)require(reservation._objects.empty() && reservation._events.empty() && reservation._barriers.empty() &&
 		reservation._accountedMonsters.empty() && !reservation._vertigoActors && world._cityStatistics.empty(),"Original start requires clean resource state");
 	XeenPartyState candidate(party);
-	if(!prepared) {require(bool(recovery) && !party.regionalRecovery,"Original recovery preparation mismatch");candidate.regionalRecovery=recovery;}
+	if(!prepared) {require(bool(recovery) && !party.worldFlags,"Original recovery preparation mismatch");candidate.worldFlags=recovery;}
 	require(bool(purse),"Fresh consequence purse presence mismatch");
 	candidate.monsterTreasure=purse;
 	{
@@ -353,7 +353,7 @@ XeenEncounterResult XeenActorApproach::initializeStart(XeenWorld &world, XeenPar
 	party.roster._combatMarked = true; party.encounterContext = candidate.encounterContext;
 	party.monsterTreasure=candidate.monsterTreasure;
 	party.serviceEconomy=candidate.serviceEconomy;
-	if(!prepared)party.regionalRecovery=candidate.regionalRecovery;
+	if(!prepared)party.worldFlags=candidate.worldFlags;
 	world._cityStatistics.swap(cityStatistics);
 	s._actors.swap(actors); s._entry = XeenEncounterEntry::Journey;
 	if(cityActors) {

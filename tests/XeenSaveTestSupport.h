@@ -51,7 +51,7 @@ inline void sameSnapshot(const XeenSaveSnapshot &a, const XeenSaveSnapshot &b) {
 	check(a.activeRosterIds == b.activeRosterIds, "membership order changed");
 	check(a.barriers==b.barriers,"barrier overrides changed");
 	check(a.objectOverrides==b.objectOverrides,"object overrides changed");
-	check(a.exploredTiles==b.exploredTiles,"explored tiles changed");
+	check(a.headCache==b.headCache && a.exploredTiles==b.exploredTiles,"explored tiles changed");
 	for(unsigned owner=0;owner<30;++owner)check(a.characters[owner].awards==b.characters[owner].awards,"award counts changed");
 	for (std::size_t i = 0; i < a.characters.size(); ++i)
 		remove_test::checkSameCharacter(a.characters[i], b.characters[i]);
@@ -65,7 +65,7 @@ inline void sameSnapshot(const XeenSaveSnapshot &a, const XeenSaveSnapshot &b) {
 		check(x.entry==y.entry&&x.schema==y.schema&&x.content==y.content&&x.context==y.context&&
 			x.skeletonSeed==y.skeletonSeed&&x.initializedMap==y.initializedMap&&x.originalActorCount==y.originalActorCount&&
 			x.actors.size()==y.actors.size() && x.random==y.random && x.treasure==y.treasure &&
-			x.regionalRecovery==y.regionalRecovery && x.serviceEconomy==y.serviceEconomy &&
+			x.worldFlags==y.worldFlags && x.serviceEconomy==y.serviceEconomy &&
 			bool(x.vertigoActors)==bool(y.vertigoActors),"Journey header/economy values changed");
 		for(unsigned i=0;i<30;++i) check(x.supplements[i].owner==y.supplements[i].owner&&
 			sameInputs(x.supplements[i].inputs,y.supplements[i].inputs),"Journey supplements changed");
@@ -107,7 +107,7 @@ inline XeenSaveSnapshot currentWireSnapshot() {
   v.luck.emplace();v.resistances.emplace();v.poisonResistance.emplace();s.characters[i].learnedSpells.emplace();}
  j.random.emplace();j.initializedMap=23;j.originalActorCount=19;
  for(unsigned i=0;i<19;++i){XeenSaveJourneyActor a;a.id={23,i};j.actors.push_back(a);}
- j.treasure.emplace();j.regionalRecovery.emplace();j.serviceEconomy=literalMerchantEconomy();return s;
+ j.treasure.emplace();j.worldFlags.emplace();j.serviceEconomy=literalMerchantEconomy();return s;
 }
 
 inline XeenSaveSnapshot sample() {

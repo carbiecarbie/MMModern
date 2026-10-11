@@ -96,7 +96,7 @@ struct Inputs {
         xeenValidateRegionalManifest(m,o,e,s,assets.readInitialResource("maze0023.dat"),assets.readInitialResource("maze0023.mob"),assets.readInitialResource("maze0023.evt"));};}
     XeenJourneySetup setup(){
         XeenJourneySetup value{chr,XeenGameplayContextFormat::parse(pty),statistics,mainland,7,regional()};
-        value.purse=XeenCharacterFormat::parseMonsterPurse(pty);value.regionalRecovery=XeenQuestFlagFormat::parseRegionalRecovery(pty);
+        value.purse=XeenCharacterFormat::parseMonsterPurse(pty);value.worldFlags=XeenQuestFlagFormat::parseWorldFlags(pty);
         value.regionalText=texts.load(23);value.learnedNames=names;value.learnedNamesProvider=[this]{return names;};
 
         value.bank=XeenCharacterFormat::parseBankBalances(pty);

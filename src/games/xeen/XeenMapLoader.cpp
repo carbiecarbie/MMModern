@@ -53,7 +53,17 @@ XeenMap XeenMapLoader::loadGeometryMap(XeenAssetSource &assets,
 	map.side = mapId.side;
 	if (map.identity() != mapId)
 		throw std::runtime_error(std::string(resourceName) + " has an unexpected internal ID");
-	return map;
+ char headName[13];
+ std::snprintf(headName,sizeof(headName),mapId.number>=100?"aazex%03u.hed":"aaze%04u.hed",unsigned(mapId.number));
+ // Indoor neighbor tiles may have geometry without a primary-map HED resource.
+ if(assets.hasArchiveResource(headName)) {
+  const auto heads=assets.readArchiveResource(headName,XeenSceneArchive::Clouds);
+  // The reference reads 256 pairs; the original archive retains trailing bytes.
+  if(heads.size()<512)throw std::runtime_error(std::string(headName)+": expected at least 512 HED bytes");
+  map.heads.emplace();
+  for(unsigned i=0;i<256;++i)(*map.heads)[i]={heads[i*2],heads[i*2+1]};
+ }
+ return map;
 }
 
 XeenMap XeenMapLoader::loadOutdoorMap(XeenAssetSource &assets,

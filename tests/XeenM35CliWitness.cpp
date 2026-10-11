@@ -149,7 +149,7 @@ int runM35CliWitness(const XeenGameplayServices &original,
 				const auto rng=*world->sessionState().journeyRandom();
 				std::cout<<"M35 CLI OBS "<<name<<" camera="<<camera->x<<','<<camera->y<<','<<unsigned(camera->direction)
 					<<" root="<<party->questItems.at(17)<<" q2="<<party->questFlags.isSet(2)
-					<<" flag16="<<party->regionalRecovery->worldFlag16
+					<<" flag16="<<party->worldFlags->values[16]
 					<<" hp11="<<party->roster.at(11).currentHp<<" poison18="<<unsigned(party->roster.at(18).conditions[3])
 					<<" minute="<<party->encounterContext->minutes<<" rng="<<rng.count<<','<<rng.state
 					<<" composed="<<compositions<<'\n';
@@ -207,10 +207,10 @@ int runM35CliWitness(const XeenGameplayServices &original,
 					"Production well arrival trace");
 				const auto hp=party->roster.at(11).currentHp;
 				input(InteractionAction{});input(SelectMemberAction{3});
-				check(party->roster.at(11).currentHp==hp+25 && !party->regionalRecovery->worldFlag16,
+				check(party->roster.at(11).currentHp==hp+25 && !party->worldFlags->values[16],
 					"Production well HP before flag");
 				settle();
-				check(party->regionalRecovery->worldFlag16 && party->roster.at(11).currentHp==27,
+				check(party->worldFlags->values[16] && party->roster.at(11).currentHp==27,
 					"Production well independent flag acknowledgment");
 				checkpoint("well");if(stage=="well")return true;
 			}

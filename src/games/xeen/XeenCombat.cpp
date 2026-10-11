@@ -92,7 +92,7 @@ struct XeenCombat::Impl {
 		XeenParty party;
 		XeenCloudsQuestItems questItems;
 		XeenCloudsQuestFlags questFlags;
-		std::optional<XeenRegionalRecoveryState> recovery;
+		std::optional<XeenWorldFlags> recovery;
 		std::optional<XeenGameplayContext> encounterContext;
 		std::optional<XeenMonsterTreasure> treasure;
 		std::optional<XeenServiceEconomy> serviceEconomy;
@@ -100,7 +100,7 @@ struct XeenCombat::Impl {
 		std::uint8_t firstSerializedCount, effectiveSerializedCount;
 		std::vector<std::string> diagnostics;
 		explicit PartyPreimage(const XeenPartyState &p) : roster{p.roster.characters()}, party(p.party),
-			questItems(p.questItems), questFlags(p.questFlags), recovery(p.regionalRecovery), encounterContext(p.encounterContext), treasure(p.monsterTreasure),
+			questItems(p.questItems), questFlags(p.questFlags), recovery(p.worldFlags), encounterContext(p.encounterContext), treasure(p.monsterTreasure),
 			serviceEconomy(p.serviceEconomy),food(p.food),
 			firstSerializedCount(p.firstSerializedCount), effectiveSerializedCount(p.effectiveSerializedCount), diagnostics(p.diagnostics) {}
 	} expected;
@@ -277,7 +277,7 @@ struct XeenCombat::Impl {
 			world._sessionState._combatEntered != (phase != Phase::Engaged) ||
 			world.sessionState().accountedMonsters() != accounted || world.sessionState().journeyActivity() != XeenJourneyActivity::Combat)) return false;
 		if(!same(camera,expectedCamera)||party.food!=expected.food||party.monsterTreasure!=expected.treasure||party.serviceEconomy!=expected.serviceEconomy||party.party.activeRosterIds()!=expected.party.activeRosterIds()||
-			party.questItems.counts()!=expected.questItems.counts()||party.questFlags.values()!=expected.questFlags.values()||party.regionalRecovery!=expected.recovery||
+			party.questItems.counts()!=expected.questItems.counts()||party.questFlags.values()!=expected.questFlags.values()||party.worldFlags!=expected.recovery||
 			party.firstSerializedCount!=expected.firstSerializedCount||party.effectiveSerializedCount!=expected.effectiveSerializedCount||
 			party.diagnostics!=expected.diagnostics||bool(party.encounterContext)!=bool(expected.encounterContext)) return false;
 		if(party.encounterContext&&!same(*party.encounterContext,*expected.encounterContext)) return false;
@@ -1209,7 +1209,7 @@ XeenCombatResult XeenCombat::finishDisengagement(const Ticket &t) {
   candidate.roster._combatMarked=true;
   candidate.party=d.party.party;candidate.encounterContext=d.party.encounterContext;
   candidate.questItems=d.party.questItems;candidate.questFlags=d.party.questFlags;
-  candidate.regionalRecovery=d.party.regionalRecovery;
+  candidate.worldFlags=d.party.worldFlags;
   candidate.serviceEconomy=d.party.serviceEconomy;
   candidate.firstSerializedCount=d.party.firstSerializedCount;candidate.effectiveSerializedCount=d.party.effectiveSerializedCount;
   for(const auto &c:characters) candidate.roster.at(c.rosterId).conditions=c.conditions;

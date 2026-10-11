@@ -75,7 +75,7 @@ struct Inputs {
 	XeenJourneySetup setup() {
 		XeenJourneySetup out{chr,XeenGameplayContextFormat::parse(pty),statistics,mainlandEvents,3626689381u,regional()};
 		out.purse=XeenCharacterFormat::parseMonsterPurse(pty);
-		out.regionalRecovery=XeenQuestFlagFormat::parseRegionalRecovery(pty);out.regionalText=texts.load(23);
+		out.worldFlags=XeenQuestFlagFormat::parseWorldFlags(pty);out.regionalText=texts.load(23);
 		out.learnedNames=names;out.learnedNamesProvider=[&]{return names;};
 		out.bank=XeenCharacterFormat::parseBankBalances(pty);
 		out.cityEventsProvider=[&]{return events.load(28);};
@@ -91,7 +91,7 @@ struct Inputs {
 		r.loadInitialCharacters=[&]{return chr;};
 		r.loadInitialContext=[&]{++freshCalls;throw std::runtime_error("restore called fresh context");return XeenGameplayContext{};};
 		r.loadInitialPurse=[&]{++freshCalls;throw std::runtime_error("restore called fresh purse");return XeenMonsterTreasure{};};
-		r.loadInitialRegionalRecovery=[&]{++freshCalls;throw std::runtime_error("restore called fresh recovery");return XeenRegionalRecoveryState{};};
+		r.loadInitialWorldFlags=[&]{++freshCalls;throw std::runtime_error("restore called fresh recovery");return XeenWorldFlags{};};
 		r.loadInitialBankBalances=[&]{++freshCalls;throw std::runtime_error("restore called fresh bank");return XeenBankBalances{};};
 		return r;
 	}

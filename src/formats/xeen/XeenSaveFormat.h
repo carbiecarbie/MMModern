@@ -24,7 +24,7 @@ public:
 class XeenSaveFormat {
 public:
 	// M58 retains all eighteen skill bytes and physical explored-tile bitsets.
-	static constexpr std::uint16_t kJourneyVersion = 10;
+	static constexpr std::uint16_t kJourneyVersion = 11;
 	static constexpr std::uint16_t kJourneySchema = 9;
 	static constexpr std::uint16_t kJourneyContent = 14;
 	static constexpr std::size_t kHeaderSize = 20;

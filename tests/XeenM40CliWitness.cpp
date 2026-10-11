@@ -77,7 +77,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
 #define M40_COUNT(field) if(services.field)services.field=count(services.field)
     M40_COUNT(resources.loadInitialParty);M40_COUNT(resources.loadInitialCharacters);M40_COUNT(resources.loadInitialContext);
     M40_COUNT(resources.loadEvents);M40_COUNT(resources.loadMonsterStatistics);M40_COUNT(resources.regionalManifest);
-    M40_COUNT(resources.loadInitialPurse);M40_COUNT(resources.loadInitialRegionalRecovery);M40_COUNT(resources.loadRegionalText);M40_COUNT(resources.loadLearnedSpellNames);
+    M40_COUNT(resources.loadInitialPurse);M40_COUNT(resources.loadInitialWorldFlags);M40_COUNT(resources.loadRegionalText);M40_COUNT(resources.loadLearnedSpellNames);
     M40_COUNT(maps);M40_COUNT(objects);M40_COUNT(texts);M40_COUNT(compose);M40_COUNT(npcDraw);
     M40_COUNT(validateEncounterSprite);M40_COUNT(validateCombatSprite);M40_COUNT(sampleJourneySeed);
 #undef M40_COUNT
@@ -328,7 +328,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     const auto &saved=*before->journey;
                     check(*party->encounterContext==*saved.context && *world->sessionState().journeyRandom()==*saved.random &&
                         *party->serviceEconomy==*saved.serviceEconomy && *party->monsterTreasure==*saved.treasure &&
-                        *party->regionalRecovery==*saved.regionalRecovery && party->party.activeRosterIds()==before->activeRosterIds &&
+                        *party->worldFlags==*saved.worldFlags && party->party.activeRosterIds()==before->activeRosterIds &&
                         position->mapId==before->camera.mapId && position->x==before->camera.x && position->y==before->camera.y &&
                         position->direction==before->camera.direction,"M40 detached preparation changed durable party/date/economy/RNG/camera");
                     for(unsigned owner=0;owner<30;++owner)check(xeen_state::sameCharacter(party->roster.at(owner),before->characters[owner]) &&

@@ -70,7 +70,9 @@ struct Dump {
     V(XeenJourneyRandomState, F(algorithm); F(state); F(count);)
     V(XeenMonsterTreasureItem, F(source); F(item);)
     V(XeenMonsterTreasure, F(gold); F(gems); F(pendingMask); F(pendingGold); F(weapons); F(armor);)
-    V(XeenRegionalRecoveryState, F(worldFlag16);)
+    V(XeenHeadIndicators, F(left); F(right);)
+    V(XeenHeadCache, F(mapId); F(overrides);)
+    V(XeenWorldFlags, F(values);)
     V(XeenMerchantWares, F(records);)
     V(XeenBankBalances, F(gold); F(gems);)
     V(XeenServiceEconomy, F(wares); F(bank);)
@@ -80,10 +82,10 @@ struct Dump {
     V(XeenSaveJourneyActor, F(id); F(x); F(y); F(hp); F(activated); F(lifecycle); F(status); F(accounted); F(spawnedType);)
     V(XeenSaveJourney, F(entry); F(schema); F(content); F(context); F(supplements); F(skeletonSeed);
         F(random); F(initializedMap); F(originalActorCount); F(actors); F(vertigoActors);
-        F(cityOriginalActorCount); F(treasure); F(regionalRecovery); F(serviceEconomy);)
+        F(cityOriginalActorCount); F(treasure); F(worldFlags); F(serviceEconomy);)
     V(XeenSaveSnapshot, F(resources); F(name); F(food); F(camera); F(activeRosterIds); F(characters);
         F(questItems); F(questFlags); F(gameFlags); F(disabledObjects); F(disabledEvents);
-        F(barriers); F(objectOverrides); F(exploredTiles); F(journey);)
+        F(barriers); F(objectOverrides); F(exploredTiles); F(headCache); F(journey);)
 #undef V
 #undef F
 };

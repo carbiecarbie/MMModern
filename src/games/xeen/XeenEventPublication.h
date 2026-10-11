@@ -10,6 +10,7 @@ namespace mmodern {
 // It anticipates known effects in retained guard storage, never adopts callback state.
 class XeenEventPublication {
 public:
+ mutable std::array<std::optional<unsigned>,30> damageEffects{};
  mutable std::uint32_t portraitEffectOwners=0; // Published giveTake(8) recipients, presentation only.
 	~XeenEventPublication() {if(retainedHistory)retainedHistory->swap(dispatchedRecords);}
 	XeenEventPublication(const XeenEventPublication &) = delete;
@@ -24,6 +25,11 @@ public:
 			integrity("Event publication owner identity changed");
 		// All allocation and provider work precede the callback-free stores.
 		auto presentation=world.prepareSpawnPresentation(candidateWorld);
+  for(unsigned owner=0;owner<30;++owner) {
+   const auto &effect=candidateWorld.scenePresentation().portraits[owner];
+   if(effect.damageTicks && !effect.damageDeadline)damageEffects[owner]=effect.damageFrame;
+   if(effect.spellFrame<4 && !effect.spellDeadline)portraitEffectOwners|=1u<<owner;
+  }
 		const XeenCloudsQuestFlags questFlags(candidate.questFlags);
 		check();candidate.check();
 		guard.prepareVertigoPublication(candidate);
@@ -157,7 +163,7 @@ public:
 			integrity("Regional well flag site changed");
 		consume();
 	}
-	void wellFlagWritten() const noexcept { guard.recovery->worldFlag16=true;guard.adoptMutationBoundary(); }
+	void wellFlagWritten() const noexcept { guard.recovery->values[16]=true;guard.adoptMutationBoundary(); }
 	void prepareRewardEnqueue(const XeenEventExecutionState &state,const XeenItem &item) const {
 		check();
 		const auto operation=decodedOperation();

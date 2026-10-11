@@ -316,7 +316,7 @@ XeenSaveSnapshot fresh(Inputs &in) {
     XeenWorld world(in.mapLoader(),in.objectLoader());
     XeenJourneySetup setup{in.chr,XeenGameplayContextFormat::parse(in.pty),in.statistics,in.city,1,in.regional()};
     setup.prepared=false;setup.purse=XeenCharacterFormat::parseMonsterPurse(in.pty);
-    setup.bank=XeenCharacterFormat::parseBankBalances(in.pty);setup.regionalRecovery=XeenQuestFlagFormat::parseRegionalRecovery(in.pty);
+    setup.bank=XeenCharacterFormat::parseBankBalances(in.pty);setup.worldFlags=XeenQuestFlagFormat::parseWorldFlags(in.pty);
     setup.regionalText=in.texts.load(23);setup.learnedNames=in.names;setup.learnedNamesProvider=[&in]{return in.names;};
     setup.cityEventsProvider=[&in]{return in.city;};
     setup.mainlandEventsProvider=[&in]{return in.mainland;};
@@ -379,7 +379,7 @@ void originalJourney(Inputs &in) {
     Visit restored(in,XeenSaveFormat::decode(bytes));save_test::sameSnapshot(saved,restored.snapshot());
     check(bytes==XeenSaveFormat::encode(restored.snapshot()) && v.f.isSet(231),
         "Food/balances/flags/time/RNG did not restore byte-exactly");
-    check(XeenSaveFormat::kJourneyVersion==10 && XeenSaveFormat::kJourneySchema==9 && XeenSaveFormat::kJourneyContent==14,
+    check(XeenSaveFormat::kJourneyVersion==11 && XeenSaveFormat::kJourneySchema==9 && XeenSaveFormat::kJourneyContent==14,
         "Food/Bank did not retain the current save format");
 }
 }

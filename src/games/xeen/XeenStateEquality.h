@@ -56,7 +56,7 @@ inline bool sameEntities(const XeenMapEntities &a, const XeenMapEntities &b) {
 }
 inline bool sameMap(const XeenMap &a, const XeenMap &b) {
 	const auto &x = a.geometry, &y = b.geometry;
-	if (a.side != b.side || x.id != y.id || x.flags != y.flags || x.flags2 != y.flags2 ||
+	if (a.heads != b.heads || a.side != b.side || x.id != y.id || x.flags != y.flags || x.flags2 != y.flags2 ||
 		x.neighbors != y.neighbors || x.wallTypes != y.wallTypes || x.surfaceTypes != y.surfaceTypes ||
 		x.floorType != y.floorType || x.runX != y.runX || x.runY != y.runY || x.difficulties != y.difficulties ||
 		x.trapDamage != y.trapDamage || x.wallKind != y.wallKind || x.tavernTips != y.tavernTips ||

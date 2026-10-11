@@ -123,13 +123,12 @@ private:
 	XeenMutableArray<bool,kCount> _values{};
 };
 
-// The one original world bit admitted by the connected regional recovery path.
-struct XeenRegionalRecoveryState {
-	XeenMutable<bool> worldFlag16 = false;
-	friend bool operator==(XeenRegionalRecoveryState a, XeenRegionalRecoveryState b) noexcept {
-		return a.worldFlag16 == b.worldFlag16;
-	}
-	friend bool operator!=(XeenRegionalRecoveryState a, XeenRegionalRecoveryState b) noexcept { return !(a == b); }
+// The original bounded world-flag block, shared by every Event use.
+struct XeenWorldFlags {
+ static constexpr std::size_t kCount = 128;
+ XeenMutableArray<bool,kCount> values{};
+ friend bool operator==(const XeenWorldFlags &a, const XeenWorldFlags &b) noexcept { return a.values == b.values; }
+ friend bool operator!=(const XeenWorldFlags &a, const XeenWorldFlags &b) noexcept { return !(a == b); }
 };
 
 struct XeenPartyState {
@@ -149,7 +148,7 @@ struct XeenPartyState {
 	XeenParty party;
 	XeenCloudsQuestItems questItems;
 	XeenCloudsQuestFlags questFlags;
-	XeenMutableOptional<XeenRegionalRecoveryState> regionalRecovery;
+	XeenMutableOptional<XeenWorldFlags> worldFlags;
 	XeenMutable<std::uint8_t> firstSerializedCount = 0;
 	XeenMutable<std::uint8_t> effectiveSerializedCount = 0;
 	XeenMutableDiagnostics diagnostics;

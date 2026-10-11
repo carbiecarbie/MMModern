@@ -4,6 +4,7 @@
 #include "games/xeen/XeenWorld.h"
 #include "games/xeen/XeenCharacterRules.h"
 #include "games/xeen/XeenSkills.h"
+#include "games/xeen/XeenCombatRules.h"
 
 #include <limits>
 #include <set>
@@ -156,8 +157,12 @@ std::optional<XeenEventExecutionError> preflightCityEvent(XeenWorld &world,
 				return unsupported("Teleport destination is not supported yet");
 			continue;
 		}
-		if(std::holds_alternative<XeenEventTeleportAndContinue>(op))
-			return unsupported("Trap teleport effects are not supported yet");
+		if(const auto *teleport=std::get_if<XeenEventTeleportAndContinue>(&op)) {
+   if(!path.empty())return unsupported("TeleportAndContinue with an active call stack is not supported yet");
+   if(teleport->mapId!=camera.mapId.number || !world.sampleCell(camera.mapId,teleport->x,teleport->y))
+    return unsupported("Teleport destination is not supported yet");
+   enqueue(teleport->x,teleport->y,0);continue;
+  }
 		if(std::holds_alternative<XeenEventGiveEnchanted>(op) ||
 			std::holds_alternative<XeenEventRemove>(op))
 			return unsupported("Event effect is not supported yet in this context");
@@ -166,7 +171,7 @@ std::optional<XeenEventExecutionError> preflightCityEvent(XeenWorld &world,
 			if(npc->confirmationMode==0)enqueue(x,y,npc->targetLine);
 		}
 		if(const auto *condition=std::get_if<XeenEventConditional>(&op)) {
-			if(condition->action!=9 && condition->action!=13 && condition->action!=99 && condition->action!=20 && condition->action!=44 && condition->action!=104)
+			if(condition->action!=78 && condition->action!=102 && condition->action!=9 && condition->action!=13 && condition->action!=99 && condition->action!=20 && condition->action!=44 && condition->action!=104)
 				return unsupported("Event condition is not supported yet");
 			if(((condition->action==13 || condition->action==99) && !xeenSkillSupported(condition->value)) || (condition->action==20 && condition->value>255) || (condition->action==44 && condition->value>1) ||
 				(condition->action==104 && !XeenCloudsQuestFlags::validIndex(condition->value)))
@@ -179,7 +184,7 @@ std::optional<XeenEventExecutionError> preflightCityEvent(XeenWorld &world,
 		if(const auto *give=std::get_if<XeenEventTakeOrGive>(&op)) {
 			const auto neutral=[](const auto &p){return p.mode==0 && p.value==0;};
 			const auto flag=[](const auto &p){return (p.mode==20 && p.value<256) || (p.mode==104 && XeenCloudsQuestFlags::validIndex(p.value));};
-			const auto grant=[&](const auto &p){return flag(p) || (p.mode==13 && xeenSkillSupported(p.value)) || (p.mode==15 && p.value<128) || p.mode==16 || p.mode==34 || p.mode==35;};
+			const auto grant=[&](const auto &p){return flag(p) || (p.mode==13 && xeenSkillSupported(p.value)) || (p.mode==15 && p.value<128) || p.mode==16 || p.mode==34 || p.mode==35 || p.mode==78 || p.mode==85 || (p.mode==103 && p.value<XeenWorldFlags::kCount);};
 			const auto clear=[&](const auto &p){return (flag(p) && (p.mode==104 || p.value!=0)) || (p.mode==13 && p.value!=0 && xeenSkillSupported(p.value)) || (p.mode==34 && p.value>0) || (p.mode==15 && p.value>0 && p.value<128);};
 			if(!neutral(give->third) || !((neutral(give->first) && grant(give->second)) ||
 				(clear(give->first) && neutral(give->second))))
@@ -367,7 +372,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			state.rewardPhase = XeenRewardPhase::Completed;
 			return completed(workingCamera, workingGameFlags, instructionCount);
 		} else {
-			state.rewardReceipt = publication && partyState.regionalRecovery ?
+			state.rewardReceipt = publication && partyState.worldFlags ?
 				publication->deliverRewards(state.pendingRewards,partyState,state.preferredRewardRecipient) :
 				xeenDeliverRewards(state.pendingRewards, partyState, state.preferredRewardRecipient);
 			state.rewardPhase = XeenRewardPhase::Receipt;
@@ -692,13 +697,21 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			item.material = enchanted->itemCode - 60;
 			item.id = enchanted->specialId;
 			item.state = 1;
-			if (publication && partyState.regionalRecovery) publication->prepareRewardEnqueue(state,item);
+			if (publication && partyState.worldFlags) publication->prepareRewardEnqueue(state,item);
 			state.pendingRewards.enqueue(item);
 			++logical.line;
 			missingPolicy = MissingInstructionPolicy::NaturalCompletion;
 			continue;
 		}
 
+  if(const auto *heads=std::get_if<XeenEventAlterHeads>(&decoded.operation)) {
+   world.alterHeads(workingCamera,{heads->left,heads->right});
+   ++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
+  }
+  if(const auto *damage=std::get_if<XeenEventDamage>(&decoded.operation)) {
+   world.applyEventDamage(partyState,damage->amount,static_cast<XeenDamageType>(damage->type),state.activeCharacterIndex,state.entireParty);
+   ++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
+  }
 		if (std::holds_alternative<XeenEventProtectionCheck>(decoded.operation)) {
 			if (logical.mapId!=XeenMapIdentity(28))
 				return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
@@ -786,7 +799,23 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				"TakeOrGive HowMuch is not supported yet",instructionCount,logical,decoded.source);
 			if((grant || clear) && pair.mode==13 && !xeenSkillSupported(pair.value))
 				return error(XeenEventExecutionErrorKind::UnsupportedOperationMode,"Skill is not supported yet",instructionCount,logical,decoded.source);
-			if((grant && (pair.mode==13 || pair.mode==15 || pair.mode==16 || pair.mode==34 || pair.mode==35)) ||
+			if(grant && (pair.mode==85 || pair.mode==78 || (pair.mode==103 && world.detachedEventCandidate()))) {
+    if(!world.detachedEventCandidate() || !partyState.encounterContext || !partyState.worldFlags)
+     return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,"Event effect requires staged publication",instructionCount,logical,decoded.source);
+    if(pair.mode==85)world.applyEventYear(partyState,workingGameFlags,pair.value);
+    else if(pair.mode==103) {
+     if(pair.value>=XeenWorldFlags::kCount)return error(XeenEventExecutionErrorKind::InvalidFlagIndex,"World flag outside 0..127",instructionCount,logical,decoded.source);
+     partyState.worldFlags->values[pair.value]=true;
+    } else {
+     for(unsigned i=0;i<partyState.party.size();++i)if(state.entireParty || (state.activeCharacterIndex && i==*state.activeCharacterIndex)) {
+      auto &member=partyState.roster.at(partyState.party.activeRosterIds()[i]);
+      member.currentHp=XeenCharacterRules::maxHp(member,{partyState.encounterContext->year});
+      world.scenePresentation().spellEffect(member.rosterId,0,true);world.scenePresentation().portraits[member.rosterId].spellDeadline=0;
+     }
+    }
+    ++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
+   }
+   if((grant && (pair.mode==13 || pair.mode==15 || pair.mode==16 || pair.mode==34 || pair.mode==35)) ||
 				(clear && (pair.mode==13 || pair.mode==34 || (pair.mode==15 && pair.value!=0)))) {
 				if(!world.detachedEventCandidate())return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
 					"Event reward publication is not supported yet in this context",instructionCount,logical,decoded.source);
@@ -818,7 +847,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			const bool setWellFlag = neutral(takeOrGive->first) && takeOrGive->second.mode==103 &&
 				takeOrGive->second.value==16 && neutral(takeOrGive->third);
 			if (giveWellHp || setWellFlag) {
-				if (!publication || !partyState.regionalRecovery || logical.mapId!=XeenMapIdentity(23))
+				if (!publication || !partyState.worldFlags || logical.mapId!=XeenMapIdentity(23))
 					return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
 						"regional well effect is unavailable",instructionCount,logical,decoded.source);
 				if (giveWellHp) {
@@ -836,7 +865,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 					publication->wellHpWritten(owner,member.currentHp);
 				} else {
 					publication->prepareWellFlag();
-					partyState.regionalRecovery->worldFlag16=true;
+					partyState.worldFlags->values[16]=true;
 					publication->wellFlagWritten();
 				}
 				++logical.line; missingPolicy=MissingInstructionPolicy::NaturalCompletion; continue;
@@ -957,7 +986,11 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 						"active character context is outside the party", instructionCount, logical, decoded.source);
 				actual = static_cast<std::uint32_t>(
 					partyState.party.member(partyState.roster, *state.activeCharacterIndex).currentSp);
-			} else if (conditional->action == 13 || conditional->action == 99) {
+			} else if (conditional->action == 102) {
+    if(!state.activeCharacterIndex || *state.activeCharacterIndex>=partyState.party.size())
+     return error(XeenEventExecutionErrorKind::EmptyParty,"Thievery requires a selected character",instructionCount,logical,decoded.source);
+    actual=XeenCharacterRules::thievery(partyState.party.member(partyState.roster,*state.activeCharacterIndex));
+   } else if (conditional->action == 13 || conditional->action == 99) {
 				if(!xeenSkillSupported(conditional->value))
 					return error(XeenEventExecutionErrorKind::UnsupportedConditionAction,"Skill effect is not supported yet",instructionCount,logical,decoded.source);
 				if(conditional->action==99)
@@ -1003,7 +1036,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 						detail + " requires an active party member", instructionCount, logical, decoded.source);
 				actual = partyState.questItems.at(*index) != 0 ? conditional->value :
 					std::numeric_limits<std::uint32_t>::max();
-			} else if (conditional->action == 78 && publication && partyState.regionalRecovery && partyState.encounterContext) {
+			} else if (conditional->action == 78 && partyState.worldFlags && partyState.encounterContext) {
 				if (!state.activeCharacterIndex || *state.activeCharacterIndex>=partyState.party.size())
 					return error(XeenEventExecutionErrorKind::InvalidPresentationResponse,
 						"well recipient is unavailable",instructionCount,logical,decoded.source);
@@ -1073,25 +1106,20 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 		const auto executeTeleport = [&](std::uint8_t mapId, int x, int y,
 				bool continueExecution) -> std::optional<XeenEventExecutionError> {
 			XeenEventExecutionAddress target{{workingCamera.mapId.side, mapId}, x, y, 0};
-			if (continueExecution && !callStack.empty()) {
-				return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
-					"TeleportAndContinue with an active call stack is unsupported",
-					instructionCount, logical, decoded.source, target);
-			}
-			if (x < 0 || x > 15 || y < 0 || y > 15) {
-				return error(XeenEventExecutionErrorKind::UnsupportedTeleportDestination,
-					"teleport destination is outside local coordinates 0..15",
-					instructionCount, logical, decoded.source, target);
-			}
-			try {
-				static_cast<void>(world.map(target.mapId));
+   if(continueExecution && !callStack.empty())return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
+    "TeleportAndContinue with an active call stack is not supported yet",instructionCount,logical,decoded.source,target);
+   try {
+    static_cast<void>(world.map(target.mapId));
+    if(!world.sampleCell(target.mapId,x,y))
+     return error(XeenEventExecutionErrorKind::UnsupportedTeleportDestination,"Teleport destination has no map cell",instructionCount,logical,decoded.source,target);
 			} catch (const std::exception &exception) {
 				return error(XeenEventExecutionErrorKind::MapLoadFailed,
 					std::string("failed to load teleport destination: ") + exception.what(),
 					instructionCount, logical, decoded.source, target);
 			}
-			state.selectedObject.reset();
-			workingCamera.mapId = target.mapId;
+   if(workingCamera.mapId!=target.mapId && world.detachedEventCandidate())world.reloadHeads(target.mapId);
+   state.selectedObject.reset();
+   workingCamera.mapId = target.mapId;
 			workingCamera.x = x;
 			workingCamera.y = y;
 			if (continueExecution) {
@@ -1117,7 +1145,8 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			if (const auto teleportError = executeTeleport(teleport->mapId,
 					teleport->x, teleport->y, true))
 				return *teleportError;
-			state.activeCharacterIndex = partyState.party.size() ? std::optional<std::size_t>{0} : std::nullopt;
+   state.entireParty=false;state.lookupDirection=workingCamera.direction;
+   state.activeCharacterIndex = partyState.party.size() ? std::optional<std::size_t>{0} : std::nullopt;
 			logical = {workingCamera.mapId, teleport->x, teleport->y, 0};
 			try {
 				script.emplace(scriptProvider(logical.mapId));
@@ -1141,6 +1170,45 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			"decoded operation is outside the interpreter subset",
 			instructionCount, logical, decoded.source);
 	}
+}
+
+void XeenWorld::applyEventYear(XeenPartyState &party,XeenGameFlags &flags,unsigned years) {
+ if(!detachedEventCandidate() || !party.encounterContext)throw std::logic_error("Year advance requires a detached Event");
+ auto &context=*party.encounterContext;
+ if(years>65535u-context.year)throw std::overflow_error("Event year overflow");
+ context.year+=years;
+ for(int flag:{55,155,222,231})flags.clear(flag);
+ for(auto owner:party.party.activeRosterIds()) {
+  if(!party.roster._combatInputs[owner])throw std::invalid_argument("Year reset has no character inputs");
+  xeenResetCharacterTemps(party.roster._characters[owner],*party.roster._combatInputs[owner]);
+ }
+ xeenResetPartyTemps(context);context.rested=true;
+}
+void XeenWorld::applyEventDamage(XeenPartyState &party,unsigned damage,XeenDamageType type,
+ std::optional<std::size_t> member,bool entireParty) {
+ if(!detachedEventCandidate() || !party.encounterContext || !_sessionState._journeyRandom ||
+  !party.party.size() || (!entireParty && (!member || *member>=party.party.size())))
+  throw std::invalid_argument("Event damage has no selected owner or RNG");
+ XeenConsequenceCharacters characters{};XeenConsequenceInputs inputs{};
+ for(unsigned i=0;i<party.party.size();++i) {
+  const auto owner=party.party.activeRosterIds()[i];characters[i]=party.roster.at(owner);
+  if(!party.roster.combatInputs(owner))throw std::invalid_argument("Event damage inputs are absent");
+  inputs[i]=*party.roster.combatInputs(owner);
+ }
+ const auto &context=*party.encounterContext;XeenDamageProtection protection;
+ for(unsigned i=0;i<4;++i)protection.resistances[i]=context.lightAndResistances[i+2];
+ protection.powerShield=context.effects[6];
+ XeenTypedDamageCandidate candidate(characters,inputs,damage,type,context.year,
+  entireParty?(1u<<party.party.size())-1:1u<<*member,protection);
+ XeenCombatRandom random(*_sessionState._journeyRandom);
+ for(;;) {XeenConsequenceDraw draw{random,64,{}};if(candidate.service(draw))break;}
+ for(unsigned i=0;i<party.party.size();++i) {
+  auto &live=party.roster.at(characters[i].rosterId);const auto &after=candidate.characters[i];
+  live.currentHp=after.currentHp;live.conditions=after.conditions;live.armor=after.armor;
+ }
+ retainEventRandom(random.continuation());
+ for(unsigned i=0;i<candidate.result.injuryCount;++i)
+  {const auto owner=candidate.result.injuries[i].owner;_scenePresentation.portraitDamage(owner,candidate.portraitFrame);_scenePresentation.portraits[owner].damageDeadline=0;}
 }
 
 } // namespace mmodern

@@ -31,7 +31,7 @@ struct XeenJourneySetup {
 	std::uint32_t seed;
 	XeenRegionalManifest regionalManifest;
 	std::optional<XeenMonsterTreasure> purse;
-	std::optional<XeenRegionalRecoveryState> regionalRecovery;
+	std::optional<XeenWorldFlags> worldFlags;
 	std::optional<XeenEventTextFile> regionalText;
 	std::optional<XeenLearnedSpellNames> learnedNames;
 	std::function<XeenLearnedSpellNames()> learnedNamesProvider;

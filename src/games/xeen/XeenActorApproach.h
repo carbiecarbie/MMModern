@@ -123,7 +123,7 @@ private:
 		XeenEncounterState &, const std::vector<std::uint8_t> &, const XeenGameplayContext &,
 		const std::vector<XeenMonsterRecord> &, const XeenEventFile &, const XeenEventFile &,
 		std::uint32_t, const std::optional<XeenMonsterTreasure> &, const std::optional<XeenBankBalances> &,
-		bool prepared, const std::optional<XeenRegionalRecoveryState> &, const StartPublicationPreparation &);
+		bool prepared, const std::optional<XeenWorldFlags> &, const StartPublicationPreparation &);
 	static XeenEncounterResult initializeJourney(XeenWorld &, XeenPartyState &, XeenCamera &,
 		XeenEncounterState &, const std::vector<std::uint8_t> &, const XeenGameplayContext &,
 		const std::vector<XeenMonsterRecord> &, const XeenEventFile &, std::uint32_t,

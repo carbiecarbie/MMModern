@@ -5,6 +5,7 @@
 #include "games/xeen/XeenStateEquality.h"
 #include "games/xeen/XeenGameFlags.h"
 #include "games/xeen/XeenSkills.h"
+#include "games/xeen/XeenCombatRules.h"
 
 #include <atomic>
 #include <stdexcept>
@@ -95,6 +96,7 @@ void XeenWorld::swapPreparedState(XeenWorld &candidate) noexcept {
 	_sessionState._barriers.swap(candidate._sessionState._barriers);
 	_sessionState._objectOverrides.swap(candidate._sessionState._objectOverrides);
 	_sessionState._exploredTiles.swap(candidate._sessionState._exploredTiles);
+	_sessionState._headCache.swap(candidate._sessionState._headCache);
 	_scenePresentation.objectFlips.swap(candidate._scenePresentation.objectFlips);
 	_maps.swap(candidate._maps);
 	_objects.swap(candidate._objects);
@@ -431,7 +433,7 @@ void XeenWorld::copyEventParty(const XeenPartyState &source, XeenPartyState &can
 	candidate.party=source.party;
 	candidate.encounterContext=source.encounterContext;candidate.monsterTreasure=source.monsterTreasure;
 	candidate.serviceEconomy=source.serviceEconomy;candidate.questItems=source.questItems;
-	candidate.questFlags=source.questFlags;candidate.regionalRecovery=source.regionalRecovery;
+	candidate.questFlags=source.questFlags;candidate.worldFlags=source.worldFlags;
 	candidate.food=source.food;
 	candidate.firstSerializedCount=source.firstSerializedCount;candidate.effectiveSerializedCount=source.effectiveSerializedCount;
 	candidate.diagnostics=source.diagnostics;
@@ -464,6 +466,7 @@ void XeenWorld::publishTransition(XeenWorld &candidate) noexcept {
 	_sessionState._barriers.swap(candidate._sessionState._barriers);
 	_sessionState._objectOverrides.swap(candidate._sessionState._objectOverrides);
 	_sessionState._exploredTiles.swap(candidate._sessionState._exploredTiles);
+	_sessionState._headCache.swap(candidate._sessionState._headCache);
 	_sessionState._objects.swap(candidate._sessionState._objects);
 	_cityStatistics.swap(candidate._cityStatistics);
 	std::swap(_cityOriginalActorCount,candidate._cityOriginalActorCount);
@@ -509,18 +512,51 @@ void XeenWorld::applyEventGrant(XeenPartyState &party,std::uint8_t mode,std::uin
 
 void XeenWorld::publishEventParty(XeenPartyState &live,const XeenPartyState &candidate) noexcept {
 	for(unsigned owner=0;owner<30;++owner) {
+  auto &character=live.roster._characters[owner];const auto &after=candidate.roster._characters[owner];
+  character.currentHp=after.currentHp;character.conditions=after.conditions;
+  character.temporaryLevel=after.temporaryLevel;
+  character.intellect.temporary=after.intellect.temporary;character.personality.temporary=after.personality.temporary;
+  character.endurance.temporary=after.endurance.temporary;
 		live.roster._characters[owner].skills=candidate.roster._characters[owner].skills;
 		live.roster._characters[owner].awards=candidate.roster._characters[owner].awards;
 		live.roster._characters[owner].weapons=candidate.roster._characters[owner].weapons;
 		live.roster._characters[owner].armor=candidate.roster._characters[owner].armor;
 		live.roster._characters[owner].accessories=candidate.roster._characters[owner].accessories;
 		live.roster._characters[owner].miscellaneous=candidate.roster._characters[owner].miscellaneous;
-		if(live.roster._combatInputs[owner])live.roster._combatInputs[owner]->experience=candidate.roster._combatInputs[owner]->experience;
+		if(live.roster._combatInputs[owner])*live.roster._combatInputs[owner]=*candidate.roster._combatInputs[owner];
 	}
+ live.encounterContext=candidate.encounterContext;live.worldFlags=candidate.worldFlags;
 	if(live.monsterTreasure) {
 		live.monsterTreasure->gold=candidate.monsterTreasure->gold;
 		live.monsterTreasure->gems=candidate.monsterTreasure->gems;
 	}
+}
+
+XeenHeadIndicators XeenWorld::headIndicators(const XeenCamera &camera) {
+ if(camera.x<0 || camera.y<0)throw std::invalid_argument("Negative head coordinate");
+ const unsigned cell=(camera.y%16)*16+camera.x%16;
+ const auto &cache=_sessionState._headCache;
+ if(cache && cache->mapId==camera.mapId && cache->overrides[cell])return *cache->overrides[cell];
+ const auto &heads=map(camera.mapId).heads;
+ if(!heads)throw std::runtime_error("Primary map has no HED resource");
+ return (*heads)[cell];
+}
+void XeenWorld::alterHeads(const XeenCamera &camera,XeenHeadIndicators heads) {
+ if(!detachedEventCandidate() || camera.x<0 || camera.y<0)throw std::logic_error("Head changes require a detached Event");
+ XeenMutationWatch::write(this);
+ auto &cache=_sessionState._headCache;
+ if(!cache || cache->mapId!=camera.mapId)cache=XeenHeadCache{camera.mapId,{}};
+ cache->overrides[(camera.y%16)*16+camera.x%16]=heads;
+}
+void XeenWorld::reloadHeads(XeenMapIdentity destination) {
+ if(!detachedEventCandidate())throw std::logic_error("Head reload requires a detached map transition");
+ XeenMutationWatch::write(this);
+ _sessionState._headCache.reset();
+ static_cast<void>(map(destination));
+}
+void XeenWorld::restoreHeads(const std::optional<XeenHeadCache> &heads,const XeenCamera &camera) {
+ if(hasEncounterState() || (heads && heads->mapId!=camera.mapId))throw std::invalid_argument("Invalid restored head cache");
+ XeenMutationWatch::write(this);_sessionState._headCache=heads;
 }
 
 } // namespace mmodern

@@ -22,7 +22,7 @@ Bytes suffix(const XeenSaveSnapshot &s){
  unsigned weapons=0,armor=0;for(const auto &v:t.weapons)weapons+=v.item.id!=0;for(const auto &v:t.armor)armor+=v.item.id!=0;
  b.push_back(weapons);b.push_back(armor);
  for(const auto &items:{t.weapons,t.armor})for(const auto &v:items)if(v.item.id)b.insert(b.end(),{v.source,v.item.material,v.item.id,v.item.state,v.item.frame});
- b.push_back(j.regionalRecovery->worldFlag16);b.push_back(30);
+ for(bool flag:j.worldFlags->values)b.push_back(flag);b.push_back(30);
  for(unsigned owner=0;owner<30;++owner){b.push_back(owner);for(unsigned slot=0;slot<39;++slot)b.push_back(owner==2?0:owner==29&&slot==38?255:std::uint8_t(owner*7+slot*3));}
  b.push_back(30);for(unsigned owner=0;owner<30;++owner)b.insert(b.end(),{std::uint8_t(owner),std::uint8_t(owner),std::uint8_t(255-owner)});
  b.push_back(j.vertigoActors.has_value());if(j.vertigoActors){put(b,j.cityOriginalActorCount,2);put(b,j.vertigoActors->size(),2);for(const auto &a:*j.vertigoActors){actor(a);put(b,std::uint16_t(a.spawnedType),2);}}
@@ -33,7 +33,7 @@ Bytes suffix(const XeenSaveSnapshot &s){
  put(b,s.exploredTiles.size(),2);
  for(const auto &tile:s.exploredTiles){put(b,static_cast<unsigned>(static_cast<XeenSide>(tile.mapId.side)),1);put(b,tile.mapId.number,2);b.insert(b.end(),tile.cells.begin(),tile.cells.end());}
  check(!s.name,"Independent loose-save fixture requires absent name metadata");
- b.push_back(0);return b;
+ b.push_back(0);b.push_back(0);return b;
 }
 XeenSaveSnapshot sampleCurrent(){
  auto s=currentWireSnapshot();auto &j=*s.journey;s.resources={{1,2},XeenArchiveFingerprint{3,4}};s.camera={23,8,11,XeenDirection::West};s.food=0xbeef;
@@ -46,7 +46,7 @@ XeenSaveSnapshot sampleCurrent(){
 }
 void verify(const XeenSaveSnapshot &s){
  const auto bytes=XeenSaveFormat::encode(s),expected=suffix(s);const auto offset=baseSize(s);
- check(bytes.size()==offset+expected.size()&&std::equal(expected.begin(),expected.end(),bytes.begin()+offset),"Independent complete v10 schema9/content14 suffix and absent name");
+ check(bytes.size()==offset+expected.size()&&std::equal(expected.begin(),expected.end(),bytes.begin()+offset),"Independent complete v11 schema9/content14 suffix and absent name");
  sameSnapshot(s,XeenSaveFormat::decode(bytes));check(XeenSaveFormat::encode(XeenSaveFormat::decode(bytes))==bytes,"Exact current byte continuation");
  for(std::size_t size=offset;size<bytes.size();++size){auto b=bytes;b.resize(size);fixIndependentEnvelope(b);rejects([&]{XeenSaveFormat::decode(b);});}
  auto extra=bytes;extra.push_back(0);fixIndependentEnvelope(extra);rejects([&]{XeenSaveFormat::decode(extra);});
@@ -68,9 +68,9 @@ int main(){try{
   auto bad=reset;bad.journey->vertigoActors->at(slot).spawnedType=1;
   rejects([&]{XeenSaveFormat::encode(bad);});
  }
- auto flagged=populated;flagged.journey->regionalRecovery->worldFlag16=true;verify(flagged);
+ auto flagged=populated;flagged.journey->worldFlags->values[16]=true;verify(flagged);
  const auto bytes=XeenSaveFormat::encode(populated);const auto offset=baseSize(populated);
- const auto badByte=[&](unsigned at,unsigned value){auto b=bytes;b[offset+at]=value;fixIndependentEnvelope(b);rejects([&]{XeenSaveFormat::decode(b);});};
+ const auto badByte=[&](unsigned at,unsigned value){auto b=bytes;b[offset+at+(at>2012?127:0)]=value;fixIndependentEnvelope(b);rejects([&]{XeenSaveFormat::decode(b);});};
  // Literal v6 offsets include the two food bytes after newDay and six added
  // resistance bytes per owner. Keep all malformed-control checks in place.
  for(unsigned at:{5u,37u,38u})badByte(at,2);badByte(6,1);badByte(7,2);badByte(41,29);badByte(1272,2);badByte(1285,1);badByte(1286,20);
@@ -82,7 +82,7 @@ int main(){try{
  badByte(2002,3);badByte(2004,34);badByte(2009,8);badByte(1992,0);badByte(1996,10);
  badByte(2012,2);badByte(2013,29);badByte(2014,1);badByte(2054,0);badByte(3214,29);badByte(3215,1);badByte(3218,0);badByte(3305,2);
  for(unsigned mode=0;mode<15;++mode){auto bad=dormant;auto &j=*bad.journey;
-  switch(mode){case 0:j.skeletonSeed=1;break;case 1:j.supplements[0].inputs.luck.reset();break;case 2:j.treasure.reset();break;case 3:j.supplements[29].inputs.resistances.reset();break;case 4:j.actors[9].accounted=false;break;case 5:j.actors[9].hp=1;break;case 6:j.treasure->pendingGold=10;break;case 7:j.treasure->armor[0].source=9;break;case 8:j.treasure->weapons[0].item.frame=1;break;case 9:j.treasure->weapons[0].source=12;break;case 10:j.regionalRecovery.reset();break;case 11:bad.characters[29].learnedSpells.reset();break;case 12:j.supplements[29].inputs.poisonResistance.reset();break;case 13:j.serviceEconomy.reset();break;case 14:j.random.reset();break;}
+  switch(mode){case 0:j.skeletonSeed=1;break;case 1:j.supplements[0].inputs.luck.reset();break;case 2:j.treasure.reset();break;case 3:j.supplements[29].inputs.resistances.reset();break;case 4:j.actors[9].accounted=false;break;case 5:j.actors[9].hp=1;break;case 6:j.treasure->pendingGold=10;break;case 7:j.treasure->armor[0].source=9;break;case 8:j.treasure->weapons[0].item.frame=1;break;case 9:j.treasure->weapons[0].source=12;break;case 10:j.worldFlags.reset();break;case 11:bad.characters[29].learnedSpells.reset();break;case 12:j.supplements[29].inputs.poisonResistance.reset();break;case 13:j.serviceEconomy.reset();break;case 14:j.random.reset();break;}
   rejects([&]{XeenSaveFormat::encode(bad);});}
  for(const auto &source:{s,city,reset})for(unsigned record:{0u,539u,761u,764u}){
   auto bad=source;if(record==0)bad.disabledObjects={{28,0}};else bad.disabledEvents={{28,record}};

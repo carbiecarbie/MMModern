@@ -25,7 +25,7 @@ XeenGameplayServices services(Harness &h) {
 
  s.resources.loadInitialBankBalances=[&]{return XeenCharacterFormat::parseBankBalances(h.assets->readInitialResource("maze.pty"));};
  s.resources.loadInitialPurse=[&]{return XeenCharacterFormat::parseMonsterPurse(h.assets->readInitialResource("maze.pty"));};
- s.resources.loadInitialRegionalRecovery=[&]{return XeenQuestFlagFormat::parseRegionalRecovery(h.assets->readInitialResource("maze.pty"));};
+ s.resources.loadInitialWorldFlags=[&]{return XeenQuestFlagFormat::parseWorldFlags(h.assets->readInitialResource("maze.pty"));};
  s.resources.loadRegionalText=[&](XeenMapIdentity id) {
   return XeenEventTextLoader([&](const std::string &name)->std::optional<Bytes> {
    if(!h.assets->hasArchiveResource(name))return {};return h.assets->readArchiveResource(name);

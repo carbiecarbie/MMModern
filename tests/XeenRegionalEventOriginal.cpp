@@ -28,7 +28,7 @@ XeenGameplayServices regional(Harness &h) {
 
  s.resources.loadInitialBankBalances=[&]{return XeenCharacterFormat::parseBankBalances(h.assets->readInitialResource("maze.pty"));};
  s.resources.loadInitialPurse=[&]{return XeenCharacterFormat::parseMonsterPurse(h.assets->readInitialResource("maze.pty"));};
- s.resources.loadInitialRegionalRecovery=[&]{return XeenQuestFlagFormat::parseRegionalRecovery(h.assets->readInitialResource("maze.pty"));};
+ s.resources.loadInitialWorldFlags=[&]{return XeenQuestFlagFormat::parseWorldFlags(h.assets->readInitialResource("maze.pty"));};
  s.resources.loadRegionalText=[&](XeenMapIdentity id) {
   return XeenEventTextLoader([&](const std::string &name)->std::optional<Bytes> {
    if(!h.assets->hasArchiveResource(name))return {};return h.assets->readArchiveResource(name);
@@ -70,7 +70,7 @@ int main(int argc,char **argv) {
   if(stage=="text-handoff"){
    Harness h(game);auto s=regional(h);
    s.resources.loadInitialPurse=[&]{return XeenCharacterFormat::parseMonsterPurse(h.assets->readInitialResource("maze.pty"));};
-   s.resources.loadInitialRegionalRecovery=[&]{return XeenQuestFlagFormat::parseRegionalRecovery(h.assets->readInitialResource("maze.pty"));};
+   s.resources.loadInitialWorldFlags=[&]{return XeenQuestFlagFormat::parseWorldFlags(h.assets->readInitialResource("maze.pty"));};
    s.resources.loadRegionalText=[&](XeenMapIdentity id){return XeenEventTextLoader([&](const std::string &name)->std::optional<std::vector<std::uint8_t>>{
     if(!h.assets->hasArchiveResource(name))return {};return h.assets->readArchiveResource(name);}).load(id);};
    const auto saved=XeenSaveFile::read(path);
@@ -166,7 +166,7 @@ int main(int argc,char **argv) {
    };
    s.resources.loadInitialPurse=[&]{return XeenCharacterFormat::parseMonsterPurse(h.assets->readInitialResource("maze.pty"));};
    s.npcDraw=[&](IndexedFrame &frame,std::uint8_t portrait,std::size_t index){h.assets->drawNpc(frame,portrait,index);};
-   s.resources.loadInitialRegionalRecovery=[&]{return XeenQuestFlagFormat::parseRegionalRecovery(h.assets->readInitialResource("maze.pty"));};
+   s.resources.loadInitialWorldFlags=[&]{return XeenQuestFlagFormat::parseWorldFlags(h.assets->readInitialResource("maze.pty"));};
    s.texts=[&](XeenMapIdentity id){auto value=XeenEventTextLoader([&](const std::string &name)->std::optional<std::vector<std::uint8_t>>{
     if(!h.assets->hasArchiveResource(name))return {};return h.assets->readArchiveResource(name);}).load(id);
     if(corruptText && id==XeenMapIdentity(23))value.strings.at(18)+=" changed";
@@ -193,7 +193,7 @@ int main(int argc,char **argv) {
     if(const auto *error=std::get_if<XeenEventExecutionError>(&result))std::cerr<<"M35 event: "<<error->message<<'\n';};};
    s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){
     handler.framePresented(h.flow->frame().presentation());
-    check(h.flow->canSave() && h.party->regionalRecovery,"Contract-6 entry");
+    check(h.flow->canSave() && h.party->worldFlags,"Contract-6 entry");
     if(stage=="collected" || stage=="return" || stage=="exchange" || rewardVariant || treasureMyra || treasureWell || stage=="item-draw-fault" || stage=="recovery" || stage=="continue" || stage=="branches" || stage=="selector-authority" || stage=="selector-aba" || stage=="phirna-grant-fault" || stage=="myra-take-fault" || stage=="item-owed-fault" || stage=="well-repeat" || stage=="well-equal" || stage=="well-frame-retry" ||
      stage=="well-text-fault" || stage=="run-restart"){
      const auto persisted=XeenSaveFile::read(path);
@@ -297,7 +297,7 @@ int main(int argc,char **argv) {
       check(h.party->roster.at(11).currentHp==hp+25 && *h.party->monsterTreasure==retained,
        "Well HP prefix changed monster treasure");
       settle();
-      check(h.party->regionalRecovery->worldFlag16 && *h.party->monsterTreasure==retained,
+      check(h.party->worldFlags->values[16] && *h.party->monsterTreasure==retained,
        "Well flag publication changed monster treasure");
       std::size_t slot=9;for(std::size_t i=0;i<9;++i){const auto &item=h.party->roster.at(0).miscellaneous[i];
        if(item.material==10 && item.id==37 && item.state==1){slot=i;break;}}
@@ -338,7 +338,7 @@ int main(int argc,char **argv) {
       <<(treasureMyra?"Myra rewards":"well and antidote")<<" PASS\n";return true;
     }
     if(stage=="well-repeat"){
-     check(h.camera->x==7 && h.camera->y==7 && h.party->regionalRecovery->worldFlag16,
+     check(h.camera->x==7 && h.camera->y==7 && h.party->worldFlags->values[16],
       "Restored well repeat starting point");
      const auto maximum=XeenCharacterRules::maxHp(h.party->roster.at(11),{h.party->encounterContext->year});
      for(unsigned n=0;h.party->roster.at(11).currentHp<=maximum && n<10;++n){
@@ -355,7 +355,7 @@ int main(int argc,char **argv) {
      const auto minutes=h.party->encounterContext->minutes;
      const auto draws=h.world->sessionState().journeyRandom()->count;
      input(InteractionAction{});input(SelectMemberAction{3});settle();
-     check(h.party->roster.at(11).currentHp==hp && h.party->regionalRecovery->worldFlag16 &&
+     check(h.party->roster.at(11).currentHp==hp && h.party->worldFlags->values[16] &&
       h.party->encounterContext->minutes==minutes && h.world->sessionState().journeyRandom()->count==draws,
       "Above-maximum well refusal keeps complete local state");
      input(WaitAction{});settle();input(SaveGameAction{});check(h.saves>0,"Well refusal further gameplay save");
@@ -370,7 +370,7 @@ int main(int argc,char **argv) {
      check(h.party->roster.at(11).currentHp==maximum,"Well equal-maximum entry");
      input(InteractionAction{});input(SelectMemberAction{3});settle();
      auto expected=before;expected.characters[11].currentHp=static_cast<std::int16_t>(maximum+25);
-     expected.journey->regionalRecovery->worldFlag16=true;
+     expected.journey->worldFlags->values[16]=true;
      save_test::sameSnapshot(expected,XeenSaveState::capture(h.signature,*h.party,*h.camera,*h.flags,*h.world));
      input(SaveGameAction{});check(h.saves>0,"Equal-maximum well save");
      std::cout<<"M35 equal-maximum well full-state gain PASS\n";return true;
@@ -384,16 +384,16 @@ int main(int argc,char **argv) {
      input(InteractionAction{});
      unsigned failures=0;
      h.flow->beforeEncounterFrameCopy=[&]{
-      if(h.party->roster.at(11).currentHp==hp+25 && !h.party->regionalRecovery->worldFlag16 && !failures++)
+      if(h.party->roster.at(11).currentHp==hp+25 && !h.party->worldFlags->values[16] && !failures++)
        throw std::runtime_error("Artificial well success frame copy failure");
      };
      input(SelectMemberAction{3});h.flow->beforeEncounterFrameCopy={};
      check(failures>=1 && h.party->roster.at(11).currentHp==hp+25 &&
-      !h.party->regionalRecovery->worldFlag16 && !h.flow->canSave(),
+      !h.party->worldFlags->values[16] && !h.flow->canSave(),
       "Well success frame retry retains exactly one HP publication and blocks partial capture");
      settle();
      auto expected=before;expected.characters[11].currentHp=static_cast<std::int16_t>(hp+25);
-     expected.journey->regionalRecovery->worldFlag16=true;
+     expected.journey->worldFlags->values[16]=true;
      save_test::sameSnapshot(expected,XeenSaveState::capture(h.signature,*h.party,*h.camera,*h.flags,*h.world));
      input(WaitAction{});settle();input(SaveGameAction{});check(h.saves>0,"Well frame retry further gameplay save");
      std::cout<<"M35 well HP/frame retry/flag full-state publication PASS\n";return true;
@@ -402,18 +402,18 @@ int main(int argc,char **argv) {
      for(char key:std::string_view{"LUUURUULU"}){
       input(key=='U'?PlayerAction{NavigationAction::MoveForward}:key=='L'?PlayerAction{NavigationAction::TurnLeft}:PlayerAction{NavigationAction::TurnRight});settle();
      }
-     check(h.camera->x==7 && h.camera->y==7 && !h.party->regionalRecovery->worldFlag16,"Well fault genuine arrival");
+     check(h.camera->x==7 && h.camera->y==7 && !h.party->worldFlags->values[16],"Well fault genuine arrival");
      const auto hp=h.party->roster.at(11).currentHp;
      const auto minutes=h.party->encounterContext->minutes;
      const auto draws=h.world->sessionState().journeyRandom()->count;
      input(InteractionAction{});input(SelectMemberAction{3});
-     check(h.party->roster.at(11).currentHp==hp+25 && !h.party->regionalRecovery->worldFlag16,
+     check(h.party->roster.at(11).currentHp==hp+25 && !h.party->worldFlags->values[16],
       "Well fault after HP before flag");
      corruptText=true;h.eventSystem->discardTextCache();
      bool failed=false;try{h.flow->refresh(true);handler.framePresented(h.flow->frame().presentation());}
      catch(const std::exception &){failed=true;}
      check(failed && !h.flow->canSave() && h.party->roster.at(11).currentHp==hp+25 &&
-      !h.party->regionalRecovery->worldFlag16 && h.party->encounterContext->minutes==minutes &&
+      !h.party->worldFlags->values[16] && h.party->encounterContext->minutes==minutes &&
       h.world->sessionState().journeyRandom()->count==draws,
       "Mutated text after well HP latches failure without rollback or flag replay");
      std::cout<<"M35 well partial publication/resource fault PASS\n";return true;
@@ -465,8 +465,8 @@ int main(int argc,char **argv) {
       stage=="return" || stage=="exchange" || rewardVariant || stage=="phirna-grant-fault" || stage=="myra-take-fault" || stage=="full"),
      "Request/exchange quest state");
     const auto snapshot=XeenSaveState::capture(h.signature,*h.party,*h.camera,*h.flags,*h.world);
-    check(snapshot.journey && snapshot.journey->schema==9 && snapshot.journey->regionalRecovery &&
-     snapshot.journey->regionalRecovery->worldFlag16==(stage=="continue"),"Contract-6 capture");
+    check(snapshot.journey && snapshot.journey->schema==9 && snapshot.journey->worldFlags &&
+     snapshot.journey->worldFlags->values[16]==(stage=="continue"),"Contract-6 capture");
     if(stage=="request") {input(SaveGameAction{});check(h.saves>0,"Request F9 save");return true;}
     const auto route=[&](std::string_view steps){for(char key:steps){check(h.flow->canSave(),"M35 route input boundary");
      input(key=='U'?PlayerAction{NavigationAction::MoveForward}:key=='L'?PlayerAction{NavigationAction::TurnLeft}:PlayerAction{NavigationAction::TurnRight});settle();}};
@@ -741,17 +741,17 @@ int main(int argc,char **argv) {
     check(pending && pending->response==XeenPresentationResponseRequirement::CharacterSelection,
      "Original well WhoWill selection");
     input(SelectMemberAction{3});
-    check(h.party->roster.at(11).currentHp==hp+25 && !h.party->regionalRecovery->worldFlag16 &&
+    check(h.party->roster.at(11).currentHp==hp+25 && !h.party->worldFlags->values[16] &&
      h.party->encounterContext->minutes==beforeWellMinutes && h.world->sessionState().journeyRandom()->count==beforeWellDraws,
      "Well HP publication precedes acknowledgment/flag without time or RNG");
     check(h.world->scenePresentation().portraits[11].spellFrame==0,"Well giveTake portrait recipient missing");
     const auto savesBeforeWellAck=h.saves;
     check(!h.flow->canSave(),"Well acknowledgment blocks capture");
     input(SaveGameAction{});
-    check(h.saves==savesBeforeWellAck && !h.party->regionalRecovery->worldFlag16,
+    check(h.saves==savesBeforeWellAck && !h.party->worldFlags->values[16],
      "F9 cannot save or acknowledge partial well publication");
     settle();
-    check(h.party->roster.at(11).currentHp==hp+25 && h.party->regionalRecovery->worldFlag16,"Selected well recovery");
+    check(h.party->roster.at(11).currentHp==hp+25 && h.party->worldFlags->values[16],"Selected well recovery");
     check(h.party->roster.at(18).conditions[3]==1,"Genuine Poison target");
     std::size_t slot=9;for(std::size_t i=0;i<9;++i){const auto &item=h.party->roster.at(0).miscellaneous[i];
      if(item.material==10 && item.id==37 && item.state==1)slot=i;}

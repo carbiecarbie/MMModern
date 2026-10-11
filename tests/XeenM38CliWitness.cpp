@@ -70,7 +70,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
  COUNT_PROVIDER(resources.loadInitialCharacters);COUNT_PROVIDER(resources.loadInitialContext);
  COUNT_PROVIDER(resources.loadMonsterStatistics);COUNT_PROVIDER(resources.regionalManifest);
  COUNT_PROVIDER(resources.loadInitialPurse);
- COUNT_PROVIDER(resources.loadInitialRegionalRecovery);COUNT_PROVIDER(resources.loadRegionalText);
+ COUNT_PROVIDER(resources.loadInitialWorldFlags);COUNT_PROVIDER(resources.loadRegionalText);
  COUNT_PROVIDER(resources.loadLearnedSpellNames);COUNT_PROVIDER(maps);COUNT_PROVIDER(objects);
  COUNT_PROVIDER(texts);COUNT_PROVIDER(compose);COUNT_PROVIDER(npcDraw);
  COUNT_PROVIDER(validateEncounterSprite);COUNT_PROVIDER(validateCombatSprite);

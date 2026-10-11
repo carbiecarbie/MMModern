@@ -109,15 +109,32 @@
 // Mainland old: 686cc0b27465446b666eecc50c129d611fbda62471eacdc22869a4510116e10f
 // Services old: 818c81cec3f060333d0276d2cec4a1e4250205d12127e4405a5dd2679af61f1e
 // Temple old: 96b806b150568bc1947ddfc9b27b5ca6e97270a3a7742d8224df24be491278ea
+// M59 Part A: maintainer approved the v11 audit and digest replacement on 2026-10-11.
+// Clean baseline 7e44908955f6c3b1c356b1e464b737411820587a executables were
+// preserved outside the repository before source changes and reproduced all
+// three v10 hashes. Complete traces and all common decoded fields are identical
+// across all ten checkpoints. Each save grows by exactly 128 bytes: the single
+// flag-16 byte becomes 128 world-flag bytes (+127, flag 16 preserved), followed
+// later by a zero absent-head-cache byte (+1). Only envelope version 10 -> 11,
+// payload length and CRC also change; schema 9/content 14 remain unchanged.
+// Every checkpoint matches the independent byte projection, and native v11
+// final reload/re-save is exact in all three scenarios. No unexplained changes.
+// Preserved baseline: D:/M44-audits/m59-part-a-20261011.
+// Local audit: build-rel/m59-digest-comparison/digest-audit.json.
+// Independent projection: build-rel/m59-digest-comparison/byte-explanation.json.
+// Evidence stays local; never commit original-data saves.
+// Mainland old: d296ae3f83cdacb2c2a44828904c89f7f952a5ecf350ffa6f24d09b991a8124a
+// Services old: e6dff2020eb0b675643c70923e51c2927e55df525c7d396e66d60f80f2ac7730
+// Temple old: 8200689f224f00a977d5df6360a4b2c4d36f65375da6511a155a4975e526722e
 #include <array>
 #include <cstdint>
 namespace m44_baseline {
-inline constexpr const char *revision = "ba1b41676e0b6c585e5c0b542c445254814a27b8 + M58 v10";
+inline constexpr const char *revision = "7e44908955f6c3b1c356b1e464b737411820587a + M59 Part A v11";
 struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 inline constexpr std::array<Scenario,3> scenarios{{
-    {"mainland-combat-myra-phirna",3626689381u,"d296ae3f83cdacb2c2a44828904c89f7f952a5ecf350ffa6f24d09b991a8124a"},
-    {"vertigo-buy-repair-training",7u,"e6dff2020eb0b675643c70923e51c2927e55df525c7d396e66d60f80f2ac7730"},
-    {"temple-recovery",3626689381u,"8200689f224f00a977d5df6360a4b2c4d36f65375da6511a155a4975e526722e"}
+    {"mainland-combat-myra-phirna",3626689381u,"d8c361f620b7bb1f5c1d6afb7da88cdbee8fcfb5f82c75a1795acd690ef20d01"},
+    {"vertigo-buy-repair-training",7u,"a08fe83f6ab5267743355cf2138750034a166599cd808fdd6d334faca50989bc"},
+    {"temple-recovery",3626689381u,"91b6af7f310ae55f72063add8542c5f1c3d02655e7ba50f2a887860f788c8fb1"}
 }};
 }
 #endif

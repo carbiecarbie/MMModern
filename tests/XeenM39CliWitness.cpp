@@ -85,7 +85,7 @@ void checkRestoredFields(const XeenSaveSnapshot &disk,const XeenSaveSnapshot &li
         disk.camera.direction==live.camera.direction && disk.questItems==live.questItems && disk.questFlags==live.questFlags &&
         disk.gameFlags==live.gameFlags && disk.disabledEvents==live.disabledEvents && disk.disabledObjects==live.disabledObjects &&
         a.schema==b.schema && a.content==b.content && a.initializedMap==b.initializedMap && a.originalActorCount==b.originalActorCount &&
-        a.context==b.context && a.random==b.random && a.treasure==b.treasure && a.regionalRecovery==b.regionalRecovery,
+        a.context==b.context && a.random==b.random && a.treasure==b.treasure && a.worldFlags==b.worldFlags,
         "M39 pre-input domain/camera/context/flags/treasure/RNG mismatch");
 }
 }
@@ -115,7 +115,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
 #define M39_COUNT(field) if(services.field)services.field=count(services.field)
     M39_COUNT(resources.loadInitialParty);M39_COUNT(resources.loadEvents);M39_COUNT(resources.loadInitialCharacters);M39_COUNT(resources.loadInitialContext);
     M39_COUNT(resources.loadMonsterStatistics);M39_COUNT(resources.regionalManifest);M39_COUNT(resources.loadInitialPurse);
-    M39_COUNT(resources.loadInitialRegionalRecovery);M39_COUNT(resources.loadRegionalText);M39_COUNT(maps);M39_COUNT(objects);M39_COUNT(texts);M39_COUNT(compose);
+    M39_COUNT(resources.loadInitialWorldFlags);M39_COUNT(resources.loadRegionalText);M39_COUNT(maps);M39_COUNT(objects);M39_COUNT(texts);M39_COUNT(compose);
     M39_COUNT(npcDraw);M39_COUNT(validateEncounterSprite);M39_COUNT(validateCombatSprite);M39_COUNT(sampleJourneySeed);
 #undef M39_COUNT
     services.clock=[&]{return now;};services.observeSaveStage=[&](auto){++saves;};

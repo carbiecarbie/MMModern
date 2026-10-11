@@ -22,7 +22,7 @@ void xeenValidateJourneyParty(const XeenPartyState &party) {
 
 	require(party.roster.combatMarked() && party.encounterContext.has_value(), "Journey requires complete owner state");
 	require(bool(party.monsterTreasure), "Journey consequence presence mismatch");
-	require(bool(party.regionalRecovery), "Journey recovery presence mismatch");
+	require(bool(party.worldFlags), "Journey recovery presence mismatch");
 	require(bool(party.serviceEconomy), "Journey service-economy presence mismatch");
 	if (party.serviceEconomy) xeenValidateCurrentServiceEconomy(*party.serviceEconomy);
 	if (party.monsterTreasure) xeenValidateMonsterTreasure(*party.monsterTreasure);

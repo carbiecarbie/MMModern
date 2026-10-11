@@ -83,7 +83,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
 #define M42_COUNT(field) if(services.field)services.field=count(services.field)
     M42_COUNT(resources.loadInitialParty);M42_COUNT(resources.loadInitialCharacters);M42_COUNT(resources.loadInitialContext);
     M42_COUNT(resources.loadEvents);M42_COUNT(resources.loadMonsterStatistics);M42_COUNT(resources.regionalManifest);
-    M42_COUNT(resources.loadInitialPurse);M42_COUNT(resources.loadInitialRegionalRecovery);M42_COUNT(resources.loadRegionalText);M42_COUNT(resources.loadLearnedSpellNames);
+    M42_COUNT(resources.loadInitialPurse);M42_COUNT(resources.loadInitialWorldFlags);M42_COUNT(resources.loadRegionalText);M42_COUNT(resources.loadLearnedSpellNames);
     M42_COUNT(resources.loadInitialBankBalances);M42_COUNT(maps);M42_COUNT(objects);M42_COUNT(texts);M42_COUNT(compose);M42_COUNT(npcDraw);
     M42_COUNT(validateEncounterSprite);M42_COUNT(validateCombatSprite);M42_COUNT(sampleJourneySeed);M42_COUNT(composeEncounter);
 #undef M42_COUNT

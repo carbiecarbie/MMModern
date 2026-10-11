@@ -110,6 +110,8 @@ struct XeenEventSpawn { std::uint8_t slot=0; int x=0,y=0; std::uint8_t unused=0;
 struct XeenEventAlterEvent { std::uint8_t line=0, replacement=0; };
 struct XeenEventSetVar { std::uint8_t mode=0, value=0; };
 struct XeenEventProtectionCheck {};
+struct XeenEventAlterHeads { std::uint8_t left=0,right=0; };
+struct XeenEventDamage { std::uint16_t amount=0;std::uint8_t type=0; };
 struct XeenEventMoveObject {std::uint8_t record=0;int x=0,y=0;};
 struct XeenEventSetCharacter {std::uint8_t selector=0;};
 
@@ -149,7 +151,9 @@ using XeenDecodedEventOperation = std::variant<
 	XeenEventSpawn,
 	XeenEventAlterEvent,
 	XeenEventSetVar,
-	XeenEventProtectionCheck>;
+	XeenEventProtectionCheck,
+	XeenEventAlterHeads,
+	XeenEventDamage>;
 
 struct XeenDecodedEventInstruction {
 	XeenEventSourceLocation source;

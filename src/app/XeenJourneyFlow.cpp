@@ -34,7 +34,7 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 	xeenValidateTrainingSource(characters);
 	const auto manifest=setup.regionalManifest;
 	const auto purse=setup.purse;
-	const auto recovery=setup.regionalRecovery;
+	const auto recovery=setup.worldFlags;
 	const auto regionalText=setup.regionalText;
 	const auto learnedNames=setup.learnedNames;
 	const auto bank=setup.bank;
@@ -46,9 +46,9 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 	_journeyCapture->initializationPending=!setup.prepared;
 	if (w.hasEncounterState() || p.roster.combatMarked() || p.encounterContext || w._combatCheck || w._combatAuthorized)
 		throw std::invalid_argument("Journey requires fresh uncoordinated owners");
-	if (!recovery || p.regionalRecovery)
+	if (!recovery || p.worldFlags)
 		throw std::invalid_argument("Journey recovery preparation mismatch");
-	if(preparedStart)p.regionalRecovery = recovery;
+	if(preparedStart)p.worldFlags = recovery;
 	try {
 		// Retain lifetime controls before installing callbacks, including allocation failure paths.
 		retainJourney();

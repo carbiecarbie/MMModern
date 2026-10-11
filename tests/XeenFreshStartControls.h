@@ -3,7 +3,7 @@ XeenJourneySetup freshSetup(Source &s,XeenDifficulty difficulty) {
  XeenJourneySetup setup{s.chr,XeenGameplayContextFormat::parse(s.pty),s.statistics,s.city,1,s.regional()};
  setup.prepared=false;setup.context.difficulty=difficulty;
  setup.purse=XeenCharacterFormat::parseMonsterPurse(s.pty);setup.bank=XeenCharacterFormat::parseBankBalances(s.pty);
- setup.regionalRecovery=XeenQuestFlagFormat::parseRegionalRecovery(s.pty);setup.regionalText=s.texts.load(23);
+ setup.worldFlags=XeenQuestFlagFormat::parseWorldFlags(s.pty);setup.regionalText=s.texts.load(23);
  setup.learnedNames=s.names;setup.learnedNamesProvider=[&s]{return s.names;};
  setup.cityEventsProvider=[&s]{return s.city;};setup.mainlandEventsProvider=[&s]{return s.mainland;};return setup;
 }
@@ -35,7 +35,7 @@ void freshState(Source &s,const XeenPartyState &p,const XeenCamera &c,const Xeen
  for(bool flag:f.values())check(!flag,"Fresh Clouds game flags");
  for(bool flag:p.questFlags.values())check(!flag,"Fresh quest flags");
  for(auto item:p.questItems.counts())check(!item,"Fresh Clouds quest items");
- check(p.regionalRecovery && !p.regionalRecovery->worldFlag16,"Fresh world flag default");
+ check(p.worldFlags && !p.worldFlags->values[16],"Fresh world flag default");
  const auto originalCity=XeenActorApproach::actorsFromResources(s.maps.loadObjects(s.assets,28),s.statistics);
  const auto city=w.sessionState().regionalActors(28);
  check(city.size()==46,"All original city actors published");
@@ -137,7 +137,7 @@ void freshFailureControls(Source &s) {
   if(fault==3)setup.cityEventsProvider=[&]()->XeenEventFile{throw std::bad_alloc();};
   bool failed=false;try{XeenEncounterFlow flow(w,p,c,f,[]{return 0;},setup);}catch(const std::exception &){failed=true;}
   check(failed && !w.sessionState().encounterInitialized() && w.sessionState().actors().empty() &&
-   !w.sessionState().hasRegionalActors(28) && !p.roster.combatMarked() && !p.encounterContext && !p.serviceEconomy && !p.monsterTreasure && !p.regionalRecovery,"Failed fresh preparation publishes no gameplay candidate");
+   !w.sessionState().hasRegionalActors(28) && !p.roster.combatMarked() && !p.encounterContext && !p.serviceEconomy && !p.monsterTreasure && !p.worldFlags,"Failed fresh preparation publishes no gameplay candidate");
   for(unsigned n=0;n<30;++n)check(xeen_state::sameCharacter(before[n],p.roster.at(n)),"Failed fresh preparation retains original CHR");
  }
 }

@@ -227,6 +227,7 @@ private:
 	IndexedFrame handleBarrier(const PlayerAction &);
 	void checkTransitionCandidate();
 	XeenPresentationUpdate presentPendingEvent();
+ bool drawPendingHeads(IndexedFrame &);
 	XeenManualEventResult beginVertigoEvent(XeenRegionalInteraction, bool automatic=false);
 	XeenManualEventResult resumeVertigoEvent(XeenEventExecutionState, XeenPresentationResponse);
 	void prepareVertigoResult(const XeenManualEventResult &);

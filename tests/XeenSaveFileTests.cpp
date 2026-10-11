@@ -183,8 +183,8 @@ void extendedIdentityTests(const fs::path &directory) {
 void legacyReplacement(const fs::path &path) {
  const auto current=sample(); const auto wire=XeenSaveFormat::encode(current);
  std::vector<Bytes> older{nonzeroLegacy()};
- for(unsigned version:{2u,3u,4u,5u,6u,7u,8u,9u}){auto bytes=wire;bytes[8]=version;older.push_back(bytes);}
- const auto suffix=wire.size()-8338;
+ for(unsigned version:{2u,3u,4u,5u,6u,7u,8u,9u,10u}){auto bytes=wire;bytes[8]=version;older.push_back(bytes);}
+ const auto suffix=wire.size()-8466;
  for(unsigned content=1;content<14;++content){auto bytes=wire;bytes[suffix+1]=legacyJourneySchema(content);bytes[suffix+3]=content;fixIndependentEnvelope(bytes);older.push_back(bytes);}
  for(const auto &old:older) {
   put(path,old);rejects([&]{XeenSaveFile::read(path);},"no longer supported");check(raw(path)==old,"older read mutated disk");
@@ -197,7 +197,7 @@ void legacyReplacement(const fs::path &path) {
  }
  for(unsigned mode=0;mode<6;++mode) {
   auto bad=wire;
-  switch(mode){case 0:bad[8]=11;break;case 1:bad[0]^=1;break;case 2:bad[8]=1;bad[16]^=1;break;
+  switch(mode){case 0:bad[8]=12;break;case 1:bad[0]^=1;break;case 2:bad[8]=1;bad[16]^=1;break;
    case 3:bad[suffix+3]=255;fixIndependentEnvelope(bad);break;case 4:bad[8]=2;bad.pop_back();break;
    case 5:bad[suffix+1]=8;bad[suffix+3]=14;fixIndependentEnvelope(bad);break;}
   put(path,bad);
@@ -248,7 +248,7 @@ void managedStorage(const fs::path &directory) {
  for(unsigned fault=0;fault<4;++fault) {
   auto swapped=wire;
   if(fault==0)swapped=XeenSaveFormat::encode(foreign);
-  if(fault==1)swapped[8]=11;
+  if(fault==1)swapped[8]=12;
   if(fault==2)swapped.back()^=1;
   if(fault==3) {auto absent=named;absent.name.reset();swapped=XeenSaveFormat::encode(absent);}
   put(target,wire);
@@ -308,7 +308,7 @@ int main(int argc,char **argv) {
   check(locked!=INVALID_HANDLE_VALUE,"could not exclusively lock target");
   rejects([&]{XeenSaveFile::read(path);}); CloseHandle(locked);
   for(auto bad:std::vector<Bytes>{{1,2,3},Bytes(XeenSaveFormat::kMaximumSize+1),prior}) {
-   if(bad==prior) bad[8]=11;
+   if(bad==prior) bad[8]=12;
    put(path,bad); rejects([&]{XeenSaveFile::write(path,old);});check(raw(path)==bad,"unknown file overwritten");
   }
   put(path,prior);

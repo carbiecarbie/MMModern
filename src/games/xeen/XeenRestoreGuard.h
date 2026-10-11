@@ -21,7 +21,7 @@ public:
 		partyReplacement(p._replacement), rosterReplacement(p.roster._replacement),
 		s(w._sessionState), characters(p.roster.characters()), inputs(p.roster._combatInputs),
 		marked(p.roster.combatMarked()), membership(p.party.activeRosterIds()),
-		quests(p.questItems.counts()), questFlags(p.questFlags.values()), recovery(p.regionalRecovery), context(p.encounterContext), treasure(p.monsterTreasure), economy(p.serviceEconomy),
+		quests(p.questItems.counts()), questFlags(p.questFlags.values()), recovery(p.worldFlags), context(p.encounterContext), treasure(p.monsterTreasure), economy(p.serviceEconomy),
 		food(p.food), first(p.firstSerializedCount), effective(p.effectiveSerializedCount), diagnostics(p.diagnostics),
 		cameraValue(c), flagValues(f.values()), combatCheck(bool(w._combatCheck)), combatAuthorized(bool(w._combatAuthorized)),
 		maps(w._maps), objects(w._objects), cityStatistics(w._cityStatistics), cityOriginalCount(w._cityOriginalActorCount), cacheRevision(w._cacheRevision), exactCaches(exactCaches),
@@ -70,7 +70,7 @@ public:
 			p._incarnation != partyId || p.roster._incarnation != rosterId ||
 			p._replacement != partyReplacement || p.roster._replacement != rosterReplacement ||
 			p.roster.combatMarked() != marked || p.party.activeRosterIds() != membership ||
-			p.questItems.counts() != quests || p.questFlags.values() != questFlags || p.regionalRecovery != recovery ||
+			p.questItems.counts() != quests || p.questFlags.values() != questFlags || p.worldFlags != recovery ||
 			!(p.encounterContext == context) || p.monsterTreasure != treasure || p.serviceEconomy != economy || p.firstSerializedCount != first ||
 			p.food!=food || p.effectiveSerializedCount != effective || p.diagnostics != diagnostics ||
 			!sameCamera(c, cameraValue) || f.values() != flagValues ||
@@ -80,7 +80,7 @@ public:
 		const auto &live = w._sessionState;
 		if (live._journeyActivity != s._journeyActivity || live._journeyOwner != s._journeyOwner ||
 			live._journeyGeneration != s._journeyGeneration || live._skeletonSeed != s._skeletonSeed ||
-			live._journeyRandom != s._journeyRandom ||
+			live._headCache != s._headCache || live._journeyRandom != s._journeyRandom ||
 			live._accountedMonsters != s._accountedMonsters) return false;
 		if (live._combatOwner != s._combatOwner || live._combatApproachState != s._combatApproachState ||
 			live._combatEntered != s._combatEntered ||
@@ -293,7 +293,7 @@ private:
 		for(unsigned owner=0;owner<inputs.size();++owner)inputs[owner]=candidate.roster.combatInputs(owner);
 		marked=candidate.roster.combatMarked();membership=candidate.party.activeRosterIds();
 		quests=candidate.questItems.counts();questFlags=candidate.questFlags.values();
-		recovery=candidate.regionalRecovery;context=candidate.encounterContext;
+		recovery=candidate.worldFlags;context=candidate.encounterContext;
 		treasure=candidate.monsterTreasure;economy=candidate.serviceEconomy;
 		food=candidate.food;first=candidate.firstSerializedCount;effective=candidate.effectiveSerializedCount;diagnostics=candidate.diagnostics;
 		s._actors=actors;s._entry=XeenEncounterEntry::Journey;
@@ -350,22 +350,44 @@ private:
 		check();candidate.check();
 		auto retainedTreasure=candidate.treasure;
 		if(retainedTreasure && treasure) {retainedTreasure->gold=treasure->gold;retainedTreasure->gems=treasure->gems;}
+  auto retainedContext=candidate.context;
+  if(retainedContext && context) {
+   retainedContext->year=context->year;retainedContext->effects=context->effects;
+   retainedContext->lightAndResistances=context->lightAndResistances;retainedContext->rested=context->rested;
+  }
 		// Event capabilities permit inventories, awards, skills, XP, purse, retained RNG, quest/camera/game flags
 		// and World overlays/Spawn. All other inputs retain their preimages.
 		if(candidate.membership!=membership || candidate.quests!=quests || candidate.marked!=marked ||
 			candidate.s._barriers!=s._barriers || candidate.s._exploredTiles!=s._exploredTiles ||
-			candidate.recovery!=recovery || !(candidate.context==context) || retainedTreasure!=treasure ||
+			bool(candidate.recovery)!=bool(recovery) || !(retainedContext==context) || retainedTreasure!=treasure ||
 			candidate.food!=food || candidate.economy!=economy || candidate.first!=first || candidate.effective!=effective ||
 			candidate.diagnostics!=diagnostics || bool(candidate.s._journeyRandom)!=bool(s._journeyRandom)) {
 			failed=true;throw std::logic_error("Event candidate changed an unowned party or RNG field");
 		}
 		for(unsigned owner=0;owner<characters.size();++owner) {
 			auto retainedCharacter=candidate.characters[owner];retainedCharacter.awards=characters[owner].awards;
+   retainedCharacter.currentHp=characters[owner].currentHp;retainedCharacter.conditions=characters[owner].conditions;
+   retainedCharacter.temporaryLevel=characters[owner].temporaryLevel;
+   retainedCharacter.intellect.temporary=characters[owner].intellect.temporary;
+   retainedCharacter.personality.temporary=characters[owner].personality.temporary;
+   retainedCharacter.endurance.temporary=characters[owner].endurance.temporary;
 			retainedCharacter.skills=characters[owner].skills;
 			retainedCharacter.weapons=characters[owner].weapons;retainedCharacter.armor=characters[owner].armor;
 			retainedCharacter.accessories=characters[owner].accessories;retainedCharacter.miscellaneous=characters[owner].miscellaneous;
 			auto retainedInputs=candidate.inputs[owner];
-			if(retainedInputs && inputs[owner])retainedInputs->experience=inputs[owner]->experience;
+			if(retainedInputs && inputs[owner]) {
+    const auto &before=*inputs[owner];auto &after=*retainedInputs;
+    after.experience=before.experience;after.might.temporary=before.might.temporary;
+    after.speed.temporary=before.speed.temporary;after.accuracy.temporary=before.accuracy.temporary;
+    after.temporaryAc=before.temporaryAc;
+    if(after.luck && before.luck)after.luck->temporary=before.luck->temporary;
+    if(after.poisonResistance && before.poisonResistance)after.poisonResistance->temporary=before.poisonResistance->temporary;
+    if(after.resistances && before.resistances) {
+     auto &r=*after.resistances;const auto &v=*before.resistances;
+     r.fireTemporary=v.fireTemporary;r.coldTemporary=v.coldTemporary;r.electricalTemporary=v.electricalTemporary;
+     r.energyTemporary=v.energyTemporary;r.magicTemporary=v.magicTemporary;
+    }
+   }
 			if(!xeen_state::sameCharacter(retainedCharacter,characters[owner]) ||
 				bool(candidate.inputs[owner])!=bool(inputs[owner]) ||
 				(inputs[owner] && !xeen_state::sameInputs(*retainedInputs,*inputs[owner]))) {
@@ -400,18 +422,26 @@ private:
 		s._accountedMonsters.swap(accounted);
 		s._events.swap(events);s._objects.swap(disabledObjects);
 		s._objectOverrides.swap(overrides);
+		s._headCache=candidate.s._headCache;
 		for(unsigned owner=0;owner<characters.size();++owner) {
+   characters[owner].currentHp=candidate.characters[owner].currentHp;
+   characters[owner].conditions=candidate.characters[owner].conditions;
+   characters[owner].temporaryLevel=candidate.characters[owner].temporaryLevel;
+   characters[owner].intellect.temporary=candidate.characters[owner].intellect.temporary;
+   characters[owner].personality.temporary=candidate.characters[owner].personality.temporary;
+   characters[owner].endurance.temporary=candidate.characters[owner].endurance.temporary;
 			characters[owner].awards=candidate.characters[owner].awards;
 			characters[owner].skills=candidate.characters[owner].skills;
 			characters[owner].weapons=candidate.characters[owner].weapons;characters[owner].armor=candidate.characters[owner].armor;
 			characters[owner].accessories=candidate.characters[owner].accessories;characters[owner].miscellaneous=candidate.characters[owner].miscellaneous;
-			if(inputs[owner])inputs[owner]->experience=candidate.inputs[owner]->experience;
+			if(inputs[owner])*inputs[owner]=*candidate.inputs[owner];
 		}
 		if(treasure) {treasure->gold=candidate.treasure->gold;treasure->gems=candidate.treasure->gems;}
 		s._journeyRandom=candidate.s._journeyRandom;
 		maps.swap(nextMaps);objects.swap(nextObjects);cityStatistics.swap(statistics);
 		cityOriginalCount=candidate.cityOriginalCount;
 		cameraValue=candidate.cameraValue;flagValues=candidate.flagValues;++worldRevision;
+  context=candidate.context;recovery=candidate.recovery;
 		questFlags=candidate.questFlags;
 	}
 	// Only the coordinator's checked, callback-free authority transitions may adopt these fields.
@@ -477,7 +507,7 @@ private:
 	std::vector<std::uint8_t> membership;
 	XeenCloudsQuestItems::Counts quests;
 	XeenCloudsQuestFlags::Values questFlags;
-	std::optional<XeenRegionalRecoveryState> recovery;
+	std::optional<XeenWorldFlags> recovery;
 	std::optional<XeenGameplayContext> context;
 	std::optional<XeenMonsterTreasure> treasure;
 	std::optional<XeenServiceEconomy> economy;

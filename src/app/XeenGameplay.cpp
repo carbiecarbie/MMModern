@@ -113,7 +113,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   if (supplied.resources.loadMonsterStatistics) services.resources.loadMonsterStatistics = [&] { return callback(supplied.resources.loadMonsterStatistics); };
   if (supplied.resources.loadInitialPurse) services.resources.loadInitialPurse = [&] { return callback(supplied.resources.loadInitialPurse); };
   if (supplied.resources.loadInitialBankBalances) services.resources.loadInitialBankBalances = [&] { return callback(supplied.resources.loadInitialBankBalances); };
-  if (supplied.resources.loadInitialRegionalRecovery) services.resources.loadInitialRegionalRecovery = [&] { return callback(supplied.resources.loadInitialRegionalRecovery); };
+  if (supplied.resources.loadInitialWorldFlags) services.resources.loadInitialWorldFlags = [&] { return callback(supplied.resources.loadInitialWorldFlags); };
   if (supplied.texts) services.resources.loadRegionalText = [&](XeenMapIdentity id) { return callback([&] { return supplied.texts(id); }); };
   services.compose = [&](auto &w, const auto &p, const auto &c, auto phase) { return callback([&] { return supplied.compose(w,p,c,phase); }); };
   if (supplied.composeEncounter) services.composeEncounter = [&](auto &w, const auto &p, const auto &c, auto phase, auto actor) {
@@ -182,9 +182,9 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
     journeySetup->purse=services.resources.loadInitialPurse();
    }
    {
-    if (!services.resources.loadInitialRegionalRecovery) throw std::invalid_argument("Missing original regional recovery provider");
+    if (!services.resources.loadInitialWorldFlags) throw std::invalid_argument("Missing original regional recovery provider");
     if (!services.resources.loadRegionalText) throw std::invalid_argument("Missing regional text provider");
-    journeySetup->regionalRecovery=services.resources.loadInitialRegionalRecovery();
+    journeySetup->worldFlags=services.resources.loadInitialWorldFlags();
     journeySetup->regionalText=services.resources.loadRegionalText(23);
    }
    {

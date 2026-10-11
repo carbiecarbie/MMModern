@@ -58,7 +58,7 @@ struct Source:training_test::Inputs {
 auto currentServices(combat_gameplay_test::Harness &h,Source &source){
  auto services=h.services();auto r=source.resources();r.loadInitialParty=services.resources.loadInitialParty;r.loadInitialContext=services.resources.loadInitialContext;
  r.loadInitialPurse=[&source]{return XeenCharacterFormat::parseMonsterPurse(source.pty);};
- r.loadInitialRegionalRecovery=[&source]{return XeenQuestFlagFormat::parseRegionalRecovery(source.pty);};
+ r.loadInitialWorldFlags=[&source]{return XeenQuestFlagFormat::parseWorldFlags(source.pty);};
  r.loadInitialBankBalances=[&source]{return XeenCharacterFormat::parseBankBalances(source.pty);};services.resources=r;services.texts=r.loadRegionalText;return services;
 }
 struct Domain {

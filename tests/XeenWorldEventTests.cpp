@@ -56,6 +56,126 @@ void interact(Fixture &f,bool select=false) {
  if(select && f.flow->canCancelInteraction())f.act(SelectMemberAction{0});
  settle(f);
 }
+void partA(Inputs &in) {
+ stage="M59 Part A staged rules";
+ auto source=at(in,20,20);XeenWorld query(in.mapLoader());const auto tile=query.sampleCell(28,20,20);
+ for(unsigned d=0;d<4;++d) {const auto wall=wallAt(*tile->cell,XeenDirection(d));if(wall!=1 && wall!=6 && wall!=9 && wall!=13){source.camera.direction=XeenDirection(d);break;}}
+ const auto owner=source.activeRosterIds[1];
+ source.characters[owner].skills[0]=0;
+ source.journey->context->effects[0]=1;source.journey->context->effects[3]=1;source.journey->context->lightAndResistances[2]=13;
+ source.journey->context->lightAndResistances[1]=17;source.journey->context->newDay=true;
+ source.characters[owner].temporaryLevel=2;source.characters[owner].temporaryAge=3;
+ source.characters[owner].intellect.temporary=9;source.journey->supplements[owner].inputs.might.temporary=7;
+ for(int flag:{55,155,222,231})source.gameFlags[flag]=true;
+ auto arrival=record(0,0x0c,{0,0,103,24});arrival.x=27;arrival.y=11;
+ XeenEventFile script{28,"maze0028.evt",true,{record(0,0x24,{0,1}),record(1,0x20,{0,0}),
+  record(2,0x0a,{102,0,8}),record(3,0x0c,{0,0,78,0}),record(4,0x0c,{0,0,103,23}),record(5,0x12),
+  record(8,0x0c,{0,0,85,1}),record(9,0x0f,{0}),record(10,0x0c,{0,0,15,8}),record(11,0x1f,{28,27,11}),arrival}};
+ Fixture cancelled(in,source,false,&script);const auto before=XeenSaveFormat::encode(cancelled.snapshot());
+ std::vector<unsigned> headFrames;cancelled.flow->drawDialogSprite=[&](auto &,const auto &name,unsigned frame,int,int){if(std::string(name)=="border.icn")headFrames.push_back(frame);};
+ cancelled.act(InteractionAction{});check(!cancelled.flow->canSave(),"Saving during staged heads/selection");
+ check(headFrames.size()>=2 && headFrames[headFrames.size()-2]>=4 && headFrames[headFrames.size()-2]<=7 && headFrames.back()==headFrames[headFrames.size()-2]+8,"WhoWill did not present candidate HED indicators");
+ const unsigned initialHead=headFrames[headFrames.size()-2];
+ headFrames.clear();cancelled.now+=100;cancelled.flow->beginCycle(++cancelled.cycle);if(auto next=cancelled.flow->updatePresentation())cancelled.present(*next);
+ check(headFrames.size()>=2 && headFrames[headFrames.size()-2]==4+(initialHead-4+1)%4 && headFrames.back()==headFrames[headFrames.size()-2]+8,"WhoWill HED animation lost its ordinary redraw");
+ const auto oldFrame=cancelled.flow->frame().presentation();const auto oldInput=cancelled.flow->displayedInput();
+ cancelled.act(CancelInteractionAction{});
+ check(before==XeenSaveFormat::encode(cancelled.snapshot()),"Cancel published heads/calendar");
+ cancelled.flow->handle(SelectMemberAction{1},oldInput,oldFrame);
+ check(before==XeenSaveFormat::encode(cancelled.snapshot()),"Stale selection committed cancelled effects");
+ XeenEventFile resetHeads{28,"maze0028.evt",true,{record(0,0x0c,{0,0,85,1}),record(1,0x24,{0,0}),record(2,0x20,{0,0}),record(3,0x12)}};
+ Fixture resetPresentation(in,source,false,&resetHeads);unsigned renderedHeads=0;
+ resetPresentation.flow->drawDialogSprite=[&](auto &,const auto &name,unsigned,int,int){if(std::string(name)=="border.icn")++renderedHeads;};
+ resetPresentation.act(InteractionAction{});check(renderedHeads==0,"Year-reset dialog used live clairvoyance instead of staged context");
+ resetPresentation.act(CancelInteractionAction{});check(before==XeenSaveFormat::encode(resetPresentation.snapshot()),"Cancelled year reset published");
+ for(unsigned mode:{0u,1u}) {
+  XeenEventFile confirmation{28,"maze0028.evt",true,{record(0,0x24,{0,1}),record(1,0x20,{0,0}),record(2,0x09,{44,std::uint8_t(mode),3}),record(3,0x12)}};
+  Fixture dialog(in,source,false,&confirmation);unsigned heads=0;
+  dialog.flow->drawDialogSprite=[&](auto &,const auto &name,unsigned,int,int){if(std::string(name)=="border.icn")++heads;};
+  dialog.act(InteractionAction{});heads=0;dialog.act(SelectMemberAction{1});
+  check(mode==0?heads>=2:heads==0,"YesNo versus acknowledgment HED activation differs from reference");
+  settle(dialog);
+ }
+ Fixture jail(in,source,false,&script);const auto rng=jail.w.sessionState().journeyRandom();const auto economy=jail.p.serviceEconomy;
+ const auto clock=*jail.p.encounterContext;const auto age=XeenCharacterRules::sheetAge(jail.p.roster.at(owner),{clock.year});
+ jail.act(InteractionAction{});jail.act(SelectMemberAction{1});settle(jail);
+ check(jail.c.x==27 && jail.c.y==11 && jail.c.direction==source.camera.direction && jail.p.worldFlags->values[24],"Teleport continuation did not restart destination or preserve facing");
+ check(jail.p.encounterContext->year==clock.year+1 && jail.p.encounterContext->day==clock.day &&
+  jail.p.encounterContext->minutes==clock.minutes && jail.p.encounterContext->ctr24==clock.ctr24 &&
+  jail.p.encounterContext->newDay==clock.newDay && jail.p.encounterContext->rested && jail.p.encounterContext->lightAndResistances[1]==17 &&
+  jail.p.encounterContext->effects[3]==0 && jail.p.encounterContext->lightAndResistances[2]==0 && jail.p.serviceEconomy==economy && jail.w.sessionState().journeyRandom()==rng,
+  "Direct year jump simulated time/economy/RNG or lost retained clock fields");
+ check(XeenCharacterRules::sheetAge(jail.p.roster.at(owner),{jail.p.encounterContext->year})==age+1 &&
+  jail.p.roster.at(owner).temporaryLevel==0 && jail.p.roster.at(owner).temporaryAge==3 &&
+  jail.p.roster.at(owner).intellect.temporary==0 && jail.p.roster.combatInputs(owner)->might.temporary==0,"Year age/temporary reset");
+ for(int flag:{55,155,222,231})check(!jail.f.isSet(flag),"Yearly game flag survived");
+ for(auto id:jail.p.party.activeRosterIds())check(jail.p.roster.at(id).awards[8]==1,"Jail active-party award missing");
+ check(!jail.p.roster.at(29).awards[8],"Jail awarded inactive roster");
+ check(jail.w.headIndicators({28,4,4,XeenDirection::North})==XeenHeadIndicators{0,1},"Primary HED megamap alias lost");
+ const auto saved=jail.snapshot();Fixture restored(in,saved,false,&script);
+ check(XeenSaveFormat::encode(restored.snapshot())==XeenSaveFormat::encode(saved),"Current-format jail/heads/flags/RNG round-trip");
+ const auto once=XeenSaveFormat::encode(jail.snapshot());jail.act(AcknowledgeAction{});jail.act(AcknowledgeAction{});
+ check(XeenSaveFormat::encode(jail.snapshot())==once,"Repeated acknowledgment reapplied jail year");
+
+ Fixture yearRetry(in,source,false,&script);unsigned yearAttempts=0;
+ XeenCityEventTestAccess::composer(*yearRetry.flow,[&](auto &,const auto &,const auto &,auto,auto) {
+  if(++yearAttempts==1)throw std::runtime_error("Year composition retry");
+  return XeenEventFlow::Composition{frame(),false};
+ });
+ yearRetry.act(InteractionAction{});yearRetry.act(SelectMemberAction{1});
+ check(!yearRetry.flow->canSave() && yearRetry.p.encounterContext->year==clock.year,"Failed year composition published");
+ settle(yearRetry);check(yearAttempts==2 && XeenSaveFormat::encode(yearRetry.snapshot())==once,"Year retry repeated or lost staged changes");
+ const auto timeBefore=*restored.p.encounterContext;XeenConsequenceCharacters timeCharacters{};XeenConsequenceInputs timeInputs{};
+ for(unsigned i=0;i<restored.p.party.size();++i) {const auto id=restored.p.party.activeRosterIds()[i];timeCharacters[i]=restored.p.roster.at(id);timeInputs[i]=*restored.p.roster.combatInputs(id);}
+ XeenConditionTimeCandidate timeOracle(timeBefore,1,timeCharacters,timeInputs,&*restored.p.serviceEconomy);
+ XeenCombatRandom timeRandom(*restored.w.sessionState().journeyRandom());
+ for(;;){XeenConsequenceDraw draw{timeRandom,64,{}};if(timeOracle.service(draw))break;}
+ timeOracle.context.ctr24=(timeBefore.ctr24+1)%24;
+ restored.act(WaitAction{});settle(restored);
+ check(restored.p.encounterContext==std::optional<XeenGameplayContext>{timeOracle.context} && restored.p.serviceEconomy==timeOracle.economy &&
+  restored.w.sessionState().journeyRandom()==timeRandom.continuation(),"Post-jail ordinary time/economy/RNG processing");
+ for(unsigned field=0;field<3;++field) {
+  Fixture tampered(in,source,false,&script);bool injected=false;
+  XeenCityEventTestAccess::composer(*tampered.flow,[&](auto &world,const auto &party,const auto &,auto,auto) {
+   injected=true;
+   if(field==0) {auto &flag=const_cast<XeenPartyState &>(party).worldFlags->values[23];const bool value=flag;flag=!value;flag=value;}
+   else if(field==1) {auto &head=const_cast<XeenHeadCache &>(*world.sessionState().headCache()).overrides[68]->left;const auto value=std::uint8_t(head);head=2;head=value;}
+   else {auto &heads=const_cast<XeenMap &>(world.map(28)).heads;const auto saved=*heads;heads.reset();heads.emplace(saved);}
+   return XeenEventFlow::Composition{frame(),false};
+  });
+  tampered.act(InteractionAction{});save_test::rejects([&]{tampered.act(SelectMemberAction{1});settle(tampered);});
+  check(injected && !tampered.flow->canSave() && tampered.p.encounterContext->year==clock.year && !tampered.w.sessionState().headCache(),"Head/flag write-restore escaped publication guard");
+ }
+
+ auto success=source;success.characters[owner].skills[0]=1;success.characters[owner].permanentLevel=10;success.characters[owner].currentHp=1;
+ Fixture heal(in,success,false,&script);const auto max=XeenCharacterRules::maxHp(heal.p.roster.at(owner),{clock.year});
+ heal.act(InteractionAction{});heal.act(SelectMemberAction{1});settle(heal);
+ check(heal.p.roster.at(owner).currentHp==max && heal.p.worldFlags->values[23] && heal.c.x==20 && heal.p.encounterContext==success.journey->context && heal.w.sessionState().journeyRandom()==rng,"Selected Thievery/heal introduced rolls/year");
+ for(unsigned i=0;i<heal.p.party.size();++i)if(i!=1)check(heal.p.roster.at(heal.p.party.activeRosterIds()[i]).currentHp==success.characters[success.activeRosterIds[i]].currentHp,"Heal affected another member");
+ // Typed damage is checked against the shared combat candidate, including RNG.
+ XeenEventFile damageScript{28,"maze0028.evt",true,{record(0,0x20,{0,0}),record(1,0x16,{5,0,5}),record(2,0x0c,{0,0,103,23}),record(3,0x12)}};
+ auto damageSource=source;damageSource.characters[owner].currentHp=2;damageSource.journey->context->lightAndResistances[2]=0;
+ Fixture damage(in,damageSource,false,&damageScript);XeenConsequenceCharacters characters{};XeenConsequenceInputs inputs{};
+ for(unsigned n=0;n<damage.p.party.size();++n) {const auto id=damage.p.party.activeRosterIds()[n];characters[n]=damage.p.roster.at(id);inputs[n]=*damage.p.roster.combatInputs(id);}
+ XeenDamageProtection protection;for(unsigned n=0;n<4;++n)protection.resistances[n]=damage.p.encounterContext->lightAndResistances[n+2];
+ protection.powerShield=damage.p.encounterContext->effects[6];
+ XeenTypedDamageCandidate oracle(characters,inputs,5,XeenDamageType::Poison,clock.year,2,protection);XeenCombatRandom random(*damage.w.sessionState().journeyRandom());
+ for(;;){XeenConsequenceDraw draw{random,64,{}};if(oracle.service(draw))break;}
+ damage.act(InteractionAction{});damage.act(SelectMemberAction{1});settle(damage);
+ check(damage.p.roster.at(owner).currentHp==oracle.characters[1].currentHp && damage.p.roster.at(owner).conditions==oracle.characters[1].conditions &&
+  damage.p.roster.at(owner).conditions[3]==characters[1].conditions[3] && damage.w.sessionState().journeyRandom()==random.continuation() && damage.p.worldFlags->values[23],"Typed Event damage/resistance/death/RNG differs from combat");
+
+ Fixture damageRetry(in,damageSource,false,&damageScript);unsigned damageAttempts=0;
+ XeenCityEventTestAccess::composer(*damageRetry.flow,[&](auto &,const auto &,const auto &,auto,auto) {
+  if(++damageAttempts==1)throw std::runtime_error("Damage composition retry");
+  return XeenEventFlow::Composition{frame(),false};
+ });
+ damageRetry.act(InteractionAction{});damageRetry.act(SelectMemberAction{1});
+ check(!damageRetry.flow->canSave() && damageRetry.w.sessionState().journeyRandom()==rng && damageRetry.p.roster.at(owner).currentHp==2,"Failed damage composition published HP/RNG");
+ settle(damageRetry);check(damageAttempts==2 && XeenSaveFormat::encode(damageRetry.snapshot())==XeenSaveFormat::encode(damage.snapshot()),"Damage retry consumed a second draw or reapplied damage");
+
+}
+
 void rules(Inputs &in) {
  auto s=at(in,20,20);
  XeenWorld query(in.mapLoader());const auto tile=query.sampleCell(28,20,20);
@@ -249,13 +369,6 @@ void originalVisualRegressions(Inputs &in) {
 }
 void originalEvents(Inputs &in) {
  // Original records, synthetic placement/flag fixtures: isolate each script branch.
- for(bool flag:{false,true}) {
-  stage=flag?"well flag 9 on":"well flag 9 off";
-  auto s=at(in,14,17);s.gameFlags[9]=flag;Fixture well(in,s);const auto before=XeenSaveFormat::encode(well.snapshot());
-  unsigned errors=0;well.flow->reportManual=[&](const auto &r){if(std::holds_alternative<XeenEventExecutionError>(r))++errors;};
-  interact(well);check(errors==1 && before==XeenSaveFormat::encode(well.snapshot()) &&
-   well.flow->encounter()->notice().find("not supported yet")!=std::string::npos,"Well branch did not visibly refuse before every effect");
- }
  stage="proof";auto s=at(in,9,22);Fixture proof(in,s);const auto rng=proof.w.sessionState().journeyRandom();
  proof.act(InteractionAction{});check(proof.flow->canCancelInteraction(),"Proof WhoWill is absent");
  proof.act(CancelInteractionAction{});check(!proof.f.isSet(9),"Cancelled proof changed flag 9");
@@ -425,7 +538,7 @@ XeenSaveSnapshot fresh(Inputs &in) {
  XeenWorld world(in.mapLoader(),in.objectLoader());
  XeenJourneySetup setup{in.chr,XeenGameplayContextFormat::parse(in.pty),in.statistics,in.city,7,in.regional()};
  setup.prepared=false;setup.purse=XeenCharacterFormat::parseMonsterPurse(in.pty);
- setup.bank=XeenCharacterFormat::parseBankBalances(in.pty);setup.regionalRecovery=XeenQuestFlagFormat::parseRegionalRecovery(in.pty);
+ setup.bank=XeenCharacterFormat::parseBankBalances(in.pty);setup.worldFlags=XeenQuestFlagFormat::parseWorldFlags(in.pty);
  setup.regionalText=in.texts.load(23);setup.learnedNames=in.names;setup.learnedNamesProvider=[&in]{return in.names;};
  setup.cityEventsProvider=[&in]{return in.city;};
  setup.mainlandEventsProvider=[&in]{return in.mainland;};
@@ -475,6 +588,49 @@ void walk(Fixture &f,int x,int y) {
  }
  check(f.c.x==x && f.c.y==y,"Original Joe route failed to reach target");
 }
+void partAOriginal(Inputs &in) {
+ stage="M59 original display cases and jail";
+ auto source=at(in,12,12);const auto owner=source.activeRosterIds[0];source.characters[owner].skills[0]=0;
+ Fixture jail(in,source);const auto year=jail.p.encounterContext->year;const auto day=jail.p.encounterContext->day;const auto minutes=jail.p.encounterContext->minutes;
+ jail.act(InteractionAction{});check(jail.flow->canCancelInteraction(),"Case WhoWill absent");jail.act(SelectMemberAction{0});settle(jail);
+ check(jail.c.mapId==XeenMapIdentity(28) && jail.c.x==27 && jail.c.y==11 && jail.p.encounterContext->year==year+1 &&
+  jail.p.encounterContext->day==day && jail.p.encounterContext->minutes==minutes,"Original jail year/destination/time");
+ for(auto id:jail.p.party.activeRosterIds())check(jail.p.roster.at(id).awards[8]==1,"Original conviction missing");
+ const auto convicted=jail.snapshot();Fixture restored(in,convicted);check(XeenSaveFormat::encode(restored.snapshot())==XeenSaveFormat::encode(convicted),"Original jail reload");
+ walk(restored,25,13);check(restored.flow->canSave() && restored.c.x==25 && restored.c.y==13,"Jail ordinary walk-out failed");
+ auto success=source;success.characters[owner].skills[0]=1;Fixture thief(in,success);
+ const auto xp=thief.p.roster.combatInputs(owner)->experience;
+ interact(thief,true);check(thief.c.x==12 && thief.c.y==12 && thief.p.encounterContext->year==year &&
+  thief.p.roster.combatInputs(owner)->experience==xp && !thief.p.roster.at(owner).awards[8],"Original case invented lockpick roll/XP or jail");
+ stage="M59 original well before proof";source=at(in,14,17);source.gameFlags[9]=false;
+ Fixture poison(in,source);const auto selected=poison.p.party.activeRosterIds()[1];
+ poison.act(InteractionAction{});check(poison.flow->canCancelInteraction(),"Well WhoWill absent");
+ poison.act(SelectMemberAction{1});
+ check(poison.flow->canSave() && !poison.flow->presentationGeneration(),"Before-proof well showed a message");
+ check(poison.p.roster.at(selected).conditions[3]==source.characters[selected].conditions[3],"Poison damage applied Poison condition");
+ for(unsigned n=0;n<poison.p.party.size();++n)if(n!=1)check(poison.p.roster.at(poison.p.party.activeRosterIds()[n]).currentHp==source.characters[source.activeRosterIds[n]].currentHp,"Well damaged another member");
+ stage="M59 original well healing boundaries";
+ for(int boundary:{-1,0,1}) {
+  auto healed=source;healed.gameFlags[9]=true;const auto max=XeenCharacterRules::maxHp(healed.characters[selected],{healed.journey->context->year});
+  healed.characters[selected].currentHp=max+boundary;Fixture well(in,healed);
+  std::vector<unsigned> messages;std::string refreshText;well.flow->reportManual=[&](const auto &r){if(const auto *p=std::get_if<XeenEventExecutionSuspended>(&r))if(p->request.textIndex==52 || p->request.textIndex==62){messages.push_back(*p->request.textIndex);refreshText=p->request.text;}};
+  well.act(InteractionAction{});well.act(SelectMemberAction{1});
+  check(!well.flow->canSave() && well.flow->presentationGeneration(),"Well success/alternate text absent");
+  const auto pending=XeenTrainingTestAccess::serviceState(*well.flow);
+  if(messages!=std::vector<unsigned>{unsigned(boundary<=0?52:62)} || pending.pendingPresentation->request.response!=XeenPresentationResponseRequirement::Acknowledgment) {
+   std::string diagnostic="Well boundary="+std::to_string(boundary)+" source max="+std::to_string(max)+" restored max="+std::to_string(XeenCharacterRules::maxHp(well.p.roster.at(selected),{well.p.encounterContext->year}))+" pending text="+std::to_string(pending.pendingPresentation->request.textIndex.value_or(255))+" response="+std::to_string(unsigned(pending.pendingPresentation->request.response))+" displays=";
+   for(auto message:messages)diagnostic+=std::to_string(message)+",";
+   throw std::runtime_error(diagnostic);
+  }
+  if(boundary<=0)check(refreshText.find("You feel refreshed")!=std::string::npos,"Well original refreshed text differs");
+  check(!well.p.worldFlags->values[23] && well.p.roster.at(selected).currentHp==max+boundary,"Well published before acknowledgment");
+  settle(well);
+  check(well.p.roster.at(selected).currentHp==(boundary<=0?max:max+1) && bool(well.p.worldFlags->values[23])==(boundary<=0),"Well healing cap/alternate flag order");
+  for(unsigned n=0;n<well.p.party.size();++n)if(n!=1)check(well.p.roster.at(well.p.party.activeRosterIds()[n]).currentHp==healed.characters[healed.activeRosterIds[n]].currentHp,"Well healed another member");
+  const auto saved=well.snapshot();Fixture roundtrip(in,saved);check(XeenSaveFormat::encode(roundtrip.snapshot())==XeenSaveFormat::encode(saved),"Well flags/heads/HP/RNG exact restore");
+ }
+}
+
 void originalJourney(Inputs &in) {
  stage="New Game route";
  Fixture f(in,fresh(in));walk(f,14,5);face(f,XeenDirection::West);interact(f);
@@ -495,9 +651,11 @@ void originalJourney(Inputs &in) {
  check(opened==XeenSaveFormat::encode(f.snapshot()),"Repeated crate changed inventory/RNG");
  f.act(RestAction{});settle(f);
  walk(f,8,18);interact(f);walk(f,11,18);face(f,XeenDirection::West);interact(f);
+ walk(f,14,17);interact(f,true);check(bool(f.w.sessionState().headCache()),"Well did not retain HED cache");
  walk(f,15,0);face(f,XeenDirection::South);
  const std::vector<XeenActor> actors=f.w.sessionState().regionalActors(28);interact(f);
  check(f.c.mapId==XeenMapIdentity(23) && f.c.direction==XeenDirection::South,"Original exit facing/transfer failed");
+ check(!f.w.sessionState().headCache(),"Primary-map reload retained town HED overrides");
  // Snapshot and restore the earned town effects while outside the town.
  const auto saved=f.snapshot();Fixture reload(in,saved);
  check(XeenSaveFormat::encode(reload.snapshot())==XeenSaveFormat::encode(saved),"Earned route exact reload failed");
@@ -505,6 +663,7 @@ void originalJourney(Inputs &in) {
  check(entry!=in.mainland.records.end(),"Original town entrance absent");
  walk(reload,entry->x,entry->y);if(entry->direction<4)face(reload,XeenDirection(entry->direction));interact(reload);
  check(reload.c.mapId==XeenMapIdentity(28),"Original town re-entry failed");
+ check(!reload.w.sessionState().headCache(),"Town re-entry resurrected old HED overrides");
  const auto retained=reload.w.sessionState().regionalActors(28);
  check(retained.size()==actors.size(),"Flag 9 town exit changed actor count");
  for(unsigned i=0;i<actors.size();++i)check(xeen_state::sameActor(retained[i],actors[i]),"Flag 9 town exit respawned actors");
@@ -545,7 +704,7 @@ int main(int argc,char **argv) {
    return 0;
   }
   std::ostringstream output;auto *saved=std::cout.rdbuf(output.rdbuf());
-  try {rules(in);teachers(in);treasure(in);originalVisualRegressions(in);originalEvents(in);treeFlags(in);originalJourney(in);}catch(...){std::cout.rdbuf(saved);throw;}
+  try {partA(in);rules(in);teachers(in);treasure(in);originalVisualRegressions(in);originalEvents(in);partAOriginal(in);treeFlags(in);originalJourney(in);}catch(...){std::cout.rdbuf(saved);throw;}
   std::cout.rdbuf(saved);
   std::cout<<"World effects, shared treasure, bounded generation, cancellation, retry and original scripts passed\n";return 0;
  }catch(const std::exception &e){std::cerr<<stage<<": "<<e.what()<<'\n';return 1;}

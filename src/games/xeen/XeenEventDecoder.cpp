@@ -240,7 +240,14 @@ XeenEventDecodeResult decodeTakeOrGive(const XeenEventRecord &record,
 
 XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 		XeenEventDecodeContext context) {
-	switch (record.opcode) {
+ switch (record.opcode) {
+ case 0x24:
+  if(record.parameters.size()!=2)return wrongSize(record,context,2);
+  return instruction(record,context,XeenEventAlterHeads{record.parameters[0],record.parameters[1]});
+ case 0x16:
+  if(record.parameters.size()!=3)return wrongSize(record,context,3);
+  if(record.parameters[2]>6)return makeError(record,context,XeenEventDecodeErrorKind::UnsupportedOperand,"Damage type is not supported yet");
+  return instruction(record,context,XeenEventDamage{static_cast<std::uint16_t>(record.parameters[0]|(record.parameters[1]<<8)),record.parameters[2]});
 	case 0x0b:
 		if(record.parameters.size()!=3)return wrongSize(record,context,3);
 		return instruction(record,context,XeenEventMoveObject{record.parameters[0],

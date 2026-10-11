@@ -10,7 +10,7 @@ struct Fixture:regional_test::Fixture {
  XeenWorld &world=w;
  Fixture() {
   camera={28,15,0,XeenDirection::North};
-  party.encounterContext.emplace();party.monsterTreasure.emplace();party.regionalRecovery.emplace();
+  party.encounterContext.emplace();party.monsterTreasure.emplace();party.worldFlags.emplace();
   party.roster.at(0).learnedSpells.emplace();party.roster.at(0).name="Before";
   auto &actor=const_cast<XeenActor&>(world.sessionState().actors()[0]);
   actor.hp=2;actor.statistics.emplace();
@@ -187,7 +187,7 @@ int main() {
   rejects("effects",[](auto &f){auto &v=f.party.encounterContext->effects[0];v=1;v=0;});
   rejects("context optional",[](auto &f){const auto before=f.party.encounterContext;f.party.encounterContext.reset();f.party.encounterContext=before;});
   rejects("treasure",[](auto &f){++f.party.monsterTreasure->gold;--f.party.monsterTreasure->gold;});
-  rejects("recovery",[](auto &f){f.party.regionalRecovery->worldFlag16=true;f.party.regionalRecovery->worldFlag16=false;});
+  rejects("recovery",[](auto &f){f.party.worldFlags->values[16]=true;f.party.worldFlags->values[16]=false;});
   rejects("quest flags",[](auto &f){f.party.questFlags.set(1);f.party.questFlags.clear(1);});
   rejects("quest counts",[](auto &f){f.party.questItems.increment(1);f.party.questItems.decrement(1);});
   {

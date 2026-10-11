@@ -96,7 +96,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	p.party = XeenParty::fromRosterIds(snapshot.activeRosterIds);
 	p.food=snapshot.food;
 	p.questItems = XeenCloudsQuestItems(snapshot.questItems); p.questFlags = XeenCloudsQuestFlags(snapshot.questFlags);
-	p.regionalRecovery = snapshot.journey->regionalRecovery;
+	p.worldFlags = snapshot.journey->worldFlags;
 	p.firstSerializedCount = p.effectiveSerializedCount = 6;
 	p.encounterContext = snapshot.journey->context;
 	p.monsterTreasure=snapshot.journey->treasure;
@@ -133,6 +133,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	if(!snapshot.objectOverrides.empty()) {w.restoreObjectOverrides(snapshot.objectOverrides);adopt();}
 	if(!snapshot.barriers.empty()) {w.restoreBarriers(snapshot.barriers);adopt();}
 	if(!snapshot.exploredTiles.empty()) {w.restoreExploredTiles(snapshot.exploredTiles);adopt();}
+	w.restoreHeads(snapshot.headCache,c);adopt();
 	auto statistics = callback(monsters);
 	const auto &policy=xeenJourneyContent();
 	auto evt = events(policy.entry.mapId);
@@ -288,13 +289,14 @@ XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &res
 	snapshot.barriers=state.barriers();
 	snapshot.objectOverrides=state.objectOverrides();
 	snapshot.exploredTiles=state.exploredTiles();
+	snapshot.headCache=state.headCache();
 	for(auto &v:snapshot.objectOverrides)v.flipped=world.effectiveObjectFlip(v.id);
 
 	if (state.journey()) {
 		xeenValidateJourneyParty(party);
 		XeenSaveJourney j;
 		j.context = party.encounterContext; j.skeletonSeed = state.skeletonSeed();
-		j.content=XeenSaveFormat::kJourneyContent; j.schema=XeenSaveFormat::kJourneySchema; j.random=state.journeyRandom();j.treasure=party.monsterTreasure;j.regionalRecovery=party.regionalRecovery;
+		j.content=XeenSaveFormat::kJourneyContent; j.schema=XeenSaveFormat::kJourneySchema; j.random=state.journeyRandom();j.treasure=party.monsterTreasure;j.worldFlags=party.worldFlags;
 		j.serviceEconomy=party.serviceEconomy;
 		for (unsigned i = 0; i < 30; ++i) j.supplements[i] = {static_cast<std::uint8_t>(i), *party.roster.combatInputs(i)};
 		j.initializedMap=xeenJourneyContent().entry.mapId;

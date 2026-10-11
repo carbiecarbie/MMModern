@@ -43,6 +43,8 @@ void xeenValidateRegionalManifest(const XeenMap &map, const XeenObjectFile &obje
 		const std::vector<XeenMonsterRecord> &statistics, const std::vector<std::uint8_t> &dat,
 		const std::vector<std::uint8_t> &mob, const std::vector<std::uint8_t> &evt) {
 	XeenMap expected;expected.geometry=XeenMapFormat::parseDat(dat);
+ // This manifest covers DAT/MOB/EVT, not the separate immutable HED resource.
+ expected.heads=map.heads;
 	if (!xeen_state::sameMap(map,expected) || objects.mapId!=XeenMapIdentity(23) || !objects.resourcePresent ||
 		!xeen_state::sameEntities(objects.entities,XeenMapFormat::parseMob(mob)) || events.mapId!=XeenMapIdentity(23) || !events.resourcePresent)
 		throw std::invalid_argument("Regional typed resources differ from manifest");
