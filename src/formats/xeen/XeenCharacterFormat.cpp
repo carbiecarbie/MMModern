@@ -173,6 +173,8 @@ XeenRoster XeenCharacterFormat::parseRoster(const std::vector<std::uint8_t> &byt
 			const auto award = record[57+i];
 			details->awards[i] = i == 9 ? award : award & 15;
 			details->awards[i+64] = i == 9 ? 0 : award >> 4;
+			character.awards[i]=details->awards[i];
+			character.awards[i+64]=details->awards[i+64];
 		}
 		details->birthDay = record[37]; details->temporaryAc = record[34];
 		details->xeenSide=record[18];details->lloydMap=record[160];

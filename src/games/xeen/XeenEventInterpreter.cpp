@@ -165,9 +165,10 @@ std::optional<XeenEventExecutionError> preflightCityEvent(XeenWorld &world,
 			enqueue(x,y,npc->targetLine);
 		}
 		if(const auto *condition=std::get_if<XeenEventConditional>(&op)) {
-			if(condition->action!=9 && condition->action!=20 && condition->action!=44)
+			if(condition->action!=9 && condition->action!=20 && condition->action!=44 && condition->action!=104)
 				return unsupported("Event condition is not supported yet");
-			if((condition->action==20 && condition->value>255) || (condition->action==44 && condition->value>1))
+			if((condition->action==20 && condition->value>255) || (condition->action==44 && condition->value>1) ||
+				(condition->action==104 && !XeenCloudsQuestFlags::validIndex(condition->value)))
 				return unsupported("Event condition operand is not supported yet");
 			enqueue(x,y,condition->targetLine);
 		}
@@ -177,9 +178,25 @@ std::optional<XeenEventExecutionError> preflightCityEvent(XeenWorld &world,
 		if(const auto *give=std::get_if<XeenEventTakeOrGive>(&op)) {
 			const auto neutral=[](const auto &p){return p.mode==0 && p.value==0;};
 			const auto flag=[](const auto &p){return (p.mode==20 && p.value<256) || (p.mode==104 && XeenCloudsQuestFlags::validIndex(p.value));};
-			if(!neutral(give->third) || !((neutral(give->first) && flag(give->second)) ||
-				(flag(give->first) && neutral(give->second))))
+			const auto grant=[&](const auto &p){return flag(p) || (p.mode==15 && p.value<128) || p.mode==16 || p.mode==34 || p.mode==35;};
+			const auto clear=[&](const auto &p){return (flag(p) && (p.mode==104 || p.value!=0)) || (p.mode==15 && p.value>0 && p.value<128);};
+			if(!neutral(give->third) || !((neutral(give->first) && grant(give->second)) ||
+				(clear(give->first) && neutral(give->second))))
 				return unsupported("Dependent TakeOrGive effects are not supported yet");
+		}
+		if(const auto *give=std::get_if<XeenEventGiveMulti>(&op)) {
+			for(const auto &p:{give->first,give->second,give->third})
+				if(!((p.mode==0 && p.value==0) || p.mode==34 || p.mode==35))
+					return unsupported("GiveMulti effect is not supported yet");
+			const auto selected=world.selectObject(camera);
+			if(selected) {
+				const auto sprite=world.effectiveObject(*selected).resourceId;
+				if(sprite==16 || sprite==58 || sprite==73)return unsupported("GiveMulti locked chest is not supported yet");
+			}
+		}
+		if(const auto *move=std::get_if<XeenEventMoveObject>(&op)) {
+			try {static_cast<void>(world.effectiveObject({camera.mapId,move->record}));}
+			catch(const std::exception &) {return unsupported("MoveObj original record is unavailable");}
 		}
 		if(const auto *spawn=std::get_if<XeenEventSpawn>(&op)) {
 			if(spawn->slot>=XeenActorApproach::kCapacity || !xeenIndoorCoordinate(spawn->x,spawn->y))
@@ -393,6 +410,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				return XeenEventExecutionSuspended{state, request};
 			}
 			state.activeCharacterIndex = index;
+			state.entireParty=false;
 			if (partyState.party.size() > 1) state.preferredRewardRecipient = index;
 		}
 		state.pendingPresentation.reset();
@@ -510,6 +528,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 					"WhoWill sequential line overflow", instructionCount, logical, decoded.source);
 			if (partyState.party.size() == 1) {
 				state.activeCharacterIndex = 0;
+				state.entireParty=false;
 				++logical.line;
 				missingPolicy = MissingInstructionPolicy::NaturalCompletion;
 				continue;
@@ -634,6 +653,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			continue;
 		}
 		if (std::holds_alternative<XeenEventVoiceCue>(decoded.operation) ||
+			std::holds_alternative<XeenEventSoundCue>(decoded.operation) ||
 			std::holds_alternative<XeenEventCdSpeech>(decoded.operation)) {
 			if (logical.line==255)
 				return error(XeenEventExecutionErrorKind::LineOverflow,
@@ -644,7 +664,8 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			request.mapId=logical.mapId;
 			request.source=decoded.source;
 			request.text=std::holds_alternative<XeenEventCdSpeech>(decoded.operation) ?
-				"CD speech not supported yet" : "Voice audio not supported yet";
+				"CD speech not supported yet" : std::holds_alternative<XeenEventSoundCue>(decoded.operation) ?
+				"Sound effects not supported yet" : "Voice audio not supported yet";
 			// Existing Presented response is automatic: no input, clock or RNG.
 			++logical.line;
 			missingPolicy=MissingInstructionPolicy::NaturalCompletion;
@@ -698,11 +719,44 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
 		}
 
+		if(const auto *move=std::get_if<XeenEventMoveObject>(&decoded.operation)) {
+			if(!world.detachedEventCandidate())return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
+				"MoveObj publication is not supported yet in this context",instructionCount,logical,decoded.source);
+			world.applyMoveObject({logical.mapId,move->record},move->x,move->y);
+			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
+		}
+		if(std::holds_alternative<XeenEventSetCharacter>(decoded.operation)) {
+			state.entireParty=true;
+			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
+		}
+		if(const auto *give=std::get_if<XeenEventGiveMulti>(&decoded.operation)) {
+			if(!world.detachedEventCandidate())return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
+				"GiveMulti publication is not supported yet in this context",instructionCount,logical,decoded.source);
+			for(const auto &pair:{give->first,give->second,give->third}) {
+				if(pair.mode==0 && pair.value==0)continue;
+				if(pair.mode!=34 && pair.mode!=35)return error(XeenEventExecutionErrorKind::UnsupportedOperationMode,
+					"GiveMulti effect is not supported yet",instructionCount,logical,decoded.source);
+				world.applyEventGrant(partyState,pair.mode,pair.value,state.activeCharacterIndex,state.entireParty,true);
+			}
+			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
+		}
 		if (const auto *takeOrGive =
 				std::get_if<XeenEventTakeOrGive>(&decoded.operation)) {
 			const auto neutral = [](const XeenEventTakeOrGivePair &pair) {
 				return pair.mode == 0 && pair.value == 0;
 			};
+			const bool grant=neutral(takeOrGive->first) && neutral(takeOrGive->third);
+			const bool clear=neutral(takeOrGive->second) && neutral(takeOrGive->third);
+			const auto pair=grant?takeOrGive->second:takeOrGive->first;
+			if(clear && pair.mode==20 && pair.value==0)return error(XeenEventExecutionErrorKind::UnsupportedOperationMode,
+				"TakeOrGive HowMuch is not supported yet",instructionCount,logical,decoded.source);
+			if((grant && (pair.mode==15 || pair.mode==16 || pair.mode==34 || pair.mode==35)) ||
+				(clear && pair.mode==15 && pair.value!=0)) {
+				if(!world.detachedEventCandidate())return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
+					"Event reward publication is not supported yet in this context",instructionCount,logical,decoded.source);
+				world.applyEventGrant(partyState,pair.mode,pair.value,state.activeCharacterIndex,state.entireParty,grant);
+				++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
+			}
 			const bool setFlag = neutral(takeOrGive->first) &&
 				takeOrGive->second.mode == 20 && neutral(takeOrGive->third);
 			const bool clearFlag = takeOrGive->first.mode == 20 &&
@@ -866,6 +920,10 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				}
 				actual = workingGameFlags.isSet(static_cast<int>(conditional->value)) ?
 					conditional->value : std::numeric_limits<std::uint32_t>::max();
+			} else if (conditional->action == 104) {
+				if(!XeenCloudsQuestFlags::validIndex(conditional->value))return error(XeenEventExecutionErrorKind::InvalidFlagIndex,
+					"Quest flag index exceeds 29",instructionCount,logical,decoded.source);
+				actual=partyState.questFlags.isSet(conditional->value)?conditional->value:std::numeric_limits<std::uint32_t>::max();
 			} else if (conditional->action == 21) {
 				const std::string detail = "condition action 21 item " + std::to_string(conditional->value);
 				if (logical.mapId.side != XeenSide::Clouds || workingCamera.mapId.side != XeenSide::Clouds)

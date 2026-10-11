@@ -23,7 +23,7 @@ public:
 		bool same=queue(a.pendingRewards,b.pendingRewards) && a.rewardPhase==b.rewardPhase &&
 			a.preferredRewardRecipient==b.preferredRewardRecipient && address(a.logicalAddress,b.logicalAddress) &&
 			a.lookupDirection==b.lookupDirection && xeen_state::sameCamera(a.workingCamera,b.workingCamera) &&
-			a.selectedObject==b.selectedObject && a.activeCharacterIndex==b.activeCharacterIndex &&
+			a.selectedObject==b.selectedObject && a.activeCharacterIndex==b.activeCharacterIndex && a.entireParty==b.entireParty &&
 			a.workingGameFlags.values()==b.workingGameFlags.values() &&
 			a.instructionCount==b.instructionCount && a.missingInstructionPolicy==b.missingInstructionPolicy &&
 			optional(a.pendingTransferSource,b.pendingTransferSource,source) &&

@@ -236,9 +236,9 @@ void genericPrelude(Inputs &in) {
         check(facing,"Relocated service has no ordinary Event-facing wall");
         XeenEventFile city{28,"maze0028.evt",true,{}};
         city.records={record(20,20,0,0x19,{70,71,0}),
-            record(20,20,1,calledTerminal?0x14:0x11,calledTerminal?std::vector<std::uint8_t>{}:std::vector<std::uint8_t>{0}),
-            record(20,20,2,0x14),record(70,71,0,0x0c,{0,0,20,220}),
-            record(70,71,1,unsupported?0x14:calledTerminal?0x11:0x1a,
+            record(20,20,1,calledTerminal?0x13:0x11,calledTerminal?std::vector<std::uint8_t>{}:std::vector<std::uint8_t>{0}),
+            record(20,20,2,0x13),record(70,71,0,0x0c,{0,0,20,220}),
+            record(70,71,1,unsupported?0x13:calledTerminal?0x11:0x1a,
                 !unsupported && calledTerminal?std::vector<std::uint8_t>{0}:std::vector<std::uint8_t>{})};
         Visit v(in,s,&city);const auto before=XeenSaveFormat::encode(v.snapshot());
         if(unsupported) {
@@ -272,15 +272,15 @@ void directionPrelude(Inputs &in) {
         if(form==0) {
             city.records={record(20,20,0,0x1b,{84,std::uint8_t(finalDirection)}),
                 record(20,20,1,0x0c,{0,0,20,220}),
-                record(20,20,2,unsupported?0x14:0x11,unsupported?std::vector<std::uint8_t>{}:std::vector<std::uint8_t>{0}),
-                record(20,20,3,0x14)};
+                record(20,20,2,unsupported?0x13:0x11,unsupported?std::vector<std::uint8_t>{}:std::vector<std::uint8_t>{0}),
+                record(20,20,3,0x13)};
         } else {
             const bool calledTerminal=form==1;
             city.records={record(20,20,0,0x19,{70,71,0}),
-                record(20,20,1,calledTerminal?0x14:0x11,calledTerminal?std::vector<std::uint8_t>{}:std::vector<std::uint8_t>{0}),
-                record(20,20,2,0x14),record(70,71,0,0x1b,{84,std::uint8_t(finalDirection)}),
+                record(20,20,1,calledTerminal?0x13:0x11,calledTerminal?std::vector<std::uint8_t>{}:std::vector<std::uint8_t>{0}),
+                record(20,20,2,0x13),record(70,71,0,0x1b,{84,std::uint8_t(finalDirection)}),
                 record(70,71,1,0x0c,{0,0,20,220}),
-                record(70,71,2,unsupported?0x14:calledTerminal?0x11:0x1a,
+                record(70,71,2,unsupported?0x13:calledTerminal?0x11:0x1a,
                     !unsupported && calledTerminal?std::vector<std::uint8_t>{0}:std::vector<std::uint8_t>{})};
         }
         // Every instruction matches only the entry direction. Using the
@@ -379,7 +379,7 @@ void originalJourney(Inputs &in) {
     Visit restored(in,XeenSaveFormat::decode(bytes));save_test::sameSnapshot(saved,restored.snapshot());
     check(bytes==XeenSaveFormat::encode(restored.snapshot()) && v.f.isSet(231),
         "Food/balances/flags/time/RNG did not restore byte-exactly");
-    check(XeenSaveFormat::kJourneyVersion==8 && XeenSaveFormat::kJourneySchema==9 && XeenSaveFormat::kJourneyContent==14,
+    check(XeenSaveFormat::kJourneyVersion==9 && XeenSaveFormat::kJourneySchema==9 && XeenSaveFormat::kJourneyContent==14,
         "Food/Bank changed the current save format");
 }
 }

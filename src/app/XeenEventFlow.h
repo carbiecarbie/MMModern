@@ -190,8 +190,10 @@ private:
 		XeenEventFile destinationEvents;
 		std::unique_ptr<XeenRestoreGuard> guard;
 		std::optional<XeenEventContinuation> continuation;
+		std::optional<XeenManualEventCompleted> completion;
 		bool preludePublished = false;
 		bool refused = false;
+		bool cancelled = false;
 		bool preludeRequired = false;
 	};
 	std::unique_ptr<TransitionCandidate> _transition;

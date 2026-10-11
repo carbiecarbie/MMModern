@@ -174,7 +174,7 @@ void cityEvents() {
 		XeenPresentationResponse::Presented,*world,party,camera,flags)),"Small sign must continue after its draw");
 
 	// No prefix of an incomplete effect group may change detached values.
-	file.records={record(0,0x0c,{0,0,20,12}),record(1,0x10,{50,7,6,0}),record(2,0x18,{0,0}),record(3,0x14,{})};
+	file.records={record(0,0x0c,{0,0,20,12}),record(1,0x10,{50,7,6,0}),record(2,0x18,{0,0}),record(3,0x13,{})};
 	XeenEventSystem unsupported([&](auto){return XeenEventScript(file);});
 	const auto random=world->sessionState().journeyRandom();
 	const auto refused=unsupported.runManualEvent(*world,party,camera,flags);

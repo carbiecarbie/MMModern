@@ -14,7 +14,7 @@ inline void checkSameCharacter(const XeenCharacter &a, const XeenCharacter &b) {
 			a.temporaryAge != b.temporaryAge || a.birthYear != b.birthYear ||
 			a.currentHp != b.currentHp || a.currentSp != b.currentSp || a.hasSpells != b.hasSpells ||
 			a.learnedSpells != b.learnedSpells || a.quickOption != b.quickOption || a.currentSpell != b.currentSpell ||
-			a.conditions != b.conditions ||
+			a.conditions != b.conditions || a.awards!=b.awards ||
 			a.maxStatSkills.astrologer != b.maxStatSkills.astrologer ||
 			a.maxStatSkills.bodybuilder != b.maxStatSkills.bodybuilder ||
 			a.maxStatSkills.prayerMaster != b.maxStatSkills.prayerMaster ||
@@ -48,6 +48,7 @@ inline std::string partySnapshot(const XeenPartyState &p) {
 			<<c.currentHp<<','<<c.currentSp<<','<<unsigned(c.quickOption)<<','<<unsigned(c.currentSpell)<<','<<c.hasSpells<<c.maxStatSkills.astrologer
 			<<c.maxStatSkills.bodybuilder<<c.maxStatSkills.prayerMaster<<c.maxStatSkills.prestidigitation;
 		for(auto v:c.conditions)out<<+v<<',';
+		for(auto v:c.awards)out<<+v<<',';
 		for(const auto *items:{&c.weapons,&c.armor,&c.accessories,&c.miscellaneous})
 			for(auto item:*items)out<<+item.material<<','<<+item.id<<','<<+item.state<<','<<+item.frame<<',';
 	}

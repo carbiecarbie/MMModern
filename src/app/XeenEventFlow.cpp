@@ -818,6 +818,7 @@ XeenManualEventResult XeenEventFlow::resumeVertigoEvent(XeenEventExecutionState 
 	_eventPublication->check();
 	checkTransitionCandidate();
 	if(response==XeenPresentationResponse::No)_transition->refused=true;
+	if(std::holds_alternative<CharacterSelectionCancelled>(response.value))_transition->cancelled=true;
 	if(!_transition->continuation) {
 		_encounter->journeySavePreimage().failed=true;
 		throw std::logic_error("Detached Event resume has no retained suspension");
@@ -889,6 +890,10 @@ void XeenEventFlow::prepareVertigoResult(const XeenManualEventResult &result) tr
 	}
 	const auto *done=std::get_if<XeenManualEventCompleted>(&result);
 	if (!done) throw std::logic_error("Vertigo Event did not reach a terminal result");
+	if(work.cancelled) {_transition.reset();return;}
+	// Keep the completed candidate across recoverable presentation/allocation
+	// failures. Retrying prepares/publicizes this value, never re-executes Events.
+	work.completion=*done;
 	const bool sameMap=work.camera.mapId==work.initialCamera.mapId;
 	if(done->cameraChanged!=!xeen_state::sameCamera(work.camera,work.initialCamera) ||
 		done->flagsChanged!=(work.flags.values()!=work.initialFlags.values()) ||
@@ -992,6 +997,12 @@ IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operat
 			if (_fatal || !_encounter->current(entry)) { _fatal=true;throw; }
 			if(_smithUi)_smithUi->feedback="Event settlement pending; Enter retries.";
 			if(_trainingUi)_trainingUi->feedback="Event settlement pending; Enter retries.";
+			return renderEncounter();
+		}
+		if(_transition && _transition->completion) {
+			_encounter->journeySavePreimage().check();checkTransitionCandidate();
+			if(_fatal || !_encounter->current(entry))throw;
+			_encounter->_journeyRefusal="Event presentation pending; retrying.";
 			return renderEncounter();
 		}
 		cleanup(XeenRewardDiscard::PresentationFailure);
@@ -1109,6 +1120,11 @@ IndexedFrame XeenEventFlow::presentationFailed(const std::exception &exception) 
 }
 std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 	requireCurrentOwners();
+	if(_transition && _transition->completion && !_dispatching && !_fatal && !_saving && !_handoffPending) {
+		DispatchScope dispatch(_dispatching);
+		const auto completed=*_transition->completion;
+		return journeyEventWork([&]{drive(XeenManualEventResult{completed},false);});
+	}
 	if(_barrier && !_dispatching && !_fatal && !_saving) {
 		DispatchScope dispatch(_dispatching);
 		// ipause keeps draw3d animation running while the barrier owns input.

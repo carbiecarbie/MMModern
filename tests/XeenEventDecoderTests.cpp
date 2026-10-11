@@ -265,11 +265,11 @@ void checkSource(const XeenEventSourceLocation &source, bool withContext,
 }
 
 void testErrorsMetadataAndPurity() {
-	const auto unsupportedKnown = XeenEventDecoder::decode(record(0x06, {1, 2}),
+	const auto unsupportedKnown = XeenEventDecoder::decode(record(0x13, {1, 2}),
 		{42, std::string("maze0042.evt")});
 	const auto &opcodeError = failure(unsupportedKnown,
 		XeenEventDecodeErrorKind::UnsupportedOpcode);
-	checkSource(opcodeError.source, true, 0x06);
+	checkSource(opcodeError.source, true, 0x13);
 	check(!opcodeError.expectedParameterSize && opcodeError.actualParameterSize == 2,
 		"unsupported opcode does not parse parameters");
 	checkSource(failure(XeenEventDecoder::decode(record(0xff)),
@@ -344,6 +344,8 @@ int main() {
 	try {
 		testEmptyOperationsAndStrictSizes();
 		testTownService();
+		check(operation<XeenEventSoundCue>(XeenEventDecoder::decode(record(0x06,{19}))).index==19,"PlayFX operand");
+		for(unsigned size:{0u,2u})failure(XeenEventDecoder::decode(record(0x06,std::vector<std::uint8_t>(size))),XeenEventDecodeErrorKind::MalformedInstruction);
 		const auto speech=operation<XeenEventCdSpeech>(XeenEventDecoder::decode(record(0x3c,{30,0x34,0x12,0x78,0x56})));
 		check(speech.track==30 && speech.start==0x1234 && speech.finish==0x5678,"PlayCD LE operands");
 		for(unsigned size=0;size<9;++size)if(size!=5)
@@ -353,6 +355,13 @@ int main() {
 		testCallEvent();
 		testConditionals();
 		testTakeOrGive();
+		const auto move=operation<XeenEventMoveObject>(XeenEventDecoder::decode(record(0x0b,{255,128,255})));
+		check(move.record==255 && move.x==-128 && move.y==-1,"MoveObj original identity/signed byte coordinates");
+		for(unsigned size:{0u,1u,2u,4u})failure(XeenEventDecoder::decode(record(0x0b,std::vector<std::uint8_t>(size))),XeenEventDecodeErrorKind::MalformedInstruction);
+		operation<XeenEventSetCharacter>(XeenEventDecoder::decode(record(0x0f,{0})));
+		for(unsigned selector=1;selector<256;++selector)failure(XeenEventDecoder::decode(record(0x0f,{std::uint8_t(selector)})),XeenEventDecodeErrorKind::UnsupportedOperand);
+		const auto multi=operation<XeenEventGiveMulti>(XeenEventDecoder::decode(record(0x14,{34,0x78,0x56,0x34,0x12,35,0xcd,0xab,0,0})));
+		check(multi.first.value==0x12345678 && multi.second.value==0xabcd && multi.third.mode==0,"GiveMulti ordered 32/16/8-bit values");
 		testErrorsMetadataAndPurity();
 		testOwnedResultLifetime();
 		testGiveEnchanted();

@@ -59,6 +59,8 @@ void rules(){
  using R=XeenCharacterRules;const XeenCharacterRulesContext context{650};
  check(R::sheetAge(c,context)==10,"sheet age");
  check(R::skillCount(c)==2 && R::awardCount(c)==5,"skill/award counts");
+ check(c.awards[9]==0xab && c.awards[73]==0 && c.awards[127]==4,"Mutable CHR award initialization");
+ c.awards[6]=1;check(R::awardCount(c)==6,"Sheet ignored mutable award state");c.awards[6]=0;
  check(R::sheetStat(c,nullptr,0,context,true)==0 && R::sheetStat(c,nullptr,1,context,true)==0,"young-age adjustment");
  c.birthYear=610;c.temporaryAge=0;c.permanentLevel=1;
  check(R::sheetStat(c,nullptr,0,context)==20 && R::sheetStat(c,nullptr,1,context)==24 && R::sheetStat(c,nullptr,6,context)==22,"physical/mental/luck age adjustments");

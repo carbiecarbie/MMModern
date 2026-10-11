@@ -274,11 +274,11 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
        live.activated==saved.activated && live.lifecycle==saved.lifecycle &&
        bool(world->sessionState().accountedMonsters().count(live.id))==saved.accounted,
        "M37 failed transition changed inactive mainland actors");}
-     settle();
-     check(flow->canSave(),"M37 composition failure retained transition authority");
+     // M57 retains the completed candidate after recoverable composition failure.
+     // Saving stays blocked until the ordinary idle path retries publication.
+     deniedSave();pulse();settle();
+     check(position->mapId==XeenMapIdentity(28) && flow->canSave(),"M37 retained transition did not publish on retry");
      input(SaveGameAction{});check(status().find("Saved")!=std::string::npos,"M37 recovered composition failure cannot save");
-     input(InteractionAction{});input(YesAction{});settle();
-     check(position->mapId==XeenMapIdentity(28) && flow->canSave(),"M37 recovered second transition failed");
      std::cout<<"M37 DESTINATION COMPOSE FAILURE atomic passed; recovery, F9 and retry passed\n";
      return true;
     }

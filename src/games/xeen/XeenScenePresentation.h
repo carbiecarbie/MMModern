@@ -55,6 +55,7 @@ struct XeenMonsterAnimation {
 
 class XeenScenePresentation {
 public:
+ std::map<XeenObjectIdentity,bool> objectFlips;
  struct PortraitEffect {unsigned spellFrame=4, damageFrame=0, damageTicks=0;std::uint64_t spellDeadline=0,damageDeadline=0;};
  struct Splat {unsigned frame=0, duration=0;int damage=0;bool alternatePosition=false;std::uint64_t deadline=0;};
  std::array<PortraitEffect,30> portraits{};

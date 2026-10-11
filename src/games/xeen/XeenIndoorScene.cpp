@@ -483,6 +483,9 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 	if (resolver) {
 		const auto &file = world.objectFile(camera.mapId);
 		if (file.resourcePresent) {
+			// drawScene resets every object's flip, including off-screen records.
+			for(std::size_t i=0;i<file.entities.objects.size();++i)
+				world.objectFlipDrawn({camera.mapId,i},resolver->resolve(file,i,camera.direction,ordinaryPhase).horizontalFlip);
 			const auto direction = static_cast<std::size_t>(camera.direction);
 			for (const auto &placement : xeen_indoor_scene_tables::kObjectPlacements) {
 				if (objectBlocked(placement.query, wo))
@@ -493,7 +496,7 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 					xeen_indoor_scene_tables::kScreenPositioningY[direction][placement.query];
 				for (std::size_t recordIndex = 0;
 						recordIndex < file.entities.objects.size(); ++recordIndex) {
-					const auto &object = file.entities.objects[recordIndex];
+					const auto object = world.effectiveObject({camera.mapId,recordIndex});
 					if (object.x != sourceX || object.y != sourceY || !object.isActive() ||
 							object.resourceId >= 255 ||
 							world.isObjectDisabled({camera.mapId, recordIndex}))

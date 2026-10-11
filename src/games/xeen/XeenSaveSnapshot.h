@@ -11,6 +11,7 @@
 #include "games/xeen/XeenActor.h"
 #include "games/xeen/XeenJourneyContent.h"
 #include "games/xeen/XeenBarrierState.h"
+#include "games/xeen/XeenObjectState.h"
 
 #include <optional>
 #include <string>
@@ -88,6 +89,7 @@ struct XeenSaveSnapshot {
 	std::vector<XeenObjectIdentity> disabledObjects;
 	std::vector<XeenEventIdentity> disabledEvents;
 	std::vector<XeenBarrierOverride> barriers;
+	std::vector<XeenObjectOverride> objectOverrides;
 	std::optional<XeenSaveJourney> journey;
 
 	XeenSaveSnapshot() {

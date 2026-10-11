@@ -104,7 +104,13 @@ void validation() {
 		if(fault==3){s.instructionCount=1024;kind=Kind::InstructionLimitExceeded;}
 		if(fault==4){s.logicalAddress.line=254;s.pendingPresentation->conditional->targetLine=255;s.currentScript=script(1,{set(255)});kind=Kind::LineOverflow;}
 		error(f.resume(s),kind);checkPartyQuestState(f.members,{},{});}
-	Fixture condition;condition.scriptAt({record(1,1,0,9,{104,2,1})});error(condition.begin(),Kind::UnsupportedConditionAction);
+	Fixture condition;condition.scriptAt({record(1,1,0,9,{105,2,1})});error(condition.begin(),Kind::UnsupportedConditionAction);
+	for(bool set:{false,true}) {
+		Fixture f;if(set)f.members.questFlags.set(2);
+		f.scriptAt({record(1,1,0,9,{104,2,3}),::set(1,3),record(1,1,2,0x12),record(1,1,3,0x12)});
+		complete(f.begin());check(f.members.questFlags.isSet(2)==set && f.members.questFlags.isSet(3)!=set,
+			"Quest flag conditional lost set/clear branch semantics");
+	}
 }
 
 void clearing() {

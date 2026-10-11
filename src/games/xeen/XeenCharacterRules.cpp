@@ -343,7 +343,7 @@ unsigned XeenCharacterRules::skillCount(const XeenCharacter &c) {
 }
 unsigned XeenCharacterRules::awardCount(const XeenCharacter &c) {
 	unsigned count=0;
-	if(c.originalDetails()) for(unsigned i=0;i<88;++i) if(c.originalDetails()->awards[i==73?126:i==81?127:i]) ++count;
+	for(unsigned i=0;i<88;++i) if(c.awards[XeenCharacter::awardIndex(i)]) ++count;
 	return count;
 }
 std::uint32_t XeenCharacterRules::currentExperience(const XeenCharacter &c,const XeenCombatInputs *input) {

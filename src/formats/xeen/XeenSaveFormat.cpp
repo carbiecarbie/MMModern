@@ -198,11 +198,19 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 		require(id < XeenRoster::kCharacterCount, "invalid active roster identity");
 	for (std::size_t i = 0; i < s.characters.size(); ++i) {
 		const auto &c = s.characters[i];
+		for(unsigned award=0;award<128;++award)
+			require(award==9 || c.awards[award]<=15,"award count exceeds CHR representation");
 		require(c.rosterId == i, "character identity differs from roster slot");
 		require(c.name.size() <= 16 && c.name.find('\0') == std::string::npos, "invalid character name");
 	}
 	validateIdentities(s.disabledObjects, kMaximumObjects);
 	validateIdentities(s.disabledEvents, kMaximumEvents);
+	require(s.objectOverrides.size()<=kMaximumObjects,"too many object overrides");
+	for(unsigned n=0;n<s.objectOverrides.size();++n) {
+		const auto &v=s.objectOverrides[n];validateMap(v.id.mapId);
+		require(v.id.recordIndex<=std::numeric_limits<std::uint32_t>::max() && v.x>=-128 && v.x<=127 &&
+			v.y>=-128 && v.y<=127 && (!n || s.objectOverrides[n-1].id<v.id),"invalid or duplicate object override");
+	}
 	require(s.barriers.size()<=1024,"too many barrier cells");
 	for(unsigned n=0;n<s.barriers.size();++n) {
 		const auto &v=s.barriers[n];
@@ -214,6 +222,8 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 
 	const auto &j = *s.journey;
 	require(s.barriers.empty() || j.vertigoActors.has_value(),"barrier overrides require retained city actors");
+	for(const auto &v:s.objectOverrides)require(v.id.mapId!=XeenMapIdentity(28) || j.vertigoActors.has_value(),
+		"city object overrides require retained city actors");
 	require(j.entry == XeenEncounterEntry::Journey,
 		"unsupported Journey domain/schema/content");
 	require(j.serviceEconomy.has_value(), "Journey economy presence mismatch");
@@ -405,6 +415,16 @@ std::vector<std::uint8_t> XeenSaveFormat::encode(const XeenSaveSnapshot &s) {
 			out.u8(item.material);out.u8(item.id);out.u8(item.state);out.u8(item.frame);
 		}
 	out.u32(j.serviceEconomy->bank.gold);out.u32(j.serviceEconomy->bank.gems);
+	// v9 retains the expanded counts for every roster owner, then bounded MOB overlays.
+	out.u8(30);
+	for(unsigned owner=0;owner<30;++owner) {
+		out.u8(owner);for(const auto value:s.characters[owner].awards)out.u8(value);
+	}
+	out.u32(static_cast<std::uint32_t>(s.objectOverrides.size()));
+	for(const auto &v:s.objectOverrides) {
+		out.map(v.id.mapId);out.u32(static_cast<std::uint32_t>(v.id.recordIndex));
+		out.u8(static_cast<std::uint8_t>(v.x));out.u8(static_cast<std::uint8_t>(v.y));out.u8(v.flipped);
+	}
 	// Zero is the explicit absent-name encoding for developer loose saves.
 	out.u8(s.name ? static_cast<std::uint8_t>(s.name->size()) : 0);
 	if (s.name) for (unsigned char byte : *s.name) out.u8(byte);
@@ -463,7 +483,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	if (j.schema != kJourneySchema || j.content != kJourneyContent) throw unsupportedPair(j.schema, j.content);
 	// Bound allocation before parsing; the exact dynamic extent is verified
 	// after the actor and treasure counts are decoded.
-	require(suffixSize >= 4099+19+1 && suffixSize <= 4099+19*107+4+21*107+5*12+21, "Journey schema-9 size mismatch");
+	require(suffixSize >= 4099+19+1+3875 && suffixSize <= 4099+19*107+4+21*107+5*12+21+3875+10*kMaximumObjects, "Journey schema-9 size mismatch");
 	require(in.u8() == 1, "missing Journey context");
 	XeenGameplayContext c;
 	require(in.u8() == 0, "invalid Journey profile");
@@ -560,6 +580,18 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 			item={in.u8(),in.u8(),in.u8(),in.u8()};
 	economy.bank.gold=in.u32();economy.bank.gems=in.u32();
 	j.serviceEconomy=std::move(economy);
+	require(in.u8()==30,"invalid award owner count");
+	for(unsigned owner=0;owner<30;++owner) {
+		require(in.u8()==owner,"invalid award owner sequence");
+		for(auto &value:s.characters[owner].awards)value=in.u8();
+	}
+	const auto objectCount=in.u32();
+	require(objectCount<=kMaximumObjects && objectCount<=in.remaining()/10,"invalid object override count");
+	for(unsigned n=0;n<objectCount;++n) {
+		XeenObjectOverride v;v.id.mapId=in.map();v.id.recordIndex=in.u32();
+		const auto x=in.u8(),y=in.u8();v.x=x<128?int(x):int(x)-256;v.y=y<128?int(y):int(y)-256;
+		v.flipped=in.boolean();s.objectOverrides.push_back(v);
+	}
 	const auto nameLength=in.u8();
 	require(nameLength<=20 && nameLength<=in.remaining(), "invalid save name length");
 	if(nameLength) {
@@ -567,7 +599,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 		in.position+=nameLength;
 		require(validName(*s.name), "invalid save name");
 	}
-	require(suffixSize==expected+5u*n+1+nameLength,"Invalid city/economy suffix length");
+	require(suffixSize==expected+5u*n+3875+10*objectCount+1+nameLength,"Invalid city/economy suffix length");
 
 	s.journey = std::move(j);
 

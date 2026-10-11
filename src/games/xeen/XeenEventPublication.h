@@ -28,6 +28,7 @@ public:
 		check();candidate.check();
 		guard.prepareVertigoPublication(candidate);
 		world.publishTransition(candidateWorld);
+		world.publishEventParty(party,candidate.p);
 		party.questFlags=questFlags;
 		camera=candidate.cameraValue;flags=XeenGameFlags(candidate.flagValues);
 		world.scenePresentation()=std::move(presentation);

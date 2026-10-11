@@ -20,6 +20,23 @@ void roundTrip(const XeenSaveSnapshot &s) {
 	check(bytes == XeenSaveFormat::encode(decoded), "encoding is not deterministic");
 }
 
+void worldEffectsWire() {
+ auto s=currentWireSnapshot();s.characters[29].awards[9]=255;s.characters[3].awards[126]=15;
+ s.objectOverrides={{{23,0},-128,-1,true},{{23,1},127,0,false}};
+ roundTrip(s);
+ for(auto bad:s.objectOverrides) {
+  auto invalid=s;bad.x=128;invalid.objectOverrides={bad};rejects([&]{XeenSaveFormat::encode(invalid);});
+ }
+ auto invalid=s;invalid.objectOverrides.push_back(s.objectOverrides[0]);rejects([&]{XeenSaveFormat::encode(invalid);});
+ invalid=s;invalid.characters[29].awards[8]=16;rejects([&]{XeenSaveFormat::encode(invalid);});
+ const auto wire=XeenSaveFormat::encode(s);
+ const auto tail=wire.size()-3896; // 30 tagged award arrays + count + two ten-byte objects + absent name.
+ check(wire.at(tail)==30 && wire.at(tail+1)==0 && wire.at(tail+3871)==2,"Literal v9 owner/object extent");
+ for(auto offset:{tail,tail+1,tail+3871+4+9}) {
+  auto bad=wire;bad[offset]=255;fixIndependentEnvelope(bad);rejects([&]{XeenSaveFormat::decode(bad);});
+ }
+}
+
 void dailyStateRoundTrips() {
  auto s=currentWireSnapshot();s.food=90;
  auto &time=*s.journey->context;time.year=611;time.day=0;time.minutes=299;
@@ -57,7 +74,7 @@ void saveNames() {
  rejects([&]{XeenSaveFormat::decode(leading);},"name");
  auto bad=wire;bad[bad.size()-21]=21;fixIndependentEnvelope(bad);
  rejects([&]{XeenSaveFormat::decode(bad);},"name length");
- bad=wire;bad.pop_back();fixIndependentEnvelope(bad);
+ bad=wire;bad.resize(bad.size()-20);fixIndependentEnvelope(bad);
  rejects([&]{XeenSaveFormat::decode(bad);},"name length");
  wire.back()^=1;rejects([&]{XeenSaveFormat::decode(wire);},"checksum");
 }
@@ -92,7 +109,7 @@ void wireContract() {
 	const auto expected = legacyGolden();
 	Bytes v2(6907, 0);
 	std::copy_n(expected.begin(), 53, v2.begin());
-	v2[8] = 8;
+	v2[8] = 9;
 	for (unsigned i = 0; i < 30; ++i) {v2[53 + 214 * i] = i;v2[53+214*i+213]=255;}
 	const auto current=XeenSaveFormat::encode(s);
 	v2.insert(v2.end(),current.begin()+6907,current.end());
@@ -116,7 +133,7 @@ void wireContract() {
 void asymmetricBase() {
 	// Independent offsets: three members, 14 name bytes, 214 fixed bytes/character.
 	Bytes bytes(6907 + 3 + 14, 0);
-	const Bytes prefix{'M','M','M','S','A','V','E',0,8,0,0,0};
+	const Bytes prefix{'M','M','M','S','A','V','E',0,9,0,0,0};
 	std::copy(prefix.begin(), prefix.end(), bytes.begin());
 	bytes[20] = 99; bytes[28] = 88; bytes[46] = 23;
 	bytes[51] = 3; bytes[52] = 18; bytes[53] = 0; bytes[54] = 18; bytes[55] = 30;
@@ -249,7 +266,7 @@ void malformedBytes() {
 	}
 	auto bad = good;
 	bad[0] ^= 1; rejects([&] { XeenSaveFormat::decode(bad); }, "unrecognized format");
-	bad = good; bad[8] = 9; rejects([&] { XeenSaveFormat::decode(bad); }, "newer or unsupported");
+	bad = good; bad[8] = 10; rejects([&] { XeenSaveFormat::decode(bad); }, "newer or unsupported");
 	bad = good; bad[8] = 3; rejects([&] { XeenSaveFormat::decode(bad); }); // v1 payload is not v3.
 	bad = good; bad[8] = 2; rejects([&] { XeenSaveFormat::decode(bad); }); // v1 payload is not v2.
 	bad = good; bad[8] = 0; rejects([&] { XeenSaveFormat::decode(bad); }, "newer or unsupported");
@@ -283,7 +300,7 @@ void malformedBytes() {
 	// Original identity arrays end the payload and must reject duplicates/order.
 	for (bool events : {false, true}) {
 		bad = XeenSaveFormat::encode(s);
-		const auto first = events ? bad.size() - 4461 - 2 - 21 : bad.size() - 4461 - 2 - 46;
+		const auto first = events ? bad.size() - 8336 - 2 - 21 : bad.size() - 8336 - 2 - 46;
 		std::copy_n(bad.begin() + first, 7, bad.begin() + first + 7);
 		fixEnvelope(bad); rejects([&] { XeenSaveFormat::decode(bad); }, "ordered");
 	}
@@ -364,14 +381,14 @@ void fingerprints() {
 // Synthetic wire-only owners: no original resources or gameplay injection.
 
 void rejectedVersions() {
- for(unsigned version:{0u,1u,2u,3u,4u,5u,6u,7u,9u,65535u}) {
+ for(unsigned version:{0u,1u,2u,3u,4u,5u,6u,7u,8u,10u,65535u}) {
   auto bytes=golden();bytes[8]=version;bytes[9]=version>>8;
   // Only recognizable earlier envelopes are "older"; others may be newer builds.
-  rejects([&]{XeenSaveFormat::decode(bytes);},version>=1 && version<=7?"no longer supported":"newer or unsupported");
+  rejects([&]{XeenSaveFormat::decode(bytes);},version>=1 && version<=8?"no longer supported":"newer or unsupported");
  }
  rejects([&]{XeenSaveFormat::decode(legacyGolden());},"no longer supported");
  rejects([&]{XeenSaveFormat::encode(XeenSaveSnapshot{});},"no longer supported");
- const auto good=currentWireSnapshot();const auto wire=XeenSaveFormat::encode(good);const auto start=wire.size()-4461;
+ const auto good=currentWireSnapshot();const auto wire=XeenSaveFormat::encode(good);const auto start=wire.size()-8336;
  for(unsigned schema=0;schema<=11;++schema)for(unsigned content=0;content<=15;++content) {
   if(schema==9 && content==14)continue;
   auto s=good;s.journey->schema=schema;s.journey->content=content;
@@ -427,9 +444,9 @@ void serviceEconomyWireContract() {
 		(*s.characters[owner].learnedSpells)[owner%39]=255-owner;
 		s.journey->supplements[owner].inputs.poisonResistance=XeenAttributeValue{int(owner),int(255-owner)};
 	}
-	const auto bytes=XeenSaveFormat::encode(s);const auto start=bytes.size()-4461;
-	check(bytes[8]==8 && bytes[start+1]==9 && bytes[start+3]==content,"exact v5/schema9/content selectors");
-	auto expected=bytes;expected.resize(expected.size()-1165);
+	const auto bytes=XeenSaveFormat::encode(s);const auto start=bytes.size()-8336;
+	check(bytes[8]==9 && bytes[start+1]==9 && bytes[start+3]==content,"exact v5/schema9/content selectors");
+	auto expected=bytes;expected.resize(expected.size()-5040);
 	expected.insert(expected.end(),{2,4,4,9});
 	// Literal wire recipe is independent of the production encoder and validator.
 	const std::array<std::array<std::uint8_t,8>,8> materials{{
@@ -443,12 +460,15 @@ void serviceEconomyWireContract() {
 		expected.insert(expected.end(),112,0); // Zero ninth Weapon and three complete categories.
 	}
 	expected.insert(expected.end(),{0x98,0xba,0xdc,0xfe,0xff,0xff,0xff,0xff});
+	expected.push_back(30);
+	for(unsigned owner=0;owner<30;++owner) {expected.push_back(owner);expected.insert(expected.end(),128,0);}
+	expected.insert(expected.end(),4,0); // No object overrides.
 	expected.push_back(0); // v7 absent-name metadata follows economy.
 	fixIndependentEnvelope(expected);
 	check(expected==bytes,"M40 exact inherited suffix then shape/stock/bank wire");
 	const auto decoded=XeenSaveFormat::decode(expected);sameSnapshot(s,decoded);
 	check(XeenSaveFormat::encode(decoded)==expected,"M40 exact schema9 round trip");
-	const auto economyOffset=bytes.size()-1165;
+	const auto economyOffset=bytes.size()-5040;
 	for(unsigned shape=0;shape<4;++shape)for(unsigned value:{0u,1u,3u,5u,8u,10u,255u}) {
 		if(value==bytes[economyOffset+shape])continue;
 		auto bad=bytes;bad[economyOffset+shape]=value;fixIndependentEnvelope(bad);
@@ -470,7 +490,7 @@ void serviceEconomyWireContract() {
 		}
 		fixIndependentEnvelope(bad);rejects([&]{XeenSaveFormat::decode(bad);});
 	}
-	for(std::size_t cut=1;cut<=1164;++cut) {
+	for(std::size_t cut=1;cut<=5039;++cut) {
 		auto bad=bytes;bad.resize(bad.size()-cut);fixIndependentEnvelope(bad);
 		rejects([&]{XeenSaveFormat::decode(bad);});
 	}
@@ -491,7 +511,7 @@ void serviceEconomyWireContract() {
 			auto &entry=source<10?state.journey->treasure->weapons[source]:state.journey->treasure->armor[source-10];entry.source=source;entry.item.id=1;
 		}
 		const auto wire=XeenSaveFormat::encode(state);
-		check(wire.size()==start+4461+(cityCount?4+21*cityCount:0)+5*pending+(cityCount==52?7:0),"v5 exact city/pending suffix extent");
+		check(wire.size()==start+8336+(cityCount?4+21*cityCount:0)+5*pending+(cityCount==52?7:0),"v5 exact city/pending suffix extent");
 		sameSnapshot(state,XeenSaveFormat::decode(wire));
 	}
 	for(unsigned day=8;day<=99;++day) {
@@ -507,8 +527,8 @@ void purchaseDepletedWireContract() {
 	auto state=currentWireSnapshot();state.camera={28,8,4,XeenDirection::West};state.journey->vertigoActors.emplace();
 	for(unsigned owner=0;owner<46;++owner){XeenSaveJourneyActor a;a.id={28,owner};a.hp=1;state.journey->vertigoActors->push_back(a);}
 	const auto complete=XeenSaveFormat::encode(state);
-	const auto economyOffset=complete.size()-1165,start=complete.size()-(4461+4+21*46);
-	check(complete[8]==8 && complete[start+1]==9 && complete[start+3]==14,"purchase selector/extent differs");
+	const auto economyOffset=complete.size()-5040,start=complete.size()-(8336+4+21*46);
+	check(complete[8]==9 && complete[start+1]==9 && complete[start+3]==14,"purchase selector/extent differs");
 	// Literal eight L1 Weapon source from twenty Weapon calls. Removing one
 	// inserted plain record leaves seven; old generated-only meaning rejects it.
 	state.journey->serviceEconomy->wares[0][0][0][7]={};
@@ -569,32 +589,30 @@ void templeWireContract() {
 
 int main(int argc,char **argv) {
 	try {
-        if(argc==5 && std::string(argv[1])=="--audit-v8") {
+        if(argc==5 && std::string(argv[1])=="--audit-v9") {
             const auto read=[](const char *path) {std::ifstream in(path,std::ios::binary);check(bool(in),"missing audit save");return Bytes(std::istreambuf_iterator<char>(in),{});};
             const auto old=read(argv[2]),candidate=read(argv[3]);
-            check(old.size()>53 && old[8]==7 && old[9]==0 && candidate[8]==8 && candidate[9]==0,"audit versions");
+            check(old.size()>53 && old[8]==8 && old[9]==0 && candidate[8]==9 && candidate[9]==0 && old.back()==0,"audit versions/name");
             auto installation=xeenTestInstallationDetector().detect(argv[4]);check(bool(installation),"audit installation");
             XeenAssetSource assets(*installation,320,200);const auto chr=assets.readInitialResource("maze.chr");
-            std::size_t at=53+old[51];Bytes projected(old.begin(),old.begin()+at);
+            Bytes projected(old.begin(),old.end()-1);projected.push_back(30);
             for(unsigned owner=0;owner<30;++owner) {
-                check(old.at(at)==owner,"audit roster identity");const auto end=at+212+old.at(at+1);
-                check(end<=old.size(),"audit character extent");projected.insert(projected.end(),old.begin()+at,old.begin()+end);
-                // Only the two added v8 fields come from the candidate. Every common
-                // byte must still be reproduced from the v7 wire independently.
-                const auto newEnd=end+2*owner;
-                check(candidate.at(newEnd)==chr.at(owner*354+165),"audit baseline Quick Fight option changed");
-                if(candidate.at(newEnd+1)!=chr.at(owner*354+164))
-                    std::cout<<"Remembered spell owner "<<owner<<": CHR "<<unsigned(chr.at(owner*354+164))<<" -> selected slot "<<unsigned(candidate.at(newEnd+1))<<'\n';
-                projected.push_back(candidate.at(newEnd));projected.push_back(candidate.at(newEnd+1));at=end;
+                projected.push_back(owner);
+                for(unsigned award=0;award<128;++award) {
+                    const unsigned packed=award%64;const auto value=chr.at(owner*354+57+packed);
+                    projected.push_back(packed==9 ? (award==9?value:0) : award<64 ? value&15 : value>>4);
+                }
             }
-            projected.insert(projected.end(),old.begin()+at,old.end());projected[8]=8;fixIndependentEnvelope(projected);
+            for(unsigned n=0;n<4;++n)projected.push_back(0); // Empty object override count, independently expected.
+            projected.push_back(0);projected[8]=9;fixIndependentEnvelope(projected);
             check(projected==candidate,"audit format-only projection differs");
             sameSnapshot(XeenSaveFormat::decode(projected),XeenSaveFormat::decode(candidate));
-            check(XeenSaveFormat::encode(XeenSaveFormat::decode(candidate))==candidate,"audit canonical v8 reload/re-save differs");
-            std::cout<<"Every common decoded field and byte matches; 30 setting pairs (CHR options and remembered spell selections) account for all additions\n";return 0;
+            check(XeenSaveFormat::encode(XeenSaveFormat::decode(candidate))==candidate,"audit canonical v9 reload/re-save differs");
+            std::cout<<"Every common decoded field and byte matches the independent v8 projection; 30 CHR award arrays and empty object count account for all 3875 added bytes\n";return 0;
         }
 		const auto run=[](const char *name,auto test){try{test();}catch(const std::exception &e){throw std::runtime_error(std::string(name)+": "+e.what());}};
 		run("saveNames",saveNames);
+		run("worldEffectsWire",worldEffectsWire);
 		run("dailyStateRoundTrips",dailyStateRoundTrips);
 		run("wireContract",wireContract);
 		run("asymmetricBase",asymmetricBase);

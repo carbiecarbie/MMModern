@@ -150,11 +150,13 @@ std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::build(
 		// Terrain may cross map edges. Objects match raw coordinates in this MOB
 		// only; never feed object coordinates through world.sampleCell().
 		const auto &file = world.objectFile(camera.mapId);
+		if(file.resourcePresent)for(std::size_t i=0;i<file.entities.objects.size();++i)
+			world.objectFlipDrawn({camera.mapId,i},resolver->resolve(file,i,camera.direction,ordinaryPhase).horizontalFlip);
 		if (file.resourcePresent) for (const auto &placement : kObjectPlacements) {
 			const auto offset = sampleOffset(camera.direction, placement.sample);
 			const int rawX = camera.x + offset.first, rawY = camera.y + offset.second;
 			for (std::size_t i = 0; i < file.entities.objects.size(); ++i) {
-				const auto &object = file.entities.objects[i];
+				const auto object = world.effectiveObject({camera.mapId,i});
 				if (object.x != rawX || object.y != rawY || !object.isActive() ||
 						object.resourceId >= 255 || world.isObjectDisabled({camera.mapId, i})) continue;
 				auto visual = resolver->resolve(file, i, camera.direction, ordinaryPhase);

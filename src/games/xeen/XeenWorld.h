@@ -10,6 +10,7 @@
 #include "games/xeen/XeenJourneyContent.h"
 #include "games/xeen/XeenScenePresentation.h"
 #include "games/xeen/XeenBarrierState.h"
+#include "games/xeen/XeenObjectState.h"
 #include <stdexcept>
 #include <set>
 #include <array>
@@ -58,6 +59,7 @@ public:
 	XeenReadOnlySet<XeenObjectIdentity> disabledObjects() const noexcept { return XeenReadOnlySet<XeenObjectIdentity>(_objects); }
 	XeenReadOnlySet<XeenEventIdentity> disabledEvents() const noexcept { return XeenReadOnlySet<XeenEventIdentity>(_events); }
 	const std::vector<XeenBarrierOverride> &barriers() const noexcept { return _barriers; }
+	const std::vector<XeenObjectOverride> &objectOverrides() const noexcept {return _objectOverrides;}
 	bool encounterMarked() const { return _encounterMarked; }
 	XeenEncounterEntry encounterEntry() const noexcept { return _entry; }
 	bool encounterInitialized() const { return _encounterInitialized; }
@@ -101,6 +103,7 @@ private:
 	std::set<XeenObjectIdentity> _objects;
 	std::set<XeenEventIdentity> _events;
 	std::vector<XeenBarrierOverride> _barriers;
+	std::vector<XeenObjectOverride> _objectOverrides;
 };
 
 class XeenWorld {
@@ -133,6 +136,15 @@ public:
 	XeenScenePresentation &scenePresentation() { return _scenePresentation; }
 	const XeenScenePresentation &scenePresentation() const { return _scenePresentation; }
 	bool isObjectDisabled(XeenObjectIdentity id);
+	XeenMapEntity effectiveObject(XeenObjectIdentity id);
+	bool effectiveObjectFlip(XeenObjectIdentity id) const;
+	void applyMoveObject(XeenObjectIdentity id,int x,int y);
+	void restoreObjectOverrides(const std::vector<XeenObjectOverride> &);
+	// drawScene resets flip from directional animation metadata on every draw.
+	void objectFlipDrawn(XeenObjectIdentity id,bool flipped) {_scenePresentation.objectFlips[id]=flipped;}
+	void applyEventGrant(XeenPartyState &,std::uint8_t mode,std::uint32_t value,
+		std::optional<std::size_t> member,bool entireParty,bool give);
+	void publishEventParty(XeenPartyState &,const XeenPartyState &) noexcept;
 	bool isEventDisabled(XeenEventIdentity id) const { return _sessionState.isEventDisabled(id); }
 	std::optional<XeenObjectIdentity> selectObject(const XeenCamera &camera);
 	XeenEventRecord effectiveEvent(XeenEventIdentity id, const XeenEventRecord &base) const;

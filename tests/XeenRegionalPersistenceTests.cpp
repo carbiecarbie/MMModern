@@ -28,6 +28,8 @@ Bytes suffix(const XeenSaveSnapshot &s){
  b.push_back(j.vertigoActors.has_value());if(j.vertigoActors){put(b,j.cityOriginalActorCount,2);put(b,j.vertigoActors->size(),2);for(const auto &a:*j.vertigoActors){actor(a);put(b,std::uint16_t(a.spawnedType),2);}}
  b.insert(b.end(),{2,4,4,9});for(const auto &side:j.serviceEconomy->wares.records)for(const auto &shop:side)for(const auto &category:shop)for(const auto &item:category)b.insert(b.end(),{item.material,item.id,item.state,item.frame});
  put(b,0xfedcba98u,4);put(b,0xffffffffu,4);
+ b.push_back(30);for(unsigned owner=0;owner<30;++owner){b.push_back(owner);for(const auto value:s.characters[owner].awards)b.push_back(value);}
+ check(s.objectOverrides.empty(),"Independent suffix fixture requires no object overrides");put(b,0,4);
  check(!s.name,"Independent loose-save fixture requires absent name metadata");
  b.push_back(0);return b;
 }
@@ -42,7 +44,7 @@ XeenSaveSnapshot sampleCurrent(){
 }
 void verify(const XeenSaveSnapshot &s){
  const auto bytes=XeenSaveFormat::encode(s),expected=suffix(s);const auto offset=baseSize(s);
- check(bytes.size()==offset+expected.size()&&std::equal(expected.begin(),expected.end(),bytes.begin()+offset),"Independent complete v8 schema9/content14 suffix and absent name");
+ check(bytes.size()==offset+expected.size()&&std::equal(expected.begin(),expected.end(),bytes.begin()+offset),"Independent complete v9 schema9/content14 suffix and absent name");
  sameSnapshot(s,XeenSaveFormat::decode(bytes));check(XeenSaveFormat::encode(XeenSaveFormat::decode(bytes))==bytes,"Exact current byte continuation");
  for(std::size_t size=offset;size<bytes.size();++size){auto b=bytes;b.resize(size);fixIndependentEnvelope(b);rejects([&]{XeenSaveFormat::decode(b);});}
  auto extra=bytes;extra.push_back(0);fixIndependentEnvelope(extra);rejects([&]{XeenSaveFormat::decode(extra);});

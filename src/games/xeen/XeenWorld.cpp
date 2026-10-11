@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <limits>
 #include <utility>
+#include <algorithm>
 
 namespace mmodern {
 XeenWorld::GameplayBorrow::GameplayBorrow(XeenWorld &w, XeenPartyState &p,
@@ -91,6 +92,8 @@ void XeenWorld::swapPreparedState(XeenWorld &candidate) noexcept {
 	_sessionState._objects.swap(candidate._sessionState._objects);
 	_sessionState._events.swap(candidate._sessionState._events);
 	_sessionState._barriers.swap(candidate._sessionState._barriers);
+	_sessionState._objectOverrides.swap(candidate._sessionState._objectOverrides);
+	_scenePresentation.objectFlips.swap(candidate._scenePresentation.objectFlips);
 	_maps.swap(candidate._maps);
 	_objects.swap(candidate._objects);
 	++_ownerRevision; ++candidate._ownerRevision;
@@ -122,8 +125,48 @@ void XeenWorld::validateObject(XeenObjectIdentity id) {
 
 bool XeenWorld::isObjectDisabled(XeenObjectIdentity id) {
 	validateObject(id);
-	return objectFile(id.mapId).entities.objects[id.recordIndex].isDisabled() ||
+	return effectiveObject(id).isDisabled() ||
 		_sessionState.isObjectDisabled(id);
+}
+
+XeenMapEntity XeenWorld::effectiveObject(XeenObjectIdentity id) {
+	validateObject(id);
+	auto value=objectFile(id.mapId).entities.objects[id.recordIndex];
+	for(const auto &v:_sessionState._objectOverrides)if(v.id==id) {value.x=v.x;value.y=v.y;break;}
+	return value;
+}
+
+bool XeenWorld::effectiveObjectFlip(XeenObjectIdentity id) const {
+	const auto drawn=_scenePresentation.objectFlips.find(id);
+	if(drawn!=_scenePresentation.objectFlips.end())return drawn->second;
+	for(const auto &v:_sessionState._objectOverrides)if(v.id==id)return v.flipped;
+	return false; // MazeObject constructor, before the first drawScene.
+}
+
+void XeenWorld::applyMoveObject(XeenObjectIdentity id,int x,int y) {
+	if(!detachedEventCandidate() || x<-128 || x>127 || y<-128 || y>127)
+		throw std::invalid_argument("MoveObj requires a detached Event and signed-byte coordinates");
+	const auto before=effectiveObject(id);
+	bool flip=effectiveObjectFlip(id);
+	if(before.x==x && before.y==y)flip=!flip;
+	auto prepared=_sessionState._objectOverrides;
+	const auto at=std::lower_bound(prepared.begin(),prepared.end(),id,[](const auto &v,auto key){return v.id<key;});
+	if(at!=prepared.end() && at->id==id)*at={id,x,y,flip};
+	else prepared.insert(at,{id,x,y,flip});
+	if(prepared.size()>65536)throw std::invalid_argument("Too many object overrides");
+	// Allocate the disposable draw-state entry before the owned stores.
+	_scenePresentation.objectFlips[id]=flip;
+	XeenMutationWatch::write(this);_sessionState._objectOverrides.swap(prepared);
+}
+
+void XeenWorld::restoreObjectOverrides(const std::vector<XeenObjectOverride> &values) {
+	if(hasEncounterState() || values.size()>65536)throw std::invalid_argument("Invalid object restoration owner/count");
+	for(unsigned n=0;n<values.size();++n) {
+		const auto &v=values[n];validateObject(v.id);
+		if(hasEncounterState() || v.x<-128 || v.x>127 || v.y<-128 || v.y>127 ||
+			(n && !(values[n-1].id<v.id)))throw std::invalid_argument("Invalid or duplicate object override");
+	}
+	auto prepared=values;XeenMutationWatch::write(this);_sessionState._objectOverrides.swap(prepared);
 }
 
 std::optional<XeenObjectIdentity> XeenWorld::selectObject(const XeenCamera &camera) {
@@ -134,8 +177,8 @@ std::optional<XeenObjectIdentity> XeenWorld::selectObject(const XeenCamera &came
 	const auto &file = objectFile(camera.mapId);
 	if (!file.resourcePresent) return std::nullopt;
 	for (std::size_t i = 0; i < file.entities.objects.size(); ++i) {
-		const auto &object = file.entities.objects[i];
 		XeenObjectIdentity id{camera.mapId, i};
+		const auto object = effectiveObject(id);
 		if (object.x == camera.x && object.y == camera.y && object.isActive() &&
 				!_sessionState.isObjectDisabled(id)) return id;
 	}
@@ -374,11 +417,45 @@ void XeenWorld::publishTransition(XeenWorld &candidate) noexcept {
 	_sessionState._accountedMonsters.swap(candidate._sessionState._accountedMonsters);
 	_sessionState._events.swap(candidate._sessionState._events);
 	_sessionState._barriers.swap(candidate._sessionState._barriers);
+	_sessionState._objectOverrides.swap(candidate._sessionState._objectOverrides);
 	_sessionState._objects.swap(candidate._sessionState._objects);
 	_cityStatistics.swap(candidate._cityStatistics);
 	std::swap(_cityOriginalActorCount,candidate._cityOriginalActorCount);
 	_maps.swap(candidate._maps);_objects.swap(candidate._objects);
 	++_ownerRevision;
+}
+
+void XeenWorld::applyEventGrant(XeenPartyState &party,std::uint8_t mode,std::uint32_t value,
+		std::optional<std::size_t> member,bool entireParty,bool give) {
+	if(!detachedEventCandidate() || party.party.size()==0 || (!entireParty && (!member || *member>=party.party.size())))
+		throw std::invalid_argument("Event recipient is unavailable");
+	if(mode==34 || mode==35) {
+		if(!give || !party.monsterTreasure)throw std::invalid_argument("Event currency mode is unsupported");
+		auto &purse=*party.monsterTreasure;
+		if(mode==34)purse.gold+=value;else purse.gems+=value;
+		return; // Party currency is granted once, independent of selector.
+	}
+	if(mode!=15 && mode!=16)throw std::invalid_argument("Event character mode is unsupported");
+	if((mode==15 && value>=128) || (mode==16 && !give))throw std::invalid_argument("Event award/XP operand is unsupported");
+	for(std::size_t i=0;i<party.party.size();++i)if(entireParty || i==*member) {
+		const auto owner=party.party.activeRosterIds()[i];
+		if(mode==15)party.roster._characters.at(owner).awards[XeenCharacter::awardIndex(value)]=give?1:0;
+		else {
+			if(!party.roster._combatInputs[owner])throw std::invalid_argument("Event XP owner is absent");
+			party.roster._combatInputs[owner]->experience+=value;
+		}
+	}
+}
+
+void XeenWorld::publishEventParty(XeenPartyState &live,const XeenPartyState &candidate) noexcept {
+	for(unsigned owner=0;owner<30;++owner) {
+		live.roster._characters[owner].awards=candidate.roster._characters[owner].awards;
+		if(live.roster._combatInputs[owner])live.roster._combatInputs[owner]->experience=candidate.roster._combatInputs[owner]->experience;
+	}
+	if(live.monsterTreasure) {
+		live.monsterTreasure->gold=candidate.monsterTreasure->gold;
+		live.monsterTreasure->gems=candidate.monsterTreasure->gems;
+	}
 }
 
 } // namespace mmodern

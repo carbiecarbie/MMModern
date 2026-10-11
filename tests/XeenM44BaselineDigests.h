@@ -84,15 +84,27 @@
 // schema 9/content 14 remain unchanged. Native v8 reload/re-save is exact for
 // all three final saves. Full hashes, byte mappings, settings and CRCs:
 // build-rel/m55b-evidence/digest-audit.json (local, never committed saves).
+// M57 Part A: maintainer approved the v9 audit and digest replacement on 2026-10-10.
+// Baseline v8 executables were preserved outside the repository before rebuilding
+// and reproduced all three v8 hashes. Complete traces match for
+// 7,855 / 36,316 / 30,800 lines; every common byte and decoded field matches
+// across all ten checkpoints. Each save adds exactly 3,875 bytes: the awards
+// block (1 + 30 * 129 bytes), initialized independently from CHR, and the
+// four-byte empty object-override count. Only envelope version, payload length
+// and CRC also change; schema 9/content 14 remain unchanged. Independent
+// v8-to-v9 projections match, and native v9 reload/re-save is exact for all
+// three final saves. No unexplained gameplay, time or RNG differences.
+// Full old/new hashes, byte mappings, checkpoint CRCs and validation evidence:
+// build-rel/m57a-evidence/digest-audit.json (local, never committed saves).
 #include <array>
 #include <cstdint>
 namespace m44_baseline {
-inline constexpr const char *revision = "9d51e42e237a2f54ef2c672a4450c88d4daa2034 + M55 Part B v8";
+inline constexpr const char *revision = "614d859de3a94467893625c482d7bfc5296521f8 + M57 Part A v9";
 struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 inline constexpr std::array<Scenario,3> scenarios{{
-    {"mainland-combat-myra-phirna",3626689381u,"2e556705d235b82c550b64570a799be612c16800862c86c7a6e43edb1c087cc7"},
-    {"vertigo-buy-repair-training",7u,"03b4e5f7ea7c43f0128e5675fd24d9d5e559e9d1d5a7e12e15351352a3f8997b"},
-    {"temple-recovery",3626689381u,"6f730c7f09160c7b6ee309c5042f6120ea82501da8c874e628fb8bb39a100d1f"}
+    {"mainland-combat-myra-phirna",3626689381u,"686cc0b27465446b666eecc50c129d611fbda62471eacdc22869a4510116e10f"},
+    {"vertigo-buy-repair-training",7u,"818c81cec3f060333d0276d2cec4a1e4250205d12127e4405a5dd2679af61f1e"},
+    {"temple-recovery",3626689381u,"96b806b150568bc1947ddfc9b27b5ca6e97270a3a7742d8224df24be491278ea"}
 }};
 }
 #endif

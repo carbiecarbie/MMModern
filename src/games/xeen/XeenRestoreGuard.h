@@ -87,7 +87,7 @@ public:
 			live._entry != s._entry || live._encounterMarked != s._encounterMarked ||
 			live._encounterInitialized != s._encounterInitialized || live._encounterTerminal != s._encounterTerminal ||
 			live._encounterRevision != s._encounterRevision || live._objects != s._objects || live._events != s._events ||
-			live._actors.size() != s._actors.size() || live._barriers != s._barriers ||
+			live._actors.size() != s._actors.size() || live._barriers != s._barriers || live._objectOverrides!=s._objectOverrides ||
 			bool(live._vertigoActors) != bool(s._vertigoActors)) return false;
 		for (std::size_t i = 0; i < characters.size(); ++i) {
 			if (!sameCharacter(p.roster.characters()[i], characters[i]) ||
@@ -348,19 +348,24 @@ private:
 	}
 	void prepareVertigoPublication(const XeenRestoreGuard &candidate) {
 		check();candidate.check();
-		// Event capabilities currently permit quest flags, camera/game flags and
-		// World overlays/Spawn. Every other party input must remain its preimage.
+		auto retainedTreasure=candidate.treasure;
+		if(retainedTreasure && treasure) {retainedTreasure->gold=treasure->gold;retainedTreasure->gems=treasure->gems;}
+		// Event capabilities permit awards, XP, purse, quest/camera/game flags
+		// and World overlays/Spawn. All other inputs retain their preimages.
 		if(candidate.membership!=membership || candidate.quests!=quests || candidate.marked!=marked ||
 			candidate.s._barriers!=s._barriers ||
-			candidate.recovery!=recovery || !(candidate.context==context) || candidate.treasure!=treasure ||
+			candidate.recovery!=recovery || !(candidate.context==context) || retainedTreasure!=treasure ||
 			candidate.food!=food || candidate.economy!=economy || candidate.first!=first || candidate.effective!=effective ||
 			candidate.diagnostics!=diagnostics || candidate.s._journeyRandom!=s._journeyRandom) {
 			failed=true;throw std::logic_error("Event candidate changed an unowned party or RNG field");
 		}
 		for(unsigned owner=0;owner<characters.size();++owner) {
-			if(!xeen_state::sameCharacter(candidate.characters[owner],characters[owner]) ||
+			auto retainedCharacter=candidate.characters[owner];retainedCharacter.awards=characters[owner].awards;
+			auto retainedInputs=candidate.inputs[owner];
+			if(retainedInputs && inputs[owner])retainedInputs->experience=inputs[owner]->experience;
+			if(!xeen_state::sameCharacter(retainedCharacter,characters[owner]) ||
 				bool(candidate.inputs[owner])!=bool(inputs[owner]) ||
-				(inputs[owner] && !xeen_state::sameInputs(*candidate.inputs[owner],*inputs[owner]))) {
+				(inputs[owner] && !xeen_state::sameInputs(*retainedInputs,*inputs[owner]))) {
 				failed=true;throw std::logic_error("Event candidate changed character inputs without a capability");
 			}
 		}
@@ -370,6 +375,7 @@ private:
 		auto actors=candidate.s._actors;auto city=candidate.s._vertigoActors;
 		auto accounted=candidate.s._accountedMonsters;
 		auto events=candidate.s._events;auto disabledObjects=candidate.s._objects;
+		auto overrides=candidate.s._objectOverrides;
 		auto statistics=candidate.cityStatistics;
 		for (const auto &entry:candidate.maps) {
 			const auto found=maps.find(entry.first);
@@ -390,6 +396,12 @@ private:
 		s._actors.swap(actors);s._vertigoActors.swap(city);
 		s._accountedMonsters.swap(accounted);
 		s._events.swap(events);s._objects.swap(disabledObjects);
+		s._objectOverrides.swap(overrides);
+		for(unsigned owner=0;owner<characters.size();++owner) {
+			characters[owner].awards=candidate.characters[owner].awards;
+			if(inputs[owner])inputs[owner]->experience=candidate.inputs[owner]->experience;
+		}
+		if(treasure) {treasure->gold=candidate.treasure->gold;treasure->gems=candidate.treasure->gems;}
 		maps.swap(nextMaps);objects.swap(nextObjects);cityStatistics.swap(statistics);
 		cityOriginalCount=candidate.cityOriginalCount;
 		cameraValue=candidate.cameraValue;flagValues=candidate.flagValues;++worldRevision;
@@ -414,7 +426,7 @@ private:
 	}
 	static std::size_t mutationRangeCapacity(const std::map<XeenMapIdentity,XeenMap> &mapValues,
 			const std::map<XeenMapIdentity,XeenObjectFile> &objectValues) {
-		std::size_t count=9+4*objectValues.size();
+		std::size_t count=10+4*objectValues.size();
 		for(const auto &entry:mapValues) count+=5+entry.second.instructions.size();
 		return count;
 	}
@@ -429,6 +441,7 @@ private:
 		if(w._sessionState._vertigoActors) mutations.add(w._sessionState._vertigoActors->data(),w._sessionState._vertigoActors->size()*sizeof(XeenActor));
 		mutations.add(w._cityStatistics.data(),w._cityStatistics.size()*sizeof(XeenMonsterRecord));
 		mutations.add(w._sessionState._barriers.data(),w._sessionState._barriers.size()*sizeof(XeenBarrierOverride));
+		mutations.add(w._sessionState._objectOverrides.data(),w._sessionState._objectOverrides.size()*sizeof(XeenObjectOverride));
 		watchResourceMutations();
 	}
 	void watchResourceMutations() const noexcept {

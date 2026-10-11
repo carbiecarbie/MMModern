@@ -148,6 +148,7 @@ struct XeenEventExecutionState {
 	std::optional<XeenObjectIdentity> selectedObject;
 	// Temporary active-party index; independent of roster IDs and call frames.
 	std::optional<std::size_t> activeCharacterIndex;
+	bool entireParty=false; // checkEvents starts at member 1; SetChar(0) selects all.
 	XeenGameFlags workingGameFlags;
 	std::optional<XeenEventScript> currentScript;
 	std::vector<XeenEventCallFrame> callStack;

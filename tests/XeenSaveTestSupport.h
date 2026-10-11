@@ -50,6 +50,8 @@ inline void sameSnapshot(const XeenSaveSnapshot &a, const XeenSaveSnapshot &b) {
 	check(a.food==b.food,"food changed");
 	check(a.activeRosterIds == b.activeRosterIds, "membership order changed");
 	check(a.barriers==b.barriers,"barrier overrides changed");
+	check(a.objectOverrides==b.objectOverrides,"object overrides changed");
+	for(unsigned owner=0;owner<30;++owner)check(a.characters[owner].awards==b.characters[owner].awards,"award counts changed");
 	for (std::size_t i = 0; i < a.characters.size(); ++i)
 		remove_test::checkSameCharacter(a.characters[i], b.characters[i]);
 	check(a.questItems == b.questItems && a.questFlags == b.questFlags && a.gameFlags == b.gameFlags,

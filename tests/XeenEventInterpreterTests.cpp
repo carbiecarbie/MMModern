@@ -415,7 +415,7 @@ void testTeleportsAndTransactionalResult() {
 		XeenEventExecutionErrorKind::MalformedInstruction);
 
 	Fixture unsupported;
-	unsupported.scripts.emplace(1, script(1, {record(1, 1, 0, 0x06)}));
+	unsupported.scripts.emplace(1, script(1, {record(1, 1, 0, 0x13)}));
 	failure(unsupported.execute(camera, party, flags),
 		XeenEventExecutionErrorKind::UnsupportedOpcode);
 }
@@ -464,13 +464,18 @@ void testTakeOrGiveFlagOperations() {
 	boundaries.scripts.emplace(1, script(1, {
 		record(1, 1, 0, 0x0c, setFlag(0)),
 		record(1, 1, 1, 0x0c, setFlag(255)),
-		record(1, 1, 2, 0x0c, clearFlag(0))
+		record(1, 1, 2, 0x0c, clearFlag(255))
 	}));
 	const auto boundaryResult = success(boundaries.execute(camera, party, {}));
 	check(boundaryResult.instructionCount == 3 &&
-		!boundaryResult.finalGameFlags.isSet(0) &&
-		boundaryResult.finalGameFlags.isSet(255),
+		boundaryResult.finalGameFlags.isSet(0) &&
+		!boundaryResult.finalGameFlags.isSet(255),
 		"flag boundaries and multiple mutations");
+	Fixture howMuch;
+	howMuch.scripts.emplace(1, script(1,
+		{record(1, 1, 0, 0x0c, clearFlag(0))}));
+	failure(howMuch.execute(camera, party, {}),
+		XeenEventExecutionErrorKind::UnsupportedOperationMode);
 
 	XeenGameFlags ownedInput;
 	Fixture owned;
@@ -578,7 +583,7 @@ void testTakeOrGiveRollback() {
 
 	Fixture unsupportedOpcode;
 	unsupportedOpcode.scripts.emplace(1, script(1, {
-		record(1, 1, 0, 0x0c, setFlag(25)), record(1, 1, 1, 0x06)
+		record(1, 1, 0, 0x0c, setFlag(25)), record(1, 1, 1, 0x13)
 	}));
 	failure(unsupportedOpcode.execute(camera, party, clearInput),
 		XeenEventExecutionErrorKind::UnsupportedOpcode);
@@ -692,7 +697,7 @@ XeenEventExecutionError makeOwnedDiagnostic() {
 	auto party = partyWithSp(2);
 	Fixture fixture;
 	fixture.scripts.emplace(1, script(1, {
-		record(1, 1, 0, 0x06, {}, kXeenEventDirectionAll, 987)
+		record(1, 1, 0, 0x13, {}, kXeenEventDirectionAll, 987)
 	}));
 	return failure(fixture.execute({1, 1, 1, XeenDirection::North},
 		party, XeenGameFlags{}),

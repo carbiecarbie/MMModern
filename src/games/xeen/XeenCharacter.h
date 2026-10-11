@@ -133,6 +133,9 @@ struct XeenCharacter {
 	XeenMutable<std::int16_t> currentSp = 0;
 	XeenMutableArray<std::uint8_t, kConditionCount> conditions{};
 	XeenMutable<std::uint16_t> birthYear = 0;
+	// Expanded CHR award counts; script IDs 73/81 remap to 126/127.
+	XeenMutableArray<std::uint8_t,128> awards{};
+	static constexpr unsigned awardIndex(unsigned id) noexcept {return id==73?126:id==81?127:id;}
 	const XeenCharacterOriginalDetails *originalDetails() const noexcept { return _originalDetails.get(); }
 
 	unsigned currentLevel() const;

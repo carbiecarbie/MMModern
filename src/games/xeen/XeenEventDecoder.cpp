@@ -232,6 +232,7 @@ XeenEventDecodeResult decodeTakeOrGive(const XeenEventRecord &record,
 		return makeError(record, context,
 			XeenEventDecodeErrorKind::MalformedInstruction, message.str());
 	}
+	if(record.opcode==0x14) {XeenEventGiveMulti multi;static_cast<XeenEventTakeOrGive &>(multi)=result;return instruction(record,context,multi);}
 	return instruction(record, context, result);
 }
 
@@ -240,6 +241,16 @@ XeenEventDecodeResult decodeTakeOrGive(const XeenEventRecord &record,
 XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 		XeenEventDecodeContext context) {
 	switch (record.opcode) {
+	case 0x0b:
+		if(record.parameters.size()!=3)return wrongSize(record,context,3);
+		return instruction(record,context,XeenEventMoveObject{record.parameters[0],
+			static_cast<std::int8_t>(record.parameters[1]),static_cast<std::int8_t>(record.parameters[2])});
+	case 0x0f:
+		if(record.parameters.size()!=1)return wrongSize(record,context,1);
+		if(record.parameters[0]!=0)return makeError(record,context,XeenEventDecodeErrorKind::UnsupportedOperand,"SetChar selector is not supported yet");
+		return instruction(record,context,XeenEventSetCharacter{0});
+	case 0x14:
+		return decodeTakeOrGive(record,context);
 	case 0x10:
 		if (record.parameters.size()!=4) return wrongSize(record,context,4);
 		return instruction(record,context,XeenEventSpawn{record.parameters[0],
@@ -327,6 +338,9 @@ XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 				"CD speech track is outside 0..60");
 		return instruction(record,context,speech);
 	}
+	case 0x06:
+		if (record.parameters.size()!=1) return wrongSize(record,context,1);
+		return instruction(record,context,XeenEventSoundCue{record.parameters[0]});
 	case 0x28:
 		if (record.parameters.size()!=1) return wrongSize(record,context,1);
 		return instruction(record,context,XeenEventVoiceCue{record.parameters[0]});

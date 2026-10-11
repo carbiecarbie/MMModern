@@ -164,7 +164,7 @@ void testErrorsRollbackAndDiagnostics() {
 	fixture.scripts.emplace(1, script(1, {
 		record(4, 5, 0, 0x0c, setFlag(9), kXeenEventDirectionAll, 40),
 		record(4, 5, 1, 0x04, {3}, kXeenEventDirectionAll, 55),
-		record(4, 5, 2, 0x06, {}, kXeenEventDirectionAll, 65)
+		record(4, 5, 2, 0x13, {}, kXeenEventDirectionAll, 65)
 	}));
 	XeenCamera camera{1, 4, 5, XeenDirection::South};
 	XeenGameFlags flags;
@@ -179,7 +179,7 @@ void testErrorsRollbackAndDiagnostics() {
 	check(error && error->kind == XeenEventExecutionErrorKind::UnsupportedOpcode,
 		"unsupported opcode after presentation remains an execution error");
 	check(error->source && error->source->fileOffset == 65 &&
-		error->source->opcode == 0x06,
+		error->source->opcode == 0x13,
 		"manual error preserves source diagnostics");
 	check(!flags.isSet(9) && camera.mapId == 1 && camera.x == 4 && camera.y == 5,
 		"manual execution failure rolls back camera and flags");

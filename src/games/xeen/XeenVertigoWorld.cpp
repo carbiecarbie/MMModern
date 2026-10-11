@@ -57,6 +57,7 @@ void XeenWorld::applySpawn(std::uint8_t slot, int x, int y, std::uint8_t) {
 
 XeenScenePresentation XeenWorld::prepareSpawnPresentation(const XeenWorld &candidate) const {
 	auto prepared=_scenePresentation;
+	prepared.objectFlips=candidate._scenePresentation.objectFlips;
 	for(const auto slot:candidate._spawnedPresentationSlots)
 		prepared.copySpawn(candidate._sessionState._vertigoActors->at(slot),candidate._scenePresentation);
 	if(!candidate._spawnedPresentationSlots.empty())prepared.copySpawnRandom(candidate._scenePresentation);
