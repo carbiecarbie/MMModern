@@ -213,3 +213,11 @@ open and each tree pays once; the well refuses safely until it is implemented.
 Save v9 stores all characters' awards and moved objects. Two display bugs
 found in play-testing were fixed. Maintainer play-test accepted.
 [Plan](milestone-57-plan.md).
+
+**M58 - Skills and mapping** (`a39ec95`). Each character has one skill state
+from the original data, used by the sheet and the rules. Mylo and Rialdo teach
+Cartography and Pathfinder through the original scripts, including Rialdo's
+lower actual price and paid repeat lessons. Cartography records explored cells
+for the original automap and Map. Save v10 stores skills and exploration; a
+reusable digest audit tool now checks save-format changes.
+[Plan](milestone-58-plan.md).

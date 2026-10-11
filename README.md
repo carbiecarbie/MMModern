@@ -18,7 +18,7 @@ is the whole town and the connected mainland of map 23. You can fight, run, bash
 unlock grates and doors, cast learned spells, finish Myra's quest, rest with
 food and recovery, buy food at the Tavern, deposit or withdraw gold and gems
 at the Bank, complete Joe's proof and Gunther's reward, search crates and
-trees, and use the Ironworks (Buy and Armor Repair), Training and the
+trees, learn Cartography and Pathfinder, map explored cells, and use the Ironworks (Buy and Armor Repair), Training and the
 Temple. Progress can be saved and continued exactly. The original main screen, character sheet, Items dialog and service screens work with mouse or
 keyboard, and the game starts on the original title screen with New, Load and
 the in-game Save, Save As, Load and Quit. The party can strafe, exchange

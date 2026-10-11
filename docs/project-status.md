@@ -1,7 +1,9 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M57 is the latest completed
-and accepted milestone** ([plan](milestone-57-plan.md)): Events move objects and
+This describes what can be played and done now. **M58 is the latest completed
+and accepted milestone** ([plan](milestone-58-plan.md)): characters learn skills
+from Mylo and Rialdo, and Cartography records explored cells for the original
+automap and Map. M57 ([plan](milestone-57-plan.md)) made Events move objects and
 reward XP, awards, gold, gems and generated treasure, so Joe's proof, Gunther's
 reward, searchable crates and the trees work. M56 ([plan](milestone-56-plan.md))
 added buying food at the Tavern and the Bank.
@@ -83,6 +85,14 @@ under the original rules.
   items or gold through the same generation and random draws as merchants;
   repeat searches find nothing. Each tree pays 1-10 gold once per cycle. Full
   packs lose the remaining treasure as in the original.
+- **Teachers and skills.** Mylo `(8,16)` teaches Cartography for 100 gold and
+  Rialdo `(25,26)` teaches Pathfinder for 2,000 (his offer says 2,500), to the
+  member chosen with F1-F6 or a portrait. As in the original scripts, a repeat
+  lesson charges again. The character sheet lists the current skills.
+- **Mapping.** While a member knows Cartography, the cells the party steps on
+  are recorded. `=` toggles the 7x7 automap; M or the Map button opens the
+  original 16x16 Map with the map name, coordinates and facing. Explored cells
+  are kept across travel, services, combat and saves.
 Services use the original location screens: the town art stays visible with
 the original text panel, and buttons work by mouse or key.
 
@@ -172,6 +182,8 @@ time or combat.
 | F / O in combat | Quick Fight (the acting member's configured action) / Quick Fight Options |
 | W/A/C/M in Items | Weapons, Armor, Accessories, Misc |
 | E / R / U in Items | Equip / Remove / Use; select a row, then F1-F6 to move it to another member |
+| M | Map (original 16x16 view) |
+| = | Toggle the automap |
 | Tab | Control panel (Save, Save As, Load, Quit) |
 | F9 | Save to the developer `--save-file` target |
 | Escape | Back, cancel or acknowledge; quit when nothing is open |
@@ -179,7 +191,8 @@ time or combat.
 **Mouse.** On the main screen, left clicks work as in the original: the
 action and movement buttons, the combat buttons and targets 1-3, and the 3D
 view (Interact in exploration, Attack in combat). Buttons whose action is not
-implemented yet (Dismiss, View Quests and Map) show "not supported yet"; the
+implemented yet (Dismiss and View Quests) show "not supported yet"; the Map
+button opens the Map; the
 lower corner buttons strafe and the gem opens the control panel; portraits
 open the original character sheet, whose Items dialog is also clickable.
 Buttons briefly show their original pressed frame. The right button does
@@ -232,8 +245,9 @@ The earlier `--encounter-26`, `--encounter-27`, `--journey-skeleton` and
 
 ## Save format
 
-There is **one current save format**: envelope v9, schema 9, content 14, written
-by the Regional Journey. v9 adds every character's awards and moved objects. Until a public release, older formats are not read:
+There is **one current save format**: envelope v10, schema 9, content 14, written
+by the Regional Journey. v10 adds every character's 18 skill bytes and the
+explored map cells. Until a public release, older formats are not read:
 - A save from an older build is rejected before anything is restored, with "This
   save was created by an older MMModern build and is no longer supported."
 - A save from a newer or unrecognized build is rejected with a "newer or
@@ -319,6 +333,10 @@ instructions are in [dependencies](dependencies.md).
 - **Rest details.** Resting on unsupported terrain (lava, sky, cloud, space)
   refuses; none is reachable today. The dream has no audio, so it is shorter
   than the original.
+- **Skills.** Only Cartography and the skills used by existing rules
+  (Thievery, Navigator, Bodybuilder and others affecting HP/SP) have effects;
+  Swimming, Mountaineer and the rest are recorded but not used yet. Vern's
+  guild membership is not available.
 - **Unconfirmed rules.** The condition byte `0xFF` follows ScummVM's `-1`
   sentinel (Weak/Drunk, dawn and stat modifications); the eight-hour
   Poison/Disease branch follows ScummVM, which only draws for members without
