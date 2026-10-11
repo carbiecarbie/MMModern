@@ -208,6 +208,7 @@ std::string XeenAssetSource::tavernFoodOffer() {
 }
 void XeenAssetSource::drawTavern(IndexedFrame &frame) { _impl->bridge.drawTavern(frame); }
 void XeenAssetSource::drawBank(IndexedFrame &frame) { _impl->bridge.drawBank(frame); }
+void XeenAssetSource::drawGuild(IndexedFrame &frame) { _impl->bridge.drawGuild(frame); }
 void XeenAssetSource::drawTemple(IndexedFrame &frame) {
 	_impl->bridge.drawTemple(frame);
 }

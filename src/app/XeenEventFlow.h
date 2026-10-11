@@ -61,7 +61,7 @@ public:
 	std::function<void(XeenSmithBoundary)> smithBoundary;
 	std::function<void(IndexedFrame &)> drawTrainingArt;
 	std::function<void(IndexedFrame &)> drawTempleArt;
-	std::function<void(IndexedFrame &)> drawTavernArt,drawBankArt;
+	std::function<void(IndexedFrame &)> drawTavernArt,drawBankArt,drawGuildArt;
 	std::function<std::string()> tavernFoodOffer;
 	std::function<void(IndexedFrame &)> drawCombatButtons;
 	XeenDialogSpriteDraw drawDialogSprite;
@@ -151,7 +151,7 @@ private:
 	std::optional<IndexedFrame> updateTraining();
 	struct SmithUi {
 		XeenItemCatalog catalog;
-		enum class Mode { Repair, Buy, Heal, Food, Bank };
+		enum class Mode { Repair, Buy, Heal, Food, Bank, Guild };
 		Mode mode=Mode::Repair;
 		enum class Phase { Preparation, Lobby, Browse, Confirm, Upgrade, Departure, Currency, Amount };
 		Phase phase=Phase::Lobby;

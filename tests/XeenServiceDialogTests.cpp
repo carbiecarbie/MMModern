@@ -13,12 +13,13 @@ void keyboard(training_test::Fixture &f,unsigned key){f.act(DialogKeyAction{key}
 void layout(Inputs &in) {
     Fixture f(in,service(in));auto base=training_test::frame();base.pixels.assign(64000,77);
     const auto draw=f.flow->drawDialogSprite;
-    for(const auto location:{XeenLocationDialog::Smith,XeenLocationDialog::Training,XeenLocationDialog::Temple,XeenLocationDialog::Tavern,XeenLocationDialog::Bank}) {
+    for(const auto location:{XeenLocationDialog::Smith,XeenLocationDialog::Training,XeenLocationDialog::Temple,XeenLocationDialog::Tavern,XeenLocationDialog::Bank,XeenLocationDialog::Guild}) {
         auto art=base;
         if(location==XeenLocationDialog::Smith)in.assets.drawSmith(art);
         else if(location==XeenLocationDialog::Training)in.assets.drawTraining(art);
         else if(location==XeenLocationDialog::Temple)in.assets.drawTemple(art);
         else if(location==XeenLocationDialog::Tavern)in.assets.drawTavern(art);
+        else if(location==XeenLocationDialog::Guild)in.assets.drawGuild(art);
         else in.assets.drawBank(art);
         for(unsigned member=0;member<6;++member) {
             auto rendered=drawXeenLocation(in.assets.uiText(),base,art,in.font,location,f.p,member,draw);
@@ -58,6 +59,8 @@ void layout(Inputs &in) {
         const auto mouse=input.click(x,y),keyboard=input.key(key);
         check(mouse && keyboard && std::get<DialogKeyAction>(*mouse).key==std::get<DialogKeyAction>(*keyboard).key,"original service mouse/key mismatch");
     };
+    const auto guild=xeenLocationInput(XeenLocationDialog::Guild);
+    parity(guild,235,65,'b');parity(guild,235,75,'s');parity(guild,262,109,InputKey::Escape);parity(guild,46,151,InputKey::F1+1);
     const auto tavern=xeenLocationInput(XeenLocationDialog::Tavern),bank=xeenLocationInput(XeenLocationDialog::Bank);
     for(unsigned i=0;i<4;++i)parity(tavern,235,55+i*10,std::string("dftr")[i]);
     parity(tavern,243,109,'s');parity(tavern,282,109,InputKey::Escape);

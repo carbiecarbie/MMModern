@@ -681,7 +681,7 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 			 suspended->request.kind==XeenPresentationKind::TempleService ||
          suspended->request.kind==XeenPresentationKind::TrainingService ||
          suspended->request.kind==XeenPresentationKind::TavernService ||
-         suspended->request.kind==XeenPresentationKind::BankService) && !xeenSmithAuthorityRoom(_generation,1))
+         suspended->request.kind==XeenPresentationKind::BankService || suspended->request.kind==XeenPresentationKind::GuildService) && !xeenSmithAuthorityRoom(_generation,1))
 			throw std::overflow_error("Smith Event ticket generation exhausted before preparation");
 		if (suspended) {
 			_pending.emplace(Pending{std::move(suspended->state), automatic, ++_generation});
@@ -691,7 +691,7 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 			suspended->request.kind==XeenPresentationKind::TrainingService ||
 			suspended->request.kind==XeenPresentationKind::TempleService ||
             suspended->request.kind==XeenPresentationKind::TavernService ||
-            suspended->request.kind==XeenPresentationKind::BankService))
+            suspended->request.kind==XeenPresentationKind::BankService || suspended->request.kind==XeenPresentationKind::GuildService))
 			return frameCopy(); // Exclusive Event transfers to Service after its final guard check.
 		if(suspended && suspended->request.kind==XeenPresentationKind::RewardGeneration)
 			return frameCopy(); // Bounded generation resumes on the next idle update.
@@ -1038,7 +1038,7 @@ IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operat
 	if (_pending && _pending->state.pendingPresentation &&
 		(_pending->state.pendingPresentation->request.kind==XeenPresentationKind::TempleService ||
          _pending->state.pendingPresentation->request.kind==XeenPresentationKind::TavernService ||
-         _pending->state.pendingPresentation->request.kind==XeenPresentationKind::BankService) && !_smithUi)
+         _pending->state.pendingPresentation->request.kind==XeenPresentationKind::BankService || _pending->state.pendingPresentation->request.kind==XeenPresentationKind::GuildService) && !_smithUi)
 		prepareSmith();
 	if (_pending && _pending->state.pendingPresentation &&
 		_pending->state.pendingPresentation->request.kind==XeenPresentationKind::TrainingService && !_trainingUi)

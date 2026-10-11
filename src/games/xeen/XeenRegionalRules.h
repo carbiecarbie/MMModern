@@ -18,7 +18,7 @@ unsigned xeenPlayerRayRows(XeenWorld &, const XeenCamera &);
 bool xeenIndoorRangedRay(XeenWorld &, const XeenCamera &, const XeenActor &);
 std::optional<std::size_t> xeenRegionalEvent(const XeenEventFile &, const XeenCamera &);
 bool xeenRegionalSign(const XeenEventFile &, const XeenCamera &);
-enum class XeenRegionalInteraction { None, Sign, Myra, Phirna, Well, VertigoEntrance, VertigoDoor, VertigoExit, Ironworks, Training, Temple, TempleLabel, Event, Tavern, Bank };
+enum class XeenRegionalInteraction { None, Sign, Myra, Phirna, Well, VertigoEntrance, VertigoDoor, VertigoExit, Ironworks, Training, Temple, TempleLabel, Event, Tavern, Bank, Guild };
 // Classify direct entries for presentation only; entries with preludes use the
 // generic Event path. Only the interpreter issues a terminal Service request.
 std::optional<std::uint8_t> xeenRegionalService(const XeenEventFile &, const XeenCamera &);

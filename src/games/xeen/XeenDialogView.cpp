@@ -150,6 +150,9 @@ DialogInput xeenBuyInput(bool repair) {
     input.hits[repair?7:4].button->frame=repair?15:9;
     return input;
 }
+bool xeenVertigoGuildMember(const XeenPartyState &p,std::size_t member) {
+    return p.party.member(p.roster,member).awards[0]!=0;
+}
 DialogInput xeenLocationInput(XeenLocationDialog location) {
     DialogInput input;
     if(location==XeenLocationDialog::Bank) {
@@ -170,6 +173,9 @@ DialogInput xeenLocationInput(XeenLocationDialog location) {
             button(input,234,64,308,72,'b');
             // Maintainer's M51 entry contract retains the lobby R shortcut.
             input.keys.push_back('r');
+        }
+        else if(location==XeenLocationDialog::Guild) {
+            button(input,234,64,308,72,'b');button(input,234,74,308,82,'s');
         }
         else {
             button(input,234,54,308,62,'h');button(input,234,64,308,72,'d');button(input,234,74,308,82,'u');
@@ -256,6 +262,10 @@ std::string xeenLocationText(const XeenDosText &text,XeenLocationDialog location
         return xeenDialogFormat(text.scalar("BANK_TEXT"),{money(p.serviceEconomy->bank.gold),money(p.serviceEconomy->bank.gems),money(gold(p)),money(gems(p))});
     }
     if(location==XeenLocationDialog::Tavern) return xeenDialogFormat(text.scalar("TAVERN_TEXT"),{c.name,str(text.scalar("FOOD_AND_DRINK")),money});
+    if(location==XeenLocationDialog::Guild) {
+        const auto description=xeenVertigoGuildMember(p,member)?xeenDialogFormat(text.scalar("GUILD_TEXT"),{c.name}):str(text.scalar("GUILD_NOT_MEMBER_TEXT"));
+        return xeenDialogFormat(text.scalar("GUILD_OPTIONS"),{description,money});
+    }
     if(location==XeenLocationDialog::Smith) return xeenDialogFormat(text.scalar("BLACKSMITH_TEXT"),{c.name,money});
     if(location==XeenLocationDialog::Temple) {
         const auto heal=xeenQuoteTempleHeal(c,purse,*p.encounterContext);

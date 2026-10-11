@@ -11,7 +11,7 @@ namespace mmodern {
 class XeenEventPublication {
 public:
  mutable std::array<std::optional<unsigned>,30> damageEffects{};
- mutable std::uint32_t portraitEffectOwners=0; // Published giveTake(8) recipients, presentation only.
+ mutable std::uint32_t portraitEffectOwners=0; // Published spellFX recipients, presentation only.
 	~XeenEventPublication() {if(retainedHistory)retainedHistory->swap(dispatchedRecords);}
 	XeenEventPublication(const XeenEventPublication &) = delete;
 	XeenEventPublication &operator=(const XeenEventPublication &) = delete;

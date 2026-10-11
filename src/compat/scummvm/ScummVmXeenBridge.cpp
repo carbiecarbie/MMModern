@@ -586,6 +586,18 @@ void ScummVmXeenBridge::drawBank(IndexedFrame &frame) {
  for(int y=8;y<140;++y)std::copy_n(static_cast<const std::uint8_t *>(surface.getBasePtr(8,y)),216,
   frame.pixels.data()+y*320+8);
 }
+void ScummVmXeenBridge::drawGuild(IndexedFrame &frame) {
+ if(!frame.isValid() || frame.width!=320 || frame.height!=200)
+  throw std::invalid_argument("Invalid Guild draw context");
+ // BaseLocation's first background frame; animation and audio are deferred.
+ auto &sprite=_impl->sprite("gild1.twn",0,8);
+ XSurface surface;surface.create(320,200);
+ for(int y=0;y<200;++y)std::copy_n(frame.pixels.data()+y*320,320,
+  static_cast<std::uint8_t *>(surface.getBasePtr(0,y)));
+ sprite.draw(surface,0,Common::Point(8,8));
+ for(int y=8;y<140;++y)std::copy_n(static_cast<const std::uint8_t *>(surface.getBasePtr(8,y)),216,
+  frame.pixels.data()+y*320+8);
+}
 void ScummVmXeenBridge::drawTemple(IndexedFrame &frame) {
 	if (!frame.isValid() || frame.width!=320 || frame.height!=200)
 		throw std::invalid_argument("Invalid Temple draw context");

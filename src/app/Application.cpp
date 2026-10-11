@@ -428,6 +428,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
 				flow.drawTempleArt = [&](IndexedFrame &frame) { assets.drawTemple(frame); };
                 flow.drawTavernArt = [&](IndexedFrame &frame) { assets.drawTavern(frame); };
                 flow.drawBankArt = [&](IndexedFrame &frame) { assets.drawBank(frame); };
+                flow.drawGuildArt = [&](IndexedFrame &frame) { assets.drawGuild(frame); };
                 flow.tavernFoodOffer = [&] { return assets.tavernFoodOffer(); };
                 flow.drawCombatButtons = [&](IndexedFrame &frame) { CloudsUiComposer().drawCombatButtons(assets,frame); };
                 flow.drawDialogSprite = [&](IndexedFrame &frame,const char *name,unsigned index,int x,int y) { assets.drawDialogSprite(frame,name,index,x,y); };

@@ -46,6 +46,7 @@ public:
 	std::string tavernFoodOffer();
 	void drawTavern(IndexedFrame &frame);
 	void drawBank(IndexedFrame &frame);
+	void drawGuild(IndexedFrame &frame);
 	void discardSpriteCache();
 	std::size_t cachedSpriteCount() const;
 	// Successful resource reads + SpriteResource constructions, not draw calls.

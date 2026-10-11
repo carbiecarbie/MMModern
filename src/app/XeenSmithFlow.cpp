@@ -91,7 +91,7 @@ bool XeenEncounterFlow::beginSmith(const std::function<void()> &preflight,std::u
 	const bool temple=service==4;
 	if (!journeyEvent() || _smith || _smithPreparation || _busy || !current(ticket()) || !journeyCapacity() ||
 		_camera.mapId!=XeenMapIdentity(28) ||
-		!(temple || service==1 || service==0 || service==3) || !_party.encounterContext) return false;
+		!(temple || service==1 || service==0 || service==2 || service==3) || !_party.encounterContext) return false;
 	SmithBusy busy(_busy);
 	_journeyPreimage->check();
 	// Reserve preparation/admission, two service frames, departure, Event
@@ -484,14 +484,14 @@ void XeenEventFlow::prepareSmith() {
 	try {
 		const auto kind=_pending->state.pendingPresentation->request.kind;
         const bool temple=kind==XeenPresentationKind::TempleService;
-        const bool food=kind==XeenPresentationKind::TavernService,bank=kind==XeenPresentationKind::BankService;
-        const std::uint8_t service=bank?0:food?3:temple?4:1;
+        const bool food=kind==XeenPresentationKind::TavernService,bank=kind==XeenPresentationKind::BankService,guild=kind==XeenPresentationKind::GuildService;
+        const std::uint8_t service=guild?2:bank?0:food?3:temple?4:1;
 		const unsigned inputFrames=10;
 		if (!xeenSmithAuthorityRoom(_inputGeneration,inputFrames))
 			throw std::overflow_error("Smith input authority exhausted before admission");
 		_encounter->_smithBoundary=[this](XeenSmithBoundary stage) { if(smithBoundary)smithBoundary(stage); };
   const bool admitted=_encounter->beginSmith([&] {
-			if (food ? !drawTavernArt || !tavernFoodOffer : bank ? !drawBankArt : temple ? !drawTempleArt : !drawSmithArt)
+			if (guild ? !drawGuildArt : food ? !drawTavernArt || !tavernFoodOffer : bank ? !drawBankArt : temple ? !drawTempleArt : !drawSmithArt)
 				throw std::runtime_error("Service artwork provider is unavailable");
 			const auto events=_events.scriptForMap(28).file();
 			const auto mainland=_events.scriptForMap(23).file();
@@ -501,7 +501,8 @@ void XeenEventFlow::prepareSmith() {
 			if(temple)ui.mode=SmithUi::Mode::Heal;
             if(food){ui.mode=SmithUi::Mode::Food;ui.foodOffer=tavernFoodOffer();}
             if(bank)ui.mode=SmithUi::Mode::Bank;
-			try { if(food)drawTavernArt(ui.art);else if(bank)drawBankArt(ui.art);else if(temple)drawTempleArt(ui.art);else drawSmithArt(ui.art); }
+            if(guild)ui.mode=SmithUi::Mode::Guild;
+			try { if(guild)drawGuildArt(ui.art);else if(food)drawTavernArt(ui.art);else if(bank)drawBankArt(ui.art);else if(temple)drawTempleArt(ui.art);else drawSmithArt(ui.art); }
             catch (const std::invalid_argument &) { _encounter->journeySavePreimage().failed=true;throw; }
 			_encounter->journeySavePreimage().check();
 			if (!ui.art.isValid() || ui.art.width!=320 || ui.art.height!=200)
@@ -562,7 +563,7 @@ std::shared_ptr<const DialogInput> XeenEventFlow::serviceDialogInput() const {
         else if(ui.phase==SmithUi::Phase::Currency) input=xeenBankInput();
         else if(ui.phase==SmithUi::Phase::Confirm) input=ui.mode==SmithUi::Mode::Food?xeenFoodConfirmInput():xeenConfirmInput();
         else if(ui.phase==SmithUi::Phase::Browse) input=xeenBuyInput(ui.mode==SmithUi::Mode::Repair);
-        else input=xeenLocationInput(ui.mode==SmithUi::Mode::Food?XeenLocationDialog::Tavern:ui.mode==SmithUi::Mode::Bank?XeenLocationDialog::Bank:ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith);
+        else input=xeenLocationInput(ui.mode==SmithUi::Mode::Guild?XeenLocationDialog::Guild:ui.mode==SmithUi::Mode::Food?XeenLocationDialog::Tavern:ui.mode==SmithUi::Mode::Bank?XeenLocationDialog::Bank:ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith);
         if(!ui.feedback.empty() && ui.phase!=SmithUi::Phase::Departure) {input={};input.anyKey=input.anyClick=true;}
     } else return {};
     return std::make_shared<const DialogInput>(std::move(input));
@@ -570,6 +571,7 @@ std::shared_ptr<const DialogInput> XeenEventFlow::serviceDialogInput() const {
 std::string XeenEventFlow::smithText() const {
     const auto &ui=*_smithUi;
     if(!ui.feedback.empty()) return ui.feedback;
+    if(ui.mode==SmithUi::Mode::Guild) return xeenLocationText(dosText(),XeenLocationDialog::Guild,_party,ui.member);
     if(ui.mode==SmithUi::Mode::Food) return ui.phase==SmithUi::Phase::Confirm?ui.foodOffer:xeenLocationText(dosText(),XeenLocationDialog::Tavern,_party,ui.member);
     if(ui.mode==SmithUi::Mode::Bank) return ui.phase==SmithUi::Phase::Currency || ui.phase==SmithUi::Phase::Amount?
         xeenBankText(dosText(),_party,ui.withdrawal,ui.bankRefreshed):xeenLocationText(dosText(),XeenLocationDialog::Bank,_party,ui.member);
@@ -585,7 +587,7 @@ std::string XeenEventFlow::smithText() const {
 IndexedFrame XeenEventFlow::drawSmith(const IndexedFrame &world) const {
     const auto &ui=*_smithUi;
     auto frame=drawXeenLocation(dosText(),world,ui.art,_inventoryFont,
-        ui.mode==SmithUi::Mode::Food?XeenLocationDialog::Tavern:ui.mode==SmithUi::Mode::Bank?XeenLocationDialog::Bank:ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith,_party,ui.member,drawDialogSprite);
+        ui.mode==SmithUi::Mode::Guild?XeenLocationDialog::Guild:ui.mode==SmithUi::Mode::Food?XeenLocationDialog::Tavern:ui.mode==SmithUi::Mode::Bank?XeenLocationDialog::Bank:ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith,_party,ui.member,drawDialogSprite);
     if(ui.mode==SmithUi::Mode::Food && ui.phase==SmithUi::Phase::Confirm) {
         frame=world;
         for(int y=8;y<140;++y)std::copy_n(ui.art.pixels.data()+y*320+8,216,frame.pixels.data()+y*320+8);
@@ -629,7 +631,7 @@ IndexedFrame XeenEventFlow::settleSmithEvent() {
 }
 IndexedFrame XeenEventFlow::handleSmith(const PlayerAction &action,std::uint64_t input,const IndexedFrame::Presentation &inputFrame) {
     if(_smithUi->mode==SmithUi::Mode::Heal) return handleTemple(action,input,inputFrame);
-    if(_smithUi->mode==SmithUi::Mode::Food || _smithUi->mode==SmithUi::Mode::Bank) return handleFoodBank(action,input,inputFrame);
+    if(_smithUi->mode==SmithUi::Mode::Food || _smithUi->mode==SmithUi::Mode::Bank || _smithUi->mode==SmithUi::Mode::Guild) return handleFoodBank(action,input,inputFrame);
     auto &ui=*_smithUi;const auto key=serviceKey(action);
     if(ui.phase==SmithUi::Phase::Preparation) return frameCopy();
     const bool member=key>=InputKey::F1 && key<InputKey::F1+_party.party.size();
@@ -726,7 +728,7 @@ IndexedFrame XeenEventFlow::handleSmith(const PlayerAction &action,std::uint64_t
 IndexedFrame XeenEventFlow::handleFoodBank(const PlayerAction &action,std::uint64_t input,const IndexedFrame::Presentation &inputFrame) {
     auto &ui=*_smithUi;const auto key=serviceKey(action);
     const auto *typed=std::get_if<TextInputAction>(&action);
-    const bool food=ui.mode==SmithUi::Mode::Food;
+    const bool food=ui.mode==SmithUi::Mode::Food,guild=ui.mode==SmithUi::Mode::Guild;
     if(ui.phase==SmithUi::Phase::Preparation)return frameCopy();
     const auto controls=serviceDialogInput();
     if((ui.feedback.empty() || ui.phase==SmithUi::Phase::Departure) && !(ui.phase==SmithUi::Phase::Amount && (typed || (key>='0' && key<='9'))) && !controls->key(key))return frameCopy();
@@ -749,7 +751,13 @@ IndexedFrame XeenEventFlow::handleFoodBank(const PlayerAction &action,std::uint6
         }
         else if(ui.phase==SmithUi::Phase::Lobby) {
             if(key==InputKey::Escape)ui.phase=SmithUi::Phase::Departure;
-            else if(food && key>=InputKey::F1 && key<InputKey::F1+_party.party.size())ui.member=key-InputKey::F1;
+            else if((food || guild) && key>=InputKey::F1 && key<InputKey::F1+_party.party.size())ui.member=key-InputKey::F1;
+            else if(guild) {
+                if(xeenVertigoGuildMember(_party,ui.member)) {
+                    if(key=='b')ui.feedback="Buy Spells: not supported yet";
+                    else if(key=='s')ui.feedback="Spell Info: not supported yet";
+                }
+            }
             else if(food) {
                 if(key=='f')ui.phase=SmithUi::Phase::Confirm;
                 else if(key=='d')ui.feedback="Drink: not supported yet";

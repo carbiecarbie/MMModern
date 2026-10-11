@@ -148,7 +148,7 @@ std::optional<XeenEventExecutionError> preflightCityEvent(XeenWorld &world,
 		if(std::holds_alternative<XeenEventExit>(op))continue;
 		if(std::holds_alternative<XeenEventReturn>(op)) {if(!path.empty())pending.push_back(std::move(path));continue;}
 		if(const auto *service=std::get_if<XeenEventTownService>(&op)) {
-			if(service->action!=0 && service->action!=1 && service->action!=3 && service->action!=4 && service->action!=5)
+			if(service->action!=0 && service->action!=1 && service->action!=2 && service->action!=3 && service->action!=4 && service->action!=5)
 				return unsupported("Dependent service effects are not supported yet");
 			continue;
 		}
@@ -514,13 +514,13 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			return finalize();
 		if (const auto *service=std::get_if<XeenEventTownService>(&decoded.operation)) {
 			const bool smith=service->action==1,training=service->action==5,temple=service->action==4;
-			const bool tavern=service->action==3,bank=service->action==0;
-			if ((!publication && !world.detachedEventCandidate()) || (!smith && !training && !temple && !tavern && !bank) ||
+			const bool tavern=service->action==3,bank=service->action==0,guild=service->action==2;
+			if ((!publication && !world.detachedEventCandidate()) || (!smith && !training && !temple && !tavern && !bank && !guild) ||
 				logical.mapId!=XeenMapIdentity(28) || workingCamera.mapId!=logical.mapId || state.pendingRewards.hasWork())
 				return error(XeenEventExecutionErrorKind::UnsupportedOperand,
 					"Town service is outside the admitted service Event",instructionCount,logical,decoded.source);
 			XeenPresentationRequest request;
-			request.kind=bank?XeenPresentationKind::BankService:tavern?XeenPresentationKind::TavernService:temple?XeenPresentationKind::TempleService:
+			request.kind=guild?XeenPresentationKind::GuildService:bank?XeenPresentationKind::BankService:tavern?XeenPresentationKind::TavernService:temple?XeenPresentationKind::TempleService:
 				training?XeenPresentationKind::TrainingService:XeenPresentationKind::ArmorRepairService;
 			request.response=XeenPresentationResponseRequirement::Acknowledgment;
 			request.mapId=logical.mapId;request.source=decoded.source;

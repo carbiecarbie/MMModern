@@ -241,6 +241,9 @@ void cityEvents() {
 	check(xeenRegionalService(file,camera)==0 && xeenRegionalInteraction(file,camera)==XeenRegionalInteraction::Bank,
 		"Bank service identity must follow the opcode");
 	file.records[0].parameters={2};
+	check(xeenRegionalService(file,camera)==2 && xeenRegionalInteraction(file,camera)==XeenRegionalInteraction::Guild,
+		"Guild service identity must follow the opcode");
+	file.records[0].parameters={6};
 	check(!xeenRegionalService(file,camera),"Unsupported service action must not acquire service authority");
 	file.records[0].parameters={5,0};
 	check(!xeenRegionalService(file,camera),"Malformed service operands must not acquire service authority");

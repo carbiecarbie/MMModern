@@ -320,7 +320,7 @@ XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 		return decodeEmpty(record, context, XeenEventExit{});
 	case 0x11:
 		if (record.parameters.size()!=1) return wrongSize(record,context,1);
-		if (record.parameters[0]!=0 && record.parameters[0]!=1 && record.parameters[0]!=3 && record.parameters[0]!=5 &&
+		if (record.parameters[0]!=0 && record.parameters[0]!=1 && record.parameters[0]!=2 && record.parameters[0]!=3 && record.parameters[0]!=5 &&
 			!(record.parameters[0]==4 && context.templeRecovery))
 			return makeError(record,context,XeenEventDecodeErrorKind::UnsupportedOperand,
 				"Town service is not supported yet");

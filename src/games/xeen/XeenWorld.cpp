@@ -507,6 +507,12 @@ void XeenWorld::applyEventGrant(XeenPartyState &party,std::uint8_t mode,std::uin
 			if(!party.roster._combatInputs[owner])throw std::invalid_argument("Event XP owner is absent");
 			party.roster._combatInputs[owner]->experience+=value;
 		}
+		// Party::giveTake uses spellFX for skill, award and XP grants;
+		// Convicted Thief (award 8) deliberately has no sparkle.
+		if(give && (mode!=15 || value!=8)) {
+			_scenePresentation.spellEffect(owner,0,true);
+			_scenePresentation.portraits[owner].spellDeadline=0; // Start only after publication.
+		}
 	}
 }
 
