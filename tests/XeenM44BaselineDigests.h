@@ -9,19 +9,12 @@
 // generates the final save in a temporary directory, compares its SHA-256 with
 // the table below, then reloads it, saves again and requires identical bytes.
 //
-// Regenerate by hand (Windows, ucrt64 on PATH for SDL2.dll; env SDL_VIDEODRIVER=dummy,
-// SDL_RENDER_DRIVER=software; <game> is the original installation, <out> a
-// scratch directory). Build with
-//   cmake --build <build> --target mmodern_m44_baseline_witness mmodern_m43_cli_witness
-// then run from <out>, hashing the file named in the last column:
-//   MMODERN_M44_SCENARIO=mainland mmodern_m44_baseline_witness --journey-region
-//       --combat-seed 3626689381 <game> --save-file <out>/mainland.mmsave
-//                                                -> mainland.mmsave-final.mmsave
-//   MMODERN_M44_SCENARIO=services mmodern_m44_baseline_witness --journey-region
-//       --combat-seed 7 <game> --save-file <out>/services-paid.mmsave
-//                                                -> services-paid.mmsave-final.mmsave
-//   mmodern_m43_cli_witness --journey-region --combat-seed 3626689381 <game>
-//       --save-file <out>/temple.mmsave          -> temple.mmsave
+// Audit with tools/m44-digest-audit.ps1: Preserve the current build outside the
+// repository before rebuilding, then Compare against the candidate build.
+// See tools/AGENTS.md for commands, prerequisites, reports and exit codes.
+// The tool verifies these hashes but never edits them; replacements still need
+// the maintainer's explicit approval of the complete byte/trace/field audit.
+//
 // The M44 witness drives the production application through presented-frame
 // input and saves with the native F9 key at the end ("final" checkpoint);
 // mmodern_m44_baseline_restart additionally reloads that save, saves again and
