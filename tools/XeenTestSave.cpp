@@ -43,7 +43,7 @@ struct Inputs {
         resources.loadInitialContext=[this] {return XeenGameplayContextFormat::parse(assets.readInitialResource("maze.pty"));};
         resources.loadInitialPurse=[this] {return XeenCharacterFormat::parseMonsterPurse(assets.readInitialResource("maze.pty"));};
         resources.loadInitialBankBalances=[this] {return XeenCharacterFormat::parseBankBalances(assets.readInitialResource("maze.pty"));};
-        resources.loadInitialRegionalRecovery=[this] {return XeenQuestFlagFormat::parseRegionalRecovery(assets.readInitialResource("maze.pty"));};
+        resources.loadInitialWorldFlags=[this] {return XeenQuestFlagFormat::parseWorldFlags(assets.readInitialResource("maze.pty"));};
         resources.loadEvents=[this](auto id) {return events.load(id);};
         resources.loadRegionalText=[this](auto id) {return texts.load(id);};
         resources.loadMonsterStatistics=[this] {
@@ -82,7 +82,7 @@ struct Inputs {
         XeenJourneySetup setup{characters,resources.loadInitialContext(),statistics,mainland,7,resources.regionalManifest};
         setup.purse=resources.loadInitialPurse();
         setup.bank=resources.loadInitialBankBalances();
-        setup.regionalRecovery=resources.loadInitialRegionalRecovery();
+        setup.worldFlags=resources.loadInitialWorldFlags();
         setup.regionalText=resources.loadRegionalText(23);
         setup.learnedNames=resources.loadLearnedSpellNames();
         setup.learnedNamesProvider=resources.loadLearnedSpellNames;
