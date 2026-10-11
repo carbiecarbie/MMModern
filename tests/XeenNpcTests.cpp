@@ -73,6 +73,31 @@ XeenEventExecutionState pending(const XeenEventExecutionStepResult &r) {
 void error(const XeenEventExecutionStepResult &r,Kind kind) {
 	const auto *e=std::get_if<XeenEventExecutionError>(&r);check(e && e->kind==kind,"unexpected NPC error");
 }
+void skillComparisons() {
+ for(const auto opcode:{8,9,10})for(const auto all:{false,true})for(unsigned holders=0;holders<=2;++holders) {
+  Fixture f;f.members.roster.at(4).skills[4]=holders==2?7:0;
+  f.members.roster.at(8).skills[4]=holders>=1?1:0;
+  std::vector<XeenEventRecord> records;
+  unsigned line=0;if(all)records.push_back(record(1,1,line++,0x0f,{0}));
+  records.push_back(record(1,1,line,opcode,{13,4,std::uint8_t(line+2)}));
+  records.push_back(record(1,1,line+1,0x12));
+  records.push_back(record(1,1,line+2,0x0c,{0,0,20,7}));f.set(records);
+  const auto result=f.interpreter.execute(f.camera,f.members,f.flags,f.world,[&](auto id){return f.scripts.at(id);});
+  const auto *done=std::get_if<XeenEventExecutionCompleted>(&result);
+  check(done && done->finalGameFlags.isSet(7)==(opcode==10 || (all?holders>0:holders==2)),"Selected/all-member skill13 comparison changed");
+ }
+ for(const auto opcode:{8,9,10})for(unsigned holders=0;holders<=2;++holders) {
+  Fixture f;f.members.roster.at(4).skills[11]=holders>=1?1:0;
+  f.members.roster.at(8).skills[11]=holders>=2?255:0;
+  f.members.roster.at(4).conditions[static_cast<unsigned>(XeenCondition::Dead)]=1;
+  f.set({record(1,1,0,opcode,{99,11,2}),record(1,1,1,0x12),record(1,1,2,0x0c,{0,0,20,7})});
+  const auto result=f.interpreter.execute(f.camera,f.members,f.flags,f.world,[&](auto id){return f.scripts.at(id);});
+  const auto *done=std::get_if<XeenEventExecutionCompleted>(&result);
+  check(done && done->finalGameFlags.isSet(7)==(opcode==8 || holders==2),"Party skill99 Pathfinder count/condition filter changed");
+ }
+ Fixture unsupported;unsupported.set({record(1,1,0,0x09,{13,1,1}),record(1,1,1,0x12)});
+ error(unsupported.begin(),Kind::UnsupportedConditionAction);
+}
 void decoderAndExecution() {
 	for(int size=0;size<=7;++size) {
 		auto r=npc();r.parameters.resize(size);
@@ -83,7 +108,15 @@ void decoderAndExecution() {
 			check(i.source.recordIndex==7 && i.source.fileOffset==100 && i.source.opcode==5,"NPC provenance");
 		} else check(std::get<XeenEventDecodeError>(d).kind==XeenEventDecodeErrorKind::MalformedInstruction,"NPC strict size");
 	}
-	for(int mode:{0,2,3,255}) {Fixture f;auto r=npc();r.parameters[3]=mode;f.set({r});error(f.begin(),Kind::UnsupportedOperand);}
+	{
+  Fixture offer;auto r=npc();r.parameters={0,1,9,2};offer.set({r,record(1,1,1,0x12)});
+  const auto state=pending(offer.begin());
+  check(state.pendingPresentation->request.response==XeenPresentationResponseRequirement::Presented,"Mode2 offer added an acknowledgment/yes-no");
+  XeenEventPresenter presenter(offer.font,offer.draw());const auto shown=presenter.present(offer.base,state.pendingPresentation->request);
+  check(shown.response && *shown.response==XeenPresentationResponse::Presented && !presenter.blocksGameplay() && presenter.hasNpcOffer(),"Mode2 offer did not remain as passive NPC layer");
+  check(std::holds_alternative<XeenEventExecutionCompleted>(offer.resume(state,XeenPresentationResponse::Presented)),"Mode2 offer failed sequential continuation");
+ }
+ for(int mode:{0,3,255}) {Fixture f;auto r=npc();r.parameters[3]=mode;f.set({r});error(f.begin(),Kind::UnsupportedOperand);}
 	for(int missing:{0,1}) {Fixture f;auto r=npc();r.parameters[missing]=250;f.set({r});error(f.begin(),Kind::InvalidTextIndex);}
 	for(int fault=0;fault<3;++fault) {
 		Fixture f;auto flow=f.flow();std::optional<XeenEventExecutionError> e;
@@ -347,7 +380,7 @@ void sdl() {
 int main(int argc,char **argv) {
 	try {
 		if(argc>1 && std::string(argv[1])=="sdl")sdl();
-		else {decoderAndExecution();contextAndEffects();presentationAndTiming();ordinaryCoexistence();failuresAndOwners();assets();}
+		else {skillComparisons();decoderAndExecution();contextAndEffects();presentationAndTiming();ordinaryCoexistence();failuresAndOwners();assets();}
 		std::cout<<"M19A NPC tests passed\n";return 0;
 	}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}
 }

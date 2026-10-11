@@ -369,7 +369,8 @@ int main() {
 			XeenEventDisplayKind::SignLabelReduced,"Small sign decoder kind");
 		failure(XeenEventDecoder::decode(record(0x27,{})),XeenEventDecodeErrorKind::MalformedInstruction);
 		failure(XeenEventDecoder::decode(record(0x27,{3,4})),XeenEventDecodeErrorKind::MalformedInstruction);
-		failure(XeenEventDecoder::decode(record(0x05,{1,2,3,2})),XeenEventDecodeErrorKind::UnsupportedOperand);
+		const auto offer=operation<XeenEventNpc>(XeenEventDecoder::decode(record(0x05,{1,2,3,2})));
+		check(offer.confirmationMode==2,"Four-operand mode2 NPC offer decoded");
 		std::cout << "Typed EVT decoder and strict validation OK\n";
 		return 0;
 	} catch (const std::exception &error) {

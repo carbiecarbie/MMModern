@@ -203,8 +203,12 @@ bool XeenEncounterFlow::serviceCasting() {
 		if (!work.time->service(draw)) return true;
 		if (_world._sessionState._encounterRevision==std::numeric_limits<std::uint64_t>::max())
 			throw std::overflow_error("Casting charge generation exhausted");
+		std::vector<XeenExploredTile> exploration;
+		{XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
+			exploration=_world.explorationAfterStep(_party,_camera);_journeyPreimage->check();}
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 		prepared->retainResources(*_journeyPreimage);
+		prepared->s._exploredTiles=exploration;
 		bool living=false;
 		for (const auto &value:work.time->characters) {
 			auto &owner=prepared->characters[value.rosterId];
@@ -224,6 +228,7 @@ bool XeenEncounterFlow::serviceCasting() {
 		_party.encounterContext=work.time->context;_party.serviceEconomy=work.time->economy;
 		for(unsigned n=0;n<6;++n)_party.roster._combatInputs[work.owners[n]]=work.time->inputs[n];
 		auto &session=_world._sessionState;
+		session._exploredTiles.swap(exploration);
 		session._journeyRandom=continuation;
 		_state._pending=living?3:0;
 		if (!living) { _state._phase=XeenEncounterPhase::SupportStopped;

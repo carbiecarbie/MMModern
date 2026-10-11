@@ -167,7 +167,7 @@ void thievery() {
 	check(XeenCharacterRules::thievery(c)==0,"Thievery skill gates all bonuses");
 	c=f.characters[0];c.race=XeenRace::HalfOrc;c.permanentLevel=0;c.temporaryLevel=-1;
 	check(XeenCharacterRules::thievery(c)==0,"Thievery clamps negative results");
-	rejects([]{XeenCharacterRules::thievery(XeenCharacter{});});
+	check(XeenCharacterRules::thievery(XeenCharacter{})==0,"Thievery reads the mutable skill even without immutable details");
 	c.permanentLevel=std::numeric_limits<int>::max();c.temporaryLevel=1;
 	rejects([&]{XeenCharacterRules::thievery(c);});
 }

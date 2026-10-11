@@ -40,8 +40,7 @@ bool same(const XeenCharacter &a,const XeenCharacter &b) {
 	return a.rosterId==b.rosterId && a.name==b.name && a.sex==b.sex && a.race==b.race && a.characterClass==b.characterClass &&
 		same(a.intellect,b.intellect)&&same(a.personality,b.personality)&&same(a.endurance,b.endurance)&&
 		a.permanentLevel==b.permanentLevel&&a.temporaryLevel==b.temporaryLevel&&a.temporaryAge==b.temporaryAge&&
-		a.maxStatSkills.astrologer==b.maxStatSkills.astrologer&&a.maxStatSkills.bodybuilder==b.maxStatSkills.bodybuilder&&
-		a.maxStatSkills.prayerMaster==b.maxStatSkills.prayerMaster&&a.maxStatSkills.prestidigitation==b.maxStatSkills.prestidigitation&&
+		a.skills == b.skills&&
 		a.currentSpell==b.currentSpell&&a.quickOption==b.quickOption&&a.hasSpells==b.hasSpells&&a.learnedSpells==b.learnedSpells&&same(a.weapons,b.weapons)&&same(a.armor,b.armor)&&same(a.accessories,b.accessories)&&
 		same(a.miscellaneous,b.miscellaneous)&&a.currentHp==b.currentHp&&a.currentSp==b.currentSp&&a.conditions==b.conditions&&a.birthYear==b.birthYear;
 }
@@ -590,6 +589,7 @@ XeenCombatResult XeenCombat::rotate(const Ticket &t,NavigationAction action) {
         const bool flush=d.countdown.remaining()!=0;
         std::optional<Impl::Consequences> movement;
         std::vector<XeenActor> visible,expectedActors;
+        std::vector<XeenExploredTile> exploration;
         {
             XeenRestoreGuard::Providers providers(*prepared,d.world,[&]{require(current(t) && d.exact(),"Stale combat rotation resource");});
             if(flush) {movement=d.prepareMovement(t,facing,Operation::Rotate);movement->result=r;}
@@ -599,13 +599,16 @@ XeenCombatResult XeenCombat::rotate(const Ticket &t,NavigationAction action) {
                 expectedActors=visible;
             }
             d.probeFor(t);prepared->check();
+            exploration=d.world.explorationAfterStep(d.party,facing);prepared->check();
         }
+        prepared->s._exploredTiles=exploration;
         if(!flush) {auto &values=d.indoor()?*prepared->s._vertigoActors:prepared->s._actors;values=visible;}
         prepared->cameraValue.direction=facing.direction;
         require(current(t) && d.exact(),"Combat rotation preimage changed before stores");
         if(movement)d.consequences.emplace(std::move(*movement));
         // No provider, allocation, time charge or initiative change after this point.
         d.camera.direction=d.expectedCamera.direction=facing.direction;
+        XeenMutationWatch::write(&d.world);d.world._sessionState._exploredTiles.swap(exploration);
         d.countdown.clear();
         if(flush) {d.phase=Phase::PendingRound;d.work=Work::Movement;}
         else {d.activeActors().swap(visible);d.actors.swap(expectedActors);d.stepped=true;d.reconcile();}
@@ -636,6 +639,18 @@ XeenCombatResult XeenCombat::configureQuickFight(const Ticket &t,std::size_t act
         d.capacity();d.probeFor(t);const auto owner=d.owners[active];
         const auto option=(unsigned(d.party.roster.at(owner).quickOption)+1)%4;
         d.party.roster.at(owner).quickOption=d.expected.roster.at(owner).quickOption=option;
+        d.published();return d.adopt(d.observation(Status::Advanced));
+    }catch(...) {return fail(t,Failure::Integrity);}
+}
+XeenCombatResult XeenCombat::toggleAutomap(const Ticket &t) {
+    auto &d=*impl;if(!current(t))return d.observation(Status::Stale);
+    if(d.busy || d.phase!=Phase::PlayerReady || d.casting || d.consequences || !d.boundary.quiet())return d.observation(Status::Refused);
+    if(!d.exact())return fail(t,Failure::Integrity);
+    try {
+        d.capacity();d.probeFor(t);
+        const auto value=!d.party.encounterContext->effects[1];
+        d.party.encounterContext->effects[1]=d.expected.encounterContext->effects[1]=value;
+        d.lifetime->context->effects[1]=value;
         d.published();return d.adopt(d.observation(Status::Advanced));
     }catch(...) {return fail(t,Failure::Integrity);}
 }

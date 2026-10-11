@@ -47,12 +47,15 @@ struct Dump {
     V(XeenObjectIdentity, F(mapId); F(recordIndex);)
     V(XeenEventIdentity, F(mapId); F(recordIndex);)
     V(XeenAttributeValue, F(permanent); F(temporary);)
-    V(XeenMaxStatSkills, F(astrologer); F(bodybuilder); F(prayerMaster); F(prestidigitation);)
     V(XeenItem, F(material); F(id); F(state); F(frame);)
     V(XeenCharacter,
         F(rosterId); F(name); F(sex); F(race); F(characterClass);
         F(intellect); F(personality); F(endurance); F(permanentLevel); F(temporaryLevel);
-        F(temporaryAge); F(maxStatSkills); F(currentSpell); F(quickOption); F(hasSpells);
+        F(temporaryAge); F(skills);
+        value(p+".maxStatSkills.astrologer",bool(v.skills[2]));
+        value(p+".maxStatSkills.bodybuilder",bool(v.skills[3]));
+        value(p+".maxStatSkills.prayerMaster",bool(v.skills[12]));
+        value(p+".maxStatSkills.prestidigitation",bool(v.skills[13])); F(currentSpell); F(quickOption); F(hasSpells);
         F(learnedSpells); F(weapons); F(armor); F(accessories); F(miscellaneous);
         F(currentHp); F(currentSp); F(conditions); F(birthYear); F(awards);)
     V(XeenCombatResistances,
@@ -73,13 +76,14 @@ struct Dump {
     V(XeenServiceEconomy, F(wares); F(bank);)
     V(XeenBarrierOverride, F(tile); F(cell); F(mask); F(originalWord); F(originalAttributes); F(walls); F(unlocked);)
     V(XeenObjectOverride, F(id); F(x); F(y); F(flipped);)
+    V(XeenExploredTile, F(mapId); F(cells);)
     V(XeenSaveJourneyActor, F(id); F(x); F(y); F(hp); F(activated); F(lifecycle); F(status); F(accounted); F(spawnedType);)
     V(XeenSaveJourney, F(entry); F(schema); F(content); F(context); F(supplements); F(skeletonSeed);
         F(random); F(initializedMap); F(originalActorCount); F(actors); F(vertigoActors);
         F(cityOriginalActorCount); F(treasure); F(regionalRecovery); F(serviceEconomy);)
     V(XeenSaveSnapshot, F(resources); F(name); F(food); F(camera); F(activeRosterIds); F(characters);
         F(questItems); F(questFlags); F(gameFlags); F(disabledObjects); F(disabledEvents);
-        F(barriers); F(objectOverrides); F(journey);)
+        F(barriers); F(objectOverrides); F(exploredTiles); F(journey);)
 #undef V
 #undef F
 };
@@ -105,9 +109,13 @@ void selfTest() {
     const auto a = decoded(bytes).fields;
     save_test::check(a.at("snapshot.characters[0].name").size() == 36, "DOS string bytes lost");
     s.characters[29].awards[127] = 7;
+    s.characters[29].skills[17]=255;
+    s.exploredTiles={{23,{}}};s.exploredTiles[0].cells[31]=128;
     s.journey->random->count = 0xffffffffffffffffULL;
     s.journey->serviceEconomy->bank.gold = 123;
     const auto b = decoded(XeenSaveFormat::encode(s)).fields;
+    save_test::check(b.at("snapshot.characters[29].skills[17]")=="255", "skill omitted");
+    save_test::check(b.at("snapshot.exploredTiles[0].cells[31]")=="128", "exploration omitted");
     save_test::check(b.at("snapshot.characters[29].awards[127]") == "7", "award omitted");
     save_test::check(b.at("snapshot.journey.value.random.value.count") == "18446744073709551615", "uint64 truncated");
     save_test::check(b.at("snapshot.journey.value.serviceEconomy.value.bank.gold") == "123", "bank omitted");

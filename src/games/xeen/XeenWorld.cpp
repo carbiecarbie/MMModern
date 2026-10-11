@@ -4,6 +4,7 @@
 #include "games/xeen/XeenEventPublication.h"
 #include "games/xeen/XeenStateEquality.h"
 #include "games/xeen/XeenGameFlags.h"
+#include "games/xeen/XeenSkills.h"
 
 #include <atomic>
 #include <stdexcept>
@@ -93,6 +94,7 @@ void XeenWorld::swapPreparedState(XeenWorld &candidate) noexcept {
 	_sessionState._events.swap(candidate._sessionState._events);
 	_sessionState._barriers.swap(candidate._sessionState._barriers);
 	_sessionState._objectOverrides.swap(candidate._sessionState._objectOverrides);
+	_sessionState._exploredTiles.swap(candidate._sessionState._exploredTiles);
 	_scenePresentation.objectFlips.swap(candidate._scenePresentation.objectFlips);
 	_maps.swap(candidate._maps);
 	_objects.swap(candidate._objects);
@@ -301,7 +303,49 @@ std::optional<XeenCellSample> XeenWorld::sampleCell(
 		if(v.unlocked) {cell->rawAttributes|=0x80;cell->flags|=0x80;}
 		result.effectiveCell=std::move(cell);result.cell=result.effectiveCell.get();break;
 	}
+	const auto explored=std::lower_bound(_sessionState._exploredTiles.begin(),_sessionState._exploredTiles.end(),result.mapId,
+		[](const auto &tile,auto id){return tile.mapId<id;});
+	const unsigned index=y*16+x;
+	if(!result.cell->stepped && explored!=_sessionState._exploredTiles.end() && explored->mapId==result.mapId &&
+		(explored->cells[index/8]&(1u<<(index%8)))) {
+		auto cell=std::make_shared<XeenMapCell>(*result.cell);cell->stepped=true;
+		result.effectiveCell=std::move(cell);result.cell=result.effectiveCell.get();
+	}
 	return result;
+}
+
+std::vector<XeenExploredTile> XeenWorld::explorationAfterStep(const XeenPartyState &party,const XeenCamera &camera) {
+	auto values=_sessionState._exploredTiles;
+	if(!xeenPartyHasSkill(party,4))return values;
+	const auto cell=sampleCell(camera.mapId,camera.x,camera.y);
+	if(!cell)throw std::invalid_argument("Exploration has no physical occupied cell");
+	// Resource defaults already participate in effective sampling. Never copy
+	// seen flags or fill a visibility radius into the persistent overlay.
+	if(cell->cell->stepped)return values;
+	const auto at=std::lower_bound(values.begin(),values.end(),cell->mapId,[](const auto &v,auto id){return v.mapId<id;});
+	const auto tile=at!=values.end() && at->mapId==cell->mapId ? at : values.insert(at,{cell->mapId,{}});
+	const unsigned index=cell->y*16+cell->x;tile->cells[index/8]|=1u<<(index%8);
+	if(values.size()>512)throw std::invalid_argument("Too many explored tiles");
+	return values;
+}
+
+void XeenWorld::recordExploration(const XeenPartyState &party,const XeenCamera &camera) {
+	auto values=explorationAfterStep(party,camera);
+	if(values==_sessionState._exploredTiles)return;
+	if(_combatCheck)_combatCheck();
+	XeenMutationWatch::write(this);_sessionState._exploredTiles.swap(values);
+}
+
+void XeenWorld::restoreExploredTiles(const std::vector<XeenExploredTile> &values) {
+	if(hasEncounterState() || values.size()>512)throw std::invalid_argument("Invalid exploration restoration owner/count");
+	for(std::size_t n=0;n<values.size();++n) {
+		const auto &v=values[n];
+		if(!v.mapId || v.mapId.side!=XeenSide::Clouds || (n && !(values[n-1].mapId<v.mapId)))
+			throw std::invalid_argument("Invalid explored tile identity/order/bitset");
+		if(map(v.mapId).identity()!=v.mapId || hasEncounterState())
+			throw std::invalid_argument("Explored tile original resource mismatch");
+	}
+	auto prepared=values;XeenMutationWatch::write(this);_sessionState._exploredTiles.swap(prepared);
 }
 
 void XeenWorld::setBarrier(const XeenCamera &camera,std::uint8_t wall,bool unlock) {
@@ -419,6 +463,7 @@ void XeenWorld::publishTransition(XeenWorld &candidate) noexcept {
 	_sessionState._events.swap(candidate._sessionState._events);
 	_sessionState._barriers.swap(candidate._sessionState._barriers);
 	_sessionState._objectOverrides.swap(candidate._sessionState._objectOverrides);
+	_sessionState._exploredTiles.swap(candidate._sessionState._exploredTiles);
 	_sessionState._objects.swap(candidate._sessionState._objects);
 	_cityStatistics.swap(candidate._cityStatistics);
 	std::swap(_cityOriginalActorCount,candidate._cityOriginalActorCount);
@@ -437,16 +482,24 @@ void XeenWorld::applyEventGrant(XeenPartyState &party,std::uint8_t mode,std::uin
 	if(!detachedEventCandidate() || party.party.size()==0 || (!entireParty && (!member || *member>=party.party.size())))
 		throw std::invalid_argument("Event recipient is unavailable");
 	if(mode==34 || mode==35) {
-		if(!give || !party.monsterTreasure)throw std::invalid_argument("Event currency mode is unsupported");
+		if(!party.monsterTreasure || (!give && mode!=34))throw std::invalid_argument("Event currency mode is unsupported");
 		auto &purse=*party.monsterTreasure;
-		if(mode==34)purse.gold+=value;else purse.gems+=value;
+		if(!give) {
+			if(purse.gold<value)throw std::invalid_argument("Insufficient Event gold");
+			purse.gold-=value;
+		} else if(mode==34)purse.gold+=value;else purse.gems+=value;
 		return; // Party currency is granted once, independent of selector.
 	}
-	if(mode!=15 && mode!=16)throw std::invalid_argument("Event character mode is unsupported");
+	if(mode!=13 && mode!=15 && mode!=16)throw std::invalid_argument("Event character mode is unsupported");
+	if(mode==13 && !xeenSkillSupported(value))throw std::invalid_argument("Event skill: not supported yet");
 	if((mode==15 && value>=128) || (mode==16 && !give))throw std::invalid_argument("Event award/XP operand is unsupported");
 	for(std::size_t i=0;i<party.party.size();++i)if(entireParty || i==*member) {
 		const auto owner=party.party.activeRosterIds()[i];
-		if(mode==15)party.roster._characters.at(owner).awards[XeenCharacter::awardIndex(value)]=give?1:0;
+		if(mode==13) {
+			// follows the original byte storage; not confirmed in DOS
+			auto &character=party.roster._characters.at(owner);
+			if(give)xeenGrantSkill(character,value);else xeenRemoveSkill(character,value);
+		} else if(mode==15)party.roster._characters.at(owner).awards[XeenCharacter::awardIndex(value)]=give?1:0;
 		else {
 			if(!party.roster._combatInputs[owner])throw std::invalid_argument("Event XP owner is absent");
 			party.roster._combatInputs[owner]->experience+=value;
@@ -456,6 +509,7 @@ void XeenWorld::applyEventGrant(XeenPartyState &party,std::uint8_t mode,std::uin
 
 void XeenWorld::publishEventParty(XeenPartyState &live,const XeenPartyState &candidate) noexcept {
 	for(unsigned owner=0;owner<30;++owner) {
+		live.roster._characters[owner].skills=candidate.roster._characters[owner].skills;
 		live.roster._characters[owner].awards=candidate.roster._characters[owner].awards;
 		live.roster._characters[owner].weapons=candidate.roster._characters[owner].weapons;
 		live.roster._characters[owner].armor=candidate.roster._characters[owner].armor;

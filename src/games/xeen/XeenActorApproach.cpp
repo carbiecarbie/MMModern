@@ -528,6 +528,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 				if(*action==XeenEncounterAction::Wait) { ++c.remaining;c.pending=0; }
 			}
 			if(stepTime) c.context.ctr24=(c.context.ctr24+1)%24;
+			if(stepTime)c.exploration=world.explorationAfterStep(party,c.camera);
 			if(!action && c.pending && --c.pending==0) ++c.remaining;
 			c.classify=!action || *action==XeenEncounterAction::Wait;
 			check();work.swap(candidate);
@@ -555,6 +556,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
                     // Movement precedes travel; each injury follows its acquired portrait.
                     auto visibleActors=op.actors;check();
                     regionalActors.swap(visibleActors);camera=c.camera;party.encounterContext=c.context;
+                    if(c.exploration) {session._exploredTiles.swap(*c.exploration);c.exploration.reset();}
                     if(c.time && c.timeDone)party.serviceEconomy=c.time->economy;
                     if(c.time && c.timeDone)for(unsigned n=0;n<6;++n)party.roster._combatInputs[c.owners[n]]=c.inputs[n];
                     const auto &values=op.impactApplied ? op.characters : c.characters;
@@ -590,6 +592,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		// One nonthrowing publication spans both opportunities and the full tick.
 		regionalActors.swap(c.actors);session._journeyRandom=c.random.continuation();
 		camera=c.camera;party.encounterContext=c.context;
+		if(c.exploration)session._exploredTiles.swap(*c.exploration);
                     if(c.time && c.timeDone)party.serviceEconomy=c.time->economy;
                     if(c.time && c.timeDone)for(unsigned n=0;n<6;++n)party.roster._combatInputs[c.owners[n]]=c.inputs[n];
 		for(const auto &value:c.characters) { auto &owner=party.roster.at(value.rosterId);owner.currentHp=value.currentHp;owner.conditions=value.conditions;owner.armor=value.armor;

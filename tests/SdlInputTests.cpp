@@ -116,6 +116,8 @@ struct QueueHarness {
    else if(std::holds_alternative<ControlPanelAction>(action))kind='P';
    else if(std::holds_alternative<InfoAction>(action))kind='I';
    else if(std::holds_alternative<QuickReferenceAction>(action))kind='Q';
+   else if(std::holds_alternative<MapAction>(action))kind='M';
+   else if(std::holds_alternative<ToggleAutomapAction>(action))kind='=';
    else if(std::holds_alternative<AcknowledgeAction>(action))kind='K';
    else if(std::holds_alternative<SelectMemberAction>(action))kind='P';
    else if(const auto *key=std::get_if<DialogKeyAction>(&action))kind=key->key==InputKey::Escape?'E':char(key->key);
@@ -233,7 +235,7 @@ void mouseHitAreas(){
   {235,75,259,95,ShootAction{},QuickFightAction{}},{260,75,284,95,CastSpellAction{},CastSpellAction{}},
   {286,75,310,95,RestAction{},AttackAction{}},{235,96,259,116,BashAction{},UseItemAction{}},
   {260,96,284,116,u("Dismiss"),RevisitCompletedAction{}},{286,96,310,116,u("View Quests"),BlockAction{}},
-  {235,117,259,137,u("Map"),QuickFightOptionsAction{}},{260,117,284,137,InfoAction{},InfoAction{}},
+  {235,117,259,137,MapAction{},QuickFightOptionsAction{}},{260,117,284,137,InfoAction{},InfoAction{}},
   {286,117,310,137,QuickReferenceAction{},QuickReferenceAction{}},{109,137,122,147,ControlPanelAction{},ControlPanelAction{}},
   {235,148,259,168,NavigationAction::TurnLeft,NavigationAction::TurnLeft},
   {260,148,284,168,NavigationAction::MoveForward,NavigationAction::MoveForward},
@@ -281,7 +283,8 @@ void mouseHitAreas(){
   for(unsigned row=0;row<3;++row)for(const int x:{239,311})for(const int y:{27+int(row)*10,36+int(row)*10}){
    const auto p=logical(x,y);const auto action=xeenMainScreenClick(p.first,p.second,MainScreen::Combat);
    check(action && std::get<SelectInventorySlotAction>(*action).slot==row);
-   check(!xeenMainScreenClick(p.first,p.second,MainScreen::Exploration));
+   if(x<308)check(equal(xeenMainScreenClick(p.first,p.second,MainScreen::Exploration),ToggleAutomapAction{}));
+   else check(!xeenMainScreenClick(p.first,p.second,MainScreen::Exploration));
   }
   for(const auto point:std::vector<std::pair<int,int>>{{238,27},{312,27},{239,26},{239,57}}){
    const auto p=logical(point.first,point.second);check(!xeenMainScreenClick(p.first,p.second,MainScreen::Combat));
@@ -327,7 +330,12 @@ void strafeAndSummaryKeys() {
   else if(h.stage==10)h.click(286,169,SDL_BUTTON_LEFT,100);
   else if(h.stage==12)h.tap(SDLK_q,100);
   else if(h.stage==14)h.tap(SDLK_i,100);
-  else if(h.stage==16){h.check(h.delivered==std::vector<char>{'L','T','L','T','L','T','Q','I'},("strafe and summaries keyboard/mouse parity: "+std::string(h.delivered.begin(),h.delivered.end())).c_str());h.quit();}
+  else if(h.stage==16)h.tap(SDLK_m,100);
+  else if(h.stage==18)h.click(235,117,SDL_BUTTON_LEFT,100);
+  else if(h.stage==20)h.tap(SDLK_EQUALS,100);
+  else if(h.stage==22)h.tap(SDLK_KP_EQUALS,100);
+  else if(h.stage==24)h.click(236,11,SDL_BUTTON_LEFT,100);
+  else if(h.stage==26){h.check(h.delivered==std::vector<char>{'L','T','L','T','L','T','Q','I','M','M','=','=','='},("strafe, summaries and Map keyboard/mouse parity: "+std::string(h.delivered.begin(),h.delivered.end())).c_str());h.quit();}
  });
  QueueHarness modal;modal.ready=true;modal.screen=MainScreen::Exploration;
  modal.run("summary-held-opener-and-fresh-dismissal",[](auto &h){

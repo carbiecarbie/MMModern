@@ -309,12 +309,11 @@ void terrain(Inputs &in) {
   }
  }
  {
-  // Synthetic immutable Navigator skill in the decoded CHR fixture only.
+  // Synthetic Navigator skill restored through the authoritative saved owner.
   // Commercial resources remain read-only, and all production owners/guards run.
-  const auto start=source(in,false);const auto slot=start.activeRosterIds[0]*XeenCharacter::kSerializedSize+49;
-  const auto previous=in.chr[slot];in.chr[slot]=1;
+  auto start=source(in,false);start.characters[start.activeRosterIds[0]].skills[10]=1;
   const auto loader=[&](auto id){auto map=in.maps.loadGeometryMap(in.assets,id);if(id==start.camera.mapId)map.geometry.surfaceTypes.fill(6);return map;};
-  Fixture f(in,start,false,nullptr,loader,manifest(6));in.chr[slot]=previous;wire(f);f.act(RestAction{});finish(f);
+  Fixture f(in,start,false,nullptr,loader,manifest(6));wire(f);f.act(RestAction{});finish(f);
   check(f.p.encounterContext->minutes==start.journey->context->minutes+480,"Navigator did not suppress desert addTime");
  }
  const auto seam=source(in,true,false,false,true);

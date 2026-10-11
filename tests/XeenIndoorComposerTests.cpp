@@ -145,7 +145,7 @@ std::map<std::string, Bytes> baseFiles() {
 	files["stown.swl"] = repeatedFrames(transparentBands(160, 80, 43), 48);
 	files["back.raw"] = Bytes(320 * 200, 99);
 	files["mm4.pal"] = Bytes(768);
-	files["global.icn"] = sprite(solid(0, 1, 0, 1, 55));
+	files["global.icn"] = repeatedFrames(solid(0, 1, 0, 1, 55),41);
 	files["111.0bj"] = sprite(solid(0, 240, 0, 160, 7));
 	files["113.0bj"] = sprite(solid(0, 240, 0, 200, 8),
 		solid(180, 40, 20, 60, 9));
@@ -272,7 +272,11 @@ IndexedFrame replay(XeenAssetSource &assets, const CloudsMapComposer &composer,
 		composer.drawIndoorCommands(assets, {command});
 	}
 	composer.drawInterfaceLayers(assets, party, context);
-	return assets.snapshot();
+	auto result = assets.snapshot();
+	// These object-attribution fixtures keep automap off. Include its fixed
+	// logo in both frames so only the omitted object's pixels differ.
+	assets.drawDialogSprite(result, "global.icn", 5, 232, 9);
+	return result;
 }
 
 void testSkyComposition(const std::filesystem::path &directory) {

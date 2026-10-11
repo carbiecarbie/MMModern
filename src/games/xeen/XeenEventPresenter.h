@@ -42,6 +42,7 @@ public:
 	std::optional<IndexedFrame> updateNpc();
 	void clear();
 
+	bool hasNpcOffer() const;
 	bool blocksGameplay() const { return _active; }
 	const IndexedFrame &frame() const { return _frame; }
 	const std::vector<std::string> &diagnostics() const { return _diagnostics; }

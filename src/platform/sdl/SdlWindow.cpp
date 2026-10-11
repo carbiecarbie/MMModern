@@ -59,6 +59,8 @@ std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key, MainScree
 	case SDLK_TAB: return ControlPanelAction{};
 	case SDLK_i: return InfoAction{};
 	case SDLK_q: return QuickReferenceAction{};
+	case SDLK_m: return MapAction{};
+	case SDLK_EQUALS: case SDLK_KP_EQUALS: return ToggleAutomapAction{};
 	case SDLK_KP_4: return NavigationAction::StrafeLeft;
 	case SDLK_KP_6: return NavigationAction::StrafeRight;
 	case SDLK_u: return UseItemAction{};
@@ -394,6 +396,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
                 std::holds_alternative<BlockAction>(*action) || std::holds_alternative<BashAction>(*action) || std::holds_alternative<ShootAction>(*action) ||
                 std::holds_alternative<RestAction>(*action) || std::holds_alternative<ControlPanelAction>(*action) ||
                 std::holds_alternative<QuickReferenceAction>(*action) || std::holds_alternative<InfoAction>(*action) ||
+                std::holds_alternative<MapAction>(*action) || std::holds_alternative<ToggleAutomapAction>(*action) ||
                 std::holds_alternative<RevisitCompletedAction>(*action) || std::holds_alternative<WaitAction>(*action) ||
                 std::holds_alternative<QuickFightAction>(*action) || std::holds_alternative<QuickFightOptionsAction>(*action) ||
                 std::holds_alternative<CastSpellAction>(*action) || std::holds_alternative<SelectMemberAction>(*action) ||

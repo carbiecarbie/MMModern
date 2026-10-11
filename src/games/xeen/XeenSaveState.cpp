@@ -132,6 +132,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	adopt(); // Only checked overlay preparation changed candidate gameplay values.
 	if(!snapshot.objectOverrides.empty()) {w.restoreObjectOverrides(snapshot.objectOverrides);adopt();}
 	if(!snapshot.barriers.empty()) {w.restoreBarriers(snapshot.barriers);adopt();}
+	if(!snapshot.exploredTiles.empty()) {w.restoreExploredTiles(snapshot.exploredTiles);adopt();}
 	auto statistics = callback(monsters);
 	const auto &policy=xeenJourneyContent();
 	auto evt = events(policy.entry.mapId);
@@ -286,6 +287,7 @@ XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &res
 	snapshot.disabledEvents.assign(state.disabledEvents().begin(), state.disabledEvents().end());
 	snapshot.barriers=state.barriers();
 	snapshot.objectOverrides=state.objectOverrides();
+	snapshot.exploredTiles=state.exploredTiles();
 	for(auto &v:snapshot.objectOverrides)v.flipped=world.effectiveObjectFlip(v.id);
 
 	if (state.journey()) {

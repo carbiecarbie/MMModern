@@ -71,6 +71,7 @@ add_library(mmodern_xeen STATIC
 	src/games/xeen/XeenAntidoteUse.cpp
 	src/games/xeen/XeenEquipment.cpp
 	src/games/xeen/XeenDialogView.cpp
+    src/games/xeen/XeenMapView.cpp
 	src/games/xeen/XeenEventPresenter.cpp
 	src/games/xeen/XeenEventLoader.cpp
 	src/games/xeen/XeenEventTextLoader.cpp
@@ -521,6 +522,14 @@ if(BUILD_TESTING)
 	add_test(NAME xeen_equipment_gameplay COMMAND mmodern_equipment_gameplay_tests)
 	add_executable(mmodern_dialog_tests tests/XeenDialogTests.cpp)
 	add_executable(mmodern_party_interface_tests tests/XeenPartyInterfaceTests.cpp)
+	add_executable(mmodern_exploration_tests tests/XeenExplorationTests.cpp)
+	add_executable(mmodern_mapping_gameplay_tests tests/XeenMappingGameplayTests.cpp)
+	target_link_libraries(mmodern_mapping_gameplay_tests PRIVATE mmodern_app mmodern_xeen)
+	add_test(NAME xeen_mapping_gameplay_original COMMAND mmodern_mapping_gameplay_tests "${MMODERN_XEEN_DATA_DIR}")
+	set_tests_properties(xeen_mapping_gameplay_original PROPERTIES LABELS "fast")
+	target_link_libraries(mmodern_exploration_tests PRIVATE mmodern_xeen)
+	add_test(NAME xeen_exploration COMMAND mmodern_exploration_tests)
+	set_tests_properties(xeen_exploration PROPERTIES LABELS "fast")
 	target_link_libraries(mmodern_party_interface_tests PRIVATE mmodern_app mmodern_xeen)
 	add_test(NAME xeen_party_interface_original COMMAND mmodern_party_interface_tests "${MMODERN_XEEN_DATA_DIR}")
 	set_tests_properties(xeen_party_interface_original PROPERTIES LABELS "fast")
@@ -538,6 +547,11 @@ if(BUILD_TESTING)
 	add_test(NAME xeen_dialogs COMMAND mmodern_dialog_tests)
 	add_test(NAME xeen_dialogs_original COMMAND mmodern_dialog_tests "${MMODERN_XEEN_DATA_DIR}")
 	set_tests_properties(xeen_dialogs xeen_dialogs_original PROPERTIES LABELS "fast")
+    add_executable(mmodern_map_view_tests tests/XeenMapViewTests.cpp)
+    target_link_libraries(mmodern_map_view_tests PRIVATE mmodern_xeen)
+    add_test(NAME xeen_map_view COMMAND mmodern_map_view_tests)
+    add_test(NAME xeen_map_view_original COMMAND mmodern_map_view_tests "${MMODERN_XEEN_DATA_DIR}")
+    set_tests_properties(xeen_map_view xeen_map_view_original PROPERTIES LABELS "fast")
     add_executable(mmodern_dos_text_tests tests/XeenDosTextTests.cpp)
     add_executable(mmodern_title_resource_tests tests/XeenTitleResourceTests.cpp)
     add_executable(mmodern_title_flow_tests tests/XeenTitleFlowTests.cpp tests/XeenTitleApplicationControls.cpp)
@@ -881,6 +895,7 @@ if(BUILD_TESTING)
 	add_test(NAME xeen_character_formats COMMAND mmodern_character_format_tests)
 	add_executable(mmodern_character_rules_tests
 		tests/XeenCharacterRulesTests.cpp
+		src/games/xeen/XeenParty.cpp
 		src/games/xeen/XeenCharacter.cpp
 		src/games/xeen/XeenCharacterRules.cpp
 	)

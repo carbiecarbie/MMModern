@@ -117,7 +117,8 @@ void pauses(Inputs &in,const XeenSaveSnapshot &initial) {
 	check(trap.w.scenePresentation().overallFrame!=animation,"Trap pause must keep scene animation running");
 	pulse(trap,1);settle(trap);const auto settled=XeenSaveFormat::encode(trap.snapshot());
 	pulse(trap);check(XeenSaveFormat::encode(trap.snapshot())==settled,"Trap settlement published twice");
-	Fixture bash(in,initial,true);bash.act(BashAction{});
+ auto unrecorded=initial;unrecorded.exploredTiles.clear();
+ Fixture bash(in,unrecorded,true);bash.act(BashAction{});
 	for(unsigned n=0;n<20 && !XeenCityEventTestAccess::published(*bash.flow);++n)pulse(bash);
 	check(XeenCityEventTestAccess::published(*bash.flow) && XeenCityEventTestAccess::deadline(*bash.flow)==bash.now+100,
 		"Bash pause must be two 50-ms reference ticks");
@@ -126,6 +127,7 @@ void pauses(Inputs &in,const XeenSaveSnapshot &initial) {
 		bash.w.sessionState().journeyRandom()==bashRng && bash.p.roster.at(kXeenCombatOwners[0]).currentHp==bashHp,
 		"Sub-deadline Bash advances must retain input without replaying publication");}
 	pulse(bash,1);check(!XeenCityEventTestAccess::published(*bash.flow),"Bash must release pause at its deadline");settle(bash);
+ check(bash.w.sessionState().exploredTiles().empty(),"Stationary bash does not set the reference stepped boundary");
 }
 XeenSaveSnapshot source(Inputs &in) {
 	auto s=in.service();XeenWorld world(in.mapLoader());

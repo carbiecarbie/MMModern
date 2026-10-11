@@ -20,6 +20,7 @@ inline std::optional<PlayerAction> xeenMainScreenClick(int x, int y, MainScreen 
     if (screen == MainScreen::None || x < 0 || y < 0 || x >= 320 || y >= 200) return {};
     const auto contains = [=](int l, int t, int r, int b) { return x >= l && x < r && y >= t && y < b; };
     const bool combat = screen == MainScreen::Combat;
+    if (!combat && contains(236,11,308,69)) return ToggleAutomapAction{};
     constexpr int columns[] = {235,260,286};
     for (unsigned row=0; row<3; ++row) for (unsigned col=0; col<3; ++col) {
         if (!contains(columns[col],75+21*row,columns[col]+24,95+21*row)) continue;
@@ -36,6 +37,7 @@ inline std::optional<PlayerAction> xeenMainScreenClick(int x, int y, MainScreen 
         if (combat && index==3) return UseItemAction{}; // U
         if (index==7) return InfoAction{};
         if (index==8) return QuickReferenceAction{};
+        if (!combat && index==6) return MapAction{};
         constexpr const char *exploration[] = {"Shoot","Cast","Rest","Bash","Dismiss","View Quests","Map","Info","Quick Ref"};
         constexpr const char *fighting[] = {"Quick Fight","Cast","Attack","Use","Run","Block","Quick Fight Options","Info","Quick Ref"};
         return UnsupportedMainScreenAction{combat ? fighting[index] : exploration[index]};

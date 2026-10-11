@@ -26,7 +26,7 @@ XeenPartyState fixture() {
 		c.hasSpells = true; c.currentHp = 16; c.currentSp = 6;
 		if (i) {
 			c.intellect.temporary = -static_cast<int>(i); c.temporaryAge = i;
-			c.sex = XeenSex::YesPlease; c.maxStatSkills.astrologer = true;
+			c.sex = XeenSex::YesPlease; c.skills[2] = true;
 			c.conditions[i % 16] = static_cast<std::uint8_t>(i);
 			for (auto *array : {&c.weapons, &c.armor, &c.accessories, &c.miscellaneous})
 				for (unsigned slot = 0; slot < 9; ++slot)

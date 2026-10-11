@@ -113,7 +113,11 @@ void testCharacterOffsetsAndBounds() {
 	bytes[base + 347] = 0x02; // 592, little-endian.
 	bytes[base + 348] = 0x78; // Preserved even though experience is not exposed.
 
+	for(unsigned owner=0;owner<30;++owner)for(unsigned skill=0;skill<18;++skill)
+		if(owner!=18)bytes[owner*354+39+skill]=static_cast<std::uint8_t>(owner*18+skill);
 	const XeenRoster roster = XeenCharacterFormat::parseRoster(bytes);
+	for(unsigned owner=0;owner<30;++owner)for(unsigned skill=0;skill<18;++skill)
+		check(roster.at(owner).skills[skill]==bytes[owner*354+39+skill],"every CHR skill byte retains its value");
 	const XeenCharacter &character = roster.at(18);
 	check(character.rosterId == 18 && character.name == sixteenCharacters,
 		"roster ID or bounded 16-byte name");
@@ -127,8 +131,8 @@ void testCharacterOffsetsAndBounds() {
 	check(character.permanentLevel == 1 && character.temporaryLevel == 255 &&
 		character.currentLevel() == 256, "syncAsByte level semantics");
 	check(character.temporaryAge == 38, "temporary age offset");
-	check(!character.maxStatSkills.astrologer && character.maxStatSkills.bodybuilder &&
-		character.maxStatSkills.prayerMaster && character.maxStatSkills.prestidigitation,
+	check(character.skills[2]==0 && character.skills[3]==1 &&
+		character.skills[12]==2 && character.skills[13]==255,
 		"skill offsets or zero/nonzero semantics");
 	check(character.hasSpells && !roster.at(0).hasSpells,
 		"hasSpells offset or boolean semantics");

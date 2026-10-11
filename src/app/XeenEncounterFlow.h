@@ -73,6 +73,7 @@ public:
 	bool journeyExchange(const Ticket &,std::size_t,std::size_t,std::uint64_t inventoryLease);
 	bool rememberSpell(const Ticket &,std::size_t,unsigned);
 	bool configureQuickFight(const Ticket &,std::size_t);
+	bool toggleAutomap(const Ticket &);
 	XeenTransferResult journeyTransfer(const Ticket &, std::size_t, std::size_t, XeenInventoryCategory, std::size_t);
 	struct ItemUseSelection {
 		std::uint64_t epoch=0;
@@ -136,6 +137,8 @@ public:
 	std::uint64_t cosmeticDeadline() const noexcept { return _cosmeticDeadline; }
 	std::string notice() const;
 private:
+	void recordJourneyStep();
+	void publishJourneyExploration(std::vector<XeenExploredTile> &,std::vector<XeenExploredTile> &) noexcept;
 	friend class XeenEventFlow;
 	friend struct XeenRestTestAccess;
 	friend struct XeenPartyInterfaceTestAccess;

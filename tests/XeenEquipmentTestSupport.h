@@ -20,8 +20,7 @@ inline auto characterFields(const XeenCharacter &c) {
 		c.intellect.permanent, c.intellect.temporary, c.personality.permanent,
 		c.personality.temporary, c.endurance.permanent, c.endurance.temporary,
 		c.permanentLevel, c.temporaryLevel, c.temporaryAge,
-		c.maxStatSkills.astrologer, c.maxStatSkills.bodybuilder,
-		c.maxStatSkills.prayerMaster, c.maxStatSkills.prestidigitation, c.hasSpells,
+		c.skills, c.hasSpells,
 		c.currentHp, c.currentSp, c.conditions, c.birthYear);
 }
 inline void sameParty(const XeenPartyState &a, const XeenPartyState &b) {

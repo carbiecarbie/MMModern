@@ -89,15 +89,35 @@
 // three final saves. No unexplained gameplay, time or RNG differences.
 // Full old/new hashes, byte mappings, checkpoint CRCs and validation evidence:
 // build-rel/m57a-evidence/digest-audit.json (local, never committed saves).
+// M58: maintainer approved the v10 audit and digest replacement on 2026-10-11.
+// Clean baseline ba1b41676e0b6c585e5c0b542c445254814a27b8 executables were
+// preserved outside the repository before source changes and reproduced all
+// three v9 hashes. Complete traces match for 7,855 / 36,316 / 30,800 lines;
+// all common decoded fields match across all ten checkpoints, with none removed.
+// Each character replaces four skill-presence bytes with all 18 CHR skill bytes:
+// 14 * 30 = 420 added bytes. The exploration block adds a two-byte count and
+// 35 bytes per physical tile (side, map number and 256-bit mask): 37 bytes for
+// Mainland, 107 for Services/Temple. Total growth is 457 / 527 / 527 bytes.
+// Only envelope version, payload length and CRC also change; schema 9/content 14
+// remain unchanged. Every checkpoint matches the independent v9-to-v10 byte
+// projection using CHR skills and masks derived from preserved traces/original
+// DAT stepped bits. Native v10 final reload/re-save is exact in all scenarios.
+// No unexplained gameplay, time or RNG differences. Full hashes, fields,
+// byte alignments and CRCs: build-rel/m58-digest-comparison-01/digest-audit.json.
+// Independent byte checks: build-rel/m58-audit-byte-projection.log.
+// Evidence stays local; never commit original-data saves.
+// Mainland old: 686cc0b27465446b666eecc50c129d611fbda62471eacdc22869a4510116e10f
+// Services old: 818c81cec3f060333d0276d2cec4a1e4250205d12127e4405a5dd2679af61f1e
+// Temple old: 96b806b150568bc1947ddfc9b27b5ca6e97270a3a7742d8224df24be491278ea
 #include <array>
 #include <cstdint>
 namespace m44_baseline {
-inline constexpr const char *revision = "614d859de3a94467893625c482d7bfc5296521f8 + M57 Part A v9";
+inline constexpr const char *revision = "ba1b41676e0b6c585e5c0b542c445254814a27b8 + M58 v10";
 struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 inline constexpr std::array<Scenario,3> scenarios{{
-    {"mainland-combat-myra-phirna",3626689381u,"686cc0b27465446b666eecc50c129d611fbda62471eacdc22869a4510116e10f"},
-    {"vertigo-buy-repair-training",7u,"818c81cec3f060333d0276d2cec4a1e4250205d12127e4405a5dd2679af61f1e"},
-    {"temple-recovery",3626689381u,"96b806b150568bc1947ddfc9b27b5ca6e97270a3a7742d8224df24be491278ea"}
+    {"mainland-combat-myra-phirna",3626689381u,"d296ae3f83cdacb2c2a44828904c89f7f952a5ecf350ffa6f24d09b991a8124a"},
+    {"vertigo-buy-repair-training",7u,"e6dff2020eb0b675643c70923e51c2927e55df525c7d396e66d60f80f2ac7730"},
+    {"temple-recovery",3626689381u,"8200689f224f00a977d5df6360a4b2c4d36f65375da6511a155a4975e526722e"}
 }};
 }
 #endif

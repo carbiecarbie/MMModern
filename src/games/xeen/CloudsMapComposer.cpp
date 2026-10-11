@@ -4,6 +4,7 @@
 #include "games/xeen/CloudsUiComposer.h"
 #include "games/xeen/XeenIndoorScene.h"
 #include "games/xeen/XeenWorld.h"
+#include "games/xeen/XeenMapView.h"
 #include <algorithm>
 
 namespace mmodern {
@@ -114,7 +115,11 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
 	}
 
 	drawInterfaceLayers(assets, partyState, context);
-	auto result = assets.snapshot();
+	auto result = drawXeenMinimap(world,camera,assets.snapshot(),
+        partyState.encounterContext && partyState.encounterContext->effects[1]!=0,
+        [&](IndexedFrame &frame,const char *name,unsigned index,int x,int y) {
+            assets.drawDialogSprite(frame,name,index,x,y,xeenPictureArchive(camera.mapId));
+        },ordinaryPhase.value_or(0));
 	if (containsOrdinaryAnimation) *containsOrdinaryAnimation = emittedAnimation;
 	return result;
 }

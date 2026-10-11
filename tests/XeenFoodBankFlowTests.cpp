@@ -379,8 +379,8 @@ void originalJourney(Inputs &in) {
     Visit restored(in,XeenSaveFormat::decode(bytes));save_test::sameSnapshot(saved,restored.snapshot());
     check(bytes==XeenSaveFormat::encode(restored.snapshot()) && v.f.isSet(231),
         "Food/balances/flags/time/RNG did not restore byte-exactly");
-    check(XeenSaveFormat::kJourneyVersion==9 && XeenSaveFormat::kJourneySchema==9 && XeenSaveFormat::kJourneyContent==14,
-        "Food/Bank changed the current save format");
+    check(XeenSaveFormat::kJourneyVersion==10 && XeenSaveFormat::kJourneySchema==9 && XeenSaveFormat::kJourneyContent==14,
+        "Food/Bank did not retain the current save format");
 }
 }
 int main(int argc,char **argv) {

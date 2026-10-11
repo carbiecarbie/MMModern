@@ -116,6 +116,7 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 		}
 		_journeyCapture->generation=_boundary.generation();
 		w._journeyCapture = _journeyCapture;
+		recordJourneyStep();
 	} catch (...) { closeJourney(); throw; }
 }
 XeenEncounterFlow::~XeenEncounterFlow() { if (_journey) closeJourney(); }
@@ -148,6 +149,34 @@ void XeenEncounterFlow::retainJourney() {
 	if (_journeyPreimage) next->retainResources(*_journeyPreimage);
 	_journeyPreimage.swap(next);
 	if (_journeyCapture) _journeyCapture->generation = _boundary.generation();
+}
+void XeenEncounterFlow::recordJourneyStep() {
+	_journeyPreimage->check();
+	std::vector<XeenExploredTile> values;
+	{XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
+		values=_world.explorationAfterStep(_party,_camera);_journeyPreimage->check();}
+	if(values==_world._sessionState._exploredTiles)return;
+	auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
+	prepared->retainResources(*_journeyPreimage);prepared->s._exploredTiles=values;
+	_journeyPreimage->check();
+	XeenMutationWatch::write(&_world);_world._sessionState._exploredTiles.swap(values);
+	_journeyPreimage.swap(prepared);_journeyPreimage->adoptMutationBoundary();
+}
+void XeenEncounterFlow::publishJourneyExploration(std::vector<XeenExploredTile> &values,
+		std::vector<XeenExploredTile> &retained) noexcept {
+	_world._sessionState._exploredTiles.swap(values);
+	_journeyPreimage->s._exploredTiles.swap(retained);_journeyPreimage->adoptMutationBoundary();
+}
+bool XeenEncounterFlow::toggleAutomap(const Ticket &entry) {
+	if(!current(entry) || _busy)return false;
+	if(_combat)return acceptCombatResult(_combat->toggleAutomap(*entry.combat));
+	if(!journeyMutable() || !journeyCapacity())return false;
+	_journeyPreimage->check();
+	auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
+	prepared->retainResources(*_journeyPreimage);
+	prepared->context->effects[1]=!prepared->context->effects[1];
+	_journeyPreimage->check();_party.encounterContext->effects[1]=prepared->context->effects[1];
+	++_generation;_journeyPreimage.swap(prepared);_journeyPreimage->adoptMutationBoundary();return true;
 }
 void XeenEncounterFlow::adoptJourneyFlowBorrow() {
 	// EventFlow checked this guard immediately before acquiring its one borrow.
@@ -206,6 +235,8 @@ std::optional<std::uint64_t> XeenEncounterFlow::beginItemUse(const Ticket &entry
 		c.random=XeenCombatRandom(*s.journeyRandom());c.revision=_state.revision();c.pending=0;
 		c.remaining=1;c.classify=true;c.result.outcome=XeenEncounterOutcome::Pulsed;
 		for(unsigned i=0;i<6;++i) { c.characters[i]=_party.roster.at(c.owners[i]);c.inputs[i]=*_party.roster.combatInputs(c.owners[i]); }
+		{XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
+			c.exploration=_world.explorationAfterStep(_party,_camera);_journeyPreimage->check();}
 		next->generation=++_itemUseGeneration;next->epoch=selection.epoch+1;
 		next->sourceOwner=selection.sourceOwner;next->slot=selection.slot;
 		next->spentCharge=selection.record.state&0x3f;next->exhausted=next->spentCharge==1;
@@ -660,6 +691,10 @@ bool XeenEncounterFlow::retireJourney(const Ticket &entry) {
 		auto prepared = std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 		prepared->retainResources(*_journeyPreimage);
 		_combat->retainResources(*prepared);
+		std::vector<XeenExploredTile> exploration;
+		{XeenRestoreGuard::Providers providers(*prepared,_world);
+			exploration=_world.explorationAfterStep(_party,_camera);prepared->check();}
+		prepared->s._exploredTiles=exploration;
 		const bool disengaged=_combat->phase()==XeenCombatPhase::Disengaged;
 		if(disengaged && _regionalAutomatic && !_combat->result().originAutomaticSuperseded) throw std::logic_error("Finish did not supersede the origin event");
 		if(disengaged) _combat->retireDisengagedJourney(*entry.combat,_state);
@@ -672,6 +707,7 @@ bool XeenEncounterFlow::retireJourney(const Ticket &entry) {
 		if(disengaged) { _journeyRefusal.clear();_rangedObservation.reset(); }
 		_deadline.reset(); _frame = 0; _appearanceStep = 0; _appearanceIdentity.reset();
 		_scheduleAfterFrame = _appearanceAfterFrame = false;
+		_world._sessionState._exploredTiles.swap(exploration);
 		prepared->adoptJourneyCoordination(); prepared->adoptJourneyBorrowRelease(); _journeyPreimage.swap(prepared);
 		return true;
 	} catch (const std::invalid_argument &) { return false; }

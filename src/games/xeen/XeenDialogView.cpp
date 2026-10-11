@@ -446,9 +446,9 @@ XeenDialogPopup xeenSheetPopup(const XeenDosText &text,const XeenPartyState &p,s
         popup.text=xeenDialogFormat(text.scalar("RESISTENCES_TEXT"),args);popup.bounds.bottom=popup.bounds.top+80;
     } else if(cell==13 || cell==19) {
         std::string lines;unsigned count=0;
-        if(cell==13 && c.originalDetails()) {
+        if(cell==13) {
             constexpr unsigned order[]{0,1,2,3,4,5,17,6,7,8,9,10,11,12,13,16,14,15};
-            for(auto skill:order) if(c.originalDetails()->skills[skill]) {
+            for(auto skill:order) if(c.skills[skill]) {
                 lines+="\n\t020"+str(text.table("SKILL_NAMES")[skill]);++count;
                 if(skill==0) { int bonus=2*c.currentLevel()+(c.characterClass==XeenCharacterClass::Ninja?15:c.characterClass==XeenCharacterClass::Robber?30:0);
                     bonus+=c.race==XeenRace::Elf || c.race==XeenRace::Gnome?10:c.race==XeenRace::Dwarf?5:c.race==XeenRace::HalfOrc?-10:0;

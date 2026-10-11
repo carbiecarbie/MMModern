@@ -182,7 +182,7 @@ void characterPreflight() {
 		value.characterClass = static_cast<XeenCharacterClass>(type);
 		value.birthYear = 592; value.permanentLevel = 3; value.temporaryLevel = -2;
 		value.intellect.permanent = value.personality.permanent = value.endurance.permanent = 70000;
-		value.maxStatSkills = {true, true, true, true}; value.hasSpells = true;
+		value.skills.fill(1); value.hasSpells = true;
 		for (unsigned material = 0; material < 256; ++material) {
 			value.weapons[0] = {static_cast<std::uint8_t>(material), 0, 0, 1};
 			XeenCharacterRules::validateForUse(value, {610});
@@ -298,6 +298,9 @@ void fullRestoration(){
  s.characters[29].conditions[2]=255;s.characters[29].conditions[7]=128;
  s.disabledObjects={{23,0}};s.disabledEvents={{23,0},{23,1}};
  s.characters[29].currentSp=-50;s.characters[29].miscellaneous[8]={231,12,255,7};
+ for(unsigned owner=0;owner<30;++owner)for(unsigned skill=0;skill<18;++skill)
+  s.characters[owner].skills[skill]=static_cast<std::uint8_t>(owner*18+skill);
+ s.exploredTiles={{23,{}}};s.exploredTiles[0].cells[0]=1;s.exploredTiles[0].cells[31]=128;
  const auto expected=s;
  CurrentDestination f;f.party.questItems.increment(0);f.flags.set(1);f.world.disableObject({23,0});
  f.restore(XeenSaveFormat::decode(XeenSaveFormat::encode(s)));f.bind();sameSnapshot(f.capture(),expected);
@@ -326,7 +329,7 @@ void explicitItems(){
  f.bind();check(initialReads==1,"display data not reloaded exactly once");
  check(f.party.food==empty.food && f.party.roster.at(0).originalDetails() &&
   f.party.roster.at(0).originalDetails()->resistances[0][0]==17 &&
-  f.party.roster.at(0).originalDetails()->birthDay==23 && f.party.roster.at(0).originalDetails()->skills[17]==1,
+  f.party.roster.at(0).originalDetails()->birthDay==23 && f.party.roster.at(0).skills[17]==empty.characters[0].skills[17],
   "restored display fields do not come from original resources");sameSnapshot(f.capture(),empty);
 }
 void invalidResourceAndState(){

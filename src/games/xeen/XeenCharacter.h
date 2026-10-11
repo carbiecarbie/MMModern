@@ -63,13 +63,6 @@ struct XeenAttributeValue {
 	XeenMutable<int> temporary = 0;
 };
 
-struct XeenMaxStatSkills {
-	XeenMutable<bool> astrologer = false;
-	XeenMutable<bool> bodybuilder = false;
-	XeenMutable<bool> prayerMaster = false;
-	XeenMutable<bool> prestidigitation = false;
-};
-
 // Stored original item bytes. ID zero is empty, but other bytes remain state.
 struct XeenItem {
 	XeenMutable<std::uint8_t> material = 0;
@@ -90,7 +83,6 @@ void xeenCompactItems(XeenItemCategory &items);
 struct XeenCharacterOriginalDetails {
 	std::array<std::array<int, 2>, 7> attributes{};
 	std::array<std::array<int, 2>, 6> resistances{};
-	std::array<std::uint8_t, 18> skills{};
 	std::array<std::uint8_t, 128> awards{};
 	std::uint8_t birthDay = 0, temporaryAc = 0;
 	std::uint32_t experience = 0;
@@ -119,7 +111,8 @@ struct XeenCharacter {
 	XeenMutable<int> permanentLevel = 0;
 	XeenMutable<int> temporaryLevel = 0;
 	XeenMutable<int> temporaryAge = 0;
-	XeenMaxStatSkills maxStatSkills;
+	// Original CHR bytes 39..56; the sole skill authority, shared by rules and UI.
+	XeenMutableArray<std::uint8_t, 18> skills{};
 	// CHR class-book slot (255 = none) and Quick Fight action; current v8 save state.
 	XeenMutable<std::uint8_t> currentSpell = 255, quickOption = 0;
 	XeenMutable<bool> hasSpells = false;

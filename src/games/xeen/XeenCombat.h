@@ -184,6 +184,7 @@ public:
 	XeenCombatResult beginCombat(const Ticket &);
 	XeenCombatResult command(const Ticket &,XeenCombatCommand);
 	XeenCombatResult configureQuickFight(const Ticket &,std::size_t);
+	XeenCombatResult toggleAutomap(const Ticket &);
 	XeenCombatResult selectTarget(const Ticket &, unsigned row);
     XeenCombatResult rotate(const Ticket &,NavigationAction);
     unsigned movementCountdown() const noexcept;

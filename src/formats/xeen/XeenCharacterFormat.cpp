@@ -21,10 +21,6 @@ constexpr std::size_t kTemporaryEnduranceOffset = 27;
 constexpr std::size_t kPermanentLevelOffset = 35;
 constexpr std::size_t kTemporaryLevelOffset = 36;
 constexpr std::size_t kTemporaryAgeOffset = 38;
-constexpr std::size_t kAstrologerOffset = 41;
-constexpr std::size_t kBodybuilderOffset = 42;
-constexpr std::size_t kPrayerMasterOffset = 51;
-constexpr std::size_t kPrestidigitationOffset = 52;
 constexpr std::size_t kHasSpellsOffset = 163;
 constexpr std::size_t kLearnedSpellsOffset = 121;
 constexpr std::size_t kWeaponsOffset = 166;
@@ -151,10 +147,6 @@ XeenRoster XeenCharacterFormat::parseRoster(const std::vector<std::uint8_t> &byt
 		character.permanentLevel = record[kPermanentLevelOffset];
 		character.temporaryLevel = record[kTemporaryLevelOffset];
 		character.temporaryAge = record[kTemporaryAgeOffset];
-		character.maxStatSkills.astrologer = record[kAstrologerOffset] != 0;
-		character.maxStatSkills.bodybuilder = record[kBodybuilderOffset] != 0;
-		character.maxStatSkills.prayerMaster = record[kPrayerMasterOffset] != 0;
-		character.maxStatSkills.prestidigitation = record[kPrestidigitationOffset] != 0;
 		character.hasSpells = record[kHasSpellsOffset] != 0;
 		readItems(record, kWeaponsOffset, character.weapons);
 		readItems(record, kArmorOffset, character.armor);
@@ -168,7 +160,7 @@ XeenRoster XeenCharacterFormat::parseRoster(const std::vector<std::uint8_t> &byt
 		auto details = std::make_shared<XeenCharacterOriginalDetails>();
 		for (unsigned i = 0; i < 7; ++i) details->attributes[i] = {record[20+i*2], record[21+i*2]};
 		for (unsigned i = 0; i < 6; ++i) details->resistances[i] = {record[311+i*2], record[312+i*2]};
-		std::copy_n(record + 39, 18, details->skills.begin());
+		std::copy_n(record + 39, character.skills.size(), character.skills.begin());
 		for (unsigned i = 0; i < 64; ++i) {
 			const auto award = record[57+i];
 			details->awards[i] = i == 9 ? award : award & 15;

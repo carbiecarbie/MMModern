@@ -711,7 +711,8 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 		requireCurrentOwners();
 		if (!suspended) return frameCopy();
 		if (!_pending) return frameCopy(); // A reporting callback may explicitly abandon.
-		_frame = _presenter.dismissSelection();
+		if(!(_presenter.hasNpcOffer() && _pending->state.pendingPresentation->request.kind==XeenPresentationKind::CharacterSelection))
+			_frame = _presenter.dismissSelection();
 		XeenPresentationUpdate update;
 		update = presentPendingEvent();
 		_frame = std::move(update.frame);
@@ -927,6 +928,11 @@ void XeenEventFlow::prepareVertigoResult(const XeenManualEventResult &result) tr
 	XeenRestoreGuard candidateGuard(*work.world,work.party,work.camera,work.flags);
 	candidateGuard.retainResources(*work.guard);
 	XeenRestoreGuard::Providers providers(candidateGuard,*work.world,[&] {_eventPublication->check();});
+	std::optional<std::vector<XeenExploredTile>> exploration,retainedExploration;
+	if(!sameMap) {
+		exploration=work.world->explorationAfterStep(work.party,work.camera);
+		retainedExploration=*exploration;candidateGuard.check();
+	}
 	const auto composed=[&] {
 		try {
 			auto frame=_transitionCompose(*work.world,work.party,work.camera,0,XeenMonsterAppearance{0});
@@ -939,6 +945,9 @@ void XeenEventFlow::prepareVertigoResult(const XeenManualEventResult &result) tr
 	// Storage and the destination frame are ready. No provider or callback follows
 	// until all owner writes and the new frame authority have been installed.
 	_eventPublication->publishCandidate(_world,_party,_camera,_flags,*work.world,candidateGuard);
+	if(exploration) {
+		_encounter->publishJourneyExploration(*exploration,*retainedExploration);
+	}
 	// Retain the classified destination under the Event lease. Keep the Event's
 	// concrete ticket intact until its final provider/publication checks finish;
 	// contact changes the encounter phase at callback-free retirement below.
@@ -1138,6 +1147,13 @@ XeenPresentationUpdate XeenEventFlow::presentPendingEvent() {
 	if(_transition && request.kind==XeenPresentationKind::RewardWarning)
 		request.text="Reward capacity warning\nAll four category tails are full across active members.\n"
 			"Remaining treasure, including gold and gems, will be lost.\nSpace / Enter / Escape: continue";
+	if(request.kind==XeenPresentationKind::CharacterSelection && _presenter.hasNpcOffer()) {
+		request.layoutValue=36;
+		request.text=xeenDialogFormat(dosText().scalar("WHO_WILL"),
+			{request.text,dosText().table("WHO_ACTIONS").at(request.verbIndex.value_or(0)),std::to_string(request.members.size())});
+	}
+	if(request.kind==XeenPresentationKind::CenteredMessage && request.source.opcode==0x0c && request.text.empty())
+		request.text=xeenNotEnoughGold(dosText());
 	return _presenter.present(_frame,request);
 }
 std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
@@ -1234,6 +1250,14 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
         return std::nullopt;
     }
 	if(_summary) {
+		if(*_summary==SummaryDialog::Map) {
+			std::uint64_t now=0;
+			if(_encounter)_encounter->guardCallback(_encounter->ticket(),[&]{now=_clock();});else now=_clock();
+			if(now<_mapDeadline)return std::nullopt;
+			_mapDeadline=now+100;++_mapPhase;
+			if(_encounter)return renderEncounter(false,true);
+			_frame=drawSummary(_summaryUnderlay);return _frame;
+		}
 		// Info redraws the scene, never the encounter scheduler. Quick Reference
 		// waits on its retained underlay exactly as the original window does.
 		if(*_summary==SummaryDialog::Info && _encounter && advanceEncounterOrdinary())return renderEncounter(false,true);
@@ -1258,6 +1282,10 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 			const auto before = _encounter->ticket();
 			if (advanceEncounterOrdinary()) return renderEncounter(false,
 				_encounter->journeyEvent() && _encounter->current(before));
+			if(_pending && _presenter.hasNpcOffer()) {
+				try {if(_presenter.updateNpc())return renderEncounter(false,true);}
+				catch(const std::exception &e) {return presentationFailed(e);}
+			}
 			return std::nullopt;
 		}
 		const auto beforeIdle = _encounter->ticket();
@@ -1433,13 +1461,26 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
     }
     _mainScreenNotice.clear();
 	DispatchScope dispatch(_dispatching);
-    if(std::holds_alternative<QuickReferenceAction>(action) || std::holds_alternative<InfoAction>(action)) {
+    if(std::holds_alternative<ToggleAutomapAction>(action)) {
+        if(_encounter && _encounter->toggleAutomap(_encounter->ticket()))return renderEncounter();
+        if(!_encounter && !_pending && !inventoryOpen() && _party.encounterContext) {
+            _party.encounterContext->effects[1]=!_party.encounterContext->effects[1];
+            refreshScene(true,OrdinaryCause::None);return _frame;
+        }
+        return frameCopy();
+    }
+    if(std::holds_alternative<QuickReferenceAction>(action) || std::holds_alternative<InfoAction>(action) || std::holds_alternative<MapAction>(action)) {
         const bool quiet=!_pending && !_castingUi && !inventoryOpen() && !_barrier &&
             (!_encounter || (_encounter->combat() ? _encounter->combat()->phase()==XeenCombatPhase::PlayerReady &&
                 !_encounter->combat()->cast() : _encounter->journeyMutable()));
         if(!quiet)return frameCopy();
         _summaryUnderlay=_frame;
-        _summary=std::holds_alternative<InfoAction>(action)?SummaryDialog::Info:SummaryDialog::QuickReference;
+        if(std::holds_alternative<MapAction>(action)) {
+            if(!mapName)throw std::logic_error("Map name provider is missing");
+            if(_encounter)_encounter->guardCallback(_encounter->ticket(),[&]{_mapName=mapName(_camera.mapId);_mapDeadline=_clock()+100;});
+            else {_mapName=mapName(_camera.mapId);_mapDeadline=_clock()+100;}
+            _mapPhase=0;_summary=SummaryDialog::Map;
+        } else _summary=std::holds_alternative<InfoAction>(action)?SummaryDialog::Info:SummaryDialog::QuickReference;
         if(_encounter)return renderEncounter();
         _frame=drawSummary(_frame);return _frame;
     }

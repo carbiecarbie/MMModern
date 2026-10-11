@@ -224,6 +224,7 @@ void XeenEncounterFlow::publishBarrier(const Ticket &entry,XeenWorld &candidate,
 		}
 	}
 	auto barriers=candidate._sessionState._barriers;
+	auto exploration=rule.moved ? candidate.explorationAfterStep(_party,rule.camera) : candidate._sessionState._exploredTiles;
 	const bool indoor=_camera.mapId==XeenMapIdentity(28);
 	std::vector<XeenActor> actors=candidate.sessionState().regionalActors(_camera.mapId);
 	const auto beforeActors=_world.sessionState().regionalActors(_camera.mapId);
@@ -253,6 +254,7 @@ void XeenEncounterFlow::publishBarrier(const Ticket &entry,XeenWorld &candidate,
 	retained->retainResources(*_journeyPreimage);
 	retained->maps.swap(maps);retained->objects.swap(objects);
 	retained->s._barriers=barriers;
+	retained->s._exploredTiles=exploration;
 	if(indoor)retained->s._vertigoActors=actors;else retained->s._actors=actors;
 	retained->s._journeyRandom=rule.random.continuation();
 	retained->context=context;retained->cameraValue=rule.camera;retained->economy=prepared.economy;
@@ -263,6 +265,7 @@ void XeenEncounterFlow::publishBarrier(const Ticket &entry,XeenWorld &candidate,
 	retained->prepareMutationRanges();
 	_journeyPreimage->check();prepared.check();
 	XeenMutationWatch::write(&_world);_world._sessionState._barriers.swap(barriers);
+	_world._sessionState._exploredTiles.swap(exploration);
 	if(indoor)_world._sessionState._vertigoActors->swap(actors);else _world._sessionState._actors.swap(actors);
 	_world._sessionState._journeyRandom=rule.random.continuation();
 	_lastTime=now;

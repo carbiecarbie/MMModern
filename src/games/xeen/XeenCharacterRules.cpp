@@ -240,7 +240,7 @@ int maximumHp(const XeenCharacter &character,
 	int hpPerLevel = kBaseHpByClass[enumIndex(character.characterClass)] +
 		statBonus(effectiveAttribute<Checked>(character, context, DerivedAttribute::Endurance)) +
 		kRaceHpBonuses[enumIndex(character.race)] +
-		(character.maxStatSkills.bodybuilder ? 1 : 0);
+		(character.skills[3] ? 1 : 0);
 	hpPerLevel = std::max(hpPerLevel, 1);
 	return std::max(add<Checked>(multiply<Checked>(hpPerLevel, currentLevel<Checked>(character)),
 		itemBonus(character, kHpBonusCategory)), 0);
@@ -256,18 +256,18 @@ int maximumSp(const XeenCharacter &character,
 	if (character.characterClass == XeenCharacterClass::Sorcerer ||
 			character.characterClass == XeenCharacterClass::Archer) {
 		result = spPass<Checked>(character, context, DerivedAttribute::Intellect,
-			character.maxStatSkills.prestidigitation);
+			character.skills[13]);
 	} else if (character.characterClass == XeenCharacterClass::Druid ||
 			character.characterClass == XeenCharacterClass::Ranger) {
 		const int personality = spPass<Checked>(character, context, DerivedAttribute::Personality,
-			character.maxStatSkills.astrologer);
+			character.skills[2]);
 		const int intellect = spPass<Checked>(character, context, DerivedAttribute::Intellect,
-			character.maxStatSkills.astrologer);
+			character.skills[2]);
 		result = add<Checked>(personality, intellect) / 2;
 	} else {
 		// This also preserves the original fallback for anomalous spell-capable records.
 		result = spPass<Checked>(character, context, DerivedAttribute::Personality,
-			character.maxStatSkills.prayerMaster);
+			character.skills[12]);
 	}
 
 	return std::max(add<Checked>(result, itemBonus(character, kSpBonusCategory)), 0);
@@ -339,7 +339,7 @@ int XeenCharacterRules::statColor(int amount,int threshold) {
 	return amount<1?6:amount>threshold?2:amount==threshold?15:amount>=threshold/4?9:32;
 }
 unsigned XeenCharacterRules::skillCount(const XeenCharacter &c) {
-	return c.originalDetails()?std::count_if(c.originalDetails()->skills.begin(),c.originalDetails()->skills.end(),[](auto n){return n!=0;}):0;
+	return std::count_if(c.skills.begin(),c.skills.end(),[](auto n){return n!=0;});
 }
 unsigned XeenCharacterRules::awardCount(const XeenCharacter &c) {
 	unsigned count=0;
@@ -394,7 +394,6 @@ int XeenCharacterRules::damageSaveValue(const XeenCharacter &c,const XeenCombatI
 	return sheetResistance(c,&input,resistance);
 }
 int XeenCharacterRules::thievery(const XeenCharacter &c) {
-	if (!c.originalDetails()) throw std::invalid_argument("Missing original Thievery skill");
 	if (enumIndex(c.race)>=5 || enumIndex(c.characterClass)>=10)
 		throw std::invalid_argument("Invalid Thievery race or class");
 	int result=multiply<true>(currentLevel<true>(c),2);
@@ -402,7 +401,7 @@ int XeenCharacterRules::thievery(const XeenCharacter &c) {
 	else if (c.characterClass==XeenCharacterClass::Robber) result=add<true>(result,30);
 	constexpr int racial[]{0,10,5,10,-10};
 	result=add<true>(add<true>(result,racial[enumIndex(c.race)]),itemBonus(c,10));
-	return c.originalDetails()->skills[0] ? std::max(result,0) : 0;
+	return c.skills[0] ? std::max(result,0) : 0;
 }
 int XeenCharacterRules::effectivePhysical(const XeenCharacter &c, const XeenCombatInputs &input,
 		PhysicalAttribute attribute, const XeenCharacterRulesContext &context) {

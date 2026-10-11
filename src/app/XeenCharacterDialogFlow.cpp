@@ -1,5 +1,6 @@
 #include "app/XeenEventFlow.h"
 #include "games/xeen/CloudsUiComposer.h"
+#include "games/xeen/XeenMapView.h"
 #include <algorithm>
 namespace mmodern {
 IndexedFrame XeenEventFlow::drawQuickFightOptions(const IndexedFrame &base) const {
@@ -25,6 +26,8 @@ IndexedFrame XeenEventFlow::handleQuickFightOptions(const PlayerAction &action) 
 }
 IndexedFrame XeenEventFlow::drawSummary(const IndexedFrame &base) const {
     if(!_summary)return base;
+    if(*_summary==SummaryDialog::Map)
+        return drawXeenMap(_world,_camera,_summaryUnderlay,_inventoryFont,dosText(),drawDialogSprite,_mapPhase,_mapName);
     if(*_summary==SummaryDialog::Info) {
         if(!_party.encounterContext)throw std::logic_error("Info requires gameplay context");
         return drawXeenPopup(base,_inventoryFont,xeenInfoPopup(dosText(),*_party.encounterContext));

@@ -51,6 +51,7 @@ inline void sameSnapshot(const XeenSaveSnapshot &a, const XeenSaveSnapshot &b) {
 	check(a.activeRosterIds == b.activeRosterIds, "membership order changed");
 	check(a.barriers==b.barriers,"barrier overrides changed");
 	check(a.objectOverrides==b.objectOverrides,"object overrides changed");
+	check(a.exploredTiles==b.exploredTiles,"explored tiles changed");
 	for(unsigned owner=0;owner<30;++owner)check(a.characters[owner].awards==b.characters[owner].awards,"award counts changed");
 	for (std::size_t i = 0; i < a.characters.size(); ++i)
 		remove_test::checkSameCharacter(a.characters[i], b.characters[i]);
@@ -129,7 +130,7 @@ inline XeenSaveSnapshot sample() {
 		c.birthYear = static_cast<std::uint16_t>(580 + i);
 		c.currentHp = static_cast<std::int16_t>(static_cast<int>(i) * 3 - 10);
 		c.currentSp = -static_cast<std::int16_t>(i);
-		c.maxStatSkills = {bool(i & 1), bool(i & 2), bool(i & 4), bool(i & 8)};
+		for (unsigned skill=0;skill<c.skills.size();++skill) c.skills[skill]=static_cast<std::uint8_t>(i*19+skill);
 		c.hasSpells = i % 2 == 0;
 		c.quickOption=i%4;c.currentSpell=i%39;
 		for (std::size_t j = 0; j < c.conditions.size(); ++j)

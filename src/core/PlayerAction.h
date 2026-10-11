@@ -15,6 +15,8 @@ struct QuickReferenceAction {};
 struct QuickFightAction {};
 struct QuickFightOptionsAction {};
 struct InfoAction {};
+struct MapAction {};
+struct ToggleAutomapAction {};
 struct WaitAction {};
 struct AttackAction {};
 struct ShootAction {};
@@ -46,7 +48,7 @@ struct TextInputAction { std::string text; };
 using PlayerAction = std::variant<NavigationAction, InteractionAction,
 	AcknowledgeAction, YesAction, NoAction, SelectMemberAction, CancelInteractionAction, SaveGameAction, InspectInventoryAction,
 	SelectInventorySlotAction, TransferInventoryAction, EquipmentInventoryAction, UseItemAction, WaitAction,
-	AttackAction, ShootAction, CastSpellAction, BlockAction, RunAction, SelectCombatTargetAction, BeginEncounterAction, RevisitCompletedAction, UnsupportedMainScreenAction, DialogKeyAction, BashAction, RestAction, TextInputAction, ControlPanelAction, QuickReferenceAction, InfoAction, QuickFightAction, QuickFightOptionsAction>;
+	AttackAction, ShootAction, CastSpellAction, BlockAction, RunAction, SelectCombatTargetAction, BeginEncounterAction, RevisitCompletedAction, UnsupportedMainScreenAction, DialogKeyAction, BashAction, RestAction, TextInputAction, ControlPanelAction, QuickReferenceAction, InfoAction, QuickFightAction, QuickFightOptionsAction, MapAction, ToggleAutomapAction>;
 
 } // namespace mmodern
 

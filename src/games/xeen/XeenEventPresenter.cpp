@@ -163,8 +163,20 @@ IndexedFrame XeenEventPresenter::drawConfirmation(const IndexedFrame &base) cons
 	return result;
 }
 
+bool XeenEventPresenter::hasNpcOffer() const {
+	return std::any_of(_layers.begin(),_layers.end(),[](const auto &layer){
+		return layer.request.npc && layer.request.npc->confirmationMode==2;
+	});
+}
+
 XeenTextRenderResult XeenEventPresenter::drawSelection(const IndexedFrame &base,
 		const XeenPresentationRequest &request) const {
+	if(request.layoutValue==36) {
+		XeenTextRenderOptions options;
+		options.bounds={233,82,312,146};options.windowBounds={225,74,320,154};
+		options.x=233;options.y=82;options.drawWindow=true;
+		return _renderer.render(base,request.text,options);
+	}
 	static constexpr const char *verbs[] = {
 		"search", "open", "drink", "mine", "touch", "read", "learn", "take",
 		"bang", "steal", "bribe", "pay", "sit", "try", "turn", "bathe",
@@ -242,7 +254,7 @@ XeenPresentationUpdate XeenEventPresenter::present(const IndexedFrame &base,
 		_diagnostics = rendered.diagnostics;
 	}
 	_frame = request.kind == XeenPresentationKind::NpcAcknowledgment ? drawNpcPage() : _pages.front();
-	const bool waitsBetweenPages = _pages.size() > 1 &&
+	const bool waitsBetweenPages = !(request.npc && request.npc->confirmationMode==2) && _pages.size() > 1 &&
 		request.response == XeenPresentationResponseRequirement::Presented;
 	_active = waitsBetweenPages ||
 		request.response != XeenPresentationResponseRequirement::Presented;
@@ -363,7 +375,8 @@ IndexedFrame XeenEventPresenter::rebase(const IndexedFrame &base) {
 		_underlay = current;
 		if (layer.request.kind == XeenPresentationKind::NpcAcknowledgment) {
 			layoutNpc(current, layer.request);
-			current = drawNpcPage();
+			current = _pages.at(layer.page);
+			_npcDraw(current,layer.request.npc->portraitId,_npcTiming.displayedFrame);
 			continue;
 		} else if (layer.request.kind == XeenPresentationKind::CharacterSelection)
 			_pages = drawSelection(current, layer.request).pages;
@@ -380,8 +393,8 @@ IndexedFrame XeenEventPresenter::rebase(const IndexedFrame &base) {
 
 void XeenEventPresenter::layoutNpc(const IndexedFrame &base,
 		const XeenPresentationRequest &request) {
-	if (!request.npc || request.npc->confirmationMode != 1 || !_npcDraw)
-		throw std::invalid_argument("NPC presentation requires mode 1 metadata and an asset provider");
+	if (!request.npc || (request.npc->confirmationMode != 1 && request.npc->confirmationMode != 2) || !_npcDraw)
+		throw std::invalid_argument("NPC presentation requires supported metadata and an asset provider");
 	XeenTextRenderOptions panel;
 	panel.bounds = {16, 16, 216, 132};
 	panel.windowBounds = {8, 8, 224, 140};
@@ -460,14 +473,17 @@ void XeenEventPresenter::startNpcPage() {
 }
 
 std::optional<IndexedFrame> XeenEventPresenter::updateNpc() {
-	if (!_active || _request.kind != XeenPresentationKind::NpcAcknowledgment ||
+	if (!_active || (_request.kind != XeenPresentationKind::NpcAcknowledgment && !hasNpcOffer()) ||
 			(!_npcTiming.remaining && !_npcTiming.nextFrame && !_npcTiming.displayedFrame))
 		return std::nullopt;
 	const auto now = _clock();
 	if (now < _npcTiming.deadline) return std::nullopt;
 	_npcTiming.deadline = now + 150; // No catch-up loop after a stalled host.
 	_npcTiming.displayedFrame = _npcTiming.nextFrame;
-	auto frame = drawNpcPage();
+	auto frame = _frame;
+	if(_request.kind==XeenPresentationKind::NpcAcknowledgment)frame=drawNpcPage();
+	else for(const auto &layer:_layers)if(layer.request.npc && layer.request.npc->confirmationMode==2)
+		_npcDraw(frame,layer.request.npc->portraitId,_npcTiming.displayedFrame);
 	_npcTiming.phase ^= 1;
 	unsigned next = _randomFrame ? _randomFrame() : std::uniform_int_distribution<unsigned>(0, 3)(_random);
 	if (next >= 4) throw std::invalid_argument("NPC random frame outside 0..3");

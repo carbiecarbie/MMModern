@@ -108,8 +108,7 @@ void writeCharacter(Writer &out, const XeenCharacter &c) {
 		out.i32(a.permanent); out.i32(a.temporary);
 	}
 	out.i32(c.permanentLevel); out.i32(c.temporaryLevel); out.i32(c.temporaryAge);
-	out.u8(c.maxStatSkills.astrologer); out.u8(c.maxStatSkills.bodybuilder);
-	out.u8(c.maxStatSkills.prayerMaster); out.u8(c.maxStatSkills.prestidigitation);
+	for (const auto value:c.skills) out.u8(value);
 	out.u8(c.hasSpells);
 	for (const auto *items : {&c.weapons, &c.armor, &c.accessories, &c.miscellaneous})
 		for (const auto item : *items) {
@@ -135,8 +134,7 @@ XeenCharacter readCharacter(Reader &in) {
 		a->permanent = in.i32(); a->temporary = in.i32();
 	}
 	c.permanentLevel = in.i32(); c.temporaryLevel = in.i32(); c.temporaryAge = in.i32();
-	c.maxStatSkills.astrologer = in.boolean(); c.maxStatSkills.bodybuilder = in.boolean();
-	c.maxStatSkills.prayerMaster = in.boolean(); c.maxStatSkills.prestidigitation = in.boolean();
+	for (auto &value:c.skills) value=in.u8();
 	c.hasSpells = in.boolean();
 	for (auto *items : {&c.weapons, &c.armor, &c.accessories, &c.miscellaneous})
 		for (auto &item : *items) {
@@ -202,6 +200,11 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 			require(award==9 || c.awards[award]<=15,"award count exceeds CHR representation");
 		require(c.rosterId == i, "character identity differs from roster slot");
 		require(c.name.size() <= 16 && c.name.find('\0') == std::string::npos, "invalid character name");
+	}
+	require(s.exploredTiles.size()<=kMaximumExploredTiles,"too many explored tiles");
+	for(std::size_t i=0;i<s.exploredTiles.size();++i) {
+		validateMap(s.exploredTiles[i].mapId);
+		require(i==0 || s.exploredTiles[i-1].mapId<s.exploredTiles[i].mapId,"explored tile identities must be strictly ordered");
 	}
 	validateIdentities(s.disabledObjects, kMaximumObjects);
 	validateIdentities(s.disabledEvents, kMaximumEvents);
@@ -425,6 +428,11 @@ std::vector<std::uint8_t> XeenSaveFormat::encode(const XeenSaveSnapshot &s) {
 		out.map(v.id.mapId);out.u32(static_cast<std::uint32_t>(v.id.recordIndex));
 		out.u8(static_cast<std::uint8_t>(v.x));out.u8(static_cast<std::uint8_t>(v.y));out.u8(v.flipped);
 	}
+	// v10: physical tiles are strictly ordered; bit i names local cell i.
+	out.u16(static_cast<std::uint16_t>(s.exploredTiles.size()));
+	for(const auto &tile:s.exploredTiles) {
+		out.map(tile.mapId);for(auto byte:tile.cells)out.u8(byte);
+	}
 	// Zero is the explicit absent-name encoding for developer loose saves.
 	out.u8(s.name ? static_cast<std::uint8_t>(s.name->size()) : 0);
 	if (s.name) for (unsigned char byte : *s.name) out.u8(byte);
@@ -483,7 +491,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 	if (j.schema != kJourneySchema || j.content != kJourneyContent) throw unsupportedPair(j.schema, j.content);
 	// Bound allocation before parsing; the exact dynamic extent is verified
 	// after the actor and treasure counts are decoded.
-	require(suffixSize >= 4099+19+1+3875 && suffixSize <= 4099+19*107+4+21*107+5*12+21+3875+10*kMaximumObjects, "Journey schema-9 size mismatch");
+	require(suffixSize >= 4099+19+1+3875+2 && suffixSize <= 4099+19*107+4+21*107+5*12+21+3875+10*kMaximumObjects+2+35*kMaximumExploredTiles, "Journey schema-9 size mismatch");
 	require(in.u8() == 1, "missing Journey context");
 	XeenGameplayContext c;
 	require(in.u8() == 0, "invalid Journey profile");
@@ -592,6 +600,12 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 		const auto x=in.u8(),y=in.u8();v.x=x<128?int(x):int(x)-256;v.y=y<128?int(y):int(y)-256;
 		v.flipped=in.boolean();s.objectOverrides.push_back(v);
 	}
+	const auto exploredCount=in.u16();
+	require(exploredCount<=kMaximumExploredTiles && exploredCount<=in.remaining()/35,"invalid explored tile count");
+	for(unsigned n=0;n<exploredCount;++n) {
+		XeenExploredTile tile;tile.mapId=in.map();for(auto &byte:tile.cells)byte=in.u8();
+		s.exploredTiles.push_back(tile);
+	}
 	const auto nameLength=in.u8();
 	require(nameLength<=20 && nameLength<=in.remaining(), "invalid save name length");
 	if(nameLength) {
@@ -599,7 +613,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 		in.position+=nameLength;
 		require(validName(*s.name), "invalid save name");
 	}
-	require(suffixSize==expected+5u*n+3875+10*objectCount+1+nameLength,"Invalid city/economy suffix length");
+	require(suffixSize==expected+5u*n+3875+10*objectCount+2+35*exploredCount+1+nameLength,"Invalid city/economy suffix length");
 
 	s.journey = std::move(j);
 

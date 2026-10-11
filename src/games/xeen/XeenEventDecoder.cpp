@@ -276,8 +276,8 @@ XeenEventDecodeResult XeenEventDecoder::decode(const XeenEventRecord &record,
 	}
 	case 0x05:
 		if (record.parameters.size()==4 && record.parameters[3]==2)
-			return makeError(record,context,XeenEventDecodeErrorKind::UnsupportedOperand,
-				"NPC confirmation mode 2 is not supported yet");
+			return instruction(record,context,XeenEventNpc{record.parameters[0],
+				record.parameters[1],record.parameters[2],2,0});
 		if (record.parameters.size() != 5) return wrongSize(record, context, 5);
 		return instruction(record, context, XeenEventNpc{record.parameters[0],
 			record.parameters[1], record.parameters[2], record.parameters[3], record.parameters[4]});

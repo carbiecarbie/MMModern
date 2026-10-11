@@ -31,8 +31,7 @@ bool XeenEncounterFlow::beginRest(const std::function<IndexedFrame()> &dream) {
   const auto &primary=_world.map(_camera.mapId).geometry;
   const auto surface=primary.surfaceTypes[cell->cell->surfaceIndex];
   bool navigator=false;for(auto owner:_party.party.activeRosterIds()) {
-   const auto details=_party.roster.at(owner).originalDetails();
-   navigator=navigator || (details && details->skills[10]);
+   navigator=navigator || _party.roster.at(owner).skills[10]!=0;
   }
   // doStepCode follows resetTemps, which clears levitation. Evaluate that
   // foreseeable suffix before publishing sleep, charges, food or RNG.
@@ -109,7 +108,7 @@ bool XeenEncounterFlow::serviceRest() {
     XeenConsequenceDraw draw{rest.random,64,check};if(!rest.time->service(draw))return true;
     recovery.context=rest.time->context;recovery.characters=rest.time->characters;recovery.inputs=rest.time->inputs;
    }
-   check();
+   auto exploration=_world.explorationAfterStep(_party,_camera);check();
    for(unsigned n=0;n<6;++n) {
     _party.roster.at(rest.owners[n])=recovery.characters[n];
     _party.roster._combatInputs[rest.owners[n]]=recovery.inputs[n];
@@ -120,7 +119,7 @@ bool XeenEncounterFlow::serviceRest() {
     _needsRestNotice=rest.time->needsRest;rest.time.reset();
    }
    rest.consumed=recovery.consumed;rest.starving=recovery.starving;rest.phase=P::Complete;
-   restPublication();return true;
+   session._exploredTiles.swap(exploration);restPublication();return true;
   }
   if(rest.phase==P::Charges && !_regionalWork) {
    auto candidate=std::make_unique<XeenRegionalActionCandidate>();auto &c=*candidate;

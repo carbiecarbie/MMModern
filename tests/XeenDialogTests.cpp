@@ -55,7 +55,7 @@ void rules(){
  for(unsigned r=0;r<6;++r){bytes[311+r*2]=r+1;bytes[312+r*2]=2;}
  bytes[348]=42;
  auto roster=XeenCharacterFormat::parseRoster(bytes);auto c=roster.at(0);const auto *details=c.originalDetails();
- check(details && details->skills[17]==1 && details->birthDay==7 && details->awards[0]==1 && details->awards[64]==2 && details->awards[9]==0xab && details->awards[73]==0 && details->awards[63]==3 && details->awards[127]==4,"original immutable fields offsets");
+ check(details && c.skills[17]==1 && details->birthDay==7 && details->awards[0]==1 && details->awards[64]==2 && details->awards[9]==0xab && details->awards[73]==0 && details->awards[63]==3 && details->awards[127]==4,"original immutable fields offsets");
  using R=XeenCharacterRules;const XeenCharacterRulesContext context{650};
  check(R::sheetAge(c,context)==10,"sheet age");
  check(R::skillCount(c)==2 && R::awardCount(c)==5,"skill/award counts");
@@ -83,12 +83,17 @@ void original(const char *path){
  for(unsigned i=0;i<6;++i){auto &c=p.roster.at(p.party.activeRosterIds()[i]);c.permanentLevel=3;
   const auto offset=c.rosterId*354;const auto *d=c.originalDetails();check(d,"original character metadata absent");
   for(unsigned r=0;r<6;++r)check(d->resistances[r][0]==bytes[offset+311+r*2] && d->resistances[r][1]==bytes[offset+312+r*2],"original resistance bytes");
-  for(unsigned skill=0;skill<18;++skill)check(d->skills[skill]==bytes[offset+39+skill],"original skill bytes");
+  for(unsigned skill=0;skill<18;++skill)check(c.skills[skill]==bytes[offset+39+skill],"original skill bytes");
   check(XeenCharacterRules::sheetStat(c,nullptr,0,{610})==bytes[offset+20]+bytes[offset+21],"prepared-party Might");
   auto frame=drawXeenSheet(assets.uiText(),base,font,p,i,0,false,draw);check(frame.isValid(),"original sheet layout");
   for(unsigned cell=0;cell<20;++cell)if(cell!=14)check(drawXeenPopup(frame,font,xeenSheetPopup(assets.uiText(),p,i,cell)).isValid(),"original stat popup layout");
   XeenInventorySelection selection;selection.mode=XeenInventoryMode::Browse;selection.source=i;selection.sourceOwner=c.rosterId;
   for(unsigned category=0;category<4;++category){selection.category=static_cast<XeenInventoryCategory>(category);check(drawXeenItems(assets.uiText(),base,font,catalog,p,selection,draw).isValid(),"original item layout");}
+  {const auto skills=c.skills;c.skills.fill(0);
+   const auto before=xeenSheetPopup(assets.uiText(),p,i,13).text;c.skills[4]=255;
+   const auto after=xeenSheetPopup(assets.uiText(),p,i,13).text;
+   check(after!=before && after.find(std::string(assets.uiText().table("SKILL_NAMES")[4]))!=std::string::npos,"sheet did not read mutable Cartography");
+   c.skills=skills;}
   if(c.characterClass==XeenCharacterClass::Knight || c.characterClass==XeenCharacterClass::Ranger) {
    // Compare the full title band against the same generated template without
    // the separate right-hand charges column. No literal game text is embedded.

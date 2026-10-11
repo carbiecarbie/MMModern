@@ -80,6 +80,7 @@ private:
 // Retained preparation of one existing action/pulse publication. Flow holds the
 // continuation while Approach retains sole authority to publish world deltas.
 struct XeenRegionalActionCandidate {
+	std::optional<std::vector<XeenExploredTile>> exploration;
 	XeenPartyOrder owners{};
 	XeenCamera camera;
 	XeenGameplayContext context;

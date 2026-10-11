@@ -36,7 +36,7 @@ int main(){try {
 	files["111.0bj"]=sprite(solid(200,100,7));
 	files["mount.wal"]=frames(solid(80,90,42),3);
 	// A real border draw after the scene must win at this pixel.
-	files["global.icn"]=sprite(solid(1,1,55));
+	files["global.icn"]=frames(solid(1,1,55),41);
 	archive(directory/"xeen.cc",files);
 	GameInstallation installation;installation.xeenArchive=directory/"xeen.cc";
 	installation.darkArchive=directory/"dark.cc";archive(installation.darkArchive,{{"clouds.dat",Bytes(1452)}});

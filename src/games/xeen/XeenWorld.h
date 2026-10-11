@@ -11,6 +11,7 @@
 #include "games/xeen/XeenScenePresentation.h"
 #include "games/xeen/XeenBarrierState.h"
 #include "games/xeen/XeenObjectState.h"
+#include "games/xeen/XeenExploration.h"
 #include <stdexcept>
 #include <set>
 #include <array>
@@ -60,6 +61,7 @@ public:
 	XeenReadOnlySet<XeenEventIdentity> disabledEvents() const noexcept { return XeenReadOnlySet<XeenEventIdentity>(_events); }
 	const std::vector<XeenBarrierOverride> &barriers() const noexcept { return _barriers; }
 	const std::vector<XeenObjectOverride> &objectOverrides() const noexcept {return _objectOverrides;}
+	const std::vector<XeenExploredTile> &exploredTiles() const noexcept {return _exploredTiles;}
 	bool encounterMarked() const { return _encounterMarked; }
 	XeenEncounterEntry encounterEntry() const noexcept { return _entry; }
 	bool encounterInitialized() const { return _encounterInitialized; }
@@ -104,6 +106,7 @@ private:
 	std::set<XeenEventIdentity> _events;
 	std::vector<XeenBarrierOverride> _barriers;
 	std::vector<XeenObjectOverride> _objectOverrides;
+	std::vector<XeenExploredTile> _exploredTiles;
 };
 
 class XeenWorld {
@@ -191,6 +194,10 @@ public:
 	// Detached work/startup only. Live publication belongs to Encounter/Save.
 	void setBarrier(const XeenCamera &, std::uint8_t wall, bool unlock);
 	void restoreBarriers(const std::vector<XeenBarrierOverride> &);
+	// Prepare an occupied-cell update at a stepped boundary, never while drawing.
+	std::vector<XeenExploredTile> explorationAfterStep(const XeenPartyState &,const XeenCamera &);
+	void recordExploration(const XeenPartyState &,const XeenCamera &);
+	void restoreExploredTiles(const std::vector<XeenExploredTile> &);
 	// Original Map::getCell neighbor queries, for scene observation only.
 	// Movement and mechanic admission continue to use sampleCell.
 	std::optional<XeenCellSample> sceneCell(XeenMapIdentity mapId, int x, int y);

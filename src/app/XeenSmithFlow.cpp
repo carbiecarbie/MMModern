@@ -441,8 +441,12 @@ void XeenEncounterFlow::departSmith() {
         const XeenMutableOptional<XeenGameplayContext> endingContext(day.context());
 		const XeenMutableOptional<XeenServiceEconomy> endingEconomy(day.economy());
 		const XeenMutableOptional<XeenJourneyRandomState> endingRandom(day.continuation());
+		std::vector<XeenExploredTile> exploration;
+		{XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
+			exploration=_world.explorationAfterStep(_party,_camera);_journeyPreimage->check();}
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 		prepared->retainResources(*_journeyPreimage);
+		prepared->s._exploredTiles=exploration;
 		prepared->context=day.context();prepared->economy=day.economy();
 		prepared->s._journeyRandom=day.continuation();
 		xeenValidateCurrentServiceEconomy(day.economy());
@@ -455,6 +459,7 @@ void XeenEncounterFlow::departSmith() {
         _party.encounterContext=endingContext;
         _party.serviceEconomy=endingEconomy;
         _world._sessionState._journeyRandom=endingRandom;
+        _world._sessionState._exploredTiles.swap(exploration);
         _smith->departed=true;
 		++_world._sessionState._journeyGeneration;++_generation;
 		prepared->adoptJourneyCoordination();_journeyPreimage.swap(prepared);

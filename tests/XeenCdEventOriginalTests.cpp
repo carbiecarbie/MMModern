@@ -209,7 +209,11 @@ int main(int argc,char **argv) try {
     audio(r,font);++count;++speech;
    }
    if(r.opcode==5 && r.parameters.size()==4) {
-    check(std::holds_alternative<XeenEventDecodeError>(decoded),"Four-operand NPC must refuse safely, without invented branch");++fourOperand;
+    if(r.parameters[3]==2) {
+     const auto *instruction=std::get_if<XeenDecodedEventInstruction>(&decoded);
+     check(instruction && std::get<XeenEventNpc>(instruction->operation).confirmationMode==2,"Mode-2 NPC must decode without invented branch");
+    } else check(std::holds_alternative<XeenEventDecodeError>(decoded),"Other four-operand NPC modes must refuse safely");
+    ++fourOperand;
    }
   }
   check(count==expected.speech,context+" inserted speech count");

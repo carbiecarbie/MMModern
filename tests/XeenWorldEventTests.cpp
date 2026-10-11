@@ -84,7 +84,7 @@ void rules(Inputs &in) {
  auto turned=saved;turned.objectOverrides[0].flipped=!bool(turned.objectOverrides[0].flipped);Fixture turnedRestore(in,turned,false,&city);
  check(XeenSaveFormat::encode(turnedRestore.snapshot())==XeenSaveFormat::encode(turned),"Loading reset a retained object flip");
  f.w.discardMapCache();check(f.w.effectiveObject({28,0}).x==20,"Map cache discarded durable object move");
- for(unsigned field=0;field<7;++field) {
+ for(unsigned field=0;field<8;++field) {
   Fixture tampered(in,s,false,&city);bool injected=false;
   XeenCityEventTestAccess::composer(*tampered.flow,[&](auto &world,const auto &party,const auto &,auto,auto) {
    injected=true;auto &p=const_cast<XeenPartyState &>(party);
@@ -95,6 +95,7 @@ void rules(Inputs &in) {
    if(field==3){auto &c=p.roster.at(0).currentHp;const auto hp=int(c);++c;c=hp;}
    if(field==4){auto &xp=const_cast<XeenCombatInputs &>(*p.roster.combatInputs(0)).experience;const auto value=std::uint32_t(xp);++xp;xp=value;}
    if(field==5){auto &id=p.roster.at(0).weapons[0].id;const auto value=std::uint8_t(id);id=2;id=value;}
+   if(field==7){auto &skill=p.roster.at(0).skills[4];const auto value=std::uint8_t(skill);++skill;skill=value;}
    if(field==6){auto &rng=const_cast<XeenJourneyRandomState &>(*world.sessionState().journeyRandom());const auto value=std::uint32_t(rng.state);++rng.state;rng.state=value;}
    return XeenEventFlow::Composition{frame(),false};
   });
@@ -134,6 +135,17 @@ void rules(Inputs &in) {
  const auto beforeGold=std::uint32_t(grants.monsterTreasure->gold);
  candidate->applyEventGrant(grants,34,0xffffffffu,0,true,true);
  check(grants.monsterTreasure->gold==std::uint32_t(beforeGold-1),"All-member currency applied more than once or saturated");
+ grants.roster.at(selected).skills[4]=254;
+ for(const auto expected:{255,0}) {
+  candidate->applyEventGrant(grants,13,4,0,false,true);
+  check(grants.roster.at(selected).skills[4]==expected,"Generic skill grant did not wrap its byte");
+  auto skillSave=f.snapshot();skillSave.characters[selected].skills=grants.roster.at(selected).skills;
+  Fixture restoredSkill(in,XeenSaveFormat::decode(XeenSaveFormat::encode(skillSave)),false,&city);
+  check(restoredSkill.p.roster.at(selected).skills[4]==expected,"Skill byte changed on exact restore");
+ }
+ candidate->applyEventGrant(grants,13,4,0,false,true);
+ candidate->applyEventGrant(grants,13,4,0,false,false);
+ check(!grants.roster.at(selected).skills[4] && grants.roster.at(29).skills==f.p.roster.at(29).skills,"Generic skill removal changed inactive owner");
  const auto original=candidate->effectiveObject({28,0});
  candidate->applyMoveObject({28,0},original.x,original.y);const bool flip=candidate->effectiveObjectFlip({28,0});
  candidate->applyMoveObject({28,0},original.x,original.y);
@@ -145,6 +157,66 @@ void rules(Inputs &in) {
   "Scene draw did not apply reference flip reset to off-screen object");
  auto malformed=saved;malformed.objectOverrides[0].id.recordIndex=99999;
  save_test::rejects([&]{Fixture invalid(in,malformed,false,&city);});
+}
+void teacherPrompt(Fixture &f) {
+ f.act(InteractionAction{});
+ for(unsigned n=0;n<20 && !f.flow->canCancelInteraction() && !f.flow->canSave();++n) {
+  f.now+=125;f.flow->beginCycle(++f.cycle);if(auto image=f.flow->updatePresentation())f.present(*image);
+ }
+}
+void teachers(Inputs &in) {
+ stage="M58 original teachers";
+ for(const auto teacher:std::array<std::array<unsigned,4>,2>{{{{8,16,4,100}},{{25,26,11,2000}}}}) {
+  const auto x=teacher[0],y=teacher[1],skill=teacher[2],price=teacher[3];
+  auto source=at(in,x,y);const unsigned selected=3,owner=source.activeRosterIds.at(selected);
+  source.characters[owner].skills[skill]=0;source.journey->treasure->gold=price*3;
+   if(skill==4) {source.exploredTiles.clear();for(auto &c:source.characters)c.skills[4]=0;}
+  Fixture f(in,source);const auto before=XeenSaveFormat::encode(f.snapshot());
+  const auto rng=f.w.sessionState().journeyRandom();const auto time=f.p.encounterContext;
+  teacherPrompt(f);
+  check(f.flow->canCancelInteraction() && f.flow->presenter().hasNpcOffer(),"Teacher mode2 did not continue directly to WhoWill");
+  const auto pending=XeenTrainingTestAccess::serviceState(*f.flow);
+  check(pending.pendingPresentation->request.verbIndex==6 && pending.pendingPresentation->request.textIndex==(skill==4?54:43),"Original teacher WhoWill text/verb changed");
+  const auto deadline=f.flow->presenter().npcTiming().deadline;
+  f.now=deadline;f.flow->beginCycle(++f.cycle);if(auto image=f.flow->updatePresentation())f.present(*image);
+  check(f.flow->presenter().npcTiming().deadline>deadline && f.w.sessionState().journeyRandom()==rng,"Teacher WhoWill stopped portrait animation or changed gameplay RNG");
+  const auto staleInput=f.flow->displayedInput();const auto staleFrame=f.flow->frame().presentation();
+  f.act(CancelInteractionAction{});check(f.flow->canSave() && before==XeenSaveFormat::encode(f.snapshot()),"Cancelled teacher published state");
+  f.flow->handle(SelectMemberAction{selected},staleInput,staleFrame);
+  check(before==XeenSaveFormat::encode(f.snapshot()),"Retired teacher selection spent gold or taught");
+  for(unsigned lesson=1;lesson<=2;++lesson) {
+   teacherPrompt(f);check(f.flow->canCancelInteraction(),"Repeated teacher WhoWill unavailable");
+   f.act(SelectMemberAction{selected});settle(f);
+   check(f.p.roster.at(owner).skills[skill]==lesson && f.p.monsterTreasure->gold==price*(3-lesson),"Original paid lesson debit/increment changed");
+   check(f.w.sessionState().journeyRandom()==rng && *f.p.encounterContext==*time,"Teacher changed RNG/time");
+   check(f.p.roster.at(owner).currentHp==source.characters[owner].currentHp &&
+    f.p.roster.at(owner).currentSp==source.characters[owner].currentSp &&
+    f.p.roster.at(owner).permanentLevel==source.characters[owner].permanentLevel,"Learning refilled HP/SP or trained a level");
+   for(auto other:f.p.party.activeRosterIds())if(other!=owner)
+    check(f.p.roster.at(other).skills[skill]==source.characters[other].skills[skill],"Teacher taught unselected owner");
+  }
+  const auto saved=f.snapshot();Fixture reload(in,saved);
+  check(XeenSaveFormat::encode(reload.snapshot())==XeenSaveFormat::encode(saved),"Teacher exact reload changed skill/purse");
+   if(skill==4) {
+    check(saved.exploredTiles.empty(),"Learning does not retroactively reveal earlier cells");
+    reload.act(NavigationAction::TurnRight);settle(reload);
+    const auto occupied=reload.w.sampleCell(28,x,y);
+    check(occupied && occupied->cell->stepped && reload.w.sessionState().exploredTiles().size()==1,
+     "First stepped action after Mylo records the occupied physical cell");
+   }
+  for(const auto gold:{price-1,price}) {
+   auto boundary=source;boundary.journey->treasure->gold=gold;Fixture b(in,boundary);
+   const auto preimage=XeenSaveFormat::encode(b.snapshot());
+   teacherPrompt(b);b.act(SelectMemberAction{selected});settle(b);
+   check(b.p.roster.at(owner).skills[skill]==(gold==price?1:0) && b.p.monsterTreasure->gold==(gold==price?0:gold),"Teacher gold boundary changed");
+   if(gold<price)check(preimage==XeenSaveFormat::encode(b.snapshot()),"Insufficient lesson changed durable state");
+  }
+  auto blocked=in.city;
+  for(auto &r:blocked.records)if(r.x==x && r.y==y && r.line==6)r.parameters.back()=1;
+  Fixture unsupported(in,source,false,&blocked);const auto unchanged=XeenSaveFormat::encode(unsupported.snapshot());
+  interact(unsupported);
+  check(unchanged==XeenSaveFormat::encode(unsupported.snapshot()) && unsupported.flow->canSave(),"Unsupported dependent skill spent gold or changed world/time/RNG");
+ }
 }
 void originalVisualRegressions(Inputs &in) {
  stage="original wall at 12,20 north";
@@ -473,7 +545,7 @@ int main(int argc,char **argv) {
    return 0;
   }
   std::ostringstream output;auto *saved=std::cout.rdbuf(output.rdbuf());
-  try {rules(in);treasure(in);originalVisualRegressions(in);originalEvents(in);treeFlags(in);originalJourney(in);}catch(...){std::cout.rdbuf(saved);throw;}
+  try {rules(in);teachers(in);treasure(in);originalVisualRegressions(in);originalEvents(in);treeFlags(in);originalJourney(in);}catch(...){std::cout.rdbuf(saved);throw;}
   std::cout.rdbuf(saved);
   std::cout<<"World effects, shared treasure, bounded generation, cancellation, retry and original scripts passed\n";return 0;
  }catch(const std::exception &e){std::cerr<<stage<<": "<<e.what()<<'\n';return 1;}

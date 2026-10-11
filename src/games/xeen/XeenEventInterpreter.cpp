@@ -3,6 +3,7 @@
 
 #include "games/xeen/XeenWorld.h"
 #include "games/xeen/XeenCharacterRules.h"
+#include "games/xeen/XeenSkills.h"
 
 #include <limits>
 #include <set>
@@ -161,13 +162,13 @@ std::optional<XeenEventExecutionError> preflightCityEvent(XeenWorld &world,
 			std::holds_alternative<XeenEventRemove>(op))
 			return unsupported("Event effect is not supported yet in this context");
 		if(const auto *npc=std::get_if<XeenEventNpc>(&op)) {
-			if(npc->confirmationMode!=1)return unsupported("NPC mode is not supported yet");
-			enqueue(x,y,npc->targetLine);
+			if(npc->confirmationMode!=1 && npc->confirmationMode!=2)return unsupported("NPC mode is not supported yet");
+			if(npc->confirmationMode==0)enqueue(x,y,npc->targetLine);
 		}
 		if(const auto *condition=std::get_if<XeenEventConditional>(&op)) {
-			if(condition->action!=9 && condition->action!=20 && condition->action!=44 && condition->action!=104)
+			if(condition->action!=9 && condition->action!=13 && condition->action!=99 && condition->action!=20 && condition->action!=44 && condition->action!=104)
 				return unsupported("Event condition is not supported yet");
-			if((condition->action==20 && condition->value>255) || (condition->action==44 && condition->value>1) ||
+			if(((condition->action==13 || condition->action==99) && !xeenSkillSupported(condition->value)) || (condition->action==20 && condition->value>255) || (condition->action==44 && condition->value>1) ||
 				(condition->action==104 && !XeenCloudsQuestFlags::validIndex(condition->value)))
 				return unsupported("Event condition operand is not supported yet");
 			enqueue(x,y,condition->targetLine);
@@ -178,8 +179,8 @@ std::optional<XeenEventExecutionError> preflightCityEvent(XeenWorld &world,
 		if(const auto *give=std::get_if<XeenEventTakeOrGive>(&op)) {
 			const auto neutral=[](const auto &p){return p.mode==0 && p.value==0;};
 			const auto flag=[](const auto &p){return (p.mode==20 && p.value<256) || (p.mode==104 && XeenCloudsQuestFlags::validIndex(p.value));};
-			const auto grant=[&](const auto &p){return flag(p) || (p.mode==15 && p.value<128) || p.mode==16 || p.mode==34 || p.mode==35;};
-			const auto clear=[&](const auto &p){return (flag(p) && (p.mode==104 || p.value!=0)) || (p.mode==15 && p.value>0 && p.value<128);};
+			const auto grant=[&](const auto &p){return flag(p) || (p.mode==13 && xeenSkillSupported(p.value)) || (p.mode==15 && p.value<128) || p.mode==16 || p.mode==34 || p.mode==35;};
+			const auto clear=[&](const auto &p){return (flag(p) && (p.mode==104 || p.value!=0)) || (p.mode==13 && p.value!=0 && xeenSkillSupported(p.value)) || (p.mode==34 && p.value>0) || (p.mode==15 && p.value>0 && p.value<128);};
 			if(!neutral(give->third) || !((neutral(give->first) && grant(give->second)) ||
 				(clear(give->first) && neutral(give->second))))
 				return unsupported("Dependent TakeOrGive effects are not supported yet");
@@ -543,7 +544,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 		}
 		const auto *npc = std::get_if<XeenEventNpc>(&decoded.operation);
 		if (npc) {
-			if (npc->confirmationMode != 1)
+			if (npc->confirmationMode != 1 && npc->confirmationMode != 2)
 				return error(XeenEventExecutionErrorKind::UnsupportedOperand,
 					"NPC confirmation mode " + std::to_string(npc->confirmationMode) + " is unsupported",
 					instructionCount, logical, decoded.source);
@@ -588,7 +589,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 
 			XeenPresentationRequest request;
 			request.kind = npc ? XeenPresentationKind::NpcAcknowledgment : who ? XeenPresentationKind::CharacterSelection : presentationKind(display->kind);
-			request.response = npc ? XeenPresentationResponseRequirement::Acknowledgment : who ? XeenPresentationResponseRequirement::CharacterSelection : display->kind ==
+			request.response = npc ? (npc->confirmationMode==2 ? XeenPresentationResponseRequirement::Presented : XeenPresentationResponseRequirement::Acknowledgment) : who ? XeenPresentationResponseRequirement::CharacterSelection : display->kind ==
 				XeenEventDisplayKind::BottomWindowTwoLines ?
 				XeenPresentationResponseRequirement::Acknowledgment :
 				XeenPresentationResponseRequirement::Presented;
@@ -781,12 +782,22 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			const bool grant=neutral(takeOrGive->first) && neutral(takeOrGive->third);
 			const bool clear=neutral(takeOrGive->second) && neutral(takeOrGive->third);
 			const auto pair=grant?takeOrGive->second:takeOrGive->first;
-			if(clear && pair.mode==20 && pair.value==0)return error(XeenEventExecutionErrorKind::UnsupportedOperationMode,
+			if(clear && (pair.mode==20 || pair.mode==34 || pair.mode==13) && pair.value==0)return error(XeenEventExecutionErrorKind::UnsupportedOperationMode,
 				"TakeOrGive HowMuch is not supported yet",instructionCount,logical,decoded.source);
-			if((grant && (pair.mode==15 || pair.mode==16 || pair.mode==34 || pair.mode==35)) ||
-				(clear && pair.mode==15 && pair.value!=0)) {
+			if((grant || clear) && pair.mode==13 && !xeenSkillSupported(pair.value))
+				return error(XeenEventExecutionErrorKind::UnsupportedOperationMode,"Skill is not supported yet",instructionCount,logical,decoded.source);
+			if((grant && (pair.mode==13 || pair.mode==15 || pair.mode==16 || pair.mode==34 || pair.mode==35)) ||
+				(clear && (pair.mode==13 || pair.mode==34 || (pair.mode==15 && pair.value!=0)))) {
 				if(!world.detachedEventCandidate())return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
 					"Event reward publication is not supported yet in this context",instructionCount,logical,decoded.source);
+				if(clear && pair.mode==34 && (!partyState.monsterTreasure || partyState.monsterTreasure->gold<pair.value)) {
+					XeenPresentationRequest request;
+					request.kind=XeenPresentationKind::CenteredMessage;
+					request.response=XeenPresentationResponseRequirement::Acknowledgment;
+					request.mapId=logical.mapId;request.source=decoded.source;
+					state.pendingPresentation=XeenEventPendingPresentation{request,XeenEventPendingContinuation::Terminate,{}};
+					return XeenEventExecutionSuspended{state,request};
+				}
 				world.applyEventGrant(partyState,pair.mode,pair.value,state.activeCharacterIndex,state.entireParty,grant);
 				++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
 			}
@@ -934,6 +945,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				return XeenEventExecutionSuspended{state, request};
 			}
 			std::uint32_t actual = 0;
+			std::optional<bool> selectionComparison;
 			if (conditional->action == 9) {
 				if (!partyState.party.size()) {
 					return error(XeenEventExecutionErrorKind::EmptyParty,
@@ -945,6 +957,26 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 						"active character context is outside the party", instructionCount, logical, decoded.source);
 				actual = static_cast<std::uint32_t>(
 					partyState.party.member(partyState.roster, *state.activeCharacterIndex).currentSp);
+			} else if (conditional->action == 13 || conditional->action == 99) {
+				if(!xeenSkillSupported(conditional->value))
+					return error(XeenEventExecutionErrorKind::UnsupportedConditionAction,"Skill effect is not supported yet",instructionCount,logical,decoded.source);
+				if(conditional->action==99)
+					actual=xeenPartyHasSkill(partyState,conditional->value)?conditional->value:std::numeric_limits<std::uint32_t>::max();
+				else {
+					if(!state.activeCharacterIndex || *state.activeCharacterIndex>=partyState.party.size())
+						return error(XeenEventExecutionErrorKind::EmptyParty,"Skill test requires a selected character",instructionCount,logical,decoded.source);
+					const auto &member=partyState.party.member(partyState.roster,*state.activeCharacterIndex);
+					actual=member.skills[conditional->value]?conditional->value:0;
+					if(state.entireParty) {
+						bool matches=false;
+						for(std::size_t i=0;i<partyState.party.size();++i) {
+							const auto value=partyState.party.member(partyState.roster,i).skills[conditional->value]?
+								conditional->value:0;
+							matches=matches || compare(value,conditional->value,conditional->comparison);
+						}
+						selectionComparison=matches;
+					}
+				}
 			} else if (conditional->action == 20) {
 				if (conditional->value > 255) {
 					return error(XeenEventExecutionErrorKind::InvalidFlagIndex,
@@ -983,7 +1015,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 					instructionCount, logical, decoded.source);
 			}
 
-			if (compare(actual, conditional->value, conditional->comparison)) {
+			if (selectionComparison.value_or(compare(actual, conditional->value, conditional->comparison))) {
 				logical.line = conditional->targetLine;
 				missingPolicy = MissingInstructionPolicy::ExplicitJump;
 				pendingTransferSource = decoded.source;

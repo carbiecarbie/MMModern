@@ -3,6 +3,8 @@
 #include "compat/scummvm/ScummVmXeenBridge.h"
 #include "games/xeen/XeenObjectVisual.h"
 #include <stdexcept>
+#include <algorithm>
+#include <cstdio>
 
 namespace mmodern {
 
@@ -41,6 +43,17 @@ const XeenDosText &XeenAssetSource::uiText() {
   _impl->text=std::move(parsed);
  }
  return *_impl->text;
+}
+std::string XeenAssetSource::mapName(XeenMapIdentity mapId) {
+ if(!mapId || mapId.number>9999)throw std::invalid_argument("Invalid map name identity");
+ char name[16];
+ std::snprintf(name,sizeof(name),mapId.number>=100?"%sx%03u.txt":"%s%04u.txt",
+     mapId.side==XeenSide::Clouds?"xeen":"dark",unsigned(mapId.number));
+ const auto bytes=readArchiveResource(name,XeenSceneArchive::DarksideOnly);
+ const auto limit=bytes.begin()+std::min<std::size_t>(bytes.size(),32);
+ const auto end=std::find(bytes.begin(),limit,0);
+ if(end==bytes.end() && bytes.size()<32)throw std::runtime_error("Unterminated map name resource");
+ return std::string(bytes.begin(),end);
 }
 IndexedFrame XeenAssetSource::cursorImage() { return _impl->bridge.cursorImage(); }
 IndexedFrame XeenAssetSource::cursorImage(XeenSceneArchive selection) { return _impl->bridge.cursorImage(selection); }

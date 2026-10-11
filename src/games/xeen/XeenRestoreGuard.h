@@ -87,7 +87,7 @@ public:
 			live._entry != s._entry || live._encounterMarked != s._encounterMarked ||
 			live._encounterInitialized != s._encounterInitialized || live._encounterTerminal != s._encounterTerminal ||
 			live._encounterRevision != s._encounterRevision || live._objects != s._objects || live._events != s._events ||
-			live._actors.size() != s._actors.size() || live._barriers != s._barriers || live._objectOverrides!=s._objectOverrides ||
+			live._actors.size() != s._actors.size() || live._barriers != s._barriers || live._objectOverrides!=s._objectOverrides || live._exploredTiles!=s._exploredTiles ||
 			bool(live._vertigoActors) != bool(s._vertigoActors)) return false;
 		for (std::size_t i = 0; i < characters.size(); ++i) {
 			if (!sameCharacter(p.roster.characters()[i], characters[i]) ||
@@ -350,10 +350,10 @@ private:
 		check();candidate.check();
 		auto retainedTreasure=candidate.treasure;
 		if(retainedTreasure && treasure) {retainedTreasure->gold=treasure->gold;retainedTreasure->gems=treasure->gems;}
-		// Event capabilities permit inventories, awards, XP, purse, retained RNG, quest/camera/game flags
+		// Event capabilities permit inventories, awards, skills, XP, purse, retained RNG, quest/camera/game flags
 		// and World overlays/Spawn. All other inputs retain their preimages.
 		if(candidate.membership!=membership || candidate.quests!=quests || candidate.marked!=marked ||
-			candidate.s._barriers!=s._barriers ||
+			candidate.s._barriers!=s._barriers || candidate.s._exploredTiles!=s._exploredTiles ||
 			candidate.recovery!=recovery || !(candidate.context==context) || retainedTreasure!=treasure ||
 			candidate.food!=food || candidate.economy!=economy || candidate.first!=first || candidate.effective!=effective ||
 			candidate.diagnostics!=diagnostics || bool(candidate.s._journeyRandom)!=bool(s._journeyRandom)) {
@@ -361,6 +361,7 @@ private:
 		}
 		for(unsigned owner=0;owner<characters.size();++owner) {
 			auto retainedCharacter=candidate.characters[owner];retainedCharacter.awards=characters[owner].awards;
+			retainedCharacter.skills=characters[owner].skills;
 			retainedCharacter.weapons=characters[owner].weapons;retainedCharacter.armor=characters[owner].armor;
 			retainedCharacter.accessories=characters[owner].accessories;retainedCharacter.miscellaneous=characters[owner].miscellaneous;
 			auto retainedInputs=candidate.inputs[owner];
@@ -401,6 +402,7 @@ private:
 		s._objectOverrides.swap(overrides);
 		for(unsigned owner=0;owner<characters.size();++owner) {
 			characters[owner].awards=candidate.characters[owner].awards;
+			characters[owner].skills=candidate.characters[owner].skills;
 			characters[owner].weapons=candidate.characters[owner].weapons;characters[owner].armor=candidate.characters[owner].armor;
 			characters[owner].accessories=candidate.characters[owner].accessories;characters[owner].miscellaneous=candidate.characters[owner].miscellaneous;
 			if(inputs[owner])inputs[owner]->experience=candidate.inputs[owner]->experience;
@@ -431,7 +433,7 @@ private:
 	}
 	static std::size_t mutationRangeCapacity(const std::map<XeenMapIdentity,XeenMap> &mapValues,
 			const std::map<XeenMapIdentity,XeenObjectFile> &objectValues) {
-		std::size_t count=10+4*objectValues.size();
+		std::size_t count=11+4*objectValues.size();
 		for(const auto &entry:mapValues) count+=5+entry.second.instructions.size();
 		return count;
 	}
@@ -447,6 +449,7 @@ private:
 		mutations.add(w._cityStatistics.data(),w._cityStatistics.size()*sizeof(XeenMonsterRecord));
 		mutations.add(w._sessionState._barriers.data(),w._sessionState._barriers.size()*sizeof(XeenBarrierOverride));
 		mutations.add(w._sessionState._objectOverrides.data(),w._sessionState._objectOverrides.size()*sizeof(XeenObjectOverride));
+		mutations.add(w._sessionState._exploredTiles.data(),w._sessionState._exploredTiles.size()*sizeof(XeenExploredTile));
 		watchResourceMutations();
 	}
 	void watchResourceMutations() const noexcept {

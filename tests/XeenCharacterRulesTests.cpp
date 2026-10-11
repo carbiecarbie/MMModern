@@ -1,4 +1,5 @@
 #include "games/xeen/XeenCharacterRules.h"
+#include "games/xeen/XeenSkills.h"
 
 #include <array>
 #include <cstddef>
@@ -70,7 +71,7 @@ void testHpClassesRacesSkillsAndLevel() {
 	}
 
 	XeenCharacter character = basicCharacter();
-	character.maxStatSkills.bodybuilder = true;
+	character.skills[3] = true;
 	character.permanentLevel = 3;
 	checkEqual(XeenCharacterRules::maxHp(character, kContext), 33,
 		"Bodybuilder must add one HP per level");
@@ -402,15 +403,15 @@ void testSpRacesAndSkills() {
 	XeenCharacter character = basicCharacter();
 	character.hasSpells = true;
 	character.characterClass = XeenCharacterClass::Sorcerer;
-	character.maxStatSkills.prestidigitation = true;
+	character.skills[13] = true;
 	checkEqual(XeenCharacterRules::maxSp(character, kContext), 5,
 		"Prestidigitation bonus");
 	character.characterClass = XeenCharacterClass::Cleric;
-	character.maxStatSkills.prayerMaster = true;
+	character.skills[12] = true;
 	checkEqual(XeenCharacterRules::maxSp(character, kContext), 5,
 		"Prayer Master bonus");
 	character.characterClass = XeenCharacterClass::Druid;
-	character.maxStatSkills.astrologer = true;
+	character.skills[2] = true;
 	checkEqual(XeenCharacterRules::maxSp(character, kContext), 5,
 		"Astrologer Druid bonus on both passes");
 	character.characterClass = XeenCharacterClass::Ranger;
@@ -421,8 +422,8 @@ void testSpRacesAndSkills() {
 	XeenCharacter fromTwo = basicCharacter();
 	fromOne.characterClass = fromTwo.characterClass = XeenCharacterClass::Sorcerer;
 	fromOne.hasSpells = fromTwo.hasSpells = true;
-	fromOne.maxStatSkills.prestidigitation = std::uint8_t{1} != 0;
-	fromTwo.maxStatSkills.prestidigitation = std::uint8_t{2} != 0;
+	fromOne.skills[13] = std::uint8_t{1} != 0;
+	fromTwo.skills[13] = std::uint8_t{2} != 0;
 	checkEqual(XeenCharacterRules::maxSp(fromOne, kContext),
 		XeenCharacterRules::maxSp(fromTwo, kContext),
 		"serialized skill values one and two must have identical boolean effect");
@@ -446,10 +447,40 @@ void testConditionSentinels() {
   }
  }
 }
+void testMutableSkills() {
+ auto c=basicCharacter();c.currentHp=3;c.currentSp=2;c.skills[3]=254;
+ const auto hp=XeenCharacterRules::maxHp(c,kContext);
+ checkEqual(xeenGrantSkill(c,3),true,"supported grant");checkEqual(c.skills[3],255,"254 -> 255");
+ checkEqual(XeenCharacterRules::maxHp(c,kContext),hp,"skill count is presence for maximum HP");
+ checkEqual(xeenGrantSkill(c,3),true,"wrapping grant");checkEqual(c.skills[3],0,"255 -> 0");
+ checkEqual(c.currentHp,3,"learning must not refill HP");checkEqual(c.currentSp,2,"learning must not refill SP");
+ checkEqual(xeenGrantSkill(c,4),true,"Cartography grant");checkEqual(xeenRemoveSkill(c,4),true,"Cartography removal");
+ checkEqual(c.skills[4],0,"removal clears counter");
+ const auto before=c.skills;checkEqual(xeenGrantSkill(c,17),false,"unsupported grant");
+ checkEqual(xeenRemoveSkill(c,17),false,"unsupported removal");checkEqual(c.skills==before,true,"unsupported mutation");
+ XeenPartyState p;p.party=XeenParty::fromRosterIds({0,1,2});
+ p.roster.at(29).skills[4]=1;checkEqual(xeenPartyHasSkill(p,4),false,"inactive holder");
+ p.roster.at(0).skills[4]=1;p.roster.at(0).conditions[13]=1;
+ checkEqual(xeenPartyHasSkill(p,4),true,"dead holder still counts");
+ for(unsigned skill:{9u,11u}) {
+  p.roster.at(0).skills[skill]=255;checkEqual(xeenPartyHasSkill(p,skill),false,"two-holder skill with one");
+  p.roster.at(1).skills[skill]=1;p.roster.at(1).conditions[12]=1;
+  checkEqual(xeenPartyHasSkill(p,skill),true,"two-holder skill conditions ignored");
+ }
+ for(unsigned skill:{5u,14u}) {
+  p.roster.at(0).skills[skill]=p.roster.at(1).skills[skill]=1;
+  checkEqual(xeenPartyHasSkill(p,skill),false,"all-holder skill with missing member");
+  p.roster.at(2).skills[skill]=1;checkEqual(xeenPartyHasSkill(p,skill),true,"all holders");
+ }
+ p.party=XeenParty::fromRosterIds({});checkEqual(xeenPartyHasSkill(p,4),false,"empty party fails");
+ checkEqual(xeenPartyHasSkill(p,18),false,"invalid skill fails");
+}
+
 } // namespace
 
 int main() {
 	try {
+		testMutableSkills();
 		testHpClassesRacesSkillsAndLevel();
 		testStatBonusBoundaries();
 		testAgeAndTemporaryAttributes();

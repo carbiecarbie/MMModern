@@ -65,6 +65,7 @@ public:
 	std::function<std::string()> tavernFoodOffer;
 	std::function<void(IndexedFrame &)> drawCombatButtons;
 	XeenDialogSpriteDraw drawDialogSprite;
+	std::function<std::string(XeenMapIdentity)> mapName;
  // Borrowed from the existing asset owner, before any dialog is presented.
  const XeenDosText *dialogText = nullptr;
  const XeenDosText &dosText() const {
@@ -288,8 +289,10 @@ private:
 		std::uint64_t deadline=0;
 	};
 	std::optional<CharacterSheetUi> _sheet;
-	enum class SummaryDialog { QuickReference, Info };
+	enum class SummaryDialog { QuickReference, Info, Map };
 	std::optional<SummaryDialog> _summary;
+	std::uint64_t _mapPhase=0,_mapDeadline=0;
+	std::string _mapName;
 	bool _exchange=false;
 	std::optional<std::size_t> _quickFightMember;
 	std::size_t _quickFightHighlight=0;

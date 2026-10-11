@@ -23,14 +23,15 @@ public:
 
 class XeenSaveFormat {
 public:
-	// M54 adds CRC-covered, bounded display-name metadata.
-	static constexpr std::uint16_t kJourneyVersion = 9;
+	// M58 retains all eighteen skill bytes and physical explored-tile bitsets.
+	static constexpr std::uint16_t kJourneyVersion = 10;
 	static constexpr std::uint16_t kJourneySchema = 9;
 	static constexpr std::uint16_t kJourneyContent = 14;
 	static constexpr std::size_t kHeaderSize = 20;
 	static constexpr std::size_t kMaximumSize = 4 * 1024 * 1024;
 	static constexpr std::size_t kMaximumObjects = 65536;
 	static constexpr std::size_t kMaximumEvents = 262144;
+	static constexpr std::size_t kMaximumExploredTiles = 512;
 
 	// Throws before returning a value on malformed input. No live state access.
 	static XeenSaveSnapshot decode(const std::vector<std::uint8_t> &bytes);
