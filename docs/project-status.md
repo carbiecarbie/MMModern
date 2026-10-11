@@ -1,26 +1,12 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M55 is the latest completed
-milestone** ([plan](milestone-55-plan.md)): Strafe, Exchange, Quick
-Reference, Info and Quick Fight work as in DOS, by mouse and keyboard. M54
-([plan](milestone-54-plan.md)) opened the game on the original title screen,
-with New, Load and the in-game control panel (Save, Save As, Load, Quit) and
-ten save slots. M53
-([plan](milestone-53-plan.md)) moved to the World of Xeen CD talkie edition,
-the project's only reference edition, and its DOS interface text. M52 ([plan](milestone-52-plan.md)) started a new game from the
-original initialization in Vertigo, in either difficulty. M51
-([plan](milestone-51-plan.md)) added Rest, food and daily time. M50 ([plan](milestone-50-plan.md)) made the whole town
-of Vertigo playable, with Bash, unlocking and indoor Shoot. M49 ([plan](milestone-49-plan.md)) made monster targeting, damage at missile
-impact and turning in combat follow the original. M48
-([plan](milestone-48-plan.md)) made scene and combat presentation generic for
-all Clouds content, with the original keys and cursor. M47 ([plan](milestone-47-plan.md)) brought the original character
-sheet, items dialog and service dialogs. M46
-([plan](milestone-46-plan.md)) made the original main screen clickable. M45 ([plan](milestone-45-plan.md)) made keyboard input reliable and
-removed integrity failures from on-demand resource loading. M44
-([plan](milestone-44-plan.md)) left one save format and one Journey
-configuration. Direction is in the
-[roadmap](roadmap.md); completed work is in [project history](project-history.md).
-Build and dependency setup is in [dependencies](dependencies.md).
+This describes what can be played and done now. **M56 is the latest completed
+and accepted milestone** ([plan](milestone-56-plan.md)): buy food at the Tavern
+and deposit or withdraw gold and gems at the Bank through the original screens.
+The original title, save slots, main screen, character dialogs, Rest and combat
+remain available. Direction is in the [roadmap](roadmap.md); completed work is in
+[project history](project-history.md). Build and dependency setup is in
+[dependencies](dependencies.md).
 
 MMModern aims to be a faithful reimplementation of the original games; any
 approved deviation is noted where it applies. It is not yet a general
@@ -102,10 +88,21 @@ the original text panel, and buttons work by mouse or key.
 - **Temple** (Space at `(15,28)`): Heal and resurrection at original prices for a
   selected member, including Unconscious or Dead ones. Conditions are cleared
   and HP restored; SP and equipment are not touched.
+- **Tavern** (Space at `(24,5)`): Food (F) offers a refill to 15 food per
+  active member for a flat 10 carried gold. Full or overfull packs cost nothing
+  and are not reduced; insufficient gold gives the original refusal. No/Escape
+  cancels, and the selected member's condition does not prevent buying food.
+- **Bank** (Space at `(26,17)`): D/W selects deposit/withdrawal, then O/E
+  selects gold/gems. Enter up to ten digits, edit with Backspace/Delete and
+  confirm with Enter. Zero, empty input and cancellation transfer nothing;
+  an exact balance is allowed, excess is refused without a partial transfer.
+  Escape backs out one level. Mouse buttons perform the same actions.
 - **Time.** Each service visit costs a departure day (two after a paid Temple
   Heal). Training adds a day per newly trained member. Merchant stock
   regenerates and bank interest is applied on the original schedule, with
-  exact random-number continuation.
+  exact random-number continuation. Food and Bank transactions add no separate
+  time; departure still costs a day without a transaction. Scheduled 1% bank
+  interest uses the final balances once, after stock generation.
 
 ### Rest, food and time
 
@@ -118,7 +115,7 @@ the original text panel, and buttons work by mouse or key.
   sleeps; the Rest stops without recovery, and members who were not hit stay
   asleep until a completed Rest or Awaken.
 - **Food** starts at the original 90 and is shown on the character sheet.
-  There is no way to buy more yet.
+  The Tavern refills it after Rest or other consumption.
 - **Days and years.** Time runs without limit: conditions change on the
   original eight-hour schedule, each dawn without rest shows the original
   message and can make members Weak, the sky darkens at night, and ages
@@ -130,11 +127,13 @@ Tab or the gem opens the original control panel when nothing else is open:
 **Save** writes the current game's slot (chosen by New, Load or the last Save
 As), **Save As** picks a slot and a new name, **Load** replaces the running
 game with a saved one, and **Quit** asks for confirmation. Saving is refused in
-combat and on maps that forbid it. Efx, Music, Speech, Text and Mr Wizard say
+combat and on maps that forbid it. Saving and the control panel are unavailable
+throughout service visits, including confirmation and amount entry, until the
+party returns to exploration. Efx, Music, Speech, Text and Mr Wizard say
 "not supported yet". Slots live under Local AppData (`MMModern/Saves/`); a
 damaged or foreign slot file is shown as unavailable and never overwritten.
 Loading continues exactly: positions, wounds, casualties,
-conditions, treasure, items, levels, purchases, merchant and bank state, quest
+conditions, food, treasure, items, levels, purchases, merchant and bank state, quest
 progress and the random sequence. Nothing is replayed: no events, rewards,
 time or combat.
 
@@ -149,6 +148,9 @@ time or combat.
 | A | Attack in combat |
 | Enter | Confirm (transfer, cast, purchase, Training, Temple); acknowledge |
 | Y / N | Yes / No |
+| F in the Tavern | Buy food |
+| D / W in the Bank, then O / E | Deposit / Withdraw, then Gold / Gems |
+| Digits, Backspace/Delete, Enter in Bank amount entry | Enter up to ten digits, edit, confirm; Escape cancels |
 | F1-F6 | Open the character sheet; in dialogs choose a member (item recipient, WhoWill, spell or healing target) |
 | 1-9 | Select an item or stock row; 1-3 pick a combat target |
 | . | Wait |
@@ -254,12 +256,15 @@ Ownership, from state outward:
   calendar and the world random state.
 - **Rules** (pure, in `games/xeen`): combat (`XeenCombat` and its rules),
   actor approach, monster treasure, equipment and purchase, Training, Temple
-  Heal, learned spells, antidotes, service days and regional movement.
+  Heal, Food, Bank transfers, learned spells, antidotes, service days and
+  regional movement.
 - **Events**: `XeenEventSystem` decodes and runs the original Event scripts;
-  unsupported opcodes refuse visibly.
+  supported preludes publish once before terminal town services; unsupported
+  dependent effects refuse visibly without publishing a partial prelude.
 - **Flows** (`app`): `XeenEventFlow` is the gameplay session coordinator and
   presenter for input, dialogs and inventory. `XeenEncounterFlow` hosts the
-  Journey: encounters, combat, Smith, Training, Temple, casting and consequences.
+  Journey: encounters, combat, Smith, Training, Temple, Tavern, Bank, casting
+  and consequences.
   `XeenNavigationFlow` handles movement. `Application` wires resources, SDL and
   the entry modes.
 - **Save** (`XeenSaveState`, `XeenSaveFormat`, `XeenSaveFile`): captures a value
@@ -285,13 +290,12 @@ instructions are in [dependencies](dependencies.md).
 
 ## Known gaps
 
-- **Start and saves.** Food cannot be bought (Tavern) yet. The intros, audio
-  and Mr Wizard's help are not available.
+- **Start and saves.** The intros, audio and Mr Wizard's help are not available.
 - **Areas.** Only the map-23 mainland and Vertigo are playable. Other maps
   appear only through `--render-map`, without save support. Run refuses
   indoors.
-- **Missing services.** The bank menu, Inn, Tavern and Guild spell purchase do
-  not exist; the Temple handles only the modeled conditions.
+- **Missing services.** Inn/recruitment and Guild spell purchase are not
+  available; the Temple handles only the modeled conditions.
 - **Items and magic.** There is no general item use. Item effects, most spells
   and most monster abilities are missing; Light and other learned spells are
   visible but cannot be cast. Treasure Events (GiveMulti, chests), moving
@@ -301,7 +305,8 @@ instructions are in [dependencies](dependencies.md).
   no audio: where the CD plays speech, a short notice appears and the scene
   continues. Event, casting and treasure screens still use project layouts.
 - **Services.** Sell, Identify, buying Accessories/Misc, Fix of non-armor
-  items, Temple Donation and Uncurse show "not supported yet".
+  items, Temple Donation and Uncurse, and Tavern Drink, Tip, Rumors and Sign In
+  show "not supported yet".
 - **Combat items.** Equipping during combat and the combat Use button are not
   supported yet (the original allows both).
 - **Rest details.** Resting on unsupported terrain (lava, sky, cloud, space)

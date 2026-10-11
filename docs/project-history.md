@@ -196,3 +196,11 @@ barriers and treasure follow the new order, and Quick Fight runs each
 member's configured action with the original Options dialog, all by mouse and
 keyboard. Save v8 stores each character's quick action and remembered spell.
 [Plan](milestone-55-plan.md).
+
+**M56 - Food and bank** (`cf4c9a9`). The Tavern refills party food for the
+original flat price, with full packs free; the Bank deposits and withdraws
+gold or gems through the original screens and ten-digit amount entry.
+Supported Event preludes run and publish once before terminal town services;
+one-day departures apply scheduled interest to final balances without
+rerolling stock. Save v8 and all M44 digests are unchanged. Maintainer play-test
+accepted. [Plan](milestone-56-plan.md).

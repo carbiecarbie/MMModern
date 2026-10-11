@@ -16,9 +16,9 @@ original games.
 A new Clouds game starts as in the original, in Vertigo, and the playable area
 is the whole town and the connected mainland of map 23. You can fight, run, bash and
 unlock grates and doors, cast learned spells, finish Myra's quest, rest with
-food and recovery, and use the Ironworks (Buy and Armor Repair), Training and
-the Temple. Progress can be saved and continued exactly. The original main
-screen, character sheet, Items dialog and service screens work with mouse or
+food and recovery, buy food at the Tavern, deposit or withdraw gold and gems
+at the Bank, and use the Ironworks (Buy and Armor Repair), Training and the
+Temple. Progress can be saved and continued exactly. The original main screen, character sheet, Items dialog and service screens work with mouse or
 keyboard, and the game starts on the original title screen with New, Load and
 the in-game Save, Save As, Load and Quit. The party can strafe, exchange
 members and use Quick Reference, Info and Quick Fight. Other areas, buying
@@ -110,6 +110,9 @@ Floppy-bound saves are rejected before restoration with a data-edition diagnosti
 | B / S / I / F in the Smith Items dialog | Buy / Sell / Identify / Fix; rows open Y/N Confirm |
 | T in Training | Train the selected member immediately |
 | H / D / U in the Temple | Heal / Donation / Uncurse |
+| F in the Tavern | Buy food; Y/N confirms or cancels |
+| D / W in the Bank, then O / E | Deposit / Withdraw, then Gold / Gems |
+| Digits, Backspace/Delete, Enter in Bank amount entry | Enter up to ten digits, edit, confirm; Escape cancels |
 | Tab | Control panel: Save, Save As, Load, Quit |
 | F9 | Save to the developer `--save-file` target |
 | Escape | Back, cancel or acknowledge; quit when nothing is open |

@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M55 is the latest completed and accepted milestone.**
+**M56 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -23,23 +23,27 @@ rules, M50 admitted the whole of Vertigo, M51 added Rest, food and daily time,
 M52 started the original new game, M53 moved to the CD edition's data (the
 single reference edition), M54 brought the original title screen and saves,
 and M55 closed small interface gaps (Strafe, Exchange, Quick Reference, Info,
-Quick Fight).
+Quick Fight). M56 added Tavern food and Bank transfers, with generic terminal
+Event-to-Service handoff for supported preludes.
 
 ## Next milestones: closing Vertigo for a first public release
 
 <a id="near-term"></a><a id="deferred-presentation-work"></a>
 
-**Direction, not an approved plan.** A direction investigation (2026-10-10)
-inventoried everything the original offers in Vertigo and on the map-23
+**Remaining steps are direction, not approved plans.** A direction investigation
+(2026-10-10) inventoried everything the original offers in Vertigo and on the map-23
 mainland. The maintainer chose to close **Vertigo** (the city, logical map 28)
 and then publish: Vertigo complete or nearly so, the mainland reachable at its
 current progress and the rest of the world not yet started. The order, scope
-and split below may change with DOSBox evidence and play-testing; each step
+and split below may change with DOSBox evidence and play-testing; each remaining step
 still needs its own plan and the maintainer's start.
 
 1. **DOSBox evidence session** (maintainer): Joe's proof and Gunther's reward,
-   trees, the well, display cases and jail, teacher prices, food and bank.
-2. **Food and bank** (Tier B): buy food at the Tavern; deposit and withdraw.
+   trees, the well, display cases and jail, and teacher prices. Food and Bank
+   evidence was settled for M56.
+2. **Food and bank** (Tier A): completed and accepted in [M56](milestone-56-plan.md).
+   Tavern food and Bank deposits/withdrawals use the original interface;
+   supported Event preludes run before terminal service admission.
 3. **Generic Event effects and world state** (Tier A, probably split): moving
    and turning objects, rewards to the party (XP, gold, gems, items through the
    common treasure generation and RNG), durable awards and flags. Joe's proof
