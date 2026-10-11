@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M58 is the latest completed and accepted milestone.**
+**M59 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -26,7 +26,8 @@ and M55 closed small interface gaps (Strafe, Exchange, Quick Reference, Info,
 Quick Fight). M56 added Tavern food and Bank transfers, with generic terminal
 Event-to-Service handoff for supported preludes. M57 added generic Event effects
 (moving objects, XP, awards, flags, currency and generated treasure), and M58
-skills and mapping (teachers, Cartography, automap and Map).
+skills and mapping (teachers, Cartography, automap and Map). M59 completed city
+searches, display cases and jail, the well, Vern's membership and Guild entry.
 
 ## Next milestones: closing Vertigo for a first public release
 
@@ -40,9 +41,10 @@ current progress and the rest of the world not yet started. The order, scope
 and split below may change with DOSBox evidence and play-testing; each remaining step
 still needs its own plan and the maintainer's start.
 
-1. **DOSBox evidence session** (maintainer): Joe's proof and Gunther's reward,
-   trees, the well, display cases and jail, and teacher prices. Food and Bank
-   evidence was settled for M56.
+1. **DOSBox evidence sessions** (maintainer): evidence used in M56-M59 covers
+   Food/Bank, Joe/Gunther, trees, teachers, the well, display cases/jail and
+   Vern/Guild. Retained reference-defined edges are documented in
+   [original quirks](original-quirks.md).
 2. **Food and bank** (Tier A): completed and accepted in [M56](milestone-56-plan.md).
    Tavern food and Bank deposits/withdrawals use the original interface;
    supported Event preludes run before terminal service admission.
@@ -53,9 +55,11 @@ still needs its own plan and the maintainer's start.
 4. **Skills and mapping** (Tier A): completed and accepted in
    [M58](milestone-58-plan.md). Mylo and Rialdo teach, skills come from one
    character state, and Cartography feeds the automap and Map.
-5. **Vertigo content** (Tier B): remaining chests, beds, rubbish, display cases
-   and jail, the well (AlterHed, typed Damage, healing), guild membership (Vern), signs and talk, through the
-   systems above rather than per-cell handling.
+5. **Vertigo content** (Tier A): completed and accepted in
+   [M59](milestone-59-plan.md), Parts A and B. Generic year advance, typed damage
+   and head/world-flag state support display cases, jail and the well; city
+   searches, Vern and Guild entry work through the shared owners. Guild spell
+   actions remain deferred to step 6.
 6. **Magic** (Tier A): the original Cast dialog by mouse and keyboard, guild
    spell purchase with the original catalogue, and four new effects (Wizard
    Eye, Shrapmetal, Energy Blast, Jump); unimplemented spells say "not

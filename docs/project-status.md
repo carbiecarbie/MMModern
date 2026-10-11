@@ -1,12 +1,11 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M58 is the latest completed
-and accepted milestone** ([plan](milestone-58-plan.md)): characters learn skills
-from Mylo and Rialdo, and Cartography records explored cells for the original
-automap and Map. M57 ([plan](milestone-57-plan.md)) made Events move objects and
-reward XP, awards, gold, gems and generated treasure, so Joe's proof, Gunther's
-reward, searchable crates and the trees work. M56 ([plan](milestone-56-plan.md))
-added buying food at the Tavern and the Bank.
+This describes what can be played and done now. **M59 is the latest completed
+and accepted milestone** ([plan](milestone-59-plan.md)): display cases, jail,
+the well, city searches, Vern's guild membership and Guild entry work.
+M58 ([plan](milestone-58-plan.md)) added teachers, skills and Cartography for
+the original automap and Map. M57 added shared Event rewards and object changes;
+M56 added Tavern food and Bank transfers.
 The original title, save slots, main screen, character dialogs, Rest and combat
 remain available. Direction is in the [roadmap](roadmap.md); completed work is in
 [project history](project-history.md). Build and dependency setup is in
@@ -77,14 +76,30 @@ under the original rules.
   grate or door asks who will pick the lock, with the original trap, Thievery
   roll and XP. Opened barriers stay open across saves.
 - **Events.** Signs, NPC conversations and other supported Events work
-  anywhere in town. Fountains, the magic mirror, trap teleports, the well,
-  display cases and locked chests show "not supported yet".
+  anywhere in town, with original text, directions and proof-dependent branches.
+  The magic mirror remains unsupported.
+- **Display cases and jail.** A selected member with positive Thievery takes
+  generated treasure without a lockpick roll or XP. A member with zero Thievery
+  sends the active party to jail at `(27,11)` with Convicted Thief and a one-year penalty.
+  Day/time stay unchanged, temporary bonuses reset, and the party walks out
+  normally. Consumed cases give no further treasure.
+- **Well** `(14,17)`: before Joe's proof, only the selected member takes
+  5 poison-type damage, subject to resistance, without a message or the Poison
+  condition. After proof, the selected member is healed to the normal maximum
+  with "You feel refreshed"; above-maximum HP is preserved with alternate text.
 - **Quests and treasure.** Joe's proof box and Gunther's reward work: all
   members gain XP, the party receives gold, gems and an award once, and Joe's
   shop closes. Searching crates reveals the open crate and gives generated
   items or gold through the same generation and random draws as merchants;
   repeat searches find nothing. Each tree pays 1-10 gold once per cycle. Full
   packs lose the remaining treasure as in the original.
+- **City searches.** Monster crates open and trigger normal combat using their
+  original actor slot. Item/empty crates open; rubbish and beds keep their
+  appearance. Searches use the original member selection and item delivery;
+  repeat searches say "Nothing here."
+- **Membership.** Vern `(16,11)` facing East enrolls the selected member for
+  25 carried gold. Cancellation or insufficient gold changes nothing; repeat
+  payments charge again, as in the original script.
 - **Teachers and skills.** Mylo `(8,16)` teaches Cartography for 100 gold and
   Rialdo `(25,26)` teaches Pathfinder for 2,000 (his offer says 2,500), to the
   member chosen with F1-F6 or a portrait. As in the original scripts, a repeat
@@ -115,6 +130,10 @@ the original text panel, and buttons work by mouse or key.
   confirm with Enter. Zero, empty input and cancellation transfer nothing;
   an exact balance is allowed, excess is refused without a partial transfer.
   Escape backs out one level. Mouse buttons perform the same actions.
+- **Guild** (Space at `(20,13)`): F1-F6 or portraits select the current member.
+  Non-members see "You have to be a member to shop here"; members see Buy Spells
+  and Spell Info, both visibly "not supported yet". The original art, text and
+  controls are used, and departure costs one day.
 - **Time.** Each service visit costs a departure day (two after a paid Temple
   Heal). Training adds a day per newly trained member. Merchant stock
   regenerates and bank interest is applied on the original schedule, with
@@ -203,9 +222,10 @@ follow the same buffering as keys.
 animate, and monsters animate from their own data, on every Clouds map
 (`--render-map` shows any map's monsters and wall art). In combat, missiles
 fly together and damage, death and rewards apply when they arrive, hits
-show the original splats, portraits show damage and
-healing effects, the strip shrinks when members run, and the acting member
-is highlighted. The original mouse cursor is used.
+show the original splats, portraits show damage and healing effects, the strip
+shrinks when members run, and the acting member is highlighted. Skill, award
+and XP grants sparkle on their recipients' portraits (except Convicted Thief).
+The original mouse cursor is used.
 
 **Character sheet and items.** The original character sheet and Items dialog
 replace the project's inventory: stats with their popups, equip, remove,
@@ -245,9 +265,10 @@ The earlier `--encounter-26`, `--encounter-27`, `--journey-skeleton` and
 
 ## Save format
 
-There is **one current save format**: envelope v10, schema 9, content 14, written
-by the Regional Journey. v10 adds every character's 18 skill bytes and the
-explored map cells. Until a public release, older formats are not read:
+There is **one current save format**: envelope v11, schema 9, content 14, written
+by the Regional Journey. It retains skills and exploration and stores bounded
+world flags and head-cache overrides with their original map-reload lifetime.
+Until a public release, older formats are not read:
 - A save from an older build is rejected before anything is restored, with "This
   save was created by an older MMModern build and is no longer supported."
 - A save from a newer or unrecognized build is rejected with a "newer or
@@ -284,7 +305,7 @@ Ownership, from state outward:
   dependent effects refuse visibly without publishing a partial prelude.
 - **Flows** (`app`): `XeenEventFlow` is the gameplay session coordinator and
   presenter for input, dialogs and inventory. `XeenEncounterFlow` hosts the
-  Journey: encounters, combat, Smith, Training, Temple, Tavern, Bank, casting
+  Journey: encounters, combat, Smith, Training, Temple, Tavern, Bank, Guild, casting
   and consequences.
   `XeenNavigationFlow` handles movement. `Application` wires resources, SDL and
   the entry modes.
@@ -319,9 +340,9 @@ instructions are in [dependencies](dependencies.md).
   available; the Temple handles only the modeled conditions.
 - **Items and magic.** There is no general item use. Item effects, most spells
   and most monster abilities are missing; Light and other learned spells are
-  visible but cannot be cast. Fountains, the mirror, the well, display cases,
-  locked chests, trap teleports and Thievery Event checks show "not supported
-  yet".
+  visible but cannot be cast. Mainland fountains and the magic mirror remain
+  unsupported. Locked-chest lock/trap/XP mechanics are deferred; Vertigo CD's
+  searchable objects use the crate, case, bed and rubbish mechanics.
 - **Presentation.** Service art is static (no animated shopkeepers). There is
   no audio: where the CD plays speech, a short notice appears and the scene
   continues. Event, casting and treasure screens still use project layouts.
@@ -335,8 +356,7 @@ instructions are in [dependencies](dependencies.md).
   than the original.
 - **Skills.** Only Cartography and the skills used by existing rules
   (Thievery, Navigator, Bodybuilder and others affecting HP/SP) have effects;
-  Swimming, Mountaineer and the rest are recorded but not used yet. Vern's
-  guild membership is not available.
+  Swimming, Mountaineer and the rest are recorded but not used yet.
 - **Unconfirmed rules.** The condition byte `0xFF` follows ScummVM's `-1`
   sentinel (Weak/Drunk, dawn and stat modifications); the eight-hour
   Poison/Disease branch follows ScummVM, which only draws for members without

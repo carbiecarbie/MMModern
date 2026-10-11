@@ -221,3 +221,15 @@ lower actual price and paid repeat lessons. Cartography records explored cells
 for the original automap and Map. Save v10 stores skills and exploration; a
 reusable digest audit tool now checks save-format changes.
 [Plan](milestone-58-plan.md).
+
+**M59 - Vertigo content** (Part A `384eb13`, `5166cab`; Part B `4d39d79`). Display cases use
+Thievery for treasure or a one-year jail penalty with ordinary walk-out; the
+well damages or heals only the selected member. Generic city searches preserve
+crate/bed appearance, actor identity and repeats. Vern charges membership per
+character, and Guild entry uses that character's membership with original
+art/text and deferred spell actions. Skill, award and XP grants show the
+original portrait sparkle. Save v11 stores generic world flags and head-cache
+overrides; Part A's explained M44 digest update was approved, and Part B and the
+sparkle correction left the digests unchanged. Both parts and the corrected
+feedback were accepted after maintainer play-testing on 2026-10-11.
+[Plan](milestone-59-plan.md).
