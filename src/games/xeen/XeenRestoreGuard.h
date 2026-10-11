@@ -340,6 +340,12 @@ private:
 		check();
 		flagValues=after.values();
 	}
+	void prepareServicePrelude(const XeenCamera &after,const XeenGameFlags &flags) {
+		check();
+		if(after.mapId!=cameraValue.mapId || after.x!=cameraValue.x || after.y!=cameraValue.y || unsigned(after.direction)>3)
+			throw std::logic_error("Service prelude moved outside its physical Event");
+		cameraValue=after;flagValues=flags.values();
+	}
 	void prepareVertigoPublication(const XeenRestoreGuard &candidate) {
 		check();candidate.check();
 		// Event capabilities currently permit quest flags, camera/game flags and

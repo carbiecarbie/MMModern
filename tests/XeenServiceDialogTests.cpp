@@ -13,11 +13,13 @@ void keyboard(training_test::Fixture &f,unsigned key){f.act(DialogKeyAction{key}
 void layout(Inputs &in) {
     Fixture f(in,service(in));auto base=training_test::frame();base.pixels.assign(64000,77);
     const auto draw=f.flow->drawDialogSprite;
-    for(const auto location:{XeenLocationDialog::Smith,XeenLocationDialog::Training,XeenLocationDialog::Temple}) {
+    for(const auto location:{XeenLocationDialog::Smith,XeenLocationDialog::Training,XeenLocationDialog::Temple,XeenLocationDialog::Tavern,XeenLocationDialog::Bank}) {
         auto art=base;
         if(location==XeenLocationDialog::Smith)in.assets.drawSmith(art);
         else if(location==XeenLocationDialog::Training)in.assets.drawTraining(art);
-        else in.assets.drawTemple(art);
+        else if(location==XeenLocationDialog::Temple)in.assets.drawTemple(art);
+        else if(location==XeenLocationDialog::Tavern)in.assets.drawTavern(art);
+        else in.assets.drawBank(art);
         for(unsigned member=0;member<6;++member) {
             auto rendered=drawXeenLocation(in.assets.uiText(),base,art,in.font,location,f.p,member,draw);
             for(int y=8;y<140;++y)for(int x=8;x<224;++x)
@@ -38,6 +40,32 @@ void layout(Inputs &in) {
             }
         }
     }
+    const auto &text=in.assets.uiText();
+    const auto offer=in.assets.tavernFoodOffer();check(!offer.empty(),"missing original Tavern offer");
+    check(drawXeenFoodOffer(base,in.font,offer,draw).isValid(),"original Food offer layout");
+    check(drawXeenErrorScroll(base,in.font,std::string(text.scalar("FOOD_PACKS_FULL"))).isValid(),"full packs layout");
+    for(bool withdrawal:{false,true}) {
+        f.p.serviceEconomy->bank.gold=1234567;f.p.serviceEconomy->bank.gems=4294967295u;
+        auto bank=drawXeenBankCurrency(text,base,in.font,f.p,withdrawal,draw);
+        check(bank.isValid(),"original Bank currency layout");
+        check(drawXeenBankCurrency(text,base,in.font,f.p,withdrawal,draw,true).isValid(),"original Bank refreshed currency layout");
+        check(!xeenBankText(text,f.p,withdrawal,true).empty(),"Bank refresh template");
+        for(const auto digits:{"","0","4294967295","4294967296","9999999999"})
+            for(char cursor:{' ','|','~',char(127)})
+                check(drawXeenBankAmount(text,bank,in.font,digits,draw,cursor).isValid(),"original ten-digit Bank amount layout");
+    }
+    const auto parity=[](const DialogInput &input,int x,int y,unsigned key) {
+        const auto mouse=input.click(x,y),keyboard=input.key(key);
+        check(mouse && keyboard && std::get<DialogKeyAction>(*mouse).key==std::get<DialogKeyAction>(*keyboard).key,"original service mouse/key mismatch");
+    };
+    const auto tavern=xeenLocationInput(XeenLocationDialog::Tavern),bank=xeenLocationInput(XeenLocationDialog::Bank);
+    for(unsigned i=0;i<4;++i)parity(tavern,235,55+i*10,std::string("dftr")[i]);
+    parity(tavern,243,109,'s');parity(tavern,282,109,InputKey::Escape);
+    check(!bank.key(InputKey::F1+1) && !bank.click(46,151),"Bank unexpectedly selects party members");
+    parity(tavern,46,151,InputKey::F1+1);
+    parity(bank,235,109,'d');parity(bank,262,109,'w');parity(bank,289,109,InputKey::Escape);
+    parity(xeenBankInput(),235,109,'o');parity(xeenBankInput(),262,109,'e');parity(xeenBankInput(),289,109,InputKey::Escape);
+    parity(xeenFoodConfirmInput(),236,76,'y');parity(xeenFoodConfirmInput(),261,76,'n');
     check(drawXeenErrorScroll(base,in.font,xeenNotEnoughGold(in.assets.uiText())).isValid(),"gold refusal layout");
     check(drawXeenConfirm(base,in.font,xeenServiceConfirm(in.assets.uiText(),true,"Plate Armor",200),false,draw).isValid(),"Fix Confirm layout");
 }

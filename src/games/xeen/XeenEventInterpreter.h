@@ -52,6 +52,8 @@ enum class XeenPresentationKind {
 	ArmorRepairService,
 	TrainingService,
 	TempleService,
+	TavernService,
+	BankService,
 	DeferredAudio
 };
 

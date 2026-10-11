@@ -91,7 +91,7 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
         (_encounter && !_encounter->combat() && _encounter->state().phase() != XeenEncounterPhase::Exploring) ? 9 : 0;
     const QueueContext context{_camera.mapId, panel, combat,
         _quickFightMember ? 500+*_quickFightMember : _summary ? 400+unsigned(*_summary) : inventoryOpen() ? (_exchange ? 6 : _dialogError ? 5 : _statPopup ? 4 : _itemOption ? 3 : _sheet && !_itemsVisible ? 2 : 1) :
-        _smithUi ? 100+unsigned(_smithUi->phase)*4+unsigned(_smithUi->mode)+(!_smithUi->feedback.empty()?1000:0) :
+        _smithUi ? 100+unsigned(_smithUi->phase)*8+unsigned(_smithUi->mode)+(!_smithUi->feedback.empty()?1000:0) :
         _trainingUi ? 200+unsigned(_trainingUi->phase)+(!_trainingUi->feedback.empty()?1000:0) :
         _encounter && _encounter->_rest ? 300+unsigned(_encounter->_rest->phase) : _pending ? _pending->generation : 0};
     if (!_queueContext || !(*_queueContext == context)) {
@@ -674,7 +674,10 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 		// Adopt ownership before composition, reporting or presentation can fail.
 		auto *suspended = std::get_if<XeenEventExecutionSuspended>(&result);
 		if (suspended && journey() && (suspended->request.kind==XeenPresentationKind::ArmorRepairService ||
-			 suspended->request.kind==XeenPresentationKind::TempleService) && !xeenSmithAuthorityRoom(_generation,1))
+			 suspended->request.kind==XeenPresentationKind::TempleService ||
+         suspended->request.kind==XeenPresentationKind::TrainingService ||
+         suspended->request.kind==XeenPresentationKind::TavernService ||
+         suspended->request.kind==XeenPresentationKind::BankService) && !xeenSmithAuthorityRoom(_generation,1))
 			throw std::overflow_error("Smith Event ticket generation exhausted before preparation");
 		if (suspended) {
 			_pending.emplace(Pending{std::move(suspended->state), automatic, ++_generation});
@@ -682,7 +685,9 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 		}
 		if (suspended && (suspended->request.kind==XeenPresentationKind::ArmorRepairService ||
 			suspended->request.kind==XeenPresentationKind::TrainingService ||
-			suspended->request.kind==XeenPresentationKind::TempleService))
+			suspended->request.kind==XeenPresentationKind::TempleService ||
+            suspended->request.kind==XeenPresentationKind::TavernService ||
+            suspended->request.kind==XeenPresentationKind::BankService))
 			return frameCopy(); // Exclusive Event transfers to Service after its final guard check.
 		try {
 		refreshScene(reconstruct, cause, committedTransition);
@@ -850,17 +855,21 @@ void XeenEventFlow::prepareVertigoResult(const XeenManualEventResult &result) tr
 			_eventPublication->publishPrelude(_flags,suspended->state,*work.continuation);
 			work.preludePublished=true;
 		}
-		const auto kind=suspended->state.pendingPresentation->request.kind;
 		const bool service=suspended->state.pendingPresentation->request.source.opcode==0x11;
 		if(service) {
-			const auto action=xeenRegionalService(_encounter->_journeyEvents,work.initialCamera);
-			const auto expected=kind==XeenPresentationKind::ArmorRepairService?1:kind==XeenPresentationKind::TempleService?4:5;
-			if(action!=expected || suspended->state.instructionCount!=1 || !suspended->state.callStack.empty() ||
-				suspended->state.pendingPresentation->continuation!=XeenEventPendingContinuation::Terminate ||
-				!xeen_state::sameCamera(work.camera,work.initialCamera))
-				throw std::logic_error("Detached terminal service capability changed");
-			_serviceEventContinuation=work.continuation; // Allocate before publication/lease transfer.
-			_eventPublication->publishCandidate(_world,_party,_camera,_flags,*work.world,*work.guard);
+            if(suspended->state.pendingPresentation->continuation!=XeenEventPendingContinuation::Terminate ||
+                suspended->state.workingCamera.mapId!=work.initialCamera.mapId ||
+                suspended->state.workingCamera.x!=work.initialCamera.x || suspended->state.workingCamera.y!=work.initialCamera.y ||
+                !xeen_state::sameCamera(work.camera,work.initialCamera) || suspended->state.pendingRewards.hasWork())
+                throw std::logic_error("Detached terminal service capability changed");
+            _serviceEventContinuation=work.continuation;
+            // Flags remain in the interpreter until completion. Prepare their
+            // detached owner/guard before the single candidate publication.
+            work.guard->prepareServicePrelude(suspended->state.workingCamera,suspended->state.workingGameFlags);
+            work.camera=suspended->state.workingCamera;
+            work.flags=suspended->state.workingGameFlags;
+            work.guard->adoptMutationBoundary();
+            _eventPublication->publishCandidate(_world,_party,_camera,_flags,*work.world,*work.guard);
 			_transition.reset();
 		}
 		return;
@@ -995,7 +1004,9 @@ IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operat
 		_pending->state.pendingPresentation->request.kind==XeenPresentationKind::ArmorRepairService && !_smithUi)
 		prepareSmith();
 	if (_pending && _pending->state.pendingPresentation &&
-		_pending->state.pendingPresentation->request.kind==XeenPresentationKind::TempleService && !_smithUi)
+		(_pending->state.pendingPresentation->request.kind==XeenPresentationKind::TempleService ||
+         _pending->state.pendingPresentation->request.kind==XeenPresentationKind::TavernService ||
+         _pending->state.pendingPresentation->request.kind==XeenPresentationKind::BankService) && !_smithUi)
 		prepareSmith();
 	if (_pending && _pending->state.pendingPresentation &&
 		_pending->state.pendingPresentation->request.kind==XeenPresentationKind::TrainingService && !_trainingUi)
@@ -1111,6 +1122,10 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 		}
 	}
 	if(_trainingUi)return updateTraining();
+	if(_smithUi && _smithUi->phase==SmithUi::Phase::Amount && _smithUi->feedback.empty() &&
+		!_dispatching && !_fatal && !_saving && !_handoffPending && _smithUi->amountCursor.animate(_clock())) {
+		DispatchScope dispatch(_dispatching);return renderEncounter(false,true);
+	}
 	if (_smithUi && _smithUi->phase==SmithUi::Phase::Upgrade && !_dispatching && !_fatal && !_saving) {
 		DispatchScope dispatch(_dispatching);
 		try {

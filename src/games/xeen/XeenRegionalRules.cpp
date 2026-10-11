@@ -342,17 +342,17 @@ std::optional<std::int16_t> xeenWellHpAfter(std::int16_t before) noexcept {
 std::optional<std::uint8_t> xeenRegionalService(const XeenEventFile &events,const XeenCamera &camera) {
 	const auto first=xeenRegionalEvent(events,camera);
 	if(!first || events.mapId!=camera.mapId || camera.mapId!=XeenMapIdentity(28))return {};
-	const auto &r=events.records[*first];
-	if(r.opcode!=0x11 || r.line!=0 || r.parameters.size()!=1)return {};
-	const auto action=r.parameters[0];
-	if(action!=1 && action!=4 && action!=5)return {};
-	return action;
+    const auto &r=events.records[*first];
+    if(r.opcode!=0x11 || r.parameters.size()!=1)return {};
+    const auto action=r.parameters[0];
+    if(action==0 || action==1 || action==3 || action==4 || action==5)return action;
+    return {};
 }
 XeenRegionalInteraction xeenRegionalInteraction(const XeenEventFile &events,const XeenCamera &camera) {
 	const auto first=xeenRegionalEvent(events,camera);
 	if (!first) return XeenRegionalInteraction::None;
 	if(const auto service=xeenRegionalService(events,camera)) {
-		return *service==1?XeenRegionalInteraction::Ironworks:
+		return *service==0?XeenRegionalInteraction::Bank:*service==3?XeenRegionalInteraction::Tavern:*service==1?XeenRegionalInteraction::Ironworks:
 			*service==4?XeenRegionalInteraction::Temple:XeenRegionalInteraction::Training;
 	}
 	// Classify supported region transitions from original operands at this

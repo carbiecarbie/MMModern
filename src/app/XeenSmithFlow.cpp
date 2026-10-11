@@ -8,6 +8,7 @@
 #include <sstream>
 #include <limits>
 #include "games/xeen/XeenEquipment.h"
+#include "games/xeen/XeenFoodBank.h"
 
 namespace mmodern {
 namespace {
@@ -49,12 +50,48 @@ void XeenEncounterFlow::checkSmithReservation() {
   throw std::logic_error("Complete Smith departure candidate changed");
  }
 }
-bool XeenEncounterFlow::beginSmith(const std::function<void()> &preflight) {
-	const auto service=xeenRegionalService(_journeyEvents,_camera);
+void XeenEncounterFlow::buyFood() {
+ if(!_smith || _smith->serviceAction!=3 || _smith->departed || _smith->frame || _busy || !smithCapacity(19,4))
+  throw std::logic_error("Food purchase authority unavailable");
+ SmithBusy busy(_busy);_journeyPreimage->check();checkSmithReservation();
+ const auto result=xeenBuyFood(_party.party.size(),_party.food,_party.monsterTreasure->gold,true);
+ if(result.outcome!=XeenFoodOutcome::Purchased)return;
+ auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
+ prepared->retainResources(*_journeyPreimage);prepared->food=result.foodAfter;prepared->treasure->gold=result.goldAfter;
+ checkSmithBoundary(XeenSmithBoundary::BeforePurchase);checkSmithReservation();
+ _party.food=result.foodAfter;_party.monsterTreasure->gold=result.goldAfter;
+ _smith->published=true;++_world._sessionState._journeyGeneration;++_generation;
+ prepared->adoptJourneyCoordination();_journeyPreimage.swap(prepared);
+ checkSmithBoundary(XeenSmithBoundary::AfterPurchase);
+}
+void XeenEncounterFlow::transferBank(bool withdrawal,bool gems,std::uint64_t amount) {
+ if(!_smith || _smith->serviceAction!=0 || _smith->departed || _smith->frame || _busy || !smithCapacity(19,4) ||
+    !xeenSmithAuthorityRoom(_smith->reservation,1))throw std::logic_error("Bank transfer authority unavailable");
+ SmithBusy busy(_busy);_journeyPreimage->check();checkSmithReservation();
+ auto &carried=gems?_party.monsterTreasure->gems:_party.monsterTreasure->gold;
+ auto &banked=gems?_party.serviceEconomy->bank.gems:_party.serviceEconomy->bank.gold;
+ const auto result=xeenTransferBank(withdrawal?banked:carried,withdrawal?carried:banked,amount);
+ if(result.outcome!=XeenBankOutcome::Transferred)return;
+ auto economy=*_party.serviceEconomy;
+ (gems?economy.bank.gems:economy.bank.gold)=withdrawal?result.sourceAfter:result.destinationAfter;
+ auto departure=std::make_unique<XeenServiceDayCandidate>(_smith->departure->rebindBank(economy));
+ const SmithDepartureBinding binding(*departure);
+ auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
+ prepared->retainResources(*_journeyPreimage);prepared->economy=economy;
+ (gems?prepared->treasure->gems:prepared->treasure->gold)=withdrawal?result.destinationAfter:result.sourceAfter;
+ checkSmithBoundary(XeenSmithBoundary::BeforePurchase);checkSmithReservation();
+ carried=withdrawal?result.destinationAfter:result.sourceAfter;
+ banked=withdrawal?result.sourceAfter:result.destinationAfter;
+ _smith->departure.swap(departure);*_smith->binding=binding;++_smith->reservation;
+ _smith->published=true;++_world._sessionState._journeyGeneration;++_generation;
+ prepared->adoptJourneyCoordination();_journeyPreimage.swap(prepared);
+ checkSmithBoundary(XeenSmithBoundary::AfterPurchase);
+}
+bool XeenEncounterFlow::beginSmith(const std::function<void()> &preflight,std::uint8_t service) {
 	const bool temple=service==4;
 	if (!journeyEvent() || _smith || _smithPreparation || _busy || !current(ticket()) || !journeyCapacity() ||
 		_camera.mapId!=XeenMapIdentity(28) ||
-		!(temple || service==1) || !_party.encounterContext) return false;
+		!(temple || service==1 || service==0 || service==3) || !_party.encounterContext) return false;
 	SmithBusy busy(_busy);
 	_journeyPreimage->check();
 	// Reserve preparation/admission, two service frames, departure, Event
@@ -65,12 +102,12 @@ bool XeenEncounterFlow::beginSmith(const std::function<void()> &preflight) {
 	xeenValidateJourneyParty(_party);
 	checkSmithBoundary(XeenSmithBoundary::BeforeReservation);
 	auto next=std::make_unique<SmithContinuation>();
-	next->temple=temple;
+	next->temple=temple;next->serviceAction=service;
     {
         if (!_party.serviceEconomy || !_world.sessionState().journeyRandom())
             throw std::logic_error("Missing service-day owners");
         next->departure=std::make_unique<XeenServiceDayCandidate>(*_party.encounterContext,
-            *_party.serviceEconomy,*_world.sessionState().journeyRandom());
+            *_party.serviceEconomy,*_world.sessionState().journeyRandom(),XeenScriptServiceCharge::OneDay,service==0);
 		next->reservation=1;
     }
 	checkSmithBoundary(XeenSmithBoundary::AfterReservation);
@@ -395,8 +432,13 @@ void XeenEncounterFlow::departSmith() {
 		throw std::overflow_error("Reserved smith departure authority exhausted");
 	if (!_smith->departed) {
 		checkSmithReservation();
-		const auto &day=*_smith->departure;
-		const XeenMutableOptional<XeenGameplayContext> endingContext(day.context());
+		if(_smith->serviceAction==0) {
+            auto settled=std::make_unique<XeenServiceDayCandidate>(_smith->departure->settleBank());
+            const SmithDepartureBinding binding(*settled);
+            _smith->departure.swap(settled);*_smith->binding=binding;
+        }
+        const auto &day=*_smith->departure;
+        const XeenMutableOptional<XeenGameplayContext> endingContext(day.context());
 		const XeenMutableOptional<XeenServiceEconomy> endingEconomy(day.economy());
 		const XeenMutableOptional<XeenJourneyRandomState> endingRandom(day.continuation());
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
@@ -435,13 +477,16 @@ void XeenEncounterFlow::departSmith() {
 
 void XeenEventFlow::prepareSmith() {
 	try {
-		const bool temple=xeenRegionalService(_encounter->_journeyEvents,_camera)==4;
+		const auto kind=_pending->state.pendingPresentation->request.kind;
+        const bool temple=kind==XeenPresentationKind::TempleService;
+        const bool food=kind==XeenPresentationKind::TavernService,bank=kind==XeenPresentationKind::BankService;
+        const std::uint8_t service=bank?0:food?3:temple?4:1;
 		const unsigned inputFrames=10;
 		if (!xeenSmithAuthorityRoom(_inputGeneration,inputFrames))
 			throw std::overflow_error("Smith input authority exhausted before admission");
 		_encounter->_smithBoundary=[this](XeenSmithBoundary stage) { if(smithBoundary)smithBoundary(stage); };
   const bool admitted=_encounter->beginSmith([&] {
-			if (temple ? !drawTempleArt : !drawSmithArt)
+			if (food ? !drawTavernArt || !tavernFoodOffer : bank ? !drawBankArt : temple ? !drawTempleArt : !drawSmithArt)
 				throw std::runtime_error("Service artwork provider is unavailable");
 			const auto events=_events.scriptForMap(28).file();
 			const auto mainland=_events.scriptForMap(23).file();
@@ -449,7 +494,9 @@ void XeenEventFlow::prepareSmith() {
 			_encounter->journeySavePreimage().admitVertigoText(text);
 			SmithUi ui;ui.catalog=_catalog;ui.art=_frame;
 			if(temple)ui.mode=SmithUi::Mode::Heal;
-			try { if(temple)drawTempleArt(ui.art);else drawSmithArt(ui.art); }
+            if(food){ui.mode=SmithUi::Mode::Food;ui.foodOffer=tavernFoodOffer();}
+            if(bank)ui.mode=SmithUi::Mode::Bank;
+			try { if(food)drawTavernArt(ui.art);else if(bank)drawBankArt(ui.art);else if(temple)drawTempleArt(ui.art);else drawSmithArt(ui.art); }
             catch (const std::invalid_argument &) { _encounter->journeySavePreimage().failed=true;throw; }
 			_encounter->journeySavePreimage().check();
 			if (!ui.art.isValid() || ui.art.width!=320 || ui.art.height!=200)
@@ -457,7 +504,7 @@ void XeenEventFlow::prepareSmith() {
 			// Detach retained storage from every mutable buffer exposed to the provider.
 			_smithUi=ui;
 			(void)drawSmith(_frame); // All fallible initial display preparation precedes admission.
-		});
+		},service);
 		if (!admitted) {
 			_smithUi.reset();_pending.reset();_journeyEventLayers=false;
 			_encounter->_journeyRefusal=temple ? "Temple unavailable: departure exceeds the supported year." :
@@ -504,9 +551,13 @@ std::shared_ptr<const DialogInput> XeenEventFlow::serviceDialogInput() const {
         if(ui.phase==SmithUi::Phase::Preparation) return std::make_shared<const DialogInput>();
         if(ui.phase==SmithUi::Phase::Departure) input.keys={InputKey::Escape,InputKey::Enter};
         else if(ui.phase==SmithUi::Phase::Upgrade) input.keys={InputKey::Escape};
-        else if(ui.phase==SmithUi::Phase::Confirm) input=xeenConfirmInput();
+        else if(ui.phase==SmithUi::Phase::Amount) {
+            input.keys={InputKey::Escape,InputKey::Enter,8,127};input.textEntry=true;
+        }
+        else if(ui.phase==SmithUi::Phase::Currency) input=xeenBankInput();
+        else if(ui.phase==SmithUi::Phase::Confirm) input=ui.mode==SmithUi::Mode::Food?xeenFoodConfirmInput():xeenConfirmInput();
         else if(ui.phase==SmithUi::Phase::Browse) input=xeenBuyInput(ui.mode==SmithUi::Mode::Repair);
-        else input=xeenLocationInput(ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith);
+        else input=xeenLocationInput(ui.mode==SmithUi::Mode::Food?XeenLocationDialog::Tavern:ui.mode==SmithUi::Mode::Bank?XeenLocationDialog::Bank:ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith);
         if(!ui.feedback.empty() && ui.phase!=SmithUi::Phase::Departure) {input={};input.anyKey=input.anyClick=true;}
     } else return {};
     return std::make_shared<const DialogInput>(std::move(input));
@@ -514,6 +565,9 @@ std::shared_ptr<const DialogInput> XeenEventFlow::serviceDialogInput() const {
 std::string XeenEventFlow::smithText() const {
     const auto &ui=*_smithUi;
     if(!ui.feedback.empty()) return ui.feedback;
+    if(ui.mode==SmithUi::Mode::Food) return ui.phase==SmithUi::Phase::Confirm?ui.foodOffer:xeenLocationText(dosText(),XeenLocationDialog::Tavern,_party,ui.member);
+    if(ui.mode==SmithUi::Mode::Bank) return ui.phase==SmithUi::Phase::Currency || ui.phase==SmithUi::Phase::Amount?
+        xeenBankText(dosText(),_party,ui.withdrawal,ui.bankRefreshed):xeenLocationText(dosText(),XeenLocationDialog::Bank,_party,ui.member);
     if(ui.phase==SmithUi::Phase::Confirm) {
         const auto &visit=*_encounter->_smith;
         const auto &item=ui.mode==SmithUi::Mode::Buy?visit.purchase->result.offer:visit.result.before;
@@ -526,8 +580,17 @@ std::string XeenEventFlow::smithText() const {
 IndexedFrame XeenEventFlow::drawSmith(const IndexedFrame &world) const {
     const auto &ui=*_smithUi;
     auto frame=drawXeenLocation(dosText(),world,ui.art,_inventoryFont,
-        ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith,_party,ui.member,drawDialogSprite);
-    if(ui.phase==SmithUi::Phase::Browse || ui.phase==SmithUi::Phase::Confirm) {
+        ui.mode==SmithUi::Mode::Food?XeenLocationDialog::Tavern:ui.mode==SmithUi::Mode::Bank?XeenLocationDialog::Bank:ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith,_party,ui.member,drawDialogSprite);
+    if(ui.mode==SmithUi::Mode::Food && ui.phase==SmithUi::Phase::Confirm) {
+        frame=world;
+        for(int y=8;y<140;++y)std::copy_n(ui.art.pixels.data()+y*320+8,216,frame.pixels.data()+y*320+8);
+        frame=drawXeenFoodOffer(frame,_inventoryFont,ui.foodOffer,drawDialogSprite);
+    }
+    else if(ui.mode==SmithUi::Mode::Bank && (ui.phase==SmithUi::Phase::Currency || ui.phase==SmithUi::Phase::Amount)) {
+        frame=drawXeenBankCurrency(dosText(),frame,_inventoryFont,_party,ui.withdrawal,drawDialogSprite,ui.bankRefreshed);
+        if(ui.phase==SmithUi::Phase::Amount)frame=drawXeenBankAmount(dosText(),frame,_inventoryFont,ui.amount,drawDialogSprite,char(ui.amountCursor.cursor()));
+    }
+    else if(ui.phase==SmithUi::Phase::Browse || ui.phase==SmithUi::Phase::Confirm) {
         XeenInventorySelection selection;selection.source=ui.member;selection.category=ui.category;
         if(ui.selected) selection.slot=ui.slot;
         frame=drawXeenBuy(dosText(),frame,_inventoryFont,ui.catalog,_party,selection,ui.mode==SmithUi::Mode::Repair,drawDialogSprite);
@@ -561,6 +624,7 @@ IndexedFrame XeenEventFlow::settleSmithEvent() {
 }
 IndexedFrame XeenEventFlow::handleSmith(const PlayerAction &action,std::uint64_t input,const IndexedFrame::Presentation &inputFrame) {
     if(_smithUi->mode==SmithUi::Mode::Heal) return handleTemple(action,input,inputFrame);
+    if(_smithUi->mode==SmithUi::Mode::Food || _smithUi->mode==SmithUi::Mode::Bank) return handleFoodBank(action,input,inputFrame);
     auto &ui=*_smithUi;const auto key=serviceKey(action);
     if(ui.phase==SmithUi::Phase::Preparation) return frameCopy();
     const bool member=key>=InputKey::F1 && key<InputKey::F1+_party.party.size();
@@ -652,6 +716,93 @@ IndexedFrame XeenEventFlow::handleSmith(const PlayerAction &action,std::uint64_t
     }
     if(!revisionAdvanced && (!failed || originalPhase!=ui.phase) && ui.revision!=UINT64_MAX) ++ui.revision;
     if(reportText && !ui.feedback.empty()) reportText(ui.feedback);
+    return renderEncounter();
+}
+IndexedFrame XeenEventFlow::handleFoodBank(const PlayerAction &action,std::uint64_t input,const IndexedFrame::Presentation &inputFrame) {
+    auto &ui=*_smithUi;const auto key=serviceKey(action);
+    const auto *typed=std::get_if<TextInputAction>(&action);
+    const bool food=ui.mode==SmithUi::Mode::Food;
+    if(ui.phase==SmithUi::Phase::Preparation)return frameCopy();
+    const auto controls=serviceDialogInput();
+    if((ui.feedback.empty() || ui.phase==SmithUi::Phase::Departure) && !(ui.phase==SmithUi::Phase::Amount && (typed || (key>='0' && key<='9'))) && !controls->key(key))return frameCopy();
+    if(_smithSettlement){_handoffPending=true;return settleSmithEvent();}
+    if(!_encounter->consumeSmithFrame(input,inputFrame))return frameCopy();
+    if(ui.phase!=SmithUi::Phase::Departure && !(ui.phase==SmithUi::Phase::Lobby && key==InputKey::Escape) &&
+        (!_encounter->smithCapacity(19,4) || !xeenSmithAuthorityRoom(_inputGeneration,10) ||
+        !xeenSmithAuthorityRoom(ui.revision,1) || !xeenSmithAuthorityRoom(_encounter->_smith->reservation,1))) {
+        ui.phase=SmithUi::Phase::Departure;ui.feedback="Further service actions unavailable. Escape: depart.";
+        if(ui.revision!=UINT64_MAX)++ui.revision;return renderEncounter();
+    }
+    const auto refusal=[&](bool empty) {
+        return xeenDialogFormat(dosText().scalar(empty?"NO_X_IN_THE_Y":"NOT_ENOUGH_X_IN_THE_Y"),
+            {dosText().table("CONSUMABLE_NAMES")[ui.gems?1:0],dosText().table("WHERE_NAMES")[ui.withdrawal?1:0]});
+    };
+    try {
+        if(!ui.feedback.empty() && ui.phase!=SmithUi::Phase::Departure) {
+            ui.feedback.clear();
+            if(food && ui.phase==SmithUi::Phase::Confirm)ui.phase=SmithUi::Phase::Lobby;
+        }
+        else if(ui.phase==SmithUi::Phase::Lobby) {
+            if(key==InputKey::Escape)ui.phase=SmithUi::Phase::Departure;
+            else if(food && key>=InputKey::F1 && key<InputKey::F1+_party.party.size())ui.member=key-InputKey::F1;
+            else if(food) {
+                if(key=='f')ui.phase=SmithUi::Phase::Confirm;
+                else if(key=='d')ui.feedback="Drink: not supported yet";
+                else if(key=='t')ui.feedback="Tip: not supported yet";
+                else if(key=='r')ui.feedback="Rumors: not supported yet";
+                else if(key=='s')ui.feedback="Sign In: not supported yet";
+            } else if(key=='d' || key=='w') {
+                ui.withdrawal=key=='w';ui.bankRefreshed=false;ui.phase=SmithUi::Phase::Currency;
+            }
+        } else if(ui.phase==SmithUi::Phase::Confirm) {
+            const auto answer=xeenConfirmAnswer(key);
+            if(answer) {
+                ui.phase=SmithUi::Phase::Lobby;
+                if(*answer) {
+                    const auto quote=xeenBuyFood(_party.party.size(),_party.food,_party.monsterTreasure->gold,true);
+                    if(quote.outcome==XeenFoodOutcome::Full) {ui.feedback=dosText().scalar("FOOD_PACKS_FULL");ui.phase=SmithUi::Phase::Confirm;}
+                    else if(quote.outcome==XeenFoodOutcome::InsufficientGold) {ui.feedback=xeenNotEnoughGold(dosText());ui.phase=SmithUi::Phase::Confirm;}
+                    else _encounter->buyFood();
+                }
+            }
+        } else if(ui.phase==SmithUi::Phase::Currency) {
+            if(key==InputKey::Escape)ui.phase=SmithUi::Phase::Lobby;
+            else if(key=='o' || key=='e') {
+                ui.gems=key=='e';
+                const auto &bank=_party.serviceEconomy->bank;const auto &purse=*_party.monsterTreasure;
+                const std::uint32_t source=ui.withdrawal?(ui.gems?bank.gems:bank.gold):(ui.gems?purse.gems:purse.gold);
+                if(!source)ui.feedback=refusal(true);
+                else {ui.amount.clear();ui.amountCursor.begin();ui.phase=SmithUi::Phase::Amount;}
+            }
+        } else if(ui.phase==SmithUi::Phase::Amount) {
+            if(key==InputKey::Escape) {ui.amount.clear();ui.bankRefreshed=true;ui.phase=SmithUi::Phase::Currency;}
+            else if(key==InputKey::Enter) {
+                const auto amount=xeenBankAmount(ui.amount);ui.bankRefreshed=true;ui.phase=SmithUi::Phase::Currency;ui.amount.clear();
+                const auto &bank=_party.serviceEconomy->bank;const auto &purse=*_party.monsterTreasure;
+                const std::uint32_t source=ui.withdrawal?(ui.gems?bank.gems:bank.gold):(ui.gems?purse.gems:purse.gold);
+                const std::uint32_t destination=ui.withdrawal?(ui.gems?purse.gems:purse.gold):(ui.gems?bank.gems:bank.gold);
+                const auto result=xeenTransferBank(source,destination,amount);
+                if(result.outcome==XeenBankOutcome::Excess || result.outcome==XeenBankOutcome::EmptySource)
+                    ui.feedback=refusal(result.outcome==XeenBankOutcome::EmptySource);
+                else if(result.outcome==XeenBankOutcome::Transferred)_encounter->transferBank(ui.withdrawal,ui.gems,amount);
+            } else if(key==8 || key==127) {if(!ui.amount.empty())ui.amount.pop_back();ui.amountCursor.keyRedraw();}
+            else {
+                const std::string packet=typed?typed->text:(key>='0' && key<='9'?std::string(1,char(key)):std::string{});
+                if(std::all_of(packet.begin(),packet.end(),[](unsigned char c){return c>='0' && c<='9';}))
+                    ui.amount+=packet.substr(0,10-ui.amount.size());
+                ui.amountCursor.keyRedraw();
+            }
+        }
+        if(ui.phase==SmithUi::Phase::Departure && (key==InputKey::Escape || key==InputKey::Enter)) {
+            if(ui.revision!=UINT64_MAX)++ui.revision;
+            _encounter->departSmith();_smithSettlement=true;return settleSmithEvent();
+        }
+    } catch(const std::exception &) {
+        _encounter->journeySavePreimage().check();if(!_encounter->_smith)throw;
+        ui.feedback=ui.phase==SmithUi::Phase::Departure?"Service departure failed. Escape: retry.":"Service action could not finish. Continue.";
+    }
+    if(ui.revision!=UINT64_MAX)++ui.revision;
+    if(reportText)reportText(smithText());
     return renderEncounter();
 }
 IndexedFrame XeenEventFlow::handleTemple(const PlayerAction &action,std::uint64_t input,const IndexedFrame::Presentation &inputFrame) {

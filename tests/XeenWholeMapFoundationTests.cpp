@@ -235,6 +235,12 @@ void cityEvents() {
 	check(xeenRegionalService(file,camera)==5 && xeenRegionalInteraction(file,camera)==XeenRegionalInteraction::Training,
 		"Terminal service identity must come from its opcode at an arbitrary resource cell");
 	file.records[0].parameters={3};
+	check(xeenRegionalService(file,camera)==3 && xeenRegionalInteraction(file,camera)==XeenRegionalInteraction::Tavern,
+		"Tavern service identity must follow the opcode");
+	file.records[0].parameters={0};
+	check(xeenRegionalService(file,camera)==0 && xeenRegionalInteraction(file,camera)==XeenRegionalInteraction::Bank,
+		"Bank service identity must follow the opcode");
+	file.records[0].parameters={2};
 	check(!xeenRegionalService(file,camera),"Unsupported service action must not acquire service authority");
 	file.records[0].parameters={5,0};
 	check(!xeenRegionalService(file,camera),"Malformed service operands must not acquire service authority");

@@ -59,19 +59,22 @@ public:
 		check();
 		{
 			const auto interaction=xeenRegionalInteraction(original,guard.cameraValue);
-			if (interaction==XeenRegionalInteraction::Ironworks || interaction==XeenRegionalInteraction::Training ||
-				interaction==XeenRegionalInteraction::Temple) {
-				const auto service=xeenRegionalService(original,guard.cameraValue);
-				const auto site=xeenRegionalEvent(original,guard.cameraValue);
-				if (!xeen_state::sameCamera(state.workingCamera,guard.cameraValue) ||
-					state.workingGameFlags.values()!=guard.flagValues || state.logicalAddress.mapId!=XeenMapIdentity(28) ||
-					!service || !site || state.logicalAddress.x!=guard.cameraValue.x || state.logicalAddress.y!=guard.cameraValue.y || state.logicalAddress.line!=0 ||
-					state.lookupDirection!=guard.cameraValue.direction || state.instructionCount>1 ||
-					!state.callStack.empty() || state.pendingRewards.hasWork() || !state.currentScript ||
-					(state.pendingPresentation && state.pendingPresentation->continuation!=XeenEventPendingContinuation::Terminate))
-					integrity("Service terminal continuation changed");
-				script(state.currentScript->file());currentSite=site;return;
-			}
+            const auto &address=state.logicalAddress;
+            const auto terminalSite=state.currentScript && address.x>=0 && address.x<=255 &&
+                address.y>=0 && address.y<=255 && address.line>=0 && address.line<=255 ?
+                state.currentScript->findInstructionIndex(address.x,address.y,state.lookupDirection,address.line):std::nullopt;
+            if(terminalSite && state.currentScript->records()[*terminalSite].opcode==0x11) {
+                // The Flow retained and checked the exact interpreter-issued
+                // suspension before this terminate-only settlement. A prelude
+                // may have called subroutines; cmdDoTownEvent exits all of them.
+                if(!xeen_state::sameCamera(state.workingCamera,guard.cameraValue) ||
+                    state.workingGameFlags.values()!=guard.flagValues || address.mapId!=XeenMapIdentity(28) ||
+                    !state.instructionCount ||
+                    state.instructionCount>XeenEventInterpreter::kMaximumInstructions || state.pendingRewards.hasWork() ||
+                    (state.pendingPresentation && state.pendingPresentation->continuation!=XeenEventPendingContinuation::Terminate))
+                    integrity("Service terminal continuation changed");
+                script(state.currentScript->file());currentSite=terminalSite;return;
+            }
 			if (interaction==XeenRegionalInteraction::None || !xeen_state::sameCamera(state.workingCamera,guard.cameraValue) ||
 				state.workingGameFlags.values()!=guard.flagValues || state.logicalAddress.mapId!=original.mapId ||
 				state.logicalAddress.x!=guard.cameraValue.x || state.logicalAddress.y!=guard.cameraValue.y ||

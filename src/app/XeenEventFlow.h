@@ -14,6 +14,7 @@
 #include "app/XeenEncounterFlow.h"
 #include <memory>
 #include "core/InputContext.h"
+#include "app/XeenTextInput.h"
 
 namespace mmodern {
 
@@ -60,6 +61,8 @@ public:
 	std::function<void(XeenSmithBoundary)> smithBoundary;
 	std::function<void(IndexedFrame &)> drawTrainingArt;
 	std::function<void(IndexedFrame &)> drawTempleArt;
+	std::function<void(IndexedFrame &)> drawTavernArt,drawBankArt;
+	std::function<std::string()> tavernFoodOffer;
 	std::function<void(IndexedFrame &)> drawCombatButtons;
 	XeenDialogSpriteDraw drawDialogSprite;
  // Borrowed from the existing asset owner, before any dialog is presented.
@@ -147,15 +150,18 @@ private:
 	std::optional<IndexedFrame> updateTraining();
 	struct SmithUi {
 		XeenItemCatalog catalog;
-		enum class Mode { Repair, Buy, Heal };
+		enum class Mode { Repair, Buy, Heal, Food, Bank };
 		Mode mode=Mode::Repair;
-		enum class Phase { Preparation, Lobby, Browse, Confirm, Upgrade, Departure };
+		enum class Phase { Preparation, Lobby, Browse, Confirm, Upgrade, Departure, Currency, Amount };
 		Phase phase=Phase::Lobby;
 		std::size_t member=0, slot=0;
 		XeenInventoryCategory category=XeenInventoryCategory::Weapons;
 		bool selected=false;
 		std::uint64_t revision=0;
 		std::string feedback;
+		std::string foodOffer,amount;
+		XeenTextInput amountCursor;
+		bool withdrawal=false,gems=false,bankRefreshed=false;
 		IndexedFrame art;
 	};
 	std::optional<SmithUi> _smithUi;
@@ -168,6 +174,7 @@ private:
 	std::string smithText() const;
 	IndexedFrame handleSmith(const PlayerAction &,std::uint64_t,const IndexedFrame::Presentation &);
 	IndexedFrame handleTemple(const PlayerAction &,std::uint64_t,const IndexedFrame::Presentation &);
+	IndexedFrame handleFoodBank(const PlayerAction &,std::uint64_t,const IndexedFrame::Presentation &);
 	std::shared_ptr<const DialogInput> serviceDialogInput() const;
 	const XeenEventPublication *_eventPublication = nullptr;
 	bool _monsterReceiptPresented=false;

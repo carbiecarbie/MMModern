@@ -6,9 +6,9 @@
 namespace mmodern {
 XeenServiceDayCandidate::XeenServiceDayCandidate(const XeenGameplayContext &context,
 		const XeenServiceEconomy &economy,const XeenJourneyRandomState &cursor,
-		XeenScriptServiceCharge serviceCharge):
+		XeenScriptServiceCharge serviceCharge,bool deferBankInterest):
 	originalContext(context),endingContext(context),originalEconomy(economy),endingEconomy(economy),
-	originalRandom(cursor),random(cursor),charge(serviceCharge) {
+	originalRandom(cursor),random(cursor),charge(serviceCharge),bankInterestDeferred(deferBankInterest) {
 
 	const auto successor=charge==XeenScriptServiceCharge::OneDay ?
 		xeenPrepareSmithDeparture(context) : xeenPrepareTemplePaidDeparture(context);
@@ -27,7 +27,8 @@ bool XeenServiceDayCandidate::service(unsigned budget,const std::function<void()
 	if(check)check();
 	try {if(afterStock)afterStock();}catch(...) {if(check)check();throw;}
 	if(check)check();
-	endingEconomy.wares=stock.wares();endingEconomy.bank=xeenPrepareBankInterest(originalEconomy.bank);
+	endingEconomy.wares=stock.wares();
+	endingEconomy.bank=bankInterestDeferred?originalEconomy.bank:xeenPrepareBankInterest(originalEconomy.bank);
 	completed=true;return true;
 }
 XeenServiceDayCandidate XeenServiceDayCandidate::rebindPurchase(const XeenServiceEconomy &after,
@@ -77,10 +78,26 @@ void XeenServiceDayCandidate::validateComplete() const {
 		const auto interest=[](std::uint32_t value) noexcept {
 			return static_cast<std::uint32_t>(std::uint64_t(value)+value/100u);
 		};
-		if(endingEconomy.bank.gold!=interest(originalEconomy.bank.gold) ||
-			endingEconomy.bank.gems!=interest(originalEconomy.bank.gems) ||
+		if(endingEconomy.bank.gold!=(bankInterestDeferred?std::uint32_t(originalEconomy.bank.gold):interest(originalEconomy.bank.gold)) ||
+			endingEconomy.bank.gems!=(bankInterestDeferred?std::uint32_t(originalEconomy.bank.gems):interest(originalEconomy.bank.gems)) ||
 			ending.algorithm!=originalRandom.algorithm || !ending.state || ending.count<=originalRandom.count)
 			throw std::invalid_argument("Triggering service-day successor changed");
 	}
+}
+XeenServiceDayCandidate XeenServiceDayCandidate::rebindBank(const XeenServiceEconomy &after) const {
+	validateComplete();
+	if(!bankInterestDeferred || after.wares!=originalEconomy.wares)
+		throw std::logic_error("Bank transfer changed stock or followed settlement");
+	auto next=*this;
+	next.originalEconomy.bank=after.bank;next.endingEconomy.bank=after.bank;
+	next.validateComplete();return next;
+}
+XeenServiceDayCandidate XeenServiceDayCandidate::settleBank() const {
+	validateComplete();auto next=*this;
+	if(next.bankInterestDeferred) {
+		if(regenerating)next.endingEconomy.bank=xeenPrepareBankInterest(originalEconomy.bank);
+		next.bankInterestDeferred=false;
+	}
+	next.validateComplete();return next;
 }
 }

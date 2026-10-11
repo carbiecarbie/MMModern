@@ -23,8 +23,16 @@ DialogInput xeenQuickFightInput();
 IndexedFrame drawXeenExchange(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,const XeenDialogSpriteDraw &);
 IndexedFrame drawXeenQuickFight(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,const XeenCharacter &,std::size_t,const XeenDialogSpriteDraw &);
 DialogInput xeenItemsInput(bool misc,bool selection=false);
-enum class XeenLocationDialog { Smith, Training, Temple };
+enum class XeenLocationDialog { Smith, Training, Temple, Tavern, Bank };
 DialogInput xeenLocationInput(XeenLocationDialog);
+DialogInput xeenBankInput();
+DialogInput xeenFoodConfirmInput();
+std::string xeenBankText(const XeenDosText &,const XeenPartyState &,bool withdrawal,bool refresh=false);
+IndexedFrame drawXeenBankCurrency(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,
+    const XeenPartyState &,bool withdrawal,const XeenDialogSpriteDraw &,bool refresh=false);
+IndexedFrame drawXeenBankAmount(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,
+    const std::string &digits,const XeenDialogSpriteDraw &,char cursor='|');
+IndexedFrame drawXeenFoodOffer(const IndexedFrame &,const XeenFontFormat &,const std::string &offer,const XeenDialogSpriteDraw &);
 DialogInput xeenBuyInput(bool repair=false);
 std::string xeenLocationText(const XeenDosText &text,XeenLocationDialog,const XeenPartyState &,std::size_t);
 std::uint32_t xeenTempleUncurseCost(const XeenCharacter &);

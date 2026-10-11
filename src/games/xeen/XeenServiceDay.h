@@ -13,7 +13,7 @@ class XeenServiceDayCandidate {
 public:
 	XeenServiceDayCandidate(const XeenGameplayContext &,const XeenServiceEconomy &,
 		const XeenJourneyRandomState &,
-		XeenScriptServiceCharge charge=XeenScriptServiceCharge::OneDay);
+		XeenScriptServiceCharge charge=XeenScriptServiceCharge::OneDay, bool deferBankInterest=false);
 	bool service(unsigned budget=64,const std::function<void()> &check={},
 		const std::function<void()> &afterStock={});
 	bool complete() const noexcept { return completed; }
@@ -33,6 +33,10 @@ public:
 	// Copy an already generated triggering reservation; otherwise start a fresh
 	// private generation from the same live entry preimage.
 	XeenServiceDayCandidate upgradeTemplePaid() const;
+	// Bank menus update only balances; keep the reserved stock and RNG. Interest
+	// is resolved once when departure closes the menu to further transactions.
+	XeenServiceDayCandidate rebindBank(const XeenServiceEconomy &) const;
+	XeenServiceDayCandidate settleBank() const;
 private:
 	XeenGameplayContext originalContext,endingContext;
 	XeenServiceEconomy originalEconomy,endingEconomy;
@@ -41,6 +45,7 @@ private:
 	XeenMerchantStockCandidate stock;
 	XeenScriptServiceCharge charge;
 	bool regenerating=false,completed=false;
+	bool bankInterestDeferred=false;
 };
 }
 #endif

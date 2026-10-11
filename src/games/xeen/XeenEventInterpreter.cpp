@@ -112,12 +112,21 @@ XeenPresentationKind presentationKind(XeenEventDisplayKind kind) {
 // capability query over resource instructions, never a list of admitted cells.
 std::optional<XeenEventExecutionError> preflightCityEvent(XeenWorld &world,
 		const XeenEventScript &script, const XeenCamera &camera) {
-	std::vector<std::tuple<int,int,int>> pending{{camera.x,camera.y,0}};
-	std::set<std::tuple<int,int,int>> visited;
+	using Address=std::tuple<int,int,int>;
+	using Path=std::vector<Address>;
+	// Include return addresses: a service called from a subroutine exits the
+	// entire Event, so its caller's suffix must never be inspected or executed.
+	std::vector<Path> pending{{{camera.x,camera.y,0}}};
+	std::set<Path> visited;
 	while(!pending.empty()) {
-		const auto address=pending.back();pending.pop_back();
-		if(!visited.insert(address).second)continue;
+		auto path=std::move(pending.back());pending.pop_back();
+		if(!visited.insert(path).second)continue;
+		if(visited.size()>4096 || path.size()>XeenEventInterpreter::kMaximumCallDepth+1)
+			return error(XeenEventExecutionErrorKind::InstructionLimitExceeded,
+				"Event preflight exceeds the supported control-flow bound",0,{camera.mapId,camera.x,camera.y,0});
+		const auto address=path.back();path.pop_back();
 		const auto [x,y,line]=address;
+		const auto enqueue=[&](int nx,int ny,int nl) {auto next=path;next.emplace_back(nx,ny,nl);pending.push_back(std::move(next));};
 		if(x<0 || x>255 || y<0 || y>255 || line<0 || line>255)
 			return error(XeenEventExecutionErrorKind::InvalidJumpTarget,
 				"Event preflight address is outside the lookup domain",0,{camera.mapId,x,y,line});
@@ -134,9 +143,10 @@ std::optional<XeenEventExecutionError> preflightCityEvent(XeenWorld &world,
 		const auto unsupported=[&](const char *message) {
 			return error(XeenEventExecutionErrorKind::UnsupportedOperand,message,0,logical,instruction.source);
 		};
-		if(std::holds_alternative<XeenEventExit>(op) || std::holds_alternative<XeenEventReturn>(op))continue;
+		if(std::holds_alternative<XeenEventExit>(op))continue;
+		if(std::holds_alternative<XeenEventReturn>(op)) {if(!path.empty())pending.push_back(std::move(path));continue;}
 		if(const auto *service=std::get_if<XeenEventTownService>(&op)) {
-			if(line!=0 || x!=camera.x || y!=camera.y || xeenRegionalService(script.file(),camera)!=service->action)
+			if(service->action!=0 && service->action!=1 && service->action!=3 && service->action!=4 && service->action!=5)
 				return unsupported("Dependent service effects are not supported yet");
 			continue;
 		}
@@ -152,16 +162,18 @@ std::optional<XeenEventExecutionError> preflightCityEvent(XeenWorld &world,
 			return unsupported("Event effect is not supported yet in this context");
 		if(const auto *npc=std::get_if<XeenEventNpc>(&op)) {
 			if(npc->confirmationMode!=1)return unsupported("NPC mode is not supported yet");
-			pending.emplace_back(x,y,npc->targetLine);
+			enqueue(x,y,npc->targetLine);
 		}
 		if(const auto *condition=std::get_if<XeenEventConditional>(&op)) {
 			if(condition->action!=9 && condition->action!=20 && condition->action!=44)
 				return unsupported("Event condition is not supported yet");
 			if((condition->action==20 && condition->value>255) || (condition->action==44 && condition->value>1))
 				return unsupported("Event condition operand is not supported yet");
-			pending.emplace_back(x,y,condition->targetLine);
+			enqueue(x,y,condition->targetLine);
 		}
-		if(const auto *call=std::get_if<XeenEventCallEvent>(&op))pending.emplace_back(call->x,call->y,call->line);
+		if(const auto *call=std::get_if<XeenEventCallEvent>(&op)) {
+			path.emplace_back(x,y,line+1);enqueue(call->x,call->y,call->line);continue;
+		}
 		if(const auto *give=std::get_if<XeenEventTakeOrGive>(&op)) {
 			const auto neutral=[](const auto &p){return p.mode==0 && p.value==0;};
 			const auto flag=[](const auto &p){return (p.mode==20 && p.value<256) || (p.mode==104 && XeenCloudsQuestFlags::validIndex(p.value));};
@@ -179,7 +191,7 @@ std::optional<XeenEventExecutionError> preflightCityEvent(XeenWorld &world,
 		if(const auto *set=std::get_if<XeenEventSetVar>(&op)) {
 			if(set->mode!=84 || set->value>3)return unsupported("SetVar mode is not supported yet");
 		}
-		pending.emplace_back(x,y,line+1);
+		enqueue(x,y,line+1);
 	}
 	return {};
 }
@@ -473,17 +485,14 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 		if (std::holds_alternative<XeenEventExit>(decoded.operation))
 			return finalize();
 		if (const auto *service=std::get_if<XeenEventTownService>(&decoded.operation)) {
-			const auto boundService=xeenRegionalService(script->file(),workingCamera);
-			const bool smith=boundService==1 && service->action==1;
-			const bool training=boundService==5 && service->action==5;
-			const bool temple=boundService==4 && service->action==4;
-			if ((!publication && !world.detachedEventCandidate()) || (!smith && !training && !temple) || logical.mapId!=XeenMapIdentity(28) || logical.line!=0 ||
-				logical.x!=workingCamera.x || logical.y!=workingCamera.y ||
-				!state.callStack.empty() || instructionCount!=1 || state.pendingRewards.hasWork())
+			const bool smith=service->action==1,training=service->action==5,temple=service->action==4;
+			const bool tavern=service->action==3,bank=service->action==0;
+			if ((!publication && !world.detachedEventCandidate()) || (!smith && !training && !temple && !tavern && !bank) ||
+				logical.mapId!=XeenMapIdentity(28) || workingCamera.mapId!=logical.mapId || state.pendingRewards.hasWork())
 				return error(XeenEventExecutionErrorKind::UnsupportedOperand,
 					"Town service is outside the admitted service Event",instructionCount,logical,decoded.source);
 			XeenPresentationRequest request;
-			request.kind=temple?XeenPresentationKind::TempleService:
+			request.kind=bank?XeenPresentationKind::BankService:tavern?XeenPresentationKind::TavernService:temple?XeenPresentationKind::TempleService:
 				training?XeenPresentationKind::TrainingService:XeenPresentationKind::ArmorRepairService;
 			request.response=XeenPresentationResponseRequirement::Acknowledgment;
 			request.mapId=logical.mapId;request.source=decoded.source;

@@ -18,9 +18,9 @@ unsigned xeenPlayerRayRows(XeenWorld &, const XeenCamera &);
 bool xeenIndoorRangedRay(XeenWorld &, const XeenCamera &, const XeenActor &);
 std::optional<std::size_t> xeenRegionalEvent(const XeenEventFile &, const XeenCamera &);
 bool xeenRegionalSign(const XeenEventFile &, const XeenCamera &);
-enum class XeenRegionalInteraction { None, Sign, Myra, Phirna, Well, VertigoEntrance, VertigoDoor, VertigoExit, Ironworks, Training, Temple, TempleLabel, Event };
-// A terminal service request must be the original first instruction at the
-// physical camera. Unsupported actions never acquire a Service continuation.
+enum class XeenRegionalInteraction { None, Sign, Myra, Phirna, Well, VertigoEntrance, VertigoDoor, VertigoExit, Ironworks, Training, Temple, TempleLabel, Event, Tavern, Bank };
+// Classify direct entries for presentation only; entries with preludes use the
+// generic Event path. Only the interpreter issues a terminal Service request.
 std::optional<std::uint8_t> xeenRegionalService(const XeenEventFile &, const XeenCamera &);
 XeenRegionalInteraction xeenRegionalInteraction(const XeenEventFile &, const XeenCamera &);
 std::optional<std::int16_t> xeenWellHpAfter(std::int16_t before) noexcept;

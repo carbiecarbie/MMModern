@@ -152,7 +152,16 @@ DialogInput xeenBuyInput(bool repair) {
 }
 DialogInput xeenLocationInput(XeenLocationDialog location) {
     DialogInput input;
-    if(location==XeenLocationDialog::Training) {
+    if(location==XeenLocationDialog::Bank) {
+        button(input,234,108,259,128,'d',"bank.icn",0);
+        button(input,261,108,285,128,'w',"bank.icn",2);
+        button(input,288,108,312,128,InputKey::Escape,"bank.icn",4);
+    } else if(location==XeenLocationDialog::Tavern) {
+        button(input,281,108,305,128,InputKey::Escape,"tavern.icn",0);
+        button(input,242,108,266,128,'s',"tavern.icn",2);
+        button(input,234,54,308,62,'d');button(input,234,64,308,72,'f');
+        button(input,234,74,308,82,'t');button(input,234,84,308,92,'r');
+    } else if(location==XeenLocationDialog::Training) {
         button(input,281,108,305,128,InputKey::Escape,"train.icn",2);
         button(input,242,108,266,128,'t',"train.icn",0);
     } else {
@@ -166,7 +175,64 @@ DialogInput xeenLocationInput(XeenLocationDialog location) {
             button(input,234,54,308,62,'h');button(input,234,64,308,72,'d');button(input,234,74,308,82,'u');
         }
     }
-    partyButtons(input);button(input,8,8,224,140,InputKey::Space);return input;
+    if(location!=XeenLocationDialog::Bank) partyButtons(input);
+    button(input,8,8,224,140,InputKey::Space);return input;
+}
+DialogInput xeenBankInput() {
+    DialogInput input;
+    button(input,234,108,259,128,'o',"bank2.icn",0);
+    button(input,261,108,285,128,'e',"bank2.icn",2);
+    button(input,288,108,312,128,InputKey::Escape,"bank2.icn",4);
+    return input;
+}
+DialogInput xeenFoodConfirmInput() {
+    DialogInput input;
+    button(input,235,75,259,95,'y',"confirm.icn",0);
+    button(input,260,75,284,95,'n',"confirm.icn",2);
+    input.keys.push_back(InputKey::Escape);return input;
+}
+std::string xeenBankText(const XeenDosText &text,const XeenPartyState &p,bool withdrawal,bool refresh) {
+    const auto money=[](std::uint32_t value) {return value>=1000000?n(value/1000000)+" mil":n(value);};
+    return xeenDialogFormat(text.scalar(refresh?"GOLD_GEMS_2":"GOLD_GEMS"),{
+        text.table("DEPOSIT_WITHDRAWL").at(withdrawal?1:0),
+        money(withdrawal?std::uint32_t(p.serviceEconomy->bank.gold):gold(p)),
+        money(withdrawal?std::uint32_t(p.serviceEconomy->bank.gems):gems(p))});
+}
+IndexedFrame drawXeenBankCurrency(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,
+        const XeenPartyState &p,bool withdrawal,const XeenDialogSpriteDraw &draw,bool refresh) {
+    auto frame=render(base,font,xeenBankText(text,p,withdrawal),{226,26,320,146},{234,34,312,138});
+    if(refresh)frame=render(frame,font,xeenBankText(text,p,withdrawal,true),{226,26,320,146},{234,34,312,138},false);
+    if(draw)for(const auto &hit:xeenBankInput().hits)if(hit.button) {
+        const auto &b=*hit.button;draw(frame,b.resource,b.frame,b.x,b.y);
+    }
+    return frame;
+}
+IndexedFrame drawXeenBankAmount(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,
+        const std::string &digits,const XeenDialogSpriteDraw &,char cursor) {
+    if(digits.size()>10 || digits.find_first_not_of("0123456789")!=std::string::npos)
+        throw std::invalid_argument("Invalid Bank amount input");
+    // NumericInput in window 35 clears 77 pixels, centers only the digits,
+    // then draws its cursor at the resulting write position.
+    XeenTextRenderOptions options;options.originalControls=true;
+    options.bounds={234,34,312,138};options.x=234;options.y=34;
+    auto result=XeenTextRenderer(font).render(base,str(text.scalar("AMOUNT"))+"\x03l\t000\x04" "077\x03" "c"+digits,options);
+    if(result.pages.size()!=1 || !result.diagnostics.empty())throw std::runtime_error("Original Bank amount layout overflow");
+    options.x=result.writeX;options.y=result.writeY;options.size=result.writeSize;options.colorIndex=result.writeColor;
+    auto frame=std::move(result.pages.front());
+    if(cursor) {
+        auto cursorFrame=XeenTextRenderer(font).render(frame,std::string(1,cursor),options);
+        if(cursorFrame.pages.size()!=1 || !cursorFrame.diagnostics.empty())throw std::runtime_error("Original Bank cursor layout overflow");
+        frame=std::move(cursorFrame.pages.front());
+    }
+    return frame;
+}
+IndexedFrame drawXeenFoodOffer(const IndexedFrame &base,const XeenFontFormat &font,const std::string &offer,const XeenDialogSpriteDraw &draw) {
+    auto frame=render(base,font,offer,{0,143,320,199},{8,151,312,191});
+    if(draw) {
+        draw(frame,"global.icn",7,232,74);
+        draw(frame,"confirm.icn",0,235,75);draw(frame,"confirm.icn",2,260,75);
+    }
+    return frame;
 }
 std::uint32_t xeenTempleUncurseCost(const XeenCharacter &c) {
     bool cursed=c.conditions[0]!=0;
@@ -185,6 +251,11 @@ std::string xeenServiceConfirm(const XeenDosText &text,bool repair,const std::st
 std::string xeenLocationText(const XeenDosText &text,XeenLocationDialog location,const XeenPartyState &p,std::size_t member) {
     const auto &c=p.party.member(p.roster,member);
     const auto purse=gold(p);const auto money=purse>=1000000?n(purse/1000000)+" mil":n(purse);
+    if(location==XeenLocationDialog::Bank) {
+        const auto money=[](std::uint32_t value) {return value>=1000000?n(value/1000000)+" mil":n(value);};
+        return xeenDialogFormat(text.scalar("BANK_TEXT"),{money(p.serviceEconomy->bank.gold),money(p.serviceEconomy->bank.gems),money(gold(p)),money(gems(p))});
+    }
+    if(location==XeenLocationDialog::Tavern) return xeenDialogFormat(text.scalar("TAVERN_TEXT"),{c.name,str(text.scalar("FOOD_AND_DRINK")),money});
     if(location==XeenLocationDialog::Smith) return xeenDialogFormat(text.scalar("BLACKSMITH_TEXT"),{c.name,money});
     if(location==XeenLocationDialog::Temple) {
         const auto heal=xeenQuoteTempleHeal(c,purse,*p.encounterContext);

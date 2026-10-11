@@ -178,6 +178,23 @@ void XeenAssetSource::drawSmith(IndexedFrame &frame) {
 void XeenAssetSource::drawTraining(IndexedFrame &frame) {
 	_impl->bridge.drawTraining(frame);
 }
+std::string XeenAssetSource::tavernFoodOffer() {
+ const auto bytes=readArchiveResource("tavern.bin",XeenSceneArchive::Clouds);
+ if(bytes.size()>65536)throw std::runtime_error("Tavern strings exceed bounded reader capacity");
+ std::size_t begin=0;
+ for(unsigned index=0;index<=75;++index) {
+  auto end=begin;while(end<bytes.size() && bytes[end])++end;
+  if(end==bytes.size())throw std::runtime_error("Missing or unterminated Tavern food offer");
+  if(index==75) {
+   if(end-begin>4096)throw std::runtime_error("Tavern food offer exceeds bounded reader capacity");
+   std::string offer(bytes.begin()+begin,bytes.begin()+end);XeenDosText::validateControls(offer);return offer;
+  }
+  begin=end+1;
+ }
+ throw std::runtime_error("Missing Tavern food offer");
+}
+void XeenAssetSource::drawTavern(IndexedFrame &frame) { _impl->bridge.drawTavern(frame); }
+void XeenAssetSource::drawBank(IndexedFrame &frame) { _impl->bridge.drawBank(frame); }
 void XeenAssetSource::drawTemple(IndexedFrame &frame) {
 	_impl->bridge.drawTemple(frame);
 }

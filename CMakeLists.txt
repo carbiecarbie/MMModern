@@ -35,6 +35,7 @@ add_library(mmodern_xeen STATIC
 	src/games/xeen/XeenRestRules.cpp
 	src/games/xeen/XeenMonsterTreasure.cpp
 	src/games/xeen/XeenServiceEconomy.cpp
+    src/games/xeen/XeenFoodBank.cpp
 	src/games/xeen/XeenMerchantGeneration.cpp
 	src/games/xeen/XeenServiceDay.cpp
 	src/games/xeen/XeenTraining.cpp
@@ -288,6 +289,10 @@ if(BUILD_TESTING)
 	set_tests_properties(xeen_purchase_process PROPERTIES TIMEOUT 1200)
 	add_test(NAME xeen_new_game_process COMMAND mmodern_purchase_process_tests $<TARGET_FILE:mmodern_m42_cli_witness> "${MMODERN_XEEN_DATA_DIR}" new-game)
 	set_tests_properties(xeen_new_game_process PROPERTIES TIMEOUT 1200)
+    add_executable(mmodern_food_bank_rules_tests tests/XeenFoodBankRulesTests.cpp)
+    target_link_libraries(mmodern_food_bank_rules_tests PRIVATE mmodern_xeen)
+    add_test(NAME xeen_food_bank_rules COMMAND mmodern_food_bank_rules_tests)
+    set_tests_properties(xeen_food_bank_rules PROPERTIES LABELS fast)
 	add_executable(mmodern_service_economy_tests tests/XeenServiceEconomyTests.cpp)
 	target_link_libraries(mmodern_service_economy_tests PRIVATE mmodern_xeen bcrypt)
 	add_test(NAME xeen_service_economy COMMAND mmodern_service_economy_tests)
@@ -515,6 +520,9 @@ if(BUILD_TESTING)
 	add_test(NAME xeen_interface_original COMMAND mmodern_interface_tests "${MMODERN_XEEN_DATA_DIR}")
 	set_tests_properties(xeen_interface_original PROPERTIES LABELS "fast")
 	add_executable(mmodern_service_dialog_tests tests/XeenServiceDialogTests.cpp)
+	add_executable(mmodern_food_bank_flow_tests tests/XeenFoodBankFlowTests.cpp tests/XeenFoodBankSaveTests.cpp)
+	target_link_libraries(mmodern_food_bank_flow_tests PRIVATE mmodern_app mmodern_xeen)
+	add_test(NAME xeen_food_bank_flow COMMAND mmodern_food_bank_flow_tests "${MMODERN_XEEN_DATA_DIR}")
 	target_link_libraries(mmodern_service_dialog_tests PRIVATE mmodern_app mmodern_xeen)
 	add_test(NAME xeen_service_dialogs COMMAND mmodern_service_dialog_tests "${MMODERN_XEEN_DATA_DIR}")
 	target_link_libraries(mmodern_dialog_tests PRIVATE mmodern_xeen)

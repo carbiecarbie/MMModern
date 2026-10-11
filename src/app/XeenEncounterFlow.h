@@ -194,6 +194,7 @@ private:
 		std::uint8_t owner=0, slot=0;
 		static constexpr auto category=XeenInventoryCategory::Armor;
 		bool quoted=false, departed=false, published=false, buy=false,temple=false,paid=false;
+		std::uint8_t serviceAction=1;
 		XeenArmorRepairCandidate result;
 		XeenTempleHealResult healResult;
 		std::unique_ptr<XeenTempleHealCandidate> healPending;
@@ -229,7 +230,9 @@ private:
 	void advanceTraining() noexcept;
 	std::function<void(XeenSmithBoundary)> _smithBoundary;
 	void checkSmithBoundary(XeenSmithBoundary);
-	bool beginSmith(const std::function<void()> &);
+	bool beginSmith(const std::function<void()> &,std::uint8_t action=1);
+	void buyFood();
+	void transferBank(bool withdrawal,bool gems,std::uint64_t amount);
 	bool serviceSmithPreparation();
 	void authorizeSmithFrame(std::uint64_t,const IndexedFrame::Presentation &);
 	bool consumeSmithFrame(std::uint64_t,const IndexedFrame::Presentation &);

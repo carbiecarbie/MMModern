@@ -42,6 +42,9 @@ public:
 	void drawSmith(IndexedFrame &frame);
 	void drawTraining(IndexedFrame &frame);
 	void drawTemple(IndexedFrame &frame);
+	std::string tavernFoodOffer();
+	void drawTavern(IndexedFrame &frame);
+	void drawBank(IndexedFrame &frame);
 	void discardSpriteCache();
 	std::size_t cachedSpriteCount() const;
 	// Successful resource reads + SpriteResource constructions, not draw calls.
