@@ -21,6 +21,9 @@ public:
 	void check(const XeenEventExecutionState &state) const {
 		const auto &a=state;const auto &b=expected;
 		bool same=queue(a.pendingRewards,b.pendingRewards) && a.rewardPhase==b.rewardPhase &&
+			optional(a.rewardRandom,b.rewardRandom,[](const auto &x,const auto &y){return x==y;}) &&
+			optional(a.rewardItem,b.rewardItem,[](const auto &x,const auto &y){return x==y;}) &&
+			a.rewardPair==b.rewardPair && a.generatingReward==b.generatingReward &&
 			a.preferredRewardRecipient==b.preferredRewardRecipient && address(a.logicalAddress,b.logicalAddress) &&
 			a.lookupDirection==b.lookupDirection && xeen_state::sameCamera(a.workingCamera,b.workingCamera) &&
 			a.selectedObject==b.selectedObject && a.activeCharacterIndex==b.activeCharacterIndex && a.entireParty==b.entireParty &&
@@ -32,11 +35,11 @@ public:
 			optional(a.pendingPresentation,b.pendingPresentation,presentation);
 		for(unsigned i=0;same && i<a.callStack.size();++i)same=address(a.callStack[i].returnAddress,b.callStack[i].returnAddress);
 		const auto &r=a.rewardReceipt;const auto &s=b.rewardReceipt;
-		same=same && r.count==s.count && r.delivered==s.delivered && r.lost==s.lost &&
+		same=same && r.count==s.count && r.delivered==s.delivered && r.lost==s.lost && r.gold==s.gold && r.gems==s.gems && r.currencyLost==s.currencyLost &&
 			r.overflow==s.overflow && r.invalid==s.invalid && r.discarded==s.discarded && r.discardReason==s.discardReason;
 		for(unsigned i=0;same && i<r.entries.size();++i) {
 			const auto &x=r.entries[i];const auto &y=s.entries[i];
-			same=x.owner==y.owner && x.loss==y.loss && x.item.material==y.item.material &&
+			same=x.owner==y.owner && x.loss==y.loss && x.category==y.category && x.item.material==y.item.material &&
 				x.item.id==y.item.id && x.item.state==y.item.state && x.item.frame==y.item.frame;
 		}
 		if(!same)throw std::logic_error("Detached Event continuation preimage changed");
@@ -53,9 +56,10 @@ public:
 private:
 	XeenEventExecutionState expected;
 	static bool queue(const XeenPendingRewards &a,const XeenPendingRewards &b) {
-		if(a.size()!=b.size() || a.overflow()!=b.overflow() || a.invalid()!=b.invalid())return false;
+		if(a.size()!=b.size() || a.overflow()!=b.overflow() || a.invalid()!=b.invalid() || a.gold()!=b.gold() || a.gems()!=b.gems())return false;
 		for(std::size_t i=0;i<a.size();++i) {
 			const auto &x=a.at(i),&y=b.at(i);
+			if(a.categoryAt(i)!=b.categoryAt(i))return false;
 			if(std::tie(x.material,x.id,x.state,x.frame)!=std::tie(y.material,y.id,y.state,y.frame))return false;
 		}
 		return true;

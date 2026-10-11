@@ -350,17 +350,19 @@ private:
 		check();candidate.check();
 		auto retainedTreasure=candidate.treasure;
 		if(retainedTreasure && treasure) {retainedTreasure->gold=treasure->gold;retainedTreasure->gems=treasure->gems;}
-		// Event capabilities permit awards, XP, purse, quest/camera/game flags
+		// Event capabilities permit inventories, awards, XP, purse, retained RNG, quest/camera/game flags
 		// and World overlays/Spawn. All other inputs retain their preimages.
 		if(candidate.membership!=membership || candidate.quests!=quests || candidate.marked!=marked ||
 			candidate.s._barriers!=s._barriers ||
 			candidate.recovery!=recovery || !(candidate.context==context) || retainedTreasure!=treasure ||
 			candidate.food!=food || candidate.economy!=economy || candidate.first!=first || candidate.effective!=effective ||
-			candidate.diagnostics!=diagnostics || candidate.s._journeyRandom!=s._journeyRandom) {
+			candidate.diagnostics!=diagnostics || bool(candidate.s._journeyRandom)!=bool(s._journeyRandom)) {
 			failed=true;throw std::logic_error("Event candidate changed an unowned party or RNG field");
 		}
 		for(unsigned owner=0;owner<characters.size();++owner) {
 			auto retainedCharacter=candidate.characters[owner];retainedCharacter.awards=characters[owner].awards;
+			retainedCharacter.weapons=characters[owner].weapons;retainedCharacter.armor=characters[owner].armor;
+			retainedCharacter.accessories=characters[owner].accessories;retainedCharacter.miscellaneous=characters[owner].miscellaneous;
 			auto retainedInputs=candidate.inputs[owner];
 			if(retainedInputs && inputs[owner])retainedInputs->experience=inputs[owner]->experience;
 			if(!xeen_state::sameCharacter(retainedCharacter,characters[owner]) ||
@@ -399,9 +401,12 @@ private:
 		s._objectOverrides.swap(overrides);
 		for(unsigned owner=0;owner<characters.size();++owner) {
 			characters[owner].awards=candidate.characters[owner].awards;
+			characters[owner].weapons=candidate.characters[owner].weapons;characters[owner].armor=candidate.characters[owner].armor;
+			characters[owner].accessories=candidate.characters[owner].accessories;characters[owner].miscellaneous=candidate.characters[owner].miscellaneous;
 			if(inputs[owner])inputs[owner]->experience=candidate.inputs[owner]->experience;
 		}
 		if(treasure) {treasure->gold=candidate.treasure->gold;treasure->gems=candidate.treasure->gems;}
+		s._journeyRandom=candidate.s._journeyRandom;
 		maps.swap(nextMaps);objects.swap(nextObjects);cityStatistics.swap(statistics);
 		cityOriginalCount=candidate.cityOriginalCount;
 		cameraValue=candidate.cameraValue;flagValues=candidate.flagValues;++worldRevision;

@@ -144,6 +144,7 @@ public:
 	void objectFlipDrawn(XeenObjectIdentity id,bool flipped) {_scenePresentation.objectFlips[id]=flipped;}
 	void applyEventGrant(XeenPartyState &,std::uint8_t mode,std::uint32_t value,
 		std::optional<std::size_t> member,bool entireParty,bool give);
+	void retainEventRandom(const XeenJourneyRandomState &);
 	void publishEventParty(XeenPartyState &,const XeenPartyState &) noexcept;
 	bool isEventDisabled(XeenEventIdentity id) const { return _sessionState.isEventDisabled(id); }
 	std::optional<XeenObjectIdentity> selectObject(const XeenCamera &camera);

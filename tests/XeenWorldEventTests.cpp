@@ -9,6 +9,7 @@
 namespace mmodern {
 struct XeenCityEventTestAccess {
  static void composer(XeenEventFlow &flow,XeenEventFlow::TransitionCompose compose){flow._transitionCompose=std::move(compose);}
+ static void presenter(XeenEventFlow &flow,XeenEventFlow::EncounterCompose compose){flow._encounterCompose=std::move(compose);}
 };
 }
 using namespace training_test;
@@ -18,6 +19,8 @@ struct Fixture : training_test::Fixture {
  Fixture(Inputs &in,const XeenSaveSnapshot &source,bool animated=false,const XeenEventFile *city=nullptr):
   training_test::Fixture(in,source,animated,city,{},{},[&in](auto &f,auto portrait,auto phase){in.assets.drawNpc(f,portrait,phase);}) {
   flow->loadRestDream=[]{return frame();};
+  flow->drawTavernArt=[&in](auto &image){in.assets.drawTavern(image);};
+  flow->tavernFoodOffer=[&in]{return in.assets.tavernFoodOffer();};
  }
 };
 XeenEventRecord record(unsigned line,unsigned opcode,std::vector<std::uint8_t> params={}) {
@@ -81,7 +84,7 @@ void rules(Inputs &in) {
  auto turned=saved;turned.objectOverrides[0].flipped=!bool(turned.objectOverrides[0].flipped);Fixture turnedRestore(in,turned,false,&city);
  check(XeenSaveFormat::encode(turnedRestore.snapshot())==XeenSaveFormat::encode(turned),"Loading reset a retained object flip");
  f.w.discardMapCache();check(f.w.effectiveObject({28,0}).x==20,"Map cache discarded durable object move");
- for(unsigned field=0;field<5;++field) {
+ for(unsigned field=0;field<7;++field) {
   Fixture tampered(in,s,false,&city);bool injected=false;
   XeenCityEventTestAccess::composer(*tampered.flow,[&](auto &world,const auto &party,const auto &,auto,auto) {
    injected=true;auto &p=const_cast<XeenPartyState &>(party);
@@ -91,9 +94,11 @@ void rules(Inputs &in) {
    if(field==2){auto &o=const_cast<XeenObjectOverride &>(world.sessionState().objectOverrides().front());const auto x=int(o.x);o.x=0;o.x=x;}
    if(field==3){auto &c=p.roster.at(0).currentHp;const auto hp=int(c);++c;c=hp;}
    if(field==4){auto &xp=const_cast<XeenCombatInputs &>(*p.roster.combatInputs(0)).experience;const auto value=std::uint32_t(xp);++xp;xp=value;}
+   if(field==5){auto &id=p.roster.at(0).weapons[0].id;const auto value=std::uint8_t(id);id=2;id=value;}
+   if(field==6){auto &rng=const_cast<XeenJourneyRandomState &>(*world.sessionState().journeyRandom());const auto value=std::uint32_t(rng.state);++rng.state;rng.state=value;}
    return XeenEventFlow::Composition{frame(),false};
   });
-  tampered.act(InteractionAction{});save_test::rejects([&]{tampered.act(SelectMemberAction{0});});
+  tampered.act(InteractionAction{});save_test::rejects([&]{tampered.act(SelectMemberAction{0});settle(tampered);});
   check(injected && !tampered.flow->canSave() && !tampered.p.questFlags.isSet(29) &&
    tampered.p.monsterTreasure->gold==gold && tampered.w.sessionState().objectOverrides().empty(),"Stale candidate published world rewards");
  }
@@ -109,7 +114,7 @@ void rules(Inputs &in) {
  const auto once=XeenSaveFormat::encode(retry.snapshot());retry.act(AcknowledgeAction{});retry.act(AcknowledgeAction{});
  check(once==XeenSaveFormat::encode(retry.snapshot()),"Repeated receipt regranted fixed rewards");
  // Unsupported dependencies in called scripts must refuse the whole group.
- for(const auto suffix:std::vector<XeenEventRecord>{record(9,0x14,{66,1}),record(9,0x0c,{34,0,0,0,0,0,0}),
+ for(const auto suffix:std::vector<XeenEventRecord>{record(9,0x14,{101,1,0}),record(9,0x0c,{34,0,0,0,0,0,0}),
    record(9,0x0c,{16,1,0,0,0,16,1,0,0,0}),record(9,0x0c,{20,0,0,0}),record(9,0x0f,{7}),record(9,0x0b,{255,0,0})}) {
   city.records={record(0,0x0c,{0,0,15,6}),record(1,0x0b,{0,20,20}),record(2,0x19,{20,20,9}),record(3,0x12),suffix,record(10,0x1a)};
   Fixture refused(in,s,false,&city);const auto preimage=XeenSaveFormat::encode(refused.snapshot());
@@ -140,6 +145,35 @@ void rules(Inputs &in) {
   "Scene draw did not apply reference flip reset to off-screen object");
  auto malformed=saved;malformed.objectOverrides[0].id.recordIndex=99999;
  save_test::rejects([&]{Fixture invalid(in,malformed,false,&city);});
+}
+void originalVisualRegressions(Inputs &in) {
+ stage="original wall at 12,20 north";
+ XeenWorld world(in.mapLoader());const auto walls=XeenIndoorScene().build(world,{28,12,20,XeenDirection::North});
+ const auto hasOrder=[&](int order){return std::any_of(walls.begin(),walls.end(),[&](const auto &c){return c.originalOrder==order;});};
+ check(hasOrder(120) && hasOrder(107),"Original front wall incorrectly hid the adjacent left side wall");
+ stage="original proof bottom window after recomposition";
+ Fixture proof(in,at(in,9,22),true);proof.act(InteractionAction{});proof.act(SelectMemberAction{0});
+ std::optional<XeenPresentationRequest> bottom;
+ for(unsigned n=0;n<20 && proof.flow->presentationGeneration();++n) {
+  const auto state=XeenTrainingTestAccess::serviceState(*proof.flow);
+  if(state.pendingPresentation && state.pendingPresentation->request.kind==XeenPresentationKind::BottomWindowMessage) {
+   bottom=state.pendingPresentation->request;break;
+  }
+  proof.act(AcknowledgeAction{});
+ }
+ check(bottom.has_value(),"Original proof bottom window absent");
+ XeenEventPresenter oracle(in.font);const auto expected=oracle.present(frame(),*bottom).frame;
+ const auto intact=[&](const IndexedFrame &image) {
+  for(int y=143;y<199;++y)for(int x=0;x<320;++x)
+   if(image.pixels[y*320+x]!=expected.pixels[y*320+x])return false;
+  return true;
+ };
+ check(intact(proof.flow->frame()),"Original proof bottom window initially obscured");
+ proof.present(proof.flow->refresh(false));
+ check(intact(proof.flow->frame()),"Party redraw obscured the bottom window during recomposition");
+ proof.now+=500;proof.prepare();
+ check(intact(proof.flow->frame()),"Idle redraw obscured the bottom window");
+ settle(proof);check(!intact(proof.flow->frame()),"Acknowledgment failed to restore the party panel");
 }
 void originalEvents(Inputs &in) {
  // Original records, synthetic placement/flag fixtures: isolate each script branch.
@@ -175,6 +209,143 @@ void originalEvents(Inputs &in) {
  }
  auto first=at(in,14,5,XeenDirection::West);Fixture request(in,first);interact(request);
  check(request.p.questFlags.isSet(29) && !request.f.isSet(10),"Gunther first-talk quest flag missing");
+}
+bool sameItem(XeenItem a,XeenItem b) {
+ return std::tie(a.material,a.id,a.state,a.frame)==std::tie(b.material,b.id,b.state,b.frame);
+}
+unsigned itemCount(const XeenPartyState &);
+void treasure(Inputs &in) {
+ stage="shared Event treasure";
+ auto s=at(in,20,20);
+ for(auto owner:s.activeRosterIds) {
+  s.characters[owner].weapons={};s.characters[owner].armor={};
+  s.characters[owner].accessories={};s.characters[owner].miscellaneous={};
+ }
+ XeenEventFile city{28,"maze0028.evt",true,{record(0,0x20,{0,0}),record(1,0x0b,{8,20,20}),
+  record(2,0x14,{66,2,100,10,0,0,0,35,5,0}),record(3,0x0c,{0,0,20,199}),record(4,0x12)}};
+ Fixture oracle(in,s,false,&city);XeenCombatRandom random(*oracle.w.sessionState().journeyRandom());
+ XeenItemCandidate generated(2);XeenConsequenceDraw draw{random,64,{}};
+ check(generated.service(draw),"Treasure oracle incomplete");const auto gold=draw.draw(1,10);check(bool(gold),"Gold oracle rejected");
+ for(bool full:{false,true}) {
+  auto source=s;
+  if(full)for(auto owner:source.activeRosterIds)for(unsigned c=0;c<4;++c)
+   xeenRewardItems(source.characters[owner],XeenRewardCategory(c)).fill({1,1,0,0});
+  Fixture f(in,source,false,&city);const auto before=XeenSaveFormat::encode(f.snapshot());
+  const auto oldGold=std::uint32_t(f.p.monsterTreasure->gold),oldGems=std::uint32_t(f.p.monsterTreasure->gems);
+  f.act(InteractionAction{});const auto selector=f.flow->frame().presentation();const auto input=f.flow->displayedInput();
+  unsigned presentationAttempts=0;
+  XeenCityEventTestAccess::presenter(*f.flow,[&](auto,auto) {
+   if(f.flow->presentationGeneration()) {
+    const auto state=XeenTrainingTestAccess::serviceState(*f.flow);
+    if(state.pendingPresentation->request.kind==XeenPresentationKind::RewardReceipt && ++presentationAttempts==1 && !full)
+     throw std::runtime_error("Recoverable receipt presentation failure");
+   }
+   return XeenEventFlow::Composition{frame(),false};
+  });
+  unsigned reports=0;
+  f.flow->reportManual=[&](const auto &result) {
+   if(const auto *pending=std::get_if<XeenEventExecutionSuspended>(&result))
+    if(full && pending->request.kind==XeenPresentationKind::RewardReceipt && ++reports==1)
+     throw std::runtime_error("Recoverable receipt reporting failure");
+  };
+  f.act(SelectMemberAction{1});
+  check(!f.flow->canSave() && !XeenSaveState::canCapture(f.p,f.c,f.w) &&
+   f.p.monsterTreasure->gold==oldGold && f.p.monsterTreasure->gems==oldGems &&
+   !f.f.isSet(199) && f.w.sessionState().objectOverrides().empty() &&
+   f.w.sessionState().journeyRandom()==oracle.w.sessionState().journeyRandom(),"Reward page published candidate early");
+  unsigned attempts=0;
+  XeenCityEventTestAccess::composer(*f.flow,[&](auto &,const auto &,const auto &,auto,auto) {
+   if(++attempts==1)throw std::runtime_error("Recoverable generated reward composition failure");
+   return XeenEventFlow::Composition{frame(),false};
+  });
+  settle(f);
+  check(presentationAttempts>=2 && attempts==2 && f.f.isSet(199) && f.w.effectiveObject({28,8}).x==20 &&
+   f.w.sessionState().journeyRandom()==random.continuation(),"Generated reward retry rerolled or lost world group");
+  check(f.p.monsterTreasure->gold==oldGold+(full?0:*gold) && f.p.monsterTreasure->gems==oldGems+(full?0:5),"Ordered currency/loss differs");
+  if(!full)check(sameItem(xeenRewardItems(f.p.roster.at(f.p.party.activeRosterIds()[1]),
+   XeenRewardCategory(generated.category()))[0],generated.item()),"Generated category or selected recipient differs");
+  const auto paid=XeenSaveFormat::encode(f.snapshot());
+  f.flow->handle(SelectMemberAction{0},input,selector);f.act(AcknowledgeAction{});f.act(AcknowledgeAction{});
+  check(paid==XeenSaveFormat::encode(f.snapshot()),"Stale input replayed generated reward");
+  Fixture reload(in,f.snapshot(),false,&city);check(paid==XeenSaveFormat::encode(reload.snapshot()),"Generated inventory/purse/RNG restore differs");
+ }
+ // Generation before a later selector remains private and cancellation drops its RNG too.
+ city.records={record(0,0x14,{66,7,100,10,0,0,0,0,0}),record(1,0x20,{0,0}),record(2,0x0c,{0,0,20,199}),record(3,0x12)};
+ Fixture cancelled(in,s,false,&city);const auto preimage=XeenSaveFormat::encode(cancelled.snapshot());
+ cancelled.act(InteractionAction{});check(cancelled.flow->canCancelInteraction(),"Post-generation selector absent");
+ cancelled.act(CancelInteractionAction{});check(cancelled.flow->canSave() && preimage==XeenSaveFormat::encode(cancelled.snapshot()),"Cancellation leaked item/RNG/flag");
+ city.records.push_back(record(4,0x14,{101,1,0}));city.records[3]=record(3,0x19,{20,20,4});city.records.push_back(record(5,0x1a));
+ Fixture refused(in,s,false,&city);interact(refused);
+ check(preimage==XeenSaveFormat::encode(refused.snapshot()),"Dependent unsupported suffix consumed treasure RNG");
+ // Sixty-three raw draws leave one draw for makeItem, forcing a partial item continuation.
+ city.records.clear();
+ for(unsigned line=0;line<21;++line)city.records.push_back(record(line,0x14,{100,1,0,0,0,100,1,0,0,0,100,1,0,0,0}));
+ city.records.push_back(record(21,0x14,{66,7,0,0,0,0}));
+ city.records.push_back(record(22,0x0c,{0,0,20,199}));city.records.push_back(record(23,0x12));
+ Fixture bounded(in,s,false,&city);XeenCombatRandom expected(*bounded.w.sessionState().journeyRandom());
+ const auto initialPosition=expected.position();
+ XeenConsequenceDraw many{expected,256,{}};
+ for(unsigned i=0;i<63;++i)check(many.draw(1,1)==1,"Fixed random-gold oracle");
+ XeenItemCandidate item(7);check(item.service(many),"Bounded item oracle");
+ bounded.act(InteractionAction{});auto pending=XeenTrainingTestAccess::serviceState(*bounded.flow);
+ check(pending.generatingReward && pending.rewardItem && pending.rewardRandom && pending.rewardRandom->position()==initialPosition+64 &&
+  pending.instructionCount==22 && pending.pendingRewards.gold()==63 && !bounded.flow->canSave(),"Raw draw budget or instruction continuation differs");
+ XeenEventContinuation guard(pending,true);
+ for(unsigned field=0;field<5;++field) {
+  auto altered=pending;
+  if(field==0)altered.rewardPair++;
+  if(field==1)altered.rewardRandom->draw(1,1);
+  if(field==2)altered.rewardItem.emplace(1);
+  if(field==3)altered.pendingRewards.credit(34,1);
+  if(field==4)altered.pendingRewards.enqueue({1,1,0,0},XeenRewardCategory::Weapons);
+  save_test::rejects([&]{guard.check(altered);});
+ }
+ check(!XeenSaveState::canCapture(bounded.p,bounded.c,bounded.w) && !bounded.f.isSet(199) &&
+  bounded.w.sessionState().journeyRandom()==oracle.w.sessionState().journeyRandom() &&
+  bounded.p.monsterTreasure->gold==s.journey->treasure->gold,"Suspended generator published live state");
+ settle(bounded);
+ check(bounded.f.isSet(199) && bounded.w.sessionState().journeyRandom()==expected.continuation() &&
+  bounded.p.monsterTreasure->gold==s.journey->treasure->gold+63,"Suspended generation replayed a pair or instruction");
+ // A full ten-item category still consumes makeItem, then exits the script before later pairs/effects.
+ city.records.clear();for(unsigned line=0;line<40;++line)
+  city.records.push_back(record(line,0x14,{34,1,0,0,0,66,1,35,1,0}));
+ city.records.push_back(record(40,0x0c,{0,0,20,199}));city.records.push_back(record(41,0x12));
+ Fixture overflow(in,s,false,&city);XeenCombatRandom overflowRandom(*overflow.w.sessionState().journeyRandom());
+ std::array<unsigned,4> counts{};unsigned accepted=0,attempted=0;
+ for(;attempted<40;++attempted) {
+  XeenItemCandidate next(1);XeenConsequenceDraw one{overflowRandom,64,{}};check(next.service(one),"Overflow oracle incomplete");
+  if(counts[next.category()]==10){++attempted;break;}
+  ++counts[next.category()];++accepted;
+ }
+ interact(overflow);
+ check(attempted==accepted+1 && !overflow.f.isSet(199) && itemCount(overflow.p)==accepted &&
+  overflow.p.monsterTreasure->gold==s.journey->treasure->gold+attempted &&
+  overflow.p.monsterTreasure->gems==s.journey->treasure->gems+accepted &&
+  overflow.w.sessionState().journeyRandom()==overflowRandom.continuation(),"Category overflow changed termination, pair order or RNG");
+}
+unsigned itemCount(const XeenPartyState &p) {
+ unsigned n=0;for(const auto &c:p.roster.characters())for(const auto *items:{&c.weapons,&c.armor,&c.accessories,&c.miscellaneous})
+  for(const auto &item:*items)n+=item.id!=0;
+ return n;
+}
+void treeFlags(Inputs &in) {
+ stage="all original tree flags";std::bitset<256> paid;
+ for(const auto &r:in.city.records)if(r.opcode==0x0c && r.parameters.size()==4 &&
+  r.parameters[0]==0 && r.parameters[1]==0 && r.parameters[2]==20 &&
+  (r.parameters[3]>=232 || r.parameters[3]==57 || r.parameters[3]==58)) {
+  const auto flag=r.parameters[3];if(paid[flag])continue;paid.set(flag);
+  auto s=at(in,r.x,r.y);s.gameFlags[231]=true;
+  Fixture f(in,s);const auto gold=std::uint32_t(f.p.monsterTreasure->gold);
+  XeenCombatRandom random(*f.w.sessionState().journeyRandom());XeenConsequenceDraw draw{random,64,{}};
+  const auto amount=draw.draw(1,10);check(bool(amount),"Tree gold oracle");
+  interact(f,true);check(f.f.isSet(flag) && f.p.monsterTreasure->gold==gold+*amount &&
+   f.w.sessionState().journeyRandom()==random.continuation(),"Original tree flag/payment/RNG differs");
+  const auto once=XeenSaveFormat::encode(f.snapshot());interact(f);
+  check(once==XeenSaveFormat::encode(f.snapshot()),"Original tree repeated payment");
+  Fixture reload(in,f.snapshot());interact(reload);
+  check(once==XeenSaveFormat::encode(reload.snapshot()),"Restored tree repeated payment");
+ }
+ check(paid.count()==26 && paid[57] && paid[58] && paid[232] && paid[255],"Original tree family incomplete");
 }
 XeenSaveSnapshot fresh(Inputs &in) {
  auto party=XeenPartyLoader().loadFromResources(in.chr,in.pty);
@@ -242,6 +413,14 @@ void originalJourney(Inputs &in) {
  interact(f);check(f.f.isSet(10) && f.p.monsterTreasure->gold==gold+4000 && f.p.questFlags.isSet(1),"New Game Gunther reward missing");
  const auto awarded=XeenSaveFormat::encode(f.snapshot());interact(f);
  check(awarded==XeenSaveFormat::encode(f.snapshot()),"New Game repeat Gunther regranted rewards");
+ stage="New Game crate";walk(f,9,28);
+ check(f.w.effectiveObject({28,8}).resourceId==95 && f.w.effectiveObject({28,8}).x==-128 &&
+  f.w.effectiveObject({28,8}).y==-128,"Original open-crate overlay source differs");
+ const auto items=itemCount(f.p);interact(f,true);
+ check(itemCount(f.p)==items+1 && f.w.effectiveObject({28,8}).x==9 && f.w.effectiveObject({28,8}).y==28,
+  "Original crate did not deliver item/reveal open appearance");
+ const auto opened=XeenSaveFormat::encode(f.snapshot());interact(f);
+ check(opened==XeenSaveFormat::encode(f.snapshot()),"Repeated crate changed inventory/RNG");
  f.act(RestAction{});settle(f);
  walk(f,8,18);interact(f);walk(f,11,18);face(f,XeenDirection::West);interact(f);
  walk(f,15,0);face(f,XeenDirection::South);
@@ -259,6 +438,26 @@ void originalJourney(Inputs &in) {
  for(unsigned i=0;i<actors.size();++i)check(xeen_state::sameActor(retained[i],actors[i]),"Flag 9 town exit respawned actors");
  walk(reload,14,5);face(reload,XeenDirection::West);const auto purse=reload.p.monsterTreasure->gold;
  interact(reload);check(reload.p.monsterTreasure->gold==purse && reload.p.questFlags.isSet(1),"Reload/re-entry repeated reward");
+ stage="earned crate reload";walk(reload,9,28);const auto openedAgain=XeenSaveFormat::encode(reload.snapshot());interact(reload);
+ check(openedAgain==XeenSaveFormat::encode(reload.snapshot()) && reload.w.effectiveObject({28,8}).x==9,
+  "Travel/reload reopened paid crate");
+ stage="earned tree cycle";check(reload.f.isSet(231),"Town departure did not initialize tree cycle");
+ walk(reload,13,2);const auto beforeTree=std::uint32_t(reload.p.monsterTreasure->gold);interact(reload,true);
+ check(reload.f.isSet(232) && reload.p.monsterTreasure->gold>beforeTree && reload.p.monsterTreasure->gold<=beforeTree+10,"Earned tree payment absent");
+ walk(reload,24,5);const auto tavern=std::find_if(in.city.records.begin(),in.city.records.end(),[](const auto &r){return r.x==24 && r.y==5 && r.line==0;});
+ check(tavern!=in.city.records.end(),"Original Tavern entry missing");if(tavern->direction<4)face(reload,XeenDirection(tavern->direction));
+ reload.act(InteractionAction{});
+ for(unsigned n=0;n<100 && !reload.flow->canSave();++n) {
+  reload.now+=125;reload.flow->beginCycle(++reload.cycle);if(auto frame=reload.flow->updatePresentation())reload.present(*frame);
+  reload.act(CancelInteractionAction{});
+ }
+ settle(reload);check(reload.f.isSet(231) && reload.f.isSet(232),"Tavern reset initialized tree payment");
+ walk(reload,13,2);const auto afterTavern=XeenSaveFormat::encode(reload.snapshot());interact(reload);
+ check(afterTavern==XeenSaveFormat::encode(reload.snapshot()),"Tavern minted another tree payment");
+ walk(reload,15,0);face(reload,XeenDirection::South);interact(reload);Fixture treeReload(in,reload.snapshot());
+ walk(treeReload,entry->x,entry->y);if(entry->direction<4)face(treeReload,XeenDirection(entry->direction));interact(treeReload);
+ walk(treeReload,13,2);const auto afterTravel=XeenSaveFormat::encode(treeReload.snapshot());interact(treeReload);
+ check(afterTravel==XeenSaveFormat::encode(treeReload.snapshot()),"Departure/reload minted another tree payment");
 }
 }
 int main(int argc,char **argv) {
@@ -274,8 +473,8 @@ int main(int argc,char **argv) {
    return 0;
   }
   std::ostringstream output;auto *saved=std::cout.rdbuf(output.rdbuf());
-  try {rules(in);originalEvents(in);originalJourney(in);}catch(...){std::cout.rdbuf(saved);throw;}
+  try {rules(in);treasure(in);originalVisualRegressions(in);originalEvents(in);treeFlags(in);originalJourney(in);}catch(...){std::cout.rdbuf(saved);throw;}
   std::cout.rdbuf(saved);
-  std::cout<<"Part A world effects, awards, fixed rewards, cancellations, dependent refusal and original scripts passed\n";return 0;
+  std::cout<<"World effects, shared treasure, bounded generation, cancellation, retry and original scripts passed\n";return 0;
  }catch(const std::exception &e){std::cerr<<stage<<": "<<e.what()<<'\n';return 1;}
 }

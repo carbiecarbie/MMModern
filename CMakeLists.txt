@@ -36,6 +36,7 @@ add_library(mmodern_xeen STATIC
 	src/games/xeen/XeenMonsterTreasure.cpp
 	src/games/xeen/XeenServiceEconomy.cpp
     src/games/xeen/XeenFoodBank.cpp
+	src/games/xeen/XeenItemGeneration.cpp
 	src/games/xeen/XeenMerchantGeneration.cpp
 	src/games/xeen/XeenServiceDay.cpp
 	src/games/xeen/XeenTraining.cpp
@@ -310,6 +311,11 @@ if(BUILD_TESTING)
 	add_dependencies(mmodern_service_day_process_tests mmodern_m40_cli_witness)
 	add_test(NAME xeen_service_day_process COMMAND mmodern_service_day_process_tests $<TARGET_FILE:mmodern_m40_cli_witness> "${MMODERN_XEEN_DATA_DIR}")
 	set_tests_properties(xeen_service_day_process PROPERTIES TIMEOUT 600)
+	if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+		# The complete fault/restore matrix takes over ten minutes at -O0.
+		# Keep each child's independent 120-second bound unchanged.
+		set_tests_properties(xeen_service_day_process PROPERTIES TIMEOUT 1200)
+	endif()
 	add_executable(mmodern_combat_clock_process_tests tests/XeenCombatClockProcessTests.cpp)
 	target_link_libraries(mmodern_combat_clock_process_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl bcrypt)
 	add_dependencies(mmodern_combat_clock_process_tests mmodern_m40_cli_witness)

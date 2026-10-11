@@ -186,7 +186,8 @@ std::optional<XeenEventExecutionError> preflightCityEvent(XeenWorld &world,
 		}
 		if(const auto *give=std::get_if<XeenEventGiveMulti>(&op)) {
 			for(const auto &p:{give->first,give->second,give->third})
-				if(!((p.mode==0 && p.value==0) || p.mode==34 || p.mode==35))
+				if(!((p.mode==0 && p.value==0) || p.mode==34 || p.mode==35 ||
+					(p.mode==66 && p.value>=1 && p.value<=7) || (p.mode==100 && p.value>0)))
 					return unsupported("GiveMulti effect is not supported yet");
 			const auto selected=world.selectObject(camera);
 			if(selected) {
@@ -346,6 +347,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 	auto &instructionCount = state.instructionCount;
 	auto &missingPolicy = state.missingInstructionPolicy;
 	auto &pendingTransferSource = state.pendingTransferSource;
+	unsigned generationBudget=64;
 
 	const auto finalize = [&]() -> XeenEventExecutionStepResult {
 		if (publication) publication->execution(state);
@@ -358,9 +360,8 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 		if (state.rewardPhase == XeenRewardPhase::Running && xeenPacksGloballyFull(partyState)) {
 			state.rewardPhase = XeenRewardPhase::Warning;
 			request.kind = XeenPresentationKind::RewardWarning;
-			request.text = "Reward capacity warning\nAll four category tails are full across active members.\n"
-				"Pending rewards have not been delivered. Items without an eligible miscellaneous recipient "
-				"will be lost. Existing items and earlier mutations remain.\nSpace / Enter / Escape: continue";
+			if(!world.detachedEventCandidate())request.text = "Reward capacity warning\nAll four category tails are full across active members.\n"
+				"Remaining treasure, including gold and gems, will be lost.\nSpace / Enter / Escape: continue";
 		} else if (state.rewardPhase == XeenRewardPhase::Receipt) {
 			state.rewardPhase = XeenRewardPhase::Completed;
 			return completed(workingCamera, workingGameFlags, instructionCount);
@@ -371,7 +372,8 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			state.rewardPhase = XeenRewardPhase::Receipt;
 			// Clear production and establish the typed receipt before formatting.
 			request.kind = XeenPresentationKind::RewardReceipt;
-			request.text = xeenRewardReceiptText(state.rewardReceipt, partyState.roster);
+			// Detached Flow owns the typed receipt before fallible text/layout work.
+			if(!world.detachedEventCandidate())request.text = xeenRewardReceiptText(state.rewardReceipt, partyState.roster);
 		}
 		state.pendingPresentation = XeenEventPendingPresentation{request, XeenEventPendingContinuation::RewardFinalization, {}};
 		return XeenEventExecutionSuspended{state, std::move(request)};
@@ -492,13 +494,15 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				instructionCount, logical, decodeError->source);
 		}
 		const auto &decoded = std::get<XeenDecodedEventInstruction>(decodedResult);
-		if (instructionCount >= kMaximumInstructions) {
+		if (!state.generatingReward && instructionCount >= kMaximumInstructions) {
 			return error(XeenEventExecutionErrorKind::InstructionLimitExceeded,
 				"event execution exceeded 1024 dispatched instructions",
 				instructionCount, logical, decoded.source);
 		}
-		++instructionCount;
-		if(publication)publication->dispatched(state,decoded);
+		if(!state.generatingReward) {
+			++instructionCount;
+			if(publication)publication->dispatched(state,decoded);
+		}
 
 		if (std::holds_alternative<XeenEventExit>(decoded.operation))
 			return finalize();
@@ -732,12 +736,41 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 		if(const auto *give=std::get_if<XeenEventGiveMulti>(&decoded.operation)) {
 			if(!world.detachedEventCandidate())return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
 				"GiveMulti publication is not supported yet in this context",instructionCount,logical,decoded.source);
-			for(const auto &pair:{give->first,give->second,give->third}) {
+			const XeenEventTakeOrGivePair pairs[]={give->first,give->second,give->third};
+			if(!state.generatingReward) {state.rewardPair=0;state.generatingReward=true;}
+			for(;state.rewardPair<3;++state.rewardPair) {
+				const auto &pair=pairs[state.rewardPair];
 				if(pair.mode==0 && pair.value==0)continue;
-				if(pair.mode!=34 && pair.mode!=35)return error(XeenEventExecutionErrorKind::UnsupportedOperationMode,
-					"GiveMulti effect is not supported yet",instructionCount,logical,decoded.source);
-				world.applyEventGrant(partyState,pair.mode,pair.value,state.activeCharacterIndex,state.entireParty,true);
+				if(pair.mode==34 || pair.mode==35) {state.pendingRewards.credit(pair.mode,pair.value);continue;}
+				if((pair.mode!=66 && pair.mode!=100) || !pair.value || (pair.mode==66 && pair.value>7))
+					return error(XeenEventExecutionErrorKind::UnsupportedOperationMode,
+						"GiveMulti effect is not supported yet",instructionCount,logical,decoded.source);
+				if(!state.rewardRandom) {
+					if(!world.sessionState().journeyRandom())throw std::invalid_argument("Event treasure has no Journey RNG");
+					state.rewardRandom.emplace(*world.sessionState().journeyRandom());
+				}
+				XeenConsequenceDraw draw{*state.rewardRandom,generationBudget,{}};
+				bool ready=false;std::optional<unsigned> gold;
+				if(pair.mode==66) {
+					if(!state.rewardItem)state.rewardItem.emplace(pair.value);
+					ready=state.rewardItem->service(draw);
+				} else {gold=draw.draw(1,pair.value);ready=gold.has_value();}
+				generationBudget=draw.remaining;
+				world.retainEventRandom(state.rewardRandom->continuation());
+				if(!ready) {
+					XeenPresentationRequest request;request.kind=XeenPresentationKind::RewardGeneration;
+					request.response=XeenPresentationResponseRequirement::Presented;request.mapId=logical.mapId;request.source=decoded.source;
+					state.pendingPresentation=XeenEventPendingPresentation{request,XeenEventPendingContinuation::GiveMulti,{}};
+					return XeenEventExecutionSuspended{state,request};
+				}
+				if(gold)state.pendingRewards.credit(34,*gold);
+				else {
+					const auto outcome=state.pendingRewards.enqueue(state.rewardItem->item(),static_cast<XeenRewardCategory>(state.rewardItem->category()));
+					state.rewardItem.reset();
+					if(outcome==XeenRewardEnqueue::IgnoredOverflow) {state.generatingReward=false;return finalize();}
+				}
 			}
+			state.generatingReward=false;state.rewardPair=0;
 			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
 		}
 		if (const auto *takeOrGive =

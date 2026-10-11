@@ -421,8 +421,7 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 		91, fwl3, frontFrame3(value(18)), 200, 52, false, 18);
 
 	// Depth two side and front walls.
-	// A centered depth-three front wall fully covers this farther side piece.
-	addSide(!wo[25] && !wo[28] && !wo[20] && !wo[15],
+	addSide(!wo[25] && !wo[28] && !wo[20],
 		107, 8, 48, false, 11, 6, 30);
 	addSide(!wo[27] && !wo[22], 108, 64, 40, false, 13, 4, 28);
 	addSide(!wo[27] && !wo[22], 109, 144, 40, true, 15, 5, 29);

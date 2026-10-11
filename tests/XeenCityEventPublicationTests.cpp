@@ -32,7 +32,7 @@ void select(Fixture &f) {
 void automatic(Inputs &inputs,const XeenSaveSnapshot &initial,bool unsupported) {
 	auto start=initial;start.camera={28,20,19,XeenDirection::North};
 	XeenEventFile city{28,"maze0028.evt",true,unsupported?
-		std::vector<XeenEventRecord>{record(0,0x0c,{0,0,104,3}),record(1,0x10,{50,13,15,0}),record(2,0x14,{66,1})}:
+		std::vector<XeenEventRecord>{record(0,0x0c,{0,0,104,3}),record(1,0x10,{50,13,15,0}),record(2,0x14,{101,1,0})}:
 		std::vector<XeenEventRecord>{record(0,0x27,{0}),record(1,0x12)}};
 	const auto geometry=[&inputs](auto id) {
 		auto map=inputs.maps.loadGeometryMap(inputs.assets,id);
@@ -83,7 +83,7 @@ int main(int argc,char **argv) {
 		check(XeenSaveFormat::encode(restored.snapshot())==XeenSaveFormat::encode(saved),
 			"Same-map flags, Event overlay and scripted slots did not restore byte-identically");
 
-		city.records={record(0,0x0c,{0,0,104,3}),record(1,0x10,{50,13,15,0}),record(2,0x14,{66,1})};
+		city.records={record(0,0x0c,{0,0,104,3}),record(1,0x10,{50,13,15,0}),record(2,0x14,{101,1,0})};
 		Fixture refused(inputs,initial,false,&city);const auto unchanged=XeenSaveFormat::encode(refused.snapshot());
 		refused.act(InteractionAction{});
 		check(refused.flow->canSave() && unchanged==XeenSaveFormat::encode(refused.snapshot()),
@@ -120,7 +120,7 @@ int main(int argc,char **argv) {
 		check(audioNotices==4 && spoken.flow->canSave() && spoken.p.questFlags.isSet(3) &&
 			spoken.w.sessionState().disabledEvents().count({28,2}) && spoken.w.sessionState().journeyRandom()==random,
 			"City speech prefix lost guarded effects or drew RNG");
-		for(const auto &suffix:std::vector<XeenEventRecord>{record(3,0x3c,{1,0,0}),record(3,0x14,{66,1})}) {
+		for(const auto &suffix:std::vector<XeenEventRecord>{record(3,0x3c,{1,0,0}),record(3,0x14,{101,1,0})}) {
 			city.records={record(0,0x3c,{1,0,0,1,0}),record(1,0x0c,{0,0,104,3}),record(2,0x10,{50,13,15,0}),suffix};
 			Fixture blocked(inputs,initial,false,&city);const auto preimage=XeenSaveFormat::encode(blocked.snapshot());
 			blocked.act(InteractionAction{});

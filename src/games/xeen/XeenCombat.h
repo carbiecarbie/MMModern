@@ -46,6 +46,9 @@ public:
 	std::optional<std::uint32_t> draw(std::uint32_t lo,std::uint32_t hi);
 	std::uint32_t state() const noexcept { return value; }
 	std::uint64_t position() const noexcept { return offset; }
+	friend bool operator==(const XeenCombatRandom &a,const XeenCombatRandom &b) noexcept {
+		return a.value==b.value && a.offset==b.offset && a.tape==b.tape;
+	}
 private:
 	std::uint32_t value=1;
 	std::uint64_t offset=0;

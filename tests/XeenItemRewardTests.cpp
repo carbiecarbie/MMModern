@@ -42,7 +42,7 @@ void recipients(){
 		check(r.entries[0].owner==first&&r.delivered==(variant==1||variant==2||variant==3?9U:10U),"recipient preference/fallback/eligibility");
 		check(!q.hasWork()&&p.party.activeRosterIds()==std::vector<std::uint8_t>({4,2,4}),"queue/membership altered");
 		for(unsigned i=0;i<9;++i)check(same(p.roster.at(29).miscellaneous[i],untouched[i]),"inactive recipient");
-		if(r.lost)check(r.entries[9].loss==XeenRewardLoss::MiscellaneousFull,"capacity loss reason");
+		if(r.lost)check(r.entries[9].loss==XeenRewardLoss::CategoryFull,"capacity loss reason");
 	}
 	for(int condition=0;condition<17;++condition){Fixture f;f.initial.party=XeenParty::fromRosterIds({0});
 		if(condition<16)f.initial.roster.at(0).conditions[condition]=1;
@@ -53,6 +53,41 @@ void recipients(){
 		if(kind==3)f.initial.party=XeenParty::fromRosterIds({});
 		check(xeenPacksGloballyFull(f.initial)==(kind==1),"global full distinct from recipient availability");
 		XeenPendingRewards q;q.enqueue({1,2,3,4});auto r=xeenDeliverRewards(q,f.initial,{});
-		check(r.delivered==0&&r.lost==1&&r.entries[0].loss==(kind<2?XeenRewardLoss::MiscellaneousFull:kind==2?XeenRewardLoss::NoEligibleMember:XeenRewardLoss::EmptyParty),"loss classification");}
+		check(r.delivered==0&&r.lost==1&&r.entries[0].loss==(kind<2?XeenRewardLoss::CategoryFull:kind==2?XeenRewardLoss::NoEligibleMember:XeenRewardLoss::EmptyParty),"loss classification");}
 }
-int main(){try{model();recipients();std::cout<<"Bounded item model and recipient matrix passed\n";return 0;}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}}
+void categories(){
+    Fixture f;auto &p=f.initial;p.monsterTreasure=XeenMonsterTreasure{};
+    XeenPendingRewards q;
+    for(unsigned category=0;category<4;++category) {
+      for(unsigned i=0;i<10;++i)check(q.enqueue({1,std::uint8_t(i+1),3,0},XeenRewardCategory(category))==XeenRewardEnqueue::Accepted,"Category staging capacity");
+      check(q.enqueue({1,11,3,0},XeenRewardCategory(category))==XeenRewardEnqueue::IgnoredOverflow,"Per-category overflow");
+    }
+    q.credit(34,100);q.credit(35,7);
+    const auto r=xeenDeliverRewards(q,p,1);
+    check(r.count==40 && r.delivered==40 && r.overflow==4 && r.gold==100 && r.gems==7 && !q.hasWork(),"Four-category settlement");
+    for(unsigned category=0;category<4;++category) {
+      check(r.entries[category*10].category==XeenRewardCategory(category) && r.entries[category*10].owner==1,"Category order/preference");
+      check(xeenRewardItems(p.roster.at(1),XeenRewardCategory(category))[8].id==9,"Nine inventory slots");
+      check(xeenRewardItems(p.roster.at(0),XeenRewardCategory(category))[0].id==10,"Party fallback");
+    }
+    Fixture fullPacks;fullPacks.initial.monsterTreasure=XeenMonsterTreasure{};full(fullPacks.initial,true);
+    XeenPendingRewards gold;gold.credit(34,100);gold.credit(35,5);
+    auto lost=xeenDeliverRewards(gold,fullPacks.initial,{});
+    check(lost.currencyLost && !lost.gold && !fullPacks.initial.monsterTreasure->gold,"Globally full packs retain staged currency");
+    for(auto owner:fullPacks.initial.party.activeRosterIds())for(unsigned category=0;category<4;++category)
+      xeenRewardItems(fullPacks.initial.roster.at(owner),XeenRewardCategory(category)).fill({1,1,0,0});
+    auto &last=fullPacks.initial.roster.at(fullPacks.initial.party.activeRosterIds()[0]).miscellaneous;last[8]={};
+    XeenPendingRewards filling;filling.credit(34,100);filling.enqueue({1,1,1,0});
+    lost=xeenDeliverRewards(filling,fullPacks.initial,{});
+    check(lost.delivered==1 && lost.currencyLost,"Empty treasure slots must still check global capacity");
+    Fixture finalSlot;auto &lastParty=finalSlot.initial;lastParty.party=XeenParty::fromRosterIds({0,1});
+    lastParty.monsterTreasure=XeenMonsterTreasure{};
+    for(auto owner:lastParty.party.activeRosterIds())for(unsigned category=0;category<4;++category)
+      xeenRewardItems(lastParty.roster.at(owner),XeenRewardCategory(category)).fill({1,1,0,0});
+    lastParty.roster.at(0).miscellaneous={};lastParty.roster.at(1).miscellaneous[8]={};
+    XeenPendingRewards lastTen;for(unsigned i=0;i<10;++i)lastTen.enqueue({1,1,0,0});lastTen.credit(34,100);
+    const auto final=xeenDeliverRewards(lastTen,lastParty,{});
+    check(final.delivered==10 && !final.currencyLost && final.gold==100 && xeenPacksGloballyFull(lastParty),
+      "Last miscellaneous slot must not add a further capacity check");
+}
+int main(){try{model();recipients();categories();std::cout<<"Bounded item model and recipient matrix passed\n";return 0;}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}}

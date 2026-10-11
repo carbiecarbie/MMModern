@@ -37,6 +37,8 @@ XeenTextRenderOptions XeenEventPresenter::optionsFor(
 		const XeenPresentationRequest &request) const {
 	XeenTextRenderOptions options;
 	switch (request.kind) {
+	case XeenPresentationKind::RewardGeneration:
+		break; // Internal idle continuation; Flow retains the existing frame.
 	case XeenPresentationKind::RewardWarning:
 	case XeenPresentationKind::RewardReceipt:
 		options.bounds = {8, 8, 312, 152};

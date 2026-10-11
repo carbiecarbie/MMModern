@@ -18,6 +18,15 @@ void itemTape(unsigned level,unsigned category,XeenItem expected,std::vector<D> 
 	check(xeenPossibleMerchantItem(level,category,expected),"finite support rejected literal generated item");
 	XeenConsequenceDraw repeat{random,64,{}};check(candidate.service(repeat) && random.position()==attempts,"completed item drew twice");
 }
+void sharedGeneration() {
+    for(const auto &tape:std::vector<std::vector<D>>{
+      {{0,100,35},{0,80,0},{1,6,1},{1,100,1},{13,13,13},{0,20,0}},
+      {{0,100,35},{0,80,0},{1,6,1},{1,100,71},{1,100,25},{8,8,8},{0,20,0}}}) {
+      XeenCombatRandom random(tape);XeenItemCandidate item(7);
+      while(!item.complete()){XeenConsequenceDraw draw{random,1,{}};item.service(draw);}
+      check(item.item().material==(tape.size()==6?58:8) && item.item().id==1 && random.position()==tape.size(),"Shared level-7 conditional draw tape");
+    }
+}
 void branchTapes() {
 	itemTape(1,0,{0,1,0,0},{{0,100,0},{0,100,0},{1,6,1},{1,100,100}});
 	itemTape(2,1,{40,8,0,0},{{0,100,36},{0,100,71},{1,100,70},{1,100,70},{1,4,4}});
@@ -75,7 +84,7 @@ void branchTapes() {
 		itemTape(2,category[i],{37,std::uint8_t(ids[i]),0,0},std::move(tape));
 	}
 	itemTape(2,1,{37,7,0,0},{{0,100,36},{0,100,70},{1,7,7},{1,100,1},{1,100,1},{1,4,1}});
-	rejects([]{XeenMerchantItemCandidate c(0);});rejects([]{XeenMerchantItemCandidate c(7);});
+	rejects([]{XeenMerchantItemCandidate c(0);});rejects([]{XeenMerchantItemCandidate c(8);});
 }
 XeenServiceEconomy seeded(std::uint32_t seed,unsigned budget,std::uint32_t state,std::uint64_t count,const char *hash) {
 	XeenCombatRandom random(seed);XeenMerchantStockCandidate candidate;
@@ -386,7 +395,7 @@ void legacyDropInterleaving() {
 }
 }
 int main() {
-	try {branchTapes();seededVectors();capacityDiscard();rejectionAndExhaustion();canonicalAndMutation();currentDepletion();interestAndDates();legacyDropInterleaving();
+	try {branchTapes();sharedGeneration();seededVectors();capacityDiscard();rejectionAndExhaustion();canonicalAndMutation();currentDepletion();interestAndDates();legacyDropInterleaving();
 		std::cout<<"M40 exact merchant generation, finite canonical validator, bank and service-day candidates passed\n";return 0;
 	}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}
 }

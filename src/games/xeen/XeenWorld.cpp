@@ -412,6 +412,7 @@ void XeenWorld::applyAlterEvent(const XeenCamera &physical, std::uint8_t line,
 
 void XeenWorld::publishTransition(XeenWorld &candidate) noexcept {
 	XeenMutationWatch::write(this);XeenMutationWatch::write(&candidate);
+	_sessionState._journeyRandom.swap(candidate._sessionState._journeyRandom);
 	_sessionState._actors.swap(candidate._sessionState._actors);
 	_sessionState._vertigoActors.swap(candidate._sessionState._vertigoActors);
 	_sessionState._accountedMonsters.swap(candidate._sessionState._accountedMonsters);
@@ -423,6 +424,12 @@ void XeenWorld::publishTransition(XeenWorld &candidate) noexcept {
 	std::swap(_cityOriginalActorCount,candidate._cityOriginalActorCount);
 	_maps.swap(candidate._maps);_objects.swap(candidate._objects);
 	++_ownerRevision;
+}
+
+void XeenWorld::retainEventRandom(const XeenJourneyRandomState &random) {
+	if(!detachedEventCandidate() || !_sessionState._journeyRandom)
+		throw std::logic_error("Event RNG requires retained detached Journey state");
+	_sessionState._journeyRandom=random;
 }
 
 void XeenWorld::applyEventGrant(XeenPartyState &party,std::uint8_t mode,std::uint32_t value,
@@ -450,6 +457,10 @@ void XeenWorld::applyEventGrant(XeenPartyState &party,std::uint8_t mode,std::uin
 void XeenWorld::publishEventParty(XeenPartyState &live,const XeenPartyState &candidate) noexcept {
 	for(unsigned owner=0;owner<30;++owner) {
 		live.roster._characters[owner].awards=candidate.roster._characters[owner].awards;
+		live.roster._characters[owner].weapons=candidate.roster._characters[owner].weapons;
+		live.roster._characters[owner].armor=candidate.roster._characters[owner].armor;
+		live.roster._characters[owner].accessories=candidate.roster._characters[owner].accessories;
+		live.roster._characters[owner].miscellaneous=candidate.roster._characters[owner].miscellaneous;
 		if(live.roster._combatInputs[owner])live.roster._combatInputs[owner]->experience=candidate.roster._combatInputs[owner]->experience;
 	}
 	if(live.monsterTreasure) {

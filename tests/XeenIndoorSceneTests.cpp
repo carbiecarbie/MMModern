@@ -380,6 +380,23 @@ void testStaticWallCommandsAndFrames() {
 		"different wall nibble did not select a different frame");
 }
 
+void testSideWallBesideDistantFront() {
+	using namespace mmodern;
+	// Pinned drawIndoors(): _swl_2F2L is blocked only by _wo[25/28/20].
+	// A centered three-step front wall (_wo[15]) leaves its left edge visible.
+	for(unsigned direction=0;direction<4;++direction)for(unsigned mask=0;mask<16;++mask)
+		for(unsigned type:{1u,2u}) {
+			const XeenCamera camera{33,8,8,static_cast<XeenDirection>(direction)};
+			auto map=emptyIndoorFixture();setQueryWall(map,camera,11,type);
+			const int bits[]{25,28,20,15};
+			for(unsigned i=0;i<4;++i)if(mask&(1u<<i))setMazeBit(map,camera,bits[i]);
+			auto world=worldWith(std::move(map));const auto commands=XeenIndoorScene().build(world,camera);
+			const auto *side=byOrder(commands,107);
+			require(bool(side)==((mask&7)==0),"left side wall incorrectly culled beside distant front wall");
+			if(side)require(side->geometry().frame==(type==2?30:6),"left side wall material/frame differs");
+		}
+}
+
 void testOcclusionDirectionsAndBorders() {
 	const mmodern::XeenCamera northCamera{33, 8, 8, mmodern::XeenDirection::North};
 	auto blockedMap = emptyIndoorFixture();
@@ -822,6 +839,7 @@ int main() {
 		testFixedSceneAndTerrainResources();
 		testCellSelectedSky();
 		testStaticWallCommandsAndFrames();
+		testSideWallBesideDistantFront();
 		testOcclusionDirectionsAndBorders();
 		testObjectProjectionAndGeometryOnlyCompatibility();
 		testResource113AnchorUsesResolvedResourceOnly();

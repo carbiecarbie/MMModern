@@ -195,6 +195,7 @@ private:
 		bool refused = false;
 		bool cancelled = false;
 		bool preludeRequired = false;
+		bool presentationRetry = false;
 	};
 	std::unique_ptr<TransitionCandidate> _transition;
 	std::optional<XeenEventContinuation> _serviceEventContinuation;
@@ -224,6 +225,7 @@ private:
 	bool serviceBarrier();
 	IndexedFrame handleBarrier(const PlayerAction &);
 	void checkTransitionCandidate();
+	XeenPresentationUpdate presentPendingEvent();
 	XeenManualEventResult beginVertigoEvent(XeenRegionalInteraction, bool automatic=false);
 	XeenManualEventResult resumeVertigoEvent(XeenEventExecutionState, XeenPresentationResponse);
 	void prepareVertigoResult(const XeenManualEventResult &);

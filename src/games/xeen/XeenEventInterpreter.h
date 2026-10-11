@@ -8,6 +8,7 @@
 #include "games/xeen/XeenNavigation.h"
 #include "games/xeen/XeenParty.h"
 #include "games/xeen/XeenItemRewards.h"
+#include "games/xeen/XeenItemGeneration.h"
 #include "games/xeen/XeenRecordIdentity.h"
 
 #include <cstddef>
@@ -54,7 +55,8 @@ enum class XeenPresentationKind {
 	TempleService,
 	TavernService,
 	BankService,
-	DeferredAudio
+	DeferredAudio,
+	RewardGeneration
 };
 
 enum class XeenPresentationResponseRequirement {
@@ -122,7 +124,8 @@ enum class XeenEventPendingContinuation {
 	Terminate,
 	ConditionalAction44,
 	WhoWill,
-	RewardFinalization
+	RewardFinalization,
+	GiveMulti
 };
 
 struct XeenEventPendingPresentation {
@@ -138,6 +141,10 @@ struct XeenEventCallFrame {
 enum class XeenRewardPhase { Running, Warning, Receipt, Completed };
 
 struct XeenEventExecutionState {
+	std::optional<XeenCombatRandom> rewardRandom;
+	std::optional<XeenItemCandidate> rewardItem;
+	unsigned rewardPair=0;
+	bool generatingReward=false;
 	XeenPendingRewards pendingRewards;
 	std::optional<std::size_t> preferredRewardRecipient;
 	XeenRewardPhase rewardPhase = XeenRewardPhase::Running;

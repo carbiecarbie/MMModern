@@ -3,6 +3,7 @@
 #include "games/xeen/XeenInstallationDetector.h"
 #include "XeenSaveTestSupport.h"
 #include <iostream>
+#include <memory>
 using namespace mmodern;
 using save_test::check;
 void titleApplicationControls(const char *);
@@ -10,8 +11,11 @@ void titlePreview(const IndexedFrame &,const std::string &);
 namespace {
 using Screen=XeenTitleFlow::Screen;
 struct Driver {
- XeenTitleFlow flow;std::uint64_t now=1;
- explicit Driver(XeenTitleFlow::Services services):flow(std::move(services)){present();fade();}
+ // Several simultaneous ten-save chooser fixtures exceed the Windows Debug
+ // stack after v9 adds roster awards. Keep these test owners on the heap.
+ std::unique_ptr<XeenTitleFlow> owner;
+ XeenTitleFlow &flow;std::uint64_t now=1;
+ explicit Driver(XeenTitleFlow::Services services):owner(std::make_unique<XeenTitleFlow>(std::move(services))),flow(*owner){present();fade();}
  void present(){flow.presented(flow.frame().presentation());flow.completeInput(flow.frame().presentation());}
  void fade(){flow.animate(now);now+=1000;flow.animate(now);present();}
  void key(unsigned value) {
