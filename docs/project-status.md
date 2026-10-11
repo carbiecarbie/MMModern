@@ -1,8 +1,10 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M56 is the latest completed
-and accepted milestone** ([plan](milestone-56-plan.md)): buy food at the Tavern
-and deposit or withdraw gold and gems at the Bank through the original screens.
+This describes what can be played and done now. **M57 is the latest completed
+and accepted milestone** ([plan](milestone-57-plan.md)): Events move objects and
+reward XP, awards, gold, gems and generated treasure, so Joe's proof, Gunther's
+reward, searchable crates and the trees work. M56 ([plan](milestone-56-plan.md))
+added buying food at the Tavern and the Bank.
 The original title, save slots, main screen, character dialogs, Rest and combat
 remain available. Direction is in the [roadmap](roadmap.md); completed work is in
 [project history](project-history.md). Build and dependency setup is in
@@ -73,8 +75,14 @@ under the original rules.
   grate or door asks who will pick the lock, with the original trap, Thievery
   roll and XP. Opened barriers stay open across saves.
 - **Events.** Signs, NPC conversations and other supported Events work
-  anywhere in town. Treasure (chests), moving objects, fountains, the magic
-  mirror and trap teleports show "not supported yet".
+  anywhere in town. Fountains, the magic mirror, trap teleports, the well,
+  display cases and locked chests show "not supported yet".
+- **Quests and treasure.** Joe's proof box and Gunther's reward work: all
+  members gain XP, the party receives gold, gems and an award once, and Joe's
+  shop closes. Searching crates reveals the open crate and gives generated
+  items or gold through the same generation and random draws as merchants;
+  repeat searches find nothing. Each tree pays 1-10 gold once per cycle. Full
+  packs lose the remaining treasure as in the original.
 Services use the original location screens: the town art stays visible with
 the original text panel, and buttons work by mouse or key.
 
@@ -224,9 +232,8 @@ The earlier `--encounter-26`, `--encounter-27`, `--journey-skeleton` and
 
 ## Save format
 
-There is **one current save format**: envelope v8, schema 9, content 14, written
-by the Regional Journey. v8 adds each character's quick action and remembered
-spell. Until a public release, older formats are not read:
+There is **one current save format**: envelope v9, schema 9, content 14, written
+by the Regional Journey. v9 adds every character's awards and moved objects. Until a public release, older formats are not read:
 - A save from an older build is rejected before anything is restored, with "This
   save was created by an older MMModern build and is no longer supported."
 - A save from a newer or unrecognized build is rejected with a "newer or
@@ -298,9 +305,9 @@ instructions are in [dependencies](dependencies.md).
   available; the Temple handles only the modeled conditions.
 - **Items and magic.** There is no general item use. Item effects, most spells
   and most monster abilities are missing; Light and other learned spells are
-  visible but cannot be cast. Treasure Events (GiveMulti, chests), moving
-  objects, fountains, the mirror, trap teleports and Thievery Event checks
-  show "not supported yet".
+  visible but cannot be cast. Fountains, the mirror, the well, display cases,
+  locked chests, trap teleports and Thievery Event checks show "not supported
+  yet".
 - **Presentation.** Service art is static (no animated shopkeepers). There is
   no audio: where the CD plays speech, a short notice appears and the scene
   continues. Event, casting and treasure screens still use project layouts.

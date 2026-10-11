@@ -17,12 +17,13 @@ A new Clouds game starts as in the original, in Vertigo, and the playable area
 is the whole town and the connected mainland of map 23. You can fight, run, bash and
 unlock grates and doors, cast learned spells, finish Myra's quest, rest with
 food and recovery, buy food at the Tavern, deposit or withdraw gold and gems
-at the Bank, and use the Ironworks (Buy and Armor Repair), Training and the
+at the Bank, complete Joe's proof and Gunther's reward, search crates and
+trees, and use the Ironworks (Buy and Armor Repair), Training and the
 Temple. Progress can be saved and continued exactly. The original main screen, character sheet, Items dialog and service screens work with mouse or
 keyboard, and the game starts on the original title screen with New, Load and
 the in-game Save, Save As, Load and Quit. The party can strafe, exchange
-members and use Quick Reference, Info and Quick Fight. Other areas, buying
-food, most spells and items, audio and Darkside gameplay are not available yet.
+members and use Quick Reference, Info and Quick Fight. Other areas, most
+spells and items, audio and Darkside gameplay are not available yet.
 
 [Project status](docs/project-status.md) describes the current state and gaps,
 [project history](docs/project-history.md) lists completed milestones and the

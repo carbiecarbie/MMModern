@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M56 is the latest completed and accepted milestone.**
+**M57 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -24,7 +24,8 @@ M52 started the original new game, M53 moved to the CD edition's data (the
 single reference edition), M54 brought the original title screen and saves,
 and M55 closed small interface gaps (Strafe, Exchange, Quick Reference, Info,
 Quick Fight). M56 added Tavern food and Bank transfers, with generic terminal
-Event-to-Service handoff for supported preludes.
+Event-to-Service handoff for supported preludes. M57 added generic Event effects
+(moving objects, XP, awards, flags, currency and generated treasure).
 
 ## Next milestones: closing Vertigo for a first public release
 
@@ -44,14 +45,14 @@ still needs its own plan and the maintainer's start.
 2. **Food and bank** (Tier A): completed and accepted in [M56](milestone-56-plan.md).
    Tavern food and Bank deposits/withdrawals use the original interface;
    supported Event preludes run before terminal service admission.
-3. **Generic Event effects and world state** (Tier A, probably split): moving
-   and turning objects, rewards to the party (XP, gold, gems, items through the
-   common treasure generation and RNG), durable awards and flags. Joe's proof
-   and Gunther's reward are the first use.
+3. **Generic Event effects and world state** (Tier A): completed and accepted
+   in [M57](milestone-57-plan.md). Objects move and turn, and Events reward XP,
+   awards, flags, gold, gems and items through common treasure generation;
+   Joe's proof, Gunther, crates and trees work.
 4. **Skills and mapping** (Tier A): learning skills (Mylo, Rialdo), their
    effects from one character state, Cartography, the automap and the Map.
-5. **Vertigo content** (Tier B): trees, chests, beds, rubbish, display cases
-   and jail, the well, guild membership (Vern), signs and talk, through the
+5. **Vertigo content** (Tier B): remaining chests, beds, rubbish, display cases
+   and jail, the well (AlterHed, typed Damage, healing), guild membership (Vern), signs and talk, through the
    systems above rather than per-cell handling.
 6. **Magic** (Tier A): the original Cast dialog by mouse and keyboard, guild
    spell purchase with the original catalogue, and four new effects (Wizard

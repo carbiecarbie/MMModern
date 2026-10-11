@@ -204,3 +204,12 @@ Supported Event preludes run and publish once before terminal town services;
 one-day departures apply scheduled interest to final balances without
 rerolling stock. Save v8 and all M44 digests are unchanged. Maintainer play-test
 accepted. [Plan](milestone-56-plan.md).
+
+**M57 - Generic Event effects** (`94007d0` and `d1f5459`). Events
+can move and turn objects, award XP, awards, flags, gold and gems, and give
+treasure through the same item generation and random draws as merchants. Joe's
+proof and Gunther's reward work from the original scripts, searched crates
+open and each tree pays once; the well refuses safely until it is implemented.
+Save v9 stores all characters' awards and moved objects. Two display bugs
+found in play-testing were fixed. Maintainer play-test accepted.
+[Plan](milestone-57-plan.md).
