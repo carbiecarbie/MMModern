@@ -884,9 +884,7 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
         if(target)require((reserved.spell==26 || reserved.spell==10 || reserved.spell==59) && *target<6 && (reserved.participants&(1u<<*target)),"Cast recovery target changed");
         XeenCombatCastResult result;result.spell=reserved.spell;
         result.spBefore=reserved.originalSp;result.spAfter=reserved.originalSp-int(reserved.cost);
-        const auto effect=(reserved.spell==26 || reserved.spell==10) && target ? XeenLearnedSpellRules::prepareFirstAid(d.party,*target,d.party.encounterContext->year,reserved.spell==10 ? 15 : 6) :
-            reserved.spell==59 && target ? XeenLearnedSpellRules::prepareRevitalize(d.party,*target,d.party.encounterContext->year) :
-            reserved.spell==1 ? XeenLearnedSpellRules::prepareAwaken(d.party) : XeenSpellPreparation{};
+        const auto effect=XeenLearnedSpellRules::prepareEffect(static_cast<XeenLearnedSpell>(reserved.spell),d.party,target,d.party.encounterContext->year);
         auto prepared=d.prepareCastGuard();
         result.failed=effect.failed;
         if((result.spell==26 || result.spell==10 || result.spell==59) && !target) {

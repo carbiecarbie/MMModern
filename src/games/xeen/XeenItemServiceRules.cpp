@@ -2,6 +2,17 @@
 #include "games/xeen/detail/XeenItemTables.h"
 #include <algorithm>
 namespace mmodern {
+// Spells::castItemSpell, pinned ScummVM 6814ee9b. ScummVM contributors,
+// upstream COPYRIGHT; GPL-3.0-or-later. Support comes from the shared spells.
+std::optional<XeenLearnedSpell> xeenItemUseSpell(std::uint8_t power) noexcept {
+    constexpr std::uint8_t spells[]{76,42,1,45,26,27,20,62,59,10,61,60,38,72,55,50,
+        40,4,9,71,41,75,5,34,43,32,53,49,44,54,30};
+    return power<sizeof(spells)?XeenLearnedSpellRules::supportedIn(spells[power],false):std::nullopt;
+}
+bool xeenItemUseSupported(const XeenItem &item) noexcept {
+    return xeenItemUseAdmission(XeenInventoryCategory::Miscellaneous,item,true,true)==XeenItemUseAdmission::Admitted &&
+        (item.id==37 || xeenItemUseSpell(item.id).has_value());
+}
 std::optional<std::uint32_t> xeenItemPrice(XeenInventoryCategory category,const XeenItem &item,
         XeenItemService action,unsigned merchant) noexcept {
     using namespace item_tables;

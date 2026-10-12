@@ -350,7 +350,7 @@ void XeenEventFlow::authorizeInputFrame(const IndexedFrame::Presentation &presen
 			_encounter->authorizeSmithFrame(_inputGeneration,presented);
 		if (_trainingUi && _encounter->_training)
 			_encounter->authorizeTrainingFrame(_inputGeneration,presented);
-		if (_inventory.mode==XeenInventoryMode::UseTarget &&
+		if (_inventory.mode==XeenInventoryMode::UseTarget && !_encounter->itemUseReady() &&
 			(!_itemUseGeneration || !_encounter->authorizeItemUseTarget(*_encounterFrame,*_itemUseGeneration,
 				_inventoryEpoch,_inputGeneration,presented))) {
 			closeGameplay();

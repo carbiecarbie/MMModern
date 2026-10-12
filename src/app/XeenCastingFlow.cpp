@@ -31,6 +31,23 @@ XeenConsequenceInputs activeInputs(const XeenPartyState &party,const XeenPartyOr
 }
 }
 
+std::unique_ptr<XeenShootCandidate> XeenEncounterFlow::prepareSpellProjectile(
+        XeenLearnedSpell spell,std::uint8_t owner,unsigned charge) {
+    auto projectile=std::make_unique<XeenShootCandidate>();auto &work=*projectile;
+    work.spell=spell;work.spellCaster=owner;work.owners=_party.party.activeOrder();
+    work.eligible[0]=true;work.charge=charge;
+    work.random=XeenCombatRandom(*_world.sessionState().journeyRandom());
+    work.rows=xeenPlayerRayRows(_world,_camera);work.projectileEnd.fill(work.rows-1);
+    const auto &actors=_world.sessionState().regionalActors(_camera.mapId);
+    const auto targets=xeenSpellTargets(_world,_camera,actors,{},spell==XeenLearnedSpell::Shrapmetal || spell==XeenLearnedSpell::Pain);
+    for(unsigned n=0;n<3;++n)if(targets[n]) {
+        const auto &a=actors.at(targets[n]->recordIndex);
+        const unsigned row=std::abs(a.x-_camera.x)+std::abs(a.y-_camera.y);
+        if(row<4)work.targets[row*3+n]=targets[n];
+    }
+    return projectile;
+}
+
 bool XeenEncounterFlow::beginCasting(const Ticket &entry) {
 	if (!current(entry) || !journeyMutable() || _casting || !_boundary.quiet() || _castingGeneration==std::numeric_limits<std::uint64_t>::max() ||
 			!journeyCapacity()) return false;
@@ -109,18 +126,7 @@ bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIn
             if(preflight.admission==XeenJumpAdmission::Ready)jump=preflight.destination;
           }
           if(XeenLearnedSpellRules::target(*id)==XeenSpellTarget::Contact) {
-            projectile=std::make_unique<XeenShootCandidate>();auto &work=*projectile;
-            work.spell=*spell;work.spellCaster=owner;work.owners=_party.party.activeOrder();
-            work.eligible[0]=true;work.charge=_world.map(_camera.mapId).geometry.isOutdoors()?10:1;
-            work.random=XeenCombatRandom(*_world.sessionState().journeyRandom());
-            work.rows=xeenPlayerRayRows(_world,_camera);work.projectileEnd.fill(work.rows-1);
-            const auto &actors=_world.sessionState().regionalActors(_camera.mapId);
-            const auto targets=xeenSpellTargets(_world,_camera,actors,{},*spell==XeenLearnedSpell::Shrapmetal || *spell==XeenLearnedSpell::Pain);
-            for(unsigned n=0;n<3;++n)if(targets[n]) {
-              const auto &a=actors.at(targets[n]->recordIndex);
-              const unsigned row=std::abs(a.x-_camera.x)+std::abs(a.y-_camera.y);
-              if(row<4)work.targets[row*3+n]=targets[n];
-            }
+            projectile=prepareSpellProjectile(*spell,owner,_world.map(_camera.mapId).geometry.isOutdoors()?10:1);
           }
         }
         std::vector<XeenProjectileAppearance> projectiles;
@@ -159,9 +165,7 @@ bool XeenEncounterFlow::respondCastingTarget(const Ticket &entry,
 	BusyCast busy(_busy);
 	try {
 		_journeyPreimage->check();
-		const auto preparedEffect=!targetIndex ? XeenSpellPreparation{} :
-          _casting->spell==XeenLearnedSpell::Revitalize ? XeenLearnedSpellRules::prepareRevitalize(_party,*targetIndex,_party.encounterContext->year) :
-          XeenLearnedSpellRules::prepareFirstAid(_party,*targetIndex,_party.encounterContext->year,_casting->spell==XeenLearnedSpell::CureWounds?15:6);
+		const auto preparedEffect=XeenLearnedSpellRules::prepareEffect(_casting->spell,_party,targetIndex,_party.encounterContext->year);
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 		prepared->retainResources(*_journeyPreimage);
 		std::string result;
@@ -203,7 +207,7 @@ bool XeenEncounterFlow::publishAwaken(const Ticket &entry) {
 	BusyCast busy(_busy);
 	try {
 		_journeyPreimage->check();
-		const auto effect=_casting->spell==XeenLearnedSpell::Awaken?XeenLearnedSpellRules::prepareAwaken(_party):XeenSpellPreparation{};
+		const auto effect=XeenLearnedSpellRules::prepareEffect(_casting->spell,_party,{},_party.encounterContext->year);
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 		prepared->retainResources(*_journeyPreimage);
 		std::ostringstream message;
@@ -216,10 +220,10 @@ bool XeenEncounterFlow::publishAwaken(const Ticket &entry) {
 		}
 		message<<cleared<<" Sleep cleared";
 		auto result=message.str();
-        if(_casting->spell==XeenLearnedSpell::WizardEye) {prepared->context->effects[2]=1;prepared->context->effects[1]=0;}
+        XeenLearnedSpellRules::applyPartyEffect(_casting->spell,*prepared->context);
         if(_casting->spell==XeenLearnedSpell::Jump && _casting->jumpDestination)prepared->cameraValue=*_casting->jumpDestination;
         _journeyPreimage->check();
-        if(_casting->spell==XeenLearnedSpell::WizardEye) {_party.encounterContext->effects[2]=1;_party.encounterContext->effects[1]=0;}
+        XeenLearnedSpellRules::applyPartyEffect(_casting->spell,*_party.encounterContext);
         if(_casting->spell==XeenLearnedSpell::Jump) {
           _casting->failed=!_casting->jumpDestination;
           if(_casting->jumpDestination)_camera=*_casting->jumpDestination;

@@ -77,7 +77,7 @@ bool XeenEventFlow::validInventorySource(bool record) const {
 	return !record || (_inventory.slot && *_inventory.slot < 9 && xeenSameItem((*items)[*_inventory.slot],_inventory.record));
 }
 void XeenEventFlow::invalidateInventorySelection() {
-	if (_encounter && _encounter->itemUseActive() && !_encounter->itemUseReady()) {
+	if (_encounter && _encounter->itemUseNeedsTarget()) {
 		if (!_encounter->abandonItemUse(_encounter->ticket(),_itemUseGeneration.value_or(0),_inventoryEpoch)) {
 			closeGameplay();return;
 		}
@@ -106,7 +106,7 @@ void XeenEventFlow::invalidateInventory() {
 }
 void XeenEventFlow::closeInventory() noexcept {
 	// A spent charge remains owned by EncounterFlow; shutdown cannot publish Quiet.
-	if (_encounter && _encounter->itemUseActive() && !_encounter->itemUseReady() && _itemUseGeneration) {
+	if (_encounter && _encounter->itemUseNeedsTarget() && _itemUseGeneration) {
 		try { if (!_encounter->abandonItemUse(_encounter->ticket(),*_itemUseGeneration,_inventoryEpoch)) closeGameplay(); }
 		catch (...) { closeGameplay(); }
 	}
@@ -264,6 +264,7 @@ IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
    if((key>=InputKey::F1 && key<InputKey::F1+6) || key==InputKey::Escape) {
     if(!_itemUseGeneration || !_encounter->finishItemUse(_encounter->ticket(),*_itemUseGeneration,_inventoryEpoch,
      key==InputKey::Escape?std::nullopt:std::optional<std::size_t>{key-InputKey::F1},_inputGeneration,responseFrame())) {closeGameplay();return _frame;}
+    if(_encounter->itemUseFailed()) {dialogError(std::string(dosText().scalar("SPELL_FAILED")));return _frame;}
     closeInventory();_frame=_inventoryUnderlay;return _frame;
    }
    return _frame;

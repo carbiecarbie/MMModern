@@ -94,6 +94,8 @@ public:
 	bool castingCommitted() const noexcept { return _casting && _casting->committed; }
 	const std::string &castingResult() const noexcept { return _castingResult; }
 	bool itemUseReady() const noexcept;
+	bool itemUseNeedsTarget() const noexcept;
+	bool itemUseFailed() const noexcept { return _itemUse && _itemUse->failed; }
 	const std::optional<XeenAntidoteResult> &itemUseResult() const noexcept { return _itemUseResult; }
 	bool attachJourney(const Ticket &, const std::function<void()> &prepareSprites);
 	bool retireJourney(const Ticket &);
@@ -281,6 +283,11 @@ private:
 		std::uint8_t sourceOwner=0,spentCharge=0;
 		std::size_t slot=0;
 		bool exhausted=false,ready=false;
+		bool effectDone=false,failed=false,automaticArrival=false;
+		std::optional<XeenLearnedSpell> spell;
+		std::optional<XeenCamera> jumpDestination;
+		std::unique_ptr<XeenShootCandidate> projectile;
+		std::vector<XeenProjectileAppearance> appearances;
 		std::unique_ptr<XeenRegionalActionCandidate> opportunity;
 	};
 	std::unique_ptr<ItemUseContinuation> _itemUse;
@@ -304,6 +311,7 @@ private:
 	std::string _castingResult;
 	std::uint64_t _castingGeneration=0;
 	bool serviceCasting();
+	std::unique_ptr<XeenShootCandidate> prepareSpellProjectile(XeenLearnedSpell,std::uint8_t,unsigned);
 	std::optional<XeenAntidoteResult> _itemUseResult;
 	std::uint64_t _itemUseGeneration=0;
 	bool authorizeItemUseTarget(const Ticket &, std::uint64_t generation, std::uint64_t inventoryEpoch,

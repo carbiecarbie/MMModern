@@ -55,6 +55,9 @@ public:
 	static XeenSpellPreparation prepareRevitalize(const XeenPartyState &, std::size_t targetIndex,
 		std::uint32_t currentYear);
 	static XeenSpellPreparation prepareAwaken(const XeenPartyState &);
+	static XeenSpellPreparation prepareEffect(XeenLearnedSpell,const XeenPartyState &,
+		std::optional<std::size_t> targetIndex,std::uint32_t currentYear);
+	static void applyPartyEffect(XeenLearnedSpell,XeenGameplayContext &);
 };
 
 } // namespace mmodern

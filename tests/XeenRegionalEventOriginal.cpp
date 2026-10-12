@@ -19,6 +19,12 @@ struct XeenInventoryTestAccess {
 };
 }
 namespace {
+bool sameItems(const XeenItemCategory &a,const XeenItemCategory &b) {
+ return std::equal(a.begin(),a.end(),b.begin(),[](const auto &x,const auto &y){return xeenSameItem(x,y);});
+}
+XeenItemCategory spentAntidote(XeenItemCategory items,std::size_t slot) {
+ items[slot]=XeenAntidoteUse::debit(items[slot]);XeenAntidoteUse::settle(items,slot,true);return items;
+}
 XeenGameplayServices regional(Harness &h) {
  auto s=h.services();
  s.resources.regionalManifest=[&](const auto &m,const auto &o,const auto &e,const auto &mon) {
@@ -480,6 +486,7 @@ int main(int argc,char **argv) {
      std::size_t slot=9;for(std::size_t i=0;i<9;++i){const auto &item=h.party->roster.at(0).miscellaneous[i];
       if(item.material==10 && item.id==37 && item.state==1){slot=i;break;}}
      check(slot<9,"ABA uses delivered antidote");
+     const auto spent=spentAntidote(h.party->roster.at(0).miscellaneous,slot);
      input(InspectInventoryAction{});input(DialogKeyAction{'m'});
      input(SelectInventorySlotAction{slot});input(UseItemAction{});
      check(h.flow->inventorySelection().mode==XeenInventoryMode::UseTarget,"ABA target selector presented");
@@ -491,7 +498,7 @@ int main(int argc,char **argv) {
      const_cast<XeenCharacter &>(h.party->roster.at(0))=replacement;
      h.flow->invalidateInventory();
      check(!XeenInventoryTestAccess::encounter(*h.flow).finishItemUse(oldTicket,oldUse,oldEpoch,1,oldInput,oldFrame) &&
-      h.party->roster.at(18).conditions[3]==poison && h.party->roster.at(0).miscellaneous[slot].state==0,
+      h.party->roster.at(18).conditions[3]==poison && sameItems(h.party->roster.at(0).miscellaneous,spent),
       "Byte-equal owner replacement cannot reuse obsolete selector or refund debit");
      check(!h.flow->canSave(),"Owner replacement cannot expose a Quiet capture gap");
      std::cout<<"M35 selector owner ABA refuses target and preserves debit PASS\n";return true;
@@ -554,6 +561,7 @@ int main(int argc,char **argv) {
      std::size_t slot=9;for(std::size_t i=0;i<9;++i){const auto &item=h.party->roster.at(0).miscellaneous[i];
       if(item.material==10 && item.id==37 && item.state==1){slot=i;break;}}
      check(slot<9,"Selector authority uses a delivered antidote");
+     const auto spent=spentAntidote(h.party->roster.at(0).miscellaneous,slot);
      const auto poison=h.party->roster.at(18).conditions[3];
      const auto minutes=h.party->encounterContext->minutes;
      const auto random=*h.world->sessionState().journeyRandom();
@@ -576,7 +584,7 @@ int main(int argc,char **argv) {
      input(UseItemAction{});
      h.flow->beforeEncounterFrameCopy={};
      check(attempts==1 && h.flow->inventorySelection().mode==XeenInventoryMode::UseTarget &&
-      h.party->roster.at(0).miscellaneous[slot].state==0 &&
+      sameItems(h.party->roster.at(0).miscellaneous,spent) &&
       h.party->roster.at(18).conditions[3]==poison &&
       h.party->encounterContext->minutes==minutes && *h.world->sessionState().journeyRandom()==random,
       "Target retry preserves one debit and no premature effect/time/RNG");
@@ -586,7 +594,7 @@ int main(int argc,char **argv) {
        NavigationAction::MoveForward})handler.withDisplayedInput(old,oldConfirmationInput);
      check(h.flow->inventorySelection().mode==XeenInventoryMode::UseTarget && h.saves==savesBeforeStale &&
       h.party->roster.at(18).conditions[3]==poison &&
-      h.party->roster.at(0).miscellaneous[slot].state==0 &&
+      sameItems(h.party->roster.at(0).miscellaneous,spent) &&
       h.party->encounterContext->minutes==minutes && *h.world->sessionState().journeyRandom()==random,
       "Old U/Enter/F-key/Escape/Space/F9/forward input cannot cross confirmation to target");
      bool obsoletePresented=false;

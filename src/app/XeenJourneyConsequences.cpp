@@ -64,7 +64,9 @@ bool XeenEncounterFlow::beginShoot() {
  }
 }
 bool XeenEncounterFlow::serviceShoot() {
- if(!_shoot || monsterReward() || _busy || _failure || !current(ticket()) || (!_boundary.quiet() && !(_casting && _shoot->spell && _boundary.only(XeenCombatBoundary::Work::Casting,_casting->lease)))) return false;
+ if(!_shoot || monsterReward() || _busy || _failure || !current(ticket()) ||
+  (!_boundary.quiet() && !(_shoot->spell && ((_casting && _boundary.only(XeenCombatBoundary::Work::Casting,_casting->lease)) ||
+    (_itemUse && _itemUse->effectDone && _boundary.only(XeenCombatBoundary::Work::ItemUse,_itemUse->lease)))))) return false;
  ConsequenceScope busy(_busy);
  try {
   auto &work=*_shoot;auto &session=_world._sessionState;
@@ -183,8 +185,9 @@ bool XeenEncounterFlow::serviceShoot() {
    work.volleyDone=true;return true;
   }
   if(work.spell) {
-   _casting->effectDone=true;_casting->random=work.random;
-   _shoot.reset();session._journeyActivity=XeenJourneyActivity::Casting;
+   if(_itemUse) {_itemUse->ready=true;session._journeyActivity=XeenJourneyActivity::ItemUse;}
+   else {_casting->effectDone=true;_casting->random=work.random;session._journeyActivity=XeenJourneyActivity::Casting;}
+   _shoot.reset();
    ++session._journeyGeneration;++_generation;retainJourney();return true;
   }
   if(!work.time) work.time.emplace(*_party.encounterContext,work.charge,activeCharacters(_party,work.owners),activeInputs(_party,work.owners),&*_party.serviceEconomy);

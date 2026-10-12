@@ -145,6 +145,21 @@ bool XeenLearnedSpellRules::eligible(const XeenPartyState &party, std::size_t ac
 		character.currentSp >= int(cost(*spell,character.currentLevel()).sp) && known(character, slot);
 }
 
+XeenSpellPreparation XeenLearnedSpellRules::prepareEffect(XeenLearnedSpell spell,const XeenPartyState &party,
+        std::optional<std::size_t> target,std::uint32_t year) {
+    if(spell==XeenLearnedSpell::Awaken)return prepareAwaken(party);
+    if(!target)return {};
+    switch(spell) {
+    case XeenLearnedSpell::FirstAid:return prepareFirstAid(party,*target,year);
+    case XeenLearnedSpell::CureWounds:return prepareFirstAid(party,*target,year,15);
+    case XeenLearnedSpell::Revitalize:return prepareRevitalize(party,*target,year);
+    default:throw std::invalid_argument("Unsupported member spell effect");
+    }
+}
+void XeenLearnedSpellRules::applyPartyEffect(XeenLearnedSpell spell,XeenGameplayContext &context) {
+    if(spell==XeenLearnedSpell::WizardEye) {context.effects[2]=1;context.effects[1]=0;}
+}
+
 XeenSpellPreparation XeenLearnedSpellRules::prepareFirstAid(const XeenPartyState &party,
 		std::size_t targetIndex, std::uint32_t year, unsigned healing) {
 	const auto owner = ownerFor(party, targetIndex);

@@ -1,6 +1,7 @@
 #include "app/XeenEventFlow.h"
 #include "games/xeen/CloudsUiComposer.h"
 #include "games/xeen/XeenMapView.h"
+#include "games/xeen/XeenItemServiceRules.h"
 #include <algorithm>
 namespace mmodern {
 IndexedFrame XeenEventFlow::drawQuickFightOptions(const IndexedFrame &base) const {
@@ -62,6 +63,7 @@ std::shared_ptr<const DialogInput> XeenEventFlow::characterDialogInput() const {
     return std::make_shared<const DialogInput>(std::move(input));
 }
 IndexedFrame XeenEventFlow::drawCharacterDialog(const IndexedFrame &base) const {
+	if(_inventory.mode==XeenInventoryMode::UseTarget && _dialogError) return drawXeenErrorScroll(base,_inventoryFont,*_dialogError);
     if(_inventory.mode==XeenInventoryMode::UseTarget) return drawXeenItemTarget(dosText(),base,_inventoryFont);
     auto frame=_sheet && !_itemsVisible?
         drawXeenSheet(dosText(),base,_inventoryFont,_party,_inventory.source,_sheet->cursor,_sheet->blink,drawDialogSprite):
@@ -75,6 +77,7 @@ IndexedFrame XeenEventFlow::drawCharacterDialog(const IndexedFrame &base) const 
 }
 IndexedFrame XeenEventFlow::handleCharacterDialog(const PlayerAction &action) {
     if(_dialogError || _statPopup) {
+        if(_dialogError && _encounter && _encounter->itemUseReady()) {closeInventory();return _frame;}
         _dialogError.reset();_statPopup.reset();
         drawInventory();return _frame;
     }
@@ -152,7 +155,13 @@ void XeenEventFlow::performItemOption(unsigned option) {
     if(admission==XeenItemUseAdmission::NoAbility) {
         dialogError(xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::NoSpecialAbilities),{_catalog.describe(_inventory.category,_inventory.record).displayName}));return;
     }
-    if(!journey() || !XeenAntidoteUse::eligible(_inventory.record)) {dialogError("Item effect: not supported yet");return;}
+    if(!journey() || !xeenItemUseSupported(_inventory.record)) {dialogError("Item effect: not supported yet");return;}
+    if(const auto spell=xeenItemUseSpell(_inventory.record.id);spell && XeenLearnedSpellRules::target(static_cast<std::uint8_t>(*spell))==XeenSpellTarget::Contact) {
+        XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world);
+        XeenMonsterAppearance appearance;appearance.projectile=XeenProjectileAppearance{false,0,0,3,{},xeenSpellProjectile(*spell)};
+        if(!_encounterCompose(_ordinary.phase,appearance).frame.isValid())throw std::runtime_error("Invalid item projectile preflight");
+        _encounter->journeySavePreimage().check();
+    }
     const auto certificate=_equipmentSelection;
     if(!certificate || !validEquipmentSelection(*certificate)) {invalidateInventorySelection();return;}
     XeenEncounterFlow::ItemUseSelection selection;
@@ -164,5 +173,10 @@ void XeenEventFlow::performItemOption(unsigned option) {
     if(!generation) {invalidateInventorySelection();dialogError("Item use: not supported yet");return;}
     advanceInventoryEpoch();_itemUseGeneration=*generation;_inventory.mode=XeenInventoryMode::UseTarget;
     _sheet.reset();_itemsVisible=true;
+    if(!_encounter->itemUseNeedsTarget()) {
+        if(!_encounter->abandonItemUse(_encounter->ticket(),*generation,_inventoryEpoch)) {closeGameplay();return;}
+        if(_encounter->itemUseFailed())dialogError(std::string(dosText().scalar("SPELL_FAILED")));
+        else closeInventory();
+    }
 }
 }
