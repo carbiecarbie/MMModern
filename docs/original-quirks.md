@@ -28,6 +28,7 @@ such a behavior, with its evidence.
 | Event skill comparisons use the original numeric sentinels: selected-character action 13 returns the skill ID or 0; party action 99 returns the ID or unsigned -1. | Pinned `scripts.cpp::ifProc` initializes `v` to 0 and compares the unsigned result directly. | M58, `XeenEventInterpreter.cpp` | An absent skill 0 can satisfy action 13 equality to 0; an absent party skill can satisfy a greater-than comparison. Preserve the script comparisons; ordinary DOS comparison remains pending. |
 | The indoor minimap draws its partial left/top wall loop once, uses frame 24 for the left TFLR edge, and the indoor Map marker tests row `14 - arrowY / 10` despite eight-pixel tiles. | Pinned `interface_minimap.cpp::draw` and `dialogs_map.cpp::execute`, revision `6814ee9ba54582f5b5adcffab49efbbd8f589edd`. | M58, `XeenMapView.cpp` | Preserve the reference placement and loop bounds; compare the visuals during the maintainer's DOS play-test. |
 | Map lookup treats sky and space surfaces as visible without recording exploration. | Pinned `map.cpp::mazeLookup` sets its disposable stepped lookup result for these surfaces. | M58, `XeenMapView.cpp::lookup` | Both views preserve this display rule without writing explored cells or importing cached seen bits. |
+| Fix ignores the Merchant skill even though the callers pass different values: the pinned reference passes `actionIndex` where Sell passes Merchant, and the DOS service callers pass the character skill byte. | Both the DOS routine and the reference overwrite that argument with Fix divisor index 3, so the price is the same in both: `max(1, value / 10)`. Read-only `WORLD/XEEN.DAT` analysis, 2026-10-12: price mode dispatch `0x3c6ab-0x3c6d5` (the Merchant byte is masked with `0x7f` at `0x3c6ab` and tested at `0x3c6c2`), service callers `0x3ab29-0x3ab32`, `0x3ac78-0x3ac81`, `0x3adbc-0x3adc5`, `0x3aee0-0x3aee9`, divisors `0x4d880`; calibrated against M38 DOSBox prices. | M38 Armor Repair, M61 plan | Equivalent behavior; no correction to the reference formula is needed. |
 | In the save/load chooser, the scroll arrows show their pressed frame but do nothing, and the bar between them does nothing; only ten slots exist. | Maintainer DOSBox CD play, 2026-10-09 (an eleventh slot pair is ignored). | M54 chooser | QoL candidate (scrolling or more slots). |
 | After a member runs from combat, the Quick Fight Options dialog keeps the old party indexing: F1-F5 and the portraits select the members by their pre-Run positions, so the visible portrait and the selected member differ; F6 does nothing. | Maintainer DOSBox CD play, 2026-10-10; matches `dialogs_quick_fight.cpp:97-99` in the reference. | M55, `XeenCharacterDialogFlow.cpp::handleQuickFightOptions` | QoL candidate. Combat actions still use the real actor. |
 | A valid Bank transfer adds to its destination using unsigned 32-bit arithmetic, so the destination can wrap. This is distinct from refusing an entered amount above `UINT32_MAX`. | Pinned `locations.cpp::BankLocation::depositWithdrawl` adds to the party's unsigned balances; M56 retains that balance arithmetic. | M56, `XeenFoodBank.cpp::xeenTransferBank` | No saturation or destination-capacity refusal. |
@@ -39,7 +40,11 @@ such a behavior, with its evidence.
 
 Cases the original cannot be checked for in normal play or by program analysis;
 they follow the pinned ScummVM reference under the AGENTS.md condition-counter
-rule. None are open at the moment.
+rule, or follow the reference where it has not been checked.
+
+| Behavior | Where | Notes |
+| --- | --- | --- |
+| A generated miscellaneous monster drop is lost: the reference's monster-treasure path sends the Misc branch to a destination that discards it, so delivered monster drops are only weapons or armor. The Misc draws (including the 1..8 charges) still happen. | M57, `XeenMonsterTreasure.cpp` (`ReferenceMiscellaneousDropLoss`) | Follows the pinned reference; not checked in DOS. Reachable today only through the map-23 Orcs (10% level-1 drop chance). A REA check of the original drop routine would settle it. |
 
 ## Approved temporary restrictions
 
@@ -63,7 +68,6 @@ a port defect; MMModern follows the original instead.
 | `FMT_CHARGES` carries a redundant alignment letter that draws a stray glyph in item titles. | Uses the DOS bytes from `WORLD/XEEN.DAT`, without the glyph (DOSBox-confirmed). | M47, M53 |
 | `ItemsDialog::setEquipmentIcons` sets an accessory frame through `_id = 8`. | Uses the item's own frame. | M47 |
 | `CharacterInfo::execute` forces combat mode after every stat popup. | Restores the caller's mode. | M47 |
-| Repair's `calcItemCost` passes `actionIndex` as the Merchant skill. | Keeps the M38 Armor Repair prices. | M47 |
 | The control panel drops Save As and rearranges the buttons; saves use ScummVM's own chooser. | DOS panel and chooser from `WORLD/XEEN.DAT` and DOSBox evidence. | M54 |
 | Info chooses its title by engine game ID, and its Walk on Water format takes three arguments. | CD Clouds Info uses the World title (maintainer DOSBox play, 2026-10-10). The bounded DOS fields at `[0x53673,0x53679)` and `[0x535d4,0x535e6)` supply that title and the two-argument Walk on Water format. | M55 Part A, `XeenDosText.cpp`, `XeenDialogView.cpp` |
 | The pinned English bank constants spell Withdrawal as `Withdrawl` and use a different refresh control prefix. | Preserve the installed CD DAT wording at `[0x51b51,0x51b5c)` and refresh template at `[0x52b32,0x52b79)`, verified read-only on 2026-10-10 against `en_constants.h::DEPOSIT_WITHDRAWL/GOLD_GEMS_2`. | M56, `XeenDosText.cpp`, `XeenDialogView.cpp` |
