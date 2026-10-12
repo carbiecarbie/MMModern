@@ -316,12 +316,13 @@ bool XeenEncounterFlow::observeCombat() {
             presentation.hitSplat(_hitRow,r.damage,0,_hitAlternatePosition,_lastTime);
         if(r.operation==XeenCombatOperation::Cast && _combat->cast()) {
             const auto &cast=_combat->cast()->result;
-            if(cast.spell==45 && _combat->cast()->phase==XeenCombatCastPhase::Projectile) {
-                _castProjectile=XeenProjectileAppearance{false,0,0,3,{}};
+            if((cast.spell==45 || cast.spell==20 || cast.spell==27 || cast.spell==50 || cast.spell==60) && _combat->cast()->phase==XeenCombatCastPhase::Projectile) {
+                _castProjectile=XeenProjectileAppearance{false,_combat->cast()->projectileRow,0,3,{},xeenSpellProjectile(*XeenLearnedSpellRules::supported(std::uint8_t(cast.spell)))};
+                _castProjectile->active=_combat->cast()->projectileRow<=3;
                 _castProjectileDeadline.reset();
                 _castProjectile->target=r.targetMonster;
             }
-            if(cast.spell==26 && !cast.failed && !cast.refunded)
+            if((cast.spell==26 || cast.spell==10 || cast.spell==59) && !cast.failed && !cast.refunded)
                 for(unsigned i=0;i<cast.count;++i) {
                     const auto &e=cast.effects[i];
                     if(e.beforeHp<=XeenCharacterRules::maxHp(_party.roster.at(e.owner),{_party.encounterContext->year}))presentation.spellEffect(e.owner,_lastTime,true);
@@ -447,9 +448,9 @@ bool XeenEncounterFlow::idleCombat(std::optional<std::uint64_t> cycle) {
         // row 2, and lethal removal row 3. RT_SINGLE then ends the lane.
         // Advance only after its acquired stage successfully publishes.
         if(phase!=XeenCombatCastPhase::Preparing && _castProjectile) {
-            if(_combat->cast()->phase==XeenCombatCastPhase::Result &&
-                (!result.damage || result.actorHpAfter>0))_castProjectile.reset();
-            else _castProjectile->advance();
+            if(_combat->cast()->phase==XeenCombatCastPhase::Preparing ||
+                (_combat->cast()->phase==XeenCombatCastPhase::Result && (!result.damage || result.actorHpAfter>0)))_castProjectile.reset();
+            else {_castProjectile->row=_combat->cast()->projectileRow;_castProjectile->active=(_castProjectile->row<=3);}
             _castProjectileDeadline.reset();
         }
         if(observeCombat())_cosmeticDeadline=now+100;

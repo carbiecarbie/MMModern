@@ -108,26 +108,52 @@ bool XeenTypedDamageCandidate::service(XeenConsequenceDraw &draw) {
 		XeenCombatAttackOutcome::HitPositiveDamage : XeenCombatAttackOutcome::HitZeroDamage;
 	return true;
 }
-// ScummVM spells.cpp magicArrow / combat.cpp RT_GROUP, DT_MAGIC_ARROW.
-// The saving throw is required even though it cannot change this spell's damage.
-XeenMagicArrowCandidate::XeenMagicArrowCandidate(std::int64_t permanent, std::int64_t temporary,
-        unsigned r, unsigned index) : resistance(r), resourceId(index) {
+unsigned xeenSpellProjectile(XeenLearnedSpell spell) {
+    switch (spell) {
+    case XeenLearnedSpell::MagicArrow: return 11; // POW_ARROW, not POW_MAGIC_ARROW
+    case XeenLearnedSpell::EnergyBlast: return 13;
+    case XeenLearnedSpell::FlyingFist: case XeenLearnedSpell::Pain: return 14;
+    case XeenLearnedSpell::Shrapmetal: return 15;
+    default: throw std::invalid_argument("Unsupported spell projectile");
+    }
+}
+// Pinned combat.cpp rangedAttack/attack/attack2: physical reduction precedes
+// the resource-ID save; Arrow draws the save but ignores its result.
+XeenSpellDamageCandidate::XeenSpellDamageCandidate(std::int64_t permanent, std::int64_t temporary,
+        unsigned r, unsigned index, XeenLearnedSpell spell, unsigned physical) : resistance(r), resourceId(index) {
     ruleRequire(permanent>=std::numeric_limits<int>::min() && permanent<=std::numeric_limits<int>::max() &&
         temporary>=std::numeric_limits<int>::min() && temporary<=std::numeric_limits<int>::max(),"Invalid Arrow level operands");
     const auto level=std::max<std::int64_t>(permanent+temporary,0);
-    ruleRequire(r<=100 && level<=std::numeric_limits<int>::max()-100 &&
+    ruleRequire(r<=100 && physical<=100 && level<=std::numeric_limits<int>::max()-100 &&
         index<=unsigned(std::numeric_limits<int>::max()-50),"Invalid Arrow interval");
     levelBound=unsigned(100+level);saveBound=50+index;
-    step=r ? Step::Resistance : Step::Save;
+    bool isPhysical=false;
+    switch (spell) {
+    case XeenLearnedSpell::MagicArrow: acceptedDamage=8;halveOnSave=false;break;
+    case XeenLearnedSpell::EnergyBlast: acceptedDamage=physicalChecked(2*level);break;
+    case XeenLearnedSpell::Shrapmetal: acceptedDamage=physicalChecked(2*level);isPhysical=true;break;
+    case XeenLearnedSpell::FlyingFist: acceptedDamage=6;isPhysical=true;break;
+    case XeenLearnedSpell::Pain: acceptedDamage=8;isPhysical=true;break;
+    default: throw std::invalid_argument("Unsupported ranged spell damage");
+    }
+    // Zero base damage never enters attack2. Physical immunity, however, reduces
+    // damage only after entry, so it still consumes the saving throw.
+    entersDamage=acceptedDamage!=0;
+    step=r ? Step::Resistance : entersDamage ? Step::Save : Step::Done;
+    if (isPhysical) acceptedDamage=physicalChecked(std::int64_t(acceptedDamage)*(100-physical)/100);
 }
-bool XeenMagicArrowCandidate::service(XeenConsequenceDraw &draw) {
+bool XeenSpellDamageCandidate::service(XeenConsequenceDraw &draw) {
     while (step!=Step::Done && draw.remaining) {
         const auto accepted=draw.draw(1,step==Step::Resistance ? levelBound : saveBound);
         if (!accepted) continue;
         if (step==Step::Resistance) {
             if (*accepted<resistance) {resisted=true;step=Step::Done;}
-            else step=Step::Save;
-        } else { damage=8;step=Step::Done; }
+            else step=entersDamage ? Step::Save : Step::Done;
+        } else {
+            damage=acceptedDamage;
+            if (halveOnSave && *accepted<=resourceId) damage/=2;
+            step=Step::Done;
+        }
     }
     return step==Step::Done;
 }

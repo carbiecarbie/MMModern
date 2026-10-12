@@ -4,6 +4,7 @@
 #define MMODERN_M39_CAST_CONTROLS_H
 #include "games/xeen/XeenRestoreGuard.h"
 #include "games/xeen/XeenOutdoorScene.h"
+#include "games/xeen/XeenRegionalRules.h"
 template<class Handler,class Idle,class Fault>
 bool m39CastControls(const std::string &control,const IndexedFrame &first,const Handler &handler,const Idle &idle,
     XeenEventFlow &flow,XeenWorld &world,const XeenPartyState &party,const XeenCamera &camera,
@@ -30,7 +31,7 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
     const auto quiet=[&]{for(unsigned i=0;i<500 && !flow.canSave();++i)tick();check(flow.canSave(),"M39 artificial prefix quiet bound");};
     present(first);respond(SaveGameAction{});check(saves==3,"M39 control prior save pipeline");
     const auto disk=XeenSaveFormat::encode(XeenSaveFile::read(target));
-    respond(NavigationAction::MoveForward);quiet();respond(ShootAction{});quiet();respond(NavigationAction::MoveForward);ready(control=="partial"?0:4);
+    respond(NavigationAction::MoveForward);quiet();if(control.find("-group")==std::string::npos){respond(ShootAction{});quiet();}respond(NavigationAction::MoveForward);ready(control=="partial"?0:4);
     if(control=="partial") {
         respond(RunAction{});ready(4);check(!(fight().participants()&1u),"M39 partial control needs legitimate earlier escape");
         respond(CastSpellAction{});select(2);castSelected();
@@ -41,6 +42,78 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
         std::cout<<"M39 ARTIFICIAL CONTROL PASSED partial\n";return true;
     }
     const auto cursor=*world.sessionState().journeyRandom();const auto priorHp=int(party.roster.at(6).currentHp);
+    if(control.rfind("m60-",0)==0) {
+        const unsigned spell=unsigned(std::stoul(control.substr(4)));
+        const bool member=spell==10 || spell==59;
+        const bool group=control.find("-group")!=std::string::npos;
+        const bool quick=control.find("-quick")!=std::string::npos;
+        const unsigned casterIndex=(member || spell==27 || spell==50)?4:5;
+        if(casterIndex==5) {respond(BlockAction{});ready(casterIndex);}
+        const auto owner=party.party.activeRosterIds().at(casterIndex);
+        const auto beforeSp=party.roster.at(owner).currentSp;
+        const auto beforeGems=party.monsterTreasure->gems;
+        const auto beforeRandom=*world.sessionState().journeyRandom();
+        const auto monster=*fight().selectedTarget();
+        const auto beforeActor=world.sessionState().actors().at(monster.recordIndex);
+        const auto beforeMember=party.roster.at(0);
+        const auto &caster=party.roster.at(owner);
+        const auto price=XeenLearnedSpellRules::cost(std::uint8_t(spell),unsigned(std::max(caster.permanentLevel+caster.temporaryLevel,0)));
+        auto expectedRandom=fight().random();int expectedDamage=0;
+        const auto groupTargets=xeenSpellTargets(world,camera,world.sessionState().actors(),fight().selectedTarget(),group);
+        std::array<int,3> groupHp{};unsigned groupCount=0;
+        auto expectedTreasure=*party.monsterTreasure;
+        const auto accounted=world.sessionState().accountedMonsters();std::set<XeenMonsterIdentity> expectedAccounted(accounted.begin(),accounted.end());
+        std::array<std::uint32_t,6> beforeXp{};std::uint32_t xpPerMember=0;
+        for(unsigned i=0;i<6;++i)beforeXp[i]=party.roster.combatInputs(party.party.activeRosterIds().at(i))->experience;
+        if(!member) {
+            for(unsigned i=0;i<groupTargets.size() && groupTargets[i];++i) {
+                const auto &actor=world.sessionState().actors().at(groupTargets[i]->recordIndex);
+                XeenSpellDamageCandidate candidate(caster.permanentLevel,caster.temporaryLevel,
+                    actor.statistics->magicResistance(),actor.original.resourceId,
+                    *XeenLearnedSpellRules::supported(std::uint8_t(spell)),actor.statistics->physicalResistance());
+                XeenConsequenceDraw draws{expectedRandom};check(candidate.service(draws),"M60 expected bounded damage");
+                if(!i)expectedDamage=candidate.damage;
+                groupHp[i]=std::max(actor.hp-candidate.damage,0);++groupCount;
+                if(!groupHp[i]) {
+                    expectedAccounted.insert(actor.id);xpPerMember+=actor.statistics->experience()/6;
+                    if(actor.original.resourceId==6) {
+                        XeenMonsterDropCandidate drop(expectedTreasure,actor.id.recordIndex);
+                        check(drop.service(draws),"M60 expected bounded drop");expectedTreasure=drop.treasure;
+                    }
+                }
+            }
+        }
+        if(quick)respond(QuickFightAction{});else {respond(CastSpellAction{});castSelected();}
+        check(view().committed && party.roster.at(owner).currentSp==beforeSp-int(price.sp) &&
+            party.monsterTreasure->gems==beforeGems-price.gems,"M60 exact debit");
+        check(!flow.canSave(),"M60 paid cast allowed Save");
+        if(member)respond(SelectMemberAction{0});
+        else for(unsigned i=0;i<100 && fight().cast() && view().phase!=XeenCombatCastPhase::Result;++i) {
+            check(!flow.canSave() && fight().phase()!=XeenCombatPhase::Failed,"M60 projectile save/failure");tick();
+        }
+        check(quick ? !fight().cast() : view().phase==XeenCombatCastPhase::Result && !view().result.failed,"M60 effect result");
+        if(member) {
+            check(world.sessionState().journeyRandom()==beforeRandom,"M60 recovery consumed random");
+            const auto &after=party.roster.at(0);
+            if(spell==10)check(after.currentHp==std::min<int>(beforeMember.currentHp+15,XeenCharacterRules::maxHp(beforeMember,{party.encounterContext->year})),"M60 Cure Wounds healing");
+            else check(after.conditions[2]==0 && after.currentHp==beforeMember.currentHp,"M60 Revitalize Weak repair");
+        } else {
+            const auto &after=world.sessionState().actors().at(monster.recordIndex);
+            check(after.hp==std::max(beforeActor.hp-expectedDamage,0),"M60 exact single/group contact damage");
+            check(world.sessionState().journeyRandom()==expectedRandom.continuation(),"M60 combat damage draw tape");
+            if(group) {
+                check(groupCount==3,"M60 grouped fixture needs three targets");
+                for(unsigned i=0;i<groupCount;++i)check(world.sessionState().actors().at(groupTargets[i]->recordIndex).hp==groupHp[i],"M60 group target damage");
+                check(world.sessionState().accountedMonsters()==expectedAccounted,"M60 grouped death publication");
+                check(party.monsterTreasure->pendingGold==expectedTreasure.pendingGold,"M60 grouped loot publication");
+                check(fight().participants()==0x3f,"M60 group XP fixture participants");
+                for(unsigned i=0;i<6;++i)check(party.roster.combatInputs(party.party.activeRosterIds().at(i))->experience==beforeXp[i]+xpPerMember*(party.roster.at(party.party.activeRosterIds().at(i)).permanentLevel<15?2:1),"M60 grouped XP exactly once");
+            }
+        }
+        const auto saveProviders=providers,saveCount=saves;handler.withDisplayedInput(SaveGameAction{},handler.displayedInput().value_or(0));
+        check(!flow.canSave() && providers==saveProviders && saves==saveCount,"M60 result allowed Save/providers");
+        std::cout<<"M39 ARTIFICIAL CONTROL PASSED "<<control<<'\n';return true;
+    }
     const auto verifyDisk=[&]{check(disk==XeenSaveFormat::encode(XeenSaveFile::read(target)),"M39 fault changed earlier disk save");};
     const auto deny=[&]{const auto p=providers,s=saves;handler.withDisplayedInput(SaveGameAction{},handler.displayedInput().value_or(0));
         check(!flow.canSave() && p==providers && s==saves,"M39 fault/modal save reached work");verifyDisk();};

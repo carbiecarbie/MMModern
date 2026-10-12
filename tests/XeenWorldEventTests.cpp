@@ -833,11 +833,13 @@ void partBVernGuild(Inputs &in) {
  auto enrolled=enrollment.snapshot();enrolled.camera={28,20,13,XeenDirection::North};Fixture shop(in,enrolled);shop.act(InteractionAction{});shop.prepare();
  shop.act(DialogKeyAction{InputKey::F1+caster});shop.act(DialogKeyAction{'b'});
  const auto offered=XeenLearnedSpellRules::rows(shop.p.roster.at(casterOwner),true);
- check(!offered.empty(),"original book has no unlearned Guild offers");const auto bought=offered.front();
+ const auto category=*XeenLearnedSpellRules::categoryForClass(shop.p.roster.at(casterOwner).characterClass);
+ const auto unsupported=std::find_if(offered.begin(),offered.end(),[&](auto slot){return !XeenLearnedSpellRules::supported(*XeenLearnedSpellRules::spellForSlot(category,slot));});
+ check(unsupported!=offered.end() && unsupported-offered.begin()<10,"original book has no unsupported first-page Guild offers");const auto bought=*unsupported;
  const auto spell=*XeenLearnedSpellRules::spellForSlot(*XeenLearnedSpellRules::categoryForClass(shop.p.roster.at(casterOwner).characterClass),bought);
  check(!XeenLearnedSpellRules::supported(spell),"original unsupported purchase witness changed");
  const auto price=XeenLearnedSpellRules::purchasePrice(spell,shop.p.roster.at(casterOwner).characterClass);
- shop.act(DialogKeyAction{'1'});shop.act(DialogKeyAction{'y'});
+ shop.act(DialogKeyAction{'1'+unsigned(unsupported-offered.begin())});shop.act(DialogKeyAction{'y'});
  check(shop.p.roster.at(casterOwner).learnedSpells->at(bought)==1 && shop.p.monsterTreasure->gold==975-price,"original Guild purchase did not learn/debit selected book");
  shop.act(CancelInteractionAction{});shop.act(CancelInteractionAction{});
  for(unsigned n=0;n<1000 && !shop.flow->canSave();++n){shop.flow->beginCycle(++shop.cycle);if(auto image=shop.flow->updatePresentation())shop.present(*image);}

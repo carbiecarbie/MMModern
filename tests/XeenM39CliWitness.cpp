@@ -431,9 +431,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             auto before=std::make_shared<XeenGameplayContext>();auto cursor=std::make_shared<XeenJourneyRandomState>();
             inspect([&,before,cursor]{*before=*party->encounterContext;*cursor=*world->sessionState().journeyRandom();});
             action(CastSpellAction{});action(SelectMemberAction{5});selectSpell(3);
-            castSelected();inspect([&]{check(!flow->encounter()->castingCommitted() && party->roster.at(6).currentSp==23,"M39 exploration Arrow admitted/debited");});
-            action(CancelInteractionAction{});action(CancelInteractionAction{});settle();
-            inspect([&,before,cursor]{check(*party->encounterContext==*before && *world->sessionState().journeyRandom()==*cursor,"M39 exploration Arrow refusal charged time/RNG");});
+            inspect([&]{check(!flow->encounter()->castingCommitted() && party->roster.at(6).currentSp==23,"M60 exploration Arrow cancelled before commitment");});
+            action(CancelInteractionAction{});settle();
+            inspect([&,before,cursor]{check(*party->encounterContext==*before && *world->sessionState().journeyRandom()==*cursor,"M60 exploration Arrow selection cancellation charged time/RNG");});
             action(CastSpellAction{});action(SelectMemberAction{4});selectSpell(2);
             castSelected();action(SelectMemberAction{5});settle();
             inspect([&]{check(party->roster.at(1).currentSp==19 && party->roster.at(6).currentSp==23,"M39 exploration continuation SP");});

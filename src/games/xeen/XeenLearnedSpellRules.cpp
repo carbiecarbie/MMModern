@@ -60,19 +60,19 @@ std::optional<std::uint8_t> XeenLearnedSpellRules::spellForSlot(XeenSpellCategor
 }
 
 std::optional<XeenLearnedSpell> XeenLearnedSpellRules::supported(std::uint8_t id) noexcept {
-	if (id == 1) return XeenLearnedSpell::Awaken;
-	if (id == 26) return XeenLearnedSpell::FirstAid;
-	if (id == 45) return XeenLearnedSpell::MagicArrow;
-	return std::nullopt;
+    switch (id) {
+    case 1: case 10: case 20: case 26: case 27: case 40: case 45:
+    case 50: case 59: case 60: case 75: return static_cast<XeenLearnedSpell>(id);
+    default: return std::nullopt;
+    }
 }
 
 std::optional<XeenLearnedSpell> XeenLearnedSpellRules::supportedIn(std::uint8_t id, bool combat) noexcept {
-    if (combat) return supported(id);
-    if ((id==1 || id==26)) return supported(id);
-    return std::nullopt;
+    if (combat && (id==40 || id==75)) return std::nullopt;
+    return supported(id);
 }
 unsigned XeenLearnedSpellRules::cost(XeenLearnedSpell spell) noexcept {
-    return cost(spell==XeenLearnedSpell::MagicArrow?45:spell==XeenLearnedSpell::Awaken?1:26,1).sp;
+    return cost(static_cast<std::uint8_t>(spell),1).sp;
 }
 
 // Pinned Spells::calcSpellPoints/calcSpellCost and constants.cpp cost tables.
@@ -104,14 +104,20 @@ std::vector<std::size_t> XeenLearnedSpellRules::rows(const XeenCharacter &c,bool
     return result;
 }
 XeenSpellTarget XeenLearnedSpellRules::target(std::uint8_t id) noexcept {
-    return id==1?XeenSpellTarget::Party:id==26?XeenSpellTarget::Member:id==45?XeenSpellTarget::Contact:XeenSpellTarget::Unsupported;
+    switch (id) {
+    case 1: case 75: return XeenSpellTarget::Party;
+    case 10: case 26: case 59: return XeenSpellTarget::Member;
+    case 20: case 27: case 45: case 50: case 60: return XeenSpellTarget::Contact;
+    case 40: return XeenSpellTarget::Relocation;
+    default: return XeenSpellTarget::Unsupported;
+    }
 }
 XeenQuickSpellCheck XeenLearnedSpellRules::check(const XeenCharacter &c,std::size_t slot,std::uint32_t gems,bool combat) noexcept {
     using Q=XeenQuickSpellCheck;if(slot==255)return Q::NoSpell;
     const auto category=categoryForClass(c.characterClass);
     const auto id=category?spellForSlot(*category,slot):std::nullopt;
     // Explicit incomplete-engine policy: no paid failure/turn for any missing effect.
-    if(!id || !supportedIn(*id,combat) || !c.hasSpells || !known(c,slot))return Q::Unsupported;
+    if(!id || !supported(*id) || !c.hasSpells || !known(c,slot))return Q::Unsupported;
     const auto required=cost(*id,c.currentLevel());
     if(c.currentSp<int(required.sp))return Q::InsufficientSp;
     if(gems<required.gems)return Q::InsufficientGems;
@@ -136,11 +142,11 @@ bool XeenLearnedSpellRules::eligible(const XeenPartyState &party, std::size_t ac
 	const auto spell = category ? spellForSlot(*category, slot) : std::nullopt;
 	const auto effect=spell ? supportedIn(*spell,combat) : std::nullopt;
 	return character.hasSpells && character.canAct() && effect &&
-		character.currentSp >= int(cost(*effect)) && known(character, slot);
+		character.currentSp >= int(cost(*spell,character.currentLevel()).sp) && known(character, slot);
 }
 
 XeenSpellPreparation XeenLearnedSpellRules::prepareFirstAid(const XeenPartyState &party,
-		std::size_t targetIndex, std::uint32_t year) {
+		std::size_t targetIndex, std::uint32_t year, unsigned healing) {
 	const auto owner = ownerFor(party, targetIndex);
 	const auto &target = party.roster.at(owner);
 	XeenSpellPreparation result;
@@ -151,7 +157,7 @@ XeenSpellPreparation XeenLearnedSpellRules::prepareFirstAid(const XeenPartyState
 	XeenCharacterRules::validateForUse(target, {year});
 	const int maximum = XeenCharacterRules::maxHp(target, {year});
 	const auto hp = target.currentHp;
-	const auto after = hp <= maximum ? std::min(static_cast<std::int64_t>(hp) + 6,
+	const auto after = hp <= maximum ? std::min(static_cast<std::int64_t>(hp) + healing,
 		static_cast<std::int64_t>(maximum)) : static_cast<std::int64_t>(hp);
 	if (after < std::numeric_limits<std::int16_t>::min() ||
 			after > std::numeric_limits<std::int16_t>::max())
@@ -163,6 +169,26 @@ XeenSpellPreparation XeenLearnedSpellRules::prepareFirstAid(const XeenPartyState
 	if (after > 0) effect.conditions[12] = 0;
 	result.effects.push_back(effect);
 	return result;
+}
+
+XeenSpellPreparation XeenLearnedSpellRules::prepareRevitalize(const XeenPartyState &party,
+        std::size_t targetIndex, std::uint32_t year) {
+    const auto owner = ownerFor(party,targetIndex);
+    const auto &target = party.roster.at(owner);
+    XeenSpellEffect effect;
+    effect.owner=static_cast<std::uint8_t>(owner);
+    effect.hp=target.currentHp;
+    effect.conditions=target.conditions;
+    // addHitPoints(0) skips terminal characters, including its Unconscious repair.
+    // Revitalize still clears Weak on them; it is not a failed healing cast.
+    if (!target.conditions[13] && !target.conditions[14] && !target.conditions[15]) {
+        XeenCharacterRules::validateForUse(target,{year});
+        if (effect.hp>0) effect.conditions[12]=0;
+    }
+    effect.conditions[2]=0;
+    XeenSpellPreparation result;
+    result.effects.push_back(effect);
+    return result;
 }
 
 XeenSpellPreparation XeenLearnedSpellRules::prepareAwaken(const XeenPartyState &party) {

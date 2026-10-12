@@ -183,6 +183,44 @@ void resourcePreimage() {
 	check(!guard.current(),"changed name preimage is monotonic");
 	rejects([&]{guard.admitLearnedSpellNames(original);});
 }
+void partBEffectsAndAdmission() {
+    using R=XeenLearnedSpellRules;using Q=XeenQuickSpellCheck;using T=XeenSpellTarget;
+    auto party=fixture();auto &caster=party.roster.at(6);
+    for(unsigned id:{20u,40u,60u,75u}) {
+        const auto slot=*R::slotForSpell(XeenSpellCategory::Wizardry,id);
+        caster.learnedSpells->at(slot)=1;caster.currentSpell=slot;
+        const auto cost=R::cost(id,caster.currentLevel());
+        caster.currentSp=cost.sp-1;
+        check(R::check(caster,slot,0,true)==Q::InsufficientSp,"Implemented forbidden spell must check SP first");
+        caster.currentSp=cost.sp;
+        if(cost.gems)check(R::check(caster,slot,cost.gems-1,true)==Q::InsufficientGems,"Gem refusal order differs");
+        check(R::check(caster,slot,cost.gems,false)==Q::Supported,"Part B exploration admission refused");
+        check(R::quickSpellCheck(caster,cost.gems)==(id==40 || id==75?Q::CombatForbidden:Q::Supported),"Quick Fight context parity differs");
+    }
+    check(R::target(40)==T::Relocation && R::target(75)==T::Party && R::target(10)==T::Member && R::target(59)==T::Member,"New spell targets differ");
+    for(unsigned id:{20u,27u,45u,50u,60u})check(R::target(id)==T::Contact,"Ranged target descriptor differs");
+    auto &target=party.roster.at(1);const int maximum=XeenCharacterRules::maxHp(target,{610});
+    target.currentHp=maximum-20;target.conditions[12]=1;
+    auto cure=R::prepareFirstAid(party,0,610,15);
+    check(!cure.failed && cure.effects[0].hp==maximum-5 && cure.effects[0].owner==1,"Cure Wounds must heal fifteen");
+    target.currentHp=maximum-2;cure=R::prepareFirstAid(party,0,610,15);
+    check(cure.effects[0].hp==maximum && !cure.effects[0].conditions[12],"Cure maximum/Unconscious repair differs");
+    for(unsigned terminal:{13u,14u,15u}) {
+        target.conditions[terminal]=1;cure=R::prepareFirstAid(party,0,610,15);
+        check(cure.failed && cure.effects.empty(),"Cure terminal target must fail");target.conditions[terminal]=0;
+    }
+    for(int hp:{-10,0,12,maximum+5})for(unsigned terminal:{0u,13u,14u,15u}) {
+        target.currentHp=hp;target.conditions.fill(0);target.conditions[2]=255;target.conditions[12]=1;
+        target.conditions[8]=3;if(terminal)target.conditions[terminal]=1;
+        const auto revitalized=R::prepareRevitalize(party,0,610);
+        const auto &effect=revitalized.effects.at(0);
+        check(!revitalized.failed && effect.hp==hp && !effect.conditions[2] && effect.conditions[8]==3 &&
+            effect.conditions[12]==(hp>0 && !terminal?0:1),"Revitalize addHitPoints(0)/Weak semantics differ");
+        if(terminal)check(effect.conditions[terminal]==1,"Revitalize resurrected terminal target");
+        check(target.conditions[2]==255,"Preparation mutated live target");
+    }
+    rejects([&]{R::prepareRevitalize(party,4,610);});
+}
 void ownerIdentityAndLifetime() {
 	XeenWorld world([](XeenMapIdentity){return XeenMap{};});
 	XeenCamera camera;XeenGameFlags flags;
@@ -216,5 +254,5 @@ void ownerIdentityAndLifetime() {
 	}
 }
 }
-int main() {try {mapping();costsAndCatalogue();structuralNames();eligibilityAndEffects();resourcePreimage();ownerIdentityAndLifetime();std::cout<<"Learned spell mapping and pure effects passed\n";return 0;}
+int main() {try {mapping();costsAndCatalogue();partBEffectsAndAdmission();structuralNames();eligibilityAndEffects();resourcePreimage();ownerIdentityAndLifetime();std::cout<<"Learned spell mapping and pure effects passed\n";return 0;}
 catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

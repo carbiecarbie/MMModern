@@ -9,7 +9,7 @@
 namespace mmodern {
 
 enum class XeenSpellCategory : std::uint8_t { Clerical, Wizardry, Druidic };
-enum class XeenLearnedSpell : std::uint8_t { Awaken = 1, FirstAid = 26, MagicArrow = 45 };
+enum class XeenLearnedSpell : std::uint8_t { Awaken = 1, CureWounds = 10, EnergyBlast = 20, FirstAid = 26, FlyingFist = 27, Jump = 40, MagicArrow = 45, Pain = 50, Revitalize = 59, Shrapmetal = 60, WizardEye = 75 };
 
 struct XeenSpellEffect {
 	std::uint8_t owner = 0;
@@ -32,7 +32,7 @@ struct XeenLearnedSpellNames {
 };
 
 enum class XeenQuickSpellCheck { Supported, NoSpell, InsufficientSp, InsufficientGems, CombatForbidden, Unsupported };
-enum class XeenSpellTarget { Party, Member, Contact, Unsupported };
+enum class XeenSpellTarget { Party, Member, Contact, Relocation, Unsupported };
 struct XeenSpellCost { unsigned sp=0, gems=0; };
 class XeenLearnedSpellRules {
 public:
@@ -51,6 +51,8 @@ public:
 	static bool known(const XeenCharacter &, std::size_t) noexcept;
 	static bool eligible(const XeenPartyState &, std::size_t activeIndex, std::size_t slot, bool combat=false) noexcept;
 	static XeenSpellPreparation prepareFirstAid(const XeenPartyState &, std::size_t targetIndex,
+		std::uint32_t currentYear, unsigned healing = 6);
+	static XeenSpellPreparation prepareRevitalize(const XeenPartyState &, std::size_t targetIndex,
 		std::uint32_t currentYear);
 	static XeenSpellPreparation prepareAwaken(const XeenPartyState &);
 };

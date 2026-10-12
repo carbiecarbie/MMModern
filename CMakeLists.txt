@@ -45,6 +45,7 @@ add_library(mmodern_xeen STATIC
 	src/games/xeen/XeenJourneyRules.cpp
 	src/games/xeen/XeenGameplayContext.cpp
 	src/games/xeen/XeenRegionalRules.cpp
+    src/games/xeen/XeenJumpRules.cpp
 	src/formats/xeen/XeenAssetSource.cpp
 	src/formats/xeen/XeenCloudsVisualMetadata.cpp
 	src/formats/xeen/XeenMaterialNames.cpp
@@ -524,6 +525,10 @@ if(BUILD_TESTING)
 	add_executable(mmodern_party_interface_tests tests/XeenPartyInterfaceTests.cpp)
 	add_executable(mmodern_exploration_tests tests/XeenExplorationTests.cpp)
 	add_executable(mmodern_mapping_gameplay_tests tests/XeenMappingGameplayTests.cpp)
+	add_executable(mmodern_m60_exploration_tests tests/XeenM60ExplorationTests.cpp)
+	target_link_libraries(mmodern_m60_exploration_tests PRIVATE mmodern_app mmodern_xeen)
+	add_test(NAME xeen_m60_exploration_original COMMAND mmodern_m60_exploration_tests "${MMODERN_XEEN_DATA_DIR}")
+	set_tests_properties(xeen_m60_exploration_original PROPERTIES LABELS "fast")
 	target_link_libraries(mmodern_mapping_gameplay_tests PRIVATE mmodern_app mmodern_xeen)
 	add_test(NAME xeen_mapping_gameplay_original COMMAND mmodern_mapping_gameplay_tests "${MMODERN_XEEN_DATA_DIR}")
 	set_tests_properties(xeen_mapping_gameplay_original PROPERTIES LABELS "fast")
@@ -547,6 +552,11 @@ if(BUILD_TESTING)
 	add_test(NAME xeen_dialogs COMMAND mmodern_dialog_tests)
 	add_test(NAME xeen_dialogs_original COMMAND mmodern_dialog_tests "${MMODERN_XEEN_DATA_DIR}")
 	set_tests_properties(xeen_dialogs xeen_dialogs_original PROPERTIES LABELS "fast")
+    add_executable(mmodern_jump_rules_tests tests/XeenJumpRulesTests.cpp)
+    target_link_libraries(mmodern_jump_rules_tests PRIVATE mmodern_xeen)
+    add_test(NAME xeen_jump_rules COMMAND mmodern_jump_rules_tests)
+    add_test(NAME xeen_jump_rules_original COMMAND mmodern_jump_rules_tests "${MMODERN_XEEN_DATA_DIR}")
+    set_tests_properties(xeen_jump_rules xeen_jump_rules_original PROPERTIES LABELS "fast")
     add_executable(mmodern_map_view_tests tests/XeenMapViewTests.cpp)
     target_link_libraries(mmodern_map_view_tests PRIVATE mmodern_xeen)
     add_test(NAME xeen_map_view COMMAND mmodern_map_view_tests)

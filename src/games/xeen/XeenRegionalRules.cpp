@@ -105,6 +105,22 @@ unsigned xeenPlayerRayRows(XeenWorld &world,const XeenCamera &camera) {
  }
  return 4;
 }
+std::array<std::optional<XeenMonsterIdentity>,3> xeenSpellTargets(XeenWorld &world,
+ const XeenCamera &camera,const std::vector<XeenActor> &actors,
+ std::optional<XeenMonsterIdentity> selected,bool group) {
+ const auto view=world.map(camera.mapId).geometry.isOutdoors()?
+  XeenActorApproach::classify(actors,camera):XeenIndoorScene().classifyActors(world,camera,actors);
+ std::array<std::optional<XeenMonsterIdentity>,3> targets{};
+ const auto rows=xeenPlayerRayRows(world,camera);
+ for(unsigned row=0;row<rows;++row) {
+  unsigned count=0;
+  if(row==0 && selected)for(unsigned i=0;i<3;++i)if(view.slots[i]==selected)targets[count++]=selected;
+  for(unsigned i=0;i<3;++i)if(view.slots[row*3+i] && view.slots[row*3+i]!=targets[0])
+   targets[count++]=view.slots[row*3+i];
+  if(count) {if(!group)for(unsigned i=1;i<3;++i)targets[i].reset();return targets;}
+ }
+ return targets;
+}
 bool xeenIndoorRangedRay(XeenWorld &world,const XeenCamera &camera,const XeenActor &actor) {
  if(camera.mapId!=actor.id.mapId || world.map(camera.mapId).geometry.isOutdoors() ||
     unsigned(camera.direction)>3 || camera.x<0 || camera.x>=32 || camera.y<0 || camera.y>=32 ||

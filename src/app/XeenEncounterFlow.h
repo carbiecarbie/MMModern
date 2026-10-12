@@ -290,6 +290,7 @@ private:
 		XeenLearnedSpell spell=XeenLearnedSpell::Awaken;
 		std::int16_t originalSp=0;
 		bool committed=false,effectDone=false,failed=false;
+		std::optional<XeenCamera> jumpDestination;
 		XeenCombatRandom random;
 		std::optional<XeenConditionTimeCandidate> time;
 	};
@@ -313,7 +314,7 @@ private:
  std::optional<XeenProjectileAppearance> _castProjectile;
  std::optional<std::uint64_t> _castProjectileDeadline;
  void castProjectilePresented() noexcept {
-  if(_combat && _combat->cast() && _castProjectile && _castProjectile->active && !_castProjectileDeadline)
+  if(_combat && _combat->cast() && _castProjectile && !_castProjectileDeadline)
    _castProjectileDeadline=_lastTime+100;
  }
 	std::uint64_t _projectileDeadline=0;

@@ -64,7 +64,7 @@ bool XeenEncounterFlow::beginShoot() {
  }
 }
 bool XeenEncounterFlow::serviceShoot() {
- if(!_shoot || monsterReward() || _busy || _failure || !current(ticket()) || !_boundary.quiet()) return false;
+ if(!_shoot || monsterReward() || _busy || _failure || !current(ticket()) || (!_boundary.quiet() && !(_casting && _shoot->spell && _boundary.only(XeenCombatBoundary::Work::Casting,_casting->lease)))) return false;
  ConsequenceScope busy(_busy);
  try {
   auto &work=*_shoot;auto &session=_world._sessionState;
@@ -100,37 +100,46 @@ bool XeenEncounterFlow::serviceShoot() {
     const auto &actor=work.bound ? *work.bound : liveActors.at(id->recordIndex);
     if(!(actor.id==*id)) throw std::logic_error("Shoot retained identity mismatch");
     const auto owner=work.owners[work.shooter];
-    if(!work.attack) {work.bound=actor;work.attack.emplace(_party.roster.at(owner),*_party.roster.combatInputs(owner),*actor.statistics,actor.original.resourceId,_party.encounterContext->year,true,_party.encounterContext->difficulty);}
+    if(!work.attack && !work.spellAttack) {work.bound=actor;
+     if(work.spell) {const auto &caster=_party.roster.at(work.spellCaster);
+      work.spellAttack.emplace(caster.permanentLevel,caster.temporaryLevel,actor.statistics->magicResistance(),actor.original.resourceId,*work.spell,actor.statistics->physicalResistance());
+     } else work.attack.emplace(_party.roster.at(owner),*_party.roster.combatInputs(owner),*actor.statistics,actor.original.resourceId,_party.encounterContext->year,true,_party.encounterContext->difficulty);}
+    const auto damage=[&] {return work.spellAttack?work.spellAttack->damage:work.attack->damage;};
+    const auto hit=[&] {return work.spellAttack?true:work.attack->hit;};
     if(!work.attackDone) {
-     if(!work.attack->service(draw)) return true;
+     if(work.spellAttack ? !work.spellAttack->service(draw) : !work.attack->service(draw)) return true;
      work.impactRandom=work.random.continuation();
-     if(work.attack->damage>=actor.hp && actor.original.resourceId==6) work.drop.emplace(*_party.monsterTreasure,id->recordIndex);
+     if(damage()>=actor.hp && actor.original.resourceId==6) work.drop.emplace(*_party.monsterTreasure,id->recordIndex);
      work.attackDone=true;
     }
     if(work.drop && !work.drop->service(draw)) return true;
     if(!work.suffixPrepared) {
-     if(work.attack->damage>=actor.hp) {
+     if(damage()>=actor.hp) {
       std::array<const XeenCharacter *,6> owners{};
       for(unsigned i=0;i<6;++i) owners[i]=&_party.roster.at(work.owners[i]);
       work.lethal=xeenPrepareJourneyLethal(actor,owners,activeInputs(_party,work.owners),session.accountedMonsters(),0x3f);
      }
      work.feedback="Shoot owner "+std::to_string(owner)+" -> actor "+std::to_string(id->recordIndex)+
-      (work.attack->hit?" hit ":" miss ")+std::to_string(work.attack->damage)+(work.lethal?" defeated":"");
+      (hit()?" hit ":" miss ")+std::to_string(damage())+(work.lethal?" defeated":"");
      if(work.drop) {
       work.feedback+="; gold +10 pending";
       if(work.drop->outcome==XeenMonsterDropOutcome::ReferenceMiscellaneousDropLoss)work.feedback+="; misc drop lost";
       if(work.drop->outcome==XeenMonsterDropOutcome::CategoryCapacityLoss)work.feedback+="; full category: drop lost";
      }
+     if(work.spell)work.feedback.clear();
      if(session._encounterRevision>=std::numeric_limits<std::uint64_t>::max()-1 || !journeyCapacity()) throw std::overflow_error("Shoot generation exhausted");
      check();work.suffixPrepared=true;
     }
     if(work.stage==Stage::Travel) {
-     work.stage=work.attack->damage ? Stage::Impact : Stage::PostImpact;
-     _appearanceIdentity=id;_frame=work.attack->damage?11:0;
-     if(work.attack->hit) {work.presented=false;++_generation;return true;}
+     if(work.spellAttack && !work.spellAttack->resisted &&
+       ((*work.spell!=XeenLearnedSpell::EnergyBlast && *work.spell!=XeenLearnedSpell::Shrapmetal) || _party.roster.at(work.spellCaster).currentLevel()))
+       _world.scenePresentation().spellImpact(actor,*work.spell);
+     work.stage=damage() ? Stage::Impact : Stage::PostImpact;
+     _appearanceIdentity=id;_frame=damage()?11:0;
+     if(hit()) {work.presented=false;++_generation;return true;}
     }
     if(work.stage==Stage::Impact) {
-     check();liveActors.at(id->recordIndex).hp=std::max(actor.hp-work.attack->damage,0);
+     check();liveActors.at(id->recordIndex).hp=std::max(actor.hp-damage(),0);
      session._journeyRandom=work.impactRandom;
      work.stage=Stage::PostImpact;work.presented=false;
      ++session._encounterRevision;_state._revision=session._encounterRevision;++session._journeyGeneration;++_generation;
@@ -144,15 +153,21 @@ bool XeenEncounterFlow::serviceShoot() {
      live=work.lethal->actor;session._accountedMonsters.swap(work.lethal->accounted);
      for(unsigned i=0;i<6;++i) _party.roster._combatInputs[work.owners[i]]->experience=work.lethal->experience[i];
      if(work.drop) _party.monsterTreasure=work.drop->treasure;
-    } else live.hp=actor.hp-work.attack->damage;
-    if(work.attack->hit) work.projectileEnd[work.shooter]=work.target/3;
-    work.spent[work.shooter]=work.attack->hit;session._journeyRandom=work.random.continuation();
-    if(work.attack->hit) {
+    } else live.hp=actor.hp-damage();
+    if(hit()) work.projectileEnd[work.shooter]=work.target/3;
+    work.spent[work.shooter]=hit();session._journeyRandom=work.random.continuation();
+    if(hit() && !work.spell) {
      if(removed)work.retireLane=work.shooter;
      else for(auto &p:_projectiles)if(p.lane==work.shooter)p.active=false;
     }
     ++session._encounterRevision;_state._revision=session._encounterRevision;++session._journeyGeneration;++_generation;
-    ++work.shooter;work.attack.reset();work.drop.reset();work.bound.reset();work.lethal.reset();work.attackDone=work.suffixPrepared=false;work.stage=Stage::Travel;
+    if(work.spell) {
+     ++work.target;work.shooter=0;work.spent.fill(false);
+     bool remaining=false;for(unsigned n=work.target;n<work.targets.size();++n)remaining=remaining || bool(work.targets[n]);
+     if(!remaining) {work.target=12;work.row=work.rows-1;}
+    }
+    else ++work.shooter;
+    work.spellAttack.reset();work.attack.reset();work.drop.reset();work.bound.reset();work.lethal.reset();work.attackDone=work.suffixPrepared=false;work.stage=Stage::Travel;
     _frame=0;_appearanceIdentity.reset();
     _journeyRefusal.swap(work.feedback);retainJourney();
     if(removed) {work.presented=false;return true;}
@@ -162,9 +177,15 @@ bool XeenEncounterFlow::serviceShoot() {
    }
    check();
    _projectiles.clear();
-   if(work.blockedRow<4)_journeyRefusal="Shoot stopped at terrain row "+std::to_string(work.blockedRow);
+   if(work.spell)_journeyRefusal.clear();
+   else if(work.blockedRow<4)_journeyRefusal="Shoot stopped at terrain row "+std::to_string(work.blockedRow);
    else if(_journeyRefusal.empty())_journeyRefusal="Shoot: empty center rows";
    work.volleyDone=true;return true;
+  }
+  if(work.spell) {
+   _casting->effectDone=true;_casting->random=work.random;
+   _shoot.reset();session._journeyActivity=XeenJourneyActivity::Casting;
+   ++session._journeyGeneration;++_generation;retainJourney();return true;
   }
   if(!work.time) work.time.emplace(*_party.encounterContext,work.charge,activeCharacters(_party,work.owners),activeInputs(_party,work.owners),&*_party.serviceEconomy);
   if(!work.time->service(draw)) return true;
@@ -256,7 +277,7 @@ void XeenEncounterFlow::projectilesPresented() {
   // then derives _charsShooting from remaining shooters, before animate3d.
   // Visible lanes can outlive the last logical shooter through HP/removal.
   for(unsigned i=0;i<6;++i)if(shot.eligible[i] && !shot.spent[i] &&
-    !(shot.attack && shot.attack->hit && i==shot.shooter))shot.advanceDraw=true;
+    !((shot.attack && shot.attack->hit || shot.spellAttack) && i==shot.shooter))shot.advanceDraw=true;
  }
  if(_combat) {_combat->rangedPresented(*entry.combat,!projectilesPending());return;}
  if(_regionalWork && _regionalWork->opportunity) {

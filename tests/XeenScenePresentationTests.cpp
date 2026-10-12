@@ -127,6 +127,20 @@ int main() {try {
 	const auto selected=std::find_if(commands.begin(),commands.end(),[](const auto &c) {return c.actor()!=nullptr;});
 	check(selected!=commands.end()&&selected->actor()->image==42&&selected->x==-7&&selected->y==0,"Generic image/floating production command");
 	check(selected->drawOptions().monsterEffectFlags>=0x104,"Effect metadata absent from command");
+    for(const auto spell:{XeenLearnedSpell::MagicArrow,XeenLearnedSpell::Shrapmetal,
+            XeenLearnedSpell::FlyingFist,XeenLearnedSpell::Pain,XeenLearnedSpell::EnergyBlast}) {
+        auto presentation=w.scenePresentation();
+        const auto before=*presentation.animation({99,0});
+        presentation.spellImpact(actors.at(0),spell);
+        const auto *impact=presentation.animation({99,0});
+        check(impact->effect1==0 && impact->effect2==(spell==XeenLearnedSpell::EnergyBlast?5u:3u) &&
+            impact->effect3==before.effect3 && impact->frame==before.frame,"Spell impact tint/phase changed from attack2");
+        const auto commands=XeenOutdoorScene::actorCommands(actors,camera,{0},&presentation);
+        check(!commands.empty() && commands.front().actor()->effectFlags==impact->flags(),"Outdoor scene ignored accepted spell tint");
+        for(unsigned i=0;i<8;++i)presentation.advance(99);
+        check(presentation.animation({99,0})->effect2==data.animationEffect(),"Spell tint did not recover original monster effect");
+    }
+    rejects([&]{w.scenePresentation().spellImpact(actors.at(0),XeenLearnedSpell::FirstAid);});
 	const auto phase=w.scenePresentation().animation({99,0})->effect3;
 	w.discardMapCache();w.sceneActors(99,[&] {return stats;});
 	check(w.scenePresentation().animation({99,0})->effect3==phase,"Cache reload rerandomized phases");

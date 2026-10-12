@@ -1,5 +1,6 @@
 #include "app/XeenEventFlow.h"
 #include "games/xeen/XeenCharacterRules.h"
+#include "games/xeen/XeenJumpRules.h"
 #include <algorithm>
 
 namespace mmodern {
@@ -77,9 +78,11 @@ IndexedFrame XeenEventFlow::handleCombatCasting(const PlayerAction &action,std::
         auto names=_encounter->_learnedNamesProvider();
         if(const auto cast=_encounter->combat()->cast();cast && cast->phase==XeenCombatCastPhase::Confirm) {
             const auto &c=_party.roster.at(cast->owner);const auto category=XeenLearnedSpellRules::categoryForClass(c.characterClass);
-            if(category && XeenLearnedSpellRules::spellForSlot(*category,c.currentSpell)==45) {
+            const auto id=category?XeenLearnedSpellRules::spellForSlot(*category,c.currentSpell):std::nullopt;
+            if(id && XeenLearnedSpellRules::target(*id)==XeenSpellTarget::Contact) {
                 XeenMonsterAppearance appearance;appearance.projectile=XeenProjectileAppearance{false,0,0,0,{}};
                 appearance.projectile->target=_encounter->combat()->selectedTarget();
+                appearance.projectile->pow=xeenSpellProjectile(*XeenLearnedSpellRules::supported(*id));
                 if(!_encounterCompose(_ordinary.phase,appearance).frame.isValid())throw std::runtime_error("Invalid Arrow preflight");
             }
         }
@@ -116,17 +119,32 @@ IndexedFrame XeenEventFlow::handleCasting(const PlayerAction &action,std::uint64
         if(key=='n'){ui.phase=P::New;ui.list={};return renderEncounter();}
         if(key!='c')return frameCopy();
         const auto &c=_party.party.member(_party.roster,ui.caster);if(!c.canAct()){ui.refusal="disabled";return renderEncounter();}
+        const auto category=XeenLearnedSpellRules::categoryForClass(c.characterClass);
+        const auto selected=category?XeenLearnedSpellRules::spellForSlot(*category,c.currentSpell):std::nullopt;
+        const auto id=selected.value_or(76);
+        if(id==40) {
+          XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world);
+          const auto jump=xeenJumpPreflight(_world,_camera);_encounter->journeySavePreimage().check();
+          if(jump.admission==XeenJumpAdmission::Unsupported) {ui.refusal="Spell not supported yet";return renderEncounter();}
+        }
         using Q=XeenQuickSpellCheck;const auto admission=XeenLearnedSpellRules::check(c,c.currentSpell,_party.monsterTreasure->gems,false);
         if(admission!=Q::Supported) {
             ui.refusal=admission==Q::NoSpell?"":admission==Q::InsufficientSp?"SP":admission==Q::InsufficientGems?"gems":"Spell not supported yet";
             return renderEncounter();
         }
+        if(XeenLearnedSpellRules::target(id)==XeenSpellTarget::Contact) {
+          XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world);
+          XeenMonsterAppearance appearance;appearance.projectile=XeenProjectileAppearance{false,0,0,3,{},xeenSpellProjectile(*XeenLearnedSpellRules::supported(id))};
+          if(!_encounterCompose(_ordinary.phase,appearance).frame.isValid())throw std::runtime_error("Invalid spell projectile preflight");
+          _encounter->journeySavePreimage().check();
+        }
         if(!_encounter->confirmCasting(_encounter->ticket(),ui.caster,c.currentSpell,input,responseFrame()))return frameCopy();
-        const auto id=*XeenLearnedSpellRules::spellForSlot(*XeenLearnedSpellRules::categoryForClass(c.characterClass),c.currentSpell);
-        if(XeenLearnedSpellRules::target(id)==XeenSpellTarget::Party) {
+        if(XeenLearnedSpellRules::target(id)==XeenSpellTarget::Party || XeenLearnedSpellRules::target(id)==XeenSpellTarget::Relocation) {
             if(!_encounter->publishAwaken(_encounter->ticket()))throw std::logic_error("Awaken publication failed");
             ui.phase=P::Settling;
-        } else ui.phase=P::ChooseTarget;
+            if(_encounter->_casting->failed)ui.refusal="failed";
+        } else if(XeenLearnedSpellRules::target(id)==XeenSpellTarget::Contact)ui.phase=P::Settling;
+        else ui.phase=P::ChooseTarget;
         return renderEncounter();
     }
     if(ui.phase==P::ChooseTarget) {

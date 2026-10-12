@@ -166,7 +166,7 @@ original projectile/splat resources, target order, XP/loot and combat admission.
 | Wizard Eye (75) | Exploration only, 5 SP + 2 gems, party-wide, no target or intrinsic draw. Set `effects[2]=1`, `effects[1]=0`. Reveal the local minimap without granting Cartography or writing M58 explored bits; full Map stays exploration-based. Toggling automap on temporarily suppresses Eye display without clearing its flag. It lasts until `resetTemps` (including Rest, the eligible new-day reset at/after 05:00, and year advance), not a fixed elapsed-minute timer. Recast sets true, not a stacked duration. Normal cast settlement may record only the occupied cell through existing Cartography rules; Eye reveal itself must never record cells. |
 | Shrapmetal (60) | Exploration and combat, current level SP + 0 gems; `2 * currentLevel` physical damage, `RT_GROUP`. Hit up to three monsters in the first populated reachable forward row, then stop, even if all resist; never all rows/groups. Use the selected contact ordering in combat, original wall/terrain projectile blockers and forward row traversal outside contact. No base-damage roll; per target magic gate, physical reduction and saving throw as below. No target/blocked projectile still spends cost and action/time. |
 | Energy Blast (20) | Exploration and combat, current level SP + 1 gem; `2 * currentLevel` energy damage, logical `RT_SINGLE`: first selected/reachable monster only. Same projectile admission and empty/blocked paid-cast behavior. No damage roll; magic gate and saving throw still apply because ranged delivery calls `attack(..., RT_GROUP)` even for a single projectile. Do not reuse character damage resistance as a monster spell rule. Elemental resistance does not reduce it (DOS-confirmed). |
-| Jump (40) | Exploration only, 4 SP + 0 gems, party moves exactly two cells forward, facing unchanged, no intrinsic RNG or target prompt. Outdoors: sample offset 7 (one ahead), reject wall 1; sample offset 14 (two ahead), require nonzero surface ID and wall != 1. Indoors: both current and one-ahead directional `MONSTER_GRID_BITMASK` lookups must be zero. It is not two ordinary walks and must not acquire extra swimming/mountaineering checks. Blocked cast says Spell failed, retains cost and normal cast time; combat refusal spends neither. |
+| Jump (40) | Exploration only, 4 SP + 0 gems, party moves exactly two cells forward, facing unchanged, no intrinsic RNG or target prompt. Outdoors: sample offset 7 (one ahead), reject wall 1; sample offset 14 (two ahead), require nonzero surface ID and wall != 1. Indoors: both current and one-ahead directional `MONSTER_GRID_BITMASK` lookups must be zero. It is not two ordinary walks and must not acquire extra swimming/mountaineering checks. When both original wall checks pass, preflight also requires ordinary terrain (not space, lava, sky, cloud or desert) and a destination accepted by current save validation (the walking-reachable area). Unsupported destinations refuse with "not supported yet" before any SP/gem debit, time, turn, RNG, relocation or arrival work; preflight reads map data only. Wall-blocked casts say Spell failed and retain cost and normal cast time; combat refusal spends neither. Maintainer-approved temporary restriction, 2026-10-12. |
 
 For the damaging spells, evaluate targets in reference order. A nonzero magic
 resistance draws `1..100+currentLevel` and blocks when roll < resistance; zero
@@ -182,15 +182,25 @@ Original program analysis (2026-10-11) confirms this DOS rule; see
 [original quirks](original-quirks.md).
 
 Jump must publish relocation once and enter the ordinary post-cast destination
-sequence: time/actor work in reference order, `doStepCode` terrain consequences,
-physical map transition, automatic Event/contact combat, light/Cartography
-stepped update. Do not trigger the intermediate cell. Successful and blocked
+sequence for admitted ordinary destinations: time/actor work in reference order,
+automatic Event/contact combat and light/Cartography stepped update. Terrain
+consequences and destinations requiring physical map transitions remain deferred.
+Do not trigger the intermediate cell. Successful and blocked
 casts leave `ctr24` unchanged: Cast never calls walking `stepTime`. Audit ordering
 against `Interface::perform/chargeStep/doStepCode`
 and the existing navigation/Event continuations. Unsupported destination effects
 use the existing visible unsupported behavior; no per-cell admission lists.
-If faithful arrival on the admitted maps requires a missing hazard system beyond
-this scope, stop and amend the plan instead of silently dropping consequences.
+Terrain-arrival hazards remain deferred. The maintainer-approved Jump preflight
+above admits only ordinary destinations within the existing save-valid area; do
+not widen save validation or silently omit terrain consequences.
+
+## Deferred terrain arrival
+
+The original permits Jump onto space, lava, sky, cloud and desert, with the
+corresponding `Interface::doStepCode` death, damage, falling or extra time.
+These consequences and destinations outside the current walking-reachable save
+area are deferred until terrain arrival is implemented. M60 refuses these
+destinations before charge, as approved by the maintainer on 2026-10-12.
 
 ## Remaining catalogue
 

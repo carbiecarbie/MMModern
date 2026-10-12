@@ -146,7 +146,7 @@ struct XeenCombatCastResult {
 struct XeenCombatCastView {
     bool quick=false;
     XeenCombatCastPhase phase=XeenCombatCastPhase::Learned;
-    unsigned participant=0,owner=0,slot=255;
+    unsigned participant=0,owner=0,slot=255,projectileRow=0;
     std::size_t top=0;
     std::optional<std::size_t> selection;
     std::optional<XeenMonsterIdentity> enemy;

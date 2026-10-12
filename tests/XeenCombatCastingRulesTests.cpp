@@ -61,8 +61,8 @@ void arrow() {
 void domainsAndBooks() {
     using Rules=XeenLearnedSpellRules;
     for(unsigned id=0;id<256;++id)for(bool combat:{false,true})
-        check(bool(Rules::supportedIn(id,combat))==(combat ? id==1 || id==26 || id==45 : id==1 || id==26),"Context spell admission widened");
-    for(unsigned id=0;id<256;++id)check(bool(Rules::supported(id))==(id==1 || id==26 || id==45),"Effect recognition changed");
+        check(bool(Rules::supportedIn(id,combat))==(bool(Rules::supported(id)) && (!combat || (id!=40 && id!=75))),"Context spell admission differs");
+    for(unsigned id=0;id<256;++id)check(bool(Rules::supported(id))==(id==1 || id==10 || id==20 || id==26 || id==27 || id==40 || id==45 || id==50 || id==59 || id==60 || id==75),"Effect recognition differs");
     check(Rules::cost(XeenLearnedSpell::Awaken)==1 && Rules::cost(XeenLearnedSpell::FirstAid)==1 && Rules::cost(XeenLearnedSpell::MagicArrow)==2,"Fixed costs differ");
     check(Rules::spellForSlot(XeenSpellCategory::Wizardry,25)==45 && Rules::spellForSlot(XeenSpellCategory::Druidic,23)==45,"Magic Arrow class slots differ");
     XeenPartyState party;party.party=XeenParty::fromRosterIds({6});auto &caster=party.roster.at(6);
@@ -72,7 +72,7 @@ void domainsAndBooks() {
     check(!Rules::eligible(party,0,25,true),"All-zero book cast admitted");
     for(unsigned raw=1;raw<256;++raw) {
         caster.learnedSpells->at(25)=raw;
-        check(Rules::eligible(party,0,25,true) && !Rules::eligible(party,0,25,false) && caster.learnedSpells->at(25)==raw,"Raw knowledge/context semantics changed");
+        check(Rules::eligible(party,0,25,true) && Rules::eligible(party,0,25,false) && caster.learnedSpells->at(25)==raw,"Raw knowledge/context semantics changed");
     }
     for(int sp:{-32768,-1,0,1,2,32767}) {
         caster.currentSp=sp;
@@ -83,5 +83,38 @@ void domainsAndBooks() {
     caster.conditions.fill(0);caster.hasSpells=false;
     check(!Rules::eligible(party,0,25,true),"Capability ignored");
 }
+void spellDamage() {
+    using S=XeenLearnedSpell;using D=XeenCombatRandom::Draw;
+    for(auto spell:{S::EnergyBlast,S::Shrapmetal,S::FlyingFist,S::Pain}) {
+        const int base=spell==S::FlyingFist?6:spell==S::Pain?8:14;
+        for(unsigned physical:{0u,33u,50u,100u})for(unsigned save:{6u,7u}) {
+            XeenCombatRandom random(std::vector<D>{{1,107,50},{1,56,save}});
+            XeenSpellDamageCandidate candidate(5,2,50,6,spell,physical);
+            XeenConsequenceDraw gate{random,1};
+            check(!candidate.service(gate) && random.position()==1,"Spell did not retain accepted gate across yield");
+            XeenConsequenceDraw finish{random};
+            int expected=spell==S::EnergyBlast?base:base*(100-physical)/100;
+            if(save<=6)expected/=2;
+            check(candidate.service(finish) && !candidate.resisted && candidate.damage==expected && random.position()==2,"Spell physical/save order or exact draw tape differs");
+            check(candidate.service(finish) && random.position()==2,"Completed damage replayed a draw");
+        }
+        XeenCombatRandom blocked(std::vector<D>{{1,107,49}});
+        XeenSpellDamageCandidate candidate(7,0,50,6,spell,100);XeenConsequenceDraw draw{blocked};
+        check(candidate.service(draw) && candidate.resisted && candidate.damage==0 && blocked.position()==1,"Failed magic gate drew save");
+        XeenCombatRandom noGate(std::vector<D>{{1,56,6}});
+        XeenSpellDamageCandidate freeGate(7,0,0,6,spell);XeenConsequenceDraw freeDraw{noGate};
+        check(freeGate.service(freeDraw) && freeGate.damage==base/2 && noGate.position()==1,"Zero magic resistance drew gate");
+    }
+    for(auto spell:{S::EnergyBlast,S::Shrapmetal}) {
+        XeenCombatRandom random(std::vector<D>{{1,100,50}});
+        XeenSpellDamageCandidate zero(-3,2,50,6,spell);XeenConsequenceDraw draw{random};
+        check(zero.service(draw) && zero.damage==0 && random.position()==1,"Zero base damage must gate without saving draw");
+    }
+    check(xeenSpellProjectile(S::MagicArrow)==11 && xeenSpellProjectile(S::EnergyBlast)==13 &&
+        xeenSpellProjectile(S::FlyingFist)==14 && xeenSpellProjectile(S::Pain)==14 &&
+        xeenSpellProjectile(S::Shrapmetal)==15,"Original projectile resource IDs differ");
+    rejects([]{XeenSpellDamageCandidate c(3,0,0,6,S::Pain,101);});
+    rejects([]{XeenSpellDamageCandidate c(3,0,0,6,S::FirstAid);});
 }
-int main(){try{arrow();domainsAndBooks();std::cout<<"M39 pure rule/context/RNG tests passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+}
+int main(){try{arrow();spellDamage();domainsAndBooks();std::cout<<"Learned spell rule/context/RNG tests passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

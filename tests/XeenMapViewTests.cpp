@@ -42,6 +42,24 @@ void masks() {
  const auto painted=drawXeenMinimap(w,c,frame,false,[](auto &f,const char *,unsigned,int,int){std::fill(f.pixels.begin(),f.pixels.end(),99);});
  check(painted.pixels[0]==7 && painted.pixels[9*320+223]==99 && painted.pixels[74*320+223]==7,"minimap outer-window clipping");
 }
+void eye() {
+ auto m=indoor(28);m.geometry.cells[8*16+8].rawWord=0x1003;
+ XeenWorld w([m](auto){return m;});XeenCamera c{28,8,8,XeenDirection::North};
+ const auto reveal=xeenMinimapCommands(w,c,false,0,true);
+ check(has(reveal,"town.til",0,267,36) && has(reveal,"town.til",18,267,36),"Eye reveals indoor terrain and walls");
+ check(!has(reveal,"town.til",1,267,36) && !has(reveal,"global.icn",5,232,9),"Eye replaces logo and masks");
+ const auto suppressed=xeenMinimapCommands(w,c,true,0,true);
+ check(has(suppressed,"town.til",1,267,36),"automap suppresses Eye reveal");
+ check(has(xeenMapCommands(w,c),"town.til",1,150,94),"full Map ignores Eye");
+ check(xeenMinimapCommands(w,c,false).size()==1,"cleared Eye returns logo");
+ check(w.sessionState().exploredTiles().empty() && !w.map(28).geometry.cells[8*16+8].stepped,"Eye writes no exploration");
+ m.geometry.flags2=0x8000;m.geometry.surfaceTypes[1]=1;
+ for(auto &cell:m.geometry.cells) {cell.geometry=XeenOutdoorLayers{1,0,0,0};cell.rawWord=1;}
+ XeenWorld outside([m](auto){return m;});
+ check(has(xeenMinimapCommands(outside,c,false,0,true),"outdoor.til",1,267,36),"Eye reveals outdoor terrain");
+ check(!has(xeenMinimapCommands(outside,c,true,0,true),"outdoor.til",1,267,36),"outdoor automap suppresses Eye");
+ check(outside.sessionState().exploredTiles().empty(),"outdoor Eye writes no exploration");
+}
 void seams() {
  auto a=indoor(1),b=indoor(2);a.geometry.neighbors[1]=2;b.geometry.neighbors[3]=1;
  b.geometry.cells[8*16].stepped=true;b.geometry.cells[8*16].rawWord=0x2000;
@@ -82,4 +100,4 @@ void original(const char *root) {
  }
 }
 }
-int main(int argc,char **argv) {try {masks();seams();outdoor();if(argc>1)original(argv[1]);std::cout<<"Map masks, layers, seams, edges, markers, clipping and original resource rendering passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(int argc,char **argv) {try {masks();eye();seams();outdoor();if(argc>1)original(argv[1]);std::cout<<"Map masks, layers, seams, edges, markers, clipping and original resource rendering passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

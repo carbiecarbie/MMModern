@@ -1,5 +1,6 @@
 #include "XeenChildProcessTestSupport.h"
 #include "platform/XeenSaveFile.h"
+#include "games/xeen/XeenLearnedSpellRules.h"
 #include <cstdlib>
 namespace fs=std::filesystem;
 int main(int argc,char **argv){try{
@@ -42,6 +43,33 @@ int main(int argc,char **argv){try{
         const auto result=child_test::launch(fs::absolute(argv[1]),args,dir/(control+".log"));
         if(result.exit!=0)std::cerr<<result.output;
         child_test::require(result.exit==0 && result.output.find("M39 ARTIFICIAL CONTROL PASSED "+control)!=std::string::npos,"M39 authority/publication control failed");
+    }
+    for(unsigned value:{10u,59u,27u,50u,60u,20u,150u,160u,220u,259u}) {
+        const unsigned spell=value%100;const bool group=value>=100 && value<200;const bool quick=value>=200;
+        const std::string control="m60-"+std::to_string(spell)+(group?"-group":quick?"-quick":"");
+        // Detached, disclosed fixture: keep original actors/resources and teach
+        // exactly the spell under test before restoring through the normal reader.
+        auto fixture=mmodern::XeenSaveFile::read(dir/"aba-hp.mmsave");
+        const unsigned owner=(spell==10 || spell==59 || spell==27 || spell==50)?1:6;
+        auto &caster=fixture.characters[owner];
+        const auto category=*mmodern::XeenLearnedSpellRules::categoryForClass(caster.characterClass);
+        const auto slot=*mmodern::XeenLearnedSpellRules::slotForSpell(category,std::uint8_t(spell));
+        caster.learnedSpells->at(slot)=1;caster.currentSpell=std::uint8_t(slot);if(quick)caster.quickOption=1;
+        if(spell==10)fixture.characters[0].currentHp=1;
+        if(spell==59)fixture.characters[0].conditions[2]=1;
+        if(group) {
+            const auto destination=fixture.journey->actors.at(9);
+            for(unsigned index:{7u,8u,9u}) {
+                fixture.journey->actors.at(index).x=destination.x;fixture.journey->actors.at(index).y=destination.y;
+                fixture.journey->actors.at(index).hp=1;fixture.journey->actors.at(index).activated=true;
+            }
+        }
+        const auto save=dir/(control+".mmsave");mmodern::XeenSaveFile::write(save,fixture);
+        SetEnvironmentVariableW(L"MMODERN_M39_CONTROL",fs::path(control).c_str());
+        SetEnvironmentVariableW(L"MMODERN_M39_BRANCH",L"fault");
+        const auto result=child_test::launch(fs::absolute(argv[1]),{L"--load-game",fs::absolute(argv[2]).wstring(),save.wstring()},dir/(control+".log"));
+        if(result.exit!=0)std::cerr<<result.output;
+        child_test::require(result.exit==0 && result.output.find("M39 ARTIFICIAL CONTROL PASSED "+control)!=std::string::npos,"M60 combat effect control failed");
     }
     SetEnvironmentVariableW(L"SDL_VIDEODRIVER",L"dummy");SetEnvironmentVariableW(L"SDL_RENDER_DRIVER",L"software");
     SetEnvironmentVariableW(L"MMODERN_M39_BRANCH",L"native-fault");

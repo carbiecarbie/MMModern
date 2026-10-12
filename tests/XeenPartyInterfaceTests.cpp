@@ -199,7 +199,7 @@ void quickCasting(Inputs &in) {
   Fixture skip(in,s);engage(skip);combat=skip.flow->encounter()->combat();const auto before=skip.p.roster.at(s.activeRosterIds[0]);const auto cursor=skip.w.sessionState().journeyRandom();const auto minutes=skip.p.encounterContext->minutes;
   skip.act(QuickFightAction{});
   check(xeen_state::sameCharacter(before,skip.p.roster.at(s.activeRosterIds[0])) && cursor==skip.w.sessionState().journeyRandom() && minutes==skip.p.encounterContext->minutes,"Quick Cast refusal/skip has no debit, effect or RNG");
-  if(kind>=2)check(combat->participant()==0 && skip.flow->encounter()->notice().find("not supported yet")!=std::string::npos,"Unsupported Cast visibly retains actor");
+  if(kind==3)check(combat->participant()==0 && skip.flow->encounter()->notice().find("not supported yet")!=std::string::npos,"Unsupported Cast visibly retains actor");
   else {ready(skip);check(combat->participant()!=0 && !(combat->result().blockedMembers&1),"None/cost/forbidden Quick Cast spends one unblocked turn");}
  }
 }
@@ -238,7 +238,7 @@ void spellChecks(Inputs &in) {
   const auto result=XeenLearnedSpellRules::quickSpellCheck(c,1000);
   if(*id==45)check(result==Q::Supported,"Quick Cast supported arrow");
   if(*id==42)check(result==Q::Unsupported,"Unsupported system refuses");
-  if(*id==40)check(result==Q::Unsupported,"Missing combat-forbidden effect retains turn");
+  if(*id==40 || *id==75)check(result==Q::CombatForbidden,"Implemented exploration spell is forbidden in combat");
  }
  for(unsigned slot=0;slot<39;++slot)if(XeenLearnedSpellRules::spellForSlot(*XeenLearnedSpellRules::categoryForClass(c.characterClass),slot)==45)c.currentSpell=slot;
  c.currentSp=0;check(XeenLearnedSpellRules::quickSpellCheck(c,1000)==Q::InsufficientSp,"Quick Cast insufficient SP");

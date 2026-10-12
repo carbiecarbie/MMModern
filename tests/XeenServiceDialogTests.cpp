@@ -222,10 +222,13 @@ void spellDialogs(Inputs &in,bool mouse) {
         check(f.p.roster.at(owner).learnedSpells->at(slot)==1 && f.p.monsterTreasure->gold==19900,"Guild buy did not debit and learn once");
         check(*f.p.encounterContext==before.context && *f.w.sessionState().journeyRandom()==before.random,"Guild purchase changed clock/RNG");
         const auto paid=Owners(f);f.flow->beginCycle(++f.cycle);f.present(f.flow->handle(DialogKeyAction{'y'},epoch,old));paid.unchanged(f);
-        const auto nextSlot=XeenLearnedSpellRules::rows(f.p.roster.at(owner),true).front();
+        const auto remaining=XeenLearnedSpellRules::rows(f.p.roster.at(owner),true);
+        const auto unsupported=std::find_if(remaining.begin(),remaining.end(),[&](auto slot){return !XeenLearnedSpellRules::supported(*XeenLearnedSpellRules::spellForSlot(static_cast<XeenSpellCategory>(book),slot));});
+        check(unsupported!=remaining.end() && unsupported-remaining.begin()<10,"unsupported purchase fixture missing from first page");
+        const auto nextSlot=*unsupported;
         const auto nextId=*XeenLearnedSpellRules::spellForSlot(static_cast<XeenSpellCategory>(book),nextSlot);
         check(!XeenLearnedSpellRules::supported(nextId),"unsupported purchase fixture");
-        choose(f,'1');choose(f,'y');
+        choose(f,'1'+unsigned(unsupported-remaining.begin()));choose(f,'y');
         check(f.p.roster.at(owner).learnedSpells->at(nextSlot)==1 && f.p.monsterTreasure->gold==19900-XeenLearnedSpellRules::purchasePrice(nextId,c.characterClass),"unsupported spell was not purchasable");
         choose(f,InputKey::F1+1);check(XeenPurchaseTestAccess::lobby(*f.flow),"Guild did not refresh selected character membership");
         f.leave();check(f.p.encounterContext->day==9,"Guild departed with wrong charge");

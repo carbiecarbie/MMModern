@@ -2,6 +2,7 @@
 #define MMODERN_XEEN_SCENE_PRESENTATION_H
 
 #include "games/xeen/XeenActor.h"
+#include "games/xeen/XeenLearnedSpellRules.h"
 #include "core/NavigationAction.h"
 #include "formats/xeen/XeenMonsterAppearance.h"
 #include <map>
@@ -127,6 +128,25 @@ public:
 	const XeenMonsterAnimation *animation(XeenMonsterIdentity id) const {
 		const auto i=_actors.find(id);return i==_actors.end()?nullptr:&i->second.animation;
 	}
+    // attack2's RT_GROUP path assigns the transient monster tint even when
+    // physical resistance reduces the accepted spell to zero damage. Call once
+    // after an accepted magic gate and nonzero base damage, never on redraw.
+    void spellImpact(const XeenActor &actor,XeenLearnedSpell spell) {
+        unsigned effect;
+        switch(spell) {
+        case XeenLearnedSpell::EnergyBlast: effect=5;break;
+        case XeenLearnedSpell::MagicArrow: case XeenLearnedSpell::Shrapmetal:
+        case XeenLearnedSpell::FlyingFist: case XeenLearnedSpell::Pain: effect=3;break;
+        default: throw std::invalid_argument("Unsupported spell impact presentation");
+        }
+        include({actor});
+        const auto entry=_actors.find(actor.id);
+        if(entry==_actors.end())return;
+        entry->second.animation.effect1=0;
+        entry->second.animation.effect2=effect;
+        // attack2 leaves effect3 intact; advance restores the resource's own
+        // animationEffect at the next original eight-phase wrap.
+    }
 	void spawn(const XeenActor &actor) {
 		const bool present=_actors.count(actor.id)!=0;
 		include({actor});

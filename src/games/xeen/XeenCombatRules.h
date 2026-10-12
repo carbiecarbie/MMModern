@@ -1,6 +1,7 @@
 #ifndef MMODERN_XEEN_COMBAT_RULES_H
 #define MMODERN_XEEN_COMBAT_RULES_H
 #include "games/xeen/XeenCombat.h"
+#include "games/xeen/XeenLearnedSpellRules.h"
 #include "games/xeen/XeenCharacterRules.h"
 #include <limits>
 #include <stdexcept>
@@ -79,17 +80,30 @@ private:
     unsigned preferred=6;
     enum class Step { Target, Fallback, Done } step=Step::Target;
 };
-// Detached learned Magic Arrow. Same world-owned cursor and bounded draw service.
-struct XeenMagicArrowCandidate {
+// Original POW resource selector for the implemented ranged spells.
+unsigned xeenSpellProjectile(XeenLearnedSpell);
+// Detached learned ranged spell damage; callers own publication and target order.
+struct XeenSpellDamageCandidate {
     int damage=0;
     bool resisted=false;
-    XeenMagicArrowCandidate(std::int64_t permanentLevel, std::int64_t temporaryLevel,
-        unsigned resistance, unsigned resourceId);
+    XeenSpellDamageCandidate(std::int64_t permanentLevel, std::int64_t temporaryLevel,
+        unsigned magicResistance, unsigned resourceId, XeenLearnedSpell,
+        unsigned physicalResistance=0);
     bool service(XeenConsequenceDraw &);
 private:
     enum class Step { Resistance, Save, Done };
     Step step;
     unsigned levelBound, resistance, resourceId, saveBound;
+    int acceptedDamage=0;
+    bool halveOnSave=true;
+    bool entersDamage=true;
+};
+// Existing callers retain the fixed-eight-damage Arrow interface.
+struct XeenMagicArrowCandidate : XeenSpellDamageCandidate {
+    XeenMagicArrowCandidate(std::int64_t permanentLevel, std::int64_t temporaryLevel,
+        unsigned resistance, unsigned resourceId)
+        : XeenSpellDamageCandidate(permanentLevel,temporaryLevel,resistance,resourceId,
+            XeenLearnedSpell::MagicArrow) {}
 };
 struct XeenRunCandidate {
 	unsigned roll = 0;

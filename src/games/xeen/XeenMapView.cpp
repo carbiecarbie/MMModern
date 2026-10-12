@@ -12,7 +12,7 @@ namespace {
 constexpr XeenTextRect full{0,0,320,200}, mini{223,9,317,74};
 constexpr XeenTextRect outer{70,20,250,183}, inner{78,28,242,175};
 struct Lookup {bool valid=false,stepped=false,outside=false;unsigned word=0,surface=0;const XeenMapGeometry *geometry=nullptr;};
-Lookup lookup(XeenWorld &world,const XeenCamera &camera,int x,int y) {
+Lookup lookup(XeenWorld &world,const XeenCamera &camera,int x,int y,bool eye=false) {
     const auto &primary=world.map(camera.mapId).geometry;
     if(x < -16 || y < -16 || x>=32 || y>=32)return {};
     const auto sample=world.sampleCell(camera.mapId,x,y);
@@ -21,7 +21,7 @@ Lookup lookup(XeenWorld &world,const XeenCamera &camera,int x,int y) {
     const unsigned surface=primary.isOutdoors()?unsigned(xeenGet<XeenOutdoorLayers>(cell.geometry).surface):unsigned(cell.surfaceIndex);
     // mazeLookup treats sky/space as visible without writing stepped bits.
     const auto type=primary.surfaceTypes[surface];
-    return {true,bool(cell.stepped)||type==10||type==15,false,unsigned(cell.rawWord),surface,sample->geometry};
+    return {true,bool(cell.stepped)||eye||type==10||type==15,false,unsigned(cell.rawWord),surface,sample->geometry};
 }
 unsigned layer(const Lookup &v,unsigned shift,unsigned mask=15) {
     // Beyond an outdoor edge mazeLookup returns SPACE itself, independent of shift.
@@ -46,11 +46,11 @@ void append(std::vector<XeenMapDrawCommand> &out,const std::string &name,int f,i
     if(f>=0)out.push_back({name,unsigned(f),x,y,small?mini:full});
 }
 void outdoors(std::vector<XeenMapDrawCommand> &out,XeenWorld &world,const XeenCamera &camera,
-        int cx,int cy,int size,int left,int top,bool small,const std::string &name) {
+        int cx,int cy,int size,int left,int top,bool small,const std::string &name,bool eye=false) {
     const int dx=small?3:7,dy=small?3:7;
     const auto &primary=world.map(camera.mapId).geometry;
     for(unsigned pass=0;pass<3;++pass)for(int row=0;row<size;++row)for(int col=0;col<size;++col) {
-        const auto v=lookup(world,camera,cx-dx+col,cy+dy-row);
+        const auto v=lookup(world,camera,cx-dx+col,cy+dy-row,eye);
         if(!v.valid || !v.stepped)continue;
         const auto value=layer(v,pass*4,pass==2?255:15);
         int frame;
@@ -61,17 +61,17 @@ void outdoors(std::vector<XeenMapDrawCommand> &out,XeenWorld &world,const XeenCa
     }
 }
 void indoors(std::vector<XeenMapDrawCommand> &out,XeenWorld &world,const XeenCamera &camera,
-        const XeenMapViewport &pt,int size,int left,int top,bool small,const std::string &name,std::uint64_t phase) {
+        const XeenMapViewport &pt,int size,int left,int top,bool small,const std::string &name,std::uint64_t phase,bool eye=false) {
     const int dx=small?3:7,dy=small?3:7;
     const int animation=int((phase*2+(small?0:2))%8);
     const auto &primary=world.map(camera.mapId).geometry;
     const auto each=[&](const auto &draw) {
         for(int row=0;row<size;++row)for(int col=0;col<size;++col)
-            draw(lookup(world,camera,pt.x-dx+col,pt.y+dy-row),col,row);
+            draw(lookup(world,camera,pt.x-dx+col,pt.y+dy-row,eye),col,row);
     };
     each([&](const Lookup &v,int col,int row) {if(v.valid && v.stepped)append(out,name,0,left+col*10,top+row*8,small);});
     const auto surface=[&](int mx,int my,int xp,int yp) {
-        const auto v=lookup(world,camera,mx,my);
+        const auto v=lookup(world,camera,mx,my,eye);
         if(v.valid && v.surface && v.stepped)append(out,name,36+primary.surfaceTypes[v.surface],xp,yp,small);
     };
     if(!small)for(int row=0;row<size;++row)surface(pt.x-8,pt.y+7-row,75,top+5+row*8);
@@ -87,9 +87,9 @@ void indoors(std::vector<XeenMapDrawCommand> &out,XeenWorld &world,const XeenCam
     }
     // Preserve the reference's one-iteration minimap edge loop and TFLR frame.
     for(int i=0;i<(small?1:15);++i) {
-        const auto a=lookup(world,camera,pt.x-(small?4:8),small?pt.y+3:pt.y-8+i);
+        const auto a=lookup(world,camera,pt.x-(small?4:8),small?pt.y+3:pt.y-8+i,eye);
         if(a.valid && a.stepped)append(out,name,wallFrame(layer(a,12,small?65535:15),animation,false,true,small),small?left-15:70,small?top+48:top+120-i*8,small);
-        const auto b=lookup(world,camera,pt.x-dx+i,pt.y+(small?4:8));
+        const auto b=lookup(world,camera,pt.x-dx+i,pt.y+(small?4:8),eye);
         if(b.valid && b.stepped)append(out,name,wallFrame(layer(b,0),animation,true),left+i*10,top-8,small);
     }
     each([&](const Lookup &v,int col,int row) {
@@ -138,19 +138,20 @@ std::vector<XeenMapDrawCommand> xeenMapCommands(XeenWorld &world,const XeenCamer
     } else {indoors(out,world,camera,p,16,80,38,false,name,phase);append(out,name,52,76,30,false);}
     return out;
 }
-std::vector<XeenMapDrawCommand> xeenMinimapCommands(XeenWorld &world,const XeenCamera &camera,bool on,std::uint64_t phase) {
+std::vector<XeenMapDrawCommand> xeenMinimapCommands(XeenWorld &world,const XeenCamera &camera,bool on,std::uint64_t phase,bool eye) {
     std::vector<XeenMapDrawCommand> out;
-    if(!on) {append(out,"global.icn",5,232,9,true);return out;}
+    eye=eye && !on;
+    if(!on && !eye) {append(out,"global.icn",5,232,9,true);return out;}
     const auto &g=world.map(camera.mapId).geometry;const auto name=tiles(g);
     if(g.isOutdoors()) {
-        append(out,"global.icn",15,237,12,true);outdoors(out,world,camera,camera.x,camera.y,7,237,12,true,name);
+        append(out,"global.icn",15,237,12,true);outdoors(out,world,camera,camera.x,camera.y,7,237,12,true,name,eye);
         append(out,"global.icn",unsigned(camera.direction)+1,267,36,true);
-    } else indoors(out,world,camera,{camera.x,camera.y,0,0},7,237,12,true,name,phase);
+    } else indoors(out,world,camera,{camera.x,camera.y,0,0},7,237,12,true,name,phase,eye);
     append(out,"global.icn",6,223,3,true);return out;
 }
 IndexedFrame drawXeenMinimap(XeenWorld &world,const XeenCamera &camera,const IndexedFrame &base,bool on,
-        const XeenDialogSpriteDraw &draw,std::uint64_t phase) {
-    auto result=base;execute(result,xeenMinimapCommands(world,camera,on,phase),draw);return result;
+        const XeenDialogSpriteDraw &draw,std::uint64_t phase,bool eye) {
+    auto result=base;execute(result,xeenMinimapCommands(world,camera,on,phase,eye),draw);return result;
 }
 IndexedFrame drawXeenMap(XeenWorld &world,const XeenCamera &camera,const IndexedFrame &base,const XeenFontFormat &font,
         const XeenDosText &dos,const XeenDialogSpriteDraw &draw,std::uint64_t phase,const std::string &mapName) {

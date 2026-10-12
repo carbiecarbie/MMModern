@@ -119,7 +119,8 @@ IndexedFrame CloudsMapComposer::compose(XeenAssetSource &assets,
         partyState.encounterContext && partyState.encounterContext->effects[1]!=0,
         [&](IndexedFrame &frame,const char *name,unsigned index,int x,int y) {
             assets.drawDialogSprite(frame,name,index,x,y,xeenPictureArchive(camera.mapId));
-        },ordinaryPhase.value_or(0));
+        },ordinaryPhase.value_or(0),
+        partyState.encounterContext && partyState.encounterContext->effects[2]!=0);
 	if (containsOrdinaryAnimation) *containsOrdinaryAnimation = emittedAnimation;
 	return result;
 }
