@@ -39,8 +39,8 @@ void xeenValidateMerchantWares(const XeenMerchantWares &);
 inline void xeenValidateServiceEconomy(const XeenServiceEconomy &v) { xeenValidateMerchantWares(v.wares); }
 // Current-state admission allows depleted stock. Complete generation remains a
 // separate, stricter validation for fresh initialization and every restock.
-// It proves existence of a permitted generated predecessor and plain
-// W/A deletions; it does not establish historical purchases or payment.
+// It proves existence of a permitted generated predecessor and item
+// deletions in all four Ironworks categories; it does not establish historical purchases or payment.
 void xeenValidateCurrentServiceEconomy(const XeenServiceEconomy &);
 std::uint32_t xeenBankInterest(std::uint32_t balance) noexcept;
 XeenBankBalances xeenPrepareBankInterest(const XeenBankBalances &) noexcept;

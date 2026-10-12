@@ -42,6 +42,7 @@ add_library(mmodern_xeen STATIC
 	src/games/xeen/XeenTraining.cpp
 	src/games/xeen/XeenTempleHeal.cpp
 	src/games/xeen/XeenEquipmentPurchase.cpp
+	src/games/xeen/XeenItemServiceRules.cpp
 	src/games/xeen/XeenJourneyRules.cpp
 	src/games/xeen/XeenGameplayContext.cpp
 	src/games/xeen/XeenRegionalRules.cpp
@@ -543,6 +544,9 @@ if(BUILD_TESTING)
 	add_test(NAME xeen_interface_original COMMAND mmodern_interface_tests "${MMODERN_XEEN_DATA_DIR}")
 	set_tests_properties(xeen_interface_original PROPERTIES LABELS "fast")
 	add_executable(mmodern_service_dialog_tests tests/XeenServiceDialogTests.cpp)
+	add_executable(mmodern_m61_part_a_tests tests/XeenM61PartATests.cpp)
+	target_link_libraries(mmodern_m61_part_a_tests PRIVATE mmodern_app mmodern_xeen)
+	add_test(NAME xeen_m61_part_a COMMAND mmodern_m61_part_a_tests "${MMODERN_XEEN_DATA_DIR}" "${SCUMMVM_SOURCE_DIR}")
 	add_executable(mmodern_food_bank_flow_tests tests/XeenFoodBankFlowTests.cpp tests/XeenFoodBankSaveTests.cpp)
 	target_link_libraries(mmodern_food_bank_flow_tests PRIVATE mmodern_app mmodern_xeen)
 	add_test(NAME xeen_food_bank_flow COMMAND mmodern_food_bank_flow_tests "${MMODERN_XEEN_DATA_DIR}")

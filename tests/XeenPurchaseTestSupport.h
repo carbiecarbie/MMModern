@@ -73,7 +73,7 @@ inline XeenSaveSnapshot service(Inputs &in,unsigned day=8,std::uint32_t gold=870
     auto s=in.service(day);s.journey->content=14;s.camera={28,8,4,XeenDirection::West};s.journey->treasure->gold=gold;return s;
 }
 struct Fixture:training_test::Fixture {
-    Fixture(Inputs &in,const XeenSaveSnapshot &s,bool animated=false):training_test::Fixture(in,s,animated) {
+    Fixture(Inputs &in,const XeenSaveSnapshot &s,bool animated=false,const XeenItemCatalog *catalog=nullptr):training_test::Fixture(in,s,animated,nullptr,{},{},{},catalog) {
         flow->drawSmithArt=[&in](auto &frame){in.assets.drawSmith(frame);};
     }
     void enter(){act(InteractionAction{});if(!flow->canSave())prepare();check(XeenPurchaseTestAccess::lobby(*flow),"synthetic Smith lobby absent");}

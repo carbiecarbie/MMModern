@@ -32,7 +32,7 @@ void prices() {
     for(unsigned c=0;c<4;++c)for(unsigned id:{0u,1u,13u,14u,33u,34u,255u})
     for(unsigned material:{0u,1u,37u,38u,40u,255u})for(unsigned state:{0u,1u,63u,64u,128u})for(unsigned frame:{0u,1u,3u,13u}) {
         const XeenItem item{std::uint8_t(material),std::uint8_t(id),std::uint8_t(state),std::uint8_t(frame)};
-        const bool expected=material==0 && state==0 && frame==0 && id>=1 && ((c==0 && id<=33) || (c==1 && id<=13));
+        const bool expected=frame==0 && id>=1 && material<=130 && ((c==0 && id<=33) || (c==1 && id<=13) || (c==2 && id<=10) || (c==3 && material>=1 && material<=21 && id<=75));
         const auto category=static_cast<XeenInventoryCategory>(c);
         check(xeenSupportedEquipmentOffer(0,0,category,item)==expected,"plain offer domain differs");
         check(bool(xeenEquipmentPurchasePrice(category,item))==expected,"excluded modifier/category gained a price");
@@ -76,7 +76,6 @@ void preparedRules(training_test::Inputs &inputs) {
         const auto category=static_cast<XeenInventoryCategory>(c);
         const auto record=initialEconomy.wares[0][0][c][slot];
         const auto candidate=xeenPrepareEquipmentPurchase(p,0,category,slot);
-        if(record.material){check(candidate.result.outcome==Outcome::Unsupported,"modified actual offer purchased");continue;}
         const auto &r=candidate.result;
         check(r.outcome==Outcome::Purchased,"actual plain physical offer refused");
         if(r.outcome!=Outcome::Purchased)continue;
@@ -88,7 +87,7 @@ void preparedRules(training_test::Inputs &inputs) {
     }
     for(auto category:{XeenInventoryCategory::Accessories,XeenInventoryCategory::Miscellaneous}) {
         const auto r=xeenQuoteEquipmentPurchase(p,0,category,0);
-        check(r.outcome==Outcome::Unsupported && r.price==0,"unsupported actual category invented price");
+        check(r.outcome==Outcome::Quoted && r.price>0,"generated category refused Buy");
     }
     check(xeenQuoteEquipmentPurchase(p,0,XeenInventoryCategory::Armor,8).outcome==Outcome::Empty,"empty physical row not distinguished");
     check(xeenQuoteEquipmentPurchase(p,6,XeenInventoryCategory::Weapons,0).outcome==Outcome::InvalidParticipant,"inactive recipient admitted");

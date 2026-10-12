@@ -5,6 +5,7 @@
 #include "core/DialogInput.h"
 #include "formats/xeen/XeenDosText.h"
 #include "games/xeen/XeenLearnedSpellRules.h"
+#include "games/xeen/XeenItemServiceRules.h"
 #include <functional>
 #include <string_view>
 namespace mmodern {
@@ -54,15 +55,21 @@ IndexedFrame drawXeenBankAmount(const XeenDosText &,const IndexedFrame &,const X
     const std::string &digits,const XeenDialogSpriteDraw &,char cursor='|');
 IndexedFrame drawXeenFoodOffer(const IndexedFrame &,const XeenFontFormat &,const std::string &offer,const XeenDialogSpriteDraw &);
 DialogInput xeenBuyInput(bool repair=false);
+DialogInput xeenBuyInput(XeenItemService);
 std::string xeenLocationText(const XeenDosText &text,XeenLocationDialog,const XeenPartyState &,std::size_t);
 std::uint32_t xeenTempleUncurseCost(const XeenCharacter &);
 std::string xeenNotEnoughGold(const XeenDosText &text);
 std::string xeenServiceConfirm(const XeenDosText &text,bool repair,const std::string &,std::uint32_t);
+std::string xeenServiceConfirm(const XeenDosText &,XeenItemService,const std::string &,std::uint32_t);
+std::string xeenIdentifiedDetails(const XeenDosText &,const XeenCharacter &,XeenInventoryCategory,const XeenItem &,const XeenLearnedSpellNames &);
+IndexedFrame drawXeenIdentifiedDetails(const IndexedFrame &,const XeenFontFormat &,const std::string &);
 std::uint32_t xeenBuyDisplayCost(XeenInventoryCategory,const XeenItem &);
 IndexedFrame drawXeenLocation(const XeenDosText &text,const IndexedFrame &,const IndexedFrame &,const XeenFontFormat &,
     XeenLocationDialog,const XeenPartyState &,std::size_t,const XeenDialogSpriteDraw &);
 IndexedFrame drawXeenBuy(const XeenDosText &text,const IndexedFrame &,const XeenFontFormat &,const XeenItemCatalog &,
     const XeenPartyState &,const XeenInventorySelection &,bool repair,const XeenDialogSpriteDraw &);
+IndexedFrame drawXeenBuy(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,const XeenItemCatalog &,
+    const XeenPartyState &,const XeenInventorySelection &,XeenItemService,const XeenDialogSpriteDraw &);
 DialogInput xeenConfirmInput(bool large=false);
 std::optional<bool> xeenConfirmAnswer(unsigned key);
 struct XeenDialogPopup { std::string text; XeenTextRect bounds; };

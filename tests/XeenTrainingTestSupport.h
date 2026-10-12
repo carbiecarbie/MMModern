@@ -132,14 +132,14 @@ struct Fixture {
     Inputs &in;XeenWorld w;XeenPartyState p;XeenCamera c;XeenGameFlags f;XeenEventSystem events;
     std::unique_ptr<XeenEventFlow> flow;std::uint64_t cycle=0,now=0;
     std::bitset<30> trained;
-    Fixture(Inputs &in,const XeenSaveSnapshot &source,bool animated=false,const XeenEventFile *city=nullptr,XeenWorld::MapLoader mapFixture={},XeenRegionalManifest manifestFixture={},XeenEventPresenter::NpcDraw npcDraw={}):in(in),w(mapFixture?mapFixture:in.mapLoader(),in.objectLoader()),
+    Fixture(Inputs &in,const XeenSaveSnapshot &source,bool animated=false,const XeenEventFile *city=nullptr,XeenWorld::MapLoader mapFixture={},XeenRegionalManifest manifestFixture={},XeenEventPresenter::NpcDraw npcDraw={},const XeenItemCatalog *catalog=nullptr):in(in),w(mapFixture?mapFixture:in.mapLoader(),in.objectLoader()),
         events([&in,city](auto id){return XeenEventScript(city && id==XeenMapIdentity(28)?*city:in.events.load(id));},[&in](auto id){return in.texts.load(id);}) {
         auto resources=in.resources();
         if(manifestFixture)resources.regionalManifest=std::move(manifestFixture);
         if(city)resources.loadEvents=[&in,city](auto id){return id==XeenMapIdentity(28)?*city:in.events.load(id);};
         XeenSaveState::restoreBeforeGameplay(XeenSaveFormat::decode(XeenSaveFormat::encode(source)),resources,p,c,f,w,[](auto &,const auto &,const auto &,const auto &){});
         flow=std::make_unique<XeenEventFlow>(w,events,p,c,f,in.font,[](auto){return XeenEventFlow::Composition{frame(),false};},
-            std::move(npcDraw),[this]{return now;},XeenEventPresenter::RandomFrame{},nullptr,
+            std::move(npcDraw),[this]{return now;},XeenEventPresenter::RandomFrame{},catalog,
             [animated](auto,auto){return XeenEventFlow::Composition{frame(),animated};},nullptr,
             [animated](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{frame(),animated};});
         flow->drawDialogSprite=[&in](auto &frame,const char *resource,unsigned id,int x,int y){in.assets.drawDialogSprite(frame,resource,id,x,y);};

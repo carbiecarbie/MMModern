@@ -4,6 +4,7 @@
 #include "games/xeen/XeenTraining.h"
 #include "games/xeen/XeenTempleHeal.h"
 #include "games/xeen/XeenArmorRepair.h"
+#include "games/xeen/detail/XeenItemTables.h"
 #include <array>
 #include <stdexcept>
 #include <algorithm>
@@ -53,6 +54,8 @@ std::string xeenDialogFormat(std::string_view format,const std::vector<std::stri
     for(std::size_t i=0;i<format.size();) {
         if(format[i]!='%') { if(result.size()==16384)throw std::length_error("Original dialog text exceeds bound");result+=format[i++];continue; }
         if(++i<format.size() && format[i]=='%') { result+='%';++i;continue; }
+        const bool signedValue=i<format.size() && format[i]=='+';
+        if(signedValue)++i;
         const bool zero=i<format.size() && format[i]=='0';
         unsigned width=0;while(i<format.size() && format[i]>='0' && format[i]<='9') {width=width*10+format[i++]-'0';if(width>32)throw std::invalid_argument("Original dialog format width exceeds bound");}
         if(i<format.size() && format[i]=='l') ++i;
@@ -60,6 +63,7 @@ std::string xeenDialogFormat(std::string_view format,const std::vector<std::stri
             throw std::invalid_argument("Original dialog template argument mismatch");
         if(args[index].size()>16384)throw std::length_error("Original dialog argument exceeds bound");
         auto value=args[index++];if(format[i]=='c' && value.size()!=1)throw std::invalid_argument("Original dialog character argument mismatch");++i;
+        if(signedValue && !value.empty() && value.front()!='-' && value.front()!='+')value.insert(value.begin(),'+');
         if(value.size()<width) value.insert(0,width-value.size(),zero?'0':' ');
         result+=value;
         if(result.size()>16384) throw std::length_error("Original dialog text exceeds bound");
@@ -242,6 +246,13 @@ DialogInput xeenBuyInput(bool repair) {
     input.hits[repair?7:4].button->frame=repair?15:9;
     return input;
 }
+DialogInput xeenBuyInput(XeenItemService action) {
+    auto input=xeenBuyInput(false);
+    input.hits[4].button->frame=8;
+    const unsigned selected=action==XeenItemService::Buy?4:action==XeenItemService::Sell?5:action==XeenItemService::Identify?6:7;
+    input.hits[selected].button->frame=selected*2+1;
+    return input;
+}
 bool xeenVertigoGuildMember(const XeenPartyState &p,std::size_t member) {
     return p.party.member(p.roster,member).awards[0]!=0;
 }
@@ -343,8 +354,15 @@ std::string xeenNotEnoughGold(const XeenDosText &text) {
 }
 std::string xeenServiceConfirm(const XeenDosText &text,bool repair,const std::string &name,std::uint32_t price) {
     // English getGoldPlurals is always the singular resource form.
-    if(repair) return xeenDialogFormat(text.scalar("FIX_IDENTIFY_GOLD"),{str(text.table("FIX_IDENTIFY")[0]),name,n(price)});
+    // The DOS table orders Identify before Fix, unlike the reference constants.
+    if(repair) return xeenDialogFormat(text.scalar("FIX_IDENTIFY_GOLD"),{str(text.table("FIX_IDENTIFY")[1]),name,n(price)});
     return xeenDialogFormat(text.scalar("BUY_X_FOR_Y_GOLD"),{name,n(price)});
+}
+std::string xeenServiceConfirm(const XeenDosText &text,XeenItemService action,const std::string &name,std::uint32_t price) {
+    if(action==XeenItemService::Buy || action==XeenItemService::Fix)
+        return xeenServiceConfirm(text,action==XeenItemService::Fix,name,price);
+    if(action==XeenItemService::Sell)return xeenDialogFormat(text.scalar("SELL_X_FOR_Y_GOLD"),{name,n(price)});
+    return xeenDialogFormat(text.scalar("FIX_IDENTIFY_GOLD"),{text.table("FIX_IDENTIFY")[0],name,n(price)});
 }
 std::string xeenLocationText(const XeenDosText &text,XeenLocationDialog location,const XeenPartyState &p,std::size_t member) {
     const auto &c=p.party.member(p.roster,member);
@@ -382,34 +400,11 @@ IndexedFrame drawXeenLocation(const XeenDosText &text,const IndexedFrame &base,c
     highlight(frame,member,draw);return frame;
 }
 std::uint32_t xeenBuyDisplayCost(XeenInventoryCategory category,const XeenItem &item) {
-    // Read-only adaptation of pinned ItemsDialog::calcItemCost. This displays
-    // all wares, including ones the purchase rules intentionally cannot buy.
-    // ScummVM developers, GPL-3.0-or-later, 6814ee9b; constants.cpp tables.
-    constexpr unsigned weapons[]{0,50,15,100,80,40,60,1,10,150,30,60,8,50,100,15,30,15,200,80,250,150,400,100,40,120,300,100,200,300,25,100,50,15,0};
-    constexpr unsigned accessories[]{0,100,100,250,100,50,300,200,500,1000,2000};
-    constexpr unsigned miscMaterial[]{0,50,1000,500,10,100,20,10,50,10,10,100,1,1,1,1,1,1,1,1,1,1};
-    constexpr unsigned metal[]{10,25,5,75,2,5,10,20,50,2,3,5,10,20,30,40,50,60,70,80,90,100};
-    constexpr unsigned elemental[]{0,2,3,4,5,10,15,20,30,2,3,4,5,10,15,20,2,4,5,10,20,2,4,8,16,32,2,3,4,5,10,15,20,30,5,10,25};
-    if(!item.id) return 0;
-    unsigned base=0;
-    if(category==XeenInventoryCategory::Miscellaneous) {
-        if(item.material>=std::size(miscMaterial) || item.id>75) return 0;
-        base=miscMaterial[item.material]+(item.id<16?100:item.id<31?200:item.id<41?300:item.id<51?400:item.id<61?500:600);
-    } else {
-        if(category==XeenInventoryCategory::Weapons && item.id<std::size(weapons)) base=weapons[item.id];
-        else if(category==XeenInventoryCategory::Armor && item.id<=13) base=kXeenArmorBaseCosts[item.id-1];
-        else if(category==XeenInventoryCategory::Accessories && item.id<std::size(accessories)) base=accessories[item.id];
-        else return 0;
-        const auto m=item.material;
-        if(m>=37 && m<=40) base/=m==37?10:m==39?2:4;
-        else if(m>40 && m<59) base*=metal[m-37];
-        if(m<37) base+=elemental[m]*100;
-        else if(m>=59 && m-52<std::size(elemental)) base+=elemental[m-52]*100;
-    }
-    return std::max(1u,base);
+    return xeenItemPrice(category,item,XeenItemService::Buy).value_or(0);
 }
 IndexedFrame drawXeenBuy(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,const XeenItemCatalog &catalog,
-        const XeenPartyState &p,const XeenInventorySelection &selection,bool repair,const XeenDialogSpriteDraw &draw) {
+        const XeenPartyState &p,const XeenInventorySelection &selection,XeenItemService action,const XeenDialogSpriteDraw &draw) {
+    const bool repair=action!=XeenItemService::Buy;
     auto frame=render(base,font,xeenDialogFormat(text.scalar("ITEMS_DIALOG_TEXT1"),{str(text.scalar("BTN_BUY")),str(text.scalar("BTN_SELL")),str(text.scalar("BTN_IDENTIFY")),str(text.scalar("BTN_FIX"))}),{0,101,320,146},{8,109,312,138});
     const auto &c=p.party.member(p.roster,selection.source);
     const auto &items=repair?*xeenInventoryItems(c,selection.category):p.serviceEconomy->wares[0][0][static_cast<unsigned>(selection.category)];
@@ -420,14 +415,13 @@ IndexedFrame drawXeenBuy(const XeenDosText &text,const IndexedFrame &base,const 
         const auto description=catalog.describe(selection.category,items[i]);
         if(description.empty) args.push_back(i==0?str(text.scalar("NO_ITEMS_AVAILABLE")):"");
         else {
-            const auto quote=xeenQuoteArmorRepair(selection.category,items[i],gold(p));
-            const auto cost=repair?(quote.outcome==XeenArmorRepairOutcome::Quoted?quote.price:xeenBuyDisplayCost(selection.category,items[i])/10):xeenBuyDisplayCost(selection.category,items[i]);
+            const auto cost=xeenItemPrice(selection.category,items[i],action,c.skills[8]).value_or(0);
             args.push_back(xeenDialogFormat(text.scalar("ITEMS_DIALOG_LINE2"),{n(selection.slot==i?15:0),n(i+1),description.displayName,n(std::max(1u,cost))}));
         }
     }
     frame=render(frame,font,xeenDialogFormat(repair?text.scalar("X_FOR_Y"):text.scalar("AVAILABLE_GOLD_COST"),args),{0,0,320,108},{8,8,312,100});
     if(draw) {
-        for(const auto &hit:xeenBuyInput(repair).hits) if(hit.button) {const auto &b=*hit.button;draw(frame,b.resource,b.frame,b.x,b.y);}
+        for(const auto &hit:xeenBuyInput(action).hits) if(hit.button) {const auto &b=*hit.button;draw(frame,b.resource,b.frame,b.x,b.y);}
         if(selection.category!=XeenInventoryCategory::Miscellaneous) for(unsigned i=0;i<9;++i) if(items[i].id) {
             const unsigned id=items[i].id;
             const unsigned glyph=selection.category==XeenInventoryCategory::Weapons?(id<=17?1:id<=29 || id>33?13:4):
@@ -438,11 +432,54 @@ IndexedFrame drawXeenBuy(const XeenDosText &text,const IndexedFrame &base,const 
     }
     highlight(frame,selection.source,draw);return frame;
 }
+IndexedFrame drawXeenBuy(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,const XeenItemCatalog &catalog,
+        const XeenPartyState &p,const XeenInventorySelection &selection,bool repair,const XeenDialogSpriteDraw &draw) {
+    return drawXeenBuy(text,base,font,catalog,p,selection,repair?XeenItemService::Fix:XeenItemService::Buy,draw);
+}
 DialogInput xeenConfirmInput(bool large) {
     DialogInput input;
     button(input,large?120:129,large?133:112,large?144:153,large?153:132,'y',"confirm.icn",0);
     button(input,large?176:185,large?133:112,large?200:209,large?153:132,'n',"confirm.icn",2);
     input.keys.push_back(InputKey::Escape);return input;
+}
+std::string xeenIdentifiedDetails(const XeenDosText &text,const XeenCharacter &owner,
+        XeenInventoryCategory category,const XeenItem &item,const XeenLearnedSpellNames &names) {
+    using namespace item_tables;
+    const auto none=str(text.scalar("FIELD_NONE"));
+    std::vector<std::string> fields(8,none);
+    std::string classes;
+    for(unsigned i=0;i<10;++i) {
+        auto c=owner;c.characterClass=static_cast<XeenCharacterClass>(i);
+        if(xeenItemProficient(c,category,item.id))classes+=text.table("CLASS_NAMES")[i].substr(0,2)+" ";
+    }
+    fields[0]=classes.size()==30?str(text.scalar("ALL")):classes;
+    if(!xeenItemPrice(category,item,XeenItemService::Identify))return xeenDialogFormat(text.scalar("ITEM_DETAILS"),fields);
+    const unsigned m=item.material;
+    if(category==XeenInventoryCategory::Miscellaneous) {
+        if(item.id<std::size(miscSpells))fields[7]=names.names.at(miscSpells[item.id]);
+    } else {
+        if(m>=59) {
+            unsigned index=0;while(index+1<std::size(attributeCategories) && unsigned(attributeCategories[index])<m-59)++index;
+            fields[6]=xeenDialogFormat(text.scalar("ATTR_XY_BONUS"),{n(attributes[m-59]),text.table("ATTRIBUTE_NAMES")[index]});
+        }
+        const bool weapon=category==XeenInventoryCategory::Weapons;
+        if(m<(weapon?37u:36u) && (weapon?elemental[m]:resistances[m])>0) {
+            unsigned index=0;while(index+1<std::size(elementCategories) && unsigned(elementCategories[index])<m)++index;
+            fields[weapon?3:4]=xeenDialogFormat(text.scalar(weapon?"ELEMENTAL_XY_DAMAGE":"ATTR_XY_BONUS"),
+                {n(weapon?elemental[m]:resistances[m]),text.table("ELEMENTAL_NAMES")[index]});
+        }
+        if(weapon) {
+            const int bonus=m>=37 && m<=58?metalDamage[m-37]:0;
+            fields[2]=xeenDialogFormat(text.scalar("DAMAGE_X_TO_Y"),{n(weaponBase[item.id]+bonus),n(weaponBase[item.id]*weaponMultiplier[item.id]+bonus)});
+            if(m>=37 && m<=58)fields[1]=xeenDialogFormat(text.scalar("SIGNED_BONUS"),{n(metalHit[m-37])});
+            if((item.state&63)>0 && (item.state&63)<7)fields[7]=xeenDialogFormat(text.scalar("EFFECTIVE_AGAINST"),{text.table("EFFECTIVENESS_NAMES")[item.state&63]});
+        } else if(category==XeenInventoryCategory::Armor)
+            fields[5]=xeenDialogFormat(text.scalar("SIGNED_BONUS"),{n(armorAc[item.id]+(m>=37 && m<=58?metalAc[m-37]:0))});
+    }
+    return xeenDialogFormat(text.scalar("ITEM_DETAILS"),fields);
+}
+IndexedFrame drawXeenIdentifiedDetails(const IndexedFrame &base,const XeenFontFormat &font,const std::string &message) {
+    return render(base,font,message,{0,7,320,138},{8,15,312,130});
 }
 std::optional<bool> xeenConfirmAnswer(unsigned key) {
     if(key=='y') return true;

@@ -48,8 +48,8 @@ void eligibilityAndRawBytes() {
 		for (unsigned state : {0u,127u,128u,255u}) {
 			const XeenItem item{static_cast<std::uint8_t>(material),static_cast<std::uint8_t>(id),static_cast<std::uint8_t>(state),255};
 			const auto expected=id==0 ? XeenArmorRepairOutcome::Empty :
-				(id>13 || (material!=0 && material!=38)) ? XeenArmorRepairOutcome::Unsupported :
-				state<128 ? XeenArmorRepairOutcome::Intact : XeenArmorRepairOutcome::Quoted;
+				state<128 ? XeenArmorRepairOutcome::Intact :
+				(id>13 || material>130) ? XeenArmorRepairOutcome::Unsupported : XeenArmorRepairOutcome::Quoted;
 			const auto quote=xeenQuoteArmorRepair(XeenInventoryCategory::Armor,item,0);
 			check(quote.outcome==expected,"category/empty/domain/broken refusal order wrong");
 			unchanged(quote,item,0);
@@ -60,14 +60,6 @@ void eligibilityAndRawBytes() {
 				unchanged(repair,item,0);
 			}
 		}
-	for (unsigned category=0; category<256; ++category) {
-		if (category==static_cast<unsigned>(XeenInventoryCategory::Armor)) continue;
-		for (const XeenItem item : {XeenItem{255,0,255,255}, XeenItem{0,1,128,9}, XeenItem{0,1,0,9}}) {
-			const auto quote=xeenQuoteArmorRepair(static_cast<XeenInventoryCategory>(category),item,0xffffffffU);
-			check(quote.outcome==XeenArmorRepairOutcome::Unsupported && quote.price==0,"wrong category admitted or checked too late");
-			unchanged(quote,item,0xffffffffU);
-		}
-	}
 	for (unsigned material : {0u,38u}) for (unsigned id=1; id<=13; ++id)
 		for (unsigned lower=0; lower<128; ++lower) for (unsigned frame=0; frame<256; ++frame) {
 			const XeenItem item{static_cast<std::uint8_t>(material),static_cast<std::uint8_t>(id),

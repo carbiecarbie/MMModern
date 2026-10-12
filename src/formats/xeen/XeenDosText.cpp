@@ -21,6 +21,7 @@ std::string arguments(std::string_view text) {
   if(++i==text.size())malformed("truncated format argument");
   if(text[i]=='%')continue;
   const auto begin=i;
+  if(text[i]=='+')++i;
   unsigned width=0;
   while(i<text.size() && text[i]>='0' && text[i]<='9') {
    width=width*10+unsigned(text[i++]-'0');if(width>32)malformed("format width");
@@ -143,6 +144,21 @@ const std::vector<XeenDosText::Field> &XeenDosText::layout() {
   {"BACKPACK_IS_FULL",0x5451d,0x5453c,1,false,"s"},
   {"BUY_X_FOR_Y_GOLD",0x5453c,0x5455f,1,false,"s,lu"},
   {"ITEM_NOT_BROKEN",0x544d8,0x544f3,1,false,""},
+  {"SELL_X_FOR_Y_GOLD",0x5448e,0x544b2,1,false,"s,lu"},
+  {"NO_NEED_OF_THIS",0x544b2,0x544d8,1,false,"s"},
+  {"IDENTIFY_ITEM_MSG",0x544f3,0x5451d,1,false,"s,s"},
+  {"ITEM_DETAILS",0x545bd,0x5469e,1,false,"s,s,s,s,s,s,s,s"},
+  {"CANNOT_DISCARD_CURSED_ITEM",0x542f2,0x54316,1,false,""},
+  {"ALL",0x54589,0x5458d,1,false,""},
+  {"FIELD_NONE",0x5458d,0x54592,1,false,""},
+  {"SIGNED_BONUS",0x54592,0x54596,1,false,"+d"},
+  {"DAMAGE_X_TO_Y",0x54596,0x5459f,1,false,"d,d"},
+  {"ELEMENTAL_XY_DAMAGE",0x5459f,0x545ad,1,false,"+d,s"},
+  {"ATTR_XY_BONUS",0x545ad,0x545b4,1,false,"+d,s"},
+  {"EFFECTIVE_AGAINST",0x545b4,0x545bd,1,false,"s"},
+  {"ELEMENTAL_NAMES",0x50126,0x5013e,6,true,""},
+  {"ATTRIBUTE_NAMES",0x5013e,0x50166,10,true,""},
+  {"EFFECTIVENESS_NAMES",0x4feb0,0x4fecc,7,true,""},
   {"FIX_IDENTIFY_GOLD",0x55cbf,0x55cdf,1,false,"s,s,lu"},
   {"NOT_PROFICIENT",0x55c93,0x55cbf,1,false,"s,s"},
   {"CATEGORY_BACKPACK_IS_FULL",0x5596e,0x55a1a,4,false,"s"},
@@ -275,7 +291,9 @@ XeenDosText::XeenDosText(const std::vector<std::uint8_t> &bytes) {
   while(at<end && bytes[at]) {if(at-begin==kTokenLimit)malformed("token limit");++at;}
   if(at==end)malformed(std::string(field.name)+" terminator");
   std::string value(reinterpret_cast<const char *>(bytes.data()+begin),at-begin);
-  const bool emptyAllowed=std::string_view(field.name)=="DAY_SINGULAR" || (std::string_view(field.name)=="CLASS_NAMES" && index==10);
+  const bool emptyAllowed=std::string_view(field.name)=="DAY_SINGULAR" ||
+   (std::string_view(field.name)=="CLASS_NAMES" && index==10) ||
+   (std::string_view(field.name)=="EFFECTIVENESS_NAMES" && index==0);
   if(value.empty() && !emptyAllowed)malformed(std::string(field.name)+" empty field");
   if(arguments(value)!=field.arguments)malformed(std::string(field.name)+" format arguments");
   validateControls(value);total+=value.size();if(total>kOutputLimit)malformed("aggregate output bound");
@@ -340,6 +358,9 @@ std::string_view XeenDosText::scalar(std::string_view name) const {
 }
 const std::vector<std::pair<std::size_t,std::size_t>> &XeenDosText::targets(std::string_view name) {
  static const std::unordered_map<std::string,std::vector<std::pair<std::size_t,std::size_t>>> bounds{
+ {"ELEMENTAL_NAMES",{{0x517dd,0x517e2},{0x517e2,0x517e7},{0x517e7,0x517ec},{0x51969,0x51975},{0x517f3,0x517fa},{0x50dae,0x50db4}}},
+ {"ATTRIBUTE_NAMES",{{0x51975,0x5197b},{0x5197b,0x51985},{0x51985,0x51991},{0x51991,0x51997},{0x51997,0x519a0},{0x519a0,0x519a5},{0x519a5,0x519b0},{0x517c6,0x517d3},{0x519b0,0x519bc},{0x519bc,0x519c5}}},
+ {"EFFECTIVENESS_NAMES",{{0x5093a,0x5093b},{0x513d6,0x513de},{0x513de,0x513e5},{0x513e5,0x513ec},{0x513ec,0x513f1},{0x513f1,0x513fa},{0x513fa,0x51401}}},
  {"WHO_ACTIONS",{{0x51a8c,0x51a93},{0x51a93,0x51a98},{0x51a98,0x51a9e},{0x51a9e,0x51aa3},{0x51aa3,0x51aa9},{0x51aa9,0x51aae},{0x51aae,0x51ab4},{0x51ab4,0x51ab9},{0x51ab9,0x51abe},{0x51abe,0x51ac4},{0x51ac4,0x51aca},{0x51aca,0x51ace},{0x51ace,0x51ad2},{0x51ad2,0x51ad6},{0x51ad6,0x51adb},{0x51adb,0x51ae1},{0x51ae1,0x51ae9},{0x51ae9,0x51aee},{0x51aee,0x51af6},{0x51af6,0x51b02},{0x51b02,0x51b07},{0x51b07,0x51b0c},{0x51b0c,0x51b10},{0x51b10,0x51b15},{0x51b15,0x51b1a},{0x51b1a,0x51b1e},{0x51b1e,0x51b23},{0x51b23,0x51b27},{0x51b27,0x51b2c},{0x51b2c,0x51b32},{0x51b32,0x51b37},{0x51ad2,0x51ad6}}},
  {"RACE_NAMES",{{0x51bbb,0x51bc1},{0x51bc1,0x51bc5},{0x51bc5,0x51bcb},{0x51bcb,0x51bd1},{0x51bd1,0x51bd7}}},
  {"SEX_NAMES",{{0x51bd7,0x51bdc},{0x51bdc,0x51be3}}},

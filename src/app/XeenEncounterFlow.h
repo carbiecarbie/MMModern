@@ -75,6 +75,7 @@ public:
 	bool configureQuickFight(const Ticket &,std::size_t);
 	bool toggleAutomap(const Ticket &);
 	XeenTransferResult journeyTransfer(const Ticket &, std::size_t, std::size_t, XeenInventoryCategory, std::size_t);
+	bool journeyDiscard(const Ticket &,std::size_t,XeenInventoryCategory,std::size_t,const XeenItem &);
 	struct ItemUseSelection {
 		std::uint64_t epoch=0;
 		std::array<std::uint8_t,XeenParty::kMaximumVisibleMembers> membership{};
@@ -195,7 +196,8 @@ private:
 		std::uint64_t lease=0, input=0, operation=0, reservation=0;
 		IndexedFrame::Presentation frame;
 		std::uint8_t owner=0, slot=0;
-		static constexpr auto category=XeenInventoryCategory::Armor;
+		XeenInventoryCategory category=XeenInventoryCategory::Armor;
+		XeenItemService itemAction=XeenItemService::Fix;
 		bool quoted=false, departed=false, published=false, buy=false,temple=false,paid=false;
 		std::uint8_t serviceAction=1;
 		XeenArmorRepairCandidate result;
@@ -240,7 +242,7 @@ private:
 	bool serviceSmithPreparation();
 	void authorizeSmithFrame(std::uint64_t,const IndexedFrame::Presentation &);
 	bool consumeSmithFrame(std::uint64_t,const IndexedFrame::Presentation &);
-	void quoteSmith(std::size_t,std::size_t);
+	void quoteSmith(std::size_t,std::size_t,XeenInventoryCategory=XeenInventoryCategory::Armor,XeenItemService=XeenItemService::Fix);
 	void quoteSmithBuy(std::size_t,XeenInventoryCategory,std::size_t);
 	void confirmSmith();
 	void confirmSmithBuy();

@@ -21,6 +21,7 @@ void synthetic() {
  for(const auto &f:XeenDosText::layout())check(a.table(f.name)==again.table(f.name),"deterministic fields");
  check(a.table("CLASS_NAMES").at(10).empty(),"intentional empty class");
  check(a.scalar("DAY_SINGULAR").empty(),"interior empty day suffix");
+ check(a.table("EFFECTIVENESS_NAMES")[0].empty(),"intentional empty effectiveness");
  for(const auto &layout:XeenDosText::buttonLayouts())check(a.buttons(layout.name).size()==layout.count,"button table count");
  check(a.buttons("OTHER").size()==2 && a.buttons("OTHER")[0].key=='j' && a.buttons("OTHER")[1].key=='k',"Other Options script hotkeys");
  rejects([](auto &b){b[XeenDosText::kOtherButtonKeyOffsets[0]-1]=0;});

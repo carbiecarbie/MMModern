@@ -224,7 +224,7 @@ XeenItemDescription XeenItemCatalog::describe(XeenInventoryCategory category,
 		}
 		if (!baseKnown)
 			text.append(numeric("unknown ID", item.id));
-		if (category == XeenInventoryCategory::Weapons && result.counter != 0) {
+		if (category == XeenInventoryCategory::Weapons && result.counter != 0 && !result.broken && !result.cursed) {
 			if (result.counter <= 6)
 				text.append(trim(kBonusNames[result.counter]));
 			else {

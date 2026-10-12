@@ -152,15 +152,20 @@ private:
 	std::optional<IndexedFrame> updateTraining();
 	struct SmithUi {
 		XeenItemCatalog catalog;
-		enum class Mode { Repair, Buy, Heal, Food, Bank, Guild };
+		enum class Mode { Repair, Buy, Heal, Food, Bank, Guild, Sell, Identify };
 		Mode mode=Mode::Repair;
-		enum class Phase { Preparation, Lobby, Browse, Confirm, Upgrade, Departure, Currency, Amount };
+		XeenItemService itemAction() const noexcept {
+			return mode==Mode::Buy?XeenItemService::Buy:mode==Mode::Sell?XeenItemService::Sell:
+				mode==Mode::Identify?XeenItemService::Identify:XeenItemService::Fix;
+		}
+		enum class Phase { Preparation, Lobby, Browse, Confirm, Upgrade, Departure, Currency, Amount, Detail };
 		Phase phase=Phase::Lobby;
 		std::size_t member=0, slot=0;
 		XeenInventoryCategory category=XeenInventoryCategory::Weapons;
 		bool selected=false;
 		std::uint64_t revision=0;
 		std::string feedback;
+		std::string itemDetails;
 		std::string foodOffer,amount;
 		XeenTextInput amountCursor;
 		bool withdrawal=false,gems=false,bankRefreshed=false;
@@ -309,6 +314,8 @@ private:
 	std::optional<XeenDialogPopup> _statPopup;
 	std::optional<std::string> _dialogError;
 	std::optional<unsigned> _itemOption;
+	bool _discardConfirm=false;
+	std::string _discardPrompt;
 	IndexedFrame drawCharacterDialog(const IndexedFrame &) const;
 	IndexedFrame handleCharacterDialog(const PlayerAction &);
 	std::shared_ptr<const DialogInput> characterDialogInput() const;

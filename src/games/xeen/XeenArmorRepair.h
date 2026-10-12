@@ -2,6 +2,7 @@
 #define MMODERN_XEEN_ARMOR_REPAIR_H
 #include "games/xeen/XeenItemTransfer.h"
 #include "games/xeen/XeenGameplayContext.h"
+#include "games/xeen/XeenItemServiceRules.h"
 #include <algorithm>
 #include <optional>
 #include <limits>
@@ -15,7 +16,7 @@ enum class XeenSmithBoundary { BeforeAdmission, AfterAdmission, Quote, BeforeRep
 inline bool xeenSmithAuthorityRoom(std::uint64_t generation,unsigned remaining) noexcept {
 	return generation<=std::numeric_limits<std::uint64_t>::max()-remaining;
 }
-enum class XeenArmorRepairOutcome { Quoted, Repaired, Empty, Unsupported, Intact, InsufficientGold, Cancelled };
+enum class XeenArmorRepairOutcome { Quoted, Repaired, Empty, Unsupported, Intact, InsufficientGold, Cancelled, Sold, Identified, Refused };
 struct XeenArmorRepairCandidate {
 	XeenArmorRepairOutcome outcome=XeenArmorRepairOutcome::Unsupported;
 	XeenItem before{}, after{};
@@ -28,26 +29,39 @@ inline constexpr std::array<std::uint32_t,13> kXeenArmorBaseCosts{{20,100,200,40
 // Armor costs and divisor adapted from ScummVM developers' GPL-3.0-or-later
 // constants.cpp / ItemsDialog::calcItemCost, revision
 // 6814ee9ba54582f5b5adcffab49efbbd8f589edd.
-inline XeenArmorRepairCandidate xeenQuoteArmorRepair(XeenInventoryCategory category,
-		const XeenItem &item, std::uint32_t gold) noexcept {
+inline XeenArmorRepairCandidate xeenQuoteItemService(XeenInventoryCategory category,
+        const XeenItem &item, std::uint32_t gold,XeenItemService action,unsigned merchant=0) noexcept {
 	XeenArmorRepairCandidate result;
 	result.before=item;result.after=item;result.goldBefore=result.goldAfter=gold;
-	if (category!=XeenInventoryCategory::Armor) return result;
+	if(static_cast<unsigned>(category)>=4 || action==XeenItemService::Buy || static_cast<unsigned>(action)>3)return result;
 	if (!item.id) { result.outcome=XeenArmorRepairOutcome::Empty;return result; }
-	if (item.id>13 || (item.material!=0 && item.material!=38)) return result;
-	if (!(item.state&0x80)) { result.outcome=XeenArmorRepairOutcome::Intact;return result; }
-	const std::uint64_t base=kXeenArmorBaseCosts[item.id-1];
-	result.price=static_cast<std::uint32_t>(std::max<std::uint64_t>(1,(item.material==38?base/4:base)/10));
+	if(action==XeenItemService::Sell && ((item.state&0x40) || (category==XeenInventoryCategory::Weapons && item.id>=34))) {
+		result.outcome=XeenArmorRepairOutcome::Refused;return result;
+	}
+	if(action==XeenItemService::Fix && !(item.state&0x80)) {result.outcome=XeenArmorRepairOutcome::Intact;return result;}
+	const auto price=xeenItemPrice(category,item,action,merchant);if(!price)return result;
+	result.price=*price;
 	result.outcome=XeenArmorRepairOutcome::Quoted;
 	return result;
 }
-inline XeenArmorRepairCandidate xeenPrepareArmorRepair(const XeenItem &item,std::uint32_t gold) noexcept {
-	auto result=xeenQuoteArmorRepair(XeenInventoryCategory::Armor,item,gold);
-	if (result.outcome!=XeenArmorRepairOutcome::Quoted) return result;
-	if (gold<result.price) {result.outcome=XeenArmorRepairOutcome::InsufficientGold;return result;}
-	result.after.state=item.state&0x7f;result.goldAfter=gold-result.price;
-	result.outcome=XeenArmorRepairOutcome::Repaired;
+inline XeenArmorRepairCandidate xeenQuoteArmorRepair(XeenInventoryCategory category,const XeenItem &item,std::uint32_t gold) noexcept {
+	return xeenQuoteItemService(category,item,gold,XeenItemService::Fix);
+}
+inline XeenArmorRepairCandidate xeenPrepareItemService(XeenInventoryCategory category,const XeenItem &item,
+        std::uint32_t gold,XeenItemService action,unsigned merchant=0) noexcept {
+	auto result=xeenQuoteItemService(category,item,gold,action,merchant);
+	if(result.outcome!=XeenArmorRepairOutcome::Quoted)return result;
+	if(action==XeenItemService::Sell) {
+		result.after={};result.goldAfter=gold+result.price;result.outcome=XeenArmorRepairOutcome::Sold;return result;
+	}
+	if(gold<result.price){result.outcome=XeenArmorRepairOutcome::InsufficientGold;return result;}
+	result.goldAfter=gold-result.price;
+	if(action==XeenItemService::Identify)result.outcome=XeenArmorRepairOutcome::Identified;
+	else {result.after.state&=0x7f;result.outcome=XeenArmorRepairOutcome::Repaired;}
 	return result;
+}
+inline XeenArmorRepairCandidate xeenPrepareArmorRepair(const XeenItem &item,std::uint32_t gold) noexcept {
+	return xeenPrepareItemService(XeenInventoryCategory::Armor,item,gold,XeenItemService::Fix);
 }
 inline std::optional<XeenGameplayContext> xeenPrepareSmithDeparture(
 		const XeenGameplayContext &before) {

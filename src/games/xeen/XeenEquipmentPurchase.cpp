@@ -3,30 +3,24 @@
 #include "games/xeen/XeenJourneyRules.h"
 #include "games/xeen/XeenEquipment.h"
 #include "games/xeen/XeenCharacterRules.h"
+#include "games/xeen/XeenItemServiceRules.h"
 #include <algorithm>
 #include <stdexcept>
 namespace mmodern {
 namespace {
-// Numeric adaptation from ScummVM developers' GPL-3.0-or-later
-// LangConstants::WEAPON_BASE_COSTS and ItemsDialog::calcItemCost, pinned at
-// 6814ee9ba54582f5b5adcffab49efbbd8f589edd. See docs/dependencies.md for
-// attribution and corresponding-source obligations. No modifier tables apply.
-constexpr std::array<std::uint32_t,33> weaponCosts{{50,15,100,80,40,60,1,10,150,30,60,
-    8,50,100,15,30,15,200,80,250,150,400,100,40,120,300,100,200,300,25,100,50,15}};
 bool sameCategory(const XeenItemCategory &a,const XeenItemCategory &b) noexcept {
     for(unsigned i=0;i<9;++i)if(!xeenSameItem(a[i],b[i]))return false;
     return true;
 }
 }
 bool xeenSupportedEquipmentOffer(unsigned side,unsigned shop,XeenInventoryCategory category,const XeenItem &item) noexcept {
-    return side==0 && shop==0 && item.material==0 && item.state==0 && item.frame==0 && item.id>=1 &&
-        ((category==XeenInventoryCategory::Weapons && item.id<=33) ||
-        (category==XeenInventoryCategory::Armor && item.id<=13));
+    return side==0 && shop==0 && item.frame==0 &&
+        !(category==XeenInventoryCategory::Weapons && item.id>=34) &&
+        xeenItemPrice(category,item,XeenItemService::Buy).has_value();
 }
 std::optional<std::uint32_t> xeenEquipmentPurchasePrice(XeenInventoryCategory category,const XeenItem &item) noexcept {
     if(!xeenSupportedEquipmentOffer(0,0,category,item))return {};
-    const std::uint64_t base=category==XeenInventoryCategory::Weapons?weaponCosts[item.id-1]:kXeenArmorBaseCosts[item.id-1];
-    return static_cast<std::uint32_t>(std::max<std::uint64_t>(1,base/1));
+    return xeenItemPrice(category,item,XeenItemService::Buy);
 }
 XeenEquipmentPurchaseResult xeenQuoteEquipmentPurchase(const XeenPartyState &party,std::size_t member,
         XeenInventoryCategory category,std::size_t slot,unsigned side,unsigned shop) {

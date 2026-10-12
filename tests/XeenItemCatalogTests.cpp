@@ -77,7 +77,7 @@ void testRepresentativeNames() {
 	expectName(catalog, XeenInventoryCategory::Weapons, {77, 12, 1, 0},
 		"Burning dagger Dragon Slayer");
 	expectName(catalog, XeenInventoryCategory::Weapons, {77, 12, 193, 1},
-		"Broken cursed dagger Dragon Slayer");
+		"Broken cursed dagger");
 	expectName(catalog, XeenInventoryCategory::Miscellaneous, {10, 37, 129, 7},
 		"Broken potion");
 	const auto hiddenEquipment = catalog.describe(XeenInventoryCategory::Weapons,

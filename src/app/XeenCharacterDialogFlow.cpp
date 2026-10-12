@@ -52,6 +52,7 @@ std::shared_ptr<const DialogInput> XeenEventFlow::characterDialogInput() const {
     DialogInput input;
     if(_exchange) input=xeenExchangeInput();
     else if(_statPopup || _dialogError) {input.anyKey=true;input.anyClick=true;}
+    else if(_discardConfirm)input=xeenConfirmInput();
     else if(_inventory.mode==XeenInventoryMode::UseTarget) {
         constexpr int x[]{10,45,81,117,153,189};
         for(unsigned i=0;i<6;++i) {input.hits.push_back({x[i],150,x[i]+32,182,InputKey::F1+i});input.keys.push_back(InputKey::F1+i);}
@@ -68,6 +69,7 @@ IndexedFrame XeenEventFlow::drawCharacterDialog(const IndexedFrame &base) const 
     if(_exchange)frame=drawXeenExchange(dosText(),frame,_inventoryFont,drawDialogSprite);
     if(_statPopup) frame=drawXeenPopup(frame,_inventoryFont,*_statPopup);
     if(_itemOption) frame=drawXeenItemSelection(dosText(),frame,_inventoryFont,*_itemOption,drawDialogSprite);
+    if(_discardConfirm)frame=drawXeenConfirm(frame,_inventoryFont,_discardPrompt,false,drawDialogSprite);
     if(_dialogError) frame=drawXeenErrorScroll(frame,_inventoryFont,*_dialogError);
     return frame;
 }
@@ -130,15 +132,24 @@ void XeenEventFlow::performItemOption(unsigned option) {
         if(_encounter && _encounter->combat()) {dialogError("Equipment in combat: not supported yet");return;}
         handleEquipment(option==0?XeenEquipmentOperation::Equip:XeenEquipmentOperation::Remove);return;
     }
-    if(option==3) {dialogError("Discard: not supported yet");return;}
+    if(option==3) {
+        if(_encounter && _encounter->combat()) {dialogError("Discard in combat: not supported yet");return;}
+        if(_inventory.record.state&0x40) {dialogError(std::string(dosText().scalar("CANNOT_DISCARD_CURSED_ITEM")));return;}
+        if(!journey()) {dialogError("Discard requires an active Journey");return;}
+        if(!_equipmentSelection || !validEquipmentSelection(*_equipmentSelection)) {invalidateInventorySelection();return;}
+        _discardPrompt=xeenDialogFormat(dosText().scalar("PERMANENTLY_DISCARD"),{_catalog.describe(_inventory.category,_inventory.record).displayName});
+        _discardConfirm=true;return;
+    }
     if(option!=2) return;
     const auto &c=_party.roster.at(*_inventory.sourceOwner);
     if(_encounter && _encounter->combat()) {
         dialogError(std::string(xeenDialogText(dosText(),XeenDialogText::UseInCombat)));return;
     }
-    if(_camera.mapId.number==0) {dialogError(std::string(xeenDialogText(dosText(),XeenDialogText::Hurry)));return;}
-    if(!c.canAct()) {dialogError(xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::InNoCondition),{c.name}));return;}
-    if(!_inventory.record.id || (_inventory.record.state&0xc0) || !(_inventory.record.state&63)) {
+    const auto admission=xeenItemUseAdmission(_inventory.category,_inventory.record,_camera.mapId.number!=0,c.canAct());
+    if(admission==XeenItemUseAdmission::InvalidCategory)return;
+    if(admission==XeenItemUseAdmission::NoWorld) {dialogError(std::string(xeenDialogText(dosText(),XeenDialogText::Hurry)));return;}
+    if(admission==XeenItemUseAdmission::CannotAct) {dialogError(xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::InNoCondition),{c.name}));return;}
+    if(admission==XeenItemUseAdmission::NoAbility) {
         dialogError(xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::NoSpecialAbilities),{_catalog.describe(_inventory.category,_inventory.record).displayName}));return;
     }
     if(!journey() || !XeenAntidoteUse::eligible(_inventory.record)) {dialogError("Item effect: not supported yet");return;}

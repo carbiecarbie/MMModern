@@ -57,50 +57,35 @@ bool completeShop(const XeenMerchantWares::Shop &stock,unsigned side,unsigned sh
 	}
 	return current[index(lengths[0],lengths[1],lengths[2],lengths[3])];
 }
-constexpr unsigned depletedIndex(unsigned gw,unsigned ga,unsigned kw,unsigned ka,unsigned x,unsigned m) noexcept {
-	return ((((gw*9+ga)*9+kw)*9+ka)*9+x)*9+m;
-}
 bool purchaseDepletedShop(const XeenMerchantWares::Shop &stock) {
-	const auto lengths=shape(stock);
-	// Generated W/A insertion counts are independent of retained prefixes. In
-	// particular a purchased hole never restores the original generation capacity.
-	// These two bounded layers live on the heap, outside any publication unit.
-	using Layer=std::array<bool,531441>;
-	auto current=std::make_unique<Layer>();auto next=std::make_unique<Layer>();
-	(*current)[0]=true;
-	bool possible[2][4][8]{};
-	for(unsigned level=1;level<=2;++level)for(unsigned category=0;category<4;++category)
-	for(unsigned slot=0;slot<lengths[category];++slot)
-		possible[level-1][category][slot]=xeenPossibleMerchantItem(level,category,stock[category][slot]);
-	// Shop 0/0 has exactly fifteen L1 calls followed by five L2 calls. Only
-	// L1 W/A can generate the supported plain offers that may later be omitted.
-	for(unsigned call=0;call<20;++call) {
-		const unsigned level=call<15?1:2;next->fill(false);
-		for(unsigned gw=0;gw<=8;++gw)for(unsigned ga=0;ga<=8;++ga)
-		for(unsigned kw=0;kw<=std::min(gw,lengths[0]);++kw)
-		for(unsigned ka=0;ka<=std::min(ga,lengths[1]);++ka)
-		for(unsigned x=0;x<=lengths[2];++x)for(unsigned m=0;m<=lengths[3];++m) {
-			const auto state=depletedIndex(gw,ga,kw,ka,x,m);
-			if(!(*current)[state])continue;
-			const unsigned generated[4]={gw,ga,x,m},retained[4]={kw,ka,x,m};
-			for(unsigned category=0;category<4;++category) {
-				if(generated[category]==8) {
-					if(anyPossible(level,category))(*next)[state]=true;
-					continue;
-				}
-				if(retained[category]<lengths[category] && possible[level-1][category][retained[category]]) {
-					(*next)[depletedIndex(gw+(category==0),ga+(category==1),
-						kw+(category==0),ka+(category==1),x+(category==2),m+(category==3))]=true;
-				}
-				if(level==1 && category<2)
-					(*next)[depletedIndex(gw+(category==0),ga+(category==1),kw,ka,x,m)]=true;
-			}
-		}
-		current.swap(next);
-	}
-	for(unsigned gw=lengths[0];gw<=8;++gw)for(unsigned ga=lengths[1];ga<=8;++ga)
-		if((*current)[depletedIndex(gw,ga,lengths[0],lengths[1],lengths[2],lengths[3])])return true;
-	return false;
+    const auto lengths=shape(stock);
+    std::array<bool,6561> current{},next{};current[0]=true;
+    bool possible[2][4][8]{};
+    for(unsigned level=1;level<=2;++level)for(unsigned category=0;category<4;++category)
+    for(unsigned slot=0;slot<lengths[category];++slot)
+        possible[level-1][category][slot]=xeenPossibleMerchantItem(level,category,stock[category][slot]);
+    // Current Ironworks stock is a subsequence of fifteen L1 then five L2
+    // draws, with purchases allowed in every category. Missing draws can be
+    // assigned without overflowing: L1 W/A/M have 24 slots, at most five
+    // reserved for retained L2 items; after fifteen L1 draws all four L2
+    // categories still have at least seventeen slots. Thus no generated-count
+    // dimensions or historical purchase metadata are needed for this site.
+    for(unsigned call=0;call<20;++call) {
+        const unsigned level=call<15?1:2;next=current; // Purchased draw.
+        for(unsigned w=0;w<=lengths[0];++w)for(unsigned a=0;a<=lengths[1];++a)
+        for(unsigned x=0;x<=lengths[2];++x)for(unsigned m=0;m<=lengths[3];++m) {
+            std::array<unsigned,4> consumed{{w,a,x,m}};
+            if(!current[index(w,a,x,m)])continue;
+            for(unsigned category=0;category<4;++category) {
+                const unsigned count=consumed[category];
+                if(count<lengths[category] && possible[level-1][category][count]) {
+                    ++consumed[category];next[index(consumed[0],consumed[1],consumed[2],consumed[3])]=true;--consumed[category];
+                }
+            }
+        }
+        current=next;
+    }
+    return current[index(lengths[0],lengths[1],lengths[2],lengths[3])];
 }
 }
 bool xeenPossibleMerchantItem(unsigned level,unsigned category,const XeenItem &item) noexcept {

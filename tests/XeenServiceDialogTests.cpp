@@ -111,9 +111,11 @@ void refusals(Inputs &in) {
         if(temple) {keyboard(f,'u');check(notice.find("not supported yet")!=std::string::npos,"Uncurse lacks refusal");before.unchanged(f);keyboard(f,InputKey::Enter);}
         keyboard(f,InputKey::Escape);check(f.flow->canSave() && f.p.encounterContext->day==9,"refused service lost unpaid departure");
     }
-    Fixture f(in,service(in));f.enter();keyboard(f,'b');keyboard(f,'c');const Owners before(f);
+    auto source=service(in);source.journey->treasure->gold=0;
+    Fixture f(in,source);f.enter();keyboard(f,'b');keyboard(f,'c');const Owners before(f);
     std::string notice;f.flow->reportText=[&](const auto &text){notice=text;};keyboard(f,'1');
-    check(notice.find("not supported yet")!=std::string::npos,"Accessories Buy lacks refusal");before.unchanged(f);
+    check(XeenPurchaseTestAccess::quote(*f.flow),"Accessories Buy lacks quote");keyboard(f,'y');
+    check(notice==xeenNotEnoughGold(in.assets.uiText()),"Accessories Buy lacks gold refusal");before.unchanged(f);
 }
 void dialogs(Inputs &in,bool mouse) {
     auto source=service(in);source.characters[0].armor[0].state=128;
@@ -123,10 +125,6 @@ void dialogs(Inputs &in,bool mouse) {
     check(XeenPurchaseTestAccess::repairArmor(*smith.flow),"Lobby R did not retain Armor Repair");
     keyboard(smith,InputKey::Escape);before.unchanged(smith);
     if(mouse)click(smith,235,65);else keyboard(smith,'b');
-    for(const auto key:{'s','i'}) {
-        std::string notice;smith.flow->reportText=[&](const auto &text){notice=text;};
-        keyboard(smith,key);check(notice.find("not supported yet")!=std::string::npos,"Smith unsupported action lacks notice");before.unchanged(smith);keyboard(smith,InputKey::Enter);
-    }
     smith.flow->reportText={};
     if(mouse)click(smith,47,110);else keyboard(smith,'a');
     if(mouse)click(smith,20,48);else keyboard(smith,'4');
@@ -143,7 +141,7 @@ void dialogs(Inputs &in,bool mouse) {
     std::string notice;smith.flow->reportText=[&](const auto &text){notice=text;};
     keyboard(smith,'1');check(notice==xeenDialogText(in.assets.uiText(),XeenDialogText::ItemNotBroken),"intact Fix lacks original refusal");keyboard(smith,InputKey::Enter);
     keyboard(smith,'b');keyboard(smith,'m');const auto paid=Owners(smith);
-    keyboard(smith,'1');check(notice.find("not supported yet")!=std::string::npos,"Misc Buy lacks refusal");paid.unchanged(smith);keyboard(smith,InputKey::Enter);
+    keyboard(smith,'1');check(XeenPurchaseTestAccess::quote(*smith.flow),"Misc Buy lacks quote");paid.unchanged(smith);keyboard(smith,'n');
     smith.leave();check(smith.p.encounterContext->day==9,"Buy/Fix visit changed departure charge");
     training_test::Fixture train(in,in.service());train.enter();
     if(mouse)click(train,46,151);else keyboard(train,InputKey::F1+1);

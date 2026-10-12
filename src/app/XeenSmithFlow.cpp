@@ -179,8 +179,9 @@ bool XeenEncounterFlow::consumeSmithFrame(std::uint64_t input,const IndexedFrame
 	_smith->frame.reset();_smith->input=0;
 	_journeyPreimage->check();return true;
 }
-void XeenEncounterFlow::quoteSmith(std::size_t member,std::size_t slot) {
-	if (!_smith || _busy || _smith->frame || member>=_party.party.size() || slot>=9)
+void XeenEncounterFlow::quoteSmith(std::size_t member,std::size_t slot,XeenInventoryCategory category,XeenItemService action) {
+	if (!_smith || _busy || _smith->frame || member>=_party.party.size() || slot>=9 ||
+        static_cast<unsigned>(category)>=4 || action==XeenItemService::Buy || static_cast<unsigned>(action)>3)
 		throw std::logic_error("Smith selection authority unavailable");
 	SmithBusy busy(_busy);_journeyPreimage->check();
 	xeenValidateJourneyParty(_party);
@@ -193,8 +194,10 @@ void XeenEncounterFlow::quoteSmith(std::size_t member,std::size_t slot) {
     ++_smith->operation;
     _smith->owner=_party.party.activeRosterIds()[member];_smith->slot=static_cast<std::uint8_t>(slot);
 	_smith->buy=false;_smith->published=false;_smith->purchase.reset();
-	_smith->result=xeenQuoteArmorRepair(XeenInventoryCategory::Armor,
-		_party.roster.at(_smith->owner).armor[slot],_party.monsterTreasure->gold);
+	_smith->category=category;_smith->itemAction=action;
+	const auto &character=_party.roster.at(_smith->owner);
+	_smith->result=xeenQuoteItemService(category,
+		(*xeenInventoryItems(character,category))[slot],_party.monsterTreasure->gold,action,character.skills[8]);
 	_smith->quoted=_smith->result.outcome==XeenArmorRepairOutcome::Quoted;
 	_smith->quoteOperation=_smith->operation;_smith->quoteReservation=_smith->reservation;
 	advanceSmith();
@@ -212,13 +215,16 @@ void XeenEncounterFlow::confirmSmith() {
 			throw std::logic_error("Smith repair operation changed");
 	}
 	const auto before=_smith->result;
-	const auto &live=_party.roster.at(_smith->owner).armor[_smith->slot];
+	const auto &live=(*xeenInventoryItems(_party.roster.at(_smith->owner),_smith->category))[_smith->slot];
 	if (!xeenSameItem(live,before.before) || _party.monsterTreasure->gold!=before.goldBefore)
 		throw std::logic_error("Smith quote preimage changed");
-	const auto result=xeenPrepareArmorRepair(live,_party.monsterTreasure->gold);
+	const auto result=xeenPrepareItemService(_smith->category,live,_party.monsterTreasure->gold,
+		_smith->itemAction,_party.roster.at(_smith->owner).skills[8]);
 	auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 	prepared->retainResources(*_journeyPreimage);
-	prepared->characters[_smith->owner].armor[_smith->slot]=result.after;
+	auto &items=*xeenInventoryItems(prepared->characters[_smith->owner],_smith->category);
+	items[_smith->slot]=result.after;
+	if(result.outcome==XeenArmorRepairOutcome::Sold)xeenCompactItems(items);
     xeenValidateCompletedEquipment(prepared->characters[_smith->owner]);
 	prepared->treasure->gold=result.goldAfter;
 	_journeyPreimage->check();
@@ -226,7 +232,7 @@ void XeenEncounterFlow::confirmSmith() {
 	checkSmithReservation();
  // One callback-free nonthrowing commit: purse, physical item and fixed result.
 	_party.monsterTreasure->gold=result.goldAfter;
-	_party.roster.at(_smith->owner).armor[_smith->slot]=result.after;
+	*xeenInventoryItems(_party.roster.at(_smith->owner),_smith->category)=items;
 	_smith->result=result;_smith->quoted=false;_smith->published=true;
 	++_world._sessionState._journeyGeneration;++_generation;
 	prepared->adoptJourneyCoordination();_journeyPreimage.swap(prepared);
@@ -576,13 +582,14 @@ std::shared_ptr<const DialogInput> XeenEventFlow::serviceDialogInput() const {
         const auto &ui=*_smithUi;
         if(ui.phase==SmithUi::Phase::Preparation) return std::make_shared<const DialogInput>();
         if(ui.phase==SmithUi::Phase::Departure) input.keys={InputKey::Escape,InputKey::Enter};
+        else if(ui.phase==SmithUi::Phase::Detail) {input.anyKey=input.anyClick=input.keyMouseWait=true;}
         else if(ui.phase==SmithUi::Phase::Upgrade) input.keys={InputKey::Escape};
         else if(ui.phase==SmithUi::Phase::Amount) {
             input.keys={InputKey::Escape,InputKey::Enter,8,127};input.textEntry=true;
         }
         else if(ui.phase==SmithUi::Phase::Currency) input=xeenBankInput();
         else if(ui.phase==SmithUi::Phase::Confirm) input=ui.mode==SmithUi::Mode::Guild?xeenSpellConfirmInput(ui.spellInfo):ui.mode==SmithUi::Mode::Food?xeenFoodConfirmInput():xeenConfirmInput();
-        else if(ui.phase==SmithUi::Phase::Browse) input=ui.mode==SmithUi::Mode::Guild?xeenSpellListInput(false):xeenBuyInput(ui.mode==SmithUi::Mode::Repair);
+        else if(ui.phase==SmithUi::Phase::Browse) input=ui.mode==SmithUi::Mode::Guild?xeenSpellListInput(false):xeenBuyInput(ui.itemAction());
         else input=xeenLocationInput(ui.mode==SmithUi::Mode::Guild?XeenLocationDialog::Guild:ui.mode==SmithUi::Mode::Food?XeenLocationDialog::Tavern:ui.mode==SmithUi::Mode::Bank?XeenLocationDialog::Bank:ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith);
         if(!ui.feedback.empty() && ui.phase!=SmithUi::Phase::Departure) {input={};input.anyKey=input.anyClick=true;}
     } else return {};
@@ -591,6 +598,7 @@ std::shared_ptr<const DialogInput> XeenEventFlow::serviceDialogInput() const {
 std::string XeenEventFlow::smithText() const {
     const auto &ui=*_smithUi;
     if(!ui.feedback.empty()) return ui.feedback;
+    if(ui.phase==SmithUi::Phase::Detail)return ui.itemDetails;
     if(ui.mode==SmithUi::Mode::Guild) {
         if(ui.phase==SmithUi::Phase::Confirm) {
             const auto &c=_party.party.member(_party.roster,ui.member);
@@ -607,7 +615,7 @@ std::string XeenEventFlow::smithText() const {
     if(ui.phase==SmithUi::Phase::Confirm) {
         const auto &visit=*_encounter->_smith;
         const auto &item=ui.mode==SmithUi::Mode::Buy?visit.purchase->result.offer:visit.result.before;
-        return xeenServiceConfirm(dosText(),ui.mode==SmithUi::Mode::Repair,
+        return xeenServiceConfirm(dosText(),ui.itemAction(),
             ui.catalog.describe(ui.category,item).displayName,
             ui.mode==SmithUi::Mode::Buy?visit.purchase->result.price:visit.result.price);
     }
@@ -631,11 +639,12 @@ IndexedFrame XeenEventFlow::drawSmith(const IndexedFrame &world) const {
         frame=drawXeenBankCurrency(dosText(),frame,_inventoryFont,_party,ui.withdrawal,drawDialogSprite,ui.bankRefreshed);
         if(ui.phase==SmithUi::Phase::Amount)frame=drawXeenBankAmount(dosText(),frame,_inventoryFont,ui.amount,drawDialogSprite,char(ui.amountCursor.cursor()));
     }
-    else if(ui.phase==SmithUi::Phase::Browse || ui.phase==SmithUi::Phase::Confirm) {
+    else if(ui.phase==SmithUi::Phase::Browse || ui.phase==SmithUi::Phase::Confirm || ui.phase==SmithUi::Phase::Detail) {
         XeenInventorySelection selection;selection.source=ui.member;selection.category=ui.category;
         if(ui.selected) selection.slot=ui.slot;
-        frame=drawXeenBuy(dosText(),frame,_inventoryFont,ui.catalog,_party,selection,ui.mode==SmithUi::Mode::Repair,drawDialogSprite);
+        frame=drawXeenBuy(dosText(),frame,_inventoryFont,ui.catalog,_party,selection,ui.itemAction(),drawDialogSprite);
         if(ui.phase==SmithUi::Phase::Confirm) frame=drawXeenConfirm(frame,_inventoryFont,smithText(),false,drawDialogSprite);
+        if(ui.phase==SmithUi::Phase::Detail)frame=drawXeenIdentifiedDetails(frame,_inventoryFont,ui.itemDetails);
     }
     if(!ui.feedback.empty()) frame=drawXeenErrorScroll(frame,_inventoryFont,ui.feedback);
     return frame;
@@ -669,7 +678,7 @@ IndexedFrame XeenEventFlow::handleSmith(const PlayerAction &action,std::uint64_t
     auto &ui=*_smithUi;const auto key=serviceKey(action);
     if(ui.phase==SmithUi::Phase::Preparation) return frameCopy();
     const bool member=key>=InputKey::F1 && key<InputKey::F1+_party.party.size();
-    const bool allowed=ui.phase==SmithUi::Phase::Departure?(key==InputKey::Escape || key==InputKey::Enter):
+    const bool allowed=ui.phase==SmithUi::Phase::Detail?true:ui.phase==SmithUi::Phase::Departure?(key==InputKey::Escape || key==InputKey::Enter):
         ui.phase==SmithUi::Phase::Confirm?xeenConfirmAnswer(key).has_value():
         ui.phase==SmithUi::Phase::Lobby?(key=='b' || key=='r' || key==InputKey::Escape || member):
         (key==InputKey::Escape || member || (key>='1' && key<='9') || key=='w' || key=='a' || key=='c' || key=='m' || key=='b' || key=='s' || key=='i' || key=='f');
@@ -690,7 +699,8 @@ IndexedFrame XeenEventFlow::handleSmith(const PlayerAction &action,std::uint64_t
     const auto originalPhase=ui.phase;
     bool failed=false,revisionAdvanced=false;
     try {
-        if(ui.phase!=SmithUi::Phase::Departure && !ui.feedback.empty()) {ui.feedback.clear();_encounter->advanceSmith();}
+        if(ui.phase==SmithUi::Phase::Detail) {ui.phase=SmithUi::Phase::Browse;ui.selected=false;_encounter->advanceSmith();}
+        else if(ui.phase!=SmithUi::Phase::Departure && !ui.feedback.empty()) {ui.feedback.clear();_encounter->advanceSmith();}
         else if(ui.phase==SmithUi::Phase::Lobby) {
             if(key>=InputKey::F1 && key<InputKey::F1+_party.party.size()) {
                 ui.member=key-InputKey::F1;_encounter->advanceSmith();
@@ -708,11 +718,10 @@ IndexedFrame XeenEventFlow::handleSmith(const PlayerAction &action,std::uint64_t
                 ui.category=key=='w'?XeenInventoryCategory::Weapons:key=='a'?XeenInventoryCategory::Armor:
                     key=='c'?XeenInventoryCategory::Accessories:XeenInventoryCategory::Miscellaneous;
                 ui.selected=false;_encounter->_smith->quoted=false;_encounter->advanceSmith();
-            } else if(key=='b' || key=='f') {
-                ui.mode=key=='b'?SmithUi::Mode::Buy:SmithUi::Mode::Repair;ui.selected=false;
+            } else if(key=='b' || key=='f' || key=='s' || key=='i') {
+                ui.mode=key=='b'?SmithUi::Mode::Buy:key=='s'?SmithUi::Mode::Sell:key=='i'?SmithUi::Mode::Identify:SmithUi::Mode::Repair;ui.selected=false;
                 _encounter->_smith->quoted=false;_encounter->advanceSmith();
-            } else if(key=='s' || key=='i') ui.feedback=key=='s'?"Sell: not supported yet":"Identify: not supported yet";
-            else if(cancel) {ui.phase=SmithUi::Phase::Lobby;ui.selected=false;_encounter->_smith->quoted=false;_encounter->advanceSmith();}
+            } else if(cancel) {ui.phase=SmithUi::Phase::Lobby;ui.selected=false;_encounter->_smith->quoted=false;_encounter->advanceSmith();}
             else if(row) {
                 ui.slot=key-'1';ui.selected=true;
                 const auto &c=_party.party.member(_party.roster,ui.member);
@@ -725,12 +734,17 @@ IndexedFrame XeenEventFlow::handleSmith(const PlayerAction &action,std::uint64_t
                     if(_encounter->_smith->quoted) ui.phase=SmithUi::Phase::Confirm;
                     else if(outcome==XeenEquipmentPurchaseOutcome::DestinationFull) ui.feedback=xeenBackpackFull(dosText(),ui.category,c.name);
                     else ui.feedback="Buy: not supported yet";
-                } else if(!(item.state&0x80)) ui.feedback=std::string(xeenDialogText(dosText(),XeenDialogText::ItemNotBroken));
-                else if(ui.category!=XeenInventoryCategory::Armor) ui.feedback="Fix: not supported yet";
-                else {
-                    _encounter->quoteSmith(ui.member,ui.slot);
+                } else {
+                    if(ui.mode==SmithUi::Mode::Identify) {
+                        const auto details=xeenIdentifiedDetails(dosText(),c,ui.category,item,*_encounter->journeySavePreimage().learnedNames);
+                        ui.itemDetails=xeenDialogFormat(dosText().scalar("IDENTIFY_ITEM_MSG"),{ui.catalog.describe(ui.category,item).displayName,details});
+                    }
+                    _encounter->quoteSmith(ui.member,ui.slot,ui.category,ui.itemAction());
+                    const auto outcome=_encounter->_smith->result.outcome;
                     if(_encounter->_smith->quoted) ui.phase=SmithUi::Phase::Confirm;
-                    else ui.feedback="Fix: not supported yet";
+                    else if(outcome==XeenArmorRepairOutcome::Intact)ui.feedback=std::string(xeenDialogText(dosText(),XeenDialogText::ItemNotBroken));
+                    else if(outcome==XeenArmorRepairOutcome::Refused)ui.feedback=xeenDialogFormat(dosText().scalar("NO_NEED_OF_THIS"),{ui.catalog.describe(ui.category,item).displayName});
+                    else ui.feedback="Item service: not supported yet";
                 }
             }
         } else if(ui.phase==SmithUi::Phase::Confirm) {
@@ -741,7 +755,7 @@ IndexedFrame XeenEventFlow::handleSmith(const PlayerAction &action,std::uint64_t
                     _encounter->_smith->result.outcome==XeenArmorRepairOutcome::InsufficientGold;
                 if(shortfall) ui.feedback=xeenNotEnoughGold(dosText());
             } else {_encounter->_smith->quoted=false;_encounter->advanceSmith();}
-            ui.phase=SmithUi::Phase::Browse;ui.selected=false;
+            ui.phase=confirming && ui.mode==SmithUi::Mode::Identify && _encounter->_smith->result.outcome==XeenArmorRepairOutcome::Identified?SmithUi::Phase::Detail:SmithUi::Phase::Browse;ui.selected=false;
         }
         if(ui.phase==SmithUi::Phase::Departure && (cancel || key==InputKey::Enter)) {
             if(originalPhase!=ui.phase && ui.revision!=UINT64_MAX) {++ui.revision;revisionAdvanced=true;}
@@ -750,10 +764,10 @@ IndexedFrame XeenEventFlow::handleSmith(const PlayerAction &action,std::uint64_t
     } catch(const std::exception &) {
         failed=true;_encounter->journeySavePreimage().check();if(!_encounter->_smith) throw;
         if(_encounter->_smith->quoted) ui.phase=SmithUi::Phase::Confirm;
-        if(_encounter->_smith->published && ui.phase!=SmithUi::Phase::Departure) {ui.phase=SmithUi::Phase::Browse;ui.selected=false;}
+        if(_encounter->_smith->published && ui.phase!=SmithUi::Phase::Departure) {ui.phase=ui.mode==SmithUi::Mode::Identify && _encounter->_smith->result.outcome==XeenArmorRepairOutcome::Identified?SmithUi::Phase::Detail:SmithUi::Phase::Browse;ui.selected=false;}
         // A retained Confirm can be retried with a fresh Y. A published action
         // is never repeated, including a failure in a post-publication hook.
-        if(ui.phase!=SmithUi::Phase::Confirm) ui.feedback="Service preparation failed. Escape: depart.";
+        if(ui.phase!=SmithUi::Phase::Confirm && ui.phase!=SmithUi::Phase::Detail) ui.feedback="Service preparation failed. Escape: depart.";
     }
     if(!revisionAdvanced && (!failed || originalPhase!=ui.phase) && ui.revision!=UINT64_MAX) ++ui.revision;
     if(reportText && !ui.feedback.empty()) reportText(ui.feedback);

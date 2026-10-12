@@ -216,23 +216,13 @@ void canonicalAndMutation() {
 	XeenMutationWatch replaced;replaced.add(&optional,sizeof(optional));optional.reset();optional.emplace(economy);
 	check(!replaced.current(),"equal economy reset/reinsert cleared integrity violation");
 }
-// Independent aggregate-band oracle for a literal palette whose members have
-// disjoint level support: plain W/A and Misc ID1 only L1, material37 W/A/X
-// and Misc ID16 only L2. It enumerates hidden plain predecessor quantities,
-// not per-call retained-prefix states or the production possible() predicate.
+// Independent aggregate-band oracle for a literal palette with disjoint
+// support: plain W/A and Misc ID1 are L1; material37 W/A/X and Misc ID16
+// are L2. All categories can now be purchased, so missing band draws can be
+// deleted. The literal capacities leave room to fill both original bands.
 bool literalBandOracle(const std::array<unsigned,4> &plain,const std::array<unsigned,4> &modified) {
-	for(unsigned hiddenW=0;hiddenW+plain[0]+modified[0]<=8;++hiddenW)
-	for(unsigned hiddenA=0;hiddenA+plain[1]+modified[1]<=8;++hiddenA) {
-		const unsigned level1=plain[0]+plain[1]+plain[3]+hiddenW+hiddenA;
-		const unsigned level2=modified[0]+modified[1]+modified[2]+modified[3];
-		const bool fullAfterL1=plain[0]+hiddenW==8 || plain[1]+hiddenA==8 || plain[3]==8;
-		const bool fullAfterL2=plain[0]+modified[0]+hiddenW==8 || plain[1]+modified[1]+hiddenA==8 ||
-			modified[2]==8 || plain[3]+modified[3]==8;
-		// Each level band must use exactly its call count. Extra calls can only
-		// discard at a category whose original insertions already reached eight.
-		if(level1<=15 && (level1==15 || fullAfterL1) && level2<=5 && (level2==5 || fullAfterL2))return true;
-	}
-	return false;
+    return plain[0]+plain[1]+plain[3]<=15 &&
+        modified[0]+modified[1]+modified[2]+modified[3]<=5;
 }
 void independentDepletionOracle(const XeenServiceEconomy &baseline) {
 	std::uint32_t cursor=0x42f13a7u;unsigned accepted=0,rejected=0;
@@ -285,11 +275,16 @@ void currentDepletion() {
 	}
 	for(unsigned category:{2u,3u}) {
 		// Fifteen L1 Armor calls fill A to eight. Five L2 calls each insert
-		// the chosen X/M category. Its fifth physical entry cannot disappear:
-		// only W/A omissions exist and the other four L2 entries consume calls.
+		// the chosen X/M category. Every purchase subset retains a valid
+		// predecessor, including a completely depleted modified category.
 		auto stock=literal;for(unsigned i=0;i<5;++i)stock.wares[0][0][category][i]=
 			category==2?XeenItem{37,1,0,0}:XeenItem{1,16,1,0};
 		xeenValidateServiceEconomy(stock);xeenValidateCurrentServiceEconomy(stock);
+        for(unsigned mask=0;mask<32;++mask) {
+            auto depleted=stock;auto &items=depleted.wares[0][0][category];items={};unsigned kept=0;
+            for(unsigned slot=0;slot<5;++slot)if(!(mask&(1u<<slot)))items[kept++]=stock.wares[0][0][category][slot];
+            xeenValidateCurrentServiceEconomy(depleted);
+        }
 		// Make four L2 entries plus a retained L2 Weapon. This different
 		// complete schedule is valid; exact runtime deletion is tested by Buy.
 		stock.wares[0][0][category][4]={};stock.wares[0][0][0][0]={37,1,0,0};
@@ -298,6 +293,15 @@ void currentDepletion() {
 			category==2?XeenItem{37,1,0,0}:XeenItem{1,16,1,0};
 		rejects([&]{xeenValidateCurrentServiceEconomy(stock);});
 	}
+    auto reversed=emptyShop;reversed.wares[0][0][0][0]={37,1,0,0};reversed.wares[0][0][0][1]={0,1,0,0};
+    rejects([&]{xeenValidateCurrentServiceEconomy(reversed);}); // L1 cannot follow retained L2.
+    auto excessL1=emptyShop;
+    for(unsigned slot=0;slot<6;++slot)for(unsigned category:{0u,1u})excessL1.wares[0][0][category][slot]={0,1,0,0};
+    for(unsigned slot=0;slot<4;++slot)excessL1.wares[0][0][3][slot]={1,1,1,0};
+    rejects([&]{xeenValidateCurrentServiceEconomy(excessL1);}); // Sixteen retained L1 records.
+    auto excessL2=emptyShop;
+    for(unsigned slot=0;slot<3;++slot)for(unsigned category:{1u,2u})excessL2.wares[0][0][category][slot]={37,1,0,0};
+    rejects([&]{xeenValidateCurrentServiceEconomy(excessL2);}); // Six aggregate L2 records.
 	for(unsigned field=0;field<4;++field) {
 		auto broken=emptyShop;auto &tail=broken.wares[0][0][0][8];
 		if(field==0)tail.material=1;else if(field==1)tail.id=1;else if(field==2)tail.state=1;else tail.frame=1;

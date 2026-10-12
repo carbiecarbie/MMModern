@@ -621,6 +621,25 @@ bool XeenEncounterFlow::configureQuickFight(const Ticket &entry,std::size_t acti
     if(!current(entry) || _busy || !_combat)return false;
     const auto result=_combat->configureQuickFight(*entry.combat,active);return acceptCombatResult(result);
 }
+bool XeenEncounterFlow::journeyDiscard(const Ticket &entry,std::size_t active,XeenInventoryCategory category,
+        std::size_t slot,const XeenItem &record) {
+    if(!journeyMutable() || !_boundary.preparationReady() || !current(entry) || !journeyCapacity() || active>=_party.party.size())return false;
+    BusyJourney busy(_busy);_journeyPreimage->check();
+    const auto owner=_party.party.activeRosterIds()[active];
+    auto *items=xeenInventoryItems(_party.roster.at(owner),category);
+    if(!items || slot>=9 || !xeenSameItem((*items)[slot],record))return false;
+    const auto after=xeenDiscardItems(*items,slot);if(!after)return false;
+    auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
+    prepared->retainResources(*_journeyPreimage);
+    *xeenInventoryItems(prepared->characters[owner],category)=*after;
+    xeenValidateCompletedEquipment(prepared->characters[owner]);
+    XeenCharacterRules::validateForUse(prepared->characters[owner],{_party.encounterContext->year});
+    _journeyPreimage->check();
+    *items=*after;++_generation;
+    _world._sessionState._journeyActivity=XeenJourneyActivity::Presentation;
+    prepared->adoptJourneyCoordination();_journeyPreimage.swap(prepared);
+    return true;
+}
 XeenEquipmentResult XeenEncounterFlow::journeyEquipment(const Ticket &entry, std::size_t active,
 		XeenInventoryCategory category, std::size_t slot, XeenEquipmentOperation operation) {
 	if (!journeyMutable() || !_boundary.preparationReady() || !current(entry) || !journeyCapacity()) return {};

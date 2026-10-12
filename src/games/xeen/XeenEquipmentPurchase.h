@@ -29,7 +29,7 @@ struct XeenEquipmentPurchaseCandidate {
 static_assert(std::is_nothrow_copy_assignable_v<XeenEquipmentPurchaseResult> &&
     std::is_nothrow_copy_constructible_v<XeenEquipmentPurchaseResult> &&
     std::is_nothrow_copy_assignable_v<XeenEquipmentPurchaseCandidate>);
-// Plain ordinary equipment only. Displaying a raw record does not admit it.
+// Ironworks stock in all four categories; prices share the service rule.
 bool xeenSupportedEquipmentOffer(unsigned side,unsigned shop,XeenInventoryCategory,const XeenItem &) noexcept;
 std::optional<std::uint32_t> xeenEquipmentPurchasePrice(XeenInventoryCategory,const XeenItem &) noexcept;
 XeenEquipmentPurchaseResult xeenQuoteEquipmentPurchase(const XeenPartyState &,std::size_t member,

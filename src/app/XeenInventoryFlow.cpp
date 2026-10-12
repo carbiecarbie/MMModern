@@ -23,6 +23,7 @@ void XeenEventFlow::advanceInventoryEpoch() noexcept {
 		_certificateLease = 0;
 	}
 	_equipmentSelection.reset();
+	_discardConfirm=false;_discardPrompt.clear();
 	if (_inventoryEpoch != std::numeric_limits<std::uint64_t>::max()) ++_inventoryEpoch;
 	else _inventory = {}; // Exhausted generations can never arm again.
 }
@@ -244,6 +245,20 @@ IndexedFrame XeenEventFlow::handleInventory(const PlayerAction &action) {
   else if(std::holds_alternative<CancelInteractionAction>(action)) key=InputKey::Escape;
   else if(std::holds_alternative<EquipmentInventoryAction>(action)) key='e';
   else if(std::holds_alternative<UseItemAction>(action)) key='u';
+  else if(std::holds_alternative<YesAction>(action)) key='y';
+  else if(std::holds_alternative<NoAction>(action)) key='n';
+  if(_discardConfirm) {
+   const auto answer=xeenConfirmAnswer(key);if(!answer)return _frame;
+   const auto certificate=_equipmentSelection;
+   const bool valid=certificate && validEquipmentSelection(*certificate);
+   advanceInventoryEpoch();
+   if(*answer && valid && journey()) {
+    _encounter->journeyDiscard(_encounter->ticket(),certificate->sourceActiveIndex,certificate->category,
+      certificate->physicalSlot,certificate->selectedRecord);
+   }
+   _inventory.slot.reset();_inventory.record={};
+   refreshScene(true,OrdinaryCause::None);return _frame;
+  }
   if(_inventory.mode==Mode::UseTarget) {
    if(key>=InputKey::F1 && key<InputKey::F1+6 && key-InputKey::F1>=_party.party.size()) return _frame;
    if((key>=InputKey::F1 && key<InputKey::F1+6) || key==InputKey::Escape) {

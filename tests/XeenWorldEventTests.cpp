@@ -22,6 +22,7 @@ struct Fixture : training_test::Fixture {
   training_test::Fixture(in,source,animated,city,{},{},[&in](auto &f,auto portrait,auto phase){in.assets.drawNpc(f,portrait,phase);}) {
   flow->loadRestDream=[]{return frame();};
   flow->drawGuildArt=[&in](auto &image){in.assets.drawGuild(image);};
+  flow->drawSmithArt=[&in](auto &image){in.assets.drawSmith(image);};
   flow->drawTavernArt=[&in](auto &image){in.assets.drawTavern(image);};
   flow->tavernFoodOffer=[&in]{return in.assets.tavernFoodOffer();};
  }
@@ -694,11 +695,37 @@ void originalJourney(Inputs &in) {
  stage="New Game crate";walk(f,9,28);
  check(f.w.effectiveObject({28,8}).resourceId==95 && f.w.effectiveObject({28,8}).x==-128 &&
   f.w.effectiveObject({28,8}).y==-128,"Original open-crate overlay source differs");
- const auto items=itemCount(f.p);interact(f,true);
+ const auto beforeLoot=f.snapshot();const auto items=itemCount(f.p);interact(f,true);
  check(itemCount(f.p)==items+1 && f.w.effectiveObject({28,8}).x==9 && f.w.effectiveObject({28,8}).y==28,
   "Original crate did not deliver item/reveal open appearance");
  const auto opened=XeenSaveFormat::encode(f.snapshot());interact(f);
  check(opened==XeenSaveFormat::encode(f.snapshot()),"Repeated crate changed inventory/RNG");
+ stage="M61 earned crate Identify and Sell";
+ unsigned lootMember=6,lootCategory=0,lootSlot=0;
+ for(unsigned member=0;member<f.p.party.size();++member)for(unsigned category=0;category<4;++category) {
+  const auto owner=f.p.party.activeRosterIds()[member];
+  const auto &old=*xeenInventoryItems(beforeLoot.characters[owner],XeenInventoryCategory(category));
+  const auto &current=*xeenInventoryItems(f.p.roster.at(owner),XeenInventoryCategory(category));
+  for(unsigned slot=0;slot<9;++slot)if(!old[slot].id && current[slot].id){lootMember=member;lootCategory=category;lootSlot=slot;}
+ }
+ check(lootMember<6,"Earned crate item was not found in inventory");
+ const auto lootOwner=f.p.party.activeRosterIds()[lootMember];
+ const auto loot=(*xeenInventoryItems(f.p.roster.at(lootOwner),XeenInventoryCategory(lootCategory)))[lootSlot];
+ walk(f,8,4);face(f,XeenDirection::West);f.act(InteractionAction{});f.prepare();
+ const auto serviceGold=std::uint32_t(f.p.monsterTreasure->gold);
+ const auto serviceMinutes=f.p.encounterContext->minutes;
+ const auto identifyPrice=*xeenItemPrice(XeenInventoryCategory(lootCategory),loot,XeenItemService::Identify);
+ const auto sellPrice=*xeenItemPrice(XeenInventoryCategory(lootCategory),loot,XeenItemService::Sell,f.p.roster.at(lootOwner).skills[8]);
+ f.act(DialogKeyAction{'b'});f.act(SelectMemberAction{lootMember});
+ constexpr unsigned tabs[]{'w','a','c','m'};f.act(DialogKeyAction{tabs[lootCategory]});f.act(DialogKeyAction{'i'});
+ f.act(SelectInventorySlotAction{lootSlot});f.act(YesAction{});
+ check(f.flow->inputContext(f.flow->frame().presentation()).dialog->anyKey &&
+  f.p.monsterTreasure->gold==serviceGold-identifyPrice &&
+  xeenSameItem((*xeenInventoryItems(f.p.roster.at(lootOwner),XeenInventoryCategory(lootCategory)))[lootSlot],loot),"Earned loot Identify changed bytes or lost detail/payment");
+ f.act(AcknowledgeAction{});f.act(DialogKeyAction{'s'});f.act(SelectInventorySlotAction{lootSlot});f.act(YesAction{});
+ check(f.p.monsterTreasure->gold==serviceGold-identifyPrice+sellPrice && f.p.encounterContext->minutes==serviceMinutes,"Earned loot Sell credit or transaction timing differs");
+ for(unsigned n=0;n<100 && !f.flow->canSave();++n)f.act(CancelInteractionAction{});
+ check(f.flow->canSave(),"Earned loot Ironworks departure did not settle");
  f.act(RestAction{});settle(f);
  walk(f,8,18);interact(f);walk(f,11,18);face(f,XeenDirection::West);interact(f);
  walk(f,14,17);interact(f,true);check(bool(f.w.sessionState().headCache()),"Well did not retain HED cache");
