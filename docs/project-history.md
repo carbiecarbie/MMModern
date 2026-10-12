@@ -233,3 +233,11 @@ overrides; Part A's explained M44 digest update was approved, and Part B and the
 sparkle correction left the digests unchanged. Both parts and the corrected
 feedback were accepted after maintainer play-testing on 2026-10-11.
 [Plan](milestone-59-plan.md).
+
+**M60 - Magic** (`e7e7a62`, `6bc4779`). The original Cast dialog and New list
+replace the project screens, and the Guild sells and describes Vertigo's 18
+spells to members at the original prices. Eight new spells work through shared
+projectile and casting rules: Wizard Eye, Shrapmetal, Energy Blast, Jump, Cure
+Wounds, Flying Fist, Revitalize and Pain. Original program analysis settled
+spell resistance and Pain. Jump refuses unimplemented terrain hazards. Save v11
+unchanged. [Plan](milestone-60-plan.md).

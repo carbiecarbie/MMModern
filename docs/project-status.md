@@ -1,12 +1,11 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M59 is the latest completed
-and accepted whole milestone** ([plan](milestone-59-plan.md)): display cases, jail,
-the well, city searches, Vern's guild membership and Guild entry work.
-**M60 Part A is completed and accepted** ([plan](milestone-60-plan.md)): original
-Cast/New, Guild purchases and Spell Info, and shared spell rules are playable.
-Part B's eight effects and shared projectile/arrival integration remain pending.
-M58 ([plan](milestone-58-plan.md)) added teachers, skills and Cartography for
+This describes what can be played and done now. **M60 is the latest completed
+and accepted milestone** ([plan](milestone-60-plan.md)): the original Cast dialog,
+Guild spell purchases and Spell Info, and eight new spells (Wizard Eye,
+Shrapmetal, Energy Blast, Jump, Cure Wounds, Flying Fist, Revitalize, Pain).
+M59 ([plan](milestone-59-plan.md)) made display cases, jail, the well, city
+searches, Vern's guild membership and Guild entry work. M58 ([plan](milestone-58-plan.md)) added teachers, skills and Cartography for
 the original automap and Map. M57 added shared Event rewards and object changes;
 M56 added Tavern food and Bank transfers.
 The original title, save slots, main screen, character dialogs, Rest and combat
@@ -54,8 +53,14 @@ the automated scenarios use it.
 - **Run** is per member. Remaining members keep fighting. If the whole party
   leaves, it is moved to the original fixed destination `(10,12)` with its
   facing unchanged. Survivors keep their wounds and can be met again.
-- **Magic** uses the characters' learned books. In exploration, First Aid and
-  Awaken can be cast. In combat, Magic Arrow, First Aid and Awaken work.
+- **Magic** uses the characters' learned books. Awaken, First Aid, Cure Wounds,
+  Revitalize, Magic Arrow, Flying Fist, Energy Blast, Shrapmetal and Pain work
+  in exploration and combat; Wizard Eye and Jump in exploration. Missiles fly
+  forward to the first reachable monsters, with the original magic resistance
+  and saving throws. Wizard Eye shows the surroundings on the automap without
+  marking them explored, until the next temporary-effect reset (Rest, dawn).
+  Jump moves two cells forward; destinations on space, lava, sky, cloud or
+  desert, or outside the walkable area, say "not supported yet" for now.
   Cast uses the original dialog: C casts, N opens the ten-row New list, and
   Escape backs out. F1-F6 or portraits switch caster in exploration; combat
   keeps the acting caster. New's saved selection is shared with Quick Fight.
@@ -350,8 +355,10 @@ instructions are in [dependencies](dependencies.md).
 - **Missing services.** Inn/recruitment is not available; the Temple handles
   only the modeled conditions.
 - **Items and magic.** There is no general item use. Item effects, most spells
-  and most monster abilities are missing; Light and other learned spells are
-  visible but cannot be cast. Mainland fountains and the magic mirror remain
+  and most monster abilities are missing; Light, Sleep, Insect Spray, Protection
+  from Elements, Sparks, Toxic Cloud and Suppress Poison can be bought but say
+  "not supported yet" when cast. Terrain hazards on arrival (space, lava, sky,
+  cloud, desert) are not implemented. Mainland fountains and the magic mirror remain
   unsupported. Locked-chest lock/trap/XP mechanics are deferred; Vertigo CD's
   searchable objects use the crate, case, bed and rubbish mechanics.
 - **Presentation.** Service art is static (no animated shopkeepers). There is

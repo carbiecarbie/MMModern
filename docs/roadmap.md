@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M59 is the latest completed and accepted milestone.**
+**M60 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -27,7 +27,8 @@ Quick Fight). M56 added Tavern food and Bank transfers, with generic terminal
 Event-to-Service handoff for supported preludes. M57 added generic Event effects
 (moving objects, XP, awards, flags, currency and generated treasure), and M58
 skills and mapping (teachers, Cartography, automap and Map). M59 completed city
-searches, display cases and jail, the well, Vern's membership and Guild entry.
+searches, display cases and jail, the well, Vern's membership and Guild entry,
+and M60 the original Cast dialog, Guild spells and eight new spell effects.
 
 ## Next milestones: closing Vertigo for a first public release
 
@@ -60,10 +61,10 @@ still needs its own plan and the maintainer's start.
    and head/world-flag state support display cases, jail and the well; city
    searches, Vern and Guild entry work through the shared owners. Guild spell
    actions remain deferred to step 6.
-6. **Magic** (Tier A): the original Cast dialog by mouse and keyboard, guild
-   spell purchase with the original catalogue, and four new effects (Wizard
-   Eye, Shrapmetal, Energy Blast, Jump); unimplemented spells say "not
-   supported yet".
+6. **Magic** (Tier A): completed and accepted in [M60](milestone-60-plan.md).
+   Original Cast and Guild Buy/Info, and Wizard Eye, Shrapmetal, Energy Blast,
+   Jump, Cure Wounds, Flying Fist, Revitalize and Pain; other spells stay
+   purchasable and say "not supported yet".
 7. **Items needed for the loot** (reduced): Identify, Sell and Use outside
    combat for the items Vertigo actually yields.
 8. **Closure and release**: the whole Vertigo route from New Game with
