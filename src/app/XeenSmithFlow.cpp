@@ -64,6 +64,26 @@ void XeenEncounterFlow::buyFood() {
  prepared->adoptJourneyCoordination();_journeyPreimage.swap(prepared);
  checkSmithBoundary(XeenSmithBoundary::AfterPurchase);
 }
+bool XeenEncounterFlow::buySpell(std::size_t member,std::size_t slot) {
+ if(!_smith || _smith->serviceAction!=2 || _smith->departed || _smith->frame || _busy || !smithCapacity(19,4))
+  throw std::logic_error("Spell purchase authority unavailable");
+ SmithBusy busy(_busy);_journeyPreimage->check();checkSmithReservation();
+ if(member>=_party.party.size() || !xeenVertigoGuildMember(_party,member))return false;
+ const auto owner=_party.party.activeRosterIds()[member];const auto &c=_party.roster.at(owner);
+ const auto rows=XeenLearnedSpellRules::rows(c,true);
+ if(std::find(rows.begin(),rows.end(),slot)==rows.end())return false;
+ const auto id=*XeenLearnedSpellRules::spellForSlot(*XeenLearnedSpellRules::categoryForClass(c.characterClass),slot);
+ const auto price=XeenLearnedSpellRules::purchasePrice(id,c.characterClass);
+ if(_party.monsterTreasure->gold<price)return false;
+ const auto after=_party.monsterTreasure->gold-price;
+ auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
+ prepared->retainResources(*_journeyPreimage);prepared->treasure->gold=after;prepared->characters[owner].learnedSpells->at(slot)=1;
+ checkSmithBoundary(XeenSmithBoundary::BeforePurchase);checkSmithReservation();
+ _party.monsterTreasure->gold=after;_party.roster.at(owner).learnedSpells->at(slot)=1;
+ _smith->published=true;++_world._sessionState._journeyGeneration;++_generation;
+ prepared->adoptJourneyCoordination();_journeyPreimage.swap(prepared);
+ checkSmithBoundary(XeenSmithBoundary::AfterPurchase);return true;
+}
 void XeenEncounterFlow::transferBank(bool withdrawal,bool gems,std::uint64_t amount) {
  if(!_smith || _smith->serviceAction!=0 || _smith->departed || _smith->frame || _busy || !smithCapacity(19,4) ||
     !xeenSmithAuthorityRoom(_smith->reservation,1))throw std::logic_error("Bank transfer authority unavailable");
@@ -561,8 +581,8 @@ std::shared_ptr<const DialogInput> XeenEventFlow::serviceDialogInput() const {
             input.keys={InputKey::Escape,InputKey::Enter,8,127};input.textEntry=true;
         }
         else if(ui.phase==SmithUi::Phase::Currency) input=xeenBankInput();
-        else if(ui.phase==SmithUi::Phase::Confirm) input=ui.mode==SmithUi::Mode::Food?xeenFoodConfirmInput():xeenConfirmInput();
-        else if(ui.phase==SmithUi::Phase::Browse) input=xeenBuyInput(ui.mode==SmithUi::Mode::Repair);
+        else if(ui.phase==SmithUi::Phase::Confirm) input=ui.mode==SmithUi::Mode::Guild?xeenSpellConfirmInput(ui.spellInfo):ui.mode==SmithUi::Mode::Food?xeenFoodConfirmInput():xeenConfirmInput();
+        else if(ui.phase==SmithUi::Phase::Browse) input=ui.mode==SmithUi::Mode::Guild?xeenSpellListInput(false):xeenBuyInput(ui.mode==SmithUi::Mode::Repair);
         else input=xeenLocationInput(ui.mode==SmithUi::Mode::Guild?XeenLocationDialog::Guild:ui.mode==SmithUi::Mode::Food?XeenLocationDialog::Tavern:ui.mode==SmithUi::Mode::Bank?XeenLocationDialog::Bank:ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith);
         if(!ui.feedback.empty() && ui.phase!=SmithUi::Phase::Departure) {input={};input.anyKey=input.anyClick=true;}
     } else return {};
@@ -571,7 +591,16 @@ std::shared_ptr<const DialogInput> XeenEventFlow::serviceDialogInput() const {
 std::string XeenEventFlow::smithText() const {
     const auto &ui=*_smithUi;
     if(!ui.feedback.empty()) return ui.feedback;
-    if(ui.mode==SmithUi::Mode::Guild) return xeenLocationText(dosText(),XeenLocationDialog::Guild,_party,ui.member);
+    if(ui.mode==SmithUi::Mode::Guild) {
+        if(ui.phase==SmithUi::Phase::Confirm) {
+            const auto &c=_party.party.member(_party.roster,ui.member);
+            const auto id=*XeenLearnedSpellRules::spellForSlot(*XeenLearnedSpellRules::categoryForClass(c.characterClass),ui.slot);
+            const auto &name=_encounter->journeySavePreimage().learnedNames->names[id];
+            return ui.spellInfo?xeenDialogFormat(dosText().scalar("SPELL_INFO"),{name,ui.descriptions.at(id)}):
+                xeenDialogFormat(dosText().scalar("SPELL_PURCHASE"),{ui.descriptions.at(id),name,std::to_string(XeenLearnedSpellRules::purchasePrice(id,c.characterClass))});
+        }
+        return xeenLocationText(dosText(),XeenLocationDialog::Guild,_party,ui.member);
+    }
     if(ui.mode==SmithUi::Mode::Food) return ui.phase==SmithUi::Phase::Confirm?ui.foodOffer:xeenLocationText(dosText(),XeenLocationDialog::Tavern,_party,ui.member);
     if(ui.mode==SmithUi::Mode::Bank) return ui.phase==SmithUi::Phase::Currency || ui.phase==SmithUi::Phase::Amount?
         xeenBankText(dosText(),_party,ui.withdrawal,ui.bankRefreshed):xeenLocationText(dosText(),XeenLocationDialog::Bank,_party,ui.member);
@@ -588,7 +617,12 @@ IndexedFrame XeenEventFlow::drawSmith(const IndexedFrame &world) const {
     const auto &ui=*_smithUi;
     auto frame=drawXeenLocation(dosText(),world,ui.art,_inventoryFont,
         ui.mode==SmithUi::Mode::Guild?XeenLocationDialog::Guild:ui.mode==SmithUi::Mode::Food?XeenLocationDialog::Tavern:ui.mode==SmithUi::Mode::Bank?XeenLocationDialog::Bank:ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith,_party,ui.member,drawDialogSprite);
-    if(ui.mode==SmithUi::Mode::Food && ui.phase==SmithUi::Phase::Confirm) {
+    if(ui.mode==SmithUi::Mode::Guild && (ui.phase==SmithUi::Phase::Browse || ui.phase==SmithUi::Phase::Confirm)) {
+        frame=drawXeenSpellList(dosText(),frame,_inventoryFont,_party.party.member(_party.roster,ui.member),
+            *_encounter->journeySavePreimage().learnedNames,ui.spells,_party.monsterTreasure->gold,true,ui.spellInfo,drawDialogSprite,_party.encounterContext->year);
+        if(ui.phase==SmithUi::Phase::Confirm)frame=drawXeenSpellConfirm(frame,_inventoryFont,smithText(),ui.spellInfo,drawDialogSprite);
+    }
+    else if(ui.mode==SmithUi::Mode::Food && ui.phase==SmithUi::Phase::Confirm) {
         frame=world;
         for(int y=8;y<140;++y)std::copy_n(ui.art.pixels.data()+y*320+8,216,frame.pixels.data()+y*320+8);
         frame=drawXeenFoodOffer(frame,_inventoryFont,ui.foodOffer,drawDialogSprite);
@@ -754,8 +788,14 @@ IndexedFrame XeenEventFlow::handleFoodBank(const PlayerAction &action,std::uint6
             else if((food || guild) && key>=InputKey::F1 && key<InputKey::F1+_party.party.size())ui.member=key-InputKey::F1;
             else if(guild) {
                 if(xeenVertigoGuildMember(_party,ui.member)) {
-                    if(key=='b')ui.feedback="Buy Spells: not supported yet";
-                    else if(key=='s')ui.feedback="Spell Info: not supported yet";
+                    if(key=='b' && !_party.party.member(_party.roster,ui.member).canAct())ui.feedback=xeenDialogFormat(dosText().scalar("IN_NO_CONDITION"),{_party.party.member(_party.roster,ui.member).name});
+                    if(key=='s' || (key=='b' && _party.party.member(_party.roster,ui.member).canAct())) {
+                        if(ui.descriptions.empty()) {
+                            if(!loadSpellDescriptions)throw std::runtime_error("Missing spell descriptions provider");
+                            ui.descriptions=xeenSpellDescriptions(loadSpellDescriptions());
+                        }
+                        ui.spellInfo=key=='s';ui.spells={};ui.phase=SmithUi::Phase::Browse;
+                    }
                 }
             }
             else if(food) {
@@ -766,6 +806,26 @@ IndexedFrame XeenEventFlow::handleFoodBank(const PlayerAction &action,std::uint6
                 else if(key=='s')ui.feedback="Sign In: not supported yet";
             } else if(key=='d' || key=='w') {
                 ui.withdrawal=key=='w';ui.bankRefreshed=false;ui.phase=SmithUi::Phase::Currency;
+            }
+        } else if(guild && ui.phase==SmithUi::Phase::Browse) {
+            if(key==InputKey::Escape)ui.phase=SmithUi::Phase::Lobby;
+            else if(key>=InputKey::F1 && key<InputKey::F1+_party.party.size()) {
+                ui.member=key-InputKey::F1;
+                if(!xeenVertigoGuildMember(_party,ui.member))ui.phase=SmithUi::Phase::Lobby;
+            } else {
+                const auto &c=_party.party.member(_party.roster,ui.member);
+                const auto rows=XeenLearnedSpellRules::rows(c,true,ui.spellInfo);ui.spells.scroll(key,rows.size());
+                if(const auto row=ui.spells.row(key,rows.size())) {
+                    ui.slot=rows[*row];ui.phase=SmithUi::Phase::Confirm;_encounter->_smith->published=false;
+                }
+            }
+        } else if(guild && ui.phase==SmithUi::Phase::Confirm) {
+            if(ui.spellInfo)ui.phase=SmithUi::Phase::Browse;
+            else if(const auto answer=xeenConfirmAnswer(key)) {
+                if(*answer) {
+                    if(!_encounter->buySpell(ui.member,ui.slot))ui.feedback=xeenNotEnoughGold(dosText());
+                }
+                ui.phase=SmithUi::Phase::Browse;
             }
         } else if(ui.phase==SmithUi::Phase::Confirm) {
             const auto answer=xeenConfirmAnswer(key);
@@ -812,6 +872,7 @@ IndexedFrame XeenEventFlow::handleFoodBank(const PlayerAction &action,std::uint6
         }
     } catch(const std::exception &) {
         _encounter->journeySavePreimage().check();if(!_encounter->_smith)throw;
+        if(guild && ui.phase==SmithUi::Phase::Confirm && _encounter->_smith->published)ui.phase=SmithUi::Phase::Browse;
         ui.feedback=ui.phase==SmithUi::Phase::Departure?"Service departure failed. Escape: retry.":"Service action could not finish. Continue.";
     }
     if(ui.revision!=UINT64_MAX)++ui.revision;

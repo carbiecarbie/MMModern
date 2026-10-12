@@ -9,7 +9,7 @@ int main(){try{
  for(bool quitFirst:{false,true}){
   fs::remove(path);regional_save_test::Fixture f;
   f.saved.camera={23,8,2,XeenDirection::North};XeenSaveFile::write(path,f.saved);
-  auto services=f.services();regional_save_test::phirna(services);unsigned saves=0,refused=0;bool titleSeen=false;
+  auto services=f.services();regional_save_test::phirna(services);unsigned saves=0,refused=0,blockedKeys=0;bool titleSeen=false;
   services.show=[&](const auto &first,const auto &handle,const auto &escape,const auto &idle,const auto &status){
    const std::vector<std::pair<SDL_Keycode,Uint8>> steps{{SDLK_F9,1},{SDLK_F9,0},{SDLK_SPACE,0},{SDLK_F9,0},{SDLK_F9,1},{SDLK_9,0},{SDLK_F9,0},{SDLK_ESCAPE,0},{SDLK_F9,0}};
    std::size_t step=0;unsigned cycles=0;bool quitSent=false;
@@ -33,7 +33,9 @@ int main(){try{
     // produce a key. A new upload is acquired before another loop attempts it.
     if(next || quitSent || !handle.inputContext(presented).readyForAction)return next;
     if(!quitFirst && step<steps.size()){
-     const auto key=steps[step++];SDL_Event event{};event.type=SDL_KEYDOWN;event.key.keysym.sym=key.first;event.key.repeat=key.second;push(event);
+     const auto key=steps[step++];
+     if(key.first==SDLK_F9 && !key.second && f.flow->blocksGameplay())++blockedKeys;
+     SDL_Event event{};event.type=SDL_KEYDOWN;event.key.keysym.sym=key.first;event.key.repeat=key.second;push(event);
      if(!key.second){event.type=SDL_KEYUP;push(event);}
     }else{
      quitSent=true;SDL_Event quit{};quit.type=SDL_QUIT;push(quit);
@@ -44,7 +46,7 @@ int main(){try{
    check(quitSent,"SDL quit was not sent");return result;
   };
   check(Application().playGameplay(services,{},path,true)==0,"SDL Application failed");
-  check(saves==(quitFirst?0U:2U)&&refused==(quitFirst?0U:2U),"F9 repeats/quit ordering");
+  check(saves==(quitFirst?0U:2U)&&!refused&&blockedKeys==(quitFirst?0U:2U),"F9 repeats/quit ordering or strict WhoWill input suppression");
   sameSnapshot(f.saved,XeenSaveFile::read(path));
   if(!quitFirst){check(titleSeen,"native window title not updated");check(XeenSaveFile::read(path).questItems[17]==0,"SDL save changed gameplay");}
  }

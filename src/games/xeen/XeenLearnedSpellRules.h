@@ -32,6 +32,8 @@ struct XeenLearnedSpellNames {
 };
 
 enum class XeenQuickSpellCheck { Supported, NoSpell, InsufficientSp, InsufficientGems, CombatForbidden, Unsupported };
+enum class XeenSpellTarget { Party, Member, Contact, Unsupported };
+struct XeenSpellCost { unsigned sp=0, gems=0; };
 class XeenLearnedSpellRules {
 public:
 	static std::optional<XeenSpellCategory> categoryForClass(XeenCharacterClass) noexcept;
@@ -39,6 +41,12 @@ public:
 	static std::optional<XeenLearnedSpell> supported(std::uint8_t) noexcept;
 	static std::optional<XeenLearnedSpell> supportedIn(std::uint8_t, bool combat) noexcept;
 	static unsigned cost(XeenLearnedSpell) noexcept;
+	static XeenSpellCost cost(std::uint8_t id, unsigned level) noexcept;
+	static std::optional<std::size_t> slotForSpell(XeenSpellCategory,std::uint8_t) noexcept;
+	static std::uint32_t purchasePrice(std::uint8_t,XeenCharacterClass) noexcept;
+	static std::vector<std::size_t> rows(const XeenCharacter &,bool guild=false,bool info=false);
+	static XeenQuickSpellCheck check(const XeenCharacter &,std::size_t slot,std::uint32_t gems,bool combat) noexcept;
+	static XeenSpellTarget target(std::uint8_t) noexcept;
 	static XeenQuickSpellCheck quickSpellCheck(const XeenCharacter &,std::uint32_t gems) noexcept;
 	static bool known(const XeenCharacter &, std::size_t) noexcept;
 	static bool eligible(const XeenPartyState &, std::size_t activeIndex, std::size_t slot, bool combat=false) noexcept;

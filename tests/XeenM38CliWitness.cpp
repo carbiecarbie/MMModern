@@ -208,6 +208,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   const auto browseRepair=[&]{action(DialogKeyAction{'b'});action(DialogKeyAction{'a'});action(DialogKeyAction{'f'});};
   const auto settleStep=[&]{
    if(flow->canSave())return true;
+   if(flow->encounter()->castingCommitted()) {
+    const auto context=handler.inputContext(presented);
+    if(context.dialog && context.dialog->anyKey){act(AcknowledgeAction{});return false;}
+   }
    if(const auto *combat=flow->encounter()->combat()) {
     check(combat->phase()!=XeenCombatPhase::Failed && combat->phase()!=XeenCombatPhase::Defeat &&
      combat->phase()!=XeenCombatPhase::SupportStopped,"M38 combat support stop");
@@ -293,8 +297,8 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    route("LLULUU");action(InteractionAction{});action(YesAction{});settle();
    route("URULUUULUUU");
    for(unsigned i=0;i<2;++i) {
-    action(CastSpellAction{});action(SelectMemberAction{4});action(NavigationAction::MoveBackward);
-    action(AcknowledgeAction{});action(AcknowledgeAction{});action(SelectMemberAction{5});settle();
+    action(CastSpellAction{});action(SelectMemberAction{4});action(DialogKeyAction{'n'});action(DialogKeyAction{'2'});
+    action(DialogKeyAction{'s'});action(DialogKeyAction{'c'});action(SelectMemberAction{5});settle();
    }
    inspect([&]{std::cout<<"M49 FIRST AID HP="<<party->roster.at(6).currentHp<<" SP="<<party->roster.at(1).currentSp<<" minute="<<party->encounterContext->minutes<<" RNG="<<world->sessionState().journeyRandom()->state<<":"<<world->sessionState().journeyRandom()->count<<'\n';
     check(party->roster.at(6).currentHp==1 && party->roster.at(1).currentSp==18 &&

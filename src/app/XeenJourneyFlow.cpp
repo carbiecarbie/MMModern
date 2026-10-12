@@ -606,9 +606,16 @@ bool XeenEncounterFlow::journeyExchange(const Ticket &entry,std::size_t from,std
     }catch(...) {closeJourney();throw;}
 }
 bool XeenEncounterFlow::rememberSpell(const Ticket &entry,std::size_t active,unsigned slot) {
-    if(!current(entry) || _busy || _combat || !_casting || _casting->committed || active>=6 || slot>=39 || !journeyCapacity())return false;
+    if(!current(entry) || _busy || _combat || !_casting || _casting->committed || active>=_party.party.size() || slot>=39 || !journeyCapacity())return false;
     const auto owner=_casting->owners[active];if(!XeenLearnedSpellRules::known(_party.roster.at(owner),slot))return false;
-    _journeyPreimage->check();_party.roster.at(owner).currentSpell=slot;++_generation;retainJourney();return true;
+    BusyJourney busy(_busy);_journeyPreimage->check();
+    auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
+    prepared->retainResources(*_journeyPreimage);prepared->characters[owner].currentSpell=slot;
+    _journeyPreimage->check();
+    _party.roster.at(owner).currentSpell=slot;++_generation;
+    prepared->adoptJourneyCoordination();_journeyPreimage.swap(prepared);
+    if(_journeyCapture)_journeyCapture->generation=_boundary.generation();
+    return true;
 }
 bool XeenEncounterFlow::configureQuickFight(const Ticket &entry,std::size_t active) {
     if(!current(entry) || _busy || !_combat)return false;

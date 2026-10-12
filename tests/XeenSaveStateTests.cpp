@@ -1,5 +1,6 @@
 #include "XeenRegionalTestSupport.h"
 #include "XeenSaveTestSupport.h"
+#include "XeenDosTextTestSupport.h"
 #include "XeenRemoveTestSupport.h"
 #include "app/XeenEventFlow.h"
 #include "formats/xeen/XeenMapFormat.h"
@@ -214,6 +215,7 @@ void mutationPolicies() {
 		auto textFont = font();
 		XeenEventFlow flow(f.world, events, f.party, f.camera, f.flags, textFont,
 			[&](std::uint64_t) { return XeenEventFlow::Composition{Fixture::compose(f.world, f.party, f.camera, f.flags), false}; });
+		flow.dialogText=&dos_test::text();
 		bool failed = false;
 		flow.reportManual = [&](const auto &r) { failed = std::holds_alternative<XeenEventExecutionError>(r); };
 		flow.handle(InteractionAction{});
@@ -234,6 +236,7 @@ void mutationPolicies() {
 	auto textFont = font();
 	XeenEventFlow flow(moved.world, events, moved.party, moved.camera, moved.flags, textFont,
 		[&](std::uint64_t) { return XeenEventFlow::Composition{Fixture::compose(moved.world, moved.party, moved.camera, moved.flags), false}; });
+	flow.dialogText=&dos_test::text();
 	bool failed = false;
 	flow.reportAutomatic = [&](const auto &r) { failed = std::holds_alternative<XeenEventExecutionError>(r); };
 	flow.handle(NavigationAction::MoveForward);
@@ -250,6 +253,7 @@ void journeyBorrowRefusal() {
 	auto textFont = font();
 	XeenEventFlow flow(f.world, events, f.party, f.camera, f.flags, textFont,
 		[&](std::uint64_t) { return XeenEventFlow::Composition{Fixture::compose(f.world, f.party, f.camera, f.flags), false}; });
+	flow.dialogText=&dos_test::text();
 	auto snapshot = regional_test::snapshot(); snapshot.resources = f.signature;
 	auto resources = f.resources();
 	unsigned encounterReads = 0;

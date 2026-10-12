@@ -184,6 +184,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         const auto combat=[&]{return flow->encounter()->combat();};
         const auto settle=[&]{steps.push_back([&] {
             if(flow->canSave())return true;
+            if(flow->encounter()->castingCommitted()) {
+                const auto context=handler.inputContext(presented);
+                if(context.dialog && context.dialog->anyKey){act(AcknowledgeAction{});return false;}
+            }
             if(const auto c=combat()) {
                 check(c->phase()!=XeenCombatPhase::Failed && c->phase()!=XeenCombatPhase::Defeat && c->phase()!=XeenCombatPhase::SupportStopped,"M42 combat stopped");
                 if(c->phase()==XeenCombatPhase::PlayerReady) {
@@ -276,8 +280,8 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             route("RRRUUURUURRRU");for(unsigned member:{0u,1u,2u,3u,5u}) {action(InteractionAction{});action(SelectMemberAction{member});settle();}
             route("RRUUUU");route("URRRUU");route("UU");route("UURU");route("RRURRRUUUUUUUUURRRU");
             inspect([&]{expect(8,781,870,2762662790u,1060);check(party->roster.combatInputs(18)->experience==3264,"M42 earned XP prefix differs");});
-            action(CastSpellAction{});action(SelectMemberAction{4});action(NavigationAction::MoveBackward);
-            action(AcknowledgeAction{});action(AcknowledgeAction{});action(SelectMemberAction{4});settle();
+            action(CastSpellAction{});action(SelectMemberAction{4});action(DialogKeyAction{'n'});action(DialogKeyAction{'2'});
+            action(DialogKeyAction{'s'});action(DialogKeyAction{'c'});action(SelectMemberAction{4});settle();
             inspect([&]{check(party->roster.at(1).currentHp==15 && party->roster.at(1).currentSp==20,"M42 genuine First Aid differs");cityFight=true;});
             action(InteractionAction{});action(YesAction{});settle();route("UUUU");
             inspect([&]{expect(8,796,870,4226505513u,1073);});route("LUUUUUUU");

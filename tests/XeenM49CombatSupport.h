@@ -2,9 +2,11 @@
 #define MMODERN_TESTS_XEEN_M49_COMBAT_SUPPORT_H
 #include "games/xeen/XeenCombat.h"
 #include "core/PlayerAction.h"
+#include "core/DialogInput.h"
 #include "games/xeen/XeenRegionalRules.h"
 #include "games/xeen/XeenJourneyContent.h"
 #include <queue>
+#include <algorithm>
 namespace m49_combat {
 // Ordinary book/confirmation input only. No mutable gameplay reference escapes.
 inline std::optional<unsigned> knownSlot(const mmodern::XeenCharacter &c,unsigned spell) {
@@ -15,20 +17,27 @@ inline std::optional<unsigned> knownSlot(const mmodern::XeenCharacter &c,unsigne
             mmodern::XeenLearnedSpellRules::spellForSlot(*category,slot)==spell)return slot;
     return {};
 }
-inline std::optional<mmodern::PlayerAction> finishAwaken(const mmodern::XeenCombatCastView &cast,
-        const mmodern::XeenPartyState &party) {
+inline std::optional<mmodern::PlayerAction> finishSpell(const mmodern::XeenCombatCastView &cast,
+        const mmodern::XeenPartyState &party,unsigned spell) {
     using namespace mmodern;
+    const auto slot=knownSlot(party.roster.at(cast.owner),spell);
+    if(!slot)throw std::runtime_error("Witness caster lost learned spell");
     if(cast.phase==XeenCombatCastPhase::Learned) {
-        const auto slot=knownSlot(party.roster.at(cast.owner),1);
-        if(!slot)throw std::runtime_error("Recovery caster lost learned Awaken");
-        if(cast.slot<*slot)return NavigationAction::MoveBackward;
-        if(cast.slot>*slot)return NavigationAction::MoveForward;
-        return AcknowledgeAction{};
+        const auto rows=XeenLearnedSpellRules::rows(party.roster.at(cast.owner));
+        const auto it=std::find(rows.begin(),rows.end(),*slot);
+        if(it==rows.end())throw std::runtime_error("Witness learned row absent");
+        const auto row=std::size_t(it-rows.begin());
+        if(row<cast.top)return DialogKeyAction{InputKey::Up};
+        if(row>=cast.top+10)return DialogKeyAction{InputKey::Down};
+        if(cast.selection!=row)return DialogKeyAction{unsigned(row-cast.top==9?'0':'1'+row-cast.top)};
+        return DialogKeyAction{'s'};
     }
-    if(cast.phase==XeenCombatCastPhase::Confirm || cast.phase==XeenCombatCastPhase::Result)
-        return AcknowledgeAction{};
+    if(cast.phase==XeenCombatCastPhase::Confirm)return DialogKeyAction{unsigned(cast.slot==*slot?'c':'n')};
+    if(cast.phase==XeenCombatCastPhase::Result && cast.result.failed)return AcknowledgeAction{};
     return {};
 }
+inline std::optional<mmodern::PlayerAction> finishAwaken(const mmodern::XeenCombatCastView &cast,
+        const mmodern::XeenPartyState &party) {return finishSpell(cast,party,1);}
 inline bool canAwaken(const mmodern::XeenPartyState &party,int participant) {
     if(participant<0 || participant>=6)return false;
     const auto &c=party.roster.at(mmodern::kXeenCombatOwners[participant]);

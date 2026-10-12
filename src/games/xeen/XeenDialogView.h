@@ -4,6 +4,7 @@
 #include "games/xeen/XeenTextRenderer.h"
 #include "core/DialogInput.h"
 #include "formats/xeen/XeenDosText.h"
+#include "games/xeen/XeenLearnedSpellRules.h"
 #include <functional>
 #include <string_view>
 namespace mmodern {
@@ -20,6 +21,24 @@ std::string xeenDialogFormat(std::string_view,const std::vector<std::string> &);
 DialogInput xeenSheetInput();
 DialogInput xeenExchangeInput();
 DialogInput xeenQuickFightInput();
+struct XeenSpellListUi {
+    std::size_t top=0;
+    std::optional<std::size_t> selection;
+    void scroll(unsigned key,std::size_t count);
+    std::optional<std::size_t> row(unsigned key,std::size_t count) const;
+};
+DialogInput xeenCastInput(bool switchCaster=true);
+DialogInput xeenSpellListInput(bool selecting,bool switchCaster=true);
+DialogInput xeenSpellTargetInput();
+DialogInput xeenSpellConfirmInput(bool info=false);
+IndexedFrame drawXeenCast(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,
+    const XeenCharacter &,std::size_t,const XeenLearnedSpellNames &,const XeenDialogSpriteDraw &);
+IndexedFrame drawXeenSpellList(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,
+    const XeenCharacter &,const XeenLearnedSpellNames &,const XeenSpellListUi &,std::uint32_t gold,
+    bool guild,bool info,const XeenDialogSpriteDraw &,std::uint32_t year=610);
+IndexedFrame drawXeenSpellConfirm(const IndexedFrame &,const XeenFontFormat &,const std::string &,bool info,const XeenDialogSpriteDraw &);
+IndexedFrame drawXeenSpellTarget(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &);
+std::vector<std::string> xeenSpellDescriptions(const std::vector<std::uint8_t> &);
 IndexedFrame drawXeenExchange(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,const XeenDialogSpriteDraw &);
 IndexedFrame drawXeenQuickFight(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,const XeenCharacter &,std::size_t,const XeenDialogSpriteDraw &);
 DialogInput xeenItemsInput(bool misc,bool selection=false);

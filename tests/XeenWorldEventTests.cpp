@@ -4,6 +4,7 @@
 #include "games/xeen/XeenObjectVisual.h"
 #include "games/xeen/XeenStateEquality.h"
 #include <iostream>
+#include <fstream>
 #include <queue>
 #include <set>
 #include <sstream>
@@ -748,12 +749,26 @@ void partBVernGuild(Inputs &in) {
  teacherPrompt(f);check(f.flow->canCancelInteraction(),"Vern WhoWill unavailable");
  auto pending=XeenTrainingTestAccess::serviceState(*f.flow);
  check(pending.pendingPresentation->request.verbIndex==21 && pending.pendingPresentation->request.textIndex==41,"Vern selection text changed");
+ const auto &request=pending.pendingPresentation->request;
+ XeenTextRenderOptions who;who.originalControls=true;who.drawWindow=true;who.stopAtBottom=true;
+ who.bounds={233,82,312,146};who.windowBounds={225,74,320,154};who.x=233;who.y=82;
+ const auto originalWho=XeenTextRenderer(in.font).render(f.flow->frame(),xeenDialogFormat(in.assets.uiText().scalar("WHO_WILL"),
+  {request.text,in.assets.uiText().table("WHO_ACTIONS").at(*request.verbIndex),std::to_string(request.members.size())}),who);
+ check(originalWho.diagnostics.empty() && originalWho.pages.front().pixels==f.flow->frame().pixels,"Vern selection did not use original WhoWill window/text");
+ if(const auto *path=std::getenv("MMODERN_SERVICE_PREVIEW")) {
+  std::ofstream out(std::string(path)+"/guild-who-will.ppm",std::ios::binary);out<<"P6\n320 200\n255\n";
+  const auto palette=in.assets.readArchiveResource("mm4.pal");
+  for(auto pixel:f.flow->frame().pixels)for(unsigned channel=0;channel<3;++channel){const unsigned char c=palette[pixel*3+channel]*4;out.write(reinterpret_cast<const char *>(&c),1);}
+ }
  const auto staleFrame=f.flow->frame().presentation();const auto staleInput=f.flow->displayedInput();
  f.act(NoAction{});check(f.p.monsterTreasure->gold==75 && f.p.roster.at(owner).awards[0]==0,"No charged Vern dues");
- f.act(CancelInteractionAction{});settle(f);check(initial==XeenSaveFormat::encode(f.snapshot()),"Vern cancellation changed state");
+ f.act(DialogKeyAction{InputKey::Escape});settle(f);check(initial==XeenSaveFormat::encode(f.snapshot()),"Vern cancellation changed state");
  f.flow->handle(SelectMemberAction{selected},staleInput,staleFrame);check(initial==XeenSaveFormat::encode(f.snapshot()),"Stale Vern selection charged dues");
  for(unsigned n=1;n<=2;++n) {
-  teacherPrompt(f);f.act(SelectMemberAction{selected});settle(f);
+  teacherPrompt(f);const auto controls=f.flow->inputContext(f.flow->frame().presentation()).dialog;
+  check(controls && controls->hits.size()==6 && controls->key(InputKey::F1+selected),"WhoWill lacks original portrait/keyboard input");
+  const auto choice=n==1?controls->click(118,151):controls->key(InputKey::F1+selected);
+  check(bool(choice),"WhoWill portrait hit absent");f.act(*choice);settle(f);
   check(f.w.scenePresentation().portraits[owner].spellFrame<4,"Vern membership did not sparkle selected portrait");
   check(f.p.monsterTreasure->gold==75-25*n && f.p.roster.at(owner).awards[0]==1,"Vern repeat payment/award differs");
   for(auto id:f.p.party.activeRosterIds())if(id!=owner)check(f.p.roster.at(id).awards[0]==0,"Vern enrolled an unselected owner");
@@ -765,6 +780,15 @@ void partBVernGuild(Inputs &in) {
   check(b.p.monsterTreasure->gold==(gold==25?0:24) && b.p.roster.at(owner).awards[0]==(gold==25),"Vern exact/insufficient gold boundary");
   if(gold==24)check(before==XeenSaveFormat::encode(b.snapshot()),"Insufficient Vern dues changed state");
  }
+ auto disabled=source;disabled.characters[owner].conditions[8]=1;Fixture blocked(in,disabled);
+ const auto unchanged=XeenSaveFormat::encode(blocked.snapshot());teacherPrompt(blocked);
+ blocked.act(DialogKeyAction{InputKey::F1+selected});
+ check(blocked.flow->inputContext(blocked.flow->frame().presentation()).dialog->anyKey && !blocked.flow->canSave(),"Disabled WhoWill selection lacks original refusal modal");
+ check(!blocked.flow->respond(*blocked.flow->presentationGeneration(),SelectedCharacter{0}),"Direct response bypassed WhoWill refusal acknowledgment");
+ blocked.act(DialogKeyAction{InputKey::Escape});
+ check(blocked.flow->canCancelInteraction() && !blocked.flow->canSave() && blocked.flow->inputContext(blocked.flow->frame().presentation()).dialog->key(InputKey::F1),"Refusal acknowledgment cancelled WhoWill or selected a member");
+ blocked.act(DialogKeyAction{InputKey::Escape});settle(blocked);
+ check(unchanged==XeenSaveFormat::encode(blocked.snapshot()),"Disabled WhoWill selection spent time/gold/RNG or enrolled a member");
  // Fail composition at publication; payment and membership must remain one unit.
  Fixture retry(in,source);teacherPrompt(retry);unsigned failures=0;
  XeenCityEventTestAccess::composer(*retry.flow,[&](auto &,const auto &,const auto &,auto,auto){
@@ -793,13 +817,32 @@ void partBVernGuild(Inputs &in) {
  choose(InputKey::F1+selected,true);
  check(text().find("uy Spells")!=std::string::npos && text().find("pell Info")!=std::string::npos && text().find(g.p.roster.at(owner).name)!=std::string::npos,"Guild did not use selected member's award");
  for(unsigned key:{unsigned('b'),unsigned('s')}) {
-  choose(key,key=='s');check(text().find("not supported yet")!=std::string::npos,"Guild deferred action is silent");g.act(AcknowledgeAction{});
+  choose(key,key=='s');check(input()->key('1') && input()->key(InputKey::Escape),"Guild original spell list absent");g.act(CancelInteractionAction{});
  }
  choose(InputKey::F1,false);check(text().find("You have to be a member")!=std::string::npos,"Guild retained previous member's membership");
  choose(InputKey::F1+selected,false);choose(InputKey::Escape,true);
  for(unsigned n=0;n<1000 && !g.flow->canSave();++n){g.act(CancelInteractionAction{});g.flow->beginCycle(++g.cycle);if(auto image=g.flow->updatePresentation())g.present(*image);}
  check(g.flow->canSave() && g.p.monsterTreasure->gold==purse && *g.p.encounterContext==expected.context() && *g.p.serviceEconomy==expected.economy() && *g.w.sessionState().journeyRandom()==expected.continuation(),"Guild departure did not settle exactly once");
  Fixture restored(in,g.snapshot());check(XeenSaveFormat::encode(restored.snapshot())==XeenSaveFormat::encode(g.snapshot()),"Guild membership/day restore is not exact");
+
+ // Original Vern -> Guild input path with a synthetic purse large enough to buy.
+ stage="M60 Vern membership and unsupported purchase";
+ auto funded=source;funded.journey->treasure->gold=1000;const unsigned caster=4,casterOwner=funded.activeRosterIds[caster];
+ Fixture enrollment(in,funded);teacherPrompt(enrollment);enrollment.act(SelectMemberAction{caster});settle(enrollment);
+ check(enrollment.p.roster.at(casterOwner).awards[0]==1 && enrollment.p.monsterTreasure->gold==975,"Vern did not enroll funded caster");
+ auto enrolled=enrollment.snapshot();enrolled.camera={28,20,13,XeenDirection::North};Fixture shop(in,enrolled);shop.act(InteractionAction{});shop.prepare();
+ shop.act(DialogKeyAction{InputKey::F1+caster});shop.act(DialogKeyAction{'b'});
+ const auto offered=XeenLearnedSpellRules::rows(shop.p.roster.at(casterOwner),true);
+ check(!offered.empty(),"original book has no unlearned Guild offers");const auto bought=offered.front();
+ const auto spell=*XeenLearnedSpellRules::spellForSlot(*XeenLearnedSpellRules::categoryForClass(shop.p.roster.at(casterOwner).characterClass),bought);
+ check(!XeenLearnedSpellRules::supported(spell),"original unsupported purchase witness changed");
+ const auto price=XeenLearnedSpellRules::purchasePrice(spell,shop.p.roster.at(casterOwner).characterClass);
+ shop.act(DialogKeyAction{'1'});shop.act(DialogKeyAction{'y'});
+ check(shop.p.roster.at(casterOwner).learnedSpells->at(bought)==1 && shop.p.monsterTreasure->gold==975-price,"original Guild purchase did not learn/debit selected book");
+ shop.act(CancelInteractionAction{});shop.act(CancelInteractionAction{});
+ for(unsigned n=0;n<1000 && !shop.flow->canSave();++n){shop.flow->beginCycle(++shop.cycle);if(auto image=shop.flow->updatePresentation())shop.present(*image);}
+ check(shop.flow->canSave(),"Purchased Guild departure did not settle");
+ Fixture purchased(in,shop.snapshot());check(XeenSaveFormat::encode(purchased.snapshot())==XeenSaveFormat::encode(shop.snapshot()),"purchased unsupported book did not restore exactly");
 }
 void partBSearches(Inputs &in) {
  struct Family {const char *name;unsigned items;bool crates,monster;std::vector<std::pair<int,int>> sites;};

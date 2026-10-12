@@ -171,61 +171,11 @@ bool XeenEventPresenter::hasNpcOffer() const {
 
 XeenTextRenderResult XeenEventPresenter::drawSelection(const IndexedFrame &base,
 		const XeenPresentationRequest &request) const {
-	if(request.layoutValue==36) {
-		XeenTextRenderOptions options;
-		options.bounds={233,82,312,146};options.windowBounds={225,74,320,154};
-		options.x=233;options.y=82;options.drawWindow=true;
-		return _renderer.render(base,request.text,options);
-	}
-	static constexpr const char *verbs[] = {
-		"search", "open", "drink", "mine", "touch", "read", "learn", "take",
-		"bang", "steal", "bribe", "pay", "sit", "try", "turn", "bathe",
-		"destroy", "pull", "descend", "toss a coin", "pray", "join", "act", "play",
-		"push", "rub", "pick", "eat", "sign", "close", "look", "try"
-	};
-	const auto verb = request.verbIndex.value_or(0);
-	if (verb >= 32 || request.members.empty() || request.members.size() > 6)
-		throw std::invalid_argument("invalid WhoWill presentation metadata");
-	// Bound the title independently so a long map string cannot displace the
-	// question or the selection keys. Reuse the existing metric wrapping/clipping.
-	auto options = optionsFor(request);
-	options.bounds.bottom = 30;
-	auto rendered = _renderer.render(base, request.text, options);
-	auto append = [&](const std::string &text, int top, int bottom) {
-		options.drawWindow = false;
-		options.bounds.top = options.y = top;
-		options.bounds.bottom = bottom;
-		auto part = _renderer.render(rendered.pages.front(), text, options);
-		rendered.pages = std::move(part.pages);
-		rendered.diagnostics.insert(rendered.diagnostics.end(),
-			part.diagnostics.begin(), part.diagnostics.end());
-	};
-	append(std::string("Who will\n") + verbs[verb] + "?", 32, 60);
-	options.size=XeenFontSize::Reduced;
-	append("F1 - F" + std::to_string(request.members.size()) + "\nEscape cancels", 174, 195);
-	XeenTextRenderOptions choices;
-	choices.bounds={233,62,317,172};
-	choices.x=233; choices.y=62; choices.drawWindow=false; choices.size=XeenFontSize::Reduced;
-	std::string members;
-	for (const auto &member:request.members) {
-		if (!members.empty()) members+='\n';
-		members+="F"+std::to_string(member.partyIndex+1)+" "+member.name+"\n"+(member.eligible?"Eligible":"Cannot act");
-	}
-	rendered.pages.front()=_renderer.render(rendered.pages.front(),members,choices).pages.front();
-	if (!request.refusal.empty()) {
-		XeenTextRenderOptions feedback;
-		feedback.bounds = {8, 112, 216, 140};
-		feedback.windowBounds = {0, 104, 224, 148};
-		feedback.x = 8;
-		feedback.y = 112;
-		feedback.drawWindow = true;
-		feedback.alignment = XeenTextAlignment::Center;
-		auto refusal = _renderer.render(rendered.pages.front(), request.refusal, feedback);
-		rendered.pages = std::move(refusal.pages);
-		rendered.diagnostics.insert(rendered.diagnostics.end(),
-			refusal.diagnostics.begin(), refusal.diagnostics.end());
-	}
-	return rendered;
+	XeenTextRenderOptions options;
+	options.originalControls=true;options.drawWindow=true;options.stopAtBottom=true;
+	options.bounds={233,82,312,146};options.windowBounds={225,74,320,154};
+	options.x=233;options.y=82;
+	return _renderer.render(base,request.text,options);
 }
 
 XeenPresentationUpdate XeenEventPresenter::present(const IndexedFrame &base,

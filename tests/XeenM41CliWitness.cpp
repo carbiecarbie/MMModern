@@ -9,6 +9,7 @@
 #include "games/xeen/XeenTraining.h"
 #include "XeenRestoreReplayProbe.h"
 #include "XeenM40Evidence.h"
+#include "XeenM49CombatSupport.h"
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 #include <deque>
@@ -147,6 +148,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         };
         const auto settle=[&]{steps.push_back([&] {
             if(flow->canSave())return true;
+            if(flow->encounter()->castingCommitted()) {
+                const auto context=handler.inputContext(presented);
+                if(context.dialog && context.dialog->anyKey){act(AcknowledgeAction{});return false;}
+            }
             if(const auto c=combat()) {
                 check(c->phase()!=XeenCombatPhase::Failed && c->phase()!=XeenCombatPhase::Defeat && c->phase()!=XeenCombatPhase::SupportStopped,"M41 combat failed");
                 if(c->phase()==XeenCombatPhase::PlayerReady)
@@ -218,8 +223,8 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             route("RRRUUURUURRRU");for(unsigned member:{0u,1u,2u,3u,5u}) {action(InteractionAction{});action(SelectMemberAction{member});settle();}
             route("RRUUUU");route("URRRUU");route("UU");route("UURU");route("RRURRRUUUUUUUUURRRU");
             inspect([&]{expect(8,781,870,2762662790u,1060);check(party->roster.combatInputs(18)->experience==3264 && party->roster.combatInputs(1)->experience==3264,"M41 earned XP prefix mismatch");});
-            action(CastSpellAction{});action(SelectMemberAction{4});action(NavigationAction::MoveBackward);
-            action(AcknowledgeAction{});action(AcknowledgeAction{});action(SelectMemberAction{4});settle();
+            action(CastSpellAction{});action(SelectMemberAction{4});action(DialogKeyAction{'n'});action(DialogKeyAction{'2'});
+            action(DialogKeyAction{'s'});action(DialogKeyAction{'c'});action(SelectMemberAction{4});settle();
             inspect([&]{check(party->roster.at(1).currentHp==15 && party->roster.at(1).currentSp==20,"M41 genuine First Aid mismatch");cityFight=true;});
             action(InteractionAction{});action(YesAction{});settle();route("UUUU");
             inspect([&] {
@@ -250,17 +255,17 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             if(clockCase && c->phase()==XeenCombatPhase::PlayerReady && !clockFault){clockArmed=true;return false;}
             check(c->phase()!=XeenCombatPhase::Failed && c->phase()!=XeenCombatPhase::Defeat && c->phase()!=XeenCombatPhase::SupportStopped,"M41 continued combat failed");
             if(const auto cast=c->cast()) {
-                switch(cast->phase) {
-                case XeenCombatCastPhase::Learned:if(cast->slot==(*spell==1?14u:25u))act(AcknowledgeAction{});else act(NavigationAction::MoveBackward);break;
-                case XeenCombatCastPhase::Enemy:if(!*enemy){*enemy=true;act(SelectCombatTargetAction{0});}else act(AcknowledgeAction{});break;
-                case XeenCombatCastPhase::Confirm:act(AcknowledgeAction{});break;
-                case XeenCombatCastPhase::PartyTarget:act(SelectMemberAction{4});break;
-                case XeenCombatCastPhase::Result:act(AcknowledgeAction{});*spell=0;*enemy=false;break;
-                default:break;
-                }
+                if(cast->phase==XeenCombatCastPhase::Result) {
+                    if(cast->result.failed)act(AcknowledgeAction{});
+                    *spell=0;*enemy=false;
+                }else if(cast->phase==XeenCombatCastPhase::PartyTarget)act(SelectMemberAction{4});
+                else if(const auto input=m49_combat::finishSpell(*cast,*party,*spell==1?26u:45u))act(*input);
             } else if(c->phase()==XeenCombatPhase::PlayerReady) {
                 if(c->participant()==4 && !*aid && party->roster.at(1).currentHp<28){*aid=true;*spell=1;act(CastSpellAction{});}
-                else if(c->participant()==5 && *aid){++*arrows;*spell=2;act(CastSpellAction{});}
+                else if(c->participant()==5 && *aid){
+                    if(!*enemy){*enemy=true;act(SelectCombatTargetAction{0});}
+                    else {++*arrows;*spell=2;act(CastSpellAction{});}
+                }
                 else act(BlockAction{});
             }return false;
         });

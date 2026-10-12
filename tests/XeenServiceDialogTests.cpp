@@ -4,6 +4,13 @@
 #include <iostream>
 using namespace purchase_test;
 namespace {
+void preview(Inputs &in,const IndexedFrame &image,const std::string &name) {
+    if(const auto *path=std::getenv("MMODERN_SERVICE_PREVIEW")) {
+        std::ofstream out(std::string(path)+"/"+name+".ppm",std::ios::binary);out<<"P6\n320 200\n255\n";
+        const auto palette=in.assets.readArchiveResource("mm4.pal");
+        for(auto pixel:image.pixels)for(unsigned channel=0;channel<3;++channel){const unsigned char c=palette[pixel*3+channel]*4;out.write(reinterpret_cast<const char *>(&c),1);}
+    }
+}
 void click(training_test::Fixture &f,int x,int y) {
     const auto context=f.flow->inputContext(f.flow->frame().presentation());
     check(!context.acceptsQueuedInput && context.dialog && context.readyForAction,"service is not a strict actionable dialog");
@@ -12,6 +19,17 @@ void click(training_test::Fixture &f,int x,int y) {
 void keyboard(training_test::Fixture &f,unsigned key){f.act(DialogKeyAction{key});}
 void layout(Inputs &in) {
     Fixture f(in,service(in));auto base=training_test::frame();base.pixels.assign(64000,77);
+    XeenTextRenderOptions border;border.originalControls=border.drawWindow=true;
+    border.windowBounds={0,0,176,136};border.bounds={8,8,168,128};border.x=8;border.y=8;
+    const auto referenceCorner=XeenTextRenderer(in.font).render(base,"",border).pages.front();
+    for(const auto bounds:{XeenTextRect{65,23,250,163},XeenTextRect{27,6,207,142}}) {
+        border.windowBounds=bounds;border.bounds={bounds.left+8,bounds.top+8,bounds.right-8,bounds.bottom-8};border.x=border.bounds.left;border.y=border.bounds.top;
+        const auto window=XeenTextRenderer(in.font).render(base,"",border).pages.front();
+        for(bool bottom:{false,true})for(int y=0;y<8;++y)for(int x=0;x<8;++x) {
+            const auto color=referenceCorner.pixels[(bottom?128+y:y)*320+168+x];
+            if(color!=77)check(window.pixels[(bottom?bounds.bottom-8+y:bounds.top+y)*320+bounds.right-8+x]==color,"window edge overwrote original right corner");
+        }
+    }
     const auto draw=f.flow->drawDialogSprite;
     for(const auto location:{XeenLocationDialog::Smith,XeenLocationDialog::Training,XeenLocationDialog::Temple,XeenLocationDialog::Tavern,XeenLocationDialog::Bank,XeenLocationDialog::Guild}) {
         auto art=base;
@@ -69,6 +87,14 @@ void layout(Inputs &in) {
     parity(bank,235,109,'d');parity(bank,262,109,'w');parity(bank,289,109,InputKey::Escape);
     parity(xeenBankInput(),235,109,'o');parity(xeenBankInput(),262,109,'e');parity(xeenBankInput(),289,109,InputKey::Escape);
     parity(xeenFoodConfirmInput(),236,76,'y');parity(xeenFoodConfirmInput(),261,76,'n');
+    for(unsigned i=0;i<10;++i)parity(xeenSpellListInput(true),40,28+9*i,i==9?'0':'1'+i);
+    parity(xeenSpellListInput(true),187,26,InputKey::Up);parity(xeenSpellListInput(true),187,111,InputKey::Down);
+    parity(xeenSpellListInput(true),187,50,InputKey::PageUp);parity(xeenSpellListInput(true),187,90,InputKey::PageDown);
+    parity(xeenSpellListInput(true),132,123,'s');parity(xeenSpellListInput(true),174,123,InputKey::Escape);
+    parity(xeenCastInput(),234,108,'c');parity(xeenCastInput(),261,108,'n');parity(xeenCastInput(),288,108,InputKey::Escape);
+    parity(xeenSpellConfirmInput(false),120,133,'y');parity(xeenSpellConfirmInput(false),176,133,'n');
+    for(unsigned i=0;i<6;++i)parity(xeenSpellTargetInput(),10+int(i?35*i+(i>1?i-1:0):0),150,InputKey::F1+i);
+    check(!xeenCastInput(false).key(InputKey::F1) && !xeenSpellListInput(true,false).click(10,150),"combat caster switching accepted");
     check(drawXeenErrorScroll(base,in.font,xeenNotEnoughGold(in.assets.uiText())).isValid(),"gold refusal layout");
     check(drawXeenConfirm(base,in.font,xeenServiceConfirm(in.assets.uiText(),true,"Plate Armor",200),false,draw).isValid(),"Fix Confirm layout");
 }
@@ -139,8 +165,148 @@ void dialogs(Inputs &in,bool mouse) {
     if(mouse)click(temple,262,109);else keyboard(temple,InputKey::Escape);
     check(temple.flow->canSave() && temple.p.encounterContext->day==10,"paid Temple departure differs");
 }
+void spellDialogs(Inputs &in,bool mouse) {
+    const auto &text=in.assets.uiText();
+    const auto descriptions=xeenSpellDescriptions(in.assets.readArchiveResource("spldesc.bin"));
+    check(descriptions.size()>=76,"description catalogue absent");
+    for(unsigned id=0;id<76;++id) {
+        const auto info=drawXeenSpellConfirm(training_test::frame(),in.font,xeenDialogFormat(text.scalar("SPELL_INFO"),{in.names.names[id],descriptions[id]}),true,{});
+        check(info.isValid(),"Info layout");
+        if(id==1 || id==20 || id==75)preview(in,info,"spell-info-"+std::to_string(id));
+        check(drawXeenSpellConfirm(training_test::frame(),in.font,xeenDialogFormat(text.scalar("SPELL_PURCHASE"),{descriptions[id],in.names.names[id],"500"}),false,{}).isValid(),"Purchase layout");
+    }
+    const auto choose=[&](training_test::Fixture &f,unsigned key) {
+        if(!mouse){keyboard(f,key);return;}
+        const auto ctx=f.flow->inputContext(f.flow->frame().presentation());
+        check(ctx.dialog && !ctx.acceptsQueuedInput,"spell dialog must accept fresh input only");
+        for(const auto &hit:ctx.dialog->hits)if(hit.key==key){click(f,hit.left,hit.top);return;}
+        keyboard(f,key); // acknowledgement-only popups have no button regions.
+    };
+    for(unsigned book=0;book<3;++book) {
+        auto source=in.service();source.camera={28,20,13,XeenDirection::North};
+        source.journey->treasure->gold=20000;
+        const auto owner=source.activeRosterIds[0];auto &c=source.characters[owner];
+        c.characterClass=book==0?XeenCharacterClass::Cleric:book==1?XeenCharacterClass::Sorcerer:XeenCharacterClass::Druid;
+        c.hasSpells=true;c.learnedSpells.emplace();c.awards[0]=1;
+        c.weapons={};c.armor={};c.accessories={};c.miscellaneous={};
+        Fixture f(in,source);f.flow->drawGuildArt=[&in](auto &image){in.assets.drawGuild(image);};
+        check(drawXeenSpellList(text,training_test::frame(),in.font,f.p.roster.at(owner),in.names,{},20000,true,true,f.flow->drawDialogSprite,f.p.encounterContext->year).isValid(),"Guild list layout");
+        f.act(InteractionAction{});f.prepare();
+        const auto before=Owners(f);choose(f,'s');preview(in,f.flow->frame(),"guild-info-list-"+std::to_string(book));
+        const auto offers=XeenLearnedSpellRules::rows(f.p.roster.at(owner),true,true);
+        for(std::size_t row=0;row<std::min<std::size_t>(10,offers.size());++row) {
+            const auto id=*XeenLearnedSpellRules::spellForSlot(static_cast<XeenSpellCategory>(book),offers[row]);
+            const auto &name=in.names.names[id];const int x=35+(row?10:11),y=29+9*row;
+            const int right=x+XeenTextRenderer(in.font).textWidth(name,XeenFontSize::Reduced)+5;
+            auto clean=f.flow->frame();for(int yy=y;yy<y+9;++yy)for(int xx=x;xx<right;++xx)clean.pixels[yy*320+xx]=0x99;
+            XeenTextRenderOptions rowText;rowText.originalControls=true;rowText.size=XeenFontSize::Reduced;rowText.colorIndex=9;
+            rowText.bounds={35,14,187,134};rowText.x=x;rowText.y=y;
+            const auto expected=XeenTextRenderer(in.font).render(clean,name,rowText).pages.front();
+            for(int yy=y;yy<y+9;++yy)for(int xx=x;xx<right;++xx)
+                check(expected.pixels[yy*320+xx]==f.flow->frame().pixels[yy*320+xx],"Guild list lost original reduced font/row spacing");
+        }
+        choose(f,'1');
+        preview(in,f.flow->frame(),"guild-info-dialog-"+std::to_string(book));
+        check(XeenPurchaseTestAccess::quote(*f.flow),"Guild Info did not immediately open description");
+        check(XeenPurchaseTestAccess::text(*f.flow).find(in.names.names[1])!=std::string::npos,"Info missing resource name");
+        choose(f,'y');before.unchanged(f);choose(f,InputKey::Escape);
+        choose(f,'b');choose(f,'1');
+        const auto old=f.flow->frame().presentation();const auto epoch=*f.flow->displayedInput();
+        choose(f,'n');before.unchanged(f);choose(f,'1');
+        f.flow->beginCycle(++f.cycle);f.present(f.flow->handle(DialogKeyAction{'y'},epoch,old));before.unchanged(f);
+        bool fault=false;f.flow->smithBoundary=[&](auto boundary){if(boundary==XeenSmithBoundary::BeforePurchase && !fault){fault=true;throw std::bad_alloc();}};
+        choose(f,'y');check(fault,"Guild pre-publication fault absent");before.unchanged(f);f.flow->smithBoundary={};
+        choose(f,InputKey::Enter); // dismiss retry notice
+        choose(f,'1');choose(f,'y');
+        const auto slot=*XeenLearnedSpellRules::slotForSpell(static_cast<XeenSpellCategory>(book),1);
+        check(f.p.roster.at(owner).learnedSpells->at(slot)==1 && f.p.monsterTreasure->gold==19900,"Guild buy did not debit and learn once");
+        check(*f.p.encounterContext==before.context && *f.w.sessionState().journeyRandom()==before.random,"Guild purchase changed clock/RNG");
+        const auto paid=Owners(f);f.flow->beginCycle(++f.cycle);f.present(f.flow->handle(DialogKeyAction{'y'},epoch,old));paid.unchanged(f);
+        const auto nextSlot=XeenLearnedSpellRules::rows(f.p.roster.at(owner),true).front();
+        const auto nextId=*XeenLearnedSpellRules::spellForSlot(static_cast<XeenSpellCategory>(book),nextSlot);
+        check(!XeenLearnedSpellRules::supported(nextId),"unsupported purchase fixture");
+        choose(f,'1');choose(f,'y');
+        check(f.p.roster.at(owner).learnedSpells->at(nextSlot)==1 && f.p.monsterTreasure->gold==19900-XeenLearnedSpellRules::purchasePrice(nextId,c.characterClass),"unsupported spell was not purchasable");
+        choose(f,InputKey::F1+1);check(XeenPurchaseTestAccess::lobby(*f.flow),"Guild did not refresh selected character membership");
+        f.leave();check(f.p.encounterContext->day==9,"Guild departed with wrong charge");
+        Fixture restored(in,f.snapshot());check(XeenSaveFormat::encode(restored.snapshot())==XeenSaveFormat::encode(f.snapshot()),"Purchased book restore is not exact");
+    }
+    for(unsigned kind=0;kind<7;++kind) {
+        auto source=in.service();source.camera={28,20,13,XeenDirection::North};source.journey->treasure->gold=1000;
+        const auto owner=source.activeRosterIds[0];auto &c=source.characters[owner];
+        c.characterClass=XeenCharacterClass::Cleric;c.hasSpells=true;c.learnedSpells.emplace();c.awards[0]=1;
+        c.weapons={};c.armor={};c.accessories={};c.miscellaneous={};
+        if(kind==0)source.journey->treasure->gold=99;
+        if(kind==1)c.learnedSpells->fill(1);
+        if(kind==2){c.characterClass=XeenCharacterClass::Knight;c.hasSpells=false;}
+        if(kind==3)c.conditions[8]=1;
+        if(kind==4){c.characterClass=XeenCharacterClass::Paladin;c.permanentLevel=1;c.temporaryLevel=0;c.personality={1,0};c.skills[12]=0;}
+        Fixture f(in,source);f.flow->drawGuildArt=[&in](auto &image){in.assets.drawGuild(image);};f.act(InteractionAction{});f.prepare();
+        const auto before=Owners(f);
+        if(kind==5){f.flow->loadSpellDescriptions=[]{throw std::bad_alloc();return std::vector<std::uint8_t>{};};}
+        choose(f,'b');
+        if(kind==3 || kind==5) {
+            check(XeenPurchaseTestAccess::lobby(*f.flow),"disabled/preparation failure entered Buy");before.unchanged(f);choose(f,InputKey::Enter);
+            if(kind==3){choose(f,'s');check(XeenPurchaseTestAccess::browse(*f.flow),"disabled member cannot use Info");choose(f,InputKey::Escape);}
+        } else if(kind==1 || kind==2) {
+            choose(f,'1');check(XeenPurchaseTestAccess::browse(*f.flow),"empty Guild list selected an offer");before.unchanged(f);choose(f,InputKey::Escape);
+        } else {
+            if(kind==4)check(XeenCharacterRules::maxSp(f.p.roster.at(owner),{f.p.encounterContext->year})==0,"hybrid zero maximum SP fixture");
+            choose(f,'1');check(XeenPurchaseTestAccess::quote(*f.flow),"Guild offer missing");
+            bool published=false;
+            if(kind==6)f.flow->smithBoundary=[&](auto boundary){if(boundary==XeenSmithBoundary::AfterPurchase){published=true;throw std::bad_alloc();}};
+            choose(f,'y');
+            if(kind==0){before.unchanged(f);check(XeenPurchaseTestAccess::text(*f.flow)==xeenNotEnoughGold(text),"Guild lacks gold refusal");choose(f,InputKey::Enter);}
+            else {
+                check(f.p.roster.at(owner).learnedSpells->at(1)==1 && f.p.monsterTreasure->gold==(kind==4?800:900),"zero-SP/published Guild purchase differs");
+                if(kind==6){check(published,"post-publication fault absent");const auto paid=Owners(f);f.flow->smithBoundary={};choose(f,InputKey::Enter);choose(f,'y');paid.unchanged(f);}
+            }
+            choose(f,InputKey::Escape);
+        }
+        f.leave();check(f.flow->canSave(),"Guild boundary case retained Save exclusion");
+        if(kind==4) {
+            const auto saved=Owners(f);f.act(CastSpellAction{});choose(f,InputKey::F1);choose(f,'n');choose(f,'1');choose(f,'s');
+            saved.unchanged(f);choose(f,InputKey::Escape);choose(f,InputKey::Escape);check(f.flow->canSave(),"zero-SP New manufactured a selection");
+        }
+    }
+    auto source=in.service();source.camera={28,10,10,XeenDirection::North};
+    for(auto &a:*source.journey->vertigoActors){a.x=a.y=-128;a.hp=0;a.activated=false;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
+    const auto owner=source.activeRosterIds[4];auto &caster=source.characters[owner];
+    caster.characterClass=XeenCharacterClass::Cleric;caster.hasSpells=true;caster.currentSp=30;caster.learnedSpells.emplace();
+    for(auto &flag:*caster.learnedSpells)flag=1;caster.currentSpell=255;
+    Fixture cast(in,source);const auto initial=Owners(cast);
+    cast.act(CastSpellAction{});check(!cast.flow->canSave(),"Cast permits Save");
+    choose(cast,InputKey::F1+4);choose(cast,'n');choose(cast,InputKey::PageDown);choose(cast,InputKey::Up);
+    choose(cast,InputKey::F1+5);choose(cast,InputKey::F1+4);initial.unchanged(cast);
+    choose(cast,InputKey::Escape);initial.unchanged(cast);
+    choose(cast,'n');choose(cast,'2');choose(cast,'s');
+    check(cast.p.roster.at(owner).currentSpell==1,"New did not store book slot");
+    const auto oldFrame=cast.flow->frame().presentation();const auto oldInput=*cast.flow->displayedInput();
+    const auto selected=Owners(cast);choose(cast,InputKey::Escape);selected.unchanged(cast);
+    cast.act(CastSpellAction{});choose(cast,'n');choose(cast,InputKey::PageDown);choose(cast,'5');choose(cast,'s');
+    check(cast.p.roster.at(owner).currentSpell==14,"New scroll/row/select differs");
+    cast.flow->beginCycle(++cast.cycle);cast.present(cast.flow->handle(DialogKeyAction{'c'},oldInput,oldFrame));
+    check(cast.p.roster.at(owner).currentSp==30 && !cast.flow->encounter()->castingCommitted(),"stale Cast frame committed cost");
+    choose(cast,'c');check(cast.p.roster.at(owner).currentSp==29,"First Aid debit differs");choose(cast,InputKey::Escape);
+    for(unsigned i=0;i<1000 && !cast.flow->canSave();++i){cast.now+=100;cast.flow->beginCycle(++cast.cycle);if(auto frame=cast.flow->updatePresentation())cast.present(*frame);}
+    check(cast.flow->canSave() && cast.p.roster.at(owner).currentSp==30 && cast.p.encounterContext->minutes==source.journey->context->minutes+1,"Indoor target cancellation refund/time differs");
+    cast.act(CastSpellAction{});choose(cast,'n');choose(cast,'3');choose(cast,'s'); // unsupported clerical Bless
+    const auto unsupported=Owners(cast);choose(cast,'c');unsupported.unchanged(cast);
+    choose(cast,InputKey::Enter);choose(cast,InputKey::Escape);unsupported.unchanged(cast);
+    auto terminal=source;terminal.characters[terminal.activeRosterIds[0]].currentHp=0;terminal.characters[terminal.activeRosterIds[0]].conditions[13]=1;
+    Fixture failure(in,terminal);failure.act(CastSpellAction{});choose(failure,InputKey::F1+4);choose(failure,'n');choose(failure,InputKey::PageDown);choose(failure,'5');choose(failure,'s');choose(failure,'c');choose(failure,InputKey::F1);
+    check(failure.flow->inputContext(failure.flow->frame().presentation()).dialog->anyKey,"failed First Aid lacks original modal");
+    for(unsigned i=0;i<3;++i){failure.now+=100;failure.flow->beginCycle(++failure.cycle);check(!failure.flow->updatePresentation(),"failed cast settled before acknowledgement");}
+    check(failure.p.roster.at(owner).currentSp==29 && failure.p.encounterContext->minutes==terminal.journey->context->minutes && !failure.flow->canSave(),"failed First Aid cost/modal boundary differs");
+    choose(failure,'n'); // any key acknowledges, including another Cast command.
+    for(unsigned i=0;i<1000 && !failure.flow->canSave();++i){failure.now+=100;failure.flow->beginCycle(++failure.cycle);if(auto frame=failure.flow->updatePresentation())failure.present(*frame);}
+    check(failure.flow->canSave() && failure.p.encounterContext->minutes==terminal.journey->context->minutes+1 && failure.p.roster.at(owner).currentSp==29,"failed First Aid lost its paid time/action");
+    check(failure.flow->encounter()->notice().find("SP spent")==std::string::npos,"technical casting result leaked into player notice");
+    check(text.scalar("SPELLS_DIALOG_SPELLS").find("%lu")!=std::string_view::npos,"DOS list lost unsigned long balance");
+}
+
 }
 int main(int argc,char **argv){try{
     check(argc==2,"usage: service-dialogs <installation>");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"installation unavailable");Inputs in(*installation);
-    layout(in);refusals(in);dialogs(in,false);dialogs(in,true);std::cout<<"Original service layouts, hit actions, Buy/Fix, one-step Training and Heal passed\n";return 0;
+    layout(in);refusals(in);dialogs(in,false);dialogs(in,true);spellDialogs(in,false);spellDialogs(in,true);std::cout<<"Original service layouts, hit actions, Buy/Fix, one-step Training and Heal passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

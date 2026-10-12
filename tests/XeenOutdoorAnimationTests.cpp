@@ -1,4 +1,5 @@
 #include "XeenSaveGameplayTestSupport.h"
+#include "XeenDosTextTestSupport.h"
 #include "SyntheticXeenArchive.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "games/xeen/CloudsMapComposer.h"
@@ -31,6 +32,7 @@ struct Fixture {
   phases.push_back(phase);if(fail)throw std::runtime_error("animation composition fault");
   IndexedFrame f;f.width=320;f.height=200;f.pixels.assign(64000,static_cast<std::uint8_t>(phase%251));
   return XeenEventFlow::Composition{f,animated};},{},[&]{return now;}};
+ Fixture(){flow.dialogText=&dos_test::text();}
  void at(std::uint64_t time){now=time;flow.updatePresentation();}
  void phase(std::uint64_t value){flow.refresh(true);check(phases.back()==value,"unexpected ordinary phase");}
 };
@@ -175,6 +177,7 @@ void warmedMalformedFrame(){
  Fixture f;std::uint64_t now=0;std::vector<std::uint64_t> phases;
  XeenWorld world([](auto id){return remove_test::map(id);},[](auto id){XeenObjectFile o{id,"test.mob",true,{}};o.entities.objects=std::vector<XeenMapEntity>{{1,1,0,0,110}};return o;});
  XeenEventFlow flow(world,f.events,f.data.initial,f.camera,f.flags,f.data.font,[&](std::uint64_t phase){phases.push_back(phase);XeenEventFlow::Composition r;r.frame=composer.compose(assets,world,{},f.camera,{},nullptr,phase,&r.containsOrdinaryAnimation);return r;},{},[&]{return now;});
+ flow.dialogText=&dos_test::text();
  const auto loads=assets.spriteLoadCount();now=100;bool failed=false;
  try{flow.updatePresentation();}catch(const std::runtime_error&){failed=true;}
  check(failed && phases.back()==1 && assets.spriteLoadCount()==loads,"warm malformed later frame silently accepted");

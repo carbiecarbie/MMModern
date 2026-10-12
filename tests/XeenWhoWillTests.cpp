@@ -247,7 +247,9 @@ void directResponses() {
 			record(1,1,2,0x12)};
 		direct.set(records);input.set(records);
 		XeenEventFlow a(direct.world,direct.events,direct.members,direct.camera,direct.flags,direct.font,[&](std::uint64_t){return XeenEventFlow::Composition{direct.base, false};});
+		a.dialogText=&dos_test::text();
 		XeenEventFlow b(input.world,input.events,input.members,input.camera,input.flags,input.font,[&](std::uint64_t){return XeenEventFlow::Composition{input.base, false};});
+		b.dialogText=&dos_test::text();
 		bool completed=false;
 		a.reportManual=[&](const auto &result) {
 			check(!std::holds_alternative<XeenEventExecutionError>(result),"direct response execution failed");
@@ -295,6 +297,7 @@ void productionFlow() {
 		f.set({record(1,1,0,0x20,{0,0}),record(1,1,1,0x01,{1}),record(1,1,2,9,{44,1,3}),
 			record(1,1,3,9,{9,20,5}),record(1,1,4,0xff),record(1,1,5,0x0c,{0,0,21,100}),record(1,1,6,0x12)});
 		XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
+		flow.dialogText=&dos_test::text();
 		int line=-1;bool done=false;
 		auto report=[&](const auto &r) {
 			check(!std::holds_alternative<XeenEventExecutionError>(r),"production flow failed");
@@ -318,11 +321,11 @@ void productionFlow() {
 		check(flow.refresh(true).pixels==frame.pixels,"camera rebase lost request");
 		f.members.roster.at(18).conditions[8]=1;
 		flow.handle(SelectMemberAction{1});
-		check(flow.canCancelInteraction() && *flow.presentationGeneration()!=generation,"refusal lost choice");
+		check(flow.canCancelInteraction() && *flow.presentationGeneration()==generation,"refusal changed pending choice");
 		const auto refusal=flow.frame();check(refusal.pixels!=frame.pixels,"refusal invisible");
 		check(flow.refresh(true).pixels==refusal.pixels,"refusal rebase changed");
 		check(!flow.respond(generation,SelectedCharacter{1}),"stale response accepted");
-		f.members.roster.at(18).conditions.fill(0);const auto retry=*flow.presentationGeneration();
+		f.members.roster.at(18).conditions.fill(0);flow.handle(AcknowledgeAction{});const auto retry=*flow.presentationGeneration();
 		flow.handle(SelectMemberAction{1});
 		check(!flow.respond(retry,SelectedCharacter{1}) && line==1 && !flow.canCancelInteraction(),"response replay/selection acknowledged next page");
 		const auto page=flow.frame();flow.handle(SelectMemberAction{1});check(flow.frame().pixels==page.pixels,"F-key acknowledged");
@@ -336,6 +339,7 @@ void productionFlow() {
 	for(int mode=0;mode<4;++mode) {
 		Fixture f;f.set({record(1,1,0,0x20,{0,0}),record(1,1,1,0x0c,{0,0,21,100})});
 		XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
+		flow.dialogText=&dos_test::text();
 		bool failed=false;flow.reportManual=[&](const auto &r){failed=std::holds_alternative<XeenEventExecutionError>(r);};
 		flow.handle(InteractionAction{});const auto old=*flow.presentationGeneration();
 		if(mode==0)flow.handle(CancelInteractionAction{});
@@ -353,24 +357,20 @@ void presentationLayout() {
 	const auto request=pending(f.begin()).pendingPresentation->request;
 	for (int verb=0;verb<32;++verb) {
 		auto shortRequest=request;shortRequest.verbIndex=static_cast<std::uint8_t>(verb);
+		shortRequest.text=xeenDialogFormat(dos_test::text().scalar("WHO_WILL"),{request.text,dos_test::text().table("WHO_ACTIONS")[verb],"6"});
 		XeenEventPresenter shortPresenter(f.font);
 		const auto normal=shortPresenter.present(f.base,shortRequest);
-		auto longRequest=shortRequest;longRequest.text=std::string(300,'A');
+		auto longRequest=shortRequest;longRequest.text=xeenDialogFormat(dos_test::text().scalar("WHO_WILL"),{std::string(300,'A'),dos_test::text().table("WHO_ACTIONS")[verb],"6"});
 		XeenEventPresenter longPresenter(f.font);
 		const auto clipped=longPresenter.present(f.base,longRequest);
 		check(!normal.response && !clipped.response && shortPresenter.diagnostics().empty() &&
 			longPresenter.diagnostics().empty(),"WhoWill layout produced response/diagnostic");
-		bool footerVisible=false;
 		for(int y=0;y<200;++y)for(int x=0;x<320;++x) {
 			const auto offset=static_cast<std::size_t>(y*320+x);
-			if(x<225 || x>=320 || y>=199)
-				check(clipped.frame.pixels[offset]==f.base.pixels[offset],"WhoWill drew outside panel");
-			if(x>=233 && x<312 && y>=32 && y<195)
-				check(normal.frame.pixels[offset]==clipped.frame.pixels[offset],"long title displaced question/keys");
-			if(x>=233 && x<312 && y>=174 && y<195 && normal.frame.pixels[offset]!=normal.frame.pixels[174*320+233])
-				footerVisible=true;
+			if(x<225 || y<74 || y>=154)
+				check(clipped.frame.pixels[offset]==f.base.pixels[offset],"WhoWill drew outside original window 36");
 		}
-		check(footerVisible,"WhoWill F-key label clipped");
+		check(normal.frame.pixels!=f.base.pixels,"WhoWill original window absent");
 	}
 }
 
@@ -384,6 +384,7 @@ void priorEffects() {
 			record(7,8,4,0),record(7,8,5,0x20,{0,0}),record(7,8,6,0x0c,{0,0,21,100})},2);
 		f.text.mapId=2;
 		XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
+		flow.dialogText=&dos_test::text();
 		bool failed=false;flow.reportManual=[&](const auto &r){failed=std::holds_alternative<XeenEventExecutionError>(r);};
 		flow.handle(InteractionAction{});
 		check(f.camera.mapId==1 && !f.flags.isSet(7) && f.members.questItems.at(18)==1,"suspension committed transaction/lost grant");
@@ -405,10 +406,11 @@ void sdlFlow() {
 		f.set({record(1,1,0,0x20,{0,0}),record(1,1,1,9,{44,1,2}),
 			record(1,1,2,9,{9,20,4}),record(1,1,3,0xff),record(1,1,4,0x0c,{0,0,21,100})});
 		XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
+		flow.dialogText=&dos_test::text();
 		flow.reportManual=[](const auto &r) { check(!std::holds_alternative<XeenEventExecutionError>(r),"SDL flow execution error"); };
 		std::vector<SDL_Keycode> keys{SDLK_SPACE,SDLK_UP,SDLK_RETURN,SDLK_y,SDLK_n,SDLK_F6,SDLK_F1};
-		if (mode==0) keys.insert(keys.end(),{SDLK_F2,SDLK_RETURN,SDLK_RIGHT});
-		if (mode==1) keys.insert(keys.end(),{SDLK_ESCAPE,SDLK_RIGHT});
+		if (mode==0) keys.insert(keys.end(),{SDLK_RETURN,SDLK_F2,SDLK_RETURN,SDLK_RIGHT});
+		if (mode==1) keys.insert(keys.end(),{SDLK_RETURN,SDLK_ESCAPE,SDLK_RIGHT});
 		std::atomic<bool> finished{false};std::exception_ptr senderError;
 		std::thread sender([&] {
 			try {
@@ -432,7 +434,7 @@ void sdlFlow() {
 			[&](const PlayerAction &action)->std::optional<IndexedFrame> {
 				++calls;const auto frame=flow.handle(action);
 				if(calls<=7)check(flow.canCancelInteraction() && f.camera.direction==XeenDirection::North,"SDL ignored input escaped choice/refusal");
-				if(mode==0 && calls==8)check(flow.blocksGameplay() && !flow.canCancelInteraction(),"F2 acknowledged next request");
+				if(mode==0 && calls==9)check(flow.blocksGameplay() && !flow.canCancelInteraction(),"F2 acknowledged next request");
 				return frame;
 			},[&]{return flow.canCancelInteraction();});
 		finished=true;sender.join();if(senderError)std::rethrow_exception(senderError);

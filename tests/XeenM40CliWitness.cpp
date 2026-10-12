@@ -180,6 +180,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         const auto combat=[&]()->const XeenCombat *{return flow->encounter()->combat();};
         const auto settleStep=[&] {
             if(flow->canSave())return true;
+            if(flow->encounter()->castingCommitted()) {
+                const auto context=handler.inputContext(presented);
+                if(context.dialog && context.dialog->anyKey){act(AcknowledgeAction{});return false;}
+            }
             if(const auto c=combat()) {
                 check(c->phase()!=XeenCombatPhase::Failed && c->phase()!=XeenCombatPhase::Defeat && c->phase()!=XeenCombatPhase::SupportStopped,"M40 combat support stop");
                 if(const auto casting=c->cast()){if(const auto input=m49_combat::finishAwaken(*casting,*party))act(*input);}
@@ -308,8 +312,8 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    route("LLULUU");action(InteractionAction{});action(YesAction{});settle();
    route("URULUUULUUU");
    for(unsigned i=0;i<2;++i) {
-    action(CastSpellAction{});action(SelectMemberAction{4});action(NavigationAction::MoveBackward);
-    action(AcknowledgeAction{});action(AcknowledgeAction{});action(SelectMemberAction{5});settle();
+    action(CastSpellAction{});action(SelectMemberAction{4});action(DialogKeyAction{'n'});action(DialogKeyAction{'2'});
+    action(DialogKeyAction{'s'});action(DialogKeyAction{'c'});action(SelectMemberAction{5});settle();
    }
    inspect([&]{std::cout<<"M49 FIRST AID HP="<<party->roster.at(6).currentHp<<" SP="<<party->roster.at(1).currentSp<<" minute="<<party->encounterContext->minutes<<" RNG="<<world->sessionState().journeyRandom()->state<<":"<<world->sessionState().journeyRandom()->count<<'\n';
     check(party->roster.at(6).currentHp==1 && party->roster.at(1).currentSp==18 &&
@@ -371,7 +375,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         if(!resume || stage=="A" || stage=="B") {route("DDDDDDDUUUUUUU");inspect([&]{expectDate(11,819,4,209451284u,2001,838);});checkpoint("C");}
         if(!resume || stage=="A" || stage=="B" || stage=="C") {repair(1,837);inspect([&]{expectDate(12,819,4,209451284u,2001,837);});checkpoint("D");}
         if(stage!="E") {
-            for(unsigned i=0;i<4;++i){action(CastSpellAction{});action(SelectMemberAction{4});action(NavigationAction::MoveBackward);action(AcknowledgeAction{});action(AcknowledgeAction{});action(SelectMemberAction{i<3?5u:4u});settle();}
+            for(unsigned i=0;i<4;++i){action(CastSpellAction{});action(SelectMemberAction{4});action(DialogKeyAction{'n'});action(DialogKeyAction{'2'});action(DialogKeyAction{'s'});action(DialogKeyAction{'c'});action(SelectMemberAction{i<3?5u:4u});settle();}
             inspect([&]{expectDate(12,823,4,209451284u,2001,837);check(party->roster.at(1).currentSp==14 && party->roster.at(6).currentSp==27,"M40 post-service exploration First Aid differs");});
             route("DDDDDDDLUUUU");action(InteractionAction{});action(YesAction{});settle();route("LLU");action(InteractionAction{});action(YesAction{});settle();route("URULU",false);
             if(branch=="clock") steps.push_back([&] {
@@ -395,21 +399,18 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 }
                 check(c->phase()!=XeenCombatPhase::Failed && c->phase()!=XeenCombatPhase::Defeat && c->phase()!=XeenCombatPhase::SupportStopped,"M40 reset Slime unavailable");
                 if(const auto cast=c->cast()) {
-                    switch(cast->phase) {
-                        case XeenCombatCastPhase::Learned:
-                            if(cast->slot==(*castPhase==1?14u:*castPhase==2?0u:25u))act(AcknowledgeAction{});else act(NavigationAction::MoveBackward);break;
-                        case XeenCombatCastPhase::Enemy:
-                            if(!*enemySelected){*enemySelected=true;act(SelectCombatTargetAction{0});}else act(AcknowledgeAction{});break;
-                        case XeenCombatCastPhase::Confirm:act(AcknowledgeAction{});break;
-                        case XeenCombatCastPhase::PartyTarget:act(SelectMemberAction{5});break;
-                        case XeenCombatCastPhase::Result:
-                            if(*castPhase==3)check(c->result().actorHpBefore==2 && c->result().actorHpAfter==0,"M40 Slime Arrow was not genuine 2->0 lethal");
-                            act(AcknowledgeAction{});*castPhase=0;break;
-                        default:break;
-                    }
+                    if(cast->phase==XeenCombatCastPhase::Result) {
+                        if(*castPhase==3)check(c->result().actorHpBefore==2 && c->result().actorHpAfter==0,"M40 Slime Arrow was not genuine 2->0 lethal");
+                        if(cast->result.failed)act(AcknowledgeAction{});
+                        *castPhase=0;
+                    }else if(cast->phase==XeenCombatCastPhase::PartyTarget)act(SelectMemberAction{5});
+                    else if(const auto input=m49_combat::finishSpell(*cast,*party,*castPhase==1?26u:*castPhase==2?1u:45u))act(*input);
                 }else if(c->phase()==XeenCombatPhase::PlayerReady) {
                     if(c->participant()==4 && !*rebeccaDone){*rebeccaDone=true;*castPhase=1;act(CastSpellAction{});}
-                    else if(c->participant()==5 && *seymourCasts<2){*castPhase=++*seymourCasts==1?2:3;act(CastSpellAction{});}
+                    else if(c->participant()==5 && *seymourCasts<2){
+                        if(*seymourCasts==1 && !*enemySelected){*enemySelected=true;act(SelectCombatTargetAction{0});}
+                        else {*castPhase=++*seymourCasts==1?2:3;act(CastSpellAction{});}
+                    }
                     else act(BlockAction{});
                 }
                 return false;

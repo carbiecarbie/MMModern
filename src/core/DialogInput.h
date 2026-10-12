@@ -9,6 +9,7 @@ namespace mmodern {
 namespace InputKey {
 inline constexpr unsigned Escape=27, Enter=13, Space=32;
 inline constexpr unsigned F1=256, Up=272, Down=273, Left=274, Right=275;
+inline constexpr unsigned PageUp=276, PageDown=277;
 }
 // ButtonContainer: selected sprite frame = normal frame | 1, held for two
 // 50 ms presentation frames. This has no game-clock or action state.

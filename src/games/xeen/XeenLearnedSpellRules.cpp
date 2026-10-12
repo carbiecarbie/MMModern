@@ -67,29 +67,59 @@ std::optional<XeenLearnedSpell> XeenLearnedSpellRules::supported(std::uint8_t id
 }
 
 std::optional<XeenLearnedSpell> XeenLearnedSpellRules::supportedIn(std::uint8_t id, bool combat) noexcept {
-    if (combat) return (true) ? supported(id) : std::nullopt;
+    if (combat) return supported(id);
     if ((id==1 || id==26)) return supported(id);
     return std::nullopt;
 }
 unsigned XeenLearnedSpellRules::cost(XeenLearnedSpell spell) noexcept {
-    return spell==XeenLearnedSpell::MagicArrow ? 2 : 1;
+    return cost(spell==XeenLearnedSpell::MagicArrow?45:spell==XeenLearnedSpell::Awaken?1:26,1).sp;
 }
 
-// Pinned Spells::subSpellCost / castSpell, LangConstants SPELL_COSTS and
-// SPELL_GEM_COST (ScummVM developers, GPL-3.0-or-later). Cost refusal precedes
-// unsupported-system admission; combat-forbidden spells refund their costs.
-XeenQuickSpellCheck XeenLearnedSpellRules::quickSpellCheck(const XeenCharacter &c,std::uint32_t gems) noexcept {
-    using Q=XeenQuickSpellCheck;if(c.currentSpell==255)return Q::NoSpell;
+// Pinned Spells::calcSpellPoints/calcSpellCost and constants.cpp cost tables.
+// ScummVM developers (upstream COPYRIGHT), GPL-3.0-or-later, 6814ee9b.
+namespace {
+constexpr int kSp[]{8,1,5,-2,5,-2,20,10,12,8,3,-3,75,40,12,6,200,10,100,30,-1,30,15,25,10,-2,1,2,7,20,-2,-2,100,15,5,100,35,75,5,20,4,5,1,-2,6,2,75,40,60,6,4,25,-2,-2,60,-1,50,15,125,2,-1,3,-1,200,35,150,15,5,4,10,8,30,4,5,7,5,0};
+constexpr unsigned kGems[]{0,0,2,1,2,4,5,0,0,0,0,10,10,10,0,0,20,4,10,20,1,10,5,5,4,2,0,0,0,10,3,1,20,4,0,20,10,10,1,10,0,0,0,2,2,0,10,10,10,0,0,10,3,2,10,1,10,10,20,0,0,1,1,20,5,20,5,0,0,0,0,5,1,2,0,2,0};
+}
+XeenSpellCost XeenLearnedSpellRules::cost(std::uint8_t id,unsigned level) noexcept {
+    if(id>=77)return {};
+    return {kSp[id]>=0?unsigned(kSp[id]):level*unsigned(-kSp[id]),kGems[id]};
+}
+std::optional<std::size_t> XeenLearnedSpellRules::slotForSpell(XeenSpellCategory category,std::uint8_t id) noexcept {
+    for(std::size_t slot=0;slot<39;++slot)if(spellForSlot(category,slot)==id)return slot;
+    return {};
+}
+std::uint32_t XeenLearnedSpellRules::purchasePrice(std::uint8_t id,XeenCharacterClass c) noexcept {
+    if(id>=76)return 0;
+    const unsigned base=kSp[id]<0?500*unsigned(-kSp[id]):100*unsigned(kSp[id]);
+    return base*((c==XeenCharacterClass::Paladin || c==XeenCharacterClass::Archer || c==XeenCharacterClass::Ranger)?2:1);
+}
+std::vector<std::size_t> XeenLearnedSpellRules::rows(const XeenCharacter &c,bool guild,bool info) {
+    std::vector<std::size_t> result;const auto category=categoryForClass(c.characterClass);
+    if(!category || !c.learnedSpells)return result;
+    if(guild) {
+        constexpr std::uint8_t catalogue[]{1,10,20,26,27,38,40,42,45,50,55,59,60,61,62,68,72,75};
+        for(auto id:catalogue)if(const auto slot=slotForSpell(*category,id);slot && (info || !known(c,*slot)))result.push_back(*slot);
+    } else for(std::size_t slot=0;slot<39;++slot)if(known(c,slot))result.push_back(slot);
+    return result;
+}
+XeenSpellTarget XeenLearnedSpellRules::target(std::uint8_t id) noexcept {
+    return id==1?XeenSpellTarget::Party:id==26?XeenSpellTarget::Member:id==45?XeenSpellTarget::Contact:XeenSpellTarget::Unsupported;
+}
+XeenQuickSpellCheck XeenLearnedSpellRules::check(const XeenCharacter &c,std::size_t slot,std::uint32_t gems,bool combat) noexcept {
+    using Q=XeenQuickSpellCheck;if(slot==255)return Q::NoSpell;
     const auto category=categoryForClass(c.characterClass);
-    const auto id=category?spellForSlot(*category,c.currentSpell):std::nullopt;
-    if(!id)return Q::Unsupported;
-    constexpr int sp[]{8,1,5,-2,5,-2,20,10,12,8,3,-3,75,40,12,6,200,10,100,30,-1,30,15,25,10,-2,1,2,7,20,-2,-2,100,15,5,100,35,75,5,20,4,5,1,-2,6,2,75,40,60,6,4,25,-2,-2,60,-1,50,15,125,2,-1,3,-1,200,35,150,15,5,4,10,8,30,4,5,7,5,0};
-    constexpr unsigned gem[]{0,0,2,1,2,4,5,0,0,0,0,10,10,10,0,0,20,4,10,20,1,10,5,5,4,2,0,0,0,10,3,1,20,4,0,20,10,10,1,10,0,0,0,2,2,0,10,10,10,0,0,10,3,2,10,1,10,10,20,0,0,1,1,20,5,20,5,0,0,0,0,5,1,2,0,2,0};
-    const auto required=sp[*id]>0?unsigned(sp[*id]):c.currentLevel()*unsigned(-sp[*id]);
-    if(c.currentSp<int(required))return Q::InsufficientSp;
-    if(gems<gem[*id])return Q::InsufficientGems;
-    for(auto forbidden:{19,21,40,44,66,69,71,75})if(*id==forbidden)return Q::CombatForbidden;
-    return supportedIn(*id,true) && c.hasSpells && known(c,c.currentSpell)?Q::Supported:Q::Unsupported;
+    const auto id=category?spellForSlot(*category,slot):std::nullopt;
+    // Explicit incomplete-engine policy: no paid failure/turn for any missing effect.
+    if(!id || !supportedIn(*id,combat) || !c.hasSpells || !known(c,slot))return Q::Unsupported;
+    const auto required=cost(*id,c.currentLevel());
+    if(c.currentSp<int(required.sp))return Q::InsufficientSp;
+    if(gems<required.gems)return Q::InsufficientGems;
+    if(combat)for(auto forbidden:{19,21,40,44,66,69,71,75})if(*id==forbidden)return Q::CombatForbidden;
+    return Q::Supported;
+}
+XeenQuickSpellCheck XeenLearnedSpellRules::quickSpellCheck(const XeenCharacter &c,std::uint32_t gems) noexcept {
+    return check(c,c.currentSpell,gems,true);
 }
 
 bool XeenLearnedSpellRules::known(const XeenCharacter &character, std::size_t slot) noexcept {

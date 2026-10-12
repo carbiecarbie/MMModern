@@ -1,5 +1,6 @@
 #include "XeenRemoveTestSupport.h"
 #include "XeenPartySnapshotTestSupport.h"
+#include "XeenDosTextTestSupport.h"
 #include "app/XeenEventFlow.h"
 #include "formats/xeen/XeenCharacterFormat.h"
 #include "formats/xeen/XeenQuestFlagFormat.h"
@@ -160,7 +161,7 @@ void clearing() {
 void lifetimeAndCancellation() {
 	Fixture f;f.members=party(6);f.scriptAt({record(1,1,0,0x20,{0,0}),record(1,1,1,0x19,{7,8,0}),
 		record(1,1,2,0x12),set(0,2,7,8),record(7,8,1,5,{0,1,9,1,99}),record(7,8,2,0x1a)});
-	auto flow=f.flow();flow.handle(InteractionAction{});flow.handle(SelectMemberAction{5});
+	auto flow=f.flow();flow.dialogText=&dos_test::text();flow.handle(InteractionAction{});flow.handle(SelectMemberAction{5});
 	check(f.members.questFlags.isSet(2) && flow.blocksGameplay(),"selected member/call lost immediate set");
 	f.members.questFlags.set(29); // Independent live mutation while suspended must survive resume.
 	f.events.discardScriptCache();f.events.discardTextCache();f.world.discardMapCache();flow.refresh(true);
@@ -168,14 +169,15 @@ void lifetimeAndCancellation() {
 	flow.handle(InteractionAction{});flow.handle(CancelInteractionAction{});check(f.members.questFlags.isSet(2),"later cancellation erased request");
 	XeenEventSystem replacement([&](XeenMapIdentity id){return f.scripts.at(id);});
 	XeenEventFlow newFlow(f.world,replacement,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
+	newFlow.dialogText=&dos_test::text();
 	check(!newFlow.blocksGameplay() && f.members.questFlags.isSet(2) && f.members.questFlags.isSet(29),"new event owner reset party");
 	Fixture cancel;cancel.members=party(2);cancel.scriptAt({record(1,1,0,0x1f,{2,1,1})});
 	cancel.scriptAt({record(1,1,0,12,{0,0,20,7}),set(1),record(1,1,2,0x20,{0,0}),set(3,29)},2);
-	auto c=cancel.flow();c.handle(InteractionAction{});check(cancel.members.questFlags.isSet(2) && !cancel.flags.isSet(7),"pre-cancel policy");
+	auto c=cancel.flow();c.dialogText=&dos_test::text();c.handle(InteractionAction{});check(cancel.members.questFlags.isSet(2) && !cancel.flags.isSet(7),"pre-cancel policy");
 	c.handle(CancelInteractionAction{});check(cancel.camera.mapId==XeenMapIdentity(2) && cancel.flags.isSet(7) &&
 		cancel.members.questFlags.isSet(2) && !cancel.members.questFlags.isSet(29),"WhoWill cancellation commit policy");
 	for(int outcome=0;outcome<3;++outcome){Fixture a;a.scriptAt({set(),record(1,1,1,5,{0,1,9,1,2}),set(2,29)});
-		{auto pending=a.flow();pending.handle(InteractionAction{});if(outcome==0)pending.abandonPresentation();
+		{auto pending=a.flow();pending.dialogText=&dos_test::text();pending.handle(InteractionAction{});if(outcome==0)pending.abandonPresentation();
 			if(outcome==1)pending.respond(*pending.presentationGeneration(),XeenPresentationResponse::Yes);}
 		check(a.members.questFlags.isSet(2) && !a.members.questFlags.isSet(29),"abandon/wrong-response/destruction changed authoritative flags");}
 	// Original no-root branch's unsigned SP>=0 must not invent an alternate request.
@@ -188,7 +190,7 @@ void errorsAndRemove() {
 		f.scriptAt({record(1,1,0,0x19,{7,8,0}),record(1,1,1,0x12),
 			record(7,8,0,9,{20,7,5}),record(7,8,1,12,{0,0,20,7}),set(2,2,7,8),
 			record(7,8,3,mode==0?0xff:mode==1?9:0x0e,mode==1?Bytes{44,1,4}:Bytes{}),record(7,8,4,0x0e),record(7,8,5,0xff)},2);
-		auto flow=f.flow();std::optional<XeenEventExecutionState> suspended;std::optional<Kind> failed;
+		auto flow=f.flow();flow.dialogText=&dos_test::text();std::optional<XeenEventExecutionState> suspended;std::optional<Kind> failed;
 		auto report=[&](const auto&r){if(auto s=std::get_if<XeenEventExecutionSuspended>(&r))suspended=s->state;
 			if(auto e=std::get_if<XeenEventExecutionError>(&r))failed=e->kind;};flow.reportManual=report;flow.reportAutomatic=report;
 		automatic?flow.initial():flow.handle(InteractionAction{});

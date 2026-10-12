@@ -15,9 +15,6 @@ struct BusyCast {
 	explicit BusyCast(bool &value) : flag(value) { flag=true; }
 	~BusyCast() { flag=false; }
 };
-unsigned explorationCharge(const XeenCamera &camera) {
-	return camera.mapId == XeenMapIdentity(28) ? 1 : 10;
-}
 
 XeenConsequenceCharacters activeCharacters(const XeenPartyState &party,const XeenPartyOrder &order) {
 	XeenConsequenceCharacters characters;
@@ -91,14 +88,14 @@ bool XeenEncounterFlow::confirmCasting(const Ticket &entry, std::size_t casterIn
 		_journeyPreimage->check();
 		xeenValidateJourneyParty(_party);
 		if (!XeenLearnedSpellRules::eligible(_party,casterIndex,slot) ||
-			!xeenRegionalContext(xeenPrepareTime(*_party.encounterContext,explorationCharge(_camera)).context)) return false;
+			!xeenRegionalContext(xeenPrepareTime(*_party.encounterContext,(_world.map(_camera.mapId).geometry.isOutdoors()?10:1)).context)) return false;
 		const auto owner=_party.party.activeRosterIds()[casterIndex];
 		const auto &caster=_party.roster.at(owner);
 		const auto category=XeenLearnedSpellRules::categoryForClass(caster.characterClass);
 		const auto id=category ? XeenLearnedSpellRules::spellForSlot(*category,slot) : std::nullopt;
 		const auto spell=id ? XeenLearnedSpellRules::supportedIn(*id,false) : std::nullopt;
 		if (!spell) return false;
-		const auto after=static_cast<std::int16_t>(caster.currentSp-1);
+		const auto after=static_cast<std::int16_t>(caster.currentSp-XeenLearnedSpellRules::cost(*spell));
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 		prepared->retainResources(*_journeyPreimage);
 		prepared->characters[owner].currentSp=after;
@@ -131,7 +128,7 @@ bool XeenEncounterFlow::respondCastingTarget(const Ticket &entry,
 		prepared->retainResources(*_journeyPreimage);
 		std::string result;
 		if (!targetIndex) {
-			if (_party.roster.at(_casting->casterOwner).currentSp!=_casting->originalSp-1)
+			if (_party.roster.at(_casting->casterOwner).currentSp!=_casting->originalSp-int(XeenLearnedSpellRules::cost(_casting->spell)))
 				throw std::logic_error("Casting refund preimage changed");
 			prepared->characters[_casting->casterOwner].currentSp=_casting->originalSp;
 			result="First Aid target cancelled; SP refunded";
@@ -153,6 +150,7 @@ bool XeenEncounterFlow::respondCastingTarget(const Ticket &entry,
 			live.currentHp=effect.hp;live.conditions=effect.conditions;
 		}
 		_castingResult.swap(result);
+		_casting->failed=preparedEffect.failed;
 		_casting->effectDone=true;
 		_casting->displayedFrame.reset();_casting->displayedInput=0;
 		++_world._sessionState._journeyGeneration;++_generation;
@@ -198,7 +196,7 @@ bool XeenEncounterFlow::serviceCasting() {
 	try {
 		_journeyPreimage->check();
 		auto &work=*_casting;
-		if (!work.time) work.time.emplace(*_party.encounterContext,explorationCharge(_camera),activeCharacters(_party,work.owners),activeInputs(_party,work.owners),&*_party.serviceEconomy);
+		if (!work.time) work.time.emplace(*_party.encounterContext,(_world.map(_camera.mapId).geometry.isOutdoors()?10:1),activeCharacters(_party,work.owners),activeInputs(_party,work.owners),&*_party.serviceEconomy);
 		XeenConsequenceDraw draw{work.random,64,[&] { _journeyPreimage->check(); }};
 		if (!work.time->service(draw)) return true;
 		if (_world._sessionState._encounterRevision==std::numeric_limits<std::uint64_t>::max())

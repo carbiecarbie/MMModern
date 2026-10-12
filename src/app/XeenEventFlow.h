@@ -62,6 +62,7 @@ public:
 	std::function<void(IndexedFrame &)> drawTrainingArt;
 	std::function<void(IndexedFrame &)> drawTempleArt;
 	std::function<void(IndexedFrame &)> drawTavernArt,drawBankArt,drawGuildArt;
+    std::function<std::vector<std::uint8_t>()> loadSpellDescriptions;
 	std::function<std::string()> tavernFoodOffer;
 	std::function<void(IndexedFrame &)> drawCombatButtons;
 	XeenDialogSpriteDraw drawDialogSprite;
@@ -163,6 +164,9 @@ private:
 		std::string foodOffer,amount;
 		XeenTextInput amountCursor;
 		bool withdrawal=false,gems=false,bankRefreshed=false;
+        bool spellInfo=false;
+        XeenSpellListUi spells;
+        std::vector<std::string> descriptions;
 		IndexedFrame art;
 	};
 	std::optional<SmithUi> _smithUi;
@@ -328,18 +332,20 @@ private:
 	};
 	std::optional<EquipmentSelection> _equipmentSelection;
 	std::optional<std::uint64_t> _itemUseGeneration;
-	struct CastingUi {
-		enum class Phase { ChooseCaster, BrowseLearned, ConfirmCast, ChooseTarget, Settling };
-		Phase phase=Phase::ChooseCaster;
-		std::size_t caster=0, slot=0, scroll=0;
-		std::string refusal;
-	};
-	std::optional<CastingUi> _castingUi;
-	bool castingCasterEligible(std::size_t) const;
-	std::string combatCastingText() const;
-	IndexedFrame handleCombatCasting(const PlayerAction &,std::uint64_t);
-	std::string castingText() const;
-	IndexedFrame handleCasting(const PlayerAction &, std::uint64_t);
+    struct CastingUi {
+        enum class Phase { Cast, New, ChooseTarget, Settling };
+        Phase phase=Phase::Cast;
+        std::size_t caster=0;
+        XeenSpellListUi list;
+        std::string refusal;
+    };
+    std::optional<CastingUi> _castingUi;
+    std::optional<std::size_t> _lastCaster;
+    void initializeCaster();
+    std::shared_ptr<const DialogInput> castingDialogInput() const;
+    IndexedFrame drawCasting(const IndexedFrame &) const;
+    IndexedFrame handleCombatCasting(const PlayerAction &,std::uint64_t);
+    IndexedFrame handleCasting(const PlayerAction &,std::uint64_t);
 	void advanceInventoryEpoch() noexcept;
 	void armEquipmentSelection();
 	bool validEquipmentSelection(const EquipmentSelection &) const;
@@ -387,6 +393,7 @@ private:
 	std::optional<XeenEventContinuation> _regionalEventContinuation;
 	IndexedFrame _frame;
 	std::string _mainScreenNotice;
+    std::string _whoWillRefusal;
 	IndexedFrame drawMainScreenNotice(const IndexedFrame &, const std::string &) const;
  void drawPartyPresentation(IndexedFrame &) const;
 	XeenCamera _renderedCamera;

@@ -1,4 +1,5 @@
 #include "app/XeenEncounterFlow.h"
+#include "core/DialogInput.h"
 #include <limits>
 #include <stdexcept>
 #include <type_traits>
@@ -175,7 +176,23 @@ bool XeenEncounterFlow::respondCombatCast(const PlayerAction &action,std::uint64
     std::optional<CI> response;unsigned index=0;
     if(_combat->cast()) {
         const auto phase=_combat->cast()->phase;
-        if(std::holds_alternative<AcknowledgeAction>(action) ||
+        if(!_combat->cast()->refusal.empty())response=CI::Enter;
+        if(const auto *key=std::get_if<DialogKeyAction>(&action)) {
+            if(key->key==27)response=CI::Escape;
+            if(key->key=='n')response=CI::New;
+            if(key->key=='c' && phase==XeenCombatCastPhase::Confirm)response=CI::Enter;
+            if((key->key=='s' || key->key==13) && phase==XeenCombatCastPhase::Learned)response=CI::Select;
+            if(key->key==InputKey::Up)response=CI::Up;
+            if(key->key==InputKey::Down)response=CI::Down;
+            if(key->key==InputKey::PageUp)response=CI::PageUp;
+            if(key->key==InputKey::PageDown)response=CI::PageDown;
+            if(key->key>='0' && key->key<='9' && phase==XeenCombatCastPhase::Learned){response=CI::SelectRow;index=key->key=='0'?9:key->key-'1';}
+            if(key->key>=InputKey::F1 && key->key<InputKey::F1+6 && phase==XeenCombatCastPhase::PartyTarget) {
+                unsigned slot=key->key-InputKey::F1;const auto mask=_combat->participants();
+                for(unsigned i=0;i<6;++i)if(mask&(1u<<i)){if(!slot){response=CI::PartyTarget;index=i;break;}--slot;}
+            }
+        }
+        if((std::holds_alternative<AcknowledgeAction>(action) && phase==XeenCombatCastPhase::Result) ||
             (phase==XeenCombatCastPhase::Result && std::holds_alternative<InteractionAction>(action)))response=CI::Enter;
         if(std::holds_alternative<CancelInteractionAction>(action))response=CI::Escape;
         if(const auto *nav=std::get_if<NavigationAction>(&action)) {
@@ -190,6 +207,7 @@ bool XeenEncounterFlow::respondCombatCast(const PlayerAction &action,std::uint64
             if(const auto *row=std::get_if<SelectInventorySlotAction>(&action)){response=CI::EnemyTarget;index=unsigned(row->slot);}
             if(const auto *row=std::get_if<SelectCombatTargetAction>(&action)){response=CI::EnemyTarget;index=row->row;}
         }
+        if(phase==XeenCombatCastPhase::Result && _combat->cast()->result.failed)response=CI::Enter;
     }
     if(!begin && !response)return false;
     Busy busy(_busy);
@@ -220,8 +238,8 @@ bool XeenEncounterFlow::respondCombatCast(const PlayerAction &action,std::uint64
     }
     _combatCastRefusal.clear();
     if(!acceptCombatResult(result))return false;
-    if(_combat->cast() && _combat->cast()->quick && _combat->cast()->phase==XeenCombatCastPhase::Result) {
-        observeCombat();if(!acceptCombatResult(_combat->finishQuickCast(_combat->ticket())))return false;
+    if(_combat->cast() && _combat->cast()->quick && _combat->cast()->phase==XeenCombatCastPhase::Result && !_combat->cast()->result.failed) {
+        observeCombat();if(!acceptCombatResult(_combat->finishCast(_combat->ticket())))return false;
     }
     if(begin || !_combat->cast()) {_castProjectile.reset();_castProjectileDeadline.reset();}
     if(_combat->cast() && (_combat->cast()->phase==XeenCombatCastPhase::Projectile ||
@@ -412,6 +430,11 @@ bool XeenEncounterFlow::idleCombat(std::optional<std::uint64_t> cycle) {
 	if (_combat->cast()) {
         const auto phase=_combat->cast()->phase;
         if(_scheduleAfterFrame)return false;
+        if(phase==XeenCombatCastPhase::Result) {
+            if(_combat->cast()->result.failed)return false;
+            if(!acceptCombatResult(_combat->finishCast(_combat->ticket())))return false;
+            _castProjectile.reset();_castProjectileDeadline.reset();scheduleCombat(now);return true;
+        }
         if(phase!=XeenCombatCastPhase::Preparing &&
             (!_castProjectileDeadline || now<*_castProjectileDeadline))return false;
         if(phase!=XeenCombatCastPhase::Preparing && phase!=XeenCombatCastPhase::Projectile &&
@@ -430,8 +453,8 @@ bool XeenEncounterFlow::idleCombat(std::optional<std::uint64_t> cycle) {
             _castProjectileDeadline.reset();
         }
         if(observeCombat())_cosmeticDeadline=now+100;
-        if(_combat->cast() && _combat->cast()->quick && _combat->cast()->phase==XeenCombatCastPhase::Result) {
-            if(!acceptCombatResult(_combat->finishQuickCast(_combat->ticket())))return false;
+        if(_combat->cast() && _combat->cast()->quick && _combat->cast()->phase==XeenCombatCastPhase::Result && !_combat->cast()->result.failed) {
+            if(!acceptCombatResult(_combat->finishCast(_combat->ticket())))return false;
             _castProjectile.reset();_castProjectileDeadline.reset();
         }
         scheduleCombat(now);return true;

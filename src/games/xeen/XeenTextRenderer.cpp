@@ -94,14 +94,17 @@ void originalWindow(IndexedFrame &frame, const XeenTextRect &b) {
 		for (int gy=0; gy<8; ++gy) for (int gx=0; gx<8; ++gx)
 			if(const auto color=generated_dialog_drawing::kWindowSymbols[id][gy*8+gx]) setPixel(frame,x+gx,y+gy,color,b);
 	};
-	symbol(0,b.left,b.top); symbol(5,b.right-8,b.top);
-	symbol(14,b.left,b.bottom-8); symbol(19,b.right-8,b.bottom-8);
+	symbol(0,b.left,b.top);
 	for (int i=0; i<(b.right-b.left-9)/8; ++i) {
-		symbol(1+i%4,b.left+8+i*8,b.top); symbol(15+i%4,b.left+8+i*8,b.bottom-8);
+		symbol(1+i%4,b.left+8+i*8,b.top);
 	}
+	symbol(5,b.right-8,b.top);
 	for (int i=0; i<(b.bottom-b.top-9)/8; ++i) {
 		symbol(6+i%4,b.left,b.top+8+i*8); symbol(10+i%4,b.right-8,b.top+8+i*8);
 	}
+	symbol(14,b.left,b.bottom-8);
+	for (int i=0; i<(b.right-b.left-9)/8; ++i) symbol(15+i%4,b.left+8+i*8,b.bottom-8);
+	symbol(19,b.right-8,b.bottom-8);
 	fillRect(frame,{b.left+8,b.top+8,b.right-8,b.bottom-8},0x99);
 }
 

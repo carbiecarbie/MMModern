@@ -225,8 +225,8 @@ void run(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &initi
    check(h.party->roster.at(0).miscellaneous[0].id==0,"Antidote charge not consumed exactly once");
   } else {
    input(CastSpellAction{});input(SelectMemberAction{4});
-   if(action!=Action::Awaken)input(NavigationAction::MoveBackward);
-   input(AcknowledgeAction{});input(AcknowledgeAction{});
+   input(DialogKeyAction{'n'});input(DialogKeyAction{unsigned(action==Action::Awaken?'1':'2')});
+   input(DialogKeyAction{'s'});input(DialogKeyAction{'c'});
    {
     check(h.flow->encounter()->castingCommitted(),"Supported regional casting did not debit");
     deniedSave();

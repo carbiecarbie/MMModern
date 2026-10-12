@@ -235,6 +235,7 @@ private:
 	void checkSmithBoundary(XeenSmithBoundary);
 	bool beginSmith(const std::function<void()> &,std::uint8_t action=1);
 	void buyFood();
+    bool buySpell(std::size_t member,std::size_t slot);
 	void transferBank(bool withdrawal,bool gems,std::uint64_t amount);
 	bool serviceSmithPreparation();
 	void authorizeSmithFrame(std::uint64_t,const IndexedFrame::Presentation &);
@@ -288,7 +289,7 @@ private:
 		std::uint8_t casterOwner=0, slot=0;
 		XeenLearnedSpell spell=XeenLearnedSpell::Awaken;
 		std::int16_t originalSp=0;
-		bool committed=false,effectDone=false;
+		bool committed=false,effectDone=false,failed=false;
 		XeenCombatRandom random;
 		std::optional<XeenConditionTimeCandidate> time;
 	};

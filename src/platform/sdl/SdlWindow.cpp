@@ -106,6 +106,8 @@ unsigned inputKey(SDL_Keycode key) {
     case SDLK_LEFT: case SDLK_KP_4: return InputKey::Left;
     case SDLK_RIGHT: case SDLK_KP_6: return InputKey::Right;
     case SDLK_KP_ENTER: return InputKey::Enter;
+    case SDLK_PAGEUP: case SDLK_KP_9: return InputKey::PageUp;
+    case SDLK_PAGEDOWN: case SDLK_KP_3: return InputKey::PageDown;
     default: return static_cast<unsigned>(key);
     }
 }

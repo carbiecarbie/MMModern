@@ -348,11 +348,6 @@ std::string XeenEncounterFlow::consequenceNotice() const {
   if(use.exhausted)out<<"; item exhausted";
   out<<'\n';
  }
-	if (!_castingResult.empty()) {
-		out<<_castingResult;
-		if (_castingSettlement && !_combat && (_state.pending() || _regionalWork || projectilesPending())) out<<"; actor work pending";
-		out<<'\n';
-	}
  const bool finishNotice = _disengagementNoticeRevision &&
   _retiredCombatResult.operation==XeenCombatOperation::FinishDisengagement &&
   (_combat ? _disengagementNoticeCombat && _combat->current(*_disengagementNoticeCombat) :

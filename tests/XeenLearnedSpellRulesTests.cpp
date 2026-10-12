@@ -27,6 +27,34 @@ XeenPartyState fixture() {
 	party.roster.at(14).learnedSpells->at(1)=1;
 	return party;
 }
+
+void costsAndCatalogue() {
+    using R=XeenLearnedSpellRules;using C=XeenCharacterClass;using Q=XeenQuickSpellCheck;
+    const std::vector<unsigned> catalogue{1,10,20,26,27,38,40,42,45,50,55,59,60,61,62,68,72,75};
+    const std::vector<unsigned> prices{100,300,500,100,200,500,400,100,200,400,500,200,500,300,500,400,400,500};
+    auto p=fixture();auto &c=p.roster.at(1);
+    for(const auto cls:{C::Cleric,C::Sorcerer,C::Druid,C::Paladin,C::Archer,C::Ranger}) {
+        c.characterClass=cls;c.learnedSpells.emplace();const auto cat=*R::categoryForClass(cls);
+        const auto rows=R::rows(c,true);std::vector<std::size_t> expected;
+        for(unsigned i=0;i<catalogue.size();++i) {
+            const auto id=std::uint8_t(catalogue[i]);const auto slot=R::slotForSpell(cat,id);
+            check(R::purchasePrice(id,cls)==prices[i]*((cls==C::Paladin || cls==C::Archer || cls==C::Ranger)?2:1),"Catalogue price/hybrid factor differs");
+            if(slot)expected.push_back(*slot);
+        }
+        check(rows==expected,"Guild catalogue/class intersection order differs");
+        for(const auto slot:rows)c.learnedSpells->at(slot)=255;
+        check(R::rows(c,true).empty() && R::rows(c,true,true)==expected,"Buy learned filtering/Info inclusion differs");
+        c.currentSp=0;
+        for(unsigned slot=0;slot<39;++slot) {
+            const auto id=*R::spellForSlot(cat,slot);c.currentSpell=slot;
+            if(!R::supported(id))check(R::quickSpellCheck(c,0)==Q::Unsupported && R::check(c,slot,0,false)==Q::Unsupported,"Unsupported admission must precede cost/context");
+        }
+    }
+    check(R::cost(20,7).sp==7 && R::cost(20,7).gems==1 && R::cost(60,19).sp==19 && R::cost(75,1).gems==2,"Shared level/gem costs differ");
+    c.characterClass=C::Sorcerer;c.currentSpell=25;c.learnedSpells->at(25)=1;c.currentSp=1;
+    check(R::quickSpellCheck(c,0)==Q::InsufficientSp,"Supported insufficient SP order differs");c.currentSp=2;
+    check(R::quickSpellCheck(c,0)==Q::Supported,"Exact supported cost refused");
+}
 void mapping() {
 	using C=XeenCharacterClass;using S=XeenSpellCategory;
 	constexpr std::array<std::array<std::uint8_t,39>,3> expected{{
@@ -188,5 +216,5 @@ void ownerIdentityAndLifetime() {
 	}
 }
 }
-int main() {try {mapping();structuralNames();eligibilityAndEffects();resourcePreimage();ownerIdentityAndLifetime();std::cout<<"Learned spell mapping and pure effects passed\n";return 0;}
+int main() {try {mapping();costsAndCatalogue();structuralNames();eligibilityAndEffects();resourcePreimage();ownerIdentityAndLifetime();std::cout<<"Learned spell mapping and pure effects passed\n";return 0;}
 catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

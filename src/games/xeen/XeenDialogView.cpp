@@ -29,10 +29,12 @@ void button(DialogInput &input,int l,int t,int r,int b,unsigned key,const char *
     input.hits.push_back({l,t,r,b,key,resource?std::optional<InputButton>{{resource,frame,l,t}}:std::nullopt});input.keys.push_back(key);
 }
 IndexedFrame render(const IndexedFrame &base,const XeenFontFormat &font,const std::string &text,
-        XeenTextRect outer,XeenTextRect inner,bool border=true,bool startupColors=false,bool stopAtBottom=false) {
+        XeenTextRect outer,XeenTextRect inner,bool border=true,bool startupColors=false,bool stopAtBottom=false,
+        XeenFontSize size=XeenFontSize::Normal) {
     XeenTextRenderOptions options;options.originalControls=true;options.startupColors=startupColors;
     options.drawWindow=border;options.windowBounds=outer;options.bounds=inner;options.x=inner.left;options.y=inner.top;
     options.stopAtBottom=stopAtBottom;
+    options.size=size;
     auto result=XeenTextRenderer(font).render(base,text,options);
     if(result.pages.size()!=1 || !result.diagnostics.empty()) throw std::runtime_error("Original dialog layout overflow");
     return std::move(result.pages.front());
@@ -118,6 +120,96 @@ IndexedFrame drawXeenQuickFight(const XeenDosText &text,const IndexedFrame &base
     auto frame=render(base,font,xeenDialogFormat(text.scalar("QUICK_FIGHT_TEXT"),{c.name,str(text.table("QUICK_FIGHT_OPTIONS").at(c.quickOption))}),{226,0,320,146},{234,8,312,138});
     if(draw) {draw(frame,"train.icn",0,242,108);draw(frame,"train.icn",2,281,108);}
     highlight(frame,slot,draw);return frame;
+}
+
+// Adapted from pinned dialogs_spells.cpp and window.cpp (ScummVM developers,
+// GPL-3.0-or-later). All displayed templates come from the installed DOS module.
+void XeenSpellListUi::scroll(unsigned key,std::size_t count) {
+    if(key==InputKey::Up) {if(top)--top;}
+    if(key==InputKey::Down && count>top+10)++top;
+    if(key==InputKey::PageUp)top=top>=10?top-10:0;
+    if(key==InputKey::PageDown && count)top=std::min(top+10,((count-1)/10)*10);
+}
+std::optional<std::size_t> XeenSpellListUi::row(unsigned key,std::size_t count) const {
+    if(key<'0' || key>'9')return {};
+    const auto index=top+(key=='0'?9:key-'1');
+    return index<count?std::optional<std::size_t>{index}:std::nullopt;
+}
+DialogInput xeenCastInput(bool switching) {
+    DialogInput input;if(switching)partyButtons(input);
+    button(input,234,108,259,128,'c',"cast.icn",0);
+    button(input,261,108,285,128,'n',"cast.icn",2);
+    button(input,288,108,312,128,InputKey::Escape,"cast.icn",4);return input;
+}
+DialogInput xeenSpellListInput(bool selecting,bool switching) {
+    DialogInput input;
+    button(input,187,26,198,36,InputKey::Up,"scroll.icn",0);
+    button(input,187,111,198,121,InputKey::Down,"scroll.icn",2);
+    for(unsigned i=0;i<10;++i)button(input,40,28+9*i,187,36+9*i,i==9?'0':'1'+i);
+    button(input,174,123,198,133,InputKey::Escape);
+    button(input,187,35,198,73,InputKey::PageUp);
+    button(input,187,74,198,112,InputKey::PageDown);
+    if(selecting) {button(input,132,123,168,133,'s');input.keys.push_back(InputKey::Enter);}
+    if(switching)partyButtons(input);return input;
+}
+DialogInput xeenSpellTargetInput() {DialogInput input;partyButtons(input);input.keys.push_back(InputKey::Escape);return input;}
+DialogInput xeenSpellConfirmInput(bool info) {
+    DialogInput input;
+    if(info)input.anyKey=input.anyClick=true;
+    else {button(input,120,133,144,153,'y',"confirm.icn",0);button(input,176,133,200,153,'n',"confirm.icn",2);input.keys.push_back(InputKey::Escape);}
+    return input;
+}
+IndexedFrame drawXeenCast(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,
+        const XeenCharacter &c,std::size_t member,const XeenLearnedSpellNames &names,const XeenDialogSpriteDraw &draw) {
+    const auto category=XeenLearnedSpellRules::categoryForClass(c.characterClass);
+    const auto id=category?XeenLearnedSpellRules::spellForSlot(*category,c.currentSpell):std::nullopt;
+    const auto cost=XeenLearnedSpellRules::cost(id.value_or(76),c.currentLevel());
+    auto frame=render(base,font,xeenDialogFormat(text.scalar("CAST_SPELL_DETAILS"),{c.name,names.names[id.value_or(76)],n(cost.sp),n(cost.gems),n(c.currentSp)}),{226,0,320,146},{234,8,312,138});
+    if(draw)for(const auto &hit:xeenCastInput().hits)if(hit.button) {const auto &b=*hit.button;draw(frame,b.resource,b.frame,b.x,b.y);}
+    highlight(frame,member,draw);return frame;
+}
+IndexedFrame drawXeenSpellList(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,
+        const XeenCharacter &c,const XeenLearnedSpellNames &names,const XeenSpellListUi &ui,std::uint32_t money,
+        bool guild,bool info,const XeenDialogSpriteDraw &draw,std::uint32_t year) {
+    const auto rows=XeenLearnedSpellRules::rows(c,guild,info);
+    const bool noncaster=R::maxSp(c,{year})==0;
+    const auto error=noncaster?text.scalar("NOT_A_SPELL_CASTER"):text.scalar(guild?"SPELLS_LEARNED_ALL":"NO_KNOWN_SPELLS");
+    const bool empty=rows.empty() || (noncaster && !guild);
+    auto frame=render(base,font,xeenDialogFormat(text.scalar("SPELLS_FOR"),{empty || noncaster?"":str(text.scalar("SPELL_LINES_0_TO_9")),c.name}),{27,6,207,142},{35,14,199,134});
+    std::vector<std::string> args;
+    for(unsigned i=0;i<10;++i) {
+        const auto position=ui.top+i;std::string name;
+        if(!empty && position<rows.size()) {
+            const auto id=*XeenLearnedSpellRules::spellForSlot(*XeenLearnedSpellRules::categoryForClass(c.characterClass),rows[position]);
+            const auto cost=XeenLearnedSpellRules::cost(id,c.currentLevel());
+            name=guild?xeenDialogFormat(text.scalar("SPELL_GOLD_ROW"),{names.names[id],n(XeenLearnedSpellRules::purchasePrice(id,c.characterClass))}):
+                xeenDialogFormat(text.scalar("SPELL_COST_ROW"),{names.names[id],n(cost.sp),n(cost.gems)});
+        } else if(empty && i==0)name=error;
+        args.push_back(n(ui.selection==position?15:9));args.push_back(std::move(name));
+    }
+    args.push_back(str(text.scalar(guild?"SPELL_GOLD":"SPELL_PTS")));args.push_back(n(guild?money:std::uint32_t(c.currentSp)));
+    // Window 37 continues the reduced font selected by SPELLS_FOR in window 25.
+    frame=render(frame,font,xeenDialogFormat(text.scalar("SPELLS_DIALOG_SPELLS"),args),{27,6,195,142},{35,14,187,134},false,false,false,XeenFontSize::Reduced);
+    if(draw) {draw(frame,"scroll.icn",4,39,26);draw(frame,"scroll.icn",0,187,26);draw(frame,"scroll.icn",2,187,111);if(!guild)draw(frame,"scroll.icn",5,132,123);}
+    return frame;
+}
+IndexedFrame drawXeenSpellConfirm(const IndexedFrame &base,const XeenFontFormat &font,const std::string &message,bool info,const XeenDialogSpriteDraw &draw) {
+    auto frame=render(base,font,message,{65,23,250,163},{73,31,242,155},true,false,true);
+    if(draw && !info){draw(frame,"confirm.icn",0,120,133);draw(frame,"confirm.icn",2,176,133);}return frame;
+}
+IndexedFrame drawXeenSpellTarget(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font) {
+    return render(base,font,str(text.scalar("ON_WHO")),{228,106,320,146},{236,114,312,138});
+}
+std::vector<std::string> xeenSpellDescriptions(const std::vector<std::uint8_t> &bytes) {
+    if(bytes.empty() || bytes.size()>65535)throw std::invalid_argument("Invalid spldesc.bin size");
+    std::vector<std::string> result;std::size_t start=0;
+    for(std::size_t i=0;i<bytes.size();++i)if(!bytes[i]) {
+        if(i-start>2048 || result.size()==256)throw std::invalid_argument("Invalid spldesc.bin entry");
+        result.emplace_back(reinterpret_cast<const char *>(bytes.data()+start),i-start);
+        XeenDosText::validateControls(result.back());start=i+1;
+    }
+    if(start!=bytes.size() || result.size()<76)throw std::invalid_argument("Truncated spldesc.bin");
+    return result;
 }
 DialogInput xeenSheetInput() {
     DialogInput input;constexpr int x[]{10,61,112,177};

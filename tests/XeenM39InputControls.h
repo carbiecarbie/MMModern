@@ -78,6 +78,8 @@ bool m39InputControls(const std::string &control,const IndexedFrame &first,const
             "M39 queued handoff tap lost/duplicated or held/repeat accepted");
         check(cosmeticInput==stableInput,"M39 cosmetic changed semantic input");
         check(replay_test::commands==baselineCommands+(control=="attack" || control=="block" || control=="run"?2:1),"M39 queued commands lost/duplicated");
+        if(control=="cast")check(combat().cast() && combat().cast()->phase==XeenCombatCastPhase::Confirm && !combat().cast()->committed,
+            "M60 queued Cast must open the original unpaid remembered-spell dialog");
         check(!combat().current(stableTicket) && !combat().current(XeenCombat::Ticket{}),"M39 stale/foreign semantic ticket accepted");
         const auto generation=combat().result().generation;const auto commands=replay_test::commands;
         handler.withPresentedInput(AttackAction{},*stableInput,stableFrame);

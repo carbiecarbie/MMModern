@@ -106,6 +106,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         const auto action=[&](PlayerAction value){steps.push_back([&,value]{act(value);return true;});};
         const auto settle=[&]{steps.push_back([&]{
             if(flow->canSave())return true;
+            if(flow->encounter()->castingCommitted()) {
+                const auto context=handler.inputContext(presented);
+                if(context.dialog && context.dialog->anyKey){act(AcknowledgeAction{});return false;}
+            }
             const auto *combat=flow->encounter()->combat();
             if(combat){
                 check(combat->phase()!=XeenCombatPhase::Failed && combat->phase()!=XeenCombatPhase::Defeat &&
@@ -392,21 +396,15 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             check(combat->phase()!=XeenCombatPhase::Failed && combat->phase()!=XeenCombatPhase::Defeat &&
                 combat->phase()!=XeenCombatPhase::SupportStopped,"M43 reset Slime combat stopped");
             if(const auto cast=combat->cast()) {
-                switch(cast->phase) {
-                case XeenCombatCastPhase::Learned:
-                    if(cast->slot==25)act(AcknowledgeAction{});
-                    else act(NavigationAction::MoveBackward);
-                    break;
-                case XeenCombatCastPhase::Enemy:
-                    if(!*selected){*selected=true;act(SelectCombatTargetAction{0});}
-                    else act(AcknowledgeAction{});
-                    break;
-                case XeenCombatCastPhase::Confirm:act(AcknowledgeAction{});break;
-                case XeenCombatCastPhase::Result:act(AcknowledgeAction{});*arrow=true;*selected=false;break;
-                default:break;
-                }
+                if(cast->phase==XeenCombatCastPhase::Result) {
+                    if(cast->result.failed)act(AcknowledgeAction{});
+                    *arrow=true;*selected=false;
+                }else if(const auto input=m49_combat::finishSpell(*cast,*party,45))act(*input);
             } else if(combat->phase()==XeenCombatPhase::PlayerReady) {
-                if(combat->participant()==5)act(CastSpellAction{});
+                if(combat->participant()==5) {
+                    if(!*selected){*selected=true;act(SelectCombatTargetAction{0});}
+                    else act(CastSpellAction{});
+                }
                 else act(BlockAction{});
             }
             return false;

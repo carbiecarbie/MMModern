@@ -171,6 +171,8 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             check(beforeProviders==providers && beforeSaves==saves,"M39 stale input invoked work");
         };
         const auto action=[&](PlayerAction a){steps.push_back([&,a]{act(a);return true;});};
+        const auto selectSpell=[&](unsigned row){action(DialogKeyAction{'n'});action(DialogKeyAction{'0'+row});action(DialogKeyAction{'s'});};
+        const auto castSelected=[&]{action(DialogKeyAction{'c'});};
         const auto inspect=[&](std::function<void()> f){steps.push_back([f]{f();return true;});};
         const auto combat=[&]()->const XeenCombat *{return flow->encounter()->combat();};
         const auto cast=[&]()->std::optional<XeenCombatCastView>{const auto c=combat();return c?c->cast():std::nullopt;};
@@ -182,8 +184,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             if(flow->canSave())return true;
             if(const auto c=combat()) {
                 check(c->phase()!=XeenCombatPhase::Failed && c->phase()!=XeenCombatPhase::Defeat && c->phase()!=XeenCombatPhase::SupportStopped,"M39 combat stop");
-                if(c->cast()){if(c->cast()->phase==XeenCombatCastPhase::Result)act(AcknowledgeAction{});}
-                else if(c->phase()==XeenCombatPhase::PlayerReady)act(branch=="B" || branch=="C" ? PlayerAction{RunAction{}} : PlayerAction{AttackAction{}});
+                if(!c->cast() && c->phase()==XeenCombatPhase::PlayerReady)act(branch=="B" || branch=="C" ? PlayerAction{RunAction{}} : PlayerAction{AttackAction{}});
             }else if(world->sessionState().journeyActivity()==XeenJourneyActivity::Event || world->sessionState().journeyActivity()==XeenJourneyActivity::Reward)act(AcknowledgeAction{});
             check(flow->encounter()->state().phase()!=XeenEncounterPhase::SupportStopped,"M39 exploration stop");
             return false;
@@ -217,14 +218,12 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             if(!prior.empty())check(prior==XeenSaveFormat::encode(XeenSaveFile::read(*target)),"M39 denied save changed disk");
         });};
         const auto firstAid=[&](unsigned targetSlot) {
-            action(CastSpellAction{});deny();action(NavigationAction::MoveBackward);action(AcknowledgeAction{});deny();
-            action(AcknowledgeAction{});deny();action(SelectMemberAction{targetSlot});result();deny();
+            action(CastSpellAction{});deny();selectSpell(2);deny();
+            castSelected();deny();action(SelectMemberAction{targetSlot});result();deny();
         };
         const auto arrow=[&](unsigned record) {
-            action(CastSpellAction{});deny();action(NavigationAction::MoveBackward);action(NavigationAction::MoveBackward);
-            action(AcknowledgeAction{});deny();
             steps.push_back([&,record]{const auto rows=combat()->contacts();for(unsigned i=0;i<3;++i)if(rows[i] && rows[i]->recordIndex==record){act(SelectCombatTargetAction{i});return true;}throw std::runtime_error("M39 Arrow contact absent");});
-            action(AcknowledgeAction{});deny();action(AcknowledgeAction{});deny();result();deny();
+            action(CastSpellAction{});deny();selectSpell(3);deny();castSelected();deny();result();deny();
         };
         const auto checkpoint=[&](const std::string &label) {
             auto before=std::make_shared<unsigned>();
@@ -260,19 +259,20 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     if(control.find("projectile")!=std::string::npos) {
                         // Arm native failure at the first settled projectile compose.
                         steps.clear();checkpoint("prior");route("UFU",false);untilActor(5,false);
-                        action(CastSpellAction{});action(NavigationAction::MoveBackward);action(NavigationAction::MoveBackward);
-                        action(AcknowledgeAction{});action(AcknowledgeAction{});action(AcknowledgeAction{});
+                        action(CastSpellAction{});selectSpell(3);castSelected();
                         inspect([&]{if(control.rfind("upload-",0)==0)nativeUpload=true;else nativeCopy=true;});
                     }else {
-                        action(CastSpellAction{});action(NavigationAction::MoveBackward);action(AcknowledgeAction{});
+                        action(CastSpellAction{});selectSpell(2);
                         if(control.find("target")!=std::string::npos)inspect([&]{if(control.rfind("upload-",0)==0)nativeUpload=true;else nativeCopy=true;});
-                        action(AcknowledgeAction{});
+                        castSelected();
                         if(control.find("result")!=std::string::npos)inspect([&]{if(control.rfind("upload-",0)==0)nativeUpload=true;else nativeCopy=true;});
                         action(SelectMemberAction{5});
                     }
                 }else if(branch=="native") {
-                    // Actual native C/Down/Enter/F4/Space/Escape. Held/repeated,
+                    // Actual native Cast/New/row/Select/Cast/F4. Held/repeated,
                     // old timestamps and multiple responses cannot cross a frame.
+                    auto remembered=std::make_shared<unsigned>();
+                    inspect([&,remembered]{*remembered=party->roster.at(1).currentSpell;});
                     const auto keys=[&](std::function<void()> enqueue,std::function<void()> verify) {
                         auto laps=std::make_shared<unsigned>(0);
                         steps.push_back([&,laps,enqueue,verify]{if(!(*laps)++){enqueue();acted=true;return false;}if(*laps<4)return false;verify();return true;});
@@ -280,19 +280,28 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     const auto key=[](SDL_Keycode code,Uint32 type=SDL_KEYDOWN,Uint8 repeat=0,bool stale=false){
                         SDL_Event e{};e.type=type;e.key.keysym.sym=code;e.key.keysym.scancode=SDL_GetScancodeFromKey(code);e.key.repeat=repeat;e.key.timestamp=stale?0:SDL_GetTicks()+1;
                         check(SDL_PeepEvents(&e,1,SDL_ADDEVENT,0,0)==1,"M39 native keyboard enqueue");};
-                    keys([key]{key(SDLK_c);key(SDLK_c,SDL_KEYDOWN,1);key(SDLK_RETURN);key(SDLK_RETURN,SDL_KEYUP);},[&]{check(cast() && cast()->phase==XeenCombatCastPhase::Learned && party->roster.at(1).currentSp==21,"M39 native batch crossed list");});
-                    keys([key]{key(SDLK_c);key(SDLK_c,SDL_KEYUP);key(SDLK_DOWN);key(SDLK_DOWN,SDL_KEYUP);},[&]{check(cast()->slot==14,"M39 native Down/held C");});
-                    keys([key]{key(SDLK_RETURN);key(SDLK_RETURN);key(SDLK_RETURN,SDL_KEYDOWN,1);},[&]{check(cast()->phase==XeenCombatCastPhase::Confirm && party->roster.at(1).currentSp==21,"M39 held/batched confirm debited");});
+                    keys([key]{key(SDLK_c);key(SDLK_c,SDL_KEYDOWN,1);key(SDLK_n);key(SDLK_n,SDL_KEYUP);},[&]{check(cast() && cast()->phase==XeenCombatCastPhase::Confirm && party->roster.at(1).currentSp==21,"M39 native batch crossed Cast");});
+                    keys([key]{key(SDLK_c,SDL_KEYUP);key(SDLK_n);key(SDLK_n,SDL_KEYUP);},[&]{check(cast()->phase==XeenCombatCastPhase::Learned,"M39 native New");});
+                    keys([key]{key(SDLK_2);key(SDLK_2,SDL_KEYUP);},[&,remembered]{check(cast()->selection==1 && party->roster.at(1).currentSpell==*remembered,"M39 row selected before Select");});
+                    keys([key]{key(SDLK_RETURN);key(SDLK_RETURN);key(SDLK_RETURN,SDL_KEYDOWN,1);},[&]{check(cast()->phase==XeenCombatCastPhase::Confirm && party->roster.at(1).currentSpell==14 && party->roster.at(1).currentSp==21,"M39 held/batched Select debited");});
                     keys([key]{
                         for(auto kind:{SDL_WINDOWEVENT_SIZE_CHANGED,SDL_WINDOWEVENT_EXPOSED}){SDL_Event e{};e.type=SDL_WINDOWEVENT;e.window.event=kind;e.window.data1=640;e.window.data2=400;check(SDL_PushEvent(&e)==1,"M39 native resize enqueue");}
-                        key(SDLK_RETURN);key(SDLK_RETURN,SDL_KEYUP);key(SDLK_RETURN,SDL_KEYDOWN,0,true);key(SDLK_RETURN,SDL_KEYUP);},[&]{check(cast()->phase==XeenCombatCastPhase::Confirm && party->roster.at(1).currentSp==21,"M39 stale timestamp admitted cost");});
-                    keys([key]{key(SDLK_RETURN);key(SDLK_RETURN,SDL_KEYUP);},[&]{check(cast()->phase==XeenCombatCastPhase::PartyTarget && party->roster.at(1).currentSp==20,"M39 native debit");});
-                    keys([key]{key(SDLK_F4);key(SDLK_F4,SDL_KEYUP);},[&]{check(cast()->phase==XeenCombatCastPhase::Result && cast()->result.noop && party->roster.at(kXeenCombatOwners[3]).currentHp==40 && party->roster.at(1).currentSp==20,"M39 paid healthy First Aid native no-op");});
-                    keys([key]{key(SDLK_SPACE);key(SDLK_SPACE,SDL_KEYUP);},[&]{check(!cast() && combat()->participant()==5,"M39 native Space result acknowledgment");});
-                    keys([key]{key(SDLK_c);key(SDLK_c,SDL_KEYUP);},[&]{check(cast()->phase==XeenCombatCastPhase::Learned,"M39 native next actor book");});
-                    keys([key]{key(SDLK_RETURN);key(SDLK_RETURN,SDL_KEYUP);},[&]{check(cast()->phase==XeenCombatCastPhase::Confirm,"M39 native Awaken confirm");});
-                    keys([key]{key(SDLK_RETURN);key(SDLK_RETURN,SDL_KEYUP);},[&]{check(cast()->phase==XeenCombatCastPhase::Result && cast()->result.noop && party->roster.at(6).currentSp==26,"M39 native paid Awaken no-op");});
-                    keys([key]{key(SDLK_ESCAPE);key(SDLK_ESCAPE,SDL_KEYUP);},[&]{check(!cast(),"M39 native result Escape was not absorbed");});
+                        key(SDLK_RETURN);key(SDLK_RETURN,SDL_KEYUP);key(SDLK_c,SDL_KEYDOWN,0,true);key(SDLK_c,SDL_KEYUP);},[&]{check(cast()->phase==XeenCombatCastPhase::Confirm && party->roster.at(1).currentSp==21,"M39 stale timestamp admitted cost");});
+                    keys([key]{key(SDLK_c);key(SDLK_c,SDL_KEYUP);},[&]{check(cast()->phase==XeenCombatCastPhase::PartyTarget && party->roster.at(1).currentSp==20,"M39 native debit");});
+                    keys([key]{key(SDLK_F4);key(SDLK_F4,SDL_KEYUP);},[&]{check(!cast() && combat()->participant()==5 && party->roster.at(kXeenCombatOwners[3]).currentHp==40 && party->roster.at(1).currentSp==20,"M39 native healthy First Aid automatic handoff");});
+                    keys([key]{key(SDLK_c);key(SDLK_c,SDL_KEYUP);},[&]{check(cast()->phase==XeenCombatCastPhase::Confirm,"M39 native next actor Cast");});
+                    keys([key]{key(SDLK_n);key(SDLK_n,SDL_KEYUP);},[&]{check(cast()->phase==XeenCombatCastPhase::Learned,"M39 native Awaken New");});
+                    keys([key]{key(SDLK_1);key(SDLK_1,SDL_KEYUP);},[&]{check(cast()->selection==0,"M39 native Awaken row");});
+                    keys([key]{key(SDLK_s);key(SDLK_s,SDL_KEYUP);},[&]{check(cast()->phase==XeenCombatCastPhase::Confirm && party->roster.at(6).currentSpell==0,"M39 native Awaken Select");});
+                    keys([key]{key(SDLK_c);key(SDLK_c,SDL_KEYUP);},[&]{check(party->roster.at(6).currentSp==26 &&
+                        (!cast() || cast()->phase==XeenCombatCastPhase::Preparing || cast()->phase==XeenCombatCastPhase::Result),
+                        "M39 native paid Awaken debit");});
+                    auto handoffLaps=std::make_shared<unsigned>(0);
+                    steps.push_back([&,handoffLaps]{
+                        check(++*handoffLaps<=20,"M39 native Awaken automatic handoff bound");
+                        check(party->roster.at(6).currentSp==26,"M39 native Awaken handoff repeated debit");
+                        return !cast();
+                    });
                     settle();checkpoint("native");
                 }else if(branch=="controls") {
                     // Independent original A prefix. No live fixture edits.
@@ -300,18 +309,18 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     const auto unchanged=[&,snapshot]{check((*snapshot)->current(),"M39 free cancellation changed durable state");check(combat()->participant()==4,"M39 free cancellation consumed turn");};
                     inspect([&,snapshot]{*snapshot=std::make_unique<XeenRestoreGuard>(*world,*party,*position,*flags);});
                     action(CastSpellAction{});deny();action(CancelInteractionAction{});inspect(unchanged);
-                    action(CastSpellAction{});action(NavigationAction::MoveBackward);action(AcknowledgeAction{});deny();
+                    action(CastSpellAction{});selectSpell(2);deny();
                     inspect([&,snapshot]{
                         check(party->roster.at(1).currentSpell==14,"M55 accepted First Aid slot is remembered");
                         *snapshot=std::make_unique<XeenRestoreGuard>(*world,*party,*position,*flags);
                     });
-                    action(CancelInteractionAction{});action(CancelInteractionAction{});
+                    action(DialogKeyAction{'n'});action(CancelInteractionAction{});action(CancelInteractionAction{});
                     inspect([&,snapshot]{
-                        // Accepting First Aid then cancelling outer Cast retains only its slot in v8.
+                        // Accepting First Aid then cancelling New and Cast retains only its saved slot.
                         check((*snapshot)->current() && party->roster.at(1).currentSpell==14 && combat()->participant()==4,"M39 outer cancellation changes only remembered First Aid slot");
                     });
                     // Post-cost explicit Escape restores original SP, but settles this action.
-                    action(CastSpellAction{});action(NavigationAction::MoveBackward);action(AcknowledgeAction{});action(AcknowledgeAction{});
+                    action(CastSpellAction{});castSelected();
                     inspect([&]{check(party->roster.at(1).currentSp==20 && cast()->phase==XeenCombatCastPhase::PartyTarget,"M39 refund prompt/debit");});deny();
                     action(CancelInteractionAction{});result();
                     inspect([&]{check(cast()->result.refunded && party->roster.at(1).currentSp==21 && party->roster.at(6).currentHp==11,"M39 exact recorded refund");});
@@ -319,20 +328,21 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     inspect([&]{check(combat()->participant()==5,"M39 refund did not consume Rebecca turn");});
                     auto seymour=std::make_shared<std::unique_ptr<XeenRestoreGuard>>();
                     inspect([&,seymour]{*seymour=std::make_unique<XeenRestoreGuard>(*world,*party,*position,*flags);});
-                    action(CastSpellAction{});action(NavigationAction::MoveBackward);action(AcknowledgeAction{});
-                    inspect([&]{check(cast()->phase==XeenCombatCastPhase::Learned && !cast()->refusal.empty(),"M39 unsupported Light was admitted");});
-                    action(NavigationAction::MoveBackward);action(AcknowledgeAction{});deny();action(CancelInteractionAction{});
-                    action(AcknowledgeAction{});action(AcknowledgeAction{});deny();
+                    action(CastSpellAction{});selectSpell(2);
+                    inspect([&,seymour]{*seymour=std::make_unique<XeenRestoreGuard>(*world,*party,*position,*flags);});
+                    castSelected();
+                    inspect([&,seymour]{check(cast()->phase==XeenCombatCastPhase::Confirm && !cast()->refusal.empty() && (*seymour)->current() && combat()->participant()==5,"M39 unsupported Light charged or consumed turn");});
+                    action(AcknowledgeAction{});selectSpell(3);deny();
                     inspect([&,seymour]{
                         check(party->roster.at(6).currentSpell==25,"M55 accepted Arrow slot is remembered");
                         *seymour=std::make_unique<XeenRestoreGuard>(*world,*party,*position,*flags);
                     });
-                    action(CancelInteractionAction{});action(CancelInteractionAction{});action(CancelInteractionAction{});
+                    action(DialogKeyAction{'n'});action(CancelInteractionAction{});action(CancelInteractionAction{});
                     inspect([&,seymour]{
                         check((*seymour)->current() && party->roster.at(6).currentSpell==25 && combat()->participant()==5,"M39 Light/Arrow cancellation retains only remembered Arrow slot");
                     });
                     // Healthy Awaken still spends one SP and consumes Seymour's action.
-                    action(CastSpellAction{});action(AcknowledgeAction{});action(AcknowledgeAction{});result();
+                    action(CastSpellAction{});selectSpell(1);castSelected();result();
                     inspect([&]{check(cast()->result.noop && party->roster.at(6).currentSp==26,"M39 paid Awaken no-op");});
                     action(AcknowledgeAction{});settle();checkpoint("controls");
                     std::cout<<"M39 ORIGINAL CANCEL / REFUND / LIGHT / PAID NOOP CONTROLS\n";
@@ -361,7 +371,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                         check(party->encounterContext->minutes==591 && world->sessionState().journeyRandom()->count==rngOffset+27 &&
                         world->sessionState().actors()[15].hp==33 && party->roster.at(11).conditions[8]==1 && party->roster.at(11).currentHp==9 &&
                         !party->roster.at(14).conditions[8] && !party->roster.at(1).conditions[8] && party->roster.at(1).currentHp==21,"M49 B single-target Sleep prefix");});
-                    action(CastSpellAction{});action(AcknowledgeAction{});action(AcknowledgeAction{});result();
+                    action(CastSpellAction{});selectSpell(1);castSelected();result();
                     inspect([&]{check(party->roster.at(6).currentSp==26 && !party->roster.at(11).conditions[8] && party->roster.at(11).currentHp==9 &&
                         !party->roster.at(14).conditions[8] && !party->roster.at(1).conditions[8] &&
                         party->encounterContext->minutes==591 && world->sessionState().journeyRandom()->count==rngOffset+27,"M39 B Awaken");std::cout<<"M39 B AWAKEN Sleep1->0 unchanged RNG/time\n";});
@@ -389,11 +399,11 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                         if(*used && !c->cast() && c->phase()==XeenCombatPhase::PlayerReady)act(AttackAction{});
                         if(c->cast()) {
                             const auto observed=c->cast();const auto &v=*observed;
-                            if(v.phase==XeenCombatCastPhase::Learned)act(v.slot==25 ? PlayerAction{AcknowledgeAction{}} : PlayerAction{NavigationAction::MoveBackward});
-                            else if(v.phase==XeenCombatCastPhase::Enemy || v.phase==XeenCombatCastPhase::Confirm)act(AcknowledgeAction{});
+                            if(v.phase==XeenCombatCastPhase::Learned)act(DialogKeyAction{unsigned(v.selection==2?'s':'3')});
+                            else if(v.phase==XeenCombatCastPhase::Confirm)act(DialogKeyAction{unsigned(v.slot==25?'c':'n')});
                             else if(v.phase==XeenCombatCastPhase::Result) {
                                 check(c->result().actorHpBefore==2 && c->result().actorHpAfter==0 && party->roster.at(6).currentSp==23,"M39 city Slime Arrow lethal");
-                                *used=true;act(AcknowledgeAction{});
+                                *used=true;
                             }
                         }
                     }else if(world->sessionState().journeyActivity()==XeenJourneyActivity::Event || world->sessionState().journeyActivity()==XeenJourneyActivity::Reward)act(AcknowledgeAction{});
@@ -420,14 +430,14 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             route("LR");
             auto before=std::make_shared<XeenGameplayContext>();auto cursor=std::make_shared<XeenJourneyRandomState>();
             inspect([&,before,cursor]{*before=*party->encounterContext;*cursor=*world->sessionState().journeyRandom();});
-            action(CastSpellAction{});action(SelectMemberAction{5});action(NavigationAction::MoveBackward);action(NavigationAction::MoveBackward);
-            action(AcknowledgeAction{});inspect([&]{check(!flow->encounter()->castingCommitted() && party->roster.at(6).currentSp==23,"M39 exploration Arrow admitted/debited");});
+            action(CastSpellAction{});action(SelectMemberAction{5});selectSpell(3);
+            castSelected();inspect([&]{check(!flow->encounter()->castingCommitted() && party->roster.at(6).currentSp==23,"M39 exploration Arrow admitted/debited");});
             action(CancelInteractionAction{});action(CancelInteractionAction{});settle();
             inspect([&,before,cursor]{check(*party->encounterContext==*before && *world->sessionState().journeyRandom()==*cursor,"M39 exploration Arrow refusal charged time/RNG");});
-            action(CastSpellAction{});action(SelectMemberAction{4});action(NavigationAction::MoveBackward);
-            action(AcknowledgeAction{});action(AcknowledgeAction{});action(SelectMemberAction{5});settle();
+            action(CastSpellAction{});action(SelectMemberAction{4});selectSpell(2);
+            castSelected();action(SelectMemberAction{5});settle();
             inspect([&]{check(party->roster.at(1).currentSp==19 && party->roster.at(6).currentSp==23,"M39 exploration continuation SP");});
-            action(CastSpellAction{});action(SelectMemberAction{4});action(AcknowledgeAction{});action(AcknowledgeAction{});settle();
+            action(CastSpellAction{});action(SelectMemberAction{4});selectSpell(1);castSelected();settle();
             inspect([&]{check(party->roster.at(1).currentSp==18 && party->roster.at(6).currentSp==23,"M39 inherited exploration Awaken");});
             checkpoint("final");
         }else if(branch=="B" || branch=="C") {route("LR");checkpoint("continued");}

@@ -1,8 +1,11 @@
 # MMModern - Project Status
 
 This describes what can be played and done now. **M59 is the latest completed
-and accepted milestone** ([plan](milestone-59-plan.md)): display cases, jail,
+and accepted whole milestone** ([plan](milestone-59-plan.md)): display cases, jail,
 the well, city searches, Vern's guild membership and Guild entry work.
+**M60 Part A is completed and accepted** ([plan](milestone-60-plan.md)): original
+Cast/New, Guild purchases and Spell Info, and shared spell rules are playable.
+Part B's eight effects and shared projectile/arrival integration remain pending.
 M58 ([plan](milestone-58-plan.md)) added teachers, skills and Cartography for
 the original automap and Map. M57 added shared Event rewards and object changes;
 M56 added Tavern food and Bank transfers.
@@ -53,7 +56,12 @@ the automated scenarios use it.
   facing unchanged. Survivors keep their wounds and can be met again.
 - **Magic** uses the characters' learned books. In exploration, First Aid and
   Awaken can be cast. In combat, Magic Arrow, First Aid and Awaken work.
-  Other learned spells, such as Light, are listed but cannot be cast.
+  Cast uses the original dialog: C casts, N opens the ten-row New list, and
+  Escape backs out. F1-F6 or portraits switch caster in exploration; combat
+  keeps the acting caster. New's saved selection is shared with Quick Fight.
+  Other spells remain selectable and say "not supported yet" without spending
+  SP, gems, time, a combat turn or spell-caused random draws, including Quick
+  Fight. Supported exploration casts cost one minute indoors and ten outdoors.
 - **Quests and recovery.** Myra's request, the Phirna collection and Myra's
   return exchange run end to end across normal mainland travel. The selected
   well restores HP. The Myra-delivered antidote can be used from the inventory
@@ -131,9 +139,12 @@ the original text panel, and buttons work by mouse or key.
   an exact balance is allowed, excess is refused without a partial transfer.
   Escape backs out one level. Mouse buttons perform the same actions.
 - **Guild** (Space at `(20,13)`): F1-F6 or portraits select the current member.
-  Non-members see "You have to be a member to shop here"; members see Buy Spells
-  and Spell Info, both visibly "not supported yet". The original art, text and
-  controls are used, and departure costs one day.
+  Non-members see "You have to be a member to shop here"; members can Buy Spells
+  or inspect Spell Info from Vertigo's original 18-spell catalogue, filtered by
+  their class book. Prices are 100 times fixed SP cost, or 500 times the absolute
+  level-scaled cost, doubled for Paladin, Archer and Ranger. Purchases debit
+  carried gold and teach only the selected member, including unsupported spells.
+  The original dialogs support mouse and keyboard; departure costs one day.
 - **Time.** Each service visit costs a departure day (two after a paid Temple
   Heal). Training adds a day per newly trained member. Merchant stock
   regenerates and bank interest is applied on the original schedule, with
@@ -215,7 +226,7 @@ button opens the Map; the
 lower corner buttons strafe and the gem opens the control panel; portraits
 open the original character sheet, whose Items dialog is also clickable.
 Buttons briefly show their original pressed frame. The right button does
-nothing; casting still uses the keyboard. Clicks
+nothing. Cast, New and Guild spell dialogs support mouse and keyboard. Clicks
 follow the same buffering as keys.
 
 **Presentation.** Terrain, sky and water alternate, wall items and torches
@@ -336,8 +347,8 @@ instructions are in [dependencies](dependencies.md).
 - **Areas.** Only the map-23 mainland and Vertigo are playable. Other maps
   appear only through `--render-map`, without save support. Run refuses
   indoors.
-- **Missing services.** Inn/recruitment and Guild spell purchase are not
-  available; the Temple handles only the modeled conditions.
+- **Missing services.** Inn/recruitment is not available; the Temple handles
+  only the modeled conditions.
 - **Items and magic.** There is no general item use. Item effects, most spells
   and most monster abilities are missing; Light and other learned spells are
   visible but cannot be cast. Mainland fountains and the magic mirror remain
@@ -345,7 +356,7 @@ instructions are in [dependencies](dependencies.md).
   searchable objects use the crate, case, bed and rubbish mechanics.
 - **Presentation.** Service art is static (no animated shopkeepers). There is
   no audio: where the CD plays speech, a short notice appears and the scene
-  continues. Event, casting and treasure screens still use project layouts.
+  continues. Some Event and treasure screens still use project layouts.
 - **Services.** Sell, Identify, buying Accessories/Misc, Fix of non-armor
   items, Temple Donation and Uncurse, and Tavern Drink, Tip, Rumors and Sign In
   show "not supported yet".

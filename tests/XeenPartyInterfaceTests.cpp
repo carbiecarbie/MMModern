@@ -181,13 +181,13 @@ void quickCasting(Inputs &in) {
  check(!combat->cast() && combat->participant()!=0 && heal.p.roster.at(owner).currentSp==sp-1,"Quick First Aid settles and advances once");
  // Browsing/cancelling keeps the remembered slot; accepting a selection publishes it before outer cancellation.
  Fixture remember(in,source);engage(remember);combat=remember.flow->encounter()->combat();const auto prior=remember.p.roster.at(owner).currentSpell;
- remember.act(CastSpellAction{});remember.act(NavigationAction::MoveBackward);remember.act(NavigationAction::MoveBackward);const auto chosen=combat->cast()->slot;
+ remember.act(CastSpellAction{});remember.act(DialogKeyAction{'n'});remember.act(DialogKeyAction{'1'});const auto chosen=XeenLearnedSpellRules::rows(remember.p.roster.at(owner)).front();
  check(chosen!=prior,"Spell browsing fixture");remember.act(CancelInteractionAction{});check(remember.p.roster.at(owner).currentSpell==prior,"Cancelled spell selection preserves remembered slot");
- remember.act(CastSpellAction{});remember.act(NavigationAction::MoveBackward);remember.act(NavigationAction::MoveBackward);remember.act(AcknowledgeAction{});
+ remember.act(CancelInteractionAction{});remember.act(CastSpellAction{});remember.act(DialogKeyAction{'n'});remember.act(DialogKeyAction{'1'});remember.act(DialogKeyAction{'s'});
  check(remember.p.roster.at(owner).currentSpell==chosen,"Accepted spell selection is tracked immediately");remember.act(CancelInteractionAction{});remember.act(CancelInteractionAction{});
  check(!combat->cast() && remember.p.roster.at(owner).currentSpell==chosen,"Outer Cast cancellation keeps selection");
  source=casterSource(in,XeenCharacterClass::Sorcerer,45);Fixture arrow(in,source),manual(in,source);engage(arrow);engage(manual);
- arrow.act(QuickFightAction{});manual.act(CastSpellAction{});for(unsigned n=0;n<source.characters[source.activeRosterIds[0]].currentSpell;++n)manual.act(NavigationAction::MoveBackward);manual.act(AcknowledgeAction{});manual.act(AcknowledgeAction{});manual.act(AcknowledgeAction{});
+ arrow.act(QuickFightAction{});manual.act(CastSpellAction{});manual.act(DialogKeyAction{'c'});
  for(unsigned n=0;n<1000;++n){if(manual.flow->encounter()->combat()->cast() && manual.flow->encounter()->combat()->cast()->phase==CP::Result)break;pulse(arrow);pulse(manual);}
  check(manual.flow->encounter()->combat()->cast() && manual.flow->encounter()->combat()->cast()->phase==CP::Result,"Manual Arrow settles");manual.act(AcknowledgeAction{});ready(arrow);ready(manual);
  check(arrow.w.sessionState().journeyRandom()==manual.w.sessionState().journeyRandom(),"Quick Arrow uses ordinary RNG draws");
@@ -199,7 +199,7 @@ void quickCasting(Inputs &in) {
   Fixture skip(in,s);engage(skip);combat=skip.flow->encounter()->combat();const auto before=skip.p.roster.at(s.activeRosterIds[0]);const auto cursor=skip.w.sessionState().journeyRandom();const auto minutes=skip.p.encounterContext->minutes;
   skip.act(QuickFightAction{});
   check(xeen_state::sameCharacter(before,skip.p.roster.at(s.activeRosterIds[0])) && cursor==skip.w.sessionState().journeyRandom() && minutes==skip.p.encounterContext->minutes,"Quick Cast refusal/skip has no debit, effect or RNG");
-  if(kind==3)check(combat->participant()==0 && skip.flow->encounter()->notice().find("not supported yet")!=std::string::npos,"Unsupported Cast visibly retains actor");
+  if(kind>=2)check(combat->participant()==0 && skip.flow->encounter()->notice().find("not supported yet")!=std::string::npos,"Unsupported Cast visibly retains actor");
   else {ready(skip);check(combat->participant()!=0 && !(combat->result().blockedMembers&1),"None/cost/forbidden Quick Cast spends one unblocked turn");}
  }
 }
@@ -238,7 +238,7 @@ void spellChecks(Inputs &in) {
   const auto result=XeenLearnedSpellRules::quickSpellCheck(c,1000);
   if(*id==45)check(result==Q::Supported,"Quick Cast supported arrow");
   if(*id==42)check(result==Q::Unsupported,"Unsupported system refuses");
-  if(*id==40)check(result==Q::CombatForbidden,"Ordinary combat-forbidden cast spends turn");
+  if(*id==40)check(result==Q::Unsupported,"Missing combat-forbidden effect retains turn");
  }
  for(unsigned slot=0;slot<39;++slot)if(XeenLearnedSpellRules::spellForSlot(*XeenLearnedSpellRules::categoryForClass(c.characterClass),slot)==45)c.currentSpell=slot;
  c.currentSp=0;check(XeenLearnedSpellRules::quickSpellCheck(c,1000)==Q::InsufficientSp,"Quick Cast insufficient SP");

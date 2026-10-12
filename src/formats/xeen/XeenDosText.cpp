@@ -37,6 +37,21 @@ const std::vector<XeenDosText::Field> &XeenDosText::layout() {
  // Bounds and far-pointer relationships were checked against the uncompressed
  // DOS module; no original strings or whole-file digest are compiled here.
  static const std::vector<Field> fields{
+  {"CAST_SPELL_DETAILS",0x546da,0x54760,1,false,"s,s,u,u,u"},
+  {"SPELL_FAILED",0x51867,0x51875,1,false,""},
+  {"SPELL_GOLD_ROW",0x54a56,0x54a63,1,false,"s,u"},
+  {"SPELLS_LEARNED_ALL",0x54a63,0x54a8e,1,false,""},
+  {"NOT_A_SPELL_CASTER",0x54a8e,0x54aa4,1,false,""},
+  {"SPELL_COST_ROW",0x54aa4,0x54ab4,1,false,"s,u,u"},
+  {"NO_KNOWN_SPELLS",0x54ab4,0x54ad1,1,false,""},
+  {"SPELL_LINES_0_TO_9",0x54af3,0x54b12,1,false,""},
+  {"SPELLS_FOR",0x54b12,0x54b30,1,false,"s,s"},
+  {"SPELLS_DIALOG_SPELLS",0x54b30,0x54bdd,1,false,"2u,s,2u,s,2u,s,2u,s,2u,s,2u,s,2u,s,2u,s,2u,s,2u,s,s,lu"},
+  {"SPELL_PTS",0x54bdd,0x54be7,1,false,""},
+  {"SPELL_GOLD",0x54be7,0x54bec,1,false,""},
+  {"SPELL_INFO",0x54bec,0x54c12,1,false,"s,s"},
+  {"SPELL_PURCHASE",0x54c12,0x54c4a,1,false,"s,s,u"},
+  {"NOT_ENOUGH_TO_CAST",0x5413a,0x54159,1,false,"s,s"},
   {"MAP_TEXT",0x5293c,0x5296d,1,false,"s,d,d,s"},
   {"DIRECTION_TEXT",0x50945,0x5095b,4,false,""},
   {"WHO_WILL",0x53acf,0x53af1,1,false,"s,s,d"},

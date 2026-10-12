@@ -131,7 +131,7 @@ struct XeenCombatResult {
 };
 
 enum class XeenCombatCastPhase { Learned, Enemy, Confirm, PartyTarget, Preparing, Projectile, Impact, PostImpact, Result };
-enum class XeenCombatCastInput { Up, Down, Enter, Escape, PartyTarget, EnemyTarget };
+enum class XeenCombatCastInput { Up, Down, Enter, Escape, PartyTarget, EnemyTarget, New, SelectRow, Select, PageUp, PageDown };
 struct XeenCombatCastResult {
     unsigned spell=0, count=0;
     int spBefore=0, spAfter=0;
@@ -146,7 +146,9 @@ struct XeenCombatCastResult {
 struct XeenCombatCastView {
     bool quick=false;
     XeenCombatCastPhase phase=XeenCombatCastPhase::Learned;
-    unsigned participant=0,owner=0,slot=0;
+    unsigned participant=0,owner=0,slot=255;
+    std::size_t top=0;
+    std::optional<std::size_t> selection;
     std::optional<XeenMonsterIdentity> enemy;
     bool committed=false;
     XeenCombatPhase successorPhase=XeenCombatPhase::Failed;
@@ -225,7 +227,7 @@ private:
     void rangedPresented(const Ticket &, bool travelComplete);
     bool consumeCast(CastResponse &);
     XeenCombatResult settleCast(const Ticket &, std::optional<unsigned>);
-    XeenCombatResult finishQuickCast(const Ticket &);
+    XeenCombatResult finishCast(const Ticket &);
 	XeenCombat(XeenWorld &, XeenPartyState &, XeenCamera &, XeenCombatBoundary &, const XeenGameFlags &,
 		const XeenEncounterState &, const std::vector<XeenMonsterRecord> &, const XeenEventFile &);
 	void retireJourney(const Ticket &, XeenEncounterState &);

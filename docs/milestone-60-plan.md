@@ -1,8 +1,19 @@
 # Milestone 60 - Magic
 
-**Tier A. Status: proposed; option (a+) chosen 2026-10-11, pending re-review of the added spells.** Planning baseline: `main = origin/main =
-a395f880fda239f7dcb8ad5d84fe4c01d374e171`, verified with a clean tree on 2026-10-11.
-Planning only; implementation requires the maintainer's explicit start.
+**Tier A. Status: Part A completed and accepted by the maintainer on 2026-10-12;
+Part B remains pending.** Part A implementation baseline:
+`a6003643cbc3053282ba328ef9c653ec62e61955` on `m60-part-a`. The Part A acceptance
+and implementation are recorded together in this branch's commit.
+
+Part A delivers original Cast/New and Guild Buy/Info dialogs, common spell rules,
+shared Quick Fight selection and no-charge unsupported casts. The maintainer
+accepted the Debug play-test after the Guild member-selection and Spell Info
+layout corrections. Independent Tier A plan and implementation reviews passed;
+`build-rel` fast tests passed 149/149 and the complete suite passed 183/183 through
+the prescribed runner. All three M44 digests remain unchanged; save stays v11,
+schema 9, content 14. Part B's eight effects and common projectile/arrival
+integration are not implemented or accepted by this result. The remaining plan
+retains their scope and acceptance criteria.
 
 ## Goal and authority
 
@@ -10,9 +21,9 @@ Replace the temporary casting screens with the original Cast dialog, buy and
 inspect spells at Vertigo's Guild, and implement Wizard Eye, Shrapmetal, Energy
 Blast and Jump plus Cure Wounds, Flying Fist, Revitalize and Pain
 ([roadmap](roadmap.md#near-term), step 6). The maintainer chose this option
-"(a+)" on 2026-10-11. Implementation starts only after the condition-rule
+"(a+)" on 2026-10-11. The prerequisite condition-rule
 correction recorded in [original quirks](original-quirks.md) (eight-hour
-Poison/Disease and condition modifiers) has landed.
+Poison/Disease and condition modifiers) landed before Part A implementation.
 Read with [project status](project-status.md), the closed [M56](milestone-56-plan.md),
 [M57](milestone-57-plan.md), [M58](milestone-58-plan.md), [M59](milestone-59-plan.md)
 plans and [original quirks](original-quirks.md).
@@ -84,7 +95,7 @@ into the repository. Normal DOSBox evidence overrides this reference.
   scroll limits, pressed frames and nested Escape behavior. Selection stores
   the book slot, even without casting; opening/cancelling the list does not.
   Last-caster is runtime UI state; do not create a second saved spell selection.
-- The installed DAT supplies Cast `[0x546d3,0x54760)`, Guild text/options
+- The installed DAT supplies Cast `[0x546da,0x54760)`, Guild text/options
   `[0x54760,0x547e2)`, list headings/rows `[0x54af3,0x54bdd)`, Info
   `[0x54bec,0x54c12)`, purchase `[0x54c12,0x54c4a)`, learned-all
   `[0x54a63,0x54a8e)`, noncaster `[0x54a8e,0x54aa4)`, no-known-spells
