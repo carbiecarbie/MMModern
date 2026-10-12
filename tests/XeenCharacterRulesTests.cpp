@@ -177,9 +177,9 @@ void testAgeAndTemporaryAttributes() {
 }
 
 void testConditions() {
-	constexpr std::array<XeenCondition, 5> shared = {
+	constexpr std::array<XeenCondition, 3> shared = {
 		XeenCondition::Diseased, XeenCondition::HeartBroken,
-		XeenCondition::InLove, XeenCondition::Weak, XeenCondition::Drunk
+		XeenCondition::Weak
 	};
 	for (XeenCondition value : shared) {
 		XeenCharacter character = basicCharacter();
@@ -214,9 +214,9 @@ void testConditions() {
 	character.conditions[static_cast<std::size_t>(XeenCondition::Weak)] = 5;
 	character.conditions[static_cast<std::size_t>(XeenCondition::Drunk)] = 6;
 	character.conditions[static_cast<std::size_t>(XeenCondition::Insane)] = 7;
-	checkEqual(XeenCharacterRules::effectiveEndurance(character, kContext), 80,
+	checkEqual(XeenCharacterRules::effectiveEndurance(character, kContext), 88,
 		"accumulated physical conditions");
-	checkEqual(XeenCharacterRules::effectiveIntellect(character, kContext), 73,
+	checkEqual(XeenCharacterRules::effectiveIntellect(character, kContext), 81,
 		"accumulated mental conditions");
 
 	constexpr std::array<XeenCondition, 3> fatal = {
@@ -429,23 +429,36 @@ void testSpRacesAndSkills() {
 		"serialized skill values one and two must have identical boolean effect");
 }
 
-void testConditionSentinels() {
- constexpr std::array<unsigned,8> terms{0,1,2,3,4,5,6,7};
- for(auto term:terms)for(unsigned byte:{0x80u,0xfeu,0xffu}) {
+void testConditionBytes() {
+ // DOS 0x1f9a8: columns Might, Intellect, Personality, Endurance,
+ // Speed, Accuracy, Luck. Every amount is one point per unsigned count.
+ constexpr int modifiers[8][7]{
+  {0,0,0,0,0,0,-1}, {-1,-1,-1,-1,-1,-1,-1},
+  {-1,-1,-1,-1,-1,-1,-1}, {-1,0,0,0,-1,-1,0},
+  {0,-1,-1,-1,0,0,0}, {1,-1,-1,0,1,-1,0},
+  {1,1,1,1,1,1,1}, {-1,-1,1,-1,-1,-1,1}
+ };
+ for(unsigned term=0;term<8;++term)for(unsigned byte:{0u,1u,3u,127u,0x80u,0xfeu,0xffu}) {
   auto c=basicCharacter();XeenCombatInputs input;
-  c.intellect.permanent=c.personality.permanent=c.endurance.permanent=255;
-  input.might=input.speed=input.accuracy={255,0};input.luck=XeenAttributeValue{255,0};
+  c.intellect.permanent=c.personality.permanent=c.endurance.permanent=300;
+  input.might=input.speed=input.accuracy={300,0};input.luck=XeenAttributeValue{300,0};
   c.conditions[term]=byte;
   for(unsigned attribute=0;attribute<7;++attribute) {
-   const bool affects=term==0?attribute==6:term==3?(attribute==0 || attribute==4 || attribute==5):
-    term==4?(attribute==1 || attribute==2 || attribute==3):term==5?attribute!=3 && attribute!=6:true;
-   const int expected=255-(affects?(byte==255?-1:int(byte)):0);
-   checkEqual(XeenCharacterRules::sheetStat(c,&input,attribute,kContext),expected,"conditionMod sentinel/positive byte arithmetic");
-   if(attribute==1)checkEqual(XeenCharacterRules::effectiveIntellect(c,kContext),expected,"derived Intellect sentinel");
-   if(attribute==2)checkEqual(XeenCharacterRules::effectivePersonality(c,kContext),expected,"derived Personality sentinel");
-   if(attribute==3)checkEqual(XeenCharacterRules::effectiveEndurance(c,kContext),expected,"derived Endurance sentinel");
+   const int expected=300+modifiers[term][attribute]*int(byte);
+   checkEqual(XeenCharacterRules::sheetStat(c,&input,attribute,kContext),expected,"DOS unsigned condition modifier");
+   checkEqual(XeenCharacterRules::sheetStat(c,&input,attribute,kContext,true),300,"Base stats omit conditions");
+   if(attribute==1)checkEqual(XeenCharacterRules::effectiveIntellect(c,kContext),expected,"derived Intellect byte");
+   if(attribute==2)checkEqual(XeenCharacterRules::effectivePersonality(c,kContext),expected,"derived Personality byte");
+   if(attribute==3)checkEqual(XeenCharacterRules::effectiveEndurance(c,kContext),expected,"derived Endurance byte");
+   for(unsigned fatal:{13u,14u,15u}) {
+    c.conditions[fatal]=255;
+    checkEqual(XeenCharacterRules::sheetStat(c,&input,attribute,kContext),300,"Terminal condition suppresses all modifiers");
+    c.conditions[fatal]=0;
+   }
   }
  }
+ auto c=basicCharacter();c.endurance.permanent=255;c.conditions[2]=255;
+ checkEqual(XeenCharacterRules::effectiveEndurance(c,kContext),0,"Weak 255 subtracts 255");
 }
 void testMutableSkills() {
  auto c=basicCharacter();c.currentHp=3;c.currentSp=2;c.skills[3]=254;
@@ -485,7 +498,7 @@ int main() {
 		testStatBonusBoundaries();
 		testAgeAndTemporaryAttributes();
 		testConditions();
-		testConditionSentinels();
+		testConditionBytes();
 		testEquipmentAttributeRules();
 		testDirectEquipmentBonuses();
 		testSpClassesSkillsAndRounding();

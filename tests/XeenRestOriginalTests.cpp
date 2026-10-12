@@ -202,7 +202,7 @@ void combatOutcomes(Inputs &in,bool run) {
 }
 void conditionDeath(Inputs &in) {
  auto start=source(in,true);start.journey->context->minutes=1439;
- for(auto owner:start.activeRosterIds)start.characters[owner].conditions[2]=254; // FF is -1 in conditionMod, not lethal weakness.
+ for(auto owner:start.activeRosterIds)start.characters[owner].conditions[2]=255; // Unsigned Weak is lethal before its eight-hour replacement.
  Fixture f(in,start);wire(f);f.act(RestAction{});check(XeenRestTestAccess::confirm(*f.flow),"All-member stat danger confirmation missing");
  f.act(DialogKeyAction{'y'});
  for(unsigned n=0;n<500 && !XeenRestTestAccess::complete(*f.flow);++n)pulse(f);
@@ -226,11 +226,14 @@ void noTargets(Inputs &in) {
   check(!result.consequences->shots[n].attack.targetedMembers && !result.consequences->shots[n].attack.injuryCount,"noTargets unexpectedly selected/injured a member");
  check(f.p.food==start.food && f.p.encounterContext->minutes==489 && !f.p.encounterContext->rested && !f.flow->canSave(),"noTargets published recovery/completion or remaining hours");
  for(auto owner:start.activeRosterIds)check(f.p.roster.at(owner).conditions[13] && f.p.roster.at(owner).conditions[8],"noTargets cleared unhit sleep");
- check(f.w.sessionState().journeyRandom()->count==15,"noTargets fixed RNG count changed");
+ // The healthy condition block draws nothing. Each of the two shooters still
+ // draws an initial target among participants before finding no eligible one.
+ check(result.consequences->count==2 && f.w.sessionState().journeyRandom()->count==2 &&
+  f.w.sessionState().journeyRandom()->state==1150042706u,"Only the two noTargets selection draws advance RNG");
  const auto original=actors(in,start);const auto live=f.w.sessionState().regionalActors(23);
  for(unsigned n=0;n<live.size();++n)check(live[n].x==(n==7 || n==8?3:int(original[n].x)) &&
   live[n].y==(n==7 || n==8?9:int(original[n].y)),"noTargets fixed actor positions changed");
- std::cout<<"noTargets charge=1 draws=15 passed\n";
+ std::cout<<"noTargets charge=1 draws=2 passed\n";
 }
 void sleepingHit(Inputs &in) {
  // Synthetic supported Sleep/ranged MON profile on a city-only species.
@@ -332,13 +335,15 @@ void rolloverAndDream(Inputs &in) {
  start.characters[start.activeRosterIds[0]].conditions[2]=255;
  Fixture f(in,start);wire(f);f.act(RestAction{});finish(f);
  check(f.p.encounterContext->day==0 && f.p.encounterContext->year==611 && f.p.encounterContext->minutes==479 &&
-  !f.p.encounterContext->newDay && f.p.roster.at(start.activeRosterIds[0]).conditions[2]==255,"Rest year rollover, sleeping dawn and provisional Weak sentinel");
- check(!f.p.roster.at(start.activeRosterIds[0]).conditions[13] && f.p.food==0,"FF sentinel boosts stats and remains food-eligible");
+  !f.p.encounterContext->newDay && f.p.roster.at(start.activeRosterIds[0]).conditions[2]==0,"Rest year rollover, sleeping dawn and unconditional Weak replacement");
+ check(f.p.roster.at(start.activeRosterIds[0]).conditions[13] && f.p.food==0,"Weak 255 kills before replacement and makes the member food-ineligible");
  const auto save=f.snapshot();Fixture loaded(in,save);wire(loaded);f.act(RestAction{});loaded.act(RestAction{});finish(f);finish(loaded);
  f.act(NavigationAction::TurnLeft);loaded.act(NavigationAction::TurnLeft);finish(f);finish(loaded);
  save_test::sameSnapshot(f.snapshot(),loaded.snapshot());
  auto dreamStart=source(in,true);dreamStart.journey->context->minutes=1000;
- constexpr unsigned chosen=4;
+ // Healthy eight-hour checks draw nothing; seed 17's first raw value
+ // is 4596240, yielding 1 for the subsequent inclusive 1..20 dream draw.
+ constexpr unsigned chosen=17;
  {
   auto context=*dreamStart.journey->context;XeenConsequenceCharacters c;XeenConsequenceInputs inputs;
   for(unsigned n=0;n<6;++n) {c[n]=dreamStart.characters[kXeenCombatOwners[n]];c[n].conditions[8]=1;inputs[n]=dreamStart.journey->supplements[kXeenCombatOwners[n]].inputs;}
@@ -348,7 +353,7 @@ void rolloverAndDream(Inputs &in) {
    for(unsigned n=0;;++n) {check(n<1000,"Dream oracle bounded");XeenConsequenceDraw draw{random,64,{}};if(time.service(draw))break;}
    context=time.context;c=time.characters;inputs=time.inputs;
   }
-  check(random.draw(1,20)==1,"Fixed dream seed oracle differs");
+  check(random.position()==0 && random.draw(1,20)==1,"Healthy tick leaves the first draw for the dream");
  }
  check(chosen,"Fixed dream seed absent");dreamStart.journey->random=XeenCombatRandom(chosen).continuation();
  Fixture dream(in,dreamStart);wire(dream);XeenRestTestAccess::scene(*dream.flow,*dream.p.encounterContext);

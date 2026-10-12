@@ -357,10 +357,6 @@ instructions are in [dependencies](dependencies.md).
 - **Skills.** Only Cartography and the skills used by existing rules
   (Thievery, Navigator, Bodybuilder and others affecting HP/SP) have effects;
   Swimming, Mountaineer and the rest are recorded but not used yet.
-- **Unconfirmed rules.** The condition byte `0xFF` follows ScummVM's `-1`
-  sentinel (Weak/Drunk, dawn and stat modifications); the eight-hour
-  Poison/Disease branch follows ScummVM, which only draws for members without
-  the condition. Neither is confirmed in the DOS original.
 - **Darkside** gameplay is not supported.
 
 Next steps are in the [roadmap](roadmap.md).

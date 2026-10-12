@@ -1,5 +1,5 @@
-// Part A oracles, adapted from pinned ScummVM 6814ee9b party.cpp.
-// Weak sentinel comparisons are provisional, authorized 2026-10-06; not DOS-confirmed.
+// Daily-time oracles; condition corrections use DOS WORLD/XEEN.DAT
+// 0x25425, 0x25473, 0x255ab and 0x26452 (2026-10-11 analysis).
 void dailyTimeOracles() {
  auto c=characters();auto in=inputs();XeenGameplayContext t;t.day=99;t.year=610;t.minutes=1439;
  auto next=xeenPrepareTime(t,1);
@@ -7,22 +7,22 @@ void dailyTimeOracles() {
   "100-day calendar rollover must retain pending dawn");
  t.day=8;t.minutes=480;
  check(xeenPrepareTime(t,2000).processing480==1,"One long changeTime call has one eight-hour block");
- // Terminal fixtures bypass effective-stat death, and nonzero Poison/Disease skip their draws.
- for(auto &v:c){v.conditions[13]=255;v.conditions[3]=v.conditions[4]=1;}
+ // Terminal fixtures bypass effective-stat death; healthy members draw nothing.
+ for(auto &v:c)v.conditions[13]=255;
  const unsigned values[]{0,1,127,128,254,255};
  for(unsigned n=0;n<6;++n){c[n].conditions[2]=values[n];c[n].conditions[7]=3;c[n].conditions[5]=255;}
  XeenCombatRandom none(std::vector<XeenCombatRandom::Draw>{});
  XeenConditionTimeCandidate block(t,480,c,in);finish(block,none,1);
  for(unsigned n=0;n<6;++n) {
-  check(block.characters[n].conditions[2]==(values[n]==255?255:3) &&
-   block.characters[n].conditions[7]==(values[n]==255?3:0),"Provisional FF sentinel must guard replacement and Drunk clearing");
+  check(block.characters[n].conditions[2]==3 &&
+   block.characters[n].conditions[7]==0,"Drunk replaces every Weak byte and always clears");
   check(block.characters[n].conditions[13]==255 && block.characters[n].conditions[5]==0,
    "Terminal counters saturate; Insane wraps");
  }
  t.minutes=299;t.newDay=true;
  XeenConditionTimeCandidate dawn(t,1,c,in);finish(dawn,none,1);
  for(unsigned n=0;n<6;++n)check(dawn.characters[n].conditions[2]==(values[n]==255?255:values[n]+1),
-  "Dawn increments positive high bytes but preserves FF sentinel");
+  "Dawn increments unsigned Weak and saturates at 255");
  check(!dawn.context.newDay,"Dawn is consumed once");
  t.minutes=1259;t.newDay=false;
  XeenConditionTimeCandidate dusk(t,1,c,in);finish(dusk,none,1);
@@ -38,7 +38,7 @@ void dailyTimeOracles() {
 
  // Same-call transitions: HeartBroken->Depressed then Depressed advances;
  // InLove->HeartBroken runs after HeartBroken's own branch.
- c=characters();for(auto &v:c){v.conditions[3]=v.conditions[4]=1;}
+ c=characters();
  c[0].conditions[1]=10;c[0].conditions[6]=10;c[1].conditions[1]=255;c[1].conditions[6]=255;
  t.minutes=479;
  XeenConditionTimeCandidate ordered(t,1,c,in);finish(ordered,none,1);
@@ -73,7 +73,7 @@ void dailyTimeOracles() {
  XeenCombatRandom initial(7);XeenMerchantStockCandidate stocked;finish(stocked,initial,1);
  XeenServiceEconomy economy;economy.wares=stocked.wares();economy.bank={1000,200};
  XeenCombatRandom oracle(initial.continuation());XeenMerchantStockCandidate newStock;finish(newStock,oracle,1);
- c=characters();in=inputs();for(auto &v:c){v.conditions[3]=v.conditions[4]=1;v.conditions[5]=1;}
+ c=characters();in=inputs();for(auto &v:c)v.conditions[5]=1;
  t=XeenGameplayContext{};t.year=610;t.day=8;t.minutes=480;
  XeenConditionTimeCandidate longCall(t,2000,c,in,&economy);auto copy=longCall;
  XeenCombatRandom charged(initial.continuation());finish(longCall,charged,1);
@@ -90,7 +90,6 @@ void dailyTimeOracles() {
  c=characters();in=inputs();c[0].birthYear=575;in[0].might.permanent=1;
  t=XeenGameplayContext{};t.year=610;t.day=99;t.minutes=1439;
  std::vector<XeenCombatRandom::Draw> cleanTick;
- for(unsigned n=0;n<6;++n)cleanTick.insert(cleanTick.end(),{{1,10,2},{0,9,0}});
  XeenCombatRandom oldYear(cleanTick);XeenConditionTimeCandidate rollover(t,1,c,in);finish(rollover,oldYear,1);
  check(!rollover.characters[0].conditions[13] && rollover.context.year==611 &&
   XeenCharacterRules::effectivePhysical(rollover.characters[0],rollover.inputs[0],XeenCharacterRules::PhysicalAttribute::Might,{611})==0,
@@ -99,21 +98,81 @@ void dailyTimeOracles() {
  finish(aged,nextTick,1);check(aged.characters[0].conditions[13]==2,"Next block sees the new year without HP refill or birthYear rewrite");
  check(aged.characters[0].birthYear==575 && aged.characters[0].currentHp==50,"Aging preserves birth year and stored HP");
 
- // Provisional sentinel comparisons must not change after a quiet codec round trip.
+ // Unsigned bytes and unconditional replacement survive a quiet codec round trip.
  for(unsigned weak:{0u,1u,127u,128u,254u,255u})for(unsigned drunk:{0u,3u,255u}) {
-  c=characters();in=inputs();for(auto &v:c){v.conditions[13]=255;v.conditions[3]=v.conditions[4]=1;}
+  c=characters();in=inputs();for(auto &v:c)v.conditions[13]=255;
   c[0].conditions[2]=weak;c[0].conditions[7]=drunk;c[1].conditions[14]=254;c[2].conditions[15]=255;
   auto wire=save_test::currentWireSnapshot();wire.characters[29].conditions=c[0].conditions;
   const auto bytes=XeenSaveFormat::encode(wire);const auto decoded=XeenSaveFormat::decode(bytes);
-  check(XeenSaveFormat::encode(decoded)==bytes,"Sentinel bytes round-trip exactly");
+  check(XeenSaveFormat::encode(decoded)==bytes,"Condition bytes round-trip exactly");
   auto loaded=c;loaded[0].conditions=decoded.characters[29].conditions;
   t=XeenGameplayContext{};t.year=610;t.day=8;t.minutes=480;
   XeenConditionTimeCandidate original(t,480,c,in),restored(t,480,loaded,in);
   finish(original,none,1);finish(restored,none,1);
   check(original.characters[0].conditions==restored.characters[0].conditions &&
-   original.characters[0].conditions[2]==(weak==255?255:drunk) &&
-   original.characters[0].conditions[7]==(weak==255?drunk:0),"Weak/Drunk sentinel mapping is stable across save/load");
+   original.characters[0].conditions[2]==drunk &&
+   original.characters[0].conditions[7]==0,"DOS Weak/Drunk replacement is stable across save/load");
   check(original.characters[1].conditions[14]==255 && original.characters[2].conditions[15]==255,
    "Stoned 254->255 and Eradicated 255->255 saturate");
  }
+}
+
+void dailyConditionChecks() {
+ auto c=characters();auto in=inputs();XeenGameplayContext t;t.year=610;t.day=8;t.minutes=479;
+ // Distinct resistance ranges prove per-member Poison/save/Disease/save order.
+ // Owner 0 has both, owner 1 only Disease, owner 2 only Poison, owner 3 is
+ // healthy, owner 4 is Dead with both, and owner 5 has both at 255.
+ c[0].conditions[3]=3;c[0].conditions[4]=4;
+ in[0].resistances->electricalPermanent=5;in[0].resistances->electricalTemporary=2;
+ in[0].resistances->coldPermanent=8;in[0].resistances->coldTemporary=3;
+ c[0].accessories[0]={16,1,0,1}; // +5 electricity resistance.
+ c[0].armor[0]={9,1,0,1}; // +5 cold resistance.
+ c[1].conditions[4]=2;in[1].resistances->coldPermanent=9;
+ c[2].conditions[3]=128;
+ c[4].conditions[13]=1;c[4].conditions[3]=127;c[4].conditions[4]=254;
+ c[5].conditions[13]=1;c[5].conditions[3]=c[5].conditions[4]=255;
+ const std::vector<XeenCombatRandom::Draw> tape{
+  {1,10,1},{1,52,12}, // equality passes Poison with equipment/temps.
+  {1,10,1},{1,56,17}, // one above Cold value fails and doubles Disease.
+  {1,10,1},{1,49,9}, // next member's Disease equality passes.
+  {1,10,10}, // 128 doubles to zero, no save.
+  {1,10,2},{1,10,2}, // Dead still draws, 127->254 and 254->252.
+  {1,10,1},{1,40,1},{1,10,1},{1,40,40} // zero resistance fails even at 1.
+ };
+ for(unsigned budget:{1u,2u,64u}) {
+  XeenCombatRandom rng(tape);XeenConditionTimeCandidate tick(t,1,c,in);finish(tick,rng,budget);
+  check(rng.position()==tape.size(),"Only present conditions draw, in active member and condition order");
+  check(!tick.characters[0].conditions[3] && tick.characters[0].conditions[4]==8 &&
+   !tick.characters[1].conditions[4] && !tick.characters[2].conditions[3],"Pass clears; failed gate/save doubles with byte wrap");
+  check(tick.characters[4].conditions[3]==254 && tick.characters[4].conditions[4]==252 &&
+   tick.characters[5].conditions[3]==254 && tick.characters[5].conditions[4]==254,"Terminal members participate; high bytes wrap");
+  finish(tick,rng,budget);check(rng.position()==tape.size(),"Finished condition checks do not replay draws");
+ }
+ // Every byte boundary uses both the failed gate and the failed save path.
+ for(unsigned condition:{3u,4u})for(unsigned count:{1u,2u,127u,128u,129u,254u,255u})
+  for(unsigned gate:{1u,2u,10u}) {
+   c=characters();c[0].conditions[13]=1;c[0].conditions[condition]=count;
+   std::vector<XeenCombatRandom::Draw> draws{{1,10,gate}};
+   if(gate==1)draws.push_back({1,40,40});
+   XeenCombatRandom rng(draws);XeenConditionTimeCandidate tick(t,1,c,inputs());finish(tick,rng,1);
+   check(tick.characters[0].conditions[condition]==(count*2)%256 && rng.position()==draws.size(),
+    "Poison/Disease doubling wraps identically after failed gate or saving throw");
+  }
+ for(unsigned condition:{3u,4u})for(unsigned count:{1u,128u,255u})for(unsigned roll:{1u,5u,6u,45u}) {
+  c=characters();in=inputs();c[0].conditions[13]=1;c[0].conditions[condition]=count;
+  in[0].resistances->electricalPermanent=in[0].resistances->coldPermanent=5;
+  XeenCombatRandom rng(std::vector<XeenCombatRandom::Draw>{{1,10,1},{1,45,roll}});
+  XeenConditionTimeCandidate tick(t,1,c,in);finish(tick,rng,1);
+  check(tick.characters[0].conditions[condition]==(roll<=5?0:(count*2)%256) && rng.position()==2,
+   "Saving throw passes at 1 and equality; fails above resistance through upper endpoint");
+ }
+ // Rejected samples must not double early or repeat an accepted gate.
+ c=characters();c[0].conditions[13]=1;c[0].conditions[3]=255;
+ XeenCombatRandom rejected(std::vector<XeenCombatRandom::Draw>{{1,10,0,true},{1,10,1},{1,40,0,true},{1,40,40}});
+ XeenConditionTimeCandidate retry(t,1,c,inputs());finish(retry,rejected,1);
+ check(rejected.position()==4 && retry.characters[0].conditions[3]==254,"Rejected draws preserve pending condition state");
+ // A healthy block, even across dawn, has no condition draws.
+ c=characters();t.minutes=1439;XeenCombatRandom none(std::vector<XeenCombatRandom::Draw>{});
+ XeenConditionTimeCandidate healthy(t,1,c,inputs());finish(healthy,none,1);
+ check(!none.position(),"Healthy members consume no eight-hour RNG");
 }

@@ -37,30 +37,34 @@ void chargedWait(Source &s) {
  check(d.flow->state().pending()==2 && d.party.encounterContext->minutes==951,"Wait fixture retains old opportunity before Quiet");
  auto before=fixture;before.camera=d.camera;before.journey->context=d.party.encounterContext;
  for(unsigned i=0;i<19;++i){const auto &a=d.world.sessionState().actors()[i];before.journey->actors[i].activated=a.activated;}
- tape.clear();for(unsigned i=0;i<6;++i){tape.push_back({1,10,2});tape.push_back({0,9,0});}
+ // The healthy 951->961 condition block must not consume a draw before
+ // either ranged opportunity. The old twelve-draw prefix was a port defect.
+ for(auto id:kXeenCombatOwners)check(!d.party.roster.at(id).conditions[3] &&
+  !d.party.roster.at(id).conditions[4],"Charged Wait condition fixture must be healthy");
+ tape.clear();
  for(unsigned i=0;i<3;++i){tape.push_back({0,5,i});tape.push_back({1,20,1});}
  // Yield inside the second opportunity after its acknowledged travel.
  for(unsigned i=0;i<70;++i)tape.push_back({0,5,0,true});
  for(unsigned i=0;i<3;++i){tape.push_back({0,5,5-i});tape.push_back({1,20,1});}
  XeenCombatRandom expected(*d.world.sessionState().journeyRandom());for(const auto &draw:tape)realDraw(&expected,draw.lo,draw.hi);
  cursor=0;taped=true;check(d.flow->handle(WaitAction{}),"Charged Wait accepted with old work pending");
- check(cursor==12 && d.flow->result().outcome==XeenEncounterOutcome::Pending && d.flow->result().consequences &&
+ check(cursor==0 && d.flow->result().outcome==XeenEncounterOutcome::Pending && d.flow->result().consequences &&
   d.flow->result().consequences->stage==XeenRegionalObservation::Stage::Travel,"Wait must acknowledge travel before source draws");
  for(auto id:kXeenCombatOwners)check(d.party.roster.at(id).currentHp==before.characters[id].currentHp,"Travel changed HP");
  check(d.flow->state().pending()==2 && !d.flow->canSave(),"Travel exposed Quiet");
  bool yielded=false;XeenEncounterResult r;
  for(unsigned tick=0;tick<100;++tick) {
   repaint(d);d.now+=100;d.flow->idle();r=d.flow->result();
-  if(cursor==82) {yielded=true;check(d.world.sessionState().journeyRandom()->count==18,"Rejected source prefix published RNG");}
+  if(cursor==70) {yielded=true;check(d.world.sessionState().journeyRandom()->count==6,"Rejected source prefix published RNG");}
   if(r.outcome!=XeenEncounterOutcome::Pending && r.movementOpportunities==2)break;
  }
  taped=false;check(yielded,"Second opportunity did not suspend at its raw draw budget");
  check(d.world.sessionState().journeyRandom()==expected.continuation(),"Wait publishes exact RNG continuation after both opportunities");
- check(cursor==94 && r.movementOpportunities==2 && r.consequences && r.consequences->count==6,"Both opportunities settle in reference source order");
+ check(cursor==82 && r.movementOpportunities==2 && r.consequences && r.consequences->count==6,"Both opportunities settle in reference source order");
  for(unsigned i=0;i<6;++i){const auto &shot=r.consequences->shots[i];check(shot.source.recordIndex==7+i%3 && shot.x==(i<3?6:7) && shot.y==11 && shot.distance==(i<3?2u:1u),"Retained old/new shot origin and append order");check(shot.attack.targetOwner==kXeenCombatOwners[i<3?i:8-i],"Old/new target draw ordering");}
- check(d.party.encounterContext->minutes==961 && d.party.encounterContext->ctr24==2 && d.world.sessionState().journeyRandom()->count==94 && d.flow->state().phase()==XeenEncounterPhase::Engaged,"Tick precedes old/new ranged work; final contact follows both volleys");
+ check(d.party.encounterContext->minutes==961 && d.party.encounterContext->ctr24==2 && d.world.sessionState().journeyRandom()->count==82 && d.flow->state().phase()==XeenEncounterPhase::Engaged,"Tick precedes old/new ranged work; final contact follows both volleys");
  for(unsigned id:{7u,8u,9u})check(d.world.sessionState().actors()[id].x==8,"Both movement passes published once");
- std::cout<<"REVIEW charged Wait: tick12 -> acquired old travel/shots6 -> acquired new travel -> rejection70/yield64 -> shots6; ordered94 PASS\n";
+ std::cout<<"REVIEW charged Wait: tick0 -> acquired old travel/shots6 -> acquired new travel -> rejection70/yield64 -> shots6; ordered82 PASS\n";
 }
 XeenCombat &attachSnake(Domain &d){
  d.flow->journeyAction(d.flow->ticket(),XeenEncounterAction::Forward);d.flow->journeyPulse(d.flow->ticket());

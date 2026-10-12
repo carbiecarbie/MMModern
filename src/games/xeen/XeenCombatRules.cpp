@@ -376,31 +376,40 @@ bool XeenConditionTimeCandidate::service(XeenConsequenceDraw &draw) {
     if(c.conditions[1]>10){c.conditions[1]=0;c.conditions[9]=1;}}
    step=Step::Poison;break;
   case Step::Poison: {
-   if(c.conditions[3]){step=Step::Disease;break;}
-   const auto n=draw.draw(1,10);if(n)step=*n==1?Step::Electrical:Step::Disease;break;
+   // DOS WORLD/XEEN.DAT 0x25425/0x25473: per member, Poison then
+   // Disease, only when present. Failed checks double the byte with wrap.
+   if(!c.conditions[3]){step=Step::Disease;break;}
+   const auto n=draw.draw(1,10);
+   if(n) {if(*n!=1)c.conditions[3]=std::uint8_t(unsigned(c.conditions[3])*2);
+    step=*n==1?Step::Electrical:Step::Disease;}break;
   }
   case Step::Electrical: {
    const int v=Rules::damageSaveValue(c,i,XeenDamageType::Electrical,{context.year});
-   const auto n=draw.draw(1,unsigned(v)+40);if(n)step=Step::Disease;break;
+   ruleRequire(v>=0 && v<=std::numeric_limits<int>::max()-40,"Invalid Poison condition save interval");
+   // DOS 0x2d164/0x2d200: resistance + temporary + equipment;
+   // draw 1..(value+40), pass at <= value.
+   const auto n=draw.draw(1,unsigned(v)+40);
+   if(n){c.conditions[3]=*n<=unsigned(v)?0:std::uint8_t(unsigned(c.conditions[3])*2);step=Step::Disease;}break;
   }
   case Step::Disease: {
-   if(c.conditions[4]){step=Step::Remaining;break;}
-   const auto n=draw.draw(0,9);if(n)step=*n==1?Step::Cold:Step::Remaining;break;
+   if(!c.conditions[4]){step=Step::Remaining;break;}
+   const auto n=draw.draw(1,10);
+   if(n){if(*n!=1)c.conditions[4]=std::uint8_t(unsigned(c.conditions[4])*2);
+    step=*n==1?Step::Cold:Step::Remaining;}break;
   }
   case Step::Cold: {
    const int v=Rules::damageSaveValue(c,i,XeenDamageType::Cold,{context.year});
-   const auto n=draw.draw(1,unsigned(v)+40);if(n)step=Step::Remaining;break;
+   ruleRequire(v>=0 && v<=std::numeric_limits<int>::max()-40,"Invalid Disease condition save interval");
+   const auto n=draw.draw(1,unsigned(v)+40);
+   if(n){c.conditions[4]=*n<=unsigned(v)?0:std::uint8_t(unsigned(c.conditions[4])*2);step=Step::Remaining;}break;
   }
   case Step::Remaining:
    if(c.conditions[5])c.conditions[5]=std::uint8_t(unsigned(c.conditions[5])+1);
    for(unsigned n=13;n<16;++n)if(c.conditions[n] && c.conditions[n]!=255)++c.conditions[n];
    if(c.conditions[6]) {c.conditions[6]=std::uint8_t(unsigned(c.conditions[6])+1);
     if(c.conditions[6]>10){c.conditions[6]=0;c.conditions[1]=1;}}
-   // Provisional ScummVM -1 guard mapped to byte FF, maintainer-authorized
-   // 2026-10-06, NOT confirmed in DOS. 80..FE are positive. Save/load does not
-   // change interpretation. Approved original replacement replaces the pin's
-   // addition workaround; Drunk clearing shares its explicit guard.
-   if(c.conditions[2]!=255){c.conditions[2]=c.conditions[7];c.conditions[7]=0;}
+   // DOS 0x255ab: unconditional replacement, including Weak/Drunk 255.
+   c.conditions[2]=c.conditions[7];c.conditions[7]=0;
    if(c.conditions[9])c.conditions[9]=(unsigned(c.conditions[9])+1)%4;
    if(++owner==6){owner=0;step=Step::Economy;}else step=Step::Stats;break;
   case Step::Economy:
@@ -420,8 +429,7 @@ bool XeenConditionTimeCandidate::service(XeenConsequenceDraw &draw) {
      if(context.rested || mode==XeenTimeMode::Sleeping)context.rested=false;
      else {
       needsRest=true;
-      // Same provisional FF/-1 mapping as the eight-hour guard. No signed-byte
-      // reinterpretation: FE increments to FF, FF stays FF, including on reload.
+      // DOS 0x26452: unsigned increment stops at 255.
       for(auto &v:characters)if(v.conditions[2]!=255)v.conditions[2]=std::uint8_t(unsigned(v.conditions[2])+1);
      }
     }

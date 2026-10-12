@@ -111,9 +111,12 @@ extern "C" int wrappedPlay(const Application *application,const XeenGameplayServ
 			if (stage=="synthetic-dusk") fixture.journey->context->minutes=1250;
 			else if (stage=="synthetic-tick" || stage=="synthetic-tick-refund" ||
 				stage=="synthetic-rng-overflow" || stage=="synthetic-report-reentry") fixture.journey->context->minutes=950;
-			if (stage=="synthetic-rng-overflow") fixture.journey->random->count=std::numeric_limits<std::uint64_t>::max();
+			if (stage=="synthetic-rng-overflow") {
+				fixture.journey->random->count=std::numeric_limits<std::uint64_t>::max();
+				fixture.characters[fixture.activeRosterIds[0]].conditions[3]=1; // A present condition requires a tick draw.
+			}
 			if (stage=="synthetic-report-reentry") for(auto owner:fixture.activeRosterIds)
-				fixture.characters[owner].conditions[4]=254; // Positive Disease forces stat death; FF/-1 boosts stats.
+				fixture.characters[owner].conditions[4]=255; // Unsigned Disease forces stat death, including FF.
 			if (stage=="synthetic-gems-zero" || stage=="synthetic-gems-max") {
 				check(bool(fixture.journey->treasure),"M36 synthetic gems fixture missing purse");
 				fixture.journey->treasure->gems=stage=="synthetic-gems-zero"?0u:std::numeric_limits<std::uint32_t>::max();
@@ -758,6 +761,9 @@ extern "C" int wrappedPlay(const Application *application,const XeenGameplayServ
 			}
 			if (stage=="synthetic-tick" || stage=="synthetic-tick-refund") {
 				check(party->encounterContext->minutes==950,"M36 synthetic tick prestate");
+				for(auto owner:party->party.activeRosterIds())check(!party->roster.at(owner).conditions[3] &&
+					!party->roster.at(owner).conditions[4],"M36 healthy tick fixture has Poison/Disease");
+				const auto randomBefore=*world->sessionState().journeyRandom();
 				const auto sp=party->roster.at(1).currentSp;
 				if (stage=="synthetic-tick") castFirstAid();
 				else {
@@ -772,9 +778,8 @@ extern "C" int wrappedPlay(const Application *application,const XeenGameplayServ
 				settle();
 				check(party->encounterContext->minutes==960 && party->encounterContext->ctr24==2 &&
 					party->roster.at(1).currentSp==sp-(stage=="synthetic-tick"?1:0) &&
-					world->sessionState().journeyRandom()->state==2771657022u &&
-					world->sessionState().journeyRandom()->count==30,
-					"M36 synthetic 950 to 960 condition/RNG settlement");
+					*world->sessionState().journeyRandom()==randomBefore,
+					"M36 synthetic 950 to 960 healthy condition check consumes no RNG");
 				save();std::cout<<"M36 SYNTHETIC TICK PASS stage="<<stage<<'\n';return true;
 			}
 			if (stage=="synthetic-dusk") {

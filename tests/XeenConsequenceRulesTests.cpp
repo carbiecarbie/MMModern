@@ -230,7 +230,7 @@ void additionalTapes() {
  }
  c=characters();XeenGameplayContext context;context.year=610;context.day=8;context.minutes=959;
  std::vector<XeenCombatRandom::Draw> tape;
- for(unsigned n=0;n<6;++n){tape.push_back({1,10,1});tape.push_back({1,40,40});tape.push_back({0,9,1});tape.push_back({1,40,1});}
+ for(unsigned n=0;n<6;++n){c[n].conditions[3]=c[n].conditions[4]=1;tape.push_back({1,10,1});tape.push_back({1,40,40});tape.push_back({1,10,1});tape.push_back({1,40,1});}
  XeenCombatRandom tick(tape);XeenConditionTimeCandidate minute(context,1,c,i);finish(minute,tick,1);
  check(minute.context.minutes==960 && tick.position()==24,"Round/End crossing and zero-resistance [1,40] branch draws");
  c[0].conditions[13]=255;XeenCombatRandom overflow(tape);XeenConditionTimeCandidate death(context,1,c,i);finish(death,overflow,1);check(death.characters[0].conditions[13]==255,"Time Dead saturates");check(c[0].conditions[13]==255,"Dead255 tick is unpublished");
@@ -428,13 +428,12 @@ void indoorOpportunity() {
 void timeAndInputs() {
 	auto c=characters();auto i=inputs();XeenGameplayContext context;context.year=610;context.day=8;context.minutes=950;
 	std::vector<XeenCombatRandom::Draw> tape;
-	for (unsigned n=0;n<6;++n) { tape.push_back({1,10,2});tape.push_back({0,9,0}); }
 	XeenCombatRandom tickTape(tape);XeenConditionTimeCandidate tick(context,10,c,i);finish(tick,tickTape,1);
-	check(tick.context.minutes==960 && tickTape.position()==12 && tick.characters[0].currentHp==50,"Twelve-draw clean tick");
-	for (auto &owner:c) { owner.conditions[3]=1;owner.conditions[4]=1;owner.conditions[8]=1; }
+	check(tick.context.minutes==960 && tickTape.position()==0 && tick.characters[0].currentHp==50,"Healthy tick consumes no RNG");
+	for (auto &owner:c) { owner.conditions[2]=1;owner.conditions[8]=1; }
 	i[0].might.permanent=1;
 	XeenCombatRandom noDraws(std::vector<XeenCombatRandom::Draw>{});XeenConditionTimeCandidate death(context,10,c,i);finish(death,noDraws);
-	check(death.characters[0].conditions[13]==2 && death.characters[0].currentHp==50 && death.characters[0].conditions[8]==1 && noDraws.position()==0,"Stat death retains HP and Sleep, nonzero conditions skip draws");
+	check(death.characters[0].conditions[13]==2 && death.characters[0].currentHp==50 && death.characters[0].conditions[8]==1 && noDraws.position()==0,"Stat death precedes Weak replacement and retains HP and Sleep");
 	context.minutes=1250;XeenConditionTimeCandidate dusk(context,10,c,i);finish(dusk,noDraws);check(dusk.context.minutes==1260,"Dusk is playable");
 	std::vector<std::uint8_t> chr(30*354);chr[313]=7;chr[314]=2;chr[315]=9;chr[316]=3;
 	check(!XeenCharacterFormat::parseCombatInputs(chr,0,true).resistances,"Legacy optional absence");
@@ -446,4 +445,4 @@ void timeAndInputs() {
 }
 }
 #include "XeenDailyTimeOracles.h"
-int main() { try { dailyTimeOracles();difficultyOracles();dormantTreasure();physical();targetingAndCounts();runAndParticipation();shootAndLoot();additionalTapes();completeWeaponRules();missileClassAndZeroDamage();rejectionBudgets();rangedOpportunity();indoorOpportunity();timeAndInputs();std::cout<<"Shared consequence pure-rule controls passed\n";return 0; } catch (const std::exception &e) { std::cerr<<e.what()<<'\n';return 1; } }
+int main() { try { dailyTimeOracles();dailyConditionChecks();difficultyOracles();dormantTreasure();physical();targetingAndCounts();runAndParticipation();shootAndLoot();additionalTapes();completeWeaponRules();missileClassAndZeroDamage();rejectionBudgets();rangedOpportunity();indoorOpportunity();timeAndInputs();std::cout<<"Shared consequence pure-rule controls passed\n";return 0; } catch (const std::exception &e) { std::cerr<<e.what()<<'\n';return 1; } }

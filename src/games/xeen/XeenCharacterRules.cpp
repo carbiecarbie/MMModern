@@ -119,26 +119,26 @@ int ageAdjustment(const XeenCharacter &character,
 	return kAgeAdjustments[mental ? 1 : 0][index];
 }
 
-// conditionMod arithmetic: FF represents the pin's -1, while 80..FE remain
-// positive counters. follows ScummVM; not confirmed in DOS.
-int conditionStatCounter(std::uint8_t value) { return value==0xff ? -1 : int(value); }
-int conditionModifier(const XeenCharacter &character, DerivedAttribute attribute) {
+// DOS WORLD/XEEN.DAT 0x1f9a8..0x1fbe4: unsigned condition counts,
+// one attribute point per count. Shared by sheet stats and HP/SP rules.
+int conditionModifier(const XeenCharacter &character, unsigned attribute) {
 	if (condition(character, XeenCondition::Dead) ||
 			condition(character, XeenCondition::Stoned) ||
 			condition(character, XeenCondition::Eradicated))
 		return 0;
 
-	int result = 0;
-	if (attribute == DerivedAttribute::Intellect || attribute == DerivedAttribute::Personality) {
-		result -= conditionStatCounter(condition(character, XeenCondition::Insane));
-		result -= conditionStatCounter(condition(character, XeenCondition::Diseased));
-	} else {
-		result -= conditionStatCounter(condition(character, XeenCondition::Diseased));
-	}
-	result -= conditionStatCounter(condition(character, XeenCondition::HeartBroken));
-	result -= conditionStatCounter(condition(character, XeenCondition::InLove));
-	result -= conditionStatCounter(condition(character, XeenCondition::Weak));
-	result -= conditionStatCounter(condition(character, XeenCondition::Drunk));
+	int result = int(condition(character, XeenCondition::InLove)) -
+		condition(character, XeenCondition::HeartBroken) - condition(character, XeenCondition::Weak);
+	const int insane = condition(character, XeenCondition::Insane);
+	if (attribute == 0 || attribute == 4) result += insane;
+	else if (attribute == 1 || attribute == 2 || attribute == 5) result -= insane;
+	const int drunk = condition(character, XeenCondition::Drunk);
+	result += (attribute == 2 || attribute == 6) ? drunk : -drunk;
+	if (attribute == 6) result -= condition(character, XeenCondition::Cursed);
+	if (attribute == 0 || attribute == 4 || attribute == 5)
+		result -= condition(character, XeenCondition::Poisoned);
+	if (attribute == 1 || attribute == 2 || attribute == 3)
+		result -= condition(character, XeenCondition::Diseased);
 	return result;
 }
 
@@ -213,7 +213,7 @@ int effectiveAttribute(const XeenCharacter &character,
 	int result = add<Checked>(value.permanent, value.temporary);
 	result = add<Checked>(result, ageAdjustment<Checked>(character, context, mental));
 	result = add<Checked>(result, equipment);
-	return std::max(add<Checked>(result, conditionModifier(character, attribute)), 0);
+	return std::max(add<Checked>(result, conditionModifier(character, static_cast<unsigned>(attribute))), 0);
 }
 
 template<bool Checked>
@@ -275,8 +275,9 @@ int maximumSp(const XeenCharacter &character,
 
 } // namespace
 
-// Character::getStat/conditionMod/itemScan at the documented ScummVM pin;
+// Character::getStat/itemScan at the documented ScummVM pin;
 // GPL-3.0-or-later, ScummVM developers (COPYRIGHT).
+// Condition modifiers use the DOS routine documented above.
 int XeenCharacterRules::sheetStat(const XeenCharacter &c,const XeenCombatInputs *input,
 		unsigned attribute,const XeenCharacterRulesContext &context,bool baseOnly) {
 	if (attribute>=7) throw std::invalid_argument("Invalid sheet attribute");
@@ -294,13 +295,7 @@ int XeenCharacterRules::sheetStat(const XeenCharacter &c,const XeenCombatInputs 
 	if(attribute<6) result=add<true>(result,ageAdjustment<true>(c,context,attribute==1 || attribute==2));
 	if(!baseOnly) {
 		result=add<true>(result,value[1]);
-		if(!c.conditions[13] && !c.conditions[14] && !c.conditions[15]) {
-			for(unsigned index:{1u,2u,6u,7u}) result=add<true>(result,-conditionStatCounter(c.conditions[index]));
-			if(attribute==6) result=add<true>(result,-conditionStatCounter(c.conditions[0]));
-			if(attribute==0 || attribute==1 || attribute==2 || attribute==4 || attribute==5) result=add<true>(result,-conditionStatCounter(c.conditions[5]));
-			if(attribute==0 || attribute==4 || attribute==5) result=add<true>(result,-conditionStatCounter(c.conditions[3]));
-			if(attribute==1 || attribute==2 || attribute==3) result=add<true>(result,-conditionStatCounter(c.conditions[4]));
-		}
+		result=add<true>(result,conditionModifier(c,attribute));
 	}
 	return std::max(result,0);
 }
