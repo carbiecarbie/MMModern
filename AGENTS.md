@@ -41,22 +41,26 @@ several apply, read all of them.
 ## Development principles
 
 - **Fidelity first.** Observable behavior of the original DOS game takes
-  precedence; evidence from normal DOSBox play overrides the reference. When a
-  plan, prompt or code is unclear about a behavior and the pinned ScummVM
-  reference shows what the original does, reproduce it without asking. Ask the
+  precedence; evidence from normal DOSBox play or from the original program
+  (below) overrides the reference. When a plan, prompt or code is unclear about
+  a behavior and the pinned ScummVM reference shows what the original does,
+  reproduce it without asking. Ask the
   maintainer when the original itself is ambiguous, when the evidence is
   contradictory or cannot be reliably verified (except the condition-counter
   cases below), or when reproducing it would leave the milestone scope. Never
   invent behavior the original does not have, including to get past
   uncertainty.
-- **Condition counter edge cases follow ScummVM.** For status-effect
-  (condition) counters only, when the original's behavior cannot be observed
-  in normal play and could only be checked by inspecting or editing DOSBox
-  memory (for example a byte 0xFF read as the -1 sentinel, or values
-  unreachable in ordinary play), follow the pinned ScummVM reference without
-  asking and mark the site "follows ScummVM; not confirmed in DOS". Evidence
-  from normal DOSBox play still overrides ScummVM. Any other unverifiable
-  case goes to the maintainer.
+- **Original program evidence.** Read-only static analysis of the original
+  CD program (`WORLD/XEEN.DAT`, for example through REA/Ghidra) counts as DOS
+  evidence when it is calibrated against a known behavior, cites file offsets
+  and reaches high confidence. Work copies and analysis projects stay outside
+  the repository; never copy decompiled code, assembly or original bytes into
+  it. Record each settled rule in `docs/original-quirks.md`.
+- **Condition counter edge cases follow ScummVM** when neither normal DOSBox
+  play nor program analysis settles them (values unreachable in ordinary play):
+  follow the pinned reference without asking and mark the site "follows
+  ScummVM; not confirmed in DOS". Any other unverifiable case goes to the
+  maintainer.
 - **Playable by default.** Load whole original maps, actors and events from the
   original resources. When play reaches something not yet implemented (an Event
   opcode, monster ability, service, spell or item effect), show a clear
