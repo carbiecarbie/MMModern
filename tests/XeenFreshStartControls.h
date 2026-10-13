@@ -153,7 +153,7 @@ void freshDifficultyHits(Source &s) {
   taped=false;
   const int damage=difficulty==XeenDifficulty::Adventurer?9:3;
   check(cursor==5 && d.world.sessionState().regionalActors(28)[35].hp==std::max(hp-damage,0) &&
-   d.flow->notice().find("Shoot owner 14 -> actor 35 hit "+std::to_string(damage))!=std::string::npos,"Fresh original Shoot difficulty damage and draws");
+   d.flow->playerNotice().empty(),"Fresh original Shoot difficulty damage/draws without narration");
   // A separate fresh game walks into the same original Slime without teleport.
   FreshDomain melee(s,difficulty);
   for(unsigned n=0;n<6 && melee.flow->state().phase()==XeenEncounterPhase::Exploring;++n) {

@@ -130,8 +130,8 @@ void readinessAndHistory() {
 	const std::vector<XeenActor> actors = f.w.sessionState().actors();
 	check(f.action(XeenEncounterAction::Wait).outcome == XeenEncounterOutcome::Refused && f.flow->journeyQuiet() &&
 		f.p.encounterContext->minutes == 480, "unready action refuses before publication");
-	check(f.flow->journeyRefusal().find("owner 0, slot 1, M/ID/S/F=105/1/0/8") != std::string::npos,
-		"readiness refusal identifies the exact current record");
+	check(f.flow->journeyRefusal()=="This action is not supported yet for this party.",
+		"readiness refusal is concise and player-facing");
 	sameActors(actors,f.w.sessionState().actors());
 	check(f.flow->journeyEquipment(f.flow->ticket(),0,XeenInventoryCategory::Accessories,1,XeenEquipmentOperation::Remove).status ==
 		XeenEquipmentStatus::Success, "repair loadout through actual equipment removal");

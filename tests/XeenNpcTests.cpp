@@ -1,5 +1,6 @@
 #include "XeenRemoveTestSupport.h"
 #include "SyntheticXeenArchive.h"
+#include "XeenDosTextTestSupport.h"
 #include "app/XeenEventFlow.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "formats/xeen/XeenQuestItemFormat.h"
@@ -59,7 +60,7 @@ struct Fixture {
 		return f;
 	}
 	XeenEventFlow flow(){return XeenEventFlow(world,events,members,camera,flags,font,
-		[&](std::uint64_t phase){++composes;phases.push_back(phase);return XeenEventFlow::Composition{ordinaryBase(phase), ordinary};},draw(),[&]{return time;},[&]{++randomReads;return random;});}
+		[&](std::uint64_t phase){++composes;phases.push_back(phase);return XeenEventFlow::Composition{ordinaryBase(phase), ordinary};},draw(),[&]{return time;},[&]{++randomReads;return random;},nullptr,{},nullptr,{},&dos_test::npcText());}
 	XeenEventExecutionStepResult begin(int line=0){return interpreter.begin(camera,members,flags,world,
 		[&](XeenMapIdentity id){return scripts.at(id);},[&](XeenMapIdentity){return text;},line);}
 	XeenEventExecutionStepResult resume(XeenEventExecutionState state,XeenPresentationResponse response=XeenPresentationResponse::Acknowledged){
@@ -112,7 +113,7 @@ void decoderAndExecution() {
   Fixture offer;auto r=npc();r.parameters={0,1,9,2};offer.set({r,record(1,1,1,0x12)});
   const auto state=pending(offer.begin());
   check(state.pendingPresentation->request.response==XeenPresentationResponseRequirement::Presented,"Mode2 offer added an acknowledgment/yes-no");
-  XeenEventPresenter presenter(offer.font,offer.draw());const auto shown=presenter.present(offer.base,state.pendingPresentation->request);
+  XeenEventPresenter presenter(offer.font,offer.draw());presenter.originalAssets(&dos_test::npcText(),{});const auto shown=presenter.present(offer.base,state.pendingPresentation->request);
   check(shown.response && *shown.response==XeenPresentationResponse::Presented && !presenter.blocksGameplay() && presenter.hasNpcOffer(),"Mode2 offer did not remain as passive NPC layer");
   check(std::holds_alternative<XeenEventExecutionCompleted>(offer.resume(state,XeenPresentationResponse::Presented)),"Mode2 offer failed sequential continuation");
  }
@@ -219,16 +220,16 @@ void presentationAndTiming() {
 	check(next.blocksGameplay() && *next.presentationGeneration()!=old && !next.respond(old,XeenPresentationResponse::Acknowledged),"input consumed next NPC");
 	next.respond(*next.presentationGeneration(),XeenPresentationResponse::Acknowledged);check(!next.blocksGameplay(),"direct NPC response");
 	Fixture pos;pos.text.strings={"A\n\t100B","body"};auto title=pos.flow();title.handle(InteractionAction{});
-	check(title.frame().pixels[30*320+138]==25 && title.frame().pixels[40*320+113]==25 &&
-		title.frame().pixels[40*320+138]==153,"positioned title anchor ignored");
-	check(title.presenter().diagnostics().empty(),"valid title diagnostics");
-	pos.text.strings[0]="\f01A\n\t100B";pos.events.discardTextCache();title.abandonPresentation();title.handle(InteractionAction{});
-	check(title.frame().pixels[30*320+138]==8 && title.frame().pixels[40*320+113]==8,
-		"title color state lost across positioned lines");
-	pos.text.strings[0]="A\n\txB";pos.events.discardTextCache();title.abandonPresentation();title.handle(InteractionAction{});
-	check(!title.presenter().diagnostics().empty(),"malformed tab undiagnosed");
-	pos.text.strings[0]=std::string(100,'W');pos.events.discardTextCache();title.abandonPresentation();title.handle(InteractionAction{});
-	check(!title.presenter().diagnostics().empty(),"clipped long title undiagnosed");
+    const auto expectedTitle=[&] {
+        XeenTextRenderOptions options;options.originalControls=true;options.stopAtBottom=true;
+        options.drawWindow=true;options.windowBounds={8,8,224,140};options.bounds={16,16,216,132};
+        options.x=options.y=16;
+        auto frame=XeenTextRenderer(pos.font).render(pos.base,xeenDialogFormat(dos_test::npcText().scalar("NPC_DIALOG"),pos.text.strings),options).pages.front();
+        pos.draw()(frame,9,0);return frame;
+    };
+    check(title.frame().pixels==expectedTitle().pixels,"NPC title/body did not use original writer coordinates");
+    pos.text.strings[0]="\f01A\n\t100B";pos.events.discardTextCache();title.abandonPresentation();title.handle(InteractionAction{});
+    check(title.frame().pixels==expectedTitle().pixels,"original NPC color/control state lost");
 	// Source spans cover the raw string, including spaces trimmed at wraps.
 	XeenTextRenderOptions opts;opts.bounds={0,0,24,10};opts.paginate=true;
 	auto pages=XeenTextRenderer(pos.font).render(pos.base,"aa  bb cc  dd",opts);
@@ -281,7 +282,7 @@ void ordinaryCoexistence() {
  Fixture shared;std::vector<unsigned> calls;
  XeenEventPresenter::Clock clock=[n=0U,&calls]() mutable {calls.push_back(++n);return n;};
  XeenEventFlow sharing(shared.world,shared.events,shared.members,shared.camera,shared.flags,shared.font,
-  [&](std::uint64_t){return XeenEventFlow::Composition{shared.base,true};},shared.draw(),clock);
+  [&](std::uint64_t){return XeenEventFlow::Composition{shared.base,true};},shared.draw(),clock,{},nullptr,{},nullptr,{},&dos_test::npcText());
  sharing.handle(InteractionAction{});sharing.updatePresentation();
  check(calls.size()>=4,"shared clock consumers were not exercised");
  for(unsigned i=0;i<calls.size();++i)check(calls[i]==i+1,"stateful clock copied between Flow and NPC");
@@ -362,7 +363,7 @@ void assets() {
 void sdl() {
 	Fixture f;f.text.strings[1]="one two three four";f.set({npc(),npc(1),record(1,1,2,0x0c,{0,0,21,99})});
 	// Production clock + SDL's actual idle callback; no keyboard event starts animation.
-	XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};},f.draw(),{},[]{return 3;});
+	XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};},f.draw(),{},[]{return 3;},nullptr,{},nullptr,{},&dos_test::npcText());
 	flow.handle(InteractionAction{});bool changed=false;int actions=0,idles=0;std::uint32_t started=0;
 	auto push=[](SDL_Keycode key,int repeat=0){SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=key;e.key.repeat=repeat;SDL_PushEvent(&e);};
 	const bool ok=SdlWindow().showInteractive(flow.frame(),"NPC SDL synthetic",

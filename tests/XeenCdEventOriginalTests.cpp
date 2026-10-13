@@ -74,7 +74,7 @@ XeenEventFile control(const XeenEventRecord &original) {
  XeenEventFile f;f.mapId=1;f.resourceName="synthetic.evt";f.resourcePresent=true;f.records={r};
  r.line=1;r.opcode=0x12;r.parameters.clear();r.lengthField=5;f.records.push_back(r);return f;
 }
-void audio(const XeenEventRecord &original,const XeenFontFormat &font) {
+void audio(const XeenEventRecord &original,const XeenFontFormat &font,const XeenDosText &dos) {
  // The operand/continuation control relocates only the address, leaving every
  // actual inserted PlayCD operand intact. Full original graph is checked above.
  auto f=control(original);auto w=world();XeenPartyState p;XeenEventInterpreter vm;
@@ -99,12 +99,13 @@ void audio(const XeenEventRecord &original,const XeenFontFormat &font) {
   "Deferred audio must be visible without acknowledgment, timing or RNG");
  // The notice must remain fully readable through NPC, main and bottom panels.
  for(const auto kind:{XeenPresentationKind::NpcAcknowledgment,XeenPresentationKind::MainWindowMessage,XeenPresentationKind::BottomWindowMessage}) {
-  XeenEventPresenter layered(font,[](auto &,auto,auto){});
+  XeenEventPresenter layered(font,[](auto &,auto,auto){});layered.originalAssets(&dos,{});
   auto strip=layered.present(base,pending->request).frame;
   XeenPresentationRequest panel;panel.kind=kind;panel.text="Synthetic text";
   if(kind==XeenPresentationKind::NpcAcknowledgment){panel.npc=XeenEventNpc{0,0,0,1,0};panel.response=XeenPresentationResponseRequirement::Acknowledgment;}
   const auto combined=layered.present(strip,panel).frame;
-  check(std::equal(strip.pixels.begin(),strip.pixels.begin()+8*320,combined.pixels.begin()),"Event panel erased the deferred-audio notice");
+  for(int y=157;y<190;++y)for(int x=60;x<260;++x)
+      check(strip.pixels[y*320+x]==combined.pixels[y*320+x],"Event panel erased the window-6 audio notice");
  }
  const auto done=vm.resume(pending->state,*shown.response,p,w,provider,{});
  const auto complete=std::get_if<XeenEventExecutionCompleted>(&done);
@@ -206,7 +207,7 @@ int main(int argc,char **argv) try {
     choice(r);
    if(r.opcode==0x3c) {
     check(std::holds_alternative<XeenDecodedEventInstruction>(decoded),context+" inserted speech decode");
-    audio(r,font);++count;++speech;
+    audio(r,font,assets.uiText());++count;++speech;
    }
    if(r.opcode==5 && r.parameters.size()==4) {
     if(r.parameters[3]==2) {
@@ -231,7 +232,7 @@ int main(int argc,char **argv) try {
   textMaps.insert(expected.map);
  }
  // Existing voice cues use the same generic nonblocking notice at any site/index.
- for(auto index:{0,10,255}) {XeenEventRecord r;r.opcode=0x28;r.parameters={static_cast<std::uint8_t>(index)};audio(r,font);}
+ for(auto index:{0,10,255}) {XeenEventRecord r;r.opcode=0x28;r.parameters={static_cast<std::uint8_t>(index)};audio(r,font,assets.uiText());}
  // Metadata-only archive view: never load Darkside maps, party or actors.
  auto darkView=*installation;darkView.cloudsData=installation->darksideData;
  darkView.xeenArchive=installation->darkArchive;

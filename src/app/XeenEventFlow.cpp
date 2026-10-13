@@ -80,7 +80,7 @@ XeenEventFlow::SaveBoundary XeenEventFlow::beginSave() {
 InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origin) {
     const auto *combat = _encounter ? _encounter->combat() : nullptr;
     // Panels are strict throughout their lifetime, including preparation/result work.
-    const unsigned panel = !_whoWillRefusal.empty() ? 14 : _quickFightMember ? 13 : _summary ? 12 : _encounter && _encounter->_rest ? 11 : _encounter && _encounter->_needsRestNotice ? 10 : _fatal ? 1 : _trainingUi ? 2 : _smithUi ? 3 : inventoryOpen() ? 4 :
+    const unsigned panel = _encounter && !_encounter->_combatCastRefusal.empty() ? 15 : !_whoWillRefusal.empty() ? 14 : _quickFightMember ? 13 : _summary ? 12 : _encounter && _encounter->_rest ? 11 : _encounter && _encounter->_needsRestNotice ? 10 : _fatal ? 1 : _trainingUi ? 2 : _smithUi ? 3 : inventoryOpen() ? 4 :
         (_castingUi || (combat && combat->cast())) ? 5 :
         (_pending || _transition || (_encounter && _encounter->journeyEvent())) ? 6 :
         (_encounter && _encounter->monsterReward()) ? 7 :
@@ -121,6 +121,11 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
     }
     auto dialog=_smithUi || _trainingUi ? serviceDialogInput() : characterDialogInput();
     if(_castingUi || (combat && combat->cast()))dialog=castingDialogInput();
+    if(_presenter.blocksGameplay() &&
+        ((_pending && _pending->state.pendingPresentation &&
+          _pending->state.pendingPresentation->request.kind!=XeenPresentationKind::CharacterSelection) ||
+         (_encounter && _encounter->monsterReward())))
+        dialog=std::make_shared<const DialogInput>(_presenter.input());
     if(_quickFightMember)dialog=std::make_shared<const DialogInput>(xeenQuickFightInput());
     if(_summary) {DialogInput input;input.anyKey=input.anyClick=input.keyMouseWait=true;dialog=std::make_shared<const DialogInput>(std::move(input));}
     const bool whoWill=_pending && _pending->state.pendingPresentation &&
@@ -134,15 +139,19 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
         }
         input.keys.push_back(InputKey::Escape);dialog=std::make_shared<const DialogInput>(std::move(input));
     }
-    if(!_whoWillRefusal.empty()) {DialogInput input;input.anyKey=input.anyClick=true;dialog=std::make_shared<const DialogInput>(std::move(input));}
+    if(!_whoWillRefusal.empty()) {DialogInput input;input.anyKey=input.anyClick=input.keyMouseWait=true;dialog=std::make_shared<const DialogInput>(std::move(input));}
     if(_encounter && _encounter->_needsRestNotice) {DialogInput input;input.anyKey=true;input.anyClick=true;dialog=std::make_shared<const DialogInput>(std::move(input));}
+    if(_encounter && !_encounter->_combatCastRefusal.empty()) {
+        DialogInput input;input.keys={'c'};input.anyKey=input.anyClick=input.keyMouseWait=true;
+        dialog=std::make_shared<const DialogInput>(std::move(input));
+    }
     bool hideCursor=false;
     if(_encounter && _encounter->_rest) {
         using P=XeenEncounterFlow::RestContinuation::Phase;const auto &rest=*_encounter->_rest;
         ready=ready && (rest.phase==P::Confirm || rest.phase==P::Refused || rest.phase==P::Complete);
         DialogInput input;
         if(rest.phase==P::Confirm)input=xeenConfirmInput();
-        else if(rest.phase==P::Refused || rest.phase==P::Complete)input.anyKey=input.anyClick=true;
+        else if(rest.phase==P::Refused || rest.phase==P::Complete)input.anyKey=input.anyClick=input.keyMouseWait=true;
         dialog=std::make_shared<const DialogInput>(std::move(input));
         hideCursor=rest.phase==P::Dream && rest.dreamBeat>=33 && rest.dreamBeat<113;
     }
@@ -168,7 +177,7 @@ IndexedFrame XeenEventFlow::drawRest(const IndexedFrame &base) {
     return frame;
 }
 
-IndexedFrame XeenEventFlow::drawMainScreenNotice(const IndexedFrame &base, const std::string &notice) const {
+IndexedFrame XeenEventFlow::drawTerminalEncounterNotice(const IndexedFrame &base, const std::string &notice) const {
     // M46 keeps the existing temporary status text, but confines it to the
     // scene so the original buttons, Tab and portraits remain visible.
     XeenTextRenderOptions options;
@@ -220,6 +229,29 @@ IndexedFrame XeenEventFlow::drawMainScreenNotice(const IndexedFrame &base, const
                 drawDialogSprite(frame,"combat.icn",32,233,27+int(row)*10);
         }
     }
+    return frame;
+}
+
+IndexedFrame XeenEventFlow::drawMainScreenNotice(const IndexedFrame &base, const std::string &) const {
+    // Defeat playback and return routing are deferred together to M63.
+    // Retain the existing terminal presentation; do not invent a death screen.
+    if(_encounter->combat() && _encounter->combat()->phase()==XeenCombatPhase::Defeat)
+        return drawTerminalEncounterNotice(base,_encounter->notice());
+    auto frame=base;
+    if(const auto *combat=_encounter->combat()) {
+        if(drawCombatButtons)drawCombatButtons(frame);
+        const auto contacts=combat->contacts();
+        std::array<XeenCombatPanelRow,3> rows{};
+        std::optional<unsigned> selected;
+        for(unsigned i=0;i<contacts.size();++i)if(contacts[i]) {
+            const auto &actor=_world.sessionState().regionalActors(contacts[i]->mapId).at(contacts[i]->recordIndex);
+            rows[i]={actor.statistics->name(),actor.hp,actor.statistics->baseHp()};
+            if(contacts[i]==combat->selectedTarget())selected=i;
+        }
+        frame=drawXeenCombatPanel(dosText(),frame,_inventoryFont,rows,selected,drawDialogSprite);
+    }
+    const auto message=_mainScreenNotice.empty()?_encounter->playerNotice():_mainScreenNotice;
+    if(!message.empty())frame=drawXeenErrorScroll(frame,_inventoryFont,message);
     return frame;
 }
 
@@ -539,8 +571,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter frame");
 			if (!composed.frame.isValid()) throw std::runtime_error("Invalid encounter frame");
 			const auto notice = _encounter->combat() && _encounter->combat()->cast() ? std::string{} : _encounter->notice();
-			auto rendered = _encounter->combat() && _encounter->combat()->cast() ? composed.frame : journey() && _encounter->combat() ?
-                drawMainScreenNotice(composed.frame,notice) :
+			auto rendered = journey() ? drawMainScreenNotice(composed.frame,notice) :
                 noticeFrame(composed.frame, _inventoryFont, notice, _encounter->combat(),journey());
 			if (report && !attempt && reportText) reportText(notice);
             drawPartyPresentation(rendered);
@@ -590,7 +621,7 @@ XeenEventFlow::XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
 		const XeenFontFormat &font, Compose compose, XeenEventPresenter::NpcDraw npcDraw,
 		XeenEventPresenter::Clock clock, XeenEventPresenter::RandomFrame randomFrame, const XeenItemCatalog *catalog,
 		EncounterCompose encounterCompose, const XeenJourneySetup *journey,
-		TransitionCompose transitionCompose) :
+		TransitionCompose transitionCompose, const XeenDosText *text) :
 	_transitionCompose(std::move(transitionCompose)),
 	_inventoryFont(font), _catalog(catalog ? *catalog : fallbackCatalog()),
 	_world(world), _gameplayBorrow(world.sessionState().journey() ? nullptr : new XeenWorld::GameplayBorrow(world,party,camera,flags)),
@@ -601,6 +632,7 @@ XeenEventFlow::XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
 	}}), _presenter(font, std::move(npcDraw), [this] { return _clock(); }, std::move(randomFrame)),
 	_ordinary{0, 0, camera.mapId, camera.direction, false},
 	_compose(std::move(compose)) {
+    dialogText=text;
 	if (journey || world.sessionState().journey()) {
 		if (!encounterCompose) throw std::invalid_argument("Journey requires exclusive presentation setup");
 		_encounterCompose = std::move(encounterCompose);
@@ -896,9 +928,7 @@ void XeenEventFlow::prepareVertigoResult(const XeenManualEventResult &result) tr
 	if (const auto *failure=std::get_if<XeenEventExecutionError>(&result)) {
 		// Both retained owner guards have passed above. No unpublished effects
 		// escape, and a valid already-published exit prelude remains authoritative.
-		_encounter->_journeyRefusal="Event: not supported yet at map "+std::to_string(failure->logicalAddress.mapId.number)+
-			" ("+std::to_string(failure->logicalAddress.x)+","+std::to_string(failure->logicalAddress.y)+") line "+
-			std::to_string(failure->logicalAddress.line)+": "+failure->message;
+		_encounter->_journeyRefusal="This Event is not supported yet";
 		_candidateResultRefused=true;
 		_transition.reset(); return;
 	}
@@ -1024,15 +1054,15 @@ IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operat
 		_eventPublication=nullptr;
 		if (_smithSettlement || _trainingSettlement) {
 			if (_fatal || !_encounter->current(entry)) { _fatal=true;throw; }
-			if(_smithUi)_smithUi->feedback="Event settlement pending; Enter retries.";
-			if(_trainingUi)_trainingUi->feedback="Event settlement pending; Enter retries.";
+			if(_smithUi)_smithUi->feedback="Unable to finish. Press Enter to retry.";
+			if(_trainingUi)_trainingUi->feedback="Unable to finish. Press Enter to retry.";
 			return renderEncounter();
 		}
 		if(_transition && (_transition->completion || _pending)) {
 			_encounter->journeySavePreimage().check();checkTransitionCandidate();
 			if(_fatal || !_encounter->current(entry))throw;
 			if(_pending)_transition->presentationRetry=true;
-			_encounter->_journeyRefusal="Event presentation pending; retrying.";
+			_encounter->_journeyRefusal="Unable to display the message. Retrying.";
 			return renderEncounter();
 		}
 		cleanup(XeenRewardDiscard::PresentationFailure);
@@ -1091,14 +1121,12 @@ bool XeenEventFlow::pendingNpc() const {
 		_pending->state.pendingPresentation->request.kind == XeenPresentationKind::NpcAcknowledgment;
 }
 bool XeenEventFlow::handlesEscape() const {
-	if(_summary || _quickFightMember)return !_fatal;
-	if(_encounter && _encounter->_rest)return !_fatal;
-	if(_barrier)return !_fatal;
-	// This is routing, not response authority: handle() still requires the exact
-	// presented frame. An unpresented modal must never turn Escape into exit.
-	if (journey()) return !_fatal && (_handoffPending || inventoryOpen() || canCancelInteraction() || _encounter->monsterReward());
-	if (_encounter) return false;
-	return inventoryOpen() || canCancelInteraction() || pendingNpc() || (_pending && _pending->state.rewardPhase != XeenRewardPhase::Running);
+    if(_fatal)return false;
+    if(_pending || _presenter.blocksGameplay() || _summary || _quickFightMember ||
+        _barrier || inventoryOpen() || canCancelInteraction())return true;
+    if(_encounter && (_encounter->combat() || _encounter->_rest || _encounter->_needsRestNotice ||
+        _encounter->monsterReward()))return true;
+    return journey() && _handoffPending;
 }
 XeenRewardReceipt XeenEventFlow::cleanup(XeenRewardDiscard reason) noexcept {
 	XeenRewardReceipt outcome;
@@ -1157,6 +1185,7 @@ IndexedFrame XeenEventFlow::presentationFailed(const std::exception &exception) 
 	return frameCopy();
 }
 XeenPresentationUpdate XeenEventFlow::presentPendingEvent() {
+    _presenter.originalAssets(dialogText,drawDialogSprite);
 	auto request=_pending->state.pendingPresentation->request;
 	if(_transition && request.kind==XeenPresentationKind::RewardReceipt)
 		request.text=xeenRewardReceiptText(_pending->state.rewardReceipt,_transition->party.roster);
@@ -1263,10 +1292,10 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 			_encounter->journeySavePreimage().check();
 			if (_encounter->_smith) {
 				_smithUi->phase=SmithUi::Phase::Lobby;
-				_smithUi->feedback="Retry; one-day departure still owed.";
+				_smithUi->feedback="Unable to finish. Press Escape to retry.";
 			} else {
 				_encounter->_smithPreparation.reset();_smithUi.reset();_pending.reset();
-				_encounter->_journeyRefusal=std::string("Ironworks preparation refused: ")+error.what();
+				_encounter->_journeyRefusal="Unable to enter the Ironworks. Try again.";
 				_encounter->endJourneyEvent();
 			}
 		}
@@ -1446,6 +1475,18 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 	if ((inputFrame && !acceptsInputFrame(inputFrame)) || (_trainingUi && !inputFrame) ||
 		(_smithUi && !inputFrame)) return frameCopy();
 	if (journey() && !journeyInputCurrent(displayedInput)) return frameCopy();
+    if(_encounter && !_encounter->_combatCastRefusal.empty() && !_dispatching && !_fatal && !_saving) {
+        _encounter->_combatCastRefusal.clear();
+        if(const auto *key=std::get_if<DialogKeyAction>(&action);key && key->key=='c')action=CastSpellAction{};
+        else if(std::holds_alternative<AcknowledgeAction>(action) || std::holds_alternative<CancelInteractionAction>(action)) {
+            DispatchScope dispatch(_dispatching);return renderEncounter();
+        }
+    }
+    if(!_whoWillRefusal.empty() && !_dispatching && !_fatal && !_saving) {
+        _whoWillRefusal.clear();DispatchScope dispatch(_dispatching);
+        if(_encounter)return renderEncounter();
+        refreshScene(true,OrdinaryCause::None);return _frame;
+    }
     if(_pending && _pending->state.pendingPresentation &&
         _pending->state.pendingPresentation->request.kind==XeenPresentationKind::CharacterSelection) {
         if(const auto *key=std::get_if<DialogKeyAction>(&action)) {
@@ -1608,7 +1649,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 			if ((std::holds_alternative<AttackAction>(action) || std::holds_alternative<BlockAction>(action) || std::holds_alternative<RunAction>(action) ||
 				 std::holds_alternative<BeginEncounterAction>(action) || std::holds_alternative<RevisitCompletedAction>(action))) {
 				if (_encounter->journeyMutable()) {
-					_encounter->_journeyRefusal="Unsupported regional action: combat/Run/Begin/Revisit";
+					_encounter->_journeyRefusal="This action is not supported yet.";
 					return renderEncounter();
 				}
 				return frameCopy();
@@ -1650,7 +1691,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 						});
 						validation.script(_events.scriptForMap(_camera.mapId).file());
 						const auto record=xeenRegionalEvent(_encounter->_journeyEvents,_camera);
-						if (record) _encounter->_journeyRefusal="Unsupported event "+std::to_string(*record)+" at ("+std::to_string(_camera.x)+","+std::to_string(_camera.y)+")";
+						if (record) _encounter->_journeyRefusal="This Event is not supported yet.";
 						else if (reportManual) reportManual(XeenManualEventNoEvent{});
 					}); } catch (...) {
 						if (!_encounter->current(_encounter->ticket())) throw;

@@ -170,6 +170,14 @@ int main(int argc,char **argv) {
 		f.act(InteractionAction{});check(f.flow->canCancelInteraction() && !f.flow->canSave(),"Original grate did not acquire WhoWill/busy save boundary");
 		const auto input=f.flow->inputContext(f.flow->frame().presentation());
 		check(input.dialog && input.dialog->hits.size()==6 && !input.acceptsQueuedInput,"WhoWill needs strict keyboard and portrait mouse input");
+        XeenTextRenderOptions selectorOptions;selectorOptions.originalControls=true;selectorOptions.drawWindow=true;
+        selectorOptions.stopAtBottom=true;selectorOptions.windowBounds={225,74,320,154};
+        selectorOptions.bounds={233,82,312,146};selectorOptions.x=233;selectorOptions.y=82;
+        const auto selectorText=xeenDialogFormat(in.assets.uiText().scalar("WHO_WILL"),{
+            in.assets.uiText().table("WHO_WILL_ACTIONS")[0],in.assets.uiText().table("WHO_ACTIONS")[13],"6"});
+        const auto selectorExpected=XeenTextRenderer(in.font).render(f.flow->frame(),selectorText,selectorOptions).pages.front();
+        for(int y=74;y<154;++y)for(int x=225;x<320;++x)
+            check(selectorExpected.pixels[y*320+x]==f.flow->frame().pixels[y*320+x],"Grate WhoWill must use the full original DAT template");
 		const auto selectorFrame=f.flow->frame().presentation();const auto selectorInput=f.flow->displayedInput();
 		f.act(CancelInteractionAction{});check(f.flow->canSave() && XeenSaveFormat::encode(f.snapshot())==before,"Cancelled real grate changed HP/XP/RNG/walls/time");
 		f.flow->handle(SelectMemberAction{0},selectorInput,selectorFrame);
@@ -177,7 +185,11 @@ int main(int argc,char **argv) {
 		auto asleep=initial;asleep.characters[kXeenCombatOwners[0]].conditions[8]=1;Fixture refused(in,asleep);
 		const auto asleepBytes=XeenSaveFormat::encode(refused.snapshot());refused.act(InteractionAction{});
 		refused.act(DialogKeyAction{InputKey::F1});check(refused.flow->canCancelInteraction() && refused.w.sessionState().journeyRandom()==rng,"Ineligible unlock member must remain at WhoWill without RNG/injury");
-		refused.act(DialogKeyAction{InputKey::Escape});check(XeenSaveFormat::encode(refused.snapshot())==asleepBytes,"Dialog mouse/key cancellation changed durable state");
+		check(refused.flow->inputContext(refused.flow->frame().presentation()).dialog->anyKey,"DOS incapacitation refusal must wait for acknowledgment");
+        refused.act(DialogKeyAction{InputKey::Escape});
+        check(refused.flow->canCancelInteraction() && !refused.flow->canSave() && refused.w.sessionState().journeyRandom()==rng,
+            "Refusal acknowledgment must return to WhoWill without an action or RNG");
+        refused.act(DialogKeyAction{InputKey::Escape});check(XeenSaveFormat::encode(refused.snapshot())==asleepBytes,"Dialog mouse/key cancellation changed durable state");
 		unsigned chosen=0;
 		for(unsigned n=0;n<5 && f.w.sessionState().barriers().empty();++n) {
 			f.act(InteractionAction{});

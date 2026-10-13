@@ -142,7 +142,7 @@ DialogInput XeenTitleFlow::dialog() const {
   for(unsigned i=0;i<buttons.size();++i)add(buttons[i],lower(buttons[i].key),_services.text.scalar("DIFFICULTY_BUTTONS").data(),i*2);
  } else if(_screen==Screen::Overwrite || _screen==Screen::Quit || _screen==Screen::Wizard)input=xeenConfirmInput();
  else if(_screen==Screen::Name) {input.textEntry=true;input.keys.insert(input.keys.end(),{8,InputKey::Enter});}
- else {input.anyKey=true;input.anyClick=true;}
+ else {input.anyKey=input.anyClick=input.keyMouseWait=true;}
  return input;
 }
 void XeenTitleFlow::render(bool semantic) {

@@ -7,9 +7,18 @@
 #include "games/xeen/XeenLearnedSpellRules.h"
 #include "games/xeen/XeenItemServiceRules.h"
 #include <functional>
+#include <array>
 #include <string_view>
 namespace mmodern {
 using XeenDialogSpriteDraw = std::function<void(IndexedFrame &,const char *,unsigned,int,int)>;
+struct XeenCombatPanelRow {
+    std::string name;
+    int hp=0, maxHp=0;
+};
+unsigned xeenCombatHealthColor(int hp,int maxHp);
+std::string xeenCombatPanelText(const XeenDosText &,const std::array<XeenCombatPanelRow,3> &);
+IndexedFrame drawXeenCombatPanel(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,
+    const std::array<XeenCombatPanelRow,3> &,std::optional<unsigned>,const XeenDialogSpriteDraw &);
 enum class XeenDialogText {
     ExchangingInCombat, CursedItem, BackpackFull, NotProficient,
     EquippedAll, RemoveToEquip, Ring, Medal, InNoCondition,

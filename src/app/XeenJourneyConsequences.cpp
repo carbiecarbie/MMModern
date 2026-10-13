@@ -32,7 +32,7 @@ bool XeenEncounterFlow::beginShoot() {
    const auto &c=_party.roster.at(candidate->owners[i]);
    if(c.canAct()) for(const auto &w:c.weapons) if(w.frame==4) candidate->eligible[i]=eligible=true;
   }
-  if(!eligible) { _journeyRefusal="Shoot refused: no awake eligible missile user";return true; }
+  if(!eligible) { _journeyRefusal="No one can shoot.";return true; }
   // Check before retaining intent or consuming old work, and again when that
   // work finishes: ranged damage can disable a previously eligible shooter.
   if(_state.pending()) { retireCastingFeedback();_shootIntent=true;journeyPulse(ticket());return true; }
@@ -60,7 +60,7 @@ bool XeenEncounterFlow::beginShoot() {
   ++_world._sessionState._journeyGeneration;++_generation;_journeyPreimage->adoptJourneyCoordination();
   _journeyRefusal.clear();return true;
  } catch(const std::invalid_argument &e) {
-  if(!_journeyPreimage->current()) { closeJourney();throw; }_journeyRefusal=e.what();return true;
+  if(!_journeyPreimage->current()) { closeJourney();throw; }_journeyRefusal="Shoot is not supported yet for this party.";return true;
  }
 }
 bool XeenEncounterFlow::serviceShoot() {
@@ -170,7 +170,8 @@ bool XeenEncounterFlow::serviceShoot() {
     else ++work.shooter;
     work.spellAttack.reset();work.attack.reset();work.drop.reset();work.bound.reset();work.lethal.reset();work.attackDone=work.suffixPrepared=false;work.stage=Stage::Travel;
     _frame=0;_appearanceIdentity.reset();
-    _journeyRefusal.swap(work.feedback);retainJourney();
+    // Hit accounting is developer output, never a player-facing refusal.
+    retainJourney();
     if(removed) {work.presented=false;return true;}
    }
    if(work.row+1<work.rows) {
@@ -178,9 +179,7 @@ bool XeenEncounterFlow::serviceShoot() {
    }
    check();
    _projectiles.clear();
-   if(work.spell)_journeyRefusal.clear();
-   else if(work.blockedRow<4)_journeyRefusal="Shoot stopped at terrain row "+std::to_string(work.blockedRow);
-   else if(_journeyRefusal.empty())_journeyRefusal="Shoot: empty center rows";
+   _journeyRefusal.clear();
    work.volleyDone=true;return true;
   }
   if(work.spell) {

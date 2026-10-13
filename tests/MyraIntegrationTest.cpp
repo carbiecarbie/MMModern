@@ -91,6 +91,7 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 		if(failDraw)throw std::runtime_error("injected NPC asset failure");assets.drawNpc(f,portrait,index);};
 	XeenEventPresenter::Clock clock=[&]{return time;};
 	XeenEventFlow flow(world,events,party,camera,flags,font,compose,draw,clock,[&]{return random++%4;});
+	flow.dialogText=&assets.uiText();
 	const auto base=flow.frame();const std::string name=(roots?"root-"+std::to_string(roots):"request")+
 		std::string(requested?"-q1":"-q0")+(lossFixture==1?"-full":lossFixture==2?"-dead-fallback":"")+(dismiss==SDLK_SPACE?"-space":dismiss==SDLK_RETURN?"-enter":"-escape");
 	bool capture=true;
@@ -298,6 +299,7 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 	std::uint64_t freshPhase=0;
 	auto freshCompose=[&](std::uint64_t phase){freshPhase=phase;XeenEventFlow::Composition r;r.frame=composer.compose(assets,world,party,camera,rules,nullptr,phase,&r.containsOrdinaryAnimation);return r;};
 	XeenEventFlow fresh(world,newEvents,party,camera,flags,font,freshCompose,draw,[&]{return time;},[]{return 1;});
+	fresh.dialogText=&assets.uiText();
 	fresh.reportManual=report;fresh.reportText=flow.reportText;
 	check(!fresh.blocksGameplay() && !fresh.presentationGeneration() && !fresh.updatePresentation(),"new flow inherited pending work");
 	camera={1,1,14,XeenDirection::West};fresh.refresh();camera=start;fresh.refresh();

@@ -150,7 +150,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
      if(saveExclusions.insert(state).second){const auto before=saveCalls;input(SaveGameAction{});check(saveCalls==before,"Blocked F9 entered save provider");++blockedSaves;}
     }
 
-    if(flow->encounter()->notice().find("Shoot owner 0")!=std::string::npos)generatedShoot=true;
+    for(const auto &projectile:appearance.projectiles)if(!projectile.enemy)generatedShoot=true;
     for(auto owner:kXeenCombatOwners) { const auto &c=party->roster.at(owner);poison|=c.conditions[3];sleep|=c.conditions[8];disease|=c.conditions[4]; }
     if(flow->encounter()->combat()) {
      if(!wasCombat){if(returning){for(const auto &id:flow->encounter()->combat()->contacts())if(id&&(id->recordIndex==returnActor||(route[cursor]=='O'&&world->sessionState().actors().at(id->recordIndex).original.resourceId==6))){returnActor=id->recordIndex;++cursor;returning=false;returnMoves=0;break;}}++episodes;escapedXp={};episodeSuccesses=0;retainedItem=false;observedCombatRevision=0;std::cout<<"CONTACT episode="<<episodes<<" camera="<<position->x<<','<<position->y<<" facing="<<unsigned(position->direction)<<'\n';for(const auto &id:flow->encounter()->combat()->contacts())if(id){const auto &a=world->sessionState().actors().at(id->recordIndex);std::cout<<"CONTACT ACTOR id="<<id->recordIndex<<" hp="<<a.hp<<" position="<<a.x<<','<<a.y<<'\n';}}wasCombat=true;

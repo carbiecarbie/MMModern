@@ -37,7 +37,8 @@ public:
 		XeenEventPresenter::NpcDraw npcDraw = {}, XeenEventPresenter::Clock clock = {},
 		XeenEventPresenter::RandomFrame randomFrame = {}, const XeenItemCatalog *catalog = nullptr,
 		EncounterCompose encounterCompose = {},
-		const XeenJourneySetup *journey = nullptr, TransitionCompose transitionCompose = {});
+		const XeenJourneySetup *journey = nullptr, TransitionCompose transitionCompose = {},
+        const XeenDosText *text = nullptr);
 	~XeenEventFlow();
 	XeenEventFlow(const XeenEventFlow &) = delete;
 	XeenEventFlow &operator=(const XeenEventFlow &) = delete;
@@ -402,6 +403,7 @@ private:
 	std::string _mainScreenNotice;
     std::string _whoWillRefusal;
 	IndexedFrame drawMainScreenNotice(const IndexedFrame &, const std::string &) const;
+    IndexedFrame drawTerminalEncounterNotice(const IndexedFrame &, const std::string &) const;
  void drawPartyPresentation(IndexedFrame &) const;
 	XeenCamera _renderedCamera;
 	std::size_t _disabledObjects = 0;

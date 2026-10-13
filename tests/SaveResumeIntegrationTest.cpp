@@ -285,7 +285,7 @@ int child(const fs::path &game, const fs::path &dir, const std::string &name, co
   },
   [&](IndexedFrame &f, std::uint8_t portrait, std::size_t index) { assets.drawNpc(f, portrait, index); },
   [&](XeenEventFlow &f, const XeenCamera &) {
-   flow = &f;
+   flow = &f;f.dialogText=&assets.uiText();
    f.reportText = [](const std::string &s) { throw std::runtime_error(s); };
    f.reportAutomatic = [&](const XeenAutomaticEventResult &r) { ++automatic; check(std::holds_alternative<XeenAutomaticEventNoTrigger>(r), "unexpected automatic checkpoint replay"); };
    f.reportEquipment = [&](const XeenEquipmentResult &r) { ++equipmentReports; lastEquipment = r; };

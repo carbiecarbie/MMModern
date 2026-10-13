@@ -1,5 +1,7 @@
 #include "XeenTestInstallation.h"
 #include "games/xeen/XeenDialogView.h"
+#include "games/xeen/XeenEventPresenter.h"
+#include "platform/sdl/XeenMainScreenInput.h"
 #include "games/xeen/XeenCharacterRules.h"
 #include "games/xeen/XeenPartyLoader.h"
 #include "games/xeen/XeenInstallationDetector.h"
@@ -80,6 +82,42 @@ void original(const char *path){
  const XeenFontFormat font(assets.readArchiveResource("fnt"));const auto catalog=loadXeenItemCatalog(assets).catalog;
  IndexedFrame base;base.width=320;base.height=200;base.pixels.assign(64000,77);
  const auto draw=[&](IndexedFrame &frame,const char *resource,unsigned id,int x,int y){assets.drawDialogSprite(frame,resource,id,x,y);};
+ // The normal combat pane is the exact DAT stream, including padded colors,
+ // with the contact marker independent of text width.
+ check(xeenCombatHealthColor(100,100)==15 && xeenCombatHealthColor(99,100)==9 &&
+     xeenCombatHealthColor(25,100)==9 && xeenCombatHealthColor(24,100)==32 &&
+     xeenCombatHealthColor(2,11)==9 && xeenCombatHealthColor(1,11)==32,"DOS quarter-health thresholds");
+ const std::array<XeenCombatPanelRow,3> rows{{{"A",100,100},{"B",25,100},{"C",24,100}}};
+ const auto &dos=assets.uiText();
+ const auto expected=xeenDialogFormat(dos.scalar("COMBAT_DETAILS"),{
+     xeenDialogFormat(dos.scalar("COMBAT_ROW_1"),{"15","A"}),
+     xeenDialogFormat(dos.scalar("COMBAT_ROW_2"),{"9","B"}),
+     xeenDialogFormat(dos.scalar("COMBAT_ROW_3"),{"32","C"})});
+ check(xeenCombatPanelText(dos,rows)==expected,"combat DAT text/control stream");
+ XeenTextRenderOptions combatOptions;combatOptions.originalControls=true;combatOptions.drawWindow=true;
+ combatOptions.bounds={233,9,312,65};combatOptions.windowBounds={225,1,320,73};combatOptions.x=233;combatOptions.y=9;
+ auto combatExpected=XeenTextRenderer(font).render(base,expected,combatOptions).pages.front();
+ draw(combatExpected,"combat.icn",32,233,37);
+ check(drawXeenCombatPanel(dos,base,font,rows,1,draw).pixels==combatExpected.pixels,"combat window/marker/colors");
+ for(unsigned row=0;row<3;++row) {
+     for(int x:{239,311})for(int y:{27+10*int(row),36+10*int(row)})
+         check(std::get<SelectInventorySlotAction>(*xeenMainScreenClick(x,y,MainScreen::Combat)).slot==row,"DOS row hitbox corner");
+     check(!xeenMainScreenClick(238,27+10*row,MainScreen::Combat) &&
+         !xeenMainScreenClick(312,27+10*row,MainScreen::Combat),"DOS row hitbox exclusive X edge");
+ }
+ check(!xeenMainScreenClick(239,57,MainScreen::Combat),"DOS row final exclusive Y edge");
+ // Original NPC template, window 11 and actual frame.fac/face assets.
+ XeenPresentationRequest npc;npc.kind=XeenPresentationKind::NpcAcknowledgment;
+ npc.response=XeenPresentationResponseRequirement::Acknowledgment;
+ npc.npc=XeenEventNpc{0,1,9,1,0};npc.title="A";npc.text="B";
+ XeenEventPresenter presenter(font,[&](IndexedFrame &f,std::uint8_t id,std::size_t phase){assets.drawNpc(f,id,phase);});
+ presenter.originalAssets(&dos,draw);
+ XeenTextRenderOptions npcOptions;npcOptions.originalControls=true;npcOptions.drawWindow=true;npcOptions.stopAtBottom=true;
+ npcOptions.windowBounds={8,8,224,140};npcOptions.bounds={16,16,216,132};npcOptions.x=npcOptions.y=16;
+ auto npcExpected=XeenTextRenderer(font).render(base,xeenDialogFormat(dos.scalar("NPC_DIALOG"),{"A","B"}),npcOptions).pages.front();
+ assets.drawNpc(npcExpected,9,0);
+ check(presenter.present(base,npc).frame.pixels==npcExpected.pixels,"NPC DAT template/window/portrait placement");
+
  for(unsigned i=0;i<6;++i){auto &c=p.roster.at(p.party.activeRosterIds()[i]);c.permanentLevel=3;
   const auto offset=c.rosterId*354;const auto *d=c.originalDetails();check(d,"original character metadata absent");
   for(unsigned r=0;r<6;++r)check(d->resistances[r][0]==bytes[offset+311+r*2] && d->resistances[r][1]==bytes[offset+312+r*2],"original resistance bytes");

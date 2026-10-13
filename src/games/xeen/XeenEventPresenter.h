@@ -4,6 +4,7 @@
 #include "core/PlayerAction.h"
 #include "games/xeen/XeenEventInterpreter.h"
 #include "games/xeen/XeenTextRenderer.h"
+#include "games/xeen/XeenDialogView.h"
 
 #include <optional>
 #include <string>
@@ -53,9 +54,15 @@ public:
 		std::uint64_t remaining = 0, deadline = 0;
 	};
 	const NpcTiming &npcTiming() const { return _npcTiming; }
+	void originalAssets(const XeenDosText *text, XeenDialogSpriteDraw draw) {
+		_dosText=text; _spriteDraw=std::move(draw);
+	}
+	DialogInput input() const;
 
 private:
 	XeenTextRenderOptions optionsFor(const XeenPresentationRequest &request) const;
+	XeenTextRenderResult drawText(const IndexedFrame &, const XeenPresentationRequest &) const;
+	IndexedFrame overlayNotices(IndexedFrame) const;
 	IndexedFrame drawConfirmation(const IndexedFrame &base) const;
 	XeenTextRenderResult drawSelection(const IndexedFrame &base,
 		const XeenPresentationRequest &request) const;
@@ -64,6 +71,8 @@ private:
 	IndexedFrame drawNpcPage() const;
 	void startNpcPage();
 	NpcDraw _npcDraw;
+	const XeenDosText *_dosText=nullptr;
+	XeenDialogSpriteDraw _spriteDraw;
 	Clock _clock;
 	RandomFrame _randomFrame;
 	std::mt19937 _random{std::random_device{}()};

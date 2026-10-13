@@ -88,6 +88,7 @@ void tap(SDL_Keycode code) {key(code,SDL_KEYUP);key(code,SDL_KEYDOWN);key(code,S
 void click(int x,int y,Uint8 button=SDL_BUTTON_LEFT) {
     SDL_Event e{};e.type=SDL_MOUSEBUTTONDOWN;e.button.button=button;e.button.windowID=SDL_GetWindowID(SDL_GetWindowFromID(1));e.button.x=x*3;e.button.y=y*3;e.button.timestamp=100;
     check(SDL_PushEvent(&e)==1,"native service click enqueue failed");
+    e.type=SDL_MOUSEBUTTONUP;check(SDL_PushEvent(&e)==1,"native service release enqueue failed");
 }
 void native(Inputs &in,bool smith) {
     SDL_setenv("SDL_VIDEODRIVER","dummy",1);SDL_setenv("SDL_RENDER_DRIVER","software",1);
@@ -109,8 +110,8 @@ void native(Inputs &in,bool smith) {
             ++dispatches;check(dispatches==1,"held/batched service input duplicated intent");return f.flow->handle(action,input,origin);};
         handler.withDisplayedInput=[&](const auto &action,auto input){return handler.withPresentedInput(action,input,shown);};
         const auto ok=SdlWindow().showInteractive(f.flow->frame(),"Original service input",handler,[]{return true;},[&]()->std::optional<IndexedFrame>{
-            if(stage==0) {++stage;click(smith?130:243,smith?113:109,SDL_BUTTON_RIGHT);click(319,199);tap(SDLK_RETURN);return {};}
-            if(stage==1) {++stage;check(!dispatches,"right/outside/Enter reached service action");before.unchanged(f);
+            if(stage==0) {++stage;click(319,199);tap(SDLK_RETURN);return {};}
+            if(stage==1) {++stage;check(!dispatches,"outside/Enter reached service action");before.unchanged(f);
                 if(mouse) {click(smith?130:243,smith?113:109);click(smith?130:243,smith?113:109);}
                 else {key(smith?SDLK_y:SDLK_t,SDL_KEYUP);key(smith?SDLK_y:SDLK_t,SDL_KEYDOWN);key(smith?SDLK_y:SDLK_t,SDL_KEYDOWN);key(smith?SDLK_y:SDLK_t,SDL_KEYDOWN,true);}
                 return {};

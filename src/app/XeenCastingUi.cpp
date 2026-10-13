@@ -21,7 +21,7 @@ std::string refusal(const XeenDosText &text,const XeenCharacter &c,const XeenLea
     const auto category=XeenLearnedSpellRules::categoryForClass(c.characterClass);
     const auto id=category?XeenLearnedSpellRules::spellForSlot(*category,c.currentSpell):std::nullopt;
     const auto &name=names.names[id.value_or(76)];
-    if(code=="SP" || code=="gems")return xeenDialogFormat(text.scalar("NOT_ENOUGH_TO_CAST"),{code=="SP"?std::string(text.scalar("SPELL_PTS")):text.table("CONSUMABLE_NAMES")[1],name});
+    if(code=="SP" || code=="gems")return xeenDialogFormat(text.scalar("NOT_ENOUGH_TO_CAST"),{code=="SP"?text.table("STAT_NAMES").at(11):text.table("CONSUMABLE_NAMES")[1],name});
     if(code=="engaged")return xeenDialogFormat(text.scalar("CANT_CAST_WHILE_ENGAGED"),{name});
     return code;
 }
@@ -36,13 +36,13 @@ std::shared_ptr<const DialogInput> XeenEventFlow::castingDialogInput() const {
     DialogInput input;
     if(_castingUi) {
         using P=CastingUi::Phase;const auto &ui=*_castingUi;
-        if(!ui.refusal.empty())input.anyKey=input.anyClick=true;
+        if(!ui.refusal.empty())input.anyKey=input.anyClick=input.keyMouseWait=true;
         else if(ui.phase==P::New)input=xeenSpellListInput(true);
         else if(ui.phase==P::Cast)input=xeenCastInput();
         else if(ui.phase==P::ChooseTarget)input=xeenSpellTargetInput();
     } else if(_encounter && _encounter->combat())if(const auto v=_encounter->combat()->cast()) {
         using P=XeenCombatCastPhase;
-        if(!v->refusal.empty() || (v->phase==P::Result && v->result.failed))input.anyKey=input.anyClick=true;
+        if(!v->refusal.empty() || (v->phase==P::Result && v->result.failed))input.anyKey=input.anyClick=input.keyMouseWait=true;
         else if(v->phase==P::Learned)input=xeenSpellListInput(true,false);
         else if(v->phase==P::Confirm)input=xeenCastInput(false);
         else if(v->phase==P::PartyTarget)input=xeenSpellTargetInput();

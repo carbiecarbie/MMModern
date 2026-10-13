@@ -612,7 +612,7 @@ XeenEncounterResult XeenEncounterFlow::advanceJourney(const Ticket &entry, std::
 		    xeenValidateJourneyParty(_party);
 		    if (std::any_of(s._actors.begin(),s._actors.end(),[&](const XeenActor &a) { return a.lifecycle == XeenActorLifecycle::Present; })) xeenValidateJourneyMelee(_party);
         }
-	} catch (const std::invalid_argument &e) { _journeyRefusal = e.what(); refused.reason = XeenEncounterStop::Domain; return refused; }
+	} catch (const std::invalid_argument &e) { _journeyRefusal = "This action is not supported yet for this party."; refused.reason = XeenEncounterStop::Domain; return refused; }
 	_journeyRefusal.clear();
 	const auto boundaryGeneration = _boundary.generation();
 	BusyJourney busy(_busy);

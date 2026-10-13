@@ -52,7 +52,7 @@ std::shared_ptr<const DialogInput> XeenEventFlow::characterDialogInput() const {
     if(!inventoryOpen()) return {};
     DialogInput input;
     if(_exchange) input=xeenExchangeInput();
-    else if(_statPopup || _dialogError) {input.anyKey=true;input.anyClick=true;}
+    else if(_statPopup || _dialogError) {input.anyKey=input.anyClick=input.keyMouseWait=true;}
     else if(_discardConfirm)input=xeenConfirmInput();
     else if(_inventory.mode==XeenInventoryMode::UseTarget) {
         constexpr int x[]{10,45,81,117,153,189};

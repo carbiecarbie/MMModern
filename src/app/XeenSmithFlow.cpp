@@ -554,7 +554,7 @@ void XeenEventFlow::prepareSmith() {
 		 _encounter->_journeyRefusal="Service preparation failed. Try entry again.";
   } else {
    _presenter.clear();_journeyEventLayers=false;
-   _smithUi->feedback="Retry; one-day departure still owed.";
+   _smithUi->feedback="Unable to finish. Press Escape to retry.";
   }
  }
 }
@@ -577,7 +577,7 @@ std::shared_ptr<const DialogInput> XeenEventFlow::serviceDialogInput() const {
         if(ui.phase==TrainingUi::Phase::Preparation || ui.phase==TrainingUi::Phase::Candidate) return std::make_shared<const DialogInput>();
         if(ui.phase==TrainingUi::Phase::Departure) input.keys={InputKey::Escape,InputKey::Enter};
         else input=xeenLocationInput(XeenLocationDialog::Training);
-        if(!ui.feedback.empty()) {input={};input.anyKey=input.anyClick=true;}
+        if(!ui.feedback.empty()) {input={};input.anyKey=input.anyClick=input.keyMouseWait=true;}
     } else if(_smithUi) {
         const auto &ui=*_smithUi;
         if(ui.phase==SmithUi::Phase::Preparation) return std::make_shared<const DialogInput>();
@@ -591,7 +591,7 @@ std::shared_ptr<const DialogInput> XeenEventFlow::serviceDialogInput() const {
         else if(ui.phase==SmithUi::Phase::Confirm) input=ui.mode==SmithUi::Mode::Guild?xeenSpellConfirmInput(ui.spellInfo):ui.mode==SmithUi::Mode::Food?xeenFoodConfirmInput():xeenConfirmInput();
         else if(ui.phase==SmithUi::Phase::Browse) input=ui.mode==SmithUi::Mode::Guild?xeenSpellListInput(false):xeenBuyInput(ui.itemAction());
         else input=xeenLocationInput(ui.mode==SmithUi::Mode::Guild?XeenLocationDialog::Guild:ui.mode==SmithUi::Mode::Food?XeenLocationDialog::Tavern:ui.mode==SmithUi::Mode::Bank?XeenLocationDialog::Bank:ui.mode==SmithUi::Mode::Heal?XeenLocationDialog::Temple:XeenLocationDialog::Smith);
-        if(!ui.feedback.empty() && ui.phase!=SmithUi::Phase::Departure) {input={};input.anyKey=input.anyClick=true;}
+        if(!ui.feedback.empty() && ui.phase!=SmithUi::Phase::Departure) {input={};input.anyKey=input.anyClick=input.keyMouseWait=true;}
     } else return {};
     return std::make_shared<const DialogInput>(std::move(input));
 }

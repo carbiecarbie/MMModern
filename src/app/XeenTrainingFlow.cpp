@@ -206,14 +206,14 @@ void XeenEventFlow::prepareTraining() {
         });
         if(!admitted) {
             _trainingUi.reset();_pending.reset();_journeyEventLayers=false;
-            _encounter->_journeyRefusal="Training unavailable: cannot reserve one-day departure.";
+            _encounter->_journeyRefusal="Training is unavailable at this date.";
         } else {claimServiceContinuation(&*_trainingUi);_presenter.clear();_journeyEventLayers=false;}
     } catch(const std::exception &) {
         _encounter->journeySavePreimage().check();
         if(!_encounter->_training) {
             _encounter->_trainingPreparation.reset();_trainingUi.reset();_pending.reset();_journeyEventLayers=false;
             _encounter->_journeyRefusal="Training preparation failed. Try entry again.";
-        } else {_presenter.clear();_journeyEventLayers=false;_trainingUi->feedback="Departure remains owed.";}
+        } else {_presenter.clear();_journeyEventLayers=false;_trainingUi->feedback="Escape to leave.";}
     }
 }
 std::string XeenEventFlow::trainingText() const {
@@ -314,12 +314,12 @@ std::optional<IndexedFrame> XeenEventFlow::updateTraining() {
         _encounter->journeySavePreimage().check();
         if(!_encounter->_training) {
             _encounter->_trainingPreparation.reset();_trainingUi.reset();_pending.reset();_journeyEventLayers=false;
-            _encounter->_journeyRefusal=std::string("Training admission refused: ")+error.what();_encounter->endJourneyEvent();
+            _encounter->_journeyRefusal="Unable to enter Training. Try again.";_encounter->endJourneyEvent();
         } else if(_encounter->_training->published) _trainingUi->phase=TrainingUi::Phase::Menu;
         else {
             _encounter->_training->pending.reset();_encounter->_training->nextDeparture.reset();
             _encounter->_training->quoted=false;_trainingUi->phase=TrainingUi::Phase::Menu;
-            _trainingUi->feedback="Training preparation failed. Departure remains owed.";
+            _trainingUi->feedback="Training preparation failed. Escape to leave.";
         }
     }
     if(_trainingUi)++_trainingUi->revision;

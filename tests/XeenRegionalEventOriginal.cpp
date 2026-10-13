@@ -181,7 +181,7 @@ int main(int argc,char **argv) {
    std::optional<XeenPresentationRequest> pending;
    unsigned rewardReceipts=0,rewardWarnings=0;
    bool receiptFaultRaised=false;
-   s.configureFlow=[&](auto &f,const auto &){h.flow=&f;
+   s.configureFlow=[&](auto &f,const auto &){h.flow=&f;f.dialogText=&h.assets->uiText();
     if(stage=="myra-take-fault")f.beforeRewardEnqueue=[&]{
      check(h.party->questItems.at(17)==0 && !h.party->questFlags.isSet(2),
       "Myra reward fault follows Root and Q2 publications");
@@ -802,7 +802,7 @@ check(h.flow->inventorySelection().mode==XeenInventoryMode::UseTarget,"Antidote 
       (cell.first==10 && cell.second==13))continue;
    auto saved=source;saved.camera={23,cell.first,cell.second,static_cast<XeenDirection>(d)};XeenSaveFile::write(path,saved);
    Harness h(game);auto s=regional(h);unsigned noEvent=0,completed=0;
-   s.configureFlow=[&](auto &f,const auto &){h.flow=&f;f.reportManual=[&](const auto &r){noEvent+=std::holds_alternative<XeenManualEventNoEvent>(r);completed+=std::holds_alternative<XeenManualEventCompleted>(r);};};
+   s.configureFlow=[&](auto &f,const auto &){h.flow=&f;f.dialogText=&h.assets->uiText();f.reportManual=[&](const auto &r){noEvent+=std::holds_alternative<XeenManualEventNoEvent>(r);completed+=std::holds_alternative<XeenManualEventCompleted>(r);};};
    bool shown=false;
    s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){
     shown=true;handler.framePresented(h.flow->frame().presentation());const auto before=bytes(h);

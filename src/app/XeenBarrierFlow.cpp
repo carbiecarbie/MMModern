@@ -33,7 +33,9 @@ bool XeenEventFlow::beginBarrier(bool bash) {
 		XeenPresentationRequest request;request.kind=XeenPresentationKind::CharacterSelection;
 		request.response=XeenPresentationResponseRequirement::CharacterSelection;
 		request.mapId=_camera.mapId;request.verbIndex=13;
-		request.text=(_barrier->rule->targetWall==1 || _barrier->rule->targetWall==13)?"Open Door":"Open Grate";
+		request.text=xeenDialogFormat(dosText().scalar("WHO_WILL"),{
+            dosText().table("WHO_WILL_ACTIONS").at((_barrier->rule->targetWall==1 || _barrier->rule->targetWall==13)?1:0),
+            dosText().table("WHO_ACTIONS").at(13),std::to_string(_party.party.size())});
 		for(unsigned n=0;n<6;++n)request.members.push_back({n,_barrier->characters[n].rosterId,std::string(_barrier->characters[n].name),_barrier->characters[n].canAct()});
 		_presenter.present(_frame,request);_journeyEventLayers=true;
 	} else serviceBarrier();
@@ -138,6 +140,7 @@ bool XeenEventFlow::serviceBarrier() {
 
 IndexedFrame XeenEventFlow::handleBarrier(const PlayerAction &action) {
 	if(!_barrier || !_barrier->rule || !_barrier->rule->selection)return frameCopy();
+    if(!_whoWillRefusal.empty()) {_whoWillRefusal.clear();return renderEncounter();}
 	PlayerAction mapped=action;
 	if(const auto *key=std::get_if<DialogKeyAction>(&action)) {
 		if(key->key>=InputKey::F1 && key->key<InputKey::F1+6)mapped=SelectMemberAction{key->key-InputKey::F1};
@@ -152,12 +155,9 @@ IndexedFrame XeenEventFlow::handleBarrier(const PlayerAction &action) {
 	if(const auto *selected=std::get_if<SelectedCharacter>(&update.response->value)) {
 		if(selected->partyIndex>=6)return frameCopy();
 		if(!_barrier->rule->characters[selected->partyIndex].canAct()) {
-			XeenPresentationRequest request;request.kind=XeenPresentationKind::CharacterSelection;
-			request.response=XeenPresentationResponseRequirement::CharacterSelection;request.mapId=_camera.mapId;
-			request.verbIndex=13;request.text=(_barrier->rule->targetWall==1 || _barrier->rule->targetWall==13)?"Open Door":"Open Grate";
-			for(unsigned n=0;n<6;++n)request.members.push_back({n,_barrier->characters[n].rosterId,std::string(_barrier->characters[n].name),_barrier->characters[n].canAct()});
-			request.refusal=std::string(_barrier->characters[selected->partyIndex].name)+" is not in any condition to perform actions!";
-			const auto base=_presenter.dismissSelection();_presenter.present(base,request);return renderEncounter();
+			_whoWillRefusal=xeenDialogFormat(dosText().scalar("IN_NO_CONDITION"),
+                {std::string(_barrier->characters[selected->partyIndex].name)});
+            return renderEncounter();
 		}
 		_barrier->rule->choose(selected->partyIndex);_presenter.clear();_journeyEventLayers=false;
 		serviceBarrier();return renderEncounter();

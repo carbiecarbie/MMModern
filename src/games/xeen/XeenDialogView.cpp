@@ -436,6 +436,23 @@ IndexedFrame drawXeenBuy(const XeenDosText &text,const IndexedFrame &base,const 
         const XeenPartyState &p,const XeenInventorySelection &selection,bool repair,const XeenDialogSpriteDraw &draw) {
     return drawXeenBuy(text,base,font,catalog,p,selection,repair?XeenItemService::Fix:XeenItemService::Buy,draw);
 }
+unsigned xeenCombatHealthColor(int hp,int maxHp) {
+    // DOS 0x2e211..0x2e272; the middle color begins at floor(maxHP/4).
+    return hp==maxHp?15:hp>=maxHp/4?9:32;
+}
+std::string xeenCombatPanelText(const XeenDosText &text,const std::array<XeenCombatPanelRow,3> &rows) {
+    std::vector<std::string> args;
+    constexpr const char *templates[]{"COMBAT_ROW_1","COMBAT_ROW_2","COMBAT_ROW_3"};
+    for(unsigned i=0;i<3;++i)args.push_back(rows[i].name.empty()?std::string{}:
+        xeenDialogFormat(text.scalar(templates[i]),{n(xeenCombatHealthColor(rows[i].hp,rows[i].maxHp)),rows[i].name}));
+    return xeenDialogFormat(text.scalar("COMBAT_DETAILS"),args);
+}
+IndexedFrame drawXeenCombatPanel(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,
+        const std::array<XeenCombatPanelRow,3> &rows,std::optional<unsigned> selected,const XeenDialogSpriteDraw &draw) {
+    auto frame=render(base,font,xeenCombatPanelText(text,rows),{225,1,320,73},{233,9,312,65});
+    if(selected && *selected<3 && draw)draw(frame,"combat.icn",32,233,27+10*int(*selected));
+    return frame;
+}
 DialogInput xeenConfirmInput(bool large) {
     DialogInput input;
     button(input,large?120:129,large?133:112,large?144:153,large?153:132,'y',"confirm.icn",0);

@@ -46,7 +46,7 @@ void settle(Fixture &f) {
    const auto input=f.flow->inputContext(f.flow->frame().presentation());
    const auto pending=f.flow->presentationGeneration()?std::optional<XeenEventExecutionState>{XeenTrainingTestAccess::serviceState(*f.flow)}:std::nullopt;
    if((pending && pending->pendingPresentation->request.response==XeenPresentationResponseRequirement::YesNo) ||
-    (input.dialog && input.dialog->key('y') && input.dialog->key('n')))f.act(YesAction{});
+    (input.dialog && !input.dialog->anyKey && input.dialog->key('y') && input.dialog->key('n')))f.act(YesAction{});
    else if((input.dialog && input.dialog->anyKey) || f.w.sessionState().journeyActivity()==XeenJourneyActivity::Event ||
      f.w.sessionState().journeyActivity()==XeenJourneyActivity::Reward)f.act(AcknowledgeAction{});
   }
@@ -781,7 +781,13 @@ void partBVernGuild(Inputs &in) {
  who.bounds={233,82,312,146};who.windowBounds={225,74,320,154};who.x=233;who.y=82;
  const auto originalWho=XeenTextRenderer(in.font).render(f.flow->frame(),xeenDialogFormat(in.assets.uiText().scalar("WHO_WILL"),
   {request.text,in.assets.uiText().table("WHO_ACTIONS").at(*request.verbIndex),std::to_string(request.members.size())}),who);
- check(originalWho.diagnostics.empty() && originalWho.pages.front().pixels==f.flow->frame().pixels,"Vern selection did not use original WhoWill window/text");
+ check(originalWho.diagnostics.empty(),"Vern original WhoWill control stream");
+ for(int y=74;y<154;++y)for(int x=225;x<320;++x) {
+  // The explicit audio deferral is window 6 in front of the selector.
+  if(x<268 && y>=149)continue;
+  check(originalWho.pages.front().pixels[y*320+x]==f.flow->frame().pixels[y*320+x],
+      "Vern selection did not use original WhoWill window/text");
+ }
  if(const auto *path=std::getenv("MMODERN_SERVICE_PREVIEW")) {
   std::ofstream out(std::string(path)+"/guild-who-will.ppm",std::ios::binary);out<<"P6\n320 200\n255\n";
   const auto palette=in.assets.readArchiveResource("mm4.pal");

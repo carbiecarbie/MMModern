@@ -51,6 +51,18 @@ inline std::vector<std::uint8_t> fixture() {
  }
  return b;
 }
+inline const XeenDosText &npcText() {
+ static const XeenDosText value([] {
+  auto bytes=fixture();
+  // Neutral title/body substitutions with the window writer's control layout.
+  const std::string format="\r\v014\3c\t125%s\t000\v054%s";
+  std::fill(bytes.begin()+0x53b08,bytes.begin()+0x53b20,5);
+  std::copy(format.begin(),format.end(),bytes.begin()+0x53b08);
+  bytes[0x53b08+format.size()]=0;
+  return bytes;
+ }());
+ return value;
+}
 inline const XeenDosText &text() {static const XeenDosText value(fixture());return value;}
 }
 #endif

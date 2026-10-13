@@ -117,7 +117,7 @@ bool XeenEncounterFlow::handle(const PlayerAction &input, std::optional<std::uin
 		if (!prepareTime(ticket(),now)) return true;
 		journeyPulse(ticket());
 	}
-	if (r.outcome==XeenEncounterOutcome::Blocked) _journeyRefusal="Movement blocked by terrain.";
+	if (r.outcome==XeenEncounterOutcome::Blocked) _journeyRefusal.clear();
 	schedule(now); return true;
 
 }
@@ -151,6 +151,17 @@ bool XeenEncounterFlow::idle(std::optional<std::uint64_t> cycle) {
 std::string XeenEncounterFlow::notice() const {
 	if(_journey) return consequenceNotice();
 	return {};
+}
+
+std::string XeenEncounterFlow::playerNotice() const {
+    if(_failure)return "The game could not continue. Restart your last save.";
+    if(_combat) {
+        if(_combat->phase()==XeenCombatPhase::Failed)return "Combat could not continue. Restart your last save.";
+        if(_combat->phase()==XeenCombatPhase::SupportStopped)return "This combat action is not supported yet.";
+        return _combatCastRefusal;
+    }
+    if(_state.phase()==XeenEncounterPhase::SupportStopped)return "This action is not supported yet.";
+    return _journeyRefusal;
 }
 
 bool XeenEncounterFlow::terminal() const noexcept {
@@ -222,7 +233,7 @@ bool XeenEncounterFlow::respondCombatCast(const PlayerAction &action,std::uint64
             if(check==Q::Unsupported) {_combatCastRefusal="Quick Fight Cast: spell not supported yet";return true;}
             auto skipped=_combat->command(source,XeenCombatCommand::Skip);
             if(!acceptCombatResult(skipped))return false;
-            _combatCastRefusal=check==Q::InsufficientSp?"Quick Fight Cast: not enough spell points":check==Q::InsufficientGems?"Quick Fight Cast: not enough gems":check==Q::CombatForbidden?"Quick Fight Cast: cannot cast while engaged":"";
+            _combatCastRefusal=check==Q::InsufficientSp?"Quick Fight Cast: not enough Spell Points":check==Q::InsufficientGems?"Quick Fight Cast: not enough gems":check==Q::CombatForbidden?"Quick Fight Cast: cannot cast while engaged":"";
             scheduleCombat(_lastTime);return true;
         }
     }
@@ -233,7 +244,7 @@ bool XeenEncounterFlow::respondCombatCast(const PlayerAction &action,std::uint64
         result=_combat->respondCast(confirm,CI::Enter,0,prepare);
     }
     if(result.status==XeenCombatStatus::Refused) {
-        _combatCastRefusal=result.failure==XeenCombatFailure::Preparation ? "Cast preparation unavailable; C retries" : "Cast unavailable for this domain or acting book";
+        _combatCastRefusal=result.failure==XeenCombatFailure::Preparation ? "Unable to prepare the spell. Press C to retry." : "This spell is not supported yet here.";
         return true;
     }
     _combatCastRefusal.clear();

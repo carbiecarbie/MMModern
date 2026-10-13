@@ -1,5 +1,6 @@
 #include "XeenRegionalJourneyTestSupport.h"
 #include "XeenSaveGameplayTestSupport.h"
+#include "XeenDosTextTestSupport.h"
 #include "games/xeen/XeenOutdoorScene.h"
 #include <iostream>
 #include <limits>
@@ -37,6 +38,7 @@ struct Production {
                 c.frame.pixels[0]=appearance.frame;c.frame.pixels[1]=camera.x;c.frame.pixels[2]=camera.y;c.frame.pixels[3]=ordinary%256;
                 c.containsOrdinaryAnimation=ordinaryAnimated;return c;
             });
+        flow->dialogText=&dos_test::text();
         flow->prepareJourneySprites=[&]{++spriteChecks;if(onSprite)onSprite();};
         flow->reportText=[&](const auto &text){++reports;lastReport=text;if(onReport)onReport();};
         flow->rebuildEncounterPresentation=[&]{++rebuilds;if(onRebuild)onRebuild();};
@@ -132,8 +134,8 @@ void collisionFeedback(){
     unsigned modal=0;f.flow->reportManual=[&](const auto &){++modal;};f.flow->reportAutomatic=[&](const auto &){++modal;};
     f.flow->reportInventory=[&](const auto &){++modal;};f.flow->reportEquipment=[&](const auto &){++modal;};
     f.handle(NavigationAction::MoveBackward);
-    check(f.coordinator().journeyRefusal()=="Movement blocked by terrain."&&f.camera.x==13&&f.camera.y==1&&f.p.encounterContext==context&&
-        f.coordinator().actionPending()==0&&f.coordinator().state().pending()==0&&!f.coordinator().deadline()&&!f.flow->inventoryOpen()&&!f.flow->presentationGeneration()&&modal==0,"fresh collision notice and side effects");
+    check(f.coordinator().journeyRefusal().empty()&&f.camera.x==13&&f.camera.y==1&&f.p.encounterContext==context&&
+        f.coordinator().actionPending()==0&&f.coordinator().state().pending()==0&&!f.coordinator().deadline()&&!f.flow->inventoryOpen()&&!f.flow->presentationGeneration()&&modal==0,"blocked movement must remain silent with unchanged side effects");
     sameActors(actors,f.world.sessionState().actors());f.handle(NavigationAction::TurnRight);
     check(f.coordinator().journeyRefusal().find("Movement blocked")==std::string::npos,"later action clears collision notice");
     for(bool failPulse:{false,true}){
@@ -145,7 +147,7 @@ void collisionFeedback(){
         check(old.coordinator().actionResult().outcome==XeenEncounterOutcome::Blocked&&old.coordinator().actionPending()==1&&old.p.encounterContext==context&&old.camera.x==14&&old.camera.y==1,
             "blocked action retains old work without charging");
         if(failPulse)check(fired&&!old.flow->canSave(),"pending pulse failure cannot open save boundary");
-        else check(old.coordinator().state().pending()==0&&old.coordinator().result().movementOpportunities==1&&old.anchor().x==14&&old.anchor().y==2&&old.coordinator().journeyRefusal()=="Movement blocked by terrain.","blocked action drains exactly the prior opportunity");
+        else check(old.coordinator().state().pending()==0&&old.coordinator().result().movementOpportunities==1&&old.anchor().x==14&&old.anchor().y==2&&old.coordinator().journeyRefusal().empty(),"blocked action drains exactly the prior opportunity");
     }
 
 }

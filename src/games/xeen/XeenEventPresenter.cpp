@@ -7,22 +7,6 @@
 #include <limits>
 
 namespace mmodern {
-namespace {
-
-void fill(IndexedFrame &frame, int left, int top, int right, int bottom,
-		std::uint8_t color) {
-	left = std::max(0, left);
-	top = std::max(0, top);
-	right = std::min(frame.width, right);
-	bottom = std::min(frame.height, bottom);
-	for (int y = top; y < bottom; ++y) {
-		std::fill(frame.pixels.begin() + static_cast<std::size_t>(y) * frame.width + left,
-			frame.pixels.begin() + static_cast<std::size_t>(y) * frame.width + right, color);
-	}
-}
-
-} // namespace
-
 XeenEventPresenter::XeenEventPresenter(const XeenFontFormat &font, NpcDraw npcDraw,
 		Clock clock, RandomFrame randomFrame) :
 		_npcDraw(std::move(npcDraw)), _clock(std::move(clock)),
@@ -34,133 +18,115 @@ XeenEventPresenter::XeenEventPresenter(const XeenFontFormat &font, NpcDraw npcDr
 }
 
 XeenTextRenderOptions XeenEventPresenter::optionsFor(
-		const XeenPresentationRequest &request) const {
-	XeenTextRenderOptions options;
-	switch (request.kind) {
-	case XeenPresentationKind::RewardGeneration:
-		break; // Internal idle continuation; Flow retains the existing frame.
-	case XeenPresentationKind::RewardWarning:
-	case XeenPresentationKind::RewardReceipt:
-		options.bounds = {8, 8, 312, 152};
-		options.x = 16;
-		options.y = 16;
-		options.drawWindow = true;
-		options.paginate = true;
-		break;
-	case XeenPresentationKind::DeferredAudio:
-		// Explicit audio deferral stays visible above the Event panels, without
-		// changing the original dialog's pagination or acknowledgment.
-		options.bounds = {0, 0, 224, 8};
-		options.x = 0; options.y = 0; options.alignmentAnchor = 112;
-		options.size = XeenFontSize::Reduced;
-		options.alignment = XeenTextAlignment::Center;
-		break;
-	case XeenPresentationKind::NpcAcknowledgment:
-		break; // Its heading/body have independent bounded layout below.
-	case XeenPresentationKind::CharacterSelection:
-		options.bounds = {225, 0, 320, 199};
-		options.x = 233;
-		options.y = 8;
-		options.alignment = XeenTextAlignment::Center;
-		options.drawWindow = true;
-		break;
-	case XeenPresentationKind::CenteredMessage:
-		options.bounds = {225, 140, 320, 199};
-		options.x = 233;
-		options.y = 148;
-		options.alignment = XeenTextAlignment::Center;
-		options.drawWindow = true;
-		options.paginate = true;
-		break;
-	case XeenPresentationKind::SceneLabelReduced:
-		options.bounds = {0, 0, 230, 149};
-		options.x = 0;
-		options.y = 25;
-		options.alignmentAnchor = 116;
-		options.size = XeenFontSize::Reduced;
-		options.colorIndex = 8;
-		options.alignment = XeenTextAlignment::Center;
-		break;
-	case XeenPresentationKind::SceneLabelNormal:
-		options.bounds = {0, 0, 230, 149};
-		options.x = 0;
-		options.y = 30;
-		options.alignmentAnchor = 116;
-		options.colorIndex = 4;
-		options.alignment = XeenTextAlignment::Center;
-		break;
-	case XeenPresentationKind::SceneLabelSign:
-		options.bounds = {0, 0, 230, 149};
-		options.x = 0;
-		options.y = 88;
-		options.alignmentAnchor = 120;
-		options.colorIndex = 8;
-		options.alignment = XeenTextAlignment::Center;
-		break;
-	case XeenPresentationKind::SceneLabelSignReduced:
-		options.bounds = {0, 0, 230, 149};
-		options.x = 0;
-		options.y = 90;
-		options.alignmentAnchor = 116;
-		options.size = XeenFontSize::Reduced;
-		options.colorIndex = 8;
-		options.alignment = XeenTextAlignment::Center;
-		break;
-	case XeenPresentationKind::BottomWindowMessage:
-	case XeenPresentationKind::BottomWindowTwoLines:
-		options.bounds = {0, 143, 320, 199};
-		options.x = 8;
-		options.y = request.kind == XeenPresentationKind::BottomWindowTwoLines ? 178 : 151;
-		options.alignment = XeenTextAlignment::Center;
-		options.drawWindow = true;
-		options.paginate = request.kind == XeenPresentationKind::BottomWindowMessage;
-		break;
-	case XeenPresentationKind::MainWindowMessage:
-		options.bounds = {8, 8, 224, 140};
-		options.x = 16;
-		options.y = 16;
-		options.alignment = XeenTextAlignment::Center;
-		options.drawWindow = true;
-		options.paginate = true;
-		break;
-	case XeenPresentationKind::Confirmation:
-		break;
-	}
-	if (options.drawWindow) {
-		options.windowBounds = options.bounds;
-		options.bounds.left += 8;
-		options.bounds.top += 8;
-		options.bounds.right -= 8;
-		options.bounds.bottom -= 8;
-	}
-	return options;
+        const XeenPresentationRequest &request) const {
+    XeenTextRenderOptions o;
+    o.originalControls=true;
+    o.stopAtBottom=true;
+    switch(request.kind) {
+    case XeenPresentationKind::RewardGeneration: break;
+    case XeenPresentationKind::RewardWarning:
+    case XeenPresentationKind::RewardReceipt:
+        // Treasure presentation is Part B; retain its current layout here.
+        o.originalControls=false;o.stopAtBottom=false;
+        o.bounds={16,16,304,144};o.windowBounds={8,8,312,152};
+        o.drawWindow=true;o.paginate=true;break;
+    case XeenPresentationKind::DeferredAudio:
+        o.windowBounds={52,149,268,198};o.drawWindow=true;
+        o.bounds={60,157,260,190};break;
+    case XeenPresentationKind::CharacterSelection:
+        o.windowBounds={225,74,320,154};o.drawWindow=true;
+        o.bounds={233,82,312,146};break;
+    case XeenPresentationKind::CenteredMessage:
+        o.windowBounds={225,140,320,199};o.drawWindow=true;
+        o.bounds={233,148,312,191};break;
+    case XeenPresentationKind::BottomWindowMessage:
+    case XeenPresentationKind::BottomWindowTwoLines:
+        o.windowBounds={0,143,320,199};o.drawWindow=true;
+        o.bounds={8,151,312,191};break;
+    case XeenPresentationKind::MainWindowMessage:
+    case XeenPresentationKind::NpcAcknowledgment:
+        o.windowBounds={8,8,224,140};o.drawWindow=true;
+        // Window 11 uses the original eight-pixel inner margin.
+        o.bounds={16,16,216,132};break;
+    default:o.bounds={0,0,230,149};o.stopAtBottom=false;break;
+    }
+    o.x=o.bounds.left;o.y=o.bounds.top;
+    return o;
+}
+
+XeenTextRenderResult XeenEventPresenter::drawText(const IndexedFrame &base,
+        const XeenPresentationRequest &request) const {
+    auto o=optionsFor(request);
+    std::string prefix,suffix;
+    switch(request.kind) {
+    case XeenPresentationKind::DeferredAudio:
+        prefix="\3c\v010\t000";break;
+    case XeenPresentationKind::SceneLabelReduced:
+        prefix="\2\f08\3c\t116\v025";suffix="\3l\fd\1";break;
+    case XeenPresentationKind::SceneLabelNormal:
+        prefix="\f04\3c\t116\v030";suffix="\3l\fd";break;
+    case XeenPresentationKind::SceneLabelSign:
+        prefix="\f08\3c\t120\v088";suffix="\3l\fd";break;
+    case XeenPresentationKind::SceneLabelSignReduced:
+        prefix="\2\f08\3c\t116\v090";suffix="\3l\fd\1";break;
+    case XeenPresentationKind::BottomWindowTwoLines:
+        prefix="\r\3c\t000\v007\n\n";break;
+    case XeenPresentationKind::CenteredMessage:
+    case XeenPresentationKind::BottomWindowMessage:
+    case XeenPresentationKind::MainWindowMessage:
+        prefix="\r\3c";break;
+    default:break;
+    }
+    XeenTextRenderResult result;
+    std::size_t offset=0;
+    do {
+        const auto text=prefix+request.text.substr(offset)+suffix;
+        auto page=_renderer.render(base,text,o);
+        const auto consumed=page.pageSourceEnds.back();
+        auto next=offset+std::min(request.text.size()-offset,
+            consumed>prefix.size()?consumed-prefix.size():0);
+        result.pages.insert(result.pages.end(),page.pages.begin(),page.pages.end());
+        result.diagnostics.insert(result.diagnostics.end(),page.diagnostics.begin(),page.diagnostics.end());
+        result.pageSourceEnds.push_back(next);
+        if(!o.originalControls || !o.stopAtBottom || next==request.text.size())break;
+        if(next==offset)throw std::runtime_error("Event window writer made no progress");
+        o.size=page.writeSize;o.colorIndex=page.writeColor;
+        offset=next;
+    } while(offset<request.text.size());
+    return result;
+}
+
+IndexedFrame XeenEventPresenter::overlayNotices(IndexedFrame frame) const {
+    // The explicit audio deferral stays visible in window 6 above Event pages,
+    // without inserting a new wait or changing the Event continuation.
+    for(const auto &layer:_layers)if(layer.request.kind==XeenPresentationKind::DeferredAudio)
+        frame=drawText(frame,layer.request).pages.front();
+    return frame;
 }
 
 IndexedFrame XeenEventPresenter::drawConfirmation(const IndexedFrame &base) const {
-	IndexedFrame result = base;
-	if (_request.response == XeenPresentationResponseRequirement::Acknowledgment) {
-		fill(result, 228, 74, 318, 110, 0x99);
-		XeenTextRenderOptions options;
-		options.bounds={232,78,314,108}; options.x=232; options.y=81;
-		options.alignment=XeenTextAlignment::Center;
-		return _renderer.render(result,"Space / Enter",options).pages.front();
-	}
-	fill(result, 232, 74, 285, 96, 0x99);
-	fill(result, 234, 76, 258, 94, 0xa4);
-	fill(result, 236, 78, 256, 92, 0x99);
-	fill(result, 260, 76, 284, 94, 0x97);
-	fill(result, 262, 78, 282, 92, 0x99);
-	XeenTextRenderOptions yes;
-	yes.bounds = {236, 78, 256, 92};
-	yes.x = 236;
-	yes.y = 81;
-	yes.alignment = XeenTextAlignment::Center;
-	XeenTextRenderOptions no = yes;
-	no.bounds = {262, 78, 282, 92};
-	no.x = 262;
-	result = _renderer.render(result, "Y", yes).pages.front();
-	result = _renderer.render(result, "N", no).pages.front();
-	return result;
+    auto result=base;
+    if (_request.response==XeenPresentationResponseRequirement::YesNo && _spriteDraw) {
+        _spriteDraw(result,"global.icn",7,232,74);
+        _spriteDraw(result,"confirm.icn",0,235,75);
+        _spriteDraw(result,"confirm.icn",2,260,75);
+    }
+    return result;
+}
+
+DialogInput XeenEventPresenter::input() const {
+    DialogInput input;
+    if(!_active)return input;
+    if(_page+1<_pages.size() ||
+        _request.response==XeenPresentationResponseRequirement::Acknowledgment ||
+        _request.response==XeenPresentationResponseRequirement::Presented) {
+        input.anyKey=input.anyClick=input.keyMouseWait=true;
+    } else if(_request.response==XeenPresentationResponseRequirement::YesNo) {
+        input.keys={'y','n',InputKey::Escape};
+        input.hits={{235,75,259,95,'y',InputButton{"confirm.icn",0,235,75}},
+            {260,75,284,95,'n',InputButton{"confirm.icn",2,260,75}}};
+    }
+    return input;
 }
 
 bool XeenEventPresenter::hasNpcOffer() const {
@@ -198,12 +164,12 @@ XeenPresentationUpdate XeenEventPresenter::present(const IndexedFrame &base,
 	} else if (request.kind == XeenPresentationKind::Confirmation) {
 		_pages = {drawConfirmation(base)};
 	} else {
-		const XeenTextRenderResult rendered = _renderer.render(base, request.text,
-			optionsFor(request));
+		const auto rendered = drawText(base, request);
 		_pages = rendered.pages;
 		_diagnostics = rendered.diagnostics;
 	}
 	_frame = request.kind == XeenPresentationKind::NpcAcknowledgment ? drawNpcPage() : _pages.front();
+	_frame = overlayNotices(std::move(_frame));
 	const bool waitsBetweenPages = !(request.npc && request.npc->confirmationMode==2) && _pages.size() > 1 &&
 		request.response == XeenPresentationResponseRequirement::Presented;
 	_active = waitsBetweenPages ||
@@ -216,10 +182,18 @@ XeenPresentationUpdate XeenEventPresenter::present(const IndexedFrame &base,
 
 bool XeenEventPresenter::isAcknowledge(const PlayerAction &action) const {
 	return std::holds_alternative<InteractionAction>(action) ||
-		std::holds_alternative<AcknowledgeAction>(action);
+		std::holds_alternative<AcknowledgeAction>(action) ||
+		std::holds_alternative<CancelInteractionAction>(action);
 }
 
 XeenPresentationUpdate XeenEventPresenter::handle(const PlayerAction &action, bool finishResponse) {
+    if(const auto *key=std::get_if<DialogKeyAction>(&action)) {
+        if(key->key==InputKey::Escape)return handle(CancelInteractionAction{},finishResponse);
+        if(_request.response==XeenPresentationResponseRequirement::YesNo) {
+            if(key->key=='y')return handle(YesAction{},finishResponse);
+            if(key->key=='n')return handle(NoAction{},finishResponse);
+        }
+    }
 	XeenPresentationUpdate update{_frame, std::nullopt, _active};
 	if (!_active)
 		return update;
@@ -227,7 +201,7 @@ XeenPresentationUpdate XeenEventPresenter::handle(const PlayerAction &action, bo
 			_request.kind == XeenPresentationKind::RewardReceipt) {
 		if (!isAcknowledge(action) && !std::holds_alternative<CancelInteractionAction>(action)) return update;
 		if (_page + 1 < _pages.size()) {
-			_frame = _pages[++_page];
+			_frame = overlayNotices(_pages[++_page]);
 			_layers.back().page = _page;
 			update.frame = _frame;
 		} else update.response = XeenPresentationResponse::Acknowledged;
@@ -264,7 +238,7 @@ XeenPresentationUpdate XeenEventPresenter::handle(const PlayerAction &action, bo
 		if (!isAcknowledge(action))
 			return update;
 		if (_page + 1 < _pages.size()) {
-			_frame = _pages[++_page];
+			_frame = overlayNotices(_pages[++_page]);
 			_layers.back().page = _page;
 			update.frame = _frame;
 		}
@@ -278,7 +252,7 @@ XeenPresentationUpdate XeenEventPresenter::handle(const PlayerAction &action, bo
 		}
 	} else if (std::holds_alternative<YesAction>(action)) {
 		update.response = XeenPresentationResponse::Yes;
-	} else if (std::holds_alternative<NoAction>(action)) {
+	} else if (std::holds_alternative<NoAction>(action) || std::holds_alternative<CancelInteractionAction>(action)) {
 		update.response = XeenPresentationResponse::No;
 	}
 	if (update.response && finishResponse) update.frame = finishPresentation();
@@ -333,82 +307,42 @@ IndexedFrame XeenEventPresenter::rebase(const IndexedFrame &base) {
 		else if (layer.request.kind == XeenPresentationKind::Confirmation)
 			_pages = {drawConfirmation(current)};
 		else
-			_pages = _renderer.render(current, layer.request.text,
-				optionsFor(layer.request)).pages;
+			_pages = drawText(current, layer.request).pages;
 		current = _pages.at(layer.page);
 	}
-	_frame = current;
+	_frame = overlayNotices(std::move(current));
 	return _frame;
 }
 
 void XeenEventPresenter::layoutNpc(const IndexedFrame &base,
-		const XeenPresentationRequest &request) {
-	if (!request.npc || (request.npc->confirmationMode != 1 && request.npc->confirmationMode != 2) || !_npcDraw)
-		throw std::invalid_argument("NPC presentation requires supported metadata and an asset provider");
-	XeenTextRenderOptions panel;
-	panel.bounds = {16, 16, 216, 132};
-	panel.windowBounds = {8, 8, 224, 140};
-	panel.x = panel.y = 16;
-	panel.drawWindow = true;
-	IndexedFrame heading = _renderer.render(base, "", panel).pages.front();
-	int y = 30;
-	std::size_t begin = 0;
-	std::string styledLine;
-	_diagnostics.clear();
-	while (begin <= request.title.size()) {
-		const auto newline = request.title.find('\n', begin);
-		const auto end = newline == std::string::npos ? request.title.size() : newline;
-		std::string text;
-		int anchor = 141;
-		for (auto i = begin; i < end;) {
-			if (request.title[i] != '\t') { text += request.title[i++]; continue; }
-			++i;
-			int offset = 0;
-			bool valid = end - i >= 3;
-			for (int digit = 0; digit < 3 && i < end; ++digit, ++i) {
-				if (request.title[i] < '0' || request.title[i] > '9') valid = false;
-				else offset = offset * 10 + request.title[i] - '0';
-			}
-			if (!valid) _diagnostics.push_back("invalid NPC title horizontal-position control");
-			else anchor = std::min(216, 16 + offset);
-		}
-		XeenTextRenderOptions title;
-		title.bounds = {64, 16, 216, 62};
-		title.x = 64; title.y = y;
-		title.alignment = XeenTextAlignment::Center;
-		title.alignmentAnchor = anchor;
-		if (y < 62) {
-			// The existing clear-text control drops prior glyphs while preserving
-			// font/color/alignment state. Reuse it instead of parsing styles twice.
-			if (begin) styledLine += '\r';
-			styledLine += text;
-			const int width = _renderer.textWidth(styledLine, XeenFontSize::Normal);
-			if (y + 10 > 62 || anchor - width / 2 < 64 || anchor + (width + 1) / 2 > 216)
-				_diagnostics.push_back("NPC title exceeds heading bounds");
-			auto rendered = _renderer.render(heading, styledLine, title);
-			heading = std::move(rendered.pages.front());
-			_diagnostics.insert(_diagnostics.end(), rendered.diagnostics.begin(), rendered.diagnostics.end());
-		} else _diagnostics.push_back("NPC title exceeds heading bounds");
-		if (newline == std::string::npos) break;
-		begin = end + 1;
-		// Bounded even for a resource containing thousands of empty title lines.
-		y = std::min(62, y + 10);
-	}
-	XeenTextRenderOptions body;
-	body.bounds = {16, 70, 216, 132};
-	body.x = 16; body.y = 70;
-	body.alignment = XeenTextAlignment::Center;
-	body.paginate = true;
-	auto rendered = _renderer.render(heading, request.text, body);
-	_pages = std::move(rendered.pages);
-	_npcPageSourceEnds = std::move(rendered.pageSourceEnds);
-	_diagnostics.insert(_diagnostics.end(), rendered.diagnostics.begin(), rendered.diagnostics.end());
+        const XeenPresentationRequest &request) {
+    if(!request.npc || (request.npc->confirmationMode!=1 && request.npc->confirmationMode!=2) || !_npcDraw || !_dosText)
+        throw std::invalid_argument("NPC presentation requires supported metadata and original assets");
+    _pages.clear();_npcPageSourceEnds.clear();_diagnostics.clear();
+    auto o=optionsFor(request);
+    std::size_t offset=0;
+    do {
+        const auto remaining=request.text.substr(offset);
+        const auto text=xeenDialogFormat(_dosText->scalar("NPC_DIALOG"),{request.title,remaining});
+        // The body is the last substitution in the original DAT template.
+        const auto header=text.size()-remaining.size();
+        auto rendered=_renderer.render(base,text,o);
+        const auto consumed=rendered.pageSourceEnds.back();
+        const auto next=offset+std::min(remaining.size(),consumed>header?consumed-header:0);
+        _pages.push_back(std::move(rendered.pages.front()));
+        _npcPageSourceEnds.push_back(next);
+        _diagnostics.insert(_diagnostics.end(),rendered.diagnostics.begin(),rendered.diagnostics.end());
+        if(next==request.text.size())break;
+        if(next==offset)throw std::runtime_error("NPC window writer made no progress");
+        o.size=rendered.writeSize;o.colorIndex=rendered.writeColor;
+        offset=next;
+    } while(offset<request.text.size());
 }
 
 IndexedFrame XeenEventPresenter::drawNpcPage() const {
 	auto frame = _pages.at(_page);
 	_npcDraw(frame, _request.npc->portraitId, _npcTiming.displayedFrame);
-	return frame;
+	return overlayNotices(std::move(frame));
 }
 
 void XeenEventPresenter::startNpcPage() {

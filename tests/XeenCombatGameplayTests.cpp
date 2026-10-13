@@ -321,7 +321,15 @@ void sdl() {
     default:
      if(h.phase()==Phase::PlayerReady){
       check(h.randomPosition()>0,"automatic attack runs without another key");
-      key(SDLK_ESCAPE);
+      if(stage==12)key(SDLK_ESCAPE);
+      else if(stage==13) {
+       check(h.phase()==Phase::PlayerReady,"Escape left combat instead of being ignored");
+       SDL_Event mouse{};mouse.type=SDL_MOUSEBUTTONDOWN;mouse.button.button=SDL_BUTTON_RIGHT;
+       pendingKeys.push_back(mouse);mouse.type=SDL_MOUSEBUTTONUP;pendingKeys.push_back(mouse);
+      } else if(stage==14) {
+       check(h.phase()==Phase::PlayerReady,"Right click left combat instead of being ignored");
+       SDL_Event quit{};quit.type=SDL_QUIT;pendingKeys.push_back(quit);
+      }
      }
    }
    return frame;

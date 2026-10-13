@@ -53,6 +53,8 @@ inline std::optional<PlayerAction> xeenMainScreenClick(int x, int y, MainScreen 
             return col==0?NavigationAction::StrafeLeft:NavigationAction::StrafeRight;
         }
     }
+    // DOS button tables at 0x4f20c/236/24a/25e, entries 17..19;
+    // shared hit decoder 0x0e32d..0x0e396 is lower-inclusive/upper-exclusive.
     if (combat) for (unsigned row=0; row<3; ++row)
         if (contains(239,27+10*row,312,37+10*row)) return SelectInventorySlotAction{row}; // 1-3
     constexpr int faces[] = {10,45,81,117,153,189};

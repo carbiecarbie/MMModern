@@ -1,6 +1,7 @@
 #include "formats/xeen/XeenFontFormat.h"
 #include "games/xeen/XeenEventPresenter.h"
 #include "games/xeen/XeenTextRenderer.h"
+#include <tuple>
 
 #include <algorithm>
 #include <cstdint>
@@ -133,52 +134,48 @@ void testFormattingWrappingAndClipping() {
 }
 
 void testPresentationComposition() {
-	const XeenFontFormat font(fontBytes());
-	XeenEventPresenter presenter(font);
-	const IndexedFrame base = frame();
-	const auto reduced = presenter.present(base, request(
-		XeenPresentationKind::SceneLabelReduced,
-		XeenPresentationResponseRequirement::Presented));
-	check(reduced.response == XeenPresentationResponse::Presented &&
-		pixel(reduced.frame, 113, 25) == 0x31,
-		"reduced scene label placement failed");
-	const auto normal = presenter.present(base, request(
-		XeenPresentationKind::SceneLabelNormal,
-		XeenPresentationResponseRequirement::Presented));
-	check(pixel(normal.frame, 110, 30) == 0x01 &&
-		pixel(reduced.frame, 109, 30) == 0x44,
-		"normal/reduced scene label distinction failed");
-	const auto sign = presenter.present(base, request(
-		XeenPresentationKind::SceneLabelSign,
-		XeenPresentationResponseRequirement::Presented));
-	check(pixel(sign.frame, 114, 88) == 0x31, "sign label placement failed");
-	const auto smallSign = presenter.present(base, request(
-		XeenPresentationKind::SceneLabelSignReduced,
-		XeenPresentationResponseRequirement::Presented));
-	check(smallSign.response==XeenPresentationResponse::Presented &&
-		pixel(smallSign.frame,113,90)==0x31 && pixel(smallSign.frame,113,25)==0x44,
-		"small sign must use reduced font/color 8 at reference anchor 116 and Y 90");
-
-	const auto centered = presenter.present(base, request(
-		XeenPresentationKind::CenteredMessage,
-		XeenPresentationResponseRequirement::Presented));
-	check(pixel(centered.frame, 225, 140) == 0xa4,
-		"centered message window failed");
-	const auto bottom = presenter.present(base, request(
-		XeenPresentationKind::BottomWindowMessage,
-		XeenPresentationResponseRequirement::Presented));
-	check(pixel(bottom.frame, 0, 143) == 0xa4 && pixel(bottom.frame, 225, 140) == 0x44,
-		"bottom window composition failed");
-	const auto main = presenter.present(base, request(
-		XeenPresentationKind::MainWindowMessage,
-		XeenPresentationResponseRequirement::Presented));
-	check(pixel(main.frame, 8, 8) == 0xa4 && pixel(main.frame, 0, 143) == 0x44,
-		"main window semantic distinction failed");
-	const auto twoLines = presenter.present(base, request(
-		XeenPresentationKind::BottomWindowTwoLines,
-		XeenPresentationResponseRequirement::Acknowledgment, "A\nA"));
-	check(twoLines.response == std::nullopt && presenter.blocksGameplay(),
-		"two-line acknowledgment did not block");
+    const XeenFontFormat font(fontBytes());
+    XeenEventPresenter presenter(font);
+    const auto base=frame();
+    const auto oracle=[&](const std::string &text,XeenTextRect inner,XeenTextRect outer,bool window) {
+        XeenTextRenderOptions options;options.originalControls=true;
+        options.bounds=inner;options.windowBounds=outer;options.drawWindow=window;
+        options.x=inner.left;options.y=inner.top;options.stopAtBottom=window;
+        return XeenTextRenderer(font).render(base,text,options).pages.front();
+    };
+    for(const auto &spec:std::vector<std::pair<XeenPresentationKind,std::string>>{
+        {XeenPresentationKind::SceneLabelReduced,"\2\f08\3c\t116\v025AA\3l\fd\1"},
+        {XeenPresentationKind::SceneLabelNormal,"\f04\3c\t116\v030AA\3l\fd"},
+        {XeenPresentationKind::SceneLabelSign,"\f08\3c\t120\v088AA\3l\fd"},
+        {XeenPresentationKind::SceneLabelSignReduced,"\2\f08\3c\t116\v090AA\3l\fd\1"}}) {
+        const auto shown=presenter.present(base,request(spec.first,XeenPresentationResponseRequirement::Presented));
+        check(shown.response==XeenPresentationResponse::Presented &&
+            shown.frame.pixels==oracle(spec.second,{0,0,230,149},{},false).pixels,"original scene-label stream");
+    }
+    for(const auto &spec:std::vector<std::tuple<XeenPresentationKind,XeenTextRect,XeenTextRect>>{
+        {XeenPresentationKind::CenteredMessage,{233,148,312,191},{225,140,320,199}},
+        {XeenPresentationKind::BottomWindowMessage,{8,151,312,191},{0,143,320,199}},
+        {XeenPresentationKind::MainWindowMessage,{16,16,216,132},{8,8,224,140}}}) {
+        const auto shown=presenter.present(base,request(std::get<0>(spec),XeenPresentationResponseRequirement::Presented));
+        check(shown.frame.pixels==oracle("\r\3cAA",std::get<1>(spec),std::get<2>(spec),true).pixels,"original Event window/control stream");
+    }
+    std::vector<std::tuple<std::string,unsigned,int,int>> sprites;
+    presenter.originalAssets(nullptr,[&](auto &,const char *r,unsigned f,int x,int y){sprites.emplace_back(r,f,x,y);});
+    presenter.present(base,request(XeenPresentationKind::Confirmation,XeenPresentationResponseRequirement::Acknowledgment,""));
+    check(presenter.frame().pixels==base.pixels && sprites.empty(),"invented acknowledgment panel");
+    auto generic=presenter.input();
+    check(generic.anyKey && generic.anyClick && generic.keyMouseWait &&
+        std::holds_alternative<AcknowledgeAction>(*generic.key('z')) &&
+        std::holds_alternative<AcknowledgeAction>(*generic.rightClick()),"generic ordinary-key/either-mouse wait");
+    presenter.present(base,request(XeenPresentationKind::Confirmation,XeenPresentationResponseRequirement::YesNo,""));
+    check(sprites==std::vector<std::tuple<std::string,unsigned,int,int>>{
+        {"global.icn",7,232,74},{"confirm.icn",0,235,75},{"confirm.icn",2,260,75}},"original YesNo sprites");
+    const auto input=presenter.input();
+    for(const auto &hit:input.hits)for(int x:{hit.left,hit.right-1})for(int y:{hit.top,hit.bottom-1})
+        check(std::get<DialogKeyAction>(*input.click(x,y)).key==hit.key,"YesNo rectangle corner");
+    check(!input.click(259,75) && !input.click(284,75) && !input.click(235,95) &&
+        !input.key('z') && !input.key(InputKey::Enter),"YesNo exclusive edges/unrelated keys");
+    check(presenter.handle(*input.rightClick()).response==XeenPresentationResponse::No,"right-click YesNo decline");
 }
 
 void testPagingAndInputProtocol() {
@@ -187,6 +184,18 @@ void testPagingAndInputProtocol() {
 	std::string longText;
 	for (int i = 0; i < 40; ++i)
 		longText += "AAAA ";
+    // The original writer exposes the actual unconsumed source, including
+    // whitespace and controls, instead of returning the full source length.
+    XeenTextRenderOptions cursor;cursor.originalControls=true;cursor.stopAtBottom=true;
+    cursor.bounds={0,0,24,20};cursor.x=cursor.y=0;
+    const std::string stream="\f09AA AA AA AA AA AA AA AA";
+    const auto written=XeenTextRenderer(font).render(frame(),stream,cursor);
+    check(written.pageSourceEnds.size()==1 && written.pageSourceEnds[0]>3 &&
+        written.pageSourceEnds[0]<stream.size() && written.writeColor==9,"original source continuation/color state");
+    auto continuation=cursor;continuation.colorIndex=written.writeColor;continuation.size=written.writeSize;
+    const auto next=XeenTextRenderer(font).render(frame(),stream.substr(written.pageSourceEnds[0]),continuation);
+    check(next.pageSourceEnds[0]>0 && next.writeColor==9,"original continuation did not retain writer state");
+
 	const auto first = presenter.present(frame(), request(
 		XeenPresentationKind::CenteredMessage,
 		XeenPresentationResponseRequirement::Presented, longText));

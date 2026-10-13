@@ -317,9 +317,9 @@ void disengagementFinishPresentation(Source &source,bool injectFault=true) {
     check(h.flow->encounter()->appearance().kind==XeenMonsterSpriteKind::Normal &&
      !h.flow->encounter()->appearance().projectile,"Destination presentation does not inherit old ATT or projectile state");
     const auto replacementTicket=replacement?std::optional<XeenCombat::Ticket>{replacement->ticket()}:std::nullopt;
-    // M46 confines feedback to the scene, leaving buttons/portraits visible.
-    // Find the actual resource-font glyphs, without duplicating the layout's
-    // filtering, window position or height calculation in this test.
+    // Finish diagnostics remain available to the harness, but Part A removes
+    // their log-style narration from normal play. Find the resource-font
+    // glyphs without duplicating the presentation's layout.
     const auto visible=[&](const std::string &text) {
      XeenTextRenderOptions options;options.bounds={0,0,212,126};options.size=XeenFontSize::Reduced;
      auto light=base,dark=base;
@@ -344,12 +344,12 @@ void disengagementFinishPresentation(Source &source,bool injectFault=true) {
      }
      return false;
     };
-    check(visible("Disengaged; gold forfeited "+std::to_string(forfeited)),"Concrete destination frame renders forfeiture");
-    check(!visible("Disengaged; gold forfeited 999"),"Feedback glyph check distinguishes a wrong amount");
-    check(visible(ready?"Ready treasure: +10 gold":"Dormant items; no gold owed"),"Concrete destination frame renders treasure feedback");
+    check(h.flow->encounter()->playerNotice().empty(),"Successful finish has no player-facing failure notice");
+    check(!visible("Disengaged; gold forfeited "+std::to_string(forfeited)),"Concrete destination frame omits forfeiture narration");
+    check(!visible(ready?"Ready treasure: +10 gold":"Dormant items; no gold owed"),"Concrete destination frame omits treasure narration");
     if(!exit) {
      const auto begin=notice.find("Abandoned:");const auto end=notice.find('\n',begin);
-     check(visible(notice.substr(begin,end-begin)),"Concrete destination frame renders casualty names");
+     check(!visible(notice.substr(begin,end-begin)),"Concrete destination frame omits casualty narration");
     }
     for(int y=137;y<200;++y)for(int x=0;x<231;++x)
      check(base.pixels[y*base.width+x]==h.flow->frame().pixels[y*base.width+x],"Consequence feedback leaves portraits and Tab unobscured");

@@ -211,7 +211,10 @@ XeenTextRenderResult renderOriginal(const IndexedFrame &base, const std::string 
         if(wraps && alignment!=XeenTextAlignment::Right) newline();
     }
     result.writeX=x;result.writeY=y;result.writeSize=size;result.writeColor=color;
-    result.pages.push_back(std::move(frame));result.pageSourceEnds.push_back(text.size());return result;
+    // Window::writeString returns the first unconsumed source character.
+    // Consumers repeat their caller's header over that continuation, rather
+    // than estimating pages from glyph counts or wrapped plain text.
+    result.pages.push_back(std::move(frame));result.pageSourceEnds.push_back(i);return result;
 }
 
 std::vector<GlyphAtom> parseText(const std::string &text,

@@ -139,6 +139,7 @@ public:
 	std::optional<std::uint64_t> deadline() const noexcept { return _deadline; }
 	std::uint64_t cosmeticDeadline() const noexcept { return _cosmeticDeadline; }
 	std::string notice() const;
+	std::string playerNotice() const;
 private:
 	void recordJourneyStep();
 	void publishJourneyExploration(std::vector<XeenExploredTile> &,std::vector<XeenExploredTile> &) noexcept;

@@ -42,6 +42,9 @@ struct DialogInput {
         if(anyKey) return AcknowledgeAction{};
         return {};
     }
+    std::optional<PlayerAction> rightClick() const {
+        return keyMouseWait?std::optional<PlayerAction>{AcknowledgeAction{}}:key(InputKey::Escape);
+    }
     std::optional<PlayerAction> click(int x,int y) const {
         if(x<0 || y<0 || x>=320 || y>=200) return {};
         if(anyClick) return AcknowledgeAction{};

@@ -83,6 +83,8 @@ struct QueueHarness {
   SDL_Event event{};event.type=SDL_MOUSEBUTTONDOWN;event.button.button=button;event.button.x=x;event.button.y=y;
   event.button.timestamp=stamp;
   if(SDL_PeepEvents(&event,1,SDL_ADDEVENT,0,0)!=1)throw std::runtime_error("queue fixture logical click");
+  event.type=SDL_MOUSEBUTTONUP;
+  if(SDL_PeepEvents(&event,1,SDL_ADDEVENT,0,0)!=1)throw std::runtime_error("queue fixture logical release");
  }
  static void quit(){SDL_Event event{};event.type=SDL_QUIT;SDL_PushEvent(&event);}
  void check(bool value,const char *message){if(!value)throw std::runtime_error(std::string(message)+" stage="+std::to_string(stage));}
@@ -182,8 +184,8 @@ void strictDialogPolicies(){
  DialogInput input;input.hits.push_back({10,10,30,30,'e'});input.keys={'e',InputKey::Escape};
  h.dialog=std::make_shared<const DialogInput>(std::move(input));
  h.run("dialog-fresh-key-mouse/no-queue/stale-frame/right-outside",[](auto &h){
-  if(h.stage==0){h.click(15,15,SDL_BUTTON_RIGHT,100);h.click(30,15,SDL_BUTTON_LEFT,100);h.tap(SDLK_e,99);h.tap(SDLK_UP,100);}
-  else if(h.stage==1){h.check(h.delivered.empty(),"stale/right/outside dialog input");h.key(SDLK_e,SDL_KEYDOWN,0,100);h.key(SDLK_e,SDL_KEYDOWN,1,100);h.key(SDLK_e,SDL_KEYDOWN,0,100);}
+  if(h.stage==0){h.click(30,15,SDL_BUTTON_LEFT,100);h.tap(SDLK_e,99);h.tap(SDLK_UP,100);}
+  else if(h.stage==1){h.check(h.delivered.empty(),"stale/outside dialog input");h.key(SDLK_e,SDL_KEYDOWN,0,100);h.key(SDLK_e,SDL_KEYDOWN,1,100);h.key(SDLK_e,SDL_KEYDOWN,0,100);}
   else if(h.stage==2){h.check(h.delivered==std::vector<char>{'e'},"dialog repeat or duplicate");h.key(SDLK_e,SDL_KEYDOWN,0,100);}
   else if(h.stage==3){h.check(h.delivered.size()==1,"held dialog key");h.key(SDLK_e,SDL_KEYUP,0,100);h.ready=false;h.tap(SDLK_e,100);h.click(15,15,SDL_BUTTON_LEFT,100);}
   else if(h.stage==4){h.check(h.delivered.size()==1,"busy dialog consumed input");h.ready=true;}
@@ -319,6 +321,40 @@ void quickFightKeys() {
   else if(h.stage==10){h.check(h.delivered==std::vector<char>{'O','n','n',char(InputKey::Enter)},"Options fresh Next/Return parity");h.quit();}
  });
 }
+void callerEscapeAndAcknowledgment() {
+ QueueHarness yes;yes.ready=true;yes.queueable=false;
+ DialogInput confirm;confirm.keys={'y','n',InputKey::Escape};
+ confirm.hits={{235,75,259,95,'y'},{260,75,284,95,'n'}};
+ yes.dialog=std::make_shared<const DialogInput>(confirm);
+ yes.run("YesNo-right-Escape-modifier-unrelated-routing",[](auto &h) {
+  if(h.stage==0){h.tap(SDLK_LCTRL,100);h.tap(SDLK_RSHIFT,100);h.tap(SDLK_LALT,100);h.tap(SDLK_LGUI,100);h.tap(SDLK_CAPSLOCK,100);h.tap(SDLK_z,100);h.tap(SDLK_RETURN,100);}
+  else if(h.stage==1){h.check(h.delivered.empty(),"modifier/unrelated key answered YesNo");h.click(0,0,SDL_BUTTON_RIGHT,100);}
+  else if(h.stage==3)h.tap(SDLK_ESCAPE,100);
+  else if(h.stage==5){
+   SDL_Event event{};event.type=SDL_MOUSEBUTTONDOWN;event.button.button=SDL_BUTTON_RIGHT;
+   event.button.x=235;event.button.y=75;event.button.timestamp=100;
+   if(SDL_PeepEvents(&event,1,SDL_ADDEVENT,0,0)!=1)throw std::runtime_error("right chord enqueue");
+   event.button.button=SDL_BUTTON_LEFT;
+   if(SDL_PeepEvents(&event,1,SDL_ADDEVENT,0,0)!=1)throw std::runtime_error("left chord enqueue");
+   event.type=SDL_MOUSEBUTTONUP;
+   if(SDL_PeepEvents(&event,1,SDL_ADDEVENT,0,0)!=1)throw std::runtime_error("left chord release");
+   event.button.button=SDL_BUTTON_RIGHT;
+   if(SDL_PeepEvents(&event,1,SDL_ADDEVENT,0,0)!=1)throw std::runtime_error("right chord release");
+  }
+  else if(h.stage==7){h.check(h.delivered==std::vector<char>{'E','E','E'},"right/combined/Escape bypassed active caller");h.quit();}
+ });
+ QueueHarness generic;generic.ready=true;generic.queueable=false;
+ DialogInput wait;wait.anyKey=wait.anyClick=wait.keyMouseWait=true;
+ generic.dialog=std::make_shared<const DialogInput>(wait);
+ generic.run("generic-ordinary-key-either-mouse-and-Escape",[](auto &h) {
+  if(h.stage==0){h.tap(SDLK_RALT,100);h.tap(SDLK_NUMLOCKCLEAR,100);h.tap(SDLK_SCROLLLOCK,100);}
+  else if(h.stage==1){h.check(h.delivered.empty(),"modifier acknowledged generic wait");h.tap(SDLK_z,100);}
+  else if(h.stage==3)h.click(0,0,SDL_BUTTON_LEFT,100);
+  else if(h.stage==5)h.click(319,199,SDL_BUTTON_RIGHT,100);
+  else if(h.stage==7)h.tap(SDLK_ESCAPE,100);
+  else if(h.stage==9){h.check(h.delivered==std::vector<char>{'K','K','K','K'},"generic wait meanings");h.quit();}
+ });
+}
 void strafeAndSummaryKeys() {
  QueueHarness h;h.ready=true;h.screen=MainScreen::Exploration;
  h.run("strafe-keypad-ctrl-mouse-and-summary-keys",[](auto &h){
@@ -451,7 +487,7 @@ void pushKey(std::atomic<bool> &finished, SDL_Keycode key, std::uint8_t repeat,
 
 int main(int argc,char **) {
 	probe_fired::expect("SDL_GetTicks");
- if(argc>1){mouseHitAreas();mouseQueuePolicies();strictDialogPolicies();pressedButtonFeedback();strafeAndSummaryKeys();quickFightKeys();return 0;}
+ if(argc>1){mouseHitAreas();mouseQueuePolicies();strictDialogPolicies();pressedButtonFeedback();strafeAndSummaryKeys();quickFightKeys();callerEscapeAndAcknowledgment();return 0;}
  semanticBoundaryKeys();
  boundedQueuePolicies();
 	std::atomic<bool> finished{false};

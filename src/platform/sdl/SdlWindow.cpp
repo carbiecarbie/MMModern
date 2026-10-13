@@ -238,6 +238,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 	};
 	success = upload(suppliedInitial);
 	bool running = success;
+    unsigned mouseButtons=0;
 	if (running && uploaded && accepts(uploadedFrame)) {
 		SDL_SetRenderDrawColor(renderer,0,0,0,255);
 		SDL_RenderClear(renderer);
@@ -351,7 +352,10 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         } else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
             journeyKeys.fill(false);
             spaceDown = blockDown = revisitDown = inspectDown = false;
+            mouseButtons=0;
             pendingActions.clear();
+        } else if(event.type==SDL_MOUSEBUTTONUP) {
+            mouseButtons&=~SDL_BUTTON(event.button.button);
         } else if (event.type == SDL_KEYUP) {
             const auto scan = SDL_GetScancodeFromKey(event.key.keysym.sym);
             if (scan > SDL_SCANCODE_UNKNOWN && scan < SDL_NUM_SCANCODES) journeyKeys[scan] = false;
@@ -368,21 +372,26 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             const bool mouse = event.type == SDL_MOUSEBUTTONDOWN;
             const auto context = contextFor(batchFrame);
             synchronizeQueue(context);
-            const bool keyMouseWait=context.dialog && context.dialog->keyMouseWait;
-            if(!mouse && keyMouseWait) switch(event.key.keysym.sym) {
+            if(mouse)mouseButtons|=SDL_BUTTON(event.button.button);
+            // DOS polls the button status: right, including both buttons,
+            // takes precedence over left. Retain event state for injected
+            // input and include the native status for a simultaneous chord.
+            const bool rightMouse=mouse && ((mouseButtons | SDL_GetMouseState(nullptr,nullptr))&SDL_BUTTON_RMASK);
+            if(!mouse) switch(event.key.keysym.sym) {
             case SDLK_LCTRL: case SDLK_RCTRL: case SDLK_LALT: case SDLK_RALT:
             case SDLK_LSHIFT: case SDLK_RSHIFT: case SDLK_LGUI: case SDLK_RGUI:
             case SDLK_CAPSLOCK: case SDLK_NUMLOCKCLEAR: case SDLK_SCROLLLOCK:return;
             default:break;
             }
-            if (mouse && ((event.button.button != SDL_BUTTON_LEFT && !(keyMouseWait && event.button.button==SDL_BUTTON_RIGHT)) || (!context.dialog && context.mainScreen == MainScreen::None) ||
-                initialFrame.width != 320 || initialFrame.height != 200)) return;
+            if (mouse && ((event.button.button != SDL_BUTTON_LEFT && event.button.button!=SDL_BUTTON_RIGHT) || (!context.dialog && context.mainScreen == MainScreen::None) ||
+                initialFrame.width != 320 || initialFrame.height != 200 ||
+                event.button.x<0 || event.button.y<0 || event.button.x>=320 || event.button.y>=200)) return;
             // SDL_RenderSetLogicalSize transforms native mouse events to framebuffer
             // coordinates, including integer scaling, letterboxing and high DPI.
             // Do not scale a second time. Out-of-viewport coordinates are rejected.
-            const auto action = context.dialog ? (mouse ? context.dialog->click(event.button.x,event.button.y) :
+            const auto action = context.dialog ? (mouse ? (rightMouse?context.dialog->rightClick():context.dialog->click(event.button.x,event.button.y)) :
                 context.dialog->key(inputKey(event.key.keysym.sym))) :
-                mouse ? xeenMainScreenClick(event.button.x,event.button.y,context.mainScreen) : playerAction(event.key,context.mainScreen);
+                mouse ? (rightMouse ? std::optional<PlayerAction>{CancelInteractionAction{}} : xeenMainScreenClick(event.button.x,event.button.y,context.mainScreen)) : playerAction(event.key,context.mainScreen);
             auto button=context.dialog ?
                 (action && std::get_if<DialogKeyAction>(&*action) ? context.dialog->button(std::get<DialogKeyAction>(*action).key) : std::nullopt) :
                 mouse ? xeenMainScreenButtonAt(event.button.x,event.button.y,context.mainScreen) :
@@ -424,6 +433,10 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             }
             if(context.dialog && (!context.readyForAction || !inputCurrent(batchFrame) || context.contextId!=batchContext.contextId)) return;
             if(mouse) {
+                if(rightMouse && !context.dialog && context.mainScreen==MainScreen::Combat && handler && canCancelInteraction && canCancelInteraction() &&
+                    context.readyForAction && inputCurrent(batchFrame) && context.contextId==batchContext.contextId &&
+                    static_cast<std::int32_t>(event.button.timestamp-readyAt)>=0 && action)
+                    deliver(*action,batchInput,batchFrame,{});
                 if(context.dialog && context.readyForAction && inputCurrent(batchFrame) &&
                     context.contextId==batchContext.contextId && static_cast<std::int32_t>(event.button.timestamp-readyAt)>=0 && action)
                     deliver(*action,batchInput,batchFrame,button);
@@ -445,7 +458,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             if (handler.withPresentedInput && static_cast<std::int32_t>(event.key.timestamp-readyAt) < 0) return;
             if (handler.protectAllKeys && event.key.keysym.sym == SDLK_ESCAPE &&
                 (batchInput != (handler.displayedInput ? handler.displayedInput() : std::nullopt) || !inputCurrent(batchFrame))) return;
-            if (event.key.keysym.sym == SDLK_ESCAPE && !(handler && canCancelInteraction && canCancelInteraction())) {
+            if (!context.dialog && event.key.keysym.sym == SDLK_ESCAPE && !(handler && canCancelInteraction && canCancelInteraction())) {
                 running = false;
             } else if (handler && action && ((!handler.acceptsFrame && !handler.withPresentedInput) || inputCurrent(batchFrame))) {
                 deliver(*action,batchInput,batchFrame,button);
