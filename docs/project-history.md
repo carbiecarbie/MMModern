@@ -250,3 +250,10 @@ corrected the reference: monsters' miscellaneous drops are delivered, full packs
 keep gold and gems, and treasure delivery follows the original recipient and
 replacement rules. A game rules reference (`docs/rules`) records the evidence.
 Save v12 stores pending miscellaneous treasure. [Plan](milestone-61-plan.md).
+
+**M62 - Faithful screens and animation** (`5cc0079`, `41237e1`, `27f344a`). The
+developer overlay and log-style combat text left normal play. Event, NPC,
+WhoWill, combat-panel and treasure screens use the original windows, text and
+input, the six shopkeepers animate, scenery animations include their final
+frame, and the title and credits follow DOS. Timing-dependent parts are left
+for M63. [Plan](milestone-62-plan.md).

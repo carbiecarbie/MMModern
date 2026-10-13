@@ -1,8 +1,11 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M61 is the latest completed
-and accepted milestone** ([plan](milestone-61-plan.md)): the Ironworks buys,
-sells, identifies and fixes every item category, and charged items can be used
+This describes what can be played and done now. **M62 is the latest completed
+and accepted milestone** ([plan](milestone-62-plan.md)): Event, NPC, WhoWill,
+combat-panel and treasure screens use the original presentation, the developer
+overlay is gone from normal play, and the six shopkeepers animate. M61
+([plan](milestone-61-plan.md)) made the Ironworks buy,
+sell, identify and fix every item category, and charged items can be used
 outside combat. M60 ([plan](milestone-60-plan.md)) added the original Cast dialog,
 Guild spell purchases and Spell Info, and eight new spells (Wizard Eye,
 Shrapmetal, Energy Blast, Jump, Cure Wounds, Flying Fist, Revitalize, Pain).
@@ -372,9 +375,11 @@ instructions are in [dependencies](dependencies.md).
   cloud, desert) are not implemented. Mainland fountains and the magic mirror remain
   unsupported. Locked-chest lock/trap/XP mechanics are deferred; Vertigo CD's
   searchable objects use the crate, case, bed and rubbish mechanics.
-- **Presentation.** Service art is static (no animated shopkeepers). There is
-  no audio: where the CD plays speech, a short notice appears and the scene
-  continues. Some Event and treasure screens still use project layouts.
+- **Presentation.** There is no audio: where the CD plays speech, a short
+  notice appears and the scene continues. Shopkeepers do not show their
+  speaking frames yet, treasure items advance by key instead of the original
+  timed holds, and party death still shows a plain DEFEAT screen; the original
+  timing of these sequences comes with M63.
 - **Services.** Temple Donation and Uncurse, and Tavern Drink, Tip, Rumors and Sign In
   show "not supported yet".
 - **Combat items.** Equipping during combat and the combat Use button are not

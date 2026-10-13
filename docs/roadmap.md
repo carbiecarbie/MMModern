@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M61 is the latest completed and accepted milestone.**
+**M62 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -29,7 +29,8 @@ Event-to-Service handoff for supported preludes. M57 added generic Event effects
 skills and mapping (teachers, Cartography, automap and Map). M59 completed city
 searches, display cases and jail, the well, Vern's membership and Guild entry,
 and M60 the original Cast dialog, Guild spells and eight new spell effects.
-M61 completed the Ironworks item services and item Use.
+M61 completed the Ironworks item services and item Use, and M62 the original
+screens and shopkeeper animation.
 
 ## Next milestones: closing Vertigo for a first public release
 
@@ -69,12 +70,9 @@ still needs its own plan and the maintainer's start.
 7. **Items needed for the loot** (Tier A): completed and accepted in
    [M61](milestone-61-plan.md). Ironworks Buy/Sell/Identify/Fix for every
    category and item Use for the supported effects.
-8. **Faithful screens and animation** (M62, Tier B): remove the diagnostic
-   overlay from normal play; original Event Yes/No and acknowledgment prompts,
-   NPC conversation layout and pagination, WhoWill and barrier prompts, the
-   combat monster panel, the "The Party Found" treasure screens, the six
-   shopkeeper animations, scenery end frames, Rest/dream, party defeat and
-   title/credits presentation.
+8. **Faithful screens and animation** (M62, Tier B): completed and accepted in
+   [M62](milestone-62-plan.md). Original Event, NPC, WhoWill, combat-panel and
+   treasure screens; no developer overlay; animated shopkeepers.
 9. **Original presentation clock and movement pace** (M63, Tier A): the shared
    timing contract behind these screens - waits in original ticks,
    interruptible versus uninterruptible waits, sequential recipient effects and

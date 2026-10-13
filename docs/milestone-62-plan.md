@@ -1,63 +1,58 @@
 # Milestone 62 - Faithful screens and animation
 
-Status: approved; implementation not started.
+**Tier B, in three parts. Status: completed and accepted.** Plan `d332406`;
+Part A `5cc0079`; Part B `41237e1`; Part C `27f344a`. The maintainer accepted
+the play-tests (2026-10-13). The approved no-phantom-steps deviation and the
+M63 roadmap merge (`22e99af`) landed during this milestone.
 
-**Tier B - UI/presentation.** Replace the stopgaps encountered in Vertigo and map 23 with original layouts, resource text, controls and frame selection, following [roadmap steps 8 and 9](roadmap.md#near-term). M62 changes presentation consumers within existing owners; it does not change timing/scheduling, RNG, exactly-once publication, save boundaries or ScummVM integration. Any work requiring those changes moves to M63 (Tier A); retaining it here requires an amended Tier A plan and independent plan/implementation reviews before implementation. Approval of this plan does not start implementation.
+## Goal and final scope
 
-## Baseline, evidence and owners
+Replace the project-made stopgaps a player meets in Vertigo and map 23 with
+the original presentation ([roadmap](roadmap.md) step 8). Authority: original
+program analysis of `WORLD/XEEN.DAT` (REA findings under
+`D:/MModern-re/ui-presentation-20261013/`, outside the repository), the CD
+resources, maintainer DOSBox evidence and pinned ScummVM
+`6814ee9ba54582f5b5adcffab49efbbd8f589edd`.
 
-- Verified clean `main = origin/main = aca20e3635cf7d123e62a05e5ac0903bdc26f4d1`. [Project status](project-status.md), [quirks](original-quirks.md), [rules](rules/README.md) and [dependencies](dependencies.md) apply. Retain envelope v12, schema 9, content 14 and all three M44 save digests, with no exceptions.
-- Authority: [REA findings](D:/MModern-re/ui-presentation-20261013/findings.md), [evidence index](D:/MModern-re/ui-presentation-20261013/evidence-index.md) and its [hashed index](D:/MModern-re/ui-presentation-20261013/evidence-index.json). DAT SHA256 `8bf78b4850d5973cbb063c7dd96b9aaef4e94791d748334187eef74acf528d27`; pin `6814ee9ba54582f5b5adcffab49efbbd8f589edd`. The six-phase cursor calibration establishes high-confidence static rules at cited DAT file offsets; it does not establish runtime milliseconds or pixel identity. The report's older audit commits are not this plan's implementation baseline. Keep original bytes, traces and analysis projects outside the repository.
-- Reuse `XeenEventFlow`/`XeenEventPresenter` for Event pages, selection and acknowledgment; `XeenDialogView`, `XeenDosText` and `XeenTextRenderer::renderOriginal` for original windows/control streams; existing Smith/Training Service flows for all six services; `XeenEncounterFlow` and its combat presentation for combat/treasure/defeat; `CloudsUiComposer`, scene composers and `XeenObjectVisualResolver` for art; `XeenTitleFlow` for title/credits. Extend `DialogInput` and SDL translation locally for caller-specific controls. No new coordinator or state owner.
-- Current code confirms legacy Event/NPC layout and painted confirmations, the persistent notice overlay, static service art, exclusive object endpoints, batch treasure delivery and terminal defeat text. Original-text continuation, a cosmetic NPC pulse (150 ms), ordinary scene pulse (100 ms), title pulse (200 ms) and sheet blink (200 ms, `view.icn` 48/49) already exist. Reuse these mechanisms only within the boundary below; their milliseconds are not certified DOS timing.
+- **Part A - everyday screens.** The developer overlay and log-style combat,
+  Shoot and treasure narration are gone from normal play. Event text, Yes/No
+  prompts and NPC conversations use the original windows, sprites, templates
+  and page continuation; WhoWill shows the full template, also at doors and
+  grates, and keeps the DOS incapacitation refusal; the combat monster panel
+  uses window 2 with the DOS health colors (white, yellow at a quarter or more
+  of maximum HP, red below). Escape and right click go to the active dialog
+  instead of ending the session; "Spell Points" wording.
+- **Part B - treasure.** Event and monster treasure use window 10 "The Party
+  Found" with per-item recipient lines, the quest-item star and the final
+  "Hit a key"; the full-pack warning is its own modal window; currency is
+  credited after the final acknowledgment. Rest screens were confirmed
+  original. Party-death frames are composed and tested for M63.
+- **Part C - animation.** The six shopkeepers play their DOS base cycles; their
+  speaking frames are composed but inactive. Scenery animations include their
+  end frame. The title's first phase and the credits pages follow DOS. The
+  Smith and Temple art no longer leaves one column of the world visible.
 
-## Part A - Everyday screens and controls
+## Decisions
 
-- [ ] Remove coordinates, minutes, Quiet/approach, actor IDs/HP and pending-treasure diagnostics from normal exploration/combat. Remove ready/attack/damage/armor/run-roll/Shoot-owner and treasure-accounting narration. Keep diagnostics in developer output only where needed; do not add a player-facing diagnostic menu. Preserve intentional "not supported yet" notices and actual failures in an original error window.
-- [ ] Draw combat window 2 from DAT `COMBAT_DETAILS` and row templates (`0x54001..0x54048`), original font/control colors and `combat.icn` marker 32 at `(233,27+10*row)`. Health colors: 15 at full HP, otherwise 9 at `HP >= floor(maxHP/4)`, 32 below (`0x2e211..0x2e272`). Keep contact order, 1/2/3 and mouse target selection; no custom truncation or invented hit narration. Escape/right click is ignored by combat, not an SDL exit.
-- [ ] Route supported Event displays through original window bounds and control-stream continuation, replacing custom wrapping, pagination and colors. Yes/No uses window 34, `global.icn` 7 and `confirm.icn` 0/2 at `(235,75)`/`(260,75)`, 24x20 hit areas (`0x249bf..0x24c70`). Y accepts, N/Escape/right declines, unrelated keys do nothing. Remove the invented "Space / Enter" acknowledgment; generic waits accept ordinary translated keys and either mouse anywhere, ignoring modifier-only input.
-- [ ] NPCs use normal window 11, DAT title/body template `0x53b08`, `frame.fac` 0 at `(16,16)` and face at `(23,22)`, with writer-derived page boundaries. Intermediate Escape/right click advances one page; only the final page uses the caller's confirmation or acknowledgment, with original buttons only there. Preserve already animated faces and supported caller modes; mode 2 has no local wait. Do not extrapolate normal layout to alternate CD window 40 or admit unsupported Event modes without evidence.
-- [ ] WhoWill uses window 36 and full `WHO_WILL` (`0x53acf`) for Events and door/grate callers, including action, verb and F1-Fcount. F1-F6 and portraits select; Escape/right cancels. Keep DOS `IN_NO_CONDITION` refusal in window 6, acknowledgment then reselection, the one-member shortcut and existing eligibility mechanics (`0x2507a..0x252f6`).
-- [ ] Route Escape to the active dialog/page/service/title caller before session exit; route right/combined mouse to that caller's Escape semantics and ignore modifier-only presses. Preserve strict fresh-input/stale-frame protection and queue policy. Physical-release waits and pressed-frame duration changes are M63. Use DAT wording including "Spell Points"; show Quick Fight Cast refusals and concise player-facing fault messages in original windows, without exposing "Event settlement pending"/"departure owed" or changing their retry/departure behavior.
+1. **Tier B with an explicit M63 boundary:** no timing, scheduling, RNG,
+   publication or save changes. Left for M63: treasure item holds and per-item
+   publication (including quest grants in the treasure sequence), shop speaking
+   gates, the exact shop and title cadence, dream timing and the party-death
+   playback that replaces the DEFEAT screen.
+2. **Combat row hitboxes** were confirmed from the maintainer's DOSBox capture
+   and the original button tables; they were already correct. Health colors are
+   also confirmed by the maintainer's long play.
+3. Save v12 and all M44 digests unchanged; the mainland trace gained six
+   identical presentation observations from the treasure pages (approved).
 
-## Part B - Treasure, Rest and defeat presentation
+## Results
 
-- [ ] Replace Event/monster diagnostic receipts with window 10 `The Party Found` (`0x539e7`), original currency fields, per-item recipient/name text (`0x53a75`), quest-item color-04 text star and final color-37 `Hit a key` (`0x53a8c`). Full-pack warning is modal window 6 (`0x53a13`); its acknowledgment closes only the warning. Retain M61 delivery quirks, lost-item behavior and currency retention. Present existing delivery records without replaying delivery or generating new rewards; retain existing final acknowledgment/publication callbacks. Automatic item holds and DOS per-item mutation timing move to M63; M62's existing acknowledgment progression is an explicitly unfinished timing aspect.
-- [ ] Preserve/verify original Rest refusal, warning, `scene1.raw` dream image, saved background/cursor restoration and window-6 completion text/colors. Recovery, food, dream RNG and time remain unchanged. Correct resource/layout defects only; the present 146-beat dream is not DOS-complete and is replaced by M63's sequence.
-- [ ] Define and test party-death resource composition in the existing presentation owner: `fire1..4.vga` pairs 0..35, `death.vga` pairs with the original Y table (`0x47a44`), final 34/35, and `death1.vga` executed frames 0..21 (capacity 23 is not an executed loop). The playable replacement for `DEFEAT / Gameplay unavailable` moves to M63 as a whole: no existing death sequencer can reproduce its sample gate and transition without new scheduling. Do not introduce an invented static death screen or claim defeat complete in M62.
+- Tests for DAT text and control streams, windows, sprites and colors, page
+  continuation, mouse/keyboard/right-click/modifier handling, treasure pages,
+  shop cycles and overlay composition, inclusive end frames, title and credits.
+- Full CTest 188-189/189 on `build-rel` after each part; Debug closure check
+  passed; maintainer play-tests of all three parts accepted.
 
-## Part C - Animation resources and frame selection
+## Deferred
 
-- [ ] Six shop base cycles at `(8,8)`: Bank `bnkr` global 0..22; Smith `blck` 0..12; Guild `gild` initial 0..31 then 17..31; Tavern `tvrn` 0..15; Temple `tmpl` initial 0..25 then 20..25; Training `trng` 0..15. File = index/8 + 1, local frame = index%8. Reuse the existing cosmetic presentation pulse for base-frame advancement and redraw service art beneath its original dialogs; do not schedule gameplay work or change service-day accounting. If reuse requires changing the pulse/scheduling contract, move live playback to M63 and retain only frame composition here.
-- [ ] Compose/test DOS speaking frames: Bank `bnkr3` 7..11 over base, Temple `tmpl4` 2..4 over base, Training `trng2` 8..12 over base **while speaking**, Smith `blck2` 5..7 **instead of base** while its logical base index continues. Guild/Tavern have no Clouds speaking overlay. Smith and Training differ from the pin (`0x1c038..0x1c54f`). Runtime speaking gates and random choices move to M63; do not invent a cyclic substitute, word timer or new cosmetic/gameplay RNG to activate them in M62.
-- [ ] Make ordinary scenery end frames inclusive (`0x10d21..0x10d55`) within the existing phase source; preserve static views, facing flips, five-phase scenery, resource-count wall animation and water behavior. Indexed affected resources: Vertigo 008/009, map 23 009/102/105/109. Initial maps 28/23 contain no separate wall-item placements; do not invent a torch fix or admit locked-chest mechanics.
-- [ ] Preserve title assets `world0/1/2.int`, `world.raw`, `dark.pal`, `start.icn`; phase 0 restores background without drawing `world0` frame 0. Use original window-28 menu routing and four `marb.raw`/`credits.bin` pages: Escape/right advances exactly one credits page, menu Escape returns to idle title. Verify glyph/color layout. Preserve/test the existing sheet selection blink and frames 48/49; findings do not establish a new DOS blink interval, so no guessed retiming.
-
-## M62/M63 timing and publication boundary
-
-| Surface | M62 can use existing infrastructure | M63 owns the remaining fidelity work |
-| --- | --- | --- |
-| Event/WhoWill/combat waits and buttons | Original layouts and caller-specific input routing; existing refresh and feedback deadlines | World outer wait 1 BIOS tick, location 3; combat outer 1 with nested draw3d floor 2. NPC polls only after 3 ticks. Keyboard pressed frame has no explicit tick hold; mouse waits for release. Change wait/queue/release policy only in M63. |
-| Shops and NPC faces | Base-frame selection on unchanged cosmetic pulse; original overlay composition; existing NPC animation retained | Shops 3 ticks, early input allowed; sample-active intervals for greetings/action replacements, Tavern last-screen goodbye hold. NPC CD-busy gate uses MMSSFF at 75 sectors/s and `(end-start+25)/75`, not centiseconds or word count. Activation/random draw changes are Tier A. Audio playback stays out of scope. |
-| Treasure | Original windows/text over existing receipt/warning/final-ack ownership | Interruptible 1-tick blank and 10-tick found holds, then final input wait; each transfer before its own message, currency after final acknowledgment. Current monster delivery batches items before display; Event candidate publication is separately guarded. Reconcile both in M63 without splitting publication here. |
-| Rest/dream and death | Existing Rest visual states; pure death frame composition only | Dream: four uninterruptible step-4 retrace fades, 7 ticks, dreams2 completion (header 1.664504 s), laff1 completion (1.966764 s), 7 ticks, recovery afterward. Death: no explicit fire 1-tick delay, laugh loop 2 ticks/sample gate, no added final sound tail; complete sequence and return target in M63. |
-| Scenery/title/sheet | Correct frame/resource selection on unchanged existing pulses; title/credits input; existing sheet blink | Draw3d floor 2 ticks, title idle 4 ticks and first CD fade step 4 synchronized to retrace. Any sheet cadence correction requires evidence and belongs here. Do not convert conditional BIOS/VGA rates into invented fixed milliseconds. |
-| Shoot/hit/death/portraits | Remove diagnostic narration, retain existing effects | All impact/HP/lethal-removal ordering, moving remaining arrows during impact, arrow splat and sequential recipient sparkles. Damage waits are 2 ticks for monster AND Event/trap; sparkle frames 0..3 use window-dependent 2/1-tick thresholds plus draw cost. Preserve RNG and exactly-once effects under M63 review. |
-
-## Remaining DOSBox evidence and acceptance
-
-Only the findings' **Smallest remaining DOSBox evidence set** is requested; capture timestamps/frame numbers and machine/cycles/video/audio settings. Static frame/branch rules need no repeat investigation. **Plan blocker** below means a blocker for the named unresolved implementation decision, not for writing/approving this bounded plan; independent parts may proceed after the maintainer starts them.
-
-| Capture from that set | Gate |
-| --- | --- |
-| Scenery: identified Vertigo objects stationary/move/turn, outdoor directional cycles and water flips | M62 play-test check; no blocker for the proved inclusive endpoint. Use the indexed placements, not an assumed wall torch. |
-| Combat: three enemies, one at 25..49% HP, click every row, Escape/right | M62 plan blocker for still-unverified exact row hitboxes; color/palette and retained combat state are play-test checks. |
-| All six greetings plus repeat cycle, mandatory Smith/Training speaking-to-idle; Bank/Temple sample-end calibration and Tavern departure | M62 base-art/cycle play-test checks; M63 plan blockers for runtime speech/poll/hold calibration. |
-| Events: YesNo click/Escape, generic unrelated-key/left/right acknowledgment; incapacitated then healthy WhoWill; short voiced NPC through silence and multipage NPC with intermediate Escape | M62 layout/input play-test checks; short sentence also blocks M63's unresolved CD carrier/start mapping. Full-screen CD capture is a plan blocker only if that mode is actually reached in scope. |
-| Treasure: currency plus two items idle and skipped, full packs with currency, final Escape/right acknowledgment | M62 text/layout/input and retained currency checks; M63 timed staging/publication play-test checks. |
-| Rest: full dream with sound and ordinary summary; defeat through next usable UI; title first fade/idle/menu Escape and all four credits pages | M62 Rest/title/credits visual checks; death return target and runtime fade/fire/sample calibration are M63 plan blockers. Include the findings' deferred-input probe where needed; do not guess post-cutscene behavior. |
-| Shoot survivor/lethal volleys (outdoor lethal only if needed), normal/lethal melee, Magic Arrow/Energy Blast, monster/Event damage and multi-member award/heal with deferred-input probe | M63 play-test checks for order; unresolved queued-input handling and clock configuration block M63 timing decisions. No M62 combat-order implementation gate. |
-
-- [ ] Tests for every changed screen's exact DAT text/control stream, window bounds, sprites/colors, page continuation and mouse/keyboard responses; cover right/combined mouse, modifiers, intermediate/final Escape, warning dismissal, refusal/reselection and no dialog session exit. Use existing Event/dialog/combat/reward/title/scene tests and a few original-data runs across Vertigo and map 23, not a process witness per feature.
-- [ ] Regress already-correct Cast/New, Guild Buy/Info, Items/Identify, service confirmations/amount entry, character/stat dialogs, Quick Reference/Info/Map, control panel/save chooser and Rest. Exercise the entire six-shop base cycles, directional terminal frames, title phase 0, credits pages and sheet blink; test deferred frame composers without pretending their playback is complete. Preserve all documented DOS quirks, unsupported notices, action costs, RNG continuation and exact save/load; no rewards/time/events replay.
-- [ ] During implementation run affected tests and `ctest -L fast` on `build-rel`; after each task's final production build, pass the complete `build-rel` suite through [tools/AGENTS.md](../tools/AGENTS.md). At closure run Debug `build-m44` fast tests and the three M44 scenarios; digests remain unchanged. Maintainer DOSBox comparison/play-test accepts A/B/C with the explicit M63 deferrals, before recording acceptance. This planning-only change runs no build or tests; check documentation links/diff and `git diff --check` only.
+Everything listed for M63 above; audio.
