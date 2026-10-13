@@ -40,7 +40,7 @@ container in `material`, the power in `id`, and 1-8 charges in `state`.
 | Map 28 display cases | Scripted L1/L2 generation: the same L1 range plus L2 weapons 1-33, armor 1-13, Accessories 1-10 and Misc powers 16-30. The lock/trap/jail outcome can prevent delivery. |
 | Map 28 rubbish (3,12) | L2: weapons 1-33; armor 1-13; Accessories 1-10; Misc container 1-9 with power 16-30. |
 | Map 23 Myra return reward | Five fixed Potions of antidotes `{material=10,id=37,charges=1}`; its two scripted random item draws use the L1 generator. |
-| Map 23 monsters | Orc is the only item-dropping kind: each of 12 Orcs has a 10% L1 generation chance. The pin and current implementation lose the Misc branch, leaving weapons 1-33 or armor 1-7. [DOS analysis](rules/evidence.md#monster-treasure-staging) establishes that the original stages Misc correctly; correcting this discrepancy is not implemented by the rules research. Giant Snake, Skeleton, Zombie and Giant Toad have no item drop. |
+| Map 23 monsters | Orc is the only item-dropping kind: each of 12 Orcs has a 10% L1 generation chance. Weapons 1-33, armor 1-7 or Misc containers 1-9 with powers 1-15 and 1-8 charges. **Implemented (Part C):** Misc staging and shared delivery follow the [DOS evidence](rules/evidence.md#monster-treasure-staging), preserving generation draws; full-pack and recipient fallback rules are unchanged. Giant Snake, Skeleton, Zombie and Giant Toad have no item drop. |
 | Map 28 monsters | Slime, Doom Bug and Breeder Slime have no item drop. |
 | Initial Ironworks stock | Fifteen L1 and five L2 generated entries. L2 is the source of its Accessories and higher powers; stock may include all four categories. |
 
@@ -178,10 +178,25 @@ No in a confirm) changes nothing. Cancellation **inside an admitted effect**
 (for example Escape at the target prompt) keeps the spent charge, removes an
 exhausted item and settles the world response, as the existing antidote does
 (`tests/XeenRegionalActionOriginal.cpp`) and the reference's
-decrement-before-casting flow implies; supported failures also spend it. Save v11 (schema 9, content 14) is retained if existing saved
-party fields suffice. If any layout or meaning changes, amend the plan,
-increment the envelope version as required, and run
-`tools/m44-digest-audit.ps1` before implementation closure.
+decrement-before-casting flow implies; supported failures also spend it.
+
+**Part C save decision (maintainer approved, 2026-10-12):** use envelope v12,
+retaining schema 9 and content 14. Keep the pending weapon/armor records and
+add a separate pending Misc array (ten slots, unique Orc provenance across
+categories, at most twelve sources), including exact save/load and validation.
+Reject v11 clearly; do not retain a legacy reader. Pending Misc survives Run
+and later delivery through the existing treasure owner and shared recipient,
+capacity and gold rules. Preserve generation draws and their order. Follow the
+recorded DOS staging evidence and First Aid item Escape rule: spend the charge
+and add 1 SP to the user without a maximum-SP clamp; no other item power gains
+this refund. No new owner or coordinator is needed.
+
+Run the M44 Preserve/Compare audit around the change. Format-related byte
+differences are expected, but traces and every common decoded snapshot field
+must remain identical. Explain every added field and envelope version, length
+and CRC delta; stop for maintainer digest approval after Compare. Any trace
+difference stops the task. Independent Tier A plan and implementation reviews,
+the complete build-rel suite, and maintainer play-test remain required.
 
 ## Acceptance and genuinely open DOS questions
 

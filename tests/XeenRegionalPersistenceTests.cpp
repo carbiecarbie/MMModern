@@ -22,6 +22,9 @@ Bytes suffix(const XeenSaveSnapshot &s){
  unsigned weapons=0,armor=0;for(const auto &v:t.weapons)weapons+=v.item.id!=0;for(const auto &v:t.armor)armor+=v.item.id!=0;
  b.push_back(weapons);b.push_back(armor);
  for(const auto &items:{t.weapons,t.armor})for(const auto &v:items)if(v.item.id)b.insert(b.end(),{v.source,v.item.material,v.item.id,v.item.state,v.item.frame});
+ unsigned miscellaneous=0;for(const auto &v:t.miscellaneous)miscellaneous+=v.item.id!=0;
+ b.push_back(miscellaneous);
+ for(const auto &v:t.miscellaneous)if(v.item.id)b.insert(b.end(),{v.source,v.item.material,v.item.id,v.item.state,v.item.frame});
  for(bool flag:j.worldFlags->values)b.push_back(flag);b.push_back(30);
  for(unsigned owner=0;owner<30;++owner){b.push_back(owner);for(unsigned slot=0;slot<39;++slot)b.push_back(owner==2?0:owner==29&&slot==38?255:std::uint8_t(owner*7+slot*3));}
  b.push_back(30);for(unsigned owner=0;owner<30;++owner)b.insert(b.end(),{std::uint8_t(owner),std::uint8_t(owner),std::uint8_t(255-owner)});
@@ -46,7 +49,7 @@ XeenSaveSnapshot sampleCurrent(){
 }
 void verify(const XeenSaveSnapshot &s){
  const auto bytes=XeenSaveFormat::encode(s),expected=suffix(s);const auto offset=baseSize(s);
- check(bytes.size()==offset+expected.size()&&std::equal(expected.begin(),expected.end(),bytes.begin()+offset),"Independent complete v11 schema9/content14 suffix and absent name");
+ check(bytes.size()==offset+expected.size()&&std::equal(expected.begin(),expected.end(),bytes.begin()+offset),"Independent complete v12 schema9/content14 suffix and absent name");
  sameSnapshot(s,XeenSaveFormat::decode(bytes));check(XeenSaveFormat::encode(XeenSaveFormat::decode(bytes))==bytes,"Exact current byte continuation");
  for(std::size_t size=offset;size<bytes.size();++size){auto b=bytes;b.resize(size);fixIndependentEnvelope(b);rejects([&]{XeenSaveFormat::decode(b);});}
  auto extra=bytes;extra.push_back(0);fixIndependentEnvelope(extra);rejects([&]{XeenSaveFormat::decode(extra);});
@@ -57,6 +60,28 @@ int main(){try{
  for(unsigned id:{3u,9u}){auto &a=populated.journey->actors[id];a.x=a.y=-128;a.hp=0;a.activated=false;a.accounted=true;a.lifecycle=XeenActorLifecycle::Defeated;}
  populated.characters[0].conditions[3]=2;populated.characters[1].conditions[8]=1;verify(populated);
  auto dormant=populated;dormant.journey->treasure=xeenPrepareMonsterGoldForfeiture(*dormant.journey->treasure);verify(dormant);
+ auto misc=populated;
+ for(unsigned id:{1u,2u}){auto &a=misc.journey->actors[id];a.x=a.y=-128;a.hp=0;a.activated=false;a.accounted=true;a.lifecycle=XeenActorLifecycle::Defeated;}
+ misc.journey->treasure->miscellaneous[0]={1,{1,1,1,0}};
+ misc.journey->treasure->miscellaneous[1]={2,{9,15,8,0}};verify(misc);
+ misc.journey->treasure=xeenPrepareMonsterGoldForfeiture(*misc.journey->treasure);verify(misc);
+ check(misc.journey->treasure->dormant(),"Restorable Misc retains dormant state");
+ for(unsigned mode=0;mode<13;++mode){auto bad=misc;auto &entry=bad.journey->treasure->miscellaneous[0];
+  switch(mode){case 0:entry.source=9;break;case 1:entry.source=12;break;case 2:entry.item.material=0;break;case 3:entry.item.material=10;break;
+   case 4:entry.item.id=0;break;case 5:entry.item.id=16;break;case 6:entry.item.state=0;break;case 7:entry.item.state=9;break;case 8:entry.item.frame=1;break;
+   case 9:entry={};break;case 10:bad.journey->actors[1].accounted=false;break;case 11:bad.journey->actors[1].hp=1;break;case 12:bad.journey->treasure->miscellaneous[1].source=1;break;}
+  rejects([&]{XeenSaveFormat::encode(bad);});}
+ // Two existing five-byte weapon/armor records end at literal suffix offset 2012.
+ const auto miscWire=XeenSaveFormat::encode(misc);const auto miscAt=baseSize(misc)+2012;
+ check(miscWire[miscAt]==2 && miscWire[miscAt+1]==1 && miscWire[miscAt+6]==2,"Literal Misc section extent/source order");
+ for(const auto mutation:std::vector<std::pair<unsigned,unsigned>>{{0,11},{1,9},{1,12},{2,0},{2,10},{3,0},{3,16},{4,0},{4,9},{5,1},{6,1}}) {
+  auto bad=miscWire;bad[miscAt+mutation.first]=mutation.second;fixIndependentEnvelope(bad);rejects([&]{XeenSaveFormat::decode(bad);});
+ }
+ auto fullMisc=misc;auto &fm=*fullMisc.journey->treasure;fm.weapons={};fm.armor={};fm.miscellaneous={};
+ for(unsigned id=0;id<12;++id){auto &a=fullMisc.journey->actors[id];a.x=a.y=-128;a.hp=0;a.activated=false;a.accounted=true;a.lifecycle=XeenActorLifecycle::Defeated;
+  if(id<10)fm.miscellaneous[id]={std::uint8_t(id),{9,15,8,0}};else if(id==10)fm.weapons[0]={10,{0,33,0,0}};else fm.armor[0]={11,{0,7,0,0}};}
+ verify(fullMisc);
+ auto excess=XeenSaveFormat::encode(fullMisc);excess[baseSize(fullMisc)+2012]=11;fixIndependentEnvelope(excess);rejects([&]{XeenSaveFormat::decode(excess);});
  auto later=dormant;later.journey->treasure->pendingMask=1u<<3;later.journey->treasure->pendingGold=10;verify(later);
  auto maximum=populated;auto &mt=*maximum.journey->treasure;mt.pendingMask=4095;mt.pendingGold=120;mt.weapons={};mt.armor={};
  for(unsigned id=0;id<12;++id){auto &a=maximum.journey->actors[id];a.x=a.y=-128;a.hp=0;a.activated=false;a.accounted=true;a.lifecycle=XeenActorLifecycle::Defeated;if(id<10)mt.weapons[id]={std::uint8_t(id),{0,30,0,0}};else mt.armor[id-10]={std::uint8_t(id),{0,2,0,0}};}
@@ -70,7 +95,7 @@ int main(){try{
  }
  auto flagged=populated;flagged.journey->worldFlags->values[16]=true;verify(flagged);
  const auto bytes=XeenSaveFormat::encode(populated);const auto offset=baseSize(populated);
- const auto badByte=[&](unsigned at,unsigned value){auto b=bytes;b[offset+at+(at>2012?127:0)]=value;fixIndependentEnvelope(b);rejects([&]{XeenSaveFormat::decode(b);});};
+ const auto badByte=[&](unsigned at,unsigned value){auto b=bytes;b[offset+at+(at>2012?127:0)+(at>=2012?1:0)]=value;fixIndependentEnvelope(b);rejects([&]{XeenSaveFormat::decode(b);});};
  // Literal v6 offsets include the two food bytes after newDay and six added
  // resistance bytes per owner. Keep all malformed-control checks in place.
  for(unsigned at:{5u,37u,38u})badByte(at,2);badByte(6,1);badByte(7,2);badByte(41,29);badByte(1272,2);badByte(1285,1);badByte(1286,20);

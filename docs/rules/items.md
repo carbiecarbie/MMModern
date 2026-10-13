@@ -183,9 +183,9 @@ each effect can supply a different prompt/refund ID or use a different dialog.
 Other routes require their own trace. Cancellation before choosing an item
 does not enter this sequence.
 
-MMModern at the research baseline does not model this First Aid SP grant.
-This documentation establishes the original rule; it does not silently amend
-the engine or certify all current cancellation paths.
+**Implemented (M61 Part C):** First Aid item Escape grants this uncapped 1 SP
+to the user and spends the charge. Other item powers gain no new refund; their
+complete original cancellation paths remain unverified.
 
 ## Discard, recharge and enchant
 
@@ -243,8 +243,10 @@ The character-generator and treasure category are established together:
 category 3 selects file `0x2c4f5`; generated fields `0x112/0x113/0x114` become
 treasure container/power/state at `0x9970/0x9971/0x9972` relative to the data
 segment. The generator writes these fields and returns category 3. This rule
-is generic, not specific to the Orc witness or one map. MMModern's
-`ReferenceMiscellaneousDropLoss` remains a known discrepancy at this baseline.
+is generic, not specific to the Orc witness or one map. **Implemented (M61
+Part C):** Misc monster drops use their own pending array and the existing
+shared delivery rules, preserving all generation draws. Pending Misc survives
+Run and v12 save/load; full-pack and recipient fallback rules are unchanged.
 
 **Reference only:** delivery scans staged categories and slots, preferring the
 requested eligible recipient and falling back to other eligible party members.

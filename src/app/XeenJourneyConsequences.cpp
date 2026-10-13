@@ -125,7 +125,6 @@ bool XeenEncounterFlow::serviceShoot() {
       (hit()?" hit ":" miss ")+std::to_string(damage())+(work.lethal?" defeated":"");
      if(work.drop) {
       work.feedback+="; gold +10 pending";
-      if(work.drop->outcome==XeenMonsterDropOutcome::ReferenceMiscellaneousDropLoss)work.feedback+="; misc drop lost";
       if(work.drop->outcome==XeenMonsterDropOutcome::CategoryCapacityLoss)work.feedback+="; full category: drop lost";
      }
      if(work.spell)work.feedback.clear();
@@ -222,13 +221,15 @@ bool XeenEncounterFlow::beginMonsterReward(const XeenItemCatalog &catalog) {
   std::ostringstream text;text<<"Monster treasure\n";
   if(delivery.globallyFull) text<<"All packs full. Items lost; gold retained.\n";
   for(unsigned i=0;i<delivery.count;++i) {
-   const auto &r=delivery.records[i];text<<"Orc "<<unsigned(r.production.source)<<' '<<catalog.describe(r.armor?XeenInventoryCategory::Armor:XeenInventoryCategory::Weapons,r.production.item).displayName<<" M/ID/S/F 0/"<<unsigned(r.production.item.id)<<"/0/0 ";
+   const auto &r=delivery.records[i];const auto &item=r.production.item;
+   const auto category=r.miscellaneous?XeenInventoryCategory::Miscellaneous:r.armor?XeenInventoryCategory::Armor:XeenInventoryCategory::Weapons;
+   text<<"Orc "<<unsigned(r.production.source)<<' '<<catalog.describe(category,item).displayName<<" M/ID/S/F "<<unsigned(item.material)<<'/'<<unsigned(item.id)<<'/'<<unsigned(item.state)<<'/'<<unsigned(item.frame)<<' ';
    if(r.recipient) text<<"to "<<_party.roster.at(*r.recipient).name;else text<<(r.loss==XeenMonsterDeliveryLoss::GloballyFull?"lost: all packs full":r.loss==XeenMonsterDeliveryLoss::CategoryTailsFull?"lost: category tails full":"lost: no eligible recipient");text<<'\n';
   }
   text<<"Gold +"<<delivery.treasure.pendingGold<<" on final acknowledgment.";
   auto receiptText=text.str();_journeyPreimage->check();
   _rewardLease=_boundary.hold(XeenCombatBoundary::Work::Reward);_world._sessionState._journeyActivity=XeenJourneyActivity::Reward;
-  for(const auto &v:delivery.characters) { auto &c=_party.roster.at(v.rosterId);c.weapons=v.weapons;c.armor=v.armor; }
+  for(const auto &v:delivery.characters) { auto &c=_party.roster.at(v.rosterId);c.weapons=v.weapons;c.armor=v.armor;c.miscellaneous=v.miscellaneous; }
   _party.monsterTreasure=delivery.treasure;_monsterReceipt.emplace(std::move(delivery));_monsterReceiptText.swap(receiptText);
   ++_world._sessionState._journeyGeneration;++_generation;retainJourney();return true;
  } catch(...) { closeJourney();throw; }
@@ -342,7 +343,7 @@ std::string XeenEncounterFlow::consequenceNotice() const {
   for(unsigned i=0;i<rows.size();++i)if(rows[i]) {const auto &a=_world.sessionState().regionalActors(rows[i]->mapId).at(rows[i]->recordIndex);out<<(rows[i]==_combat->selectedTarget()?">":"")<<i+1<<' '<<a.statistics->name()<<" #"<<a.id.recordIndex<<" HP"<<a.hp<<'\n';}
   const auto &r=_combatObservation;
   if(r.operation==XeenCombatOperation::PlayerRun && r.runRoll)out<<_party.roster.at(*r.actingOwner).name<<(r.runSuccess?" escaped":" Run failed")<<" ("<<r.runRoll<<")\n";
-  else if(r.monsterDrop)out<<"Orc "<<unsigned(r.generatedItem.source)<<" +10 gold pending; "<<(*r.monsterDrop==XeenMonsterDropOutcome::ReferenceMiscellaneousDropLoss?"misc drop lost":*r.monsterDrop==XeenMonsterDropOutcome::CategoryCapacityLoss?"full category: lost":*r.monsterDrop==XeenMonsterDropOutcome::Item?"item produced":"no item")<<'\n';
+  else if(r.monsterDrop)out<<"Orc "<<unsigned(r.generatedItem.source)<<" +10 gold pending; "<<(*r.monsterDrop==XeenMonsterDropOutcome::CategoryCapacityLoss?"full category: lost":*r.monsterDrop==XeenMonsterDropOutcome::Item?"item produced":"no item")<<'\n';
   else if(r.injuryCount)out<<"Damage "<<r.damage<<"; armor broken "<<r.armorCount<<'\n';
   else if(!r.monsterDrop && r.targetMonster && r.attackOutcome!=XeenCombatAttackOutcome::NotApplicable)out<<"Actor "<<r.targetMonster->recordIndex<<(r.attackOutcome==XeenCombatAttackOutcome::Miss?" missed":" damage ")<<r.damage<<'\n';
 

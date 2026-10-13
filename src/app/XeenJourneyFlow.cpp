@@ -323,6 +323,12 @@ bool XeenEncounterFlow::settleItemUse(const Ticket &entry,std::uint64_t generati
 				live.currentHp=value.hp;live.conditions=value.conditions;
 			}
 			XeenLearnedSpellRules::applyPartyEffect(spell,*_party.encounterContext);
+			if(!targetIndex && spell==XeenLearnedSpell::FirstAid) {
+				// DOS 0x2f146 -> 0x2f34b/0x2f386 refunds 1 SP to the item user,
+				// despite no SP debit. No maximum-SP clamp; the charge stays spent.
+				auto &user=_party.roster.at(_itemUse->sourceOwner);
+				user.currentSp=static_cast<std::int16_t>(user.currentSp+1);
+			}
 			if(_itemUse->jumpDestination)_camera=*_itemUse->jumpDestination;
 			_itemUse->failed=effect.failed || (spell==XeenLearnedSpell::Jump && !_itemUse->jumpDestination);
 			_itemUse->automaticArrival=automaticArrival;
@@ -507,6 +513,7 @@ std::string XeenEncounterFlow::journeyInspection() const {
  if(_party.monsterTreasure) {
   const auto &v=*_party.monsterTreasure;out<<"Purse gold="<<v.gold<<" gems="<<v.gems<<" pendingMask="<<v.pendingMask<<" pendingGold="<<v.pendingGold<<'\n';
   for(unsigned category=0;category<2;++category)for(const auto &r:category?v.armor:v.weapons)out<<"Pending "<<(category?"armor":"weapon")<<" source="<<unsigned(r.source)<<" M/ID/S/F="<<unsigned(r.item.material)<<'/'<<unsigned(r.item.id)<<'/'<<unsigned(r.item.state)<<'/'<<unsigned(r.item.frame)<<'\n';
+  for(const auto &r:v.miscellaneous)if(r.item.id)out<<"Pending misc source="<<unsigned(r.source)<<" M/ID/S/F="<<unsigned(r.item.material)<<'/'<<unsigned(r.item.id)<<'/'<<unsigned(r.item.state)<<'/'<<unsigned(r.item.frame)<<'\n';
  }
  if(_combat)out<<"Participants="<<unsigned(_combat->participants())<<" exit="<<unsigned(_combat->exitCause())<<'\n';
  const auto describe=[&](const XeenCombatResult &r) {

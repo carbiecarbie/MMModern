@@ -306,7 +306,8 @@ void disengagementFinishPresentation(Source &source,bool injectFault=true) {
     const bool ready=attrition && !exit;
     check(notice.find(ready?"Ready treasure: +10 gold":"Dormant items; no gold owed")!=std::string::npos,"Matching ready/dormant consequence is visible");
     check(h.party->monsterTreasure->gold==saved.journey->treasure->gold && h.party->monsterTreasure->pendingGold==(ready?10:0) &&
-     h.party->monsterTreasure->armor==saved.journey->treasure->armor,"Feedback does not credit, forfeit twice or alter item provenance");
+     h.party->monsterTreasure->armor==saved.journey->treasure->armor &&
+     h.party->monsterTreasure->miscellaneous==saved.journey->treasure->miscellaneous,"Feedback does not credit, forfeit twice or alter item provenance");
     check(h.party->roster.at(kXeenCombatOwners[2]).conditions[13]==7,"Feedback preserves existing Dead counter");
     check(h.camera->x==10 && h.camera->y==12 && h.world->sessionState().actors()[9].hp==16,"Relocation and wounded survivor remain published exactly once");
     auto *replacement=h.flow->encounter()->combat();

@@ -69,7 +69,7 @@ struct Dump {
         F(effects); F(lightAndResistances); F(rested); F(newDay);)
     V(XeenJourneyRandomState, F(algorithm); F(state); F(count);)
     V(XeenMonsterTreasureItem, F(source); F(item);)
-    V(XeenMonsterTreasure, F(gold); F(gems); F(pendingMask); F(pendingGold); F(weapons); F(armor);)
+    V(XeenMonsterTreasure, F(gold); F(gems); F(pendingMask); F(pendingGold); F(weapons); F(armor); F(miscellaneous);)
     V(XeenHeadIndicators, F(left); F(right);)
     V(XeenHeadCache, F(mapId); F(overrides);)
     V(XeenWorldFlags, F(values);)
@@ -115,12 +115,17 @@ void selfTest() {
     s.exploredTiles={{23,{}}};s.exploredTiles[0].cells[31]=128;
     s.journey->random->count = 0xffffffffffffffffULL;
     s.journey->serviceEconomy->bank.gold = 123;
+    auto &orc=s.journey->actors[2];orc.hp=0;orc.x=orc.y=-128;orc.activated=false;orc.accounted=true;orc.lifecycle=XeenActorLifecycle::Defeated;
+    s.journey->treasure->miscellaneous[0]={2,{9,15,8,0}};
     const auto b = decoded(XeenSaveFormat::encode(s)).fields;
     save_test::check(b.at("snapshot.characters[29].skills[17]")=="255", "skill omitted");
     save_test::check(b.at("snapshot.exploredTiles[0].cells[31]")=="128", "exploration omitted");
     save_test::check(b.at("snapshot.characters[29].awards[127]") == "7", "award omitted");
     save_test::check(b.at("snapshot.journey.value.random.value.count") == "18446744073709551615", "uint64 truncated");
     save_test::check(b.at("snapshot.journey.value.serviceEconomy.value.bank.gold") == "123", "bank omitted");
+    const std::string misc="snapshot.journey.value.treasure.value.miscellaneous";
+    save_test::check(b.at(misc+"[0].source")=="2" && b.at(misc+"[0].item.material")=="9" &&
+        b.at(misc+"[0].item.id")=="15" && b.at(misc+"[0].item.state")=="8" && b.at(misc+"[9].item.frame")=="0","Pending Misc omitted");
     bytes.back() ^= 1;
     save_test::rejects([&] { decoded(bytes); });
     std::cout << "Canonical dump, DOS bytes, awards, RNG, bank and CRC rejection passed\n";

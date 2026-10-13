@@ -107,6 +107,7 @@ void refusal(Inputs &in) {
         check(*f.p.encounterContext==context && f.w.sessionState().journeyRandom()==rng &&
             f.flow->encounter()->result().movementOpportunities==1,"Admitted cancellation/failure lost response or charged time");
         check(f.p.roster.at(s.activeRosterIds[1]).currentHp==0,"Terminal member healed");
+        check(f.p.roster.at(s.activeRosterIds[0]).currentSp==(cancel && power==4?1:0),"Only First Aid cancellation, not a failed effect, refunds SP");
     }
     auto s=source(in,16,false);s.camera={23,11,11,XeenDirection::East};Fixture f(in,s);
     const auto before=XeenSaveFormat::encode(f.snapshot());open(f);key(f,'u');
@@ -115,6 +116,42 @@ void refusal(Inputs &in) {
     s=source(in,4,true);Fixture cancelled(in,s);const auto initial=XeenSaveFormat::encode(cancelled.snapshot());
     open(cancelled);key(cancelled,InputKey::Escape);key(cancelled,InputKey::Escape);quiet(cancelled);
     check(initial==XeenSaveFormat::encode(cancelled.snapshot()),"Pre-admission cancellation changed state");
+}
+void itemCancellation(Inputs &in) {
+    for(bool indoor:{false,true})for(unsigned power:{4u,8u,9u,37u})for(unsigned sp:{0u,7u})for(unsigned charges:{1u,2u}) {
+        auto s=source(in,power,indoor,charges);const auto owner=s.activeRosterIds[0];
+        s.characters[owner].currentSp=sp;
+        Fixture f(in,s);const auto context=*f.p.encounterContext;const auto rng=f.w.sessionState().journeyRandom();
+        check(XeenCharacterRules::maxSp(f.p.roster.at(owner),{context.year})==0,"Cancellation fixture must have zero maximum SP");
+        open(f);key(f,'u');const auto frame=f.flow->frame().presentation();const auto input=f.flow->displayedInput();
+        key(f,InputKey::Escape);const auto expected=sp+(power==4?1:0);
+        check(f.p.roster.at(owner).currentSp==expected,"Only First Aid Escape grants uncapped 1 SP to item user");
+        replay(f,frame,input,CancelInteractionAction{});quiet(f);
+        const auto &user=f.p.roster.at(owner);
+        check(user.currentSp==expected && f.p.monsterTreasure->gems==0,"Cancellation replay changed refund or gems");
+        check(charges==1?xeenSameItem(user.miscellaneous[0],s.characters[owner].miscellaneous[1]):user.miscellaneous[0].state==1,
+            "Escape must spend exactly one charge and compact exhausted item");
+        check(*f.p.encounterContext==context && f.w.sessionState().journeyRandom()==rng &&
+            f.flow->encounter()->result().movementOpportunities==1,"Escape changed time/RNG or repeated response");
+        const auto saved=XeenSaveFormat::encode(f.snapshot());Fixture restored(in,XeenSaveFormat::decode(saved));
+        check(saved==XeenSaveFormat::encode(restored.snapshot()),"Item refund did not restore exactly");
+    }
+}
+void miscTreasure(Inputs &in) {
+    auto s=source(in,4,false);const auto owner=s.activeRosterIds[0];
+    s.characters[owner].miscellaneous={};
+    auto &treasure=*s.journey->treasure;treasure.pendingMask=1;treasure.pendingGold=10;
+    treasure.miscellaneous[0]={0,{3,8,7,0}};
+    // A visible distant survivor keeps pending treasure at a legal Quiet boundary.
+    auto &survivor=s.journey->actors[8];survivor.x=12;survivor.y=11;survivor.hp=25;
+    survivor.activated=true;survivor.lifecycle=XeenActorLifecycle::Present;survivor.accounted=false;
+    const auto gold=treasure.gold;const auto rng=s.journey->random;
+    Fixture f(in,s);f.act(NavigationAction::TurnLeft);quiet(f);
+    check(xeenSameItem(f.p.roster.at(owner).miscellaneous[0],treasure.miscellaneous[0].item),"Misc receipt did not publish original item bytes");
+    check(f.p.monsterTreasure->gold==gold+10 && !f.p.monsterTreasure->storedItems() &&
+        !f.p.monsterTreasure->pending() && f.w.sessionState().journeyRandom()==rng,"Misc receipt repeated gold or RNG");
+    const auto saved=XeenSaveFormat::encode(f.snapshot());Fixture restored(in,XeenSaveFormat::decode(saved));
+    check(saved==XeenSaveFormat::encode(restored.snapshot()),"Delivered Misc did not restore exactly");
 }
 void impacts(Inputs &in) {
     for(unsigned power:{3u,5u,6u,11u,15u})for(unsigned distance:{1u,2u,3u}) {
@@ -298,6 +335,6 @@ void found(Inputs &in) {
 int main(int argc,char **argv) {try {
     check(argc==2,"usage: m61-part-b <installation>");auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Installation unavailable");Inputs in(*installation);
     std::ostringstream captured;auto *old=std::cout.rdbuf(captured.rdbuf());
-    try {effects(in);refusal(in);impacts(in);targetRetry(in);castingParity(in);survivingResponse(in);jumpArrival(in);found(in);}catch(...){std::cout.rdbuf(old);throw;}
+    try {effects(in);refusal(in);itemCancellation(in);miscTreasure(in);impacts(in);targetRetry(in);castingParity(in);survivingResponse(in);jumpArrival(in);found(in);}catch(...){std::cout.rdbuf(old);throw;}
     std::cout.rdbuf(old);std::cout<<"M61 Part B supported powers, item settlement, parity, refusals, live projectile RNG and restore passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

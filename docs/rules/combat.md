@@ -399,9 +399,9 @@ actually generated Misc item.
 generated Misc container, power and state into the separate Misc treasure array.
 Its category-3 branch is at file `0x2c4f5`; the three writes are at `0x2c513`,
 `0x2c524` and `0x2c535`. See [monster treasure evidence](evidence.md#monster-treasure-staging).
-MMModern's `ReferenceMiscellaneousDropLoss` still follows the port defect at this
-baseline. Staging is settled; this does not establish all downstream delivery
-and full-backpack behavior in DOS.
+**Implemented (M61 Part C):** MMModern stages and delivers Misc through its
+existing shared rules without changing generation draws or their order. Staging
+is settled; downstream delivery and full-backpack DOS behavior remain unverified.
 
 Treasure delivery scans categories and slots in order. It prefers the Event's
 selected recipient when valid, then eligible party members with space in that

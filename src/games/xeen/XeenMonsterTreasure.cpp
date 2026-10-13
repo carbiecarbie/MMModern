@@ -14,16 +14,19 @@ void xeenValidateMonsterTreasure(const XeenMonsterTreasure &value) {
 	require(value.pendingGold == 10 * count &&
 		std::uint64_t(value.gold) + value.pendingGold <= std::numeric_limits<std::uint32_t>::max());
 	std::uint32_t sources = 0;
-	for (unsigned category = 0; category < 2; ++category) {
+	for (unsigned category = 0; category < 3; ++category) {
 		bool empty = false;
-		for (const auto &entry : category ? value.armor : value.weapons) {
+		for (const auto &entry : category == 2 ? value.miscellaneous : category ? value.armor : value.weapons) {
 			if (!entry.item.id) {
 				require(entry == XeenMonsterTreasureItem{});
 				empty = true;
 				continue;
 			}
-			require(!empty && entry.source < 12 && entry.item.id <= (category ? 7 : 33) &&
-				entry.item.material == 0 && entry.item.state == 0 && entry.item.frame == 0);
+			require(!empty && entry.source < 12 && entry.item.frame == 0);
+			if (category == 2)
+				require(entry.item.material >= 1 && entry.item.material <= 9 && entry.item.id <= 15 &&
+					entry.item.state >= 1 && entry.item.state <= 8);
+			else require(entry.item.id <= (category ? 7 : 33) && entry.item.material == 0 && entry.item.state == 0);
 			const auto bit = 1u << entry.source;
 			require(!(sources & bit));
 			sources |= bit;
@@ -37,7 +40,7 @@ namespace mmodern {
 XeenMonsterDropCandidate::XeenMonsterDropCandidate(const XeenMonsterTreasure &before,unsigned source) : treasure(before) {
 	xeenValidateMonsterTreasure(before);
 	bool stored = false;
-	for (const auto &entries : {before.weapons, before.armor}) for (const auto &entry : entries)
+	for (const auto &entries : {before.weapons, before.armor, before.miscellaneous}) for (const auto &entry : entries)
 		stored = stored || (entry.item.id && entry.source == source);
 	if (source>=12 || stored || (before.pendingMask & (1u<<source))) throw std::invalid_argument("Duplicate or invalid Orc production");
 	if (std::uint64_t(before.gold)+before.pendingGold+10>std::numeric_limits<std::uint32_t>::max())
@@ -59,10 +62,12 @@ bool XeenMonsterDropCandidate::service(XeenConsequenceDraw &draw) {
 	}
 	case Step::Enchantment: { const auto n=draw.draw(1,100);if (n) step=category>85 ? Step::Special : Step::Store;break; }
 	case Step::Special: { const auto n=draw.draw(1,15);if (n) { generated.item.id=static_cast<std::uint8_t>(*n);step=Step::Charges; } break; }
-	case Step::Charges: { const auto n=draw.draw(1,8);if (n) { generated.item.state=static_cast<std::uint8_t>(*n);outcome=XeenMonsterDropOutcome::ReferenceMiscellaneousDropLoss;step=Step::Done; } break; }
+	case Step::Charges: { const auto n=draw.draw(1,8);if (n) { generated.item.state=static_cast<std::uint8_t>(*n);step=Step::Store; } break; }
 	case Step::Store: {
 		outcome=XeenMonsterDropOutcome::CategoryCapacityLoss;
-		for (auto &entry:armor ? treasure.armor : treasure.weapons) if (!entry.item.id) { entry=generated;outcome=XeenMonsterDropOutcome::Item;break; }
+		// DOS WORLD/XEEN.DAT 0x2c4f5..0x2c535 stages Misc in its own array.
+		for (auto &entry:category>85 ? treasure.miscellaneous : armor ? treasure.armor : treasure.weapons)
+			if (!entry.item.id) { entry=generated;outcome=XeenMonsterDropOutcome::Item;break; }
 		step=Step::Done;break;
 	}
 	case Step::Done: break;
@@ -79,13 +84,13 @@ XeenMonsterDeliveryCandidate xeenPrepareMonsterDelivery(const XeenMonsterTreasur
 		eligible=eligible || c.canAct();
 		result.globallyFull=result.globallyFull && c.weapons.back().id && c.armor.back().id && c.accessories.back().id && c.miscellaneous.back().id;
 	}
-	for (unsigned category=0;category<2;++category) for (auto &entry:category ? result.treasure.armor : result.treasure.weapons) {
+	for (unsigned category=0;category<3;++category) for (auto &entry:category==2 ? result.treasure.miscellaneous : category ? result.treasure.armor : result.treasure.weapons) {
 		if (!entry.item.id) continue;
-		auto &record=result.records.at(result.count++);record.production=entry;record.armor=category!=0;
+		auto &record=result.records.at(result.count++);record.production=entry;record.armor=category==1;record.miscellaneous=category==2;
 		if (result.globallyFull) record.loss=XeenMonsterDeliveryLoss::GloballyFull;
 		else {
 			for (auto &c:result.characters) {
-				auto &items=category ? c.armor : c.weapons;
+				auto &items=category==2 ? c.miscellaneous : category ? c.armor : c.weapons;
 				if (c.canAct() && xeenItemHasTailCapacity(items)) { items.back()=entry.item;xeenCompactItems(items);record.recipient=c.rosterId;break; }
 			}
 			if (!record.recipient) record.loss=eligible ? XeenMonsterDeliveryLoss::CategoryTailsFull : XeenMonsterDeliveryLoss::NoEligibleRecipient;
@@ -101,7 +106,7 @@ XeenMonsterTreasure xeenPrepareMonsterGoldForfeiture(const XeenMonsterTreasure &
 }
 XeenMonsterTreasure xeenPrepareMonsterGoldCredit(const XeenMonsterTreasure &before) {
 	xeenValidateMonsterTreasure(before);
-	for (unsigned category=0;category<2;++category) for (const auto &entry:category ? before.armor : before.weapons)
+	for (const auto &entries : {before.weapons, before.armor, before.miscellaneous}) for (const auto &entry : entries)
 		if (entry.item.id) throw std::invalid_argument("Monster items must be delivered before gold credit");
 	auto after=before;after.gold+=after.pendingGold;after.pendingGold=after.pendingMask=0;return after;
 }

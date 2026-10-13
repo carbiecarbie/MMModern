@@ -261,7 +261,7 @@ void XeenSaveFormat::validate(const XeenSaveSnapshot &s) {
 	if(j.treasure) {
 		xeenValidateMonsterTreasure(*j.treasure);
 		auto sources = j.treasure->pendingMask;
-		for (const auto &entries : {j.treasure->weapons, j.treasure->armor})
+		for (const auto &entries : {j.treasure->weapons, j.treasure->armor, j.treasure->miscellaneous})
 			for (const auto &entry : entries) if (entry.item.id) sources |= 1u << entry.source;
 		for(unsigned i=0;i<12;++i) if(sources & (1u<<i)) {
 			require(i<j.actors.size(),"Monster treasure source missing");
@@ -387,6 +387,11 @@ std::vector<std::uint8_t> XeenSaveFormat::encode(const XeenSaveSnapshot &s) {
 	unsigned weapons=0,armor=0;for(const auto &r:v.weapons) weapons+=r.item.id!=0;for(const auto &r:v.armor) armor+=r.item.id!=0;
 	out.u8(weapons);out.u8(armor);
 	for(unsigned category=0;category<2;++category) for(const auto &r:category?v.armor:v.weapons) if(r.item.id) {
+		out.u8(r.source);out.u8(r.item.material);out.u8(r.item.id);out.u8(r.item.state);out.u8(r.item.frame);
+	}
+	unsigned miscellaneous=0;for(const auto &r:v.miscellaneous) miscellaneous+=r.item.id!=0;
+	out.u8(miscellaneous);
+	for(const auto &r:v.miscellaneous) if(r.item.id) {
 		out.u8(r.source);out.u8(r.item.material);out.u8(r.item.id);out.u8(r.item.state);out.u8(r.item.frame);
 	}
 	for (bool flag:j.worldFlags->values) out.u8(flag);
@@ -556,6 +561,12 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 		auto &r=(category?v.armor:v.weapons)[i];r.source=in.u8();r.item={in.u8(),in.u8(),in.u8(),in.u8()};
 		require(r.item.id!=0,"Empty wire treasure");
 	}
+	const unsigned miscellaneous=in.u8();
+	require(miscellaneous<=10 && weapons+armor+miscellaneous<=12,"Invalid treasure extent");
+	for(unsigned i=0;i<miscellaneous;++i) {
+		auto &r=v.miscellaneous[i];r.source=in.u8();r.item={in.u8(),in.u8(),in.u8(),in.u8()};
+		require(r.item.id!=0,"Empty wire treasure");
+	}
 	j.treasure=v;
 	j.worldFlags.emplace();
 	for (auto &flag:j.worldFlags->values) flag=in.boolean();
@@ -631,7 +642,7 @@ XeenSaveSnapshot XeenSaveFormat::decode(const std::vector<std::uint8_t> &bytes) 
 		in.position+=nameLength;
 		require(validName(*s.name), "invalid save name");
 	}
-	require(suffixSize==expected+127+5u*n+3875+10*objectCount+2+35*exploredCount+headSize+1+nameLength,"Invalid city/economy suffix length");
+	require(suffixSize==expected+127+1+5u*(n+miscellaneous)+3875+10*objectCount+2+35*exploredCount+headSize+1+nameLength,"Invalid city/economy suffix length");
 
 	s.journey = std::move(j);
 

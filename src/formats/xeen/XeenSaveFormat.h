@@ -23,8 +23,8 @@ public:
 
 class XeenSaveFormat {
 public:
-	// M58 retains all eighteen skill bytes and physical explored-tile bitsets.
-	static constexpr std::uint16_t kJourneyVersion = 11;
+	// M61 Part C adds pending Misc monster treasure; schema/content are retained.
+	static constexpr std::uint16_t kJourneyVersion = 12;
 	static constexpr std::uint16_t kJourneySchema = 9;
 	static constexpr std::uint16_t kJourneyContent = 14;
 	static constexpr std::size_t kHeaderSize = 20;

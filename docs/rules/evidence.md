@@ -78,6 +78,12 @@ original-program checks.
 | Normal Item Use spends before dispatch, without learned-cast resource debit | Entry `0x313b7`, admission `0x313ce`; decrement `0x3145c`; caster pointer assignment `0x3146d..0x31470`; dispatch call `0x3149e`; exhausted removal `0x314a4..0x314c6`; monster response `0x314ce` | Retained DOS play establishes no time advance, failed Jump spending and last-charge removal. The item caller has no SP/gem debit. Combat restrictions and individual effect failures remain separate checks. |
 | Escaping a First Aid item's target prompt grants the user 1 SP | Item dispatcher `0x39e4b`; power-4 branch `0x39e79` reaches First Aid `0x2f3f5`; ID 26 at `0x2f3fa`; prompt `0x2f0ba`; Escape branch `0x2f146`; refund `0x2f34b`, SP addition `0x2f386` | The caller set this user as caster and did not debit SP. Refund adds to caster field `0x158`, with no maximum-SP clamp or item-origin test; party gem addition at `0x2f38f..0x2f393` is zero for this spell. Charge and normal post-effect settlement remain. This does not establish other powers' refund IDs. |
 
+**Implemented (M61 Part C):** First Aid item Escape grants the user 1 SP
+without a maximum-SP clamp, retaining the spent charge. No other item power
+gains this refund. Both this path and Misc staging were rechecked read-only
+against the persistent Ghidra project and the same original SHA-256; bounded
+instructions and query are retained in `D:\MModern-re\m61c-recheck\`.
+
 ### Item-power dispatch and variants
 
 The 73-entry table `[0x3a114,0x3a1a6)` is indexed by `power - 1` from
@@ -108,9 +114,10 @@ remain open.
 **DOS static, high confidence:** the original retains generated Misc monster
 treasure in its own category. The pinned `Combat::attack2` Misc case instead
 copies the temporary character's accessory record into staged accessories.
-MMModern's `ReferenceMiscellaneousDropLoss` follows that port defect at the
-research baseline. This is a confirmed discrepancy, not an intentional original
-loss rule; this documentation change does not fix production behavior.
+**Implemented (M61 Part C):** MMModern stages Misc in its own ten-slot array
+and delivers it with the existing shared rules, preserving the generation draws
+and their order. Pending Misc is retained in save envelope v12 (schema 9/content
+14). Full-pack and recipient fallback rules are unchanged.
 
 The original attack/death routine starts at `0x2bdf8`. Its generation-result
 dispatch is at `0x2c3f1..0x2c401`. The table at `0x2c592` uses code-segment

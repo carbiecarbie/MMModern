@@ -126,15 +126,34 @@
 // Mainland old: d296ae3f83cdacb2c2a44828904c89f7f952a5ecf350ffa6f24d09b991a8124a
 // Services old: e6dff2020eb0b675643c70923e51c2927e55df525c7d396e66d60f80f2ac7730
 // Temple old: 8200689f224f00a977d5df6360a4b2c4d36f65375da6511a155a4975e526722e
+// M61 Part C: maintainer approved the v12 audit and replacements on 2026-10-13.
+// Clean baseline d5067c44be3ff07e03df90eac4082456a497e225 executables were
+// preserved before code changes and reproduced all three v11 hashes.
+// Complete traces match for 7,855 / 35,980 / 30,711 lines, and every common
+// decoded snapshot field is identical across all ten checkpoints; none removed.
+// Each save adds one zero Misc-count byte after the unchanged weapon/armor
+// records. The 51 added decoded fields are Misc array size 10 and five zero
+// fields per slot (source, material, id, state, frame). Only envelope version
+// 11 -> 12, payload length (+1) and CRC also change; schema 9/content 14 remain.
+// Every checkpoint matches the independent byte projection; native final
+// reload/re-save is exact for all three scenarios. No unexplained differences.
+// Preserved baseline: D:/M44-audits/m61c-d5067c44-preserve.
+// Local audit: build-rel/m61c-digest-comparison/digest-audit.json.
+// Independent projection and every checkpoint's length/CRC deltas:
+// build-rel/m61c-digest-comparison/format-explanation.txt and checkpoint-deltas.tsv.
+// Evidence stays local; never commit original-data saves.
+// Mainland old: d8c361f620b7bb1f5c1d6afb7da88cdbee8fcfb5f82c75a1795acd690ef20d01
+// Services old: a08fe83f6ab5267743355cf2138750034a166599cd808fdd6d334faca50989bc
+// Temple old: 91b6af7f310ae55f72063add8542c5f1c3d02655e7ba50f2a887860f788c8fb1
 #include <array>
 #include <cstdint>
 namespace m44_baseline {
-inline constexpr const char *revision = "7e44908955f6c3b1c356b1e464b737411820587a + M59 Part A v11";
+inline constexpr const char *revision = "d5067c44be3ff07e03df90eac4082456a497e225 + M61 Part C v12";
 struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 inline constexpr std::array<Scenario,3> scenarios{{
-    {"mainland-combat-myra-phirna",3626689381u,"d8c361f620b7bb1f5c1d6afb7da88cdbee8fcfb5f82c75a1795acd690ef20d01"},
-    {"vertigo-buy-repair-training",7u,"a08fe83f6ab5267743355cf2138750034a166599cd808fdd6d334faca50989bc"},
-    {"temple-recovery",3626689381u,"91b6af7f310ae55f72063add8542c5f1c3d02655e7ba50f2a887860f788c8fb1"}
+    {"mainland-combat-myra-phirna",3626689381u,"5985ea0519c2cb5f033b529f0230e9587170b3f9b407de6eabbad7b6a183e05f"},
+    {"vertigo-buy-repair-training",7u,"6b91ec27b861162ae399ddde7b8a1825271d7404f8318a612ad4aa0b91fca83c"},
+    {"temple-recovery",3626689381u,"81a127bab182ab86ce42aa217fd836e5bf0e8e95df0aff804e3833e03a019fe2"}
 }};
 }
 #endif

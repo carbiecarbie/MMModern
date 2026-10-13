@@ -18,14 +18,15 @@ struct XeenMonsterTreasureItem {
 };
 struct XeenMonsterTreasure {
 	XeenMutable<std::uint32_t> gold = 0, gems = 0, pendingMask = 0, pendingGold = 0;
-	std::array<XeenMonsterTreasureItem,10> weapons{}, armor{};
+	std::array<XeenMonsterTreasureItem,10> weapons{}, armor{}, miscellaneous{};
 	bool ready() const noexcept { return pendingMask != 0; }
 	bool pending() const noexcept { return ready(); }
-	bool storedItems() const noexcept { return weapons[0].item.id || armor[0].item.id; }
+	bool storedItems() const noexcept { return weapons[0].item.id || armor[0].item.id || miscellaneous[0].item.id; }
 	bool dormant() const noexcept { return storedItems() && !ready(); }
 	friend bool operator==(const XeenMonsterTreasure &a, const XeenMonsterTreasure &b) noexcept {
 		return a.gold == b.gold && a.gems == b.gems && a.pendingMask == b.pendingMask &&
-			a.pendingGold == b.pendingGold && a.weapons == b.weapons && a.armor == b.armor;
+			a.pendingGold == b.pendingGold && a.weapons == b.weapons && a.armor == b.armor &&
+			a.miscellaneous == b.miscellaneous;
 	}
 	friend bool operator!=(const XeenMonsterTreasure &a, const XeenMonsterTreasure &b) noexcept { return !(a == b); }
 };
@@ -33,7 +34,7 @@ struct XeenMonsterTreasure {
 // canonical world-owned defeated/accounted Orcs.
 void xeenValidateMonsterTreasure(const XeenMonsterTreasure &);
 struct XeenConsequenceDraw;
-enum class XeenMonsterDropOutcome { None, Item, ReferenceMiscellaneousDropLoss, CategoryCapacityLoss };
+enum class XeenMonsterDropOutcome { None, Item, CategoryCapacityLoss };
 struct XeenMonsterDropCandidate {
 	XeenMonsterTreasure treasure;
 	XeenMonsterDropOutcome outcome = XeenMonsterDropOutcome::None;
@@ -50,6 +51,7 @@ enum class XeenMonsterDeliveryLoss { None, GloballyFull, NoEligibleRecipient, Ca
 struct XeenMonsterDeliveryRecord {
 	XeenMonsterTreasureItem production;
 	XeenMutable<bool> armor = false;
+	XeenMutable<bool> miscellaneous = false;
 	std::optional<std::uint8_t> recipient;
 	XeenMonsterDeliveryLoss loss = XeenMonsterDeliveryLoss::None;
 };

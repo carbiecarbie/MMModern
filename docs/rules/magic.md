@@ -119,7 +119,7 @@ full 125 SP/20 gems. The pin supplies Raise Dead ID 56 and refunds only
 previous Suppress Poison analysis establishes the same ID/refund convention.
 See [the original-program evidence](evidence.md#spell-and-item-control-flow).
 
-**DOS static (2026-10-12), high confidence: First Aid item cancellation.**
+**DOS static (2026-10-12), high confidence; implemented in M61 Part C: First Aid item cancellation.**
 Using power 4 and then Escape at its member prompt spends the charge and grants
 the item user 1 SP without an initial SP debit or maximum-SP clamp. Its gem refund
 is zero. The traced item caller, shared prompt and unconditional refund helper

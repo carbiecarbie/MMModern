@@ -128,6 +128,7 @@ int main(int argc,char **argv) {
    for(unsigned i=0;i<12;++i){
     bool stored=false;for(const auto &entry:treasure.weapons)stored=stored||(entry.item.id && entry.source==i);
     for(const auto &entry:treasure.armor)stored=stored||(entry.item.id && entry.source==i);
+    for(const auto &entry:treasure.miscellaneous)stored=stored||(entry.item.id && entry.source==i);
     if(fixture.journey->actors.at(i).accounted && !(treasure.pendingMask&(1u<<i)) && !stored){source=i;break;}
    }
    check(source<12 && !treasure.weapons[0].item.id,
