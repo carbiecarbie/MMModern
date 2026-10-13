@@ -4,8 +4,10 @@
 #include "games/xeen/XeenActor.h"
 #include "games/xeen/XeenLearnedSpellRules.h"
 #include "core/NavigationAction.h"
+#include "core/PresentationClock.h"
 #include "formats/xeen/XeenMonsterAppearance.h"
 #include <map>
+#include <memory>
 #include <random>
 #include <stdexcept>
 #include <tuple>
@@ -69,21 +71,20 @@ public:
  void spellEffect(unsigned owner,std::uint64_t now=0,bool reset=false) noexcept {
   // Character::addHitPoints clears _charFX for each invocation, including
   // zero-HP Cure Poison; giveTake's duplicate recipients remain suppressed.
-  if(owner<portraits.size() && (reset || portraits[owner].spellFrame==4)) {portraits[owner].spellFrame=0;portraits[owner].spellDeadline=now+100;}
+  if(owner<portraits.size() && (reset || portraits[owner].spellFrame==4)) {portraits[owner].spellFrame=0;portraits[owner].spellDeadline=PresentationClock::afterMilliseconds(now,2);}
  }
  void portraitDamage(unsigned owner,unsigned frame,std::uint64_t now=0) noexcept {
-  if(owner<portraits.size()) {portraits[owner].damageFrame=frame;portraits[owner].damageTicks=1;portraits[owner].damageDeadline=now+100;}
+  if(owner<portraits.size()) {portraits[owner].damageFrame=frame;portraits[owner].damageTicks=1;portraits[owner].damageDeadline=PresentationClock::afterMilliseconds(now,2);}
  }
  void hitSplat(unsigned row,int damage,unsigned frame,bool alternatePosition,std::uint64_t now=0) noexcept {
-  if(row<3 && damage>0)splats[row]={frame,3,damage,alternatePosition,now+100};
+  if(row<3 && damage>0)splats[row]={frame,3,damage,alternatePosition,0};
  }
  bool advanceFeedback(std::uint64_t now) noexcept {
   bool changed=false;
   for(auto &p:portraits) {
-   if(p.spellFrame<4 && now>=p.spellDeadline) {++p.spellFrame;p.spellDeadline=now+100;changed=true;}
+   if(p.spellFrame<4 && now>=p.spellDeadline) {++p.spellFrame;p.spellDeadline=PresentationClock::afterMilliseconds(now,2);changed=true;}
    if(p.damageTicks && now>=p.damageDeadline) {--p.damageTicks;changed=true;}
   }
-  for(auto &s:splats)if(s.duration && now>=s.deadline) {--s.duration;s.deadline=now+100;changed=true;}
   return changed;
  }
 	explicit XeenScenePresentation(std::uint32_t seed=std::random_device{}()) : _random(seed) {}
@@ -172,14 +173,32 @@ public:
 		const auto i=_actors.find(*value.identity);
 		if (i!=_actors.end()) {i->second.animation.frame=8+value.frame;i->second.animation.postAttackDelay=value.frame==3?5:1;}
 	}
-	void advance(XeenMapIdentity map) {
-		overallFrame=(overallFrame+1)%5;floatPhase=(floatPhase+1)%8;++wallPhase;
+	// draw3d updates UI/water before composition (DAT 0x10bda..0x10bf4).
+	void beginDraw() noexcept {
 		if (!(_uiPhase=(_uiPhase+1)%4)) water=!water;
+	}
+	// animate3d runs after the chosen scene has been composed (DAT 0x107b6).
+	void advanceAfterDraw(XeenMapIdentity map) {
+		overallFrame=(overallFrame+1)%5;floatPhase=(floatPhase+1)%8;++wallPhase;
 		for (auto &[id,entry]:_actors) if (id.mapId==map) entry.animation.advance(entry.data);
+        for(auto &s:splats)if(s.duration)--s.duration;
+	}
+	void advance(XeenMapIdentity map) {composeFromRetained(false);beginDraw();advanceAfterDraw(map);}
+	// Reconstruction reads the values that produced the retained frame, while
+	// the live values already describe the next draw. Neither view owns gameplay.
+	void composeFromRetained(bool reconstruct) noexcept {_reconstruct=reconstruct && bool(_drawn);}
+	const XeenScenePresentation &drawingState() const noexcept {return _reconstruct?*_drawn:*this;}
+	void retainDrawingState() {
+		if(_reconstruct)return;
+		auto drawn=std::make_shared<XeenScenePresentation>(*this);
+		drawn->_drawn.reset();drawn->_reconstruct=false; // No snapshot chain.
+		_drawn=std::move(drawn);
 	}
 	static int floatX(unsigned phase) {static constexpr int values[]{-2,-1,0,1,2,1,0,-1};return values[phase%8];}
 	static int floatY(unsigned phase) {static constexpr int values[]{-2,0,2,0,-1,0,2,0};return values[phase%8];}
 private:
+	std::shared_ptr<const XeenScenePresentation> _drawn;
+	bool _reconstruct=false;
 	struct Entry {XeenMonsterRecord data;XeenMonsterAnimation animation;};
 	std::mt19937 _random;
 	unsigned _uiPhase=0;

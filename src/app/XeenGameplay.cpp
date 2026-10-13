@@ -98,6 +98,10 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
  bool exposed=false;
  try {
   XeenGameplayServices services = supplied;
+  if(!services.clock) {
+   services.clock=[] {return SdlWindow::presentationNanoseconds()/1000000;};
+   if(!services.presentationClock)services.presentationClock=[] {return SdlWindow::presentationNanoseconds();};
+  }
   std::function<void()> sourceCheck;
   const auto callback = [&](auto &&provider) {
    if (sourceCheck) sourceCheck();
@@ -212,7 +216,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
 	  [&](XeenWorld &candidate, const XeenPartyState &candidateParty, const XeenCamera &candidateCamera,
 	      std::uint64_t ordinary, XeenMonsterAppearance actor) {
 	   return services.composeEncounter(candidate,candidateParty,candidateCamera,ordinary,actor);
-	  });
+	  }, nullptr, services.presentationClock);
   EncounterHandoff handoff(flow);
   flow.prepareJourneySprites = [&] {
    const auto ticket = flow.encounter()->ticket();
@@ -472,6 +476,8 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    if(panel){checkPanel();panel->completeInput(frame);}else {flow.completeInputHandoff(frame);handoff.retain();}
   };
   handler.protectAllKeys = flow.journey();
+  handler.nextPresentationDeadline=[&,alive] {return *alive && !panel ? flow.nextPresentationDeadline() : std::nullopt;};
+  handler.presentationClock=[&,alive] {return *alive?flow.presentationNow():SdlWindow::presentationNanoseconds();};
   handler.withDisplayedInput = [&,alive](const PlayerAction &action,std::uint64_t input) -> std::optional<IndexedFrame> { if(!*alive)return {};return dispatch(action,input); };
   handler.withPresentedInput = [&,alive](const PlayerAction &action,std::uint64_t input,const auto &frame) -> std::optional<IndexedFrame> { if(!*alive)return {};return dispatch(action,input,frame); };
   handler.beginCycle = [&,alive](std::uint64_t cycle) {

@@ -1,5 +1,6 @@
 #ifndef MMODERN_APP_XEEN_ENCOUNTER_FLOW_H
 #define MMODERN_APP_XEEN_ENCOUNTER_FLOW_H
+#include "core/PresentationClock.h"
 
 #include "core/PlayerAction.h"
 #include "formats/xeen/XeenMonsterAppearance.h"
@@ -49,12 +50,13 @@ public:
 	struct Ticket { XeenEncounterState state; std::uint64_t generation; std::optional<XeenCombat::Ticket> combat;
 		std::uint64_t boundaryGeneration = 0; };
 	XeenEncounterFlow(XeenWorld &, XeenPartyState &, XeenCamera &, const XeenGameFlags &,
-		const XeenEventPresenter::Clock &, const XeenJourneySetup &);
+		const XeenEventPresenter::Clock &, const XeenJourneySetup &, const PresentationClock::Source * = nullptr);
 	XeenEncounterFlow(XeenWorld &, XeenPartyState &, XeenCamera &, const XeenGameFlags &,
-		const XeenEventPresenter::Clock &, XeenJourneyRestoreTag);
+		const XeenEventPresenter::Clock &, XeenJourneyRestoreTag, const PresentationClock::Source * = nullptr);
 	~XeenEncounterFlow();
 	bool journeyQuiet() const noexcept;
 	bool journeyMutable() const noexcept;
+    bool journeyNavigationReady() const noexcept;
 	std::uint64_t holdJourneyWork(XeenCombatBoundary::Work);
 	void releaseJourneyWork(XeenCombatBoundary::Work, std::uint64_t);
 	void holdJourneyFrame();
@@ -382,6 +384,12 @@ private:
 	XeenCamera &_camera;
 	const XeenGameFlags &_flags;
 	const XeenEventPresenter::Clock &_clock;
+    const PresentationClock::Source *_nanosecondClock=nullptr;
+    std::uint64_t _lastNanoseconds=0;
+    std::uint64_t counterDeadline(std::uint64_t milliseconds,unsigned ticks) const {
+        const auto sample=_lastNanoseconds/1000000==milliseconds?_lastNanoseconds:PresentationClock::fromMilliseconds(milliseconds);
+        return PresentationClock::ceilMilliseconds(PresentationClock::after(sample,ticks));
+    }
 	const XeenEventFile &_events;
 	XeenCombatBoundary _boundary;
 	std::unique_ptr<XeenCombat> _combat;

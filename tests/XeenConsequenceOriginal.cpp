@@ -216,7 +216,7 @@ void shootOrder(Source &source) {
    for(const auto &p:v.flow->appearance().projectiles){check(!p.enemy&&!p.source,"Player projectile never fabricates monster identity");frame.emplace_back(p.lane,p.row);}
    seen.push_back(frame);
    check(!v.flow->canSave(),"In-flight/impact Shoot exposed save boundary");
-   v.now+=100;v.flow->idle();
+   v.now+=110;v.flow->idle();
    if(v.flow->appearance().kind==XeenMonsterSpriteKind::Attack) {
     XeenRestoreGuard held(v.world,v.party,v.camera,v.flags);
     check(!v.flow->idle() && held.current(),"Unacknowledged Shoot impact replayed RNG/HP/reward");
@@ -257,9 +257,9 @@ void shootLethalPreparation(Source &source) {
   const auto chars=d.party.roster.characters();const auto purse=d.party.monsterTreasure;
   tape={{1,2,1},{1,2,1},{1,2,1},{1,20,19},{1,56,56},{1,100,100}};
   cursor=0;taped=true;check(d.flow->handle(ShootAction{}),"Lethal Shoot starts");d.present();
-  d.now+=100;d.flow->idle();
+  d.now+=110;d.flow->idle();
   check(d.flow->appearance().projectiles.size()==1 && d.flow->appearance().projectiles[0].row==1 && cursor==0,"Ordered depth1 arrival must precede damage draws");
-  d.flow->holdJourneyFrame();d.present();d.now+=100;
+  d.flow->holdJourneyFrame();d.present();d.now+=110;
   bool failed=false;try{d.flow->idle();}catch(const std::overflow_error &){failed=true;}
   if(overflow) {
    check(failed && d.world.sessionState().actors()[9].hp==1 &&
@@ -281,7 +281,7 @@ void shootLethalPreparation(Source &source) {
     d.flow->holdJourneyFrame();bool rejected=false;
     rejected=!d.flow->prepareJourneyFrame(d.flow->ticket(),[]{throw std::bad_alloc();});
     check(rejected && d.flow->appearance().projectiles.size()==appearance.projectiles.size() && d.world.sessionState().journeyRandom()==before,"Failed Shoot composition advanced lanes/RNG");
-    d.flow->holdJourneyFrame();d.present();d.now+=100;d.flow->idle();
+    d.flow->holdJourneyFrame();d.present();d.now+=110;d.flow->idle();
    }
   }
   check(cursor==(lethal?6u:5u),"Ordered Shoot frame sequence introduced random draws");taped=false;
@@ -326,7 +326,7 @@ void indoorShoot(Source &source) {
   unsigned hitFrames=0,hpFrames=0,removedFrames=0;bool failed=false;
   for(unsigned n=0;n<50 && d.party.encounterContext->minutes==saved.journey->context->minutes;++n) {
    check(!d.flow->canSave(),"Indoor volley exposed a quiet save boundary");
-   d.now+=100;
+   d.now+=110;
    try{d.flow->idle();}catch(const std::overflow_error &){failed=true;break;}
    const auto &live=d.world.sessionState().regionalActors(28).at(targetId);
    if(!empty && lethal && live.lifecycle==XeenActorLifecycle::Present && live.hp==1 &&
@@ -395,7 +395,7 @@ void indoorChangedShoot(Source &source) {
   Domain d(source,saved);tape={{1,2,1},{1,2,1},{1,2,1},{1,20,19},{1,50,50}};cursor=0;taped=true;
   check(d.flow->handle(ShootAction{}),"Original changed-wall Shoot begins");d.present();
   for(unsigned n=0;n<50 && d.party.encounterContext->minutes==saved.journey->context->minutes;++n) {
-   d.now+=100;d.flow->idle();d.flow->holdJourneyFrame();d.present();
+   d.now+=110;d.flow->idle();d.flow->holdJourneyFrame();d.present();
   }
   taped=false;
   check(d.party.encounterContext->minutes==saved.journey->context->minutes+1 && cursor==(wall==9?0u:5u),
@@ -403,7 +403,7 @@ void indoorChangedShoot(Source &source) {
   check(d.world.sessionState().regionalActors(28).at(35).hp==(wall==9?1:0),
    "Original Shoot ignored effective barrier geometry");
   if(wall!=9) {
-   for(unsigned n=0;n<50 && !d.flow->canSave();++n) {d.now+=100;d.flow->idle();d.flow->holdJourneyFrame();d.present();}
+   for(unsigned n=0;n<50 && !d.flow->canSave();++n) {d.now+=110;d.flow->idle();d.flow->holdJourneyFrame();d.present();}
    check(d.flow->canSave(),"Settled indoor lethal volley did not return to quiet save");
    const auto settled=d.save();Domain restored(source,settled);
    check(XeenSaveFormat::encode(settled)==XeenSaveFormat::encode(restored.save()),

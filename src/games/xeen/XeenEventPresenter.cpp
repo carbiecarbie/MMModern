@@ -1,4 +1,5 @@
 #include "games/xeen/XeenEventPresenter.h"
+#include "core/PresentationClock.h"
 
 #include <algorithm>
 #include <stdexcept>
@@ -367,7 +368,7 @@ void XeenEventPresenter::startNpcPage() {
 	if (spaces > std::numeric_limits<std::uint64_t>::max() / 2)
 		throw std::overflow_error("NPC speech duration overflow");
 	_npcTiming.remaining = spaces * 2;
-	_npcTiming.deadline = _clock() + 150;
+	_npcTiming.deadline = PresentationClock::afterMilliseconds(_clock(),3);
 }
 
 std::optional<IndexedFrame> XeenEventPresenter::updateNpc() {
@@ -376,7 +377,7 @@ std::optional<IndexedFrame> XeenEventPresenter::updateNpc() {
 		return std::nullopt;
 	const auto now = _clock();
 	if (now < _npcTiming.deadline) return std::nullopt;
-	_npcTiming.deadline = now + 150; // No catch-up loop after a stalled host.
+	_npcTiming.deadline = PresentationClock::afterMilliseconds(now,3); // No catch-up loop after a stalled host.
 	_npcTiming.displayedFrame = _npcTiming.nextFrame;
 	auto frame = _frame;
 	if(_request.kind==XeenPresentationKind::NpcAcknowledgment)frame=drawNpcPage();

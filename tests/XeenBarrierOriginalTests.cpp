@@ -105,7 +105,7 @@ void pauses(Inputs &in,const XeenSaveSnapshot &initial) {
 	for(unsigned n=0;n<20 && !XeenCityEventTestAccess::trapWaiting(*trap.flow);++n)pulse(trap);
 	check(XeenCityEventTestAccess::trapWaiting(*trap.flow),"Trap continuation did not enter animated pause");
 	const auto cursor=XeenCityEventTestAccess::cursor(*trap.flow);const auto deadline=XeenCityEventTestAccess::deadline(*trap.flow);
-	check(deadline==trap.now+250,"giveCharDamage pause must be five 50-ms reference ticks");
+	check(deadline==PresentationClock::afterMilliseconds(trap.now,5),"giveCharDamage pause must be the retained five-counter trap wait until Part B");
 	const auto animation=trap.w.scenePresentation().overallFrame;
 	for(unsigned elapsed:{49u,51u,149u}) {
 		pulse(trap,elapsed);
@@ -120,10 +120,11 @@ void pauses(Inputs &in,const XeenSaveSnapshot &initial) {
  auto unrecorded=initial;unrecorded.exploredTiles.clear();
  Fixture bash(in,unrecorded,true);bash.act(BashAction{});
 	for(unsigned n=0;n<20 && !XeenCityEventTestAccess::published(*bash.flow);++n)pulse(bash);
-	check(XeenCityEventTestAccess::published(*bash.flow) && XeenCityEventTestAccess::deadline(*bash.flow)==bash.now+100,
-		"Bash pause must be two 50-ms reference ticks");
+	check(XeenCityEventTestAccess::published(*bash.flow) && XeenCityEventTestAccess::deadline(*bash.flow)==PresentationClock::afterMilliseconds(bash.now,2),
+		"Bash pause must be two phase-dependent BIOS ticks");
 	const auto bashRng=bash.w.sessionState().journeyRandom();const auto bashHp=bash.p.roster.at(kXeenCombatOwners[0]).currentHp;
-	for(unsigned elapsed:{49u,50u}) {pulse(bash,elapsed);check(XeenCityEventTestAccess::published(*bash.flow) && !bash.flow->canSave() &&
+	const auto bashDeadline=XeenCityEventTestAccess::deadline(*bash.flow);
+	for(unsigned elapsed:{1u,unsigned(bashDeadline-bash.now-2)}) {pulse(bash,elapsed);check(XeenCityEventTestAccess::published(*bash.flow) && !bash.flow->canSave() &&
 		bash.w.sessionState().journeyRandom()==bashRng && bash.p.roster.at(kXeenCombatOwners[0]).currentHp==bashHp,
 		"Sub-deadline Bash advances must retain input without replaying publication");}
 	pulse(bash,1);check(!XeenCityEventTestAccess::published(*bash.flow),"Bash must release pause at its deadline");settle(bash);

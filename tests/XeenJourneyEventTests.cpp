@@ -77,12 +77,12 @@ void modalSdlReturn(const fs::path &path,const XeenSaveSnapshot &saved) {
   std::vector<SDL_Event> pendingKeys;
   const auto key=[&](SDL_Keycode code){SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=code;pendingKeys.push_back(e);e.type=SDL_KEYUP;pendingKeys.push_back(e);};
   auto windowHandler=handler;windowHandler.beginCycle=[&](std::uint64_t){
-   handler.beginCycle(++h.cycle);
+   h.now+=110;handler.beginCycle(++h.cycle);
    for(auto &event:pendingKeys)check(SDL_PushEvent(&event)==1,"modal SDL key/release");
    pendingKeys.clear();
   };
   return SdlWindow().showInteractive(h.flow->frame(),"Modal Event to Quiet input",windowHandler,escape,[&]()->std::optional<IndexedFrame>{
-   check(++loops<60,"modal SDL return bounded");h.now+=100;
+   check(++loops<60,"modal SDL return bounded");
    if(stage==0){key(SDLK_RETURN);key(SDLK_RIGHT);++stage;}
    else if(stage==1){effects(h,1,1,11);check(h.camera->direction==XeenDirection::North,"same SDL batch cannot cross acknowledgment to Quiet");++stage;}
    else if(stage==2){check(h.flow->canSave()&&!h.flow->presentationGeneration(),"genuine modal completion presented before next input");key(SDLK_RIGHT);++stage;}

@@ -27,9 +27,9 @@ bool sameEvents(const XeenEventFile &a,const XeenEventFile &b) {
 }
 }
 XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera &c, const XeenGameFlags &flags,
-		const XeenEventPresenter::Clock &clock, const XeenJourneySetup &setup) :
+		const XeenEventPresenter::Clock &clock, const XeenJourneySetup &setup, const PresentationClock::Source *highResolution) :
 	_journey(true), _journeyStatistics(setup.statistics), _learnedNamesProvider(setup.learnedNamesProvider), _world(w), _party(p), _camera(c), _flags(flags),
-	_clock(clock), _events(_journeyEvents), _boundary(w,p,c) {
+	_clock(clock), _nanosecondClock(highResolution), _events(_journeyEvents), _boundary(w,p,c) {
 	// Detach preparation arguments before compatibility/provider callbacks.
 	const auto characters=setup.characters;
 	const auto context=setup.context;
@@ -124,8 +124,8 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 }
 XeenEncounterFlow::~XeenEncounterFlow() { if (_journey) closeJourney(); }
 XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera &c, const XeenGameFlags &f,
-		const XeenEventPresenter::Clock &clock, XeenJourneyRestoreTag) :
-	_journey(true), _world(w), _party(p), _camera(c), _flags(f), _clock(clock), _events(_journeyEvents), _boundary(w,p,c) {
+		const XeenEventPresenter::Clock &clock, XeenJourneyRestoreTag, const PresentationClock::Source *highResolution) :
+	_journey(true), _world(w), _party(p), _camera(c), _flags(f), _clock(clock), _nanosecondClock(highResolution), _events(_journeyEvents), _boundary(w,p,c) {
 	const auto binding = w._journeyRestoration;
 	if (!binding || !binding->guard || !binding->guard->current() ||
 		&binding->guard->w != &w || &binding->guard->p != &p || &binding->guard->c != &c || &binding->guard->f != &f ||
@@ -210,6 +210,16 @@ bool XeenEncounterFlow::journeyMutable() const noexcept {
 	return _journey && !_rest && !_castingSettlement && !_regionalAutomatic && !_shootIntent && !projectilesPending() && !_busy && !_combat && !_failure && current(ticket()) &&
 		_state.pending() == 0 && _state.phase() == XeenEncounterPhase::Exploring &&
 		_world.sessionState().journeyActivity() == XeenJourneyActivity::Quiet;
+}
+bool XeenEncounterFlow::journeyNavigationReady() const noexcept {
+    // Deliberately narrower than relaxing journeyMutable: menus and saves still
+    // require Quiet. A simple countdown carries no retained actor work.
+    const auto activity=_world.sessionState().journeyActivity();
+    return _journey && !_rest && !_casting && !_castingSettlement && !_regionalAutomatic && !_regionalWork &&
+        !_shoot && !_shootIntent && !projectilesPending() && !_busy && !_combat && !_failure &&
+        !_itemUse && !_smith && !_training && _boundary.quiet() && current(ticket()) &&
+        _state.phase()==XeenEncounterPhase::Exploring &&
+        (activity==XeenJourneyActivity::Quiet || (activity==XeenJourneyActivity::Approach && _state.pending()));
 }
 bool XeenEncounterFlow::itemUseReady() const noexcept { return _itemUse && _itemUse->ready; }
 bool XeenEncounterFlow::itemUseNeedsTarget() const noexcept {
@@ -558,9 +568,16 @@ bool XeenEncounterFlow::presentJourney(const Ticket &entry) {
 	if (!journeyCapacity()) return false;
 	_journeyCapture->initializationPending=false;
     projectilesPresented();
-	if(_rest) {_rest->presented=true;_rest->deadline=_lastTime+(_rest->phase==RestContinuation::Phase::Dream?50:100);}
+    if(_rest) {
+        std::uint64_t acquiredAt=0;guardCallback(entry,[&]{acquiredAt=_clock();});
+        const auto beat=_rest->dreamBeat;
+        const bool fade=_rest->phase==RestContinuation::Phase::Dream && (beat<66 || beat>=80);
+        _rest->presented=true;
+        _rest->deadline=fade?PresentationClock::retraceAfterMilliseconds(acquiredAt):
+            PresentationClock::afterMilliseconds(acquiredAt,_rest->phase==RestContinuation::Phase::Dream?1:2);
+    }
 	auto &s = _world._sessionState;
-	if(_shoot && !_shoot->presented) {_shoot->presented=true;_shoot->deadline=_lastTime+100;}
+	if(_shoot && !_shoot->presented) {_shoot->presented=true;_shoot->deadline=counterDeadline(_lastTime,2);}
 	if (!journeyEvent() && !_rest && !_shoot && !monsterReward() && !_itemUse && !_casting && !_smith && !_training) s._journeyActivity = _state.phase()==XeenEncounterPhase::SupportStopped ? XeenJourneyActivity::SupportStopped : (_state.pending() || _regionalWork || projectilesPending() || _shootIntent || _regionalAutomatic) ? XeenJourneyActivity::Approach : XeenJourneyActivity::Quiet;
 	if (_castingSettlement && (s._journeyActivity==XeenJourneyActivity::Quiet ||
 		s._journeyActivity==XeenJourneyActivity::SupportStopped || journeyEvent() || monsterReward()))
@@ -764,7 +781,7 @@ bool XeenEncounterFlow::attachJourney(const Ticket &entry, const std::function<v
 		observeCombat(); _deadline.reset(); _frame = 0; _appearanceStep = 0;
 		std::uint64_t now;
 		if (!prepareTime(ticket(),now)) throw std::runtime_error("Journey attachment scheduling failed");
-		_lastTime = now; _cosmeticDeadline = now + 100; scheduleCombat(now);
+		_lastTime = now; _cosmeticDeadline = counterDeadline(now,2); scheduleCombat(now);
 		return true;
 	} catch (...) {
 		// As in approach, obsolete work cannot fail or release a newer boundary.

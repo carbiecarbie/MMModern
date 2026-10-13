@@ -5,6 +5,7 @@
 #include "games/xeen/XeenDialogView.h"
 #include "platform/XeenSaveFile.h"
 #include "app/XeenTextInput.h"
+#include "core/PresentationClock.h"
 namespace mmodern {
 class XeenAssetSource;
 // Title/modal presentation only. Application keeps session and resource lifetime.
@@ -36,6 +37,12 @@ public:
  void completeInput(const IndexedFrame::Presentation &p);
  std::optional<IndexedFrame> handle(const PlayerAction &,const IndexedFrame::Presentation &);
  std::optional<IndexedFrame> animate(std::uint64_t milliseconds);
+ std::optional<IndexedFrame> animateAt(std::uint64_t nanoseconds);
+ std::optional<std::uint64_t> nextPresentationDeadline() const {
+  if(_screen==Screen::Name && _name.deadline())return PresentationClock::fromMilliseconds(*_name.deadline());
+  return _fadeLevel<128 ? std::optional<std::uint64_t>{_fadeDeadline} :
+   _deadline ? std::optional<std::uint64_t>{_deadline} : std::nullopt;
+ }
  const std::optional<XeenSessionEntry> &entry() const {return _entry;}
  void close() {_closed=true;_inputFrame.reset();}
  bool current() const {return !_closed;}
@@ -63,7 +70,8 @@ private:
  bool _firstTitle=true;
  std::uint64_t _deadline=0,_context=1;
  std::uint64_t _fadeDeadline=0;
- unsigned _fadeLevel=0;
+ unsigned _fadeLevel=0,_fadeStep=4;
+ bool _fadeAcquired=false;
  bool _closed=false;
  IndexedFrame _frame;
  IndexedFrame::Presentation _inputFrame;

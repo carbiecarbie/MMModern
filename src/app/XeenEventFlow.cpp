@@ -103,6 +103,7 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
     const bool queueable = panel == 0 && (!_encounter || journey() || combat);
     bool ready = !_dispatching && !_fatal && !_saving && !_handoffPending && !_arrivalPending &&
         acceptsInputFrame(origin) && (!journey() || journeyInputCurrent(displayedInput()));
+    bool navigationReady = ready && queueable;
     // Rest consumes an already armed countdown through sleeping chargeStep.
     // It cannot enter around a retained opportunity or an unacquired frame.
     const bool restReady=ready && queueable && journey() && !combat && _encounter->state().pending() &&
@@ -115,6 +116,9 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
             !_encounter->_shootIntent && !_encounter->_shoot && !_encounter->_castingSettlement &&
             !_encounter->_regionalAutomatic && !_encounter->_regionalWork &&
             _encounter->boundary().quiet();
+        navigationReady = ready && (combat ? combat->phase()==XeenCombatPhase::PlayerReady &&
+            _displayedCombat && combat->current(*_displayedCombat) && !_encounter->_scheduleAfterFrame :
+            _encounter->journeyNavigationReady());
         if (combat) ready = ready && combat->phase() == XeenCombatPhase::PlayerReady &&
             _displayedCombat && combat->current(*_displayedCombat) && !_encounter->_scheduleAfterFrame;
         else ready = ready && _encounter->journeyMutable();
@@ -155,8 +159,66 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
         dialog=std::make_shared<const DialogInput>(std::move(input));
         hideCursor=rest.phase==P::Dream && rest.dreamBeat>=33 && rest.dreamBeat<113;
     }
+    // sealFrame observes context while composition owns the callback lease.
+    // Only an actionable acquired origin may sample an external clock here.
+    const bool drawFinished=queueable && (ready || navigationReady || restReady) &&
+        presentationNow()>=_ordinary.deadline;
+    const bool navigationDrawPending=navigationReady && !dialog && !drawFinished;
+    navigationReady=navigationReady && !dialog && drawFinished;
+    if(queueable)ready=ready && drawFinished;
     return {_queueContextId, queueable, ready, journey() && queueable ?
-        (combat ? MainScreen::Combat : MainScreen::Exploration) : MainScreen::None,std::move(dialog),hideCursor,restReady};
+        (combat ? MainScreen::Combat : MainScreen::Exploration) : MainScreen::None,std::move(dialog),hideCursor,restReady,
+        navigationReady,navigationDrawPending};
+}
+std::uint64_t XeenEventFlow::presentationNow() {
+    requireCurrentOwners();
+    std::uint64_t now=0;
+    if(_encounter)_encounter->guardCallback(_encounter->ticket(),[&]{now=_presentationClock();});
+    else {now=_presentationClock();requireCurrentOwners();}
+    return now;
+}
+std::optional<std::uint64_t> XeenEventFlow::nextPresentationDeadline() {
+    const auto now=presentationNow();
+    if(_smithUi) {
+        if(_smithUi->phase==SmithUi::Phase::Preparation || _smithUi->phase==SmithUi::Phase::Upgrade ||
+            _smithUi->phase==SmithUi::Phase::Departure)return now;
+        if(_smithUi->animation.failed)return PresentationClock::after(now,1);
+        auto next=PresentationClock::fromMilliseconds(_smithUi->animation.deadline);
+        if(_smithUi->phase==SmithUi::Phase::Amount && _smithUi->feedback.empty()) {
+            const auto cursor=_smithUi->amountCursor.deadline();
+            next=std::min(next,cursor?PresentationClock::fromMilliseconds(*cursor):now);
+        }
+        return next;
+    }
+    if(_trainingUi) {
+        if(_trainingUi->phase!=TrainingUi::Phase::Menu)return now;
+        return _trainingUi->animation.failed?PresentationClock::after(now,1):
+            PresentationClock::fromMilliseconds(_trainingUi->animation.deadline);
+    }
+    if((pendingNpc() || (_pending && _presenter.hasNpcOffer()))) {
+        const auto timing=_presenter.npcTiming();
+        return timing.remaining?PresentationClock::fromMilliseconds(timing.deadline):PresentationClock::after(now,1);
+    }
+    auto next=_ordinary.deadline;
+    if(inventoryOpen() || (_summary && *_summary==SummaryDialog::QuickReference))next=PresentationClock::after(now,1);
+    if(_sheet && !_itemsVisible && !_statPopup && !_dialogError)next=PresentationClock::fromMilliseconds(_sheet->deadline);
+    if(_summary && *_summary==SummaryDialog::Map)next=PresentationClock::fromMilliseconds(_mapDeadline);
+    for(const auto &portrait:_world.scenePresentation().portraits) {
+        if(portrait.spellFrame<4)next=std::min(next,PresentationClock::fromMilliseconds(portrait.spellDeadline));
+        if(portrait.damageTicks)next=std::min(next,PresentationClock::fromMilliseconds(portrait.damageDeadline));
+    }
+    if(_encounter && !_encounter->journeyEvent() && _encounter->deadline())
+        next=std::min(next,PresentationClock::fromMilliseconds(*_encounter->deadline()));
+    if(_encounter && _encounter->_rest && _encounter->_rest->presented) {
+        using P=XeenEncounterFlow::RestContinuation::Phase;
+        const auto &rest=*_encounter->_rest;
+        if(rest.phase==P::Dream)return PresentationClock::fromMilliseconds(rest.deadline);
+        if(rest.phase!=P::Confirm && rest.phase!=P::Refused && rest.phase!=P::Complete)
+            next=std::min(next,PresentationClock::fromMilliseconds(rest.deadline));
+    }
+    if(_encounter && _encounter->_shoot && _encounter->_shoot->presented)
+        next=std::min(next,PresentationClock::fromMilliseconds(_encounter->_shoot->deadline));
+    return next;
 }
 
 IndexedFrame XeenEventFlow::drawRest(const IndexedFrame &base) {
@@ -425,6 +487,7 @@ IndexedFrame XeenEventFlow::frameCopy() {
 }
 bool XeenEventFlow::updateOrdinaryPhase(OrdinaryCause cause, bool reset, std::uint64_t now) {
 	requireCurrentOwners();
+    if((pendingNpc() || (_pending && _presenter.hasNpcOffer())))return false;
 	if (!reset && cause != OrdinaryCause::Action &&
 		(cause != OrdinaryCause::Idle || now < _ordinary.deadline)) return false;
 	if (now > std::numeric_limits<std::uint64_t>::max() - 100 ||
@@ -432,9 +495,12 @@ bool XeenEventFlow::updateOrdinaryPhase(OrdinaryCause cause, bool reset, std::ui
 		throw std::overflow_error("Ordinary animation overflow");
 	// One shared M22 policy: committed facing/map reset wins over the action step.
 	_ordinary.phase = reset ? 0 : _ordinary.phase + 1;
-	if (cause!=OrdinaryCause::None) _world.scenePresentation().advance(_camera.mapId);
-    _world.scenePresentation().advanceFeedback(now);
-	_ordinary.deadline = now + 100;
+	if (cause!=OrdinaryCause::None && !_sceneAdvancePending) {
+        _world.scenePresentation().beginDraw();
+        _sceneAdvancePending=true;
+    }
+    _world.scenePresentation().advanceFeedback(now/1000000);
+	_ordinary.deadline = PresentationClock::after(now,2);
 	if (reset) {
 		_ordinary.mapId = _camera.mapId;
 		_ordinary.direction = _camera.direction;
@@ -447,10 +513,12 @@ bool XeenEventFlow::advanceEncounterOrdinary(OrdinaryCause cause) {
 	const auto entry = _encounter->ticket();
 	try {
 		std::uint64_t now;
-		_encounter->guardCallback(entry,[&] { now = _clock(); });
+		_encounter->guardCallback(entry,[&] { now = _presentationClock(); });
 		if (!_encounter->current(entry)) throw std::runtime_error("Stale ordinary animation callback");
+		// Window 11 suppresses draw3d, including its scenery/pose advancement.
+        if((pendingNpc() || (_pending && _presenter.hasNpcOffer())))return false;
 		const bool reset = _ordinary.mapId != _camera.mapId || _ordinary.direction != _camera.direction;
-		return updateOrdinaryPhase(cause, reset, now) && _ordinary.containsOrdinaryAnimation;
+		return updateOrdinaryPhase(cause, reset, now);
 	} catch (...) {
 		if (!_encounter->fail(entry, XeenEncounterStop::Preparation)) { _fatal = true; throw; }
 		return true;
@@ -465,9 +533,18 @@ void XeenEventFlow::sealFrame(IndexedFrame &returned) {
 	snapshot->_presentation.reset(); // No chain of previous frames.
 	_frame._presentation = std::move(snapshot);
 	returned._presentation = _frame._presentation;
+    finishOrdinaryDraw();
+}
+void XeenEventFlow::finishOrdinaryDraw() {
+    _world.scenePresentation().retainDrawingState();
+    if(_sceneAdvancePending) {
+        _world.scenePresentation().advanceAfterDraw(_camera.mapId);
+        _sceneAdvancePending=false;
+    }
+    _world.scenePresentation().composeFromRetained(true);
 }
 
-IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
+IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, bool reconstruct) {
 	if (_smithUi) {
 		cosmeticInput=_smithRenderedRevision && *_smithRenderedRevision==_smithUi->revision;
 		if (_encounter->_smith && _encounter->_smith->frame &&
@@ -504,6 +581,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 					_events.textForMap(_camera.mapId); validation.check();
 				}
 				_world.scenePresentation().appearance(_encounter->appearance());
+                _world.scenePresentation().composeFromRetained(reconstruct && !_sceneAdvancePending);
 				auto composed = _encounterCompose(_ordinary.phase,_encounter->appearance());
 				if (!_encounter->current(t)) throw std::logic_error("Stale Journey composition");
 				if (!composed.frame.isValid()) throw std::runtime_error("Invalid Journey frame");
@@ -578,6 +656,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 				if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter rebuild");
 			}
 			_world.scenePresentation().appearance(_encounter->appearance());
+            _world.scenePresentation().composeFromRetained(reconstruct && !_sceneAdvancePending);
 			const auto composed=_encounterCompose(_ordinary.phase,_encounter->appearance());
 			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter frame");
 			if (!composed.frame.isValid()) throw std::runtime_error("Invalid encounter frame");
@@ -632,24 +711,29 @@ XeenEventFlow::XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
 		const XeenFontFormat &font, Compose compose, XeenEventPresenter::NpcDraw npcDraw,
 		XeenEventPresenter::Clock clock, XeenEventPresenter::RandomFrame randomFrame, const XeenItemCatalog *catalog,
 		EncounterCompose encounterCompose, const XeenJourneySetup *journey,
-		TransitionCompose transitionCompose, const XeenDosText *text) :
+		TransitionCompose transitionCompose, const XeenDosText *text, PresentationClock::Source presentationClock) :
 	_transitionCompose(std::move(transitionCompose)),
 	_inventoryFont(font), _catalog(catalog ? *catalog : fallbackCatalog()),
 	_world(world), _gameplayBorrow(world.sessionState().journey() ? nullptr : new XeenWorld::GameplayBorrow(world,party,camera,flags)),
 	_events(events), _party(party), _camera(camera), _flags(flags),
-	_navigation(events), _clock(clock ? std::move(clock) : XeenEventPresenter::Clock{[] {
+	_navigation(events), _clock(clock ? clock : XeenEventPresenter::Clock{[] {
 		return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
 			std::chrono::steady_clock::now().time_since_epoch()).count());
-	}}), _presenter(font, std::move(npcDraw), [this] { return _clock(); }, std::move(randomFrame)),
+	}}), _presentationClock(presentationClock ? std::move(presentationClock) : clock ?
+        PresentationClock::Source{[this] {return PresentationClock::fromMilliseconds(_clock());}} :
+        PresentationClock::Source{[] {return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count());}}),
+    _presenter(font, std::move(npcDraw), [this] { return _clock(); }, std::move(randomFrame)),
 	_ordinary{0, 0, camera.mapId, camera.direction, false},
 	_compose(std::move(compose)) {
     dialogText=text;
 	if (journey || world.sessionState().journey()) {
 		if (!encounterCompose) throw std::invalid_argument("Journey requires exclusive presentation setup");
 		_encounterCompose = std::move(encounterCompose);
-		if (journey) _encounter = std::make_unique<XeenEncounterFlow>(world,party,camera,flags,_clock,*journey);
-		else _encounter = std::make_unique<XeenEncounterFlow>(world,party,camera,flags,_clock,XeenJourneyRestoreTag{});
-	} else _ordinary.deadline = _clock() + 100;
+		if (journey) _encounter = std::make_unique<XeenEncounterFlow>(world,party,camera,flags,_clock,*journey,&_presentationClock);
+		else _encounter = std::make_unique<XeenEncounterFlow>(world,party,camera,flags,_clock,XeenJourneyRestoreTag{},&_presentationClock);
+	}
+    _ordinary.deadline=PresentationClock::after(_presentationClock(),2);
 	if (!_gameplayBorrow) {
 		_encounter->journeySavePreimage().check();
 		_gameplayBorrow.reset(new XeenWorld::GameplayBorrow(world,party,camera,flags));
@@ -664,7 +748,7 @@ IndexedFrame XeenEventFlow::refresh(bool reconstruct) {
 	DispatchScope dispatch(_dispatching);
 	if (_encounter) {
 		if (_encounter->combat() && reconstruct) invalidateInventorySelection();
-		return renderEncounter();
+		return renderEncounter(false,false,true);
 	}
 	if (reconstruct) invalidateInventorySelection();
 	refreshScene(reconstruct, OrdinaryCause::None);
@@ -674,6 +758,7 @@ IndexedFrame XeenEventFlow::refresh(bool reconstruct) {
 bool XeenEventFlow::refreshScene(bool reconstruct, OrdinaryCause cause, bool committedTransition) {
 	requireCurrentOwners();
 	if (journey() && _eventPublication) {
+		_world.scenePresentation().composeFromRetained(reconstruct && !_sceneAdvancePending);
 		auto composition=_encounterCompose(_ordinary.phase,_encounter->appearance());
 		requireCurrentOwners();
 		_frame=_presenter.rebase(composition.frame);
@@ -689,19 +774,21 @@ bool XeenEventFlow::refreshScene(bool reconstruct, OrdinaryCause cause, bool com
 		_ordinary.direction != _camera.direction;
 	bool stepped = false;
 	if (reset || cause != OrdinaryCause::None)
-		stepped = updateOrdinaryPhase(cause, reset, _clock());
+		stepped = updateOrdinaryPhase(cause, reset, presentationNow());
 	const bool cameraChanged = !sameCamera(_camera, _renderedCamera);
 	// M15's disabled set only grows during a session. Its size is an exact,
 	// constant-time change detector for the only supported visual mutation.
 	const auto count = _world.sessionState().disabledObjectCount();
 	if (reconstruct || reset || !_frame.isValid() || cameraChanged || count != _disabledObjects ||
-			(stepped && _ordinary.containsOrdinaryAnimation)) {
+			stepped) {
 		// Always use the committed camera, never logicalAddress/workingCamera.
+		_world.scenePresentation().composeFromRetained(!stepped && !_sceneAdvancePending);
 		const auto composition = _compose(_ordinary.phase);
 		requireCurrentOwners();
 		_ordinary.containsOrdinaryAnimation = composition.containsOrdinaryAnimation;
 		if (cameraChanged && !_pending) _presenter.clear();
 		_frame = _presenter.rebase(composition.frame);
+        finishOrdinaryDraw();
   _ordinary.containsOrdinaryAnimation=drawPendingHeads(_frame) || _ordinary.containsOrdinaryAnimation;
         if(!_whoWillRefusal.empty())_frame=drawXeenErrorScroll(_frame,_inventoryFont,_whoWillRefusal);
 		_inventoryUnderlay = _frame;
@@ -1239,12 +1326,11 @@ bool XeenEventFlow::drawPendingHeads(IndexedFrame &frame) {
 bool XeenEventFlow::pulseServiceArt(ServiceArtState &state, IndexedFrame &art) {
 	// Cosmetic only: the redraw never touches gameplay, service-day accounting or input
 	// authority, and a missing resource just freezes the current frame.
-	constexpr std::uint64_t kPulse = 150;
 	if (!drawDialogSprite || state.failed || _dispatching || _fatal || _saving || _handoffPending) return false;
 	const auto now = _clock();
-	if (!state.deadline) { state.deadline = now + kPulse; return false; }
+	if (!state.deadline) { state.deadline = PresentationClock::afterMilliseconds(now,3); return false; }
 	if (now < state.deadline) return false;
-	state.deadline = now + kPulse; // No catch-up after a stalled host.
+	state.deadline = PresentationClock::afterMilliseconds(now,3); // No catch-up after a stalled host.
 	try {
 		const auto next = XeenServiceAnimation::next(state.kind, state.index);
 		auto candidate = art;
@@ -1366,7 +1452,7 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 			std::uint64_t now=0;
 			if(_encounter)_encounter->guardCallback(_encounter->ticket(),[&]{now=_clock();});else now=_clock();
 			if(now<_mapDeadline)return std::nullopt;
-			_mapDeadline=now+100;++_mapPhase;
+			_mapDeadline=PresentationClock::afterMilliseconds(now,2);++_mapPhase;
 			if(_encounter)return renderEncounter(false,true);
 			_frame=drawSummary(_summaryUnderlay);return _frame;
 		}
@@ -1382,7 +1468,7 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
             if(_world.scenePresentation().advanceFeedback(now))return renderEncounter(false,true);
         }
 		if(_sheet && !_itemsVisible && !_statPopup && !_dialogError && _clock()>=_sheet->deadline) {
-			_sheet->deadline=_clock()+200;_sheet->blink=!_sheet->blink;
+			_sheet->deadline=PresentationClock::afterMilliseconds(_clock(),4);_sheet->blink=!_sheet->blink;
 			if(_encounter) return renderEncounter(false,true);
 			drawInventory();return _frame;
 		}
@@ -1395,13 +1481,17 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 			const auto before = _encounter->ticket();
 			if (advanceEncounterOrdinary()) return renderEncounter(false,
 				_encounter->journeyEvent() && _encounter->current(before));
-			if(_pending && _presenter.hasNpcOffer()) {
+			if((pendingNpc() || (_pending && _presenter.hasNpcOffer()))) {
 				try {if(_presenter.updateNpc())return renderEncounter(false,true);}
 				catch(const std::exception &e) {return presentationFailed(e);}
 			}
 			return std::nullopt;
 		}
 		const auto beforeIdle = _encounter->ticket();
+        // Ordinary actor countdowns are serviced by draw3d, never by a host
+        // repaint between draws. Retained work keeps its existing continuation.
+        if(!_encounter->combat() && _encounter->journeyNavigationReady() &&
+            presentationNow()<_ordinary.deadline)return std::nullopt;
 		const bool quietBefore = journey() && _encounter->journeyMutable();
 		const bool hadJourneyCombat = journey() && _encounter->combat();
 		const bool changed = _encounter->idle(_cycle);
@@ -1590,6 +1680,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
         if (context.mainScreen==MainScreen::None || !context.readyForAction) return frameCopy();
         _mainScreenNotice=std::string(unsupported->label)+": not supported yet";
         DispatchScope dispatch(_dispatching);
+        if(std::holds_alternative<NavigationAction>(physicalAction))advanceEncounterOrdinary(OrdinaryCause::Action);
         if (reportText) reportText(_mainScreenNotice);
         return renderEncounter();
     }
@@ -1627,8 +1718,8 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
         _summaryUnderlay=_frame;
         if(std::holds_alternative<MapAction>(action)) {
             if(!mapName)throw std::logic_error("Map name provider is missing");
-            if(_encounter)_encounter->guardCallback(_encounter->ticket(),[&]{_mapName=mapName(_camera.mapId);_mapDeadline=_clock()+100;});
-            else {_mapName=mapName(_camera.mapId);_mapDeadline=_clock()+100;}
+            if(_encounter)_encounter->guardCallback(_encounter->ticket(),[&]{_mapName=mapName(_camera.mapId);_mapDeadline=PresentationClock::afterMilliseconds(_clock(),2);});
+            else {_mapName=mapName(_camera.mapId);_mapDeadline=PresentationClock::afterMilliseconds(_clock(),2);}
             _mapPhase=0;_summary=SummaryDialog::Map;
         } else _summary=std::holds_alternative<InfoAction>(action)?SummaryDialog::Info:SummaryDialog::QuickReference;
         if(_encounter)return renderEncounter();
@@ -1664,7 +1755,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
             if(member) {
                 handleInventory(InspectInventoryAction{});
                 _inventory.source=*member;_inventory.sourceOwner=_party.party.activeRosterIds()[*member];
-                if(selected) {_sheet.emplace();_sheet->deadline=_clock()+200;_itemsVisible=false;}
+                if(selected) {_sheet.emplace();_sheet->deadline=PresentationClock::afterMilliseconds(_clock(),4);_itemsVisible=false;}
                 else {_combatItems=true;_inventory.category=XeenInventoryCategory::Miscellaneous;}
                 drawInventory();return _encounter?renderEncounter():_frame;
             }

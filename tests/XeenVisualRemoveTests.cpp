@@ -65,7 +65,7 @@ struct Fixture {
 	}
 };
 void animatedRemoval(XeenAssetSource &assets) {
- Fixture f(assets);f.records.push_back(record(1,1,0,4,{0}));f.records.push_back(record(1,1,1,0x12));f.now=100;f.flow.updatePresentation();check(f.phase==1,"animated removal initial tick");
+ Fixture f(assets);f.records.push_back(record(1,1,0,4,{0}));f.records.push_back(record(1,1,1,0x12));f.now=110;f.flow.updatePresentation();check(f.phase==1,"animated removal initial tick");
  f.flow.acceptManual(f.events.runManualEvent(f.world,f.party,f.camera,f.flags));
  check(f.phase==1 && f.world.isObjectDisabled({23,0}) && !f.world.isObjectDisabled({23,1}),"Remove stepped phase or lost identity");
  auto verify=[&]{
@@ -80,8 +80,8 @@ void animatedRemoval(XeenAssetSource &assets) {
   check(sibling,"shared-resource sibling removed");
   check(f.flow.frame().pixels==f.composer.compose(assets,f.world,f.party,f.camera,{},nullptr,f.phase).pixels,"removed animated current-base oracle");
  };
- verify();f.now=199;f.flow.updatePresentation();check(f.phase==1,"Remove rearmed/advanced timing");
- f.now=200;f.flow.updatePresentation();check(f.phase==2,"Remove postponed due idle");verify();
+ verify();f.now=219;f.flow.updatePresentation();check(f.phase==1,"Remove rearmed/advanced timing");
+ f.now=220;f.flow.updatePresentation();check(f.phase==2,"Remove postponed due idle");verify();
  auto textControl=[&]{const auto camera=f.camera;f.camera={23,1,1,XeenDirection::North};
   f.flow.acceptManual(f.events.runManualEvent(f.world,f.party,f.camera,f.flags));
   f.flow.handle(AcknowledgeAction{});f.camera=camera;f.flow.refresh();verify();check(f.phase==2,"text reconstruction stepped phase");};
@@ -101,7 +101,7 @@ void animatedRemoval(XeenAssetSource &assets) {
  }
  Fixture pending(assets);pending.records={record(8,2,0,9,{44,0,1}),record(8,2,1,0x12)};
  pending.flow.handle(InteractionAction{});const auto gen=pending.flow.presentationGeneration();
- pending.world.disableObject({23,0});const auto n=pending.compositions;pending.now=100;pending.flow.updatePresentation();
+ pending.world.disableObject({23,0});const auto n=pending.compositions;pending.now=110;pending.flow.updatePresentation();
  check(pending.phase==2 && pending.compositions==n+1 && pending.flow.presentationGeneration()==gen,"pending Remove and due idle not coalesced");
  pending.flow.handle(NoAction{});check(!pending.flow.blocksGameplay() && pending.phase==2,"response added animation step");
  check(pending.flow.frame().pixels==pending.composer.compose(assets,pending.world,pending.party,pending.camera,{},nullptr,2).pixels,"pending Remove restored stale base");

@@ -97,7 +97,8 @@ bool XeenEncounterFlow::serviceRest() {
    // Screen::fadeInner(4): 33 palette steps per fade and two seven-tick
    // holds. dreams2.voc/laff1.voc waits remain the deferred audio gap.
    if(++rest.dreamBeat==146)rest.phase=P::Recovery;
-   rest.deadline=now+50;restPublication();return true;
+   // The next acquired frame arms its own retrace/tick wait. No catch-up.
+   restPublication();return true;
   }
   if(rest.phase==P::Recovery) {
    if(!rest.recovery)rest.recovery.emplace(members(_party,rest.owners),supplements(_party,rest.owners),*_party.encounterContext,_party.food);
@@ -173,7 +174,7 @@ bool XeenEncounterFlow::serviceRest() {
   if(result.outcome!=XeenEncounterOutcome::Pending) {
    rest.random=XeenCombatRandom(*session._journeyRandom);if(++rest.charges==10)rest.phase=P::Remainder;
   }
-  rest.deadline=now+100;restPublication();return true;
+  rest.deadline=PresentationClock::afterMilliseconds(now,2);restPublication();return true;
  }catch(...) {closeJourney();throw;}
 }
 }

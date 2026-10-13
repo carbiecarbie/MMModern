@@ -273,9 +273,9 @@ void XeenEncounterFlow::observeRanged(std::shared_ptr<const XeenRegionalObservat
 }
 void XeenEncounterFlow::projectilesPresented() {
  const auto entry=ticket();if(!current(entry))throw std::logic_error("Stale projectile acquisition");
- if(projectilesPending() && !_projectileDeadline)_projectileDeadline=_lastTime+100;
+ if(projectilesPending() && !_projectileDeadline)_projectileDeadline=counterDeadline(_lastTime,2);
  if(_shoot && !_shoot->presented) {
-  auto &shot=*_shoot;shot.presented=true;shot.advanceDraw=false;shot.deadline=_lastTime+100;
+  auto &shot=*_shoot;shot.presented=true;shot.advanceDraw=false;shot.deadline=counterDeadline(_lastTime,2);
   // hitMonster clears this shooter's logical row before attack2. drawScene
   // then derives _charsShooting from remaining shooters, before animate3d.
   // Visible lanes can outlive the last logical shooter through HP/removal.

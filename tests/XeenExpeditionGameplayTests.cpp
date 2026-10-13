@@ -87,13 +87,14 @@ void controls(const fs::path &path) {
  const auto key=[](SDL_Keycode code,Uint32 type=SDL_KEYDOWN,Uint8 repeat=0){SDL_Event e{};e.type=type;e.key.keysym.sym=code;e.key.timestamp=SDL_GetTicks()+1;e.key.repeat=repeat;check(SDL_PushEvent(&e)==1,"SDL target key queue");};
  s.show=[&](const auto &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
   auto native=handler;
+  native.beginCycle=[&](auto cycle){h.now+=110;handler.beginCycle(cycle);};
   native.withPresentedInput=[&](const auto &action,auto token,const auto &origin){
    const auto generation=h.flow->encounter()->combat()?h.flow->encounter()->combat()->result().generation:0;
    auto frame=handler.withPresentedInput(action,token,origin);
    if(std::holds_alternative<AttackAction>(action) && h.flow->encounter()->combat()->result().generation!=generation)++queuedAttacks;
    return frame;
   };
-  auto driver=[&]()->std::optional<IndexedFrame>{check(++loops<100,"bounded SDL target controls");if(h.flow->encounter()->combat()&&h.flow->encounter()->combat()->pending()!=Work::None)h.now+=100;auto frame=idle();if(frame){stable=0;return frame;}if(++stable<2)return frame;stable=0;
+  auto driver=[&]()->std::optional<IndexedFrame>{check(++loops<100,"bounded SDL target controls");if(!handler.inputContext(h.flow->frame().presentation()).readyForAction)return idle();std::optional<IndexedFrame> frame;
    auto *c=h.flow->encounter()->combat();
    switch(stage++){
    case 0:key(SDLK_UP);key(SDLK_UP,SDL_KEYUP);break;

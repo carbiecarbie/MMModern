@@ -11,15 +11,14 @@ inline constexpr unsigned Escape=27, Enter=13, Space=32;
 inline constexpr unsigned F1=256, Up=272, Down=273, Left=274, Right=275;
 inline constexpr unsigned PageUp=276, PageDown=277;
 }
-// ButtonContainer: selected sprite frame = normal frame | 1, held for two
-// 50 ms presentation frames. This has no game-clock or action state.
+// DOS keyboard feedback has no tick dwell; mouse feedback waits for release.
+// DAT 0x0e1ca..0x0e2b1 and 0x0e41e..0x0e430.
 struct InputButton {
     const char *resource;
     unsigned frame;
     int x,y;
     unsigned pressedFrame() const noexcept { return frame | 1u; }
 };
-inline constexpr unsigned kButtonFeedbackMilliseconds=100;
 struct DialogHit {
     int left,top,right,bottom;
     unsigned key;

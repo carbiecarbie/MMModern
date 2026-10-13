@@ -79,20 +79,22 @@ void XeenEncounterFlow::guardCallback(const Ticket &entry, const std::function<v
 
 bool XeenEncounterFlow::prepareTime(const Ticket &entry, std::uint64_t &now) {
 	if (!current(entry)) return false;
-	try { guardCallback(entry,[&] { now = _clock(); }); }
+    std::uint64_t sample=0;
+	try { guardCallback(entry,[&] { sample=_nanosecondClock?(*_nanosecondClock)():PresentationClock::fromMilliseconds(_clock());now=sample/1000000; }); }
 	catch (...) { if (!fail(entry, XeenEncounterStop::Preparation)) throw; return false; }
 	if (!current(entry)) return false;
-	if (now < _lastTime) return false;
-	if (now > std::numeric_limits<std::uint64_t>::max() - 100 ||
+	if (now < _lastTime || sample<_lastNanoseconds) return false;
+	if (now > std::numeric_limits<std::uint64_t>::max()/1000000 - 110 ||
 		_generation > std::numeric_limits<std::uint64_t>::max() - 8) {
 		fail(entry, XeenEncounterStop::Overflow); return false;
 	}
+    _lastNanoseconds=sample;
 	return true;
 }
 
 void XeenEncounterFlow::schedule(std::uint64_t now) noexcept {
 	_deadline = _state.phase() == XeenEncounterPhase::Exploring && (_state.pending() || _regionalWork) ?
-		std::optional<std::uint64_t>{now + 100} : std::nullopt;
+		std::optional<std::uint64_t>{counterDeadline(now,2)} : std::nullopt;
 }
 
 bool XeenEncounterFlow::handle(const PlayerAction &input, std::optional<std::uint64_t> cycle, std::optional<XeenCombat::Ticket> displayed) {
@@ -140,9 +142,20 @@ bool XeenEncounterFlow::idle(std::optional<std::uint64_t> cycle) {
 	const bool due = (_state.pending() || _regionalWork) && _deadline && now >= *_deadline && !(cycle && _inputCycle == cycle);
 	const bool cosmetic = now >= _cosmeticDeadline;
 	_lastTime = now;
-	if (due) { journeyPulse(ticket()); schedule(now); _inputCycle = cycle; }
+	if (due) {
+        const auto completed=journeyPulse(ticket());
+        // A yielded chargeStep still owes the ordinary draw's pulse/contact
+        // check once its prior actor work and stepTime finish. Do not expose
+        // navigation between that suffix and the check (DAT 0x0d1c3..0x0d1c9).
+        if(_state.phase()==XeenEncounterPhase::Exploring && !_regionalWork &&
+            (completed.outcome==XeenEncounterOutcome::Accepted || completed.outcome==XeenEncounterOutcome::Blocked)) {
+            if(!prepareTime(ticket(),now))return true;
+            journeyPulse(ticket());
+        }
+        schedule(now);_inputCycle=cycle;
+    }
 	if (cosmetic && _state.phase() == XeenEncounterPhase::Exploring) {
-		_frame = (_frame + 1) % 8; _cosmeticDeadline = now + 100;
+		_frame = (_frame + 1) % 8; _cosmeticDeadline = counterDeadline(now,2);
 	}
 	return due || cosmetic;
 
@@ -261,7 +274,7 @@ bool XeenEncounterFlow::respondCombatCast(const PlayerAction &action,std::uint64
 void XeenEncounterFlow::scheduleCombat(std::uint64_t now) {
 	_scheduleAfterFrame = true;
 	_deadline.reset();
-	if (!terminal() && _combat->pending() != XeenCombatWork::None) _deadline = now + 100;
+	if (!terminal() && _combat->pending() != XeenCombatWork::None) _deadline = counterDeadline(now,2);
 }
 void XeenEncounterFlow::presented(const Ticket &entry) {
 	if (!_combat || !_scheduleAfterFrame || terminal()) return;
@@ -276,7 +289,7 @@ void XeenEncounterFlow::presented(const Ticket &entry) {
 	castProjectilePresented();
 	scheduleCombat(now);
 	if (_appearanceAfterFrame) {
-		_cosmeticDeadline = now + 100;
+		_cosmeticDeadline = counterDeadline(now,2);
 		_appearanceAfterFrame = false;
 	}
 	_scheduleAfterFrame=false;
@@ -412,7 +425,7 @@ bool XeenEncounterFlow::handleCombat(const PlayerAction &physical, std::optional
 	}
 	retireCastingFeedback();
 	if (!handoffCombat()) return true;
-	if (observeCombat()) _cosmeticDeadline = now + 100;
+	if (observeCombat()) _cosmeticDeadline = counterDeadline(now,2);
 	_inputCycle = cycle;
 	_lastTime = now;
 	scheduleCombat(now);
@@ -436,7 +449,7 @@ bool XeenEncounterFlow::idleCombat(std::optional<std::uint64_t> cycle) {
         const auto result=_combat->drawBeat(*entry.combat,now);
         if(result.status!=XeenCombatStatus::Refused) {
             if(!acceptCombatResult(result))return false;
-            _cosmeticDeadline=now+100;scheduleCombat(now);return true;
+            _cosmeticDeadline=counterDeadline(now,2);scheduleCombat(now);return true;
         }
     }
 	if (_combat->cast()) {
@@ -464,7 +477,7 @@ bool XeenEncounterFlow::idleCombat(std::optional<std::uint64_t> cycle) {
             else {_castProjectile->row=_combat->cast()->projectileRow;_castProjectile->active=(_castProjectile->row<=3);}
             _castProjectileDeadline.reset();
         }
-        if(observeCombat())_cosmeticDeadline=now+100;
+        if(observeCombat())_cosmeticDeadline=counterDeadline(now,2);
         if(_combat->cast() && _combat->cast()->quick && _combat->cast()->phase==XeenCombatCastPhase::Result && !_combat->cast()->result.failed) {
             if(!acceptCombatResult(_combat->finishCast(_combat->ticket())))return false;
             _castProjectile.reset();_castProjectileDeadline.reset();
@@ -477,12 +490,12 @@ bool XeenEncounterFlow::idleCombat(std::optional<std::uint64_t> cycle) {
 		if (!handoffCombat()) return false;
 		_inputCycle = cycle;
 		startedAppearance = observeCombat();
-		if (startedAppearance) _cosmeticDeadline = now + 100;
+		if (startedAppearance) _cosmeticDeadline = counterDeadline(now,2);
 		scheduleCombat(now);
 	}
 	if (cosmetic && !startedAppearance && !terminal()) {
 		advanceAppearance();
-		_cosmeticDeadline = now + 100;
+		_cosmeticDeadline = counterDeadline(now,2);
 		// Appearance has its own concrete presentation identity. Retain the
 		// gameplay ticket so the acquired frame stays usable during its redraw.
 	}

@@ -85,7 +85,7 @@ XeenTitleFlow::XeenTitleFlow(Services services):_services(std::move(services)) {
 void XeenTitleFlow::setScreen(Screen screen) {
  // Modal time is not animation debt. MainMenuContainer resumes with one draw.
  if(!animating(_screen) && animating(screen))_deadline=0;
- if(_screen==Screen::Credits && screen==Screen::Menu){_fadeLevel=0;_fadeDeadline=0;_deadline=0;}
+ if(_screen==Screen::Credits && screen==Screen::Menu){_fadeLevel=0;_fadeStep=2;_fadeAcquired=false;_fadeDeadline=0;_deadline=0;}
  if(screen==Screen::Name)_name.begin();
  _screen=screen;render();
 }
@@ -216,11 +216,12 @@ void XeenTitleFlow::render(bool semantic) {
  frame._presentation.reset();auto retained=std::make_shared<IndexedFrame>(frame);frame._presentation=std::move(retained);_frame=std::move(frame);
 }
 InputContext XeenTitleFlow::inputContext(const IndexedFrame::Presentation &origin) const {
- InputContext context;context.contextId=_context;context.readyForAction=acceptsInput(origin) && !_entry && _fadeLevel==128;
+ InputContext context;context.contextId=_context;context.readyForAction=acceptsInput(origin) && !_entry && _fadeLevel==128 && _fadeAcquired;
  context.dialog=std::make_shared<DialogInput>(dialog());return context;
 }
 void XeenTitleFlow::presented(const IndexedFrame::Presentation &p) {
  if(!acceptsFrame(p))throw std::logic_error("Stale title presentation");
+ _fadeAcquired=true;
 }
 void XeenTitleFlow::completeInput(const IndexedFrame::Presentation &p) {
  if(!acceptsFrame(p))throw std::logic_error("Stale title input handoff");_inputFrame=p;
@@ -241,7 +242,7 @@ void XeenTitleFlow::choose() {
  setScreen(slot.state==XeenSaveFile::Slot::State::Empty?Screen::Name:Screen::Overwrite);
 }
 std::optional<IndexedFrame> XeenTitleFlow::handle(const PlayerAction &action,const IndexedFrame::Presentation &origin) {
- if(!acceptsInput(origin) || _entry || _fadeLevel<128)return {};
+ if(!acceptsInput(origin) || _entry || _fadeLevel<128 || !_fadeAcquired)return {};
  if(const auto *typed=std::get_if<TextInputAction>(&action)) {
   if(_screen!=Screen::Name || typed->text.empty())return {};
   // Reject the whole input packet on unsupported codes; preserve accepted case.
@@ -344,23 +345,29 @@ std::optional<IndexedFrame> XeenTitleFlow::handle(const PlayerAction &action,con
  return _frame;
 }
 std::optional<IndexedFrame> XeenTitleFlow::animate(std::uint64_t milliseconds) {
+ return animateAt(PresentationClock::fromMilliseconds(milliseconds));
+}
+std::optional<IndexedFrame> XeenTitleFlow::animateAt(std::uint64_t nanoseconds) {
+ const auto milliseconds=nanoseconds/1000000;
  if(!_closed && !_entry && _screen==Screen::Name) {
   if(!_name.animate(milliseconds))return {};
   render(false);return _frame;
  }
  if(_services.panel)return {};
  if(!_closed && !_entry && _fadeLevel<128) {
-  // Pinned screen.cpp fadeIn(2): palette levels 0..128, polling at 10 ms.
-  if(!_fadeDeadline){_fadeDeadline=milliseconds+10;return {};}
-  if(milliseconds<_fadeDeadline)return {};
-  const auto ticks=1+(milliseconds-_fadeDeadline)/10;_fadeDeadline+=ticks*10;
-  _fadeLevel=static_cast<unsigned>(std::min<std::uint64_t>(128,_fadeLevel+ticks*2));
-  render(false);if(_fadeLevel==128)_deadline=milliseconds+200;return _frame;
+  // DAT 0x3fe76/0x43fca: every palette write waits for emulated VGA
+  // retrace. A late host acquires every level; it never skips to catch up.
+  if(!_fadeAcquired)return {};
+  if(!_fadeDeadline){_fadeDeadline=PresentationClock::retraceAfter(nanoseconds);return {};}
+  if(nanoseconds<_fadeDeadline)return {};
+  _fadeLevel=std::min(128u,_fadeLevel+_fadeStep);
+  _fadeDeadline=PresentationClock::retraceAfter(nanoseconds);_fadeAcquired=false;
+  render(false);if(_fadeLevel==128)_deadline=PresentationClock::after(nanoseconds,4);return _frame;
  }
  if(_closed || _entry || !animating(_screen))return {};
- if(!_deadline){_deadline=milliseconds+200;return {};}
- if(milliseconds<_deadline)return {};
- const auto steps=1+(milliseconds-_deadline)/200;_deadline+=steps*200;
- _phase=(_phase+steps)%_services.animation.size();_firstTitle=false;render(false);return _frame;
+ if(!_deadline){_deadline=PresentationClock::after(nanoseconds,4);return {};}
+ if(nanoseconds<_deadline)return {};
+ _deadline=PresentationClock::after(nanoseconds,4);
+ _phase=(_phase+1)%_services.animation.size();_firstTitle=false;render(false);return _frame;
 }
 }

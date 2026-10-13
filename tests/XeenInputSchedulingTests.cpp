@@ -28,6 +28,8 @@ void click(int x,int y,Uint8 button=SDL_BUTTON_LEFT) {
  SDL_Event e{};e.type=SDL_MOUSEBUTTONDOWN;e.button.button=button;e.button.windowID=SDL_GetWindowID(SDL_GetWindowFromID(1));
  e.button.x=x*3;e.button.y=y*3;
  check(SDL_PushEvent(&e)==1,"scheduling mouse enqueue");
+ e.type=SDL_MOUSEBUTTONUP;
+ check(SDL_PushEvent(&e)==1,"scheduling mouse release enqueue");
 }
 void quit(){SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);}
 void preview(const IndexedFrame &frame,const char *name) {
@@ -87,8 +89,9 @@ void movementRedraw(Inputs &in) {
  h.composeHook=[&]{if(dispatches==1 && !injected){injected=true;tap(SDLK_UP);}};
  s.show=[&](const auto &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
   auto native=handler;
+  native.beginCycle=[&](auto cycle){now+=100;handler.beginCycle(cycle);};
   native.withPresentedInput=[&](const auto &action,auto input,const auto &origin){
-   check(handler.inputContext(origin).readyForAction && handler.acceptsInputFrame(origin) && h.flow->journeyInputCurrent(input),"movement drained before Flow authority/readiness");
+   check(handler.inputContext(origin).readyForNavigation && handler.acceptsInputFrame(origin) && h.flow->journeyInputCurrent(input),"movement drained before Flow authority/readiness");
    const auto before=*h.camera;const auto oldResult=h.flow->encounter()->actionResult().revision;
    ++dispatches;auto next=handler.withPresentedInput(action,input,origin);
    check(h.camera->y==before.y+1 && h.camera->x==before.x,"delivered movement silently refused by handle/frameCopy");
@@ -96,7 +99,7 @@ void movementRedraw(Inputs &in) {
    return next;
   };
   return SdlWindow().showInteractive(first,"W during movement redraw",native,escape,[&]()->std::optional<IndexedFrame>{
-   check(++loops<100,"movement redraw key did not drain");now+=100;
+   check(++loops<100,"movement redraw key did not drain");
    if(!sent){sent=true;tap(SDLK_UP);}
    if(dispatches==2){check(injected && h.camera->y==11,"movement redraw final position");quit();return {};}
    return idle();
@@ -117,8 +120,9 @@ void wallRefusal(Inputs &in) {
    const auto before=*h.camera;++dispatches;auto next=handler.withPresentedInput(action,input,origin);
    check(h.camera->x==before.x && h.camera->y==before.y,"wall refusal moved party");return next;
   };
+  native.beginCycle=[&](auto cycle){now+=100;handler.beginCycle(cycle);};
   return SdlWindow().showInteractive(first,"Ready wall refusal",native,escape,[&]()->std::optional<IndexedFrame>{
-   now+=100;if(++loops==1)tap(SDLK_UP);
+   if(++loops==1)tap(SDLK_UP);
    if(loops==8){check(dispatches==1,"wall refusal was lost or retried");quit();return {};}
    return idle();
   },status);
@@ -129,6 +133,7 @@ void wallRefusal(Inputs &in) {
 
 void contextAuthority(Inputs &in) {
  auto source=in.service();source.camera={28,10,9,XeenDirection::North};Fixture f(in,source,true);
+ f.now=110; // The initial draw must finish its two-counter wait before input.
  const auto initial=f.flow->inputContext(f.flow->frame().presentation());
  check(initial.acceptsQueuedInput && initial.readyForAction,"Quiet exploration context not ready");
  const auto old=f.flow->frame().presentation();f.flow->beginCycle(++f.cycle);
@@ -137,7 +142,7 @@ void contextAuthority(Inputs &in) {
  check(pending.contextId==initial.contextId && !pending.readyForAction,"movement changed context or bypassed handoff");
  check(!f.flow->inputContext(old).readyForAction,"retired movement origin marked ready");f.present(next);
  auto moved=f.flow->inputContext(next.presentation());check(moved.contextId==initial.contextId,"movement failed to retain context");
- const auto settleReady=[&]{for(unsigned n=0;n<100 && !f.flow->inputContext(f.flow->frame().presentation()).readyForAction;++n){f.now+=100;f.flow->beginCycle(++f.cycle);if(const auto frame=f.flow->updatePresentation())f.present(*frame);}check(f.flow->inputContext(f.flow->frame().presentation()).readyForAction,"regional work never became ready");};
+ const auto settleReady=[&]{for(unsigned n=0;n<100;++n){f.now+=110;f.flow->beginCycle(++f.cycle);if(f.flow->inputContext(f.flow->frame().presentation()).readyForAction)break;if(const auto frame=f.flow->updatePresentation())f.present(*frame);}check(f.flow->inputContext(f.flow->frame().presentation()).readyForAction,"regional work never became ready");};
  // A current, presented movement result can still own automatic actor work.
  check(!moved.readyForAction && f.flow->journeyInputCurrent(f.flow->displayedInput()),"automatic actor-work readiness window missing");
  settleReady();check(f.flow->inputContext(f.flow->frame().presentation()).contextId==initial.contextId,"actor work changed exploration context");
@@ -162,14 +167,20 @@ void combatQueue(Inputs &in,bool mouse=false) {
   const auto tick=[&]{now+=100;handler.beginCycle(++cycles);if(auto next=idle())present(*next);};
   const auto quiet=[&]{for(unsigned n=0;n<500 && !h.flow->canSave();++n)tick();check(h.flow->canSave(),"combat queue prefix Quiet bound");};
   present(first);act(NavigationAction::MoveForward);quiet();act(ShootAction{});quiet();act(NavigationAction::MoveForward);
+  bool checkedPlayerReady=false;
   for(unsigned n=0;n<500;++n){
    const auto *combat=h.flow->encounter()->combat();
+   // chargeStep can change the first round's initiative order. Observe the
+   // enemy boundary before servicing it, as well as immediately after Block.
+   if(checkedPlayerReady && combat && combat->phase()==XeenCombatPhase::PendingEnemy)break;
    if(combat && combat->phase()==XeenCombatPhase::PlayerReady){
+    checkedPlayerReady=true;
     const auto ticket=combat->ticket();XeenRestoreGuard guard(*h.world,*h.party,*h.camera,*h.flags);
     const auto sky=h.world->scenePresentation().sky;std::string notice;
     h.flow->reportText=[&](const auto &text){notice=text;};
     // M49 admits combat rotation; translations retain their refusal contract.
     for(auto movement:{NavigationAction::MoveForward,NavigationAction::MoveBackward}) {
+     now+=110;
      act(movement);check(notice=="Combat movement: not supported yet"&&combat->current(ticket)&&guard.current()&&h.world->scenePresentation().sky==sky,"Combat movement notice changed state");
     }
     for(auto movement:{NavigationAction::StrafeLeft,NavigationAction::StrafeRight}) {
@@ -183,13 +194,14 @@ void combatQueue(Inputs &in,bool mouse=false) {
      act(AcknowledgeAction{});check(!handler.inputContext(h.flow->frame().presentation()).dialog && combat->current(ticket) && guard.current(),"Combat summary return changed turn");
     }
     h.flow->reportText={};
-    act(BlockAction{});if(h.flow->encounter()->combat()->phase()==XeenCombatPhase::PendingEnemy)break;
+    act(BlockAction{});
+    if(h.flow->encounter()->combat()->phase()==XeenCombatPhase::PendingEnemy)break;
    }
    else tick();
   }
   check(h.flow->encounter()->combat() && h.flow->encounter()->combat()->phase()==XeenCombatPhase::PendingEnemy,"enemy-turn queue prefix absent");
   const auto context=handler.inputContext(h.flow->frame().presentation());check(context.acceptsQueuedInput && !context.readyForAction,"enemy turn marked ready/strict");
-  auto native=handler;native.beginCycle=[&](auto){handler.beginCycle(++cycles);};
+  auto native=handler;native.beginCycle=[&](auto){now+=100;handler.beginCycle(++cycles);};
   if(mouse)native.framePresented=[&](const auto &frame){handler.framePresented(frame);preview(*frame,"combat");};
   native.withPresentedInput=[&](const auto &action,auto input,const auto &origin){
    const auto ready=handler.inputContext(origin);check(ready.contextId==context.contextId && ready.readyForAction,"A lost combat context or drained busy");
@@ -212,7 +224,7 @@ void combatQueue(Inputs &in,bool mouse=false) {
    if(dispatches){check(dispatches==1 && busyFrames>=2,"A duplicated or busy witness missing");quit();return {};}
    if(!sent){sent=true;if(mouse)click(290,80);else tap(SDLK_a);}
    if(!handler.inputContext(h.flow->frame().presentation()).readyForAction)++busyFrames;
-   now+=100;return idle();
+   return idle();
   },status);
  };
  check(h.run(s,source,"combat-queue")==0,"combat queue Application failed");
@@ -234,14 +246,14 @@ void originalDialogs(Inputs &in) {
    if(std::string(button.resource)=="view.icn" && button.frame==40)preview(frame,"sheet-button-pressed");
    if(std::string(button.resource)=="items.icn" && button.frame==6)preview(frame,"items-button-pressed");
   };
-  native.beginCycle=[&](auto cycle){handler.beginCycle(cycle);if(pending){auto send=std::move(pending);pending={};try{send();}catch(const std::exception &e){std::cerr<<e.what()<<'\n';throw;}}};
+  native.beginCycle=[&](auto cycle){now+=25;handler.beginCycle(cycle);if(pending){auto send=std::move(pending);pending={};try{send();}catch(const std::exception &e){std::cerr<<e.what()<<'\n';throw;}}};
   native.withPresentedInput=[&](const auto &action,auto input,const auto &origin){
    check(handler.inputContext(origin).readyForAction,"original dialog input while unready");
    ++delivered;queued=false;return handler.withPresentedInput(action,input,origin);
   };
   native.framePresented=[&](const auto &frame){handler.framePresented(frame);if(delivered==1)preview(*frame,"character-sheet");if(delivered==5)preview(*frame,"original-items");if(delivered==19)preview(*frame,"misc-title");};
   return SdlWindow().showInteractive(first,"Original sheet and items",native,escape,[&]()->std::optional<IndexedFrame>{
-   check(++loops<200,("original dialogs timeout at input "+std::to_string(delivered)).c_str());now+=25;
+   check(++loops<200,("original dialogs timeout at input "+std::to_string(delivered)).c_str());
    if(!queued){queued=true;pending=[&]{switch(delivered){
     case 0:tap(SDLK_F1);break;
     case 1:click(10,24);break; // Might popup.
@@ -291,14 +303,15 @@ void mouseJourney(Inputs &in) {
  s.show=[&](const auto &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
   auto native=handler;
   std::function<void()> pending;unsigned scripted=0;
-  native.beginCycle=[&](auto cycle){handler.beginCycle(cycle);if(pending){auto send=std::move(pending);pending={};send();}};
+  native.beginCycle=[&](auto cycle){now+=100;handler.beginCycle(cycle);if(pending){auto send=std::move(pending);pending={};send();}};
   native.framePresented=[&](const auto &frame){handler.framePresented(frame);preview(*frame,"exploration");};
   native.withPresentedInput=[&](const auto &action,auto input,const auto &origin){
-   ++dispatches;check(handler.inputContext(origin).readyForAction,"mouse navigation drained while busy");
+   const auto context=handler.inputContext(origin);
+   ++dispatches;check(std::holds_alternative<NavigationAction>(action)?context.readyForNavigation:context.readyForAction,"mouse action drained while busy");
    return handler.withPresentedInput(action,input,origin);
   };
   return SdlWindow().showInteractive(first,"Main-screen mouse walk",native,escape,[&]()->std::optional<IndexedFrame>{
-   check(++loops<100,"mouse walk timeout");now+=100;
+   check(++loops<100,"mouse walk timeout");
    if(scripted==0){++scripted;pending=[&]{click(261,100);click(12,151);};}
    if(dispatches==2 && scripted==1){++scripted;check(h.flow->inventoryOpen(),"portrait sheet absent");pending=[&]{tap(SDLK_ESCAPE);};}
    if(dispatches==3 && scripted==2){++scripted;pending=[&]{click(261,149);click(290,149);click(100,50);};}
@@ -315,6 +328,7 @@ void mouseNotices(Inputs &in) {
  std::string reported;f.flow->reportText=[&](const auto &text){reported=text;};
  const auto before=XeenSaveFormat::encode(f.snapshot());
  for(const auto label:{"Dismiss","View Quests"}) {
+  f.now+=110; // Poll input after the acquired draw's wait, before another draw.
   const auto pixels=f.flow->frame().pixels;
   f.act(UnsupportedMainScreenAction{label});
   check(reported==std::string(label)+": not supported yet","unsupported notice missing");
@@ -394,7 +408,7 @@ void services(Inputs &in) {
    if(mode>=2)act(SelectMemberAction{1});
    if(mode>=3){act(DialogKeyAction{'t'});prepare();}
    check(handler.inputContext(h.flow->frame().presentation()).acceptsQueuedInput==(mode==0),"service context queue acceptance");
-   auto native=handler;native.beginCycle=[&](auto){handler.beginCycle(++cycles);};
+   auto native=handler;native.beginCycle=[&](auto){now+=100;handler.beginCycle(++cycles);};
    native.completeInputHandoff=[&](const auto &f){handler.completeInputHandoff(f);if(armed && f==b && timing==4)inject();};
    native.withPresentedInput=[&](const auto &action,auto epoch,const auto &origin){
     check(handler.acceptsInputFrame(origin) && (mode==0 || origin==(timing==4?b:a)),"service response origin changed");++dispatches;return handler.withPresentedInput(action,epoch,origin);
@@ -431,6 +445,7 @@ void boundaries(Inputs &in) {
   copyHook=[&]{if(armed && timing==2)inject();};
   s.show=[&](const auto &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
    auto native=handler;
+   native.beginCycle=[&](auto cycle){now+=100;handler.beginCycle(cycle);};
    native.framePresented=[&](const auto &f){
     handler.framePresented(f);
     if(armed && f!=a && handler.displayedInput()==epoch){
@@ -453,15 +468,15 @@ void boundaries(Inputs &in) {
    };
    return SdlWindow().showInteractive(first,"Deterministic cosmetic boundary",native,escape,[&]()->std::optional<IndexedFrame>{
     check(++loops<20,"deterministic tap lost");
-    if(dispatches==2){check(h.camera->direction==XeenDirection::South,"physical edge/repeat did not turn exactly twice");quit();return {};}
-    check(dispatches<=2,"duplicate boundary action");
+    if(dispatches==1){check(h.camera->direction==XeenDirection::East,"physical tap did not turn exactly once");quit();return {};}
+    check(dispatches<=1,"released navigation repeat created another action");
     if(!armed){armed=true;a=first.presentation();epoch=handler.displayedInput();ticket=h.flow->encounter()->ticket();if(timing==0){inject();return {};}}
-    now+=100;return idle();
+    return idle();
    },status);
   };
   check(h.run(s,source,"boundary")==0,"boundary Application failed");
   if(timing==6)check(injected && dispatches==0,"key overtook queued close during cosmetic acquisition");
-  uploadHook={};copyHook={};std::cout<<(timing==6?"CLOSE ORDER ":"BOUNDARY ")<<timing<<" tap=1 dispatch="<<dispatches<<" movement-repeat=1 held-duplicate=0 PASS\n";
+  uploadHook={};copyHook={};std::cout<<(timing==6?"CLOSE ORDER ":"BOUNDARY ")<<timing<<" tap=1 dispatch="<<dispatches<<" released-repeat=0 held-duplicate=0 PASS\n";
  }
 }
 }

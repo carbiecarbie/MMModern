@@ -99,7 +99,7 @@ void portraitRewards(Inputs &in) {
   const auto effects=f.w.scenePresentation().portraits;
   f.act(AcknowledgeAction{});f.act(AcknowledgeAction{});
   for(unsigned id=0;id<30;++id)check(f.w.scenePresentation().portraits[id].spellDeadline==effects[id].spellDeadline,"Repeated acknowledgment restarted sparkle");
-  for(unsigned n=0;n<4;++n){f.now+=100;f.flow->beginCycle(++f.cycle);if(auto image=f.flow->updatePresentation())f.present(*image);}
+  for(unsigned n=0;n<4;++n){f.now+=110;f.flow->beginCycle(++f.cycle);if(auto image=f.flow->updatePresentation())f.present(*image);}
   check(!f.w.scenePresentation().feedbackActive() && frames==(g.sparkle?15u:0u),"Reward did not draw the original four sparkle frames exactly through completion");
  }
 }
@@ -123,7 +123,7 @@ void partA(Inputs &in) {
  cancelled.act(InteractionAction{});check(!cancelled.flow->canSave(),"Saving during staged heads/selection");
  check(headFrames.size()>=2 && headFrames[headFrames.size()-2]>=4 && headFrames[headFrames.size()-2]<=7 && headFrames.back()==headFrames[headFrames.size()-2]+8,"WhoWill did not present candidate HED indicators");
  const unsigned initialHead=headFrames[headFrames.size()-2];
- headFrames.clear();cancelled.now+=100;cancelled.flow->beginCycle(++cancelled.cycle);if(auto next=cancelled.flow->updatePresentation())cancelled.present(*next);
+ headFrames.clear();cancelled.now+=110;cancelled.flow->beginCycle(++cancelled.cycle);if(auto next=cancelled.flow->updatePresentation())cancelled.present(*next);
  check(headFrames.size()>=2 && headFrames[headFrames.size()-2]==4+(initialHead-4+1)%4 && headFrames.back()==headFrames[headFrames.size()-2]+8,"WhoWill HED animation lost its ordinary redraw");
  const auto oldFrame=cancelled.flow->frame().presentation();const auto oldInput=cancelled.flow->displayedInput();
  cancelled.act(CancelInteractionAction{});

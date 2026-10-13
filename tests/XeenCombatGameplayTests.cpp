@@ -5,6 +5,11 @@
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 using namespace regional_gameplay_test;
+template<class Handler,class Idle>
+void drawTick(Harness &h,const Handler &handler,const Idle &idle) {
+ h.present(handler);h.now+=110;handler.beginCycle(++h.cycle);
+ idle();check(handler.frameCurrent(),"Current idle frame");h.present(handler);
+}
 void panelCombat() {
  Harness h;auto services=h.services();unsigned providers=0;
  services.panel=[&](const auto &base,bool combat,bool restricted,bool saveable,auto current,const auto &name) {
@@ -15,6 +20,7 @@ void panelCombat() {
  };
  services.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &) {
   h.press(handler,WaitAction{});check(h.phase()==Phase::PlayerReady,"combat panel player boundary");
+  h.now+=110; // Finish the acquired scene draw before requesting its panel.
   const auto revision=h.result().revision,rng=h.randomPosition();const auto deadline=h.flow->encounter()->deadline();
   XeenRestoreGuard guard(*h.world,*h.party,*h.camera,*h.flags);
   IndexedFrame visible=h.flow->frame();
@@ -67,17 +73,17 @@ void appearance() {
     h.flow->encounter()->deadline()==service && h.result().revision==revision &&
     h.randomPosition()==rng && h.world->sessionState().actors()[5].hp==hp,"cache changed appearance or gameplay");
   };
-  for(unsigned i=0;i<8;++i){frame(i);rebuild();h.tick(handler,idle);}
+  for(unsigned i=0;i<8;++i){frame(i);rebuild();drawTick(h,handler,idle);}
   for(unsigned i=0;i<6;++i)h.press(handler,BlockAction{});
-  h.tick(handler,idle);frame(8);rebuild();
-  check(h.flow->encounter()->cosmeticDeadline()==h.now+100,"attack cadence starts after fallible frame composition");
+  drawTick(h,handler,idle);frame(8);rebuild();
+  check(h.flow->encounter()->cosmeticDeadline()==PresentationClock::afterMilliseconds(h.now,2),"attack cadence starts after fallible frame composition");
   const unsigned enemy[]{9,10,10,10,0};
-  for(auto expected:enemy){h.tick(handler,idle);frame(expected);}
+  for(auto expected:enemy){drawTick(h,handler,idle);frame(expected);}
   // Seed1: Arturius misses, then Tyro hits. Pending intent is not a hit.
-  h.press(handler,InteractionAction{});h.tick(handler,idle);
+  h.press(handler,InteractionAction{});drawTick(h,handler,idle);
   check(h.result().attackOutcome==XeenCombatAttackOutcome::Miss,"seeded miss control");
   check(h.observedAppearance.kind==XeenMonsterSpriteKind::Normal,"miss created hit effect");
-  h.press(handler,InteractionAction{});h.tick(handler,idle);frame(11);
+  h.press(handler,InteractionAction{});drawTick(h,handler,idle);frame(11);
   check(h.world->sessionState().actors()[5].hp==12,"partial live HP control");
   rebuild();
   const auto revision=h.result().revision,rng=h.randomPosition();
@@ -85,10 +91,10 @@ void appearance() {
   const auto deadline=h.flow->encounter()->cosmeticDeadline();
   idle();h.now-=1;idle();h.now+=1;frame(11);
   check(h.flow->encounter()->cosmeticDeadline()==deadline,"obsolete cosmetic clock");
-  for(unsigned i=0;i<5;++i){h.tick(handler,idle);frame(i==4?0:11);}
+  for(unsigned i=0;i<5;++i){drawTick(h,handler,idle);frame(i==4?0:11);}
   check(h.result().revision==revision && h.randomPosition()==rng,"cosmetics ran gameplay");
-  h.now+=10000;h.tick(handler,idle);frame(1);
-  check(h.flow->encounter()->cosmeticDeadline()==h.now+100,"no cosmetic backlog");
+  h.now+=10000;drawTick(h,handler,idle);frame(1);
+  check(h.flow->encounter()->cosmeticDeadline()==PresentationClock::afterMilliseconds(h.now,2),"no cosmetic backlog");
   return true;
  };
  check(h.run(s)==0,"production appearance");
@@ -108,7 +114,7 @@ void criticalPresentation() {
   for(unsigned step=0;step<100&&!h.flow->encounter()->terminal();++step){
    if(h.phase()==Phase::PlayerReady)h.press(handler,BlockAction{});
    else {
-    h.tick(handler,idle);const auto &r=h.result();
+    drawTick(h,handler,idle);const auto &r=h.result();
     if(r.operation==XeenCombatOperation::EnemyAttack){
      ++enemies;check(r.critical&&r.injuryCount==(enemies==2?1U:2U),"ordered critical presentation observations");
      check(h.observedAppearance.kind==XeenMonsterSpriteKind::Attack&&h.observedAppearance.frame==0,"critical ATT initial frame");
@@ -132,11 +138,11 @@ void delayed() {
   check(h.flow->encounter()->state().pending()==2,"action and supplied pulse separate");
   const auto pending=h.flow->encounter()->state().pending();idle();
   check(h.flow->encounter()->state().pending()==pending,"same-cycle idle cannot pulse again");
-  h.tick(handler,idle);h.tick(handler,idle);h.press(handler,WaitAction{});
+  drawTick(h,handler,idle);drawTick(h,handler,idle);h.press(handler,WaitAction{});
   check(h.phase()==Phase::PlayerReady&&h.party->encounterContext->minutes==500,"delayed production engagement at500");
   const auto ordinary=h.observedOrdinary;
   h.press(handler,BlockAction{});check(h.observedOrdinary==ordinary,"Block does not act as navigation");
-  h.tick(handler,idle);check(h.observedOrdinary==ordinary+1,"ordinary idle animation continues in combat");
+  drawTick(h,handler,idle);check(h.observedOrdinary==ordinary+1,"ordinary idle animation continues in combat");
   check(h.randomPosition()==0,"idle without combat work creates no turn");
   return true;
  };
@@ -174,7 +180,7 @@ void failures() {
     if(fault==5){
      injected=true;
      const auto old=h.flow->encounter()->ticket();
-     h.tick(handler,idle);
+     drawTick(h,handler,idle);
      const auto generation=h.result().generation;
      h.flow->failEncounterHandoff(old);
      check(h.result().generation==generation,"stale handoff cannot fail newer combat");
@@ -214,7 +220,7 @@ void publicationFailures() {
    h.press(handler,WaitAction{});
    for(unsigned n=0;n<500&&!injected;++n){
     if(h.phase()==Phase::PlayerReady){h.press(handler,fault==3||commands++<6?PlayerAction{BlockAction{}}:PlayerAction{InteractionAction{}});}
-    else h.tick(handler,idle);
+    else drawTick(h,handler,idle);
    }
    check(injected,"publication fault reached through real commands");
    check(h.phase()==(fault==2?Phase::Victory:fault==3?Phase::Defeat:fault==1?Phase::VictoryAwaitingEnd:Phase::PlayerReady),"Failure recovery preserves actual phase");
@@ -287,7 +293,7 @@ void sdl() {
   auto wrapped=handler;
   std::vector<SDL_Event> pendingKeys;
   wrapped.beginCycle=[&](auto cycle){
-   handler.beginCycle(cycle);
+   h.now+=110;handler.beginCycle(cycle);
    // Commands planned by idle belong to its successfully acquired frame.
    for(auto &event:pendingKeys)check(SDL_PushEvent(&event)==1,"push production SDL key");
    pendingKeys.clear();
@@ -303,7 +309,7 @@ void sdl() {
    pendingKeys.push_back(event);
   };
   const auto scriptedIdle=[&]()->std::optional<IndexedFrame>{
-   h.now+=20;++idles;
+   ++idles;
    auto frame=idle();
    if(idles>100)throw std::runtime_error("SDL combat test timed out");
    switch(stage++){
@@ -374,7 +380,7 @@ void staleService() {
   check(h.fight().pending()==Work::Action&&h.flow->encounter()->deadline(),"Pending combat service");
   const auto before=h.result();const auto deadline=h.flow->encounter()->deadline();const auto rng=h.randomPosition();
   h.fight().setProbe([&]{if(!fired){fired=true;const auto lease=h.combatBoundary->hold(XeenCombatBoundary::Work::Inventory);h.combatBoundary->release(XeenCombatBoundary::Work::Inventory,lease);}});
-  bool threw=false;try{h.now+=100;handler.beginCycle(++h.cycle);idle();}catch(const std::runtime_error &){threw=true;}
+  bool threw=false;try{h.now=*deadline;handler.beginCycle(++h.cycle);idle();}catch(const std::runtime_error &){threw=true;}
   h.fight().setProbe({});
   check(fired&&threw,"Stale service probe fired and stopped chain");
   check(h.randomPosition()==rng&&h.result().generation==before.generation&&h.result().revision==before.revision,"Stale service adopts no RNG/result");
@@ -434,7 +440,7 @@ void liveSourceGuards() {
    }return compose(w,p,c,phase,actor);
   };
   s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){
-   h.press(handler,NavigationAction::TurnRight);for(unsigned n=0;n<10&&!h.flow->canSave();++n)h.tick(handler,idle);
+   h.press(handler,NavigationAction::TurnRight);for(unsigned n=0;n<10&&!h.flow->canSave();++n)drawTick(h,handler,idle);
    check(h.flow->canSave(),"Source quiet before save");const auto previous=disk(h.savePath);armed=true;bool threw=false;
    try{h.press(handler,SaveGameAction{});}catch(const std::exception &){threw=true;}armed=false;
    check(injected,"Retained source cache/lifetime seam fired");

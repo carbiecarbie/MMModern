@@ -54,9 +54,9 @@ struct State {
  std::string name="Native Case !~";
 } state;
 void quit(){SDL_Event event{};event.type=SDL_QUIT;check(SDL_PushEvent(&event)==1,"title native quit");}
-void key(unsigned code) {
+void key(unsigned code,std::vector<SDL_Event> &pending) {
  SDL_Event event{};event.type=SDL_KEYDOWN;event.key.keysym.sym=code;event.key.keysym.scancode=SDL_GetScancodeFromKey(code);
- check(SDL_PushEvent(&event)==1,"title native key down");event.type=SDL_KEYUP;check(SDL_PushEvent(&event)==1,"title native key up");
+ pending.push_back(event);event.type=SDL_KEYUP;pending.push_back(event);
 }
 void preview(const IndexedFrame &frame,const std::string &label) {
  const char *directory=std::getenv("MMODERN_TITLE_PREVIEW");if(!directory)return;
@@ -67,13 +67,13 @@ void preview(const IndexedFrame &frame,const std::string &label) {
  }
  const auto path=fs::path(directory)/(label+".bmp");const auto result=SDL_SaveBMP(surface,path.string().c_str());SDL_FreeSurface(surface);check(result==0,"title preview write");
 }
-void click(const DialogInput &dialog,unsigned value) {
+void click(const DialogInput &dialog,unsigned value,std::vector<SDL_Event> &pending) {
  const DialogHit *hit=nullptr;for(const auto &candidate:dialog.hits)if(candidate.key==value){hit=&candidate;break;}
  check(hit,"native title click target");
  SDL_Window *window=nullptr;for(unsigned id=1;id<100 && !window;++id)window=SDL_GetWindowFromID(id);check(window,"native title window");
  SDL_Event event{};event.type=SDL_MOUSEBUTTONDOWN;event.button.button=SDL_BUTTON_LEFT;event.button.windowID=SDL_GetWindowID(window);
  event.button.x=(hit->left+hit->right-1)*3/2;event.button.y=(hit->top+hit->bottom-1)*3/2;
- check(SDL_PushEvent(&event)==1,"native title click");
+ pending.push_back(event);event.type=SDL_MOUSEBUTTONUP;pending.push_back(event);
 }
 bool panelGameplay(const IndexedFrame &first,const SdlWindow::FrameUpdateHandler &handler,
  const SdlWindow::IdleFrameHandler &idle,const std::function<std::string()> &status) {
@@ -231,6 +231,14 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
  if(!state.enabled)return realTitleShow(window,first,label,handler,escape,idle,status);
  const bool title=label=="MMModern - World of Xeen";
  auto native=handler;IndexedFrame::Presentation presented;unsigned step=0;
+ std::vector<SDL_Event> pendingEvents;
+ native.beginCycle=[&](auto cycle){
+  if(handler.beginCycle)handler.beginCycle(cycle);
+  // The script plans its next physical input during idle. Send it only after
+  // that iteration's upload/acquisition completes, with a fresh SDL timestamp.
+  for(auto &event:pendingEvents)check(SDL_PushEvent(&event)==1,"native title input after acquisition");
+  pendingEvents.clear();
+ };
  std::optional<std::uint64_t> emitted;
  const auto began=std::chrono::steady_clock::now();
  native.completeInputHandoff=[&](const auto &frame){handler.completeInputHandoff(frame);presented=frame;};
@@ -250,30 +258,33 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
   }
  };
  const auto nativeIdle=[&]() -> std::optional<IndexedFrame> {
-  if(std::chrono::steady_clock::now()-began>std::chrono::seconds(15))throw std::runtime_error("Native title route stalled");
-  const auto next=idle?idle():std::nullopt;
-  if(!title){if(state.shown)quit();return next;}
-  if(next || !presented)return next;
+  if(std::chrono::steady_clock::now()-began>std::chrono::seconds(15))throw std::runtime_error("Native title route stalled at step="+std::to_string(step)+" mouse="+std::to_string(state.mouse)+" loading="+std::to_string(state.loading));
+  if(!title){const auto next=idle?idle():std::nullopt;if(state.shown)quit();return next;}
+  if(!presented)return idle?idle():std::nullopt;
   const auto context=handler.inputContext(presented);
-  if(!context.readyForAction || !context.dialog || emitted==context.contextId)return next;
+  // Deadline-driven waiting may draw a cursor on every idle call. Plan the
+  // next physical input from the already acquired frame before that redraw.
+  if(!context.readyForAction || !context.dialog || emitted==context.contextId ||
+      (context.dialog->textEntry && !SDL_IsTextInputActive()))return idle?idle():std::nullopt;
+  const std::optional<IndexedFrame> next;
   emitted=context.contextId;preview(*presented,"title-"+std::to_string(step));
-  if(step==0){key(27);++step;return next;} // Original background -> menu.
+  if(step==0){key(27,pendingEvents);++step;return next;} // Original background -> menu.
   if(state.loading) {
    const unsigned route[]{'l','9',13};check(step<=3,"unexpected title Load screen");
-   const unsigned code=route[step++-1];if(state.mouse)click(*context.dialog,code==13?'s':code);else key(code);return next;
+   const unsigned code=route[step++-1];if(state.mouse)click(*context.dialog,code==13?'s':code,pendingEvents);else key(code,pendingEvents);return next;
   }
   // Cancel name once, return to the menu, then complete a fresh New.
   const unsigned route[]{'s','9',13,27,27,'s','9',13,0,13,'a'};
   check(step<=11,"unexpected title New screen");unsigned code=route[step++-1];
   if(code==0) {
    check(context.dialog->textEntry,"native name input mode");SDL_Event event{};event.type=SDL_TEXTINPUT;
-   std::strcpy(event.text.text,state.name.c_str());check(SDL_PushEvent(&event)==1,"native case-preserving text");
+   std::strcpy(event.text.text,state.name.c_str());pendingEvents.push_back(event);
   }else {
    if(step==12)code=state.difficulty==XeenDifficulty::Warrior?'w':'a';
    unsigned target=code;
    if(code==13 && !context.dialog->textEntry)target='s';
    const bool hit=std::any_of(context.dialog->hits.begin(),context.dialog->hits.end(),[&](const auto &h){return h.key==target;});
-   if(state.mouse && hit)click(*context.dialog,target);else key(code);
+   if(state.mouse && hit)click(*context.dialog,target,pendingEvents);else key(code,pendingEvents);
   }
   return next;
  };

@@ -442,10 +442,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             checkpoint("final");
         }else if(branch=="B" || branch=="C") {route("LR");checkpoint("continued");}
         inspect([&]{std::cout<<"M39 PRODUCTION WITNESS PASSED projectiles="<<arrowProjectiles<<'\n';SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);});
-        auto native=handler;native.closed={};native.beginCycle=[&](std::uint64_t){handler.beginCycle(++cycle);};
+        auto native=handler;native.closed={};native.beginCycle=[&](std::uint64_t){now+=100;handler.beginCycle(++cycle);};
         native.framePresented=[&](const auto &frame){handler.framePresented(frame);shown=true;if(cast() && cast()->phase==XeenCombatCastPhase::Projectile)++arrowProjectiles;};
         const auto drive=[&]()->std::optional<IndexedFrame>{
-            check(++iterations<12000,"M39 witness iteration bound");now+=100;next.reset();acted=false;
+            check(++iterations<12000,"M39 witness iteration bound");next.reset();acted=false;
             if(shown)while(!steps.empty()){const bool done=steps.front()();if(done)steps.pop_front();if(acted || !done)break;}
             if(acted)return next;auto frame=idle();if(frame)shown=false;return frame;
         };

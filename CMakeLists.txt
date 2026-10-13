@@ -823,6 +823,10 @@ if(BUILD_TESTING)
 		mmodern_xeen mmodern_scummvm_xeen)
 	add_test(NAME xeen_navigation_flow COMMAND mmodern_navigation_flow_tests)
 	add_executable(mmodern_sdl_input_tests tests/SdlInputTests.cpp)
+ add_executable(mmodern_presentation_clock_tests tests/PresentationClockTests.cpp)
+ target_include_directories(mmodern_presentation_clock_tests PRIVATE src)
+ add_test(NAME presentation_clock COMMAND mmodern_presentation_clock_tests)
+ set_tests_properties(presentation_clock PROPERTIES LABELS fast)
 	target_link_libraries(mmodern_sdl_input_tests PRIVATE
 		mmodern_platform_sdl mmodern_xeen SDL2::SDL2)
 	target_link_options(mmodern_sdl_input_tests PRIVATE "-Wl,--wrap=SDL_GetTicks"

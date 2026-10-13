@@ -1,4 +1,5 @@
 #include "XeenProbeFired.h"
+#include "core/PresentationClock.h"
 #include "platform/sdl/SdlWindow.h"
 #include "platform/sdl/XeenMainScreenInput.h"
 #include "games/xeen/XeenDialogView.h"
@@ -71,8 +72,10 @@ struct QueueHarness {
  MainScreen screen=MainScreen::None;
  std::shared_ptr<const DialogInput> dialog;
  bool feedbackEnabled=false;std::vector<unsigned> pressedFrames;
- bool redraw=false,ready=false,queueable=true,restAvailable=false;std::uint64_t context=1,epoch=1,presented=0;
+ bool redraw=false,ready=false,queueable=true,restAvailable=false,navigationDrawPending=false;std::uint64_t context=1,epoch=1,presented=0;
  unsigned stage=0,presentations=0,lastDelivery=0;std::vector<char> delivered;
+ std::uint64_t clock=0,clockStep=100000000,drawDeadline=0;
+ bool drawPaced=false;std::vector<std::uint64_t> deliveredAt;
  std::function<void()> duringPresentation;
  static void key(SDL_Keycode code,Uint32 type=SDL_KEYDOWN,Uint8 repeat=0,Uint32 stamp=99,Uint16 modifiers=0){
   SDL_Event event{};event.type=type;event.key.keysym.sym=code;event.key.keysym.mod=modifiers;event.key.repeat=repeat;event.key.timestamp=stamp;
@@ -93,7 +96,9 @@ struct QueueHarness {
   for(unsigned i=0;i<256;++i)frame.palette[i*3+2]=i;
   SdlWindow::FrameUpdateHandler handler=[](const auto &)->std::optional<IndexedFrame>{throw std::runtime_error("unversioned queued action");};
   handler.protectAllKeys=true;handler.displayedInput=[&]{return std::optional<std::uint64_t>{epoch};};
-  handler.inputContext=[&](const auto &){return InputContext{context,queueable,ready && presented==epoch,screen,dialog,false,restAvailable && presented==epoch};};
+  handler.presentationClock=[&]{return clock;};
+  handler.beginCycle=[&](auto){clock+=clockStep;};
+  handler.inputContext=[&](const auto &){return InputContext{context,queueable,ready && clock>=drawDeadline && presented==epoch,screen,dialog,false,restAvailable && presented==epoch,false,navigationDrawPending};};
   handler.framePresented=[&](const auto &){presented=epoch;++presentations;const auto hook=duringPresentation;if(hook)hook();};
   if(feedbackEnabled)handler.drawButton=[&](auto &pressed,const InputButton &button){
    pressedFrames.push_back(button.pressedFrame());pressed.pixels[0]=button.pressedFrame();
@@ -123,7 +128,10 @@ struct QueueHarness {
    else if(std::holds_alternative<AcknowledgeAction>(action))kind='K';
    else if(std::holds_alternative<SelectMemberAction>(action))kind='P';
    else if(const auto *key=std::get_if<DialogKeyAction>(&action))kind=key->key==InputKey::Escape?'E':char(key->key);
-   delivered.push_back(kind);++epoch;return frame;
+   check(!drawPaced || clock>=drawDeadline,"action bypassed draw cadence");
+   delivered.push_back(kind);deliveredAt.push_back(clock);
+   if(drawPaced)drawDeadline=PresentationClock::after(clock,2);
+   ++epoch;return frame;
   };
   fixedTicks=true;
   const bool ok=SdlWindow().showInteractive(frame,name,handler,[]{return true;},[&]()->std::optional<IndexedFrame>{
@@ -132,10 +140,23 @@ struct QueueHarness {
   fixedTicks=false;check(ok,"queue show failed");std::cout<<name<<" passed\n";
  }
 };
+void navigationWaitCompletesBeforeAnotherDraw() {
+ for(bool held:{false,true}) {
+  QueueHarness h;h.screen=MainScreen::Exploration;h.navigationDrawPending=true;
+  h.duringPresentation=[&] {if(h.presentations==3){h.ready=true;h.navigationDrawPending=false;}};
+  h.run(held?"held-navigation-draw-boundary-poll":"fresh-navigation-draw-boundary-poll",[held](auto &h){
+   if(h.stage==0){if(held)h.key(SDLK_UP);else h.tap(SDLK_UP);}
+   else {
+    h.check(h.delivered==std::vector<char>{'W'},"another semantic idle draw ran while navigation awaited only draw completion");
+    h.key(SDLK_UP,SDL_KEYUP);h.quit();
+   }
+  });
+ }
+}
 void pressedButtonFeedback(){
  const auto verify=[](const QueueHarness &h,const std::vector<unsigned> &expected){
-  if(h.pressedFrames!=expected || feedbackDelays!=std::vector<unsigned>(expected.size(),100))
-   throw std::runtime_error("pressed sprite/two-tick hold mismatch");
+  if(h.pressedFrames!=expected || !feedbackDelays.empty())
+   throw std::runtime_error("pressed sprite/immediate restoration mismatch");
   std::vector<unsigned> seen;
   for(std::size_t i=0;i<nativePresentSamples.size();++i)if(nativePresentSamples[i]){
    seen.push_back(nativePresentSamples[i]);
@@ -417,15 +438,15 @@ void boundedQueuePolicies(){
   else if(h.stage==1){h.check(h.delivered.empty(),"busy consumed queue");h.ready=true;}
   else if(h.stage<=6){h.check(h.delivered.size()==h.stage-1,"FIFO drain count");if(h.stage==6){h.check(h.delivered==std::vector<char>{'W','A','S','D',' '},"FIFO or overflow");h.quit();}}
  });
- QueueHarness{}.run("five-physical-W-edges",[](auto &h){
+ QueueHarness{}.run("six-distinct-taps-no-loss",[](auto &h){
   if(h.stage==0){for(unsigned n=0;n<6;++n)h.tap(SDLK_UP);}
   else if(h.stage==1)h.ready=true;
-  else if(h.stage==7){h.check(h.delivered==std::vector<char>(5,'W'),"fresh physical edges were coalesced or overflow accepted");h.quit();}
+  else if(h.stage==7){h.check(h.delivered==std::vector<char>(6,'W'),"fresh physical edges were coalesced or overflow accepted");h.quit();}
  });
  QueueHarness{}.run("movement-repeat/single-pending-repeat/physical-edges/held-release",[](auto &h){
   if(h.stage==0){h.key(SDLK_UP);for(unsigned n=0;n<20;++n)h.key(SDLK_UP,SDL_KEYDOWN,1);h.key(SDLK_UP);h.key(SDLK_UP,SDL_KEYUP);h.tap(SDLK_LEFT);h.tap(SDLK_DOWN);h.tap(SDLK_RIGHT);h.tap(SDLK_b);}
   else if(h.stage==1)h.ready=true;
-  else if(h.stage==7){h.check(h.delivered==std::vector<char>{'W','W','A','S','D'},"repeat backlog or physical bound");h.quit();}
+  else if(h.stage==7){h.check(h.delivered==std::vector<char>{'W','A','S','D','B'},"repeat backlog or physical bound");h.quit();}
  });
  QueueHarness{}.run("Space-B-F-R-repeat-ignored",[](auto &h){
   if(h.stage==0){for(auto code:{SDLK_SPACE,SDLK_b,SDLK_s,SDLK_r}){h.key(code);h.key(code,SDL_KEYDOWN,1);h.key(code,SDL_KEYUP);}}
@@ -468,6 +489,76 @@ void boundedQueuePolicies(){
  });
 }
 
+void navigationObligations() {
+ QueueHarness{}.run("eight-fresh-taps-behind-unacquired-frame",[](auto &h) {
+  if(h.stage==0) {
+   ++h.epoch;h.redraw=true;
+   h.duringPresentation=[&h] {h.duringPresentation={};for(unsigned i=0;i<8;++i)h.tap(SDLK_UP);};
+  } else if(h.stage==2)h.ready=true;
+  else if(h.stage==11){h.check(h.delivered==std::vector<char>(8,'W'),"unacquired frame lost a distinct tap");h.quit();}
+ });
+ QueueHarness{}.run("held-demand-release-batch-preserves-distinct-taps",[](auto &h) {
+  if(h.stage==0)h.key(SDLK_UP);
+  else if(h.stage==1)h.ready=true;
+  else if(h.stage==2)h.clock+=500000000;
+  else if(h.stage==3) {
+   h.check(h.delivered==std::vector<char>{'W','W'},"held demand must repeat without OS makes");
+   for(unsigned i=0;i<30;++i)h.key(SDLK_UP,SDL_KEYDOWN,1);
+   h.key(SDLK_UP,SDL_KEYUP);h.tap(SDLK_LEFT);h.tap(SDLK_UP);
+  } else if(h.stage==7){h.check(h.delivered==std::vector<char>{'W','W','A','W'},"release retained repeats or discarded fresh taps");h.quit();}
+ });
+ {QueueHarness h;h.screen=MainScreen::Exploration;
+ h.run("held-turn-modifier-changes-and-release",[](auto &h) {
+  if(h.stage==0)h.key(SDLK_LEFT);
+  else if(h.stage==1)h.ready=true;
+  else if(h.stage==2){h.clock+=500000000;h.key(SDLK_LCTRL,SDL_KEYDOWN,0,100,KMOD_LCTRL);}
+  else if(h.stage==3)h.key(SDLK_LCTRL,SDL_KEYUP,0,100,0);
+  else if(h.stage==4)h.key(SDLK_LEFT,SDL_KEYUP);
+  else if(h.stage==6){h.check(h.delivered==std::vector<char>{'A','L','A'},"held physical key lost modifier/release identity");h.quit();}
+ });}
+ QueueHarness{}.run("physical-break-survives-keysym-change",[](auto &h) {
+  const auto key=[](SDL_Keycode symbol,SDL_Scancode scan,Uint32 type,Uint8 repeat=0) {
+   SDL_Event e{};e.type=type;e.key.keysym.sym=symbol;e.key.keysym.scancode=scan;e.key.repeat=repeat;e.key.timestamp=100;
+   if(SDL_PeepEvents(&e,1,SDL_ADDEVENT,0,0)!=1)throw std::runtime_error("physical-key fixture enqueue");
+  };
+  if(h.stage==0)key(SDLK_LEFT,SDL_SCANCODE_KP_4,SDL_KEYDOWN);
+  else if(h.stage==1)h.ready=true;
+  else if(h.stage==2)h.clock+=500000000;
+  else if(h.stage==3) {
+   key(SDLK_KP_4,SDL_SCANCODE_KP_4,SDL_KEYUP);
+   for(unsigned n=0;n<20;++n)key(SDLK_LEFT,SDL_SCANCODE_KP_4,SDL_KEYDOWN,1);
+   key(SDLK_UP,SDL_SCANCODE_KP_8,SDL_KEYDOWN);key(SDLK_KP_8,SDL_SCANCODE_KP_8,SDL_KEYUP);
+  } else if(h.stage==7){h.check(h.delivered==std::vector<char>{'A','A','W'},"keysym change stranded held physical key");h.quit();}
+ });
+
+}
+
+void navigationTypematic() {
+ for(const auto key:std::vector<std::pair<SDL_Keycode,Uint16>>{{SDLK_UP,0},{SDLK_LEFT,0},{SDLK_RIGHT,0},{SDLK_LEFT,KMOD_LCTRL}})
+  for(bool drawPaced:{false,true}) {
+   QueueHarness h;h.screen=MainScreen::Exploration;h.ready=true;h.clockStep=0;h.drawPaced=drawPaced;
+   h.run("navigation-initial-delay-rate-draw-cap-and-release",[&](auto &h) {
+    const auto third=drawPaced?PresentationClock::boundary(11):591666667ULL;
+    if(h.stage==0)h.key(key.first,SDL_KEYDOWN,0,100,key.second);
+    else if(h.stage==1){
+     h.check(h.delivered.size()==1 && h.deliveredAt[0]==0,"first press must act without typematic delay");
+     h.clock=499999999;
+     for(unsigned i=0;i<20;++i)h.key(key.first,SDL_KEYDOWN,1,100,key.second);
+    } else if(h.stage==2){h.check(h.delivered.size()==1,"OS repeats or held state bypassed initial delay");h.clock=500000000;}
+    else if(h.stage==3){h.check(h.delivered.size()==2 && h.deliveredAt[1]==500000000,"hold did not repeat at initial deadline");h.clock=third-1;}
+    else if(h.stage==4){h.check(h.delivered.size()==2,"typematic period or draw floor bypassed");h.clock=third;}
+    else if(h.stage==5){h.check(h.delivered.size()==3 && h.deliveredAt[2]==third,"repeat rate must be capped by drawing");h.clock+=1000000000;}
+    else if(h.stage==6)h.check(h.delivered.size()==4,"late wake replayed repeats");
+    else if(h.stage==7){
+     h.check(h.delivered.size()==4,"same-time observation repeated an action");
+     h.key(key.first,SDL_KEYUP,0,100,key.second);h.clock+=2000000000;
+    } else if(h.stage==8){h.check(h.delivered.size()==4,"release retained typematic demand");for(unsigned i=0;i<8;++i)h.tap(SDLK_UP);}
+    else if(h.stage<17)h.clock+=110000000;
+    else if(h.stage==17){h.check(h.delivered.size()==12,"distinct taps lost or gained actions after hold release");h.quit();}
+   });
+  }
+}
+
 void pushKey(std::atomic<bool> &finished, SDL_Keycode key, std::uint8_t repeat,
 		std::uint32_t type = SDL_KEYDOWN) {
 	for (int attempt = 0; attempt < 100 && !finished; ++attempt) {
@@ -490,6 +581,9 @@ int main(int argc,char **) {
  if(argc>1){mouseHitAreas();mouseQueuePolicies();strictDialogPolicies();pressedButtonFeedback();strafeAndSummaryKeys();quickFightKeys();callerEscapeAndAcknowledgment();return 0;}
  semanticBoundaryKeys();
  boundedQueuePolicies();
+ navigationObligations();
+ navigationTypematic();
+ navigationWaitCompletesBeforeAnotherDraw();
 	std::atomic<bool> finished{false};
 	std::atomic<int> interactions{0};
 	std::atomic<int> navigation{0};

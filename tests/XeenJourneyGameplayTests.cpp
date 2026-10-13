@@ -34,23 +34,24 @@ void quietCosmeticInput() {
    if(stage==0) {
     check(h.flow->canSave(),"Quiet cosmetic starting authority");
     if(settled==3){SDL_Event quit{};quit.type=SDL_QUIT;SDL_PushEvent(&quit);return {};}
-    semantic=handler.displayedInput();inject=true;stage=1;h.now+=100;return idle();
+    semantic=handler.displayedInput();inject=true;stage=1;h.now+=110;return idle();
    }
    if(stage==1) {
-    if(!h.flow->canSave())return idle();
+    if(!h.flow->canSave() || h.party->encounterContext->ctr24!=2*settled+1){h.now+=110;return idle();}
     check(handler.displayedInput()!=semantic && issued==settled+1 &&
         h.party->encounterContext->ctr24==2*settled+1,"Live A input during cosmetic preparation must execute under A");
     SDL_Event down{};down.type=SDL_KEYDOWN;down.key.keysym.sym=SDLK_RIGHT;
     check(SDL_PushEvent(&down)==1,"Fresh key after Quiet acquisition");
     down.type=SDL_KEYUP;check(SDL_PushEvent(&down)==1,"Fresh Quiet release");stage=2;return {};
    }
-   if(h.flow->canSave()) {
+   if(h.flow->canSave() && h.party->encounterContext->ctr24==2*issued) {
     check(h.party->encounterContext->ctr24==2*issued,"Fresh Quiet movement was discarded after acquisition");
     settled=issued;stage=0;return {};
    }
-   h.now+=100;return idle();
+   h.now+=110;return idle();
   };
-  return SdlWindow().showInteractive(first,"Quiet cosmetic input",handler,escape,driver,status);
+  auto native=handler;native.beginCycle=[&](auto cycle){h.now+=110;handler.beginCycle(cycle);};
+  return SdlWindow().showInteractive(first,"Quiet cosmetic input",native,escape,driver,status);
  };
  check(Application().playGameplay(services,xeenJourneyContent().entry,{},false,XeenEncounterEntry::Journey,56)==0 && settled==3,"Three consecutive fresh Quiet commands through real SDL");
 }
@@ -74,12 +75,15 @@ void sdlBoundaries() {
   s.show=[&](const auto &first,const auto &handler,const auto &escape,const auto &idle,const auto &status) {
    const auto key=[&](SDL_Keycode code,Uint32 type=SDL_KEYDOWN,Uint8 repeat=0){SDL_Event e{};e.type=type;e.key.keysym.sym=code;e.key.repeat=repeat;pendingKeys.push_back(e);};
    auto native=handler;
-   native.beginCycle=[&](auto cycle){handler.beginCycle(cycle);for(auto &event:pendingKeys)check(SDL_PushEvent(&event)==1,"fresh Journey key");pendingKeys.clear();};
+   native.beginCycle=[&](auto cycle){h.now+=110;handler.beginCycle(cycle);for(auto &event:pendingKeys)check(SDL_PushEvent(&event)==1,"fresh Journey key");pendingKeys.clear();};
    h.flow->reportManual=[&](const auto &){++noEvents;};
    const auto driver=[&]()->std::optional<IndexedFrame>{
     check(++loops<150,"bounded Journey SDL input test");
     if(omitted){check(!h.flow->canSave()&&!XeenSaveState::canCapture(*h.party,*h.camera,*h.world),"Unpresented forced refresh remains closed");SDL_Event quit{};quit.type=SDL_QUIT;SDL_PushEvent(&quit);return {};}
-    auto frame=idle();if(frame){stable=0;return frame;}if(++stable<2)return frame;stable=0;
+    if(!handler.inputContext(h.flow->frame().presentation()).readyForAction)return idle();
+    // F9 can consume a native batch before its queued F1 drains. Observe two
+    // ready polls, as before M63, before asserting the scripted successor.
+    if(++stable<2)return {};stable=0;std::optional<IndexedFrame> frame;
     switch(stage++) {
     case 0:key(SDLK_F1);key(SDLK_F1,SDL_KEYUP);key(SDLK_RIGHT);key(SDLK_RIGHT,SDL_KEYDOWN,1);key(SDLK_F9);key(SDLK_F9,SDL_KEYUP);key(SDLK_SPACE);key(SDLK_SPACE,SDL_KEYUP);break;
     case 1:check(h.camera->direction==XeenDirection::West&&h.party->encounterContext->ctr24==0&&h.flow->inventoryOpen()&&h.saves==0&&noEvents==0,"strict inventory opening flushes queued navigation/Space");key(SDLK_ESCAPE);key(SDLK_ESCAPE,SDL_KEYUP);key(SDLK_RIGHT);break;
@@ -108,7 +112,7 @@ void press(Harness &h,const SdlWindow::FrameUpdateHandler &handler,const PlayerA
  check(handler.frameCurrent(),"current production frame");handler.framePresented(h.flow->frame().presentation());
 }
 void tick(Harness &h,const SdlWindow::FrameUpdateHandler &handler,const SdlWindow::IdleFrameHandler &idle) {
- h.now+=100;handler.beginCycle(++h.cycle);idle();check(handler.frameCurrent(),"current idle frame");handler.framePresented(h.flow->frame().presentation());
+ h.now+=110;handler.beginCycle(++h.cycle);idle();check(handler.frameCurrent(),"current idle frame");handler.framePresented(h.flow->frame().presentation());
 }
 void boundaries(const fs::path &dir) {
  for(unsigned mode=0;mode<11;++mode) {

@@ -128,7 +128,7 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
     auto changed=flow.updatePresentation();if(observedPhase!=previous)sample();
     if(observedPhase==4 && !done){done=true;SDL_Event q{};q.type=SDL_QUIT;SDL_PushEvent(&q);}return changed;
    }) && done,"original stationary SDL idle cycle");
-  }else for(int i=0;i<4;++i){time+=100;flow.updatePresentation();sample();}
+  }else for(int i=0;i<4;++i){time+=110;flow.updatePresentation();sample();}
   std::size_t changes=0,visible=0;
   for(unsigned i=0;i<4;++i)for(std::size_t p=0;p<64000;++p)if(isolated[i].pixels[p]!=isolated[i+1].pixels[p]){
    ++changes;if(full[i].pixels[p]==isolated[i].pixels[p] && full[i+1].pixels[p]==isolated[i+1].pixels[p])++visible;
@@ -268,7 +268,7 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 			auto oracle=flow.presenter();
 			const auto expectedBase=composer.compose(assets,world,party,camera,rules,nullptr,observedPhase+1);
 			const auto before=oracle.rebase(expectedBase).pixels;
-			time+=150;flow.updatePresentation();unchanged();check(flow.presentationGeneration()==gen,"tick consumed generation");
+			time+=165;flow.updatePresentation();unchanged();check(flow.presentationGeneration()==gen,"tick consumed generation");
 			for(int y=0;y<200;++y)for(int x=0;x<320;++x)
 				if(before[y*320+x]!=flow.frame().pixels[y*320+x])
 					check(x>=23 && x<55 && y>=22 && y<54,"portrait tick changed text/scene/HUD");

@@ -116,7 +116,7 @@ void animatedRewardLayers(){
   flow.acceptManual(XeenEventExecutionSuspended{state,state.pendingPresentation->request});
   const auto gen=flow.presentationGeneration();const auto page=flow.presenter().pageIndex();const auto inventory=xeenInventoryInspection(e.f.initial);
   auto expectedBase=b;expectedBase.pixels[100]=1;auto oracle=flow.presenter();const auto expected=oracle.rebase(expectedBase);
-  now=100;flow.updatePresentation();
+  now=110;flow.updatePresentation();
   check(phase==1 && flow.frame().pixels==expected.pixels && flow.presentationGeneration()==gen && flow.presenter().pageIndex()==page &&
    xeenInventoryInspection(e.f.initial)==inventory,"animated warning/receipt rebase changed response or delivery");
   check(XeenRewardTestAccess::state(flow).rewardPhase==(warning?XeenRewardPhase::Warning:XeenRewardPhase::Receipt),"animated reward phase changed");
@@ -137,7 +137,7 @@ void animationFailures(){
   const auto gen=flow.presentationGeneration();std::optional<XeenEventExecutionError> error;
   auto report=[&](const auto&r){if(const auto *v=std::get_if<XeenEventExecutionError>(&r)){++reports;error=*v;flow.abandonPresentation();if(automatic)throw std::runtime_error("automatic animation report");}};
   flow.reportManual=report;flow.reportAutomatic=report;
-  fail=true;now=100;bool threw=false;try{flow.updatePresentation();}catch(const std::runtime_error&){threw=true;}
+  fail=true;now=110;bool threw=false;try{flow.updatePresentation();}catch(const std::runtime_error&){threw=true;}
   check(threw==automatic && reports==1 && !flow.blocksGameplay() && !flow.presentationGeneration(),"idle failure routing/cleanup");
   check(error && error->rewards.discarded==(delivered?0U:3U) && error->rewards.delivered==(delivered?3U:0U),"idle failure reward accounting");
   check(e.f.initial.roster.at(0).miscellaneous[0].id==(delivered?37:0) && !flow.respond(*gen,XeenPresentationResponse::Acknowledged),"idle failure replay/rollback");

@@ -96,6 +96,7 @@ struct XeenRegionalActionCandidate {
 	std::array<XeenRegionalRangedShot,108> shots{};
 	unsigned shotCount=0, remaining=0, pending=0;
 	bool classify=false, timeDone=false, timeNoticePublished=false, sleeping=false, noTargets=false;
+    bool stepTimePending=false;
 	std::uint64_t revision=0;
 };
 

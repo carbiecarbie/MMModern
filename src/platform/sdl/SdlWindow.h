@@ -14,6 +14,7 @@ namespace mmodern {
 
 class SdlWindow {
 public:
+    static std::uint64_t presentationNanoseconds();
 	struct FrameUpdateHandler : std::function<std::optional<IndexedFrame>(const PlayerAction &)> {
 		using Function = std::function<std::optional<IndexedFrame>(const PlayerAction &)>;
 		using Function::Function;
@@ -21,6 +22,8 @@ public:
 		FrameUpdateHandler(Function function) : Function(std::move(function)) {}
 		// One identity per event batch/idle iteration, independent of elapsed time.
 		std::function<void(std::uint64_t)> beginCycle;
+        std::function<std::optional<std::uint64_t>()> nextPresentationDeadline;
+        std::function<std::uint64_t()> presentationClock;
 		std::function<bool()> frameCurrent;
 		// Checks the identity carried by the supplied immutable frame, never relabels it.
 		std::function<bool(const IndexedFrame::Presentation &)> acceptsFrame;

@@ -38,40 +38,42 @@ struct Fixture {
 };
 void deadlinesAndActions(){
  Fixture f;check(f.phases==std::vector<std::uint64_t>{0},"initial zero");
- f.at(99);check(f.phases.size()==1,"early tick");f.at(100);check(f.phases.back()==1,"first deadline");
- auto n=f.phases.size();f.at(100);check(f.phases.size()==n,"same-now double tick");
- f.at(9000);f.phase(2);f.at(9099);f.phase(2);f.at(9100);f.phase(3);
+ const auto due=[&]{return PresentationClock::afterMilliseconds(f.now,2);};
+ f.at(109);check(f.phases.size()==1,"early tick");f.at(110);check(f.phases.back()==1,"first BIOS deadline");
+ auto n=f.phases.size();f.at(110);check(f.phases.size()==n,"same-now double tick");
+ f.at(9000);f.phase(2);auto deadline=due();f.at(deadline-1);f.phase(2);f.at(deadline);f.phase(3);
  for(int i=0;i<3;++i)f.flow.refresh(true);f.phase(3);
- f.now=9199;f.flow.handle(NavigationAction::MoveForward);f.phase(4);
- check(f.camera.y==2,"forward fixture blocked");f.at(9200);f.phase(4);f.at(9299);f.phase(5);
+ f.now+=25;f.flow.handle(NavigationAction::MoveForward);f.phase(4);
+ check(f.camera.y==2,"forward fixture blocked");deadline=due();f.at(deadline-1);f.phase(4);f.at(deadline);f.phase(5);
  f.flow.handle(NavigationAction::MoveBackward);f.phase(6);check(f.camera.y==1,"backward fixture");
  f.blocked=true;f.world.discardMapCache();f.flow.handle(NavigationAction::MoveForward);f.phase(7);
  check(f.camera.y==1,"blocked movement committed");f.flow.handle(InteractionAction{});f.phase(8);
  f.flow.handle(NavigationAction::TurnRight);f.phase(0);f.flow.handle(NavigationAction::TurnLeft);f.phase(0);
  f.flow.handle(SaveGameAction{});f.flow.handle(InspectInventoryAction{});f.phase(0);f.flow.handle(CancelInteractionAction{});
- f.at(9398);f.phase(0);f.at(9399);f.phase(1);
+ deadline=due();f.at(deadline-1);f.phase(0);f.at(deadline);f.phase(1);
  f.flow.acceptManual(XeenManualEventNoEvent{});f.flow.acceptAutomatic(XeenAutomaticEventNoTrigger{});f.flow.initial();f.phase(1);
- f.camera.x=2;f.flow.refresh();f.phase(1); // Same-map relocation is a pure refresh.
- f.camera.mapId=2;f.flow.refresh();f.phase(0);f.at(9499);f.phase(1);
+ f.camera.x=2;f.flow.refresh();f.phase(1);
+ f.camera.mapId=2;f.flow.refresh();f.phase(0);f.at(due());f.phase(1);
  f.camera.mapId=1;f.flow.refresh();f.phase(0);
 }
 void staticIndoorAndFailures(){
  Fixture f;f.animated=false;f.flow.refresh(true);auto n=f.phases.size();
- f.at(100);f.at(200);check(f.phases.size()==n,"static-only view recomposed on tick");
+ const auto due=[&]{return PresentationClock::afterMilliseconds(f.now,2);};
+ f.at(110);f.at(220);check(f.phases.size()==n+2,"semantic draws must continue even with static art");
  f.animated=true;f.camera.x=2;f.flow.refresh();check(f.phases.back()==2,"offscreen phase did not continue");
  f.indoor=true;f.camera.mapId=3;f.flow.refresh();n=f.phases.size();f.at(9999);
  check(f.phases.size()==n+1,"indoor timed redraw");f.flow.handle(InteractionAction{});f.phase(2);
- f.camera.mapId=1;f.flow.refresh();f.phase(0);f.at(10098);f.phase(0);f.at(10099);f.phase(1);
- f.fail=true;bool threw=false;try{f.at(10199);}catch(const std::runtime_error&){threw=true;}
+ f.camera.mapId=1;f.flow.refresh();f.phase(0);auto deadline=due();f.at(deadline-1);f.phase(0);f.at(deadline);f.phase(1);
+ f.fail=true;bool threw=false;try{f.at(due());}catch(const std::runtime_error&){threw=true;}
  check(threw && f.phases.back()==2,"no-pending animation failure swallowed");
  f.fail=false;f.flow.refresh(true);check(f.phases.back()==2,"failed tick rolled phase back");
- f.now=10200;f.camera.mapId=2;f.fail=true;
+ f.now+=25;f.camera.mapId=2;f.fail=true;
  try{f.flow.refresh();}catch(const std::runtime_error&){}
- f.now=10299;f.fail=false;f.flow.refresh();check(f.phases.back()==0,"failed transition reset phase");
- f.at(10300);check(f.phases.back()==1,"render retry rearmed transition deadline");
- n=f.phases.size();f.world.disableObject({2,0});f.at(10400);
+ deadline=due();f.now=deadline-1;f.fail=false;f.flow.refresh();check(f.phases.back()==0,"failed transition reset phase");
+ f.at(deadline);check(f.phases.back()==1,"render retry rearmed transition deadline");
+ n=f.phases.size();f.world.disableObject({2,0});f.at(due());
  check(f.phases.size()==n+1 && f.phases.back()==2,"mutation and tick composed twice");
- f.camera.mapId=1;n=f.phases.size();f.at(10500);
+ f.camera.mapId=1;n=f.phases.size();f.at(due());
  check(f.phases.size()==n+1 && f.phases.back()==0,"reset and idle not coalesced");
 }
 void committedAndPending(){
@@ -80,15 +82,15 @@ void committedAndPending(){
   const int y=automatic?2:1;
   f.data.scripts[1]={record(1,y,0,0x1f,{2,1,1})};
   f.data.scripts[2]={record(1,1,0,9,{44,0,1}),record(1,1,1,fail?0xff:0x12)};
-  f.events.discardScriptCache();f.at(100);
+  f.events.discardScriptCache();f.at(110);
   f.flow.handle(automatic?PlayerAction(NavigationAction::MoveForward):PlayerAction(InteractionAction{}));
   check(f.flow.blocksGameplay() && f.camera.mapId==1 && f.camera.y==y,"working teleport published");f.phase(2);
   auto n=f.phases.size();f.flow.handle(NavigationAction::TurnLeft);check(f.phases.size()==n,"pending navigation stepped");
-  f.at(200);f.phase(3);f.flow.handle(NoAction{});
+  f.at(220);f.phase(3);f.flow.handle(NoAction{});
   check(!f.flow.blocksGameplay() && f.camera.mapId==(fail?1:2),"teleport failure publication");f.phase(fail?3:0);
  }
  // Committed movement A->B followed by immediate B->A cannot be inferred from final camera.
- Fixture f;f.camera.y=15;f.automatic=true;f.world.discardMapCache();f.flow.refresh();f.at(100);
+ Fixture f;f.camera.y=15;f.automatic=true;f.world.discardMapCache();f.flow.refresh();f.at(110);
  f.data.scripts[2]={record(1,0,0,7,{1,1,15})};f.events.discardScriptCache();
  auto n=f.phases.size();f.flow.handle(NavigationAction::MoveForward);
  check(f.camera.mapId==1 && f.camera.y==15 && f.phases.size()==n+1 && f.phases.back()==0,"round-trip map entry missed");
@@ -115,7 +117,7 @@ void responseLayers(){
   const auto inventory=xeenInventoryInspection(f.data.initial);const auto oldReports=reports;
   IndexedFrame base;base.width=320;base.height=200;base.pixels.assign(64000,2);
   auto oracle=f.flow.presenter();const auto expected=oracle.rebase(base);
-  f.at(100);
+  f.at(110);
   check(f.phases.size()==count+1 && f.phases.back()==2 && f.flow.frame().pixels==expected.pixels,"response-layer animated rebase");
   check(f.flow.presentationGeneration()==gen && f.flow.presenter().pageIndex()==page && f.flow.blocksGameplay() &&
    reports==oldReports && xeenInventoryInspection(f.data.initial)==inventory,"idle changed response or delivered rewards");
@@ -159,7 +161,7 @@ void realComposition(bool sdl){
  };
  services.show=[&](const auto &first,const auto &handle,const auto &escape,const auto &idle,const auto &status){
   check(phases==std::vector<std::uint64_t>{0},"Application first composition phase");
-  if(!sdl){for(int i=1;i<=3;++i){now=i*100;check(bool(idle()),"real idle did not publish");}return true;}
+  if(!sdl){for(int i=1;i<=3;++i){now=i*110;check(bool(idle()),"real idle did not publish");}return true;}
   const auto started=SDL_GetTicks();bool done=false;
   const bool ok=SdlWindow().showInteractive(first,"Ordinary animation SDL",handle,escape,[&]()->std::optional<IndexedFrame>{
    check(SDL_GetTicks()-started<5000,"ordinary SDL watchdog");now+=25;auto changed=idle();
@@ -178,14 +180,53 @@ void warmedMalformedFrame(){
  XeenWorld world([](auto id){return remove_test::map(id);},[](auto id){XeenObjectFile o{id,"test.mob",true,{}};o.entities.objects=std::vector<XeenMapEntity>{{1,1,0,0,110}};return o;});
  XeenEventFlow flow(world,f.events,f.data.initial,f.camera,f.flags,f.data.font,[&](std::uint64_t phase){phases.push_back(phase);XeenEventFlow::Composition r;r.frame=composer.compose(assets,world,{},f.camera,{},nullptr,phase,&r.containsOrdinaryAnimation);return r;},{},[&]{return now;});
  flow.dialogText=&dos_test::text();
- const auto loads=assets.spriteLoadCount();now=100;bool failed=false;
+ const auto loads=assets.spriteLoadCount();now=110;bool failed=false;
  try{flow.updatePresentation();}catch(const std::runtime_error&){failed=true;}
  check(failed && phases.back()==1 && assets.spriteLoadCount()==loads,"warm malformed later frame silently accepted");
- now=200;check(bool(flow.updatePresentation()) && phases.back()==2,"later valid selected frame did not use logical decision");
+ now=220;check(bool(flow.updatePresentation()) && phases.back()==2,"later valid selected frame did not use logical decision");
+}
+void retainedSceneCommands() {
+ gameplay_test::Fixture data;XeenCamera camera{1,1,1,XeenDirection::North};XeenGameFlags flags;
+ std::uint64_t now=0;bool fail=false;
+ XeenMonsterRecord monster;monster.raw[20]=10;monster.raw[46]=1;monster.raw[47]=42;monster.raw[49]=1;
+ XeenWorld world([](auto id){return remove_test::map(id);},[](auto id){
+  XeenObjectFile file{id,"test.mob",true,{}};file.entities.monsters.push_back({1,1,0,0,0});return file;
+ });
+ world.scenePresentation()=XeenScenePresentation(77);
+ world.sceneActors(1,[&]{return std::vector<XeenMonsterRecord>{monster};});
+ world.scenePresentation().hitSplat(0,7,0,false);world.scenePresentation().splats[0].duration=1;
+ XeenEventSystem events([&](auto id){return remove_test::script(id,{});},[&](auto id){auto text=data.text;text.mapId=id;return text;});
+ XeenEventFlow flow(world,events,data.initial,camera,flags,data.font,[&](auto phase){
+  world.sceneActors(1,[&]{return std::vector<XeenMonsterRecord>{monster};});
+  const auto commands=XeenOutdoorScene().build(world,camera,nullptr,nullptr,phase);
+  const auto actor=std::find_if(commands.begin(),commands.end(),[](const auto &c){return c.actor()!=nullptr;});
+  check(actor!=commands.end(),"Retained-scene floating actor fixture absent");
+  IndexedFrame frame{320,200,std::vector<std::uint8_t>(64000)};
+  frame.pixels[0]=actor->actor()->frame;frame.pixels[1]=actor->x+128;frame.pixels[2]=actor->y+128;
+  frame.pixels[3]=actor->actor()->effectFlags&255;
+  frame.pixels[4]=std::count_if(commands.begin(),commands.end(),[](const auto &c){return c.splat()!=nullptr;});
+  frame.pixels[5]=commands.at(2).terrain().options.horizontalFlip;
+  if(fail)throw std::runtime_error("Retained-scene composition failure");
+  return XeenEventFlow::Composition{frame,true};
+ },{},[&]{return now;});
+ now=110;flow.updatePresentation();const auto first=flow.frame().pixels;
+ check(first[4]==1 && world.scenePresentation().splats[0].duration==0 && world.scenePresentation().floatPhase==1,
+  "Chosen scene must precede live next-draw advancement");
+ world.discardMapCache();flow.refresh(true);flow.refresh(true);
+ check(flow.frame().pixels==first,"Reconstruction changed floating pose/effect or erased the last splat draw");
+ now=220;flow.updatePresentation();now=330;flow.updatePresentation();
+ check(!flow.frame().pixels[5],"Water flipped before its fourth semantic draw");
+ now=440;fail=true;bool threw=false;try{flow.updatePresentation();}catch(const std::runtime_error &){threw=true;}
+ check(threw && world.scenePresentation().water && world.scenePresentation().floatPhase==3,
+  "Failed fourth draw must retain pre-draw water without post-draw advancement");
+ fail=false;flow.refresh(true);const auto fourth=flow.frame().pixels;
+ check(fourth[5] && world.scenePresentation().floatPhase==4,"Fourth draw used old water or retry advanced twice");
+ flow.refresh(true);check(flow.frame().pixels==fourth && world.scenePresentation().floatPhase==4,
+  "Repeated reconstruction consumed the retained draw");
 }
 }
 int main(int argc,char **argv){try{
  const bool sdl=argc>1 && std::string(argv[1])=="sdl";
- if(!sdl){deadlinesAndActions();staticIndoorAndFailures();committedAndPending();responseLayers();warmedMalformedFrame();}
+ if(!sdl){deadlinesAndActions();staticIndoorAndFailures();committedAndPending();responseLayers();warmedMalformedFrame();retainedSceneCommands();}
  realComposition(sdl);std::cout<<"Ordinary outdoor animation tests passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

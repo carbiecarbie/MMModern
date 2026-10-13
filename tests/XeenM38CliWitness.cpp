@@ -443,7 +443,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   inspect([&]{std::cout<<"M38 PRODUCTION WITNESS PASSED\n";SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);});
   auto native=handler;native.closed={};
   native.withPresentedInput=[&](const PlayerAction &a,std::uint64_t token,const auto &origin){if(std::holds_alternative<SaveGameAction>(a))++nativeSaveResponses;return handler.withPresentedInput(a,token,origin);};
-  native.beginCycle=[&](std::uint64_t){handler.beginCycle(++cycle);};
+  native.beginCycle=[&](std::uint64_t){now+=100;handler.beginCycle(++cycle);};
   unsigned evidenceFrame=0;
   native.framePresented=[&](const auto &f){
    check(!nativeFailed,"M38 failed native frame was authorized");
@@ -460,7 +460,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    }
   };
   const auto drive=[&]()->std::optional<IndexedFrame>{
-   check(++iterations<30000,"M38 native witness iteration bound");now+=100;next.reset();acted=false;
+   check(++iterations<30000,"M38 native witness iteration bound");next.reset();acted=false;
    if(shown) while(!steps.empty()) {
     const bool done=steps.front()();if(done)steps.pop_front();
     if(acted || !done)break;

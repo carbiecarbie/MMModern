@@ -59,7 +59,7 @@ std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::build(
 		std::optional<std::uint64_t> ordinaryPhase, std::optional<XeenMonsterAppearance> actorFrame, bool night) const {
 	// Retain values before terrain/resource providers can publish or discard caches.
 	const auto actors = actorCommands(world.sceneActors(camera.mapId), camera,
-		actorFrame.value_or(XeenMonsterAppearance{0}), &world.scenePresentation());
+		actorFrame.value_or(XeenMonsterAppearance{0}), &world.scenePresentation().drawingState());
 	if (diagnostics) diagnostics->clear();
 	const XeenMap &map = world.map(camera.mapId);
 	if (!map.geometry.isOutdoors())
@@ -88,7 +88,7 @@ std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::build(
 	addFixed(0, sky, 0, 8, 8);
 	addFixed(1, sky, 1, 8, 25);
 	addFixed(2, "water.out", 0, 8, 67);
-	const auto &presentation=world.scenePresentation();
+	const auto &presentation=world.scenePresentation().drawingState();
 	commands[0].terrain().options.horizontalFlip=presentation.sky;
 	commands[1].terrain().options.horizontalFlip=presentation.sky;
 	commands[2].terrain().options.horizontalFlip=presentation.water;
@@ -193,7 +193,7 @@ std::vector<XeenOutdoorDrawCommand> XeenOutdoorScene::build(
 	  }
 	}
     for(unsigned row=0;row<3;++row) {
-        const auto &s=world.scenePresentation().splats[row];if(!s.duration)continue;
+        const auto &s=world.scenePresentation().drawingState().splats[row];if(!s.duration)continue;
         constexpr int order[]{119,113,116},x[3][2]{{102,134},{36,67},{161,161}},offset[]{8,6,4};
         XeenOutdoorDrawCommand c;c.originalOrder=order[row]+(s.frame?1:0);c.sourceMapId=camera.mapId;
         c.x=x[row][s.alternatePosition]+(s.frame?offset[row]:0);if(s.damage>=100)c.x/=3;

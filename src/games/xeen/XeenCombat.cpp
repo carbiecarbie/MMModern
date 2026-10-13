@@ -2,6 +2,7 @@
 // Pin 6814ee9ba54582f5b5adcffab49efbbd8f589edd, engines/mm/xeen/{combat,
 // character,interface,party}.cpp and create_xeen/constants.cpp. No commercial data.
 #include "games/xeen/XeenCombat.h"
+#include "core/PresentationClock.h"
 #include "formats/xeen/XeenCharacterFormat.h"
 #include "games/xeen/XeenCharacterRules.h"
 #include "games/xeen/XeenCombatRules.h"
@@ -1054,8 +1055,8 @@ void XeenCombat::castPresented(const Ticket &t,std::uint64_t now) {
     d.checkCast(t);
     if((d.casting->view.phase==XeenCombatCastPhase::Projectile ||
         d.casting->view.phase==XeenCombatCastPhase::Impact || d.casting->view.phase==XeenCombatCastPhase::PostImpact) && !d.casting->presented) {
-        require(now<=std::numeric_limits<std::uint64_t>::max()-100,"Cast cosmetic clock exhausted");
-        d.casting->deadline=now+100;d.casting->presented=true;
+        require(now<=std::numeric_limits<std::uint64_t>::max()/1000000-110,"Cast cosmetic clock exhausted");
+        d.casting->deadline=PresentationClock::afterMilliseconds(now,2);d.casting->presented=true;
     }
 }
 std::optional<XeenActor> XeenCombat::castImpactSnapshot() const {

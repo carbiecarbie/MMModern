@@ -63,6 +63,111 @@ Its authoritative summaries and calibration are in
 [original quirks](../original-quirks.md) and
 [M61 price evidence](../milestone-61-plan.md#original-program-price-evidence-and-confidence).
 
+## Presentation clock captures (2026-10-13)
+
+**DOS play:** updated maintainer recordings `Abertura.mkv` and `Sonho.mkv`
+in `D:/Projetos/MMODERN videos/`, normal CD play in DOSBox Staging with
+`cpu_cycles 80000`, using the earlier fluidity recordings' settings. Both
+contain 1920x1080 H.264 video at 60 fps (1 ms container timebase) and stereo
+48 kHz AAC with game audio. Capture precision is approximately 16.7 ms, not
+1 ms. The complete emulator/driver configuration was not separately logged.
+
+FFmpeg 7.1 decoded all 2,170 title and 1,152 Rest frames with `-copyts`,
+`showinfo` and `-fps_mode passthrough`. Analysis crops the game image and
+retains exact frame PTS, RGB changes and checked frames. The title gem supplies
+phase-change evidence; fades are measured within the game image alone.
+
+| Observation | Video PTS / measurement | Interpretation |
+| --- | --- | --- |
+| Title idle | 29.383..35.983 s, 30 intervals; mean 220.000 ms, population SD 10.773 ms, range 200..234 ms | Four standard BIOS ticks predict 219.702 ms. Inverting the mean gives 18.1818 Hz, compatible with 18.2065 Hz at capture precision; this is not a direct PIT measurement. |
+| Title initial fade | First brightening 28.917 s; full brightness about 29.383 s | Approximately 466 ms; compatible with step-4 VGA retrace fading near 70 Hz. |
+| Dream fades | Gameplay darkening 6.167..6.633 s; dream brightening 6.717..7.167 s; dream darkening about 11.500..11.933 s; gameplay brightening 12.017..12.467 s | Approximately 466/450/433/450 ms. Visible transition spans are not exact helper entry/return times. A 60 fps capture cannot resolve all 33 writes at 70 Hz. |
+| Dream samples | Matched `dreams2` onset about 7.690 s, end 9.355 s; `laff1` onset about 9.356 s, end 11.323 s (audio PTS) | Sequential, approximately 1.665 + 1.967 s; consistent with 24,478 and 28,923 samples at the header rate `1000000/68` Hz. |
+| Dream Escape | Maintainer reports Escape did not interrupt it | Confirms no local skip at `0x1e605..0x1e72a`; no input overlay timestamps the press or settles deferred input. |
+
+Audio alignment cross-correlates each original PCM sample against the decoded
+recording, resampling in memory. Normalized peak correlations are approximately
+0.468 and 0.399 despite background music and capture processing. The best of
+nearby tested rates is 14705 Hz; the difference from the header's 14705.882 Hz
+is below capture precision. No original bytes or extracted audio enter the repo.
+
+The visible full-bright dream ends around 11.500 s after becoming fully bright
+at 7.167 s: approximately 4.333 s, compatible with sequential samples plus two
+phase-dependent 7-tick waits (aggregate pre-overhead range 4.290..4.400 s).
+Recorded audio appears about 0.15..0.21 s late relative to video if both 7-tick
+holds use the standard BIOS rate. A common A/V displacement reconciles both
+boundaries; the recording cannot separate driver/mixer latency from capture
+synchronization. Do not add that displacement to the emulated silent sample
+holds. No contradiction with the static clock/sequence rules was found.
+
+Static anchors: BIOS reset/read `0x440cd..0x44144`, four-tick title poll
+`0x0bee7..0x0bf8d`, fade levels/publication `0x3fe0f..0x3ff02` and VGA retrace
+wait `0x43fca..0x43fdf`. Use standard 18.2065 Hz and a separate 70 Hz retrace
+conversion. At 70 Hz, 33 retrace slots take 471.429 ms; first-to-last of 33
+writes takes 457.143 ms. Static evidence supplies the exact write count.
+
+SHA-256: updated title
+`b529ec6d1d1c9bdd8b4ebbbac0ae8aeee82ae5b4387a46f4dee0d9e71cba4333`;
+updated Rest `7301e5172ff9cdd296ce48916b40dd604aa98a99f16c32c62bf6061f95e1db39`.
+Scripts, decoded frames/logs, CSV measurements, `clock-measurements.json` and
+`audio-match.json` are retained outside the repository under
+`C:/Users/carbo/.codex/visualizations/2026/10/13/01a135ee-f0f6-78c2-a1fa-49986cff774e/m63-calibration-audio/`.
+The superseded silent captures and their measurements remain in the adjacent
+`m63-calibration/` directory for provenance.
+
+Death and NPC recordings require separate Part B analysis. Their shared clock
+must support independent two-/three-tick waits and sampled sound-active intervals;
+death fire has no proved fixed tick hold.
+
+## Navigation typematic evidence (2026-10-13)
+
+**DOS play, capture-limited:** the maintainer's `20.000.mkv` and `80.000.mkv`
+each contain one visible continuous forward departure from Temple to the gate.
+Fresh FFmpeg 7.1 extraction uses `-copyts`, `showinfo` and passthrough timestamps,
+cropping the existing verified game rectangles, outside the repository.
+
+| Recording | First successful step (altar disappears, y28 to y27) | Second step (y26) | Visible gap |
+| --- | --- | --- | --- |
+| 20,000 cycles | Frame 173, PTS 2.883 s | Frame 201, PTS 3.350 s | 467 ms |
+| 80,000 cycles | Frame 229, PTS 3.817 s | Frame 254, PTS 4.233 s | 416 ms |
+
+The 60 fps captures resolve onsets to about one frame (16.7 ms). They have no
+key-state overlay or physical press timestamp. These are first-to-second
+**visible-step** intervals, not press-to-repeat delays: the first action's
+draw/poll latency can shorten that observed gap. Earlier turns are separately
+initiated, not evidence of a sustained turn hold. No additional forward hold
+start is identifiable. Sustained views average 127.32/114.00 ms in the existing
+investigation, excluding initial pause and door transition; drawing caps both
+candidate typematic rates and cannot identify the producer's rate.
+
+**Primary device/emulator evidence:** IBM's
+[101/102-key keyboard manual, October 1990, printed p.25](https://www.ardent-tool.com/docs/pdf/ibm_hitrc11.pdf#page=29)
+specifies default 500 ms and 10.9 characters/s, each with 20% tolerance. Parameter
+`2Bh` selects that delay/rate; the ideal period is `(8+3)*2/240 = 11/120 s`
+(91.6667 ms, 10.9091 Hz). The printed rounded formula gives 91.74 ms.
+[DOSBox Staging v0.83.0 keyboard source](https://github.com/dosbox-staging/dosbox-staging/blob/v0.83.0/src/hardware/input/keyboard.cpp#L321)
+instead initializes 500 ms / 33 ms in `set_defaults`; its parameter `2Bh` maps
+to 500/92 ms. These are different defaults. The installed executable reports
+0.83.0.0. Its explicit launcher/config has no MODE/typematic command; this does
+not prove every original game/driver initialization leaves the device unchanged.
+Retained DAT IRQ/FIFO analysis proves no repeat synthesis in the inspected
+producer/consumer path, but leaves device programming unresolved.
+
+**Maintainer-authorized fallback:** since the clips cannot isolate physical
+press timing/rate, M63 Part A uses exactly 500 ms and the ideal 11/120 s nominal
+IBM period, independent of host OS repeats, still capped by original draw
+readiness. This fixes the maintainer-observed overly sensitive immediate repeat.
+It is not a claim that Staging's default or the original driver's rate was
+measured as 10.9 Hz. Both possible producer rates exceed the nominal 9.1033/s
+draw ceiling. Release and distinct-tap obligations retain the approved option b.
+
+SHA-256: `20.000.mkv`
+`d6bd301c0315a66ce0516e97255db7e64c18cc55de7e83d89f4d22cd7d7be042`;
+`80.000.mkv` `2ec8c87d7ee5fd6e4341410666ff1255baabfa5d26dc535ef2e3dc1ac467def2`.
+Exact PTS maps, extraction logs, checked contact sheets and
+`video-initial-gaps.json` are retained under
+`C:/Users/carbo/.codex/visualizations/2026/10/13/01a135ee-f0f6-78c2-a1fa-49986cff774e/m63-typematic/`.
+
 ## Spell and item control flow
 
 The following findings are **DOS static, high confidence**, confined to the

@@ -76,7 +76,7 @@ int main(int argc,char **argv) {try {
    if(outdoor) {const auto stream=XeenOutdoorScene().build(world,camera);verify(stream);composer.drawOutdoorCommands(assets,stream);}
    else {const auto stream=XeenIndoorScene().build(world,camera);verify(stream);composer.drawIndoorCommands(assets,stream);}
    check(found==(damage>0?1u:0u),"Zero damage emitted a scene hit splat");
-   for(unsigned tick=1;tick<=3;++tick)presentation.advanceFeedback(tick*100);
+   for(unsigned tick=1;tick<=3;++tick)presentation.advance(camera.mapId);
    check(!presentation.splats[1].duration,"Splat exceeded original three frames");
   }
  }
@@ -126,14 +126,14 @@ int main(int argc,char **argv) {try {
   XeenCombatPresentationTestAccess::observe(*fixture.flow,impact);
   check(fx.portraits[29].damageTicks==1,"Lane-cap omission suppressed published injury");
   XeenCombatPresentationTestAccess::presented(*fixture.flow);
-  now+=100;fx.advanceFeedback(now);XeenCombatPresentationTestAccess::animate(*fixture.flow);
+  now+=110;fx.advanceFeedback(now);XeenCombatPresentationTestAccess::animate(*fixture.flow);
   for(const auto &p:fx.portraits)check(!p.damageTicks,"Projectile animation restarted published injury feedback");
  }
  for(unsigned owner=0;owner<30;++owner) {
   fx.spellEffect(owner);fx.spellEffect(owner);check(fx.portraits[owner].spellFrame==0,"Duplicate restarted/advanced effect");
-  for(unsigned frame=0;frame<4;++frame) {check(fx.portraits[owner].spellFrame==frame,"Four-frame spell sequence");fx.advanceFeedback((frame+1)*100);}
+  for(unsigned frame=0;frame<4;++frame) {check(fx.portraits[owner].spellFrame==frame,"Four-frame spell sequence");fx.advanceFeedback((frame+1)*110);}
   check(fx.portraits[owner].spellFrame==4,"Spell effect did not retire");
-  for(unsigned type=0;type<7;++type) {fx.portraitDamage(owner,xeenPortraitDamageFrame(type));check(fx.portraits[owner].damageTicks==1,"Zero-damage hit missing feedback");fx.advanceFeedback(100);check(!fx.portraits[owner].damageTicks,"Damage feedback did not retire");}
+  for(unsigned type=0;type<7;++type) {fx.portraitDamage(owner,xeenPortraitDamageFrame(type));check(fx.portraits[owner].damageTicks==1,"Zero-damage hit missing feedback");fx.advanceFeedback(110);check(!fx.portraits[owner].damageTicks,"Damage feedback did not retire");}
  }
  for(unsigned member=0;member<6;++member) {
   const auto owner=fixture.p.party.activeRosterIds()[member];

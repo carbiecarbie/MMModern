@@ -124,15 +124,15 @@ void currentSaveBoundary(const fs::path &path){
  SdlWindow::FrameUpdateHandler nested;bool reentered=false;auto compose=services.composeEncounter;
  services.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto phase,auto actor){if(nested&&&w!=f.world){const auto count=f.compositions;nested(SaveGameAction{});nested(InspectInventoryAction{});check(!f.flow->inventoryOpen()&&f.compositions==count,"F9 preflight allowed reentrancy");reentered=true;}return compose(w,p,c,phase,actor);};
  services.show=[&](const auto&,const auto &h,const auto&,const auto &idle,const auto &status){
-  f.present(h);nested=h;initial=XeenSaveFormat::encode(f.capture());f.now=100;idle();f.present(h);check(f.phases.back()==1&&XeenSaveFormat::encode(f.capture())==initial,"cosmetic phase serialized");
-  f.now=199;const auto calls=clocks;const auto pixels=f.flow->frame().pixels;f.send(h,SaveGameAction{});
+  f.present(h);nested=h;initial=XeenSaveFormat::encode(f.capture());f.now=110;idle();f.present(h);check(f.phases.back()==1&&XeenSaveFormat::encode(f.capture())==initial,"cosmetic phase serialized");
+  f.now=219;const auto calls=clocks;const auto pixels=f.flow->frame().pixels;f.send(h,SaveGameAction{});
   check(status().find("Saved")!=std::string::npos&&reentered&&clocks==calls&&f.phases.back()==0,"F9 preflight phase/clock/reentrancy");
   check(diskBytes(path)==initial&&f.flow->frame().pixels==pixels,"F9 changed current durable or presentation state");
-  const auto n=f.phases.size();idle();check(f.phases.size()==n,"F9 moved deadline earlier");f.now=200;idle();f.present(h);check(f.phases.back()==2&&XeenSaveFormat::encode(f.capture())==initial,"F9 rearmed deadline");return true;
+  const auto n=f.phases.size();idle();check(f.phases.size()==n,"F9 moved deadline earlier");f.now=220;idle();f.present(h);check(f.phases.back()==2&&XeenSaveFormat::encode(f.capture())==initial,"F9 rearmed deadline");return true;
  };
  check(Application().playGameplay(services,{},path,false,XeenEncounterEntry::Journey,1)==0,"current save animation boundary");
  regional_save_test::Fixture restored;restored.now=500;auto resumed=restored.services();
- resumed.show=[&](const auto &first,const auto &h,const auto&,const auto &idle,const auto&){restored.present(h);check(first.pixels[20]==0&&restored.phases==std::vector<std::uint64_t>({0,0}),"restored phase/preflight");idle();restored.present(h);check(restored.phases.back()==1,"restored first idle tick");restored.now=599;const auto n=restored.phases.size();idle();check(restored.phases.size()==n,"restored early deadline");restored.now=600;idle();restored.present(h);check(restored.phases.back()==2,"restored scheduled tick");return true;};
+ resumed.show=[&](const auto &first,const auto &h,const auto&,const auto &idle,const auto&){restored.present(h);check(first.pixels[20]==0&&restored.phases==std::vector<std::uint64_t>({0,0}),"restored phase/preflight");restored.now=PresentationClock::afterMilliseconds(restored.now,2);idle();restored.present(h);check(restored.phases.back()==1,"restored first idle tick");const auto due=PresentationClock::afterMilliseconds(restored.now,2);restored.now=due-1;const auto n=restored.phases.size();idle();check(restored.phases.size()==n,"restored early deadline");restored.now=due;idle();restored.present(h);check(restored.phases.back()==2,"restored scheduled tick");return true;};
  check(Application().playGameplay(resumed,{},path,true)==0&&diskBytes(path)==initial,"current restored startup changed file");
 }
 void developerTarget(const fs::path &path) {

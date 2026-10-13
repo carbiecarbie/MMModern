@@ -304,7 +304,7 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 	};
 	auto addFront = [&](bool visible, int order, const std::string &resource,
 			std::optional<int> frame, int x, int y, bool flip, std::size_t sampleIndex) {
-		if (frame && value(sampleIndex)==12) *frame+=world.scenePresentation().overallFrame;
+		if (frame && value(sampleIndex)==12) *frame+=world.scenePresentation().drawingState().overallFrame;
 		if (visible && frame)
 			add(order, resource, *frame, x, y, flip, sampleIndex);
 		if (visible && frame && value(sampleIndex)==12) commands.back().geometry().animated=true;
@@ -318,7 +318,7 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 	};
 
 	// Fixed entries 0, 1, 2 and 28 from IndoorDrawList.
-	const auto &presentation=world.scenePresentation();
+	const auto &presentation=world.scenePresentation().drawingState();
 	add(0, sky, 0, 8, 8, presentation.sky);
 	add(1, sky, 1, 8, 25, presentation.sky);
 	add(2, ground, 0, 8, 67, presentation.defaultGround);
@@ -590,7 +590,7 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
       }
     }
     for(unsigned row=0;row<3;++row) {
-        const auto &s=world.scenePresentation().splats[row];if(!s.duration)continue;
+        const auto &s=world.scenePresentation().drawingState().splats[row];if(!s.duration)continue;
         constexpr int order[]{157,151,154},x[3][2]{{102,134},{36,67},{161,161}},offset[]{8,6,4};
         XeenIndoorDrawCommand c;c.originalOrder=order[row]+(s.frame?1:0);c.sourceMapId=camera.mapId;
         c.x=x[row][s.alternatePosition]+(s.frame?offset[row]:0);if(s.damage>=100)c.x/=3;
@@ -651,15 +651,15 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::buildActors(
 				XeenIndoorActorDraw draw{a.id,a.statistics->image(),appearance.frame,
 					attacking?XeenMonsterSpriteKind::Attack:XeenMonsterSpriteKind::Normal};
 				draw.selectedSlot=g.slots[i];draw.scaleIndex=g.scale;draw.bottomClipped=g.query==2;
-				if (const auto *animation=world.scenePresentation().animation(a.id)) {
+				if (const auto *animation=world.scenePresentation().drawingState().animation(a.id)) {
 					if (!attacking) {draw.kind=animation->frame>=8?XeenMonsterSpriteKind::Attack:XeenMonsterSpriteKind::Normal;draw.frame=animation->frame%8;}
 					draw.effectFlags=animation->flags();
 					// setMonsterSprite assigns effect flags, replacing the near
 					// actor's bottom flag; scene clipping remains on every draw.
 					if(draw.effectFlags) draw.bottomClipped=false;
-					draw.effectSeed=std::uint32_t(world.scenePresentation().wallPhase)*0x9e3779b9u ^ std::uint32_t(a.id.recordIndex)*0x85ebca6bu ^ std::uint32_t(a.id.mapId.number);
+					draw.effectSeed=std::uint32_t(world.scenePresentation().drawingState().wallPhase)*0x9e3779b9u ^ std::uint32_t(a.id.recordIndex)*0x85ebca6bu ^ std::uint32_t(a.id.mapId.number);
 				}
-				if (a.statistics->flying()) {command.x+=XeenScenePresentation::floatX(world.scenePresentation().floatPhase);command.y+=XeenScenePresentation::floatY(world.scenePresentation().floatPhase);}
+				if (a.statistics->flying()) {command.x+=XeenScenePresentation::floatX(world.scenePresentation().drawingState().floatPhase);command.y+=XeenScenePresentation::floatY(world.scenePresentation().drawingState().floatPhase);}
 				command.content=draw;commands.push_back(std::move(command));
 			}
 		}

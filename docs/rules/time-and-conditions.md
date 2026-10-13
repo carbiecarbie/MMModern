@@ -33,11 +33,51 @@ more often. The stat-death check also uses the old year because it precedes
 calendar rollover. A call starting at day 99, 23:59 can age a character into
 a lower attribute bracket only after that call's death check.
 
-**Reference only:** `Interface::chargeStep` charges 1 minute indoors or 10
-outdoors and offers the normal monster response. Real wall-clock waiting
-or animation is not the same as calling `changeTime`. Combat, travel,
-services and scripts must retain their actual callers' operation and mode;
-this chapter is not a universal action-cost table.
+**DOS static (retained):** ordinary movement changes position, calls
+`chargeStep`, then `stepTime` (`0x0d39f..0x0d410`). Charge costs 1 minute indoors
+or 10 outdoors. Condition/calendar/economy work precedes servicing the prior
+pending monster opportunity at the reached position; the countdown is then
+reset to three. `stepTime` performs arrival bookkeeping and advances the
+modulo-24 counter. Turns call `stepTime` without acquiring a successful-step
+charge; blocked attempts acquire no charge. The next ordinary draw services
+one countdown pulse and checks contact before input (`0x0d1c3..0x0d1c9`).
+
+A simple countdown does not bar another navigation action. A rapid successful
+step consumes its prior opportunity once; an idle drain instead services it
+when the countdown reaches zero. Retained ranged/combat/Event work still fences
+subsequent navigation until its frames and suffix are acquired. `journeyMutable`
+and save admission continue to require Quiet. The approved navigation queue
+exception is documented in [original quirks](../original-quirks.md#approved-deviations).
+
+Held navigation is not a new tap on every draw. The fresh press is admitted
+without a repeat delay; only held repeats wait for 500 ms from the platform's
+observation of that press. Thereafter a repeat needs both its nominal 11/120 s
+typematic period and ordinary draw/input readiness. Thus sustained pace is
+bounded by the slower of typematic generation and draw3d (about 9.1/s under the
+standard BIOS clock). The rate is the maintainer-authorized IBM keyboard
+fallback, not a measurement of the DOSBox device. [Evidence and video limits](evidence.md#navigation-typematic-evidence-2026-10-13)
+distinguish the two. Pending distinct taps retain their FIFO obligations; release
+discards only held demand. Modifier changes do not restart the physical press's
+delay. Idle drawing/actor work continues during the initial pause, and a late
+wake dispatches at most one repeat, resetting its period at dispatch rather
+than after feedback or gameplay work. No new gameplay scheduler owns this wait.
+
+Real wall-clock waiting and animation do not call `changeTime`. The common
+presentation counter uses absolute monotonic time at 18.2065 Hz, with independent
+reset samples; an N-increment threshold can first occur after roughly N-1..N
+periods. Ordinary draw3d uses a two-increment threshold; its outer one-increment
+wait overlaps it. The UI counter/water orientation updates before composition
+(`0x10bda..0x10bf4`); overall/floating phases, actor animation and splat lifetimes
+advance afterward (`0x107b6`). Reconstruction reads the retained presentation
+values that produced the displayed frame, preserving the live next-draw values
+without consuming them. Failed composition retries retain the same pre-draw
+update and perform the post-draw update once on success. Fades use the separate
+70 Hz retrace clock. [Capture calibration](evidence.md#presentation-clock-captures-2026-10-13)
+provides observations and limits. Input, cursor repaint and a repeated acquisition
+of the same frame must not replay gameplay, RNG or draw advancement. Navigation
+already waiting only for draw completion returns to the input poll
+before another semantic draw can begin, including a threshold crossed between
+admission and idle (`0x0d1c3..0x0d1c9`). Retained work keeps its existing idle owner.
 
 ## Eight-hour condition block
 
@@ -190,6 +230,14 @@ A reset alone is not a heal, age cure or clock advance. See
 [magic](magic.md) for the spells that set these values.
 
 ## Rest
+
+Dream presentation has separate **DOS static** evidence (`0x1e605..0x1e72a`):
+four step-4 retrace fades surround two sequential sample holds and two 7-BIOS-tick
+waits. **DOS play**, maintainer 2026-10-13, confirms that Escape does not locally
+skip the dream. [Capture measurements and limits](evidence.md#presentation-clock-captures-2026-10-13)
+support the nominal clock rates and sequential header-derived sample durations.
+Capture A/V displacement does not establish extra emulated sound holds. This presentation
+evidence does not upgrade the remaining Rest mechanics below to DOS confirmation.
 
 **Evidence: Reference only** for exact sequencing, food edge cases and
 interruption; retained **DOS play** accepted ordinary Rest in M51, but does

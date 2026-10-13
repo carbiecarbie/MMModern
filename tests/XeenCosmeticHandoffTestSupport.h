@@ -32,7 +32,7 @@ inline bool exercise(Harness &h,const SdlWindow::FrameUpdateHandler &handler,
   unchanged();check(acknowledged==0,"Wrong/missing frame acknowledged the current frame");
  };
  const auto cosmetic=[&] {
-  h.now+=inventory?200:100;handler.beginCycle(++h.cycle);correct=idle();pending=true;
+  h.now+=inventory?220:110;handler.beginCycle(++h.cycle);correct=idle();pending=true;
   check(correct && correct->pixels!=old.pixels && correct->presentation()!=old.presentation(),"Changed pixels carry distinct immutable identity");
   check(handler.displayedInput()==epoch,"Cosmetic substitution must preserve semantic epoch");
   check(correct->presentation()->pixels==correct->pixels,"Identity binds the exact composed content");
@@ -61,6 +61,7 @@ inline bool exercise(Harness &h,const SdlWindow::FrameUpdateHandler &handler,
  };
  const bool ok=SdlWindow().showInteractive(first,"Bound concrete frame",windowHandler,escape,[&]()->std::optional<IndexedFrame>{
   check(++loops<12,"Bounded stale-frame recovery");
+  h.now+=110;
   if(!pending){if(mode==4){queue();return {};}cosmetic();return mode==2?std::optional<IndexedFrame>{old}:std::nullopt;}
   if(!correctSent){blocked();if(delay){delay=false;return {};}correctSent=true;if(mode==3||mode==5)queue();return correct;}
   check(acknowledged>0,"Correct supplied frame must be presented");

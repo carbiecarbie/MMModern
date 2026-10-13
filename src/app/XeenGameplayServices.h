@@ -29,6 +29,7 @@ struct XeenGameplayServices {
  std::function<void(XeenWorld &, XeenEventSystem &, const XeenPartyState &,
    XeenCamera &, const XeenGameFlags &)> observeGameplay;
  XeenEventPresenter::Clock clock = {};
+ PresentationClock::Source presentationClock = {};
  const XeenItemCatalog *catalog = nullptr;
  std::function<void(std::uint8_t)> validateEncounterSprite;
  std::function<void(std::uint8_t)> validateCombatSprite;

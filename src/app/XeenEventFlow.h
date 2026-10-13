@@ -16,6 +16,7 @@
 #include <memory>
 #include "core/InputContext.h"
 #include "app/XeenTextInput.h"
+#include "core/PresentationClock.h"
 
 namespace mmodern {
 
@@ -39,7 +40,7 @@ public:
 		XeenEventPresenter::RandomFrame randomFrame = {}, const XeenItemCatalog *catalog = nullptr,
 		EncounterCompose encounterCompose = {},
 		const XeenJourneySetup *journey = nullptr, TransitionCompose transitionCompose = {},
-        const XeenDosText *text = nullptr);
+        const XeenDosText *text = nullptr, PresentationClock::Source presentationClock = {});
 	~XeenEventFlow();
 	XeenEventFlow(const XeenEventFlow &) = delete;
 	XeenEventFlow &operator=(const XeenEventFlow &) = delete;
@@ -57,6 +58,8 @@ public:
 			frame == _actionableFrame && (!_encounter || frame);
 	}
 	InputContext inputContext(const IndexedFrame::Presentation &);
+    std::uint64_t presentationNow();
+    std::optional<std::uint64_t> nextPresentationDeadline();
 	bool journeyInputCurrent(std::optional<std::uint64_t>) const noexcept;
 	std::function<void()> prepareJourneySprites;
 	std::function<void(IndexedFrame &)> drawSmithArt;
@@ -300,7 +303,7 @@ private:
 	void prepareJourneyTransition();
 	std::uint64_t _inventoryLease = 0, _certificateLease = 0;
 	void syncCombatInventory();
-	IndexedFrame renderEncounter(bool report = false, bool cosmeticInput = false);
+	IndexedFrame renderEncounter(bool report = false, bool cosmeticInput = false, bool reconstruct = false);
 	IndexedFrame frameCopy();
 	void sealFrame(IndexedFrame &returned);
 	const XeenFontFormat &_inventoryFont;
@@ -397,6 +400,9 @@ private:
 	XeenGameFlags &_flags;
 	XeenNavigationFlow _navigation;
 	XeenEventPresenter::Clock _clock;
+    PresentationClock::Source _presentationClock;
+    bool _sceneAdvancePending=false;
+    void finishOrdinaryDraw();
 	XeenEventPresenter _presenter;
 	struct OrdinaryAnimationState {
 		std::uint64_t phase = 0;

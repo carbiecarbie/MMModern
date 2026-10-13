@@ -4,6 +4,7 @@
 #include "formats/xeen/XeenSaveFormat.h"
 #include <algorithm>
 #include <optional>
+#include "core/PresentationClock.h"
 namespace mmodern {
 // Input::waitForKey/animateCursor: UI ticks only, never a gameplay clock/RNG.
 class XeenTextInput {
@@ -16,11 +17,12 @@ public:
  void begin() {_phase=0;keyRedraw();}
  void keyRedraw() {_phase=_phase?_phase-1:5;_deadline.reset();}
  unsigned cursor() const {static constexpr unsigned glyphs[]{32,124,126,127,126,124};return glyphs[_phase];}
+ const std::optional<std::uint64_t> &deadline() const {return _deadline;}
  bool animate(std::uint64_t now) {
-  if(!_deadline){_deadline=now+50;return false;}
+  if(!_deadline){_deadline=PresentationClock::afterMilliseconds(now,1);return false;}
   if(now<*_deadline)return false;
-  const auto ticks=1+(now-*_deadline)/50;*_deadline+=ticks*50;
-  _phase=(_phase+6-ticks%6)%6;return true;
+  *_deadline=PresentationClock::afterMilliseconds(now,1);
+  _phase=(_phase+5)%6;return true; // One observed wait, never catch up.
  }
  bool type(const std::string &packet,const XeenFontFormat &font) {
   if(packet.empty() || packet.size()>20 || !std::all_of(packet.begin(),packet.end(),[](unsigned char c){return c>=0x20 && c<=0x7e;}))return false;

@@ -13,7 +13,7 @@ Uint32 now=0;
 unsigned uploads=0,pressedPresents=0,pumps=0,actions=0,sceneBuilds=1;
 unsigned idleCalls=0,acquisitions=0,idleAtPress=0,acquiredAtPress=0;
 Uint32 lastPressed=0,maxCursorGap=0;
-bool pressed=false,injected=false;
+bool pressed=false,injected=false,mouseMode=false;
 std::vector<Uint32> actionTimes;
 void check(bool value,const char *message){if(!value)throw std::runtime_error(message);}
 void push(SDL_Event event){check(SDL_PushEvent(&event)==1,"Cannot enqueue motion fixture event");}
@@ -42,6 +42,7 @@ extern "C" void __wrap_SDL_RenderPresent(SDL_Renderer *renderer){
         ++pressedPresents;maxCursorGap=std::max(maxCursorGap,now-lastPressed);lastPressed=now;
         check(idleCalls==idleAtPress && acquisitions==acquiredAtPress,"Cursor redraw acquired or rebuilt a gameplay frame");
         if(!injected){injected=true;motionBurst();moveKey();motionBurst();}
+        if(mouseMode && pressedPresents==5) {SDL_Event e{};e.type=SDL_MOUSEBUTTONUP;e.button.button=SDL_BUTTON_LEFT;push(e);}
     }
     __real_SDL_RenderPresent(renderer);
 }
@@ -61,9 +62,21 @@ int main(){try{
         if(actions==2){SDL_Event e{};e.type=SDL_QUIT;push(e);}return {};
     });
     check(ok && actions==2 && sceneBuilds==3,"Motion burst rebuilt scenes or lost movement");
-    check(actionTimes==std::vector<Uint32>{100,200},"Motion extended the original button hold or delayed a ready move");
+    check(actionTimes==std::vector<Uint32>{0,0},"Keyboard feedback inserted a tick hold or delayed a ready move");
     check(uploads==7,"Cursor movement reuploaded scene pixels"); // Initial + pressed/restored/action for two moves.
-    check(pressedPresents>=20 && maxCursorGap<=10 && pumps>=20,"Cursor froze during button feedback");
-    std::cout<<"4000 motion events, two ready moves, two scene updates; cursor gap <=10 ms; unchanged 100 ms holds\n";
+    check(pressedPresents==2 && maxCursorGap==0 && pumps==0,"Keyboard feedback waited or rebuilt while pressed");
+    mouseMode=true;pressed=false;injected=false;pressedPresents=0;actions=0;idleCalls=0;acquisitions=0;
+    actionTimes.clear();maxCursorGap=0;pumps=0;uploads=0;
+    handler.framePresented=[](const auto &){if(++acquisitions==1){
+        SDL_Event e{};e.type=SDL_MOUSEBUTTONDOWN;e.button.button=SDL_BUTTON_LEFT;e.button.x=260;e.button.y=150;
+        check(SDL_PeepEvents(&e,1,SDL_ADDEVENT,0,0)==1,"Cannot enqueue held mouse");
+    }};
+    const auto mouseOk=SdlWindow().showInteractive(frame,"Physical mouse release wait",handler,{},[&]()->std::optional<IndexedFrame>{
+        ++idleCalls;check(!pressed,"Mouse hold ran semantic idle work");
+        if(actions==2){SDL_Event e{};e.type=SDL_QUIT;push(e);}return {};
+    });
+    check(mouseOk && actions==2 && pressedPresents==6,"Mouse did not wait for release or discarded the queued distinct tap");
+    check(actionTimes==std::vector<Uint32>{0,0},"Mouse release added a fixed tick dwell");
+    std::cout<<"Immediate keyboard feedback; responsive physical mouse release; queued tap retained\n";
     return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

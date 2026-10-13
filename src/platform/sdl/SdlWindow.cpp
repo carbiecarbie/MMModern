@@ -1,5 +1,6 @@
 #include "platform/sdl/SdlWindow.h"
 #include "platform/sdl/XeenMainScreenInput.h"
+#include "core/PresentationClock.h"
 
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
@@ -17,6 +18,11 @@
 
 namespace mmodern {
 namespace {
+
+// Maintainer-approved IBM enhanced-keyboard fallback (F3 2Bh): 500 ms,
+// then (8 + 3) * 2 / 240 seconds. Independent of host OS repeat settings.
+constexpr std::uint64_t navigationRepeatDelay = 500000000;
+constexpr std::uint64_t navigationRepeatPeriod = (11000000000ULL + 119) / 120;
 
 bool uploadFrame(SDL_Texture *texture, const IndexedFrame &frame,
 		int expectedWidth, int expectedHeight, std::vector<std::uint32_t> &pixels) {
@@ -96,6 +102,12 @@ std::optional<PlayerAction> playerAction(const SDL_KeyboardEvent &key, MainScree
 	default:
 		return std::nullopt;
 	}
+}
+SDL_Scancode physicalScan(const SDL_KeyboardEvent &key) {
+    // A modifier/layout change can change keysym between make and break.
+    // Synthetic clients may omit scancode; native SDL always supplies it.
+    return key.keysym.scancode>SDL_SCANCODE_UNKNOWN && key.keysym.scancode<SDL_NUM_SCANCODES ?
+        key.keysym.scancode:SDL_GetScancodeFromKey(key.keysym.sym);
 }
 
 unsigned inputKey(SDL_Keycode key) {
@@ -258,16 +270,36 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 	bool spaceDown = false, blockDown = false, revisitDown = false, inspectDown = false;
 	std::array<bool,SDL_NUM_SCANCODES> journeyKeys{};
 	std::uint32_t readyAt = SDL_GetTicks();
-    struct PendingAction { PlayerAction action; std::uint64_t context; bool repeat; std::optional<InputButton> button; };
+    struct PendingAction { PlayerAction action; std::uint64_t context; bool repeat; std::optional<InputButton> button; int scan=0; std::uint64_t press=0; unsigned mouse=0; };
     std::deque<PendingAction> pendingActions;
+    struct HeldNavigation {
+        std::optional<PlayerAction> action;
+        std::optional<InputButton> button;
+        std::uint64_t context=0, press=0;
+        SDL_Keycode key=0;
+        bool delivered=false;
+        std::uint64_t repeatAt=0;
+    };
+    std::array<HeldNavigation,SDL_NUM_SCANCODES> heldNavigation{};
+    std::uint64_t pressIdentity=0,lastRepeat=0,heldContext=0;
+    Uint16 heldModifiers=0;
+    struct StrictMouse {PlayerAction action;std::optional<std::uint64_t> input;IndexedFrame::Presentation frame;std::uint64_t context;};
+    std::optional<StrictMouse> strictMouse;
+    std::optional<InputButton> mouseFeedback;
     bool actionUsed = false;
     const auto contextFor = [&](const IndexedFrame::Presentation &origin) {
         return handler.inputContext ? handler.inputContext(origin) : InputContext{};
     };
+    const auto navigationNow = [&] {
+        return handler.presentationClock ? handler.presentationClock() : SdlWindow::presentationNanoseconds();
+    };
     auto acquiredContext = contextFor(presentedFrame);
     const auto synchronizeQueue = [&](const InputContext &context) {
-        if (!context.acceptsQueuedInput || (!pendingActions.empty() && pendingActions.front().context != context.contextId))
-            pendingActions.clear();
+        if (!context.acceptsQueuedInput || heldContext!=context.contextId ||
+            (!pendingActions.empty() && pendingActions.front().context != context.contextId)) {
+            pendingActions.clear();heldNavigation.fill({});lastRepeat=0;
+        }
+        heldContext=context.contextId;
     };
     const auto retireQueuedKeys = [&] {
         // The strict path retains the pre-acquisition timestamp fence.
@@ -288,10 +320,17 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         return handler.acceptsInputFrame ? handler.acceptsInputFrame(origin) :
             uploaded && uploadedFrame == origin && accepts(origin);
     };
-    const auto feedback = [&](const InputButton &button,const IndexedFrame::Presentation &origin) {
+    const auto restoreMouseFeedback = [&] {
+        if(!mouseFeedback)return;
+        if(!uploadFrame(texture,displayContent,initialFrame.width,initialFrame.height,pixels))throw std::runtime_error("Mouse feedback restoration failed");
+        SDL_SetRenderDrawColor(renderer,0,0,0,255);SDL_RenderClear(renderer);
+        if(SDL_RenderCopy(renderer,texture,nullptr,nullptr)!=0)throw std::runtime_error("Mouse feedback restoration failed");
+        drawCursor();SDL_RenderPresent(renderer);mouseFeedback.reset();
+    };
+    const auto feedback = [&](const InputButton &button,const IndexedFrame::Presentation &origin,bool restore=true) {
         if(handler.drawButton && inputCurrent(origin)) {
-            // ButtonContainer::checkEvents shows frame | 1, waits two
-            // presentation ticks, then restores before returning the key.
+            // DOS shows frame | 1 and restores immediately for keyboard input.
+            // Mouse feedback retains the native texture until physical release.
             // No gameplay callback, idle update, semantic upload or frame
             // acquisition occurs during this native display effect.
             auto pressed=displayContent;
@@ -310,21 +349,9 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
                 presentButtonTexture();
             };
             presentButton(pressed);
-            if(resources.cursor) {
-                // Pinned Xeen EventsManager::wait/pollEvents keeps the cursor
-                // responsive at SCREEN_UPDATE_TIME (10 ms) during button holds.
-                // Pump without consuming input: the existing batch/FIFO/fences
-                // still own every key, click, focus and close event afterward.
-                const auto started=SDL_GetTicks();
-                for(;;) {
-                    const auto elapsed=SDL_GetTicks()-started;
-                    if(elapsed>=kButtonFeedbackMilliseconds)break;
-                    SDL_Delay(std::min<Uint32>(10,kButtonFeedbackMilliseconds-elapsed));
-                    SDL_PumpEvents();
-                    if(SDL_GetTicks()-started<kButtonFeedbackMilliseconds)presentButtonTexture();
-                }
-            } else SDL_Delay(kButtonFeedbackMilliseconds);
-            presentButton(displayContent);
+            // Keyboard feedback has no explicit dwell (DAT 0x0e1ca..0x0e2b1).
+            // Mouse release is handled below before entering gameplay.
+            if(restore)presentButton(displayContent);else mouseFeedback=button;
             if(!inputCurrent(origin) || (handler.frameCurrent && !handler.frameCurrent()))
                 throw std::runtime_error("Stale button feedback restoration");
         }
@@ -350,15 +377,32 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         if (event.type == SDL_QUIT) {
             pendingActions.clear(); running = false;
         } else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
-            journeyKeys.fill(false);
+            journeyKeys.fill(false);heldNavigation.fill({});
+            heldModifiers=0;
             spaceDown = blockDown = revisitDown = inspectDown = false;
-            mouseButtons=0;
+            mouseButtons=0;strictMouse.reset();restoreMouseFeedback();
             pendingActions.clear();
         } else if(event.type==SDL_MOUSEBUTTONUP) {
             mouseButtons&=~SDL_BUTTON(event.button.button);
+            if(!mouseButtons)restoreMouseFeedback();
         } else if (event.type == SDL_KEYUP) {
-            const auto scan = SDL_GetScancodeFromKey(event.key.keysym.sym);
-            if (scan > SDL_SCANCODE_UNKNOWN && scan < SDL_NUM_SCANCODES) journeyKeys[scan] = false;
+            const auto scan = physicalScan(event.key);
+            if (scan > SDL_SCANCODE_UNKNOWN && scan < SDL_NUM_SCANCODES) {
+                journeyKeys[scan] = false;heldNavigation[scan]={};
+            }
+            if(event.key.keysym.sym==SDLK_LCTRL || event.key.keysym.sym==SDLK_RCTRL ||
+                event.key.keysym.sym==SDLK_LSHIFT || event.key.keysym.sym==SDLK_RSHIFT ||
+                event.key.keysym.sym==SDLK_LALT || event.key.keysym.sym==SDLK_RALT) {
+                heldModifiers=event.key.keysym.mod;
+                if(event.key.keysym.sym==SDLK_LCTRL || event.key.keysym.sym==SDLK_RCTRL)heldModifiers&=~(event.key.keysym.sym==SDLK_LCTRL?KMOD_LCTRL:KMOD_RCTRL);
+                const auto context=contextFor(batchFrame);
+                for(auto &held:heldNavigation)if(held.press) {
+                    SDL_KeyboardEvent key{};key.keysym.sym=held.key;key.keysym.mod=heldModifiers;
+                    auto resolved=playerAction(key,context.mainScreen);
+                    held.action=resolved && std::holds_alternative<NavigationAction>(*resolved)?resolved:std::nullopt;
+                    held.button=xeenMainScreenKeyButton(held.action,inputKey(held.key),context.mainScreen);
+                }
+            }
             if (event.key.keysym.sym == SDLK_SPACE) spaceDown = false;
             if (event.key.keysym.sym == SDLK_b) blockDown = false;
             if (event.key.keysym.sym == SDLK_r) revisitDown = false;
@@ -377,10 +421,20 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             // takes precedence over left. Retain event state for injected
             // input and include the native status for a simultaneous chord.
             const bool rightMouse=mouse && ((mouseButtons | SDL_GetMouseState(nullptr,nullptr))&SDL_BUTTON_RMASK);
+            if(mouse && strictMouse && !rightMouse)return;
             if(!mouse) switch(event.key.keysym.sym) {
             case SDLK_LCTRL: case SDLK_RCTRL: case SDLK_LALT: case SDLK_RALT:
             case SDLK_LSHIFT: case SDLK_RSHIFT: case SDLK_LGUI: case SDLK_RGUI:
-            case SDLK_CAPSLOCK: case SDLK_NUMLOCKCLEAR: case SDLK_SCROLLLOCK:return;
+            case SDLK_CAPSLOCK: case SDLK_NUMLOCKCLEAR: case SDLK_SCROLLLOCK:
+                heldModifiers=event.key.keysym.mod;
+                if(event.key.keysym.sym==SDLK_LCTRL || event.key.keysym.sym==SDLK_RCTRL)heldModifiers|=event.key.keysym.sym==SDLK_LCTRL?KMOD_LCTRL:KMOD_RCTRL;
+                for(auto &held:heldNavigation)if(held.press) {
+                    SDL_KeyboardEvent key{};key.keysym.sym=held.key;key.keysym.mod=heldModifiers;
+                    auto resolved=playerAction(key,context.mainScreen);
+                    held.action=resolved && std::holds_alternative<NavigationAction>(*resolved)?resolved:std::nullopt;
+                    held.button=xeenMainScreenKeyButton(held.action,inputKey(held.key),context.mainScreen);
+                }
+                return;
             default:break;
             }
             if (mouse && ((event.button.button != SDL_BUTTON_LEFT && event.button.button!=SDL_BUTTON_RIGHT) || (!context.dialog && context.mainScreen == MainScreen::None) ||
@@ -413,22 +467,39 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
                 std::holds_alternative<CastSpellAction>(*action) || std::holds_alternative<SelectMemberAction>(*action) ||
                 std::holds_alternative<UnsupportedMainScreenAction>(*action) || (slot && slot->slot < 3));
             const bool queueable = context.acceptsQueuedInput && queueKey;
-            const auto scan = mouse ? SDL_SCANCODE_UNKNOWN : SDL_GetScancodeFromKey(event.key.keysym.sym);
+            const auto scan = mouse ? SDL_SCANCODE_UNKNOWN : physicalScan(event.key);
             if (queueable) {
                 // A context transition within this event batch cannot relabel old keys.
                 if (context.contextId != batchContext.contextId) return;
                 if (mouse) {
-                    if (pendingActions.size() < 5) pendingActions.push_back({*action,context.contextId,false,button});
+                    if (pendingActions.size() < 5) {
+                        if(button)feedback(*button,batchFrame,false);
+                        pendingActions.push_back({*action,context.contextId,false,{},0,0,SDL_BUTTON(event.button.button)});
+                    }
                     return;
                 }
                 if (scan <= SDL_SCANCODE_UNKNOWN || scan >= SDL_NUM_SCANCODES) return;
                 const bool held = journeyKeys[scan];
-                if (!event.key.repeat) journeyKeys[scan] = true;
                 if (event.key.repeat) {
-                    if (!movement || !held || std::any_of(pendingActions.begin(),pendingActions.end(),
-                        [](const auto &entry) { return entry.repeat; })) return;
-                } else if (held) return;
-                if (pendingActions.size() < 5) pendingActions.push_back({*action,context.contextId,event.key.repeat != 0,button});
+                    // OS repeats are observations, never accumulated movement.
+                    if(held && heldNavigation[scan].press) {
+                        heldNavigation[scan].action=movement?action:std::nullopt;
+                        heldNavigation[scan].button=button;
+                        heldNavigation[scan].key=event.key.keysym.sym;
+                    }
+                    return;
+                }
+                if(held)return;
+                journeyKeys[scan]=true;
+                if(movement) {
+                    if(pressIdentity==std::numeric_limits<std::uint64_t>::max())throw std::overflow_error("Navigation press identity exhausted");
+                    const auto press=++pressIdentity;
+                    heldNavigation[scan]={action,button,context.contextId,press,event.key.keysym.sym,false,
+                        PresentationClock::checkedAdd(navigationNow(),navigationRepeatDelay)};
+                    // Approved option b: fresh taps are ordered obligations, without
+                    // the five-entry drop. Held demand is stored separately.
+                    pendingActions.push_back({*action,context.contextId,false,button,int(scan),press});
+                } else if(pendingActions.size()<5)pendingActions.push_back({*action,context.contextId,false,button});
                 return;
             }
             if(context.dialog && (!context.readyForAction || !inputCurrent(batchFrame) || context.contextId!=batchContext.contextId)) return;
@@ -436,10 +507,13 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
                 if(rightMouse && !context.dialog && context.mainScreen==MainScreen::Combat && handler && canCancelInteraction && canCancelInteraction() &&
                     context.readyForAction && inputCurrent(batchFrame) && context.contextId==batchContext.contextId &&
                     static_cast<std::int32_t>(event.button.timestamp-readyAt)>=0 && action)
-                    deliver(*action,batchInput,batchFrame,{});
+                    strictMouse=StrictMouse{*action,batchInput,batchFrame,context.contextId};
                 if(context.dialog && context.readyForAction && inputCurrent(batchFrame) &&
                     context.contextId==batchContext.contextId && static_cast<std::int32_t>(event.button.timestamp-readyAt)>=0 && action)
-                    deliver(*action,batchInput,batchFrame,button);
+                {
+                    if(button)feedback(*button,batchFrame,false);
+                    strictMouse=StrictMouse{*action,batchInput,batchFrame,context.contextId};
+                }
                 return;
             }
             const bool textBackspace=context.dialog && context.dialog->textEntry && event.key.keysym.sym==SDLK_BACKSPACE;
@@ -456,6 +530,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
                 if (held || static_cast<std::int32_t>(event.key.timestamp-readyAt) < 0) return;
             }
             if (handler.withPresentedInput && static_cast<std::int32_t>(event.key.timestamp-readyAt) < 0) return;
+            if(mouseButtons)return; // Common mouse input returns only after release.
             if (handler.protectAllKeys && event.key.keysym.sym == SDLK_ESCAPE &&
                 (batchInput != (handler.displayedInput ? handler.displayedInput() : std::nullopt) || !inputCurrent(batchFrame))) return;
             if (!context.dialog && event.key.keysym.sym == SDLK_ESCAPE && !(handler && canCancelInteraction && canCancelInteraction())) {
@@ -471,6 +546,13 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             }
         }
     };
+    const auto releaseMouseAction=[&] {
+        if(!strictMouse || mouseButtons)return;
+        const auto next=*strictMouse;strictMouse.reset();
+        const auto context=contextFor(presentedFrame);
+        if(context.contextId==next.context && context.readyForAction && inputCurrent(next.frame))
+            deliver(next.action,next.input,next.frame,{});
+    };
 	while (running) {
 		try {
 			if (cycle == std::numeric_limits<std::uint64_t>::max()) throw std::overflow_error("SDL loop cycle overflow");
@@ -482,7 +564,32 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 		const auto batchContext = contextFor(batchFrame);
 		if(batchContext.dialog && batchContext.dialog->textEntry)SDL_StartTextInput();else SDL_StopTextInput();
 		synchronizeQueue(batchContext);
-		if (SDL_WaitEventTimeout(&event, 16)) {
+        const auto actionReady=[&](const PlayerAction &a,const InputContext &c) {
+            return c.readyForAction || (std::holds_alternative<NavigationAction>(a) && c.readyForNavigation) ||
+                (c.restAvailable && std::holds_alternative<RestAction>(a));
+        };
+        bool queuedReady=!pendingActions.empty() && actionReady(pendingActions.front().action,batchContext) &&
+            !(pendingActions.front().mouse & mouseButtons);
+        std::optional<std::uint64_t> nextRepeat;
+        if(pendingActions.empty())for(const auto &held:heldNavigation)
+            if(held.action && held.delivered && held.context==batchContext.contextId && actionReady(*held.action,batchContext))
+                nextRepeat=nextRepeat?std::min(*nextRepeat,held.repeatAt):held.repeatAt;
+        const auto repeatSample=nextRepeat?navigationNow():0;
+        const bool repeatReady=nextRepeat && repeatSample>=*nextRepeat;
+        const auto waitSample=SdlWindow::presentationNanoseconds();
+        int wait=int(PresentationClock::ceilMilliseconds(PresentationClock::after(waitSample,1)-waitSample));
+        if(mouseButtons)wait=10;
+        else if(queuedReady || repeatReady)wait=0;
+        else if(handler.nextPresentationDeadline) {
+            const auto deadline=handler.nextPresentationDeadline();
+            if(deadline) {
+                const auto now=handler.presentationClock?handler.presentationClock():SdlWindow::presentationNanoseconds();
+                wait=*deadline<=now?0:int(std::min<std::uint64_t>(1000,PresentationClock::ceilMilliseconds(*deadline-now)));
+            }
+        }
+        if(nextRepeat && *nextRepeat>repeatSample && !mouseButtons)
+            wait=std::min(wait,int(std::min<std::uint64_t>(1000,PresentationClock::ceilMilliseconds(*nextRepeat-repeatSample))));
+        if (SDL_WaitEventTimeout(&event, wait)) {
 			do {
 				dispatchEvent(event,batchInput,batchFrame,batchContext);
 			} while (running && SDL_PollEvent(&event));
@@ -491,15 +598,49 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         if(handler.finished && handler.finished())break;
         const auto drainContext = contextFor(presentedFrame);
         synchronizeQueue(drainContext);
-        if (!actionUsed && handler && !pendingActions.empty() && drainContext.acceptsQueuedInput &&
-            (drainContext.readyForAction || (drainContext.restAvailable && std::holds_alternative<RestAction>(pendingActions.front().action))) && inputCurrent(presentedFrame)) {
-            const auto action = pendingActions.front().action;
-            const auto button = pendingActions.front().button;
+        releaseMouseAction();
+        const bool hasHeldRepeat=std::any_of(heldNavigation.begin(),heldNavigation.end(),[&](const auto &held) {
+            return held.action && held.delivered && held.context==drainContext.contextId;
+        });
+        const auto drainRepeatNow=hasHeldRepeat?navigationNow():0;
+        if (!mouseButtons && !actionUsed && handler && !pendingActions.empty() && drainContext.acceptsQueuedInput &&
+            actionReady(pendingActions.front().action,drainContext) && inputCurrent(presentedFrame) &&
+            !(pendingActions.front().mouse & mouseButtons)) {
+            const auto next=pendingActions.front();
             pendingActions.pop_front(); // A ready refusal is consumed, never retried.
-            deliver(action,displayedInput,presentedFrame,button);
+            if(next.scan && heldNavigation[next.scan].press==next.press) {
+                auto &held=heldNavigation[next.scan];held.delivered=true;
+                held.repeatAt=std::max(held.repeatAt,PresentationClock::checkedAdd(navigationNow(),navigationRepeatPeriod));
+            }
+            deliver(next.action,displayedInput,presentedFrame,next.button);
+        } else if(hasHeldRepeat && !mouseButtons && !actionUsed && handler && pendingActions.empty() && drainContext.acceptsQueuedInput && inputCurrent(presentedFrame)) {
+            HeldNavigation *selected=nullptr,*first=nullptr;
+            const auto now=drainRepeatNow;
+            for(auto &held:heldNavigation)if(held.action && held.delivered && held.context==drainContext.contextId &&
+                now>=held.repeatAt && actionReady(*held.action,drainContext)) {
+                if(!first || held.press<first->press)first=&held;
+                if(held.press>lastRepeat && (!selected || held.press<selected->press))selected=&held;
+            }
+            if(!selected)selected=first;
+            if(selected){
+                lastRepeat=selected->press;
+                // Reset at dispatch, not after fallible feedback/work; late wakes
+                // supply one demand and never accumulate typematic catch-up.
+                selected->repeatAt=PresentationClock::checkedAdd(now,navigationRepeatPeriod);
+                deliver(*selected->action,displayedInput,presentedFrame,selected->button);
+            }
         }
         if (!running) break;
-		if (idle) {
+        const bool navigationWaitingForDraw=drainContext.navigationDrawPending &&
+            ((!pendingActions.empty() && std::holds_alternative<NavigationAction>(pendingActions.front().action)) ||
+             (pendingActions.empty() && std::any_of(heldNavigation.begin(),heldNavigation.end(),[&](const auto &held) {
+                 return held.action && held.delivered && held.context==drainContext.contextId && drainRepeatNow>=held.repeatAt;
+             })));
+        // draw3d completes before polling input (DAT 0x0d1c3..0x0d1c9). If the
+        // clock crosses its threshold after admission was sampled, return to
+        // that poll before allowing idle to start a second draw. Retained work
+        // never sets this flag and continues through its existing idle owner.
+		if (idle && !mouseButtons && !navigationWaitingForDraw) {
 			try {
 				const auto nextFrame = idle();
 				if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale idle frame handoff");
@@ -529,6 +670,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 			break;
 		}
 		drawCursor();SDL_RenderPresent(renderer);
+        if(mouseButtons)continue; // Release wait transports cursor pixels only.
 		if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale presented frame");
 		if (uploadedInput != (handler.displayedInput ? handler.displayedInput() : std::nullopt))
 			throw std::runtime_error("Current frame was not uploaded");
@@ -553,7 +695,13 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 				if (!running) break;
 				dispatchEvent(event,displayedInput,presentedFrame,acquiredContext);
 			}
+            if(!running)break; // A queued close cancels the retained response.
+            // A mouse action from this bounded A batch returns on release,
+            // before A is retired. Holding it keeps the acquired B handoff
+            // pending; never relabel the press as B or run semantic idle work.
+            releaseMouseAction();
 			if (!running) break;
+            if(mouseButtons)continue;
 			// An A response can supersede B. Its semantic successor must pass
 			// the ordinary strict pre-acquisition fence before accepting input.
 			if (uploadedFrame != acquired || !accepts(acquired)) continue;
@@ -586,6 +734,13 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 }
 
 } // namespace
+
+std::uint64_t SdlWindow::presentationNanoseconds() {
+    const auto frequency=SDL_GetPerformanceFrequency(),counter=SDL_GetPerformanceCounter();
+    if(!frequency)throw std::runtime_error("SDL monotonic clock unavailable");
+    const auto seconds=counter/frequency,remainder=counter%frequency;
+    return seconds*1000000000+(remainder*1000000000)/frequency;
+}
 
 bool SdlWindow::show(const IndexedFrame &frame, const std::string &title) const {
 	return showLoop(frame, title, FrameUpdateHandler{});

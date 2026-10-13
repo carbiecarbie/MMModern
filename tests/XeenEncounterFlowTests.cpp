@@ -58,31 +58,31 @@ void ordinaryNavigation() {
 	};
 	phase(0);f.now=25;f.handle(NavigationAction::MoveBackward);phase(1);
 	check(f.coordinator().state().pending()==0&&f.coordinator().frame()==0,"blocked visual step changed encounter work");
-	f.now=124;f.update();phase(1);
-	f.now=125;f.update();phase(2); // Action rearmed to 25+100.
+	f.now=109;f.update();phase(1);
+	f.now=110;f.update();phase(2); // Reset at 25 samples tick zero; threshold is tick two.
 	const auto actorFrame=f.coordinator().frame();const auto actorDeadline=f.coordinator().cosmeticDeadline();
 	f.now=150;f.handle(NavigationAction::TurnRight);phase(0);
 	check(f.coordinator().frame()==actorFrame&&f.coordinator().cosmeticDeadline()==actorDeadline,"turn reset actor cosmetics");
 	f.now=175;f.world.discardMapCache();f.refresh(true);phase(0);
-	f.now=249;f.update();phase(0);
-	f.now=250;f.update();phase(1); // Reset rearmed to 150+100, cache did not rearm.
+	f.now=219;f.update();phase(0);
+	f.now=220;f.update();phase(1); // Reset at 150 samples tick two; threshold is tick four.
 	f.now=275;f.handle(NavigationAction::MoveForward);phase(2);
 	check(f.coordinator().actionPending()==3&&f.coordinator().state().pending()==2&&
 		f.camera.x==14&&f.p.encounterContext->minutes==490,"ordinary action affected East action3/pulse2");
 	f.now=300;f.refresh(true);phase(2);
-	f.now=374;f.update();phase(2);check(f.coordinator().state().pending()==2,"early gameplay pulse");
-	f.now=375;f.update();phase(3);check(f.coordinator().state().pending()==1,"due gameplay pulse missing");
+	f.now=384;f.update();phase(2);check(f.coordinator().state().pending()==2,"early gameplay pulse");
+	f.now=385;f.update();phase(3);check(f.coordinator().state().pending()==1,"due gameplay pulse missing");
 	f.update();phase(3);check(f.coordinator().state().pending()==1,"same-time replay");
 	f.now=10000;f.update();phase(4);check(f.coordinator().state().pending()==0,"backlog gameplay changed");
-	f.now=10099;f.update();phase(4);
-	f.now=10100;f.update();phase(5);
+	f.now=10106;f.update();phase(4);
+	f.now=10107;f.update();phase(5);
 	Production skew;skew.ordinaryAnimated=true;skew.startFlow();skew.handle(NavigationAction::TurnRight);
 	unsigned clockCalls=0;
-	skew.onClock=[&]{if(++clockCalls==3)skew.now=50;}; // After action/pulse adoption, before ordinary timing.
+	skew.onClock=[&]{if(++clockCalls==3)skew.now=60;}; // After action/pulse adoption, before ordinary timing.
 	skew.handle(NavigationAction::MoveForward);skew.onClock={};
-	skew.now=100;skew.update();
-	check(skew.coordinator().state().pending()==1&&skew.ordinaryPhases.back()==1,"gameplay pulse advanced ordinary phase before its deadline");
-	skew.now=150;skew.update();
+	skew.now=110;skew.update();
+	check(skew.coordinator().state().pending()==2&&skew.ordinaryPhases.back()==1,"actor pulse ran between ordinary draw calls");
+	skew.now=165;skew.update();
 	check(skew.coordinator().state().pending()==1&&skew.ordinaryPhases.back()==2,"ordinary deadline consumed gameplay work");
 	for(const auto move:{NavigationAction::MoveForward,NavigationAction::MoveBackward}) {
 		Production terminal;terminal.startFlow();
@@ -93,6 +93,26 @@ void ordinaryNavigation() {
 	}
 }
 
+void rapidNavigationAdmission() {
+ Production f;f.startFlow();f.east();
+ check(f.coordinator().state().pending()==2 && !f.flow->canSave(),"simple countdown/save fence");
+ f.now=109;
+ auto context=f.flow->inputContext(f.flow->frame().presentation());
+ check(!context.readyForNavigation && !context.readyForAction && context.navigationDrawPending,"draw floor admitted early input");
+ f.now=110;context=f.flow->inputContext(f.flow->frame().presentation());
+ check(context.readyForNavigation && !context.navigationDrawPending && !context.readyForAction && !f.flow->canSave(),"navigation-only countdown admission");
+ const auto minutes=f.p.encounterContext->minutes;
+ const auto ctr=f.p.encounterContext->ctr24;
+ f.flow->handle(NavigationAction::MoveBackward,f.flow->displayedInput(),f.flow->frame().presentation());
+ check(f.camera.x==13 && f.camera.y==1 && f.p.encounterContext->minutes==minutes+10 &&
+  f.p.encounterContext->ctr24==(ctr+1)%24,"rapid step position/time/stepTime suffix");
+ check(f.coordinator().actionResult().movementOpportunities==1,"rapid charge must consume prior actor opportunity exactly once");
+ check(!f.flow->inputContext(f.flow->frame().presentation()).readyForNavigation,"unacquired rapid successor admitted input");
+ f.flow->framePresented(f.flow->frame().presentation());
+ const auto revision=f.coordinator().state().revision();f.update();
+ check(f.coordinator().state().revision()==revision,"same-time rapid step replayed actor work");
+}
+
 void timing() {
 	Production f;f.startFlow();
 	check(f.initializations==1&&f.spriteChecks==0&&f.compositions==1,"startup order/count");
@@ -100,10 +120,10 @@ void timing() {
 	f.flow->beginCycle(1);f.east();
 	check(f.camera.x==14&&f.p.encounterContext->minutes==490&&f.coordinator().actionPending()==3&&
 		f.coordinator().state().pending()==2,"East action3/pulse2");
-	for(unsigned t:{99,100,199,200}) {
+	for(unsigned t:{109,110,219,220}) {
 		f.now=t;f.flow->beginCycle(t+2);f.update();
-		const auto pending=t<100?2U:t<200?1U:0U;
-		check(f.coordinator().state().pending()==pending,"99/100/199/200 boundary");
+		const auto pending=t<110?2U:t<220?1U:0U;
+		check(f.coordinator().state().pending()==pending,"BIOS phase boundary");
 		f.update();check(f.coordinator().state().pending()==pending,"same-time replay");
 	}
 	check(f.anchor().x==13&&f.anchor().y==1&&f.p.encounterContext->minutes==490,"idle approach/time");
@@ -116,8 +136,8 @@ void timing() {
 	sameActors(actors,f.world.sessionState().actors());check(f.coordinator().frame()==3&&
 		f.coordinator().cosmeticDeadline()==deadline&&context==f.p.encounterContext&&f.initializations==1,"redraw reset authority/timing");
 	Production jump;jump.startFlow();jump.east();jump.now=10000;jump.update();
-	check(jump.coordinator().state().pending()==1&&jump.coordinator().deadline()==10100,"backlog processed");
-	jump.now=500;jump.update();check(jump.coordinator().deadline()==10100&&jump.coordinator().state().pending()==1,"backward time rearmed");
+	check(jump.coordinator().state().pending()==1&&jump.coordinator().deadline()==10107,"backlog processed");
+	jump.now=500;jump.update();check(jump.coordinator().deadline()==10107&&jump.coordinator().state().pending()==1,"backward time rearmed");
 	Production batch;batch.startFlow();batch.flow->beginCycle(1);batch.onCompose=[&]{batch.now+=200;};batch.east();
 	batch.update();check(batch.coordinator().state().pending()==2,"same-batch slow input double pulse");
 	batch.flow->beginCycle(2);batch.update();check(batch.coordinator().state().pending()==1,"later due batch suppressed");
@@ -170,7 +190,7 @@ void failures(){
         if(kind==0||kind==1||kind==3||kind==4||kind==5)check(!f.flow->canSave(),"failed navigation never opens save boundary");
         else{
             check(f.rebuilds==1&&f.flow->acceptsFrame(f.flow->frame().presentation())&&f.flow->acceptsInputFrame(f.flow->frame().presentation()),"one-shot presentation failure recovers a matching presented frame");
-            f.onCompose={};f.flow->beforeEncounterFrameCopy={};f.now=100;f.update();
+            f.onCompose={};f.flow->beforeEncounterFrameCopy={};f.now=110;f.update();
             check(f.flow->canSave(),"recovered navigation remains usable through quiet boundary");
         }
     }
@@ -223,4 +243,4 @@ void projections() {
 	actors[0].statistics.reset();rejects([&]{XeenOutdoorScene::actorCommands(actors,projectionCamera,0);});
 }
 }
-int main(){try{ordinaryNavigation();timing();collisionFeedback();failures();projections();ordinaryWait();std::cout<<"Regional Flow timing and detached projections passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(){try{ordinaryNavigation();timing();rapidNavigationAdmission();collisionFeedback();failures();projections();ordinaryWait();std::cout<<"Regional Flow timing and detached projections passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

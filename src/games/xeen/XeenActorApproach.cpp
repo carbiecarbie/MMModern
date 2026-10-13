@@ -527,8 +527,9 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 				c.pending=3;
 				if(*action==XeenEncounterAction::Wait) { ++c.remaining;c.pending=0; }
 			}
-			if(stepTime) c.context.ctr24=(c.context.ctr24+1)%24;
-			if(stepTime)c.exploration=world.explorationAfterStep(party,c.camera);
+            // chargeStep services the prior opportunity at the reached position
+            // before stepTime/arrival. Keep this suffix behind retained work.
+            c.stepTimePending=stepTime;
 			if(!action && c.pending && --c.pending==0) ++c.remaining;
 			c.classify=!action || *action==XeenEncounterAction::Wait;
 			check();work.swap(candidate);
@@ -576,6 +577,11 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 			c.actors.swap(c.opportunity->actors);c.characters.swap(c.opportunity->characters);c.opportunity.reset();
 			--c.remaining;++c.result.movementOpportunities;
 		}
+        if(c.stepTimePending) {
+            c.context.ctr24=(c.context.ctr24+1)%24;
+            c.exploration=world.explorationAfterStep(party,c.camera);
+            c.stepTimePending=false;
+        }
 		if(c.classify) { c.result.view=indoor ? XeenIndoorScene().classifyActors(world,c.camera,c.actors) : classify(c.actors,c.camera);activate(c.actors,c.result.view); }
 		bool living=false;for(const auto &owner:c.characters) living=living || xeenCombatTargetable(owner);
 		const bool engaged=living && c.classify && c.result.view.engaged();

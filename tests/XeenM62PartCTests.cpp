@@ -163,10 +163,11 @@ void playback(Inputs &in, const XeenSaveSnapshot &source, Art art, const char *l
 	unsigned index = 0;
 	const unsigned steps = XeenServiceAnimation::modulus(art) + (XeenServiceAnimation::modulus(art) - XeenServiceAnimation::firstRepeat(art)) + 2;
 	for (unsigned step = 0; step < steps; ++step) {
-		check(!shop.tick(now + 149), "base frame advanced before its 150 ms pulse");
-		const auto next = shop.tick(now + 150);
+		check(!shop.tick(PresentationClock::afterMilliseconds(now,3)-1), "base frame advanced before its 150 ms pulse");
+		const auto due=PresentationClock::afterMilliseconds(now,3);
+        const auto next = shop.tick(due);
 		check(next.has_value(), "base frame did not advance on its pulse");
-		now += 150;
+		now = due;
 		index = XeenServiceAnimation::next(art, index);
 		oracle = drawn(in, oracle, XeenServiceAnimation::compose(art, index));
 		artRegionMatches(*next, oracle, label);
@@ -180,19 +181,19 @@ void playback(Inputs &in, const XeenSaveSnapshot &source, Art art, const char *l
 	std::cout << label << " base cycle passed\n";
 }
 
-// The character sheet selection blink keeps its existing 200 ms cadence and frames 48/49.
+// The character sheet selection blink keeps its original four-counter-increment cadence and frames 48/49.
 void sheetBlink(Inputs &in) {
 	Shop6 f(in, in.service());
 	f.act(SelectMemberAction{0});
 	check(f.flow->inventoryOpen(), "character sheet did not open");
 	const auto first = f.flow->frame().pixels;
-	check(!f.tick(199), "sheet blink advanced before 200 ms");
-	const auto blinked = f.tick(200);
-	check(blinked.has_value() && blinked->pixels != first, "sheet blink did not toggle at 200 ms");
+	check(!f.tick(219), "sheet blink advanced before four BIOS increments");
+	const auto blinked = f.tick(220);
+	check(blinked.has_value() && blinked->pixels != first, "sheet blink did not toggle at four BIOS increments");
 	for (int y = 0; y < 200; ++y) for (int x = 0; x < 320; ++x)
 		if (blinked->pixels[y * 320 + x] != first[y * 320 + x]) check(x < 60 && y < 60, "sheet blink changed more than the selection marker");
-	check(!f.tick(399), "sheet blink retimed");
-	const auto restored = f.tick(400);
+	check(!f.tick(439), "sheet blink retimed");
+	const auto restored = f.tick(440);
 	check(restored.has_value() && restored->pixels == first, "sheet blink did not return to frame 48");
 	std::cout << "Sheet blink passed\n";
 }

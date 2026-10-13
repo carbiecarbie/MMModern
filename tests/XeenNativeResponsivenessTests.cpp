@@ -56,7 +56,7 @@ void press(Fixture &f,SDL_Keycode code,bool cosmetic=false,bool held=false,bool 
         f.flow->framePresented(frame);
         if(!armed && (!cosmetic || redrawn)) {target=frame;armed=true;fresh=code;}
     };
-    handler.beginCycle=[&](auto){check(++cycles<8,"first physical press lost (no retry permitted)");f.flow->beginCycle(++f.cycle);};
+    handler.beginCycle=[&](auto){f.now+=110;check(++cycles<8,"first physical press lost (no retry permitted)");f.flow->beginCycle(++f.cycle);};
     handler.withPresentedInput=[&](const auto &action,std::uint64_t input,const auto &origin)->std::optional<IndexedFrame>{
         check(origin==target,"fresh key changed concrete origin");++dispatches;
         return f.flow->handle(action,input,origin);
@@ -68,7 +68,7 @@ void press(Fixture &f,SDL_Keycode code,bool cosmetic=false,bool held=false,bool 
         }
         if(cosmetic && !redrawn) {
             redrawn=true;
-            f.now+=100;
+            f.now+=110;
             auto replacement=f.flow->canSave()?f.flow->updatePresentation():std::optional<IndexedFrame>{f.flow->refresh(true)};
             check(bool(replacement),"cosmetic frame missing");target=replacement->presentation();
             check(target!=old && f.flow->displayedInput()==semantic,"cosmetic must retain semantic authority");

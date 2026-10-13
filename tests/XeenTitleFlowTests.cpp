@@ -2,6 +2,9 @@
 #include "formats/xeen/XeenAssetSource.h"
 #include "games/xeen/XeenInstallationDetector.h"
 #include "XeenSaveTestSupport.h"
+#include "platform/sdl/SdlWindow.h"
+#define SDL_MAIN_HANDLED
+#include <SDL.h>
 #include <iostream>
 #include <memory>
 using namespace mmodern;
@@ -17,7 +20,11 @@ struct Driver {
  XeenTitleFlow &flow;std::uint64_t now=1;
  explicit Driver(XeenTitleFlow::Services services):owner(std::make_unique<XeenTitleFlow>(std::move(services))),flow(*owner){present();fade();}
  void present(){flow.presented(flow.frame().presentation());flow.completeInput(flow.frame().presentation());}
- void fade(){flow.animate(now);now+=1000;flow.animate(now);present();}
+ void fade(){
+  flow.animate(now);
+  for(unsigned i=0;i<65 && !flow.inputContext(flow.frame().presentation()).readyForAction;++i){now+=20;flow.animate(now);present();}
+  check(flow.inputContext(flow.frame().presentation()).readyForAction,"fade did not publish all levels");
+ }
  void key(unsigned value) {
   const auto action=flow.inputContext(flow.frame().presentation()).dialog->key(value);
   check(bool(action),"missing title key mapping");flow.handle(*action,flow.frame().presentation());if(flow.current())present();
@@ -28,6 +35,46 @@ struct Driver {
  }
  void type(std::string value){flow.handle(TextInputAction{std::move(value)},flow.frame().presentation());present();}
 };
+// A mouse press sampled in the bounded A batch must retain A through release,
+// including when cosmetic B was just acquired. It cannot be relabeled as B.
+void cosmeticMouseRelease(const XeenTitleFlow::Services &services) {
+ for(unsigned mode=0;mode<3;++mode) {
+  const bool held=mode==1,close=mode==2;
+  Driver d(services);d.key(27);const auto origin=d.flow.frame().presentation();
+  bool injected=false,releaseNextCycle=false;unsigned delivered=0,loops=0;
+  const auto mouse=[&](Uint32 type) {
+   const auto dialog=d.flow.inputContext(origin).dialog;
+   const auto hit=std::find_if(dialog->hits.begin(),dialog->hits.end(),[](const auto &h){return h.key=='s';});
+   check(hit!=dialog->hits.end(),"cosmetic mouse Start hit");
+   SDL_Event event{};event.type=type;event.button.button=SDL_BUTTON_LEFT;
+   event.button.x=hit->left;event.button.y=hit->top;event.button.timestamp=SDL_GetTicks();
+   check(SDL_PeepEvents(&event,1,SDL_ADDEVENT,0,0)==1,"cosmetic mouse queue");
+  };
+  SdlWindow::FrameUpdateHandler h=[](const auto &)->std::optional<IndexedFrame>{throw std::runtime_error("unversioned cosmetic mouse");};
+  h.protectAllKeys=true;h.displayedInput=[] {return std::optional<std::uint64_t>{1};};
+  h.acceptsFrame=[&](const auto &p){return d.flow.acceptsFrame(p);};
+  h.acceptsInputFrame=[&](const auto &p){return d.flow.acceptsInput(p);};
+  h.frameCurrent=[&]{return d.flow.current();};h.inputContext=[&](const auto &p){return d.flow.inputContext(p);};
+  h.withPresentedInput=[&](const auto &action,auto,const auto &p){
+   check(p==origin && d.flow.acceptsInput(origin),"cosmetic mouse borrowed new origin");
+   ++delivered;return d.flow.handle(action,p);
+  };
+  h.framePresented=[&](const auto &p){d.flow.presented(p);if(p!=origin && !injected){
+   injected=true;mouse(SDL_MOUSEBUTTONDOWN);if(held)releaseNextCycle=true;else mouse(SDL_MOUSEBUTTONUP);
+   if(close){SDL_Event quit{};quit.type=SDL_QUIT;SDL_PushEvent(&quit);}
+  }};
+  h.completeInputHandoff=[&](const auto &p){d.flow.completeInput(p);};
+  h.beginCycle=[&](auto){if(releaseNextCycle){releaseNextCycle=false;mouse(SDL_MOUSEBUTTONUP);}};
+  h.drawButton=[&](auto &frame,const auto &button){d.flow.drawButton(frame,button);};
+  const bool ok=SdlWindow().showInteractive(d.flow.frame(),"Cosmetic mouse origin through release",h,[]{return true;},[&]()->std::optional<IndexedFrame>{
+   check(++loops<8,"cosmetic mouse was lost at input handoff");
+   if(d.flow.screen()==Screen::NewSlots){check(delivered==1,"cosmetic click repeated");SDL_Event quit{};quit.type=SDL_QUIT;SDL_PushEvent(&quit);return {};}
+   d.now+=220;return d.flow.animate(d.now);
+  });
+  check(ok && injected && delivered==(close?0u:1u),"cosmetic mouse release did not retain acquired origin or crossed close");
+  if(close)check(d.flow.screen()==Screen::Menu,"queued close applied a mouse response");
+ }
+}
 void panelControls(XeenAssetSource &assets,const XeenFontFormat &font) {
  assets.loadPalette("dark.pal",XeenSceneArchive::DarksideOnly);
  std::array<XeenSaveFile::Slot,10> rows;
@@ -97,15 +144,18 @@ void panelControls(XeenAssetSource &assets,const XeenFontFormat &font) {
  cursorFlow.key(8);check(cursorFlow.flow.frame().pixels==cursorPixels(127),"empty backspace did not redraw/advance cursor");
  XeenTextInput input;input.begin();check(input.cursor()==124 && !input.animate(100),"cursor first visible glyph/wait");
  const unsigned glyphs[]{126,127,126,124,32,124,126};
- for(unsigned i=0;i<7;++i) {
-  check(!input.animate(149+i*50),"cursor advanced before wait tick");
-  check(input.animate(150+i*50) && input.cursor()==glyphs[i],"cursor glyph/cadence");
+ for(unsigned glyph:glyphs) {
+  const auto deadline=*input.deadline();
+  check(!input.animate(deadline-1),"cursor advanced before counter increment");
+  check(input.animate(deadline) && input.cursor()==glyph,"cursor glyph/cadence");
  }
- check(input.animate(700) && input.cursor()==124,"delayed fixed-clock cursor ticks");
+ check(input.animate(700) && input.cursor()==127,"late cursor wake skipped a glyph");
  check(input.type("Case !~ ",font),"cursor input");input.keyRedraw();
  check(input.cursor()==126 && input.backspace() && input.value()=="Case !~","typed key redraw cursor phase/input");
- input.keyRedraw();check(input.cursor()==127 && !input.animate(700) && !input.animate(749),"backspace redraw did not restart wait cadence");
- check(input.animate(750) && input.cursor()==126,"first wait tick after key redraw");
+ input.keyRedraw();check(input.cursor()==124 && !input.animate(700),"backspace redraw did not restart wait cadence");
+ const auto deadline=*input.deadline();check(!input.animate(deadline-1),"cursor early reset edge");
+ check(input.animate(deadline) && input.cursor()==32,"first wait tick after key redraw");
+
 }
 void animationResume(XeenTitleFlow::Services source) {
  // An off-dialog pixel identifies the exact animation phase independently of
@@ -113,7 +163,7 @@ void animationResume(XeenTitleFlow::Services source) {
  for(unsigned i=0;i<source.animation.size();++i)source.animation[i].pixels[0]=i;
  for(const auto screen:{Screen::NewSlots,Screen::LoadSlots,Screen::Name,Screen::Difficulty,
    Screen::Overwrite,Screen::PublicationFailure,Screen::Credits}) {
-  Driver d(source);d.key(27);d.flow.animate(d.now);d.now+=200;d.flow.animate(d.now);d.present();
+  Driver d(source);d.key(27);d.flow.animate(d.now);d.now+=220;d.flow.animate(d.now);d.present();
   const auto phase=d.flow.frame().pixels[0];
   if(screen==Screen::Credits)d.key('c');
   else if(screen==Screen::LoadSlots)d.key('l');
@@ -134,8 +184,8 @@ void animationResume(XeenTitleFlow::Services source) {
   if(d.flow.screen()==Screen::NewSlots)d.key(27);
   check(d.flow.screen()==Screen::Menu && d.flow.frame().pixels[0]==phase,"modal visit changed retained phase");
   check(!d.flow.animate(d.now),"animation resumed by consuming modal time");
-  if(screen==Screen::Credits){d.now+=1000;d.flow.animate(d.now);d.present();}
-  d.now+=200;check(bool(d.flow.animate(d.now)),"resumed animation did not tick");d.present();
+  if(screen==Screen::Credits)d.fade();
+  d.now+=220;check(bool(d.flow.animate(d.now)),"resumed animation did not tick");d.present();
   check(d.flow.frame().pixels[0]==(phase+1)%source.animation.size(),"animation did not resume at phase+1");
  }
 }
@@ -180,11 +230,11 @@ int main(int argc,char **argv){try {
  slots[5].state=XeenSaveFile::Slot::State::Protected;slots[5].reason="Synthetic protected target";
  const auto services=[&]{return XeenTitleFlow::original(assets,font,[&]{return slots;},[](unsigned slot){return std::filesystem::path("test-slots")/(std::to_string(slot)+".mmsave");});};
  panelControls(assets,font);
- animationResume(services());mappedHotkeys(*installation,assets,font);
+ animationResume(services());cosmeticMouseRelease(services());mappedHotkeys(*installation,assets,font);
  Driver d(services());
  check(d.flow.screen()==Screen::Background,"plain title starts with animated background");d.key(27);
  const auto menu=d.flow.frame().pixels;const auto old=d.flow.frame().presentation();
- d.flow.animate(d.now);d.now+=200;d.flow.animate(d.now);d.present();check(d.flow.frame().pixels!=menu,"title animation phase did not advance");
+ d.flow.animate(d.now);d.now+=220;d.flow.animate(d.now);d.present();check(d.flow.frame().pixels!=menu,"title animation phase did not advance");
  d.key(27);check(d.flow.screen()==Screen::Background,"title Escape hid menu");
  check(!d.flow.handle(DialogKeyAction{'s'},old),"stale title frame opened New");
  d.key(27);check(d.flow.screen()==Screen::Menu,"background Escape must reopen menu");
@@ -224,7 +274,7 @@ int main(int argc,char **argv){try {
   idle.flow.animate(idle.now);
   int previous=-1;unsigned backgrounds=0;
   for(unsigned step=0;step<26;++step) {
-   idle.now+=200;check(bool(idle.flow.animate(idle.now)),"idle title did not tick");idle.present();
+   idle.now+=220;check(bool(idle.flow.animate(idle.now)),"idle title did not tick");idle.present();
    int phase=-1;
    for(unsigned p=0;p<13;++p)if(idle.flow.frame().pixels==(p==0?source.background:source.animation[p]).pixels)phase=int(p);
    check(phase>=0,"idle title frame is neither the background nor an animation phase");

@@ -191,7 +191,7 @@ void presentationAndTiming() {
 		check(flow.blocksGameplay() && flow.presentationGeneration()==generation && flow.presenter().pageIndex()==i,"page resumed prematurely");
 		const auto &after=flow.presenter().npcTiming();
 		check(after.phase==timing.phase && after.displayedFrame==timing.displayedFrame && after.nextFrame==timing.nextFrame &&
-			after.deadline==f.time+150,"page reset changed phase/frame");
+			after.deadline==PresentationClock::afterMilliseconds(f.time,3),"page reset changed phase/frame");
 		const auto pixels=flow.frame().pixels;flow.refresh(true);
 		check(flow.presenter().pageIndex()==i && flow.frame().pixels==pixels,"noninitial page rebase");
 	}
@@ -201,19 +201,19 @@ void presentationAndTiming() {
 	flow.abandonPresentation();check(!flow.blocksGameplay() && flow.frame().pixels==f.base.pixels,"NPC abandonment");
 	Fixture t;t.text.strings={"A B","C D"};auto timed=t.flow();timed.handle(InteractionAction{});
 	check(timed.presenter().npcTiming().remaining==4 && timed.presenter().npcTiming().displayedFrame==0,"initial speech state");
-	t.time=149;check(!timed.updatePresentation(),"early animation");
-	t.time=150;timed.updatePresentation();check(timed.presenter().npcTiming().nextFrame==2 && timed.presenter().npcTiming().remaining==4,"first draw/select order");
-	t.time=300;check(timed.updatePresentation().has_value(),"second frame missing");
+	t.time=164;check(!timed.updatePresentation(),"early animation");
+	t.time=165;timed.updatePresentation();check(timed.presenter().npcTiming().nextFrame==2 && timed.presenter().npcTiming().remaining==4,"first draw/select order");
+	t.time=330;check(timed.updatePresentation().has_value(),"second frame missing");
 	check(timed.presenter().npcTiming().displayedFrame==2 && timed.presenter().npcTiming().remaining==3,"alternating speech decrement");
 	const auto phase=timed.presenter().npcTiming();const auto gen=timed.presentationGeneration();auto pixels=timed.frame().pixels;
 	t.events.discardScriptCache();t.events.discardTextCache();t.world.discardMapCache();timed.refresh(true);
 	check(timed.frame().pixels==pixels && timed.presentationGeneration()==gen && timed.presenter().npcTiming().remaining==phase.remaining &&
 		timed.presenter().npcTiming().phase==phase.phase && timed.presenter().npcTiming().deadline==phase.deadline,"rebase changed temporal state");
 	t.time=9999;timed.updatePresentation();check(timed.presenter().npcTiming().remaining==3,"stall replayed backlog");
-	for(int i=0;i<20;++i){t.time+=150;timed.updatePresentation();}
+	for(int i=0;i<20;++i){t.time+=165;timed.updatePresentation();}
 	check(timed.presenter().npcTiming().remaining==0 && timed.presenter().npcTiming().displayedFrame==0 &&
 		timed.frame().pixels[24+23*320]!=55,"rest left animated overlay");
-	const auto draws=t.draws,composes=t.composes;for(int i=0;i<10;++i){t.time+=150;check(!timed.updatePresentation(),"rest keeps updating");}
+	const auto draws=t.draws,composes=t.composes;for(int i=0;i<10;++i){t.time+=165;check(!timed.updatePresentation(),"rest keeps updating");}
 	check(t.draws==draws && t.composes==composes,"rest keeps drawing");
 	Fixture n;n.set({npc(),npc(1),record(1,1,2,0x12)});auto next=n.flow();next.handle(InteractionAction{});
 	const auto old=*next.presentationGeneration();next.handle(CancelInteractionAction{});
@@ -243,19 +243,19 @@ void ordinaryCoexistence() {
   Fixture f;f.ordinary=ordinary;auto flow=f.flow();
   if(npcActive)flow.handle(InteractionAction{});
   const auto generation=flow.presentationGeneration();
-  unsigned ordinarySteps=npcActive?1:0;
-  for(std::uint64_t now:{99,100,149,150,200,300,9999}) {
+  unsigned ordinarySteps=0;
+  for(std::uint64_t now:{109,110,164,165,219,220,330,9999}) {
    const auto count=f.composes;const auto random=f.randomReads;
    const auto timing=flow.presenter().npcTiming();
-   f.time=now;const bool due=now==100||now==200||now==300||now==9999;
-   const bool npcDue=npcActive&&(now==150||now==300||now==9999);
+   f.time=now;const bool due=!npcActive && (now==110||now==220||now==330||now==9999);
+   const bool npcDue=npcActive&&(now==165||now==330||now==9999);
    if(due)++ordinarySteps;
    flow.updatePresentation();
-   check(f.composes==count+(ordinary&&due?1:0),"ordinary/NPC coalesced composition count");
+   check(f.composes==count+(due?1:0),"ordinary/NPC coalesced composition count");
    check(f.randomReads==random+(npcDue?1:0),"ordinary redraw consumed NPC randomness");
    check(flow.presentationGeneration()==generation && flow.blocksGameplay()==npcActive,"idle consumed pending generation");
    if(!npcDue)check(flow.presenter().npcTiming().deadline==timing.deadline && flow.presenter().npcTiming().phase==timing.phase,"ordinary step rearmed NPC");
-   else check(flow.presenter().npcTiming().deadline==now+150,"NPC deadline not independent");
+   else check(flow.presenter().npcTiming().deadline==PresentationClock::afterMilliseconds(now,3),"NPC deadline not independent");
    if(ordinary&&due)check(f.phases.back()==ordinarySteps,"ordinary phase count with NPC");
    const auto after=f.composes;const auto randomAfter=f.randomReads;flow.updatePresentation();
    check(f.composes==after && f.randomReads==randomAfter,"same-now coexistence double advance");
@@ -273,11 +273,12 @@ void ordinaryCoexistence() {
   flow.presenter().npcTiming().deadline==timing.deadline,"animated noninitial reconstruction lost state");
  while(flow.blocksGameplay())flow.handle(AcknowledgeAction{});
  XeenEventPresenter oracle(f.font);XeenPresentationRequest label;label.kind=XeenPresentationKind::SceneLabelSign;label.text=f.text.strings[0];
- const auto expected=oracle.present(f.ordinaryBase(2),label).frame;
+ const auto afterSpeechPhase=f.phases.back();
+ const auto expected=oracle.present(f.ordinaryBase(afterSpeechPhase),label).frame;
  check(flow.frame().pixels==expected.pixels,"idle erased retained label/current base");
  f.time=200;flow.updatePresentation();XeenEventPresenter later(f.font);
- check(flow.frame().pixels==later.present(f.ordinaryBase(3),label).frame.pixels,"idle erased completed retained label");
- flow.handle(NavigationAction::MoveForward);check(flow.frame().pixels==f.ordinaryBase(4).pixels,"accepted blocked action retained label");
+ check(flow.frame().pixels==later.present(f.ordinaryBase(afterSpeechPhase+1),label).frame.pixels,"idle erased completed retained label");
+ flow.handle(NavigationAction::MoveForward);check(flow.frame().pixels==f.ordinaryBase(afterSpeechPhase+2).pixels,"accepted blocked action retained label");
  // Both consumers call the one stored mutable clock, rather than independent copies.
  Fixture shared;std::vector<unsigned> calls;
  XeenEventPresenter::Clock clock=[n=0U,&calls]() mutable {calls.push_back(++n);return n;};
@@ -296,7 +297,7 @@ void failuresAndOwners() {
 		flow.reportManual=[&](const auto&r){if(auto e=std::get_if<XeenEventExecutionError>(&r))err=*e;};
 		f.failDraw=when==0;flow.handle(InteractionAction{});const auto gen=flow.presentationGeneration();
 		f.failDraw=true;
-		if(when==1){f.time=150;flow.updatePresentation();}
+		if(when==1){f.time=165;flow.updatePresentation();}
 		if(when==2)flow.refresh(true);
 		if(when==3)flow.handle(AcknowledgeAction{});
 		check(err && err->kind==Kind::PresentationFailed && err->source->line==1 && !flow.blocksGameplay() &&
@@ -375,7 +376,8 @@ void sdl() {
 			if(SDL_GetTicks()-started>3000){SDL_Event q{};q.type=SDL_QUIT;SDL_PushEvent(&q);}
 			return result;});
 	check(ok && changed && actions==1 && idles>1 && flow.blocksGameplay() && f.members.questItems.at(17)==0,"SDL idle/quit/repeat behavior");
-	flow.abandonPresentation();check(!flow.blocksGameplay() && !flow.updatePresentation(),"SDL abandonment");
+	flow.abandonPresentation();const auto npcDraws=f.draws;flow.updatePresentation();
+	check(!flow.blocksGameplay() && !flow.presentationGeneration() && f.draws==npcDraws && f.members.questItems.at(17)==0,"SDL abandonment must retire NPC while ordinary drawing may resume");
 }
 }
 int main(int argc,char **argv) {

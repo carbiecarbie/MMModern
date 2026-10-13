@@ -26,9 +26,9 @@ int main(){try{
    observed.framePresented=[&](const auto &frame){handle.framePresented(frame);presented=frame;};
    const auto push=[](SDL_Event event){check(SDL_PushEvent(&event)==1,"SDL push failed");};
    const bool result=SdlWindow().showInteractive(first,"Save SDL test",observed,escape,[&]()->std::optional<IndexedFrame>{
-    check(++cycles<400,"presented input-ready frame timeout");
+    f.now+=110;check(++cycles<400,"presented input-ready frame timeout");
     for(Uint32 id=1;id<20;++id)if(auto *window=SDL_GetWindowFromID(id))if(std::string(SDL_GetWindowTitle(window)).find("Saved")!=std::string::npos)titleSeen=true;
-    const auto next=idle();
+    const auto next=handle.inputContext(presented).readyForAction?std::optional<IndexedFrame>{}:idle();
     // No sender clock or fixed sleep: only a fully acquired, ready origin can
     // produce a key. A new upload is acquired before another loop attempts it.
     if(next || quitSent || !handle.inputContext(presented).readyForAction)return next;

@@ -41,7 +41,7 @@ bool m39InputControls(const std::string &control,const IndexedFrame &first,const
         control=="cast"?std::holds_alternative<CastSpellAction>(a):rotation?(std::holds_alternative<NavigationAction>(a) && std::get<NavigationAction>(a)==(control=="left"?NavigationAction::TurnLeft:NavigationAction::TurnRight)):std::holds_alternative<SelectInventorySlotAction>(a);};
     nativeInputReceived=[&](const SDL_Event &e){if(transition && e.type==SDL_KEYDOWN && e.key.keysym.sym==code && !e.key.repeat)++received;};
     nativeInputRetired=[&](const SDL_KeyboardEvent &e){if(transition && e.keysym.sym==code && !e.repeat)++retired;};
-    auto native=handler;native.closed={};native.beginCycle=[&](std::uint64_t){handler.beginCycle(++cycle);};
+    auto native=handler;native.closed={};native.beginCycle=[&](std::uint64_t){now+=100;handler.beginCycle(++cycle);};
     native.framePresented=[&](const auto &frame){handler.framePresented(frame);shown=true;};
     native.withPresentedInput=[&](const PlayerAction &a,std::uint64_t input,const auto &origin){
         check(handler.inputContext(origin).readyForAction && handler.acceptsInputFrame(origin),"M39 queued input drained before current readiness");
@@ -60,7 +60,7 @@ bool m39InputControls(const std::string &control,const IndexedFrame &first,const
             stableFrame=flow.frame().presentation();stableInput=handler.displayedInput();
             const auto encounter=flow.encounter()->ticket();const auto generation=combat().result().generation;
             composeProbe=[&]{if(cosmetic)return;cosmetic=true;key(SDLK_b);key(SDLK_b,SDL_KEYUP);};
-            now+=100;auto f=idle();composeProbe={};cosmeticInput=handler.displayedInput();
+            now+=110;auto f=idle();composeProbe={};cosmeticInput=handler.displayedInput();
             check(cosmetic && f && f->presentation()!=stableFrame && !flow.acceptsFrame(stableFrame) &&
                 !flow.acceptsFrame(IndexedFrame{}.presentation()) && flow.encounter()->current(encounter) &&
                 combat().current(stableTicket),"M39 cosmetic concrete/semantic identity split");

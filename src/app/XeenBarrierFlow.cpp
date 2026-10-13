@@ -78,7 +78,8 @@ bool XeenEventFlow::serviceBarrier() {
 		if(rule.injury && (rule.injury->injuryApplied || rule.damagePauseReady)) {
 			std::uint64_t now=0;_encounter->guardCallback(entry,[&]{now=_clock();});check();
 			if(now>std::numeric_limits<std::uint64_t>::max()-250)throw std::overflow_error("Trap animation clock exhausted");
-			work.trapWaiting=true;work.deadline=now+250;
+            // Part B replaces this retained five-tick sequence with DOS's two.
+			work.trapWaiting=true;work.deadline=PresentationClock::afterMilliseconds(now,5);
 		}
 		return true;
 	}
@@ -128,7 +129,7 @@ bool XeenEventFlow::serviceBarrier() {
 	_encounter->publishBarrier(entry,*work.world,*work.guard,rule,work.context,now,work.dailyReset);
 	const bool pause=work.bash && !rule.moved && rule.portraitMask;
 	if(work.needsRest)_encounter->_needsRestNotice=true;
-	work.published=true;work.deadline=now+(pause?100:0);
+	work.published=true;work.deadline=pause?PresentationClock::afterMilliseconds(now,2):now;
 	_presenter.clear();_journeyEventLayers=false;
 	if(rule.moved)_world.scenePresentation().navigation(NavigationAction::MoveForward,true);
 	if(!pause) {
@@ -275,7 +276,7 @@ void XeenEncounterFlow::publishBarrier(const Ticket &entry,XeenWorld &candidate,
 		_party.roster._combatInputs[rule.characters[n].rosterId]=rule.inputs[n];
 		if((rule.portraitMask&(1u<<n)) && !rule.damagePauseAcknowledged) {
 			_world.scenePresentation().portraitDamage(live.rosterId,rule.portraitFrame,_lastTime);
-			if(rule.bash)_world.scenePresentation().portraits[live.rosterId].damageDeadline=_lastTime+100;
+			if(rule.bash)_world.scenePresentation().portraits[live.rosterId].damageDeadline=PresentationClock::afterMilliseconds(_lastTime,2);
 		}
 	}
 	_camera=rule.camera;_party.encounterContext=context;_party.serviceEconomy=prepared.economy;
