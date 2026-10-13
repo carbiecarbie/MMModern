@@ -40,7 +40,7 @@ container in `material`, the power in `id`, and 1-8 charges in `state`.
 | Map 28 display cases | Scripted L1/L2 generation: the same L1 range plus L2 weapons 1-33, armor 1-13, Accessories 1-10 and Misc powers 16-30. The lock/trap/jail outcome can prevent delivery. |
 | Map 28 rubbish (3,12) | L2: weapons 1-33; armor 1-13; Accessories 1-10; Misc container 1-9 with power 16-30. |
 | Map 23 Myra return reward | Five fixed Potions of antidotes `{material=10,id=37,charges=1}`; its two scripted random item draws use the L1 generator. |
-| Map 23 monsters | Orc is the only item-dropping kind: each of 12 Orcs has a 10% L1 generation chance. The reference's Misc destination bug loses that branch; delivered drops are plain weapons 1-33 or armor 1-7. Giant Snake, Skeleton, Zombie and Giant Toad have no item drop. |
+| Map 23 monsters | Orc is the only item-dropping kind: each of 12 Orcs has a 10% L1 generation chance. The pin and current implementation lose the Misc branch, leaving weapons 1-33 or armor 1-7. [DOS analysis](rules/evidence.md#monster-treasure-staging) establishes that the original stages Misc correctly; correcting this discrepancy is not implemented by the rules research. Giant Snake, Skeleton, Zombie and Giant Toad have no item drop. |
 | Map 28 monsters | Slime, Doom Bug and Breeder Slime have no item drop. |
 | Initial Ironworks stock | Fifteen L1 and five L2 generated entries. L2 is the source of its Accessories and higher powers; stock may include all four categories. |
 
@@ -72,7 +72,7 @@ verify it through REA before Part B if any mapping looks doubtful.
 | 11-15 | Shrapmetal **existing**; Insect Spray and Toxic Cloud **deferred** (shared damage delivery); Protection from Elements **deferred** (saved party resistance field); Pain **existing**. |
 | 16-21 | Jump **existing**, retaining M60 unsafe-terrain refusal; Beast Master **later** (monster control); Clairvoyance **deferred** (world information); Turn Undead **later** (monster type/turn); Levitate **deferred** (party/terrain effect); Wizard Eye **existing**. |
 | 22-26 | Bless **deferred** (party combat modifier); Identify Monster **later** (monster information screen); Lightning Bolt **deferred** (damage delivery); Holy Bonus **deferred** (party modifier); Power Cure **deferred** (healing). |
-| 27-30 | Nature Cure **deferred** (condition removal); Lloyd's Beacon **later** (saved travel anchors); Power Shield and Heroism **deferred** (party effects). |
+| 27-30 | Nature Cure **deferred** (25 HP healing, [DOS-confirmed](rules/magic.md#healing-and-conditions)); Lloyd's Beacon **later** (saved travel anchors); Power Shield and Heroism **deferred** (party effects). |
 | 37 | Cure Poison: Myra's Potion of antidotes **existing**; use its established target, cure and one-charge settlement. |
 
 **Maintainer decision (2026-10-12): only existing effects.** Item Use supports

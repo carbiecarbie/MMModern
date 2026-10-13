@@ -47,7 +47,36 @@ rule, or follow the reference where it has not been checked.
 
 | Behavior | Where | Notes |
 | --- | --- | --- |
-| A generated miscellaneous monster drop is lost: the reference's monster-treasure path sends the Misc branch to a destination that discards it, so delivered monster drops are only weapons or armor. The Misc draws (including the 1..8 charges) still happen. | M57, `XeenMonsterTreasure.cpp` (`ReferenceMiscellaneousDropLoss`) | Follows the pinned reference; not checked in DOS. Reachable today only through the map-23 Orcs (10% level-1 drop chance). A REA check of the original drop routine would settle it. |
+| Natural 20 applies enemy damage immediately, then still performs the ordinary hit comparison; the first application can break armor before the second comparison. | `XeenCombatRules.cpp`; [combat reference](rules/combat.md#implementation-cross-check-and-remaining-dos-questions) | Pinned `Combat::doMonsterTurn`; already retained by MMModern. Direct DOS calibration remains open. |
+| The weapon scan can retain broken weapons' base dice, while suppressing their material bonus; the effectiveness scan includes equipped missile and bad-state weapons. | [Weapon calculation](rules/combat.md); pinned `Combat::getWeaponDamage/attack` | Source-only inventory, not authorization to admit every item. Full original equipment and damage behavior remains open. |
+| Hatred value 1 bypasses class preference; Run uses a strict less-than comparison, so threshold 100 succeeds on 99 of the 100 bounded outcomes; monster recovery uses `draw >= resource ID`, distinct from damage saves' `draw <= resource ID`. | [Targeting, Run and recovery](rules/combat.md); pinned `Combat::doMonsterTurn/run/monsterOvercome` | Preserve each source comparison in the reference; DOS equivalence remains open. |
+| Long time calls apply economy once based on the final day, rather than once per crossed day; returning to the same day number can skip the day-change branch. | [Calendar economy](rules/time-and-conditions.md#calendar-economy-and-direct-year-changes); pinned `Party::addTime` | Source control flow only for these unusual calls; no new DOS claim or milestone scope. |
+
+**Counter-boundary discrepancy:** current `XeenConditionTimeCandidate::service`
+wraps Insane/Heart Broken/In Love as bytes and saturates terminal counters at 255
+(`XeenDailyTimeOracles.h` checks these choices). The pin stores live `int`
+counters (`character.h:149`, `party.cpp::changeTime`) and truncates only on
+serialization (`character.cpp::synchronize`); its behavior at 255 is different.
+These current choices must not be called literal reference equivalence or DOS
+confirmation. The established DOS Poison/Disease and Weak/Drunk results do not
+settle these other counters. See [the precise boundary](rules/time-and-conditions.md#eight-hour-condition-block).
+This research records the mismatch without changing behavior or granting an
+exception to the root condition-counter fallback rule.
+
+## Original findings and current discrepancies
+
+These calibrated findings were recorded during the 2026-10-12 rules research.
+They do not imply that production code was changed. The exact executable hash,
+calibration, retained REA records and limitations are in
+[rules evidence](rules/evidence.md).
+
+| Original behavior | Evidence and comparison | Implementation boundary |
+| --- | --- | --- |
+| Generated Misc monster loot is staged in its own treasure array. | DOS category-3 branch `0x2c4f5`, power/container/state writes `0x2c513`, `0x2c524`, `0x2c535`; generator and record layout independently agree. The pin instead copies an accessory into accessory treasure. [Full trace](rules/evidence.md#monster-treasure-staging). | `XeenMonsterTreasure.cpp::ReferenceMiscellaneousDropLoss` still reproduces the port defect at baseline `9cc4def8`. This supersedes the former unconfirmed-loss entry; downstream full-pack delivery is not settled. |
+| Escaping a First Aid item's target prompt spends the charge and grants the user 1 SP without an initial SP debit or maximum-SP clamp. | DOS item caller `0x313ce..0x314ce`, power-4 branch `0x39e79`, First Aid prompt ID 26 at `0x2f3fa`, Escape `0x2f146`, shared refund `0x2f34b` and SP write `0x2f386`. [Full trace](rules/evidence.md#spell-and-item-control-flow). | Baseline `XeenJourneyFlow.cpp::settleItemUse` does not grant this SP. Other item cancellation amounts/routes remain unverified. **QoL candidate** for a future opt-in correction to the original exploit. |
+| Resurrection cancellation refunds its own 125 SP and 20 gems. | DOS target prompt supplies ID 58 at `0x30bf3`; the pin supplies Raise Dead 56, refunding only 50 SP/10 gems. Calibrated with the shared First Aid/Suppress Poison prompt/refund convention. [Full trace](rules/evidence.md#spell-and-item-control-flow). | Resurrection is outside current supported casting; this establishes cancellation, not its complete recovery effect. |
+| Item Incinerate and learned Incinerate prepare the same 250 Fire/single damage but use different sound/projectile selectors. | DOS item handler `0x30b58` uses 13/2; learned handler `0x30f0d` uses 22/1. The pin shares a handler. [Dispatch evidence](rules/evidence.md#item-power-dispatch-and-variants). | Both routes are outside current supported casting. The selectors' actual presentation remains uncalibrated. |
+| Town Portal's item combat branch shows its prohibited-use notice, then reaches the spell handler. | DOS `0x3a058..0x3a075`; the pin returns after the notice. [Dispatch evidence](rules/evidence.md#item-power-dispatch-and-variants). | A control-flow observation only: actual downstream travel in combat remains unknown. Do not infer that teleportation is allowed. |
 
 ## Approved temporary restrictions
 
