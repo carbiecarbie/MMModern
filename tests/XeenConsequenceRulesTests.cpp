@@ -220,13 +220,13 @@ void shootAndLoot() {
 	check(next.treasure.ready() && next.treasure.pendingGold==10 && next.treasure.miscellaneous==dormant.miscellaneous,"Later Orc reactivates Misc without old gold");
 	for(auto &v:c)v.miscellaneous[8]={1,1,1,0};
 	misc=xeenPrepareMonsterDelivery(wand.treasure,c);
-	check(misc.records[0].loss==XeenMonsterDeliveryLoss::CategoryTailsFull && !misc.treasure.storedItems(),"Misc full category loses item");
+	check(misc.records[0].recipient==c[0].rosterId && !misc.treasure.storedItems(),"Misc full category replaces first tail");
 	c[1].miscellaneous={};c[1].conditions[8]=1;c[2].miscellaneous={};
 	misc=xeenPrepareMonsterDelivery(wand.treasure,c);
-	check(misc.records[0].recipient==c[2].rosterId,"Misc fallback skips full and sleeping members");
+	check(misc.records[0].recipient==c[1].rosterId,"Misc fallback accepts sleeping member with room");
 	for(auto &v:c)v.conditions[8]=1;
 	misc=xeenPrepareMonsterDelivery(wand.treasure,c);
-	check(misc.records[0].loss==XeenMonsterDeliveryLoss::NoEligibleRecipient,"Misc has no eligible recipient");
+	check(misc.records[0].recipient==c[1].rosterId,"Misc unrestricted fallback accepts all sleeping party");
 	for(auto &v:c)for(auto *items:{&v.weapons,&v.armor,&v.accessories,&v.miscellaneous})(*items)[8]={1,1,1,0};
 	misc=xeenPrepareMonsterDelivery(wand.treasure,c);
 	check(misc.globallyFull && misc.records[0].loss==XeenMonsterDeliveryLoss::GloballyFull &&
@@ -277,7 +277,7 @@ void additionalTapes() {
  c=characters();for(auto &v:c)for(auto *items:{&v.weapons,&v.armor,&v.accessories,&v.miscellaneous})(*items)[8]={0,1,0,0};
  const auto full=xeenPrepareMonsterDelivery(purse,c);check(full.globallyFull && full.count==10 && full.treasure.pendingGold==110 && !full.treasure.weapons[0].item.id,"Global four-tail warning clears item queues, preserves gold");
  for(auto &v:c)v.armor[8]={};c[0].conditions[8]=1;c[1].weapons[8]={};
- const auto delivered=xeenPrepareMonsterDelivery(purse,c);check(!delivered.globallyFull && delivered.records[0].recipient==c[1].rosterId,"First eligible recipient skips sleeping owner");
+ const auto delivered=xeenPrepareMonsterDelivery(purse,c);check(!delivered.globallyFull && delivered.records[0].recipient==c[1].rosterId,"Capacity fallback skips the full first owner");
 }
 
 void missileClassAndZeroDamage() {
@@ -293,11 +293,25 @@ void missileClassAndZeroDamage() {
  }
  auto c=characters();XeenMonsterTreasure treasure;treasure.pendingMask=1;treasure.pendingGold=10;treasure.weapons[0]={0,{0,30,0,0}};
  for(auto &v:c)v.weapons[8]={0,1,0,0};
- auto full=xeenPrepareMonsterDelivery(treasure,c);check(!full.globallyFull && full.records[0].loss==XeenMonsterDeliveryLoss::CategoryTailsFull && full.treasure.pendingGold==10,"Category full tails refuse despite holes; gold retained");
+ auto full=xeenPrepareMonsterDelivery(treasure,c);check(!full.globallyFull && full.records[0].recipient==c[0].rosterId && full.treasure.pendingGold==10,"Category full tail replaced despite holes; gold retained");
  for(auto &v:c){v.weapons={};v.conditions[8]=1;}
- auto disabled=xeenPrepareMonsterDelivery(treasure,c);check(disabled.records[0].loss==XeenMonsterDeliveryLoss::NoEligibleRecipient && disabled.treasure.pendingGold==10,"All disabled recipients lose item without losing gold");
+ auto disabled=xeenPrepareMonsterDelivery(treasure,c);check(disabled.records[0].recipient==c[0].rosterId && disabled.treasure.pendingGold==10,"Disabled recipient receives item and gold remains pending");
 }
 
+void dosMonsterDelivery() {
+ auto c=characters();XeenMonsterTreasure t;t.pendingMask=7;t.pendingGold=30;t.gold=100;t.gems=7;
+ t.weapons[0]={0,{0,30,0,0}};t.armor[0]={1,{0,2,0,0}};t.miscellaneous[0]={2,{3,8,7,0}};
+ for(auto &v:c){v.weapons.fill({0,1,0,0});v.armor.fill({0,1,0,0});v.miscellaneous.fill({1,1,1,0});v.conditions[13]=1;}
+ c[0].weapons.back().frame=4;c[0].armor.back().frame=3;c[0].miscellaneous.back().frame=7;
+ auto d=xeenPrepareMonsterDelivery(t,c);
+ check(d.count==3 && d.records[0].recipient==c[0].rosterId && d.records[1].recipient==c[0].rosterId && d.records[2].recipient==c[0].rosterId,"Dead first owner receives category replacements");
+ check(xeenSameItem(d.characters[0].weapons.back(),{0,30,0,4}) && xeenSameItem(d.characters[0].armor.back(),{0,2,0,3}) && xeenSameItem(d.characters[0].miscellaneous.back(),{3,8,7,7}),"Monster category replacements preserve marks");
+ check(d.records[0].production.item.frame==4 && d.records[1].production.item.frame==3 && d.records[2].production.item.frame==7,"Monster receipt retains delivered frame");
+ for(auto &v:c)v.accessories.fill({0,1,0,0});c[0].weapons.back()={};
+ d=xeenPrepareMonsterDelivery(t,c);
+ check(d.records[0].recipient==c[0].rosterId && d.records[1].loss==XeenMonsterDeliveryLoss::GloballyFull && d.records[2].loss==XeenMonsterDeliveryLoss::GloballyFull,"Monster delivery rechecks fullness after each item");
+ const auto paid=xeenPrepareMonsterGoldCredit(d.treasure);check(paid.gold==130 && paid.gems==7 && !paid.storedItems(),"Full monster packs retain currency");
+}
 void rejectionBudgets() {
  auto c=characters();auto in=inputs();c[0].characterClass=XeenCharacterClass::Cleric;
  std::vector<XeenCombatRandom::Draw> tape(64,{1,20,0,true});tape.push_back({1,20,1});
@@ -477,4 +491,4 @@ void timeAndInputs() {
 }
 }
 #include "XeenDailyTimeOracles.h"
-int main() { try { dailyTimeOracles();dailyConditionChecks();difficultyOracles();dormantTreasure();physical();targetingAndCounts();runAndParticipation();shootAndLoot();additionalTapes();completeWeaponRules();missileClassAndZeroDamage();rejectionBudgets();rangedOpportunity();indoorOpportunity();timeAndInputs();std::cout<<"Shared consequence pure-rule controls passed\n";return 0; } catch (const std::exception &e) { std::cerr<<e.what()<<'\n';return 1; } }
+int main() { try { dailyTimeOracles();dailyConditionChecks();difficultyOracles();dormantTreasure();physical();targetingAndCounts();runAndParticipation();shootAndLoot();additionalTapes();completeWeaponRules();missileClassAndZeroDamage();dosMonsterDelivery();rejectionBudgets();rangedOpportunity();indoorOpportunity();timeAndInputs();std::cout<<"Shared consequence pure-rule controls passed\n";return 0; } catch (const std::exception &e) { std::cerr<<e.what()<<'\n';return 1; } }

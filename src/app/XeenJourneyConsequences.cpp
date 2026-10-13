@@ -224,7 +224,7 @@ bool XeenEncounterFlow::beginMonsterReward(const XeenItemCatalog &catalog) {
    const auto &r=delivery.records[i];const auto &item=r.production.item;
    const auto category=r.miscellaneous?XeenInventoryCategory::Miscellaneous:r.armor?XeenInventoryCategory::Armor:XeenInventoryCategory::Weapons;
    text<<"Orc "<<unsigned(r.production.source)<<' '<<catalog.describe(category,item).displayName<<" M/ID/S/F "<<unsigned(item.material)<<'/'<<unsigned(item.id)<<'/'<<unsigned(item.state)<<'/'<<unsigned(item.frame)<<' ';
-   if(r.recipient) text<<"to "<<_party.roster.at(*r.recipient).name;else text<<(r.loss==XeenMonsterDeliveryLoss::GloballyFull?"lost: all packs full":r.loss==XeenMonsterDeliveryLoss::CategoryTailsFull?"lost: category tails full":"lost: no eligible recipient");text<<'\n';
+   if(r.recipient) text<<"to "<<_party.roster.at(*r.recipient).name;else text<<"lost: all packs full";text<<'\n';
   }
   text<<"Gold +"<<delivery.treasure.pendingGold<<" on final acknowledgment.";
   auto receiptText=text.str();_journeyPreimage->check();

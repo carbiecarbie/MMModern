@@ -35,7 +35,7 @@ public:
 			optional(a.pendingPresentation,b.pendingPresentation,presentation);
 		for(unsigned i=0;same && i<a.callStack.size();++i)same=address(a.callStack[i].returnAddress,b.callStack[i].returnAddress);
 		const auto &r=a.rewardReceipt;const auto &s=b.rewardReceipt;
-		same=same && r.count==s.count && r.delivered==s.delivered && r.lost==s.lost && r.gold==s.gold && r.gems==s.gems && r.currencyLost==s.currencyLost &&
+		same=same && r.count==s.count && r.delivered==s.delivered && r.lost==s.lost && r.gold==s.gold && r.gems==s.gems &&
 			r.overflow==s.overflow && r.invalid==s.invalid && r.discarded==s.discarded && r.discardReason==s.discardReason;
 		for(unsigned i=0;same && i<r.entries.size();++i) {
 			const auto &x=r.entries[i];const auto &y=s.entries[i];

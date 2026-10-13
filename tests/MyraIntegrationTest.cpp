@@ -37,7 +37,7 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 		check(party.roster.at(id).canAct(),"original delivery fixture eligibility");
 		for(const auto &item:party.roster.at(id).miscellaneous)check(item.id==0,"original delivery fixture capacity");
 	}
-	// Focused original-script loss fixtures, outside the full initial-state matrix.
+	// Focused original-script capacity and dead-recipient fixtures, outside the full initial-state matrix.
 	if(lossFixture) {
 		for(auto id:party.party.activeRosterIds()) {
 			auto &c=party.roster.at(id);
@@ -48,7 +48,7 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 	}
 	auto expectDelivery=[&]{
 		--counts[17];expectedQuestFlags[2]=false;
-		if(lossFixture)return;
+		if(lossFixture==1)return;
 		for(unsigned i=0;i<5;++i,++delivered) {
 			const auto owner=expectedParty.party.activeRosterIds().at(delivered/9);
 			expectedParty.roster.at(owner).miscellaneous[delivered%9]={10,37,1,0};
@@ -92,7 +92,7 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 	XeenEventPresenter::Clock clock=[&]{return time;};
 	XeenEventFlow flow(world,events,party,camera,flags,font,compose,draw,clock,[&]{return random++%4;});
 	const auto base=flow.frame();const std::string name=(roots?"root-"+std::to_string(roots):"request")+
-		std::string(requested?"-q1":"-q0")+(lossFixture==1?"-full":lossFixture==2?"-ineligible":"")+(dismiss==SDLK_SPACE?"-space":dismiss==SDLK_RETURN?"-enter":"-escape");
+		std::string(requested?"-q1":"-q0")+(lossFixture==1?"-full":lossFixture==2?"-dead-fallback":"")+(dismiss==SDLK_SPACE?"-space":dismiss==SDLK_RETURN?"-enter":"-escape");
 	bool capture=true;
 	auto save=[&](const IndexedFrame&f,const std::string&suffix){
 		if(capture && (!requested || lossFixture) && dismiss==SDLK_RETURN && roots<2)visual_remove_test::save(f,output/(name+"-"+suffix+".bmp"));};
@@ -157,7 +157,7 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
 					q.text==text.strings.at(returning?3:0) && q.npc && q.npc->portraitId==17,"ordinary line-0 NPC frontier");
 			} else if(q.kind==XeenPresentationKind::RewardReceipt) {
 				++receipts;check(returning && receipts==1 && p->state.instructionCount==cd_myra_test::returnCount &&
-					p->state.rewardReceipt.delivered==(lossFixture?0U:5U) && p->state.rewardReceipt.lost==(lossFixture?5U:0U) &&
+					p->state.rewardReceipt.delivered==(lossFixture==1?0U:5U) && p->state.rewardReceipt.lost==(lossFixture==1?5U:0U) &&
 					p->state.rewardReceipt.overflow==0 && !p->state.pendingRewards.hasWork(),"original return receipt/count");
 				if(!warnings)expectDelivery();
 			} else if(q.kind==XeenPresentationKind::RewardWarning) {

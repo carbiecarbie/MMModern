@@ -493,7 +493,7 @@ void treasure(Inputs &in) {
   settle(f);
   check(presentationAttempts>=2 && attempts==2 && f.f.isSet(199) && f.w.effectiveObject({28,8}).x==20 &&
    f.w.sessionState().journeyRandom()==random.continuation(),"Generated reward retry rerolled or lost world group");
-  check(f.p.monsterTreasure->gold==oldGold+(full?0:*gold) && f.p.monsterTreasure->gems==oldGems+(full?0:5),"Ordered currency/loss differs");
+  check(f.p.monsterTreasure->gold==oldGold+*gold && f.p.monsterTreasure->gems==oldGems+5,"Full packs preserve generated currency and RNG order");
   if(!full)check(sameItem(xeenRewardItems(f.p.roster.at(f.p.party.activeRosterIds()[1]),
    XeenRewardCategory(generated.category()))[0],generated.item()),"Generated category or selected recipient differs");
   const auto paid=XeenSaveFormat::encode(f.snapshot());

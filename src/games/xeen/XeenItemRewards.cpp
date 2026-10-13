@@ -47,14 +47,45 @@ bool xeenInsertReward(XeenCharacter &character,XeenItem item,XeenRewardCategory 
 bool xeenInsertMiscellaneous(XeenCharacter &character, XeenItem item) noexcept {
 	return xeenInsertReward(character,item,XeenRewardCategory::Miscellaneous);
 }
-bool xeenPacksGloballyFull(const XeenPartyState &party) {
-	if (!party.party.size()) return false;
-	for (const auto id : party.party.activeRosterIds()) {
-		const auto &c = party.roster.at(id);
+bool xeenPacksGloballyFull(XeenCharacter *const *owners, std::size_t count) noexcept {
+	if (!count) return false;
+	for (std::size_t i=0;i<count;++i) {
+		const auto &c=*owners[i];
 		if (xeenItemHasTailCapacity(c.weapons) || xeenItemHasTailCapacity(c.armor) ||
 			xeenItemHasTailCapacity(c.accessories) || xeenItemHasTailCapacity(c.miscellaneous)) return false;
 	}
 	return true;
+}
+bool xeenPacksGloballyFull(const XeenPartyState &party) {
+	const auto &ids=party.party.activeRosterIds();
+	if (ids.empty()) return false;
+	for (const auto id:ids) {
+		const auto &c=party.roster.at(id);
+		if (xeenItemHasTailCapacity(c.weapons) || xeenItemHasTailCapacity(c.armor) ||
+			xeenItemHasTailCapacity(c.accessories) || xeenItemHasTailCapacity(c.miscellaneous)) return false;
+	}
+	return true;
+}
+std::optional<std::size_t> xeenDeliverRewardItem(XeenCharacter *const *owners,
+		std::size_t count, XeenItem &item, XeenRewardCategory category,
+		std::optional<std::size_t> preferred) noexcept {
+	if (!count || !item.id || xeenPacksGloballyFull(owners,count)) return {};
+	const auto capacity=[&](std::size_t i) {return xeenItemHasTailCapacity(xeenRewardItems(*owners[i],category));};
+	std::optional<std::size_t> recipient;
+	// DOS 0x243d5..0x24565: only a valid preference enters the eligible passes.
+	if (preferred && *preferred<count) {
+		if (owners[*preferred]->canAct() && capacity(*preferred)) recipient=preferred;
+		for (std::size_t i=0;!recipient && i<count;++i)
+			if (owners[i]->canAct() && capacity(i)) recipient=i;
+	}
+	for (std::size_t i=0;!recipient && i<count;++i) if (capacity(i)) recipient=i;
+	// DOS 0x24567: category-only overflow replaces the first member's tail.
+	if (!recipient) recipient=0;
+	auto &items=xeenRewardItems(*owners[*recipient],category);
+	if (items.back().id) item.frame=items.back().frame; // 0x245aa..0x245cc leaves frame intact.
+	items.back()=item;
+	xeenCompactItems(items);
+	return recipient;
 }
 XeenRewardReceipt xeenDeliverRewards(XeenPendingRewards &pending,
 		XeenPartyState &party, std::optional<std::size_t> preferred) {
@@ -69,34 +100,19 @@ XeenRewardReceipt xeenDeliverRewards(XeenPendingRewards &pending,
 		if(static_cast<unsigned>(pending.categoryAt(i))==category) {
 			auto &entry=result.entries[entryIndex++];entry.item=pending.at(i);entry.category=pending.categoryAt(i);
 		}
-	bool discarded=xeenPacksGloballyFull(party);
 	// Everything below is bounded, allocation-free and nonthrowing.
 	for (std::size_t i = 0; i < result.count; ++i) {
 		auto &entry = result.entries[i];
-		discarded=discarded || xeenPacksGloballyFull(party);
-		std::optional<std::size_t> recipient;
-		const auto eligible = [&](std::size_t index) {
-			return !discarded && owners[index]->canAct() && xeenItemHasTailCapacity(xeenRewardItems(*owners[index],entry.category));
-		};
-		if (preferred && *preferred < ids.size() && eligible(*preferred)) recipient = preferred;
-		for (std::size_t j = 0; !recipient && j < ids.size(); ++j) if (eligible(j)) recipient = j;
+		const auto recipient=xeenDeliverRewardItem(owners.data(),ids.size(),entry.item,entry.category,preferred);
 		if (recipient) {
-			xeenInsertReward(*owners[*recipient], entry.item,entry.category);
 			entry.owner = ids[*recipient]; ++result.delivered;
 		} else {
-			bool anyEligible = false;
-			for (std::size_t j = 0; j < ids.size(); ++j) anyEligible |= owners[j]->canAct();
-			entry.loss = ids.empty() ? XeenRewardLoss::EmptyParty : anyEligible ?
-				XeenRewardLoss::CategoryFull : XeenRewardLoss::NoEligibleMember;
+			entry.loss = ids.empty() ? XeenRewardLoss::EmptyParty : XeenRewardLoss::GloballyFull;
 			++result.lost;
 		}
 	}
-	// giveTreasure checks global capacity at every slot, including empty slots.
-	// Once full it clears the remaining treasure and its staged currency.
-	std::size_t miscCount=0;for(std::size_t i=0;i<result.count;++i)miscCount+=result.entries[i].category==XeenRewardCategory::Miscellaneous;
-	if(miscCount<10)discarded=discarded || xeenPacksGloballyFull(party);
-	result.currencyLost=discarded && (pending.gold() || pending.gems());
-	if(!discarded) {result.gold=pending.gold();result.gems=pending.gems();}
+	// DOS 0x2433e..0x2437b clears only items; 0x2486a..0x24884 still credits money.
+	result.gold=pending.gold();result.gems=pending.gems();
 	if(party.monsterTreasure) {party.monsterTreasure->gold+=result.gold;party.monsterTreasure->gems+=result.gems;}
 	pending = {};
 	return result;
@@ -114,14 +130,14 @@ std::string xeenRewardReceiptText(const XeenRewardReceipt &receipt, const XeenRo
 	out << "Reward receipt\nDelivered=" << receipt.delivered << " Lost=" << receipt.lost
 		<< " Overflow=" << receipt.overflow << " Invalid empty=" << receipt.invalid << '\n';
 	out << "M=material S=state F=frame\n";
-	if(receipt.gold || receipt.gems || receipt.currencyLost)
-		out<<"Gold="<<receipt.gold<<" Gems="<<receipt.gems<<(receipt.currencyLost?"; remaining treasure lost: backpacks full":"")<<'\n';
+	if(receipt.gold || receipt.gems)
+		out<<"Gold="<<receipt.gold<<" Gems="<<receipt.gems<<'\n';
 	for (std::size_t i = 0; i < receipt.count; ++i) {
 		const auto &e = receipt.entries[i];
 		out << i + 1 << ". ";
 		if (e.owner) out << "Owner " << unsigned(*e.owner) << " " << diagnosticName(roster.at(*e.owner).name);
 		else out << "Lost: " << (e.loss == XeenRewardLoss::EmptyParty ? "empty party" :
-			e.loss == XeenRewardLoss::NoEligibleMember ? "no eligible member" : "eligible category tails full");
+			"all packs full");
 		constexpr const char *names[]={"Weapons","Armor","Accessories","Miscellaneous"};
 		out << '\n'<<names[static_cast<unsigned>(e.category)]<<' '; fields(out, e.item,e.category==XeenRewardCategory::Miscellaneous); out << '\n';
 	}

@@ -1,5 +1,6 @@
 #include "games/xeen/XeenMonsterTreasure.h"
 #include "games/xeen/XeenJourneyContent.h"
+#include "games/xeen/XeenItemRewards.h"
 #include <limits>
 #include <stdexcept>
 namespace mmodern {
@@ -79,22 +80,16 @@ XeenMonsterDeliveryCandidate xeenPrepareMonsterDelivery(const XeenMonsterTreasur
 	xeenValidateMonsterTreasure(before);
 	if (!before.ready()) throw std::invalid_argument("Monster treasure is not ready for delivery");
 	XeenMonsterDeliveryCandidate result; result.characters=characters;result.treasure=before;
-	result.globallyFull=true; bool eligible=false;
-	for (const auto &c:characters) {
-		eligible=eligible || c.canAct();
-		result.globallyFull=result.globallyFull && c.weapons.back().id && c.armor.back().id && c.accessories.back().id && c.miscellaneous.back().id;
-	}
+	std::array<XeenCharacter *,6> owners{};
+	for (std::size_t i=0;i<owners.size();++i) owners[i]=&result.characters[i];
+	result.globallyFull=xeenPacksGloballyFull(owners.data(),owners.size());
 	for (unsigned category=0;category<3;++category) for (auto &entry:category==2 ? result.treasure.miscellaneous : category ? result.treasure.armor : result.treasure.weapons) {
 		if (!entry.item.id) continue;
 		auto &record=result.records.at(result.count++);record.production=entry;record.armor=category==1;record.miscellaneous=category==2;
-		if (result.globallyFull) record.loss=XeenMonsterDeliveryLoss::GloballyFull;
-		else {
-			for (auto &c:result.characters) {
-				auto &items=category==2 ? c.miscellaneous : category ? c.armor : c.weapons;
-				if (c.canAct() && xeenItemHasTailCapacity(items)) { items.back()=entry.item;xeenCompactItems(items);record.recipient=c.rosterId;break; }
-			}
-			if (!record.recipient) record.loss=eligible ? XeenMonsterDeliveryLoss::CategoryTailsFull : XeenMonsterDeliveryLoss::NoEligibleRecipient;
-		}
+		const auto kind=category==2 ? XeenRewardCategory::Miscellaneous : category ? XeenRewardCategory::Armor : XeenRewardCategory::Weapons;
+		const auto recipient=xeenDeliverRewardItem(owners.data(),owners.size(),record.production.item,kind);
+		if (recipient) record.recipient=result.characters[*recipient].rosterId;
+		else record.loss=XeenMonsterDeliveryLoss::GloballyFull;
 		entry={};
 	}
 	return result;

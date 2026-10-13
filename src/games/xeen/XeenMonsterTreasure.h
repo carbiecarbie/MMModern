@@ -47,7 +47,7 @@ private:
 	Step step = Step::Drop;
 	unsigned category = 0, subcategory = 0;
 };
-enum class XeenMonsterDeliveryLoss { None, GloballyFull, NoEligibleRecipient, CategoryTailsFull };
+enum class XeenMonsterDeliveryLoss { None, GloballyFull };
 struct XeenMonsterDeliveryRecord {
 	XeenMonsterTreasureItem production;
 	XeenMutable<bool> armor = false;

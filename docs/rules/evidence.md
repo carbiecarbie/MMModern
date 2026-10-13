@@ -117,7 +117,7 @@ copies the temporary character's accessory record into staged accessories.
 **Implemented (M61 Part C):** MMModern stages Misc in its own ten-slot array
 and delivers it with the existing shared rules, preserving the generation draws
 and their order. Pending Misc is retained in save envelope v12 (schema 9/content
-14). Full-pack and recipient fallback rules are unchanged.
+14). Part D implements the separately traced delivery rules below.
 
 The original attack/death routine starts at `0x2bdf8`. Its generation-result
 dispatch is at `0x2c3f1..0x2c401`. The table at `0x2c592` uses code-segment
@@ -144,7 +144,56 @@ the meaning of the fields and excludes an accessory/Misc labeling mistake.
 
 The conclusion is deliberately about **generation and staging**. It does not
 prove full-pack delivery, recipient eligibility, overflow handling or every
-monster's resource-defined drop chance in DOS. Those need separate traces.
+monster's resource-defined drop chance in DOS. Those require separate traces; delivery is now covered below.
+
+## Treasure delivery
+
+**DOS static, high confidence; implemented (M61 Part D).** The 2026-10-12
+playable-rules report and `evidence-index.json` are retained under
+`D:\MModern-re\playable-rules-20261012\`. Its complete delivery record is
+`ev_40c5c299c56c33aa600c91e27b2dce7650858004fffc25e6852ad8a9b02d6aba`;
+sort is `ev_2730d9bb0d263ec2078ba8af76a26631ece50c58366b4365588ecc509de4024b`.
+Part D rechecked the same SHA-256 read-only in the persistent Ghidra project;
+query and instruction/table results remain in `D:\MModern-re\m61d-recheck\`.
+Calibration: First Aid passes 6 at `0x2f450`, and known inventory record strides
+and category arrays agree. Actual switch words were checked independently of
+Ghidra's inferred switch annotations. These are static findings, not DOSBox play.
+
+- Capacity helper `0x2493c..0x249be` checks all four category tails across active
+  members. The delivery loop checks before every slot at `0x2431b`.
+- Full packs clear four 40-byte item arrays at `0x2433e..0x2437b`. The bounded
+  fill helper does not touch staged currency. Gold/gems are credited at
+  `0x2486a..0x24884` and only then cleared at `0x24888..0x24896`.
+- Preferred index validity is checked at `0x243d5..0x243f2`. Valid preferences
+  use capacity/condition tests, then an eligible scan. Invalid/absent preferences
+  branch directly to `0x24502..0x24565`, the condition-independent capacity scan;
+  this is also the final fallback when eligible candidates fail.
+- Exhausting this category's capacity selects member zero at `0x24567`.
+  Ordinary item writes change three bytes, retaining the destination frame:
+  weapons `0x245aa..0x245cc`, armor `0x2462b..0x2464d`, accessories
+  `0x246a0..0x246c2`, Misc `0x24714..0x24736`. Sort at `0x38ae8` leaves a
+  fully occupied nine-slot category unchanged. The replacement mark therefore
+  survives. This finding does not establish arbitrary Misc hole/move behavior.
+
+Special weapon ID exactly 34 has a separate full-pack exception (`0x24327`);
+the pin tests at least 34. Quest presentation also has separate branches. These
+are outside current ordinary reward content and Part D's production correction.
+No overflow storage or extra random draw is introduced.
+
+## Other playable-rules confirmations
+
+The same external report/index retains calibrated, independently checked reads
+for the following **DOS static, high-confidence** findings. Only delivery changes
+production behavior in Part D; the other findings update the rules reference.
+
+| Finding | Original file offsets and boundary |
+| --- | --- |
+| Natural 20 damages before the ordinary comparison and fresh AC read | `0x2db45`, `0x2db55`, `0x2db65`, `0x2dbd7`; injury `0x1f8a7` and armor bad-state gate `0x21275..0x21281` confirm armor breakage affects the later check. |
+| Broken weapons retain base dice and equipped effectiveness | Bad-state material skip `0x2e057..0x2e05d`, base dice `0x2e0e9..0x2e134`, frame-only effectiveness `0x2c950`, selector `0x2c96f`, multiply `0x2caed..0x2cb00`. Break Weapon itself clears frame at `0x2d52c..0x2d532`; that ability is not admitted. |
+| Hatred 1 bypasses preference | Compare/branch `0x2d84b..0x2d852` reaches random dispatch `0x2d9a3`; this does not establish every party-size distribution. |
+| Run uses strict less-than | Inclusive draw `0x2e1c0..0x2e1c4`, unsigned threshold `0x2e1cc..0x2e1d0`, comparison/failure `0x2e1d2..0x2e1d4`. Threshold 100 accepts outcomes 1..99; no measured DOS RNG uniformity claim. |
+| Monster recovery differs from the pin | Caller `0x20ca9..0x20cf1`, helper `0x2e19b`, comparison `0x2e1b2..0x2e1b4`, clear `0x20ce1`: DOS clears at draw `<= ID`, the pin at `>= ID`. Not reachable with currently admitted monster states. |
+| Long time calls apply economy once | Calendar `0x263b3..0x26491`, stock `0x26401`, interest `0x26408`, latch `0x2640b..0x26411`, interest arithmetic `0x26492..0x264c4`. Confirmation is limited to word-sized arguments, including current 1,440/2,880-minute calls; a synthetic 144,000-minute call is not representable in DOS. |
 
 ## REA record locators
 
@@ -169,13 +218,13 @@ replacements for the control-flow interpretation above.
 
 | Area | Question to settle before extending a rule |
 | --- | --- |
-| Combat | Does DOS natural 20 apply damage before the ordinary hit check, with armor breakage visible to that check? Which broken weapons still contribute base damage or effectiveness? |
-| Damage and targeting | Confirm the hatred-1 exception, ranged continuation, elemental multi-attack arithmetic, strict Run boundary and monster recovery boundary in DOS. |
+| Combat | Establish remaining enchanted multi-attack arithmetic and Eradicate equipment-frame behavior. |
+| Damage and targeting | Confirm ranged continuation, elemental multi-attack arithmetic and targeting distributions for every party size. |
 | Items | Trace all other item-prompt refunds; Recharge, Enchant, Item to Gold, cursed refusals and high-tier generation. |
-| Treasure | Trace full-pack delivery, currency loss and recipient fallback independently of the now-settled Misc staging branch. |
+| Treasure | Extend ordinary delivery evidence to special sword/quest branches before admitting them. |
 | Magic | Establish Resurrection's actual recovery, Holy Bonus's combat contribution, control-spell duration, Poison Volley arithmetic and high-tier overflow. |
 | Travel | Settle Town Portal item behavior after its combat notice; complete Beacon, Teleport, Etherealize and terrain-arrival paths. |
-| Time | Verify multi-day economy/latch behavior, script-mode dawn suppression and uncalibrated condition-byte edges. Current MMModern wrapping/saturation is not literal equivalence with the pin's live integer counters; see the time chapter. |
+| Time | Verify remaining script-mode dawn behavior and uncalibrated condition-byte edges. Current MMModern wrapping/saturation is not literal equivalence with the pin's live integer counters; see the time chapter. |
 | Broader coverage | Event opcode catalogue, all services, AI/movement, character creation, Darkside/World transitions, audio and frame-level UI timing still need dedicated chapters and calibration. |
 
 These are evidence gaps, not instructions to broaden an active milestone.

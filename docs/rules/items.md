@@ -216,8 +216,8 @@ algorithm or a promise of current MMModern support.
 
 ## Generation and reward delivery
 
-**Evidence: Reference only** for generic generation and delivery, except the
-new DOS staging result below. Sources: [Character::makeItem][character],
+**Evidence: Reference only** for generic generation, with **DOS static, high
+confidence** for the staging and delivery rules below. Sources: [Character::makeItem][character],
 [Combat::attack2][combat], [Party::giveTreasure][party]. The exhaustive low-tier
 generation ranges are recorded in [M61's catalogue](../milestone-61-plan.md#reachable-catalogue-exhaustive-generation-table-ranges).
 
@@ -246,22 +246,33 @@ segment. The generator writes these fields and returns category 3. This rule
 is generic, not specific to the Orc witness or one map. **Implemented (M61
 Part C):** Misc monster drops use their own pending array and the existing
 shared delivery rules, preserving all generation draws. Pending Misc survives
-Run and v12 save/load; full-pack and recipient fallback rules are unchanged.
+Run and v12 save/load. Part D implements DOS delivery as follows.
 
-**Reference only:** delivery scans staged categories and slots, preferring the
-requested eligible recipient and falling back to other eligible party members.
-Full packs can discard all remaining staged rewards, including currency; the
-capacity check also occurs at empty staged slots. The last Misc slot has no
-following capacity check. These delivery oddities are separately recorded in
-[original quirks](../original-quirks.md); fixing the monster staging bug does not
-authorize changing reward delivery order or synthesizing overflow storage.
+**DOS static, high confidence; implemented (M61 Part D):** Event rewards and
+monster loot share one delivery rule, in staged category/slot order. Global
+fullness is checked before each slot, including empty slots in DOS. Only
+remaining items are discarded; gold and gems are still credited
+(`0x2433e..0x2437b`, `0x2486a..0x24884`).
+
+A valid preferred recipient is tried with capacity and `canAct` eligibility,
+then other eligible members in party order. If neither succeeds, or the preferred
+index is absent/invalid, scan capacity alone: sleeping, disabled and dead members
+can receive items (`0x243d5..0x24565`). Monster loot has no preferred recipient.
+
+If every member's received category is full while another category has space,
+replace the first member's last item in that category (`0x24567`). Preserve the
+old destination frame/equipped mark: the four category branches write only
+material, ID and state (`0x245aa..0x245cc`, `0x2462b..0x2464d`,
+`0x246a0..0x246c2`, `0x24714..0x24736`). Sorting leaves a full nine-slot
+category unchanged. Generation draws/order remain unchanged and precede delivery.
+[Evidence and limits](evidence.md#treasure-delivery) distinguish this ordinary
+loot rule from the out-of-scope special-sword and quest-item branches.
 
 ## Limits
 
 The most useful remaining original checks are cursed-item refusals, complete
 Recharge/Enchant and Item to Gold settlement, all non-First-Aid cancellation
-paths, equipment class/slot edge cases, high-tier generation and reward
-delivery with full backpacks. Do not extend the observed price/item-use evidence
+paths, equipment class/slot edge cases and high-tier generation. Do not extend the observed price/item-use evidence
 to these branches without tracing them.
 
 [itemh]: https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/item.h

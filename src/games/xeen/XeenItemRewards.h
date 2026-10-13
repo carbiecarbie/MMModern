@@ -31,7 +31,7 @@ private:
 	std::uint32_t _gold=0,_gems=0;
 	std::size_t _size = 0, _overflow = 0, _invalid = 0;
 };
-enum class XeenRewardLoss { None, EmptyParty, NoEligibleMember, CategoryFull };
+enum class XeenRewardLoss { None, EmptyParty, GloballyFull };
 enum class XeenRewardDiscard { None, ExecutionError, Abandoned, PresentationFailure };
 struct XeenRewardEntry {
 	XeenItem item;
@@ -42,13 +42,17 @@ struct XeenRewardEntry {
 struct XeenRewardReceipt {
 	std::array<XeenRewardEntry, XeenPendingRewards::kTotalCapacity> entries{};
 	std::uint32_t gold=0,gems=0;
-	bool currencyLost=false;
 	std::size_t count = 0, delivered = 0, lost = 0, overflow = 0, invalid = 0;
 	std::size_t discarded = 0;
 	XeenRewardDiscard discardReason = XeenRewardDiscard::None;
 };
 bool xeenInsertMiscellaneous(XeenCharacter &character, XeenItem item) noexcept;
 bool xeenPacksGloballyFull(const XeenPartyState &party);
+bool xeenPacksGloballyFull(XeenCharacter *const *owners, std::size_t count) noexcept;
+// Shared DOS delivery. Returns active index; updates item to the delivered bytes.
+std::optional<std::size_t> xeenDeliverRewardItem(XeenCharacter *const *owners,
+	std::size_t count, XeenItem &item, XeenRewardCategory category,
+	std::optional<std::size_t> preferred = {}) noexcept;
 // Fixed result storage and no callbacks/formatting in the mutation segment.
 XeenRewardReceipt xeenDeliverRewards(XeenPendingRewards &pending,
 	XeenPartyState &party, std::optional<std::size_t> preferred);

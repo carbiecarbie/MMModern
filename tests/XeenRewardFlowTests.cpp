@@ -22,6 +22,7 @@ void flows(){
 		for(auto a:std::vector<PlayerAction>{NavigationAction::TurnRight,SelectMemberAction{0},YesAction{},NoAction{},InspectInventoryAction{},EquipmentInventoryAction{}}){
 			const auto page=flow.presenter().pageIndex();flow.handle(a);check(flow.presenter().pageIndex()==page,"unrelated input advanced receipt");}
 		if(global){
+			check(XeenRewardTestAccess::state(flow).pendingPresentation->request.text.find("Remaining items will be lost. Gold and gems are still credited.")!=std::string::npos,"Full-pack warning preserves currency");
 			check(XeenRewardTestAccess::state(flow).rewardPhase==XeenRewardPhase::Warning&&XeenRewardTestAccess::state(flow).pendingRewards.size()==10,"warning inserted/lost early");
 			while(XeenRewardTestAccess::state(flow).rewardPhase==XeenRewardPhase::Warning)flow.handle(CancelInteractionAction{});
 			check(flow.presenter().pageIndex()==0&&XeenRewardTestAccess::state(flow).rewardReceipt.lost==10,"one input consumed warning and receipt");
@@ -64,7 +65,7 @@ void producedFlow(){
 				flow.handle(CancelInteractionAction{});
 				if(!flow.blocksGameplay())check(!flow.respond(gen,XeenPresentationResponse::Acknowledged),"final generation replay");
 			}
-			check(e.flags.isSet(7) && (e.f.initial.roster.at(0).miscellaneous[0].id==37)==(outcome==0),"actual final delivery/loss");
+			check(e.flags.isSet(7) && (e.f.initial.roster.at(0).miscellaneous[0].id==37)==(outcome==0 || outcome==3),"actual final delivery includes dead fallback");
 			const auto inventory=xeenInventoryInspection(e.f.initial);flow.handle(AcknowledgeAction{});
 			check(xeenInventoryInspection(e.f.initial)==inventory,"extra input redelivered");
 		}

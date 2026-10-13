@@ -82,6 +82,17 @@ int main(){try{
   if(id<10)fm.miscellaneous[id]={std::uint8_t(id),{9,15,8,0}};else if(id==10)fm.weapons[0]={10,{0,33,0,0}};else fm.armor[0]={11,{0,7,0,0}};}
  verify(fullMisc);
  auto excess=XeenSaveFormat::encode(fullMisc);excess[baseSize(fullMisc)+2012]=11;fixIndependentEnvelope(excess);rejects([&]{XeenSaveFormat::decode(excess);});
+ // Delivery results survive the generic current-format round-trip without replay.
+ auto delivered=populated;std::array<XeenCharacter,6> recipients;
+ for(unsigned i=0;i<6;++i){recipients[i]=delivered.characters[i];recipients[i].weapons.fill({0,1,0,0});recipients[i].armor.fill({0,1,0,0});recipients[i].miscellaneous.fill({1,1,1,0});recipients[i].accessories={};}
+ recipients[0].weapons.back().frame=4;recipients[0].armor.back().frame=3;recipients[0].miscellaneous.back().frame=7;
+ delivered.journey->actors[1]=populated.journey->actors[3];delivered.journey->actors[1].id={23,1};
+ delivered.journey->treasure->miscellaneous[0]={1,{3,8,7,0}};
+ const auto delivery=xeenPrepareMonsterDelivery(*delivered.journey->treasure,recipients);
+ for(unsigned i=0;i<6;++i)delivered.characters[i]=delivery.characters[i];
+ delivered.journey->treasure=xeenPrepareMonsterGoldCredit(delivery.treasure);
+ const auto deliveredBytes=XeenSaveFormat::encode(delivered);sameSnapshot(delivered,XeenSaveFormat::decode(deliveredBytes));
+ check(XeenSaveFormat::encode(XeenSaveFormat::decode(deliveredBytes))==deliveredBytes,"Delivery and currency round-trip without replay");
  auto later=dormant;later.journey->treasure->pendingMask=1u<<3;later.journey->treasure->pendingGold=10;verify(later);
  auto maximum=populated;auto &mt=*maximum.journey->treasure;mt.pendingMask=4095;mt.pendingGold=120;mt.weapons={};mt.armor={};
  for(unsigned id=0;id<12;++id){auto &a=maximum.journey->actors[id];a.x=a.y=-128;a.hp=0;a.activated=false;a.accounted=true;a.lifecycle=XeenActorLifecycle::Defeated;if(id<10)mt.weapons[id]={std::uint8_t(id),{0,30,0,0}};else mt.armor[id-10]={std::uint8_t(id),{0,2,0,0}};}

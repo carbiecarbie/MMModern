@@ -1162,7 +1162,7 @@ XeenPresentationUpdate XeenEventFlow::presentPendingEvent() {
 		request.text=xeenRewardReceiptText(_pending->state.rewardReceipt,_transition->party.roster);
 	if(_transition && request.kind==XeenPresentationKind::RewardWarning)
 		request.text="Reward capacity warning\nAll four category tails are full across active members.\n"
-			"Remaining treasure, including gold and gems, will be lost.\nSpace / Enter / Escape: continue";
+			"Remaining items will be lost. Gold and gems are still credited.\nSpace / Enter / Escape: continue";
 	if(request.kind==XeenPresentationKind::CharacterSelection) {
 		request.layoutValue=36;
 		request.text=xeenDialogFormat(dosText().scalar("WHO_WILL"),

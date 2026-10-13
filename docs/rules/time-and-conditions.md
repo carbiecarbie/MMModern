@@ -251,7 +251,10 @@ not rules of the original game.
 
 ## Calendar economy and direct year changes
 
-**Evidence: Reference only** for ordinary calendar economy. Sources:
+**Evidence: DOS static, high confidence** within the playable word-sized call
+domain. Calendar `0x263b3..0x26491`, stock `0x26401`, interest `0x26408`,
+latch `0x2640b..0x26411`, interest arithmetic `0x26492..0x264c4`; calibrated
+against Weak/Drunk and direct-year behavior. Reference comparison:
 [Party::addTime/giveBankInterest][party]. After advancing the clock, if the
 final day differs from the starting day and either `final day % 10 == 1`
 or the requested increment exceeds 1,440 minutes, regenerate merchant
@@ -261,10 +264,14 @@ A balance of 99 gains 0; 199 gains 1. Merchant regeneration precedes the
 interest and dawn steps and consumes its own RNG.
 
 A call of exactly 1,440 minutes does not satisfy the long-call clause; it
-needs to end on the ordinary `day % 10 == 1` schedule. A call spanning an
-exact 100-day year can return to the same day number and skip the day-change
-economy/newDay tests. These are literal reference control-flow consequences;
-**Unknown** whether original DOS has all long-call edge cases unchanged.
+needs to end on the ordinary `day % 10 == 1` schedule. Current 1,440/2,880-minute
+service calls agree with DOS. The final-day comparison gates both economy and
+setting the pending dawn latch; equality does not clear an existing latch.
+Pending dawn still processes at minute >= 300, including mode-based consumption.
+A synthetic 144,000-minute (100-day) call can return to the same day number in
+the reference, but is not representable by DOS's word-sized argument. Do not
+claim that example as a DOS observation or extend this confirmation to arbitrary
+host-width increments. [Retained evidence](evidence.md#other-playable-rules-confirmations).
 
 **DOS play + DOS static (retained):** the jail's direct year penalty is a
 different operation. It changes the year while preserving day and minute,
@@ -289,8 +296,8 @@ transitions/draws, byte boundaries, food distribution and original-data
 Rest integration. An original-data automated test runs MMModern with those
 resources; it is not a DOS play observation.
 
-The major remaining DOS questions are exact multi-day-call economy/latch
-behavior, script-mode dawn suppression, unusual condition-byte edges and
+The major remaining DOS questions are remaining script-mode dawn behavior,
+unusual condition-byte edges and
 Super Shelter's full interruption/terrain interaction. The established DOS
 Poison/Disease and Weak/Drunk findings supersede conflicting old milestone
 prose; retain that distinction when implementing adjacent mechanics.

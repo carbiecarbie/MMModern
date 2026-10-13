@@ -40,7 +40,7 @@ container in `material`, the power in `id`, and 1-8 charges in `state`.
 | Map 28 display cases | Scripted L1/L2 generation: the same L1 range plus L2 weapons 1-33, armor 1-13, Accessories 1-10 and Misc powers 16-30. The lock/trap/jail outcome can prevent delivery. |
 | Map 28 rubbish (3,12) | L2: weapons 1-33; armor 1-13; Accessories 1-10; Misc container 1-9 with power 16-30. |
 | Map 23 Myra return reward | Five fixed Potions of antidotes `{material=10,id=37,charges=1}`; its two scripted random item draws use the L1 generator. |
-| Map 23 monsters | Orc is the only item-dropping kind: each of 12 Orcs has a 10% L1 generation chance. Weapons 1-33, armor 1-7 or Misc containers 1-9 with powers 1-15 and 1-8 charges. **Implemented (Part C):** Misc staging and shared delivery follow the [DOS evidence](rules/evidence.md#monster-treasure-staging), preserving generation draws; full-pack and recipient fallback rules are unchanged. Giant Snake, Skeleton, Zombie and Giant Toad have no item drop. |
+| Map 23 monsters | Orc is the only item-dropping kind: each of 12 Orcs has a 10% L1 generation chance. Weapons 1-33, armor 1-7 or Misc containers 1-9 with powers 1-15 and 1-8 charges. **Implemented (Part C):** Misc staging and shared delivery follow the [DOS evidence](rules/evidence.md#monster-treasure-staging), preserving generation draws; Part D implements the separately confirmed full-pack and recipient fallback rules. Giant Snake, Skeleton, Zombie and Giant Toad have no item drop. |
 | Map 28 monsters | Slime, Doom Bug and Breeder Slime have no item drop. |
 | Initial Ironworks stock | Fifteen L1 and five L2 generated entries. L2 is the source of its Accessories and higher powers; stock may include all four categories. |
 
@@ -197,6 +197,23 @@ must remain identical. Explain every added field and envelope version, length
 and CRC delta; stop for maintainer digest approval after Compare. Any trace
 difference stops the task. Independent Tier A plan and implementation reviews,
 the complete build-rel suite, and maintainer play-test remain required.
+
+## Part D: original treasure delivery
+
+Maintainer-authorized Tier A follow-up (2026-10-13): apply the high-confidence
+original-program delivery findings to Event and monster loot, including Misc.
+Use one helper in the existing reward owner: globally full packs lose remaining
+items only; valid preferred recipients use eligible-first selection, while an
+absent/invalid preference goes directly to unrestricted capacity fallback.
+Category-only overflow replaces the first member's tail and retains its frame.
+Generation, draw order and staged category order remain unchanged.
+
+Retain envelope v12, schema 9, content 14: stored records and their interpretation
+do not change. Add rule tests and a generic round-trip, update the quirks/rules
+with DOS offsets and unreachable recovery/Break Weapon boundaries, preserve and
+compare M44 digests, and stop for approval of any difference. Tier A plan and
+implementation reviews, the complete build-rel runner suite and maintainer
+play-test are required; this amendment does not record milestone acceptance.
 
 ## Acceptance and genuinely open DOS questions
 

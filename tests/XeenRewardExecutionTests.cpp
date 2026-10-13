@@ -125,7 +125,7 @@ void production(){
 			if(outcome==1)full(e.f.initial,false);
 			if(outcome==2)for(auto id:e.f.initial.party.activeRosterIds())e.f.initial.roster.at(id).conditions[static_cast<std::size_t>(XeenCondition::Dead)]=1;
 			if(outcome==3)for(auto id:e.f.initial.party.activeRosterIds())e.f.initial.roster.at(id).currentSp=-1;
-			s=pending(e.resume(s));check(s.rewardReceipt.lost==(outcome==3?0U:1U) && s.rewardReceipt.delivered==(outcome==3?1U:0U),"live eligibility/capacity loss");
+			s=pending(e.resume(s));check(s.rewardReceipt.lost==0 && s.rewardReceipt.delivered==1,"Live category replacement and unrestricted dead fallback");
 		}
 		check(e.f.initial.questItems.at(17)==0 && !e.f.initial.questFlags.isSet(2),"failed/lost exchange refunded quest");
 	}

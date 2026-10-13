@@ -367,7 +367,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			state.rewardPhase = XeenRewardPhase::Warning;
 			request.kind = XeenPresentationKind::RewardWarning;
 			if(!world.detachedEventCandidate())request.text = "Reward capacity warning\nAll four category tails are full across active members.\n"
-				"Remaining treasure, including gold and gems, will be lost.\nSpace / Enter / Escape: continue";
+				"Remaining items will be lost. Gold and gems are still credited.\nSpace / Enter / Escape: continue";
 		} else if (state.rewardPhase == XeenRewardPhase::Receipt) {
 			state.rewardPhase = XeenRewardPhase::Completed;
 			return completed(workingCamera, workingGameFlags, instructionCount);

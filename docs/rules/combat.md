@@ -155,8 +155,10 @@ weapon damage before its hit roll, including attempts that miss.
 **Bad-item boundary:** the reference suppresses material processing for cursed or
 broken weapons but still rolls the matching slot's base dice and adds Heroism.
 Its effectiveness scan tests only `frame != 0`, including equipped ranged and bad
-weapons. These are reference observations awaiting DOS confirmation; they are not
-permission to invent item restrictions. See the question list at the end.
+weapons. **DOS static, high confidence:** bad-state gate `0x2e057..0x2e05d`
+skips material but reaches base dice `0x2e0e9..0x2e134`; effectiveness tests
+frame at `0x2c950`, selector at `0x2c96f`, and multiplies at `0x2caed..0x2cb00`.
+This confirms the scans, not admission of enchanted equipment to current combat.
 
 Example, with no material or party effects: a level-10 Knight has three attempts.
 At Accuracy 15 the static hit bonus is `2 + 10 = 12`; against AC 8, a first d20
@@ -225,7 +227,9 @@ the number of damage dice within one successful damage application.
 For each attack, hatred Party (15) attacks every combat participant, including
 disabled and dead members. Otherwise the reference selects the first eligible
 member of a hated class or the first eligible Dwarf for hatred 12. Class value 1
-(Paladin) bypasses the preference logic entirely. Eligible here excludes worst
+(Paladin) bypasses the preference logic entirely. **DOS static, high confidence:**
+`0x2d84b..0x2d852` branches directly to random dispatch `0x2d9a3`.
+Eligible here excludes worst
 conditions Paralyzed, Unconscious, Dead, Stoned and Eradicated; Sleep is eligible.
 
 When no preferred target exists, draw a uniform index over all current combat
@@ -247,8 +251,10 @@ hit roll and enter damage directly. For physical attacks against awake targets:
 A natural 20 can thus damage twice. The first application occurs before the
 hit-parameter draw and before the second AC calculation. If it breaks armor,
 the second check sees the reduced AC. This is already represented by MMModern's
-`XeenEnemyAttackCandidate` and `XeenCombatTests.cpp`, but those tests establish
-implementation behavior, not independent DOS evidence.
+`XeenEnemyAttackCandidate` and `XeenCombatTests.cpp`. **DOS static, high
+confidence:** natural-20 test/damage `0x2db45`/`0x2db55`, continuation
+`0x2db65`, fresh AC `0x2dbd7`, injury armor break `0x1f8a7` and bad-armor
+gate `0x21275..0x21281` independently confirm that sequence.
 
 Example: AC 8, level 10, monster hitChance 12. An unblocked threshold is 18;
 Block raises it to 28. A d20 of 12 and hit-parameter draw of 7 give
@@ -305,7 +311,7 @@ Every row below requires positive post-shield damage and a failed Physical save.
 | Poison, Disease, Insane, Sleep, Curse, Paralyze, Unconscious, Confuse, Weaken | Increment the corresponding condition; the reference replaces a zero result with -1 |
 | Curse Item | Curse all inventory categories; weapon IDs 34 and above are exempt |
 | Drain SP | Set current SP to zero |
-| Break Weapon | Mark equipped, nonempty weapons with ID below 34 broken |
+| Break Weapon | Mark equipped, nonempty weapons with ID below 34 broken and clear their equipped frames (DOS-confirmed) |
 | Aging | Increment temporary age |
 | Death / Stone | Increment the condition and set positive current HP to zero |
 | Eradicate | Increment Eradicated, break inventory except weapons with ID at least 34, and set positive current HP to zero |
@@ -314,10 +320,11 @@ The reference stores conditions as integers although saved conditions are bytes;
 this table alone cannot establish DOS wrap/saturation for extreme counters.
 MMModern's admitted secondary counters saturate at 255. That remains separate
 from the DOS-confirmed doubling/wrapping behavior of periodic Poison/Disease.
-The reference also explicitly retains equipment frames in its Break Weapon and
-break-all helpers as a port workaround. Original unequipping behavior needs DOS
-verification before extending these abilities; do not treat the workaround as
-DOS evidence.
+The reference explicitly retains equipment frames in its Break Weapon and
+break-all helpers as a port workaround. **DOS static, high confidence:** Break
+Weapon marks broken and clears frame at `0x2d52c..0x2d532`. That ability is
+not admitted in MMModern; future support must unequip. Eradicate frame behavior
+remains separate and unverified.
 
 ### Injury thresholds
 
@@ -351,17 +358,22 @@ an action to a disabled character; action eligibility is handled separately.
 Block marks the acting member blocked, changing the later monster hit threshold
 as described above. Run draws `R(1,100)` and succeeds only when the draw is
 strictly less than the map's chance-to-run field. For threshold 50, rolls 1-49
-succeed; threshold 100 is 99%, not guaranteed. Success removes that member from
+succeed; threshold 100 accepts outcomes 1..99 and fails 100. **DOS static, high
+confidence:** draw `0x2e1c0..0x2e1c4`, unsigned threshold
+`0x2e1cc..0x2e1d0`, comparison/JGE failure `0x2e1d2..0x2e1d4`. This is
+an integer boundary, not a measured DOS random-distribution claim. Success removes that member from
 the combat party and rebuilds the speed order. The map supplies the party's
 retreat position; the roll does not select a random retreat cell.
 
-When `monsterOvercome` is called by monster movement, it scans map monsters in
-map actor order. Nonphysical statuses except Dragon Sleep draw
-`R(1, resource ID + 50)` and reset to Physical if the draw is **at least** the
-resource ID. This is a different comparison from `monsterSavingThrow`, which
-succeeds when a draw in the same interval is **at most** the ID. Do not unify
-these comparisons. A damaged sleeping/dragon-sleeping monster is woken on entry
-to `attack2`'s positive-input branch, even if later resistance removes the damage.
+**DOS static, high confidence:** monster movement scans actors, skipping status
+0 and Dragon Sleep (13), and calls recovery with resource ID (`0x20ca9..0x20cf1`,
+ID argument `0x20cd2`). The helper draws `R(1, resource ID + 50)` and returns
+success at **draw <= ID** (`0x2e1b2..0x2e1b4`); the caller clears status at
+`0x20ce1`. The pin instead uses `>= ID`; equality succeeds in both. These
+control states are not yet reachable through admitted spells/items, so Part D
+makes no production change. Future recovery must use DOS. Damage saving throws
+also use `<= ID`. Separately, the reference wakes damaged sleeping/dragon-sleeping
+monsters on entry to `attack2`'s positive-input branch, before later resistance.
 
 ## Experience and monster treasure
 
@@ -400,18 +412,17 @@ generated Misc container, power and state into the separate Misc treasure array.
 Its category-3 branch is at file `0x2c4f5`; the three writes are at `0x2c513`,
 `0x2c524` and `0x2c535`. See [monster treasure evidence](evidence.md#monster-treasure-staging).
 **Implemented (M61 Part C):** MMModern stages and delivers Misc through its
-existing shared rules without changing generation draws or their order. Staging
-is settled; downstream delivery and full-backpack DOS behavior remain unverified.
-
-Treasure delivery scans categories and slots in order. It prefers the Event's
-selected recipient when valid, then eligible party members with space in that
-category. Its final fallback still excludes disabled/dead members despite a
-comment suggesting otherwise. Global backpack fullness is checked before each
-slot, including empty slots. Ordinarily it clears the entire remaining staged
-treasure, including currency. There is a special branch that can clear the first
-member's final weapon slot when the staged weapon at the corresponding slot
-index has ID at least 34; this is not a general promise that quest items survive
-all full-pack cases. See the existing full-backpack quirk before changing delivery.
+shared rules without changing generation draws or their order.
+**Implemented (M61 Part D), DOS static high confidence:** delivery uses valid
+preferred/eligible selection followed by unrestricted capacity fallback; absent
+or invalid preference enters the unrestricted scan directly. Sleeping, disabled
+and dead members can therefore receive loot (`0x243d5..0x24565`). Category-only
+fullness replaces the first member's final item, retaining its equipped frame
+(`0x24567`, weapon writes `0x245aa..0x245cc`). Completely full packs discard
+remaining items but still credit gold/gems (`0x2433e..0x2437b`,
+`0x2486a..0x24884`). The check occurs before each slot. See
+[delivery evidence](evidence.md#treasure-delivery) for all category writes and
+the special sword/quest branches outside current ordinary reward content.
 
 ### Lord Xeen and scripted death hooks
 
@@ -445,21 +456,13 @@ reference ability is playable.
 
 Highest-value unresolved original-program checks:
 
-1. Does the original natural-20 branch also apply damage before a second hit
-   check, allowing armor breakage to affect that check? This is already playable
-   behavior in MMModern and merits direct calibration.
-2. Does original full-backpack treasure delivery discard staged currency and
-   apply the same recipient fallback? Misc staging itself is now DOS-confirmed.
-3. Which equipment frames survive Break Weapon and Eradicate, and does the DOS
-   damage scan include bad weapons' base dice and equipped missile effectiveness?
-4. Does the original hatred value 1 bypass Paladin preference? Is the source's
-   uniform initial targeting distribution equivalent to the original party-size
-   switch for every party size?
-5. Are elemental weapon damage and effectiveness applied once after accumulating
+1. Which equipment frames survive Eradicate? Break Weapon clearing is now confirmed.
+2. Is the source's uniform initial targeting distribution equivalent to the
+   original party-size switch for every party size? Hatred 1's bypass is confirmed.
+3. Are elemental weapon damage and effectiveness applied once after accumulating
    multi-attacks exactly as shown? Establish this before admitting enchanted
    equipment to combat.
-6. Verify monster recovery's inclusive `>= ID` boundary, the strict Run comparison,
-   and the game-ID criterion for doubled low-level XP in World of Xeen CD.
+4. Verify the game-ID criterion for doubled low-level XP in World of Xeen CD.
 
 No DOS-width, overflow or malformed-resource behavior beyond the retained
 findings is inferred from ScummVM's wider host integers. Exact timing, monster
