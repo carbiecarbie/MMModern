@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M60 is the latest completed and accepted milestone.**
+**M61 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -29,6 +29,7 @@ Event-to-Service handoff for supported preludes. M57 added generic Event effects
 skills and mapping (teachers, Cartography, automap and Map). M59 completed city
 searches, display cases and jail, the well, Vern's membership and Guild entry,
 and M60 the original Cast dialog, Guild spells and eight new spell effects.
+M61 completed the Ironworks item services and item Use.
 
 ## Next milestones: closing Vertigo for a first public release
 
@@ -65,17 +66,30 @@ still needs its own plan and the maintainer's start.
    Original Cast and Guild Buy/Info, and Wizard Eye, Shrapmetal, Energy Blast,
    Jump, Cure Wounds, Flying Fist, Revitalize and Pain; other spells stay
    purchasable and say "not supported yet".
-7. **Items needed for the loot** (reduced): Identify, Sell and Use outside
-   combat for the items Vertigo actually yields.
-8. **Closure and release**: the whole Vertigo route from New Game with
+7. **Items needed for the loot** (Tier A): completed and accepted in
+   [M61](milestone-61-plan.md). Ironworks Buy/Sell/Identify/Fix for every
+   category and item Use for the supported effects.
+8. **Faithful screens and animation** (M62, Tier B): remove the diagnostic
+   overlay from normal play; original Event Yes/No and acknowledgment prompts,
+   NPC conversation layout and pagination, WhoWill and barrier prompts, the
+   combat monster panel, the "The Party Found" treasure screens, the six
+   shopkeeper animations, scenery end frames, Rest/dream, party defeat and
+   title/credits presentation.
+9. **Original presentation clock** (M63, Tier A): the shared timing contract
+   behind these screens - waits in original ticks, interruptible versus
+   uninterruptible waits, sequential recipient effects and speech-length visual
+   holds - with the Shoot, hit, death and portrait-effect order built on it.
+   Rules come from original program analysis (REA) where possible.
+10. **Movement fluidity** (investigation pending): match the original's movement
+    pace and responsiveness; may join M63 or become its own milestone.
+11. **Closure and release**: the whole Vertigo route from New Game with
    save/load, then the release work (Windows binary, how to point at the GOG
    data, licence, an honest list of what is missing).
 
 **Left for after the release:** the mainland's remaining content (fountains,
 bottles, outpost, statues) and other areas, character creation and the Inn,
 combat Equip/Use, Run inside Vertigo, Drink/Tip/Rumors, Donation/Uncurse, the
-mirror, full Quests/Awards screens, the remaining spells, audio, animated
-shopkeepers and the original treasure sequence.
+mirror, full Quests/Awards screens, the remaining spells and audio.
 
 ## Medium-term objective
 

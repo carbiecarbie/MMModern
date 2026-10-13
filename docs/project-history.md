@@ -241,3 +241,12 @@ projectile and casting rules: Wizard Eye, Shrapmetal, Energy Blast, Jump, Cure
 Wounds, Flying Fist, Revitalize and Pain. Original program analysis settled
 spell resistance and Pain. Jump refuses unimplemented terrain hazards. Save v11
 unchanged. [Plan](milestone-60-plan.md).
+
+**M61 - Items for the loot** (`5e0542c`, `9cc4def`, `dc056ae`, `cbebb10`). The
+Ironworks buys, sells, identifies and fixes every item category at prices taken
+from the original program, and charged items cast their supported effects from
+the character sheet without spending time. Analysis of the original program
+corrected the reference: monsters' miscellaneous drops are delivered, full packs
+keep gold and gems, and treasure delivery follows the original recipient and
+replacement rules. A game rules reference (`docs/rules`) records the evidence.
+Save v12 stores pending miscellaneous treasure. [Plan](milestone-61-plan.md).

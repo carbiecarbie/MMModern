@@ -1,7 +1,9 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M60 is the latest completed
-and accepted milestone** ([plan](milestone-60-plan.md)): the original Cast dialog,
+This describes what can be played and done now. **M61 is the latest completed
+and accepted milestone** ([plan](milestone-61-plan.md)): the Ironworks buys,
+sells, identifies and fixes every item category, and charged items can be used
+outside combat. M60 ([plan](milestone-60-plan.md)) added the original Cast dialog,
 Guild spell purchases and Spell Info, and eight new spells (Wizard Eye,
 Shrapmetal, Energy Blast, Jump, Cure Wounds, Flying Fist, Revitalize, Pain).
 M59 ([plan](milestone-59-plan.md)) made display cases, jail, the well, city
@@ -104,8 +106,10 @@ under the original rules.
   members gain XP, the party receives gold, gems and an award once, and Joe's
   shop closes. Searching crates reveals the open crate and gives generated
   items or gold through the same generation and random draws as merchants;
-  repeat searches find nothing. Each tree pays 1-10 gold once per cycle. Full
-  packs lose the remaining treasure as in the original.
+  repeat searches find nothing. Each tree pays 1-10 gold once per cycle. With
+  full packs the remaining items are lost but gold and gems still arrive; when
+  only one category is full, the new item replaces that category's last item on
+  the first character, as in the original.
 - **City searches.** Monster crates open and trigger normal combat using their
   original actor slot. Item/empty crates open; rubbish and beds keep their
   appearance. Searches use the original member selection and item delivery;
@@ -124,10 +128,16 @@ under the original rules.
 Services use the original location screens: the town art stays visible with
 the original text panel, and buttons work by mouse or key.
 
-- **Ironworks** (Space at `(8,4)`): *Buy* plain Weapons and Armor from the
-  generated stock, paid from carried gold and delivered unequipped, with stock
-  depletion; *Armor Repair* at original prices. Stock stays visible even when it
-  cannot be bought yet.
+- **Ironworks** (Space at `(8,4)`): *Buy*, *Sell*, *Identify* and *Fix* for
+  weapons, armor, accessories and miscellaneous items at the original prices
+  (Merchant lets a member sell at full value). Broken items can still be
+  identified and sold, and Fix repairs them. Stock is generated and depleted as
+  in the original.
+- **Using items.** On the character sheet, charged items cast their effect when
+  it is one of the supported spells or Myra's antidote, without spending time;
+  each use costs a charge, even if it fails or the target prompt is cancelled,
+  and the item vanishes at zero. Other powers say "not supported yet" without
+  spending a charge. Discard asks for confirmation.
 - **Training** (Space at `(10,11)`): permanent levels from earned XP and gold,
   with the Vertigo level cap; it resets temporary bonuses and refills the
   trained member's HP/SP.
@@ -281,7 +291,7 @@ The earlier `--encounter-26`, `--encounter-27`, `--journey-skeleton` and
 
 ## Save format
 
-There is **one current save format**: envelope v11, schema 9, content 14, written
+There is **one current save format**: envelope v12, schema 9, content 14, written
 by the Regional Journey. It retains skills and exploration and stores bounded
 world flags and head-cache overrides with their original map-reload lifetime.
 Until a public release, older formats are not read:
@@ -354,7 +364,8 @@ instructions are in [dependencies](dependencies.md).
   indoors.
 - **Missing services.** Inn/recruitment is not available; the Temple handles
   only the modeled conditions.
-- **Items and magic.** There is no general item use. Item effects, most spells
+- **Items and magic.** Item powers backed by unimplemented spells say "not
+  supported yet"; cursed-item refusals follow the reference. Most spells
   and most monster abilities are missing; Light, Sleep, Insect Spray, Protection
   from Elements, Sparks, Toxic Cloud and Suppress Poison can be bought but say
   "not supported yet" when cast. Terrain hazards on arrival (space, lava, sky,
@@ -364,8 +375,7 @@ instructions are in [dependencies](dependencies.md).
 - **Presentation.** Service art is static (no animated shopkeepers). There is
   no audio: where the CD plays speech, a short notice appears and the scene
   continues. Some Event and treasure screens still use project layouts.
-- **Services.** Sell, Identify, buying Accessories/Misc, Fix of non-armor
-  items, Temple Donation and Uncurse, and Tavern Drink, Tip, Rumors and Sign In
+- **Services.** Temple Donation and Uncurse, and Tavern Drink, Tip, Rumors and Sign In
   show "not supported yet".
 - **Combat items.** Equipping during combat and the combat Use button are not
   supported yet (the original allows both).
