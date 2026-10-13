@@ -198,7 +198,7 @@ void XeenEventFlow::prepareTraining() {
         const bool admitted=_encounter->beginTraining([&] {
             if(!drawTrainingArt)throw std::runtime_error("Training artwork provider unavailable");
             const auto text=_events.textForMap(28);_encounter->journeySavePreimage().admitVertigoText(text);
-            TrainingUi ui;ui.art=_frame;
+            TrainingUi ui;ui.art=_frame;ui.animation.kind=XeenServiceArt::Training;
             try {drawTrainingArt(ui.art);}catch(const std::invalid_argument &){_encounter->journeySavePreimage().failed=true;throw;}
             _encounter->journeySavePreimage().check();
             if(!ui.art.isValid() || ui.art.width!=320 || ui.art.height!=200)throw std::runtime_error("Invalid Training art frame");

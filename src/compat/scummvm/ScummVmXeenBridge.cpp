@@ -559,7 +559,7 @@ void ScummVmXeenBridge::drawSmith(IndexedFrame &frame) {
 	for(int y=0;y<200;++y)std::copy_n(frame.pixels.data()+y*320,320,
 		static_cast<std::uint8_t *>(surface.getBasePtr(0,y)));
 	sprite.draw(surface,0,Common::Point(8,8));
-	for(int y=8;y<140;++y)std::copy_n(static_cast<const std::uint8_t *>(surface.getBasePtr(8,y)),215,
+	for(int y=8;y<140;++y)std::copy_n(static_cast<const std::uint8_t *>(surface.getBasePtr(8,y)),216,
 		frame.pixels.data()+y*320+8);
 }
 void ScummVmXeenBridge::drawTavern(IndexedFrame &frame) {
@@ -606,7 +606,7 @@ void ScummVmXeenBridge::drawTemple(IndexedFrame &frame) {
 		static_cast<std::uint8_t *>(surface.getBasePtr(0,y)));
 	_impl->sprite("tmpl1.twn",0,8).draw(surface,0,Common::Point(8,8));
 	_impl->sprite("esc.icn",0,2).draw(surface,0,Common::Point(86,140));
-	for(int y=8;y<160;++y)std::copy_n(static_cast<const std::uint8_t *>(surface.getBasePtr(8,y)),215,
+	for(int y=8;y<160;++y)std::copy_n(static_cast<const std::uint8_t *>(surface.getBasePtr(8,y)),216,
 		frame.pixels.data()+y*320+8);
 }
 

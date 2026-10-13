@@ -129,6 +129,7 @@ void animationResume(XeenTitleFlow::Services source) {
   check(d.flow.screen()==screen,"animation modal setup");
   d.now+=10000;check(!d.flow.animate(d.now),"modal screen animated");
   if(screen==Screen::PublicationFailure){d.flow.cancelPublication();d.present();}
+  else if(screen==Screen::Credits)for(unsigned page=0;page<4;++page)d.key(27);
   else d.key(27);
   if(d.flow.screen()==Screen::NewSlots)d.key(27);
   check(d.flow.screen()==Screen::Menu && d.flow.frame().pixels[0]==phase,"modal visit changed retained phase");
@@ -156,7 +157,7 @@ void mappedHotkeys(const GameInstallation &installation,XeenAssetSource &assets,
  check(d.flow.entry() && d.flow.entry()->slot==2 && d.flow.entry()->difficulty==XeenDifficulty::Warrior,"DAT-index New/chooser/difficulty mapping");
  Driver load(services());load.key(27);load.key('v');load.key('b');
  check(load.flow.screen()==Screen::Notice,"DAT-index Other Options mapping");load.key(27);load.key(27);load.key('u');
- check(load.flow.screen()==Screen::Credits,"DAT-index Credits mapping");load.key(27);load.fade();load.key('k');load.key('c');load.key(13);
+ check(load.flow.screen()==Screen::Credits,"DAT-index Credits mapping");for(unsigned page=0;page<4;++page)load.key(27);load.fade();load.key('k');load.key('c');load.key(13);
  check(load.flow.entry() && load.flow.entry()->kind==XeenSessionEntry::Kind::Load,"DAT-index title Load mapping");
  Driver p(services(true));
  for(unsigned key:{'a','b','g','h'}){p.key(key);check(p.flow.screen()==Screen::Notice,"DAT-index deferred panel mapping");p.key(27);}
@@ -197,7 +198,41 @@ int main(int argc,char **argv){try {
   const auto before=d.flow.frame().pixels;d.now+=10000;check(!d.flow.animate(d.now) && d.flow.frame().pixels==before,"credits advanced automatically");
   d.key('x');check(d.flow.screen()==(page==3?Screen::Menu:Screen::Credits),"credits ordered four-page return");
  }
- d.fade();d.key('c');d.key(27);check(d.flow.screen()==Screen::Menu,"credits Escape did not return immediately");d.fade();
+ // DOS 0x0bb62..0x0bccd: Escape advances exactly one page, including intermediate
+ // pages; only the fourth page returns to the menu.
+ const auto credits=services();
+ d.fade();d.key('c');
+ for(unsigned page=0;page<4;++page) {
+  check(d.flow.screen()==Screen::Credits && d.flow.frame().pixels==credits.credits[page].pixels,"Escape credits page identity");
+  d.key(27);
+ }
+ check(d.flow.screen()==Screen::Menu,"credits Escape did not return after the fourth page");d.fade();
+ // The right mouse button reaches the same page with the same single-page step.
+ d.key('c');
+ for(unsigned page=0;page<4;++page) {
+  check(d.flow.screen()==Screen::Credits && d.flow.frame().pixels==credits.credits[page].pixels,"right-click credits page identity");
+  const auto action=d.flow.inputContext(d.flow.frame().presentation()).dialog->rightClick();
+  check(bool(action),"credits right click mapping");d.flow.handle(*action,d.flow.frame().presentation());if(d.flow.current())d.present();
+ }
+ check(d.flow.screen()==Screen::Menu,"credits right click did not return after the fourth page");d.fade();
+ {
+  // DOS 0x0bee7..0x0bf8d: a 13-phase idle loop. Phase 0 restores the background and draws no
+  // world0 frame 0; phases 1..12 draw sheet phase/5, local frame phase%5.
+  const auto source=services();
+  check(source.animation.size()==13 && source.animation[0].pixels!=source.background.pixels,"world0 frame 0 is not distinguishable from the background");
+  Driver idle(services());idle.key(27);idle.key(27);check(idle.flow.screen()==Screen::Background,"idle title after menu Escape");
+  idle.flow.animate(idle.now);
+  int previous=-1;unsigned backgrounds=0;
+  for(unsigned step=0;step<26;++step) {
+   idle.now+=200;check(bool(idle.flow.animate(idle.now)),"idle title did not tick");idle.present();
+   int phase=-1;
+   for(unsigned p=0;p<13;++p)if(idle.flow.frame().pixels==(p==0?source.background:source.animation[p]).pixels)phase=int(p);
+   check(phase>=0,"idle title frame is neither the background nor an animation phase");
+   if(previous>=0)check(phase==(previous+1)%13,"idle title phase order");
+   backgrounds+=phase==0;previous=phase;
+  }
+  check(backgrounds==2,"phase 0 is the plain background once per 13-phase cycle");
+ }
  d.key('o');check(d.flow.screen()==Screen::Other,"Other Options");
  check(d.flow.inputContext(d.flow.frame().presentation()).dialog->hits.size()==2,"locked endings exposed buttons");
  d.key('d');check(d.flow.screen()==Screen::Notice,"deferred intro did not report refusal");d.key(27);d.key(27);

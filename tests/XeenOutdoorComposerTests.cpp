@@ -87,7 +87,7 @@ int main(){try {
 	files["109.0bj"]=frames(cell(80,8,40,8,coveredRows),2);
 	files["town.sky"]=empty;files["town.gnd"]=empty;files["ftown1.fwl"]=empty;
 	archive(directory/"xeen.cc",files);
-	Bytes animatedMetadata(1452);animatedMetadata[110*12+8]=3;animatedMetadata[109*12+8]=2;
+	Bytes animatedMetadata(1452);animatedMetadata[110*12+8]=2;animatedMetadata[109*12+8]=1;
 	archive(installation.darkArchive,{{"clouds.dat",animatedMetadata}});
 	{
 		XeenAssetSource assets(installation,320,200);

@@ -51,11 +51,12 @@ XeenObjectVisual XeenObjectVisualResolver::resolve(const XeenObjectFile &objects
 		const auto relative = (camera + 4 - object.direction) % 4;
 		const std::uint64_t initial = entry.initialFrames[relative];
 		const std::uint64_t limit = entry.frameLimits[relative];
-		const auto cycleLength = (initial + 1 < limit) ? (limit - initial) : std::uint64_t{1};
+		// DOS 0x10d21..0x10d55 keeps the incremented frame while end >= frame, so the end
+		// frame belongs to the cycle (the pin resets at frame >= end). A range is static
+		// precisely when end <= start.
+		const auto cycleLength = (limit > initial) ? (limit - initial + 1) : std::uint64_t{1};
 		result.frame = static_cast<std::size_t>(initial);
 		result.horizontalFlip = entry.flipFlags[relative] != 0;
-		// drawScene increments then resets when frame >= limit. The base frame
-		// remains unchanged precisely when initial + 1 >= limit (including 0).
 		if (cycleLength == 1) {
 			result.status = XeenObjectVisualStatus::SupportedStatic;
 		} else if (ordinaryPhase) {

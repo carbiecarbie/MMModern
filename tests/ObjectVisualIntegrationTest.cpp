@@ -140,19 +140,19 @@ int main(int argc,char **argv) {
 				const auto omitted=resolver.resolve(objects,1,direction);
 				check(omitted.status==XeenObjectVisualStatus::UnsupportedAnimation && !omitted.diagnostic.empty(),"Myra omitted phase must remain unsupported");
 				std::vector<IndexedFrame> renders;
-				for(std::uint64_t phase:{0,1,2,3}) {
+				for(std::uint64_t phase:{0,1,2,3,4}) {
 					const auto v=resolver.resolve(objects,1,direction,phase);
-					check(v.identity==XeenObjectIdentity{23,1} && v.spriteName=="009.obj" && v.status==XeenObjectVisualStatus::SupportedAnimated && v.frame==(camera==3?0:4)+phase%3 && v.horizontalFlip==(camera==1),"Myra directional explicit frame");
+					check(v.identity==XeenObjectIdentity{23,1} && v.spriteName=="009.obj" && v.status==XeenObjectVisualStatus::SupportedAnimated && v.frame==(camera==3?0:4)+phase%4 && v.horizontalFlip==(camera==1),"Myra directional explicit frame");
 					assets.loadPalette("mm4.pal");assets.loadRawFramebuffer("back.raw");assets.drawObjectVisual(v,0,0);
 					renders.push_back(assets.snapshot());
 					saveBmp(renders.back(),std::filesystem::path(argv[2])/(std::string("myra-")+directions[camera]+"-phase-"+std::to_string(phase)+".bmp"));
 				}
-				check(renders[0].pixels==renders[3].pixels,"Myra isolated wrap");
-				check(renders[0].pixels!=renders[1].pixels || renders[1].pixels!=renders[2].pixels,"Myra isolated complete-cycle motion");
+				check(renders[0].pixels==renders[4].pixels,"Myra isolated wrap after the inclusive end frame");
+				check(renders[0].pixels!=renders[1].pixels || renders[1].pixels!=renders[2].pixels || renders[2].pixels!=renders[3].pixels,"Myra isolated complete-cycle motion");
 				assets.loadRawFramebuffer("back.raw");assets.drawObjectVisual(resolver.resolve(objects,1,direction,1),0,0);
 				check(assets.snapshot().pixels==renders[1].pixels,"Myra repeated phase underlay");
 			}
-			std::cout<<"Myra {Clouds,23,1}, (9,11), West, 009.obj: eight directory frames; initial=[0,4,4,4], limit=[3,7,7,7], flip=[0,0,1,0]; West frames=0/1/2/0; four directional cycles passed\n";
+			std::cout<<"Myra {Clouds,23,1}, (9,11), West, 009.obj: eight directory frames; initial=[0,4,4,4], limit=[3,7,7,7], flip=[0,0,1,0]; West frames=0/1/2/3/0 (inclusive end); four directional cycles passed\n";
 		}
 		std::cout<<"All three real static controls and explicit-phase Myra passed\n";return 0;
 	} catch(const std::exception &e) {std::cerr<<e.what()<<'\n';return 1;}

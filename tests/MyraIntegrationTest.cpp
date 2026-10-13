@@ -110,7 +110,7 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
   auto sample=[&]{
    auto commands=XeenOutdoorScene().build(world,camera,&resolver,nullptr,observedPhase);
    auto target=std::find_if(commands.begin(),commands.end(),isMyra);
-   check(target!=commands.end() && target->object()->visual.frame==observedPhase%3 && target->object()->visual.spriteName=="009.obj","live original frame selection");
+   check(target!=commands.end() && target->object()->visual.frame==observedPhase%4 && target->object()->visual.spriteName=="009.obj","live original frame selection");
    check(observedPhase==full.size(),"stationary phase skipped/repeated");full.push_back(flow.frame());
    visual_remove_test::save(full.back(),output/("stationary-phase-"+std::to_string(observedPhase)+".bmp"));
    if(fixed.empty())fixed=commands;
@@ -126,14 +126,14 @@ void checkpoint(XeenAssetSource &assets, const std::filesystem::path &output, in
    check(SdlWindow().showInteractive(flow.frame(),"Myra stationary ordinary cycle",{}, {},[&]()->std::optional<IndexedFrame>{
     check(SDL_GetTicks()-started<5000,"stationary original SDL watchdog");time+=25;const auto previous=observedPhase;
     auto changed=flow.updatePresentation();if(observedPhase!=previous)sample();
-    if(observedPhase==3 && !done){done=true;SDL_Event q{};q.type=SDL_QUIT;SDL_PushEvent(&q);}return changed;
+    if(observedPhase==4 && !done){done=true;SDL_Event q{};q.type=SDL_QUIT;SDL_PushEvent(&q);}return changed;
    }) && done,"original stationary SDL idle cycle");
-  }else for(int i=0;i<3;++i){time+=100;flow.updatePresentation();sample();}
+  }else for(int i=0;i<4;++i){time+=100;flow.updatePresentation();sample();}
   std::size_t changes=0,visible=0;
-  for(unsigned i=0;i<3;++i)for(std::size_t p=0;p<64000;++p)if(isolated[i].pixels[p]!=isolated[i+1].pixels[p]){
+  for(unsigned i=0;i<4;++i)for(std::size_t p=0;p<64000;++p)if(isolated[i].pixels[p]!=isolated[i+1].pixels[p]){
    ++changes;if(full[i].pixels[p]==isolated[i].pixels[p] && full[i+1].pixels[p]==isolated[i+1].pixels[p])++visible;
   }
-  check(changes && visible && isolated[0].pixels==isolated[3].pixels,"Myra attributable complete-cycle pixel evidence");
+  check(changes && visible && isolated[0].pixels==isolated[4].pixels,"Myra attributable complete-cycle pixel evidence");
   std::cout<<"Stationary Myra attributed cycle changes="<<changes<<" visible="<<visible<<"; no gameplay input\n";
  }
 	std::optional<XeenEventExecutionSuspended> pending;

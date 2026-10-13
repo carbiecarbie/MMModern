@@ -169,13 +169,13 @@ Bytes metadata() {
 			bytes[static_cast<std::size_t>(resource) * 12 + relative] = 0;
 			bytes[static_cast<std::size_t>(resource) * 12 + 4 + relative] =
 				static_cast<std::uint8_t>(relative % 2);
-			bytes[static_cast<std::size_t>(resource) * 12 + 8 + relative] = 1;
+			bytes[static_cast<std::size_t>(resource) * 12 + 8 + relative] = 0; // end <= start: static
 		}
 	for (std::size_t relative = 0; relative < 4; ++relative)
-		bytes[110 * 12 + 8 + relative] = 3;
+		bytes[110 * 12 + 8 + relative] = 2; // inclusive end: frames 0..2
 	bytes[112 * 12 + 1] = 1;
-	bytes[112 * 12 + 9] = 2;
-	bytes[112 * 12 + 8] = 1;
+	bytes[112 * 12 + 9] = 1;
+	bytes[112 * 12 + 8] = 0;
 	return bytes;
 }
 

@@ -147,7 +147,8 @@ DialogInput XeenTitleFlow::dialog() const {
 }
 void XeenTitleFlow::render(bool semantic) {
  if(semantic){++_context;_inputFrame.reset();}
- auto frame=_services.panel?_services.background:_screen==Screen::Credits?_services.credits.at(_page):_firstTitle?_services.background:_services.animation.at(_phase);
+ // DOS 0x0bf15..0x0bf23: phase 0 restores the background and draws no world0 frame.
+ auto frame=_services.panel?_services.background:_screen==Screen::Credits?_services.credits.at(_page):_firstTitle || _phase==0?_services.background:_services.animation.at(_phase);
  const auto &dos=_services.text;const auto &font=_services.font;
  if(_screen==Screen::Menu || _screen==Screen::Other) {
   const bool other=_screen==Screen::Other;
@@ -272,7 +273,8 @@ std::optional<IndexedFrame> XeenTitleFlow::handle(const PlayerAction &action,con
   else if(buttonIndex(_services.text,"OTHER",key))notice("not supported yet",Screen::Other);else return {};
   break;
  case Screen::Credits:
-  if(escape || _page==3)setScreen(Screen::Menu);else {++_page;render();}break;
+  // DOS 0x0bb62..0x0bccd: any accepted input, Escape included, advances exactly one page.
+  if(_page==3)setScreen(Screen::Menu);else {++_page;render();}break;
  case Screen::Panel: {
   const auto button=buttonIndex(_services.text,"PANEL",key);
   if(escape){_closed=true;_inputFrame.reset();return {};}

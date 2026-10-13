@@ -79,11 +79,11 @@ mmodern::XeenObjectVisualResolver objectResolver() {
 			bytes[static_cast<std::size_t>(resource) * 12 + 4 + relative] =
 				static_cast<std::uint8_t>(relative % 2);
 			bytes[static_cast<std::size_t>(resource) * 12 + 8 + relative] =
-				static_cast<std::uint8_t>(relative + 1);
+				static_cast<std::uint8_t>(relative); // end <= start: static
 		}
 	}
 	for (std::size_t relative = 0; relative < 4; ++relative)
-		bytes[110 * 12 + 8 + relative] = 3;
+		bytes[110 * 12 + 8 + relative] = 2; // inclusive end: frames 0..2
 	return mmodern::XeenObjectVisualResolver(
 		mmodern::XeenCloudsVisualMetadata::parse(bytes));
 }

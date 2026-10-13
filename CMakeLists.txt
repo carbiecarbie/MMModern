@@ -51,6 +51,7 @@ add_library(mmodern_xeen STATIC
 	src/formats/xeen/XeenCloudsVisualMetadata.cpp
 	src/formats/xeen/XeenMaterialNames.cpp
 	src/games/xeen/XeenObjectVisual.cpp
+	src/games/xeen/XeenServiceAnimation.cpp
 	src/formats/xeen/XeenCharacterFormat.cpp
 	src/formats/xeen/XeenQuestItemFormat.cpp
 	src/formats/xeen/XeenQuestFlagFormat.cpp
@@ -237,6 +238,10 @@ if(BUILD_TESTING)
 	set_tests_properties(xeen_temple_depleted_process PROPERTIES TIMEOUT 600)
 	target_link_libraries(mmodern_training_rules_tests PRIVATE mmodern_xeen)
 	add_test(NAME xeen_training_rules COMMAND mmodern_training_rules_tests)
+	add_executable(mmodern_m62_part_c_tests tests/XeenM62PartCTests.cpp)
+	target_link_libraries(mmodern_m62_part_c_tests PRIVATE mmodern_app mmodern_xeen)
+	add_test(NAME xeen_m62_part_c COMMAND mmodern_m62_part_c_tests "${MMODERN_XEEN_DATA_DIR}")
+	set_tests_properties(xeen_m62_part_c PROPERTIES LABELS "fast")
 	add_executable(mmodern_training_flow_tests tests/XeenTrainingFlowTests.cpp)
 	target_link_libraries(mmodern_training_flow_tests PRIVATE mmodern_app mmodern_xeen)
 	add_test(NAME xeen_training_flow COMMAND mmodern_training_flow_tests "${MMODERN_XEEN_DATA_DIR}")

@@ -1236,6 +1236,28 @@ bool XeenEventFlow::drawPendingHeads(IndexedFrame &frame) {
  drawDialogSprite(frame,"border.icn",heads.right==2?8:phase+(heads.right==0?9:12),215,32);
  return true;
 }
+bool XeenEventFlow::pulseServiceArt(ServiceArtState &state, IndexedFrame &art) {
+	// Cosmetic only: the redraw never touches gameplay, service-day accounting or input
+	// authority, and a missing resource just freezes the current frame.
+	constexpr std::uint64_t kPulse = 150;
+	if (!drawDialogSprite || state.failed || _dispatching || _fatal || _saving || _handoffPending) return false;
+	const auto now = _clock();
+	if (!state.deadline) { state.deadline = now + kPulse; return false; }
+	if (now < state.deadline) return false;
+	state.deadline = now + kPulse; // No catch-up after a stalled host.
+	try {
+		const auto next = XeenServiceAnimation::next(state.kind, state.index);
+		auto candidate = art;
+		for (const auto &sprite : XeenServiceAnimation::compose(state.kind, next))
+			drawDialogSprite(candidate, sprite.resource.c_str(), sprite.frame, XeenServiceAnimation::kX, XeenServiceAnimation::kY);
+		art = std::move(candidate);
+		state.index = next;
+	} catch (const std::exception &) {
+		state.failed = true;
+		return false;
+	}
+	return true;
+}
 std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 	requireCurrentOwners();
 	if(_transition && _transition->presentationRetry && _pending &&
@@ -1277,11 +1299,21 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 			serviceBarrier();return renderEncounter();
 		}
 	}
-	if(_trainingUi)return updateTraining();
-	if(_smithUi && _smithUi->phase==SmithUi::Phase::Amount && _smithUi->feedback.empty() &&
-		!_dispatching && !_fatal && !_saving && !_handoffPending && _smithUi->amountCursor.animate(_clock())) {
+	if(_trainingUi) {
+		const bool pulsed=_trainingUi->phase==TrainingUi::Phase::Menu && pulseServiceArt(_trainingUi->animation,_trainingUi->art);
+		if(auto next=updateTraining())return next;
+		if(!pulsed)return std::nullopt;
 		DispatchScope dispatch(_dispatching);return renderEncounter(false,true);
 	}
+	const bool smithArtPulsed=_smithUi && _smithUi->phase!=SmithUi::Phase::Preparation && _smithUi->phase!=SmithUi::Phase::Upgrade &&
+		_smithUi->phase!=SmithUi::Phase::Departure && pulseServiceArt(_smithUi->animation,_smithUi->art);
+	if(_smithUi && _smithUi->phase==SmithUi::Phase::Amount && _smithUi->feedback.empty() &&
+		!_dispatching && !_fatal && !_saving && !_handoffPending) {
+		const bool cursor=_smithUi->amountCursor.animate(_clock());
+		if(cursor || smithArtPulsed) {DispatchScope dispatch(_dispatching);return renderEncounter(false,true);}
+		return std::nullopt;
+	}
+	if(smithArtPulsed) {DispatchScope dispatch(_dispatching);return renderEncounter(false,true);}
 	if (_smithUi && _smithUi->phase==SmithUi::Phase::Upgrade && !_dispatching && !_fatal && !_saving) {
 		DispatchScope dispatch(_dispatching);
 		try {

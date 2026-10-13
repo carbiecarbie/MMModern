@@ -227,6 +227,22 @@ void original(const char *path){
  XeenTextRenderOptions controls;controls.originalControls=true;controls.bounds={8,8,312,100};controls.x=8;controls.y=8;
  const auto controlFrame=[&](const std::string &text){return XeenTextRenderer(font).render(base,text,controls).pages.front().pixels;};
  check(controlFrame("\t  4\f dZ")==controlFrame("\t004\f00Z"),"fontAtoi space/default-color parameter consumption");
+ {
+  // The sheet selection blink alternates view.icn 48/49 at the cursor cell (unchanged, not retimed).
+  struct Call{std::string name;unsigned frame;int x,y;};
+  std::vector<Call> calls;
+  const XeenDialogSpriteDraw record=[&](IndexedFrame &f,const char *name,unsigned id,int x,int y){calls.push_back({name,id,x,y});draw(f,name,id,x,y);};
+  constexpr int cellX[]{9,60,111,176};
+  for(unsigned cursor=0;cursor<=20;++cursor)for(const bool blink:{false,true}) {
+   calls.clear();drawXeenSheet(assets.uiText(),base,font,p,0,cursor,blink,record);
+   unsigned markers=0;
+   for(const auto &call:calls)if(call.name=="view.icn" && (call.frame==48 || call.frame==49)) {
+    ++markers;check(cursor<20 && call.frame==(blink?49u:48u) && call.x==cellX[cursor/5] && call.y==23+23*int(cursor%5),"sheet blink marker frame/cell");
+   }
+   check(markers==(cursor<20?1u:0u),"sheet marker count");
+  }
+  check(assets.spriteFrameCount("view.icn")==50,"view.icn carries frames 48/49");
+ }
  check(p.food==(pty[618]|(pty[619]<<8)),"original food bytes");
  check(p.food==90,"Supplied original initial food is 90");
  for(const auto text:{XeenDialogText::ExchangingInCombat,XeenDialogText::CursedItem,XeenDialogText::Hurry,XeenDialogText::UseInCombat,XeenDialogText::CannotCastEngaged,XeenDialogText::PartyNeedsRest})

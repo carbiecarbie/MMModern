@@ -105,7 +105,7 @@ int main() {
 		}
 		{
 			Bytes metadata(1452);
-			for(int id:{110,111,112}) for(int d=0;d<4;++d) metadata[id*12+8+d]=3;
+			for(int id:{110,111,112}) for(int d=0;d<4;++d) metadata[id*12+8+d]=2; // inclusive end: three frames
 			metadata[110*12+5]=255;
 			const XeenObjectVisualResolver resolver(XeenCloudsVisualMetadata::parse(metadata));
 			XeenAssetSource assets(installation,320,200);

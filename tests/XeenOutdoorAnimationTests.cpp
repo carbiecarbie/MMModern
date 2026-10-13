@@ -136,7 +136,7 @@ struct RealScene {
   files["back.raw"]=Bytes(64000,99);files["mm4.pal"]=Bytes(768);
   auto solid=[](unsigned color){Bytes rows;for(int y=0;y<20;++y){rows.push_back(22);rows.push_back(0);rows.push_back(19);rows.insert(rows.end(),20,color);}return cell(60,20,70,20,rows);};
   files["110.0bj"]=multiFrameSprite({{solid(17),{}},{corrupt?cell(0,8,0,1,{2,0,1}):solid(18),{}},{solid(19),{}}});
-  Bytes metadata(1452);for(int d=0;d<4;++d)metadata[110*12+8+d]=3;
+  Bytes metadata(1452);for(int d=0;d<4;++d)metadata[110*12+8+d]=2;
   archive(dir/"xeen.cc",files);archive(dir/"dark.cc",{{"clouds.dat",metadata}});
   installation.xeenArchive=dir/"xeen.cc";installation.darkArchive=dir/"dark.cc";
  }

@@ -30,7 +30,7 @@ GameInstallation installation(const std::filesystem::path &dir, bool animated=fa
 	Bytes metadata(1452);
 	if(animated){auto colored=[](std::uint8_t color){Bytes r;for(int y=0;y<30;++y){r.push_back(43);r.push_back(0);r.push_back(31);r.insert(r.end(),32,color);r.push_back(7);r.insert(r.end(),8,color);}return r;};auto second=colored(8),third=colored(9);
 		files["111.0bj"]=multiFrameSprite({{cell(60,40,70,30,rows),{}},{cell(60,40,70,30,second),{}},{cell(60,40,70,30,third),{}}});
-		for(int d=0;d<4;++d)metadata[111*12+8+d]=3;
+		for(int d=0;d<4;++d)metadata[111*12+8+d]=2;
 	}
 	archive(dir/"xeen.cc",files);archive(dir/"dark.cc",{{"clouds.dat",metadata}});
 	GameInstallation i;i.xeenArchive=dir/"xeen.cc";i.darkArchive=dir/"dark.cc";return i;

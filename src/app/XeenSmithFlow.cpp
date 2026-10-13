@@ -524,6 +524,7 @@ void XeenEventFlow::prepareSmith() {
 			const auto text=_events.textForMap(28);
 			_encounter->journeySavePreimage().admitVertigoText(text);
 			SmithUi ui;ui.catalog=_catalog;ui.art=_frame;
+			ui.animation.kind=guild?XeenServiceArt::Guild:food?XeenServiceArt::Tavern:bank?XeenServiceArt::Bank:temple?XeenServiceArt::Temple:XeenServiceArt::Smith;
 			if(temple)ui.mode=SmithUi::Mode::Heal;
             if(food){ui.mode=SmithUi::Mode::Food;ui.foodOffer=tavernFoodOffer();}
             if(bank)ui.mode=SmithUi::Mode::Bank;

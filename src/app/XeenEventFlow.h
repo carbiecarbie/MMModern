@@ -10,6 +10,7 @@
 #include "games/xeen/XeenBarrierRules.h"
 #include "games/xeen/XeenInventoryState.h"
 #include "games/xeen/XeenDialogView.h"
+#include "games/xeen/XeenServiceAnimation.h"
 #include "games/xeen/XeenEquipment.h"
 #include "app/XeenEncounterFlow.h"
 #include <memory>
@@ -133,8 +134,18 @@ private:
 	friend struct XeenRestTestAccess;
 	friend struct XeenPartyInterfaceTestAccess;
 	IndexedFrame drawRest(const IndexedFrame &);
+	// Base-frame cycle of a service background (DOS 0x1c038..0x1c51f). The pulse reuses
+	// the cosmetic 150 ms NPC period; it schedules no gameplay and no service-day work.
+	struct ServiceArtState {
+		XeenServiceArt kind = XeenServiceArt::Smith;
+		unsigned index = 0;
+		std::uint64_t deadline = 0;
+		bool failed = false;
+	};
+	bool pulseServiceArt(ServiceArtState &, IndexedFrame &art);
 	struct TrainingUi {
 		enum class Phase { Preparation, Menu, Candidate, Departure };
+		ServiceArtState animation;
 		Phase phase=Phase::Preparation;
 		std::size_t member=0;
 		std::uint64_t revision=0;
@@ -171,6 +182,7 @@ private:
 		XeenTextInput amountCursor;
 		bool withdrawal=false,gems=false,bankRefreshed=false;
         bool spellInfo=false;
+        ServiceArtState animation;
         XeenSpellListUi spells;
         std::vector<std::string> descriptions;
 		IndexedFrame art;

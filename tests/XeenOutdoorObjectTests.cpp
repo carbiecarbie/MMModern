@@ -24,9 +24,9 @@ std::vector<XeenOutdoorDrawCommand> objectCommands(const std::vector<XeenOutdoor
 XeenObjectVisualResolver resolver(bool animated = false) {
 	std::vector<std::uint8_t> b(1452);
 	for(int id:{111,113}) for(int d=0;d<4;++d) {
-		b[id*12+d]=d; b[id*12+4+d]=d%2; b[id*12+8+d]=d+(animated?3:0);
+		b[id*12+d]=d; b[id*12+4+d]=d%2; b[id*12+8+d]=d+(animated?2:0);
 	}
-	b[110*12+8]=4; // Temporal when facing North.
+	b[110*12+8]=3; // Temporal when facing North (inclusive end: frames 0..3).
 	return XeenObjectVisualResolver(XeenCloudsVisualMetadata::parse(b));
 }
 void projection() {
@@ -122,8 +122,8 @@ void boundary() {
 }
 void sharedPhase() {
 	std::vector<std::uint8_t> bytes(1452);
-	bytes[110*12]=4;bytes[110*12+8]=7;
-	bytes[111*12]=8;bytes[111*12+8]=13;
+	bytes[110*12]=4;bytes[110*12+8]=6;
+	bytes[111*12]=8;bytes[111*12+8]=12;
 	const XeenObjectVisualResolver r(XeenCloudsVisualMetadata::parse(bytes));
 	int maps=0,mobs=0;
 	XeenWorld world([&](auto id){++maps;return flat(id);},[&](auto id){++mobs;return objects(id,
