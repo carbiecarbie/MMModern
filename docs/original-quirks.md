@@ -116,6 +116,21 @@ by the report's capture requirements.
   on space (surface index/type 15). Maintainer approved this restriction on
   2026-10-12; terrain arrival is deferred and save validation stays unchanged.
 
+## Approved deviations
+
+Deliberate differences from the original that the maintainer approved; each
+stays documented here and in the plan that implements it.
+
+- **No queued "phantom" movement steps** (maintainer, 2026-10-13; to be
+  implemented in M63). The original keeps up to ten keys in its own keyboard
+  FIFO (`WORLD/XEEN.DAT` `0x0b3b8..0x0b3bf`, producer `0x45664..0x4568c`,
+  consumer `0x4549c..0x454e6`; releases do not purge it, `0x455dd..0x45620`),
+  so a held movement key keeps moving the party after release. MMModern: while
+  a movement, strafe or turn key is held the party moves at the original pace;
+  on release it stops after the step already in progress and queued repeats
+  are discarded; each distinct tap still moves exactly one step. Other keys
+  keep their current queueing. Evidence: D:/MModern-re/movement-fluidity-20261013.
+
 ## Reference behavior not reproduced
 
 Places where the pinned ScummVM code differs from the DOS original or contains

@@ -75,14 +75,17 @@ still needs its own plan and the maintainer's start.
    combat monster panel, the "The Party Found" treasure screens, the six
    shopkeeper animations, scenery end frames, Rest/dream, party defeat and
    title/credits presentation.
-9. **Original presentation clock** (M63, Tier A): the shared timing contract
-   behind these screens - waits in original ticks, interruptible versus
-   uninterruptible waits, sequential recipient effects and speech-length visual
-   holds - with the Shoot, hit, death and portrait-effect order built on it.
-   Rules come from original program analysis (REA) where possible.
-10. **Movement fluidity** (investigation pending): match the original's movement
-    pace and responsiveness; may join M63 or become its own milestone.
-11. **Closure and release**: the whole Vertigo route from New Game with
+9. **Original presentation clock and movement pace** (M63, Tier A): the shared
+   timing contract behind these screens - waits in original ticks,
+   interruptible versus uninterruptible waits, sequential recipient effects and
+   speech-length visual holds - with the Shoot, hit, death and portrait-effect
+   order built on it; and the movement pace of the original (about nine steps a
+   second: no wait for the monster countdown before the next step, no
+   pressed-button hold on keys, no queued phantom steps per the approved
+   deviation in [original quirks](original-quirks.md)). Rules come from original
+   program analysis (REA); after M63 the maintainer decides on an opt-in faster
+   movement option.
+10. **Closure and release**: the whole Vertigo route from New Game with
    save/load, then the release work (Windows binary, how to point at the GOG
    data, licence, an honest list of what is missing).
 
