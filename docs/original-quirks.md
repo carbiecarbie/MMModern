@@ -79,6 +79,31 @@ calibration, retained REA records and limitations are in
 | Item Incinerate and learned Incinerate prepare the same 250 Fire/single damage but use different sound/projectile selectors. | DOS item handler `0x30b58` uses 13/2; learned handler `0x30f0d` uses 22/1. The pin shares a handler. [Dispatch evidence](rules/evidence.md#item-power-dispatch-and-variants). | Both routes are outside current supported casting. The selectors' actual presentation remains uncalibrated. |
 | Town Portal's item combat branch shows its prohibited-use notice, then reaches the spell handler. | DOS `0x3a058..0x3a075`; the pin returns after the notice. [Dispatch evidence](rules/evidence.md#item-power-dispatch-and-variants). | A control-flow observation only: actual downstream travel in combat remains unknown. Do not infer that teleportation is allowed. |
 
+## Presentation findings (2026-10-13)
+
+These are calibrated **DOS static** findings, not implemented corrections or
+DOSBox observations. [M62's proposed plan](milestone-62-plan.md) separates
+resource/layout work from M63 timing and publication work. Evidence is the
+external [UI report](D:/MModern-re/ui-presentation-20261013/findings.md) and
+[claim index](D:/MModern-re/ui-presentation-20261013/evidence-index.md), using
+DAT SHA256 `8bf78b4850d5973cbb063c7dd96b9aaef4e94791d748334187eef74acf528d27`
+and pin `6814ee9ba54582f5b5adcffab49efbbd8f589edd`. The known six-phase cursor
+calibrates the analysis (`0x3f3be`, `0x43f08..0x43f43`); offsets below are DAT
+file offsets. Exact runtime clocks, pixels and post-wait input remain bounded
+by the report's capture requirements.
+
+| Original behavior and reference difference | Evidence | Current implementation boundary |
+| --- | --- | --- |
+| Ordinary scenery includes the directional terminal frame; the pin excludes it. | `0x10d21..0x10d55`, indexed initial map 28/23 placements and resource headers | `XeenObjectVisualResolver` still uses the exclusive endpoint; proposed M62 correction. |
+| Combat names use color 15 at full HP, otherwise 9 at or above floor(maxHP/4), 32 below; the pin uses half HP. | `0x2e211..0x2e272`, templates `0x54001..0x54048` | Proposed M62 combat panel in `XeenEventFlow`; current custom list is not the original colored template. |
+| WhoWill shows the incapacitated-member refusal and returns to selection; the pin silently retries. Intermediate NPC Escape/right click advances a page, while final confirmation declines. | `0x2507a..0x252f6`, refusal `0x50aae`; NPC `0x256cd..0x25ca7` | Keep the existing Flow refusal; proposed M62 original layout/page/input corrections. |
+| Clouds Smith replaces base art with blck2 frames 5..7 while speaking; Training overlays trng2 8..12 while speaking. The pin omits Smith's branch and reverses Training's sound condition. | `0x1c03b..0x1c12c`, `0x1c309..0x1c390`; sound status calibrated against dream/death loops | Six shops remain static. M62 proposes frame composition/base cycles; runtime speaking and random selection belong to M63. |
+| NPC face activity follows MSCDEX busy, not the pin's word countdown. Normal CD cues parse MMSSFF and request end minus start plus 25 sectors; the pin treats the last digits as centiseconds. | `0x1c417..0x1c45c`, `0x3d5fd`, `0x3daec..0x3dbbf`, command packet `0x3d9b4..0x3d9e8` | Current `XeenEventPresenter` word timing is not DOS fidelity. M63 gate; carrier/start latency still needs a normal-play capture. |
+| Treasure blank/found waits are 1/10 BIOS ticks, not the pin's 5/8; item transfer precedes its own message and currency follows final acknowledgment. | `0x24128..0x248f2`, `0x264c5..0x264ed` | Preserve M61 full-pack mechanics above. Current batch delivery/receipts need M63 staging review; M62 proposes original windows/text only over current publication boundaries. |
+| Both monster and Event/trap portrait damage wait 2 ticks; the pin's generic path waits 5. Recipient sparkles complete synchronously, not concurrently. | `0x23f73..0x23f7d`, `0x2d6c4..0x2d6ce`, `0x21087..0x21186` | M63 changes existing `XeenScenePresentation`/Flow timing and sequencing; no M62 damage-order change. |
+| Keyboard buttons have no explicit tick hold; mouse buttons wait for release. Fades synchronize to VGA retrace. World YesNo/WhoWill outer waits use 1 tick, location waits 3; NPC polling follows its 3-tick interval. | `0x0e1ca..0x0e2b1`, `0x0e41e..0x0e430`, `0x3fe0f..0x3ff02`, `0x43fca..0x43fdf`, `0x24bd7..0x24c16`, `0x251a3..0x25262`, `0x25b8f..0x25bad` | Existing 100 ms button feedback and host-time refresh remain pending M63; M62 changes input meaning/layout only. BIOS source is proved at `0x440cd..0x44144`, exact running rate is not. |
+| Death fire has no explicit 1-tick delay or final sound-wait tail; the pin adds both. CD title phase 0 draws background alone, and its first fade uses step 4. Dream waits for two sequential samples between its 7-tick holds and four step-4 retrace fades. | Death `0x0b02f..0x0b39a`; title `0x0be9a..0x0bf8d`; dream `0x1e605..0x1e72a` | Death playback and dream/title clocks belong to M63. M62 proposes resource/frame/layout corrections; current death is missing and current dream omits voice holds. Final death caller transition is unresolved. |
+
 ## Approved temporary restrictions
 
 - M60 Jump refuses unsupported destinations before charge when its original wall
