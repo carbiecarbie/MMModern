@@ -15,6 +15,7 @@ workflow documents.
 | `docs/roadmap.md` | Next milestones and longer-term direction | ~100-150 lines |
 | `docs/milestone-N-plan.md` | That milestone's plan; condensed at closure | Closed: ~30-100 lines |
 | `docs/original-quirks.md` | Original DOS oddities kept on purpose, unconfirmed cases following the reference, and reference behavior not reproduced; QoL candidates | Grows by entry |
+| `docs/rules/` | Consultable game rules, formulas, evidence and explicit unknowns; playable coverage remains in project status | Grows by topic |
 | `docs/dependencies.md` | Toolchain, pinned ScummVM revision and configuration, build setup (authoritative) | - |
 | `docs/archive/` | Plans of milestones 6 and 15-43, kept as a historical record | Exempt |
 | `AGENTS.md`, `docs/AGENTS.md`, `tools/AGENTS.md` | Agent instructions: every task; documentation; complete test suite | Root under 200 lines |
@@ -46,3 +47,8 @@ Tier scope, reviews and acceptance are defined in the root `AGENTS.md`.
 - `docs/original-quirks.md` is updated in the same change that keeps or
   rejects an original or reference oddity (see the root `AGENTS.md`); it is
   durable, not a work-in-progress list, and is not condensed at closure.
+- `docs/rules/` is a reference, not authority over code or plans. A change that
+  alters a game rule documented there, or settles one of its open questions,
+  updates the affected chapter and its evidence label in the same change.
+  Keep evidence labels honest: never upgrade "Reference only" or "Unknown"
+  without DOS play or calibrated original program evidence.

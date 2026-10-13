@@ -30,6 +30,9 @@ spells and items, audio and Darkside gameplay are not available yet.
 [project history](docs/project-history.md) lists completed milestones and the
 [roadmap](docs/roadmap.md) sets direction.
 
+The [game rules reference](docs/rules/README.md) documents mechanics, formulas,
+original-program evidence and unresolved differences from the pinned reference.
+
 ## Requirements and original game data
 
 A legally obtained English World of Xeen two-CD installation is required. No commercial game
