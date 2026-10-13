@@ -79,6 +79,7 @@ private:
 	NpcTiming _npcTiming;
 	std::vector<std::size_t> _npcPageSourceEnds;
 
+	const XeenFontFormat &_font;
 	XeenTextRenderer _renderer;
 	XeenPresentationRequest _request;
 	std::vector<IndexedFrame> _pages;

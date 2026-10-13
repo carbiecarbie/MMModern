@@ -89,6 +89,77 @@ void original(const char *path){
      xeenCombatHealthColor(2,11)==9 && xeenCombatHealthColor(1,11)==32,"DOS quarter-health thresholds");
  const std::array<XeenCombatPanelRow,3> rows{{{"A",100,100},{"B",25,100},{"C",24,100}}};
  const auto &dos=assets.uiText();
+ XeenTreasureDisplay treasure;treasure.gold=123456;treasure.gems=78;
+ treasure.items={{"A","item",false},{"B","seal",true}};
+ const auto heading=xeenDialogFormat(dos.scalar("PARTY_FOUND"),{"123456","78"});
+ const auto quest=xeenDialogFormat(dos.scalar("QUEST_FOUND_PREFIX"),{"seal"});
+ check(quest==std::string("\f04 * \fdseal"),"quest star uses original color-04 text and default reset");
+ check(xeenTreasureText(dos,treasure,0)==heading+std::string(dos.scalar("GIVE_TREASURE_FORMATTING"))+
+     xeenDialogFormat(dos.scalar("X_FOUND_Y"),{"A","item"}),"first item exact DAT stream");
+ const auto last=heading+std::string(dos.scalar("GIVE_TREASURE_FORMATTING"))+
+     xeenDialogFormat(dos.scalar("X_FOUND_Y"),{"B",quest});
+ check(xeenTreasureText(dos,treasure,1)==last &&
+     xeenTreasureText(dos,treasure,2)==last+std::string(dos.scalar("HIT_A_KEY")),"final color-37 prompt follows last item");
+ XeenTextRenderOptions treasureOptions;treasureOptions.originalControls=treasureOptions.drawWindow=true;
+ treasureOptions.windowBounds={226,0,320,146};treasureOptions.bounds={234,8,312,138};treasureOptions.x=234;treasureOptions.y=8;
+ for(unsigned page=0;page<3;++page) {
+     const auto oracle=XeenTextRenderer(font).render(base,xeenTreasureText(dos,treasure,page),treasureOptions).pages.front();
+     check(drawXeenTreasure(dos,base,font,treasure,page).pixels==oracle.pixels,"treasure window 10 bounds/text/colors");
+ }
+ const auto headingFrame=XeenTextRenderer(font).render(base,heading,treasureOptions).pages.front();
+ const auto warning=drawXeenErrorScroll(headingFrame,font,std::string(dos.scalar("BACKPACKS_FULL_PRESS_KEY")));
+ check(drawXeenTreasure(dos,base,font,treasure,0,true).pixels==warning.pixels,"modal window 6 over original currency heading");
+ for(unsigned inputKind=0;inputKind<3;++inputKind) {
+     XeenEventPresenter pages(font);pages.originalAssets(&dos,draw);
+     XeenPresentationRequest request;request.kind=XeenPresentationKind::RewardReceipt;
+     request.response=XeenPresentationResponseRequirement::Acknowledgment;request.treasure=treasure;request.treasure->fullPacks=true;
+     pages.present(base,request);check(pages.pageCount()==4 && pages.frame().pixels==warning.pixels,"separate warning page");
+     for(unsigned page=0;page<4;++page) {
+         const auto before=pages.frame().pixels;pages.rebase(base);check(pages.frame().pixels==before,"treasure rebase retains exact page");
+         const auto input=pages.input();
+         const auto action=inputKind==0?input.key('z'):inputKind==1?input.click(0,0):input.rightClick();
+         check(action.has_value(),"ordinary key/either mouse treasure acknowledgment");
+         const auto update=pages.handle(*action);
+         check(bool(update.response)==(page==3),"warning/item acknowledgment cannot finish treasure");
+         if(page==0)check(pages.frame().pixels==drawXeenTreasure(dos,base,font,treasure,0).pixels,"warning dismissal restores treasure only");
+     }
+ }
+ {
+     XeenEventPresenter pages(font);pages.originalAssets(&dos,draw);
+     XeenPresentationRequest audio;audio.kind=XeenPresentationKind::DeferredAudio;audio.text="not supported yet";
+     pages.present(base,audio);const auto underlay=pages.frame();
+     XeenPresentationRequest request;request.kind=XeenPresentationKind::RewardReceipt;
+     request.response=XeenPresentationResponseRequirement::Acknowledgment;request.treasure=treasure;request.treasure->fullPacks=true;
+     pages.present(underlay,request);
+     const auto modal=drawXeenTreasure(dos,underlay,font,treasure,0,true);
+     check(pages.frame().pixels==modal.pixels,"modal full-pack warning takes precedence over passive audio notice");
+     pages.rebase(base);check(pages.frame().pixels==modal.pixels,"rebased warning retains modal precedence");
+     pages.handle(AcknowledgeAction{});
+     for(int y=157;y<190;++y)for(int x=60;x<260;++x)
+         check(pages.frame().pixels[y*320+x]==underlay.pixels[y*320+x],"warning dismissal restores passive unsupported notice");
+ }
+ check(catalog.foundName(XeenInventoryCategory::Miscellaneous,{10,37,7,0})=="potion " &&
+     catalog.foundName(XeenInventoryCategory::Weapons,{38,3,0x80,0})==catalog.foundName(XeenInventoryCategory::Weapons,{0,3,0,0}),
+     "found names are original base/container names without inventory decorations");
+ // Pure composition only: every executed Clouds frame uses actual resources.
+ const int deathY[]{196,187,179,169,159,147,138,127,113,101,86,73,60,48,36,23,10};
+ for(unsigned even=0;even<=34;even+=2) {
+     auto oracle=base;const auto sheet="fire"+std::to_string(even/10+1)+".vga";
+     draw(oracle,sheet.c_str(),even%10,0,0);draw(oracle,sheet.c_str(),even%10+1,160,0);
+     for(unsigned pair=0;pair<even/2;++pair) {draw(oracle,"death.vga",pair*2,0,deathY[pair]);draw(oracle,"death.vga",pair*2+1,160,deathY[pair]);}
+     check(drawXeenDeathFire(base,even,draw).pixels==oracle.pixels,"death fire sheets, accumulated pairs and DOS Y table");
+ }
+ auto final=drawXeenDeathFire(base,34,draw);auto finalOracle=final;
+ draw(finalOracle,"death.vga",34,0,0);draw(finalOracle,"death.vga",35,160,0);
+ final=drawXeenDeathFinal(final,draw);check(final.pixels==finalOracle.pixels,"final death pair 34/35");
+ check(drawXeenDeathLaugh(final,{},draw).pixels==final.pixels,"laughter starts from bare saved final image");
+ for(unsigned index=0;index<=21;++index) {
+     auto oracle=final;draw(oracle,"death1.vga",index,0,0);
+     check(drawXeenDeathLaugh(final,index,draw).pixels==oracle.pixels,"death1 executed frames 0..21 restore saved image");
+ }
+ bool rejected=false;try{drawXeenDeathLaugh(final,22,draw);}catch(const std::invalid_argument &){rejected=true;}
+ check(rejected && assets.spriteFrameCount("death1.vga")==23,"death1 capacity 23 does not admit frame 22");
+ for(unsigned invalid:{1u,36u}) {rejected=false;try{drawXeenDeathFire(base,invalid,draw);}catch(const std::invalid_argument &){rejected=true;}check(rejected,"death fire rejects unexecuted pair");}
  const auto expected=xeenDialogFormat(dos.scalar("COMBAT_DETAILS"),{
      xeenDialogFormat(dos.scalar("COMBAT_ROW_1"),{"15","A"}),
      xeenDialogFormat(dos.scalar("COMBAT_ROW_2"),{"9","B"}),

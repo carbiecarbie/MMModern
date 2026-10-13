@@ -11,6 +11,24 @@
 #include <string_view>
 namespace mmodern {
 using XeenDialogSpriteDraw = std::function<void(IndexedFrame &,const char *,unsigned,int,int)>;
+struct XeenTreasureLine {
+    std::string recipient, itemName;
+    bool quest=false;
+};
+// Display values copied from existing delivery records, with no mutation owner.
+struct XeenTreasureDisplay {
+    std::uint32_t gold=0,gems=0;
+    std::vector<XeenTreasureLine> items;
+    bool fullPacks=false;
+};
+std::string xeenTreasureText(const XeenDosText &,const XeenTreasureDisplay &,std::size_t page);
+IndexedFrame drawXeenTreasure(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,
+    const XeenTreasureDisplay &,std::size_t page,bool warning=false);
+// Pure Clouds death composition. Playback, sound gates and return routing
+// belong to M63; these functions are not connected to the live defeat screen.
+IndexedFrame drawXeenDeathFire(const IndexedFrame &savedGameplay,unsigned evenFrame,const XeenDialogSpriteDraw &);
+IndexedFrame drawXeenDeathFinal(const IndexedFrame &,const XeenDialogSpriteDraw &);
+IndexedFrame drawXeenDeathLaugh(const IndexedFrame &savedFinal,std::optional<unsigned> frame,const XeenDialogSpriteDraw &);
 struct XeenCombatPanelRow {
     std::string name;
     int hp=0, maxHp=0;

@@ -48,6 +48,49 @@ const auto &conditions(const XeenDosText &text,const XeenCharacter &) { return t
 std::uint32_t gold(const XeenPartyState &p) { return p.monsterTreasure?std::uint32_t(p.monsterTreasure->gold):0u; }
 std::uint32_t gems(const XeenPartyState &p) { return p.monsterTreasure?std::uint32_t(p.monsterTreasure->gems):0u; }
 }
+std::string xeenTreasureText(const XeenDosText &text,const XeenTreasureDisplay &treasure,std::size_t page) {
+    if(page>treasure.items.size())throw std::out_of_range("Treasure display page");
+    auto result=xeenDialogFormat(text.scalar("PARTY_FOUND"),{n(treasure.gold),n(treasure.gems)});
+    if(!treasure.items.empty()) {
+        const auto &line=treasure.items[std::min(page,treasure.items.size()-1)];
+        const auto name=line.quest?xeenDialogFormat(text.scalar("QUEST_FOUND_PREFIX"),{line.itemName}):line.itemName;
+        result+=text.scalar("GIVE_TREASURE_FORMATTING");
+        result+=xeenDialogFormat(text.scalar("X_FOUND_Y"),{line.recipient,name});
+    }
+    if(page==treasure.items.size())result+=text.scalar("HIT_A_KEY");
+    return result;
+}
+IndexedFrame drawXeenTreasure(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,
+        const XeenTreasureDisplay &treasure,std::size_t page,bool warning) {
+    const auto stream=warning?xeenDialogFormat(text.scalar("PARTY_FOUND"),{n(treasure.gold),n(treasure.gems)}):
+        xeenTreasureText(text,treasure,page);
+    auto frame=render(base,font,stream,{226,0,320,146},{234,8,312,138});
+    return warning?drawXeenErrorScroll(frame,font,str(text.scalar("BACKPACKS_FULL_PRESS_KEY"))):frame;
+}
+IndexedFrame drawXeenDeathFire(const IndexedFrame &saved,unsigned evenFrame,const XeenDialogSpriteDraw &draw) {
+    if(evenFrame>34 || evenFrame%2 || !draw)throw std::invalid_argument("Invalid Clouds death fire composition");
+    auto frame=saved;
+    const auto resource="fire"+std::to_string(evenFrame/10+1)+".vga";
+    draw(frame,resource.c_str(),evenFrame%10,0,0);
+    draw(frame,resource.c_str(),evenFrame%10+1,160,0);
+    // Calibrated DOS DAT table at 0x47a44; pairs accumulate above the fire.
+    constexpr int y[]{196,187,179,169,159,147,138,127,113,101,86,73,60,48,36,23,10};
+    for(unsigned pair=0;pair<evenFrame/2;++pair) {
+        draw(frame,"death.vga",pair*2,0,y[pair]);
+        draw(frame,"death.vga",pair*2+1,160,y[pair]);
+    }
+    return frame;
+}
+IndexedFrame drawXeenDeathFinal(const IndexedFrame &base,const XeenDialogSpriteDraw &draw) {
+    if(!draw)throw std::invalid_argument("Missing Clouds death sprite provider");
+    auto frame=base;draw(frame,"death.vga",34,0,0);draw(frame,"death.vga",35,160,0);return frame;
+}
+IndexedFrame drawXeenDeathLaugh(const IndexedFrame &saved,std::optional<unsigned> index,const XeenDialogSpriteDraw &draw) {
+    if((index && *index>21) || !draw)throw std::invalid_argument("Invalid Clouds death laughter composition");
+    auto frame=saved;
+    if(index)draw(frame,"death1.vga",*index,0,0);
+    return frame;
+}
 std::string xeenDialogFormat(std::string_view format,const std::vector<std::string> &args) {
     if(format.size()>16384)throw std::length_error("Original dialog template exceeds bound");
     std::string result;std::size_t index=0;

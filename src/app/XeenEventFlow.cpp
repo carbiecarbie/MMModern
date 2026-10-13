@@ -516,7 +516,18 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput) {
 					if(!_monsterReceiptPresented) {
 						_presenter.clear();XeenPresentationRequest request;
 						request.kind=XeenPresentationKind::RewardReceipt;request.response=XeenPresentationResponseRequirement::Acknowledgment;
-						request.mapId=_camera.mapId;request.text=_encounter->_monsterReceiptText;
+						request.mapId=_camera.mapId;
+                        const auto &receipt=*_encounter->_monsterReceipt;
+                        request.treasure.emplace();auto &treasure=*request.treasure;
+                        treasure.gold=receipt.treasure.pendingGold;treasure.fullPacks=receipt.globallyFull;
+                        for(unsigned i=0;i<receipt.count;++i) {
+                            const auto &entry=receipt.records[i];if(!entry.recipient)continue;
+                            const auto category=entry.miscellaneous?XeenInventoryCategory::Miscellaneous:
+                                entry.armor?XeenInventoryCategory::Armor:XeenInventoryCategory::Weapons;
+                            treasure.items.push_back({_party.roster.at(*entry.recipient).name,
+                                _catalog.foundName(category,entry.production.item),false});
+                        }
+                        _presenter.originalAssets(dialogText,drawDialogSprite);
 						rendered=_presenter.present(composed.frame,request).frame;_monsterReceiptPresented=true;
 					} else rendered=_presenter.rebase(composed.frame);
 				}
@@ -1187,11 +1198,21 @@ IndexedFrame XeenEventFlow::presentationFailed(const std::exception &exception) 
 XeenPresentationUpdate XeenEventFlow::presentPendingEvent() {
     _presenter.originalAssets(dialogText,drawDialogSprite);
 	auto request=_pending->state.pendingPresentation->request;
-	if(_transition && request.kind==XeenPresentationKind::RewardReceipt)
-		request.text=xeenRewardReceiptText(_pending->state.rewardReceipt,_transition->party.roster);
-	if(_transition && request.kind==XeenPresentationKind::RewardWarning)
-		request.text="Reward capacity warning\nAll four category tails are full across active members.\n"
-			"Remaining items will be lost. Gold and gems are still credited.\nSpace / Enter / Escape: continue";
+    if(request.kind==XeenPresentationKind::RewardReceipt || request.kind==XeenPresentationKind::RewardWarning) {
+        request.text.clear();request.treasure.emplace();auto &treasure=*request.treasure;
+        const auto &state=_pending->state;
+        if(request.kind==XeenPresentationKind::RewardWarning) {
+            treasure.gold=state.pendingRewards.gold();treasure.gems=state.pendingRewards.gems();
+        } else {
+            const auto &party=_transition?_transition->party:_party;
+            treasure.gold=state.rewardReceipt.gold;treasure.gems=state.rewardReceipt.gems;
+            for(std::size_t i=0;i<state.rewardReceipt.count;++i) {
+                const auto &entry=state.rewardReceipt.entries[i];if(!entry.owner)continue;
+                treasure.items.push_back({party.roster.at(*entry.owner).name,
+                    _catalog.foundName(static_cast<XeenInventoryCategory>(entry.category),entry.item),false});
+            }
+        }
+    }
 	if(request.kind==XeenPresentationKind::CharacterSelection) {
 		request.layoutValue=36;
 		request.text=xeenDialogFormat(dosText().scalar("WHO_WILL"),

@@ -2,6 +2,7 @@
 #define MMODERN_GAMES_XEEN_XEEN_EVENT_INTERPRETER_H
 
 #include "games/xeen/XeenEventDecoder.h"
+#include "games/xeen/XeenDialogView.h"
 #include "games/xeen/XeenEventScript.h"
 #include "games/xeen/XeenEventTextLoader.h"
 #include "games/xeen/XeenGameFlags.h"
@@ -112,6 +113,7 @@ struct XeenPresentationRequest {
 	std::string refusal;
 	std::optional<XeenEventNpc> npc;
 	std::string title;
+	std::optional<XeenTreasureDisplay> treasure;
 };
 
 enum class XeenEventMissingInstructionPolicy {

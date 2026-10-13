@@ -10,7 +10,7 @@ namespace mmodern {
 XeenEventPresenter::XeenEventPresenter(const XeenFontFormat &font, NpcDraw npcDraw,
 		Clock clock, RandomFrame randomFrame) :
 		_npcDraw(std::move(npcDraw)), _clock(std::move(clock)),
-		_randomFrame(std::move(randomFrame)), _renderer(font) {
+		_randomFrame(std::move(randomFrame)), _font(font), _renderer(font) {
 	if (!_clock) _clock = [] {
 		return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
 			std::chrono::steady_clock::now().time_since_epoch()).count());
@@ -26,10 +26,8 @@ XeenTextRenderOptions XeenEventPresenter::optionsFor(
     case XeenPresentationKind::RewardGeneration: break;
     case XeenPresentationKind::RewardWarning:
     case XeenPresentationKind::RewardReceipt:
-        // Treasure presentation is Part B; retain its current layout here.
-        o.originalControls=false;o.stopAtBottom=false;
-        o.bounds={16,16,304,144};o.windowBounds={8,8,312,152};
-        o.drawWindow=true;o.paginate=true;break;
+        o.bounds={234,8,312,138};o.windowBounds={226,0,320,146};
+        o.drawWindow=true;break;
     case XeenPresentationKind::DeferredAudio:
         o.windowBounds={52,149,268,198};o.drawWindow=true;
         o.bounds={60,157,260,190};break;
@@ -56,6 +54,17 @@ XeenTextRenderOptions XeenEventPresenter::optionsFor(
 
 XeenTextRenderResult XeenEventPresenter::drawText(const IndexedFrame &base,
         const XeenPresentationRequest &request) const {
+    if(request.kind==XeenPresentationKind::RewardWarning || request.kind==XeenPresentationKind::RewardReceipt) {
+        if(!_dosText || !request.treasure)throw std::invalid_argument("Treasure presentation requires original text and delivery display values");
+        XeenTextRenderResult result;
+        const auto &treasure=*request.treasure;
+        if(request.kind==XeenPresentationKind::RewardWarning || treasure.fullPacks)
+            result.pages.push_back(drawXeenTreasure(*_dosText,base,_font,treasure,0,true));
+        if(request.kind==XeenPresentationKind::RewardReceipt)
+            for(std::size_t page=0;page<=treasure.items.size();++page)
+                result.pages.push_back(drawXeenTreasure(*_dosText,base,_font,treasure,page));
+        return result;
+    }
     auto o=optionsFor(request);
     std::string prefix,suffix;
     switch(request.kind) {
@@ -97,6 +106,11 @@ XeenTextRenderResult XeenEventPresenter::drawText(const IndexedFrame &base,
 }
 
 IndexedFrame XeenEventPresenter::overlayNotices(IndexedFrame frame) const {
+    // A modal full-pack warning owns window 6 until its acknowledgment.
+    // Restore any passive unsupported-audio notice on the next treasure page.
+    if(_request.kind==XeenPresentationKind::RewardWarning ||
+        (_request.kind==XeenPresentationKind::RewardReceipt && _request.treasure &&
+            _request.treasure->fullPacks && _page==0))return frame;
     // The explicit audio deferral stays visible in window 6 above Event pages,
     // without inserting a new wait or changing the Event continuation.
     for(const auto &layer:_layers)if(layer.request.kind==XeenPresentationKind::DeferredAudio)

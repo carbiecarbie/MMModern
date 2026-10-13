@@ -13,7 +13,6 @@ struct XeenPartyInterfaceTestAccess {
  static auto shootEligible(const XeenEventFlow &f){return f._encounter->_shoot->eligible;}
  static auto lanes(const XeenEventFlow &f){return f._encounter->_projectiles;}
  static bool reward(const XeenEventFlow &f){return f._encounter->monsterReward();}
- static void credit(XeenEventFlow &f){f._encounter->acknowledgeMonsterReward();}
  static bool exchanging(const XeenEventFlow &f){return f._exchange;}
  static auto optionMember(const XeenEventFlow &f){return f._quickFightMember;}
  static bool restComplete(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Complete;}
@@ -218,11 +217,35 @@ void orderedShootBarrierTreasure(Inputs &in) {
  source.camera={23,7,10,XeenDirection::North};for(auto &a:source.journey->actors){a.x=a.y=-128;a.hp=0;a.activated=false;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
  auto &survivor=source.journey->actors[8];survivor.x=7;survivor.y=11;survivor.hp=in.base().journey->actors[8].hp;survivor.activated=true;survivor.lifecycle=XeenActorLifecycle::Present;survivor.accounted=false;
  source.journey->treasure->pendingMask=512;source.journey->treasure->pendingGold=10;source.journey->treasure->armor[0]={9,{0,2,0,0}};
- for(auto id:source.activeRosterIds)source.characters[id].armor={};Fixture loot(in,source);const auto gold=loot.p.monsterTreasure->gold;
- loot.act(NavigationAction::TurnLeft);for(unsigned n=0;n<100 && !XeenPartyInterfaceTestAccess::reward(*loot.flow);++n)pulse(loot);check(XeenPartyInterfaceTestAccess::reward(*loot.flow),"Reordered treasure delivery admitted");
- check(loot.p.roster.at(source.activeRosterIds[0]).armor[0].id==2,"Treasure delivered to first current owner");
- for(unsigned n=1;n<6;++n)check(!loot.p.roster.at(source.activeRosterIds[n]).armor[0].id,"Treasure does not use default first owner");
- XeenPartyInterfaceTestAccess::credit(*loot.flow);check(loot.p.monsterTreasure->gold==gold+10,"Treasure credit once");
+ source.journey->treasure->pendingMask|=8;source.journey->treasure->pendingGold=20;
+ source.journey->treasure->miscellaneous[0]={3,{2,9,7,0}};
+ for(bool full:{false,true}) {
+  auto start=source;
+  for(auto id:start.activeRosterIds) {
+   auto &c=start.characters[id];c.armor={};c.miscellaneous={};
+   if(full) {c.weapons.fill({0,1,0,0});c.armor.fill({0,1,0,0});c.accessories.fill({0,1,0,0});c.miscellaneous.fill({10,37,7,0});}
+  }
+  Fixture loot(in,start);const auto gold=loot.p.monsterTreasure->gold;
+  loot.act(NavigationAction::TurnLeft);for(unsigned n=0;n<100 && !XeenPartyInterfaceTestAccess::reward(*loot.flow);++n)pulse(loot);
+  check(XeenPartyInterfaceTestAccess::reward(*loot.flow),"Reordered treasure delivery admitted");
+  if(!full) {
+   check(loot.p.roster.at(start.activeRosterIds[0]).armor[0].id==2 && loot.p.roster.at(start.activeRosterIds[0]).miscellaneous[0].id==9,"Existing records delivered both items to first current owner");
+   for(unsigned n=1;n<6;++n)check(!loot.p.roster.at(start.activeRosterIds[n]).armor[0].id,"Treasure does not use default first owner");
+  }
+  const auto pages=loot.flow->presenter().pageCount();check(pages==(full?2u:3u),"Monster warning/items/final progression");
+  for(unsigned page=0;page<pages;++page) {
+   check(XeenPartyInterfaceTestAccess::reward(*loot.flow) && loot.p.monsterTreasure->gold==gold && !loot.flow->canSave(),"Warning/item pages cannot credit currency or expose saving");
+   const auto oldFrame=loot.flow->frame().presentation();const auto oldInput=loot.flow->displayedInput();
+   const auto input=loot.flow->inputContext(oldFrame).dialog;
+   check(input && input->key('z') && input->click(0,0) && input->rightClick(),"Monster treasure key/either-mouse acknowledgment");
+   loot.act(page%2?*input->rightClick():*input->key('z'));
+   if(page+1<pages) {
+    loot.flow->handle(AcknowledgeAction{},oldInput,oldFrame);
+    check(loot.flow->presenter().pageIndex()==page+1 && loot.p.monsterTreasure->gold==gold,"Stale page input cannot skip or credit treasure");
+   }
+  }
+  check(!XeenPartyInterfaceTestAccess::reward(*loot.flow) && loot.p.monsterTreasure->gold==gold+20,"Final acknowledgment credits retained currency exactly once");
+ }
 }
 void unsupportedQuickRun(Inputs &in) {
  auto s=emptyCity(in);auto &actor=s.journey->vertigoActors->at(0);actor.x=10;actor.y=10;actor.hp=in.service().journey->vertigoActors->at(0).hp;actor.lifecycle=XeenActorLifecycle::Present;actor.accounted=false;actor.activated=true;

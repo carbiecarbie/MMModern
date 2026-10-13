@@ -11,6 +11,7 @@ void flows(){
 		auto s=e.seed({pause(),record(1,1,1,12,{0,0,20,7}),record(1,1,2,0x12)},10);
 		XeenEventSystem events(e.scripts,e.texts);auto b=base();
 		XeenEventFlow flow(e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t){return XeenEventFlow::Composition{b, false};});
+  flow.dialogText=&dos_test::text();
 		flow.acceptManual(XeenEventExecutionSuspended{s,s.pendingPresentation->request});
 		const auto ordinary=*flow.presentationGeneration();flow.handle(AcknowledgeAction{});
 		check(flow.blocksGameplay()&&!e.flags.isSet(7)&&flow.handlesEscape(),"reward save/escape/publication boundary");
@@ -42,6 +43,7 @@ void producedFlow(){
 			pause(4),record(1,1,5,12,{0,0,20,7})};
 		XeenEventSystem events(e.scripts,e.texts);auto b=base();
 		XeenEventFlow flow(e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t){return XeenEventFlow::Composition{b, false};});
+  flow.dialogText=&dos_test::text();
 		flow.handle(InteractionAction{});
 		check(e.f.initial.questItems.at(17)==1 && e.f.initial.questFlags.isSet(2),"pre-ACK quest mutation");
 		const auto first=*flow.presentationGeneration();flow.handle(AcknowledgeAction{});
@@ -81,11 +83,12 @@ void failures(){
 		if(fault==5&&!delivered){full(e.f.initial,true);s=pending(e.resume(s));}
 		XeenEventSystem events(e.scripts,e.texts);auto b=base();bool failCompose=false;
 		XeenEventFlow flow(e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t){if(failCompose)throw std::runtime_error("compose fault");return XeenEventFlow::Composition{b, false};});
+  flow.dialogText=&dos_test::text();
 		std::optional<XeenEventExecutionError> error;unsigned reports=0;
 		flow.reportManual=[&](const auto &r){if(const auto *v=std::get_if<XeenEventExecutionError>(&r))error=*v;else if(fault==1&&++reports==1)throw std::runtime_error("report fault");};
 		if(fault==0){e.camera.direction=XeenDirection::East;failCompose=true;}
 		if(fault==2){s.pendingPresentation->request.kind=XeenPresentationKind::NpcAcknowledgment;s.pendingPresentation->request.npc=XeenEventNpc{};}
-		if(fault==5){s.pendingPresentation->request.text += '\3';flow.reportText=[](const auto&){throw std::runtime_error("diagnostic reporting fault");};}
+		if(fault==5)flow.dialogText=nullptr; // Missing original-text provider is a presentation failure.
 		flow.acceptManual(XeenEventExecutionSuspended{s,s.pendingPresentation->request});
 		if(fault==3){failCompose=true;flow.refresh(true);}
 		if(fault==4){flow.abandonPresentation();}
@@ -97,6 +100,7 @@ void failures(){
 	}
 	Execution e;auto s=e.seed({pause(),record(1,1,1,0x12)});XeenEventSystem events(e.scripts,e.texts);auto b=base();
 	XeenEventFlow flow(e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t){return XeenEventFlow::Composition{b, false};});
+  flow.dialogText=&dos_test::text();
 	flow.acceptManual(XeenEventExecutionSuspended{s,s.pendingPresentation->request});const auto generation=flow.presentationGeneration();
 	bool rejected=false;try{flow.acceptManual(XeenManualEventNoEvent{});}catch(const std::logic_error&){rejected=true;}
 	check(rejected&&flow.presentationGeneration()==generation,"pending replacement accepted");flow.abandonPresentation();
@@ -108,6 +112,7 @@ void animatedRewardLayers(){
   auto state=e.seed({pause(),record(1,1,1,0x12)},3);state=pending(e.resume(state));
   XeenEventSystem events(e.scripts,e.texts);auto b=base();std::uint64_t now=0,phase=0;
   XeenEventFlow flow(e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t value){phase=value;auto current=b;current.pixels[100]=value;return XeenEventFlow::Composition{current,true};},{},[&]{return now;});
+  flow.dialogText=&dos_test::text();
   flow.acceptManual(XeenEventExecutionSuspended{state,state.pendingPresentation->request});
   const auto gen=flow.presentationGeneration();const auto page=flow.presenter().pageIndex();const auto inventory=xeenInventoryInspection(e.f.initial);
   auto expectedBase=b;expectedBase.pixels[100]=1;auto oracle=flow.presenter();const auto expected=oracle.rebase(expectedBase);
@@ -126,6 +131,7 @@ void animationFailures(){
   std::vector<std::uint64_t> phases;unsigned reports=0;
   XeenEventFlow flow(e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t phase){
    phases.push_back(phase);if(fail)throw std::runtime_error("idle animation fault");return XeenEventFlow::Composition{b,true};},{},[&]{return now;});
+  flow.dialogText=&dos_test::text();
   auto suspension=XeenEventExecutionSuspended{state,state.pendingPresentation->request};
   if(automatic)flow.acceptAutomatic(suspension);else flow.acceptManual(suspension);
   const auto gen=flow.presentationGeneration();std::optional<XeenEventExecutionError> error;
@@ -141,6 +147,7 @@ void animationFailures(){
  Execution e;auto state=e.seed({pause(),record(1,1,1,0x12)},1);XeenEventSystem events(e.scripts,e.texts);auto b=base();bool fail=false;
  unsigned compositions=0,reports=0;
  XeenEventFlow flow(e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t){++compositions;if(fail)throw std::runtime_error("rebase failure");return XeenEventFlow::Composition{b,true};});
+  flow.dialogText=&dos_test::text();
  flow.acceptManual(XeenEventExecutionSuspended{state,state.pendingPresentation->request});
  flow.reportManual=[&](const auto&){++reports;};e.camera.x=2;fail=true;const auto before=compositions;
  flow.handle(InteractionAction{});check(reports==1 && compositions==before+1 && !flow.blocksGameplay(),"failure dispatched same input as new action");
@@ -153,11 +160,12 @@ void presentation(const XeenFontFormat &font,IndexedFrame b,const std::filesyste
 		XeenEventPresenter p(font);XeenPresentationRequest label;label.kind=XeenPresentationKind::SceneLabelSign;label.text="Retained underlay";
 		p.present(b,label);const auto underlay=p.frame();
 		XeenPresentationRequest request;request.kind=kind;request.response=XeenPresentationResponseRequirement::Acknowledgment;
-		request.text=kind==XeenPresentationKind::RewardReceipt?xeenRewardReceiptText(receipt,f.initial.roster):
-			"Capacity warning\nAll category tails full. Acknowledge before delivery.\n";
-		if(kind==XeenPresentationKind::RewardWarning)for(int i=0;i<8;++i)request.text +=
-			"Active member "+std::to_string(i%6)+": weapons, armor, accessories and miscellaneous tails occupied.\n";
-		p.present(underlay,request);check(p.pageCount()>1,"reward presentation not paginated");
+		request.treasure.emplace();
+        for(std::size_t i=0;i<receipt.count;++i)if(receipt.entries[i].owner)
+            request.treasure->items.push_back({f.initial.roster.at(*receipt.entries[i].owner).name,"item",false});
+        p.originalAssets(&dos_test::text(),{});
+        p.present(underlay,request);
+        check(p.pageCount()==(kind==XeenPresentationKind::RewardReceipt?receipt.delivered+1:1),"item/final or modal-warning page count");
 		const auto count=p.pageCount();
 		for(std::size_t page=0;page<count;++page){
 			check(p.pageIndex()==page,"wrong reward page");

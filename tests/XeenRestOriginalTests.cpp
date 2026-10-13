@@ -20,6 +20,11 @@ struct XeenRestTestAccess {
   };
  }
  static IndexedFrame background(const XeenEventFlow &f){return f._encounter->_rest->background;}
+ static std::string completionText(const XeenEventFlow &f) {
+  const auto &rest=*f._encounter->_rest;
+  return xeenDialogFormat(f.dosText().scalar("REST_COMPLETE"),{
+   std::string(f.dosText().scalar(rest.starving?"PARTY_IS_STARVING":"HIT_SPELL_POINTS_RESTORED")),std::to_string(rest.consumed)});
+ }
 };
 }
 namespace {
@@ -28,7 +33,13 @@ void pulse(Fixture &f){f.now+=100;f.flow->beginCycle(++f.cycle);if(const auto fr
 void finish(Fixture &f) {
  for(unsigned n=0;n<1000;++n) {
   if(XeenRestTestAccess::confirm(*f.flow)) {f.act(DialogKeyAction{'y'});continue;}
-  if(XeenRestTestAccess::complete(*f.flow)) {f.act(AcknowledgeAction{});continue;}
+  if(XeenRestTestAccess::complete(*f.flow)) {
+   const auto oracle=drawXeenErrorScroll(f.flow->frame(),f.in.font,XeenRestTestAccess::completionText(*f.flow));
+   check(oracle.pixels==f.flow->frame().pixels,"Rest completion exact DAT text/colors in window 6");
+   const auto input=f.flow->inputContext(f.flow->frame().presentation()).dialog;
+   check(input && input->key('z') && input->click(319,0) && input->rightClick(),"Rest summary ordinary-key/either-mouse parity");
+   f.act(*input->rightClick());continue;
+  }
   if(f.flow->canSave())return;
   check(!f.flow->encounter()->combat(),"Successful Rest fixture entered combat");pulse(f);
  }
@@ -100,13 +111,21 @@ void entry(Inputs &in) {
  start.journey->supplements[start.activeRosterIds[0]].inputs.might.permanent=0;
  Fixture declined(in,start);wire(declined);const auto before=XeenSaveFormat::encode(declined.snapshot());
  declined.act(RestAction{});check(XeenRestTestAccess::confirm(*declined.flow),"Original SOME_CHARS_MAY_DIE confirmation");
+ const auto draw=[&](IndexedFrame &image,const char *name,unsigned id,int x,int y){in.assets.drawDialogSprite(image,name,id,x,y);};
+ check(drawXeenConfirm(declined.flow->frame(),in.font,std::string(in.assets.uiText().scalar("SOME_CHARS_MAY_DIE")),false,draw).pixels==declined.flow->frame().pixels,
+  "Rest warning uses original DAT text, confirmation window and sprites");
  declined.act(DialogKeyAction{'n'});finish(declined);
  check(XeenSaveFormat::encode(declined.snapshot())==before,"Declined Rest preserves gameplay/time/RNG");
  auto valid=source(in,true,false,false,true);
  const auto restricted=[&](auto id){auto map=in.maps.loadGeometryMap(in.assets,id);if(id==XeenMapIdentity(28))map.geometry.flags|=0x4000;
   if(id!=XeenMapIdentity(23))for(auto &cell:map.geometry.cells)cell.flags=0xf8;return map;};
  Fixture refusal(in,valid,false,nullptr,restricted);wire(refusal);const auto refusalBefore=XeenSaveFormat::encode(refusal.snapshot());
- refusal.act(RestAction{});check(XeenRestTestAccess::refused(*refusal.flow),"Primary Rest restriction");refusal.act(AcknowledgeAction{});finish(refusal);
+ refusal.act(RestAction{});check(XeenRestTestAccess::refused(*refusal.flow),"Primary Rest restriction");
+ check(drawXeenErrorScroll(refusal.flow->frame(),in.font,std::string(in.assets.uiText().scalar("TOO_DANGEROUS_TO_REST"))).pixels==refusal.flow->frame().pixels,
+  "Rest refusal exact DAT text/window 6");
+ const auto refusalInput=refusal.flow->inputContext(refusal.flow->frame().presentation()).dialog;
+ check(refusalInput && refusalInput->key('z') && refusalInput->rightClick(),"Rest refusal generic acknowledgment");
+ refusal.act(*refusalInput->key('z'));finish(refusal);
  check(XeenSaveFormat::encode(refusal.snapshot())==refusalBefore,"Rest refusal preserves gameplay");
  const auto cellFlags=[&](auto id){auto map=in.maps.loadGeometryMap(in.assets,id);if(id!=XeenMapIdentity(23))for(auto &cell:map.geometry.cells)cell.flags=0xf8;return map;};
  Fixture allowed(in,valid,false,nullptr,cellFlags);wire(allowed);allowed.act(RestAction{});finish(allowed);
@@ -359,6 +378,8 @@ void rolloverAndDream(Inputs &in) {
  Fixture dream(in,dreamStart);wire(dream);XeenRestTestAccess::scene(*dream.flow,*dream.p.encounterContext);
  dream.act(RestAction{});unsigned beats=0,hidden=0;
  std::optional<XeenJourneyRandomState> cursor;unsigned minutes=0;std::optional<unsigned> overall;
+ const auto dreamImage=in.assets.restDreamImage();std::optional<IndexedFrame> restored;
+ check(dreamImage.pixels==in.assets.readArchiveResource("scene1.raw",XeenSceneArchive::Darkside),"Rest dream pixels are the original INTRO scene1.raw resource");
  for(unsigned n=0;n<500 && !XeenRestTestAccess::complete(*dream.flow);++n) {
   if(XeenRestTestAccess::dream(*dream.flow)) {
    ++beats;hidden+=dream.flow->inputContext(dream.flow->frame().presentation()).hideCursor;
@@ -367,8 +388,11 @@ void rolloverAndDream(Inputs &in) {
    check(dream.w.scenePresentation().overallFrame==*overall,"Dream advanced ordinary scene animation");
    check(dream.w.sessionState().journeyRandom()==cursor && dream.p.encounterContext->minutes==minutes,"Dream consumes no gameplay RNG or time");
    const auto background=XeenRestTestAccess::background(*dream.flow);
+   restored=background;
    check(background.pixels[0]==2 && minutes==40,"Dream captured pre-changeTime day background instead of redrawn night");
    const unsigned beat=XeenRestTestAccess::dream(*dream.flow)-1;
+   check(dream.flow->frame().pixels==(beat<33 || beat>=113?background.pixels:dreamImage.pixels),"Dream uses original scene1.raw and saved background");
+   check(dream.flow->inputContext(dream.flow->frame().presentation()).hideCursor==(beat>=33 && beat<113),"Dream cursor hide/restore at existing visual boundaries");
    const unsigned val=beat<33?128-4*beat:beat<66?4*(beat-33):beat<80?128:beat<113?128-4*(beat-80):4*(beat-113);
    for(unsigned n=0;n<background.palette.size();++n)
     check(dream.flow->frame().palette[n]==(((n%64)<<2)*val*2>>8),"Dream fade differs from pin's p8 formula");
@@ -376,7 +400,10 @@ void rolloverAndDream(Inputs &in) {
   }
   pulse(dream);
  }
- check(beats==146 && hidden==80,"Four original 33-step fades, two seven-tick holds and cursor restoration");finish(dream);
+ check(beats==146 && hidden==80,"Existing 146-beat dream retained; DOS timing/voice gates remain M63");
+ check(restored && !dream.flow->inputContext(dream.flow->frame().presentation()).hideCursor &&
+  std::equal(restored->pixels.begin(),restored->pixels.begin()+149*320,dream.flow->frame().pixels.begin()),"Dream completion restores gameplay scene and cursor before summary");
+ finish(dream);
  std::cout<<"Dream seed="<<chosen<<" 146 visual beats; audio waits deferred\n";
 }
 }

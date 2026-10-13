@@ -239,6 +239,16 @@ XeenItemDescription XeenItemCatalog::describe(XeenInventoryCategory category,
 	return result;
 }
 
+std::string XeenItemCatalog::foundName(XeenInventoryCategory category,const XeenItem &item) const {
+	std::string_view name;
+	switch(category) {
+	case XeenInventoryCategory::Weapons:name=at(kWeaponNames,item.id);break;
+	case XeenInventoryCategory::Armor:name=at(kArmorNames,item.id);break;
+	case XeenInventoryCategory::Accessories:name=at(kAccessoryNames,item.id);break;
+	case XeenInventoryCategory::Miscellaneous:name=at(kMiscNames,item.material);break;
+	}
+	return name.empty()?"Item not supported yet":std::string(name);
+}
 XeenItemCatalog loadXeenItemCatalogWithMaterials(
 		const XeenMaterialNameParseResult &materials) {
 	XeenItemCatalog result;

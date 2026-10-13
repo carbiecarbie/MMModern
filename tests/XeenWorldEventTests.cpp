@@ -36,8 +36,9 @@ XeenSaveSnapshot at(Inputs &in,int x,int y,XeenDirection direction=XeenDirection
  for(auto &actor:*s.journey->vertigoActors)if(actor.lifecycle==XeenActorLifecycle::Present)actor.activated=true;
  return s;
 }
-void settle(Fixture &f) {
+void settle(Fixture &f,const std::function<void()> &beforeInput={}) {
  for(unsigned n=0;n<10000 && !f.flow->canSave();++n) {
+  if(beforeInput)beforeInput();
   if(const auto combat=f.flow->encounter()->combat()) {
    if(combat->phase()==XeenCombatPhase::Defeat || combat->phase()==XeenCombatPhase::Failed ||
     combat->phase()==XeenCombatPhase::SupportStopped)throw std::runtime_error("Original route combat cannot continue: "+f.flow->encounter()->notice());
@@ -490,7 +491,15 @@ void treasure(Inputs &in) {
    if(++attempts==1)throw std::runtime_error("Recoverable generated reward composition failure");
    return XeenEventFlow::Composition{frame(),false};
   });
-  settle(f);
+  bool finalSeen=false;
+  settle(f,[&] {
+   if(!f.flow->presentationGeneration())return;
+   check(f.p.monsterTreasure->gold==oldGold && f.p.monsterTreasure->gems==oldGems,"Every Event treasure page keeps live currency private until final acknowledgment");
+   const auto state=XeenTrainingTestAccess::serviceState(*f.flow);
+   if(state.pendingPresentation->request.kind==XeenPresentationKind::RewardReceipt &&
+    f.flow->presenter().blocksGameplay() && f.flow->presenter().pageIndex()+1==f.flow->presenter().pageCount())finalSeen=true;
+  });
+  check(finalSeen,"Generated Event reward reaches a separate final acknowledgment");
   check(presentationAttempts>=2 && attempts==2 && f.f.isSet(199) && f.w.effectiveObject({28,8}).x==20 &&
    f.w.sessionState().journeyRandom()==random.continuation(),"Generated reward retry rerolled or lost world group");
   check(f.p.monsterTreasure->gold==oldGold+*gold && f.p.monsterTreasure->gems==oldGems+5,"Full packs preserve generated currency and RNG order");

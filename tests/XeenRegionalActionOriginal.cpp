@@ -157,6 +157,12 @@ void arrival(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &i
    check(h.party->monsterTreasure->pendingMask==2 && h.party->monsterTreasure->pendingGold==10 &&
     h.party->monsterTreasure->gold==gold,"Arrival prematurely credited pending gold");
    present();denied();present();denied();
+   const auto pages=h.flow->presenter().pageCount();check(pages>=2,"Arrival item receipt has a separate final acknowledgment");
+   for(std::size_t page=1;page<pages;++page) {
+    input(AcknowledgeAction{});
+    check(!h.flow->canSave() && h.party->monsterTreasure->gold==gold && h.party->monsterTreasure->pendingGold==10,
+     "Arrival item/warning acknowledgment prematurely credits currency");
+   }
    input(AcknowledgeAction{});
    check(h.flow->canSave() && h.party->monsterTreasure->pendingMask==0 &&
     h.party->monsterTreasure->pendingGold==0 && h.party->monsterTreasure->gold==gold+10,
