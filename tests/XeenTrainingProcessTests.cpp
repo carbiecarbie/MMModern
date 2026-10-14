@@ -69,7 +69,8 @@ int main(int argc,char **argv) {
             const auto restoredSave=directory/("restore"+narrow+".mmsave");
             fs::copy_file(directory/("fresh-"+narrow+".mmsave"),restoredSave);
             SetEnvironmentVariableW(L"MMODERN_M41_STAGE",stage);
-            const auto restored=child_test::launch(executable,{L"--load-game",installation.wstring(),restoredSave.wstring()},directory/("restore"+narrow+".log"));
+            // The restore replays the fresh script, so it gets the same budget (the -O0 build needs over 30 s).
+            const auto restored=child_test::launch(executable,{L"--load-game",installation.wstring(),restoredSave.wstring()},directory/("restore"+narrow+".log"),false,false,120000);
             check(restored.exit==0 && restored.output.find("RESTORE EXACT BEFORE INPUT")!=std::string::npos,"M41 full-exit/pre-input restore failed");
             check(fresh.pid!=restored.pid || fresh.created!=restored.created,"M41 process identity reused");
             if(narrow=="A")equal(directory/"fresh-B.mmsave",directory/"restoreA-B.mmsave");

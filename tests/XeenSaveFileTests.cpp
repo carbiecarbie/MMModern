@@ -234,6 +234,12 @@ void managedStorage(const fs::path &directory) {
  check(!fs::exists(repository/"MMModern"),"repository alias received a managed directory");
  const auto slots=XeenSaveFile::createSlotDirectory(install,repository,local);
  check(slots==XeenSaveFile::createSlotDirectory(install,repository,local),"managed directory key changed");
+ // A released binary's compiled-in repository root is absent on other machines.
+ const auto absentRepository=fixture/"absent-repository";
+ check(slots==XeenSaveFile::createSlotDirectory(install,absentRepository,local) &&
+  XeenSaveFile::resolve(XeenSaveFile::slotPath(slots,0),absentRepository)==XeenSaveFile::resolve(XeenSaveFile::slotPath(slots,0),repository) &&
+  !fs::exists(absentRepository),"absent repository boundary blocked the managed directory");
+ rejects([&]{XeenSaveFile::createSlotDirectory(install,absentRepository,commercial);},"Cannot save inside");
  auto named=sample();named.name="My Game ~ ";named.resources=signature;
  for(unsigned i=0;i<10;++i) {
   const auto target=XeenSaveFile::slotPath(slots,i);

@@ -103,13 +103,19 @@ std::filesystem::path XeenSaveFile::resolve(const Path &path, const Path &instal
  if ((!extended && absolute.native().rfind(L"\\\\", 0) == 0) ||
    GetDriveTypeW((extended ? absolute.native().substr(4, 3) : absolute.root_path().wstring()).c_str()) == DRIVE_REMOTE)
   throw std::runtime_error("Save path must be on a local Windows filesystem");
- const auto root = resolvedDirectory(installation).wstring();
  const Path parent = resolvedDirectory(absolute.parent_path());
  const auto target = parent.wstring();
- const auto prefix = root.back() == L'\\' ? root : root + L"\\";
- if (sameWindowsPath(target, root) ||
-   (target.size() >= prefix.size() && sameWindowsPath(target.substr(0, prefix.size()), prefix)))
-  throw std::runtime_error("Cannot save inside the commercial game installation");
+ // A protected directory that does not exist cannot contain the target; a
+ // released binary's compiled-in repository root is absent on other machines.
+ const bool rootAbsent = GetFileAttributesW(installation.c_str()) == INVALID_FILE_ATTRIBUTES &&
+  (GetLastError() == ERROR_FILE_NOT_FOUND || GetLastError() == ERROR_PATH_NOT_FOUND);
+ if (!rootAbsent) {
+  const auto root = resolvedDirectory(installation).wstring();
+  const auto prefix = root.back() == L'\\' ? root : root + L"\\";
+  if (sameWindowsPath(target, root) ||
+    (target.size() >= prefix.size() && sameWindowsPath(target.substr(0, prefix.size()), prefix)))
+   throw std::runtime_error("Cannot save inside the commercial game installation");
+ }
  const Path resolved = parent / absolute.filename();
  ordinary(resolved, true);
  return resolved;

@@ -4,87 +4,67 @@ MMModern is an open-source reimplementation of the engine used by
 Might and Magic IV: Clouds of Xeen and
 Might and Magic V: Darkside of Xeen / World of Xeen.
 
-The aim is a **faithful reimplementation**: the game should play, look and
-behave like the original, using your own copy of the original game data.
-Optional quality-of-life features may come later, always off by default.
+The goal is a faithful reimplementation. The game should play, look and behave
+like the original, using your own copy of the original game data. Optional
+quality-of-life features may come later, and they will be off by default.
 
-## Status
+## What you can play
 
-MMModern is incomplete and experimental. It is not yet a replacement for the
-original games.
+MMModern is incomplete and experimental. Version 0.1.0 is the first public
+release, and it does not replace the original games yet.
 
-A new Clouds game starts as in the original, in Vertigo, and the playable area
-is the whole town and the connected mainland of map 23. You can fight, run, bash and
-unlock grates and doors, cast learned spells, finish Myra's quest, rest with
-food and recovery, buy food at the Tavern, deposit or withdraw gold and gems
-at the Bank, complete Joe's proof and Gunther's reward, search crates and
-trees, learn Cartography and Pathfinder, map explored cells, buy spells and cast
-the original Cast dialog's supported spells, use charged items, and use the Ironworks (Buy, Sell, Identify and Fix), Training and the
-Temple. Progress can be saved and continued exactly. The original main screen, character sheet, Items dialog and service screens work with mouse or
-keyboard, and the game starts on the original title screen with New, Load and
-the in-game Save, Save As, Load and Quit. The party can strafe, exchange
-members and use Quick Reference, Info and Quick Fight. Other areas, most
-spells and items, audio and Darkside gameplay are not available yet.
+A new Clouds game starts in Vertigo, as in the original. You can play the
+whole town and the F3 area around it.
 
-[Project status](docs/project-status.md) describes the current state and gaps,
-[project history](docs/project-history.md) lists completed milestones and the
-[roadmap](docs/roadmap.md) sets direction.
+In combat you can fight and run. Around town you can bash or unlock grates and
+doors, search crates and trees, and rest, which uses food and restores the
+party. Myra's quest, Joe's proof and Gunther's reward can all be finished. The
+Tavern sells food, the Bank holds gold and gems, the Ironworks buys, sells,
+identifies and fixes items, and Training and the Temple work too. Teachers
+teach Cartography and Pathfinder, and the map fills in as you explore. You can
+buy spells, cast the supported ones from the original Cast dialog and use
+charged items.
 
-The [game rules reference](docs/rules/README.md) documents mechanics, formulas,
-original-program evidence and unresolved differences from the pinned reference.
+The original title screen, main screen, character sheet, Items dialog and
+service screens all work with mouse or keyboard, including strafing, Exchange,
+Quick Reference, Info and Quick Fight. Saved games continue exactly where you
+left off. Everything else is listed under [What is missing](#what-is-missing).
 
-## Requirements and original game data
+## Download and play
 
-A legally obtained English World of Xeen two-CD installation is required. No commercial game
-data is included, copied or modified. Reading Darkside metadata does not enable Darkside
-gameplay.
+You need Windows 10 or 11 (64-bit) and a legally obtained English
+World of Xeen CD edition, as sold by GOG ("Might and Magic 4-5"). MMModern
+includes no game data and never copies or modifies yours.
 
-At a GOG root, MMModern reads the cue-located ISO archives and the installed
-`WORLD/XEEN.DAT`, ahead of any co-located floppy archives. One complete disc
-suffices. A pre-existing CD `GAME` folder (or its parent) is also accepted with
-all three archives and an uncompressed English DOS UI module: supply
-`--ui-data <path-to-XEEN.DAT>` or an unambiguous `WORLD` sibling. A bare `GAME`
-copy has no UI text. Conflicting or ambiguous sources and packed DATs fail clearly.
+1. Download `MMModern-0.1.0-windows-x64.zip` from the
+   [GitHub releases](https://github.com/carbiecarbie/MMModern/releases) page.
+2. Unpack it into a folder of your own, not inside the game folder.
+3. Open `MMModern.bat` in a text editor and set `GAME` to your GOG folder, the
+   one that contains `WORLD\XEEN.DAT` (for example
+   `C:\GOG Games\Might and Magic 4-5`).
+4. Double-click `MMModern.bat`. You can also run
+   `mmodern.exe "C:\GOG Games\Might and Magic 4-5"` from a command prompt.
 
-The validated development setup is Windows x86-64 with MSYS2 UCRT64, CMake, SDL2,
-zlib and a separate ScummVM source/build tree. MMModern reuses selected ScummVM
-Xeen and support components; it does not run ScummVM's engine or SDL backend.
-Build and dependency setup, including the pinned ScummVM revision, is in
-[docs/dependencies.md](docs/dependencies.md).
+The game opens on the original title screen. New asks for a slot, a name and
+the difficulty, and Load continues a saved slot. The
+[status page](https://github.com/carbiecarbie/MMModern/blob/main/docs/project-status.md#vertigo)
+lists Vertigo's services and where to find them. If you leave town, you can
+walk back in from `(10,13)` in F3 by facing North and pressing Space.
 
-## Running
+A console window stays open next to the game and shows diagnostics. If the game
+cannot start, the console says why and waits for a key.
 
-Run from a terminal to see diagnostics, and quote paths containing spaces:
-`--ui-data <path>` can be supplied with every entry mode.
+## Saving
 
-```text
-mmodern <game-directory>
-mmodern --new-game <game-directory> [--difficulty adventurer|warrior] [--save-file <path.mmsave>]
-mmodern --journey-region [--combat-seed <nonzero-u32>] <game-directory> [--save-file <path.mmsave>]
-mmodern --load-game <game-directory> <path.mmsave>
-mmodern --render-map <game-directory> [<map> <x> <y> <north|east|south|west>]
-mmodern --inspect-map|--inspect-party|--inspect-events <game-directory> ...
-```
+Press Tab, or click the gem, to open the control panel with Save, Save As, Load
+and Quit. There are ten slots, stored in
+`%LOCALAPPDATA%\MMModern\Saves\<game data id>\slot-0.mmsave` to `slot-9.mmsave`.
 
-- `mmodern <game-directory>` opens the original title screen. New asks for a
-  slot, a name and the difficulty; Load continues a slot; Tab or the gem opens
-  the control panel in the game. Slots are kept under Local AppData.
-- `--new-game` is a developer shortcut that starts directly in Vertigo
-  (`--difficulty`, default Adventurer). Without `--save-file`, F9 writes
-  nothing.
-- `--journey-region` is a test mode with a prepared party at Clouds map 23
-  `(9,11)`. `--combat-seed` fixes combat randomness.
-- `--load-game` continues a save file and keeps using it for F9 (developer).
-- `--render-map` explores a map for inspection. It cannot save.
-- `--inspect-*` are developer tools.
-
-Save outside all original source directories, including separately supplied
-disc-image and DAT directories. Relative paths use the working directory.
-There is one current save format; saves from older builds are rejected with a
-clear message (and may be overwritten by F9), and saves from newer builds are
-protected. Saves need the same original archives and are not compatible with the
-original games or ScummVM.
-Floppy-bound saves are rejected before restoration with a data-edition diagnostic.
+During 0.x, each release reads only its own save format. Saves from an older
+release show as "Unavailable" and cannot be loaded. Choosing one tells you why,
+and New can overwrite that slot after you confirm. Compatibility will be
+reconsidered for 1.0. A save needs the same original game data it was made
+with, and it does not work with the original games or ScummVM.
 
 ## Controls
 
@@ -102,7 +82,7 @@ Floppy-bound saves are rejected before restoration with a data-edition diagnosti
 | 1-9 | Select an inventory or stock slot; 1-3 pick a combat target |
 | . | Wait |
 | S | Shoot in exploration |
-| R | Rest in exploration; Run in mainland combat |
+| R | Rest in exploration; Run in combat outdoors |
 | B | Bash in exploration; Block in combat |
 | C | Learned spells |
 | I | Info; Items from the character sheet |
@@ -122,16 +102,95 @@ Floppy-bound saves are rejected before restoration with a data-edition diagnosti
 | F9 | Save to the developer `--save-file` target |
 | Escape | Back, cancel or acknowledge; quit when nothing is open |
 
-In Vertigo, enter from mainland `(10,13)` facing North with Space. The
-[status](docs/project-status.md#vertigo) page lists the services and where they are.
-
 Main-screen buttons and portraits also work by mouse. Combat portraits show the
 remaining members after Run; click a portrait or press its corresponding F key
 to view that member. The acting member and selected enemy use the original icons.
-WASD movement and F Shoot shortcuts have been removed. In combat the party can
-turn; moving forward or back shows a "not supported yet" notice.
 
-## Tests
+## What is missing
+
+- Areas: only Vertigo and F3 are playable, and Run does not work indoors.
+- Sound: there is no audio. Where the CD would play speech, a short notice
+  appears. Speech, shop voices, the dream and the death laugh still take their
+  original time, in silence.
+- The intros and Mr Wizard's help are not available.
+- Services: there is no Inn or recruiting. Temple Donation and Uncurse, and
+  Tavern Drink, Tip, Rumors and Sign In, say "not supported yet". The Temple
+  heals only the conditions modeled so far.
+- Magic and items: most spells and most monster abilities are missing. Light,
+  Sleep, Insect Spray, Protection from Elements, Sparks, Toxic Cloud and
+  Suppress Poison can be bought but say "not supported yet" when cast. Item
+  powers that rely on missing spells say the same.
+- World: terrain hazards on arrival (space, lava, sky, cloud, desert), the
+  fountains in F3, the magic mirror and locked-chest locks and traps are not
+  implemented.
+- Combat: you cannot move, equip items or use the Use button during combat.
+  The original allows equipping and Use.
+- Skills: only Cartography and the skills existing rules use (Thievery,
+  Navigator, Bodybuilder and others that affect HP or SP) do anything.
+  Swimming, Mountaineer and the rest are recorded but have no effect yet.
+- Darkside gameplay is not supported.
+
+The [project status](https://github.com/carbiecarbie/MMModern/blob/main/docs/project-status.md)
+page has the full current state, the
+[project history](https://github.com/carbiecarbie/MMModern/blob/main/docs/project-history.md)
+lists completed milestones and the
+[roadmap](https://github.com/carbiecarbie/MMModern/blob/main/docs/roadmap.md)
+shows what comes next. The
+[game rules reference](https://github.com/carbiecarbie/MMModern/blob/main/docs/rules/README.md)
+documents mechanics, formulas, evidence from the original program and open
+differences from the ScummVM reference.
+
+## For developers
+
+### Game data sources
+
+At a GOG root, MMModern reads the cue-located ISO archives and the installed
+`WORLD/XEEN.DAT`, ahead of any co-located floppy archives. One complete disc
+suffices. A pre-existing CD `GAME` folder (or its parent) is also accepted with
+all three archives and an uncompressed English DOS UI module: supply
+`--ui-data <path-to-XEEN.DAT>` or an unambiguous `WORLD` sibling. A bare `GAME`
+copy has no UI text. Conflicting or ambiguous sources and packed DATs fail clearly.
+Reading Darkside metadata does not enable Darkside gameplay.
+
+### Building
+
+The validated development setup is Windows x86-64 with MSYS2 UCRT64, CMake, SDL2,
+zlib and a separate ScummVM source/build tree. MMModern reuses selected ScummVM
+Xeen and support components; it does not run ScummVM's engine or SDL backend.
+Build and dependency setup, including the pinned ScummVM revision and release
+packaging, is in [docs/dependencies.md](docs/dependencies.md).
+
+### Entry modes
+
+Run from a terminal to see diagnostics, and quote paths containing spaces:
+`--ui-data <path>` can be supplied with every entry mode.
+
+```text
+mmodern <game-directory>
+mmodern --new-game <game-directory> [--difficulty adventurer|warrior] [--save-file <path.mmsave>]
+mmodern --journey-region [--combat-seed <nonzero-u32>] <game-directory> [--save-file <path.mmsave>]
+mmodern --load-game <game-directory> <path.mmsave>
+mmodern --render-map <game-directory> [<map> <x> <y> <north|east|south|west>]
+mmodern --inspect-map|--inspect-party|--inspect-events <game-directory> ...
+```
+
+- `mmodern <game-directory>` opens the original title screen (normal play).
+- `--new-game` is a developer shortcut that starts directly in Vertigo
+  (`--difficulty`, default Adventurer). Without `--save-file`, F9 writes
+  nothing.
+- `--journey-region` is a test mode with a prepared party at Clouds map 23
+  `(9,11)`. `--combat-seed` fixes combat randomness.
+- `--load-game` continues a save file and keeps using it for F9 (developer).
+- `--render-map` explores a map for inspection. It cannot save.
+- `--inspect-*` are developer tools.
+
+Developer save files must be outside all original source directories, including
+separately supplied disc-image and DAT directories. Relative paths use the
+working directory. Saves from older builds are rejected with a clear message
+(and may be overwritten by F9), and saves from newer builds are protected.
+Floppy-bound saves are rejected before restoration with a data-edition diagnostic.
+
+### Tests
 
 Every CTest entry is labelled `fast` or `process`. `process` tests run original-data
 scenarios in child processes and take much longer; they need the original installation.
@@ -146,7 +205,7 @@ Tests run on the optimized `build-rel` build (assertions kept); its setup is in
 Configure `MMODERN_XEEN_DATA_DIR` explicitly for required CD validation and,
 when needed, `MMODERN_XEEN_UI_DATA` for its installed UI module.
 
-## Developer test saves
+### Developer test saves
 
 Build the opt-in tool with `cmake --build build-m44 --target mmodern_test_save`.
 It starts from the normal fresh Regional Journey and writes a validated current
@@ -166,12 +225,12 @@ and the game installation. The tool refuses existing files. Generated `.mmsave`
 files are local play-test artifacts; never commit them. The game and save format
 are unchanged.
 
-## Documentation
+### Documentation
 
 - [Project status](docs/project-status.md): what can be played, architecture, gaps.
 - [Project history](docs/project-history.md): completed milestones.
 - [Roadmap](docs/roadmap.md): next milestones and direction.
-- [Dependencies](docs/dependencies.md): toolchain and ScummVM setup.
+- [Dependencies](docs/dependencies.md): toolchain, ScummVM setup and release packaging.
 - [Agent instructions](AGENTS.md): development, documentation and Git rules.
 
 ## Disclaimer and license
@@ -182,4 +241,6 @@ belong to their respective copyright holders.
 
 MMModern is distributed under the GNU General Public License version 3 or, at
 your option, any later version (GPL-3.0-or-later). Reused ScummVM code is copyright
-its respective contributors and licensed under GPLv3 or later.
+its respective contributors and licensed under GPLv3 or later. The release zip's
+`THIRD-PARTY.txt` lists the bundled libraries, their licenses and the
+corresponding source.

@@ -77,11 +77,13 @@ several apply, read all of them.
   menus except as a temporary stopgap.
 - Never modify or include original commercial Might and Magic game data.
 
-## Save compatibility (pre-release policy)
+## Save compatibility (0.x policy)
 
-Until a public release is declared, there is **one current save format**.
-- Saves from older builds may be rejected with a clear message; do not keep
-  legacy readers, frozen per-milestone behavior or per-milestone
+Throughout the 0.x releases there is **one current save format** (approved by
+the maintainer, 2026-10-14; revisit compatibility at 1.0). The README and each
+release's notes state this.
+- Saves from older builds or releases may be rejected with a clear message; do
+  not keep legacy readers, frozen per-milestone behavior or per-milestone
   content/contract numbers.
 - The envelope version `kJourneyVersion` and the Journey
   `kJourneySchema`/`kJourneyContent` pair (`src/formats/xeen/XeenSaveFormat.h`)
