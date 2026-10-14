@@ -273,3 +273,10 @@ per Event run, as in DOS, original item names in equip refusals and a plain
 window title. The first public releases followed: v0.1.0, a Windows zip with
 a player README and the 0.x save policy, and v0.1.1, whose launcher finds and
 remembers the GOG folder. [Plan](milestone-64-plan.md).
+
+**M65 - Coverage census** (`1248d83`). A read-only tool counts every mechanic
+the World of Xeen data uses and asks the engine whether it is supported, with
+a real game context; the generated coverage report lists totals, the largest
+gaps and per-map readiness, and a calibration test pins Vertigo to its known
+gaps. It found a real gap: equipped material or enchanted items are refused
+before combat and Rest. [Plan](milestone-65-plan.md).

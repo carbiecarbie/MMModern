@@ -1,61 +1,47 @@
 # Milestone 65 - Coverage census
 
-**Tier B. Status: approved; implementation not started.**
+**Tier B. Status: completed and accepted.** Plan `025079a`; implementation
+`1248d83`. The maintainer accepted the report on 2026-10-14.
 
-## Goal
+## Goal and final scope
 
-Measure, from the original data, every mechanic the game uses and whether
-MMModern supports it, so the next arc can finish the game's systems as a closed
-list ordered by impact, instead of discovering gaps map by map in play. The
-census reads the World of Xeen CD data at a GOG root (Clouds and Darkside,
-reported separately) and changes no gameplay, save format or timing.
+Measure, from the original data, every mechanic World of Xeen uses and whether
+MMModern supports it, so the next arc finishes the game's systems as a closed
+list ordered by impact instead of discovering gaps map by map in play.
 
-## Tasks
+- `mmodern_census` reads every Clouds and Darkside map, monster, item and
+  spell resource (read-only) and writes [the coverage report](coverage.md):
+  totals, the largest gaps first, every mechanic with its uses, maps and
+  support status, and per-map readiness. Screens are the one manual checklist,
+  taken from the pinned ScummVM dialog set.
+- Support status comes from the engine's own checks, probed with a real New
+  Game party, the loaded map and actors, the Journey RNG and the real
+  Event-to-Service handoff. "Partial" means a genuine context dependency;
+  behavior with no engine check stays "unclassified", never presumed supported.
+- A guard test fails when the report is stale. A calibration test pins Vertigo
+  to its known gaps (mirror, password doors, Tavern Drink/Tip/Rumors/Sign In,
+  Temple Donation/Uncurse, audio-only partials and four unreferenced
+  subroutines) and checks key F3 mechanics.
 
-1. **Census tool.** A developer tool (a new `--inspect-*` mode or a small
-   separate target, implementer's choice) that loads every map, monster, item
-   and spell resource and counts, for each mechanic: how many times the game
-   uses it, on which maps, and its support status. Support status comes from
-   the engine's own decoders and support checks wherever they exist, never from
-   a second hand-written list. Where support depends on runtime context, report
-   it as "partial" with the reason the engine gives.
-2. **Dimensions.**
-   - Event scripts: every instruction by opcode and by the operand that changes
-     its meaning (TakeOrGive and If modes, NPC and Display modes, town service
-     actions, teleports, spawns and similar).
-   - Monsters: attack types, special attacks, spell casting and other abilities,
-     with the maps whose encounter tables use each monster.
-   - Spells: all of them, with who uses each (party, monsters, items, Events).
-   - Items: Misc powers and enchantments, with where they can be obtained when
-     the data says so.
-   - Map features: terrain and surface effects, wall items and objects with
-     behavior, and town services per town.
-   - Screens: the original dialogs and buttons, as a checklist taken from the
-     pinned ScummVM dialog set, since they are not enumerable from the data.
-3. **Per-map readiness.** For each map, the number of unsupported and partial
-   mechanics it uses, so "which areas would already play correctly" becomes a
-   list.
-4. **Report.** A generated `docs/coverage.md` with totals first ("N of M event
-   operations supported"), then each dimension sorted by how many places an
-   unsupported mechanic blocks. Register it in `docs/AGENTS.md`; it is
-   regenerated whenever support changes.
-5. **Guard test.** A CTest that regenerates the census from the original data
-   and fails when `docs/coverage.md` is stale, so every milestone that adds
-   support updates the numbers in the same change.
+## Decisions
 
-## Boundaries
+1. **Calibration against known play.** The first version probed with
+   disposable owners and reported working Vertigo mechanics as partial; the
+   review required a real context and the Vertigo gate before acceptance.
+2. **Equipment in combat and Rest** is its own dimension: equipping uses the
+   general equipment rules, while the old Journey validation, which refuses
+   equipped material or enchanted items before combat, Shoot and Rest, is
+   reported as a real gap.
 
-- Read-only over original data; nothing original is copied into the
-  repository beyond counts, identifiers and names already shown in game text.
-- If exposing an engine support check needs a production refactor, keep
-  behavior identical and run the complete `build-rel` suite; the M44 audit must
-  show zero differences.
-- No implementation of missing mechanics in this milestone.
+## Results
 
-## Acceptance
+- Clouds: 128 map resources and 15,919 Event instructions, 9,104 of them
+  supported. Largest Clouds gaps: flying monsters (32 maps), Rest on surfaces
+  10 and 15, `MoveWallObj`, `MakeNothingHere`, mirrors, password doors,
+  `JumpRnd`, 65 of 76 spells and the equipment validation.
+- Full CTest 195/195 on `build-rel`; M44 audit zero differences; the one
+  production change shares the existing unsupported-service messages.
 
-- Tests for the census on small synthetic inputs plus the original-data guard.
-- The maintainer reviews `docs/coverage.md` and the per-map readiness list.
-- Closure proposes the next arc in [the roadmap](roadmap.md): systems ordered
-  by the census (spells, combat Equip/Use, missing screens and the rest), with
-  the test-suite cleanup placed where the maintainer chooses.
+## Next
+
+The test-suite cleanup (M66), then a systems arc ordered by the census.

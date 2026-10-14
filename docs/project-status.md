@@ -1,7 +1,9 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M64 is the latest completed
-and accepted milestone** ([plan](milestone-64-plan.md)): it fixed the last
+This describes what can be played and done now. **M65 is the latest completed
+and accepted milestone** ([plan](milestone-65-plan.md)): a census of every
+mechanic the original data uses, with its support status, is kept in
+[the coverage report](coverage.md). M64 ([plan](milestone-64-plan.md)) fixed the last
 play-through findings in Vertigo and published the first public releases,
 [v0.1.0 and v0.1.1](https://github.com/carbiecarbie/MMModern/releases), a
 Windows zip whose launcher finds the GOG installation. M63
