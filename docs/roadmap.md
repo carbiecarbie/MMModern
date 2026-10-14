@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M63 is the latest completed and accepted milestone.**
+**M64 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -30,8 +30,9 @@ skills and mapping (teachers, Cartography, automap and Map). M59 completed city
 searches, display cases and jail, the well, Vern's membership and Guild entry,
 and M60 the original Cast dialog, Guild spells and eight new spell effects.
 M61 completed the Ironworks item services and item Use, M62 the original
-screens and shopkeeper animation, and M63 the original clock, movement pace
-and timed sequences.
+screens and shopkeeper animation, M63 the original clock, movement pace
+and timed sequences, and M64 the last Vertigo fixes and the first public
+releases.
 
 ## Next milestones: closing Vertigo for a first public release
 
@@ -79,10 +80,12 @@ still needs its own plan and the maintainer's start.
    steps a second with the approved no-phantom-steps deviation, and the timed
    NPC, shop, treasure, sparkle, Shoot, dream, title and death sequences. The
    maintainer declined an opt-in faster movement option (2026-10-14).
-10. **Closure and release** ([M64](milestone-64-plan.md), approved): fixes from
-   the maintainer's full Vertigo play-through, then the release work (Windows
-   binary, how to point at the GOG data, licence, an honest list of what is
-   missing).
+10. **Closure and release** (Tier B): completed and accepted in
+   [M64](milestone-64-plan.md). Play-through fixes, then the first public
+   releases, [v0.1.0 and v0.1.1](https://github.com/carbiecarbie/MMModern/releases).
+
+This arc is complete. The next direction is not chosen yet; it starts from the
+list below and a deferred cleanup of the slow test suite.
 
 **Left for after the release:** the mainland's remaining content (fountains,
 bottles, outpost, statues) and other areas, character creation and the Inn,

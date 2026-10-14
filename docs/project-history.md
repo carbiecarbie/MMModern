@@ -266,3 +266,10 @@ voices, treasure, sparkles, Shoot, the dream, the title and party death follow
 the original sequences and timing; death returns to the title instead of
 DEFEAT. Myra's original speaking draws changed the Mainland M44 digest
 (approved). [Plan](milestone-63-plan.md).
+
+**M64 - Vertigo closure and first public release** (`c080eb1`, `080b05f`,
+`5545471`). The maintainer's full play-through fixes: one sparkle per member
+per Event run, as in DOS, original item names in equip refusals and a plain
+window title. The first public releases followed: v0.1.0, a Windows zip with
+a player README and the 0.x save policy, and v0.1.1, whose launcher finds and
+remembers the GOG folder. [Plan](milestone-64-plan.md).

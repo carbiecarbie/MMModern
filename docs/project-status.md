@@ -1,10 +1,14 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M63 is the latest completed
-and accepted milestone** ([plan](milestone-63-plan.md)): the game runs on the
-original clock, the party walks about nine steps per second as in DOS, and
-NPC speech, shopkeepers, treasure, sparkles, Shoot, the dream, the title and
-party death follow the original sequences and timing. M62
+This describes what can be played and done now. **M64 is the latest completed
+and accepted milestone** ([plan](milestone-64-plan.md)): it fixed the last
+play-through findings in Vertigo and published the first public releases,
+[v0.1.0 and v0.1.1](https://github.com/carbiecarbie/MMModern/releases), a
+Windows zip whose launcher finds the GOG installation. M63
+([plan](milestone-63-plan.md)) put the game on the original clock: the party
+walks about nine steps per second as in DOS, and NPC speech, shopkeepers,
+treasure, sparkles, Shoot, the dream, the title and party death follow the
+original sequences and timing. M62
 ([plan](milestone-62-plan.md)) gave Event, NPC, WhoWill, combat-panel and
 treasure screens the original presentation and animated the six shopkeepers. M61
 ([plan](milestone-61-plan.md)) made the Ironworks buy,
