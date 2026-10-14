@@ -1,4 +1,5 @@
 #include "XeenTestInstallation.h"
+#include "formats/xeen/XeenVocDuration.h"
 #include "XeenTrainingTestSupport.h"
 #include "games/xeen/XeenJumpRules.h"
 #include "games/xeen/XeenEventTrigger.h"
@@ -77,7 +78,7 @@ void blockedProjectiles(Inputs &in) {
 void eyeExpiry(Inputs &in) {
  for(bool dawn:{false,true}) {
   auto s=source(in,75,true);if(dawn){s.journey->context->minutes=299;s.journey->context->newDay=true;s.journey->context->rested=true;}
-  Fixture f(in,s);f.flow->loadRestDream=[&]{return in.assets.restDreamImage();};begin(f);quiet(f);
+  Fixture f(in,s);f.flow->loadRestDream=[&]{return in.assets.restDreamImage();};f.flow->loadSampleDuration=[&](const char *name,XeenSceneArchive archive){return xeenVocDurationNanoseconds(in.assets.readArchiveResource(name,archive));};begin(f);quiet(f);
   if(!dawn) {check(f.p.encounterContext->effects[2]==1,"Eye missing before Rest");f.act(RestAction{});f.act(DialogKeyAction{'y'});quiet(f);}
   check(f.p.encounterContext->effects[2]==0 && f.w.sessionState().exploredTiles().empty(),"resetTemps retained Eye or wrote reveal bits");
  }

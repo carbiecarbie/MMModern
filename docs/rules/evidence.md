@@ -115,9 +115,45 @@ Scripts, decoded frames/logs, CSV measurements, `clock-measurements.json` and
 The superseded silent captures and their measurements remain in the adjacent
 `m63-calibration/` directory for provenance.
 
-Death and NPC recordings require separate Part B analysis. Their shared clock
-must support independent two-/three-tick waits and sampled sound-active intervals;
-death fire has no proved fixed tick hold.
+Part B re-extracted both recordings with exact frame PTS and reproduced these
+measurements. The thirteen title phases span successive cycles of about
+2.867/2.850 s. The first idle phase follows the acquired final fade level;
+only subsequent phase changes wait four ticks.
+
+## Death and CD speech captures (2026-10-13)
+
+**DOS play + DOS static:** `Morte.mkv` and `NPC falando.mkv` use the same
+1920x1080, 60 fps H.264 / stereo 48 kHz AAC capture settings. The initially
+paused death recording shows 50,000 cycles, but its window at 3.000 s shows
+80,000; the maintainer confirms 80,000 during play. The NPC window also shows
+80,000. FFmpeg decoded all 1,221 death and 1,443 NPC frames outside the repo.
+
+| Observation | Exact video PTS / measurement | Established boundary |
+| --- | --- | --- |
+| Death fire | First visible fire 11.300 s; bare final scene 11.550 s | About 250 ms, consistent with eighteen retrace publications near 70 Hz; capture cannot resolve every phase. No one-tick-per-frame hold. |
+| Death laugh | Original sample template matches audio at 11.772792..14.028556 s | 33,173 samples at `1000000/68` Hz: 2.255764 s. Output displacement is not an extra emulated tail. |
+| Death return | First closing hands 13.950 s; closure about 15.217 s, fade through about 15.617 s; title usable around 15.800 s | Return is the World of Xeen idle title. It is not the load selector. |
+| Gunther CD cue | Vertigo `(14,5,West)`, Event line 5, script offset `0x61` (CD/XEEN offset `0xfd97`), track 19, encoded 370..2161 | Carrier `xeen19.ogg`, requested range 3.600000..21.813333 s; `(end-start+25)/75 = 1366/75 = 18.213333 s`. |
+| Gunther face boundary | Complete dialog 1.817 s; first observed nonzero face 2.300 s; last nonzero 20.117 s; permanently idle from 20.267 s | Four disjoint carrier windows identify track/cue. Requested audio output ends about 20.231833 s, between the last busy and first idle face. Speech energy ending earlier does not establish CD idle. |
+
+Gunther's waveform alignment puts requested output start about 2.018500 s,
+approximately 201.5 ms after the complete dialog. Driver, mixer, capture and
+publication latency cannot be isolated from this recording. **Maintainer
+decision, 2026-10-13:** model exactly the DOS requested duration from the
+original playback call; add no guessed startup delay and require no instrumented
+capture. The call is before the first three-tick poll (`0x25ac7..0x25aee`,
+`0x25b8f..0x25bad`), not after a preliminary three-tick delay.
+
+Death scroll passes roll-up=1/fade=0 at `0x0b38c..0x0b391`, publishes hands
+22..1 with one-tick waits (`0x0aec3..0x0afd2`), and polls input to close early
+(`0x0afbd..0x0afc4`). Its title caller then fades out with step 4
+(`0x0bdd6..0x0bde4`). Fire/laugh and dream have no local Escape skip.
+
+Capture SHA-256: death
+`3b5daa94599954112419c6d6c376346e8c176275bb4b430576b4c7ef23090ee5`;
+NPC `3d3a2e8e671bffd9b73b82b3921385cee8c34be870fc5f72233098bb73ada7fd`.
+Frames, exact PTS, audio correlations and scripts remain under
+`C:/Users/carbo/.codex/visualizations/2026/10/13/01a135ee-f0f6-78c2-a1fa-49986cff774e/m63-part-b/`.
 
 ## Navigation typematic evidence (2026-10-13)
 
@@ -281,9 +317,19 @@ Ghidra's inferred switch annotations. These are static findings, not DOSBox play
   survives. This finding does not establish arbitrary Misc hole/move behavior.
 
 Special weapon ID exactly 34 has a separate full-pack exception (`0x24327`);
-the pin tests at least 34. Quest presentation also has separate branches. These
-are outside current ordinary reward content and Part D's production correction.
-No overflow storage or extra random draw is introduced.
+the pin tests at least 34. That remains outside ordinary reward content and
+Part D's correction. No overflow storage or extra random draw is introduced.
+
+**M63 Part B, DOS static:** item transfer precedes the blank one-tick hold
+(`0x247a4..0x247ab`), sorting/found text precedes the ten-tick hold
+(`0x247ed..0x247f4`), and a separate final input precedes currency
+(`0x24830..0x24884`). Quest counts are already granted before their common
+treasure display. The raw-ID name lookup at `0x245f8..0x24610` uses the shared
+far-pointer table base `0x4fc14`; IDs 82..116 occupy `[0x4fd5c,0x4fde8)`.
+All thirty-five names' pointers, terminators and segment `0x481d` were checked
+read-only against the same identified DAT; the star branch is `0x2476e`.
+Derived bounds/identity are retained in the external Part B
+`quest-name-metadata.json`; original names remain loaded from the installation.
 
 ## Other playable-rules confirmations
 
@@ -326,7 +372,7 @@ replacements for the control-flow interpretation above.
 | Combat | Establish remaining enchanted multi-attack arithmetic and Eradicate equipment-frame behavior. |
 | Damage and targeting | Confirm ranged continuation, elemental multi-attack arithmetic and targeting distributions for every party size. |
 | Items | Trace all other item-prompt refunds; Recharge, Enchant, Item to Gold, cursed refusals and high-tier generation. |
-| Treasure | Extend ordinary delivery evidence to special sword/quest branches before admitting them. |
+| Treasure | Extend delivery evidence to the special sword and other editions' quest branches; the Clouds quest display/count boundary is established above. |
 | Magic | Establish Resurrection's actual recovery, Holy Bonus's combat contribution, control-spell duration, Poison Volley arithmetic and high-tier overflow. |
 | Travel | Settle Town Portal item behavior after its combat notice; complete Beacon, Teleport, Etherealize and terrain-arrival paths. |
 | Time | Verify remaining script-mode dawn behavior and uncalibrated condition-byte edges. Current MMModern wrapping/saturation is not literal equivalence with the pin's live integer counters; see the time chapter. |
@@ -336,3 +382,21 @@ These are evidence gaps, not instructions to broaden an active milestone.
 Normal DOS play or calibrated static analysis should settle reachable disputes;
 only the condition-counter fallback explicitly authorized in
 [AGENTS.md](../../AGENTS.md) bypasses an otherwise unverifiable case.
+
+### NPC CD invocation and window lifetime
+
+**DOS static, 2026-10-13.** The invocation-local playback guard is initialized
+at `0x256ec`, tested/set at `0x25ae8..0x25af3`; page and input retries retain it.
+Mode 2 plays at `0x25aa8` and bypasses stop, while ordinary dismissal stops at
+`0x25c94`. The all-zero request returns without changing playback at
+`0x3da98..0x3daa7`. WhoWill retains window 11 (`0x251a8..0x251bf`); Event
+cleanup closes all windows (`0x28e92`, `0x0dd80`) without stopping CD.
+
+The original cue operands are audio globals, retained across normal play/stop
+and same-disc Event boundaries; disc initialization clears them (`0x3d7fa`,
+`0x3d800`, `0x3d806`). The installed maps 28 and 23 contain 29 NPC records,
+each with an immediately preceding same-context opcode 60, including all three
+mode-2 offers. This inventory establishes the normal supported paths, not every
+possible branch target or future map. Audio intervals and visual continuations
+are transient; it does not establish a new durable save field. The read-only
+follow-up and record metadata remain in the external capture work directory.

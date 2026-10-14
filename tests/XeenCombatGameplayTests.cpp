@@ -5,6 +5,17 @@
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 using namespace regional_gameplay_test;
+
+void syntheticDeathPresentation(XeenGameplayServices &services) {
+ const auto configure=services.configureFlow;
+ services.configureFlow=[configure](auto &flow,const auto &camera) {
+  configure(flow,camera);
+  // These controls observe combat publication; original death art/sample
+  // composition and its return target are covered by xeen_death_original.
+  flow.drawDialogSprite=[](auto &,const char *,unsigned,int,int){};
+  flow.loadSampleDuration=[](const char *,XeenSceneArchive){return std::uint64_t{1000000000};};
+ };
+}
 template<class Handler,class Idle>
 void drawTick(Harness &h,const Handler &handler,const Idle &idle) {
  h.present(handler);h.now+=110;handler.beginCycle(++h.cycle);
@@ -84,14 +95,17 @@ void appearance() {
   check(h.result().attackOutcome==XeenCombatAttackOutcome::Miss,"seeded miss control");
   check(h.observedAppearance.kind==XeenMonsterSpriteKind::Normal,"miss created hit effect");
   h.press(handler,InteractionAction{});drawTick(h,handler,idle);frame(11);
+  check(h.world->sessionState().actors()[5].hp==20,"pre-HP hit frame published injury early");
+  rebuild();drawTick(h,handler,idle);frame(11);
   check(h.world->sessionState().actors()[5].hp==12,"partial live HP control");
-  rebuild();
+  rebuild();drawTick(h,handler,idle);frame(11);
   const auto revision=h.result().revision,rng=h.randomPosition();
   // Same-time and backward observations do not advance or rearm.
   const auto deadline=h.flow->encounter()->cosmeticDeadline();
   idle();h.now-=1;idle();h.now+=1;frame(11);
   check(h.flow->encounter()->cosmeticDeadline()==deadline,"obsolete cosmetic clock");
-  for(unsigned i=0;i<5;++i){drawTick(h,handler,idle);frame(i==4?0:11);}
+  // Two acquired hit draws already advanced the five-draw hit delay.
+  for(unsigned i=0;i<3;++i){drawTick(h,handler,idle);frame(i==2?0:11);}
   check(h.result().revision==revision && h.randomPosition()==rng,"cosmetics ran gameplay");
   h.now+=10000;drawTick(h,handler,idle);frame(1);
   check(h.flow->encounter()->cosmeticDeadline()==PresentationClock::afterMilliseconds(h.now,2),"no cosmetic backlog");
@@ -108,16 +122,20 @@ void criticalPresentation() {
   tape.push_back({1,20,20});tape.push_back({1,6,6});tape.push_back({1,6,6});tape.push_back({1,4,4});
   if(round!=1){tape.push_back({1,6,6});tape.push_back({1,6,6});}
  }
- h.random.emplace(tape);auto s=h.services();unsigned enemies=0;
+ h.random.emplace(tape);auto s=h.services();syntheticDeathPresentation(s);unsigned enemies=0,poses=0;
  s.show=[&](const IndexedFrame &,const auto &handler,const auto &,const auto &idle,const auto &){
   h.press(handler,WaitAction{});
   for(unsigned step=0;step<100&&!h.flow->encounter()->terminal();++step){
    if(h.phase()==Phase::PlayerReady)h.press(handler,BlockAction{});
    else {
     drawTick(h,handler,idle);const auto &r=h.result();
-    if(r.operation==XeenCombatOperation::EnemyAttack){
+    if(r.attackStage==XeenCombatAttackStage::MonsterPose1 || r.attackStage==XeenCombatAttackStage::MonsterPose2) {
+     check(h.observedAppearance.kind==XeenMonsterSpriteKind::Attack && h.observedAppearance.frame==poses%2,
+      "Enemy attack did not acquire its two ordered pose draws");++poses;
+    }
+    if(r.operation==XeenCombatOperation::EnemyAttack && r.attackStage==XeenCombatAttackStage::None){
      ++enemies;check(r.critical&&r.injuryCount==(enemies==2?1U:2U),"ordered critical presentation observations");
-     check(h.observedAppearance.kind==XeenMonsterSpriteKind::Attack&&h.observedAppearance.frame==0,"critical ATT initial frame");
+     check(poses==2*enemies,"critical damage preceded two ATT pose draws");
      if(enemies==1)check(r.injuries[0].afterHp==-5&&r.injuries[1].afterHp==-17&&r.armorCount==2,"intermediate injury and armor facts");
     }
    }
@@ -199,12 +217,12 @@ void failures() {
 }
 void publicationFailures() {
  for(unsigned fault=0;fault<4;++fault){
-  Harness h;auto s=h.services(fault==3?19:1);bool injected=false;unsigned commands=0;
+  Harness h;auto s=h.services(fault==3?19:1);if(fault==3)syntheticDeathPresentation(s);bool injected=false;unsigned commands=0;
   const auto compose=s.composeEncounter;
   s.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto ordinary,auto actor){
    if(h.flow&&!injected){
     const auto &r=h.result();
-    const bool target=fault==0?(r.operation==XeenCombatOperation::PlayerAttack&&r.attackOutcome==XeenCombatAttackOutcome::HitPositiveDamage):
+    const bool target=fault==0?(r.operation==XeenCombatOperation::PlayerAttack&&r.attackStage==XeenCombatAttackStage::PostHp):
      fault==1?h.phase()==Phase::VictoryAwaitingEnd:fault==2?h.phase()==Phase::Victory:h.phase()==Phase::Defeat;
     if(target){injected=true;throw std::runtime_error("post-publication composition");}
    }
@@ -223,7 +241,7 @@ void publicationFailures() {
     else drawTick(h,handler,idle);
    }
    check(injected,"publication fault reached through real commands");
-   check(h.phase()==(fault==2?Phase::Victory:fault==3?Phase::Defeat:fault==1?Phase::VictoryAwaitingEnd:Phase::PlayerReady),"Failure recovery preserves actual phase");
+   check(h.phase()==(fault==2?Phase::Victory:fault==3?Phase::Defeat:fault==1?Phase::VictoryAwaitingEnd:Phase::PreparingAction),"Failure recovery preserves actual phase");
    const auto hp=h.world->sessionState().actors()[5].hp;
    check(fault==3||hp<20,"published damage survives failure");
    if(fault==1||fault==2){check(hp==0,"lethal removal retained");check(h.flow->encounter()->notice().find("XP82")!=std::string::npos,"award retained despite composition failure");}
@@ -288,7 +306,7 @@ void callbacks() {
  }
 }
 void sdl() {
- Harness h;auto s=h.services();unsigned stage=0,accepted=0,idles=0;
+ Harness h;auto s=h.services();unsigned stage=0,accepted=0,idles=0,postAttack=0;
  s.show=[&](const IndexedFrame &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
   auto wrapped=handler;
   std::vector<SDL_Event> pendingKeys;
@@ -327,12 +345,14 @@ void sdl() {
     default:
      if(h.phase()==Phase::PlayerReady){
       check(h.randomPosition()>0,"automatic attack runs without another key");
-      if(stage==12)key(SDLK_ESCAPE);
-      else if(stage==13) {
+      if(postAttack==0){++postAttack;key(SDLK_ESCAPE);}
+      else if(postAttack==1) {
+       ++postAttack;
        check(h.phase()==Phase::PlayerReady,"Escape left combat instead of being ignored");
        SDL_Event mouse{};mouse.type=SDL_MOUSEBUTTONDOWN;mouse.button.button=SDL_BUTTON_RIGHT;
        pendingKeys.push_back(mouse);mouse.type=SDL_MOUSEBUTTONUP;pendingKeys.push_back(mouse);
-      } else if(stage==14) {
+      } else if(postAttack==2) {
+       ++postAttack;
        check(h.phase()==Phase::PlayerReady,"Right click left combat instead of being ignored");
        SDL_Event quit{};quit.type=SDL_QUIT;pendingKeys.push_back(quit);
       }
@@ -343,7 +363,7 @@ void sdl() {
   return SdlWindow().showInteractive(first,"Regional combat input",wrapped,escape,scriptedIdle,status);
  };
  check(h.run(s)==0,"real SDL production route");
- check(stage>=11&&accepted==3,"SDL sequence completed");
+ check(stage>=11&&accepted==3&&postAttack==3,"SDL sequence completed");
 }
 
 void inventory() {

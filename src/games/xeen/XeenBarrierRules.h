@@ -78,7 +78,7 @@ struct XeenBarrierCandidate {
 				if(!injury->service(draw))return false;
 				characters=injury->characters;portraitMask=1u<<target;portraitFrame=injury->portraitFrame;step=Step::DamagePause;break;
 			case Step::DamagePause:
-				// giveCharDamage's ipause(5) returns before the unlock roll.
+				// DOS 0x32f54..0x32f5e holds two ticks before the unlock roll.
 				if(deferInjury && !damagePauseAcknowledged) {damagePauseReady=true;return false;}
 				damagePauseReady=false;step=Step::Unlock;break;
 			case Step::Unlock: {

@@ -69,7 +69,8 @@ void pending(const fs::path &path){
   if(kind==4||kind==5)request=record(1,1,0,0x20,{0,1});
   if(kind==6)request=record(1,1,0,0x31,{1,0});
   f.scripts[1]={request,record(1,1,1,0x12)};
-  auto services=f.services();services.show=[&](const auto&,const auto &handle,const auto&,const auto&,const auto &status){
+  std::uint64_t now=0,cycle=0;
+  auto services=f.services();services.clock=[&]{return now;};services.show=[&](const auto&,const auto &handle,const auto&,const auto&,const auto &status){
    handle(InteractionAction{});check(f.flow->blocksGameplay(),"fixture did not suspend");
    if(kind==5){handle(SelectMemberAction{5});check(f.flow->blocksGameplay(),"invalid selection ended WhoWill");}
    const auto generation=f.flow->presentationGeneration();const auto page=f.flow->presenter().pageIndex();
@@ -82,7 +83,10 @@ void pending(const fs::path &path){
    check(f.flow->presenter().npcTiming().deadline==timing.deadline,"save changed NPC timing");
    check(status().find("Cannot save while an interaction is pending.")!=std::string::npos,"pending feedback");
    for(unsigned guard=0;f.flow->blocksGameplay()&&guard<200;++guard){
+    handle.framePresented(f.flow->frame().presentation());now+=200;handle.beginCycle(++cycle);
     if(kind==4||kind==5)handle(CancelInteractionAction{});else if(kind==2)handle(NoAction{});else handle(AcknowledgeAction{});
+    handle.framePresented(f.flow->frame().presentation());
+    if(f.flow->updatePresentation())handle.framePresented(f.flow->frame().presentation());
    }
    check(!f.flow->blocksGameplay()&&!fs::exists(path),"refused save was queued");
    const auto retained=f.flow->frame().pixels;handle(SaveGameAction{});

@@ -30,7 +30,14 @@ int main() {
 		malformed.push_back(sprite(cell(0,8,0,1,{3,0,0x60,0}))); // copy missing operand
 		malformed.push_back(sprite(cell(0,8,0,1,{4,0,0x60,255,255}))); // copy underflow
 		malformed.push_back(sprite(cell(0,8,0,1,{4,0,0x7f,0,0}))); // copy beyond EOF
-		malformed.push_back(sprite(cell(0,8,0,1,{3,0,0x5f,42}))); // expanded row overflow
+		// Original marble artwork pads its last repeated-color run past the
+        // visible width. Reject workspace overflow instead of clipped padding.
+        Bytes workspaceEdge{12,0};workspaceEdge.insert(workspaceEdge.end(),10,0xbf);workspaceEdge.push_back(0xa6);
+        validateXeenObjectSprite(sprite(cell(0,8,0,1,workspaceEdge)),0);
+        auto overflow=workspaceEdge;overflow.back()=0xa7;
+        malformed.push_back(sprite(cell(0,8,0,1,overflow)));
+        const auto padded=sprite(cell(0,8,0,1,{3,0,0x5f,42}));
+        validateXeenObjectSprite(padded,0);
 		malformed.push_back(sprite(cell(0,8,0,1,{0,1}))); // skip past height
 		malformed.push_back(sprite(cell(0,8,0,1,{1,9}))); // offset past width
 		for (auto opcode : {0x40,0x80,0xc0,0xe0})
@@ -51,7 +58,7 @@ int main() {
 		std::filesystem::create_directories(directory);
 		struct Cleanup { std::filesystem::path p; ~Cleanup() {std::error_code e;std::filesystem::remove_all(p,e);} } cleanup{directory};
 		std::map<std::string,Bytes> files={{"one.obj",one},{"two.obj",two},{"solid.obj",solid},
-			{"commands.obj",commands},{"literal.obj",longLiteral},{"base.raw",Bytes(320*200,99)},{"clouds.dat",Bytes(12,7)}};
+			{"commands.obj",commands},{"literal.obj",longLiteral},{"padded.obj",padded},{"base.raw",Bytes(320*200,99)},{"clouds.dat",Bytes(12,7)}};
 		for(std::size_t i=0;i<malformed.size();++i) files["bad"+std::to_string(i)+".obj"]=malformed[i];
 		files["110.0bj"]=multiFrameSprite({{first,{}},{first,second}});
 		// Valid directory and headers; only frame 1's stream is malformed.
@@ -78,7 +85,12 @@ int main() {
 			visual.horizontalFlip=true;const auto flipped=draw("one.obj");
 			check(flipped.pixels[7]==0 && flipped.pixels[6]==7 && flipped.pixels[3]==8 && flipped.pixels[2]==9 && flipped.pixels[4]==99,"horizontal flip");
 			visual.horizontalFlip=false;
-			XeenSpriteDrawOptions options;options.scaleIndex=8;const auto scaled=draw("solid.obj",0,0,options);
+            for(bool flip:{false,true}) {
+                visual.horizontalFlip=flip;const auto padding=draw("padded.obj");
+                for(unsigned x=0;x<320;++x)check(padding.pixels[x]==(x<8?42:99),"RLE padding leaked beyond visible cell width");
+            }
+            visual.horizontalFlip=false;
+            XeenSpriteDrawOptions options;options.scaleIndex=8;const auto scaled=draw("solid.obj",0,0,options);
 			for(int y=0;y<16;++y) for(int x=0;x<16;++x)
 				check(scaled.pixels[y*320+x]==((y<8 && x>=4 && x<12)?42:99),"scale pixels");
 			options={};options.sceneClipped=true;auto clipped=draw("solid.obj",0,0,options);

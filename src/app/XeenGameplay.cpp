@@ -503,7 +503,14 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
      checkPanel();return panel->animate(now);
     }catch(...){handoff.fail();active=false;throw;}
    }
-   try { auto next = flow.updatePresentation(); handoff.retain(); return next; }
+   try {
+    auto next=flow.updatePresentation();handoff.retain();
+    if(flow.partyDeathComplete()) {
+     if(services.outcome)*services.outcome={XeenSessionOutcome::Kind::Title,0,{}};
+     finished=true;
+    }
+    return next;
+   }
    catch (...) { handoff.fail(); active = false; throw; }
   };
   handoff.verify();

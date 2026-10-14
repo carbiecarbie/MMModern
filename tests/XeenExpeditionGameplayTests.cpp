@@ -116,6 +116,14 @@ void deathControl(const fs::path &path) {
  for(auto owner:kXeenCombatOwners){auto &c=saved.characters[owner];c.currentHp=0;c.conditions[12]=1;}
  auto &cleric=saved.characters[1];cleric.currentHp=1;cleric.conditions[12]=0;cleric.permanentLevel=1;cleric.temporaryLevel=0;cleric.endurance={0,0};
  XeenSaveFile::write(path,saved);const auto before=diskBytes(path);Harness h;auto s=services(h);
+ // This synthetic gameplay control observes lethal publication, not original
+ // asset composition (covered by xeen_death_original).
+ const auto configure=s.configureFlow;
+ s.configureFlow=[&](XeenEventFlow &flow,const XeenCamera &camera) {
+  configure(flow,camera);
+  flow.drawDialogSprite=[](auto &,const char *,unsigned,int,int){};
+  flow.loadSampleDuration=[](const char *,XeenSceneArchive){return std::uint64_t{1000000000};};
+ };
  s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){handler.framePresented(h.flow->frame().presentation());press(h,handler,NavigationAction::MoveForward);
   for(unsigned n=0;n<1000&&h.flow->encounter()->combat()->phase()!=Phase::Defeat;++n){auto *c=h.flow->encounter()->combat();check(c->phase()!=Phase::Failed&&c->phase()!=Phase::SupportStopped,"death fixture remains supported");if(c->phase()==Phase::PlayerReady)press(h,handler,BlockAction{});else tick(h,handler,idle);}
   check(h.flow->encounter()->combat()->phase()==Phase::Defeat&&h.party->roster.at(1).conditions[13]&&h.flow->encounter()->notice().find("Dead")!=std::string::npos,"production injury sets and presents death");

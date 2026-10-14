@@ -1,6 +1,7 @@
 #ifndef MMODERN_XEEN_SERVICE_ANIMATION_H
 #define MMODERN_XEEN_SERVICE_ANIMATION_H
 
+#include "core/PresentationClock.h"
 #include <optional>
 #include <string>
 #include <vector>
@@ -20,6 +21,18 @@ struct XeenServiceSprite {
 	}
 };
 
+// Sample-driver visual busy interval: replacement starts a new span; polling
+// never extends it. Playback remains outside the presentation owner.
+class XeenSilentSampleInterval {
+public:
+	void start(std::uint64_t now,std::uint64_t duration) { end=PresentationClock::checkedAdd(now,duration); }
+	void stop() noexcept { end=0; }
+	bool playing(std::uint64_t now) const noexcept { return now<end; }
+	std::uint64_t deadline() const noexcept { return end; }
+private:
+	std::uint64_t end=0;
+};
+
 class XeenServiceAnimation {
 public:
 	static constexpr int kX = 8, kY = 8;
@@ -27,6 +40,7 @@ public:
 	// Temple 26, Training 16. The first cycle starts at 0; later cycles restart at
 	// firstRepeat() (Guild 17, Temple 20, the others 0), DAT 0x1c45e..0x1c499.
 	static unsigned modulus(XeenServiceArt);
+	static const char *greeting(XeenServiceArt);
 	static unsigned firstRepeat(XeenServiceArt);
 	// The logical index after the one just drawn.
 	static unsigned next(XeenServiceArt, unsigned index);

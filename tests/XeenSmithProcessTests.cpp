@@ -2,7 +2,9 @@
 #include <cstdlib>
 #include "platform/XeenSaveFile.h"
 #include "formats/xeen/XeenSaveFormat.h"
+#include "XeenM42Evidence.h"
 #include <set>
+#include <sstream>
 using namespace mmodern;
 namespace fs=std::filesystem;
 namespace {
@@ -10,6 +12,31 @@ std::string bytes(const fs::path &p) {
  std::ifstream in(p,std::ios::binary);
  child_test::require(bool(in),"M38 evidence file absent");
  return {std::istreambuf_iterator<char>(in),{}};
+}
+// Native input batches and fault/retry frames have different speaking draw
+// opportunities. Replay every original Smith request from the source save,
+// then retain a complete encoded-state comparison for the finished visit(s).
+void equalSmithContinuation(const fs::path &actual,const fs::path &canonical,
+ const fs::path &source,const std::string &log) {
+ auto expected=XeenSaveFile::read(canonical);const auto before=XeenSaveFile::read(source);
+ m42_test::StockOracle oracle{before.journey->random->state,before.journey->random->count,{}};
+ std::istringstream lines(log);std::string line,observed;
+ while(std::getline(lines,line)) {
+  if(!line.empty() && line.back()=='\r')line.pop_back();
+  if(line.rfind("DRAW ",0)==0)observed+=line+'\n';
+ }
+ std::size_t offset=0;
+ while(observed.compare(offset,9,"DRAW 5:7:")==0) {
+  const auto previous=oracle.trace.size();oracle.draw(5,7);
+  const auto predicted=oracle.trace.substr(previous);
+  child_test::require(observed.compare(offset,predicted.size(),predicted)==0,"M38 process Smith request/value/cursor differs");
+  offset+=predicted.size();
+ }
+ child_test::require(offset==observed.size(),"M38 process unexpected Smith random request");
+ auto random=*before.journey->random;random.state=oracle.state;random.count=oracle.count;
+ expected.journey->random=random;
+ child_test::require(XeenSaveFormat::encode(expected)==XeenSaveFormat::encode(XeenSaveFile::read(actual)),
+  "M38 Smith continuation changed unrelated durable state or predicted RNG");
 }
 }
 int main(int argc,char **argv) {
@@ -53,7 +80,9 @@ int main(int argc,char **argv) {
   };
   for(const auto *stage:{"A","B","C","native"}) {
    const auto source=dir/(std::string("production-")+(std::string(stage)=="native"?"A":stage)+".mmsave");
-   child_test::require(bytes(run(std::string("restore-")+stage,stage,source))==bytes(route),"M38 uninterrupted/resumed bytes differ");
+   const auto name=std::string("restore-")+stage;const auto restored=run(name,stage,source);
+   if(std::string(stage)=="native")equalSmithContinuation(restored,route,source,bytes(dir/(name+".log")));
+   else child_test::require(bytes(restored)==bytes(route),"M38 uninterrupted/resumed bytes differ");
   }
   for(const auto gold:{0u,1u,0xffffffffu}) for(bool hole:{false,true}) {
    auto artificial=a;artificial.journey->treasure->gold=gold;
@@ -82,8 +111,10 @@ int main(int argc,char **argv) {
    child_test::require(bytes(run(std::string("detour-restore-")+label,std::string("detour-")+label,
     dir/(std::string("detour-")+label+".mmsave")))==bytes(detour),"M38 exit/reset/revisit restore diverged");
   for(const auto *control:{"fail-before-admission","fail-after-admission","fail-quote","fail-before-repair","fail-after-repair",
-   "fail-before-departure","fail-after-departure","fail-return","render-admission","render-repair","render-return","recursive"})
-   child_test::require(bytes(run(control,"A",dir/"production-A.mmsave",control))==bytes(route),"M38 failure/retry duplicated or lost a publication");
+   "fail-before-departure","fail-after-departure","fail-return","render-admission","render-repair","render-return","recursive"}) {
+   const auto source=dir/"production-A.mmsave";const auto restored=run(control,"A",source,control);
+   equalSmithContinuation(restored,route,source,bytes(dir/(std::string(control)+".log")));
+  }
   for(const auto *control:{"immutable-art","aba-art-provider","aba-quote","aba-departure","aba-inactive","aba-mainland","aba-cache","aba-object-cache","aba-membership","aba-purse","aba-context","aba-city","aba-item","aba-after-repair","upload-admission","upload-repair","upload-departure","copy-admission","copy-repair","copy-departure"})
    run(control,"A",dir/"production-A.mmsave",control);
   std::cout<<"M38 original-resource/native-input/distinct-process acceptance passed\n";

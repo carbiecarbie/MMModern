@@ -9,6 +9,7 @@
 #include "games/xeen/XeenTraining.h"
 #include "XeenRestoreReplayProbe.h"
 #include "XeenM40Evidence.h"
+#include "XeenM42Evidence.h"
 #include "XeenM49CombatSupport.h"
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
@@ -46,6 +47,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     auto services=original;XeenEventFlow *flow=nullptr;XeenWorld *world=nullptr;
     const XeenPartyState *party=nullptr;const XeenCamera *position=nullptr;const XeenGameFlags *flags=nullptr;
     unsigned providers=0,saves=0;std::uint64_t now=0,cycle=0;
+    bool observeService=false;std::string serviceDraws;
+    struct ServiceDrawTime {std::uint64_t now,sampleEnd;};
+    std::vector<ServiceDrawTime> serviceDrawTimes;
+    std::uint64_t sampleEnd=0;
     bool clockArmed=false,clockFault=false,clockVerified=false;unsigned clockCalls=0;
     const bool clockCase=control.rfind("clock-",0)==0 || control.rfind("presentation-",0)==0;
     const auto mutateEconomy=[&] {
@@ -77,6 +82,12 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         return compose(w,p,c,phase,actor);};
     services.configureFlow=[&](auto &f,const auto &c) {
         original.configureFlow(f,c);flow=&f;
+        const auto sample=f.loadSampleDuration;
+        f.loadSampleDuration=[&,sample](const char *name,XeenSceneArchive archive) {
+            const auto duration=sample(name,archive);
+            sampleEnd=PresentationClock::checkedAdd(PresentationClock::fromMilliseconds(now),duration);
+            return duration;
+        };
         f.drawTrainingArt=count(f.drawTrainingArt);
         f.trainingBoundary=[&](XeenTrainingBoundary boundary) {
             if(!nativeFailed && ((boundary==XeenTrainingBoundary::AfterAdmission && control.find("admission")!=std::string::npos) ||
@@ -90,7 +101,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         };
     };
     replay_test::observeDraw=[&](auto lo,auto hi,auto value,auto cursor){
-        std::cout<<"DRAW "<<lo<<':'<<hi<<':'<<(value?std::to_string(*value):"rejected")<<':'<<cursor.state<<':'<<cursor.count<<'\n';
+        const auto line="DRAW "+std::to_string(lo)+":"+std::to_string(hi)+":"+
+            (value?std::to_string(*value):"rejected")+":"+std::to_string(cursor.state)+":"+std::to_string(cursor.count)+"\n";
+        std::cout<<line;
+        if(observeService){serviceDraws+=line;serviceDrawTimes.push_back({PresentationClock::fromMilliseconds(now),sampleEnd});}
     };
     services.show=[&](const IndexedFrame &first,const auto &handler,const auto &escape,const auto &idle,const auto &status) {
         check(flow && world && party && position && flags && target,"M41 production owners absent");
@@ -171,6 +185,44 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             check(party->encounterContext->day==day && party->encounterContext->minutes==minute && party->monsterTreasure->gold==gold &&
                 world->sessionState().journeyRandom()->state==state && world->sessionState().journeyRandom()->count==count,"M41 literal date/gold/RNG checkpoint mismatch");
         };
+        auto serviceCursor=std::make_shared<XeenJourneyRandomState>();
+        auto serviceEconomy=std::make_shared<XeenServiceEconomy>();
+        const auto beginService=[&] {
+            *serviceCursor=*world->sessionState().journeyRandom();*serviceEconomy=*party->serviceEconomy;
+            serviceDraws.clear();serviceDrawTimes.clear();observeService=true;
+        };
+        // Independently replay speaking requests on either side of the complete
+        // original merchant schedule. Check every raw request/value/cursor,
+        // including rejection, and reject any unexplained request or suffix.
+        const auto serviceOracle=[&](bool generate) {
+            m42_test::StockOracle oracle{serviceCursor->state,serviceCursor->count,{}};
+            std::size_t offset=0,row=0;auto economy=*serviceEconomy;
+            const auto consume=[&](std::size_t previous,bool speaking) {
+                const auto expected=oracle.trace.substr(previous);
+                check(serviceDraws.compare(offset,expected.size(),expected)==0,"M41 service random request/value/cursor differs");
+                for(char c:expected)if(c=='\n') {
+                    check(row<serviceDrawTimes.size(),"M41 service random observation incomplete");
+                    if(speaking)check(serviceDrawTimes[row].now<serviceDrawTimes[row].sampleEnd,"M41 speaking RNG outside sample interval");
+                    ++row;
+                }
+                offset+=expected.size();
+            };
+            const auto speech=[&] {
+                while(serviceDraws.compare(offset,10,"DRAW 8:12:")==0) {
+                    const auto previous=oracle.trace.size();oracle.draw(8,12);consume(previous,true);
+                }
+            };
+            speech();
+            if(generate) {
+                const auto previous=oracle.trace.size();economy.wares=oracle.generate().wares;consume(previous,false);
+                economy.bank.gold=serviceEconomy->bank.gold+serviceEconomy->bank.gold/100u;
+                economy.bank.gems=serviceEconomy->bank.gems+serviceEconomy->bank.gems/100u;
+            }
+            speech();
+            check(offset==serviceDraws.size() && row==serviceDrawTimes.size(),"M41 unexpected service random suffix");
+            check(*party->serviceEconomy==economy,"M41 independent complete stock/interest differs");
+            return oracle;
+        };
         const auto checkpoint=[&](std::string label) {
             auto oldSaves=std::make_shared<unsigned>();
             inspect([&,oldSaves]{check(flow->canSave(),"M41 checkpoint not Quiet");*oldSaves=saves;
@@ -236,10 +288,11 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             });route("UUULUUUUURUUUU");inspect([&]{expect(8,808,870,4226505513u,1073);});checkpoint("A");
         }
         if(!resume || stage=="A") {
+            inspect(beginService);
             action(InteractionAction{});waitService();paid(1,18,9,780,64,0);paid(4,1,10,690,28,28);
-            action(SelectMemberAction{1});inspect([&]{deny();expect(10,808,690,4226505513u,1073);});
+            action(SelectMemberAction{1});inspect([&]{deny();const auto oracle=serviceOracle(false);expect(10,808,690,oracle.state,oracle.count);});
             action(CancelInteractionAction{});settle();
-            inspect([&]{expect(11,808,690,2201558150u,1963);check(interestCalls==1,"M41 stock/interest duplicated");});checkpoint("B");
+            inspect([&]{observeService=false;const auto oracle=serviceOracle(true);expect(11,808,690,oracle.state,oracle.count);check(interestCalls==1,"M41 stock/interest duplicated");});checkpoint("B");
         }
         // B -> C: reset exit, useful First Aid, lethal Magic Arrow, empty visit.
         route("DDDDRUUUUURUUUUUUU");action(InteractionAction{});action(YesAction{});settle();
@@ -276,10 +329,12 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             if(position->y==4 && position->x==15)return true;
             act(NavigationAction::MoveForward);return false;
         });
-        route("UUULUUUUURUUUU");action(InteractionAction{});waitService();
+        route("UUULUUUUURUUUU");inspect(beginService);action(InteractionAction{});waitService();
         action(SelectMemberAction{1});action(DialogKeyAction{'t'});
         action(SelectMemberAction{4});action(DialogKeyAction{'t'});
-        action(CancelInteractionAction{});settle();inspect([&]{check(party->encounterContext->day==12 && party->monsterTreasure->gold==690,
+        action(CancelInteractionAction{});settle();inspect([&]{observeService=false;const auto oracle=serviceOracle(false);
+            check(world->sessionState().journeyRandom()->state==oracle.state && world->sessionState().journeyRandom()->count==oracle.count,"M41 empty service RNG differs");
+            check(party->encounterContext->day==12 && party->monsterTreasure->gold==690,
             "M41 later empty service added training/debit");});checkpoint("C");
         inspect([&]{std::cout<<"M41 PRODUCTION WITNESS PASSED\n";SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);});
         auto native=handler;native.closed={};native.beginCycle=[&](std::uint64_t){handler.beginCycle(++cycle);};

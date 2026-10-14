@@ -43,9 +43,21 @@ struct Execution {
 		for(unsigned i=0;i<count;++i)s.pendingRewards.enqueue({10,static_cast<std::uint8_t>(37+i),193,7});
 		return s;
 	}
-	XeenEventExecutionStepResult resume(XeenEventExecutionState state,
+	XeenEventExecutionStepResult resumeOne(XeenEventExecutionState state,
 		XeenPresentationResponse response=XeenPresentationResponse::Acknowledged) {
 		return interpreter.resume(std::move(state),response,f.initial,world,scripts,texts);
+	}
+	// Rule matrices run without a renderer. Consume only intermediate display
+	// holds; retain the final acknowledgment/currency boundary for their caller.
+	XeenEventExecutionStepResult resume(XeenEventExecutionState state,
+		XeenPresentationResponse response=XeenPresentationResponse::Acknowledged) {
+		auto result=resumeOne(std::move(state),response);
+		for(unsigned i=0;i<2*XeenPendingRewards::kTotalCapacity;++i) {
+			auto *s=std::get_if<XeenEventExecutionSuspended>(&result);
+			if(!s || (s->state.rewardPhase!=XeenRewardPhase::Blank && s->state.rewardPhase!=XeenRewardPhase::Found))return result;
+			result=resumeOne(std::move(s->state));
+		}
+		throw std::runtime_error("Reward intermediate hold bound");
 	}
 };
 }

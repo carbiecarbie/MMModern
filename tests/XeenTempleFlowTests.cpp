@@ -29,22 +29,30 @@ struct TempleFixture:Fixture {
         act(SelectMemberAction{member});act(DialogKeyAction{'h'});
         prepare();
     }
-    void leave(){act(CancelInteractionAction{});check(flow->canSave(),"Temple departure did not return Quiet");}
+    void leave(){act(CancelInteractionAction{});finishDeparture();check(flow->canSave(),"Temple departure did not return Quiet");}
 };
 void departureRetries(Inputs &in) {
     for(bool paid:{false,true}) {
         TempleFixture reference(in,injured(in));reference.enter();
         if(paid)reference.heal(5);
         reference.leave();const auto expected=reference.snapshot();
-        for(auto boundary:{XeenSmithBoundary::BeforeDeparture,XeenSmithBoundary::AfterDeparture,
+        auto boundaries=std::vector<XeenSmithBoundary>{XeenSmithBoundary::BeforeDeparture,XeenSmithBoundary::AfterDeparture,
                 XeenSmithBoundary::Return,XeenSmithBoundary::BeforeEventSettlement,
-                XeenSmithBoundary::AfterEventSettlement})for(unsigned room:{8u,9u,10u}) {
+                XeenSmithBoundary::AfterEventSettlement};
+        if(paid)boundaries.push_back(XeenSmithBoundary::StockComplete);
+        for(auto boundary:boundaries)for(unsigned room:{8u,9u,10u}) {
             TempleFixture retry(in,injured(in));retry.enter();if(paid)retry.heal(5);
             XeenTrainingTestAccess::limit(*retry.flow,2,UINT64_MAX-room);
             unsigned faults=0;
             retry.flow->smithBoundary=[&](auto here){if(here==boundary){++faults;
                 throw std::runtime_error("persistent Temple departure fault");}};
             retry.act(CancelInteractionAction{});
+            // Paid departure now generates stock in bounded retained slices.
+            // Reach the injected boundary without issuing another service action.
+            for(unsigned n=0;!faults && n<1000;++n) {
+                retry.flow->beginCycle(++retry.cycle);
+                if(auto next=retry.flow->updatePresentation())retry.present(*next);
+            }
             check(faults==1 && !retry.flow->canSave(),"Temple departure fault missed its boundary");
             const auto revision=XeenTrainingTestAccess::templeRevision(*retry.flow);
             const auto input=retry.flow->displayedInput();
@@ -55,7 +63,7 @@ void departureRetries(Inputs &in) {
                     "unchanged Temple departure retry consumed finite UI/input authority");
             }
             check(faults==33,"Temple departure retries stopped reaching the reserved boundary");
-            retry.flow->smithBoundary={};retry.act(AcknowledgeAction{});
+            retry.flow->smithBoundary={};retry.act(AcknowledgeAction{});retry.finishDeparture();
             check(retry.flow->canSave(),"finite authority stranded mandatory Temple departure");
             sameSnapshot(expected,retry.snapshot());
         }
@@ -90,6 +98,7 @@ void revisionLimits(Inputs &in) {
         fixture.flow->smithBoundary={};
         if(XeenTrainingTestAccess::templeLobby(*fixture.flow))fixture.leave();
         else fixture.act(AcknowledgeAction{});
+        fixture.finishDeparture();
         check(fixture.flow->canSave() && fixture.p.encounterContext->day==(room==1 && !alreadyPaid?9:10),
             "Temple UI revision exhaustion lost mandatory departure");
     }
@@ -140,7 +149,7 @@ void refusedResult(Inputs &in,bool exhaustedRandom) {
     const auto maximum=XeenCharacterRules::maxHp(before,{610});
     const auto expected=xeenPrepareTempleHeal(fixture.p,6,*fixture.p.encounterContext);
     fixture.enter();fixture.act(SelectMemberAction{5});fixture.act(DialogKeyAction{'h'});
-    fixture.prepare();
+    if(XeenTrainingTestAccess::templePending(*fixture.flow))fixture.prepare();
     if(!exhaustedRandom) {
         fixture.leave();check(fixture.p.encounterContext->day==0 && fixture.p.encounterContext->year==611 &&
             fixture.p.monsterTreasure->gold==expected.result.goldAfter &&
@@ -215,7 +224,7 @@ int main(int argc,char **argv) {
 			for(bool overflow:{false,true}) {
 				TempleFixture retry(in,injured(in));retry.enter();unsigned faults=0;
 				retry.flow->smithBoundary=[&](auto here) {
-					if(here==(overflow?XeenSmithBoundary::StockComplete:XeenSmithBoundary::BeforeHeal)) {
+					if(here==XeenSmithBoundary::BeforeHeal) {
 						++faults;
 						if(overflow)throw std::overflow_error("synthetic boundary overflow");
 						throw std::runtime_error("persistent synthetic Heal fault");

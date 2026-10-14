@@ -328,6 +328,18 @@ remains separate and unverified.
 
 ### Injury thresholds
 
+**DOS static, high confidence (M63 Part B):** presentation surrounds injury,
+without using sound length as a delay. Shoot keeps simultaneous lanes and depth
+frames `0,1,2,0`; every travel/impact draw advances the remaining arrows and only
+the arriving lane is consumed. Install the pose/splat/tint, draw before HP changes,
+publish the injury, then draw again with the victim still visible. Award, drop and
+remove a lethal victim only afterward, followed by another draw
+(`0x1d867..0x1dec7`, `0x2bdf8..0x2c591`). Arrow hits use the original splat slots.
+Monster attacks publish two pose draws before damage. Splat/pose counters advance
+per semantic draw, while reconstruction reads retained values. Recipient damage
+holds and sequential sparkles are described under
+[presentation intervals](time-and-conditions.md#synchronous-presentation-intervals).
+
 **Evidence: Reference only.** `Character::subtractHitPoints`, with the reference's
 optional durable-armor extension disabled.
 

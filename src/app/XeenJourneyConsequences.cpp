@@ -14,6 +14,21 @@ XeenConsequenceCharacters activeCharacters(const XeenPartyState &p,const XeenPar
 XeenConsequenceInputs activeInputs(const XeenPartyState &p,const XeenPartyOrder &order) {
  XeenConsequenceInputs c;for(unsigned i=0;i<6;++i)c[i]=*p.roster.combatInputs(order[i]);return c;
 }
+void nextMonsterRewardItem(XeenMonsterDeliveryCandidate &receipt) {
+	std::array<XeenCharacter *,6> owners{};
+	for(unsigned i=0;i<6;++i)owners[i]=&receipt.characters[i];
+	while(receipt.cursor<receipt.count) {
+		auto &entry=receipt.records[receipt.cursor];
+		const auto category=entry.miscellaneous?XeenRewardCategory::Miscellaneous:entry.armor?XeenRewardCategory::Armor:XeenRewardCategory::Weapons;
+		const auto recipient=xeenDeliverRewardItem(owners.data(),owners.size(),entry.production.item,category,{},false);
+		if(recipient) {
+			entry.recipient=receipt.characters[*recipient].rosterId;entry.loss=XeenMonsterDeliveryLoss::None;
+			receipt.phase=XeenMonsterDeliveryCandidate::Phase::Blank;return;
+		}
+		entry.recipient.reset();entry.loss=XeenMonsterDeliveryLoss::GloballyFull;++receipt.cursor;
+	}
+	receipt.phase=XeenMonsterDeliveryCandidate::Phase::Final;
+}
 
 }
 bool XeenEncounterFlow::beginShoot() {
@@ -83,7 +98,7 @@ bool XeenEncounterFlow::serviceShoot() {
   if(!work.volleyDone) {
    using Stage=XeenShootCandidate::Stage;
    if(!work.presented)return false;
-   if(work.stage==Stage::Travel && _lastTime<work.deadline)return false;
+   if(_lastTime<work.deadline)return false;
    // drawScene renders the current lanes, then animate3d advances every lane.
    // Consume that acknowledged draw once, independently of target traversal.
    if(work.advanceDraw) {for(auto &p:_projectiles)p.advance();work.advanceDraw=false;}
@@ -114,7 +129,9 @@ bool XeenEncounterFlow::serviceShoot() {
      if(damage()>=actor.hp && actor.original.resourceId==6) work.drop.emplace(*_party.monsterTreasure,id->recordIndex);
      work.attackDone=true;
     }
-    if(work.drop && !work.drop->service(draw)) return true;
+    // Lethal drop requests belong after the acquired post-HP draw, never
+    // before attack2 publishes damage (0x2c184..0x2c54e).
+    if(work.stage==Stage::PostImpact && work.drop && !work.drop->service(draw)) return true;
     if(!work.suffixPrepared) {
      if(damage()>=actor.hp) {
       std::array<const XeenCharacter *,6> owners{};
@@ -132,6 +149,14 @@ bool XeenEncounterFlow::serviceShoot() {
      check();work.suffixPrepared=true;
     }
     if(work.stage==Stage::Travel) {
+     // The logical shooter is spent, but hitMonster clears its visual slots
+     // only after attack2 returns (0x2cbab..0x2ccba). Remaining visible arrows
+     // continue through the common impact draws.
+     if(hit() && !work.spell) {
+      std::array<std::optional<XeenMonsterIdentity>,3> front{};
+      std::copy_n(work.targets.begin(),3,front.begin());
+      _world.scenePresentation().hitSplat(work.target,damage(),0,xeenSplatAlternatePosition(front),_lastTime);
+     }
      if(work.spellAttack && !work.spellAttack->resisted &&
        ((*work.spell!=XeenLearnedSpell::EnergyBlast && *work.spell!=XeenLearnedSpell::Shrapmetal) || _party.roster.at(work.spellCaster).currentLevel()))
        _world.scenePresentation().spellImpact(actor,*work.spell);
@@ -151,6 +176,7 @@ bool XeenEncounterFlow::serviceShoot() {
     check();
     auto &live=liveActors.at(id->recordIndex);
     if(work.lethal) {
+     if(work.target<3)_world.scenePresentation().splats[work.target]={};
      live=work.lethal->actor;session._accountedMonsters.swap(work.lethal->accounted);
      for(unsigned i=0;i<6;++i) _party.roster._combatInputs[work.owners[i]]->experience=work.lethal->experience[i];
      if(work.drop) _party.monsterTreasure=work.drop->treasure;
@@ -228,21 +254,46 @@ bool XeenEncounterFlow::beginMonsterReward(const XeenItemCatalog &catalog) {
   text<<"Gold +"<<delivery.treasure.pendingGold<<" on final acknowledgment.";
   auto receiptText=text.str();_journeyPreimage->check();
   _rewardLease=_boundary.hold(XeenCombatBoundary::Work::Reward);_world._sessionState._journeyActivity=XeenJourneyActivity::Reward;
-  for(const auto &v:delivery.characters) { auto &c=_party.roster.at(v.rosterId);c.weapons=v.weapons;c.armor=v.armor;c.miscellaneous=v.miscellaneous; }
-  _party.monsterTreasure=delivery.treasure;_monsterReceipt.emplace(std::move(delivery));_monsterReceiptText.swap(receiptText);
+  // Keep the already-saveable staged treasure intact until final acknowledgment.
+  // Only the next item's inventory prefix precedes its blank hold.
+  delivery.characters=activeCharacters(_party,_party.party.activeOrder());
+  delivery.phase=delivery.globallyFull?XeenMonsterDeliveryCandidate::Phase::Warning:XeenMonsterDeliveryCandidate::Phase::Final;
+  if(!delivery.globallyFull)nextMonsterRewardItem(delivery);
+  _monsterReceipt.emplace(std::move(delivery));_monsterReceiptText.swap(receiptText);
+  for(const auto &v:_monsterReceipt->characters) {auto &c=_party.roster.at(v.rosterId);c.weapons=v.weapons;c.armor=v.armor;c.miscellaneous=v.miscellaneous;}
   ++_world._sessionState._journeyGeneration;++_generation;retainJourney();return true;
  } catch(...) { closeJourney();throw; }
 }
 void XeenEncounterFlow::acknowledgeMonsterReward() {
- if(!monsterReward() || _busy || !current(ticket()) || !journeyCapacity()) throw std::logic_error("Stale monster receipt");
+ if(!monsterReward() || _monsterReceipt->phase!=XeenMonsterDeliveryCandidate::Phase::Final || _busy || !current(ticket()) || !journeyCapacity()) throw std::logic_error("Stale monster receipt");
  ConsequenceScope busy(_busy);
  try {
-  const auto credited=xeenPrepareMonsterGoldCredit(*_party.monsterTreasure);_journeyPreimage->check();
+  const auto credited=xeenPrepareMonsterGoldCredit(_monsterReceipt->treasure);_journeyPreimage->check();
   _party.monsterTreasure=credited;_monsterReceipt.reset();
   _world._sessionState._journeyActivity=_shoot?XeenJourneyActivity::Shoot:XeenJourneyActivity::Presentation;
   _boundary.release(XeenCombatBoundary::Work::Reward,_rewardLease);_rewardLease=0;
   ++_world._sessionState._journeyGeneration;++_generation;retainJourney();
  } catch(...) { closeJourney();throw; }
+}
+void XeenEncounterFlow::advanceMonsterReward() {
+ if(!monsterReward() || _busy || !current(ticket()) || !journeyCapacity() ||
+  _monsterReceipt->phase==XeenMonsterDeliveryCandidate::Phase::Final)throw std::logic_error("Stale monster treasure phase");
+ ConsequenceScope busy(_busy);
+ try {
+  _journeyPreimage->check();auto &receipt=*_monsterReceipt;using Phase=XeenMonsterDeliveryCandidate::Phase;
+  if(receipt.phase==Phase::Warning)receipt.phase=Phase::Final;
+  else if(receipt.phase==Phase::Blank) {
+   const auto &entry=receipt.records[receipt.cursor];
+   if(!entry.recipient)throw std::logic_error("Monster found line has no delivered recipient");
+   for(auto &owner:receipt.characters)if(owner.rosterId==*entry.recipient) {
+    const auto category=entry.miscellaneous?XeenRewardCategory::Miscellaneous:entry.armor?XeenRewardCategory::Armor:XeenRewardCategory::Weapons;
+    xeenCompactItems(xeenRewardItems(owner,category));
+   }
+   receipt.phase=Phase::Found;
+  } else {++receipt.cursor;nextMonsterRewardItem(receipt);}
+  for(const auto &v:receipt.characters) {auto &c=_party.roster.at(v.rosterId);c.weapons=v.weapons;c.armor=v.armor;c.miscellaneous=v.miscellaneous;}
+  ++_world._sessionState._journeyGeneration;++_generation;retainJourney();
+ }catch(...) {closeJourney();throw;}
 }
 void XeenEncounterFlow::observeRanged(std::shared_ptr<const XeenRegionalObservation> observation) {
  if(observation->stage==XeenRegionalObservation::Stage::Portrait) {
@@ -276,11 +327,9 @@ void XeenEncounterFlow::projectilesPresented() {
  if(projectilesPending() && !_projectileDeadline)_projectileDeadline=counterDeadline(_lastTime,2);
  if(_shoot && !_shoot->presented) {
   auto &shot=*_shoot;shot.presented=true;shot.advanceDraw=false;shot.deadline=counterDeadline(_lastTime,2);
-  // hitMonster clears this shooter's logical row before attack2. drawScene
-  // then derives _charsShooting from remaining shooters, before animate3d.
-  // Visible lanes can outlive the last logical shooter through HP/removal.
-  for(unsigned i=0;i<6;++i)if(shot.eligible[i] && !shot.spent[i] &&
-    !((shot.attack && shot.attack->hit || shot.spellAttack) && i==shot.shooter))shot.advanceDraw=true;
+  // drawScene/animate3d advances all remaining lanes, including the pre-HP,
+  // post-HP and lethal-removal draws, independently of logical shooter flags.
+  for(const auto &p:_projectiles)shot.advanceDraw=shot.advanceDraw || p.active;
  }
  if(_combat) {_combat->rangedPresented(*entry.combat,!projectilesPending());return;}
  if(_regionalWork && _regionalWork->opportunity) {

@@ -481,7 +481,7 @@ void XeenWorld::retainEventRandom(const XeenJourneyRandomState &random) {
 }
 
 void XeenWorld::applyEventGrant(XeenPartyState &party,std::uint8_t mode,std::uint32_t value,
-		std::optional<std::size_t> member,bool entireParty,bool give) {
+		std::optional<std::size_t> member,bool entireParty,bool give,bool sparkle) {
 	if(!detachedEventCandidate() || party.party.size()==0 || (!entireParty && (!member || *member>=party.party.size())))
 		throw std::invalid_argument("Event recipient is unavailable");
 	if(mode==34 || mode==35) {
@@ -509,7 +509,7 @@ void XeenWorld::applyEventGrant(XeenPartyState &party,std::uint8_t mode,std::uin
 		}
 		// Party::giveTake uses spellFX for skill, award and XP grants;
 		// Convicted Thief (award 8) deliberately has no sparkle.
-		if(give && (mode!=15 || value!=8)) {
+		if(sparkle && give && (mode!=15 || value!=8)) {
 			_scenePresentation.spellEffect(owner,0,true);
 			_scenePresentation.portraits[owner].spellDeadline=0; // Start only after publication.
 		}

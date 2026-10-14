@@ -25,6 +25,40 @@ using m40_test::check;
 namespace {
 bool observeStockDraws=false;
 std::string observedStockDraws;
+struct ServiceDrawTime {std::uint64_t now=0,sampleEnd=0;};
+std::vector<ServiceDrawTime> observedServiceTimes;
+std::uint64_t serviceSampleEnd=0;
+const std::uint64_t *observedServiceClock=nullptr;
+void beginServiceObservation() {observedStockDraws.clear();observedServiceTimes.clear();observeStockDraws=true;}
+// Replay every speaking request, the complete stock schedule, and any later
+// speaking requests independently. No observed request or cursor is discarded.
+std::pair<m42_test::StockOracle,XeenServiceEconomy> serviceOracle(
+        const XeenJourneyRandomState &before,unsigned first,unsigned last,bool generate) {
+    m42_test::StockOracle oracle{before.state,before.count,{}};XeenServiceEconomy economy;
+    std::size_t offset=0,row=0;
+    const auto consume=[&](std::size_t previous,bool speaking) {
+        const auto expected=oracle.trace.substr(previous);
+        check(observedStockDraws.compare(offset,expected.size(),expected)==0,"M43 service random request/value/cursor differs");
+        for(char c:expected)if(c=='\n') {
+            check(row<observedServiceTimes.size(),"M43 service random observation is incomplete");
+            if(speaking)check(observedServiceTimes[row].now<observedServiceTimes[row].sampleEnd,
+                "M43 speaking RNG outside the original sample interval");
+            ++row;
+        }
+        offset+=expected.size();
+    };
+    const auto speech=[&] {
+        const std::string prefix="DRAW "+std::to_string(first)+":"+std::to_string(last)+":";
+        while(observedStockDraws.compare(offset,prefix.size(),prefix)==0) {
+            const auto previous=oracle.trace.size();oracle.draw(first,last);consume(previous,true);
+        }
+    };
+    speech();
+    if(generate) {const auto previous=oracle.trace.size();economy=oracle.generate();consume(previous,false);}
+    speech();
+    check(offset==observedStockDraws.size() && row==observedServiceTimes.size(),"M43 unexpected service random suffix");
+    return {std::move(oracle),std::move(economy)};
+}
 std::uint32_t crc32(const std::vector<std::uint8_t> &bytes){
     std::uint32_t crc=0xffffffffu;
     for(auto byte:bytes){crc^=byte;for(unsigned bit=0;bit<8;++bit)crc=(crc>>1)^((crc&1)?0xedb88320u:0u);}
@@ -47,6 +81,7 @@ std::optional<std::uint32_t> ProbeRandom::draw(std::uint32_t lo,std::uint32_t hi
     m49_trace::draw(lo,hi,result,reinterpret_cast<XeenCombatRandom *>(this)->continuation());
     if(observeStockDraws) {
         const auto cursor=reinterpret_cast<XeenCombatRandom *>(this)->continuation();
+        observedServiceTimes.push_back({PresentationClock::fromMilliseconds(*observedServiceClock),serviceSampleEnd});
         observedStockDraws+="DRAW "+std::to_string(lo)+":"+std::to_string(hi)+":"+
             (result?std::to_string(*result):"rejected")+":"+std::to_string(cursor.state)+":"+
             std::to_string(cursor.count)+"\n";
@@ -64,11 +99,21 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     const std::string stage=std::getenv("MMODERN_M43_STAGE")?std::getenv("MMODERN_M43_STAGE"):"main";
     auto services=original;XeenEventFlow *flow=nullptr;XeenWorld *world=nullptr;
     const XeenPartyState *party=nullptr;const XeenCamera *position=nullptr;const XeenGameFlags *flags=nullptr;
-    std::uint64_t now=0,cycle=0;
+    std::uint64_t now=0,cycle=0;observedServiceClock=&now;
     services.clock=[&]{return now;};
     services.observeGameplay=[&](auto &w,auto &,const auto &p,const auto &c,const auto &f){world=&w;party=&p;position=&c;flags=&f;};
     services.configureFlow=[&](auto &f,const auto &c){original.configureFlow(f,c);flow=&f;
-        f.reportText=[](const std::string &){};};
+        f.reportText=[](const std::string &){};
+        serviceSampleEnd=0;
+        if(f.loadSampleDuration) {
+            const auto sample=f.loadSampleDuration;
+            f.loadSampleDuration=[&,sample](const char *name,XeenSceneArchive archive) {
+                const auto duration=sample(name,archive);
+                serviceSampleEnd=PresentationClock::checkedAdd(PresentationClock::fromMilliseconds(now),duration);
+                return duration;
+            };
+        }
+    };
     services.show=[&](const IndexedFrame &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
         check(flow && world && party && position && flags && target,"M43 production owners absent");
         check(world->sessionState().journey(),"M43 fresh content is not 14");
@@ -106,6 +151,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         const auto action=[&](PlayerAction value){steps.push_back([&,value]{act(value);return true;});};
         const auto settle=[&]{steps.push_back([&]{
             if(flow->canSave())return true;
+            // Native input waits behind acquired, uninterruptible portrait/pose
+            // frames. Retain this scripted action until its actual poll.
+            if(!handler.inputContext(presented).readyForAction)return false;
             if(flow->encounter()->castingCommitted()) {
                 const auto context=handler.inputContext(presented);
                 if(context.dialog && context.dialog->anyKey){act(AcknowledgeAction{});return false;}
@@ -191,7 +239,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 party->encounterContext->day==8,
                 "M43 Temple arrival differs");
             *arrivalMinutes=party->encounterContext->minutes;
-            *mainStockCursor=*world->sessionState().journeyRandom();
+            *mainStockCursor=*world->sessionState().journeyRandom();beginServiceObservation();
             std::cerr<<"M43 TEMPLE ARRIVAL 15,28 MINUTE "<<*arrivalMinutes<<'\n';
         });
         checkpoint("A");
@@ -203,10 +251,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             *resurrection=expectedTemple(6,410,15,27,810,400);*resurrectionIndex=5;});
         steps.push_back([&]{act(SelectMemberAction{*resurrectionIndex});return true;});
         inspect([&]{check(!flow->canSave(),"M43 Temple quote exposed Quiet");});
-        inspect([&]{observedStockDraws.clear();observeStockDraws=true;});
         action(DialogKeyAction{'h'});
         steps.push_back([&]{return party->monsterTreasure->gold==resurrection->result.goldAfter;});
-        inspect([&]{observeStockDraws=false;
+        inspect([&]{
             const auto owner=resurrection->result.owner;
             check(resurrection->result.price>0 && !party->roster.at(owner).conditions[13] &&
                 xeen_state::sameCharacter(party->roster.at(owner),resurrection->character) && party->encounterContext->day==8,
@@ -222,8 +269,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         action(CancelInteractionAction{});
         steps.push_back([&]{return flow->canSave();});
         inspect([&]{
-            m42_test::StockOracle oracle{mainStockCursor->state,mainStockCursor->count,{}};
-            const auto expected=oracle.generate();
+            observeStockDraws=false;
+            const auto replay=serviceOracle(*mainStockCursor,2,4,true);const auto &oracle=replay.first;
+            const auto &expected=replay.second;
             check(party->encounterContext->day==10 && party->encounterContext->minutes==*arrivalMinutes &&
                 party->monsterTreasure->gold==initialHeal->result.goldAfter && world->sessionState().journeyRandom()->state==oracle.state &&
                 world->sessionState().journeyRandom()->count==oracle.count &&
@@ -242,6 +290,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             auto rebecca=std::make_shared<XeenCharacter>(party->roster.at(1));
             const auto unpaidMinutes=party->encounterContext->minutes;
             const auto unpaidGold=party->monsterTreasure->gold;
+            inspect([&]{beginServiceObservation();});
             action(InteractionAction{});
             steps.push_back([&]{return flow->serviceSaveBlocked() && XeenTrainingTestAccess::templeLobby(*flow);});
             action(SelectMemberAction{5});
@@ -249,9 +298,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             action(CancelInteractionAction{});action(CancelInteractionAction{});
             steps.push_back([&]{return flow->canSave();});
             inspect([&,economy,cursor,seymour,rebecca,unpaidMinutes,unpaidGold]{
+                observeStockDraws=false;const auto replay=serviceOracle(*cursor,2,4,false);const auto &oracle=replay.first;
                 check(party->encounterContext->day==9 && party->encounterContext->minutes==unpaidMinutes &&
                     party->monsterTreasure->gold==unpaidGold && *party->serviceEconomy==*economy &&
-                    *world->sessionState().journeyRandom()==*cursor &&
+                    world->sessionState().journeyRandom()->state==oracle.state && world->sessionState().journeyRandom()->count==oracle.count &&
                     xeen_state::sameCharacter(party->roster.at(6),*seymour) &&
                     xeen_state::sameCharacter(party->roster.at(1),*rebecca),
                     "M43 original refusal charged Heal or changed stock/RNG/selected owners");
@@ -268,7 +318,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             route("RR"+std::string(7,'U')+"L"+std::string(3,'U')+"L"+std::string(5,'U')+"R"+std::string(4,'U'));
             inspect([&]{check(position->mapId==XeenMapIdentity(28) && position->x==10 && position->y==11 &&
                 party->encounterContext->day==9 && party->monsterTreasure->gold==670,
-                "M43 depleted Training arrival differs");observedStockDraws.clear();observeStockDraws=true;});
+                "M43 depleted Training arrival differs");beginServiceObservation();});
             action(InteractionAction{});
             steps.push_back([&]{return flow->serviceSaveBlocked() && XeenTrainingTestAccess::menu(*flow);});
             for(unsigned member:{1u,4u}) {
@@ -279,14 +329,16 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     check(party->encounterContext->day==(member==1?10:11) &&
                         party->monsterTreasure->gold==(member==1?580:490),
                         "M43 depleted Training member-day or ninety-gold price differs");
-                    if(member==1)check(*party->serviceEconomy==*economy &&
-                        *world->sessionState().journeyRandom()==*cursor,
-                        "M43 Training 9->10 changed depleted stock or live RNG");
+                    if(member==1) {
+                        const auto replay=serviceOracle(*cursor,8,12,false);const auto &oracle=replay.first;
+                        check(*party->serviceEconomy==*economy && world->sessionState().journeyRandom()->state==oracle.state &&
+                            world->sessionState().journeyRandom()->count==oracle.count,"M43 Training 9->10 changed depleted stock or non-speaking RNG");
+                    }
                 });
             }
             action(CancelInteractionAction{});steps.push_back([&]{return flow->canSave();});
             inspect([&,economy,cursor]{observeStockDraws=false;
-                m42_test::StockOracle oracle{cursor->state,cursor->count,{}};const auto generated=oracle.generate();
+                const auto replay=serviceOracle(*cursor,8,12,true);const auto &oracle=replay.first;const auto &generated=replay.second;
                 check(party->encounterContext->day==12 && party->monsterTreasure->gold==490 &&
                     m40_test::stockBytes(generated)==m40_test::stockBytes(*party->serviceEconomy) &&
                     observedStockDraws==oracle.trace &&
@@ -311,7 +363,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 check(position->mapId==XeenMapIdentity(28) && position->x==15 && position->y==28 &&
                     party->encounterContext->day==9 && party->encounterContext->minutes==834 &&
                     party->monsterTreasure->gold==670,"M43 depleted-stock Temple arrival differs");
-                *selected=4;*expectedHeal=expectedTemple(1,30,21,20,670,640);*quote=expectedHeal->result;
+                *selected=4;*expectedHeal=expectedTemple(1,30,21,20,670,640);*quote=expectedHeal->result;beginServiceObservation();
             });
             action(InteractionAction{});
             steps.push_back([&]{return flow->serviceSaveBlocked() &&
@@ -319,10 +371,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 world->sessionState().journeyActivity()==XeenJourneyActivity::Service;});
             if(stage=="depleted"){
                 steps.push_back([&,selected]{act(SelectMemberAction{*selected});return true;});
-                inspect([&]{observedStockDraws.clear();observeStockDraws=true;});
                 action(DialogKeyAction{'h'});
                 steps.push_back([&,expectedHeal]{return party->monsterTreasure->gold==expectedHeal->result.goldAfter;});
-                inspect([&,quote,expectedHeal]{observeStockDraws=false;const auto owner=quote->owner;
+                inspect([&,quote,expectedHeal]{const auto owner=quote->owner;
                     std::cerr<<"M43 DEPLETED HEAL OBSERVED owner "<<unsigned(owner)<<" expectedHP "
                         <<expectedHeal->character.currentHp<<" actualHP "<<party->roster.at(owner).currentHp
                         <<" expectedSP "<<expectedHeal->character.currentSp<<" actualSP "<<party->roster.at(owner).currentSp
@@ -335,9 +386,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             action(CancelInteractionAction{});
             steps.push_back([&]{return flow->canSave();});
             inspect([&,economy,cursor,quote]{
+                observeStockDraws=false;
+                const auto replay=serviceOracle(*cursor,2,4,stage=="depleted");const auto &oracle=replay.first;
                 if(stage=="depleted"){
-                    m42_test::StockOracle oracle{cursor->state,cursor->count,{}};
-                    const auto generated=oracle.generate();
+                    const auto &generated=replay.second;
                     check(party->encounterContext->day==11 && party->monsterTreasure->gold==quote->goldBefore-quote->price &&
                         m40_test::stockBytes(generated)==m40_test::stockBytes(*party->serviceEconomy) &&
                         observedStockDraws==oracle.trace &&
@@ -348,8 +400,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     std::cerr<<"M43 DEPLETED PAID REPLACEMENT ALL1152 DAY11\n";
                 }else{
                     check(party->encounterContext->day==10 && party->monsterTreasure->gold==670 &&
-                        *party->serviceEconomy==*economy && *world->sessionState().journeyRandom()==*cursor,
-                        "M43 unpaid Temple departure changed depleted stock or RNG");
+                        *party->serviceEconomy==*economy && world->sessionState().journeyRandom()->state==oracle.state &&
+                        world->sessionState().journeyRandom()->count==oracle.count,
+                        "M43 unpaid Temple departure changed depleted stock or non-speaking RNG");
                     std::cerr<<"M43 DEPLETED UNPAID RETAINED DAY10\n";
                 }
             });

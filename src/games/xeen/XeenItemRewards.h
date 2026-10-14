@@ -15,6 +15,11 @@ public:
 	static constexpr std::size_t kTotalCapacity = 4*kCapacity;
 	XeenRewardEnqueue enqueue(XeenItem item) noexcept;
 	XeenRewardEnqueue enqueue(XeenItem,XeenRewardCategory) noexcept;
+	XeenRewardEnqueue enqueueQuest(std::uint8_t id) noexcept {
+		const auto result=enqueue({0,id,0,0},XeenRewardCategory::Weapons);
+		if(result==XeenRewardEnqueue::Accepted)_quests[_size-1]=true;
+		return result;
+	}
 	void credit(std::uint8_t mode,std::uint32_t value) noexcept {if(mode==34)_gold+=value;else _gems+=value;}
 	std::uint32_t gold() const noexcept {return _gold;}
 	std::uint32_t gems() const noexcept {return _gems;}
@@ -24,9 +29,11 @@ public:
 	bool hasWork() const { return _size || _overflow || _invalid || _gold || _gems; }
 	const XeenItem &at(std::size_t i) const { return _items.at(i); }
 	XeenRewardCategory categoryAt(std::size_t i) const {return _categories.at(i);}
+	bool questAt(std::size_t i) const {return _quests.at(i);}
 private:
 	std::array<XeenItem, kTotalCapacity> _items{};
 	std::array<XeenRewardCategory,kTotalCapacity> _categories{};
+	std::array<bool,kTotalCapacity> _quests{};
 	std::array<std::size_t,4> _counts{};
 	std::uint32_t _gold=0,_gems=0;
 	std::size_t _size = 0, _overflow = 0, _invalid = 0;
@@ -38,6 +45,7 @@ struct XeenRewardEntry {
 	std::optional<std::uint8_t> owner;
 	XeenRewardLoss loss = XeenRewardLoss::None;
 	XeenRewardCategory category=XeenRewardCategory::Miscellaneous;
+	bool quest=false;
 };
 struct XeenRewardReceipt {
 	std::array<XeenRewardEntry, XeenPendingRewards::kTotalCapacity> entries{};
@@ -52,7 +60,14 @@ bool xeenPacksGloballyFull(XeenCharacter *const *owners, std::size_t count) noex
 // Shared DOS delivery. Returns active index; updates item to the delivered bytes.
 std::optional<std::size_t> xeenDeliverRewardItem(XeenCharacter *const *owners,
 	std::size_t count, XeenItem &item, XeenRewardCategory category,
-	std::optional<std::size_t> preferred = {}) noexcept;
+	std::optional<std::size_t> preferred = {}, bool sort = true, bool quest = false) noexcept;
+// Retained display obligations, ordered by the original category scans. Preparing
+// a receipt does not transfer items, credit currency or clear staged treasure.
+XeenRewardReceipt xeenPrepareRewardReceipt(const XeenPendingRewards &) noexcept;
+void xeenDeliverRewardEntry(XeenRewardReceipt &,std::size_t,XeenPartyState &,
+	std::optional<std::size_t> preferred = {}, bool sort = true);
+void xeenSortRewardEntry(const XeenRewardEntry &,XeenPartyState &);
+void xeenCreditRewardCurrency(XeenPendingRewards &,const XeenRewardReceipt &,XeenPartyState &) noexcept;
 // Fixed result storage and no callbacks/formatting in the mutation segment.
 XeenRewardReceipt xeenDeliverRewards(XeenPendingRewards &pending,
 	XeenPartyState &party, std::optional<std::size_t> preferred);

@@ -21,6 +21,7 @@ struct XeenPresentationUpdate {
 
 class XeenEventPresenter {
 public:
+	struct NpcTiming;
 	using NpcDraw = std::function<void(IndexedFrame &, std::uint8_t, std::size_t)>;
 	using Clock = std::function<std::uint64_t()>;
 	using RandomFrame = std::function<unsigned()>;
@@ -29,7 +30,7 @@ public:
 
 	// Consecutive presents layer over frame(); clear before starting a new scene.
 	XeenPresentationUpdate present(const IndexedFrame &base,
-		const XeenPresentationRequest &request);
+		const XeenPresentationRequest &request, std::size_t retainedNpcPage=0);
 	XeenPresentationUpdate handle(const PlayerAction &action, bool finishResponse = true);
 	// Rebuild displayed layers and all pending pages without producing a response.
 	IndexedFrame rebase(const IndexedFrame &base);
@@ -40,10 +41,14 @@ public:
 	IndexedFrame discardNpc();
 	// Removes transient UI even when present/layout failed before activation.
 	void discardTransient() noexcept;
-	std::optional<IndexedFrame> updateNpc();
+	// Compose the Flow's retained choice; neither clock nor RNG belongs to a view.
+	std::optional<IndexedFrame> updateNpc(const NpcTiming &);
 	void clear();
 
 	bool hasNpcOffer() const;
+	void closeNpcOffers();
+    bool window11Enabled() const;
+    void closeWindow12();
 	bool blocksGameplay() const { return _active; }
 	const IndexedFrame &frame() const { return _frame; }
 	const std::vector<std::string> &diagnostics() const { return _diagnostics; }
@@ -54,6 +59,7 @@ public:
 		std::uint64_t remaining = 0, deadline = 0;
 	};
 	const NpcTiming &npcTiming() const { return _npcTiming; }
+    void retainNpcTiming(const NpcTiming &timing) { _npcTiming=timing; }
 	void originalAssets(const XeenDosText *text, XeenDialogSpriteDraw draw) {
 		_dosText=text; _spriteDraw=std::move(draw);
 	}
@@ -73,9 +79,6 @@ private:
 	NpcDraw _npcDraw;
 	const XeenDosText *_dosText=nullptr;
 	XeenDialogSpriteDraw _spriteDraw;
-	Clock _clock;
-	RandomFrame _randomFrame;
-	std::mt19937 _random{std::random_device{}()};
 	NpcTiming _npcTiming;
 	std::vector<std::size_t> _npcPageSourceEnds;
 

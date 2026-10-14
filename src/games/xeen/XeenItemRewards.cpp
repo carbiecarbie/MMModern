@@ -1,4 +1,5 @@
 #include "games/xeen/XeenItemRewards.h"
+#include <algorithm>
 #include <sstream>
 #include <limits>
 
@@ -68,7 +69,7 @@ bool xeenPacksGloballyFull(const XeenPartyState &party) {
 }
 std::optional<std::size_t> xeenDeliverRewardItem(XeenCharacter *const *owners,
 		std::size_t count, XeenItem &item, XeenRewardCategory category,
-		std::optional<std::size_t> preferred) noexcept {
+		std::optional<std::size_t> preferred, bool sort, bool quest) noexcept {
 	if (!count || !item.id || xeenPacksGloballyFull(owners,count)) return {};
 	const auto capacity=[&](std::size_t i) {return xeenItemHasTailCapacity(xeenRewardItems(*owners[i],category));};
 	std::optional<std::size_t> recipient;
@@ -81,11 +82,41 @@ std::optional<std::size_t> xeenDeliverRewardItem(XeenCharacter *const *owners,
 	for (std::size_t i=0;!recipient && i<count;++i) if (capacity(i)) recipient=i;
 	// DOS 0x24567: category-only overflow replaces the first member's tail.
 	if (!recipient) recipient=0;
+	// Quest counters were already granted by GiveTake. Their Weapons staging
+	// entry only supplies the recipient/found line; it is never inventory data.
+	if(quest)return recipient;
 	auto &items=xeenRewardItems(*owners[*recipient],category);
 	if (items.back().id) item.frame=items.back().frame; // 0x245aa..0x245cc leaves frame intact.
 	items.back()=item;
-	xeenCompactItems(items);
+	if(sort)xeenCompactItems(items);
 	return recipient;
+}
+XeenRewardReceipt xeenPrepareRewardReceipt(const XeenPendingRewards &pending) noexcept {
+	XeenRewardReceipt result;result.count=pending.size();result.overflow=pending.overflow();result.invalid=pending.invalid();
+	result.gold=pending.gold();result.gems=pending.gems();std::size_t next=0;
+	for(unsigned category=0;category<4;++category)for(std::size_t i=0;i<pending.size();++i)
+		if(static_cast<unsigned>(pending.categoryAt(i))==category) {
+			auto &entry=result.entries[next++];entry.item=pending.at(i);entry.category=pending.categoryAt(i);entry.quest=pending.questAt(i);
+		}
+	return result;
+}
+void xeenDeliverRewardEntry(XeenRewardReceipt &receipt,std::size_t index,XeenPartyState &party,
+		std::optional<std::size_t> preferred,bool sort) {
+	if(index>=receipt.count)throw std::out_of_range("Reward receipt index");
+	auto &entry=receipt.entries[index];
+	if(entry.owner || entry.loss!=XeenRewardLoss::None)throw std::logic_error("Reward entry already published");
+	const auto &ids=party.party.activeRosterIds();std::array<XeenCharacter *,XeenParty::kMaximumVisibleMembers> owners{};
+	for(std::size_t i=0;i<ids.size();++i)owners[i]=&party.roster.at(ids[i]);
+	const auto recipient=xeenDeliverRewardItem(owners.data(),ids.size(),entry.item,entry.category,preferred,sort,entry.quest);
+	if(recipient) {entry.owner=ids[*recipient];++receipt.delivered;}
+	else {entry.loss=ids.empty()?XeenRewardLoss::EmptyParty:XeenRewardLoss::GloballyFull;++receipt.lost;}
+}
+void xeenSortRewardEntry(const XeenRewardEntry &entry,XeenPartyState &party) {
+	if(entry.owner)xeenCompactItems(xeenRewardItems(party.roster.at(*entry.owner),entry.category));
+}
+void xeenCreditRewardCurrency(XeenPendingRewards &pending,const XeenRewardReceipt &receipt,XeenPartyState &party) noexcept {
+	if(party.monsterTreasure){party.monsterTreasure->gold+=receipt.gold;party.monsterTreasure->gems+=receipt.gems;}
+	pending={};
 }
 XeenRewardReceipt xeenDeliverRewards(XeenPendingRewards &pending,
 		XeenPartyState &party, std::optional<std::size_t> preferred) {
@@ -98,12 +129,12 @@ XeenRewardReceipt xeenDeliverRewards(XeenPendingRewards &pending,
 	std::size_t entryIndex=0;
 	for(unsigned category=0;category<4;++category)for(std::size_t i=0;i<pending.size();++i)
 		if(static_cast<unsigned>(pending.categoryAt(i))==category) {
-			auto &entry=result.entries[entryIndex++];entry.item=pending.at(i);entry.category=pending.categoryAt(i);
+			auto &entry=result.entries[entryIndex++];entry.item=pending.at(i);entry.category=pending.categoryAt(i);entry.quest=pending.questAt(i);
 		}
 	// Everything below is bounded, allocation-free and nonthrowing.
 	for (std::size_t i = 0; i < result.count; ++i) {
 		auto &entry = result.entries[i];
-		const auto recipient=xeenDeliverRewardItem(owners.data(),ids.size(),entry.item,entry.category,preferred);
+		const auto recipient=xeenDeliverRewardItem(owners.data(),ids.size(),entry.item,entry.category,preferred,true,entry.quest);
 		if (recipient) {
 			entry.owner = ids[*recipient]; ++result.delivered;
 		} else {
@@ -120,7 +151,8 @@ XeenRewardReceipt xeenDeliverRewards(XeenPendingRewards &pending,
 void xeenDiscardRewards(XeenPendingRewards &pending, XeenRewardReceipt &receipt,
 		XeenRewardDiscard reason) noexcept {
 	if (pending.hasWork()) {
-		receipt.discarded = pending.size(); receipt.overflow = pending.overflow();
+		const auto published=std::min(receipt.count,receipt.delivered+receipt.lost);
+		receipt.discarded = receipt.count ? receipt.count-published : pending.size(); receipt.overflow = pending.overflow();
 		receipt.invalid = pending.invalid(); receipt.discardReason = reason;
 	}
 	pending = {};

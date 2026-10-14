@@ -22,6 +22,11 @@ std::string resource(XeenServiceArt art, unsigned file) {
 }
 }
 
+const char *XeenServiceAnimation::greeting(XeenServiceArt art) {
+	static constexpr const char *names[]={"banker.voc","whaddayo.voc","guild10.voc","hello.voc","maywe2.voc","training.voc"};
+	(void)entry(art);return names[static_cast<unsigned>(art)];
+}
+
 unsigned XeenServiceAnimation::modulus(XeenServiceArt art) { return entry(art).modulus; }
 unsigned XeenServiceAnimation::firstRepeat(XeenServiceArt art) { return entry(art).repeat; }
 

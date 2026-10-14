@@ -16,7 +16,8 @@ void XeenEncounterFlow::restPublication() {
  ++_world._sessionState._journeyGeneration;++_generation;
  _journeyFramePrepared=false;_rest->presented=false;retainJourney();
 }
-bool XeenEncounterFlow::beginRest(const std::function<IndexedFrame()> &dream) {
+bool XeenEncounterFlow::beginRest(const std::function<IndexedFrame()> &dream,
+ const std::function<std::array<std::uint64_t,2>()> &durations) {
  if(!_journey || _rest || _busy || _combat || _failure || _regionalWork || _regionalAutomatic ||
   _shoot || _shootIntent || _casting || _castingSettlement || projectilesPending() || monsterReward() ||
   !_boundary.quiet() || !current(ticket()) || _state.pending()>3 || _state.phase()!=XeenEncounterPhase::Exploring || !journeyCapacity())return false;
@@ -48,7 +49,10 @@ bool XeenEncounterFlow::beginRest(const std::function<IndexedFrame()> &dream) {
    candidate->phase=xeenRestDanger(members(_party,candidate->owners),supplements(_party,candidate->owners),_party.encounterContext->year)?
     RestContinuation::Phase::Confirm:RestContinuation::Phase::Charges;
    if(_party.encounterContext->profile==XeenBehaviorProfile::WorldOfXeenClouds) {
-    if(!dream)throw std::invalid_argument("Original Rest dream provider is absent");
+    if(!dream || !durations)throw std::invalid_argument("Original Rest dream providers are absent");
+    candidate->sampleDurations=durations();
+    if(!candidate->sampleDurations[0] || !candidate->sampleDurations[1])
+     throw std::invalid_argument("Invalid original Rest sample duration");
     candidate->dream=dream();
     if(candidate->dream.width!=320 || candidate->dream.height!=200 || !candidate->dream.isValid())
      throw std::invalid_argument("Invalid original Rest dream image");
@@ -87,18 +91,40 @@ bool XeenEncounterFlow::serviceRest() {
  if(!_rest || _busy || _combat || _failure || !_rest->presented || !current(ticket()) || !journeyCapacity())return false;
  using P=RestContinuation::Phase;auto &rest=*_rest;
  if(rest.phase==P::Confirm || rest.phase==P::Refused || rest.phase==P::Complete)return false;
- std::uint64_t now;if(!prepareTime(ticket(),now) || now<rest.deadline)return false;
+ std::uint64_t now;if(!prepareTime(ticket(),now) ||
+  (rest.phase==P::Dream?_lastNanoseconds<rest.dreamDeadline:now<rest.deadline))return false;
  RestBusy busy(_busy);_lastTime=now;
  try {
   const auto retained=_journeyPreimage;const auto check=[&]{retained->check();};
   XeenRestoreGuard::Providers providers(*retained,_world);auto &session=_world._sessionState;
   const bool outdoor=_world.map(_camera.mapId).geometry.isOutdoors();check();
   if(rest.phase==P::Dream) {
-   // Screen::fadeInner(4): 33 palette steps per fade and two seven-tick
-   // holds. dreams2.voc/laff1.voc waits remain the deferred audio gap.
-   if(++rest.dreamBeat==146)rest.phase=P::Recovery;
-   // The next acquired frame arms its own retrace/tick wait. No catch-up.
-   restPublication();return true;
+   // DAT 0x1e605..0x1e72a. Each fade publishes every level; each
+   // seven-tick hold has one reset, and the two sample intervals are sequential.
+   using D=RestContinuation::Dream;
+   if(rest.dreamFade() && rest.fadeStep<32)++rest.fadeStep;
+   else {
+    rest.fadeStep=0;
+    switch(rest.dreamPhase) {
+    case D::FadeOutGameplay:rest.dreamPhase=D::FadeInDream;break;
+    case D::FadeInDream:
+     rest.dreamPhase=D::BeforeDreams;rest.dreamDeadline=PresentationClock::after(_lastNanoseconds,7);break;
+    case D::BeforeDreams:
+     rest.dreamPhase=D::Dreams;rest.dreamDeadline=PresentationClock::checkedAdd(_lastNanoseconds,rest.sampleDurations[0]);break;
+    case D::Dreams:
+     rest.dreamPhase=D::Laff;rest.dreamDeadline=PresentationClock::checkedAdd(_lastNanoseconds,rest.sampleDurations[1]);break;
+    case D::Laff:
+     rest.dreamPhase=D::AfterLaff;rest.dreamDeadline=PresentationClock::after(_lastNanoseconds,7);break;
+    case D::AfterLaff:rest.dreamPhase=D::FadeOutDream;break;
+    case D::FadeOutDream:rest.dreamPhase=D::FadeInGameplay;break;
+    case D::FadeInGameplay:rest.phase=P::Recovery;break;
+    }
+   }
+   // Acquisition arms the next retrace. A late host wake advances one level
+   // or one interval only; it cannot spend elapsed time on later stages.
+   if(rest.phase==P::Dream) {restPublication();return true;}
+   // The last fade has completed. Recovery follows it immediately; do not
+   // invent another two-tick draw/hold between the restored scene and summary.
   }
   if(rest.phase==P::Recovery) {
    if(!rest.recovery)rest.recovery.emplace(members(_party,rest.owners),supplements(_party,rest.owners),*_party.encounterContext,_party.food);

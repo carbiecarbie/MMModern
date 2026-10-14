@@ -2,6 +2,7 @@
 #include "games/xeen/XeenEventPublication.h"
 #include "games/xeen/CloudsUiComposer.h"
 #include "games/xeen/XeenCharacterRules.h"
+#include "games/xeen/XeenCdSpeechTiming.h"
 #include <type_traits>
 #include <utility>
 #include <iostream>
@@ -60,8 +61,8 @@ void XeenEventFlow::requireCurrentOwners() const {
 }
 
 bool XeenEventFlow::canSave() const noexcept {
-	return _gameplayBorrow->current() && !_fatal && !_dispatching && !_saving && !_handoffPending && !_transition && !_arrivalPending &&
-		!inventoryOpen() && !_quickFightMember && !_summary && !_pending && !_equipmentSelection &&
+	return _gameplayBorrow->current() && !_death && !_fatal && !_dispatching && !_saving && !_handoffPending && !_transition && !_arrivalPending &&
+		!_portraitSequence && !inventoryOpen() && !_quickFightMember && !_summary && !_pending && !_equipmentSelection &&
 		(!_encounter || (!_encounter->_needsRestNotice && _encounter->canSave() && encounterFrameCurrent()));
 }
 
@@ -80,7 +81,7 @@ XeenEventFlow::SaveBoundary XeenEventFlow::beginSave() {
 InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origin) {
     const auto *combat = _encounter ? _encounter->combat() : nullptr;
     // Panels are strict throughout their lifetime, including preparation/result work.
-    const unsigned panel = _encounter && !_encounter->_combatCastRefusal.empty() ? 15 : !_whoWillRefusal.empty() ? 14 : _quickFightMember ? 13 : _summary ? 12 : _encounter && _encounter->_rest ? 11 : _encounter && _encounter->_needsRestNotice ? 10 : _fatal ? 1 : _trainingUi ? 2 : _smithUi ? 3 : inventoryOpen() ? 4 :
+    const unsigned panel = _death ? 16 : _encounter && !_encounter->_combatCastRefusal.empty() ? 15 : !_whoWillRefusal.empty() ? 14 : _quickFightMember ? 13 : _summary ? 12 : _encounter && _encounter->_rest ? 11 : _encounter && _encounter->_needsRestNotice ? 10 : _fatal ? 1 : _trainingUi ? 2 : _smithUi ? 3 : inventoryOpen() ? 4 :
         (_castingUi || (combat && combat->cast())) ? 5 :
         (_pending || _transition || (_encounter && _encounter->journeyEvent())) ? 6 :
         (_encounter && _encounter->monsterReward()) ? 7 :
@@ -93,25 +94,29 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
         _quickFightMember ? 500+*_quickFightMember : _summary ? 400+unsigned(*_summary) : inventoryOpen() ? (_exchange ? 6 : _dialogError ? 5 : _statPopup ? 4 : _itemOption ? 3 : _sheet && !_itemsVisible ? 2 : 1) :
         _smithUi ? 100+unsigned(_smithUi->phase)*8+unsigned(_smithUi->mode)+(!_smithUi->feedback.empty()?1000:0) :
         _trainingUi ? 200+unsigned(_trainingUi->phase)+(!_trainingUi->feedback.empty()?1000:0) :
-        _encounter && _encounter->_rest ? 300+unsigned(_encounter->_rest->phase) : _pending ? _pending->generation : 0};
+        _encounter && _encounter->_rest ? 300+unsigned(_encounter->_rest->phase) : _pending ? _pending->generation :
+        _encounter && _encounter->monsterReward()?600+4*_encounter->_monsterReceipt->cursor+unsigned(_encounter->_monsterReceipt->phase):0};
     if (!_queueContext || !(*_queueContext == context)) {
         if (_queueContextId == std::numeric_limits<std::uint64_t>::max()) throw std::overflow_error("Input context exhausted");
         ++_queueContextId;
         _queueContext = context;
         _mainScreenNotice.clear();
     }
-    const bool queueable = panel == 0 && (!_encounter || journey() || combat);
+    const bool worldQueueable = panel == 0 && (!_encounter || journey() || combat);
+    const bool npcQueueable = panel==6 && pendingNpc() && bool(_npcSequence);
+    const bool queueable=worldQueueable || npcQueueable;
     bool ready = !_dispatching && !_fatal && !_saving && !_handoffPending && !_arrivalPending &&
         acceptsInputFrame(origin) && (!journey() || journeyInputCurrent(displayedInput()));
-    bool navigationReady = ready && queueable;
+    bool navigationReady = ready && worldQueueable;
+	if(_treasureWait)ready=ready && _treasureWait->acquired && presentationNow()>=_ordinary.deadline;
     // Rest consumes an already armed countdown through sleeping chargeStep.
     // It cannot enter around a retained opportunity or an unacquired frame.
-    const bool restReady=ready && queueable && journey() && !combat && _encounter->state().pending() &&
+    bool restReady=ready && worldQueueable && journey() && !combat && _encounter->state().pending() &&
         _encounter->state().phase()==XeenEncounterPhase::Exploring && !_encounter->_busy &&
         !_encounter->_regionalWork && !_encounter->_regionalAutomatic && !_encounter->_shoot &&
         !_encounter->_shootIntent && !_encounter->projectilesPending() && !_encounter->_casting &&
         !_encounter->_castingSettlement && _encounter->boundary().quiet();
-    if (queueable && _encounter) {
+    if (worldQueueable && _encounter) {
         ready = ready && !_encounter->_busy && !_encounter->projectilesPending() &&
             !_encounter->_shootIntent && !_encounter->_shoot && !_encounter->_castingSettlement &&
             !_encounter->_regionalAutomatic && !_encounter->_regionalWork &&
@@ -123,6 +128,9 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
             _displayedCombat && combat->current(*_displayedCombat) && !_encounter->_scheduleAfterFrame;
         else ready = ready && _encounter->journeyMutable();
     }
+    if((_smithUi && (_smithUi->goodbye || _smithUi->animation.pendingIndex)) ||
+        (_trainingUi && _trainingUi->animation.pendingIndex))ready=false;
+    if(_portraitSequence)ready=navigationReady=restReady=false;
     auto dialog=_smithUi || _trainingUi ? serviceDialogInput() : characterDialogInput();
     if(_castingUi || (combat && combat->cast()))dialog=castingDialogInput();
     if(_presenter.blocksGameplay() &&
@@ -157,16 +165,23 @@ InputContext XeenEventFlow::inputContext(const IndexedFrame::Presentation &origi
         if(rest.phase==P::Confirm)input=xeenConfirmInput();
         else if(rest.phase==P::Refused || rest.phase==P::Complete)input.anyKey=input.anyClick=input.keyMouseWait=true;
         dialog=std::make_shared<const DialogInput>(std::move(input));
-        hideCursor=rest.phase==P::Dream && rest.dreamBeat>=33 && rest.dreamBeat<113;
+        hideCursor=rest.phase==P::Dream && rest.dreamScene();
+    }
+    if(_death) {
+        ready=ready && _death->phase==DeathContinuation::Phase::Scroll;
+        navigationReady=false;
+        DialogInput input;input.anyKey=input.anyClick=input.keyMouseWait=true;
+        dialog=std::make_shared<const DialogInput>(std::move(input));hideCursor=true;
     }
     // sealFrame observes context while composition owns the callback lease.
     // Only an actionable acquired origin may sample an external clock here.
-    const bool drawFinished=queueable && (ready || navigationReady || restReady) &&
+    if(npcQueueable)ready=ready && !_npcResponse && _npcSequence->acquired && presentationNow()>=_npcSequence->deadline;
+    const bool drawFinished=worldQueueable && (ready || navigationReady || restReady) &&
         presentationNow()>=_ordinary.deadline;
     const bool navigationDrawPending=navigationReady && !dialog && !drawFinished;
     navigationReady=navigationReady && !dialog && drawFinished;
-    if(queueable)ready=ready && drawFinished;
-    return {_queueContextId, queueable, ready, journey() && queueable ?
+    if(worldQueueable)ready=ready && drawFinished;
+    return {_queueContextId, queueable, ready, journey() && worldQueueable ?
         (combat ? MainScreen::Combat : MainScreen::Exploration) : MainScreen::None,std::move(dialog),hideCursor,restReady,
         navigationReady,navigationDrawPending};
 }
@@ -179,11 +194,14 @@ std::uint64_t XeenEventFlow::presentationNow() {
 }
 std::optional<std::uint64_t> XeenEventFlow::nextPresentationDeadline() {
     const auto now=presentationNow();
+    if(_portraitSequence)return _portraitSequence->acquired?_portraitSequence->deadline:now;
+    if(_death)return _death->acquired?std::optional<std::uint64_t>{_death->deadline}:std::nullopt;
     if(_smithUi) {
+        if(_smithUi->animation.pendingIndex && !_smithUi->animation.awaitingFrame)return now;
+        if(_smithUi->goodbye)return _smithUi->animation.sample.deadline();
         if(_smithUi->phase==SmithUi::Phase::Preparation || _smithUi->phase==SmithUi::Phase::Upgrade ||
             _smithUi->phase==SmithUi::Phase::Departure)return now;
-        if(_smithUi->animation.failed)return PresentationClock::after(now,1);
-        auto next=PresentationClock::fromMilliseconds(_smithUi->animation.deadline);
+        auto next=_smithUi->animation.deadline;
         if(_smithUi->phase==SmithUi::Phase::Amount && _smithUi->feedback.empty()) {
             const auto cursor=_smithUi->amountCursor.deadline();
             next=std::min(next,cursor?PresentationClock::fromMilliseconds(*cursor):now);
@@ -192,27 +210,23 @@ std::optional<std::uint64_t> XeenEventFlow::nextPresentationDeadline() {
     }
     if(_trainingUi) {
         if(_trainingUi->phase!=TrainingUi::Phase::Menu)return now;
-        return _trainingUi->animation.failed?PresentationClock::after(now,1):
-            PresentationClock::fromMilliseconds(_trainingUi->animation.deadline);
+        return _trainingUi->animation.deadline;
     }
     if((pendingNpc() || (_pending && _presenter.hasNpcOffer()))) {
-        const auto timing=_presenter.npcTiming();
-        return timing.remaining?PresentationClock::fromMilliseconds(timing.deadline):PresentationClock::after(now,1);
+        return _npcSequence ? _npcSequence->deadline : PresentationClock::after(now,3);
     }
     auto next=_ordinary.deadline;
     if(inventoryOpen() || (_summary && *_summary==SummaryDialog::QuickReference))next=PresentationClock::after(now,1);
     if(_sheet && !_itemsVisible && !_statPopup && !_dialogError)next=PresentationClock::fromMilliseconds(_sheet->deadline);
     if(_summary && *_summary==SummaryDialog::Map)next=PresentationClock::fromMilliseconds(_mapDeadline);
-    for(const auto &portrait:_world.scenePresentation().portraits) {
-        if(portrait.spellFrame<4)next=std::min(next,PresentationClock::fromMilliseconds(portrait.spellDeadline));
-        if(portrait.damageTicks)next=std::min(next,PresentationClock::fromMilliseconds(portrait.damageDeadline));
-    }
+    if(_barrier && _barrier->trapWaiting)next=std::min(next,_barrier->deadline);
+    else if(_barrier && _barrier->published)next=std::min(next,PresentationClock::fromMilliseconds(_barrier->deadline));
     if(_encounter && !_encounter->journeyEvent() && _encounter->deadline())
         next=std::min(next,PresentationClock::fromMilliseconds(*_encounter->deadline()));
     if(_encounter && _encounter->_rest && _encounter->_rest->presented) {
         using P=XeenEncounterFlow::RestContinuation::Phase;
         const auto &rest=*_encounter->_rest;
-        if(rest.phase==P::Dream)return PresentationClock::fromMilliseconds(rest.deadline);
+        if(rest.phase==P::Dream)return rest.dreamDeadline;
         if(rest.phase!=P::Confirm && rest.phase!=P::Refused && rest.phase!=P::Complete)
             next=std::min(next,PresentationClock::fromMilliseconds(rest.deadline));
     }
@@ -221,6 +235,109 @@ std::optional<std::uint64_t> XeenEventFlow::nextPresentationDeadline() {
     return next;
 }
 
+bool XeenEventFlow::partyDeathRequired() const noexcept {
+    if(!_encounter || _pending || _transition || _barrier || _portraitSequence)return false;
+    for(const auto &portrait:_world.scenePresentation().portraits)
+        if(portrait.damageTicks || portrait.spellFrame<4)return false;
+    if((_encounter->combat() && _encounter->combat()->phase()==XeenCombatPhase::Defeat) ||
+        _encounter->state().reason()==XeenEncounterStop::Defeat)return true;
+    // Party::checkPartyDead, also reached after Event damage: wait for all
+    // retained effects and their publication before handing off the session.
+    if(!journey() || _encounter->combat() || _encounter->_rest || _encounter->_failure ||
+        _encounter->_regionalWork || _encounter->_regionalAutomatic || _encounter->_shoot ||
+        _encounter->_shootIntent || _encounter->_casting || _encounter->_castingSettlement ||
+        _encounter->projectilesPending() || _encounter->monsterReward())return false;
+    for(auto owner:_party.party.activeRosterIds())if(xeenCombatTargetable(_party.roster.at(owner)))return false;
+    return true;
+}
+bool XeenEventFlow::partyDeathComplete() const noexcept {
+    return _death && _death->phase==DeathContinuation::Phase::Done;
+}
+IndexedFrame XeenEventFlow::drawDeath(const IndexedFrame &base) {
+    using P=DeathContinuation::Phase;
+    if(!_death) {
+        if(!loadSampleDuration || !drawDialogSprite)throw std::invalid_argument("Original death providers are absent");
+        DeathContinuation candidate;candidate.gameplay=base;
+        const auto fireDuration=loadSampleDuration("fire.voc",XeenSceneArchive::Clouds);
+        candidate.laughDuration=loadSampleDuration("xeenlaff.voc",XeenSceneArchive::Clouds);
+        if(!fireDuration || !candidate.laughDuration)throw std::invalid_argument("Invalid original death sample duration");
+        candidate.final=drawXeenDeathFinal(base,drawDialogSprite);
+        _death=std::move(candidate);
+    }
+    const auto &death=*_death;
+    if(death.phase==P::Fire)return drawXeenDeathFire(death.gameplay,death.fire,drawDialogSprite);
+    if(death.phase==P::Laugh)return drawXeenDeathLaugh(death.final,
+        death.laugh?std::optional<unsigned>{death.laugh-1}:std::nullopt,drawDialogSprite);
+    if(death.phase==P::Scroll || death.phase==P::Closed || death.phase==P::FadeOut || death.phase==P::Done) {
+        auto frame=death.final;
+        const auto hand=[&](unsigned index,int x=0) {
+            const auto name="hand"+std::string(index<10?"0":"")+std::to_string(index)+".vga";
+            drawDialogSprite(frame,name.c_str(),0,x,0);
+        };
+        const auto marble=[&](unsigned sheet,unsigned index) {
+            const auto name="marb0"+std::to_string(sheet)+".vga";
+            drawDialogSprite(frame,name.c_str(),index,0,0);
+        };
+        if(death.phase!=P::Scroll) {hand(0);marble(1,0);}
+        else {
+            const auto index=death.scroll;
+            // DAT 0x0aec3..0x0afd2, calibrated against the closing hands in
+            // Morte.mkv; Screen::doScroll(true,false) in the pinned reference.
+            constexpr int left[]{29,23,15,-5,-11,-23,-49,-71};
+            constexpr int right[]{165,171,198,218,228,245,264,281};
+            if(index>14) {hand(14,left[index-15]);hand(15,right[index-15]);}
+            else hand(index-1);
+            if(index<=20)marble((index-1)/5+1,(index-1)%5);
+        }
+        if(death.phase==P::FadeOut)
+            for(auto &component:frame.palette)component=std::uint8_t((unsigned(component)*death.fadeLevel*2)>>8);
+        return frame;
+    }
+    return death.final;
+}
+void XeenEventFlow::deathPresented() {
+    if(!_death || _death->acquired)return;
+    auto &death=*_death;using P=DeathContinuation::Phase;
+    const auto now=presentationNow();
+    death.acquired=true;
+    if(death.phase==P::Fire || death.phase==P::FadeOut)death.deadline=PresentationClock::retraceAfter(now);
+    // Laughter and scroll reset before composition, not after upload. A late
+    // acquisition satisfies that wait but never permits an unacquired successor.
+    else if(death.phase!=P::Laugh && death.phase!=P::Scroll)death.deadline=now;
+}
+bool XeenEventFlow::advanceDeath() {
+    if(!_death || !_death->acquired)return false;
+    auto &death=*_death;using P=DeathContinuation::Phase;
+    const auto now=presentationNow();
+    if(now<death.deadline || death.phase==P::Done)return false;
+    switch(death.phase) {
+    case P::Fire:
+        if(death.fire<34)death.fire+=2;else death.phase=P::Final;
+        break;
+    case P::Final:
+        death.phase=P::Laugh;death.laughEnd=PresentationClock::checkedAdd(now,death.laughDuration);break;
+    case P::Laugh:
+        // DAT 0x0b2f7..0x0b346: sample status is sampled after the two-tick
+        // draw hold, with one restart at index 10 and no final sound tail.
+        if(now>=death.laughEnd || death.laugh==22)death.phase=P::Restore;
+        else if(death.laugh==10 && !death.restarts){death.laugh=0;++death.restarts;}
+        else ++death.laugh;
+        break;
+    case P::Restore:death.phase=P::Scroll;break;
+    case P::Scroll:
+        if(death.scroll>1)--death.scroll;else death.phase=P::Closed;
+        break;
+    case P::Closed:death.phase=P::FadeOut;break;
+    case P::FadeOut:
+        if(death.fadeLevel)death.fadeLevel-=4;else {death.phase=P::Done;return false;}
+        break;
+    case P::Done:return false;
+    }
+    death.acquired=false;
+    if(death.phase==P::Laugh)death.deadline=PresentationClock::after(now,2);
+    else if(death.phase==P::Scroll)death.deadline=PresentationClock::after(now,1);
+    return true;
+}
 IndexedFrame XeenEventFlow::drawRest(const IndexedFrame &base) {
     if(!_encounter->_rest)return base;
     using P=XeenEncounterFlow::RestContinuation::Phase;auto &rest=*_encounter->_rest;
@@ -230,9 +347,8 @@ IndexedFrame XeenEventFlow::drawRest(const IndexedFrame &base) {
         std::string(xeenDialogText(dosText(),rest.starving?XeenDialogText::PartyIsStarving:XeenDialogText::HitSpellPointsRestored)),std::to_string(rest.consumed)}));
     if(rest.phase!=P::Dream)return base;
     if(!rest.background.isValid())rest.background=base;
-    const auto beat=rest.dreamBeat;
-    auto frame=beat<33 || beat>=113?rest.background:rest.dream;
-    const unsigned scale=beat<33?128-4*beat:beat<66?4*(beat-33):beat<80?128:beat<113?128-4*(beat-80):4*(beat-113);
+    auto frame=rest.dreamScene()?rest.dream:rest.background;
+    const unsigned scale=rest.dreamScale();
     // Screen::loadPalette expands p6 to p8 first; fadeInner uses
     // (p8 * val * 2) >> 8, preserving eight-bit intermediate shades.
     for(unsigned n=0;n<frame.palette.size();++n)frame.palette[n]=std::uint8_t((unsigned(rest.background.palette[n])*scale*2)>>8);
@@ -295,10 +411,8 @@ IndexedFrame XeenEventFlow::drawTerminalEncounterNotice(const IndexedFrame &base
 }
 
 IndexedFrame XeenEventFlow::drawMainScreenNotice(const IndexedFrame &base, const std::string &) const {
-    // Defeat playback and return routing are deferred together to M63.
-    // Retain the existing terminal presentation; do not invent a death screen.
-    if(_encounter->combat() && _encounter->combat()->phase()==XeenCombatPhase::Defeat)
-        return drawTerminalEncounterNotice(base,_encounter->notice());
+    if((_encounter->combat() && _encounter->combat()->phase()==XeenCombatPhase::Defeat) ||
+        _encounter->state().reason()==XeenEncounterStop::Defeat)return base;
     auto frame=base;
     if(const auto *combat=_encounter->combat()) {
         if(drawCombatButtons)drawCombatButtons(frame);
@@ -396,7 +510,32 @@ void XeenEventFlow::framePresented(const IndexedFrame::Presentation &presented, 
 	requireCurrentOwners();
 	if (_dispatching || _saving) throw std::logic_error("Frame handoff during dispatch");
 	if (!encounterFrameCurrent()) throw std::logic_error("Stale successful frame handoff");
+    if(_smithUi && (_smithUi->animation.awaitingFrame || _smithUi->animation.resetAfterFrame)) {
+        _smithUi->animation.deadline=PresentationClock::after(presentationNow(),3);
+        _smithUi->animation.resetAfterFrame=false;
+        _smithUi->animation.awaitingFrame=false;_smithUi->animation.pendingIndex.reset();
+    }
+    if(_trainingUi && (_trainingUi->animation.awaitingFrame || _trainingUi->animation.resetAfterFrame)) {
+        _trainingUi->animation.deadline=PresentationClock::after(presentationNow(),3);
+        _trainingUi->animation.resetAfterFrame=false;
+        _trainingUi->animation.awaitingFrame=false;_trainingUi->animation.pendingIndex.reset();
+    }
+    if(_portraitSequence && !(_transition && _transition->presentationRetry))_portraitSequence->acquired=true;
+    if(_death)deathPresented();
+	if(_treasureWait && !_treasureWait->acquired) {
+		_treasureWait->deadline=PresentationClock::after(presentationNow(),_treasureWait->ticks);
+		_treasureWait->acquired=true;
+	}
     if(_encounter)_encounter->projectilesPresented();
+    if(_npcSequence && (pendingNpc() || _presenter.hasNpcOffer())) {
+        auto &npc=*_npcSequence;
+        if(!npc.acquired) {
+            npc.acquired=true;npc.composed=false;npc.choice.reset();
+            npc.deadline=PresentationClock::after(presentationNow(),3);
+            npc.timing.deadline=PresentationClock::ceilMilliseconds(npc.deadline);
+            _presenter.retainNpcTiming(npc.timing);
+        }
+    }
 	if (_cosmeticPending) {
 		// A successfully acquired travel row arms only its cosmetic successor.
 		if(_encounter) _encounter->castProjectilePresented();
@@ -421,6 +560,7 @@ void XeenEventFlow::framePresented(const IndexedFrame::Presentation &presented, 
 
 	_actionableFrame = presented;
 	if(_barrier && _barrier->portraitWaiting)_barrier->portraitPresented=true;
+    if(_barrier && _barrier->trapWaiting)_barrier->trapPresented=true;
 }
 
 void XeenEventFlow::completeInputHandoff(const IndexedFrame::Presentation &presented) {
@@ -545,13 +685,16 @@ void XeenEventFlow::finishOrdinaryDraw() {
 }
 
 IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, bool reconstruct) {
+    prepareStandalonePortrait();
 	if (_smithUi) {
 		cosmeticInput=_smithRenderedRevision && *_smithRenderedRevision==_smithUi->revision;
+        if(!cosmeticInput)_smithUi->animation.resetAfterFrame=true;
 		if (_encounter->_smith && _encounter->_smith->frame &&
 			(!xeenSmithAuthorityRoom(_inputGeneration,8) || !_encounter->smithCapacity(16,4))) return frameCopy();
 	}
 	if(_trainingUi) {
 		cosmeticInput=_trainingRenderedRevision && *_trainingRenderedRevision==_trainingUi->revision;
+        if(!cosmeticInput)_trainingUi->animation.resetAfterFrame=true;
 		if(_encounter->_training && _encounter->_training->frame &&
 			(!xeenSmithAuthorityRoom(_inputGeneration,8) || !_encounter->smithCapacity(16,4)))return frameCopy();
 	}
@@ -565,7 +708,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, boo
 	_acquiredCosmeticFrame.reset();
 	if (!cosmetic) { _actionableFrame.reset(); _cosmeticPending = false; }
 	if (journey() && !_encounter->combat()) {
-		report=report || _encounter->state().phase()==XeenEncounterPhase::SupportStopped;
+		report=report || (!_death && _encounter->state().phase()==XeenEncounterPhase::SupportStopped);
 		if (!cosmetic) _encounter->holdJourneyFrame();
 		for (unsigned attempt=0;attempt<2;++attempt) {
 			IndexedFrame returned;
@@ -597,14 +740,22 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, boo
 						request.mapId=_camera.mapId;
                         const auto &receipt=*_encounter->_monsterReceipt;
                         request.treasure.emplace();auto &treasure=*request.treasure;
-                        treasure.gold=receipt.treasure.pendingGold;treasure.fullPacks=receipt.globallyFull;
-                        for(unsigned i=0;i<receipt.count;++i) {
+                        using Phase=XeenMonsterDeliveryCandidate::Phase;
+                        request.kind=receipt.phase==Phase::Warning?XeenPresentationKind::RewardWarning:XeenPresentationKind::RewardReceipt;
+                        treasure.gold=receipt.treasure.pendingGold;
+                        treasure.stage=receipt.phase==Phase::Blank?XeenTreasureDisplay::Stage::Blank:
+                            receipt.phase==Phase::Found?XeenTreasureDisplay::Stage::Found:XeenTreasureDisplay::Stage::Final;
+                        unsigned first=receipt.cursor;
+                        if(receipt.phase==Phase::Final)for(unsigned i=receipt.count;i>0;--i)if(receipt.records[i-1].recipient){first=i-1;break;}
+                        for(unsigned i=first;i<receipt.count && i==first;++i) {
                             const auto &entry=receipt.records[i];if(!entry.recipient)continue;
                             const auto category=entry.miscellaneous?XeenInventoryCategory::Miscellaneous:
                                 entry.armor?XeenInventoryCategory::Armor:XeenInventoryCategory::Weapons;
                             treasure.items.push_back({_party.roster.at(*entry.recipient).name,
                                 _catalog.foundName(category,entry.production.item),false});
                         }
+                        prepareTreasureWait(_encounter->ticket().generation,
+                            receipt.phase==Phase::Blank?1:receipt.phase==Phase::Found?10:0,true);
                         _presenter.originalAssets(dialogText,drawDialogSprite);
 						rendered=_presenter.present(composed.frame,request).frame;_monsterReceiptPresented=true;
 					} else rendered=_presenter.rebase(composed.frame);
@@ -619,6 +770,7 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, boo
 				if (_trainingUi) rendered=drawTraining(composed.frame);
 				if(_summary)rendered=drawSummary(rendered);
                 if(_quickFightMember)rendered=drawQuickFightOptions(rendered);
+				if(partyDeathRequired() || _death)rendered=drawDeath(composed.frame);
 				if (report && !attempt) {
 					if (reportText) reportText(_encounter->notice());
 					if (!_encounter->current(t)) throw std::logic_error("Stale Journey reporting");
@@ -668,19 +820,22 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, boo
             if(_encounter->combat() && _encounter->combat()->cast())rendered=drawCasting(rendered);
                 if(_encounter->_needsRestNotice)rendered=drawXeenErrorScroll(rendered,_inventoryFont,std::string(xeenDialogText(dosText(),XeenDialogText::PartyNeedsRest)));
 			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter report");
-			// Complete the fallible return copy before installing the frame.
+			if(partyDeathRequired() || _death) {
+                auto deathBase=composed.frame;drawPartyPresentation(deathBase);rendered=drawDeath(deathBase);
+            }
+            // Complete the fallible return copy before installing the frame.
 			if (!attempt && beforeEncounterFrameCopy) beforeEncounterFrameCopy();
 			if (!_encounter->current(entry)) throw std::runtime_error("Stale encounter frame copy");
 			returned = rendered;
 			_frame = std::move(rendered);
 			if (_encounter->combat()) {
 				_inventoryUnderlay = _frame;
-				if (inventoryOpen()) {
+				if (!_death && inventoryOpen()) {
 					_frame = drawCharacterDialog(_inventoryUnderlay);
 					returned = _frame;
 				}
-				if(_summary){_frame=drawSummary(_frame);returned=_frame;}
-                if(_quickFightMember){_frame=drawQuickFightOptions(_frame);returned=_frame;}
+				if(!_death && _summary){_frame=drawSummary(_frame);returned=_frame;}
+                if(!_death && _quickFightMember){_frame=drawQuickFightOptions(_frame);returned=_frame;}
 				if (_encounter->combat() && ((journey() && !cosmeticInput) || !_displayedCombat || !_encounter->combat()->current(*_displayedCombat))) {
 					if (_inputGeneration == std::numeric_limits<std::uint64_t>::max()) throw std::overflow_error("Combat input generation exhausted");
 					++_inputGeneration;
@@ -723,10 +878,11 @@ XeenEventFlow::XeenEventFlow(XeenWorld &world, XeenEventSystem &events,
         PresentationClock::Source{[this] {return PresentationClock::fromMilliseconds(_clock());}} :
         PresentationClock::Source{[] {return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
             std::chrono::steady_clock::now().time_since_epoch()).count());}}),
-    _presenter(font, std::move(npcDraw), [this] { return _clock(); }, std::move(randomFrame)),
+    _presenter(font, std::move(npcDraw)),
 	_ordinary{0, 0, camera.mapId, camera.direction, false},
 	_compose(std::move(compose)) {
     dialogText=text;
+    _npcRandomFrame=std::move(randomFrame);
 	if (journey || world.sessionState().journey()) {
 		if (!encounterCompose) throw std::invalid_argument("Journey requires exclusive presentation setup");
 		_encounterCompose = std::move(encounterCompose);
@@ -762,6 +918,7 @@ bool XeenEventFlow::refreshScene(bool reconstruct, OrdinaryCause cause, bool com
 		auto composition=_encounterCompose(_ordinary.phase,_encounter->appearance());
 		requireCurrentOwners();
 		_frame=_presenter.rebase(composition.frame);
+        drawPartyPresentation(_frame);
   const bool heads=drawPendingHeads(_frame);
         if(!_whoWillRefusal.empty())_frame=drawXeenErrorScroll(_frame,_inventoryFont,_whoWillRefusal);
 		requireCurrentOwners();
@@ -816,6 +973,10 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 			if (_transition) prepareVertigoResult(result);
 		// Adopt ownership before composition, reporting or presentation can fail.
 		auto *suspended = std::get_if<XeenEventExecutionSuspended>(&result);
+        if(!suspended && _presenter.hasNpcOffer()) {
+            // DAT 0x28e92 -> CloseAll closes window 11, without Stop Audio.
+            _presenter.closeNpcOffers();_npcSequence.reset();reconstruct=true;
+        }
 		if (suspended && journey() && (suspended->request.kind==XeenPresentationKind::ArmorRepairService ||
 			 suspended->request.kind==XeenPresentationKind::TempleService ||
          suspended->request.kind==XeenPresentationKind::TrainingService ||
@@ -825,6 +986,11 @@ template<class Result> IndexedFrame XeenEventFlow::drive(Result result, bool aut
 		if (suspended) {
 			_pending.emplace(Pending{std::move(suspended->state), automatic, ++_generation});
 			if(journey())_regionalEventContinuation.emplace(_pending->state,true);
+            if(_pending->state.pendingPresentation->request.kind==XeenPresentationKind::PortraitEffect) {
+                const auto &effect=_pending->state.pendingPresentation->request.portrait;
+                if(!effect)throw std::logic_error("Portrait effect request lost its retained phase");
+                preparePortraitSequence(*effect,_pending->generation);
+            }
 		}
 		if (suspended && (suspended->request.kind==XeenPresentationKind::ArmorRepairService ||
 			suspended->request.kind==XeenPresentationKind::TrainingService ||
@@ -991,6 +1157,9 @@ void XeenEventFlow::prepareVertigoResult(const XeenManualEventResult &result) tr
 	_eventPublication->check();
 	if (const auto *suspended=std::get_if<XeenEventExecutionSuspended>(&result)) {
 		work.continuation.emplace(suspended->state,true);
+		if(suspended->request.kind==XeenPresentationKind::RewardReceipt ||
+			suspended->request.kind==XeenPresentationKind::RewardWarning)
+			publishEventSequencePrefix(suspended->state);
 		const auto root=xeenRegionalEvent(_encounter->_journeyEvents,work.initialCamera);
 		if(!root)throw std::logic_error("Detached Event suspension lost its original entry");
 		const auto &entry=_encounter->_journeyEvents.records[*root];
@@ -1004,6 +1173,7 @@ void XeenEventFlow::prepareVertigoResult(const XeenManualEventResult &result) tr
 			_eventPublication->publishPrelude(_flags,suspended->state,*work.continuation);
 			work.preludePublished=true;
 		}
+        if(suspended->request.kind==XeenPresentationKind::PortraitEffect)publishEventSequencePrefix(suspended->state);
 		const bool service=suspended->state.pendingPresentation->request.source.opcode==0x11;
 		if(service) {
             if(suspended->state.pendingPresentation->continuation!=XeenEventPendingContinuation::Terminate ||
@@ -1137,10 +1307,11 @@ IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operat
 			if (!_dispatching || !_encounter->journeyEvent() || !_encounter->current(entry))
 				throw std::logic_error("Stale Journey event continuation");
 		},beforeRewardEnqueue,&_regionalExecutedRecords);
+		if(_pending)publication.continuation(_pending->state,*_regionalEventContinuation);
 		XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world,[&] { publication.check(); });
 		_eventPublication=&publication;
 		try { operation(); publication.check();
-            for(unsigned owner=0;owner<30;++owner) {
+            for(unsigned owner=0;owner<30 && !_portraitSequence;++owner) {
              if(publication.portraitEffectOwners&(1u<<owner))_world.scenePresentation().spellEffect(owner,_encounter->_lastTime);
              if(publication.damageEffects[owner])_world.scenePresentation().portraitDamage(owner,*publication.damageEffects[owner],_encounter->_lastTime);
             }
@@ -1219,6 +1390,7 @@ bool XeenEventFlow::pendingNpc() const {
 		_pending->state.pendingPresentation->request.kind == XeenPresentationKind::NpcAcknowledgment;
 }
 bool XeenEventFlow::handlesEscape() const {
+    if(_death)return true;
     if(_fatal)return false;
     if(_pending || _presenter.blocksGameplay() || _summary || _quickFightMember ||
         _barrier || inventoryOpen() || canCancelInteraction())return true;
@@ -1233,7 +1405,11 @@ XeenRewardReceipt XeenEventFlow::cleanup(XeenRewardDiscard reason) noexcept {
 		outcome = _pending->state.rewardReceipt;
 		_pending.reset();
 	}
+    _portraitSequence.reset();
 	_presenter.discardTransient();
+	_npcSequence.reset();
+	_npcResponse.reset();
+	_treasureWait.reset();
 	_whoWillRefusal.clear();
 	return outcome;
 }
@@ -1262,7 +1438,8 @@ IndexedFrame XeenEventFlow::presentationFailed(const std::exception &exception) 
 		_encounter->journeySavePreimage().check();checkTransitionCandidate();
 		if(_transition->continuation)_transition->continuation->check(_pending->state);
 		_transition->presentationRetry=true;
-		_presenter.discardTransient();
+		if(!_portraitSequence)_presenter.discardTransient();
+		if(pendingNpc() && _npcSequence)_npcSequence->acquired=false;
 		return frameCopy();
 	}
 	const auto automatic = _pending->automatic;
@@ -1285,6 +1462,16 @@ IndexedFrame XeenEventFlow::presentationFailed(const std::exception &exception) 
 XeenPresentationUpdate XeenEventFlow::presentPendingEvent() {
     _presenter.originalAssets(dialogText,drawDialogSprite);
 	auto request=_pending->state.pendingPresentation->request;
+    if(!_cdSpeechSide || *_cdSpeechSide!=request.mapId.side) {
+        _cdSpeechSide=request.mapId.side;_cdSpeechCue.reset();_cdSpeechEnd=0;
+    }
+    if(request.kind==XeenPresentationKind::NpcAcknowledgment && !request.cdSpeech)
+        request.cdSpeech=_cdSpeechCue;
+    if(request.kind==XeenPresentationKind::PortraitEffect) {
+        if(!request.portrait)throw std::logic_error("Event portrait request lost its retained effect");
+        preparePortraitSequence(*request.portrait,_pending->generation);
+        return {_frame,std::nullopt,true};
+    }
     if(request.kind==XeenPresentationKind::RewardReceipt || request.kind==XeenPresentationKind::RewardWarning) {
         request.text.clear();request.treasure.emplace();auto &treasure=*request.treasure;
         const auto &state=_pending->state;
@@ -1293,12 +1480,17 @@ XeenPresentationUpdate XeenEventFlow::presentPendingEvent() {
         } else {
             const auto &party=_transition?_transition->party:_party;
             treasure.gold=state.rewardReceipt.gold;treasure.gems=state.rewardReceipt.gems;
-            for(std::size_t i=0;i<state.rewardReceipt.count;++i) {
+            treasure.stage=state.rewardPhase==XeenRewardPhase::Blank?XeenTreasureDisplay::Stage::Blank:
+                state.rewardPhase==XeenRewardPhase::Found?XeenTreasureDisplay::Stage::Found:XeenTreasureDisplay::Stage::Final;
+            const auto first=state.rewardPhase==XeenRewardPhase::Receipt && state.rewardCursor?state.rewardCursor-1:state.rewardCursor;
+            for(std::size_t i=first;i<state.rewardReceipt.count && i==first;++i) {
                 const auto &entry=state.rewardReceipt.entries[i];if(!entry.owner)continue;
                 treasure.items.push_back({party.roster.at(*entry.owner).name,
-                    _catalog.foundName(static_cast<XeenInventoryCategory>(entry.category),entry.item),false});
+                    entry.quest?dosText().table("QUEST_ITEM_NAMES").at(entry.item.id-82):
+                    _catalog.foundName(static_cast<XeenInventoryCategory>(entry.category),entry.item),entry.quest});
             }
         }
+        prepareTreasureWait(_pending->generation,request.rewardWaitTicks);
     }
 	if(request.kind==XeenPresentationKind::CharacterSelection) {
 		request.layoutValue=36;
@@ -1307,9 +1499,65 @@ XeenPresentationUpdate XeenEventFlow::presentPendingEvent() {
 	}
 	if(request.kind==XeenPresentationKind::CenteredMessage && request.source.opcode==0x0c && request.text.empty())
 		request.text=xeenNotEnoughGold(dosText());
-	auto presented=_presenter.present(_frame,request);
+	const auto retainedPage=request.kind==XeenPresentationKind::NpcAcknowledgment && _npcSequence &&
+        _npcSequence->generation==_pending->generation?_npcSequence->page:0;
+	auto presented=_presenter.present(_frame,request,retainedPage);
+    // Op60 only changes retained command operands. Playing/stopping does not
+    // consume them; ordinary same-disc Event cleanup preserves this audio state.
+    if(request.kind==XeenPresentationKind::DeferredAudio && request.source.opcode==60)
+        _cdSpeechCue=_pending->state.cdSpeech;
+    if(request.kind==XeenPresentationKind::NpcAcknowledgment &&
+        (!_npcSequence || _npcSequence->generation!=_pending->generation)) {
+        const auto now=presentationNow();
+        NpcSequence next;
+        next.generation=_pending->generation;
+        next.deadline=PresentationClock::after(now,3);
+        next.timing.deadline=PresentationClock::ceilMilliseconds(next.deadline);
+        if(request.cdSpeech && (request.cdSpeech->track || request.cdSpeech->start || request.cdSpeech->finish)) {
+            const auto duration=xeenCdSpeechDurationNanoseconds(*request.cdSpeech);
+            _cdSpeechEnd=PresentationClock::checkedAdd(now,duration);
+        }
+        next.speechEnd=_cdSpeechEnd;
+        next.timing.remaining=now<_cdSpeechEnd?_cdSpeechEnd-now:0;
+        _npcSequence=next;
+        _presenter.retainNpcTiming(next.timing);
+    } else if(request.kind==XeenPresentationKind::NpcAcknowledgment && _npcSequence) {
+        if(const auto retained=_presenter.updateNpc(_npcSequence->timing))presented.frame=*retained;
+    }
  if(drawPendingHeads(presented.frame))_ordinary.containsOrdinaryAnimation=true;
  return presented;
+}
+void XeenEventFlow::publishEventSequencePrefix(const XeenEventExecutionState &state) {
+	if(!_transition || !_eventPublication || !_transition->guard || !_transition->continuation)
+		throw std::logic_error("Event sequence prefix has no retained authority");
+	_eventPublication->continuation(state,*_transition->continuation);
+	checkTransitionCandidate();
+	_eventPublication->publishSequencePrefix(_world,_party,*_transition->guard);
+	// Party/RNG stores do not swap the detached World. Its checked interpreter
+	// image remains intact for the next resume; camera/flag settlement is deferred.
+}
+void XeenEventFlow::prepareTreasureWait(std::uint64_t generation,unsigned ticks,bool monster) {
+	if(!ticks){_treasureWait.reset();return;}
+	if(_treasureWait && _treasureWait->generation==generation && _treasureWait->monster==monster &&
+		_treasureWait->ticks==ticks)return;
+	_treasureWait=TreasureWait{generation,0,ticks,monster,false};
+}
+std::optional<IndexedFrame> XeenEventFlow::advanceTreasureWait() {
+	if(!_treasureWait || !_treasureWait->acquired || _dispatching || _fatal || _saving || _handoffPending || _cosmeticPending)
+		return std::nullopt;
+	const auto now=presentationNow();
+	if(now<_treasureWait->deadline || now<_ordinary.deadline)return std::nullopt;
+	const auto wait=*_treasureWait;
+	DispatchScope dispatch(_dispatching);
+	if(wait.monster) {
+		if(!_encounter || !_encounter->monsterReward() || _encounter->ticket().generation!=wait.generation)
+			throw std::logic_error("Stale monster treasure hold");
+		_treasureWait.reset();_encounter->advanceMonsterReward();_monsterReceiptPresented=false;
+		return renderEncounter();
+	}
+	if(!_pending || _pending->generation!=wait.generation)throw std::logic_error("Stale Event treasure hold");
+	if(journey())return journeyEventWork([&]{resumePending(wait.generation,XeenPresentationResponse::Acknowledged);});
+	resumePending(wait.generation,XeenPresentationResponse::Acknowledged);return frameCopy();
 }
 bool XeenEventFlow::drawPendingHeads(IndexedFrame &frame) {
  if(!_pending || !_pending->state.pendingPresentation || !_presenter.blocksGameplay())return false;
@@ -1323,29 +1571,208 @@ bool XeenEventFlow::drawPendingHeads(IndexedFrame &frame) {
  drawDialogSprite(frame,"border.icn",heads.right==2?8:phase+(heads.right==0?9:12),215,32);
  return true;
 }
+void XeenEventFlow::preparePortraitSequence(const XeenEventPortraitEffect &effect,std::uint64_t generation) {
+    if(!_encounter)throw std::logic_error("Portrait sequence requires an Encounter-owned presentation");
+    if(_portraitSequence) {
+        if(_portraitSequence->generation!=generation || !(_portraitSequence->effect==effect))
+            throw std::logic_error("Portrait sequence replaced before completion");
+        return;
+    }
+    PortraitSequence sequence;sequence.effect=effect;sequence.event=generation!=0;sequence.generation=generation;
+    if(effect.stage==XeenEventPortraitStage::Sparkle)_presenter.closeWindow12();
+    else if(effect.stage==XeenEventPortraitStage::DamageOverlay)_presenter.clear();
+    sequence.window11=_presenter.window11Enabled();
+    sequence.countdown=_encounter->combat()?_encounter->combat()->movementCountdown():_encounter->state().pending();
+    const auto now=presentationNow();
+    sequence.deadline=effect.stage==XeenEventPortraitStage::DamageOverlay?now:PresentationClock::after(now,2);
+    auto &presentation=_world.scenePresentation();
+    if(effect.stage==XeenEventPortraitStage::Sparkle)presentation.spellFrame(effect.owner,0);
+    else if(effect.stage==XeenEventPortraitStage::DamageOverlay)presentation.portraitDamage(effect.owner,effect.frame);
+    _portraitSequence=sequence; // Retain admission before fallible draw/provider work.
+    if(effect.stage!=XeenEventPortraitStage::DamageOverlay && !sequence.window11)
+        updateOrdinaryPhase(OrdinaryCause::Action,false,now);
+}
+void XeenEventFlow::prepareStandalonePortrait() {
+    if(_portraitSequence || _barrier || !_encounter || (_pending && _pending->state.pendingPresentation &&
+        _pending->state.pendingPresentation->request.kind==XeenPresentationKind::PortraitEffect))return;
+    auto &presentation=_world.scenePresentation();
+    for(auto owner:_party.party.activeRosterIds())if(presentation.portraits[owner].spellFrame<4) {
+        preparePortraitSequence({XeenEventPortraitStage::Sparkle,owner,0});return;
+    }
+    if(_encounter->combat() && _encounter->combat()->result().attackStage==XeenCombatAttackStage::MonsterDamageOverlay) {
+        const auto &result=_encounter->combat()->result();
+        preparePortraitSequence({XeenEventPortraitStage::DamageOverlay,*result.targetOwner,presentation.portraits[*result.targetOwner].damageFrame});return;
+    }
+    if(const auto ranged=_encounter->rangedPortrait()) {
+        preparePortraitSequence({ranged->second?XeenEventPortraitStage::DamageHold:XeenEventPortraitStage::DamageOverlay,
+            ranged->first,presentation.portraits[ranged->first].damageFrame});
+        _portraitSequence->ranged=true;return;
+    }
+    for(const auto &portrait:presentation.portraits)if(portrait.damageTicks) {
+        preparePortraitSequence({XeenEventPortraitStage::DamageHold,0,0});return;
+    }
+}
+std::optional<IndexedFrame> XeenEventFlow::advancePortraitSequence() {
+    if(!_portraitSequence || !_portraitSequence->acquired || _dispatching || _fatal || _saving || _handoffPending || _cosmeticPending)
+        return std::nullopt;
+    const auto now=presentationNow();if(now<_portraitSequence->deadline)return std::nullopt;
+    DispatchScope dispatch(_dispatching);auto &sequence=*_portraitSequence;
+    const auto count=_encounter->combat()?_encounter->combat()->movementCountdown():_encounter->state().pending();
+    if(count!=sequence.countdown)throw std::logic_error("Suspended portrait movement countdown changed");
+    if(sequence.effect.stage==XeenEventPortraitStage::Sparkle && sequence.frame<3) {
+        ++sequence.frame;sequence.acquired=false;sequence.deadline=PresentationClock::after(now,2);
+        _world.scenePresentation().spellFrame(sequence.effect.owner,sequence.frame);
+        if(!sequence.window11)updateOrdinaryPhase(OrdinaryCause::Action,false,now);
+        return renderEncounter(false,true);
+    }
+    const auto finished=sequence;
+    if(finished.effect.stage==XeenEventPortraitStage::Sparkle)_world.scenePresentation().spellFrame(finished.effect.owner,4);
+    else if(finished.effect.stage==XeenEventPortraitStage::DamageHold)_world.scenePresentation().clearDamage();
+    _portraitSequence.reset();
+    if(finished.event) {
+        if(!_pending || _pending->generation!=finished.generation || !_pending->state.pendingPresentation ||
+            _pending->state.pendingPresentation->request.kind!=XeenPresentationKind::PortraitEffect)
+            throw std::logic_error("Stale Event portrait completion");
+        return journeyEventWork([&]{resumePending(finished.generation,XeenPresentationResponse::Presented);});
+    }
+    if(finished.ranged || (_encounter->combat() && (finished.effect.stage==XeenEventPortraitStage::DamageOverlay ||
+        _encounter->combat()->result().attackStage==XeenCombatAttackStage::MonsterDamageHold))) {
+        (void)_encounter->idle(_cycle);
+        prepareJourneyTransition();
+    }
+    return renderEncounter(false,true);
+}
+
+bool XeenEventFlow::advanceNpcSequence() {
+    if(!_npcSequence || (!pendingNpc() && !_presenter.hasNpcOffer()))return false;
+    auto &npc=*_npcSequence;
+    const auto now=presentationNow();
+    if(npc.composed)return false;
+    if(!npc.choice && (!npc.acquired || now<npc.deadline))return false;
+    if(!npc.choice) {
+        const bool busy=now<npc.speechEnd;
+        unsigned frame=0;
+        if(busy) {
+            if(journey()) {
+                if(!_eventPublication)throw std::logic_error("NPC animation publication lease is absent");
+                checkTransitionCandidate();
+                frame=_eventPublication->npcAnimationFrame();
+                if(_transition) {
+                    const auto &ending=*_world.sessionState().journeyRandom();
+                    _transition->guard->prepareEventAnimationRandom(ending);
+                    _transition->world->retainEventRandom(ending);
+                    _transition->guard->adoptMutationBoundary();
+                }
+            } else {
+                if(!_npcRandomFrame)throw std::logic_error("NPC random continuation is absent");
+                frame=_npcRandomFrame();requireCurrentOwners();
+            }
+        }
+        if(frame>3)throw std::invalid_argument("NPC random frame outside 0..3");
+        npc.choice=frame;
+        npc.timing.remaining=busy?npc.speechEnd-now:0;
+    }
+    auto timing=npc.timing;
+    timing.displayedFrame=timing.nextFrame=*npc.choice;
+    ++timing.phase;
+    timing.deadline=PresentationClock::ceilMilliseconds(PresentationClock::after(now,3));
+    const auto changed=_presenter.updateNpc(timing);
+    if(!changed)return false;
+    _frame=*changed;npc.timing=timing;npc.acquired=false;npc.composed=true;
+    return true;
+}
+IndexedFrame XeenEventFlow::consumeNpcResponse() {
+    const auto retained=*_npcResponse;
+    if(!_pending || _pending->generation!=retained.generation || !pendingNpc()) {_npcResponse.reset();return frameCopy();}
+    auto update=_presenter.handle(retained.action,false);
+    _npcResponse.reset();
+    _frame=std::move(update.frame);
+    if(update.response)resumePending(retained.generation,*update.response);
+    else if(_npcSequence && pendingNpc()) {
+        // Page publication does not restart the CD request.
+        _npcSequence->timing.displayedFrame=0;
+        _npcSequence->acquired=false;
+        _npcSequence->page=_presenter.pageIndex();
+    }
+    return journey()?renderEncounter():frameCopy();
+}
+void XeenEventFlow::startServiceSample(ServiceArtState &state,const char *name,bool resetIndex) {
+    // A missing provider models the original sound-unavailable status (zero).
+    std::uint64_t duration=0;
+    if(loadSampleDuration)_encounter->guardCallback(_encounter->ticket(),[&]{duration=loadSampleDuration(name,XeenSceneArchive::Clouds);});
+    state.sample.start(presentationNow(),duration);
+    if(resetIndex)state.index=XeenServiceAnimation::modulus(state.kind)-1;
+}
+void XeenEventFlow::serviceInputPolled(ServiceArtState &state) {
+    state.deadline=PresentationClock::after(presentationNow(),3);
+}
 bool XeenEventFlow::pulseServiceArt(ServiceArtState &state, IndexedFrame &art) {
-	// Cosmetic only: the redraw never touches gameplay, service-day accounting or input
-	// authority, and a missing resource just freezes the current frame.
-	if (!drawDialogSprite || state.failed || _dispatching || _fatal || _saving || _handoffPending) return false;
-	const auto now = _clock();
-	if (!state.deadline) { state.deadline = PresentationClock::afterMilliseconds(now,3); return false; }
-	if (now < state.deadline) return false;
-	state.deadline = PresentationClock::afterMilliseconds(now,3); // No catch-up after a stalled host.
-	try {
-		const auto next = XeenServiceAnimation::next(state.kind, state.index);
-		auto candidate = art;
-		for (const auto &sprite : XeenServiceAnimation::compose(state.kind, next))
-			drawDialogSprite(candidate, sprite.resource.c_str(), sprite.frame, XeenServiceAnimation::kX, XeenServiceAnimation::kY);
-		art = std::move(candidate);
-		state.index = next;
-	} catch (const std::exception &) {
-		state.failed = true;
-		return false;
-	}
-	return true;
+    if(!drawDialogSprite || _dispatching || _fatal || _saving || _handoffPending || _cosmeticPending)return false;
+    DispatchScope dispatch(_dispatching);
+    const auto now=presentationNow();
+    if(!state.deadline) {state.deadline=PresentationClock::after(now,3);return false;}
+    if(state.awaitingFrame)return true; // Retry the same retained composition.
+    if(!state.pendingIndex) {
+        if(now<state.deadline)return false;
+        const auto pendingIndex=XeenServiceAnimation::next(state.kind,state.index);
+        state.pendingSpeaking.reset();state.randomBefore.reset();state.randomAfter.reset();state.randomPublished=false;
+        if(state.sample.playing(now)) {
+            if(const auto speaking=XeenServiceAnimation::speaking(state.kind)) {
+                const auto before=*_world.sessionState().journeyRandom();
+                const auto *day=_encounter->_smith?_encounter->_smith->departure.get():_encounter->_training->departure.get();
+                const auto reserve=std::uint64_t(2)+(day->pendingGeneration()?XeenServiceDayCandidate::kDeferredRandomReserve:0);
+                if(UINT64_MAX-before.count<reserve) {
+                    // Optional visual work cannot spend a mandatory departure suffix.
+                    state.deadline=PresentationClock::after(now,3);return false;
+                }
+                state.randomBefore=before;
+                XeenCombatRandom random(*state.randomBefore);
+                while(!state.pendingSpeaking)state.pendingSpeaking=random.draw(speaking->first,speaking->last);
+                state.randomAfter=random.continuation();
+            }
+        }
+        state.pendingIndex=pendingIndex;
+    }
+    auto candidate=art;
+    const auto entry=_encounter->ticket();
+    try {
+        for(const auto &sprite:XeenServiceAnimation::compose(state.kind,*state.pendingIndex,state.pendingSpeaking))
+            _encounter->guardCallback(entry,[&]{drawDialogSprite(candidate,sprite.resource.c_str(),sprite.frame,XeenServiceAnimation::kX,XeenServiceAnimation::kY);});
+    } catch(const std::exception &) {
+        _encounter->journeySavePreimage().check();return false; // Keep choice/index for retry.
+    }
+    if(state.randomBefore && !state.randomPublished) {
+        try {_encounter->publishServiceAnimationRandom(*state.randomBefore,*state.randomAfter);}
+        catch(const std::bad_alloc &) {_encounter->journeySavePreimage().check();return false;}
+        state.randomPublished=true;
+    }
+    art=std::move(candidate);state.index=*state.pendingIndex;state.awaitingFrame=true;
+    state.deadline=PresentationClock::after(presentationNow(),3); // Reset after work; no catch-up.
+    return true;
 }
 std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 	requireCurrentOwners();
+    if(!_portraitSequence && !_dispatching && !_fatal && !_saving && !_handoffPending && _world.scenePresentation().feedbackActive()) {
+        DispatchScope dispatch(_dispatching);prepareStandalonePortrait();
+        if(_portraitSequence)return renderEncounter(false,true);
+    }
+    if(_portraitSequence && !(_transition && _transition->presentationRetry))return advancePortraitSequence();
+    if(_npcResponse && _npcSequence && _npcSequence->acquired && !(_transition && _transition->presentationRetry) &&
+        !_dispatching && !_fatal && !_saving && !_handoffPending) {
+        DispatchScope dispatch(_dispatching);
+        try {return journey()?journeyEventWork([&] {consumeNpcResponse();}):consumeNpcResponse();}
+        catch(const std::exception &error) {if(!_pending)throw;return presentationFailed(error);}
+    }
+    if(!_death && partyDeathRequired() && !_dispatching && !_fatal && !_saving && !_handoffPending) {
+        DispatchScope dispatch(_dispatching);return renderEncounter();
+    }
+    if(_death) {
+        if(_dispatching || _fatal || _saving || _handoffPending || !_death->acquired)return {};
+        DispatchScope dispatch(_dispatching);
+        if(!advanceDeath())return {};
+        return renderEncounter();
+    }
+	if(auto treasure=advanceTreasureWait())return treasure;
 	if(_transition && _transition->presentationRetry && _pending &&
 		!_dispatching && !_fatal && !_saving && !_handoffPending) {
 		DispatchScope dispatch(_dispatching);
@@ -1378,6 +1805,7 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 		// ipause keeps draw3d animation running while the barrier owns input.
 		if(!_handoffPending && (_barrier->published || _barrier->trapWaiting))advanceEncounterOrdinary();
 		if(_barrier->published && !_handoffPending && _clock()>=_barrier->deadline) {
+            _world.scenePresentation().clearDamage();
 			_barrier.reset();_encounter->endJourneyEvent();
 			_encounter->journeyPulse(_encounter->ticket());prepareJourneyTransition();return renderEncounter();
 		}
@@ -1386,11 +1814,26 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 		}
 	}
 	if(_trainingUi) {
+        if(auto next=updateTraining())return next;
 		const bool pulsed=_trainingUi->phase==TrainingUi::Phase::Menu && pulseServiceArt(_trainingUi->animation,_trainingUi->art);
-		if(auto next=updateTraining())return next;
 		if(!pulsed)return std::nullopt;
 		DispatchScope dispatch(_dispatching);return renderEncounter(false,true);
 	}
+    if(_smithUi && _smithUi->phase==SmithUi::Phase::Departure && !_dispatching && !_fatal && !_saving && !_handoffPending) {
+        if(_smithUi->goodbye && _smithUi->animation.sample.playing(presentationNow()))return std::nullopt;
+        DispatchScope dispatch(_dispatching);
+        if(_smithSettlement){_handoffPending=true;return settleSmithEvent();}
+        if(_encounter->_smith && _encounter->_smith->frame)
+            _encounter->consumeSmithFrame(_inputGeneration,_actionableFrame);
+        try {
+            if(!_encounter->departSmith())return std::nullopt;
+            _smithSettlement=true;return settleSmithEvent();
+        } catch(const std::exception &) {
+            _encounter->journeySavePreimage().check();
+            if(!_encounter->_smith)throw;
+            return renderEncounter(); // A committed prefix needs a fresh concrete recovery frame.
+        }
+    }
 	const bool smithArtPulsed=_smithUi && _smithUi->phase!=SmithUi::Phase::Preparation && _smithUi->phase!=SmithUi::Phase::Upgrade &&
 		_smithUi->phase!=SmithUi::Phase::Departure && pulseServiceArt(_smithUi->animation,_smithUi->art);
 	if(_smithUi && _smithUi->phase==SmithUi::Phase::Amount && _smithUi->feedback.empty() &&
@@ -1406,6 +1849,7 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 			if(!xeenSmithAuthorityRoom(_smithUi->revision,1))
 				throw std::overflow_error("Temple UI revision exhausted before Heal publication");
 			if(!_encounter->serviceTempleHeal())return std::nullopt;
+            if(_encounter->_smith->published)startServiceSample(_smithUi->animation,"ahh.voc");
 			_smithUi->phase=SmithUi::Phase::Lobby;
             if(!_encounter->_smith->published) _smithUi->feedback="Heal: not supported yet at this date or capacity";
 		} catch(const std::exception &) {
@@ -1427,6 +1871,8 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 				throw std::overflow_error("Smith admission would consume mandatory input authority");
 			if (!_encounter->serviceSmithPreparation()) return std::nullopt;
 			_smithUi->phase=SmithUi::Phase::Lobby;
+            startServiceSample(_smithUi->animation,XeenServiceAnimation::greeting(_smithUi->animation.kind));
+            serviceInputPolled(_smithUi->animation);
 		} catch (const std::exception &error) {
 			_encounter->journeySavePreimage().check();
 			if (_encounter->_smith) {
@@ -1482,7 +1928,13 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 			if (advanceEncounterOrdinary()) return renderEncounter(false,
 				_encounter->journeyEvent() && _encounter->current(before));
 			if((pendingNpc() || (_pending && _presenter.hasNpcOffer()))) {
-				try {if(_presenter.updateNpc())return renderEncounter(false,true);}
+				try {
+                    if(!_npcSequence || _npcSequence->composed ||
+                        (!_npcSequence->choice && (!_npcSequence->acquired || presentationNow()<_npcSequence->deadline)))
+                        return std::nullopt;
+                    DispatchScope dispatch(_dispatching);
+                    return journeyEventWork([&] {advanceNpcSequence();});
+                }
 				catch(const std::exception &e) {return presentationFailed(e);}
 			}
 			return std::nullopt;
@@ -1515,10 +1967,9 @@ std::optional<IndexedFrame> XeenEventFlow::updatePresentation() {
 		return std::nullopt;
 	}
 	const bool recomposed = refreshScene(false, OrdinaryCause::Idle);
-	if (!pendingNpc()) return recomposed ? std::optional<IndexedFrame>{_frame} : std::nullopt;
+	if (!pendingNpc() && !(_pending && _presenter.hasNpcOffer())) return recomposed ? std::optional<IndexedFrame>{_frame} : std::nullopt;
 	try {
-		auto changed = _presenter.updateNpc();
-		if (changed) _frame = *changed;
+		const auto changed = advanceNpcSequence();
 		return (changed || recomposed) ? std::optional<IndexedFrame>{_frame} : std::nullopt;
 	} catch (const std::exception &e) {
 		if (!_pending) throw;
@@ -1530,7 +1981,7 @@ std::optional<std::uint64_t> XeenEventFlow::presentationGeneration() const {
 }
 bool XeenEventFlow::respond(std::uint64_t generation, XeenPresentationResponse response) {
 	requireCurrentOwners();
-    if(!_whoWillRefusal.empty())return false;
+    if(_portraitSequence || !_whoWillRefusal.empty())return false;
 	if (journey()) {
 		if (_smithUi || _trainingUi) return false;
 		if (_transition && _transition->presentationRetry) return false;
@@ -1558,12 +2009,21 @@ bool XeenEventFlow::resumePending(std::uint64_t generation, XeenPresentationResp
 	if (!_pending || _pending->generation != generation) return false;
 	if (!_pending->state.pendingPresentation ||
 		!xeenResponseMatches(_pending->state.pendingPresentation->request.response, response)) return false;
+	if(_pending->state.pendingPresentation->request.kind==XeenPresentationKind::RewardReceipt ||
+		_pending->state.pendingPresentation->request.kind==XeenPresentationKind::RewardWarning)_treasureWait.reset();
 	if(journey()) {
 		try {if(!_regionalEventContinuation)throw std::logic_error("Regional suspension preimage absent");_regionalEventContinuation->check(_pending->state);}
 		catch(const std::logic_error &){_encounter->journeySavePreimage().failed=true;throw;}
 	}
 	try { _frame = _presenter.finishPresentation(); }
 	catch (const std::exception &e) { presentationFailed(e); return true; }
+	// DAT 0x25c94: final ordinary dismissal stops CD. Passive mode 2 returns
+	// through 0x25ac4 without this stop; pages never resume the interpreter.
+	if(_pending->state.pendingPresentation->request.kind==XeenPresentationKind::NpcAcknowledgment &&
+		_pending->state.pendingPresentation->request.npc->confirmationMode!=2) {
+		_cdSpeechEnd=0;
+		if(_npcSequence){_npcSequence->speechEnd=0;_npcSequence->timing.remaining=0;}
+	}
 	requireCurrentOwners();
 	auto pending = std::move(*_pending);
 	_pending.reset();
@@ -1613,11 +2073,28 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
         const IndexedFrame::Presentation &inputFrame) {
 	PlayerAction action=physicalAction;
 	requireCurrentOwners();
+    if(_portraitSequence)return frameCopy();
 	// Concrete origin is independent of semantic meaning. A retry/redraw may
 	// retain the generation, but input from its retired frame cannot authorize it.
 	if ((inputFrame && !acceptsInputFrame(inputFrame)) || (_trainingUi && !inputFrame) ||
 		(_smithUi && !inputFrame)) return frameCopy();
 	if (journey() && !journeyInputCurrent(displayedInput)) return frameCopy();
+    if(_death) {
+        if(_dispatching || _fatal || _saving || _handoffPending || !_death->acquired ||
+            _death->phase!=DeathContinuation::Phase::Scroll)return frameCopy();
+        DispatchScope dispatch(_dispatching);
+        _death->phase=DeathContinuation::Phase::Closed;_death->acquired=false;
+        return renderEncounter();
+    }
+    if(pendingNpc() && _npcSequence && !_dispatching && !_fatal && !_saving &&
+        !std::holds_alternative<SaveGameAction>(action)) {
+        if(_npcResponse || !_npcSequence->acquired || presentationNow()<_npcSequence->deadline)return frameCopy();
+        _npcResponse=NpcResponse{action,_pending->generation};
+        DispatchScope dispatch(_dispatching);
+        if(journey())return journeyEventWork([&] {if(advanceNpcSequence())renderEncounter(false,true);});
+        try {advanceNpcSequence();return frameCopy();}
+        catch(const std::exception &error) {return presentationFailed(error);}
+    }
     if(_encounter && !_encounter->_combatCastRefusal.empty() && !_dispatching && !_fatal && !_saving) {
         _encounter->_combatCastRefusal.clear();
         if(const auto *key=std::get_if<DialogKeyAction>(&action);key && key->key=='c')action=CastSpellAction{};
@@ -1769,7 +2246,11 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 		if (journey() && !_encounter->combat()) {
 			if (_castingUi) return handleCasting(action,*displayedInput);
             if(std::holds_alternative<RestAction>(action) && !_pending && !inventoryOpen()) {
-                if(_encounter->beginRest(loadRestDream)) {
+                if(_encounter->beginRest(loadRestDream,[this] {
+                    if(!loadSampleDuration)throw std::invalid_argument("Original Rest sample duration provider is absent");
+                    return std::array<std::uint64_t,2>{loadSampleDuration("dreams2.voc",XeenSceneArchive::Darkside),
+                        loadSampleDuration("laff1.voc",XeenSceneArchive::Darkside)};
+                })) {
                     if(_journeyEventLayers) {_presenter.clear();_journeyEventLayers=false;}
                     return renderEncounter();
                 }
@@ -1786,7 +2267,11 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 			if(_encounter->monsterReward()) {
 				const auto update=_presenter.handle(action);
 				if(update.response) {
-					_encounter->acknowledgeMonsterReward();_monsterReceiptPresented=false;_presenter.clear();prepareJourneyTransition();
+					_treasureWait.reset();
+					if(_encounter->_monsterReceipt->phase==XeenMonsterDeliveryCandidate::Phase::Final) {
+						_encounter->acknowledgeMonsterReward();_presenter.clear();prepareJourneyTransition();
+					} else _encounter->advanceMonsterReward();
+					_monsterReceiptPresented=false;
 				}
 				return renderEncounter();
 			}

@@ -273,14 +273,21 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     // old timestamps and multiple responses cannot cross a frame.
                     auto remembered=std::make_shared<unsigned>();
                     inspect([&,remembered]{*remembered=party->roster.at(1).currentSpell;});
-                    const auto keys=[&](std::function<void()> enqueue,std::function<void()> verify) {
-                        auto laps=std::make_shared<unsigned>(0);
-                        steps.push_back([&,laps,enqueue,verify]{if(!(*laps)++){enqueue();acted=true;return false;}if(*laps<4)return false;verify();return true;});
+                    // Poll native intake and acquired readiness; a retained effect may span many draws.
+                    const auto keys=[&](std::function<void()> enqueue,std::function<void()> verify,std::function<bool()> completed=[] {return true;}) {
+                        auto laps=std::make_shared<unsigned>(0);auto enqueued=std::make_shared<bool>(false);
+                        steps.push_back([&,laps,enqueued,enqueue,verify,completed]{
+                            check(++*laps<=100,"M39 native acquired readiness bound");
+                            if(!handler.inputContext(flow->frame().presentation()).readyForAction)return false;
+                            if(!*enqueued){*enqueued=true;*laps=0;enqueue();acted=true;return false;}
+                            if(SDL_HasEvents(SDL_KEYDOWN,SDL_KEYUP) || !completed())return false;
+                            verify();return true;
+                        });
                     };
                     const auto key=[](SDL_Keycode code,Uint32 type=SDL_KEYDOWN,Uint8 repeat=0,bool stale=false){
                         SDL_Event e{};e.type=type;e.key.keysym.sym=code;e.key.keysym.scancode=SDL_GetScancodeFromKey(code);e.key.repeat=repeat;e.key.timestamp=stale?0:SDL_GetTicks()+1;
                         check(SDL_PeepEvents(&e,1,SDL_ADDEVENT,0,0)==1,"M39 native keyboard enqueue");};
-                    keys([key]{key(SDLK_c);key(SDLK_c,SDL_KEYDOWN,1);key(SDLK_n);key(SDLK_n,SDL_KEYUP);},[&]{check(cast() && cast()->phase==XeenCombatCastPhase::Confirm && party->roster.at(1).currentSp==21,"M39 native batch crossed Cast");});
+                    keys([key]{key(SDLK_c);key(SDLK_c,SDL_KEYDOWN,1);key(SDLK_n);key(SDLK_n,SDL_KEYUP);},[&]{check(cast() && cast()->phase==XeenCombatCastPhase::Confirm && party->roster.at(1).currentSp==21,"M39 native batch crossed Cast");},[&]{return bool(cast());});
                     keys([key]{key(SDLK_c,SDL_KEYUP);key(SDLK_n);key(SDLK_n,SDL_KEYUP);},[&]{check(cast()->phase==XeenCombatCastPhase::Learned,"M39 native New");});
                     keys([key]{key(SDLK_2);key(SDLK_2,SDL_KEYUP);},[&,remembered]{check(cast()->selection==1 && party->roster.at(1).currentSpell==*remembered,"M39 row selected before Select");});
                     keys([key]{key(SDLK_RETURN);key(SDLK_RETURN);key(SDLK_RETURN,SDL_KEYDOWN,1);},[&]{check(cast()->phase==XeenCombatCastPhase::Confirm && party->roster.at(1).currentSpell==14 && party->roster.at(1).currentSp==21,"M39 held/batched Select debited");});
@@ -288,7 +295,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                         for(auto kind:{SDL_WINDOWEVENT_SIZE_CHANGED,SDL_WINDOWEVENT_EXPOSED}){SDL_Event e{};e.type=SDL_WINDOWEVENT;e.window.event=kind;e.window.data1=640;e.window.data2=400;check(SDL_PushEvent(&e)==1,"M39 native resize enqueue");}
                         key(SDLK_RETURN);key(SDLK_RETURN,SDL_KEYUP);key(SDLK_c,SDL_KEYDOWN,0,true);key(SDLK_c,SDL_KEYUP);},[&]{check(cast()->phase==XeenCombatCastPhase::Confirm && party->roster.at(1).currentSp==21,"M39 stale timestamp admitted cost");});
                     keys([key]{key(SDLK_c);key(SDLK_c,SDL_KEYUP);},[&]{check(cast()->phase==XeenCombatCastPhase::PartyTarget && party->roster.at(1).currentSp==20,"M39 native debit");});
-                    keys([key]{key(SDLK_F4);key(SDLK_F4,SDL_KEYUP);},[&]{check(!cast() && combat()->participant()==5 && party->roster.at(kXeenCombatOwners[3]).currentHp==40 && party->roster.at(1).currentSp==20,"M39 native healthy First Aid automatic handoff");});
+                    keys([key]{key(SDLK_F4);key(SDLK_F4,SDL_KEYUP);},[&]{check(!cast() && combat()->participant()==5 && party->roster.at(kXeenCombatOwners[3]).currentHp==40 && party->roster.at(1).currentSp==20,"M39 native healthy First Aid automatic handoff");},[&]{return !cast();});
                     keys([key]{key(SDLK_c);key(SDLK_c,SDL_KEYUP);},[&]{check(cast()->phase==XeenCombatCastPhase::Confirm,"M39 native next actor Cast");});
                     keys([key]{key(SDLK_n);key(SDLK_n,SDL_KEYUP);},[&]{check(cast()->phase==XeenCombatCastPhase::Learned,"M39 native Awaken New");});
                     keys([key]{key(SDLK_1);key(SDLK_1,SDL_KEYUP);},[&]{check(cast()->selection==0,"M39 native Awaken row");});
@@ -298,7 +305,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                         "M39 native paid Awaken debit");});
                     auto handoffLaps=std::make_shared<unsigned>(0);
                     steps.push_back([&,handoffLaps]{
-                        check(++*handoffLaps<=20,"M39 native Awaken automatic handoff bound");
+                        check(++*handoffLaps<=500,"M39 native Awaken automatic handoff bound");
                         check(party->roster.at(6).currentSp==26,"M39 native Awaken handoff repeated debit");
                         return !cast();
                     });

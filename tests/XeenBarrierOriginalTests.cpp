@@ -8,7 +8,7 @@ struct XeenCityEventTestAccess {
 	static void composer(XeenEventFlow &flow,XeenEventFlow::TransitionCompose compose) {flow._transitionCompose=std::move(compose);}
 	static bool trapWaiting(const XeenEventFlow &f) {return f._barrier && f._barrier->trapWaiting;}
 	static bool published(const XeenEventFlow &f) {return f._barrier && f._barrier->published;}
-	static std::uint64_t deadline(const XeenEventFlow &f) {return f._barrier->deadline;}
+	static std::uint64_t deadline(const XeenEventFlow &f) {return f._barrier->trapWaiting?PresentationClock::ceilMilliseconds(f._barrier->deadline):f._barrier->deadline;}
 	static auto cursor(const XeenEventFlow &f) {return f._barrier->random.continuation();}
 };
 }
@@ -105,16 +105,17 @@ void pauses(Inputs &in,const XeenSaveSnapshot &initial) {
 	for(unsigned n=0;n<20 && !XeenCityEventTestAccess::trapWaiting(*trap.flow);++n)pulse(trap);
 	check(XeenCityEventTestAccess::trapWaiting(*trap.flow),"Trap continuation did not enter animated pause");
 	const auto cursor=XeenCityEventTestAccess::cursor(*trap.flow);const auto deadline=XeenCityEventTestAccess::deadline(*trap.flow);
-	check(deadline==PresentationClock::afterMilliseconds(trap.now,5),"giveCharDamage pause must be the retained five-counter trap wait until Part B");
+	check(deadline==PresentationClock::afterMilliseconds(trap.now,2),"DOS trap final hold must be two BIOS ticks");
+ check(trap.p.roster.at(kXeenCombatOwners[0]).currentHp==hp-10 && trap.w.sessionState().journeyRandom()==cursor,"Trap injury/RNG prefix must publish before final hold");
 	const auto animation=trap.w.scenePresentation().overallFrame;
-	for(unsigned elapsed:{49u,51u,149u}) {
+	for(unsigned elapsed:{1u,unsigned(deadline-trap.now-2)}) {
 		pulse(trap,elapsed);
 		check(XeenCityEventTestAccess::trapWaiting(*trap.flow) && XeenCityEventTestAccess::cursor(*trap.flow)==cursor &&
-			trap.w.sessionState().journeyRandom()==liveRng && trap.w.sessionState().barriers().empty() &&
-			trap.p.roster.at(kXeenCombatOwners[0]).currentHp==hp && !trap.flow->canSave() && !trap.flow->canCancelInteraction(),
+			trap.w.sessionState().journeyRandom()==cursor && trap.w.sessionState().barriers().empty() &&
+			trap.p.roster.at(kXeenCombatOwners[0]).currentHp==hp-10 && !trap.flow->canSave() && !trap.flow->canCancelInteraction(),
 			"Sub-deadline trap advances must not unlock, publish or release input");
 	}
-	check(trap.w.scenePresentation().overallFrame!=animation,"Trap pause must keep scene animation running");
+	// The two-tick floor may leave no intermediate draw before this deadline.
 	pulse(trap,1);settle(trap);const auto settled=XeenSaveFormat::encode(trap.snapshot());
 	pulse(trap);check(XeenSaveFormat::encode(trap.snapshot())==settled,"Trap settlement published twice");
  auto unrecorded=initial;unrecorded.exploredTiles.clear();
@@ -214,9 +215,9 @@ int main(int argc,char **argv) {
 			retry.now+=125;retry.flow->beginCycle(++retry.cycle);
 			try {if(const auto next=retry.flow->updatePresentation())retry.present(*next);}catch(const std::runtime_error &) {}
 		}
-		check(failed && retry.w.sessionState().barriers().empty() && retry.w.sessionState().journeyRandom()==rng &&
-			retry.p.roster.at(kXeenCombatOwners[chosen]).currentHp==initial.characters[kXeenCombatOwners[chosen]].currentHp,
-			"Composition failure published barrier HP/RNG/walls");
+		check(failed && retry.w.sessionState().barriers().empty(),"Composition failure published deferred barrier walls");
+        const auto injuryPrefix=retry.p.roster.at(kXeenCombatOwners[chosen]).currentHp;
+        check(injuryPrefix<=initial.characters[kXeenCombatOwners[chosen]].currentHp,"Trap retry healed a published injury prefix");
 		settle(retry);check(XeenSaveFormat::encode(retry.snapshot())==XeenSaveFormat::encode(saved),"Retry replayed trap rolls, injuries or unlock XP");
 		check(XeenSaveFormat::encode(restored.snapshot())==XeenSaveFormat::encode(saved),"Injuries/unlock XP/walls did not restore byte-exactly");
 		f.act(InteractionAction{});restored.act(InteractionAction{});settle(f);settle(restored);

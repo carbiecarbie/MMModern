@@ -1,10 +1,10 @@
 #include "XeenChildProcessTestSupport.h"
 #include "XeenM40Evidence.h"
+#include "XeenM42Evidence.h"
 #include "platform/XeenSaveFile.h"
 #include "formats/xeen/XeenSaveFormat.h"
 #include "games/xeen/XeenServiceDay.h"
 #include <sstream>
-#include <zlib.h>
 using namespace mmodern;
 namespace fs=std::filesystem;
 using m40_test::check;
@@ -31,16 +31,39 @@ int main(int argc,char **argv) {
         const auto fresh=child_test::launch(executable,{L"--journey-region",L"--combat-seed",L"7",installation.wstring(),L"--save-file",save.wstring()},directory/"fresh.log",false,false,120000);
         check(fresh.exit==0 && fresh.output.find("M41 PRODUCTION WITNESS PASSED")!=std::string::npos,"M41 fresh witness failed");
         const auto a=XeenSaveFile::read(directory/"fresh-A.mmsave"),b=XeenSaveFile::read(directory/"fresh-B.mmsave");
-        const auto bytes=m40_test::stockBytes(*b.journey->serviceEconomy);
-        check(crc32(0,bytes.data(),bytes.size())==0x7b58546c,"M41 stock literal CRC mismatch");
-        // Independent detached repeated-one-day continuation from complete A,
-        // compared to every byte and draw/request trace from the production path.
+        // Replay every observed speaking request and the independently specified
+        // merchant schedule from A's cursor, before comparing all stock bytes.
+        // Speaking shifts the schedule's input cursor; a fixed old stock CRC is
+        // no longer an oracle for the original shared random stream.
+        const auto serviceBegin=fresh.output.find("MARK A\n"),serviceEnd=fresh.output.find("MARK B\n",serviceBegin);
+        check(serviceBegin!=std::string::npos && serviceEnd!=std::string::npos,"M41 service trace bounds absent");
+        std::istringstream serviceLines(fresh.output.substr(serviceBegin,serviceEnd-serviceBegin));
+        std::string line,observed;
+        while(std::getline(serviceLines,line))if(line.rfind("DRAW ",0)==0)observed+=line+'\n';
+        m42_test::StockOracle oracle{a.journey->random->state,a.journey->random->count,{}};
+        std::size_t offset=0;
+        const auto consume=[&](std::size_t previous) {
+            const auto expected=oracle.trace.substr(previous);
+            check(observed.compare(offset,expected.size(),expected)==0,"M41 process service random request/value/cursor differs");
+            offset+=expected.size();
+        };
+        const auto speech=[&] {
+            while(observed.compare(offset,10,"DRAW 8:12:")==0) {
+                const auto previous=oracle.trace.size();oracle.draw(8,12);consume(previous);
+            }
+        };
+        speech();const auto previous=oracle.trace.size();auto economy=oracle.generate();consume(previous);speech();
+        check(offset==observed.size(),"M41 process unexpected service random suffix");
+        economy.bank.gold=a.journey->serviceEconomy->bank.gold+a.journey->serviceEconomy->bank.gold/100u;
+        economy.bank.gems=a.journey->serviceEconomy->bank.gems+a.journey->serviceEconomy->bank.gems/100u;
+        auto random=*a.journey->random;random.state=oracle.state;random.count=oracle.count;
+        // Retain the complete repeated-one-day context assertion independently
+        // of the speaking/stock request replay above.
         XeenServiceDayCandidate member1(*a.journey->context,*a.journey->serviceEconomy,*a.journey->random);
         XeenServiceDayCandidate member2(member1.context(),member1.economy(),member1.continuation());
-        XeenServiceDayCandidate departure(member2.context(),member2.economy(),member2.continuation());
-        while(!departure.service()){}
-        check(departure.context()==*b.journey->context && departure.economy()==*b.journey->serviceEconomy &&
-            departure.continuation()==*b.journey->random,"M41 full one-day chain bytes/context/RNG differ");
+        XeenServiceDayCandidate departure(member2.context(),member2.economy(),member2.continuation(),XeenScriptServiceCharge::OneDay,false,true);
+        check(departure.context()==*b.journey->context && economy==*b.journey->serviceEconomy &&
+            random==*b.journey->random,"M41 full one-day chain bytes/context/RNG differ");
         for(const auto *stage:{L"A",L"B"}) {
             const std::string narrow=stage[0]=='A'?"A":"B";
             const auto restoredSave=directory/("restore"+narrow+".mmsave");

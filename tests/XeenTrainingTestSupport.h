@@ -27,7 +27,7 @@ struct XeenTrainingTestAccess {
     }
     static bool templeOneDayReserved(const XeenEventFlow &flow) {
         return flow._encounter->_smith && flow._encounter->_smith->departure &&
-            flow._encounter->_smith->departure->complete() && !flow._encounter->_smith->paid;
+            flow._encounter->_smith->departure->reservationReady() && !flow._encounter->_smith->paid;
     }
     static std::string templeText(const XeenEventFlow &flow) {return flow.smithText();}
     static std::uint64_t templeRevision(const XeenEventFlow &flow) {return flow._smithUi->revision;}
@@ -54,8 +54,11 @@ struct XeenTrainingTestAccess {
     }
     static void directQuote(XeenEventFlow &flow,std::size_t member) {flow._encounter->quoteTraining(member);}
     static void confirm(XeenEventFlow &flow) {flow._encounter->confirmTraining();}
+    static void publishServiceRandom(XeenEventFlow &flow,const XeenJourneyRandomState &before,const XeenJourneyRandomState &after) {
+        flow._encounter->publishServiceAnimationRandom(before,after);
+    }
     static bool level(XeenEventFlow &flow) {return flow._encounter->serviceTrainingLevel();}
-    static void depart(XeenEventFlow &flow) {flow._encounter->departTraining();}
+    static bool depart(XeenEventFlow &flow) {return flow._encounter->departTraining();}
     static void genericServiceResume(XeenEventFlow &flow) {
         if(!flow._pending)throw std::logic_error("Synthetic service pending state is absent");
         flow.resumePending(flow._pending->generation,XeenPresentationResponse::Acknowledged);
@@ -151,6 +154,10 @@ struct Fixture {
     void present(const IndexedFrame &value){if(value.presentation())flow->framePresented(value.presentation());}
     void act(PlayerAction action){flow->beginCycle(++cycle);auto frame=flow->handle(action,flow->displayedInput(),flow->frame().presentation());present(frame);}
     void prepare(){for(unsigned n=0;n<1000;++n){flow->beginCycle(++cycle);const auto next=flow->updatePresentation();if(next){present(*next);return;}}throw std::runtime_error("Training bounded preparation never finished");}
+    void finishDeparture(){
+        for(unsigned n=0;n<1000 && !flow->canSave();++n){flow->beginCycle(++cycle);if(auto next=flow->updatePresentation())present(*next);}
+        check(flow->canSave(),"Retained service departure did not finish");
+    }
     void enter(){trained.reset();act(InteractionAction{});prepare();check(w.sessionState().journeyActivity()==XeenJourneyActivity::Service,"Training service not admitted");}
     void train(unsigned member){
         const auto owner=p.party.activeRosterIds()[member];const int before=p.roster.at(owner).permanentLevel;

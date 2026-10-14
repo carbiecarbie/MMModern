@@ -102,7 +102,7 @@ int main(int argc,char **argv) {
                 fixture.p.encounterContext->day==(day+1)%100,"same-member repeat charged time or XP incorrectly");
             fixture.train(4);
             check(fixture.p.encounterContext->day==(day+2)%100 && fixture.p.roster.at(1).permanentLevel==4,"new-member day lost at rollover");
-            fixture.act(CancelInteractionAction{});
+            fixture.act(CancelInteractionAction{});fixture.finishDeparture();
             check(fixture.flow->canSave() && fixture.p.encounterContext->day==(day+3)%100 &&
                 fixture.p.encounterContext->year==610+(day+3>=100),"mandatory departure rollover");
             const auto after=fixture.snapshot();Fixture restart(inputs,after);check(XeenSaveFormat::encode(after)==XeenSaveFormat::encode(restart.snapshot()),"post-training restore changed durable state");
@@ -125,7 +125,7 @@ int main(int argc,char **argv) {
             check(fixture.p.encounterContext->day==10 && *fixture.p.serviceEconomy==before &&
                 *fixture.w.sessionState().journeyRandom()==cursor && fixture.p.monsterTreasure->gold==580 &&
                 xeenSameItem(fixture.p.roster.at(0).armor[4],{0,3,0,0}),"nontrigger successor Training changed depletion/delivery/RNG");
-            fixture.act(CancelInteractionAction{});
+            fixture.act(CancelInteractionAction{});fixture.finishDeparture();
             check(fixture.flow->canSave() && fixture.p.encounterContext->day==11 && fixture.p.serviceEconomy->wares!=before.wares &&
                 fixture.p.serviceEconomy->bank==before.bank && fixture.p.monsterTreasure->gold==580 &&
                 xeenSameItem(fixture.p.roster.at(0).armor[4],{0,3,0,0}),"successor Training trigger missed restock or changed bought inventory");
@@ -231,7 +231,7 @@ int main(int argc,char **argv) {
             const auto input=fixture.flow->displayedInput();
             for(unsigned n=0;n<100;++n){fixture.act(SelectMemberAction{0});fixture.act(NavigationAction::TurnLeft);}
             check(input==fixture.flow->displayedInput(),"wrong key drained mandatory suffix");
-            fixture.act(CancelInteractionAction{});
+            fixture.act(CancelInteractionAction{});fixture.finishDeparture();
             check(fixture.flow->canSave() && fixture.p.encounterContext->day==9 && fixture.p.roster.at(18).permanentLevel==3 &&
                 fixture.p.monsterTreasure->gold==800,"finite authority made reserved departure unpayable");
         }
@@ -247,7 +247,7 @@ int main(int argc,char **argv) {
         // exhaustion in admission has no debt, level, payment or private draws.
         for(unsigned day:{9u,10u}) {
             auto exhausted=source;exhausted.journey->context->day=day;exhausted.journey->random->count=UINT64_MAX-1;
-            Fixture fixture(inputs,exhausted);fixture.act(InteractionAction{});fixture.prepare();
+            Fixture fixture(inputs,exhausted);fixture.act(InteractionAction{});if(!fixture.flow->canSave())fixture.prepare();
             if(day==10)check(fixture.flow->canSave() && fixture.p.encounterContext->day==10,"failed mandatory reservation acquired debt");
             else {fixture.train(1);fixture.act(CancelInteractionAction{});
                 check(fixture.flow->canSave() && fixture.p.encounterContext->day==10 && fixture.p.roster.at(18).permanentLevel==3 &&
@@ -276,6 +276,7 @@ int main(int argc,char **argv) {
             if(fixture.p.roster.at(18).permanentLevel==3)fixture.train(1);
             fixture.act(CancelInteractionAction{});
             if(!fixture.flow->canSave())fixture.act(CancelInteractionAction{});
+            fixture.finishDeparture();
             check(fired && fixture.flow->canSave() && fixture.p.roster.at(18).permanentLevel==4 && fixture.p.monsterTreasure->gold==710 &&
                 fixture.p.roster.combatInputs(18)->experience==6000 && fixture.p.encounterContext->day==11,"hook retry lost/duplicated committed prefix");
         }
@@ -285,7 +286,7 @@ int main(int argc,char **argv) {
             Fixture fixture(inputs,source);bool armed=false,failed=false;
             fixture.flow->trainingBoundary=[&](auto here){if(here==boundary && !failed)armed=true;};
             fixture.flow->beforeEncounterFrameCopy=[&]{if(armed && !failed){failed=true;throw std::runtime_error("Synthetic healthy render retry");}};
-            fixture.enter();fixture.train(1);fixture.act(CancelInteractionAction{});
+            fixture.enter();fixture.train(1);fixture.act(CancelInteractionAction{});fixture.finishDeparture();
             check(failed && fixture.flow->canSave() && fixture.p.roster.at(18).permanentLevel==4 && fixture.p.monsterTreasure->gold==710 &&
                 fixture.p.encounterContext->day==10,"render reconstruction duplicated/lost Training publication");
         }
@@ -293,7 +294,7 @@ int main(int argc,char **argv) {
             Fixture fixture(inputs,source);const auto art=fixture.flow->drawTrainingArt;unsigned calls=0;
             fixture.flow->drawTrainingArt=[&](auto &f){if(!calls++)throw std::runtime_error("Synthetic resource provider failure");art(f);};
             fixture.act(InteractionAction{});check(fixture.flow->canSave() && fixture.p.encounterContext->day==8,"unadmitted resource fault created debt");
-            fixture.enter();fixture.act(SelectMemberAction{1});fixture.act(CancelInteractionAction{});
+            fixture.enter();fixture.act(SelectMemberAction{1});fixture.act(CancelInteractionAction{});fixture.finishDeparture();
             check(fixture.flow->canSave() && fixture.p.encounterContext->day==9 && fixture.p.roster.at(0).permanentLevel==3 &&
                 fixture.p.monsterTreasure->gold==800,"cancelled quote set trainee bit/payment/day");
         }

@@ -68,25 +68,26 @@ public:
   for(const auto &s:splats)if(s.duration)return true;
   return false;
  }
- void spellEffect(unsigned owner,std::uint64_t now=0,bool reset=false) noexcept {
+ void spellEffect(unsigned owner,std::uint64_t=0,bool reset=false) noexcept {
   // Character::addHitPoints clears _charFX for each invocation, including
   // zero-HP Cure Poison; giveTake's duplicate recipients remain suppressed.
-  if(owner<portraits.size() && (reset || portraits[owner].spellFrame==4)) {portraits[owner].spellFrame=0;portraits[owner].spellDeadline=PresentationClock::afterMilliseconds(now,2);}
+  if(owner<portraits.size() && (reset || portraits[owner].spellFrame==4)) {portraits[owner].spellFrame=0;portraits[owner].spellDeadline=0;}
  }
- void portraitDamage(unsigned owner,unsigned frame,std::uint64_t now=0) noexcept {
-  if(owner<portraits.size()) {portraits[owner].damageFrame=frame;portraits[owner].damageTicks=1;portraits[owner].damageDeadline=PresentationClock::afterMilliseconds(now,2);}
+ void portraitDamage(unsigned owner,unsigned frame,std::uint64_t=0) noexcept {
+  if(owner<portraits.size()) {portraits[owner].damageFrame=frame;portraits[owner].damageTicks=1;portraits[owner].damageDeadline=0;}
  }
- void hitSplat(unsigned row,int damage,unsigned frame,bool alternatePosition,std::uint64_t now=0) noexcept {
+ void hitSplat(unsigned row,int damage,unsigned frame,bool alternatePosition,std::uint64_t=0) noexcept {
   if(row<3 && damage>0)splats[row]={frame,3,damage,alternatePosition,0};
  }
- bool advanceFeedback(std::uint64_t now) noexcept {
-  bool changed=false;
-  for(auto &p:portraits) {
-   if(p.spellFrame<4 && now>=p.spellDeadline) {++p.spellFrame;p.spellDeadline=PresentationClock::afterMilliseconds(now,2);changed=true;}
-   if(p.damageTicks && now>=p.damageDeadline) {--p.damageTicks;changed=true;}
-  }
-  return changed;
+ // Flow admits one retained frame at a time and owns its clock/acquisition.
+ // Repaint/polling never advances a recipient or consumes a hold.
+ bool advanceFeedback(std::uint64_t) noexcept {return false;}
+ void spellFrame(unsigned owner,unsigned frame) {
+     if(owner>=portraits.size() || frame>4)throw std::invalid_argument("Invalid retained portrait sparkle");
+     portraits[owner].spellFrame=frame;portraits[owner].spellDeadline=0;
  }
+ void clearDamage() noexcept {for(auto &portrait:portraits){portrait.damageTicks=0;portrait.damageDeadline=0;}}
+
 	explicit XeenScenePresentation(std::uint32_t seed=std::random_device{}()) : _random(seed) {}
 	bool ground=false, defaultGround=false, sky=false, water=false;
 	unsigned overallFrame=0, floatPhase=0;

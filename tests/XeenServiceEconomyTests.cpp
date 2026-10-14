@@ -1,5 +1,7 @@
 #include "games/xeen/XeenMerchantGeneration.h"
 #include "games/xeen/XeenServiceDay.h"
+#include "games/xeen/XeenServiceAnimation.h"
+#include "games/xeen/XeenMerchantTables.h"
 #include "games/xeen/XeenArmorRepair.h"
 #include "XeenM40Evidence.h"
 #include <iostream>
@@ -385,6 +387,37 @@ void interestAndDates() {
 	// One 1440 charge only; this pure service candidate exposes no multi-day,
 	// interactive mode, rest or actor catch-up admission API.
 }
+void deferredServiceRandom() {
+    XeenServiceEconomy economy;economy.wares=literalValid();economy.bank={199,99};
+    XeenGameplayContext context;context.year=610;context.day=10;context.minutes=300;
+    const XeenJourneyRandomState before{1,2732157854u,1203};
+    XeenServiceDayCandidate reserved(context,economy,before,XeenScriptServiceCharge::OneDay,false,true);
+    check(reserved.reservationReady() && !reserved.complete() && reserved.pendingGeneration() && reserved.economy()==economy && reserved.continuation()==before,
+        "A reserved future service day consumed stock/RNG before departure");
+    XeenCombatRandom speech(before);while(!speech.draw(7,11)){}
+    auto rebound=reserved.rebindRandom(speech.continuation());
+    XeenServiceDayCandidate expected(context,economy,speech.continuation());
+    while(!expected.complete())expected.service(64);
+    check(!rebound.service(1),"One raw draw unexpectedly completed merchant generation");
+    rejects([&]{rebound.rebindRandom(before);});
+    while(!rebound.service(64)){}
+    check(rebound.economy()==expected.economy() && rebound.continuation()==expected.continuation(),
+        "Departure generation did not follow speaking RNG in causal order");
+    unsigned total=0;for(const auto &side:merchant::counts)for(const auto &band:side)for(auto count:band)total+=count;
+    check(total==160,"Deferred RNG reserve must follow the merchant item count");
+    for(std::uint32_t raw=1;raw<=100;++raw) {
+        auto next=raw;next^=next<<13;next^=next>>17;next^=next<<5;
+        check(next>100,"Merchant rejection reserve bound changed with RNG algorithm");
+    }
+    check(!XeenServiceDayCandidate::randomRoom({1,7,UINT64_MAX-2559}) &&
+        XeenServiceDayCandidate::randomRoom({1,7,UINT64_MAX-2560}),"Deferred merchant RNG suffix bound differs");
+    rejects([&]{XeenServiceDayCandidate noDebt(context,economy,{1,7,UINT64_MAX-1},XeenScriptServiceCharge::OneDay,false,true);});
+    XeenSilentSampleInterval sample;
+    sample.start(100,300);check(sample.playing(399) && !sample.playing(400),"Silent sample completion boundary differs");
+    sample.start(200,50);check(sample.playing(249) && !sample.playing(250),"Sample replacement retained the older interval");
+    sample.stop();check(!sample.playing(0),"Sample stop retained busy status");
+}
+
 void legacyDropInterleaving() {
 	XeenCombatRandom random(XeenJourneyRandomState{1,3686439625u,2109});XeenConsequenceDraw draw{random,64,{}};
 	XeenMagicArrowCandidate arrow(6,0,0,6);check(arrow.service(draw) && arrow.damage==8 && random.continuation()==XeenJourneyRandomState{1,2493262264u,2110},"synthetic stock->Arrow continuation mismatch");
@@ -399,7 +432,7 @@ void legacyDropInterleaving() {
 }
 }
 int main() {
-	try {branchTapes();sharedGeneration();seededVectors();capacityDiscard();rejectionAndExhaustion();canonicalAndMutation();currentDepletion();interestAndDates();legacyDropInterleaving();
+	try {branchTapes();sharedGeneration();seededVectors();capacityDiscard();rejectionAndExhaustion();canonicalAndMutation();currentDepletion();interestAndDates();deferredServiceRandom();legacyDropInterleaving();
 		std::cout<<"M40 exact merchant generation, finite canonical validator, bank and service-day candidates passed\n";return 0;
 	}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}
 }

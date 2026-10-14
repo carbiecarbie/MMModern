@@ -92,7 +92,12 @@ void XeenTitleFlow::setScreen(Screen screen) {
 void XeenTitleFlow::notice(std::string message,Screen back) {
  _notice=std::move(message);_noticeReturn=back;setScreen(Screen::Notice);
 }
-void XeenTitleFlow::newSlots() {
+void XeenTitleFlow::returnToTitle() {
+ _closed=false;_entry.reset();_selected.reset();_name.clear();_notice.clear();
+ _screen=Screen::Background;_phase=1;_firstTitle=true;
+ _fadeLevel=0;_fadeStep=4;_fadeAcquired=false;_animationAcquired=false;_fadeDeadline=0;_deadline=0;
+ _inputFrame.reset();render();
+}void XeenTitleFlow::newSlots() {
  _closed=false;_entry.reset();_selected.reset();_name.clear();_slots=_services.slots();setScreen(Screen::NewSlots);
 }
 void XeenTitleFlow::publicationFailure(std::string message) {
@@ -216,12 +221,12 @@ void XeenTitleFlow::render(bool semantic) {
  frame._presentation.reset();auto retained=std::make_shared<IndexedFrame>(frame);frame._presentation=std::move(retained);_frame=std::move(frame);
 }
 InputContext XeenTitleFlow::inputContext(const IndexedFrame::Presentation &origin) const {
- InputContext context;context.contextId=_context;context.readyForAction=acceptsInput(origin) && !_entry && _fadeLevel==128 && _fadeAcquired;
+ InputContext context;context.contextId=_context;context.readyForAction=acceptsInput(origin) && !_entry && _fadeLevel==128 && _fadeAcquired && !_firstTitle;
  context.dialog=std::make_shared<DialogInput>(dialog());return context;
 }
 void XeenTitleFlow::presented(const IndexedFrame::Presentation &p) {
  if(!acceptsFrame(p))throw std::logic_error("Stale title presentation");
- _fadeAcquired=true;
+ _fadeAcquired=true;_animationAcquired=true;
 }
 void XeenTitleFlow::completeInput(const IndexedFrame::Presentation &p) {
  if(!acceptsFrame(p))throw std::logic_error("Stale title input handoff");_inputFrame=p;
@@ -242,7 +247,7 @@ void XeenTitleFlow::choose() {
  setScreen(slot.state==XeenSaveFile::Slot::State::Empty?Screen::Name:Screen::Overwrite);
 }
 std::optional<IndexedFrame> XeenTitleFlow::handle(const PlayerAction &action,const IndexedFrame::Presentation &origin) {
- if(!acceptsInput(origin) || _entry || _fadeLevel<128 || !_fadeAcquired)return {};
+ if(!acceptsInput(origin) || _entry || _fadeLevel<128 || !_fadeAcquired || _firstTitle)return {};
  if(const auto *typed=std::get_if<TextInputAction>(&action)) {
   if(_screen!=Screen::Name || typed->text.empty())return {};
   // Reject the whole input packet on unsupported codes; preserve accepted case.
@@ -267,7 +272,6 @@ std::optional<IndexedFrame> XeenTitleFlow::handle(const PlayerAction &action,con
   break;
  }
  case Screen::Background:
-  if(_firstTitle){_firstTitle=false;_phase=(_phase+1)%_services.animation.size();_deadline=0;}
   setScreen(Screen::Menu);break;
  case Screen::Other:
   if(escape)setScreen(Screen::Menu);
@@ -361,13 +365,20 @@ std::optional<IndexedFrame> XeenTitleFlow::animateAt(std::uint64_t nanoseconds) 
   if(!_fadeDeadline){_fadeDeadline=PresentationClock::retraceAfter(nanoseconds);return {};}
   if(nanoseconds<_fadeDeadline)return {};
   _fadeLevel=std::min(128u,_fadeLevel+_fadeStep);
-  _fadeDeadline=PresentationClock::retraceAfter(nanoseconds);_fadeAcquired=false;
-  render(false);if(_fadeLevel==128)_deadline=PresentationClock::after(nanoseconds,4);return _frame;
+  _fadeDeadline=PresentationClock::retraceAfter(nanoseconds);_fadeAcquired=false;_animationAcquired=false;
+  render(false);if(_fadeLevel==128)_deadline=_firstTitle?nanoseconds:PresentationClock::after(nanoseconds,4);return _frame;
  }
  if(_closed || _entry || !animating(_screen))return {};
+ if(!_animationAcquired)return {};
+ // DAT 0x0bea4 returns directly into 0x0bee7: publish the first phase
+ // before its four-tick poll. The initial background fade is not that poll.
+ if(_firstTitle) {
+  _firstTitle=false;_animationAcquired=false;_deadline=PresentationClock::after(nanoseconds,4);
+  render(false);return _frame;
+ }
  if(!_deadline){_deadline=PresentationClock::after(nanoseconds,4);return {};}
  if(nanoseconds<_deadline)return {};
  _deadline=PresentationClock::after(nanoseconds,4);
- _phase=(_phase+1)%_services.animation.size();_firstTitle=false;render(false);return _frame;
+ _phase=(_phase+1)%_services.animation.size();_animationAcquired=false;render(false);return _frame;
 }
 }

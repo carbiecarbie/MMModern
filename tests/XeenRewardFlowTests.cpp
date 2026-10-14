@@ -6,6 +6,17 @@
 #include <iostream>
 using namespace reward_test;
 IndexedFrame base(){IndexedFrame b;b.width=320;b.height=200;b.pixels.assign(64000,90);for(int i=0;i<256;++i)for(int j=0;j<3;++j)b.palette[i*3+j]=i;return b;}
+void portraitRequiresOwner(){
+ Execution e;auto state=e.seed({pause()},0);
+ state.pendingPresentation->request.kind=XeenPresentationKind::PortraitEffect;
+ state.pendingPresentation->request.portrait=XeenEventPortraitEffect{XeenEventPortraitStage::Sparkle,0,0};
+ state.pendingPresentation->request.response=XeenPresentationResponseRequirement::Presented;
+ XeenEventSystem events(e.scripts,e.texts);auto image=base();
+ XeenEventFlow flow(e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](auto){return XeenEventFlow::Composition{image,false};});
+ bool rejected=false;try{flow.acceptManual(XeenEventExecutionSuspended{state,state.pendingPresentation->request});}
+ catch(const std::logic_error &error){rejected=std::string(error.what()).find("Encounter-owned presentation")!=std::string::npos;}
+ check(rejected,"Injected legacy portrait request bypassed its Encounter ownership fence");
+}
 void flows(){
 	for(bool global:{false,true}){Execution e;if(global)full(e.f.initial,true);
 		auto s=e.seed({pause(),record(1,1,1,12,{0,0,20,7}),record(1,1,2,0x12)},10);
@@ -27,7 +38,11 @@ void flows(){
 			check(XeenRewardTestAccess::state(flow).rewardPhase==XeenRewardPhase::Warning&&XeenRewardTestAccess::state(flow).pendingRewards.size()==10,"warning inserted/lost early");
 			while(XeenRewardTestAccess::state(flow).rewardPhase==XeenRewardPhase::Warning)flow.handle(CancelInteractionAction{});
 			check(flow.presenter().pageIndex()==0&&XeenRewardTestAccess::state(flow).rewardReceipt.lost==10,"one input consumed warning and receipt");
-		}else check(XeenRewardTestAccess::state(flow).rewardReceipt.delivered==10,"receipt missing insertion");
+		}else {
+			check(XeenRewardTestAccess::state(flow).rewardReceipt.delivered<=2,"Input transferred more than the next item");
+			while(XeenRewardTestAccess::state(flow).rewardPhase!=XeenRewardPhase::Receipt)flow.handle(CancelInteractionAction{});
+			check(XeenRewardTestAccess::state(flow).rewardReceipt.delivered==10,"receipt missing insertion");
+		}
 		const auto snapshot=xeenInventoryInspection(e.f.initial);const auto receiptGen=flow.presentationGeneration();
 		flow.refresh(true);check(snapshot==xeenInventoryInspection(e.f.initial)&&receiptGen==flow.presentationGeneration(),"rebase replayed delivery");
 		while(flow.blocksGameplay())flow.handle(CancelInteractionAction{});
@@ -179,8 +194,50 @@ void presentation(const XeenFontFormat &font,IndexedFrame b,const std::filesyste
 		std::cout<<(kind==XeenPresentationKind::RewardReceipt?"Receipt":"Warning")<<" pages="<<count<<" key="<<key<<'\n';
 	}
 }
+void timedItems() {
+ Execution e;e.f.initial.monsterTreasure=XeenMonsterTreasure{};
+ auto state=e.seed({pause(),record(1,1,1,0x12)},2);state.pendingRewards.credit(34,19);
+ XeenEventSystem events(e.scripts,e.texts);auto b=base();std::uint64_t now=0;
+ XeenEventFlow flow(e.world,events,e.f.initial,e.camera,e.flags,e.f.font,
+  [&](std::uint64_t){return XeenEventFlow::Composition{b,true};},{},[&]{return now;});
+ flow.dialogText=&dos_test::text();flow.acceptManual(XeenEventExecutionSuspended{state,state.pendingPresentation->request});
+ flow.handle(AcknowledgeAction{});check(XeenRewardTestAccess::state(flow).rewardPhase==XeenRewardPhase::Blank,"First timed item missing");
+ const auto blank=*flow.presentationGeneration();const auto inventory=xeenInventoryInspection(e.f.initial);
+ flow.updatePresentation();
+ check(flow.presentationGeneration()==blank && xeenInventoryInspection(e.f.initial)==inventory,"Unacquired blank advanced treasure");
+ now=0;flow.framePresented(flow.frame().presentation());now=109;flow.updatePresentation();
+ check(flow.presentationGeneration()==blank,"One-tick blank bypassed nested two-tick scene draw");
+ now=110;flow.updatePresentation();
+ check(XeenRewardTestAccess::state(flow).rewardPhase==XeenRewardPhase::Found &&
+  XeenRewardTestAccess::state(flow).rewardReceipt.delivered==1,"Blank auto completion published another item");
+ flow.framePresented(flow.frame().presentation());now=220;flow.updatePresentation();
+ check(XeenRewardTestAccess::state(flow).rewardPhase==XeenRewardPhase::Found,"Found hold omitted ten ticks");
+ now=10000;flow.updatePresentation();
+ check(XeenRewardTestAccess::state(flow).rewardPhase==XeenRewardPhase::Blank &&
+  XeenRewardTestAccess::state(flow).rewardReceipt.delivered==2,"Late wake caught up multiple treasure frames");
+ const auto second=*flow.presentationGeneration();flow.updatePresentation();
+ check(flow.presentationGeneration()==second,"Late unacquired item caught up");
+ flow.framePresented(flow.frame().presentation());now+=110;flow.updatePresentation();
+ const auto found=*flow.presentationGeneration();
+ check(XeenRewardTestAccess::state(flow).rewardPhase==XeenRewardPhase::Found,"Second found line missing");
+ flow.framePresented(flow.frame().presentation());now+=110;
+ flow.handle(CancelInteractionAction{});
+ check(XeenRewardTestAccess::state(flow).rewardPhase==XeenRewardPhase::Receipt && !e.f.initial.monsterTreasure->gold,
+  "Skipping found hold manufactured final acknowledgment");
+ check(!flow.respond(found,XeenPresentationResponse::Acknowledged) && !e.f.initial.monsterTreasure->gold,
+  "Stale found frame credited currency");
+ flow.framePresented(flow.frame().presentation());now+=110;flow.handle(AcknowledgeAction{});
+ check(!flow.blocksGameplay() && e.f.initial.monsterTreasure->gold==19,"Final acknowledgment did not credit currency");
+ auto abandoned=e.seed({pause(),record(1,1,1,0x12)},1);
+ flow.acceptManual(XeenEventExecutionSuspended{abandoned,abandoned.pendingPresentation->request});
+ flow.handle(AcknowledgeAction{});flow.framePresented(flow.frame().presentation());
+ const auto prefix=xeenInventoryInspection(e.f.initial);
+ flow.abandonPresentation();now+=10000;flow.updatePresentation();
+ check(!flow.blocksGameplay() && xeenInventoryInspection(e.f.initial)==prefix && e.f.initial.monsterTreasure->gold==19,
+  "Abandoned timed hold resumed or replayed its committed prefix");
+}
 int main(int argc,char **argv){try{
-	flows();producedFlow();failures();animatedRewardLayers();animationFailures();Fixture f;presentation(f.font,base(),{});
+	portraitRequiresOwner();flows();producedFlow();failures();animatedRewardLayers();animationFailures();timedItems();Fixture f;presentation(f.font,base(),{});
 	if(argc==3){const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"installation missing");XeenAssetSource assets(*installation,320,200);
 		assets.loadPalette("mm4.pal");auto b=assets.snapshot();b.pixels.assign(64000,90);std::filesystem::create_directories(argv[2]);
 		presentation(XeenFontFormat(assets.readArchiveResource("fnt")),b,argv[2]);}

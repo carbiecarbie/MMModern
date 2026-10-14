@@ -385,8 +385,18 @@ void carriedConsequences() {
 		using remove_test::record;
 		f.event.records[0]=record(10,10,0,12,{0,0,21,99});f.event.records[1]=record(10,10,1,12,{0,0,104,2});f.event.records[2]=record(10,10,2,12,{0,0,20,7});
 		XeenEventInterpreter interpreter;
-		const auto result = interpreter.begin({23,10,10,XeenDirection::North},f.p,f.flags,f.w,
+		auto result = interpreter.begin({23,10,10,XeenDirection::North},f.p,f.flags,f.w,
 			[&](XeenMapIdentity) { return XeenEventScript(f.event); },{});
+		// The quest grant is already published; its treasure phases display it
+		// without granting it again before the final acknowledgment.
+		for(const auto phase:{XeenRewardPhase::Blank,XeenRewardPhase::Found,XeenRewardPhase::Receipt}) {
+			const auto *pending=std::get_if<XeenEventExecutionSuspended>(&result);
+			check(pending && pending->request.kind==XeenPresentationKind::RewardReceipt &&
+				pending->state.rewardPhase==phase && pending->state.instructionCount==3 &&
+				f.p.questItems.at(17)==1 && f.p.questFlags.isSet(2),"controlled prior quest grant phases publish once");
+			result=interpreter.resume(pending->state,XeenPresentationResponse::Acknowledged,f.p,f.w,
+				[&](XeenMapIdentity){return XeenEventScript(f.event);},{});
+		}
 		check(std::holds_alternative<XeenEventExecutionCompleted>(result), "controlled prior event completes");
 		f.flags = std::get<XeenEventExecutionCompleted>(result).finalGameFlags;
 		XeenPendingRewards rewards; rewards.enqueue({10,37,1,0});

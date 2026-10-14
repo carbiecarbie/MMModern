@@ -10,7 +10,7 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
     XeenEventFlow &flow,XeenWorld &world,const XeenPartyState &party,const XeenCamera &camera,
     const XeenGameFlags &flags,const fs::path &target,std::uint64_t &now,std::uint64_t &cycle,
     unsigned &providers,unsigned &saves,std::function<void()> &resourceFault,bool &renderFault,Fault mutate) {
-    const auto present=[&](const IndexedFrame &frame){check(flow.acceptsFrame(frame.presentation()),"M39 test presentation must be concrete and current");handler.framePresented(frame.presentation());};
+    const auto present=[&](const IndexedFrame &frame){check(flow.acceptsFrame(frame.presentation()),"M39 test presentation must be concrete and current");handler.framePresented(frame.presentation());handler.completeInputHandoff(frame.presentation());};
     const auto respond=[&](PlayerAction action){handler.beginCycle(++cycle);auto token=handler.displayedInput();check(bool(token),"M39 control requires presented input");auto next=handler.withDisplayedInput(action,*token);
         const auto before=providers,save=saves;
         if(flow.encounter()->combat()) {
@@ -18,7 +18,7 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
         check(before==providers && save==saves,"M39 consumed test input reached providers");
         }
         if(next)present(*next);};
-    const auto tick=[&]{now+=100;handler.beginCycle(++cycle);auto frame=idle();if(frame)present(*frame);};
+    const auto tick=[&]{now+=110;handler.beginCycle(++cycle);auto frame=idle();if(frame)present(*frame);};
     const auto fight=[&]()->XeenCombat &{check(flow.encounter() && flow.encounter()->combat(),"M39 artificial control lost combat");return const_cast<XeenCombat &>(*flow.encounter()->combat());};
     const auto view=[&]()->XeenCombatCastView{const auto observed=fight().cast();check(observed.has_value(),"M39 artificial control lost cast");return *observed;};
     const auto select=[&](unsigned row){respond(DialogKeyAction{'n'});respond(DialogKeyAction{'0'+row});respond(DialogKeyAction{'s'});};
@@ -29,6 +29,14 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
         }else if(world.sessionState().journeyActivity()==XeenJourneyActivity::Event || world.sessionState().journeyActivity()==XeenJourneyActivity::Reward)respond(AcknowledgeAction{});
         tick();}throw std::runtime_error("M39 control prefix bound");};
     const auto quiet=[&]{for(unsigned i=0;i<500 && !flow.canSave();++i)tick();check(flow.canSave(),"M39 artificial prefix quiet bound");};
+    const auto finishPortraits=[&]{
+        // Result publication precedes the original acquired portrait holds.
+        // Drive their concrete handoffs without replaying the paid effect.
+        const XeenRestoreGuard settled(world,party,camera,flags);
+        for(unsigned i=0;i<500 && (world.scenePresentation().feedbackActive() || !handler.inputContext(flow.frame().presentation()).readyForAction);++i)tick();
+        check(!world.scenePresentation().feedbackActive() && handler.inputContext(flow.frame().presentation()).readyForAction && settled.current(),
+            "M39 result portrait hold changed settled state or never released input");
+    };
     present(first);respond(SaveGameAction{});check(saves==3,"M39 control prior save pipeline");
     const auto disk=XeenSaveFormat::encode(XeenSaveFile::read(target));
     respond(NavigationAction::MoveForward);quiet();if(control.find("-group")==std::string::npos){respond(ShootAction{});quiet();}respond(NavigationAction::MoveForward);ready(control=="partial"?0:4);
@@ -161,6 +169,8 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
             check(view().enemy==std::optional<XeenMonsterIdentity>{{23,9}},"M39 detached target redirected private reservation");
             auto &&random=fight().random();const_cast<XeenCombatRandom &>(random).draw(1,56);
             check(world.sessionState().journeyRandom()==cursor && fight().random().continuation()==cursor,"M39 public RNG copy advanced authoritative cursor");
+            tick();check(view().phase==XeenCombatCastPhase::Projectile && world.sessionState().journeyRandom()==cursor,
+                "Travel sampled Arrow damage before target arrival");
             std::vector<std::pair<unsigned,unsigned>> requests;const auto trace=replay_test::observeDraw;
             replay_test::observeDraw=[&](auto lo,auto hi,auto value,auto state){requests.emplace_back(lo,hi);if(trace)trace(lo,hi,value,state);};
             if(control=="observation-yield") {
@@ -180,26 +190,26 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
                     "M39 post-callback authoritative mismatch published effect/refund");
             }else {
                 if(control=="observation-yield") {
-                    check(view().phase==XeenCombatCastPhase::Preparing && world.sessionState().actors()[9].hp==7 &&
+                    check(view().phase==XeenCombatCastPhase::Projectile && world.sessionState().actors()[9].hp==7 &&
                         world.sessionState().journeyRandom()==cursor && party.roster.at(6).currentSp==25,
                         "M39 corrupted yielded observation published incomplete unit");
                     tick();
                 }
-                check(callbacks>0 && view().phase==XeenCombatCastPhase::Projectile && fight().result().actorHpBefore==7 &&
+                check(callbacks>0 && view().phase==XeenCombatCastPhase::Impact && fight().result().actorHpBefore==7 &&
                     fight().result().actorHpAfter==0 && fight().result().damage==8 && world.sessionState().actors()[9].hp==7 &&
                     !world.sessionState().accountedMonsters().count({23,9}) && world.sessionState().journeyRandom()==cursor &&
                     world.sessionState().actors()[15].hp==other.hp && world.sessionState().actors()[15].id==other.id,
                     "M49 Arrow preparation published HP/reward/RNG before arrival");
                 check(requests.at(0)==std::pair<unsigned,unsigned>{1,56} &&
-                    requests.at(control=="observation-yield"?65:1)==std::pair<unsigned,unsigned>{1,100},
-                    "M39 Arrow statistics identity split from damage/drop target");
+                    requests.size()==(control=="observation-yield"?65u:1u),
+                    "Arrow damage target changed or drop sampled before post-HP draw");
                 for(unsigned i=0;i<6;++i)check(party.roster.combatInputs(kXeenCombatOwners[i])->experience==(i==1 || i==4?2000u:1000u),
                     "M49 Arrow credited XP during preparation");
                 fight().setProbe({});
                 auto projectile=fight().cast();auto &&projectileResult=fight().result();poison(projectile,projectileResult);
                 check(flow.encounter()->appearance().projectile.has_value(),"M39 corrupted public phase hid retained projectile");
                 const auto visuals=flow.encounter()->appearance().projectiles;
-                check(visuals.size()==1 && visuals[0].lane==0 && visuals[0].row==0 && visuals[0].pow==11 &&
+                check(visuals.size()==1 && visuals[0].lane==0 && visuals[0].row==1 && visuals[0].pow==11 &&
                     visuals[0].target==std::optional<XeenMonsterIdentity>{{23,9}},"Magic Arrow shared single lane/selected target");
                 const auto laneAt=[&](unsigned row) {
                     const auto appearance=flow.encounter()->appearance();
@@ -209,7 +219,7 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
                     check(lane!=commands.end() && lane->projectile()->row==row && lane->projectile()->pow==11 && lane->drawOptions().scaleIndex==4*row,
                         "Magic Arrow rendered row/depth/resource differs from retained cosmetic lane");
                 };
-                tick();laneAt(1);
+                laneAt(1);
                 check(view().phase==XeenCombatCastPhase::Impact && world.sessionState().actors()[9].hp==7 &&
                     flow.encounter()->appearance().frame==3 && world.sessionState().journeyRandom()==cursor &&
                     !world.sessionState().accountedMonsters().count({23,9}),"M49 hit frame missing before HP publication");
@@ -220,6 +230,7 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
                     party.monsterTreasure->pendingGold==0,"M49 post-HP frame removed/rewarded lethal actor");
                 for(unsigned i=0;i<6;++i)check(party.roster.combatInputs(kXeenCombatOwners[i])->experience==(i==1 || i==4?2000u:1000u),"M49 post-HP frame credited XP");
                 deny();tick();laneAt(3);const auto settled=*world.sessionState().journeyRandom();
+                check(requests.back()==std::pair<unsigned,unsigned>{1,100},"Arrow drop omitted original post-HP call point");
                 check(view().phase==XeenCombatCastPhase::Result && world.sessionState().accountedMonsters().count({23,9}) &&
                     world.sessionState().actors()[9].lifecycle==XeenActorLifecycle::Defeated && party.monsterTreasure->pendingGold==10,"M49 lethal accounting/removal did not settle once");
                 for(unsigned i=0;i<6;++i)check(party.roster.combatInputs(kXeenCombatOwners[i])->experience==(i==1 || i==4?2066u:1066u),"M49 final Arrow XP recipients changed");
@@ -245,7 +256,7 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
                 view().result.count==(control=="observation-awaken"?6u:control=="observation-refund"?0u:1u),
                 "M39 detached result changed authoritative effect membership");
             auto receipt=fight().cast();auto &&receiptResult=fight().result();poison(receipt,receiptResult);
-            respond(AcknowledgeAction{});
+            finishPortraits();respond(AcknowledgeAction{});
             check(!fight().cast() && fight().phase()==XeenCombatPhase::PlayerReady && fight().participant()==5 && fight().participants()==0x3f &&
                 world.sessionState().journeyRandom()==cursor,"M39 detached result redirected acted participant/successor");
         }
@@ -277,20 +288,21 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
         respond(BlockAction{});ready(5);respond(CastSpellAction{});select(3);castSelected();
         check(view().phase==XeenCombatCastPhase::Preparing && party.roster.at(6).currentSp==25 && world.sessionState().actors()[9].hp==7 && world.sessionState().journeyRandom()==cursor,"M39 Arrow debit/effect separation");
         if(control.rfind("arrow-fail-",0)==0 || control=="arrow-xp-overflow" || control=="arrow-drop-overflow") {
+            tick();check(view().phase==XeenCombatCastPhase::Projectile,"Arrow failure fixture missing travel draw");
             const auto limit=(control=="arrow-xp-overflow" || control=="arrow-drop-overflow")?0:unsigned(std::stoul(control.substr(11)));auto calls=std::make_shared<unsigned>(0);
             fight().setProbe([calls,limit]{if(++*calls==limit)throw std::runtime_error("M39 Arrow draw/drop pre-store failure");});
-            try{tick();}catch(const std::exception &){}
+            try{for(unsigned i=0;i<6 && fight().phase()!=XeenCombatPhase::Failed;++i)tick();}catch(const std::exception &){}
             check(fight().phase()==XeenCombatPhase::Failed && party.roster.at(6).currentSp==25 && world.sessionState().actors()[9].hp==7 &&
                 world.sessionState().journeyRandom()==cursor && !world.sessionState().accountedMonsters().count({23,9}),"M39 Arrow incomplete unit published/refunded");
         }else {
-            if(control=="arrow-yield") {
-                auto calls=std::make_shared<unsigned>(0);replay_test::filterDraw=[calls](auto v)->std::optional<std::uint32_t>{return ++*calls<=64 ? std::nullopt : v;};
-                tick();check(view().phase==XeenCombatCastPhase::Preparing && *world.sessionState().journeyRandom()==cursor &&
-                    party.roster.at(6).currentSp==25 && world.sessionState().actors()[9].hp==7,"M39 raw rejection yield published live prefix");
-            }
             if(control=="projectile-retry")renderFault=true;
             tick();check(view().phase==XeenCombatCastPhase::Projectile && party.roster.at(6).currentSp==25 && world.sessionState().actors()[9].hp==7 && !world.sessionState().accountedMonsters().count({23,9}) && world.sessionState().journeyRandom()==cursor,"M49 retry published before arrival");
             if(control=="arrow-quit-travel") {deny();std::cout<<"M39 ARTIFICIAL CONTROL PASSED "<<control<<'\n';return true;}
+            if(control=="arrow-yield") {
+                auto calls=std::make_shared<unsigned>(0);replay_test::filterDraw=[calls](auto v)->std::optional<std::uint32_t>{return ++*calls<=64 ? std::nullopt : v;};
+                tick();check(view().phase==XeenCombatCastPhase::Projectile && *world.sessionState().journeyRandom()==cursor &&
+                    party.roster.at(6).currentSp==25 && world.sessionState().actors()[9].hp==7,"M39 raw rejection yield published live prefix");
+            }
             deny();tick();
             check(view().phase==XeenCombatCastPhase::Impact && world.sessionState().actors()[9].hp==7,"M49 impact before HP boundary");
             deny();if(control=="projectile-retry")renderFault=true;
@@ -325,7 +337,9 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
             check(view().phase==XeenCombatCastPhase::Result && party.roster.at(1).currentSp==(control=="target-retry"?21:20) && party.roster.at(6).currentHp==(control=="target-retry"?priorHp:15),"M39 presentation retry changed settled prefix");
             const auto old=fight().ticket();check(fight().command(old,XeenCombatCommand::Attack).status==XeenCombatStatus::Refused && fight().service(old).status==XeenCombatStatus::Refused,"M39 public ticket bypassed modal");
             const auto forged=std::make_shared<const IndexedFrame>(flow.frame());check(!flow.acceptsFrame(forged),"M39 same-pixel foreign frame admitted");
-            deny();respond(AcknowledgeAction{});check(fight().participant()==5 && !fight().cast(),"M39 settlement consumed wrong action");
+            deny();
+            finishPortraits();
+            respond(AcknowledgeAction{});check(fight().participant()==5 && !fight().cast(),"M39 settlement consumed wrong action");
             check(fight().command(old,XeenCombatCommand::Run).status==XeenCombatStatus::Stale,"M39 old modal ticket released successor");
         }
     }

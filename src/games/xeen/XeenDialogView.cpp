@@ -51,13 +51,15 @@ std::uint32_t gems(const XeenPartyState &p) { return p.monsterTreasure?std::uint
 std::string xeenTreasureText(const XeenDosText &text,const XeenTreasureDisplay &treasure,std::size_t page) {
     if(page>treasure.items.size())throw std::out_of_range("Treasure display page");
     auto result=xeenDialogFormat(text.scalar("PARTY_FOUND"),{n(treasure.gold),n(treasure.gems)});
+    if(treasure.stage==XeenTreasureDisplay::Stage::Blank){result+=text.scalar("GIVE_TREASURE_FORMATTING");return result;}
     if(!treasure.items.empty()) {
         const auto &line=treasure.items[std::min(page,treasure.items.size()-1)];
         const auto name=line.quest?xeenDialogFormat(text.scalar("QUEST_FOUND_PREFIX"),{line.itemName}):line.itemName;
         result+=text.scalar("GIVE_TREASURE_FORMATTING");
         result+=xeenDialogFormat(text.scalar("X_FOUND_Y"),{line.recipient,name});
     }
-    if(page==treasure.items.size())result+=text.scalar("HIT_A_KEY");
+    if(treasure.stage==XeenTreasureDisplay::Stage::Final ||
+        (treasure.stage==XeenTreasureDisplay::Stage::Pages && page==treasure.items.size()))result+=text.scalar("HIT_A_KEY");
     return result;
 }
 IndexedFrame drawXeenTreasure(const XeenDosText &text,const IndexedFrame &base,const XeenFontFormat &font,

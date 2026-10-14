@@ -1,4 +1,5 @@
 #include "XeenTestInstallation.h"
+#include "formats/xeen/XeenVocDuration.h"
 #include "XeenTrainingTestSupport.h"
 #include "games/xeen/XeenRestoreGuard.h"
 #include <array>
@@ -369,7 +370,10 @@ void originalJourney(Inputs &in) {
     Visit v(in,fresh(in));const auto tavern=entrance(in.city,3),bank=entrance(in.city,0);
     walk(v,tavern.x,tavern.y);face(v,tavern.direction);const auto gold=v.p.monsterTreasure->gold;
     v.open();v.food(true);check(v.p.food==90 && v.p.monsterTreasure->gold==gold,"New Game full packs charged");v.leave();
-    v.act(RestAction{});settle(v);check(v.p.food<90,"Original Rest did not consume food");
+    // Economic fixtures intentionally have no shop sound provider. This original
+    // route supplies the actual VOC headers for the complete Rest sequence.
+    v.flow->loadSampleDuration=[&](const char *name,XeenSceneArchive archive){return xeenVocDurationNanoseconds(in.assets.readArchiveResource(name,archive));};
+    v.act(RestAction{});settle(v);v.flow->loadSampleDuration={};check(v.p.food<90,"Original Rest did not consume food");
     const auto refillGold=v.p.monsterTreasure->gold;v.open();v.food(true);
     check(v.p.food==90 && v.p.monsterTreasure->gold==refillGold-10,"Original post-Rest refill failed");v.leave();
     walk(v,bank.x,bank.y);face(v,bank.direction);v.open();

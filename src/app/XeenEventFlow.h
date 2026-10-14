@@ -2,6 +2,7 @@
 #define MMODERN_APP_XEEN_EVENT_FLOW_H
 
 #include "app/XeenNavigationFlow.h"
+#include "formats/xeen/XeenSpriteDrawOptions.h"
 #include "games/xeen/XeenEventPresenter.h"
 #include "games/xeen/XeenEventContinuation.h"
 #include "games/xeen/XeenWorld.h"
@@ -17,6 +18,7 @@
 #include "core/InputContext.h"
 #include "app/XeenTextInput.h"
 #include "core/PresentationClock.h"
+#include "formats/xeen/XeenSpriteDrawOptions.h"
 
 namespace mmodern {
 
@@ -79,6 +81,7 @@ public:
   return *dialogText;
  }
 	std::function<IndexedFrame()> loadRestDream;
+    std::function<std::uint64_t(const char*,XeenSceneArchive)> loadSampleDuration;
 	std::function<void(XeenTrainingBoundary)> trainingBoundary;
 	bool canSave() const noexcept;
 	bool serviceSaveBlocked() const noexcept { return _smithUi.has_value() || _trainingUi.has_value() || _dispatching || _handoffPending || _saving || _fatal; }
@@ -121,6 +124,7 @@ public:
 	IndexedFrame refuseInventorySave();
 	bool canCancelInteraction() const;
 	bool handlesEscape() const;
+    bool partyDeathComplete() const noexcept;
 	std::optional<IndexedFrame> updatePresentation();
 	void abandonPresentation();
 	const XeenEventPresenter &presenter() const { return _presenter; }
@@ -137,15 +141,19 @@ private:
 	friend struct XeenRestTestAccess;
 	friend struct XeenPartyInterfaceTestAccess;
 	IndexedFrame drawRest(const IndexedFrame &);
-	// Base-frame cycle of a service background (DOS 0x1c038..0x1c51f). The pulse reuses
-	// the cosmetic 150 ms NPC period; it schedules no gameplay and no service-day work.
+	// DOS location wait 0x1c520 polls input before each independent three-tick reset.
 	struct ServiceArtState {
 		XeenServiceArt kind = XeenServiceArt::Smith;
 		unsigned index = 0;
 		std::uint64_t deadline = 0;
-		bool failed = false;
+        XeenSilentSampleInterval sample;
+        std::optional<unsigned> pendingIndex,pendingSpeaking;
+        std::optional<XeenJourneyRandomState> randomBefore,randomAfter;
+        bool awaitingFrame=false,randomPublished=false,resetAfterFrame=false;
 	};
 	bool pulseServiceArt(ServiceArtState &, IndexedFrame &art);
+    void startServiceSample(ServiceArtState &,const char *,bool resetIndex=false);
+    void serviceInputPolled(ServiceArtState &);
 	struct TrainingUi {
 		enum class Phase { Preparation, Menu, Candidate, Departure };
 		ServiceArtState animation;
@@ -184,6 +192,7 @@ private:
 		std::string foodOffer,amount;
 		XeenTextInput amountCursor;
 		bool withdrawal=false,gems=false,bankRefreshed=false;
+        bool goodbye=false;
         bool spellInfo=false;
         ServiceArtState animation;
         XeenSpellListUi spells;
@@ -204,6 +213,15 @@ private:
 	std::shared_ptr<const DialogInput> serviceDialogInput() const;
 	const XeenEventPublication *_eventPublication = nullptr;
 	bool _monsterReceiptPresented=false;
+	struct TreasureWait {
+		std::uint64_t generation=0,deadline=0;
+		unsigned ticks=0;
+		bool monster=false,acquired=false;
+	};
+	std::optional<TreasureWait> _treasureWait;
+	void prepareTreasureWait(std::uint64_t,unsigned,bool monster=false);
+	std::optional<IndexedFrame> advanceTreasureWait();
+	void publishEventSequencePrefix(const XeenEventExecutionState &);
 	bool _journeyEventLayers = false;
 	struct TransitionCandidate {
 		XeenRegionalInteraction kind = XeenRegionalInteraction::None;
@@ -242,7 +260,7 @@ private:
 		XeenGameplayContext context;
 		XeenCombatRandom random;
 		bool bash=false, secondCharge=false, published=false, portraitWaiting=false, portraitPresented=false;
-		bool trapWaiting=false, dailyReset=false, needsRest=false;
+		bool trapWaiting=false, trapPresented=false, dailyReset=false, needsRest=false;
 		std::optional<XeenServiceEconomy> economy;
 		std::uint64_t deadline=0;
 	};
@@ -252,6 +270,35 @@ private:
 	IndexedFrame handleBarrier(const PlayerAction &);
 	void checkTransitionCandidate();
 	XeenPresentationUpdate presentPendingEvent();
+    struct PortraitSequence {
+        XeenEventPortraitEffect effect;
+        unsigned frame=0,countdown=0;
+        std::uint64_t generation=0,deadline=0;
+        bool event=false,acquired=false,window11=false,ranged=false;
+    };
+    std::optional<PortraitSequence> _portraitSequence;
+    void preparePortraitSequence(const XeenEventPortraitEffect &,std::uint64_t generation=0);
+    void prepareStandalonePortrait();
+    std::optional<IndexedFrame> advancePortraitSequence();
+    bool portraitSequenceActive() const noexcept {return _portraitSequence.has_value();}
+
+    struct NpcSequence {
+        XeenEventPresenter::NpcTiming timing;
+        std::uint64_t speechEnd=0, deadline=0, generation=0;
+        std::optional<unsigned> choice;
+        bool acquired=false, composed=false;
+        std::size_t page=0;
+    };
+    std::optional<NpcSequence> _npcSequence;
+    // Silent CD playback can outlive a passive NPC's window (DAT 0x25aa8).
+    std::uint64_t _cdSpeechEnd=0;
+    std::optional<XeenEventCdSpeech> _cdSpeechCue;
+    std::optional<XeenSide> _cdSpeechSide;
+    XeenEventPresenter::RandomFrame _npcRandomFrame;
+    bool advanceNpcSequence();
+    struct NpcResponse {PlayerAction action;std::uint64_t generation;};
+    std::optional<NpcResponse> _npcResponse;
+    IndexedFrame consumeNpcResponse();
  bool drawPendingHeads(IndexedFrame &);
 	XeenManualEventResult beginVertigoEvent(XeenRegionalInteraction, bool automatic=false);
 	XeenManualEventResult resumeVertigoEvent(XeenEventExecutionState, XeenPresentationResponse);
@@ -304,7 +351,20 @@ private:
 	std::uint64_t _inventoryLease = 0, _certificateLease = 0;
 	void syncCombatInventory();
 	IndexedFrame renderEncounter(bool report = false, bool cosmeticInput = false, bool reconstruct = false);
-	IndexedFrame frameCopy();
+	struct DeathContinuation {
+        enum class Phase { Fire, Final, Laugh, Restore, Scroll, Closed, FadeOut, Done };
+        Phase phase=Phase::Fire;
+        unsigned fire=0,laugh=0,restarts=0,scroll=22,fadeLevel=128;
+        bool acquired=false;
+        std::uint64_t deadline=0,laughEnd=0,laughDuration=0;
+        IndexedFrame gameplay,final;
+    };
+    std::optional<DeathContinuation> _death;
+    bool partyDeathRequired() const noexcept;
+    IndexedFrame drawDeath(const IndexedFrame &);
+    bool advanceDeath();
+    void deathPresented();
+    IndexedFrame frameCopy();
 	void sealFrame(IndexedFrame &returned);
 	const XeenFontFormat &_inventoryFont;
 	const XeenItemCatalog &_catalog;
@@ -415,7 +475,7 @@ private:
 	Compose _compose;
 	std::optional<Pending> _pending;
 	// Interpreter-dispatched resource identities retained independently of callback state.
-	std::vector<std::size_t> _regionalExecutedRecords;
+	std::vector<std::optional<std::size_t>> _regionalExecutedRecords;
 	std::optional<XeenEventContinuation> _regionalEventContinuation;
 	IndexedFrame _frame;
 	std::string _mainScreenNotice;

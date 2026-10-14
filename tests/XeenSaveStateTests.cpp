@@ -216,11 +216,21 @@ void mutationPolicies() {
 		XeenEventFlow flow(f.world, events, f.party, f.camera, f.flags, textFont,
 			[&](std::uint64_t) { return XeenEventFlow::Composition{Fixture::compose(f.world, f.party, f.camera, f.flags), false}; });
 		flow.dialogText=&dos_test::text();
-		bool failed = false;
-		flow.reportManual = [&](const auto &r) { failed = std::holds_alternative<XeenEventExecutionError>(r); };
+		bool failed = false;std::optional<XeenEventExecutionState> suspended;
+		flow.reportManual = [&](const auto &r) { failed = std::holds_alternative<XeenEventExecutionError>(r);
+			if(const auto *s=std::get_if<XeenEventExecutionSuspended>(&r))suspended=s->state; };
 		flow.handle(InteractionAction{});
 		if (outcome == 1) { check(flow.blocksGameplay(), "missing acknowledgment"); flow.abandonPresentation(); }
-		if (outcome == 2) { check(flow.canCancelInteraction(), "missing WhoWill"); flow.handle(CancelInteractionAction{}); }
+		if (outcome == 2) {
+			check(flow.canCancelInteraction(), "missing WhoWill"); flow.handle(CancelInteractionAction{});
+			for(const auto phase:{XeenRewardPhase::Blank,XeenRewardPhase::Found,XeenRewardPhase::Receipt}) {
+				check(flow.blocksGameplay() && suspended && suspended->rewardPhase==phase &&
+					suspended->pendingPresentation->request.rewardWaitTicks==(phase==XeenRewardPhase::Blank?1u:phase==XeenRewardPhase::Found?10u:0u) &&
+					f.party.questItems.at(17)==1 && !f.flags.isSet(7) && f.camera.mapId==XeenMapIdentity(1),
+					"cancelled WhoWill skipped treasure, re-granted or committed camera/flags early");
+				flow.handle(AcknowledgeAction{});
+			}
+		}
 		check(!flow.blocksGameplay() && f.party.questItems.at(17) == 1 && f.party.questFlags.isSet(2) &&
 			!f.party.questFlags.isSet(29), "immediate effects or later instruction policy changed");
 		check(f.flags.isSet(7) == (outcome == 2) && f.camera.mapId == XeenMapIdentity(outcome == 2 ? 2 : 1),

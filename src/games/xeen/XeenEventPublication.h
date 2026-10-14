@@ -16,6 +16,19 @@ public:
 	XeenEventPublication(const XeenEventPublication &) = delete;
 	XeenEventPublication &operator=(const XeenEventPublication &) = delete;
 	void check() const { authority(); guard.check(); }
+    unsigned npcAnimationFrame() const {
+        check();
+        auto &world=const_cast<XeenWorld &>(guard.w);
+        if(!world._sessionState._journeyRandom)integrity("NPC Journey random continuation is absent");
+        XeenCombatRandom random(*world._sessionState._journeyRandom);
+        const auto frame=random.draw(0,3);
+        if(!frame)integrity("NPC frame conversion was rejected");
+        const auto ending=random.continuation();
+        guard.s._journeyRandom=ending;
+        world._sessionState._journeyRandom=ending;
+        guard.adoptMutationBoundary();
+        return *frame;
+    }
 	void publishCandidate(XeenWorld &world,XeenPartyState &party,XeenCamera &camera,XeenGameFlags &flags,
 			XeenWorld &candidateWorld,const XeenRestoreGuard &candidate) const {
 		check();candidate.check();
@@ -47,6 +60,21 @@ public:
 		guard.prepareVertigoPrelude(state.workingGameFlags);
 		flags=state.workingGameFlags;guard.adoptMutationBoundary();
 	}
+	void publishSequencePrefix(XeenWorld &world,XeenPartyState &party,const XeenRestoreGuard &candidate) const {
+		check();candidate.check();
+		if(&world!=&guard.w || &party!=&guard.p || !candidate.w.detachedEventCandidate())
+			integrity("Event sequence publication owner changed");
+		const XeenCloudsQuestItems quests(candidate.quests);const XeenCloudsQuestFlags flags(candidate.questFlags);
+		guard.prepareEventSequencePrefix(candidate);
+		world.publishEventParty(party,candidate.p);party.questItems=quests;party.questFlags=flags;
+		world._sessionState._journeyRandom=candidate.s._journeyRandom;
+		guard.adoptMutationBoundary();
+		for(unsigned owner=0;owner<30;++owner) {
+			auto &effect=const_cast<XeenWorld &>(candidate.w).scenePresentation().portraits[owner];
+			if(effect.damageTicks && !effect.damageDeadline){damageEffects[owner]=effect.damageFrame;effect.damageTicks=0;}
+			if(effect.spellFrame<4 && !effect.spellDeadline){portraitEffectOwners|=1u<<owner;effect.spellFrame=4;}
+		}
+	}
 	void script(const XeenEventFile &file) const {
 		check();
 		if (file.mapId != original.mapId || file.resourceName!=original.resourceName || file.resourcePresent != original.resourcePresent || file.records.size() != original.records.size())
@@ -61,6 +89,9 @@ public:
 		check();
 		try {retained.check(state);script(state.currentScript->file());}
 		catch(const std::logic_error &) {integrity("Event continuation or resource preimage changed");}
+		// Remove may hide the initially selected object before treasure is shown.
+		// Its identity belongs to the checked continuation, not a fresh selection.
+		selectedObject=state.selectedObject;
 	}
 	void execution(const XeenEventExecutionState &state) const {
 		check();
@@ -107,7 +138,9 @@ public:
 		if(!currentSite || decoded.source.recordIndex!=currentSite || state.instructionCount!=dispatchedRecords.size()+1 ||
 			state.instructionCount>XeenEventInterpreter::kMaximumInstructions)
 			integrity("Event dispatch history changed");
-		dispatchedRecords.push_back(*currentSite);
+		// Retain the effective dispatch, before a later Remove can disable its
+		// resource record. A None dispatch contributes to instruction count only.
+		dispatchedRecords.push_back(std::holds_alternative<XeenEventNone>(decoded.operation)?std::nullopt:currentSite);
 	}
 
 	void prepareGrant(std::size_t index) const {
@@ -195,6 +228,33 @@ public:
 		guard.adoptMutationBoundary();
 		return receipt;
 	}
+	void deliverRewardEntry(XeenEventExecutionState &state,XeenPartyState &party) const {
+		check();validateRewardPrefix(state.pendingRewards,dispatchedRecords.size());
+		XeenPartyState detached;detached.party=XeenParty::fromRosterIds(guard.membership);
+		for(auto id:guard.membership)detached.roster.at(id)=guard.characters[id];
+		auto receipt=state.rewardReceipt;xeenDeliverRewardEntry(receipt,state.rewardCursor,detached,state.preferredRewardRecipient,false);
+		check();
+		for(auto id:guard.membership)for(unsigned category=0;category<4;++category) {
+			const auto kind=static_cast<XeenRewardCategory>(category);
+			xeenRewardItems(guard.characters[id],kind)=xeenRewardItems(detached.roster.at(id),kind);
+			xeenRewardItems(party.roster.at(id),kind)=xeenRewardItems(detached.roster.at(id),kind);
+		}
+		state.rewardReceipt=receipt;guard.adoptMutationBoundary();
+	}
+	void sortRewardEntry(const XeenRewardEntry &entry,XeenPartyState &party) const {
+		check();if(!entry.owner)return;
+		auto items=xeenRewardItems(guard.characters[*entry.owner],entry.category);xeenCompactItems(items);
+		check();xeenRewardItems(guard.characters[*entry.owner],entry.category)=items;
+		xeenRewardItems(party.roster.at(*entry.owner),entry.category)=items;guard.adoptMutationBoundary();
+	}
+	void creditRewardCurrency(XeenEventExecutionState &state,XeenPartyState &party) const {
+		check();validateRewardPrefix(state.pendingRewards,dispatchedRecords.size());
+		if(party.monsterTreasure) {
+			guard.treasure->gold+=state.rewardReceipt.gold;guard.treasure->gems+=state.rewardReceipt.gems;
+			party.monsterTreasure->gold=guard.treasure->gold;party.monsterTreasure->gems=guard.treasure->gems;
+		}
+		state.pendingRewards={};guard.adoptMutationBoundary();
+	}
 	void prepareRemove(const XeenCamera &physical, std::optional<XeenObjectIdentity> selected,
 		const XeenEventFile &file) const {
 		check(); script(file);
@@ -230,14 +290,22 @@ private:
 		std::size_t count=0;
 		if(pending.overflow() || pending.invalid())integrity("Regional reward queue is malformed");
 		for(std::size_t i=0;i<before;++i) {
-			const auto site=dispatchedRecords.at(i);
-			if(guard.s._events.count({original.mapId,site}))continue;
+			const auto retained=dispatchedRecords.at(i);if(!retained)continue;
+			const auto site=*retained;
 			const auto result=XeenEventDecoder::decode(original.records.at(site),{original.mapId,original.resourceName,site,true});
 			const auto *instruction=std::get_if<XeenDecodedEventInstruction>(&result);if(!instruction)continue;
-			const auto *effect=std::get_if<XeenEventGiveEnchanted>(&instruction->operation);if(!effect)continue;
+			const auto *effect=std::get_if<XeenEventGiveEnchanted>(&instruction->operation);
+			const auto *give=std::get_if<XeenEventTakeOrGive>(&instruction->operation);
+			const bool quest=give && neutral(give->first) && give->second.mode==21 &&
+				give->second.value>=82 && neutral(give->third);
+			if(!effect && !quest)continue;
 			if(count>=pending.size())integrity("Regional reward prefix loses dispatched effect");
-			const auto &item=pending.at(count++);
-			if(item.material!=effect->itemCode-60 || item.id!=effect->specialId || item.state!=1 || item.frame!=0)
+			const auto index=count++;const auto &item=pending.at(index);
+			if(quest) {
+				if(!pending.questAt(index) || pending.categoryAt(index)!=XeenRewardCategory::Weapons ||
+					item.id!=give->second.value || item.material || item.state || item.frame)
+					integrity("Regional quest reward differs from dispatched operands");
+			} else if(pending.questAt(index) || item.material!=effect->itemCode-60 || item.id!=effect->specialId || item.state!=1 || item.frame!=0)
 				integrity("Regional reward item differs from dispatched operands");
 		}
 		if(count!=pending.size())integrity("Regional reward prefix adds an undispatched effect");
@@ -245,10 +313,10 @@ private:
 	[[noreturn]] void integrity(const char *message) const { guard.failed=true; throw std::logic_error(message); }
 	friend class XeenEventFlow;
 	XeenEventPublication(XeenRestoreGuard &guard, const XeenEventFile &original, std::function<void()> authority,
-		std::function<void()> beforeRewardEnqueue={}, std::vector<std::size_t> *history=nullptr) :
+		std::function<void()> beforeRewardEnqueue={}, std::vector<std::optional<std::size_t>> *history=nullptr) :
 		guard(guard), original(original), authority(std::move(authority)),
 		beforeRewardEnqueue(std::move(beforeRewardEnqueue)), retainedHistory(history),
-		dispatchedRecords(history ? *history : std::vector<std::size_t>{}) {
+		dispatchedRecords(history ? *history : std::vector<std::optional<std::size_t>>{}) {
 		check();selectedObject=const_cast<XeenWorld &>(guard.w).selectObject(guard.cameraValue);check();
 	}
 	XeenRestoreGuard &guard;
@@ -256,10 +324,10 @@ private:
 	std::function<void()> authority;
 	std::function<void()> beforeRewardEnqueue;
 	mutable bool grant=false, removal=false, delivered=false;
-	std::vector<std::size_t> *retainedHistory;
-	mutable std::vector<std::size_t> dispatchedRecords;
+	std::vector<std::optional<std::size_t>> *retainedHistory;
+	mutable std::vector<std::optional<std::size_t>> dispatchedRecords;
 	mutable std::set<std::size_t> consumed;
-	std::optional<XeenObjectIdentity> selectedObject;
+	mutable std::optional<XeenObjectIdentity> selectedObject;
 	mutable std::size_t questFlagIndex=0, takeIndex=0;
 	mutable std::size_t grantIndex=18;
 	mutable std::optional<std::size_t> currentSite;

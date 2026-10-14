@@ -12,6 +12,7 @@
 #include "formats/xeen/XeenAssetSource.h"
 #include "games/xeen/XeenIndoorScene.h"
 #include "XeenM49CombatSupport.h"
+#include "XeenM42Evidence.h"
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 #include <cstdlib>
@@ -63,6 +64,11 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
  XeenEventFlow *flow=nullptr;XeenWorld *world=nullptr;const XeenPartyState *party=nullptr;
  const XeenCamera *position=nullptr;const XeenGameFlags *flags=nullptr;
  std::uint64_t now=0,cycle=0;unsigned saveCalls=0;
+ bool observeSmith=false;std::string smithDraws;
+ struct SmithDrawTime {std::uint64_t now,sampleEnd;};
+ std::vector<SmithDrawTime> smithDrawTimes;
+ std::uint64_t sampleEnd=0;
+ XeenJourneyRandomState expectedSmithRandom;
  const std::string control=std::getenv("MMODERN_M38_CONTROL")?std::getenv("MMODERN_M38_CONTROL"):"";
  bool faultFired=false,renderFault=false;unsigned providerCalls=0;std::function<void()> recursiveProbe;
  #define COUNT_PROVIDER(field) if(services.field)services.field=countProvider(services.field,providerCalls)
@@ -83,6 +89,12 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
  services.observeGameplay=[&](auto &w,auto &,const auto &p,const auto &c,const auto &f){world=&w;party=&p;position=&c;flags=&f;};
   services.configureFlow=[&](auto &f,const auto &c){
   original.configureFlow(f,c);flow=&f;
+  const auto sample=f.loadSampleDuration;
+  f.loadSampleDuration=[&,sample](const char *name,XeenSceneArchive archive) {
+   const auto duration=sample(name,archive);
+   sampleEnd=PresentationClock::checkedAdd(PresentationClock::fromMilliseconds(now),duration);
+   return duration;
+  };
   if(f.drawSmithArt) {
    const auto art=f.drawSmithArt;
    f.drawSmithArt=[&,art](IndexedFrame &frame) {
@@ -126,6 +138,13 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    else throw std::runtime_error("Unknown M38 artificial control");
   };
  };
+ replay_test::observeDraw=[&](auto lo,auto hi,auto value,auto cursor) {
+  if(!observeSmith)return;
+  const auto line="DRAW "+std::to_string(lo)+":"+std::to_string(hi)+":"+
+   (value?std::to_string(*value):"rejected")+":"+std::to_string(cursor.state)+":"+std::to_string(cursor.count)+"\n";
+  smithDraws+=line;smithDrawTimes.push_back({PresentationClock::fromMilliseconds(now),sampleEnd});
+  std::cout<<line;
+ };
  services.show=[&](const IndexedFrame &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
   check(target && flow && world && party && position && flags,"M38 production owners absent");
   check(world->sessionState().journey(),"M38 inherited content mismatch");
@@ -141,7 +160,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   };
   std::deque<std::function<bool()>> steps;
   std::optional<IndexedFrame> next;IndexedFrame::Presentation presented;
-  bool shown=false,acted=false,breakArmor=false;unsigned blocks=0,openingAttacks=0,iterations=0,nativeSaveResponses=0;
+  bool shown=false,acted=false,breakArmor=false,checkpointSaveArmed=false;unsigned blocks=0,openingAttacks=0,iterations=0,nativeSaveResponses=0;
   const auto act=[&](PlayerAction action){
    check(shown,"M38 input preceded successful presentation");
    const auto token=handler.displayedInput();check(bool(token),"M38 displayed token absent");
@@ -199,6 +218,27 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    });
   };
   const auto inspect=[&](std::function<void()> f){steps.push_back([f]{f();return true;});};
+  const auto beginSmith=[&] {smithDraws.clear();smithDrawTimes.clear();observeSmith=true;};
+  // These visits depart before day 11, so the only original shared-generator
+  // calls are Smith's 5..7 speaking choices. Replay all raw values/cursors,
+  // including rejection, from the saved preimage; any other request is a fault.
+  const auto finishSmith=[&](XeenSaveSnapshot &expected) {
+   observeSmith=false;const auto before=*expected.journey->random;
+   m42_test::StockOracle oracle{before.state,before.count,{}};std::size_t offset=0,row=0;
+   while(smithDraws.compare(offset,9,"DRAW 5:7:")==0) {
+    const auto previous=oracle.trace.size();oracle.draw(5,7);
+    const auto line=oracle.trace.substr(previous);
+    check(smithDraws.compare(offset,line.size(),line)==0,"M38 Smith random request/value/cursor differs");
+    for(char c:line)if(c=='\n') {
+     check(row<smithDrawTimes.size(),"M38 Smith random observation incomplete");
+     check(smithDrawTimes[row].now<smithDrawTimes[row].sampleEnd,"M38 Smith speaking RNG outside sample interval");++row;
+    }
+    offset+=line.size();
+   }
+   check(offset==smithDraws.size() && row==smithDrawTimes.size(),"M38 unexpected Smith random request");
+   expectedSmithRandom=before;expectedSmithRandom.state=oracle.state;expectedSmithRandom.count=oracle.count;
+   expected.journey->random=expectedSmithRandom;
+  };
   const auto dismissServiceNotice=[&]{steps.push_back([&]{
    const auto context=handler.inputContext(presented);
    if(context.dialog && context.dialog->anyKey)act(AcknowledgeAction{});
@@ -222,7 +262,11 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
      else if(breakArmor && !(party->roster.at(6).armor[0].state&128) && openingAttacks++>=1){++blocks;act(BlockAction{});}
      else act(AttackAction{});
     }
-   } else if(world->sessionState().journeyActivity()==XeenJourneyActivity::Event || world->sessionState().journeyActivity()==XeenJourneyActivity::Reward) act(AcknowledgeAction{});
+   } else if(world->sessionState().journeyActivity()==XeenJourneyActivity::Event || world->sessionState().journeyActivity()==XeenJourneyActivity::Reward) {
+    // Let uninterruptible portrait draws finish before this direct Event acknowledgment.
+    if(!handler.inputContext(presented).readyForAction)return false;
+    act(AcknowledgeAction{});
+   }
    check(flow->encounter()->state().phase()!=XeenEncounterPhase::SupportStopped,"M38 exploration support stop");
    return false;
   };
@@ -240,10 +284,11 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    check(SDL_PushEvent(&e)==1,"M38 native key enqueue failed");if(down)acted=true;};
   const auto checkpoint=[&](char label){
    auto count=std::make_shared<unsigned>();
-   inspect([&,count]{check(flow->canSave(),"M38 checkpoint is not Quiet");*count=saveCalls;pushKey(SDLK_F9);});
+   inspect([&,count]{check(flow->canSave(),"M38 checkpoint is not Quiet");*count=saveCalls;checkpointSaveArmed=true;pushKey(SDLK_F9);});
    steps.push_back([&,count,label]{
     if(saveCalls==*count)return false;
     check(saveCalls==*count+3,"M38 F9 did not complete the normal save pipeline");
+    checkpointSaveArmed=false;
     pushKey(SDLK_F9,false);
     const auto copy=target->parent_path()/(target->stem().string()+"-"+label+".mmsave");
     fs::copy_file(*target,copy,fs::copy_options::overwrite_existing);
@@ -252,21 +297,26 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     return true;
    });
   };
-  const auto deniedSave=[&]{
+  const auto deniedSave=[&](bool departureRecovery=false){
    auto count=std::make_shared<unsigned>();auto responses=std::make_shared<unsigned>();
    auto cycles=std::make_shared<unsigned>(0);auto input=std::make_shared<std::uint64_t>();
    auto prior=std::make_shared<std::vector<std::uint8_t>>();
    inspect([&,count,responses,prior,input]{check(!flow->canSave(),"M38 service exposed Quiet");*count=saveCalls;*responses=nativeSaveResponses;
     *input=*handler.displayedInput();*prior=XeenSaveFormat::encode(XeenSaveFile::read(*target));pushKey(SDLK_F9);});
-   steps.push_back([&,count,responses,prior,input,cycles]{
+   steps.push_back([&,count,responses,prior,input,cycles,departureRecovery]{
     if(++*cycles<3)return false;
-    check(nativeSaveResponses==*responses && *handler.displayedInput()==*input,"M38 strict service dialog dispatched F9 or consumed input");
+    check(nativeSaveResponses==*responses,"M38 strict service dialog dispatched F9");
+    // A retained Departure retries on idle. Its one-shot fault can recover
+    // while this denied F9 is sampled; only completed departure may replace
+    // the token, and the denied key must still leave providers/disk untouched.
+    check(*handler.displayedInput()==*input || (departureRecovery && !XeenTrainingTestAccess::admitted(*flow) &&
+     party->encounterContext->day==9 && party->monsterTreasure->gold==838),"M38 ignored F9 consumed service authority");
     check(saveCalls==*count && *prior==XeenSaveFormat::encode(XeenSaveFile::read(*target)),"M38 ignored F9 performed work or changed disk");
     pushKey(SDLK_F9,false);return true;
    });
   };
   const std::string stage=std::getenv("MMODERN_M38_STAGE")?std::getenv("MMODERN_M38_STAGE"):"fresh";
-  inspect([&]{if(resume) {
+  inspect([&]{expectedSmithRandom=*world->sessionState().journeyRandom();if(resume) {
    check(!replay_test::journeyInitializations && !replay_test::journeyConstructions &&
     !replay_test::actions && !replay_test::pulses && !replay_test::commands &&
     !replay_test::draws && !replay_test::retirements && !replay_test::constructions &&
@@ -303,11 +353,13 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    inspect([&]{std::cout<<"M49 FIRST AID HP="<<party->roster.at(6).currentHp<<" SP="<<party->roster.at(1).currentSp<<" minute="<<party->encounterContext->minutes<<" RNG="<<world->sessionState().journeyRandom()->state<<":"<<world->sessionState().journeyRandom()->count<<'\n';
     check(party->roster.at(6).currentHp==1 && party->roster.at(1).currentSp==18 &&
     party->encounterContext->minutes==800,"M38 First Aid witness mismatch");});
-   route("UUUUU");inspect([&]{check(position->x==8 && position->y==4 && party->encounterContext->minutes==805,"M38 five-cell corridor endpoint/time");});checkpoint('A');
+   route("UUUUU");inspect([&]{check(position->x==8 && position->y==4 && party->encounterContext->minutes==805,"M38 five-cell corridor endpoint/time");
+    check(world->sessionState().journeyRandom()->count==1098,"M38 pre-Smith RNG prefix mismatch");});checkpoint('A');
   }
   const auto visit=[&](unsigned slot,std::uint32_t goldAfter){
    auto before=std::make_shared<XeenSaveSnapshot>();auto ac=std::make_shared<int>();
    inspect([&,before,ac]{*before=XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world);
+    beginSmith();
     *ac=XeenCharacterRules::combatArmorClass(party->roster.at(6),*party->roster.combatInputs(6),{party->encounterContext->year});});
       action(InteractionAction{});
    if(control=="fail-before-admission" && slot==0) {
@@ -331,18 +383,19 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    deniedSave();action(SelectInventorySlotAction{slot}); // Original intact refusal.
    inspect([&,goldAfter]{check(party->monsterTreasure->gold==goldAfter,"M38 intact repeat charged gold");});
    action(AcknowledgeAction{});action(CancelInteractionAction{});action(CancelInteractionAction{});
-   if(slot==0 && (control=="fail-before-departure" || control=="fail-after-departure" || control=="fail-return")) {deniedSave();action(AcknowledgeAction{});}
+   if(slot==0 && (control=="fail-before-departure" || control=="fail-after-departure" || control=="fail-return")) {deniedSave(true);action(AcknowledgeAction{});}
    settle();
    inspect([&,before,slot,goldAfter]{
     auto expected=*before;expected.characters[6].armor[slot].state=0;
     expected.journey->treasure->gold=goldAfter;++expected.journey->context->day;
+    finishSmith(expected);
     const auto actual=XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world);
     check(XeenSaveFormat::encode(actual)==XeenSaveFormat::encode(expected),"M38 visit changed unrelated durable state");
    });
   };
   if(stage=="multi") {
    auto expected=std::make_shared<XeenSaveSnapshot>();
-   inspect([&,expected]{*expected=XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world);});
+   inspect([&,expected]{*expected=XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world);beginSmith();});
    action(InteractionAction{});waitService();action(SelectMemberAction{5});browseRepair();
    for(unsigned slot=0;slot<2;++slot) {
     action(SelectInventorySlotAction{slot});action(YesAction{});deniedSave();
@@ -352,6 +405,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    action(CancelInteractionAction{});action(CancelInteractionAction{});settle();
    inspect([&,expected]{expected->characters[6].armor[0].state=0;expected->characters[6].armor[1].state=0;
     expected->journey->treasure->gold=837;expected->journey->context->day=9;
+    finishSmith(*expected);
     check(XeenSaveFormat::encode(*expected)==XeenSaveFormat::encode(XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world)),
      "M38 multiple repairs did not preserve unrelated durable state");});checkpoint('M');
   } else if(stage=="views") {
@@ -382,7 +436,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   } else if(stage=="synthetic" || stage=="synthetic-native") {
    // Explicit artificial funds/inventory fixture, never the production witness.
    auto expected=std::make_shared<XeenSaveSnapshot>();
-   inspect([&,expected]{*expected=XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world);});
+   inspect([&,expected]{*expected=XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world);beginSmith();});
    action(InteractionAction{});waitService();deniedSave();action(SelectMemberAction{5});browseRepair();deniedSave();
    action(SelectInventorySlotAction{8});deniedSave();action(YesAction{});
    inspect([&,expected]{
@@ -395,7 +449,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    });
    if(nativeControls)action(AcknowledgeAction{});else dismissServiceNotice();
    action(CancelInteractionAction{});action(CancelInteractionAction{});settle();
-   inspect([&,expected]{++expected->journey->context->day;
+   inspect([&,expected]{++expected->journey->context->day;finishSmith(*expected);
     check(XeenSaveFormat::encode(*expected)==XeenSaveFormat::encode(
      XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world)),
      "M38 artificial inventory aliases/holes/inactive owner/dormant treasure changed");
@@ -406,8 +460,12 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   const bool detour=stage.rfind("detour",0)==0;
   if(empty) {
    if(stage=="empty") {
+   auto expected=std::make_shared<XeenSaveSnapshot>();
+   inspect([&,expected]{*expected=XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world);beginSmith();});
    action(InteractionAction{});waitService();deniedSave();action(CancelInteractionAction{});settle();
-   inspect([&]{check(party->encounterContext->day==9 && party->encounterContext->minutes==805 &&
+   inspect([&,expected]{++expected->journey->context->day;finishSmith(*expected);
+    check(XeenSaveFormat::encode(*expected)==XeenSaveFormat::encode(XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world)),"M38 empty visit changed unrelated durable state");
+    check(party->encounterContext->day==9 && party->encounterContext->minutes==805 &&
     party->monsterTreasure->gold==840 && party->roster.at(6).armor[0].state==128 &&
     party->roster.at(6).armor[1].state==128,"M38 transaction-free departure mismatch");});
    checkpoint('E');
@@ -435,14 +493,19 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    if(!resume || (stage=="A" || stage=="native")) {visit(0,838);checkpoint('B');}
    if(!resume || stage=="A" || stage=="B" || stage=="native") {visit(1,837);checkpoint('C');}
    inspect([&]{check(party->encounterContext->day==10 && party->encounterContext->minutes==805 &&
-    party->monsterTreasure->gold==837 && world->sessionState().journeyRandom()->count==1098,
+    party->monsterTreasure->gold==837 && *world->sessionState().journeyRandom()==expectedSmithRandom,
     "M38 two-visit date/purse/RNG witness mismatch");});
   }
   checkpoint('D');
   }
   inspect([&]{std::cout<<"M38 PRODUCTION WITNESS PASSED\n";SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);});
   auto native=handler;native.closed={};
-  native.withPresentedInput=[&](const PlayerAction &a,std::uint64_t token,const auto &origin){if(std::holds_alternative<SaveGameAction>(a))++nativeSaveResponses;return handler.withPresentedInput(a,token,origin);};
+  native.withPresentedInput=[&](const PlayerAction &a,std::uint64_t token,const auto &origin){
+   if(std::holds_alternative<SaveGameAction>(a)) {
+    check(checkpointSaveArmed,"M38 denied service F9 leaked into later input");++nativeSaveResponses;
+   }
+   return handler.withPresentedInput(a,token,origin);
+  };
   native.beginCycle=[&](std::uint64_t){now+=100;handler.beginCycle(++cycle);};
   unsigned evidenceFrame=0;
   native.framePresented=[&](const auto &f){

@@ -87,6 +87,7 @@ int Application::run(const std::filesystem::path &gameDirectory) const {
     fresh?XeenEncounterEntry::Journey:XeenEncounterEntry::Ordinary,{},
     fresh?std::optional<XeenDifficulty>{entry.difficulty}:std::nullopt,&entry,&assets,fresh?publish:InitialPublication{},&outcome);
    if(status==0 && outcome.kind==XeenSessionOutcome::Kind::Load){entry=std::move(outcome.entry);inGameLoad=true;continue;}
+   if(status==0 && outcome.kind==XeenSessionOutcome::Kind::Title){title.returnToTitle();entry={};inGameLoad=false;continue;}
    outcome.kind=status==5?XeenSessionOutcome::Kind::Title:status==0?XeenSessionOutcome::Kind::Exit:XeenSessionOutcome::Kind::Failure;
    outcome.status=status;
    if(outcome.kind==XeenSessionOutcome::Kind::Title){if(exitRequested)return 0;title.cancelPublication();entry={};continue;}

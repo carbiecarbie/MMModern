@@ -1,6 +1,7 @@
 // Adapted from ScummVM developers (upstream COPYRIGHT), GPL-3.0-or-later.
 // Pin 6814ee9ba54582f5b5adcffab49efbbd8f589edd, combat.cpp, character.cpp and constants.cpp.
 #include "games/xeen/XeenCombatRules.h"
+#include "games/xeen/XeenStateEquality.h"
 #include "games/xeen/XeenCharacterRules.h"
 #include "games/xeen/XeenServiceDay.h"
 #include <limits>
@@ -58,6 +59,21 @@ XeenTypedDamageCandidate::XeenTypedDamageCandidate(const XeenConsequenceCharacte
 			ruleRequire(v>=0 && v<=std::numeric_limits<int>::max()-40,"Invalid typed saving interval");
 		}
 	}
+}
+bool XeenTypedDamageCandidate::operator==(const XeenTypedDamageCandidate &other) const {
+    if(std::tie(deferInjury,injuryReady,injuryAcknowledged,injuryApplied,impactOwner,portraitFrame,step,type,year,mask,target,damage,beforeAc)!=
+        std::tie(other.deferInjury,other.injuryReady,other.injuryAcknowledged,other.injuryApplied,other.impactOwner,other.portraitFrame,other.step,other.type,other.year,other.mask,other.target,other.damage,other.beforeAc) ||
+        protection.resistances!=other.protection.resistances || protection.powerShield!=other.protection.powerShield ||
+        result.injuryCount!=other.result.injuryCount || result.armorCount!=other.result.armorCount || result.damage!=other.result.damage ||
+        result.targetedMembers!=other.result.targetedMembers || result.targetOwner!=other.result.targetOwner || result.attackOutcome!=other.result.attackOutcome)return false;
+    for(unsigned n=0;n<characters.size();++n)if(!xeen_state::sameCharacter(characters[n],other.characters[n]) || !xeen_state::sameInputs(inputs[n],other.inputs[n]))return false;
+    for(unsigned n=0;n<result.injuryCount;++n) {
+        const auto &a=result.injury(n),&b=other.result.injury(n);
+        if(std::tie(a.owner,a.amount,a.beforeHp,a.afterHp,a.beforeAc,a.afterAc,a.conditions,a.attackOrdinal)!=std::tie(b.owner,b.amount,b.beforeHp,b.afterHp,b.beforeAc,b.afterAc,b.conditions,b.attackOrdinal))return false;
+    }
+    for(unsigned n=0;n<result.armorCount;++n) {const auto &a=result.armor[n],&b=other.result.armor[n];
+        if(a.owner!=b.owner || a.slot!=b.slot || std::tie(a.before.material,a.before.id,a.before.state,a.before.frame)!=std::tie(b.before.material,b.before.id,b.before.state,b.before.frame) || std::tie(a.after.material,a.after.id,a.after.state,a.after.frame)!=std::tie(b.after.material,b.after.id,b.after.state,b.after.frame))return false;}
+    return true;
 }
 bool XeenTypedDamageCandidate::service(XeenConsequenceDraw &draw) {
 	injuryApplied=false;
@@ -254,7 +270,7 @@ bool XeenEnemyAttackCandidate::service(XeenConsequenceDraw &draw) {
 			const auto n=draw.draw(1,monster.damageDie()); if (!n) break;
 			damage=physicalChecked(std::int64_t(damage)+*n);
 			if (++dice==monster.strikes()) step=poison ? Step::PoisonSaveInitial :
-				(damage && monster.raw[30] ? Step::Special : Step::Injury);
+				(deferInjury?Step::Portrait:damage && monster.raw[30] ? Step::Special : Step::Injury);
 			break;
 		}
 		case Step::PoisonSaveInitial:
@@ -264,11 +280,15 @@ bool XeenEnemyAttackCandidate::service(XeenConsequenceDraw &draw) {
 			ruleRequire(v<=std::numeric_limits<int>::max()-40,"Poison saving interval overflow");
 			const auto n=draw.draw(1,unsigned(v+40));if(!n)break;
 			if(*n<=unsigned(v))damage/=2;
-			else if(!first) {step=Step::Injury;break;}
+			else if(!first) {step=deferInjury?Step::Portrait:Step::Injury;break;}
 			// The admitted party-wide poison shield/resistance inputs are zero.
-			step=damage>0 ? Step::PoisonSaveRepeat : Step::Injury;
+			step=damage>0 ? Step::PoisonSaveRepeat : deferInjury?Step::Portrait:Step::Injury;
 			break;
 		}
+        case Step::Portrait:
+            if(!injuryAcknowledged) {impactOwner=characters[target].rosterId;injuryReady=true;return false;}
+            injuryReady=injuryAcknowledged=false;
+            step=!poison && damage && monster.raw[30]?Step::Special:Step::Injury;break;
 		case Step::Special: {
 			auto &c=characters[target];
 			const auto v=std::int64_t(Rules::physicalBonus(Rules::effectiveLuck(c,inputs[target])))+c.currentLevel();
@@ -282,8 +302,6 @@ bool XeenEnemyAttackCandidate::service(XeenConsequenceDraw &draw) {
 		}
 		case Step::Injury: {
 			auto &c=characters[target];
-            if(deferInjury && !injuryAcknowledged) {impactOwner=c.rosterId;injuryReady=true;return false;}
-            injuryReady=injuryAcknowledged=false;
 			XeenCombatDamage injury; injury.owner=c.rosterId; injury.amount=damage;
 			injury.attackOrdinal=attackOrdinal;
 			injury.beforeHp=c.currentHp; injury.beforeAc=beforeDamageAc;

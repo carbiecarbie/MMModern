@@ -354,6 +354,18 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 	auto &missingPolicy = state.missingInstructionPolicy;
 	auto &pendingTransferSource = state.pendingTransferSource;
 	unsigned generationBudget=64;
+    const auto recipients=[&] {
+        if(!partyState.party.size() || (!state.entireParty && (!state.activeCharacterIndex || *state.activeCharacterIndex>=partyState.party.size())))
+            throw std::invalid_argument("Portrait effect has no selected recipient");
+        return state.entireParty?(1u<<partyState.party.size())-1:1u<<*state.activeCharacterIndex;
+    };
+    const auto portraitRequest=[&](XeenEventPortraitStage stage,unsigned owner,unsigned frame,const XeenEventSourceLocation &source) -> XeenEventExecutionStepResult {
+        XeenPresentationRequest request;request.kind=XeenPresentationKind::PortraitEffect;
+        request.response=XeenPresentationResponseRequirement::Presented;request.mapId=logical.mapId;request.source=source;
+        request.portrait=XeenEventPortraitEffect{stage,owner,frame};
+        state.pendingPresentation=XeenEventPendingPresentation{request,XeenEventPendingContinuation::PortraitEffect,{}};
+        return XeenEventExecutionSuspended{state,request};
+    };
 
 	const auto finalize = [&]() -> XeenEventExecutionStepResult {
 		if (publication) publication->execution(state);
@@ -363,24 +375,41 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 		XeenPresentationRequest request;
 		request.response = XeenPresentationResponseRequirement::Acknowledgment;
 		request.mapId = workingCamera.mapId;
-		if (state.rewardPhase == XeenRewardPhase::Running && xeenPacksGloballyFull(partyState)) {
-			state.rewardPhase = XeenRewardPhase::Warning;
-			request.kind = XeenPresentationKind::RewardWarning;
-			if(!world.detachedEventCandidate())request.text = "Reward capacity warning\nAll four category tails are full across active members.\n"
-				"Remaining items will be lost. Gold and gems are still credited.\nSpace / Enter / Escape: continue";
-		} else if (state.rewardPhase == XeenRewardPhase::Receipt) {
+		request.kind=XeenPresentationKind::RewardReceipt;
+		bool foundLine=false;
+		if(state.rewardPhase==XeenRewardPhase::Receipt) {
+			if(publication && partyState.worldFlags)publication->creditRewardCurrency(state,partyState);
+			else xeenCreditRewardCurrency(state.pendingRewards,state.rewardReceipt,partyState);
 			state.rewardPhase = XeenRewardPhase::Completed;
 			return completed(workingCamera, workingGameFlags, instructionCount);
-		} else {
-			state.rewardReceipt = publication && partyState.worldFlags ?
-				publication->deliverRewards(state.pendingRewards,partyState,state.preferredRewardRecipient) :
-				xeenDeliverRewards(state.pendingRewards, partyState, state.preferredRewardRecipient);
-			state.rewardPhase = XeenRewardPhase::Receipt;
-			// Clear production and establish the typed receipt before formatting.
-			request.kind = XeenPresentationKind::RewardReceipt;
-			// Detached Flow owns the typed receipt before fallible text/layout work.
-			if(!world.detachedEventCandidate())request.text = xeenRewardReceiptText(state.rewardReceipt, partyState.roster);
 		}
+		if(state.rewardPhase==XeenRewardPhase::Running) {
+			state.rewardReceipt=xeenPrepareRewardReceipt(state.pendingRewards);state.rewardCursor=0;
+			if(xeenPacksGloballyFull(partyState)) {
+				state.rewardPhase=XeenRewardPhase::Warning;request.kind=XeenPresentationKind::RewardWarning;
+				if(!world.detachedEventCandidate())request.text="Reward capacity warning\nAll four category tails are full across active members.\n"
+					"Remaining items will be lost. Gold and gems are still credited.\nSpace / Enter / Escape: continue";
+			}
+		} else if(state.rewardPhase==XeenRewardPhase::Blank) {
+			const auto &entry=state.rewardReceipt.entries[state.rewardCursor];
+			if(publication && partyState.worldFlags)publication->sortRewardEntry(entry,partyState);
+			else xeenSortRewardEntry(entry,partyState);
+			state.rewardPhase=XeenRewardPhase::Found;request.rewardWaitTicks=10;
+			foundLine=true;
+		} else if(state.rewardPhase==XeenRewardPhase::Found)++state.rewardCursor;
+		if(request.kind!=XeenPresentationKind::RewardWarning && !foundLine) {
+			while(state.rewardCursor<state.rewardReceipt.count) {
+				if(publication && partyState.worldFlags)publication->deliverRewardEntry(state,partyState);
+				else xeenDeliverRewardEntry(state.rewardReceipt,state.rewardCursor,partyState,state.preferredRewardRecipient,false);
+				if(state.rewardReceipt.entries[state.rewardCursor].owner) {
+					state.rewardPhase=XeenRewardPhase::Blank;request.rewardWaitTicks=1;break;
+				}
+				++state.rewardCursor;
+			}
+			if(state.rewardCursor==state.rewardReceipt.count)state.rewardPhase=XeenRewardPhase::Receipt;
+		}
+		if(!world.detachedEventCandidate() && state.rewardPhase==XeenRewardPhase::Receipt)
+			request.text=xeenRewardReceiptText(state.rewardReceipt,partyState.roster);
 		state.pendingPresentation = XeenEventPendingPresentation{request, XeenEventPendingContinuation::RewardFinalization, {}};
 		return XeenEventExecutionSuspended{state, std::move(request)};
 	};
@@ -500,12 +529,12 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				instructionCount, logical, decodeError->source);
 		}
 		const auto &decoded = std::get<XeenDecodedEventInstruction>(decodedResult);
-		if (!state.generatingReward && instructionCount >= kMaximumInstructions) {
+		if (!state.generatingReward && !state.portraitProgress && instructionCount >= kMaximumInstructions) {
 			return error(XeenEventExecutionErrorKind::InstructionLimitExceeded,
 				"event execution exceeded 1024 dispatched instructions",
 				instructionCount, logical, decoded.source);
 		}
-		if(!state.generatingReward) {
+		if(!state.generatingReward && !state.portraitProgress) {
 			++instructionCount;
 			if(publication)publication->dispatched(state,decoded);
 		}
@@ -607,6 +636,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 					return error(XeenEventExecutionErrorKind::InvalidTextIndex,
 						"NPC title index is outside the map text table", instructionCount, logical, decoded.source);
 				request.npc = *npc;
+				request.cdSpeech = state.cdSpeech;
 				request.title = *title;
 			}
 			if (display) request.layoutValue = display->layoutValue;
@@ -669,6 +699,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 				return error(XeenEventExecutionErrorKind::LineOverflow,
 					"audio sequential event line overflow",instructionCount,logical,decoded.source);
 			if (publication) publication->deferredAudio();
+			if(const auto *cue=std::get_if<XeenEventCdSpeech>(&decoded.operation))state.cdSpeech=*cue;
 			XeenPresentationRequest request;
 			request.kind=XeenPresentationKind::DeferredAudio;
 			request.mapId=logical.mapId;
@@ -709,8 +740,36 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
    ++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
   }
   if(const auto *damage=std::get_if<XeenEventDamage>(&decoded.operation)) {
-   world.applyEventDamage(partyState,damage->amount,static_cast<XeenDamageType>(damage->type),state.activeCharacterIndex,state.entireParty);
-   ++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
+   using P=XeenEventPortraitProgress;
+   if(!state.portraitProgress) {
+       state.portraitProgress=P{recipients(),0,P::Phase::Recipients};
+       state.portraitDamage=world.prepareEventDamage(partyState,damage->amount,static_cast<XeenDamageType>(damage->type),state.activeCharacterIndex,state.entireParty);
+       state.portraitDamage->deferInjury=true;state.portraitRandom.emplace(*world.sessionState().journeyRandom());
+   }
+   auto &progress=*state.portraitProgress;
+   if(progress.phase==P::Phase::DamageDone) {
+       state.portraitProgress.reset();state.portraitDamage.reset();state.portraitRandom.reset();
+       ++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
+   }
+   if(progress.phase==P::Phase::DamageApply) {state.portraitDamage->injuryAcknowledged=true;progress.phase=P::Phase::Recipients;}
+   for(;;) {
+       XeenConsequenceDraw draw{*state.portraitRandom,generationBudget,{}};
+       const bool ready=state.portraitDamage->service(draw);generationBudget=draw.remaining;
+       world.publishEventDamagePrefix(partyState,*state.portraitDamage,state.portraitRandom->continuation());
+       if(ready) {
+           progress.phase=P::Phase::DamageDone;
+           return portraitRequest(XeenEventPortraitStage::DamageHold,0,state.portraitDamage->portraitFrame,decoded.source);
+       }
+       if(state.portraitDamage->injuryReady) {
+           progress.phase=P::Phase::DamageApply;
+           return portraitRequest(XeenEventPortraitStage::DamageOverlay,state.portraitDamage->impactOwner,state.portraitDamage->portraitFrame,decoded.source);
+       }
+       if(state.portraitDamage->injuryApplied)continue;
+       XeenPresentationRequest request;request.kind=XeenPresentationKind::RewardGeneration;
+       request.response=XeenPresentationResponseRequirement::Presented;request.mapId=logical.mapId;request.source=decoded.source;
+       state.pendingPresentation=XeenEventPendingPresentation{request,XeenEventPendingContinuation::PortraitEffect,{}};
+       return XeenEventExecutionSuspended{state,request};
+   }
   }
 		if (std::holds_alternative<XeenEventProtectionCheck>(decoded.operation)) {
 			if (logical.mapId!=XeenMapIdentity(28))
@@ -807,11 +866,18 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
      if(pair.value>=XeenWorldFlags::kCount)return error(XeenEventExecutionErrorKind::InvalidFlagIndex,"World flag outside 0..127",instructionCount,logical,decoded.source);
      partyState.worldFlags->values[pair.value]=true;
     } else {
-     for(unsigned i=0;i<partyState.party.size();++i)if(state.entireParty || (state.activeCharacterIndex && i==*state.activeCharacterIndex)) {
-      auto &member=partyState.roster.at(partyState.party.activeRosterIds()[i]);
-      member.currentHp=XeenCharacterRules::maxHp(member,{partyState.encounterContext->year});
-      world.scenePresentation().spellEffect(member.rosterId,0,true);world.scenePresentation().portraits[member.rosterId].spellDeadline=0;
+     using P=XeenEventPortraitProgress;
+     if(!state.portraitProgress)state.portraitProgress=P{recipients(),0,P::Phase::Recipients};
+     auto &progress=*state.portraitProgress;
+     while(progress.next<partyState.party.size()) {
+         const unsigned index=progress.next++;if(!(progress.mask&(1u<<index)))continue;
+         auto &member=partyState.roster.at(partyState.party.activeRosterIds()[index]);
+         member.currentHp=XeenCharacterRules::maxHp(member,{partyState.encounterContext->year});
+         if(state.sparkledOwners&(1u<<member.rosterId))continue;
+         state.sparkledOwners|=1u<<member.rosterId;
+         return portraitRequest(XeenEventPortraitStage::Sparkle,member.rosterId,0,decoded.source);
      }
+     state.portraitProgress.reset();state.sparkledOwners=0;
     }
     ++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
    }
@@ -827,7 +893,20 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 					state.pendingPresentation=XeenEventPendingPresentation{request,XeenEventPendingContinuation::Terminate,{}};
 					return XeenEventExecutionSuspended{state,request};
 				}
-				world.applyEventGrant(partyState,pair.mode,pair.value,state.activeCharacterIndex,state.entireParty,grant);
+                if(grant && (pair.mode==13 || pair.mode==16 || (pair.mode==15 && pair.value!=8))) {
+                    using P=XeenEventPortraitProgress;
+                    if(!state.portraitProgress)state.portraitProgress=P{recipients(),0,P::Phase::Recipients};
+                    auto &progress=*state.portraitProgress;
+                    while(progress.next<partyState.party.size()) {
+                        const unsigned index=progress.next++;if(!(progress.mask&(1u<<index)))continue;
+                        const auto owner=partyState.party.activeRosterIds()[index];
+                        world.applyEventGrant(partyState,pair.mode,pair.value,index,false,true,false);
+                        if(state.sparkledOwners&(1u<<owner))continue;
+                        state.sparkledOwners|=1u<<owner;
+                        return portraitRequest(XeenEventPortraitStage::Sparkle,owner,0,decoded.source);
+                    }
+                    state.portraitProgress.reset();state.sparkledOwners=0;
+                } else world.applyEventGrant(partyState,pair.mode,pair.value,state.activeCharacterIndex,state.entireParty,grant);
 				++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
 			}
 			const bool setFlag = neutral(takeOrGive->first) &&
@@ -854,7 +933,13 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 					if (!state.activeCharacterIndex || *state.activeCharacterIndex>=partyState.party.size())
 						return error(XeenEventExecutionErrorKind::InvalidPresentationResponse,
 							"well recipient is unavailable",instructionCount,logical,decoded.source);
-					const auto owner=partyState.party.activeRosterIds()[*state.activeCharacterIndex];
+                    const auto owner=partyState.party.activeRosterIds()[*state.activeCharacterIndex];
+                    if(!state.portraitProgress && !(state.sparkledOwners&(1u<<owner))) {
+                        state.sparkledOwners|=1u<<owner;
+                        state.portraitProgress=XeenEventPortraitProgress{1u<<*state.activeCharacterIndex,unsigned(*state.activeCharacterIndex),XeenEventPortraitProgress::Phase::WellAfterSparkle};
+                        return portraitRequest(XeenEventPortraitStage::Sparkle,owner,0,decoded.source);
+                    }
+                    state.portraitProgress.reset();state.sparkledOwners=0;
 					auto &member=partyState.roster.at(owner);
 					const auto after=xeenWellHpAfter(member.currentHp);
 					if (!after)
@@ -915,6 +1000,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 					return error(XeenEventExecutionErrorKind::QuestItemOverflow,
 						detail + " counter would overflow", instructionCount, logical, decoded.source);
 				if (publication && grantQuestItem) publication->granted();
+				if(grantQuestItem)state.pendingRewards.enqueueQuest(static_cast<std::uint8_t>(itemId));
 				if (publication && takeQuestItem && partyState.questItems.at(*index)) publication->prepareQuestTake(*index);
 				if (takeQuestItem && !partyState.questItems.decrement(*index))
 					return error(XeenEventExecutionErrorKind::QuestItemUnderflow,
@@ -1184,8 +1270,8 @@ void XeenWorld::applyEventYear(XeenPartyState &party,XeenGameFlags &flags,unsign
  }
  xeenResetPartyTemps(context);context.rested=true;
 }
-void XeenWorld::applyEventDamage(XeenPartyState &party,unsigned damage,XeenDamageType type,
- std::optional<std::size_t> member,bool entireParty) {
+XeenTypedDamageCandidate XeenWorld::prepareEventDamage(const XeenPartyState &party,unsigned damage,XeenDamageType type,
+ std::optional<std::size_t> member,bool entireParty) const {
  if(!detachedEventCandidate() || !party.encounterContext || !_sessionState._journeyRandom ||
   !party.party.size() || (!entireParty && (!member || *member>=party.party.size())))
   throw std::invalid_argument("Event damage has no selected owner or RNG");
@@ -1198,17 +1284,25 @@ void XeenWorld::applyEventDamage(XeenPartyState &party,unsigned damage,XeenDamag
  const auto &context=*party.encounterContext;XeenDamageProtection protection;
  for(unsigned i=0;i<4;++i)protection.resistances[i]=context.lightAndResistances[i+2];
  protection.powerShield=context.effects[6];
- XeenTypedDamageCandidate candidate(characters,inputs,damage,type,context.year,
+ return XeenTypedDamageCandidate(characters,inputs,damage,type,context.year,
   entireParty?(1u<<party.party.size())-1:1u<<*member,protection);
- XeenCombatRandom random(*_sessionState._journeyRandom);
- for(;;) {XeenConsequenceDraw draw{random,64,{}};if(candidate.service(draw))break;}
+ }
+void XeenWorld::publishEventDamagePrefix(XeenPartyState &party,const XeenTypedDamageCandidate &candidate,const XeenJourneyRandomState &random,bool feedback) {
+ if(!detachedEventCandidate())throw std::logic_error("Event damage prefix requires retained private owners");
  for(unsigned i=0;i<party.party.size();++i) {
-  auto &live=party.roster.at(characters[i].rosterId);const auto &after=candidate.characters[i];
+  auto &live=party.roster.at(party.party.activeRosterIds()[i]);const auto &after=candidate.characters[i];
   live.currentHp=after.currentHp;live.conditions=after.conditions;live.armor=after.armor;
  }
- retainEventRandom(random.continuation());
- for(unsigned i=0;i<candidate.result.injuryCount;++i)
-  {const auto owner=candidate.result.injuries[i].owner;_scenePresentation.portraitDamage(owner,candidate.portraitFrame);_scenePresentation.portraits[owner].damageDeadline=0;}
+ retainEventRandom(random);
+ if(feedback)for(unsigned i=0;i<candidate.result.injuryCount;++i) {
+  const auto owner=candidate.result.injuries[i].owner;_scenePresentation.portraitDamage(owner,candidate.portraitFrame);
+ }
+}
+void XeenWorld::applyEventDamage(XeenPartyState &party,unsigned damage,XeenDamageType type,
+ std::optional<std::size_t> member,bool entireParty,bool feedback) {
+ auto candidate=prepareEventDamage(party,damage,type,member,entireParty);XeenCombatRandom random(*_sessionState._journeyRandom);
+ for(;;) {XeenConsequenceDraw draw{random,64,{}};if(candidate.service(draw))break;}
+ publishEventDamagePrefix(party,candidate,random.continuation(),feedback);
 }
 
 } // namespace mmodern

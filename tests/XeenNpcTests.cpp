@@ -61,6 +61,13 @@ struct Fixture {
 	}
 	XeenEventFlow flow(){return XeenEventFlow(world,events,members,camera,flags,font,
 		[&](std::uint64_t phase){++composes;phases.push_back(phase);return XeenEventFlow::Composition{ordinaryBase(phase), ordinary};},draw(),[&]{return time;},[&]{++randomReads;return random;},nullptr,{},nullptr,{},&dos_test::npcText());}
+    void acquire(XeenEventFlow &flow) {flow.framePresented(flow.frame().presentation());}
+    void tap(XeenEventFlow &flow,const PlayerAction &action) {
+        acquire(flow);
+        if(const auto deadline=flow.nextPresentationDeadline())time=std::max(time,PresentationClock::ceilMilliseconds(*deadline));
+        flow.handle(action);acquire(flow);flow.updatePresentation();acquire(flow);
+    }
+    void tick(XeenEventFlow &flow,std::uint64_t now) {time=now;if(flow.updatePresentation())acquire(flow);}
 	XeenEventExecutionStepResult begin(int line=0){return interpreter.begin(camera,members,flags,world,
 		[&](XeenMapIdentity id){return scripts.at(id);},[&](XeenMapIdentity){return text;},line);}
 	XeenEventExecutionStepResult resume(XeenEventExecutionState state,XeenPresentationResponse response=XeenPresentationResponse::Acknowledged){
@@ -159,7 +166,7 @@ void contextAndEffects() {
 		t.text.mapId=2;t.text.strings={"Map two title","Map two body"};
 		auto flow=t.flow();flow.handle(InteractionAction{});
 		check(flow.blocksGameplay() && t.camera.mapId==XeenMapIdentity(1),"NPC committed transfer before response");
-		flow.handle(AcknowledgeAction{});
+		t.tap(flow,AcknowledgeAction{});
 		check(!flow.blocksGameplay() && t.camera.mapId==XeenMapIdentity(fail?1:2),"NPC transfer completion/error policy");
 	}
 	for(bool fail:{false,true}) {
@@ -167,14 +174,18 @@ void contextAndEffects() {
 		flow.reportAutomatic=[&](const auto&r){completed=std::holds_alternative<XeenAutomaticEventCompleted>(r);
 			failed=std::holds_alternative<XeenEventExecutionError>(r);};
 		flow.acceptAutomatic(std::get<XeenEventExecutionSuspended>(a.begin()));
-		if(!fail)flow.handle(AcknowledgeAction{});
+		if(!fail)a.tap(flow,AcknowledgeAction{});
 		check(!flow.blocksGameplay() && completed==!fail && failed==fail,"automatic NPC completion/failure routing");
 	}
 	for(bool fail:{false,true}) {
 		Fixture a;a.set({record(1,1,0,0x0c,{0,0,21,99}),record(1,1,1,0x0c,{0,0,20,7}),npc(2),record(1,1,3,fail?0xff:0x12)});
 		auto flow=a.flow();flow.handle(InteractionAction{});
 		check(a.members.questItems.at(17)==1 && !a.flags.isSet(7),"pre-NPC mutation policy");
-		flow.handle(CancelInteractionAction{});
+		a.tap(flow,CancelInteractionAction{});
+		if(!fail) {
+			check(flow.blocksGameplay() && !a.flags.isSet(7),"Quest display must retain final flag settlement");
+			for(unsigned phase=0;phase<3;++phase)a.tap(flow,AcknowledgeAction{});
+		}
 		check(!flow.blocksGameplay() && a.members.questItems.at(17)==1 && a.flags.isSet(7)==!fail,"NPC Escape completion/error policy");
 	}
 }
@@ -186,37 +197,37 @@ void presentationAndTiming() {
 	for(auto action:{PlayerAction(YesAction{}),PlayerAction(NoAction{}),PlayerAction(SelectMemberAction{0}),PlayerAction(NavigationAction::TurnLeft),PlayerAction(EquipmentInventoryAction{})})flow.handle(action);
 	check(flow.frame().pixels==before.pixels && flow.presentationGeneration()==generation && f.draws==count && f.camera.direction==XeenDirection::North,"unrelated NPC input");
 	for(std::size_t i=1;i<flow.presenter().pageCount();++i) {
-		f.time+=300;flow.updatePresentation();const auto timing=flow.presenter().npcTiming();
-		flow.handle(i%2?PlayerAction(CancelInteractionAction{}):PlayerAction(AcknowledgeAction{}));
+		f.tap(flow,i%2?PlayerAction(CancelInteractionAction{}):PlayerAction(AcknowledgeAction{}));
 		check(flow.blocksGameplay() && flow.presentationGeneration()==generation && flow.presenter().pageIndex()==i,"page resumed prematurely");
 		const auto &after=flow.presenter().npcTiming();
-		check(after.phase==timing.phase && after.displayedFrame==timing.displayedFrame && after.nextFrame==timing.nextFrame &&
-			after.deadline==PresentationClock::afterMilliseconds(f.time,3),"page reset changed phase/frame");
+		check(after.displayedFrame==0 && !after.remaining && after.deadline==PresentationClock::afterMilliseconds(f.time,3),"silent page restarted speech or lost three-tick poll");
 		const auto pixels=flow.frame().pixels;flow.refresh(true);
 		check(flow.presenter().pageIndex()==i && flow.frame().pixels==pixels,"noninitial page rebase");
 	}
-	flow.handle(InteractionAction{});check(!flow.blocksGameplay() && flow.frame().pixels==f.base.pixels,"final NPC cleanup");
+	f.tap(flow,InteractionAction{});check(!flow.blocksGameplay() && flow.frame().pixels==f.base.pixels,"final NPC cleanup");
 	check(!flow.respond(*generation,XeenPresentationResponse::Acknowledged),"completed generation replayed");
 	flow.handle(InteractionAction{});check(flow.presentationGeneration()!=generation && flow.presenter().pageIndex()==0,"independent NPC dispatch");
 	flow.abandonPresentation();check(!flow.blocksGameplay() && flow.frame().pixels==f.base.pixels,"NPC abandonment");
-	Fixture t;t.text.strings={"A B","C D"};auto timed=t.flow();timed.handle(InteractionAction{});
-	check(timed.presenter().npcTiming().remaining==4 && timed.presenter().npcTiming().displayedFrame==0,"initial speech state");
+	Fixture t;t.text.strings={"A B","C D"};
+    t.set({record(1,1,0,60,{19,30,0,54,1}),npc(1),record(1,1,2,0x12)});
+    auto timed=t.flow();timed.handle(InteractionAction{});t.acquire(timed);
+	check(timed.presenter().npcTiming().remaining==3066666667ULL && timed.presenter().npcTiming().displayedFrame==0,"CD span replaces word count");
 	t.time=164;check(!timed.updatePresentation(),"early animation");
-	t.time=165;timed.updatePresentation();check(timed.presenter().npcTiming().nextFrame==2 && timed.presenter().npcTiming().remaining==4,"first draw/select order");
-	t.time=330;check(timed.updatePresentation().has_value(),"second frame missing");
-	check(timed.presenter().npcTiming().displayedFrame==2 && timed.presenter().npcTiming().remaining==3,"alternating speech decrement");
+	t.time=165;timed.updatePresentation();check(timed.presenter().npcTiming().displayedFrame==2 && t.randomReads==1,"eligible CD-busy draw selects one frame");
+    t.time=330;check(!timed.updatePresentation() && t.randomReads==1,"Unacquired NPC frame advanced");
+    t.acquire(timed);t.time=495;check(timed.updatePresentation().has_value(),"second frame missing");t.acquire(timed);
+	check(timed.presenter().npcTiming().displayedFrame==2 && t.randomReads==2,"CD busy sampled independently of words");
 	const auto phase=timed.presenter().npcTiming();const auto gen=timed.presentationGeneration();auto pixels=timed.frame().pixels;
 	t.events.discardScriptCache();t.events.discardTextCache();t.world.discardMapCache();timed.refresh(true);
 	check(timed.frame().pixels==pixels && timed.presentationGeneration()==gen && timed.presenter().npcTiming().remaining==phase.remaining &&
 		timed.presenter().npcTiming().phase==phase.phase && timed.presenter().npcTiming().deadline==phase.deadline,"rebase changed temporal state");
-	t.time=9999;timed.updatePresentation();check(timed.presenter().npcTiming().remaining==3,"stall replayed backlog");
-	for(int i=0;i<20;++i){t.time+=165;timed.updatePresentation();}
+	t.time=9999;timed.updatePresentation();t.acquire(timed);check(!timed.presenter().npcTiming().remaining && t.randomReads==2,"late wake sampled completed CD or replayed backlog");
 	check(timed.presenter().npcTiming().remaining==0 && timed.presenter().npcTiming().displayedFrame==0 &&
 		timed.frame().pixels[24+23*320]!=55,"rest left animated overlay");
-	const auto draws=t.draws,composes=t.composes;for(int i=0;i<10;++i){t.time+=165;check(!timed.updatePresentation(),"rest keeps updating");}
-	check(t.draws==draws && t.composes==composes,"rest keeps drawing");
+	const auto randomReads=t.randomReads;for(int i=0;i<10;++i)t.tick(timed,t.time+165);
+	check(t.randomReads==randomReads,"silent NPC draws consumed random requests");
 	Fixture n;n.set({npc(),npc(1),record(1,1,2,0x12)});auto next=n.flow();next.handle(InteractionAction{});
-	const auto old=*next.presentationGeneration();next.handle(CancelInteractionAction{});
+	const auto old=*next.presentationGeneration();n.tap(next,CancelInteractionAction{});
 	check(next.blocksGameplay() && *next.presentationGeneration()!=old && !next.respond(old,XeenPresentationResponse::Acknowledged),"input consumed next NPC");
 	next.respond(*next.presentationGeneration(),XeenPresentationResponse::Acknowledged);check(!next.blocksGameplay(),"direct NPC response");
 	Fixture pos;pos.text.strings={"A\n\t100B","body"};auto title=pos.flow();title.handle(InteractionAction{});
@@ -241,7 +252,7 @@ void presentationAndTiming() {
 void ordinaryCoexistence() {
  for(bool ordinary:{false,true})for(bool npcActive:{false,true}) {
   Fixture f;f.ordinary=ordinary;auto flow=f.flow();
-  if(npcActive)flow.handle(InteractionAction{});
+  if(npcActive){flow.handle(InteractionAction{});f.acquire(flow);}
   const auto generation=flow.presentationGeneration();
   unsigned ordinarySteps=0;
   for(std::uint64_t now:{109,110,164,165,219,220,330,9999}) {
@@ -250,9 +261,9 @@ void ordinaryCoexistence() {
    f.time=now;const bool due=!npcActive && (now==110||now==220||now==330||now==9999);
    const bool npcDue=npcActive&&(now==165||now==330||now==9999);
    if(due)++ordinarySteps;
-   flow.updatePresentation();
+   if(flow.updatePresentation())f.acquire(flow);
    check(f.composes==count+(due?1:0),"ordinary/NPC coalesced composition count");
-   check(f.randomReads==random+(npcDue?1:0),"ordinary redraw consumed NPC randomness");
+   check(f.randomReads==random,"silent NPC/ordinary redraw consumed randomness");
    check(flow.presentationGeneration()==generation && flow.blocksGameplay()==npcActive,"idle consumed pending generation");
    if(!npcDue)check(flow.presenter().npcTiming().deadline==timing.deadline && flow.presenter().npcTiming().phase==timing.phase,"ordinary step rearmed NPC");
    else check(flow.presenter().npcTiming().deadline==PresentationClock::afterMilliseconds(now,3),"NPC deadline not independent");
@@ -260,18 +271,18 @@ void ordinaryCoexistence() {
    const auto after=f.composes;const auto randomAfter=f.randomReads;flow.updatePresentation();
    check(f.composes==after && f.randomReads==randomAfter,"same-now coexistence double advance");
   }
-  if(npcActive){flow.handle(AcknowledgeAction{});check(!flow.blocksGameplay() && flow.frame().pixels==f.ordinaryBase(ordinarySteps).pixels,"covered animation not revealed at current base");}
+  if(npcActive){f.tap(flow,AcknowledgeAction{});check(!flow.blocksGameplay() && flow.frame().pixels==f.ordinaryBase(ordinarySteps).pixels,"covered animation not revealed at current base");}
  }
  // Noninitial pages and retained labels survive animated rebases.
  Fixture f;f.ordinary=true;f.text.strings[1]=std::string(800,'W')+" words for speech";
  f.set({record(1,1,0,4,{0}),npc(1),record(1,1,2,0x12)});auto flow=f.flow();flow.handle(InteractionAction{});
- flow.handle(AcknowledgeAction{});const auto gen=flow.presentationGeneration();const auto page=flow.presenter().pageIndex();
+ f.tap(flow,AcknowledgeAction{});const auto gen=flow.presentationGeneration();const auto page=flow.presenter().pageIndex();
  check(page==1,"animated noninitial NPC page fixture");
  f.time=100;flow.updatePresentation();const auto pixels=flow.frame().pixels;const auto timing=flow.presenter().npcTiming();
  f.world.discardMapCache();f.events.discardScriptCache();f.events.discardTextCache();flow.refresh(true);
  check(flow.frame().pixels==pixels && flow.presenter().pageIndex()==page && flow.presentationGeneration()==gen &&
   flow.presenter().npcTiming().deadline==timing.deadline,"animated noninitial reconstruction lost state");
- while(flow.blocksGameplay())flow.handle(AcknowledgeAction{});
+ while(flow.blocksGameplay())f.tap(flow,AcknowledgeAction{});
  XeenEventPresenter oracle(f.font);XeenPresentationRequest label;label.kind=XeenPresentationKind::SceneLabelSign;label.text=f.text.strings[0];
  const auto afterSpeechPhase=f.phases.back();
  const auto expected=oracle.present(f.ordinaryBase(afterSpeechPhase),label).frame;
@@ -289,6 +300,41 @@ void ordinaryCoexistence() {
  for(unsigned i=0;i<calls.size();++i)check(calls[i]==i+1,"stateful clock copied between Flow and NPC");
 
 }
+void cdLifetime() {
+ // Mode 2 starts CD and leaves the passive portrait behind WhoWill.
+ Fixture f;auto offer=npc(1);offer.parameters={0,1,9,2};
+ f.set({record(1,1,0,60,{19,30,0,54,1}),offer,record(1,1,2,0x20,{1,0}),record(1,1,3,0x12)});
+ auto flow=f.flow();flow.handle(InteractionAction{});f.acquire(flow);
+ check(flow.presenter().hasNpcOffer() && flow.canCancelInteraction() &&
+       flow.presenter().npcTiming().remaining==3066666667ULL,"Passive NPC failed to start its CD interval");
+ f.tick(flow,165);
+ check(f.randomReads==1 && flow.presenter().npcTiming().displayedFrame==2,"WhoWill failed to animate the retained busy NPC");
+ flow.respond(*flow.presentationGeneration(),CharacterSelectionCancelled{});
+ const auto reads=f.randomReads;f.tick(flow,330);
+ check(!flow.presenter().hasNpcOffer() && f.randomReads==reads,"Event completion left passive NPC animation active");
+ // A no-op cue preserves the passive call's audio; ordinary final dismissal stops it.
+ auto normal=npc(1);normal.parameters[3]=1;
+ f.set({record(1,1,0,60,{0,0,0,0,0}),normal,record(1,1,2,0x12)});
+ flow.handle(InteractionAction{});f.acquire(flow);
+ check(flow.presenter().npcTiming().remaining>0,"All-zero cue stopped the previous passive CD interval");
+ f.tap(flow,CancelInteractionAction{});
+ flow.handle(InteractionAction{});f.acquire(flow);
+ check(flow.presenter().npcTiming().remaining==0,"Ordinary dismissal failed to stop CD");
+ flow.abandonPresentation();
+ // Each fresh invocation restarts a retained nonzero cue, but page changes do not.
+ Fixture pages;pages.text.strings[1]=std::string(800,'W');
+ pages.set({record(1,1,0,60,{19,30,0,54,1}),npc(1),npc(2),record(1,1,3,0x12)});
+ auto paged=pages.flow();paged.handle(InteractionAction{});pages.acquire(paged);
+ pages.tap(paged,AcknowledgeAction{});
+ check(paged.presenter().pageIndex()==1 && paged.presenter().npcTiming().remaining<3066666667ULL,"Page change restarted CD");
+ const auto generation=paged.presentationGeneration();
+ while(paged.presentationGeneration()==generation)pages.tap(paged,AcknowledgeAction{});
+ check(paged.presenter().pageIndex()==0 && paged.presenter().npcTiming().remaining==3066666667ULL,"Fresh NPC invocation did not restart the retained cue");
+ paged.abandonPresentation();
+ pages.set({npc(),record(1,1,1,0x12)});
+ paged.handle(InteractionAction{});pages.acquire(paged);
+ check(paged.presenter().npcTiming().remaining==3066666667ULL,"Same-disc Event boundary discarded retained CD operands");
+}
 void failuresAndOwners() {
 	for(int when=0;when<4;++when) {
 		Fixture f;f.set({record(1,1,0,0x0c,{0,0,21,99}),npc(1),record(1,1,2,0x0c,{0,0,21,100})});
@@ -296,10 +342,14 @@ void failuresAndOwners() {
 		auto flow=f.flow();std::optional<XeenEventExecutionError> err;
 		flow.reportManual=[&](const auto&r){if(auto e=std::get_if<XeenEventExecutionError>(&r))err=*e;};
 		f.failDraw=when==0;flow.handle(InteractionAction{});const auto gen=flow.presentationGeneration();
+        if(when!=0)f.acquire(flow);
 		f.failDraw=true;
 		if(when==1){f.time=165;flow.updatePresentation();}
 		if(when==2)flow.refresh(true);
-		if(when==3)flow.handle(AcknowledgeAction{});
+		if(when==3) {
+            f.failDraw=false;f.time=165;flow.handle(AcknowledgeAction{});f.acquire(flow);
+            f.failDraw=true;flow.updatePresentation();
+        }
 		check(err && err->kind==Kind::PresentationFailed && err->source->line==1 && !flow.blocksGameplay() &&
 			flow.frame().pixels==f.base.pixels && f.members.questItems.at(17)==1 && f.members.questItems.at(18)==0,"NPC failure cleanup/state");
 		if(gen)check(!flow.respond(*gen,XeenPresentationResponse::Acknowledged),"failed generation valid");
@@ -367,10 +417,17 @@ void sdl() {
 	XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};},f.draw(),{},[]{return 3;},nullptr,{},nullptr,{},&dos_test::npcText());
 	flow.handle(InteractionAction{});bool changed=false;int actions=0,idles=0;std::uint32_t started=0;
 	auto push=[](SDL_Keycode key,int repeat=0){SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=key;e.key.repeat=repeat;SDL_PushEvent(&e);};
-	const bool ok=SdlWindow().showInteractive(flow.frame(),"NPC SDL synthetic",
-		[&](const PlayerAction&a)->std::optional<IndexedFrame>{++actions;auto result=flow.handle(a);
+	SdlWindow::FrameUpdateHandler handler=[&](const PlayerAction&a)->std::optional<IndexedFrame>{++actions;auto result=flow.handle(a);
 			if(actions==1){check(flow.blocksGameplay(),"Escape consumed next NPC");SDL_Event q{};q.type=SDL_QUIT;SDL_PushEvent(&q);push(SDLK_RETURN);}
-			return result;},[&]{return flow.handlesEscape();},[&]()->std::optional<IndexedFrame>{
+			return result;};
+    handler.framePresented=[&](const auto &origin){flow.framePresented(origin);};
+    handler.completeInputHandoff=[&](const auto &origin){flow.completeInputHandoff(origin);};
+    handler.inputContext=[&](const auto &origin){return flow.inputContext(origin);};
+    handler.nextPresentationDeadline=[&]{return flow.nextPresentationDeadline();};
+    handler.presentationClock=[&]{return flow.presentationNow();};
+    handler.protectAllKeys=true;
+	const bool ok=SdlWindow().showInteractive(flow.frame(),"NPC SDL synthetic",handler,
+        [&]{return flow.handlesEscape();},[&]()->std::optional<IndexedFrame>{
 			++idles;if(!started)started=SDL_GetTicks();auto result=flow.updatePresentation();
 			if(result && !changed){changed=true;push(SDLK_ESCAPE);push(SDLK_ESCAPE,1);}
 			if(SDL_GetTicks()-started>3000){SDL_Event q{};q.type=SDL_QUIT;SDL_PushEvent(&q);}
@@ -383,7 +440,7 @@ void sdl() {
 int main(int argc,char **argv) {
 	try {
 		if(argc>1 && std::string(argv[1])=="sdl")sdl();
-		else {skillComparisons();decoderAndExecution();contextAndEffects();presentationAndTiming();ordinaryCoexistence();failuresAndOwners();assets();}
+		else {skillComparisons();decoderAndExecution();contextAndEffects();presentationAndTiming();ordinaryCoexistence();cdLifetime();failuresAndOwners();assets();}
 		std::cout<<"M19A NPC tests passed\n";return 0;
 	}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}
 }

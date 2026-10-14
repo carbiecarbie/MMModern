@@ -1,4 +1,5 @@
 #include "XeenRemoveTestSupport.h"
+#include "XeenDosTextTestSupport.h"
 #include "app/XeenEventFlow.h"
 #include "formats/xeen/XeenQuestItemFormat.h"
 #include "games/xeen/XeenPartyLoader.h"
@@ -42,6 +43,19 @@ struct Fixture {
 		[&](XeenMapIdentity id){return scripts.at(id);},{},line);}
 	XeenEventExecutionStepResult resume(XeenEventExecutionState state){return interpreter.resume(std::move(state),
 		XeenPresentationResponse::Acknowledged,members,world,[&](XeenMapIdentity id){return scripts.at(id);},{});}
+	XeenEventExecutionStepResult finishRewards(XeenEventExecutionStepResult result) {
+		const auto counts=members.questItems.counts();unsigned holds=0;
+		while(const auto *s=std::get_if<XeenEventExecutionSuspended>(&result)) {
+			check(++holds<=3*s->state.rewardReceipt.count+1,"quest treasure did not finish");
+			const auto phase=s->state.rewardPhase;
+			check(s->request.kind==XeenPresentationKind::RewardReceipt &&
+				((phase==XeenRewardPhase::Blank && s->request.rewardWaitTicks==1) ||
+				 (phase==XeenRewardPhase::Found && s->request.rewardWaitTicks==10) ||
+				 (phase==XeenRewardPhase::Receipt && !s->request.rewardWaitTicks)),"unexpected quest reward boundary");
+			result=resume(s->state);check(members.questItems.counts()==counts,"treasure replayed quest grant");
+		}
+		return result;
+	}
 };
 void error(const XeenEventExecutionStepResult &r,XeenEventExecutionErrorKind kind) {
 	const auto *e=std::get_if<XeenEventExecutionError>(&r);
@@ -61,7 +75,7 @@ void operandsAndCounts() {
 		check(op.first.mode==0 && op.first.value==0 && op.second.mode==21 && op.second.value==id &&
 			op.third.mode==0 && op.third.value==0,"Phirna payload decode");
 		f.set({record(1,1,0,0x0c,payload),record(1,1,1,0x0c,payload)});
-		complete(f.begin());
+		complete(f.finishRewards(f.begin()));
 		for(int i=0;i<35;++i)check(f.members.questItems.at(i)==(i==id-82?2:0),"grant quantity/domain/member count");
 	}
 	for(const Bytes bytes:std::vector<Bytes>{{0,0,21},{0,0,21,99,0},{0,0,21,99,0,0,0}}){
@@ -77,7 +91,7 @@ void operandsAndCounts() {
 		Fixture f;XeenCloudsQuestItems::Counts counts{};counts[17]=start;counts[0]=8;
 		f.members.questItems=XeenCloudsQuestItems(counts);f.set({record(1,1,0,0x0c,{0,0,21,99})});
 		if(start==std::numeric_limits<std::uint32_t>::max())error(f.begin(),XeenEventExecutionErrorKind::QuestItemOverflow);
-		else{complete(f.begin());++counts[17];}
+		else{complete(f.finishRewards(f.begin()));++counts[17];}
 		check(f.members.questItems.counts()==counts,"wide count or overflow");
 	}
 	auto first=party(),second=party();check(first.questItems.increment(17),"increment failed");
@@ -156,7 +170,7 @@ void prevalidationAndVisibility() {
 	Fixture call;call.set({record(1,1,0,0x0c,{0,0,21,99}),record(1,1,1,9,{21,99,3}),record(1,1,2,0xff),
 		record(1,1,3,0x19,{7,8,0}),record(1,1,4,9,{21,99,6}),record(1,1,5,0xff),record(1,1,6,0x12),
 		record(7,8,0,9,{21,99,2}),record(7,8,1,0xff),record(7,8,2,0x1a)});
-	complete(call.begin());check(call.members.questItems.at(17)==1,"calls lost/doubled grant");
+	complete(call.finishRewards(call.begin()));check(call.members.questItems.at(17)==1,"calls lost/doubled grant");
 }
 
 void immediateErrors() {
@@ -170,6 +184,7 @@ void immediateErrors() {
 			record(7,8,4,0x0e),record(7,8,5,0xff)},2);
 		XeenFontFormat font(fontBytes());IndexedFrame base;base.width=320;base.height=200;base.pixels.resize(64000);
 		XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,font,[&](std::uint64_t){return XeenEventFlow::Composition{base, false};});
+		flow.dialogText=&dos_test::text();
 		std::optional<XeenEventExecutionState> suspended;
 		bool failed=false;auto report=[&](const auto &r){
 			if(const auto *pending=std::get_if<XeenEventExecutionSuspended>(&r))suspended=pending->state;
@@ -205,8 +220,10 @@ void presentationNoReplay() {
 			record(1,1,6,9,{21,99,8}),record(1,1,7,0xff),record(1,1,8,0x12)});
 		XeenFontFormat font(fontBytes());IndexedFrame base;base.width=320;base.height=200;base.pixels.resize(64000);
 		XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,font,[&](std::uint64_t){return XeenEventFlow::Composition{base, false};});
+		flow.dialogText=&dos_test::text();
+		std::optional<XeenEventExecutionState> suspended;
 		int line=-1;bool completed=false;auto report=[&](const auto &r){
-			if(const auto *s=std::get_if<XeenEventExecutionSuspended>(&r))line=s->request.source.line;
+			if(const auto *s=std::get_if<XeenEventExecutionSuspended>(&r)){line=s->request.source.line;suspended=s->state;}
 			else{check(!std::holds_alternative<XeenEventExecutionError>(r),"presentation continuation error");completed=true;}};
 		flow.reportManual=report;flow.reportAutomatic=report;
 		automatic?flow.initial():flow.handle(InteractionAction{});
@@ -221,6 +238,12 @@ void presentationNoReplay() {
 		flow.handle(AcknowledgeAction{});check(line==3 && flow.blocksGameplay(),"ack did not reach Yes/No");
 		flow.handle(AcknowledgeAction{});check(flow.blocksGameplay(),"ack answered Yes/No");
 		flow.handle(yes?PlayerAction{YesAction{}}:PlayerAction{NoAction{}});
+		for(const auto phase:{XeenRewardPhase::Blank,XeenRewardPhase::Found,XeenRewardPhase::Receipt}) {
+			check(!completed && flow.blocksGameplay() && suspended && suspended->rewardPhase==phase &&
+				f.members.questItems.at(17)==1,"quest treasure sequence missing or replayed grant");
+			check(suspended->pendingPresentation->request.rewardWaitTicks==(phase==XeenRewardPhase::Blank?1u:phase==XeenRewardPhase::Found?10u:0u),"quest treasure hold duration");
+			flow.handle(AcknowledgeAction{});
+		}
 		check(completed && !flow.blocksGameplay() && f.members.questItems.at(17)==1,"resume lost/doubled grant");
 		flow.handle(NavigationAction::TurnRight);check(f.camera.direction==XeenDirection::East,"input did not recover");
 		check(f.loads==2 && f.maps>=2,"cache providers did not reload");

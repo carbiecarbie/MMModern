@@ -58,7 +58,8 @@ enum class XeenPresentationKind {
 	BankService,
 	GuildService,
 	DeferredAudio,
-	RewardGeneration
+	RewardGeneration,
+	PortraitEffect
 };
 
 enum class XeenPresentationResponseRequirement {
@@ -99,6 +100,19 @@ struct XeenCharacterSelectionMember {
 	bool eligible;
 };
 
+enum class XeenEventPortraitStage { Sparkle, DamageOverlay, DamageHold };
+struct XeenEventPortraitEffect {
+    XeenEventPortraitStage stage=XeenEventPortraitStage::Sparkle;
+    unsigned owner=0,frame=0;
+    bool operator==(const XeenEventPortraitEffect &other) const noexcept {return stage==other.stage && owner==other.owner && frame==other.frame;}
+};
+struct XeenEventPortraitProgress {
+    enum class Phase { Recipients, WellAfterSparkle, DamageApply, DamageDone };
+    unsigned mask=0,next=0;
+    Phase phase=Phase::Recipients;
+    bool operator==(const XeenEventPortraitProgress &other) const noexcept {return mask==other.mask && next==other.next && phase==other.phase;}
+};
+
 struct XeenPresentationRequest {
 	XeenPresentationKind kind = XeenPresentationKind::CenteredMessage;
 	XeenPresentationResponseRequirement response =
@@ -112,8 +126,11 @@ struct XeenPresentationRequest {
 	std::optional<std::uint8_t> verbIndex;
 	std::string refusal;
 	std::optional<XeenEventNpc> npc;
+	std::optional<XeenEventCdSpeech> cdSpeech;
 	std::string title;
 	std::optional<XeenTreasureDisplay> treasure;
+	unsigned rewardWaitTicks=0;
+    std::optional<XeenEventPortraitEffect> portrait;
 };
 
 enum class XeenEventMissingInstructionPolicy {
@@ -128,7 +145,8 @@ enum class XeenEventPendingContinuation {
 	ConditionalAction44,
 	WhoWill,
 	RewardFinalization,
-	GiveMulti
+	GiveMulti,
+	PortraitEffect
 };
 
 struct XeenEventPendingPresentation {
@@ -141,9 +159,14 @@ struct XeenEventCallFrame {
 	XeenEventExecutionAddress returnAddress;
 };
 
-enum class XeenRewardPhase { Running, Warning, Receipt, Completed };
+enum class XeenRewardPhase { Running, Warning, Blank, Found, Receipt, Completed };
 
 struct XeenEventExecutionState {
+    std::optional<XeenEventPortraitProgress> portraitProgress;
+    std::optional<XeenTypedDamageCandidate> portraitDamage;
+    std::optional<XeenCombatRandom> portraitRandom;
+    std::uint32_t sparkledOwners=0;
+	std::optional<XeenEventCdSpeech> cdSpeech;
 	std::optional<XeenCombatRandom> rewardRandom;
 	std::optional<XeenItemCandidate> rewardItem;
 	unsigned rewardPair=0;
@@ -152,6 +175,7 @@ struct XeenEventExecutionState {
 	std::optional<std::size_t> preferredRewardRecipient;
 	XeenRewardPhase rewardPhase = XeenRewardPhase::Running;
 	XeenRewardReceipt rewardReceipt;
+	std::size_t rewardCursor=0;
 	XeenEventExecutionAddress logicalAddress;
 	XeenDirection lookupDirection = XeenDirection::North;
 	XeenCamera workingCamera;

@@ -29,6 +29,16 @@ struct XeenCombatRotationTestAccess {
  static void arm(XeenCombat &c) {c.countdownForScheduling().arm();}
  static void acquired(XeenCombat &c) {c.rangedPresented(c.ticket(),true);}
 };
+struct XeenCombatPresentationTestAccess {
+ static void readyTreasure(XeenEncounterFlow &f) {
+  f._party.monsterTreasure->pendingMask=512;f._party.monsterTreasure->pendingGold=10;
+  f.retainJourney();
+ }
+ static bool beginTreasure(XeenEncounterFlow &f){return f.beginMonsterReward(XeenItemCatalog{});}
+ static const auto &treasure(const XeenEncounterFlow &f){return *f._monsterReceipt;}
+ static void advanceTreasure(XeenEncounterFlow &f){f.advanceMonsterReward();}
+ static void finishTreasure(XeenEncounterFlow &f){f.acknowledgeMonsterReward();}
+};
 }
 namespace consequence_controls {
 std::vector<XeenCombatRandom::Draw> tape;unsigned cursor=0;bool taped=false;
@@ -202,6 +212,54 @@ void restoreConsequences(Source &source,const std::optional<std::filesystem::pat
  if(fixture)XeenSaveFile::write(*fixture,delayed.save());
  std::cout<<"ARTIFICIAL malformed consequence restores, all-asleep Quiet and selected-survivor treasure PASS\n";
 }
+void individualMonsterTreasure(Source &source) {
+ Domain original(source);const auto base=original.save();
+ for(bool full:{false,true}) {
+  auto saved=base;saved.camera={23,0,0,XeenDirection::South};
+  for(unsigned source:{8u,9u}) {auto &dead=saved.journey->actors[source];dead.x=dead.y=-128;dead.hp=0;dead.activated=false;
+   dead.lifecycle=XeenActorLifecycle::Defeated;dead.accounted=true;}
+  saved.journey->treasure->armor[0]={9,{0,2,0,0}};
+  saved.journey->treasure->armor[1]={8,{0,3,0,0}};
+  for(auto id:kXeenCombatOwners) {
+   saved.characters[id].weapons={};saved.characters[id].armor={};saved.characters[id].miscellaneous={};
+   if(full) {
+    saved.characters[id].weapons.fill({0,1,0,0});saved.characters[id].armor.fill({0,2,0,0});
+    saved.characters[id].accessories.fill({0,1,0,0});
+    saved.characters[id].miscellaneous.fill({0,1,0,0});
+   }
+  }
+  Domain d(source,saved);const auto staged=*d.party.monsterTreasure;
+  const auto rng=d.world.sessionState().journeyRandom();const auto gold=staged.gold;
+  // Artificial ready transition only: original resources and the restored dormant
+  // inventory/provenance remain the production inputs to every delivery phase.
+  XeenCombatPresentationTestAccess::readyTreasure(*d.flow);
+  const auto ready=*d.party.monsterTreasure;
+  check(XeenCombatPresentationTestAccess::beginTreasure(*d.flow),"Ready original-resource monster treasure did not begin");
+  using Phase=XeenMonsterDeliveryCandidate::Phase;
+  const auto phase=[&]{return XeenCombatPresentationTestAccess::treasure(*d.flow).phase;};
+  const auto advance=[&]{XeenCombatPresentationTestAccess::advanceTreasure(*d.flow);};
+  check(!d.flow->canSave() && *d.party.monsterTreasure==ready,"First monster item altered durable staged treasure or exposed save");
+  if(full) {
+   check(phase()==Phase::Warning,"Full monster packs omitted original warning");advance();
+   check(phase()==Phase::Final,"Full-pack acknowledgment did not stop at final currency acknowledgment");
+  } else {
+   const auto owner=d.party.party.activeOrder()[0];
+   check(phase()==Phase::Blank && d.party.roster.at(owner).armor.back().id==2 &&
+    !d.party.roster.at(owner).armor.front().id,"First monster item did not transfer before blank/sort");
+   bool refused=false;try{XeenCombatPresentationTestAccess::finishTreasure(*d.flow);}catch(const std::logic_error &){refused=true;}
+   check(refused && d.party.monsterTreasure->gold==gold,"Intermediate monster hold credited currency");
+   advance();check(phase()==Phase::Found && d.party.roster.at(owner).armor.front().id==2,"Monster found line did not sort exactly its recipient");
+   advance();check(phase()==Phase::Blank && d.party.roster.at(owner).armor.back().id==3,"Monster found completion did not transfer exactly next item");
+   advance();check(phase()==Phase::Found,"Second monster found line missing");advance();
+   check(phase()==Phase::Final && d.party.monsterTreasure->gold==gold,"Final monster hold acknowledged itself");
+  }
+  XeenCombatPresentationTestAccess::finishTreasure(*d.flow);
+  check(d.party.monsterTreasure->gold==gold+10 && !d.party.monsterTreasure->pending() &&
+   !d.party.monsterTreasure->storedItems() && d.world.sessionState().journeyRandom()==rng,
+   "Final monster acknowledgment changed RNG or failed exact currency/item settlement");
+ }
+ std::cout<<"ARTIFICIAL original-resource individual monster treasure/full packs/final currency PASS\n";
+}
 void shootOrder(Source &source) {
  Domain original(source);auto saved=original.save();
  for(unsigned n=0;n<3;++n){auto &a=saved.journey->actors[9-n];a.x=8-n;a.y=11;a.activated=true;}
@@ -268,10 +326,11 @@ void shootLethalPreparation(Source &source) {
    for(unsigned n=0;n<30;++n)check(xeen_state::sameCharacter(chars[n],d.party.roster.at(n)),"Failed Shoot lethal preparation changed party");
   }else {
    check(!failed,"Lethal Shoot preparation failed");
-   // Last shooter: depth1 arrival advances to row2, then drawScene clears
-   // _charsShooting before animate3d. Repeated row2 frames are intentional.
+   // Every acquired common impact draw advances the retained visual lanes.
+   // hitMonster clears its own visual slots only after attack2 returns.
    for(unsigned frame=0;frame<(lethal?3u:2u);++frame) {
-    auto appearance=d.flow->appearance();check(appearance.projectiles.size()==1 && appearance.projectiles[0].lane==2 && appearance.projectiles[0].row==2,"Ordered last-shooter lane frame differs");
+    auto appearance=d.flow->appearance();check(frame<2 ? appearance.projectiles.size()==1 && appearance.projectiles[0].lane==2 && appearance.projectiles[0].row==2+frame : appearance.projectiles.empty(),"Ordered last-shooter lane frame differs");
+    check(!d.world.scenePresentation().splats[0].duration,"Distant arrow hit invented a front-rank splat");
     const auto &actor=d.world.sessionState().actors()[9];
     check(frame==0 ? actor.hp==(lethal?1:25) : frame==1 ? actor.hp==(lethal?0:16) && actor.lifecycle==XeenActorLifecycle::Present : actor.lifecycle==XeenActorLifecycle::Defeated,"Shoot HP/frame/removal ordering differs");
     for(unsigned n=0;n<6;++n)check(d.party.roster.combatInputs(kXeenCombatOwners[n])->experience==
@@ -284,7 +343,9 @@ void shootLethalPreparation(Source &source) {
     d.flow->holdJourneyFrame();d.present();d.now+=110;d.flow->idle();
    }
   }
-  check(cursor==(lethal?6u:5u),"Ordered Shoot frame sequence introduced random draws");taped=false;
+  // Overflow preflight stops before a post-HP draw and therefore before the
+  // lethal drop request, which now occurs at its original call point.
+  check(cursor==(lethal&&!overflow?6u:5u),"Ordered Shoot frame sequence introduced random draws");taped=false;
  }
  std::cout<<"ARTIFICIAL Shoot lethal preparation overflow preserves HP/RNG; ordered lethal frames PASS\n";
 }
@@ -482,7 +543,7 @@ int main(int argc,char **argv){try{
  freshSaveControls(source);titlePublicationControls(source);freshFailureControls(source);freshDifficultyHits(source);
  if(std::getenv("MMODERN_M49_IMPACT_ONLY")) {
   chargedWait(source);stagedVolleyDefeat(source);stagedRotationVolley(source);
-  zeroHitVolley(source);shootOrder(source);shootLethalPreparation(source);indoorShoot(source);indoorChangedShoot(source);blockReset(source);
+  zeroHitVolley(source);shootOrder(source);shootLethalPreparation(source);indoorShoot(source);indoorChangedShoot(source);blockReset(source);individualMonsterTreasure(source);
   std::cout<<"M49 original-resource impact/rotation controls PASS\n";return 0;
  }
  if(std::getenv("MMODERN_M34_FINISH_PRESENTATION_ONLY")){disengagementFinishPresentation(source);return 0;}

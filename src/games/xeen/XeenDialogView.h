@@ -17,9 +17,11 @@ struct XeenTreasureLine {
 };
 // Display values copied from existing delivery records, with no mutation owner.
 struct XeenTreasureDisplay {
+	enum class Stage { Pages, Blank, Found, Final };
     std::uint32_t gold=0,gems=0;
     std::vector<XeenTreasureLine> items;
     bool fullPacks=false;
+	Stage stage=Stage::Pages;
 };
 std::string xeenTreasureText(const XeenDosText &,const XeenTreasureDisplay &,std::size_t page);
 IndexedFrame drawXeenTreasure(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,

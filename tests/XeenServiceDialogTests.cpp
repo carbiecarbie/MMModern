@@ -1,5 +1,6 @@
 #include "XeenTestInstallation.h"
 #include "XeenPurchaseTestSupport.h"
+#include "formats/xeen/XeenVocDuration.h"
 #include <fstream>
 #include <iostream>
 using namespace purchase_test;
@@ -98,6 +99,107 @@ void layout(Inputs &in) {
     check(drawXeenErrorScroll(base,in.font,xeenNotEnoughGold(in.assets.uiText())).isValid(),"gold refusal layout");
     check(drawXeenConfirm(base,in.font,xeenServiceConfirm(in.assets.uiText(),true,"Plate Armor",200),false,draw).isValid(),"Fix Confirm layout");
 }
+void originalServiceSequences(Inputs &in) {
+    for(unsigned action=0;action<7;++action) {
+        const unsigned service=action==6?1:action;
+        auto source=in.service(action==6?10:8);source.camera={28,20,20,XeenDirection::North};
+        if(action==6)source.journey->random->count=UINT64_MAX-XeenServiceDayCandidate::kDeferredRandomReserve;
+        if(action==3)source.food=0;
+        if(action==4)source.characters[source.activeRosterIds[0]].currentHp=1;
+        XeenWorld query(in.mapLoader());const auto cell=query.sampleCell(28,20,20);check(bool(cell),"Service fixture geometry absent");
+        for(unsigned facing=0;facing<4;++facing) {
+            const auto wall=wallAt(*cell->cell,XeenDirection(facing));
+            if(wall!=1 && wall!=6 && wall!=9 && wall!=13){source.camera.direction=XeenDirection(facing);break;}
+        }
+        XeenEventFile city{28,"maze0028.evt",true,{}};
+        XeenEventRecord record;record.x=20;record.y=20;record.direction=4;record.line=0;
+        record.opcode=0x11;record.parameters={std::uint8_t(service)};record.lengthField=6;city.records.push_back(record);
+        training_test::Fixture f(in,source,false,&city);
+        f.flow->drawSmithArt=[&](auto &image){in.assets.drawSmith(image);};
+        f.flow->drawBankArt=[&](auto &image){in.assets.drawBank(image);};
+        f.flow->drawGuildArt=[&](auto &image){in.assets.drawGuild(image);};
+        f.flow->drawTavernArt=[&](auto &image){in.assets.drawTavern(image);};
+        f.flow->tavernFoodOffer=[&]{return in.assets.tavernFoodOffer();};
+        f.flow->drawTempleArt=[&](auto &image){in.assets.drawTemple(image);};
+        std::vector<std::string> samples;
+        f.flow->loadSampleDuration=[&](const char *name,XeenSceneArchive archive){
+            check(archive==XeenSceneArchive::Clouds,"Shop sample left Clouds archive");samples.emplace_back(name);
+            return xeenVocDurationNanoseconds(in.assets.readArchiveResource(name,archive));
+        };
+        f.act(InteractionAction{});f.prepare();
+        const auto kind=static_cast<XeenServiceArt>(service);
+        check(samples==std::vector<std::string>{XeenServiceAnimation::greeting(kind)},"Original service greeting sample differs");
+        const auto before=*f.w.sessionState().journeyRandom();
+        auto advance=[&] {f.flow->beginCycle(++f.cycle);return f.flow->updatePresentation();};
+        f.now=150;check(!advance(),"Shop drew before the three-tick wait");
+        std::vector<XeenServiceSprite> sprites;const auto draw=f.flow->drawDialogSprite;bool failOnce=action==1;
+        f.flow->drawDialogSprite=[&](auto &image,const char *resource,unsigned frame,int x,int y){
+            if(std::string(resource).find(".twn")!=std::string::npos) {
+                sprites.push_back({resource,frame});
+                if(failOnce){failOnce=false;throw std::runtime_error("Synthetic service sprite failure");}
+            }
+            draw(image,resource,frame,x,y);
+        };
+        f.now=165;auto next=advance();
+        if(action==6) {
+            check(!next && *f.w.sessionState().journeyRandom()==before,"Optional speaking spent the mandatory departure RNG suffix");
+            f.act(CancelInteractionAction{});f.finishDeparture();
+            check(f.flow->canSave() && f.p.encounterContext->day==11,"Speaking capacity fence blocked the reserved departure");
+            continue;
+        }
+        if(action==1) {
+            check(!next && *f.w.sessionState().journeyRandom()==before,"Failed service composition published RNG");
+            // Expiration between attempts must retain the already chosen speaking result.
+            f.now=1500;sprites.clear();next=advance();
+        }
+        check(bool(next),"Original service pulse did not publish");
+        XeenCombatRandom expected(before);std::optional<unsigned> speaking;
+        if(const auto range=XeenServiceAnimation::speaking(kind))while(!speaking)speaking=expected.draw(range->first,range->last);
+        check(sprites==XeenServiceAnimation::compose(kind,1,speaking),"Service base/replacement/speaking range or retry changed");
+        check(*f.w.sessionState().journeyRandom()==expected.continuation(),"Speaking frame did not consume the shared RNG exactly once");
+        const auto retained=*f.w.sessionState().journeyRandom();f.now+=1000;
+        check(!advance() && *f.w.sessionState().journeyRandom()==retained,"Unacquired service frame advanced RNG/animation");
+        f.present(*next);sprites.clear();f.now+=1000;next=advance();check(bool(next),"Silent service cycle did not resume");
+        check(sprites==XeenServiceAnimation::compose(kind,2) && *f.w.sessionState().journeyRandom()==retained,
+            "Completed sample kept a speaking overlay or lost the Smith logical index");f.present(*next);
+        if(action==0) {
+            f.act(DialogKeyAction{'d'});f.act(DialogKeyAction{'o'});f.act(TextInputAction{"5"});f.act(DialogKeyAction{InputKey::Enter});
+            check(samples.back()=="coina.voc" && f.p.serviceEconomy->bank.gold==5,"Bank action did not replace the active sample");
+            f.act(CancelInteractionAction{}); // Currency -> lobby.
+        } else if(action==2) {
+            check(!xeenVertigoGuildMember(f.p,1),"Guild refusal fixture unexpectedly has membership");
+            f.act(SelectMemberAction{1});check(samples.back()=="guild11.voc","Guild refusal did not replace the greeting");
+        } else if(action==3) {
+            f.act(DialogKeyAction{'f'});f.act(YesAction{});
+            check(samples.back()=="thankyou.voc" && f.p.food>0,"Tavern food purchase did not replace the greeting");
+        } else if(action==4) {
+            f.act(DialogKeyAction{'h'});f.prepare();
+            check(samples.back()=="ahh.voc" && f.p.roster.at(source.activeRosterIds[0]).currentHp>1,"Temple action did not replace the sample after healing");
+        } else if(action==5) {
+            check(xeenQuoteTraining(f.p.roster.at(source.activeRosterIds[0]),*f.p.roster.combatInputs(source.activeRosterIds[0]),
+                f.p.monsterTreasure->gold,*f.p.encounterContext).outcome==XeenTrainingOutcome::MissingExperience,"Training refusal fixture XP differs");
+            f.act(DialogKeyAction{'t'});check(samples.back()=="trainin0.voc","Training experience refusal did not replace greeting");
+            f.act(SelectMemberAction{1});f.act(DialogKeyAction{'t'});f.prepare();
+            check(samples.back()=="trainin2.voc" && f.p.roster.at(18).permanentLevel==4,"Successful Training sample/recovery differs");
+        }
+        if(action==3) {
+            const auto last=f.flow->frame().pixels;const auto start=f.now;f.act(CancelInteractionAction{});
+            check(samples.back()=="goodbye.voc" && !f.flow->canSave() && f.flow->frame().pixels==last,"Tavern did not hold its last screen");
+            f.now=start+1009;check(!advance(),"Tavern goodbye ended before sample completion");
+            f.now=start+1010;next=advance();check(next && f.flow->frame().pixels!=last,"Tavern goodbye did not return after completion");f.present(*next);
+            check(f.flow->canSave(),"Tavern goodbye charged/settled incorrectly");
+        } else {
+            f.act(CancelInteractionAction{});f.finishDeparture();
+            check(f.flow->canSave(),"Service departure did not settle");
+        }
+    }
+    auto source=in.service();source.characters[source.activeRosterIds[0]].permanentLevel=10;
+    training_test::Fixture capped(in,source);std::string sample;
+    capped.flow->loadSampleDuration=[&](const char *name,XeenSceneArchive archive){sample=name;return xeenVocDurationNanoseconds(in.assets.readArchiveResource(name,archive));};
+    capped.enter();capped.act(DialogKeyAction{'t'});check(sample=="trainin1.voc","Training level-cap refusal sample differs");
+    capped.act(CancelInteractionAction{});check(capped.now==0 && capped.flow->canSave(),"Active service sample made Escape uninterruptible");
+}
+
 void refusals(Inputs &in) {
     for(bool temple:{false,true}) {
         auto source=in.service();source.journey->treasure->gold=0;
@@ -161,6 +263,7 @@ void dialogs(Inputs &in,bool mouse) {
     }
     check(temple.p.monsterTreasure->gold==340 && temple.p.roster.at(6).currentHp==15 && !temple.p.roster.at(6).conditions[13] && temple.p.roster.at(1).currentHp==21,"one-step Heal/resurrection differs");
     if(mouse)click(temple,262,109);else keyboard(temple,InputKey::Escape);
+    temple.finishDeparture();
     check(temple.flow->canSave() && temple.p.encounterContext->day==10,"paid Temple departure differs");
 }
 void spellDialogs(Inputs &in,bool mouse) {
@@ -309,5 +412,5 @@ void spellDialogs(Inputs &in,bool mouse) {
 }
 int main(int argc,char **argv){try{
     check(argc==2,"usage: service-dialogs <installation>");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"installation unavailable");Inputs in(*installation);
-    layout(in);refusals(in);dialogs(in,false);dialogs(in,true);spellDialogs(in,false);spellDialogs(in,true);std::cout<<"Original service layouts, hit actions, Buy/Fix, one-step Training and Heal passed\n";return 0;
+    layout(in);originalServiceSequences(in);refusals(in);dialogs(in,false);dialogs(in,true);spellDialogs(in,false);spellDialogs(in,true);std::cout<<"Original service layouts, hit actions, Buy/Fix, one-step Training and Heal passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

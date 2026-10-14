@@ -84,6 +84,16 @@ struct Fixture {
 		return interpreter.resume(std::move(state), response, members, world,
 			[&](XeenMapIdentity id) { return scripts.at(id); }, {});
 	}
+	XeenEventExecutionStepResult finishQuestReward(XeenEventExecutionStepResult result) {
+		const auto counts=members.questItems.counts();
+		for(const auto phase:{XeenRewardPhase::Blank,XeenRewardPhase::Found,XeenRewardPhase::Receipt}) {
+			const auto *s=std::get_if<XeenEventExecutionSuspended>(&result);
+			check(s && s->state.rewardPhase==phase && s->request.kind==XeenPresentationKind::RewardReceipt &&
+				s->request.rewardWaitTicks==(phase==XeenRewardPhase::Blank?1u:phase==XeenRewardPhase::Found?10u:0u),"quest reward boundary");
+			result=resume(s->state);check(members.questItems.counts()==counts,"treasure re-granted quest counter");
+		}
+		return result;
+	}
 };
 
 XeenEventExecutionState pending(const XeenEventExecutionStepResult &r) {
@@ -139,7 +149,7 @@ void conditions() {
 	check(done(call.begin()).finalCamera.mapId == XeenMapIdentity{2} && call.members.questItems.at(17)==2,
 		"call/transfer lost party ownership");
 	Fixture grant; grant.scripts.emplace(1,script(1,{record(1,1,0,0x0c,{0,0,21,99})}));
-	check(done(grant.begin()).instructionCount==1 && grant.members.questItems.at(17)==1,
+	check(done(grant.finishQuestReward(grant.begin())).instructionCount==1 && grant.members.questItems.at(17)==1,
 		"17B grant did not update party ownership");
 }
 

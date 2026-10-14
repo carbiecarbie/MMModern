@@ -1,4 +1,5 @@
 #include "XeenRegionalCombatTestSupport.h"
+#include "core/PresentationClock.h"
 #include <iostream>
 using namespace regional_combat_test;
 using regional_combat_test::RegionalCombatFixture;
@@ -119,4 +120,69 @@ void fixedObservations() {
 			"copied enemy natural-one miss retains selected owner0 or owner18");
 	}
 }
-int main(){try{mixed();defeat();seeds();injuryAndBare();fixedObservations();std::cout<<"Combat literal mixed victory, all-Block defeat, seeds, injury and fixed observations passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+void acquiredAttackOrder() {
+ using Stage=XeenCombatAttackStage;
+ for(bool lethal:{false,true}) {
+  RegionalCombatFixture f{XeenCombatRandom(mixedTape())};f.enter();
+  if(lethal) {
+   f.action(Command::Attack);f.action(Command::Block);f.action(Command::Attack);
+   f.action(Command::Attack);f.action(Command::Block);f.action(Command::Block);f.service();f.service();
+  }
+  auto &combat=*f.combat;const auto hp=f.w.sessionState().actors()[5].hp;
+  combat.command(combat.ticket(),Command::Attack);
+  const auto pre=combat.servicePresented(combat.ticket(),0);
+  check(pre.attackStage==Stage::PreHp && pre.damage>0 && f.w.sessionState().actors()[5].hp==hp,
+   "Physical pre-HP draw must precede injury");
+  const auto rng=combat.random().position();const auto revision=pre.revision;
+  check(combat.servicePresented(combat.ticket(),1000).status==Status::Refused &&
+   combat.random().position()==rng && f.w.sessionState().actors()[5].hp==hp,
+   "Unacquired impact or late wake advanced damage/RNG");
+  check(combat.service(combat.ticket()).status==Status::Refused,"Rule service bypassed acquired attack fence");
+  combat.attackPresented(combat.ticket(),0);combat.attackPresented(combat.ticket(),500);
+  const auto deadline=PresentationClock::afterMilliseconds(0,2);
+  check(combat.servicePresented(combat.ticket(),deadline-1).status==Status::Refused,"Impact omitted two-tick draw floor");
+  const auto old=combat.ticket();const auto post=combat.servicePresented(old,deadline);
+  check(post.attackStage==Stage::PostHp && post.revision==revision+1 &&
+   f.w.sessionState().actors()[5].hp==std::max(hp-pre.damage,0) &&
+   f.w.sessionState().actors()[5].lifecycle==XeenActorLifecycle::Present &&
+   combat.attackImpactSnapshot()->hp==hp,"Post-HP victim removed before its draw");
+  check(combat.servicePresented(old,1000).status==Status::Stale,"Stale impact frame republished injury");
+  check(combat.servicePresented(combat.ticket(),1000).status==Status::Refused,"Post-HP draw omitted acquisition");
+  combat.attackPresented(combat.ticket(),deadline);
+  const auto done=combat.servicePresented(combat.ticket(),PresentationClock::afterMilliseconds(deadline,2));
+  check(done.status==Status::Advanced && !combat.attackImpactSnapshot(),"Physical impact did not retire exactly once");
+  check(f.w.sessionState().actors()[5].lifecycle==(lethal?XeenActorLifecycle::Defeated:XeenActorLifecycle::Present),
+   "Lethal removal/survivor boundary");
+  check(done.xpCount==(lethal?6u:0u),"Lethal reward publication boundary");
+ }
+ RegionalCombatFixture f{XeenCombatRandom(defeatTape())};f.enter();f.blockRound();
+ auto &combat=*f.combat;const auto rng=combat.random().position();const auto before=f.p.roster.characters();
+ const auto first=combat.servicePresented(combat.ticket(),0);
+ check(first.attackStage==Stage::MonsterPose1 && combat.random().position()==rng,"Enemy RNG preceded first attack pose");
+ check(combat.servicePresented(combat.ticket(),1000).status==Status::Refused,"Unacquired enemy pose advanced");
+ combat.attackPresented(combat.ticket(),0);const auto secondTime=PresentationClock::afterMilliseconds(0,2);
+ const auto second=combat.servicePresented(combat.ticket(),secondTime);
+ check(second.attackStage==Stage::MonsterPose2 && combat.random().position()==rng,"Enemy RNG preceded second attack pose");
+ for(unsigned i=0;i<30;++i)check(f.p.roster.at(i).currentHp==before[i].currentHp,"Enemy injury preceded second pose draw");
+ combat.attackPresented(combat.ticket(),secondTime);
+ auto now=PresentationClock::afterMilliseconds(secondTime,2);
+ auto damage=combat.servicePresented(combat.ticket(),now);
+ for(unsigned recipient=0;recipient<2;++recipient) {
+  check(damage.attackStage==Stage::MonsterDamageOverlay && damage.injuryCount==recipient && combat.random().position()>rng,
+   "Monster recipient injury preceded its charpow draw");
+  const auto owner=*damage.targetOwner;const auto hp=f.p.roster.at(owner).currentHp;
+  const auto cursor=combat.random().position();
+  check(combat.servicePresented(combat.ticket(),now+1000).status==Status::Refused && combat.random().position()==cursor && f.p.roster.at(owner).currentHp==hp,
+   "Unacquired monster portrait advanced injury or random requests");
+  combat.attackPresented(combat.ticket(),now);
+  damage=combat.servicePresented(combat.ticket(),now);
+  check(damage.attackStage==Stage::MonsterDamageHold && damage.injuryCount==recipient+1 && f.p.roster.at(owner).currentHp<hp,
+   "Monster recipient injury was not published before its hold");
+  combat.attackPresented(combat.ticket(),now);
+  // Native Flow owns the two-tick hold; mechanics cannot bypass acquisition.
+  now=PresentationClock::afterMilliseconds(now,2);
+  damage=combat.servicePresented(combat.ticket(),now);
+ }
+ check(damage.attackStage==Stage::None && damage.injuryCount==2,"Monster final hold omitted attack completion");
+}
+int main(){try{mixed();defeat();seeds();injuryAndBare();fixedObservations();acquiredAttackOrder();std::cout<<"Combat literal mixed victory, all-Block defeat, seeds, injury and acquired attack order passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

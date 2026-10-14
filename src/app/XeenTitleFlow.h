@@ -50,6 +50,7 @@ public:
   _services.draw(frame,button.resource,button.pressedFrame(),button.x,button.y);
  }
  void newSlots();
+ void returnToTitle();
  void cancelPublication();
  void publicationFailure(std::string message);
  void startupFailure(std::string message);
@@ -71,7 +72,7 @@ private:
  std::uint64_t _deadline=0,_context=1;
  std::uint64_t _fadeDeadline=0;
  unsigned _fadeLevel=0,_fadeStep=4;
- bool _fadeAcquired=false;
+ bool _fadeAcquired=false,_animationAcquired=false;
  bool _closed=false;
  IndexedFrame _frame;
  IndexedFrame::Presentation _inputFrame;

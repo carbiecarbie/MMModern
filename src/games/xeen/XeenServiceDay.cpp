@@ -6,7 +6,7 @@
 namespace mmodern {
 XeenServiceDayCandidate::XeenServiceDayCandidate(const XeenGameplayContext &context,
 		const XeenServiceEconomy &economy,const XeenJourneyRandomState &cursor,
-		XeenScriptServiceCharge serviceCharge,bool deferBankInterest):
+		XeenScriptServiceCharge serviceCharge,bool deferBankInterest,bool deferGeneration):
 	originalContext(context),endingContext(context),originalEconomy(economy),endingEconomy(economy),
 	originalRandom(cursor),random(cursor),charge(serviceCharge),bankInterestDeferred(deferBankInterest) {
 
@@ -15,12 +15,17 @@ XeenServiceDayCandidate::XeenServiceDayCandidate(const XeenGameplayContext &cont
 	if(!successor)throw std::invalid_argument("Unsupported script service context");
 	xeenValidateCurrentServiceEconomy(economy);endingContext=*successor;
 	regenerating=xeenServiceDayRegenerates(originalContext.day,endingContext.day,static_cast<std::uint16_t>(charge));
-	completed=!regenerating;
+	generationDeferred=regenerating && deferGeneration;
+	// 160 items, at most eight accepted requests each, spans <=101. A rejected
+	// nonzero xorshift32 raw (<101) has a successor >100: at most two raws/request.
+	if(generationDeferred && !randomRoom(cursor))throw std::overflow_error("Deferred service-day random capacity exhausted");
+	completed=!regenerating || generationDeferred;
 }
 bool XeenServiceDayCandidate::service(unsigned budget,const std::function<void()> &check,
 		const std::function<void()> &afterStock) {
 	if(check)check();
-	if(completed)return true;
+	if(completed && !generationDeferred)return true;
+	generationStarted=true;
 	XeenConsequenceDraw draw{random,std::min(budget,64u),check};
 	if(!stock.service(draw))return false;
 	xeenValidateMerchantWares(stock.wares());
@@ -29,37 +34,41 @@ bool XeenServiceDayCandidate::service(unsigned budget,const std::function<void()
 	if(check)check();
 	endingEconomy.wares=stock.wares();
 	endingEconomy.bank=bankInterestDeferred?originalEconomy.bank:xeenPrepareBankInterest(originalEconomy.bank);
-	completed=true;return true;
+	generationDeferred=false;completed=true;return true;
 }
 XeenServiceDayCandidate XeenServiceDayCandidate::rebindPurchase(const XeenServiceEconomy &after,
 		XeenInventoryCategory category,std::size_t slot,const XeenItem &expected) const {
 	if(!completed)throw std::invalid_argument("Equipment Buy requires a complete purchase departure");
-	validateComplete();
+	validateReservation();
 	xeenValidateEquipmentPurchaseEconomyDelta(originalEconomy,after,category,slot,expected);
 	xeenValidateCurrentServiceEconomy(after);
 	// Copy the completed random/generation state; never construct/service another
 	// generation or recalculate interest. Triggered ending stock remains exact.
 	auto replacement=*this;
 	replacement.originalEconomy=after;
-	if(!regenerating)replacement.endingEconomy=after;
-	replacement.validateComplete();
+	if(!regenerating || generationDeferred)replacement.endingEconomy=after;
+	replacement.validateReservation();
 	return replacement;
 }
 XeenServiceDayCandidate XeenServiceDayCandidate::upgradeTemplePaid() const {
 	if(charge!=XeenScriptServiceCharge::OneDay || !completed)
 		throw std::invalid_argument("Temple upgrade requires a complete one-day reservation");
-	validateComplete();
+	validateReservation();
 	auto paid=xeenPrepareTemplePaidDeparture(originalContext);
 	if(!paid)throw std::invalid_argument("Temple two-day departure exceeds the supported year");
 	if(!regenerating)return {originalContext,originalEconomy,originalRandom,
-		XeenScriptServiceCharge::TemplePaid};
+		XeenScriptServiceCharge::TemplePaid,false,true};
 	auto replacement=*this;
 	replacement.charge=XeenScriptServiceCharge::TemplePaid;
 	replacement.endingContext=*paid;
-	replacement.validateComplete();
+	replacement.validateReservation();
 	return replacement;
 }
 void XeenServiceDayCandidate::validateComplete() const {
+	validateReservation();
+	if(generationDeferred)throw std::invalid_argument("Service-day generation is deferred");
+}
+void XeenServiceDayCandidate::validateReservation() const {
 	if(!completed)throw std::invalid_argument("Service-day departure is incomplete");
 	const auto expected=charge==XeenScriptServiceCharge::OneDay ?
 		xeenPrepareSmithDeparture(originalContext) : xeenPrepareTemplePaidDeparture(originalContext);
@@ -67,6 +76,11 @@ void XeenServiceDayCandidate::validateComplete() const {
 		regenerating!=xeenServiceDayRegenerates(originalContext.day,endingContext.day,static_cast<std::uint16_t>(charge)))
 		throw std::invalid_argument("Service-day context successor changed");
 	xeenValidateCurrentServiceEconomy(originalEconomy);
+	if(generationDeferred) {
+		if(endingEconomy!=originalEconomy || !regenerating)
+			throw std::invalid_argument("Deferred service-day reservation changed");
+		return;
+	}
 	const auto ending=random.continuation();
 	if(!regenerating) {
 		if(endingEconomy!=originalEconomy || ending!=originalRandom)
@@ -85,19 +99,28 @@ void XeenServiceDayCandidate::validateComplete() const {
 	}
 }
 XeenServiceDayCandidate XeenServiceDayCandidate::rebindBank(const XeenServiceEconomy &after) const {
-	validateComplete();
+	validateReservation();
 	if(!bankInterestDeferred || after.wares!=originalEconomy.wares)
 		throw std::logic_error("Bank transfer changed stock or followed settlement");
 	auto next=*this;
 	next.originalEconomy.bank=after.bank;next.endingEconomy.bank=after.bank;
-	next.validateComplete();return next;
+	next.validateReservation();return next;
 }
 XeenServiceDayCandidate XeenServiceDayCandidate::settleBank() const {
-	validateComplete();auto next=*this;
+	validateReservation();auto next=*this;
 	if(next.bankInterestDeferred) {
-		if(regenerating)next.endingEconomy.bank=xeenPrepareBankInterest(originalEconomy.bank);
+		if(regenerating && !generationDeferred)next.endingEconomy.bank=xeenPrepareBankInterest(originalEconomy.bank);
 		next.bankInterestDeferred=false;
 	}
-	next.validateComplete();return next;
+	next.validateReservation();return next;
 }
+XeenServiceDayCandidate XeenServiceDayCandidate::rebindRandom(const XeenJourneyRandomState &cursor) const {
+	validateReservation();
+	if(generationStarted || (regenerating && !generationDeferred))
+		throw std::logic_error("Service animation followed retained day generation");
+	if(generationDeferred && !randomRoom(cursor))throw std::overflow_error("Service animation would consume reserved day RNG");
+	auto next=*this;next.originalRandom=cursor;next.random=XeenCombatRandom(cursor);
+	next.validateReservation();return next;
+}
+
 }

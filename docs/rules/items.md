@@ -266,7 +266,25 @@ material, ID and state (`0x245aa..0x245cc`, `0x2462b..0x2464d`,
 `0x246a0..0x246c2`, `0x24714..0x24736`). Sorting leaves a full nine-slot
 category unchanged. Generation draws/order remain unchanged and precede delivery.
 [Evidence and limits](evidence.md#treasure-delivery) distinguish this ordinary
-loot rule from the out-of-scope special-sword and quest-item branches.
+loot rule from the separate special-sword branch.
+
+**DOS static (M63 Part B):** clear input at treasure entry. Publish one transfer,
+wait one interruptible tick on its blank screen, then sort that recipient's
+inventory and publish the found line before its interruptible ten-tick hold.
+Continue in category/slot order. Only the separate final acknowledgment credits
+currency and clears staged treasure; interrupting a timed hold does neither
+(`0x24128..0x248f2`, helper `0x264c5`). The full-pack modal/capacity rules above
+remain shared by Event and monster rewards.
+
+Quest grants participate in this sequence after their quest count has already
+changed. Their display record must not grant the quest again or copy it into
+ordinary inventory. The DOS formatter indexes raw quest IDs 82..116 in its
+shared far-pointer name table (`0x245f8..0x24610`, table
+`[0x4fd5c,0x4fde8)`), and adds the quest star (`0x2476e`). Names remain read
+from the installed DOS module. A retry retains the current transfer, phase and
+random prefix; later items cannot appear before earlier items' holds complete.
+Removing the Event object disables future dispatch, while the current treasure
+sequence retains its already executed grants and original selection identity.
 
 ## Limits
 

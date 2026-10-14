@@ -29,7 +29,7 @@ int main(int argc,char **argv) {
                 try {
                     if(stage==0)XeenTrainingTestAccess::confirm(*fixture.flow);
                     if(stage==1)while(!XeenTrainingTestAccess::level(*fixture.flow)){}
-                    if(stage==2)XeenTrainingTestAccess::depart(*fixture.flow);
+                    if(stage==2)while(!XeenTrainingTestAccess::depart(*fixture.flow)){}
                 }catch(const std::bad_alloc &){}
                 allocation_test::countdown=-1;
                 const bool paid=fixture.p.monsterTreasure->gold==710;
@@ -44,6 +44,25 @@ int main(int argc,char **argv) {
             }
             check(finished,"Training allocation sweep bound exhausted");
         }
+        bool randomFinished=false;
+        for(unsigned skipped=0;skipped<1000;++skipped) {
+            Fixture fixture(in,source);fixture.enter();
+            const auto before=*fixture.w.sessionState().journeyRandom();XeenCombatRandom random(before);
+            while(!random.draw(8,12)){}const auto after=random.continuation();
+            allocation_test::triggered=false;allocation_test::countdown=skipped;
+            try {XeenTrainingTestAccess::publishServiceRandom(*fixture.flow,before,after);}catch(const std::bad_alloc &){}
+            allocation_test::countdown=-1;
+            const auto cursor=*fixture.w.sessionState().journeyRandom();
+            check(cursor==before || cursor==after,"Speaking publication allocation fault exposed partial RNG");
+            check(fixture.p.encounterContext->day==9 && fixture.p.monsterTreasure->gold==800 &&
+                fixture.p.roster.at(18).permanentLevel==3,"Speaking allocation fault changed service gameplay");
+            if(cursor==before)XeenTrainingTestAccess::publishServiceRandom(*fixture.flow,before,after);
+            check(*fixture.w.sessionState().journeyRandom()==after,"Speaking retry did not publish exactly one retained cursor");
+            save_test::rejects([&]{XeenTrainingTestAccess::publishServiceRandom(*fixture.flow,before,after);},"authority changed");
+            if(!allocation_test::triggered){check(skipped>0,"Speaking allocation sweep covered no failures");randomFinished=true;
+                std::cout<<"Speaking RNG allocation publication passed "<<skipped<<" positions\n";break;}
+        }
+        check(randomFinished,"Speaking RNG allocation sweep bound exhausted");
         return 0;
     }catch(const std::exception &e){allocation_test::countdown=-1;std::cerr<<e.what()<<'\n';return 1;}
 }

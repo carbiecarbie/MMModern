@@ -141,6 +141,8 @@ struct XeenCombat::Impl {
 	Phase phase=Phase::Engaged; Work work=Work::None;
 	std::uint64_t generation=1;
 	bool busy=false;
+	bool presentedAttacks=false;
+	bool servicingPresented=false;
 	std::array<int,9> order{};
 	std::array<bool,9> acted{};
 	std::array<bool,6> blocked{};
@@ -156,6 +158,10 @@ struct XeenCombat::Impl {
 		std::optional<XeenMonsterDropCandidate> drop;
 		XeenCombatResult result;
 		bool physicalDone = false;
+		bool sequenced=false, attackPresented=false;
+		std::uint64_t attackDeadline=0;
+		std::optional<XeenActor> impactActor;
+		std::optional<XeenJourneyLethal> lethal;
 	};
 	std::optional<Consequences> consequences;
     struct Casting {
@@ -352,6 +358,8 @@ struct XeenCombat::Impl {
 		auto admission=actors;
 		if(casting && casting->view.phase==XeenCombatCastPhase::PostImpact && casting->reservation && casting->reservation->enemy)
 			admission.at(casting->reservation->enemy->id.recordIndex)=*casting->reservation->enemy;
+		if(consequences && consequences->result.attackStage==XeenCombatAttackStage::PostHp && consequences->impactActor)
+			admission.at(consequences->impactActor->id.recordIndex)=*consequences->impactActor;
 		if(journey && camera.mapId==XeenMapIdentity(28)) {
 			xeenValidateVertigoActors(world,admission);return;
 		}
@@ -695,11 +703,55 @@ XeenCombatResult XeenCombat::command(const Ticket &t,XeenCombatCommand action) {
 }
 
 XeenCombatResult XeenCombat::service(const Ticket &t) {
-	auto &d=*impl;if(!current(t))return d.observation(Status::Stale);
+	auto &d=*impl;const bool acquired=d.servicingPresented;d.servicingPresented=false;
+	if(!current(t))return d.observation(Status::Stale);
 	if(d.busy||d.phase==Phase::Casting||d.work==Work::None||terminal(d.phase))return d.observation(Status::Refused);
+	if(d.consequences && d.consequences->sequenced && !acquired)return d.observation(Status::Refused);
 	if(!d.exact()||!d.boundary.quiet())return fail(t,Failure::Integrity);
 	if(d.work==Work::FinishDisengagement) return finishDisengagement(t);
 	return serviceConsequences(t);
+}
+
+bool XeenCombat::prepareAttackDraw(const Ticket &t,std::uint64_t now) {
+ auto &d=*impl;
+ d.servicingPresented=false;
+ if(!current(t) || d.busy || d.phase==Phase::Casting || d.work==Work::None || terminal(d.phase))return false;
+ d.presentedAttacks=true;
+ if(d.consequences) {
+  auto &c=*d.consequences;
+  if(c.result.attackStage!=XeenCombatAttackStage::None &&
+    (!c.attackPresented || now<c.attackDeadline))return false;
+  c.sequenced=true;
+ }
+ // An enemy continuation is first created by serviceConsequences. Retain its
+ // first pose before any attack RNG is requested (DAT 0x2d778..0x2d79b).
+ d.servicingPresented=true;
+ return true;
+}
+
+XeenCombatResult XeenCombat::servicePresented(const Ticket &t,std::uint64_t now) {
+ if(!current(t))return impl->observation(Status::Stale);
+ if(!prepareAttackDraw(t,now))return impl->observation(Status::Refused);
+ return service(t);
+}
+
+void XeenCombat::attackPresented(const Ticket &t,std::uint64_t now) {
+ auto &d=*impl;require(current(t) && d.exact(),"Stale attack frame acknowledgment");
+ if(!d.consequences)return;
+ auto &c=*d.consequences;
+ if(c.result.attackStage!=XeenCombatAttackStage::None && !c.attackPresented) {
+  c.attackDeadline=(c.result.attackStage==XeenCombatAttackStage::MonsterDamageOverlay || c.result.attackStage==XeenCombatAttackStage::MonsterDamageHold)?now:PresentationClock::afterMilliseconds(now,2);c.attackPresented=true;
+ }
+}
+
+std::optional<std::pair<unsigned,bool>> XeenCombat::rangedPortrait() const {
+ const auto &c=impl->consequences;
+ return c && c->movement?c->movement->portrait():std::nullopt;
+}
+
+std::optional<XeenActor> XeenCombat::attackImpactSnapshot() const {
+ const auto &c=impl->consequences;
+ return c && c->result.attackStage==XeenCombatAttackStage::PostHp ? c->impactActor : std::nullopt;
 }
 
 std::optional<XeenCombatCastView> XeenCombat::cast() const {
@@ -928,7 +980,7 @@ XeenCombatResult XeenCombat::serviceCast(const Ticket &t,std::uint64_t now) {
         const auto stage=c.view.phase;
         if(stage!=XeenCombatCastPhase::Preparing && stage!=XeenCombatCastPhase::Projectile &&
             stage!=XeenCombatCastPhase::Impact && stage!=XeenCombatCastPhase::PostImpact)return d.observation(Status::Refused);
-        if(stage!=XeenCombatCastPhase::Preparing && !c.presented)return d.observation(Status::Refused);
+        if(stage!=XeenCombatCastPhase::Preparing && (!c.presented || now<c.deadline))return d.observation(Status::Refused);
         require(c.reservation.has_value(),"Missing paid cast reservation");
         const auto &reserved=*c.reservation;d.checkCastReservation(t,reserved,true);
         const bool ranged=reserved.spell==45 || reserved.spell==20 || reserved.spell==27 || reserved.spell==50 || reserved.spell==60;
@@ -949,17 +1001,23 @@ XeenCombatResult XeenCombat::serviceCast(const Ticket &t,std::uint64_t now) {
             ++c.travelRow;++c.view.projectileRow;c.presented=false;++d.generation;
             return d.adopt(c.operation,Status::Pending);
         }
+        if(stage==XeenCombatCastPhase::Preparing) {
+            // rangedAttack reaches the target through scene draws before its
+            // attack2 random requests. Retain travel without sampling damage.
+            c.view.phase=XeenCombatCastPhase::Projectile;c.presented=false;++d.generation;
+            return d.adopt(c.operation,Status::Pending);
+        }
         require(c.arrow && reserved.enemy,"Missing bound Arrow candidate");
         const auto &bound=*reserved.enemy;
         XeenConsequenceDraw draw{c.random,64,[&]{d.probeFor(t);d.checkCastReservation(t,reserved,true);}};
-        if(stage==XeenCombatCastPhase::Preparing && !c.arrowDone) {
+        if(!c.arrowDone) {
             if(!c.arrow->service(draw)){++d.generation;return d.adopt(c.operation,Status::Pending);}
             c.impactRandom=c.random.continuation();
             if(!c.arrow->resisted && std::int64_t(bound.hp)-c.arrow->damage<=0 && bound.original.resourceId==6)
                 c.drop.emplace(*d.party.monsterTreasure,bound.id.recordIndex);
             c.arrowDone=true;
         }
-        if(stage==XeenCombatCastPhase::Preparing && c.drop && !c.drop->service(draw)){++d.generation;return d.adopt(c.operation,Status::Pending);}
+        if(stage==XeenCombatCastPhase::PostImpact && c.drop && !c.drop->service(draw)){++d.generation;return d.adopt(c.operation,Status::Pending);}
         auto r=c.operation;r.actorHpBefore=bound.hp;r.damage=c.arrow->damage;
         r.actorHpAfter=std::max<std::int64_t>(std::int64_t(bound.hp)-r.damage,0);
         r.attackOutcome=r.damage ? AttackOutcome::HitPositiveDamage : AttackOutcome::HitZeroDamage;
@@ -972,13 +1030,11 @@ XeenCombatResult XeenCombat::serviceCast(const Ticket &t,std::uint64_t now) {
         }
         const auto &caster=d.character(int(reserved.participant));
         const bool entersDamage=reserved.spell!=20 && reserved.spell!=60 || caster.permanentLevel+caster.temporaryLevel>0;
-        if(stage==XeenCombatCastPhase::Preparing || (stage==XeenCombatCastPhase::Projectile && !c.arrow->resisted && entersDamage)) {
+        if(stage==XeenCombatCastPhase::Projectile && !c.arrow->resisted && entersDamage) {
             d.probeFor(t);d.checkCastReservation(t,reserved,true);
-            if(stage==XeenCombatCastPhase::Projectile)
-                d.world.scenePresentation().spellImpact(bound,*XeenLearnedSpellRules::supported(std::uint8_t(reserved.spell)));
-            c.view.phase=stage==XeenCombatCastPhase::Preparing ? XeenCombatCastPhase::Projectile :
-                r.damage ? XeenCombatCastPhase::Impact : XeenCombatCastPhase::PostImpact;
-            if(stage!=XeenCombatCastPhase::Preparing)++c.view.projectileRow;
+            d.world.scenePresentation().spellImpact(bound,*XeenLearnedSpellRules::supported(std::uint8_t(reserved.spell)));
+            c.view.phase=r.damage ? XeenCombatCastPhase::Impact : XeenCombatCastPhase::PostImpact;
+            ++c.view.projectileRow;
             c.presented=false;c.operation=r;++d.generation;return d.adopt(r,Status::Pending);
         }
         if(stage==XeenCombatCastPhase::Impact) {
@@ -1111,10 +1167,20 @@ XeenCombatResult XeenCombat::serviceConsequences(const Ticket &t) {
 			c.result=d.observation(Status::Pending);c.result.oldRevision=d.revision();c.result.participant=d.turn;
 			c.result.operation=Operation::EnemyAttack;c.result.actingMonster=d.contact.at(d.turn-6);c.result.monster=*c.result.actingMonster;
 			c.enemy.emplace(d.characters(),d.inputs,*d.actors.at(c.result.monster.recordIndex).statistics,d.party.encounterContext->year,d.participants,d.blocked);
+			c.sequenced=d.presentedAttacks;c.enemy->deferInjury=c.sequenced;
+			if(c.sequenced) {
+				c.result.attackOutcome=AttackOutcome::Pending;c.result.attackStage=XeenCombatAttackStage::MonsterPose1;
+				++d.generation;return d.adopt(c.result,Status::Pending);
+			}
 		}
 		auto &c=*d.consequences;
 		XeenConsequenceDraw draw{c.rng,64,[&]{d.probeFor(t);}};
 		auto pending=[&] { ++d.generation;return d.adopt(c.result,Status::Pending); };
+		if(c.sequenced && c.result.attackStage==XeenCombatAttackStage::MonsterPose1) {
+			c.result.attackStage=XeenCombatAttackStage::MonsterPose2;c.attackPresented=false;return pending();
+		}
+		if(c.sequenced && c.result.attackStage==XeenCombatAttackStage::MonsterPose2)
+			c.result.attackStage=XeenCombatAttackStage::None;
 		if(c.movement) {
 			if(!c.physicalDone) {
 				if(!c.movement->service(draw)) {
@@ -1144,16 +1210,53 @@ XeenCombatResult XeenCombat::serviceConsequences(const Ticket &t) {
 			if(!c.result.actorHpAfter && d.actors.at(c.result.monster.recordIndex).original.resourceId==6)
 				c.drop.emplace(*d.party.monsterTreasure,c.result.monster.recordIndex);
 			c.physicalDone=true;
+			if(c.sequenced && c.player->damage>0) {
+				c.impactActor=d.actors.at(c.result.monster.recordIndex);
+				// Preflight reward capacity before publishing any partial injury;
+				// actual drop requests and reward stores remain after post-HP.
+				if(!c.result.actorHpAfter) {
+					std::array<const XeenCharacter *,6> owners{};
+					for(unsigned i=0;i<6;++i)owners[i]=&d.character(i);
+					c.lethal=xeenPrepareJourneyLethal(*c.impactActor,owners,d.inputs,d.accounted,d.participants);
+				}
+				c.result.attackStage=XeenCombatAttackStage::PreHp;c.attackPresented=false;return pending();
+			}
+		}
+		if(c.sequenced && c.result.attackStage==XeenCombatAttackStage::PreHp) {
+			d.probeFor(t);
+			d.activeActors().at(c.result.monster.recordIndex).hp=c.result.actorHpAfter;
+			d.actors.at(c.result.monster.recordIndex).hp=c.result.actorHpAfter;
+			d.rng=c.rng;d.expectedRandom=d.session()._journeyRandom=c.rng.continuation();
+			c.result.attackStage=XeenCombatAttackStage::PostHp;c.attackPresented=false;
+			d.published();return d.adopt(c.result,Status::Pending);
 		}
 		if(c.drop && !c.drop->service(draw)) return pending();
-		if(c.enemy && !c.enemy->service(draw)) return pending();
+        if(c.enemy && c.sequenced) {
+            if(c.result.attackStage==XeenCombatAttackStage::MonsterDamageOverlay) {
+                c.enemy->injuryAcknowledged=true;c.result.attackStage=XeenCombatAttackStage::None;
+            } else if(c.result.attackStage==XeenCombatAttackStage::MonsterDamageHold)
+                c.result.attackStage=XeenCombatAttackStage::None;
+            if(!c.enemy->service(draw)) {
+                if(c.enemy->injuryReady || c.enemy->injuryApplied) {
+                    c.result.targetOwner=c.enemy->impactOwner;c.result.portraitDamageSequence=true;
+                    c.result.attackOutcome=AttackOutcome::Pending;
+                    c.result.attackStage=c.enemy->injuryReady?XeenCombatAttackStage::MonsterDamageOverlay:XeenCombatAttackStage::MonsterDamageHold;
+                    c.result.injuries=c.enemy->result.injuries;c.result.additionalInjuries=c.enemy->result.additionalInjuries;c.result.injuryCount=c.enemy->result.injuryCount;
+                    d.probeFor(t);d.publishCharacters(c.enemy->characters);
+                    d.rng=c.rng;d.expectedRandom=d.session()._journeyRandom=c.rng.continuation();
+                    c.enemy->injuryApplied=false;c.attackPresented=false;d.published();return d.adopt(c.result,Status::Pending);
+                }
+                return pending();
+            }
+        } else if(c.enemy && !c.enemy->service(draw))return pending();
 		auto r=c.result;
+		r.attackStage=XeenCombatAttackStage::None;r.portraitDamageSequence=c.enemy && c.sequenced;
 		if(c.run) { r.runRoll=c.run->roll;r.runSuccess=c.run->success;r.participantsAfter=r.runSuccess ? d.participants & ~(1u<<d.turn) : d.participants; }
 		if(c.drop){r.monsterDrop=c.drop->outcome;r.generatedItem=c.drop->generated;r.generatedArmor=c.drop->armor;}
 		std::optional<XeenJourneyLethal> lethal;std::set<XeenMonsterIdentity> expectedAccounting;
 		if(c.player && !r.actorHpAfter) {
 			std::array<const XeenCharacter *,6> owners{};for(unsigned i=0;i<6;++i) owners[i]=&d.character(i);
-			lethal=xeenPrepareJourneyLethal(d.actors.at(r.monster.recordIndex),owners,d.inputs,d.accounted,d.participants);
+			lethal=c.lethal ? *c.lethal : xeenPrepareJourneyLethal(d.actors.at(r.monster.recordIndex),owners,d.inputs,d.accounted,d.participants);
 			expectedAccounting=lethal->accounted;
 			for(unsigned i=0;i<6;++i) if(lethal->experience[i]!=d.inputs[i].experience)
 				r.xp.at(r.xpCount++)={d.owners[i],d.inputs[i].experience,lethal->experience[i]};

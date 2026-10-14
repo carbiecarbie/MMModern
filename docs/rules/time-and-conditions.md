@@ -79,6 +79,35 @@ already waiting only for draw completion returns to the input poll
 before another semantic draw can begin, including a threshold crossed between
 admission and idle (`0x0d1c3..0x0d1c9`). Retained work keeps its existing idle owner.
 
+### Synchronous presentation intervals
+
+**DOS static, calibrated against the title, dream, death and Gunther captures.**
+These waits use the shared presentation clock; they never advance calendar time.
+An interruptible wait ends at its threshold or an admitted input poll. An
+uninterruptible wait retains input until the original poll, while the host
+continues servicing close/focus events. A late wake advances one acquired phase,
+without replaying missed draws.
+
+| Caller | Interval and causal order |
+| --- | --- |
+| World YesNo/WhoWill | Outer one-tick wait; locations use three. These outer waits are interruptible (`0x24bd7..0x24c16`, `0x251a3..0x25262`). |
+| NPC | Three ticks, draw, reset, then input poll. The inner wait is uninterruptible. Page changes retain the running CD interval (`0x25b8f..0x25bad`). Each fresh invocation resets its local playback guard (`0x256ec`, `0x25ae8..0x25af3`). |
+| CD speech | Decode MMSSFF as 75-Hz frames; duration is exactly `(end-start+25)/75` seconds from playback call. Mode 2 starts/replaces playback and returns without stopping (`0x25aa8`); ordinary final dismissal stops (`0x25c94`). An all-zero cue neither starts nor stops (`0x3da98..0x3daa7`). WhoWill keeps the passive face; Event cleanup closes its window without an audio stop. Busy polls choose `R(0,3)` from the existing Journey RNG; idle uses face zero without a random request. See [capture limits](evidence.md#death-and-cd-speech-captures-2026-10-13). |
+| Shops | Poll input before the three-tick wait, so input may end it early. While the current sample is active, Bank chooses `R(7,11)`, Smith `R(5,7)`, Temple `R(2,4)`, Training `R(8,12)`. Smith replaces base art while its logical base index still advances. Guild and Tavern have no Clouds speaking choice. |
+| Sparkle | Complete four frames for one recipient before the next. Each frame waits two outer ticks in window 11, otherwise one plus nested draw3d. Suspend and restore the actor countdown (`0x21087..0x21186`). Window 11 directly publishes the sparkle without nested draw3d, so NPC face activity also waits until this helper returns. A later grant invokes its own four frames even for an earlier recipient. |
+| Damage | Monster recipients each have a two-tick uninterruptible hold. Generic Event/trap damage publishes overlay and injury in recipient order, then shares one final two-tick hold (`0x23f73`, `0x2d6c4`, `0x264ed`). |
+| Title | Thirteen phases; phase zero is background alone. The first CD fade uses step four. Publish phase one after the acquired final fade level, then use interruptible four-tick idle waits (`0x0be9a..0x0bf8d`). |
+| Party death | Eighteen fire publications have retrace cost and no explicit BIOS hold. Laugh iterations use two ticks and sample status, one restart at index ten, maximum executed frame 21, and no sound tail. Closing hands use one-tick interruptible waits; fade out with step four, then return to the World title established by capture. |
+
+Silent VOC gates derive duration from sample count and header rate. The installed
+samples use a 68-microsecond period; a new sample replaces the previous interval,
+and stop/completion clears activity without requiring an audio mixer. Greetings
+do not impose an uninterruptible delay. Action/refusal samples replace greetings;
+Tavern goodbye retains the last screen until its sample completes, without
+advancing a shop animation. Speaking draws occur before later service-day
+generation, so an early input can change how many visual RNG requests precede
+that gameplay work. Retain chosen results across composition failure/retry.
+
 ## Eight-hour condition block
 
 **Evidence: Mixed.** The order and branches below are verified in

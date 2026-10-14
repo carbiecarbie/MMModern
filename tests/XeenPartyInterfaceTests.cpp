@@ -1,4 +1,5 @@
 #include "XeenTestInstallation.h"
+#include "formats/xeen/XeenVocDuration.h"
 #include "XeenTrainingTestSupport.h"
 #include "games/xeen/XeenJourneyRules.h"
 #include "games/xeen/XeenCharacterRules.h"
@@ -13,6 +14,9 @@ struct XeenPartyInterfaceTestAccess {
  static auto shootEligible(const XeenEventFlow &f){return f._encounter->_shoot->eligible;}
  static auto lanes(const XeenEventFlow &f){return f._encounter->_projectiles;}
  static bool reward(const XeenEventFlow &f){return f._encounter->monsterReward();}
+ static auto rewardPhase(const XeenEventFlow &f){return f._encounter->_monsterReceipt->phase;}
+ static unsigned rewardCursor(const XeenEventFlow &f){return f._encounter->_monsterReceipt->cursor;}
+ static std::uint64_t rewardInputDeadline(const XeenEventFlow &f){return f._ordinary.deadline;}
  static bool exchanging(const XeenEventFlow &f){return f._exchange;}
  static auto optionMember(const XeenEventFlow &f){return f._quickFightMember;}
  static bool restComplete(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Complete;}
@@ -92,7 +96,7 @@ void reorderedTimeAndRest(Inputs &in) {
  for(unsigned n=0;n<6;++n){const auto owner=source.activeRosterIds[n];check(xeen_state::sameCharacter(ticks.p.roster.at(owner),oracle.characters[n]) && xeen_state::sameInputs(*ticks.p.roster.combatInputs(owner),oracle.inputs[n]),"Condition ticks read/write captured order");}
  check(ticks.w.sessionState().journeyRandom()==rng.continuation(),"Reordered condition tick RNG order");
  source=exchanged.snapshot();source.food=2;for(auto owner:source.activeRosterIds){source.characters[owner].currentHp=1;source.characters[owner].currentSp=0;}
- Fixture rest(in,source);rest.flow->loadRestDream=[&]{return in.assets.restDreamImage();};rest.act(RestAction{});quiet(rest);
+ Fixture rest(in,source);rest.flow->loadRestDream=[&]{return in.assets.restDreamImage();};rest.flow->loadSampleDuration=[&](const char *name,XeenSceneArchive archive){return xeenVocDurationNanoseconds(in.assets.readArchiveResource(name,archive));};rest.act(RestAction{});quiet(rest);
  check(rest.p.food==0,"Scarce food consumed");
  for(unsigned n=0;n<6;++n){const auto &c=rest.p.roster.at(source.activeRosterIds[n]);check(c.currentHp==(n<2?XeenCharacterRules::maxHp(c,{rest.p.encounterContext->year}):1),"Rest feeds current positions and writes to owners");}
 }
@@ -228,20 +232,46 @@ void orderedShootBarrierTreasure(Inputs &in) {
   Fixture loot(in,start);const auto gold=loot.p.monsterTreasure->gold;
   loot.act(NavigationAction::TurnLeft);for(unsigned n=0;n<100 && !XeenPartyInterfaceTestAccess::reward(*loot.flow);++n)pulse(loot);
   check(XeenPartyInterfaceTestAccess::reward(*loot.flow),"Reordered treasure delivery admitted");
-  if(!full) {
-   check(loot.p.roster.at(start.activeRosterIds[0]).armor[0].id==2 && loot.p.roster.at(start.activeRosterIds[0]).miscellaneous[0].id==9,"Existing records delivered both items to first current owner");
-   for(unsigned n=1;n<6;++n)check(!loot.p.roster.at(start.activeRosterIds[n]).armor[0].id,"Treasure does not use default first owner");
-  }
-  const auto pages=loot.flow->presenter().pageCount();check(pages==(full?2u:3u),"Monster warning/items/final progression");
-  for(unsigned page=0;page<pages;++page) {
-   check(XeenPartyInterfaceTestAccess::reward(*loot.flow) && loot.p.monsterTreasure->gold==gold && !loot.flow->canSave(),"Warning/item pages cannot credit currency or expose saving");
+  using RewardPhase=XeenMonsterDeliveryCandidate::Phase;
+  const auto random=loot.w.sessionState().journeyRandom();
+  const auto recipient=start.activeRosterIds[0];
+  const unsigned phases=full?2:5;
+  for(unsigned phase=0;phase<phases;++phase) {
+   const auto expected=full?(phase?RewardPhase::Final:RewardPhase::Warning):
+    phase==4?RewardPhase::Final:phase%2?RewardPhase::Found:RewardPhase::Blank;
+   check(XeenPartyInterfaceTestAccess::reward(*loot.flow) &&
+    XeenPartyInterfaceTestAccess::rewardPhase(*loot.flow)==expected &&
+    loot.p.monsterTreasure->gold==gold && !loot.flow->canSave() &&
+    loot.w.sessionState().journeyRandom()==random,"Warning/item/final phases preserve currency, RNG and save fence");
+   if(!full) {
+    // Transfer writes the original tail before Blank; Found compacts it.
+    XeenItemCategory armor{},miscellaneous{};
+    armor[phase==0?8:0]={0,2,0,0};
+    if(phase>=2)miscellaneous[phase==2?8:0]={2,9,7,0};
+    check(xeen_state::sameItemCategory(loot.p.roster.at(recipient).armor,armor) &&
+     xeen_state::sameItemCategory(loot.p.roster.at(recipient).miscellaneous,miscellaneous),
+     "Existing records publish one item at a time to first current owner");
+    for(unsigned n=1;n<6;++n) {
+     const auto owner=start.activeRosterIds[n];
+     check(xeen_state::sameItemCategory(loot.p.roster.at(owner).armor,start.characters[owner].armor) &&
+      xeen_state::sameItemCategory(loot.p.roster.at(owner).miscellaneous,start.characters[owner].miscellaneous),
+      "Treasure does not use default first owner");
+    }
+   }
    const auto oldFrame=loot.flow->frame().presentation();const auto oldInput=loot.flow->displayedInput();
    const auto input=loot.flow->inputContext(oldFrame).dialog;
    check(input && input->key('z') && input->click(0,0) && input->rightClick(),"Monster treasure key/either-mouse acknowledgment");
-   loot.act(page%2?*input->rightClick():*input->key('z'));
-   if(page+1<pages) {
+   // A response may interrupt an item hold after the original draw/input
+   // boundary; every phase is still individually acquired by Fixture::act.
+   loot.now=std::max(loot.now,PresentationClock::ceilMilliseconds(XeenPartyInterfaceTestAccess::rewardInputDeadline(*loot.flow)));
+   loot.act(phase%2?*input->rightClick():*input->key('z'));
+   if(phase+1<phases) {
+    const auto retained=XeenPartyInterfaceTestAccess::rewardPhase(*loot.flow);
+    const auto cursor=XeenPartyInterfaceTestAccess::rewardCursor(*loot.flow);
     loot.flow->handle(AcknowledgeAction{},oldInput,oldFrame);
-    check(loot.flow->presenter().pageIndex()==page+1 && loot.p.monsterTreasure->gold==gold,"Stale page input cannot skip or credit treasure");
+    check(XeenPartyInterfaceTestAccess::rewardPhase(*loot.flow)==retained &&
+     XeenPartyInterfaceTestAccess::rewardCursor(*loot.flow)==cursor && loot.p.monsterTreasure->gold==gold &&
+     loot.w.sessionState().journeyRandom()==random,"Stale phase input cannot skip, credit treasure or consume RNG");
    }
   }
   check(!XeenPartyInterfaceTestAccess::reward(*loot.flow) && loot.p.monsterTreasure->gold==gold+20,"Final acknowledgment credits retained currency exactly once");

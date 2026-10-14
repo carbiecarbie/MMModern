@@ -1,4 +1,5 @@
 #include "XeenTestInstallation.h"
+#include "formats/xeen/XeenVocDuration.h"
 #include "XeenTrainingTestSupport.h"
 #include "games/xeen/XeenIndoorScene.h"
 #include "games/xeen/XeenObjectVisual.h"
@@ -11,6 +12,13 @@
 namespace mmodern {
 struct XeenCityEventTestAccess {
  static void composer(XeenEventFlow &flow,XeenEventFlow::TransitionCompose compose){flow._transitionCompose=std::move(compose);}
+ static std::uint64_t portraitDeadline(const XeenEventFlow &flow){return PresentationClock::ceilMilliseconds(flow._portraitSequence->deadline);}
+ static std::uint64_t npcDeadline(const XeenEventFlow &flow){return PresentationClock::ceilMilliseconds(flow._npcSequence->deadline);}
+ static bool handoff(const XeenEventFlow &flow){return flow._handoffPending;}
+ static unsigned portraitFrame(const XeenEventFlow &flow){return flow._portraitSequence?flow._portraitSequence->frame:4;}
+ static bool portrait(const XeenEventFlow &flow){return bool(flow._portraitSequence);}
+ static auto portraitStage(const XeenEventFlow &flow){return flow._portraitSequence->effect.stage;}
+ static unsigned countdown(const XeenEventFlow &flow){return flow._encounter->state().pending();}
  static void presenter(XeenEventFlow &flow,XeenEventFlow::EncounterCompose compose){flow._encounterCompose=std::move(compose);}
 };
 }
@@ -20,11 +28,25 @@ std::string stage="rules";
 struct Fixture : training_test::Fixture {
  Fixture(Inputs &in,const XeenSaveSnapshot &source,bool animated=false,const XeenEventFile *city=nullptr):
   training_test::Fixture(in,source,animated,city,{},{},[&in](auto &f,auto portrait,auto phase){in.assets.drawNpc(f,portrait,phase);}) {
-  flow->loadRestDream=[]{return frame();};
+  flow->loadRestDream=[&in]{return in.assets.restDreamImage();};
+  // These mechanics fixtures intentionally leave shop samples unavailable;
+  // original Rest sequences use their actual archive/header durations.
+  flow->loadSampleDuration=[&in](const char *name,XeenSceneArchive archive)->std::uint64_t {
+   if(std::string(name)!="dreams2.voc" && std::string(name)!="laff1.voc")return 0;
+   return xeenVocDurationNanoseconds(in.assets.readArchiveResource(name,archive));
+  };
   flow->drawGuildArt=[&in](auto &image){in.assets.drawGuild(image);};
   flow->drawSmithArt=[&in](auto &image){in.assets.drawSmith(image);};
   flow->drawTavernArt=[&in](auto &image){in.assets.drawTavern(image);};
   flow->tavernFoodOffer=[&in]{return in.assets.tavernFoodOffer();};
+ }
+ void act(PlayerAction action) {
+  for(unsigned n=0;n<100 && !flow->inputContext(flow->frame().presentation()).readyForAction;++n) {
+   now+=125;flow->beginCycle(++cycle);
+   if(flow->inputContext(flow->frame().presentation()).readyForAction)break;
+   if(auto next=flow->updatePresentation())present(*next);
+  }
+  training_test::Fixture::act(std::move(action));
  }
 };
 XeenEventRecord record(unsigned line,unsigned opcode,std::vector<std::uint8_t> params={}) {
@@ -38,6 +60,7 @@ XeenSaveSnapshot at(Inputs &in,int x,int y,XeenDirection direction=XeenDirection
 }
 void settle(Fixture &f,const std::function<void()> &beforeInput={}) {
  for(unsigned n=0;n<10000 && !f.flow->canSave();++n) {
+  f.now+=125;f.flow->beginCycle(++f.cycle);
   if(beforeInput)beforeInput();
   if(const auto combat=f.flow->encounter()->combat()) {
    if(combat->phase()==XeenCombatPhase::Defeat || combat->phase()==XeenCombatPhase::Failed ||
@@ -46,19 +69,26 @@ void settle(Fixture &f,const std::function<void()> &beforeInput={}) {
   } else {
    const auto input=f.flow->inputContext(f.flow->frame().presentation());
    const auto pending=f.flow->presentationGeneration()?std::optional<XeenEventExecutionState>{XeenTrainingTestAccess::serviceState(*f.flow)}:std::nullopt;
-   if((pending && pending->pendingPresentation->request.response==XeenPresentationResponseRequirement::YesNo) ||
-    (input.dialog && !input.dialog->anyKey && input.dialog->key('y') && input.dialog->key('n')))f.act(YesAction{});
-   else if((input.dialog && input.dialog->anyKey) || f.w.sessionState().journeyActivity()==XeenJourneyActivity::Event ||
-     f.w.sessionState().journeyActivity()==XeenJourneyActivity::Reward)f.act(AcknowledgeAction{});
+   if(input.readyForAction && ((pending && pending->pendingPresentation->request.response==XeenPresentationResponseRequirement::YesNo) ||
+    (input.dialog && !input.dialog->anyKey && input.dialog->key('y') && input.dialog->key('n'))))f.act(YesAction{});
+   else if(input.readyForAction && ((input.dialog && input.dialog->anyKey) || f.w.sessionState().journeyActivity()==XeenJourneyActivity::Event ||
+     f.w.sessionState().journeyActivity()==XeenJourneyActivity::Reward))f.act(AcknowledgeAction{});
   }
-  f.now+=125;f.flow->beginCycle(++f.cycle);
   if(auto next=f.flow->updatePresentation())f.present(*next);
  }
  if(!f.flow->canSave())throw std::runtime_error("Event settlement bound: "+f.flow->encounter()->notice());
 }
 void interact(Fixture &f,bool select=false) {
  f.act(InteractionAction{});
- if(select && f.flow->canCancelInteraction())f.act(SelectMemberAction{0});
+ if(select) {
+  for(unsigned n=0;n<100 && !f.flow->canCancelInteraction() && !f.flow->canSave();++n) {
+   f.now+=125;f.flow->beginCycle(++f.cycle);
+   const auto input=f.flow->inputContext(f.flow->frame().presentation());
+   if(input.readyForAction && input.dialog && input.dialog->anyKey)f.act(AcknowledgeAction{});
+   if(auto next=f.flow->updatePresentation())f.present(*next);
+  }
+  if(f.flow->canCancelInteraction())f.act(SelectMemberAction{0});
+ }
  settle(f);
 }
 void portraitRewards(Inputs &in) {
@@ -77,8 +107,12 @@ void portraitRewards(Inputs &in) {
   XeenEventFile city{28,"maze0028.evt",true,{record(0,0x20,{0,0}),
    record(1,g.all?0x0f:0,g.all?std::vector<std::uint8_t>{0}:std::vector<std::uint8_t>{}),record(2,0x0c,params),record(3,0x12)}};
   Fixture f(in,source,false,&city);const auto before=XeenSaveFormat::encode(f.snapshot());
-  unsigned frames=0;f.flow->drawDialogSprite=[&](auto &image,const char *name,unsigned frame,int x,int y){
-   if(std::string(name)=="spellfx.icn"){check(g.sparkle && y==150,"Unexpected reward sparkle");frames|=1u<<frame;}
+  unsigned frames=0;std::uint32_t owners=0;f.flow->drawDialogSprite=[&](auto &image,const char *name,unsigned frame,int x,int y){
+   if(std::string(name)=="spellfx.icn"){
+    check(g.sparkle && y==150,"Unexpected reward sparkle");frames|=1u<<frame;
+    constexpr int positions[]{10,45,81,117,153,189};const auto found=std::find(std::begin(positions),std::end(positions),x);
+    check(found!=std::end(positions),"Reward sparkle has no native portrait slot");owners|=1u<<source.activeRosterIds[found-std::begin(positions)];
+   }
    in.assets.drawDialogSprite(image,name,frame,x,y);
   };
   f.act(InteractionAction{});const auto staleInput=f.flow->displayedInput();const auto staleFrame=f.flow->frame().presentation();
@@ -86,14 +120,18 @@ void portraitRewards(Inputs &in) {
   check(!frames && !f.w.scenePresentation().feedbackActive() && before==XeenSaveFormat::encode(f.snapshot()),"Cancelled/stale reward started sparkle");
   unsigned attempts=0;
   if(g.mode==16 && g.value==100)XeenCityEventTestAccess::composer(*f.flow,[&](auto &,const auto &,const auto &,auto,auto){
-   if(!attempts++){check(!f.w.scenePresentation().feedbackActive(),"Unpublished reward started live sparkle");throw std::runtime_error("Reward sparkle publication retry");}
+   if(!attempts++){
+    for(auto id:source.activeRosterIds)check(f.p.roster.combatInputs(id)->experience==source.journey->supplements[id].inputs.experience+100,
+     "Final composition preceded the original recipient XP/FX prefixes");
+    throw std::runtime_error("Reward sparkle publication retry");
+   }
    return XeenEventFlow::Composition{frame(),false};
   });
   f.act(InteractionAction{});f.act(SelectMemberAction{selected});settle(f);
-  for(unsigned id=0;id<30;++id){const auto &effect=f.w.scenePresentation().portraits[id];
-   const bool recipient=g.all?std::find(source.activeRosterIds.begin(),source.activeRosterIds.end(),id)!=source.activeRosterIds.end():id==owner;
-   check((effect.spellFrame<4)==(g.sparkle && recipient),"Reward sparkle used wrong roster owner");
-  }
+  std::uint32_t expectedOwners=0;
+  if(g.sparkle)for(auto id:source.activeRosterIds)if(g.all || id==owner)expectedOwners|=1u<<id;
+  check(owners==expectedOwners,"Reward sparkle used the wrong retained roster recipients");
+  for(const auto &effect:f.w.scenePresentation().portraits)check(effect.spellFrame==4,"Quiet boundary preceded reward sparkle completion");
   const auto saved=f.snapshot();Fixture restored(in,saved,false,&city);
   check(!restored.w.scenePresentation().feedbackActive() && XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(restored.snapshot()),"Loading replayed reward sparkle or changed save");
   const auto effects=f.w.scenePresentation().portraits;
@@ -102,6 +140,95 @@ void portraitRewards(Inputs &in) {
   for(unsigned n=0;n<4;++n){f.now+=110;f.flow->beginCycle(++f.cycle);if(auto image=f.flow->updatePresentation())f.present(*image);}
   check(!f.w.scenePresentation().feedbackActive() && frames==(g.sparkle?15u:0u),"Reward did not draw the original four sparkle frames exactly through completion");
  }
+}
+void npcBeforeDeadline(Inputs &in) {
+ stage="Part B NPC idle before its deadline";
+ auto source=at(in,8,18);source.gameFlags[9]=false;Fixture f(in,source);
+ f.act(InteractionAction{});check(f.flow->presentationGeneration().has_value(),"Original NPC did not suspend");
+ const auto frame=f.flow->frame().presentation();const auto input=f.flow->displayedInput();
+ const auto random=f.w.sessionState().journeyRandom();const auto deadline=XeenCityEventTestAccess::npcDeadline(*f.flow);
+ f.now=deadline-1;f.flow->beginCycle(++f.cycle);
+ check(!f.flow->updatePresentation(),"Pre-deadline NPC poll invented a draw");
+ check(!XeenCityEventTestAccess::handoff(*f.flow) && f.flow->acceptsFrame(frame) && f.flow->displayedInput()==input &&
+  f.w.sessionState().journeyRandom()==random,"No-frame NPC poll invalidated acquired input lease or consumed random");
+ settle(f);check(f.flow->canSave(),"NPC stopped accepting the acquired input after a no-frame poll");
+}
+void originalPortraitOrder(Inputs &in) {
+ stage="Part B original synchronous portrait effects";
+ auto source=at(in,20,20);
+ for(auto id:source.activeRosterIds)source.characters[id].skills[4]=0;
+ XeenEventFile city{28,"maze0028.evt",true,{record(0,0x0f,{0}),record(1,0x0c,{0,0,13,4}),record(2,0x12)}};
+ Fixture f(in,source,false,&city);std::vector<std::pair<unsigned,unsigned>> frames;
+ constexpr int positions[]{10,45,81,117,153,189};
+ f.flow->drawDialogSprite=[&](auto &image,const char *name,unsigned frameIndex,int x,int y) {
+  if(std::string(name)=="spellfx.icn") {
+   const auto found=std::find(std::begin(positions),std::end(positions),x);check(found!=std::end(positions) && y==150,"Sparkle portrait position");
+   const unsigned member=found-std::begin(positions);
+   for(unsigned n=0;n<6;++n)check(f.p.roster.at(source.activeRosterIds[n]).skills[4]==unsigned(n<=member),"Later recipient grant preceded earlier synchronous FX");
+   const auto value=std::make_pair(member,frameIndex);if(frames.empty() || frames.back()!=value)frames.push_back(value);
+  }
+  in.assets.drawDialogSprite(image,name,frameIndex,x,y);
+ };
+ f.act(InteractionAction{});check(XeenCityEventTestAccess::portrait(*f.flow),"Grant omitted original synchronous FX");
+ const auto countdown=XeenCityEventTestAccess::countdown(*f.flow);
+ check(!f.flow->canSave() && !f.flow->respond(*f.flow->presentationGeneration(),XeenPresentationResponse::Presented),"External response skipped sparkle");
+ // Escape and redraw cannot progress the helper, and later recipients remain untouched.
+ f.present(f.flow->handle(DialogKeyAction{InputKey::Escape},f.flow->displayedInput(),f.flow->frame().presentation()));
+ check(XeenCityEventTestAccess::portraitFrame(*f.flow)==0,"Escape skipped sparkle");
+ f.now=XeenCityEventTestAccess::portraitDeadline(*f.flow);f.flow->beginCycle(++f.cycle);auto held=f.flow->updatePresentation();check(bool(held),"Two-tick sparkle draw absent");
+ check(XeenCityEventTestAccess::portraitFrame(*f.flow)==1,"Sparkle advanced more than one frame");
+ f.now+=1000;f.flow->beginCycle(++f.cycle);check(!f.flow->updatePresentation(),"Unacquired sparkle frame advanced");
+ f.present(*held);settle(f);
+ check(frames.size()==24,"Sequential sparkle frame count");
+ for(unsigned n=0;n<24;++n)check(frames[n]==std::make_pair(n/4,n%4),"Sparkles did not serialize recipients 0..3");
+ check(XeenCityEventTestAccess::countdown(*f.flow)==countdown && !f.w.scenePresentation().feedbackActive(),"Sparkle changed suspended actor countdown or survived quiet boundary");
+ // Each grant invokes FX again, even for a recipient reached earlier in this Event.
+ XeenEventFile repeated{28,"maze0028.evt",true,{record(0,0x0f,{0}),
+  record(1,0x0c,{0,0,16,1,0,0,0}),record(2,0x0c,{0,0,16,2,0,0,0}),record(3,0x12)}};
+ Fixture twice(in,source,false,&repeated);frames.clear();
+ twice.flow->drawDialogSprite=[&](auto &image,const char *name,unsigned frameIndex,int x,int y) {
+  if(std::string(name)=="spellfx.icn") {
+   const auto found=std::find(std::begin(positions),std::end(positions),x);
+   check(found!=std::end(positions) && y==150,"Repeated grant portrait position");
+   const auto value=std::make_pair(unsigned(found-std::begin(positions)),frameIndex);
+   if(frames.empty() || frames.back()!=value)frames.push_back(value);
+  }
+  in.assets.drawDialogSprite(image,name,frameIndex,x,y);
+ };
+ twice.act(InteractionAction{});settle(twice);
+ check(frames.size()==48,"A later grant lost a recipient's repeated sparkle");
+ for(unsigned n=0;n<48;++n)check(frames[n]==std::make_pair((n%24)/4,n%4),"Repeated grants lost recipient/frame order");
+ for(auto owner:source.activeRosterIds)check(twice.p.roster.combatInputs(owner)->experience==source.journey->supplements[owner].inputs.experience+3,"Repeated grant applied XP more than once");
+ // The generic Event path draws each overlay before its HP store, then has
+ // exactly one two-tick final hold shared by all six recipients (DAT 0x23f73).
+ XeenEventFile hurt{28,"maze0028.evt",true,{record(0,0x0f,{0}),record(1,0x16,{1,0,0}),record(2,0x12)}};
+ Fixture d(in,source,false,&hurt);std::vector<unsigned> overlays;
+ d.flow->drawDialogSprite=[&](auto &image,const char *name,unsigned frameIndex,int x,int y) {
+  if(std::string(name)=="charpow.icn") {
+   const unsigned member=std::find(std::begin(positions),std::end(positions),x)-std::begin(positions);
+   check(member<6 && y==150,"Damage portrait position");
+   if(overlays.empty() || overlays.back()!=member)overlays.push_back(member);
+  }
+  in.assets.drawDialogSprite(image,name,frameIndex,x,y);
+ };
+ d.act(InteractionAction{});
+ const auto retained=XeenTrainingTestAccess::serviceState(*d.flow);
+ XeenEventContinuation bound(retained,true);auto tampered=retained;
+ tampered.portraitDamage->injuryAcknowledged=true;
+ save_test::rejects([&]{bound.check(tampered);});bound.check(retained);
+ tampered=retained;tampered.portraitProgress->next=99;
+ save_test::rejects([&]{bound.check(tampered);});bound.check(retained);
+ for(unsigned member=0;member<6;++member) {
+  check(XeenCityEventTestAccess::portraitStage(*d.flow)==XeenEventPortraitStage::DamageOverlay,"Per-recipient damage introduced a timed hold");
+  for(unsigned n=0;n<6;++n)check(d.p.roster.at(source.activeRosterIds[n]).currentHp==source.characters[source.activeRosterIds[n]].currentHp-int(n<member),"Event HP published before its overlay or later recipient");
+  d.flow->beginCycle(++d.cycle);const auto image=d.flow->updatePresentation();check(bool(image),"Acquired damage overlay did not resume injury");d.present(*image);
+ }
+ check(XeenCityEventTestAccess::portraitStage(*d.flow)==XeenEventPortraitStage::DamageHold,"Generic damage omitted shared final hold");
+ check(!d.flow->canSave(),"Damage became quiet before final hold");
+ const auto finalDeadline=XeenCityEventTestAccess::portraitDeadline(*d.flow);
+ d.now=finalDeadline-1;d.flow->beginCycle(++d.cycle);check(!d.flow->updatePresentation(),"Damage final hold was shorter than two ticks");
+ d.now=finalDeadline;d.flow->beginCycle(++d.cycle);if(auto image=d.flow->updatePresentation())d.present(*image);settle(d);
+ for(auto id:source.activeRosterIds)check(d.p.roster.at(id).currentHp==source.characters[id].currentHp-1,"Damage recipient was lost or applied twice");
 }
 void partA(Inputs &in) {
  stage="M59 Part A staged rules";
@@ -218,7 +345,7 @@ void partA(Inputs &in) {
   return XeenEventFlow::Composition{frame(),false};
  });
  damageRetry.act(InteractionAction{});damageRetry.act(SelectMemberAction{1});
- check(!damageRetry.flow->canSave() && damageRetry.w.sessionState().journeyRandom()==rng && damageRetry.p.roster.at(owner).currentHp==2,"Failed damage composition published HP/RNG");
+ check(!damageRetry.flow->canSave() && damageRetry.w.sessionState().journeyRandom()==random.continuation() && damageRetry.p.roster.at(owner).currentHp==2,"Damage overlay must publish its save RNG before HP injury");
  settle(damageRetry);check(damageAttempts==2 && XeenSaveFormat::encode(damageRetry.snapshot())==XeenSaveFormat::encode(damage.snapshot()),"Damage retry consumed a second draw or reapplied damage");
 
 }
@@ -234,9 +361,12 @@ void rules(Inputs &in) {
  Fixture f(in,s,false,&city);const auto before=XeenSaveFormat::encode(f.snapshot());
  f.act(InteractionAction{});const auto selector=f.flow->frame().presentation();const auto selectorInput=f.flow->displayedInput();
  f.act(CancelInteractionAction{});
- check(f.flow->canSave() && before==XeenSaveFormat::encode(f.snapshot()),"Cancelled candidate published rewards/object");
+ auto cancelledPrefix=XeenSaveFormat::decode(before);
+ cancelledPrefix.journey->supplements[s.activeRosterIds[0]].inputs.experience+=5000;
+ const auto cancelledBytes=XeenSaveFormat::encode(cancelledPrefix);
+ check(f.flow->canSave() && cancelledBytes==XeenSaveFormat::encode(f.snapshot()),"Cancellation lost observed XP prefix or published later rewards/object");
  f.flow->handle(SelectMemberAction{0},selectorInput,selector);
- check(before==XeenSaveFormat::encode(f.snapshot()),"Retired selector published staged rewards");
+ check(cancelledBytes==XeenSaveFormat::encode(f.snapshot()),"Retired selector published staged rewards");
  const auto rng=f.w.sessionState().journeyRandom();
  const auto xp=f.p.roster.combatInputs(0)->experience;
  const auto gold=f.p.monsterTreasure->gold,gems=f.p.monsterTreasure->gems;
@@ -253,7 +383,16 @@ void rules(Inputs &in) {
  f.w.discardMapCache();check(f.w.effectiveObject({28,0}).x==20,"Map cache discarded durable object move");
  for(unsigned field=0;field<8;++field) {
   Fixture tampered(in,s,false,&city);bool injected=false;
+  std::optional<XeenPartyState> authorizedPrefix;
+  std::optional<XeenJourneyRandomState> prefixRandom;
   XeenCityEventTestAccess::composer(*tampered.flow,[&](auto &world,const auto &party,const auto &,auto,auto) {
+   // The final destination composer follows all original reward/FX prefixes.
+   // Retain that independently copied live value, not the private final candidate.
+   check(!world.sessionState().objectOverrides().empty(),"Final candidate lost its staged MoveObj");
+   authorizedPrefix.emplace();world.copyEventParty(tampered.p,*authorizedPrefix);
+   prefixRandom=tampered.w.sessionState().journeyRandom();
+   check(tampered.p.questFlags.isSet(29) && tampered.p.monsterTreasure->gold==gold &&
+    tampered.w.sessionState().objectOverrides().empty(),"Pre-composer reward prefix crossed currency/world settlement");
    injected=true;auto &p=const_cast<XeenPartyState &>(party);
    // Write/restore attacks must remain observable even with identical values.
    if(field==0){auto &a=p.roster.at(0).awards[6];const auto before=std::uint8_t(a);a=1;a=before;}
@@ -267,8 +406,16 @@ void rules(Inputs &in) {
    return XeenEventFlow::Composition{frame(),false};
   });
   tampered.act(InteractionAction{});save_test::rejects([&]{tampered.act(SelectMemberAction{0});settle(tampered);});
-  check(injected && !tampered.flow->canSave() && !tampered.p.questFlags.isSet(29) &&
-   tampered.p.monsterTreasure->gold==gold && tampered.w.sessionState().objectOverrides().empty(),"Stale candidate published world rewards");
+  check(injected && authorizedPrefix && !tampered.flow->canSave() &&
+   tampered.p.questFlags.values()==authorizedPrefix->questFlags.values() && tampered.p.questItems.counts()==authorizedPrefix->questItems.counts() &&
+   tampered.p.monsterTreasure==authorizedPrefix->monsterTreasure && tampered.p.encounterContext==authorizedPrefix->encounterContext &&
+   tampered.p.worldFlags==authorizedPrefix->worldFlags && tampered.p.serviceEconomy==authorizedPrefix->serviceEconomy &&
+   tampered.p.food==authorizedPrefix->food && tampered.p.party.activeRosterIds()==authorizedPrefix->party.activeRosterIds() &&
+   tampered.w.sessionState().journeyRandom()==prefixRandom && tampered.w.sessionState().objectOverrides().empty(),
+   "Stale candidate changed its already authorized prefix or published final world/currency");
+  for(unsigned id=0;id<30;++id)check(xeen_state::sameCharacter(tampered.p.roster.at(id),authorizedPrefix->roster.at(id)) &&
+   xeen_state::sameInputs(*tampered.p.roster.combatInputs(id),*authorizedPrefix->roster.combatInputs(id)),
+   "Stale candidate changed an authorized character/XP prefix");
  }
  Fixture retry(in,s,false,&city);unsigned attempts=0;
  XeenCityEventTestAccess::composer(*retry.flow,[&](auto &,const auto &,const auto &,auto,auto) {
@@ -276,9 +423,11 @@ void rules(Inputs &in) {
   return XeenEventFlow::Composition{frame(),false};
  });
  retry.act(InteractionAction{});retry.act(SelectMemberAction{0});
- check(!retry.flow->canSave() && retry.p.monsterTreasure->gold==gold && !retry.p.questFlags.isSet(29),"Failed presentation lost atomicity");
+ for(unsigned n=0;!attempts && n<8;++n)retry.act(AcknowledgeAction{});
+ check(attempts==1,"Final composition retry fixture did not reach its retained failure boundary");
+ check(!retry.flow->canSave() && retry.p.monsterTreasure->gold==gold && retry.p.questFlags.isSet(29) && retry.w.sessionState().objectOverrides().empty(),"Failed final presentation changed authorized prefixes or published currency/world");
  settle(retry);check(attempts==2 && retry.p.monsterTreasure->gold==gold+4000 &&
-  retry.p.roster.combatInputs(0)->experience==xp+5000,"Presentation retry repeated or lost fixed rewards");
+  retry.p.roster.combatInputs(0)->experience==s.journey->supplements[0].inputs.experience+5000,"Presentation retry repeated or lost fixed rewards");
  const auto once=XeenSaveFormat::encode(retry.snapshot());retry.act(AcknowledgeAction{});retry.act(AcknowledgeAction{});
  check(once==XeenSaveFormat::encode(retry.snapshot()),"Repeated receipt regranted fixed rewards");
  // Unsupported dependencies in called scripts must refuse the whole group.
@@ -331,6 +480,18 @@ void teacherPrompt(Fixture &f) {
   f.now+=125;f.flow->beginCycle(++f.cycle);if(auto image=f.flow->updatePresentation())f.present(*image);
  }
 }
+bool npcRandomOnly(const XeenJourneyRandomState &before,const XeenJourneyRandomState &after) {
+ if(after.count<before.count || after.count-before.count>10000)return false;
+ XeenCombatRandom expected(before);
+ while(expected.continuation().count<after.count)if(!expected.draw(0,3))return false;
+ return expected.continuation()==after;
+}
+bool sameExceptNpcRandom(const std::vector<std::uint8_t> &bytes,XeenSaveSnapshot after) {
+ const auto before=XeenSaveFormat::decode(bytes);
+ if(!npcRandomOnly(*before.journey->random,*after.journey->random))return false;
+ after.journey->random=before.journey->random;
+ return bytes==XeenSaveFormat::encode(after);
+}
 void teachers(Inputs &in) {
  stage="M58 original teachers";
  for(const auto teacher:std::array<std::array<unsigned,4>,2>{{{{8,16,4,100}},{{25,26,11,2000}}}}) {
@@ -346,17 +507,17 @@ void teachers(Inputs &in) {
   check(pending.pendingPresentation->request.verbIndex==6 && pending.pendingPresentation->request.textIndex==(skill==4?54:43),"Original teacher WhoWill text/verb changed");
   const auto deadline=f.flow->presenter().npcTiming().deadline;
   f.now=deadline;f.flow->beginCycle(++f.cycle);if(auto image=f.flow->updatePresentation())f.present(*image);
-  check(f.flow->presenter().npcTiming().deadline>deadline && f.w.sessionState().journeyRandom()==rng,"Teacher WhoWill stopped portrait animation or changed gameplay RNG");
+  check(f.flow->presenter().npcTiming().deadline>deadline && npcRandomOnly(*rng,*f.w.sessionState().journeyRandom()),"Teacher WhoWill stopped portrait animation or changed gameplay RNG");
   const auto staleInput=f.flow->displayedInput();const auto staleFrame=f.flow->frame().presentation();
-  f.act(CancelInteractionAction{});check(f.flow->canSave() && before==XeenSaveFormat::encode(f.snapshot()),"Cancelled teacher published state");
+  f.act(CancelInteractionAction{});check(f.flow->canSave() && sameExceptNpcRandom(before,f.snapshot()),"Cancelled teacher published state");
   f.flow->handle(SelectMemberAction{selected},staleInput,staleFrame);
-  check(before==XeenSaveFormat::encode(f.snapshot()),"Retired teacher selection spent gold or taught");
+  check(sameExceptNpcRandom(before,f.snapshot()),"Retired teacher selection spent gold or taught");
   for(unsigned lesson=1;lesson<=2;++lesson) {
    teacherPrompt(f);check(f.flow->canCancelInteraction(),"Repeated teacher WhoWill unavailable");
    f.act(SelectMemberAction{selected});settle(f);
-   check(f.w.scenePresentation().portraits[owner].spellFrame<4,"Original teacher did not sparkle selected portrait");
+   check(f.w.scenePresentation().portraits[owner].spellFrame==4,"Original teacher did not sparkle selected portrait");
    check(f.p.roster.at(owner).skills[skill]==lesson && f.p.monsterTreasure->gold==price*(3-lesson),"Original paid lesson debit/increment changed");
-   check(f.w.sessionState().journeyRandom()==rng && *f.p.encounterContext==*time,"Teacher changed RNG/time");
+   check(npcRandomOnly(*rng,*f.w.sessionState().journeyRandom()) && *f.p.encounterContext==*time,"Teacher changed RNG/time");
    check(f.p.roster.at(owner).currentHp==source.characters[owner].currentHp &&
     f.p.roster.at(owner).currentSp==source.characters[owner].currentSp &&
     f.p.roster.at(owner).permanentLevel==source.characters[owner].permanentLevel,"Learning refilled HP/SP or trained a level");
@@ -377,13 +538,13 @@ void teachers(Inputs &in) {
    const auto preimage=XeenSaveFormat::encode(b.snapshot());
    teacherPrompt(b);b.act(SelectMemberAction{selected});settle(b);
    check(b.p.roster.at(owner).skills[skill]==(gold==price?1:0) && b.p.monsterTreasure->gold==(gold==price?0:gold),"Teacher gold boundary changed");
-   if(gold<price)check(preimage==XeenSaveFormat::encode(b.snapshot()),"Insufficient lesson changed durable state");
+   if(gold<price)check(sameExceptNpcRandom(preimage,b.snapshot()),"Insufficient lesson changed durable state");
   }
   auto blocked=in.city;
   for(auto &r:blocked.records)if(r.x==x && r.y==y && r.line==6)r.parameters.back()=1;
   Fixture unsupported(in,source,false,&blocked);const auto unchanged=XeenSaveFormat::encode(unsupported.snapshot());
   interact(unsupported);
-  check(unchanged==XeenSaveFormat::encode(unsupported.snapshot()) && unsupported.flow->canSave(),"Unsupported dependent skill spent gold or changed world/time/RNG");
+  check(sameExceptNpcRandom(unchanged,unsupported.snapshot()) && unsupported.flow->canSave(),"Unsupported dependent skill spent gold or changed world/time/RNG");
  }
 }
 void originalVisualRegressions(Inputs &in) {
@@ -430,9 +591,9 @@ void originalEvents(Inputs &in) {
  for(auto owner:gunther.p.party.activeRosterIds())check(gunther.p.roster.at(owner).awards[6]==1 &&
   gunther.p.roster.combatInputs(owner)->experience==xp[owner]+5000,"Original Gunther XP/award lost member");
  const auto awarded=gunther.snapshot();interact(gunther);
- check(XeenSaveFormat::encode(gunther.snapshot())==XeenSaveFormat::encode(awarded),"Repeated Gunther regranted reward or erased next quest");
+ check(sameExceptNpcRandom(XeenSaveFormat::encode(awarded),gunther.snapshot()),"Repeated Gunther regranted reward or erased next quest");
  Fixture reload(in,awarded);interact(reload);
- check(XeenSaveFormat::encode(reload.snapshot())==XeenSaveFormat::encode(awarded),"Reload replayed Gunther rewards");
+ check(sameExceptNpcRandom(XeenSaveFormat::encode(awarded),reload.snapshot()),"Reload replayed Gunther rewards");
  for(const auto xy:std::vector<std::pair<int,int>>{{8,18},{11,18}}) {
   auto saved=awarded;saved.camera={28,xy.first,xy.second,XeenDirection::West};Fixture joe(in,saved);
   bool absent=false;const auto text=in.texts.load(28).strings[xy.first==8?49:15];
@@ -485,7 +646,7 @@ void treasure(Inputs &in) {
   check(!f.flow->canSave() && !XeenSaveState::canCapture(f.p,f.c,f.w) &&
    f.p.monsterTreasure->gold==oldGold && f.p.monsterTreasure->gems==oldGems &&
    !f.f.isSet(199) && f.w.sessionState().objectOverrides().empty() &&
-   f.w.sessionState().journeyRandom()==oracle.w.sessionState().journeyRandom(),"Reward page published candidate early");
+   f.w.sessionState().journeyRandom()==random.continuation(),"Reward prefix lost its observed generation RNG or published final world/currency early");
   unsigned attempts=0;
   XeenCityEventTestAccess::composer(*f.flow,[&](auto &,const auto &,const auto &,auto,auto) {
    if(++attempts==1)throw std::runtime_error("Recoverable generated reward composition failure");
@@ -496,7 +657,7 @@ void treasure(Inputs &in) {
    if(!f.flow->presentationGeneration())return;
    check(f.p.monsterTreasure->gold==oldGold && f.p.monsterTreasure->gems==oldGems,"Every Event treasure page keeps live currency private until final acknowledgment");
    const auto state=XeenTrainingTestAccess::serviceState(*f.flow);
-   if(state.pendingPresentation->request.kind==XeenPresentationKind::RewardReceipt &&
+   if(state.rewardPhase==XeenRewardPhase::Receipt && state.pendingPresentation->request.kind==XeenPresentationKind::RewardReceipt &&
     f.flow->presenter().blocksGameplay() && f.flow->presenter().pageIndex()+1==f.flow->presenter().pageCount())finalSeen=true;
   });
   check(finalSeen,"Generated Event reward reaches a separate final acknowledgment");
@@ -661,7 +822,7 @@ void partAOriginal(Inputs &in) {
  stage="M59 original well before proof";source=at(in,14,17);source.gameFlags[9]=false;
  Fixture poison(in,source);const auto selected=poison.p.party.activeRosterIds()[1];
  poison.act(InteractionAction{});check(poison.flow->canCancelInteraction(),"Well WhoWill absent");
- poison.act(SelectMemberAction{1});
+ poison.act(SelectMemberAction{1});settle(poison);
  check(poison.flow->canSave() && !poison.flow->presentationGeneration(),"Before-proof well showed a message");
  check(poison.p.roster.at(selected).conditions[3]==source.characters[selected].conditions[3],"Poison damage applied Poison condition");
  for(unsigned n=0;n<poison.p.party.size();++n)if(n!=1)check(poison.p.roster.at(poison.p.party.activeRosterIds()[n]).currentHp==source.characters[source.activeRosterIds[n]].currentHp,"Well damaged another member");
@@ -671,6 +832,9 @@ void partAOriginal(Inputs &in) {
   healed.characters[selected].currentHp=max+boundary;Fixture well(in,healed);
   std::vector<unsigned> messages;std::string refreshText;well.flow->reportManual=[&](const auto &r){if(const auto *p=std::get_if<XeenEventExecutionSuspended>(&r))if(p->request.textIndex==52 || p->request.textIndex==62){messages.push_back(*p->request.textIndex);refreshText=p->request.text;}};
   well.act(InteractionAction{});well.act(SelectMemberAction{1});
+  while(XeenCityEventTestAccess::portrait(*well.flow)) {
+   well.now+=125;well.flow->beginCycle(++well.cycle);if(auto image=well.flow->updatePresentation())well.present(*image);
+  }
   check(!well.flow->canSave() && well.flow->presentationGeneration(),"Well success/alternate text absent");
   const auto pending=XeenTrainingTestAccess::serviceState(*well.flow);
   if(messages!=std::vector<unsigned>{unsigned(boundary<=0?52:62)} || pending.pendingPresentation->request.response!=XeenPresentationResponseRequirement::Acknowledgment) {
@@ -679,7 +843,7 @@ void partAOriginal(Inputs &in) {
    throw std::runtime_error(diagnostic);
   }
   if(boundary<=0)check(refreshText.find("You feel refreshed")!=std::string::npos,"Well original refreshed text differs");
-  check(!well.p.worldFlags->values[23] && well.p.roster.at(selected).currentHp==max+boundary,"Well published before acknowledgment");
+  check(!well.p.worldFlags->values[23] && well.p.roster.at(selected).currentHp==(boundary<=0?max:max+1),"Well HP prefix or deferred flag preceded its original point");
   settle(well);
   check(well.p.roster.at(selected).currentHp==(boundary<=0?max:max+1) && bool(well.p.worldFlags->values[23])==(boundary<=0),"Well healing cap/alternate flag order");
   for(unsigned n=0;n<well.p.party.size();++n)if(n!=1)check(well.p.roster.at(well.p.party.activeRosterIds()[n]).currentHp==healed.characters[healed.activeRosterIds[n]].currentHp,"Well healed another member");
@@ -700,7 +864,7 @@ void originalJourney(Inputs &in) {
  check(questPortraits.size()==f.p.party.size(),"Original quest XP did not sparkle every party portrait");
  check(f.f.isSet(10) && f.p.monsterTreasure->gold==gold+4000 && f.p.questFlags.isSet(1),"New Game Gunther reward missing");
  const auto awarded=XeenSaveFormat::encode(f.snapshot());interact(f);
- check(awarded==XeenSaveFormat::encode(f.snapshot()),"New Game repeat Gunther regranted rewards");
+ check(sameExceptNpcRandom(awarded,f.snapshot()),"New Game repeat Gunther regranted rewards");
  stage="New Game crate";walk(f,9,28);
  check(f.w.effectiveObject({28,8}).resourceId==95 && f.w.effectiveObject({28,8}).x==-128 &&
   f.w.effectiveObject({28,8}).y==-128,"Original open-crate overlay source differs");
@@ -804,23 +968,24 @@ void partBVernGuild(Inputs &in) {
  }
  const auto staleFrame=f.flow->frame().presentation();const auto staleInput=f.flow->displayedInput();
  f.act(NoAction{});check(f.p.monsterTreasure->gold==75 && f.p.roster.at(owner).awards[0]==0,"No charged Vern dues");
- f.act(DialogKeyAction{InputKey::Escape});settle(f);check(initial==XeenSaveFormat::encode(f.snapshot()),"Vern cancellation changed state");
- f.flow->handle(SelectMemberAction{selected},staleInput,staleFrame);check(initial==XeenSaveFormat::encode(f.snapshot()),"Stale Vern selection charged dues");
+ f.act(DialogKeyAction{InputKey::Escape});settle(f);check(sameExceptNpcRandom(initial,f.snapshot()),"Vern cancellation changed state");
+ f.flow->handle(SelectMemberAction{selected},staleInput,staleFrame);check(sameExceptNpcRandom(initial,f.snapshot()),"Stale Vern selection charged dues");
  for(unsigned n=1;n<=2;++n) {
   teacherPrompt(f);const auto controls=f.flow->inputContext(f.flow->frame().presentation()).dialog;
   check(controls && controls->hits.size()==6 && controls->key(InputKey::F1+selected),"WhoWill lacks original portrait/keyboard input");
   const auto choice=n==1?controls->click(118,151):controls->key(InputKey::F1+selected);
   check(bool(choice),"WhoWill portrait hit absent");f.act(*choice);settle(f);
-  check(f.w.scenePresentation().portraits[owner].spellFrame<4,"Vern membership did not sparkle selected portrait");
+  check(f.w.scenePresentation().portraits[owner].spellFrame==4,"Vern reached quiet boundary before its sparkle finished");
   check(f.p.monsterTreasure->gold==75-25*n && f.p.roster.at(owner).awards[0]==1,"Vern repeat payment/award differs");
   for(auto id:f.p.party.activeRosterIds())if(id!=owner)check(f.p.roster.at(id).awards[0]==0,"Vern enrolled an unselected owner");
-  check(f.w.sessionState().journeyRandom()==random && f.p.encounterContext==time,"Vern changed time/RNG");
+  check(f.p.encounterContext==time,"Vern changed gameplay time");
+  check(npcRandomOnly(*random,*f.w.sessionState().journeyRandom()),"Vern consumed random requests beyond original NPC animation");
  }
  for(unsigned gold:{24u,25u}) {
   auto boundary=source;boundary.journey->treasure->gold=gold;Fixture b(in,boundary);const auto before=XeenSaveFormat::encode(b.snapshot());
   teacherPrompt(b);b.act(SelectMemberAction{selected});settle(b);
   check(b.p.monsterTreasure->gold==(gold==25?0:24) && b.p.roster.at(owner).awards[0]==(gold==25),"Vern exact/insufficient gold boundary");
-  if(gold==24)check(before==XeenSaveFormat::encode(b.snapshot()),"Insufficient Vern dues changed state");
+  if(gold==24)check(sameExceptNpcRandom(before,b.snapshot()),"Insufficient Vern dues changed state");
  }
  auto disabled=source;disabled.characters[owner].conditions[8]=1;Fixture blocked(in,disabled);
  const auto unchanged=XeenSaveFormat::encode(blocked.snapshot());teacherPrompt(blocked);
@@ -830,7 +995,7 @@ void partBVernGuild(Inputs &in) {
  blocked.act(DialogKeyAction{InputKey::Escape});
  check(blocked.flow->canCancelInteraction() && !blocked.flow->canSave() && blocked.flow->inputContext(blocked.flow->frame().presentation()).dialog->key(InputKey::F1),"Refusal acknowledgment cancelled WhoWill or selected a member");
  blocked.act(DialogKeyAction{InputKey::Escape});settle(blocked);
- check(unchanged==XeenSaveFormat::encode(blocked.snapshot()),"Disabled WhoWill selection spent time/gold/RNG or enrolled a member");
+ check(sameExceptNpcRandom(unchanged,blocked.snapshot()),"Disabled WhoWill selection spent time/gold/RNG or enrolled a member");
  // Fail composition at publication; payment and membership must remain one unit.
  Fixture retry(in,source);teacherPrompt(retry);unsigned failures=0;
  XeenCityEventTestAccess::composer(*retry.flow,[&](auto &,const auto &,const auto &,auto,auto){
@@ -961,7 +1126,7 @@ int main(int argc,char **argv) {
    return 0;
   }
   std::ostringstream output;auto *saved=std::cout.rdbuf(output.rdbuf());
-  try {portraitRewards(in);partBVernGuild(in);partBSearches(in);partA(in);rules(in);teachers(in);treasure(in);originalVisualRegressions(in);originalEvents(in);partAOriginal(in);treeFlags(in);originalJourney(in);}catch(...){std::cout.rdbuf(saved);throw;}
+  try {portraitRewards(in);originalPortraitOrder(in);npcBeforeDeadline(in);partBVernGuild(in);partBSearches(in);partA(in);rules(in);teachers(in);treasure(in);originalVisualRegressions(in);originalEvents(in);partAOriginal(in);treeFlags(in);originalJourney(in);}catch(...){std::cout.rdbuf(saved);throw;}
   std::cout.rdbuf(saved);
   std::cout<<"World effects, shared treasure, bounded generation, cancellation, retry and original scripts passed\n";return 0;
  }catch(const std::exception &e){std::cerr<<stage<<": "<<e.what()<<'\n';return 1;}

@@ -465,7 +465,10 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
                 std::holds_alternative<RevisitCompletedAction>(*action) || std::holds_alternative<WaitAction>(*action) ||
                 std::holds_alternative<QuickFightAction>(*action) || std::holds_alternative<QuickFightOptionsAction>(*action) ||
                 std::holds_alternative<CastSpellAction>(*action) || std::holds_alternative<SelectMemberAction>(*action) ||
-                std::holds_alternative<UnsupportedMainScreenAction>(*action) || (slot && slot->slot < 3));
+                std::holds_alternative<UnsupportedMainScreenAction>(*action) ||
+                (context.dialog && (std::holds_alternative<DialogKeyAction>(*action) ||
+                    std::holds_alternative<AcknowledgeAction>(*action) || std::holds_alternative<CancelInteractionAction>(*action))) ||
+                (slot && slot->slot < 3));
             const bool queueable = context.acceptsQueuedInput && queueKey;
             const auto scan = mouse ? SDL_SCANCODE_UNKNOWN : physicalScan(event.key);
             if (queueable) {

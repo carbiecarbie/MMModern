@@ -126,14 +126,14 @@ int main(int argc,char **argv) {try {
   XeenCombatPresentationTestAccess::observe(*fixture.flow,impact);
   check(fx.portraits[29].damageTicks==1,"Lane-cap omission suppressed published injury");
   XeenCombatPresentationTestAccess::presented(*fixture.flow);
-  now+=110;fx.advanceFeedback(now);XeenCombatPresentationTestAccess::animate(*fixture.flow);
+  now+=110;check(!fx.advanceFeedback(now),"Scene feedback invented an independent scheduler");fx.clearDamage();XeenCombatPresentationTestAccess::animate(*fixture.flow);
   for(const auto &p:fx.portraits)check(!p.damageTicks,"Projectile animation restarted published injury feedback");
  }
  for(unsigned owner=0;owner<30;++owner) {
   fx.spellEffect(owner);fx.spellEffect(owner);check(fx.portraits[owner].spellFrame==0,"Duplicate restarted/advanced effect");
-  for(unsigned frame=0;frame<4;++frame) {check(fx.portraits[owner].spellFrame==frame,"Four-frame spell sequence");fx.advanceFeedback((frame+1)*110);}
+  for(unsigned frame=0;frame<4;++frame) {check(fx.portraits[owner].spellFrame==frame,"Four-frame spell sequence");check(!fx.advanceFeedback((frame+1)*110),"View advanced retained frame without Flow acquisition");fx.spellFrame(owner,frame+1);}
   check(fx.portraits[owner].spellFrame==4,"Spell effect did not retire");
-  for(unsigned type=0;type<7;++type) {fx.portraitDamage(owner,xeenPortraitDamageFrame(type));check(fx.portraits[owner].damageTicks==1,"Zero-damage hit missing feedback");fx.advanceFeedback(110);check(!fx.portraits[owner].damageTicks,"Damage feedback did not retire");}
+  for(unsigned type=0;type<7;++type) {fx.portraitDamage(owner,xeenPortraitDamageFrame(type));check(fx.portraits[owner].damageTicks==1,"Zero-damage hit missing feedback");check(!fx.advanceFeedback(110) && fx.portraits[owner].damageTicks,"View retired damage without acquired Flow hold");fx.clearDamage();check(!fx.portraits[owner].damageTicks,"Damage feedback did not retire");}
  }
  for(unsigned member=0;member<6;++member) {
   const auto owner=fixture.p.party.activeRosterIds()[member];
@@ -182,7 +182,7 @@ int main(int argc,char **argv) {try {
   }
  }
  check(before==XeenSaveFormat::encode(fixture.snapshot()),"Feedback altered gameplay/RNG/save bytes");
- fx.spellEffect(0,1000);fx.advanceFeedback(1100);check(fx.portraits[0].spellFrame==1,"Independent healing prefix");
+ fx.spellEffect(0,1000);fx.spellFrame(0,1);check(fx.portraits[0].spellFrame==1,"Independent healing prefix");
  fx.spellEffect(0,1100,true);check(fx.portraits[0].spellFrame==0,"addHitPoints did not reset duplicate-effect suppression");
  const auto cursor=assets.cursorImage();check(cursor.isValid()&&cursor.width>0&&cursor.height>0&&cursor.width<64&&cursor.height<64,"Original cursor dimensions");
  // Decode and draw every original healing frame through the same sprite

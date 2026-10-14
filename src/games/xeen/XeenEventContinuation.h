@@ -20,7 +20,8 @@ public:
 	}
 	void check(const XeenEventExecutionState &state) const {
 		const auto &a=state;const auto &b=expected;
-		bool same=queue(a.pendingRewards,b.pendingRewards) && a.rewardPhase==b.rewardPhase &&
+		bool same=optional(a.portraitDamage,b.portraitDamage,[](const auto &x,const auto &y){return x==y;}) && optional(a.portraitRandom,b.portraitRandom,[](const auto &x,const auto &y){return x==y;}) && a.sparkledOwners==b.sparkledOwners && optional(a.portraitProgress,b.portraitProgress,[](const auto &x,const auto &y){return x==y;}) && queue(a.pendingRewards,b.pendingRewards) && a.rewardPhase==b.rewardPhase && a.rewardCursor==b.rewardCursor &&
+			optional(a.cdSpeech,b.cdSpeech,speech) &&
 			optional(a.rewardRandom,b.rewardRandom,[](const auto &x,const auto &y){return x==y;}) &&
 			optional(a.rewardItem,b.rewardItem,[](const auto &x,const auto &y){return x==y;}) &&
 			a.rewardPair==b.rewardPair && a.generatingReward==b.generatingReward &&
@@ -39,7 +40,7 @@ public:
 			r.overflow==s.overflow && r.invalid==s.invalid && r.discarded==s.discarded && r.discardReason==s.discardReason;
 		for(unsigned i=0;same && i<r.entries.size();++i) {
 			const auto &x=r.entries[i];const auto &y=s.entries[i];
-			same=x.owner==y.owner && x.loss==y.loss && x.category==y.category && x.item.material==y.item.material &&
+			same=x.owner==y.owner && x.loss==y.loss && x.category==y.category && x.quest==y.quest && x.item.material==y.item.material &&
 				x.item.id==y.item.id && x.item.state==y.item.state && x.item.frame==y.item.frame;
 		}
 		if(!same)throw std::logic_error("Detached Event continuation preimage changed");
@@ -54,12 +55,15 @@ public:
 		return true;
 	}
 private:
+	static bool speech(const XeenEventCdSpeech &a,const XeenEventCdSpeech &b) {
+		return std::tie(a.track,a.start,a.finish)==std::tie(b.track,b.start,b.finish);
+	}
 	XeenEventExecutionState expected;
 	static bool queue(const XeenPendingRewards &a,const XeenPendingRewards &b) {
 		if(a.size()!=b.size() || a.overflow()!=b.overflow() || a.invalid()!=b.invalid() || a.gold()!=b.gold() || a.gems()!=b.gems())return false;
 		for(std::size_t i=0;i<a.size();++i) {
 			const auto &x=a.at(i),&y=b.at(i);
-			if(a.categoryAt(i)!=b.categoryAt(i))return false;
+			if(a.categoryAt(i)!=b.categoryAt(i) || a.questAt(i)!=b.questAt(i))return false;
 			if(std::tie(x.material,x.id,x.state,x.frame)!=std::tie(y.material,y.id,y.state,y.frame))return false;
 		}
 		return true;
@@ -79,7 +83,8 @@ private:
 	}
 	static bool presentation(const XeenEventPendingPresentation &a,const XeenEventPendingPresentation &b) {
 		const auto &x=a.request;const auto &y=b.request;
-		if(a.continuation!=b.continuation || !optional(a.conditional,b.conditional,conditional) ||
+		if(a.continuation!=b.continuation || x.rewardWaitTicks!=y.rewardWaitTicks || !optional(x.portrait,y.portrait,[](const auto &p,const auto &q){return p==q;}) || !optional(a.conditional,b.conditional,conditional) ||
+			!optional(x.cdSpeech,y.cdSpeech,speech) ||
 			std::tie(x.kind,x.response,x.mapId,x.textIndex,x.text,x.layoutValue,x.verbIndex,x.refusal,x.title)!=
 			std::tie(y.kind,y.response,y.mapId,y.textIndex,y.text,y.layoutValue,y.verbIndex,y.refusal,y.title) ||
 			!source(x.source,y.source) || x.members.size()!=y.members.size() ||

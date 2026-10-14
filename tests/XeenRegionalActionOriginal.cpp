@@ -117,7 +117,7 @@ void arrival(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &i
   return compose(w,p,c,phase,appearance);
  };
  s.show=[&](const auto &,const auto &handler,const auto &,const auto &,const auto &) {
-  const auto present=[&]{handler.framePresented(h.flow->frame().presentation());};
+  const auto present=[&]{const auto frame=h.flow->frame().presentation();handler.framePresented(frame);handler.completeInputHandoff(frame);};
   const auto input=[&](PlayerAction action,bool show=true) {
    present();handler.beginCycle(++h.cycle);
    check(bool(handler.displayedInput()),"Arrival displayed input");
@@ -157,12 +157,15 @@ void arrival(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &i
    check(h.party->monsterTreasure->pendingMask==2 && h.party->monsterTreasure->pendingGold==10 &&
     h.party->monsterTreasure->gold==gold,"Arrival prematurely credited pending gold");
    present();denied();present();denied();
-   const auto pages=h.flow->presenter().pageCount();check(pages>=2,"Arrival item receipt has a separate final acknowledgment");
-   for(std::size_t page=1;page<pages;++page) {
+   // One item has a transfer/blank stage, its found stage, then the final receipt.
+   // They are distinct publications rather than pages of an atomic batch.
+   for(unsigned stage=0;stage<2;++stage) {
+    h.now+=110;
     input(AcknowledgeAction{});
     check(!h.flow->canSave() && h.party->monsterTreasure->gold==gold && h.party->monsterTreasure->pendingGold==10,
      "Arrival item/warning acknowledgment prematurely credits currency");
    }
+   h.now+=110;
    input(AcknowledgeAction{});
    check(h.flow->canSave() && h.party->monsterTreasure->pendingMask==0 &&
     h.party->monsterTreasure->pendingGold==0 && h.party->monsterTreasure->gold==gold+10,
@@ -197,7 +200,7 @@ void run(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &initi
  XeenSaveFile::write(save,fixture);
  Harness h(game);auto s=services(h);
  s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &) {
-  const auto present=[&]{handler.framePresented(h.flow->frame().presentation());};
+  const auto present=[&]{const auto frame=h.flow->frame().presentation();handler.framePresented(frame);handler.completeInputHandoff(frame);};
   const auto input=[&](PlayerAction action) {
    present();handler.beginCycle(++h.cycle);
    check(bool(handler.displayedInput()),"Regional action displayed input");

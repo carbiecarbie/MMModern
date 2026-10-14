@@ -28,6 +28,7 @@
 namespace mmodern {
 
 enum class XeenDamageType : std::uint8_t;
+struct XeenTypedDamageCandidate;
 class XeenEventPublication;
 enum class XeenJourneyActivity { Unbound, Quiet, Event, Approach, Attachment, Combat, Presentation, Saving, Shoot, Reward, ItemUse, Casting, Failed, SupportStopped, Service };
 class XeenGameFlags;
@@ -149,12 +150,14 @@ public:
 	// drawScene resets flip from directional animation metadata on every draw.
 	void objectFlipDrawn(XeenObjectIdentity id,bool flipped) {_scenePresentation.objectFlips[id]=flipped;}
 	void applyEventGrant(XeenPartyState &,std::uint8_t mode,std::uint32_t value,
-		std::optional<std::size_t> member,bool entireParty,bool give);
+		std::optional<std::size_t> member,bool entireParty,bool give,bool sparkle=true);
 	XeenHeadIndicators headIndicators(const XeenCamera &);
 	void alterHeads(const XeenCamera &,XeenHeadIndicators);
 	void reloadHeads(XeenMapIdentity);
 	void restoreHeads(const std::optional<XeenHeadCache> &,const XeenCamera &);
-	void applyEventDamage(XeenPartyState &,unsigned,XeenDamageType,std::optional<std::size_t>,bool);
+    XeenTypedDamageCandidate prepareEventDamage(const XeenPartyState &,unsigned,XeenDamageType,std::optional<std::size_t>,bool) const;
+    void publishEventDamagePrefix(XeenPartyState &,const XeenTypedDamageCandidate &,const XeenJourneyRandomState &,bool feedback=false);
+	void applyEventDamage(XeenPartyState &,unsigned,XeenDamageType,std::optional<std::size_t>,bool,bool feedback=true);
 	void applyEventYear(XeenPartyState &,XeenGameFlags &,unsigned);
 	void retainEventRandom(const XeenJourneyRandomState &);
 	void publishEventParty(XeenPartyState &,const XeenPartyState &) noexcept;

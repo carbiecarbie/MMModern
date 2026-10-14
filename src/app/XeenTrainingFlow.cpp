@@ -10,7 +10,7 @@ namespace mmodern {
 namespace {
 struct TrainingBusy { bool &flag; explicit TrainingBusy(bool &f):flag(f){flag=true;} ~TrainingBusy(){flag=false;} };
 bool matches(const XeenServiceDayCandidate &day,const XeenPartyState &p,const XeenWorld &w) {
-    return day.complete() && day.beforeContext()==*p.encounterContext && day.beforeEconomy()==*p.serviceEconomy &&
+    return day.reservationReady() && day.beforeContext()==*p.encounterContext && day.beforeEconomy()==*p.serviceEconomy &&
         day.beforeRandom()==*w.sessionState().journeyRandom();
 }
 
@@ -33,7 +33,7 @@ bool XeenEncounterFlow::beginTraining(const std::function<void()> &preflight) {
     checkTrainingBoundary(XeenTrainingBoundary::BeforeReservation);
     auto next=std::make_unique<TrainingContinuation>();next->owner=_party.party.activeRosterIds().front();
     next->departure=std::make_unique<XeenServiceDayCandidate>(*_party.encounterContext,*_party.serviceEconomy,
-        *_world.sessionState().journeyRandom());
+        *_world.sessionState().journeyRandom(),XeenScriptServiceCharge::OneDay,false,true);
     checkTrainingBoundary(XeenTrainingBoundary::BeforeAdmission);
     try {XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);preflight();_journeyPreimage->check();}
     catch(...){_journeyPreimage->check();throw;}
@@ -44,7 +44,7 @@ bool XeenEncounterFlow::serviceTrainingPreparation() {
     TrainingBusy busy(_busy);_journeyPreimage->check();
     if(!smithCapacity(17,4))throw std::overflow_error("Training admission authority exhausted");
     auto &day=*_trainingPreparation->departure;
-    if(!day.service(64,[&]{_journeyPreimage->check();},[&]{checkTrainingBoundary(XeenTrainingBoundary::StockComplete);}))return false;
+
     checkTrainingBoundary(XeenTrainingBoundary::BankPrepared);
     if(!matches(day,_party,_world)){_journeyPreimage->failed=true;throw std::logic_error("Training reservation preimage changed");}
     xeenValidateCurrentServiceEconomy(day.economy());
@@ -84,19 +84,19 @@ void XeenEncounterFlow::confirmTraining() {
     }
     const bool newMember=!_training->trained.test(_training->owner);
     const auto &context=newMember?_training->departure->context():*_party.encounterContext;
+    if(newMember) {
+        const auto next=xeenPrepareSmithDeparture(context);
+        if(!next || (xeenServiceDayRegenerates(context.day,next->day,1440) &&
+            !XeenServiceDayCandidate::randomRoom(*_world.sessionState().journeyRandom()))) {
+            _training->result.outcome=XeenTrainingOutcome::Capacity;_training->quoted=false;advanceTraining();return;
+        }
+    }
     auto delta=std::make_unique<XeenTrainingCandidate>(xeenPrepareTraining(_party,_training->owner,context));
     if(delta->result.outcome!=XeenTrainingOutcome::Trained) {
         _journeyPreimage->failed=true;throw std::logic_error("Training quoted owner preimage changed");
     }
-    std::unique_ptr<XeenServiceDayCandidate> replacement;
-    if(newMember) {
-        if(!xeenPrepareSmithDeparture(context)) {
-            _training->result.outcome=XeenTrainingOutcome::Capacity;_training->quoted=false;advanceTraining();return;
-        }
-        replacement=std::make_unique<XeenServiceDayCandidate>(delta->context,_training->departure->economy(),
-            _training->departure->continuation());
-    }
-    _journeyPreimage->check();_training->pending=std::move(delta);_training->nextDeparture=std::move(replacement);
+
+    _journeyPreimage->check();_training->pending=std::move(delta);
     _training->quoted=false;advanceTraining();
 }
 bool XeenEncounterFlow::serviceTrainingLevel() {
@@ -104,22 +104,20 @@ bool XeenEncounterFlow::serviceTrainingLevel() {
     TrainingBusy busy(_busy);_journeyPreimage->check();
     auto &visit=*_training;
     if(!matches(*visit.departure,_party,_world)) {_journeyPreimage->failed=true;throw std::logic_error("Training member-day reservation changed");}
-    if(visit.nextDeparture) {
-        try {
-            if(!visit.nextDeparture->service(64,[&]{_journeyPreimage->check();},
-                [&]{checkTrainingBoundary(XeenTrainingBoundary::StockComplete);}))return false;
-        } catch(const std::overflow_error &) {
-            _journeyPreimage->check();visit.pending.reset();visit.nextDeparture.reset();
-            visit.result.outcome=XeenTrainingOutcome::Capacity;advanceTraining();return true;
-        }
+    const bool newMember=!visit.trained.test(visit.owner);
+    if(newMember && !visit.nextDeparture) {
+        if(!visit.departure->service(64,[&]{_journeyPreimage->check();},
+            [&]{checkTrainingBoundary(XeenTrainingBoundary::StockComplete);}))return false;
+        visit.nextDeparture=std::make_unique<XeenServiceDayCandidate>(visit.pending->context,
+            visit.departure->economy(),visit.departure->continuation(),XeenScriptServiceCharge::OneDay,false,true);
         checkTrainingBoundary(XeenTrainingBoundary::BankPrepared);
-        auto resetContext=visit.departure->context();xeenResetPartyTemps(resetContext);
-        if(!(visit.nextDeparture->beforeContext()==resetContext) ||
-            visit.nextDeparture->beforeEconomy()!=visit.departure->economy() ||
-            visit.nextDeparture->beforeRandom()!=visit.departure->continuation()) {
-            _journeyPreimage->failed=true;throw std::logic_error("Replacement Training departure changed");
-        }
-        xeenValidateCurrentServiceEconomy(visit.nextDeparture->economy());
+        visit.nextDeparture->validateReservation();
+    }
+
+    if(visit.nextDeparture && (!(visit.nextDeparture->beforeContext()==visit.pending->context) ||
+        visit.nextDeparture->beforeEconomy()!=visit.departure->economy() ||
+        visit.nextDeparture->beforeRandom()!=visit.departure->continuation())) {
+        _journeyPreimage->failed=true;throw std::logic_error("Replacement Training departure changed");
     }
     if(!smithCapacity(17,4))throw std::overflow_error("Training publication would consume mandatory settlement authority");
     const auto &delta=*visit.pending;
@@ -161,12 +159,14 @@ bool XeenEncounterFlow::serviceTrainingLevel() {
     prepared->adoptJourneyCoordination();_journeyPreimage.swap(prepared);
     checkTrainingBoundary(XeenTrainingBoundary::LevelPublished);return true;
 }
-void XeenEncounterFlow::departTraining() {
+bool XeenEncounterFlow::departTraining() {
     if(!_training || _busy || _training->frame || !smithCapacity(_training->departed?5:6,2))
         throw std::logic_error("Training departure authority unavailable");
     TrainingBusy busy(_busy);_journeyPreimage->check();auto &visit=*_training;
     if(!visit.departed) {
         if(!matches(*visit.departure,_party,_world)){_journeyPreimage->failed=true;throw std::logic_error("Owed Training departure changed");}
+        if(!visit.departure->service(64,[&]{_journeyPreimage->check();},
+            [&]{checkTrainingBoundary(XeenTrainingBoundary::StockComplete);}))return false;
         std::vector<XeenExploredTile> exploration;
         {XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
             exploration=_world.explorationAfterStep(_party,_camera);_journeyPreimage->check();}
@@ -189,7 +189,7 @@ void XeenEncounterFlow::departTraining() {
     _journeyPreimage->check();checkTrainingBoundary(XeenTrainingBoundary::Return);publishArrival(view);
     const auto lease=visit.lease;_world._sessionState._journeyActivity=XeenJourneyActivity::Event;
     advanceTraining();_training.reset();_boundary.release(XeenCombatBoundary::Work::Service,lease);
-    _trainingEventSettlement=true;
+    _trainingEventSettlement=true;return true;
 }
 void XeenEventFlow::prepareTraining() {
     try {
@@ -255,6 +255,7 @@ IndexedFrame XeenEventFlow::handleTraining(const PlayerAction &action,std::uint6
     if((ui.feedback.empty() || ui.phase==TrainingUi::Phase::Departure) && (!allowed || (member && key-InputKey::F1==ui.member))) return frameCopy();
     if(_trainingSettlement) {_handoffPending=true;return settleTrainingEvent();}
     if(!_encounter->consumeTrainingFrame(input,inputFrame)) return frameCopy();
+    serviceInputPolled(ui.animation);
     const bool cancel=key==InputKey::Escape;
     if(ui.phase!=TrainingUi::Phase::Departure && !cancel &&
         (!xeenSmithAuthorityRoom(_inputGeneration,10) || !_encounter->smithCapacity(20,4) ||
@@ -272,19 +273,21 @@ IndexedFrame XeenEventFlow::handleTraining(const PlayerAction &action,std::uint6
             } else if(key=='t') {
                 const auto &c=_party.party.member(_party.roster,ui.member);
                 const auto quote=xeenQuoteTraining(c,*_party.roster.combatInputs(c.rosterId),_party.monsterTreasure->gold,*_party.encounterContext);
-                if(quote.outcome==XeenTrainingOutcome::InsufficientGold) ui.feedback=xeenNotEnoughGold(dosText());
+                if(quote.outcome==XeenTrainingOutcome::Cap || quote.outcome==XeenTrainingOutcome::MissingExperience)
+                    startServiceSample(ui.animation,quote.outcome==XeenTrainingOutcome::Cap?"trainin1.voc":"trainin0.voc",true);
+                else if(quote.outcome==XeenTrainingOutcome::InsufficientGold) ui.feedback=xeenNotEnoughGold(dosText());
                 else if(quote.outcome==XeenTrainingOutcome::Quoted) {
                     if(!_encounter->_training->quoted) _encounter->quoteTraining(ui.member);
                     if(_encounter->_training->quoted) {
                         _encounter->confirmTraining();
-                        if(_encounter->_training->pending) ui.phase=TrainingUi::Phase::Candidate;
+                        if(_encounter->_training->pending) {startServiceSample(ui.animation,"trainin2.voc",true);ui.phase=TrainingUi::Phase::Candidate;}
                     } else ui.feedback="Training: not supported yet at this date or capacity";
                 }
             } else if(cancel) ui.phase=TrainingUi::Phase::Departure;
         }
         if(ui.phase==TrainingUi::Phase::Departure && (cancel || key==InputKey::Enter)) {
             if(originalPhase!=ui.phase && ui.revision!=UINT64_MAX) {++ui.revision;revisionAdvanced=true;}
-            _encounter->departTraining();_trainingSettlement=true;return settleTrainingEvent();
+            if(!_encounter->departTraining())return renderEncounter();_trainingSettlement=true;return settleTrainingEvent();
         }
     } catch(const std::exception &) {
         failed=true;_encounter->journeySavePreimage().check();if(!_encounter->_training) throw;
@@ -299,6 +302,20 @@ IndexedFrame XeenEventFlow::handleTraining(const PlayerAction &action,std::uint6
 std::optional<IndexedFrame> XeenEventFlow::updateTraining() {
     if(!_trainingUi || _dispatching || _fatal || _saving || _handoffPending)return std::nullopt;
     const auto phase=_trainingUi->phase;
+    if(phase==TrainingUi::Phase::Departure) {
+        TrainingBusy dispatch(_dispatching);
+        if(_trainingSettlement){_handoffPending=true;return settleTrainingEvent();}
+        if(_encounter->_training && _encounter->_training->frame)
+            _encounter->consumeTrainingFrame(_inputGeneration,_actionableFrame);
+        try {
+            if(!_encounter->departTraining())return std::nullopt;
+            _trainingSettlement=true;return settleTrainingEvent();
+        } catch(const std::exception &) {
+            _encounter->journeySavePreimage().check();
+            if(!_encounter->_training)throw;
+            return renderEncounter(); // Refresh authority after a committed departure prefix.
+        }
+    }
     if(phase!=TrainingUi::Phase::Preparation && phase!=TrainingUi::Phase::Candidate)return std::nullopt;
     // Keep the shared Flow dispatch flag across bounded private preparation.
     TrainingBusy dispatch(_dispatching);
@@ -308,6 +325,10 @@ std::optional<IndexedFrame> XeenEventFlow::updateTraining() {
         const bool complete=phase==TrainingUi::Phase::Preparation?_encounter->serviceTrainingPreparation():_encounter->serviceTrainingLevel();
         if(!complete)return std::nullopt;
         _trainingUi->phase=TrainingUi::Phase::Menu;
+        if(phase==TrainingUi::Phase::Preparation) {
+            startServiceSample(_trainingUi->animation,XeenServiceAnimation::greeting(XeenServiceArt::Training));
+            serviceInputPolled(_trainingUi->animation);
+        }
         if(phase==TrainingUi::Phase::Candidate && !_encounter->_training->published)
             _trainingUi->feedback="Training: not supported yet at this date or capacity";
     } catch(const std::exception &error) {
@@ -316,7 +337,9 @@ std::optional<IndexedFrame> XeenEventFlow::updateTraining() {
             _encounter->_trainingPreparation.reset();_trainingUi.reset();_pending.reset();_journeyEventLayers=false;
             _encounter->_journeyRefusal="Unable to enter Training. Try again.";_encounter->endJourneyEvent();
         } else if(_encounter->_training->published) _trainingUi->phase=TrainingUi::Phase::Menu;
-        else {
+        else if(_encounter->_training->pending) {
+            _trainingUi->phase=TrainingUi::Phase::Candidate;return std::nullopt;
+        } else {
             _encounter->_training->pending.reset();_encounter->_training->nextDeparture.reset();
             _encounter->_training->quoted=false;_trainingUi->phase=TrainingUi::Phase::Menu;
             _trainingUi->feedback="Training preparation failed. Escape to leave.";

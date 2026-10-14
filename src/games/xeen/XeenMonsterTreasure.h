@@ -56,11 +56,14 @@ struct XeenMonsterDeliveryRecord {
 	XeenMonsterDeliveryLoss loss = XeenMonsterDeliveryLoss::None;
 };
 struct XeenMonsterDeliveryCandidate {
+	enum class Phase { Warning, Blank, Found, Final };
 	std::array<XeenCharacter,6> characters;
 	XeenMonsterTreasure treasure;
 	std::array<XeenMonsterDeliveryRecord,12> records{};
 	unsigned count = 0;
 	XeenMutable<bool> globallyFull = false;
+	Phase phase=Phase::Final;
+	unsigned cursor=0;
 };
 XeenMonsterDeliveryCandidate xeenPrepareMonsterDelivery(const XeenMonsterTreasure &,
 	const std::array<XeenCharacter,6> &);

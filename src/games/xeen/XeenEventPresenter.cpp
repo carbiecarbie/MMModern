@@ -9,14 +9,7 @@
 
 namespace mmodern {
 XeenEventPresenter::XeenEventPresenter(const XeenFontFormat &font, NpcDraw npcDraw,
-		Clock clock, RandomFrame randomFrame) :
-		_npcDraw(std::move(npcDraw)), _clock(std::move(clock)),
-		_randomFrame(std::move(randomFrame)), _font(font), _renderer(font) {
-	if (!_clock) _clock = [] {
-		return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
-			std::chrono::steady_clock::now().time_since_epoch()).count());
-	};
-}
+		Clock, RandomFrame) : _npcDraw(std::move(npcDraw)), _font(font), _renderer(font) {}
 
 XeenTextRenderOptions XeenEventPresenter::optionsFor(
         const XeenPresentationRequest &request) const {
@@ -62,7 +55,7 @@ XeenTextRenderResult XeenEventPresenter::drawText(const IndexedFrame &base,
         if(request.kind==XeenPresentationKind::RewardWarning || treasure.fullPacks)
             result.pages.push_back(drawXeenTreasure(*_dosText,base,_font,treasure,0,true));
         if(request.kind==XeenPresentationKind::RewardReceipt)
-            for(std::size_t page=0;page<=treasure.items.size();++page)
+            for(std::size_t page=0;page<=(treasure.stage==XeenTreasureDisplay::Stage::Pages?treasure.items.size():0);++page)
                 result.pages.push_back(drawXeenTreasure(*_dosText,base,_font,treasure,page));
         return result;
     }
@@ -144,10 +137,29 @@ DialogInput XeenEventPresenter::input() const {
     return input;
 }
 
+bool XeenEventPresenter::window11Enabled() const {
+    return std::any_of(_layers.begin(),_layers.end(),[](const auto &layer){
+        return layer.request.kind==XeenPresentationKind::MainWindowMessage || layer.request.kind==XeenPresentationKind::NpcAcknowledgment;
+    });
+}
+
+void XeenEventPresenter::closeWindow12() {
+    _layers.erase(std::remove_if(_layers.begin(),_layers.end(),[](const auto &layer){
+        return layer.request.kind==XeenPresentationKind::BottomWindowMessage || layer.request.kind==XeenPresentationKind::BottomWindowTwoLines;
+    }),_layers.end());
+}
+
 bool XeenEventPresenter::hasNpcOffer() const {
 	return std::any_of(_layers.begin(),_layers.end(),[](const auto &layer){
 		return layer.request.npc && layer.request.npc->confirmationMode==2;
 	});
+}
+
+void XeenEventPresenter::closeNpcOffers() {
+    _layers.erase(std::remove_if(_layers.begin(),_layers.end(),[](const auto &layer) {
+        return layer.request.npc && layer.request.npc->confirmationMode==2;
+    }),_layers.end());
+    _npcTiming={};
 }
 
 XeenTextRenderResult XeenEventPresenter::drawSelection(const IndexedFrame &base,
@@ -160,13 +172,13 @@ XeenTextRenderResult XeenEventPresenter::drawSelection(const IndexedFrame &base,
 }
 
 XeenPresentationUpdate XeenEventPresenter::present(const IndexedFrame &base,
-		const XeenPresentationRequest &request) {
+		const XeenPresentationRequest &request, std::size_t retainedNpcPage) {
 	if (!base.isValid())
 		throw std::invalid_argument("invalid frame base for Xeen presentation");
 	_underlay = base;
 	_request = request;
-	_layers.push_back({request, 0});
-	_page = 0;
+	_layers.push_back({request, retainedNpcPage});
+	_page = retainedNpcPage;
 	_diagnostics.clear();
 	if (request.kind == XeenPresentationKind::NpcAcknowledgment) {
 		_npcTiming = {};
@@ -227,10 +239,12 @@ XeenPresentationUpdate XeenEventPresenter::handle(const PlayerAction &action, bo
 		if (!isAcknowledge(action) && !std::holds_alternative<CancelInteractionAction>(action))
 			return update;
 		if (_page + 1 < _pages.size()) {
-			++_page;
-			_layers.back().page = _page;
-			startNpcPage();
-			_frame = drawNpcPage();
+			const auto beforePage=_page;const auto beforeTiming=_npcTiming;
+			try {
+				++_page;startNpcPage();
+				auto frame=drawNpcPage();
+				_layers.back().page=_page;_frame=std::move(frame);
+			} catch(...) {_page=beforePage;_npcTiming=beforeTiming;throw;}
 			update.frame = _frame;
 		} else {
 			update.response = XeenPresentationResponse::Acknowledged;
@@ -361,38 +375,20 @@ IndexedFrame XeenEventPresenter::drawNpcPage() const {
 }
 
 void XeenEventPresenter::startNpcPage() {
-	const auto begin = _page ? _npcPageSourceEnds.at(_page - 1) : 0;
-	const auto end = _npcPageSourceEnds.at(_page);
-	const auto spaces = static_cast<std::uint64_t>(std::count(_request.title.begin(), _request.title.end(), ' ')) +
-		static_cast<std::uint64_t>(std::count(_request.text.begin() + begin, _request.text.begin() + end, ' '));
-	if (spaces > std::numeric_limits<std::uint64_t>::max() / 2)
-		throw std::overflow_error("NPC speech duration overflow");
-	_npcTiming.remaining = spaces * 2;
-	_npcTiming.deadline = PresentationClock::afterMilliseconds(_clock(),3);
+	_npcTiming.displayedFrame=0;
 }
 
-std::optional<IndexedFrame> XeenEventPresenter::updateNpc() {
-	if (!_active || (_request.kind != XeenPresentationKind::NpcAcknowledgment && !hasNpcOffer()) ||
-			(!_npcTiming.remaining && !_npcTiming.nextFrame && !_npcTiming.displayedFrame))
+std::optional<IndexedFrame> XeenEventPresenter::updateNpc(const NpcTiming &timing) {
+	if (!_active || (_request.kind != XeenPresentationKind::NpcAcknowledgment && !hasNpcOffer()))
 		return std::nullopt;
-	const auto now = _clock();
-	if (now < _npcTiming.deadline) return std::nullopt;
-	_npcTiming.deadline = PresentationClock::afterMilliseconds(now,3); // No catch-up loop after a stalled host.
-	_npcTiming.displayedFrame = _npcTiming.nextFrame;
-	auto frame = _frame;
-	if(_request.kind==XeenPresentationKind::NpcAcknowledgment)frame=drawNpcPage();
-	else for(const auto &layer:_layers)if(layer.request.npc && layer.request.npc->confirmationMode==2)
-		_npcDraw(frame,layer.request.npc->portraitId,_npcTiming.displayedFrame);
-	_npcTiming.phase ^= 1;
-	unsigned next = _randomFrame ? _randomFrame() : std::uniform_int_distribution<unsigned>(0, 3)(_random);
-	if (next >= 4) throw std::invalid_argument("NPC random frame outside 0..3");
-	if (!_npcTiming.phase || !_npcTiming.remaining) {
-		if (_npcTiming.remaining) --_npcTiming.remaining;
-		if (!_npcTiming.remaining) next = 0;
-	}
-	_npcTiming.nextFrame = next;
-	if (frame.pixels == _frame.pixels) return std::nullopt;
-	_frame = std::move(frame);
+	const auto previous=_npcTiming;_npcTiming=timing;
+	try {
+		auto frame = _frame;
+		if(_request.kind==XeenPresentationKind::NpcAcknowledgment)frame=drawNpcPage();
+		else for(const auto &layer:_layers)if(layer.request.npc && layer.request.npc->confirmationMode==2)
+			_npcDraw(frame,layer.request.npc->portraitId,_npcTiming.displayedFrame);
+		_frame=std::move(frame);
+	} catch(...) {_npcTiming=previous;throw;}
 	return _frame;
 }
 

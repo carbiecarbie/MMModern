@@ -33,6 +33,7 @@ void application(const fs::path &path,bool fullPacks){
 			if(s->request.kind==XeenPresentationKind::RewardReceipt){handle(SaveGameAction{});check(!fs::exists(path)&&status().find("idle gameplay boundary")!=std::string::npos,"reentrant save allowed");reentrant=true;}}};
 		handle(AcknowledgeAction{});check(escape(),"reward Escape not intercepted");refused();
 		if(fullPacks){while(XeenRewardTestAccess::state(*f.flow).rewardPhase==XeenRewardPhase::Warning)handle(CancelInteractionAction{});refused();}
+		else while(XeenRewardTestAccess::state(*f.flow).rewardPhase!=XeenRewardPhase::Receipt)handle(CancelInteractionAction{});
 		check(XeenRewardTestAccess::state(*f.flow).rewardReceipt.delivered==(fullPacks?0U:10U),"production receipt result");
 		while(f.flow->blocksGameplay())handle(CancelInteractionAction{});
 		check(!fs::exists(path),"deferred save occurred");handle(InspectInventoryAction{});++inspections;handle(CancelInteractionAction{});
@@ -67,7 +68,8 @@ void actualProducerGuards(){
 			}
 		};
 		handle(AcknowledgeAction{});refused();
-		check(live->questItems.at(17)==0 && !live->questFlags.isSet(2) && live->roster.at(0).miscellaneous[0].id==37,"actual production delivery");
+		check(live->questItems.at(17)==0 && !live->questFlags.isSet(2) && live->roster.at(0).miscellaneous.back().id==37 &&
+			XeenRewardTestAccess::state(*f.flow).rewardPhase==XeenRewardPhase::Blank,"actual production transfer before sort");
 		unsigned acks=0;while(f.flow->blocksGameplay()){check(++acks<100,"actual receipt bound");handle(AcknowledgeAction{});}
 		const auto before=output.text.str().size();handle(InspectInventoryAction{});
 		check(f.flow->inventoryOpen() && live->questItems.at(17)==0 && !live->questFlags.isSet(2),"actual post-cleanup items");
@@ -82,6 +84,10 @@ void setupOrder(){
 	services.show=[&](const auto&,const auto &handle,const auto&,const auto&,const auto&){
 		check(out.text.str().find("Root=0 Q2=0")!=std::string::npos&&f.eventReads==1,"setup snapshot after initial dispatch");
 		const auto count=f.eventReads;handle(InspectInventoryAction{});
+		check(f.flow->blocksGameplay() && !f.flow->inventoryOpen() && f.eventReads==count,
+			"Initial quest grant bypassed its treasure sequence");
+		while(f.flow->blocksGameplay())handle(AcknowledgeAction{});
+		handle(InspectInventoryAction{});
 		check(f.flow->inventoryOpen() && f.eventReads==count,"items not live/read-only");return true;};
 	check(Application().playGameplay(services,start,{},false)==0,"setup ordering");
 }
@@ -91,17 +97,22 @@ void cleanupSaving(const fs::path &path){
 		auto services=f.services();CaptureOutput output;const XeenPartyState *live=nullptr;services.observeGameplay=[&](auto &,auto &,const auto &p,auto &,const auto &){live=&p;};
 		services.show=[&](const auto&,const auto &handle,const auto&,const auto&,const auto &status){
 			if(!automatic)handle(InteractionAction{});XeenRewardTestAccess::seed(*f.flow,3);
+			std::optional<XeenEventExecutionError> outcome;
 			const auto report=[&](const auto &r){
 				if(const auto *s=std::get_if<XeenEventExecutionSuspended>(&r)){
 					if(afterDelivery==(s->request.kind==XeenPresentationKind::RewardReceipt))throw std::runtime_error("injected reporting failure");
-				}else if(automatic&&std::holds_alternative<XeenEventExecutionError>(r))throw std::runtime_error("fatal automatic reward error");
+				}else if(const auto *error=std::get_if<XeenEventExecutionError>(&r)) {
+					outcome=*error;if(automatic)throw std::runtime_error("fatal automatic reward error");
+				}
 			};
 			f.flow->reportManual=report;f.flow->reportAutomatic=report;
 			bool threw=false;try{handle(AcknowledgeAction{});if(afterDelivery)handle(AcknowledgeAction{});}catch(const std::exception&){threw=true;}
 			check(threw==automatic&&!f.flow->blocksGameplay()&&!f.flow->presentationGeneration(),"manual/fatal reward cleanup");
+			check(outcome && outcome->rewards.delivered==(afterDelivery?1u:0u) && outcome->rewards.discarded==(afterDelivery?2u:3u),
+				"Failure discarded or replayed the already-published item prefix");
 			handle(SaveGameAction{});
 			if(automatic)check(!fs::exists(path)&&status().find("idle gameplay boundary")!=std::string::npos,"fatal automatic state saveable");
-			else {check(!fs::exists(path)&&status().find("Map exploration cannot save.")!=std::string::npos&&live->roster.at(0).miscellaneous[0].id==(afterDelivery?37:0),"recoverable cleanup lost inserted items");}
+			else {check(!fs::exists(path)&&status().find("Map exploration cannot save.")!=std::string::npos&&live->roster.at(0).miscellaneous.back().id==(afterDelivery?37:0),"recoverable cleanup lost inserted items");}
 			return !automatic;};
 		check(Application().playGameplay(services,start,path,false)==(automatic?4:0),"cleanup Application outcome");
 	}

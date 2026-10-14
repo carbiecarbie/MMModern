@@ -18,7 +18,12 @@ void cell(const std::vector<std::uint8_t> &b, std::size_t offset) {
 	// Reserve room for the bounded M16 draw anchor; enlargement is not supported.
 	if (width > 320 || x + width > 32767 - 320 || y + height > 32767 - 200)
 		fail("cell dimensions/offsets exceed normal drawer bounds");
-	std::size_t p = offset + 8;
+	// The declared width clips publication, not RLE expansion. Original marb
+    // rows decode 321 pixels for a 320-pixel cell. The pinned drawer reserves
+    // three 320-entry lines and starts at entry 320; bound both forward and
+    // reversed pointers (including their final position) within that storage.
+    const auto workSpan=width+319;
+    std::size_t p = offset + 8;
 	for (std::size_t row = 0; row < height;) {
 		if (p >= b.size()) fail("truncated row length");
 		const auto length = b[p++];
@@ -53,7 +58,7 @@ void cell(const std::vector<std::uint8_t> &b, std::size_t offset) {
 					fail("stream-copy source outside resource");
 			}
 			p += operands;
-			if (advance > width - pixels) fail("compressed run exceeds cell width");
+			if (advance > workSpan - pixels) fail("compressed run exceeds drawer work line");
 			pixels += advance;
 		}
 		++row;

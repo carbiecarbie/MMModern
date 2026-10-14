@@ -14,7 +14,7 @@ void terminals(){
 		if(terminal==3)r=e.resume(pending(r),CharacterSelectionCancelled{});
 		if(terminal==4)r=e.resume(pending(r),XeenPresentationResponse::Acknowledged);
 		s=pending(r);
-		check(s.rewardPhase==XeenRewardPhase::Receipt&&!s.pendingRewards.hasWork()&&s.rewardReceipt.delivered==1,"successful terminal omitted delivery");
+		check(s.rewardPhase==XeenRewardPhase::Receipt&&s.pendingRewards.hasWork()&&s.rewardReceipt.delivered==1,"successful terminal omitted delivery");
 		check(s.rewardReceipt.entries[0].owner==1&&s.preferredRewardRecipient==1,"cancel changed preference");
 		check(e.f.initial.roster.at(1).miscellaneous[0].id==37&&!e.flags.isSet(7),"insertion before receipt ACK");
 		const auto count=s.instructionCount;auto done=e.resume(s);
@@ -50,11 +50,17 @@ void continuations(){
 	state=pending(reordered.resume(state));check(state.rewardReceipt.entries[0].owner==0,"preferred index did not resolve current membership");
 	Execution immediate;state=immediate.seed({pause(),record(1,1,1,12,{0,0,21,99}),record(1,1,2,12,{0,0,104,2}),record(1,1,3,0xff)});
 	const auto failed=std::get<XeenEventExecutionError>(immediate.resume(state));
-	check(failed.rewards.discarded==1&&immediate.f.initial.questItems.at(17)==1&&immediate.f.initial.questFlags.isSet(2),"pre-delivery error rolled back prior immediate grants");
+	check(failed.rewards.discarded==2&&immediate.f.initial.questItems.at(17)==1&&immediate.f.initial.questFlags.isSet(2),"pre-delivery error rolled back prior immediate grants");
 }
 XeenEventExecutionStepResult begin(Execution &e,std::vector<XeenEventRecord> records) {
 	e.f.scripts[1]=std::move(records);
-	return e.interpreter.begin(e.camera,e.f.initial,e.flags,e.world,e.scripts,e.texts);
+	auto result=e.interpreter.begin(e.camera,e.f.initial,e.flags,e.world,e.scripts,e.texts);
+	for(unsigned i=0;i<2*XeenPendingRewards::kTotalCapacity;++i) {
+		auto *s=std::get_if<XeenEventExecutionSuspended>(&result);
+		if(!s || (s->state.rewardPhase!=XeenRewardPhase::Blank && s->state.rewardPhase!=XeenRewardPhase::Found))return result;
+		result=e.resumeOne(std::move(s->state));
+	}
+	throw std::runtime_error("Reward initial hold bound");
 }
 void production(){
 	for(int n : {1,5,11}) {
@@ -136,14 +142,58 @@ void publication(){
 		if(automatic){auto r=events.resumeAutomaticEvent(s,XeenPresentationResponse::Acknowledged,e.world,e.f.initial,e.camera,e.flags);
 			check(std::holds_alternative<XeenEventExecutionSuspended>(r)&&e.camera.mapId==XeenMapIdentity(1)&&!e.flags.isSet(7),"automatic published early");
 			s=std::get<XeenEventExecutionSuspended>(r).state;
+			while(s.rewardPhase!=XeenRewardPhase::Receipt) {
+				r=events.resumeAutomaticEvent(s,XeenPresentationResponse::Acknowledged,e.world,e.f.initial,e.camera,e.flags);
+				s=std::get<XeenEventExecutionSuspended>(r).state;
+				check(e.camera.mapId==XeenMapIdentity(1)&&!e.flags.isSet(7),"intermediate reward hold published camera/flags");
+			}
 			r=events.resumeAutomaticEvent(s,XeenPresentationResponse::Acknowledged,e.world,e.f.initial,e.camera,e.flags);
 			check(std::holds_alternative<XeenAutomaticEventCompleted>(r),"automatic final ACK");
 		}else{auto r=events.resumeManualEvent(s,XeenPresentationResponse::Acknowledged,e.world,e.f.initial,e.camera,e.flags);
 			check(std::holds_alternative<XeenEventExecutionSuspended>(r)&&e.camera.mapId==XeenMapIdentity(1)&&!e.flags.isSet(7),"manual published early");
 			s=std::get<XeenEventExecutionSuspended>(r).state;
+			while(s.rewardPhase!=XeenRewardPhase::Receipt) {
+				r=events.resumeManualEvent(s,XeenPresentationResponse::Acknowledged,e.world,e.f.initial,e.camera,e.flags);
+				s=std::get<XeenEventExecutionSuspended>(r).state;
+				check(e.camera.mapId==XeenMapIdentity(1)&&!e.flags.isSet(7),"intermediate reward hold published camera/flags");
+			}
 			r=events.resumeManualEvent(s,XeenPresentationResponse::Acknowledged,e.world,e.f.initial,e.camera,e.flags);
 			check(std::holds_alternative<XeenManualEventCompleted>(r),"manual final ACK");}
 		check(e.camera.mapId==XeenMapIdentity(2)&&e.flags.isSet(7)&&e.f.initial.roster.at(1).miscellaneous[0].id==46,"final publication/items");
 	}
 }
-int main(){try{terminals();continuations();production();publication();std::cout<<"Reward interpreter terminal, continuation and publication matrix passed\n";return 0;}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}}
+void individualPublication() {
+ Execution e;e.f.initial.monsterTreasure=XeenMonsterTreasure{};
+ auto state=e.seed({pause(),record(1,1,1,0x12)},2);state.pendingRewards.credit(34,31);
+ state=pending(e.resumeOne(state));
+ check(state.rewardPhase==XeenRewardPhase::Blank && state.rewardCursor==0 && state.rewardReceipt.delivered==1 &&
+  state.pendingPresentation->request.rewardWaitTicks==1 && e.f.initial.roster.at(0).miscellaneous.back().id==37 &&
+  !e.f.initial.roster.at(0).miscellaneous.front().id && !e.f.initial.monsterTreasure->gold,
+  "First item did not publish before the blank one-tick hold");
+ state=pending(e.resumeOne(state));
+ check(state.rewardPhase==XeenRewardPhase::Found && state.rewardReceipt.delivered==1 &&
+  state.pendingPresentation->request.rewardWaitTicks==10 && e.f.initial.roster.at(0).miscellaneous.front().id==37,
+  "Skipping blank did not stop at found/sort/ten-tick boundary");
+ state=pending(e.resumeOne(state));
+ check(state.rewardPhase==XeenRewardPhase::Blank && state.rewardCursor==1 && state.rewardReceipt.delivered==2,
+  "Found completion did not publish exactly the next item");
+ state=pending(e.resumeOne(state));state=pending(e.resumeOne(state));
+ check(state.rewardPhase==XeenRewardPhase::Receipt && !state.pendingPresentation->request.rewardWaitTicks &&
+  state.pendingRewards.hasWork() && !e.f.initial.monsterTreasure->gold,"Item skips manufactured final currency acknowledgment");
+ check(std::holds_alternative<XeenEventExecutionCompleted>(e.resumeOne(state)) && e.f.initial.monsterTreasure->gold==31,
+  "Final currency settlement failed");
+ for(bool packsFull:{false,true}) {
+  Execution quest;if(packsFull)full(quest.f.initial,true);
+  auto q=quest.seed({pause(),record(1,1,1,12,{0,0,21,99}),record(1,1,2,0x12)},0);
+  const auto inventory=xeenInventoryInspection(quest.f.initial);q=pending(quest.resumeOne(q));
+  check(quest.f.initial.questItems.at(17)==1 && q.pendingRewards.questAt(0),"Quest grant did not join Weapons treasure staging");
+  if(packsFull){check(q.rewardPhase==XeenRewardPhase::Warning,"Quest full-pack warning missing");q=pending(quest.resumeOne(q));}
+  else {check(q.rewardPhase==XeenRewardPhase::Blank && q.rewardReceipt.entries[0].quest,"Quest blank display obligation missing");q=pending(quest.resume(q));}
+  check(q.rewardPhase==XeenRewardPhase::Receipt && quest.f.initial.questItems.at(17)==1 &&
+   q.rewardReceipt.delivered==(packsFull?0u:1u),"Quest display re-granted or ignored full-pack rule");
+  quest.resumeOne(q);check(quest.f.initial.questItems.at(17)==1,"Final quest acknowledgment granted twice");
+  check(xeenInventoryInspection(quest.f.initial).substr(xeenInventoryInspection(quest.f.initial).find("\nActive order:"))==
+   inventory.substr(inventory.find("\nActive order:")),"Quest presentation inserted an inventory item");
+ }
+}
+int main(){try{terminals();continuations();production();publication();individualPublication();std::cout<<"Reward interpreter individual publication matrix passed\n";return 0;}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}}

@@ -79,6 +79,18 @@ XeenEventExecutionState pending(const XeenEventExecutionStepResult &r) {
 void complete(const XeenEventExecutionStepResult &r) {
 	check(std::holds_alternative<XeenEventExecutionCompleted>(r),"expected completion");
 }
+void finishQuestReward(XeenEventFlow &flow,const XeenPartyState &members,
+		const std::optional<XeenEventExecutionState> &suspended) {
+	const auto counts=members.questItems.counts();
+	for(const auto phase:{XeenRewardPhase::Blank,XeenRewardPhase::Found,XeenRewardPhase::Receipt}) {
+		check(flow.blocksGameplay() && suspended && suspended->rewardPhase==phase &&
+			suspended->pendingPresentation->request.kind==XeenPresentationKind::RewardReceipt &&
+			suspended->pendingPresentation->request.rewardWaitTicks==(phase==XeenRewardPhase::Blank?1u:phase==XeenRewardPhase::Found?10u:0u),
+			"WhoWill quest treasure boundary");
+		flow.handle(AcknowledgeAction{});
+		check(members.questItems.counts()==counts,"WhoWill treasure replayed quest grant");
+	}
+}
 void error(const XeenEventExecutionStepResult &r, Kind kind) {
 	const auto *e=std::get_if<XeenEventExecutionError>(&r);
 	check(e && e->kind==kind,"unexpected WhoWill error");
@@ -298,10 +310,10 @@ void productionFlow() {
 			record(1,1,3,9,{9,20,5}),record(1,1,4,0xff),record(1,1,5,0x0c,{0,0,21,100}),record(1,1,6,0x12)});
 		XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
 		flow.dialogText=&dos_test::text();
-		int line=-1;bool done=false;
+		int line=-1;bool done=false;std::optional<XeenEventExecutionState> suspended;
 		auto report=[&](const auto &r) {
 			check(!std::holds_alternative<XeenEventExecutionError>(r),"production flow failed");
-			if(const auto *s=std::get_if<XeenEventExecutionSuspended>(&r))line=s->request.source.line;
+			if(const auto *s=std::get_if<XeenEventExecutionSuspended>(&r)){line=s->request.source.line;suspended=s->state;}
 			else done=true;
 		};
 		flow.reportManual=report;flow.reportAutomatic=report;
@@ -332,6 +344,8 @@ void productionFlow() {
 		int pages=0;while(line==1 && ++pages<100)flow.handle(AcknowledgeAction{});
 		check(pages>1 && pages<100 && line==2,"pagination failed");
 		flow.handle(AcknowledgeAction{});
+		check(!done && flow.blocksGameplay() && f.members.questItems.at(18)==1,"selected grant did not precede its treasure display");
+		finishQuestReward(flow,f.members,suspended);
 		check(done && !flow.blocksGameplay() && f.members.questItems.at(18)==1,"selected SP or grant count");
 		check(!flow.respond(retry,SelectedCharacter{1}),"completed response replay");
 		flow.handle(NavigationAction::TurnRight);check(f.camera.direction==XeenDirection::East,"navigation did not recover");
@@ -385,7 +399,9 @@ void priorEffects() {
 		f.text.mapId=2;
 		XeenEventFlow flow(f.world,f.events,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});
 		flow.dialogText=&dos_test::text();
-		bool failed=false;flow.reportManual=[&](const auto &r){failed=std::holds_alternative<XeenEventExecutionError>(r);};
+		bool failed=false;std::optional<XeenEventExecutionState> suspended;
+		flow.reportManual=[&](const auto &r){failed=std::holds_alternative<XeenEventExecutionError>(r);
+			if(const auto *s=std::get_if<XeenEventExecutionSuspended>(&r))suspended=s->state;};
 		flow.handle(InteractionAction{});
 		check(f.camera.mapId==1 && !f.flags.isSet(7) && f.members.questItems.at(18)==1,"suspension committed transaction/lost grant");
 		const auto generation=*flow.presentationGeneration();
@@ -393,6 +409,7 @@ void priorEffects() {
 			"wrong-kind WhoWill response changed generation");
 		flow.respond(generation,cancel?XeenPresentationResponse{CharacterSelectionCancelled{}}:
 			XeenPresentationResponse{SelectedCharacter{99}});
+		if(cancel)finishQuestReward(flow,f.members,suspended);
 		check(!flow.blocksGameplay() && failed!=cancel && f.camera.mapId==(cancel?2:1) &&
 			f.flags.isSet(7)==cancel && f.members.questItems.at(18)==1,"cancel/error transaction policy");
 		check(f.world.isObjectDisabled({2,0})==remove && f.world.sessionState().disabledEventCount()==(remove?2:0),"prior Remove rolled back");
@@ -409,7 +426,8 @@ void sdlFlow() {
 		flow.dialogText=&dos_test::text();
 		flow.reportManual=[](const auto &r) { check(!std::holds_alternative<XeenEventExecutionError>(r),"SDL flow execution error"); };
 		std::vector<SDL_Keycode> keys{SDLK_SPACE,SDLK_UP,SDLK_RETURN,SDLK_y,SDLK_n,SDLK_F6,SDLK_F1};
-		if (mode==0) keys.insert(keys.end(),{SDLK_RETURN,SDLK_F2,SDLK_RETURN,SDLK_RIGHT});
+		if (mode==0) keys.insert(keys.end(),{SDLK_RETURN,SDLK_F2,SDLK_RETURN,
+			SDLK_RETURN,SDLK_RETURN,SDLK_RETURN,SDLK_RIGHT});
 		if (mode==1) keys.insert(keys.end(),{SDLK_RETURN,SDLK_ESCAPE,SDLK_RIGHT});
 		std::atomic<bool> finished{false};std::exception_ptr senderError;
 		std::thread sender([&] {

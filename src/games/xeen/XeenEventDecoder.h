@@ -104,7 +104,7 @@ struct XeenEventGiveEnchanted {
 };
 struct XeenEventVoiceCue { std::uint8_t index = 0; };
 struct XeenEventSoundCue { std::uint8_t index = 0; };
-// Presentation-only CD speech operands; times retain the original MMSSCC encoding.
+// Presentation-only CD speech operands; the DOS encoding is MMSSFF (75 Hz).
 struct XeenEventCdSpeech { std::uint8_t track = 0; std::uint16_t start = 0, finish = 0; };
 struct XeenEventSpawn { std::uint8_t slot=0; int x=0,y=0; std::uint8_t unused=0; };
 struct XeenEventAlterEvent { std::uint8_t line=0, replacement=0; };

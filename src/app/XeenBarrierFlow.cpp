@@ -64,8 +64,9 @@ bool XeenEventFlow::serviceBarrier() {
 	auto &rule=*work.rule;
 	if(work.trapWaiting) {
 		std::uint64_t now=0;_encounter->guardCallback(entry,[&]{now=_clock();});check();
-		if(now<work.deadline)return false;
+		if(!work.trapPresented || presentationNow()<work.deadline)return false;
 		rule.damagePauseAcknowledged=true;work.trapWaiting=false;
+        _world.scenePresentation().clearDamage();
 	}
 	if(work.portraitWaiting) {
 		if(!work.portraitPresented)return false;
@@ -74,13 +75,16 @@ bool XeenEventFlow::serviceBarrier() {
 	// One cursor: conversions rejected by the gameplay RNG consume this call's
 	// bounded budget and resume at the retained rule stage on the next pulse.
 	if(!rule.service(draw)) {
-		if(rule.injury && rule.injury->injuryReady)work.portraitWaiting=true;
-		if(rule.injury && (rule.injury->injuryApplied || rule.damagePauseReady)) {
-			std::uint64_t now=0;_encounter->guardCallback(entry,[&]{now=_clock();});check();
-			if(now>std::numeric_limits<std::uint64_t>::max()-250)throw std::overflow_error("Trap animation clock exhausted");
-            // Part B replaces this retained five-tick sequence with DOS's two.
-			work.trapWaiting=true;work.deadline=PresentationClock::afterMilliseconds(now,5);
-		}
+		if(rule.injury && rule.injury->injuryReady) {
+            _encounter->publishBarrierInjury(entry,*rule.injury,work.random.continuation());
+            work.portraitWaiting=true;work.portraitPresented=false;
+        }
+        if(rule.injury && (rule.injury->injuryApplied || rule.damagePauseReady)) {
+            _encounter->publishBarrierInjury(entry,*rule.injury,work.random.continuation());
+            rule.injury->injuryApplied=false;
+            work.trapWaiting=true;work.trapPresented=false;
+            work.deadline=PresentationClock::after(presentationNow(),2);
+        }
 		return true;
 	}
 	rule.random=work.random;
@@ -164,6 +168,26 @@ IndexedFrame XeenEventFlow::handleBarrier(const PlayerAction &action) {
 		serviceBarrier();return renderEncounter();
 	}
 	return frameCopy();
+}
+
+void XeenEncounterFlow::publishBarrierInjury(const Ticket &entry,const XeenTypedDamageCandidate &injury,
+        const XeenJourneyRandomState &random) {
+    if(!current(entry) || !journeyEvent() || _busy)throw std::logic_error("Barrier injury authority is absent or stale");
+    _journeyPreimage->check();
+    auto retained=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
+    retained->retainResources(*_journeyPreimage);
+    for(const auto &value:injury.characters) {
+        auto &expected=retained->characters[value.rosterId];
+        expected.currentHp=value.currentHp;expected.conditions=value.conditions;expected.armor=value.armor;
+    }
+    retained->s._journeyRandom=random;retained->prepareMutationRanges();
+    _journeyPreimage->check();
+    XeenMutationWatch::write(&_world);_world._sessionState._journeyRandom=random;
+    for(const auto &value:injury.characters) {
+        auto &live=_party.roster.at(value.rosterId);
+        live.currentHp=value.currentHp;live.conditions=value.conditions;live.armor=value.armor;
+    }
+    _journeyPreimage.swap(retained);_journeyPreimage->adoptMutationBoundary();
 }
 
 void XeenEncounterFlow::publishBarrier(const Ticket &entry,XeenWorld &candidate,const XeenRestoreGuard &prepared,

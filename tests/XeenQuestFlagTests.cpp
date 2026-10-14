@@ -30,6 +30,7 @@ XeenEventRecord set(int line=0,int index=2,int x=1,int y=1) {
 	return record(x,y,line,0x0c,{0,0,104,static_cast<std::uint8_t>(index)});
 }
 struct Fixture {
+	std::uint64_t now=0;
 	XeenPartyState members=party();XeenCamera camera{1,1,1,XeenDirection::North};XeenGameFlags flags;
 	std::map<XeenMapIdentity,XeenEventScript> scripts;
 	XeenWorld world{[](XeenMapIdentity id){auto m=map(id);m.geometry.cells[17].rawAttributes=0x10;return m;},
@@ -45,7 +46,7 @@ struct Fixture {
 	XeenEventExecutionStepResult resume(XeenEventExecutionState s){return interpreter.resume(std::move(s),XeenPresentationResponse::Acknowledged,
 		members,world,[&](XeenMapIdentity id){return scripts.at(id);},{});}
 	XeenEventFlow flow(){return XeenEventFlow(world,events,members,camera,flags,font,[&](std::uint64_t){return XeenEventFlow::Composition{base, false};},
-		[](IndexedFrame&,std::uint8_t,std::size_t){},[]{return 0;},[]{return 0;});}
+		[](IndexedFrame&,std::uint8_t,std::size_t){},[&]{return now;},[]{return 0;});}
 };
 void error(const XeenEventExecutionStepResult&r,Kind kind){const auto*e=std::get_if<XeenEventExecutionError>(&r);
 	check(e && e->kind==kind,"incorrect quest-flag diagnostic");}
@@ -165,7 +166,9 @@ void lifetimeAndCancellation() {
 	check(f.members.questFlags.isSet(2) && flow.blocksGameplay(),"selected member/call lost immediate set");
 	f.members.questFlags.set(29); // Independent live mutation while suspended must survive resume.
 	f.events.discardScriptCache();f.events.discardTextCache();f.world.discardMapCache();flow.refresh(true);
-	flow.handle(AcknowledgeAction{});check(f.members.questFlags.isSet(29) && !flow.blocksGameplay(),"continuation restored old party state");
+	flow.framePresented(flow.frame().presentation());f.now=200;flow.handle(AcknowledgeAction{});
+	flow.framePresented(flow.frame().presentation());flow.updatePresentation();flow.framePresented(flow.frame().presentation());
+	check(f.members.questFlags.isSet(29) && !flow.blocksGameplay(),"continuation restored old party state");
 	flow.handle(InteractionAction{});flow.handle(CancelInteractionAction{});check(f.members.questFlags.isSet(2),"later cancellation erased request");
 	XeenEventSystem replacement([&](XeenMapIdentity id){return f.scripts.at(id);});
 	XeenEventFlow newFlow(f.world,replacement,f.members,f.camera,f.flags,f.font,[&](std::uint64_t){return XeenEventFlow::Composition{f.base, false};});

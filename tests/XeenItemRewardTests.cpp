@@ -123,4 +123,27 @@ void dosDelivery() {
  auto r=xeenDeliverRewards(q,f.initial,{});
  check(r.delivered==1 && r.lost==1 && r.entries[1].loss==XeenRewardLoss::GloballyFull && r.gold==9 && r.gems==4,"Becoming globally full discards remaining items only");
 }
-int main(){try{model();recipients();categories();dosDelivery();std::cout<<"Bounded item model and recipient matrix passed\n";return 0;}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}}
+void stagedDelivery() {
+ Fixture f;auto &party=f.initial;party.monsterTreasure=XeenMonsterTreasure{};
+ party.questItems.increment(17);
+ XeenPendingRewards pending;pending.enqueue({0,6,0,0},XeenRewardCategory::Weapons);
+ pending.enqueueQuest(99);pending.credit(34,27);pending.credit(35,4);
+ auto receipt=xeenPrepareRewardReceipt(pending);
+ check(receipt.count==2 && receipt.entries[1].quest && !receipt.delivered && !party.monsterTreasure->gold,
+  "Preparing treasure published rewards");
+ xeenDeliverRewardEntry(receipt,0,party,{},false);
+ auto &weapons=party.roster.at(0).weapons;
+ check(weapons.back().id==6 && !weapons.front().id && receipt.delivered==1 && !party.monsterTreasure->gold,
+  "Transfer must precede sorting and currency");
+ bool duplicate=false;try{xeenDeliverRewardEntry(receipt,0,party,{},false);}catch(const std::logic_error &){duplicate=true;}
+ check(duplicate,"Duplicate item publication accepted");
+ xeenSortRewardEntry(receipt.entries[0],party);
+ check(weapons.front().id==6 && !weapons.back().id,"Found-line transition did not sort inventory");
+ const auto inventory=weapons;xeenDeliverRewardEntry(receipt,1,party,{},false);xeenSortRewardEntry(receipt.entries[1],party);
+ check(std::equal(weapons.begin(),weapons.end(),inventory.begin(),same) && party.questItems.at(17)==1 && receipt.delivered==2 && !party.monsterTreasure->gold,
+  "Quest presentation inserted inventory or granted its counter twice");
+ xeenCreditRewardCurrency(pending,receipt,party);
+ check(!pending.hasWork() && party.monsterTreasure->gold==27 && party.monsterTreasure->gems==4,
+  "Final acknowledgment did not settle staged currency");
+}
+int main(){try{model();recipients();categories();dosDelivery();stagedDelivery();std::cout<<"Bounded item model and staged recipient matrix passed\n";return 0;}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}}

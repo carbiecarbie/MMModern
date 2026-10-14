@@ -569,12 +569,15 @@ bool XeenEncounterFlow::presentJourney(const Ticket &entry) {
 	_journeyCapture->initializationPending=false;
     projectilesPresented();
     if(_rest) {
-        std::uint64_t acquiredAt=0;guardCallback(entry,[&]{acquiredAt=_clock();});
-        const auto beat=_rest->dreamBeat;
-        const bool fade=_rest->phase==RestContinuation::Phase::Dream && (beat<66 || beat>=80);
         _rest->presented=true;
-        _rest->deadline=fade?PresentationClock::retraceAfterMilliseconds(acquiredAt):
-            PresentationClock::afterMilliseconds(acquiredAt,_rest->phase==RestContinuation::Phase::Dream?1:2);
+        if(_rest->phase==RestContinuation::Phase::Dream && _rest->dreamFade()) {
+            std::uint64_t acquiredAt=0;
+            guardCallback(entry,[&]{acquiredAt=_nanosecondClock?(*_nanosecondClock)():PresentationClock::fromMilliseconds(_clock());});
+            _rest->dreamDeadline=PresentationClock::retraceAfter(acquiredAt);
+        } else if(_rest->phase!=RestContinuation::Phase::Dream) {
+            std::uint64_t acquiredAt=0;guardCallback(entry,[&]{acquiredAt=_clock();});
+            _rest->deadline=PresentationClock::afterMilliseconds(acquiredAt,2);
+        }
     }
 	auto &s = _world._sessionState;
 	if(_shoot && !_shoot->presented) {_shoot->presented=true;_shoot->deadline=counterDeadline(_lastTime,2);}

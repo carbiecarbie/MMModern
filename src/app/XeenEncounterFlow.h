@@ -133,7 +133,10 @@ public:
         if(_combat && _combat->cast() && _castProjectile && _castProjectile->active)
             result.projectiles.push_back(*_castProjectile);
         for(const auto &p:_projectiles) if(p.active) result.projectiles.push_back(p);
-        if(_combat)result.impactSnapshot=_combat->castImpactSnapshot();
+        if(_combat) {
+            result.impactSnapshot=_combat->attackImpactSnapshot();
+            if(!result.impactSnapshot)result.impactSnapshot=_combat->castImpactSnapshot();
+        }
         if(_shoot && _shoot->stage==XeenShootCandidate::Stage::PostImpact)result.impactSnapshot=_shoot->bound;
         if(!result.projectiles.empty()) result.projectile=result.projectiles.front();
 		return result;
@@ -162,7 +165,21 @@ private:
 	 XeenPartyOrder owners{};
 	 enum class Phase { Confirm, Refused, Charges, Remainder, Dream, Recovery, Complete };
 	 Phase phase=Phase::Charges;
-	 unsigned charges=0, consumed=0, dreamBeat=0;
+	 unsigned charges=0, consumed=0;
+     enum class Dream { FadeOutGameplay, FadeInDream, BeforeDreams, Dreams, Laff, AfterLaff, FadeOutDream, FadeInGameplay };
+     Dream dreamPhase=Dream::FadeOutGameplay;
+     unsigned fadeStep=0;
+     std::array<std::uint64_t,2> sampleDurations{};
+     std::uint64_t dreamDeadline=0;
+     bool dreamFade() const noexcept {
+      return dreamPhase==Dream::FadeOutGameplay || dreamPhase==Dream::FadeInDream ||
+       dreamPhase==Dream::FadeOutDream || dreamPhase==Dream::FadeInGameplay;
+     }
+     bool dreamScene() const noexcept {return dreamPhase!=Dream::FadeOutGameplay && dreamPhase!=Dream::FadeInGameplay;}
+     unsigned dreamScale() const noexcept {
+      if(!dreamFade())return 128;
+      return dreamPhase==Dream::FadeOutGameplay || dreamPhase==Dream::FadeOutDream?128-4*fadeStep:4*fadeStep;
+     }
 	 unsigned terrainMinutes=0;
 	 std::string refusal;
 	 bool starving=false, presented=false;
@@ -173,7 +190,7 @@ private:
 	 IndexedFrame dream, background;
 	};
 	std::unique_ptr<RestContinuation> _rest;
-	bool beginRest(const std::function<IndexedFrame()> &);
+	bool beginRest(const std::function<IndexedFrame()> &,const std::function<std::array<std::uint64_t,2>()> &);
 	bool respondRest(const PlayerAction &);
 	bool serviceRest();
 	void restPublication();
@@ -192,7 +209,7 @@ private:
 			beforeContext(day.beforeContext()),endingContext(day.context()),beforeEconomy(day.beforeEconomy()),
 			endingEconomy(day.economy()),beforeRandom(day.beforeRandom()),endingRandom(day.continuation()),triggered(day.triggered()) {}
 		bool matches(const XeenServiceDayCandidate &day) const {
-			return day.complete() && beforeContext==day.beforeContext() && endingContext==day.context() &&
+			return day.reservationReady() && beforeContext==day.beforeContext() && endingContext==day.context() &&
 				beforeEconomy==day.beforeEconomy() && endingEconomy==day.economy() &&
 				beforeRandom==day.beforeRandom() && endingRandom==day.continuation() && triggered==day.triggered();
 		}
@@ -236,7 +253,7 @@ private:
 	void quoteTraining(std::size_t);
 	void confirmTraining();
 	bool serviceTrainingLevel();
-	void departTraining();
+	bool departTraining();
 	void advanceTraining() noexcept;
 	std::function<void(XeenSmithBoundary)> _smithBoundary;
 	void checkSmithBoundary(XeenSmithBoundary);
@@ -257,7 +274,8 @@ private:
 	void cancelTempleHeal();
 	void advanceSmith() noexcept;
 	void checkSmithReservation();
-	void departSmith();
+	bool departSmith();
+	void publishServiceAnimationRandom(const XeenJourneyRandomState &,const XeenJourneyRandomState &);
 	bool beginCasting(const Ticket &);
 	void authorizeCastingFrame(const Ticket &, std::uint64_t, const IndexedFrame::Presentation &);
 	bool castingFrameCurrent(std::uint64_t, const IndexedFrame::Presentation &) const noexcept;
@@ -269,6 +287,8 @@ private:
 	bool publishAwaken(const Ticket &);
 	void adoptJourneyFlowBorrow();
 	void beginJourneyEvent(bool barrier=false);
+	std::optional<std::pair<unsigned,bool>> rangedPortrait() const;
+	void publishBarrierInjury(const Ticket &, const XeenTypedDamageCandidate &, const XeenJourneyRandomState &);
 	void publishBarrier(const Ticket &, XeenWorld &, const XeenRestoreGuard &, const XeenBarrierCandidate &, const XeenGameplayContext &, std::uint64_t now, bool dailyReset);
 	void endJourneyEvent();
 	void publishArrival(const XeenActorView &) noexcept;
@@ -343,6 +363,7 @@ private:
 	bool serviceShoot();
 	bool beginMonsterReward(const XeenItemCatalog &);
 	void acknowledgeMonsterReward();
+	void advanceMonsterReward();
 	bool monsterReward() const noexcept { return _monsterReceipt.has_value(); }
 	bool _regionalAutomatic = false;
 	std::optional<XeenCombatLocation> _regionalAutomaticAddress;

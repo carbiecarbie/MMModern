@@ -1,4 +1,5 @@
 #include "XeenTestInstallation.h"
+#include "formats/xeen/XeenVocDuration.h"
 #include "XeenTrainingTestSupport.h"
 #include "platform/sdl/XeenMainScreenInput.h"
 #include <iostream>
@@ -9,7 +10,14 @@ struct XeenRestTestAccess {
  static bool complete(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Complete;}
  static bool confirm(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Confirm;}
  static bool refused(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Refused;}
- static unsigned dream(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Dream?f._encounter->_rest->dreamBeat+1:0;}
+  using Dream=XeenEncounterFlow::RestContinuation::Dream;
+ static bool dream(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Dream;}
+ static Dream dreamPhase(const XeenEventFlow &f){return f._encounter->_rest->dreamPhase;}
+ static unsigned fadeStep(const XeenEventFlow &f){return f._encounter->_rest->fadeStep;}
+ static unsigned scale(const XeenEventFlow &f){return f._encounter->_rest->dreamScale();}
+ static bool dreamScene(const XeenEventFlow &f){return f._encounter->_rest->dreamScene();}
+ static bool fade(const XeenEventFlow &f){return f._encounter->_rest->dreamFade();}
+ static std::uint64_t deadline(const XeenEventFlow &f){return f._encounter->_rest->dreamDeadline;}
  static unsigned charges(const XeenEventFlow &f){return f._encounter->_rest->charges;}
  static void pending(XeenEventFlow &f,unsigned value){auto &e=*f._encounter;e._state._pending=value;f._encounterFrame=e.ticket();}
  static void scene(XeenEventFlow &f,const XeenGameplayContext &context) {
@@ -28,7 +36,12 @@ struct XeenRestTestAccess {
 };
 }
 namespace {
-void wire(Fixture &f){f.flow->loadRestDream=[&]{return f.in.assets.restDreamImage();};}
+void wire(Fixture &f){
+ f.flow->loadRestDream=[&]{return f.in.assets.restDreamImage();};
+ f.flow->loadSampleDuration=[&](const char *name,XeenSceneArchive archive){
+  return xeenVocDurationNanoseconds(f.in.assets.readArchiveResource(name,archive));
+ };
+}
 void pulse(Fixture &f){f.now+=100;f.flow->beginCycle(++f.cycle);if(const auto frame=f.flow->updatePresentation())f.present(*frame);}
 void finish(Fixture &f) {
  for(unsigned n=0;n<1000;++n) {
@@ -189,7 +202,7 @@ void interruption(Inputs &in,bool ranged,unsigned pending,bool indoor=false) {
  std::cout<<"Interrupted-rest aftermath asleep="<<stillAsleep<<" exact round-trip\n";
 }
 void reentrant(Inputs &in) {
- const auto start=source(in,true);Fixture f(in,start);unsigned calls=0;
+ const auto start=source(in,true);Fixture f(in,start);wire(f);unsigned calls=0;
  const auto input=f.flow->displayedInput();const auto frame=f.flow->frame().presentation();
  f.flow->loadRestDream=[&] {
   ++calls;f.flow->handle(RestAction{},input,frame);
@@ -199,7 +212,22 @@ void reentrant(Inputs &in) {
  };
  f.act(RestAction{});finish(f);check(calls==1 && f.p.food==start.food-6,"Reentrant Rest entry double-charged");
 }
-void combatOutcomes(Inputs &in,bool run) {
+void sampleFailure(Inputs &in) {
+ const auto start=source(in,true);
+ for(bool invalid:{false,true}) {
+  Fixture f(in,start);wire(f);
+  f.flow->loadSampleDuration=[invalid](const char*,XeenSceneArchive)->std::uint64_t {
+   if(invalid)return 0;
+   throw std::runtime_error("Synthetic Rest sample metadata failure");
+  };
+  bool failed=false;try{f.act(RestAction{});}catch(const std::exception &){failed=true;}
+  check(failed && !XeenRestTestAccess::active(*f.flow),"Invalid sample metadata admitted Rest");
+  check(f.p.food==start.food && f.p.encounterContext==start.journey->context &&
+   f.w.sessionState().journeyRandom()==start.journey->random,"Sample preflight failure published food/time/RNG");
+  for(auto owner:start.activeRosterIds)check(f.p.roster.at(owner).conditions==start.characters[owner].conditions &&
+   f.p.roster.at(owner).currentHp==start.characters[owner].currentHp,"Sample preflight failure published sleep/recovery");
+ }
+}void combatOutcomes(Inputs &in,bool run) {
  auto start=source(in,false,true);start.journey->random=XeenCombatRandom(run?101:29).continuation();
  for(auto owner:start.activeRosterIds)start.characters[owner].currentHp=run?1000:1;
  Fixture f(in,start);wire(f);f.act(RestAction{});
@@ -359,7 +387,7 @@ void rolloverAndDream(Inputs &in) {
  const auto save=f.snapshot();Fixture loaded(in,save);wire(loaded);f.act(RestAction{});loaded.act(RestAction{});finish(f);finish(loaded);
  f.act(NavigationAction::TurnLeft);loaded.act(NavigationAction::TurnLeft);finish(f);finish(loaded);
  save_test::sameSnapshot(f.snapshot(),loaded.snapshot());
- auto dreamStart=source(in,true);dreamStart.journey->context->minutes=1000;
+ auto dreamStart=source(in,true);dreamStart.food=8;dreamStart.journey->context->minutes=1000;
  // Healthy eight-hour checks draw nothing; seed 17's first raw value
  // is 4596240, yielding 1 for the subsequent inclusive 1..20 dream draw.
  constexpr unsigned chosen=17;
@@ -376,39 +404,84 @@ void rolloverAndDream(Inputs &in) {
  }
  check(chosen,"Fixed dream seed absent");dreamStart.journey->random=XeenCombatRandom(chosen).continuation();
  Fixture dream(in,dreamStart);wire(dream);XeenRestTestAccess::scene(*dream.flow,*dream.p.encounterContext);
- dream.act(RestAction{});unsigned beats=0,hidden=0;
+ dream.act(RestAction{});
+ using D=XeenRestTestAccess::Dream;
+ unsigned frames=0,fadeFrames=0,intervals=0,retries=0;
+ std::array<unsigned,8> stages{};
  std::optional<XeenJourneyRandomState> cursor;unsigned minutes=0;std::optional<unsigned> overall;
  const auto dreamImage=in.assets.restDreamImage();std::optional<IndexedFrame> restored;
- check(dreamImage.pixels==in.assets.readArchiveResource("scene1.raw",XeenSceneArchive::Darkside),"Rest dream pixels are the original INTRO scene1.raw resource");
- for(unsigned n=0;n<500 && !XeenRestTestAccess::complete(*dream.flow);++n) {
-  if(XeenRestTestAccess::dream(*dream.flow)) {
-   ++beats;hidden+=dream.flow->inputContext(dream.flow->frame().presentation()).hideCursor;
-   if(!cursor){cursor=dream.w.sessionState().journeyRandom();minutes=dream.p.encounterContext->minutes;}
-   if(!overall)overall=dream.w.scenePresentation().overallFrame;
-   check(dream.w.scenePresentation().overallFrame==*overall,"Dream advanced ordinary scene animation");
-   check(dream.w.sessionState().journeyRandom()==cursor && dream.p.encounterContext->minutes==minutes,"Dream consumes no gameplay RNG or time");
-   const auto background=XeenRestTestAccess::background(*dream.flow);
-   restored=background;
-   check(background.pixels[0]==2 && minutes==40,"Dream captured pre-changeTime day background instead of redrawn night");
-   const unsigned beat=XeenRestTestAccess::dream(*dream.flow)-1;
-   check(dream.flow->frame().pixels==(beat<33 || beat>=113?background.pixels:dreamImage.pixels),"Dream uses original scene1.raw and saved background");
-   check(dream.flow->inputContext(dream.flow->frame().presentation()).hideCursor==(beat>=33 && beat<113),"Dream cursor hide/restore at existing visual boundaries");
-   const unsigned val=beat<33?128-4*beat:beat<66?4*(beat-33):beat<80?128:beat<113?128-4*(beat-80):4*(beat-113);
-   for(unsigned n=0;n<background.palette.size();++n)
-    check(dream.flow->frame().palette[n]==(((n%64)<<2)*val*2>>8),"Dream fade differs from pin's p8 formula");
-   dream.act(RestAction{});check(!dream.flow->canSave(),"Dream reentrant input escaped boundary");
+ check(dreamImage.pixels==in.assets.readArchiveResource("scene1.raw",XeenSceneArchive::Darkside),"Rest dream pixels are original INTRO scene1.raw");
+ for(unsigned n=0;!XeenRestTestAccess::dream(*dream.flow);++n){check(n<500,"Chosen dream not reached");pulse(dream);}
+ const auto foodBefore=dream.p.food;
+ auto step=[&](std::uint64_t at,bool acquire=true) {
+  dream.now=at;dream.flow->beginCycle(++dream.cycle);
+  const auto next=dream.flow->updatePresentation();if(next && acquire)dream.present(*next);return next;
+ };
+ for(unsigned n=0;n<200 && XeenRestTestAccess::dream(*dream.flow);++n) {
+  ++frames;
+  const auto stage=XeenRestTestAccess::dreamPhase(*dream.flow);
+  const auto phase=unsigned(stage);++stages[phase];
+  if(!cursor){cursor=dream.w.sessionState().journeyRandom();minutes=dream.p.encounterContext->minutes;}
+  if(!overall)overall=dream.w.scenePresentation().overallFrame;
+  check(dream.w.scenePresentation().overallFrame==*overall,"Dream advanced ordinary scene animation");
+  check(dream.w.sessionState().journeyRandom()==cursor && dream.p.encounterContext->minutes==minutes && dream.p.food==foodBefore,
+   "Dream consumes no gameplay RNG, time or recovery food");
+  const auto background=XeenRestTestAccess::background(*dream.flow);restored=background;
+  check(background.pixels[0]==2 && minutes==40,"Dream retained wrong pre-changeTime background");
+  const bool scene=XeenRestTestAccess::dreamScene(*dream.flow);
+  check(dream.flow->frame().pixels==(scene?dreamImage.pixels:background.pixels),"Dream original image/background order");
+  check(dream.flow->inputContext(dream.flow->frame().presentation()).hideCursor==scene,"Dream cursor transition order");
+  const auto val=XeenRestTestAccess::scale(*dream.flow);
+  for(unsigned i=0;i<background.palette.size();++i)
+   check(dream.flow->frame().palette[i]==(((i%64)<<2)*val*2>>8),"Dream palette arithmetic");
+  const auto input=dream.flow->displayedInput();const auto frame=dream.flow->frame().presentation();
+  for(const PlayerAction action:{PlayerAction{CancelInteractionAction{}},PlayerAction{RestAction{}},PlayerAction{AcknowledgeAction{}}}) {
+   dream.act(action);check(XeenRestTestAccess::dream(*dream.flow) && XeenRestTestAccess::dreamPhase(*dream.flow)==stage && !dream.flow->canSave(),
+    "Escape/input skipped dream or admitted a save");
   }
-  pulse(dream);
+  const auto deadline=XeenRestTestAccess::deadline(*dream.flow);
+  check(dream.flow->nextPresentationDeadline()==deadline,"Dream platform deadline disagrees with retained stage");
+  if(XeenRestTestAccess::fade(*dream.flow))++fadeFrames;
+  else {
+   ++intervals;
+   const auto now=PresentationClock::fromMilliseconds(dream.now);
+   const auto expected=stage==D::BeforeDreams || stage==D::AfterLaff?PresentationClock::after(now,7):
+    PresentationClock::checkedAdd(now,stage==D::Dreams?1664504000ULL:1966764000ULL);
+   check(deadline==expected,"Dream single-reset seven ticks or exact sequential VOC duration");
+  }
+  // A repaint is not another original palette write, and the deadline is a
+  // strict gate even when the requested sample ends between milliseconds.
+  const auto justBefore=(deadline-1)/1000000;
+  if(justBefore>=dream.now)check(!step(justBefore),"Dream advanced before its exact stage deadline");
+  const auto due=PresentationClock::ceilMilliseconds(deadline)+(stage==D::BeforeDreams?1000:0);
+  if(stage==D::FadeInDream && XeenRestTestAccess::fadeStep(*dream.flow)==17)
+   dream.flow->beforeEncounterFrameCopy=[&]{++retries;throw std::runtime_error("Synthetic dream upload failure");};
+  const auto next=step(due,false);check(bool(next),"Dream did not publish its next stage at deadline");
+  dream.flow->beforeEncounterFrameCopy={};
+  const auto retainedPhase=XeenRestTestAccess::dreamPhase(*dream.flow);
+  const auto retainedStep=XeenRestTestAccess::fadeStep(*dream.flow);
+  check(!step(due,false),"Unacquired dream frame advanced on another host wake");
+  check(XeenRestTestAccess::dreamPhase(*dream.flow)==retainedPhase && XeenRestTestAccess::fadeStep(*dream.flow)==retainedStep,
+   "Host wake skipped a retained dream frame");
+  // Acquisition after a failed upload is the retrace reset for fades; sample
+  // and BIOS holds retain the original call's deadline instead.
+  dream.now=due;dream.present(*next);
+  dream.flow->handle(CancelInteractionAction{},input,frame);
  }
- check(beats==146 && hidden==80,"Existing 146-beat dream retained; DOS timing/voice gates remain M63");
- check(restored && !dream.flow->inputContext(dream.flow->frame().presentation()).hideCursor &&
-  std::equal(restored->pixels.begin(),restored->pixels.begin()+149*320,dream.flow->frame().pixels.begin()),"Dream completion restores gameplay scene and cursor before summary");
- finish(dream);
- std::cout<<"Dream seed="<<chosen<<" 146 visual beats; audio waits deferred\n";
+ check(retries==1,"Dream frame retry witness did not run");
+ check(frames==136 && fadeFrames==132 && intervals==4,"Dream must retain four 33-level fades and four whole intervals");
+ check(stages[0]==33 && stages[1]==33 && stages[2]==1 && stages[3]==1 && stages[4]==1 && stages[5]==1 && stages[6]==33 && stages[7]==33,
+  "Dream retained stage ordering/counts");
+ check(restored && !dream.flow->inputContext(dream.flow->frame().presentation()).hideCursor,"Dream restores cursor before recovery");
+ const auto recoveryInput=dream.flow->displayedInput();const auto recoveryFrame=dream.flow->frame().presentation();
+ finish(dream);const auto after=XeenSaveFormat::encode(dream.snapshot());
+ dream.flow->handle(AcknowledgeAction{},recoveryInput,recoveryFrame);
+ check(XeenSaveFormat::encode(dream.snapshot())==after && dream.p.food==2,"Dream recovery must publish exactly once despite stale input");
+ std::cout<<"Dream seed="<<chosen<<" four 33-level retrace fades; 7 ticks, 1.664504s, 1.966764s, 7 ticks passed\n";
 }
 }
 int main(int argc,char **argv) {try {
  check(argc==2,"Rest original usage: installation");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Original installation absent");
- Inputs in(*installation);sleepingHit(in);terrain(in);success(in,false);success(in,true);entry(in);interruption(in,false,0);interruption(in,true,3);interruption(in,false,0,true);rolloverAndDream(in);reentrant(in);combatOutcomes(in,true);combatOutcomes(in,false);conditionDeath(in);noTargets(in);
+ Inputs in(*installation);sleepingHit(in);terrain(in);success(in,false);success(in,true);entry(in);interruption(in,false,0);interruption(in,true,3);interruption(in,false,0,true);rolloverAndDream(in);reentrant(in);sampleFailure(in);combatOutcomes(in,true);combatOutcomes(in,false);conditionDeath(in);noTargets(in);
  std::cout<<"Original-resource Rest, interruption, food, UI path and mid-sequence save tests passed\n";return 0;
  }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

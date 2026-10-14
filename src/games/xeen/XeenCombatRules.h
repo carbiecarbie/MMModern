@@ -60,6 +60,7 @@ struct XeenTypedDamageCandidate {
 	XeenTypedDamageCandidate(const XeenConsequenceCharacters &,const XeenConsequenceInputs &,
 		int damage,XeenDamageType,unsigned year,unsigned memberMask,const XeenDamageProtection &);
 	bool service(XeenConsequenceDraw &);
+    bool operator==(const XeenTypedDamageCandidate &) const;
 private:
 	enum class Step { Begin, Save, Injury, Next, Done } step=Step::Begin;
 	XeenConsequenceInputs inputs;
@@ -126,7 +127,7 @@ struct XeenEnemyAttackCandidate {
 	// ranged sources use this same reference count loop and updated characters.
 	bool nextAttack();
 private:
-	enum class Step { Target, Begin, Roll, Dice, Special, Injury, Parameter,
+	enum class Step { Target, Begin, Roll, Dice, Portrait, Special, Injury, Parameter,
 		PoisonSaveInitial, PoisonSaveRepeat, Next, Done };
 	Step step = Step::Target, afterInjury = Step::Next;
 	XeenConsequenceInputs inputs;

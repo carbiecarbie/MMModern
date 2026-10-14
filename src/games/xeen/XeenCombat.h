@@ -81,6 +81,7 @@ private:
     std::optional<std::uint64_t> beat;
 };
 enum class XeenCombatAttackOutcome { NotApplicable, NoParticipants, Pending, Miss, HitZeroDamage, HitPositiveDamage };
+enum class XeenCombatAttackStage { None, MonsterPose1, MonsterPose2, PreHp, PostHp, MonsterDamageOverlay, MonsterDamageHold };
 enum class XeenCombatExitCause { None, DirectRun, AttritionAfterEscape };
 struct XeenCombatLocation { XeenMapIdentity mapId; int x=0,y=0; XeenDirection direction=XeenDirection::North; };
 struct XeenCombatDamage {
@@ -95,6 +96,8 @@ struct XeenCombatResult {
 	// Owned observations only. Pending is not a published attack outcome.
 	XeenCombatOperation operation=XeenCombatOperation::None;
 	XeenCombatAttackOutcome attackOutcome=XeenCombatAttackOutcome::NotApplicable;
+	XeenCombatAttackStage attackStage=XeenCombatAttackStage::None;
+ bool portraitDamageSequence=false;
 	std::optional<std::uint8_t> actingOwner, targetOwner;
 	XeenMutableOptional<XeenMonsterIdentity> actingMonster, targetMonster;
 	std::optional<XeenEncounterAction> approachAction;
@@ -194,6 +197,11 @@ public:
 	std::array<std::optional<XeenMonsterIdentity>,3> contacts() const noexcept;
 	std::optional<XeenMonsterIdentity> selectedTarget() const noexcept;
 	XeenCombatResult service(const Ticket &);
+	// The Flow path retains attack draws; rule-only callers need no renderer.
+	XeenCombatResult servicePresented(const Ticket &, std::uint64_t now);
+	bool prepareAttackDraw(const Ticket &, std::uint64_t now);
+	void attackPresented(const Ticket &, std::uint64_t now);
+	std::optional<XeenActor> attackImpactSnapshot() const;
 	XeenCombatResult fail(const Ticket &,XeenCombatFailure=XeenCombatFailure::Observation) noexcept;
 	// Single-writer replacement notification, including byte-identical ABA.
 	void invalidate() noexcept;
@@ -225,6 +233,7 @@ private:
     void castPresented(const Ticket &, std::uint64_t);
     std::optional<XeenActor> castImpactSnapshot() const;
     void rangedPresented(const Ticket &, bool travelComplete);
+    std::optional<std::pair<unsigned,bool>> rangedPortrait() const;
     bool consumeCast(CastResponse &);
     XeenCombatResult settleCast(const Ticket &, std::optional<unsigned>);
     XeenCombatResult finishCast(const Ticket &);

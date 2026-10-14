@@ -191,7 +191,11 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     if(m49_combat::canAwaken(*party,c->participant()))act(CastSpellAction{});
                     else if(breakArmor && !(party->roster.at(6).armor[0].state&128) && openingAttacks++>=1){++blocks;act(BlockAction{});}else act(AttackAction{});
                 }
-            } else if(world->sessionState().journeyActivity()==XeenJourneyActivity::Event || world->sessionState().journeyActivity()==XeenJourneyActivity::Reward)act(AcknowledgeAction{});
+            } else if(world->sessionState().journeyActivity()==XeenJourneyActivity::Event || world->sessionState().journeyActivity()==XeenJourneyActivity::Reward) {
+                // Let uninterruptible portrait draws finish before this direct Event acknowledgment.
+                if(!handler.inputContext(presented).readyForAction)return false;
+                act(AcknowledgeAction{});
+            }
             check(flow->encounter()->state().phase()!=XeenEncounterPhase::SupportStopped,"M40 exploration/service support stop");
             return false;
         };
@@ -368,7 +372,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             route("LR");checkpoint("continued");
         } else {
         if(!resume || stage=="A") {emptyVisit();emptyVisit();repair(0,838);
-            inspect([&]{expectDate(11,805,14,209451284u,2001,838);check(interestOperations==(control=="fail-bank-prepared"?2u:1u) && committedInterestOperations==1 &&
+            // BankPrepared now faults before deferred generation/interest starts.
+            // Its retry must still calculate and publish interest exactly once.
+            inspect([&]{expectDate(11,805,14,209451284u,2001,838);check(interestOperations==1 && committedInterestOperations==1 &&
                 m40_test::sha256(m40_test::stockBytes(*party->serviceEconomy))=="29dc85d364a0c9c0fe1d8c496b51690a66215ae9672c0d104b71ed0fe987bb50" &&
                 party->serviceEconomy->bank.gold==0 && party->serviceEconomy->bank.gems==0 && party->roster.at(6).armor[1].state==128,"M40 10->11 restock/interest literal oracle differs");
                 });checkpoint("B");}

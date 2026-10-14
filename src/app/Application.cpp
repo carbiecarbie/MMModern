@@ -2,6 +2,7 @@
 #include "app/XeenTitleFlow.h"
 #include "formats/xeen/XeenCharacterFormat.h"
 #include "app/XeenGameplayServices.h"
+#include "formats/xeen/XeenVocDuration.h"
 #include "platform/XeenSaveFile.h"
 #include <chrono>
 #include <random>
@@ -435,6 +436,9 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                 flow.drawDialogSprite = [&](IndexedFrame &frame,const char *name,unsigned index,int x,int y) { assets.drawDialogSprite(frame,name,index,x,y); };
                 flow.mapName = [&](XeenMapIdentity id) { return assets.mapName(id); };
                 flow.loadRestDream = [&] { return assets.restDreamImage(); };
+                flow.loadSampleDuration = [&](const char *name,XeenSceneArchive archive) {
+                    return xeenVocDurationNanoseconds(assets.readArchiveResource(name,archive));
+                };
                 flow.reportManual = printManualEventResult;
                 flow.reportAutomatic = requireAutomaticEventSuccess;
                 flow.reportText = [](const std::string &message) { std::cerr << "Text warning: " << message << '\n'; };
@@ -532,7 +536,12 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
         for(;;) {
             XeenSessionOutcome result;services.outcome=&result;
             const int status=playGameplay(services,camera,target,resume,entry,entry==XeenEncounterEntry::Journey?seed:std::nullopt);
-            if(status || result.kind!=XeenSessionOutcome::Kind::Load)return status;
+            if(status)return status;
+            if(result.kind==XeenSessionOutcome::Kind::Title) {
+                if(outcome){*outcome=std::move(result);return 0;}
+                return run(gameDirectory);
+            }
+            if(result.kind!=XeenSessionOutcome::Kind::Load)return status;
             if(outcome){*outcome=std::move(result);return 0;}
             services.restoreSnapshot=result.entry.snapshot;services.initialSlot=result.entry.slot;
             services.publishInitial={};services.originalStart.reset();seed.reset();

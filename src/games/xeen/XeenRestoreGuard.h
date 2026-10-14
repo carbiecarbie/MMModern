@@ -444,6 +444,61 @@ private:
   context=candidate.context;recovery=candidate.recovery;
 		questFlags=candidate.questFlags;
 	}
+	// Sequence boundaries publish the interpreter's known party/RNG prefix while
+	// camera, game flags and World overlays remain owned by final settlement.
+	void prepareEventSequencePrefix(const XeenRestoreGuard &candidate) {
+		check();candidate.check();
+		auto retainedTreasure=candidate.treasure;
+		if(retainedTreasure && treasure){retainedTreasure->gold=treasure->gold;retainedTreasure->gems=treasure->gems;}
+		auto retainedContext=candidate.context;
+		if(retainedContext && context) {
+			retainedContext->year=context->year;retainedContext->effects=context->effects;
+			retainedContext->lightAndResistances=context->lightAndResistances;retainedContext->rested=context->rested;
+		}
+		if(candidate.membership!=membership || candidate.marked!=marked ||
+			bool(candidate.recovery)!=bool(recovery) || !(retainedContext==context) || retainedTreasure!=treasure ||
+			candidate.food!=food || candidate.economy!=economy || candidate.first!=first || candidate.effective!=effective ||
+			candidate.diagnostics!=diagnostics || bool(candidate.s._journeyRandom)!=bool(s._journeyRandom)) {
+			failed=true;throw std::logic_error("Event sequence changed an unowned party field");
+		}
+		for(unsigned owner=0;owner<characters.size();++owner) {
+			auto retained=candidate.characters[owner];const auto &before=characters[owner];
+			retained.currentHp=before.currentHp;retained.conditions=before.conditions;
+			retained.temporaryLevel=before.temporaryLevel;retained.intellect.temporary=before.intellect.temporary;
+			retained.personality.temporary=before.personality.temporary;retained.endurance.temporary=before.endurance.temporary;
+			retained.skills=before.skills;retained.awards=before.awards;
+			retained.weapons=before.weapons;retained.armor=before.armor;retained.accessories=before.accessories;retained.miscellaneous=before.miscellaneous;
+			auto retainedInputs=candidate.inputs[owner];
+			if(retainedInputs && inputs[owner]) {
+				auto &after=*retainedInputs;const auto &prior=*inputs[owner];
+				after.experience=prior.experience;after.might.temporary=prior.might.temporary;
+				after.speed.temporary=prior.speed.temporary;after.accuracy.temporary=prior.accuracy.temporary;after.temporaryAc=prior.temporaryAc;
+				if(after.luck && prior.luck)after.luck->temporary=prior.luck->temporary;
+				if(after.poisonResistance && prior.poisonResistance)after.poisonResistance->temporary=prior.poisonResistance->temporary;
+				if(after.resistances && prior.resistances) {
+					auto &r=*after.resistances;const auto &v=*prior.resistances;
+					r.fireTemporary=v.fireTemporary;r.coldTemporary=v.coldTemporary;r.electricalTemporary=v.electricalTemporary;
+					r.energyTemporary=v.energyTemporary;r.magicTemporary=v.magicTemporary;
+				}
+			}
+			if(!xeen_state::sameCharacter(retained,before) || bool(candidate.inputs[owner])!=bool(inputs[owner]) ||
+				(inputs[owner] && !xeen_state::sameInputs(*retainedInputs,*inputs[owner]))) {
+				failed=true;throw std::logic_error("Event sequence changed character inputs without a capability");
+			}
+		}
+		check();candidate.check();
+		for(unsigned owner=0;owner<characters.size();++owner) {
+			auto &live=characters[owner];const auto &after=candidate.characters[owner];
+			live.currentHp=after.currentHp;live.conditions=after.conditions;live.temporaryLevel=after.temporaryLevel;
+			live.intellect.temporary=after.intellect.temporary;live.personality.temporary=after.personality.temporary;
+			live.endurance.temporary=after.endurance.temporary;live.skills=after.skills;live.awards=after.awards;
+			live.weapons=after.weapons;live.armor=after.armor;live.accessories=after.accessories;live.miscellaneous=after.miscellaneous;
+			if(inputs[owner])*inputs[owner]=*candidate.inputs[owner];
+		}
+		quests=candidate.quests;questFlags=candidate.questFlags;context=candidate.context;recovery=candidate.recovery;
+		if(treasure){treasure->gold=candidate.treasure->gold;treasure->gems=candidate.treasure->gems;}
+		s._journeyRandom=candidate.s._journeyRandom;
+	}
 	// Only the coordinator's checked, callback-free authority transitions may adopt these fields.
 	// Gameplay values, identity controls and cache preimages remain retained.
 	void adoptJourneyCoordination() noexcept {
@@ -455,6 +510,9 @@ private:
 		combatCheck = bool(w._combatCheck); combatAuthorized = bool(w._combatAuthorized);
 		adoptMutationBoundary();
 	}
+    void prepareEventAnimationRandom(const XeenJourneyRandomState &ending) {
+        check();s._journeyRandom=ending;
+    }
 	// Only after the coordinator's checked, callback-free owned stores. Other
 	// guards observing the same owners remain invalidated by those writes.
 	void adoptMutationBoundary() noexcept {

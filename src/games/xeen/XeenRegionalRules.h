@@ -71,6 +71,10 @@ struct XeenRegionalOpportunityCandidate {
 		unsigned year, unsigned participantMask, const std::array<bool,6> &blocked = {}, XeenActorOpportunityContext context = {});
 	bool service(XeenConsequenceDraw &);
  std::shared_ptr<const XeenRegionalObservation> presentation() const;
+    std::optional<std::pair<unsigned,bool>> portrait() const {
+        if(!staged || !attack || (!attack->injuryReady && !impactApplied))return std::nullopt;
+        return std::make_pair(unsigned(attack->impactOwner),impactApplied);
+    }
 private:
 	XeenCamera camera;
 	XeenConsequenceInputs inputs;
