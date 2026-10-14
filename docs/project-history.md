@@ -280,3 +280,10 @@ a real game context; the generated coverage report lists totals, the largest
 gaps and per-map readiness, and a calibration test pins Vertigo to its known
 gaps. It found a real gap: equipped material or enchanted items are refused
 before combat and Rest. [Plan](milestone-65-plan.md).
+
+**M66 - Test-suite cleanup** (`613a566`). The old M39-M43 witnesses stopped
+waiting real time for deadlines of their simulated clock, slow tests were
+shortened or split, twelve broken programs outside CTest were retired and
+eleven passing ones joined it, and the runner went parallel. The complete
+suite went from 29 minutes to about 3, with 209 tests instead of 195.
+[Plan](milestone-66-plan.md).

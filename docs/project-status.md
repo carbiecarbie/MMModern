@@ -1,7 +1,9 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M65 is the latest completed
-and accepted milestone** ([plan](milestone-65-plan.md)): a census of every
+This describes what can be played and done now. **M66 is the latest completed
+and accepted milestone** ([plan](milestone-66-plan.md)): the complete test
+suite now runs in about 3 minutes instead of 29, with more tests than before.
+M65 ([plan](milestone-65-plan.md)) added a census of every
 mechanic the original data uses, with its support status, is kept in
 [the coverage report](coverage.md). M64 ([plan](milestone-64-plan.md)) fixed the last
 play-through findings in Vertigo and published the first public releases,

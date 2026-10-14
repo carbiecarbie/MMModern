@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M65 is the latest completed and accepted milestone.**
+**M66 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -85,9 +85,10 @@ still needs its own plan and the maintainer's start.
    releases, [v0.1.0 and v0.1.1](https://github.com/carbiecarbie/MMModern/releases).
 
 This arc is complete. [M65](milestone-65-plan.md) then measured every mechanic
-the original data uses in [the coverage report](coverage.md). Next comes a
-cleanup of the slow test suite (M66), then an arc that finishes the game's
-systems in the order the census gives: the equipment validation before combat
+the original data uses in [the coverage report](coverage.md), and
+[M66](milestone-66-plan.md) cut the complete test suite from 29 minutes to
+about 3. Next comes an arc that finishes the game's systems in the order the
+census gives: the equipment validation before combat
 and Rest, flying monsters, the remaining spells, Rest surfaces, wall and
 object Events, mirrors, password doors and the missing screens. Audio waits
 until after that arc.
