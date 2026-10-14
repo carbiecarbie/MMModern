@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M62 is the latest completed and accepted milestone.**
+**M63 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -29,8 +29,9 @@ Event-to-Service handoff for supported preludes. M57 added generic Event effects
 skills and mapping (teachers, Cartography, automap and Map). M59 completed city
 searches, display cases and jail, the well, Vern's membership and Guild entry,
 and M60 the original Cast dialog, Guild spells and eight new spell effects.
-M61 completed the Ironworks item services and item Use, and M62 the original
-screens and shopkeeper animation.
+M61 completed the Ironworks item services and item Use, M62 the original
+screens and shopkeeper animation, and M63 the original clock, movement pace
+and timed sequences.
 
 ## Next milestones: closing Vertigo for a first public release
 
@@ -73,16 +74,11 @@ still needs its own plan and the maintainer's start.
 8. **Faithful screens and animation** (M62, Tier B): completed and accepted in
    [M62](milestone-62-plan.md). Original Event, NPC, WhoWill, combat-panel and
    treasure screens; no developer overlay; animated shopkeepers.
-9. **Original presentation clock and movement pace** (M63, Tier A): the shared
-   timing contract behind these screens - waits in original ticks,
-   interruptible versus uninterruptible waits, sequential recipient effects and
-   speech-length visual holds - with the Shoot, hit, death and portrait-effect
-   order built on it; and the movement pace of the original (about nine steps a
-   second: no wait for the monster countdown before the next step, no
-   pressed-button hold on keys, no queued phantom steps per the approved
-   deviation in [original quirks](original-quirks.md)). Rules come from original
-   program analysis (REA); after M63 the maintainer decides on an opt-in faster
-   movement option.
+9. **Original presentation clock and movement pace** (Tier A): completed and
+   accepted in [M63](milestone-63-plan.md). Original ticks and waits, about nine
+   steps a second with the approved no-phantom-steps deviation, and the timed
+   NPC, shop, treasure, sparkle, Shoot, dream, title and death sequences. The
+   maintainer decides next on an opt-in faster movement option.
 10. **Closure and release**: the whole Vertigo route from New Game with
    save/load, then the release work (Windows binary, how to point at the GOG
    data, licence, an honest list of what is missing).

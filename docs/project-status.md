@@ -1,9 +1,12 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M62 is the latest completed
-and accepted milestone** ([plan](milestone-62-plan.md)): Event, NPC, WhoWill,
-combat-panel and treasure screens use the original presentation, the developer
-overlay is gone from normal play, and the six shopkeepers animate. M61
+This describes what can be played and done now. **M63 is the latest completed
+and accepted milestone** ([plan](milestone-63-plan.md)): the game runs on the
+original clock, the party walks about nine steps per second as in DOS, and
+NPC speech, shopkeepers, treasure, sparkles, Shoot, the dream, the title and
+party death follow the original sequences and timing. M62
+([plan](milestone-62-plan.md)) gave Event, NPC, WhoWill, combat-panel and
+treasure screens the original presentation and animated the six shopkeepers. M61
 ([plan](milestone-61-plan.md)) made the Ironworks buy,
 sell, identify and fix every item category, and charged items can be used
 outside combat. M60 ([plan](milestone-60-plan.md)) added the original Cast dialog,
@@ -265,11 +268,12 @@ Reference opens the party summary. Discard, Quest and Awards are not
 supported yet.
 
 In exploration and combat, keys pressed while the
-game is still busy (redraws, animations, enemy turns) are buffered, up to five,
-and applied in order when the game is ready, as in the original; holding a
-movement key walks and adds at most one step after release. The buffer is
-cleared when the context changes (combat ends, a panel or dialog opens, map
-changes). Services, dialogs, inventory and casting accept only fresh presses.
+game is still busy (redraws, animations, enemy turns) are buffered and applied
+in order when the game is ready. Every distinct movement or turn tap counts;
+a held key repeats after half a second at the original pace (about nine steps
+per second), and releasing it adds no further step, an approved deviation from
+DOS, which can add steps after release. The buffer is cleared when the context
+changes (combat ends, a panel or dialog opens, map changes). Services, dialogs, inventory and casting accept only fresh presses.
 
 ## Entry modes
 
@@ -376,17 +380,15 @@ instructions are in [dependencies](dependencies.md).
   unsupported. Locked-chest lock/trap/XP mechanics are deferred; Vertigo CD's
   searchable objects use the crate, case, bed and rubbish mechanics.
 - **Presentation.** There is no audio: where the CD plays speech, a short
-  notice appears and the scene continues. Shopkeepers do not show their
-  speaking frames yet, treasure items advance by key instead of the original
-  timed holds, and party death still shows a plain DEFEAT screen; the original
-  timing of these sequences comes with M63.
+  notice appears. Speech, shop voices, the dream and the death laugh keep their
+  original duration silently, and NPC faces move for as long as the CD speech
+  would play.
 - **Services.** Temple Donation and Uncurse, and Tavern Drink, Tip, Rumors and Sign In
   show "not supported yet".
 - **Combat items.** Equipping during combat and the combat Use button are not
   supported yet (the original allows both).
 - **Rest details.** Resting on unsupported terrain (lava, sky, cloud, space)
-  refuses; none is reachable today. The dream has no audio, so it is shorter
-  than the original.
+  refuses; none is reachable today.
 - **Skills.** Only Cartography and the skills used by existing rules
   (Thievery, Navigator, Bodybuilder and others affecting HP/SP) have effects;
   Swimming, Mountaineer and the rest are recorded but not used yet.

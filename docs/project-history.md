@@ -257,3 +257,12 @@ WhoWill, combat-panel and treasure screens use the original windows, text and
 input, the six shopkeepers animate, scenery animations include their final
 frame, and the title and credits follow DOS. Timing-dependent parts are left
 for M63. [Plan](milestone-62-plan.md).
+
+**M63 - Original presentation clock and movement pace** (`4f20b52`,
+`5c40ffe`). One clock in original BIOS ticks drives every wait, and the party
+walks about nine steps per second as in DOS, keeping every tap but adding no
+step after a held key is released (approved deviation). NPC speech, shop
+voices, treasure, sparkles, Shoot, the dream, the title and party death follow
+the original sequences and timing; death returns to the title instead of
+DEFEAT. Myra's original speaking draws changed the Mainland M44 digest
+(approved). [Plan](milestone-63-plan.md).
