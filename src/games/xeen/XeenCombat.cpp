@@ -1205,7 +1205,8 @@ XeenCombatResult XeenCombat::serviceConsequences(const Ticket &t) {
 		if(c.time && !c.time->service(draw)) return pending();
 		if(c.player && !c.physicalDone) {
 			if(!c.player->service(draw)) return pending();
-			c.result.damage=c.player->damage;c.result.actorHpAfter=std::max(c.result.actorHpBefore-c.player->damage,0);
+			c.result.damage=c.player->damage;c.result.elementalDamage=c.player->elemental;c.result.elementalFrame=c.player->elementalFrame;
+			c.result.actorHpAfter=std::max(c.result.actorHpBefore-c.player->damage,0);
 			c.result.attackOutcome=!c.player->hit?AttackOutcome::Miss:c.player->damage?AttackOutcome::HitPositiveDamage:AttackOutcome::HitZeroDamage;
 			if(!c.result.actorHpAfter && d.actors.at(c.result.monster.recordIndex).original.resourceId==6)
 				c.drop.emplace(*d.party.monsterTreasure,c.result.monster.recordIndex);

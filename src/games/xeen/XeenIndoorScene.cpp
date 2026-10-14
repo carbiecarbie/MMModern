@@ -595,6 +595,11 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
         XeenIndoorDrawCommand c;c.originalOrder=order[row]+(s.frame?1:0);c.sourceMapId=camera.mapId;
         c.x=x[row][s.alternatePosition]+(s.frame?offset[row]:0);if(s.damage>=100)c.x/=3;
         c.y=!s.frame && s.damage>=100?60:73;c.content=XeenHitSplatDraw{s.frame,s.damage};commands.push_back(c);
+        if(s.elementalFrame && s.elementalDamage>0) {
+            XeenIndoorDrawCommand e;e.originalOrder=order[row]+1;e.sourceMapId=camera.mapId;
+            e.x=x[row][s.alternatePosition]+offset[row];if(s.elementalDamage>=100)e.x/=3;e.y=73;
+            e.content=XeenHitSplatDraw{s.elementalFrame,s.elementalDamage};commands.push_back(e);
+        }
     }
     std::stable_sort(commands.begin(), commands.end(), [](const auto &left, const auto &right) {
 		return left.originalOrder < right.originalOrder;

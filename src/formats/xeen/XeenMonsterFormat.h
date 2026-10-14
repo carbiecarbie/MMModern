@@ -44,8 +44,19 @@ struct XeenMonsterRecord {
 	unsigned damageType() const { return raw[29]; }
 	unsigned damageDie() const { return raw[28]; }
 	unsigned hitParameter() const { return raw[31]; }
+	// MonsterStruct::synchronize order (pinned ScummVM map.cpp): type 33, then
+	// fire, electrical, cold, poison, energy, magic and physical resistance.
+	unsigned monsterType() const { return raw[33]; }
+	unsigned fireResistance() const { return raw[34]; }
+	unsigned electricalResistance() const { return raw[35]; }
+	unsigned coldResistance() const { return raw[36]; }
+	unsigned poisonResistance() const { return raw[37]; }
+	unsigned energyResistance() const { return raw[38]; }
 	unsigned magicResistance() const { return raw[39]; }
 	unsigned physicalResistance() const { return raw[40]; }
+	// Elemental category order of the weapon material tables: Fire, Electrical,
+	// Cold, Poison, Energy, Magic (XeenItem::getElementalCategory).
+	unsigned elementalResistance(unsigned category) const { return raw.at(34+category); }
 };
 
 class XeenMonsterFormat {

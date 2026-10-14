@@ -361,6 +361,86 @@ void difficultyOracles() {
  }
  auto c=characters();auto i=inputs();rejects([&]{XeenPhysicalPlayerCandidate bad(c[0],i[0],profile(),6,610,false,static_cast<XeenDifficulty>(2));});
 }
+// M67 worked examples (docs/rules/combat.md): metal hit/damage, elemental damage
+// per material range, effectiveness per species, Shoot and the Slayer bypass.
+void equippedContributions() {
+ const auto knight=[](bool shoot=false,std::uint8_t material=0,std::uint8_t state=0,std::uint8_t id=1){
+  auto c=characters();c[0].characterClass=XeenCharacterClass::Knight;c[0].permanentLevel=1;
+  c[0].weapons[0]={material,id,state,std::uint8_t(shoot?4:1)};return c;};
+ const auto in12=[]{auto in=inputs();in[0].accuracy={12,0};in[0].might={15,0};return in;};
+ const auto monster=[](unsigned physical=0,unsigned type=255){auto m=profile();m.raw[22]=5;m.raw[40]=std::uint8_t(physical);m.raw[33]=std::uint8_t(type);return m;};
+ using Draw=XeenCombatRandom::Draw;using Warrior=XeenDifficulty;
+ // Metal 45 (index 8): +6 hit, +10 damage before the 3d3 dice; Warrior keeps it untripled.
+ {auto c=knight(false,45);auto in=in12();
+  XeenCombatRandom rng(std::vector<Draw>{{1,3,2},{1,3,2},{1,3,2},{1,20,8}});XeenPhysicalPlayerCandidate a(c[0],in[0],monster(),6,610,false,Warrior::Warrior);finish(a,rng,1);
+  check(a.hit && a.damage==18 && a.physical==18 && a.elemental==0 && !a.elementalFrame && rng.position()==4,"Metal 45: 10+6 dice +2 Might, hit at 1+6+8");
+  XeenCombatRandom miss(std::vector<Draw>{{1,3,2},{1,3,2},{1,3,2},{1,20,7}});XeenPhysicalPlayerCandidate b(c[0],in[0],monster(),6,610,false,Warrior::Warrior);finish(b,miss,1);
+  check(!b.hit && b.damage==0,"Metal hit bonus decides the threshold");
+  XeenCombatRandom adventurer(std::vector<Draw>{{1,3,2},{1,3,2},{1,3,2},{1,20,3}});XeenPhysicalPlayerCandidate d(c[0],in[0],monster(),6,610,false);finish(d,adventurer,1);
+  check(d.hit && d.damage==50,"Adventurer triples metal+dice (48) before Might, hit at 6+6+3");}
+ // Metal 38 (index 1): -4 hit, -6 damage; a negative weapon amount clamps to zero, Might still counts.
+ {auto c=knight(false,38,0,2);auto in=in12();
+  XeenCombatRandom rng(std::vector<Draw>{{1,3,1},{1,3,1},{1,20,18}});XeenPhysicalPlayerCandidate a(c[0],in[0],monster(),6,610,false,Warrior::Warrior);finish(a,rng,1);
+  check(a.hit && a.damage==2,"Metal 38: 2d3=2-6 clamps to 0, max(0+2,1)=2, hit at 1-4+18");}
+ // Elemental fire 5 (damage 10) once after physical resistance; resistance 100 removes it.
+ for(unsigned fire:{0u,50u,100u}) {auto c=knight(false,5);auto in=in12();auto m=monster(25);m.raw[34]=std::uint8_t(fire);
+  XeenCombatRandom rng(std::vector<Draw>{{1,3,2},{1,3,2},{1,3,2},{1,20,14}});XeenPhysicalPlayerCandidate a(c[0],in[0],m,6,610,false,Warrior::Warrior);finish(a,rng,1);
+  const int elemental=fire==100?0:int(10*(100-fire)/100);
+  check(a.hit && a.physical==6 && a.elemental==elemental && a.damage==6+elemental && a.elementalFrame==(elemental?1u:0u) && rng.position()==4,"Fire material 5: 8*75/100=6 plus 10*(100-r)/100 once, no extra draw");}
+ {auto c=knight(false,5);auto in=in12();XeenCombatRandom rng(std::vector<Draw>{{1,3,2},{1,3,2},{1,3,2},{1,20,13}});
+  XeenPhysicalPlayerCandidate a(c[0],in[0],monster(25),6,610,false,Warrior::Warrior);finish(a,rng,1);
+  check(!a.hit && a.damage==0 && a.elemental==0 && !a.elementalFrame,"A miss adds no elemental damage");}
+ // Every element category reads its own monster resistance byte (fire 34 .. magic 39).
+ {const std::uint8_t materials[]{5,9,16,21,26,34};const int base[]{10,2,2,2,2,5};
+  for(unsigned e=0;e<6;++e) {auto c=knight(false,materials[e]);auto in=in12();
+   for(unsigned other=0;other<6;++other){auto m=monster();for(unsigned r=34;r<40;++r)m.raw[r]=std::uint8_t(r==34+other?100:0);
+    XeenCombatRandom rng(std::vector<Draw>{{1,3,2},{1,3,2},{1,3,2},{1,20,14}});XeenPhysicalPlayerCandidate a(c[0],in[0],m,6,610,false,Warrior::Warrior);finish(a,rng,1);
+    check(a.hit && a.physical==8 && a.elemental==(other==e?0:base[e]) && a.elementalFrame==(other==e?0u:e+1),"Element category selects its resistance byte and frame");}}}
+ // Three Barbarian attempts accumulate physical hits; the elemental term is added once, untripled by Adventurer.
+ for(auto difficulty:{Warrior::Warrior,Warrior::Adventurer}) {auto c=knight(false,5);c[0].characterClass=XeenCharacterClass::Barbarian;c[0].permanentLevel=8;auto in=in12();
+  std::vector<Draw> tape;for(unsigned n=0;n<3;++n){for(unsigned d=0;d<3;++d)tape.push_back({1,3,1});tape.push_back({1,20,difficulty==Warrior::Warrior?7u:2u});}
+  XeenCombatRandom rng(tape);XeenPhysicalPlayerCandidate a(c[0],in[0],monster(),6,610,false,difficulty);finish(a,rng,1);
+  const int perHit=difficulty==Warrior::Warrior?5:11;
+  check(a.hit && a.physical==3*perHit && a.elemental==10 && a.damage==3*perHit+10 && rng.position()==12,"Elemental once after three accumulated attempts");}
+ // Effectiveness: counter 4 (Insect) triples against species 2, including a bad weapon and an equipped missile weapon; two matches give nine.
+ {const auto run=[&](std::uint8_t state,unsigned type,bool missileCompanion,std::uint8_t companionState){auto c=knight(false,0,state);
+   if(missileCompanion)c[0].weapons[1]={0,30,companionState,4};auto in=in12();
+   XeenCombatRandom rng(std::vector<Draw>{{1,3,2},{1,3,2},{1,3,2},{1,20,14}});XeenPhysicalPlayerCandidate a(c[0],in[0],monster(0,type),6,610,false,Warrior::Warrior);finish(a,rng,1);
+   check(a.hit && rng.position()==4,"Effectiveness consumes no draw and rolls only the melee weapon");return a.damage;};
+  check(run(4,2,false,0)==24 && run(4,1,false,0)==8 && run(0,2,false,0)==8,"Counter 4 triples 8 against Insect (2) only");
+  check(run(0x84,2,false,0)==24,"A broken effective weapon still triples");
+  check(run(0,2,true,4)==24 && run(4,2,true,4)==72,"An equipped missile weapon's counter triples melee; two matches give x9");
+  check(run(1,6,false,0)==24 && run(2,4,false,0)==24 && run(3,5,false,0)==24 && run(5,0,false,0)==24 && run(6,1,false,0)==24 && run(6,0,false,0)==8,"Dragon/Undead/Golem/Monsters/Animal selectors");
+  auto c=knight(false,5,4);auto in=in12();XeenCombatRandom rng(std::vector<Draw>{{1,3,2},{1,3,2},{1,3,2},{1,20,14}});
+  XeenPhysicalPlayerCandidate a(c[0],in[0],monster(0,2),6,610,false,Warrior::Warrior);finish(a,rng,1);
+  check(a.physical==24 && a.elemental==10 && a.damage==34,"Effectiveness multiplies the physical share only");}
+ // Shoot: metal and elemental apply, effectiveness does not, the save halves the combined amount.
+ {auto c=knight(true,0,4,30);auto in=in12();XeenCombatRandom rng(std::vector<Draw>{{1,2,2},{1,2,2},{1,2,2},{1,20,14},{1,56,56}});
+  XeenPhysicalPlayerCandidate a(c[0],in[0],monster(0,2),6,610,true,Warrior::Warrior);finish(a,rng,1);check(a.hit && a.damage==6,"Shoot ignores effectiveness");
+  for(unsigned save:{56u,6u}) {auto e=knight(true,5,0,30);XeenCombatRandom tape(std::vector<Draw>{{1,2,2},{1,2,2},{1,2,2},{1,20,14},{1,56,save}});
+   XeenPhysicalPlayerCandidate s(e[0],in[0],monster(50),6,610,true,Warrior::Warrior);finish(s,tape,1);
+   check(s.hit && s.physical==3 && s.elemental==10 && s.elementalFrame==1 && s.damage==(save==6?6:13) && tape.position()==5,"Shoot: 6*50/100=3 plus 10, save halves 13 to 6");}
+  auto z=knight(true,38,0,30);XeenCombatRandom zero(std::vector<Draw>{{1,2,1},{1,2,1},{1,2,1},{1,20,18}});
+  XeenPhysicalPlayerCandidate s(z[0],in[0],monster(),6,610,true,Warrior::Warrior);finish(s,zero,1);
+  check(s.hit && s.damage==0 && zero.position()==4,"Metal 38 missile: 3-6 clamps to 0, hit at 1-4+18, a zero input draws no save");
+  auto h=knight(true,45,0,30);XeenCombatRandom hit(std::vector<Draw>{{1,2,1},{1,2,1},{1,2,1},{1,20,8},{1,56,56}});
+  XeenPhysicalPlayerCandidate m(h[0],in[0],monster(),6,610,true,Warrior::Warrior);finish(m,hit,1);check(m.hit && m.damage==13,"Metal 45 missile: 10+3, hit at 1+6+8");}
+ // The Xeen Slayer Sword (34) bypasses physical resistance; ordinary IDs do not. Material above 130 adds nothing.
+ {auto c=knight(false,0,0,34);auto in=in12();XeenCombatRandom rng(std::vector<Draw>{{1,4,1},{1,4,1},{1,4,1},{1,4,1},{1,4,1},{1,4,1},{1,20,14}});
+  XeenPhysicalPlayerCandidate a(c[0],in[0],monster(50),6,610,false,Warrior::Warrior);finish(a,rng,1);check(a.hit && a.damage==8,"Slayer Sword ignores 50% physical resistance");
+  auto o=knight(false,0,0,29);XeenCombatRandom tape(std::vector<Draw>{{1,7,1},{1,7,1},{1,7,1},{1,20,14}});
+  XeenPhysicalPlayerCandidate b(o[0],in[0],monster(50),6,610,false,Warrior::Warrior);finish(b,tape,1);check(b.hit && b.damage==2,"Ordinary weapon keeps 50% resistance");
+  auto p=knight(false,200);XeenCombatRandom plain(std::vector<Draw>{{1,3,2},{1,3,2},{1,3,2},{1,20,14}});
+  XeenPhysicalPlayerCandidate n(p[0],in[0],monster(),6,610,false,Warrior::Warrior);finish(n,plain,1);check(n.hit && n.damage==8 && !n.elemental,"Material outside the tables contributes nothing");}
+ // Cursed/broken elemental and metal weapons keep only their dice.
+ {auto c=knight(false,5,0x40);auto in=in12();XeenCombatRandom rng(std::vector<Draw>{{1,3,2},{1,3,2},{1,3,2},{1,20,14}});
+  XeenPhysicalPlayerCandidate a(c[0],in[0],monster(),6,610,false,Warrior::Warrior);finish(a,rng,1);check(a.hit && a.damage==8 && !a.elemental,"Cursed elemental weapon skips its material");
+  auto b=knight(false,45,0x80);XeenCombatRandom tape(std::vector<Draw>{{1,3,2},{1,3,2},{1,3,2},{1,20,14}});
+  XeenPhysicalPlayerCandidate m(b[0],in[0],monster(),6,610,false,Warrior::Warrior);finish(m,tape,1);check(m.hit && m.damage==8,"Broken metal weapon skips hit and damage modifiers");}
+ // A monster resistance byte above 100 is refused before any damage is published.
+ {auto c=knight(false,5);auto in=in12();auto m=monster();m.raw[34]=101;XeenCombatRandom rng(std::vector<Draw>{{1,3,2},{1,3,2},{1,3,2},{1,20,14}});
+  XeenPhysicalPlayerCandidate a(c[0],in[0],m,6,610,false,Warrior::Warrior);rejects([&]{finish(a,rng,1);});}
+}
 void rangedOpportunity() {
 	// Artificial multi-shot capacity/continuation control, not a route witness.
 	XeenMap map;map.geometry.id=23;map.geometry.flags2=0x8000;
@@ -491,4 +571,4 @@ void timeAndInputs() {
 }
 }
 #include "XeenDailyTimeOracles.h"
-int main() { try { dailyTimeOracles();dailyConditionChecks();difficultyOracles();dormantTreasure();physical();targetingAndCounts();runAndParticipation();shootAndLoot();additionalTapes();completeWeaponRules();missileClassAndZeroDamage();dosMonsterDelivery();rejectionBudgets();rangedOpportunity();indoorOpportunity();timeAndInputs();std::cout<<"Shared consequence pure-rule controls passed\n";return 0; } catch (const std::exception &e) { std::cerr<<e.what()<<'\n';return 1; } }
+int main() { try { dailyTimeOracles();dailyConditionChecks();difficultyOracles();dormantTreasure();physical();targetingAndCounts();runAndParticipation();shootAndLoot();additionalTapes();completeWeaponRules();equippedContributions();missileClassAndZeroDamage();dosMonsterDelivery();rejectionBudgets();rangedOpportunity();indoorOpportunity();timeAndInputs();std::cout<<"Shared consequence pure-rule controls passed\n";return 0; } catch (const std::exception &e) { std::cerr<<e.what()<<'\n';return 1; } }

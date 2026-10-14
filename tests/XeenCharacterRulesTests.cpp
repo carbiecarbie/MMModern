@@ -237,6 +237,57 @@ void testConditions() {
 		"Poisoned is irrelevant to HP/SP attributes");
 }
 
+// M67 worked examples (docs/rules/combat.md): armor class with metal and the AC
+// bonus, elemental resistances from accessories, Luck and Thievery bonuses.
+void testEquipmentArmorAndResistances() {
+	XeenCharacter character = basicCharacter();
+	XeenCombatInputs input; input.speed = {15, 0}; input.might = input.accuracy = {11, 0};
+	input.luck = XeenAttributeValue{11, 0}; input.resistances = XeenCombatResistances{};
+	input.poisonResistance = XeenAttributeValue{0, 0};
+	const auto ac = [&] { return XeenCharacterRules::combatArmorClass(character, input, kContext); };
+	checkEqual(ac(), 2, "Speed 15 alone gives +2");
+	character.armor[0] = {45, 1, 0, 3}; // Material 45: METAL_LAC[8] = 8 on top of strength 2.
+	checkEqual(ac(), 12, "metal armor adds its armor-class modifier");
+	character.accessories[0] = {117, 1, 0, 8}; // AC attribute bonus 4.
+	checkEqual(ac(), 16, "AC attribute material adds through accessories");
+	checkEqual(XeenCharacterRules::sheetArmorClass(character, &input, kContext), 16, "sheet and combat AC agree");
+	checkEqual(XeenCharacterRules::sheetArmorClass(character, &input, kContext, true), 16, "base sheet AC omits only temporary AC");
+	input.temporaryAc = 3;
+	checkEqual(ac(), 19, "temporary AC still adds");
+	checkEqual(XeenCharacterRules::equipmentArmorClass(character), 14, "equipment scan alone");
+	character.armor[0].state = 0x80;
+	checkEqual(ac(), 9, "broken armor contributes neither strength nor metal");
+	character.accessories[0].state = 0x40;
+	checkEqual(ac(), 5, "cursed accessory contributes no AC bonus");
+	character.armor[0] = {38, 10, 0, 9}; character.accessories[0] = {};
+	checkEqual(ac(), 6, "material 38 has a zero armor-class modifier");
+	character.armor[0] = {37, 1, 0, 3}; input.temporaryAc = 0; input.speed = {3, 0};
+	checkEqual(ac(), 0, "-4 + 2 - 3 clamps at zero");
+	character.armor[0] = {0, 14, 0, 3};
+	bool refused = false; try { ac(); } catch (const std::invalid_argument &) { refused = true; }
+	check(refused, "armor ID outside the strength table is refused");
+
+	character = basicCharacter(); input.speed = {11, 0};
+	character.accessories[0] = {5, 1, 0, 8};  // Fire 15.
+	character.armor[0] = {9, 1, 0, 3};        // Electrical 5.
+	character.weapons[0] = {16, 1, 0, 1};     // Cold 5 on a weapon: weapons never add resistance.
+	character.accessories[1] = {21, 1, 0x80, 8}; // Broken Poison 10.
+	checkEqual(XeenCharacterRules::sheetResistance(character, &input, 0), 15, "fire resistance from an accessory");
+	checkEqual(XeenCharacterRules::sheetResistance(character, &input, 2), 5, "electrical resistance from armor");
+	checkEqual(XeenCharacterRules::sheetResistance(character, &input, 1), 0, "weapons add no resistance");
+	checkEqual(XeenCharacterRules::sheetResistance(character, &input, 3), 0, "broken accessory adds no resistance");
+	checkEqual(XeenCharacterRules::damageSaveValue(character, input, XeenDamageType::Fire, kContext), 15, "fire save uses the equipment bonus");
+	input.resistances->firePermanent = 10; input.resistances->fireTemporary = 5;
+	checkEqual(XeenCharacterRules::damageSaveValue(character, input, XeenDamageType::Fire, kContext), 30, "permanent + temporary + equipment");
+
+	character = basicCharacter();
+	character.accessories[0] = {99, 1, 0, 8}; // Luck bonus 5.
+	checkEqual(XeenCharacterRules::effectiveLuck(character, input), 16, "Luck attribute material");
+	checkEqual(XeenCharacterRules::damageSaveValue(character, input, XeenDamageType::Physical, kContext), 3, "physical save: B(16) = 2 plus level 1");
+	character.skills[0] = 1; character.accessories[1] = {121, 1, 0, 8}; // Thievery bonus 4.
+	checkEqual(XeenCharacterRules::thievery(character), 6, "Thievery: 2 per level plus the equipment bonus");
+}
+
 void testEquipmentAttributeRules() {
 	constexpr std::array<int, 8> attributeBonuses = {2, 3, 5, 8, 12, 17, 23, 30};
 	for (std::size_t i = 0; i < attributeBonuses.size(); ++i) {
@@ -500,6 +551,7 @@ int main() {
 		testConditions();
 		testConditionBytes();
 		testEquipmentAttributeRules();
+		testEquipmentArmorAndResistances();
 		testDirectEquipmentBonuses();
 		testSpClassesSkillsAndRounding();
 		testSpRacesAndSkills();

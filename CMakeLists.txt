@@ -359,6 +359,9 @@ if(BUILD_TESTING)
 	add_executable(mmodern_rest_original_tests tests/XeenRestOriginalTests.cpp)
 	target_link_libraries(mmodern_rest_original_tests PRIVATE mmodern_app mmodern_xeen)
 	add_test(NAME xeen_rest_original COMMAND mmodern_rest_original_tests "${MMODERN_XEEN_DATA_DIR}")
+	add_executable(mmodern_equipment_original_tests tests/XeenEquipmentOriginalTests.cpp)
+	target_link_libraries(mmodern_equipment_original_tests PRIVATE mmodern_app mmodern_xeen)
+	add_test(NAME xeen_equipment_original COMMAND mmodern_equipment_original_tests "${MMODERN_XEEN_DATA_DIR}")
 	add_executable(mmodern_death_original_tests tests/XeenDeathOriginalTests.cpp)
 	target_link_libraries(mmodern_death_original_tests PRIVATE mmodern_app mmodern_xeen)
 	add_test(NAME xeen_death_original COMMAND mmodern_death_original_tests "${MMODERN_XEEN_DATA_DIR}")
@@ -1026,7 +1029,7 @@ if(BUILD_TESTING)
 	# processes / drives a CLI witness executable.
 	set(xeen_process_tests
 		xeen_new_game_process
-		xeen_rest_original
+		xeen_rest_original xeen_equipment_original
 		xeen_scene_inventory_original
 		xeen_resource_cold_original
 		xeen_purchase_flow xeen_purchase_allocation xeen_purchase_process

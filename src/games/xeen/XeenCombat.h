@@ -120,6 +120,8 @@ struct XeenCombatResult {
 	XeenCombatWork work=XeenCombatWork::None;
 	std::uint64_t oldRevision=0,revision=0,generation=0;
 	int participant=-1, actorHpBefore=0,actorHpAfter=0, damage=0;
+	// Elemental weapon share of `damage` and its splat frame (category + 1); M67.
+	int elementalDamage=0; unsigned elementalFrame=0;
 	XeenMonsterIdentity monster{20,5};
 	std::uint16_t minutes=480;
 	std::array<XeenCombatDamage,12> injuries{}; unsigned injuryCount=0;

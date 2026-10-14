@@ -68,6 +68,12 @@ void xeenValidateJourneyParty(const XeenPartyState &party) {
 void xeenValidateJourneyMelee(const XeenPartyState &party) {
 
 	xeenValidateJourneyParty(party);
+	// M67: every material (elemental 0-36, metal 37-58, attribute 59-130),
+	// effectiveness counter 1-6 and broken/cursed state the original accepts is
+	// admitted; combat, Shoot and Rest compute the contributions. What remains
+	// protects state: IDs inside the dice/strength/name tables, generated
+	// material and counter ranges (names, prices and Identify index them) and
+	// the shared arrangement/arithmetic preflight below.
 	for (auto id : kXeenCombatOwners) {
 		const auto &c = party.roster.at(id);
 		for (unsigned slot = 0; slot < 9; ++slot) {
@@ -75,18 +81,16 @@ void xeenValidateJourneyMelee(const XeenPartyState &party) {
 			if (!item.frame) continue;
 			const bool melee = item.frame == 1 || item.frame == 13;
 			const bool weapon = item.id >= 1 && item.id <= 34 && !(item.id >= 30 && item.id <= 33);
-			contribution(item.material == 0 && ((item.state & 0x3f) == 0) && ((melee && weapon) || (item.frame == 4 && (item.id >= 30 && item.id <= 33))),
+			contribution(item.material <= 130 && ((item.state & 0x3f) <= 6) && ((melee && weapon) || (item.frame == 4 && (item.id >= 30 && item.id <= 33))),
 				id,"weapon",slot,item);
 		}
 		for (unsigned slot = 0; slot < 9; ++slot) {
 			const auto &item = c.armor[slot];
-			if (item.frame) contribution(item.id <= 13 && (item.material == 0 || item.material == 38) && (item.state == 0 || item.state == 128),
-				id,"armor",slot,item);
+			if (item.frame) contribution(item.id <= 13 && item.material <= 130,id,"armor",slot,item);
 		}
 		for (unsigned slot = 0; slot < 9; ++slot) {
 			const auto &item = c.accessories[slot];
-			if (item.frame) contribution(item.id <= 10 && (item.material == 0 || item.material == 38 || item.material == 42 || item.material == 86) &&
-				(item.state == 0 || item.state == 128),id,"accessory",slot,item);
+			if (item.frame) contribution(item.id <= 10 && item.material <= 130,id,"accessory",slot,item);
 		}
 		xeenValidateCompletedEquipment(c); // Shared M25 arrangement rules, including the exact legacy medal.
 		const auto &input = *party.roster.combatInputs(id);

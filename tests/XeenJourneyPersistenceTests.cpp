@@ -101,7 +101,7 @@ void roundtrips() {
 		}
 		s.characters[29].intellect.permanent=-12345; s.characters[29].conditions[0]=255;
 		s.characters[0].currentHp=-300; s.characters[0].conditions[12]=1;
-		s.characters[0].accessories[7]={105,1,0,8}; // Historical injury, Journey-valid but melee-unready.
+		s.characters[0].accessories[7]={200,1,0,8}; // Historical injury, Journey-valid but melee-unready (material outside the tables).
 		s.questItems[17]=7; s.questFlags[2]=true; s.gameFlags[7]=true;
 		s.disabledObjects={{23,0}}; s.disabledEvents={{23,0}};
 		for(unsigned pass=0;pass<3;++pass) {

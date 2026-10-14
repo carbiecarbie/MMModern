@@ -119,6 +119,15 @@ The sheet's base-only variant omits Blessed and temporary AC, but still asks for
 the effective Speed attribute. Combat Block adds a separate hit threshold; it
 does not change this stored or displayed AC formula.
 
+**Implemented (M67), Reference only:** the monster hit threshold, the character
+sheet and the injury observations share one equipment scan
+(`XeenCharacterRules::equipmentArmorClass`): `ARMOR_STRENGTHS[id]` plus
+`METAL_LAC[material - 37]` for good equipped metal armor 37-58, plus the AC
+attribute bonus (category 9) of every good equipped weapon, armor or accessory.
+Party Blessed has no owner yet. Example: Speed 15 (`+2`), padded armor (2) of
+material 45 (`+8`) and a ring of material 117 (`+4`) give AC 16; the same armor
+broken gives 6, and material 38 adds 0.
+
 ## A character's melee attack
 
 **Evidence: Reference only.** Symbols: `attack`, `hitMonster`, `getWeaponDamage`,
@@ -158,7 +167,26 @@ Its effectiveness scan tests only `frame != 0`, including equipped ranged and ba
 weapons. **DOS static, high confidence:** bad-state gate `0x2e057..0x2e05d`
 skips material but reaches base dice `0x2e0e9..0x2e134`; effectiveness tests
 frame at `0x2c950`, selector at `0x2c96f`, and multiplies at `0x2caed..0x2cb00`.
-This confirms the scans, not admission of enchanted equipment to current combat.
+**Implemented (M67), Reference only for the order:** `XeenPhysicalPlayerCandidate`
+applies the metal hit and damage modifiers, the elemental selector, the
+effectiveness multiplier (once per matching equipped weapon, bad and missile
+weapons included; never in Shoot) and the Slayer Sword bypass below;
+`xeenValidateJourneyMelee` admits every material 0-130 and counter 0-6. A
+later metal slot assigning rather than adding its damage modifier is
+unreachable: one melee weapon (frames 1/13) or one missile weapon (frame 4) is
+equipped at a time. Heroism is 0 until the spell exists.
+
+M67 examples (Warrior, level-1 Knight, Accuracy 12, Might 15, monster AC 5):
+
+- Long sword (3d3) of material 45 (`METAL_DAMAGE[8] = 10`,
+  `METAL_DAMAGE_PERCENT[8] = 6`): dice 2+2+2 give weapon damage 16; the hit
+  total is `0 + 6 + 1 + d20`, so 8 hits exactly; damage `16 + 2 = 18`. In
+  Adventurer the weapon amount is 48 and the hit total starts at 12: damage 50.
+- Short sword (2d3) of material 38 (`-6` damage, `-4` hit): dice 1+1 give
+  `-4`, clamped to 0; a hit needs a d20 of 18 and does `max(0 + 2, 1) = 2`.
+- Long sword of material 0 with effectiveness counter 4 (Insect) against an
+  Insect (type 2): dice 6, `6 + 2 = 8`, tripled to 24; against an Animal 8.
+  Two matching equipped weapons give 72; a broken effective weapon still triples.
 
 Example, with no material or party effects: a level-10 Knight has three attempts.
 At Accuracy 15 the static hit bonus is `2 + 10 = 12`; against AC 8, a first d20
@@ -185,6 +213,19 @@ The contribution is not multiplied by Adventurer, number of successful attempts,
 or effectiveness. A positive input can therefore be reduced to zero physical
 damage and still do elemental damage. Melee does not draw the monster save.
 
+**Implemented (M67), Reference only:** the candidate publishes the physical
+share, the elemental share and the total; the monster record supplies the six
+element resistances (`XeenMonsterRecord::elementalResistance`). Presentation
+follows `attack2`/`interface_scene.cpp`: the hit splat is armed only when the
+physical share is positive, scaled by the total; the elemental frame
+(category + 1) draws beside it, scaled by the elemental amount. Elemental-only
+damage therefore shows no splat (see [original quirks](../original-quirks.md)).
+Example: long sword of material 5 (Fire 10), dice 6, Might `+2`, one hit:
+`8 * 75 / 100 = 6` against 25% physical resistance, plus `10 * 50 / 100 = 5`
+against 50% fire resistance: 11 damage, elemental frame 1; fire resistance 100
+leaves 6. A level-8 Barbarian's three hits of 5 give `15 + 10 = 25`: the
+elemental term is added once.
+
 Ordinary shooting performs one hit attempt per still-flying shooter at each
 visited target, uses weapon damage without Might, and enters the same damage
 application as `RT_HIT`. A miss can continue to a later target; a hit clears that
@@ -196,7 +237,10 @@ have been combined. No melee multi-attack count is used for each arrow.
 Example: an arrow supplies 11 physical damage against 25% physical resistance,
 plus 5 elemental damage against 40% corresponding resistance. The pre-save result
 is `floor(11 * 75 / 100) + floor(5 * 60 / 100) = 8 + 3 = 11`; a successful
-monster save reduces it to 5.
+monster save reduces it to 5. **Implemented (M67):** crossbow (3d2) of material
+5, dice 6, hit at `1 + 14`: `6 * 50 / 100 = 3` plus 10 fire gives 13; a save
+draw of at most the resource ID halves it to 6. A crossbow of material 38 with
+dice 3 clamps to 0 and draws no save. Effectiveness never applies to Shoot.
 
 ### Spell interactions and retained DOS evidence
 
@@ -455,9 +499,10 @@ statistics. Consult `attack2` before replacing death handling with only XP/loot.
 questions.** This section distinguishes current code from the larger reference.
 
 At the inspected MMModern baseline,
-[XeenCombatRules.cpp](../../src/games/xeen/XeenCombatRules.cpp) implements admitted
-plain-weapon attacks, the two-stage natural-20 enemy application, target selection,
-Run, typed consequences and supported spell damage.
+[XeenCombatRules.cpp](../../src/games/xeen/XeenCombatRules.cpp) implements plain and,
+since M67, enchanted weapon attacks (metal, elemental, attribute materials,
+effectiveness, the Slayer Sword bypass), the two-stage natural-20 enemy application,
+target selection, Run, typed consequences and supported spell damage.
 [XeenCharacterRules.cpp](../../src/games/xeen/XeenCharacterRules.cpp) owns shared
 character capacities. [XeenCombatTests.cpp](../../tests/XeenCombatTests.cpp) checks
 ordered critical damage and armor changes;
@@ -472,8 +517,9 @@ Highest-value unresolved original-program checks:
 2. Is the source's uniform initial targeting distribution equivalent to the
    original party-size switch for every party size? Hatred 1's bypass is confirmed.
 3. Are elemental weapon damage and effectiveness applied once after accumulating
-   multi-attacks exactly as shown? Establish this before admitting enchanted
-   equipment to combat.
+   multi-attacks exactly as shown? M67 implements the reference order and
+   marks it Reference only; the maintainer's DOSBox comparison of a metal, an
+   elemental and an effective weapon against the same Vertigo monster settles it.
 4. Verify the game-ID criterion for doubled low-level XP in World of Xeen CD.
 
 No DOS-width, overflow or malformed-resource behavior beyond the retained

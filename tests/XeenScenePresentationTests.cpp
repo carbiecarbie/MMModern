@@ -206,6 +206,23 @@ int main() {try {
 			const auto dirt=std::find_if(draw.begin(),draw.end(),[](const auto &v) {return !v.actor()&&!v.wallItem()&&v.geometry().resourceName=="dirt.srf";});
 			check(dirt!=draw.end()&&dirt->geometry().frame==24&&dirt->drawOptions().horizontalFlip,"Indoor action ground alternate frame");
 		}
+		// M67: an elemental weapon hit draws the original's second splat (the
+		// element's frame at the offset slot, scaled by its own amount) beside
+		// the physical splat; a plain hit still draws exactly one.
+		for(unsigned elementalFrame:{0u,1u}) {
+			auto &presentation=terrain.scenePresentation();presentation.splats={};
+			presentation.hitSplat(1,13,0,true,0,elementalFrame,elementalFrame?5:0);
+			unsigned physical=0,elemental=0;int physicalOrder=0,elementalOrder=0;
+			const auto count=[&](const auto &draw) {
+				for(const auto &c:draw) if(const auto *s=c.splat()) {
+					if(!s->frame) {++physical;physicalOrder=c.originalOrder;check(s->damage==13&&c.x==67&&c.y==73,"Physical splat placement with an elemental companion");}
+					else {++elemental;elementalOrder=c.originalOrder;check(s->frame==1&&s->damage==5&&c.x==73&&c.y==73&&c.drawOptions().scaleIndex==5&&!c.drawOptions().enlarge,"Elemental splat frame, offset slot and own scale");}
+				}
+			};
+			if(outdoors)count(XeenOutdoorScene().build(terrain,terrainCamera));else count(XeenIndoorScene().build(terrain,terrainCamera));
+			check(physical==1&&elemental==(elementalFrame?1u:0u)&&(!elementalFrame||elementalOrder==physicalOrder+1),"One physical splat plus the elemental frame at the next draw slot");
+			presentation.splats={};
+		}
 	}
 	// Every reference wall-picture projection, independent of commercial IDs.
 	for(unsigned direction=0;direction<4;++direction) {

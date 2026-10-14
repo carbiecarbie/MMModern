@@ -302,17 +302,23 @@ int XeenCharacterRules::sheetStat(const XeenCharacter &c,const XeenCombatInputs 
 int XeenCharacterRules::sheetAge(const XeenCharacter &c,const XeenCharacterRulesContext &context,bool baseOnly) {
 	return std::min(context.currentYear-c.birthYear,254u)+(baseOnly?0:int(c.temporaryAge));
 }
-int XeenCharacterRules::sheetArmorClass(const XeenCharacter &c,const XeenCombatInputs *input,
-		const XeenCharacterRulesContext &context,bool baseOnly) {
+// Character::itemScan(9): ARMOR_STRENGTHS plus METAL_LAC for good equipped
+// armor, and the equipment AC attribute bonus of every category (M67).
+int XeenCharacterRules::equipmentArmorClass(const XeenCharacter &c) {
 	constexpr int strengths[]{0,2,4,5,6,7,8,10,4,2,1,1,1,1};
 	constexpr int metal[]{-3,0,-2,-1,1,2,4,6,8,0,1,1,2,2,3,4,5,10,12,14,16,20};
-	int result=statBonus(sheetStat(c,input,4,context))+itemBonus(c,9);
+	int result=itemBonus(c,9);
 	for(const auto &item:c.armor) if(item.frame && !(item.state&0xc0)) {
 		if(item.id>=14) throw std::invalid_argument("Invalid sheet armor id");
-		result+=strengths[item.id];
-		if(item.material>=37 && item.material<=58) result+=metal[item.material-37];
+		result=add<true>(result,strengths[item.id]);
+		if(item.material>=37 && item.material<=58) result=add<true>(result,metal[item.material-37]);
 	}
-	if(!baseOnly) result+=input?int(input->temporaryAc):c.originalDetails()?c.originalDetails()->temporaryAc:0;
+	return result;
+}
+int XeenCharacterRules::sheetArmorClass(const XeenCharacter &c,const XeenCombatInputs *input,
+		const XeenCharacterRulesContext &context,bool baseOnly) {
+	int result=add<true>(statBonus(sheetStat(c,input,4,context)),equipmentArmorClass(c));
+	if(!baseOnly) result=add<true>(result,input?int(input->temporaryAc):c.originalDetails()?c.originalDetails()->temporaryAc:0);
 	return std::max(result,0);
 }
 int XeenCharacterRules::sheetResistance(const XeenCharacter &c,const XeenCombatInputs *input,unsigned resistance) {
@@ -405,16 +411,10 @@ int XeenCharacterRules::effectivePhysical(const XeenCharacter &c, const XeenComb
 int XeenCharacterRules::combatArmorClass(const XeenCharacter &c, const XeenCombatInputs &input,
 		const XeenCharacterRulesContext &context) {
 	// ScummVM developers, GPL-3.0-or-later, pin 6814ee9ba54582f5b5adcffab49efbbd8f589edd:
-	// Character::itemScan/getArmorClass, constants ARMOR_STRENGTHS. Admitted materials 0/38 only.
-	constexpr int strength[]{0,2,4,5,6,7,8,10,4,2,1,1,1,1};
-	int value = add<true>(physicalBonus(effectivePhysical(c,input,PhysicalAttribute::Speed,context)),input.temporaryAc);
-	value=add<true>(value,itemBonus(c,9));
-	for (const auto &item:c.armor) if (item.frame && !(item.state & 0xc0)) {
-		if (item.id>=14 || (item.material!=0 && item.material!=38))
-			throw std::invalid_argument("unsupported combat armor contribution");
-		value=add<true>(value,strength[item.id]);
-	}
-	return std::max(value,0);
+	// Character::getArmorClass = statBonus(Speed) + itemScan(9) + temporary AC
+	// (party Blessed has no owner yet). The monster hit threshold, the sheet
+	// and the injury observations share this one equipment scan.
+	return sheetArmorClass(c,&input,context);
 }
 
 void XeenCharacterRules::validateForUse(const XeenCharacter &character,

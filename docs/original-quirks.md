@@ -43,7 +43,7 @@ such a behavior, with its evidence.
 | With no valid preferred recipient, delivery goes directly to a capacity-only scan, including sleeping, disabled and dead members. A valid preference first tries eligible recipients, then the same unrestricted fallback. | DOS `0x243d5..0x24565`, actual switch tables and condition helper checked; [delivery evidence](rules/evidence.md#treasure-delivery). | **Implemented (M61 Part D)**, Event and monster shared delivery | Do not filter the final scan by condition. |
 | When this category alone is full, treasure replaces the first member's last item in that category, retaining its equipped mark. | DOS selects member zero at `0x24567`; weapon writes `0x245aa..0x245cc` replace material/ID/state but not frame; corresponding writes for all four categories and sort confirmed. | **Implemented (M61 Part D)**, shared `xeenDeliverRewardItem` | **QoL candidate.** Global fullness instead discards remaining items. |
 | Natural 20 applies enemy damage before the ordinary hit comparison; armor broken by that application affects the second AC check. | DOS `0x2db45`, `0x2db55`, `0x2db65`, fresh AC `0x2dbd7`, injury `0x1f8a7`, bad-armor gate `0x21275..0x21281`; [combat](rules/combat.md). | Existing `XeenCombatRules.cpp` | DOS-confirmed, high confidence. |
-| Broken weapons can retain base dice while losing material effects; effectiveness scans equipped bad-state and missile weapons. | DOS bad-state gate `0x2e057..0x2e05d`, base dice `0x2e0e9..0x2e134`, effectiveness `0x2c950`, `0x2c96f`, `0x2caed..0x2cb00`. | [Combat](rules/combat.md) | DOS-confirmed scan; enchanted effectiveness remains outside admitted combat. |
+| Broken weapons can retain base dice while losing material effects; effectiveness scans equipped bad-state and missile weapons. | DOS bad-state gate `0x2e057..0x2e05d`, base dice `0x2e0e9..0x2e134`, effectiveness `0x2c950`, `0x2c96f`, `0x2caed..0x2cb00`. | **Implemented (M67)**, `XeenCombatRules.cpp::XeenPhysicalPlayerCandidate`; [combat](rules/combat.md) | DOS-confirmed scan: a broken or cursed effective weapon still triples the melee total, and an equipped missile weapon's counter triples melee damage. |
 | Hatred 1 bypasses class preference; Run succeeds only for draw below the map threshold. | DOS `0x2d84b..0x2d852` to `0x2d9a3`; Run `0x2e1c0..0x2e1d4`. | Existing targeting and Run rules | Threshold 100 accepts outcomes 1..99, not 100; no DOS RNG uniformity claim. |
 | Long time advances apply economy once using the final day, rather than per crossed day. | DOS calendar `0x263b3..0x26491`, stock `0x26401`, interest `0x26408`, latch `0x2640b..0x26411`. | [Calendar economy](rules/time-and-conditions.md#calendar-economy-and-direct-year-changes) | DOS-confirmed within word-sized calls. A synthetic 144,000-minute call is not representable in DOS. |
 
@@ -63,6 +63,29 @@ confirmation. The established DOS Poison/Disease and Weak/Drunk results do not
 settle these other counters. See [the precise boundary](rules/time-and-conditions.md#eight-hour-condition-block).
 This research records the mismatch without changing behavior or granting an
 exception to the root condition-counter fallback rule.
+
+**Equipped item contributions (M67):** the following follow the pinned
+reference (`combat.cpp::attack/attack2/getWeaponDamage/getMonsterResistance`,
+`character.cpp::itemScan`, `interface_scene.cpp`) and are not confirmed in DOS
+beyond the retained scans listed above; the maintainer's DOSBox comparison in
+the M67 play-test is the intended check.
+
+- The elemental weapon contribution is added once per action, after the
+  accumulated attempts, effectiveness and physical resistance, and is never
+  tripled; Shoot halves the combined amount on a monster save.
+- Elemental-only damage shows no splat: `attack2` arms the splat duration only
+  for a positive physical share, then draws the elemental frame beside it with
+  its own scale (`XeenScenePresentation::Splat::elementalFrame`).
+- Effectiveness triples once per matching equipped weapon, so two matching
+  weapons give nine times; Shoot never applies it.
+- A weapon with ID 34 or above (Xeen Slayer Sword) bypasses physical
+  resistance; Lord Xeen's `+100` and his immunity to other damage are not
+  implemented (no reachable monster).
+- `getWeaponDamage` assigns a metal weapon's damage modifier instead of adding
+  it; with one equipped melee or missile weapon this is unobservable, and
+  MMModern assigns as the reference does.
+- Heroism adds to the hit modifier per matching slot in the reference; the
+  spell has no owner here, so the term is 0.
 
 ## Original findings and current discrepancies
 

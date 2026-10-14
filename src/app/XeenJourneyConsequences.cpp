@@ -152,10 +152,13 @@ bool XeenEncounterFlow::serviceShoot() {
      // The logical shooter is spent, but hitMonster clears its visual slots
      // only after attack2 returns (0x2cbab..0x2ccba). Remaining visible arrows
      // continue through the common impact draws.
-     if(hit() && !work.spell) {
+     if(hit() && !work.spell && work.attack->physical>0) {
+      // attack2 arms the splat only for a positive physical share; the
+      // elemental frame joins it with its own scale (interface_scene.cpp).
       std::array<std::optional<XeenMonsterIdentity>,3> front{};
       std::copy_n(work.targets.begin(),3,front.begin());
-      _world.scenePresentation().hitSplat(work.target,damage(),0,xeenSplatAlternatePosition(front),_lastTime);
+      _world.scenePresentation().hitSplat(work.target,damage(),0,xeenSplatAlternatePosition(front),_lastTime,
+       work.attack->elementalFrame,work.attack->elemental);
      }
      if(work.spellAttack && !work.spellAttack->resisted &&
        ((*work.spell!=XeenLearnedSpell::EnergyBlast && *work.spell!=XeenLearnedSpell::Shrapmetal) || _party.roster.at(work.spellCaster).currentLevel()))

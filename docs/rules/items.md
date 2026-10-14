@@ -64,7 +64,9 @@ Equipping does not automatically remove a conflicting item. The original asks
 the player to remove it first. Passive attribute/resistance scanning generally
 requires an equipped, non-bad item, but weapon damage and effectiveness have
 their own tests; see [combat](combat.md). Do not replace all these call-site rules
-with one broad claim that a broken item has no effect.
+with one broad claim that a broken item has no effect. **Implemented (M67):**
+combat, Shoot and Rest accept every material 0-130, effectiveness counter 0-6 and
+broken/cursed state; the Journey check refuses only records outside those tables.
 
 ## Smith prices
 

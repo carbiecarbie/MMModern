@@ -4,6 +4,7 @@
 #include "games/xeen/XeenStateEquality.h"
 #include "games/xeen/XeenCharacterRules.h"
 #include "games/xeen/XeenServiceDay.h"
+#include "games/xeen/detail/XeenItemTables.h"
 #include <limits>
 #include <stdexcept>
 namespace mmodern {
@@ -337,6 +338,12 @@ bool XeenEnemyAttackCandidate::nextAttack() {
     result=XeenCombatResult{};result.operation=XeenCombatOperation::EnemyAttack;
     target=-1;participantCursor=0;step=Step::Target;return true;
 }
+unsigned xeenElementalCategory(unsigned material) {
+	if (material>36) throw std::invalid_argument("Elemental category of a non-elemental material");
+	unsigned index=0;
+	while (item_tables::elementCategories[index]<int(material)) ++index;
+	return index;
+}
 XeenPhysicalPlayerCandidate::XeenPhysicalPlayerCandidate(const XeenCharacter &c,
 		const XeenCombatInputs &i,const XeenMonsterRecord &m,unsigned type,unsigned year,bool missile,XeenDifficulty difficulty) :
 		character(c),monster(m),monsterType(type),shoot(missile),adventurer(difficulty==XeenDifficulty::Adventurer) {
@@ -346,16 +353,36 @@ XeenPhysicalPlayerCandidate::XeenPhysicalPlayerCandidate(const XeenCharacter &c,
 	hitTotal=baseHit;
 	might=shoot ? 0 : Rules::physicalBonus(Rules::effectivePhysical(c,i,Rules::PhysicalAttribute::Might,{year}));
 	attacks=shoot ? 1 : xeenCombatAttackCount(c.characterClass,c.currentLevel());
+	// Combat::attack: after the attempts, every equipped weapon (frame != 0,
+	// bad and missile weapons included) whose effectiveness counter names the
+	// monster's species triples the melee total once. Shoot never applies it.
+	// Counter 1 Dragon(6), 2 Undead(4), 3 Golem(5), 4 Insect(2), 5 Monsters(0), 6 Animal(1).
+	constexpr unsigned species[]{255,6,4,5,2,0,1};
+	if (!shoot) for (const auto &item:c.weapons) if (item.frame) {
+		const unsigned counter=item.state&0x3f;
+		if (counter>=1 && counter<=6 && species[counter]==m.monsterType()) effectiveness=physicalChecked(std::int64_t(effectiveness)*3);
+	}
 }
 bool XeenPhysicalPlayerCandidate::service(XeenConsequenceDraw &draw) {
 	while (step!=Step::Done && draw.remaining) switch (step) {
 	case Step::Weapon: {
 		if (dice) { const auto n=draw.draw(1,sides); if (n) { weapon=physicalChecked(std::int64_t(weapon)+*n); --dice; } break; }
-		if (slot==9) { weapon=physicalChecked(std::int64_t(weapon)*(adventurer?3:1));step=Step::Hit;break; }
+		if (slot==9) {
+			// getWeaponDamage: clamp below 1 to 0, then Adventurer triples and adds 5 to hit.
+			if (weapon<1) weapon=0;
+			weapon=physicalChecked(std::int64_t(weapon)*(adventurer?3:1));
+			hitTotal=physicalChecked(std::int64_t(baseHit)+hitBonus);step=Step::Hit;break;
+		}
 		const auto &item=character.weapons[slot++];
 		if (shoot ? item.frame!=4 : item.frame!=1 && item.frame!=13) break;
-		ruleRequire(item.material==0 && (item.state&0x3f)==0 && item.id && item.id<=34 &&
-			(!shoot || (item.id>=30 && item.id<=33)),"Unsupported equipped physical weapon");
+		ruleRequire(item.id && item.id<=34 && (!shoot || (item.id>=30 && item.id<=33)),"Unsupported equipped physical weapon");
+		if (!(item.state&0xc0)) {
+			// A good weapon's material: elemental selector below 37, metal hit and
+			// damage modifiers 37-58 (assigned, not accumulated), nothing above.
+			if (item.material<37) elementalMaterial=item.material;
+			else if (item.material<59) { hitBonus=item_tables::metalHit[item.material-37];weapon=item_tables::metalDamage[item.material-37]; }
+		}
+		attackWeaponId=item.id;
 		const auto value=xeenOrdinaryWeaponDice(item.id); dice=value.count;sides=value.sides;break;
 	}
 	case Step::Hit: {
@@ -364,8 +391,21 @@ bool XeenPhysicalPlayerCandidate::service(XeenConsequenceDraw &draw) {
 		if (hitTotal>=int(monster.armorClass()+10)) {
 			hit=true;accumulated=physicalChecked(std::int64_t(accumulated)+(shoot ? weapon : std::max(physicalChecked(std::int64_t(weapon)+might),1)));
 		}
-		if (--attacks) { slot=0;weapon=0;hitTotal=baseHit;step=Step::Weapon;break; }
-		damage=physicalChecked(std::int64_t(accumulated)*(100-monster.physicalResistance())/100);
+		if (--attacks) { slot=0;weapon=0;hitBonus=0;elementalMaterial=0;hitTotal=baseHit;step=Step::Weapon;break; }
+		// attack2: effectiveness, then physical resistance (bypassed from the Xeen
+		// Slayer Sword, ID 34, upward), then the elemental material once, only for
+		// a nonzero accumulated input; the Shoot save halves the combined amount.
+		accumulated=physicalChecked(std::int64_t(accumulated)*effectiveness);
+		physical=attackWeaponId>=34 ? accumulated : physicalChecked(std::int64_t(accumulated)*(100-monster.physicalResistance())/100);
+		elemental=0;elementalFrame=0;
+		if (accumulated>0 && elementalMaterial) {
+			const auto category=xeenElementalCategory(elementalMaterial);
+			const auto resistance=monster.elementalResistance(category);
+			ruleRequire(resistance<=100,"Monster elemental resistance outside 0..100");
+			elemental=resistance==100 ? 0 : physicalChecked(std::int64_t(100-resistance)*item_tables::elemental[elementalMaterial]/100);
+			if (elemental>0) elementalFrame=category+1;
+		}
+		damage=physicalChecked(std::int64_t(physical)+elemental);
 		step=shoot && accumulated>0 ? Step::Save : Step::Done;break;
 	}
 	case Step::Save: {

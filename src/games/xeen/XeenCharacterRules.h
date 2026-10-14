@@ -37,6 +37,9 @@ public:
 	static int physicalBonus(int);
 	static int effectiveLuck(const XeenCharacter &, const XeenCombatInputs &);
 	static int equipmentBonus(const XeenCharacter &, int category);
+	// itemScan(9): armor strengths, metal armor class and the AC attribute
+	// bonus of good equipped items. Throws for an armor ID outside the table.
+	static int equipmentArmorClass(const XeenCharacter &);
 	static int poisonSaveValue(const XeenCharacter &, const XeenCombatInputs &);
 	static int damageSaveValue(const XeenCharacter &, const XeenCombatInputs &,
 		XeenDamageType, const XeenCharacterRulesContext &);

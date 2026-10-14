@@ -120,11 +120,17 @@ void readinessAndHistory() {
 	bytes[342] = 0xf3; bytes[343] = 0xff; bytes[323+12] = 1;
 	bytes[344] = 0xf9; bytes[345] = 0xff;
 	bytes[166+72+4] = 105; bytes[166+72+5] = 1; // Carried +4 HP ring.
+	bytes[166+72+8] = 200; bytes[166+72+9] = 1; // Carried ring with a material outside the tables.
 	Fixture f(bytes);
 	check(f.flow->journeyEquipment(f.flow->ticket(),0,XeenInventoryCategory::Accessories,1,XeenEquipmentOperation::Equip).status ==
-		XeenEquipmentStatus::Success, "unsupported combat contribution remains equipable Journey data");
+		XeenEquipmentStatus::Success, "+4 HP ring equips");
 	f.present();
 	check(XeenCharacterRules::maxHp(f.p.roster.at(0),{610}) == 16, "independent +4 maximum HP");
+	xeenValidateJourneyMelee(f.p); // M67: attribute materials are combat/Rest contributions.
+	check(f.flow->journeyEquipment(f.flow->ticket(),0,XeenInventoryCategory::Accessories,2,XeenEquipmentOperation::Equip).status ==
+		XeenEquipmentStatus::Success, "out-of-table material remains equipable Journey data");
+	f.present();
+	check(XeenCharacterRules::maxHp(f.p.roster.at(0),{610}) == 16, "material 200 adds nothing");
 	xeenValidateJourneyParty(f.p);
 	rejects([&] { xeenValidateJourneyMelee(f.p); }, "accessory");
 	const std::vector<XeenActor> actors = f.w.sessionState().actors();
@@ -133,8 +139,12 @@ void readinessAndHistory() {
 	check(f.flow->journeyRefusal()=="This action is not supported yet for this party.",
 		"readiness refusal is concise and player-facing");
 	sameActors(actors,f.w.sessionState().actors());
-	check(f.flow->journeyEquipment(f.flow->ticket(),0,XeenInventoryCategory::Accessories,1,XeenEquipmentOperation::Remove).status ==
+	check(f.flow->journeyEquipment(f.flow->ticket(),0,XeenInventoryCategory::Accessories,2,XeenEquipmentOperation::Remove).status ==
 		XeenEquipmentStatus::Success, "repair loadout through actual equipment removal");
+	f.present();
+	xeenValidateJourneyMelee(f.p);
+	check(f.flow->journeyEquipment(f.flow->ticket(),0,XeenInventoryCategory::Accessories,1,XeenEquipmentOperation::Remove).status ==
+		XeenEquipmentStatus::Success, "remove the HP ring to restore the reduced maximum");
 	f.present();
 	const auto &c = f.p.roster.at(0);
 	check(XeenCharacterRules::maxHp(c,{610}) == 12 && c.currentHp == -13 && c.currentSp == -7 &&
@@ -149,6 +159,15 @@ void readinessAndHistory() {
 	xeenValidateJourneyParty(raw.p); rejects([&] { xeenValidateJourneyMelee(raw.p); }, "weapon");
 	owner.weapons[8] = {}; owner.armor[8] = {38,0,0,9}; owner.accessories[8] = {86,0,0,8};
 	xeenValidateJourneyMelee(raw.p);
+	// M67: every original material, effectiveness counter and bad state is admitted;
+	// out-of-table materials and counters still protect the name/price tables.
+	owner.weapons[8] = {45,30,6,4}; owner.armor[8] = {130,9,0x40,5}; owner.accessories[8] = {36,10,0x80,11};
+	xeenValidateJourneyMelee(raw.p);
+	owner.weapons[8] = {131,30,0,4}; rejects([&] { xeenValidateJourneyMelee(raw.p); }, "weapon"); // material 131
+	owner.weapons[8] = {0,30,7,4}; rejects([&] { xeenValidateJourneyMelee(raw.p); }, "weapon"); // counter 7
+	owner.weapons[8] = {}; owner.armor[8] = {131,9,0,5}; rejects([&] { xeenValidateJourneyMelee(raw.p); }, "armor");
+	owner.armor[8] = {}; owner.accessories[8] = {131,10,0,11}; rejects([&] { xeenValidateJourneyMelee(raw.p); }, "accessory");
+	owner.accessories[8] = {};
 	owner.conditions[3] = 1; xeenValidateJourneyParty(raw.p);
 	owner.conditions[3] = 0; owner.conditions[12] = 2; rejects([&] { xeenValidateJourneyParty(raw.p); }, "condition");
 	owner.conditions[12] = 1; rejects([&] { xeenValidateJourneyParty(raw.p); }, "signs");

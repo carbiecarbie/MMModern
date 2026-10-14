@@ -359,8 +359,8 @@ bool XeenEncounterFlow::observeCombat() {
             const auto frame=xeenPortraitDamageFrame(actor.statistics->raw[29]);
             for(unsigned i=0;i<r.injuryCount;++i)presentation.portraitDamage(r.injury(i).owner,frame,_lastTime);
         }
-        if(r.operation==XeenCombatOperation::PlayerAttack && r.damage>0 && r.attackStage==XeenCombatAttackStage::PreHp)
-            presentation.hitSplat(_hitRow,r.damage,0,_hitAlternatePosition,_lastTime);
+        if(r.operation==XeenCombatOperation::PlayerAttack && r.damage-r.elementalDamage>0 && r.attackStage==XeenCombatAttackStage::PreHp)
+            presentation.hitSplat(_hitRow,r.damage,0,_hitAlternatePosition,_lastTime,r.elementalFrame,r.elementalDamage);
         if(r.operation==XeenCombatOperation::PlayerAttack && r.damage>0 && !r.actorHpAfter &&
             r.attackStage==XeenCombatAttackStage::None)presentation.splats[_hitRow]={};
         if(r.operation==XeenCombatOperation::Cast && _combat->cast()) {

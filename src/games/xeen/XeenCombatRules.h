@@ -143,8 +143,14 @@ private:
 	bool poison=false;
 	bool noTarget=false;
 };
+// Combat::attack/hitMonster/getWeaponDamage/attack2 for one member: metal hit
+// and damage, elemental damage, effectiveness and the Slayer Sword bypass (M67).
+// `monsterType` is the resource ID of the Shoot saving throw, not the species.
 struct XeenPhysicalPlayerCandidate {
-	int damage = 0;
+	int damage = 0;      // Published total: physical + elemental, halved by a Shoot save.
+	int physical = 0;    // Accumulated hits after effectiveness and physical resistance.
+	int elemental = 0;   // Elemental material contribution after its own resistance.
+	unsigned elementalFrame = 0; // Elemental category + 1 while elemental > 0 (splat).
 	bool hit = false;
 	XeenPhysicalPlayerCandidate(const XeenCharacter &, const XeenCombatInputs &,
 		const XeenMonsterRecord &, unsigned monsterType, unsigned year, bool shoot,
@@ -158,7 +164,12 @@ private:
 	unsigned monsterType, attacks, slot = 0, dice = 0, sides = 0;
 	int baseHit, hitTotal, might, weapon = 0, accumulated = 0;
 	bool shoot, adventurer;
+	unsigned elementalMaterial = 0, attackWeaponId = 0;
+	int hitBonus = 0, effectiveness = 1;
 };
+// ELEMENTAL_CATEGORIES: Fire 1-8, Electrical 9-15, Cold 16-20, Poison 21-25,
+// Energy 26-33, Magic 34-36. Material 0 is Fire by table position.
+unsigned xeenElementalCategory(unsigned material);
 enum class XeenTimeMode { Interactive, Sleeping, Script, Interactive7 };
 enum class XeenTimeCall { Change, Add };
 class XeenMerchantStockCandidate;

@@ -60,7 +60,10 @@ class XeenScenePresentation {
 public:
  std::map<XeenObjectIdentity,bool> objectFlips;
  struct PortraitEffect {unsigned spellFrame=4, damageFrame=0, damageTicks=0;std::uint64_t spellDeadline=0,damageDeadline=0;};
- struct Splat {unsigned frame=0, duration=0;int damage=0;bool alternatePosition=false;std::uint64_t deadline=0;};
+ // One physical (frame 0) or spell splat per row, plus the original's separate
+ // elemental weapon splat beside it (_elemFrame/_elemScale, M67).
+ struct Splat {unsigned frame=0, duration=0;int damage=0;bool alternatePosition=false;std::uint64_t deadline=0;
+  unsigned elementalFrame=0;int elementalDamage=0;};
  std::array<PortraitEffect,30> portraits{};
  std::array<Splat,3> splats{};
  bool feedbackActive() const noexcept {
@@ -76,8 +79,9 @@ public:
  void portraitDamage(unsigned owner,unsigned frame,std::uint64_t=0) noexcept {
   if(owner<portraits.size()) {portraits[owner].damageFrame=frame;portraits[owner].damageTicks=1;portraits[owner].damageDeadline=0;}
  }
- void hitSplat(unsigned row,int damage,unsigned frame,bool alternatePosition,std::uint64_t=0) noexcept {
-  if(row<3 && damage>0)splats[row]={frame,3,damage,alternatePosition,0};
+ void hitSplat(unsigned row,int damage,unsigned frame,bool alternatePosition,std::uint64_t=0,
+   unsigned elementalFrame=0,int elementalDamage=0) noexcept {
+  if(row<3 && damage>0)splats[row]={frame,3,damage,alternatePosition,0,elementalFrame,elementalDamage};
  }
  // Flow admits one retained frame at a time and owns its clock/acquisition.
  // Repaint/polling never advances a recipient or consumes a hold.
