@@ -195,14 +195,18 @@ Floppy-bound saves are rejected before restoration with a data-edition diagnosti
 ### Tests
 
 Every CTest entry is labelled `fast` or `process`. `process` tests run original-data
-scenarios in child processes and take much longer; they need the original installation.
+scenarios in child processes and take longer; they need the original installation.
+Tests are independent, so run them in parallel; the few that assert real-clock
+behavior or open a native window are marked to run alone.
 
 ```text
-ctest -L fast    # iteration: everything except process tests
-ctest            # full suite, including process tests
+ctest -L fast -j 8    # iteration: everything except process tests
+ctest -j 8            # full suite, including process tests
 ```
 
-Tests run on the optimized `build-rel` build (assertions kept); its setup is in
+The complete suite is normally run through `tools/run-full-ctest.ps1`, which
+picks the job count and keeps a log and summary per run. Tests run on the
+optimized `build-rel` build (assertions kept); its setup is in
 [docs/dependencies.md](docs/dependencies.md#optimized-test-build-build-rel).
 Configure `MMODERN_XEEN_DATA_DIR` explicitly for required CD validation and,
 when needed, `MMODERN_XEEN_UI_DATA` for its installed UI module.

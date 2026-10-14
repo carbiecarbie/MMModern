@@ -1,6 +1,7 @@
 #include "XeenTestInstallation.h"
 #include "XeenTrainingTestSupport.h"
 #include "games/xeen/CloudsMapComposer.h"
+#include <chrono>
 #include <iostream>
 using namespace training_test;
 using save_test::rejects;
@@ -44,14 +45,20 @@ int main(int argc,char **argv) {
             check(xeenIndoorActorTerrain(fixture.w,atWall,9,7)==XeenMonsterTerrain::Blocked,"small Slime crossed wall 9");
             // All cells/facings have an independent geometry oracle in
             // XeenVertigoOriginal. Raster every resource-defined Event site
-            // through all existing animation phases without a route list.
+            // through all existing animation phases without a route list. The
+            // reset pass changes only the six reset actors, so it rasters every
+            // site and facing once (phase 0); the eight phases of the same
+            // objects were already composed by the initial pass above.
+            const auto rasterBegan=std::chrono::steady_clock::now();unsigned rasters=0;
+            const unsigned phases=reset?1:8;
             for(int y=0;y<32;++y)for(int x=0;x<32;++x)
                 if(std::any_of(in.city.records.begin(),in.city.records.end(),[&](const auto &r){return r.x==x && r.y==y;}))
-                for(unsigned d=0;d<4;++d)for(unsigned phase=0;phase<8;++phase) {
+                for(unsigned d=0;d<4;++d)for(unsigned phase=0;phase<phases;++phase) {
                     const auto image=CloudsMapComposer().compose(in.assets,fixture.w,fixture.p,{28,x,y,static_cast<XeenDirection>(d)},
                         {610},nullptr,phase);
-                    check(image.isValid(),"Training route geometry/object raster invalid");
+                    check(image.isValid(),"Training route geometry/object raster invalid");++rasters;
                 }
+            std::cerr<<"Event-site raster: "<<rasters<<" compositions in "<<std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()-rasterBegan).count()<<" ms\n";
             const auto encoded=XeenSaveFormat::encode(fixture.snapshot());
             check(encoded==XeenSaveFormat::encode(XeenSaveFormat::decode(encoded)),"9/14 city form codec changed bytes");
             for(unsigned length:{0u,1u,16u,static_cast<unsigned>(encoded.size()-1)})

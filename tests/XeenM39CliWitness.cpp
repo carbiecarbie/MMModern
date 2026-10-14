@@ -449,7 +449,11 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             checkpoint("final");
         }else if(branch=="B" || branch=="C") {route("LR");checkpoint("continued");}
         inspect([&]{std::cout<<"M39 PRODUCTION WITNESS PASSED projectiles="<<arrowProjectiles<<'\n';SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);});
-        auto native=handler;native.closed={};native.beginCycle=[&](std::uint64_t){now+=100;handler.beginCycle(++cycle);};
+        auto native=handler;native.closed={};
+        // The simulated clock advances only when idle runs; a live deadline would make
+        // the SDL loop wait in real time for it. Behavior is unchanged, only the wait.
+        native.nextPresentationDeadline=[]{return std::optional<std::uint64_t>{0};};
+        native.beginCycle=[&](std::uint64_t){now+=100;handler.beginCycle(++cycle);};
         native.framePresented=[&](const auto &frame){handler.framePresented(frame);shown=true;if(cast() && cast()->phase==XeenCombatCastPhase::Projectile)++arrowProjectiles;};
         const auto drive=[&]()->std::optional<IndexedFrame>{
             check(++iterations<12000,"M39 witness iteration bound");next.reset();acted=false;

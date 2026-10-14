@@ -36,8 +36,11 @@ inline BOOL CALLBACK findWindow(HWND window, LPARAM data) {
 }
 // Bounded Win32 launch extracted from XeenSaveCliTests. Used only by tests;
 // no process framework, game-state transport or application-specific startup.
+// The timeout only detects a hung child; it is generous so that parallel CTest
+// jobs never turn machine load into a failure. Each exit line reports the
+// elapsed time, so a run log shows where a process test spends it.
 inline Result launch(const fs::path &exe, const std::vector<std::wstring> &args,
- const fs::path &log, bool closeNativeWindow = false, bool escapeExits = false, DWORD timeoutMs = 30000) {
+ const fs::path &log, bool closeNativeWindow = false, bool escapeExits = false, DWORD timeoutMs = 300000) {
  std::wstring command = L"\"" + exe.wstring() + L"\"";
  auto launchArgs=args;
  const fs::path ui(MMODERN_TEST_UI_DATA);
@@ -95,7 +98,7 @@ inline Result launch(const fs::path &exe, const std::vector<std::wstring> &args,
  const bool gotTimes=GetProcessTimes(process.hProcess,&created,&exited,&kernel,&user);
  const std::uint64_t creation=(std::uint64_t(created.dwHighDateTime)<<32)|created.dwLowDateTime;
  const DWORD pid = process.dwProcessId; CloseHandle(process.hThread); CloseHandle(process.hProcess);
- std::cout << "PID " << pid << " exit " << code << " wait " << wait << '\n' << std::flush;
+ std::cout << "PID " << pid << " exit " << code << " wait " << wait << " elapsed " << (GetTickCount64() - began) << " ms\n" << std::flush;
  require(wait == WAIT_OBJECT_0 && gotCode && gotTimes && creation, "child failed/timed out; acceptance stopped");
  require(!closeNativeWindow || closed || (escapeExits && inputStage==4 && code==0),
   "CLI did not expose and normally close its gameplay window");

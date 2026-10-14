@@ -368,7 +368,11 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         }
         inspect([&]{std::cout<<(stage=="depleted"?"M43 DEPLETED BUY PREFIX PASSED; native modal actions ":
             "M42 PRODUCTION WITNESS PASSED; native modal actions ")<<nativeActions<<'\n';SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);});
-        auto native=handler;native.closed={};native.beginCycle=[&](std::uint64_t){handler.beginCycle(++cycle);};unsigned evidenceFrame=0;
+        auto native=handler;native.closed={};
+        // The simulated clock advances only when idle runs; a live deadline would make
+        // the SDL loop wait in real time for it. Behavior is unchanged, only the wait.
+        native.nextPresentationDeadline=[]{return std::optional<std::uint64_t>{0};};
+        native.beginCycle=[&](std::uint64_t){handler.beginCycle(++cycle);};unsigned evidenceFrame=0;
         native.framePresented=[&](const auto &frame) {
             check(!nativeFailed,"M42 failed native frame acquired authority");
             if(frame!=presented && !flow->canSave()){const auto p=providers,s=saves;handler.withPresentedInput(SaveGameAction{},handler.displayedInput().value_or(0),frame);check(p==providers && s==saves,"M42 unacquired handoff F9 reached provider/I/O");}

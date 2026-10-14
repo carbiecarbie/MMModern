@@ -354,49 +354,33 @@ cmake -S . -B build-rel -G Ninja \
   -DSCUMMVM_BUILD_DIR=<scummvm-build>
 cmake --build build-rel
 cmake --build build-rel --target mmodern_test_save   # optional tool, not built by default
-ctest --test-dir build-rel -L fast --output-on-failure
+ctest --test-dir build-rel -L fast -j 8 --output-on-failure
 ```
 
 `build-rel/build.ninja` must not contain `NDEBUG`. The complete suite runs
-single-job through `tools/run-full-ctest.ps1 -BuildDir build-rel`, as described
-in `tools/AGENTS.md`. The Debug build above (the maintainer's `build-m44`)
-remains for debugging, play-tests and the milestone-closure run.
+through `tools/run-full-ctest.ps1 -BuildDir build-rel`, as described in
+`tools/AGENTS.md`: by default in parallel (half the logical processors, at
+most 8 jobs); CMake runs the real-clock and native-window tests alone and gives
+every test a load-independent hang-guard timeout. The Debug build above (the
+maintainer's `build-m44`) remains for debugging, play-tests and the
+milestone-closure run.
 
-Build and run the real-data integration targets explicitly:
-
-```sh
-cmake --build <mmodern-build> --parallel 4 --target \
-  mmodern_graphics_smoke mmodern_party_smoke mmodern_indoor_map_smoke \
-  mmodern_event_script_smoke mmodern_event_text_smoke \
-  mmodern_game_flags_smoke mmodern_event_interpreter_smoke \
-  mmodern_event_system_smoke mmodern_manual_event_smoke \
-  mmodern_navigation_flow_smoke
-
-<mmodern-build>/mmodern_party_smoke.exe <game-directory>
-<mmodern-build>/mmodern_indoor_map_smoke.exe <game-directory>
-<mmodern-build>/mmodern_event_script_smoke.exe <game-directory>
-<mmodern-build>/mmodern_event_text_smoke.exe <game-directory>
-<mmodern-build>/mmodern_game_flags_smoke.exe <game-directory>
-<mmodern-build>/mmodern_event_interpreter_smoke.exe <game-directory>
-<mmodern-build>/mmodern_event_system_smoke.exe <game-directory>
-<mmodern-build>/mmodern_manual_event_smoke.exe <game-directory> \
-  <visual-validation-directory>
-<mmodern-build>/mmodern_navigation_flow_smoke.exe <game-directory>
-
-SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software \
-  <mmodern-build>/mmodern_graphics_smoke.exe \
-  <game-directory> <mode> escape
-```
-
-Run the SDL command for modes `ui`, `map`, `indoor`, `event`, `manual`,
-`manual-no`, and `manual-yes`. Also run the `ui` mode with `quit` to validate
-the SDL quit path.
+The original-data checks that used to be opt-in smoke targets run with the
+suite since M66 (`xeen_regional_original`, `xeen_party_original`,
+`xeen_item_catalog_original`, `xeen_item_catalog_reference`,
+`xeen_object_visual_original` and the `xeen_*_original` event, flag and
+navigation checks); the item catalog's reference verification needs the pinned
+ScummVM checkout, as the catalog section above describes. The floppy-era
+integration programs that no longer matched the CD data (indoor map, indoor and
+outdoor objects, Remove, WhoWill, Phirna, save/resume, the graphics smoke and
+the M32, M35 and M36 witness drivers) were retired in M66; the registered unit,
+original-data and process tests cover their subjects.
 
 Validation of the pinned commit completed with:
 
 - full MMModern build: passed
 - complete CTest suite: 32/32 passed
-- all real-data smoke targets: built and passed
+- all real-data smoke targets of that time: built and passed
 - real archive text, party, flags, indoor map, navigation, event script,
   interpreter, and event-system checks: passed
 - SDL dummy/software runtime checks for UI, outdoor map, indoor map, automatic

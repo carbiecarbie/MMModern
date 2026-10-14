@@ -337,7 +337,11 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             check(party->encounterContext->day==12 && party->monsterTreasure->gold==690,
             "M41 later empty service added training/debit");});checkpoint("C");
         inspect([&]{std::cout<<"M41 PRODUCTION WITNESS PASSED\n";SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);});
-        auto native=handler;native.closed={};native.beginCycle=[&](std::uint64_t){handler.beginCycle(++cycle);};
+        auto native=handler;native.closed={};
+        // The simulated clock advances only when idle runs; a live deadline would make
+        // the SDL loop wait in real time for it. Behavior is unchanged, only the wait.
+        native.nextPresentationDeadline=[]{return std::optional<std::uint64_t>{0};};
+        native.beginCycle=[&](std::uint64_t){handler.beginCycle(++cycle);};
         unsigned evidenceFrame=0;
         native.framePresented=[&](const auto &frame){
             check(!nativeFailed,"M41 failed native frame acquired authority");

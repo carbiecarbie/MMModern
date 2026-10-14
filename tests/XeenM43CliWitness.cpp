@@ -515,7 +515,11 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             });checkpoint("F");
         }
         inspect([&]{SDL_Event event{};event.type=SDL_QUIT;SDL_PushEvent(&event);});
-        auto native=handler;native.closed={};native.beginCycle=[&](std::uint64_t){handler.beginCycle(++cycle);};
+        auto native=handler;native.closed={};
+        // The simulated clock advances only when idle runs; a live deadline would make
+        // the SDL loop wait in real time for it. Behavior is unchanged, only the wait.
+        native.nextPresentationDeadline=[]{return std::optional<std::uint64_t>{0};};
+        native.beginCycle=[&](std::uint64_t){handler.beginCycle(++cycle);};
         native.framePresented=[&](const auto &frame){handler.framePresented(frame);presented=frame;shown=true; m49_trace::frame(*world,*party,*position,*flow);};
         const auto drive=[&]()->std::optional<IndexedFrame>{
             check(++iterations<30000,"M43 witness iteration bound");now+=100;next.reset();acted=false;

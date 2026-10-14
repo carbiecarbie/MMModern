@@ -4,7 +4,11 @@
 #include <cstdlib>
 namespace fs=std::filesystem;
 int main(int argc,char **argv){try{
-    child_test::require(argc==3,"usage: cast-control-process <witness> <installation>");
+    child_test::require(argc==3 || argc==4,"usage: cast-control-process <witness> <installation> [faults|effects|native]");
+    // Each control is one child process, so the groups below are independent CTest
+    // entries that run in parallel; without a group every control runs here.
+    const std::string selected=argc==4?argv[3]:"";
+    child_test::require(selected.empty() || selected=="faults" || selected=="effects" || selected=="native","unknown M39 control group");
     const auto dir=child_test::freshDirectory(fs::temp_directory_path()/"mmodern-m39-controls");
     if(std::getenv("MMODERN_M39_ONLY_INPUT")) {
         SetEnvironmentVariableW(L"SDL_VIDEODRIVER",L"dummy");SetEnvironmentVariableW(L"SDL_RENDER_DRIVER",L"software");
@@ -17,18 +21,23 @@ int main(int argc,char **argv){try{
         }
         std::cout<<"M39 PlayerReady input evidence "<<dir<<'\n';return 0;
     }
-    // Obtain the retained city actor facts from a genuine original A branch.
     SetEnvironmentVariableW(L"SDL_VIDEODRIVER",L"dummy");SetEnvironmentVariableW(L"SDL_RENDER_DRIVER",L"software");
+    if(selected.empty() || selected=="faults") {
+    // Obtain the retained city actor facts from a genuine original A branch.
     SetEnvironmentVariableW(L"MMODERN_M39_BRANCH",L"A");SetEnvironmentVariableW(L"MMODERN_M39_STAGE",L"fresh");SetEnvironmentVariableW(L"MMODERN_M39_CONTROL",nullptr);
     const auto source=child_test::launch(fs::absolute(argv[1]),{L"--journey-region",L"--combat-seed",L"1",fs::absolute(argv[2]).wstring(),L"--save-file",(dir/"city-source.mmsave").wstring()},dir/"city-source.log");
     child_test::require(source.exit==0,"M39 city fixture original source failed");
+    }
     SetEnvironmentVariableW(L"MMODERN_M39_BRANCH",L"fault");SetEnvironmentVariableW(L"MMODERN_M39_STAGE",L"fresh");
+    // The effects group restores from the aba-hp control's save, so it runs that one control too.
+    if(selected.empty() || selected=="faults" || selected=="effects")
     for(const std::string control:{"aba-hp","aba-inactive","aba-sp","aba-book","aba-presence","aba-class","aba-item","aba-supplement",
         "aba-membership","aba-purse","aba-context","aba-flags","aba-rng","aba-mainland","aba-city","aba-statistics","aba-map","aba-mob","aba-event",
         "names","reservation-retry","before-debit","target-fail","refund-fail","arrow-fail-1","arrow-fail-2","arrow-fail-3","arrow-yield","arrow-xp-overflow","arrow-drop-overflow","arrow-successor-fail","partial",
         "recursive","target-retry","result-retry","projectile-retry","arrow-quit-travel",
         "observation-payer","observation-selection","observation-target","observation-hp","observation-refund",
         "observation-recovery","observation-awaken","observation-yield","observation-successor","observation-guard"}) {
+        if(selected=="effects" && control!="aba-hp")continue;
         SetEnvironmentVariableW(L"MMODERN_M39_CONTROL",fs::path(control).c_str());
         const auto save=dir/(control+".mmsave");
         std::vector<std::wstring> args{L"--journey-region",L"--combat-seed",L"1",fs::absolute(argv[2]).wstring(),L"--save-file",save.wstring()};
@@ -44,6 +53,7 @@ int main(int argc,char **argv){try{
         if(result.exit!=0)std::cerr<<result.output;
         child_test::require(result.exit==0 && result.output.find("M39 ARTIFICIAL CONTROL PASSED "+control)!=std::string::npos,"M39 authority/publication control failed");
     }
+    if(selected.empty() || selected=="effects")
     for(unsigned value:{10u,59u,27u,50u,60u,20u,150u,160u,220u,259u}) {
         const unsigned spell=value%100;const bool group=value>=100 && value<200;const bool quick=value>=200;
         const std::string control="m60-"+std::to_string(spell)+(group?"-group":quick?"-quick":"");
@@ -71,8 +81,8 @@ int main(int argc,char **argv){try{
         if(result.exit!=0)std::cerr<<result.output;
         child_test::require(result.exit==0 && result.output.find("M39 ARTIFICIAL CONTROL PASSED "+control)!=std::string::npos,"M60 combat effect control failed");
     }
-    SetEnvironmentVariableW(L"SDL_VIDEODRIVER",L"dummy");SetEnvironmentVariableW(L"SDL_RENDER_DRIVER",L"software");
     SetEnvironmentVariableW(L"MMODERN_M39_BRANCH",L"native-fault");
+    if(selected.empty() || selected=="native")
     for(const std::string control:{"upload-target","copy-target","upload-result","copy-result","upload-projectile","copy-projectile"}) {
         SetEnvironmentVariableW(L"MMODERN_M39_CONTROL",fs::path(control).c_str());
         const auto result=child_test::launch(fs::absolute(argv[1]),{L"--journey-region",L"--combat-seed",L"1",fs::absolute(argv[2]).wstring(),L"--save-file",(dir/(control+".mmsave")).wstring()},dir/(control+".log"));

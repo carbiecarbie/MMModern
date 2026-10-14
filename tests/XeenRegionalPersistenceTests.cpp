@@ -47,23 +47,29 @@ XeenSaveSnapshot sampleCurrent(){
  s.characters[29].learnedSpells->at(38)=255;
  for(unsigned i=0;i<19;++i)j.actors[i]={{23,i},int(i%16),int(i/16),int(i+1),bool(i%2),XeenActorLifecycle::Present,XeenActorStatus::Physical,false};return s;
 }
-void verify(const XeenSaveSnapshot &s){
+// Truncation at every suffix byte is rejected: checked exhaustively once per
+// distinct suffix layout (exhaustive=true), and at a coprime stride over the
+// variants that only change field values, so no layout loses that coverage
+// while the test stops decoding tens of thousands of truncated saves.
+void verify(const XeenSaveSnapshot &s,bool exhaustive=false){
  const auto bytes=XeenSaveFormat::encode(s),expected=suffix(s);const auto offset=baseSize(s);
  check(bytes.size()==offset+expected.size()&&std::equal(expected.begin(),expected.end(),bytes.begin()+offset),"Independent complete v12 schema9/content14 suffix and absent name");
  sameSnapshot(s,XeenSaveFormat::decode(bytes));check(XeenSaveFormat::encode(XeenSaveFormat::decode(bytes))==bytes,"Exact current byte continuation");
- for(std::size_t size=offset;size<bytes.size();++size){auto b=bytes;b.resize(size);fixIndependentEnvelope(b);rejects([&]{XeenSaveFormat::decode(b);});}
+ const std::size_t stride=exhaustive?1:97;
+ for(std::size_t size=offset;size<bytes.size();size+=stride){auto b=bytes;b.resize(size);fixIndependentEnvelope(b);rejects([&]{XeenSaveFormat::decode(b);});}
+ {auto b=bytes;b.resize(bytes.size()-1);fixIndependentEnvelope(b);rejects([&]{XeenSaveFormat::decode(b);});}
  auto extra=bytes;extra.push_back(0);fixIndependentEnvelope(extra);rejects([&]{XeenSaveFormat::decode(extra);});
 }
 }
 int main(){try{
- auto s=sampleCurrent();verify(s);auto populated=s;auto &t=*populated.journey->treasure;t.pendingMask=(1u<<3)|(1u<<9);t.pendingGold=20;t.weapons[0]={9,{0,30,0,0}};t.armor[0]={3,{0,2,0,0}};
+ auto s=sampleCurrent();verify(s,true);auto populated=s;auto &t=*populated.journey->treasure;t.pendingMask=(1u<<3)|(1u<<9);t.pendingGold=20;t.weapons[0]={9,{0,30,0,0}};t.armor[0]={3,{0,2,0,0}};
  for(unsigned id:{3u,9u}){auto &a=populated.journey->actors[id];a.x=a.y=-128;a.hp=0;a.activated=false;a.accounted=true;a.lifecycle=XeenActorLifecycle::Defeated;}
- populated.characters[0].conditions[3]=2;populated.characters[1].conditions[8]=1;verify(populated);
+ populated.characters[0].conditions[3]=2;populated.characters[1].conditions[8]=1;verify(populated,true);
  auto dormant=populated;dormant.journey->treasure=xeenPrepareMonsterGoldForfeiture(*dormant.journey->treasure);verify(dormant);
  auto misc=populated;
  for(unsigned id:{1u,2u}){auto &a=misc.journey->actors[id];a.x=a.y=-128;a.hp=0;a.activated=false;a.accounted=true;a.lifecycle=XeenActorLifecycle::Defeated;}
  misc.journey->treasure->miscellaneous[0]={1,{1,1,1,0}};
- misc.journey->treasure->miscellaneous[1]={2,{9,15,8,0}};verify(misc);
+ misc.journey->treasure->miscellaneous[1]={2,{9,15,8,0}};verify(misc,true);
  misc.journey->treasure=xeenPrepareMonsterGoldForfeiture(*misc.journey->treasure);verify(misc);
  check(misc.journey->treasure->dormant(),"Restorable Misc retains dormant state");
  for(unsigned mode=0;mode<13;++mode){auto bad=misc;auto &entry=bad.journey->treasure->miscellaneous[0];
@@ -80,7 +86,7 @@ int main(){try{
  auto fullMisc=misc;auto &fm=*fullMisc.journey->treasure;fm.weapons={};fm.armor={};fm.miscellaneous={};
  for(unsigned id=0;id<12;++id){auto &a=fullMisc.journey->actors[id];a.x=a.y=-128;a.hp=0;a.activated=false;a.accounted=true;a.lifecycle=XeenActorLifecycle::Defeated;
   if(id<10)fm.miscellaneous[id]={std::uint8_t(id),{9,15,8,0}};else if(id==10)fm.weapons[0]={10,{0,33,0,0}};else fm.armor[0]={11,{0,7,0,0}};}
- verify(fullMisc);
+ verify(fullMisc,true);
  auto excess=XeenSaveFormat::encode(fullMisc);excess[baseSize(fullMisc)+2012]=11;fixIndependentEnvelope(excess);rejects([&]{XeenSaveFormat::decode(excess);});
  // Delivery results survive the generic current-format round-trip without replay.
  auto delivered=populated;std::array<XeenCharacter,6> recipients;
@@ -98,8 +104,8 @@ int main(){try{
  for(unsigned id=0;id<12;++id){auto &a=maximum.journey->actors[id];a.x=a.y=-128;a.hp=0;a.activated=false;a.accounted=true;a.lifecycle=XeenActorLifecycle::Defeated;if(id<10)mt.weapons[id]={std::uint8_t(id),{0,30,0,0}};else mt.armor[id-10]={std::uint8_t(id),{0,2,0,0}};}
  verify(maximum);maximum.journey->treasure=xeenPrepareMonsterGoldForfeiture(mt);verify(maximum);
  auto city=populated;city.camera={28,16,2,XeenDirection::North};city.journey->vertigoActors.emplace();
- for(unsigned i=0;i<46;++i)city.journey->vertigoActors->push_back({{28,i},int(i%16),int(i/16),2,false,XeenActorLifecycle::Present,XeenActorStatus::Physical,false});verify(city);
- auto reset=city;reset.disabledEvents={{28,764}};for(unsigned i=46;i<52;++i)reset.journey->vertigoActors->push_back({{28,i},0,0,i<50?0:2,false,i<50?XeenActorLifecycle::Unresolved:XeenActorLifecycle::Present,XeenActorStatus::Physical,false,i<50?std::int16_t(-1):std::int16_t(0)});verify(reset);
+ for(unsigned i=0;i<46;++i)city.journey->vertigoActors->push_back({{28,i},int(i%16),int(i/16),2,false,XeenActorLifecycle::Present,XeenActorStatus::Physical,false});verify(city,true);
+ auto reset=city;reset.disabledEvents={{28,764}};for(unsigned i=46;i<52;++i)reset.journey->vertigoActors->push_back({{28,i},0,0,i<50?0:2,false,i<50?XeenActorLifecycle::Unresolved:XeenActorLifecycle::Present,XeenActorStatus::Physical,false,i<50?std::int16_t(-1):std::int16_t(0)});verify(reset,true);
  for(unsigned slot:{50u,51u}) {
   auto bad=reset;bad.journey->vertigoActors->at(slot).spawnedType=1;
   rejects([&]{XeenSaveFormat::encode(bad);});

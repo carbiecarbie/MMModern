@@ -7,7 +7,9 @@ rerunning its failed tests, and when acting as its test runner. The root
 ## When
 
 - The complete suite runs on `build-rel` once after the final production
-  build of each task, not once for the whole milestone.
+  build of each task, not once for the whole milestone. It takes a few minutes
+  (M66 target: under 10); a run over 15 minutes means something hangs or the
+  machine is otherwise loaded, so check that before anything else.
 - At milestone closure, also run `ctest -L fast` and the three M44 scenarios
   on `build-m44`, as a cheap check against optimization-dependent behavior.
   Run the complete suite on `build-m44` (through the runner) only before a
@@ -23,8 +25,11 @@ rerunning its failed tests, and when acting as its test runner. The root
   `gpt-6-luna`, low reasoning effort, `fork_turns: none`; in Claude Code Haiku,
   low effort, no conversation context.
 - The runner runs `tools/run-full-ctest.ps1 -BuildDir <build>` with its default
-  single job. Do not pass `-Jobs`: process tests have timeouts that parallel
-  load breaks.
+  parallel setting (half the logical processors, at most 8 jobs; `-Jobs` only
+  to reproduce a problem). CMake runs the real-clock and native-window tests
+  alone (`RUN_SERIAL`), locks the tests that share a fixed path, and gives every
+  test a generous hang-guard timeout (1800 s process, 300 s fast) that no
+  machine load can break; a timeout is therefore a hang, never load.
 - It runs on the current checkout and build directory, including uncommitted
   changes. This is an exception to the separate-worktree rule. While tests
   run, the main agent does not modify either, and launches no other subagents,
@@ -43,8 +48,8 @@ rerunning its failed tests, and when acting as its test runner. The root
 - If the complete suite fails only because of stale test expectations, the
   main agent investigates and fixes the tests (test code only). It then
   explicitly instructs the same runner to rerun just the failed tests
-  (`ctest --test-dir <build> --rerun-failed --output-on-failure`, single job)
-  and runs `ctest -L fast` itself, instead of another complete run. Such an
+  (`ctest --test-dir <build> --rerun-failed --output-on-failure`) and runs
+  `ctest -L fast` itself, instead of another complete run. Such an
   explicitly requested rerun is the only rerun the runner performs.
 - Any production-code change requires another complete run.
 

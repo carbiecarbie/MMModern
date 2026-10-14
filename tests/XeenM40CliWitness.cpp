@@ -437,7 +437,11 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         }
         inspect([&]{check(control.empty() || faultFired || control=="recursive","M40 requested synthetic control did not execute");
             std::cout<<(!control.empty()?"M40 SYNTHETIC FAULT CONTINUATION PASSED":branch=="empty"?"M40 EMPTY DEPARTURE WITNESS PASSED":"M40 PRODUCTION WITNESS PASSED")<<'\n';SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);});
-        auto native=handler;native.closed={};native.beginCycle=[&](std::uint64_t){handler.beginCycle(++cycle);};
+        auto native=handler;native.closed={};
+        // The simulated clock advances only when idle runs; a live deadline would make
+        // the SDL loop wait in real time for it. Behavior is unchanged, only the wait.
+        native.nextPresentationDeadline=[]{return std::optional<std::uint64_t>{0};};
+        native.beginCycle=[&](std::uint64_t){handler.beginCycle(++cycle);};
         native.framePresented=[&](const auto &frame){check(!nativeFailed,"M40 failed native frame gained input authority");handler.framePresented(frame);presented=frame;shown=true;};
         const auto verifyClockFailure=[&] {
             check(faultFired && combat() && combat()->phase()==XeenCombatPhase::Failed &&

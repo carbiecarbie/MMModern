@@ -5,6 +5,7 @@
 #include "platform/sdl/SdlWindow.h"
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
+#include <chrono>
 #include <iostream>
 #include <memory>
 using namespace mmodern;
@@ -229,8 +230,15 @@ int main(int argc,char **argv){try {
  slots[0].state=XeenSaveFile::Slot::State::Available;slots[0].snapshot=saved;
  slots[5].state=XeenSaveFile::Slot::State::Protected;slots[5].reason="Synthetic protected target";
  const auto services=[&]{return XeenTitleFlow::original(assets,font,[&]{return slots;},[](unsigned slot){return std::filesystem::path("test-slots")/(std::to_string(slot)+".mmsave");});};
- panelControls(assets,font);
- animationResume(services());cosmeticMouseRelease(services());mappedHotkeys(*installation,assets,font);
+ // Section wall times go to stderr, so a slow run shows where it went.
+ auto sectionBegan=std::chrono::steady_clock::now();
+ const auto section=[&](const char *name) {
+  const auto now=std::chrono::steady_clock::now();
+  std::cerr<<name<<": "<<std::chrono::duration_cast<std::chrono::milliseconds>(now-sectionBegan).count()<<" ms\n";sectionBegan=now;
+ };
+ panelControls(assets,font);section("panelControls");
+ animationResume(services());section("animationResume");cosmeticMouseRelease(services());section("cosmeticMouseRelease");
+ mappedHotkeys(*installation,assets,font);section("mappedHotkeys");
  Driver d(services());
  check(d.flow.screen()==Screen::Background,"plain title starts with animated background");d.key(27);
  const auto menu=d.flow.frame().pixels;const auto old=d.flow.frame().presentation();
@@ -330,7 +338,9 @@ int main(int argc,char **argv){try {
  check(empty.flow.entry()->name=="Case + internal spac" && empty.flow.entry()->slot==9,"leading space rejection/name byte limit/case-preserving round trip");
  const auto retired=empty.flow.frame().presentation();empty.flow.close();
  check(!empty.flow.current() && !empty.flow.acceptsFrame(retired) && !empty.flow.handle(DialogKeyAction{'s'},retired),"closed title callbacks retained authority");
+ section("titleFlow");
  }
- titleApplicationControls(argv[1]);
+ const auto nativeBegan=std::chrono::steady_clock::now();titleApplicationControls(argv[1]);
+ std::cerr<<"titleApplicationControls: "<<std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()-nativeBegan).count()<<" ms\n";
  std::cout<<"Original title, four credits pages, chooser, New/Load, mouse/key/cancel and stale frames passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

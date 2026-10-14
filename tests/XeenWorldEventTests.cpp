@@ -4,6 +4,7 @@
 #include "games/xeen/XeenIndoorScene.h"
 #include "games/xeen/XeenObjectVisual.h"
 #include "games/xeen/XeenStateEquality.h"
+#include <chrono>
 #include <iostream>
 #include <fstream>
 #include <queue>
@@ -1148,7 +1149,17 @@ int main(int argc,char **argv) {
    return 0;
   }
   std::ostringstream output;auto *saved=std::cout.rdbuf(output.rdbuf());
-  try {portraitRewards(in);originalPortraitOrder(in);npcBeforeDeadline(in);partBVernGuild(in);partBSearches(in);partA(in);rules(in);teachers(in);treasure(in);originalVisualRegressions(in);originalEvents(in);partAOriginal(in);treeFlags(in);originalJourney(in);}catch(...){std::cout.rdbuf(saved);throw;}
+  // Each section reports its wall time on stderr, so a slow run shows where it went.
+  const auto timed=[&](const char *name,void (*section)(Inputs &)) {
+   const auto began=std::chrono::steady_clock::now();section(in);
+   std::cerr<<name<<": "<<std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()-began).count()<<" ms\n";
+  };
+  try {
+   timed("portraitRewards",portraitRewards);timed("originalPortraitOrder",originalPortraitOrder);timed("npcBeforeDeadline",npcBeforeDeadline);
+   timed("partBVernGuild",partBVernGuild);timed("partBSearches",partBSearches);timed("partA",partA);timed("rules",rules);timed("teachers",teachers);
+   timed("treasure",treasure);timed("originalVisualRegressions",originalVisualRegressions);timed("originalEvents",originalEvents);
+   timed("partAOriginal",partAOriginal);timed("treeFlags",treeFlags);timed("originalJourney",originalJourney);
+  }catch(...){std::cout.rdbuf(saved);throw;}
   std::cout.rdbuf(saved);
   std::cout<<"World effects, shared treasure, bounded generation, cancellation, retry and original scripts passed\n";return 0;
  }catch(const std::exception &e){std::cerr<<stage<<": "<<e.what()<<'\n';return 1;}

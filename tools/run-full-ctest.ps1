@@ -3,6 +3,11 @@
 # run has finished. Intended for the maintainer's terminal or a lightweight
 # runner, so an agent does not have to monitor a long run.
 #
+# Tests run in parallel: by default half the logical processors, at most 8.
+# CMake marks the real-clock and native-window tests RUN_SERIAL and locks the
+# tests that share a fixed path, so the jobs never interfere; every timeout is
+# a hang guard independent of load (CMakeLists.txt, test policy block).
+#
 # Example:
 #   $env:PATH = "C:\msys64\ucrt64\bin;$env:PATH"
 #   .\tools\run-full-ctest.ps1 -BuildDir build-rel
@@ -10,11 +15,14 @@
 param(
     [Parameter(Mandatory)][string]$BuildDir,
     [string]$CTest = 'ctest',
-    [ValidateRange(1, 256)][int]$Jobs = 1,
+    [ValidateRange(0, 256)][int]$Jobs = 0,
     [string]$Configuration = ''
 )
 
 $ErrorActionPreference = 'Stop'
+if ($Jobs -lt 1) {
+    $Jobs = [math]::Max(1, [math]::Min(8, [int][math]::Floor([Environment]::ProcessorCount / 2)))
+}
 $build = (Resolve-Path -LiteralPath $BuildDir).Path
 $ctestExe = (Get-Command $CTest -CommandType Application | Select-Object -First 1).Source
 
@@ -37,7 +45,7 @@ if ($Configuration) {
     $ctestArgs += @('--build-config', $Configuration)
 }
 
-Write-Host "Running full suite. Results: $resultDir"
+Write-Host "Running full suite with $Jobs parallel jobs. Results: $resultDir"
 $started = [datetimeoffset]::Now
 $timer = [Diagnostics.Stopwatch]::StartNew()
 $code = 1
@@ -73,6 +81,7 @@ finally {
         "Arguments: $($ctestArgs -join ' ')"
         "Build directory: $build"
         "Exit code: $code"
+        "Parallel jobs: $Jobs"
         "Duration seconds: $([math]::Round($timer.Elapsed.TotalSeconds, 1))"
         "Runner error: $runnerError"
         "Full output and failure details: $log"
