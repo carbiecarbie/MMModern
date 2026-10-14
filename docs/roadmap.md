@@ -87,16 +87,40 @@ still needs its own plan and the maintainer's start.
 This arc is complete. [M65](milestone-65-plan.md) then measured every mechanic
 the original data uses in [the coverage report](coverage.md), and
 [M66](milestone-66-plan.md) cut the complete test suite from 29 minutes to
-about 3. Next comes an arc that finishes the game's systems in the order the
-census gives: the equipment validation before combat
-and Rest, flying monsters, the remaining spells, Rest surfaces, wall and
-object Events, mirrors, password doors and the missing screens. Audio waits
-until after that arc.
+about 3.
 
-**Left for after the release:** the mainland's remaining content (fountains,
-bottles, outpost, statues) and other areas, character creation and the Inn,
-combat Equip/Use, Run inside Vertigo, Drink/Tip/Rumors, Donation/Uncurse, the
-mirror, full Quests/Awards screens, the remaining spells and audio.
+## Next arc: finishing the game's systems
+
+The game loads whole maps from the original data; what keeps an area from
+playing is the mechanics it uses. This arc implements them once each, in the
+order [the coverage report](coverage.md) gives (most maps unblocked first),
+instead of map by map. Each step is its own milestone and plan; the census is
+regenerated each time, so progress is visible. Steps are direction, not
+approved plans, and the order may change when the census or play shows a
+better one.
+
+1. **Equipped item contributions** (M67): materials, attribute bonuses,
+   enchantments and resistances of equipped items in combat, Shoot and Rest.
+   Today an equipped material or enchanted item is refused there, which also
+   affects Vertigo's level-2 loot.
+2. **Monster abilities**: flying movement (32 Clouds maps), ranged elemental
+   attacks and the other unsupported attack and special types.
+3. **World Events**: `MoveWallObj`, `MakeNothingHere`, `JumpRnd`, mirrors,
+   password doors and the unsupported TakeOrGive and If modes.
+4. **Terrain**: Rest surfaces and arrival hazards (lava, sky, cloud, space,
+   desert, water).
+5. **Spells**: the remaining 65, in two or three milestones by level and use.
+6. **Combat Equip and Use, and the missing screens** (Quests, Awards and the
+   others in the census checklist).
+7. **Services and party**: Tavern Drink/Tip/Rumors/Sign In, Temple
+   Donation/Uncurse, the Inn, recruiting and character creation.
+8. **Opening areas**: admit every Clouds map whose census readiness has no
+   unsupported mechanic, then play-test by sampling rather than map by map.
+
+Audio comes after this arc; the original durations are already kept.
+
+Also left from the release list: the F3 fountains, bottles, outpost and
+statues, and Run inside Vertigo; they join the step whose mechanic they need.
 
 ## Medium-term objective
 
