@@ -182,9 +182,10 @@ void originalPortraitOrder(Inputs &in) {
  check(frames.size()==24,"Sequential sparkle frame count");
  for(unsigned n=0;n<24;++n)check(frames[n]==std::make_pair(n/4,n%4),"Sparkles did not serialize recipients 0..3");
  check(XeenCityEventTestAccess::countdown(*f.flow)==countdown && !f.w.scenePresentation().feedbackActive(),"Sparkle changed suspended actor countdown or survived quiet boundary");
- // Each grant invokes FX again, even for a recipient reached earlier in this Event.
+ // The original sparkle latch (DAT 0x210bc/0x2117f) skips a member already
+ // sparkled in this Event run; only Event start/end clear it (0x267a6/0x291e0).
  XeenEventFile repeated{28,"maze0028.evt",true,{record(0,0x0f,{0}),
-  record(1,0x0c,{0,0,16,1,0,0,0}),record(2,0x0c,{0,0,16,2,0,0,0}),record(3,0x12)}};
+  record(1,0x0c,{0,0,16,1,0,0,0}),record(2,0x0c,{0,0,16,2,0,0,0}),record(3,0x0c,{0,0,15,6}),record(4,0x12)}};
  Fixture twice(in,source,false,&repeated);frames.clear();
  twice.flow->drawDialogSprite=[&](auto &image,const char *name,unsigned frameIndex,int x,int y) {
   if(std::string(name)=="spellfx.icn") {
@@ -196,9 +197,12 @@ void originalPortraitOrder(Inputs &in) {
   in.assets.drawDialogSprite(image,name,frameIndex,x,y);
  };
  twice.act(InteractionAction{});settle(twice);
- check(frames.size()==48,"A later grant lost a recipient's repeated sparkle");
- for(unsigned n=0;n<48;++n)check(frames[n]==std::make_pair((n%24)/4,n%4),"Repeated grants lost recipient/frame order");
- for(auto owner:source.activeRosterIds)check(twice.p.roster.combatInputs(owner)->experience==source.journey->supplements[owner].inputs.experience+3,"Repeated grant applied XP more than once");
+ check(frames.size()==24,"A later grant in the same Event sparkled a recipient again");
+ for(unsigned n=0;n<24;++n)check(frames[n]==std::make_pair(n/4,n%4),"Repeated grants lost recipient/frame order");
+ for(auto owner:source.activeRosterIds)check(twice.p.roster.combatInputs(owner)->experience==source.journey->supplements[owner].inputs.experience+3 &&
+  twice.p.roster.at(owner).awards[6]==1,"Latched grants were not applied");
+ frames.clear();twice.act(InteractionAction{});settle(twice);
+ check(frames.size()==24,"A new Event run did not clear the sparkle latch");
  // The generic Event path draws each overlay before its HP store, then has
  // exactly one two-tick final hold shared by all six recipients (DAT 0x23f73).
  XeenEventFile hurt{28,"maze0028.evt",true,{record(0,0x0f,{0}),record(1,0x16,{1,0,0}),record(2,0x12)}};
@@ -586,7 +590,25 @@ void originalEvents(Inputs &in) {
  stage="Gunther";auto next=proof.snapshot();next.camera={28,14,5,XeenDirection::West};Fixture gunther(in,next);
  const auto gold=gunther.p.monsterTreasure->gold,gems=gunther.p.monsterTreasure->gems;
  std::array<std::uint32_t,30> xp{};for(unsigned owner=0;owner<30;++owner)xp[owner]=gunther.p.roster.combatInputs(owner)->experience;
- interact(gunther);check(gunther.f.isSet(10) && gunther.p.monsterTreasure->gold==gold+4000 && gunther.p.monsterTreasure->gems==gems+50 &&
+ // DOS capture: one sparkle pass over portraits 1-6 (XP, line 15), then the
+ // "+ 5,000 experience" side-panel text (line 18); award 6 (line 20) is latched.
+ std::vector<std::string> sequence;
+ gunther.flow->drawDialogSprite=[&](auto &image,const char *name,unsigned frameIndex,int x,int y) {
+  if(std::string(name)=="spellfx.icn") {
+   constexpr int positions[]{10,45,81,117,153,189};
+   const auto found=std::find(std::begin(positions),std::end(positions),x);check(found!=std::end(positions) && y==150,"Gunther sparkle position");
+   const auto entry="S"+std::to_string(found-std::begin(positions))+std::to_string(frameIndex);
+   if(sequence.empty() || sequence.back()!=entry)sequence.push_back(entry);
+  }
+  in.assets.drawDialogSprite(image,name,frameIndex,x,y);
+ };
+ gunther.flow->reportManual=[&](const auto &result){if(const auto *pending=std::get_if<XeenEventExecutionSuspended>(&result))
+  if(pending->request.textIndex==59)sequence.push_back((pending->request.kind==XeenPresentationKind::CenteredMessage?"T":"?")+pending->request.text);};
+ interact(gunther);
+ check(gunther.p.party.size()==6 && sequence.size()==25,"Gunther reward did not sparkle exactly once per member before its text");
+ for(unsigned n=0;n<24;++n)check(sequence[n]=="S"+std::to_string(n/4)+std::to_string(n%4),"Gunther sparkle order");
+ check(sequence[24]=="T+ 5,000 experience","Gunther experience text is not the side-panel window 38 message");
+ check(gunther.f.isSet(10) && gunther.p.monsterTreasure->gold==gold+4000 && gunther.p.monsterTreasure->gems==gems+50 &&
   !gunther.p.questFlags.isSet(29) && gunther.p.questFlags.isSet(1),"Original Gunther rewards/next quest diverged");
  for(auto owner:gunther.p.party.activeRosterIds())check(gunther.p.roster.at(owner).awards[6]==1 &&
   gunther.p.roster.combatInputs(owner)->experience==xp[owner]+5000,"Original Gunther XP/award lost member");

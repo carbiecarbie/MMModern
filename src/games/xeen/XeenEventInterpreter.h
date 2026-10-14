@@ -165,6 +165,7 @@ struct XeenEventExecutionState {
     std::optional<XeenEventPortraitProgress> portraitProgress;
     std::optional<XeenTypedDamageCandidate> portraitDamage;
     std::optional<XeenCombatRandom> portraitRandom;
+    // Original per-member sparkle latch: cleared only when an Event run starts or ends.
     std::uint32_t sparkledOwners=0;
 	std::optional<XeenEventCdSpeech> cdSpeech;
 	std::optional<XeenCombatRandom> rewardRandom;

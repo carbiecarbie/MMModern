@@ -515,9 +515,13 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
   };
   handoff.verify();
   exposed=true;
+  // Title-menu sessions show the player only the program name; developer
+  // entries keep their diagnostic status line.
+  const bool playerTitle=services.initialSlot && !services.developerSavePath;
+  const auto shown=[&](std::string text){return playerTitle?std::string("MMModern"):text;};
   const bool ok = services.show(first, handler, [&,alive] { return *alive && (panel || flow.handlesEscape()); }, idle, [&,alive] {
-   if(!*alive)return std::string("MMModern - Session closed");
-   try { return status; } catch (...) { handoff.fail(); active = false; throw; }
+   if(!*alive)return shown("MMModern - Session closed");
+   try { return shown(status); } catch (...) { handoff.fail(); active = false; throw; }
   });
   if (!ok) handler.failed();
   flow.closeGameplay();

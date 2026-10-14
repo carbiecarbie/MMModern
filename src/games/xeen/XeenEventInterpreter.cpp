@@ -877,7 +877,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
          state.sparkledOwners|=1u<<member.rosterId;
          return portraitRequest(XeenEventPortraitStage::Sparkle,member.rosterId,0,decoded.source);
      }
-     state.portraitProgress.reset();state.sparkledOwners=0;
+     state.portraitProgress.reset();
     }
     ++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
    }
@@ -905,7 +905,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
                         state.sparkledOwners|=1u<<owner;
                         return portraitRequest(XeenEventPortraitStage::Sparkle,owner,0,decoded.source);
                     }
-                    state.portraitProgress.reset();state.sparkledOwners=0;
+                    state.portraitProgress.reset();
                 } else world.applyEventGrant(partyState,pair.mode,pair.value,state.activeCharacterIndex,state.entireParty,grant);
 				++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
 			}
@@ -939,7 +939,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
                         state.portraitProgress=XeenEventPortraitProgress{1u<<*state.activeCharacterIndex,unsigned(*state.activeCharacterIndex),XeenEventPortraitProgress::Phase::WellAfterSparkle};
                         return portraitRequest(XeenEventPortraitStage::Sparkle,owner,0,decoded.source);
                     }
-                    state.portraitProgress.reset();state.sparkledOwners=0;
+                    state.portraitProgress.reset();
 					auto &member=partyState.roster.at(owner);
 					const auto after=xeenWellHpAfter(member.currentHp);
 					if (!after)

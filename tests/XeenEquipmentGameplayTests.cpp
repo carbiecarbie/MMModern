@@ -196,9 +196,12 @@ void representativeRulesAndFeedback() {
 		services.show=[&](const auto &,const auto &handle,const auto &,const auto &,const auto &){
 			handle(InspectInventoryAction{});handle(SelectInventorySlotAction{0});handle(EquipmentInventoryAction{});
 			check(party->roster.at(0).weapons[0].frame==13,"two-handed target frame");
+			std::string refusal;f.flow->reportText=[&](const std::string &text){refusal=text;};
 			handle(DialogKeyAction{'a'});handle(SelectInventorySlotAction{0});handle(EquipmentInventoryAction{});
 			check(f.flow->equipmentResult()->status==Status::Conflict&&f.flow->equipmentResult()->conflict->category==Category::Weapons&&
-				f.flow->equipmentResult()->conflict->physicalSlot==0,"shield/two-handed conflict feedback facts");return true;
+				f.flow->equipmentResult()->conflict->physicalSlot==0,"shield/two-handed conflict feedback facts");
+			// Original equipError: conflicting base name first, then the selected base name.
+			check(refusal.rfind("bardiche  shield ",0)==0,"conflict refusal did not use original base names in order");return true;
 		};Quiet quiet;check(Application().playGameplay(services,start,{},false)==0,"two-handed integration");
 	}
 	{

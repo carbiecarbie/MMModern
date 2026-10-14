@@ -28,7 +28,7 @@ std::optional<XeenSessionEntry> showTitle(XeenTitleFlow &flow,XeenAssetSource &a
  handler.protectAllKeys=true;handler.cursorImage=[&]{return assets.cursorImage(XeenSceneArchive::DarksideOnly);};
  handler.nextPresentationDeadline=[&]{return flow.nextPresentationDeadline();};
  handler.drawButton=[&](IndexedFrame &frame,const InputButton &button){flow.drawButton(frame,button);};
- if(!SdlWindow().showInteractive(flow.frame(),"MMModern - World of Xeen",handler,[]{return true;},
+ if(!SdlWindow().showInteractive(flow.frame(),"MMModern",handler,[]{return true;},
   [&]{return flow.animateAt(SdlWindow::presentationNanoseconds());}))throw std::runtime_error("Title presentation failed");
  return flow.entry();
 }

@@ -47,6 +47,19 @@ void gameplay() {
   handle(DialogKeyAction{InputKey::Escape});check(!f.flow->inventoryOpen(),"sheet Esc closes");return true;
  };Quiet quiet;check(Application().playGameplay(services,start,{},false)==0,"original inventory flow");
 }
+void windowTitle() {
+ for(bool managed:{false,true}) {
+  Fixture f;seed(f);auto services=f.services();if(managed)services.initialSlot=0;
+  services.show=[&](const auto &,const auto &handle,const auto &,const auto &,const auto &status){
+   if(managed)check(status()=="MMModern","title-menu play showed developer status");
+   else check(status().rfind("MMModern - Map ",0)==0 && status().find("Inventory: ")!=std::string::npos,"developer entry lost its status line");
+   handle(SelectMemberAction{0});handle(SaveGameAction{});
+   if(managed)check(status()=="MMModern","title-menu play showed a save diagnostic");
+   else check(status().find("inventory")!=std::string::npos,"developer entry lost its save diagnostic");
+   return true;
+  };Quiet quiet;check(Application().playGameplay(services,start,{},false)==0,"window title gameplay");
+ }
+}
 void invalidation() {
  for(unsigned mutation=0;mutation<4;++mutation){Fixture f;seed(f);auto services=f.services();XeenPartyState *live=nullptr;
  services.observeGameplay=[&](auto &,auto &,const auto &p,auto &,const auto &){live=&const_cast<XeenPartyState &>(p);};
@@ -137,5 +150,5 @@ void restart(const fs::path &exe) {
 int main(int argc,char **argv){try{
  if(argc==3)return child(fs::absolute(argv[2]),std::string(argv[1])=="consumer");
  if(argc==2){sdl();return 0;}
- gameplay();invalidation();failure();automaticGuard();restart(fs::absolute(argv[0]));return 0;
+ gameplay();windowTitle();invalidation();failure();automaticGuard();restart(fs::absolute(argv[0]));return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

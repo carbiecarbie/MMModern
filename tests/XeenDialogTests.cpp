@@ -141,6 +141,18 @@ void original(const char *path){
  check(catalog.foundName(XeenInventoryCategory::Miscellaneous,{10,37,7,0})=="potion " &&
      catalog.foundName(XeenInventoryCategory::Weapons,{38,3,0x80,0})==catalog.foundName(XeenInventoryCategory::Weapons,{0,3,0,0}),
      "found names are original base/container names without inventory decorations");
+ {
+     // Equip refusals format the base names (DAT 0x37a9b..0x37b28, 0x3c564..0x3c5d4):
+     // "\b " backs over the trailing space, while NOT_PROFICIENT keeps it before "!".
+     const auto axe=catalog.foundName(XeenInventoryCategory::Weapons,{1,29,0,0});
+     const auto spear=catalog.foundName(XeenInventoryCategory::Weapons,{0,17,0,0});
+     const auto conflict=xeenDialogFormat(xeenDialogText(dos,XeenDialogText::RemoveToEquip),{axe,spear});
+     check(conflict=="\x03""c\x0b""007You must remove great axe to equip spear \x08 !","original equip-conflict text");
+     const auto proficiency=xeenDialogFormat(xeenDialogText(dos,XeenDialogText::NotProficient),
+         {std::string(dos.table("CLASS_NAMES").at(static_cast<unsigned>(XeenCharacterClass::Sorcerer))),catalog.foundName(XeenInventoryCategory::Weapons,{0,1,0,0})});
+     check(proficiency=="\t000\x0b""007\x03""cSorcerers are not proficient with a long sword !","original proficiency text");
+     check(drawXeenErrorScroll(base,font,conflict).isValid() && drawXeenErrorScroll(base,font,proficiency).isValid(),"original equip refusal layout");
+ }
  // Pure composition only: every executed Clouds frame uses actual resources.
  const int deathY[]{196,187,179,169,159,147,138,127,113,101,86,73,60,48,36,23,10};
  for(unsigned even=0;even<=34;even+=2) {

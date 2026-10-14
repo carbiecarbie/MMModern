@@ -114,8 +114,8 @@ bool panelGameplay(const IndexedFrame &first,const SdlWindow::FrameUpdateHandler
  };
  const auto failConfirmation=[&](unsigned code) {
   state.failNotice=true;const auto writes=state.writes;key(code);
-  check(!state.failNotice && state.noticeAttempts==1 && state.writes==writes+1 &&
-   status().find("Game saved; confirmation unavailable")!=std::string::npos,
+  // Title-menu play keeps the window title free of save diagnostics.
+  check(!state.failNotice && state.noticeAttempts==1 && state.writes==writes+1 && status()=="MMModern",
    "post-write presentation failure was reported/retried as a save failure");
   key(27);
  };
@@ -229,7 +229,7 @@ extern "C" bool wrappedTitleShow(const SdlWindow *window,const IndexedFrame &fir
  const SdlWindow::FrameUpdateHandler &handler,const std::function<bool()> &escape,const SdlWindow::IdleFrameHandler &idle,
  const std::function<std::string()> &status) {
  if(!state.enabled)return realTitleShow(window,first,label,handler,escape,idle,status);
- const bool title=label=="MMModern - World of Xeen";
+ const bool title=!status; // Only gameplay supplies a status line.
  auto native=handler;IndexedFrame::Presentation presented;unsigned step=0;
  std::vector<SDL_Event> pendingEvents;
  native.beginCycle=[&](auto cycle){

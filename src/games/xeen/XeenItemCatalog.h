@@ -76,8 +76,9 @@ public:
 	XeenMaterialAvailability materialAvailability() const { return _materialAvailability; }
 	XeenItemDescription describe(XeenInventoryCategory category,
 		const XeenItem &item) const;
-	// Party::giveTreasure prints the base item/container name, without the
-	// inventory description's material, power or condition decorations.
+	// Party::giveTreasure and the equip/proficiency refusals print the base
+	// item/container name, without the inventory description's material,
+	// power or condition decorations.
 	std::string foundName(XeenInventoryCategory,const XeenItem &) const;
 
 private:

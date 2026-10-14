@@ -197,14 +197,15 @@ void XeenEventFlow::handleEquipment(XeenEquipmentOperation operation) {
 	else {
 		using S=XeenEquipmentStatus;
 		const auto &c=_party.roster.at(certificate->resolvedOwner);
-		const auto description=_catalog.describe(certificate->category,certificate->selectedRecord).displayName;
+		// The original templates take the base names, whose trailing space their "\b" removes.
+		const auto name=_catalog.foundName(certificate->category,certificate->selectedRecord);
 		if(result.status==S::Cursed) dialogError(std::string(xeenDialogText(dosText(),XeenDialogText::CursedItem)));
-		else if(result.status==S::NotProficient) dialogError(xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::NotProficient),{std::string(dosText().table("CLASS_NAMES").at(static_cast<unsigned>(c.characterClass))),description}));
+		else if(result.status==S::NotProficient) dialogError(xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::NotProficient),{std::string(dosText().table("CLASS_NAMES").at(static_cast<unsigned>(c.characterClass))),name}));
 		else if(result.status==S::RingLimit || result.status==S::MedalLimit)
 			dialogError(xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::EquippedAll),{std::string(xeenDialogText(dosText(),result.status==S::RingLimit?XeenDialogText::Ring:XeenDialogText::Medal))}));
 		else if(result.status==S::Conflict && result.conflict) {
 			const auto &item=(*xeenInventoryItems(c,result.conflict->category))[result.conflict->physicalSlot];
-			dialogError(xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::RemoveToEquip),{_catalog.describe(result.conflict->category,item).displayName,description}));
+			dialogError(xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::RemoveToEquip),{_catalog.foundName(result.conflict->category,item),name}));
 		} else if(result.status!=S::NoChange) dialogError("Equipment: not supported yet");
 		drawInventory();
 	}
