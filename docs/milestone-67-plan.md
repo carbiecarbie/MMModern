@@ -1,6 +1,6 @@
 # Milestone 67 - Equipped item contributions
 
-**Tier B. Status: approved; implementation not started.**
+**Tier B. Status: implemented (`11d3d72`); maintainer play-test pending.**
 
 ## Goal
 
