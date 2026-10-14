@@ -10,8 +10,8 @@ quality-of-life features may come later, and they will be off by default.
 
 ## What you can play
 
-MMModern is incomplete and experimental. Version 0.1.0 is the first public
-release, and it does not replace the original games yet.
+MMModern is incomplete and experimental. The 0.1 releases are its first
+public versions, and they do not replace the original games yet.
 
 A new Clouds game starts in Vertigo, as in the original. You can play the
 whole town and the F3 area around it.
@@ -36,13 +36,15 @@ You need Windows 10 or 11 (64-bit) and a legally obtained English
 World of Xeen CD edition, as sold by GOG ("Might and Magic 4-5"). MMModern
 includes no game data and never copies or modifies yours.
 
-1. Download `MMModern-0.1.0-windows-x64.zip` from the
+1. Download the latest `MMModern-<version>-windows-x64.zip` from the
    [GitHub releases](https://github.com/carbiecarbie/MMModern/releases) page.
 2. Unpack it into a folder of your own, not inside the game folder.
-3. Open `MMModern.bat` in a text editor and set `GAME` to your GOG folder, the
-   one that contains `WORLD\XEEN.DAT` (for example
-   `C:\GOG Games\Might and Magic 4-5`).
-4. Double-click `MMModern.bat`. You can also run
+3. Double-click `MMModern.bat`. The first time, it looks for the game where GOG
+   installed it. If it cannot find it, a window asks you to choose your
+   "Might and Magic 4-5" folder, the one that contains `WORLD\XEEN.DAT`. Your
+   choice is remembered, so later the game starts directly.
+4. If you move the game, double-click `Change game folder.bat` to choose the
+   folder again. You can also run
    `mmodern.exe "C:\GOG Games\Might and Magic 4-5"` from a command prompt.
 
 The game opens on the original title screen. New asks for a slot, a name and

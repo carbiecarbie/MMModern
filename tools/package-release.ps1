@@ -70,13 +70,15 @@ Package versions:
 
 No Might and Magic game data is included. The original game is required.
 "@ | Set-Content -Encoding ascii (Join-Path $stage 'THIRD-PARTY.txt')
-@"
-@echo off
-rem Set GAME to your Might and Magic 4-5 folder (the one containing WORLD\XEEN.DAT).
-set "GAME=C:\GOG Games\Might and Magic 4-5"
-"%~dp0mmodern.exe" "%GAME%"
-if errorlevel 1 pause
-"@ | Set-Content -Encoding ascii (Join-Path $stage 'MMModern.bat')
+# The launcher finds and remembers the game folder; the batch files only start
+# it. Windows batch files need CRLF line endings.
+Copy-Item (Join-Path $PSScriptRoot 'release\MMModern-launcher.ps1') $stage
+function Write-Batch([string]$file, [string]$arguments) {
+	$text = "@echo off`r`npowershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File `"%~dp0MMModern-launcher.ps1`"$arguments`r`nif errorlevel 1 pause`r`n"
+	[IO.File]::WriteAllText((Join-Path $stage $file), $text, [Text.Encoding]::ASCII)
+}
+Write-Batch 'MMModern.bat' ''
+Write-Batch 'Change game folder.bat' ' -Change'
 
 # Name entries explicitly: PowerShell 5.1's archive APIs write '\' separators.
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem

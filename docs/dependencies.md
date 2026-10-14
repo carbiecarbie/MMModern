@@ -425,7 +425,11 @@ unstripped binary), copies exactly the non-system DLLs that `ldd` resolves, and
 only from `C:\msys64\ucrt64\bin`, and adds `LICENSE.txt`, `README.md`,
 `THIRD-PARTY.txt` (bundled libraries, the GCC runtime exception, the `v<version>`
 tag and the pinned ScummVM revision), the MSYS2 license texts under `licenses\`
-and a `MMModern.bat` launcher. The output directory must be outside the
+and the launcher: `tools/release/MMModern-launcher.ps1` with two CRLF batch
+files that start it, `MMModern.bat` and `Change game folder.bat`. The launcher
+finds the game through GOG's registry entries or a folder picker, accepts only
+a folder with `WORLD\XEEN.DAT` and remembers it in
+`%LOCALAPPDATA%\MMModern\game-folder.txt`. The output directory must be outside the
 repository and the zip and staging folder must not exist yet. No game data, saves,
 logs or build trees are packaged. Before publishing, unpack the zip into an empty
 folder and start it with a `PATH` without MSYS2.
