@@ -78,10 +78,11 @@ still needs its own plan and the maintainer's start.
    accepted in [M63](milestone-63-plan.md). Original ticks and waits, about nine
    steps a second with the approved no-phantom-steps deviation, and the timed
    NPC, shop, treasure, sparkle, Shoot, dream, title and death sequences. The
-   maintainer decides next on an opt-in faster movement option.
-10. **Closure and release**: the whole Vertigo route from New Game with
-   save/load, then the release work (Windows binary, how to point at the GOG
-   data, licence, an honest list of what is missing).
+   maintainer declined an opt-in faster movement option (2026-10-14).
+10. **Closure and release** ([M64](milestone-64-plan.md), approved): fixes from
+   the maintainer's full Vertigo play-through, then the release work (Windows
+   binary, how to point at the GOG data, licence, an honest list of what is
+   missing).
 
 **Left for after the release:** the mainland's remaining content (fountains,
 bottles, outpost, statues) and other areas, character creation and the Inn,
