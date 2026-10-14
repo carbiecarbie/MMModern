@@ -73,6 +73,9 @@ IndexedFrame drawXeenExchange(const XeenDosText &,const IndexedFrame &,const Xee
 IndexedFrame drawXeenQuickFight(const XeenDosText &,const IndexedFrame &,const XeenFontFormat &,const XeenCharacter &,std::size_t,const XeenDialogSpriteDraw &);
 DialogInput xeenItemsInput(bool misc,bool selection=false);
 enum class XeenLocationDialog { Smith, Training, Temple, Tavern, Bank, Guild };
+// Missing action implementations shared by runtime feedback and coverage tools.
+// Conditional eligibility (for example no cursed items) remains with the caller.
+std::optional<std::string> xeenLocationUnsupportedAction(XeenLocationDialog,unsigned key);
 bool xeenVertigoGuildMember(const XeenPartyState &,std::size_t);
 DialogInput xeenLocationInput(XeenLocationDialog);
 DialogInput xeenBankInput();

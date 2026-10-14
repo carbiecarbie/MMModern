@@ -829,10 +829,7 @@ IndexedFrame XeenEventFlow::handleFoodBank(const PlayerAction &action,std::uint6
             }
             else if(food) {
                 if(key=='f')ui.phase=SmithUi::Phase::Confirm;
-                else if(key=='d')ui.feedback="Drink: not supported yet";
-                else if(key=='t')ui.feedback="Tip: not supported yet";
-                else if(key=='r')ui.feedback="Rumors: not supported yet";
-                else if(key=='s')ui.feedback="Sign In: not supported yet";
+                else if(const auto refusal=xeenLocationUnsupportedAction(XeenLocationDialog::Tavern,key))ui.feedback=*refusal;
             } else if(key=='d' || key=='w') {
                 ui.withdrawal=key=='w';ui.bankRefreshed=false;ui.phase=SmithUi::Phase::Currency;ui.animation.sample.stop();
             }
@@ -939,9 +936,9 @@ IndexedFrame XeenEventFlow::handleTemple(const PlayerAction &action,std::uint64_
         else if(ui.phase==SmithUi::Phase::Lobby) {
             if(key>=InputKey::F1 && key<InputKey::F1+_party.party.size()) {
                 ui.member=key-InputKey::F1;_encounter->_smith->quoted=false;_encounter->advanceSmith();
-            } else if(key=='d') ui.feedback="Donation: not supported yet";
+            } else if(key=='d') ui.feedback=*xeenLocationUnsupportedAction(XeenLocationDialog::Temple,key);
             else if(key=='u') {
-                if(xeenTempleUncurseCost(_party.party.member(_party.roster,ui.member))) ui.feedback="Uncurse: not supported yet";
+                if(xeenTempleUncurseCost(_party.party.member(_party.roster,ui.member))) ui.feedback=*xeenLocationUnsupportedAction(XeenLocationDialog::Temple,key);
             } else if(key=='h') {
                 if(!_encounter->_smith->quoted) _encounter->quoteTempleHeal(ui.member);
                 if(_encounter->_smith->quoted) ui.phase=_encounter->confirmTempleHeal()?SmithUi::Phase::Lobby:SmithUi::Phase::Upgrade;

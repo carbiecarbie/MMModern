@@ -301,6 +301,19 @@ DialogInput xeenBuyInput(XeenItemService action) {
 bool xeenVertigoGuildMember(const XeenPartyState &p,std::size_t member) {
     return p.party.member(p.roster,member).awards[0]!=0;
 }
+std::optional<std::string> xeenLocationUnsupportedAction(XeenLocationDialog location,unsigned key) {
+    if(location==XeenLocationDialog::Tavern) {
+        if(key=='d')return "Drink: not supported yet";
+        if(key=='t')return "Tip: not supported yet";
+        if(key=='r')return "Rumors: not supported yet";
+        if(key=='s')return "Sign In: not supported yet";
+    }
+    if(location==XeenLocationDialog::Temple) {
+        if(key=='d')return "Donation: not supported yet";
+        if(key=='u')return "Uncurse: not supported yet";
+    }
+    return {};
+}
 DialogInput xeenLocationInput(XeenLocationDialog location) {
     DialogInput input;
     if(location==XeenLocationDialog::Bank) {

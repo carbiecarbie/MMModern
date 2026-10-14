@@ -1,0 +1,306 @@
+#include "XeenCoverage.h"
+#include "XeenCoverageContext.h"
+#include "XeenCoverageReference.h"
+#include "formats/xeen/XeenAssetSource.h"
+#include "formats/xeen/XeenMapFormat.h"
+#include "formats/xeen/XeenMonsterFormat.h"
+#include "formats/xeen/XeenCharacterFormat.h"
+#include "games/xeen/XeenInstallationDetector.h"
+#include "games/xeen/XeenItemServiceRules.h"
+#include "games/xeen/XeenItemTransfer.h"
+#include "games/xeen/XeenLearnedSpellRules.h"
+#include "games/xeen/XeenRegionalRules.h"
+#include "games/xeen/XeenRestRules.h"
+#include "games/xeen/XeenCombatRules.h"
+#include "games/xeen/XeenObjectVisual.h"
+#include <cstdio>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <sstream>
+
+using namespace mmodern;
+using namespace mmodern::coverage;
+namespace {
+std::string resource(unsigned id,const char *extension) {
+    char name[32];std::snprintf(name,sizeof(name),id>=100?"mazex%03u.%s":"maze%04u.%s",id,extension);return name;
+}
+Support rejected(const std::exception &e) {return {Status::Unclassified,e.what()};}
+std::string spellKey(unsigned id,const XeenLearnedSpellNames &names) {
+    return std::to_string(id)+" "+(id<names.names.size()?names.names[id]:"invalid spell ID");
+}
+void spell(Census &c,unsigned id,const XeenLearnedSpellNames &names,unsigned map,std::size_t count,const std::string &source) {
+    if(id>=76) {c.add("Unclassified","Spell reference "+std::to_string(id),{Status::Unclassified,"No party spell at this ID"},map,count,source);return;}
+    c.add("Spells",spellKey(id,names),spellSupport(id),map,count,source);
+}
+void item(Census &c,const XeenItemCatalog &catalog,unsigned category,XeenItem value,
+        unsigned map,std::size_t count,const std::string &source,const XeenLearnedSpellNames &names,OriginalContext &context) {
+    if(!value.id)return;
+    XeenItem named=value;if(category==3) {named.material=1;named.state=1;}
+    const auto description=catalog.describe(static_cast<XeenInventoryCategory>(category),named);
+    const std::string key=category==3?"Misc power "+std::to_string(value.id)+" "+description.displayName:
+        "Category "+std::to_string(category)+" material "+std::to_string(value.material);
+    // Equipment rows measure enchantment contribution, using a canonical legal
+    // base item. Acquisition IDs are reported separately by their Event rows.
+    if(category!=3) {value.id=1;value.frame=category==0?1:category==1?3:8;value.state=0;}
+    c.add("Items",key,itemSupport(category,value,context.world,context.party),map,count,source);
+    if(category<3)c.add("Equipment combat/Rest",key,equipmentCombatSupport(category,value,context.world,context.party),map,count,source);
+    // A name is a display token, not an exported item record.
+    if(category==3 && value.id<std::size(itemSpellIds) && itemSpellIds[value.id]<76)
+        spell(c,itemSpellIds[value.id],names,map,count,"item power "+std::to_string(value.id));
+    if(category==3 && value.id==33)spell(c,28,names,map,count,"item power 33: separate frostbite2 variant");
+}
+void monster(Census &c,const XeenMonsterRecord &m,unsigned index,unsigned map,std::size_t count,const std::string &source) {
+    Support attack{Status::Supported,"validateAttackCapabilities accepts"};
+    try {m.validateAttackCapabilities();}catch(const std::exception &e) {attack={Status::Unsupported,e.what()};}
+    auto admission=attack;
+    if(admission.status==Status::Supported && !m.supportsGroundMovement())admission={Status::Unsupported,"supportsGroundMovement rejects"};
+    if(admission.status==Status::Supported && !m.supportsRendering())
+        admission={Status::Unsupported,"supportsRendering rejects"};
+    if(admission.status==Status::Supported)admission.reason="Attack, movement and mechanic-rendering checks accept; see resistance/drop gaps separately";
+    c.add("Monster species",source,admission,map,count);
+    c.add("Monsters","Attack type="+std::to_string(m.damageType())+" special="+std::to_string(m.raw[30])+" ranged="+std::to_string(m.raw[32]),attack,map,count,source);
+    c.add("Monsters","Movement flying="+std::to_string(m.raw[46]),
+        m.supportsGroundMovement()?Support{Status::Supported,"supportsGroundMovement accepts"}:Support{Status::Unsupported,"supportsGroundMovement rejects"},map,count,source);
+    c.add("Monsters","Animation loop="+std::to_string(m.raw[48])+" effect="+std::to_string(m.animationEffect()),
+        m.supportsRendering()?Support{Status::Supported,"supportsRendering accepts (current scene presentation)"}:
+        Support{Status::Unsupported,"supportsRendering rejects"},map,count,source);
+    Support target{Status::Supported,"XeenMonsterTargetCandidate accepts hatred"};
+    try {(void)XeenMonsterTargetCandidate({},m.hatred(),0x3f);}catch(const std::exception &e) {target={Status::Unsupported,e.what()};}
+    c.add("Monsters","Target hatred="+std::to_string(m.hatred()),target,map,count,source);
+    for(unsigned resistance=34;resistance<=40;++resistance)if(m.raw[resistance]) {
+        Support support{Status::Unclassified,"Elemental resistance handling has no independent capability query"};
+        if(resistance==39 || resistance==40) {
+            try {
+                // Current ranged-spell damage accepts both original resistance
+                // values; physical spells also apply physical damage reduction.
+                (void)XeenSpellDamageCandidate(1,0,m.magicResistance(),index,
+                    resistance==39?XeenLearnedSpell::MagicArrow:XeenLearnedSpell::Shrapmetal,m.physicalResistance());
+                support={Status::Supported,"XeenSpellDamageCandidate admits original magic/physical resistance"};
+            }catch(const std::exception &e) {support={Status::Unsupported,e.what()};}
+        }
+        c.add("Monsters","Resistance field="+std::to_string(resistance-34),support,map,count,source);
+    }
+    if(m.raw[45])c.add("Items","Monster random treasure level="+std::to_string(m.raw[45]),
+        {Status::Unclassified,"No generic monster-drop admission query; item identity depends on runtime RNG"},map,count,source);
+}
+void events(Census &c,const std::vector<XeenEventRecord> &records,XeenMapIdentity id,
+        const XeenMapEntities &entities,const XeenItemCatalog &catalog,const XeenLearnedSpellNames &names,OriginalContext &context,bool outdoors) {
+    const XeenEventFile original{id,resource(id.number,"evt"),true,records};
+    for(const auto &r:records) {
+        ++c.instructions;
+        const auto physical=[&](unsigned x,unsigned y){return x<(outdoors?16u:32u) && y<(outdoors?16u:32u);};
+        std::optional<XeenCamera> caller;
+        if(!physical(r.x,r.y)) {
+            std::vector<std::pair<unsigned,unsigned>> pending{{r.x,r.y}};std::set<std::pair<unsigned,unsigned>> seen;
+            while(!pending.empty() && !caller) {
+                const auto target=pending.back();pending.pop_back();if(!seen.insert(target).second)continue;
+                for(const auto &entry:records) {
+                    const auto decoded=XeenEventDecoder::decode(entry,{id,{}, {},true});
+                    const auto *ins=std::get_if<XeenDecodedEventInstruction>(&decoded);if(!ins)continue;
+                    const auto *call=std::get_if<XeenEventCallEvent>(&ins->operation);
+                    if(!call || call->x!=int(target.first) || call->y!=int(target.second))continue;
+                    if(physical(entry.x,entry.y)) {caller=XeenCamera{id,entry.x,entry.y,entry.direction<4?XeenDirection(entry.direction):XeenDirection::North};break;}
+                    pending.emplace_back(entry.x,entry.y);
+                }
+            }
+        }
+        auto support=(!physical(r.x,r.y) && !caller)?
+            Support{Status::Unclassified,"Off-map subroutine has no physical caller in this resource"}:
+            eventSupport(r,original,context.world,context.party,[&](auto map){return context.text(map);},caller);
+        if(support.reason=="regional well effect is unavailable" && physical(r.x,r.y))
+            support=context.replayRoot({id,r.x,r.y,r.direction<4?XeenDirection(r.direction):XeenDirection::North});
+        if(support.service && id==XeenMapIdentity(28)) {
+            auto entry=caller.value_or(XeenCamera{id,r.x,r.y,r.direction<4?XeenDirection(r.direction):XeenDirection::North});
+            auto live=context.replayRoot(entry);
+            if(r.direction==4)for(unsigned facing=1;facing<4 && live.status!=Status::Supported;++facing) {
+                entry.direction=XeenDirection(facing);live=context.replayRoot(entry);
+            }
+            if(live.status!=Status::Supported)support=live;
+        }
+        c.add("Events",eventMechanic(r),support,id.number);
+        if(r.opcode==0x11 && !r.parameters.empty())c.add("Map features","Town service action="+std::to_string(r.parameters[0]),support,id.number);
+        if(support.service)for(const auto key:xeenLocationInput(*support.service).keys)
+            if(const auto refusal=xeenLocationUnsupportedAction(*support.service,key))
+                c.add("Services",refusal->substr(0,refusal->find(':')),{Status::Unsupported,*refusal},id.number);
+        auto shape=r;
+        if(shape.opcode==0x1c || shape.opcode==0x1d || shape.opcode==0x26)shape.opcode=0x0c;
+        const auto decoded=XeenEventDecoder::decode(shape,{id,{}, {},true});
+        if(const auto *ins=std::get_if<XeenDecodedEventInstruction>(&decoded)) {
+            const auto &op=ins->operation;
+            const XeenEventTakeOrGive *give=std::get_if<XeenEventTakeOrGive>(&op);
+            if(auto p=std::get_if<XeenEventGiveMulti>(&op))give=p;
+            if(give)for(const auto &p:{give->first,give->second,give->third}) {
+                if(p.mode==19)spell(c,p.value,names,id.number,1,"Event spell-book change");
+                if(p.mode==66)c.add("Items","Event random item level="+std::to_string(p.value),support,id.number,1,"Event");
+                if(p.mode==21)c.add("Items","Event item ID="+std::to_string(p.value),support,id.number,1,"Event TakeOrGive; base item/quest ID, not a Misc power");
+            }
+        }
+        // GiveEnchanted's format relation is useful even when the engine rejects it.
+        // This reads named identifiers only; support still comes from the decoder.
+        if(r.opcode==0x2c && r.parameters.size()>=2) {
+            const unsigned code=r.parameters[0],enchantment=r.parameters[1];
+            if(code>=60 && code<=81) {
+                XeenItem value{};value.material=code-60;value.id=enchantment;value.state=1;
+                item(c,catalog,3,value,id.number,1,"Event GiveEnchanted",names,context);
+            } else if(code<60) {
+                const unsigned category=code<35?0:code<49?1:2;
+                XeenItem value{};value.id=1;value.material=enchantment;
+                item(c,catalog,category,value,id.number,1,"Event GiveEnchanted",names,context);
+            } else c.add("Items","Event quest item="+std::to_string(code),support,id.number,1,"Event GiveEnchanted");
+        }
+    }
+}
+Census census(const GameInstallation &original,XeenSide side,OriginalContext &context) {
+    Census c;c.side=side==XeenSide::Clouds?"Clouds":"Darkside";
+    // The same bounded initial-container decoder reads either physical CC archive.
+    // This tool-only adapter does not admit Darkside to any gameplay owner.
+    auto installation=original;
+    if(side==XeenSide::Darkside) {installation.cloudsData=original.darksideData;installation.xeenArchive=original.darkArchive;}
+    XeenAssetSource assets(installation);
+    const auto nameBytes=assets.readLearnedSpellNamesFromDarkArchive();
+    if(!nameBytes)throw std::runtime_error("Missing spells.xen catalogue");
+    const auto names=XeenLearnedSpellNames::parse(*nameBytes);
+    const auto loadedCatalog=loadXeenItemCatalog(assets);
+    const auto &catalog=loadedCatalog.catalog;
+    if(catalog.materialAvailability()!=XeenMaterialAvailability::Ready)
+        c.add("Unclassified","Material names",{Status::Unclassified,loadedCatalog.diagnostic});
+    const auto objectVisuals=XeenObjectVisualResolver::load(assets);
+    const auto cloudsMonsters=XeenMonsterFormat::parse(assets.readArchiveResource("xeen.mon",XeenSceneArchive::DarksideOnly));
+    const auto darkMonsters=XeenMonsterFormat::parse(assets.readArchiveResource("dark.mon",XeenSceneArchive::DarksideOnly));
+    const auto &ownMonsters=side==XeenSide::Clouds?cloudsMonsters:darkMonsters;
+    c.monsters=ownMonsters.size();
+    for(unsigned i=0;i<ownMonsters.size();++i)monster(c,ownMonsters[i],i,0,0,
+        std::string(side==XeenSide::Clouds?"xeen.mon ":"dark.mon ")+std::to_string(i)+" "+ownMonsters[i].name());
+    for(unsigned i=0;i<76;++i)spell(c,i,names,0,0,"party spell catalogue");
+    const char *books[]{"Clerical book (Cleric/Paladin)","Wizardry book (Sorcerer/Archer)","Druidic book (Druid/Ranger)"};
+    for(unsigned book=0;book<3;++book)for(unsigned slot=0;slot<39;++slot)
+        if(const auto id=XeenLearnedSpellRules::spellForSlot(static_cast<XeenSpellCategory>(book),slot))
+            spell(c,*id,names,0,0,books[book]);
+    for(unsigned power=1;power<=73;++power) {XeenItem value{};value.material=1;value.id=power;value.state=1;item(c,catalog,3,value,0,0,"Misc catalogue",names,context);}
+    for(unsigned category=0;category<3;++category)for(unsigned material=0;material<=130;++material) {
+        XeenItem value{};value.id=1;value.material=material;item(c,catalog,category,value,0,0,"equipment material catalogue",names,context);
+    }
+    const auto rosterBytes=assets.readInitialResource("maze.chr");
+    const auto roster=XeenCharacterFormat::parseRoster(rosterBytes);
+    for(unsigned i=0;i<XeenRoster::kCharacterCount;++i) {
+        const auto &character=roster.at(i);
+        for(unsigned category=0;category<4;++category)
+            for(const auto &value:*xeenInventoryItems(character,static_cast<XeenInventoryCategory>(category)))
+                item(c,catalog,category,value,0,1,"initial roster",names,context);
+        const auto category=XeenLearnedSpellRules::categoryForClass(character.characterClass);
+        const auto learned=XeenCharacterFormat::parseLearnedSpells(rosterBytes,i);
+        if(category)for(unsigned slot=0;slot<learned.size();++slot)if(learned[slot])
+            if(const auto id=XeenLearnedSpellRules::spellForSlot(*category,slot))spell(c,*id,names,0,1,"initial roster");
+    }
+    const auto read=[&](const std::string &name)->std::optional<std::vector<std::uint8_t>> {
+        if(assets.hasInitialResource(name))return assets.readInitialResource(name);
+        if(assets.hasArchiveResource(name))return assets.readArchiveResource(name);
+        return {};
+    };
+    // Reference map IDs are bytes. A CC hash match is not enough: DAT identity must agree.
+    for(unsigned number=1;number<=255;++number) {
+        const auto dat=read(resource(number,"dat"));if(!dat)continue;
+        const XeenMapIdentity id{side,static_cast<std::uint16_t>(number)};
+        XeenMapGeometry geometry;
+        try {geometry=XeenMapFormat::parseDat(*dat);if(geometry.id!=number)continue;}
+        catch(const std::exception &e) {c.add("Unclassified","DAT candidate "+std::to_string(number),rejected(e));continue;}
+        auto &entry=c.maps[number];
+        try {entry.name=assets.mapName(id);}catch(const std::exception &) {entry.name="(name unavailable)";}
+        try {
+            requireCloudsMap(id);
+            XeenEventFile f{id,"census",true,{}};
+            (void)xeenRegionalEvent(f,{id,0,0,XeenDirection::North});
+            c.add("Map features","Journey map admission",{Status::Supported,"xeenRegionalEvent accepts map"},number);
+        } catch(const std::exception &e) {c.add("Map features","Journey map admission",{Status::Unsupported,e.what()},number);}
+        XeenMapEntities entities;bool mobDecoded=false;
+        if(const auto mob=read(resource(number,"mob"))) {
+            try {entities=XeenMapFormat::parseMob(*mob);mobDecoded=true;}
+            catch(const std::exception &e) {c.add("Unclassified","MOB decode",rejected(e),number);}
+        }
+        // World CD's Darkside 117..120 and 124 intentionally use xeen.mon.
+        const bool usesClouds=side==XeenSide::Clouds || (number>=117 && number<=120) || number==124;
+        const auto &statistics=usesClouds?cloudsMonsters:darkMonsters;
+        if(mobDecoded)for(const auto type:entities.monsterTable)if(type!=255 && type<statistics.size())
+            monster(c,statistics[type],type,number,0,std::string(usesClouds?"xeen.mon ":"dark.mon ")+std::to_string(type)+" "+statistics[type].name());
+        for(const auto &m:entities.monsters)if(m.hasResource()) {
+            if(unsigned(m.resourceId)>=statistics.size()) {c.add("Unclassified","Monster ID "+std::to_string(m.resourceId),{Status::Unclassified,"MOB monster outside statistics catalogue"},number);continue;}
+            const auto &record=statistics[m.resourceId];
+            monster(c,record,unsigned(m.resourceId),number,1,std::string(usesClouds?"xeen.mon ":"dark.mon ")+std::to_string(m.resourceId)+" "+record.name());
+        }
+        for(const auto &cell:geometry.cells) {
+            const unsigned surface=geometry.surfaceTypes[cell.surfaceIndex];
+            if(geometry.isOutdoors()) {
+                const auto &layers=xeenGet<XeenOutdoorLayers>(cell.geometry);
+                Support traversal{Status::Supported,"XeenMovement::outdoorDestination accepts ordinary traversal"};
+                try {
+                    const auto ordinary=XeenMovement::outdoorDestination(geometry,cell,{});
+                    if(ordinary==XeenMovementResult::BlockedByTerrain || ordinary==XeenMovementResult::BlockedBySurface) {
+                        XeenMovement::Capabilities capabilities;
+                        capabilities.mountaineer=ordinary==XeenMovementResult::BlockedByTerrain;
+                        capabilities.swimming=ordinary==XeenMovementResult::BlockedBySurface;
+                        try {(void)XeenMovement::outdoorDestination(geometry,cell,capabilities);}
+                        catch(const std::exception &e) {traversal={Status::Partial,e.what()};}
+                    }
+                } catch(const std::exception &e) {traversal=rejected(e);}
+                c.add("Map features","Traversal middle="+std::to_string(layers.middle)+" surface="+std::to_string(surface),traversal,number);
+            }
+            c.add("Map features","Rest surface="+std::to_string(surface),
+                restSupport(surface,geometry.isOutdoors()),number);
+            c.add("Map features","Arrival surface="+std::to_string(surface),{Status::Unclassified,"No engine arrival-effect support query; Rest/traversal are not proof of arrival effects"},number);
+        }
+        for(const auto &o:entities.objects)if(o.hasResource())c.add("Map features","Object sprite="+std::to_string(o.resourceId),
+            {Status::Unclassified,"Object behavior depends on selected Event and state; see Event rows"},number);
+        const XeenObjectFile objectFile{id,resource(number,"mob"),mobDecoded,entities};
+        for(unsigned i=0;i<entities.objects.size();++i)if(entities.objects[i].hasResource()) {
+            const auto visual=objectVisuals.resolve(objectFile,i,XeenDirection::North,0);
+            using V=XeenObjectVisualStatus;
+            const auto status=visual.status==V::SupportedStatic || visual.status==V::SupportedAnimated?Status::Supported:
+                visual.status==V::UnsupportedAnimation || visual.status==V::UnsupportedSide?Status::Unsupported:Status::Unclassified;
+            c.add("Map features","Object visual sprite="+std::to_string(entities.objects[i].resourceId),
+                {status,visual.diagnostic.empty()?"XeenObjectVisualResolver accepts":visual.diagnostic},number);
+        }
+        for(const auto &w:entities.wallItems)if(w.hasResource())c.add("Map features","Wall item="+std::to_string(w.resourceId),
+            {Status::Unclassified,"No engine wall-item behavior support query"},number);
+        if(const auto evt=read(resource(number,"evt"))) {
+            try {events(c,XeenEventFormat::parse(*evt),id,entities,catalog,names,context,geometry.isOutdoors());}
+            catch(const std::exception &e) {throw std::runtime_error(c.side+" map "+std::to_string(number)+" Event census failed: "+e.what());}
+        }
+    }
+    return c;
+}
+}
+int main(int argc,char **argv) {
+    try {
+        if(argc!=4 || (std::string(argv[2])!="--write" && std::string(argv[2])!="--check")) {
+            std::cerr<<"Usage: mmodern_census <game-dir> --write|--check <coverage.md>\n";return 2;
+        }
+        const auto installation=XeenInstallationDetector().detect(argv[1]);
+        if(!installation || !installation->hasXeen() || !installation->hasDarkside())throw std::runtime_error("World of Xeen CD installation required");
+        OriginalContext context(*installation);
+        auto clouds=census(*installation,XeenSide::Clouds,context);
+        auto darkside=census(*installation,XeenSide::Darkside,context);
+        reconcileContexts(clouds,darkside);
+        const auto text=report(clouds,darkside);
+        if(std::string(argv[2])=="--check") {
+            std::ifstream in(argv[3],std::ios::binary);const std::string old{std::istreambuf_iterator<char>(in),{}};
+            if(old!=text) {std::cerr<<"Coverage report is stale. Regenerate with mmodern_census <game-dir> --write "<<argv[3]<<"\n";return 1;}
+            std::cout<<"Coverage report is current.\n";
+        } else {
+            // Never write into any detected commercial-data directory.
+            const auto output=std::filesystem::weakly_canonical(argv[3]);
+            for(const auto &dir:installation->protectedDirectories) {
+                for(auto parent=output.parent_path();!parent.empty();) {
+                    if(std::filesystem::exists(parent) && std::filesystem::equivalent(parent,dir))
+                        throw std::runtime_error("Report destination is inside original data");
+                    const auto next=parent.parent_path();if(next==parent)break;parent=next;
+                }
+            }
+            std::ofstream out(output,std::ios::binary|std::ios::trunc);out<<text;
+            if(!out)throw std::runtime_error("Cannot write coverage report");
+            std::cout<<"Wrote "<<output<<"\n";
+        }
+        std::cout<<"Clouds maps="<<clouds.maps.size()<<" Events="<<clouds.instructions<<"; Darkside maps="<<darkside.maps.size()<<" Events="<<darkside.instructions<<"\n";
+        return 0;
+    }catch(const std::exception &e) {std::cerr<<"Census: "<<e.what()<<"\n";return 1;}
+}
