@@ -34,60 +34,20 @@ screens and shopkeeper animation, M63 the original clock, movement pace
 and timed sequences, and M64 the last Vertigo fixes and the first public
 releases.
 
-## Next milestones: closing Vertigo for a first public release
+## Completed arc: closing Vertigo and the first release
 
-<a id="near-term"></a><a id="deferred-presentation-work"></a>
+<a id="near-term"></a><a id="deferred-presentation-work"></a><a id="next-milestones"></a>
 
-**Remaining steps are direction, not approved plans.** A direction investigation
-(2026-10-10) inventoried everything the original offers in Vertigo and on the map-23
-mainland. The maintainer chose to close **Vertigo** (the city, logical map 28)
-and then publish: Vertigo complete or nearly so, the mainland reachable at its
-current progress and the rest of the world not yet started. The order, scope
-and split below may change with DOSBox evidence and play-testing; each remaining step
-still needs its own plan and the maintainer's start.
-
-1. **DOSBox evidence sessions** (maintainer): evidence used in M56-M59 covers
-   Food/Bank, Joe/Gunther, trees, teachers, the well, display cases/jail and
-   Vern/Guild. Retained reference-defined edges are documented in
-   [original quirks](original-quirks.md).
-2. **Food and bank** (Tier A): completed and accepted in [M56](milestone-56-plan.md).
-   Tavern food and Bank deposits/withdrawals use the original interface;
-   supported Event preludes run before terminal service admission.
-3. **Generic Event effects and world state** (Tier A): completed and accepted
-   in [M57](milestone-57-plan.md). Objects move and turn, and Events reward XP,
-   awards, flags, gold, gems and items through common treasure generation;
-   Joe's proof, Gunther, crates and trees work.
-4. **Skills and mapping** (Tier A): completed and accepted in
-   [M58](milestone-58-plan.md). Mylo and Rialdo teach, skills come from one
-   character state, and Cartography feeds the automap and Map.
-5. **Vertigo content** (Tier A): completed and accepted in
-   [M59](milestone-59-plan.md), Parts A and B. Generic year advance, typed damage
-   and head/world-flag state support display cases, jail and the well; city
-   searches, Vern and Guild entry work through the shared owners. Guild spell
-   actions remain deferred to step 6.
-6. **Magic** (Tier A): completed and accepted in [M60](milestone-60-plan.md).
-   Original Cast and Guild Buy/Info, and Wizard Eye, Shrapmetal, Energy Blast,
-   Jump, Cure Wounds, Flying Fist, Revitalize and Pain; other spells stay
-   purchasable and say "not supported yet".
-7. **Items needed for the loot** (Tier A): completed and accepted in
-   [M61](milestone-61-plan.md). Ironworks Buy/Sell/Identify/Fix for every
-   category and item Use for the supported effects.
-8. **Faithful screens and animation** (M62, Tier B): completed and accepted in
-   [M62](milestone-62-plan.md). Original Event, NPC, WhoWill, combat-panel and
-   treasure screens; no developer overlay; animated shopkeepers.
-9. **Original presentation clock and movement pace** (Tier A): completed and
-   accepted in [M63](milestone-63-plan.md). Original ticks and waits, about nine
-   steps a second with the approved no-phantom-steps deviation, and the timed
-   NPC, shop, treasure, sparkle, Shoot, dream, title and death sequences. The
-   maintainer declined an opt-in faster movement option (2026-10-14).
-10. **Closure and release** (Tier B): completed and accepted in
-   [M64](milestone-64-plan.md). Play-through fixes, then the first public
-   releases, [v0.1.0 and v0.1.1](https://github.com/carbiecarbie/MMModern/releases).
-
-This arc is complete. [M65](milestone-65-plan.md) then measured every mechanic
-the original data uses in [the coverage report](coverage.md), and
-[M66](milestone-66-plan.md) cut the complete test suite from 29 minutes to
-about 3.
+A direction investigation (2026-10-10) chose to close Vertigo, the city, and
+then publish. The arc ran from M56 to M64: food and bank, generic Event
+effects, skills and mapping, Vertigo content, magic, items for the loot,
+faithful screens, the original clock and movement pace (the maintainer
+declined an opt-in faster movement option), and closure with the first public
+releases, [v0.1.0 and v0.1.1](https://github.com/carbiecarbie/MMModern/releases).
+[Project history](project-history.md) has each milestone. After it,
+[M65](milestone-65-plan.md) measured every mechanic the original data uses in
+[the coverage report](coverage.md), and [M66](milestone-66-plan.md) cut the
+complete test suite from 29 minutes to about 3.
 
 ## Next arc: finishing the game's systems
 
@@ -101,21 +61,33 @@ better one.
 
 1. **Equipped item contributions**: completed and accepted in
    [M67](milestone-67-plan.md) (release v0.1.2).
-2. **Monster abilities**: flying movement (32 Clouds maps), ranged elemental
-   attacks and the other unsupported attack and special types.
-3. **World Events**: `MoveWallObj`, `MakeNothingHere`, `JumpRnd`, mirrors,
-   password doors and the unsupported TakeOrGive and If modes.
-4. **Terrain**: Rest surfaces and arrival hazards (lava, sky, cloud, space,
-   desert, water).
-5. **Spells**: the remaining 65, in two or three milestones by level and use.
-6. **Combat Equip and Use, and the missing screens** (Quests, Awards and the
-   others in the census checklist).
-7. **Services and party**: Tavern Drink/Tip/Rumors/Sign In, Temple
-   Donation/Uncurse, the Inn, recruiting and character creation.
-8. **Opening areas**: admit every Clouds map whose census readiness has no
+2. **Monster abilities** (likely Tier A): flying movement (32 Clouds maps),
+   ranged elemental attacks and the other unsupported attack and special
+   types. Flying changes actor movement and approach, so random draws, timing
+   and the M44 scenarios may change.
+3. **Generic per-map state** (Tier A, high complexity): the save keeps live
+   state only for Vertigo and F3, each in its own shape. Store monsters,
+   removed objects and moved walls for any map in one generic form, before the
+   world Events that move walls and objects and before opening areas need it.
+   This changes the save format.
+4. **World Events** (likely Tier A): `MoveWallObj`, `MakeNothingHere`,
+   `JumpRnd`, mirrors, password doors and the unsupported TakeOrGive and If
+   modes, saved through step 3.
+5. **Terrain and simple services** (Tier B, lower complexity): Rest surfaces
+   and arrival hazards (lava, sky, cloud, space, desert, water); Tavern
+   Drink/Tip/Rumors/Sign In and Temple Donation/Uncurse.
+6. **Spells** (Tiers A and B, high volume): the remaining 65 in two or three
+   milestones by level and use. Sleep, hypnosis and similar spells first need
+   a monster status system (Tier A).
+7. **Combat Equip and Use, and the missing screens** (Tier B, medium): Quests,
+   Awards and the others in the census checklist.
+8. **Inn, recruiting and character creation** (Tier A, high): attribute
+   rolls, the creation screens and changes to the saved party.
+9. **Opening areas**: admit every Clouds map whose census readiness has no
    unsupported mechanic, then play-test by sampling rather than map by map.
 
-Audio comes after this arc; the original durations are already kept.
+Audio comes after this arc (Tier A: music, sounds and CD tracks on the
+existing clock); the original durations are already kept.
 
 Also left from the release list: the F3 fountains, bottles, outpost and
 statues, and Run inside Vertigo; they join the step whose mechanic they need.
