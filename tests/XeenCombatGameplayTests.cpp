@@ -142,7 +142,7 @@ void criticalPresentation() {
   }
   check(enemies==6&&h.phase()==Phase::Defeat&&h.party->encounterContext->minutes==495,"critical production defeat");
   const auto &notice=h.flow->encounter()->notice();
-  check(notice.find("Dead")!=std::string::npos&&notice.find("armor broken")!=std::string::npos,"complete condition/breakage feedback");
+  check(notice.find("Dead")!=std::string::npos&&notice.find("items changed")!=std::string::npos,"complete condition/breakage feedback");
   return true;
  };
  check(h.run(s)==0,"critical presentation production route");

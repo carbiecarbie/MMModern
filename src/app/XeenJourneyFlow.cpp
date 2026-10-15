@@ -44,6 +44,7 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 	const auto preparedStart=setup.prepared;
 	const auto mainlandProvider=setup.mainlandEventsProvider;
 	const auto cityProvider=setup.cityEventsProvider;
+	const auto start=setup.start;
 	_journeyEvents = setup.events;
 	_journeyCapture.reset(new XeenJourneyCapture(w,p,c,_state,_boundary,_busy,_journeyPreimage,&_needsRestNotice));
 	_journeyCapture->initializationPending=!setup.prepared;
@@ -90,10 +91,12 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 				_journeyPreimage->check();
 			}
 			if(preparedStart) {
-				_result = XeenActorApproach::initializeJourney(w,p,c,_state,characters,context,
-					_journeyStatistics,_events,seed,purse,bank,[&](const auto &party,const auto &actors,const auto &random) {
-						prepareStartPublication(party,actors,random,{},_journeyStatistics);
-					});
+				const auto prepare=[&](const auto &party,const auto &actors,const auto &random) {
+					prepareStartPublication(party,actors,random,{},_journeyStatistics);
+				};
+				// The ordinary entry keeps its wrapped initialization; the fixture start is a separate overload.
+				_result = start ? XeenActorApproach::initializeJourney(w,p,c,_state,characters,context,_journeyStatistics,_events,seed,purse,bank,prepare,*start)
+					: XeenActorApproach::initializeJourney(w,p,c,_state,characters,context,_journeyStatistics,_events,seed,purse,bank,prepare);
 			} else {
 				const auto city=cityProvider ? cityProvider() : XeenEventFile{};
 				_journeyPreimage->check();
@@ -531,7 +534,7 @@ std::string XeenEncounterFlow::journeyInspection() const {
   if(r.operation==XeenCombatOperation::FinishDisengagement)out<<"Disengaged cause="<<unsigned(r.exitCause)<<" casualties="<<unsigned(r.casualties)<<" forfeitedGold="<<r.forfeitedGold<<'\n';
   if(r.monsterDrop)out<<"Drop source="<<unsigned(r.generatedItem.source)<<" outcome="<<unsigned(*r.monsterDrop)<<" armor="<<r.generatedArmor<<" M/ID/S/F="<<unsigned(r.generatedItem.item.material)<<'/'<<unsigned(r.generatedItem.item.id)<<'/'<<unsigned(r.generatedItem.item.state)<<'/'<<unsigned(r.generatedItem.item.frame)<<'\n';
   for(unsigned i=0;i<r.injuryCount;++i){const auto &v=r.injuries[i];out<<"Injury owner="<<unsigned(v.owner)<<" amount="<<v.amount<<" HP="<<v.beforeHp<<"->"<<v.afterHp<<" AC="<<v.beforeAc<<"->"<<v.afterAc<<" conditions=";for(auto c:v.conditions)out<<unsigned(c)<<',';out<<'\n';}
-  for(unsigned i=0;i<r.armorCount;++i){const auto &v=r.armor[i];out<<"Broken armor owner="<<unsigned(v.owner)<<" slot="<<unsigned(v.slot)<<" state="<<unsigned(v.before.state)<<"->"<<unsigned(v.after.state)<<'\n';}
+  for(unsigned i=0;i<r.armorCount;++i){const auto &v=r.armor[i];out<<"Item change owner="<<unsigned(v.owner)<<" category="<<unsigned(v.category)<<" slot="<<unsigned(v.slot)<<" state="<<unsigned(v.before.state)<<"->"<<unsigned(v.after.state)<<" frame="<<unsigned(v.before.frame)<<"->"<<unsigned(v.after.frame)<<'\n';}
  };
  describe(_combatObservation);
  if(_rangedObservation)for(unsigned i=0;i<_rangedObservation->count;++i){const auto &v=_rangedObservation->shots[i];out<<"Ranged actor="<<v.source.recordIndex<<" at="<<v.x<<','<<v.y<<" direction="<<unsigned(v.direction)<<" distance="<<v.distance<<'\n';describe(v.attack);}

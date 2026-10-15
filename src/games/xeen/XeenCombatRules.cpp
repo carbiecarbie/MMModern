@@ -2,6 +2,7 @@
 // Pin 6814ee9ba54582f5b5adcffab49efbbd8f589edd, combat.cpp, character.cpp and constants.cpp.
 #include "games/xeen/XeenCombatRules.h"
 #include "games/xeen/XeenStateEquality.h"
+#include "games/xeen/XeenItemTransfer.h"
 #include "games/xeen/XeenCharacterRules.h"
 #include "games/xeen/XeenServiceDay.h"
 #include "games/xeen/detail/XeenItemTables.h"
@@ -26,6 +27,64 @@ void xeenApplyPhysicalInjury(XeenCharacter &c, int damage, unsigned year) {
 	}
 	if (dead || hp <= -10)
 		for (auto &item : c.armor) if (item.id && item.frame) item.state |= 0x80;
+}
+void xeenApplySpecialAttack(XeenCharacter &c, unsigned special) {
+	// DOS: inc al; jnz; mov 0xff: the byte saturates instead of wrapping to zero.
+	const auto bump=[&](unsigned condition) { if (c.conditions[condition]!=255) ++c.conditions[condition]; };
+	const auto zeroHp=[&] { if (c.currentHp>0) c.currentHp=0; };
+	switch (special) {
+	case 5: bump(3); break;   // Poison
+	case 7: bump(4); break;   // Disease
+	case 8: bump(5); break;   // Insane
+	case 9: bump(8); break;   // Sleep, after the wake at entry
+	case 10:                  // Curse Item (0x2d671..0x2d6ab): every slot, weapon ID 34 untouched
+		for (unsigned slot=0;slot<9;++slot) {
+			if (c.weapons[slot].id!=34) c.weapons[slot].state|=0x40;
+			c.armor[slot].state|=0x40; c.accessories[slot].state|=0x40; c.miscellaneous[slot].state|=0x40;
+		}
+		break;
+	case 12: c.currentSp=0; break; // Drain SP
+	case 13: bump(0); break;  // Curse
+	case 14: bump(11); break; // Paralyze
+	case 15: bump(12); break; // Unconscious
+	case 16: bump(10); break; // Confuse
+	case 17:                  // Break Weapon (0x2d508..0x2d53e): equipped, nonempty, not ID 34
+		for (auto &w:c.weapons) if (w.id!=34 && w.id && w.frame) { w.state|=0x80; w.frame=0; }
+		break;
+	case 18: bump(2); break;  // Weaken
+	case 19:                  // Eradicate (0x2d5c6..0x2d60e, helper 0x2bd6a)
+		bump(15);
+		for (unsigned slot=0;slot<9;++slot) {
+			// Every slot is written, empty ones included; weapon ID 34 is skipped entirely.
+			if (c.weapons[slot].id!=34) { c.weapons[slot].state|=0x80; c.weapons[slot].frame=0; }
+			c.armor[slot].state|=0x80; c.armor[slot].frame=0;
+			c.accessories[slot].state|=0x80; c.accessories[slot].frame=0;
+			c.miscellaneous[slot].state|=0x80; // frame (charges) untouched
+		}
+		zeroHp();
+		break;
+	case 20:                  // Aging (0x2d592..0x2d59b): plain byte increment, 255 wraps to 0
+		c.temporaryAge=int(static_cast<std::uint8_t>(unsigned(c.temporaryAge)+1));
+		break;
+	case 21: bump(13); zeroHp(); break; // Death
+	case 22: bump(14); zeroHp(); break; // Stone
+	default: break;           // 0-4, 6 and 11 (In Love) reach no handler
+	}
+}
+void xeenRecordItemChanges(XeenCombatResult &result, const XeenCharacter &before, const XeenCharacter &after) {
+	for (unsigned category=0;category<4;++category) {
+		const auto &a=*xeenInventoryItems(before,static_cast<XeenInventoryCategory>(category));
+		const auto &b=*xeenInventoryItems(after,static_cast<XeenInventoryCategory>(category));
+		for (unsigned slot=0;slot<9;++slot) {
+			if (xeenSameItem(a[slot],b[slot])) continue;
+			bool found=false;
+			for (unsigned i=0;i<result.armorCount;++i) {
+				auto &entry=result.armor[i];
+				if (entry.owner==after.rosterId && entry.slot==slot && entry.category==category) { entry.after=b[slot]; found=true; break; }
+			}
+			if (!found) result.armor.at(result.armorCount++)={after.rosterId,static_cast<std::uint8_t>(slot),static_cast<std::uint8_t>(category),a[slot],b[slot]};
+		}
+	}
 }
 }
 namespace mmodern {
@@ -70,10 +129,11 @@ bool XeenTypedDamageCandidate::operator==(const XeenTypedDamageCandidate &other)
     for(unsigned n=0;n<characters.size();++n)if(!xeen_state::sameCharacter(characters[n],other.characters[n]) || !xeen_state::sameInputs(inputs[n],other.inputs[n]))return false;
     for(unsigned n=0;n<result.injuryCount;++n) {
         const auto &a=result.injury(n),&b=other.result.injury(n);
-        if(std::tie(a.owner,a.amount,a.beforeHp,a.afterHp,a.beforeAc,a.afterAc,a.conditions,a.attackOrdinal)!=std::tie(b.owner,b.amount,b.beforeHp,b.afterHp,b.beforeAc,b.afterAc,b.conditions,b.attackOrdinal))return false;
+        if(std::tie(a.owner,a.amount,a.beforeHp,a.afterHp,a.beforeAc,a.afterAc,a.beforeSp,a.afterSp,a.beforeAge,a.afterAge,a.conditions,a.attackOrdinal)!=
+            std::tie(b.owner,b.amount,b.beforeHp,b.afterHp,b.beforeAc,b.afterAc,b.beforeSp,b.afterSp,b.beforeAge,b.afterAge,b.conditions,b.attackOrdinal))return false;
     }
     for(unsigned n=0;n<result.armorCount;++n) {const auto &a=result.armor[n],&b=other.result.armor[n];
-        if(a.owner!=b.owner || a.slot!=b.slot || std::tie(a.before.material,a.before.id,a.before.state,a.before.frame)!=std::tie(b.before.material,b.before.id,b.before.state,b.before.frame) || std::tie(a.after.material,a.after.id,a.after.state,a.after.frame)!=std::tie(b.after.material,b.after.id,b.after.state,b.after.frame))return false;}
+        if(a.owner!=b.owner || a.slot!=b.slot || a.category!=b.category || std::tie(a.before.material,a.before.id,a.before.state,a.before.frame)!=std::tie(b.before.material,b.before.id,b.before.state,b.before.frame) || std::tie(a.after.material,a.after.id,a.after.state,a.after.frame)!=std::tie(b.after.material,b.after.id,b.after.state,b.after.frame))return false;}
     return true;
 }
 bool XeenTypedDamageCandidate::service(XeenConsequenceDraw &draw) {
@@ -104,15 +164,14 @@ bool XeenTypedDamageCandidate::service(XeenConsequenceDraw &draw) {
 			if (deferInjury && !injuryAcknowledged) {impactOwner=c.rosterId;injuryReady=true;return false;}
 			injuryReady=injuryAcknowledged=false;
 			damage=std::max(physicalChecked(std::int64_t(damage)-protection.powerShield),0);
-			const auto armor=c.armor;
+			const auto previous=c;
 			XeenCombatDamage injury;injury.owner=c.rosterId;injury.amount=damage;
-			injury.beforeHp=c.currentHp;injury.beforeAc=beforeAc;
+			injury.beforeHp=c.currentHp;injury.beforeAc=beforeAc;injury.beforeSp=injury.afterSp=c.currentSp;injury.beforeAge=injury.afterAge=c.temporaryAge;
 			xeenApplyPhysicalInjury(c,damage,year);
 			injury.afterHp=c.currentHp;injury.afterAc=Rules::sheetArmorClass(c,&inputs[target],{year});injury.conditions=c.conditions;
 			result.injuries.at(result.injuryCount++)=injury;result.targetedMembers|=std::uint8_t(1u<<target);result.targetOwner=c.rosterId;
 			result.damage=physicalChecked(std::int64_t(result.damage)+damage);
-			for (unsigned slot=0;slot<9;++slot) if (armor[slot].state!=c.armor[slot].state)
-				result.armor.at(result.armorCount++)={c.rosterId,static_cast<std::uint8_t>(slot),armor[slot],c.armor[slot]};
+			xeenRecordItemChanges(result,previous,c);
 			step=Step::Next;
 			if (deferInjury) {injuryApplied=true;return false;}
 			break;
@@ -217,14 +276,28 @@ bool XeenMonsterTargetCandidate::service(XeenConsequenceDraw &draw) {
 XeenEnemyAttackCandidate::XeenEnemyAttackCandidate(const XeenConsequenceCharacters &c,
 		const XeenConsequenceInputs &i, const XeenMonsterRecord &m, unsigned y, unsigned mask, const std::array<bool,6> &b) :
 		characters(c), inputs(i), monster(m), year(y), blocked(b), allParty(m.hatred()==unsigned(XeenMonsterHatred::Party)) {
-	poison=m.raw[29]==5;
 	m.validateAttackCapabilities();
+	type=static_cast<XeenDamageType>(m.damageType());
 	ruleRequire(mask<=0x3f,"Invalid combat participation mask");
 	for (unsigned owner=0;owner<6;++owner) if (mask&(1u<<owner)) participants[participantCount++]=owner;
 	result.operation = XeenCombatOperation::EnemyAttack;
 	if (!participantCount || !monster.attacks()) step=Step::Done;
 }
+// After the saves: Power Shield (no owner yet, zero) and the zero clamp, then
+// the acknowledged portrait, the secondary save (positive damage, nonzero
+// special) or the HP subtraction.
+XeenEnemyAttackCandidate::Step XeenEnemyAttackCandidate::afterSaves() {
+	damage=std::max(damage,0);
+	if (deferInjury) return Step::Portrait;
+	return damage>0 && monster.specialAttack() ? Step::Special : Step::Injury;
+}
 bool XeenEnemyAttackCandidate::service(XeenConsequenceDraw &draw) {
+	// charSavingThrow(DT_PHYSICAL): B(Luck) + L, success at R(1, v + 20) <= v.
+	const auto physicalSave=[&](const XeenCharacter &c) {
+		const auto v=std::int64_t(Rules::physicalBonus(Rules::effectiveLuck(c,inputs[target])))+c.currentLevel();
+		ruleRequire(v+20>0 && v+20<=std::numeric_limits<int>::max(),"Invalid physical save interval");
+		return v;
+	};
 	while (step!=Step::Done && draw.remaining) {
 		switch (step) {
 		case Step::Target: {
@@ -242,11 +315,11 @@ bool XeenEnemyAttackCandidate::service(XeenConsequenceDraw &draw) {
 		case Step::Begin:
             result.targetedMembers|=std::uint8_t(1u<<target);
 			result.targetOwner=characters[target].rosterId;
-			if (poison) {
-				characters[target].conditions[8]=0;
-				afterInjury=Step::Next;step=Step::Dice;
-			} else if (characters[target].conditions[8]) { characters[target].conditions[8]=0; afterInjury=Step::Next; step=Step::Dice; }
-			else step=Step::Roll;
+			// doMonsterTurn: a nonphysical attack or a sleeping target enters the
+			// damage application directly, which wakes the victim first.
+			if (type!=XeenDamageType::Physical || characters[target].conditions[8]) {
+				characters[target].conditions[8]=0; afterInjury=Step::Next; step=Step::Dice;
+			} else step=Step::Roll;
 			break;
 		case Step::Roll: {
 			const auto n=draw.draw(1,20); if (!n) break;
@@ -267,56 +340,57 @@ bool XeenEnemyAttackCandidate::service(XeenConsequenceDraw &draw) {
 			break;
 		}
 		case Step::Dice: {
-            if(!dice) beforeDamageAc=Rules::combatArmorClass(characters[target],inputs[target],{year});
+            if(!dice) { beforeDamageAc=Rules::combatArmorClass(characters[target],inputs[target],{year}); before=characters[target]; }
 			const auto n=draw.draw(1,monster.damageDie()); if (!n) break;
 			damage=physicalChecked(std::int64_t(damage)+*n);
-			if (++dice==monster.strikes()) step=poison ? Step::PoisonSaveInitial :
-				(deferInjury?Step::Portrait:damage && monster.raw[30] ? Step::Special : Step::Injury);
+			if (++dice==monster.strikes()) step=type==XeenDamageType::Physical ? afterSaves() : Step::InitialSave;
 			break;
 		}
-		case Step::PoisonSaveInitial:
-		case Step::PoisonSaveRepeat: {
-			const bool first=step==Step::PoisonSaveInitial;
-			const auto v=Rules::poisonSaveValue(characters[target],inputs[target]);
-			ruleRequire(v<=std::numeric_limits<int>::max()-40,"Poison saving interval overflow");
-			const auto n=draw.draw(1,unsigned(v+40));if(!n)break;
-			if(*n<=unsigned(v))damage/=2;
-			else if(!first) {step=deferInjury?Step::Portrait:Step::Injury;break;}
-			// The admitted party-wide poison shield/resistance inputs are zero.
-			step=damage>0 ? Step::PoisonSaveRepeat : deferInjury?Step::Portrait:Step::Injury;
+		case Step::InitialSave: {
+			// DOS 0x2d2e4..0x2d2f7: the first save uses the Physical selector for
+			// every nonphysical type; the pinned reference wrongly uses the element.
+			const auto v=physicalSave(characters[target]);
+			const auto n=draw.draw(1,unsigned(v+20)); if (!n) break;
+			if (std::int64_t(*n)<=v) damage/=2;
+			// Party Fire/Electrical/Cold/Poison protection is subtracted here; it
+			// has no owner yet (zero) until the protection spells exist.
+			step=Step::ElementSave;
+			break;
+		}
+		case Step::ElementSave: {
+			// DOS 0x2d35e..0x2d374: drawn once unconditionally on entry, even at zero
+			// damage; halve on success and repeat while damage stays nonzero.
+			const auto r=Rules::damageSaveValue(characters[target],inputs[target],type,{year});
+			ruleRequire(r>=0 && r<=std::numeric_limits<int>::max()-40,"Invalid element save interval");
+			const auto n=draw.draw(1,unsigned(r)+40); if (!n) break;
+			if (int(*n)<=r) { damage/=2; if (damage!=0) break; }
+			step=afterSaves();
 			break;
 		}
         case Step::Portrait:
             if(!injuryAcknowledged) {impactOwner=characters[target].rosterId;injuryReady=true;return false;}
             injuryReady=injuryAcknowledged=false;
-            step=!poison && damage && monster.raw[30]?Step::Special:Step::Injury;break;
+            step=damage>0 && monster.specialAttack() ? Step::Special : Step::Injury;break;
 		case Step::Special: {
 			auto &c=characters[target];
-			const auto v=std::int64_t(Rules::physicalBonus(Rules::effectiveLuck(c,inputs[target])))+c.currentLevel();
-			ruleRequire(v+20>0 && v+20<=std::numeric_limits<int>::max(),"Invalid physical save interval");
+			const auto v=physicalSave(c);
 			const auto n=draw.draw(1,unsigned(v+20)); if (!n) break;
-			if (std::int64_t(*n)>v) {
-				const unsigned condition=monster.raw[30]==5 ? 3 : monster.raw[30]==7 ? 4 : 8;
-				if(c.conditions[condition]!=255)++c.conditions[condition]; // Original increment-to-zero/-1 saturates a byte.
-			}
+			if (std::int64_t(*n)>v) xeenApplySpecialAttack(c,monster.specialAttack());
 			step=Step::Injury; break;
 		}
 		case Step::Injury: {
 			auto &c=characters[target];
 			XeenCombatDamage injury; injury.owner=c.rosterId; injury.amount=damage;
 			injury.attackOrdinal=attackOrdinal;
-			injury.beforeHp=c.currentHp; injury.beforeAc=beforeDamageAc;
-			const auto armor=c.armor;
+			injury.beforeHp=before->currentHp; injury.beforeAc=beforeDamageAc;
+			injury.beforeSp=before->currentSp; injury.beforeAge=before->temporaryAge;
 			xeenApplyPhysicalInjury(c,damage,year);
 			injury.afterHp=c.currentHp; injury.afterAc=Rules::combatArmorClass(c,inputs[target],{year}); injury.conditions=c.conditions;
+			injury.afterSp=c.currentSp; injury.afterAge=c.temporaryAge;
 			result.injuries.at(result.injuryCount++)=injury;
-			for (unsigned slot=0;slot<9;++slot) if (armor[slot].state!=c.armor[slot].state) {
-				bool found=false;
-				for (unsigned i=0;i<result.armorCount;++i) if (result.armor[i].owner==c.rosterId && result.armor[i].slot==slot) { result.armor[i].after=c.armor[slot];found=true; }
-				if (!found) result.armor.at(result.armorCount++)={c.rosterId,static_cast<std::uint8_t>(slot),armor[slot],c.armor[slot]};
-			}
+			xeenRecordItemChanges(result,*before,c);
 			result.damage=physicalChecked(std::int64_t(result.damage)+damage);
-			damage=0; dice=0; step=afterInjury;
+			damage=0; dice=0; before.reset(); step=afterInjury;
             if(deferInjury) {injuryApplied=true;return false;}
             break;
 		}

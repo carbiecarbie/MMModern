@@ -16,6 +16,14 @@ struct XeenWeaponDice { unsigned count, sides; };
 XeenWeaponDice xeenOrdinaryWeaponDice(unsigned id);
 // Shared checked HP consequences after wake/special changes are prepared.
 void xeenApplyPhysicalInjury(XeenCharacter &, int damage, unsigned year);
+// Monster secondary attack after a failed Physical save (DOS WORLD/XEEN.DAT
+// doCharDamage dispatch table 0x2d6d9, entries for specials 5-22). Conditions
+// saturate at 255; Aging wraps the byte; Eradicate, Death and Stone zero positive
+// HP before the ordinary subtraction. Specials 0-4, 6 and 11 change nothing.
+void xeenApplySpecialAttack(XeenCharacter &, unsigned special);
+// Record every inventory slot (all four categories) that differs between the
+// two character values, merging an earlier entry for the same owner/slot.
+void xeenRecordItemChanges(XeenCombatResult &, const XeenCharacter &before, const XeenCharacter &after);
 // Pure immutable-resource admission shared with completed restore.
 // Pure arithmetic controls, also usable with artificial overflow/predicate inputs.
 // They do not grant admission, mutate XP or apply a prepared result.
@@ -127,9 +135,16 @@ struct XeenEnemyAttackCandidate {
 	// ranged sources use this same reference count loop and updated characters.
 	bool nextAttack();
 private:
-	enum class Step { Target, Begin, Roll, Dice, Portrait, Special, Injury, Parameter,
-		PoisonSaveInitial, PoisonSaveRepeat, Next, Done };
+	// DOS doCharDamage (0x2d22d): dice, then for a nonphysical type the initial
+	// save with the Physical selector, party protection, the element save loop
+	// that draws once even at zero damage, then Power Shield and the zero clamp,
+	// the secondary save only for positive damage and a nonzero special, and the
+	// HP subtraction. Portrait is the optional acknowledged pose between the
+	// saves and the special, as in the pinned presentation order.
+	enum class Step { Target, Begin, Roll, Dice, InitialSave, ElementSave, Portrait, Special, Injury, Parameter,
+		Next, Done };
 	Step step = Step::Target, afterInjury = Step::Next;
+	Step afterSaves();
 	XeenConsequenceInputs inputs;
 	XeenMonsterRecord monster;
 	unsigned year;
@@ -140,8 +155,10 @@ private:
 	int target = -1, roll = 0, damage = 0, beforeDamageAc = 0;
 	unsigned dice = 0;
 	bool allParty;
-	bool poison=false;
+	XeenDamageType type=XeenDamageType::Physical;
 	bool noTarget=false;
+	// The victim before this application: injury and item observations diff it.
+	std::optional<XeenCharacter> before;
 };
 // Combat::attack/hitMonster/getWeaponDamage/attack2 for one member: metal hit
 // and damage, elemental damage, effectiveness and the Slayer Sword bypass (M67).

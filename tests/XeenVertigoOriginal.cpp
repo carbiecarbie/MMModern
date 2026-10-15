@@ -245,10 +245,12 @@ int main(int argc,char **argv) {
   }
   characters[5].conditions[13]=1;
   std::vector<XeenCombatRandom::Draw> tape;
+  // DOS doCharDamage (M68): dice, the initial save with the Physical selector
+  // (Luck 15 + level 3: 1..25), then the Poison save (resistance + 40).
   for(unsigned owner=0;owner<2;++owner) {
    tape.push_back({0,5,owner});
    tape.push_back({1,2,2});
-   tape.push_back({1,owner==0?120u:40u,1});
+   tape.push_back({1,25,owner==0?1u:25u});
    tape.push_back({1,owner==0?120u:40u,owner==0?1u:40u});
   }
   XeenCombatRandom rng(tape);
@@ -286,13 +288,15 @@ int main(int argc,char **argv) {
     for(unsigned strike=0;strike<record.strikes();++strike)
      draws.push_back({1,record.damageDie(),record.damageDie()});
     int damage=record.strikes()*record.damageDie();
-    draws.push_back({1,120,save?1u:120u});
+    // Initial Physical save (1..25), then the element loop: one draw on entry,
+    // halve on success and repeat while the damage stays nonzero (DOS 0x2d35e).
+    draws.push_back({1,25,save?1u:25u});
     if(save)damage/=2;
-    while(damage>0) {
+    do {
      draws.push_back({1,120,save?1u:120u});
      if(!save)break;
      damage/=2;
-    }
+    } while(damage!=0);
     expected+=damage;
    }
    XeenCombatRandom random(draws);

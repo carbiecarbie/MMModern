@@ -55,10 +55,14 @@ std::uint32_t XeenMonsterRecord::fingerprint() const {
 	return static_cast<std::uint32_t>(crc32(0,bytes.data(),static_cast<uInt>(bytes.size())));
 }
 void XeenMonsterRecord::validateAttackCapabilities() const {
-	const bool physical=damageType()==0 && (raw[30]==0 || raw[30]==5 || raw[30]==7 || raw[30]==9);
-	const bool poison=damageType()==5 && raw[30]==0;
-	if ((!physical && !poison) || (attacks() && (!strikes() || !damageDie())) ||
-		(physical && attacks() && !hitParameter()) || raw[32]>1 || (poison && raw[32]))
+	// M68 Part A: every damage type 0-6 and every special 0-22 the original
+	// data uses is applied by XeenEnemyAttackCandidate (DOS WORLD/XEEN.DAT
+	// 0x2d22d doCharDamage, special table 0x2d6d9). Rejected: damage types or
+	// specials outside the original tables, a ranged byte above 1, and attack
+	// counts whose dice (strikes, die) or physical hit parameter are zero.
+	if (damageType()>6 || specialAttack()>22 || raw[32]>1 ||
+		(attacks() && (!strikes() || !damageDie())) ||
+		(damageType()==0 && attacks() && !hitParameter()))
 		throw std::invalid_argument("Monster attack capability not supported yet");
 }
 } // namespace mmodern

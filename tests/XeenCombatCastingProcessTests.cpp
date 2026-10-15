@@ -70,17 +70,19 @@ int main(int argc,char **argv) {
         child_test::require(drawsAfter(dir/"A.log","M39 CHECKPOINT A ")==drawsAfter(dir/"A-from-orc.log","M39 RESTORE EXACT BEFORE INPUT"),"M39 mainland continuation RNG request trace differs");
         const auto city=XeenSaveFile::read(dir/"A-city.mmsave");
         child_test::require(city.journey->vertigoActors && city.characters[6].currentSp==23 && city.journey->actors[9].accounted &&
-            city.characters[1].currentSp==20 && city.journey->random->state==3652395599u && city.journey->random->count==24 &&
+            city.characters[1].currentSp==20 && city.journey->random->state==1391776747u && city.journey->random->count==23 &&
             city.journey->context->minutes==570 && city.journey->context->ctr24==21,"M39 genuine two-region Slime checkpoint differs");
         // M49: Slime hatred 16 selects one member per attack, not the entire
-        // party (pinned combat.cpp:904-930). Two d2 poison strikes retain the
-        // target-dependent saves, followed by Seymour's bound Arrow save.
+        // party (pinned combat.cpp:904-930). Two d2 poison strikes: the initial
+        // save uses the Physical selector (M68, DOS 0x2d2e4: 1..25 and 1..27 for
+        // these targets), then the poison save loop (1..40, 1..60) halves while it
+        // succeeds and the damage stays nonzero; Seymour's bound Arrow save follows.
         child_test::require(drawsAfter(dir/"A.log","M39 CHECKPOINT A ")==std::vector<std::string>{
             "DRAW 0:5:5:87470069:15","DRAW 1:2:2:3385103793:16",
-            "DRAW 1:40:33:891394312:17","DRAW 1:40:25:3323190024:18",
+            "DRAW 1:25:13:891394312:17","DRAW 1:40:25:3323190024:18",
             "DRAW 0:5:3:321008529:19","DRAW 1:2:2:4283899417:20",
-            "DRAW 1:60:60:2383559219:21","DRAW 1:60:6:3822316985:22",
-            "DRAW 1:60:8:1391776747:23","DRAW 1:50:50:3652395599:24"},
+            "DRAW 1:27:3:2383559219:21","DRAW 1:60:6:3822316985:22",
+            "DRAW 1:50:48:1391776747:23"},
             "M49 Slime single-target strike/save/Arrow RNG order differs");
         equal(a,run("A-from-city","A","city",dir/"A-city.mmsave"));
         child_test::require(drawsAfter(dir/"A.log","M39 CHECKPOINT city ")==drawsAfter(dir/"A-from-city.log","M39 RESTORE EXACT BEFORE INPUT"),"M39 city continuation RNG request trace differs");

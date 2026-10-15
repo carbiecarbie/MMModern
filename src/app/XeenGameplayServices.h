@@ -48,6 +48,11 @@ struct XeenGameplayServices {
  std::optional<unsigned> currentSlot,initialSlot;
  // Explicit CLI loose target remains independent of the panel's current slot.
  std::optional<std::filesystem::path> developerSavePath;
+ // When set, F9 and the control panel refuse Save, Save As and Load with this
+ // reason (the M68 monster fixture: its world is not the original resource).
+ const char *saveUnavailable=nullptr;
+ // Developer monster fixture: the prepared Journey starts here instead of the entry.
+ std::optional<XeenCamera> journeyStart;
  // Called with a scratch-validated New candidate before any presented frame.
  // Retry/cancel UI retains this candidate and performs no new initialization.
  std::function<bool(const XeenSaveSnapshot &,const std::function<void()> &)> publishInitial;

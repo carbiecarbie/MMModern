@@ -21,6 +21,7 @@ public:
   std::function<std::array<XeenSaveFile::Slot,10>()> slots;
   std::function<std::filesystem::path(unsigned)> path;
   bool panel=false,combat=false,saveRestricted=false,saveable=true;
+  std::string saveUnavailable="not supported yet"; // Panel notice while !saveable
   std::optional<unsigned> currentSlot;
   std::string currentName;
  };

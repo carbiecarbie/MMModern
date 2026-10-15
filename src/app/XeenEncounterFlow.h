@@ -41,6 +41,9 @@ struct XeenJourneySetup {
 	// Transient construction choice; never saved. Default retains prepared Journey.
 	bool prepared = true;
 	std::function<XeenEventFile()> mainlandEventsProvider;
+	// Developer monster fixture only: a prepared-Journey start other than the
+	// entry, inside the mainland component. Never saved as a setting.
+	std::optional<XeenCamera> start;
 };
 struct XeenJourneyRestoreTag {};
 
@@ -154,6 +157,7 @@ private:
 	friend struct XeenTrainingTestAccess;
 	friend struct XeenPurchaseTestAccess;
 	friend struct XeenCombatPresentationTestAccess;
+	friend struct XeenMonsterAbilityTestAccess;
 	bool _trainingEventSettlement=false;
 	bool _smithEventSettlement=false;
     std::optional<Ticket> _castFrameTicket;

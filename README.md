@@ -173,6 +173,7 @@ mmodern --new-game <game-directory> [--difficulty adventurer|warrior] [--save-fi
 mmodern --journey-region [--combat-seed <nonzero-u32>] <game-directory> [--save-file <path.mmsave>]
 mmodern --load-game <game-directory> <path.mmsave>
 mmodern --render-map <game-directory> [<map> <x> <y> <north|east|south|west>]
+mmodern --monster-fixture <species> <game-directory> [--record <n>] [--start <x>,<y>,<facing>] [--combat-seed <nonzero-u32>]
 mmodern --inspect-map|--inspect-party|--inspect-events <game-directory> ...
 ```
 
@@ -184,6 +185,18 @@ mmodern --inspect-map|--inspect-party|--inspect-events <game-directory> ...
   `(9,11)`. `--combat-seed` fixes combat randomness.
 - `--load-game` continues a save file and keeps using it for F9 (developer).
 - `--render-map` explores a map for inspection. It cannot save.
+- `--monster-fixture` starts the prepared Journey on F3 with one placed monster
+  replaced by the chosen original `xeen.mon` species, through an in-memory copy
+  of the map's monster list. By default it picks the placement nearest the
+  Journey entry that has a walkable start cell with the monster 2-3 cells
+  straight ahead on a clear line (no tent, tree or other monster between);
+  `--record` fixes the placement and
+  `--start <x>,<y>,<north|east|south|west>` fixes the start, which must be a
+  walkable F3 cell without an automatic Event or a monster spawn (refused with
+  the reason otherwise). The species must walk (flying species are not supported
+  yet) and pass the normal mainland checks; the terminal prints the species, its
+  cell, the start and the facing. Saving and the control panel's Save, Save As
+  and Load are disabled. Not in the title menu.
 - `--inspect-*` are developer tools.
 
 Developer save files must be outside all original source directories, including

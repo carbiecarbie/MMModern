@@ -395,7 +395,7 @@ std::string XeenEncounterFlow::consequenceNotice() const {
   const auto &r=_combatObservation;
   if(r.operation==XeenCombatOperation::PlayerRun && r.runRoll)out<<_party.roster.at(*r.actingOwner).name<<(r.runSuccess?" escaped":" Run failed")<<" ("<<r.runRoll<<")\n";
   else if(r.monsterDrop)out<<"Orc "<<unsigned(r.generatedItem.source)<<" +10 gold pending; "<<(*r.monsterDrop==XeenMonsterDropOutcome::CategoryCapacityLoss?"full category: lost":*r.monsterDrop==XeenMonsterDropOutcome::Item?"item produced":"no item")<<'\n';
-  else if(r.injuryCount)out<<"Damage "<<r.damage<<"; armor broken "<<r.armorCount<<'\n';
+  else if(r.injuryCount)out<<"Damage "<<r.damage<<"; items changed "<<r.armorCount<<'\n';
   else if(!r.monsterDrop && r.targetMonster && r.attackOutcome!=XeenCombatAttackOutcome::NotApplicable)out<<"Actor "<<r.targetMonster->recordIndex<<(r.attackOutcome==XeenCombatAttackOutcome::Miss?" missed":" damage ")<<r.damage<<'\n';
 
  } else if(!stopped) {

@@ -17,20 +17,22 @@ void equal(const fs::path &left,const fs::path &right) {
     m40_test::equalFields(a,b);
 }
 void independentTrace(const std::vector<std::string> &actual) {
-    // Literal request/value oracle from the pinned single-target poison rule, independent of
+    // Literal request/value oracle from the DOS single-target poison rule (M68:
+    // target, d2, the Physical-selector initial save 1..B(Luck)+L+20, then the
+    // poison save 1..resistance+40 drawn once even at zero damage), independent of
     // production draw conversion/generation. Algorithm-1 steps reconstruct raw.
-    const unsigned lo[]{0,1,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1};
-    const unsigned hi[]{5,2,47,47,47,5,2,40,40,5,2,40,40,5,2,60,50};
-    const unsigned value[]{0,2,42,1,37,1,1,27,23,1,1,5,9,3,1,6,3};
-    static_assert(sizeof(hi)/sizeof(*hi)==17 && sizeof(value)/sizeof(*value)==17 && sizeof(lo)/sizeof(*lo)==17);
-    child_test::require(actual.size()==17,"M40 post-stock trace raw-attempt count differs");
+    const unsigned lo[]{0,1,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,1};
+    const unsigned hi[]{5,2,23,47,47,5,2,24,40,5,2,24,40,5,2,27,60,50};
+    const unsigned value[]{0,2,6,1,37,1,1,11,23,1,1,21,9,3,1,6,33,34};
+    static_assert(sizeof(hi)/sizeof(*hi)==18 && sizeof(value)/sizeof(*value)==18 && sizeof(lo)/sizeof(*lo)==18);
+    child_test::require(actual.size()==18,"M40 post-stock trace raw-attempt count differs");
     std::uint32_t raw=209451284u;std::string canonical;
-    for(unsigned i=0;i<17;++i) {
+    for(unsigned i=0;i<18;++i) {
         raw^=raw<<13;raw^=raw>>17;raw^=raw<<5;
         const auto line="DRAW "+std::to_string(lo[i])+":"+std::to_string(hi[i])+":"+std::to_string(value[i])+":"+std::to_string(raw)+":"+std::to_string(2002+i);
         child_test::require(actual[i]==line,"M40 independent request/raw/value trace differs");canonical+=line+'\n';
     }
-    child_test::require(m40_test::sha256({canonical.begin(),canonical.end()})=="9bf7c1d3a75e17986a0cf37db1c2bb8d0818c609de1c01fdc24d4bf383bb8bed","M40 independent trace digest differs");
+    child_test::require(m40_test::sha256({canonical.begin(),canonical.end()})=="2fac7a99cfad4da289a289aed4e12efcf1b0b21956a4d062c6a755efb64d19cc","M40 independent trace digest differs");
 }
 }
 int main(int argc,char **argv) {
@@ -96,7 +98,7 @@ int main(int argc,char **argv) {
             c.journey->random==d.journey->random,"M40 C/D later navigation/repair checkpoint differs");
         child_test::require(e.journey->context->day==12 && e.journey->context->minutes==849 && e.journey->context->ctr24==0 &&
             e.journey->treasure->gold==837 && e.characters[1].currentSp==13 && e.characters[6].currentSp==24 &&
-            e.journey->random->state==1872837752u && e.journey->random->count==2018 && e.journey->vertigoActors->size()==52 &&
+            e.journey->random->state==1307383183u && e.journey->random->count==2019 && e.journey->vertigoActors->size()==52 &&
             e.journey->vertigoActors->at(36).lifecycle==XeenActorLifecycle::Defeated,"M40 E reset-Slime combat/casting checkpoint differs");
         child_test::require(m40_test::sha256(m40_test::stockBytes(*a.journey->serviceEconomy))=="fa7ccbf983b0bd8ef1ecce7cd09b301cbbfe431996ee921f72d67d2546f260de" &&
             m40_test::sha256(m40_test::stockBytes(*b.journey->serviceEconomy))=="29dc85d364a0c9c0fe1d8c496b51690a66215ae9672c0d104b71ed0fe987bb50" &&

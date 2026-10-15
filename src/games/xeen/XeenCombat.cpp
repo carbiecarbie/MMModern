@@ -241,10 +241,18 @@ struct XeenCombat::Impl {
 	}
 	void publishCharacters(const XeenConsequenceCharacters &values) noexcept {
 		for (const auto &value:values) {
+			// M68: a monster attack can change HP, SP, temporary age, conditions and
+			// every inventory byte (Break Weapon, Curse Item, Eradicate). Publish
+			// them all, to the live owner and to the retained expected preimage.
 			auto &live=party.roster.at(value.rosterId);auto &before=expected.roster.at(value.rosterId);
 			live.currentHp=before.currentHp=value.currentHp;
+			live.currentSp=before.currentSp=value.currentSp;
+			live.temporaryAge=before.temporaryAge=value.temporaryAge;
 			live.conditions=before.conditions=value.conditions;
+			live.weapons=before.weapons=value.weapons;
 			live.armor=before.armor=value.armor;
+			live.accessories=before.accessories=value.accessories;
+			live.miscellaneous=before.miscellaneous=value.miscellaneous;
 		}
 	}
 	void refreshSpeeds() {

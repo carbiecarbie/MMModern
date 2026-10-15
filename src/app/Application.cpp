@@ -8,6 +8,7 @@
 #include <random>
 #include "formats/xeen/XeenGameplayContextFormat.h"
 #include "formats/xeen/XeenMonsterFormat.h"
+#include "formats/xeen/XeenMapFormat.h"
 #include "app/XeenEventFlow.h"
 
 #include "formats/xeen/XeenAssetSource.h"
@@ -358,14 +359,21 @@ int Application::loadGame(const std::filesystem::path &gameDirectory,
     return gameplay(gameDirectory, {}, savePath, true);
 }
 
+int Application::monsterFixture(const std::filesystem::path &directory, const XeenMonsterFixture &fixture,
+        std::optional<std::uint32_t> seed) const {
+    return gameplay(directory,xeenJourneyContent().entry,{},false,XeenEncounterEntry::Journey,seed,{},nullptr,nullptr,{},nullptr,&fixture);
+}
 int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera camera,
         const std::optional<std::filesystem::path> &savePath, bool resume, XeenEncounterEntry entry,
         std::optional<std::uint32_t> seed, std::optional<XeenDifficulty> originalStart,
-        const XeenSessionEntry *managed, XeenAssetSource *sharedAssets,InitialPublication publication,XeenSessionOutcome *outcome) const {
+        const XeenSessionEntry *managed, XeenAssetSource *sharedAssets,InitialPublication publication,XeenSessionOutcome *outcome,
+        const XeenMonsterFixture *fixture) const {
     try {
         if (originalStart && (resume || entry != XeenEncounterEntry::Journey || seed ||
                 static_cast<unsigned>(*originalStart) > 1))
             throw std::invalid_argument("Invalid new-game configuration");
+        if (fixture && (resume || savePath || managed || originalStart || entry != XeenEncounterEntry::Journey))
+            throw std::invalid_argument("The monster fixture only starts the prepared Journey without a save target");
         if (entry != XeenEncounterEntry::Ordinary && resume)
             throw std::invalid_argument("Encounter entry cannot load or configure a save");
         const auto installation = XeenInstallationDetector(_uiData).detect(gameDirectory);
@@ -392,6 +400,35 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
         if(!sharedAssets)ownedAssets=std::make_unique<XeenAssetSource>(*installation,CloudsUiComposer::kWidth,CloudsUiComposer::kHeight);
         auto &assets=sharedAssets?*sharedAssets:*ownedAssets;
         const XeenMapLoader maps;
+        // The fixture replaces the map-23 MOB bytes for every reader: object
+        // loading, the regional manifest, reconstruction and renewal.
+        std::optional<std::vector<std::uint8_t>> fixtureMob;
+        std::optional<XeenCamera> fixtureStart;
+        if (fixture) {
+            const auto statisticsBytes = assets.readCloudsMonsterStatisticsFromDarkArchive();
+            if (!statisticsBytes) throw std::runtime_error("Missing DARK.CC/xeen.mon");
+            const auto originalMob = assets.readInitialResource("maze0023.mob");
+            // Choose the record and the party's start from the original geometry
+            // and placements before the fixture bytes replace the resource.
+            const auto placement = xeenMonsterFixturePlacement(maps.loadGeometryMap(assets, 23),
+                XeenMapFormat::parseMob(originalMob), *fixture);
+            auto chosen = *fixture; chosen.record = placement.record;
+            XeenMonsterFixtureDescription description;
+            fixtureMob = xeenMonsterFixtureMob(originalMob, chosen, XeenMonsterFormat::parse(*statisticsBytes), &description);
+            fixtureStart = placement.start;
+            std::cout << "Monster fixture: xeen.mon " << fixture->species << " '" << description.name
+                << "' replaces map 23 record " << placement.record << " at (" << description.x << ',' << description.y
+                << "). Party starts at (" << placement.start.x << ',' << placement.start.y << ") facing "
+                << directionName(placement.start.direction) << ", monster "
+                << (placement.inView ? std::to_string(placement.distance) + " cells ahead" : "not in view from this start")
+                << ". Saving is disabled.\n";
+        }
+        const auto mainlandMob = [&] { return fixtureMob ? *fixtureMob : assets.readInitialResource("maze0023.mob"); };
+        const XeenMapLoader::ResourceReader objectReader = [&](const std::string &name) -> std::optional<std::vector<std::uint8_t>> {
+            if (fixtureMob && name == "maze0023.mob") return *fixtureMob;
+            if (!assets.hasInitialResource(name)) return std::nullopt;
+            return assets.readInitialResource(name);
+        };
         const XeenEventLoader events([&](const std::string &name) -> std::optional<std::vector<std::uint8_t>> {
             if (!assets.hasInitialResource(name)) return std::nullopt;
             return assets.readInitialResource(name);
@@ -411,7 +448,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                 [&](XeenMapIdentity id) { return events.load(id); }},
             [&] { return XeenGameFlagsLoader().loadInitialCloudsFlags(assets); },
             [&](XeenMapIdentity id) { return maps.loadGeometryMap(assets, id); },
-            [&](XeenMapIdentity id) { return maps.loadObjects(assets, id); },
+            [&](XeenMapIdentity id) { return maps.loadObjects(objectReader, id); },
             [&](XeenMapIdentity id) { return texts.load(id); }, font,
             [&](XeenWorld &world, const XeenPartyState &party, const XeenCamera &position, std::uint64_t phase) {
                 XeenEventFlow::Composition result;
@@ -465,6 +502,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
         };
         services.catalog = &catalog.catalog;
         services.originalStart = originalStart;
+        if (fixture) { services.saveUnavailable = "disabled in the monster fixture"; services.journeyStart = fixtureStart; }
         if(!managed)services.developerSavePath=target;
         std::optional<std::filesystem::path> slotDirectory;
         const std::filesystem::path repository=MMODERN_REPOSITORY_ROOT;
@@ -490,6 +528,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                 },slotPath};
             presentation.panel=true;presentation.combat=combat;presentation.saveRestricted=restricted;
             presentation.saveable=saveable;presentation.currentSlot=current;presentation.currentName=name;
+            if(services.saveUnavailable)presentation.saveUnavailable=services.saveUnavailable;
             return std::make_unique<XeenTitleFlow>(std::move(presentation));
         };
         services.writeManaged=[&](unsigned slot,const auto &snapshot,const auto &check) {
@@ -505,7 +544,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
         services.resources.loadInitialCharacters = [&] { return assets.readInitialResource("maze.chr"); };
         services.resources.regionalManifest = [&](const XeenMap &map,const XeenObjectFile &mob,const XeenEventFile &evt,const std::vector<XeenMonsterRecord> &mon) {
             xeenValidateRegionalManifest(map,mob,evt,mon,assets.readInitialResource("maze0023.dat"),
-                assets.readInitialResource("maze0023.mob"),assets.readInitialResource("maze0023.evt"));
+                mainlandMob(),assets.readInitialResource("maze0023.evt"));
         };
         services.resources.loadInitialPurse = [&] { return XeenCharacterFormat::parseMonsterPurse(assets.readInitialResource("maze.pty")); };
         services.resources.loadInitialBankBalances = [&] { return XeenCharacterFormat::parseBankBalances(assets.readInitialResource("maze.pty")); };

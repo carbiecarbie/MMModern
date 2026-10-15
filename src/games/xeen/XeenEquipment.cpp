@@ -150,8 +150,11 @@ void xeenValidateCompletedEquipment(const XeenCharacter &character) {
 		for (const auto &item : *xeenInventoryItems(character, category)) {
 			if (!item.id || !item.frame) continue;
 			const unsigned limit = cat == 0 ? 34 : cat == 1 ? 13 : 10;
+			// The original roster's medal on member 1 sits in a ring frame (8). A
+			// monster's Curse Item keeps that arrangement and sets only the cursed
+			// bit (M68), so exactly those two states are admitted.
 			const bool legacyMedal = character.rosterId == 1 && category == Category::Accessories &&
-				item.material == 42 && item.id == 5 && item.state == 0 && item.frame == 8;
+				item.material == 42 && item.id == 5 && (item.state == 0 || item.state == 0x40) && item.frame == 8;
 			if (item.id > limit || (!legacyMedal && item.frame != equipmentFrame(category, item.id)) ||
 				!proficient(character, category, item.id))
 				throw std::invalid_argument("unsupported completed equipment arrangement");

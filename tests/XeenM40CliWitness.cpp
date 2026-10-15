@@ -422,7 +422,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 return false;
             });
             inspect([&] {
-                expectDate(12,849,0,1872837752u,2018,837);
+                // M68: the Slime's first save uses the Physical selector and the
+                // element loop draws once at zero damage (DOS 0x2d2e4, 0x2d35e).
+                expectDate(12,849,0,1307383183u,2019,837);
                 check(position->mapId==XeenMapIdentity(28) && position->x==16 && position->y==2 && position->direction==XeenDirection::North &&
                     party->roster.at(1).currentSp==13 && party->roster.at(6).currentSp==24 && world->sessionState().regionalActors(28).size()==52 &&
                     // CD maze0028.evt removes (15,0,South,4/5) protection/AlterEvent;

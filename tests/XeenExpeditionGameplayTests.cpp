@@ -127,7 +127,7 @@ void deathControl(const fs::path &path) {
  s.show=[&](const auto &,const auto &handler,const auto &,const auto &idle,const auto &){handler.framePresented(h.flow->frame().presentation());press(h,handler,NavigationAction::MoveForward);
   for(unsigned n=0;n<1000&&h.flow->encounter()->combat()->phase()!=Phase::Defeat;++n){auto *c=h.flow->encounter()->combat();check(c->phase()!=Phase::Failed&&c->phase()!=Phase::SupportStopped,"death fixture remains supported");if(c->phase()==Phase::PlayerReady)press(h,handler,BlockAction{});else tick(h,handler,idle);}
   check(h.flow->encounter()->combat()->phase()==Phase::Defeat&&h.party->roster.at(1).conditions[13]&&h.flow->encounter()->notice().find("Dead")!=std::string::npos,"production injury sets and presents death");
-  check(h.flow->encounter()->combatObservation().armorCount&&h.flow->encounter()->notice().find("armor broken 2")!=std::string::npos,"production lethal injury presents armor breakage");
+  check(h.flow->encounter()->combatObservation().armorCount&&h.flow->encounter()->notice().find("items changed 2")!=std::string::npos,"production lethal injury presents armor breakage");
   const auto stages=h.saves;handler.withDisplayedInput(SaveGameAction{},*handler.displayedInput());check(!h.flow->canSave()&&stages==h.saves&&diskBytes(path)==before,"death cannot save or recover");return true;};
  check(Application().playGameplay(s,{},path,true)==0,"synthetic successor death production control");
 }

@@ -46,6 +46,7 @@ add_library(mmodern_xeen STATIC
 	src/games/xeen/XeenJourneyRules.cpp
 	src/games/xeen/XeenGameplayContext.cpp
 	src/games/xeen/XeenRegionalRules.cpp
+	src/games/xeen/XeenMonsterFixture.cpp
     src/games/xeen/XeenJumpRules.cpp
 	src/formats/xeen/XeenAssetSource.cpp
 	src/formats/xeen/XeenCloudsVisualMetadata.cpp
@@ -368,6 +369,13 @@ if(BUILD_TESTING)
 	add_executable(mmodern_typed_damage_tests tests/XeenTypedDamageTests.cpp)
 	target_link_libraries(mmodern_typed_damage_tests PRIVATE mmodern_xeen)
 	add_test(NAME xeen_typed_damage COMMAND mmodern_typed_damage_tests)
+	add_executable(mmodern_monster_ability_tests tests/XeenMonsterAbilityTests.cpp)
+	target_link_libraries(mmodern_monster_ability_tests PRIVATE mmodern_xeen)
+	add_test(NAME xeen_monster_abilities COMMAND mmodern_monster_ability_tests)
+	add_executable(mmodern_monster_ability_gameplay_tests tests/XeenMonsterAbilityGameplayTests.cpp)
+	target_link_libraries(mmodern_monster_ability_gameplay_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl SDL2::SDL2)
+	add_test(NAME xeen_monster_ability_gameplay COMMAND mmodern_monster_ability_gameplay_tests)
+	add_test(NAME xeen_monster_fixture_original COMMAND mmodern_monster_ability_gameplay_tests "${MMODERN_XEEN_DATA_DIR}")
 	add_executable(mmodern_whole_map_foundation_tests tests/XeenWholeMapFoundationTests.cpp)
 	add_executable(mmodern_barrier_tests tests/XeenBarrierTests.cpp)
 	target_link_libraries(mmodern_barrier_tests PRIVATE mmodern_xeen)

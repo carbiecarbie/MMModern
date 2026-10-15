@@ -152,8 +152,8 @@ inline constexpr const char *revision = "d5067c44be3ff07e03df90eac4082456a497e22
 struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 inline constexpr std::array<Scenario,3> scenarios{{
     {"mainland-combat-myra-phirna",3626689381u,"605fb7ef58148d6ad955faf0951c500dd8f3cc61d079d07710fbf78a9e8a4c27"},
-    {"vertigo-buy-repair-training",7u,"6b91ec27b861162ae399ddde7b8a1825271d7404f8318a612ad4aa0b91fca83c"},
-    {"temple-recovery",3626689381u,"81a127bab182ab86ce42aa217fd836e5bf0e8e95df0aff804e3833e03a019fe2"}
+    {"vertigo-buy-repair-training",7u,"417bd35216544d12265a116c8750d22953e12161cfeed075fb685a80e3a5d068"},
+    {"temple-recovery",3626689381u,"0bd5d8cd9075e42ba3f9681d2c6322a0c23cc81d518654c8c8c48b57b68d0f32"}
 }};
 }
 #endif

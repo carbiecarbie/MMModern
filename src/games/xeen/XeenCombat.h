@@ -88,9 +88,15 @@ struct XeenCombatDamage {
 	std::uint8_t owner=0;
 	unsigned attackOrdinal=0;
 	int amount=0, beforeHp=0, afterHp=0, beforeAc=0, afterAc=0;
+	// M68: a secondary effect can drain SP or age the victim; both are observed
+	// with the injury so publication carries every changed character field.
+	int beforeSp=0, afterSp=0, beforeAge=0, afterAge=0;
 	std::array<std::uint8_t,16> conditions{};
 };
-struct XeenCombatArmorChange { std::uint8_t owner=0,slot=0; XeenItem before,after; };
+// One changed inventory slot: category 0 weapons, 1 armor, 2 accessories,
+// 3 miscellaneous (XeenInventoryCategory order). Before M68 only broken armor
+// was observed; Break Weapon, Curse Item and Eradicate change every category.
+struct XeenCombatArmorChange { std::uint8_t owner=0,slot=0,category=1; XeenItem before,after; };
 struct XeenCombatXp { std::uint8_t owner=0; std::uint32_t before=0,after=0; };
 struct XeenCombatResult {
 	// Owned observations only. Pending is not a published attack outcome.
@@ -130,7 +136,8 @@ struct XeenCombatResult {
 	const XeenCombatDamage &injury(unsigned i) const {
 		return i<injuries.size() ? injuries.at(i) : additionalInjuries->at(i-injuries.size());
 	}
-	std::array<XeenCombatArmorChange,54> armor{}; unsigned armorCount=0;
+	// Every changed inventory slot of the operation: 6 members x 4 categories x 9 slots.
+	std::array<XeenCombatArmorChange,216> armor{}; unsigned armorCount=0;
 	std::array<XeenCombatXp,6> xp{}; unsigned xpCount=0;
 	std::shared_ptr<const XeenRegionalObservation> ranged;
 };

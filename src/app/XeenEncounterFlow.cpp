@@ -557,7 +557,7 @@ std::string XeenEncounterFlow::combatNotice() const {
 		text += "-" + std::to_string(d.amount) + " HP " + std::to_string(d.afterHp);
 	}
 	if (r.injuryCount || r.critical) text += "\n";
-	if (r.armorCount) text += "Broken armor: " + std::to_string(r.armorCount) + " slots\n";
+	if (r.armorCount) text += "Changed items: " + std::to_string(r.armorCount) + " slots\n";
 	text += "\n"; // Separate retained feedback from the live roster panel.
 	for (auto owner:_party.party.activeRosterIds()) {
 		const auto &c=_party.roster.at(owner);

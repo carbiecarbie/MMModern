@@ -307,35 +307,48 @@ its first damage application regardless of either threshold.
 
 ## Monster damage, saving throws and secondary attacks
 
-**Evidence: Reference only**, except that the resistance save shape has supporting
-retained DOS evidence in the existing Poison/Disease analysis. Applying that
-shape to every attack caller remains a reference-derived statement.
+**Evidence: DOS static, high confidence (M68 Part A, 2026-10-15)** for the
+sequence below: `WORLD/XEEN.DAT` `doCharDamage` at `0x2d22d`, saving-throw
+helper `0x2d0c2`, special dispatch table `0x2d6d9`. See
+[evidence](evidence.md#monster-damage-and-secondary-attacks). The pinned
+`doCharDamage` differs in two places, marked below. **Implemented (M68 Part A)**
+by `XeenEnemyAttackCandidate` for contact and ranged attacks of every damage
+type, in combat, exploration and Rest.
 
-`doCharDamage` first clears Sleep, then rolls `strikes` draws of
-`R(1, dmgPerStrike)` and sums them. A Physical attack skips elemental saves.
-For any other damage type, the exact order is:
+The application first clears Sleep, then rolls `strikes` draws of
+`R(1, dmgPerStrike)` and sums them. A Physical attack draws no saving throw
+before its secondary save. For any other damage type, the exact order is:
 
-1. Draw one character save and halve damage on success.
+1. Draw one **Physical** character save (`0x2d2e4..0x2d2f7`: selector 0, not the
+   element) and halve damage on success. The pinned reference uses the element
+   here; DOS does not.
 2. Subtract the matching party protection for Fire, Electrical, Cold or Poison.
    Magical and Energy do not subtract one of these party protection fields.
-3. While damage is positive, draw another save. Halve on success and repeat;
-   stop on the first failed save. Even failure of the initial save does not
-   prevent entering this second saving loop.
-4. Subtract Power Shield and clamp to zero.
-5. If positive damage remains and a secondary attack exists, draw a Physical
-   character save. A failed save applies the secondary effect.
+   (No protection spell has an owner yet; the term is zero.)
+3. Enter the element save loop (`0x2d35e..0x2d374`): draw the element save once
+   unconditionally, even at zero damage; on success halve and repeat while the
+   damage stays nonzero; stop on the first failed save. The pinned reference
+   tests `damage > 0` before every draw and therefore draws nothing at zero.
+4. Subtract Power Shield (no owner yet, zero) and clamp to zero (`0x2d3a9..0x2d3b5`).
+5. If positive damage remains and the special attack byte is nonzero, draw a
+   Physical character save (`0x2d3ed`). A failed save applies the secondary
+   effect.
 6. Subtract the resulting HP damage, after applying the secondary effect.
 
 A character's Physical save uses `v = B(Luck) + L` and succeeds when
-`R(1, v + 20) <= v`. It is the save against secondary effects, not an ordinary
-reduction to every physical hit. An elemental/magical save uses permanent plus
-temporary plus equipment resistance `r`, and succeeds when
-`R(1, r + 40) <= r`. Party protection is a separate subtraction and is not part
-of `r`. At resistance zero, the draw still occurs but cannot succeed.
+`R(1, v + 20) <= v` (`0x2d0cd..0x2d101`). An elemental/magical save uses
+permanent plus temporary plus equipment resistance `r`, and succeeds when
+`R(1, r + 40) <= r` (`0x2d116..0x2d21d`; the selector maps 1 Magical, 2 Fire,
+3 Electrical, 4 Cold, 5 Poison, 6 Energy to the character's resistance pairs).
+Party protection is a separate subtraction and is not part of `r`. At
+resistance zero the draw still occurs but cannot succeed.
 
-Example: 23 rolled Fire damage, successful initial save, party Fire protection 3,
-then one successful and one failed loop save, Power Shield 2:
-`23 / 2 = 11`, `11 - 3 = 8`, `8 / 2 = 4`, then `4 - 2 = 2` damage.
+Example: 23 rolled Fire damage against Luck 15 (`+2`) at level 3 (`v = 5`): an
+initial draw of 1..25 at most 5 halves to 11; party Fire protection 3 leaves 8;
+with fire resistance 10 a loop draw of 1..50 at most 10 halves to 4, a second
+success to 2, a failure stops; Power Shield 2 leaves 0 and no secondary save is
+drawn. The same 23 with a failed initial save and a failed first loop draw
+applies 20 (`23 - 3`) and, with a nonzero special, draws the secondary save.
 
 **Do not merge environmental and monster damage algorithms.** `giveCharDamage`
 subtracts party protection before its loop, evaluates the saving throw before
@@ -346,29 +359,33 @@ nominal damage can therefore produce different outcomes and draw counts.
 
 ### Secondary effects
 
-**Evidence: Reference only.** `doCharDamage`, plus
-[InventoryItemsGroup helpers](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/item.cpp#L831).
-Every row below requires positive post-shield damage and a failed Physical save.
+**Evidence: DOS static, high confidence (M68 Part A).** Dispatch table
+`0x2d6d9` indexes `special - 5` for specials 5..22; specials 1-4 fall outside
+the table and 6 and 11 jump straight to the HP subtraction (`0x2d6b5`). Every
+row below requires positive post-shield damage and a failed Physical save.
+**Implemented (M68 Part A)** in `xeenApplySpecialAttack`.
 
-| Secondary attack | Effect before HP subtraction |
-| --- | --- |
-| Poison, Disease, Insane, Sleep, Curse, Paralyze, Unconscious, Confuse, Weaken | Increment the corresponding condition; the reference replaces a zero result with -1 |
-| Curse Item | Curse all inventory categories; weapon IDs 34 and above are exempt |
-| Drain SP | Set current SP to zero |
-| Break Weapon | Mark equipped, nonempty weapons with ID below 34 broken and clear their equipped frames (DOS-confirmed) |
-| Aging | Increment temporary age |
-| Death / Stone | Increment the condition and set positive current HP to zero |
-| Eradicate | Increment Eradicated, break inventory except weapons with ID at least 34, and set positive current HP to zero |
+| Special | Secondary attack | Effect before HP subtraction (DOS offsets) |
+| ---: | --- | --- |
+| 5, 7, 8, 9, 13, 14, 15, 16, 18 | Poison, Disease, Insane, Sleep, Curse, Paralyze, Unconscious, Confuse, Weaken | Increment the condition byte; `inc al; jnz` then `0xff`: a byte that reaches zero is set to 255, so the counter saturates (`0x2d442` and siblings). Sleep re-applies after the wake at entry. |
+| 10 | Curse Item | Set the cursed bit (`0x40`) in all nine slots of every category, empty slots included; a weapon slot holding ID 34 is left as is; frames stay (`0x2d671..0x2d6ab`). The reference instead clears that weapon's cursed bit. |
+| 12 | Drain SP | Current SP becomes zero (`0x2d561`). |
+| 17 | Break Weapon | Equipped (`frame != 0`), nonempty weapons whose ID is not 34: broken bit and frame cleared (`0x2d508..0x2d53e`). |
+| 19 | Eradicate | Increment Eradicated, then the helper at `0x2bd6a`: every weapon slot except ID 34 gets the broken bit and frame 0; all nine armor and accessory slots get the broken bit and frame 0; all nine miscellaneous slots get the broken bit and keep their frame (charges); empty slots are written too. Positive HP becomes zero before the subtraction (`0x2d5c6..0x2d60e`). |
+| 20 | Aging | Plain byte increment of the temporary age (`0x2d592..0x2d59b`): 255 wraps to 0. |
+| 21, 22 | Death, Stone | Increment the condition; positive HP becomes zero before the subtraction (`0x2d641`, `0x2d611`). |
+| 1-4, 6, 11 | none (11 is the reference's unused "In Love") | The secondary save is drawn; nothing else changes. HP damage applies. |
 
-The reference stores conditions as integers although saved conditions are bytes;
-this table alone cannot establish DOS wrap/saturation for extreme counters.
-MMModern's admitted secondary counters saturate at 255. That remains separate
-from the DOS-confirmed doubling/wrapping behavior of periodic Poison/Disease.
-The reference explicitly retains equipment frames in its Break Weapon and
-break-all helpers as a port workaround. **DOS static, high confidence:** Break
-Weapon marks broken and clears frame at `0x2d52c..0x2d532`. That ability is
-not admitted in MMModern; future support must unequip. Eradicate frame behavior
-remains separate and unverified.
+The pinned reference keeps equipment frames in Break Weapon and its break-all
+helper as a port workaround and stores conditions as integers; DOS unequips and
+saturates the byte as above. The periodic Poison/Disease doubling is a separate,
+already confirmed rule. Weapon ID 34 (Xeen Slayer Sword) is the only ID the DOS
+code tests; IDs above 34 do not occur in the weapon tables.
+
+**Legacy medal (M68 Part A).** The original roster's medal on member 1 sits in a
+ring frame (8). Curse Item keeps that arrangement with the cursed bit;
+`xeenValidateCompletedEquipment` admits exactly the plain and the cursed state of
+that item and no other arrangement change.
 
 ### Injury thresholds
 
@@ -502,7 +519,9 @@ At the inspected MMModern baseline,
 [XeenCombatRules.cpp](../../src/games/xeen/XeenCombatRules.cpp) implements plain and,
 since M67, enchanted weapon attacks (metal, elemental, attribute materials,
 effectiveness, the Slayer Sword bypass), the two-stage natural-20 enemy application,
-target selection, Run, typed consequences and supported spell damage.
+target selection, Run, typed consequences, supported spell damage and, since M68
+Part A, the DOS monster damage sequence for every damage type with every
+secondary effect (`XeenMonsterAbilityTests.cpp` holds the draw tapes).
 [XeenCharacterRules.cpp](../../src/games/xeen/XeenCharacterRules.cpp) owns shared
 character capacities. [XeenCombatTests.cpp](../../tests/XeenCombatTests.cpp) checks
 ordered critical damage and armor changes;
@@ -513,7 +532,8 @@ reference ability is playable.
 
 Highest-value unresolved original-program checks:
 
-1. Which equipment frames survive Eradicate? Break Weapon clearing is now confirmed.
+1. (Settled, M68 Part A) Eradicate clears weapon, armor and accessory frames and
+   keeps miscellaneous frames; Break Weapon unequips.
 2. Is the source's uniform initial targeting distribution equivalent to the
    original party-size switch for every party size? Hatred 1's bypass is confirmed.
 3. Are elemental weapon damage and effectiveness applied once after accumulating

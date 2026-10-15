@@ -98,6 +98,9 @@ XeenActorView XeenActorApproach::classify(const std::vector<XeenActor> &actors,
 	return view;
 }
 
+bool xeenMonsterMovementSupported(const XeenMonsterRecord &m, int species) noexcept {
+	return m.supportsGroundMovement() && species != 59;
+}
 std::array<unsigned, 1024> XeenActorApproach::occupancy(const std::vector<XeenActor> &actors) {
 	require(actors.size() <= kCapacity, "monster simulation capacity exceeded");
 	std::array<unsigned, 1024> counts{};
@@ -141,8 +144,8 @@ std::vector<XeenActor> XeenActorApproach::moveWithContext(const std::vector<Xeen
 				if (beforeMovement) beforeMovement(result,i);
 				require(coordinate(a.x, a.y) && a.lifecycle == XeenActorLifecycle::Present &&
 					a.status == XeenActorStatus::Physical && a.statistics &&
-					(beforeMovement ? a.statistics->supportsGroundMovement() : a.statistics->supportsMovement()) &&
-					a.original.resourceId != 59, "unsupported relevant actor movement");
+					(beforeMovement ? xeenMonsterMovementSupported(*a.statistics,a.original.resourceId) :
+						(a.statistics->supportsMovement() && a.original.resourceId != 59)), "unsupported relevant actor movement");
 				const int sx = dx < 0 ? 1 : dx > 0 ? -1 : 0;
 				const int sy = dy < 0 ? 1 : dy > 0 ? -1 : 0;
 				// Literal MONSTER_GRID_X/Y and GRID3, including same-column/row zero deltas.
@@ -168,6 +171,15 @@ std::vector<XeenActor> XeenActorApproach::moveWithContext(const std::vector<Xeen
 	return result;
 }
 
+namespace {
+// Every character field a monster attack can change (M68): HP, SP, temporary
+// age, conditions and all inventory bytes and frames.
+void publishInjured(XeenCharacter &live,const XeenCharacter &value) noexcept {
+	live.currentHp=value.currentHp;live.currentSp=value.currentSp;live.temporaryAge=value.temporaryAge;
+	live.conditions=value.conditions;live.weapons=value.weapons;live.armor=value.armor;
+	live.accessories=value.accessories;live.miscellaneous=value.miscellaneous;
+}
+}
 void XeenActorApproach::validateDomain(XeenWorld &world, const XeenPartyState &party,
 		const XeenGameplayContext &context, const std::vector<XeenActor> &actors,
 		const XeenEventFile &events) {
@@ -236,12 +248,24 @@ XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenP
 			if(beforePublication)beforePublication(candidate,actors,random);
 		});
 }
+XeenEncounterResult XeenActorApproach::initializeJourney(XeenWorld &world, XeenPartyState &party,
+		XeenCamera &camera, XeenEncounterState &state, const std::vector<std::uint8_t> &chr,
+		const XeenGameplayContext &context, const std::vector<XeenMonsterRecord> &statistics,
+		const XeenEventFile &events, std::uint32_t seed,
+		const std::optional<XeenMonsterTreasure> &purse, const std::optional<XeenBankBalances> &bankInput,
+		const FreshPublicationPreparation &beforePublication, const XeenCamera &start) {
+	return initializeStart(world,party,camera,state,chr,context,statistics,events,events,seed,purse,bankInput,true,party.worldFlags,
+		[&](const auto &candidate,const auto &actors,const auto &random,const auto &,const auto &) {
+			if(beforePublication)beforePublication(candidate,actors,random);
+		},start);
+}
 XeenEncounterResult XeenActorApproach::initializeStart(XeenWorld &world, XeenPartyState &party,
 		XeenCamera &camera, XeenEncounterState &state, const std::vector<std::uint8_t> &chr,
 		const XeenGameplayContext &context, const std::vector<XeenMonsterRecord> &statistics,
 		const XeenEventFile &events, const XeenEventFile &mainlandEvents, std::uint32_t seed,
 		const std::optional<XeenMonsterTreasure> &purse, const std::optional<XeenBankBalances> &bankInput,
-		bool prepared, const std::optional<XeenWorldFlags> &recovery, const StartPublicationPreparation &beforePublication) {
+		bool prepared, const std::optional<XeenWorldFlags> &recovery, const StartPublicationPreparation &beforePublication,
+		const std::optional<XeenCamera> &start) {
 	const auto bank=bankInput; // Detach before all further compatibility callbacks.
 	const auto preparePublication=beforePublication;
 	const auto &policy=xeenJourneyContent();
@@ -253,7 +277,15 @@ XeenEncounterResult XeenActorApproach::initializeStart(XeenWorld &world, XeenPar
 		!state._world && seed && world._combatCheck, "Journey requires guarded fresh owners");
 	require(!party.serviceEconomy && bool(bank), "Fresh service economy input mismatch");
 	if (bank) require(!bank->gold && !bank->gems,"Unsupported original bank balances");
-	const XeenCamera entry=prepared ? policy.entry : XeenCamera{28,18,4,XeenDirection::West};
+	XeenCamera entry=prepared ? policy.entry : XeenCamera{28,18,4,XeenDirection::West};
+	if (start) {
+		// Developer monster fixture: any walkable mainland cell is a legal start.
+		require(prepared && start->mapId==policy.entry.mapId && start->x>=0 && start->x<16 && start->y>=0 && start->y<16 &&
+			static_cast<unsigned>(start->direction)<4 &&
+			XeenMovement::component(world.map(policy.entry.mapId),policy.entry.x,policy.entry.y,policy.traversal)[start->y*16+start->x],
+			"Fixture start outside the mainland component");
+		entry=*start;
+	}
 	require(camera.mapId == entry.mapId && camera.x == entry.x && camera.y == entry.y && camera.direction == entry.direction &&
 		context.minutes == 480 && context.ctr24 == 0, "Journey requires fresh entry context");
 	require(xeenRegionalContext(context) && (!prepared || context.difficulty==XeenDifficulty::Adventurer),"Invalid start difficulty");
@@ -561,7 +593,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
                     if(c.time && c.timeDone)party.serviceEconomy=c.time->economy;
                     if(c.time && c.timeDone)for(unsigned n=0;n<6;++n)party.roster._combatInputs[c.owners[n]]=c.inputs[n];
                     const auto &values=op.impactApplied ? op.characters : c.characters;
-                    for(const auto &v:values) {auto &live=party.roster.at(v.rosterId);live.currentHp=v.currentHp;live.conditions=v.conditions;live.armor=v.armor;
+                    for(const auto &v:values) {auto &live=party.roster.at(v.rosterId);publishInjured(live,v);
                      if(c.time && c.timeDone && c.time->resetTemps)xeenResetCharacterTemps(live,*party.roster._combatInputs[v.rosterId]);}
                     session._journeyRandom=c.random.continuation();
                     c.result.needsRest=c.time && c.timeDone && !c.timeNoticePublished && c.time->needsRest;
@@ -601,7 +633,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		if(c.exploration)session._exploredTiles.swap(*c.exploration);
                     if(c.time && c.timeDone)party.serviceEconomy=c.time->economy;
                     if(c.time && c.timeDone)for(unsigned n=0;n<6;++n)party.roster._combatInputs[c.owners[n]]=c.inputs[n];
-		for(const auto &value:c.characters) { auto &owner=party.roster.at(value.rosterId);owner.currentHp=value.currentHp;owner.conditions=value.conditions;owner.armor=value.armor;
+		for(const auto &value:c.characters) { auto &owner=party.roster.at(value.rosterId);publishInjured(owner,value);
          if(c.time && c.timeDone && c.time->resetTemps)xeenResetCharacterTemps(owner,*party.roster._combatInputs[value.rosterId]); }
 		state._pending=c.pending;state._revision=session._encounterRevision=c.result.revision;
 		if(engaged || defeat) { state._phase=engaged?XeenEncounterPhase::Engaged:XeenEncounterPhase::SupportStopped;state._reason=c.result.reason;session._encounterTerminal=true; }

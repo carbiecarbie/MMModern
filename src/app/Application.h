@@ -4,6 +4,7 @@
 #include "games/xeen/XeenNavigation.h"
 #include "app/XeenEncounterFlow.h"
 #include "app/XeenSession.h"
+#include "games/xeen/XeenMonsterFixture.h"
 
 #include <filesystem>
 #include <cstdint>
@@ -36,6 +37,10 @@ public:
 	int loadGame(const std::filesystem::path &gameDirectory, const std::filesystem::path &savePath) const;
 	int journeyRegion(const std::filesystem::path &, std::optional<std::uint32_t> seed = {},
 		std::optional<std::filesystem::path> savePath = {}) const;
+	// Developer: the prepared Journey on F3 with one placed monster retargeted to
+	// a chosen original species (in-memory MOB). Saving is disabled.
+	int monsterFixture(const std::filesystem::path &, const XeenMonsterFixture &,
+		std::optional<std::uint32_t> seed = {}) const;
 	// Shared production construction; providers outlive this call. Target has
 	// already been resolved/checked against the installation by gameplay().
 	int playGameplay(const XeenGameplayServices &, XeenCamera,
@@ -48,7 +53,8 @@ private:
 		const std::optional<std::filesystem::path> &, bool resume,
 		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary, std::optional<std::uint32_t> seed = {},
 		std::optional<XeenDifficulty> originalStart = {},const XeenSessionEntry *managed = nullptr,
-		XeenAssetSource *sharedAssets = nullptr,InitialPublication publication = {},XeenSessionOutcome *outcome = nullptr) const;
+		XeenAssetSource *sharedAssets = nullptr,InitialPublication publication = {},XeenSessionOutcome *outcome = nullptr,
+		const XeenMonsterFixture *fixture = nullptr) const;
 };
 
 } // namespace mmodern

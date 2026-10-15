@@ -50,18 +50,50 @@ void item(Census &c,const XeenItemCatalog &catalog,unsigned category,XeenItem va
         spell(c,itemSpellIds[value.id],names,map,count,"item power "+std::to_string(value.id));
     if(category==3 && value.id==33)spell(c,28,names,map,count,"item power 33: separate frostbite2 variant");
 }
+// The runtime reads a monster's six elemental resistances in exactly one place:
+// XeenPhysicalPlayerCandidate (M67) reduces an equipped elemental weapon's
+// contribution by the resistance of the weapon's category (attack2's
+// getMonsterResistance). Probe that path with a level-1 Knight whose equipped
+// weapon has the first material of the category and a tape that must hit:
+// twelve natural 20s add 240 to the Accuracy-250 Adventurer base of 26, so the
+// total 285 beats AC + 10 for every byte AC. Physical resistance is read by the
+// same candidate for every melee hit.
+Support elementalResistanceProbe(const XeenMonsterRecord &m,unsigned index,unsigned category) {
+    constexpr unsigned materials[]{1,9,16,21,26,34};
+    try {
+        XeenCharacter c;c.rosterId=0;c.characterClass=XeenCharacterClass::Knight;c.permanentLevel=1;c.birthYear=592;c.currentHp=10;
+        c.intellect=c.personality=c.endurance={15,0};
+        if(category<6)c.weapons[0]={static_cast<std::uint8_t>(materials[category]),1,0,1};else c.weapons[0]={0,1,0,1};
+        XeenCombatInputs i;i.might=i.speed={15,0};i.accuracy={250,0};i.luck=XeenAttributeValue{15,0};
+        i.resistances=XeenCombatResistances{};i.poisonResistance=XeenAttributeValue{0,0};
+        XeenPhysicalPlayerCandidate candidate(c,i,m,index,610,false,XeenDifficulty::Adventurer);
+        std::vector<XeenCombatRandom::Draw> tape{{1,3,3},{1,3,3},{1,3,3}};
+        for(unsigned n=0;n<12;++n)tape.push_back({1,20,20});
+        tape.push_back({1,20,19});
+        XeenCombatRandom rng(tape);
+        bool done=false;
+        for(unsigned n=0;n<40 && !done;++n) {XeenConsequenceDraw draw{rng,1,{}};done=candidate.service(draw);}
+        if(!done || !candidate.hit)return {Status::Unclassified,"census attack probe did not hit this record"};
+        return {Status::Supported,category<6?"XeenPhysicalPlayerCandidate applies the M67 elemental weapon contribution against this resistance":
+            "XeenPhysicalPlayerCandidate applies physical resistance to melee damage"};
+    }catch(const std::exception &e) {return {Status::Unsupported,e.what()};}
+}
 void monster(Census &c,const XeenMonsterRecord &m,unsigned index,unsigned map,std::size_t count,const std::string &source) {
     Support attack{Status::Supported,"validateAttackCapabilities accepts"};
     try {m.validateAttackCapabilities();}catch(const std::exception &e) {attack={Status::Unsupported,e.what()};}
     auto admission=attack;
-    if(admission.status==Status::Supported && !m.supportsGroundMovement())admission={Status::Unsupported,"supportsGroundMovement rejects"};
+    // Movement is the runtime's capability: ground movement and not species 59
+    // (Water Dragon), whose water-only movement is a Part B gap.
+    const bool waterDragon=index==59 && m.supportsGroundMovement();
+    const char *movementGap=waterDragon?"species 59 water movement is not supported yet (Part B)":"supportsGroundMovement rejects";
+    if(admission.status==Status::Supported && !xeenMonsterMovementSupported(m,int(index)))admission={Status::Unsupported,movementGap};
     if(admission.status==Status::Supported && !m.supportsRendering())
         admission={Status::Unsupported,"supportsRendering rejects"};
     if(admission.status==Status::Supported)admission.reason="Attack, movement and mechanic-rendering checks accept; see resistance/drop gaps separately";
     c.add("Monster species",source,admission,map,count);
     c.add("Monsters","Attack type="+std::to_string(m.damageType())+" special="+std::to_string(m.raw[30])+" ranged="+std::to_string(m.raw[32]),attack,map,count,source);
-    c.add("Monsters","Movement flying="+std::to_string(m.raw[46]),
-        m.supportsGroundMovement()?Support{Status::Supported,"supportsGroundMovement accepts"}:Support{Status::Unsupported,"supportsGroundMovement rejects"},map,count,source);
+    c.add("Monsters","Movement flying="+std::to_string(m.raw[46])+(waterDragon?" species=59":""),
+        xeenMonsterMovementSupported(m,int(index))?Support{Status::Supported,"xeenMonsterMovementSupported accepts"}:Support{Status::Unsupported,movementGap},map,count,source);
     c.add("Monsters","Animation loop="+std::to_string(m.raw[48])+" effect="+std::to_string(m.animationEffect()),
         m.supportsRendering()?Support{Status::Supported,"supportsRendering accepts (current scene presentation)"}:
         Support{Status::Unsupported,"supportsRendering rejects"},map,count,source);
@@ -69,14 +101,18 @@ void monster(Census &c,const XeenMonsterRecord &m,unsigned index,unsigned map,st
     try {(void)XeenMonsterTargetCandidate({},m.hatred(),0x3f);}catch(const std::exception &e) {target={Status::Unsupported,e.what()};}
     c.add("Monsters","Target hatred="+std::to_string(m.hatred()),target,map,count,source);
     for(unsigned resistance=34;resistance<=40;++resistance)if(m.raw[resistance]) {
-        Support support{Status::Unclassified,"Elemental resistance handling has no independent capability query"};
-        if(resistance==39 || resistance==40) {
+        // Monster resistances are never read by the monster's own attack (the M68
+        // damage sequence uses the character's resistances); the engine reads them
+        // in the player's M67 weapon attack and, for magic and physical, in the
+        // ranged spell damage. Probe both paths.
+        Support support=elementalResistanceProbe(m,index,resistance-34);
+        if(support.status==Status::Supported && (resistance==39 || resistance==40)) {
             try {
                 // Current ranged-spell damage accepts both original resistance
                 // values; physical spells also apply physical damage reduction.
                 (void)XeenSpellDamageCandidate(1,0,m.magicResistance(),index,
                     resistance==39?XeenLearnedSpell::MagicArrow:XeenLearnedSpell::Shrapmetal,m.physicalResistance());
-                support={Status::Supported,"XeenSpellDamageCandidate admits original magic/physical resistance"};
+                support.reason+="; XeenSpellDamageCandidate admits it for spell damage";
             }catch(const std::exception &e) {support={Status::Unsupported,e.what()};}
         }
         c.add("Monsters","Resistance field="+std::to_string(resistance-34),support,map,count,source);

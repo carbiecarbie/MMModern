@@ -546,7 +546,7 @@ void indoorOpportunity() {
   "Indoor enemy impact did not publish prepared HP after acknowledgment");
  check(op.service(draw) && rng.position()==3 && op.shots[0].attack.damage==3,
   "Indoor enemy settled injury was repeated or lost");
- auto bad=before;bad[0].statistics->raw[29]=2;
+ auto bad=before;bad[0].statistics->raw[29]=7;
  rejects([&]{XeenRegionalOpportunityCandidate unsupported(world,bad,camera,c,in,610,63);});
  check(before[0].y==11 && c[0].currentHp==50 && rng.position()==3,
   "Unsupported indoor enemy attack mutated inputs or consumed RNG");

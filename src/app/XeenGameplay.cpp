@@ -132,7 +132,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    throw std::invalid_argument("Invalid original start configuration");
   if (encounter && resume) throw std::invalid_argument("Encounter entry cannot resume");
   if (seed && (resume || entry != XeenEncounterEntry::Journey || !*seed)) throw std::invalid_argument("Invalid Journey seed override");
-  if (entry == XeenEncounterEntry::Journey) camera = original ? callback(services.loadInitialCamera) : xeenJourneyContent().entry;
+  if (entry == XeenEncounterEntry::Journey) camera = original ? callback(services.loadInitialCamera) : services.journeyStart.value_or(xeenJourneyContent().entry);
   XeenWorld world(services.maps, services.objects);
   XeenPartyState party;
   XeenGameFlags flags;
@@ -171,6 +171,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    if (!value) value = 1;
    journeySetup.emplace(XeenJourneySetup{journeyCharacters,services.resources.loadInitialContext(),journeyStatistics,encounterEvents,value});
    journeySetup->regionalManifest=services.resources.regionalManifest;
+   journeySetup->start=services.journeyStart;
 	journeySetup->prepared=!original;
 	if(original) {
 	 journeySetup->context.difficulty=*services.originalStart;
@@ -412,7 +413,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
     panelOrigin=inputFrame?inputFrame:flow.frame().presentation();retainPanel();
     {XeenRestoreGuard::Providers providers(*panelGuard,world);
      panel=services.panel(flow.frame(),combat,bool(world.map(camera.mapId).geometry.flags&0x8000),
-      flow.journey(),services.currentSlot,services.saveName.value_or(""));
+      flow.journey() && !services.saveUnavailable,services.currentSlot,services.saveName.value_or(""));
      panelGuard->check();}
     checkPanel();return panel->frame();
    }
@@ -422,6 +423,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
     if (flow.inventoryOpen()) message = "Cannot save while inventory is open. Close it and press F9 again.";
     else if (!flow.canSave()) message = "Cannot save while an interaction is pending.";
     else if (!flow.journey()) message = "Map exploration cannot save.";
+    else if (services.saveUnavailable) message = std::string("Saving is ") + services.saveUnavailable + ".";
     else if (!looseTarget) message = "No developer save target configured. Use --save-file <path>.";
     else try {
      xeenSaveGameplay(services,world,party,camera,flags,flow,*looseTarget,preflight,&sourceCheck);

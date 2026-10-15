@@ -134,6 +134,40 @@ int main(int argc, char *argv[]) {
 		if (!valid) { newGameUsage(); return 1; }
 		return application.newGame(std::filesystem::u8path(argv[path]), difficulty, save);
 	}
+	if (argc >= 2 && std::string(argv[1]) == "--monster-fixture") {
+		// Developer: --monster-fixture <species> <game-directory> [--record <n>] [--start <x>,<y>,<facing>] [--combat-seed <nonzero-u32>]
+		const auto usage=[] {
+			std::cerr << "Usage: --monster-fixture <xeen.mon species> <game-directory> [--record <map-23 record>] [--start <x>,<y>,<north|east|south|west>] [--combat-seed <nonzero-u32>] [--ui-data <XEEN.DAT>]\n"
+				"Starts the prepared Journey on F3 with that original species placed at a record's spawn, by default 2-3 cells straight ahead of the party. Saving is disabled.\n";
+			return 1;
+		};
+		const auto number=[](const std::string &text,std::uint64_t limit,std::uint64_t &value) {
+			if (text.empty() || text.size()>10) return false;
+			value=0;for (char ch:text) { if (ch<'0' || ch>'9') return false; value=value*10+static_cast<unsigned>(ch-'0'); }
+			return value<=limit;
+		};
+		std::uint64_t species=0,record=0,seedValue=0;bool seedSeen=false,recordSeen=false;
+		std::optional<mmodern::XeenCamera> start;
+		if (argc<4 || !number(argv[2],255,species) || std::string(argv[3]).empty() || std::string(argv[3]).rfind("--",0)==0) return usage();
+		for (int i=4;i<argc;i+=2) {
+			if (i+1>=argc) return usage();
+			const std::string option=argv[i],value=argv[i+1];
+			if (option=="--record" && !recordSeen) { recordSeen=true;if (!number(value,255,record)) return usage(); }
+			else if (option=="--combat-seed" && !seedSeen) { seedSeen=true;if (!number(value,std::numeric_limits<std::uint32_t>::max(),seedValue) || !seedValue) return usage(); }
+			else if (option=="--start" && !start) {
+				const auto first=value.find(','),second=first==std::string::npos ? first : value.find(',',first+1);
+				std::uint64_t x=0,y=0;mmodern::XeenDirection facing=mmodern::XeenDirection::North;
+				if (second==std::string::npos || !number(value.substr(0,first),15,x) || !number(value.substr(first+1,second-first-1),15,y) ||
+					!parseDirection(value.substr(second+1),facing)) return usage();
+				start=mmodern::XeenCamera{23,static_cast<int>(x),static_cast<int>(y),facing};
+			}
+			else return usage();
+		}
+		mmodern::XeenMonsterFixture fixture{static_cast<unsigned>(species),{},start};
+		if (recordSeen) fixture.record=static_cast<unsigned>(record);
+		return application.monsterFixture(std::filesystem::u8path(argv[3]),fixture,
+			seedSeen ? std::optional<std::uint32_t>{static_cast<std::uint32_t>(seedValue)} : std::nullopt);
+	}
 	for (int i=1;i<argc;++i) if (std::string(argv[i]) == "--combat-seed" || std::string(argv[i]) == "--journey-region") {
 		const bool regional = argc >= 2 && std::string(argv[1]) == "--journey-region";
 		std::optional<std::uint32_t> seed;
@@ -233,6 +267,7 @@ int main(int argc, char *argv[]) {
     }
 	if (argc != 2 || std::string(argv[1]).rfind("--", 0) == 0) {
 		newGameUsage();
+		std::cerr << "     " << argv[0] << " --monster-fixture <species> <game-directory> [--record <n>] [--start <x>,<y>,<facing>] [--combat-seed <nonzero-u32>]\n";
 		std::cerr << "     " << argv[0] << " --inspect-map <game-directory>\n";
 		std::cerr << "     " << argv[0] << " --inspect-map <game-directory> <map-id>\n";
 		std::cerr << "     " << argv[0] << " --inspect-party <game-directory>\n";

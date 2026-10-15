@@ -72,7 +72,7 @@ void geometry() {
 	a.x=15;
 	a.statistics->raw[32]=1;
 	check(xeenIndoorActorTerrain(world,a,16,15)==XeenMonsterTerrain::Allowed,"Supported ranged actor must cross indoor tile seams");
-	a.statistics->raw[29]=2;
+	a.statistics->raw[29]=7; // DT_SLEEP is never a monster attack type
 	check(xeenIndoorActorTerrain(world,a,16,15)==XeenMonsterTerrain::Unsupported,"Unsupported indoor attack type must retain movement refusal");
 }
 void capabilities() {
@@ -85,21 +85,23 @@ void capabilities() {
 	// Mechanics do not depend on name, experience, sprite or animation effects.
 	for(unsigned loop:{0u,1u})for(unsigned effect=0;effect<=15;++effect) {
 		m.raw[48]=loop;m.raw[49]=effect;m.validateAttackCapabilities();
-		XeenCombatRandom rng(std::vector<XeenCombatRandom::Draw>{{0,5,0},{1,8,8},{1,40,40},{1,40,40}});
+		// DOS doCharDamage: target, dice, the initial save with the Physical
+		// selector (Luck 15 + level 3: 1..25), then the Poison save (1..40).
+		XeenCombatRandom rng(std::vector<XeenCombatRandom::Draw>{{0,5,0},{1,8,8},{1,25,25},{1,40,40}});
 		XeenEnemyAttackCandidate attack(chars,inputs,m,610,63);
 		for(unsigned n=0;n<20;++n) {XeenConsequenceDraw draw{rng,1,{}};if(attack.service(draw))break;}
 		check(rng.position()==4&&attack.result.damage==8&&attack.characters[0].currentHp==42,
-			"Generic poison profile must retain reference target/dice/save order");
+			"Generic poison profile must retain DOS target/dice/save order");
 	}
 	for(unsigned field:{26u,28u,29u,30u,32u}) {
-		auto bad=m;bad.raw[field]=field==29?2:field==30||field==32?1:0;
+		auto bad=m;bad.raw[field]=field==29?7:field==30?23:field==32?2:0;
 		rejects([&]{XeenEnemyAttackCandidate attack(chars,inputs,bad,610,63);});
 		check(chars[0].currentHp==50,"Rejected attack must leave source party untouched");
 	}
 	// Existing physical abilities/ranged admission remain shared with outdoors.
 	m.raw[29]=0;m.raw[31]=5;m.raw[32]=1;
-	for(unsigned special:{0u,5u,7u,9u}) {m.raw[30]=special;m.validateAttackCapabilities();}
-	m.raw[30]=1;rejects([&]{m.validateAttackCapabilities();});
+	for(unsigned special=0;special<=22;++special) {m.raw[30]=special;m.validateAttackCapabilities();}
+	m.raw[30]=23;rejects([&]{m.validateAttackCapabilities();});
 }
 
 void cityEvents() {

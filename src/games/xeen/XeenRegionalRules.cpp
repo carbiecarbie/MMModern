@@ -61,7 +61,7 @@ void xeenValidateRegionalManifest(const XeenMap &map, const XeenObjectFile &obje
 		throw std::invalid_argument("Regional resource topology is unsupported");
 	for (const auto &monster:objects.entities.monsters) {
 		if (!monster.hasResource() || unsigned(monster.resourceId)>=statistics.size() ||
-			!statistics[monster.resourceId].supportsGroundMovement() ||
+			!xeenMonsterMovementSupported(statistics[monster.resourceId],monster.resourceId) ||
 			!statistics[monster.resourceId].supportsAdmittedMechanicsRendering())
 			throw std::invalid_argument("Regional monster mechanics are unsupported");
 		statistics[monster.resourceId].validateAttackCapabilities();
@@ -144,7 +144,7 @@ bool xeenIndoorRangedRay(XeenWorld &world,const XeenCamera &camera,const XeenAct
 }
 XeenMonsterTerrain xeenRegionalActorTerrain(const XeenMap &map, const XeenActor &a, int x, int y) {
 	if (!local(x,y) || map.side!=XeenSide::Clouds || !map.geometry.isOutdoors() ||
-		map.identity()!=a.id.mapId || !a.statistics || !a.statistics->supportsGroundMovement() || a.original.resourceId==59)
+		map.identity()!=a.id.mapId || !a.statistics || !xeenMonsterMovementSupported(*a.statistics,a.original.resourceId))
 		return XeenMonsterTerrain::Unsupported;
 	const auto *l=xeenGetIf<XeenOutdoorLayers>(&map.geometry.cells[y*16+x].geometry);
 	if (!l || l->surface>=16 || l->middle>=16) return XeenMonsterTerrain::Unsupported;
@@ -158,8 +158,7 @@ XeenMonsterTerrain xeenRegionalActorTerrain(const XeenMap &map, const XeenActor 
 	}
 }
 XeenMonsterTerrain xeenIndoorActorTerrain(XeenWorld &world,const XeenActor &a,int x,int y) {
-	if(!a.statistics || !a.statistics->supportsGroundMovement() ||
-		a.original.resourceId==59)return XeenMonsterTerrain::Unsupported;
+	if(!a.statistics || !xeenMonsterMovementSupported(*a.statistics,a.original.resourceId))return XeenMonsterTerrain::Unsupported;
 	if(a.statistics->raw[32]) {
 		try {a.statistics->validateAttackCapabilities();}
 		catch(const std::invalid_argument &) {return XeenMonsterTerrain::Unsupported;}
@@ -222,7 +221,7 @@ void xeenValidateRegionalActors(const XeenMap &map, const XeenObjectFile &mob, c
 		const auto &a=actors[i];const auto &original=mob.entities.monsters[i];
 		if (!(a.id==XeenMonsterIdentity{23,i}) || a.original.x!=original.x || a.original.y!=original.y ||
 			a.original.tableIndex!=original.tableIndex || a.original.direction!=original.direction || a.original.resourceId!=original.resourceId ||
-			!a.statistics || !a.statistics->supportsGroundMovement() || !a.statistics->supportsAdmittedMechanicsRendering() || a.status!=XeenActorStatus::Physical)
+			!a.statistics || !xeenMonsterMovementSupported(*a.statistics,a.original.resourceId) || !a.statistics->supportsAdmittedMechanicsRendering() || a.status!=XeenActorStatus::Physical)
 			throw std::invalid_argument("Regional actor immutable identity/profile changed");
 		const auto type=a.original.resourceId;
 		if (!a.original.hasResource() || unsigned(type)>=statistics.size() || a.statistics->raw!=statistics[type].raw)
@@ -326,7 +325,7 @@ bool XeenRegionalOpportunityCandidate::service(XeenConsequenceDraw &draw) {
         shot.attack.operation=part.operation;shot.attack.attackOutcome=part.attackOutcome;
         for(unsigned i=0;i<part.armorCount;++i) {
             const auto &change=part.armor[i];bool found=false;
-            for(unsigned j=0;j<shot.attack.armorCount;++j)if(shot.attack.armor[j].owner==change.owner && shot.attack.armor[j].slot==change.slot) {shot.attack.armor[j].after=change.after;found=true;break;}
+            for(unsigned j=0;j<shot.attack.armorCount;++j)if(shot.attack.armor[j].owner==change.owner && shot.attack.armor[j].slot==change.slot && shot.attack.armor[j].category==change.category) {shot.attack.armor[j].after=change.after;found=true;break;}
             if(!found)shot.attack.armor.at(shot.attack.armorCount++)=change;
         }
         characters=attack->characters;

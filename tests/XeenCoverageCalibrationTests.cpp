@@ -38,7 +38,7 @@ int main(int argc,char **argv) {
         require(!documentedGap("Events","16 Spawn slot=0","partial","Invalid Spawn operands or owner"),"Missing probe owner must fail calibration");
         require(!documentedGap("Events","17 DoTownEvent action=0","unsupported","opcode 17 is outside the supported decoder subset"),"Missing service handoff must fail calibration");
         std::ifstream input(argv[1]);require(bool(input),"Cannot read coverage report");
-        std::string line,dimension;bool clouds=false;unsigned gaps=0,unused=0;
+        std::string line,dimension;bool clouds=false;unsigned gaps=0,unused=0,waterDragon=0;
         std::set<std::string> supported;
         while(std::getline(input,line)) {
             if(line=="## Clouds detail")clouds=true;
@@ -49,6 +49,11 @@ int main(int argc,char **argv) {
             while(std::getline(stream,column,'|'))columns.push_back(trim(column));
             if(columns.size()!=7)continue;
             const auto &mechanic=columns[1],&status=columns[2],&reason=columns[6];
+            // M68 Part A: species 59 (Water Dragon) keeps its runtime movement refusal until Part B.
+            if((dimension=="Monster species" && mechanic.rfind("xeen.mon 59 ",0)==0) || (dimension=="Monsters" && mechanic.find("species=59")!=std::string::npos)) {
+                require(status=="unsupported" && reason.find("species 59")!=std::string::npos && reason.find("Part B")!=std::string::npos,
+                    "Water Dragon must stay a documented movement gap: "+dimension+" / "+mechanic+" / "+reason);++waterDragon;
+            }
             std::set<unsigned> maps;std::stringstream ids(columns[5]);
             while(std::getline(ids,column,','))try {maps.insert(std::stoul(trim(column)));}catch(...){}
             if(maps.count(28)) {
@@ -71,6 +76,7 @@ int main(int argc,char **argv) {
             require(found,std::string("Accepted Vertigo mechanic missing: ")+prefix);
         }
         require(gaps==11 && unused==4,"Vertigo documented gap/subroutine inventory changed; explain and recalibrate");
+        require(waterDragon==2,"Water Dragon species and movement rows are missing from the Clouds census");
         std::cout<<"Vertigo calibration: "<<gaps<<" documented gap rows; "<<unused<<" unresolved-subroutine exceptions; accepted effects and services supported\n";
         return 0;
     }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}

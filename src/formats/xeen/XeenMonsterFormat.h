@@ -42,6 +42,12 @@ struct XeenMonsterRecord {
 	unsigned preferredClass() const { return raw[25]; }
 	unsigned hatred() const { return raw[25]; }
 	unsigned damageType() const { return raw[29]; }
+	// SpecialAttack byte 30: 0 none, 5 Poison, 7 Disease, 8 Insane, 9 Sleep,
+	// 10 Curse Item, 11 (In Love, no effect), 12 Drain SP, 13 Curse, 14 Paralyze,
+	// 15 Unconscious, 16 Confuse, 17 Break Weapon, 18 Weaken, 19 Eradicate,
+	// 20 Aging, 21 Death, 22 Stone; 1-4 and 6 reach no handler in DOS.
+	unsigned specialAttack() const { return raw[30]; }
+	bool ranged() const { return raw[32] != 0; }
 	unsigned damageDie() const { return raw[28]; }
 	unsigned hitParameter() const { return raw[31]; }
 	// MonsterStruct::synchronize order (pinned ScummVM map.cpp): type 33, then

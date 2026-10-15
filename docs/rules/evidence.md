@@ -346,6 +346,25 @@ production behavior in Part D; the other findings update the rules reference.
 | Monster recovery differs from the pin | Caller `0x20ca9..0x20cf1`, helper `0x2e19b`, comparison `0x2e1b2..0x2e1b4`, clear `0x20ce1`: DOS clears at draw `<= ID`, the pin at `>= ID`. Not reachable with currently admitted monster states. |
 | Long time calls apply economy once | Calendar `0x263b3..0x26491`, stock `0x26401`, interest `0x26408`, latch `0x2640b..0x26411`, interest arithmetic `0x26492..0x264c4`. Confirmation is limited to word-sized arguments, including current 1,440/2,880-minute calls; a synthetic 144,000-minute call is not representable in DOS. |
 
+## Monster damage and secondary attacks
+
+**2026-10-15, M68 Part A; DOS static, high confidence.** Same executable hash
+as above. Bounded Capstone 16-bit reads of file offsets, calibrated against the
+already confirmed Break Weapon site `0x2d52c..0x2d532`, the natural-20 caller
+`0x2db55 -> 0x2d22d` and the character record layout (conditions at character
+offset `0x143`, current HP `0x156`, current SP `0x158`, temporary age `0x26`,
+item categories at `0xa7`, `0xcc`, `0xf0`, `0x114` with 4-byte slots).
+
+| Finding | Original file offsets and boundary |
+| --- | --- |
+| `doCharDamage` entry, Sleep clear, dice loop | `0x2d22d`; `mov byte [0x14b], 0` at `0x2d236`; `strikes` from monster offset `0x1a`, each `random(1, dmgPerStrike)` at `0x2d26c..0x2d27d`. |
+| Initial save uses the Physical selector | `0x2d2e4` pushes 0, calls `0x2d0c2`, halves on success at `0x2d2f7`; the type switch at `0x2d2f9..0x2d35c` subtracts party protection for types 2-5 and selects the frame/sound. |
+| Element save loop | `0x2d35e..0x2d374`: push type, call `0x2d0c2`, `je 0x2d376`, `sar di,1`, `or di,di`, `jne 0x2d35e`. Drawn once even at zero damage. |
+| Power Shield and clamp | `0x2d3a9..0x2d3b5`; zero damage jumps to the subtraction at `0x2d6b5`. |
+| Secondary save and dispatch | special byte test `0x2d3e3`, Physical save `0x2d3ed..0x2d3fe`, `special - 5` bound `0x11` at `0x2d433`, jump table `0x2d6d9` (entries for specials 5..22). |
+| Handlers | Poison `0x2d442`, Sleep `0x2d462`, Disease `0x2d4a5`, Insane `0x2d486`, Confuse `0x2d4c4`, Curse `0x2d4e4`, Break Weapon `0x2d508`, Weaken `0x2d541`, Drain SP `0x2d561`, Paralyze `0x2d56e`, Aging `0x2d592`, Unconscious `0x2d5a2`, Eradicate `0x2d5c6` (helper `0x2bd6a`), Stone `0x2d611`, Death `0x2d641`, Curse Item `0x2d671`; specials 6 and 11 map to `0x2d6b5`. |
+| Saving throw helper | `0x2d0c2`: selector 0 adds level and `statBonus(Luck)` and draws `1..v + 20` (`0x2d0fe`); selectors 1-6 add the resistance pair and `itemScan` bonus and draw `1..r + 40` (`0x2d202`); success when the draw is at most the value (`0x2d212..0x2d21d`). |
+
 ## REA record locators
 
 The exported evidence bundle contains complete records. The stable IDs below
@@ -369,7 +388,7 @@ replacements for the control-flow interpretation above.
 
 | Area | Question to settle before extending a rule |
 | --- | --- |
-| Combat | Establish remaining enchanted multi-attack arithmetic and Eradicate equipment-frame behavior. |
+| Combat | Establish remaining enchanted multi-attack arithmetic. Eradicate equipment-frame behavior is settled above. |
 | Damage and targeting | Confirm ranged continuation, elemental multi-attack arithmetic and targeting distributions for every party size. |
 | Items | Trace all other item-prompt refunds; Recharge, Enchant, Item to Gold, cursed refusals and high-tier generation. |
 | Treasure | Extend delivery evidence to the special sword and other editions' quest branches; the Clouds quest display/count boundary is established above. |

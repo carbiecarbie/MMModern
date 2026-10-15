@@ -18,6 +18,11 @@ struct XeenActorView {
 	bool engaged() const { return slots[0] || slots[1] || slots[2]; }
 };
 enum class XeenMonsterTerrain { Allowed, Blocked, Unsupported };
+// The movement capability the runtime applies to a monster of this species:
+// ground movement (nonzero HP, flying byte zero) and not species 59, whose
+// water-only movement waits for Part B together with flight. Movement,
+// the regional manifest, the developer fixture and the census all ask this.
+bool xeenMonsterMovementSupported(const XeenMonsterRecord &, int species) noexcept;
 // MODE_SLEEPING permits an opportunity without permanently activating actors.
 struct XeenActorOpportunityContext {
 	bool sleeping=false, movementEnabled=true, charactersShooting=false;
@@ -119,16 +124,25 @@ private:
 	using StartPublicationPreparation = std::function<void(const XeenPartyState &,
 		const std::vector<XeenActor> &, const std::optional<XeenJourneyRandomState> &,
 		const std::optional<std::vector<XeenActor>> &, const std::vector<XeenMonsterRecord> &)>;
+	// `start`: developer fixture only; a prepared start inside the mainland
+	// component instead of the Journey entry.
 	static XeenEncounterResult initializeStart(XeenWorld &, XeenPartyState &, XeenCamera &,
 		XeenEncounterState &, const std::vector<std::uint8_t> &, const XeenGameplayContext &,
 		const std::vector<XeenMonsterRecord> &, const XeenEventFile &, const XeenEventFile &,
 		std::uint32_t, const std::optional<XeenMonsterTreasure> &, const std::optional<XeenBankBalances> &,
-		bool prepared, const std::optional<XeenWorldFlags> &, const StartPublicationPreparation &);
+		bool prepared, const std::optional<XeenWorldFlags> &, const StartPublicationPreparation &,
+		const std::optional<XeenCamera> &start = {});
 	static XeenEncounterResult initializeJourney(XeenWorld &, XeenPartyState &, XeenCamera &,
 		XeenEncounterState &, const std::vector<std::uint8_t> &, const XeenGameplayContext &,
 		const std::vector<XeenMonsterRecord> &, const XeenEventFile &, std::uint32_t,
 		const std::optional<XeenMonsterTreasure> &, const std::optional<XeenBankBalances> &,
 		const FreshPublicationPreparation &);
+	// Developer monster fixture: the same initialization from a chosen mainland start.
+	static XeenEncounterResult initializeJourney(XeenWorld &, XeenPartyState &, XeenCamera &,
+		XeenEncounterState &, const std::vector<std::uint8_t> &, const XeenGameplayContext &,
+		const std::vector<XeenMonsterRecord> &, const XeenEventFile &, std::uint32_t,
+		const std::optional<XeenMonsterTreasure> &, const std::optional<XeenBankBalances> &,
+		const FreshPublicationPreparation &, const XeenCamera &start);
 	static XeenEncounterResult regionalTransition(XeenWorld &, XeenPartyState &, XeenCamera &, XeenEncounterState &,
 		const XeenEventFile &, std::optional<XeenEncounterAction>, std::unique_ptr<XeenRegionalActionCandidate> &);
 	static XeenEncounterResult transition(XeenWorld &, XeenPartyState &, XeenCamera &,
