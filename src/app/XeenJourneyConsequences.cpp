@@ -47,7 +47,10 @@ bool XeenEncounterFlow::beginShoot() {
    const auto &c=_party.roster.at(candidate->owners[i]);
    if(c.canAct()) for(const auto &w:c.weapons) if(w.frame==4) candidate->eligible[i]=eligible=true;
   }
-  if(!eligible) { _journeyRefusal="No one can shoot.";return true; }
+  // Nobody can shoot: the original only plays sound effect 21, with no message
+  // (pin interface.cpp Shoot `!party.canShoot()`; maintainer DOSBox CD play,
+  // 2026-10-15). Audio arrives with the audio arc; until then this is silent.
+  if(!eligible)return true;
   // Check before retaining intent or consuming old work, and again when that
   // work finishes: ranged damage can disable a previously eligible shooter.
   if(_state.pending()) { retireCastingFeedback();_shootIntent=true;journeyPulse(ticket());return true; }

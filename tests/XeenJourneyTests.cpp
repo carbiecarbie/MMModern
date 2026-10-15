@@ -460,7 +460,21 @@ void frameFailure() {
 	check(!f.flow->current(failed) && !f.flow->journeyQuiet(), "failed recovery is terminal");
 }
 }
+// Shoot with no eligible shooter: the original plays a sound only. No message,
+// no time, no draw and no actor movement.
+void shootWithoutShooters() {
+	regional_journey_test::Fixture f(chr(),[](auto &g) {
+		for (unsigned id = 0; id < 30; ++id) for (auto &w : g.p.roster.at(id).weapons) if (w.frame == 4) w.frame = 0;
+	});
+	const std::vector<XeenActor> actors = f.w.sessionState().actors();
+	const auto random = f.w.sessionState().journeyRandom();const auto context = f.p.encounterContext;
+	check(f.flow->journeyQuiet() && f.flow->handle(ShootAction{}) && f.flow->journeyRefusal().empty(), "Shoot without a shooter shows no message");
+	f.present();
+	check(f.flow->journeyRefusal().empty() && random == f.w.sessionState().journeyRandom() && context == f.p.encounterContext &&
+		f.flow->journeyQuiet(), "Shoot without a shooter spends no time or draw");
+	sameActors(actors, f.w.sessionState().actors());
+}
 int main() {
-	try { lifecycle(); approachAndGuards(); currentValues(); readinessAndHistory(); progression(); callbackAuthority(); postEndInvalidation(); approachBoundaryReplacement(); attachmentBoundaryReplacement(); retainedCombatCaches(); initializationAliases();  carriedConsequences();  approachTimeLimit();frameFailure(); std::cout << "Journey domain tests passed\n"; return 0; }
+	try { shootWithoutShooters(); lifecycle(); approachAndGuards(); currentValues(); readinessAndHistory(); progression(); callbackAuthority(); postEndInvalidation(); approachBoundaryReplacement(); attachmentBoundaryReplacement(); retainedCombatCaches(); initializationAliases();  carriedConsequences();  approachTimeLimit();frameFailure(); std::cout << "Journey domain tests passed\n"; return 0; }
 	catch (const std::exception &e) { std::cerr << e.what() << '\n'; return 1; }
 }
