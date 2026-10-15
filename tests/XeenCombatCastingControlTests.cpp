@@ -70,8 +70,8 @@ int main(int argc,char **argv){try{
         if(group) {
             const auto destination=fixture.journey->actors.at(9);
             for(unsigned index:{7u,8u,9u}) {
+                // Decision 8: the witness wounds and wakes them live after the load.
                 fixture.journey->actors.at(index).x=destination.x;fixture.journey->actors.at(index).y=destination.y;
-                fixture.journey->actors.at(index).hp=1;fixture.journey->actors.at(index).activated=true;
             }
         }
         const auto save=dir/(control+".mmsave");mmodern::XeenSaveFile::write(save,fixture);

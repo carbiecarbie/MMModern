@@ -313,6 +313,7 @@ private:
 	std::optional<SaveBoundary> _saveBoundary;
 	friend class Application;
 	friend struct XeenTrainingTestAccess;
+	friend struct XeenMonsterTestAccess;
 	friend struct XeenCityEventTestAccess;
 	friend struct XeenPurchaseTestAccess;
 	void requireCurrentOwners() const;

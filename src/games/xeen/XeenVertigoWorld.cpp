@@ -16,6 +16,11 @@ XeenActorView XeenWorld::prepareTransitionArrival(const XeenCamera &camera) {
 	return view;
 }
 
+void XeenWorld::reloadMapMonsters(XeenMapIdentity mapId) {
+	if (!_detachedEventCandidate) throw std::logic_error("Map load requires a detached transition");
+	for (auto &actor:_sessionState.mutableMonsters(mapId)) xeenRefillLoadedMonster(actor);
+}
+
 void XeenWorld::stageIndoorMonsters(const XeenObjectFile &mob,
 		const std::vector<XeenMonsterRecord> &statistics) {
 	XeenMutationWatch::write(this);

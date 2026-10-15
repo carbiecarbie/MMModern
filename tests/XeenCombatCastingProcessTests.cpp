@@ -98,7 +98,9 @@ int main(int argc,char **argv) {
                 settled.journey->context->minutes==(waking?593:591) && settled.journey->context->ctr24==16 &&
                 settled.characters[1].currentSp==(waking?20:21) && settled.characters[6].currentSp==(waking?26:25) &&
                 settled.journey->random->state==(waking?1843076463u:2928686826u) && settled.journey->random->count==886+(waking?54u:42u) &&
-                settled.journey->actors[15].hp==(waking?33:25) && !settled.journey->actors[15].accounted,
+                // Decision 8 (M69 A2): the save carries the Toad's MON HP (90); the
+                // witness asserts its live wound (33 or 25) before this checkpoint.
+                settled.journey->actors[15].hp==90 && !settled.journey->actors[15].accounted,
                 "M49 unchanged seed7 inputs / corrected targeting checkpoint differs");
             equal(fresh,run(std::string(branch)+"-restore",branch,"continued",dir/(std::string(branch)+"-"+branch+".mmsave")));
             child_test::require(drawsAfter(dir/(std::string(branch)+".log"),std::string("M39 CHECKPOINT ")+branch+" ")==drawsAfter(dir/(std::string(branch)+"-restore.log"),"M39 RESTORE EXACT BEFORE INPUT"),"M39 seed7 continuation RNG request trace differs");

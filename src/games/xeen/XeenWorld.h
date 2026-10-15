@@ -109,6 +109,7 @@ private:
 	friend class XeenEncounterFlow;
 	friend struct XeenTrainingTestAccess;
 	friend struct XeenPurchaseTestAccess;
+	friend struct XeenMonsterTestAccess;
 	XeenMutationMarker _mutation;
 	XeenJourneyActivity _journeyActivity = XeenJourneyActivity::Unbound;
 	const void *_journeyOwner = nullptr;
@@ -257,12 +258,16 @@ public:
 	void publishTransition(XeenWorld &candidate) noexcept;
 	XeenScenePresentation prepareSpawnPresentation(const XeenWorld &candidate) const;
 	XeenActorView prepareTransitionArrival(const XeenCamera &);
+	// Map load (decision 8): the destination's live monsters return to MON HP,
+	// asleep, before the arrival view wakes those it sees. Detached work only.
+	void reloadMapMonsters(XeenMapIdentity);
 
 private:
 	friend class XeenSaveState;
 	friend class XeenEventPublication;
 	friend class XeenEncounterFlow;
 	friend struct XeenTrainingTestAccess;
+	friend struct XeenMonsterTestAccess;
 	friend class XeenRestoreGuard;
 	friend class XeenCombat;
 	friend class XeenActorApproach;

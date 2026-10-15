@@ -121,7 +121,11 @@ void roundtrips() {
 		check(!XeenSaveState::canCapture(movedOwner.p,movedOwner.c,movedOwner.w),"wrong owners cannot consume restoration handoff");
 	}
 	movedOwner.bind(); same(s,movedOwner);
-	check(movedOwner.flow->journeyAction(movedOwner.flow->ticket(),XeenEncounterAction::Wait).outcome==XeenEncounterOutcome::Engaged &&
+	// Decision 8 (M69 A2): the moved checkpoint's woken Orc #5 stands behind the
+	// party, outside the arrival view, so the game load leaves it asleep and the
+	// explicit Wait no longer engages it. Time still comes from the moved state.
+	check(!movedOwner.w.sessionState().monsters(23)[5].activated,"restore leaves the out-of-view Orc asleep");
+	check(movedOwner.flow->journeyAction(movedOwner.flow->ticket(),XeenEncounterAction::Wait).outcome==XeenEncounterOutcome::Accepted &&
 		movedOwner.p.encounterContext->minutes==500 && movedOwner.p.encounterContext->ctr24==3,"explicit Wait after restore uses moved state");
 }
 void repair(Bytes &b) {
@@ -231,11 +235,17 @@ void failures() {
 		});});check(!d.w.hasEncounterState()&&!d.p.encounterContext,"candidate failure atomicity");
 	}
 	Destination stale;stale.restore(s);stale.f.set(7);rejects([&]{stale.bind();});check(!XeenSaveState::canCapture(stale.p,stale.c,stale.w),"binding rejects postpublication mutation");
+	{
+		// Decision 8 (M69 A2): the v12 HP field is not durable data. A saved
+		// wound is ignored and the game load rebuilds the Orc at its MON HP.
+		auto wounded=s;wounded.journey->actors[5].hp=21;Destination d;d.restore(wounded);
+		const auto &orc=d.w.sessionState().monsters(23)[5];check(orc.hp==orc.statistics->baseHp() && orc.hp!=21,"game load ignores a saved monster wound");
+	}
 	for(unsigned kind=0;kind<8;++kind) {
 		auto bad=s;switch(kind) {
 		case 0:bad.resources.clouds.crc32++;break;
 		case 1:bad.journey->actors[5].accounted=true;break;
-		case 2:bad.journey->actors[5].hp=21;break;
+		case 2:bad.journey->actors[5].hp=0;break; // A live monster still needs positive HP.
 		case 3:bad.journey->actors[5].x=16;break;
 		case 4:bad.journey->context->minutes=1440;break;
 		case 5:bad.journey->actors[5].id.recordIndex=6;break;

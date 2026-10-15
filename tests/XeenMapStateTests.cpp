@@ -75,9 +75,22 @@ void distribution() {
 	check(absent,"An absent monster table must be refused");
 }
 }
+void mapLoad() {
+	// Decision 8 (DOS map load 0x0f542): a live monster returns to its MON HP,
+	// asleep; defeated, disabled and unresolved slots keep their values.
+	XeenMonsterRecord record;record.raw.fill(0);record.raw[20]=25;
+	XeenActor live=actor(23,0,4);live.statistics=record;live.activated=true;
+	xeenRefillLoadedMonster(live);
+	check(live.hp==25 && !live.activated,"A map load must rebuild a live monster asleep at MON HP");
+	XeenActor dead=actor(23,1,0);dead.statistics=record;dead.lifecycle=XeenActorLifecycle::Defeated;
+	xeenRefillLoadedMonster(dead);
+	check(dead.hp==0 && dead.lifecycle==XeenActorLifecycle::Defeated,"A defeated monster stays defeated");
+	XeenActor gap=actor(28,2,0);gap.lifecycle=XeenActorLifecycle::Unresolved;
+	xeenRefillLoadedMonster(gap);check(gap.hp==0,"An unresolved slot has no MON HP");
+}
 int main() {
 	try {
-		exchange();equivalence();bounds();distribution();
+		exchange();equivalence();bounds();distribution();mapLoad();
 		std::cout<<"Per-map table exchange, equivalence, bounds and distribution passed\n";
 	} catch(const std::exception &e) {std::cerr<<e.what()<<'\n';return 1;}
 }

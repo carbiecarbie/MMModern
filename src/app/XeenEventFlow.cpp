@@ -1239,8 +1239,15 @@ void XeenEventFlow::prepareVertigoResult(const XeenManualEventResult &result) tr
 			if(entry.second.monsters && !entry.second.outdoors)indoor.push_back(entry.first);
 		for(const auto mapId:indoor)
 			xeenValidateIndoorActors(*work.world,mapId,work.world->sessionState().regionalActors(mapId));
+		if(!sameMap)work.world->reloadMapMonsters(work.camera.mapId); // Decision 8: map load.
 		return work.world->prepareTransitionArrival(work.camera);
 	}();
+	// The arrival's map load and wake writes belong to the retained candidate:
+	// a recoverable failure below retries from here with this preimage.
+	{
+		auto prepared=std::make_unique<XeenRestoreGuard>(*work.world,work.party,work.camera,work.flags);
+		prepared->retainResources(*work.guard);work.guard.swap(prepared);
+	}
 	_eventPublication->check();
 	XeenRestoreGuard candidateGuard(*work.world,work.party,work.camera,work.flags);
 	candidateGuard.retainResources(*work.guard);

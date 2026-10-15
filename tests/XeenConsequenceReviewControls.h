@@ -252,7 +252,7 @@ XeenSaveSnapshot runAuthorityFixture(Source &s,bool occupied=false) {
   if(slot) {saved.characters[id].currentHp=0;saved.characters[id].conditions[12]=1;}
  }
  saved.characters[kXeenCombatOwners[2]].conditions[13]=7;
- auto &a=saved.journey->actors[9];a.x=occupied?10:8;a.y=occupied?12:11;a.hp=16;a.activated=true;
+ auto &a=saved.journey->actors[9];a.x=occupied?10:8;a.y=occupied?12:11; // Decision 8: no saved wound.
  if(occupied)saved.camera={23,10,11,XeenDirection::North};
  auto &dead=saved.journey->actors[3];dead.x=dead.y=-128;dead.hp=0;dead.activated=false;dead.lifecycle=XeenActorLifecycle::Defeated;dead.accounted=true;
  auto &treasure=*saved.journey->treasure;treasure.pendingMask=8;treasure.pendingGold=10;treasure.armor[0]={3,{0,2,0,0}};

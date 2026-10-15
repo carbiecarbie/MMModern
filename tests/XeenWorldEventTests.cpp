@@ -941,7 +941,12 @@ void originalJourney(Inputs &in) {
  check(!reload.w.sessionState().headCache(),"Town re-entry resurrected old HED overrides");
  const auto retained=reload.w.sessionState().regionalActors(28);
  check(retained.size()==actors.size(),"Flag 9 town exit changed actor count");
- for(unsigned i=0;i<actors.size();++i)check(xeen_state::sameActor(retained[i],actors[i]),"Flag 9 town exit respawned actors");
+ // Decision 8: re-entry is a map load. Positions, identities and lifecycles
+ // survive; HP returns to MON and only the arrival view wakes monsters.
+ for(unsigned i=0;i<actors.size();++i) {
+  auto expected=actors[i];xeenRefillLoadedMonster(expected);expected.activated=retained[i].activated;
+  check(xeen_state::sameActor(retained[i],expected),"Flag 9 town exit respawned actors");
+ }
  walk(reload,14,5);face(reload,XeenDirection::West);const auto purse=reload.p.monsterTreasure->gold;
  interact(reload);check(reload.p.monsterTreasure->gold==purse && reload.p.questFlags.isSet(1),"Reload/re-entry repeated reward");
  stage="earned crate reload";walk(reload,9,28);const auto openedAgain=XeenSaveFormat::encode(reload.snapshot());interact(reload);

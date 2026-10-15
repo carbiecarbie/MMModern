@@ -6,9 +6,11 @@ XeenSaveSnapshot disengagementFixture(Source &source) {
   saved.characters[id].currentHp=1000;
   saved.journey->supplements[id].inputs.speed={255,0};
  }
- auto &survivor=saved.journey->actors[9];survivor.x=8;survivor.y=11;survivor.hp=16;survivor.activated=true;
+ auto &survivor=saved.journey->actors[9];survivor.x=8;survivor.y=11;
  return saved;
 }
+// Decision 8: the survivor's wound and wake state are live fixture values.
+void woundSurvivor(XeenWorld &world) {XeenMonsterTestAccess::set(world,23,9,16,true);}
 XeenCombat &disengagementContact(Domain &d) {
  check(d.flow->journeyAction(d.flow->ticket(),XeenEncounterAction::Forward).outcome==XeenEncounterOutcome::Accepted,"Artificial M34 contact move");
  if(d.flow->state().phase()==XeenEncounterPhase::Exploring)d.flow->journeyPulse(d.flow->ticket());
@@ -33,7 +35,7 @@ XeenCombatResult literalRun(XeenCombat &combat,unsigned roll) {
  return result;
 }
 void disengagementSurvivor(Source &source) {
- auto saved=disengagementFixture(source);Domain d(source,saved);auto &combat=disengagementContact(d);
+ auto saved=disengagementFixture(source);Domain d(source,saved,{},woundSurvivor);auto &combat=disengagementContact(d);
  const auto before=d.party.roster.characters();const auto membership=d.party.party.activeRosterIds();
  const std::vector<XeenActor> actors=d.world.sessionState().monsters(23);const auto context=d.party.encounterContext;const auto origin=d.camera;
  const auto startRandom=d.world.sessionState().journeyRandom()->count;
@@ -70,7 +72,7 @@ void disengagementSurvivor(Source &source) {
  std::cout<<"M34 ARTIFICIAL six ordered Runs, surviving HP16, fixed retirement, no Quiet gap, 5/5 restore and further turn PASS\n";
 }
 void disengagementMixedVictory(Source &source) {
- const auto saved=disengagementFixture(source);Domain d(source,saved);auto &combat=disengagementContact(d);
+ const auto saved=disengagementFixture(source);Domain d(source,saved,{},woundSurvivor);auto &combat=disengagementContact(d);
  const auto selected=combat.selectedTarget();
  literalRun(combat,100);
  check(combat.participants()==0x3f && combat.participant()==1 && combat.selectedTarget()==selected,"Failed Run spends owner0 action and retains target");
@@ -275,6 +277,8 @@ void disengagementFinishPresentation(Source &source,bool injectFault=true) {
    if(occupied)check(northLoads==0,"North neighbor must remain cold before contact");
    present();press(NavigationAction::MoveForward);
    for(unsigned n=0;n<80 && (!h.flow->encounter()->combat() || h.flow->encounter()->combat()->phase()!=XeenCombatPhase::PlayerReady);++n){tick();present();}
+   // Decision 8: the game load restores the survivor at its MON HP.
+   const auto survivorHp=h.world->sessionState().monsters(23)[9].hp;
    check(h.flow->encounter()->combat() && h.flow->encounter()->combat()->participant()==0,"Finish presentation fixture reaches original combat");
    if(occupied)check(coldNorth,"Cold map 22 must load during real combat composition");
    for(unsigned exit=0;exit<(occupied?2u:1u);++exit) {
@@ -309,7 +313,7 @@ void disengagementFinishPresentation(Source &source,bool injectFault=true) {
      h.party->monsterTreasure->armor==saved.journey->treasure->armor &&
      h.party->monsterTreasure->miscellaneous==saved.journey->treasure->miscellaneous,"Feedback does not credit, forfeit twice or alter item provenance");
     check(h.party->roster.at(kXeenCombatOwners[2]).conditions[13]==7,"Feedback preserves existing Dead counter");
-    check(h.camera->x==10 && h.camera->y==12 && h.world->sessionState().monsters(23)[9].hp==16,"Relocation and wounded survivor remain published exactly once");
+    check(h.camera->x==10 && h.camera->y==12 && h.world->sessionState().monsters(23)[9].hp==survivorHp,"Relocation and survivor remain published exactly once");
     auto *replacement=h.flow->encounter()->combat();
     check(bool(replacement)==occupied,"Destination occupancy determines immediate attachment");
     if(replacement)check(!replacement->current(oldTicket) && replacement->participants()==0x3f &&

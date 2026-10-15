@@ -266,15 +266,19 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                         std::cerr<<' '<<entry.first.number<<'#'<<a.id.recordIndex<<'@'<<a.x<<','<<a.y<<" hp"<<a.hp<<(a.activated?"*":"");
                 std::cerr<<'\n';});};
             // Decision 9: a checkpoint a run resumes from holds every live monster
-            // of the camera map at base HP and asleep. Logged in A1, fatal from A2.
+            // of the camera map at base HP and asleep; fatal since M69 A2.
             const auto decision9=[&](const char *label){inspect([&,label]{
                 std::string violations;
                 for(const auto &a:world->sessionState().monsters(position->mapId))
                     if(a.lifecycle==XeenActorLifecycle::Present && (a.activated || a.hp!=a.statistics->baseHp()))
                         violations+=" #"+std::to_string(a.id.recordIndex)+" hp "+std::to_string(a.hp)+"/"+
                             std::to_string(a.statistics->baseHp())+(a.activated?" woken":"");
-                std::cerr<<"M69 DECISION9 "<<label<<" map "<<position->mapId.number<<(violations.empty()?" holds":" violated:"+violations)<<'\n';});};
-            const auto contactFight=[&](bool wound){steps.push_back([&,wound]{
+                std::cerr<<"M69 DECISION9 "<<label<<" map "<<position->mapId.number<<(violations.empty()?" holds":" violated:"+violations)<<'\n';
+                check(violations.empty(),"M69 decision 9 violated at a resumed checkpoint");});};
+            // The Orc wounded before the Vertigo round trip, by record: decision 8
+            // heals it when F3 is loaded again, so its HP cannot identify it.
+            auto woundedOrc=std::make_shared<std::optional<std::size_t>>();
+            const auto contactFight=[&](bool wound){steps.push_back([&,wound,woundedOrc]{
                 // Attack the lowest record in contact; when wounding, Run once it is hurt.
                 const auto *combat=flow->encounter()->combat();
                 if(!combat) {
@@ -291,10 +295,12 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 for(unsigned i=0;i<rows.size();++i)if(rows[i] && (!rows[selected] || rows[i]->recordIndex<rows[selected]->recordIndex))selected=i;
                 if(!(rows[selected]==combat->selectedTarget())){act(SelectCombatTargetAction{selected});return false;}
                 const auto &target=world->sessionState().regionalActors(rows[selected]->mapId).at(rows[selected]->recordIndex);
-                act(wound && target.hp<target.statistics->baseHp() ? PlayerAction{RunAction{}} : PlayerAction{AttackAction{}});
+                const bool run=wound && target.hp<target.statistics->baseHp();
+                if(run)*woundedOrc=std::size_t(target.id.recordIndex);
+                act(run ? PlayerAction{RunAction{}} : PlayerAction{AttackAction{}});
                 return false;
             });};
-            const auto seekOrc=[&](bool wounded){steps.push_back([&,wounded]{
+            const auto seekOrc=[&](bool wounded){steps.push_back([&,wounded,woundedOrc]{
                 // Walk toward the nearest live Orc (the wounded one when asked) until contact.
                 if(flow->encounter()->combat())return true;
                 if(!flow->canSave()) {
@@ -306,7 +312,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 const auto walkable=XeenMovement::component(world->map(23),9,11,xeenJourneyContent().traversal);
                 for(const auto &actor:world->sessionState().monsters(23))
                     if(actor.lifecycle==XeenActorLifecycle::Present && actor.original.resourceId==6 &&
-                        walkable[actor.y*16+actor.x] && (!wounded || actor.hp<actor.statistics->baseHp())) {
+                        walkable[actor.y*16+actor.x] && (!wounded || (*woundedOrc && actor.id.recordIndex==**woundedOrc))) {
                         const int next=std::abs(actor.x-position->x)+std::abs(actor.y-position->y);
                         if(next<distance){selected=&actor;distance=next;}
                     }

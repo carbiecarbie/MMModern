@@ -21,6 +21,7 @@
 #include "platform/XeenSaveFile.h"
 #include "games/xeen/XeenOutdoorScene.h"
 #include "XeenInitialResourceOracle.h"
+#include "XeenMonsterTestAccess.h"
 #include "XeenM40Evidence.h"
 using namespace mmodern;
 using save_test::check;
@@ -74,10 +75,14 @@ auto currentServices(combat_gameplay_test::Harness &h,Source &source){
 struct Domain {
  Source &source;XeenWorld world;XeenPartyState party;XeenCamera camera{23,9,11,XeenDirection::West};XeenGameFlags flags;
  std::uint64_t now=0;XeenEventPresenter::Clock clock=[this]{return now;};std::unique_ptr<XeenEncounterFlow> flow;
- Domain(Source &s,const std::optional<XeenSaveSnapshot> &saved={},XeenWorld::MapLoader fixture={}):source(s),world(fixture?fixture:[&](auto id){return s.maps.loadGeometryMap(s.assets,id);},[&](auto id){return s.maps.loadObjects(s.assets,id);}) {
+ // afterRestore: a live fixture change after the game load (decision 8 keeps
+ // wounds and wake state out of saves), before the flow adopts the world.
+ Domain(Source &s,const std::optional<XeenSaveSnapshot> &saved={},XeenWorld::MapLoader fixture={},
+  const std::function<void(XeenWorld &)> &afterRestore={}):source(s),world(fixture?fixture:[&](auto id){return s.maps.loadGeometryMap(s.assets,id);},[&](auto id){return s.maps.loadObjects(s.assets,id);}) {
   auto state=saved?*saved:s.base();
   if(!saved)state.journey->random=XeenJourneyRandomState{1,1,0};
   XeenSaveState::restoreBeforeGameplay(state,s.resources(),party,camera,flags,world,[](auto &,const auto &,const auto &,const auto &){});
+  if(afterRestore)afterRestore(world);
   flow=std::make_unique<XeenEncounterFlow>(world,party,camera,flags,clock,XeenJourneyRestoreTag{});
   present();
  }
@@ -306,12 +311,14 @@ void shootLethalPreparation(Source &source) {
  for(auto &other:saved.journey->actors)if(other.id.recordIndex!=9) {
   other.x=other.y=-128;other.hp=0;other.activated=false;other.lifecycle=XeenActorLifecycle::Defeated;other.accounted=true;
  }
- auto &a=saved.journey->actors[9];a.x=8;a.y=11;a.activated=true;a.hp=1;
+ auto &a=saved.journey->actors[9];a.x=8;a.y=11;
  for(unsigned mode=0;mode<3;++mode) {
   const bool overflow=mode==2,lethal=mode!=0;
-  auto input=saved;if(!lethal)input.journey->actors[9].hp=25;
+  auto input=saved;
   if(overflow)input.journey->supplements[0].inputs.experience=UINT32_MAX;
-  Domain d(source,input);const auto rng=d.world.sessionState().journeyRandom();
+  // Decision 8: the target's wound and wake state are live fixture values.
+  Domain d(source,input,{},[&](XeenWorld &w){XeenMonsterTestAccess::set(w,23,9,lethal?1:25,true);});
+  const auto rng=d.world.sessionState().journeyRandom();
   const auto chars=d.party.roster.characters();const auto purse=d.party.monsterTreasure;
   tape={{1,2,1},{1,2,1},{1,2,1},{1,20,19},{1,56,56},{1,100,100}};
   cursor=0;taped=true;check(d.flow->handle(ShootAction{}),"Lethal Shoot starts");d.present();
@@ -365,7 +372,8 @@ void indoorShoot(Source &source) {
   auto &target=saved.journey->vertigoActors->at(targetId);
   if(!empty) {
    target.x=saved.camera.x+dx[facing]*int(depth);target.y=saved.camera.y+dy[facing]*int(depth);
-   target.hp=mode==4?20:1;target.activated=true;target.lifecycle=XeenActorLifecycle::Present;target.accounted=false;
+   // Decision 8: the save carries MON HP; the wound and wake are live values.
+   target.hp=mode==4?20:2;target.activated=false;target.lifecycle=XeenActorLifecycle::Present;target.accounted=false;
   }
   // Two simultaneous lanes must travel even when all their attacks miss.
   saved.characters[0].weapons[8]={0,30,0,4};
@@ -375,7 +383,8 @@ void indoorShoot(Source &source) {
    if(!m.geometry.isOutdoors())for(auto &cell:m.geometry.cells){cell.geometry=XeenIndoorWalls{};cell.rawWord=0;}
    return m;
   }};
-  Domain d(source,saved,maps);const auto before=d.world.sessionState().journeyRandom();
+  Domain d(source,saved,maps,[&](XeenWorld &w){if(!empty)XeenMonsterTestAccess::set(w,28,targetId,mode==4?20:1,true);});
+  const auto before=d.world.sessionState().journeyRandom();
   const auto mainland=std::vector<XeenActor>(d.world.sessionState().monsters(23));
   const auto chars=d.party.roster.characters();
   tape.clear();
@@ -450,10 +459,12 @@ void indoorChangedShoot(Source &source) {
    a.x=a.y=-128;a.hp=0;a.activated=false;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;
   }
   auto &a=saved.journey->vertigoActors->at(35);a.x=gate->x+dx[unsigned(gate->direction)];
-  a.y=gate->y+dy[unsigned(gate->direction)];a.hp=1;a.activated=true;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;
+  a.y=gate->y+dy[unsigned(gate->direction)];a.hp=2;a.activated=false;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;
   if(wall!=9) {auto candidate=original.transitionCandidate();candidate->setBarrier(*gate,wall,wall==6);
    saved.barriers=candidate->sessionState().barriers();}
-  Domain d(source,saved);tape={{1,2,1},{1,2,1},{1,2,1},{1,20,19},{1,50,50}};cursor=0;taped=true;
+  // Decision 8: the Slime's wound and wake are live fixture values.
+  Domain d(source,saved,{},[](XeenWorld &w){XeenMonsterTestAccess::set(w,28,35,1,true);});
+  tape={{1,2,1},{1,2,1},{1,2,1},{1,20,19},{1,50,50}};cursor=0;taped=true;
   check(d.flow->handle(ShootAction{}),"Original changed-wall Shoot begins");d.present();
   for(unsigned n=0;n<50 && d.party.encounterContext->minutes==saved.journey->context->minutes;++n) {
    d.now+=110;d.flow->idle();d.flow->holdJourneyFrame();d.present();

@@ -259,6 +259,8 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
      const auto before=XeenSaveFile::read(*target);
      nav(NavigationAction::MoveForward);
      const auto atEntrance=XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world);
+     // Decision 8: saves carry no live HP or wake state; compare live values.
+     const std::vector<XeenActor> liveAtEntrance=world->sessionState().monsters(23);
      input(InteractionAction{});input(YesAction{});
      check(cityComposeFailed && position->mapId==XeenMapIdentity(23) &&
       !world->sessionState().hasRegionalActors(28) &&
@@ -268,10 +270,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
       XeenSaveFormat::encode(XeenSaveFile::read(*target))==XeenSaveFormat::encode(before),
       "M37 failed destination composition published partial transition");
      const auto &retained=world->sessionState().monsters(23);
-     check(retained.size()==atEntrance.journey->actors.size(),"M37 failed transition changed mainland actor count");
+     check(retained.size()==atEntrance.journey->actors.size() && retained.size()==liveAtEntrance.size(),"M37 failed transition changed mainland actor count");
      for(unsigned i=0;i<retained.size();++i){const auto &live=retained[i];const auto &saved=atEntrance.journey->actors[i];
-      check(live.id==saved.id && live.x==saved.x && live.y==saved.y && live.hp==saved.hp &&
-       live.activated==saved.activated && live.lifecycle==saved.lifecycle &&
+      check(live.id==saved.id && live.x==saved.x && live.y==saved.y && xeen_state::sameActor(live,liveAtEntrance[i]) &&
+       live.lifecycle==saved.lifecycle &&
        bool(world->sessionState().accountedMonsters().count(live.id))==saved.accounted,
        "M37 failed transition changed inactive mainland actors");}
      // M57 retains the completed candidate after recoverable composition failure.

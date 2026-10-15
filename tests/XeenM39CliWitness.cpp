@@ -8,6 +8,7 @@
 #include "games/xeen/XeenStateEquality.h"
 #include "games/xeen/XeenRestoreGuard.h"
 #include "XeenRestoreReplayProbe.h"
+#include "XeenMonsterTestAccess.h"
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 #include <deque>
@@ -119,7 +120,11 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     M39_COUNT(npcDraw);M39_COUNT(validateEncounterSprite);M39_COUNT(validateCombatSprite);M39_COUNT(sampleJourneySeed);
 #undef M39_COUNT
     services.clock=[&]{return now;};services.observeSaveStage=[&](auto){++saves;};
-    services.observeGameplay=[&](auto &w,auto &,const auto &p,const auto &c,const auto &f){world=&w;party=&p;position=&c;flags=&f;};
+    services.observeGameplay=[&](auto &w,auto &,const auto &p,const auto &c,const auto &f){world=&w;party=&p;position=&c;flags=&f;
+        // Decision 8: the grouped M60 controls wound and wake their three Orcs
+        // live after the game load, never through the save.
+        if(resume && control.rfind("m60-",0)==0 && control.find("-group")!=std::string::npos)
+            for(unsigned index:{7u,8u,9u})XeenMonsterTestAccess::setLive(*flow,w,23,index,1,true);};
     services.configureFlow=[&](auto &f,const auto &c){original.configureFlow(f,c);flow=&f;};
     const auto compose=original.composeEncounter;
     services.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto phase,auto appearance){++providers;if(resourceFault)resourceFault();if(renderFault){renderFault=false;throw std::runtime_error("M39 injected presentation-only failure");}return compose(w,p,c,phase,appearance);};

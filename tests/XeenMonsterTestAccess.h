@@ -1,0 +1,32 @@
+#ifndef MMODERN_TESTS_XEEN_MONSTER_TEST_ACCESS_H
+#define MMODERN_TESTS_XEEN_MONSTER_TEST_ACCESS_H
+#include "games/xeen/XeenJourneyCapture.h"
+#include "games/xeen/XeenRestoreGuard.h"
+namespace mmodern {
+// Synthetic fixture control, never route evidence. Decision 8 (M69) rebuilds
+// monster HP and wake state on every map and game load, so a save can never
+// carry a wound; a fixture wounds or wakes the live monster after restore,
+// before the Journey flow adopts the restored world. The restoration preimage
+// adopts exactly this change.
+struct XeenMonsterTestAccess {
+	static void set(XeenWorld &world, XeenMapIdentity map, std::size_t index, std::int32_t hp, bool activated) {
+		if(!world._journeyRestoration || !world._journeyRestoration->guard)
+			throw std::logic_error("Live monster fixture needs an unconsumed Journey restoration");
+		auto &actor=world._sessionState.mutableMonsters(map).at(index);
+		actor.hp=hp;actor.activated=activated;
+		auto &guard=*world._journeyRestoration->guard;
+		guard.s._mapStates=world._sessionState._mapStates;guard.adoptMutationBoundary();
+	}
+	// The same control in a running application, at a quiet boundary before
+	// combat: the live Journey preimage adopts exactly this change.
+	template<class EventFlow>
+	static void setLive(EventFlow &flow, XeenWorld &world, XeenMapIdentity map, std::size_t index, std::int32_t hp, bool activated) {
+		auto &guard=*flow._encounter->_journeyPreimage;
+		guard.check();
+		auto &actor=world._sessionState.mutableMonsters(map).at(index);
+		actor.hp=hp;actor.activated=activated;
+		guard.s._mapStates=world._sessionState._mapStates;guard.adoptMutationBoundary();
+	}
+};
+}
+#endif

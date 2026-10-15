@@ -155,6 +155,7 @@ private:
 	friend struct XeenRestTestAccess;
 	friend struct XeenPartyInterfaceTestAccess;
 	friend struct XeenTrainingTestAccess;
+	friend struct XeenMonsterTestAccess;
 	friend struct XeenPurchaseTestAccess;
 	friend struct XeenCombatPresentationTestAccess;
 	friend struct XeenMonsterAbilityTestAccess;

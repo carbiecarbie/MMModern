@@ -449,6 +449,20 @@ makes no production change. Future recovery must use DOS. Damage saving throws
 also use `<= ID`. Separately, the reference wakes damaged sleeping/dragon-sleeping
 monsters on entry to `attack2`'s positive-input branch, before later resistance.
 
+**DOS static, high confidence (M69 A2):** monsters do not recover between map
+visits by regeneration but by reloading. Every map load (`0x0f542`) zeroes the
+whole monster array (`0x0f5be..0x0f5c7`), so the wake (attacking) byte and the
+status byte start cleared, and sets each monster's HP from its MON record
+(`0x0fa99..0x0faa8`). Saves keep monster positions only (`0x266e3..0x2671c`),
+and loading a game re-enters the main loop, which loads the current map
+(`0x0b819..0x0b839`, `0x0d086..0x0d08c`). A wounded survivor is therefore at
+full HP and asleep after the party leaves its map and returns, and after a game
+is loaded; while the party stays on the map, its wound persists. The arrival
+view then wakes the monsters it sees. Same as the pin
+([`MonsterObjectData::synchronize`](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/map.cpp#L500)).
+The maintainer's DOSBox check is pending. Offsets and calibration are in
+[original quirks](../original-quirks.md#original-findings-and-current-discrepancies).
+
 ## Monster movement terrain
 
 **DOS static, high confidence** (M68 Part B, 2026-10-15). `canMonsterMove` is

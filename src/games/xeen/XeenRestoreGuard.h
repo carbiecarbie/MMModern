@@ -239,6 +239,7 @@ private:
 	friend class XeenEncounterFlow;
 	friend struct XeenTrainingTestAccess;
 	friend struct XeenPurchaseTestAccess;
+	friend struct XeenMonsterTestAccess;
 	friend class XeenCombat;
 	friend class XeenEventFlow;
 	friend class XeenSaveState;

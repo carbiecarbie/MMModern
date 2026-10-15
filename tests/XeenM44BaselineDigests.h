@@ -158,16 +158,33 @@
 // unchanged by A1 (zero-difference audit against 00e84bf). Preserved baseline
 // and audits: D:/M44-audits/m69a1-00e84bf, build-rel/m69a1-digest-comparison-2.
 // Evidence stays local; never commit original-data saves.
+// M69 step A2 (decision 8): maintainer approved the audit and replacements on
+// 2026-10-15. Preserved A1 baseline D:/M44-audits/m69a1-a2-baseline reproduced
+// all four A1 digests. Every map and game load now rebuilds monsters at MON HP,
+// asleep (DOS static: map load 0x0f542 zeroes the array at 0x0f5c7 and refills
+// HP at 0x0faa8), so saves project live monsters as MON HP and not woken.
+// Mainland/services: traces identical; only the projected activation fields
+// (and services' wounded survivor HP 3 -> 25) change. Temple: three trace lines
+// show stranded Orcs #10/#11 asleep after the route's return to F3; nothing
+// else differs. Roundtrip: Orc #11's flag differs from the first return to F3
+// until the next entrance view, and full divergence starts at the second return
+// (wounded Orc healed, three more RNG draws); A2 resumes from A and B equal the
+// uninterrupted final. Native reload/re-save is exact in all four.
+// Local audit: build-rel/m69a2-digest-comparison/digest-audit.json.
+// Mainland old: 605fb7ef58148d6ad955faf0951c500dd8f3cc61d079d07710fbf78a9e8a4c27
+// Services old: 417bd35216544d12265a116c8750d22953e12161cfeed075fb685a80e3a5d068
+// Temple old: 0bd5d8cd9075e42ba3f9681d2c6322a0c23cc81d518654c8c8c48b57b68d0f32
+// Roundtrip old: cfdcec346d6584a479e3ded6960ba61c0e79c4cedf52a7e563bbc675c02ba5d8
 #include <array>
 #include <cstdint>
 namespace m44_baseline {
-inline constexpr const char *revision = "d5067c44be3ff07e03df90eac4082456a497e225 + M61 Part C v12; roundtrip: M69 A1 on 00e84bf";
+inline constexpr const char *revision = "M69 A2 (decision 8) on a5ad56b, save v12";
 struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 inline constexpr std::array<Scenario,4> scenarios{{
-    {"mainland-combat-myra-phirna",3626689381u,"605fb7ef58148d6ad955faf0951c500dd8f3cc61d079d07710fbf78a9e8a4c27"},
-    {"vertigo-buy-repair-training",7u,"417bd35216544d12265a116c8750d22953e12161cfeed075fb685a80e3a5d068"},
-    {"temple-recovery",3626689381u,"0bd5d8cd9075e42ba3f9681d2c6322a0c23cc81d518654c8c8c48b57b68d0f32"},
-    {"vertigo-f3-roundtrip",3626689381u,"cfdcec346d6584a479e3ded6960ba61c0e79c4cedf52a7e563bbc675c02ba5d8"}
+    {"mainland-combat-myra-phirna",3626689381u,"c453cb54597e04fa2d2bd9fe9c02f951d3438eded5e66e1b1a90c5ec6ce10c62"},
+    {"vertigo-buy-repair-training",7u,"7d66ab9efe5e6b52f58360c446bcc35f61e1beba602c44c3bd404a71bec69e7c"},
+    {"temple-recovery",3626689381u,"8725ee250ffeab5e2a015daebf2caf81af54a95b8d0048b75242ef8d49157503"},
+    {"vertigo-f3-roundtrip",3626689381u,"9347bfebf93974e807aeca0d641778bf690b3e2d71ded50278bd3b687b6c51b0"}
 }};
 }
 #endif

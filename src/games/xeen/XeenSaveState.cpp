@@ -167,6 +167,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	for (const auto &live:snapshot.journey->actors) {
 		auto &a=actors.at(live.id.recordIndex);
 		a.x=live.x; a.y=live.y; a.hp=live.hp; a.activated=live.activated; a.lifecycle=live.lifecycle; a.status=live.status;
+		xeenRefillLoadedMonster(a); // Decision 8: saved HP and wake state are ignored.
 	}
 	static_cast<void>(CloudsUiComposer::buildPortraitPlacements(p));
 	auto &s = w._sessionState;
@@ -207,6 +208,7 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 		for (const auto &live:*snapshot.journey->vertigoActors) {
 			auto &a=city.at(live.id.recordIndex);
 			a.x=live.x;a.y=live.y;a.hp=live.hp;a.activated=live.activated;a.lifecycle=live.lifecycle;a.status=live.status;
+			xeenRefillLoadedMonster(a); // Decision 8: saved HP and wake state are ignored.
 			if(live.accounted)s._accountedMonsters.insert(live.id);
 		}
 		s.stageMonsters(savedCity,std::move(city),snapshot.journey->cityOriginalActorCount,cityOutdoors);
@@ -222,9 +224,12 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	if(!entryActive) {
 		activeEvents=events(c.mapId);
 	}
-	const auto &active=s.mutableMonsters(c.mapId);
+	auto &active=s.mutableMonsters(c.mapId);
 	const auto view=!s.mapState(c.mapId)->outdoors ? XeenIndoorScene().classifyActors(w,c,active) : XeenActorApproach::classify(active,c);
 	if (view.engaged()) throw std::invalid_argument("Quiet restore has active contact");
+	// The game load wakes what the arrival view sees, as a map entry does.
+	for (unsigned i=0;i<active.size();++i) if (view.activation[i]) active[i].activated=true;
+	adopt();
 	if(p.monsterTreasure && p.monsterTreasure->ready() && std::none_of(view.slots.begin(),view.slots.end(),[](const auto &v){return bool(v);})) throw std::invalid_argument("Quiet treasure is immediately collectable");
 	for (unsigned i=0;i<active.size();++i) if (view.activation[i] && !active[i].activated) throw std::invalid_argument("Quiet actor activation missing");
 	for (const auto &entry:s.mapStates()) if (entry.second.monsters)
@@ -269,6 +274,15 @@ XeenSaveSnapshot XeenSaveState::captureInitialized(const XeenSaveResourceSignatu
 		const XeenGameFlags &flags, const XeenWorld &world) {
 	return captureImpl(resources,party,camera,flags,world,true);
 }
+namespace {
+// Decision 8: HP and wake state are rebuilt on every map and game load, so the
+// v12 fields carry a live monster's MON HP and false, never its live values.
+XeenSaveJourneyActor projectedActor(const XeenActor &a,bool accounted) {
+	auto loaded=a;xeenRefillLoadedMonster(loaded);
+	return {a.id,a.x,a.y,loaded.hp,loaded.activated,a.lifecycle,a.status,accounted};
+}
+}
+
 XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &resources,
 		const XeenPartyState &party, const XeenCamera &camera,
 		const XeenGameFlags &flags, const XeenWorld &world, bool initializing) {
@@ -324,13 +338,13 @@ XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &res
 		const auto mainland=state.monsters(entry);
 		if (mainland.size() != j.originalActorCount) throw std::logic_error("Journey actor collection changed");
 		for (const auto &a:mainland)
-			j.actors.push_back({a.id,a.x,a.y,a.hp,a.activated,a.lifecycle,a.status,state.accountedMonsters().count(a.id) != 0});
+			j.actors.push_back(projectedActor(a,state.accountedMonsters().count(a.id) != 0));
 		if (state.hasRegionalActors(city)) {
 			const auto &cityState=*state.mapState(city);
 			j.cityOriginalActorCount=cityState.originalMonsterCount;
 			std::vector<XeenSaveJourneyActor> cityActors;cityActors.reserve(cityState.monsters->size());
 			for (const auto &a:*cityState.monsters) {
-				XeenSaveJourneyActor saved{a.id,a.x,a.y,a.hp,a.activated,a.lifecycle,a.status,state.accountedMonsters().count(a.id)!=0};
+				auto saved=projectedActor(a,state.accountedMonsters().count(a.id)!=0);
 				if(a.id.recordIndex>=j.cityOriginalActorCount && a.original.hasResource())
 					saved.spawnedType=static_cast<std::int16_t>(a.original.resourceId);
 				cityActors.push_back(saved);

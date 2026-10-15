@@ -53,6 +53,16 @@ struct XeenMapState {
 	}
 };
 
+// Decision 8 (DOS map load 0x0f542: the monster array is zeroed at 0x0f5c7 and
+// HP refilled from MON+0x14 at 0x0faa8; the save keeps positions only, 0x266e3):
+// a map load rebuilds every live monster at its MON HP and asleep.
+inline void xeenRefillLoadedMonster(XeenActor &actor) noexcept {
+	if(actor.lifecycle!=XeenActorLifecycle::Present || !actor.statistics)return;
+	const auto hp=std::int32_t(actor.statistics->baseHp());
+	if(actor.hp!=hp)actor.hp=hp;
+	if(actor.activated)actor.activated=false;
+}
+
 // The per-map table. Entries are created on first touch and never dropped; an
 // empty entry is equivalent to an absent one. Content exchange keeps every
 // entry's storage in its owning table, so views into a live entry stay valid.
