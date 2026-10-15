@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M67 is the latest completed and accepted milestone.**
+**M68 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -61,10 +61,8 @@ better one.
 
 1. **Equipped item contributions**: completed and accepted in
    [M67](milestone-67-plan.md) (release v0.1.2).
-2. **Monster abilities** (likely Tier A): flying movement (32 Clouds maps),
-   ranged elemental attacks and the other unsupported attack and special
-   types. Flying changes actor movement and approach, so random draws, timing
-   and the M44 scenarios may change.
+2. **Monster abilities**: completed and accepted in
+   [M68](milestone-68-plan.md) (release v0.1.3).
 3. **Generic per-map state** (Tier A, high complexity): the save keeps live
    state only for Vertigo and F3, each in its own shape. Store monsters,
    removed objects and moved walls for any map in one generic form, before the

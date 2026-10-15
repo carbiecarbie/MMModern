@@ -1,7 +1,11 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M67 is the latest completed
-and accepted milestone** ([plan](milestone-67-plan.md)): equipped metal,
+This describes what can be played and done now. **M68 is the latest completed
+and accepted milestone** ([plan](milestone-68-plan.md)): every monster attack,
+secondary effect and movement kind in the original data works as in DOS,
+including flying monsters, though most of them live in areas not open yet;
+the death scene and the Shoot refusal were corrected (release v0.1.3). M67
+([plan](milestone-67-plan.md)) made equipped metal,
 elemental and enchanted items, rings and amulets count in combat, Shoot and
 Rest as in the original (release v0.1.2). M66 ([plan](milestone-66-plan.md))
 cut the complete test suite from 29 minutes to about 3, and M65
@@ -382,7 +386,8 @@ instructions are in [dependencies](dependencies.md).
   only the modeled conditions.
 - **Items and magic.** Item powers backed by unimplemented spells say "not
   supported yet"; cursed-item refusals follow the reference. Most spells
-  and most monster abilities are missing; Light, Sleep, Insect Spray, Protection
+  are missing, and monsters cannot yet be put to sleep, paralyzed or
+  controlled; Light, Sleep, Insect Spray, Protection
   from Elements, Sparks, Toxic Cloud and Suppress Poison can be bought but say
   "not supported yet" when cast. Terrain hazards on arrival (space, lava, sky,
   cloud, desert) are not implemented. Mainland fountains and the magic mirror remain

@@ -294,3 +294,12 @@ resistance, slaying weapons triple damage against their kind, and metal armor
 counts in combat; the old validation that refused these items before combat,
 Shoot and Rest is gone. Drafted in a cloud session and finished on Windows
 with the game data; released as v0.1.2. [Plan](milestone-67-plan.md).
+
+**M68 - Monster abilities** (`ff38fb2`, `d32f9ce`). Every monster attack type,
+secondary effect and movement kind works as in DOS: the original damage save
+sequence (which also corrected Poison), Break Weapon, Drain SP, Curse Item,
+Eradicate and the rest, ranged elemental attacks, and flying monsters and the
+Water Dragon crossing water by the original terrain rule. A developer fixture
+places any original species on F3 for testing. The Shoot refusal and the
+death scene were fixed on the way; released as v0.1.3.
+[Plan](milestone-68-plan.md).

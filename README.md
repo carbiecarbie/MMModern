@@ -118,7 +118,8 @@ to view that member. The acting member and selected enemy use the original icons
 - Services: there is no Inn or recruiting. Temple Donation and Uncurse, and
   Tavern Drink, Tip, Rumors and Sign In, say "not supported yet". The Temple
   heals only the conditions modeled so far.
-- Magic and items: most spells and most monster abilities are missing. Light,
+- Magic and items: most spells are missing, and monsters cannot yet be put to
+  sleep, paralyzed or controlled. Light,
   Sleep, Insect Spray, Protection from Elements, Sparks, Toxic Cloud and
   Suppress Poison can be bought but say "not supported yet" when cast. Item
   powers that rely on missing spells say the same.
