@@ -65,9 +65,11 @@ better one.
    [M68](milestone-68-plan.md) (release v0.1.3).
 3. **Generic per-map state**: completed and accepted in
    [M69](milestone-69-plan.md) (save v13).
-4. **World Events** (likely Tier A): `MoveWallObj`, `MakeNothingHere`,
-   `JumpRnd`, mirrors, password doors and the unsupported TakeOrGive and If
-   modes, saved through step 3.
+4. **World Events, Clouds** (Tier A, [M70](milestone-70-plan.md)):
+   `MoveWallObj`, `MakeNothingHere`, `AlterMap`, generic Spawn, the If,
+   SetVar and reward modes, random operations, mirrors and password prompts,
+   saved through step 3. Darkside-only operations and Darkside durable state
+   wait for a later Darkside arc; shared operations stay generic.
 5. **Terrain and simple services** (Tier B, lower complexity): Rest surfaces
    and arrival hazards (lava, sky, cloud, space, desert, water); Tavern
    Drink/Tip/Rumors/Sign In and Temple Donation/Uncurse.
