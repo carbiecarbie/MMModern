@@ -1,7 +1,10 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M68 is the latest completed
-and accepted milestone** ([plan](milestone-68-plan.md)): every monster attack,
+This describes what can be played and done now. **M69 is the latest completed
+and accepted milestone** ([plan](milestone-69-plan.md)): the save keeps every
+map's state in one generic form (save v13), ready for the areas still to open,
+and monsters recover full HP and fall asleep whenever their map is loaded
+again, as in the original. M68 ([plan](milestone-68-plan.md)) made every monster attack,
 secondary effect and movement kind in the original data works as in DOS,
 including flying monsters, though most of them live in areas not open yet;
 the death scene and the Shoot refusal were corrected (release v0.1.3). M67
@@ -100,8 +103,9 @@ the automated scenarios use it.
 
 Enter from mainland `(10,13)` facing North with Space and Yes. The whole town
 is loaded from the original resources. Face South at the entrance and use
-Space to leave; the mainland monsters and the town's actors are reset on exit
-under the original rules.
+Space to leave. Leaving runs the town's original exit script, which respawns
+and heals the city monsters, and every map load rebuilds its monsters at full
+HP and asleep, as the original does.
 
 - **Monsters.** All Doom Bugs, Slimes and Breeder Slimes are active and fight
   under the original combat rules. Shoot works indoors, and so do enemy
@@ -311,10 +315,12 @@ The earlier `--encounter-26`, `--encounter-27`, `--journey-skeleton` and
 
 ## Save format
 
-There is **one current save format**: envelope v12, schema 9, content 14, written
-by the Regional Journey. It retains skills and exploration and stores bounded
-world flags and head-cache overrides with their original map-reload lifetime.
-Until a public release, older formats are not read:
+There is **one current save format**: envelope v13, schema 9, content 14. It
+keeps one generic state per visited map (monster positions and lifecycle,
+removed or moved objects, changed cells, disabled Events and explored cells),
+plus skills, bounded world flags and head-cache overrides with their original
+map-reload lifetime. Monster HP and wake state are not saved: every map load
+rebuilds them. During 0.x, older formats are not read:
 - A save from an older build is rejected before anything is restored, with "This
   save was created by an older MMModern build and is no longer supported."
 - A save from a newer or unrecognized build is rejected with a "newer or

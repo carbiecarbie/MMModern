@@ -303,3 +303,10 @@ Water Dragon crossing water by the original terrain rule. A developer fixture
 places any original species on F3 for testing. The Shoot refusal and the
 death scene were fixed on the way; released as v0.1.3.
 [Plan](milestone-68-plan.md).
+
+**M69 - Generic per-map state** (`ea201f2`, `417a1c0`, `f6074c2`). One owner
+keeps the state of any map, Vertigo and F3 included, and save v13 stores it as
+deltas over the original resources. As in DOS, confirmed in `WORLD/XEEN.DAT`,
+monsters are rebuilt at full HP and asleep on every map or game load. A fourth
+M44 scenario travels Vertigo, F3 and back. Saves from 0.1.x are no longer
+read. [Plan](milestone-69-plan.md).

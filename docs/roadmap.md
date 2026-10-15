@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M68 is the latest completed and accepted milestone.**
+**M69 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -63,11 +63,8 @@ better one.
    [M67](milestone-67-plan.md) (release v0.1.2).
 2. **Monster abilities**: completed and accepted in
    [M68](milestone-68-plan.md) (release v0.1.3).
-3. **Generic per-map state** (Tier A, high complexity): the save keeps live
-   state only for Vertigo and F3, each in its own shape. Store monsters,
-   removed objects and moved walls for any map in one generic form, before the
-   world Events that move walls and objects and before opening areas need it.
-   This changes the save format.
+3. **Generic per-map state**: completed and accepted in
+   [M69](milestone-69-plan.md) (save v13).
 4. **World Events** (likely Tier A): `MoveWallObj`, `MakeNothingHere`,
    `JumpRnd`, mirrors, password doors and the unsupported TakeOrGive and If
    modes, saved through step 3.
