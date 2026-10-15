@@ -206,8 +206,10 @@ a single cause.
 **A1 - generic owner (save stays v12, behavior unchanged).** Introduce
 `XeenMapState`, move Vertigo and F3 onto it with HP and activation still
 persisted, make every reader generic, and keep capture and restore projecting
-the generic state into the v12 layout (state on any map but 23 and 28 is a
-logic error). Add the fourth M44 scenario and its witness extension (Tests
+the generic state into the v12 layout (MOB and EVT state on any map but 23
+and 28 is a logic error; cell overrides and explored bits stay keyed by
+physical DAT tile, such as Vertigo's 109-111, as v12 and the original's
+per-tile DAT files do, maintainer decision 2026-10-15). Add the fourth M44 scenario and its witness extension (Tests
 below). Extend `mmodern_save_dump`'s visitor and the audit projection so the
 moved fields keep comparable paths. Acceptance: the three existing scenarios
 show zero differences in traces, decoded fields and bytes; the fourth
@@ -224,10 +226,15 @@ list which tests move a checkpoint or change an expectation under decision 9.
 Acceptance: the audit shows exactly the enumerated differences (the projected
 HP field only where a wounded survivor is alive at the checkpoint, the
 projected activation field wherever any monster is woken, in view or not, and
-in the fourth scenario the trace from the second fight with the healed Slime
-onward, including its downstream RNG draws and time), each explained, and
+in the fourth scenario the differences listed below), each explained, and
 nothing else; the three existing scenarios show no trace difference unless
 the dump proves a wounded or woken monster is met again after a checkpoint.
+For the roundtrip scenario A2 expects: the B save's activation field for
+Orc #11; #11's activation flag in the trace from the first return to F3 until
+the second entrance view wakes it again; and full divergence from the second
+return to F3 onward (the wounded Orc healed and the Orcs woken after B
+asleep), including downstream RNG draws and time. Its A2 baseline is the
+preserved A1 build `D:/M44-audits/m69a1-a2-baseline`.
 
 **B - save v13.** Replace the projection with the generic encoding, delete
 the 23/28 cases from `XeenSaveFormat::validate` and
@@ -305,13 +312,18 @@ replace the digests, then the implementation review and the play-test.
   expectation restated, with the dump as the justification.
 
 **Fourth M44 scenario `xeen_m44_scenario_roundtrip`** ("vertigo-f3-roundtrip",
-fixed combat seed), added in A1: prepared Journey at F3, walk to `(10,13)`,
-enter Vertigo, kill one Slime and every other monster the fight woke, bash a
-grate, search a crate, checkpoint A (invariant asserted), exit to F3,
-checkpoint B (invariant asserted), kill one mainland monster, re-enter
-Vertigo, wound a second Slime, exit and re-enter, fight that Slime to death
-(under A1 it keeps its wound; under A2 it is healed and the fight is longer,
-the one trace difference A2 expects), save the final file. The witness gains
+seed 3626689381), added and recorded in A1 (`cfdcec34...`, maintainer
+approval 2026-10-15). Route as implemented: prepared Journey at F3; kill the
+Orc the start view wakes before any map change; walk to `(10,13)`, enter
+Vertigo, kill a Slime and the two that come through the grate it bashes,
+search a crate (object override and two disabled search records),
+checkpoint A; exit to F3, checkpoint B; wound an F3 Orc and Run, enter Vertigo
+and exit again, then kill that Orc; save the final file. The wounded monster
+is an F3 Orc, not a Vertigo Slime (maintainer decision): the Vertigo exit
+script respawns and heals every city slot while flag 9 is unset, so a city
+wound could never show decision 8. At B the decision 9 check is violated in
+A1 by Orc #11, woken by the unavoidable entrance view and unreachable; A2's
+reload clears it. The witness gains
 a checkpoint-resume mode like the M43 witness (environment stage plus resume
 flag, remaining steps replayed from the checkpoint), and the scenario test runs
 the uninterrupted route, a resume from A and a resume from B in separate
@@ -357,6 +369,10 @@ entry; `xeen_coverage_original_guard` unchanged.
 - **Size and time.** Visited maps grow the save linearly (deltas keep it
   small) and restore loads every map with state; a synthetic test with all 128
   Clouds maps populated keeps restore under a second.
+- **Vertigo's reset order.** The exit script respawns slot 12 at `(4,12)`
+  and each later slot at the next MOB record's position; it is reproduced
+  from the data and is recorded in [original quirks](original-quirks.md) in
+  step B.
 - **Scope creep.** New opcodes (step 4), new maps (step 9) and Darkside play
   stay out; the Vertigo transition keeps its two destinations.
 
