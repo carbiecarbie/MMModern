@@ -19,9 +19,10 @@ struct XeenActorView {
 };
 enum class XeenMonsterTerrain { Allowed, Blocked, Unsupported };
 // The movement capability the runtime applies to a monster of this species:
-// ground movement (nonzero HP, flying byte zero) and not species 59, whose
-// water-only movement waits for Part B together with flight. Movement,
-// the regional manifest, the developer fixture and the census all ask this.
+// every live record (nonzero HP), walkers, flyers and species 59 alike. The
+// terrain rule (xeenOutdoorMonsterTerrain, indoor wall threshold) is what
+// differs between them. Movement, the regional manifest, contact, the
+// developer fixture and the census all ask this.
 bool xeenMonsterMovementSupported(const XeenMonsterRecord &, int species) noexcept;
 // MODE_SLEEPING permits an opportunity without permanently activating actors.
 struct XeenActorOpportunityContext {

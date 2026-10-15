@@ -142,20 +142,39 @@ bool xeenIndoorRangedRay(XeenWorld &world,const XeenCamera &camera,const XeenAct
  }
  return true;
 }
+bool xeenMonsterPassesWall(unsigned wall, unsigned wallNoPass) noexcept {
+	// DOS compares wallNoPass > value (cmp at 0x1fd94, jle at 0x1fd96); the pin admits equality.
+	return wall<wallNoPass;
+}
+XeenMonsterTerrain xeenOutdoorMonsterTerrain(unsigned middle, unsigned surfaceType, unsigned wallNoPass,
+		bool flying, int species, XeenSide side) noexcept {
+	constexpr unsigned kWater=0,kDeepWater=8,kSpace=15;
+	const auto result=[](bool allowed) { return allowed ? XeenMonsterTerrain::Allowed : XeenMonsterTerrain::Blocked; };
+	switch (middle) {
+	// DOS jump table 0x1fda3: these middles resolve the surface at 0x1fcdb.
+	case 0:case 2:case 3:case 4:case 5:case 6:case 8:case 11:case 13:case 14:
+		if (surfaceType>=16) return XeenMonsterTerrain::Unsupported;
+		if (surfaceType==kWater || surfaceType==kDeepWater) return result(flying || species==59);
+		if (surfaceType==kSpace) return result(flying);
+		return result(side==XeenSide::Darkside || species!=59);
+	// The table sends these straight to the refusal at 0x1fd8b; the pin
+	// compares them with the wall threshold instead.
+	case 1:case 7:case 9:case 10:case 12:
+		return XeenMonsterTerrain::Blocked;
+	case 15:
+		return result(xeenMonsterPassesWall(middle,wallNoPass));
+	default:
+		return XeenMonsterTerrain::Unsupported;
+	}
+}
 XeenMonsterTerrain xeenRegionalActorTerrain(const XeenMap &map, const XeenActor &a, int x, int y) {
 	if (!local(x,y) || map.side!=XeenSide::Clouds || !map.geometry.isOutdoors() ||
 		map.identity()!=a.id.mapId || !a.statistics || !xeenMonsterMovementSupported(*a.statistics,a.original.resourceId))
 		return XeenMonsterTerrain::Unsupported;
 	const auto *l=xeenGetIf<XeenOutdoorLayers>(&map.geometry.cells[y*16+x].geometry);
 	if (!l || l->surface>=16 || l->middle>=16) return XeenMonsterTerrain::Unsupported;
-	const auto surface=map.geometry.surfaceTypes[l->surface];
-	switch (l->middle) {
-	case 0:case 2:case 3:case 4:case 5:case 6:case 8:case 11:case 13:case 14:
-		if (surface>=16) return XeenMonsterTerrain::Unsupported;
-		return surface==0 || surface==8 || surface==15 ? XeenMonsterTerrain::Blocked : XeenMonsterTerrain::Allowed;
-	default:
-		return l->middle<=map.geometry.difficulties[0] ? XeenMonsterTerrain::Allowed : XeenMonsterTerrain::Blocked;
-	}
+	return xeenOutdoorMonsterTerrain(l->middle,map.geometry.surfaceTypes[l->surface],map.geometry.difficulties[0],
+		a.statistics->flying(),a.original.resourceId,map.side);
 }
 XeenMonsterTerrain xeenIndoorActorTerrain(XeenWorld &world,const XeenActor &a,int x,int y) {
 	if(!a.statistics || !xeenMonsterMovementSupported(*a.statistics,a.original.resourceId))return XeenMonsterTerrain::Unsupported;
@@ -172,7 +191,8 @@ XeenMonsterTerrain xeenIndoorActorTerrain(XeenWorld &world,const XeenActor &a,in
 		return XeenMonsterTerrain::Unsupported;
 	const auto direction=dx>0?XeenDirection::East:dx<0?XeenDirection::West:
 		dy>0?XeenDirection::North:XeenDirection::South;
-	return wallAt(*cell->cell,direction)<=world.map(a.id.mapId).geometry.difficulties[0] ?
+	// Indoors there is no flight rule: the wall threshold applies to everyone.
+	return xeenMonsterPassesWall(wallAt(*cell->cell,direction),world.map(a.id.mapId).geometry.difficulties[0]) ?
 		XeenMonsterTerrain::Allowed:XeenMonsterTerrain::Blocked;
 }
 std::bitset<256> xeenActorClosure(const XeenMap &map, const XeenActor &a) {

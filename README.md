@@ -173,7 +173,7 @@ mmodern --new-game <game-directory> [--difficulty adventurer|warrior] [--save-fi
 mmodern --journey-region [--combat-seed <nonzero-u32>] <game-directory> [--save-file <path.mmsave>]
 mmodern --load-game <game-directory> <path.mmsave>
 mmodern --render-map <game-directory> [<map> <x> <y> <north|east|south|west>]
-mmodern --monster-fixture <species> <game-directory> [--record <n>] [--start <x>,<y>,<facing>] [--combat-seed <nonzero-u32>]
+mmodern --monster-fixture <species> <game-directory> [--record <n>] [--start <x>,<y>,<facing> | --water-edge] [--combat-seed <nonzero-u32>]
 mmodern --inspect-map|--inspect-party|--inspect-events <game-directory> ...
 ```
 
@@ -193,10 +193,14 @@ mmodern --inspect-map|--inspect-party|--inspect-events <game-directory> ...
   `--record` fixes the placement and
   `--start <x>,<y>,<north|east|south|west>` fixes the start, which must be a
   walkable F3 cell without an automatic Event or a monster spawn (refused with
-  the reason otherwise). The species must walk (flying species are not supported
-  yet) and pass the normal mainland checks; the terminal prints the species, its
-  cell, the start and the facing. Saving and the control panel's Save, Save As
-  and Load are disabled. Not in the title menu.
+  the reason otherwise). `--water-edge` instead starts the party facing water
+  and moves the placement (or `--record`) to free land 2-3 cells beyond it, so
+  a flyer crosses the water while a walker stays on its bank; for example
+  `--monster-fixture 1 <game-directory> --water-edge` for a Giant Bat. Walking
+  and flying species are both accepted if they pass the normal mainland checks;
+  the terminal prints the species, its cell, the start and the facing. Saving
+  and the control panel's Save, Save As and Load are disabled. Not in the
+  title menu.
 - `--inspect-*` are developer tools.
 
 Developer save files must be outside all original source directories, including

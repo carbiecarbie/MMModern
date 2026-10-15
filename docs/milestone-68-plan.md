@@ -77,15 +77,19 @@ checked. DOS overrides the reference; every difference goes to the rules and
 
 ## Part B - monster movement, including flight and species 59
 
-Reference evidence (`Combat::canMonsterMove`, `combat.cpp:700-755`), not yet
-DOS-checked; check the outdoor matrix in `WORLD/XEEN.DAT` where practical.
+Reference evidence (`Combat::canMonsterMove`, `combat.cpp:700-755`), checked in
+`WORLD/XEEN.DAT` (`0x1fc91`): the surface rule matches; DOS differs on the
+threshold, and the maintainer approved following DOS (2026-10-15, see the
+[combat rules](rules/combat.md#monster-movement-terrain)).
 
 1. **Outdoors**, for middle values {0,2,3,4,5,6,8,11,13,14} the destination's
    resolved surface decides: Water and Deep Water admit flyers and species 59
    (Clouds Water Dragon, Darkside Vulture Roc); Space admits flyers; other
    surfaces admit every species on Darkside and all but species 59 on Clouds.
-   Other middle values use the wall threshold, even for flyers.
-2. **Indoors** has no flight rule: the wall threshold applies to everyone.
+   Middle values {1,7,9,10,12} always refuse, flyers too; middle 15 uses the
+   strict wall threshold (below no-pass).
+2. **Indoors** has no flight rule: the strict wall threshold applies to everyone,
+   walkers included.
 3. **Shared rules stay**: the two approach passes, actor scan order, facing
    primary and fallback directions, pre-movement ranged scheduling, the shared
    three-actor occupancy cap with no flight layer, contact entry and drawing

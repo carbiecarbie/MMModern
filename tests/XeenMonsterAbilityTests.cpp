@@ -236,7 +236,8 @@ void fixtureMob() {
 	check(bytes.size()==original.size(),"Fixture keeps the MOB size");
 	for (unsigned n=0;n<bytes.size();++n) if (n!=18 && n!=48+8+4*1+2) check(bytes[n]==original[n],"Only the table slot and the record's table index change");
 	rejects([&]{xeenMonsterFixtureMob(original,{16,0},statistics);},"species outside the catalogue");
-	rejects([&]{xeenMonsterFixtureMob(original,{12,0},statistics);},"flyer refused in Part A");
+	// Part B: a flyer is admitted.
+	check(XeenMapFormat::parseMob(xeenMonsterFixtureMob(original,{12,0},statistics)).monsters[0].resourceId==12,"Flyer admitted");
 	rejects([&]{xeenMonsterFixtureMob(original,{13,0},statistics);},"animation loop refused by the mainland admission");
 	rejects([&]{xeenMonsterFixtureMob(original,{14,0},statistics);},"unsupported attack refused");
 	rejects([&]{xeenMonsterFixtureMob(original,{9,3},statistics);},"record outside the placements");
@@ -246,14 +247,23 @@ void fixtureMob() {
 	rejects([&]{xeenMonsterFixtureMob(syntheticMob(full,{{1,1,0,0}}),{9,0},statistics);},"full table refused");
 	const auto fullReuse=XeenMapFormat::parseMob(xeenMonsterFixtureMob(syntheticMob(full,{{1,1,0,0}}),{10,0},statistics));
 	check(fullReuse.monsters[0].resourceId==10 && fullReuse.monsters[0].tableIndex==9,"Full table still admits a present species");
-	// Species 59 (Water Dragon) walks by the record's bytes but the runtime refuses
-	// its movement until Part B: the fixture and the capability agree.
+	// Part B: every live record moves (species 59 and flyers included); a
+	// zero-HP record does not, and the fixture refuses it.
 	std::vector<XeenMonsterRecord> sixty(60);
 	for (auto &r:sixty) { r=statistics[0]; }
-	check(xeenMonsterMovementSupported(sixty[59],58) && !xeenMonsterMovementSupported(sixty[59],59) && !xeenMonsterMovementSupported(statistics[12],5),"Movement capability: ground species yes, species 59 and flyers no");
-	bool partB=false;
-	try { xeenMonsterFixtureMob(original,{59,1,{}},sixty); } catch (const std::invalid_argument &e) { partB=std::string(e.what()).find("Part B")!=std::string::npos; }
-	check(partB,"Species 59 refused by the fixture with the Part B reason");
+	check(xeenMonsterMovementSupported(sixty[59],58) && xeenMonsterMovementSupported(sixty[59],59) && xeenMonsterMovementSupported(statistics[12],5),"Movement capability: walkers, species 59 and flyers");
+	(void)xeenMonsterFixtureMob(original,{59,1,{}},sixty);
+	sixty[58].raw[20]=0;
+	check(!xeenMonsterMovementSupported(sixty[58],58),"Zero-HP record has no movement");
+	rejects([&]{xeenMonsterFixtureMob(original,{58,1,{}},sixty);},"zero-HP species refused");
+	// A water-edge placement moves the record: only its table index and cell change.
+	XeenMonsterFixture moved{12,1,{}};moved.spawn=std::make_pair(4,5);
+	const auto movedBytes=xeenMonsterFixtureMob(original,moved,statistics,&description);
+	const auto relocated=XeenMapFormat::parseMob(movedBytes);
+	check(relocated.monsters[1].x==4 && relocated.monsters[1].y==5 && relocated.monsters[1].resourceId==12 && description.x==4 && description.y==5 &&
+		relocated.monsters[0].x==1 && relocated.monsters[2].x==3,"Fixture moves the record to the water-edge cell");
+	for (unsigned n=0;n<movedBytes.size();++n) if (n!=18 && (n<48+8+4*1 || n>48+8+4*1+2)) check(movedBytes[n]==original[n],"Only the table slot and the record's bytes change");
+	moved.spawn=std::make_pair(16,5);rejects([&]{xeenMonsterFixtureMob(original,moved,statistics);},"spawn outside the map refused");
 }
 // Synthetic F3: grass everywhere, water in column 0, a tree (middle 1) where a
 // test wants a hidden line, objects and spawns as placed.
@@ -311,6 +321,23 @@ void fixturePlacement() {
 	for (const auto cell:{std::pair<int,int>{8,9},{8,7},{7,8},{9,8}}) tree(boxed,cell.first,cell.second);
 	rejects([&]{xeenMonsterFixturePlacement(boxed,one,{9,{},{}});},"no placement in view refused");
 	rejects([&]{xeenMonsterFixtureMob(syntheticMob(std::vector<std::uint8_t>(16,0xff),{{1,1,0,0}}),{9,{},{}},std::vector<XeenMonsterRecord>(16));},"MOB builder needs a chosen record");
+	// --water-edge: a water column at x=5. The nearest legal start to the entry
+	// (9,11) facing water is (6,10) West ((6,11) is a spawn); the free land cell
+	// three cells ahead is (3,10), and the active record nearest it (record 0)
+	// moves there. The walkers' terrain refuses the water, a flyer's admits it.
+	auto moat=map;
+	for (unsigned y=0;y<16;++y) { auto &c=moat.geometry.cells[y*16+5];c.surfaceIndex=0;c.geometry=XeenOutdoorLayers{0,0,0,0}; }
+	XeenMonsterFixture edge{9,{},{}};edge.waterEdge=true;
+	const auto water=xeenMonsterFixturePlacement(moat,e,edge);
+	check(water.relocated && water.record==0 && water.start.x==6 && water.start.y==10 && water.start.direction==XeenDirection::West &&
+		water.monsterX==3 && water.monsterY==10 && water.distance==3 && water.inView,"Water-edge placement");
+	edge.record=1;
+	const auto fixedEdge=xeenMonsterFixturePlacement(moat,e,edge);
+	check(fixedEdge.record==1 && fixedEdge.monsterX==3 && fixedEdge.monsterY==10,"--water-edge with --record moves that record");
+	edge.start=XeenCamera{23,6,10,XeenDirection::West};
+	rejects([&]{xeenMonsterFixturePlacement(moat,e,edge);},"--water-edge with --start refused");
+	edge.start.reset();
+	rejects([&]{xeenMonsterFixturePlacement(boxed,one,edge);},"no water edge refused");
 }
 }
 int main() {

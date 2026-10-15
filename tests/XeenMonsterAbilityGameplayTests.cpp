@@ -1,4 +1,4 @@
-// M68 Part A gameplay integration: full consequence publication of monster
+// M68 gameplay integration. Part A: full consequence publication of monster
 // secondary effects in exploration (mixed ranged volley) and in combat through
 // the production Application/EventFlow path, exact save round trips after each
 // effect, and the developer fixture provider (synthetic MOB; the original-data
@@ -22,6 +22,8 @@ struct XeenMonsterAbilityTestAccess {
 struct XeenRestTestAccess {
 	static bool active(const XeenEventFlow &f) { return bool(f._encounter->_rest); }
 	static bool confirm(const XeenEventFlow &f) { return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Confirm; }
+	// The ten sleeping opportunities, where monsters move; later phases have none.
+	static bool charging(const XeenEventFlow &f) { return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Charges; }
 };
 }
 namespace {
@@ -367,6 +369,77 @@ void survivingRoundTrips() {
 		})==0,t.name);
 	}
 }
+// M68 Part B: flyers, through the production gameplay path. A moat of Water
+// (surface index 0) at (7,11), (8,11), (10,11) and (11,11) surrounds the party
+// at (9,11) facing West: a monster at (6,11) is in view across the water, one
+// at (12,11) is behind the party across the water.
+enum MovementSpecies : unsigned { Flyer=17 };
+std::vector<XeenMonsterRecord> movementStatistics() {
+	auto out=statistics();out.resize(18);
+	out[Flyer]=out[Melee];out[Flyer].raw[0]='F';out[Flyer].raw[46]=1;
+	return out;
+}
+XeenObjectFile single(unsigned species,int x,int y) {
+	XeenObjectFile m{23,"synthetic.mob",true,{}};
+	m.entities.monsters.push_back({x,y,0,0,int(species)});m.entities.objects.push_back({9,11,0,0,7});return m;
+}
+XeenMap moatMap(XeenMapIdentity id) {
+	auto m=regional_test::map(id);
+	if (id==XeenMapIdentity(23)) for (const int x:{7,8,10,11}) {
+		auto &c=m.geometry.cells[11*16+x];c.rawWord=0;c.surfaceIndex=0;c.geometry=XeenOutdoorLayers{0,0,0,0};
+	}
+	return m;
+}
+// The flyer crosses the water one cell per Wait and enters contact, and combat
+// admits it; the walker stays on its bank. Movement makes no random draw: after
+// the first Wait both sessions hold the same Journey random state.
+void flightToContact() {
+	std::vector<std::decay_t<decltype(*std::declval<XeenWorld &>().sessionState().journeyRandom())>> afterFirstWait;
+	for (const unsigned species:{unsigned(Melee),unsigned(Flyer)}) {
+		Harness h({movementStatistics(),single(species,6,11),moatMap});
+		check(h.run([&](const auto &handler,const auto &idle) {
+			const auto actor=[&]() -> const XeenActor & { return h.world->sessionState().actors().at(0); };
+			waitAndSettle(h,handler,idle);
+			check(species==Flyer ? actor().x==7 && actor().y==11 : actor().x==6 && actor().y==11,
+				species==Flyer ? "The flyer's first step is onto the water" : "The walker is held on its bank by the water");
+			afterFirstWait.push_back(*h.world->sessionState().journeyRandom());
+			for (unsigned wait=0;wait<4 && !h.flow->encounter()->combat();++wait) waitAndSettle(h,handler,idle);
+			if (species==Flyer) {
+				const auto *combat=h.flow->encounter()->combat();check(combat!=nullptr,"The flyer entered contact and combat attached");
+				for (unsigned n=0;n<40 && combat->phase()!=XeenCombatPhase::PlayerReady;++n) h.tick(handler,idle);
+				check(combat->phase()==XeenCombatPhase::PlayerReady,"Combat admits the flying contact actor");
+			} else {
+				check(!h.flow->encounter()->combat() && actor().x==6 && h.quiet(),"The walker never reaches contact");
+				roundTrip(h,"Exact round trip beside a held walker");
+			}
+		})==0,species==Flyer ? "flyer session" : "walker session");
+	}
+	check(afterFirstWait.size()==2 && afterFirstWait[0]==afterFirstWait[1],"Flight adds no random draw");
+}
+// Rest moves every present actor, activated or not: a flyer behind the party
+// crosses the water and stops the Rest during its sleeping opportunities; the
+// walker behind it never moves through all ten of them.
+void restActivation() {
+	for (const unsigned species:{unsigned(Melee),unsigned(Flyer)}) {
+		Harness h({movementStatistics(),single(species,12,11),moatMap});
+		check(h.run([&](const auto &handler,const auto &idle) {
+			const auto actor=[&]() -> const XeenActor & { return h.world->sessionState().actors().at(0); };
+			check(!actor().activated,"The monster behind the party is not activated");
+			h.press(handler,RestAction{});
+			bool moved=false,charged=false;
+			for (unsigned n=0;n<6000 && XeenRestTestAccess::active(*h.flow) && (!charged || XeenRestTestAccess::charging(*h.flow));++n) {
+				charged=charged || XeenRestTestAccess::charging(*h.flow);
+				if (XeenRestTestAccess::confirm(*h.flow)) h.press(handler,DialogKeyAction{'y'});
+				else h.tick(handler,idle);
+				moved=moved || actor().x!=12;
+			}
+			check(charged,"The Rest reached its sleeping opportunities");
+			if (species==Flyer) check(moved && actor().x<=10 && !XeenRestTestAccess::active(*h.flow),"Rest moved the unactivated flyer across the water and it stopped the Rest");
+			else check(!moved && XeenRestTestAccess::active(*h.flow) && !XeenRestTestAccess::charging(*h.flow) && actor().x==12 && actor().y==11,
+				"The walker behind the water never moved through the ten sleeping opportunities");
+		})==0,species==Flyer ? "flyer Rest" : "walker Rest");
+	}
+}
 void originalFixture(const std::filesystem::path &game) {
 	const auto installation=xeenTestInstallationDetector().detect(game);
 	check(installation && installation->hasDarkside(),"World of Xeen installation");
@@ -389,15 +462,26 @@ void originalFixture(const std::filesystem::path &game) {
 		const auto entry=xeenMonsterFixturePlacement(map23,originalEntities,{17,{},xeenJourneyContent().entry});
 		check(entry.start.x==9 && entry.start.y==11 && entry.start.direction==XeenDirection::West,"--start overrides the chosen start");
 	}
-	// Cleric of Yak (17): Electrical ranged, no special; Lava Golem (65): Fire with Break Weapon.
-	for (unsigned species:{17u,65u}) {
+	// The Giant Bat at a water edge (Part B): no original spawn faces a reachable
+	// shore across water, so the chosen record moves to the far bank.
+	const auto edge=xeenMonsterFixturePlacement(map23,originalEntities,{1,{},{},true});
+	const auto fixtureFor=[&](unsigned species,const XeenMonsterFixturePlacement &at) {
+		XeenMonsterFixture fixture{species,at.record,{}};
+		if (at.relocated) fixture.spawn=std::make_pair(at.monsterX,at.monsterY);
+		return fixture;
+	};
+	// Cleric of Yak (17): Electrical ranged, no special; Lava Golem (65): Fire
+	// with Break Weapon; Giant Bat (1) flying, moved to the water edge.
+	const auto fixtureJourney=[&](unsigned species,const XeenMonsterFixturePlacement &placement) {
 		XeenMonsterFixtureDescription d;
 		const unsigned record=placement.record;
-		const auto bytes=xeenMonsterFixtureMob(original,{species,record,{}},in.statistics,&d);
+		const auto bytes=xeenMonsterFixtureMob(original,fixtureFor(species,placement),in.statistics,&d);
 		const auto entities=XeenMapFormat::parseMob(bytes);
 		check(entities.monsters.size()==originalEntities.monsters.size() && entities.monsters[record].resourceId==int(species) &&
-			d.name==in.statistics[species].name() && d.x==originalEntities.monsters[record].x && d.y==originalEntities.monsters[record].y,"Fixture retargets the chosen record");
-		for (unsigned n=0;n<entities.monsters.size();++n) if (n!=record) check(entities.monsters[n].resourceId==originalEntities.monsters[n].resourceId,"Other placements unchanged");
+			d.name==in.statistics[species].name() && d.x==placement.monsterX && d.y==placement.monsterY &&
+			entities.monsters[record].x==placement.monsterX && entities.monsters[record].y==placement.monsterY,"Fixture retargets the chosen record");
+		for (unsigned n=0;n<entities.monsters.size();++n) if (n!=record) check(entities.monsters[n].resourceId==originalEntities.monsters[n].resourceId &&
+			entities.monsters[n].x==originalEntities.monsters[n].x && entities.monsters[n].y==originalEntities.monsters[n].y,"Other placements unchanged");
 		const auto objectLoader=[&](XeenMapIdentity id) {
 			return in.maps.loadObjects([&](const std::string &name)->std::optional<Bytes>{
 				if (name=="maze0023.mob") return bytes;
@@ -428,14 +512,45 @@ void originalFixture(const std::filesystem::path &game) {
 		check(XeenSaveFormat::encode(XeenSaveState::capture(in.signature,rp,rc,rf,restored))==XeenSaveFormat::encode(saved),"Fixture round trip through the same provider");
 		// The original resource no longer matches a fixture world.
 		rejects([&]{xeenValidateRegionalManifest(w.map(23),w.objectFile(23),in.mainland,in.statistics,in.assets.readInitialResource("maze0023.dat"),original,in.assets.readInitialResource("maze0023.evt"));},"fixture world differs from the original manifest");
-	}
-	rejects([&]{xeenMonsterFixtureMob(original,{1,0,{}},in.statistics);},"Giant Bat flies: refused in Part A");
+	};
+	fixtureJourney(17,placement);fixtureJourney(65,placement);fixtureJourney(1,edge);
 	rejects([&]{xeenMonsterFixtureMob(original,{0,0,{}},in.statistics);},"Slime's animation loop is refused by the mainland admission");
 	rejects([&]{xeenMonsterFixtureMob(original,{17,255,{}},in.statistics);},"record outside the placements");
+	// Part B: flyers and species 59 are admitted.
+	check(in.statistics[1].flying() && xeenMonsterMovementSupported(in.statistics[1],1) && xeenMonsterMovementSupported(in.statistics[59],59),"Giant Bat and Water Dragon move");
+	(void)xeenMonsterFixtureMob(original,{59,placement.record,{}},in.statistics);
+	rejects([&]{xeenMonsterFixturePlacement(map23,originalEntities,{1,{},xeenJourneyContent().entry,true});},"--water-edge with --start");
 	{
-		bool partB=false;
-		try { xeenMonsterFixtureMob(original,{59,placement.record,{}},in.statistics); } catch (const std::invalid_argument &e) { partB=std::string(e.what()).find("Part B")!=std::string::npos; }
-		check(partB && !xeenMonsterMovementSupported(in.statistics[59],59),"Water Dragon (59) refused with the Part B reason");
+		// The cell right ahead of the water-edge start is water a walker cannot
+		// enter; the bat crosses it into contact over the original geometry while
+		// an Orc (6) from the same spawn is held.
+		constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};const auto d=unsigned(edge.start.direction);
+		const int ax=edge.start.x+dx[d],ay=edge.start.y+dy[d];
+		const auto &ahead=xeenGet<XeenOutdoorLayers>(map23.geometry.cells[ay*16+ax].geometry);
+		const auto surface=map23.geometry.surfaceTypes[ahead.surface];
+		check(edge.relocated && edge.inView && edge.distance>=2 && !xeenMonsterFixtureStartRefusal(map23,originalEntities,edge.start) && (surface==0 || surface==8) &&
+			edge.monsterX==edge.start.x+dx[d]*int(edge.distance) && edge.monsterY==edge.start.y+dy[d]*int(edge.distance),
+			"The water-edge start faces water with the monster in view");
+		const auto approach=[&](unsigned species) {
+			const auto bytes=xeenMonsterFixtureMob(original,fixtureFor(species,edge),in.statistics);
+			auto actors=XeenActorApproach::actorsFromResources({23,"fixture",true,XeenMapFormat::parseMob(bytes)},in.statistics);
+			for (auto &other:actors) other.activated=false;
+			actors.at(edge.record).activated=true;
+			bool overWater=false;
+			for (unsigned step=0;step<8 && !(actors[edge.record].x==edge.start.x && actors[edge.record].y==edge.start.y);++step) {
+				actors=XeenActorApproach::move(actors,edge.start,[&](const XeenActor &m,int x,int y){return xeenRegionalActorTerrain(map23,m,x,y);},true,
+					[](const std::vector<XeenActor> &,std::size_t){});
+				const auto &a=actors[edge.record];
+				const auto &l=xeenGet<XeenOutdoorLayers>(map23.geometry.cells[a.y*16+a.x].geometry);
+				const auto t=map23.geometry.surfaceTypes[l.surface];overWater=overWater || t==0 || t==8;
+			}
+			return std::make_pair(actors[edge.record],overWater);
+		};
+		const auto bat=approach(1);
+		check(bat.first.x==edge.start.x && bat.first.y==edge.start.y && bat.second,"The Giant Bat crossed the water into contact on the original map");
+		const auto orc=approach(6);
+		check(!orc.second && !(orc.first.x==edge.start.x && orc.first.y==edge.start.y),"An Orc from the same spawn is held by the water");
+		std::cout<<"Water-edge fixture placement: record "<<edge.record<<" at ("<<edge.monsterX<<','<<edge.monsterY<<"), start ("<<edge.start.x<<','<<edge.start.y<<") facing "<<unsigned(edge.start.direction)<<", distance "<<edge.distance<<'\n';
 	}
 	std::cout<<"Default fixture placement: record "<<placement.record<<" at ("<<placement.monsterX<<','<<placement.monsterY<<"), start ("<<placement.start.x<<','<<placement.start.y<<") facing "<<unsigned(placement.start.direction)<<", distance "<<placement.distance<<'\n';
 	std::cout<<"Original-data monster fixture passed\n";
@@ -446,7 +561,8 @@ int main(int argc,char **argv) {
 		if (argc>1) { originalFixture(std::filesystem::u8path(argv[1]));return 0; }
 	} catch (const std::exception &e) { std::cerr<<"originalFixture: "<<e.what()<<'\n';return 1; }
 	const std::pair<const char *,void(*)()> sections[]{{"mixedVolleyDrainsSp",mixedVolleyDrainsSp},{"publishedEffects",publishedEffects},{"combatPublication",combatPublication},
-		{"combatVolley",combatVolley},{"restInterruption",restInterruption},{"survivingRoundTrips",survivingRoundTrips}};
+		{"combatVolley",combatVolley},{"restInterruption",restInterruption},{"survivingRoundTrips",survivingRoundTrips},
+		{"flightToContact",flightToContact},{"restActivation",restActivation}};
 	for (const auto &[name,run]:sections) {
 		try { run(); } catch (const std::exception &e) { std::cerr<<name<<": "<<e.what()<<'\n';return 1; }
 	}

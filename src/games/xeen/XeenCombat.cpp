@@ -566,7 +566,7 @@ XeenCombatResult XeenCombat::beginCombat(const Ticket &t) {
 			const auto &a=d.activeActors().at(view.slots[i]->recordIndex);
 			require(a.id==XeenMonsterIdentity{d.camera.mapId,view.slots[i]->recordIndex} &&
 				a.statistics && a.hp>0 && a.lifecycle==XeenActorLifecycle::Present &&
-				a.status==XeenActorStatus::Physical && a.statistics->supportsGroundMovement(),"Invalid contact actor");
+				a.status==XeenActorStatus::Physical && xeenMonsterMovementSupported(*a.statistics,a.original.resourceId),"Invalid contact actor");
 			a.statistics->validateAttackCapabilities();
 
 		}

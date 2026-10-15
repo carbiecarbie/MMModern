@@ -6,6 +6,17 @@
 #include <bitset>
 
 namespace mmodern {
+// The original monster terrain test (canMonsterMove, WORLD/XEEN.DAT 0x1fc91).
+// Outdoors the destination's middle value decides. Middle {0,2,3,4,5,6,8,11,
+// 13,14}: the resolved surface type admits Water and Deep Water to flyers and
+// species 59, Space to flyers, and any other surface to every species on
+// Darkside and all but species 59 on Clouds. Middle {1,7,9,10,12} always
+// blocks; middle 15 uses the wall threshold. Unsupported for values >= 16.
+XeenMonsterTerrain xeenOutdoorMonsterTerrain(unsigned middle, unsigned surfaceType, unsigned wallNoPass,
+	bool flying, int species, XeenSide side) noexcept;
+// The wall threshold for every monster, flying or not: a wall passes only
+// below the map's no-pass value (DOS 0x1fd8f, the player's own rule).
+bool xeenMonsterPassesWall(unsigned wall, unsigned wallNoPass) noexcept;
 // Disposable queries over checked immutable geometry; these own no live state.
 XeenMonsterTerrain xeenRegionalActorTerrain(const XeenMap &, const XeenActor &, int x, int y);
 XeenMonsterTerrain xeenIndoorActorTerrain(XeenWorld &, const XeenActor &, int x, int y);

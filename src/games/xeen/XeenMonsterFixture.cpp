@@ -37,6 +37,60 @@ bool inView(const XeenMap &map,const XeenMapEntities &entities,const XeenCamera 
 	}
 	return true;
 }
+// The monster terrain test for a walker or a flyer of an ordinary species.
+XeenMonsterTerrain monsterTerrain(const XeenMap &map,int x,int y,bool flying) {
+	if (!local(x,y)) return XeenMonsterTerrain::Unsupported;
+	const auto *l=xeenGetIf<XeenOutdoorLayers>(&map.geometry.cells[y*16+x].geometry);
+	if (!l || l->surface>=16) return XeenMonsterTerrain::Unsupported;
+	return xeenOutdoorMonsterTerrain(l->middle,map.geometry.surfaceTypes[l->surface],map.geometry.difficulties[0],flying,0,map.side);
+}
+// Water or Deep Water under a middle value whose surface decides: a walker
+// cannot enter it, a flyer can.
+bool water(const XeenMap &map,int x,int y) {
+	const auto *l=local(x,y) ? xeenGetIf<XeenOutdoorLayers>(&map.geometry.cells[y*16+x].geometry) : nullptr;
+	if (!l || l->surface>=16) return false;
+	const auto surface=map.geometry.surfaceTypes[l->surface];
+	return (surface==0 || surface==8) && monsterTerrain(map,x,y,false)==XeenMonsterTerrain::Blocked &&
+		monsterTerrain(map,x,y,true)==XeenMonsterTerrain::Allowed;
+}
+XeenMonsterFixturePlacement waterEdgePlacement(const XeenMap &map,const XeenMapEntities &entities,const XeenMonsterFixture &fixture) {
+	const auto &entry=xeenJourneyContent().entry;
+	std::vector<std::pair<int,int>> cells;
+	for (int y=0;y<16;++y) for (int x=0;x<16;++x) cells.push_back({x,y});
+	std::stable_sort(cells.begin(),cells.end(),[&](const auto &a,const auto &b) {
+		return std::abs(a.first-entry.x)+std::abs(a.second-entry.y)<std::abs(b.first-entry.x)+std::abs(b.second-entry.y);
+	});
+	for (const auto &cell:cells) for (unsigned d=0;d<4;++d) {
+		const XeenCamera start{23,cell.first,cell.second,static_cast<XeenDirection>(d)};
+		if (!water(map,start.x+kDx[d],start.y+kDy[d]) || xeenMonsterFixtureStartRefusal(map,entities,start)) continue;
+		for (unsigned k=3;k>=2;--k) {
+			const int x=start.x+kDx[d]*int(k),y=start.y+kDy[d]*int(k);
+			if (monsterTerrain(map,x,y,false)!=XeenMonsterTerrain::Allowed || monsterAt(entities,x,y) || objectAt(entities,x,y) ||
+				xeenPlayerRayRows(map,start)<=k) continue;
+			unsigned record=0;
+			if (fixture.record) record=*fixture.record;
+			else {
+				bool found=false;int best=0;
+				for (unsigned n=0;n<entities.monsters.size();++n) {
+					if (!entities.monsters[n].isActive()) continue;
+					const int distance=std::abs(entities.monsters[n].x-x)+std::abs(entities.monsters[n].y-y);
+					if (!found || distance<best) { record=n;best=distance;found=true; }
+				}
+				if (!found) throw std::invalid_argument("Monster fixture: map 23 has no active placement");
+			}
+			bool clear=true;
+			for (unsigned j=1;j<k;++j) {
+				const int bx=start.x+kDx[d]*int(j),by=start.y+kDy[d]*int(j);
+				clear=clear && !objectAt(entities,bx,by) && !monsterAt(entities,bx,by,record);
+			}
+			if (!clear) continue;
+			XeenMonsterFixturePlacement p;p.record=record;p.start=start;p.monsterX=x;p.monsterY=y;
+			p.distance=k;p.inView=true;p.relocated=true;
+			return p;
+		}
+	}
+	throw std::invalid_argument("Monster fixture: no legal start faces water with a free cell beyond it; use --start");
+}
 }
 std::optional<std::string> xeenMonsterFixtureStartRefusal(const XeenMap &map,const XeenMapEntities &entities,
 		const XeenCamera &start) {
@@ -58,6 +112,9 @@ XeenMonsterFixturePlacement xeenMonsterFixturePlacement(const XeenMap &map,const
 		p.monsterX=entities.monsters[record].x;p.monsterY=entities.monsters[record].y;p.distance=distance;p.inView=view;
 		return p;
 	};
+	if (fixture.start && fixture.waterEdge)
+		throw std::invalid_argument("Monster fixture: --water-edge chooses the start; do not combine it with --start");
+	if (fixture.waterEdge) return waterEdgePlacement(map,entities,fixture);
 	if (fixture.start) {
 		if (const auto refusal=xeenMonsterFixtureStartRefusal(map,entities,*fixture.start))
 			throw std::invalid_argument("Monster fixture --start refused: "+*refusal);
@@ -102,9 +159,7 @@ std::vector<std::uint8_t> xeenMonsterFixtureMob(const std::vector<std::uint8_t> 
 	const unsigned record=*fixture.record;
 	const auto &species=statistics[fixture.species];
 	if (!xeenMonsterMovementSupported(species,int(fixture.species)))
-		throw std::invalid_argument(fixture.species==59 ?
-			"Monster fixture species '"+species.name()+"' (59) moves only on water; that movement arrives with flight in Part B and is not supported yet" :
-			"Monster fixture species '"+species.name()+"' flies or has no HP; flight is not supported yet");
+		throw std::invalid_argument("Monster fixture species '"+species.name()+"' has no HP; it is not a live monster");
 	if (!species.supportsAdmittedMechanicsRendering())
 		throw std::invalid_argument("Monster fixture species '"+species.name()+"' uses an animation loop or effect the mainland does not admit");
 	species.validateAttackCapabilities();
@@ -137,16 +192,25 @@ std::vector<std::uint8_t> xeenMonsterFixtureMob(const std::vector<std::uint8_t> 
 	auto bytes=original;
 	for (unsigned slot=0;slot<16;++slot) bytes[16+slot]=table[slot];
 	bytes[offset+2]=static_cast<std::uint8_t>(index);
-	// The result must parse to the same placements with one retargeted species.
+	if (fixture.spawn) {
+		if (!local(fixture.spawn->first,fixture.spawn->second))
+			throw std::invalid_argument("Monster fixture spawn is outside the 16x16 map");
+		bytes[offset]=static_cast<std::uint8_t>(fixture.spawn->first);bytes[offset+1]=static_cast<std::uint8_t>(fixture.spawn->second);
+	}
+	const int x=fixture.spawn ? fixture.spawn->first : int(entities.monsters[record].x);
+	const int y=fixture.spawn ? fixture.spawn->second : int(entities.monsters[record].y);
+	// The result must parse to the same placements with one retargeted species
+	// (moved only to the requested spawn).
 	const auto parsed=XeenMapFormat::parseMob(bytes);
-	if (parsed.monsters.size()!=entities.monsters.size() || parsed.monsters[record].resourceId!=int(fixture.species))
+	if (parsed.monsters.size()!=entities.monsters.size() || parsed.monsters[record].resourceId!=int(fixture.species) ||
+		parsed.monsters[record].x!=x || parsed.monsters[record].y!=y)
 		throw std::logic_error("Monster fixture bytes do not parse to the intended placement");
 	for (unsigned n=0;n<parsed.monsters.size();++n) if (n!=record &&
-		parsed.monsters[n].resourceId!=entities.monsters[n].resourceId)
+		(parsed.monsters[n].resourceId!=entities.monsters[n].resourceId || parsed.monsters[n].x!=entities.monsters[n].x || parsed.monsters[n].y!=entities.monsters[n].y))
 		throw std::logic_error("Monster fixture retargeted an unrelated placement");
 	if (description) {
 		description->name=species.name();
-		description->x=entities.monsters[record].x;description->y=entities.monsters[record].y;
+		description->x=x;description->y=y;
 		description->tableIndex=index;
 	}
 	return bytes;

@@ -38,22 +38,31 @@ int main(int argc,char **argv) {
         require(!documentedGap("Events","16 Spawn slot=0","partial","Invalid Spawn operands or owner"),"Missing probe owner must fail calibration");
         require(!documentedGap("Events","17 DoTownEvent action=0","unsupported","opcode 17 is outside the supported decoder subset"),"Missing service handoff must fail calibration");
         std::ifstream input(argv[1]);require(bool(input),"Cannot read coverage report");
-        std::string line,dimension;bool clouds=false;unsigned gaps=0,unused=0,waterDragon=0;
+        std::string line,dimension;bool clouds=false,darkside=false;unsigned gaps=0,unused=0,waterDragon=0,vultureRoc=0,movement=0;
         std::set<std::string> supported;
         while(std::getline(input,line)) {
             if(line=="## Clouds detail")clouds=true;
-            if(line=="## Darkside detail")break;
-            if(!clouds)continue;
+            if(line=="## Darkside detail") {clouds=false;darkside=true;}
+            if(!clouds && !darkside)continue;
             if(line.rfind("### ",0)==0)dimension=line.substr(4);
             std::stringstream stream(line);std::vector<std::string> columns;std::string column;
             while(std::getline(stream,column,'|'))columns.push_back(trim(column));
             if(columns.size()!=7)continue;
             const auto &mechanic=columns[1],&status=columns[2],&reason=columns[6];
-            // M68 Part A: species 59 (Water Dragon) keeps its runtime movement refusal until Part B.
-            if((dimension=="Monster species" && mechanic.rfind("xeen.mon 59 ",0)==0) || (dimension=="Monsters" && mechanic.find("species=59")!=std::string::npos)) {
-                require(status=="unsupported" && reason.find("species 59")!=std::string::npos && reason.find("Part B")!=std::string::npos,
-                    "Water Dragon must stay a documented movement gap: "+dimension+" / "+mechanic+" / "+reason);++waterDragon;
+            // M68 Part B: every live monster moves (walkers, flyers, species 59).
+            // The one exception is the zero-HP, zero-use dark.mon 0 record.
+            const bool emptyRecord=darkside && reason.rfind("dark.mon 0 ;",0)==0;
+            if(dimension=="Monsters" && mechanic.rfind("Movement ",0)==0) {
+                require(status=="supported" || (emptyRecord && columns[3]=="0"),"Monster movement gap: "+mechanic+" / "+status+" / "+reason);++movement;
+                if(mechanic.find("species=59")!=std::string::npos)++(clouds?waterDragon:vultureRoc);
             }
+            if(dimension=="Monster species") {
+                require(reason.find("xeenMonsterMovementSupported rejects")==std::string::npos || (darkside && mechanic=="dark.mon 0"),
+                    "Monster species movement refusal: "+mechanic+" / "+reason);
+                if(clouds && mechanic.rfind("xeen.mon 59 ",0)==0) {require(status=="supported","Water Dragon species is not supported: "+reason);++waterDragon;}
+                if(darkside && mechanic.rfind("dark.mon 59 ",0)==0) {require(status=="supported","Vulture Roc species is not supported: "+reason);++vultureRoc;}
+            }
+            if(!clouds)continue;
             std::set<unsigned> maps;std::stringstream ids(columns[5]);
             while(std::getline(ids,column,','))try {maps.insert(std::stoul(trim(column)));}catch(...){}
             if(maps.count(28)) {
@@ -76,7 +85,8 @@ int main(int argc,char **argv) {
             require(found,std::string("Accepted Vertigo mechanic missing: ")+prefix);
         }
         require(gaps==11 && unused==4,"Vertigo documented gap/subroutine inventory changed; explain and recalibrate");
-        require(waterDragon==2,"Water Dragon species and movement rows are missing from the Clouds census");
+        require(waterDragon==2 && vultureRoc==2,"Species 59 species and movement rows are missing from the census");
+        require(movement>=4,"Monster movement rows are missing from the census");
         std::cout<<"Vertigo calibration: "<<gaps<<" documented gap rows; "<<unused<<" unresolved-subroutine exceptions; accepted effects and services supported\n";
         return 0;
     }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}

@@ -413,11 +413,13 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
             const auto placement = xeenMonsterFixturePlacement(maps.loadGeometryMap(assets, 23),
                 XeenMapFormat::parseMob(originalMob), *fixture);
             auto chosen = *fixture; chosen.record = placement.record;
+            if (placement.relocated) chosen.spawn = std::make_pair(placement.monsterX, placement.monsterY);
             XeenMonsterFixtureDescription description;
             fixtureMob = xeenMonsterFixtureMob(originalMob, chosen, XeenMonsterFormat::parse(*statisticsBytes), &description);
             fixtureStart = placement.start;
             std::cout << "Monster fixture: xeen.mon " << fixture->species << " '" << description.name
-                << "' replaces map 23 record " << placement.record << " at (" << description.x << ',' << description.y
+                << "' replaces map 23 record " << placement.record << (placement.relocated ? ", moved across the water to (" : " at (")
+                << description.x << ',' << description.y
                 << "). Party starts at (" << placement.start.x << ',' << placement.start.y << ") facing "
                 << directionName(placement.start.direction) << ", monster "
                 << (placement.inView ? std::to_string(placement.distance) + " cells ahead" : "not in view from this start")

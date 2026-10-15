@@ -82,17 +82,16 @@ void monster(Census &c,const XeenMonsterRecord &m,unsigned index,unsigned map,st
     Support attack{Status::Supported,"validateAttackCapabilities accepts"};
     try {m.validateAttackCapabilities();}catch(const std::exception &e) {attack={Status::Unsupported,e.what()};}
     auto admission=attack;
-    // Movement is the runtime's capability: ground movement and not species 59
-    // (Water Dragon), whose water-only movement is a Part B gap.
-    const bool waterDragon=index==59 && m.supportsGroundMovement();
-    const char *movementGap=waterDragon?"species 59 water movement is not supported yet (Part B)":"supportsGroundMovement rejects";
+    // Movement is the runtime's capability (every live record); the terrain rule
+    // separates walkers, flyers and species 59 (Water Dragon, Vulture Roc).
+    const char *movementGap="xeenMonsterMovementSupported rejects: no HP, not a live actor";
     if(admission.status==Status::Supported && !xeenMonsterMovementSupported(m,int(index)))admission={Status::Unsupported,movementGap};
     if(admission.status==Status::Supported && !m.supportsRendering())
         admission={Status::Unsupported,"supportsRendering rejects"};
     if(admission.status==Status::Supported)admission.reason="Attack, movement and mechanic-rendering checks accept; see resistance/drop gaps separately";
     c.add("Monster species",source,admission,map,count);
     c.add("Monsters","Attack type="+std::to_string(m.damageType())+" special="+std::to_string(m.raw[30])+" ranged="+std::to_string(m.raw[32]),attack,map,count,source);
-    c.add("Monsters","Movement flying="+std::to_string(m.raw[46])+(waterDragon?" species=59":""),
+    c.add("Monsters","Movement flying="+std::to_string(m.raw[46])+(index==59?" species=59":""),
         xeenMonsterMovementSupported(m,int(index))?Support{Status::Supported,"xeenMonsterMovementSupported accepts"}:Support{Status::Unsupported,movementGap},map,count,source);
     c.add("Monsters","Animation loop="+std::to_string(m.raw[48])+" effect="+std::to_string(m.animationEffect()),
         m.supportsRendering()?Support{Status::Supported,"supportsRendering accepts (current scene presentation)"}:

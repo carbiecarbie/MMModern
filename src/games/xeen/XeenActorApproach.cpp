@@ -98,8 +98,8 @@ XeenActorView XeenActorApproach::classify(const std::vector<XeenActor> &actors,
 	return view;
 }
 
-bool xeenMonsterMovementSupported(const XeenMonsterRecord &m, int species) noexcept {
-	return m.supportsGroundMovement() && species != 59;
+bool xeenMonsterMovementSupported(const XeenMonsterRecord &m, int) noexcept {
+	return m.baseHp() != 0;
 }
 std::array<unsigned, 1024> XeenActorApproach::occupancy(const std::vector<XeenActor> &actors) {
 	require(actors.size() <= kCapacity, "monster simulation capacity exceeded");
@@ -145,7 +145,7 @@ std::vector<XeenActor> XeenActorApproach::moveWithContext(const std::vector<Xeen
 				require(coordinate(a.x, a.y) && a.lifecycle == XeenActorLifecycle::Present &&
 					a.status == XeenActorStatus::Physical && a.statistics &&
 					(beforeMovement ? xeenMonsterMovementSupported(*a.statistics,a.original.resourceId) :
-						(a.statistics->supportsMovement() && a.original.resourceId != 59)), "unsupported relevant actor movement");
+						(!a.statistics->raw[32] && xeenMonsterMovementSupported(*a.statistics,a.original.resourceId))), "unsupported relevant actor movement");
 				const int sx = dx < 0 ? 1 : dx > 0 ? -1 : 0;
 				const int sy = dy < 0 ? 1 : dy > 0 ? -1 : 0;
 				// Literal MONSTER_GRID_X/Y and GRID3, including same-column/row zero deltas.

@@ -15,7 +15,8 @@ character's current level is `L = max(permanent level + temporary level, 0)`.
 ## Sources and evidence boundaries
 
 **Evidence: Reference only, except the DOS-static findings explicitly
-identified in the spell interaction and treasure sections.** Source links are pinned, so future
+identified in the spell interaction, treasure and monster movement terrain
+sections.** Source links are pinned, so future
 upstream changes cannot silently change this chapter.
 
 | Topic | Pinned source and symbols |
@@ -448,6 +449,47 @@ makes no production change. Future recovery must use DOS. Damage saving throws
 also use `<= ID`. Separately, the reference wakes damaged sleeping/dragon-sleeping
 monsters on entry to `attack2`'s positive-input branch, before later resistance.
 
+## Monster movement terrain
+
+**DOS static, high confidence** (M68 Part B, 2026-10-15). `canMonsterMove` is
+`WORLD/XEEN.DAT` `0x1fc91..0x1fda1`. Calibration: the threshold byte `ds:0xc0fc`
+is map difficulty byte 0 (no-pass), because Run reads byte 7 at `ds:0xc103`
+(`0x2e1cc`, above) and the player's wall checks (`0xcf5a`, `0xd523`, `0x1db71`)
+read `ds:0xc0fc` with the reference's player rule. The surface type is
+`ds:0xc0ea[current surface ID]`, the primary map's 16 surface types stored just
+before the difficulties. A monster's flying byte is offset `0x2e` of its 60-byte
+record, and species means the resource (sprite) ID.
+
+The test runs once for each step the shared approach tries:
+
+- **Indoors** there is no flight rule. The wall nibble of the monster's current
+  cell, in the step direction, passes only when it is **below** no-pass
+  (`0x1fd8f..0x1fd9b`: `cmp ax,dx; jle` refuses equality). Walkers and flyers
+  share it.
+- **Outdoors** the destination's middle value decides (jump table `0x1fda3`):
+
+| Middle | Rule |
+| --- | --- |
+| 0, 2, 3, 4, 5, 6, 8, 11, 13, 14 | The destination's surface type decides (`0x1fcdb`). Water (0) and Deep Water (8) admit flyers and species 59 (`0x1fd21`, `0x1fd2d`); Space (15) admits only flyers (`0x1fd67`); any other surface admits every species on Darkside and all but species 59 on Clouds (`0x1fd72..0x1fd85`, archive selector `ds:0x94`) |
+| 1, 7, 9, 10, 12 | Always refused, flyers too (`0x1fd8b`) |
+| 15 | Below no-pass, as indoors |
+
+Species 59 is the Clouds Water Dragon, which stays on water, and the Darkside
+Vulture Roc, a flyer that the Clouds-only land refusal does not touch. The
+surface rule matches pinned `Combat::canMonsterMove`. The pin differs in two
+ways: it compares middles 1, 7, 9, 10 and 12 with the threshold, and it admits
+a value equal to no-pass. Both differences are listed in
+[original quirks](../original-quirks.md). The archive-selector identification
+is medium-high confidence: it rests on the structural match, and the file-name
+strings were not resolved.
+
+Everything else in the approach is shared by walkers and flyers. That covers
+the two passes, the actor scan order, the facing primary and fallback steps,
+the pre-movement ranged scheduling and the three-actor occupancy cap (no flight
+layer). A refused occupancy never tries the fallback, and contact entry is the
+same. Movement makes no random draw. The only drawing difference is the
+existing float of flying monsters.
+
 ## Experience and monster treasure
 
 **Evidence: Reference only.** Symbols: `giveExperience`, the death branch in
@@ -521,7 +563,10 @@ since M67, enchanted weapon attacks (metal, elemental, attribute materials,
 effectiveness, the Slayer Sword bypass), the two-stage natural-20 enemy application,
 target selection, Run, typed consequences, supported spell damage and, since M68
 Part A, the DOS monster damage sequence for every damage type with every
-secondary effect (`XeenMonsterAbilityTests.cpp` holds the draw tapes).
+secondary effect (`XeenMonsterAbilityTests.cpp` holds the draw tapes). Since
+M68 Part B, [XeenRegionalRules.cpp](../../src/games/xeen/XeenRegionalRules.cpp)
+implements the DOS monster terrain test above for walkers, flyers and species 59
+(`XeenRegionalRulesTests.cpp` holds the matrix).
 [XeenCharacterRules.cpp](../../src/games/xeen/XeenCharacterRules.cpp) owns shared
 character capacities. [XeenCombatTests.cpp](../../tests/XeenCombatTests.cpp) checks
 ordered critical damage and armor changes;
@@ -544,5 +589,5 @@ Highest-value unresolved original-program checks:
 
 No DOS-width, overflow or malformed-resource behavior beyond the retained
 findings is inferred from ScummVM's wider host integers. Exact timing, monster
-movement geometry, all spell effects and item generation tables are outside this
-chapter's verified coverage.
+movement geometry beyond the terrain test, all spell effects and item generation
+tables are outside this chapter's verified coverage.

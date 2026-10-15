@@ -22,7 +22,6 @@ std::uint16_t XeenMonsterRecord::baseHp() const { return word(*this, 20); }
 std::uint16_t XeenMonsterRecord::strikes() const { return word(*this, 26); }
 std::uint16_t XeenMonsterRecord::gold() const { return word(*this, 42); }
 bool XeenMonsterRecord::supportsMovement() const { return baseHp()!=0 && raw[32]==0 && raw[46]==0; }
-bool XeenMonsterRecord::supportsGroundMovement() const { return baseHp()!=0 && raw[46]==0; }
 bool XeenMonsterRecord::supportsRendering() const { return image()!=255 && animationEffect()<=15; }
 bool XeenMonsterRecord::supportsAdmittedMechanicsRendering() const { return image()!=255 && raw[48]==0 && raw[49]==0; }
 void XeenMonsterRecord::validatePresentation() const {

@@ -80,7 +80,7 @@ void actors() {
 	XeenActor a;a.id={23,0};a.original.x=0;a.original.y=5;a.original.resourceId=6;
 	a.x=0;a.y=5;a.statistics=XeenMonsterRecord{};a.statistics->raw[20]=25;a.statistics->raw[32]=1;
 	a.hp=17;a.activated=true;a.lifecycle=XeenActorLifecycle::Present;
-	check(!a.statistics->supportsMovement() && a.statistics->supportsGroundMovement(),"Ranged profile independent movement admission");
+	check(!a.statistics->supportsMovement() && xeenMonsterMovementSupported(*a.statistics,6),"Ranged profile independent movement admission");
 	map.geometry.cells[5*16].geometry=XeenOutdoorLayers{2,1,0,0};
 	check(xeenActorClosure(map,a).count()==256,"Mountain spawn can leave into adjacent ground");
 	check(xeenRegionalActorTerrain(map,a,0,5)==XeenMonsterTerrain::Blocked,"Mountain destination blocked");
@@ -118,6 +118,115 @@ void actors() {
 			++checked;if(i==1){check(candidate[0].x==4,"Later actor sees earlier candidate movement");throw std::invalid_argument("Later ranged boundary");}
 		});});
 	check(checked==2 && a.x==3 && later.x==4,"Later failure discards whole candidate");
+}
+// M68 Part B: the original monster terrain test (WORLD/XEEN.DAT 0x1fc91).
+void monsterTerrainMatrix() {
+	constexpr unsigned water=0,deepWater=8,space=15;
+	for (const auto side:{XeenSide::Clouds,XeenSide::Darkside})
+	for (unsigned middle=0;middle<16;++middle) for (unsigned surface=0;surface<16;++surface)
+	for (const bool flying:{false,true}) for (const int species:{6,59}) for (const unsigned wallNoPass:{0u,6u,7u,15u,16u}) {
+		bool expected=false;
+		switch (middle) {
+		case 0:case 2:case 3:case 4:case 5:case 6:case 8:case 11:case 13:case 14:
+			expected=surface==water || surface==deepWater ? flying || species==59 :
+				surface==space ? flying : side==XeenSide::Darkside || species!=59;
+			break;
+		case 15: expected=15<wallNoPass;break;
+		default: expected=false; // 1, 7, 9, 10, 12: refused before any threshold, flyers too
+		}
+		check(xeenOutdoorMonsterTerrain(middle,surface,wallNoPass,flying,species,side)==
+			(expected ? XeenMonsterTerrain::Allowed : XeenMonsterTerrain::Blocked),"Outdoor monster terrain matrix");
+	}
+	check(xeenOutdoorMonsterTerrain(0,16,0,true,6,XeenSide::Clouds)==XeenMonsterTerrain::Unsupported,"Unresolved surface type");
+	check(xeenOutdoorMonsterTerrain(16,2,0,true,6,XeenSide::Clouds)==XeenMonsterTerrain::Unsupported,"Middle outside a nibble");
+	// The named cases of the plan and of the DOS correction.
+	check(xeenOutdoorMonsterTerrain(0,water,0,true,1,XeenSide::Clouds)==XeenMonsterTerrain::Allowed,"Giant Bat over water");
+	check(xeenOutdoorMonsterTerrain(0,water,0,false,6,XeenSide::Clouds)==XeenMonsterTerrain::Blocked,"Walker refused by water");
+	check(xeenOutdoorMonsterTerrain(0,deepWater,0,false,59,XeenSide::Clouds)==XeenMonsterTerrain::Allowed,"Water Dragon in deep water");
+	check(xeenOutdoorMonsterTerrain(0,2,0,false,59,XeenSide::Clouds)==XeenMonsterTerrain::Blocked,"Clouds species 59 stays off land");
+	check(xeenOutdoorMonsterTerrain(0,2,0,true,59,XeenSide::Darkside)==XeenMonsterTerrain::Allowed,"Darkside species 59 (Vulture Roc) on land");
+	check(xeenOutdoorMonsterTerrain(0,space,0,false,59,XeenSide::Darkside)==XeenMonsterTerrain::Blocked,"Space admits only flyers");
+	check(xeenOutdoorMonsterTerrain(1,2,15,true,6,XeenSide::Clouds)==XeenMonsterTerrain::Blocked,"Mountain refuses flyers above the threshold (DOS)");
+	check(xeenOutdoorMonsterTerrain(1,2,6,false,6,XeenSide::Clouds)==XeenMonsterTerrain::Blocked,"Clouds map 2: middle 1 under no-pass 6 still blocks (DOS)");
+	check(xeenOutdoorMonsterTerrain(15,2,15,true,6,XeenSide::Clouds)==XeenMonsterTerrain::Blocked &&
+		xeenOutdoorMonsterTerrain(15,2,16,true,6,XeenSide::Clouds)==XeenMonsterTerrain::Allowed,"Middle 15 strict threshold");
+	for (unsigned wall=0;wall<16;++wall) check(xeenMonsterPassesWall(wall,7)==(wall<7),"Strict wall threshold");
+
+	// The regional query resolves the cell's surface index and keeps Darkside closed.
+	XeenMap map;map.geometry.id=23;map.geometry.flags2=0x8000;
+	for (unsigned i=0;i<16;++i) map.geometry.surfaceTypes[i]=i;
+	for (auto &c:map.geometry.cells) c.geometry=XeenOutdoorLayers{2,0,0,0};
+	map.geometry.cells[5*16+7].geometry=XeenOutdoorLayers{water,0,0,0};
+	XeenActor walker;walker.id={23,0};walker.original.x=6;walker.original.y=5;walker.original.resourceId=6;
+	walker.x=6;walker.y=5;walker.statistics=XeenMonsterRecord{};walker.statistics->raw[20]=25;
+	walker.hp=17;walker.activated=true;walker.lifecycle=XeenActorLifecycle::Present;
+	auto flyer=walker;flyer.original.resourceId=1;flyer.statistics->raw[46]=1;
+	check(xeenRegionalActorTerrain(map,walker,7,5)==XeenMonsterTerrain::Blocked && xeenRegionalActorTerrain(map,flyer,7,5)==XeenMonsterTerrain::Allowed,"Regional water edge");
+	check(xeenActorClosure(map,flyer).count()==256 && xeenActorClosure(map,walker).count()==255,"Flyer closure includes water");
+	auto zero=flyer;zero.statistics->raw[20]=0;
+	check(!xeenMonsterMovementSupported(*zero.statistics,0) && xeenRegionalActorTerrain(map,zero,7,5)==XeenMonsterTerrain::Unsupported,"Zero-HP record has no movement");
+	map.side=XeenSide::Darkside;
+	check(xeenRegionalActorTerrain(map,flyer,7,5)==XeenMonsterTerrain::Unsupported,"Darkside gameplay stays closed");
+}
+// Indoors there is no flight rule: walkers and flyers share the strict threshold.
+void indoorMonsterWalls() {
+	XeenMap m;m.geometry.id=28;m.geometry.difficulties[0]=7;
+	for (auto &cell:m.geometry.cells) cell.geometry=XeenIndoorWalls{};
+	XeenActor walker;walker.id={28,0};walker.original.x=5;walker.original.y=5;walker.original.resourceId=6;
+	walker.x=5;walker.y=5;walker.statistics=XeenMonsterRecord{};walker.statistics->raw[20]=25;
+	walker.hp=17;walker.activated=true;walker.lifecycle=XeenActorLifecycle::Present;
+	auto flyer=walker;flyer.original.resourceId=1;flyer.statistics->raw[46]=1;
+	for (unsigned wall:{0u,6u,7u,8u,15u}) {
+		auto tile=m;auto &cell=tile.geometry.cells[5*16+5];
+		xeenGet<XeenIndoorWalls>(cell.geometry).walls[1]=std::uint8_t(wall);cell.rawWord=wall<<8;
+		XeenWorld world([&](auto){return tile;});
+		const auto expected=wall<7 ? XeenMonsterTerrain::Allowed : XeenMonsterTerrain::Blocked;
+		check(xeenIndoorActorTerrain(world,walker,6,5)==expected && xeenIndoorActorTerrain(world,flyer,6,5)==expected,
+			"Indoor wall threshold is strict and the same for flyers (DOS 0x1fd8f)");
+	}
+}
+// Walkers next to flyers keep the shared approach: scan order, primary and
+// fallback, the three-actor cap without a flight layer, contact.
+void walkersNextToFlyers() {
+	XeenMap map;map.geometry.id=23;map.geometry.flags2=0x8000;
+	for (unsigned i=0;i<16;++i) map.geometry.surfaceTypes[i]=i;
+	for (auto &c:map.geometry.cells) c.geometry=XeenOutdoorLayers{2,0,0,0};
+	map.geometry.cells[5*16+7].geometry=XeenOutdoorLayers{0,0,0,0};
+	const auto terrain=[&](const XeenActor &a,int x,int y) { return xeenRegionalActorTerrain(map,a,x,y); };
+	const auto actor=[](unsigned record,int x,int y,bool flying,bool activated) {
+		XeenActor a;a.id={23,record};a.original.x=x;a.original.y=y;a.original.resourceId=flying?1:6;a.x=x;a.y=y;
+		a.statistics=XeenMonsterRecord{};a.statistics->raw[20]=25;a.statistics->raw[46]=flying;
+		a.hp=17;a.activated=activated;a.lifecycle=XeenActorLifecycle::Present;return a;
+	};
+	// Party (9,7) facing North; from (6,5) the primary step is East onto water at
+	// (7,5) and the fallback is North to (6,6).
+	const XeenCamera north{23,9,7,XeenDirection::North};
+	auto moved=XeenActorApproach::move({actor(0,6,5,false,true)},north,terrain,true);
+	check(moved[0].x==6 && moved[0].y==6,"Walker refused by water takes the terrain fallback");
+	moved=XeenActorApproach::move({actor(0,6,5,true,true)},north,terrain,true);
+	check(moved[0].x==7 && moved[0].y==5,"Flyer takes the primary step onto water");
+	// Three idle flyers hovering on the water fill the shared cap: the flyer's
+	// allowed primary step fails on occupancy and never tries the fallback,
+	// while the walker's terrain refusal still falls back.
+	for (const bool flying:{false,true}) {
+		std::vector<XeenActor> actors{actor(0,6,5,flying,true)};
+		for (unsigned r=1;r<4;++r) actors.push_back(actor(r,7,5,true,false));
+		moved=XeenActorApproach::move(actors,north,terrain,true);
+		check(flying ? moved[0].x==6 && moved[0].y==5 : moved[0].x==6 && moved[0].y==6,"Terrain versus occupancy failure");
+		check(XeenActorApproach::occupancy(moved)[5*32+7]==3,"Flyers share the ground cap");
+	}
+	// Pass order: the earlier walker is refused by the full cell its later flyer
+	// neighbours vacate; the second pass retries it once. The flyers reach the
+	// party's cell and engage, exactly like walkers.
+	const XeenCamera camera{23,10,10,XeenDirection::North};
+	std::vector<XeenActor> actors{actor(0,9,11,false,true)};
+	for (unsigned r=1;r<4;++r) actors.push_back(actor(r,10,11,true,true));
+	moved=XeenActorApproach::move(actors,camera,terrain,true);
+	check(moved[0].x==10 && moved[0].y==11 && moved[1].y==10 && moved[2].y==10 && moved[3].y==10,"Two-pass order with flyers");
+	check(XeenActorApproach::classify(moved,camera).engaged(),"Flyers enter contact");
+	// The approach is a pure function of its inputs: no random draw is involved.
+	check(XeenActorApproach::move(actors,camera,terrain,true).size()==moved.size(),"Repeatable approach");
+	for (unsigned i=0;i<4;++i) check(XeenActorApproach::move(actors,camera,terrain,true)[i].x==moved[i].x,"Approach is deterministic");
 }
 void events() {
 	check(xeenWellHpAfter(2)==27 && xeenWellHpAfter(32742)==32767 &&
@@ -240,6 +349,6 @@ void indoorRays() {
 }
 }
 int main() {
-	try { geometry();calendar();actors();events();structuralResources();indoorRays();std::cout << "Regional geometry, time, actor and event rules passed\n";return 0; }
+	try { geometry();calendar();actors();monsterTerrainMatrix();indoorMonsterWalls();walkersNextToFlyers();events();structuralResources();indoorRays();std::cout << "Regional geometry, time, actor and event rules passed\n";return 0; }
 	catch (const std::exception &e) { std::cerr << e.what() << '\n';return 1; }
 }

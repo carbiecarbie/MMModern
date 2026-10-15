@@ -23,7 +23,6 @@ struct XeenMonsterRecord {
 	std::uint8_t image() const { return raw[47]; }
 	bool supportsApproach() const;
 	bool supportsMovement() const;
-	bool supportsGroundMovement() const;
 	bool supportsRendering() const;
 	// The legacy presentation restriction remains a mechanic admission predicate.
 	bool supportsAdmittedMechanicsRendering() const;
