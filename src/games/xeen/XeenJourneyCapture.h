@@ -44,7 +44,8 @@ class XeenJourneyCapture {
 		// Reuse the retained guard's monotonic failure latch. Flow checks this same
 		// guard before any later publication; equal bytes cannot revive its ticket.
 		try { (*preimage)->check(); } catch (...) { return false; }
-		const auto &actors = w->sessionState().actors();
+		// Admitted actors are the Journey entry map's MOB table.
+		const auto actors = w->sessionState().monsters(xeenJourneyContent().entry.mapId);
 		const auto expected=admittedActors.size();
 		if (!expected || expected>XeenActorApproach::kCapacity || actors.size() != expected) return false;
 		for (auto id:w->sessionState().accountedMonsters()) {
@@ -52,10 +53,12 @@ class XeenJourneyCapture {
 			const auto owned=w->sessionState().regionalActors(id.mapId);
 			if(id.recordIndex>=owned.size() || owned[id.recordIndex].lifecycle!=XeenActorLifecycle::Defeated) return false;
 		}
-		if (c->mapId==XeenMapIdentity(28)) {
-			if (!w->sessionState().hasRegionalActors(28)) return false;
+		// The camera map's own table, classified by its geometry.
+		const auto *mapState=w->sessionState().mapState(c->mapId);
+		if (!mapState || !mapState->monsters) return false;
+		if (!mapState->outdoors) {
 			try {
-				const auto &city=w->sessionState().regionalActors(28);
+				const auto city=w->sessionState().regionalActors(c->mapId);
 				const auto view=XeenIndoorScene().classifyActors(*const_cast<XeenWorld *>(w),*c,city);
 				if (view.engaged()) return false;
 				for(unsigned i=0;i<city.size();++i) if(view.activation[i] && !city[i].activated) return false;
@@ -67,7 +70,7 @@ class XeenJourneyCapture {
 			return true;
 		}
 		if(p->monsterTreasure && p->monsterTreasure->ready()) {
-			const auto view=XeenActorApproach::classify(actors,*c);bool selected=false;
+			const auto view=XeenActorApproach::classify(*mapState->monsters,*c);bool selected=false;
 			for(const auto &v:view.slots) selected=selected || bool(v);if(!selected) return false;
 		}
 		return true;

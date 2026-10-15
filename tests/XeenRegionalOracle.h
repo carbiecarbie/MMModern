@@ -69,8 +69,8 @@ struct Oracle {
   activate();
  }
  void compare(const XeenWorld &w,const XeenCamera &c,const XeenGameplayContext &ctx)const {
-  if(!xeen_state::sameCamera(camera,c) || minutes!=ctx.minutes || ctr24!=ctx.ctr24 || actors.size()!=w.sessionState().actors().size())throw std::runtime_error("Reference camera/time/actor count mismatch");
-  for(unsigned i=0;i<actors.size();++i)if(!xeen_state::sameActor(actors[i],w.sessionState().actors()[i]))throw std::runtime_error("Reference complete actor mismatch at record "+std::to_string(i));
+  if(!xeen_state::sameCamera(camera,c) || minutes!=ctx.minutes || ctr24!=ctx.ctr24 || actors.size()!=w.sessionState().monsters(23).size())throw std::runtime_error("Reference camera/time/actor count mismatch");
+  for(unsigned i=0;i<actors.size();++i)if(!xeen_state::sameActor(actors[i],w.sessionState().monsters(23)[i]))throw std::runtime_error("Reference complete actor mismatch at record "+std::to_string(i));
  }
 };
 }

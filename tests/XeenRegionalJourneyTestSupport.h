@@ -34,8 +34,8 @@ struct Fixture {
         auto saved=regional_test::snapshot();saved.camera=camera;saved.journey->context->minutes=minutes;
         saved.characters=p.roster.characters();saved.questItems=p.questItems.counts();
         saved.questFlags=p.questFlags.values();saved.gameFlags=flags.values();
-        saved.disabledObjects.assign(w.sessionState().disabledObjects().begin(),w.sessionState().disabledObjects().end());
-        saved.disabledEvents.assign(w.sessionState().disabledEvents().begin(),w.sessionState().disabledEvents().end());
+        {const auto projected=w.sessionState().disabledObjects();saved.disabledObjects.assign(projected.begin(),projected.end());};
+        {const auto projected=w.sessionState().disabledEvents();saved.disabledEvents.assign(projected.begin(),projected.end());};
         for(unsigned i=0;i<30;++i){
             saved.characters[i].learnedSpells=XeenCharacterFormat::parseLearnedSpells(bytes,i);
             saved.journey->supplements[i]={static_cast<std::uint8_t>(i),XeenCharacterFormat::parseCombatInputs(bytes,i,true,true,true)};
@@ -50,7 +50,7 @@ struct Fixture {
 		check(flow->prepareJourneyFrame(flow->ticket(),[] {}), "initial frame preparation");
 		check(flow->presentJourney(flow->ticket()), "initial Journey frame");
 	}
-    const XeenActor &anchor() const {return w.sessionState().actors().at(5);}
+    const XeenActor &anchor() const {return w.sessionState().monsters(23).at(5);}
     auto input(XeenEncounterAction a){action(a);return pulse();}
     void present() {
 		if (w.sessionState().journeyActivity() == XeenJourneyActivity::Presentation) {

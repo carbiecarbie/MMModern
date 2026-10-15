@@ -77,12 +77,12 @@ void appearance() {
    const auto deadline=h.flow->encounter()->cosmeticDeadline();
    const auto service=h.flow->encounter()->deadline();
    const auto revision=h.result().revision, rng=h.randomPosition();
-   const auto hp=h.world->sessionState().actors()[5].hp;
+   const auto hp=h.world->sessionState().monsters(23)[5].hp;
    h.world->discardMapCache();
    h.flow->refresh(true);
    check(h.flow->frame().pixels==pixels && h.flow->encounter()->cosmeticDeadline()==deadline &&
     h.flow->encounter()->deadline()==service && h.result().revision==revision &&
-    h.randomPosition()==rng && h.world->sessionState().actors()[5].hp==hp,"cache changed appearance or gameplay");
+    h.randomPosition()==rng && h.world->sessionState().monsters(23)[5].hp==hp,"cache changed appearance or gameplay");
   };
   for(unsigned i=0;i<8;++i){frame(i);rebuild();drawTick(h,handler,idle);}
   for(unsigned i=0;i<6;++i)h.press(handler,BlockAction{});
@@ -95,9 +95,9 @@ void appearance() {
   check(h.result().attackOutcome==XeenCombatAttackOutcome::Miss,"seeded miss control");
   check(h.observedAppearance.kind==XeenMonsterSpriteKind::Normal,"miss created hit effect");
   h.press(handler,InteractionAction{});drawTick(h,handler,idle);frame(11);
-  check(h.world->sessionState().actors()[5].hp==20,"pre-HP hit frame published injury early");
+  check(h.world->sessionState().monsters(23)[5].hp==20,"pre-HP hit frame published injury early");
   rebuild();drawTick(h,handler,idle);frame(11);
-  check(h.world->sessionState().actors()[5].hp==12,"partial live HP control");
+  check(h.world->sessionState().monsters(23)[5].hp==12,"partial live HP control");
   rebuild();drawTick(h,handler,idle);frame(11);
   const auto revision=h.result().revision,rng=h.randomPosition();
   // Same-time and backward observations do not advance or rearm.
@@ -242,11 +242,11 @@ void publicationFailures() {
    }
    check(injected,"publication fault reached through real commands");
    check(h.phase()==(fault==2?Phase::Victory:fault==3?Phase::Defeat:fault==1?Phase::VictoryAwaitingEnd:Phase::PreparingAction),"Failure recovery preserves actual phase");
-   const auto hp=h.world->sessionState().actors()[5].hp;
+   const auto hp=h.world->sessionState().monsters(23)[5].hp;
    check(fault==3||hp<20,"published damage survives failure");
    if(fault==1||fault==2){check(hp==0,"lethal removal retained");check(h.flow->encounter()->notice().find("XP82")!=std::string::npos,"award retained despite composition failure");}
    if(fault!=2){h.press(handler,SaveGameAction{});check(h.saves==0,"Combat save remains blocked");}
-   check(h.world->sessionState().actors()[5].hp==hp,"No damage replay after recovery");
+   check(h.world->sessionState().monsters(23)[5].hp==hp,"No damage replay after recovery");
    return true;
   };
   check(h.run(s)==0,"post-publication failure route");
@@ -404,7 +404,7 @@ void staleService() {
   h.fight().setProbe({});
   check(fired&&threw,"Stale service probe fired and stopped chain");
   check(h.randomPosition()==rng&&h.result().generation==before.generation&&h.result().revision==before.revision,"Stale service adopts no RNG/result");
-  check(h.fight().pending()==Work::Action&&h.phase()==Phase::PreparingAction&&h.world->sessionState().actors()[5].hp==20,"Stale service preserves pending work and HP");
+  check(h.fight().pending()==Work::Action&&h.phase()==Phase::PreparingAction&&h.world->sessionState().monsters(23)[5].hp==20,"Stale service preserves pending work and HP");
   check(h.flow->encounter()->deadline()==deadline,"Stale service preserves deadline");return true;
  };
  check(h.run(s)==0,"Stale service production route");
@@ -423,7 +423,7 @@ void windowFailures() {
  for(unsigned mode=0;mode<5;++mode){Harness h;auto s=h.services();bool observed=false;
   s.show=[&](const auto &,const auto &handler,const auto &escape,const auto &idle,const auto &status){
    h.press(handler,NavigationAction::TurnRight);h.press(handler,NavigationAction::MoveForward);
-   const std::vector<XeenActor> actors=h.world->sessionState().actors();const auto context=h.party->encounterContext;
+   const std::vector<XeenActor> actors=h.world->sessionState().monsters(23);const auto context=h.party->encounterContext;
    const auto pending=h.flow->encounter()->state().pending();check(pending==2,"Window exit starts with pending approach");
    unsigned failures=0,closes=0,cycles=0;auto wrapped=handler;
    wrapped.withPresentedInput=[&](const auto &a,auto input,const auto &origin){auto frame=handler.withPresentedInput(a,input,origin);if(mode==0&&frame)frame->width=319;return frame;};
@@ -434,12 +434,12 @@ void windowFailures() {
    auto first=h.flow->frame();if(mode==2)first.pixels.clear();
    const bool ok=SdlWindow().showInteractive(first,"Regional window boundary",wrapped,escape,idle,[&]()->std::string{if(mode==1)throw std::runtime_error("Status failure");return status();});
    check(ok==(mode>=3)&&closes==1&&failures==(ok?0u:1u),"Exactly one failure/close notification");
-   if(ok){sameActors(actors,h.world->sessionState().actors());check(context==h.party->encounterContext&&h.flow->encounter()->state().pending()==pending,"Quit/Escape supplied no final gameplay pulse");}
+   if(ok){sameActors(actors,h.world->sessionState().monsters(23));check(context==h.party->encounterContext&&h.flow->encounter()->state().pending()==pending,"Quit/Escape supplied no final gameplay pulse");}
    check(!h.flow->canSave()&&!h.saves,"Closed window cannot save");
-   const std::vector<XeenActor> closedActors=h.world->sessionState().actors();const auto closedContext=h.party->encounterContext;
+   const std::vector<XeenActor> closedActors=h.world->sessionState().monsters(23);const auto closedContext=h.party->encounterContext;
    const auto closedRandom=h.world->sessionState().journeyRandom();h.now=10000;
    handler(WaitAction{});idle();handler(SaveGameAction{});
-   sameActors(closedActors,h.world->sessionState().actors());
+   sameActors(closedActors,h.world->sessionState().monsters(23));
    check(h.party->encounterContext==closedContext&&h.world->sessionState().journeyRandom()==closedRandom&&!h.saves,"Inactive callbacks cannot advance or save");
    observed=true;return ok;
   };

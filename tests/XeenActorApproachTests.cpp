@@ -11,11 +11,11 @@ struct Observation {
     std::optional<XeenGameplayContext> context;
     XeenCamera camera;
     std::vector<XeenActor> actors;
-    explicit Observation(Fixture &f):characters(f.p.roster.characters()),context(f.p.encounterContext),camera(f.camera),actors(f.w.sessionState().actors()){}
+    explicit Observation(Fixture &f):characters(f.p.roster.characters()),context(f.p.encounterContext),camera(f.camera),actors(f.w.sessionState().monsters(23)){}
     void unchanged(Fixture &f)const{
         for(unsigned i=0;i<30;++i)check(xeen_state::sameCharacter(characters[i],f.p.roster.at(i)),"actor transition changed character facts");
         check(context==f.p.encounterContext&&save_test::sameCamera(camera,f.camera),"refused actor transition published camera/time");
-        sameActors(actors,f.w.sessionState().actors());
+        sameActors(actors,f.w.sessionState().monsters(23));
     }
 };
 void viewAndMovement() {
@@ -140,12 +140,12 @@ void nestedInitialization(){for(bool mutation:{false,true}){
         w.discardMapCache();(void)w.map(23);continue;
     }
     XeenEncounterFlow flow(w,p,camera,flags,clock,setup);
-    check(fired&&w.sessionState().actors().size()==19&&p.encounterContext->minutes==480,"nested initialization cannot overwrite fresh publication");
+    check(fired&&w.sessionState().monsters(23).size()==19&&p.encounterContext->minutes==480,"nested initialization cannot overwrite fresh publication");
     check(flow.prepareJourneyFrame(flow.ticket(),[]{})&&flow.presentJourney(flow.ticket())&&flow.journeyQuiet(),"outer fresh initialization remains usable");
 }}
 void lifetimeAndFailures(){
-    Fixture f;const auto actors=f.w.sessionState().actors();const auto characters=f.p.roster.characters();
-    f.w.discardMapCache();f.w.map(23);f.w.objectFile(23);sameActors(actors,f.w.sessionState().actors());
+    Fixture f;const auto actors=f.w.sessionState().monsters(23);const auto characters=f.p.roster.characters();
+    f.w.discardMapCache();f.w.map(23);f.w.objectFile(23);sameActors(actors,f.w.sessionState().monsters(23));
     for(unsigned i=0;i<30;++i)check(xeen_state::sameCharacter(characters[i],f.p.roster.at(i)),"cache reconstruction retains party");
     auto stale=f.flow->state();f.action(Action::Right);Observation current(f);
     check(XeenActorApproach::action(f.w,f.p,f.camera,stale,Action::Wait,f.event).outcome!=XeenEncounterOutcome::Accepted,"direct stale state cannot publish");current.unchanged(f);

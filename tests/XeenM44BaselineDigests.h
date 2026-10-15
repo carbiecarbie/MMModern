@@ -1,13 +1,15 @@
 #ifndef MMODERN_TESTS_M44_BASELINE_DIGESTS_H
 #define MMODERN_TESTS_M44_BASELINE_DIGESTS_H
-// SHA-256 of the final saved state of three original-data process scenarios,
-// recorded at the baseline revision below. The hash is over the raw .mmsave
+// SHA-256 of the final saved state of four original-data process scenarios,
+// recorded at the baseline revisions below. The hash is over the raw .mmsave
 // bytes; never commit the .mmsave files (they contain original-data bytes).
 //
-// CTest runs them as xeen_m44_scenario_mainland, xeen_m44_scenario_services and
-// xeen_m44_scenario_temple (tests/XeenM44ScenarioTests.cpp, label `process`): each
-// generates the final save in a temporary directory, compares its SHA-256 with
-// the table below, then reloads it, saves again and requires identical bytes.
+// CTest runs them as xeen_m44_scenario_mainland, xeen_m44_scenario_services,
+// xeen_m44_scenario_temple and xeen_m44_scenario_roundtrip
+// (tests/XeenM44ScenarioTests.cpp, label `process`): each generates the final
+// save in a temporary directory, compares its SHA-256 with the table below, then
+// reloads it, saves again and requires identical bytes. The roundtrip scenario
+// also resumes from its checkpoints A and B and requires identical finals.
 //
 // Audit with tools/m44-digest-audit.ps1: Preserve the current build outside the
 // repository before rebuilding, then Compare against the candidate build.
@@ -145,15 +147,27 @@
 // Mainland old: d8c361f620b7bb1f5c1d6afb7da88cdbee8fcfb5f82c75a1795acd690ef20d01
 // Services old: a08fe83f6ab5267743355cf2138750034a166599cd808fdd6d334faca50989bc
 // Temple old: 91b6af7f310ae55f72063add8542c5f1c3d02655e7ba50f2a887860f788c8fb1
+// M69 step A1: maintainer approved the fourth scenario's fresh digest on
+// 2026-10-15 (no earlier build to compare). "vertigo-f3-roundtrip", save v12:
+// a prepared Journey kills the Orc its start view wakes, enters Vertigo, kills
+// a Slime and the Slimes a bashed grate releases, searches a crate
+// (checkpoint A), returns to F3 (checkpoint B), wounds a second Orc and runs,
+// enters and leaves Vertigo, then kills the wounded Orc (final). The
+// uninterrupted run and the runs resumed from A and from B end in identical
+// finals; native reload/re-save is exact. The other three digests were
+// unchanged by A1 (zero-difference audit against 00e84bf). Preserved baseline
+// and audits: D:/M44-audits/m69a1-00e84bf, build-rel/m69a1-digest-comparison-2.
+// Evidence stays local; never commit original-data saves.
 #include <array>
 #include <cstdint>
 namespace m44_baseline {
-inline constexpr const char *revision = "d5067c44be3ff07e03df90eac4082456a497e225 + M61 Part C v12";
+inline constexpr const char *revision = "d5067c44be3ff07e03df90eac4082456a497e225 + M61 Part C v12; roundtrip: M69 A1 on 00e84bf";
 struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
-inline constexpr std::array<Scenario,3> scenarios{{
+inline constexpr std::array<Scenario,4> scenarios{{
     {"mainland-combat-myra-phirna",3626689381u,"605fb7ef58148d6ad955faf0951c500dd8f3cc61d079d07710fbf78a9e8a4c27"},
     {"vertigo-buy-repair-training",7u,"417bd35216544d12265a116c8750d22953e12161cfeed075fb685a80e3a5d068"},
-    {"temple-recovery",3626689381u,"0bd5d8cd9075e42ba3f9681d2c6322a0c23cc81d518654c8c8c48b57b68d0f32"}
+    {"temple-recovery",3626689381u,"0bd5d8cd9075e42ba3f9681d2c6322a0c23cc81d518654c8c8c48b57b68d0f32"},
+    {"vertigo-f3-roundtrip",3626689381u,"cfdcec346d6584a479e3ded6960ba61c0e79c4cedf52a7e563bbc675c02ba5d8"}
 }};
 }
 #endif

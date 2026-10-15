@@ -398,7 +398,7 @@ void flightToContact() {
 	for (const unsigned species:{unsigned(Melee),unsigned(Flyer)}) {
 		Harness h({movementStatistics(),single(species,6,11),moatMap});
 		check(h.run([&](const auto &handler,const auto &idle) {
-			const auto actor=[&]() -> const XeenActor & { return h.world->sessionState().actors().at(0); };
+			const auto actor=[&]() -> const XeenActor & { return h.world->sessionState().monsters(23).at(0); };
 			waitAndSettle(h,handler,idle);
 			check(species==Flyer ? actor().x==7 && actor().y==11 : actor().x==6 && actor().y==11,
 				species==Flyer ? "The flyer's first step is onto the water" : "The walker is held on its bank by the water");
@@ -423,7 +423,7 @@ void restActivation() {
 	for (const unsigned species:{unsigned(Melee),unsigned(Flyer)}) {
 		Harness h({movementStatistics(),single(species,12,11),moatMap});
 		check(h.run([&](const auto &handler,const auto &idle) {
-			const auto actor=[&]() -> const XeenActor & { return h.world->sessionState().actors().at(0); };
+			const auto actor=[&]() -> const XeenActor & { return h.world->sessionState().monsters(23).at(0); };
 			check(!actor().activated,"The monster behind the party is not activated");
 			h.press(handler,RestAction{});
 			bool moved=false,charged=false;
@@ -497,7 +497,7 @@ void originalFixture(const std::filesystem::path &game) {
 		auto setup=in.setup();setup.regionalManifest=manifest;setup.start=placement.start;
 		XeenEncounterFlow flow(w,p,c,f,[]{return 0;},setup);
 		check(flow.prepareJourneyFrame(flow.ticket(),[]{}) && flow.presentJourney(flow.ticket()),"fixture Journey frame");
-		const auto &actors=w.sessionState().actors();
+		const auto &actors=w.sessionState().monsters(23);
 		check(actors.size()==originalEntities.monsters.size() && actors[record].original.resourceId==int(species) && actors[record].statistics->name()==in.statistics[species].name(),"Fixture species is the live actor at the chosen record");
 		check(c.x==placement.start.x && c.y==placement.start.y && c.direction==placement.start.direction,"The Journey starts at the chosen cell");
 		const auto view=XeenActorApproach::classify(actors,c);bool seen=false;

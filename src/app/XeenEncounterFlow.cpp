@@ -409,7 +409,7 @@ bool XeenEncounterFlow::handleCombat(const PlayerAction &physical, std::optional
         if(!_combat || _combat->phase()!=XeenCombatPhase::PlayerReady || _combat->participant()<0)return false;
         const auto option=_party.party.member(_party.roster,_combat->participant()).quickOption;
         if(option==1)return false;
-        if(option==3 && _camera.mapId==XeenMapIdentity(28)) {_combatCastRefusal="Quick Fight Run: indoor escape not supported yet";return true;}
+        if(option==3 && !_world.map(_camera.mapId).geometry.isOutdoors()) {_combatCastRefusal="Quick Fight Run: indoor escape not supported yet";return true;}
         input=option==0?PlayerAction{AttackAction{}}:option==2?PlayerAction{BlockAction{}}:PlayerAction{RunAction{}};
     }
 	using P = XeenCombatPhase;
@@ -540,7 +540,7 @@ std::string XeenEncounterFlow::combatNotice() const {
 	else if (phase == P::PendingRound) text += "Next round pending (automatic)\n";
 	else if (phase == P::VictoryAwaitingEnd) text += "Enemy defeated; victory end pending\n";
 	else text += "Attack preparation pending (automatic)\n";
-	const auto &actors = _world.sessionState().actors();
+	const auto actors = _world.sessionState().monsters(xeenJourneyContent().entry.mapId);
 	if (actors.size() > 5) text += actors[5].statistics->name() + " HP " + std::to_string(actors[5].hp) + "\n";
 	if (r.operation == XeenCombatOperation::Block && r.actingOwner) text += name(*r.actingOwner) + " blocks.\n";
 	if (r.attackOutcome != XeenCombatAttackOutcome::NotApplicable) {

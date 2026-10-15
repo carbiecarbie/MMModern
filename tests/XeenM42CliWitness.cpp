@@ -261,11 +261,11 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             action(CancelInteractionAction{});settle();checkpoint("S1");
             route("RRUUUUUUURUUUU");action(InteractionAction{});action(YesAction{});settle();
             inspect([&]{const auto &map=world->map(23);for(unsigned y=3;y<=8;++y){const auto &cell=map.geometry.cells[y*16+5];const auto *l=xeenGetIf<XeenOutdoorLayers>(&cell.geometry);check(cell.rawWord==7 && cell.rawAttributes==0 && l && l->surface==7 && l->middle==0 && map.geometry.surfaceTypes[7]==7,"M42 original road/automatic-free Shoot approach differs");}
-                const auto &a=world->sessionState().actors()[15];check(a.x==7 && a.y==3 && a.hp==90 && a.lifecycle==XeenActorLifecycle::Present && !a.activated,"M42 admitted original Giant Toad15 pre-approach differs");});
+                const auto &a=world->sessionState().monsters(23)[15];check(a.x==7 && a.y==3 && a.hp==90 && a.lifecycle==XeenActorLifecycle::Present && !a.activated,"M42 admitted original Giant Toad15 pre-approach differs");});
             // Reach the original road without entering its automatic sign cell.
             // Shoot retains intent while the existing pending approach finishes.
             route("UUURUUUULURULUUU");
-            inspect([&]{observeConsumers=true;check(!combat() && flow->encounter()->state().phase()==XeenEncounterPhase::Exploring && flow->journeyInputCurrent(handler.displayedInput()) && handler.acceptsInputFrame(presented),"M42 Shoot input did not have current Exploring concrete-frame authority");check(position->mapId==XeenMapIdentity(23) && position->x==5 && position->y==5 && position->direction==XeenDirection::South,"M42 literal admitted Toad shooting position differs");const auto &a=world->sessionState().actors()[15];const auto pending=flow->encounter()->state().pending();
+            inspect([&]{observeConsumers=true;check(!combat() && flow->encounter()->state().phase()==XeenEncounterPhase::Exploring && flow->journeyInputCurrent(handler.displayedInput()) && handler.acceptsInputFrame(presented),"M42 Shoot input did not have current Exploring concrete-frame authority");check(position->mapId==XeenMapIdentity(23) && position->x==5 && position->y==5 && position->direction==XeenDirection::South,"M42 literal admitted Toad shooting position differs");const auto &a=world->sessionState().monsters(23)[15];const auto pending=flow->encounter()->state().pending();
                 std::cout<<"SHOOT_APPROACH actor15 "<<a.x<<':'<<a.y<<" HP"<<a.hp<<" activated"<<a.activated<<" pending"<<pending<<'\n';
                 // The first charged step after activation moves7->6. Its owed
                 // final opportunity moves6->5; acquisition can follow either.

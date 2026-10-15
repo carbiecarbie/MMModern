@@ -12,7 +12,7 @@ struct Fixture:regional_test::Fixture {
   camera={28,15,0,XeenDirection::North};
   party.encounterContext.emplace();party.monsterTreasure.emplace();party.worldFlags.emplace();
   party.roster.at(0).learnedSpells.emplace();party.roster.at(0).name="Before";
-  auto &actor=const_cast<XeenActor&>(world.sessionState().actors()[0]);
+  auto &actor=const_cast<XeenActor&>(world.sessionState().monsters(23)[0]);
   actor.hp=2;actor.statistics.emplace();
   world.map(28);
  }
@@ -203,7 +203,7 @@ int main() {
   rejects("membership",[](auto &f){const auto before=f.party.party;f.party.party=XeenParty::fromRosterIds({0});f.party.party=before;});
   rejects("metadata",[](auto &f){++f.party.firstSerializedCount;--f.party.firstSerializedCount;});
   rejects("diagnostics",[](auto &f){f.party.diagnostics.push_back("temporary");f.party.diagnostics.clear();});
-  auto actor=[](Fixture &f)->XeenActor& {return const_cast<XeenActor&>(f.world.sessionState().actors()[0]);};
+  auto actor=[](Fixture &f)->XeenActor& {return const_cast<XeenActor&>(f.world.sessionState().monsters(23)[0]);};
   rejects("actor HP",[&](auto &f){++actor(f).hp;--actor(f).hp;});
   rejects("joined worker actor ABA",[&](auto &f){auto &retained=actor(f).hp;std::thread worker([&]{++retained;--retained;});worker.join();});
   rejects("persistent actor HP",[&](auto &f){++actor(f).hp;});
@@ -230,7 +230,7 @@ int main() {
    XeenRestoreGuard guard(f.world,f.party,f.camera,f.flags);
    static_assert(!std::is_reference_v<decltype(*f.party.diagnostics.begin())>);
    auto detached=*f.party.diagnostics.begin();detached="after";
-   std::vector<XeenActor> detachedActors=f.world.sessionState().actors();detachedActors.clear();
+   std::vector<XeenActor> detachedActors=f.world.sessionState().monsters(23);detachedActors.clear();
    require(guard.current(),"read snapshots mutated live owners");
   }
   {

@@ -781,7 +781,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			if (logical.mapId!=XeenMapIdentity(28))
 				return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
 					"Spawn is outside Vertigo",instructionCount,logical,decoded.source);
-			world.applySpawn(spawn->slot,spawn->x,spawn->y,spawn->unused);
+			world.applySpawn(logical.mapId,spawn->slot,spawn->x,spawn->y,spawn->unused);
 			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
 		}
 		if (const auto *alter=std::get_if<XeenEventAlterEvent>(&decoded.operation)) {

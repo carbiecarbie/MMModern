@@ -633,8 +633,8 @@ void testCombinedIndoorRemoveLifecycle(const GameInstallation &installation) {
 	XeenSaveSnapshot saved;
  saved.camera=camera;saved.activeRosterIds=party.party.activeRosterIds();saved.characters=party.roster.characters();
  saved.questItems=party.questItems.counts();saved.questFlags=party.questFlags.values();saved.gameFlags=flags.values();
- const auto &state=world.sessionState();saved.disabledObjects.assign(state.disabledObjects().begin(),state.disabledObjects().end());
- saved.disabledEvents.assign(state.disabledEvents().begin(),state.disabledEvents().end());
+ const auto &state=world.sessionState();{const auto projected=state.disabledObjects();saved.disabledObjects.assign(projected.begin(),projected.end());};
+ {const auto projected=state.disabledEvents();saved.disabledEvents.assign(projected.begin(),projected.end());};
 	check(saved.disabledObjects == std::vector<XeenObjectIdentity>{target} &&
 		saved.disabledEvents == std::vector<XeenEventIdentity>{
 			{33,0},{33,1},{33,2}},

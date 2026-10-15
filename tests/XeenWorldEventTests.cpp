@@ -402,7 +402,9 @@ void rules(Inputs &in) {
    // Write/restore attacks must remain observable even with identical values.
    if(field==0){auto &a=p.roster.at(0).awards[6];const auto before=std::uint8_t(a);a=1;a=before;}
    if(field==1){auto &g=p.monsterTreasure->gold;const auto before=std::uint32_t(g);++g;g=before;}
-   if(field==2){auto &o=const_cast<XeenObjectOverride &>(world.sessionState().objectOverrides().front());const auto x=int(o.x);o.x=0;o.x=x;}
+   if(field==2){auto &o=const_cast<XeenObjectOverride &>([&]()->const XeenObjectOverride & {
+    for(const auto &entry:world.sessionState().mapStates())if(!entry.second.objectOverrides.empty())return entry.second.objectOverrides.front();
+    throw std::logic_error("No live object override");}());const auto x=int(o.x);o.x=0;o.x=x;}
    if(field==3){auto &c=p.roster.at(0).currentHp;const auto hp=int(c);++c;c=hp;}
    if(field==4){auto &xp=const_cast<XeenCombatInputs &>(*p.roster.combatInputs(0)).experience;const auto value=std::uint32_t(xp);++xp;xp=value;}
    if(field==5){auto &id=p.roster.at(0).weapons[0].id;const auto value=std::uint8_t(id);id=2;id=value;}

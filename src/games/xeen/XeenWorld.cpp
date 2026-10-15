@@ -12,6 +12,8 @@
 #include <limits>
 #include <utility>
 #include <algorithm>
+#include <exception>
+#include <map>
 
 namespace mmodern {
 XeenWorld::GameplayBorrow::GameplayBorrow(XeenWorld &w, XeenPartyState &p,
@@ -48,6 +50,73 @@ std::uint64_t nextWorldIncarnation() {
 using namespace xeen_state;
 }
 
+std::size_t XeenSessionWorldState::disabledObjectCount() const noexcept {
+	std::size_t count=0;for (const auto &entry:_mapStates) count+=entry.second.removedObjects.size();return count;
+}
+std::size_t XeenSessionWorldState::disabledEventCount() const noexcept {
+	std::size_t count=0;for (const auto &entry:_mapStates) count+=entry.second.disabledEvents.size();return count;
+}
+std::set<XeenObjectIdentity> XeenSessionWorldState::disabledObjects() const {
+	std::set<XeenObjectIdentity> values;
+	for (const auto &entry:_mapStates) values.insert(entry.second.removedObjects.begin(),entry.second.removedObjects.end());
+	return values;
+}
+std::set<XeenEventIdentity> XeenSessionWorldState::disabledEvents() const {
+	std::set<XeenEventIdentity> values;
+	for (const auto &entry:_mapStates) values.insert(entry.second.disabledEvents.begin(),entry.second.disabledEvents.end());
+	return values;
+}
+std::vector<XeenBarrierOverride> XeenSessionWorldState::barriers() const {
+	std::vector<XeenBarrierOverride> values;
+	for (const auto &entry:_mapStates) values.insert(values.end(),entry.second.cells.begin(),entry.second.cells.end());
+	return values;
+}
+std::vector<XeenObjectOverride> XeenSessionWorldState::objectOverrides() const {
+	std::vector<XeenObjectOverride> values;
+	for (const auto &entry:_mapStates)
+		values.insert(values.end(),entry.second.objectOverrides.begin(),entry.second.objectOverrides.end());
+	return values;
+}
+std::vector<XeenExploredTile> XeenSessionWorldState::exploredTiles() const {
+	std::vector<XeenExploredTile> values;
+	for (const auto &entry:_mapStates) if (entry.second.explored) values.push_back({entry.first,*entry.second.explored});
+	return values;
+}
+void XeenSessionWorldState::stageMonsters(XeenMapIdentity mapId, std::vector<XeenActor> actors,
+		std::size_t originalCount, bool outdoors) {
+	if (originalCount>actors.size() || originalCount>std::numeric_limits<std::uint16_t>::max())
+		throw std::invalid_argument("Staged monster table loses original records");
+	auto &state=_mapStates.state(mapId);
+	state.monsters.emplace(std::move(actors));
+	state.originalMonsterCount=static_cast<std::uint16_t>(originalCount);state.outdoors=outdoors;
+}
+void XeenSessionWorldState::reserveTiles(const std::vector<XeenExploredTile> &values) {
+	for (const auto &tile:values) static_cast<void>(_mapStates.state(tile.mapId));
+}
+void XeenSessionWorldState::publishExploration(const std::vector<XeenExploredTile> &values) noexcept {
+	// Every value names a reserved entry; entries absent from the complete
+	// values have no explored bits.
+	for (const auto &tile:values) if (!_mapStates.find(tile.mapId)) std::terminate();
+	auto next=values.begin();
+	for (const auto &entry:_mapStates) {
+		auto &state=*_mapStates.find(entry.first);
+		if (next!=values.end() && next->mapId==entry.first) state.explored=next++->cells;
+		else state.explored.reset();
+	}
+}
+void XeenSessionWorldState::assignCells(const std::vector<XeenBarrierOverride> &values) {
+	std::map<XeenMapIdentity,std::vector<XeenBarrierOverride>> tiles;
+	for (const auto &cell:values) {
+		tiles[cell.tile].push_back(cell);
+		static_cast<void>(_mapStates.state(cell.tile));
+	}
+	for (const auto &entry:_mapStates) {
+		auto &state=*_mapStates.find(entry.first);
+		const auto found=tiles.find(entry.first);
+		if (found!=tiles.end()) state.cells.swap(found->second);else state.cells.clear();
+	}
+}
+
 XeenWorld::XeenWorld(MapLoader loader, ObjectLoader objectLoader) :
 	_incarnation(nextWorldIncarnation()), _baseLoader(loader), _baseObjectLoader(objectLoader),
 	_loader(std::move(loader)), _objectLoader(std::move(objectLoader)) {
@@ -64,7 +133,7 @@ void XeenWorld::restoreSessionState(const std::vector<XeenObjectIdentity> &objec
 		if (hasEncounterState()) throw std::logic_error("encounter appeared during overlay map loading");
 		validateObject(id);
 		if (hasEncounterState()) throw std::logic_error("encounter appeared during overlay resource loading");
-		if (!prepared._objects.insert(id).second)
+		if (!prepared._mapStates.state(id.mapId).removedObjects.insert(id).second)
 			throw std::invalid_argument("duplicate restored object identity");
 	}
 	std::map<XeenMapIdentity, XeenEventFile> files;
@@ -78,24 +147,26 @@ void XeenWorld::restoreSessionState(const std::vector<XeenObjectIdentity> &objec
 		const auto &file = found->second;
 		if (file.mapId != id.mapId || !file.resourcePresent || id.recordIndex >= file.records.size())
 			throw std::invalid_argument("restored original event identity does not exist");
-		if (!prepared._events.insert(id).second)
+		if (!prepared._mapStates.state(id.mapId).disabledEvents.insert(id).second)
 			throw std::invalid_argument("duplicate restored event identity");
 	}
+	// Replace both sets on every entry, keeping the entries' other values.
+	for (const auto &entry:_sessionState._mapStates) static_cast<void>(prepared._mapStates.state(entry.first));
+	for (const auto &entry:prepared._mapStates) static_cast<void>(_sessionState._mapStates.state(entry.first));
 	if (hasEncounterState()) throw std::logic_error("encounter appeared before overlay publication");
 	XeenMutationWatch::write(this);
-	_sessionState._objects.swap(prepared._objects);
-	_sessionState._events.swap(prepared._events);
+	for (const auto &entry:prepared._mapStates) {
+		auto &live=*_sessionState._mapStates.find(entry.first);auto &value=*prepared._mapStates.find(entry.first);
+		live.removedObjects.swap(value.removedObjects);live.disabledEvents.swap(value.disabledEvents);
+	}
 	++_ownerRevision;
 }
 
 void XeenWorld::swapPreparedState(XeenWorld &candidate) noexcept {
 	XeenMutationWatch::write(this);XeenMutationWatch::write(&candidate);
 	// Private to guarded save publication. Never swaps/clears encounter authority.
-	_sessionState._objects.swap(candidate._sessionState._objects);
-	_sessionState._events.swap(candidate._sessionState._events);
-	_sessionState._barriers.swap(candidate._sessionState._barriers);
-	_sessionState._objectOverrides.swap(candidate._sessionState._objectOverrides);
-	_sessionState._exploredTiles.swap(candidate._sessionState._exploredTiles);
+	// The whole per-map table, monster tables included, moves as one value.
+	_sessionState._mapStates.swap(candidate._sessionState._mapStates);
 	_sessionState._headCache.swap(candidate._sessionState._headCache);
 	_scenePresentation.objectFlips.swap(candidate._scenePresentation.objectFlips);
 	_maps.swap(candidate._maps);
@@ -136,14 +207,16 @@ bool XeenWorld::isObjectDisabled(XeenObjectIdentity id) {
 XeenMapEntity XeenWorld::effectiveObject(XeenObjectIdentity id) {
 	validateObject(id);
 	auto value=objectFile(id.mapId).entities.objects[id.recordIndex];
-	for(const auto &v:_sessionState._objectOverrides)if(v.id==id) {value.x=v.x;value.y=v.y;break;}
+	if(const auto *state=_sessionState.mapState(id.mapId))
+		for(const auto &v:state->objectOverrides)if(v.id==id) {value.x=v.x;value.y=v.y;break;}
 	return value;
 }
 
 bool XeenWorld::effectiveObjectFlip(XeenObjectIdentity id) const {
 	const auto drawn=_scenePresentation.objectFlips.find(id);
 	if(drawn!=_scenePresentation.objectFlips.end())return drawn->second;
-	for(const auto &v:_sessionState._objectOverrides)if(v.id==id)return v.flipped;
+	if(const auto *state=_sessionState.mapState(id.mapId))
+		for(const auto &v:state->objectOverrides)if(v.id==id)return v.flipped;
 	return false; // MazeObject constructor, before the first drawScene.
 }
 
@@ -153,14 +226,16 @@ void XeenWorld::applyMoveObject(XeenObjectIdentity id,int x,int y) {
 	const auto before=effectiveObject(id);
 	bool flip=effectiveObjectFlip(id);
 	if(before.x==x && before.y==y)flip=!flip;
-	auto prepared=_sessionState._objectOverrides;
+	auto &state=_sessionState._mapStates.state(id.mapId);
+	auto prepared=state.objectOverrides;
 	const auto at=std::lower_bound(prepared.begin(),prepared.end(),id,[](const auto &v,auto key){return v.id<key;});
 	if(at!=prepared.end() && at->id==id)*at={id,x,y,flip};
 	else prepared.insert(at,{id,x,y,flip});
-	if(prepared.size()>65536)throw std::invalid_argument("Too many object overrides");
+	if(_sessionState.objectOverrides().size()-state.objectOverrides.size()+prepared.size()>65536)
+		throw std::invalid_argument("Too many object overrides");
 	// Allocate the disposable draw-state entry before the owned stores.
 	_scenePresentation.objectFlips[id]=flip;
-	XeenMutationWatch::write(this);_sessionState._objectOverrides.swap(prepared);
+	XeenMutationWatch::write(this);state.objectOverrides.swap(prepared);
 }
 
 void XeenWorld::restoreObjectOverrides(const std::vector<XeenObjectOverride> &values) {
@@ -170,11 +245,20 @@ void XeenWorld::restoreObjectOverrides(const std::vector<XeenObjectOverride> &va
 		if(hasEncounterState() || v.x<-128 || v.x>127 || v.y<-128 || v.y>127 ||
 			(n && !(values[n-1].id<v.id)))throw std::invalid_argument("Invalid or duplicate object override");
 	}
-	auto prepared=values;XeenMutationWatch::write(this);_sessionState._objectOverrides.swap(prepared);
+	std::map<XeenMapIdentity,std::vector<XeenObjectOverride>> prepared;
+	for(const auto &v:values) {prepared[v.id.mapId].push_back(v);static_cast<void>(_sessionState._mapStates.state(v.id.mapId));}
+	XeenMutationWatch::write(this);
+	for(const auto &entry:_sessionState._mapStates) {
+		auto &state=*_sessionState._mapStates.find(entry.first);const auto found=prepared.find(entry.first);
+		if(found!=prepared.end())state.objectOverrides.swap(found->second);else state.objectOverrides.clear();
+	}
 }
 
 std::optional<XeenObjectIdentity> XeenWorld::selectObject(const XeenCamera &camera) {
-	const bool city=camera.mapId==XeenMapIdentity(28) && regionalJourney();
+	// An admitted indoor map (its monster table is staged) spans 32x32 cells
+	// through its neighbour tiles.
+	const auto *state=_sessionState.mapState(camera.mapId);
+	const bool city=regionalJourney() && state && state->monsters && !state->outdoors;
 	if (!camera.mapId || camera.x < 0 || camera.x >= (city?32:16) ||
 		camera.y < 0 || camera.y >= (city?32:16))
 		throw std::invalid_argument("invalid physical object-selection cell");
@@ -197,8 +281,9 @@ XeenEventRecord XeenWorld::effectiveEvent(XeenEventIdentity id, const XeenEventR
 
 void XeenWorld::disableObject(XeenObjectIdentity id) {
 	validateObject(id);
+	auto &state=_sessionState._mapStates.state(id.mapId);
 	XeenMutationWatch::write(this);
-	_sessionState._objects.insert(id);
+	state.removedObjects.insert(id);
 }
 
 void XeenWorld::validateEventCell(const XeenCamera &physical, const XeenEventFile &events) {
@@ -210,11 +295,12 @@ void XeenWorld::validateEventCell(const XeenCamera &physical, const XeenEventFil
 
 void XeenWorld::disableEventsAtCell(const XeenCamera &physical, const XeenEventFile &events) {
 	validateEventCell(physical, events);
+	auto &state=_sessionState._mapStates.state(physical.mapId);
 	XeenMutationWatch::write(this);
 	for (std::size_t i = 0; i < events.records.size(); ++i) {
 		const auto &record = events.records[i];
 		if (record.x == physical.x && record.y == physical.y)
-			_sessionState._events.insert({physical.mapId, i});
+			state.disabledEvents.insert({physical.mapId, i});
 	}
 }
 
@@ -230,8 +316,9 @@ void XeenWorld::applyRemove(const XeenCamera &physical,
 			throw std::invalid_argument("selected object belongs to another physical map/side");
 		validateObject(*selected);
 	}
-	auto disabledObjects = _sessionState._objects;
-	auto disabledEvents = _sessionState._events;
+	auto &state = _sessionState._mapStates.state(physical.mapId);
+	auto disabledObjects = state.removedObjects;
+	auto disabledEvents = state.disabledEvents;
 	if (selected) disabledObjects.insert(*selected);
 	for (std::size_t i = 0; i < events.records.size(); ++i) {
 		const auto &record = events.records[i];
@@ -239,11 +326,11 @@ void XeenWorld::applyRemove(const XeenCamera &physical,
 			disabledEvents.insert({physical.mapId, i});
 	}
 	if (publication) publication->prepareRemove(physical, selected, events);
-	static_assert(noexcept(_sessionState._objects.swap(disabledObjects)));
-	static_assert(noexcept(_sessionState._events.swap(disabledEvents)));
+	static_assert(noexcept(state.removedObjects.swap(disabledObjects)));
+	static_assert(noexcept(state.disabledEvents.swap(disabledEvents)));
 	XeenMutationWatch::write(this);
-	_sessionState._objects.swap(disabledObjects);
-	_sessionState._events.swap(disabledEvents);
+	state.removedObjects.swap(disabledObjects);
+	state.disabledEvents.swap(disabledEvents);
 	if (publication) publication->removed();
 }
 
@@ -293,7 +380,8 @@ std::optional<XeenCellSample> XeenWorld::sampleCell(
 		x+=x<0?16:-16;current=&map({mapId.side,next});
 	}
 	XeenCellSample result{current->identity(),x,y,&current->geometry,&current->geometry.cells[y*16+x],{}};
-	for(const auto &v:_sessionState._barriers) if(v.tile==result.mapId && v.cell==y*16+x) {
+	const auto *tile=_sessionState.mapState(result.mapId);
+	if(tile)for(const auto &v:tile->cells) if(v.cell==y*16+x) {
 		auto cell=std::make_shared<XeenMapCell>(*result.cell);
 		if(cell->rawWord!=v.originalWord || cell->rawAttributes!=v.originalAttributes)
 			throw std::logic_error("Barrier original resource preimage changed");
@@ -305,11 +393,8 @@ std::optional<XeenCellSample> XeenWorld::sampleCell(
 		if(v.unlocked) {cell->rawAttributes|=0x80;cell->flags|=0x80;}
 		result.effectiveCell=std::move(cell);result.cell=result.effectiveCell.get();break;
 	}
-	const auto explored=std::lower_bound(_sessionState._exploredTiles.begin(),_sessionState._exploredTiles.end(),result.mapId,
-		[](const auto &tile,auto id){return tile.mapId<id;});
 	const unsigned index=y*16+x;
-	if(!result.cell->stepped && explored!=_sessionState._exploredTiles.end() && explored->mapId==result.mapId &&
-		(explored->cells[index/8]&(1u<<(index%8)))) {
+	if(!result.cell->stepped && tile && tile->explored && ((*tile->explored)[index/8]&(1u<<(index%8)))) {
 		auto cell=std::make_shared<XeenMapCell>(*result.cell);cell->stepped=true;
 		result.effectiveCell=std::move(cell);result.cell=result.effectiveCell.get();
 	}
@@ -317,7 +402,7 @@ std::optional<XeenCellSample> XeenWorld::sampleCell(
 }
 
 std::vector<XeenExploredTile> XeenWorld::explorationAfterStep(const XeenPartyState &party,const XeenCamera &camera) {
-	auto values=_sessionState._exploredTiles;
+	auto values=_sessionState.exploredTiles();
 	if(!xeenPartyHasSkill(party,4))return values;
 	const auto cell=sampleCell(camera.mapId,camera.x,camera.y);
 	if(!cell)throw std::invalid_argument("Exploration has no physical occupied cell");
@@ -328,14 +413,15 @@ std::vector<XeenExploredTile> XeenWorld::explorationAfterStep(const XeenPartySta
 	const auto tile=at!=values.end() && at->mapId==cell->mapId ? at : values.insert(at,{cell->mapId,{}});
 	const unsigned index=cell->y*16+cell->x;tile->cells[index/8]|=1u<<(index%8);
 	if(values.size()>512)throw std::invalid_argument("Too many explored tiles");
+	_sessionState.reserveTiles(values); // Publication of these values never allocates.
 	return values;
 }
 
 void XeenWorld::recordExploration(const XeenPartyState &party,const XeenCamera &camera) {
 	auto values=explorationAfterStep(party,camera);
-	if(values==_sessionState._exploredTiles)return;
+	if(values==_sessionState.exploredTiles())return;
 	if(_combatCheck)_combatCheck();
-	XeenMutationWatch::write(this);_sessionState._exploredTiles.swap(values);
+	XeenMutationWatch::write(this);_sessionState.publishExploration(values);
 }
 
 void XeenWorld::restoreExploredTiles(const std::vector<XeenExploredTile> &values) {
@@ -347,7 +433,7 @@ void XeenWorld::restoreExploredTiles(const std::vector<XeenExploredTile> &values
 		if(map(v.mapId).identity()!=v.mapId || hasEncounterState())
 			throw std::invalid_argument("Explored tile original resource mismatch");
 	}
-	auto prepared=values;XeenMutationWatch::write(this);_sessionState._exploredTiles.swap(prepared);
+	_sessionState.reserveTiles(values);XeenMutationWatch::write(this);_sessionState.publishExploration(values);
 }
 
 void XeenWorld::setBarrier(const XeenCamera &camera,std::uint8_t wall,bool unlock) {
@@ -358,7 +444,7 @@ void XeenWorld::setBarrier(const XeenCamera &camera,std::uint8_t wall,bool unloc
 	const auto b=sampleCell(camera.mapId,camera.x+dx[direction],camera.y+dy[direction]);
 	if(!a || !b || a->geometry->isOutdoors() || b->geometry->isOutdoors())
 		throw std::invalid_argument("Barrier has no two indoor faces");
-	auto values=_sessionState._barriers;
+	auto values=_sessionState.barriers();
 	const auto set=[&](const XeenCellSample &s,unsigned d) {
 		auto i=std::find_if(values.begin(),values.end(),[&](const auto &v){return v.tile==s.mapId && v.cell==s.y*16+s.x;});
 		if(i==values.end()) {
@@ -371,7 +457,7 @@ void XeenWorld::setBarrier(const XeenCamera &camera,std::uint8_t wall,bool unloc
 	};
 	set(*a,direction);set(*b,direction^2);
 	std::sort(values.begin(),values.end(),[](const auto &a,const auto &b){return a.tile<b.tile || (a.tile==b.tile && a.cell<b.cell);});
-	XeenMutationWatch::write(this);_sessionState._barriers.swap(values);
+	XeenMutationWatch::write(this);_sessionState.assignCells(values);
 }
 
 void XeenWorld::restoreBarriers(const std::vector<XeenBarrierOverride> &values) {
@@ -401,7 +487,7 @@ void XeenWorld::restoreBarriers(const std::vector<XeenBarrierOverride> &values) 
 				throw std::invalid_argument("Saved barrier lacks matching opposite face");
 		}
 	}
-	auto prepared=values;XeenMutationWatch::write(this);_sessionState._barriers.swap(prepared);
+	XeenMutationWatch::write(this);_sessionState.assignCells(values);
 }
 
 std::unique_ptr<XeenWorld> XeenWorld::transitionCandidate() const {
@@ -415,7 +501,6 @@ std::unique_ptr<XeenWorld> XeenWorld::transitionCandidate() const {
 	candidate->_detachedEventCandidate=true;
 	candidate->_maps=_maps;candidate->_objects=_objects;
 	candidate->_cityStatistics=_cityStatistics;
-	candidate->_cityOriginalActorCount=_cityOriginalActorCount;
 	candidate->_scenePresentation=_scenePresentation;
 	return candidate;
 }
@@ -445,12 +530,13 @@ void XeenWorld::applyAlterEvent(const XeenCamera &physical, std::uint8_t line,
 	if (!regionalJourney() || _sessionState._entry!=XeenEncounterEntry::Ordinary ||
 		physical.mapId!=events.mapId || replacement!=0)
 		throw std::invalid_argument("AlterEvent replacement is unsupported");
+	auto &state=_sessionState._mapStates.state(physical.mapId);
 	bool found=false;
 	for (std::size_t i=0;i<events.records.size();++i) {
 		const auto &r=events.records[i];
 		if (r.x==physical.x && r.y==physical.y && r.line==line &&
 			(r.direction==static_cast<std::uint8_t>(physical.direction) || r.direction==4)) {
-			_sessionState._events.insert({physical.mapId,i});found=true;
+			state.disabledEvents.insert({physical.mapId,i});found=true;
 		}
 	}
 	if (!found) throw std::invalid_argument("AlterEvent physical line was not found");
@@ -459,17 +545,11 @@ void XeenWorld::applyAlterEvent(const XeenCamera &physical, std::uint8_t line,
 void XeenWorld::publishTransition(XeenWorld &candidate) noexcept {
 	XeenMutationWatch::write(this);XeenMutationWatch::write(&candidate);
 	_sessionState._journeyRandom.swap(candidate._sessionState._journeyRandom);
-	_sessionState._actors.swap(candidate._sessionState._actors);
-	_sessionState._vertigoActors.swap(candidate._sessionState._vertigoActors);
+	// The whole per-map table moves as one value.
+	_sessionState._mapStates.swap(candidate._sessionState._mapStates);
 	_sessionState._accountedMonsters.swap(candidate._sessionState._accountedMonsters);
-	_sessionState._events.swap(candidate._sessionState._events);
-	_sessionState._barriers.swap(candidate._sessionState._barriers);
-	_sessionState._objectOverrides.swap(candidate._sessionState._objectOverrides);
-	_sessionState._exploredTiles.swap(candidate._sessionState._exploredTiles);
 	_sessionState._headCache.swap(candidate._sessionState._headCache);
-	_sessionState._objects.swap(candidate._sessionState._objects);
 	_cityStatistics.swap(candidate._cityStatistics);
-	std::swap(_cityOriginalActorCount,candidate._cityOriginalActorCount);
 	_maps.swap(candidate._maps);_objects.swap(candidate._objects);
 	++_ownerRevision;
 }

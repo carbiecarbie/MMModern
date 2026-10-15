@@ -186,34 +186,38 @@ void XeenActorApproach::validateDomain(XeenWorld &world, const XeenPartyState &p
 	{
 		require(xeenRegionalContext(context),"Unsupported regional context");
 		xeenValidateJourneyParty(party);
-		if(events.mapId==XeenMapIdentity(28)) {
-			validateEnvironment(world,actors,events);
-			std::set<XeenMonsterIdentity> mainland;
-			for(const auto id:world.sessionState().accountedMonsters())if(id.mapId==XeenMapIdentity(23))mainland.insert(id);
-			xeenValidateRegionalActors(world.map(23),world.objectFile(23),world.sessionState().actors(),mainland,world._cityStatistics);
-			return;
-		}
 		validateEnvironment(world,actors,events);
+		// The retained mainland table stays valid while the party is elsewhere.
+		const auto entry=xeenJourneyContent().entry.mapId;
+		if(events.mapId!=entry) {
+			std::set<XeenMonsterIdentity> mainland;
+			for(const auto id:world.sessionState().accountedMonsters())if(id.mapId==entry)mainland.insert(id);
+			xeenValidateRegionalActors(world.map(entry),world.objectFile(entry),world.sessionState().monsters(entry),mainland,world._cityStatistics);
+		}
 		return;
 	}
 }
 
 void XeenActorApproach::validateEnvironment(XeenWorld &world,
 		const std::vector<XeenActor> &actors, const XeenEventFile &events, const std::vector<XeenMonsterRecord> *statistics) {
-	if(events.mapId==XeenMapIdentity(28)) {
-		require(events.resourcePresent,"Vertigo Event resource is absent");
-		xeenValidateVertigoActors(world,actors);
+	const auto entry=xeenJourneyContent().entry.mapId;
+	// An admitted indoor map: its monster table is staged with indoor geometry.
+	const auto *state=world.sessionState().mapState(events.mapId);
+	if(events.mapId!=entry && state && state->monsters && !state->outdoors) {
+		require(events.resourcePresent,"Indoor Event resource is absent");
+		xeenValidateIndoorActors(world,events.mapId,actors);
 		return;
 	}
 	{
+		// The admitted outdoor area is the Journey's mainland component.
 		bounded(actors,xeenJourneyContent().entry);
-		require(events.mapId==XeenMapIdentity(23) && events.resourcePresent && !events.records.empty(),"Regional event topology changed");
-		const auto &map=world.map(23);
+		require(events.mapId==entry && events.resourcePresent && !events.records.empty(),"Regional event topology changed");
+		const auto &map=world.map(entry);
 		require(map.geometry.flags==0 && map.geometry.isOutdoors(),"Regional geometry flags changed");
 		(void)XeenMovement::component(map,9,11,xeenJourneyContent().traversal);
 		std::set<XeenMonsterIdentity> mainland;
-		for(const auto id:world.sessionState().accountedMonsters())if(id.mapId==XeenMapIdentity(23))mainland.insert(id);
-		xeenValidateRegionalActors(map,world.objectFile(23),actors,mainland,statistics ? *statistics : world._cityStatistics);
+		for(const auto id:world.sessionState().accountedMonsters())if(id.mapId==entry)mainland.insert(id);
+		xeenValidateRegionalActors(map,world.objectFile(entry),actors,mainland,statistics ? *statistics : world._cityStatistics);
 		return;
 	}
 }
@@ -271,7 +275,7 @@ XeenEncounterResult XeenActorApproach::initializeStart(XeenWorld &world, XeenPar
 	const auto &policy=xeenJourneyContent();
 	const auto &reservation = world._sessionState;
 	require(reservation._entry == XeenEncounterEntry::Ordinary && reservation._encounterMarked &&
-		!reservation._encounterInitialized && !reservation._encounterTerminal && reservation._actors.empty() &&
+		!reservation._encounterInitialized && !reservation._encounterTerminal && !reservation.anyMonsters() &&
 		reservation._journeyOwner && reservation._journeyActivity == XeenJourneyActivity::Attachment &&
 		!party.roster.combatMarked() && !party.encounterContext &&
 		!state._world && seed && world._combatCheck, "Journey requires guarded fresh owners");
@@ -290,8 +294,8 @@ XeenEncounterResult XeenActorApproach::initializeStart(XeenWorld &world, XeenPar
 		context.minutes == 480 && context.ctr24 == 0, "Journey requires fresh entry context");
 	require(xeenRegionalContext(context) && (!prepared || context.difficulty==XeenDifficulty::Adventurer),"Invalid start difficulty");
 	require(events.resourcePresent && events.mapId==camera.mapId,"Start Event binding mismatch");
-	if(!prepared)require(reservation._objects.empty() && reservation._events.empty() && reservation._barriers.empty() &&
-		reservation._accountedMonsters.empty() && !reservation._vertigoActors && world._cityStatistics.empty(),"Original start requires clean resource state");
+	if(!prepared)require(!reservation.disabledObjectCount() && !reservation.disabledEventCount() && reservation.barriers().empty() &&
+		reservation._accountedMonsters.empty() && !reservation.anyStagedMonsters() && world._cityStatistics.empty(),"Original start requires clean resource state");
 	XeenPartyState candidate(party);
 	if(!prepared) {require(bool(recovery) && !party.worldFlags,"Original recovery preparation mismatch");candidate.worldFlags=recovery;}
 	require(bool(purse),"Fresh consequence purse presence mismatch");
@@ -345,7 +349,8 @@ XeenEncounterResult XeenActorApproach::initializeStart(XeenWorld &world, XeenPar
 
 	}
 	validateEnvironment(world, actors, mainlandEvents,&detachedStatistics);
-	std::optional<std::vector<XeenActor>> cityActors;
+	// The detached monster tables this start publishes, keyed by map.
+	XeenMapTable staged;
 	std::vector<XeenMonsterRecord> cityStatistics=detachedStatistics;
 	XeenEncounterResult result;
 	result.outcome = XeenEncounterOutcome::Started; result.revision = 1;
@@ -353,19 +358,26 @@ XeenEncounterResult XeenActorApproach::initializeStart(XeenWorld &world, XeenPar
 	else {
 		// Detached resource validation uses the existing city's World owner.
 		// No candidate gameplay values are installed in the destination yet.
-		XeenWorld staged(world._loader,world._objectLoader);staged._detachedEventCandidate=true;
-		staged.stageVertigoActors(world.objectFile(28),detachedStatistics);
-		cityActors=staged._sessionState._vertigoActors;cityStatistics=staged._cityStatistics;
-		require(cityActors->size()==46,"Original start requires all Vertigo records");
-		validateEnvironment(staged,*cityActors,detachedEvents);
-		result.view=XeenIndoorScene().classifyActors(world,camera,*cityActors);
-		activate(*cityActors,result.view);
+		XeenWorld city(world._loader,world._objectLoader);city._detachedEventCandidate=true;
+		city.stageIndoorMonsters(world.objectFile(entry.mapId),detachedStatistics);
+		staged=city._sessionState._mapStates;cityStatistics=city._cityStatistics;
+		auto &cityActors=*staged.find(entry.mapId)->monsters;
+		require(cityActors.size()==46,"Original start requires all Vertigo records");
+		validateEnvironment(city,cityActors,detachedEvents);
+		result.view=XeenIndoorScene().classifyActors(world,camera,cityActors);
+		activate(cityActors,result.view);
 		require(!result.view.engaged(),"Original start has immediate contact");
 	}
+	{
+		auto &mainland=staged.state(policy.entry.mapId);
+		mainland.monsters=actors;mainland.originalMonsterCount=static_cast<std::uint16_t>(actors.size());
+		mainland.outdoors=world.map(policy.entry.mapId).geometry.isOutdoors();
+	}
+	world._sessionState._mapStates.reserve(staged); // Empty entries; publication never allocates.
 	std::optional<XeenJourneyRandomState> finalRandom;
 	finalRandom=preparedRandom.continuation();
 	world._combatCheck();
-	try { if (preparePublication) preparePublication(candidate,actors,finalRandom,cityActors,cityStatistics); }
+	try { if (preparePublication) preparePublication(candidate,actors,finalRandom,staged,cityStatistics); }
 	catch (...) {world._combatCheck();throw;}
 	world._combatCheck();
 	static_assert(std::is_nothrow_copy_assignable_v<decltype(party.serviceEconomy)> &&
@@ -387,11 +399,7 @@ XeenEncounterResult XeenActorApproach::initializeStart(XeenWorld &world, XeenPar
 	party.serviceEconomy=candidate.serviceEconomy;
 	if(!prepared)party.worldFlags=candidate.worldFlags;
 	world._cityStatistics.swap(cityStatistics);
-	s._actors.swap(actors); s._entry = XeenEncounterEntry::Journey;
-	if(cityActors) {
-		s._vertigoActors.swap(cityActors);
-		world._cityOriginalActorCount=46;
-	}
+	s._mapStates.adoptMonsters(staged); s._entry = XeenEncounterEntry::Journey;
 	s._encounterMarked = s._encounterInitialized = true; s._encounterRevision = 1;
 
 	s._skeletonSeed = 0;
@@ -476,7 +484,7 @@ XeenEncounterResult XeenActorApproach::transition(XeenWorld &world, XeenPartySta
 	try {
 		require(session._encounterInitialized && party.encounterContext && state._pending <= 3,
 			"incomplete encounter owners");
-		validateDomain(world,party,*party.encounterContext,session._actors,events);
+		validateDomain(world,party,*party.encounterContext,session.monsters(camera.mapId),events);
 		return stopForEntry(XeenEncounterStop::Domain);
 	} catch (const std::invalid_argument &) {
 		return stopForEntry(XeenEncounterStop::Domain);
@@ -501,9 +509,10 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		world._combatCheck();
 	};
 	try {
-		const bool indoor=camera.mapId==XeenMapIdentity(28);
-		if(indoor && !session._vertigoActors)throw std::invalid_argument("Vertigo actors are absent");
-		auto &regionalActors=indoor ? *session._vertigoActors : session._actors;
+		const auto *mapState=session.mapState(camera.mapId);
+		if(!mapState || !mapState->monsters)throw std::invalid_argument("Regional actors are absent");
+		const bool indoor=!mapState->outdoors;
+		auto &regionalActors=session.mutableMonsters(camera.mapId);
 		check();
         if(!work)validateDomain(world,party,*party.encounterContext,regionalActors,events);
         else validateEnvironment(world,regionalActors,events);
@@ -539,10 +548,10 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 					charge=result==XeenMovementResult::Moved;stepTime=charge || result==XeenMovementResult::Turned;
 					if(!stepTime) c.result.outcome=XeenEncounterOutcome::Blocked;
 					if(indoor ? !xeenIndoorCoordinate(c.camera.x,c.camera.y) :
-						(c.camera.mapId!=XeenMapIdentity(23) || c.camera.x<0 || c.camera.x>=16 || c.camera.y<0 || c.camera.y>=16 ||
+						(c.camera.mapId!=xeenJourneyContent().entry.mapId || c.camera.x<0 || c.camera.x>=16 || c.camera.y<0 || c.camera.y>=16 ||
 						 !XeenMovement::component(map,9,11,xeenJourneyContent().traversal)[c.camera.y*16+c.camera.x]))
 						{ refused.reason=XeenEncounterStop::Envelope;return refused; }
-					const auto sampled=indoor ? world.sampleCell(28,c.camera.x,c.camera.y) : std::optional<XeenCellSample>{};
+					const auto sampled=indoor ? world.sampleCell(c.camera.mapId,c.camera.x,c.camera.y) : std::optional<XeenCellSample>{};
 					if(indoor ? (sampled && (sampled->cell->rawAttributes & kXeenAutomaticEventFlag)!=0) :
 						hasAutomaticTrigger(map.geometry,c.camera.x,c.camera.y)) {
 						const auto event=xeenRegionalEvent(events,c.camera);
@@ -589,7 +598,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
                     // Movement precedes travel; each injury follows its acquired portrait.
                     auto visibleActors=op.actors;check();
                     regionalActors.swap(visibleActors);camera=c.camera;party.encounterContext=c.context;
-                    if(c.exploration) {session._exploredTiles.swap(*c.exploration);c.exploration.reset();}
+                    if(c.exploration) {session.publishExploration(*c.exploration);c.exploration.reset();}
                     if(c.time && c.timeDone)party.serviceEconomy=c.time->economy;
                     if(c.time && c.timeDone)for(unsigned n=0;n<6;++n)party.roster._combatInputs[c.owners[n]]=c.inputs[n];
                     const auto &values=op.impactApplied ? op.characters : c.characters;
@@ -630,7 +639,7 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 		// One nonthrowing publication spans both opportunities and the full tick.
 		regionalActors.swap(c.actors);session._journeyRandom=c.random.continuation();
 		camera=c.camera;party.encounterContext=c.context;
-		if(c.exploration)session._exploredTiles.swap(*c.exploration);
+		if(c.exploration)session.publishExploration(*c.exploration);
                     if(c.time && c.timeDone)party.serviceEconomy=c.time->economy;
                     if(c.time && c.timeDone)for(unsigned n=0;n<6;++n)party.roster._combatInputs[c.owners[n]]=c.inputs[n];
 		for(const auto &value:c.characters) { auto &owner=party.roster.at(value.rosterId);publishInjured(owner,value);

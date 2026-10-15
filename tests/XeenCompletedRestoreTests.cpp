@@ -39,8 +39,8 @@ struct Destination {
   for(unsigned owner=0;owner<30;++owner)check(!party.roster.combatInputs(owner),"Failed restore leaked supplements");
   XeenSaveSnapshot s;s.camera=camera;s.characters=party.roster.characters();s.activeRosterIds=party.party.activeRosterIds();
   s.questItems=party.questItems.counts();s.questFlags=party.questFlags.values();s.gameFlags=flags.values();
-  s.disabledObjects.assign(world.sessionState().disabledObjects().begin(),world.sessionState().disabledObjects().end());
-  s.disabledEvents.assign(world.sessionState().disabledEvents().begin(),world.sessionState().disabledEvents().end());return s;
+  {const auto projected=world.sessionState().disabledObjects();s.disabledObjects.assign(projected.begin(),projected.end());};
+  {const auto projected=world.sessionState().disabledEvents();s.disabledEvents.assign(projected.begin(),projected.end());};return s;
  }
  void restore(const XeenSaveSnapshot &s,XeenSaveState::Preflight extra={}){
   replay_test::Scope noReplay;

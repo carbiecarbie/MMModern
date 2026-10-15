@@ -16,7 +16,11 @@ EXECUTABLES = ('mmodern_m44_baseline_witness.exe', 'mmodern_m43_cli_witness.exe'
                'mmodern_m44_baseline_restart.exe', 'mmodern_save_dump.exe')
 SCENARIOS = (('mainland', 'mainland-combat-myra-phirna', 3626689381, 'mainland.mmsave'),
              ('services', 'vertigo-buy-repair-training', 7, 'services-paid.mmsave'),
-             ('temple', 'temple-recovery', 3626689381, 'temple.mmsave'))
+             ('temple', 'temple-recovery', 3626689381, 'temple.mmsave'),
+             ('roundtrip', 'vertigo-f3-roundtrip', 3626689381, 'roundtrip.mmsave'))
+# Checkpoints a scenario also resumes from, each in its own resume-<label>
+# directory so the checkpoint glob below sees only the uninterrupted run.
+RESUMES = {'roundtrip': ('A', 'B')}
 
 
 def sha(data):
@@ -107,14 +111,17 @@ def verify_bundle(directory, manifest):
 
 
 def expected_digests():
+    """Recorded digests by label; None marks a scenario whose digest awaits approval."""
     header = (REPO / 'tests/XeenM44BaselineDigests.h').read_text(encoding='utf-8-sig')
     rows = re.findall(r'\{"([^"]+)",\s*(\d+)u,\s*"([0-9a-f]{64})"\}', header)
     result = {}
     for label, key, seed, _ in SCENARIOS:
         matches = [digest for name, value, digest in rows if name == key and int(value) == seed]
-        if len(matches) != 1:
+        if len(matches) > 1 or (not matches and any(name == key for name, _, _ in rows)):
             raise ValueError(f'Missing or ambiguous baseline/seed for {label}')
-        result[label] = matches[0]
+        result[label] = matches[0] if matches else None
+    if not any(result.values()):
+        raise ValueError('No recorded baseline digest')
     return result
 
 
@@ -130,10 +137,39 @@ def read_dump(path):
     return result
 
 
-def generate(binary_dir, game, output, expected=None):
+def namespace(fields, prefix):
+    return {k: v for k, v in fields.items() if k.startswith(prefix)}
+
+
+def per_map_comparison(a, b):
+    # The per-map view (view.perMap) keeps fields comparable across layouts.
+    # A build that predates it cannot be compared there; that is not a difference.
+    have = ('view.perMap' in a, 'view.perMap' in b)
+    if not all(have):
+        return dict(unavailable=[side for side, present in zip(('old', 'new'), have) if not present])
+    return field_comparison(namespace(a, 'maps['), namespace(b, 'maps['))
+
+
+def resume(binary_dir, game, directory, name, filename, label, final):
+    """Resume from an uninterrupted checkpoint; its final bytes must be identical."""
+    target = directory / f'resume-{label}'
+    fresh(target)
+    shutil.copy2(directory / f'{filename}-{label}.mmsave', target / filename)
+    env = clean_environment(binary_dir)
+    env.update(MMODERN_M44_SCENARIO=name, MMODERN_M44_STAGE=label, MMODERN_M49_TRACE=str(target / 'trace.txt'))
+    run([binary_dir / EXECUTABLES[0], '--load-game', game, target / filename], target / 'generate.log', env, target)
+    resumed = (target / (filename + '-final.mmsave')).read_bytes()
+    if resumed != final:
+        raise RuntimeError(f'{name}: final resumed from {label} differs from the uninterrupted final')
+    return dict(checkpoint=label, sha256=sha(resumed), byte_equal=True)
+
+
+def generate(binary_dir, game, output, expected=None, names=None):
     fresh(output)
     results = []
     for name, _, seed, filename in SCENARIOS:
+        if names is not None and name not in names:
+            continue
         directory = output / name
         fresh(directory)
         env = clean_environment(binary_dir)
@@ -146,7 +182,7 @@ def generate(binary_dir, game, output, expected=None):
              '--save-file', directory / filename], directory / 'generate.log', env, directory)
         final = directory / (filename if name == 'temple' else filename + '-final.mmsave')
         digest = sha(final.read_bytes())
-        if expected and digest != expected[name]:
+        if expected and expected.get(name) and digest != expected[name]:
             raise RuntimeError(f'{name}: preserved hash {digest} != baseline {expected[name]}')
         trace = (directory / 'trace.txt').read_bytes()
         if not trace:
@@ -160,9 +196,13 @@ def generate(binary_dir, game, output, expected=None):
             directory / 'restart.log', clean_environment(binary_dir), directory)
         if 'Baseline restart and final bytes exact' not in (directory / 'restart.log').read_text():
             raise RuntimeError(f'{name}: missing reload/re-save confirmation')
+        resumes = [resume(binary_dir, game, directory, name, filename, label, final.read_bytes())
+                   for label in RESUMES.get(name, ())]
         results.append(dict(name=name, seed=seed, final=final.name, sha256=digest,
+                            recorded=bool(expected and expected.get(name)),
                             trace_lines=len(trace.splitlines()), trace_sha256=sha(trace),
-                            checkpoints=[p.name for p in checkpoints], native_reload_resave_exact=True))
+                            checkpoints=[p.name for p in checkpoints], native_reload_resave_exact=True,
+                            resumes=resumes))
     return results
 
 
@@ -188,8 +228,10 @@ def field_comparison(a, b):
 
 def compare_runs(old, new, old_results, new_results):
     result = []
-    for a, b in zip(old_results, new_results):
+    candidates = {b['name']: b for b in new_results}
+    for a in old_results:
         name = a['name']
+        b = candidates[name]
         old_dir, new_dir = old / name, new / name
         x, y = (old_dir / 'trace.txt').read_bytes(), (new_dir / 'trace.txt').read_bytes()
         lines_x, lines_y = x.splitlines(), y.splitlines()
@@ -207,10 +249,9 @@ def compare_runs(old, new, old_results, new_results):
             p, q = old_dir / filename, new_dir / filename
             u, v = read_dump(p.with_suffix(p.suffix+'.fields.tsv')), read_dump(q.with_suffix(q.suffix+'.fields.tsv'))
             checkpoints.append(dict(file=filename, bytes=byte_comparison(p.read_bytes(),q.read_bytes()),
-                                    old_envelope={k:val for k,val in u.items() if k.startswith('envelope.')},
-                                    new_envelope={k:val for k,val in v.items() if k.startswith('envelope.')},
-                                    decoded=field_comparison({k:val for k,val in u.items() if k.startswith('snapshot.')},
-                                                             {k:val for k,val in v.items() if k.startswith('snapshot.')})))
+                                    old_envelope=namespace(u, 'envelope.'), new_envelope=namespace(v, 'envelope.'),
+                                    decoded=field_comparison(namespace(u, 'snapshot.'), namespace(v, 'snapshot.')),
+                                    per_map=per_map_comparison(u, v)))
         result.append(dict(name=name, old_sha256=a['sha256'], candidate_sha256=b['sha256'],
                            trace=trace, checkpoints=checkpoints, native_reload_resave_exact=b['native_reload_resave_exact']))
     return result
@@ -224,6 +265,9 @@ def has_differences(scenarios):
             if 'missing_from' in c or not c['bytes']['equal']:
                 return True
             if any(c['decoded'][key] for key in ('changed', 'added', 'removed')):
+                return True
+            if 'unavailable' not in c.get('per_map', {'unavailable': True}) and \
+                    any(c['per_map'][key] for key in ('changed', 'added', 'removed')):
                 return True
     return False
 
@@ -259,9 +303,14 @@ def main():
             verify_bundle(preserved / 'bin', baseline['bundle'])
             # Copy the candidate too: run with only bundled dependencies on PATH.
             report['bundle'] = bundle(build, output / 'candidate-bin', args.objdump)
-            old = generate(preserved / 'bin', game, output / 'old', baseline['expected'])
+            # The preserved build runs only the scenarios it was preserved with.
+            preserved_names = [s['name'] for s in baseline['scenarios']]
+            old = generate(preserved / 'bin', game, output / 'old', baseline['expected'], preserved_names)
             new = generate(output / 'candidate-bin', game, output / 'new')
             report['scenarios'] = compare_runs(output / 'old', output / 'new', old, new)
+            # A scenario without a preserved run has no comparison; its digest
+            # is a candidate fresh baseline for the maintainer to approve.
+            report['new_scenarios'] = [b for b in new if b['name'] not in preserved_names]
             report['status'] = 'differences_require_review' if has_differences(report['scenarios']) else 'zero_differences'
     except Exception as error:
         report['status'] = 'error'
@@ -273,6 +322,8 @@ def main():
         summary.append(report['error'])
     for scenario in report.get('scenarios', []):
         summary.append(f'{scenario["name"]}: {scenario.get("candidate_sha256", scenario.get("sha256"))}')
+        for item in scenario.get('resumes', []):
+            summary.append(f'  resumed from {item["checkpoint"]}: final byte-identical {item["sha256"]}')
         if 'trace' in scenario:
             checkpoints = scenario['checkpoints']
             changed_saves = sum('missing_from' in c or not c['bytes']['equal'] for c in checkpoints)
@@ -282,6 +333,20 @@ def main():
             removed_fields = sum(len(c['removed']) for c in fields)
             summary.append(f'  trace equal: {scenario["trace"]["byte_equal"]}; checkpoints: {len(checkpoints)}; changed/missing saves: {changed_saves}')
             summary.append(f'  decoded fields changed/added/removed: {changed_fields}/{added_fields}/{removed_fields}; reload/re-save exact: {scenario["native_reload_resave_exact"]}')
+            maps = [c['per_map'] for c in checkpoints if 'per_map' in c]
+            compared = [m for m in maps if 'unavailable' not in m]
+            if compared:
+                summary.append('  per-map fields changed/added/removed: ' + '/'.join(
+                    str(sum(len(m[key]) for m in compared)) for key in ('changed', 'added', 'removed')))
+            elif maps:
+                summary.append('  per-map view: not comparable (absent from the ' +
+                               ' and '.join(sorted({s for m in maps for s in m['unavailable']})) + ' build)')
+    for scenario in report.get('new_scenarios', []):
+        summary.append(f'{scenario["name"]}: new scenario without a preserved run; candidate digest {scenario["sha256"]}')
+        summary.append(f'  checkpoints: {len(scenario["checkpoints"])}; trace lines: {scenario["trace_lines"]}; '
+                       f'reload/re-save exact: {scenario["native_reload_resave_exact"]}')
+        for item in scenario.get('resumes', []):
+            summary.append(f'  resumed from {item["checkpoint"]}: final byte-identical {item["sha256"]}')
     summary.append('Digests are never edited. Differences require maintainer review; byte alignment does not explain them.')
     (output / 'summary.txt').write_text('\n'.join(summary)+'\n', encoding='utf-8')
     print('\n'.join(summary), flush=True)

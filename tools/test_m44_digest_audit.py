@@ -33,6 +33,47 @@ class AuditTests(unittest.TestCase):
         self.assertEqual(result['removed'], {'gone':'3'})
         self.assertEqual(result['added'], {'new':'4'})
 
+    def test_four_scenarios_and_resumes(self):
+        self.assertEqual([s[0] for s in audit.SCENARIOS], ['mainland', 'services', 'temple', 'roundtrip'])
+        self.assertEqual(audit.RESUMES, {'roundtrip': ('A', 'B')})
+
+    def test_unrecorded_scenario_digest_awaits_approval(self):
+        rows = '\n'.join(f'{{"{key}",{seed}u,"{"0"*64}"}},' for _, key, seed, _ in audit.SCENARIOS[:3])
+        with patch.object(audit.Path, 'read_text', return_value=rows):
+            expected = audit.expected_digests()
+        self.assertEqual(expected['roundtrip'], None)
+        self.assertEqual(expected['mainland'], '0'*64)
+        with patch.object(audit.Path, 'read_text', return_value=''):
+            with self.assertRaises(ValueError):
+                audit.expected_digests()
+
+    def test_per_map_view_compared_only_when_both_builds_write_it(self):
+        old = {'snapshot.food':'1', 'maps[0:23].monsters[0].hp':'5'}
+        new = {'snapshot.food':'1', 'view.perMap':'1', 'maps[0:23].monsters[0].hp':'6'}
+        self.assertEqual(audit.per_map_comparison(old, new), {'unavailable': ['old']})
+        old['view.perMap'] = '1'
+        result = audit.per_map_comparison(old, new)
+        self.assertEqual(result['changed'], [{'field':'maps[0:23].monsters[0].hp','old':'5','new':'6'}])
+
+    def test_new_scenario_is_reported_not_compared(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for side in ('old','new'):
+                (root/side/'mainland').mkdir(parents=True)
+                (root/side/'mainland'/'trace.txt').write_bytes(b'one\n')
+            old = [dict(name='mainland', sha256='a', checkpoints=[])]
+            new = [dict(name='roundtrip', sha256='c', checkpoints=[], native_reload_resave_exact=True),
+                   dict(name='mainland', sha256='a', checkpoints=[], native_reload_resave_exact=True)]
+            result = audit.compare_runs(root/'old',root/'new',old,new)
+            self.assertEqual([s['name'] for s in result], ['mainland'])
+            self.assertFalse(audit.has_differences(result))
+            result[0]['checkpoints'] = [dict(file='x', bytes=dict(equal=True),
+                decoded=dict(changed=[],added={},removed={}),
+                per_map=dict(changed=[{'field':'maps[0:28].cells[3].mask'}],added={},removed={}))]
+            self.assertTrue(audit.has_differences(result))
+            result[0]['checkpoints'][0]['per_map'] = {'unavailable': ['old']}
+            self.assertFalse(audit.has_differences(result))
+
     def test_complete_trace_and_missing_checkpoint(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

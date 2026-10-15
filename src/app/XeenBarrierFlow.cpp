@@ -206,7 +206,7 @@ void XeenEncounterFlow::publishBarrier(const Ticket &entry,XeenWorld &candidate,
 			expectedReset=true;xeenResetPartyTemps(expectedContext);expectedContext.rested=false;expectedContext.newDay=false;
 		}
 	};
-	if(rule.bash)chargeTime(_camera.mapId==XeenMapIdentity(28)?1:10);
+	if(rule.bash)chargeTime(_world.map(_camera.mapId).geometry.isOutdoors()?10:1);
 	if(rule.moved)chargeTime(1);
 	if(!(context==expectedContext) || dailyReset!=expectedReset || prepared.food!=_party.food || !prepared.economy)
 		throw std::logic_error("Barrier time/food capability mismatch");
@@ -248,9 +248,15 @@ void XeenEncounterFlow::publishBarrier(const Ticket &entry,XeenWorld &candidate,
 			c.result.automaticEvent=cell && (cell->cell->rawAttributes&kXeenAutomaticEventFlag) && xeenRegionalEvent(_events,rule.camera).has_value();
 		}
 	}
-	auto barriers=candidate._sessionState._barriers;
-	auto exploration=rule.moved ? candidate.explorationAfterStep(_party,rule.camera) : candidate._sessionState._exploredTiles;
-	const bool indoor=_camera.mapId==XeenMapIdentity(28);
+	// Every tile's cells, staged for the nonthrowing publication below.
+	std::vector<std::pair<XeenMapIdentity,std::vector<XeenBarrierOverride>>> cells;
+	for(const auto &entry:candidate.sessionState().mapStates())cells.emplace_back(entry.first,entry.second.cells);
+	const auto barriers=candidate.sessionState().barriers();
+	auto exploration=rule.moved ? candidate.explorationAfterStep(_party,rule.camera) : candidate.sessionState().exploredTiles();
+	_world._sessionState._mapStates.reserve(candidate._sessionState._mapStates);
+	_world._sessionState.reserveTiles(exploration);
+	auto &liveActors=_world._sessionState.mutableMonsters(_camera.mapId);
+	const bool indoor=!_world.sessionState().mapState(_camera.mapId)->outdoors;
 	std::vector<XeenActor> actors=candidate.sessionState().regionalActors(_camera.mapId);
 	const auto beforeActors=_world.sessionState().regionalActors(_camera.mapId);
 	if(actors.size()!=beforeActors.size())throw std::logic_error("Barrier actor collection changed");
@@ -278,9 +284,9 @@ void XeenEncounterFlow::publishBarrier(const Ticket &entry,XeenWorld &candidate,
 	auto retained=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 	retained->retainResources(*_journeyPreimage);
 	retained->maps.swap(maps);retained->objects.swap(objects);
-	retained->s._barriers=barriers;
-	retained->s._exploredTiles=exploration;
-	if(indoor)retained->s._vertigoActors=actors;else retained->s._actors=actors;
+	retained->s.assignCells(barriers);
+	retained->s.assignExploration(exploration);
+	retained->s.mutableMonsters(_camera.mapId)=actors;
 	retained->s._journeyRandom=rule.random.continuation();
 	retained->context=context;retained->cameraValue=rule.camera;retained->economy=prepared.economy;
 	for(unsigned n=0;n<6;++n) {
@@ -289,9 +295,10 @@ void XeenEncounterFlow::publishBarrier(const Ticket &entry,XeenWorld &candidate,
 	}
 	retained->prepareMutationRanges();
 	_journeyPreimage->check();prepared.check();
-	XeenMutationWatch::write(&_world);_world._sessionState._barriers.swap(barriers);
-	_world._sessionState._exploredTiles.swap(exploration);
-	if(indoor)_world._sessionState._vertigoActors->swap(actors);else _world._sessionState._actors.swap(actors);
+	XeenMutationWatch::write(&_world);
+	for(auto &[tile,values]:cells)_world._sessionState._mapStates.find(tile)->cells.swap(values);
+	_world._sessionState.publishExploration(exploration);
+	liveActors.swap(actors);
 	_world._sessionState._journeyRandom=rule.random.continuation();
 	_lastTime=now;
 	for(unsigned n=0;n<6;++n) {

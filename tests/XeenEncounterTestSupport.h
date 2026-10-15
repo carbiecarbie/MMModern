@@ -83,7 +83,7 @@ struct Fixture {
 	XeenEncounterResult action(XeenEncounterAction a) { return XeenActorApproach::action(world,p,camera,state,a,evt); }
 	XeenEncounterResult pulse() { return XeenActorApproach::pulse(world,p,camera,state,evt); }
 	XeenEncounterResult input(XeenEncounterAction a) { action(a);return pulse(); }
-	const XeenActor &anchor() const { return world.sessionState().actors().at(5); }
+	const XeenActor &anchor() const { return world.sessionState().monsters(23).at(5); }
 };
 }
 #endif

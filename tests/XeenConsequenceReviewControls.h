@@ -4,7 +4,7 @@ void repaint(Domain &d) { d.flow->holdJourneyFrame();d.present(); }
 void sameLive(const Domain &d,const XeenSaveSnapshot &before) {
  for(unsigned i=0;i<30;++i){check(xeen_state::sameCharacter(d.party.roster.at(i),before.characters[i]),"Unpublished character changed");check(xeen_state::sameInputs(*d.party.roster.combatInputs(i),before.journey->supplements[i].inputs),"Unpublished supplemental owner changed");}
  check(d.party.encounterContext==before.journey->context && d.party.monsterTreasure==before.journey->treasure && d.world.sessionState().journeyRandom()==before.journey->random,"Unpublished time/purse/RNG changed");
- for(unsigned i=0;i<19;++i){const auto &a=d.world.sessionState().actors()[i];const auto &b=before.journey->actors[i];check(a.x==b.x && a.y==b.y && a.hp==b.hp && a.activated==b.activated && a.lifecycle==b.lifecycle,"Unpublished actor changed");}
+ for(unsigned i=0;i<19;++i){const auto &a=d.world.sessionState().monsters(23)[i];const auto &b=before.journey->actors[i];check(a.x==b.x && a.y==b.y && a.hp==b.hp && a.activated==b.activated && a.lifecycle==b.lifecycle,"Unpublished actor changed");}
 }
 void refusedPendingShoot(Source &s) {
  Domain initial(s);const auto fresh=initial.save();
@@ -14,11 +14,11 @@ void refusedPendingShoot(Source &s) {
   if(mode==2)fixture.journey->context->minutes=1240;
   Domain d(s,fixture);check(d.flow->handle(NavigationAction::MoveForward),"Arm pending approach through typed movement");repaint(d);
   check(d.flow->state().pending()==2,"Refusal test must retain old work, not Quiet");
-  const auto old=d.flow->ticket();const std::vector<XeenActor> actors=d.world.sessionState().actors();const auto random=d.world.sessionState().journeyRandom();const auto context=d.party.encounterContext;
+  const auto old=d.flow->ticket();const std::vector<XeenActor> actors=d.world.sessionState().monsters(23);const auto random=d.world.sessionState().journeyRandom();const auto context=d.party.encounterContext;
   XeenRestoreGuard retained(d.world,d.party,d.camera,d.flags);
   check(d.flow->handle(ShootAction{}),"Refused Shoot reports feedback");
   check(!d.flow->appearance().projectile && retained.current() && d.flow->state().pending()==2 && d.flow->ticket().generation==old.generation,"Refused Shoot consumed pending work or authority");
-  for(unsigned i=0;i<19;++i)check(xeen_state::sameActor(actors[i],d.world.sessionState().actors()[i]),"Refused Shoot moved an actor");
+  for(unsigned i=0;i<19;++i)check(xeen_state::sameActor(actors[i],d.world.sessionState().monsters(23)[i]),"Refused Shoot moved an actor");
   check(random==d.world.sessionState().journeyRandom() && context==d.party.encounterContext && !d.flow->result().movementOpportunities,"Refused Shoot consumed opportunity/RNG/time");
   check(d.flow->journeyRefusal().find(mode==2?"time boundary":"no awake eligible")!=std::string::npos,"Specific admission refusal");
   repaint(d);
@@ -36,7 +36,7 @@ void chargedWait(Source &s) {
  Domain d(s,fixture);d.flow->handle(NavigationAction::MoveForward);repaint(d);
  check(d.flow->state().pending()==2 && d.party.encounterContext->minutes==951,"Wait fixture retains old opportunity before Quiet");
  auto before=fixture;before.camera=d.camera;before.journey->context=d.party.encounterContext;
- for(unsigned i=0;i<19;++i){const auto &a=d.world.sessionState().actors()[i];before.journey->actors[i].activated=a.activated;}
+ for(unsigned i=0;i<19;++i){const auto &a=d.world.sessionState().monsters(23)[i];before.journey->actors[i].activated=a.activated;}
  // The healthy 951->961 condition block must not consume a draw before
  // either ranged opportunity. The old twelve-draw prefix was a port defect.
  for(auto id:kXeenCombatOwners)check(!d.party.roster.at(id).conditions[3] &&
@@ -63,7 +63,7 @@ void chargedWait(Source &s) {
  check(cursor==82 && r.movementOpportunities==2 && r.consequences && r.consequences->count==6,"Both opportunities settle in reference source order");
  for(unsigned i=0;i<6;++i){const auto &shot=r.consequences->shots[i];check(shot.source.recordIndex==7+i%3 && shot.x==(i<3?6:7) && shot.y==11 && shot.distance==(i<3?2u:1u),"Retained old/new shot origin and append order");check(shot.attack.targetOwner==kXeenCombatOwners[i<3?i:8-i],"Old/new target draw ordering");}
  check(d.party.encounterContext->minutes==961 && d.party.encounterContext->ctr24==2 && d.world.sessionState().journeyRandom()->count==82 && d.flow->state().phase()==XeenEncounterPhase::Engaged,"Tick precedes old/new ranged work; final contact follows both volleys");
- for(unsigned id:{7u,8u,9u})check(d.world.sessionState().actors()[id].x==8,"Both movement passes published once");
+ for(unsigned id:{7u,8u,9u})check(d.world.sessionState().monsters(23)[id].x==8,"Both movement passes published once");
  std::cout<<"REVIEW charged Wait: tick0 -> acquired old travel/shots6 -> acquired new travel -> rejection70/yield64 -> shots6; ordered82 PASS\n";
 }
 XeenCombat &attachSnake(Domain &d){
@@ -143,12 +143,12 @@ void poisonInitiative(Source &s) {
  Domain d(s,zero);auto &c=attachSnake(d);
  const std::vector<XeenCombatRandom::Draw> misses{{0,5,0},{1,20,1}};attack(c,misses);
  c.service(c.ticket()); // Finish transferred attachment movement first.
- const auto context=d.party.encounterContext;const std::vector<XeenActor> actors=d.world.sessionState().actors();
+ const auto context=d.party.encounterContext;const std::vector<XeenActor> actors=d.world.sessionState().monsters(23);
  for(unsigned cycle=0;cycle<3;++cycle){const auto random=d.world.sessionState().journeyRandom();const auto revision=c.result().revision;
   check(c.service(c.ticket()).status==XeenCombatStatus::Pending && c.pending()==XeenCombatWork::Enemy,"Zero-Speed inner reset yields to automatic enemy service");
   check(random==d.world.sessionState().journeyRandom() && context==d.party.encounterContext && revision==c.result().revision,"Inner reset has no draw, charge or publication");
   attack(c,misses);check(d.world.sessionState().journeyRandom()->count==4+2*cycle,"Bounded next cycle consumes one target and hit draw");
-  for(unsigned i=0;i<19;++i)check(xeen_state::sameActor(actors[i],d.world.sessionState().actors()[i]),"Inner cycle invented movement");
+  for(unsigned i=0;i<19;++i)check(xeen_state::sameActor(actors[i],d.world.sessionState().monsters(23)[i]),"Inner cycle invented movement");
  }
  std::cout<<"REVIEW Poison initiative17->16, zero-Speed exclusion and three bounded automatic cycles PASS\n";
 }
@@ -174,7 +174,7 @@ void zeroHitVolley(Source &s) {
  for(unsigned i=0;i<20 && d.party.encounterContext->minutes==480;++i){d.now+=100;d.flow->idle();repaint(d);}
  zeroResistanceFixture=false;taped=false;
  check(cursor==5 && d.world.sessionState().journeyRandom()->count==5 && d.party.encounterContext->minutes==490 && d.flow->state().pending()==3,"Zero physical hit spends shooter, skips next identity, charges exactly once");
- check(d.world.sessionState().actors()[9].hp==25 && d.world.sessionState().actors()[8].hp==25,"Zero hit does not wound either target");
+ check(d.world.sessionState().monsters(23)[9].hp==25 && d.world.sessionState().monsters(23)[8].hp==25,"Zero hit does not wound either target");
  std::cout<<"REVIEW ARTIFICIAL pure-resolver100% resistance operand: production volley spends hit at5 draws, charge then pending3 PASS\n";
 }
 void shootRevalidation(Source &source) {
@@ -196,7 +196,7 @@ void shootRevalidation(Source &source) {
   taped=false;
   check(cursor==4 && h.world->sessionState().journeyRandom()->count==4,"Only old enemy target/hit/parameter/damage draws");
   check(!h.party->roster.at(14).canAct() && h.party->encounterContext->minutes==490,"Disabled shooter does not charge Shoot");
-  check(h.world->sessionState().actors()[9].x==6 && h.flow->encounter()->state().pending()==0 && h.flow->canSave(),"Old opportunity publishes once; refused intent returns Quiet");
+  check(h.world->sessionState().monsters(23)[9].x==6 && h.flow->encounter()->state().pending()==0 && h.flow->canSave(),"Old opportunity publishes once; refused intent returns Quiet");
   check(h.flow->encounter()->notice().find("no awake eligible missile user")!=std::string::npos,"Firing revalidation reports lost eligibility");
   return true;
  };
@@ -215,7 +215,7 @@ void playerRayControls(Source &s) {
   if(v.blocked==3){saved.journey->actors[17].x=0;saved.journey->actors[18].x=0;}
   // Persistent activation permits this representation fixture's quiet view.
   for(auto &a:saved.journey->actors)a.activated=true;
-  Domain d(s,saved);const std::vector<XeenActor> actors=d.world.sessionState().actors();
+  Domain d(s,saved);const std::vector<XeenActor> actors=d.world.sessionState().monsters(23);
   std::vector<unsigned> visualRows;
   tape.clear();cursor=0;taped=true;d.flow->handle(ShootAction{});d.present();
   for(unsigned n=0;n<20 && d.party.encounterContext->minutes==480;++n){
@@ -224,7 +224,7 @@ void playerRayControls(Source &s) {
   }taped=false;
   std::vector<unsigned> expectedRows;for(unsigned row=0;row<(v.blocked<4?v.blocked:1);++row)expectedRows.push_back(row);check(visualRows==expectedRows,"Obstruction/edge visual stops before excluded row");
   check(cursor==0 && d.world.sessionState().journeyRandom()->count==0 && d.party.encounterContext->minutes==490 && d.flow->state().pending()==3,"Blocked/edge volley charges once without hit draws or actor opportunity");
-  for(unsigned i=0;i<19;++i)check(xeen_state::sameActor(actors[i],d.world.sessionState().actors()[i]),"Blocked/edge volley changes no actor");
+  for(unsigned i=0;i<19;++i)check(xeen_state::sameActor(actors[i],d.world.sessionState().monsters(23)[i]),"Blocked/edge volley changes no actor");
   check(d.flow->notice().find(v.blocked<4?"terrain row "+std::to_string(v.blocked):"empty center rows")!=std::string::npos,"Blocked/edge production outcome");
  }
  // Artificial immutable geometry exercises rare middle 15 through the same
@@ -235,7 +235,7 @@ void playerRayControls(Source &s) {
   for(unsigned n=1;n<4;++n){auto &cell=map.geometry.cells[(8+dy[f]*n)*16+8+dx[f]*n];const auto m=n==row?middle:0;cell.rawWord=m<<4;cell.geometry=XeenOutdoorLayers{0,static_cast<std::uint8_t>(m),0,0};}
   const bool blocked=middle==1||middle==3||middle==6||middle==7||middle==9||middle==10||middle==12;
   check(xeenPlayerRayRows(map,camera)==(blocked?row:4),"All player middles at each forward row/direction");
-  if(middle==15){auto actor=original.world.sessionState().actors()[9];actor.x=8+dx[f]*row;actor.y=8+dy[f]*row;
+  if(middle==15){auto actor=original.world.sessionState().monsters(23)[9];actor.x=8+dx[f]*row;actor.y=8+dy[f]*row;
    check(xeenOutdoorRangedRay(map,camera,actor)==(f==1),"Middle15 player admission differs from enemy non-east rays; east retains raw mask rule");}
  }
  for(unsigned f=0;f<4;++f)for(unsigned distance=0;distance<3;++distance){XeenCamera camera{23,f==1?15-int(distance):f==3?int(distance):8,f==0?15-int(distance):f==2?int(distance):8,static_cast<XeenDirection>(f)};
@@ -271,7 +271,7 @@ XeenSaveSnapshot runAuthorityValues(const Domain &d,const XeenSaveSnapshot &base
  auto value=base;value.camera=d.camera;value.characters=d.party.roster.characters();
  value.journey->context=d.party.encounterContext;value.journey->treasure=d.party.monsterTreasure;value.journey->random=d.world.sessionState().journeyRandom();
  for(unsigned i=0;i<30;++i)value.journey->supplements[i].inputs=*d.party.roster.combatInputs(i);
- for(unsigned i=0;i<19;++i){const auto &a=d.world.sessionState().actors()[i];auto &b=value.journey->actors[i];b.x=a.x;b.y=a.y;b.hp=a.hp;b.activated=a.activated;b.lifecycle=a.lifecycle;b.status=a.status;}
+ for(unsigned i=0;i<19;++i){const auto &a=d.world.sessionState().monsters(23)[i];auto &b=value.journey->actors[i];b.x=a.x;b.y=a.y;b.hp=a.hp;b.activated=a.activated;b.lifecycle=a.lifecycle;b.status=a.status;}
  return value;
 }
 XeenCombatResult runAuthorityPublish(XeenCombat &c) {
@@ -393,7 +393,7 @@ void runAuthorityControls(Source &s) {
   }
 
   if(occupied){check(d.world.sessionState().journeyActivity()==XeenJourneyActivity::Attachment && d.flow->state().phase()==XeenEncounterPhase::Engaged,"Occupied same-origin destination requires immediate attachment");
-   check(d.flow->attachJourney(d.flow->ticket(),[]{}),"New occupied-destination incarnation attaches");check(d.flow->combat()->participants()==0x3f && d.world.sessionState().actors()[9].hp==16,"New incarnation reintegrates owners without regenerating survivor");}
+   check(d.flow->attachJourney(d.flow->ticket(),[]{}),"New occupied-destination incarnation attaches");check(d.flow->combat()->participants()==0x3f && d.world.sessionState().monsters(23)[9].hp==16,"New incarnation reintegrates owners without regenerating survivor");}
  }
  std::cout<<"ARTIFICIAL M34 Run/finish probe failures, reentrance, stale tickets, metadata/cache and occupied retirement controls PASS\n";
 }

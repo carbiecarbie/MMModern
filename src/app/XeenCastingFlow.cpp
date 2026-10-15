@@ -261,7 +261,7 @@ bool XeenEncounterFlow::serviceCasting() {
             _journeyPreimage->check();}
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 		prepared->retainResources(*_journeyPreimage);
-		prepared->s._exploredTiles=exploration;
+		prepared->s.assignExploration(exploration);
 		bool living=false;
 		for (const auto &value:work.time->characters) {
 			auto &owner=prepared->characters[value.rosterId];
@@ -281,7 +281,7 @@ bool XeenEncounterFlow::serviceCasting() {
 		_party.encounterContext=work.time->context;_party.serviceEconomy=work.time->economy;
 		for(unsigned n=0;n<6;++n)_party.roster._combatInputs[work.owners[n]]=work.time->inputs[n];
 		auto &session=_world._sessionState;
-		session._exploredTiles.swap(exploration);
+		session.publishExploration(exploration);
 		session._journeyRandom=continuation;
 		_state._pending=living?3:0;
 		if (!living) { _state._phase=XeenEncounterPhase::SupportStopped;

@@ -39,7 +39,8 @@ XeenRegionalInteraction xeenRegionalInteraction(const XeenEventFile &, const Xee
 std::optional<std::int16_t> xeenWellHpAfter(std::int16_t before) noexcept;
 void xeenValidateRegionalActors(const XeenMap &, const XeenObjectFile &, const std::vector<XeenActor> &,
 	const std::set<XeenMonsterIdentity> &accounted, const std::vector<XeenMonsterRecord> &statistics);
-void xeenValidateVertigoActors(XeenWorld &, const std::vector<XeenActor> &);
+// Validates an indoor map's complete monster table against its MOB and MON.
+void xeenValidateIndoorActors(XeenWorld &, XeenMapIdentity, const std::vector<XeenActor> &);
 using XeenRegionalManifest = std::function<void(const XeenMap &, const XeenObjectFile &,
 	const XeenEventFile &, const std::vector<XeenMonsterRecord> &)>;
 void xeenValidateRegionalManifest(const XeenMap &, const XeenObjectFile &, const XeenEventFile &,

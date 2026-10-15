@@ -85,13 +85,13 @@ void approachAndGuards() {
 			"pending blocks items without draining work");
 		f.pulse();
 	}
-	check(f.flow->journeyQuiet() && f.w.sessionState().actors()[5].x == 13 && f.w.sessionState().actors()[5].y == 1 &&
+	check(f.flow->journeyQuiet() && f.w.sessionState().monsters(23)[5].x == 13 && f.w.sessionState().monsters(23)[5].y == 1 &&
 		f.camera.x == 14 && f.camera.y == 1 && f.p.encounterContext->minutes == 490 && f.p.encounterContext->ctr24 == 2,
 		"independent moved-anchor oracle");
-	const std::vector<XeenActor> actors = f.w.sessionState().actors();
+	const std::vector<XeenActor> actors = f.w.sessionState().monsters(23);
 	f.w.discardMapCache();
 	f.pulse();
-	for (unsigned i = 0; i < 19; ++i) check(xeen_state::sameActor(actors[i],f.w.sessionState().actors()[i]), "cache rebuild preserves every actor field");
+	for (unsigned i = 0; i < 19; ++i) check(xeen_state::sameActor(actors[i],f.w.sessionState().monsters(23)[i]), "cache rebuild preserves every actor field");
 
 	f.flow.reset();
 	check(f.w.sessionState().journeyActivity() == XeenJourneyActivity::Failed, "adapter destruction never opens quiet boundary");
@@ -133,12 +133,12 @@ void readinessAndHistory() {
 	check(XeenCharacterRules::maxHp(f.p.roster.at(0),{610}) == 16, "material 200 adds nothing");
 	xeenValidateJourneyParty(f.p);
 	rejects([&] { xeenValidateJourneyMelee(f.p); }, "accessory");
-	const std::vector<XeenActor> actors = f.w.sessionState().actors();
+	const std::vector<XeenActor> actors = f.w.sessionState().monsters(23);
 	check(f.action(XeenEncounterAction::Wait).outcome == XeenEncounterOutcome::Refused && f.flow->journeyQuiet() &&
 		f.p.encounterContext->minutes == 480, "unready action refuses before publication");
 	check(f.flow->journeyRefusal()=="This action is not supported yet for this party.",
 		"readiness refusal is concise and player-facing");
-	sameActors(actors,f.w.sessionState().actors());
+	sameActors(actors,f.w.sessionState().monsters(23));
 	check(f.flow->journeyEquipment(f.flow->ticket(),0,XeenInventoryCategory::Accessories,2,XeenEquipmentOperation::Remove).status ==
 		XeenEquipmentStatus::Success, "repair loadout through actual equipment removal");
 	f.present();
@@ -189,7 +189,7 @@ void progression() {
 	}
 	values[4].currentHp = -17; values[4].conditions[12] = values[4].conditions[13] = 1;
 	values[2].currentHp = -13; values[2].conditions[12] = 1;
-	const auto original = f.w.sessionState().actors()[5];
+	const auto original = f.w.sessionState().monsters(23)[5];
 	const auto first = xeenPrepareJourneyLethal(original,owners,inputs,{},0x3f);
 	for (unsigned i = 0; i < 6; ++i) { check(first.experience[i] == (i == 4 ? 1000u : 1100u), "literal first identity XP"); inputs[i].experience = first.experience[i]; }
 	rejects([&] { xeenPrepareJourneyLethal(original,owners,inputs,first.accounted,0x3f); }, "identity");
@@ -212,7 +212,7 @@ void progression() {
 		if (combat->phase() == Phase::PlayerReady) live.command(Command::Attack); else combat->service(combat->ticket());
 	}
 	check(live.flow->combat()->phase() == Phase::Failed && live.w.sessionState().accountedMonsters().empty() &&
-		live.w.sessionState().actors()[5].lifecycle == XeenActorLifecycle::Present && live.w.sessionState().actors()[5].hp > 0,
+		live.w.sessionState().monsters(23)[5].lifecycle == XeenActorLifecycle::Present && live.w.sessionState().monsters(23)[5].hp > 0,
 		"real overflow does not publish defeat or partial XP");
 	for (auto id : kXeenCombatOwners) check(live.p.roster.combatInputs(id)->experience ==
 		(id == 6 ? std::numeric_limits<std::uint32_t>::max() : 0u), "later-recipient overflow preserves every XP");
@@ -222,14 +222,14 @@ void postEndInvalidation() {
 	auto *combat = f.flow->combat();
 	check(combat->service(combat->ticket()).status == Status::Victory, "post-End control genuinely ends");
 	const auto old = combat->ticket(); const auto retirement = f.flow->ticket();
-	const std::vector<XeenActor> actors = f.w.sessionState().actors(); const auto characters = f.p.roster.characters();
+	const std::vector<XeenActor> actors = f.w.sessionState().monsters(23); const auto characters = f.p.roster.characters();
 	std::array<unsigned,6> xp{};
 	for (unsigned i=0;i<6;++i) xp[i] = f.p.roster.combatInputs(kXeenCombatOwners[i])->experience;
 	combat->invalidate(); combat->invalidate();
 	check(!combat->current(old) && combat->service(old).status == Status::Stale, "post-End invalidation consumes old combat ticket");
 	check(!f.flow->retireJourney(retirement) && !f.flow->retireJourney(f.flow->ticket()) && !f.flow->journeyQuiet(),
 		"post-End integrity permanently refuses retirement");
-	sameActors(actors,f.w.sessionState().actors());
+	sameActors(actors,f.w.sessionState().monsters(23));
 	for(unsigned i=0;i<30;++i) check(xeen_state::sameCharacter(characters[i],f.p.roster.at(i)), "invalidation preserves injuries and items");
 	for(unsigned i=0;i<6;++i) check(xp[i] == f.p.roster.combatInputs(kXeenCombatOwners[i])->experience, "invalidation preserves XP");
 	Fixture failedEnd; failedEnd.engage(); failedEnd.lethal();
@@ -238,12 +238,12 @@ void postEndInvalidation() {
 	ending->service(ending->ticket());
 	check(!failedEnd.flow->retireJourney(failedEnd.flow->ticket()) &&
 		failedEnd.w.sessionState().accountedMonsters().size() == 1 &&
-		failedEnd.w.sessionState().actors()[5].lifecycle == XeenActorLifecycle::Defeated,
+		failedEnd.w.sessionState().monsters(23)[5].lifecycle == XeenActorLifecycle::Defeated,
 		"End callback invalidation and exception preserve lethal facts without retirement");
 }
 void approachBoundaryReplacement() {
 	for (bool throws : {false,true}) {
-		Fixture f; const auto old = f.flow->ticket(); const std::vector<XeenActor> actors = f.w.sessionState().actors();
+		Fixture f; const auto old = f.flow->ticket(); const std::vector<XeenActor> actors = f.w.sessionState().monsters(23);
 		f.w.discardMapCache();
 		f.onMap = [&] {
 			const auto lease = f.flow->boundary().hold(XeenCombatBoundary::Work::Inventory);
@@ -254,7 +254,7 @@ void approachBoundaryReplacement() {
 			"quiet boundary ABA refuses obsolete approach");
 		check(f.p.encounterContext->ctr24 == 0 && f.flow->state().phase() == XeenEncounterPhase::Exploring &&
 			!f.flow->current(old), "stale approach cannot charge or stop coordination");
-		sameActors(actors,f.w.sessionState().actors());
+		sameActors(actors,f.w.sessionState().monsters(23));
 		f.onMap = {};
 		check(f.action(XeenEncounterAction::Right).outcome == XeenEncounterOutcome::Accepted, "new boundary can authorize fresh work");
 		check(!f.flow->fail(old,XeenEncounterStop::Preparation) && f.flow->journeyQuiet(), "old operation cannot stop newer coordination");
@@ -272,7 +272,7 @@ void attachmentBoundaryReplacement() {
 	for (unsigned seam = 0; seam < 5; ++seam) for (bool throws : {false,true}) for (bool held : {false,true}) {
 		Fixture f;
 		check(f.action(XeenEncounterAction::Wait).outcome == XeenEncounterOutcome::Engaged, "attachment regression genuinely engages");
-		const auto old = f.flow->ticket(); const std::vector<XeenActor> actors = f.w.sessionState().actors();
+		const auto old = f.flow->ticket(); const std::vector<XeenActor> actors = f.w.sessionState().monsters(23);
 		const auto context = *f.p.encounterContext; const auto revision = f.flow->state().revision();
 		std::uint64_t lease = 0; unsigned callbacks = 0, sprites = 0;
 		const auto replace = [&] {
@@ -295,7 +295,7 @@ void attachmentBoundaryReplacement() {
 			f.flow->state().phase() == XeenEncounterPhase::Engaged && f.flow->state().pending() == 0 &&
 			f.flow->state().revision() == revision && *f.p.encounterContext == context,
 			"obsolete attachment does not stop coordination or alter published context");
-		sameActors(actors,f.w.sessionState().actors());
+		sameActors(actors,f.w.sessionState().monsters(23));
 		check(f.flow->boundary().quiet() == !held, "obsolete attachment preserves newer held lease");
 		if (held) {
 			check(!f.flow->attachJourney(f.flow->ticket(),[] {}), "fresh attachment waits for newer work completion");
@@ -317,7 +317,7 @@ void attachmentBoundaryReplacement() {
 void retainedCombatCaches() {
 	for (bool objectsChanged : {false,true}) for (bool throws : {false,true}) {
 		Fixture f; f.engage(); auto *combat = f.flow->combat();
-		const std::vector<XeenActor> actors = f.w.sessionState().actors();
+		const std::vector<XeenActor> actors = f.w.sessionState().monsters(23);
 		combat->setProbe([&] {
 			if (objectsChanged) const_cast<XeenObjectFile &>(f.w.objectFile(23)).resourcePresent = false;
 			else const_cast<XeenMap &>(f.w.map(23)).geometry.cells[0].rawWord ^= 1;
@@ -326,7 +326,7 @@ void retainedCombatCaches() {
 		const auto result = combat->command(combat->ticket(),Command::Block);
 		check(result.status == Status::Failed && result.failure == XeenCombatFailure::Integrity,
 			"admitted cache mutation refuses command publication as integrity failure");
-		sameActors(actors,f.w.sessionState().actors());
+		sameActors(actors,f.w.sessionState().monsters(23));
 		f.w.discardMapCache(); // Matching bytes cannot revive failed combat authority.
 		check(!f.flow->retireJourney(f.flow->ticket()) && !f.flow->journeyQuiet(), "cache integrity failure cannot retire");
 	}
@@ -356,7 +356,7 @@ void initializationAliases() {
     XeenEncounterFlow flow(world,party,camera,flags,clock,setup);
     check(setup.context.minutes==960&&party.encounterContext->minutes==480&&party.roster.combatInputs(0)->experience==1000,
         "initialization publishes detached context and supplements with current starting XP");
-    check(world.sessionState().actors().size()==19&&world.sessionState().actors()[5].hp==20,"initialization retains detached statistics");
+    check(world.sessionState().monsters(23).size()==19&&world.sessionState().monsters(23)[5].hp==20,"initialization retains detached statistics");
     check(flow.prepareJourneyFrame(flow.ticket(),[]{})&&flow.presentJourney(flow.ticket())&&flow.journeyQuiet(),"detached initialization reaches presented boundary");
 }
 void callbackAuthority() {
@@ -441,7 +441,7 @@ void carriedConsequences() {
 void approachTimeLimit(){
     Fixture f(chr(),{},1240);f.action(XeenEncounterAction::Right);f.action(XeenEncounterAction::Forward);
     check(f.p.encounterContext->minutes==1250&&f.flow->state().pending()==3,"current approach dusk prestate");
-    const auto actors=f.w.sessionState().actors();const auto camera=f.camera;const auto context=f.p.encounterContext;
+    const auto actors=f.w.sessionState().monsters(23);const auto camera=f.camera;const auto context=f.p.encounterContext;
     const auto result=f.action(XeenEncounterAction::Backward);
     check(result.outcome!=XeenEncounterOutcome::Stopped && result.outcome!=XeenEncounterOutcome::Refused,
         "Dusk travel remains playable");
@@ -466,13 +466,13 @@ void shootWithoutShooters() {
 	regional_journey_test::Fixture f(chr(),[](auto &g) {
 		for (unsigned id = 0; id < 30; ++id) for (auto &w : g.p.roster.at(id).weapons) if (w.frame == 4) w.frame = 0;
 	});
-	const std::vector<XeenActor> actors = f.w.sessionState().actors();
+	const std::vector<XeenActor> actors = f.w.sessionState().monsters(23);
 	const auto random = f.w.sessionState().journeyRandom();const auto context = f.p.encounterContext;
 	check(f.flow->journeyQuiet() && f.flow->handle(ShootAction{}) && f.flow->journeyRefusal().empty(), "Shoot without a shooter shows no message");
 	f.present();
 	check(f.flow->journeyRefusal().empty() && random == f.w.sessionState().journeyRandom() && context == f.p.encounterContext &&
 		f.flow->journeyQuiet(), "Shoot without a shooter spends no time or draw");
-	sameActors(actors, f.w.sessionState().actors());
+	sameActors(actors, f.w.sessionState().monsters(23));
 }
 int main() {
 	try { shootWithoutShooters(); lifecycle(); approachAndGuards(); currentValues(); readinessAndHistory(); progression(); callbackAuthority(); postEndInvalidation(); approachBoundaryReplacement(); attachmentBoundaryReplacement(); retainedCombatCaches(); initializationAliases();  carriedConsequences();  approachTimeLimit();frameFailure(); std::cout << "Journey domain tests passed\n"; return 0; }

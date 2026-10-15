@@ -44,8 +44,8 @@ void freshState(Source &s,const XeenPartyState &p,const XeenCamera &c,const Xeen
   check(xeen_state::sameActor(city[n],expectedActor),"Every fresh city record, HP and activation");
  }
  const auto mainland=XeenActorApproach::actorsFromResources(s.maps.loadObjects(s.assets,23),s.statistics);
- check(w.sessionState().actors().size()==19,"All mainland records staged");
- for(unsigned n=0;n<19;++n)check(xeen_state::sameActor(w.sessionState().actors()[n],mainland[n]),"Mainland staged without activation or wounds");
+ check(w.sessionState().monsters(23).size()==19,"All mainland records staged");
+ for(unsigned n=0;n<19;++n)check(xeen_state::sameActor(w.sessionState().monsters(23)[n],mainland[n]),"Mainland staged without activation or wounds");
  initial_oracle::view(XeenIndoorScene().classifyActors(w,c,city));
  check(!xeenRegionalEvent(s.city,c),"No original West/all-direction arrival Event");
  const auto east=xeenRegionalEvent(s.city,{28,18,4,XeenDirection::East});
@@ -136,7 +136,7 @@ void freshFailureControls(Source &s) {
   if(fault==2)setup.cityEventsProvider=[&]{auto e=s.city;e.records[0].opcode^=1;return e;};
   if(fault==3)setup.cityEventsProvider=[&]()->XeenEventFile{throw std::bad_alloc();};
   bool failed=false;try{XeenEncounterFlow flow(w,p,c,f,[]{return 0;},setup);}catch(const std::exception &){failed=true;}
-  check(failed && !w.sessionState().encounterInitialized() && w.sessionState().actors().empty() &&
+  check(failed && !w.sessionState().encounterInitialized() && w.sessionState().monsters(23).empty() &&
    !w.sessionState().hasRegionalActors(28) && !p.roster.combatMarked() && !p.encounterContext && !p.serviceEconomy && !p.monsterTreasure && !p.worldFlags,"Failed fresh preparation publishes no gameplay candidate");
   for(unsigned n=0;n<30;++n)check(xeen_state::sameCharacter(before[n],p.roster.at(n)),"Failed fresh preparation retains original CHR");
  }

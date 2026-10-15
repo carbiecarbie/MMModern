@@ -124,7 +124,7 @@ private:
 		const std::vector<XeenActor> &, const std::optional<XeenJourneyRandomState> &)>;
 	using StartPublicationPreparation = std::function<void(const XeenPartyState &,
 		const std::vector<XeenActor> &, const std::optional<XeenJourneyRandomState> &,
-		const std::optional<std::vector<XeenActor>> &, const std::vector<XeenMonsterRecord> &)>;
+		const XeenMapTable &, const std::vector<XeenMonsterRecord> &)>;
 	// `start`: developer fixture only; a prepared start inside the mainland
 	// component instead of the Journey entry.
 	static XeenEncounterResult initializeStart(XeenWorld &, XeenPartyState &, XeenCamera &,

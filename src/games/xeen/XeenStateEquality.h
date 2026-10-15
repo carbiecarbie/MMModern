@@ -43,6 +43,28 @@ inline bool sameActor(const XeenActor &a, const XeenActor &b) {
 		bool(a.statistics) == bool(b.statistics) && (!a.statistics || a.statistics->raw == b.statistics->raw);
 }
 
+// Absent and empty entries are equivalent; reserving an entry is unobservable.
+inline bool sameMapState(const XeenMapState &a, const XeenMapState &b) {
+	if (bool(a.monsters) != bool(b.monsters)) return false;
+	if (a.monsters) {
+		if (a.monsters->size() != b.monsters->size() || a.originalMonsterCount != b.originalMonsterCount ||
+			a.outdoors != b.outdoors) return false;
+		for (std::size_t i = 0; i < a.monsters->size(); ++i)
+			if (!sameActor((*a.monsters)[i], (*b.monsters)[i])) return false;
+	}
+	return a.removedObjects == b.removedObjects && a.disabledEvents == b.disabledEvents &&
+		a.objectOverrides == b.objectOverrides && a.cells == b.cells && a.explored == b.explored;
+}
+inline bool sameMapStates(const XeenMapTable &a, const XeenMapTable &b) {
+	static const XeenMapState none;
+	for (const auto &entry : a) {
+		const auto *other = b.find(entry.first);
+		if (!sameMapState(entry.second, other ? *other : none)) return false;
+	}
+	for (const auto &entry : b) if (!a.find(entry.first) && !entry.second.empty()) return false;
+	return true;
+}
+
 inline bool sameEntities(const XeenMapEntities &a, const XeenMapEntities &b) {
 	if (a.objectTable != b.objectTable || a.monsterTable != b.monsterTable || a.wallItemTable != b.wallItemTable) return false;
 	const auto records = [](const auto &x, const auto &y) {

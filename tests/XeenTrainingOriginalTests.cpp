@@ -37,10 +37,10 @@ int main(int argc,char **argv) {
                 auto changed=actors;auto &a=changed[actor];
                 switch(field){case 0:++a.id.recordIndex;break;case 1:++a.hp;break;case 2:a.status=static_cast<XeenActorStatus>(1);break;
                     case 3:a.lifecycle=XeenActorLifecycle::Defeated;break;case 4:a.x=-128;break;}
-                rejects([&]{xeenValidateVertigoActors(fixture.w,changed);});
+                rejects([&]{xeenValidateIndoorActors(fixture.w,28,changed);});
             }
             auto changed=actors;changed[small].hp=changed[small].statistics->baseHp()+1;
-            rejects([&]{xeenValidateVertigoActors(fixture.w,changed);});
+            rejects([&]{xeenValidateIndoorActors(fixture.w,28,changed);});
             auto atWall=actors[small];atWall.x=8;atWall.y=7;atWall.activated=true;
             check(xeenIndoorActorTerrain(fixture.w,atWall,9,7)==XeenMonsterTerrain::Blocked,"small Slime crossed wall 9");
             // All cells/facings have an independent geometry oracle in

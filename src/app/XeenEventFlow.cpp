@@ -1099,8 +1099,8 @@ XeenManualEventResult XeenEventFlow::beginVertigoEvent(XeenRegionalInteraction k
 		if(!cityMob.resourcePresent || cityMob.mapId!=XeenMapIdentity(28) ||
 			cityMob.entities.monsters.size()>XeenActorApproach::kCapacity)
 			throw std::invalid_argument("Invalid city MOB resource identity or capacity");
-		if(kind==XeenRegionalInteraction::VertigoEntrance && !work->world->sessionState().hasRegionalActors(28))
-			work->world->stageVertigoActors(cityMob,_encounter->_journeyStatistics);
+		if(kind==XeenRegionalInteraction::VertigoEntrance && !work->world->sessionState().hasRegionalActors(destination))
+			work->world->stageIndoorMonsters(cityMob,_encounter->_journeyStatistics);
 	}
 	_eventPublication->check();
 	_transition=std::move(work);
@@ -1233,8 +1233,12 @@ void XeenEventFlow::prepareVertigoResult(const XeenManualEventResult &result) tr
 		XeenRestoreGuard::EventProviders providers(*work.world,work.party,work.camera,work.flags,
 			*work.guard,[&] {_eventPublication->check();},
 			[&] {_encounter->journeySavePreimage().failed=true;});
-		if(work.world->sessionState().hasRegionalActors(28))
-			xeenValidateVertigoActors(*work.world,work.world->sessionState().regionalActors(28));
+		// Every staged indoor table stays valid across the transition.
+		std::vector<XeenMapIdentity> indoor;
+		for(const auto &entry:work.world->sessionState().mapStates())
+			if(entry.second.monsters && !entry.second.outdoors)indoor.push_back(entry.first);
+		for(const auto mapId:indoor)
+			xeenValidateIndoorActors(*work.world,mapId,work.world->sessionState().regionalActors(mapId));
 		return work.world->prepareTransitionArrival(work.camera);
 	}();
 	_eventPublication->check();
@@ -1244,7 +1248,7 @@ void XeenEventFlow::prepareVertigoResult(const XeenManualEventResult &result) tr
 	std::optional<std::vector<XeenExploredTile>> exploration,retainedExploration;
 	if(!sameMap) {
 		exploration=work.world->explorationAfterStep(work.party,work.camera);
-		retainedExploration=*exploration;candidateGuard.check();
+		retainedExploration=*exploration;candidateGuard.s.reserveTiles(*retainedExploration);candidateGuard.check();
 	}
 	const auto composed=[&] {
 		try {

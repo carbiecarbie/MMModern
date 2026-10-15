@@ -136,8 +136,8 @@ struct Fixture {
 	XeenSaveSnapshot capture() const {
         XeenSaveSnapshot s;s.resources=signature;s.camera=camera;s.activeRosterIds=party.party.activeRosterIds();
         s.characters=party.roster.characters();s.questItems=party.questItems.counts();s.questFlags=party.questFlags.values();s.gameFlags=flags.values();
-        const auto &state=world.sessionState();s.disabledObjects.assign(state.disabledObjects().begin(),state.disabledObjects().end());
-        s.disabledEvents.assign(state.disabledEvents().begin(),state.disabledEvents().end());return s;
+        const auto &state=world.sessionState();{const auto projected=state.disabledObjects();s.disabledObjects.assign(projected.begin(),projected.end());};
+        {const auto projected=state.disabledEvents();s.disabledEvents.assign(projected.begin(),projected.end());};return s;
     }
 
 

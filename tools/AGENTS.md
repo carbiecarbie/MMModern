@@ -10,7 +10,7 @@ rerunning its failed tests, and when acting as its test runner. The root
   build of each task, not once for the whole milestone. It takes a few minutes
   (M66 target: under 10); a run over 15 minutes means something hangs or the
   machine is otherwise loaded, so check that before anything else.
-- At milestone closure, also run `ctest -L fast` and the three M44 scenarios
+- At milestone closure, also run `ctest -L fast` and the four M44 scenarios
   on `build-m44`, as a cheap check against optimization-dependent behavior.
   Run the complete suite on `build-m44` (through the runner) only before a
   public release or when a test behaves differently between the two builds.
@@ -82,13 +82,21 @@ $preserved = 'D:/M44-audits/baseline' # new directory outside the repository
 
 Both destinations must be new directories; failed runs retain their evidence.
 Preserve copies the four executables and recursively resolved non-system DLLs,
-records their hashes and source Git state, and verifies the three header hashes.
+records their hashes and source Git state, and verifies every recorded header
+hash; a scenario whose digest still awaits approval is generated but not verified.
 Windows system DLLs remain OS-provided. Compare verifies the preserved binaries,
-reruns old and new scenarios with the original seeds/inputs, compares full traces
+reruns the scenarios the preserved build knows with the original seeds/inputs
+(a newer scenario is reported with its candidate digest, not compared), compares full traces
 and every checkpoint, and checks native final reload/re-save equality. Each
 build's `mmodern_save_dump` uses its own reader, checks CRC and canonical
 re-encoding, and dumps all snapshot fields. Maintain its stable field paths and
 visitor when persisted fields change; no legacy reader belongs in the new build.
+Since M69 it also writes a per-map view (`maps[side:number]...`, marked by
+`view.perMap`) keyed by map identity and record, independent of the save
+layout; the audit compares it only when both builds write it. The roundtrip
+scenario also resumes from checkpoints A and B in `resume-A/` and `resume-B/`
+(outside the checkpoint glob) and requires both finals to equal the
+uninterrupted one.
 
 `digest-audit.json` (report schema 1) and `summary.txt` contain results and
 candidate hashes. Byte ranges are zero-based, half-open sequence alignments;

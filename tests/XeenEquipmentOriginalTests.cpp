@@ -125,12 +125,12 @@ void shoot(Inputs &in,const XeenSaveSnapshot &equipped,std::size_t member) {
  auto s=equipped;s.camera={23,9,11,XeenDirection::West};
  auto &a=s.journey->actors[9];a.x=7;a.y=11;a.activated=true; // Spawn HP, as in fight().
  for(auto owner:s.activeRosterIds)s.characters[owner].currentHp=1000;
- Fixture f(in,s);const auto hp=f.w.sessionState().actors()[9].hp;const auto minutes=f.p.encounterContext->minutes;
+ Fixture f(in,s);const auto hp=f.w.sessionState().monsters(23)[9].hp;const auto minutes=f.p.encounterContext->minutes;
  f.act(ShootAction{});
  for(unsigned n=0;n<400 && !f.flow->canSave();++n){check(!f.flow->encounter()->combat(),"Shoot fixture entered combat");pulse(f);}
  check(f.flow->canSave() && f.flow->encounter()->journeyRefusal().empty(),("Shoot with a fire crossbow refused or unfinished: "+f.flow->encounter()->journeyRefusal()).c_str());
  check(f.p.encounterContext->minutes==minutes+10,"Outdoor Shoot charge");
- const auto after=f.w.sessionState().actors()[9].hp;
+ const auto after=f.w.sessionState().monsters(23)[9].hp;
  std::cout<<"Shoot with level-2 equipment: actor HP "<<hp<<" -> "<<after<<" (owner "<<unsigned(f.p.party.activeRosterIds()[member])<<")\n";
 }
 void fight(Inputs &in,const XeenSaveSnapshot &equipped,std::size_t member) {
@@ -145,7 +145,7 @@ void fight(Inputs &in,const XeenSaveSnapshot &equipped,std::size_t member) {
  for(unsigned n=0;n<400 && combat->phase()!=XeenCombatPhase::PlayerReady;++n)pulse(f);
  check(combat->phase()==XeenCombatPhase::PlayerReady,"Combat did not reach the player turn");
  check(combat->participant()==int(member),"Fastest equipped member acts first");
- const auto &actor=f.w.sessionState().actors()[9];const int hpBefore=actor.hp;
+ const auto &actor=f.w.sessionState().monsters(23)[9];const int hpBefore=actor.hp;
  const auto &c=f.p.roster.at(owner);const auto &input=*f.p.roster.combatInputs(owner);
  XeenCombatRandom oracle(combat->random().continuation());
  XeenPhysicalPlayerCandidate candidate(c,input,*actor.statistics,actor.original.resourceId,f.p.encounterContext->year,false,f.p.encounterContext->difficulty);
@@ -157,7 +157,7 @@ void fight(Inputs &in,const XeenSaveSnapshot &equipped,std::size_t member) {
  check(result.operation==XeenCombatOperation::PlayerAttack && result.actingOwner && *result.actingOwner==owner,"Equipped member's attack did not publish");
  check(result.damage==candidate.damage && result.elementalDamage==candidate.elemental && result.elementalFrame==candidate.elementalFrame,
   "Published attack differs from the metal-sword oracle on the same RNG continuation");
- const auto &after=f.w.sessionState().actors()[9];
+ const auto &after=f.w.sessionState().monsters(23)[9];
  if(candidate.damage>=hpBefore) check(after.lifecycle==XeenActorLifecycle::Defeated,"Lethal metal-sword attack defeats the actor");
  else check(after.hp==hpBefore-candidate.damage,"Actor HP after the metal-sword attack");
  std::cout<<"Fight with level-2 equipment: owner "<<unsigned(owner)<<" hit="<<candidate.hit<<" damage "<<candidate.damage<<" (physical "<<candidate.physical<<", elemental "<<candidate.elemental<<")\n";

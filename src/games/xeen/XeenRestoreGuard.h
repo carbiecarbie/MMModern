@@ -24,7 +24,7 @@ public:
 		quests(p.questItems.counts()), questFlags(p.questFlags.values()), recovery(p.worldFlags), context(p.encounterContext), treasure(p.monsterTreasure), economy(p.serviceEconomy),
 		food(p.food), first(p.firstSerializedCount), effective(p.effectiveSerializedCount), diagnostics(p.diagnostics),
 		cameraValue(c), flagValues(f.values()), combatCheck(bool(w._combatCheck)), combatAuthorized(bool(w._combatAuthorized)),
-		maps(w._maps), objects(w._objects), cityStatistics(w._cityStatistics), cityOriginalCount(w._cityOriginalActorCount), cacheRevision(w._cacheRevision), exactCaches(exactCaches),
+		maps(w._maps), objects(w._objects), cityStatistics(w._cityStatistics), cacheRevision(w._cacheRevision), exactCaches(exactCaches),
 		borrowOwners{&w._gameplayBorrow, &p._gameplayBorrow, &p.roster._gameplayBorrow, &c.gameplayBorrow, &f._gameplayBorrow} {
 		for (unsigned i = 0; i < borrowOwners.size(); ++i) {
 			borrowStates[i] = borrowOwners[i]->retain();
@@ -51,7 +51,7 @@ public:
 		food(other.food), first(std::move(other.first)), effective(std::move(other.effective)), diagnostics(std::move(other.diagnostics)),
 		cameraValue(std::move(other.cameraValue)), flagValues(std::move(other.flagValues)), combatCheck(std::move(other.combatCheck)),
 		combatAuthorized(std::move(other.combatAuthorized)), maps(std::move(other.maps)), objects(std::move(other.objects)),
-		cityStatistics(std::move(other.cityStatistics)), cityOriginalCount(other.cityOriginalCount), regionalText(std::move(other.regionalText)), vertigoText(std::move(other.vertigoText)),
+		cityStatistics(std::move(other.cityStatistics)), regionalText(std::move(other.regionalText)), vertigoText(std::move(other.vertigoText)),
 		learnedNames(std::move(other.learnedNames)), cacheRevision(std::move(other.cacheRevision)), exactCaches(std::move(other.exactCaches)),
 		borrowOwners(std::move(other.borrowOwners)), borrowStates(other.borrowStates), borrowRevisions(std::move(other.borrowRevisions)),
 		failed(std::move(other.failed)), mutations(std::move(other.mutations)) {
@@ -75,7 +75,7 @@ public:
 			p.food!=food || p.effectiveSerializedCount != effective || p.diagnostics != diagnostics ||
 			!sameCamera(c, cameraValue) || f.values() != flagValues ||
 			bool(w._combatCheck) != combatCheck || bool(w._combatAuthorized) != combatAuthorized ||
-			w._cityStatistics.size()!=cityStatistics.size() || w._cityOriginalActorCount!=cityOriginalCount) return false;
+			w._cityStatistics.size()!=cityStatistics.size()) return false;
 		for(unsigned i=0;i<cityStatistics.size();++i) if(w._cityStatistics[i].raw!=cityStatistics[i].raw) return false;
 		const auto &live = w._sessionState;
 		if (live._journeyActivity != s._journeyActivity || live._journeyOwner != s._journeyOwner ||
@@ -86,20 +86,11 @@ public:
 			live._combatEntered != s._combatEntered ||
 			live._entry != s._entry || live._encounterMarked != s._encounterMarked ||
 			live._encounterInitialized != s._encounterInitialized || live._encounterTerminal != s._encounterTerminal ||
-			live._encounterRevision != s._encounterRevision || live._objects != s._objects || live._events != s._events ||
-			live._actors.size() != s._actors.size() || live._barriers != s._barriers || live._objectOverrides!=s._objectOverrides || live._exploredTiles!=s._exploredTiles ||
-			bool(live._vertigoActors) != bool(s._vertigoActors)) return false;
+			live._encounterRevision != s._encounterRevision || !sameMapStates(live._mapStates, s._mapStates)) return false;
 		for (std::size_t i = 0; i < characters.size(); ++i) {
 			if (!sameCharacter(p.roster.characters()[i], characters[i]) ||
 				bool(p.roster.combatInputs(i)) != bool(inputs[i])) return false;
 			if (inputs[i] && !sameInputs(*p.roster.combatInputs(i), *inputs[i])) return false;
-		}
-		for (std::size_t i = 0; i < s._actors.size(); ++i)
-			if (!sameActor(live._actors[i], s._actors[i])) return false;
-		if (s._vertigoActors) {
-			if (live._vertigoActors->size() != s._vertigoActors->size()) return false;
-			for (std::size_t i=0; i<s._vertigoActors->size(); ++i)
-				if (!sameActor((*live._vertigoActors)[i], (*s._vertigoActors)[i])) return false;
 		}
 		if(!cachesCurrent())return false;
 		refreshMutationRanges();
@@ -286,7 +277,7 @@ private:
 	void prepareFreshJourneyPublication(const XeenPartyState &candidate,
 		const std::vector<XeenActor> &actors,
 		const std::optional<XeenJourneyRandomState> &random,
-		const std::optional<std::vector<XeenActor>> &city={},
+		const XeenMapTable &staged={},
 		const std::vector<XeenMonsterRecord> &statistics={}) {
 		check();
 		characters=candidate.roster.characters();
@@ -296,11 +287,18 @@ private:
 		recovery=candidate.worldFlags;context=candidate.encounterContext;
 		treasure=candidate.monsterTreasure;economy=candidate.serviceEconomy;
 		food=candidate.food;first=candidate.firstSerializedCount;effective=candidate.effectiveSerializedCount;diagnostics=candidate.diagnostics;
-		s._actors=actors;s._entry=XeenEncounterEntry::Journey;
+		// The staged tables of an original start, or the admitted (outdoor)
+		// mainland table alone for a prepared start.
+		auto tables=staged;
+		const auto mainland=xeenJourneyContent().entry.mapId;
+		if(!tables.find(mainland) || !tables.find(mainland)->monsters) {
+			auto &entry=tables.state(mainland);
+			entry.monsters=actors;entry.originalMonsterCount=static_cast<std::uint16_t>(actors.size());entry.outdoors=true;
+		}
+		s._mapStates.reserve(tables);s._mapStates.adoptMonsters(tables);s._entry=XeenEncounterEntry::Journey;
 		s._encounterMarked=s._encounterInitialized=true;s._encounterRevision=1;
 		s._skeletonSeed=0;s._journeyRandom=random;
 		cityStatistics=statistics;
-		if(city) {s._vertigoActors=city;cityOriginalCount=46;}
 		prepareMutationRanges();
 	}
 	// Prepare a final-destination preimage before publication. Only the private
@@ -314,7 +312,6 @@ private:
 		cameraValue = candidate.cameraValue; flagValues = candidate.flagValues;
 		maps = candidate.maps; objects = candidate.objects;
 		cityStatistics = candidate.cityStatistics;
-		cityOriginalCount = candidate.cityOriginalCount;
 		if (regionalText && candidate.regionalText &&
 			(regionalText->mapId!=candidate.regionalText->mapId ||
 			 regionalText->resourceName!=candidate.regionalText->resourceName ||
@@ -358,7 +355,7 @@ private:
 		// Event capabilities permit inventories, awards, skills, XP, purse, retained RNG, quest/camera/game flags
 		// and World overlays/Spawn. All other inputs retain their preimages.
 		if(candidate.membership!=membership || candidate.quests!=quests || candidate.marked!=marked ||
-			candidate.s._barriers!=s._barriers || candidate.s._exploredTiles!=s._exploredTiles ||
+			candidate.s.barriers()!=s.barriers() || candidate.s.exploredTiles()!=s.exploredTiles() ||
 			bool(candidate.recovery)!=bool(recovery) || !(retainedContext==context) || retainedTreasure!=treasure ||
 			candidate.food!=food || candidate.economy!=economy || candidate.first!=first || candidate.effective!=effective ||
 			candidate.diagnostics!=diagnostics || bool(candidate.s._journeyRandom)!=bool(s._journeyRandom)) {
@@ -397,10 +394,9 @@ private:
 		// Allocate every anticipated value before changing the retained source
 		// preimage. Allocation failure remains a recoverable pre-commit failure.
 		auto nextMaps=maps;auto nextObjects=objects;
-		auto actors=candidate.s._actors;auto city=candidate.s._vertigoActors;
+		// The whole per-map table; its cells and explored bits are unchanged.
+		auto mapStates=candidate.s._mapStates;
 		auto accounted=candidate.s._accountedMonsters;
-		auto events=candidate.s._events;auto disabledObjects=candidate.s._objects;
-		auto overrides=candidate.s._objectOverrides;
 		auto statistics=candidate.cityStatistics;
 		for (const auto &entry:candidate.maps) {
 			const auto found=maps.find(entry.first);
@@ -418,10 +414,8 @@ private:
 		}
 		mutations.prepare(mutationRangeCapacity(nextMaps,nextObjects));
 		check();candidate.check();
-		s._actors.swap(actors);s._vertigoActors.swap(city);
+		s._mapStates.swap(mapStates);
 		s._accountedMonsters.swap(accounted);
-		s._events.swap(events);s._objects.swap(disabledObjects);
-		s._objectOverrides.swap(overrides);
 		s._headCache=candidate.s._headCache;
 		for(unsigned owner=0;owner<characters.size();++owner) {
    characters[owner].currentHp=candidate.characters[owner].currentHp;
@@ -439,7 +433,6 @@ private:
 		if(treasure) {treasure->gold=candidate.treasure->gold;treasure->gems=candidate.treasure->gems;}
 		s._journeyRandom=candidate.s._journeyRandom;
 		maps.swap(nextMaps);objects.swap(nextObjects);cityStatistics.swap(statistics);
-		cityOriginalCount=candidate.cityOriginalCount;
 		cameraValue=candidate.cameraValue;flagValues=candidate.flagValues;++worldRevision;
   context=candidate.context;recovery=candidate.recovery;
 		questFlags=candidate.questFlags;
@@ -521,7 +514,8 @@ private:
 	}
 	static std::size_t mutationRangeCapacity(const std::map<XeenMapIdentity,XeenMap> &mapValues,
 			const std::map<XeenMapIdentity,XeenObjectFile> &objectValues) {
-		std::size_t count=11+4*objectValues.size();
+		// Fixed owners plus every per-map entry the bounded table can hold.
+		std::size_t count=6+XeenMapTable::kObservedRangesPerMap*XeenMapTable::kMaximumMaps+4*objectValues.size();
 		for(const auto &entry:mapValues) count+=5+entry.second.instructions.size();
 		return count;
 	}
@@ -532,12 +526,14 @@ private:
 		mutations.add(&c,sizeof(c));mutations.add(&f,sizeof(f));
 		const auto &members=p.party.activeRosterIds();
 		mutations.add(members.data(),members.size()*sizeof(XeenMutable<std::uint8_t>));
-		mutations.add(w._sessionState._actors.data(),w._sessionState._actors.size()*sizeof(XeenActor));
-		if(w._sessionState._vertigoActors) mutations.add(w._sessionState._vertigoActors->data(),w._sessionState._vertigoActors->size()*sizeof(XeenActor));
 		mutations.add(w._cityStatistics.data(),w._cityStatistics.size()*sizeof(XeenMonsterRecord));
-		mutations.add(w._sessionState._barriers.data(),w._sessionState._barriers.size()*sizeof(XeenBarrierOverride));
-		mutations.add(w._sessionState._objectOverrides.data(),w._sessionState._objectOverrides.size()*sizeof(XeenObjectOverride));
-		mutations.add(w._sessionState._exploredTiles.data(),w._sessionState._exploredTiles.size()*sizeof(XeenExploredTile));
+		for(const auto &entry:w._sessionState._mapStates) {
+			const auto &state=entry.second;
+			mutations.add(&state,sizeof(state));
+			if(state.monsters) mutations.add(state.monsters->data(),state.monsters->size()*sizeof(XeenActor));
+			mutations.add(state.objectOverrides.data(),state.objectOverrides.size()*sizeof(XeenObjectOverride));
+			mutations.add(state.cells.data(),state.cells.size()*sizeof(XeenBarrierOverride));
+		}
 		watchResourceMutations();
 	}
 	void watchResourceMutations() const noexcept {
@@ -578,7 +574,6 @@ private:
 	std::map<XeenMapIdentity, XeenMap> maps;
 	std::map<XeenMapIdentity, XeenObjectFile> objects;
 	std::vector<XeenMonsterRecord> cityStatistics;
-	std::uint16_t cityOriginalCount=0;
 	std::optional<XeenEventTextFile> regionalText;
 	std::optional<XeenEventTextFile> vertigoText;
 	std::optional<XeenLearnedSpellNames> learnedNames;

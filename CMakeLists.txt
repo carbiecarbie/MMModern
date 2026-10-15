@@ -883,6 +883,9 @@ if(BUILD_TESTING)
 	)
 	target_link_libraries(mmodern_world_tests PRIVATE mmodern_core)
 	add_test(NAME xeen_world COMMAND mmodern_world_tests)
+	add_executable(mmodern_map_state_tests tests/XeenMapStateTests.cpp)
+	target_link_libraries(mmodern_map_state_tests PRIVATE mmodern_xeen)
+	add_test(NAME xeen_map_state COMMAND mmodern_map_state_tests)
 	add_executable(mmodern_indoor_scene_tests
 		tests/XeenIndoorSceneTests.cpp
 	)
@@ -1014,7 +1017,7 @@ if(BUILD_TESTING)
 	add_executable(mmodern_m44_scenario_tests tests/XeenM44ScenarioTests.cpp)
 	target_link_libraries(mmodern_m44_scenario_tests PRIVATE mmodern_app mmodern_xeen mmodern_platform_sdl bcrypt)
 	add_dependencies(mmodern_m44_scenario_tests mmodern_m44_baseline_witness mmodern_m44_baseline_restart mmodern_m43_cli_witness)
-	foreach(scenario mainland services temple)
+	foreach(scenario mainland services temple roundtrip)
 		if(scenario STREQUAL "temple")
 			set(m44_generator $<TARGET_FILE:mmodern_m43_cli_witness>)
 		else()
@@ -1050,7 +1053,8 @@ if(BUILD_TESTING)
 		xeen_combat_player_ready_input
 		xeen_smith_process xeen_vertigo_process xeen_save_format xeen_save_cli
 		xeen_combat_gameplay xeen_equipment_gameplay xeen_inventory_gameplay
-		xeen_m44_scenario_mainland xeen_m44_scenario_services xeen_m44_scenario_temple)
+		xeen_m44_scenario_mainland xeen_m44_scenario_services xeen_m44_scenario_temple
+		xeen_m44_scenario_roundtrip)
 	get_property(xeen_all_tests DIRECTORY PROPERTY TESTS)
 	foreach(xeen_test IN LISTS xeen_process_tests)
 		if(NOT xeen_test IN_LIST xeen_all_tests)

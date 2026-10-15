@@ -35,7 +35,7 @@ XeenCombatResult literalRun(XeenCombat &combat,unsigned roll) {
 void disengagementSurvivor(Source &source) {
  auto saved=disengagementFixture(source);Domain d(source,saved);auto &combat=disengagementContact(d);
  const auto before=d.party.roster.characters();const auto membership=d.party.party.activeRosterIds();
- const std::vector<XeenActor> actors=d.world.sessionState().actors();const auto context=d.party.encounterContext;const auto origin=d.camera;
+ const std::vector<XeenActor> actors=d.world.sessionState().monsters(23);const auto context=d.party.encounterContext;const auto origin=d.camera;
  const auto startRandom=d.world.sessionState().journeyRandom()->count;
  for(unsigned owner=0;owner<6;++owner) {
   check(combat.phase()==XeenCombatPhase::PlayerReady && combat.participant()==int(owner),"Equal-speed Run retains stable owner order and earlier actions");
@@ -50,10 +50,10 @@ void disengagementSurvivor(Source &source) {
  check(finish.operation==XeenCombatOperation::FinishDisengagement && finish.phase==XeenCombatPhase::Disengaged && finish.exitCause==XeenCombatExitCause::DirectRun && !finish.casualties,("Successful non-victory finish op="+std::to_string(unsigned(finish.operation))+" phase="+std::to_string(unsigned(finish.phase))+" failure="+std::to_string(unsigned(finish.failure))+" cause="+std::to_string(unsigned(finish.exitCause))).c_str());
  check(d.camera.x==10 && d.camera.y==12 && d.camera.direction==origin.direction && d.party.encounterContext==context,"Fixed relocation preserves facing and time");
  for(unsigned n=0;n<19;++n) {
-  const auto &a=actors[n],&b=d.world.sessionState().actors()[n];
+  const auto &a=actors[n],&b=d.world.sessionState().monsters(23)[n];
   check(a.id==b.id && a.x==b.x && a.y==b.y && a.hp==b.hp && a.lifecycle==b.lifecycle && (!a.activated || b.activated),"Relocation retains every actor identity, position, wound and lifecycle");
  }
- check(d.world.sessionState().actors()[9].hp==16 && !d.world.sessionState().accountedMonsters().count({23,9}),"Wounded live survivor never regenerates or accounts at finish");
+ check(d.world.sessionState().monsters(23)[9].hp==16 && !d.world.sessionState().accountedMonsters().count({23,9}),"Wounded live survivor never regenerates or accounts at finish");
  check(!d.flow->canSave(),"Successful finish is not a premature quiet save boundary");
  const auto stale=d.flow->ticket();check(d.flow->retireJourney(stale),"Separate successful-finish retirement");
  check(!d.flow->combat() && !d.flow->canSave() && d.world.sessionState().journeyActivity()==XeenJourneyActivity::Presentation,"Retirement retains mandatory presentation before Quiet");
@@ -110,7 +110,7 @@ void disengagementOwedRound(Source &source) {
   check(combat.pending()==XeenCombatWork::Enemy && d.party.encounterContext->minutes==959,"Faster enemy precedes owed charged movement and minute");
   attack(combat,{{0,4,0},{1,20,19},{1,5,5},{1,10,10}});
   check(combat.phase()==XeenCombatPhase::DisengagementPending && combat.pending()==XeenCombatWork::Round && combat.exitCause()==XeenCombatExitCause::AttritionAfterEscape,"Incapacitation preserves owed charged round and attrition cause");
-  const auto origin=d.camera;const auto actor=d.world.sessionState().actors()[9];
+  const auto origin=d.camera;const auto actor=d.world.sessionState().monsters(23)[9];
   for(unsigned n=0;n<8 && combat.pending()==XeenCombatWork::Round;++n)combat.service(combat.ticket());
   check(d.party.encounterContext->minutes==960 && d.party.encounterContext->ctr24==saved.journey->context->ctr24+1,"Owed charged minute and exploration step are retained exactly once");
   if(escapedStatDeath) {
@@ -122,7 +122,7 @@ void disengagementOwedRound(Source &source) {
    check(finished.phase==XeenCombatPhase::Disengaged && finished.exitCause==XeenCombatExitCause::AttritionAfterEscape && finished.casualties==2 && !finished.forfeitedGold,"Attrition converts only newly abandoned casualty");
    check(d.party.roster.at(kXeenCombatOwners[1]).currentHp==-9 && d.party.roster.at(kXeenCombatOwners[1]).conditions[12]==1 && d.party.roster.at(kXeenCombatOwners[1]).conditions[13]==1,"Casualty conversion preserves injury and adds only Dead byte");
    for(unsigned slot=2;slot<6;++slot)check(d.party.roster.at(kXeenCombatOwners[slot]).conditions[13]==8,"Already-Dead counters receive tick only, no casualty reset");
-   check(d.world.sessionState().actors()[9].hp==actor.hp && d.party.encounterContext->minutes==960,"Finish neither regenerates survivor nor adds End minute");
+   check(d.world.sessionState().monsters(23)[9].hp==actor.hp && d.party.encounterContext->minutes==960,"Finish neither regenerates survivor nor adds End minute");
   }
  }
  std::cout<<"M34 ARTIFICIAL escaped/slow participant, enemy before owed charged round, attrition casualty and full-party escaped stat-death tick PASS\n";
@@ -269,7 +269,7 @@ void disengagementFinishPresentation(Source &source,bool injectFault=true) {
     auto value=saved;value.camera=*h.camera;value.characters=h.party->roster.characters();value.activeRosterIds=h.party->party.activeRosterIds();
     value.journey->context=h.party->encounterContext;value.journey->treasure=h.party->monsterTreasure;value.journey->random=h.world->sessionState().journeyRandom();
     for(unsigned i=0;i<30;++i)value.journey->supplements[i].inputs=*h.party->roster.combatInputs(i);
-    for(unsigned i=0;i<19;++i){const auto &a=h.world->sessionState().actors()[i];auto &b=value.journey->actors[i];b.x=a.x;b.y=a.y;b.hp=a.hp;b.activated=a.activated;b.lifecycle=a.lifecycle;b.status=a.status;b.accounted=h.world->sessionState().accountedMonsters().count(a.id);}
+    for(unsigned i=0;i<19;++i){const auto &a=h.world->sessionState().monsters(23)[i];auto &b=value.journey->actors[i];b.x=a.x;b.y=a.y;b.hp=a.hp;b.activated=a.activated;b.lifecycle=a.lifecycle;b.status=a.status;b.accounted=h.world->sessionState().accountedMonsters().count(a.id);}
     return value;
    };
    if(occupied)check(northLoads==0,"North neighbor must remain cold before contact");
@@ -309,7 +309,7 @@ void disengagementFinishPresentation(Source &source,bool injectFault=true) {
      h.party->monsterTreasure->armor==saved.journey->treasure->armor &&
      h.party->monsterTreasure->miscellaneous==saved.journey->treasure->miscellaneous,"Feedback does not credit, forfeit twice or alter item provenance");
     check(h.party->roster.at(kXeenCombatOwners[2]).conditions[13]==7,"Feedback preserves existing Dead counter");
-    check(h.camera->x==10 && h.camera->y==12 && h.world->sessionState().actors()[9].hp==16,"Relocation and wounded survivor remain published exactly once");
+    check(h.camera->x==10 && h.camera->y==12 && h.world->sessionState().monsters(23)[9].hp==16,"Relocation and wounded survivor remain published exactly once");
     auto *replacement=h.flow->encounter()->combat();
     check(bool(replacement)==occupied,"Destination occupancy determines immediate attachment");
     if(replacement)check(!replacement->current(oldTicket) && replacement->participants()==0x3f &&

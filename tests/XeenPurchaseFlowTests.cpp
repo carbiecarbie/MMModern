@@ -232,7 +232,7 @@ void integrity(Inputs &in) {
             case 7:++f.p.encounterContext->minutes;--f.p.encounterContext->minutes;break;
             case 8:{auto &m=const_cast<XeenMap &>(f.w.map(28));m.geometry.cells[0].rawAttributes^=1;m.geometry.cells[0].rawAttributes^=1;break;}
             case 9:{auto &a=const_cast<XeenActor &>(f.w.sessionState().regionalActors(28)[34]);++a.hp;--a.hp;break;}
-            case 10:{auto &a=const_cast<XeenActor &>(f.w.sessionState().actors()[0]);++a.hp;--a.hp;break;}
+            case 10:{auto &a=const_cast<XeenActor &>(f.w.sessionState().monsters(23)[0]);++a.hp;--a.hp;break;}
             case 11:{auto &rng=const_cast<XeenMutableOptional<XeenJourneyRandomState> &>(f.w.sessionState().journeyRandom());++rng->count;--rng->count;break;}
             case 12:f.p.roster.at(2).armor[8].frame^=1;f.p.roster.at(2).armor[8].frame^=1;break;
             case 13:{const auto v=f.p.serviceEconomy;f.p.serviceEconomy.reset();f.p.serviceEconomy=v;break;}

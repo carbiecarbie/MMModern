@@ -146,7 +146,7 @@ bool XeenEncounterFlow::serviceRest() {
     _needsRestNotice=rest.time->needsRest;rest.time.reset();
    }
    rest.consumed=recovery.consumed;rest.starving=recovery.starving;rest.phase=P::Complete;
-   session._exploredTiles.swap(exploration);restPublication();return true;
+   session.publishExploration(exploration);restPublication();return true;
   }
   if(rest.phase==P::Charges && !_regionalWork) {
    auto candidate=std::make_unique<XeenRegionalActionCandidate>();auto &c=*candidate;

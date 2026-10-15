@@ -262,18 +262,20 @@ public:
 		consume();
 		if (!xeen_state::sameCamera(physical,guard.cameraValue) || !(selected==selectedObject) || removal)
 			throw std::logic_error("Journey Remove publication unavailable");
-		objects=guard.s._objects; events=guard.s._events;
-		if (selected) objects.insert(*selected);
+		// The whole per-map table, with this map's Remove applied.
+		mapStates=guard.s._mapStates;
+		auto &state=mapStates.state(physical.mapId);
+		if (selected) state.removedObjects.insert(*selected);
 		for (std::size_t i=0;i<original.records.size();++i)
-			if(original.records[i].x==physical.x && original.records[i].y==physical.y) events.insert({physical.mapId,i});
+			if(original.records[i].x==physical.x && original.records[i].y==physical.y) state.disabledEvents.insert({physical.mapId,i});
 		removal=true;
 	}
-	void removed() const noexcept { guard.s._objects.swap(objects); guard.s._events.swap(events);guard.adoptMutationBoundary(); }
+	void removed() const noexcept { guard.s._mapStates.swap(mapStates);guard.adoptMutationBoundary(); }
 private:
 	static bool neutral(const XeenEventTakeOrGivePair &pair) noexcept {return pair.mode==0 && pair.value==0;}
 	XeenDecodedEventOperation decodedOperation() const {
 		if(!currentSite || dispatchedRecords.empty() || dispatchedRecords.back()!=*currentSite ||
-			guard.s._events.count({original.mapId,*currentSite}))integrity("Event effect has no dispatched source");
+			guard.s.isEventDisabled({original.mapId,*currentSite}))integrity("Event effect has no dispatched source");
 		const auto result=XeenEventDecoder::decode(original.records.at(*currentSite),{original.mapId,original.resourceName,*currentSite,true});
 		const auto *decoded=std::get_if<XeenDecodedEventInstruction>(&result);
 		if(!decoded)integrity("Event effect source is unsupported");
@@ -331,8 +333,7 @@ private:
 	mutable std::size_t questFlagIndex=0, takeIndex=0;
 	mutable std::size_t grantIndex=18;
 	mutable std::optional<std::size_t> currentSite;
-	mutable std::set<XeenObjectIdentity> objects;
-	mutable std::set<XeenEventIdentity> events;
+	mutable XeenMapTable mapStates;
 };
 }
 #endif

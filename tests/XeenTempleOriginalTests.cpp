@@ -48,12 +48,12 @@ int main(int argc,char **argv) {
             for(const auto &a:actors)source.journey->vertigoActors->push_back({a.id,a.x,a.y,a.hp,a.activated,a.lifecycle,a.status,false,
                 a.id.recordIndex>=original.size() && a.original.hasResource()?std::int16_t(0):std::int16_t(-1)});
             Fixture fixture(in,source);
-            xeenValidateVertigoActors(fixture.w,actors);
+            xeenValidateIndoorActors(fixture.w,28,actors);
             for(unsigned selected=0;selected<original.size();++selected) {
                 auto changed=actors;changed[selected].hp=changed[selected].statistics->baseHp()+1;
-                rejects([&]{xeenValidateVertigoActors(fixture.w,changed);});
+                rejects([&]{xeenValidateIndoorActors(fixture.w,28,changed);});
                 changed=actors;changed[selected].statistics->raw[20]^=1;
-                rejects([&]{xeenValidateVertigoActors(fixture.w,changed);});
+                rejects([&]{xeenValidateIndoorActors(fixture.w,28,changed);});
             }
         }
         std::cout<<"Original Temple state, city resource bindings and structural actor checks passed\n";

@@ -137,7 +137,7 @@ void impacts(Inputs &in) {
 }
 void targets(Inputs &in) {
  auto s=source(in,60,false);Fixture f(in,s);
- const auto live=f.w.sessionState().actors();std::vector<XeenActor> actors(live.begin(),live.end());
+ const auto live=f.w.sessionState().monsters(23);std::vector<XeenActor> actors(live.begin(),live.end());
  for(unsigned i=0;i<4;++i) {
   auto &a=actors.at(i);a.lifecycle=XeenActorLifecycle::Present;a.hp=1;a.x=i<3?10:11;a.y=11;a.activated=true;
  }

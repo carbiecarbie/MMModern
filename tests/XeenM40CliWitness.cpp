@@ -347,7 +347,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                             check(a.id==b.id && a.x==b.x && a.y==b.y && a.hp==b.hp && a.activated==b.activated && a.lifecycle==b.lifecycle &&
                                 a.status==b.status && bool(world->sessionState().accountedMonsters().count(a.id))==b.accounted,"M40 preparation changed actor durable fields");}
                     };
-                    actors(world->sessionState().actors(),saved.actors);actors(world->sessionState().regionalActors(28),*saved.vertigoActors);
+                    actors(world->sessionState().monsters(23),saved.actors);actors(world->sessionState().regionalActors(28),*saved.vertigoActors);
                     check(party->questItems.counts()==before->questItems && party->questFlags.values()==before->questFlags && flags->values()==before->gameFlags,"M40 preparation changed quests/flags");
                     const auto events=world->sessionState().disabledEvents();const auto objects=world->sessionState().disabledObjects();
                     check(std::vector<XeenEventIdentity>(events.begin(),events.end())==before->disabledEvents &&

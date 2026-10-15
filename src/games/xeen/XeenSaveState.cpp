@@ -171,25 +171,32 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	static_cast<void>(CloudsUiComposer::buildPortraitPlacements(p));
 	auto &s = w._sessionState;
 	w._cityStatistics=statistics;
-	s._actors.swap(actors); s._entry = XeenEncounterEntry::Journey;
+	// v12 projection: the Journey actors are the entry map's monster table.
+	{
+		const auto originalCount=actors.size();
+		s.stageMonsters(policy.entry.mapId,std::move(actors),originalCount,w.map(policy.entry.mapId).geometry.isOutdoors());
+	}
+	s._entry = XeenEncounterEntry::Journey;
 	s._encounterMarked = s._encounterInitialized = true; s._encounterRevision = 1;
 	s._skeletonSeed = snapshot.journey->skeletonSeed;
 	 s._journeyRandom=snapshot.journey->random;
 	for (const auto &live:snapshot.journey->actors) if (live.accounted) s._accountedMonsters.insert(live.id);
 	adopt(); // Base Journey values are complete before optional regional resources.
+	// v12 projection: the optional city table is map 28's monster table.
+	const XeenMapIdentity savedCity(28);
 	if (snapshot.journey->vertigoActors) {
-		const auto cityEvents=events(28);
-		const auto cityMob=callback([&] { return w.objectFile(28); });
+		const auto cityEvents=events(savedCity);
+		const auto cityMob=callback([&] { return w.objectFile(savedCity); });
+		const bool cityOutdoors=callback([&] { return w.map(savedCity).geometry.isOutdoors(); });
 		auto city=XeenActorApproach::actorsFromResources(cityMob,statistics);
 		if(city.size()!=snapshot.journey->cityOriginalActorCount)
 			throw std::invalid_argument("Saved city original actor count differs from MOB");
 		w._cityStatistics=statistics;
-		w._cityOriginalActorCount=snapshot.journey->cityOriginalActorCount;
 		const auto savedCount=snapshot.journey->vertigoActors->size();
 		if(savedCount<city.size() || savedCount>XeenActorApproach::kCapacity)
 			throw std::invalid_argument("Saved city actor collection loses original records");
 		while(city.size()<savedCount) {
-			XeenActor a;a.id={28,city.size()};a.original={};
+			XeenActor a;a.id={savedCity,city.size()};a.original={};
 			const auto type=(*snapshot.journey->vertigoActors)[city.size()].spawnedType;
 			if(type!=-1) {
 				if(type!=0 || statistics.empty()) throw std::invalid_argument("Invalid saved script-slot MON binding");
@@ -202,45 +209,44 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 			a.x=live.x;a.y=live.y;a.hp=live.hp;a.activated=live.activated;a.lifecycle=live.lifecycle;a.status=live.status;
 			if(live.accounted)s._accountedMonsters.insert(live.id);
 		}
-		s._vertigoActors.emplace(std::move(city));
+		s.stageMonsters(savedCity,std::move(city),snapshot.journey->cityOriginalActorCount,cityOutdoors);
 		adopt(); // The complete saved actor graph precedes checked geometry callbacks.
-		xeenValidateVertigoActors(w,*s._vertigoActors);
+		xeenValidateIndoorActors(w,savedCity,s.mutableMonsters(savedCity));
 		adopt();
 	}
 	adopt(); // Complete saved domain, deliberately unbound and unavailable.
-	XeenActorApproach::validateEnvironment(w,s._actors,evt);
-	const bool cityActive=c.mapId==XeenMapIdentity(28);
-	std::optional<XeenEventFile> activeCityEvents;
-	if(cityActive) {
-		activeCityEvents=events(28);
+	XeenActorApproach::validateEnvironment(w,s.mutableMonsters(policy.entry.mapId),evt);
+	// The camera map's own table and Events, as every reader resolves them.
+	const bool entryActive=c.mapId==policy.entry.mapId;
+	std::optional<XeenEventFile> activeEvents;
+	if(!entryActive) {
+		activeEvents=events(c.mapId);
 	}
-	const auto &active=cityActive ? s._vertigoActors.value() : s._actors;
-	const auto view=cityActive ? XeenIndoorScene().classifyActors(w,c,active) : XeenActorApproach::classify(active,c);
+	const auto &active=s.mutableMonsters(c.mapId);
+	const auto view=!s.mapState(c.mapId)->outdoors ? XeenIndoorScene().classifyActors(w,c,active) : XeenActorApproach::classify(active,c);
 	if (view.engaged()) throw std::invalid_argument("Quiet restore has active contact");
 	if(p.monsterTreasure && p.monsterTreasure->ready() && std::none_of(view.slots.begin(),view.slots.end(),[](const auto &v){return bool(v);})) throw std::invalid_argument("Quiet treasure is immediately collectable");
 	for (unsigned i=0;i<active.size();++i) if (view.activation[i] && !active[i].activated) throw std::invalid_argument("Quiet actor activation missing");
-	for (auto n:XeenActorApproach::occupancy(s._actors)) if (n>3) throw std::invalid_argument("Quiet actor occupancy exceeded");
-	if(s._vertigoActors)for(auto n:XeenActorApproach::occupancy(*s._vertigoActors))if(n>3)throw std::invalid_argument("Quiet city actor occupancy exceeded");
+	for (const auto &entry:s.mapStates()) if (entry.second.monsters)
+		for (auto n:XeenActorApproach::occupancy(*entry.second.monsters)) if (n>3) throw std::invalid_argument("Quiet actor occupancy exceeded");
 	try { presentation(w,p,c,f); }
 	catch (...) { destination.check(); prepared->check(); throw; }
 	destination.check(); prepared->check();
 	// Prepare the complete handoff and its FINAL-owner preimage before any stores.
 	auto binding = std::make_shared<XeenJourneyRestoration>();
 	binding->capture.reset(new XeenJourneyCapture);
-	binding->capture->admittedActors = s._actors;
-	binding->statistics = std::move(statistics); binding->events = cityActive ? std::move(*activeCityEvents) : std::move(evt);
+	binding->capture->admittedActors = s.monsters(policy.entry.mapId);
+	binding->statistics = std::move(statistics); binding->events = entryActive ? std::move(evt) : std::move(*activeEvents);
 	binding->learnedNamesProvider=resources.loadLearnedSpellNames;
 	binding->guard = std::make_shared<XeenRestoreGuard>(world,party,camera,flags);
 	binding->guard->prepareJourneyPublication(*prepared);
 	destination.check(); prepared->check();
 	party.publishCompleted(p); // Same private full supplement publication; public copy rules remain closed.
 	camera = c; flags = f;
-	world.swapPreparedState(w);
+	world.swapPreparedState(w); // Includes every staged monster table.
 	auto &out = world._sessionState;
-	out._actors.swap(s._actors); out._vertigoActors.swap(s._vertigoActors);
 	out._accountedMonsters.swap(s._accountedMonsters);
 	world._cityStatistics.swap(w._cityStatistics);
-	std::swap(world._cityOriginalActorCount,w._cityOriginalActorCount);
 	out._entry = XeenEncounterEntry::Journey; out._encounterMarked = out._encounterInitialized = true;
 	out._encounterRevision = 1; out._skeletonSeed = snapshot.journey->skeletonSeed;
 	 out._journeyRandom=snapshot.journey->random;
@@ -284,8 +290,21 @@ XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &res
 	snapshot.questFlags = party.questFlags.values();
 	snapshot.gameFlags = flags.values();
 	const auto &state = world.sessionState();
-	snapshot.disabledObjects.assign(state.disabledObjects().begin(), state.disabledObjects().end());
-	snapshot.disabledEvents.assign(state.disabledEvents().begin(), state.disabledEvents().end());
+	// v12 projection. The layout names two logical maps, the Journey entry and
+	// the city (28); their physical tiles keep their own cells and explored bits.
+	const auto entry=xeenJourneyContent().entry.mapId;
+	const XeenMapIdentity city(28);
+	for (const auto &value:state.mapStates()) {
+		const auto &mapState=value.second;
+		if (value.first!=entry && value.first!=city && (mapState.monsters || !mapState.removedObjects.empty() ||
+			!mapState.disabledEvents.empty() || !mapState.objectOverrides.empty()))
+			throw std::logic_error("MMModern save: v12 cannot hold the state of this map");
+	}
+	{
+		const auto objects=state.disabledObjects();const auto events=state.disabledEvents();
+		snapshot.disabledObjects.assign(objects.begin(),objects.end());
+		snapshot.disabledEvents.assign(events.begin(),events.end());
+	}
 	snapshot.barriers=state.barriers();
 	snapshot.objectOverrides=state.objectOverrides();
 	snapshot.exploredTiles=state.exploredTiles();
@@ -299,22 +318,24 @@ XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &res
 		j.content=XeenSaveFormat::kJourneyContent; j.schema=XeenSaveFormat::kJourneySchema; j.random=state.journeyRandom();j.treasure=party.monsterTreasure;j.worldFlags=party.worldFlags;
 		j.serviceEconomy=party.serviceEconomy;
 		for (unsigned i = 0; i < 30; ++i) j.supplements[i] = {static_cast<std::uint8_t>(i), *party.roster.combatInputs(i)};
-		j.initializedMap=xeenJourneyContent().entry.mapId;
+		j.initializedMap=entry;
 		// Admitted MOB topology survives authorized eviction of resource caches.
 		j.originalActorCount=authority->admittedActors.size();
-		if (state.actors().size() != j.originalActorCount) throw std::logic_error("Journey actor collection changed");
-		for (const auto &a:state.actors())
+		const auto mainland=state.monsters(entry);
+		if (mainland.size() != j.originalActorCount) throw std::logic_error("Journey actor collection changed");
+		for (const auto &a:mainland)
 			j.actors.push_back({a.id,a.x,a.y,a.hp,a.activated,a.lifecycle,a.status,state.accountedMonsters().count(a.id) != 0});
-		if (state._vertigoActors) {
-			j.cityOriginalActorCount=world._cityOriginalActorCount;
-			std::vector<XeenSaveJourneyActor> city;city.reserve(state._vertigoActors->size());
-			for (const auto &a:*state._vertigoActors) {
+		if (state.hasRegionalActors(city)) {
+			const auto &cityState=*state.mapState(city);
+			j.cityOriginalActorCount=cityState.originalMonsterCount;
+			std::vector<XeenSaveJourneyActor> cityActors;cityActors.reserve(cityState.monsters->size());
+			for (const auto &a:*cityState.monsters) {
 				XeenSaveJourneyActor saved{a.id,a.x,a.y,a.hp,a.activated,a.lifecycle,a.status,state.accountedMonsters().count(a.id)!=0};
 				if(a.id.recordIndex>=j.cityOriginalActorCount && a.original.hasResource())
 					saved.spawnedType=static_cast<std::int16_t>(a.original.resourceId);
-				city.push_back(saved);
+				cityActors.push_back(saved);
 			}
-			j.vertigoActors=std::move(city);
+			j.vertigoActors=std::move(cityActors);
 		}
 		snapshot.journey = std::move(j);
 		validateJourneyValues(snapshot);

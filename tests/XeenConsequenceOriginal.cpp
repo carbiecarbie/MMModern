@@ -146,13 +146,13 @@ void combatPublicationFaults(Source &source) {
   }
   for(unsigned failAt=1;failAt<=calls;++failAt){
    Domain d(source,saved);ready(d);auto &c=*d.flow->combat();
-   const auto chars=d.party.roster.characters();const std::vector<XeenActor> actors=d.world.sessionState().actors();
+   const auto chars=d.party.roster.characters();const std::vector<XeenActor> actors=d.world.sessionState().monsters(23);
    const auto random=d.world.sessionState().journeyRandom();const auto purse=d.party.monsterTreasure;const auto context=d.party.encounterContext;
    unsigned n=0;c.setProbe([&]{if(++n==failAt)throw std::bad_alloc();});
    XeenCombatResult result;do{result=c.service(c.ticket());}while(result.status==XeenCombatStatus::Pending);
    check(n==failAt && result.status==XeenCombatStatus::Failed,"Every injected preparation boundary fails closed");
    for(unsigned i=0;i<30;++i)check(xeen_state::sameCharacter(chars[i],d.party.roster.at(i)),"No partial party-wide or lethal publication");
-   for(unsigned i=0;i<actors.size();++i)check(xeen_state::sameActor(actors[i],d.world.sessionState().actors()[i]),"Unpublished actor candidate unchanged");
+   for(unsigned i=0;i<actors.size();++i)check(xeen_state::sameActor(actors[i],d.world.sessionState().monsters(23)[i]),"Unpublished actor candidate unchanged");
    check(d.world.sessionState().journeyRandom()==random && d.party.monsterTreasure==purse && d.party.encounterContext==context,"Failed unit preserves RNG/purse/time predecessor");
    check(!XeenSaveState::canCapture(d.party,d.camera,d.world),"Failure latch excludes capture");
   }
@@ -175,11 +175,11 @@ void combatPublicationFaults(Source &source) {
   }
   // A published predecessor survives compatible presentation failure and retry.
   {Domain d(source,saved);ready(d);auto &c=*d.flow->combat();while(c.service(c.ticket()).status==XeenCombatStatus::Pending){}
-   const auto chars=d.party.roster.characters();const std::vector<XeenActor> actors=d.world.sessionState().actors();const auto rng=d.world.sessionState().journeyRandom();
+   const auto chars=d.party.roster.characters();const std::vector<XeenActor> actors=d.world.sessionState().monsters(23);const auto rng=d.world.sessionState().journeyRandom();
    bool threw=false;try{c.preparePresentation(c.ticket(),[]{throw std::bad_alloc();});}catch(const std::bad_alloc &){threw=true;}check(threw,"Injected post-publication I/O failure");
    c.preparePresentation(c.ticket(),[]{});
    for(unsigned i=0;i<30;++i)check(xeen_state::sameCharacter(chars[i],d.party.roster.at(i)),"Presentation retry retains published party");
-   for(unsigned i=0;i<actors.size();++i)check(xeen_state::sameActor(actors[i],d.world.sessionState().actors()[i]),"Presentation retry retains published actor");
+   for(unsigned i=0;i<actors.size();++i)check(xeen_state::sameActor(actors[i],d.world.sessionState().monsters(23)[i]),"Presentation retry retains published actor");
    check(rng==d.world.sessionState().journeyRandom(),"Presentation retry never rerolls");
   }
  }
@@ -292,12 +292,12 @@ void shootOrder(Source &source) {
  };
  finishVisuals(d,2);taped=false;
  check(cursor==18 && d.world.sessionState().journeyRandom()->count==18,"Two misses then two hits in active-member order");
- check(d.world.sessionState().actors()[9].hp==25 && d.world.sessionState().actors()[8].hp==7 && d.world.sessionState().actors()[7].hp==25,"Miss advances original target order; each successful shooter spends once");
+ check(d.world.sessionState().monsters(23)[9].hp==25 && d.world.sessionState().monsters(23)[8].hp==7 && d.world.sessionState().monsters(23)[7].hp==25,"Miss advances original target order; each successful shooter spends once");
  check(d.party.encounterContext->minutes==490 && !d.flow->canSave(),"Volley charges after every impact; capture remains excluded for owed movement");
  Domain misses(source,saved);tape.clear();for(unsigned shot=0;shot<6;++shot){for(unsigned die=0;die<3;++die)tape.push_back({1,2,1});tape.push_back({1,20,1});}
  cursor=0;taped=true;check(misses.flow->handle(ShootAction{}),"All-miss volley begins");misses.present();
  finishVisuals(misses,3);taped=false;check(cursor==24 && misses.world.sessionState().journeyRandom()->count==24,"Both shooters traverse all three rows on misses");
- for(unsigned id:{7u,8u,9u})check(misses.world.sessionState().actors()[id].hp==25,"All-miss volley leaves actor wounds unchanged");
+ for(unsigned id:{7u,8u,9u})check(misses.world.sessionState().monsters(23)[id].hp==25,"All-miss volley leaves actor wounds unchanged");
  check(misses.world.sessionState().journeyRandom()->count==24,"All-miss visuals consume no RNG");
  std::cout<<"ARTIFICIAL two-shooter miss continuation, all-miss rows and spent-hit target ordering PASS\n";
 }
@@ -320,7 +320,7 @@ void shootLethalPreparation(Source &source) {
   d.flow->holdJourneyFrame();d.present();d.now+=110;
   bool failed=false;try{d.flow->idle();}catch(const std::overflow_error &){failed=true;}
   if(overflow) {
-   check(failed && d.world.sessionState().actors()[9].hp==1 &&
+   check(failed && d.world.sessionState().monsters(23)[9].hp==1 &&
     d.world.sessionState().journeyRandom()==rng && d.party.monsterTreasure==purse &&
     !d.world.sessionState().accountedMonsters().count({23,9}),"Failed lethal preparation published HP/RNG/reward");
    for(unsigned n=0;n<30;++n)check(xeen_state::sameCharacter(chars[n],d.party.roster.at(n)),"Failed Shoot lethal preparation changed party");
@@ -331,7 +331,7 @@ void shootLethalPreparation(Source &source) {
    for(unsigned frame=0;frame<(lethal?3u:2u);++frame) {
     auto appearance=d.flow->appearance();check(frame<2 ? appearance.projectiles.size()==1 && appearance.projectiles[0].lane==2 && appearance.projectiles[0].row==2+frame : appearance.projectiles.empty(),"Ordered last-shooter lane frame differs");
     check(!d.world.scenePresentation().splats[0].duration,"Distant arrow hit invented a front-rank splat");
-    const auto &actor=d.world.sessionState().actors()[9];
+    const auto &actor=d.world.sessionState().monsters(23)[9];
     check(frame==0 ? actor.hp==(lethal?1:25) : frame==1 ? actor.hp==(lethal?0:16) && actor.lifecycle==XeenActorLifecycle::Present : actor.lifecycle==XeenActorLifecycle::Defeated,"Shoot HP/frame/removal ordering differs");
     for(unsigned n=0;n<6;++n)check(d.party.roster.combatInputs(kXeenCombatOwners[n])->experience==
       input.journey->supplements[kXeenCombatOwners[n]].inputs.experience+(frame==2?66u:0u),"Shoot frame credited XP before removal");
@@ -376,7 +376,7 @@ void indoorShoot(Source &source) {
    return m;
   }};
   Domain d(source,saved,maps);const auto before=d.world.sessionState().journeyRandom();
-  const auto mainland=std::vector<XeenActor>(d.world.sessionState().actors());
+  const auto mainland=std::vector<XeenActor>(d.world.sessionState().monsters(23));
   const auto chars=d.party.roster.characters();
   tape.clear();
   if(!empty)for(unsigned shooter=0;shooter<(miss || mode==4?2u:1u);++shooter) {
@@ -430,7 +430,7 @@ void indoorShoot(Source &source) {
     d.world.sessionState().regionalActors(28).at(targetId).hp>0 && !d.world.sessionState().accountedMonsters().count({28,targetId}),
     "Indoor nonlethal hit changed lifecycle/accounting");
   }
-  for(unsigned n=0;n<mainland.size();++n)check(xeen_state::sameActor(mainland[n],d.world.sessionState().actors()[n]),
+  for(unsigned n=0;n<mainland.size();++n)check(xeen_state::sameActor(mainland[n],d.world.sessionState().monsters(23)[n]),
    "Indoor Shoot published into mainland collection");
  }
  std::cout<<"Indoor Shoot original/artificial geometry, four facings, every distant row, miss/empty, lethal/failure and one-minute charge PASS\n";

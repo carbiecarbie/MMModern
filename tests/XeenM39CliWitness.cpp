@@ -148,7 +148,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 else if(which=="aba-context"){++p.encounterContext->minutes;--p.encounterContext->minutes;}
                 else if(which=="aba-flags"){auto &f=const_cast<XeenGameFlags &>(*flags);auto original=f;f.set(255);f=original;}
                 else if(which=="aba-rng"){auto &r=const_cast<XeenMutableOptional<XeenJourneyRandomState> &>(world->sessionState().journeyRandom());++r->count;--r->count;}
-                else if(which=="aba-mainland" || which=="aba-statistics") {auto &a=const_cast<XeenActor &>(world->sessionState().actors().at(9));if(which=="aba-mainland"){++a.hp;--a.hp;}else{a.statistics->raw[39]^=1;a.statistics->raw[39]^=1;}}
+                else if(which=="aba-mainland" || which=="aba-statistics") {auto &a=const_cast<XeenActor &>(world->sessionState().monsters(23).at(9));if(which=="aba-mainland"){++a.hp;--a.hp;}else{a.statistics->raw[39]^=1;a.statistics->raw[39]^=1;}}
                 else if(which=="aba-city"){auto &a=const_cast<XeenActor &>(world->sessionState().regionalActors(28).at(0));++a.hp;--a.hp;}
                 else if(which=="aba-map"){world->discardMapCache();auto &m=const_cast<XeenMap &>(world->map(28));m.geometry.cells[0].rawAttributes^=1;m.geometry.cells[0].rawAttributes^=1;}
                 else if(which=="aba-event"){world->discardMapCache();auto &m=const_cast<XeenMap &>(world->map(28));m.instructions.push_back({});m.instructions.pop_back();}
@@ -357,7 +357,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     firstAid(5);
                     inspect([&]{check(party->roster.at(6).currentHp==15 && party->roster.at(1).currentSp==20,"M39 A First Aid publication");});
                     action(AcknowledgeAction{});untilActor(5,false);arrow(9);
-                    inspect([&]{check(party->roster.at(6).currentSp==25 && world->sessionState().actors()[9].hp==0 &&
+                    inspect([&]{check(party->roster.at(6).currentSp==25 && world->sessionState().monsters(23)[9].hp==0 &&
                         world->sessionState().accountedMonsters().count({23,9}) && party->monsterTreasure->pendingGold==10,"M39 A lethal publication");
                         for(unsigned i=0;i<6;++i)check(party->roster.combatInputs(kXeenCombatOwners[i])->experience==(i==1 || i==4?2066u:1066u),"M39 Orc exact XP split");
                         check(party->encounterContext->minutes==510 && party->encounterContext->ctr24==2,"M39 cast charged time/ctr");
@@ -366,17 +366,17 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 }
             }else {
                 route("LUUURUULURUULUUU",false);untilActor(5,true);
-                inspect([&]{std::cout<<"M49 MONSTER PREFIX HP="<<world->sessionState().actors()[15].hp<<" RNG="<<world->sessionState().journeyRandom()->count<<" minute="<<party->encounterContext->minutes<<'\n';
+                inspect([&]{std::cout<<"M49 MONSTER PREFIX HP="<<world->sessionState().monsters(23)[15].hp<<" RNG="<<world->sessionState().journeyRandom()->count<<" minute="<<party->encounterContext->minutes<<'\n';
                     check(party->encounterContext->minutes==590 && world->sessionState().journeyRandom()->count==rngOffset+20 &&
-                    world->sessionState().actors()[15].hp==33,"M49 corrected single-target monster first-cycle prefix");});
+                    world->sessionState().monsters(23)[15].hp==33,"M49 corrected single-target monster first-cycle prefix");});
                 if(branch=="C") {
-                    arrow(15);inspect([&]{check(world->sessionState().actors()[15].hp==25 && party->roster.at(6).currentSp==25,"M39 C wound");std::cout<<"M49 C WOUND HP33->25 SP27->25\n";});
+                    arrow(15);inspect([&]{check(world->sessionState().monsters(23)[15].hp==25 && party->roster.at(6).currentSp==25,"M39 C wound");std::cout<<"M49 C WOUND HP33->25 SP27->25\n";});
                     action(AcknowledgeAction{});settle();checkpoint("C");
                 }else {
                     action(AttackAction{});untilActor(5,false);
-                    inspect([&]{std::cout<<"M49 B PREFIX HP="<<world->sessionState().actors()[15].hp<<" RNG="<<world->sessionState().journeyRandom()->count<<" minute="<<party->encounterContext->minutes<<" Rebecca="<<party->roster.at(1).currentHp<<" sleep="<<unsigned(party->roster.at(1).conditions[8])<<","<<unsigned(party->roster.at(14).conditions[8])<<","<<unsigned(party->roster.at(11).conditions[8])<<'\n';
+                    inspect([&]{std::cout<<"M49 B PREFIX HP="<<world->sessionState().monsters(23)[15].hp<<" RNG="<<world->sessionState().journeyRandom()->count<<" minute="<<party->encounterContext->minutes<<" Rebecca="<<party->roster.at(1).currentHp<<" sleep="<<unsigned(party->roster.at(1).conditions[8])<<","<<unsigned(party->roster.at(14).conditions[8])<<","<<unsigned(party->roster.at(11).conditions[8])<<'\n';
                         check(party->encounterContext->minutes==591 && world->sessionState().journeyRandom()->count==rngOffset+27 &&
-                        world->sessionState().actors()[15].hp==33 && party->roster.at(11).conditions[8]==1 && party->roster.at(11).currentHp==9 &&
+                        world->sessionState().monsters(23)[15].hp==33 && party->roster.at(11).conditions[8]==1 && party->roster.at(11).currentHp==9 &&
                         !party->roster.at(14).conditions[8] && !party->roster.at(1).conditions[8] && party->roster.at(1).currentHp==21,"M49 B single-target Sleep prefix");});
                     action(CastSpellAction{});selectSpell(1);castSelected();result();
                     inspect([&]{check(party->roster.at(6).currentSp==26 && !party->roster.at(11).conditions[8] && party->roster.at(11).currentHp==9 &&
@@ -425,7 +425,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             action(InteractionAction{});deny();action(NoAction{});settle();
             action(InteractionAction{});deny();action(YesAction{});settle();
             inspect([&]{check(position->mapId==XeenMapIdentity(23) && world->sessionState().regionalActors(28).size()==52 &&
-                world->sessionState().accountedMonsters().count({23,9}) && world->sessionState().actors()[9].hp==0 &&
+                world->sessionState().accountedMonsters().count({23,9}) && world->sessionState().monsters(23)[9].hp==0 &&
                 party->roster.at(1).currentSp==20 && party->roster.at(6).currentSp==23,"M39 city reset changed mainland/SP");});
             checkpoint("reset");route("LLU");action(InteractionAction{});action(YesAction{});settle();route("URULU");
             inspect([&]{check(position->mapId==XeenMapIdentity(28) && position->x==16 && position->y==2 &&
@@ -465,7 +465,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             check(!ok && nativeFailed && saves==3 && !flow->canSave(),"M39 native failed frame manufactured authority/save");
             const auto prior=XeenSaveFile::read(*target);
             check(prior.characters[1].currentSp==21 && prior.characters[6].currentSp==27 && prior.journey->random->count==rngOffset,"M39 native failure overwrote previous disk save");
-            if(control.find("projectile")!=std::string::npos)check(party->roster.at(6).currentSp==25 && world->sessionState().actors()[9].hp==7 && !world->sessionState().accountedMonsters().count({23,9}) && world->sessionState().journeyRandom()->count==rngOffset+12,"M49 failed projectile published HP/reward/RNG or refunded reservation");
+            if(control.find("projectile")!=std::string::npos)check(party->roster.at(6).currentSp==25 && world->sessionState().monsters(23)[9].hp==7 && !world->sessionState().accountedMonsters().count({23,9}) && world->sessionState().journeyRandom()->count==rngOffset+12,"M49 failed projectile published HP/reward/RNG or refunded reservation");
             else check(party->roster.at(1).currentSp==20 && party->roster.at(6).currentHp==(control.find("result")!=std::string::npos?15:11),"M39 native failure changed committed cost/effect prefix");
             std::cout<<"M39 NATIVE FAILURE PREFIX PASSED "<<control<<'\n';return true;
         }

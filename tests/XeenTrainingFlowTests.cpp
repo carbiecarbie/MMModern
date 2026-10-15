@@ -322,7 +322,7 @@ int main(int argc,char **argv) {
                 case 7:++fixture.p.encounterContext->minutes;--fixture.p.encounterContext->minutes;break;
                 case 8:{auto &map=const_cast<XeenMap &>(fixture.w.map(28));map.geometry.cells[0].rawAttributes^=1;map.geometry.cells[0].rawAttributes^=1;break;}
                 case 9:{auto &actor=const_cast<XeenActor &>(fixture.w.sessionState().regionalActors(28)[34]);++actor.hp;--actor.hp;break;}
-                case 10:{auto &actor=const_cast<XeenActor &>(fixture.w.sessionState().actors()[0]);++actor.hp;--actor.hp;break;}
+                case 10:{auto &actor=const_cast<XeenActor &>(fixture.w.sessionState().monsters(23)[0]);++actor.hp;--actor.hp;break;}
                 case 11:{auto &rng=const_cast<XeenMutableOptional<XeenJourneyRandomState> &>(fixture.w.sessionState().journeyRandom());++rng->count;--rng->count;break;}
                 case 12:fixture.p.roster.at(2).armor[8].frame^=1;fixture.p.roster.at(2).armor[8].frame^=1;break;
                 case 13:{const auto before=fixture.p.serviceEconomy;fixture.p.serviceEconomy.reset();fixture.p.serviceEconomy=before;break;}

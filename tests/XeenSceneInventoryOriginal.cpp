@@ -232,7 +232,7 @@ int main(int argc,char **argv) {try {
 		}
 		world.discardMapCache();assets.discardSpriteCache();
 	}
-	check(!world.hasEncounterState()&&world.sessionState().actors().empty()&&!world.sessionState().journeyRandom(),"Render inventory initialized combat/RNG");
+	check(!world.hasEncounterState()&&world.sessionState().monsters(23).empty()&&!world.sessionState().journeyRandom(),"Render inventory initialized combat/RNG");
 	std::cout<<"INVENTORY monsters="<<statistics.size()<<" images="<<images.size()<<" looped="<<looped<<" flying="<<flying<<" effects="<<effects.size()<<" image-sentinels="<<sentinels<<" MON/ATT projected-frames="<<monsterFrames
 		<<" maps="<<maps.size()<<" full-compositions="<<fullCompositions<<" MOBs="<<mobs<<" missing-MOBs="<<missingMobs<<" missing-presentation-references="<<missingReferences.size()<<" hash-aliases="<<aliases<<" actor-records="<<actors<<" disabled="<<disabled<<" unresolved="<<unresolved<<" wall-records="<<wallItems<<" inactive-walls="<<inactiveWalls<<" wall-resources="<<wallResources.size()<<" wall-unique-frames="<<uniqueWallFrames.size()<<" wall-decoded-draws="<<wallFrames<<" actor-commands="<<actorCommands<<" wall-commands="<<wallCommands<<'\n';
 	std::cout<<"SCENERY unique-decoded-frames="<<sceneryFrames.size()<<'\n';

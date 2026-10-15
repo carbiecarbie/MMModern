@@ -119,7 +119,7 @@ void cityEvents() {
 	};
 	XeenWorld source(geometry,[&](auto){return mob;});source.markEncounterSession(XeenEncounterEntry::Journey);
 	XeenTrainingTestAccess::seed(source);
-	auto world=source.transitionCandidate();world->stageVertigoActors(mob,statistics);
+	auto world=source.transitionCandidate();world->stageIndoorMonsters(mob,statistics);
 	XeenPartyState party;XeenGameFlags flags;
 	XeenCamera camera{28,24,10,XeenDirection::North};
 	const auto record=[&](unsigned line,unsigned opcode,std::vector<std::uint8_t> operands) {
@@ -199,10 +199,10 @@ void cityEvents() {
 	const auto &spawned=world->sessionState().regionalActors(28)[50];
 	check(spawned.original.resourceId==0 && spawned.x==7 && spawned.y==6 && spawned.hp==10 && !spawned.activated,
 		"Explicit new Spawn slot must use the reference default type and full HP");
-	world->applySpawn(1,9,8,0);
+	world->applySpawn(28,1,9,8,0);
 	check(world->sessionState().regionalActors(28)[1].original.resourceId==2,
 		"Spawn must reuse an original slot's sprite type");
-	xeenValidateVertigoActors(*world,world->sessionState().regionalActors(28));
+	xeenValidateIndoorActors(*world,28,world->sessionState().regionalActors(28));
 	const auto presentation=source.prepareSpawnPresentation(*world);
 	check(presentation.animation({28,50}) && presentation.animation({28,50})->frame<8 &&
 		presentation.animation({28,1}) && presentation.animation({28,1})->frame<8,
@@ -214,10 +214,10 @@ void cityEvents() {
 	source.scenePresentation().include({world->sessionState().regionalActors(28)[2]});
 	std::mt19937 oracle(7);std::uniform_int_distribution<unsigned> frame(0,7);
 	frame(oracle);
-	auto first=source.transitionCandidate();first->stageVertigoActors(mob,statistics);
-	first->applySpawn(1,9,8,0);frame(oracle);
-	first->applySpawn(50,7,6,0);const auto expectedNew=frame(oracle);
-	first->applySpawn(1,9,8,0);const auto expectedFirst=frame(oracle);
+	auto first=source.transitionCandidate();first->stageIndoorMonsters(mob,statistics);
+	first->applySpawn(28,1,9,8,0);frame(oracle);
+	first->applySpawn(28,50,7,6,0);const auto expectedNew=frame(oracle);
+	first->applySpawn(28,1,9,8,0);const auto expectedFirst=frame(oracle);
 	source.scenePresentation().advance(28);
 	const auto liveFrame=source.scenePresentation().animation({28,2})->frame;
 	source.scenePresentation()=source.prepareSpawnPresentation(*first);
@@ -225,8 +225,8 @@ void cityEvents() {
 		source.scenePresentation().animation({28,50})->frame==expectedNew &&
 		source.scenePresentation().animation({28,2})->frame==liveFrame,
 		"Spawn publication must preserve live animation and reference-ordered frames");
-	auto second=source.transitionCandidate();second->stageVertigoActors(mob,statistics);
-	second->applySpawn(1,9,8,0);const auto expectedSecond=frame(oracle);
+	auto second=source.transitionCandidate();second->stageIndoorMonsters(mob,statistics);
+	second->applySpawn(28,1,9,8,0);const auto expectedSecond=frame(oracle);
 	const auto nextPresentation=source.prepareSpawnPresentation(*second);
 	check(expectedSecond!=expectedFirst && nextPresentation.animation({28,1})->frame==expectedSecond &&
 		nextPresentation.animation({28,2})->frame==liveFrame && source.sessionState().journeyRandom()==random &&

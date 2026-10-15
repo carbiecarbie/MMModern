@@ -143,7 +143,7 @@ void arrival(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &i
   denied(); // The returned destination frame has not been presented yet.
   check(*h.party->encounterContext==context && *h.world->sessionState().journeyRandom()==rng,
    "Transition/arrival changed time or RNG");
-  if(!exit)sameActors(source,h.world->sessionState().actors());
+  if(!exit)sameActors(source,h.world->sessionState().monsters(23));
   if(contact) {
    check(h.flow->encounter()->combat() &&
     h.flow->encounter()->combat()->phase()!=XeenCombatPhase::Failed &&
@@ -215,7 +215,7 @@ void run(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &initi
   };
   present();check(h.flow->canSave(),"Restored action fixture is not Quiet");
   const auto rng=*h.world->sessionState().journeyRandom();
-  const std::vector<XeenActor> mainland=h.world->sessionState().actors();
+  const std::vector<XeenActor> mainland=h.world->sessionState().monsters(23);
   const std::vector<XeenActor> city=h.world->sessionState().regionalActors(28);
   const auto deniedSave=[&] {
    check(!h.flow->canSave(),"Action exposed intermediate saveability");
@@ -254,7 +254,7 @@ void run(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &initi
    }
   }
   check(*h.world->sessionState().journeyRandom()==rng,"No-threat action changed RNG");
-  sameActors(mainland,h.world->sessionState().actors());sameActors(city,h.world->sessionState().regionalActors(28));
+  sameActors(mainland,h.world->sessionState().monsters(23));sameActors(city,h.world->sessionState().regionalActors(28));
   check(XeenSaveState::canCapture(*h.party,*h.camera,*h.world),"Completed regional action cannot capture");
   input(SaveGameAction{});check(h.saves==3,"Completed regional action did not perform F9 capture/preflight/write");
   check(XeenSaveFile::read(save).journey->context==h.party->encounterContext,"F9 preserved wrong calendar");

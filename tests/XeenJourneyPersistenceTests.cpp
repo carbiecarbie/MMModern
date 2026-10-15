@@ -18,7 +18,7 @@ XeenSaveSnapshot moved() {
 	Fixture f; f.action(XeenEncounterAction::Right); f.action(XeenEncounterAction::Forward);
 	f.pulse(); f.pulse(); f.pulse();
 	check(f.camera.x == 14 && f.camera.y == 1 && f.camera.direction == XeenDirection::East &&
-		f.w.sessionState().actors()[5].x == 13 && f.w.sessionState().actors()[5].y == 1 &&
+		f.w.sessionState().monsters(23)[5].x == 13 && f.w.sessionState().monsters(23)[5].y == 1 &&
 		f.p.encounterContext->minutes == 490 && f.p.encounterContext->ctr24 == 2, "literal moved source");
 	return capture(f);
 }
@@ -61,7 +61,7 @@ struct Destination {
 		check(w.sessionState().journey() && !XeenSaveState::canCapture(p,c,w),"preflight has no capture authority");
 		check(CloudsUiComposer::buildPortraitPlacements(p).size()==6,"Journey portraits");
 		check(!XeenOutdoorScene().build(w,c,nullptr,nullptr,0,XeenMonsterAppearance{0}).empty(),"Journey saved scene with actors");
-		const auto view=XeenActorApproach::classify(w.sessionState().actors(),c);
+		const auto view=XeenActorApproach::classify(w.sessionState().monsters(23),c);
 		check(!view.engaged(),"quiet restored view");
 	}
 	void restore(const XeenSaveSnapshot &s, XeenSaveState::Preflight extra={}) {
@@ -88,7 +88,7 @@ void same(const XeenSaveSnapshot &s, Destination &d) {
     for(unsigned i=0;i<19;++i){const auto &saved=s.journey->actors[i];
         XeenActor expected;expected.id={23,i};expected.original=mob.entities.monsters[i];expected.statistics=mon.at(expected.original.resourceId);
         expected.x=saved.x;expected.y=saved.y;expected.hp=saved.hp;expected.activated=saved.activated;expected.lifecycle=saved.lifecycle;expected.status=saved.status;
-        check(xeen_state::sameActor(expected,d.w.sessionState().actors()[i]),"independent complete actor oracle");
+        check(xeen_state::sameActor(expected,d.w.sessionState().monsters(23)[i]),"independent complete actor oracle");
     }
 	check(XeenSaveFormat::encode(s)==XeenSaveFormat::encode(d.capture()),"all exact detached fields");
 }
@@ -196,7 +196,7 @@ void refusals() {
 	f.action(XeenEncounterAction::Left); check(f.flow->journeyQuiet(),"fresh action establishes a new boundary");
 	check(!f.flow->current(old),"old frame ticket stays stale");
 	f.flow.reset();rejects([&]{capture(f);});
-	Fixture altered; const_cast<XeenActor &>(altered.w.sessionState().actors()[0]).statistics.reset(); rejects([&]{capture(altered);});
+	Fixture altered; const_cast<XeenActor &>(altered.w.sessionState().monsters(23)[0]).statistics.reset(); rejects([&]{capture(altered);});
 	Fixture failed; failed.engage();failed.lethal();failed.flow->combat()->invalidate();rejects([&]{capture(failed);});
 }
 void failures() {
@@ -222,7 +222,7 @@ void failures() {
 			case 0:const_cast<XeenPartyState &>(party).roster.at(0).currentSp=-99;break;
 			case 1:const_cast<XeenPartyState &>(party).encounterContext->minutes++;break;
 			case 2:const_cast<XeenCombatInputs &>(*party.roster.combatInputs(29)).experience++;break;
-			case 3:const_cast<XeenActor &>(w.sessionState().actors()[5]).activated=false;break;
+			case 3:const_cast<XeenActor &>(w.sessionState().monsters(23)[5]).activated=false;break;
 			case 4:const_cast<XeenGameFlags &>(flags).set(7);break;
 			case 5:const_cast<XeenMap &>(w.map(23)).geometry.cells[0].rawWord^=1;break;
 			case 6:const_cast<XeenCamera &>(camera).x=13;break;

@@ -55,7 +55,7 @@ XeenSaveSnapshot group(std::initializer_list<unsigned> ids) {
 XeenCombatResult action(XeenCombat &c,Command cmd){auto r=c.command(c.ticket(),cmd);for(unsigned n=0;c.pending()==Work::Action&&n<100;++n)r=c.service(c.ticket());return r;}
 void block(XeenCombat &c){while(c.phase()==Phase::PlayerReady)action(c,Command::Block);check(c.pending()==Work::Enemy,"ordered enemy participant");}
 void groups(){for(auto ids:{std::initializer_list<unsigned>{16},{9},{9,16},{17,18},{16,17,18}}){Domain d(group(ids));auto &c=d.engage();unsigned slot=0;for(auto id:ids)check(c.contacts()[slot++]==XeenMonsterIdentity{23,id},"original contact order");for(unsigned row=0;row<slot;++row){auto old=c.ticket();auto rng=*d.w.sessionState().journeyRandom();check(c.selectTarget(old,row).status==Status::Advanced,"select occupied row");check(c.command(old,Command::Attack).status==Status::Stale,"old selection refuses attack");check(rng==*d.w.sessionState().journeyRandom(),"selection consumes no RNG");}check(c.selectTarget(c.ticket(),3).status==Status::Refused,"invalid row");check(!d.flow->journeyQuiet(),"group unsavable");}
- Domain d(group({9,16}));auto &c=d.engage();for(unsigned n=0;n<50&&d.w.sessionState().actors()[9].hp>0;++n){if(c.phase()==Phase::PlayerReady)action(c,Command::Attack);else c.service(c.ticket());}check(d.w.sessionState().actors()[9].hp==0 && c.contacts()[0]==XeenMonsterIdentity{23,16},"lethal compaction");check(c.phase()!=Phase::VictoryAwaitingEnd,"partial lethal is not group End");check(d.w.sessionState().actors()[16].hp==30,"surviving HP preserved");
+ Domain d(group({9,16}));auto &c=d.engage();for(unsigned n=0;n<50&&d.w.sessionState().monsters(23)[9].hp>0;++n){if(c.phase()==Phase::PlayerReady)action(c,Command::Attack);else c.service(c.ticket());}check(d.w.sessionState().monsters(23)[9].hp==0 && c.contacts()[0]==XeenMonsterIdentity{23,16},"lethal compaction");check(c.phase()!=Phase::VictoryAwaitingEnd,"partial lethal is not group End");check(d.w.sessionState().monsters(23)[16].hp==30,"surviving HP preserved");
 }
 std::vector<Draw> critical(){return {{1,20,20},{1,4,4},{1,4,4},{1,24,24},{1,5,5},{1,4,4},{1,4,4},{1,24,24}};}
 void disease(){
@@ -103,7 +103,7 @@ void injuriesAndDefeat(){
  check(lossResult.status==Status::Defeat && !lossResult.injuryCount && cursor==9 &&
   defeated.p.encounterContext->minutes==before && !defeated.flow->journeyQuiet(),
   "Reference defeat follows the second initial target draw, without fallback injury or time");
- for(unsigned field=0;field<3;++field){Domain changed(group({16}));auto &combat=changed.engage();auto beforeRandom=*changed.w.sessionState().journeyRandom();combat.setProbe([&]{auto &r=const_cast<XeenMutableOptional<XeenJourneyRandomState>&>(changed.w.sessionState().journeyRandom());if(field==0)++r->state;else if(field==1)++r->count;else r->algorithm=2;});taped=false;check(action(combat,Command::Attack).status==Status::Failed&&changed.w.sessionState().actors()[16].hp==30,"world random fields participate in preimage");}
+ for(unsigned field=0;field<3;++field){Domain changed(group({16}));auto &combat=changed.engage();auto beforeRandom=*changed.w.sessionState().journeyRandom();combat.setProbe([&]{auto &r=const_cast<XeenMutableOptional<XeenJourneyRandomState>&>(changed.w.sessionState().journeyRandom());if(field==0)++r->state;else if(field==1)++r->count;else r->algorithm=2;});taped=false;check(action(combat,Command::Attack).status==Status::Failed&&changed.w.sessionState().monsters(23)[16].hp==30,"world random fields participate in preimage");}
 }
 void scheduler(){
  for(unsigned minute:{480u}){
@@ -120,13 +120,13 @@ void scheduler(){
  auto saved=group({9,17});saved.journey->actors[17].x=7;saved.journey->actors[17].y=14;saved.characters[6].permanentLevel=24;saved.journey->supplements[6].inputs.might={50,0};
  Domain d(saved);auto &c=d.engage();for(unsigned i=0;i<5;++i)action(c,Command::Block);
  check(c.participant()==5,"last player selected");std::vector<Draw> hits;for(unsigned i=0;i<4;++i){hits.push_back({1,3,3});hits.push_back({1,20,10});}Tape lethal(hits);
- auto r=action(c,Command::Attack);check(r.status!=Status::Failed&&c.phase()==Phase::VictoryAwaitingEnd,"final-player lethal skips Round");auto minutes=d.p.encounterContext->minutes;auto survivor=d.w.sessionState().actors()[17];check(c.service(c.ticket()).status==Status::Victory&&d.p.encounterContext->minutes==minutes+1&&xeen_state::sameActor(survivor,d.w.sessionState().actors()[17]),"End does not move off-contact survivor");
+ auto r=action(c,Command::Attack);check(r.status!=Status::Failed&&c.phase()==Phase::VictoryAwaitingEnd,"final-player lethal skips Round");auto minutes=d.p.encounterContext->minutes;auto survivor=d.w.sessionState().monsters(23)[17];check(c.service(c.ticket()).status==Status::Victory&&d.p.encounterContext->minutes==minutes+1&&xeen_state::sameActor(survivor,d.w.sessionState().monsters(23)[17]),"End does not move off-contact survivor");
 }
 void prefixes(){
  Domain d(group({16}));auto &c=d.engage();std::vector<Draw> values{{1,2,2},{1,2,2},{1,2,2},{1,2,2}};
  for(unsigned i=0;i<70;++i)values.push_back({1,20,20});values.push_back({1,20,1});Tape t(values);
  auto before=*d.w.sessionState().journeyRandom();check(c.command(c.ticket(),Command::Attack).status==Status::Pending,"retained action");check(c.service(c.ticket()).status==Status::Pending&&cursor==64&&*d.w.sessionState().journeyRandom()==before,"64-draw prefix uncommitted");check(c.service(c.ticket()).status!=Status::Failed&&cursor==75&&d.w.sessionState().journeyRandom()->count==before.count+75,"prefix continues without reroll");
- auto saved=group({16});saved.journey->random->count=std::numeric_limits<std::uint64_t>::max()-3;Domain exhausted(saved);auto &e=exhausted.engage();taped=false;auto previous=*exhausted.w.sessionState().journeyRandom();check(action(e,Command::Attack).status==Status::Failed&&*exhausted.w.sessionState().journeyRandom()==previous&&exhausted.w.sessionState().actors()[16].hp==30,"count exhaustion within attack rolls back candidate");
+ auto saved=group({16});saved.journey->random->count=std::numeric_limits<std::uint64_t>::max()-3;Domain exhausted(saved);auto &e=exhausted.engage();taped=false;auto previous=*exhausted.w.sessionState().journeyRandom();check(action(e,Command::Attack).status==Status::Failed&&*exhausted.w.sessionState().journeyRandom()==previous&&exhausted.w.sessionState().monsters(23)[16].hp==30,"count exhaustion within attack rolls back candidate");
 }
 void derived(){
  Domain d;auto c=d.p.roster.at(1);auto input=*d.p.roster.combatInputs(1);c.permanentLevel=3;c.endurance={16,0};c.personality={23,0};c.intellect={10,0};c.hasSpells=true;c.race=XeenRace::Human;c.armor={};c.accessories={};c.weapons={};

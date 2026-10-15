@@ -143,7 +143,7 @@ int main(int argc,char **argv) {
   // Exercise the original exit reset in the existing detached owner, including
   // resource-bound slot reuse and default construction beyond the original MOB.
   manifestWorld.markEncounterSession(XeenEncounterEntry::Journey);
-  auto eventWorld=manifestWorld.transitionCandidate();eventWorld->stageVertigoActors(mob,statistics);
+  auto eventWorld=manifestWorld.transitionCandidate();eventWorld->stageIndoorMonsters(mob,statistics);
   XeenEventTextLoader eventTexts([&](const std::string &name)->std::optional<std::vector<std::uint8_t>> {
    if(!assets.hasArchiveResource(name))return {};return assets.readArchiveResource(name);
   });
@@ -186,7 +186,7 @@ int main(int argc,char **argv) {
    ++resets;
   }
   check(resets==43,"Original exit reset inventory changed");
-  xeenValidateVertigoActors(*eventWorld,eventWorld->sessionState().regionalActors(28));
+  xeenValidateIndoorActors(*eventWorld,28,eventWorld->sessionState().regionalActors(28));
   std::cout<<"Original exit prelude, confirmation, 43 Spawn resets, AfterEvent and unresolved gaps passed\n";
   check(actors.at(35).original.x==15 && actors.at(35).original.y==4 &&
    actors.at(35).original.resourceId==0,"original entrance Slime slot");

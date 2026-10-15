@@ -172,20 +172,20 @@ bool XeenEncounterFlow::departTraining() {
             exploration=_world.explorationAfterStep(_party,_camera);_journeyPreimage->check();}
         auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
         prepared->retainResources(*_journeyPreimage);prepared->context=visit.departure->context();
-        prepared->s._exploredTiles=exploration;
+        prepared->s.assignExploration(exploration);
         prepared->economy=visit.departure->economy();prepared->s._journeyRandom=visit.departure->continuation();
         const XeenMutableOptional<XeenGameplayContext> context=prepared->context;
         const XeenMutableOptional<XeenServiceEconomy> economy=prepared->economy;
         const XeenMutableOptional<XeenJourneyRandomState> random=prepared->s._journeyRandom;
         _journeyPreimage->check();checkTrainingBoundary(XeenTrainingBoundary::BeforeDeparture);
         _party.encounterContext=context;_party.serviceEconomy=economy;_world._sessionState._journeyRandom=random;
-        _world._sessionState._exploredTiles.swap(exploration);
+        _world._sessionState.publishExploration(exploration);
         visit.departed=true;++_world._sessionState._journeyGeneration;++_generation;
         prepared->adoptJourneyCoordination();_journeyPreimage.swap(prepared);
         checkTrainingBoundary(XeenTrainingBoundary::DeparturePublished);
     }
     XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
-    const auto view=XeenIndoorScene().classifyActors(_world,_camera,_world.sessionState().regionalActors(28));
+    const auto view=XeenIndoorScene().classifyActors(_world,_camera,_world.sessionState().regionalActors(_camera.mapId));
     _journeyPreimage->check();checkTrainingBoundary(XeenTrainingBoundary::Return);publishArrival(view);
     const auto lease=visit.lease;_world._sessionState._journeyActivity=XeenJourneyActivity::Event;
     advanceTraining();_training.reset();_boundary.release(XeenCombatBoundary::Work::Service,lease);

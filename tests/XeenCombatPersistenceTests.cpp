@@ -56,7 +56,7 @@ void retirementAndIntegrity(){
     {
         RegionalCombatFixture t{XeenCombatRandom(victoryTape())};end(t);
         check(t.flow->retireJourney(t.flow->ticket()),"tamper fixture retirement");t.present();
-        auto &actor=const_cast<XeenActor &>(t.w.sessionState().actors()[0]);
+        auto &actor=const_cast<XeenActor &>(t.w.sessionState().monsters(23)[0]);
         --actor.hp;check(!t.flow->journeyQuiet(),"changed actor HP invalidates capture");refused(t);
         ++actor.hp;refused(t);
     }

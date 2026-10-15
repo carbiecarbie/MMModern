@@ -130,7 +130,8 @@ struct XeenCombat::Impl {
 	XeenGameplayContext initialContext;
 	std::array<XeenCombatInputs,6> inputs{};
 	std::vector<XeenActor> actors;
-	std::optional<std::vector<XeenActor>> inactiveActors;
+	// Every other map's staged monster table, unchanged by this combat.
+	std::map<XeenMapIdentity,std::vector<XeenActor>> inactiveActors;
 	std::set<XeenObjectIdentity> objects;
 	std::set<XeenEventIdentity> removedEvents;
 	std::vector<XeenMonsterRecord> statistics;
@@ -263,10 +264,12 @@ struct XeenCombat::Impl {
 		owner(o),owners(p.party.activeOrder()),world(w),party(p),camera(c),boundary(b),expected(p),expectedCamera(c),initialContext(ctx),
 		objects(w.sessionState().disabledObjects()),removedEvents(w.sessionState().disabledEvents()),statistics(s),events(e),rng(std::move(r)) {}
 	auto &session() { return world._sessionState; }
-	std::vector<XeenActor> &activeActors() {
-		return journey && camera.mapId==XeenMapIdentity(28) ? *session()._vertigoActors : session()._actors;
+	// The camera map's monster table; every other staged table is inactive.
+	std::vector<XeenActor> &activeActors() { return session().mutableMonsters(camera.mapId); }
+	bool indoor() const noexcept {
+		const auto *state=world._sessionState.mapState(camera.mapId);
+		return journey && state && state->monsters && !state->outdoors;
 	}
-	bool indoor() const noexcept { return journey && camera.mapId==XeenMapIdentity(28); }
 	XeenActorView classify(const std::vector<XeenActor> &values) {
 		return indoor() ? XeenIndoorScene().classifyActors(world,camera,values) : XeenActorApproach::classify(values,camera);
 	}
@@ -281,8 +284,9 @@ struct XeenCombat::Impl {
         c.movement->staged=true;probeFor(t);return c;
     }
 	const std::vector<XeenActor> &activeActors() const {
-		const auto &s=world._sessionState;
-		return journey && camera.mapId==XeenMapIdentity(28) ? *s._vertigoActors : s._actors;
+		const auto *state=world._sessionState.mapState(camera.mapId);
+		if(!state || !state->monsters)throw std::out_of_range("Regional actor collection is absent");
+		return *state->monsters;
 	}
 	std::uint64_t revision() const { return journey && lifetime && !lifetime->worldAlive() ? 0 : world._sessionState._encounterRevision; }
 	bool exact() const {
@@ -309,10 +313,11 @@ struct XeenCombat::Impl {
 		const auto &s=world.sessionState();
 		if(s.disabledObjects()!=objects||s.disabledEvents()!=removedEvents||activeActors().size()!=actors.size()) return false;
 		for(unsigned i=0;i<actors.size();++i) if(!same(actors[i],activeActors()[i])) return false;
-		if(inactiveActors) {
-			const auto &inactive=camera.mapId==XeenMapIdentity(28) ? s.actors() : s.regionalActors(28);
-			if(inactive.size()!=inactiveActors->size())return false;
-			for(unsigned i=0;i<inactive.size();++i)if(!same(inactive[i],(*inactiveActors)[i]))return false;
+		for(const auto &[mapId,values]:inactiveActors) {
+			if(!s.hasRegionalActors(mapId))return false;
+			const auto inactive=s.regionalActors(mapId);
+			if(inactive.size()!=values.size())return false;
+			for(unsigned i=0;i<inactive.size();++i)if(!same(inactive[i],values[i]))return false;
 		}
 		return true;
 	}
@@ -368,8 +373,8 @@ struct XeenCombat::Impl {
 			admission.at(casting->reservation->enemy->id.recordIndex)=*casting->reservation->enemy;
 		if(consequences && consequences->result.attackStage==XeenCombatAttackStage::PostHp && consequences->impactActor)
 			admission.at(consequences->impactActor->id.recordIndex)=*consequences->impactActor;
-		if(journey && camera.mapId==XeenMapIdentity(28)) {
-			xeenValidateVertigoActors(world,admission);return;
+		if(indoor()) {
+			xeenValidateIndoorActors(world,camera.mapId,admission);return;
 		}
 		{ XeenActorApproach::validateEnvironment(world,admission,events); return; }
 	}
@@ -439,10 +444,9 @@ XeenCombat::XeenCombat(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenComba
 	 d.expectedRandom=s.journeyRandom();
 	d.journey = true; d.flags = &flags; d.expectedFlags = flags.values();
 	d.journeySeed = s._skeletonSeed; d.journeyOwner = s._journeyOwner; d.journeyGeneration = s._journeyGeneration;
-	if(c.mapId==XeenMapIdentity(28)) {
-		require(bool(s._vertigoActors),"Vertigo combat actors are absent");
-		d.inactiveActors=s._actors;
-	} else if(s._vertigoActors) d.inactiveActors=*s._vertigoActors;
+	require(s.hasRegionalActors(c.mapId),"Combat actors are absent");
+	for(const auto &entry:s.mapStates())
+		if(entry.first!=c.mapId && entry.second.monsters) d.inactiveActors.emplace(entry.first,*entry.second.monsters);
 	d.actors = d.activeActors(); d.accounted = s._accountedMonsters; d.approach = state;
 	for (unsigned i = 0; i < 30; ++i) d.allInputs[i] = p.roster.combatInputs(i);
 	for (unsigned i = 0; i < 6; ++i) d.inputs[i] = *d.allInputs[d.owners[i]];
@@ -621,14 +625,14 @@ XeenCombatResult XeenCombat::rotate(const Ticket &t,NavigationAction action) {
             d.probeFor(t);prepared->check();
             exploration=d.world.explorationAfterStep(d.party,facing);prepared->check();
         }
-        prepared->s._exploredTiles=exploration;
-        if(!flush) {auto &values=d.indoor()?*prepared->s._vertigoActors:prepared->s._actors;values=visible;}
+        prepared->s.assignExploration(exploration);
+        if(!flush) {prepared->s.mutableMonsters(d.camera.mapId)=visible;}
         prepared->cameraValue.direction=facing.direction;
         require(current(t) && d.exact(),"Combat rotation preimage changed before stores");
         if(movement)d.consequences.emplace(std::move(*movement));
         // No provider, allocation, time charge or initiative change after this point.
         d.camera.direction=d.expectedCamera.direction=facing.direction;
-        XeenMutationWatch::write(&d.world);d.world._sessionState._exploredTiles.swap(exploration);
+        XeenMutationWatch::write(&d.world);d.world._sessionState.publishExploration(exploration);
         d.countdown.clear();
         if(flush) {d.phase=Phase::PendingRound;d.work=Work::Movement;}
         else {d.activeActors().swap(visible);d.actors.swap(expectedActors);d.stepped=true;d.reconcile();}
@@ -1047,7 +1051,7 @@ XeenCombatResult XeenCombat::serviceCast(const Ticket &t,std::uint64_t now) {
         }
         if(stage==XeenCombatCastPhase::Impact) {
             auto prepared=d.prepareCastGuard();
-            auto &values=d.indoor() ? *prepared->s._vertigoActors : prepared->s._actors;
+            auto &values=prepared->s.mutableMonsters(d.camera.mapId);
             values.at(bound.id.recordIndex).hp=r.actorHpAfter;
             prepared->s._journeyRandom=c.impactRandom;
             d.probeFor(t);d.checkCastReservation(t,reserved,true);
@@ -1063,7 +1067,7 @@ XeenCombatResult XeenCombat::serviceCast(const Ticket &t,std::uint64_t now) {
                 r.xp.at(r.xpCount++)={d.owners[i],d.inputs[i].experience,lethal->experience[i]};
         }
         auto prepared=d.prepareCastGuard();
-        auto &preparedActors=d.indoor() ? *prepared->s._vertigoActors : prepared->s._actors;
+        auto &preparedActors=prepared->s.mutableMonsters(d.camera.mapId);
         preparedActors.at(actor.id.recordIndex)=actor;
         const auto cursor=c.random.continuation();prepared->s._journeyRandom=cursor;
         if(lethal){prepared->s._accountedMonsters=expectedAccounting;for(unsigned i=0;i<6;++i)prepared->inputs[d.owners[i]]->experience=lethal->experience[i];}
@@ -1164,7 +1168,7 @@ XeenCombatResult XeenCombat::serviceConsequences(const Ticket &t) {
 			c.result=d.observation(Status::Pending);c.result.oldRevision=d.revision();c.result.operation=end?Operation::End:Operation::Round;
 			if(!end) {
 				if(d.indoor())c.movement.emplace(d.world,d.actors,d.camera,d.characters(),d.inputs,d.party.encounterContext->year,d.participants,d.blocked);
-				else {const auto map=d.world.map(23);c.movement.emplace(map,d.actors,d.camera,d.characters(),d.inputs,d.party.encounterContext->year,d.participants,d.blocked);}
+				else {const auto map=d.world.map(d.camera.mapId);c.movement.emplace(map,d.actors,d.camera,d.characters(),d.inputs,d.party.encounterContext->year,d.participants,d.blocked);}
 				c.movement->staged=true;
 				d.probeFor(t);
 			} else c.time.emplace(*d.party.encounterContext,1,d.characters(),d.inputs,&*d.party.serviceEconomy);

@@ -171,7 +171,7 @@ void freshFailures(Inputs &i) {
 		}
 		rejects([&]{g.fresh(setup);});
 		check(!g.p.serviceEconomy && !g.p.encounterContext && !g.p.roster.combatMarked() &&
-			!g.world.sessionState().journeyRandom() && g.world.sessionState().actors().empty() &&
+			!g.world.sessionState().journeyRandom() && g.world.sessionState().monsters(23).empty() &&
 			!XeenSaveState::canCapture(g.p,g.c,g.world),"fresh failure published usable partial stock/cursor/owner graph");
 		if(mode==6)check(g.objectCalls==2,"post-stock failure did not reach reconstructed MOB provider");
 	}
@@ -246,7 +246,7 @@ void freshPublicationAllocationSweep(Inputs &i) {
 			std::cout<<"M40 SYNTHETIC fresh publication allocation sweep passed "<<skipped<<" prepublication failure positions\n";return;
 		}
 		check(allocation_test::triggered && !g.p.serviceEconomy && !g.p.encounterContext &&
-			!g.p.roster.combatMarked() && !g.world.sessionState().journeyRandom() && g.world.sessionState().actors().empty() &&
+			!g.p.roster.combatMarked() && !g.world.sessionState().journeyRandom() && g.world.sessionState().monsters(23).empty() &&
 			!XeenSaveState::canCapture(g.p,g.c,g.world),"fallible final-owner preparation happened after fresh publication");
 	}
 	throw std::runtime_error("fresh publication allocation sweep bound exhausted");

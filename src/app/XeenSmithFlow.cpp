@@ -480,7 +480,7 @@ bool XeenEncounterFlow::departSmith() {
 			exploration=_world.explorationAfterStep(_party,_camera);_journeyPreimage->check();}
 		auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
 		prepared->retainResources(*_journeyPreimage);
-		prepared->s._exploredTiles=exploration;
+		prepared->s.assignExploration(exploration);
 		prepared->context=day.context();prepared->economy=day.economy();
 		prepared->s._journeyRandom=day.continuation();
 		xeenValidateCurrentServiceEconomy(day.economy());
@@ -493,7 +493,7 @@ bool XeenEncounterFlow::departSmith() {
         _party.encounterContext=endingContext;
         _party.serviceEconomy=endingEconomy;
         _world._sessionState._journeyRandom=endingRandom;
-        _world._sessionState._exploredTiles.swap(exploration);
+        _world._sessionState.publishExploration(exploration);
         _smith->departed=true;
 		++_world._sessionState._journeyGeneration;++_generation;
 		prepared->adoptJourneyCoordination();_journeyPreimage.swap(prepared);
@@ -502,7 +502,7 @@ bool XeenEncounterFlow::departSmith() {
  checkSmithBoundary(XeenSmithBoundary::AfterDeparture);
 	// Date is already paid. Classification failure cannot repeat it or undo repairs.
 	XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
-	const auto view=XeenIndoorScene().classifyActors(_world,_camera,_world.sessionState().regionalActors(28));
+	const auto view=XeenIndoorScene().classifyActors(_world,_camera,_world.sessionState().regionalActors(_camera.mapId));
 	_journeyPreimage->check();
 	checkSmithBoundary(XeenSmithBoundary::Return);
  publishArrival(view);

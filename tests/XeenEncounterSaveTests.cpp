@@ -28,7 +28,7 @@ void rejectionBoundaries() {
   before.questItems=party.questItems;before.questFlags=party.questFlags;before.encounterContext=party.encounterContext;
   before.firstSerializedCount=party.firstSerializedCount;before.effectiveSerializedCount=party.effectiveSerializedCount;before.diagnostics=party.diagnostics;
   const auto view=camera;const auto flagValues=flags.values();
-  const std::vector<XeenActor> actors=world.sessionState().actors();
+  const std::vector<XeenActor> actors=world.sessionState().monsters(23);
   const std::set<XeenObjectIdentity> objects=world.sessionState().disabledObjects();
   const std::set<XeenEventIdentity> disabledEvents=world.sessionState().disabledEvents();
   const auto marked=world.sessionState().encounterMarked();unsigned calls=0;
@@ -44,9 +44,9 @@ void rejectionBoundaries() {
   check(calls==0&&party.encounterContext==before.encounterContext&&save_test::sameCamera(camera,view)&&flags.values()==flagValues&&
    world.sessionState().disabledObjects()==objects&&world.sessionState().disabledEvents()==disabledEvents&&world.sessionState().encounterMarked()==marked,
    "Rejected restore changed destination values or invoked providers");
-  encounter_test::sameParty(before,party);encounter_test::sameActors(actors,world.sessionState().actors());
+  encounter_test::sameParty(before,party);encounter_test::sameActors(actors,world.sessionState().monsters(23));
   if(kind==2){party.encounterContext.reset();rejects([&]{XeenSaveState::capture(r.signature,party,camera,flags,world);},"encounter");
-   rejects([&]{world.restoreSessionState({}, {}, {});},"encounter");encounter_test::sameActors(actors,world.sessionState().actors());}
+   rejects([&]{world.restoreSessionState({}, {}, {});},"encounter");encounter_test::sameActors(actors,world.sessionState().monsters(23));}
  }
 }
 void candidateFailures() {

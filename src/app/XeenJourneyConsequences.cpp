@@ -91,8 +91,7 @@ bool XeenEncounterFlow::serviceShoot() {
   const auto heldPreimage=_journeyPreimage;
   XeenRestoreGuard::Providers providers(*heldPreimage,_world);
   const auto active=session.regionalActors(_camera.mapId);
-  auto &liveActors=!session._actors.empty() && session._actors.front().id.mapId==_camera.mapId?
-   session._actors:session._vertigoActors.value();
+  auto &liveActors=session.mutableMonsters(_camera.mapId);
   std::vector<XeenActor> admission(active.begin(),active.end());
   if(work.stage==XeenShootCandidate::Stage::PostImpact && work.bound)admission.at(work.bound->id.recordIndex)=*work.bound;
   XeenActorApproach::validateEnvironment(_world,admission,_events);
@@ -233,7 +232,7 @@ bool XeenEncounterFlow::serviceShoot() {
   _party.encounterContext=work.time->context;session._journeyRandom=work.random.continuation();_state._pending=living?3:0;
   if(!living) { _state._phase=XeenEncounterPhase::SupportStopped;_state._reason=XeenEncounterStop::Defeat;session._encounterTerminal=true; }
   ++session._encounterRevision;_state._revision=session._encounterRevision;++session._journeyGeneration;++_generation;
-  session._exploredTiles.swap(exploration);
+  session.publishExploration(exploration);
   _shoot.reset();session._journeyActivity=XeenJourneyActivity::Presentation;retainJourney();return true;
  } catch(...) { closeJourney();throw; }
 }

@@ -16,7 +16,7 @@ void mixed() {
 	const auto lethal=f.action(Command::Attack);check(lethal.damage==13&&lethal.xpCount==6,"lethal13 and six receipts");
 	check(f.combat->phase()==Phase::VictoryAwaitingEnd,"lethal is not Victory");
 	for(auto id:kXeenCombatOwners)check(f.p.roster.combatInputs(id)->experience==82,"XP divide before multiply");
-	const auto &a=f.w.sessionState().actors()[5];check(a.hp==0&&a.x==-128&&a.y==-128&&a.lifecycle==XeenActorLifecycle::Defeated,"identity-preserving removal");
+	const auto &a=f.w.sessionState().monsters(23)[5];check(a.hp==0&&a.x==-128&&a.y==-128&&a.lifecycle==XeenActorLifecycle::Defeated,"identity-preserving removal");
 	check(f.service().status==Status::Victory&&f.p.encounterContext->minutes==492,"separate victory end minute");
 	XeenGameFlags flags;rejects([&]{XeenSaveState::capture(save_test::sample().resources,f.p,f.camera,f.flags,f.w);},"encounter");
 	f.combat->fail(f.combat->ticket());check(f.combat->phase()==Phase::Victory,"terminal observation failure preserves Victory");
@@ -35,7 +35,7 @@ void defeat() {
 	}
 	check(f.combat->phase()==Phase::Defeat&&f.p.encounterContext->minutes==495,"real all-Block defeat without final minute");
 	XeenGameFlags flags;rejects([&]{XeenSaveState::capture(save_test::sample().resources,f.p,f.camera,f.flags,f.w);},"encounter");
-	check(f.w.sessionState().actors()[5].hp==20,"defeat preserves enemy HP");for(auto id:kXeenCombatOwners)check(f.p.roster.combatInputs(id)->experience==0,"no defeat XP");
+	check(f.w.sessionState().monsters(23)[5].hp==20,"defeat preserves enemy HP");for(auto id:kXeenCombatOwners)check(f.p.roster.combatInputs(id)->experience==0,"no defeat XP");
 }
 void seeds() {
 	RegionalCombatFixture f;f.enter();f.blockRound();f.service();f.service();unsigned actions=0;
@@ -128,14 +128,14 @@ void acquiredAttackOrder() {
    f.action(Command::Attack);f.action(Command::Block);f.action(Command::Attack);
    f.action(Command::Attack);f.action(Command::Block);f.action(Command::Block);f.service();f.service();
   }
-  auto &combat=*f.combat;const auto hp=f.w.sessionState().actors()[5].hp;
+  auto &combat=*f.combat;const auto hp=f.w.sessionState().monsters(23)[5].hp;
   combat.command(combat.ticket(),Command::Attack);
   const auto pre=combat.servicePresented(combat.ticket(),0);
-  check(pre.attackStage==Stage::PreHp && pre.damage>0 && f.w.sessionState().actors()[5].hp==hp,
+  check(pre.attackStage==Stage::PreHp && pre.damage>0 && f.w.sessionState().monsters(23)[5].hp==hp,
    "Physical pre-HP draw must precede injury");
   const auto rng=combat.random().position();const auto revision=pre.revision;
   check(combat.servicePresented(combat.ticket(),1000).status==Status::Refused &&
-   combat.random().position()==rng && f.w.sessionState().actors()[5].hp==hp,
+   combat.random().position()==rng && f.w.sessionState().monsters(23)[5].hp==hp,
    "Unacquired impact or late wake advanced damage/RNG");
   check(combat.service(combat.ticket()).status==Status::Refused,"Rule service bypassed acquired attack fence");
   combat.attackPresented(combat.ticket(),0);combat.attackPresented(combat.ticket(),500);
@@ -143,15 +143,15 @@ void acquiredAttackOrder() {
   check(combat.servicePresented(combat.ticket(),deadline-1).status==Status::Refused,"Impact omitted two-tick draw floor");
   const auto old=combat.ticket();const auto post=combat.servicePresented(old,deadline);
   check(post.attackStage==Stage::PostHp && post.revision==revision+1 &&
-   f.w.sessionState().actors()[5].hp==std::max(hp-pre.damage,0) &&
-   f.w.sessionState().actors()[5].lifecycle==XeenActorLifecycle::Present &&
+   f.w.sessionState().monsters(23)[5].hp==std::max(hp-pre.damage,0) &&
+   f.w.sessionState().monsters(23)[5].lifecycle==XeenActorLifecycle::Present &&
    combat.attackImpactSnapshot()->hp==hp,"Post-HP victim removed before its draw");
   check(combat.servicePresented(old,1000).status==Status::Stale,"Stale impact frame republished injury");
   check(combat.servicePresented(combat.ticket(),1000).status==Status::Refused,"Post-HP draw omitted acquisition");
   combat.attackPresented(combat.ticket(),deadline);
   const auto done=combat.servicePresented(combat.ticket(),PresentationClock::afterMilliseconds(deadline,2));
   check(done.status==Status::Advanced && !combat.attackImpactSnapshot(),"Physical impact did not retire exactly once");
-  check(f.w.sessionState().actors()[5].lifecycle==(lethal?XeenActorLifecycle::Defeated:XeenActorLifecycle::Present),
+  check(f.w.sessionState().monsters(23)[5].lifecycle==(lethal?XeenActorLifecycle::Defeated:XeenActorLifecycle::Present),
    "Lethal removal/survivor boundary");
   check(done.xpCount==(lethal?6u:0u),"Lethal reward publication boundary");
  }

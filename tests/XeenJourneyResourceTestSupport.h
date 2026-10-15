@@ -52,7 +52,7 @@ inline void run(const std::function<XeenPartyState()> &initial,const XeenJourney
   if(operation==2)require(flow->journeyAction(flow->ticket(),XeenEncounterAction::Right).outcome==XeenEncounterOutcome::Accepted,"Authorized navigation publication");
   if(operation==3)require(flow->journeyPulse(flow->ticket()).outcome==XeenEncounterOutcome::Pulsed,"Authorized actor pulse publication");
   if(w.sessionState().journeyActivity()==XeenJourneyActivity::Presentation)require(flow->prepareJourneyFrame(flow->ticket(),[]{}) && flow->presentJourney(flow->ticket()),"Publish operation frame");
-  const auto camera=c;const auto context=p.encounterContext;const std::vector<XeenActor> actors=w.sessionState().actors();
+  const auto camera=c;const auto context=p.encounterContext;const std::vector<XeenActor> actors=w.sessionState().monsters(23);
   const auto characters=p.roster.characters();const auto random=w.sessionState().journeyRandom();
   // Isolate entries forgotten at renewal even when that publication reloaded home.
   w.discardMapCache();altered=change!=0;flow->holdJourneyFrame();
@@ -75,7 +75,7 @@ inline void run(const std::function<XeenPartyState()> &initial,const XeenJourney
   require(xeen_state::sameCamera(c,camera) && p.encounterContext==context,"Reconstruction preserves camera/context");
   require(w.sessionState().journeyRandom()==random,"Reconstruction preserves RNG");
   for(unsigned i=0;i<30;++i)require(xeen_state::sameCharacter(characters[i],p.roster.at(i)),"Authorized item publication survives reconstruction without extra mutation");
-  for(unsigned i=0;i<actors.size();++i)require(xeen_state::sameActor(actors[i],w.sessionState().actors()[i]),"Reconstruction preserves actors");
+  for(unsigned i=0;i<actors.size();++i)require(xeen_state::sameActor(actors[i],w.sessionState().monsters(23)[i]),"Reconstruction preserves actors");
  }
 }
 }

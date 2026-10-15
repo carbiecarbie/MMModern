@@ -128,7 +128,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 case 'D':action(NavigationAction::MoveBackward);break;
                 case 'L':action(NavigationAction::TurnLeft);break;
                 case 'R':action(NavigationAction::TurnRight);break;
-                case 'F':action(ShootAction{});break;default:throw std::logic_error("Bad M43 route step");}
+                case 'F':action(ShootAction{});break;
+                case 'Q':action(NavigationAction::StrafeLeft);break;
+                case 'E':action(NavigationAction::StrafeRight);break;default:throw std::logic_error("Bad M43 route step");}
             settle();
             if(c=='U')inspect([&]{if(position->mapId==XeenMapIdentity(28) && position->y>=21)
                 std::cerr<<"M43 STEP "<<position->x<<','<<position->y<<'\n';});
@@ -193,7 +195,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 int x=10,y=13;
                 if(!eligible) {
                     const XeenActor *selected=nullptr;int distance=1000;
-                    for(const auto &actor:world->sessionState().actors())if(actor.lifecycle==XeenActorLifecycle::Present && actor.original.resourceId==6) {
+                    for(const auto &actor:world->sessionState().monsters(23))if(actor.lifecycle==XeenActorLifecycle::Present && actor.original.resourceId==6) {
                         const int next=std::abs(actor.x-position->x)+std::abs(actor.y-position->y);
                         if(next<distance){selected=&actor;distance=next;}
                     }
@@ -250,9 +252,146 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             inspect([&]{check(party->roster.at(kXeenCombatOwners[*trainingMember]).permanentLevel==4 &&
                 party->monsterTreasure->gold==*trainingGold-90,"M44 paid Training");});
         }
+        // M69 fourth scenario "vertigo-f3-roundtrip" (fresh run, or resumed from
+        // checkpoint A or B; a plain reload resumes nothing and saves the final).
+        const std::string roundtripStage=std::getenv("MMODERN_M44_STAGE")?std::getenv("MMODERN_M44_STAGE"):"";
+        if(scenario=="roundtrip") {
+            const auto here=[&](int map,int x,int y,const char *what){inspect([&,map,x,y,what]{
+                check(position->mapId==XeenMapIdentity(map) && position->x==x && position->y==y,what);});};
+            const auto report=[&](const char *label){inspect([&,label]{
+                std::cerr<<"M69 "<<label<<" at "<<position->mapId.number<<':'<<position->x<<','<<position->y<<" d"<<unsigned(position->direction)
+                    <<" day "<<party->encounterContext->day<<':'<<party->encounterContext->minutes<<" woken:";
+                for(const auto &entry:world->sessionState().mapStates())if(entry.second.monsters)
+                    for(const auto &a:*entry.second.monsters)if(a.lifecycle==XeenActorLifecycle::Present && (a.activated || a.hp<a.statistics->baseHp()))
+                        std::cerr<<' '<<entry.first.number<<'#'<<a.id.recordIndex<<'@'<<a.x<<','<<a.y<<" hp"<<a.hp<<(a.activated?"*":"");
+                std::cerr<<'\n';});};
+            // Decision 9: a checkpoint a run resumes from holds every live monster
+            // of the camera map at base HP and asleep. Logged in A1, fatal from A2.
+            const auto decision9=[&](const char *label){inspect([&,label]{
+                std::string violations;
+                for(const auto &a:world->sessionState().monsters(position->mapId))
+                    if(a.lifecycle==XeenActorLifecycle::Present && (a.activated || a.hp!=a.statistics->baseHp()))
+                        violations+=" #"+std::to_string(a.id.recordIndex)+" hp "+std::to_string(a.hp)+"/"+
+                            std::to_string(a.statistics->baseHp())+(a.activated?" woken":"");
+                std::cerr<<"M69 DECISION9 "<<label<<" map "<<position->mapId.number<<(violations.empty()?" holds":" violated:"+violations)<<'\n';});};
+            const auto contactFight=[&](bool wound){steps.push_back([&,wound]{
+                // Attack the lowest record in contact; when wounding, Run once it is hurt.
+                const auto *combat=flow->encounter()->combat();
+                if(!combat) {
+                    if(flow->canSave())return true;
+                    if(world->sessionState().journeyActivity()==XeenJourneyActivity::Event ||
+                       world->sessionState().journeyActivity()==XeenJourneyActivity::Reward)act(AcknowledgeAction{});
+                    check(flow->encounter()->state().phase()!=XeenEncounterPhase::SupportStopped,"M69 journey stopped");
+                    return false;
+                }
+                check(combat->phase()!=XeenCombatPhase::Failed && combat->phase()!=XeenCombatPhase::Defeat &&
+                    combat->phase()!=XeenCombatPhase::SupportStopped,"M69 combat stopped");
+                if(combat->phase()!=XeenCombatPhase::PlayerReady)return false;
+                const auto rows=combat->contacts();unsigned selected=0;
+                for(unsigned i=0;i<rows.size();++i)if(rows[i] && (!rows[selected] || rows[i]->recordIndex<rows[selected]->recordIndex))selected=i;
+                if(!(rows[selected]==combat->selectedTarget())){act(SelectCombatTargetAction{selected});return false;}
+                const auto &target=world->sessionState().regionalActors(rows[selected]->mapId).at(rows[selected]->recordIndex);
+                act(wound && target.hp<target.statistics->baseHp() ? PlayerAction{RunAction{}} : PlayerAction{AttackAction{}});
+                return false;
+            });};
+            const auto seekOrc=[&](bool wounded){steps.push_back([&,wounded]{
+                // Walk toward the nearest live Orc (the wounded one when asked) until contact.
+                if(flow->encounter()->combat())return true;
+                if(!flow->canSave()) {
+                    if(world->sessionState().journeyActivity()==XeenJourneyActivity::Event ||
+                       world->sessionState().journeyActivity()==XeenJourneyActivity::Reward)act(AcknowledgeAction{});
+                    return false;
+                }
+                const XeenActor *selected=nullptr;int distance=1000;
+                const auto walkable=XeenMovement::component(world->map(23),9,11,xeenJourneyContent().traversal);
+                for(const auto &actor:world->sessionState().monsters(23))
+                    if(actor.lifecycle==XeenActorLifecycle::Present && actor.original.resourceId==6 &&
+                        walkable[actor.y*16+actor.x] && (!wounded || actor.hp<actor.statistics->baseHp())) {
+                        const int next=std::abs(actor.x-position->x)+std::abs(actor.y-position->y);
+                        if(next<distance){selected=&actor;distance=next;}
+                    }
+                check(selected,"M69 mainland Orc absent");
+                if(const auto input=m49_combat::toward(*world,*position,selected->x,selected->y,position->direction)){act(*input);return false;}
+                return false;
+            });};
+            const auto toEntrance=[&]{steps.push_back([&]{
+                // Reach the entrance facing North without ever facing West, so
+                // the view never wakes the stranded Orc at (7,14).
+                if(!flow->canSave()) {
+                    if(world->sessionState().journeyActivity()==XeenJourneyActivity::Event ||
+                       world->sessionState().journeyActivity()==XeenJourneyActivity::Reward)act(AcknowledgeAction{});
+                    return false;
+                }
+                if(position->direction!=XeenDirection::North) {
+                    act(position->direction==XeenDirection::West ? NavigationAction::TurnRight : NavigationAction::TurnLeft);return false;
+                }
+                if(position->x==10 && position->y==13)return true;
+                check(position->x==10 && position->y==12,"M69 entrance approach must start at (10,12)");
+                act(NavigationAction::MoveForward);return false;
+            });};
+            const auto awaitOrc=[&]{steps.push_back([&]{
+                // The prepared start view wakes Orc #9; wait facing West until it arrives.
+                if(flow->encounter()->combat())return true;
+                if(!flow->canSave()) {
+                    if(world->sessionState().journeyActivity()==XeenJourneyActivity::Event ||
+                       world->sessionState().journeyActivity()==XeenJourneyActivity::Reward)act(AcknowledgeAction{});
+                    return false;
+                }
+                act(WaitAction{});return false;
+            });};
+            const auto enterVertigo=[&]{action(InteractionAction{});action(YesAction{});settle();
+                here(28,15,0,"M69 Vertigo arrival");};
+            const auto exitVertigo=[&]{action(InteractionAction{});action(YesAction{});settle();
+                here(23,10,12,"M69 mainland return");};
+            const auto segmentA=[&]{
+                // The prepared start view wakes an Orc: kill it (and every monster
+                // the fight wakes) before the first map change.
+                report("start");awaitOrc();contactFight(false);report("mainland kill");
+                here(23,9,11,"M69 mainland fight cell");
+                // The entrance view (10,13 North) wakes Orc #11 at (9,15); no
+                // route avoids it and the party cannot reach or shoot it there.
+                route("LLULUU");here(23,10,13,"M69 entrance");report("entrance");
+                enterVertigo();report("arrival");
+                route("URUL");report("before Slime");route("U");report("after Slime");
+                route("LLURUUUUUUU");here(28,9,1,"M69 grate approach");report("grate");
+                steps.push_back([&]{
+                    // Bash until the original grate opens; each blow is ordinary play.
+                    if(flow->encounter()->combat())return true; // A monster came through.
+                    if(!flow->canSave()) {
+                        if(world->sessionState().journeyActivity()==XeenJourneyActivity::Event ||
+                           world->sessionState().journeyActivity()==XeenJourneyActivity::Reward)act(AcknowledgeAction{});
+                        check(flow->encounter()->state().phase()!=XeenEncounterPhase::SupportStopped,"M69 bash stopped");
+                        return false;
+                    }
+                    const auto cell=world->sampleCell(28,9,1);
+                    if(xeenGet<XeenIndoorWalls>(cell->cell->geometry).walls[3]!=9)return true;
+                    act(BashAction{});return false;
+                });
+                report("bashed");contactFight(false);report("after grate fight");
+                here(28,9,1,"M69 grate cell after the fight");route("U");contactFight(false);report("past grate");
+                route("URU");here(28,7,2,"M69 crate");report("crate");
+                action(InteractionAction{});action(SelectMemberAction{3});settle();report("searched");
+            };
+            const auto segmentB=[&]{
+                route("LLULUUUUUUUURU");here(28,15,0,"M69 exit cell");report("exit");
+                exitVertigo();report("returned");
+            };
+            const auto segmentFinal=[&]{
+                seekOrc(false);contactFight(true);settle();report("wounded and ran");
+                toEntrance();enterVertigo();report("second entry");route("LL");exitVertigo();report("second return");
+                seekOrc(true);contactFight(false);report("wounded Orc killed");
+            };
+            if(!resume) {segmentA();decision9("A");checkpoint("A");segmentB();decision9("B");checkpoint("B");segmentFinal();}
+            else if(roundtripStage=="A") {segmentB();decision9("B");checkpoint("B");segmentFinal();}
+            else if(roundtripStage=="B") segmentFinal();
+            else check(roundtripStage.empty(),"M69 unknown resume checkpoint");
+        }
         checkpoint("final");
         inspect([&]{SDL_Event event{};event.type=SDL_QUIT;SDL_PushEvent(&event);});
         auto native=handler;native.closed={};native.beginCycle=[&](std::uint64_t){handler.beginCycle(++cycle);};
+        // The simulated clock advances only when idle runs (see the M43 witness);
+        // the roundtrip scenario skips the real-time wait. Older scenarios keep theirs.
+        if(scenario=="roundtrip")native.nextPresentationDeadline=[]{return std::optional<std::uint64_t>{0};};
         native.framePresented=[&](const auto &frame){handler.framePresented(frame);presented=frame;shown=true; m49_trace::frame(*world,*party,*position,*flow);};
         const auto drive=[&]()->std::optional<IndexedFrame>{
             check(++iterations<4000,"M43 witness iteration bound");now+=100;next.reset();acted=false;

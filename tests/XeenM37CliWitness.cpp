@@ -267,7 +267,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
       world->sessionState().journeyRandom()==atEntrance.journey->random &&
       XeenSaveFormat::encode(XeenSaveFile::read(*target))==XeenSaveFormat::encode(before),
       "M37 failed destination composition published partial transition");
-     const auto &retained=world->sessionState().actors();
+     const auto &retained=world->sessionState().monsters(23);
      check(retained.size()==atEntrance.journey->actors.size(),"M37 failed transition changed mainland actor count");
      for(unsigned i=0;i<retained.size();++i){const auto &live=retained[i];const auto &saved=atEntrance.journey->actors[i];
       check(live.id==saved.id && live.x==saved.x && live.y==saved.y && live.hp==saved.hp &&

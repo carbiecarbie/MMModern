@@ -12,6 +12,7 @@
 #include "games/xeen/XeenBarrierState.h"
 #include "games/xeen/XeenObjectState.h"
 #include "games/xeen/XeenExploration.h"
+#include "games/xeen/XeenMapState.h"
 #include <stdexcept>
 #include <set>
 #include <array>
@@ -55,29 +56,54 @@ public:
 	std::uint32_t skeletonSeed() const noexcept { return _skeletonSeed; }
 	const XeenMutableOptional<XeenJourneyRandomState> &journeyRandom() const noexcept { return _journeyRandom; }
 	XeenReadOnlySet<XeenMonsterIdentity> accountedMonsters() const noexcept { return XeenReadOnlySet<XeenMonsterIdentity>(_accountedMonsters); }
-	bool isObjectDisabled(XeenObjectIdentity id) const { return _objects.count(id) != 0; }
-	bool isEventDisabled(XeenEventIdentity id) const { return _events.count(id) != 0; }
-	std::size_t disabledObjectCount() const { return _objects.size(); }
-	std::size_t disabledEventCount() const { return _events.size(); }
-	XeenReadOnlySet<XeenObjectIdentity> disabledObjects() const noexcept { return XeenReadOnlySet<XeenObjectIdentity>(_objects); }
-	XeenReadOnlySet<XeenEventIdentity> disabledEvents() const noexcept { return XeenReadOnlySet<XeenEventIdentity>(_events); }
-	const std::vector<XeenBarrierOverride> &barriers() const noexcept { return _barriers; }
-	const std::vector<XeenObjectOverride> &objectOverrides() const noexcept {return _objectOverrides;}
+	// Generic per-map access (M69 decision 3). Every reader resolves the
+	// entry of the map it observes; absent and empty entries are equivalent.
+	const XeenMapTable &mapStates() const noexcept { return _mapStates; }
+	const XeenMapState *mapState(XeenMapIdentity id) const noexcept { return _mapStates.find(id); }
+	bool isObjectDisabled(XeenObjectIdentity id) const {
+		const auto *state=_mapStates.find(id.mapId);return state && state->removedObjects.count(id)!=0;
+	}
+	bool isEventDisabled(XeenEventIdentity id) const {
+		const auto *state=_mapStates.find(id.mapId);return state && state->disabledEvents.count(id)!=0;
+	}
+	std::size_t disabledObjectCount() const noexcept;
+	std::size_t disabledEventCount() const noexcept;
+	// Flat projections in identity order (the v12 save layout).
+	std::set<XeenObjectIdentity> disabledObjects() const;
+	std::set<XeenEventIdentity> disabledEvents() const;
+	std::vector<XeenBarrierOverride> barriers() const;
+	std::vector<XeenObjectOverride> objectOverrides() const;
 	const XeenMutableOptional<XeenHeadCache> &headCache() const noexcept { return _headCache; }
-	const std::vector<XeenExploredTile> &exploredTiles() const noexcept {return _exploredTiles;}
+	std::vector<XeenExploredTile> exploredTiles() const;
 	bool encounterMarked() const { return _encounterMarked; }
 	XeenEncounterEntry encounterEntry() const noexcept { return _entry; }
 	bool encounterInitialized() const { return _encounterInitialized; }
 	bool encounterTerminal() const { return _encounterTerminal; }
-	XeenReadOnlyVector<XeenActor> actors() const noexcept { return XeenReadOnlyVector<XeenActor>(_actors); }
 	bool hasRegionalActors(XeenMapIdentity mapId) const noexcept {
-		return (!_actors.empty() && _actors.front().id.mapId==mapId) ||
-			(mapId == XeenMapIdentity(28) && _vertigoActors.has_value());
+		const auto *state=_mapStates.find(mapId);return state && state->monsters;
 	}
 	XeenReadOnlyVector<XeenActor> regionalActors(XeenMapIdentity mapId) const {
-		if (!_actors.empty() && _actors.front().id.mapId==mapId) return XeenReadOnlyVector<XeenActor>(_actors);
-		if (mapId == XeenMapIdentity(28) && _vertigoActors) return XeenReadOnlyVector<XeenActor>(*_vertigoActors);
-		throw std::out_of_range("Regional actor collection is absent");
+		const auto *state=_mapStates.find(mapId);
+		if (!state || !state->monsters) throw std::out_of_range("Regional actor collection is absent");
+		return XeenReadOnlyVector<XeenActor>(*state->monsters);
+	}
+	// The map's monster table, empty when it was never staged.
+	XeenReadOnlyVector<XeenActor> monsters(XeenMapIdentity mapId) const noexcept {
+		static const std::vector<XeenActor> none;
+		const auto *state=_mapStates.find(mapId);
+		return XeenReadOnlyVector<XeenActor>(state && state->monsters ? *state->monsters : none);
+	}
+	// Fallible: creates the (empty, unobservable) entries a later
+	// nonthrowing exploration publication needs.
+	void reserveTiles(const std::vector<XeenExploredTile> &values);
+	bool anyMonsters() const noexcept {
+		for (const auto &entry:_mapStates) if (entry.second.monsters && !entry.second.monsters->empty()) return true;
+		return false;
+	}
+	// Any staged monster table, including an empty one.
+	bool anyStagedMonsters() const noexcept {
+		for (const auto &entry:_mapStates) if (entry.second.monsters) return true;
+		return false;
 	}
 private:
 	friend class XeenEncounterFlow;
@@ -102,14 +128,20 @@ private:
 	XeenEncounterEntry _entry = XeenEncounterEntry::Ordinary;
 	bool _encounterMarked = false, _encounterInitialized = false, _encounterTerminal = false;
 	mutable std::uint64_t _encounterRevision = 0;
-	std::vector<XeenActor> _actors;
-	// Optional Vertigo actor collection. Absence is distinct from an empty city.
-	std::optional<std::vector<XeenActor>> _vertigoActors;
-	std::set<XeenObjectIdentity> _objects;
-	std::set<XeenEventIdentity> _events;
-	std::vector<XeenBarrierOverride> _barriers;
-	std::vector<XeenObjectOverride> _objectOverrides;
-	std::vector<XeenExploredTile> _exploredTiles;
+	// Mutable monster table of a staged map (friends only).
+	std::vector<XeenActor> &mutableMonsters(XeenMapIdentity mapId) {
+		auto *state=_mapStates.find(mapId);
+		if (!state || !state->monsters) throw std::out_of_range("Regional actor collection is absent");
+		return *state->monsters;
+	}
+	// Stages a map's complete monster table (MOB records then script slots).
+	void stageMonsters(XeenMapIdentity mapId, std::vector<XeenActor> actors, std::size_t originalCount, bool outdoors);
+	// Complete flat explored values onto reserved entries; never allocates.
+	void publishExploration(const std::vector<XeenExploredTile> &values) noexcept;
+	void assignExploration(const std::vector<XeenExploredTile> &values) { reserveTiles(values); publishExploration(values); }
+	// Fallible complete replacement of the cell overrides.
+	void assignCells(const std::vector<XeenBarrierOverride> &values);
+	XeenMapTable _mapStates;
 	XeenMutableOptional<XeenHeadCache> _headCache;
 };
 
@@ -191,7 +223,7 @@ public:
 	}
 	bool hasEncounterState() const {
 		return _sessionState._encounterMarked || _sessionState._encounterInitialized ||
-			!_sessionState._actors.empty();
+			_sessionState.anyMonsters();
 	}
 	bool journeyCaptureEligible(const XeenPartyState &, const XeenCamera &) const noexcept;
 	// For unpublished startup owners only. Validates every original identity
@@ -217,8 +249,9 @@ public:
 	// Unpublished Vertigo Event candidate; callers retain a live owner guard.
 	std::unique_ptr<XeenWorld> transitionCandidate() const;
 	void copyEventParty(const XeenPartyState &source, XeenPartyState &candidate) const;
-	void stageVertigoActors(const XeenObjectFile &, const std::vector<XeenMonsterRecord> &);
-	void applySpawn(std::uint8_t slot, int x, int y, std::uint8_t unused);
+	// Stages an indoor map's MOB monster table on first entry.
+	void stageIndoorMonsters(const XeenObjectFile &, const std::vector<XeenMonsterRecord> &);
+	void applySpawn(XeenMapIdentity mapId, std::uint8_t slot, int x, int y, std::uint8_t unused);
 	void applyAlterEvent(const XeenCamera &physical, std::uint8_t line, std::uint8_t replacement,
 		const XeenEventFile &);
 	void publishTransition(XeenWorld &candidate) noexcept;
@@ -233,7 +266,7 @@ private:
 	friend class XeenRestoreGuard;
 	friend class XeenCombat;
 	friend class XeenActorApproach;
-	friend void xeenValidateVertigoActors(XeenWorld &, const std::vector<XeenActor> &);
+	friend void xeenValidateIndoorActors(XeenWorld &, XeenMapIdentity, const std::vector<XeenActor> &);
 	void swapPreparedState(XeenWorld &candidate) noexcept;
 	// Process-lifetime capability identity. It belongs to this object lifetime,
 	// not session gameplay state, and is never serialized or swapped.
@@ -250,11 +283,10 @@ private:
 	XeenSessionWorldState _sessionState;
 	// Immutable loaded MON catalog for mainland, original city and script-created city slots.
 	std::vector<XeenMonsterRecord> _cityStatistics;
-	XeenMutable<std::uint16_t> _cityOriginalActorCount=0;
 	// Derived from checked immutable city resources; never gameplay authority.
 	bool _detachedEventCandidate = false;
 	// Detached Event presentation only; no additional gameplay slot ownership.
-	std::set<std::size_t> _spawnedPresentationSlots;
+	std::set<XeenMonsterIdentity> _spawnedPresentationSlots;
 	// Stable dependencies never contain a scoped RestoreGuard::Providers wrapper.
 	const MapLoader _baseLoader;
 	const ObjectLoader _baseObjectLoader;

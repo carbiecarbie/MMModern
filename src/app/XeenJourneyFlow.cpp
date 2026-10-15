@@ -72,7 +72,7 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 		std::shared_ptr<XeenRestoreGuard> publishedPreimage;
 		const XeenActorApproach::StartPublicationPreparation prepareStartPublication=[&](const XeenPartyState &candidate,
 			const std::vector<XeenActor> &actors,const std::optional<XeenJourneyRandomState> &random,
-			const std::optional<std::vector<XeenActor>> &city,const std::vector<XeenMonsterRecord> &statistics) {
+			const XeenMapTable &city,const std::vector<XeenMonsterRecord> &statistics) {
 			_journeyPreimage->check();
 			auto prepared=std::make_shared<XeenRestoreGuard>(w,p,c,flags);
 			prepared->retainResources(*_journeyPreimage);
@@ -161,17 +161,17 @@ void XeenEncounterFlow::recordJourneyStep() {
 	std::vector<XeenExploredTile> values;
 	{XeenRestoreGuard::Providers providers(*_journeyPreimage,_world);
 		values=_world.explorationAfterStep(_party,_camera);_journeyPreimage->check();}
-	if(values==_world._sessionState._exploredTiles)return;
+	if(values==_world._sessionState.exploredTiles())return;
 	auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
-	prepared->retainResources(*_journeyPreimage);prepared->s._exploredTiles=values;
+	prepared->retainResources(*_journeyPreimage);prepared->s.assignExploration(values);
 	_journeyPreimage->check();
-	XeenMutationWatch::write(&_world);_world._sessionState._exploredTiles.swap(values);
+	XeenMutationWatch::write(&_world);_world._sessionState.publishExploration(values);
 	_journeyPreimage.swap(prepared);_journeyPreimage->adoptMutationBoundary();
 }
 void XeenEncounterFlow::publishJourneyExploration(std::vector<XeenExploredTile> &values,
 		std::vector<XeenExploredTile> &retained) noexcept {
-	_world._sessionState._exploredTiles.swap(values);
-	_journeyPreimage->s._exploredTiles.swap(retained);_journeyPreimage->adoptMutationBoundary();
+	_world._sessionState.publishExploration(values);
+	_journeyPreimage->s.publishExploration(retained);_journeyPreimage->adoptMutationBoundary();
 }
 bool XeenEncounterFlow::toggleAutomap(const Ticket &entry) {
 	if(!current(entry) || _busy)return false;
@@ -519,7 +519,8 @@ std::string XeenEncounterFlow::journeyInspection() const {
   const auto &ch=_party.roster.at(owner);out<<" HP="<<ch.currentHp<<" SP="<<ch.currentSp<<" conditions=";for(auto v:ch.conditions)out<<unsigned(v)<<',';
 		out << '\n';
 	}
-	for (const auto &a : _world.sessionState().actors())
+	// Diagnostics list the Journey entry map's table, as before M69.
+	for (const auto &a : _world.sessionState().monsters(xeenJourneyContent().entry.mapId))
 		out << "Actor " << a.id.recordIndex << " map=" << a.id.mapId << ' ' << a.x << ' ' << a.y << " HP=" << a.hp
 			<< " active=" << a.activated << " lifecycle=" << unsigned(a.lifecycle) << " status=" << unsigned(a.status)
 			<< " accounted=" << _world.sessionState().accountedMonsters().count(a.id) << '\n';
@@ -633,7 +634,8 @@ XeenEncounterResult XeenEncounterFlow::advanceJourney(const Ticket &entry, std::
         // quiet admission applies only when starting new work.
         if(!_regionalWork) {
 		    xeenValidateJourneyParty(_party);
-		    if (std::any_of(s._actors.begin(),s._actors.end(),[&](const XeenActor &a) { return a.lifecycle == XeenActorLifecycle::Present; })) xeenValidateJourneyMelee(_party);
+		    const auto mainland=s.monsters(xeenJourneyContent().entry.mapId);
+		    if (std::any_of(mainland.begin(),mainland.end(),[&](const XeenActor &a) { return a.lifecycle == XeenActorLifecycle::Present; })) xeenValidateJourneyMelee(_party);
         }
 	} catch (const std::invalid_argument &e) { _journeyRefusal = "This action is not supported yet for this party."; refused.reason = XeenEncounterStop::Domain; return refused; }
 	_journeyRefusal.clear();
@@ -808,7 +810,7 @@ bool XeenEncounterFlow::retireJourney(const Ticket &entry) {
 		std::vector<XeenExploredTile> exploration;
 		{XeenRestoreGuard::Providers providers(*prepared,_world);
 			exploration=_world.explorationAfterStep(_party,_camera);prepared->check();}
-		prepared->s._exploredTiles=exploration;
+		prepared->s.assignExploration(exploration);
 		const bool disengaged=_combat->phase()==XeenCombatPhase::Disengaged;
 		if(disengaged && _regionalAutomatic && !_combat->result().originAutomaticSuperseded) throw std::logic_error("Finish did not supersede the origin event");
 		if(disengaged) _combat->retireDisengagedJourney(*entry.combat,_state);
@@ -821,7 +823,7 @@ bool XeenEncounterFlow::retireJourney(const Ticket &entry) {
 		if(disengaged) { _journeyRefusal.clear();_rangedObservation.reset(); }
 		_deadline.reset(); _frame = 0; _appearanceStep = 0; _appearanceIdentity.reset();
 		_scheduleAfterFrame = _appearanceAfterFrame = false;
-		_world._sessionState._exploredTiles.swap(exploration);
+		_world._sessionState.publishExploration(exploration);
 		prepared->adoptJourneyCoordination(); prepared->adoptJourneyBorrowRelease(); _journeyPreimage.swap(prepared);
 		return true;
 	} catch (const std::invalid_argument &) { return false; }

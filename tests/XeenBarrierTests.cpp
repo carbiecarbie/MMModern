@@ -105,7 +105,7 @@ void overrides() {
 		world->setBarrier(camera,9,true);check(!guard.current(),"Changed barrier invalidates retained preimage");
 		world->setBarrier(camera,6,true);check(!guard.current(),"Equal values cannot revive stale barrier guard");
 		XeenRestoreGuard direct(*world,party,before,flags);
-		auto &face=const_cast<XeenBarrierOverride &>(world->sessionState().barriers()[0]);const auto mask=std::uint8_t(face.mask);
+		auto &face=const_cast<XeenBarrierOverride &>(world->sessionState().mapState(values[0].tile)->cells[0]);const auto mask=std::uint8_t(face.mask);
 		face.mask=15;face.mask=mask;check(!direct.current(),"Tracked barrier field ABA must invalidate retained tickets");
 		auto broken=values;broken.pop_back();XeenWorld bad(tile);rejects([&]{bad.restoreBarriers(broken);});
 		broken=values;broken[0].originalWord^=1;rejects([&]{bad.restoreBarriers(broken);});

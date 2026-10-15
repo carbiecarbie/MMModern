@@ -125,7 +125,7 @@ void randomAndFailures() {
 	RegionalCombatFixture f{XeenCombatRandom(tape)};f.enter();auto action=f.combat->ticket();f.combat->command(action,Command::Attack);
 	check(f.combat->command(action,Command::Attack).status==Status::Stale,"consumed player intent");
 	unsigned probes=0;f.combat->setProbe([&]{++probes;});auto first=f.combat->ticket();f.service();
-	check(probes==64&&f.combat->random().position()==0&&f.w.sessionState().actors()[5].hp==20,"64-draw suspension without live RNG");
+	check(probes==64&&f.combat->random().position()==0&&f.w.sessionState().monsters(23)[5].hp==20,"64-draw suspension without live RNG");
 	check(f.combat->service(first).status==Status::Stale,"old continuation cannot run twice");f.service();check(probes==128,"second retained chunk");
 	const auto result=f.service();check(result.damage==7&&f.combat->random().position()==135&&f.rng.position()==135,"exploding prefix resumes without reroll");
 	std::vector<Draw> reject(130,{1,2,0,true}); // span2 threshold0 cannot reject: use d20 interval
@@ -135,7 +135,7 @@ void randomAndFailures() {
 	check(rejection.service().damage==7&&rejection.combat->random().position()==135&&rejection.rng.position()==135,"raw rejection conversion continuation");
 	RegionalCombatFixture mutation{XeenCombatRandom(mixedTape())};mutation.enter();mutation.combat->command(mutation.combat->ticket(),Command::Attack);
 	mutation.combat->setProbe([&]{mutation.p.roster.at(18).currentSp=123;});
-	check(mutation.service().status==Status::Failed&&mutation.p.roster.at(18).currentSp==123&&mutation.w.sessionState().actors()[5].hp==20&&mutation.combat->random().position()==0,"current callback mutation fails without rollback or RNG adoption");
+	check(mutation.service().status==Status::Failed&&mutation.p.roster.at(18).currentSp==123&&mutation.w.sessionState().monsters(23)[5].hp==20&&mutation.combat->random().position()==0,"current callback mutation fails without rollback or RNG adoption");
 	RegionalCombatFixture stale{XeenCombatRandom(mixedTape())};stale.enter();stale.combat->command(stale.combat->ticket(),Command::Attack);
 	stale.combat->setProbe([&]{stale.combat->invalidate();throw std::runtime_error("old callback failure");});
 	check(stale.service().status==Status::Stale&&stale.combat->result().failure==XeenCombatFailure::Integrity,"old exception cannot replace newer failure");
@@ -153,11 +153,11 @@ void timeBoundary(){
         check(f.p.encounterContext->minutes==1259,"current dusk boundary prestate");
         f.action(Command::Attack);
         if(lethal){f.action(Command::Attack);check(f.combat->phase()==Phase::VictoryAwaitingEnd&&f.p.roster.combatInputs(0)->experience==82,"lethal accounting precedes dusk refusal");}
-        else{f.blockRound();f.service();check(f.combat->pending()==Work::Round&&f.w.sessionState().actors()[5].hp==13&&f.p.roster.at(1).currentHp==-17,"earlier injuries precede round refusal");}
-        const auto actors=f.w.sessionState().actors();const auto characters=f.p.roster.characters();const auto rng=f.combat->random().position();
+        else{f.blockRound();f.service();check(f.combat->pending()==Work::Round&&f.w.sessionState().monsters(23)[5].hp==13&&f.p.roster.at(1).currentHp==-17,"earlier injuries precede round refusal");}
+        const auto actors=f.w.sessionState().monsters(23);const auto characters=f.p.roster.characters();const auto rng=f.combat->random().position();
         const auto r=f.service();check(r.status!=Status::SupportStopped && r.status!=Status::Failed,"Dusk Round/End is supported");
         check(f.p.encounterContext->minutes==1260&&f.combat->random().position()==rng,"Dusk charges one minute without condition draws");
-        if(lethal)sameActors(actors,f.w.sessionState().actors());
+        if(lethal)sameActors(actors,f.w.sessionState().monsters(23));
         for(unsigned i=0;i<30;++i)remove_test::checkSameCharacter(characters[i],f.p.roster.at(i));
         rejects([&]{f.snapshot();},"encounter");
     }
@@ -168,7 +168,7 @@ void resourceContinuation() {
         f.combat->command(f.combat->ticket(),Command::Attack);
         f.transformMap=[&](auto &value){if(mutateOwner)f.p.roster.at(18).currentSp=123;else value.geometry.flags=1;};
         f.w.discardMapCache();
-        check(f.service().status==Status::Failed&&f.combat->random().position()==0&&f.w.sessionState().actors()[5].hp==20,
+        check(f.service().status==Status::Failed&&f.combat->random().position()==0&&f.w.sessionState().monsters(23)[5].hp==20,
             "resource reconstruction refuses pending action without damage or RNG adoption");
         if(mutateOwner)check(f.p.roster.at(18).currentSp==123,"resource callback mutation is not concealed");
     }
@@ -198,9 +198,9 @@ void handoffAndObservation() {
 		RegionalCombatFixture f{XeenCombatRandom(mixedTape())};f.enter();f.action(Command::Attack);f.action(Command::Block);f.action(Command::Attack);f.action(Command::Attack);f.action(Command::Block);f.action(Command::Block);f.service();f.service();
 		if(failBeforeAccounting){unsigned calls=0;f.combat->setProbe([&]{if(++calls==5)throw std::runtime_error("lethal prepublication");});
 			f.combat->command(f.combat->ticket(),Command::Attack);check(f.service().status==Status::Failed,"lethal preparation failure");
-			check(f.w.sessionState().actors()[5].hp==9&&f.p.roster.combatInputs(0)->experience==0&&f.combat->random().position()==13,"lethal failure preserves earlier damage and all XP preimages");
+			check(f.w.sessionState().monsters(23)[5].hp==9&&f.p.roster.combatInputs(0)->experience==0&&f.combat->random().position()==13,"lethal failure preserves earlier damage and all XP preimages");
 		}else{f.action(Command::Attack);f.combat->fail(f.combat->ticket());
-			check(f.combat->phase()==Phase::Failed&&f.w.sessionState().actors()[5].hp==0&&f.p.roster.combatInputs(0)->experience==82,"PendingEnd failure retains accounting without false Victory");}
+			check(f.combat->phase()==Phase::Failed&&f.w.sessionState().monsters(23)[5].hp==0&&f.p.roster.combatInputs(0)->experience==82,"PendingEnd failure retains accounting without false Victory");}
 	}
 }
 int main(){try{rotations();inputsAndOwnership();preparation();randomAndFailures();timeBoundary();resourceContinuation();handoffAndObservation();std::cout<<"Combat rotation, ownership, preparation, continuations, failures and time boundaries passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

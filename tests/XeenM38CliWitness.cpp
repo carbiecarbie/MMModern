@@ -127,7 +127,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    if(control.rfind("fail-",0)==0)throw std::runtime_error("Injected ordinary preparation failure");
    auto &p=const_cast<XeenPartyState &>(*party);
    if(control=="aba-inactive") {++p.roster.at(29).currentHp;--p.roster.at(29).currentHp;}
-   else if(control=="aba-mainland") {auto &a=const_cast<XeenActor &>(world->sessionState().actors().at(0));++a.hp;--a.hp;}
+   else if(control=="aba-mainland") {auto &a=const_cast<XeenActor &>(world->sessionState().monsters(23).at(0));++a.hp;--a.hp;}
    else if(control=="aba-cache") {world->discardMapCache();auto &map=const_cast<XeenMap &>(world->map(28));map.geometry.cells[0].rawAttributes^=1;map.geometry.cells[0].rawAttributes^=1;}
    else if(control=="aba-object-cache") {world->discardMapCache();auto &mob=const_cast<XeenObjectFile &>(world->objectFile(28));++mob.entities.objects[53].x;--mob.entities.objects[53].x;}
    else if(control=="aba-membership") {const auto saved=p.party;p.party=XeenParty::fromRosterIds({0,1,2,3,4,5});p.party=saved;}

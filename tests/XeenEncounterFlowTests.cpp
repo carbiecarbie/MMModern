@@ -45,7 +45,7 @@ struct Production {
         flow->framePresented(flow->frame().presentation());
     }
     const XeenEncounterFlow &coordinator()const{return *flow->encounter();}
-    const XeenActor &anchor()const{return world.sessionState().actors()[5];}
+    const XeenActor &anchor()const{return world.sessionState().monsters(23)[5];}
     void handle(const PlayerAction &action){flow->handle(action,flow->displayedInput(),flow->frame().presentation());flow->framePresented(flow->frame().presentation());}
     void update(){flow->updatePresentation();flow->framePresented(flow->frame().presentation());}
     void refresh(bool rebuild=false){flow->refresh(rebuild);flow->framePresented(flow->frame().presentation());}
@@ -130,10 +130,10 @@ void timing() {
 	const auto revision=f.coordinator().state().revision();
 	f.now=1000;f.update();check(f.coordinator().state().revision()==revision,"pulse at zero pending");
 	check(f.coordinator().frame()==3,"cosmetic no-backlog");
-	std::vector<XeenActor> actors=f.world.sessionState().actors();auto context=f.p.encounterContext;
+	std::vector<XeenActor> actors=f.world.sessionState().monsters(23);auto context=f.p.encounterContext;
 	const auto deadline=f.coordinator().cosmeticDeadline();
 	f.world.discardMapCache();f.refresh(true);f.refresh();
-	sameActors(actors,f.world.sessionState().actors());check(f.coordinator().frame()==3&&
+	sameActors(actors,f.world.sessionState().monsters(23));check(f.coordinator().frame()==3&&
 		f.coordinator().cosmeticDeadline()==deadline&&context==f.p.encounterContext&&f.initializations==1,"redraw reset authority/timing");
 	Production jump;jump.startFlow();jump.east();jump.now=10000;jump.update();
 	check(jump.coordinator().state().pending()==1&&jump.coordinator().deadline()==10107,"backlog processed");
@@ -150,13 +150,13 @@ void timing() {
 }
 
 void collisionFeedback(){
-    Production f;f.startFlow();const auto context=f.p.encounterContext;const auto actors=f.world.sessionState().actors();
+    Production f;f.startFlow();const auto context=f.p.encounterContext;const auto actors=f.world.sessionState().monsters(23);
     unsigned modal=0;f.flow->reportManual=[&](const auto &){++modal;};f.flow->reportAutomatic=[&](const auto &){++modal;};
     f.flow->reportInventory=[&](const auto &){++modal;};f.flow->reportEquipment=[&](const auto &){++modal;};
     f.handle(NavigationAction::MoveBackward);
     check(f.coordinator().journeyRefusal().empty()&&f.camera.x==13&&f.camera.y==1&&f.p.encounterContext==context&&
         f.coordinator().actionPending()==0&&f.coordinator().state().pending()==0&&!f.coordinator().deadline()&&!f.flow->inventoryOpen()&&!f.flow->presentationGeneration()&&modal==0,"blocked movement must remain silent with unchanged side effects");
-    sameActors(actors,f.world.sessionState().actors());f.handle(NavigationAction::TurnRight);
+    sameActors(actors,f.world.sessionState().monsters(23));f.handle(NavigationAction::TurnRight);
     check(f.coordinator().journeyRefusal().find("Movement blocked")==std::string::npos,"later action clears collision notice");
     for(bool failPulse:{false,true}){
         Production old;auto &cell=old.terrain.geometry.cells[14];cell.rawWord=15;cell.surfaceIndex=15;cell.geometry=XeenOutdoorLayers{15,0,0,0};
@@ -174,7 +174,7 @@ void collisionFeedback(){
 void failures(){
     for(unsigned kind=0;kind<7;++kind){
 
-        Production f;f.startFlow();f.east();const auto context=f.p.encounterContext;const auto actors=f.world.sessionState().actors();
+        Production f;f.startFlow();f.east();const auto context=f.p.encounterContext;const auto actors=f.world.sessionState().monsters(23);
         unsigned clocks=0;bool fired=false;
         if(kind==0)f.onClock=[&]{fired=true;throw std::runtime_error("clock");};
         if(kind==1){f.world.discardMapCache();f.failMap=true;f.onMapFailure=[&]{fired=true;};}
@@ -185,7 +185,7 @@ void failures(){
         if(kind==6)f.flow->beforeEncounterFrameCopy=[&]{fired=true;throw std::bad_alloc();};
         try{f.handle(NavigationAction::TurnLeft);}catch(const std::exception &){}
         check(fired,"navigation failure seam fired");check(f.rebuilds<=1,"bounded presentation recovery");
-        if(kind<=1){sameActors(actors,f.world.sessionState().actors());check(f.p.encounterContext==context,"pre-action failure publishes no time");}
+        if(kind<=1){sameActors(actors,f.world.sessionState().monsters(23));check(f.p.encounterContext==context,"pre-action failure publishes no time");}
         else check(f.camera.direction==XeenDirection::North&&f.p.encounterContext->ctr24==3,"post-action failure retains published action");
         if(kind==0||kind==1||kind==3||kind==4||kind==5)check(!f.flow->canSave(),"failed navigation never opens save boundary");
         else{
@@ -208,7 +208,7 @@ void ordinaryWait() {
 		const auto open=flow.inventoryOpen();flow.handle(WaitAction{});
 		check(count==compositions&&timeCalls==clocks&&pixels==flow.frame().pixels&&open==flow.inventoryOpen(),"ordinary period not a no-op");
 	}
-	check(!f.world.hasEncounterState()&&f.world.sessionState().actors().empty(),"ordinary map20 access initialized actors");
+	check(!f.world.hasEncounterState()&&f.world.sessionState().monsters(23).empty(),"ordinary map20 access initialized actors");
 }
 
 void projections() {

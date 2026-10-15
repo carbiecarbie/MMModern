@@ -9,35 +9,36 @@ namespace mmodern {
 
 XeenActorView XeenWorld::prepareTransitionArrival(const XeenCamera &camera) {
 	if (!_detachedEventCandidate) throw std::logic_error("Arrival requires a detached transition");
-	auto &actors=camera.mapId==XeenMapIdentity(28) ? _sessionState._vertigoActors.value() : _sessionState._actors;
-	const auto view=camera.mapId==XeenMapIdentity(28) ? XeenIndoorScene().classifyActors(*this,camera,actors) :
+	auto &actors=_sessionState.mutableMonsters(camera.mapId);
+	const auto view=!_sessionState.mapState(camera.mapId)->outdoors ? XeenIndoorScene().classifyActors(*this,camera,actors) :
 		XeenActorApproach::classify(actors,camera);
 	for (unsigned i=0;i<actors.size();++i) if (view.activation[i]) actors[i].activated=true;
 	return view;
 }
 
-void XeenWorld::stageVertigoActors(const XeenObjectFile &mob,
+void XeenWorld::stageIndoorMonsters(const XeenObjectFile &mob,
 		const std::vector<XeenMonsterRecord> &statistics) {
 	XeenMutationWatch::write(this);
-	if (_sessionState._entry!=XeenEncounterEntry::Ordinary ||
-		_sessionState._vertigoActors || mob.mapId!=XeenMapIdentity(28))
-		throw std::logic_error("Vertigo actor staging is unavailable");
+	if (_sessionState._entry!=XeenEncounterEntry::Ordinary || !mob.mapId ||
+		_sessionState.hasRegionalActors(mob.mapId))
+		throw std::logic_error("Indoor monster staging is unavailable");
 	auto actors=XeenActorApproach::actorsFromResources(mob,statistics);
 	_cityStatistics=statistics;
-	_cityOriginalActorCount=static_cast<std::uint16_t>(mob.entities.monsters.size());
-	xeenValidateVertigoActors(*this,actors);
-	_sessionState._vertigoActors.emplace(std::move(actors));
+	xeenValidateIndoorActors(*this,mob.mapId,actors);
+	if (map(mob.mapId).geometry.isOutdoors()) throw std::logic_error("Indoor monster staging is unavailable");
+	_sessionState.stageMonsters(mob.mapId,std::move(actors),mob.entities.monsters.size(),false);
 }
 
-void XeenWorld::applySpawn(std::uint8_t slot, int x, int y, std::uint8_t) {
+void XeenWorld::applySpawn(XeenMapIdentity mapId, std::uint8_t slot, int x, int y, std::uint8_t) {
 	XeenMutationWatch::write(this);
+	auto *state=_sessionState._mapStates.find(mapId);
 	if (_sessionState._entry!=XeenEncounterEntry::Ordinary ||
-		!_sessionState._vertigoActors || !xeenIndoorCoordinate(x,y) ||
+		!state || !state->monsters || state->outdoors || !xeenIndoorCoordinate(x,y) ||
 		slot>=XeenActorApproach::kCapacity || _cityStatistics.empty())
 		throw std::invalid_argument("Invalid Spawn operands or owner");
-	auto &actors=*_sessionState._vertigoActors;
+	auto &actors=*state->monsters;
 	while(actors.size()<=slot) {
-		XeenActor a;a.id={28,actors.size()};a.original={};
+		XeenActor a;a.id={mapId,actors.size()};a.original={};
 		actors.push_back(std::move(a));
 	}
 	auto &a=actors[slot];
@@ -52,26 +53,26 @@ void XeenWorld::applySpawn(std::uint8_t slot, int x, int y, std::uint8_t) {
 	_sessionState._accountedMonsters.erase(a.id);
 	// Approved M48/M50 policy: cmdSpawn's random frame uses cosmetic RNG.
 	_scenePresentation.spawn(a);
-	_spawnedPresentationSlots.insert(slot);
+	_spawnedPresentationSlots.insert(a.id);
 }
 
 XeenScenePresentation XeenWorld::prepareSpawnPresentation(const XeenWorld &candidate) const {
 	auto prepared=_scenePresentation;
 	prepared.objectFlips=candidate._scenePresentation.objectFlips;
-	for(const auto slot:candidate._spawnedPresentationSlots)
-		prepared.copySpawn(candidate._sessionState._vertigoActors->at(slot),candidate._scenePresentation);
+	for(const auto id:candidate._spawnedPresentationSlots)
+		prepared.copySpawn(candidate._sessionState.regionalActors(id.mapId).at(id.recordIndex),candidate._scenePresentation);
 	if(!candidate._spawnedPresentationSlots.empty())prepared.copySpawnRandom(candidate._scenePresentation);
 	return prepared;
 }
 
-void xeenValidateVertigoActors(XeenWorld &world,const std::vector<XeenActor> &actors) {
-	const auto &mob=world.objectFile(28);
-	if(!world.regionalJourney() || !mob.resourcePresent || mob.mapId!=XeenMapIdentity(28) ||
+void xeenValidateIndoorActors(XeenWorld &world,XeenMapIdentity mapId,const std::vector<XeenActor> &actors) {
+	const auto &mob=world.objectFile(mapId);
+	if(!world.regionalJourney() || !mob.resourcePresent || mob.mapId!=mapId ||
 		actors.size()<mob.entities.monsters.size() || actors.size()>XeenActorApproach::kCapacity ||
 		world._cityStatistics.empty()) throw std::invalid_argument("Invalid resource-bound city actor collection");
 	for(unsigned i=0;i<actors.size();++i) {
 		const auto &a=actors[i];
-		if(!(a.id==XeenMonsterIdentity{28,i}) || a.status!=XeenActorStatus::Physical)
+		if(!(a.id==XeenMonsterIdentity{mapId,i}) || a.status!=XeenActorStatus::Physical)
 			throw std::invalid_argument("Vertigo actor identity/status changed");
 		if(i<mob.entities.monsters.size()) {
 			const auto &original=mob.entities.monsters[i];
@@ -101,11 +102,11 @@ void xeenValidateVertigoActors(XeenWorld &world,const std::vector<XeenActor> &ac
 				a.hp!=a.statistics->baseHp() || a.activated || accounted)
 				throw std::invalid_argument("Disabled city actor is noncanonical");
 		} else if(a.lifecycle!=XeenActorLifecycle::Present || a.hp<1 || a.hp>a.statistics->baseHp() ||
-			accounted || !xeenIndoorCoordinate(a.x,a.y) || !world.sampleCell(28,a.x,a.y))
+			accounted || !xeenIndoorCoordinate(a.x,a.y) || !world.sampleCell(mapId,a.x,a.y))
 			throw std::invalid_argument("Invalid live city actor value");
 	}
 	for(const auto id:world.sessionState().accountedMonsters())
-		if(id.mapId==XeenMapIdentity(28) && (id.recordIndex>=actors.size() ||
+		if(id.mapId==mapId && (id.recordIndex>=actors.size() ||
 			actors[id.recordIndex].lifecycle!=XeenActorLifecycle::Defeated))
 			throw std::invalid_argument("Vertigo accounting source changed");
 	for(const auto count:XeenActorApproach::occupancy(actors))if(count>3)

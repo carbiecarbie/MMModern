@@ -121,7 +121,7 @@ int main() {try {
 	XeenWorld w([&](auto id) {return indoor(id);},[&](auto id) {auto m=mob;m.mapId=id;return m;});
 	w.scenePresentation()=XeenScenePresentation(77);
 	const auto actors=w.sceneActors(99,[&] {return stats;});
-	check(!w.hasEncounterState()&&w.sessionState().actors().empty(),"Render-only observations acquired encounter state");
+	check(!w.hasEncounterState()&&w.sessionState().monsters(23).empty(),"Render-only observations acquired encounter state");
 	const XeenCamera camera{99,8,8,XeenDirection::North};
 	auto commands=XeenIndoorScene().build(w,camera);
 	const auto selected=std::find_if(commands.begin(),commands.end(),[](const auto &c) {return c.actor()!=nullptr;});
