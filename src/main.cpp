@@ -134,6 +134,27 @@ int main(int argc, char *argv[]) {
 		if (!valid) { newGameUsage(); return 1; }
 		return application.newGame(std::filesystem::u8path(argv[path]), difficulty, save);
 	}
+	if (argc >= 2 && std::string(argv[1]) == "--event-fixture") {
+		const auto usage=[] {
+			std::cerr << "Usage: --event-fixture <game-directory> <map> <x> <y> <north|east|south|west> [--combat-seed <nonzero-u32>] [--ui-data <XEEN.DAT>]\n"
+				"Isolated prepared Journey with original resources; default seed 7. Saving and loading are disabled.\n";
+			return 1;
+		};
+		std::uint16_t map=0;int x=0,y=0;mmodern::XeenDirection direction;
+		if ((argc!=7 && argc!=9) || !parseMapId(argv[3],map) || !parseDirection(argv[6],direction)) return usage();
+		const auto coordinate=[](const char *text,int &value) {
+			try {std::size_t n=0;value=std::stoi(text,&n);return n==std::string(text).size() && value>=0 && value<32;} catch (...) {return false;}
+		};
+		if (!coordinate(argv[4],x) || !coordinate(argv[5],y)) return usage();
+		std::uint32_t seed=7;
+		if (argc==9) {
+			try {std::size_t n=0;const std::string value=argv[8];const auto number=std::stoull(value,&n);
+				if (std::string(argv[7])!="--combat-seed" || value.empty() || value[0]=='-' || n!=value.size() || !number || number>std::numeric_limits<std::uint32_t>::max()) return usage();
+				seed=static_cast<std::uint32_t>(number);
+			} catch (...) {return usage();}
+		}
+		return application.eventFixture(std::filesystem::u8path(argv[2]),{map,x,y,direction},seed);
+	}
 	if (argc >= 2 && std::string(argv[1]) == "--monster-fixture") {
 		// Developer: --monster-fixture <species> <game-directory> [--record <n>] [--start <x>,<y>,<facing> | --water-edge] [--combat-seed <nonzero-u32>]
 		const auto usage=[] {

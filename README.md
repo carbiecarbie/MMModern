@@ -175,6 +175,7 @@ mmodern --journey-region [--combat-seed <nonzero-u32>] <game-directory> [--save-
 mmodern --load-game <game-directory> <path.mmsave>
 mmodern --render-map <game-directory> [<map> <x> <y> <north|east|south|west>]
 mmodern --monster-fixture <species> <game-directory> [--record <n>] [--start <x>,<y>,<facing> | --water-edge] [--combat-seed <nonzero-u32>]
+mmodern --event-fixture <game-directory> <map> <x> <y> <north|east|south|west> [--combat-seed <nonzero-u32>]
 mmodern --inspect-map|--inspect-party|--inspect-events <game-directory> ...
 ```
 
@@ -202,6 +203,22 @@ mmodern --inspect-map|--inspect-party|--inspect-events <game-directory> ...
   the terminal prints the species, its cell, the start and the facing. Saving
   and the control panel's Save, Save As and Load are disabled. Not in the
   title menu.
+- `--event-fixture` starts an isolated Event session on the chosen Clouds map,
+  position and facing, using the original loader, interpreter and Journey
+  publication owners. The default seed is 7; `--combat-seed` makes another run
+  reproducible. Party prerequisites are the prepared Journey's six original
+  members, at levels `3,3,3,4,3,3` with XP `1000,2000,1000,1000,2000,1000`,
+  full HP/SP, cleared conditions and temporary bonuses, on day 8 of year 610
+  at 08:00 in Adventurer mode. Original food, purse, flags, quest counters,
+  inventories and skills are loaded normally; merchant stock uses that seed.
+  For example, `mmodern --event-fixture "F:/Games/gog/Might and Magic 4-5" 27 10 10 north`.
+  The position must resolve to original geometry without immediate monster
+  contact. Resource identity, actor binding, ownership and mutation checks still
+  run. Unsupported operations refuse through the normal Event flow. Travel to
+  an unavailable map discards unpublished changes; already displayed and
+  published script rewards or damage remain. Saving, Save As and Load are
+  disabled, including direct snapshot capture. This entry is absent from the
+  title menu and does not admit maps to ordinary play.
 - `--inspect-*` are developer tools.
 
 Developer save files must be outside all original source directories, including

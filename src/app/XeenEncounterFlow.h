@@ -44,6 +44,9 @@ struct XeenJourneySetup {
 	// Developer monster fixture only: a prepared-Journey start other than the
 	// entry, inside the mainland component. Never saved as a setting.
 	std::optional<XeenCamera> start;
+	// Isolated, unsaveable Event developer session. Only map admission changes;
+	// resource binding, party rules, RNG and publication checks remain ordinary.
+	std::optional<XeenCamera> eventFixture;
 };
 struct XeenJourneyRestoreTag {};
 
@@ -109,7 +112,7 @@ public:
 	XeenEncounterFlow(const XeenEncounterFlow &) = delete;
 	XeenEncounterFlow &operator=(const XeenEncounterFlow &) = delete;
 	Ticket ticket() const noexcept { return {state(), _generation, _combat ? std::optional<XeenCombat::Ticket>{_combat->ticket()} : std::nullopt, _boundary.generation()}; }
-	bool canSave() const noexcept { return journeyQuiet(); }
+	bool canSave() const noexcept { return !_world.developerEventMap() && journeyQuiet(); }
 	XeenCombat *combat() noexcept { return _combat.get(); }
 	const XeenCombat *combat() const noexcept { return _combat.get(); }
 	// Fixed observations for downstream presentation, never continuation authority.

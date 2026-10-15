@@ -348,6 +348,7 @@ XeenObjectFile indoorObjects(XeenMapIdentity id,unsigned monsters) {
  o.entities.objects.clear();
  for(int n:{0,2,3})o.entities.objects.push_back(n?XeenMapEntity{n,n,0,0,7}:XeenMapEntity{9,11,0,0,7});
  for(unsigned i=0;i<monsters;++i)o.entities.monsters.push_back({int(i%16),int(1+i/16),0,0,8});
+ o.entities.wallItems=std::vector<XeenMapEntity>{{2,3,0,0,7},{4,5,1,0,8},{6,7,2,0,9}};
  return o;
 }
 XeenEventFile indoorEvents(XeenMapIdentity id) {
@@ -369,7 +370,7 @@ XeenSaveMonsterTable mobTable(unsigned monsters) {
 // mainland and the city hold state in every table restore accepts: monster
 // tables (a defeated, accounted record, an unresolved and a spawned script
 // slot), moved and removed objects, cells (indoor only; outdoor cells and
-// wall items have no producer), MakeNothingHere records, explored bits, the
+// surface flags have no producer), wall items, arbitrary Event opcodes, explored bits, the
 // head cache and a dormant treasure item's source identity.
 void genericRoundTrip(){
  auto s=currentSnapshot();
@@ -386,7 +387,10 @@ void genericRoundTrip(){
  city.objects={{1,4,5,true},{2,-128,-128,false}};
  // A grate on the east face of (5,5) and the west face of (6,5), both unlocked.
  city.cells={{5*16+5,0x0900,0x80,0,0},{5*16+6,0x0009,0x80,0,0}};
- city.events={{764,0}};
+ city.wallItems={{0,-128,127},{2,9,10}};
+ city.events={{763,42},{764,0}};
+ // A map never entered can still own MOB/EVT changes; no monster staging.
+ s.map(37).wallItems={{1,-1,-2}};s.map(37).events={{1,255}};
  city.explored=std::array<std::uint8_t,32>{};(*city.explored)[31]=0x80;
  s.headCache=XeenHeadCache{23,{}};s.headCache->overrides[9]=XeenHeadIndicators{1,2};
  const auto bytes=XeenSaveFormat::encode(s);
@@ -399,6 +403,16 @@ void genericRoundTrip(){
   state.monsters(28)[5].hp==state.monsters(28)[5].statistics->baseHp() && state.accountedMonsters().count({28,1}) &&
   state.mapState(28)->originalMonsterCount==4 && live.party.monsterTreasure->weapons[0].source==2,
   "Restore distributes every table to its own map, with live record sources");
+ check(live.world.effectiveWallItem({28,0}).x==-128 && live.world.effectiveWallItem({28,2}).y==10 &&
+  live.world.effectiveWallItem({37,1}).y==-2 && live.world.effectiveEvent({28,763},indoorEvents(28).records[763]).opcode==42 &&
+  live.world.effectiveEvent({37,1},indoorEvents(37).records[1]).opcode==255 && !state.mapState(37)->monsters,
+  "Restored wall items and arbitrary opcodes use logical map and original record identities");
+ live.world.discardMapCache();
+ check(live.world.effectiveWallItem({28,2}).x==9 && live.world.objectFile(28).entities.wallItems[2].x==6,
+  "Resource cache reload keeps effective wall-item positions and immutable MOB preimages");
+ auto revisit=live.world.transitionCandidate();
+ check(revisit->effectiveWallItem({37,1}).x==-1 && revisit->effectiveEvent({37,1},indoorEvents(37).records[1]).opcode==255,
+  "Map revisit candidates retain wall-item and Event owners");
  const auto captured=live.capture();sameSnapshot(captured,s);
  const auto wire=XeenSaveFormat::encode(captured);check(wire==bytes,"Capture after restore writes the restored bytes");
  CurrentDestination again;usePerMapResources(again,4);again.restore(XeenSaveFormat::decode(wire));again.bind();
@@ -406,6 +420,47 @@ void genericRoundTrip(){
  // A one-sided wall change has no matching opposite face.
  auto oneSided=s;oneSided.map(28).cells.pop_back();
  CurrentDestination bad;usePerMapResources(bad,4);rejects([&]{bad.restore(oneSided);},"opposite face");
+}
+// Restore an opcode whose source resource is None, execute the replacement,
+// suspend for its reward, then Remove its cell. Publication checks must retain
+// the effective dispatch after deletion and across every presentation resume.
+void replacedOpcodePublication(){
+ auto initial=currentSnapshot();initial.map(23).events={{0,0x2c}};
+ auto source=regional_test::events(23);
+ source.records.clear();
+ const auto add=[&](unsigned line,unsigned opcode,std::vector<std::uint8_t> parameters={}) {
+  auto r=record(9,11,line,opcode,std::move(parameters));r.direction=4;source.records.push_back(std::move(r));
+ };
+ add(0,0,{70,37,0,1});add(1,0x0e);add(2,0x12);
+ // An unreachable, valid NPC keeps the existing mainland interaction context.
+ add(99,0x05,{0,0,0,1,0});
+ CurrentDestination live;
+ live.resources.loadEvents=[&](auto id){return id==XeenMapIdentity(23)?source:regional_test::events(id);};
+ live.restore(XeenSaveFormat::decode(XeenSaveFormat::encode(initial)));
+ XeenEventSystem events([&](auto id){return XeenEventScript(live.resources.loadEvents(id));},regional_test::texts);
+ const auto display=font();IndexedFrame image;image.width=320;image.height=200;image.pixels.resize(64000);
+ std::uint64_t now=0,cycle=0;
+ XeenEventFlow flow(live.world,events,live.party,live.camera,live.flags,display,
+  [&](auto){return XeenEventFlow::Composition{image,false};},{},[&]{return now;},{},nullptr,
+  [&](auto,auto){return XeenEventFlow::Composition{image,false};},nullptr,
+  [&](auto &,const auto &,const auto &,auto,auto){return XeenEventFlow::Composition{image,false};});
+ flow.dialogText=&dos_test::text();unsigned failures=0;
+ flow.reportManual=[&](const auto &r){if(const auto *e=std::get_if<XeenEventExecutionError>(&r)){
+  ++failures;std::cerr<<"Replacement publication: "<<e->message<<'\n';}};
+ const auto present=[&](const IndexedFrame &frame){if(frame.presentation())flow.framePresented(frame.presentation());};
+ present(flow.frame());flow.beginCycle(++cycle);
+ present(flow.handle(InteractionAction{},flow.displayedInput(),flow.frame().presentation()));
+ for(unsigned pulse=0;pulse<1000 && !flow.canSave();++pulse) {
+  now+=125;flow.beginCycle(++cycle);
+  if(const auto frame=flow.updatePresentation())present(*frame);
+  present(flow.handle(AcknowledgeAction{},flow.displayedInput(),flow.frame().presentation()));
+ }
+ check(!failures && !flow.blocksGameplay() && live.world.sessionState().isEventDisabled({23,0}) &&
+  live.world.sessionState().mapState(23)->eventOverrides.empty(),
+  "A replaced opcode must publish through the normal reward and Remove owners");
+ unsigned delivered=0;for(auto id:live.party.party.activeRosterIds())
+  for(const auto &item:live.party.roster.at(id).miscellaneous)if(item.id==37)++delivered;
+ check(delivered==1,"The replaced GiveEnchanted opcode must grant exactly once across suspension and deletion");
 }
 // Review finding 1: treasure sources keep their full identity. F3 and the city
 // both hold a defeated, accounted record 2; the saved source names one, the
@@ -431,7 +486,8 @@ void sourceIdentityCases(){
   check(XeenSaveFormat::encode(f.capture())==bytes,"Same-record cross-map treasure sources re-save exactly");
  }
 }
-// Decision 6 and the producer-less tables: representable, rejected at restore.
+// Decision 6 and the remaining producer-less cell states are refused; MOB/EVT
+// override identities must bind to the current resource before publication.
 void unsupportedMapState(){
  const auto good=currentSnapshot();
  for(unsigned mode=0;mode<6;++mode){
@@ -439,8 +495,8 @@ void unsupportedMapState(){
   switch(mode){
   case 0:s.map({XeenSide::Darkside,23}).explored.emplace();message="Darkside";break;
   case 1:{s.camera.mapId.side=XeenSide::Darkside;const auto table=s.map(23).monsters;s.map({XeenSide::Darkside,23}).monsters=table;message="Darkside";break;}
-  case 2:s.map(28).wallItems={{0,1,1}};message="wall-item override is not supported yet";break;
-  case 3:s.map(28).events={{0,0x2a}};message="Event replacement is not supported yet";break;
+  case 2:s.map(28).wallItems={{3,1,1}};message="wall-item identity does not exist";break;
+  case 3:s.map(37).events={{4,0x2a}};message="Event identity does not exist";break;
   case 4:s.map(28).cells={{17,0,0x40,0,0}};message="cell flag change is not supported yet";break;
   case 5:s.map(23).cells={{17,0x0901,0x80,1,0}};message="original resource mismatch";break; // Outdoor tile.
   }
@@ -564,7 +620,7 @@ void invalidResourceAndState(){
 int main() {
 	try {
 		fullRestoration(); explicitItems(); invalidResourceAndState(); characterPreflight(); mutationPolicies(); journeyBorrowRefusal();
-		genericRoundTrip(); sourceIdentityCases(); unsupportedMapState(); warzoneLifetime(); allCloudsMaps();
+		genericRoundTrip(); replacedOpcodePublication(); sourceIdentityCases(); unsupportedMapState(); warzoneLifetime(); allCloudsMaps();
 		std::cout << "Current save state: atomic preparation, resource identities, rules and owner/flow lifetimes passed\n";
 		return 0;
 	} catch (const std::exception &error) {

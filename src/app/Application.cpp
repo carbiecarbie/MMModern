@@ -359,6 +359,10 @@ int Application::loadGame(const std::filesystem::path &gameDirectory,
     return gameplay(gameDirectory, {}, savePath, true);
 }
 
+int Application::eventFixture(const std::filesystem::path &directory, const XeenCamera &start, std::uint32_t seed) const {
+    return gameplay(directory,start,{},false,XeenEncounterEntry::Journey,seed,{},nullptr,nullptr,{},nullptr,nullptr,&start);
+}
+
 int Application::monsterFixture(const std::filesystem::path &directory, const XeenMonsterFixture &fixture,
         std::optional<std::uint32_t> seed) const {
     return gameplay(directory,xeenJourneyContent().entry,{},false,XeenEncounterEntry::Journey,seed,{},nullptr,nullptr,{},nullptr,&fixture);
@@ -367,13 +371,15 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
         const std::optional<std::filesystem::path> &savePath, bool resume, XeenEncounterEntry entry,
         std::optional<std::uint32_t> seed, std::optional<XeenDifficulty> originalStart,
         const XeenSessionEntry *managed, XeenAssetSource *sharedAssets,InitialPublication publication,XeenSessionOutcome *outcome,
-        const XeenMonsterFixture *fixture) const {
+        const XeenMonsterFixture *fixture, const XeenCamera *eventFixture) const {
     try {
         if (originalStart && (resume || entry != XeenEncounterEntry::Journey || seed ||
                 static_cast<unsigned>(*originalStart) > 1))
             throw std::invalid_argument("Invalid new-game configuration");
         if (fixture && (resume || savePath || managed || originalStart || entry != XeenEncounterEntry::Journey))
             throw std::invalid_argument("The monster fixture only starts the prepared Journey without a save target");
+        if (eventFixture && (fixture || resume || savePath || managed || originalStart || entry!=XeenEncounterEntry::Journey))
+            throw std::invalid_argument("The Event fixture requires an isolated prepared Journey");
         if (entry != XeenEncounterEntry::Ordinary && resume)
             throw std::invalid_argument("Encounter entry cannot load or configure a save");
         const auto installation = XeenInstallationDetector(_uiData).detect(gameDirectory);
@@ -505,6 +511,7 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
         services.catalog = &catalog.catalog;
         services.originalStart = originalStart;
         if (fixture) { services.saveUnavailable = "disabled in the monster fixture"; services.journeyStart = fixtureStart; }
+        if (eventFixture) { services.saveUnavailable = "disabled in the Event developer session"; services.eventFixture=*eventFixture; }
         if(!managed)services.developerSavePath=target;
         std::optional<std::filesystem::path> slotDirectory;
         const std::filesystem::path repository=MMODERN_REPOSITORY_ROOT;

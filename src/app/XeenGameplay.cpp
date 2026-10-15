@@ -131,8 +131,11 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
       static_cast<unsigned>(*services.originalStart)>1 || !services.loadInitialCamera))
    throw std::invalid_argument("Invalid original start configuration");
   if (encounter && resume) throw std::invalid_argument("Encounter entry cannot resume");
+  if (services.eventFixture && (resume || original || !encounter || target || services.journeyStart ||
+      !services.saveUnavailable || services.publishInitial || services.restoreSnapshot))
+   throw std::invalid_argument("Event developer sessions require isolated unsaveable owners");
   if (seed && (resume || entry != XeenEncounterEntry::Journey || !*seed)) throw std::invalid_argument("Invalid Journey seed override");
-  if (entry == XeenEncounterEntry::Journey) camera = original ? callback(services.loadInitialCamera) : services.journeyStart.value_or(xeenJourneyContent().entry);
+  if (entry == XeenEncounterEntry::Journey) camera = original ? callback(services.loadInitialCamera) : services.eventFixture.value_or(services.journeyStart.value_or(xeenJourneyContent().entry));
   XeenWorld world(services.maps, services.objects);
   XeenPartyState party;
   XeenGameFlags flags;
@@ -172,6 +175,8 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    journeySetup.emplace(XeenJourneySetup{journeyCharacters,services.resources.loadInitialContext(),journeyStatistics,encounterEvents,value});
    journeySetup->regionalManifest=services.resources.regionalManifest;
    journeySetup->start=services.journeyStart;
+   journeySetup->eventFixture=services.eventFixture;
+   if (services.eventFixture) journeySetup->mainlandEventsProvider=[&] {return services.resources.loadEvents(23);};
 	journeySetup->prepared=!original;
 	if(original) {
 	 journeySetup->context.difficulty=*services.originalStart;
@@ -225,7 +230,8 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    const auto actors=world.sessionState().regionalActors(camera.mapId);
    for (unsigned i=0;i<actors.size();++i) {
     if(!actors[i].statistics) {
-     if(actors[i].lifecycle!=XeenActorLifecycle::Unresolved)
+     if(actors[i].lifecycle!=XeenActorLifecycle::Unresolved &&
+         !(actors[i].lifecycle==XeenActorLifecycle::Disabled && !actors[i].original.hasResource()))
       throw std::invalid_argument("Missing Journey sprite statistics");
      continue;
     }
@@ -398,7 +404,8 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    if (std::holds_alternative<SaveGameAction>(action) &&
        (flow.journey() || world.hasEncounterState() || party.encounterContext || party.roster.combatMarked()) &&
        !XeenSaveState::canCapture(party,camera,world)) {
-    try { status = "MMModern - Cannot save: encounter session is unsaveable."; }
+    try { status = services.saveUnavailable ? std::string("MMModern - Saving is ")+services.saveUnavailable+"." :
+        "MMModern - Cannot save: encounter session is unsaveable."; }
     catch (...) { handoff.fail(); active = false; throw; }
     return std::nullopt;
    }
@@ -408,7 +415,9 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
    if(std::holds_alternative<ControlPanelAction>(action) && services.panel) {
     const bool combat=flow.encounter() && flow.encounter()->combat();
     const auto context=flow.inputContext(inputFrame?inputFrame:flow.frame().presentation());
-    if(!flow.canSave() && !(combat && context.readyForAction && !context.dialog &&
+    const bool developerQuiet=services.eventFixture && flow.encounter() && flow.encounterFrameCurrent() &&
+        flow.encounter()->journeyQuiet() && !flow.blocksGameplay() && !flow.inventoryOpen();
+    if(!flow.canSave() && !developerQuiet && !(combat && context.readyForAction && !context.dialog &&
        flow.encounter()->combat()->phase()==XeenCombatPhase::PlayerReady))return {};
     panelOrigin=inputFrame?inputFrame:flow.frame().presentation();retainPanel();
     {XeenRestoreGuard::Providers providers(*panelGuard,world);

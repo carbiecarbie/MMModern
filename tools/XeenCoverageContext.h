@@ -8,11 +8,13 @@
 #include "games/xeen/XeenSaveState.h"
 namespace mmodern::coverage {
 struct Support;
-// The same original New Game initialization as gameplay, retained only in memory.
+// The same original New Game or developer Event-fixture initialization as gameplay,
+// retained only in memory. The fixture admits its Clouds map through normal owners.
 // Each probe receives a fresh detached candidate including actors and Journey RNG.
 class OriginalContext {
 public:
-    explicit OriginalContext(const GameInstallation &);
+    explicit OriginalContext(const GameInstallation &, std::optional<XeenCamera> fixture = {});
+    const GameInstallation installation;
     XeenAssetSource assets;
     XeenAssetSource darkAssets;
     XeenMapLoader maps;

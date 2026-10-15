@@ -23,6 +23,7 @@
 namespace mmodern {
 
 bool XeenWorld::journeyCaptureEligible(const XeenPartyState &party, const XeenCamera &camera) const noexcept {
+	if (_developerEventMap) return false;
 	const auto retained = _journeyCapture.lock();
 	return retained && retained->current(party,camera);
 }
@@ -76,11 +77,6 @@ void XeenSaveState::validateJourneyValues(const XeenSaveSnapshot &s) {
 	// Decision 2: the Warzone (Clouds 85) is never written back.
 	for (const auto &m:s.maps) if (!xeenRetainsMapState(m.id))
 		throw std::invalid_argument("Saved Warzone state is not part of a save");
-	// Wall-item and nonzero Event overrides have no producer before world Events.
-	for (const auto &m:s.maps) {
-		if (!m.wallItems.empty()) throw std::invalid_argument("Saved wall-item override is not supported yet");
-		for (const auto &v:m.events) if (v.opcode) throw std::invalid_argument("Saved Event replacement is not supported yet");
-	}
 	// The camera map's own table; no live monster stands on the camera cell.
 	const auto *camera=s.find(s.camera.mapId);
 	require(camera && camera->monsters);
@@ -163,6 +159,8 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	std::vector<XeenObjectIdentity> removedObjects;
 	std::vector<XeenObjectOverride> movedObjects;
 	std::vector<XeenEventIdentity> disabledEvents;
+	std::vector<XeenEventOverride> replacedEvents;
+	std::vector<XeenWallItemOverride> wallItems;
 	std::vector<XeenBarrierOverride> cells;
 	std::vector<XeenExploredTile> explored;
 	for (const auto &m:snapshot.maps) {
@@ -171,12 +169,18 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 			if (v.x==-128 && v.y==-128) removedObjects.push_back(id);
 			else movedObjects.push_back({id,v.x,v.y,v.flipped});
 		}
-		for (const auto &v:m.events) disabledEvents.push_back({m.id,v.record});
+		for (const auto &v:m.events) {
+			if(v.opcode)replacedEvents.push_back({{m.id,v.record},v.opcode});
+			else disabledEvents.push_back({m.id,v.record});
+		}
+		for (const auto &v:m.wallItems) wallItems.push_back({{m.id,v.record},v.x,v.y});
 		for (const auto &v:m.cells) cells.push_back(restoredBarrier(m.id,v));
 		if (m.explored) explored.push_back({m.id,*m.explored});
 	}
 	w.restoreSessionState(removedObjects,disabledEvents,events);
 	adopt(); // Only checked overlay preparation changed candidate gameplay values.
+	if(!wallItems.empty()) {w.restoreWallItemOverrides(wallItems);adopt();}
+	if(!replacedEvents.empty()) {w.restoreEventOverrides(replacedEvents,events);adopt();}
 	if(!movedObjects.empty()) {w.restoreObjectOverrides(movedObjects);adopt();}
 	if(!cells.empty()) {w.restoreBarriers(cells);adopt();}
 	if(!explored.empty()) {w.restoreExploredTiles(explored);adopt();}
@@ -332,6 +336,7 @@ XeenSaveSnapshot XeenSaveState::captureInitialized(const XeenSaveResourceSignatu
 XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &resources,
 		const XeenPartyState &party, const XeenCamera &camera,
 		const XeenGameFlags &flags, const XeenWorld &world, bool initializing) {
+	if (world.developerEventMap()) throw std::logic_error("Saving is disabled in the Event developer session");
 	// Reject an unrelated flag owner before observing the bound graph's integrity.
 	const auto authority = world._journeyCapture.lock();
 	if (world.sessionState().journey()) {
@@ -380,7 +385,11 @@ XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &res
 			const auto cell=savedCell(v);
 			if (cell.word!=cell.originalWord || cell.attributes!=cell.originalAttributes) saved.cells.push_back(cell);
 		}
-		for (const auto &id:live.disabledEvents) saved.events.push_back({record(id.recordIndex),0});
+		for (const auto &v:live.wallItemOverrides) saved.wallItems.push_back({record(v.id.recordIndex),v.x,v.y});
+		std::map<std::size_t,std::uint8_t> events;
+		for (const auto &v:live.eventOverrides) events[v.id.recordIndex]=v.opcode;
+		for (const auto &id:live.disabledEvents) events[id.recordIndex]=0;
+		for (const auto &v:events) saved.events.push_back({record(v.first),v.second});
 		saved.explored=live.explored;
 		if (!saved.empty()) snapshot.maps.push_back(std::move(saved));
 	}

@@ -19,7 +19,7 @@ std::string resource(XeenMapIdentity id,const char *extension) {
     char name[32];std::snprintf(name,sizeof(name),id.number>=100?"mazex%03u.%s":"maze%04u.%s",unsigned(id.number),extension);return name;
 }
 }
-OriginalContext::OriginalContext(const GameInstallation &installation):assets(installation),
+OriginalContext::OriginalContext(const GameInstallation &installation, std::optional<XeenCamera> fixture):installation(installation),assets(installation),
     darkAssets(darkInstallation(installation)),
     events([this](const std::string &name)->std::optional<std::vector<std::uint8_t>> {
         if(!assets.hasInitialResource(name))return {};return assets.readInitialResource(name);
@@ -40,9 +40,11 @@ OriginalContext::OriginalContext(const GameInstallation &installation):assets(in
     party=XeenPartyLoader().loadInitialCloudsParty(assets);
     const auto chr=assets.readInitialResource("maze.chr"),pty=assets.readInitialResource("maze.pty");
     const auto statistics=XeenMonsterFormat::parse(*assets.readCloudsMonsterStatisticsFromDarkArchive());
-    const auto city=events.load(28);
-    XeenJourneySetup setup{chr,XeenGameplayContextFormat::parse(pty),statistics,city,7};
-    setup.prepared=false;
+    if(fixture)camera=*fixture;
+    const auto entryEvents=events.load(camera.mapId);
+    XeenJourneySetup setup{chr,XeenGameplayContextFormat::parse(pty),statistics,entryEvents,7};
+    setup.prepared=fixture.has_value();
+    setup.eventFixture=fixture;
     setup.regionalManifest=[this](const auto &m,const auto &o,const auto &e,const auto &s) {
         xeenValidateRegionalManifest(m,o,e,s,assets.readInitialResource("maze0023.dat"),
             assets.readInitialResource("maze0023.mob"),assets.readInitialResource("maze0023.evt"));
@@ -66,7 +68,7 @@ OriginalContext::OriginalContext(const GameInstallation &installation):assets(in
     resources.regionalManifest=setup.regionalManifest;
     resources.loadRegionalText=[this](auto id){return text(id);};
     resources.loadLearnedSpellNames=setup.learnedNamesProvider;
-    initial=XeenSaveState::capture(resources.signature,party,camera,flags,world);
+    if(!fixture)initial=XeenSaveState::capture(resources.signature,party,camera,flags,world);
 }
 Support OriginalContext::replayRoot(XeenCamera entry) {
     try {

@@ -122,27 +122,42 @@ void monster(Census &c,const XeenMonsterRecord &m,unsigned index,unsigned map,st
 void events(Census &c,const std::vector<XeenEventRecord> &records,XeenMapIdentity id,
         const XeenMapEntities &entities,const XeenItemCatalog &catalog,const XeenLearnedSpellNames &names,OriginalContext &context,bool outdoors) {
     const XeenEventFile original{id,resource(id.number,"evt"),true,records};
+    // A physical Clouds map receives the same prepared developer session as
+    // gameplay. Retain New Game context for Darkside, whose live owners remain
+    // outside the M70 Clouds scope. A fixture failure remains visible evidence.
+    std::unique_ptr<OriginalContext> fixture;
+    std::optional<std::string> fixtureFailure;
+    if(id.side==XeenSide::Clouds) {
+        // Session entry forbids immediate monster contact. Choose a repeatable
+        // empty physical cell from the primary DAT, without removing any actor.
+        XeenCamera start{id,0,0,XeenDirection::North};
+        bool empty=false;
+        for(int cell=0;cell<256 && !empty;++cell) {
+            start.x=cell%16;start.y=cell/16;empty=true;
+            for(const auto &actor:entities.monsters)
+                if(actor.isActive() && actor.x==start.x && actor.y==start.y) {empty=false;break;}
+        }
+        try {fixture=std::make_unique<OriginalContext>(context.installation,start);}
+        catch(const std::exception &e) {fixtureFailure=e.what();}
+    }
+    auto &eventContext=fixture?*fixture:context;
     for(const auto &r:records) {
         ++c.instructions;
         const auto physical=[&](unsigned x,unsigned y){return x<(outdoors?16u:32u) && y<(outdoors?16u:32u);};
-        std::optional<XeenCamera> caller;
-        if(!physical(r.x,r.y)) {
-            std::vector<std::pair<unsigned,unsigned>> pending{{r.x,r.y}};std::set<std::pair<unsigned,unsigned>> seen;
-            while(!pending.empty() && !caller) {
-                const auto target=pending.back();pending.pop_back();if(!seen.insert(target).second)continue;
-                for(const auto &entry:records) {
-                    const auto decoded=XeenEventDecoder::decode(entry,{id,{}, {},true});
-                    const auto *ins=std::get_if<XeenDecodedEventInstruction>(&decoded);if(!ins)continue;
-                    const auto *call=std::get_if<XeenEventCallEvent>(&ins->operation);
-                    if(!call || call->x!=int(target.first) || call->y!=int(target.second))continue;
-                    if(physical(entry.x,entry.y)) {caller=XeenCamera{id,entry.x,entry.y,entry.direction<4?XeenDirection(entry.direction):XeenDirection::North};break;}
-                    pending.emplace_back(entry.x,entry.y);
-                }
-            }
+        const bool needsCaller=!physical(r.x,r.y) || r.opcode==0x1a;
+        const auto caller=needsCaller?physicalEventCaller(r,original,outdoors):std::optional<XeenCamera>{};
+        Support unavailable{Status::Unclassified,fixtureFailure?"Developer Event fixture: "+*fixtureFailure:""};
+        if(fixtureFailure) {
+            // A failed session does not erase an independent decoder finding.
+            const auto decoded=XeenEventDecoder::decode(r,{id,{}, {},true});
+            if(const auto *bad=std::get_if<XeenEventDecodeError>(&decoded))
+                unavailable={bad->kind==XeenEventDecodeErrorKind::MalformedInstruction?Status::Unclassified:Status::Unsupported,bad->message};
         }
-        auto support=(!physical(r.x,r.y) && !caller)?
-            Support{Status::Unclassified,"Off-map subroutine has no physical caller in this resource"}:
-            eventSupport(r,original,context.world,context.party,[&](auto map){return context.text(map);},caller);
+        auto support=(needsCaller && !caller)?
+            Support{Status::Unclassified,!physical(r.x,r.y)?"Off-map subroutine has no physical caller in this resource":
+                "Physical Return has no CallEvent caller in this resource"}:
+            fixtureFailure?unavailable:
+            eventSupport(r,original,eventContext.world,eventContext.party,[&](auto map){return eventContext.text(map);},caller);
         if(support.reason=="regional well effect is unavailable" && physical(r.x,r.y))
             support=context.replayRoot({id,r.x,r.y,r.direction<4?XeenDirection(r.direction):XeenDirection::North});
         if(support.service && id==XeenMapIdentity(28)) {
@@ -152,6 +167,17 @@ void events(Census &c,const std::vector<XeenEventRecord> &records,XeenMapIdentit
                 entry.direction=XeenDirection(facing);live=context.replayRoot(entry);
             }
             if(live.status!=Status::Supported)support=live;
+        }
+        // An all-directions instruction can address a direction-specific
+        // physical line. North alone is not a complete AlterEvent probe.
+        if(!caller && r.direction==4 && physical(r.x,r.y) &&
+                support.reason=="AlterEvent physical line was not found") {
+            for(unsigned direction=1;direction<4 && support.status!=Status::Supported;++direction) {
+                auto facing=r;facing.direction=direction;
+                const auto alternate=eventSupport(facing,original,eventContext.world,eventContext.party,
+                    [&](auto map){return eventContext.text(map);});
+                if(alternate.status==Status::Supported)support=alternate;
+            }
         }
         c.add("Events",eventMechanic(r),support,id.number);
         if(r.opcode==0x11 && !r.parameters.empty())c.add("Map features","Town service action="+std::to_string(r.parameters[0]),support,id.number);

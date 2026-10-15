@@ -203,6 +203,11 @@ void XeenActorApproach::validateEnvironment(XeenWorld &world,
 	const auto entry=xeenJourneyContent().entry.mapId;
 	// An admitted indoor map: its monster table is staged with indoor geometry.
 	const auto *state=world.sessionState().mapState(events.mapId);
+	if (events.mapId==world.developerEventMap() && state && state->monsters) {
+		require(events.resourcePresent,"Developer map Event resource is absent");
+		xeenValidateIndoorActors(world,events.mapId,actors);
+		return;
+	}
 	if(events.mapId!=entry && state && state->monsters && !state->outdoors) {
 		require(events.resourcePresent,"Indoor Event resource is absent");
 		xeenValidateIndoorActors(world,events.mapId,actors);
@@ -283,11 +288,17 @@ XeenEncounterResult XeenActorApproach::initializeStart(XeenWorld &world, XeenPar
 	if (bank) require(!bank->gold && !bank->gems,"Unsupported original bank balances");
 	XeenCamera entry=prepared ? policy.entry : XeenCamera{28,18,4,XeenDirection::West};
 	if (start) {
+		if (world.developerEventMap()) {
+			require(prepared && start->mapId==*world.developerEventMap(),"Event fixture map binding changed");
+			const auto arrival=world.prepareEventTransition(*start);
+			require(bool(arrival),arrival.reason.c_str());
+		} else {
 		// Developer monster fixture: any walkable mainland cell is a legal start.
 		require(prepared && start->mapId==policy.entry.mapId && start->x>=0 && start->x<16 && start->y>=0 && start->y<16 &&
 			static_cast<unsigned>(start->direction)<4 &&
 			XeenMovement::component(world.map(policy.entry.mapId),policy.entry.x,policy.entry.y,policy.traversal)[start->y*16+start->x],
 			"Fixture start outside the mainland component");
+		}
 		entry=*start;
 	}
 	require(camera.mapId == entry.mapId && camera.x == entry.x && camera.y == entry.y && camera.direction == entry.direction &&
@@ -354,19 +365,20 @@ XeenEncounterResult XeenActorApproach::initializeStart(XeenWorld &world, XeenPar
 	std::vector<XeenMonsterRecord> cityStatistics=detachedStatistics;
 	XeenEncounterResult result;
 	result.outcome = XeenEncounterOutcome::Started; result.revision = 1;
-	if(prepared) {result.view = classify(actors, camera); activate(actors, result.view);}
+	if(prepared && (!world.developerEventMap() || entry.mapId==policy.entry.mapId)) {result.view = classify(actors, camera); activate(actors, result.view);}
 	else {
 		// Detached resource validation uses the existing city's World owner.
 		// No candidate gameplay values are installed in the destination yet.
-		XeenWorld city(world._loader,world._objectLoader);city._detachedEventCandidate=true;
-		city.stageIndoorMonsters(world.objectFile(entry.mapId),detachedStatistics);
+		XeenWorld city(world._loader,world._objectLoader);city._detachedEventCandidate=true;city._developerEventMap=world._developerEventMap;
+		city.stageMapMonsters(world.objectFile(entry.mapId),detachedStatistics);
 		staged=city._sessionState._mapStates;cityStatistics=city._cityStatistics;
 		auto &cityActors=*staged.find(entry.mapId)->monsters;
-		require(cityActors.size()==46,"Original start requires all Vertigo records");
+		if (!world.developerEventMap()) require(cityActors.size()==46,"Original start requires all Vertigo records");
 		validateEnvironment(city,cityActors,detachedEvents);
-		result.view=XeenIndoorScene().classifyActors(world,camera,cityActors);
+		result.view=world.map(entry.mapId).geometry.isOutdoors()?classify(cityActors,camera):XeenIndoorScene().classifyActors(world,camera,cityActors);
 		activate(cityActors,result.view);
-		require(!result.view.engaged(),"Original start has immediate contact");
+		validateEnvironment(city,cityActors,detachedEvents);
+		require(!result.view.engaged(),"Session start has immediate monster contact");
 	}
 	{
 		auto &mainland=staged.state(policy.entry.mapId);
@@ -548,14 +560,15 @@ XeenEncounterResult XeenActorApproach::regionalTransition(XeenWorld &world,XeenP
 					charge=result==XeenMovementResult::Moved;stepTime=charge || result==XeenMovementResult::Turned;
 					if(!stepTime) c.result.outcome=XeenEncounterOutcome::Blocked;
 					if(indoor ? !xeenIndoorCoordinate(c.camera.x,c.camera.y) :
-						(c.camera.mapId!=xeenJourneyContent().entry.mapId || c.camera.x<0 || c.camera.x>=16 || c.camera.y<0 || c.camera.y>=16 ||
-						 !XeenMovement::component(map,9,11,xeenJourneyContent().traversal)[c.camera.y*16+c.camera.x]))
+						(c.camera.x<0 || c.camera.x>=16 || c.camera.y<0 || c.camera.y>=16 ||
+						 (c.camera.mapId!=world.developerEventMap() && (c.camera.mapId!=xeenJourneyContent().entry.mapId ||
+						 !XeenMovement::component(map,9,11,xeenJourneyContent().traversal)[c.camera.y*16+c.camera.x]))))
 						{ refused.reason=XeenEncounterStop::Envelope;return refused; }
 					const auto sampled=indoor ? world.sampleCell(c.camera.mapId,c.camera.x,c.camera.y) : std::optional<XeenCellSample>{};
 					if(indoor ? (sampled && (sampled->cell->rawAttributes & kXeenAutomaticEventFlag)!=0) :
 						hasAutomaticTrigger(map.geometry,c.camera.x,c.camera.y)) {
 						const auto event=xeenRegionalEvent(events,c.camera);
-						if(!indoor && event && !xeenRegionalSign(events,c.camera))
+						if(!indoor && !world.developerEventMap() && event && !xeenRegionalSign(events,c.camera))
 							{ refused.reason=XeenEncounterStop::Domain;return refused; }
 						c.result.automaticEvent=event.has_value();
 					}

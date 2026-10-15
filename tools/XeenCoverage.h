@@ -32,6 +32,10 @@ public:
         unsigned map=0,std::size_t count=1,std::string source={});
     std::string markdown() const;
 };
+// Keep original line numbers while replacing surrounding behavior with inert exits.
+std::optional<XeenCamera> physicalEventCaller(const XeenEventRecord &, const XeenEventFile &, bool outdoors);
+XeenEventFile isolatedEventProbe(const XeenEventRecord &, XeenMapIdentity,
+    std::optional<XeenCamera> caller={});
 Support eventSupport(const XeenEventRecord &, const XeenEventFile &, const XeenWorld &,
     const XeenPartyState &,const XeenEventInterpreter::TextProvider &,
     std::optional<XeenCamera> caller={});

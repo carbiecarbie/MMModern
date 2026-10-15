@@ -7,6 +7,21 @@
 
 namespace mmodern {
 
+XeenTransitionResult XeenWorld::prepareEventTransition(const XeenCamera &destination) {
+	if (regionalJourney() && destination.mapId!=XeenMapIdentity(23) &&
+		destination.mapId!=XeenMapIdentity(28) && destination.mapId!=_developerEventMap)
+		return {XeenTransitionResult::Status::Unavailable,destination,"Destination map is not admitted yet"};
+	const auto &resource=map(destination.mapId);
+	const int limit=resource.geometry.isOutdoors()?16:32;
+	if (unsigned(destination.direction)>3 || destination.x<0 || destination.y<0 ||
+		destination.x>=limit || destination.y>=limit || !sampleCell(destination.mapId,destination.x,destination.y))
+		return {XeenTransitionResult::Status::Unavailable,destination,"Destination has no map cell"};
+	if (regionalJourney() && destination.mapId!=_developerEventMap && destination.mapId==XeenMapIdentity(23) &&
+		!XeenMovement::component(resource,9,11,xeenJourneyContent().traversal)[destination.y*16+destination.x])
+		return {XeenTransitionResult::Status::Unavailable,destination,"Destination is outside the admitted mainland"};
+	return {XeenTransitionResult::Status::Available,destination,{}};
+}
+
 XeenActorView XeenWorld::prepareTransitionArrival(const XeenCamera &camera) {
 	if (!_detachedEventCandidate) throw std::logic_error("Arrival requires a detached transition");
 	auto &actors=_sessionState.mutableMonsters(camera.mapId);
@@ -32,6 +47,12 @@ void XeenWorld::leaveMap(XeenMapIdentity mapId) {
 
 void XeenWorld::stageIndoorMonsters(const XeenObjectFile &mob,
 		const std::vector<XeenMonsterRecord> &statistics) {
+	if (map(mob.mapId).geometry.isOutdoors()) throw std::logic_error("Indoor monster staging is unavailable");
+	stageMapMonsters(mob,statistics);
+}
+
+void XeenWorld::stageMapMonsters(const XeenObjectFile &mob,
+		const std::vector<XeenMonsterRecord> &statistics) {
 	XeenMutationWatch::write(this);
 	if (_sessionState._entry!=XeenEncounterEntry::Ordinary || !mob.mapId ||
 		_sessionState.hasRegionalActors(mob.mapId))
@@ -39,8 +60,9 @@ void XeenWorld::stageIndoorMonsters(const XeenObjectFile &mob,
 	auto actors=XeenActorApproach::actorsFromResources(mob,statistics);
 	_cityStatistics=statistics;
 	xeenValidateIndoorActors(*this,mob.mapId,actors);
-	if (map(mob.mapId).geometry.isOutdoors()) throw std::logic_error("Indoor monster staging is unavailable");
-	_sessionState.stageMonsters(mob.mapId,std::move(actors),mob.entities.monsters.size(),false);
+	const bool outdoors=map(mob.mapId).geometry.isOutdoors();
+	if (outdoors && mob.mapId!=_developerEventMap) throw std::logic_error("Outdoor map is not the selected developer map");
+	_sessionState.stageMonsters(mob.mapId,std::move(actors),mob.entities.monsters.size(),outdoors);
 }
 
 void XeenWorld::applySpawn(XeenMapIdentity mapId, std::uint8_t slot, int x, int y, std::uint8_t) {
@@ -81,6 +103,7 @@ XeenScenePresentation XeenWorld::prepareSpawnPresentation(const XeenWorld &candi
 
 void xeenValidateIndoorActors(XeenWorld &world,XeenMapIdentity mapId,const std::vector<XeenActor> &actors) {
 	const auto &mob=world.objectFile(mapId);
+	const auto &map=world.map(mapId);
 	if(!world.regionalJourney() || !mob.resourcePresent || mob.mapId!=mapId ||
 		actors.size()<mob.entities.monsters.size() || actors.size()>XeenActorApproach::kCapacity ||
 		world._cityStatistics.empty()) throw std::invalid_argument("Invalid resource-bound city actor collection");
@@ -98,16 +121,34 @@ void xeenValidateIndoorActors(XeenWorld &world,XeenMapIdentity mapId,const std::
 			(a.original.resourceId!=-1 && a.original.resourceId!=0))
 			throw std::invalid_argument("Script-created city identity changed");
 		if(a.lifecycle==XeenActorLifecycle::Unresolved) {
-			if(a.statistics || a.x || a.y || a.hp || a.activated ||
+			const bool position=i<mob.entities.monsters.size() ?
+				(a.x==a.original.x && a.y==a.original.y) : (!a.x && !a.y);
+			if(a.statistics || !position || a.hp || a.activated ||
 				a.original.hasResource() || world.sessionState().accountedMonsters().count(a.id))
 				throw std::invalid_argument("Vertigo gap slot is materialized");
 			continue;
 		}
+		if (a.lifecycle==XeenActorLifecycle::Disabled && !a.original.hasResource()) {
+			if (i>=mob.entities.monsters.size() || !a.original.isDisabled() || a.x!=a.original.x || a.y!=a.original.y ||
+				a.statistics || a.hp || a.activated || world.sessionState().accountedMonsters().count(a.id))
+				throw std::invalid_argument("Disabled original placeholder changed");
+			continue;
+		}
 		if(!a.statistics)throw std::invalid_argument("Vertigo actor statistics are absent");
+		if (a.lifecycle==XeenActorLifecycle::Present &&
+			(!xeenMonsterMovementSupported(*a.statistics,a.original.resourceId) || !a.statistics->supportsRendering()))
+			throw std::invalid_argument("Map actor mechanics are unavailable");
 		if(!a.original.hasResource() || unsigned(a.original.resourceId)>=world._cityStatistics.size() ||
 			a.statistics->raw!=world._cityStatistics[a.original.resourceId].raw)
 			throw std::invalid_argument("City actor MON resource binding changed");
 		const bool accounted=world.sessionState().accountedMonsters().count(a.id)!=0;
+		// Original MOBs also contain off-map parking slots for later Spawn, and
+		// records beyond the available DAT footprint. Retain exact source values;
+		// this does not admit a moved actor outside valid geometry.
+		if (i<mob.entities.monsters.size() && a.lifecycle==XeenActorLifecycle::Present &&
+			a.x==a.original.x && a.y==a.original.y &&
+			(!xeenIndoorCoordinate(a.x,a.y) || !world.sampleCell(mapId,a.x,a.y)) &&
+			a.hp==a.statistics->baseHp() && !a.activated && !accounted) continue;
 		if(a.lifecycle==XeenActorLifecycle::Defeated) {
 				if(a.x!=-128 || a.y!=-128 || a.hp || a.activated || !accounted)
 					throw std::invalid_argument("Defeated city actor is noncanonical");
@@ -118,6 +159,9 @@ void xeenValidateIndoorActors(XeenWorld &world,XeenMapIdentity mapId,const std::
 		} else if(a.lifecycle!=XeenActorLifecycle::Present || a.hp<1 || a.hp>a.statistics->baseHp() ||
 			accounted || !xeenIndoorCoordinate(a.x,a.y) || !world.sampleCell(mapId,a.x,a.y))
 			throw std::invalid_argument("Invalid live city actor value");
+		if (map.geometry.isOutdoors() && a.lifecycle==XeenActorLifecycle::Present &&
+			(a.x<0 || a.x>=16 || a.y<0 || a.y>=16 || !xeenActorClosure(map,a)[a.y*16+a.x]))
+			throw std::invalid_argument("Outdoor actor outside its resource terrain closure");
 	}
 	for(const auto id:world.sessionState().accountedMonsters())
 		if(id.mapId==mapId && (id.recordIndex>=actors.size() ||

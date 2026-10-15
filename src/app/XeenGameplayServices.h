@@ -53,6 +53,7 @@ struct XeenGameplayServices {
  const char *saveUnavailable=nullptr;
  // Developer monster fixture: the prepared Journey starts here instead of the entry.
  std::optional<XeenCamera> journeyStart;
+ std::optional<XeenCamera> eventFixture;
  // Called with a scratch-validated New candidate before any presented frame.
  // Retry/cancel UI retains this candidate and performs no new initialization.
  std::function<bool(const XeenSaveSnapshot &,const std::function<void()> &)> publishInitial;

@@ -18,6 +18,24 @@
 
 namespace mmodern {
 
+// Logical MOB wall-item positions and EVT opcodes, keyed by original record.
+// Zero opcodes use the existing disabledEvents owner; these replacements are
+// nonzero. Position changes never alter wall-item facing or sprite metadata.
+struct XeenWallItemOverride {
+	XeenWallItemIdentity id;
+	XeenMutable<int> x=0,y=0;
+	friend bool operator==(const XeenWallItemOverride &a,const XeenWallItemOverride &b) noexcept {
+		return a.id==b.id && a.x==b.x && a.y==b.y;
+	}
+};
+struct XeenEventOverride {
+	XeenEventIdentity id;
+	XeenMutable<std::uint8_t> opcode=0;
+	friend bool operator==(const XeenEventOverride &a,const XeenEventOverride &b) noexcept {
+		return a.id==b.id && a.opcode==b.opcode;
+	}
+};
+
 // Live state of one original map, keyed by its identity. A logical map owns
 // its MOB and EVT state (monsters, objects, Events); every physical DAT tile,
 // including a neighbour tile of an indoor map, owns its own cell and explored
@@ -34,6 +52,8 @@ struct XeenMapState {
 	std::set<XeenEventIdentity> disabledEvents;
 	// Resource-relative object positions and effective flips, by record.
 	std::vector<XeenObjectOverride> objectOverrides;
+	XeenMutableVector<XeenWallItemOverride> wallItemOverrides;
+	XeenMutableVector<XeenEventOverride> eventOverrides;
 	// This tile's changed cells, by cell, with their original preimage.
 	std::vector<XeenBarrierOverride> cells;
 	// This tile's explored bits (y*16+x). Presence is retained even when zero.
@@ -41,7 +61,7 @@ struct XeenMapState {
 
 	bool empty() const noexcept {
 		return !monsters && removedObjects.empty() && disabledEvents.empty() &&
-			objectOverrides.empty() && cells.empty() && !explored;
+			objectOverrides.empty() && wallItemOverrides.empty() && eventOverrides.empty() && cells.empty() && !explored;
 	}
 	void swap(XeenMapState &other) noexcept {
 		monsters.swap(other.monsters);
@@ -50,6 +70,7 @@ struct XeenMapState {
 		const bool open=outdoors;outdoors=bool(other.outdoors);other.outdoors=open;
 		removedObjects.swap(other.removedObjects);disabledEvents.swap(other.disabledEvents);
 		objectOverrides.swap(other.objectOverrides);cells.swap(other.cells);explored.swap(other.explored);
+		wallItemOverrides.swap(other.wallItemOverrides);eventOverrides.swap(other.eventOverrides);
 	}
 };
 
@@ -78,8 +99,8 @@ class XeenMapTable {
 public:
 	// Upper bound on entries (decision 5); also bounds mutation observation.
 	static constexpr std::size_t kMaximumMaps=512;
-	// Observed storage ranges per entry: node, monsters, overrides, cells.
-	static constexpr std::size_t kObservedRangesPerMap=4;
+	// Node, monsters, object/wall-item/Event overrides and cells.
+	static constexpr std::size_t kObservedRangesPerMap=6;
 	const XeenMapState *find(XeenMapIdentity id) const noexcept {
 		const auto found=_states.find(id);return found==_states.end()?nullptr:&found->second;
 	}

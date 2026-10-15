@@ -98,6 +98,64 @@ Support equipmentCombatSupport(unsigned category,const XeenItem &item,const Xeen
     }
     return {Status::Unclassified,"No legal equipped candidate; see Equip operation row"};
 }
+std::optional<XeenCamera> physicalEventCaller(const XeenEventRecord &record,const XeenEventFile &file,bool outdoors) {
+    const auto physical=[&](unsigned x,unsigned y){return x<(outdoors?16u:32u) && y<(outdoors?16u:32u);};
+    std::vector<std::pair<unsigned,unsigned>> pending{{record.x,record.y}};
+    std::set<std::pair<unsigned,unsigned>> seen;
+    while(!pending.empty()) {
+        const auto target=pending.back();pending.pop_back();
+        if(!seen.insert(target).second)continue;
+        for(const auto &entry:file.records) {
+            const auto decoded=XeenEventDecoder::decode(entry,{file.mapId,{}, {},true});
+            const auto *instruction=std::get_if<XeenDecodedEventInstruction>(&decoded);if(!instruction)continue;
+            const auto *call=std::get_if<XeenEventCallEvent>(&instruction->operation);
+            if(!call || call->x!=int(target.first) || call->y!=int(target.second))continue;
+            if(physical(entry.x,entry.y))return XeenCamera{file.mapId,entry.x,entry.y,
+                entry.direction<4?XeenDirection(entry.direction):XeenDirection::North};
+            pending.emplace_back(entry.x,entry.y);
+        }
+    }
+    return {};
+}
+XeenEventFile isolatedEventProbe(const XeenEventRecord &original,XeenMapIdentity id,std::optional<XeenCamera> caller) {
+    auto record=original;
+    record.direction=4;
+    XeenEventFile file{id,"census",true,{record}};
+    std::set<unsigned> exitLines;
+    if(record.line<255)exitLines.insert(unsigned(record.line)+1);
+    const auto decoded=XeenEventDecoder::decode(original,{id,{}, {},true});
+    const auto &operation=std::get<XeenDecodedEventInstruction>(decoded).operation;
+    if(const auto *condition=std::get_if<XeenEventConditional>(&operation))exitLines.insert(condition->targetLine);
+    if(const auto *npc=std::get_if<XeenEventNpc>(&operation))exitLines.insert(npc->targetLine);
+    if(const auto *call=std::get_if<XeenEventCallEvent>(&operation))
+        if(call->x==record.x && call->y==record.y)exitLines.insert(call->line);
+    for(const auto line:exitLines)if(line!=record.line) {
+        XeenEventRecord end=record;end.opcode=0x12;end.lengthField=5;
+        end.parameters.clear();end.direction=4;end.line=line;file.records.push_back(end);
+    }
+    if(const auto *call=std::get_if<XeenEventCallEvent>(&operation)) {
+        if(call->x!=record.x || call->y!=record.y) {
+            XeenEventRecord end;end.opcode=0x12;end.lengthField=5;end.direction=4;
+            end.x=call->x;end.y=call->y;end.line=call->line;file.records.push_back(end);
+        }
+    }
+    if(caller) {
+        // A physical Return can share the caller's cell. Keep its original
+        // line and place the inert wrapper at two unused sequential lines.
+        unsigned entryLine=0;
+        const auto occupied=[&](unsigned line) {
+            for(const auto &r:file.records)if(r.x==caller->x && r.y==caller->y && r.line==line)return true;
+            return false;
+        };
+        while(entryLine<255 && (occupied(entryLine) || occupied(entryLine+1)))++entryLine;
+        if(entryLine>=255)throw std::logic_error("Census caller has no free wrapper lines");
+        XeenEventRecord call;call.x=caller->x;call.y=caller->y;call.direction=4;call.line=entryLine;
+        call.opcode=0x19;call.parameters={record.x,record.y,record.line};call.lengthField=8;
+        file.records.push_back(call);
+        call.opcode=0x12;call.parameters.clear();call.lengthField=5;call.line=entryLine+1;file.records.push_back(call);
+    }
+    return file;
+}
 Support eventSupport(const XeenEventRecord &original,const XeenEventFile &originalFile,const XeenWorld &source,
         const XeenPartyState &initial,const XeenEventInterpreter::TextProvider &texts,std::optional<XeenCamera> caller) {
     const auto id=originalFile.mapId;
@@ -110,33 +168,11 @@ Support eventSupport(const XeenEventRecord &original,const XeenEventFile &origin
         // Preserve the actual cell, facing, operands, resource-bound actors and RNG.
         // Isolate the operation using inert suffixes; this measures capabilities,
         // not path reachability. A call's continuation is measured by its own row.
-        auto record=original;record.line=0;
+        const auto record=original;
         const XeenCamera camera=caller.value_or(XeenCamera{id,record.x,record.y,
             record.direction<4?XeenDirection(record.direction):XeenDirection::North});
-        record.direction=4;
-        XeenEventFile file{id,"census",true,{record}};
-        std::set<unsigned> exitLines{1};
+        const auto file=isolatedEventProbe(original,id,caller);
         const auto &operation=std::get<XeenDecodedEventInstruction>(decoded).operation;
-        if(const auto *condition=std::get_if<XeenEventConditional>(&operation))exitLines.insert(condition->targetLine);
-        if(const auto *npc=std::get_if<XeenEventNpc>(&operation))exitLines.insert(npc->targetLine);
-        if(const auto *call=std::get_if<XeenEventCallEvent>(&operation))
-            if(call->x==record.x && call->y==record.y)exitLines.insert(call->line);
-        for(const auto line:exitLines)if(line) {
-            XeenEventRecord end=record;end.opcode=0x12;end.lengthField=5;
-            end.parameters.clear();end.direction=4;end.line=line;file.records.push_back(end);
-        }
-        if(const auto *call=std::get_if<XeenEventCallEvent>(&std::get<XeenDecodedEventInstruction>(decoded).operation)) {
-            if(call->x!=record.x || call->y!=record.y) {
-                XeenEventRecord end;end.opcode=0x12;end.lengthField=5;end.direction=4;
-                end.x=call->x;end.y=call->y;end.line=call->line;file.records.push_back(end);
-            }
-        }
-        if(caller) {
-            XeenEventRecord call;call.x=camera.x;call.y=camera.y;call.direction=4;call.line=0;
-            call.opcode=0x19;call.parameters={record.x,record.y,0};call.lengthField=8;
-            file.records.push_back(call);
-            call.opcode=0x12;call.parameters.clear();call.lengthField=5;call.line=1;file.records.push_back(call);
-        }
         if(const auto *alter=std::get_if<XeenEventAlterEvent>(&operation)) {
             // This operation addresses another original physical record. Check
             // against the complete real file, not the isolated execution suffix.
@@ -148,15 +184,21 @@ Support eventSupport(const XeenEventRecord &original,const XeenEventFile &origin
             if(target==id)return script;
             return XeenEventScript(XeenEventFile{target,"census",true,{}});
         };
-        auto result=XeenEventInterpreter().begin(camera,party,{},*world,scripts,texts);
+        // isolatedEventProbe appends the caller and its inert return line last.
+        const auto initialLine=caller?file.records[file.records.size()-2].line:record.line;
+        auto result=XeenEventInterpreter().begin(camera,party,{},*world,scripts,texts,initialLine);
         for(unsigned step=0;step<256;++step) {
             if(const auto *bad=std::get_if<XeenEventExecutionError>(&result)) {
                 if(bad->kind==XeenEventExecutionErrorKind::QuestItemUnderflow || bad->kind==XeenEventExecutionErrorKind::QuestItemOverflow)
                     return {Status::Supported,"Implemented quest-counter refusal: "+bad->message};
+                if(bad->kind==XeenEventExecutionErrorKind::InstructionLimitExceeded)
+                    return {Status::Unclassified,"Census limit: isolated original self-target; "+bad->message};
                 return {unsupported(bad->kind)?Status::Unsupported:Status::Partial,bad->message};
             }
             auto *pending=std::get_if<XeenEventExecutionSuspended>(&result);
-            if(!pending)return {Status::Supported,"New Game Journey candidate completes with original world, owners and RNG"};
+            if(!pending)return {Status::Supported,source.developerEventMap()?
+                "Developer Event fixture candidate completes with original world, owners and Journey RNG":
+                "New Game Journey candidate completes with original world, owners and RNG"};
             if(pending->request.kind==XeenPresentationKind::DeferredAudio)
                 return {Status::Partial,pending->request.text};
             // A service request is the engine's terminal Event-to-Service handoff.
@@ -317,9 +359,11 @@ std::string report(const Census &clouds,const Census &darkside) {
     return "# Coverage census\n\nGenerated by `mmodern_census <game-dir> --write docs/coverage.md`. Check without writing: `--check docs/coverage.md`.\n\n"+
         a.substr(0,ap)+b.substr(0,bp)+screenTotals+"## Largest gaps\n\nTop 20 unsupported mechanics per side, by distinct map impact across dimensions. Reasons are merged by mechanic. Species rows and duplicate service-admission rows are excluded. Journey map-entry restrictions are reported separately in readiness.\n\n"+largestGaps(clouds)+largestGaps(darkside)+"## Interpretation\n\n"+
         "Read-only World of Xeen CD census. Original resources are never exported. The report retains only counts, identifiers and in-game names.\n\n"
-        "Support comes from engine decoders and execution with original New Game owners, geometry, actors and Journey RNG (seed 7), "
+        "Support comes from engine decoders and execution with original New Game owners or prepared Clouds developer Event-fixture owners, geometry, actors and Journey RNG (seed 7), "
         "initialized by XeenEncounterFlow. Each operation uses a fresh detached candidate; mutations never reach the retained source or disk. "
-        "Off-map subroutines use physical callers found in the resource. Inert suffixes isolate capabilities, so this is not a reachability or full-playthrough proof. "
+        "Clouds fixtures admit only their selected map; ordinary map-admission restrictions remain separate. "
+        "Off-map subroutines use physical callers found in the resource. Original line numbers are retained, with inert suffixes at sequential and branch destinations; "
+        "isolated true self-targets retain the 1024-dispatch safety limit and remain unclassified census limits. This is not a reachability or full-playthrough proof. "
         "Terminal Vertigo services are also checked through the live EventFlow handoff. The mainland legacy well uses live Flow publication. "
         "Original quest-counter refusals, proficiency and equipment conflicts are gameplay rules, not missing implementation. "
         "When the same mechanic is admitted elsewhere, its engine refusal is partial in that context instead of a globally missing mechanic. "

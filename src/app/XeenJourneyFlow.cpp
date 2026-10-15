@@ -45,6 +45,7 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 	const auto mainlandProvider=setup.mainlandEventsProvider;
 	const auto cityProvider=setup.cityEventsProvider;
 	const auto start=setup.start;
+	const auto eventFixture=setup.eventFixture;
 	_journeyEvents = setup.events;
 	_journeyCapture.reset(new XeenJourneyCapture(w,p,c,_state,_boundary,_busy,_journeyPreimage,&_needsRestNotice));
 	_journeyCapture->initializationPending=!setup.prepared;
@@ -52,6 +53,11 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 		throw std::invalid_argument("Journey requires fresh uncoordinated owners");
 	if (!recovery || p.worldFlags)
 		throw std::invalid_argument("Journey recovery preparation mismatch");
+	if (eventFixture) {
+		if (!preparedStart || start || !eventFixture->mapId || eventFixture->mapId.side!=XeenSide::Clouds)
+			throw std::invalid_argument("Invalid Event developer session configuration");
+		w._developerEventMap=eventFixture->mapId;
+	}
 	if(preparedStart)p.worldFlags = recovery;
 	try {
 		// Retain lifetime controls before installing callbacks, including allocation failure paths.
@@ -83,14 +89,17 @@ XeenEncounterFlow::XeenEncounterFlow(XeenWorld &w, XeenPartyState &p, XeenCamera
 		};
 		{
 			XeenRestoreGuard::Providers providers(*_journeyPreimage,w);
-			const auto mainland=preparedStart ? _events : (mainlandProvider ? mainlandProvider() : XeenEventFile{});
+			const auto mainland=preparedStart && !eventFixture ? _events : (mainlandProvider ? mainlandProvider() : XeenEventFile{});
 			_journeyPreimage->check();
 			{
 				if (!manifest) throw std::invalid_argument("Missing regional compatibility manifest");
 				manifest(w.map(23),w.objectFile(23),mainland,_journeyStatistics);
 				_journeyPreimage->check();
 			}
-			if(preparedStart) {
+			if(eventFixture) {
+				_result=XeenActorApproach::initializeStart(w,p,c,_state,characters,context,_journeyStatistics,_events,mainland,
+					seed,purse,bank,true,recovery,prepareStartPublication,eventFixture);
+			} else if(preparedStart) {
 				const auto prepare=[&](const auto &party,const auto &actors,const auto &random) {
 					prepareStartPublication(party,actors,random,{},_journeyStatistics);
 				};
@@ -206,8 +215,9 @@ void XeenEncounterFlow::closeJourney() noexcept {
 	// Keep the failed binding: destruction is never a new quiet boundary.
 }
 bool XeenEncounterFlow::journeyQuiet() const noexcept {
+	const auto capture=_world._journeyCapture.lock();
 	return _journey && !_rest && !_castingSettlement && !_regionalAutomatic && !_shootIntent && !projectilesPending() && !_busy && !_combat && !_failure && _boundary.quiet() && current(ticket()) &&
-		_world.journeyCaptureEligible(_party,_camera);
+		capture && capture->current(_party,_camera);
 }
 bool XeenEncounterFlow::journeyMutable() const noexcept {
 	return _journey && !_rest && !_castingSettlement && !_regionalAutomatic && !_shootIntent && !projectilesPending() && !_busy && !_combat && !_failure && current(ticket()) &&

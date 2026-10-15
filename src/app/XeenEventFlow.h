@@ -476,7 +476,7 @@ private:
 	Compose _compose;
 	std::optional<Pending> _pending;
 	// Interpreter-dispatched resource identities retained independently of callback state.
-	std::vector<std::optional<std::size_t>> _regionalExecutedRecords;
+	std::vector<XeenEventDispatchRecord> _regionalExecutedRecords;
 	std::optional<XeenEventContinuation> _regionalEventContinuation;
 	IndexedFrame _frame;
 	std::string _mainScreenNotice;

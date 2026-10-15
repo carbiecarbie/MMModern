@@ -810,6 +810,34 @@ void checkMonsterPlacement(const mmodern::XeenCamera &camera,const std::vector<i
 	require(draws.size()==expectedCount,"shared indoor monster slots emitted duplicate commands");
 }
 
+void testMovedWallItemProjection() {
+	using namespace mmodern;
+	for(unsigned direction=0;direction<4;++direction) {
+		const XeenCamera camera{33,8,8,static_cast<XeenDirection>(direction)};
+		auto objects=objectFile(33,{});
+		objects.entities.wallItems.push_back({0,0,0,static_cast<std::uint8_t>(direction),7});
+		auto world=worldWith(emptyIndoorFixture(),objects);
+		const auto build=[&] {return XeenIndoorScene().build(world,camera,nullptr,nullptr,{}, {},false,
+			[](const std::string &resource){require(resource=="007.pic","Moved wall-item sprite changed");return 2u;});};
+		const auto before=build();
+		require(std::none_of(before.begin(),before.end(),[](const auto &v){return v.wallItem();}),
+			"Wall item outside the view was drawn");
+		const auto x=8+xeen_indoor_scene_tables::kScreenPositioningX[direction][7];
+		const auto y=8+xeen_indoor_scene_tables::kScreenPositioningY[direction][7];
+		world.restoreWallItemOverrides({{{33,0},x,y}});
+		const auto moved=build();
+		const auto draw=std::find_if(moved.begin(),moved.end(),[](const auto &v){return v.wallItem();});
+		require(draw!=moved.end() && draw->wallItem()->recordIndex==0 && draw->queryIndex==7 &&
+			draw->sourceX==x && draw->sourceY==y && draw->sourceFace==camera.direction &&
+			draw->originalOrder==123 && draw->wallItem()->animated && !draw->drawOptions().horizontalFlip,
+			"Wall-item rendering must read effective position with original facing and sprite metadata");
+		world.discardMapCache();
+		const auto rebuilt=build();
+		require(std::any_of(rebuilt.begin(),rebuilt.end(),[](const auto &v){return v.wallItem();}),
+			"Wall-item override vanished after resource reload");
+	}
+}
+
 void testCompleteMonsterPlacements() {
 	using namespace mmodern;
 	for(unsigned direction=0;direction<4;++direction) {
@@ -847,6 +875,7 @@ int main() {
 		testObjectIdentityPrecedenceAndBoundaries();
 		testCompleteMonsterPredicates();
 		testCompleteMonsterPlacements();
+		testMovedWallItemProjection();
 		std::cout << "Xeen indoor geometry and static object tests passed\n";
 		return EXIT_SUCCESS;
 	} catch (const std::exception &error) {

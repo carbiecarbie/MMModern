@@ -26,10 +26,7 @@ bool validDirection(XeenDirection direction) {
 }
 
 bool eventCameraAdmitted(const XeenWorld &world,const XeenCamera &camera) {
-	if(!camera.mapId || camera.x<0 || camera.y<0 || !validDirection(camera.direction))return false;
-	if(world.regionalJourney() && camera.mapId==XeenMapIdentity(28))
-		return xeenIndoorCoordinate(camera.x,camera.y);
-	return camera.x<16 && camera.y<16;
+	return world.eventCameraAdmitted(camera);
 }
 
 bool sameCamera(const XeenCamera &left, const XeenCamera &right) {

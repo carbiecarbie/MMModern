@@ -4,6 +4,12 @@
 #include "games/xeen/XeenStateEquality.h"
 #include <tuple>
 namespace mmodern {
+// Flow-owned dispatch history survives suspension and later opcode deletion.
+// Keep the effective opcode that actually ran, not a reread of its resource.
+struct XeenEventDispatchRecord {
+	std::optional<std::size_t> record;
+	std::uint8_t opcode=0;
+};
 // Value preimage of an interpreter-issued suspension. Flow owns the lease and
 // generation; this guard binds every continuation field before a resume.
 class XeenEventContinuation {

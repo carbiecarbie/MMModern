@@ -23,7 +23,7 @@ std::vector<XeenActor> regionalMove(const std::vector<XeenActor> &before,const X
 }
 }
 std::optional<std::size_t> xeenRegionalEvent(const XeenEventFile &events,const XeenCamera &camera) {
-	if (!events.resourcePresent || (events.mapId!=XeenMapIdentity(23) && events.mapId!=XeenMapIdentity(28)) || camera.mapId!=events.mapId || static_cast<unsigned>(camera.direction)>3)
+	if (!events.resourcePresent || !events.mapId || camera.mapId!=events.mapId || static_cast<unsigned>(camera.direction)>3)
 		throw std::invalid_argument("Invalid regional event lookup");
 	for (std::size_t i=0;i<events.records.size();++i) {
 		const auto &r=events.records[i];
@@ -388,6 +388,7 @@ std::optional<std::uint8_t> xeenRegionalService(const XeenEventFile &events,cons
 XeenRegionalInteraction xeenRegionalInteraction(const XeenEventFile &events,const XeenCamera &camera) {
 	const auto first=xeenRegionalEvent(events,camera);
 	if (!first) return XeenRegionalInteraction::None;
+	if (camera.mapId!=XeenMapIdentity(23) && camera.mapId!=XeenMapIdentity(28)) return XeenRegionalInteraction::Event;
 	if(const auto service=xeenRegionalService(events,camera)) {
 		return *service==2?XeenRegionalInteraction::Guild:*service==0?XeenRegionalInteraction::Bank:*service==3?XeenRegionalInteraction::Tavern:*service==1?XeenRegionalInteraction::Ironworks:
 			*service==4?XeenRegionalInteraction::Temple:XeenRegionalInteraction::Training;

@@ -479,7 +479,7 @@ void XeenEventFlow::prepareJourneyTransition() {
   !_encounter->monsterReward() && !_encounter->state().pending() && _encounter->state().phase()==XeenEncounterPhase::Exploring) {
   _encounter->beginJourneyEvent();_journeyEventLayers=true;
   journeyEventWork([&] {
-   if(_camera.mapId==XeenMapIdentity(28))
+   if(_world.developerEventMap() || _camera.mapId==XeenMapIdentity(28))
     drive(beginVertigoEvent(xeenRegionalInteraction(_encounter->_journeyEvents,_camera),true),true);
    else drive(_events.runAutomaticEvent(_world,_party,_camera,_flags,_eventPublication),true);
   },true);
@@ -1224,9 +1224,19 @@ void XeenEventFlow::prepareVertigoResult(const XeenManualEventResult &result) tr
 			throw std::logic_error("Same-map Event escaped its physical continuation capability");
 		work.destinationEvents=_encounter->_journeyEvents;
 	} else {
-		const auto expected=work.kind==XeenRegionalInteraction::VertigoExit?XeenMapIdentity(23):XeenMapIdentity(28);
-		if(work.camera.mapId!=expected || (work.kind!=XeenRegionalInteraction::VertigoExit && work.kind!=XeenRegionalInteraction::VertigoEntrance))
-			throw std::logic_error("Event ended outside its resource-defined transition capability");
+		const auto transition=work.world->prepareEventTransition(work.camera);
+		if (!transition) {
+			_encounter->_journeyRefusal=transition.reason;
+			_candidateResultRefused=true;
+			_transition.reset();return;
+		}
+		if (!_world.developerEventMap()) {
+			const auto expected=work.kind==XeenRegionalInteraction::VertigoExit?XeenMapIdentity(23):XeenMapIdentity(28);
+			if(work.camera.mapId!=expected || (work.kind!=XeenRegionalInteraction::VertigoExit && work.kind!=XeenRegionalInteraction::VertigoEntrance))
+				throw std::logic_error("Event ended outside its resource-defined transition capability");
+		}
+		work.destinationEvents=_events.scriptForMap(work.camera.mapId).file();
+		_eventPublication->check();
 	}
 	const auto before=_encounter->ticket();
 	const auto arrival=[&] {
@@ -1240,6 +1250,8 @@ void XeenEventFlow::prepareVertigoResult(const XeenManualEventResult &result) tr
 		for(const auto mapId:indoor)
 			xeenValidateIndoorActors(*work.world,mapId,work.world->sessionState().regionalActors(mapId));
 		if(!sameMap) {
+			if (!work.world->sessionState().hasRegionalActors(work.camera.mapId))
+				work.world->stageMapMonsters(work.world->objectFile(work.camera.mapId),_encounter->_journeyStatistics);
 			work.world->leaveMap(work.initialCamera.mapId); // Decision 2: the Warzone is never retained.
 			work.world->reloadMapMonsters(work.camera.mapId); // Decision 8: map load.
 		}
@@ -2324,7 +2336,7 @@ IndexedFrame XeenEventFlow::handle(const PlayerAction &physicalAction, std::opti
 						_encounter->beginJourneyEvent();_journeyEventLayers=true;
 						const auto interaction=xeenRegionalInteraction(_encounter->_journeyEvents,_camera);
 						return journeyEventWork([&] {
-							if(_camera.mapId==XeenMapIdentity(28) || interaction==XeenRegionalInteraction::VertigoEntrance ||
+							if(_world.developerEventMap() || _camera.mapId==XeenMapIdentity(28) || interaction==XeenRegionalInteraction::VertigoEntrance ||
 								interaction==XeenRegionalInteraction::VertigoDoor ||
 								interaction==XeenRegionalInteraction::VertigoExit)
 								drive(beginVertigoEvent(interaction),false);

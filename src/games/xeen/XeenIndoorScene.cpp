@@ -546,15 +546,18 @@ std::vector<XeenIndoorDrawCommand> XeenIndoorScene::build(
 			{23,46,-64,61,14,!wo[25]&&!wo[28]&&!wo[20]&&!wo[11]&&!wo[16]&&!wo[30]&&!wo[32],false},
 			{31,54,128,61,14,!wo[26]&&!wo[20]&&!wo[21]&&!wo[13]&&!wo[18]&&!wo[31]&&!wo[33],false}};
 		const auto file=world.objectFile(camera.mapId);
-		for(const auto &item:file.entities.wallItems) if(item.isActive() &&
+		for(std::size_t i=0;i<file.entities.wallItems.size();++i) {
+			const auto item=world.effectiveWallItem({camera.mapId,i});
+			if(item.isActive() &&
 			(item.direction>=4 || item.resourceId>=255))
 			throw std::invalid_argument("Invalid wall-item direction/resource in "+std::string(file.resourceName));
+		}
 		const auto direction=static_cast<unsigned>(camera.direction);
 		for (const auto &p:places) {
 			if (!p.visible) continue;
 			std::optional<XeenIndoorDrawCommand> chosen;
 			for (std::size_t i=0;i<file.entities.wallItems.size();++i) {
-				const auto &item=file.entities.wallItems[i];
+				const auto item=world.effectiveWallItem({camera.mapId,i});
 				if (!item.isActive() || item.direction!=direction ||
 					item.x!=camera.x+xeen_indoor_scene_tables::kScreenPositioningX[direction][p.query] ||
 					item.y!=camera.y+xeen_indoor_scene_tables::kScreenPositioningY[direction][p.query]) continue;

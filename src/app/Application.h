@@ -41,6 +41,7 @@ public:
 	// a chosen original species (in-memory MOB). Saving is disabled.
 	int monsterFixture(const std::filesystem::path &, const XeenMonsterFixture &,
 		std::optional<std::uint32_t> seed = {}) const;
+	int eventFixture(const std::filesystem::path &, const XeenCamera &, std::uint32_t seed = 7) const;
 	// Shared production construction; providers outlive this call. Target has
 	// already been resolved/checked against the installation by gameplay().
 	int playGameplay(const XeenGameplayServices &, XeenCamera,
@@ -54,7 +55,7 @@ private:
 		XeenEncounterEntry entry = XeenEncounterEntry::Ordinary, std::optional<std::uint32_t> seed = {},
 		std::optional<XeenDifficulty> originalStart = {},const XeenSessionEntry *managed = nullptr,
 		XeenAssetSource *sharedAssets = nullptr,InitialPublication publication = {},XeenSessionOutcome *outcome = nullptr,
-		const XeenMonsterFixture *fixture = nullptr) const;
+		const XeenMonsterFixture *fixture = nullptr, const XeenCamera *eventFixture = nullptr) const;
 };
 
 } // namespace mmodern

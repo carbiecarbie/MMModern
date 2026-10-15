@@ -101,7 +101,8 @@ public:
             const auto terminalSite=state.currentScript && address.x>=0 && address.x<=255 &&
                 address.y>=0 && address.y<=255 && address.line>=0 && address.line<=255 ?
                 state.currentScript->findInstructionIndex(address.x,address.y,state.lookupDirection,address.line):std::nullopt;
-            if(terminalSite && state.currentScript->records()[*terminalSite].opcode==0x11) {
+            if(terminalSite && guard.w.effectiveEvent({original.mapId,*terminalSite},
+                state.currentScript->records()[*terminalSite]).opcode==0x11) {
                 // The Flow retained and checked the exact interpreter-issued
                 // suspension before this terminate-only settlement. A prelude
                 // may have called subroutines; cmdDoTownEvent exits all of them.
@@ -140,7 +141,8 @@ public:
 			integrity("Event dispatch history changed");
 		// Retain the effective dispatch, before a later Remove can disable its
 		// resource record. A None dispatch contributes to instruction count only.
-		dispatchedRecords.push_back(std::holds_alternative<XeenEventNone>(decoded.operation)?std::nullopt:currentSite);
+		dispatchedRecords.push_back({std::holds_alternative<XeenEventNone>(decoded.operation)?std::nullopt:currentSite,
+			decoded.source.opcode});
 	}
 
 	void prepareGrant(std::size_t index) const {
@@ -153,8 +155,7 @@ public:
 		grant=true; grantIndex=index;
 	}
 	void text(const XeenEventTextFile &file) const {
-		if (file.mapId==XeenMapIdentity(28)) guard.admitVertigoText(file);
-		else guard.admitRegionalText(file);
+		guard.admitEventText(file);
 	}
 	void granted() const noexcept { ++guard.quests[grantIndex];guard.adoptMutationBoundary(); }
 	void prepareQuestFlag(bool value) const {
@@ -268,15 +269,18 @@ public:
 		if (selected) state.removedObjects.insert(*selected);
 		for (std::size_t i=0;i<original.records.size();++i)
 			if(original.records[i].x==physical.x && original.records[i].y==physical.y) state.disabledEvents.insert({physical.mapId,i});
+		state.eventOverrides.erase(std::remove_if(state.eventOverrides.begin(),state.eventOverrides.end(),
+			[&](const auto &v){return state.disabledEvents.count(v.id)!=0;}),state.eventOverrides.end());
 		removal=true;
 	}
 	void removed() const noexcept { guard.s._mapStates.swap(mapStates);guard.adoptMutationBoundary(); }
 private:
 	static bool neutral(const XeenEventTakeOrGivePair &pair) noexcept {return pair.mode==0 && pair.value==0;}
 	XeenDecodedEventOperation decodedOperation() const {
-		if(!currentSite || dispatchedRecords.empty() || dispatchedRecords.back()!=*currentSite ||
+		if(!currentSite || dispatchedRecords.empty() || dispatchedRecords.back().record!=*currentSite ||
 			guard.s.isEventDisabled({original.mapId,*currentSite}))integrity("Event effect has no dispatched source");
-		const auto result=XeenEventDecoder::decode(original.records.at(*currentSite),{original.mapId,original.resourceName,*currentSite,true});
+		const auto result=XeenEventDecoder::decode(dispatchedRecord(*currentSite,dispatchedRecords.back().opcode),
+			{original.mapId,original.resourceName,*currentSite,true});
 		const auto *decoded=std::get_if<XeenDecodedEventInstruction>(&result);
 		if(!decoded)integrity("Event effect source is unsupported");
 		return decoded->operation;
@@ -288,13 +292,16 @@ private:
 	void consume() const {
 		if(!consumed.insert(dispatchedRecords.size()).second)integrity("Event effect already published");
 	}
+	XeenEventRecord dispatchedRecord(std::size_t site,std::uint8_t opcode) const {
+		auto record=original.records.at(site);record.opcode=opcode;return record;
+	}
 	void validateRewardPrefix(const XeenPendingRewards &pending,std::size_t before) const {
 		std::size_t count=0;
 		if(pending.overflow() || pending.invalid())integrity("Regional reward queue is malformed");
 		for(std::size_t i=0;i<before;++i) {
-			const auto retained=dispatchedRecords.at(i);if(!retained)continue;
+			const auto &dispatch=dispatchedRecords.at(i);const auto retained=dispatch.record;if(!retained)continue;
 			const auto site=*retained;
-			const auto result=XeenEventDecoder::decode(original.records.at(site),{original.mapId,original.resourceName,site,true});
+			const auto result=XeenEventDecoder::decode(dispatchedRecord(site,dispatch.opcode),{original.mapId,original.resourceName,site,true});
 			const auto *instruction=std::get_if<XeenDecodedEventInstruction>(&result);if(!instruction)continue;
 			const auto *effect=std::get_if<XeenEventGiveEnchanted>(&instruction->operation);
 			const auto *give=std::get_if<XeenEventTakeOrGive>(&instruction->operation);
@@ -315,10 +322,10 @@ private:
 	[[noreturn]] void integrity(const char *message) const { guard.failed=true; throw std::logic_error(message); }
 	friend class XeenEventFlow;
 	XeenEventPublication(XeenRestoreGuard &guard, const XeenEventFile &original, std::function<void()> authority,
-		std::function<void()> beforeRewardEnqueue={}, std::vector<std::optional<std::size_t>> *history=nullptr) :
+		std::function<void()> beforeRewardEnqueue={}, std::vector<XeenEventDispatchRecord> *history=nullptr) :
 		guard(guard), original(original), authority(std::move(authority)),
 		beforeRewardEnqueue(std::move(beforeRewardEnqueue)), retainedHistory(history),
-		dispatchedRecords(history ? *history : std::vector<std::optional<std::size_t>>{}) {
+		dispatchedRecords(history ? *history : std::vector<XeenEventDispatchRecord>{}) {
 		check();selectedObject=const_cast<XeenWorld &>(guard.w).selectObject(guard.cameraValue);check();
 	}
 	XeenRestoreGuard &guard;
@@ -326,8 +333,8 @@ private:
 	std::function<void()> authority;
 	std::function<void()> beforeRewardEnqueue;
 	mutable bool grant=false, removal=false, delivered=false;
-	std::vector<std::optional<std::size_t>> *retainedHistory;
-	mutable std::vector<std::optional<std::size_t>> dispatchedRecords;
+	std::vector<XeenEventDispatchRecord> *retainedHistory;
+	mutable std::vector<XeenEventDispatchRecord> dispatchedRecords;
 	mutable std::set<std::size_t> consumed;
 	mutable std::optional<XeenObjectIdentity> selectedObject;
 	mutable std::size_t questFlagIndex=0, takeIndex=0;

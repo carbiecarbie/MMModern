@@ -13,6 +13,7 @@
 #include "games/xeen/XeenObjectState.h"
 #include "games/xeen/XeenExploration.h"
 #include "games/xeen/XeenMapState.h"
+#include "games/xeen/XeenTransitionResult.h"
 #include <stdexcept>
 #include <set>
 #include <array>
@@ -180,6 +181,10 @@ public:
 	bool effectiveObjectFlip(XeenObjectIdentity id) const;
 	void applyMoveObject(XeenObjectIdentity id,int x,int y);
 	void restoreObjectOverrides(const std::vector<XeenObjectOverride> &);
+	XeenMapEntity effectiveWallItem(XeenWallItemIdentity);
+	// Complete startup-only replacement, bound to the original MOB/EVT records.
+	void restoreWallItemOverrides(const std::vector<XeenWallItemOverride> &);
+	void restoreEventOverrides(const std::vector<XeenEventOverride> &,const EventLoader &);
 	// drawScene resets flip from directional animation metadata on every draw.
 	void objectFlipDrawn(XeenObjectIdentity id,bool flipped) {_scenePresentation.objectFlips[id]=flipped;}
 	void applyEventGrant(XeenPartyState &,std::uint8_t mode,std::uint32_t value,
@@ -205,6 +210,10 @@ public:
 	XeenWorld(const XeenWorld &) = delete;
 	XeenWorld &operator=(const XeenWorld &) = delete;
 	const XeenSessionWorldState &sessionState() const { return _sessionState; }
+	// Transient developer admission; never serialized or offered by the title.
+	std::optional<XeenMapIdentity> developerEventMap() const noexcept { return _developerEventMap; }
+	bool eventCameraAdmitted(const XeenCamera &) const noexcept;
+	XeenTransitionResult prepareEventTransition(const XeenCamera &);
 	bool regionalJourney() const noexcept {
 		return (_sessionState.journey() || _detachedEventCandidate);
 	}
@@ -252,6 +261,7 @@ public:
 	void copyEventParty(const XeenPartyState &source, XeenPartyState &candidate) const;
 	// Stages an indoor map's MOB monster table on first entry.
 	void stageIndoorMonsters(const XeenObjectFile &, const std::vector<XeenMonsterRecord> &);
+	void stageMapMonsters(const XeenObjectFile &, const std::vector<XeenMonsterRecord> &);
 	void applySpawn(XeenMapIdentity mapId, std::uint8_t slot, int x, int y, std::uint8_t unused);
 	void applyAlterEvent(const XeenCamera &physical, std::uint8_t line, std::uint8_t replacement,
 		const XeenEventFile &);
@@ -293,6 +303,7 @@ private:
 	std::vector<XeenMonsterRecord> _cityStatistics;
 	// Derived from checked immutable city resources; never gameplay authority.
 	bool _detachedEventCandidate = false;
+	std::optional<XeenMapIdentity> _developerEventMap;
 	// Detached Event presentation only; no additional gameplay slot ownership.
 	std::set<XeenMonsterIdentity> _spawnedPresentationSlots;
 	// Stable dependencies never contain a scoped RestoreGuard::Providers wrapper.

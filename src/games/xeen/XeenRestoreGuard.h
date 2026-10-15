@@ -16,7 +16,7 @@ public:
 	XeenRestoreGuard(const XeenWorld &world, const XeenPartyState &party,
 		const XeenCamera &camera, const XeenGameFlags &flags, bool exactCaches = false) :
 		w(world), p(party), c(camera), f(flags), worldId(w._incarnation),
-		worldRevision(w._ownerRevision),
+		worldRevision(w._ownerRevision), developerEventMap(w._developerEventMap),
 		partyId(p._incarnation), rosterId(p.roster._incarnation),
 		partyReplacement(p._replacement), rosterReplacement(p.roster._replacement),
 		s(w._sessionState), characters(p.roster.characters()), inputs(p.roster._combatInputs),
@@ -42,7 +42,7 @@ public:
 	}
 	XeenRestoreGuard(XeenRestoreGuard &&other) :
 		w(other.w), p(other.p), c(other.c),
-		f(other.f), worldId(std::move(other.worldId)), worldRevision(std::move(other.worldRevision)),
+		f(other.f), worldId(std::move(other.worldId)), worldRevision(std::move(other.worldRevision)), developerEventMap(other.developerEventMap),
 		partyId(std::move(other.partyId)), rosterId(std::move(other.rosterId)), partyReplacement(std::move(other.partyReplacement)),
 		rosterReplacement(std::move(other.rosterReplacement)), s(std::move(other.s)), characters(std::move(other.characters)),
 		inputs(std::move(other.inputs)), marked(std::move(other.marked)), membership(std::move(other.membership)),
@@ -51,7 +51,7 @@ public:
 		food(other.food), first(std::move(other.first)), effective(std::move(other.effective)), diagnostics(std::move(other.diagnostics)),
 		cameraValue(std::move(other.cameraValue)), flagValues(std::move(other.flagValues)), combatCheck(std::move(other.combatCheck)),
 		combatAuthorized(std::move(other.combatAuthorized)), maps(std::move(other.maps)), objects(std::move(other.objects)),
-		cityStatistics(std::move(other.cityStatistics)), regionalText(std::move(other.regionalText)), vertigoText(std::move(other.vertigoText)),
+		cityStatistics(std::move(other.cityStatistics)), regionalText(std::move(other.regionalText)), vertigoText(std::move(other.vertigoText)), developerText(std::move(other.developerText)),
 		learnedNames(std::move(other.learnedNames)), cacheRevision(std::move(other.cacheRevision)), exactCaches(std::move(other.exactCaches)),
 		borrowOwners(std::move(other.borrowOwners)), borrowStates(other.borrowStates), borrowRevisions(std::move(other.borrowRevisions)),
 		failed(std::move(other.failed)), mutations(std::move(other.mutations)) {
@@ -66,7 +66,7 @@ public:
 		for (const auto &state : borrowStates) if (!state->alive) return false;
 		for (unsigned i = 0; i < borrowOwners.size(); ++i)
 			if (borrowOwners[i]->state != borrowStates[i] || borrowStates[i]->revision != borrowRevisions[i]) return false;
-		if (w._incarnation != worldId || w._ownerRevision != worldRevision ||
+		if (w._incarnation != worldId || w._ownerRevision != worldRevision || w._developerEventMap != developerEventMap ||
 			p._incarnation != partyId || p.roster._incarnation != rosterId ||
 			p._replacement != partyReplacement || p.roster._replacement != rosterReplacement ||
 			p.roster.combatMarked() != marked || p.party.activeRosterIds() != membership ||
@@ -157,6 +157,21 @@ public:
 		}
 		objects.emplace(id, value);
 		prepareMutationRanges();
+	}
+	void admitEventText(const XeenEventTextFile &value) {
+		if (value.mapId==XeenMapIdentity(23)) {admitRegionalText(value);return;}
+		if (value.mapId==XeenMapIdentity(28)) {admitVertigoText(value);return;}
+		check();
+		if (value.mapId!=developerEventMap || value.resourceName!=XeenEventTextLoader::resourceNameForMap(value.mapId) ||
+			(!value.resourcePresent && !value.strings.empty())) {
+			if (developerText) failed=true;
+			throw std::invalid_argument("Developer map text resource identity changed");
+		}
+		if (developerText && (developerText->mapId!=value.mapId || developerText->resourceName!=value.resourceName ||
+			developerText->resourcePresent!=value.resourcePresent || developerText->strings!=value.strings)) {
+			failed=true;throw std::logic_error("Developer map text resource changed");
+		}
+		if (!developerText) developerText=value;
 	}
 	void admitRegionalText(const XeenEventTextFile &value) {
 		check();
@@ -269,6 +284,7 @@ private:
 		}
 		if (previous.regionalText) admitRegionalText(*previous.regionalText);
 		if (previous.vertigoText) admitVertigoText(*previous.vertigoText);
+		if (previous.developerText) admitEventText(*previous.developerText);
 		if (previous.learnedNames) admitLearnedSpellNames(*previous.learnedNames);
 		prepareMutationRanges();
 	}
@@ -533,6 +549,8 @@ private:
 			mutations.add(&state,sizeof(state));
 			if(state.monsters) mutations.add(state.monsters->data(),state.monsters->size()*sizeof(XeenActor));
 			mutations.add(state.objectOverrides.data(),state.objectOverrides.size()*sizeof(XeenObjectOverride));
+			mutations.add(state.wallItemOverrides.data(),state.wallItemOverrides.size()*sizeof(XeenWallItemOverride));
+			mutations.add(state.eventOverrides.data(),state.eventOverrides.size()*sizeof(XeenEventOverride));
 			mutations.add(state.cells.data(),state.cells.size()*sizeof(XeenBarrierOverride));
 		}
 		watchResourceMutations();
@@ -554,6 +572,7 @@ private:
 	void adoptJourneyBorrowRelease() noexcept { for (auto &revision : borrowRevisions) ++revision; }
 	const XeenWorld &w; const XeenPartyState &p; const XeenCamera &c; const XeenGameFlags &f;
 	std::uint64_t worldId, worldRevision;
+	std::optional<XeenMapIdentity> developerEventMap;
 	std::uint64_t partyId, rosterId, partyReplacement, rosterReplacement;
 	XeenSessionWorldState s;
 	std::array<XeenCharacter, 30> characters;
@@ -577,6 +596,7 @@ private:
 	std::vector<XeenMonsterRecord> cityStatistics;
 	std::optional<XeenEventTextFile> regionalText;
 	std::optional<XeenEventTextFile> vertigoText;
+	std::optional<XeenEventTextFile> developerText;
 	std::optional<XeenLearnedSpellNames> learnedNames;
 	std::uint64_t cacheRevision;
 	bool exactCaches;

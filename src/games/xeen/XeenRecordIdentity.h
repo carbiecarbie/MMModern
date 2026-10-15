@@ -29,6 +29,17 @@ struct XeenObjectIdentity {
 	}
 };
 
+struct XeenWallItemIdentity {
+	XeenMapIdentity mapId;
+	XeenMutable<std::size_t> recordIndex = 0;
+	friend bool operator==(XeenWallItemIdentity a, XeenWallItemIdentity b) {
+		return a.mapId == b.mapId && a.recordIndex == b.recordIndex;
+	}
+	friend bool operator<(XeenWallItemIdentity a, XeenWallItemIdentity b) {
+		return std::tie(a.mapId, a.recordIndex) < std::tie(b.mapId, b.recordIndex);
+	}
+};
+
 struct XeenEventIdentity {
 	XeenMapIdentity mapId;
 	XeenMutable<std::size_t> recordIndex = 0;

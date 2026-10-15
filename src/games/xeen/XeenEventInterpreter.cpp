@@ -153,7 +153,7 @@ std::optional<XeenEventExecutionError> preflightCityEvent(XeenWorld &world,
 			continue;
 		}
 		if(const auto *teleport=std::get_if<XeenEventTeleportAndExit>(&op)) {
-			if(teleport->mapId!=23 || teleport->x<0 || teleport->x>15 || teleport->y<0 || teleport->y>15)
+			if(!world.prepareEventTransition({{camera.mapId.side,teleport->mapId},teleport->x,teleport->y,camera.direction}))
 				return unsupported("Teleport destination is not supported yet");
 			continue;
 		}
@@ -262,9 +262,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::begin(
 			"script provider is absent", 0, state.logicalAddress);
 	}
 	const bool city=world.regionalJourney() && initialCamera.mapId==XeenMapIdentity(28);
-	if (!initialCamera.mapId || initialCamera.x < 0 || initialCamera.y < 0 ||
-			!(city ? xeenIndoorCoordinate(initialCamera.x,initialCamera.y) :
-				(initialCamera.x<16 && initialCamera.y<16)) || !validDirection(initialCamera.direction)) {
+	if (!world.eventCameraAdmitted(initialCamera)) {
 		return error(XeenEventExecutionErrorKind::InvalidInitialCamera,
 			"initial camera is outside the supported Xeen map domain", 0,
 			state.logicalAddress);
@@ -1195,9 +1193,9 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
    if(continueExecution && !callStack.empty())return error(XeenEventExecutionErrorKind::UnsupportedExecutionContext,
     "TeleportAndContinue with an active call stack is not supported yet",instructionCount,logical,decoded.source,target);
    try {
-    static_cast<void>(world.map(target.mapId));
-    if(!world.sampleCell(target.mapId,x,y))
-     return error(XeenEventExecutionErrorKind::UnsupportedTeleportDestination,"Teleport destination has no map cell",instructionCount,logical,decoded.source,target);
+    const auto transition=world.prepareEventTransition({target.mapId,x,y,workingCamera.direction});
+    if(!transition)
+     return error(XeenEventExecutionErrorKind::UnsupportedTeleportDestination,transition.reason,instructionCount,logical,decoded.source,target);
 			} catch (const std::exception &exception) {
 				return error(XeenEventExecutionErrorKind::MapLoadFailed,
 					std::string("failed to load teleport destination: ") + exception.what(),

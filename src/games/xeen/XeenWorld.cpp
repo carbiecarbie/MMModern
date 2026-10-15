@@ -124,6 +124,14 @@ XeenWorld::XeenWorld(MapLoader loader, ObjectLoader objectLoader) :
 		throw std::invalid_argument("XeenWorld requires a map loader");
 }
 
+bool XeenWorld::eventCameraAdmitted(const XeenCamera &camera) const noexcept {
+	if (!camera.mapId || camera.x<0 || camera.y<0 || unsigned(camera.direction)>3) return false;
+	const auto *state=_sessionState.mapState(camera.mapId);
+	const bool indoor=regionalJourney() && state && state->monsters && !state->outdoors;
+	return camera.x<(indoor?32:16) && camera.y<(indoor?32:16);
+}
+
+
 void XeenWorld::restoreSessionState(const std::vector<XeenObjectIdentity> &objects,
 		const std::vector<XeenEventIdentity> &events, const EventLoader &eventLoader) {
 	if (hasEncounterState()) throw std::logic_error("cannot restore an encounter world");
@@ -158,6 +166,8 @@ void XeenWorld::restoreSessionState(const std::vector<XeenObjectIdentity> &objec
 	for (const auto &entry:prepared._mapStates) {
 		auto &live=*_sessionState._mapStates.find(entry.first);auto &value=*prepared._mapStates.find(entry.first);
 		live.removedObjects.swap(value.removedObjects);live.disabledEvents.swap(value.disabledEvents);
+		live.eventOverrides.erase(std::remove_if(live.eventOverrides.begin(),live.eventOverrides.end(),
+			[&](const auto &v){return live.disabledEvents.count(v.id)!=0;}),live.eventOverrides.end());
 	}
 	++_ownerRevision;
 }
@@ -254,13 +264,62 @@ void XeenWorld::restoreObjectOverrides(const std::vector<XeenObjectOverride> &va
 	}
 }
 
+XeenMapEntity XeenWorld::effectiveWallItem(XeenWallItemIdentity id) {
+	const auto &file=objectFile(id.mapId);
+	if(!file.resourcePresent || id.recordIndex>=file.entities.wallItems.size())
+		throw std::invalid_argument("Original wall-item identity does not exist");
+	auto value=file.entities.wallItems[id.recordIndex];
+	if(const auto *state=_sessionState.mapState(id.mapId))
+		for(const auto &v:state->wallItemOverrides)if(v.id==id) {value.x=v.x;value.y=v.y;break;}
+	return value;
+}
+
+void XeenWorld::restoreWallItemOverrides(const std::vector<XeenWallItemOverride> &values) {
+	if(hasEncounterState() || values.size()>65536)throw std::invalid_argument("Invalid wall-item restoration owner/count");
+	for(std::size_t n=0;n<values.size();++n) {
+		const auto &v=values[n];static_cast<void>(map(v.id.mapId));
+		const auto &file=objectFile(v.id.mapId);
+		if(hasEncounterState() || !file.resourcePresent || v.id.recordIndex>=file.entities.wallItems.size())
+			throw std::invalid_argument("Restored original wall-item identity does not exist");
+		if(v.x<-128 || v.x>127 || v.y<-128 || v.y>127 || (n && !(values[n-1].id<v.id)))
+			throw std::invalid_argument("Invalid or duplicate wall-item override");
+	}
+	std::map<XeenMapIdentity,std::vector<XeenWallItemOverride>> prepared;
+	for(const auto &v:values) {prepared[v.id.mapId].push_back(v);static_cast<void>(_sessionState._mapStates.state(v.id.mapId));}
+	XeenMutationWatch::write(this);
+	for(const auto &entry:_sessionState._mapStates) {
+		auto &state=*_sessionState._mapStates.find(entry.first);const auto found=prepared.find(entry.first);
+		if(found!=prepared.end())state.wallItemOverrides.swap(found->second);else state.wallItemOverrides.clear();
+	}
+}
+
+void XeenWorld::restoreEventOverrides(const std::vector<XeenEventOverride> &values,const EventLoader &loader) {
+	if(hasEncounterState() || values.size()>65536)throw std::invalid_argument("Invalid Event restoration owner/count");
+	std::map<XeenMapIdentity,XeenEventFile> files;
+	for(std::size_t n=0;n<values.size();++n) {
+		const auto &v=values[n];static_cast<void>(map(v.id.mapId));
+		if(!loader)throw std::invalid_argument("Event restoration requires an event loader");
+		auto found=files.find(v.id.mapId);
+		if(found==files.end())found=files.emplace(v.id.mapId,loader(v.id.mapId)).first;
+		const auto &file=found->second;
+		if(hasEncounterState() || file.mapId!=v.id.mapId || !file.resourcePresent || v.id.recordIndex>=file.records.size())
+			throw std::invalid_argument("Restored original Event identity does not exist");
+		if(!v.opcode || _sessionState.isEventDisabled(v.id) || (n && !(values[n-1].id<v.id)))
+			throw std::invalid_argument("Invalid or duplicate Event replacement");
+	}
+	std::map<XeenMapIdentity,std::vector<XeenEventOverride>> prepared;
+	for(const auto &v:values) {prepared[v.id.mapId].push_back(v);static_cast<void>(_sessionState._mapStates.state(v.id.mapId));}
+	XeenMutationWatch::write(this);
+	for(const auto &entry:_sessionState._mapStates) {
+		auto &state=*_sessionState._mapStates.find(entry.first);const auto found=prepared.find(entry.first);
+		if(found!=prepared.end())state.eventOverrides.swap(found->second);else state.eventOverrides.clear();
+	}
+}
+
 std::optional<XeenObjectIdentity> XeenWorld::selectObject(const XeenCamera &camera) {
 	// An admitted indoor map (its monster table is staged) spans 32x32 cells
 	// through its neighbour tiles.
-	const auto *state=_sessionState.mapState(camera.mapId);
-	const bool city=regionalJourney() && state && state->monsters && !state->outdoors;
-	if (!camera.mapId || camera.x < 0 || camera.x >= (city?32:16) ||
-		camera.y < 0 || camera.y >= (city?32:16))
+	if (!eventCameraAdmitted(camera))
 		throw std::invalid_argument("invalid physical object-selection cell");
 	const auto &file = objectFile(camera.mapId);
 	if (!file.resourcePresent) return std::nullopt;
@@ -275,6 +334,8 @@ std::optional<XeenObjectIdentity> XeenWorld::selectObject(const XeenCamera &came
 
 XeenEventRecord XeenWorld::effectiveEvent(XeenEventIdentity id, const XeenEventRecord &base) const {
 	XeenEventRecord result = base;
+	if(const auto *state=_sessionState.mapState(id.mapId))
+		for(const auto &v:state->eventOverrides)if(v.id==id) {result.opcode=v.opcode;break;}
 	if (isEventDisabled(id)) result.opcode = 0;
 	return result;
 }
@@ -302,6 +363,8 @@ void XeenWorld::disableEventsAtCell(const XeenCamera &physical, const XeenEventF
 		if (record.x == physical.x && record.y == physical.y)
 			state.disabledEvents.insert({physical.mapId, i});
 	}
+	state.eventOverrides.erase(std::remove_if(state.eventOverrides.begin(),state.eventOverrides.end(),
+		[&](const auto &v){return state.disabledEvents.count(v.id)!=0;}),state.eventOverrides.end());
 }
 
 void XeenWorld::applyRemove(const XeenCamera &physical,
@@ -331,6 +394,8 @@ void XeenWorld::applyRemove(const XeenCamera &physical,
 	XeenMutationWatch::write(this);
 	state.removedObjects.swap(disabledObjects);
 	state.disabledEvents.swap(disabledEvents);
+	state.eventOverrides.erase(std::remove_if(state.eventOverrides.begin(),state.eventOverrides.end(),
+		[&](const auto &v){return state.disabledEvents.count(v.id)!=0;}),state.eventOverrides.end());
 	if (publication) publication->removed();
 }
 
@@ -501,6 +566,7 @@ std::unique_ptr<XeenWorld> XeenWorld::transitionCandidate() const {
 	// remains with the source world and its Flow lease.
 	candidate->_sessionState._entry=XeenEncounterEntry::Ordinary;
 	candidate->_detachedEventCandidate=true;
+	candidate->_developerEventMap=_developerEventMap;
 	candidate->_maps=_maps;candidate->_objects=_objects;
 	candidate->_cityStatistics=_cityStatistics;
 	candidate->_scenePresentation=_scenePresentation;
@@ -542,6 +608,8 @@ void XeenWorld::applyAlterEvent(const XeenCamera &physical, std::uint8_t line,
 		}
 	}
 	if (!found) throw std::invalid_argument("AlterEvent physical line was not found");
+	state.eventOverrides.erase(std::remove_if(state.eventOverrides.begin(),state.eventOverrides.end(),
+		[&](const auto &v){return state.disabledEvents.count(v.id)!=0;}),state.eventOverrides.end());
 }
 
 void XeenWorld::publishTransition(XeenWorld &candidate) noexcept {
