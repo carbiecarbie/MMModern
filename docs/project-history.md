@@ -287,3 +287,10 @@ shortened or split, twelve broken programs outside CTest were retired and
 eleven passing ones joined it, and the runner went parallel. The complete
 suite went from 29 minutes to about 3, with 209 tests instead of 195.
 [Plan](milestone-66-plan.md).
+
+**M67 - Equipped item contributions** (`11d3d72`). Metal weapons add hit and
+damage, elemental weapons add their element's damage against the monster's
+resistance, slaying weapons triple damage against their kind, and metal armor
+counts in combat; the old validation that refused these items before combat,
+Shoot and Rest is gone. Drafted in a cloud session and finished on Windows
+with the game data; released as v0.1.2. [Plan](milestone-67-plan.md).

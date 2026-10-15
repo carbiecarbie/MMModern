@@ -1,6 +1,6 @@
 # MMModern - Roadmap
 
-**M66 is the latest completed and accepted milestone.**
+**M67 is the latest completed and accepted milestone.**
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records completed milestones. Reference
 provenance belongs to [dependencies](dependencies.md).
@@ -99,10 +99,8 @@ regenerated each time, so progress is visible. Steps are direction, not
 approved plans, and the order may change when the census or play shows a
 better one.
 
-1. **Equipped item contributions** (M67): materials, attribute bonuses,
-   enchantments and resistances of equipped items in combat, Shoot and Rest.
-   Today an equipped material or enchanted item is refused there, which also
-   affects Vertigo's level-2 loot.
+1. **Equipped item contributions**: completed and accepted in
+   [M67](milestone-67-plan.md) (release v0.1.2).
 2. **Monster abilities**: flying movement (32 Clouds maps), ranged elemental
    attacks and the other unsupported attack and special types.
 3. **World Events**: `MoveWallObj`, `MakeNothingHere`, `JumpRnd`, mirrors,

@@ -1,11 +1,12 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M66 is the latest completed
-and accepted milestone** ([plan](milestone-66-plan.md)): the complete test
-suite now runs in about 3 minutes instead of 29, with more tests than before.
-M65 ([plan](milestone-65-plan.md)) added a census of every
-mechanic the original data uses, with its support status, is kept in
-[the coverage report](coverage.md). M64 ([plan](milestone-64-plan.md)) fixed the last
+This describes what can be played and done now. **M67 is the latest completed
+and accepted milestone** ([plan](milestone-67-plan.md)): equipped metal,
+elemental and enchanted items, rings and amulets count in combat, Shoot and
+Rest as in the original (release v0.1.2). M66 ([plan](milestone-66-plan.md))
+cut the complete test suite from 29 minutes to about 3, and M65
+([plan](milestone-65-plan.md)) keeps a census of every mechanic the original
+data uses, with its support status, in [the coverage report](coverage.md). M64 ([plan](milestone-64-plan.md)) fixed the last
 play-through findings in Vertigo and published the first public releases,
 [v0.1.0 and v0.1.1](https://github.com/carbiecarbie/MMModern/releases), a
 Windows zip whose launcher finds the GOG installation. M63
