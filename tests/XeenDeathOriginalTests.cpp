@@ -59,6 +59,13 @@ XeenSaveSnapshot conditionDeathSource(Inputs &in) {
  const auto random=f.w.sessionState().journeyRandom();const auto context=f.p.encounterContext;const auto food=f.p.food;
  f.act(AcknowledgeAction{});
  check(Access::active(*f.flow) && Access::phase(*f.flow)==P::Fire,"All noncombat terminal death routes enter original sequence");
+ // The final scene is the completed fire (all seventeen pairs) plus pair 34/35,
+ // never the gameplay with only the top pair (pin WorldOfXeenEngine::death).
+ {
+  const auto &draw=f.flow->drawDialogSprite;const auto &gameplay=Access::background(*f.flow);
+  check(Access::final(*f.flow).pixels==drawXeenDeathFinal(drawXeenDeathFire(gameplay,34,draw),draw).pixels &&
+   Access::final(*f.flow).pixels!=drawXeenDeathFinal(gameplay,draw).pixels,"Death final scene is built on the completed fire");
+ }
  unsigned fires=0,finals=0,laughs=0,restores=0,scrolls=0,closed=0,fades=0,retries=0;
  bool sawRestart=false;std::uint64_t sampleEnd=0;
  const auto advance=[&](std::uint64_t ms,bool acquire=true) {

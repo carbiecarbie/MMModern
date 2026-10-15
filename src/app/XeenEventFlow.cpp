@@ -261,7 +261,10 @@ IndexedFrame XeenEventFlow::drawDeath(const IndexedFrame &base) {
         const auto fireDuration=loadSampleDuration("fire.voc",XeenSceneArchive::Clouds);
         candidate.laughDuration=loadSampleDuration("xeenlaff.voc",XeenSceneArchive::Clouds);
         if(!fireDuration || !candidate.laughDuration)throw std::invalid_argument("Invalid original death sample duration");
-        candidate.final=drawXeenDeathFinal(base,drawDialogSprite);
+        // The final pair 34/35 is drawn over the last fire composition (all
+        // seventeen death.vga pairs), not over the gameplay: pin
+        // WorldOfXeenEngine::death and the DOS capture Morte.mkv (2026-10-13).
+        candidate.final=drawXeenDeathFinal(drawXeenDeathFire(base,34,drawDialogSprite),drawDialogSprite);
         _death=std::move(candidate);
     }
     const auto &death=*_death;
