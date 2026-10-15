@@ -32,7 +32,7 @@ struct XeenCombatRotationTestAccess {
 };
 struct XeenCombatPresentationTestAccess {
  static void readyTreasure(XeenEncounterFlow &f) {
-  f._party.monsterTreasure->pendingMask=512;f._party.monsterTreasure->pendingGold=10;
+  f._party.monsterTreasure->pendingMask=512;f._party.monsterTreasure->pendingGold=10;f._party.monsterTreasure->sources[9]={23,9};
   f.retainJourney();
  }
  static bool beginTreasure(XeenEncounterFlow &f){return f.beginMonsterReward(XeenItemCatalog{});}
@@ -136,7 +136,7 @@ void combatPublicationFaults(Source &source) {
  for(bool toad:{false,true}) {
   Domain original(source);auto saved=original.save();
   for(auto id:kXeenCombatOwners)saved.characters[id].currentHp=1000;
-  auto &a=saved.journey->actors[toad?14:9];a.x=8;a.y=11;a.activated=true;if(!toad)a.hp=1;
+  auto &a=saved.map(23).monsters->slots[toad?14:9];a.x=8;a.y=11;
   const auto ready=[&](Domain &d){
    d.flow->journeyAction(d.flow->ticket(),XeenEncounterAction::Forward);
    if(d.flow->state().phase()==XeenEncounterPhase::Exploring)d.flow->journeyPulse(d.flow->ticket());
@@ -197,10 +197,10 @@ void restoreConsequences(Source &source,const std::optional<std::filesystem::pat
   if(mode==1)bad.characters[0].conditions[12]=1;
   if(mode==2)bad.characters[0].currentHp=0;
   if(mode==3)bad.characters[0].conditions[8]=2;
-  if(mode==4)bad.journey->actors[9].hp=26;
+  if(mode==4)bad.map(23).monsters->slots[9].status=XeenActorStatus::Unsupported; // v13 saves no HP (decision 8).
   if(mode==5)for(auto id:kXeenCombatOwners)bad.characters[id].conditions[13]=2;
   if(mode==6)bad.journey->context->minutes=1260;
-  if(mode==7){auto &a=bad.journey->actors[9];a.x=a.y=-128;a.hp=0;a.lifecycle=XeenActorLifecycle::Defeated;a.activated=false;a.accounted=true;bad.journey->treasure->pendingMask=512;bad.journey->treasure->pendingGold=10;}
+  if(mode==7){auto &a=bad.map(23).monsters->slots[9];a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;bad.journey->treasure->pendingMask=512;bad.journey->treasure->pendingGold=10;save_test::bindTreasureSources(bad);}
   const bool canonical=mode==0 || mode==3 || mode==6;
   bool failed=false;try{Domain d(source,bad);if(canonical)save_test::sameSnapshot(bad,d.save());}catch(const std::exception &){failed=true;}
   check(failed!=canonical,"Canonical conditions/night restore; malformed/currently collectable state refused");
@@ -209,9 +209,10 @@ void restoreConsequences(Source &source,const std::optional<std::filesystem::pat
  Domain sleeping(source,sleep);save_test::sameSnapshot(sleep,sleeping.save());
  check(sleeping.flow->handle(ShootAction{}),"All-asleep Shoot produces explicit empty-eligibility refusal");sleeping.flow->holdJourneyFrame();sleeping.present();save_test::sameSnapshot(sleep,sleeping.save());
  check(sleeping.flow->journeyRefusal().find("no awake eligible")!=std::string::npos,"Empty eligibility has readable refusal and no time/RNG charge");
- auto pending=saved;auto &dead=pending.journey->actors[9];dead.x=dead.y=-128;dead.hp=0;dead.activated=false;dead.lifecycle=XeenActorLifecycle::Defeated;dead.accounted=true;
- auto &survivor=pending.journey->actors[8];survivor.x=7;survivor.y=11;survivor.activated=true;
+ auto pending=saved;auto &dead=pending.map(23).monsters->slots[9];dead.x=dead.y=-128;dead.lifecycle=XeenActorLifecycle::Defeated;dead.accounted=true;
+ auto &survivor=pending.map(23).monsters->slots[8];survivor.x=7;survivor.y=11;
  pending.journey->treasure->pendingMask=512;pending.journey->treasure->pendingGold=10;pending.journey->treasure->armor[0]={9,{0,2,0,0}};
+ save_test::bindTreasureSources(pending);
  Domain delayed(source,pending);save_test::sameSnapshot(pending,delayed.save());
  check(XeenSaveFormat::encode(pending)==XeenSaveFormat::encode(delayed.save()),"Artificial pending item/provenance exact bytes");
  if(fixture)XeenSaveFile::write(*fixture,delayed.save());
@@ -221,10 +222,10 @@ void individualMonsterTreasure(Source &source) {
  Domain original(source);const auto base=original.save();
  for(bool full:{false,true}) {
   auto saved=base;saved.camera={23,0,0,XeenDirection::South};
-  for(unsigned source:{8u,9u}) {auto &dead=saved.journey->actors[source];dead.x=dead.y=-128;dead.hp=0;dead.activated=false;
+  for(unsigned source:{8u,9u}) {auto &dead=saved.map(23).monsters->slots[source];dead.x=dead.y=-128;
    dead.lifecycle=XeenActorLifecycle::Defeated;dead.accounted=true;}
   saved.journey->treasure->armor[0]={9,{0,2,0,0}};
-  saved.journey->treasure->armor[1]={8,{0,3,0,0}};
+  saved.journey->treasure->armor[1]={8,{0,3,0,0}};save_test::bindTreasureSources(saved);
   for(auto id:kXeenCombatOwners) {
    saved.characters[id].weapons={};saved.characters[id].armor={};saved.characters[id].miscellaneous={};
    if(full) {
@@ -267,7 +268,7 @@ void individualMonsterTreasure(Source &source) {
 }
 void shootOrder(Source &source) {
  Domain original(source);auto saved=original.save();
- for(unsigned n=0;n<3;++n){auto &a=saved.journey->actors[9-n];a.x=8-n;a.y=11;a.activated=true;}
+ for(unsigned n=0;n<3;++n){auto &a=saved.map(23).monsters->slots[9-n];a.x=8-n;a.y=11;}
  saved.characters[0].weapons[8]={0,30,0,4};
  Domain d(source,saved);
  tape.clear();for(unsigned shot=0;shot<4;++shot){for(unsigned die=0;die<3;++die)tape.push_back({1,2,1});tape.push_back({1,20,shot<2?1u:19u});if(shot>=2)tape.push_back({1,56,56});}
@@ -308,10 +309,11 @@ void shootOrder(Source &source) {
 }
 void shootLethalPreparation(Source &source) {
  Domain original(source);auto saved=original.save();
- for(auto &other:saved.journey->actors)if(other.id.recordIndex!=9) {
-  other.x=other.y=-128;other.hp=0;other.activated=false;other.lifecycle=XeenActorLifecycle::Defeated;other.accounted=true;
+ auto &slots=saved.map(23).monsters->slots;
+ for(unsigned id=0;id<slots.size();++id)if(id!=9) {auto &other=slots[id];
+  other.x=other.y=-128;other.lifecycle=XeenActorLifecycle::Defeated;other.accounted=true;
  }
- auto &a=saved.journey->actors[9];a.x=8;a.y=11;
+ auto &a=saved.map(23).monsters->slots[9];a.x=8;a.y=11;
  for(unsigned mode=0;mode<3;++mode) {
   const bool overflow=mode==2,lethal=mode!=0;
   auto input=saved;
@@ -364,16 +366,16 @@ void indoorShoot(Source &source) {
   // Original north entrance geometry is also exercised without substitution.
   auto saved=source.service();saved.camera={28,15,original?0:15,XeenDirection(facing)};
   saved.journey->random=XeenJourneyRandomState{1,1,0};
-  for(auto &a:*saved.journey->vertigoActors) {
-   a.x=a.y=-128;a.hp=0;a.activated=false;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;
+  for(auto &a:saved.map(28).monsters->slots) {
+   a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;
   }
   const bool empty=mode==0,miss=mode==1,lethal=mode==2 || mode==3,overflow=mode==3;
   const unsigned targetId=mode==4?44:35;
-  auto &target=saved.journey->vertigoActors->at(targetId);
+  auto &target=saved.map(28).monsters->slots.at(targetId);
   if(!empty) {
    target.x=saved.camera.x+dx[facing]*int(depth);target.y=saved.camera.y+dy[facing]*int(depth);
    // Decision 8: the save carries MON HP; the wound and wake are live values.
-   target.hp=mode==4?20:2;target.activated=false;target.lifecycle=XeenActorLifecycle::Present;target.accounted=false;
+   target.lifecycle=XeenActorLifecycle::Present;target.accounted=false;
   }
   // Two simultaneous lanes must travel even when all their attacks miss.
   saved.characters[0].weapons[8]={0,30,0,4};
@@ -455,13 +457,20 @@ void indoorChangedShoot(Source &source) {
  check(bool(gate),"Original Shoot gate fixture absent");
  for(unsigned wall:{9u,3u,6u}) {
   auto saved=source.service();saved.camera=*gate;saved.journey->random=XeenJourneyRandomState{1,1,0};
-  for(auto &a:*saved.journey->vertigoActors) {
-   a.x=a.y=-128;a.hp=0;a.activated=false;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;
+  for(auto &a:saved.map(28).monsters->slots) {
+   a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;
   }
-  auto &a=saved.journey->vertigoActors->at(35);a.x=gate->x+dx[unsigned(gate->direction)];
-  a.y=gate->y+dy[unsigned(gate->direction)];a.hp=2;a.activated=false;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;
+  auto &a=saved.map(28).monsters->slots.at(35);a.x=gate->x+dx[unsigned(gate->direction)];
+  a.y=gate->y+dy[unsigned(gate->direction)];a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;
   if(wall!=9) {auto candidate=original.transitionCandidate();candidate->setBarrier(*gate,wall,wall==6);
-   saved.barriers=candidate->sessionState().barriers();}
+   // The candidate's barrier cells, as a save of that World writes them.
+   for(const auto &v:candidate->sessionState().barriers()) {
+    std::uint16_t word=v.originalWord;
+    for(unsigned f=0;f<4;++f)if(v.mask&(1u<<f))word=std::uint16_t((word&~(15u<<(12-4*f)))|(unsigned(v.walls[f])<<(12-4*f)));
+    const auto attributes=std::uint8_t(v.originalAttributes|(v.unlocked?0x80:0));
+    if(word!=v.originalWord || attributes!=v.originalAttributes)
+     saved.map(v.tile).cells.push_back({v.cell,word,attributes,v.originalWord,v.originalAttributes});
+   }}
   // Decision 8: the Slime's wound and wake are live fixture values.
   Domain d(source,saved,{},[](XeenWorld &w){XeenMonsterTestAccess::set(w,28,35,1,true);});
   tape={{1,2,1},{1,2,1},{1,2,1},{1,20,19},{1,50,50}};cursor=0;taped=true;
@@ -488,11 +497,12 @@ void blockReset(Source &source) {
  Domain original(source);auto saved=original.save();
  // Isolate the two original Ogres for Block/turn bookkeeping; these are
  // explicitly artificial rule arrangements, never paid-route evidence.
- for(auto &a:saved.journey->actors)if(a.id.recordIndex!=14 && a.id.recordIndex!=15) {
-  a.x=a.y=-128;a.hp=0;a.activated=false;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;
+ auto &slots=saved.map(23).monsters->slots;
+ for(unsigned id=0;id<slots.size();++id)if(id!=14 && id!=15) {auto &a=slots[id];
+  a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;
  }
  for(auto id:kXeenCombatOwners){saved.characters[id].currentHp=1000;saved.characters[id].conditions[8]=id!=0;}
- auto &a=saved.journey->actors[14],&b=saved.journey->actors[15];a.x=8;a.y=11;a.activated=true;b.x=7;b.y=11;b.activated=true;
+ auto &a=saved.map(23).monsters->slots[14],&b=saved.map(23).monsters->slots[15];a.x=8;a.y=11;b.x=7;b.y=11;
  Domain d(source,saved);
  d.flow->journeyAction(d.flow->ticket(),XeenEncounterAction::Forward);
  if(d.flow->state().phase()==XeenEncounterPhase::Exploring)d.flow->journeyPulse(d.flow->ticket());

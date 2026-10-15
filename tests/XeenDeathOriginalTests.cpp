@@ -46,7 +46,7 @@ IndexedFrame scroll(const IndexedFrame &base,unsigned index,const XeenDialogSpri
 XeenSaveSnapshot conditionDeathSource(Inputs &in) {
  auto source=in.service();source.journey->context->minutes=1439;
  for(auto owner:source.activeRosterIds)source.characters[owner].conditions[2]=255;
- for(auto &actor:*source.journey->vertigoActors){actor.x=actor.y=-128;actor.hp=0;actor.activated=false;actor.lifecycle=XeenActorLifecycle::Defeated;actor.accounted=true;}
+ for(auto &actor:source.map(28).monsters->slots){actor.x=actor.y=-128;actor.lifecycle=XeenActorLifecycle::Defeated;actor.accounted=true;}
  return source;
 }void sequence(Inputs &in,bool longSample,bool skipScroll) {
  const auto source=conditionDeathSource(in);

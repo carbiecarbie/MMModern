@@ -85,9 +85,11 @@ void same(const XeenSaveSnapshot &s, Destination &d) {
 	for(unsigned i=0;i<30;++i) check(xeen_state::sameInputs(s.journey->supplements[i].inputs,*d.p.roster.combatInputs(i)),"all owner supplements");
 	check(d.p.encounterContext==s.journey->context && d.w.sessionState().skeletonSeed()==s.journey->skeletonSeed,"context/seed exact");
     const auto mob=regional_journey_test::regionalObjects();const auto mon=regional_test::statistics();
-    for(unsigned i=0;i<19;++i){const auto &saved=s.journey->actors[i];
+    for(unsigned i=0;i<19;++i){const auto &saved=s.map(23).monsters->slots[i];
         XeenActor expected;expected.id={23,i};expected.original=mob.entities.monsters[i];expected.statistics=mon.at(expected.original.resourceId);
-        expected.x=saved.x;expected.y=saved.y;expected.hp=saved.hp;expected.activated=saved.activated;expected.lifecycle=saved.lifecycle;expected.status=saved.status;
+        // A game load rebuilds HP and wake state (decision 8); the camera view wakes none here.
+        expected.x=saved.x;expected.y=saved.y;expected.lifecycle=saved.lifecycle;expected.status=saved.status;
+        expected.hp=saved.lifecycle==XeenActorLifecycle::Present ? std::int32_t(expected.statistics->baseHp()) : 0;
         check(xeen_state::sameActor(expected,d.w.sessionState().monsters(23)[i]),"independent complete actor oracle");
     }
 	check(XeenSaveFormat::encode(s)==XeenSaveFormat::encode(d.capture()),"all exact detached fields");
@@ -103,7 +105,7 @@ void roundtrips() {
 		s.characters[0].currentHp=-300; s.characters[0].conditions[12]=1;
 		s.characters[0].accessories[7]={200,1,0,8}; // Historical injury, Journey-valid but melee-unready (material outside the tables).
 		s.questItems[17]=7; s.questFlags[2]=true; s.gameFlags[7]=true;
-		s.disabledObjects={{23,0}}; s.disabledEvents={{23,0}};
+		save_test::setRemovedObjects(s,{{23,0}}); save_test::setDisabledEvents(s,{{23,0}});
 		for(unsigned pass=0;pass<3;++pass) {
 			Destination d; d.restore(XeenSaveFormat::decode(XeenSaveFormat::encode(s))); d.bind(); same(s,d);
 			rejects([&]{xeenValidateJourneyMelee(d.p);});
@@ -236,20 +238,20 @@ void failures() {
 	}
 	Destination stale;stale.restore(s);stale.f.set(7);rejects([&]{stale.bind();});check(!XeenSaveState::canCapture(stale.p,stale.c,stale.w),"binding rejects postpublication mutation");
 	{
-		// Decision 8 (M69 A2): the v12 HP field is not durable data. A saved
-		// wound is ignored and the game load rebuilds the Orc at its MON HP.
-		auto wounded=s;wounded.journey->actors[5].hp=21;Destination d;d.restore(wounded);
-		const auto &orc=d.w.sessionState().monsters(23)[5];check(orc.hp==orc.statistics->baseHp() && orc.hp!=21,"game load ignores a saved monster wound");
+		// Decision 8: HP is not durable data; v13 has no field for it, and the
+		// game load rebuilds the Orc at its MON HP.
+		Destination d;d.restore(s);
+		const auto &orc=d.w.sessionState().monsters(23)[5];check(orc.hp==orc.statistics->baseHp(),"game load rebuilds a monster at MON HP");
 	}
 	for(unsigned kind=0;kind<8;++kind) {
 		auto bad=s;switch(kind) {
 		case 0:bad.resources.clouds.crc32++;break;
-		case 1:bad.journey->actors[5].accounted=true;break;
-		case 2:bad.journey->actors[5].hp=0;break; // A live monster still needs positive HP.
-		case 3:bad.journey->actors[5].x=16;break;
+		case 1:bad.map(23).monsters->slots[5].accounted=true;break;
+		case 2:bad.map(23).monsters->slots[5].x=-1;break; // A live monster still needs a cell.
+		case 3:bad.map(23).monsters->slots[5].x=16;break;
 		case 4:bad.journey->context->minutes=1440;break;
-		case 5:bad.journey->actors[5].id.recordIndex=6;break;
-		case 6:bad.journey->originalActorCount=18;break;
+		case 5:bad.map(23).monsters->slots[5].spawnedType=0;break; // A MOB record binds its own type.
+		case 6:bad.map(23).monsters->originalCount=18;break;
 		case 7:bad.characters[0].learnedSpells.reset();break;
 		}Destination d;rejects([&]{d.restore(bad);});check(!d.w.hasEncounterState(),"invalid domain not published");
 	}
@@ -380,7 +382,7 @@ int main(int argc,char **argv) {
 		const auto directory=std::filesystem::temp_directory_path()/("mmodern-journey-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));
 		application(directory);
 		for(auto s:{moved(),ended()}) {
-			const auto label=s.journey->actors[5].accounted?"ended":"moved";
+			const auto label=s.map(23).monsters->slots[5].accounted?"ended":"moved";
 			auto input=directory/(std::string(label)+"0.mmsave");XeenSaveFile::write(input,s);
 			for(unsigned n=1;n<=2;++n) {
 				const auto output=directory/(std::string(label)+std::to_string(n)+".mmsave");

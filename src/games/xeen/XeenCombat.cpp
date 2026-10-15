@@ -1026,7 +1026,7 @@ XeenCombatResult XeenCombat::serviceCast(const Ticket &t,std::uint64_t now) {
             if(!c.arrow->service(draw)){++d.generation;return d.adopt(c.operation,Status::Pending);}
             c.impactRandom=c.random.continuation();
             if(!c.arrow->resisted && std::int64_t(bound.hp)-c.arrow->damage<=0 && bound.original.resourceId==6)
-                c.drop.emplace(*d.party.monsterTreasure,bound.id.recordIndex);
+                c.drop.emplace(*d.party.monsterTreasure,bound.id);
             c.arrowDone=true;
         }
         if(stage==XeenCombatCastPhase::PostImpact && c.drop && !c.drop->service(draw)){++d.generation;return d.adopt(c.operation,Status::Pending);}
@@ -1221,7 +1221,7 @@ XeenCombatResult XeenCombat::serviceConsequences(const Ticket &t) {
 			c.result.actorHpAfter=std::max(c.result.actorHpBefore-c.player->damage,0);
 			c.result.attackOutcome=!c.player->hit?AttackOutcome::Miss:c.player->damage?AttackOutcome::HitPositiveDamage:AttackOutcome::HitZeroDamage;
 			if(!c.result.actorHpAfter && d.actors.at(c.result.monster.recordIndex).original.resourceId==6)
-				c.drop.emplace(*d.party.monsterTreasure,c.result.monster.recordIndex);
+				c.drop.emplace(*d.party.monsterTreasure,c.result.monster);
 			c.physicalDone=true;
 			if(c.sequenced && c.player->damage>0) {
 				c.impactActor=d.actors.at(c.result.monster.recordIndex);

@@ -1,5 +1,6 @@
 // Earned original-resource witness: only presented-frame gameplay input changes
 // owners. Synthetic fault and arithmetic fixtures live in separate test targets.
+#include "XeenDecisionNine.h"
 #include "XeenProbeFired.h"
 #include "app/Application.h"
 #include "app/XeenGameplayServices.h"
@@ -225,7 +226,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         };
         const auto checkpoint=[&](std::string label) {
             auto oldSaves=std::make_shared<unsigned>();
-            inspect([&,oldSaves]{check(flow->canSave(),"M41 checkpoint not Quiet");*oldSaves=saves;
+            inspect([&,oldSaves,label]{check(flow->canSave(),"M41 checkpoint not Quiet");xeen_decision9::check(*world,*position,label,label=="A" || label=="B");*oldSaves=saves;
                 SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=SDLK_F9;e.key.keysym.scancode=SDL_SCANCODE_F9;e.key.timestamp=SDL_GetTicks()+1;
                 check(SDL_PushEvent(&e)==1,"M41 F9 enqueue failed");acted=true;});
             steps.push_back([&,oldSaves,label] {
@@ -285,7 +286,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 constexpr unsigned xp[]{1016,3280,1016,1016,3280,1280};
                 for(unsigned n=0;n<6;++n){const auto owner=kXeenCombatOwners[n];check(party->roster.at(owner).currentHp==hp[n] &&
                     party->roster.at(owner).currentSp==sp[n] && party->roster.combatInputs(owner)->experience==xp[n],"M41 Slime checkpoint mismatch");}
-            });route("UUULUUUUURUUUU");inspect([&]{expect(8,808,870,4226505513u,1073);});checkpoint("A");
+            // Decision 9: back up facing East from (15,7) to (10,7), so the view
+            // West never wakes Slime #34 before the resumed checkpoints A and B.
+            });route("UUURDDDDDLUUUU");inspect([&]{expect(8,808,870,4226505513u,1073);});checkpoint("A");
         }
         if(!resume || stage=="A") {
             inspect(beginService);

@@ -32,7 +32,6 @@ XeenSaveSnapshot initial(){PauseTape pause;
  saved.characters=XeenPartyLoader().loadFromResources(bytes,pty()).roster.characters();
  for(unsigned i=0;i<30;++i){saved.characters[i].learnedSpells=XeenCharacterFormat::parseLearnedSpells(bytes,i);saved.journey->supplements[i]={static_cast<std::uint8_t>(i),XeenCharacterFormat::parseCombatInputs(bytes,i,true,true,true)};}
  constexpr unsigned levels[]{3,3,3,4,3,3};for(unsigned i=0;i<6;++i){auto &c=saved.characters[kXeenCombatOwners[i]];c.permanentLevel=levels[i];c.temporaryLevel=0;}
- for(unsigned i:{16u,17u,18u})saved.journey->actors[i].hp=30;
  saved.journey->context->minutes=480;return saved;
 }
 struct Domain {
@@ -48,7 +47,8 @@ struct Domain {
 };
 XeenSaveSnapshot group(std::initializer_list<unsigned> ids) {
  Domain original;auto s=original.save();s.camera={23,4,14,XeenDirection::East};
- for(auto &a:s.journey->actors){if(std::find(ids.begin(),ids.end(),a.id.recordIndex)!=ids.end()){a.x=5;a.y=14;a.activated=true;}else{a.x=a.y=-128;a.hp=0;a.activated=false;a.accounted=true;a.lifecycle=XeenActorLifecycle::Defeated;}}
+ auto &slots=s.map(23).monsters->slots;
+ for(unsigned id=0;id<slots.size();++id){auto &a=slots[id];if(std::find(ids.begin(),ids.end(),id)!=ids.end()){a.x=5;a.y=14;}else{a.x=a.y=-128;a.accounted=true;a.lifecycle=XeenActorLifecycle::Defeated;}}
  for(auto id:kXeenCombatOwners)s.characters[id].currentHp=200;
  return s;
 }
@@ -117,7 +117,7 @@ void scheduler(){
   {check(c.pending()==Work::Enemy&&cursor==2,"New round selects enemy before movement");c.service(c.ticket());c.service(c.ticket());check(cursor==4&&d.p.encounterContext->minutes==490&&c.pending()==Work::Round,"new-round attacks publish before charge");auto published=*d.w.sessionState().journeyRandom();c.setProbe([]{throw std::runtime_error("Round observation failure");});check(c.service(c.ticket()).status==Status::Failed&&*d.w.sessionState().journeyRandom()==published&&d.p.encounterContext->minutes==490,"Round failure retains selection attacks");}
  }
  // A final-player lethal skips Round even with a live off-contact survivor.
- auto saved=group({9,17});saved.journey->actors[17].x=7;saved.journey->actors[17].y=14;saved.characters[6].permanentLevel=24;saved.journey->supplements[6].inputs.might={50,0};
+ auto saved=group({9,17});saved.map(23).monsters->slots[17].x=7;saved.map(23).monsters->slots[17].y=14;saved.characters[6].permanentLevel=24;saved.journey->supplements[6].inputs.might={50,0};
  Domain d(saved);auto &c=d.engage();for(unsigned i=0;i<5;++i)action(c,Command::Block);
  check(c.participant()==5,"last player selected");std::vector<Draw> hits;for(unsigned i=0;i<4;++i){hits.push_back({1,3,3});hits.push_back({1,20,10});}Tape lethal(hits);
  auto r=action(c,Command::Attack);check(r.status!=Status::Failed&&c.phase()==Phase::VictoryAwaitingEnd,"final-player lethal skips Round");auto minutes=d.p.encounterContext->minutes;auto survivor=d.w.sessionState().monsters(23)[17];check(c.service(c.ticket()).status==Status::Victory&&d.p.encounterContext->minutes==minutes+1&&xeen_state::sameActor(survivor,d.w.sessionState().monsters(23)[17]),"End does not move off-contact survivor");

@@ -60,10 +60,11 @@ void finish(Fixture &f) {
 }
 std::vector<XeenActor> actors(Inputs &in,const XeenSaveSnapshot &s) {
  auto result=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,s.camera.mapId),in.statistics);
- const auto &saved=s.camera.mapId==XeenMapIdentity(23)?s.journey->actors:*s.journey->vertigoActors;
+ const auto &saved=s.map(s.camera.mapId).monsters->slots;
  for(unsigned n=0;n<result.size();++n) {
-  result[n].x=saved[n].x;result[n].y=saved[n].y;result[n].hp=saved[n].hp;
-  result[n].activated=saved[n].activated;result[n].lifecycle=saved[n].lifecycle;
+  // A load rebuilds MON HP, asleep (decision 8).
+  result[n].x=saved[n].x;result[n].y=saved[n].y;if(saved[n].lifecycle==XeenActorLifecycle::Defeated)result[n].hp=0;
+  result[n].activated=false;result[n].lifecycle=saved[n].lifecycle;
  }
  return result;
 }
@@ -90,8 +91,7 @@ XeenSaveSnapshot source(Inputs &in,bool indoor,bool nearby=false,bool ranged=fal
    const auto moved=XeenActorApproach::move(live,camera,[&](const auto &a,int x,int y){return xeenIndoorActorTerrain(world,a,x,y);},true,{},XeenActorOpportunityContext{true});
    if(!XeenIndoorScene().classifyActors(world,camera,moved).engaged())continue;
   }
-  s.camera=camera;auto &saved=indoor?*s.journey->vertigoActors:s.journey->actors;
-  for(unsigned n=0;n<saved.size();++n)saved[n].activated=saved[n].activated || view.activation[n];
+  s.camera=camera; // Saved monsters load asleep; the arrival view wakes them (decision 8).
   std::cout<<"Rest fixture "<<camera.mapId<<' '<<x<<','<<y<<" facing "<<d<<" nearby="<<nearby<<" ranged="<<ranged<<'\n';
   return s;
  }
@@ -291,10 +291,10 @@ void sleepingHit(Inputs &in) {
  for(auto owner:start.activeRosterIds)start.characters[owner].currentHp=1000;
  start.characters[0].characterClass=XeenCharacterClass::Knight;
  start.characters[0].permanentLevel=1;start.journey->supplements[0].inputs.luck->permanent=0;
- for(unsigned n=0;n<start.journey->vertigoActors->size();++n) {
-  auto &a=start.journey->vertigoActors->at(n);if(a.lifecycle!=XeenActorLifecycle::Present)continue;
-  if(n==0){a.x=11;a.y=4;a.activated=false;}
-  else {a.x=a.y=-128;a.hp=0;a.activated=false;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
+ for(unsigned n=0;n<start.map(28).monsters->slots.size();++n) {
+  auto &a=start.map(28).monsters->slots.at(n);if(a.lifecycle!=XeenActorLifecycle::Present)continue;
+  if(n==0){a.x=11;a.y=4;}
+  else {a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
  }
  const auto previous=in.statistics[2];auto &monster=in.statistics[2];
  monster.raw[24]=1;monster.raw[25]=unsigned(start.characters[0].characterClass);monster.raw[26]=1;monster.raw[27]=0;

@@ -76,58 +76,74 @@ struct Dump {
     V(XeenMerchantWares, F(records);)
     V(XeenBankBalances, F(gold); F(gems);)
     V(XeenServiceEconomy, F(wares); F(bank);)
-    V(XeenBarrierOverride, F(tile); F(cell); F(mask); F(originalWord); F(originalAttributes); F(walls); F(unlocked);)
-    V(XeenObjectOverride, F(id); F(x); F(y); F(flipped);)
-    V(XeenExploredTile, F(mapId); F(cells);)
-    V(XeenSaveJourneyActor, F(id); F(x); F(y); F(hp); F(activated); F(lifecycle); F(status); F(accounted); F(spawnedType);)
+    V(XeenSaveMonster, F(x); F(y); F(lifecycle); F(status); F(accounted); F(spawnedType);)
+    V(XeenSaveMonsterTable, F(originalCount); F(slots);)
+    V(XeenSaveObjectOverride, F(record); F(x); F(y); F(flipped);)
+    V(XeenSaveWallItemOverride, F(record); F(x); F(y);)
+    V(XeenSaveCellOverride, F(cell); F(word); F(attributes); F(originalWord); F(originalAttributes);)
+    V(XeenSaveEventOverride, F(record); F(opcode);)
+    V(XeenSaveMapState, F(id); F(monsters); F(objects); F(wallItems); F(cells); F(events); F(explored);)
     V(XeenSaveJourney, F(entry); F(schema); F(content); F(context); F(supplements); F(skeletonSeed);
-        F(random); F(initializedMap); F(originalActorCount); F(actors); F(vertigoActors);
-        F(cityOriginalActorCount); F(treasure); F(worldFlags); F(serviceEconomy);)
+        F(random); F(treasure);
+        // The saved source slots 0..n-1 keep the B build's `treasureSources` paths.
+        if (v.treasure) { std::vector<XeenMonsterIdentity> sources;
+            for (const auto &id : v.treasure->sources) if (id.mapId) sources.push_back(id);
+            value(p + ".treasureSources", sources); }
+        F(worldFlags); F(serviceEconomy);)
     V(XeenSaveSnapshot, F(resources); F(name); F(food); F(camera); F(activeRosterIds); F(characters);
-        F(questItems); F(questFlags); F(gameFlags); F(disabledObjects); F(disabledEvents);
-        F(barriers); F(objectOverrides); F(exploredTiles); F(headCache); F(journey);)
+        F(questItems); F(questFlags); F(gameFlags); F(headCache); F(journey); F(maps);)
 #undef V
 #undef F
 };
 // Per-map view (M69): the live per-map table's values under paths keyed by map
 // identity and record, independent of the save layout. Absent and empty
-// entries are equivalent, so only present values are written. This build
-// projects the v12 layout exactly as restore distributes it: the Journey
-// actors are the entry map's table, the city actors map 28's table, and every
-// overlay belongs to its own identity's map or physical tile.
+// entries are equivalent, so only present values are written. v13 stores the
+// table itself; the view keeps the v12 build's paths (a removed object, the
+// barrier faces and unlocked bit of a cell) so both builds compare. HP and
+// wake state are no longer saved (decision 8).
 void perMap(Dump &d, const XeenSaveSnapshot &s) {
     d.value("view.perMap", 1); // Marks a build whose dump writes this view.
     const auto key = [](XeenMapIdentity id) {
         return "maps[" + std::to_string(unsigned(XeenSide(id.side))) + ":" + std::to_string(unsigned(id.number)) + "]";
     };
-    const auto monsters = [&](XeenMapIdentity id, const std::vector<XeenSaveJourneyActor> &actors, std::size_t original) {
-        const auto p = key(id) + ".monsters";
-        d.value(p + ".present", true); d.value(p + ".size", actors.size()); d.value(p + ".originalCount", original);
-        for (const auto &a : actors) {
-            const auto m = p + "[" + std::to_string(std::size_t(a.id.recordIndex)) + "]";
-            d.value(m + ".x", a.x); d.value(m + ".y", a.y); d.value(m + ".hp", a.hp); d.value(m + ".activated", a.activated);
-            d.value(m + ".lifecycle", a.lifecycle); d.value(m + ".status", a.status); d.value(m + ".accounted", a.accounted);
-            d.value(m + ".spawnedType", a.spawnedType);
+    for (const auto &m : s.maps) {
+        if (m.monsters) {
+            const auto p = key(m.id) + ".monsters";
+            d.value(p + ".present", true); d.value(p + ".size", m.monsters->slots.size());
+            d.value(p + ".originalCount", std::size_t(m.monsters->originalCount));
+            for (std::size_t i = 0; i < m.monsters->slots.size(); ++i) {
+                const auto &a = m.monsters->slots[i];
+                const auto n = p + "[" + std::to_string(i) + "]";
+                d.value(n + ".x", a.x); d.value(n + ".y", a.y); d.value(n + ".lifecycle", a.lifecycle);
+                d.value(n + ".status", a.status); d.value(n + ".accounted", a.accounted); d.value(n + ".spawnedType", a.spawnedType);
+            }
         }
-    };
-    if (s.journey) {
-        monsters(s.journey->initializedMap, s.journey->actors, s.journey->originalActorCount);
-        if (s.journey->vertigoActors) monsters(28, *s.journey->vertigoActors, s.journey->cityOriginalActorCount);
+        for (const auto &v : m.objects) {
+            const auto o = key(m.id) + ".objects[" + std::to_string(unsigned(v.record)) + "]";
+            if (v.x == -128 && v.y == -128) d.value(o + ".removed", true);
+            else { d.value(o + ".x", v.x); d.value(o + ".y", v.y); d.value(o + ".flipped", v.flipped); }
+        }
+        for (const auto &v : m.wallItems) {
+            const auto o = key(m.id) + ".wallItems[" + std::to_string(unsigned(v.record)) + "]";
+            d.value(o + ".x", v.x); d.value(o + ".y", v.y);
+        }
+        for (const auto &v : m.events)
+            d.value(key(m.id) + ".events[" + std::to_string(unsigned(v.record)) + "].opcode", v.opcode);
+        for (const auto &v : m.cells) {
+            const auto c = key(m.id) + ".cells[" + std::to_string(unsigned(v.cell)) + "]";
+            d.value(c + ".word", v.word); d.value(c + ".attributes", v.attributes);
+            d.value(c + ".originalWord", v.originalWord); d.value(c + ".originalAttributes", v.originalAttributes);
+            // The changed faces and unlocked bit, as the v12 build's view wrote them.
+            std::uint8_t mask = 0; std::array<std::uint8_t, 4> walls{};
+            for (unsigned f = 0; f < 4; ++f) {
+                const auto shift = 12 - 4 * f;
+                const auto wall = (v.word >> shift) & 15u;
+                if (wall != ((v.originalWord >> shift) & 15u)) { mask |= 1u << f; walls[f] = std::uint8_t(wall); }
+            }
+            d.value(c + ".mask", mask); d.value(c + ".walls", walls); d.value(c + ".unlocked", v.attributes != v.originalAttributes);
+        }
+        if (m.explored) d.value(key(m.id) + ".explored", *m.explored);
     }
-    for (const auto &id : s.disabledObjects)
-        d.value(key(id.mapId) + ".objects[" + std::to_string(std::size_t(id.recordIndex)) + "].removed", true);
-    for (const auto &v : s.objectOverrides) {
-        const auto o = key(v.id.mapId) + ".objects[" + std::to_string(std::size_t(v.id.recordIndex)) + "]";
-        d.value(o + ".x", v.x); d.value(o + ".y", v.y); d.value(o + ".flipped", v.flipped);
-    }
-    for (const auto &id : s.disabledEvents) // A disabled record is an opcode-0 override.
-        d.value(key(id.mapId) + ".events[" + std::to_string(std::size_t(id.recordIndex)) + "].opcode", 0);
-    for (const auto &v : s.barriers) {
-        const auto c = key(v.tile) + ".cells[" + std::to_string(unsigned(v.cell)) + "]";
-        d.value(c + ".mask", v.mask); d.value(c + ".originalWord", v.originalWord);
-        d.value(c + ".originalAttributes", v.originalAttributes); d.value(c + ".walls", v.walls); d.value(c + ".unlocked", v.unlocked);
-    }
-    for (const auto &tile : s.exploredTiles) d.value(key(tile.mapId) + ".explored", tile.cells);
 }
 Dump decoded(const save_test::Bytes &wire) {
     auto snapshot = XeenSaveFormat::decode(wire); // Validates length, version and CRC.
@@ -152,28 +168,31 @@ void selfTest() {
     save_test::check(a.at("snapshot.characters[0].name").size() == 36, "DOS string bytes lost");
     s.characters[29].awards[127] = 7;
     s.characters[29].skills[17]=255;
-    s.exploredTiles={{23,{}}};s.exploredTiles[0].cells[31]=128;
+    s.map(23).explored.emplace();(*s.map(23).explored)[31]=128;
     s.journey->random->count = 0xffffffffffffffffULL;
     s.journey->serviceEconomy->bank.gold = 123;
-    auto &orc=s.journey->actors[2];orc.hp=0;orc.x=orc.y=-128;orc.activated=false;orc.accounted=true;orc.lifecycle=XeenActorLifecycle::Defeated;
-    s.journey->treasure->miscellaneous[0]={2,{9,15,8,0}};
+    auto &orc=s.map(23).monsters->slots[2];orc.x=orc.y=-128;orc.accounted=true;orc.lifecycle=XeenActorLifecycle::Defeated;
+    s.journey->treasure->miscellaneous[0]={0,{9,15,8,0}};s.journey->treasure->sources[0]={23,2};
+    s.map(28).cells.push_back({255,0x1999,0x80,0x9999,0});
     const auto b = decoded(XeenSaveFormat::encode(s)).fields;
     save_test::check(b.at("snapshot.characters[29].skills[17]")=="255", "skill omitted");
-    save_test::check(b.at("snapshot.exploredTiles[0].cells[31]")=="128", "exploration omitted");
     save_test::check(b.at("snapshot.characters[29].awards[127]") == "7", "award omitted");
     save_test::check(b.at("snapshot.journey.value.random.value.count") == "18446744073709551615", "uint64 truncated");
     save_test::check(b.at("snapshot.journey.value.serviceEconomy.value.bank.gold") == "123", "bank omitted");
     const std::string misc="snapshot.journey.value.treasure.value.miscellaneous";
-    save_test::check(b.at(misc+"[0].source")=="2" && b.at(misc+"[0].item.material")=="9" &&
+    save_test::check(b.at(misc+"[0].source")=="0" && b.at(misc+"[0].item.material")=="9" &&
         b.at(misc+"[0].item.id")=="15" && b.at(misc+"[0].item.state")=="8" && b.at(misc+"[9].item.frame")=="0","Pending Misc omitted");
-    // The per-map view keys the moved fields by map identity and record.
+    save_test::check(b.at("snapshot.journey.value.treasureSources[0].mapId.number")=="23" &&
+        b.at("snapshot.journey.value.treasureSources[0].recordIndex")=="2","Treasure source omitted");
+    // The per-map view keys the table by map identity and record.
     save_test::check(b.at("maps[0:23].monsters[2].lifecycle")==std::to_string(unsigned(XeenActorLifecycle::Defeated)) &&
         b.at("maps[0:23].monsters[2].accounted")=="1" && b.at("maps[0:23].monsters.present")=="1" &&
-        b.at("maps[0:23].monsters.originalCount")==std::to_string(s.journey->originalActorCount) &&
-        b.at("maps[0:23].explored[31]")=="128","Per-map monster/exploration view omitted");
-    save_test::check(b.at("maps[0:9999].objects[4294967295].removed")=="1" &&
-        b.at("maps[0:3].events[1].opcode")=="0" && b.count("maps[0:28].monsters.present")==bool(s.journey->vertigoActors),
-        "Per-map overlay view omitted or invented a city table");
+        b.at("maps[0:23].monsters.originalCount")==std::to_string(s.map(23).monsters->originalCount) &&
+        b.at("maps[0:23].explored[31]")=="128" && !b.count("maps[0:23].monsters[2].hp"),"Per-map monster/exploration view omitted");
+    save_test::check(b.at("maps[0:9999].objects[65535].removed")=="1" &&
+        b.at("maps[0:3].events[1].opcode")=="0" && !b.count("maps[0:28].monsters.present") &&
+        b.at("maps[0:28].cells[255].mask")=="1" && b.at("maps[0:28].cells[255].walls[0]")=="1" &&
+        b.at("maps[0:28].cells[255].unlocked")=="1","Per-map overlay view omitted or invented a city table");
     bytes.back() ^= 1;
     save_test::rejects([&] { decoded(bytes); });
     std::cout << "Canonical dump, DOS bytes, awards, RNG, bank and CRC rejection passed\n";

@@ -121,9 +121,9 @@ struct Inputs {
     XeenSaveSnapshot service(unsigned day=8,unsigned xp=9000){
         auto s=base();s.camera={28,10,11,XeenDirection::North};s.journey->context->day=day;
         const auto actors=XeenActorApproach::actorsFromResources(maps.loadObjects(assets,28),statistics);
-        s.journey->vertigoActors.emplace();
-        for(const auto &a:actors)s.journey->vertigoActors->push_back({a.id,a.x,a.y,a.hp,a.activated,a.lifecycle,a.status,false});
-        auto &a=s.journey->vertigoActors->at(35);a.x=a.y=-128;a.hp=0;a.activated=false;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;
+        s.map(28).monsters.emplace(XeenSaveMonsterTable{std::uint16_t(actors.size()),{}});
+        for(const auto &a:actors)s.map(28).monsters->slots.push_back({a.x,a.y,a.lifecycle,a.status,false,-1});
+        auto &a=s.map(28).monsters->slots.at(35);a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;
         s.journey->supplements[18].inputs.experience=xp;s.journey->supplements[1].inputs.experience=xp;
         return s;
     }

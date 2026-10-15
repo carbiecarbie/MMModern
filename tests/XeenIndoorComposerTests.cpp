@@ -633,10 +633,12 @@ void testCombinedIndoorRemoveLifecycle(const GameInstallation &installation) {
 	XeenSaveSnapshot saved;
  saved.camera=camera;saved.activeRosterIds=party.party.activeRosterIds();saved.characters=party.roster.characters();
  saved.questItems=party.questItems.counts();saved.questFlags=party.questFlags.values();saved.gameFlags=flags.values();
- const auto &state=world.sessionState();{const auto projected=state.disabledObjects();saved.disabledObjects.assign(projected.begin(),projected.end());};
- {const auto projected=state.disabledEvents();saved.disabledEvents.assign(projected.begin(),projected.end());};
-	check(saved.disabledObjects == std::vector<XeenObjectIdentity>{target} &&
-		saved.disabledEvents == std::vector<XeenEventIdentity>{
+ const auto &state=world.sessionState();
+ const auto removedObjects=state.disabledObjects();const auto disabledEvents=state.disabledEvents();
+ const std::vector<XeenObjectIdentity> savedObjects(removedObjects.begin(),removedObjects.end());
+ const std::vector<XeenEventIdentity> savedEvents(disabledEvents.begin(),disabledEvents.end());
+	check(savedObjects == std::vector<XeenObjectIdentity>{target} &&
+		savedEvents == std::vector<XeenEventIdentity>{
 			{33,0},{33,1},{33,2}},
 		"indoor Remove state contained the wrong authoritative identities");
 	const auto suppressedRetry = flow.handle(InteractionAction{});
@@ -658,7 +660,7 @@ void testCombinedIndoorRemoveLifecycle(const GameInstallation &installation) {
  for(unsigned i=0;i<30;++i)freshParty.roster.at(i)=saved.characters[i];
  freshParty.questItems=XeenCloudsQuestItems(saved.questItems);freshParty.questFlags=XeenCloudsQuestFlags(saved.questFlags);
  freshFlags=XeenGameFlags(saved.gameFlags);
- freshWorld.restoreSessionState(saved.disabledObjects,saved.disabledEvents,[&](auto id){return freshSources.loadEvents(id);});
+ freshWorld.restoreSessionState(savedObjects,savedEvents,[&](auto id){return freshSources.loadEvents(id);});
  check(composer.compose(freshAssets,freshWorld,freshParty,freshCamera,context).isValid(),"reconstructed indoor state failed visual preflight");
 	check(freshCamera.mapId == initialCamera.mapId && freshCamera.x == initialCamera.x &&
 		freshCamera.y == initialCamera.y && freshCamera.direction == initialCamera.direction &&

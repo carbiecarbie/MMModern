@@ -1,4 +1,5 @@
 #include "XeenChildProcessTestSupport.h"
+#include "XeenSaveTestSupport.h"
 #include "XeenTestInstallation.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "games/xeen/XeenEventLoader.h"
@@ -23,18 +24,18 @@ void durableCheckpoints(const fs::path &route) {
  const auto file=[&](char label){return XeenSaveFile::read(route.parent_path()/(route.stem().string()+"-"+label+".mmsave"));};
  const auto a=file('A'),b=file('B'),c=file('C'),d=file('D');
  child_test::require(a.journey && b.journey && c.journey && d.journey &&
-  a.journey->schema==9 && a.journey->content==14 && !a.journey->vertigoActors &&
+  a.journey->schema==9 && a.journey->content==14 && (!a.find(28) || !a.find(28)->monsters) &&
   a.camera.mapId==XeenMapIdentity(23) && a.camera.x==10 && a.camera.y==12,
   "M37 A is not the admitted unvisited mainland");
  child_test::require(b.camera.mapId==XeenMapIdentity(28) && b.camera.x==16 && b.camera.y==2 &&
-  b.journey->vertigoActors && b.journey->vertigoActors->size()==46 &&
-  b.journey->vertigoActors->at(35).lifecycle==XeenActorLifecycle::Defeated &&
-  b.journey->vertigoActors->at(35).accounted &&
-  b.journey->vertigoActors->at(36).x==22 && b.journey->vertigoActors->at(36).y==9,
+  b.map(28).monsters && b.map(28).monsters->slots.size()==46 &&
+  b.map(28).monsters->slots.at(35).lifecycle==XeenActorLifecycle::Defeated &&
+  b.map(28).monsters->slots.at(35).accounted &&
+  b.map(28).monsters->slots.at(36).x==22 && b.map(28).monsters->slots.at(36).y==9,
   "M37 B did not retain original slot 35 defeat and distant slot 36");
  child_test::require(c.camera.mapId==XeenMapIdentity(23) && c.camera.x==10 && c.camera.y==12 &&
-  c.journey->vertigoActors && c.journey->vertigoActors->size()==52 &&
-  !c.gameFlags[9] && c.journey->vertigoActors->at(36).x==15 && c.journey->vertigoActors->at(36).y==4,
+  c.map(28).monsters && c.map(28).monsters->slots.size()==52 &&
+  !c.gameFlags[9] && c.map(28).monsters->slots.at(36).x==15 && c.map(28).monsters->slots.at(36).y==4,
   "M37 C did not retain the flag-9-clear original reset");
  static constexpr std::array<std::array<int,2>,43> reset{{
   {{1,11}},{{1,11}},{{2,9}},{{3,10}},{{3,11}},{{3,11}},{{3,13}},{{3,13}},
@@ -45,29 +46,27 @@ void durableCheckpoints(const fs::path &route) {
   {{30,1}},{{7,24}},{{6,27}}
  }};
  for(unsigned i=0;i<52;++i) {
-  const auto &actor=c.journey->vertigoActors->at(i);
-  child_test::require(actor.id==XeenMonsterIdentity{28,i} && actor.status==XeenActorStatus::Physical,
-   "M37 reset actor identity/status changed");
+  const auto &actor=c.map(28).monsters->slots.at(i);
+  child_test::require(actor.status==XeenActorStatus::Physical &&
+   actor.spawnedType==(i>=50?0:-1),"M37 reset actor status/type changed");
   if(i>=46 && i<=49) {
-   child_test::require(actor.x==0 && actor.y==0 && actor.hp==0 && !actor.activated &&
+   child_test::require(actor.x==0 && actor.y==0 &&
     actor.lifecycle==XeenActorLifecycle::Unresolved && !actor.accounted,"M37 script gap is materialized");
   } else if(i<=40 || i>=50) {
    const auto expected=reset[i>=50?i-9:i];
-   child_test::require(actor.x==expected[0] && actor.y==expected[1] && actor.hp>0 &&
-    !actor.activated && actor.lifecycle==XeenActorLifecycle::Present && !actor.accounted,
+   child_test::require(actor.x==expected[0] && actor.y==expected[1] &&
+    actor.lifecycle==XeenActorLifecycle::Present && !actor.accounted,
     "M37 original Spawn table was not fully applied");
   } else {
-   const auto &prior=b.journey->vertigoActors->at(i);
-   child_test::require(actor.x==prior.x && actor.y==prior.y && actor.hp==prior.hp &&
-    actor.activated==prior.activated && actor.lifecycle==prior.lifecycle &&
-    actor.accounted==prior.accounted,"M37 untouched original slots 41..45 changed");
+   const auto &prior=b.map(28).monsters->slots.at(i);
+   child_test::require(actor==prior,"M37 untouched original slots 41..45 changed");
   }
  }
- child_test::require(d.camera.mapId==XeenMapIdentity(28) && d.journey->vertigoActors &&
-  d.journey->vertigoActors->size()==52 &&
-  d.journey->vertigoActors->at(36).lifecycle==XeenActorLifecycle::Defeated &&
-  d.journey->vertigoActors->at(36).accounted &&
-  d.journey->vertigoActors->at(35).x==7 && d.journey->vertigoActors->at(35).y==7,
+ child_test::require(d.camera.mapId==XeenMapIdentity(28) && d.find(28) && d.map(28).monsters &&
+  d.map(28).monsters->slots.size()==52 &&
+  d.map(28).monsters->slots.at(36).lifecycle==XeenActorLifecycle::Defeated &&
+  d.map(28).monsters->slots.at(36).accounted &&
+  d.map(28).monsters->slots.at(35).x==7 && d.map(28).monsters->slots.at(35).y==7,
   "M37 D did not preserve reset slot 36 defeat and displaced slot 35");
 }
 }
@@ -98,6 +97,8 @@ int main(int argc,char **argv) {
    SetEnvironmentVariableW(L"MMODERN_M37_STAGE",fs::path(label).c_str());
    const auto result=child_test::launch(witness,{L"--load-game",game.wstring(),checkpoint.wstring()},dir/("restore-"+label+".log"),false,false,120000);
    child_test::require(result.exit==0 && pids.insert(result.pid).second,"M37 distinct resume process failed");
+   child_test::require(stage!='A' || result.output.find("M37 DECISION8 A Orc 9 rebuilt asleep")!=std::string::npos,
+    "M37 A restore did not show the decision 8 rebuild");
    child_test::require(result.output.find("M37 RESTORE BEFORE INPUT")!=std::string::npos &&
     result.output.find("M37 CLI SMOKE 23,10,12 passed")!=std::string::npos,"M37 restore/continuation witness missing");
    child_test::require(bytes(checkpoint)==final && before!=final,"M37 uninterrupted/resumed durable bytes differ");
@@ -114,17 +115,15 @@ int main(int argc,char **argv) {
    "M37 artificial flag-9-true process failed");
   const auto skipped=XeenSaveFile::read(flag9Path);
   child_test::require(skipped.gameFlags[9] && skipped.gameFlags[231] &&
-   skipped.journey && skipped.journey->vertigoActors &&
-   skipped.journey->vertigoActors->size()==46 &&
+   skipped.journey && skipped.find(28) && skipped.map(28).monsters &&
+   skipped.map(28).monsters->slots.size()==46 &&
    // CD maze0028.evt removes the exit protection and its self-disable
    // at (15,0,South,4/5), so the flag-9 skip publishes no Event overlay.
-   skipped.disabledEvents.empty(),
+   save_test::disabledEvents(skipped).empty(),
    "M37 flag-9 true did not skip reset while retaining the CD exit prelude");
   for(unsigned i=0;i<46;++i) {
-   const auto &before=flag9.journey->vertigoActors->at(i),&after=skipped.journey->vertigoActors->at(i);
-   child_test::require(before.id==after.id && before.x==after.x && before.y==after.y &&
-    before.hp==after.hp && before.activated==after.activated &&
-    before.lifecycle==after.lifecycle && before.accounted==after.accounted,
+   const auto &before=flag9.map(28).monsters->slots.at(i),&after=skipped.map(28).monsters->slots.at(i);
+   child_test::require(before==after,
     "M37 flag-9 true implicitly reset a city actor");
   }
   const auto rejectRestore=[&](const char *name,const XeenSaveSnapshot &snapshot) {
@@ -139,20 +138,21 @@ int main(int argc,char **argv) {
   };
   // Whole-map admission permits distant activation and every in-bounds cell.
   // Keep malformed-state refusal controls on structural/resource invariants.
-  auto forged=originalB;forged.journey->vertigoActors->at(36).id.recordIndex=35;
-  rejectRestore("duplicate-actor-identity",forged);
-  forged=originalB;auto &slime=forged.journey->vertigoActors->at(35);
-  slime.lifecycle=XeenActorLifecycle::Present;slime.x=32;slime.y=31;slime.hp=2;slime.activated=true;slime.accounted=false;
+  // v13 identities are positional; a MOB record cannot claim a spawned type.
+  auto forged=originalB;forged.map(28).monsters->slots.at(36).spawnedType=0;
+  rejectRestore("original-record-type",forged);
+  forged=originalB;auto &slime=forged.map(28).monsters->slots.at(35);
+  slime.lifecycle=XeenActorLifecycle::Present;slime.x=32;slime.y=31;slime.accounted=false;
   rejectRestore("out-of-map-actor",forged);
-  forged=originalB;auto &contact=forged.journey->vertigoActors->at(35);
+  forged=originalB;auto &contact=forged.map(28).monsters->slots.at(35);
   contact.lifecycle=XeenActorLifecycle::Present;contact.x=forged.camera.x;contact.y=forged.camera.y;
-  contact.hp=2;contact.activated=true;contact.accounted=false;
+  contact.accounted=false;
   rejectRestore("city-contact",forged);
-  forged=originalC;forged.journey->vertigoActors->at(46).hp=1;
+  forged=originalC;forged.map(28).monsters->slots.at(46).x=1;
   rejectRestore("materialized-gap",forged);
   // Generic Spawn can retain extra slots independently of the exit label;
   // bind their original-record boundary to MOB instead of exit-only history.
-  forged=originalC;forged.journey->cityOriginalActorCount=47;
+  forged=originalC;forged.map(28).monsters->originalCount=47;
   rejectRestore("original-count-resource-mismatch",forged);
   forged=originalB;forged.camera.x=32;forged.camera.y=31;
   bool refusedCamera=false;
@@ -173,14 +173,17 @@ int main(int argc,char **argv) {
   child_test::require(exitEntry && exitLabel,"CD exit instructions for overlay controls are missing");
   for(unsigned mode=0;mode<4;++mode) {
    forged=originalB;
-   if(mode==0){forged.disabledEvents.push_back({28,*exitEntry});forged.disabledEvents.push_back({28,*exitEntry});}
-   if(mode==1){forged.disabledEvents.push_back({28,*exitLabel});forged.disabledEvents.push_back({28,*exitLabel});}
-   if(mode==2)forged.disabledObjects.push_back({28,0});
-   if(mode==3){forged=originalC;forged.disabledEvents.push_back({28,*exitEntry});forged.journey->vertigoActors.reset();}
-   // Generic Event protection may name any record, while duplicate identities,
-   // city object mutation and missing retained actors remain invalid.
+   if(mode==0){save_test::addDisabledEvent(forged,{28,*exitEntry});save_test::addDisabledEvent(forged,{28,*exitEntry});}
+   if(mode==1){save_test::addDisabledEvent(forged,{28,*exitLabel});save_test::addDisabledEvent(forged,{28,*exitLabel});}
+   if(mode==2)save_test::addRemovedObject(forged,{28,0});
+   if(mode==3){forged=originalC;save_test::addDisabledEvent(forged,{28,*exitEntry});forged.map(28).monsters.reset();}
+   // Generic Event protection may name any record, while duplicate identities
+   // remain invalid. v13 is map-agnostic: a city object removal and city Event
+   // overrides without a city monster table are representable; restore binds
+   // them to the city's MOB/EVT and needs the camera map's table.
    bool rejected=false;try {XeenSaveFormat::encode(forged);}catch(const std::exception &){rejected=true;}
-   child_test::require(rejected,"M37 malformed city overlay admitted by codec");
+   child_test::require(rejected==(mode<2),"M37 city overlay codec admission differs");
+   if(mode==3 && forged.camera.mapId==XeenMapIdentity(28))rejectRestore("city-camera-without-table",forged);
   }
   SetEnvironmentVariableW(L"MMODERN_M37_STAGE",L"fail-city-compose");
   const auto failedTransition=child_test::launch(witness,

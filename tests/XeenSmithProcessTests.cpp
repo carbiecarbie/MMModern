@@ -90,8 +90,10 @@ int main(int argc,char **argv) {
    if(hole)artificial.characters[6].armor[2]={255,0,255,0};
    artificial.characters[29].armor[8]=artificial.characters[6].armor[8];
    bool source=false;
-   for(const auto &actor:artificial.journey->actors)if(actor.accounted && actor.id.recordIndex<12) {
-    artificial.journey->treasure->armor[0].source=actor.id.recordIndex;
+   // v13: the stored item's source indexes the saved monster identities.
+   const auto &slots=artificial.map(23).monsters->slots;
+   for(unsigned id=0;id<slots.size() && id<12;++id)if(slots[id].accounted) {
+    artificial.journey->treasure->sources[0]={23,id};artificial.journey->treasure->armor[0].source=0;
     artificial.journey->treasure->armor[0].item={0,1,0,0};source=true;break;
    }
    child_test::require(source,"M38 synthetic dormant fixture needs a legitimate defeated source");

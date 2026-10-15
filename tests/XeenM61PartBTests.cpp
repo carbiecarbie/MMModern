@@ -23,15 +23,15 @@ void quiet(Fixture &f) {
 }
 XeenSaveSnapshot source(Inputs &in,unsigned power,bool indoor,unsigned charges=1) {
     auto s=in.service();s.camera=indoor?XeenCamera{28,18,4,XeenDirection::West}:XeenCamera{23,9,11,XeenDirection::East};
-    for(auto *actors:{&s.journey->actors,&*s.journey->vertigoActors})for(auto &a:*actors) {
-        a.hp=0;a.x=a.y=-128;a.activated=false;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;
+    for(auto *actors:{&s.map(23).monsters->slots,&s.map(28).monsters->slots})for(auto &a:*actors) {
+        a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;
     }
     for(auto &c:s.characters)c.skills[4]=0;
     auto &c=s.characters[s.activeRosterIds[0]];
     c.characterClass=XeenCharacterClass::Knight;c.hasSpells=false;c.learnedSpells.emplace();c.learnedSpells->fill(0);c.currentSp=0;
     c.miscellaneous={};c.miscellaneous[0]={1,std::uint8_t(power),std::uint8_t(charges),17};
     c.miscellaneous[1]={2,1,3,19}; // exact compaction witness
-    s.journey->treasure->gems=0;s.journey->context->ctr24=23;s.exploredTiles.clear();
+    s.journey->treasure->gems=0;s.journey->context->ctr24=23;save_test::clearExplored(s);
     return s;
 }
 void key(Fixture &f,unsigned k,bool mouse=false) {
@@ -143,8 +143,9 @@ void miscTreasure(Inputs &in) {
     auto &treasure=*s.journey->treasure;treasure.pendingMask=1;treasure.pendingGold=10;
     treasure.miscellaneous[0]={0,{3,8,7,0}};
     // A visible distant survivor keeps pending treasure at a legal Quiet boundary.
-    auto &survivor=s.journey->actors[8];survivor.x=12;survivor.y=11;survivor.hp=25;
-    survivor.activated=true;survivor.lifecycle=XeenActorLifecycle::Present;survivor.accounted=false;
+    auto &survivor=s.map(23).monsters->slots[8];survivor.x=12;survivor.y=11;
+    survivor.lifecycle=XeenActorLifecycle::Present;survivor.accounted=false;
+    save_test::bindTreasureSources(s);
     const auto gold=treasure.gold;const auto rng=s.journey->random;
     Fixture f(in,s);f.act(NavigationAction::TurnLeft);quiet(f);
     check(xeenSameItem(f.p.roster.at(owner).miscellaneous[0],treasure.miscellaneous[0].item),"Misc receipt did not publish original item bytes");
@@ -158,7 +159,7 @@ void impacts(Inputs &in) {
         auto s=source(in,power,true);s.camera={28,15,0,XeenDirection::North};
         const auto spell=*xeenItemUseSpell(power);const unsigned count=power==11 || power==15?3:1;
         for(unsigned n=0;n<count;++n) {
-            auto &a=s.journey->vertigoActors->at(35+n);a.hp=1;a.x=15;a.y=distance;a.activated=true;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;
+            auto &a=s.map(28).monsters->slots.at(35+n);a.x=15;a.y=distance;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;
         }
         Fixture f(in,s);XeenCombatRandom expected(*f.w.sessionState().journeyRandom());
         const auto &caster=f.p.roster.at(s.activeRosterIds[0]);
@@ -220,8 +221,8 @@ void survivingResponse(Inputs &in) {
         unsigned actorSlot=0;
         for(unsigned n=1;n<objects.entities.monsters.size();++n)
             if(in.statistics.at(objects.entities.monsters[n].resourceId).baseHp()>in.statistics.at(objects.entities.monsters[actorSlot].resourceId).baseHp())actorSlot=n;
-        auto &a=s.journey->vertigoActors->at(actorSlot);a.hp=in.statistics.at(objects.entities.monsters.at(actorSlot).resourceId).baseHp();
-        a.x=15;a.y=3;a.activated=true;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;
+        auto &a=s.map(28).monsters->slots.at(actorSlot);
+        a.x=15;a.y=3;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;
         Fixture f(in,s);const auto live=f.w.sessionState().regionalActors(28);std::vector<XeenActor> actors(live.begin(),live.end());const auto &caster=f.p.roster.at(s.activeRosterIds[0]);
         XeenCombatRandom expected(*f.w.sessionState().journeyRandom());
         const auto &actor=actors.at(actorSlot);

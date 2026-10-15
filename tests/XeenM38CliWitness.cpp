@@ -1,3 +1,4 @@
+#include "XeenDecisionNine.h"
 #include "XeenTestInstallation.h"
 // Actual CLI/Application with deterministic typed input. Every response follows a
 // successful native SDL presentation; F9 is injected as an SDL keyboard event.
@@ -284,7 +285,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    check(SDL_PushEvent(&e)==1,"M38 native key enqueue failed");if(down)acted=true;};
   const auto checkpoint=[&](char label){
    auto count=std::make_shared<unsigned>();
-   inspect([&,count]{check(flow->canSave(),"M38 checkpoint is not Quiet");*count=saveCalls;checkpointSaveArmed=true;pushKey(SDLK_F9);});
+   inspect([&,count,label]{check(flow->canSave(),"M38 checkpoint is not Quiet");xeen_decision9::check(*world,*position,std::string(1,label),std::string("ABCEFG").find(label)!=std::string::npos);*count=saveCalls;checkpointSaveArmed=true;pushKey(SDLK_F9);});
    steps.push_back([&,count,label]{
     if(saveCalls==*count)return false;
     check(saveCalls==*count+3,"M38 F9 did not complete the normal save pipeline");

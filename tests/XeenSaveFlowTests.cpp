@@ -18,7 +18,7 @@ void olderPolicy(const fs::path &path){
 void startup(const fs::path &path){
  std::vector<Bytes> frames;
  for(unsigned index:{0u,1u}){
-  regional_save_test::Fixture f;f.saved.camera={23,8,2,XeenDirection::North};f.saved.questItems[17]=3;f.saved.characters[0].currentHp=23;f.saved.disabledObjects={{23,index}};
+  regional_save_test::Fixture f;f.saved.camera={23,8,2,XeenDirection::North};f.saved.questItems[17]=3;f.saved.characters[0].currentHp=23;save_test::setRemovedObjects(f.saved,{{23,index}});
   XeenSaveFile::write(path,f.saved);const auto original=diskBytes(path);auto services=f.services();regional_save_test::phirna(services);
   unsigned mapReads=0,objectReads=0,eventReads=0,textReads=0,automatic=0;
   services.maps=[&](auto id){++mapReads;return regional_test::map(id);};

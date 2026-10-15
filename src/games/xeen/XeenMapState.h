@@ -63,8 +63,15 @@ inline void xeenRefillLoadedMonster(XeenActor &actor) noexcept {
 	if(actor.activated)actor.activated=false;
 }
 
-// The per-map table. Entries are created on first touch and never dropped; an
-// empty entry is equivalent to an absent one. Content exchange keeps every
+// Decision 2: the original never writes Clouds map 85 (The Warzone) back
+// (pinned map.cpp Map::saveMaze); its state lasts for one visit only.
+inline bool xeenRetainsMapState(XeenMapIdentity id) noexcept {
+	return !(id.side == XeenSide::Clouds && id.number == 85);
+}
+
+// The per-map table. Entries are created on first touch and dropped only when
+// the party leaves a map that is never retained; an empty entry is equivalent
+// to an absent one. Content exchange keeps every
 // entry's storage in its owning table, so views into a live entry stay valid.
 class XeenMapTable {
 	using Storage=std::map<XeenMapIdentity,XeenMapState>;
@@ -86,6 +93,10 @@ public:
 		if(found!=_states.end())return found->second;
 		if(_states.size()>=kMaximumMaps)throw std::length_error("Too many map states");
 		return _states.emplace(id,XeenMapState{}).first->second;
+	}
+	// The party leaves `id`: a map that is never retained loses its state.
+	void leave(XeenMapIdentity id) noexcept {
+		if (!xeenRetainsMapState(id)) _states.erase(id);
 	}
 	auto begin() const noexcept { return _states.cbegin(); }
 	auto end() const noexcept { return _states.cend(); }

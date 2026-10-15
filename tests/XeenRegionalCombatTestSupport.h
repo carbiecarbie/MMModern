@@ -27,8 +27,8 @@ inline XeenSaveSnapshot combatSnapshot(const XeenCombatRandom &random,unsigned m
         s.journey->supplements[i]={static_cast<std::uint8_t>(i),XeenCharacterFormat::parseCombatInputs(bytes,i,true,true,true)};
     }
     s.journey->random=taped(random)?XeenJourneyRandomState{1,1,0}:random.continuation();
-    for(auto &a:s.journey->actors){a.hp=0;a.x=a.y=-128;a.activated=false;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
-    auto &a=s.journey->actors[5];a.hp=20;a.x=8;a.y=11;a.activated=true;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;
+    for(auto &a:s.map(23).monsters->slots){a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
+    auto &a=s.map(23).monsters->slots[5];a.x=8;a.y=11;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;
     return s;
 }
 struct RegionalCombatFixture:regional_test::Fixture {

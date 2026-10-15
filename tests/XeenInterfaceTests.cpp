@@ -111,7 +111,6 @@ void strafe(Inputs &in) {
  settle(lateral);settle(ordinary);auto normalized=ordinary.snapshot();normalized.camera.direction=source.camera.direction;
  save_test::sameSnapshot(lateral.snapshot(),normalized);
  auto outdoors=in.base();outdoors.camera.direction=XeenDirection::East;
- for(auto &a:outdoors.journey->actors)if(a.lifecycle==XeenActorLifecycle::Present)a.activated=true;
  auto towards=outdoors;towards.camera.direction=XeenDirection::North;
  Fixture side(in,outdoors),ahead(in,towards);side.act(NavigationAction::StrafeLeft);ahead.act(NavigationAction::MoveForward);
  check(side.p.encounterContext->minutes==outdoors.journey->context->minutes+10,"Outdoor strafe charges ten minutes");
@@ -124,7 +123,6 @@ void strafe(Inputs &in) {
   const auto moved=movement.apply(world,target,NavigationAction::StrafeRight);
   if(!wall && moved==XeenMovementResult::BlockedByWall) {
    auto s=source;s.camera=from;
-   for(auto &a:*s.journey->vertigoActors)if(a.lifecycle==XeenActorLifecycle::Present)a.activated=true;
    Fixture a(in,s);const auto context=*a.p.encounterContext;
    const auto rng=a.w.sessionState().journeyRandom();a.act(NavigationAction::StrafeRight);
    check(a.c.x==from.x && a.c.y==from.y && a.c.direction==from.direction && *a.p.encounterContext==context &&
@@ -134,8 +132,8 @@ void strafe(Inputs &in) {
   if(!event && moved==XeenMovementResult::Moved && sample && (sample->cell->rawAttributes&kXeenAutomaticEventFlag) && xeenRegionalEvent(in.city,target)) {
    auto s=source;s.camera=from;
    // Synthetic defeated actors isolate the real Event from incidental combat.
-   for(auto &a:*s.journey->vertigoActors)if(a.lifecycle==XeenActorLifecycle::Present) {
-    a.x=a.y=-128;a.hp=0;a.activated=false;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;
+   for(auto &a:s.map(28).monsters->slots)if(a.lifecycle==XeenActorLifecycle::Present) {
+    a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;
    }
    Fixture a(in,s);bool ran=false;
    a.flow->reportAutomatic=[&](const auto &result){ran=!std::holds_alternative<XeenAutomaticEventNoTrigger>(result);};

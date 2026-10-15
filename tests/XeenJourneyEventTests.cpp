@@ -72,7 +72,7 @@ XeenSaveSnapshot objective(const fs::path &path) {
  s.show=[&](const auto &,const auto &handler,const auto &,const auto &,const auto &){handler.framePresented(h.flow->frame().presentation());saved=snapshot(h);return true;};
  check(Application().playGameplay(s,{},path,false,XeenEncounterEntry::Journey,1)==0&&saved.has_value(),"production fresh fixture source");
  saved->camera={23,8,2,XeenDirection::North};
- for(auto &a:saved->journey->actors){a.hp=0;a.x=a.y=-128;a.activated=false;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
+ for(auto &a:saved->map(23).monsters->slots){a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
  return *saved;
 }
 void run(const fs::path &path,const XeenSaveSnapshot &saved,const std::function<void(Harness &,XeenGameplayServices &)> &configure,int expected=0){
@@ -97,7 +97,7 @@ void authority(const fs::path &path,const XeenSaveSnapshot &saved){
   handler.framePresented(h.flow->frame().presentation());questReceipt(h,handler,false);
   check(!h.flow->canSave(),"final receipt response still requires terminal frame acquisition");
   handler.framePresented(h.flow->frame().presentation());check(h.flow->canSave(),"terminal presented frame opens save");
-  auto expected=saved;++expected.questItems[17];expected.disabledObjects={{23,13}};for(unsigned i=1;i<=11;++i)expected.disabledEvents.push_back({23,124+i});
+  auto expected=saved;++expected.questItems[17];save_test::setRemovedObjects(expected,{{23,13}});for(unsigned i=1;i<=11;++i)save_test::addDisabledEvent(expected,{23,124+i});
   check(XeenSaveFormat::encode(snapshot(h))==XeenSaveFormat::encode(expected),"authority tests preserve all nonobjective state");return true;};});
 }
 void modalSdlReturn(const fs::path &path,const XeenSaveSnapshot &saved) {

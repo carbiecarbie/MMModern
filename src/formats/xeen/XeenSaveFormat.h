@@ -23,15 +23,20 @@ public:
 
 class XeenSaveFormat {
 public:
-	// M61 Part C adds pending Misc monster treasure; schema/content are retained.
-	static constexpr std::uint16_t kJourneyVersion = 12;
+	// M69 replaces the two named actor tables and the flat overlays with one
+	// per-map table; schema/content are retained (maintainer decision).
+	static constexpr std::uint16_t kJourneyVersion = 13;
 	static constexpr std::uint16_t kJourneySchema = 9;
 	static constexpr std::uint16_t kJourneyContent = 14;
 	static constexpr std::size_t kHeaderSize = 20;
 	static constexpr std::size_t kMaximumSize = 4 * 1024 * 1024;
-	static constexpr std::size_t kMaximumObjects = 65536;
-	static constexpr std::size_t kMaximumEvents = 262144;
-	static constexpr std::size_t kMaximumExploredTiles = 512;
+	static constexpr std::size_t kMaximumMaps = 512;
+	static constexpr std::size_t kMaximumMonsters = 107;
+	// Object, wall-item and Event overrides per map; restore binds each record
+	// to its MOB or EVT count.
+	static constexpr std::size_t kMaximumOverrides = 65535;
+	static constexpr std::size_t kMaximumCells = 256;
+	static constexpr std::size_t kMaximumTreasureSources = 12;
 
 	// Throws before returning a value on malformed input. No live state access.
 	static XeenSaveSnapshot decode(const std::vector<std::uint8_t> &bytes);

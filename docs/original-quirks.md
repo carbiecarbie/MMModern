@@ -37,6 +37,7 @@ such a behavior, with its evidence.
 | In the save/load chooser, the scroll arrows show their pressed frame but do nothing, and the bar between them does nothing; only ten slots exist. | Maintainer DOSBox CD play, 2026-10-09 (an eleventh slot pair is ignored). | M54 chooser | QoL candidate (scrolling or more slots). |
 | After a member runs from combat, the Quick Fight Options dialog keeps the old party indexing: F1-F5 and the portraits select the members by their pre-Run positions, so the visible portrait and the selected member differ; F6 does nothing. | Maintainer DOSBox CD play, 2026-10-10; matches `dialogs_quick_fight.cpp:97-99` in the reference. | M55, `XeenCharacterDialogFlow.cpp::handleQuickFightOptions` | QoL candidate. Combat actions still use the real actor. |
 | A valid Bank transfer adds to its destination using unsigned 32-bit arithmetic, so the destination can wrap. This is distinct from refusing an entered amount above `UINT32_MAX`. | Pinned `locations.cpp::BankLocation::depositWithdrawl` adds to the party's unsigned balances; M56 retains that balance arithmetic. | M56, `XeenFoodBank.cpp::xeenTransferBank` | No saturation or destination-capacity refusal. |
+| Vertigo's exit reset respawns slots 0-11 at their own MOB positions, slot 12 at `(4,12)`, and each slot 13-40 at the position of the MOB record before it, so the list runs one record behind from slot 12 on; slots 41-45 are not respawned and slots 50 and 51 take MOB records 44 and 45's positions (46-49 stay unresolved). | CD `maze0028.evt` Spawn records 788-830 at `(100,100)`, lines 0-42, compared with the city MOB's 46 monster records (read 2026-10-15 through the project loaders). | M69, `XeenWorld::applySpawn`; `XeenVertigoProcessTests.cpp` reset table | The order comes from the script data; keep it. Not separately checked in DOS play. |
 | `MoveObj` at an object's current position toggles its flip, but the next scene draw replaces that flip with the directional animation metadata, including for off-screen objects. | Pinned ScummVM `scripts.cpp::cmdMoveObj` and `interface_scene.cpp::drawScene` (revision `6814ee9ba54582f5b5adcffab49efbbd8f589edd`); maintainer confirmed following these resets on 2026-10-10. | M57, `XeenWorld.cpp::applyMoveObject`, `XeenIndoorScene.cpp`, `XeenOutdoorScene.cpp` | Position changes remain durable. Flip observations are disposable; saves retain the effective flip without serializing animation frames. |
 | Event XP and carried currency additions use unsigned 32-bit arithmetic and can wrap. Award IDs 73 and 81 name slots 126 and 127; granting an award sets its count to 1 rather than incrementing it. | Pinned `party.cpp::giveTake`, `character.cpp::fixAwardId/setAward`. | M57, `XeenWorld.cpp::applyEventGrant`, `XeenCharacter.h::awardIndex` | CHR counts are retained for all 30 owners, including the full-byte Warzone count in slot 9. |
 | Completely full backpacks discard remaining ordinary items but still credit gold and gems. | DOS `WORLD/XEEN.DAT` four 40-byte item clears `0x2433e..0x2437b`, currency credit `0x2486a..0x24884`; [delivery evidence](rules/evidence.md#treasure-delivery), high confidence. Supersedes M57's reference-based currency-loss entry. | **Implemented (M61 Part D)**, shared `XeenItemRewards.cpp` delivery and monster treasure | Generation draws remain consumed; currency is not inventory capacity. |
@@ -63,6 +64,19 @@ confirmation. The established DOS Poison/Disease and Weak/Drunk results do not
 settle these other counters. See [the precise boundary](rules/time-and-conditions.md#eight-hour-condition-block).
 This research records the mismatch without changing behavior or granting an
 exception to the root condition-counter fallback rule.
+
+**Per-map write-back (M69):** the pinned reference writes a map's EVT, its
+primary DAT (indoors also its eight neighbour tiles) and its MOB into the save
+archive on every map load and save (`map.cpp::Map::load/saveMaze`,
+`saves.cpp::saveGame`), but never its HED: AlterHed changes last until the next
+map load and are lost on reload. MMModern's save keeps only the current
+primary map's head cache (v11 layout, unchanged in v13) and drops it on a map
+load, as the reference does. The reference also never writes Clouds map 85
+(The Warzone) back: its state lasts for one visit. MMModern drops the
+Warzone's map state and monster accounting when the party leaves it, so
+re-entry starts from the original resources, never writes it into a save and
+refuses a save that contains it (M69, `xeenRetainsMapState`). The Warzone is
+not admitted yet. Not confirmed in DOS.
 
 **Equipped item contributions (M67):** the following follow the pinned
 reference (`combat.cpp::attack/attack2/getWeaponDamage/getMonsterResistance`,
@@ -199,6 +213,20 @@ stays documented here and in the plan that implements it.
   scancode/press identity, so release also works across a keysym/modifier change.
   Other keys keep their current queueing. Implementation: `SdlWindow.cpp`;
   evidence: D:/MModern-re/movement-fluidity-20261013.
+
+- **Per-map state is saved as deltas, not whole map files** (maintainer,
+  2026-10-15; M69 decision 7, save v13). The original writes each visited
+  map's whole EVT, DAT and MOB into the save archive. MMModern keeps the
+  original resources immutable and saves, per map, its complete monster table
+  plus sparse overrides against the resources: object positions and flips
+  (a removed object is `(-128,-128)`, as Remove writes it), wall-item
+  positions, cells as their effective DAT word and attribute byte with the
+  original preimage, Event record opcodes and explored bits. Restore rebinds
+  every override to its map's resources, so the result is observably the
+  same. Monster HP and wake state are not saved (decision 8 above). Wall-item
+  and nonzero Event-opcode overrides, and cell changes other than wall faces
+  and the unlocked bit, have no producer yet; the format represents them and
+  restore refuses them until world Events add their producers.
 
 ## Reference behavior not reproduced
 

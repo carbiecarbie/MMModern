@@ -110,9 +110,9 @@ void preparedRules(training_test::Inputs &inputs) {
     check(xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,1).result.goldAfter==4294967235u,"u32-high purse was narrowed");
     p.monsterTreasure->gold=0;p.monsterTreasure->gems=UINT32_MAX;p.serviceEconomy->bank={UINT32_MAX,UINT32_MAX};
     check(xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,1).result.outcome==Outcome::InsufficientGold,"gems/bank paid Buy");
-    p.monsterTreasure->gold=59;p.monsterTreasure->pendingGold=10;p.monsterTreasure->pendingMask=1;
+    p.monsterTreasure->gold=59;p.monsterTreasure->pendingGold=10;p.monsterTreasure->pendingMask=1;p.monsterTreasure->sources[0]={23,0};
     check(xeenPrepareEquipmentPurchase(p,0,XeenInventoryCategory::Weapons,1).result.outcome==Outcome::InsufficientGold,"pending treasure paid Buy");
-    p.monsterTreasure->pendingGold=0;p.monsterTreasure->pendingMask=0;
+    p.monsterTreasure->pendingGold=0;p.monsterTreasure->pendingMask=0;p.monsterTreasure->sources[0]={};
     p.monsterTreasure->gold=10000;
     auto &recipient=p.roster.at(0);recipient.weapons={};
     recipient.weapons[2]={0,7,0,0};recipient.weapons[6]={0,12,0,0};

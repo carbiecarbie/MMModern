@@ -1,4 +1,5 @@
 // Instrumented child of the real Application/CLI, driven through its SDL input handler.
+#include "XeenDecisionNine.h"
 #include "XeenProbeFired.h"
 #include "app/Application.h"
 #include "app/XeenGameplayServices.h"
@@ -144,6 +145,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
    }throw std::runtime_error("M37 settlement bound");};
    const auto nav=[&](NavigationAction action){check(flow->canSave(),"M37 navigation requires Quiet");input(action);settle();};
    const auto checkpoint=[&](char label){
+    // A: the start view wakes Orc #9 and the entrance view #11 (unreachable)
+    // before any map change, so A is the explicit decision 8 checkpoint below.
+    xeen_decision9::check(*world,*position,std::string(1,label),label!='A');
+    if(label=='A')check(world->sessionState().regionalActors(23).at(9).activated,"M37 A: the start view woke Orc #9");
     const unsigned before=saveStages;
     auto sdl=handler;sdl.closed={};sdl.failed={};
     bool queued=false;unsigned loops=0;
@@ -222,6 +227,17 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     const auto saved=XeenSaveFile::read(*target),live=XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world);
     check(XeenSaveFormat::encode(saved)==XeenSaveFormat::encode(live),"M37 fresh restore changed saved bytes");
     std::cout<<"M37 RESTORE BEFORE INPUT "<<position->mapId.number<<','<<position->x<<','<<position->y<<'\n';
+    if(stage=="A") {
+     // Decision 8: the game load rebuilds every F3 monster at MON HP and
+     // asleep, so Orc #9, woken in the uninterrupted run at A, is asleep here;
+     // only what the arrival view sees wakes. The runs differ in wake state
+     // until the route's next F3 load (C), where both rebuild F3 and decision
+     // 9 holds, so the final comparison rests on that reload.
+     const auto &orc=world->sessionState().regionalActors(23).at(9);
+     check(orc.lifecycle==XeenActorLifecycle::Present && !orc.activated && orc.hp==std::int32_t(orc.statistics->baseHp()),
+      "M37 A restore did not rebuild Orc #9 asleep at MON HP");
+     std::cout<<"M37 DECISION8 A Orc 9 rebuilt asleep\n";
+    }
     check(stage=="A"||stage=="B"||stage=="C"||stage=="D"||stage=="B9","M37 resume checkpoint stage");
     if(stage=="B9") {
      check(flags->isSet(9) && world->sessionState().regionalActors(28).size()==46,
@@ -270,9 +286,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
       XeenSaveFormat::encode(XeenSaveFile::read(*target))==XeenSaveFormat::encode(before),
       "M37 failed destination composition published partial transition");
      const auto &retained=world->sessionState().monsters(23);
-     check(retained.size()==atEntrance.journey->actors.size() && retained.size()==liveAtEntrance.size(),"M37 failed transition changed mainland actor count");
-     for(unsigned i=0;i<retained.size();++i){const auto &live=retained[i];const auto &saved=atEntrance.journey->actors[i];
-      check(live.id==saved.id && live.x==saved.x && live.y==saved.y && xeen_state::sameActor(live,liveAtEntrance[i]) &&
+     check(retained.size()==atEntrance.map(23).monsters->slots.size() && retained.size()==liveAtEntrance.size(),"M37 failed transition changed mainland actor count");
+     for(unsigned i=0;i<retained.size();++i){const auto &live=retained[i];const auto &saved=atEntrance.map(23).monsters->slots[i];
+      check(live.id==XeenMonsterIdentity{23,i} && live.x==saved.x && live.y==saved.y && xeen_state::sameActor(live,liveAtEntrance[i]) &&
        live.lifecycle==saved.lifecycle &&
        bool(world->sessionState().accountedMonsters().count(live.id))==saved.accounted,
        "M37 failed transition changed inactive mainland actors");}
@@ -309,7 +325,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     check(position->mapId==XeenMapIdentity(23) && position->x==10 && position->y==12 && position->direction==XeenDirection::South,"M37 original mainland return");
     check(world->sessionState().regionalActors(28).size()==52,"M37 original reset slot count");
     checkpoint('C');
-    check(XeenSaveFile::read(*target).camera.mapId==XeenMapIdentity(23) && XeenSaveFile::read(*target).journey->vertigoActors->size()==52,"M37 checkpoint C F9 state");
+    check(XeenSaveFile::read(*target).camera.mapId==XeenMapIdentity(23) && XeenSaveFile::read(*target).map(28).monsters->slots.size()==52,"M37 checkpoint C F9 state");
     nav(NavigationAction::TurnLeft);nav(NavigationAction::TurnLeft);nav(NavigationAction::MoveForward);
     check(position->x==10 && position->y==13,"M37 revisit mainland entrance");
     input(InteractionAction{});input(YesAction{});settle();
@@ -318,7 +334,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
     nav(NavigationAction::TurnLeft);nav(NavigationAction::MoveForward);
     check(position->x==16 && position->y==2 && world->sessionState().regionalActors(28).at(36).lifecycle==XeenActorLifecycle::Defeated,"M37 reset entrance Slime 36");
     checkpoint('D');
-    check(XeenSaveFile::read(*target).camera.mapId==XeenMapIdentity(28) && XeenSaveFile::read(*target).journey->vertigoActors->size()==52,"M37 checkpoint D F9 state");
+    check(XeenSaveFile::read(*target).camera.mapId==XeenMapIdentity(28) && XeenSaveFile::read(*target).map(28).monsters->slots.size()==52,"M37 checkpoint D F9 state");
     fromBToC();input(SaveGameAction{});check(status().find("Saved")!=std::string::npos,"M37 uninterrupted final F9");
    }
    std::cout<<"M37 CLI SMOKE "<<position->mapId.number<<','<<position->x<<','<<position->y<<" passed\n";

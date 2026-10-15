@@ -1,10 +1,13 @@
 // Included by the opt-in original-resource executable inside its fixture namespace.
 // Artificial rare-condition/mixed-candidate arrangements, never route evidence.
 void repaint(Domain &d) { d.flow->holdJourneyFrame();d.present(); }
-void sameLive(const Domain &d,const XeenSaveSnapshot &before) {
+// Durable values plus the live monsters, whose HP and wake state a save no
+// longer holds (decision 8).
+struct LiveValues : XeenSaveSnapshot { std::vector<XeenActor> actors; };
+void sameLive(const Domain &d,const LiveValues &before) {
  for(unsigned i=0;i<30;++i){check(xeen_state::sameCharacter(d.party.roster.at(i),before.characters[i]),"Unpublished character changed");check(xeen_state::sameInputs(*d.party.roster.combatInputs(i),before.journey->supplements[i].inputs),"Unpublished supplemental owner changed");}
  check(d.party.encounterContext==before.journey->context && d.party.monsterTreasure==before.journey->treasure && d.world.sessionState().journeyRandom()==before.journey->random,"Unpublished time/purse/RNG changed");
- for(unsigned i=0;i<19;++i){const auto &a=d.world.sessionState().monsters(23)[i];const auto &b=before.journey->actors[i];check(a.x==b.x && a.y==b.y && a.hp==b.hp && a.activated==b.activated && a.lifecycle==b.lifecycle,"Unpublished actor changed");}
+ for(unsigned i=0;i<19;++i){const auto &a=d.world.sessionState().monsters(23)[i];const auto &b=before.actors.at(i);check(a.x==b.x && a.y==b.y && a.hp==b.hp && a.activated==b.activated && a.lifecycle==b.lifecycle,"Unpublished actor changed");}
 }
 void refusedPendingShoot(Source &s) {
  Domain initial(s);const auto fresh=initial.save();
@@ -32,11 +35,10 @@ void refusedPendingShoot(Source &s) {
 }
 void chargedWait(Source &s) {
  Domain initial(s);auto fixture=initial.save();fixture.journey->context->minutes=941;
- for(unsigned id:{7u,8u,9u}){auto &a=fixture.journey->actors[id];a.x=6;a.y=11;a.activated=true;}
+ for(unsigned id:{7u,8u,9u}){auto &a=fixture.map(23).monsters->slots[id];a.x=6;a.y=11;}
  Domain d(s,fixture);d.flow->handle(NavigationAction::MoveForward);repaint(d);
  check(d.flow->state().pending()==2 && d.party.encounterContext->minutes==951,"Wait fixture retains old opportunity before Quiet");
  auto before=fixture;before.camera=d.camera;before.journey->context=d.party.encounterContext;
- for(unsigned i=0;i<19;++i){const auto &a=d.world.sessionState().monsters(23)[i];before.journey->actors[i].activated=a.activated;}
  // The healthy 951->961 condition block must not consume a draw before
  // either ranged opportunity. The old twelve-draw prefix was a port defect.
  for(auto id:kXeenCombatOwners)check(!d.party.roster.at(id).conditions[3] &&
@@ -74,7 +76,7 @@ void stagedVolleyDefeat(Source &s) {
  Domain initial(s);auto saved=initial.save();
  for(auto id:kXeenCombatOwners) {saved.characters[id].currentHp=0;saved.characters[id].conditions[13]=1;}
  saved.characters[0].currentHp=1;saved.characters[0].conditions[13]=0;
- auto &orc=saved.journey->actors[7];orc.x=6;orc.y=11;orc.activated=true;
+ auto &orc=saved.map(23).monsters->slots[7];orc.x=6;orc.y=11;
  Domain d(s,saved);
  check(s.mon.at(6).hitParameter()==5 && s.mon.at(6).raw[30]==0,"Original Orc critical operands");
  tape={{0,5,0},{1,20,20},{1,10,10},{1,5,5},{1,10,10}};
@@ -95,11 +97,12 @@ void stagedVolleyDefeat(Source &s) {
 }
 void stagedRotationVolley(Source &s) {
  Domain initial(s);auto saved=initial.save();
- for(auto &a:saved.journey->actors)if(a.id.recordIndex!=7 && a.id.recordIndex!=9) {
-  a.x=a.y=-128;a.hp=0;a.activated=false;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;
+ auto &slots=saved.map(23).monsters->slots;
+ for(unsigned id=0;id<slots.size();++id)if(id!=7 && id!=9) {auto &a=slots[id];
+  a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;
  }
- auto &contact=saved.journey->actors[9];contact.x=8;contact.y=11;contact.activated=true;
- auto &source=saved.journey->actors[7];source.x=6;source.y=11;source.activated=true;
+ auto &contact=saved.map(23).monsters->slots[9];contact.x=8;contact.y=11;
+ auto &source=saved.map(23).monsters->slots[7];source.x=6;source.y=11;
  Domain d(s,saved);tape={{0,5,0},{1,20,1},{0,5,0},{1,20,1}};cursor=0;taped=true;d.flow->handle(WaitAction{});
  for(unsigned i=0;i<40 && d.flow->state().phase()==XeenEncounterPhase::Exploring;++i){repaint(d);d.now+=100;d.flow->idle();}
  taped=false;check(cursor==4 && d.flow->attachJourney(d.flow->ticket(),[]{}),"Original mixed-distance ranged/contact prefix");
@@ -128,7 +131,7 @@ void stagedRotationVolley(Source &s) {
 void poisonInitiative(Source &s) {
  Domain initial(s);const auto fresh=initial.save();
  for(bool poison:{false,true}){
-  auto fixture=fresh;auto &snake=fixture.journey->actors[12];snake.x=8;snake.y=11;snake.activated=true;
+  auto fixture=fresh;auto &snake=fixture.map(23).monsters->slots[12];snake.x=8;snake.y=11;
   for(unsigned i=0;i<6;++i){const auto id=kXeenCombatOwners[i];fixture.characters[id].currentHp=1000;fixture.characters[id].conditions[8]=i!=1;fixture.journey->supplements[id].inputs.speed={i<2?17:1,0};}
   Domain d(s,fixture);auto &c=attachSnake(d);check(c.pending()==XeenCombatWork::Enemy,"Snake18 precedes sleeping players17");
   std::vector<XeenCombatRandom::Draw> draws{{0,5,0},{1,10,1},{1,23,poison?23u:1u}};
@@ -138,7 +141,7 @@ void poisonInitiative(Source &s) {
   c.command(c.ticket(),XeenCombatCommand::Block);check(c.participant()==(poison?0:1),"Current Speed orders the other awake player");
   c.command(c.ticket(),XeenCombatCommand::Block);check(c.pending()==XeenCombatWork::Round,"Four awake zero-Speed participants excluded");
  }
- auto zero=fresh;auto &snake=zero.journey->actors[12];snake.x=8;snake.y=11;snake.activated=true;
+ auto zero=fresh;auto &snake=zero.map(23).monsters->slots[12];snake.x=8;snake.y=11;
  for(auto id:kXeenCombatOwners){zero.characters[id].currentHp=1000;zero.characters[id].conditions[3]=1;zero.journey->supplements[id].inputs.speed={1,0};}
  Domain d(s,zero);auto &c=attachSnake(d);
  const std::vector<XeenCombatRandom::Draw> misses{{0,5,0},{1,20,1}};attack(c,misses);
@@ -159,7 +162,7 @@ void terminalNotices(Source &s) {
  Domain original(s);auto saved=original.save();saved.journey->context->minutes=1250;
  {Domain d(s,saved);d.flow->handle(WaitAction{});verify(d,"SUPPORT STOP","time boundary");}
  {Domain d(s);d.flow->fail(d.flow->ticket());verify(d,"FAILED","state/resource or preparation");}
- saved=original.save();auto &a=saved.journey->actors[9];a.x=8;a.y=11;a.activated=true;
+ saved=original.save();auto &a=saved.map(23).monsters->slots[9];a.x=8;a.y=11;
  for(auto failure:{XeenCombatFailure::Time,XeenCombatFailure::Integrity,XeenCombatFailure::Preparation,XeenCombatFailure::Observation,XeenCombatFailure::Overflow}){
   Domain d(s,saved);auto &c=attachSnake(d);c.fail(c.ticket(),failure);
   const char *reason=failure==XeenCombatFailure::Time?"time boundary":failure==XeenCombatFailure::Integrity?"state/resource changed":failure==XeenCombatFailure::Preparation?"preparation failed":failure==XeenCombatFailure::Observation?"presentation failed":"numeric limit";
@@ -168,7 +171,7 @@ void terminalNotices(Source &s) {
  std::cout<<"REVIEW derived terminal notices: exploration time; combat time/integrity/preparation/observation/overflow PASS\n";
 }
 void zeroHitVolley(Source &s) {
- Domain initial(s);auto saved=initial.save();for(unsigned n=0;n<2;++n){auto &a=saved.journey->actors[9-n];a.x=8-n;a.y=11;a.activated=true;}
+ Domain initial(s);auto saved=initial.save();for(unsigned n=0;n<2;++n){auto &a=saved.map(23).monsters->slots[9-n];a.x=8-n;a.y=11;}
  Domain d(s,saved);tape={{1,2,1},{1,2,1},{1,2,1},{1,20,19},{1,56,56}};cursor=0;taped=true;zeroResistanceFixture=true;
  d.flow->handle(ShootAction{});d.present();
  for(unsigned i=0;i<20 && d.party.encounterContext->minutes==480;++i){d.now+=100;d.flow->idle();repaint(d);}
@@ -179,7 +182,7 @@ void zeroHitVolley(Source &s) {
 }
 void shootRevalidation(Source &source) {
  Domain original(source);auto saved=original.save();saved.characters[14].currentHp=1;
- auto &a=saved.journey->actors[9];a.x=5;a.y=11;a.activated=true;
+ auto &a=saved.map(23).monsters->slots[9];a.x=5;a.y=11;
  const auto path=std::filesystem::temp_directory_path()/"mmodern-m33-review-revalidation.mms";
  XeenSaveFile::write(path,saved);
  combat_gameplay_test::Harness h;auto services=disengagementServices(source,h);
@@ -210,11 +213,10 @@ void playerRayControls(Source &s) {
  // and a map-edge exit run the actual typed volley through charge publication.
  struct Case {int x,y;XeenDirection facing;int tx,ty;unsigned blocked;};
  for(const auto &v:std::array<Case,4>{{{0,0,XeenDirection::East,1,0,1},{0,1,XeenDirection::East,2,1,2},{1,0,XeenDirection::North,1,3,3},{0,0,XeenDirection::South,8,11,4}}}) {
-  auto saved=original.save();saved.camera={23,v.x,v.y,v.facing};auto &actor=saved.journey->actors[9];actor.x=v.tx;actor.y=v.ty;actor.activated=true;
-  if(v.blocked==2)saved.journey->actors[18].y=2;
-  if(v.blocked==3){saved.journey->actors[17].x=0;saved.journey->actors[18].x=0;}
+  auto saved=original.save();saved.camera={23,v.x,v.y,v.facing};auto &actor=saved.map(23).monsters->slots[9];actor.x=v.tx;actor.y=v.ty;
+  if(v.blocked==2)saved.map(23).monsters->slots[18].y=2;
+  if(v.blocked==3){saved.map(23).monsters->slots[17].x=0;saved.map(23).monsters->slots[18].x=0;}
   // Persistent activation permits this representation fixture's quiet view.
-  for(auto &a:saved.journey->actors)a.activated=true;
   Domain d(s,saved);const std::vector<XeenActor> actors=d.world.sessionState().monsters(23);
   std::vector<unsigned> visualRows;
   tape.clear();cursor=0;taped=true;d.flow->handle(ShootAction{});d.present();
@@ -252,10 +254,11 @@ XeenSaveSnapshot runAuthorityFixture(Source &s,bool occupied=false) {
   if(slot) {saved.characters[id].currentHp=0;saved.characters[id].conditions[12]=1;}
  }
  saved.characters[kXeenCombatOwners[2]].conditions[13]=7;
- auto &a=saved.journey->actors[9];a.x=occupied?10:8;a.y=occupied?12:11; // Decision 8: no saved wound.
+ auto &a=saved.map(23).monsters->slots[9];a.x=occupied?10:8;a.y=occupied?12:11; // Decision 8: no saved wound.
  if(occupied)saved.camera={23,10,11,XeenDirection::North};
- auto &dead=saved.journey->actors[3];dead.x=dead.y=-128;dead.hp=0;dead.activated=false;dead.lifecycle=XeenActorLifecycle::Defeated;dead.accounted=true;
+ auto &dead=saved.map(23).monsters->slots[3];dead.x=dead.y=-128;dead.lifecycle=XeenActorLifecycle::Defeated;dead.accounted=true;
  auto &treasure=*saved.journey->treasure;treasure.pendingMask=8;treasure.pendingGold=10;treasure.armor[0]={3,{0,2,0,0}};
+ save_test::bindTreasureSources(saved);
  return saved;
 }
 XeenCombat &runAuthorityReady(Domain &d,bool *automatic=nullptr) {
@@ -267,11 +270,11 @@ XeenCombat &runAuthorityReady(Domain &d,bool *automatic=nullptr) {
  while(c.phase()!=XeenCombatPhase::PlayerReady){check(++n<30,"Run authority fixture reaches ready");const auto r=c.service(c.ticket());check(r.status!=XeenCombatStatus::Failed,"Run authority fixture preparation");}
  check(c.participant()==0,"Artificial sole awake fast owner acts first");return c;
 }
-XeenSaveSnapshot runAuthorityValues(const Domain &d,const XeenSaveSnapshot &base) {
- auto value=base;value.camera=d.camera;value.characters=d.party.roster.characters();
+LiveValues runAuthorityValues(const Domain &d,const XeenSaveSnapshot &base) {
+ LiveValues value;static_cast<XeenSaveSnapshot &>(value)=base;value.camera=d.camera;value.characters=d.party.roster.characters();
  value.journey->context=d.party.encounterContext;value.journey->treasure=d.party.monsterTreasure;value.journey->random=d.world.sessionState().journeyRandom();
  for(unsigned i=0;i<30;++i)value.journey->supplements[i].inputs=*d.party.roster.combatInputs(i);
- for(unsigned i=0;i<19;++i){const auto &a=d.world.sessionState().monsters(23)[i];auto &b=value.journey->actors[i];b.x=a.x;b.y=a.y;b.hp=a.hp;b.activated=a.activated;b.lifecycle=a.lifecycle;b.status=a.status;}
+ value.actors=d.world.sessionState().monsters(23);
  return value;
 }
 XeenCombatResult runAuthorityPublish(XeenCombat &c) {
@@ -295,8 +298,7 @@ void runNoticeFits(Source &s,const std::string &notice) {
 }
 void runSignSupersession(Source &s) {
  auto setup=runAuthorityFixture(s);setup.camera={23,5,8,XeenDirection::North};
- for(auto &a:setup.journey->actors)if(a.lifecycle==XeenActorLifecycle::Present)a.activated=true;
- setup.journey->actors[9].x=5;setup.journey->actors[9].y=9;
+ setup.map(23).monsters->slots[9].x=5;setup.map(23).monsters->slots[9].y=9;
  Domain d(s,setup);bool automatic=false;auto &c=runAuthorityReady(d,&automatic);
  check(automatic,"Original sign contact retains automatic dispatch obligation");
  runAuthorityPublish(c);const auto finish=c.service(c.ticket());
@@ -329,10 +331,9 @@ void runAuthorityControls(Source &s) {
  }
  for(unsigned facing=0;facing<4;++facing) {
   auto setup=fixture;setup.camera.direction=static_cast<XeenDirection>(facing);
-  for(auto &a:setup.journey->actors)if(a.lifecycle==XeenActorLifecycle::Present)a.activated=true;
   setup.characters[0].currentHp=1000;
   constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};
-  setup.journey->actors[9].x=setup.camera.x+dx[facing];setup.journey->actors[9].y=setup.camera.y+dy[facing];
+  setup.map(23).monsters->slots[9].x=setup.camera.x+dx[facing];setup.map(23).monsters->slots[9].y=setup.camera.y+dy[facing];
   Domain d(s,setup);auto &c=runAuthorityReady(d);runAuthorityPublish(c);const auto finish=c.service(c.ticket());
   check(finish.phase==XeenCombatPhase::Disengaged && finish.destination && finish.destination->x==10 && finish.destination->y==12 &&
    finish.destination->direction==static_cast<XeenDirection>(facing) && d.camera.direction==setup.camera.direction,"All four facings survive original fixed relocation");

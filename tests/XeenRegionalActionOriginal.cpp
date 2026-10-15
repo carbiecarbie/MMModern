@@ -49,7 +49,7 @@ XeenSaveSnapshot baseline(const fs::path &game) {
  // Eliminate incidental outdoor battles in these action-only controls. The
  // twelve mainland Orc identities remain canonical defeated/accounted actors.
  for(unsigned i=0;i<12;++i) {
-  auto &a=saved.journey->actors[i];a.x=a.y=-128;a.hp=0;a.activated=false;
+  auto &a=saved.map(23).monsters->slots[i];a.x=a.y=-128;
   a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;
  }
  saved.camera={23,10,12,XeenDirection::North};
@@ -57,14 +57,14 @@ XeenSaveSnapshot baseline(const fs::path &game) {
  saved.journey->context->newDay=false;
  saved.journey->treasure->pendingGold=0;saved.journey->treasure->pendingMask=0;
  const auto mob=s.objects(28);const auto mon=s.resources.loadMonsterStatistics();
- saved.journey->vertigoActors.emplace();
+ saved.map(28).monsters.emplace(XeenSaveMonsterTable{46,{}});
  for(unsigned i=0;i<46;++i) {
   const auto &original=mob.entities.monsters[i];
-  saved.journey->vertigoActors->push_back({{28,i},original.x,original.y,
-   mon.at(original.resourceId).baseHp(),false,XeenActorLifecycle::Present,XeenActorStatus::Physical,false});
+  saved.map(28).monsters->slots.push_back({original.x,original.y,XeenActorLifecycle::Present,XeenActorStatus::Physical,false,-1});
  }
- auto &slime=saved.journey->vertigoActors->at(35);
- slime.x=slime.y=-128;slime.hp=0;slime.activated=false;slime.lifecycle=XeenActorLifecycle::Defeated;slime.accounted=true;
+ static_cast<void>(mon);
+ auto &slime=saved.map(28).monsters->slots.at(35);
+ slime.x=slime.y=-128;slime.lifecycle=XeenActorLifecycle::Defeated;slime.accounted=true;
  for(auto owner:saved.activeRosterIds) {
   saved.characters[owner].conditions.fill(0);
   saved.characters[owner].currentHp=10;saved.characters[owner].currentSp=20;
@@ -85,21 +85,24 @@ void arrival(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &i
  const bool treasure=mode==Arrival::TreasureClear || mode==Arrival::TreasureBlocked;
  fixture.camera=exit?XeenCamera{28,15,0,XeenDirection::South}:XeenCamera{23,10,13,XeenDirection::North};
  if(mode==Arrival::EntryContact || mode==Arrival::EntryVisible || mode==Arrival::TreasureBlocked) {
-  auto &actor=fixture.journey->vertigoActors->at(35);
-  actor.x=15;actor.y=mode==Arrival::EntryContact?0:1;actor.hp=2;
-  actor.lifecycle=XeenActorLifecycle::Present;actor.accounted=false;actor.activated=true;
+  auto &actor=fixture.map(28).monsters->slots.at(35);
+  actor.x=15;actor.y=mode==Arrival::EntryContact?0:1;
+  actor.lifecycle=XeenActorLifecycle::Present;actor.accounted=false;
  }
  if(exit || treasure) {
   // The original mainland Orc slot 11 at (9,15) is visible diagonally from
   // the entrance; retain that legal terrain as the source treasure blocker.
-  auto &actor=fixture.journey->actors[exit?0:11];
-  actor.x=exit?10:9;actor.y=exit?12:15;actor.hp=10;
-  actor.lifecycle=XeenActorLifecycle::Present;actor.accounted=false;actor.activated=true;
+  auto &actor=fixture.map(23).monsters->slots[exit?0:11];
+  actor.x=exit?10:9;actor.y=exit?12:15;
+  actor.lifecycle=XeenActorLifecycle::Present;actor.accounted=false;
  }
+ // The live treasure names its source by record; the save by identity.
+ auto liveTreasure=*fixture.journey->treasure;
  if(treasure) {
   auto &reward=*fixture.journey->treasure;
   reward.pendingMask=1u<<1;reward.pendingGold=10;
   reward.weapons[0]={1,{0,30,0,0}};
+  save_test::bindTreasureSources(fixture);liveTreasure=save_test::liveTreasure(fixture);
  }
  XeenSaveFile::write(save,fixture);
  Harness h(game);auto s=services(h);
@@ -175,7 +178,7 @@ void arrival(const fs::path &game,const fs::path &save,const XeenSaveSnapshot &i
   } else {
    present();check(h.flow->canSave(),"Non-contact arrival remained unavailable after presentation");
    if(mode==Arrival::TreasureBlocked)
-    check(*h.party->monsterTreasure==*fixture.journey->treasure,
+    check(*h.party->monsterTreasure==liveTreasure,
      "Selected live city obstruction did not preserve mainland pending provenance");
    if(mode==Arrival::EntryVisible || mode==Arrival::TreasureBlocked) {
     const auto &actor=h.world->sessionState().regionalActors(28)[35];

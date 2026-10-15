@@ -118,7 +118,7 @@ void pauses(Inputs &in,const XeenSaveSnapshot &initial) {
 	// The two-tick floor may leave no intermediate draw before this deadline.
 	pulse(trap,1);settle(trap);const auto settled=XeenSaveFormat::encode(trap.snapshot());
 	pulse(trap);check(XeenSaveFormat::encode(trap.snapshot())==settled,"Trap settlement published twice");
- auto unrecorded=initial;unrecorded.exploredTiles.clear();
+ auto unrecorded=initial;save_test::clearExplored(unrecorded);
  Fixture bash(in,unrecorded,true);bash.act(BashAction{});
 	for(unsigned n=0;n<20 && !XeenCityEventTestAccess::published(*bash.flow);++n)pulse(bash);
 	check(XeenCityEventTestAccess::published(*bash.flow) && XeenCityEventTestAccess::deadline(*bash.flow)==PresentationClock::afterMilliseconds(bash.now,2),
@@ -135,8 +135,9 @@ XeenSaveSnapshot source(Inputs &in) {
 	auto s=in.service();XeenWorld world(in.mapLoader());
 	auto actors=XeenActorApproach::actorsFromResources(in.maps.loadObjects(in.assets,28),in.statistics);
 	for(unsigned n=0;n<actors.size();++n) {
-		const auto &a=s.journey->vertigoActors->at(n);actors[n].x=a.x;actors[n].y=a.y;
-		actors[n].hp=a.hp;actors[n].lifecycle=a.lifecycle;actors[n].activated=a.activated;
+		const auto &a=s.map(28).monsters->slots.at(n);actors[n].x=a.x;actors[n].y=a.y;
+		actors[n].lifecycle=a.lifecycle; // Saved monsters load at MON HP, asleep (decision 8).
+		if(a.lifecycle==XeenActorLifecycle::Defeated)actors[n].hp=0;
 	}
 	for(int y=1;y<31;++y)for(int x=1;x<31;++x)for(unsigned d=0;d<4;++d) {
 		const XeenCamera camera{28,x,y,XeenDirection(d)};const auto cell=world.sampleCell(28,x,y);
@@ -149,7 +150,6 @@ XeenSaveSnapshot source(Inputs &in) {
 		if(std::any_of(actors.begin(),actors.end(),[&](const auto &a){return a.lifecycle==XeenActorLifecycle::Present &&
 			std::abs(int(a.x)-(x+dx[d]))+std::abs(int(a.y)-(y+dy[d]))<5;}))continue;
 		(void)opposite;s.camera=camera;
-		for(unsigned n=0;n<actors.size();++n)if(view.activation[n])s.journey->vertigoActors->at(n).activated=true;
 		return s;
 	}
 	throw std::runtime_error("No original quiet closed grate fixture");

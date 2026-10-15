@@ -85,7 +85,7 @@ bool m39CastControls(const std::string &control,const IndexedFrame &first,const 
                 if(!groupHp[i]) {
                     expectedAccounted.insert(actor.id);xpPerMember+=actor.statistics->experience()/6;
                     if(actor.original.resourceId==6) {
-                        XeenMonsterDropCandidate drop(expectedTreasure,actor.id.recordIndex);
+                        XeenMonsterDropCandidate drop(expectedTreasure,actor.id);
                         check(drop.service(draws),"M60 expected bounded drop");expectedTreasure=drop.treasure;
                     }
                 }

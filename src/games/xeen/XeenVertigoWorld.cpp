@@ -21,6 +21,15 @@ void XeenWorld::reloadMapMonsters(XeenMapIdentity mapId) {
 	for (auto &actor:_sessionState.mutableMonsters(mapId)) xeenRefillLoadedMonster(actor);
 }
 
+void XeenWorld::leaveMap(XeenMapIdentity mapId) {
+	if (!_detachedEventCandidate) throw std::logic_error("Map exit requires a detached transition");
+	if (xeenRetainsMapState(mapId)) return;
+	XeenMutationWatch::write(this);
+	for (auto i=_sessionState._accountedMonsters.begin();i!=_sessionState._accountedMonsters.end();)
+		i=i->mapId==mapId ? _sessionState._accountedMonsters.erase(i) : std::next(i);
+	_sessionState._mapStates.leave(mapId);
+}
+
 void XeenWorld::stageIndoorMonsters(const XeenObjectFile &mob,
 		const std::vector<XeenMonsterRecord> &statistics) {
 	XeenMutationWatch::write(this);

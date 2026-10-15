@@ -1,5 +1,6 @@
 // Earned original-resource application witness. Every mutation comes from a
 // successfully presented gameplay response; no live owner is rewritten.
+#include "XeenDecisionNine.h"
 #include "XeenProbeFired.h"
 #include "app/Application.h"
 #include "app/XeenGameplayServices.h"
@@ -204,7 +205,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             check(party->serviceEconomy->bank.gold==0 && party->serviceEconomy->bank.gems==0,"M42 production bank differs");
         };
         const auto checkpoint=[&](std::string label) {
-            auto old=std::make_shared<unsigned>();inspect([&,old]{check(flow->canSave(),"M42 checkpoint is not Quiet");*old=saves;
+            auto old=std::make_shared<unsigned>();inspect([&,old,label]{check(flow->canSave(),"M42 checkpoint is not Quiet");xeen_decision9::check(*world,*position,label,label=="A" || label=="B" || label=="B1" || label=="C" || label=="D");*old=saves;
                 SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=SDLK_F9;e.key.keysym.scancode=SDL_SCANCODE_F9;e.key.timestamp=SDL_GetTicks()+1;
                 check(SDL_PushEvent(&e)==1,"M42 F9 enqueue failed");acted=true;});
             steps.push_back([&,old,label] {if(saves==*old)return false;check(saves==*old+3,"M42 actual save pipeline incomplete");

@@ -1,7 +1,9 @@
 #include "games/xeen/XeenMonsterTreasure.h"
 #include "games/xeen/XeenJourneyContent.h"
 #include "games/xeen/XeenItemRewards.h"
+#include <algorithm>
 #include <limits>
+#include <vector>
 #include <stdexcept>
 namespace mmodern {
 void xeenValidateMonsterTreasure(const XeenMonsterTreasure &value) {
@@ -33,19 +35,75 @@ void xeenValidateMonsterTreasure(const XeenMonsterTreasure &value) {
 			sources |= bit;
 		}
 	}
+	// Every referenced slot names a distinct monster; the others are empty.
+	const auto referenced = value.referencedSources();
+	for (unsigned slot = 0; slot < value.sources.size(); ++slot) {
+		const auto id = value.sources[slot];
+		if (!(referenced & (1u << slot))) { require(id == XeenMonsterIdentity{}); continue; }
+		require(bool(id.mapId));
+		for (unsigned other = 0; other < slot; ++other) require(!(referenced & (1u << other)) || !(value.sources[other] == id));
+	}
+}
+namespace {
+// A new source's slot: its record when below 12 and free, else the lowest free
+// slot. Current content's F3 Orcs keep their record as slot, live and restored.
+unsigned freeSourceSlot(const XeenMonsterTreasure &value, XeenMonsterIdentity id, std::uint32_t taken) {
+	const auto preferred = std::size_t(id.recordIndex);
+	if (preferred < value.sources.size() && !(taken & (1u << preferred))) return unsigned(preferred);
+	for (unsigned slot = 0; slot < value.sources.size(); ++slot) if (!(taken & (1u << slot))) return slot;
+	throw std::invalid_argument("Monster treasure has no free source slot");
+}
+template<class Map> XeenMonsterTreasure remapSources(const XeenMonsterTreasure &value, const std::array<int,12> &slot, Map identity) {
+	auto result = value;result.sources = {};
+	std::uint32_t mask = 0;
+	for (unsigned k = 0; k < 12; ++k) if (value.pendingMask & (1u << k)) mask |= 1u << slot[k];
+	result.pendingMask = mask;
+	for (auto *entries : {&result.weapons, &result.armor, &result.miscellaneous})
+		for (auto &entry : *entries) if (entry.item.id) entry.source = static_cast<std::uint8_t>(slot.at(entry.source));
+	for (unsigned k = 0; k < 12; ++k) if (slot[k] >= 0) result.sources[slot[k]] = identity(k);
+	return result;
+}
+}
+void xeenPruneMonsterTreasureSources(XeenMonsterTreasure &value) noexcept {
+	const auto referenced = value.referencedSources();
+	for (unsigned slot = 0; slot < value.sources.size(); ++slot)
+		if (!(referenced & (1u << slot)) && !(value.sources[slot] == XeenMonsterIdentity{})) value.sources[slot] = {};
+}
+XeenMonsterTreasure xeenCanonicalMonsterTreasure(const XeenMonsterTreasure &value) {
+	xeenValidateMonsterTreasure(value);
+	const auto referenced = value.referencedSources();
+	std::vector<unsigned> order;
+	for (unsigned k = 0; k < 12; ++k) if (referenced & (1u << k)) order.push_back(k);
+	std::sort(order.begin(), order.end(), [&](unsigned a, unsigned b) { return value.sources[a] < value.sources[b]; });
+	std::array<int,12> slot; slot.fill(-1);
+	for (unsigned n = 0; n < order.size(); ++n) slot[order[n]] = int(n);
+	return remapSources(value, slot, [&](unsigned k) { return value.sources[k]; });
+}
+XeenMonsterTreasure xeenLiveMonsterTreasure(const XeenMonsterTreasure &value) {
+	xeenValidateMonsterTreasure(value);
+	const auto referenced = value.referencedSources();
+	std::array<int,12> slot; slot.fill(-1);
+	std::uint32_t taken = 0;
+	for (unsigned k = 0; k < 12; ++k) if (referenced & (1u << k)) {
+		const auto free = freeSourceSlot(value, value.sources[k], taken);
+		slot[k] = int(free); taken |= 1u << free;
+	}
+	return remapSources(value, slot, [&](unsigned k) { return value.sources[k]; });
 }
 }
 
 #include "games/xeen/XeenCombatRules.h"
 namespace mmodern {
-XeenMonsterDropCandidate::XeenMonsterDropCandidate(const XeenMonsterTreasure &before,unsigned source) : treasure(before) {
+XeenMonsterDropCandidate::XeenMonsterDropCandidate(const XeenMonsterTreasure &before,XeenMonsterIdentity id) : treasure(before) {
 	xeenValidateMonsterTreasure(before);
-	bool stored = false;
-	for (const auto &entries : {before.weapons, before.armor, before.miscellaneous}) for (const auto &entry : entries)
-		stored = stored || (entry.item.id && entry.source == source);
-	if (source>=12 || stored || (before.pendingMask & (1u<<source))) throw std::invalid_argument("Duplicate or invalid Orc production");
+	const auto referenced = before.referencedSources();
+	for (unsigned slot = 0; slot < 12; ++slot)
+		if ((referenced & (1u << slot)) && before.sources[slot] == id) throw std::invalid_argument("Duplicate or invalid Orc production");
+	if (!id.mapId) throw std::invalid_argument("Duplicate or invalid Orc production");
 	if (std::uint64_t(before.gold)+before.pendingGold+10>std::numeric_limits<std::uint32_t>::max())
 		throw std::overflow_error("Monster gold overflow");
+	const auto source = freeSourceSlot(before, id, referenced);
+	treasure.sources[source]=id;
 	treasure.pendingMask |= 1u<<source;treasure.pendingGold+=10;generated.source=static_cast<std::uint8_t>(source);
 }
 bool XeenMonsterDropCandidate::service(XeenConsequenceDraw &draw) {
@@ -92,17 +150,18 @@ XeenMonsterDeliveryCandidate xeenPrepareMonsterDelivery(const XeenMonsterTreasur
 		else record.loss=XeenMonsterDeliveryLoss::GloballyFull;
 		entry={};
 	}
+	xeenPruneMonsterTreasureSources(result.treasure);
 	return result;
 }
 XeenMonsterTreasure xeenPrepareMonsterGoldForfeiture(const XeenMonsterTreasure &before) {
 
 	xeenValidateMonsterTreasure(before);
-	auto after = before; after.pendingGold = after.pendingMask = 0; return after;
+	auto after = before; after.pendingGold = after.pendingMask = 0; xeenPruneMonsterTreasureSources(after); return after;
 }
 XeenMonsterTreasure xeenPrepareMonsterGoldCredit(const XeenMonsterTreasure &before) {
 	xeenValidateMonsterTreasure(before);
 	for (const auto &entries : {before.weapons, before.armor, before.miscellaneous}) for (const auto &entry : entries)
 		if (entry.item.id) throw std::invalid_argument("Monster items must be delivered before gold credit");
-	auto after=before;after.gold+=after.pendingGold;after.pendingGold=after.pendingMask=0;return after;
+	auto after=before;after.gold+=after.pendingGold;after.pendingGold=after.pendingMask=0;xeenPruneMonsterTreasureSources(after);return after;
 }
 }

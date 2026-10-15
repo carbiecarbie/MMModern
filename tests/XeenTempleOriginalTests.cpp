@@ -22,12 +22,12 @@ int main(int argc,char **argv) {
 		{
 			auto slimeSave=in.service();
 			slimeSave.camera={28,15,4,XeenDirection::North};
-			auto &slime=slimeSave.journey->vertigoActors->at(35);
-			slime.x=15;slime.y=21;slime.hp=2;slime.activated=true;
+			auto &slime=slimeSave.map(28).monsters->slots.at(35);
+			slime.x=15;slime.y=21;
 			slime.lifecycle=XeenActorLifecycle::Present;slime.accounted=false;
 			slimeSave.journey->content=14;
 			Fixture admitted(in,slimeSave);
-			check(admitted.snapshot().journey->vertigoActors->at(35).y==21,
+			check(admitted.snapshot().map(28).monsters->slots.at(35).y==21,
 				"M43 Temple-closure Slime save was not restored");
 			slimeSave.journey->content=13;
 			rejects([&]{Fixture legacy(in,slimeSave);});
@@ -44,8 +44,8 @@ int main(int argc,char **argv) {
                     a.x=p[1];a.y=p[2];a.hp=a.statistics->baseHp();a.activated=false;a.lifecycle=XeenActorLifecycle::Present;}
                 // CD maze0028.evt removes exit protection/self-disable at (15,0,South,4/5); reset creates no overlay.
             }
-            source.journey->vertigoActors.emplace();
-            for(const auto &a:actors)source.journey->vertigoActors->push_back({a.id,a.x,a.y,a.hp,a.activated,a.lifecycle,a.status,false,
+            source.map(28).monsters.emplace(XeenSaveMonsterTable{std::uint16_t(original.size()),{}});
+            for(const auto &a:actors)source.map(28).monsters->slots.push_back({a.x,a.y,a.lifecycle,a.status,false,
                 a.id.recordIndex>=original.size() && a.original.hasResource()?std::int16_t(0):std::int16_t(-1)});
             Fixture fixture(in,source);
             xeenValidateIndoorActors(fixture.w,28,actors);

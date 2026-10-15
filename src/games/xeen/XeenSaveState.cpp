@@ -16,6 +16,8 @@
 #include <stdexcept>
 #include <algorithm>
 #include <type_traits>
+#include <map>
+#include <optional>
 #include <utility>
 
 namespace mmodern {
@@ -25,42 +27,68 @@ bool XeenWorld::journeyCaptureEligible(const XeenPartyState &party, const XeenCa
 	return retained && retained->current(party,camera);
 }
 
+namespace {
+// A barrier override as the generic effective word/attribute pair of its cell.
+XeenSaveCellOverride savedCell(const XeenBarrierOverride &v) {
+	std::uint16_t word = v.originalWord;
+	for (unsigned d = 0; d < 4; ++d) if (v.mask & (1u << d)) {
+		const auto shift = 12 - 4 * d;
+		word = static_cast<std::uint16_t>((word & ~(15u << shift)) | (unsigned(v.walls[d]) << shift));
+	}
+	const auto attributes = static_cast<std::uint8_t>(v.originalAttributes | (v.unlocked ? 0x80 : 0));
+	return {v.cell, word, attributes, v.originalWord, v.originalAttributes};
+}
+
+// The live barrier that produces a saved cell: changed wall faces and the
+// unlocked bit. Other cell changes have no producer before world Events.
+XeenBarrierOverride restoredBarrier(XeenMapIdentity tile, const XeenSaveCellOverride &v) {
+	XeenBarrierOverride result;
+	result.tile = tile; result.cell = v.cell; result.originalWord = v.originalWord; result.originalAttributes = v.originalAttributes;
+	for (unsigned d = 0; d < 4; ++d) {
+		const auto shift = 12 - 4 * d;
+		const auto wall = (v.word >> shift) & 15u, original = (v.originalWord >> shift) & 15u;
+		if (wall != original) { result.mask = static_cast<std::uint8_t>(result.mask | (1u << d)); result.walls[d] = static_cast<std::uint8_t>(wall); }
+	}
+	if (v.attributes != v.originalAttributes) {
+		if (v.attributes != (v.originalAttributes | 0x80))
+			throw std::invalid_argument("Saved cell flag change is not supported yet");
+		result.unlocked = true;
+	}
+	return result;
+}
+}
+
 void XeenSaveState::validateJourneyValues(const XeenSaveSnapshot &s) {
 	const auto &j = *s.journey;
 	const auto require = [](bool ok) { if (!ok) throw std::invalid_argument("Unsupported Journey durable state"); };
-	require(s.barriers.empty() || j.vertigoActors.has_value());
 	require(j.schema==XeenSaveFormat::kJourneySchema && j.content==XeenSaveFormat::kJourneyContent);
 	require(j.context && xeenRegionalContext(*j.context));
 	require(bool(j.serviceEconomy));
 	if (j.serviceEconomy) {
 		xeenValidateCurrentServiceEconomy(*j.serviceEconomy);
 	}
-	{
-		require(s.resources.darkside && j.initializedMap==XeenMapIdentity(23) && j.originalActorCount>=1 && j.originalActorCount<=XeenActorApproach::kCapacity && j.actors.size()==j.originalActorCount &&
-			((s.camera.mapId==XeenMapIdentity(23) && s.camera.x>=0 && s.camera.x<16 && s.camera.y>=0 && s.camera.y<16) ||
-			 (s.camera.mapId==XeenMapIdentity(28) && xeenIndoorCoordinate(s.camera.x,s.camera.y) && j.vertigoActors)));
-		if (j.vertigoActors) {
-			require(j.vertigoActors->size()<=XeenActorApproach::kCapacity && j.cityOriginalActorCount<=j.vertigoActors->size());
-			for (unsigned i=0;i<j.vertigoActors->size();++i) {
-				const auto &a=(*j.vertigoActors)[i];
-				require(a.id==XeenMonsterIdentity{28,i});
-				require(s.camera.mapId!=XeenMapIdentity(28) || a.lifecycle!=XeenActorLifecycle::Present ||
-					a.x!=s.camera.x || a.y!=s.camera.y);
-			}
-		}
-		{
-			for (const auto &id:s.disabledObjects) require(id.mapId!=XeenMapIdentity(28));
-			for (const auto &id:s.disabledEvents)
-				require(id.mapId!=XeenMapIdentity(28) || j.vertigoActors.has_value());
-		}
-		for (unsigned i=0;i<j.actors.size();++i) {
-			const auto &a=j.actors[i];require(a.id==XeenMonsterIdentity{23,i} && a.status==XeenActorStatus::Physical);
-			if (a.lifecycle==XeenActorLifecycle::Present) require(a.hp>0 && !a.accounted && a.x>=0 && a.x<16 && a.y>=0 && a.y<16 &&
-				(s.camera.mapId!=XeenMapIdentity(23) || a.x!=s.camera.x || a.y!=s.camera.y));
-			else require(a.lifecycle==XeenActorLifecycle::Defeated && !a.hp && !a.activated && a.accounted && a.x==-128 && a.y==-128);
-		}
-		return; // Topology/profile/closure validation needs the installation during restore.
+	require(bool(s.resources.darkside));
+	// Decision 6: Darkside identities are representable, not loadable.
+	if (s.camera.mapId.side!=XeenSide::Clouds)
+		throw std::invalid_argument("Darkside map state cannot be loaded yet");
+	for (const auto &m:s.maps) if (m.id.side!=XeenSide::Clouds)
+		throw std::invalid_argument("Darkside map state cannot be loaded yet");
+	// Decision 2: the Warzone (Clouds 85) is never written back.
+	for (const auto &m:s.maps) if (!xeenRetainsMapState(m.id))
+		throw std::invalid_argument("Saved Warzone state is not part of a save");
+	// Wall-item and nonzero Event overrides have no producer before world Events.
+	for (const auto &m:s.maps) {
+		if (!m.wallItems.empty()) throw std::invalid_argument("Saved wall-item override is not supported yet");
+		for (const auto &v:m.events) if (v.opcode) throw std::invalid_argument("Saved Event replacement is not supported yet");
 	}
+	// The camera map's own table; no live monster stands on the camera cell.
+	const auto *camera=s.find(s.camera.mapId);
+	require(camera && camera->monsters);
+	for (const auto &m:s.maps) if (m.monsters) for (const auto &a:m.monsters->slots) {
+		require(a.status==XeenActorStatus::Physical);
+		require(m.id!=s.camera.mapId || a.lifecycle!=XeenActorLifecycle::Present || a.x!=s.camera.x || a.y!=s.camera.y);
+	}
+	// Topology/profile/closure validation needs the installation during restore.
 }
 
 void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resources &resources,
@@ -99,7 +127,9 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	p.worldFlags = snapshot.journey->worldFlags;
 	p.firstSerializedCount = p.effectiveSerializedCount = 6;
 	p.encounterContext = snapshot.journey->context;
-	p.monsterTreasure=snapshot.journey->treasure;
+	// The saved treasure names its sources in identity order; the live owner
+	// keeps each in its production slot.
+	p.monsterTreasure=xeenLiveMonsterTreasure(*snapshot.journey->treasure);
 	p.serviceEconomy=snapshot.journey->serviceEconomy;
 	p.roster._combatMarked = true;
 	for (const auto &r : snapshot.journey->supplements) p.roster._combatInputs[r.owner] = r.inputs;
@@ -128,14 +158,34 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	};
 	const auto events = [&](XeenMapIdentity id) { return callback([&] { return eventProvider(id); }); };
 	static_cast<void>(w.map(c.mapId));
-	w.restoreSessionState(snapshot.disabledObjects,snapshot.disabledEvents,events);
+	// The per-map overlays, flattened in identity order; the World binds each
+	// to its own map's resources. A removed object is its (-128,-128) entry.
+	std::vector<XeenObjectIdentity> removedObjects;
+	std::vector<XeenObjectOverride> movedObjects;
+	std::vector<XeenEventIdentity> disabledEvents;
+	std::vector<XeenBarrierOverride> cells;
+	std::vector<XeenExploredTile> explored;
+	for (const auto &m:snapshot.maps) {
+		for (const auto &v:m.objects) {
+			const XeenObjectIdentity id{m.id,v.record};
+			if (v.x==-128 && v.y==-128) removedObjects.push_back(id);
+			else movedObjects.push_back({id,v.x,v.y,v.flipped});
+		}
+		for (const auto &v:m.events) disabledEvents.push_back({m.id,v.record});
+		for (const auto &v:m.cells) cells.push_back(restoredBarrier(m.id,v));
+		if (m.explored) explored.push_back({m.id,*m.explored});
+	}
+	w.restoreSessionState(removedObjects,disabledEvents,events);
 	adopt(); // Only checked overlay preparation changed candidate gameplay values.
-	if(!snapshot.objectOverrides.empty()) {w.restoreObjectOverrides(snapshot.objectOverrides);adopt();}
-	if(!snapshot.barriers.empty()) {w.restoreBarriers(snapshot.barriers);adopt();}
-	if(!snapshot.exploredTiles.empty()) {w.restoreExploredTiles(snapshot.exploredTiles);adopt();}
+	if(!movedObjects.empty()) {w.restoreObjectOverrides(movedObjects);adopt();}
+	if(!cells.empty()) {w.restoreBarriers(cells);adopt();}
+	if(!explored.empty()) {w.restoreExploredTiles(explored);adopt();}
 	w.restoreHeads(snapshot.headCache,c);adopt();
 	auto statistics = callback(monsters);
 	const auto &policy=xeenJourneyContent();
+	// The Vertigo transition's two destinations remain the only admitted
+	// camera maps until whole maps are admitted.
+	const XeenMapIdentity city(28);
 	auto evt = events(policy.entry.mapId);
 	{
 		if(!resources.loadInitialCharacters)
@@ -143,14 +193,13 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 		xeenValidateTrainingSource(callback(resources.loadInitialCharacters));
 		// Bind resources even when the saved Journey has never entered the city.
 		adopt();
-		const auto cityEvents=events(28);
-		if(!cityEvents.resourcePresent || cityEvents.mapId!=XeenMapIdentity(28))
+		const auto cityEvents=events(city);
+		if(!cityEvents.resourcePresent || cityEvents.mapId!=city)
 			throw std::invalid_argument("Missing city Event resource");
 	}
-	auto actors = XeenActorApproach::actorsFromResources(w.objectFile(policy.entry.mapId),statistics);
 	{
 		if (!resources.loadRegionalText) throw std::invalid_argument("Missing regional text restoration provider");
-		prepared->admitRegionalText(callback([&] { return resources.loadRegionalText(23); }));
+		prepared->admitRegionalText(callback([&] { return resources.loadRegionalText(policy.entry.mapId); }));
 	}
 	{
 		if (!resources.loadLearnedSpellNames) throw std::invalid_argument("Missing learned spell names restoration provider");
@@ -158,66 +207,71 @@ void XeenSaveState::restoreJourney(const XeenSaveSnapshot &source, const Resourc
 	}
 	{
 		if (!regionalManifest) throw std::invalid_argument("Missing regional restoration manifest");
-		callback([&] { regionalManifest(w.map(23),w.objectFile(23),evt,statistics);return true; });
-		if (c.mapId==XeenMapIdentity(23) &&
-			!XeenMovement::component(w.map(23),9,11,policy.traversal)[c.y*16+c.x])
+		callback([&] { regionalManifest(w.map(policy.entry.mapId),w.objectFile(policy.entry.mapId),evt,statistics);return true; });
+		if (c.mapId!=policy.entry.mapId && c.mapId!=city)
+			throw std::invalid_argument("Saved camera map is not admitted");
+		if (w.map(c.mapId).geometry.isOutdoors() ? (c.x>15 || c.y>15) : !w.sampleCell(c.mapId,c.x,c.y))
+			throw std::invalid_argument("Saved camera outside its map");
+		if (c.mapId==policy.entry.mapId &&
+			!XeenMovement::component(w.map(policy.entry.mapId),9,11,policy.traversal)[c.y*16+c.x])
 			throw std::invalid_argument("Regional camera outside mainland");
 	}
-	if (actors.size()!=snapshot.journey->originalActorCount || actors.size()!=snapshot.journey->actors.size()) throw std::invalid_argument("Journey requires complete original actor collection");
-	for (const auto &live:snapshot.journey->actors) {
-		auto &a=actors.at(live.id.recordIndex);
-		a.x=live.x; a.y=live.y; a.hp=live.hp; a.activated=live.activated; a.lifecycle=live.lifecycle; a.status=live.status;
-		xeenRefillLoadedMonster(a); // Decision 8: saved HP and wake state are ignored.
-	}
+	const auto *entryState=snapshot.find(policy.entry.mapId);
+	if (!entryState || !entryState->monsters) throw std::invalid_argument("Journey requires complete original actor collection");
 	static_cast<void>(CloudsUiComposer::buildPortraitPlacements(p));
 	auto &s = w._sessionState;
 	w._cityStatistics=statistics;
-	// v12 projection: the Journey actors are the entry map's monster table.
-	{
-		const auto originalCount=actors.size();
-		s.stageMonsters(policy.entry.mapId,std::move(actors),originalCount,w.map(policy.entry.mapId).geometry.isOutdoors());
-	}
 	s._entry = XeenEncounterEntry::Journey;
 	s._encounterMarked = s._encounterInitialized = true; s._encounterRevision = 1;
 	s._skeletonSeed = snapshot.journey->skeletonSeed;
 	 s._journeyRandom=snapshot.journey->random;
-	for (const auto &live:snapshot.journey->actors) if (live.accounted) s._accountedMonsters.insert(live.id);
-	adopt(); // Base Journey values are complete before optional regional resources.
-	// v12 projection: the optional city table is map 28's monster table.
-	const XeenMapIdentity savedCity(28);
-	if (snapshot.journey->vertigoActors) {
-		const auto cityEvents=events(savedCity);
-		const auto cityMob=callback([&] { return w.objectFile(savedCity); });
-		const bool cityOutdoors=callback([&] { return w.map(savedCity).geometry.isOutdoors(); });
-		auto city=XeenActorApproach::actorsFromResources(cityMob,statistics);
-		if(city.size()!=snapshot.journey->cityOriginalActorCount)
-			throw std::invalid_argument("Saved city original actor count differs from MOB");
-		w._cityStatistics=statistics;
-		const auto savedCount=snapshot.journey->vertigoActors->size();
-		if(savedCount<city.size() || savedCount>XeenActorApproach::kCapacity)
-			throw std::invalid_argument("Saved city actor collection loses original records");
-		while(city.size()<savedCount) {
-			XeenActor a;a.id={savedCity,city.size()};a.original={};
-			const auto type=(*snapshot.journey->vertigoActors)[city.size()].spawnedType;
-			if(type!=-1) {
-				if(type!=0 || statistics.empty()) throw std::invalid_argument("Invalid saved script-slot MON binding");
+	adopt(); // Base Journey values are complete before the retained monster tables.
+	// Every retained monster table: its MOB records, then its script slots. HP
+	// and wake state are rebuilt as a map load does (decision 8). All provider
+	// calls precede the stores, so one adoption covers every staged table.
+	struct Loaded { const XeenSaveMapState *saved; XeenObjectFile mob; bool outdoors; };
+	std::vector<Loaded> tables;
+	for (const auto &m:snapshot.maps) if (m.monsters) {
+		auto mob=callback([&] { return w.objectFile(m.id); });
+		const bool outdoors=callback([&] { return w.map(m.id).geometry.isOutdoors(); });
+		tables.push_back({&m,std::move(mob),outdoors});
+	}
+	for (const auto &table:tables) {
+		const auto &m=*table.saved;
+		auto actors=XeenActorApproach::actorsFromResources(table.mob,statistics);
+		if (actors.size()!=m.monsters->originalCount)
+			throw std::invalid_argument("Saved original monster count differs from MOB");
+		while (actors.size()<m.monsters->slots.size()) {
+			XeenActor a;a.id={m.id,actors.size()};a.original={};
+			const auto type=m.monsters->slots[actors.size()].spawnedType;
+			if (type!=-1) {
+				if (std::size_t(type)>=statistics.size()) throw std::invalid_argument("Invalid saved script-slot MON binding");
 				a.original.resourceId=type;a.statistics=statistics.at(type);
 			}
-			city.push_back(std::move(a));
+			actors.push_back(std::move(a));
 		}
-		for (const auto &live:*snapshot.journey->vertigoActors) {
-			auto &a=city.at(live.id.recordIndex);
-			a.x=live.x;a.y=live.y;a.hp=live.hp;a.activated=live.activated;a.lifecycle=live.lifecycle;a.status=live.status;
-			xeenRefillLoadedMonster(a); // Decision 8: saved HP and wake state are ignored.
-			if(live.accounted)s._accountedMonsters.insert(live.id);
+		for (std::size_t i=0;i<actors.size();++i) {
+			const auto &saved=m.monsters->slots[i];auto &a=actors[i];
+			a.x=saved.x;a.y=saved.y;a.lifecycle=saved.lifecycle;a.status=saved.status;a.activated=false;
+			a.hp=(saved.lifecycle==XeenActorLifecycle::Present || saved.lifecycle==XeenActorLifecycle::Disabled) && a.statistics ?
+				std::int32_t(a.statistics->baseHp()) : 0;
+			if (saved.accounted) s._accountedMonsters.insert(a.id);
 		}
-		s.stageMonsters(savedCity,std::move(city),snapshot.journey->cityOriginalActorCount,cityOutdoors);
-		adopt(); // The complete saved actor graph precedes checked geometry callbacks.
-		xeenValidateIndoorActors(w,savedCity,s.mutableMonsters(savedCity));
-		adopt();
+		s.stageMonsters(m.id,std::move(actors),m.monsters->originalCount,table.outdoors);
 	}
-	adopt(); // Complete saved domain, deliberately unbound and unavailable.
-	XeenActorApproach::validateEnvironment(w,s.mutableMonsters(policy.entry.mapId),evt);
+	adopt(); // The complete saved tables precede checked geometry callbacks.
+	for (const auto &table:tables) {
+		const auto id=table.saved->id;
+		const auto mapEvents=id==policy.entry.mapId ? evt : events(id);
+		XeenActorApproach::validateEnvironment(w,s.mutableMonsters(id),mapEvents);
+	}
+	adopt();
+	// Each treasure source is a defeated, accounted monster of its own map.
+	for (const auto &id:snapshot.journey->treasure->sources) if (id.mapId) {
+		const auto &a=s.mutableMonsters(id.mapId).at(id.recordIndex);
+		if (a.lifecycle!=XeenActorLifecycle::Defeated || !s._accountedMonsters.count(a.id))
+			throw std::invalid_argument("Noncanonical monster treasure source");
+	}
 	// The camera map's own table and Events, as every reader resolves them.
 	const bool entryActive=c.mapId==policy.entry.mapId;
 	std::optional<XeenEventFile> activeEvents;
@@ -274,14 +328,6 @@ XeenSaveSnapshot XeenSaveState::captureInitialized(const XeenSaveResourceSignatu
 		const XeenGameFlags &flags, const XeenWorld &world) {
 	return captureImpl(resources,party,camera,flags,world,true);
 }
-namespace {
-// Decision 8: HP and wake state are rebuilt on every map and game load, so the
-// v12 fields carry a live monster's MON HP and false, never its live values.
-XeenSaveJourneyActor projectedActor(const XeenActor &a,bool accounted) {
-	auto loaded=a;xeenRefillLoadedMonster(loaded);
-	return {a.id,a.x,a.y,loaded.hp,loaded.activated,a.lifecycle,a.status,accounted};
-}
-}
 
 XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &resources,
 		const XeenPartyState &party, const XeenCamera &camera,
@@ -304,26 +350,40 @@ XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &res
 	snapshot.questFlags = party.questFlags.values();
 	snapshot.gameFlags = flags.values();
 	const auto &state = world.sessionState();
-	// v12 projection. The layout names two logical maps, the Journey entry and
-	// the city (28); their physical tiles keep their own cells and explored bits.
-	const auto entry=xeenJourneyContent().entry.mapId;
-	const XeenMapIdentity city(28);
-	for (const auto &value:state.mapStates()) {
-		const auto &mapState=value.second;
-		if (value.first!=entry && value.first!=city && (mapState.monsters || !mapState.removedObjects.empty() ||
-			!mapState.disabledEvents.empty() || !mapState.objectOverrides.empty()))
-			throw std::logic_error("MMModern save: v12 cannot hold the state of this map");
-	}
-	{
-		const auto objects=state.disabledObjects();const auto events=state.disabledEvents();
-		snapshot.disabledObjects.assign(objects.begin(),objects.end());
-		snapshot.disabledEvents.assign(events.begin(),events.end());
-	}
-	snapshot.barriers=state.barriers();
-	snapshot.objectOverrides=state.objectOverrides();
-	snapshot.exploredTiles=state.exploredTiles();
 	snapshot.headCache=state.headCache();
-	for(auto &v:snapshot.objectOverrides)v.flipped=world.effectiveObjectFlip(v.id);
+	// v13: every retained map's state, in identity order; an empty entry is
+	// equivalent to an absent one and is not written.
+	for (const auto &entry:state.mapStates()) {
+		if (!xeenRetainsMapState(entry.first)) continue; // Decision 2: never written back.
+		const auto &live=entry.second;
+		XeenSaveMapState saved;saved.id=entry.first;
+		const auto record=[](std::size_t index) {
+			if (index>XeenSaveFormat::kMaximumOverrides) throw std::logic_error("MMModern save: record index exceeds the save representation");
+			return static_cast<std::uint16_t>(index);
+		};
+		if (live.monsters) {
+			XeenSaveMonsterTable table;table.originalCount=live.originalMonsterCount;
+			for (const auto &a:*live.monsters) {
+				XeenSaveMonster slot{a.x,a.y,a.lifecycle,a.status,state.accountedMonsters().count(a.id)!=0,-1};
+				if (a.id.recordIndex>=table.originalCount && a.original.hasResource())
+					slot.spawnedType=static_cast<std::int16_t>(a.original.resourceId);
+				table.slots.push_back(slot);
+			}
+			saved.monsters=std::move(table);
+		}
+		std::map<std::size_t,XeenSaveObjectOverride> objects;
+		for (const auto &v:live.objectOverrides)
+			objects[v.id.recordIndex]={record(v.id.recordIndex),v.x,v.y,world.effectiveObjectFlip(v.id)};
+		for (const auto &id:live.removedObjects) objects[id.recordIndex]={record(id.recordIndex),-128,-128,false};
+		for (const auto &value:objects) saved.objects.push_back(value.second);
+		for (const auto &v:live.cells) {
+			const auto cell=savedCell(v);
+			if (cell.word!=cell.originalWord || cell.attributes!=cell.originalAttributes) saved.cells.push_back(cell);
+		}
+		for (const auto &id:live.disabledEvents) saved.events.push_back({record(id.recordIndex),0});
+		saved.explored=live.explored;
+		if (!saved.empty()) snapshot.maps.push_back(std::move(saved));
+	}
 
 	if (state.journey()) {
 		xeenValidateJourneyParty(party);
@@ -332,25 +392,11 @@ XeenSaveSnapshot XeenSaveState::captureImpl(const XeenSaveResourceSignature &res
 		j.content=XeenSaveFormat::kJourneyContent; j.schema=XeenSaveFormat::kJourneySchema; j.random=state.journeyRandom();j.treasure=party.monsterTreasure;j.worldFlags=party.worldFlags;
 		j.serviceEconomy=party.serviceEconomy;
 		for (unsigned i = 0; i < 30; ++i) j.supplements[i] = {static_cast<std::uint8_t>(i), *party.roster.combatInputs(i)};
-		j.initializedMap=entry;
 		// Admitted MOB topology survives authorized eviction of resource caches.
-		j.originalActorCount=authority->admittedActors.size();
-		const auto mainland=state.monsters(entry);
-		if (mainland.size() != j.originalActorCount) throw std::logic_error("Journey actor collection changed");
-		for (const auto &a:mainland)
-			j.actors.push_back(projectedActor(a,state.accountedMonsters().count(a.id) != 0));
-		if (state.hasRegionalActors(city)) {
-			const auto &cityState=*state.mapState(city);
-			j.cityOriginalActorCount=cityState.originalMonsterCount;
-			std::vector<XeenSaveJourneyActor> cityActors;cityActors.reserve(cityState.monsters->size());
-			for (const auto &a:*cityState.monsters) {
-				auto saved=projectedActor(a,state.accountedMonsters().count(a.id)!=0);
-				if(a.id.recordIndex>=j.cityOriginalActorCount && a.original.hasResource())
-					saved.spawnedType=static_cast<std::int16_t>(a.original.resourceId);
-				cityActors.push_back(saved);
-			}
-			j.vertigoActors=std::move(cityActors);
-		}
+		if (state.monsters(xeenJourneyContent().entry.mapId).size()!=authority->admittedActors.size())
+			throw std::logic_error("Journey actor collection changed");
+		// The live treasure names its sources by monster identity.
+		if (j.treasure) j.treasure=xeenCanonicalMonsterTreasure(*j.treasure);
 		snapshot.journey = std::move(j);
 		validateJourneyValues(snapshot);
 	}

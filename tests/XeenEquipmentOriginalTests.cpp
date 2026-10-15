@@ -123,7 +123,7 @@ void rest(Inputs &in,const XeenSaveSnapshot &equipped,std::size_t member) {
 }
 void shoot(Inputs &in,const XeenSaveSnapshot &equipped,std::size_t member) {
  auto s=equipped;s.camera={23,9,11,XeenDirection::West};
- auto &a=s.journey->actors[9];a.x=7;a.y=11;a.activated=true; // Spawn HP, as in fight().
+ auto &a=s.map(23).monsters->slots[9];a.x=7;a.y=11; // Spawn HP, as in fight().
  for(auto owner:s.activeRosterIds)s.characters[owner].currentHp=1000;
  Fixture f(in,s);const auto hp=f.w.sessionState().monsters(23)[9].hp;const auto minutes=f.p.encounterContext->minutes;
  f.act(ShootAction{});
@@ -135,7 +135,7 @@ void shoot(Inputs &in,const XeenSaveSnapshot &equipped,std::size_t member) {
 }
 void fight(Inputs &in,const XeenSaveSnapshot &equipped,std::size_t member) {
  auto s=equipped;s.camera={23,9,11,XeenDirection::West};
- auto &a=s.journey->actors[9];a.x=8;a.y=11;a.activated=true; // Spawn HP: live actors stay within their base HP.
+ auto &a=s.map(23).monsters->slots[9];a.x=8;a.y=11; // Spawn HP: live actors stay within their base HP.
  const auto owner=s.activeRosterIds[member];
  for(auto id:s.activeRosterIds)s.characters[id].currentHp=1000;
  s.journey->supplements[owner].inputs.speed.permanent=50; // Artificial: the equipped member acts first.

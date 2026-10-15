@@ -47,20 +47,12 @@ inline void equalFields(const XeenSaveSnapshot &a,const XeenSaveSnapshot &b) {
     check(a.journey && b.journey,"M40 Journey presence differs");const auto &x=*a.journey,&y=*b.journey;
     for(unsigned owner=0;owner<30;++owner)check(xeen_state::sameCharacter(a.characters[owner],b.characters[owner]) &&
         x.supplements[owner].owner==y.supplements[owner].owner && xeen_state::sameInputs(x.supplements[owner].inputs,y.supplements[owner].inputs),"M40 character/books/raw items/supplement differs");
-    const auto actors=[](const auto &left,const auto &right) {
-        check(left.size()==right.size(),"M40 actor count differs");
-        for(std::size_t i=0;i<left.size();++i){const auto &l=left[i],&r=right[i];
-            check(l.id==r.id && l.x==r.x && l.y==r.y && l.hp==r.hp && l.activated==r.activated &&
-                l.lifecycle==r.lifecycle && l.status==r.status && l.accounted==r.accounted,"M40 actor field differs");}
-    };
-    actors(x.actors,y.actors);check(x.vertigoActors.has_value()==y.vertigoActors.has_value(),"M40 city presence differs");
-    if(x.vertigoActors)actors(*x.vertigoActors,*y.vertigoActors);
+    check(a.maps==b.maps,"M40 per-map state differs");
     check(a.resources==b.resources && a.activeRosterIds==b.activeRosterIds && a.camera.mapId==b.camera.mapId &&
         a.camera.x==b.camera.x && a.camera.y==b.camera.y && a.camera.direction==b.camera.direction &&
         a.questItems==b.questItems && a.questFlags==b.questFlags && a.gameFlags==b.gameFlags &&
-        a.disabledEvents==b.disabledEvents && a.disabledObjects==b.disabledObjects &&
-        x.entry==y.entry && x.schema==y.schema && x.content==y.content && x.initializedMap==y.initializedMap &&
-        x.originalActorCount==y.originalActorCount && x.skeletonSeed==y.skeletonSeed && x.context==y.context &&
+        x.entry==y.entry && x.schema==y.schema && x.content==y.content &&
+        x.skeletonSeed==y.skeletonSeed && x.context==y.context &&
         x.random==y.random && x.treasure==y.treasure && x.worldFlags==y.worldFlags,"M40 domain/context/purse/recovery/flags differs");
     check(x.serviceEconomy.has_value()==y.serviceEconomy.has_value(),"M40 economy presence differs");
     if(x.serviceEconomy)check(stockBytes(*x.serviceEconomy)==stockBytes(*y.serviceEconomy) &&

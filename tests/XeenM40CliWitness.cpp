@@ -1,5 +1,6 @@
 // Dedicated content-11 original-resource witness. Normal owners are changed
 // exclusively through fresh concrete-frame input and production mandatory work.
+#include "XeenDecisionNine.h"
 #include "XeenProbeFired.h"
 #include "app/Application.h"
 #include "app/XeenGameplayServices.h"
@@ -218,7 +219,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         });};
         const auto checkpoint=[&](const std::string &label) {
             auto before=std::make_shared<unsigned>();
-            inspect([&,before]{check(flow->canSave(),"M40 checkpoint not Quiet");*before=saveCalls;SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=SDLK_F9;e.key.keysym.scancode=SDL_SCANCODE_F9;e.key.timestamp=SDL_GetTicks()+1;check(SDL_PushEvent(&e)==1,"M40 native F9 enqueue");acted=true;});
+            inspect([&,before,label]{check(flow->canSave(),"M40 checkpoint not Quiet");xeen_decision9::check(*world,*position,label,label!="continued");*before=saveCalls;SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=SDLK_F9;e.key.keysym.scancode=SDL_SCANCODE_F9;e.key.timestamp=SDL_GetTicks()+1;check(SDL_PushEvent(&e)==1,"M40 native F9 enqueue");acted=true;});
             steps.push_back([&,before,label] {
                 if(saveCalls==*before)return false;
                 check(saveCalls==*before+3,"M40 native F9 did not complete normal pipeline");
@@ -334,24 +335,32 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     // Capture remains correctly forbidden while Service owns
                     // the graph. Compare borrowed durable fields directly.
                     const auto &saved=*before->journey;
+                    // The saved treasure orders its sources by identity; live keeps production slots.
+                    const auto liveTreasure=xeenLiveMonsterTreasure(*saved.treasure);
                     check(*party->encounterContext==*saved.context && *world->sessionState().journeyRandom()==*saved.random &&
-                        *party->serviceEconomy==*saved.serviceEconomy && *party->monsterTreasure==*saved.treasure &&
+                        *party->serviceEconomy==*saved.serviceEconomy && *party->monsterTreasure==liveTreasure &&
                         *party->worldFlags==*saved.worldFlags && party->party.activeRosterIds()==before->activeRosterIds &&
                         position->mapId==before->camera.mapId && position->x==before->camera.x && position->y==before->camera.y &&
                         position->direction==before->camera.direction,"M40 detached preparation changed durable party/date/economy/RNG/camera");
                     for(unsigned owner=0;owner<30;++owner)check(xeen_state::sameCharacter(party->roster.at(owner),before->characters[owner]) &&
                         xeen_state::sameInputs(*party->roster.combatInputs(owner),saved.supplements[owner].inputs),"M40 preparation changed a roster owner/book/raw item/supplement");
+                    // Every live monster is still as a map load rebuilds it (decision 8).
                     const auto actors=[&](const auto &live,const auto &expected) {
                         check(live.size()==expected.size(),"M40 preparation changed region actor count");
-                        for(unsigned i=0;i<live.size();++i){const auto &a=live.at(i),&b=expected[i];
-                            check(a.id==b.id && a.x==b.x && a.y==b.y && a.hp==b.hp && a.activated==b.activated && a.lifecycle==b.lifecycle &&
+                        for(unsigned i=0;i<live.size();++i){const auto &a=live.at(i);const auto &b=expected[i];auto loaded=a;xeenRefillLoadedMonster(loaded);
+                            check(a.x==b.x && a.y==b.y && a.hp==loaded.hp && a.activated==loaded.activated && a.lifecycle==b.lifecycle &&
                                 a.status==b.status && bool(world->sessionState().accountedMonsters().count(a.id))==b.accounted,"M40 preparation changed actor durable fields");}
                     };
-                    actors(world->sessionState().monsters(23),saved.actors);actors(world->sessionState().regionalActors(28),*saved.vertigoActors);
+                    actors(world->sessionState().monsters(23),before->map(23).monsters->slots);actors(world->sessionState().regionalActors(28),before->map(28).monsters->slots);
                     check(party->questItems.counts()==before->questItems && party->questFlags.values()==before->questFlags && flags->values()==before->gameFlags,"M40 preparation changed quests/flags");
                     const auto events=world->sessionState().disabledEvents();const auto objects=world->sessionState().disabledObjects();
-                    check(std::vector<XeenEventIdentity>(events.begin(),events.end())==before->disabledEvents &&
-                        std::vector<XeenObjectIdentity>(objects.begin(),objects.end())==before->disabledObjects,"M40 preparation changed overlays");
+                    std::vector<XeenEventIdentity> savedEvents;std::vector<XeenObjectIdentity> savedObjects;
+                    for(const auto &m:before->maps) {
+                        for(const auto &v:m.events)savedEvents.push_back({m.id,v.record});
+                        for(const auto &v:m.objects)if(v.x==-128 && v.y==-128)savedObjects.push_back({m.id,v.record});
+                    }
+                    check(std::vector<XeenEventIdentity>(events.begin(),events.end())==savedEvents &&
+                        std::vector<XeenObjectIdentity>(objects.begin(),objects.end())==savedObjects,"M40 preparation changed overlays");
                 });
                 action(CancelInteractionAction{});settle();
                 inspect([&,before,operations,publications,firstGeneration] {

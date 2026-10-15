@@ -56,7 +56,6 @@ XeenEventRecord record(unsigned line,unsigned opcode,std::vector<std::uint8_t> p
 }
 XeenSaveSnapshot at(Inputs &in,int x,int y,XeenDirection direction=XeenDirection::North) {
  auto s=in.service();s.camera={28,x,y,direction};
- for(auto &actor:*s.journey->vertigoActors)if(actor.lifecycle==XeenActorLifecycle::Present)actor.activated=true;
  return s;
 }
 void settle(Fixture &f,const std::function<void()> &beforeInput={}) {
@@ -383,7 +382,7 @@ void rules(Inputs &in) {
  check(!f.p.roster.at(29).awards[126] && f.w.effectiveObject({28,0}).x==20,"Inactive award owner or MoveObj identity changed");
  const auto saved=f.snapshot();Fixture restored(in,saved,false,&city);
  check(XeenSaveFormat::encode(restored.snapshot())==XeenSaveFormat::encode(saved),"World reward exact round-trip");
- auto turned=saved;turned.objectOverrides[0].flipped=!bool(turned.objectOverrides[0].flipped);Fixture turnedRestore(in,turned,false,&city);
+ auto turned=saved;auto &moved=turned.map(28).objects.front();check(moved.record==0 && moved.x==20,"MoveObj record retained");moved.flipped=!moved.flipped;Fixture turnedRestore(in,turned,false,&city);
  check(XeenSaveFormat::encode(turnedRestore.snapshot())==XeenSaveFormat::encode(turned),"Loading reset a retained object flip");
  f.w.discardMapCache();check(f.w.effectiveObject({28,0}).x==20,"Map cache discarded durable object move");
  for(unsigned field=0;field<8;++field) {
@@ -478,7 +477,7 @@ void rules(Inputs &in) {
  XeenIndoorScene().build(*candidate,s.camera,&resolver,nullptr,0);
  check(candidate->effectiveObjectFlip({28,0})==resolver.resolve(candidate->objectFile(28),0,s.camera.direction,0).horizontalFlip,
   "Scene draw did not apply reference flip reset to off-screen object");
- auto malformed=saved;malformed.objectOverrides[0].id.recordIndex=99999;
+ auto malformed=saved;malformed.map(28).objects.back().record=65535; // Beyond the MOB records.
  save_test::rejects([&]{Fixture invalid(in,malformed,false,&city);});
 }
 void teacherPrompt(Fixture &f) {
@@ -505,7 +504,7 @@ void teachers(Inputs &in) {
   const auto x=teacher[0],y=teacher[1],skill=teacher[2],price=teacher[3];
   auto source=at(in,x,y);const unsigned selected=3,owner=source.activeRosterIds.at(selected);
   source.characters[owner].skills[skill]=0;source.journey->treasure->gold=price*3;
-   if(skill==4) {source.exploredTiles.clear();for(auto &c:source.characters)c.skills[4]=0;}
+   if(skill==4) {save_test::clearExplored(source);for(auto &c:source.characters)c.skills[4]=0;}
   Fixture f(in,source);const auto before=XeenSaveFormat::encode(f.snapshot());
   const auto rng=f.w.sessionState().journeyRandom();const auto time=f.p.encounterContext;
   teacherPrompt(f);
@@ -534,7 +533,7 @@ void teachers(Inputs &in) {
   const auto saved=f.snapshot();Fixture reload(in,saved);
   check(XeenSaveFormat::encode(reload.snapshot())==XeenSaveFormat::encode(saved),"Teacher exact reload changed skill/purse");
    if(skill==4) {
-    check(saved.exploredTiles.empty(),"Learning does not retroactively reveal earlier cells");
+    check(save_test::exploredTiles(saved).empty(),"Learning does not retroactively reveal earlier cells");
     reload.act(NavigationAction::TurnRight);settle(reload);
     const auto occupied=reload.w.sampleCell(28,x,y);
     check(occupied && occupied->cell->stepped && reload.w.sessionState().exploredTiles().size()==1,
@@ -1096,7 +1095,7 @@ void partBSearches(Inputs &in) {
  };
  auto base=at(in,20,20);
  // Isolate original scripts from unrelated roaming actors. Spawn still revives its real MOB slot.
- for(auto &a:*base.journey->vertigoActors){a.x=a.y=-128;a.hp=0;a.lifecycle=XeenActorLifecycle::Defeated;a.activated=false;a.accounted=true;}
+ for(auto &a:base.map(28).monsters->slots){a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
  const auto resolver=XeenObjectVisualResolver::load(in.assets);
  unsigned sites=0;const auto nothing=in.texts.load(28).strings[28];
  for(const auto &family:families)for(const auto [x,y]:family.sites) {
@@ -1106,7 +1105,7 @@ void partBSearches(Inputs &in) {
   XeenWorld geometry(in.mapLoader());const auto cell=geometry.sampleCell(28,x,y);
   for(unsigned d=0;d<4;++d){const auto wall=wallAt(*cell->cell,XeenDirection(d));if(wall!=1 && wall!=6 && wall!=9 && wall!=13){source.camera.direction=XeenDirection(d);break;}}
   Fixture f(in,source);
-  const auto before=XeenSaveFormat::encode(f.snapshot());const auto objects=f.snapshot().objectOverrides;const auto items=itemCount(f.p);
+  const auto before=XeenSaveFormat::encode(f.snapshot());const auto objects=save_test::movedObjects(f.snapshot());const auto items=itemCount(f.p);
   std::vector<unsigned> moves;for(const auto &r:in.city.records)if(r.x==x && r.y==y && r.opcode==0x0b)moves.push_back(r.parameters[0]);
   f.act(InteractionAction{});check(f.flow->canCancelInteraction(),"Search WhoWill absent");f.act(CancelInteractionAction{});settle(f);
   check(before==XeenSaveFormat::encode(f.snapshot()),"Cancelled search changed objects/actors/items/RNG");
@@ -1118,7 +1117,7 @@ void partBSearches(Inputs &in) {
   settle(f);
   if(!family.monster)check(itemCount(f.p)==items+family.items,"Search item delivery differs");
   if(family.crates){check(moves.size()==1,"Original crate MoveObj missing");const auto open=f.w.effectiveObject({28,moves[0]});check(open.resourceId==95 && open.x==x && open.y==y,"Crate did not reveal original open object");}
-  else check(f.snapshot().objectOverrides==objects,"Bed/rubbish changed its appearance");
+  else check(save_test::movedObjects(f.snapshot())==objects,"Bed/rubbish changed its appearance");
   bool empty=false;f.flow->reportManual=[&](const auto &result){if(const auto *p=std::get_if<XeenEventExecutionSuspended>(&result))if(p->request.text==nothing)empty=true;};
   // The synthetic frame compositor does not draw objects. Apply the normal
   // scene draw, which resets same-position MoveObj flip metadata (known quirk).

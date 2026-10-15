@@ -462,28 +462,30 @@ void XeenWorld::setBarrier(const XeenCamera &camera,std::uint8_t wall,bool unloc
 
 void XeenWorld::restoreBarriers(const std::vector<XeenBarrierOverride> &values) {
 	if(_sessionState._journeyOwner || _sessionState.journey())throw std::logic_error("Barrier restore requires unpublished World");
-	std::set<std::pair<XeenMapIdentity,unsigned>> admitted;
-	// Bind the playable logical town's complete physical tile identities.
-	for(int y=0;y<32;++y)for(int x=0;x<32;++x) {
-		const auto s=sampleCell(28,x,y);if(!s)throw std::invalid_argument("Missing barrier geometry tile");
-		admitted.emplace(s->mapId,s->y*16+s->x);
-	}
+	// Each value binds to its own physical tile, whatever logical map reaches it.
 	for(unsigned n=0;n<values.size();++n) {
 		const auto &v=values[n];
-		if(!admitted.count({v.tile,v.cell}) || !v.mask || v.mask>15 ||
+		if(!v.tile || v.tile.side!=XeenSide::Clouds || (!v.mask && !v.unlocked) || v.mask>15 ||
 			(n && !(values[n-1].tile<v.tile || (values[n-1].tile==v.tile && values[n-1].cell<v.cell))))
 			throw std::invalid_argument("Invalid barrier tile/cell/order");
-		const auto &base=map(v.tile).geometry.cells[v.cell];
-		if(map(v.tile).geometry.isOutdoors() || base.rawWord!=v.originalWord || base.rawAttributes!=v.originalAttributes)
+		const auto &tile=map(v.tile);const auto &base=tile.geometry.cells[v.cell];
+		if(tile.identity()!=v.tile || tile.geometry.isOutdoors() || base.rawWord!=v.originalWord || base.rawAttributes!=v.originalAttributes)
 			throw std::invalid_argument("Saved barrier original resource mismatch");
+	}
+	// The effective wall of a face: its saved value, else the original nibble.
+	const auto wallOf=[&](XeenMapIdentity tile,unsigned cell,unsigned d)->unsigned {
+		const auto match=std::find_if(values.begin(),values.end(),[&](const auto &b){return b.tile==tile && b.cell==cell;});
+		if(match!=values.end() && (match->mask&(1u<<d)))return match->walls[d];
+		return (map(tile).geometry.cells[cell].rawWord>>(12-4*d))&15u;
+	};
+	for(const auto &v:values) {
 		constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};
 		for(unsigned d=0;d<4;++d) {
 			if(!(v.mask&(1u<<d))) {if(v.walls[d])throw std::invalid_argument("Noncanonical unused barrier face");continue;}
 			if(v.walls[d]!=1 && v.walls[d]!=3 && v.walls[d]!=6 && v.walls[d]!=9 && v.walls[d]!=13)
 				throw std::invalid_argument("Unsupported saved barrier wall");
 			const auto other=sampleCell(v.tile,v.cell%16+dx[d],v.cell/16+dy[d]);
-			const auto match=other?std::find_if(values.begin(),values.end(),[&](const auto &b){return b.tile==other->mapId && b.cell==other->y*16+other->x;}):values.end();
-			if(match==values.end() || !(match->mask&(1u<<(d^2))) || match->walls[d^2]!=v.walls[d])
+			if(!other || other->geometry->isOutdoors() || wallOf(other->mapId,other->y*16+other->x,d^2)!=v.walls[d])
 				throw std::invalid_argument("Saved barrier lacks matching opposite face");
 		}
 	}

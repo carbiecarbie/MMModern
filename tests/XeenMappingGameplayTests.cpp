@@ -18,10 +18,10 @@ void quiet(Fixture &f) {
  check(f.flow->canSave(),"Mapping action did not settle");
 }
 XeenSaveSnapshot clearedCity(Inputs &in) {
- auto source=in.service();source.camera={28,18,4,XeenDirection::West};source.exploredTiles.clear();
+ auto source=in.service();source.camera={28,18,4,XeenDirection::West};save_test::clearExplored(source);
  // Synthetic safe route; every map, wall and Event remains original data.
- for(auto &a:*source.journey->vertigoActors)if(a.lifecycle==XeenActorLifecycle::Present) {
-  a.hp=0;a.x=a.y=-128;a.activated=false;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;
+ for(auto &a:source.map(28).monsters->slots)if(a.lifecycle==XeenActorLifecycle::Present) {
+  a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;
  }
  return source;
 }
@@ -117,8 +117,58 @@ void route(Inputs &in) {
  }
  modal(revisit);
 }
+// M69: per-map state survives the Vertigo-F3-Vertigo loop, with a save,
+// encode, decode and restore at each stop. The exit script's Spawn creates
+// script slots 46..51 (50 and 51 spawned, MON type 0); an F3 defeat is kept.
+XeenSaveSnapshot reload(const XeenSaveSnapshot &saved,Inputs &in,std::unique_ptr<Fixture> &next) {
+ const auto bytes=XeenSaveFormat::encode(saved);
+ next=std::make_unique<Fixture>(in,XeenSaveFormat::decode(bytes));
+ const auto restored=next->snapshot();
+ check(XeenSaveFormat::encode(restored)==bytes,"Each stop reloads and re-saves exactly");
+ return restored;
+}
+void checkLoop(const XeenSaveSnapshot &s,const char *stop) {
+ const auto &f3=s.map(23).monsters->slots.at(5);
+ check(f3.lifecycle==XeenActorLifecycle::Defeated && f3.accounted && f3.x==-128 && f3.y==-128,stop);
+ const auto &city=*s.map(28).monsters;
+ check(city.originalCount==46 && city.slots.size()==52,stop);
+ for(unsigned slot=46;slot<52;++slot) {
+  const auto &a=city.slots[slot];
+  check(slot<50 ? a.lifecycle==XeenActorLifecycle::Unresolved && a.spawnedType==-1 :
+   a.lifecycle==XeenActorLifecycle::Present && a.spawnedType==0,stop);
+ }
+}
+void vertigoLoop(Inputs &in) {
+ auto source=clearedCity(in);
+ auto &orc=source.map(23).monsters->slots.at(5);orc.x=orc.y=-128;orc.lifecycle=XeenActorLifecycle::Defeated;orc.accounted=true;
+ std::unique_ptr<Fixture> city;reload(source,in,city);
+ XeenCamera exit;bool found=false;
+ for(const auto &r:in.city.records)if(r.line==0)for(unsigned d=0;d<4 && !found;++d) {
+  XeenCamera at{28,int(r.x),int(r.y),XeenDirection(d)};
+  if(xeenRegionalInteraction(in.city,at)==XeenRegionalInteraction::VertigoExit){exit=at;found=true;}
+ }
+ check(found,"Original Vertigo exit exists");walk(*city,exit);city->act(InteractionAction{});
+ if(city->flow->presentationGeneration())city->act(YesAction{});quiet(*city);
+ check(city->c.mapId==XeenMapIdentity(23),"Loop reaches the mainland");
+ std::unique_ptr<Fixture> mainland;const auto atF3=reload(city->snapshot(),in,mainland);
+ checkLoop(atF3,"F3 save lost the Vertigo script slots or the F3 defeat");
+ auto &f=*mainland;
+ if(f.c.x!=10 || f.c.y!=13) {
+  check(f.c.x==10 && f.c.y==12,"Original exit arrival location");
+  while(f.c.direction!=XeenDirection::North){f.act(NavigationAction::TurnRight);quiet(f);}
+  f.act(NavigationAction::MoveForward);quiet(f);
+ }
+ while(f.c.direction!=XeenDirection::North){f.act(NavigationAction::TurnRight);quiet(f);}
+ f.act(InteractionAction{});if(f.flow->presentationGeneration())f.act(YesAction{});quiet(f);
+ check(f.c.mapId==XeenMapIdentity(28),"Loop returns to Vertigo");
+ std::unique_ptr<Fixture> back;const auto atVertigo=reload(f.snapshot(),in,back);
+ checkLoop(atVertigo,"Vertigo save lost the script slots or the F3 defeat");
+ const auto &spawned=back->w.sessionState().monsters(28)[50];
+ check(spawned.statistics && spawned.hp==spawned.statistics->baseHp() && spawned.original.resourceId==0,
+  "A restored spawned slot binds its MON type and HP");
+}
 void combatMap(Inputs &in) {
- auto source=in.base();source.exploredTiles.clear();
+ auto source=in.base();save_test::clearExplored(source);
  source.characters[source.activeRosterIds[0]].skills[4]=1;
  Fixture f(in,source);configure(f);
  const auto pulse=[&]{f.now+=125;f.flow->beginCycle(++f.cycle);if(auto frame=f.flow->updatePresentation())f.present(*frame);};
@@ -145,7 +195,7 @@ void combatMap(Inputs &in) {
  check(saved==XeenSaveFormat::encode(restored.snapshot()),"Run exploration restores exactly");
 }
 void serviceReturn(Inputs &in) {
- auto source=in.service();source.exploredTiles.clear();
+ auto source=in.service();save_test::clearExplored(source);
  Fixture f(in,source);f.enter();
  check(f.w.sessionState().exploredTiles().empty(),"Service entry does not record from drawing");
  f.act(CancelInteractionAction{});quiet(f);
@@ -158,6 +208,6 @@ void serviceReturn(Inputs &in) {
 int main(int argc,char **argv){try {
  check(argc==2,"usage: mapping-gameplay-tests <installation>");auto game=xeenTestInstallationDetector().detect(argv[1]);check(bool(game),"Missing installation");Inputs in(*game);
  std::ostringstream captured;auto *prior=std::cout.rdbuf(captured.rdbuf());
- try{controls(in);route(in);combatMap(in);serviceReturn(in);}catch(...){std::cout.rdbuf(prior);throw;}std::cout.rdbuf(prior);
+ try{controls(in);route(in);vertigoLoop(in);combatMap(in);serviceReturn(in);}catch(...){std::cout.rdbuf(prior);throw;}std::cout.rdbuf(prior);
  std::cout<<"Mapping controls, physical exploration, original travel and exact reload passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

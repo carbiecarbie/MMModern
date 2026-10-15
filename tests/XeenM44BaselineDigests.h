@@ -175,16 +175,34 @@
 // Services old: 417bd35216544d12265a116c8750d22953e12161cfeed075fb685a80e3a5d068
 // Temple old: 0bd5d8cd9075e42ba3f9681d2c6322a0c23cc81d518654c8c8c48b57b68d0f32
 // Roundtrip old: cfdcec346d6584a479e3ded6960ba61c0e79c4cedf52a7e563bbc675c02ba5d8
+// M69 step B (save v13): maintainer approved the format-only audit and the
+// replacements on 2026-10-15. Preserved A2 baseline D:/M44-audits/m69b-417a1c0
+// reproduced all four A2 digests. Complete traces are identical in all four
+// scenarios (roundtrip resumes from A and B equal the uninterrupted final);
+// every common per-map field is equal across all 14 checkpoints. The per-map
+// view loses only each monster's HP and wake fields (not saved, decision 8)
+// and gains the generic word/attribute of the two Vertigo grate cells, whose
+// faces, mask and unlocked bit are equal. The one changed decoded field,
+// roundtrip pendingMask 32 -> 1, indexes the new source list
+// {Clouds 23, record 5}. Every byte delta equals the removed v12 blocks
+// (actor tables, flat overlay lists) minus the added v13 source list and
+// per-map table; saves shrink by 281..968 bytes. Native reload/re-save is
+// exact in all four. Local audit: build-rel/digest-comparison-m69b.
+// Evidence stays local; never commit original-data saves.
+// Mainland old: c453cb54597e04fa2d2bd9fe9c02f951d3438eded5e66e1b1a90c5ec6ce10c62
+// Services old: 7d66ab9efe5e6b52f58360c446bcc35f61e1beba602c44c3bd404a71bec69e7c
+// Temple old: 8725ee250ffeab5e2a015daebf2caf81af54a95b8d0048b75242ef8d49157503
+// Roundtrip old: 9347bfebf93974e807aeca0d641778bf690b3e2d71ded50278bd3b687b6c51b0
 #include <array>
 #include <cstdint>
 namespace m44_baseline {
-inline constexpr const char *revision = "M69 A2 (decision 8) on a5ad56b, save v12";
+inline constexpr const char *revision = "M69 B (save v13) on 417a1c0";
 struct Scenario { const char *name; std::uint32_t seed; const char *sha256; };
 inline constexpr std::array<Scenario,4> scenarios{{
-    {"mainland-combat-myra-phirna",3626689381u,"c453cb54597e04fa2d2bd9fe9c02f951d3438eded5e66e1b1a90c5ec6ce10c62"},
-    {"vertigo-buy-repair-training",7u,"7d66ab9efe5e6b52f58360c446bcc35f61e1beba602c44c3bd404a71bec69e7c"},
-    {"temple-recovery",3626689381u,"8725ee250ffeab5e2a015daebf2caf81af54a95b8d0048b75242ef8d49157503"},
-    {"vertigo-f3-roundtrip",3626689381u,"9347bfebf93974e807aeca0d641778bf690b3e2d71ded50278bd3b687b6c51b0"}
+    {"mainland-combat-myra-phirna",3626689381u,"bb913f87a17bac615e4a1eceb73563052872c77f1fa694f2d4706b292152a0f2"},
+    {"vertigo-buy-repair-training",7u,"ea0809cdfa5bd1737526d353d769a076f76c9e8508e4c91ff08a94a83dea4f11"},
+    {"temple-recovery",3626689381u,"63807e54ffb79b4f34cfb5a7d3015425a4571f5cceb0a7311bfbba2c44de4947"},
+    {"vertigo-f3-roundtrip",3626689381u,"5ec76e2426b856f3cb94e78c4c1a88742b7ab1991abbce035e6ed4c747d55d91"}
 }};
 }
 #endif

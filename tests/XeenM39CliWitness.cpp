@@ -1,5 +1,6 @@
 // Original initialization, ordinary owners, concrete SDL frames and actual F9.
 // Seed, typed input, native injection and fault controls are test-only evidence.
+#include "XeenDecisionNine.h"
 #include "XeenProbeFired.h"
 #include "app/Application.h"
 #include "app/XeenGameplayServices.h"
@@ -70,22 +71,12 @@ void checkRestoredFields(const XeenSaveSnapshot &disk,const XeenSaveSnapshot &li
     for(unsigned i=0;i<30;++i)check(xeen_state::sameCharacter(disk.characters[i],live.characters[i]) &&
         a.supplements[i].owner==b.supplements[i].owner && xeen_state::sameInputs(a.supplements[i].inputs,b.supplements[i].inputs),
         "M39 pre-input owner/book/item/supplement mismatch");
-    const auto actors=[](const auto &left,const auto &right) {
-        check(left.size()==right.size(),"M39 pre-input region actor count mismatch");
-        for(std::size_t i=0;i<left.size();++i) {
-            const auto &x=left[i],&y=right[i];
-            check(x.id==y.id && x.x==y.x && x.y==y.y && x.hp==y.hp && x.activated==y.activated &&
-                x.lifecycle==y.lifecycle && x.status==y.status && x.accounted==y.accounted,"M39 pre-input region actor mismatch");
-        }
-    };
-    actors(a.actors,b.actors);
-    check(a.vertigoActors.has_value()==b.vertigoActors.has_value(),"M39 pre-input retained city presence mismatch");
-    if(a.vertigoActors)actors(*a.vertigoActors,*b.vertigoActors);
+    check(disk.maps==live.maps,"M39 pre-input per-map state mismatch");
     check(disk.resources==live.resources && disk.activeRosterIds==live.activeRosterIds &&
         disk.camera.mapId==live.camera.mapId && disk.camera.x==live.camera.x && disk.camera.y==live.camera.y &&
         disk.camera.direction==live.camera.direction && disk.questItems==live.questItems && disk.questFlags==live.questFlags &&
-        disk.gameFlags==live.gameFlags && disk.disabledEvents==live.disabledEvents && disk.disabledObjects==live.disabledObjects &&
-        a.schema==b.schema && a.content==b.content && a.initializedMap==b.initializedMap && a.originalActorCount==b.originalActorCount &&
+        disk.gameFlags==live.gameFlags &&
+        a.schema==b.schema && a.content==b.content &&
         a.context==b.context && a.random==b.random && a.treasure==b.treasure && a.worldFlags==b.worldFlags,
         "M39 pre-input domain/camera/context/flags/treasure/RNG mismatch");
 }
@@ -232,7 +223,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
         };
         const auto checkpoint=[&](const std::string &label) {
             auto before=std::make_shared<unsigned>();
-            inspect([&,before]{check(flow->canSave(),"M39 checkpoint not presented Quiet");*before=saves;SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=SDLK_F9;e.key.keysym.scancode=SDL_SCANCODE_F9;e.key.timestamp=SDL_GetTicks()+1;check(SDL_PushEvent(&e)==1,"M39 F9 enqueue");acted=true;});
+            inspect([&,before,label]{check(flow->canSave(),"M39 checkpoint not presented Quiet");xeen_decision9::check(*world,*position,label,label=="A" || label=="city"); /* B/C: decision 8 cases. */*before=saves;SDL_Event e{};e.type=SDL_KEYDOWN;e.key.keysym.sym=SDLK_F9;e.key.keysym.scancode=SDL_SCANCODE_F9;e.key.timestamp=SDL_GetTicks()+1;check(SDL_PushEvent(&e)==1,"M39 F9 enqueue");acted=true;});
             steps.push_back([&,before,label]{
                 if(saves==*before)return false;
                 check(saves==*before+3,"M39 actual F9 pipeline incomplete");
@@ -253,6 +244,13 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             const auto disk=XeenSaveFile::read(*target);const auto live=XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world);
             check(XeenSaveFormat::encode(disk)==XeenSaveFormat::encode(live),"M39 pre-input recapture mismatch");
             checkRestoredFields(disk,live);
+            if(stage=="continued") {
+                // Decision 8: B and C save the Toad wounded (33 or 25) and woken;
+                // the game load rebuilds it at MON HP and asleep.
+                const auto &toad=world->sessionState().monsters(23)[15];
+                check(toad.hp==std::int32_t(toad.statistics->baseHp()) && !toad.activated,"M39 restored Toad was not rebuilt at MON HP, asleep");
+                std::cout<<"M39 DECISION8 TOAD HP="<<toad.hp<<" woken="<<toad.activated<<'\n';
+            }
             std::cout<<"M39 RESTORE EXACT BEFORE INPUT\n";
         }});
         if(!resume) {
@@ -452,7 +450,10 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             action(CastSpellAction{});action(SelectMemberAction{4});selectSpell(1);castSelected();settle();
             inspect([&]{check(party->roster.at(1).currentSp==18 && party->roster.at(6).currentSp==23,"M39 inherited exploration Awaken");});
             checkpoint("final");
-        }else if(branch=="B" || branch=="C") {route("LR");checkpoint("continued");}
+        }else if(branch=="B" || branch=="C") {route("LR");
+            inspect([&]{const auto &toad=world->sessionState().monsters(23)[15];
+                std::cout<<"M39 TOAD END HP="<<toad.hp<<" woken="<<toad.activated<<'\n';});
+            checkpoint("continued");}
         inspect([&]{std::cout<<"M39 PRODUCTION WITNESS PASSED projectiles="<<arrowProjectiles<<'\n';SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);});
         auto native=handler;native.closed={};
         // The simulated clock advances only when idle runs; a live deadline would make

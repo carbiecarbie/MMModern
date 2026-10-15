@@ -6,7 +6,7 @@ XeenSaveSnapshot disengagementFixture(Source &source) {
   saved.characters[id].currentHp=1000;
   saved.journey->supplements[id].inputs.speed={255,0};
  }
- auto &survivor=saved.journey->actors[9];survivor.x=8;survivor.y=11;
+ auto &survivor=saved.map(23).monsters->slots[9];survivor.x=8;survivor.y=11;
  return saved;
 }
 // Decision 8: the survivor's wound and wake state are live fixture values.
@@ -271,7 +271,7 @@ void disengagementFinishPresentation(Source &source,bool injectFault=true) {
     auto value=saved;value.camera=*h.camera;value.characters=h.party->roster.characters();value.activeRosterIds=h.party->party.activeRosterIds();
     value.journey->context=h.party->encounterContext;value.journey->treasure=h.party->monsterTreasure;value.journey->random=h.world->sessionState().journeyRandom();
     for(unsigned i=0;i<30;++i)value.journey->supplements[i].inputs=*h.party->roster.combatInputs(i);
-    for(unsigned i=0;i<19;++i){const auto &a=h.world->sessionState().monsters(23)[i];auto &b=value.journey->actors[i];b.x=a.x;b.y=a.y;b.hp=a.hp;b.activated=a.activated;b.lifecycle=a.lifecycle;b.status=a.status;b.accounted=h.world->sessionState().accountedMonsters().count(a.id);}
+    for(unsigned i=0;i<19;++i){const auto &a=h.world->sessionState().monsters(23)[i];auto &b=value.map(23).monsters->slots[i];b.x=a.x;b.y=a.y;b.lifecycle=a.lifecycle;b.status=a.status;b.accounted=h.world->sessionState().accountedMonsters().count(a.id);}
     return value;
    };
    if(occupied)check(northLoads==0,"North neighbor must remain cold before contact");
@@ -310,8 +310,8 @@ void disengagementFinishPresentation(Source &source,bool injectFault=true) {
     const bool ready=attrition && !exit;
     check(notice.find(ready?"Ready treasure: +10 gold":"Dormant items; no gold owed")!=std::string::npos,"Matching ready/dormant consequence is visible");
     check(h.party->monsterTreasure->gold==saved.journey->treasure->gold && h.party->monsterTreasure->pendingGold==(ready?10:0) &&
-     h.party->monsterTreasure->armor==saved.journey->treasure->armor &&
-     h.party->monsterTreasure->miscellaneous==saved.journey->treasure->miscellaneous,"Feedback does not credit, forfeit twice or alter item provenance");
+     h.party->monsterTreasure->armor==save_test::liveTreasure(saved).armor &&
+     h.party->monsterTreasure->miscellaneous==save_test::liveTreasure(saved).miscellaneous,"Feedback does not credit, forfeit twice or alter item provenance");
     check(h.party->roster.at(kXeenCombatOwners[2]).conditions[13]==7,"Feedback preserves existing Dead counter");
     check(h.camera->x==10 && h.camera->y==12 && h.world->sessionState().monsters(23)[9].hp==survivorHp,"Relocation and survivor remain published exactly once");
     auto *replacement=h.flow->encounter()->combat();
@@ -365,8 +365,10 @@ void disengagementFinishPresentation(Source &source,bool injectFault=true) {
     const auto retryFrame=h.flow->frame().presentation();h.flow->refresh(true);
     check(h.flow->encounter()->notice()==notice && publication->current(),"Recomposition retains same finish without replaying gameplay");
     rejected=false;try{handler.framePresented(retryFrame);}catch(const std::exception &){rejected=true;}
-    check(rejected,"Recomposition requires its exact concrete frame");const auto beforePresentation=values();present();
+    check(rejected,"Recomposition requires its exact concrete frame");const auto beforePresentation=values();
+    const std::vector<XeenActor> actorsBeforePresentation=h.world->sessionState().monsters(23);present();
     save_test::sameSnapshot(beforePresentation,values());
+    for(unsigned i=0;i<19;++i)check(xeen_state::sameActor(actorsBeforePresentation[i],h.world->sessionState().monsters(23)[i]),"Presentation changed a live monster");
     check(!replacement || (publication->current() && replacement->current(*replacementTicket) && replacement->participants()==0x3f),"Presentation alone changes neither combat incarnation nor participation");
     if(!occupied)check(h.flow->encounter()->canSave(),"Normal destination still becomes Quiet only after presentation");
    }

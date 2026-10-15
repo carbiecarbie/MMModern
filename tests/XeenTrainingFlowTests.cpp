@@ -187,11 +187,10 @@ int main(int argc,char **argv) {
             expected.journey->treasure->gold=490-price;expected.journey->context->day=13;
             // Cartography records the Smith return cell: physical tile 28,
             // (8,4) is bit 72, byte 9, mask 1. Keep every earlier cell exact.
-            auto explored=std::find_if(expected.exploredTiles.begin(),expected.exploredTiles.end(),
-                [](const auto &tile){return tile.mapId==XeenMapIdentity(28);});
-            check(explored!=expected.exploredTiles.end() && !(explored->cells[9]&1),
+            auto &explored=expected.map(28).explored;
+            check(explored && !((*explored)[9]&1),
                 "Training fixture must retain its tile without the Smith return cell");
-            explored->cells[9]|=1;
+            (*explored)[9]|=1;
             smith.enter();smith.quote(XeenInventoryCategory::Weapons,offerSlot);smith.act(YesAction{});
             check(smith.p.monsterTreasure->gold==490-price &&
                 xeenSameItem(smith.p.roster.at(0).weapons[recipient],offer),

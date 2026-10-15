@@ -2,6 +2,7 @@
 #include "XeenSaveTestSupport.h"
 #include "XeenDosTextTestSupport.h"
 #include "XeenRemoveTestSupport.h"
+#include "XeenMonsterTestAccess.h"
 #include "app/XeenEventFlow.h"
 #include "formats/xeen/XeenMapFormat.h"
 #include "games/xeen/CloudsUiComposer.h"
@@ -11,6 +12,7 @@
 #include "games/xeen/XeenSaveState.h"
 
 #include <algorithm>
+#include <chrono>
 #include <iostream>
 #include <map>
 
@@ -136,8 +138,8 @@ struct Fixture {
 	XeenSaveSnapshot capture() const {
         XeenSaveSnapshot s;s.resources=signature;s.camera=camera;s.activeRosterIds=party.party.activeRosterIds();
         s.characters=party.roster.characters();s.questItems=party.questItems.counts();s.questFlags=party.questFlags.values();s.gameFlags=flags.values();
-        const auto &state=world.sessionState();{const auto projected=state.disabledObjects();s.disabledObjects.assign(projected.begin(),projected.end());};
-        {const auto projected=state.disabledEvents();s.disabledEvents.assign(projected.begin(),projected.end());};return s;
+        const auto &state=world.sessionState();{const auto projected=state.disabledObjects();save_test::setRemovedObjects(s,{projected.begin(),projected.end()});};
+        {const auto projected=state.disabledEvents();save_test::setDisabledEvents(s,{projected.begin(),projected.end()});};return s;
     }
 
 
@@ -310,11 +312,11 @@ void fullRestoration(){
   pair.inputs.resistances->magicTemporary=9;
  }
  s.characters[29].conditions[2]=255;s.characters[29].conditions[7]=128;
- s.disabledObjects={{23,0}};s.disabledEvents={{23,0},{23,1}};
+ save_test::setRemovedObjects(s,{{23,0}});save_test::setDisabledEvents(s,{{23,0},{23,1}});
  s.characters[29].currentSp=-50;s.characters[29].miscellaneous[8]={231,12,255,7};
  for(unsigned owner=0;owner<30;++owner)for(unsigned skill=0;skill<18;++skill)
   s.characters[owner].skills[skill]=static_cast<std::uint8_t>(owner*18+skill);
- s.exploredTiles={{23,{}}};s.exploredTiles[0].cells[0]=1;s.exploredTiles[0].cells[31]=128;
+ s.map(23).explored.emplace();(*s.map(23).explored)[0]=1;(*s.map(23).explored)[31]=128;
  const auto expected=s;
  CurrentDestination f;f.party.questItems.increment(0);f.flags.set(1);f.world.disableObject({23,0});
  f.restore(XeenSaveFormat::decode(XeenSaveFormat::encode(s)));f.bind();sameSnapshot(f.capture(),expected);
@@ -325,12 +327,182 @@ void fullRestoration(){
  check(f.world.effectiveEvent({23,0},evt.records[0]).opcode==0 && f.world.effectiveEvent({23,2},evt.records[2]).opcode==0x12,"Event overlay expanded by cell");
  const auto maps=f.maps,objects=f.objects,events=f.events;f.world.discardMapCache();f.world.map(23);f.world.objectFile(23);f.resources.loadEvents(23);
  check(f.maps>maps && f.objects>objects && f.events>events,"restored providers did not reload");sameSnapshot(f.capture(),expected);
- auto copy=f.capture();copy.characters[18].currentHp=123;copy.disabledEvents.clear();sameSnapshot(f.capture(),expected);sameSnapshot(s,expected);
+ auto copy=f.capture();copy.characters[18].currentHp=123;save_test::setDisabledEvents(copy,{});sameSnapshot(f.capture(),expected);sameSnapshot(s,expected);
  for(unsigned category=0;category<6;++category){auto value=currentSnapshot();
   switch(category){case 0:value.characters[29].currentHp=-32768;break;case 1:value.questItems[34]=0xffffffffU;break;
-   case 2:value.questFlags[29]=true;break;case 3:value.gameFlags[255]=true;break;case 4:value.disabledObjects={{23,0}};break;case 5:value.disabledEvents={{23,1}};break;}
+   case 2:value.questFlags[29]=true;break;case 3:value.gameFlags[255]=true;break;case 4:save_test::setRemovedObjects(value,{{23,0}});break;case 5:save_test::setDisabledEvents(value,{{23,1}});break;}
   CurrentDestination next;next.restore(value);next.bind();sameSnapshot(next.capture(),value);
  }
+}
+// Synthetic resources for the per-map tests: F3 stays the outdoor mainland;
+// every other map is an indoor tile with three objects and `monsters` MOB
+// monsters of type 8 at (i%16,1+i/16); MON type 0 copies type 8 so that a
+// spawned script slot has hit points; every other map's EVT has four records.
+XeenMap indoorMap(XeenMapIdentity id) {
+ auto m=regional_test::map(id);if(id==XeenMapIdentity(23))return m;
+ m.geometry.flags2=0;for(auto &c:m.geometry.cells){c.rawWord=0;c.rawAttributes=0;c.flags=0;c.geometry=XeenIndoorWalls{};}
+ return m;
+}
+XeenObjectFile indoorObjects(XeenMapIdentity id,unsigned monsters) {
+ auto o=regional_test::objects(id);if(id==XeenMapIdentity(23))return o;
+ o.entities.objects.clear();
+ for(int n:{0,2,3})o.entities.objects.push_back(n?XeenMapEntity{n,n,0,0,7}:XeenMapEntity{9,11,0,0,7});
+ for(unsigned i=0;i<monsters;++i)o.entities.monsters.push_back({int(i%16),int(1+i/16),0,0,8});
+ return o;
+}
+XeenEventFile indoorEvents(XeenMapIdentity id) {
+ if(id==XeenMapIdentity(23) || id==XeenMapIdentity(28))return regional_test::events(id);
+ return XeenEventFile{id,"synthetic.evt",true,std::vector<XeenEventRecord>(4)};
+}
+void usePerMapResources(CurrentDestination &f,unsigned monsters) {
+ f.mapProvider=indoorMap;f.objectProvider=[monsters](auto id){return indoorObjects(id,monsters);};
+ f.resources.loadEvents=[&f](auto id){++f.events;return indoorEvents(id);};
+ f.resources.loadMonsterStatistics=[&f]{++f.monsters;auto s=regional_test::statistics();s[0]=s[8];return s;};
+}
+// A map table saved as restore stages it: every MOB record Present at its MOB cell.
+XeenSaveMonsterTable mobTable(unsigned monsters) {
+ auto table=monsterTable(monsters);
+ for(unsigned i=0;i<monsters;++i){table.slots[i].x=int(i%16);table.slots[i].y=int(1+i/16);}
+ return table;
+}
+// M69 decision 5: capture, encode, decode, restore, capture again. Both the
+// mainland and the city hold state in every table restore accepts: monster
+// tables (a defeated, accounted record, an unresolved and a spawned script
+// slot), moved and removed objects, cells (indoor only; outdoor cells and
+// wall items have no producer), MakeNothingHere records, explored bits, the
+// head cache and a dormant treasure item's source identity.
+void genericRoundTrip(){
+ auto s=currentSnapshot();
+ auto &f3=s.map(23);
+ auto &orc=f3.monsters->slots[2];orc.x=orc.y=-128;orc.lifecycle=XeenActorLifecycle::Defeated;orc.accounted=true;
+ f3.objects={{0,-128,-128,false}};f3.events={{0,0},{1,0}};
+ f3.explored=std::array<std::uint8_t,32>{};(*f3.explored)[9]=0x10;
+ s.journey->treasure->weapons[0]={0,{0,30,0,0}};s.journey->treasure->sources[0]={23,2};
+ auto &city=s.map(28);
+ city.monsters=mobTable(4);
+ auto &slime=city.monsters->slots[1];slime.x=slime.y=-128;slime.lifecycle=XeenActorLifecycle::Defeated;slime.accounted=true;
+ city.monsters->slots.push_back({0,0,XeenActorLifecycle::Unresolved,XeenActorStatus::Physical,false,-1});
+ city.monsters->slots.push_back({7,7,XeenActorLifecycle::Present,XeenActorStatus::Physical,false,0});
+ city.objects={{1,4,5,true},{2,-128,-128,false}};
+ // A grate on the east face of (5,5) and the west face of (6,5), both unlocked.
+ city.cells={{5*16+5,0x0900,0x80,0,0},{5*16+6,0x0009,0x80,0,0}};
+ city.events={{764,0}};
+ city.explored=std::array<std::uint8_t,32>{};(*city.explored)[31]=0x80;
+ s.headCache=XeenHeadCache{23,{}};s.headCache->overrides[9]=XeenHeadIndicators{1,2};
+ const auto bytes=XeenSaveFormat::encode(s);
+ CurrentDestination live;usePerMapResources(live,4);live.restore(XeenSaveFormat::decode(bytes));live.bind();
+ const auto &state=live.world.sessionState();
+ check(state.mapState(28)->cells.size()==2 && state.mapState(28)->cells[0].mask==2 && state.mapState(28)->cells[1].mask==8 &&
+  state.mapState(28)->cells[0].unlocked && state.isObjectDisabled({28,2}) && !state.isObjectDisabled({28,1}) &&
+  live.world.effectiveObject({28,1}).x==4 && live.world.effectiveObjectFlip({28,1}) && state.isEventDisabled({28,764}) &&
+  state.isEventDisabled({23,1}) && state.isObjectDisabled({23,0}) && state.monsters(28).size()==6 &&
+  state.monsters(28)[5].hp==state.monsters(28)[5].statistics->baseHp() && state.accountedMonsters().count({28,1}) &&
+  state.mapState(28)->originalMonsterCount==4 && live.party.monsterTreasure->weapons[0].source==2,
+  "Restore distributes every table to its own map, with live record sources");
+ const auto captured=live.capture();sameSnapshot(captured,s);
+ const auto wire=XeenSaveFormat::encode(captured);check(wire==bytes,"Capture after restore writes the restored bytes");
+ CurrentDestination again;usePerMapResources(again,4);again.restore(XeenSaveFormat::decode(wire));again.bind();
+ check(XeenSaveFormat::encode(again.capture())==bytes,"Generic per-map round trip is exact");
+ // A one-sided wall change has no matching opposite face.
+ auto oneSided=s;oneSided.map(28).cells.pop_back();
+ CurrentDestination bad;usePerMapResources(bad,4);rejects([&]{bad.restore(oneSided);},"opposite face");
+}
+// Review finding 1: treasure sources keep their full identity. F3 and the city
+// both hold a defeated, accounted record 2; the saved source names one, the
+// other or both, with the city record a non-Orc (no Orc to prefer) or the only
+// Orc (MON 6, wrong map for an F3 source). Each restores and re-saves exactly.
+void sourceIdentityCases(){
+ for(bool cityOrc:{false,true})for(unsigned named=0;named<3;++named) {
+  auto s=currentSnapshot();
+  auto &f3=s.map(23).monsters->slots[2];f3.x=f3.y=-128;f3.lifecycle=XeenActorLifecycle::Defeated;f3.accounted=true;
+  s.map(28).monsters=mobTable(4);
+  auto &city=s.map(28).monsters->slots[2];city.x=city.y=-128;city.lifecycle=XeenActorLifecycle::Defeated;city.accounted=true;
+  auto &t=*s.journey->treasure;
+  t.weapons[0]={0,{0,30,0,0}};t.sources[0]=named==1?XeenMonsterIdentity{28,2}:XeenMonsterIdentity{23,2};
+  if(named==2){t.armor[0]={1,{0,2,0,0}};t.sources[1]={28,2};}
+  const auto bytes=XeenSaveFormat::encode(s);
+  CurrentDestination f;usePerMapResources(f,4);
+  if(cityOrc)f.objectProvider=[](auto id){auto o=indoorObjects(id,4);if(id==XeenMapIdentity(28))o.entities.monsters[2].resourceId=6;return o;};
+  f.resources.loadMonsterStatistics=[&f]{++f.monsters;auto r=regional_test::statistics();r[0]=r[8];r[6]=r[8];return r;};
+  f.restore(XeenSaveFormat::decode(bytes));f.bind();
+  const auto &live=*f.party.monsterTreasure;
+  check(live.sources[live.weapons[0].source]==(named==1?XeenMonsterIdentity{28,2}:XeenMonsterIdentity{23,2}),
+   "The live treasure keeps the saved source identity");
+  check(XeenSaveFormat::encode(f.capture())==bytes,"Same-record cross-map treasure sources re-save exactly");
+ }
+}
+// Decision 6 and the producer-less tables: representable, rejected at restore.
+void unsupportedMapState(){
+ const auto good=currentSnapshot();
+ for(unsigned mode=0;mode<6;++mode){
+  auto s=good;const char *message="";
+  switch(mode){
+  case 0:s.map({XeenSide::Darkside,23}).explored.emplace();message="Darkside";break;
+  case 1:{s.camera.mapId.side=XeenSide::Darkside;const auto table=s.map(23).monsters;s.map({XeenSide::Darkside,23}).monsters=table;message="Darkside";break;}
+  case 2:s.map(28).wallItems={{0,1,1}};message="wall-item override is not supported yet";break;
+  case 3:s.map(28).events={{0,0x2a}};message="Event replacement is not supported yet";break;
+  case 4:s.map(28).cells={{17,0,0x40,0,0}};message="cell flag change is not supported yet";break;
+  case 5:s.map(23).cells={{17,0x0901,0x80,1,0}};message="original resource mismatch";break; // Outdoor tile.
+  }
+  XeenSaveFormat::encode(s); // The format represents every one of them.
+  CurrentDestination f;usePerMapResources(f,4);rejects([&]{f.restore(s);},message);
+  check(!f.world.hasEncounterState(),"Rejected map state was published");
+ }
+}
+// Decision 2 (review finding 2): the Warzone, Clouds 85, keeps state only for
+// a visit. Leaving it drops its state and accounting, re-entry is fresh, a save
+// never contains it and a save that does is refused before publication.
+void warzoneLifetime(){
+ const auto stats=[]{auto r=regional_test::statistics();r[0]=r[8];return r;};
+ CurrentDestination f;usePerMapResources(f,4);f.restore(currentSnapshot());
+ XeenMonsterTestAccess::removeObject(f.world,{85,0});
+ f.bind();
+ check(f.world.sessionState().isObjectDisabled({85,0}),"Warzone state lasts during the visit");
+ const auto saved=f.capture();
+ check(!saved.find(85) && saved.find(23),"A save never contains the Warzone");
+ auto candidate=f.world.transitionCandidate();
+ candidate->stageIndoorMonsters(candidate->objectFile(85),stats());
+ candidate->disableObject({85,1});candidate->leaveMap(28);candidate->leaveMap(85);
+ check(!candidate->sessionState().mapState(85) && candidate->sessionState().isObjectDisabled({85,0})==false,
+  "Leaving the Warzone drops its state");
+ candidate->stageIndoorMonsters(candidate->objectFile(85),stats());
+ check(candidate->sessionState().monsters(85).size()==4 && !candidate->sessionState().isObjectDisabled({85,1}),
+  "Re-entering the Warzone starts from its resources");
+ auto forged=currentSnapshot();forged.map(85).explored.emplace();XeenSaveFormat::encode(forged);
+ CurrentDestination refused;usePerMapResources(refused,4);
+ rejects([&]{refused.restore(forged);},"Warzone");
+ check(!refused.world.hasEncounterState(),"A refused Warzone save published nothing");
+}
+// Risk "size and time": every retained Clouds map 1..128 holds state
+// (monsters, a removed object, a MakeNothingHere record, explored bits); the
+// Warzone, 85, is never saved (decision 2). Restore loads each map's DAT, MOB
+// and EVT and must stay under one second.
+void allCloudsMaps(){
+ constexpr unsigned kMonsters=20;
+ auto s=currentSnapshot();
+ for(unsigned number=1;number<=128;++number) {
+  if(!xeenRetainsMapState(static_cast<std::uint16_t>(number)))continue;
+  auto &m=s.map(static_cast<std::uint16_t>(number));
+  if(number!=23)m.monsters=mobTable(kMonsters);
+  m.objects={{0,-128,-128,false}};m.events={{0,0}};
+  m.explored=std::array<std::uint8_t,32>{};(*m.explored)[number%32]=1;
+ }
+ const auto bytes=XeenSaveFormat::encode(s);
+ CurrentDestination f;usePerMapResources(f,kMonsters);
+ const auto snapshot=XeenSaveFormat::decode(bytes);
+ const auto start=std::chrono::steady_clock::now();
+ f.restore(snapshot);
+ const auto elapsed=std::chrono::steady_clock::now()-start;
+ f.bind();
+ check(f.maps>=127 && f.world.sessionState().mapStates().size()==127 && !f.world.sessionState().mapState(85),
+  "Restore loads every retained map and no Warzone state");
+ check(XeenSaveFormat::encode(f.capture())==bytes,"All-maps restore and capture are exact");
+ const auto milliseconds=std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
+ std::cout<<"All 127 retained Clouds maps restored in "<<milliseconds<<" ms ("<<bytes.size()<<" bytes)\n";
+#ifdef __OPTIMIZE__
+ // Timing is a property of the optimized game build; -O0 builds only report it.
+ check(elapsed<std::chrono::seconds(1),"Restoring every Clouds map takes a second or more");
+#endif
 }
 void explicitItems(){
  auto empty=currentSnapshot();for(auto &c:empty.characters){c.weapons={};c.armor={};c.accessories={};c.miscellaneous={};}
@@ -364,7 +536,7 @@ void invalidResourceAndState(){
    case 11:f.objectProvider=[](auto id){auto m=regional_test::objects(id);m.entities.monsters.pop_back();return m;};break;
    case 12:f.resources.loadEvents={};break;
    case 13:f.resources.loadEvents=[](auto id){auto e=regional_test::events(id);e.mapId=22;return e;};break;
-   case 14:s.disabledObjects={{23,1}};break;case 15:s.disabledEvents={{23,170}};break;
+   case 14:save_test::setRemovedObjects(s,{{23,1}});break;case 15:save_test::setDisabledEvents(s,{{23,170}});break;
    case 16:s.activeRosterIds={30};break;case 17:s.activeRosterIds={24};break;
    case 18:s.characters[18].race=static_cast<XeenRace>(5);break;case 19:s.characters[18].characterClass=static_cast<XeenCharacterClass>(10);break;
    case 20:s.characters[29].rosterId=0;break;case 21:s.camera.mapId.side=XeenSide::Darkside;break;case 22:s.camera.x=-1;break;
@@ -392,6 +564,7 @@ void invalidResourceAndState(){
 int main() {
 	try {
 		fullRestoration(); explicitItems(); invalidResourceAndState(); characterPreflight(); mutationPolicies(); journeyBorrowRefusal();
+		genericRoundTrip(); sourceIdentityCases(); unsupportedMapState(); warzoneLifetime(); allCloudsMaps();
 		std::cout << "Current save state: atomic preparation, resource identities, rules and owner/flow lifetimes passed\n";
 		return 0;
 	} catch (const std::exception &error) {

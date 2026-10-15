@@ -75,6 +75,18 @@ void distribution() {
 	check(absent,"An absent monster table must be refused");
 }
 }
+void warzone() {
+	// Decision 2: Clouds 85 (The Warzone) is never retained; every other map,
+	// and a Darkside map 85, keeps its state when the party leaves.
+	check(!xeenRetainsMapState(85) && xeenRetainsMapState(84) && xeenRetainsMapState(28) &&
+		xeenRetainsMapState({XeenSide::Darkside,85}),"Only Clouds 85 is never retained");
+	XeenMapTable table;
+	table.state(85).removedObjects.insert({85,1});table.state(28).removedObjects.insert({28,1});
+	table.state({XeenSide::Darkside,85}).explored=std::array<std::uint8_t,32>{};
+	table.leave(28);table.leave(85);table.leave({XeenSide::Darkside,85});
+	check(!table.find(85) && table.find(28) && table.find({XeenSide::Darkside,85}),"Leaving drops only the Warzone");
+	check(table.state(85).empty(),"Re-entering the Warzone starts fresh");
+}
 void mapLoad() {
 	// Decision 8 (DOS map load 0x0f542): a live monster returns to its MON HP,
 	// asleep; defeated, disabled and unresolved slots keep their values.
@@ -90,7 +102,7 @@ void mapLoad() {
 }
 int main() {
 	try {
-		exchange();equivalence();bounds();distribution();mapLoad();
+		exchange();equivalence();bounds();distribution();warzone();mapLoad();
 		std::cout<<"Per-map table exchange, equivalence, bounds and distribution passed\n";
 	} catch(const std::exception &e) {std::cerr<<e.what()<<'\n';return 1;}
 }

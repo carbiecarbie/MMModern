@@ -1,5 +1,6 @@
 // Original-resource M43 witness: all party, combat, route and Temple mutations
 // arise from the production application after concrete presented-frame input.
+#include "XeenDecisionNine.h"
 #include "XeenProbeFired.h"
 #include "XeenM49Trace.h"
 #include "XeenM49CombatSupport.h"
@@ -135,7 +136,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             if(c=='U')inspect([&]{if(position->mapId==XeenMapIdentity(28) && position->y>=21)
                 std::cerr<<"M43 STEP "<<position->x<<','<<position->y<<'\n';});
         }};
-        const auto checkpoint=[&](const char *label){action(SaveGameAction{});inspect([&,label]{
+        const auto checkpoint=[&](const char *label){
+            inspect([&,label]{xeen_decision9::check(*world,*position,label,scenario=="roundtrip" && (std::string(label)=="A" || std::string(label)=="B"));});
+            action(SaveGameAction{});inspect([&,label]{
             check(flow->canSave(),"M43 checkpoint is not Quiet");
             const auto path=fs::path(target->wstring()+L"-"+fs::path(label).wstring()+L".mmsave");
             check(fs::exists(*target),"M43 native F9 did not save");
@@ -265,16 +268,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                     for(const auto &a:*entry.second.monsters)if(a.lifecycle==XeenActorLifecycle::Present && (a.activated || a.hp<a.statistics->baseHp()))
                         std::cerr<<' '<<entry.first.number<<'#'<<a.id.recordIndex<<'@'<<a.x<<','<<a.y<<" hp"<<a.hp<<(a.activated?"*":"");
                 std::cerr<<'\n';});};
-            // Decision 9: a checkpoint a run resumes from holds every live monster
-            // of the camera map at base HP and asleep; fatal since M69 A2.
-            const auto decision9=[&](const char *label){inspect([&,label]{
-                std::string violations;
-                for(const auto &a:world->sessionState().monsters(position->mapId))
-                    if(a.lifecycle==XeenActorLifecycle::Present && (a.activated || a.hp!=a.statistics->baseHp()))
-                        violations+=" #"+std::to_string(a.id.recordIndex)+" hp "+std::to_string(a.hp)+"/"+
-                            std::to_string(a.statistics->baseHp())+(a.activated?" woken":"");
-                std::cerr<<"M69 DECISION9 "<<label<<" map "<<position->mapId.number<<(violations.empty()?" holds":" violated:"+violations)<<'\n';
-                check(violations.empty(),"M69 decision 9 violated at a resumed checkpoint");});};
+            // Decision 9 (shared XeenDecisionNine.h): checkpoints A and B, which the
+            // roundtrip resumes from, hold every live camera-map monster asleep at
+            // MON HP; checkpoint() enforces it before each save.
             // The Orc wounded before the Vertigo round trip, by record: decision 8
             // heals it when F3 is loaded again, so its HP cannot identify it.
             auto woundedOrc=std::make_shared<std::optional<std::size_t>>();
@@ -387,8 +383,8 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
                 toEntrance();enterVertigo();report("second entry");route("LL");exitVertigo();report("second return");
                 seekOrc(true);contactFight(false);report("wounded Orc killed");
             };
-            if(!resume) {segmentA();decision9("A");checkpoint("A");segmentB();decision9("B");checkpoint("B");segmentFinal();}
-            else if(roundtripStage=="A") {segmentB();decision9("B");checkpoint("B");segmentFinal();}
+            if(!resume) {segmentA();checkpoint("A");segmentB();checkpoint("B");segmentFinal();}
+            else if(roundtripStage=="A") {segmentB();checkpoint("B");segmentFinal();}
             else if(roundtripStage=="B") segmentFinal();
             else check(roundtripStage.empty(),"M69 unknown resume checkpoint");
         }

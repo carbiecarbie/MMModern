@@ -1,7 +1,6 @@
 // Original archives and production composition; only the starting checkpoint is artificial.
 void coldVertigo(Source &source) {
  auto saved=source.base();saved.camera={23,10,13,XeenDirection::North};
- for(auto &actor:saved.journey->actors)actor.activated=true;
  const auto path=std::filesystem::temp_directory_path()/"mmodern-m45-cold-vertigo.mms";
  XeenSaveFile::write(path,saved);combat_gameplay_test::Harness h;
  auto services=disengagementServices(source,h);bool completed=false;

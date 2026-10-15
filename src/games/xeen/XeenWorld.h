@@ -261,6 +261,9 @@ public:
 	// Map load (decision 8): the destination's live monsters return to MON HP,
 	// asleep, before the arrival view wakes those it sees. Detached work only.
 	void reloadMapMonsters(XeenMapIdentity);
+	// Map exit (decision 2): a map that is never retained, the Warzone, loses
+	// its state and accounting, so re-entry starts fresh. Detached work only.
+	void leaveMap(XeenMapIdentity);
 
 private:
 	friend class XeenSaveState;

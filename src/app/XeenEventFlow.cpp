@@ -1239,7 +1239,10 @@ void XeenEventFlow::prepareVertigoResult(const XeenManualEventResult &result) tr
 			if(entry.second.monsters && !entry.second.outdoors)indoor.push_back(entry.first);
 		for(const auto mapId:indoor)
 			xeenValidateIndoorActors(*work.world,mapId,work.world->sessionState().regionalActors(mapId));
-		if(!sameMap)work.world->reloadMapMonsters(work.camera.mapId); // Decision 8: map load.
+		if(!sameMap) {
+			work.world->leaveMap(work.initialCamera.mapId); // Decision 2: the Warzone is never retained.
+			work.world->reloadMapMonsters(work.camera.mapId); // Decision 8: map load.
+		}
 		return work.world->prepareTransitionArrival(work.camera);
 	}();
 	// The arrival's map load and wake writes belong to the retained candidate:

@@ -1,5 +1,6 @@
 // Original-resource M43 witness: all party, combat, route and Temple mutations
 // arise from the production application after concrete presented-frame input.
+#include "XeenDecisionNine.h"
 #include "XeenProbeFired.h"
 #include "XeenM49Trace.h"
 #include "XeenM49CombatSupport.h"
@@ -185,7 +186,9 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             if(c=='U')inspect([&]{if(position->mapId==XeenMapIdentity(28) && position->y>=21)
                 std::cerr<<"M43 STEP "<<position->x<<','<<position->y<<'\n';});
         }};
-        const auto checkpoint=[&](const char *label){action(SaveGameAction{});inspect([&,label]{
+        const auto checkpoint=[&](const char *label){
+            inspect([&,label]{xeen_decision9::check(*world,*position,label,std::string("ABCDEF").find(label)!=std::string::npos);});
+            action(SaveGameAction{});inspect([&,label]{
             check(flow->canSave(),"M43 checkpoint is not Quiet");
             const auto path=fs::path(target->wstring()+L"-"+fs::path(label).wstring()+L".mmsave");
             check(fs::exists(*target),"M43 native F9 did not save");

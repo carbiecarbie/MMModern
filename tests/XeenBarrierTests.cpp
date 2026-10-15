@@ -98,9 +98,14 @@ void overrides() {
 			wallAt(source.map(28).geometry.cells[255],camera.direction)==9,"Effective wall/flags must not mutate original resource");
 		XeenWorld restored(tile);restored.restoreBarriers(values);auto next=camera;
 		check(XeenMovement().apply(restored,next,NavigationAction::MoveForward)==XeenMovementResult::Moved,"Restored opening remains walkable at tile seams");
-		auto snapshot=save_test::currentWireSnapshot();snapshot.barriers=values;
-		snapshot.journey->vertigoActors.emplace();snapshot.journey->cityOriginalActorCount=0;
-		check(XeenSaveFormat::decode(XeenSaveFormat::encode(snapshot)).barriers==values,"Save v5 preserves canonical override bytes");
+		// Both physical cells as v13 writes them: effective word and attributes with their preimage.
+		auto snapshot=save_test::currentWireSnapshot();
+		for(const auto &v:values) {
+			std::uint16_t word=v.originalWord;
+			for(unsigned f=0;f<4;++f)if(v.mask&(1u<<f))word=std::uint16_t((word&~(15u<<(12-4*f)))|(unsigned(v.walls[f])<<(12-4*f)));
+			snapshot.map(v.tile).cells.push_back({v.cell,word,std::uint8_t(v.originalAttributes|0x80),v.originalWord,v.originalAttributes});
+		}
+		check(XeenSaveFormat::decode(XeenSaveFormat::encode(snapshot)).maps==snapshot.maps,"Save v13 preserves canonical cell override bytes");
 		XeenPartyState party;XeenGameFlags flags;auto before=camera;XeenRestoreGuard guard(*world,party,before,flags);
 		world->setBarrier(camera,9,true);check(!guard.current(),"Changed barrier invalidates retained preimage");
 		world->setBarrier(camera,6,true);check(!guard.current(),"Equal values cannot revive stale barrier guard");

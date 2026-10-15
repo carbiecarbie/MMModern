@@ -29,8 +29,8 @@ int main(int argc,char **argv) {
                     a.x=p[1];a.y=p[2];a.hp=a.statistics->baseHp();a.activated=false;a.lifecycle=XeenActorLifecycle::Present;}
                 // CD maze0028.evt removes exit protection/self-disable at (15,0,South,4/5); reset creates no overlay.
             }
-            source.journey->vertigoActors.emplace();
-            for(const auto &a:actors)source.journey->vertigoActors->push_back({a.id,a.x,a.y,a.hp,a.activated,a.lifecycle,a.status,false,
+            source.map(28).monsters.emplace(XeenSaveMonsterTable{std::uint16_t(original.size()),{}});
+            for(const auto &a:actors)source.map(28).monsters->slots.push_back({a.x,a.y,a.lifecycle,a.status,false,
                 a.id.recordIndex>=original.size() && a.original.hasResource()?std::int16_t(0):std::int16_t(-1)});
             Fixture fixture(in,source);const unsigned large=reset?36:35,small=reset?35:34;
             for(unsigned actor=0;actor<actors.size();++actor)for(unsigned field=0;field<5;++field) {

@@ -53,7 +53,7 @@ struct Fixture {
   [&](XeenEventFlow &f,const XeenCamera &){flow=&f;f.dialogText=&dos_test::text();f.reportAutomatic=[](const auto &r){if(std::holds_alternative<XeenEventExecutionError>(r))throw std::runtime_error("automatic error");};},{},
   [&](XeenWorld &w,XeenEventSystem &,const XeenPartyState &,XeenCamera &,const XeenGameFlags &){world=&w;}
  };result.catalog=&catalog;return result;}
- XeenSaveSnapshot saved(){auto s=save_test::sample();s.resources=signature;s.camera={1,1,1,XeenDirection::North};s.characters=initial.roster.characters();s.activeRosterIds={0,1};s.questItems.fill(0);s.questFlags.fill(false);s.gameFlags.fill(false);s.disabledObjects.clear();s.disabledEvents.clear();return s;}
+ XeenSaveSnapshot saved(){auto s=save_test::sample();s.resources=signature;s.camera={1,1,1,XeenDirection::North};s.characters=initial.roster.characters();s.activeRosterIds={0,1};s.questItems.fill(0);s.questFlags.fill(false);s.gameFlags.fill(false);save_test::setRemovedObjects(s,{});save_test::setDisabledEvents(s,{});return s;}
 };
 }
 #endif

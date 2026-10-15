@@ -98,8 +98,8 @@ int main(int argc,char **argv) {
             c.journey->random==d.journey->random,"M40 C/D later navigation/repair checkpoint differs");
         child_test::require(e.journey->context->day==12 && e.journey->context->minutes==849 && e.journey->context->ctr24==0 &&
             e.journey->treasure->gold==837 && e.characters[1].currentSp==13 && e.characters[6].currentSp==24 &&
-            e.journey->random->state==1307383183u && e.journey->random->count==2019 && e.journey->vertigoActors->size()==52 &&
-            e.journey->vertigoActors->at(36).lifecycle==XeenActorLifecycle::Defeated,"M40 E reset-Slime combat/casting checkpoint differs");
+            e.journey->random->state==1307383183u && e.journey->random->count==2019 && e.map(28).monsters->slots.size()==52 &&
+            e.map(28).monsters->slots.at(36).lifecycle==XeenActorLifecycle::Defeated,"M40 E reset-Slime combat/casting checkpoint differs");
         child_test::require(m40_test::sha256(m40_test::stockBytes(*a.journey->serviceEconomy))=="fa7ccbf983b0bd8ef1ecce7cd09b301cbbfe431996ee921f72d67d2546f260de" &&
             m40_test::sha256(m40_test::stockBytes(*b.journey->serviceEconomy))=="29dc85d364a0c9c0fe1d8c496b51690a66215ae9672c0d104b71ed0fe987bb50" &&
             b.journey->serviceEconomy==e.journey->serviceEconomy,"M40 independent stock hash/retention differs");

@@ -46,7 +46,7 @@ int main(int argc,char **argv){try{
             auto fixture=mmodern::XeenSaveFile::read(dir/"aba-hp.mmsave");
             if(control=="arrow-xp-overflow")fixture.journey->supplements[0].inputs.experience=0xffffffffu;
             else if(control=="arrow-drop-overflow")fixture.journey->treasure->gold=0xffffffffu;
-            else fixture.journey->vertigoActors=mmodern::XeenSaveFile::read(dir/"city-source-city.mmsave").journey->vertigoActors;
+            else fixture.map(28).monsters=mmodern::XeenSaveFile::read(dir/"city-source-city.mmsave").map(28).monsters;
             mmodern::XeenSaveFile::write(save,fixture);args={L"--load-game",fs::absolute(argv[2]).wstring(),save.wstring()};
         }
         const auto result=child_test::launch(fs::absolute(argv[1]),args,dir/(control+".log"));
@@ -68,10 +68,10 @@ int main(int argc,char **argv){try{
         if(spell==10)fixture.characters[0].currentHp=1;
         if(spell==59)fixture.characters[0].conditions[2]=1;
         if(group) {
-            const auto destination=fixture.journey->actors.at(9);
+            const auto destination=fixture.map(23).monsters->slots.at(9);
             for(unsigned index:{7u,8u,9u}) {
                 // Decision 8: the witness wounds and wakes them live after the load.
-                fixture.journey->actors.at(index).x=destination.x;fixture.journey->actors.at(index).y=destination.y;
+                fixture.map(23).monsters->slots.at(index).x=destination.x;fixture.map(23).monsters->slots.at(index).y=destination.y;
             }
         }
         const auto save=dir/(control+".mmsave");mmodern::XeenSaveFile::write(save,fixture);

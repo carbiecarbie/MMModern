@@ -374,7 +374,7 @@ void spellDialogs(Inputs &in,bool mouse) {
         }
     }
     auto source=in.service();source.camera={28,10,10,XeenDirection::North};
-    for(auto &a:*source.journey->vertigoActors){a.x=a.y=-128;a.hp=0;a.activated=false;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
+    for(auto &a:source.map(28).monsters->slots){a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
     const auto owner=source.activeRosterIds[4];auto &caster=source.characters[owner];
     caster.characterClass=XeenCharacterClass::Cleric;caster.hasSpells=true;caster.currentSp=30;caster.learnedSpells.emplace();
     for(auto &flag:*caster.learnedSpells)flag=1;caster.currentSpell=255;

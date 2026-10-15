@@ -20,10 +20,10 @@ void quiet(Fixture &f) {
 }
 XeenSaveSnapshot source(Inputs &in,unsigned spell,bool indoor) {
  auto s=in.service();s.camera=indoor?XeenCamera{28,18,4,XeenDirection::West}:XeenCamera{23,9,11,XeenDirection::East};
- for(auto *actors:{&s.journey->actors,&*s.journey->vertigoActors})for(auto &a:*actors) {
-  a.hp=0;a.x=a.y=-128;a.activated=false;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;
+ for(auto *actors:{&s.map(23).monsters->slots,&s.map(28).monsters->slots})for(auto &a:*actors) {
+  a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;
  }
- s.exploredTiles.clear();for(auto &c:s.characters)c.skills[4]=0;
+ save_test::clearExplored(s);for(auto &c:s.characters)c.skills[4]=0;
  auto &caster=s.characters[s.activeRosterIds[4]];
  caster.characterClass=XeenCharacterClass::Druid;caster.hasSpells=true;caster.currentSp=100;
  for(auto *items:{&caster.weapons,&caster.armor,&caster.accessories})for(auto &item:*items)item.frame=0;
@@ -112,7 +112,7 @@ void impacts(Inputs &in) {
   auto s=source(in,spell,true);s.camera={28,15,0,XeenDirection::North};
   const bool group=spell==50 || spell==60;const unsigned count=group?3:1;
   for(unsigned i=0;i<count;++i) {
-   auto &a=s.journey->vertigoActors->at(35+i);a.hp=1;a.x=15;a.y=distance;a.activated=true;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;
+   auto &a=s.map(28).monsters->slots.at(35+i);a.x=15;a.y=distance;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;
   }
   Fixture f(in,s);XeenCombatRandom expected(*f.w.sessionState().journeyRandom());
   auto treasure=*f.p.monsterTreasure;unsigned xp=0;
@@ -122,7 +122,7 @@ void impacts(Inputs &in) {
     *XeenLearnedSpellRules::supported(spell),actor.statistics->physicalResistance());
    XeenConsequenceDraw draw{expected};check(candidate.service(draw) && candidate.damage>=1,"Live spell fixture must be lethal");
    xp+=actor.statistics->experience()/6;
-   if(actor.original.resourceId==6) {XeenMonsterDropCandidate drop(treasure,35+i);check(drop.service(draw),"Live spell bounded drop");treasure=drop.treasure;}
+   if(actor.original.resourceId==6) {XeenMonsterDropCandidate drop(treasure,actor.id);check(drop.service(draw),"Live spell bounded drop");treasure=drop.treasure;}
   }
   std::array<unsigned,6> priorXp{};for(unsigned i=0;i<6;++i)priorXp[i]=f.p.roster.combatInputs(s.activeRosterIds[i])->experience;
   const auto gold=f.p.monsterTreasure->gold;begin(f);try{quiet(f);}catch(const std::exception &e){throw std::runtime_error("spell="+std::to_string(spell)+" distance="+std::to_string(distance)+" "+e.what());}

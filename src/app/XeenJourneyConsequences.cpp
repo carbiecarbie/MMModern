@@ -128,7 +128,7 @@ bool XeenEncounterFlow::serviceShoot() {
     if(!work.attackDone) {
      if(work.spellAttack ? !work.spellAttack->service(draw) : !work.attack->service(draw)) return true;
      work.impactRandom=work.random.continuation();
-     if(damage()>=actor.hp && actor.original.resourceId==6) work.drop.emplace(*_party.monsterTreasure,id->recordIndex);
+     if(damage()>=actor.hp && actor.original.resourceId==6) work.drop.emplace(*_party.monsterTreasure,*id);
      work.attackDone=true;
     }
     // Lethal drop requests belong after the acquired post-HP draw, never

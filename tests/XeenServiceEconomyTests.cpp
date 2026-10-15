@@ -421,12 +421,12 @@ void deferredServiceRandom() {
 void legacyDropInterleaving() {
 	XeenCombatRandom random(XeenJourneyRandomState{1,3686439625u,2109});XeenConsequenceDraw draw{random,64,{}};
 	XeenMagicArrowCandidate arrow(6,0,0,6);check(arrow.service(draw) && arrow.damage==8 && random.continuation()==XeenJourneyRandomState{1,2493262264u,2110},"synthetic stock->Arrow continuation mismatch");
-	XeenMonsterDropCandidate drop({},9);check(drop.service(draw) && drop.outcome==XeenMonsterDropOutcome::Item && drop.armor &&
+	XeenMonsterDropCandidate drop({},XeenMonsterIdentity{23,9});check(drop.service(draw) && drop.outcome==XeenMonsterDropOutcome::Item && drop.armor &&
 		same(drop.generated.item,{0,3,0,0}) && drop.treasure.pendingGold==10 && drop.treasure.pendingMask==(1u<<9) &&
 		random.continuation()==XeenJourneyRandomState{1,1051044860u,2115},"synthetic stock->Arrow->legacy Orc drop semantics changed");
 	XeenCombatRandom raw(std::vector<D>{{1,56,2493262264u,true},{1,100,617549005u,true},
 		{0,100,1871643302u,true},{0,100,1957375019u,true},{1,7,887542588u,true},{1,100,1051044860u,true}});
-	XeenConsequenceDraw trace{raw,64,{}};XeenMagicArrowCandidate tracedArrow(6,0,0,6);XeenMonsterDropCandidate tracedDrop({},9);
+	XeenConsequenceDraw trace{raw,64,{}};XeenMagicArrowCandidate tracedArrow(6,0,0,6);XeenMonsterDropCandidate tracedDrop({},XeenMonsterIdentity{23,9});
 	check(tracedArrow.service(trace) && tracedDrop.service(trace) && raw.position()==6 && tracedDrop.armor &&
 		same(tracedDrop.generated.item,{0,3,0,0}),"independent interleaved exact request/raw tape mismatch");
 }

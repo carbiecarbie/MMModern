@@ -34,15 +34,15 @@ struct Fixture {
         auto saved=regional_test::snapshot();saved.camera=camera;saved.journey->context->minutes=minutes;
         saved.characters=p.roster.characters();saved.questItems=p.questItems.counts();
         saved.questFlags=p.questFlags.values();saved.gameFlags=flags.values();
-        {const auto projected=w.sessionState().disabledObjects();saved.disabledObjects.assign(projected.begin(),projected.end());};
-        {const auto projected=w.sessionState().disabledEvents();saved.disabledEvents.assign(projected.begin(),projected.end());};
+        {const auto projected=w.sessionState().disabledObjects();save_test::setRemovedObjects(saved,{projected.begin(),projected.end()});};
+        {const auto projected=w.sessionState().disabledEvents();save_test::setDisabledEvents(saved,{projected.begin(),projected.end()});};
         for(unsigned i=0;i<30;++i){
             saved.characters[i].learnedSpells=XeenCharacterFormat::parseLearnedSpells(bytes,i);
             saved.journey->supplements[i]={static_cast<std::uint8_t>(i),XeenCharacterFormat::parseCombatInputs(bytes,i,true,true,true)};
         }
         saved.journey->skeletonSeed=0;saved.journey->random=XeenJourneyRandomState{1,56,0};
         const auto actors=XeenActorApproach::actorsFromResources(regionalObjects(),monsters);
-        for(unsigned i=0;i<19;++i){saved.journey->actors[i].x=actors[i].x;saved.journey->actors[i].y=actors[i].y;saved.journey->actors[i].activated=i==5;}
+        for(unsigned i=0;i<19;++i){saved.map(23).monsters->slots[i].x=actors[i].x;saved.map(23).monsters->slots[i].y=actors[i].y;}
         auto r=regional_test::resources();r.loadEvents=[this](auto id){return id==XeenMapIdentity(23)?event:regional_test::events(id);};
         XeenSaveState::restoreBeforeGameplay(saved,r,p,camera,flags,w,[](auto &,const auto &,const auto &,const auto &){});
         flow=std::make_unique<XeenEncounterFlow>(w,p,camera,flags,clock,XeenJourneyRestoreTag{});

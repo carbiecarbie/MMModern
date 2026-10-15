@@ -17,6 +17,15 @@ struct XeenMonsterTestAccess {
 		auto &guard=*world._journeyRestoration->guard;
 		guard.s._mapStates=world._sessionState._mapStates;guard.adoptMutationBoundary();
 	}
+	// Synthetic state on a map the fixture never visited (decision 2 controls),
+	// adopted by the unconsumed restoration preimage like set().
+	static void removeObject(XeenWorld &world, XeenObjectIdentity id) {
+		if(!world._journeyRestoration || !world._journeyRestoration->guard)
+			throw std::logic_error("Live map fixture needs an unconsumed Journey restoration");
+		world._sessionState._mapStates.state(id.mapId).removedObjects.insert(id);
+		auto &guard=*world._journeyRestoration->guard;
+		guard.s._mapStates=world._sessionState._mapStates;guard.adoptMutationBoundary();
+	}
 	// The same control in a running application, at a quiet boundary before
 	// combat: the live Journey preimage adopts exactly this change.
 	template<class EventFlow>

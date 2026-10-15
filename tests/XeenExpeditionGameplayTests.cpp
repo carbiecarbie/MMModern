@@ -55,7 +55,8 @@ void projection() {
 void controls(const fs::path &path) {
  const auto initial=XeenSaveFile::read(path);
  auto grouped=initial;grouped.camera={23,4,14,XeenDirection::East};
- for(auto &a:grouped.journey->actors){if(a.id.recordIndex==9||a.id.recordIndex==16){a.x=5;a.y=14;a.hp=a.id.recordIndex==16?30:20;a.activated=true;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;}else{a.x=a.y=-128;a.hp=0;a.activated=false;a.accounted=true;a.lifecycle=XeenActorLifecycle::Defeated;}}
+ auto &groupedSlots=grouped.map(23).monsters->slots;
+ for(unsigned id=0;id<groupedSlots.size();++id){auto &a=groupedSlots[id];if(id==9||id==16){a.x=5;a.y=14;a.lifecycle=XeenActorLifecycle::Present;a.accounted=false;}else{a.x=a.y=-128;a.accounted=true;a.lifecycle=XeenActorLifecycle::Defeated;}}
  XeenSaveFile::write(path,grouped);
  // Recomposition failure follows a real publication, and cannot rerun it.
  {Harness h;auto s=services(h);bool injected=false;
@@ -112,7 +113,8 @@ void controls(const fs::path &path) {
 }
 void deathControl(const fs::path &path) {
  auto saved=XeenSaveFile::read(path);
- for(auto &a:saved.journey->actors)if(a.id.recordIndex!=16){a.hp=0;a.x=a.y=-128;a.activated=false;a.accounted=true;a.lifecycle=XeenActorLifecycle::Defeated;}
+ auto &slots=saved.map(23).monsters->slots;
+ for(unsigned id=0;id<slots.size();++id)if(auto &a=slots[id];id!=16){a.x=a.y=-128;a.accounted=true;a.lifecycle=XeenActorLifecycle::Defeated;}
  for(auto owner:kXeenCombatOwners){auto &c=saved.characters[owner];c.currentHp=0;c.conditions[12]=1;}
  auto &cleric=saved.characters[1];cleric.currentHp=1;cleric.conditions[12]=0;cleric.permanentLevel=1;cleric.temporaryLevel=0;cleric.endurance={0,0};
  XeenSaveFile::write(path,saved);const auto before=diskBytes(path);Harness h;auto s=services(h);
@@ -134,6 +136,6 @@ void deathControl(const fs::path &path) {
 }
 int main(){try{
  projection();const auto dir=fs::current_path()/"expedition-gameplay-tests";fs::create_directories(dir);const auto path=dir/"regional.mmsave";
- auto initial=regional_test::snapshot();initial.journey->actors[16].hp=30;initial.journey->random=XeenJourneyRandomState{1,1,0};const auto bytes=combat_test::chr();initial.characters=XeenPartyLoader().loadFromResources(bytes,combat_test::pty()).roster.characters();for(unsigned i=0;i<30;++i){initial.characters[i].learnedSpells=XeenCharacterFormat::parseLearnedSpells(bytes,i);initial.journey->supplements[i]={static_cast<std::uint8_t>(i),XeenCharacterFormat::parseCombatInputs(bytes,i,true,true,true)};}XeenSaveFile::write(path,initial);controls(path);deathControl(path);
+ auto initial=regional_test::snapshot();initial.journey->random=XeenJourneyRandomState{1,1,0};const auto bytes=combat_test::chr();initial.characters=XeenPartyLoader().loadFromResources(bytes,combat_test::pty()).roster.characters();for(unsigned i=0;i<30;++i){initial.characters[i].learnedSpells=XeenCharacterFormat::parseLearnedSpells(bytes,i);initial.journey->supplements[i]={static_cast<std::uint8_t>(i),XeenCharacterFormat::parseCombatInputs(bytes,i,true,true,true)};}XeenSaveFile::write(path,initial);controls(path);deathControl(path);
  std::cout<<"Regional group projection, input, publication and death controls passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

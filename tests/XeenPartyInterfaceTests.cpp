@@ -35,8 +35,8 @@ void quiet(Fixture &f) {
 }
 XeenSaveSnapshot emptyCity(Inputs &in) {
  auto s=in.service();s.camera={28,10,9,XeenDirection::North};
- for(auto &a:*s.journey->vertigoActors)if(a.lifecycle==XeenActorLifecycle::Present) {
-  a.hp=0;a.x=a.y=-128;a.activated=false;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;
+ for(auto &a:s.map(28).monsters->slots)if(a.lifecycle==XeenActorLifecycle::Present) {
+  a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;
  }
  return s;
 }
@@ -218,11 +218,11 @@ void orderedShootBarrierTreasure(Inputs &in) {
  check(barrier.p.roster.combatInputs(owner)->experience==xp+100,"Barrier selection/unlock XP writes reordered owner");
  for(unsigned n=1;n<6;++n)check(barrier.p.roster.combatInputs(city.activeRosterIds[n])->experience==city.journey->supplements[city.activeRosterIds[n]].inputs.experience,"Barrier preserves other owners");
  // Canonical defeated/accounted Orc provenance, restored before gameplay.
- source.camera={23,7,10,XeenDirection::North};for(auto &a:source.journey->actors){a.x=a.y=-128;a.hp=0;a.activated=false;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
- auto &survivor=source.journey->actors[8];survivor.x=7;survivor.y=11;survivor.hp=in.base().journey->actors[8].hp;survivor.activated=true;survivor.lifecycle=XeenActorLifecycle::Present;survivor.accounted=false;
+ source.camera={23,7,10,XeenDirection::North};for(auto &a:source.map(23).monsters->slots){a.x=a.y=-128;a.lifecycle=XeenActorLifecycle::Defeated;a.accounted=true;}
+ auto &survivor=source.map(23).monsters->slots[8];survivor.x=7;survivor.y=11;survivor.lifecycle=XeenActorLifecycle::Present;survivor.accounted=false;
  source.journey->treasure->pendingMask=512;source.journey->treasure->pendingGold=10;source.journey->treasure->armor[0]={9,{0,2,0,0}};
  source.journey->treasure->pendingMask|=8;source.journey->treasure->pendingGold=20;
- source.journey->treasure->miscellaneous[0]={3,{2,9,7,0}};
+ source.journey->treasure->miscellaneous[0]={3,{2,9,7,0}};save_test::bindTreasureSources(source);
  for(bool full:{false,true}) {
   auto start=source;
   for(auto id:start.activeRosterIds) {
@@ -278,7 +278,7 @@ void orderedShootBarrierTreasure(Inputs &in) {
  }
 }
 void unsupportedQuickRun(Inputs &in) {
- auto s=emptyCity(in);auto &actor=s.journey->vertigoActors->at(0);actor.x=10;actor.y=10;actor.hp=in.service().journey->vertigoActors->at(0).hp;actor.lifecycle=XeenActorLifecycle::Present;actor.accounted=false;actor.activated=true;
+ auto s=emptyCity(in);auto &actor=s.map(28).monsters->slots.at(0);actor.x=10;actor.y=10;actor.lifecycle=XeenActorLifecycle::Present;actor.accounted=false;
  for(auto owner:s.activeRosterIds){s.characters[owner].quickOption=3;s.journey->supplements[owner].inputs.speed={30,0};}
  Fixture f(in,s);f.act(WaitAction{});ready(f);const auto *combat=f.flow->encounter()->combat();const auto member=combat->participant();const auto rng=f.w.sessionState().journeyRandom();const auto time=*f.p.encounterContext;
  f.act(QuickFightAction{});check(combat->participant()==member && combat->phase()==XeenCombatPhase::PlayerReady && f.w.sessionState().journeyRandom()==rng && *f.p.encounterContext==time && f.flow->encounter()->notice().find("not supported yet")!=std::string::npos,"Unsupported indoor Quick Run visibly retains turn/time/RNG");

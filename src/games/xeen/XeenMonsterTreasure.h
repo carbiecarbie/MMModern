@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <optional>
 #include "games/xeen/XeenMutation.h"
+#include "games/xeen/XeenRecordIdentity.h"
 namespace mmodern {
 // Durable produced consequences. The party owns this value; runtime receipts
 // and partially executed delivery never belong here.
@@ -19,6 +20,17 @@ struct XeenMonsterTreasureItem {
 struct XeenMonsterTreasure {
 	XeenMutable<std::uint32_t> gold = 0, gems = 0, pendingMask = 0, pendingGold = 0;
 	std::array<XeenMonsterTreasureItem,10> weapons{}, armor{}, miscellaneous{};
+	// The monster each source slot names (M69): pending bits and stored items
+	// index these slots. A referenced slot names a distinct monster; an
+	// unreferenced slot is empty.
+	std::array<XeenMonsterIdentity,12> sources{};
+	// Bit k set when a pending bit or a stored item refers to slot k.
+	std::uint32_t referencedSources() const noexcept {
+		std::uint32_t used = pendingMask;
+		for (const auto *entries : {&weapons, &armor, &miscellaneous})
+			for (const auto &entry : *entries) if (entry.item.id && entry.source < 32) used |= 1u << entry.source;
+		return used;
+	}
 	bool ready() const noexcept { return pendingMask != 0; }
 	bool pending() const noexcept { return ready(); }
 	bool storedItems() const noexcept { return weapons[0].item.id || armor[0].item.id || miscellaneous[0].item.id; }
@@ -26,13 +38,19 @@ struct XeenMonsterTreasure {
 	friend bool operator==(const XeenMonsterTreasure &a, const XeenMonsterTreasure &b) noexcept {
 		return a.gold == b.gold && a.gems == b.gems && a.pendingMask == b.pendingMask &&
 			a.pendingGold == b.pendingGold && a.weapons == b.weapons && a.armor == b.armor &&
-			a.miscellaneous == b.miscellaneous;
+			a.miscellaneous == b.miscellaneous && a.sources == b.sources;
 	}
 	friend bool operator!=(const XeenMonsterTreasure &a, const XeenMonsterTreasure &b) noexcept { return !(a == b); }
 };
 // Structural validation only; the caller separately binds gold AND item sources to
 // canonical world-owned defeated/accounted Orcs.
 void xeenValidateMonsterTreasure(const XeenMonsterTreasure &);
+// Empties every source slot nothing refers to any more.
+void xeenPruneMonsterTreasureSources(XeenMonsterTreasure &) noexcept;
+// The saved form: referenced slots are exactly 0..n-1, ordered by identity.
+XeenMonsterTreasure xeenCanonicalMonsterTreasure(const XeenMonsterTreasure &);
+// The live form of a saved treasure: each source in its production slot.
+XeenMonsterTreasure xeenLiveMonsterTreasure(const XeenMonsterTreasure &);
 struct XeenConsequenceDraw;
 enum class XeenMonsterDropOutcome { None, Item, CategoryCapacityLoss };
 struct XeenMonsterDropCandidate {
@@ -40,7 +58,7 @@ struct XeenMonsterDropCandidate {
 	XeenMonsterDropOutcome outcome = XeenMonsterDropOutcome::None;
 	XeenMonsterTreasureItem generated;
 	XeenMutable<bool> armor = false;
-	XeenMonsterDropCandidate(const XeenMonsterTreasure &, unsigned source);
+	XeenMonsterDropCandidate(const XeenMonsterTreasure &, XeenMonsterIdentity source);
 	bool service(XeenConsequenceDraw &);
 private:
 	enum class Step { Drop, Category, Subcategory, Id, Enchantment, Special, Charges, Store, Done };

@@ -49,38 +49,106 @@ inline void sameSnapshot(const XeenSaveSnapshot &a, const XeenSaveSnapshot &b) {
 	check(a.resources == b.resources && sameCamera(a.camera, b.camera), "signature/camera changed");
 	check(a.food==b.food,"food changed");
 	check(a.activeRosterIds == b.activeRosterIds, "membership order changed");
-	check(a.barriers==b.barriers,"barrier overrides changed");
-	check(a.objectOverrides==b.objectOverrides,"object overrides changed");
-	check(a.headCache==b.headCache && a.exploredTiles==b.exploredTiles,"explored tiles changed");
+	check(a.maps==b.maps,"per-map state changed");
+	check(a.headCache==b.headCache,"head cache changed");
 	for(unsigned owner=0;owner<30;++owner)check(a.characters[owner].awards==b.characters[owner].awards,"award counts changed");
 	for (std::size_t i = 0; i < a.characters.size(); ++i)
 		remove_test::checkSameCharacter(a.characters[i], b.characters[i]);
 	check(a.questItems == b.questItems && a.questFlags == b.questFlags && a.gameFlags == b.gameFlags,
 		"independent counters/flags changed");
-	check(a.disabledObjects == b.disabledObjects && a.disabledEvents == b.disabledEvents,
-		"independent world identities changed");
 	check(bool(a.journey)==bool(b.journey),"Journey presence changed");
 	if(a.journey) {
 		const auto &x=*a.journey,&y=*b.journey;
 		check(x.entry==y.entry&&x.schema==y.schema&&x.content==y.content&&x.context==y.context&&
-			x.skeletonSeed==y.skeletonSeed&&x.initializedMap==y.initializedMap&&x.originalActorCount==y.originalActorCount&&
-			x.actors.size()==y.actors.size() && x.random==y.random && x.treasure==y.treasure &&
-			x.worldFlags==y.worldFlags && x.serviceEconomy==y.serviceEconomy &&
-			bool(x.vertigoActors)==bool(y.vertigoActors),"Journey header/economy values changed");
+			x.skeletonSeed==y.skeletonSeed && x.random==y.random && x.treasure==y.treasure &&
+			x.worldFlags==y.worldFlags && x.serviceEconomy==y.serviceEconomy,"Journey header/economy values changed");
 		for(unsigned i=0;i<30;++i) check(x.supplements[i].owner==y.supplements[i].owner&&
 			sameInputs(x.supplements[i].inputs,y.supplements[i].inputs),"Journey supplements changed");
-		for(std::size_t i=0;i<x.actors.size();++i) {const auto &p=x.actors[i],&q=y.actors[i];
-			check(p.id==q.id&&p.x==q.x&&p.y==q.y&&p.hp==q.hp&&p.activated==q.activated&&
-				p.lifecycle==q.lifecycle&&p.status==q.status&&p.accounted==q.accounted,"Journey actor record changed");
-		}
-		if (x.vertigoActors) {
-			check(x.vertigoActors->size()==y.vertigoActors->size()&&x.cityOriginalActorCount==y.cityOriginalActorCount,"Journey city actor count changed");
-			for(std::size_t i=0;i<x.vertigoActors->size();++i) {const auto &p=(*x.vertigoActors)[i],&q=(*y.vertigoActors)[i];
-				check(p.id==q.id&&p.x==q.x&&p.y==q.y&&p.hp==q.hp&&p.activated==q.activated&&
-					p.lifecycle==q.lifecycle&&p.status==q.status&&p.accounted==q.accounted&&p.spawnedType==q.spawnedType,"Journey city actor record changed");
-			}
-		}
 	}
+}
+
+// A map's monster table of default slots (Present at (0,0), MOB-bound).
+inline XeenSaveMonsterTable monsterTable(unsigned count) {
+	XeenSaveMonsterTable table;table.originalCount=static_cast<std::uint16_t>(count);table.slots.resize(count);
+	return table;
+}
+
+// Flat views of the v13 per-map table, in identity order, for tests that
+// address overlays across maps. Setters keep the table free of empty entries
+// and may forge duplicates, which the encoder must reject.
+inline void prune(XeenSaveSnapshot &s) {
+	s.maps.erase(std::remove_if(s.maps.begin(),s.maps.end(),[](const XeenSaveMapState &m){return m.empty();}),s.maps.end());
+}
+inline bool removedEntry(const XeenSaveObjectOverride &v) { return v.x==-128 && v.y==-128; }
+inline std::vector<XeenObjectIdentity> removedObjects(const XeenSaveSnapshot &s) {
+	std::vector<XeenObjectIdentity> ids;
+	for(const auto &m:s.maps)for(const auto &v:m.objects)if(removedEntry(v))ids.push_back({m.id,v.record});
+	return ids;
+}
+inline std::vector<XeenObjectOverride> movedObjects(const XeenSaveSnapshot &s) {
+	std::vector<XeenObjectOverride> values;
+	for(const auto &m:s.maps)for(const auto &v:m.objects)if(!removedEntry(v))values.push_back({{m.id,v.record},v.x,v.y,v.flipped});
+	return values;
+}
+inline std::vector<XeenEventIdentity> disabledEvents(const XeenSaveSnapshot &s) {
+	std::vector<XeenEventIdentity> ids;
+	for(const auto &m:s.maps)for(const auto &v:m.events)if(!v.opcode)ids.push_back({m.id,v.record});
+	return ids;
+}
+inline std::vector<XeenExploredTile> exploredTiles(const XeenSaveSnapshot &s) {
+	std::vector<XeenExploredTile> tiles;
+	for(const auto &m:s.maps)if(m.explored)tiles.push_back({m.id,*m.explored});
+	return tiles;
+}
+inline void addRemovedObject(XeenSaveSnapshot &s,XeenObjectIdentity id) {
+	auto &objects=s.map(id.mapId).objects;
+	const auto at=std::upper_bound(objects.begin(),objects.end(),id.recordIndex,[](std::size_t r,const XeenSaveObjectOverride &v){return r<v.record;});
+	objects.insert(at,{static_cast<std::uint16_t>(id.recordIndex),-128,-128,false});
+}
+inline void addDisabledEvent(XeenSaveSnapshot &s,XeenEventIdentity id) {
+	auto &events=s.map(id.mapId).events;
+	const auto at=std::upper_bound(events.begin(),events.end(),id.recordIndex,[](std::size_t r,const XeenSaveEventOverride &v){return r<v.record;});
+	events.insert(at,{static_cast<std::uint16_t>(id.recordIndex),0});
+}
+inline void setRemovedObjects(XeenSaveSnapshot &s,const std::vector<XeenObjectIdentity> &ids) {
+	for(auto &m:s.maps)m.objects.erase(std::remove_if(m.objects.begin(),m.objects.end(),removedEntry),m.objects.end());
+	for(const auto id:ids)addRemovedObject(s,id);
+	prune(s);
+}
+inline void setDisabledEvents(XeenSaveSnapshot &s,const std::vector<XeenEventIdentity> &ids) {
+	for(auto &m:s.maps)m.events.erase(std::remove_if(m.events.begin(),m.events.end(),[](const XeenSaveEventOverride &v){return !v.opcode;}),m.events.end());
+	for(const auto id:ids)addDisabledEvent(s,id);
+	prune(s);
+}
+// Fixtures set treasure sources by record slot, as the drop rules produce
+// F3's Orcs; a v13 save orders source identities instead. Binds each record
+// slot to the first defeated, accounted slot of that record in identity order
+// (F3 first) and converts the fixture to its saved form.
+inline void bindTreasureSources(XeenSaveSnapshot &s) {
+	if(!s.journey || !s.journey->treasure)return;
+	auto &t=*s.journey->treasure;std::uint32_t records=t.pendingMask;
+	for(const auto *items:{&t.weapons,&t.armor,&t.miscellaneous})for(const auto &v:*items)if(v.item.id)records|=1u<<v.source;
+	std::vector<std::pair<XeenMonsterIdentity,unsigned>> found;
+	for(unsigned r=0;r<32;++r)if(records&(1u<<r)) {
+		XeenMonsterIdentity id{{},std::size_t(r)};bool bound=false;
+		for(const auto &m:s.maps)if(m.monsters && r<m.monsters->slots.size()) {
+			const auto &a=m.monsters->slots[r];
+			if(a.lifecycle==XeenActorLifecycle::Defeated && a.accounted){id.mapId=m.id;bound=true;break;}
+		}
+		check(bound,"Fixture treasure source is not a defeated monster");
+		found.push_back({id,r});
+	}
+	// The live form names record slot r's monster; save its canonical form.
+	t.sources={};for(const auto &value:found)if(value.second<12)t.sources[value.second]=value.first;
+	t=xeenCanonicalMonsterTreasure(t);
+}
+// The live form of a saved treasure: each source back in its production slot.
+inline XeenMonsterTreasure liveTreasure(const XeenSaveSnapshot &s) {
+	return xeenLiveMonsterTreasure(*s.journey->treasure);
+}
+inline void clearExplored(XeenSaveSnapshot &s) {
+	for(auto &m:s.maps)m.explored.reset();
+	prune(s);
 }
 
 inline XeenServiceEconomy literalMerchantEconomy() {
@@ -105,8 +173,7 @@ inline XeenSaveSnapshot currentWireSnapshot() {
  j.context->day=8;j.context->year=610;j.context->minutes=577;
  for(unsigned i=0;i<30;++i){j.supplements[i].owner=i;auto &v=j.supplements[i].inputs;
   v.luck.emplace();v.resistances.emplace();v.poisonResistance.emplace();s.characters[i].learnedSpells.emplace();}
- j.random.emplace();j.initializedMap=23;j.originalActorCount=19;
- for(unsigned i=0;i<19;++i){XeenSaveJourneyActor a;a.id={23,i};j.actors.push_back(a);}
+ j.random.emplace();s.map(23).monsters=monsterTable(19);
  j.treasure.emplace();j.worldFlags.emplace();j.serviceEconomy=literalMerchantEconomy();return s;
 }
 
@@ -152,9 +219,22 @@ inline XeenSaveSnapshot sample() {
 	s.questItems.back() = std::numeric_limits<std::uint32_t>::max();
 	for (std::size_t i = 0; i < s.questFlags.size(); ++i) s.questFlags[i] = i % 3 == 1;
 	for (std::size_t i = 0; i < s.gameFlags.size(); ++i) s.gameFlags[i] = i % 5 == 2;
-	s.disabledObjects = {{1, 0}, {2, 1}, {9999, 0xffffffffU}};
-	s.disabledEvents = {{2, 0}, {3, 1}, {9999, 0xffffffffU}};
+	// Removed objects and MakeNothingHere records on unvisited maps.
+	s.map(1).objects = {{0, -128, -128, false}};
+	s.map(2).objects = {{1, -128, -128, false}};
+	s.map(2).events = {{0, 0}};
+	s.map(3).events = {{1, 0}};
+	s.map(9999).objects = {{65535, -128, -128, false}};
+	s.map(9999).events = {{65535, 0}};
 	return s;
+}
+
+// Wire offset of the Journey domain byte: header, fingerprints, camera, member
+// and roster counts, members, characters, quest counters/flags and game flags.
+inline std::size_t journeyOffset(const XeenSaveSnapshot &s) {
+	std::size_t n=20+25+6+2+s.activeRosterIds.size()+4*s.questItems.size()+s.questFlags.size()+s.gameFlags.size();
+	for(const auto &c:s.characters)n+=228+c.name.size();
+	return n;
 }
 
 inline void put32(Bytes &bytes, std::size_t offset, std::uint32_t value) {

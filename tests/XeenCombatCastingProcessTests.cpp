@@ -11,31 +11,20 @@ std::vector<std::string> drawsAfter(const fs::path &log,const std::string &marke
     while(std::getline(in,line)){if(line.find(marker)!=std::string::npos)begun=true;else if(begun && line.rfind("DRAW ",0)==0)draws.push_back(line);}
     child_test::require(begun,"M39 trace checkpoint marker absent");return draws;
 }
-void equalActors(const std::vector<XeenSaveJourneyActor> &left,const std::vector<XeenSaveJourneyActor> &right) {
-    child_test::require(left.size()==right.size(),"M39 region actor count differs");
-    for(std::size_t i=0;i<left.size();++i) {
-        const auto &a=left[i],&b=right[i];
-        child_test::require(a.id==b.id && a.x==b.x && a.y==b.y && a.hp==b.hp && a.activated==b.activated &&
-            a.lifecycle==b.lifecycle && a.status==b.status && a.accounted==b.accounted,"M39 field-level region actor comparison differs");
-    }
-}
 void equal(const fs::path &a,const fs::path &b) {
     const auto left=XeenSaveFile::read(a),right=XeenSaveFile::read(b);
     child_test::require(XeenSaveFormat::encode(left)==XeenSaveFormat::encode(right),"M39 uninterrupted/restored exact bytes differ");
     for(unsigned i=0;i<30;++i)child_test::require(xeen_state::sameCharacter(left.characters[i],right.characters[i]) &&
         left.journey->supplements[i].owner==right.journey->supplements[i].owner &&
         xeen_state::sameInputs(left.journey->supplements[i].inputs,right.journey->supplements[i].inputs),"M39 field-level owner/supplement comparison differs");
-    equalActors(left.journey->actors,right.journey->actors);
-    child_test::require(left.journey->vertigoActors.has_value()==right.journey->vertigoActors.has_value(),"M39 retained city presence differs");
-    if(left.journey->vertigoActors)equalActors(*left.journey->vertigoActors,*right.journey->vertigoActors);
+    child_test::require(left.maps==right.maps,"M39 field-level per-map state comparison differs");
     child_test::require(left.camera.mapId==right.camera.mapId && left.camera.x==right.camera.x && left.camera.y==right.camera.y &&
         left.camera.direction==right.camera.direction && left.questItems==right.questItems && left.questFlags==right.questFlags &&
         left.journey->schema==right.journey->schema && left.journey->content==right.journey->content &&
-        left.journey->initializedMap==right.journey->initializedMap && left.journey->originalActorCount==right.journey->originalActorCount &&
         left.journey->worldFlags==right.journey->worldFlags,"M39 camera/domain/recovery/quest comparison differs");
     child_test::require(left.journey->random==right.journey->random && left.journey->context==right.journey->context &&
-        left.activeRosterIds==right.activeRosterIds && left.gameFlags==right.gameFlags && left.disabledEvents==right.disabledEvents &&
-        left.disabledObjects==right.disabledObjects && left.journey->treasure==right.journey->treasure,"M39 context/flags/RNG/treasure differs");
+        left.activeRosterIds==right.activeRosterIds && left.gameFlags==right.gameFlags &&
+        left.journey->treasure==right.journey->treasure,"M39 context/flags/RNG/treasure differs");
 }
 }
 int main(int argc,char **argv) {
@@ -63,13 +52,13 @@ int main(int argc,char **argv) {
         const auto a=run("A","A","fresh");
         const auto orc=XeenSaveFile::read(dir/"A-A.mmsave");
         child_test::require(orc.journey && orc.journey->schema==schema && orc.journey->content==content && orc.characters[1].currentSp==20 &&
-            orc.characters[6].currentSp==25 && orc.journey->actors[9].accounted && orc.journey->actors[9].hp==0 &&
+            orc.characters[6].currentSp==25 && orc.map(23).monsters->slots[9].accounted && orc.map(23).monsters->slots[9].lifecycle==XeenActorLifecycle::Defeated &&
             orc.journey->treasure->gold==810 && orc.journey->context->minutes==511 && orc.journey->context->ctr24==2 &&
             orc.journey->random->state==82049198u && orc.journey->random->count==14,"M39 genuine Orc Quiet checkpoint differs");
         equal(a,run("A-from-orc","A","A",dir/"A-A.mmsave"));
         child_test::require(drawsAfter(dir/"A.log","M39 CHECKPOINT A ")==drawsAfter(dir/"A-from-orc.log","M39 RESTORE EXACT BEFORE INPUT"),"M39 mainland continuation RNG request trace differs");
         const auto city=XeenSaveFile::read(dir/"A-city.mmsave");
-        child_test::require(city.journey->vertigoActors && city.characters[6].currentSp==23 && city.journey->actors[9].accounted &&
+        child_test::require(city.map(28).monsters && city.characters[6].currentSp==23 && city.map(23).monsters->slots[9].accounted &&
             city.characters[1].currentSp==20 && city.journey->random->state==1391776747u && city.journey->random->count==23 &&
             city.journey->context->minutes==570 && city.journey->context->ctr24==21,"M39 genuine two-region Slime checkpoint differs");
         // M49: Slime hatred 16 selects one member per attack, not the entire
@@ -98,12 +87,21 @@ int main(int argc,char **argv) {
                 settled.journey->context->minutes==(waking?593:591) && settled.journey->context->ctr24==16 &&
                 settled.characters[1].currentSp==(waking?20:21) && settled.characters[6].currentSp==(waking?26:25) &&
                 settled.journey->random->state==(waking?1843076463u:2928686826u) && settled.journey->random->count==886+(waking?54u:42u) &&
-                // Decision 8 (M69 A2): the save carries the Toad's MON HP (90); the
-                // witness asserts its live wound (33 or 25) before this checkpoint.
-                settled.journey->actors[15].hp==90 && !settled.journey->actors[15].accounted,
+                // Decision 8: the save holds no HP; the witness asserts the Toad's
+                // live wound (33 or 25) before this checkpoint.
+                settled.map(23).monsters->slots[15].lifecycle==XeenActorLifecycle::Present && !settled.map(23).monsters->slots[15].accounted,
                 "M49 unchanged seed7 inputs / corrected targeting checkpoint differs");
-            equal(fresh,run(std::string(branch)+"-restore",branch,"continued",dir/(std::string(branch)+"-"+branch+".mmsave")));
-            child_test::require(drawsAfter(dir/(std::string(branch)+".log"),std::string("M39 CHECKPOINT ")+branch+" ")==drawsAfter(dir/(std::string(branch)+"-restore.log"),"M39 RESTORE EXACT BEFORE INPUT"),"M39 seed7 continuation RNG request trace differs");
+            // Decision 8 (M69): B and C save the Toad wounded and woken, which a
+            // save cannot carry. The resumed run rebuilds it at MON HP, asleep,
+            // and legitimately diverges from the uninterrupted one, so the two
+            // continuations are not compared for equality.
+            run(std::string(branch)+"-restore",branch,"continued",dir/(std::string(branch)+"-"+branch+".mmsave"));
+            const auto log=[&](const std::string &name){std::ifstream in(dir/(name+".log"));return std::string{std::istreambuf_iterator<char>(in),{}};};
+            const auto uninterrupted=log(branch),restored=log(std::string(branch)+"-restore");
+            child_test::require(uninterrupted.find(std::string("M39 TOAD END HP=")+(waking?"33":"25")+" woken=1")!=std::string::npos,
+                "M39 uninterrupted continuation lost the Toad's wound");
+            child_test::require(restored.find("M39 DECISION8 TOAD HP=90 woken=0")!=std::string::npos &&
+                restored.find("M39 TOAD END HP=90")!=std::string::npos,"M39 resumed continuation did not rebuild the Toad at MON HP");
         }
         std::cout<<"M39 ORIGINAL-RESOURCE / QUIET / FULL EXIT / EXACT RESTORE / CONTINUATION PASSED\n";
         return 0;
