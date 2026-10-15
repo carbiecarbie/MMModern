@@ -50,9 +50,15 @@ struct XeenBarrierCandidate {
 			}
 			if(!count)throw std::invalid_argument("No member can Bash");
 			constexpr int dx[]{0,1,0,-1},dy[]{1,0,-1,0};
-			if(!world.sampleCell(c.mapId,c.x+dx[unsigned(c.direction)],c.y+dy[unsigned(c.direction)])) {done=true;return;}
+			const auto next=world.sampleCell(c.mapId,c.x+dx[unsigned(c.direction)],c.y+dy[unsigned(c.direction)]);
+			// DOS file 0x32e4f..0x32e5c compares mazeLookup's whole forward
+			// word with INVALID_CELL: real 0x8888 cells also refuse, after HP
+			// costs but before animation/Might/RNG. The pinned bash does too.
+			if(!next || next->cell->rawWord==0x8888) {done=true;return;}
 			if(wall==7 || wall==14 || wall==15) {animation=wall;done=true;return;}
-			threshold=difficulty[wall==9?5:6];targetWall=3;step=Step::BashRoll;
+			// DOS 0x32ee9..0x32ef3 zero-extends both difficulty bytes;
+			// the pin's signed metadata must not make 128..255 negative.
+			threshold=std::uint8_t(difficulty[wall==9?5:6]);targetWall=3;step=Step::BashRoll;
 		} else {
 			targetWall=wall==1?13:wall==6?9:wall==9?6:wall==13?1:0;
 			if(!targetWall || (targetWall==13 && !unlocked) ||

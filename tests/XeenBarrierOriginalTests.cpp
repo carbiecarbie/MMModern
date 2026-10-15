@@ -94,6 +94,33 @@ void settle(Fixture &f) {
 void pulse(Fixture &f,unsigned elapsed=0) {
 	f.now+=elapsed;f.flow->beginCycle(++f.cycle);if(const auto frame=f.flow->updatePresentation())f.present(*frame);
 }
+void torchWallBash(Inputs &in,const XeenSaveSnapshot &base) {
+	auto start=base;start.camera={28,8,4,XeenDirection::West};
+	Fixture f(in,start,true);
+	const auto cell=f.w.sampleCell(28,8,4),front=f.w.sampleCell(28,7,4);
+	check(wallAt(*cell->cell,XeenDirection::West)==12 && front->cell->rawWord==0x8888 &&
+		f.w.map(28).geometry.difficulties[6]==30,"Original torch-wall Bash calibration changed");
+	const auto camera=f.c;const auto before=*f.p.encounterContext;
+	const auto rng=f.w.sessionState().journeyRandom();
+	std::array<int,6> hp{};for(unsigned n=0;n<6;++n)hp[n]=f.p.roster.at(kXeenCombatOwners[n]).currentHp;
+	f.act(BashAction{});
+	for(unsigned n=0;n<20 && !XeenCityEventTestAccess::published(*f.flow);++n)pulse(f);
+	check(XeenCityEventTestAccess::published(*f.flow) && !f.flow->canSave() &&
+		XeenCityEventTestAccess::deadline(*f.flow)==PresentationClock::afterMilliseconds(f.now,2),
+		"Ordinary wall Bash must publish its injuries and retain the two-tick pause");
+	check(f.w.sessionState().journeyRandom()==rng && f.w.sessionState().barriers().empty() &&
+		f.c.mapId==camera.mapId && f.c.x==camera.x && f.c.y==camera.y && f.c.direction==camera.direction &&
+		f.p.encounterContext->minutes==before.minutes+1 && f.p.encounterContext->ctr24==before.ctr24,
+		"Forward 0x8888 refuses without roll, wall mutation or movement and costs one minute");
+	for(unsigned n=0;n<6;++n)check(f.p.roster.at(kXeenCombatOwners[n]).currentHp==hp[n]-(n<2?2:0),
+		"Ordinary wall Bash damages only the first two eligible members by two HP");
+	const auto deadline=XeenCityEventTestAccess::deadline(*f.flow);
+	pulse(f,unsigned(deadline-f.now-1));
+	check(!f.flow->canSave() && f.w.sessionState().journeyRandom()==rng,"Refused Bash must hold until the original deadline without replaying draws");
+	pulse(f,1);settle(f);
+	check(f.w.sessionState().barriers().empty() && wallAt(*f.w.sampleCell(28,8,4)->cell,XeenDirection::West)==12,
+		"Original Vertigo torch wall must remain intact after Bash settlement");
+}
 void pauses(Inputs &in,const XeenSaveSnapshot &initial) {
 	auto start=initial;
 	// Select a real cursor whose first two draws take the physical trap branch.
@@ -160,6 +187,7 @@ int main(int argc,char **argv) {
 		check(argc==2,"usage: barrier-original <installation>");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Installation unavailable");
 		Inputs in(*installation);const auto initial=source(in);Fixture f(in,initial);
 		coverage(in);
+		torchWallBash(in,initial);
 		pauses(in,initial);
 		automaticBash(in,initial);
 		Fixture outdoors(in,in.base());const auto outdoorContext=*outdoors.p.encounterContext;
@@ -230,6 +258,8 @@ int main(int argc,char **argv) {
 		Fixture bash(in,initial);const auto start=*bash.p.encounterContext;
 		const auto hp=bash.p.roster.at(kXeenCombatOwners[0]).currentHp;bash.act(BashAction{});settle(bash);
 		check(bash.p.encounterContext->minutes==start.minutes+1 && bash.p.roster.at(kXeenCombatOwners[0]).currentHp==hp-2,"Original Bash did not charge one minute/two HP");
+		check(wallAt(*bash.w.sampleCell(bash.c.mapId,bash.c.x,bash.c.y)->cell,bash.c.direction)==3 &&
+			bash.w.sessionState().barriers().size()==2,"Original grate Bash must still open both wall faces");
 		std::cout<<"Original grate cancel/unlock/toggle, v5 round-trip/next action and Bash passed at "<<initial.camera.x<<','<<initial.camera.y<<'\n';return 0;
 	} catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}
 }

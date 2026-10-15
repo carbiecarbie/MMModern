@@ -9,6 +9,60 @@ retained maintainer evidence. **Unknown** identifies unverified original
 behavior. These distinctions matter: the pin contains intentional changes
 and bugs in precisely these rules.
 
+## Bash
+
+**Evidence: DOS play and calibrated DOS static, high confidence (2026-10-15).**
+The maintainer's default and high-Might parties cannot break Vertigo's torch
+wall at `(8,4)` West. The installed CD program and map data explain the refusal:
+the forward cell `(7,4)` has the whole wall word `0x8888`, which collides with
+the original `INVALID_CELL` sentinel. The [artifact identity and offset
+mapping](evidence.md#exact-baseline) apply; all locations below are file offsets.
+
+- B first charges one minute indoors, ten outdoors (`0x0d516`); outdoors the
+  Bash routine returns without damage (`0x32d4f..0x32d56`). A passable forward
+  wall moves instead of entering Bash and charges a second indoor minute
+  (`0x0d51b..0x0d547`).
+- A blocking indoor attempt selects the first two eligible active members in
+  party order, or one if only one is eligible. Asleep and Paralyzed through
+  Eradicated are skipped (`0x32d6c..0x32daf`, table `0x32f71`). Each selected
+  member loses 2 HP and gets the injury portrait (`0x32daf..0x32e2c`).
+- Next, `mazeLookup(forward, 0, 0xffff)` returns the **effective whole forward
+  wall word**, not a boolean cell-presence result (`0x11edb..0x11ee4`). A return
+  of `0x8888`, whether missing geometry or a real cell with that value, skips
+  all subsequent wall handling and consumes no Bash random draw
+  (`0x32e4f..0x32e5c`). No cell flag or surface rule adds a Bash prohibition;
+  the lookup's surface/stepped bookkeeping does not change its returned word.
+- Otherwise, wall 7, 14 or 15 changes the original wall animation counters and
+  skips the roll (`0x32e5f..0x32e84`). Every other blocking wall can reach the
+  roll. There is no wall-type whitelist.
+- Sum the selected members' effective Might **after the HP costs**, then draw
+  `R(1,30)` once (`0x32e87..0x32ece`, inclusive range helper `0x45b9a`).
+  Attribute 0 reads the unsigned permanent/temporary Might bytes, adds age,
+  equipment and condition modifiers, and clamps at zero (`0x21454..0x215a9`).
+  The Bash sum and comparison use 16-bit words; there is no 8-bit sum truncation
+  or cap explaining refusal for two members with Might above 100.
+- The primary map's difficulty byte 5 is used for wall 9; byte 6 for every
+  other rolled wall (`0x32ed0..0x32ef3`). These are DAT offsets 821 and 822,
+  memory `ds:0xc101` and `ds:0xc102`, both **unsigned**. Vertigo has 30 in both,
+  matching the original initial state and inspected DOS `.CUR` files. Sum
+  greater than or equal to difficulty succeeds (`0x32ef5..0x32ef7`).
+- Success writes wall 3 on the current face and the opposite forward face
+  (`0x32ef9..0x32f4c`); the writer has no additional eligibility check
+  (`0x234dd..0x23550`). Failure keeps the walls and position. Both outcomes
+  check party death, wait two interruptible BIOS ticks and redraw the party
+  (`0x32f4f..0x32f63`). The early `0x8888` refusal shares that tail. Normal
+  charged-time condition draws and subsequent world presentation remain owned
+  by their existing paths; zero draws here means zero **Bash-roll** draws.
+
+Calibration: the already DOS-confirmed M50 grate behavior uses the same
+member selection, HP cost, `R(1,30)`, threshold and two-face wall writer;
+Vertigo grates retain difficulty 30. Pinned ScummVM `6814ee9b`
+`Interface::bash` and `Map::mazeLookup` agree about the sentinel collision.
+Its signed loading of difficulty bytes 5/6 differs from the zero-extension in
+DOS; MMModern preserves the stored metadata and interprets those bytes as
+unsigned when Bash consumes them. Synthetic tests cover 127/128/255 thresholds,
+and current cell overrides participate in the forward-word check.
+
 ## Calendar and kinds of time advance
 
 **Evidence: Reference only.** Source: [Party::changeTime/addTime][party].

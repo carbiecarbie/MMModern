@@ -79,6 +79,44 @@ void bash() {
 		check(c.done && !c.opened && c.animation==wall && empty.position()==0 && c.characters[2].currentHp==98,"Solid wall Bash pays HP without roll or free passage");
 	}
 }
+void bashForwardWord() {
+	Party p;
+	// High Might cannot bypass mazeLookup's INVALID_CELL value collision.
+	p.inputs[0].might={250,0};p.inputs[1].might={250,0};
+	for(unsigned wall:{7u,9u,12u,13u,14u,15u})for(unsigned flags:{0u,8u,128u,255u}) {
+		XeenWorld w([&](auto id){auto m=tile(id);
+			auto &source=m.geometry.cells[2*16+2];source.rawAttributes=flags;
+			source.rawWord=std::uint16_t((0x9999&0x0fff)|(wall<<12));
+			xeenGet<XeenIndoorWalls>(source.geometry).walls[0]=wall;
+			auto &front=m.geometry.cells[3*16+2];front.rawWord=0x8888;front.geometry=XeenIndoorWalls{{8,8,8,8}};
+			return m;});
+		XeenBarrierCandidate rule(w,{28,2,2,XeenDirection::North},p.characters,p.inputs,{1,77,0},p.context,true);
+		XeenCombatRandom empty(std::vector<XeenCombatRandom::Draw>{});finish(rule,empty);
+		check(rule.done && !rule.opened && !rule.moved && !rule.animation && rule.portraitMask==3 &&
+			rule.characters[0].currentHp==98 && rule.characters[1].currentHp==98 && empty.position()==0,
+			"Forward 0x8888 must retain injuries but skip animation and RNG regardless of wall, flags or Might");
+		// Use the effective word after a generic wall change, not the original resource.
+		w.markEncounterSession(XeenEncounterEntry::Journey);
+		auto edited=w.transitionCandidate();edited->setBarrier({28,2,3,XeenDirection::East},3,false);
+		XeenBarrierCandidate changed(*edited,{28,2,2,XeenDirection::North},p.characters,p.inputs,{1,77,0},p.context,true);
+		XeenCombatRandom roll(std::vector<XeenCombatRandom::Draw>{{1,30,1}});
+		if(wall==7 || wall==14 || wall==15) {
+			finish(changed,empty);check(changed.animation==wall && !changed.opened,"Solid-wall animation follows forward-word check");
+		} else {
+			finish(changed,roll);check(changed.opened && roll.position()==1,"Non-sentinel effective word permits ordinary Bash roll");
+		}
+	}
+	for(unsigned wall:{9u,12u,13u})for(unsigned threshold:{127u,128u,255u})for(bool pass:{false,true}) {
+		XeenWorld w([&](auto id){auto m=tile(id);
+			m.geometry.difficulties[5]=m.geometry.difficulties[6]=threshold<128?int(threshold):int(threshold)-256;
+			m.geometry.cells[2*16+2].geometry=XeenIndoorWalls{{std::uint8_t(wall),9,9,9}};return m;});
+		Party q;q.inputs[0].might={int(threshold)-2+(pass?1:0),0};q.inputs[1].might={0,0};
+		XeenBarrierCandidate rule(w,{28,2,2,XeenDirection::North},q.characters,q.inputs,{1,77,0},q.context,true);
+		XeenCombatRandom roll(std::vector<XeenCombatRandom::Draw>{{1,30,1}});finish(rule,roll);
+		check(rule.threshold==int(threshold) && rule.opened==pass && roll.position()==1,
+			"Bash difficulty is an unsigned byte; equality succeeds for walls and grates");
+	}
+}
 void overrides() {
 	Party p;XeenWorld source(tile);source.markEncounterSession(XeenEncounterEntry::Journey);
 	XeenWorld distinct([](auto id){auto m=tile(id);if(id==110){m.geometry.difficulties[2]=70;m.geometry.difficulties[5]=90;m.geometry.trapDamage=19;}return m;});
@@ -128,4 +166,4 @@ void overrides() {
 	}
 }
 }
-int main(){try{unlocks();bash();overrides();std::cout<<"Barrier rules, typed traps, seams and v5 overrides passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(){try{unlocks();bash();bashForwardWord();overrides();std::cout<<"Barrier rules, typed traps, seams and v5 overrides passed\n";return 0;}catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}
