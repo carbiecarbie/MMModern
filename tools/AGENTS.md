@@ -10,10 +10,10 @@ rerunning its failed tests, and when acting as its test runner. The root
   build of each task, not once for the whole milestone. It takes a few minutes
   (M66 target: under 10); a run over 15 minutes means something hangs or the
   machine is otherwise loaded, so check that before anything else.
-- At milestone closure, also run `ctest -L fast` and the four M44 scenarios
-  on `build-m44`, as a cheap check against optimization-dependent behavior.
-  Run the complete suite on `build-m44` (through the runner) only before a
-  public release or when a test behaves differently between the two builds.
+- `build-rel` is also the build that releases package and the maintainer
+  play-tests, so no separate Debug (`build-m44`) run is required at milestone
+  closure or before a release (maintainer, 2026-10-16). Use `build-m44` only to
+  debug, for example when a test behaves differently between the two builds.
 - Do not run redundant complete suites. Run it again only when a later
   production-code change invalidates the previous result, or failures require
   it (see Failures and reruns).

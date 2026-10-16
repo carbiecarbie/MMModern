@@ -361,9 +361,9 @@ ctest --test-dir build-rel -L fast -j 8 --output-on-failure
 through `tools/run-full-ctest.ps1 -BuildDir build-rel`, as described in
 `tools/AGENTS.md`: by default in parallel (half the logical processors, at
 most 8 jobs); CMake runs the real-clock and native-window tests alone and gives
-every test a load-independent hang-guard timeout. The Debug build above (the
-maintainer's `build-m44`) remains for debugging, play-tests and the
-milestone-closure run.
+every test a load-independent hang-guard timeout. Play-tests and release
+packages use `build-rel` as well; the Debug build above (`build-m44`) remains
+for debugging only.
 
 The original-data checks that used to be opt-in smoke targets run with the
 suite since M66 (`xeen_regional_original`, `xeen_party_original`,

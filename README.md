@@ -248,7 +248,7 @@ when needed, `MMODERN_XEEN_UI_DATA` for its installed UI module.
 
 ### Developer test saves
 
-Build the opt-in tool with `cmake --build build-m44 --target mmodern_test_save`.
+Build the opt-in tool with `cmake --build build-rel --target mmodern_test_save`.
 It starts from the normal fresh Regional Journey and writes a validated current
 save for `broken-armor`, `train-ready`, `injured-dead` or `poisoned`. The party
 stays at map 23 `(9,11)` facing West; world, calendar and RNG retain fresh
@@ -257,8 +257,8 @@ enough XP/gold for one Training, an Unconscious member and a Dead member with
 four survivors, or Poison and a usable Misc antidote, respectively.
 
 ```powershell
-.\build-m44\mmodern_test_save.exe train-ready "F:/Games/gog/Might and Magic 4-5" "C:/Playtest/train-ready.mmsave"
-.\build-m44\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "C:/Playtest/train-ready.mmsave"
+.\build-rel\mmodern_test_save.exe train-ready "F:/Games/gog/Might and Magic 4-5" "C:/Playtest/train-ready.mmsave"
+.\build-rel\mmodern.exe --load-game "F:/Games/gog/Might and Magic 4-5" "C:/Playtest/train-ready.mmsave"
 ```
 
 Choose your own output path in an existing directory outside both this repository
