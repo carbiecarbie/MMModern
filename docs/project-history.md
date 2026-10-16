@@ -310,3 +310,11 @@ deltas over the original resources. As in DOS, confirmed in `WORLD/XEEN.DAT`,
 monsters are rebuilt at full HP and asleep on every map or game load. A fourth
 M44 scenario travels Vertigo, F3 and back. Saves from 0.1.x are no longer
 read. [Plan](milestone-69-plan.md).
+
+**M70 - World Events, Clouds** (`bf49eb3`, `a590e30`, `c8f1a19` and Part C).
+Every Event operation the Clouds scripts use, other than audio, town services
+and the ending, runs as in DOS: moved walls and objects, cleared and altered
+cells, monster spawns anywhere, conditions, values, rewards and random draws,
+Gold Vein tiers, teleports, the magic mirror and password prompts. A developer
+fixture starts an Event session on any Clouds cell. Save v13 is unchanged.
+[Plan](milestone-70-plan.md).

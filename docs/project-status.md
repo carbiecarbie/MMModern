@@ -1,7 +1,11 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. **M69 is the latest completed
-and accepted milestone** ([plan](milestone-69-plan.md)): the save keeps every
+This describes what can be played and done now. **M70 is the latest completed
+and accepted milestone** ([plan](milestone-70-plan.md)): every Event operation
+the Clouds scripts use runs as in the original, other than audio, town services
+and the ending, including moved walls and objects, monster spawns, conditions,
+rewards, random Events, teleports, the magic mirror and password prompts; most
+of them live in areas not open yet. M69 ([plan](milestone-69-plan.md)) made the save keep every
 map's state in one generic form (save v13), ready for the areas still to open,
 and monsters recover full HP and fall asleep whenever their map is loaded
 again, as in the original. M68 ([plan](milestone-68-plan.md)) made every monster attack,
@@ -115,7 +119,9 @@ HP and asleep, as the original does.
   roll and XP. Opened barriers stay open across saves.
 - **Events.** Signs, NPC conversations and other supported Events work
   anywhere in town, with original text, directions and proof-dependent branches.
-  The magic mirror remains unsupported.
+  The magic mirror at `(14,10)` facing West asks for a destination name and
+  teleports there; names whose map is not open yet refuse without changing
+  anything, and the original "I lost it" answer gives the Xeen Slayer Sword.
 - **Display cases and jail.** A selected member with positive Thievery takes
   generated treasure without a lockpick roll or XP. A member with zero Thievery
   sends the active party to jail at `(27,11)` with Convicted Thief and a one-year penalty.
@@ -396,7 +402,7 @@ instructions are in [dependencies](dependencies.md).
   controlled; Light, Sleep, Insect Spray, Protection
   from Elements, Sparks, Toxic Cloud and Suppress Poison can be bought but say
   "not supported yet" when cast. Terrain hazards on arrival (space, lava, sky,
-  cloud, desert) are not implemented. Mainland fountains and the magic mirror remain
+  cloud, desert) are not implemented. Mainland fountains remain
   unsupported. Locked-chest lock/trap/XP mechanics are deferred; Vertigo CD's
   searchable objects use the crate, case, bed and rubbish mechanics.
 - **Presentation.** There is no audio: where the CD plays speech, a short
@@ -414,6 +420,8 @@ instructions are in [dependencies](dependencies.md).
   Arms Master, Direction Sense, Merchant, Mountaineer, Swimmer, Tracker, Spot
   Secret Doors and Danger Sense can be learned from Events and are saved, but
   their passive effects are not implemented yet.
+- **Events.** Clouds Event audio, town-service Events and the ending's
+  ConfirmWord answers are not implemented; teleports to maps not open yet refuse.
 - **Darkside** gameplay is not supported.
 
 Next steps are in the [roadmap](roadmap.md).
