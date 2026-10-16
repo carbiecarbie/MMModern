@@ -111,7 +111,7 @@ SHA-256: updated title
 updated Rest `7301e5172ff9cdd296ce48916b40dd604aa98a99f16c32c62bf6061f95e1db39`.
 Scripts, decoded frames/logs, CSV measurements, `clock-measurements.json` and
 `audio-match.json` are retained outside the repository under
-`C:/Users/carbo/.codex/visualizations/2026/10/13/01a135ee-f0f6-78c2-a1fa-49986cff774e/m63-calibration-audio/`.
+`D:/MModern-re/codex-m63-evidence/m63-calibration-audio/`.
 The superseded silent captures and their measurements remain in the adjacent
 `m63-calibration/` directory for provenance.
 
@@ -153,7 +153,7 @@ Capture SHA-256: death
 `3b5daa94599954112419c6d6c376346e8c176275bb4b430576b4c7ef23090ee5`;
 NPC `3d3a2e8e671bffd9b73b82b3921385cee8c34be870fc5f72233098bb73ada7fd`.
 Frames, exact PTS, audio correlations and scripts remain under
-`C:/Users/carbo/.codex/visualizations/2026/10/13/01a135ee-f0f6-78c2-a1fa-49986cff774e/m63-part-b/`.
+`D:/MModern-re/codex-m63-evidence/m63-part-b/`.
 
 ## Navigation typematic evidence (2026-10-13)
 
@@ -202,7 +202,7 @@ SHA-256: `20.000.mkv`
 `80.000.mkv` `2ec8c87d7ee5fd6e4341410666ff1255baabfa5d26dc535ef2e3dc1ac467def2`.
 Exact PTS maps, extraction logs, checked contact sheets and
 `video-initial-gaps.json` are retained under
-`C:/Users/carbo/.codex/visualizations/2026/10/13/01a135ee-f0f6-78c2-a1fa-49986cff774e/m63-typematic/`.
+`D:/MModern-re/codex-m63-evidence/m63-typematic/`.
 
 ## Spell and item control flow
 
